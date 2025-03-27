@@ -1,4 +1,4 @@
-from PIL import Image
+from PIL import Image, ImageEnhance
 import os
 import glob
 
@@ -30,8 +30,27 @@ def process_directory(input_dir, output_dir):
         print(f"Compression de {filename}...")
         compress_image(img_path, output_path)
 
+def compress_and_adjust_background():
+    # Chemin de l'image
+    input_path = "files/BackgroundCailloux.png"
+    output_path = "files/background_optimized.png"
+    
+    # Ouvrir l'image
+    img = Image.open(input_path)
+    
+    # Sauvegarder avec compression maximale
+    img.save(output_path, "PNG", optimize=True, quality=85)
+    
+    # Afficher les tailles
+    original_size = os.path.getsize(input_path)
+    new_size = os.path.getsize(output_path)
+    print(f"Taille originale: {original_size/1024:.2f} KB")
+    print(f"Taille optimisée: {new_size/1024:.2f} KB")
+    print(f"Réduction: {(1 - new_size/original_size)*100:.1f}%")
+
 if __name__ == "__main__":
     input_dir = "medias"
     output_dir = "medias_compressed"
     process_directory(input_dir, output_dir)
-    print("Compression terminée !") 
+    print("Compression terminée !")
+    compress_and_adjust_background() 
