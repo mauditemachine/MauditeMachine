@@ -1,0 +1,32 @@
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Exclude system files and temporary files
+Thumbs.db
+*.log
+node_modules/
+.env
+
+# Exclude video files and old content
+*.mp4
+Old/

@@ -1,0 +1,45 @@
+<svg width="147" height="131" viewBox="0 0 147 131" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="73.6086" cy="55.5623" r="54.8513" fill="#01A8E8"/>
+<g filter="url(#filter0_d_324_237)">
+<circle cx="73.6086" cy="55.5622" r="40.6306" fill="#FFC400"/>
+</g>
+<g filter="url(#filter1_d_324_237)">
+<rect x="9.27686" y="39.0396" width="128.528" height="33.1817" rx="16.5908" fill="#FF5500"/>
+</g>
+<path d="M20.3808 44.7275L20.9807 45.3264V66.5054H18.6595V59.237H16.3383V66.5054H14.0171V45.3264L14.5909 44.7275H20.3808ZM18.6595 56.8143V47.1503H16.3383V56.8143H18.6595Z" fill="white"/>
+<path d="M29.4374 65.9065L28.8376 66.5054H22.4738V44.7275H28.8376L29.4374 45.3264V56.8143L28.2638 58.0393L29.4374 59.237V65.9065ZM27.1162 64.0826V59.237H24.795V64.0826H27.1162ZM27.1162 56.8143V47.1503H24.795V56.8143H27.1162Z" fill="white"/>
+<path d="M37.8941 64.0826V66.5054H30.9305V44.7275H33.2517V64.0826H37.8941Z" fill="white"/>
+<path d="M46.3509 64.0826V66.5054H39.3873V44.7275H46.3509V47.1503H41.7085V56.8143H44.0297V59.237H41.7085V64.0826H46.3509Z" fill="white"/>
+<path d="M54.8076 44.7275V47.1503H52.4864V66.5054H50.1652V47.1503H47.844V44.7275H54.8076Z" fill="white"/>
+<path d="M62.6645 44.7275L63.2643 45.3264V65.9065L62.6645 66.5054H56.8745L56.3007 65.9065V45.3264L56.8745 44.7275H62.6645ZM60.9431 64.0826V47.1503H58.6219V64.0826H60.9431Z" fill="white"/>
+<path d="M64.7575 44.7275H70.5474L71.721 45.9253V66.5054H69.3998V47.1503H67.0787V66.5054H64.7575V44.7275Z" fill="white"/>
+<path d="M90.9166 54.4187H88.5954V47.1503H86.2742V56.8143H90.3167L90.9166 57.4404V65.9065L90.3167 66.5054H84.5268L83.953 65.9065V61.6598H86.2742V64.0826H88.5954V59.237H84.5268L83.953 58.6382V45.3264L84.5268 44.7275H90.3167L90.9166 45.3264V54.4187Z" fill="white"/>
+<path d="M99.3733 56.8415H97.0521V47.1775H94.7309V64.1098H97.0521V59.2643H99.3733V65.9065L98.7734 66.5326H92.9835L92.4097 65.9065V45.3537L92.9835 44.7548H98.7734L99.3733 45.3537V56.8415Z" fill="white"/>
+<path d="M107.83 44.7275V66.5054H105.509V59.237H103.188V66.5054H100.866V44.7275H103.188V56.8143H105.509V44.7275H107.83Z" fill="white"/>
+<path d="M115.687 44.7275L116.287 45.3264V65.9065L115.687 66.5054H109.897L109.323 65.9065V45.3264L109.897 44.7275H115.687ZM113.966 64.0826V47.1503H111.644V64.0826H113.966Z" fill="white"/>
+<path d="M124.144 44.7275L124.743 45.3264V65.9065L124.144 66.5054H118.354L117.78 65.9065V45.3264L118.354 44.7275H124.144ZM122.422 64.0826V47.1503H120.101V64.0826H122.422Z" fill="white"/>
+<path d="M133.2 64.0826V66.5054H126.237V44.7275H128.558V64.0826H133.2Z" fill="white"/>
+<defs>
+<filter id="filter0_d_324_237" x="17.278" y="6.23164" width="124.661" height="124.661" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feMorphology radius="5" operator="dilate" in="SourceAlpha" result="effect1_dropShadow_324_237"/>
+<feOffset dx="6" dy="13"/>
+<feGaussianBlur stdDeviation="8.35"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_324_237"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_324_237" result="shape"/>
+</filter>
+<filter id="filter1_d_324_237" x="0.376856" y="38.1396" width="146.328" height="50.9816" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+<feOffset dy="8"/>
+<feGaussianBlur stdDeviation="4.45"/>
+<feComposite in2="hardAlpha" operator="out"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_324_237"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_324_237" result="shape"/>
+</filter>
+</defs>
+</svg>
