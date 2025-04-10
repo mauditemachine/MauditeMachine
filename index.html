@@ -39,6 +39,18 @@
         padding: 0 20px;
       }
 
+      .logo-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2rem;
+      }
+
+      .description-section {
+        max-width: 879px;
+        padding-right: 10vw;
+      }
+
       .top-links {
         display: flex;
         gap: 1.5rem;
@@ -326,6 +338,27 @@
       }
 
       startAnimations();
+
+      // Convertir le scroll vertical en défilement horizontal
+      let scrollPosition = 0;
+      const mainContainer = document.querySelector(".main-container");
+
+      window.addEventListener(
+        "wheel",
+        (e) => {
+          e.preventDefault();
+
+          // Ajuster la vitesse du défilement
+          scrollPosition = Math.max(
+            0,
+            Math.min(scrollPosition + e.deltaY, window.innerWidth)
+          );
+
+          // Appliquer le défilement avec une animation fluide
+          mainContainer.style.transform = `translateX(-${scrollPosition}px)`;
+        },
+        { passive: false }
+      );
     </script>
   </body>
 </html>
