@@ -488,18 +488,12 @@ body {
     width: 100%;
     margin: 0;
     padding: 20px;
-    display: -webkit-box !important;
-    display: -webkit-flex !important;
-    display: -ms-flexbox !important;
-    display: flex !important;
-    -webkit-box-pack: center;
-    -webkit-justify-content: center;
-    -ms-flex-pack: center;
-    justify-content: center;
-    -webkit-box-sizing: border-box;
-    -moz-box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     box-sizing: border-box;
     background-color: #090a0a;
+    position: relative;
   }
 
   .logo img.logo-desktop {
@@ -520,20 +514,42 @@ body {
     visibility: visible !important;
   }
 
-  .description {
-    font-size: 11px;
-    width: 380px;
-    max-width: 380px;
+  .logo .social-links-mobile {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+    gap: 0;
+    margin: 4px 0 0 0;
+    width: auto;
+    transform: rotate(90deg);
+    transform-origin: left top;
+    position: absolute;
+    left: 95%;
+    top: 73%;
+  }
+
+  .logo .social-links-mobile a {
+    display: block;
+    color: white;
+    text-decoration: none;
+    text-transform: uppercase;
+    font-size: 10px;
+    letter-spacing: 0.1em;
     padding: 0;
-    margin: 20px auto;
-    text-align: left;
-    position: static;
-    -webkit-box-sizing: border-box;
-    -moz-box-sizing: border-box;
-    box-sizing: border-box;
-    line-height: 1.4;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    margin: 0;
+    line-height: 1.5;
+    white-space: nowrap;
+    font-family: "CommitMono", monospace;
+  }
+
+  .logo .social-links-mobile a:hover {
+    opacity: 1;
+  }
+
+  .description {
+    margin-top: 181px;
+    padding: 0 20px;
   }
 
   .top-links {
@@ -588,27 +604,5 @@ body {
     transform: none;
     left: auto;
     font-size: 11px;
-  }
-
-  .social-links-mobile {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 5px;
-  }
-
-  .social-links-mobile a {
-    display: block;
-    width: 100%;
-    color: white;
-    text-decoration: none;
-    text-transform: uppercase;
-    font-size: 11px;
-    letter-spacing: 0.15em;
-    padding: 0;
-    margin: 0;
-    line-height: 1;
-    -webkit-appearance: none;
-    appearance: none;
   }
 }
