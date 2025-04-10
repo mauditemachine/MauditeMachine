@@ -367,7 +367,7 @@ body {
   height: 16px;
 }
 
-/* Styles mobiles - Ne touchent pas au desktop */
+/* Styles mobiles - Compatible tous navigateurs */
 @media screen and (max-width: 768px) {
   body {
     overflow-y: auto;
@@ -378,6 +378,9 @@ body {
     max-width: 430px;
     padding: 0;
     margin: 0 auto;
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   .main-container {
@@ -390,15 +393,29 @@ body {
     max-width: 430px;
     margin: 0 auto;
     overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
   }
 
   .content {
     position: static;
     padding: 0;
     margin: 0;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -webkit-flex-direction: column;
+    -ms-flex-direction: column;
     flex-direction: column;
+    -webkit-box-align: center;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
     align-items: center;
+    -webkit-box-pack: start;
+    -webkit-justify-content: flex-start;
+    -ms-flex-pack: start;
     justify-content: flex-start;
     width: 100%;
     max-width: 430px;
@@ -408,21 +425,33 @@ body {
     width: 100%;
     margin: 0;
     padding: 20px;
+    display: -webkit-box;
+    display: -webkit-flex;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-box-pack: center;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
     justify-content: center;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
     box-sizing: border-box;
   }
 
   .logo img.logo-desktop {
-    display: none;
+    display: none !important;
   }
 
   .logo img.logo-mobile {
-    display: block;
+    display: block !important;
     width: 100%;
     max-width: 380px;
     height: auto;
     margin: 0 auto;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
   }
 
   .description {
@@ -433,8 +462,12 @@ body {
     margin: 20px auto;
     text-align: left;
     position: static;
+    -webkit-box-sizing: border-box;
+    -moz-box-sizing: border-box;
     box-sizing: border-box;
     line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   .top-links {
