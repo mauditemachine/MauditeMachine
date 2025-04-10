@@ -62,6 +62,19 @@
         width: 300px;
         height: 300px;
         object-fit: cover;
+        transition: transform 0.3s ease;
+        cursor: pointer;
+      }
+
+      .release-card.anarchic img:hover {
+        transform: scale(1.05);
+      }
+
+      .soundcloud-player {
+        position: absolute;
+        visibility: hidden;
+        width: 0;
+        height: 0;
       }
 
       .release-info {
@@ -331,8 +344,13 @@
       </div>
 
       <div class="releases-section">
-        <div class="release-card">
-          <img src="medias/Anarchic.jpg" alt="Anarchic" />
+        <div class="release-card anarchic">
+          <a
+            href="https://soundcloud.com/mauditemachine/anarchic"
+            target="_blank"
+          >
+            <img src="medias/Anarchic.jpg" alt="Anarchic" />
+          </a>
           <div class="release-info">
             <div class="release-title">Anarchic</div>
             VRSTL Records<br />
@@ -340,6 +358,11 @@
             ISRC GBLFP2516674<br />
             Release 20250408
           </div>
+          <iframe
+            class="soundcloud-player"
+            id="anarchic-player"
+            src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/1743661466&color=%23090a0a&auto_play=false&hide_related=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false"
+          ></iframe>
         </div>
         <div class="release-card">
           <img src="medias/Back On Track.jpg" alt="Back On Track" />
@@ -362,6 +385,7 @@
 
     <div class="footer">Copyright Maudite Machine 2024</div>
 
+    <script src="https://w.soundcloud.com/player/api.js"></script>
     <script>
       const description = document.querySelector(".description");
       const text = description.textContent;
@@ -425,6 +449,26 @@
         },
         { passive: false }
       );
+
+      // Gestion de la lecture audio au survol
+      document.addEventListener("DOMContentLoaded", () => {
+        const anarchicCard = document.querySelector(".release-card.anarchic");
+        const player = document.getElementById("anarchic-player");
+
+        // Attendre que l'API SoundCloud soit chargée
+        window.setTimeout(() => {
+          const widget = SC.Widget(player);
+
+          anarchicCard.addEventListener("mouseenter", () => {
+            widget.play();
+          });
+
+          anarchicCard.addEventListener("mouseleave", () => {
+            widget.pause();
+            widget.seekTo(0);
+          });
+        }, 1000);
+      });
     </script>
   </body>
 </html>
