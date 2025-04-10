@@ -369,60 +369,59 @@ body {
 
 .social-links-mobile {
   display: none;
-  width: 100%;
-  margin: 20px 0;
-  text-align: center;
+  width: 380px;
+  max-width: 380px;
+  margin: 20px auto;
+  text-align: left;
 }
 
 .social-links-mobile a {
-  display: inline-block;
-  margin: 5px;
-  padding: 8px 15px;
-  border-radius: 20px;
-  background-color: #333;
+  display: block;
   color: white;
   text-decoration: none;
-  font-size: 14px;
-  transition: all 0.3s ease;
+  text-transform: uppercase;
+  font-size: 11px;
+  margin-bottom: 5px;
+  letter-spacing: 0.15em;
+  transition: opacity 0.2s;
 }
 
 .social-links-mobile a:hover {
-  transform: translateY(-2px);
+  opacity: 0.7;
 }
 
 .social-links-mobile .soundcloud:hover {
-  background-color: #ff5500;
+  color: #ff5500;
 }
 .social-links-mobile .instagram:hover {
-  background-color: #e4405f;
+  color: #e4405f;
 }
 .social-links-mobile .bandcamp:hover {
-  background-color: #629aa9;
+  color: #629aa9;
 }
 .social-links-mobile .facebook:hover {
-  background-color: #1877f2;
+  color: #1877f2;
 }
 .social-links-mobile .youtube:hover {
-  background-color: #ff0000;
+  color: #ff0000;
 }
 .social-links-mobile .spotify:hover {
-  background-color: #1db954;
+  color: #1db954;
 }
 .social-links-mobile .beatport:hover {
-  background-color: #01ff95;
+  color: #01ff95;
 }
 .social-links-mobile .mixcloud:hover {
-  background-color: #5000ff;
+  color: #5000ff;
 }
 .social-links-mobile .tiktok:hover {
-  background-color: #000000;
+  color: #ff0050;
 }
 .social-links-mobile .vrstl:hover {
-  background-color: #6b46c1;
+  color: #00ff00;
 }
 .social-links-mobile .ableton:hover {
-  background-color: #fbffa7;
-  color: #000;
+  color: #ff764d;
 }
 
 /* Styles mobiles - Compatible tous navigateurs */
