@@ -634,4 +634,20 @@ body {
     text-decoration: none;
     color: white;
   }
+
+  .release-card.anarchic .release-info .upc,
+  .release-card.anarchic .release-info .upc span,
+  .release-card.anarchic .release-info .upc-value {
+    pointer-events: none;
+    cursor: default;
+    text-decoration: none;
+    color: #666666 !important;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+
+  .release-card.anarchic .release-info .upc-label {
+    color: white !important;
+  }
 }
