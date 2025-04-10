@@ -1,0 +1,363 @@
+@font-face {
+  font-family: "CommitMono";
+  src: url("files/CommitMono-400-Regular.otf") format("opentype");
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #090a0a;
+  color: white;
+  font-family: "CommitMono", monospace;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.main-container {
+  display: flex;
+  height: 100vh;
+  position: relative;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0 20px;
+}
+
+.releases-section {
+  position: absolute;
+  left: 100vw;
+  top: 40%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: row;
+  gap: 4rem;
+  padding: 0 5vw;
+}
+
+.release-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: max-content;
+  position: relative;
+}
+
+.release-card a {
+  display: block;
+  position: relative;
+  z-index: 2;
+}
+
+.release-card img {
+  width: 300px;
+  height: 300px;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+  cursor: pointer;
+  display: block;
+}
+
+.release-info {
+  font-family: "CommitMono", monospace;
+  text-transform: uppercase;
+  line-height: 1.2;
+  font-size: 12px;
+  position: absolute;
+  left: 0;
+  top: 100%;
+  transform: translateY(-20px);
+  opacity: 0;
+  transition: all 1s ease;
+  padding: 20px 0;
+  background-color: #090a0a;
+  width: 300px;
+}
+
+.release-card:hover .release-info {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.soundcloud-player {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+.release-card.anarchic:hover .soundcloud-player {
+  opacity: 1;
+}
+
+.release-info .title {
+  color: #ffffff;
+  font-size: 16px;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.release-info .label,
+.release-info .upc,
+.release-info .isrc,
+.release-info .release-date {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.release-info .label {
+  color: #ffffff;
+  margin-bottom: 10px;
+}
+
+.release-info .upc-label,
+.release-info .isrc-label,
+.release-info .release-label {
+  color: #ffffff;
+  display: inline-block;
+  margin-right: 4px;
+}
+
+.release-info .upc-value,
+.release-info .isrc-value,
+.release-info .release-value {
+  color: #666666;
+  margin-left: 0;
+}
+
+.release-title {
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.logo-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+}
+
+.description-section {
+  max-width: 879px;
+  padding-right: 10vw;
+}
+
+.top-links {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  align-self: flex-start;
+  margin-left: calc(50% - 300px);
+}
+
+.top-links .group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.top-links .social-group {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: 1.5rem;
+}
+
+.top-links a {
+  color: white;
+  text-decoration: none;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  transition: opacity 0.2s;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+}
+
+.top-links a:hover {
+  opacity: 1;
+}
+
+.top-links .soundcloud:hover {
+  color: #ff5500;
+}
+
+.top-links .instagram:hover {
+  color: #e4405f;
+}
+
+.top-links .bandcamp:hover {
+  color: #629aa9;
+}
+
+.top-links .facebook:hover {
+  color: #1877f2;
+}
+
+.top-links .youtube:hover {
+  color: #ff0000;
+}
+
+.top-links .spotify:hover {
+  color: #1db954;
+}
+
+.top-links .beatport:hover {
+  color: #01ff95;
+}
+
+.top-links .mixcloud:hover {
+  color: #5000ff;
+}
+
+.top-links .tiktok:hover {
+  color: #ff0050;
+}
+
+.top-links .vrstl:hover {
+  color: #00ff00;
+}
+
+.top-links .ableton:hover {
+  color: #ff764d;
+}
+
+.logo {
+  margin-bottom: 2rem;
+  position: relative;
+}
+
+.logo img {
+  width: 700px;
+  height: auto;
+}
+
+.logo svg {
+  width: 700px;
+  height: auto;
+}
+
+.logo path {
+  transition: opacity 1s ease-in-out;
+}
+
+.footer {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  opacity: 0.5;
+}
+
+.description {
+  max-width: 879px;
+  line-height: 1.5;
+  font-size: 0.75rem;
+  position: relative;
+}
+
+.hidden-letter {
+  position: absolute;
+  background: #090a0a;
+  transition: opacity 0.5s ease;
+  opacity: 0;
+}
+
+.hidden-letter.active {
+  opacity: 1;
+}
+
+.fade-out {
+  opacity: 0;
+}
+
+.vertical-menu {
+  position: absolute;
+  top: 12%;
+  right: 7%;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  height: auto;
+}
+
+.vertical-menu a {
+  display: block;
+  color: white;
+  text-decoration: none;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  margin-left: 1.5rem;
+  letter-spacing: 0.15em;
+  transform: rotate(180deg);
+  transition: opacity 0.2s;
+}
+
+.vertical-menu a:hover {
+  opacity: 0.7;
+}
+
+.bandcamp-player {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  margin: 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 10px;
+}
+
+.release-card.anarchic:hover .bandcamp-player {
+  opacity: 1;
+}
+
+.bandcamp-player iframe {
+  border: none !important;
+  width: 100% !important;
+  height: 42px !important;
+}
+
+.play-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background-color: white;
+  color: #090a0a;
+  text-decoration: none;
+  border-radius: 50%;
+  transition: all 0.3s ease;
+  margin-left: 8px;
+  border: 1px solid white;
+}
+
+.play-button:hover {
+  background-color: #090a0a;
+  color: white;
+  transform: scale(1.1);
+}
+
+.play-button svg {
+  width: 16px;
+  height: 16px;
+}

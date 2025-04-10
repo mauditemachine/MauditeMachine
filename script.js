@@ -61,32 +61,3 @@ window.addEventListener(
   },
   { passive: false }
 );
-
-// Gestion de la lecture audio au survol
-window.addEventListener("load", () => {
-  const anarchicCard = document.querySelector(".release-card.anarchic a");
-  const player = document.getElementById("anarchic-player");
-
-  if (!player) {
-    console.error("Le lecteur SoundCloud n'a pas été trouvé");
-    return;
-  }
-
-  // Initialiser le widget
-  const widget = SC.Widget(player);
-
-  // Attendre que le widget soit prêt
-  widget.bind(SC.Widget.Events.READY, () => {
-    console.log("SoundCloud widget prêt");
-
-    anarchicCard.addEventListener("mouseenter", () => {
-      widget.seekTo(152000);
-      widget.setVolume(100);
-      widget.play();
-    });
-
-    anarchicCard.addEventListener("mouseleave", () => {
-      widget.pause();
-    });
-  });
-});
