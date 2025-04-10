@@ -240,9 +240,14 @@ body {
   position: relative;
 }
 
-.logo img {
+.logo img.logo-desktop {
   width: 700px;
   height: auto;
+  display: block;
+}
+
+.logo img.logo-mobile {
+  display: none;
 }
 
 .logo svg {
@@ -360,4 +365,129 @@ body {
 .play-button svg {
   width: 16px;
   height: 16px;
+}
+
+/* Styles mobiles - Ne touchent pas au desktop */
+@media screen and (max-width: 768px) {
+  body {
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: auto;
+    min-height: 100vh;
+    width: 100%;
+    max-width: 430px;
+    padding: 0;
+    margin: 0 auto;
+  }
+
+  .main-container {
+    display: block;
+    height: auto;
+    min-height: 100vh;
+    position: static;
+    padding: 0;
+    width: 100%;
+    max-width: 430px;
+    margin: 0 auto;
+    overflow-x: hidden;
+  }
+
+  .content {
+    position: static;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    max-width: 430px;
+  }
+
+  .logo {
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+
+  .logo img.logo-desktop {
+    display: none;
+  }
+
+  .logo img.logo-mobile {
+    display: block;
+    width: 100%;
+    max-width: 380px;
+    height: auto;
+    margin: 0 auto;
+  }
+
+  .description {
+    font-size: 11px;
+    width: 380px;
+    max-width: 380px;
+    padding: 0;
+    margin: 20px auto;
+    text-align: left;
+    position: static;
+    box-sizing: border-box;
+    line-height: 1.4;
+  }
+
+  .top-links {
+    display: none;
+  }
+
+  .vertical-menu {
+    display: none;
+  }
+
+  .releases-section {
+    position: static;
+    flex-direction: column;
+    transform: none;
+    padding: 0;
+    width: 380px;
+    max-width: 380px;
+    margin: 0 auto;
+    gap: 2rem;
+  }
+
+  .release-card {
+    width: 100%;
+    min-width: auto;
+  }
+
+  .release-card img {
+    width: 100%;
+    height: auto;
+  }
+
+  .release-info {
+    position: relative;
+    opacity: 1;
+    transform: none;
+    padding: 8px 0;
+    width: 100%;
+    background-color: transparent;
+    font-size: 11px;
+  }
+
+  .release-info .title {
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+
+  .footer {
+    position: static;
+    margin-top: 30px;
+    padding: 15px;
+    text-align: center;
+    transform: none;
+    left: auto;
+    font-size: 11px;
+  }
 }

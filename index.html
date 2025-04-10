@@ -76,9 +76,20 @@
             >
           </div>
         </div>
+
         <div class="logo">
-          <img src="files/Logo Align White 2.svg" alt="Maudite Machine Logo" />
+          <img
+            src="files/Logo Align White 2.svg"
+            alt="Maudite Machine Logo"
+            class="logo-desktop"
+          />
+          <img
+            src="files/logostack.svg"
+            alt="Maudite Machine Logo"
+            class="logo-mobile"
+          />
         </div>
+
         <p class="description">
           Maudite Machine is a Canadian DJ and producer known for his raw,
           hypnotic approach to dark disco and indie dance. With over 15 years in
@@ -117,6 +128,7 @@
             </div>
           </div>
         </div>
+
         <div class="release-card">
           <img src="files/Autopsynth.jpg" alt="Autopsynth" />
           <div class="release-info">
@@ -136,6 +148,7 @@
             </div>
           </div>
         </div>
+
         <div class="release-card">
           <img src="medias/Back On Track.jpg" alt="Back On Track" />
           <div class="release-info">
@@ -155,6 +168,7 @@
             </div>
           </div>
         </div>
+
         <div class="release-card">
           <img src="medias/Nocturne.jpg" alt="Nocturne" />
           <div class="release-info">
@@ -174,6 +188,7 @@
             </div>
           </div>
         </div>
+
         <div class="release-card">
           <img src="files/Coagule.jpg" alt="Coagule" />
           <div class="release-info">
@@ -193,6 +208,7 @@
             </div>
           </div>
         </div>
+
         <div class="release-card">
           <img src="files/Richie.jpg" alt="Richie" />
           <div class="release-info">
@@ -212,6 +228,7 @@
             </div>
           </div>
         </div>
+
         <div class="release-card">
           <img src="files/Tati Cardi.png" alt="Tati Cardi" />
           <div class="release-info">
@@ -240,40 +257,6 @@
 
     <!-- SoundCloud Widget API -->
     <script src="https://w.soundcloud.com/player/api.js"></script>
-    <script>
-      let widget;
-
-      function initSoundCloud() {
-        const iframe = document.createElement("iframe");
-        iframe.style.display = "none";
-        iframe.src =
-          "https://w.soundcloud.com/player/?url=https%3A//soundcloud.com/mauditemachine/anarchic&auto_play=false";
-        document.body.appendChild(iframe);
-
-        widget = SC.Widget(iframe);
-
-        widget.bind(SC.Widget.Events.READY, function () {
-          console.log("Widget prêt");
-        });
-      }
-
-      function playSoundCloud() {
-        if (widget) {
-          widget.play();
-        }
-      }
-
-      // Initialiser SoundCloud quand l'API est chargée
-      if (window.SC) {
-        initSoundCloud();
-      } else {
-        window.addEventListener("load", function () {
-          if (window.SC) {
-            initSoundCloud();
-          }
-        });
-      }
-    </script>
     <script src="script.js"></script>
   </body>
 </html>
