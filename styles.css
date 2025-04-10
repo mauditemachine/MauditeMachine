@@ -425,10 +425,10 @@ body {
     width: 100%;
     margin: 0;
     padding: 20px;
-    display: -webkit-box;
-    display: -webkit-flex;
-    display: -ms-flexbox;
-    display: flex;
+    display: -webkit-box !important;
+    display: -webkit-flex !important;
+    display: -ms-flexbox !important;
+    display: flex !important;
     -webkit-box-pack: center;
     -webkit-justify-content: center;
     -ms-flex-pack: center;
@@ -436,22 +436,25 @@ body {
     -webkit-box-sizing: border-box;
     -moz-box-sizing: border-box;
     box-sizing: border-box;
+    background-color: #090a0a;
   }
 
   .logo img.logo-desktop {
     display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
   }
 
   .logo img.logo-mobile {
     display: block !important;
-    width: 100%;
-    max-width: 380px;
-    height: auto;
-    margin: 0 auto;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
+    width: 100% !important;
+    max-width: 380px !important;
+    height: auto !important;
+    margin: 0 auto !important;
+    opacity: 1 !important;
+    visibility: visible !important;
   }
 
   .description {
