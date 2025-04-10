@@ -369,14 +369,17 @@ body {
 
 .social-links-mobile {
   display: none;
-  width: 380px;
+  width: 100%;
   max-width: 380px;
   margin: 20px auto;
-  text-align: left;
+  padding: 0 20px;
+  box-sizing: border-box;
+  -webkit-box-sizing: border-box;
 }
 
 .social-links-mobile a {
   display: block;
+  width: 100%;
   color: white;
   text-decoration: none;
   text-transform: uppercase;
@@ -384,6 +387,9 @@ body {
   margin-bottom: 5px;
   letter-spacing: 0.15em;
   transition: opacity 0.2s;
+  -webkit-transition: opacity 0.2s;
+  text-align: left;
+  padding: 0;
 }
 
 .social-links-mobile a:hover {
@@ -586,5 +592,10 @@ body {
 
   .social-links-mobile {
     display: block;
+  }
+
+  .social-links-mobile a {
+    -webkit-appearance: none;
+    appearance: none;
   }
 }
