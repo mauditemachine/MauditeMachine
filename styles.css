@@ -605,4 +605,33 @@ body {
     left: auto;
     font-size: 11px;
   }
+
+  .release-info .upc,
+  .release-info .isrc,
+  .release-info .release-date,
+  .release-info .label {
+    pointer-events: none;
+    cursor: default;
+    text-decoration: none;
+    color: white;
+  }
+
+  .release-info .upc span,
+  .release-info .isrc span,
+  .release-info .release-date span,
+  .release-info .label {
+    pointer-events: none;
+    cursor: default;
+    text-decoration: none;
+    color: white;
+  }
+
+  .release-info .upc-value,
+  .release-info .isrc-value,
+  .release-info .release-value {
+    pointer-events: none;
+    cursor: default;
+    text-decoration: none;
+    color: white;
+  }
 }
