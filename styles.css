@@ -556,20 +556,65 @@ body {
     padding: 8px 0;
     width: 100%;
     background-color: transparent;
-    font-size: 11px;
+    font-size: 14px;
+    font-family: "CommitMono", monospace;
   }
 
   .release-info .title {
-    font-size: 14px;
+    font-size: 24px;
     margin-bottom: 10px;
+    color: #ffffff;
+    letter-spacing: 0.05em;
   }
 
-  .release-info a {
-    text-decoration: none !important;
-    color: inherit !important;
+  .release-info .label {
+    font-size: 16px;
+    color: #ffffff;
+    margin-bottom: 15px;
+    letter-spacing: 0.05em;
+  }
+
+  .release-info .upc,
+  .release-info .isrc,
+  .release-info .release-date {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+    font-size: 14px;
+    letter-spacing: 0.05em;
+  }
+
+  .release-info .upc-label,
+  .release-info .isrc-label,
+  .release-info .release-label {
+    color: #ffffff;
+    margin-right: 10px;
+    min-width: 70px;
+  }
+
+  .release-info .upc-value,
+  .release-info .isrc-value,
+  .release-info .release-value {
+    color: #666666;
+  }
+
+  .release-card.anarchic .release-info .upc,
+  .release-card.anarchic .release-info .upc span,
+  .release-card.anarchic .release-info .upc-value {
     pointer-events: none !important;
     cursor: default !important;
+    text-decoration: none !important;
+    color: #666666 !important;
     -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  .release-card.anarchic .release-info .upc-label {
+    color: white !important;
   }
 
   .footer {
