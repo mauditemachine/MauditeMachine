@@ -264,7 +264,7 @@ body {
   bottom: 1rem;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 0.7rem;
+  font-size: 0.5rem;
   opacity: 0.5;
 }
 
@@ -273,6 +273,74 @@ body {
   line-height: 1.5;
   font-size: 0.75rem;
   position: relative;
+  margin-bottom: 100px;
+}
+
+.scroll-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 15%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  transform: translateX(-50%);
+  opacity: 0;
+  animation: fadeInOut 8s ease-in-out infinite;
+  animation-delay: 1s;
+  z-index: 1000;
+}
+
+.mouse {
+  width: 24px;
+  height: 40px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 20px;
+  position: relative;
+}
+
+.wheel {
+  width: 3px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.8);
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  animation: scroll 1.5s ease-in-out infinite;
+}
+
+.scroll-text {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+@keyframes scroll {
+  0% {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, 15px);
+    opacity: 0;
+  }
+}
+
+@keyframes fadeInOut {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  5%,
+  15% {
+    opacity: 1;
+  }
+  20%,
+  95% {
+    opacity: 0;
+  }
 }
 
 .hidden-letter {
@@ -673,5 +741,9 @@ body {
 
   .release-card.anarchic .release-info .upc-label {
     color: white !important;
+  }
+
+  .scroll-hint {
+    display: none;
   }
 }
