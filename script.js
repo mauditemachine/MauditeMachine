@@ -235,10 +235,21 @@ function loadGallery() {
     { src: "medias/_DSC1700.jpg", alt: "Performance" },
   ];
 
+  console.log("Nombre d'images à charger:", images.length);
+
   images.forEach((image, index) => {
     const item = document.createElement("div");
     item.className = "gallery-item";
-    item.innerHTML = `<img src="${image.src}" alt="${image.alt}">`;
+    const img = document.createElement("img");
+    img.src = image.src;
+    img.alt = image.alt;
+
+    // Ajouter un gestionnaire d'erreur pour chaque image
+    img.onerror = function () {
+      console.error("Erreur de chargement de l'image:", image.src);
+    };
+
+    item.appendChild(img);
     item.addEventListener("click", () => openLightbox(index));
     galleryGrid.appendChild(item);
   });
