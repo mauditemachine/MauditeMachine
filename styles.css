@@ -737,7 +737,7 @@ body {
 
   .gallery-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 5px;
     width: 100%;
     margin-top: 0;
@@ -758,32 +758,58 @@ body {
     display: block;
   }
 
+  .lightbox {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+  }
+
   .lightbox-content {
-    max-width: 95%;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .lightbox-content img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
   }
 
   .close,
   .prev,
   .next {
-    font-size: 1.5rem;
+    position: fixed;
+    color: white;
+    font-size: 2rem;
+    cursor: pointer;
+    z-index: 1001;
   }
 
   .close {
-    top: 0.5rem;
-    right: 0.5rem;
-  }
-
-  .prev,
-  .next {
-    padding: 0.5rem;
+    top: 1rem;
+    right: 1rem;
   }
 
   .prev {
-    left: 0.5rem;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
   }
 
   .next {
-    right: 0.5rem;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
   }
 }
 
