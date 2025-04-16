@@ -243,12 +243,17 @@ function loadGallery() {
     const img = document.createElement("img");
     const fileName = image.src.split("/").pop();
     const encodedFileName = encodeURIComponent(fileName);
-    img.src = image.src.replace(fileName, encodedFileName);
+    const fullPath = image.src.replace(fileName, encodedFileName);
+    console.log("Chargement de l'image:", fullPath);
+    img.src = fullPath;
     img.alt = image.alt;
 
     // Ajouter un gestionnaire d'erreur pour chaque image
     img.onerror = function () {
-      console.error("Erreur de chargement de l'image:", image.src);
+      console.error("Erreur de chargement de l'image:", fullPath);
+      // Essayer de charger l'image sans encodage
+      img.src = image.src;
+      console.log("Tentative de chargement sans encodage:", image.src);
     };
 
     item.appendChild(img);
