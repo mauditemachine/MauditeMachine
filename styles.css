@@ -733,9 +733,10 @@ body {
   }
 
   .gallery-container {
-    padding: 0 10px;
+    padding: 0;
     width: 100%;
     max-width: 400px;
+    margin: 0 auto;
   }
 
   .gallery-grid {
@@ -743,8 +744,8 @@ body {
     grid-template-columns: repeat(4, 1fr);
     gap: 5px;
     width: 100%;
-    margin-top: 0;
-    margin: 0 auto;
+    margin: 0;
+    padding: 0;
   }
 
   .gallery-item {
@@ -965,9 +966,10 @@ body {
 }
 
 .gallery-container {
-  padding: 0 10px;
+  padding: 0;
   width: 100%;
   max-width: 400px;
+  margin: 0 auto;
 }
 
 .gallery-grid {
@@ -975,8 +977,8 @@ body {
   grid-template-columns: repeat(4, 1fr);
   gap: 5px;
   width: 100%;
-  margin-top: 0;
-  margin: 0 auto;
+  margin: 0;
+  padding: 0;
 }
 
 .gallery-item {
