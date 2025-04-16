@@ -728,11 +728,14 @@ body {
     margin-bottom: 4rem;
     padding: 0;
     width: 100%;
+    display: flex;
+    justify-content: center;
   }
 
   .gallery-container {
     padding: 0 10px;
     width: 100%;
+    max-width: 400px;
   }
 
   .gallery-grid {
@@ -741,6 +744,7 @@ body {
     gap: 5px;
     width: 100%;
     margin-top: 0;
+    margin: 0 auto;
   }
 
   .gallery-item {
