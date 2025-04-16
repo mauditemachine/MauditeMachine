@@ -964,8 +964,7 @@ body {
 }
 
 .gallery-section {
-  margin-top: 2rem;
-  margin-bottom: 4rem;
+  margin: 2rem 0 4rem 0;
   padding: 0;
   width: 100%;
   display: flex;
@@ -983,7 +982,9 @@ body {
   padding: 0;
   width: 100%;
   max-width: 400px;
-  margin: 0 auto;
+  margin: 0;
+  display: flex;
+  justify-content: center;
 }
 
 .gallery-grid {
@@ -993,6 +994,7 @@ body {
   width: 100%;
   margin: 0;
   padding: 0;
+  max-width: 400px;
 }
 
 .gallery-item {
