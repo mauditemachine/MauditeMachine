@@ -241,7 +241,9 @@ function loadGallery() {
     const item = document.createElement("div");
     item.className = "gallery-item";
     const img = document.createElement("img");
-    img.src = encodeURIComponent(image.src);
+    const fileName = image.src.split("/").pop();
+    const encodedFileName = encodeURIComponent(fileName);
+    img.src = image.src.replace(fileName, encodedFileName);
     img.alt = image.alt;
 
     // Ajouter un gestionnaire d'erreur pour chaque image
