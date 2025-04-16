@@ -189,7 +189,6 @@ let images = [];
 function loadGallery() {
   // Images du dossier medias
   images = [
-    { src: "medias/Event-piknicElectro1.jpg", alt: "Piknic Electronik" },
     { src: "medias/BackOnTrack.jpg", alt: "Back On Track" },
     { src: "medias/YUL_0330.jpg", alt: "YUL" },
     { src: "medias/YUL_0324-2.jpg", alt: "YUL" },

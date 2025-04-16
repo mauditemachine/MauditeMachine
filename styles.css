@@ -940,7 +940,7 @@ body {
 .gallery-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 0;
+  gap: 5px;
   margin-top: 1.25rem;
 }
 
