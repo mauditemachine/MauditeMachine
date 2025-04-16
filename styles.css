@@ -13,14 +13,21 @@ body {
   background-color: #090a0a;
   color: white;
   font-family: "CommitMono", monospace;
-  height: 100vh;
-  overflow: hidden;
+  height: auto;
+  min-height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .main-container {
   display: flex;
-  height: 100vh;
+  flex-direction: column;
+  height: auto;
+  min-height: 100vh;
   position: relative;
+  width: 100%;
+  justify-content: center;
+  align-items: center;
 }
 
 .content {
@@ -29,18 +36,39 @@ body {
   align-items: center;
   justify-content: center;
   width: 100%;
-  padding: 0 20px;
+  max-width: 1200px;
+  padding: 2rem;
+  text-align: center;
+  height: 100vh;
 }
 
 .releases-section {
-  position: absolute;
-  left: 100vw;
-  top: 40%;
-  transform: translateY(-50%);
   display: flex;
+  flex-wrap: wrap;
   flex-direction: row;
-  gap: 4rem;
-  padding: 0 5vw;
+  justify-content: center;
+  gap: 2rem;
+  width: 100%;
+  padding: 4rem 2rem;
+}
+
+.release-iframe {
+  flex: 0 1 250px;
+  max-width: 250px;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: none;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  transform: scale(1);
+  transition: all 0.6s ease;
+}
+
+.release-iframe:hover {
+  transform: scale(1.02);
 }
 
 .release-card {
@@ -167,12 +195,14 @@ body {
 .top-links .group {
   display: flex;
   gap: 0.5rem;
+  align-items: flex-end;
 }
 
 .top-links .social-group {
   display: flex;
   gap: 0.5rem;
   margin-left: 1.5rem;
+  align-items: flex-end;
 }
 
 .top-links a {
@@ -185,6 +215,7 @@ body {
   writing-mode: vertical-rl;
   text-orientation: mixed;
   transform: rotate(180deg);
+  text-align: right;
 }
 
 .top-links a:hover {
@@ -462,6 +493,61 @@ body {
   color: #ff5500;
 }
 
+.release-cover {
+  position: relative;
+  width: 100%;
+  max-width: 250px;
+  min-width: 220px;
+  aspect-ratio: 1/1;
+  height: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 10px;
+  box-shadow: 0 2px 12px #0008;
+}
+
+.release-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 10px;
+  z-index: 1;
+}
+
+.soundcloud-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s;
+  z-index: 2;
+}
+
+.release-cover:hover .soundcloud-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.soundcloud-overlay iframe {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+}
+
+@media (max-width: 900px) {
+  .release-cover,
+  .release-cover img {
+    max-width: 180px;
+    min-width: 120px;
+  }
+}
+
 /* Styles mobiles - Compatible tous navigateurs */
 @media screen and (max-width: 768px) {
   body {
@@ -597,153 +683,355 @@ body {
   }
 
   .releases-section {
-    position: static;
-    flex-direction: column;
-    transform: none;
-    padding: 0;
-    width: 380px;
-    max-width: 380px;
-    margin: 0 auto;
-    gap: 2rem;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    padding: 1rem;
+    width: 100%;
   }
 
-  .release-card {
+  .release-iframe {
     width: 100%;
+    max-width: none;
     min-width: auto;
   }
 
-  .release-card img {
+  .release-cover {
+    width: 100%;
+    aspect-ratio: 1/1;
+  }
+
+  .release-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .events-container {
+    padding: 1rem;
+  }
+
+  .year-accordion {
+    width: 100%;
+  }
+
+  .year-header {
+    padding: 0.5rem;
+  }
+
+  .event-item {
+    padding: 0.5rem;
+  }
+
+  .gallery-section {
+    margin-top: 2rem;
+    margin-bottom: 4rem;
+    padding: 0;
+    width: 100%;
+  }
+
+  .gallery-container {
+    padding: 0 10px;
+    width: 100%;
+  }
+
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+    width: 100%;
+    margin-top: 0;
+  }
+
+  .gallery-item {
     width: 100%;
     height: auto;
+    aspect-ratio: 1/1;
+    margin: 0;
+    padding: 0;
   }
 
-  .release-info {
-    position: relative;
-    opacity: 1;
-    transform: none;
-    padding: 8px 0;
+  .gallery-item img {
     width: 100%;
-    background-color: transparent;
-    font-size: 14px;
-    font-family: "CommitMono", monospace;
+    height: 100%;
+    object-fit: cover;
+    display: block;
   }
 
-  .release-info .title {
-    font-size: 24px;
-    margin-bottom: 10px;
-    color: #ffffff;
-    letter-spacing: 0.05em;
+  .lightbox-content {
+    max-width: 95%;
   }
 
-  .release-info .label {
-    font-size: 16px;
-    color: #ffffff;
-    margin-bottom: 15px;
-    letter-spacing: 0.05em;
+  .close,
+  .prev,
+  .next {
+    font-size: 1.5rem;
   }
 
-  .release-info .upc,
-  .release-info .isrc,
-  .release-info .release-date {
-    display: flex;
-    align-items: center;
-    margin-bottom: 5px;
-    font-size: 14px;
-    letter-spacing: 0.05em;
+  .close {
+    top: 0.5rem;
+    right: 0.5rem;
   }
 
-  .release-info .upc-label,
-  .release-info .isrc-label,
-  .release-info .release-label {
-    color: #ffffff;
-    margin-right: 10px;
-    min-width: 70px;
+  .prev,
+  .next {
+    padding: 0.5rem;
   }
 
-  .release-info .upc-value,
-  .release-info .isrc-value,
-  .release-info .release-value {
-    color: #666666;
+  .prev {
+    left: 0.5rem;
   }
 
-  .release-card.anarchic .release-info .upc,
-  .release-card.anarchic .release-info .upc span,
-  .release-card.anarchic .release-info .upc-value {
-    pointer-events: none !important;
-    cursor: default !important;
-    text-decoration: none !important;
-    color: #666666 !important;
-    -webkit-tap-highlight-color: transparent;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
+  .next {
+    right: 0.5rem;
   }
+}
 
-  .release-card.anarchic .release-info .upc-label {
-    color: white !important;
-  }
+.featured-release {
+  margin-bottom: 50px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
 
-  .footer {
-    position: static;
-    margin-top: 30px;
-    padding: 15px;
-    text-align: center;
-    transform: none;
-    left: auto;
-    font-size: 11px;
-  }
+.section-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 2rem;
+  text-align: center;
+  width: 100%;
+  color: white;
+  font-family: "CommitMono", monospace;
+}
 
-  .release-info .upc,
-  .release-info .isrc,
-  .release-info .release-date,
-  .release-info .label {
-    pointer-events: none;
-    cursor: default;
-    text-decoration: none;
-    color: white;
-  }
+.events-section {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+}
 
-  .release-info .upc span,
-  .release-info .isrc span,
-  .release-info .release-date span,
-  .release-info .label {
-    pointer-events: none;
-    cursor: default;
-    text-decoration: none;
-    color: white;
-  }
+.events-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
 
-  .release-info .upc-value,
-  .release-info .isrc-value,
-  .release-info .release-value {
-    pointer-events: none;
-    cursor: default;
-    text-decoration: none;
-    color: #666666;
-  }
+.year-accordion {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
 
-  .release-card.anarchic .release-info .upc,
-  .release-card.anarchic .release-info .upc span,
-  .release-card.anarchic .release-info .upc-value {
-    pointer-events: none !important;
-    cursor: default !important;
-    text-decoration: none !important;
-    color: #666666 !important;
-    -webkit-tap-highlight-color: transparent;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
-  }
+.year-header {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1rem;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  transition: all 0.3s ease;
+}
 
-  .release-card.anarchic .release-info .upc-label {
-    color: white !important;
-  }
+.year-header:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
 
-  .scroll-hint {
-    display: none;
-  }
+.year-content {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.year-content.active {
+  max-height: 2000px;
+}
+
+.event-item {
+  padding: 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.75rem;
+  cursor: default;
+  transition: background-color 0.3s ease;
+}
+
+.event-item.has-link {
+  cursor: pointer;
+  background-color: #131313;
+}
+
+.event-item.has-link:hover {
+  background-color: #002628;
+}
+
+.event-item:last-child {
+  border-bottom: none;
+}
+
+.event-name {
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.event-details {
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 0.5rem;
+}
+
+.event-lineup {
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+}
+
+.event-link {
+  color: #35ffc3;
+  text-decoration: none;
+  margin-left: 5px;
+  font-family: "Commit Mono", monospace;
+  font-size: 0.8rem;
+  transition: color 0.3s ease;
+}
+
+.event-link:hover {
+  color: #002628;
+}
+
+.event-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.event-link-button {
+  background-color: #35ffc3;
+  color: #000;
+  padding: 5px 10px;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: "Commit Mono", monospace;
+  font-size: 0.8rem;
+  text-decoration: none;
+  margin-left: 10px;
+  transition: background-color 0.3s ease;
+}
+
+.event-link-button:hover {
+  background-color: #2de6a9;
+}
+
+.gallery-section {
+  margin-top: 4rem;
+  margin-bottom: 8rem;
+  padding: 2rem 0;
+}
+
+.gallery-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.gallery-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin-top: 1.25rem;
+}
+
+.gallery-item {
+  position: relative;
+  width: 6.25rem;
+  height: 6.25rem;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.gallery-item:hover {
+  transform: scale(1.05);
+  z-index: 1;
+}
+
+.gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: grayscale(100%);
+  transition: filter 0.3s ease;
+}
+
+.gallery-item:hover img {
+  filter: grayscale(0%);
+}
+
+.lightbox {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.9);
+  z-index: 1000;
+}
+
+.lightbox-content {
+  max-width: 90%;
+  max-height: 90%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.lightbox-content img {
+  max-width: 100%;
+  max-height: 90vh;
+  object-fit: contain;
+  filter: grayscale(0%);
+}
+
+.close,
+.prev,
+.next {
+  color: white;
+  font-size: 2.1875rem;
+  position: absolute;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
+
+.close {
+  top: 1.25rem;
+  right: 1.875rem;
+}
+
+.prev,
+.next {
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: rgba(0, 0, 0, 0.5);
+  padding: 0.625rem 0.9375rem;
+  border-radius: 50%;
+}
+
+.prev {
+  left: 1.875rem;
+}
+
+.next {
+  right: 1.875rem;
+}
+
+.close:hover,
+.prev:hover,
+.next:hover {
+  color: #35ffc3;
 }
