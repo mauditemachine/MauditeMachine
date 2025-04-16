@@ -1,0 +1,645 @@
+{
+  "events": [
+    {
+      "year": 2025,
+      "shows": [
+        {
+          "name": "Luminarium",
+          "date": "2025-02-28",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["Myda", "Quantaloop", "Kristin", "Nocide", "Narko", "Lara S", "Deadliner", "MauditeMachine"],
+          "facebook_event": "https://www.facebook.com/events/2244952099238528"
+        },
+        {
+          "name": "Le Petit Quart",
+          "date": "2025-02-20",
+          "venue": "Salon Daomé",
+          "city": "Québec",
+          "lineup": ["Lloyd Banger", "Tibbo", "MauditeMachine"],
+          "facebook_event": "https://www.facebook.com/events/622026163660681/"
+        },
+        {
+          "name": "Pinup Valentines",
+          "date": "2025-02-14",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["Davidé", "Mushkin", "MauditeMachine"],
+          "facebook_event": "https://www.facebook.com/events/994784815560313"
+        }
+      ]
+    },
+    {
+      "year": 2024,
+      "shows": [
+        {
+          "name": "Light Delight",
+          "date": "2024-02-07",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["Alex Decker", "Resetter", "Wa5p"],
+          "facebook_event": "https://www.facebook.com/events/1264926490845715/"
+        },
+        {
+          "name": "TeslaNight",
+          "date": "2024-02-10",
+          "venue": "Tesla",
+          "city": "Montréal",
+          "lineup": ["Maudite Machine", "Tati Cardi", "Richie"],
+          "facebook_event": "https://www.facebook.com/events/2078945182565097"
+        },
+        {
+          "name": "Pinup Valentines - Candycrush",
+          "date": "2024-02-10",
+          "venue": "Montréal",
+          "city": "Québec",
+          "facebook_event": "https://www.facebook.com/events/670340395303409/"
+        },
+        {
+          "name": "L'après-Piste",
+          "date": "2024-03-02",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["Okin", "Biscotti", "n8"],
+          "facebook_event": "https://www.facebook.com/events/355913980626609/"
+        },
+        {
+          "name": "Groove&Bass",
+          "date": "2024-07-26",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["Grouch", "Ninesense", "GreenWolve", "Viper Ruls", "Zentrix"],
+          "facebook_event": "https://www.facebook.com/events/216053460975689/"
+        },
+        {
+          "name": "Sleezy Berlin 2",
+          "date": "2024-07-20",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["Dj Davidé", "Warm Ruberrette", "Plastik Patrick"],
+          "facebook_event": "https://www.facebook.com/events/337523659365556/"
+        },
+        {
+          "name": "Future Forest Festival",
+          "date": "2024-08-08",
+          "venue": "New Brunswick",
+          "city": "New Brunswick",
+          "lineup": ["Kyle Watson", "Eprom", "Dope classic roots", "Freq Kilbourne", "Okin", "Vie Sauvage"],
+          "facebook_event": "https://www.youtube.com/watch?fbclid=IwY2xjawJsBrxleHRuA2FlbQIxMQABHj7xIjdMoFEVQ9ivbhIjBtX8Zb49O0JkxUky29t8uezkIjnHCA8aocsw4TGF_aem_eKtI3vAaGmksaYC3Bi-48A&v=GfqeXaU8LOE&feature=youtu.be"
+        },
+        {
+          "name": "Le Petit Charnaval",
+          "date": "2024-09-21",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["Sofly", "Sasha sol", "Deadliner"],
+          "facebook_event": "https://www.facebook.com/events/1115351992900126/"
+        },
+        {
+          "name": "Monstrocity - Cirque de Boudoir",
+          "date": "2024-10-26",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["Discomander", "Natasha nebula", "Dj davidé"],
+          "facebook_event": "https://www.facebook.com/events/388602404249748/"
+        },
+        {
+          "name": "Carnavalesque - Cirque de Boudoir",
+          "date": "2024-12-31",
+          "venue": "Montréal",
+          "city": "Québec",
+          "facebook_event": "https://www.facebook.com/carnavalesque.montreal"
+        }
+      ]
+    },
+    {
+      "year": 2023,
+      "shows": [
+        {
+          "name": "Sanctuary",
+          "date": "2023-10-28",
+          "venue": "Sanctuary",
+          "city": "Montréal",
+          "lineup": ["Bensolo", "Ygriega", "Digital Committee", "Quantaloop"],
+          "facebook_event": "https://www.facebook.com/events/324853939872053/"
+        },
+        {
+          "name": "7 Devils Cabaret",
+          "date": "2023-10-27",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["Dj Davidé", "Plastik Patrik"],
+          "facebook_event": "https://www.facebook.com/events/678853470972025/"
+        },
+        {
+          "name": "Khûmeia Festival",
+          "date": "2023-08-18",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["bensolo", "synthetik chaos", "vibrant", "narko", "wavelength", "exen", "gr3mlin"],
+          "facebook_event": "https://www.facebook.com/events/1021967771774954"
+        },
+        {
+          "name": "Weekend With Dimensions",
+          "date": "2023-08-11",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["thomas von party", "iñigo vontier"],
+          "facebook_event": "https://www.facebook.com/events/768092378216486/"
+        },
+        {
+          "name": "T.H.C: Transition",
+          "date": "2023-07-14",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["rögue", "wagnr"],
+          "facebook_event": "https://www.facebook.com/events/775772904265934/"
+        },
+        {
+          "name": "St Jean BassTiste",
+          "date": "2023-06-23",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["jossie telch", "bensolo", "digital committee", "nocide"],
+          "facebook_event": "https://www.facebook.com/events/1356787455122249/"
+        },
+        {
+          "name": "Triskel",
+          "date": "2023-06-02",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["quantaloop", "prana", "papa mukunda", "rikam", "spo_onani", "lara s"],
+          "facebook_event": "https://www.facebook.com/events/1784470271890954/"
+        },
+        {
+          "name": "Fantasyland Cyberpunk - Cirque de Boudoir",
+          "date": "2023-05-20",
+          "venue": "Theatre Fairmount",
+          "city": "Québec",
+          "lineup": ["diskommander", "mushin", "davidé"],
+          "facebook_event": "https://www.facebook.com/events/1332850723939561/"
+        },
+        {
+          "name": "Groove&Bass",
+          "date": "2023-04-20",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["kryn", "airon", "sasha sol b2b smorgasbord"],
+          "facebook_event": "https://www.facebook.com/events/958381508662138/"
+        },
+        {
+          "name": "Lumiere Noire XII",
+          "date": "2023-02-25",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["okin", "the jool4rry box", "rikam", "nailik"],
+          "facebook_event": "https://www.facebook.com/events/505902068310565/"
+        },
+        {
+          "name": "Kontrast",
+          "date": "2023-01-05",
+          "venue": "Salon Daomé",
+          "city": "Montréal",
+          "lineup": ["kostello sierra", "okin"]
+        }
+      ]
+    },
+    {
+      "year": 2022,
+      "shows": [
+        {
+          "name": "Infusion Nights",
+          "date": "2022-12-02",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["prana", "papa sabi", "non stop", "deep'nik"],
+          "facebook_event": "https://www.facebook.com/events/3390750651185016/"
+        },
+        {
+          "name": "Goodvibes",
+          "date": "2022-09-03",
+          "venue": "Montréal",
+          "city": "Québec",
+          "facebook_event": "https://www.facebook.com/FestocheBamboche"
+        },
+        {
+          "name": "Illusion Festival",
+          "date": "2022-08-01",
+          "venue": "Québec",
+          "city": "Québec",
+          "lineup": ["secret cinema", "perfect stranger", "yuli fershtat", "ben rama", "kris tin"],
+          "facebook_event": "https://www.facebook.com/Festivalillusion"
+        }
+      ]
+    },
+    {
+      "year": 2018,
+      "shows": [
+        {
+          "name": "NYE With Dimensions",
+          "date": "2018-12-31",
+          "venue": "Block 66",
+          "city": "Montréal",
+          "lineup": ["thomas von party", "drugface", "claire", "mmes", "mike larry"],
+          "facebook_event": "https://www.facebook.com/events/724682061233983/"
+        },
+        {
+          "name": "Fatal",
+          "date": "2018-10-26",
+          "venue": "The Factory",
+          "city": "Québec",
+          "lineup": ["Adam Husa", "Hickey & Kalo", "Kassian", "Adverb"]
+        },
+        {
+          "name": "Fragments",
+          "date": "2018-09-29",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["digital committee", "dj yann", "quantaloop", "kozy", "ben coda", "nanoplex"],
+          "facebook_event": "https://www.facebook.com/events/1820611528244953/"
+        },
+        {
+          "name": "Illusion Festival",
+          "date": "2018-08-10",
+          "venue": "Québec",
+          "city": "Québec"
+        },
+        {
+          "name": "Eclipse Transformation",
+          "date": "2018-07-26",
+          "venue": "Montréal",
+          "city": "Québec"
+        },
+        {
+          "name": "Portail Festival",
+          "date": "2018-07-06",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["narko", "wavelength", "the jool4rry box", "clectic"],
+          "facebook_event": "https://www.facebook.com/events/306525833171626/"
+        },
+        {
+          "name": "Free Party Saint-Jean-Baptiste",
+          "date": "2018-06-23",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["nocide", "mat moebius", "marcin", "tom-h", "nimrod"],
+          "facebook_event": "https://www.facebook.com/events/986066894902721/"
+        },
+        {
+          "name": "OriGn",
+          "date": "2018-06-15",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["nicolas kehl", "hybriid"],
+          "facebook_event": "https://www.facebook.com/events/598796337140067/"
+        },
+        {
+          "name": "Power to the People & Friends",
+          "date": "2018-04-14",
+          "venue": "140 Rue St-Paul E",
+          "city": "Québec",
+          "lineup": ["chiino", "urubu", "arkid-m"],
+          "facebook_event": "https://www.facebook.com/events/1830185380607878/"
+        },
+        {
+          "name": "SAT",
+          "date": "2018-03-12",
+          "venue": "Société des Arts Technologiques",
+          "city": "Québec"
+        },
+        {
+          "name": "Tesla",
+          "date": "2018-03-22",
+          "venue": "Tesla",
+          "city": "Montréal",
+          "lineup": ["kozy", "sabi", "non stop"],
+          "facebook_event": "https://www.facebook.com/events/1903362726371404"
+        }
+      ]
+    },
+    {
+      "year": 2017,
+      "shows": [
+        {
+          "name": "Grrreat Nights",
+          "date": "2017-11-22",
+          "venue": "Salon Daomé",
+          "city": "Montréal",
+          "lineup": ["rafa pineda", "enakim"],
+          "facebook_event": "https://www.facebook.com/events/456860574708379/"
+        },
+        {
+          "name": "Tesla",
+          "date": "2017-10-21",
+          "venue": "Tesla",
+          "city": "Montréal",
+          "lineup": ["semira", "kozy", "fransuu"],
+          "facebook_event": "https://www.facebook.com/events/182311395665425/"
+        },
+        {
+          "name": "Festival Octenbulle",
+          "date": "2017-10-09",
+          "venue": "Boucherville",
+          "city": "Boucherville",
+          "lineup": ["vie sauvage"],
+          "facebook_event": "https://www.facebook.com/events/481195548923360/"
+        },
+        {
+          "name": "Illusion Festival",
+          "date": "2017-08-18",
+          "venue": "Québec",
+          "city": "Québec",
+          "lineup": ["alex pycke", "arkid m", "chiino", "kris tin", "leohnart", "okin", "spoonani", "tenzin"],
+          "facebook_event": "https://www.facebook.com/events/1277874765621950/"
+        },
+        {
+          "name": "Contakt Electronic Music Events",
+          "date": "2017-02-10",
+          "venue": "Théâtre Fairmount",
+          "city": "Montréal",
+          "lineup": ["Blackhole Sun", "DeRic Frey", "Digital Committee"],
+          "facebook_event": "https://www.facebook.com/events/756533891170698/"
+        },
+        {
+          "name": "8day X OCTOV",
+          "date": "2017-02-03",
+          "venue": "Montréal",
+          "city": "Montréal",
+          "lineup": ["reinier zonneveld", "molly", "deep fried", "bōys talk", "van did", "rafa pineda"]
+        }
+      ]
+    },
+    {
+      "year": 2016,
+      "shows": [
+        {
+          "name": "grrreat nights",
+          "date": "2016-12-28",
+          "venue": "Salon Daomé",
+          "city": "Montréal",
+          "lineup": ["Spoonani", "Van Did"]
+        }
+      ]
+    },
+    {
+      "year": 2015,
+      "shows": [
+        {
+          "name": "TOTEM 2015 Festival",
+          "date": "2015-07-10",
+          "venue": "Chutes Sainte-Agathe-de-Lotbinière",
+          "city": "Lotbinière",
+          "lineup": ["Gabi2b", "Neurodriver"],
+          "attendance": 1200
+        },
+        {
+          "name": "MAD FAMILY we are all peacemaker",
+          "date": "2015-03-14",
+          "venue": "Backstage",
+          "city": "Montréal",
+          "lineup": ["14kVolt", "TomH"],
+          "attendance": 300
+        },
+        {
+          "name": "NBNF NoBassNoFun Orb of night 2",
+          "date": "2015-03-06",
+          "venue": "Shift Space",
+          "city": "Montréal",
+          "lineup": ["Zepha", "SQWENCH"],
+          "attendance": 200
+        },
+        {
+          "name": "NEBULAE En morceau",
+          "date": "2015-02-27",
+          "venue": "Studio Giovanelli",
+          "city": "Montréal",
+          "lineup": ["Debbie Doe", "Van Did"],
+          "attendance": 400
+        },
+        {
+          "name": "grrreat night",
+          "date": "2015-12-28",
+          "venue": "Salon Daomé",
+          "city": "Montréal",
+          "lineup": ["van did", "spoonani"],
+          "facebook_event": "https://www.facebook.com/events/827381457404153/"
+        }
+      ]
+    },
+    {
+      "year": 2014,
+      "shows": [
+        {
+          "name": "NYE Coallition",
+          "date": "2014-12-31",
+          "venue": "Montréal",
+          "city": "Montréal",
+          "lineup": ["Tekno Agricole"],
+          "attendance": 1000
+        },
+        {
+          "name": "Grreat Label Record Night XIII",
+          "date": "2014-07-19",
+          "venue": "Inspecteur Epingle",
+          "city": "Montréal",
+          "lineup": ["Sebastien Belle", "Van Did"],
+          "attendance": 100
+        },
+        {
+          "name": "St Jean Basstiste 2014 Festival",
+          "date": "2014-07-10",
+          "venue": "Parc Jean Drapeau",
+          "city": "Montréal",
+          "lineup": ["Flo MSK", "Spoonani", "Tenzin"],
+          "attendance": 1200
+        },
+        {
+          "name": "NEBULAE Dans le bas ventre",
+          "date": "2014-03-28",
+          "venue": "Montréal",
+          "city": "Montréal",
+          "lineup": ["Drol", "Syla", "Noxell", "D&D", "Tambalache"],
+          "attendance": 200
+        }
+      ]
+    },
+    {
+      "year": 2013,
+      "shows": [
+        {
+          "name": "Piknic Electronic Angers",
+          "date": "2013-09-08",
+          "venue": "Chutes Sainte-Agathe-de-Lotbinière",
+          "city": "Lotbinière",
+          "lineup": ["van did", "carl craig", "elena", "arno gonzalez"],
+          "facebook_event": "https://www.facebook.com/events/420540611400128/"
+        },
+        {
+          "name": "2013 Meg",
+          "date": "2013-08-24",
+          "venue": "LAIKA",
+          "city": "Montréal",
+          "lineup": ["Vilify"],
+          "attendance": 100
+        },
+        {
+          "name": "Totem 2013 Festival",
+          "date": "2013-07-17",
+          "venue": "Chutes Sainte-Agathe-de-Lotbinière",
+          "city": "Lotbinière",
+          "lineup": ["don mezcal", "spoonani", "florian msk", "hedflux", "zentrix"],
+          "facebook_event": "https://www.facebook.com/events/376726775736012/"
+        },
+        {
+          "name": "St Jean Basstiste 2013 Festival",
+          "date": "2013-07-10",
+          "venue": "Parc Jean Drapeau",
+          "city": "Montréal",
+          "lineup": ["Flo MSK", "Spoonani", "Tenzin"],
+          "attendance": 1200
+        },
+        {
+          "name": "Piknic Electronik",
+          "date": "2013-07-28",
+          "venue": "Parc Jean Drapeau",
+          "city": "Montréal",
+          "lineup": ["Omni", "Magnanime"],
+          "attendance": 600
+        },
+        {
+          "name": "Saveur Sonores",
+          "date": "2013-04-27",
+          "venue": "Second Floor",
+          "city": "Montréal",
+          "lineup": ["noxell", "thomas galetti", "djox"],
+          "facebook_event": "https://www.facebook.com/events/515058318552251/"
+        },
+        {
+          "name": "Pointronik",
+          "date": "2013-04-27",
+          "venue": "Chic Regal",
+          "city": "Montréal",
+          "lineup": ["okin", "pinkpopo", "sipherdee"],
+          "facebook_event": "https://www.facebook.com/events/423234834437085/"
+        },
+        {
+          "name": "club meg",
+          "date": "2013-10-05",
+          "venue": "Newspeak",
+          "city": "Montréal",
+          "lineup": ["electric rescue", "les limace"],
+          "facebook_event": "https://www.facebook.com/events/298541936953069/"
+        },
+        {
+          "name": "Meg Montreal Et Techno Parade",
+          "date": "2013-07-25",
+          "venue": "Centre Phi",
+          "city": "Montréal",
+          "lineup": ["van did", "agoria", "g'o brien"],
+          "facebook_event": "https://www.facebook.com/events/529134653811162"
+        },
+        {
+          "name": "La Berlinoise",
+          "date": "2013-03-22",
+          "venue": "Montréal",
+          "city": "Montréal",
+          "lineup": ["alle farben", "egokind", "arno gonzalez"],
+          "facebook_event": "https://www.facebook.com/events/351709914945199/"
+        },
+        {
+          "name": "Grrreat Night",
+          "date": "2013-01-12",
+          "venue": "Inspecteur Epingle",
+          "city": "Montréal",
+          "lineup": ["phil fiction", "van did"],
+          "facebook_event": "https://www.facebook.com/events/351709914945199/"
+        }
+      ]
+    },
+    {
+      "year": 2012,
+      "shows": [
+        {
+          "name": "MEG Showcase",
+          "date": "2012-12-20",
+          "venue": "Divan Orange",
+          "city": "Montréal",
+          "lineup": ["Beat Market", "Mateo Murphy", "Dj Cherry Cola", "JFL", "Mary Hell"],
+          "attendance": 100
+        },
+        {
+          "name": "Moralité Infantile Nebulae",
+          "date": "2012-03-31",
+          "venue": "Montréal",
+          "city": "Montréal",
+          "lineup": ["Van did", "Groj"],
+          "attendance": 200
+        }
+      ]
+    },
+    {
+      "year": 2011,
+      "shows": [
+        {
+          "name": "PARTY SPEAKERZ",
+          "date": "2011-02-19",
+          "venue": "Théatre Corona",
+          "city": "Montréal",
+          "lineup": ["MauditeMachine", "Elite Force", "Omni", "Tenzin"],
+          "attendance": 400
+        },
+        {
+          "name": "PATROVIS",
+          "date": "2011-05-31",
+          "venue": "Le patrovis",
+          "city": "Montréal",
+          "lineup": ["Akufen"],
+          "attendance": 150
+        }
+      ]
+    },
+    {
+      "year": 2010,
+      "shows": [
+        {
+          "name": "PIKNIC ELECTRONIC",
+          "date": "2010-09-19",
+          "venue": "Parc Jean Drapeau",
+          "city": "Montréal",
+          "lineup": ["MadKids (Prince Club)", "Riva Starr"],
+          "attendance": 4000
+        },
+        {
+          "name": "RIDM",
+          "date": "2010-11-10",
+          "venue": "Montréal",
+          "city": "Montréal",
+          "lineup": ["Ostero"],
+          "attendance": 200
+        }
+      ]
+    },
+    {
+      "year": 2019,
+      "shows": [
+        {
+          "name": "Prism",
+          "date": "2019-04-27",
+          "venue": "Québec",
+          "city": "Québec",
+          "lineup": ["spoonani", "dez1"],
+          "facebook_event": "https://www.facebook.com/events/374279469846884/"
+        },
+        {
+          "name": "St Valenteck",
+          "date": "2019-02-15",
+          "venue": "Montréal",
+          "city": "Québec",
+          "lineup": ["paradigme", "deep n acid", "dinzy", "clectic"],
+          "facebook_event": "https://www.facebook.com/events/304069320451426/"
+        }
+      ]
+    }
+  ]
+}
