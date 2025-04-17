@@ -15,7 +15,7 @@
           "name": "Le Petit Quart",
           "date": "2025-02-20",
           "venue": "Salon Daomé",
-          "city": "Québec",
+          "city": "Montréal, QC",
           "lineup": ["Lloyd Banger", "Tibbo", "MauditeMachine"],
           "facebook_event": "https://www.facebook.com/events/622026163660681/"
         },
@@ -199,7 +199,7 @@
           "name": "Kontrast",
           "date": "2023-01-05",
           "venue": "Salon Daomé",
-          "city": "Montréal",
+          "city": "Montréal, QC",
           "lineup": ["kostello sierra", "okin"]
         }
       ]
@@ -216,16 +216,24 @@
           "facebook_event": "https://www.facebook.com/events/3390750651185016/"
         },
         {
-          "name": "Goodvibes",
+          "name": "Good Vibes",
           "date": "2022-09-03",
-          "venue": "Montréal",
+          "venue": "Sainte Agathe de Lotbinière",
           "city": "Québec",
           "facebook_event": "https://www.facebook.com/FestocheBamboche"
         },
         {
           "name": "Illusion Festival",
           "date": "2022-08-01",
-          "venue": "Québec",
+          "venue": "Sainte Agathe de Lotbinière",
+          "city": "Québec",
+          "lineup": ["secret cinema", "perfect stranger", "yuli fershtat", "ben rama", "kris tin"],
+          "facebook_event": "https://www.facebook.com/Festivalillusion"
+        },
+        {
+          "name": "Timeless",
+          "date": "2022-08-01",
+          "venue": "Sainte Agathe de Lotbinière",
           "city": "Québec",
           "lineup": ["secret cinema", "perfect stranger", "yuli fershtat", "ben rama", "kris tin"],
           "facebook_event": "https://www.facebook.com/Festivalillusion"
@@ -325,7 +333,7 @@
           "name": "Grrreat Nights",
           "date": "2017-11-22",
           "venue": "Salon Daomé",
-          "city": "Montréal",
+          "city": "Montréal, QC",
           "lineup": ["rafa pineda", "enakim"],
           "facebook_event": "https://www.facebook.com/events/456860574708379/"
         },
@@ -374,10 +382,10 @@
       "year": 2016,
       "shows": [
         {
-          "name": "grrreat nights",
+          "name": "Grrreat Nights",
           "date": "2016-12-28",
           "venue": "Salon Daomé",
-          "city": "Montréal",
+          "city": "Montréal, QC",
           "lineup": ["Spoonani", "Van Did"]
         }
       ]
@@ -418,10 +426,10 @@
           "attendance": 400
         },
         {
-          "name": "grrreat night",
+          "name": "Grrreat Nights",
           "date": "2015-12-28",
           "venue": "Salon Daomé",
-          "city": "Montréal",
+          "city": "Montréal, QC",
           "lineup": ["van did", "spoonani"],
           "facebook_event": "https://www.facebook.com/events/827381457404153/"
         }
@@ -548,7 +556,7 @@
           "facebook_event": "https://www.facebook.com/events/351709914945199/"
         },
         {
-          "name": "Grrreat Night",
+          "name": "Grrreat Nights",
           "date": "2013-01-12",
           "venue": "Inspecteur Epingle",
           "city": "Montréal",

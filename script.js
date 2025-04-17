@@ -63,109 +63,148 @@ function closeOtherAccordions(exceptAccordion) {
   });
 }
 
+// Fonction pour formater le nom de l'événement
+function formatEventName(name) {
+  // Liste des mots qui ne devraient pas être capitalisés (sauf au début)
+  const minorWords = ['a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'in', 'of', 'on', 'or', 'the', 'to', 'vs', 'with'];
+
+  // D'abord tout mettre en minuscules
+  name = name.toLowerCase();
+
+  // Séparer les mots
+  return name.split(' ').map((word, index) => {
+    // Si c'est le premier mot ou si ce n'est pas un mot mineur
+    if (index === 0 || !minorWords.includes(word)) {
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    }
+    return word;
+  }).join(' ');
+}
+
 // Fonction pour charger les événements
 async function loadEvents() {
   try {
-    console.log("Début du chargement des événements");
     const response = await fetch("events.json");
-    console.log("Statut de la réponse:", response.status);
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    console.log("Fichier JSON récupéré");
     const data = await response.json();
-    console.log("Données JSON parsées:", data);
 
     const eventsContainer = document.querySelector(".events-container");
-    console.log("Container des événements trouvé:", eventsContainer);
     if (!eventsContainer) {
       throw new Error("Container des événements non trouvé");
     }
 
-    // Vider le container avant d'ajouter les nouveaux événements
+    // Vider le container des événements
     eventsContainer.innerHTML = "";
-    console.log("Container vidé");
 
-    // Trier les années par ordre décroissant
+    // Créer les listes d'événements pour chaque année
     data.events.sort((a, b) => b.year - a.year);
-    console.log("Événements triés par année");
-
     data.events.forEach((yearData) => {
-      console.log(`Traitement de l'année ${yearData.year}`);
-      // Trier les événements de l'année par date décroissante
       yearData.shows.sort((a, b) => new Date(b.date) - new Date(a.date));
-      const yearAccordion = createAccordionYear(yearData.year, yearData.shows);
-      eventsContainer.appendChild(yearAccordion);
+      const yearEventList = createEventList(yearData.year, yearData.shows);
+      eventsContainer.appendChild(yearEventList);
     });
 
-    console.log("Tous les accordéons ont été ajoutés");
-
-    // Ouvrir le premier accordéon par défaut
-    const firstAccordion = eventsContainer.querySelector(".year-content");
-    if (firstAccordion) {
-      firstAccordion.classList.add("active");
-      firstAccordion.previousElementSibling.querySelector(".arrow").style.transform = "rotate(180deg)";
-      console.log("Premier accordéon ouvert");
+    // Afficher les événements de 2025 par défaut
+    const eventList2025 = eventsContainer.querySelector('.event-list[data-year="2025"]');
+    if (eventList2025) {
+      eventList2025.classList.add("active");
     }
+
+    // Ajouter les écouteurs d'événements pour les boutons d'année existants
+    const yearButtons = document.querySelectorAll(".year-button");
+    yearButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        // Retirer la classe active de tous les boutons
+        yearButtons.forEach((btn) => {
+          btn.classList.remove("active");
+          btn.style.opacity = "0.5";
+        });
+        
+        // Activer le bouton cliqué
+        button.classList.add("active");
+        button.style.opacity = "1";
+
+        // Masquer toutes les listes d'événements
+        document.querySelectorAll(".event-list").forEach((list) => {
+          list.classList.remove("active");
+        });
+
+        // Afficher la liste d'événements correspondante
+        const year = button.getAttribute("data-year");
+        const targetList = document.querySelector(`.event-list[data-year="${year}"]`);
+        if (targetList) {
+          targetList.classList.add("active");
+        }
+      });
+    });
+
+    // Activer le bouton 2025 par défaut
+    const button2025 = document.querySelector('.year-button[data-year="2025"]');
+    if (button2025) {
+      button2025.classList.add("active");
+      button2025.style.opacity = "1";
+    }
+
   } catch (error) {
     console.error("Erreur lors du chargement des événements:", error);
   }
 }
 
-function createAccordionYear(year, events) {
-  const yearAccordion = document.createElement("div");
-  yearAccordion.className = "year-accordion";
-  yearAccordion.innerHTML = `
-    <div class="year-header">
-      <h3>${year}</h3>
-      <span class="arrow">▼</span>
-    </div>
-    <div class="year-content">
-      ${events
-        .map(
-          (event) => `
-        <div class="event-item ${event.facebook_event ? "has-link" : ""}" ${
-            event.facebook_event ? `onclick="window.open('${event.facebook_event}', '_blank')"` : ""
-          }>
-          <div class="event-header">
-            <h4>${event.name}</h4>
-            <span class="event-date">${formatDate(event.date)}</span>
-          </div>
-          <div class="event-details">
-            <p class="event-venue">${event.venue}, ${event.city}</p>
-            ${event.lineup ? `<p class="event-lineup">Lineup: ${event.lineup.join(", ")}</p>` : ""}
-          </div>
-        </div>
-      `
-        )
-        .join("")}
-    </div>
-  `;
+function createEventList(year, events) {
+  const eventList = document.createElement("div");
+  eventList.className = "event-list";
+  eventList.setAttribute("data-year", year);
 
-  const header = yearAccordion.querySelector(".year-header");
-  const content = yearAccordion.querySelector(".year-content");
-  const arrow = yearAccordion.querySelector(".arrow");
+  events.forEach((event) => {
+    // Gérer l'affichage de la ville et de la province
+    let location = event.venue;
+    if (event.venue === "Montréal" && event.city === "Québec") {
+      location = "Montréal, QC";
+    } else if (event.venue === event.city) {
+      location = event.venue;
+    } else {
+      location = `${event.venue}, ${event.city}`;
+    }
 
-  header.addEventListener("click", () => {
-    // Fermer tous les autres accordéons
-    document.querySelectorAll(".year-accordion").forEach((otherAccordion) => {
-      if (otherAccordion !== yearAccordion) {
-        const otherContent = otherAccordion.querySelector(".year-content");
-        const otherArrow = otherAccordion.querySelector(".arrow");
-        otherContent.classList.remove("active");
-        otherContent.style.maxHeight = "0";
-        otherArrow.style.transform = "rotate(0deg)";
-      }
-    });
+    const eventElement = document.createElement("div");
+    eventElement.className = "event";
 
-    // Basculer l'état de l'accordéon actuel
-    const isActive = content.classList.contains("active");
-    content.classList.toggle("active");
-    content.style.maxHeight = isActive ? "0" : content.scrollHeight + "px";
-    arrow.style.transform = isActive ? "rotate(0deg)" : "rotate(180deg)";
+    // Formater le lineup avec des retours à la ligne
+    let formattedLineup = '';
+    if (event.lineup) {
+      const lineupArray = event.lineup;
+      let currentLine = [];
+      let lines = [];
+      
+      lineupArray.forEach((artist, index) => {
+        currentLine.push(artist);
+        if (currentLine.length === 3 || index === lineupArray.length - 1) {
+          lines.push(currentLine.join(", "));
+          currentLine = [];
+        }
+      });
+      
+      formattedLineup = lines.join("<br>");
+    }
+
+    const formattedName = formatEventName(event.name);
+    const eventName = event.facebook_event 
+      ? `<div class="event-name"><a href="${event.facebook_event}" target="_blank">${formattedName}</a></div>`
+      : `<div class="event-name">${formattedName}</div>`;
+
+    eventElement.innerHTML = `
+      <div class="event-date">${formatDate(event.date)}</div>
+      ${eventName}
+      <div class="event-location">${location}</div>
+      ${event.lineup ? `<div class="event-lineup">${formattedLineup}</div>` : ""}
+    `;
+
+    eventList.appendChild(eventElement);
   });
 
-  return yearAccordion;
+  return eventList;
 }
 
 // Appeler la fonction au chargement de la page
@@ -365,3 +404,41 @@ document.addEventListener("keydown", (e) => {
 
 // Charger la galerie au chargement de la page
 document.addEventListener("DOMContentLoaded", loadGallery);
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Gestion des sections
+    const releasesButton = document.querySelector('.nav-buttons a[href="#releases"]');
+    const releasesSection = document.querySelector('.releases-section');
+
+    releasesButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        releasesSection.classList.toggle('active');
+    });
+
+    // Gestion des boutons de navigation
+    const navButtons = document.querySelectorAll('.nav-buttons a');
+    const sections = {
+        'releases': document.querySelector('.releases-section'),
+        'events': document.querySelector('.events-section'),
+        'medias': document.querySelector('.gallery-section')
+    };
+
+    navButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const targetId = this.getAttribute('href').substring(1);
+            
+            // Masquer toutes les sections et désactiver tous les boutons
+            Object.values(sections).forEach(section => {
+                section.classList.remove('active');
+            });
+            navButtons.forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Afficher la section ciblée et activer le bouton
+            sections[targetId].classList.add('active');
+            this.classList.add('active');
+        });
+    });
+});
