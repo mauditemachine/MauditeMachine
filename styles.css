@@ -701,7 +701,14 @@ body {
   }
 
   .featured-release {
-    display: none;
+    width: 300px;
+    margin: 0 auto;
+    display: block;
+  }
+
+  .featured-release iframe {
+    width: 300px !important;
+    height: 166px !important;
   }
 
   .releases-container {
