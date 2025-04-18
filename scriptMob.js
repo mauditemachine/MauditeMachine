@@ -434,19 +434,93 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const hamburger = document.querySelector('.hamburger');
     const topLinks = document.querySelector('.top-links');
-    
-    console.log('Hamburger:', hamburger);
-    console.log('TopLinks:', topLinks);
-    
+    const menuContent = document.querySelector('.menu-content');
+
     if (hamburger && topLinks) {
-        hamburger.addEventListener('click', function() {
-            console.log('Clic sur hamburger');
+        hamburger.addEventListener('click', function(e) {
+            e.stopPropagation();
             topLinks.classList.toggle('active');
-            console.log('Classe active:', topLinks.classList.contains('active'));
         });
-    } else {
-        console.error('Éléments non trouvés');
+
+        document.addEventListener('click', function(e) {
+            if (!menuContent.contains(e.target) && !hamburger.contains(e.target)) {
+                topLinks.classList.remove('active');
+            }
+        });
+
+        menuContent.addEventListener('click', function(e) {
+            e.stopPropagation();
+        });
     }
+
+    // Gestion des accordéons d'événements
+    const accordionItems = document.querySelectorAll('.accordion-item');
+    
+    accordionItems.forEach(item => {
+        const header = item.querySelector('.accordion-header');
+        const content = item.querySelector('.accordion-content');
+        
+        header.addEventListener('click', () => {
+            // Fermer tous les autres accordéons
+            accordionItems.forEach(otherItem => {
+                if (otherItem !== item) {
+                    otherItem.classList.remove('active');
+                }
+            });
+            
+            // Ouvrir/fermer l'accordéon cliqué
+            item.classList.toggle('active');
+        });
+    });
+
+    // Charger les événements depuis le fichier JSON
+    fetch('events.json')
+        .then(response => response.json())
+        .then(data => {
+            data.events.forEach(yearData => {
+                const accordionItem = document.querySelector(`.accordion-item[data-year="${yearData.year}"]`);
+                if (accordionItem) {
+                    const content = accordionItem.querySelector('.accordion-content');
+                    content.innerHTML = ''; // Vider le contenu existant
+
+                    yearData.shows.forEach(event => {
+                        const eventElement = document.createElement('div');
+                        eventElement.className = 'event';
+
+                        const date = new Date(event.date);
+                        const formattedDate = date.toLocaleDateString('fr-FR', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                        });
+
+                        let location = event.venue;
+                        if (event.city) {
+                            location += `, ${event.city}`;
+                        }
+
+                        let eventHTML = `
+                            <div class="event-date">${formattedDate}</div>
+                            ${event.facebook_event 
+                                ? `<div class="event-name"><a href="${event.facebook_event}" target="_blank">${event.name}</a></div>`
+                                : `<div class="event-name">${event.name}</div>`
+                            }
+                            <div class="event-location">${location}</div>
+                        `;
+
+                        if (event.lineup && event.lineup.length > 0) {
+                            eventHTML += `<div class="event-lineup">Lineup: ${event.lineup.join(', ')}</div>`;
+                        }
+
+                        eventElement.innerHTML = eventHTML;
+                        content.appendChild(eventElement);
+                    });
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Erreur lors du chargement des événements:', error);
+        });
 });
 
 // Chargement des releases
