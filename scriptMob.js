@@ -155,8 +155,28 @@ function loadEvents() {
 
 // Charger la galerie au chargement de la page
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("DOM chargé, chargement des événements...");
+  console.log("DOM chargé, chargement des événements et de la galerie...");
   loadEvents();
+  loadGallery();
+  createSlides();
+  
+  // Événements pour les boutons
+  prevButton.addEventListener('click', () => goToSlide(currentSlide - 1));
+  nextButton.addEventListener('click', () => goToSlide(currentSlide + 1));
+  
+  // Événements tactiles
+  slider.addEventListener('touchstart', handleTouchStart);
+  slider.addEventListener('touchmove', handleTouchMove);
+  slider.addEventListener('touchend', handleTouchEnd);
+  
+  // Navigation au clavier
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') {
+      goToSlide(currentSlide - 1);
+    } else if (e.key === 'ArrowRight') {
+      goToSlide(currentSlide + 1);
+    }
+  });
 });
 
 // Galerie et Lightbox
@@ -385,10 +405,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 sections[sectionId].classList.add('active');
                 console.log('Section active:', sectionId);
                 
-                // Si c'est la section media, charger la galerie
+                // Si c'est la section media, initialiser le slider et charger la galerie
                 if (sectionId === 'media') {
-                    console.log('Chargement de la galerie...');
+                    console.log('Chargement de la galerie et du slider...');
                     loadGallery();
+                    if (slider && sliderTrack) {
+                        createSlides();
+                        
+                        // Ajouter les événements pour les boutons
+                        if (prevButton) {
+                            prevButton.addEventListener('click', () => {
+                                if (currentSlide > 0) {
+                                    goToSlide(currentSlide - 1);
+                                }
+                            });
+                        }
+                        
+                        if (nextButton) {
+                            nextButton.addEventListener('click', () => {
+                                if (currentSlide < images.length - 1) {
+                                    goToSlide(currentSlide + 1);
+                                }
+                            });
+                        }
+                        
+                        // Ajouter les événements tactiles
+                        slider.addEventListener('touchstart', handleTouchStart);
+                        slider.addEventListener('touchmove', handleTouchMove);
+                        slider.addEventListener('touchend', handleTouchEnd);
+                    } else {
+                        console.error("Éléments du slider non trouvés:", { slider, sliderTrack });
+                    }
                     // Forcer le reflow pour s'assurer que la transition est appliquée
                     sections[sectionId].offsetHeight;
                 }
@@ -507,98 +554,47 @@ const prevButton = document.querySelector('.slider-button.prev');
 const nextButton = document.querySelector('.slider-button.next');
 
 let currentSlide = 0;
-let startX = 0;
-let currentX = 0;
-let isDragging = false;
+let touchStartX = 0;
+let touchEndX = 0;
 
-// Fonction pour créer les slides
+// Créer les slides
 function createSlides() {
-  sliderTrack.innerHTML = '';
-  images.forEach((image, index) => {
-    const slide = document.createElement('div');
-    slide.className = 'slide';
-    const img = document.createElement('img');
-    img.src = image.src;
-    img.alt = image.alt;
-    slide.appendChild(img);
-    sliderTrack.appendChild(slide);
-  });
-  goToSlide(0);
+    sliderTrack.innerHTML = '';
+    images.forEach((image, index) => {
+        const slide = document.createElement('div');
+        slide.className = 'slide';
+        const img = document.createElement('img');
+        img.src = image.src;
+        img.alt = image.alt;
+        slide.appendChild(img);
+        sliderTrack.appendChild(slide);
+    });
 }
 
-// Fonction pour aller à une slide spécifique
+// Aller à un slide spécifique
 function goToSlide(index) {
-  currentSlide = index;
-  const offset = -index * 100;
-  sliderTrack.style.transform = `translateX(${offset}%)`;
+    if (index < 0) index = images.length - 1;
+    if (index >= images.length) index = 0;
+    currentSlide = index;
+    sliderTrack.style.transform = `translateX(-${currentSlide * 100}%)`;
 }
 
 // Gestion des événements tactiles
 function handleTouchStart(e) {
-  startX = e.touches[0].clientX;
-  isDragging = true;
-  sliderTrack.style.transition = 'none';
+    touchStartX = e.touches[0].clientX;
 }
 
 function handleTouchMove(e) {
-  if (!isDragging) return;
-  currentX = e.touches[0].clientX;
-  const diff = currentX - startX;
-  const slideWidth = slider.offsetWidth;
-  const percentMove = (diff / slideWidth) * 100;
-  const offset = -currentSlide * 100 + percentMove;
-  sliderTrack.style.transform = `translateX(${offset}%)`;
+    touchEndX = e.touches[0].clientX;
 }
 
 function handleTouchEnd() {
-  if (!isDragging) return;
-  isDragging = false;
-  sliderTrack.style.transition = 'transform 0.3s ease-out';
-  const diff = currentX - startX;
-  const slideWidth = slider.offsetWidth;
-  const percentMove = (diff / slideWidth) * 100;
-
-  if (Math.abs(percentMove) > 20) {
-    if (percentMove > 0 && currentSlide > 0) {
-      goToSlide(currentSlide - 1);
-    } else if (percentMove < 0 && currentSlide < images.length - 1) {
-      goToSlide(currentSlide + 1);
-    } else {
-      goToSlide(currentSlide);
+    const diff = touchStartX - touchEndX;
+    if (Math.abs(diff) > 50) {
+        if (diff > 0) {
+            goToSlide(currentSlide + 1);
+        } else {
+            goToSlide(currentSlide - 1);
+        }
     }
-  } else {
-    goToSlide(currentSlide);
-  }
 }
-
-// Initialisation du slider
-document.addEventListener('DOMContentLoaded', () => {
-  // ... existing code ...
-  
-  // Initialiser le slider
-  if (slider && sliderTrack) {
-    createSlides();
-    
-    // Ajouter les événements pour les boutons
-    if (prevButton) {
-      prevButton.addEventListener('click', () => {
-        if (currentSlide > 0) {
-          goToSlide(currentSlide - 1);
-        }
-      });
-    }
-    
-    if (nextButton) {
-      nextButton.addEventListener('click', () => {
-        if (currentSlide < images.length - 1) {
-          goToSlide(currentSlide + 1);
-        }
-      });
-    }
-    
-    // Ajouter les événements tactiles
-    slider.addEventListener('touchstart', handleTouchStart);
-    slider.addEventListener('touchmove', handleTouchMove);
-    slider.addEventListener('touchend', handleTouchEnd);
-  }
-});
