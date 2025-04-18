@@ -561,6 +561,7 @@ const lightboxSlides = document.querySelectorAll('.slide img');
 // Ajout des écouteurs d'événements pour le swipe
 lightboxContainer.addEventListener('touchstart', (e) => {
     swipeStartX = e.touches[0].clientX;
+    lightboxImage.style.transition = 'none';
 });
 
 lightboxContainer.addEventListener('touchmove', (e) => {
@@ -569,15 +570,14 @@ lightboxContainer.addEventListener('touchmove', (e) => {
     
     // Appliquer une transformation en temps réel pendant le swipe
     lightboxImage.style.transform = `translateX(${-diff}px)`;
-    lightboxImage.style.transition = 'none';
 });
 
 lightboxContainer.addEventListener('touchend', () => {
     const diff = swipeStartX - swipeEndX;
     
-    // Réinitialiser la transformation
-    lightboxImage.style.transform = 'translateX(0)';
+    // Réinitialiser la transformation avec une transition fluide
     lightboxImage.style.transition = 'transform 0.3s ease';
+    lightboxImage.style.transform = 'translateX(0)';
     
     if (Math.abs(diff) > swipeThreshold) {
         if (diff > 0) {
@@ -603,3 +603,15 @@ function updateLightboxImage() {
     lightboxImage.style.transform = 'translateX(0)';
     lightboxImage.style.transition = 'transform 0.3s ease';
 }
+
+// Fermer la lightbox en cliquant sur le bouton de fermeture
+lightboxCloseBtn.addEventListener('click', () => {
+    lightboxContainer.classList.remove('active');
+});
+
+// Fermer la lightbox en cliquant en dehors de l'image
+lightboxContainer.addEventListener('click', (e) => {
+    if (e.target === lightboxContainer) {
+        lightboxContainer.classList.remove('active');
+    }
+});
