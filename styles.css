@@ -104,6 +104,19 @@ body {
   display: block;
 }
 
+.releases-section {
+  margin-top: 1rem;
+  opacity: 0;
+  transform: translateY(100px);
+  transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.releases-section.active {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .featured-release {
   width: 900px;
   display: flex;
@@ -965,17 +978,18 @@ section.events .events-container {
 
 .medias-section {
   position: relative;
-  width: 100%;
-  max-width: 900px;
+  width: 900px;
   display: none;
-  margin: 1rem auto;
+  min-height: 600px;
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transform: translateY(100px);
+  transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .medias-section.active {
   display: block;
   opacity: 1;
+  transform: translateY(0);
 }
 
 .medias-container {
@@ -984,6 +998,7 @@ section.events .events-container {
   margin: 0 auto;
   padding: 0 20px;
   position: relative;
+  height: 100%;
 }
 
 .medias-title {
@@ -995,19 +1010,18 @@ section.events .events-container {
 
 .medias-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(50px, 1fr));
-  gap: 3px;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 10px;
+  padding: 20px;
   width: 100%;
-  padding: 10px;
-  overflow-y: auto;
-  max-height: 80vh;
+  height: 100%;
 }
 
 .media-thumbnail {
-  width: 50px;
-  height: 50px;
+  width: 40px;
+  height: 40px;
   overflow: hidden;
-  border-radius: 2px;
+  border-radius: 4px;
   cursor: pointer;
   transition: transform 0.3s ease;
 }
