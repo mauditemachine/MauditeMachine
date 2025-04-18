@@ -206,12 +206,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Fonction pour réinitialiser l'état
     function resetState() {
-        // Retirer la classe active de tous les boutons
-        navButtons.forEach(btn => btn.classList.remove('active'));
-        
-        // Retirer la classe active de toutes les sections
-        document.querySelectorAll('section').forEach(section => {
+        // Masquer toutes les sections
+        document.querySelectorAll('.releases-section, .events-section, .gallery-section, .medias-section').forEach(section => {
             section.classList.remove('active');
+        });
+        
+        // Réinitialiser les boutons
+        document.querySelectorAll('.nav-button').forEach(button => {
+            button.classList.remove('active');
         });
         
         // Réinitialiser la position du contenu
@@ -230,10 +232,10 @@ document.addEventListener('DOMContentLoaded', function() {
         button.addEventListener('click', function(e) {
             e.preventDefault();
             
-            // Retirer la classe active de tous les boutons
-            navButtons.forEach(btn => btn.classList.remove('active'));
+            // Réinitialiser l'état
+            resetState();
             
-            // Ajouter la classe active au bouton cliqué
+            // Activer le bouton cliqué
             button.classList.add('active');
             
             // Déplacer le contenu vers le haut uniquement la première fois
@@ -402,83 +404,29 @@ function loadMedias() {
         'medias/2022-03-28(417).jpg'
     ];
 
-    let currentImageIndex = 0;
-    const lightbox = document.querySelector('.lightbox');
-    const lightboxImage = document.querySelector('.lightbox-image');
-    const lightboxClose = document.querySelector('.lightbox-close');
-    const lightboxPrev = document.querySelector('.lightbox-prev');
-    const lightboxNext = document.querySelector('.lightbox-next');
-
-    function showImage(index) {
-        if (index >= 0 && index < images.length) {
-            currentImageIndex = index;
-            lightboxImage.src = images[currentImageIndex];
-        }
-    }
-
-    function openLightbox(index) {
-        showImage(index);
-        lightbox.classList.add('active');
-    }
-
-    function closeLightbox() {
-        lightbox.classList.remove('active');
-    }
-
-    // Gestion des clics sur les miniatures
-    images.forEach((imagePath, index) => {
+    images.forEach(src => {
         const thumbnail = document.createElement('div');
         thumbnail.className = 'media-thumbnail';
         
         const img = document.createElement('img');
-        img.src = imagePath;
-        img.alt = 'Performance';
-        img.loading = 'lazy';
+        img.src = src;
+        img.alt = '';
+        
+        // Ajouter un gestionnaire d'erreurs
+        img.onerror = function() {
+            console.error(`Erreur de chargement de l'image: ${src}`);
+            this.style.display = 'none';
+            thumbnail.style.backgroundColor = '#ff0000';
+            thumbnail.style.cursor = 'not-allowed';
+        };
         
         thumbnail.appendChild(img);
         mediasGrid.appendChild(thumbnail);
-
-        // Ajout de l'événement de clic sur la miniature
-        thumbnail.addEventListener('click', () => openLightbox(index));
-    });
-
-    // Gestion des clics sur les boutons de navigation
-    lightboxClose.addEventListener('click', (e) => {
-        e.stopPropagation();
-        closeLightbox();
-    });
-
-    lightboxPrev.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showImage(currentImageIndex - 1);
-    });
-
-    lightboxNext.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showImage(currentImageIndex + 1);
-    });
-
-    // Fermer la lightbox en cliquant n'importe où
-    lightbox.addEventListener('click', (e) => {
-        if (e.target === lightbox) {
-            closeLightbox();
-        }
-    });
-
-    // Navigation au clavier
-    document.addEventListener('keydown', (e) => {
-        if (lightbox.classList.contains('active')) {
-            switch(e.key) {
-                case 'Escape':
-                    closeLightbox();
-                    break;
-                case 'ArrowLeft':
-                    showImage(currentImageIndex - 1);
-                    break;
-                case 'ArrowRight':
-                    showImage(currentImageIndex + 1);
-                    break;
-            }
-        }
     });
 }
+
+// Charger les médias au démarrage
+document.addEventListener('DOMContentLoaded', () => {
+  loadMedias();
+  loadEvents();
+});
