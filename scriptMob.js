@@ -546,52 +546,60 @@ imageLightbox.addEventListener('click', (e) => {
   }
 });
 
-// Variables pour le swipe
-let touchStartX = 0;
-let touchEndX = 0;
-let lightboxImageIndex = 0;
-const allImages = document.querySelectorAll('.slide img');
-
 // Gestion du swipe pour la lightbox
-imageLightbox.addEventListener('touchstart', (e) => {
-  touchStartX = e.changedTouches[0].screenX;
-}, false);
+let swipeStartX = 0;
+let swipeEndX = 0;
+let currentLightboxIndex = 0;
+const swipeThreshold = 50; // Seuil minimum pour considérer un swipe
 
-imageLightbox.addEventListener('touchend', (e) => {
-  touchEndX = e.changedTouches[0].screenX;
-  handleSwipe();
-}, false);
+// Sélection des éléments de la lightbox
+const lightboxContainer = document.querySelector('.lightbox');
+const lightboxImage = document.querySelector('.lightbox-content img');
+const lightboxCloseBtn = document.querySelector('.close-lightbox');
+const lightboxSlides = document.querySelectorAll('.slide img');
 
-function handleSwipe() {
-  const swipeThreshold = 50; // Seuil minimum pour considérer un swipe
-  const swipeDistance = touchEndX - touchStartX;
-
-  if (Math.abs(swipeDistance) > swipeThreshold) {
-    if (swipeDistance > 0) {
-      // Swipe vers la droite - image précédente
-      showPreviousImage();
-    } else {
-      // Swipe vers la gauche - image suivante
-      showNextImage();
-    }
-  }
-}
-
-function showPreviousImage() {
-  lightboxImageIndex = (lightboxImageIndex - 1 + allImages.length) % allImages.length;
-  imageLightboxImg.src = allImages[lightboxImageIndex].src;
-}
-
-function showNextImage() {
-  lightboxImageIndex = (lightboxImageIndex + 1) % allImages.length;
-  imageLightboxImg.src = allImages[lightboxImageIndex].src;
-}
-
-// Mettre à jour l'index de l'image actuelle lors de l'ouverture de la lightbox
-imageSlides.forEach((slide, index) => {
-  slide.addEventListener('click', () => {
-    lightboxImageIndex = index;
-    imageLightboxImg.src = slide.src;
-    imageLightbox.classList.add('active');
-  });
+// Ajout des écouteurs d'événements pour le swipe
+lightboxContainer.addEventListener('touchstart', (e) => {
+    swipeStartX = e.touches[0].clientX;
 });
+
+lightboxContainer.addEventListener('touchmove', (e) => {
+    swipeEndX = e.touches[0].clientX;
+    const diff = swipeStartX - swipeEndX;
+    
+    // Appliquer une transformation en temps réel pendant le swipe
+    lightboxImage.style.transform = `translateX(${-diff}px)`;
+    lightboxImage.style.transition = 'none';
+});
+
+lightboxContainer.addEventListener('touchend', () => {
+    const diff = swipeStartX - swipeEndX;
+    
+    // Réinitialiser la transformation
+    lightboxImage.style.transform = 'translateX(0)';
+    lightboxImage.style.transition = 'transform 0.3s ease';
+    
+    if (Math.abs(diff) > swipeThreshold) {
+        if (diff > 0) {
+            showNextLightboxImage();
+        } else {
+            showPreviousLightboxImage();
+        }
+    }
+});
+
+function showNextLightboxImage() {
+    currentLightboxIndex = (currentLightboxIndex + 1) % lightboxSlides.length;
+    updateLightboxImage();
+}
+
+function showPreviousLightboxImage() {
+    currentLightboxIndex = (currentLightboxIndex - 1 + lightboxSlides.length) % lightboxSlides.length;
+    updateLightboxImage();
+}
+
+function updateLightboxImage() {
+    lightboxImage.src = lightboxSlides[currentLightboxIndex].src;
+    lightboxImage.style.transform = 'translateX(0)';
+    lightboxImage.style.transition = 'transform 0.3s ease';
+}
