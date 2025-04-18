@@ -39,8 +39,6 @@ function startAnimations() {
 
 startAnimations();
 
-// SUPPRESSION du code de scroll horizontal
-
 // Fonction pour formater la date en français
 function formatDate(dateString) {
   const date = new Date(dateString);
@@ -51,16 +49,6 @@ function formatDate(dateString) {
     timeZone: "UTC",
   };
   return date.toLocaleDateString("en-US", options);
-}
-
-// Fonction pour fermer tous les accordéons sauf celui spécifié
-function closeOtherAccordions(exceptAccordion) {
-  document.querySelectorAll(".year-content.active").forEach((accordion) => {
-    if (accordion !== exceptAccordion) {
-      accordion.classList.remove("active");
-      accordion.previousElementSibling.querySelector(".arrow").style.transform = "rotate(0deg)";
-    }
-  });
 }
 
 // Fonction pour formater le nom de l'événement
@@ -119,12 +107,10 @@ async function loadEvents() {
         // Retirer la classe active de tous les boutons
         yearButtons.forEach((btn) => {
           btn.classList.remove("active");
-          btn.style.opacity = "0.5";
         });
         
         // Activer le bouton cliqué
         button.classList.add("active");
-        button.style.opacity = "1";
 
         // Masquer toutes les listes d'événements
         document.querySelectorAll(".event-list").forEach((list) => {
@@ -144,7 +130,6 @@ async function loadEvents() {
     const button2025 = document.querySelector('.year-button[data-year="2025"]');
     if (button2025) {
       button2025.classList.add("active");
-      button2025.style.opacity = "1";
     }
 
   } catch (error) {

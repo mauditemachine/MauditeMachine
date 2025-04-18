@@ -1,0 +1,107 @@
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  src: url("https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff2") format("woff2");
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #090a0a;
+  color: white;
+  font-family: "Inter", sans-serif;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.main-container {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.content {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.logo {
+  width: 100%;
+  padding: 20px;
+  margin: 0;
+  background: #000;
+}
+
+.logo img.logo-mobile {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.description {
+  width: 100%;
+  padding: 20px;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  text-align: left;
+  background: #000;
+}
+
+.releases-section {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background: #000;
+}
+
+.featured-release {
+  width: 300px;
+  margin: 0 auto;
+  display: block;
+}
+
+.featured-release iframe {
+  width: 300px !important;
+  height: 166px !important;
+}
+
+.releases-container {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.release-iframe {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.release-cover {
+  width: 100%;
+  aspect-ratio: 1/1;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.release-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+} 

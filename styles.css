@@ -627,127 +627,19 @@ body {
 }
 
 @media (max-width: 900px) {
-  .release-cover,
-  .release-cover img {
-    max-width: 180px;
-    min-width: 120px;
-  }
+  /* Supprimé */
 }
 
-/* Styles mobiles - Compatible tous navigateurs */
 @media screen and (max-width: 768px) {
-  body {
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    background: #000;
-  }
+  /* Supprimé */
+}
 
-  .main-container {
-    width: 100%;
-    margin: 0;
-    padding: 0;
-  }
+@media screen and (max-width: 768px) {
+  /* Supprimé */
+}
 
-  .content {
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .nav-buttons {
-    display: none;
-  }
-
-  .top-links {
-    display: none;
-  }
-
-  .logo {
-    width: 100%;
-    padding: 20px;
-    margin: 0;
-    background: #000;
-  }
-
-  .logo img.logo-desktop {
-    display: none;
-  }
-
-  .logo img.logo-mobile {
-    width: 100%;
-    height: auto;
-    display: block;
-  }
-
-  .description {
-    width: 100%;
-    padding: 20px;
-    margin: 0;
-    font-size: 15px;
-    line-height: 1.5;
-    text-align: left;
-    background: #000;
-  }
-
-  .releases-section {
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    background: #000;
-  }
-
-  .featured-release {
-    width: 300px;
-    margin: 0 auto;
-    display: block;
-  }
-
-  .featured-release iframe {
-    width: 300px !important;
-    height: 166px !important;
-  }
-
-  .releases-container {
-    width: 100%;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-  }
-
-  .release-iframe {
-    width: 100%;
-    margin: 0;
-    padding: 0;
-  }
-
-  .release-cover {
-    width: 100%;
-    aspect-ratio: 1/1;
-    margin: 0;
-    padding: 0;
-    border-radius: 0;
-    box-shadow: none;
-  }
-
-  .release-cover img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .soundcloud-overlay {
-    display: none;
-  }
-
-  .social-links-mobile {
-    display: none;
-  }
+@media screen and (max-width: 768px) {
+  /* Supprimé */
 }
 
 .section-title {
