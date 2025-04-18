@@ -806,7 +806,8 @@
     z-index: 1000;
     justify-content: center;
     align-items: center;
-    touch-action: pan-y pinch-zoom;
+    touch-action: none;
+    overflow: hidden;
   }
   
   .lightbox.active {
@@ -820,7 +821,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    touch-action: pan-y pinch-zoom;
+    touch-action: none;
   }
   
   .lightbox-content img {
@@ -828,7 +829,7 @@
     max-height: 100%;
     object-fit: contain;
     transition: transform 0.3s ease;
-    touch-action: pan-y pinch-zoom;
+    touch-action: none;
   }
   
   .close-lightbox {
@@ -837,8 +838,8 @@
     right: 20px;
     width: 40px;
     height: 40px;
-    background-color: rgba(0, 0, 0, 0.5);
-    border: none;
+    background-color: rgba(0, 0, 0, 0.7);
+    border: 2px solid white;
     border-radius: 50%;
     color: white;
     font-size: 30px;
@@ -846,12 +847,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1001;
+    z-index: 1002;
     -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
   
   .close-lightbox:hover {
-    background-color: rgba(0, 0, 0, 0.7);
+    background-color: rgba(255, 255, 255, 0.2);
   }
   
   .close,

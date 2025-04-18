@@ -558,13 +558,22 @@ const lightboxImage = document.querySelector('.lightbox-content img');
 const lightboxCloseBtn = document.querySelector('.close-lightbox');
 const lightboxSlides = document.querySelectorAll('.slide img');
 
+// Empêcher le scroll de la page quand la lightbox est active
+function preventDefault(e) {
+    e.preventDefault();
+}
+
 // Ajout des écouteurs d'événements pour le swipe
 lightboxContainer.addEventListener('touchstart', (e) => {
     swipeStartX = e.touches[0].clientX;
     lightboxImage.style.transition = 'none';
+    // Empêcher le scroll de la page
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('touchmove', preventDefault, { passive: false });
 });
 
 lightboxContainer.addEventListener('touchmove', (e) => {
+    e.preventDefault();
     swipeEndX = e.touches[0].clientX;
     const diff = swipeStartX - swipeEndX;
     
@@ -586,6 +595,10 @@ lightboxContainer.addEventListener('touchend', () => {
             showPreviousLightboxImage();
         }
     }
+    
+    // Réactiver le scroll de la page
+    document.body.style.overflow = '';
+    document.removeEventListener('touchmove', preventDefault);
 });
 
 function showNextLightboxImage() {
@@ -607,11 +620,15 @@ function updateLightboxImage() {
 // Fermer la lightbox en cliquant sur le bouton de fermeture
 lightboxCloseBtn.addEventListener('click', () => {
     lightboxContainer.classList.remove('active');
+    document.body.style.overflow = '';
+    document.removeEventListener('touchmove', preventDefault);
 });
 
 // Fermer la lightbox en cliquant en dehors de l'image
 lightboxContainer.addEventListener('click', (e) => {
     if (e.target === lightboxContainer) {
         lightboxContainer.classList.remove('active');
+        document.body.style.overflow = '';
+        document.removeEventListener('touchmove', preventDefault);
     }
 });
