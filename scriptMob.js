@@ -161,9 +161,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // Galerie et Lightbox
 const galleryGrid = document.querySelector(".gallery-grid");
-const lightbox = document.querySelector(".lightbox");
-const lightboxImg = document.querySelector(".lightbox-content img");
-const closeBtn = document.querySelector(".close");
+const imageLightbox = document.querySelector(".lightbox");
+const imageLightboxImg = imageLightbox.querySelector("img");
+const imageCloseLightbox = document.querySelector(".close-lightbox");
 const prevBtn = document.querySelector(".prev");
 const nextBtn = document.querySelector(".next");
 
@@ -306,38 +306,38 @@ function loadGallery() {
 
 function openLightbox(index) {
   currentImageIndex = index;
-  lightboxImg.src = images[index].src;
-  lightboxImg.alt = images[index].alt;
-  lightbox.style.display = "block";
+  imageLightboxImg.src = images[index].src;
+  imageLightboxImg.alt = images[index].alt;
+  imageLightbox.style.display = "block";
 }
 
 function closeLightbox() {
-  lightbox.style.display = "none";
+  imageLightbox.style.display = "none";
 }
 
 function showPrevImage() {
   currentImageIndex = (currentImageIndex - 1 + images.length) % images.length;
-  lightboxImg.src = images[currentImageIndex].src;
-  lightboxImg.alt = images[currentImageIndex].alt;
+  imageLightboxImg.src = images[currentImageIndex].src;
+  imageLightboxImg.alt = images[currentImageIndex].alt;
 }
 
 function showNextImage() {
   currentImageIndex = (currentImageIndex + 1) % images.length;
-  lightboxImg.src = images[currentImageIndex].src;
-  lightboxImg.alt = images[currentImageIndex].alt;
+  imageLightboxImg.src = images[currentImageIndex].src;
+  imageLightboxImg.alt = images[currentImageIndex].alt;
 }
 
 // Événements
-closeBtn.addEventListener("click", closeLightbox);
+imageCloseLightbox.addEventListener("click", closeLightbox);
 prevBtn.addEventListener("click", showPrevImage);
 nextBtn.addEventListener("click", showNextImage);
-lightbox.addEventListener("click", (e) => {
-  if (e.target === lightbox) closeLightbox();
+imageLightbox.addEventListener("click", (e) => {
+  if (e.target === imageLightbox) closeLightbox();
 });
 
 // Ajout de la navigation au clavier
 document.addEventListener("keydown", (e) => {
-  if (lightbox.style.display === "block") {
+  if (imageLightbox.style.display === "block") {
     if (e.key === "ArrowLeft") {
       showPrevImage();
     } else if (e.key === "ArrowRight") {
@@ -487,4 +487,111 @@ document.addEventListener('DOMContentLoaded', function() {
 // Chargement des releases
 document.addEventListener('DOMContentLoaded', function() {
     loadReleases();
+});
+
+// Slider de photos
+const slider = document.querySelector('.slider-track');
+const slides = document.querySelectorAll('.slide');
+const prevButton = document.querySelector('.slider-button.prev');
+const nextButton = document.querySelector('.slider-button.next');
+let currentSlide = 0;
+
+function updateSlider() {
+  slider.style.transform = `translateX(-${currentSlide * 100}%)`;
+}
+
+// Initialiser le slider
+document.addEventListener('DOMContentLoaded', () => {
+  if (slider && slides.length > 0) {
+    updateSlider();
+    
+    prevButton.addEventListener('click', () => {
+      currentSlide = (currentSlide - 1 + slides.length) % slides.length;
+      updateSlider();
+    });
+
+    nextButton.addEventListener('click', () => {
+      currentSlide = (currentSlide + 1) % slides.length;
+      updateSlider();
+    });
+
+    // Auto-slide toutes les 5 secondes
+    setInterval(() => {
+      currentSlide = (currentSlide + 1) % slides.length;
+      updateSlider();
+    }, 5000);
+  }
+});
+
+// Gestion de la lightbox pour le slider
+const imageSlides = document.querySelectorAll('.slide img');
+
+// Ouvrir la lightbox au clic sur une image du slider
+imageSlides.forEach(slide => {
+  slide.addEventListener('click', () => {
+    imageLightboxImg.src = slide.src;
+    imageLightbox.classList.add('active');
+  });
+});
+
+// Fermer la lightbox
+imageCloseLightbox.addEventListener('click', () => {
+  imageLightbox.classList.remove('active');
+});
+
+// Fermer la lightbox en cliquant en dehors de l'image
+imageLightbox.addEventListener('click', (e) => {
+  if (e.target === imageLightbox) {
+    imageLightbox.classList.remove('active');
+  }
+});
+
+// Variables pour le swipe
+let touchStartX = 0;
+let touchEndX = 0;
+let lightboxImageIndex = 0;
+const allImages = document.querySelectorAll('.slide img');
+
+// Gestion du swipe pour la lightbox
+imageLightbox.addEventListener('touchstart', (e) => {
+  touchStartX = e.changedTouches[0].screenX;
+}, false);
+
+imageLightbox.addEventListener('touchend', (e) => {
+  touchEndX = e.changedTouches[0].screenX;
+  handleSwipe();
+}, false);
+
+function handleSwipe() {
+  const swipeThreshold = 50; // Seuil minimum pour considérer un swipe
+  const swipeDistance = touchEndX - touchStartX;
+
+  if (Math.abs(swipeDistance) > swipeThreshold) {
+    if (swipeDistance > 0) {
+      // Swipe vers la droite - image précédente
+      showPreviousImage();
+    } else {
+      // Swipe vers la gauche - image suivante
+      showNextImage();
+    }
+  }
+}
+
+function showPreviousImage() {
+  lightboxImageIndex = (lightboxImageIndex - 1 + allImages.length) % allImages.length;
+  imageLightboxImg.src = allImages[lightboxImageIndex].src;
+}
+
+function showNextImage() {
+  lightboxImageIndex = (lightboxImageIndex + 1) % allImages.length;
+  imageLightboxImg.src = allImages[lightboxImageIndex].src;
+}
+
+// Mettre à jour l'index de l'image actuelle lors de l'ouverture de la lightbox
+imageSlides.forEach((slide, index) => {
+  slide.addEventListener('click', () => {
+    lightboxImageIndex = index;
+    imageLightboxImg.src = slide.src;
+    imageLightbox.classList.add('active');
+  });
 });
