@@ -153,7 +153,7 @@ function loadEvents() {
     });
 }
 
-// Appeler la fonction au chargement de la page
+// Charger la galerie au chargement de la page
 document.addEventListener("DOMContentLoaded", () => {
   console.log("DOM chargé, chargement des événements...");
   loadEvents();
@@ -348,45 +348,56 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// Charger la galerie au chargement de la page
-document.addEventListener("DOMContentLoaded", loadGallery);
-
+// Gestion des sections et navigation
 document.addEventListener('DOMContentLoaded', function() {
-    // Gestion des sections
-    const releasesButton = document.querySelector('.nav-buttons a[href="#releases"]');
-    const releasesSection = document.querySelector('.releases-section');
-
-    releasesButton.addEventListener('click', function(e) {
-        e.preventDefault();
-        releasesSection.classList.toggle('active');
-    });
-
+    console.log('DOM chargé');
+    
     // Gestion des boutons de navigation
     const navButtons = document.querySelectorAll('.nav-buttons a');
     const sections = {
         'releases': document.querySelector('.releases-section'),
         'events': document.querySelector('.events-section'),
-        'medias': document.querySelector('.gallery-section')
+        'media': document.querySelector('.gallery-section')
     };
 
+    // Initialiser la section events comme active
+    if (sections.events) {
+        sections.events.classList.add('active');
+        document.querySelector('.nav-buttons a[href="#events"]').classList.add('active');
+    }
+
     navButtons.forEach(button => {
-        button.addEventListener('click', function(e) {
+        button.addEventListener('click', (e) => {
             e.preventDefault();
-            const targetId = this.getAttribute('href').substring(1);
             
-            // Masquer toutes les sections et désactiver tous les boutons
+            // Retirer la classe active de tous les boutons et sections
+            navButtons.forEach(btn => btn.classList.remove('active'));
             Object.values(sections).forEach(section => {
-                section.classList.remove('active');
-            });
-            navButtons.forEach(btn => {
-                btn.classList.remove('active');
+                if (section) section.classList.remove('active');
             });
             
-            // Afficher la section ciblée et activer le bouton
-            sections[targetId].classList.add('active');
-            this.classList.add('active');
+            // Ajouter la classe active au bouton cliqué
+            button.classList.add('active');
+            
+            // Afficher la section correspondante
+            const sectionId = button.getAttribute('href').substring(1);
+            if (sections[sectionId]) {
+                sections[sectionId].classList.add('active');
+                console.log('Section active:', sectionId);
+                
+                // Si c'est la section media, charger la galerie
+                if (sectionId === 'media') {
+                    console.log('Chargement de la galerie...');
+                    loadGallery();
+                    // Forcer le reflow pour s'assurer que la transition est appliquée
+                    sections[sectionId].offsetHeight;
+                }
+            }
         });
     });
+
+    // Charger les événements
+    loadEvents();
 });
 
 // Gestion du menu hamburger
@@ -489,146 +500,105 @@ document.addEventListener('DOMContentLoaded', function() {
     loadReleases();
 });
 
-// Slider de photos
-const slider = document.querySelector('.slider-track');
-const slides = document.querySelectorAll('.slide');
+// Variables pour le slider
+const slider = document.querySelector('.slider');
+const sliderTrack = document.querySelector('.slider-track');
 const prevButton = document.querySelector('.slider-button.prev');
 const nextButton = document.querySelector('.slider-button.next');
+
 let currentSlide = 0;
+let startX = 0;
+let currentX = 0;
+let isDragging = false;
 
-function updateSlider() {
-  slider.style.transform = `translateX(-${currentSlide * 100}%)`;
-}
-
-// Initialiser le slider
-document.addEventListener('DOMContentLoaded', () => {
-  if (slider && slides.length > 0) {
-    updateSlider();
-    
-    prevButton.addEventListener('click', () => {
-      currentSlide = (currentSlide - 1 + slides.length) % slides.length;
-      updateSlider();
-    });
-
-    nextButton.addEventListener('click', () => {
-      currentSlide = (currentSlide + 1) % slides.length;
-      updateSlider();
-    });
-
-    // Auto-slide toutes les 5 secondes
-    setInterval(() => {
-      currentSlide = (currentSlide + 1) % slides.length;
-      updateSlider();
-    }, 5000);
-  }
-});
-
-// Gestion de la lightbox pour le slider
-const imageSlides = document.querySelectorAll('.slide img');
-
-// Ouvrir la lightbox au clic sur une image du slider
-imageSlides.forEach(slide => {
-  slide.addEventListener('click', () => {
-    imageLightboxImg.src = slide.src;
-    imageLightbox.classList.add('active');
+// Fonction pour créer les slides
+function createSlides() {
+  sliderTrack.innerHTML = '';
+  images.forEach((image, index) => {
+    const slide = document.createElement('div');
+    slide.className = 'slide';
+    const img = document.createElement('img');
+    img.src = image.src;
+    img.alt = image.alt;
+    slide.appendChild(img);
+    sliderTrack.appendChild(slide);
   });
-});
+  goToSlide(0);
+}
 
-// Fermer la lightbox
-imageCloseLightbox.addEventListener('click', () => {
-  imageLightbox.classList.remove('active');
-});
+// Fonction pour aller à une slide spécifique
+function goToSlide(index) {
+  currentSlide = index;
+  const offset = -index * 100;
+  sliderTrack.style.transform = `translateX(${offset}%)`;
+}
 
-// Fermer la lightbox en cliquant en dehors de l'image
-imageLightbox.addEventListener('click', (e) => {
-  if (e.target === imageLightbox) {
-    imageLightbox.classList.remove('active');
+// Gestion des événements tactiles
+function handleTouchStart(e) {
+  startX = e.touches[0].clientX;
+  isDragging = true;
+  sliderTrack.style.transition = 'none';
+}
+
+function handleTouchMove(e) {
+  if (!isDragging) return;
+  currentX = e.touches[0].clientX;
+  const diff = currentX - startX;
+  const slideWidth = slider.offsetWidth;
+  const percentMove = (diff / slideWidth) * 100;
+  const offset = -currentSlide * 100 + percentMove;
+  sliderTrack.style.transform = `translateX(${offset}%)`;
+}
+
+function handleTouchEnd() {
+  if (!isDragging) return;
+  isDragging = false;
+  sliderTrack.style.transition = 'transform 0.3s ease-out';
+  const diff = currentX - startX;
+  const slideWidth = slider.offsetWidth;
+  const percentMove = (diff / slideWidth) * 100;
+
+  if (Math.abs(percentMove) > 20) {
+    if (percentMove > 0 && currentSlide > 0) {
+      goToSlide(currentSlide - 1);
+    } else if (percentMove < 0 && currentSlide < images.length - 1) {
+      goToSlide(currentSlide + 1);
+    } else {
+      goToSlide(currentSlide);
+    }
+  } else {
+    goToSlide(currentSlide);
   }
-});
-
-// Gestion du swipe pour la lightbox
-let swipeStartX = 0;
-let swipeEndX = 0;
-let currentLightboxIndex = 0;
-const swipeThreshold = 50; // Seuil minimum pour considérer un swipe
-
-// Sélection des éléments de la lightbox
-const lightboxContainer = document.querySelector('.lightbox');
-const lightboxImage = document.querySelector('.lightbox-content img');
-const lightboxCloseBtn = document.querySelector('.close-lightbox');
-const lightboxSlides = document.querySelectorAll('.slide img');
-
-// Empêcher le scroll de la page quand la lightbox est active
-function preventDefault(e) {
-    e.preventDefault();
 }
 
-// Ajout des écouteurs d'événements pour le swipe
-lightboxContainer.addEventListener('touchstart', (e) => {
-    swipeStartX = e.touches[0].clientX;
-    lightboxImage.style.transition = 'none';
-    // Empêcher le scroll de la page
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('touchmove', preventDefault, { passive: false });
-});
-
-lightboxContainer.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-    swipeEndX = e.touches[0].clientX;
-    const diff = swipeStartX - swipeEndX;
+// Initialisation du slider
+document.addEventListener('DOMContentLoaded', () => {
+  // ... existing code ...
+  
+  // Initialiser le slider
+  if (slider && sliderTrack) {
+    createSlides();
     
-    // Appliquer une transformation en temps réel pendant le swipe
-    lightboxImage.style.transform = `translateX(${-diff}px)`;
-});
-
-lightboxContainer.addEventListener('touchend', () => {
-    const diff = swipeStartX - swipeEndX;
-    
-    // Réinitialiser la transformation avec une transition fluide
-    lightboxImage.style.transition = 'transform 0.3s ease';
-    lightboxImage.style.transform = 'translateX(0)';
-    
-    if (Math.abs(diff) > swipeThreshold) {
-        if (diff > 0) {
-            showNextLightboxImage();
-        } else {
-            showPreviousLightboxImage();
+    // Ajouter les événements pour les boutons
+    if (prevButton) {
+      prevButton.addEventListener('click', () => {
+        if (currentSlide > 0) {
+          goToSlide(currentSlide - 1);
         }
+      });
     }
     
-    // Réactiver le scroll de la page
-    document.body.style.overflow = '';
-    document.removeEventListener('touchmove', preventDefault);
-});
-
-function showNextLightboxImage() {
-    currentLightboxIndex = (currentLightboxIndex + 1) % lightboxSlides.length;
-    updateLightboxImage();
-}
-
-function showPreviousLightboxImage() {
-    currentLightboxIndex = (currentLightboxIndex - 1 + lightboxSlides.length) % lightboxSlides.length;
-    updateLightboxImage();
-}
-
-function updateLightboxImage() {
-    lightboxImage.src = lightboxSlides[currentLightboxIndex].src;
-    lightboxImage.style.transform = 'translateX(0)';
-    lightboxImage.style.transition = 'transform 0.3s ease';
-}
-
-// Fermer la lightbox en cliquant sur le bouton de fermeture
-lightboxCloseBtn.addEventListener('click', () => {
-    lightboxContainer.classList.remove('active');
-    document.body.style.overflow = '';
-    document.removeEventListener('touchmove', preventDefault);
-});
-
-// Fermer la lightbox en cliquant en dehors de l'image
-lightboxContainer.addEventListener('click', (e) => {
-    if (e.target === lightboxContainer) {
-        lightboxContainer.classList.remove('active');
-        document.body.style.overflow = '';
-        document.removeEventListener('touchmove', preventDefault);
+    if (nextButton) {
+      nextButton.addEventListener('click', () => {
+        if (currentSlide < images.length - 1) {
+          goToSlide(currentSlide + 1);
+        }
+      });
     }
+    
+    // Ajouter les événements tactiles
+    slider.addEventListener('touchstart', handleTouchStart);
+    slider.addEventListener('touchmove', handleTouchMove);
+    slider.addEventListener('touchend', handleTouchEnd);
+  }
 });

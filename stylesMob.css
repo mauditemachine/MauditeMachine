@@ -48,12 +48,7 @@
   }
   
   .nav-buttons {
-    display: flex;
-    justify-content: center;
-    gap: 2rem;
-    margin: 2rem 0;
-    width: 100%;
-    padding: 0 1rem;
+    display: none;
   }
   
   .nav-buttons a {
@@ -753,27 +748,32 @@
   
   .gallery-section {
     position: relative;
-    width: 1000px;
+    width: 100%;
     display: none;
     margin-top: 1rem;
     margin-left: auto;
     margin-right: auto;
+    padding: 0 1rem;
+    opacity: 0;
+    transition: opacity 0.3s ease;
   }
   
   .gallery-section.active {
     display: block;
+    opacity: 1;
   }
   
   .gallery-container {
     width: 100%;
-    max-width: 1000px;
+    max-width: 100%;
     margin: 0 auto;
     padding: 0;
+    position: relative;
   }
   
   .gallery-grid {
     display: grid;
-    grid-template-columns: repeat(15, 60px);
+    grid-template-columns: repeat(2, 1fr);
     gap: 5px;
     width: 100%;
     margin: 0;
@@ -781,18 +781,21 @@
   }
   
   .gallery-item {
-    width: 60px;
-    height: 60px;
+    width: 100%;
     aspect-ratio: 1/1;
     margin: 0;
     padding: 0;
+    position: relative;
   }
   
   .gallery-item img {
-    width: 60px;
-    height: 60px;
+    width: 100%;
+    height: 100%;
     object-fit: cover;
     display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
   }
   
   .lightbox {
@@ -1189,90 +1192,86 @@
   }
   
   .slider-container {
+    position: relative;
     width: 100%;
     overflow: hidden;
-    position: relative;
-    margin: 20px 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    margin: 2rem 0;
+    touch-action: pan-y pinch-zoom;
   }
   
   .slider {
-    display: flex;
-    transition: transform 0.5s ease;
     width: 100%;
+    height: 300px;
+    overflow: hidden;
+    position: relative;
   }
   
   .slider-track {
     display: flex;
+    transition: transform 0.3s ease-out;
+    height: 100%;
     width: 100%;
   }
   
   .slide {
     flex: 0 0 100%;
-    min-width: 100%;
-    padding: 10px;
-    box-sizing: border-box;
+    height: 100%;
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
   }
   
   .slide img {
-    width: 100%;
-    height: auto;
-    object-fit: cover;
-    border-radius: 8px;
-    max-height: 80vh;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    user-select: none;
+    -webkit-user-drag: none;
   }
   
   .slider-button {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    background-color: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.5);
     color: white;
     border: none;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
+    padding: 1rem;
     cursor: pointer;
-    font-size: 24px;
+    font-size: 1.5rem;
+    z-index: 10;
+    transition: background-color 0.3s ease;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 10;
-    transition: background-color 0.3s ease;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-    -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    user-select: none;
   }
   
   .slider-button:hover {
-    background-color: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.7);
   }
   
   .slider-button.prev {
-    left: 10px;
+    left: 1rem;
   }
   
   .slider-button.next {
-    right: 10px;
+    right: 1rem;
   }
   
-  .slider-button::after {
-    content: none;
-  }
-  
-  .slider-button.prev::after {
-    content: none;
-  }
-  
-  .slider-button.next::after {
-    content: none;
+  @media (max-width: 768px) {
+    .slider {
+      height: 200px;
+    }
+    
+    .slider-button {
+      width: 40px;
+      height: 40px;
+      padding: 0.5rem;
+      font-size: 1.2rem;
+    }
   }
   
   

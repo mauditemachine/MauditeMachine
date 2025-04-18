@@ -198,232 +198,287 @@ document.addEventListener("DOMContentLoaded", () => {
   loadEvents();
 });
 
-// Galerie et Lightbox
-const galleryGrid = document.querySelector(".gallery-grid");
-const lightbox = document.querySelector(".lightbox");
-const lightboxImg = document.querySelector(".lightbox-content img");
-const closeBtn = document.querySelector(".close");
-const prevBtn = document.querySelector(".prev");
-const nextBtn = document.querySelector(".next");
-
-let currentImageIndex = 0;
-let images = [];
-
-// Charger les images de la galerie
-function loadGallery() {
-  // Images du dossier medias
-  images = [
-    { src: "medias/464921350_8781568558569455_7872671644658881068_n.jpg", alt: "Performance" },
-    { src: "medias/463927235_3420762761392507_3255454865376167519_n.jpg", alt: "Performance" },
-    { src: "medias/480405408_1246208003891242_3165125023039024413_n.jpg", alt: "Performance" },
-    { src: "medias/476466146_1239403404571702_8836682943722289976_n.jpg", alt: "Performance" },
-    { src: "medias/474647968_122114264516675204_8080891412134578876_n.jpg", alt: "Performance" },
-    { src: "medias/48926454_2070768166315570_8931209051207892992_n.jpg", alt: "Performance" },
-    { src: "medias/484072285_1269674868211222_2174957021717192732_n.jpg", alt: "Performance" },
-    { src: "medias/476366677_1237157288129647_9215939268300617979_n.jpg", alt: "Performance" },
-    { src: "medias/481827383_1260267672485275_3042503024244017336_n.jpg", alt: "Performance" },
-    { src: "medias/463451653_2824957097663228_7197539423889751589_n.jpg", alt: "Performance" },
-    { src: "medias/490136002_1295168252328550_8660311190006501321_n.jpg", alt: "Performance" },
-    { src: "medias/489778241_1290850926093616_6991561513293875678_n.jpg", alt: "Performance" },
-    { src: "medias/464925581_8781568315236146_6865271803075876529_n.jpg", alt: "Performance" },
-    { src: "medias/481817311_1260267739151935_8963921778788233154_n.jpg", alt: "Performance" },
-    { src: "medias/484116540_1268874791624563_3155457056479926862_n.jpg", alt: "Performance" },
-    { src: "medias/486120772_1274717617706947_6471383342551582185_n.jpg", alt: "Performance" },
-    { src: "medias/482077931_1261499695695406_397840931313933555_n.jpg", alt: "Performance" },
-    { src: "medias/465248249_27387254090919077_5959571479588312308_n.jpg", alt: "Performance" },
-    { src: "medias/462689911_8673299302729715_414954332908294319_n.jpg", alt: "Performance" },
-    { src: "medias/463404884_2825050047653933_8646214419928350736_n.jpg", alt: "Performance" },
-    { src: "medias/464110614_7894713827294760_2571209963198621556_n.jpg", alt: "Performance" },
-    { src: "medias/464223407_7900524950046981_2526282748558312212_n.png", alt: "Performance" },
-    { src: "medias/33245584_1359256770840531_6633888055973380096_n.jpg", alt: "Performance" },
-    { src: "medias/33364897_1359257034173838_6311272906089299968_n.jpg", alt: "Performance" },
-    { src: "medias/36587425_1406065489492992_6577183101707878400_n.jpg", alt: "Performance" },
-    { src: "medias/462706501_27175587862057110_962844321954982944_n.jpg", alt: "Performance" },
-    { src: "medias/468058207_10161709388195250_5980577003542126220_n.jpg", alt: "Performance" },
-    { src: "medias/53450172_10156790040030617_1595252434005917696_n.jpg", alt: "Performance" },
-    { src: "medias/462449302_8643346829057638_3989803892867381019_n.jpg", alt: "Performance" },
-    { src: "medias/462363904_8658776097514711_5533106840675938478_n.jpg", alt: "Performance" },
-    { src: "medias/462375898_8643394372386217_4514593083391467089_n.jpg", alt: "Performance" },
-    { src: "medias/488940464_2799921333526417_141836174029281402_n.jpg", alt: "Performance" },
-    { src: "medias/468003839_10162118532339339_8128711830347312927_n.jpg", alt: "Performance" },
-    { src: "medias/462621276_8673075696084751_1751831420627070539_n.jpg", alt: "Performance" },
-    { src: "medias/462731227_8663215283737459_7770872208017119645_n.jpg", alt: "Performance" },
-    { src: "medias/462924246_8678821442176843_3484756366266998679_n.jpg", alt: "Performance" },
-    { src: "medias/462809259_8678821465510174_6870811168329643396_n.jpg", alt: "Performance" },
-    { src: "medias/462865694_8685759721483015_5923342074493657173_n.jpg", alt: "Performance" },
-    { src: "medias/462957857_27194370663512163_7711997564493638080_n.png", alt: "Performance" },
-    { src: "medias/465033217_8794700263922293_571422124688353774_n.jpg", alt: "Performance" },
-    { src: "medias/465243523_8811672392225080_4659232987364234466_n.jpg", alt: "Performance" },
-    { src: "medias/465011687_8800183093374010_1934512091476301747_n.jpg", alt: "Performance" },
-    { src: "medias/465443606_8816058191786500_5848349860795371422_n.jpg", alt: "Performance" },
-    { src: "medias/465442212_8819246738134312_3320819386583277512_n.png", alt: "Performance" },
-    { src: "medias/35236221_1796469780412078_2056604506543620096_n.jpg", alt: "Performance" },
-    { src: "medias/44368292_1980244745367913_929446281657450496_n.jpg", alt: "Performance" },
-    { src: "medias/471768015_10162982088466742_7341299966859513018_n.jpg", alt: "Performance" },
-    { src: "medias/474949846_1228743278971048_7129362653676765597_n.jpg", alt: "Performance" },
-    { src: "medias/477796844_1239415191237190_4521000639724874009_n.jpg", alt: "Performance" },
-    { src: "medias/480516004_1248040373708005_6765612200641323104_n.jpg", alt: "Performance" },
-    { src: "medias/481055264_1255935092918533_4999418014579335237_n.jpg", alt: "Performance" },
-    { src: "medias/352547420_6224793250971161_6547627283662643830_n.jpg", alt: "Performance" },
-    { src: "medias/488646470_1326016755628570_2410850110883712291_n.jpg", alt: "Performance" },
-    { src: "medias/484991166_1273289784516397_7148890529883039197_n.jpg", alt: "Performance" },
-    { src: "medias/485846148_1274711884374187_5193956134369394734_n.jpg", alt: "Performance" },
-    { src: "medias/486897031_1279576410554401_1145892451889541566_n.jpg", alt: "Performance" },
-    { src: "medias/489986640_1292139175964791_2919881732553449897_n.jpg", alt: "Performance" },
-    { src: "medias/490067921_1292151209296921_5995931051282217909_n.jpg", alt: "Performance" },
-    { src: "medias/481215611_10170529645455704_3353980767803661656_n.jpg", alt: "Performance" },
-    { src: "medias/BackOnTrack.jpg", alt: "Back On Track" },
-    { src: "medias/YUL_0330.jpg", alt: "YUL" },
-    { src: "medias/YUL_0324-2.jpg", alt: "YUL" },
-    { src: "medias/Photo (7272)uu.jpg", alt: "Performance" },
-    { src: "medias/Locomote 12.jpg", alt: "Locomote" },
-    { src: "medias/JoGorsky_2025-02_Pinup-Valentines_091.jpg", alt: "Pinup Valentines" },
-    { src: "medias/JoGorsky_2024-10_Monstrocity-Halloween_077.jpg", alt: "Monstrocity Halloween" },
-    { src: "medias/JoGorsky_2024-10_Monstrocity-Halloween_074.jpg", alt: "Monstrocity Halloween" },
-    { src: "medias/DSCF9997_edit1.jpg", alt: "Performance" },
-    { src: "medias/DSCF9991_edit1.jpg", alt: "Performance" },
-    { src: "medias/DSCF0006_edit1.jpg", alt: "Performance" },
-    { src: "medias/7AF2D730-3F53-4942-984E-FABAC8C9B85E.jpg", alt: "Performance" },
-    { src: "medias/603061_10151506175820841_595710399_n.jpg", alt: "Performance" },
-    { src: "medias/53690C8F-98DC-4FAF-843F-51397D20FF2D.jpg", alt: "Performance" },
-    { src: "medias/459356611_577106314641628_7948540754089562955_n.jpg", alt: "Performance" },
-    { src: "medias/459186464_1042053933814072_887394904461510536_n.jpg", alt: "Performance" },
-    { src: "medias/459004621_1555689078386610_7094668039658845235_n.jpg", alt: "Performance" },
-    { src: "medias/367800056_672152048156122_793282389538458180_n.jpg", alt: "Performance" },
-    { src: "medias/363393321_317589543949568_2775297006998526690_n.jpg", alt: "Performance" },
-    { src: "medias/317673616_1133154394065517_5577655773881691687_n.jpg", alt: "Performance" },
-    { src: "medias/30DC4B78-4917-44C0-BB30-B1283BA5924B.jpg", alt: "Performance" },
-    { src: "medias/305839661_1563103054147144_2047561859068751024_n.jpg", alt: "Performance" },
-    { src: "medias/242FAB21-F40A-47D7-990A-C6D381272F08.jpg", alt: "Performance" },
-    { src: "medias/22279542_10154949783416961_1236740403543318439_n.jpg", alt: "Performance" },
-    { src: "medias/20250301_013718.jpg", alt: "Performance" },
-    { src: "medias/2022-03-28(498).jpg", alt: "Performance" },
-    { src: "medias/2022-03-28(496).jpg", alt: "Performance" },
-    { src: "medias/2022-03-28(417).jpg", alt: "Performance" },
-    { src: "medias/2022-03-28(350).jpg", alt: "Performance" },
-    { src: "medias/2022-03-28(349).jpg", alt: "Performance" },
-    { src: "medias/2022-03-28(322).jpg", alt: "Performance" },
-    { src: "medias/2022-03-28(3114).jpg", alt: "Performance" },
-    { src: "medias/2022-03-28(220).jpg", alt: "Performance" },
-    { src: "medias/2022-03-28(214).jpg", alt: "Performance" },
-    { src: "medias/20171117_211200186_iOS.jpg", alt: "Performance" },
-    { src: "medias/20170905_155016666_iOS.jpg", alt: "Performance" },
-  ];
-
-  // Mélanger aléatoirement le tableau d'images
-  for (let i = images.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [images[i], images[j]] = [images[j], images[i]];
-  }
-
-  console.log("Nombre d'images à charger:", images.length);
-
-  images.forEach((image, index) => {
-    const item = document.createElement("div");
-    item.className = "gallery-item";
-    const img = document.createElement("img");
-    const fileName = image.src.split("/").pop();
-    const encodedFileName = encodeURIComponent(fileName);
-    const fullPath = image.src.replace(fileName, encodedFileName);
-    console.log("Chargement de l'image:", fullPath);
-    img.src = fullPath;
-    img.alt = image.alt;
-
-    // Ajouter un gestionnaire d'erreur pour chaque image
-    img.onerror = function () {
-      console.error("Erreur de chargement de l'image:", fullPath);
-      // Essayer de charger l'image sans encodage
-      img.src = image.src;
-      console.log("Tentative de chargement sans encodage:", image.src);
-    };
-
-    item.appendChild(img);
-    item.addEventListener("click", () => openLightbox(index));
-    galleryGrid.appendChild(item);
-  });
-}
-
-function openLightbox(index) {
-  currentImageIndex = index;
-  lightboxImg.src = images[index].src;
-  lightboxImg.alt = images[index].alt;
-  lightbox.style.display = "block";
-}
-
-function closeLightbox() {
-  lightbox.style.display = "none";
-}
-
-function showPrevImage() {
-  currentImageIndex = (currentImageIndex - 1 + images.length) % images.length;
-  lightboxImg.src = images[currentImageIndex].src;
-  lightboxImg.alt = images[currentImageIndex].alt;
-}
-
-function showNextImage() {
-  currentImageIndex = (currentImageIndex + 1) % images.length;
-  lightboxImg.src = images[currentImageIndex].src;
-  lightboxImg.alt = images[currentImageIndex].alt;
-}
-
-// Événements
-closeBtn.addEventListener("click", closeLightbox);
-prevBtn.addEventListener("click", showPrevImage);
-nextBtn.addEventListener("click", showNextImage);
-lightbox.addEventListener("click", (e) => {
-  if (e.target === lightbox) closeLightbox();
-});
-
-// Ajout de la navigation au clavier
-document.addEventListener("keydown", (e) => {
-  if (lightbox.style.display === "block") {
-    if (e.key === "ArrowLeft") {
-      showPrevImage();
-    } else if (e.key === "ArrowRight") {
-      showNextImage();
-    } else if (e.key === "Escape") {
-      closeLightbox();
-    }
-  }
-});
-
-// Charger la galerie au chargement de la page
-document.addEventListener("DOMContentLoaded", loadGallery);
-
 document.addEventListener('DOMContentLoaded', function() {
-    // Gestion des sections
-    const releasesButton = document.querySelector('.nav-buttons a[href="#releases"]');
-    const releasesSection = document.querySelector('.releases-section');
-
-    releasesButton.addEventListener('click', function(e) {
-        e.preventDefault();
-        releasesSection.classList.toggle('active');
-    });
-
-    // Gestion des boutons de navigation
     const navButtons = document.querySelectorAll('.nav-buttons a');
-    const sections = {
-        'releases': document.querySelector('.releases-section'),
-        'events': document.querySelector('.events-section'),
-        'medias': document.querySelector('.gallery-section')
-    };
+    const content = document.querySelector('.content');
+    const logo = document.querySelector('.logo');
+    let contentMoved = false;
+
+    // Fonction pour réinitialiser l'état
+    function resetState() {
+        // Retirer la classe active de tous les boutons
+        navButtons.forEach(btn => btn.classList.remove('active'));
+        
+        // Retirer la classe active de toutes les sections
+        document.querySelectorAll('section').forEach(section => {
+            section.classList.remove('active');
+        });
+        
+        // Réinitialiser la position du contenu
+        content.style.marginTop = '0';
+        contentMoved = false;
+    }
+
+    // Ajouter l'événement de clic sur le logo
+    logo.addEventListener('click', resetState);
+
+    // Centrer le contenu au chargement
+    content.style.marginTop = '0';
+    content.style.transition = 'margin-top 0.3s ease';
 
     navButtons.forEach(button => {
         button.addEventListener('click', function(e) {
             e.preventDefault();
-            const targetId = this.getAttribute('href').substring(1);
             
-            // Masquer toutes les sections et désactiver tous les boutons
-            Object.values(sections).forEach(section => {
+            // Retirer la classe active de tous les boutons
+            navButtons.forEach(btn => btn.classList.remove('active'));
+            
+            // Ajouter la classe active au bouton cliqué
+            button.classList.add('active');
+            
+            // Déplacer le contenu vers le haut uniquement la première fois
+            if (!contentMoved) {
+                requestAnimationFrame(() => {
+                    content.style.marginTop = '8rem';
+                });
+                contentMoved = true;
+            }
+            
+            // Afficher la section correspondante
+            const sectionId = button.getAttribute('href').substring(1);
+            const sections = document.querySelectorAll('section');
+            
+            sections.forEach(section => {
                 section.classList.remove('active');
             });
-            navButtons.forEach(btn => {
-                btn.classList.remove('active');
-            });
             
-            // Afficher la section ciblée et activer le bouton
-            sections[targetId].classList.add('active');
-            this.classList.add('active');
+            const targetSection = document.querySelector(`.${sectionId}-section`);
+            if (targetSection) {
+                targetSection.classList.add('active');
+                
+                // Charger les médias si c'est la section medias
+                if (sectionId === 'medias') {
+                    loadMedias();
+                }
+            }
         });
     });
 });
+
+// Gestion du défilement pour les liens
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const targetId = this.getAttribute('href');
+        const targetElement = document.querySelector(targetId);
+        if (targetElement) {
+            const headerHeight = document.querySelector('header').offsetHeight;
+            const targetPosition = targetElement.offsetTop - headerHeight;
+            const navButtons = document.querySelector('.nav-buttons');
+            
+            window.scrollTo({
+                top: targetPosition,
+                behavior: 'smooth'
+            });
+
+            // Mettre à jour la position des boutons
+            const content = document.querySelector('.content');
+            const scrollPosition = content.offsetTop;
+            navButtons.style.setProperty('--scroll-position', `${scrollPosition}px`);
+        }
+    });
+});
+
+function loadMedias() {
+    console.log('Chargement des médias...');
+    const mediasGrid = document.querySelector('.medias-grid');
+    if (!mediasGrid) {
+        console.error('Grid des médias non trouvée');
+        return;
+    }
+
+    mediasGrid.innerHTML = '';
+    
+    const images = [
+        'medias/_DSC2160.jpg',
+        'medias/_DSC1941-Enhanced-NR.jpg',
+        'medias/_DSC2148.jpg',
+        'medias/_DSC1808.jpg',
+        'medias/_DSC1881.jpg',
+        'medias/_DSC1700.jpg',
+        'medias/_DSC1748.jpg',
+        'medias/YUL_0324-2.jpg',
+        'medias/YUL_0330.jpg',
+        'medias/JoGorsky_2025-02_Pinup-Valentines_091.jpg',
+        'medias/Locomote 12.jpg',
+        'medias/Photo (7272)uu.jpg',
+        'medias/JoGorsky_2024-10_Monstrocity-Halloween_074.jpg',
+        'medias/JoGorsky_2024-10_Monstrocity-Halloween_077.jpg',
+        'medias/DSCF9997_edit1.jpg',
+        'medias/DSCF9991_edit1.jpg',
+        'medias/DSCF0006_edit1.jpg',
+        'medias/Capture d\'écran, le 2025-04-16 à 15.00.06.png',
+        'medias/Capture d\'écran, le 2025-04-16 à 14.27.04.png',
+        'medias/Capture d\'écran, le 2025-04-16 à 14.26.38.png',
+        'medias/Capture d\'écran, le 2025-04-16 à 14.26.25.png',
+        'medias/7AF2D730-3F53-4942-984E-FABAC8C9B85E.jpg',
+        'medias/BackOnTrack.jpg',
+        'medias/53690C8F-98DC-4FAF-843F-51397D20FF2D.jpg',
+        'medias/603061_10151506175820841_595710399_n.jpg',
+        'medias/490136002_1295168252328550_8660311190006501321_n.jpg',
+        'medias/53450172_10156790040030617_1595252434005917696_n.jpg',
+        'medias/490067921_1292151209296921_5995931051282217909_n.jpg',
+        'medias/489986640_1292139175964791_2919881732553449897_n.jpg',
+        'medias/489778241_1290850926093616_6991561513293875678_n.jpg',
+        'medias/48926454_2070768166315570_8931209051207892992_n.jpg',
+        'medias/488940464_2799921333526417_141836174029281402_n.jpg',
+        'medias/486897031_1279576410554401_1145892451889541566_n.jpg',
+        'medias/488646470_1326016755628570_2410850110883712291_n.jpg',
+        'medias/486120772_1274717617706947_6471383342551582185_n.jpg',
+        'medias/484991166_1273289784516397_7148890529883039197_n.jpg',
+        'medias/485846148_1274711884374187_5193956134369394734_n.jpg',
+        'medias/484116540_1268874791624563_3155457056479926862_n.jpg',
+        'medias/484072285_1269674868211222_2174957021717192732_n.jpg',
+        'medias/482077931_1261499695695406_397840931313933555_n.jpg',
+        'medias/481827383_1260267672485275_3042503024244017336_n.jpg',
+        'medias/481215611_10170529645455704_3353980767803661656_n.jpg',
+        'medias/481817311_1260267739151935_8963921778788233154_n.jpg',
+        'medias/481055264_1255935092918533_4999418014579335237_n.jpg',
+        'medias/480516004_1248040373708005_6765612200641323104_n.jpg',
+        'medias/480405408_1246208003891242_3165125023039024413_n.jpg',
+        'medias/477796844_1239415191237190_4521000639724874009_n.jpg',
+        'medias/476466146_1239403404571702_8836682943722289976_n.jpg',
+        'medias/476366677_1237157288129647_9215939268300617979_n.jpg',
+        'medias/474647968_122114264516675204_8080891412134578876_n.jpg',
+        'medias/474949846_1228743278971048_7129362653676765597_n.jpg',
+        'medias/471768015_10162982088466742_7341299966859513018_n.jpg',
+        'medias/468058207_10161709388195250_5980577003542126220_n.jpg',
+        'medias/465443606_8816058191786500_5848349860795371422_n.jpg',
+        'medias/468003839_10162118532339339_8128711830347312927_n.jpg',
+        'medias/465442212_8819246738134312_3320819386583277512_n.png',
+        'medias/465243523_8811672392225080_4659232987364234466_n.jpg',
+        'medias/465248249_27387254090919077_5959571479588312308_n.jpg',
+        'medias/465033217_8794700263922293_571422124688353774_n.jpg',
+        'medias/464925581_8781568315236146_6865271803075876529_n.jpg',
+        'medias/465011687_8800183093374010_1934512091476301747_n.jpg',
+        'medias/464921350_8781568558569455_7872671644658881068_n.jpg',
+        'medias/464223407_7900524950046981_2526282748558312212_n.png',
+        'medias/464110614_7894713827294760_2571209963198621556_n.jpg',
+        'medias/463927235_3420762761392507_3255454865376167519_n.jpg',
+        'medias/463451653_2824957097663228_7197539423889751589_n.jpg',
+        'medias/463404884_2825050047653933_8646214419928350736_n.jpg',
+        'medias/462957857_27194370663512163_7711997564493638080_n.png',
+        'medias/462865694_8685759721483015_5923342074493657173_n.jpg',
+        'medias/462924246_8678821442176843_3484756366266998679_n.jpg',
+        'medias/462731227_8663215283737459_7770872208017119645_n.jpg',
+        'medias/462809259_8678821465510174_6870811168329643396_n.jpg',
+        'medias/462706501_27175587862057110_962844321954982944_n.jpg',
+        'medias/462621276_8673075696084751_1751831420627070539_n.jpg',
+        'medias/462689911_8673299302729715_414954332908294319_n.jpg',
+        'medias/462375898_8643394372386217_4514593083391467089_n.jpg',
+        'medias/462449302_8643346829057638_3989803892867381019_n.jpg',
+        'medias/459186464_1042053933814072_887394904461510536_n.jpg',
+        'medias/459356611_577106314641628_7948540754089562955_n.jpg',
+        'medias/462363904_8658776097514711_5533106840675938478_n.jpg',
+        'medias/44368292_1980244745367913_929446281657450496_n.jpg',
+        'medias/459004621_1555689078386610_7094668039658845235_n.jpg',
+        'medias/367800056_672152048156122_793282389538458180_n.jpg',
+        'medias/36587425_1406065489492992_6577183101707878400_n.jpg',
+        'medias/352547420_6224793250971161_6547627283662643830_n.jpg',
+        'medias/363393321_317589543949568_2775297006998526690_n.jpg',
+        'medias/35236221_1796469780412078_2056604506543620096_n.jpg',
+        'medias/33245584_1359256770840531_6633888055973380096_n.jpg',
+        'medias/33364897_1359257034173838_6311272906089299968_n.jpg',
+        'medias/317673616_1133154394065517_5577655773881691687_n.jpg',
+        'medias/305839661_1563103054147144_2047561859068751024_n.jpg',
+        'medias/30DC4B78-4917-44C0-BB30-B1283BA5924B.jpg',
+        'medias/22279542_10154949783416961_1236740403543318439_n.jpg',
+        'medias/242FAB21-F40A-47D7-990A-C6D381272F08.jpg',
+        'medias/20250301_013718.jpg',
+        'medias/2022-03-28(496).jpg',
+        'medias/2022-03-28(498).jpg',
+        'medias/2022-03-28(349).jpg',
+        'medias/2022-03-28(350).jpg',
+        'medias/2022-03-28(417).jpg'
+    ];
+
+    let currentImageIndex = 0;
+    const lightbox = document.querySelector('.lightbox');
+    const lightboxImage = document.querySelector('.lightbox-image');
+    const lightboxClose = document.querySelector('.lightbox-close');
+    const lightboxPrev = document.querySelector('.lightbox-prev');
+    const lightboxNext = document.querySelector('.lightbox-next');
+
+    function showImage(index) {
+        if (index >= 0 && index < images.length) {
+            currentImageIndex = index;
+            lightboxImage.src = images[currentImageIndex];
+        }
+    }
+
+    function openLightbox(index) {
+        showImage(index);
+        lightbox.classList.add('active');
+    }
+
+    function closeLightbox() {
+        lightbox.classList.remove('active');
+    }
+
+    // Gestion des clics sur les miniatures
+    images.forEach((imagePath, index) => {
+        const thumbnail = document.createElement('div');
+        thumbnail.className = 'media-thumbnail';
+        
+        const img = document.createElement('img');
+        img.src = imagePath;
+        img.alt = 'Performance';
+        img.loading = 'lazy';
+        
+        thumbnail.appendChild(img);
+        mediasGrid.appendChild(thumbnail);
+
+        // Ajout de l'événement de clic sur la miniature
+        thumbnail.addEventListener('click', () => openLightbox(index));
+    });
+
+    // Gestion des clics sur les boutons de navigation
+    lightboxClose.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeLightbox();
+    });
+
+    lightboxPrev.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showImage(currentImageIndex - 1);
+    });
+
+    lightboxNext.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showImage(currentImageIndex + 1);
+    });
+
+    // Fermer la lightbox en cliquant n'importe où
+    lightbox.addEventListener('click', (e) => {
+        if (e.target === lightbox) {
+            closeLightbox();
+        }
+    });
+
+    // Navigation au clavier
+    document.addEventListener('keydown', (e) => {
+        if (lightbox.classList.contains('active')) {
+            switch(e.key) {
+                case 'Escape':
+                    closeLightbox();
+                    break;
+                case 'ArrowLeft':
+                    showImage(currentImageIndex - 1);
+                    break;
+                case 'ArrowRight':
+                    showImage(currentImageIndex + 1);
+                    break;
+            }
+        }
+    });
+}
