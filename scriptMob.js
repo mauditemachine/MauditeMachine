@@ -70,126 +70,87 @@ function formatEventName(name) {
 }
 
 // Fonction pour charger les événements
-async function loadEvents() {
-  try {
-    const response = await fetch("events.json");
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
+function loadEvents() {
+  fetch('events.json')
+    .then(response => response.json())
+    .then(data => {
+      const eventsSection = document.querySelector('.events-section');
+      const eventsList = document.querySelector('.events-list');
+      eventsList.innerHTML = ''; // Clear existing content
 
-    const eventsContainer = document.querySelector(".events-container");
-    if (!eventsContainer) {
-      throw new Error("Container des événements non trouvé");
-    }
+      // Get current date
+      const currentDate = new Date();
+      currentDate.setHours(0, 0, 0, 0);
 
-    // Vider le container des événements
-    eventsContainer.innerHTML = "";
+      // Create containers for future and past events
+      const futureEventsContainer = document.createElement('div');
+      futureEventsContainer.className = 'future-events';
+      const pastEventsContainer = document.createElement('div');
+      pastEventsContainer.className = 'past-events';
 
-    // Créer les listes d'événements pour chaque année
-    data.events.sort((a, b) => b.year - a.year);
-    data.events.forEach((yearData) => {
-      yearData.shows.sort((a, b) => new Date(b.date) - new Date(a.date));
-      const yearEventList = createEventList(yearData.year, yearData.shows);
-      eventsContainer.appendChild(yearEventList);
-    });
+      // Add titles
+      const futureTitle = document.createElement('h3');
+      futureTitle.className = 'future-events-title';
+      futureTitle.textContent = 'Next Events';
+      futureEventsContainer.appendChild(futureTitle);
 
-    // Afficher les événements de 2025 par défaut
-    const eventList2025 = eventsContainer.querySelector('.event-list[data-year="2025"]');
-    if (eventList2025) {
-      eventList2025.classList.add("active");
-    }
+      const pastTitle = document.createElement('h3');
+      pastTitle.className = 'past-events-title';
+      pastTitle.textContent = 'Past Events';
+      pastEventsContainer.appendChild(pastTitle);
 
-    // Ajouter les écouteurs d'événements pour les boutons d'année existants
-    const yearButtons = document.querySelectorAll(".year-button");
-    yearButtons.forEach((button) => {
-      button.addEventListener("click", () => {
-        // Retirer la classe active de tous les boutons
-        yearButtons.forEach((btn) => {
-          btn.classList.remove("active");
+      // Find events for 2025
+      const year2025 = data.events.find(event => event.year === 2025);
+      if (year2025) {
+        // Sort events by date
+        year2025.shows.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        year2025.shows.forEach(show => {
+          const eventDate = new Date(show.date);
+          eventDate.setHours(0, 0, 0, 0);
+
+          const eventElement = document.createElement('div');
+          eventElement.className = 'event-item';
+
+          const dateElement = document.createElement('div');
+          dateElement.className = 'event-date';
+          dateElement.textContent = formatDate(show.date);
+
+          const nameElement = document.createElement('div');
+          nameElement.className = 'event-name';
+          nameElement.textContent = show.name;
+
+          const locationElement = document.createElement('div');
+          locationElement.className = 'event-location';
+          locationElement.textContent = `${show.venue}, ${show.city}`;
+
+          eventElement.appendChild(dateElement);
+          eventElement.appendChild(nameElement);
+          eventElement.appendChild(locationElement);
+
+          // Add to appropriate container based on date
+          if (eventDate >= currentDate) {
+            futureEventsContainer.appendChild(eventElement);
+          } else {
+            pastEventsContainer.appendChild(eventElement);
+          }
         });
-        
-        // Activer le bouton cliqué
-        button.classList.add("active");
+      }
 
-        // Masquer toutes les listes d'événements
-        document.querySelectorAll(".event-list").forEach((list) => {
-          list.classList.remove("active");
-        });
+      // Add containers to the events list
+      if (futureEventsContainer.children.length > 1) { // Check if there are any future events (excluding the title)
+        eventsList.appendChild(futureEventsContainer);
+      }
+      if (pastEventsContainer.children.length > 1) { // Check if there are any past events (excluding the title)
+        eventsList.appendChild(pastEventsContainer);
+      }
 
-        // Afficher la liste d'événements correspondante
-        const year = button.getAttribute("data-year");
-        const targetList = document.querySelector(`.event-list[data-year="${year}"]`);
-        if (targetList) {
-          targetList.classList.add("active");
-        }
-      });
+      // Add active class to show the section
+      eventsSection.classList.add('active');
+    })
+    .catch(error => {
+      console.error('Error loading events:', error);
     });
-
-    // Activer le bouton 2025 par défaut
-    const button2025 = document.querySelector('.year-button[data-year="2025"]');
-    if (button2025) {
-      button2025.classList.add("active");
-    }
-
-  } catch (error) {
-    console.error("Erreur lors du chargement des événements:", error);
-  }
-}
-
-function createEventList(year, events) {
-  const eventList = document.createElement("div");
-  eventList.className = "event-list";
-  eventList.setAttribute("data-year", year);
-
-  events.forEach((event) => {
-    // Gérer l'affichage de la ville et de la province
-    let location = event.venue;
-    if (event.venue === "Montréal" && event.city === "Québec") {
-      location = "Montréal, QC";
-    } else if (event.venue === event.city) {
-      location = event.venue;
-    } else {
-      location = `${event.venue}, ${event.city}`;
-    }
-
-    const eventElement = document.createElement("div");
-    eventElement.className = "event";
-
-    // Formater le lineup avec des retours à la ligne
-    let formattedLineup = '';
-    if (event.lineup) {
-      const lineupArray = event.lineup;
-      let currentLine = [];
-      let lines = [];
-      
-      lineupArray.forEach((artist, index) => {
-        currentLine.push(artist);
-        if (currentLine.length === 3 || index === lineupArray.length - 1) {
-          lines.push(currentLine.join(", "));
-          currentLine = [];
-        }
-      });
-      
-      formattedLineup = lines.join("<br>");
-    }
-
-    const formattedName = formatEventName(event.name);
-    const eventName = event.facebook_event 
-      ? `<div class="event-name"><a href="${event.facebook_event}" target="_blank">${formattedName}</a></div>`
-      : `<div class="event-name">${formattedName}</div>`;
-
-    eventElement.innerHTML = `
-      <div class="event-date">${formatDate(event.date)}</div>
-      ${eventName}
-      <div class="event-location">${location}</div>
-      ${event.lineup ? `<div class="event-lineup">${formattedLineup}</div>` : ""}
-    `;
-
-    eventList.appendChild(eventElement);
-  });
-
-  return eventList;
 }
 
 // Appeler la fonction au chargement de la page

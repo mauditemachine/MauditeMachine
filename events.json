@@ -26,6 +26,14 @@
           "city": "Québec",
           "lineup": ["Davidé", "Mushkin", "MauditeMachine"],
           "facebook_event": "https://www.facebook.com/events/994784815560313"
+        },
+        {
+          "date": "2025-06-24",
+          "name": "Saint-Jean-Baptiste",
+          "venue": "Louiseville",
+          "city": "QC",
+          "lineup": ["Maudite Machine"],
+          "facebook_event": "https://www.facebook.com/events/1198681918506290/"
         }
       ]
     },

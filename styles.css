@@ -955,3 +955,7 @@ section.events .events-container {
 .social-links .vrstl:hover { color: #00ff00; }
 .social-links .ableton:hover { color: #ff764d; }
 
+.event-name.future {
+  color: #FFDD00;
+}
+
