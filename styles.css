@@ -167,12 +167,16 @@ body {
 }
 
 .release-card img {
-  width: 300px;
-  height: 300px;
+  width: 100px;
+  height: 100px;
   object-fit: cover;
-  transition: transform 0.3s ease;
+  transition: transform 0.2s ease;
   cursor: pointer;
   display: block;
+}
+
+.release-card img:hover {
+  transform: scale(1.05);
 }
 
 .release-info {
@@ -193,21 +197,6 @@ body {
 
 .release-card:hover .release-info {
   transform: translateY(0);
-  opacity: 1;
-}
-
-.soundcloud-player {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  width: 100%;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  background-color: rgba(0, 0, 0, 0.7);
-}
-
-.release-card.anarchic:hover .soundcloud-player {
   opacity: 1;
 }
 
@@ -544,29 +533,30 @@ body {
 }
 
 .play-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background-color: #FFDD00;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  background-color: white;
-  color: #090a0a;
-  text-decoration: none;
-  border-radius: 50%;
-  transition: all 0.3s ease;
-  margin-left: 8px;
-  border: 1px solid white;
 }
 
 .play-button:hover {
-  background-color: #090a0a;
-  color: white;
-  transform: scale(1.1);
+  background-color: #FFE94D;
 }
 
 .play-button svg {
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
+  fill: #000;
+}
+
+.track-title {
+  font-size: 14px;
+  color: #fff;
 }
 
 .social-links-mobile {
@@ -1047,7 +1037,6 @@ section.events .events-container {
 .featured-track {
   display: flex;
   flex-direction: column;
-  padding: 20px;
   width: 100%;
   background: transparent;
 }
@@ -1059,35 +1048,19 @@ section.events .events-container {
   margin-bottom: 20px;
 }
 
-.play-button {
-  width: 46px;
-  height: 46px;
-  min-width: 46px;
-  border-radius: 50%;
-  background: #FFDD00;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.play-button:hover {
-  transform: scale(1.05);
-  background: #FFE94D;
-}
-
-.play-button svg {
-  width: 20px;
-  height: 20px;
-  fill: #111;
-}
-
-.track-title {
-  font-size: 16px;
-  font-weight: 500;
+.track-details {
+  font-size: 11px;
   color: #fff;
+}
+
+.buy-button {
+  color: #FFDD00;
+  text-decoration: none;
+  font-size: 11px;
+}
+
+.buy-button:hover {
+  text-decoration: underline;
 }
 
 .track-player {
@@ -1131,5 +1104,13 @@ section.events .events-container {
   height: 100% !important;
   overflow: hidden;
   background: transparent !important;
+}
+
+/* Suppression des styles liés aux iframes */
+.soundcloud-overlay,
+.soundcloud-player,
+.bandcamp-player,
+.release-iframe {
+  display: none;
 }
 
