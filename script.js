@@ -557,22 +557,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const waveformContainer = document.getElementById('waveform');
     
     // Initialiser Wavesurfer
-    const wavesurfer = WaveSurfer.create({
+    window.wavesurfer = WaveSurfer.create({
         container: '#waveform',
-        waveColor: '#666',
+        waveColor: '#4a4a4a',
         progressColor: '#FFDD00',
         cursorColor: '#FFDD00',
         barWidth: 2,
-        barGap: 1,
-        barRadius: 0,
-        height: 100,
-        responsive: true,
+        barRadius: 3,
+        cursorWidth: 1,
+        height: 120,
+        barGap: 2,
         normalize: true,
+        responsive: true,
         fillParent: true,
         minPxPerSec: 1,
-        interact: true,
         hideScrollbar: true,
-        backend: 'MediaElement'
+        interact: true,
+        autoCenter: true
     });
 
     // Charger l'audio avec gestion d'erreur
@@ -604,6 +605,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const percent = x / waveformContainer.offsetWidth;
         wavesurfer.seekTo(percent);
     });
+
+    // Charger les releases après l'initialisation de WaveSurfer
+    loadReleases();
 });
 
 // Fonction pour charger les releases
@@ -652,54 +656,8 @@ function updateFeaturedTrack(track) {
   }
 }
 
-// Initialiser WaveSurfer
+// Supprimer la deuxième initialisation de WaveSurfer
 document.addEventListener("DOMContentLoaded", () => {
   console.log("DOM chargé, chargement des événements et des releases...");
   loadEvents();
-  
-  // Initialiser WaveSurfer
-  window.wavesurfer = WaveSurfer.create({
-    container: "#waveform",
-    waveColor: "#4a4a4a",
-    progressColor: "#FFDD00",
-    cursorColor: "#FFDD00",
-    barWidth: 2,
-    barRadius: 3,
-    cursorWidth: 1,
-    height: 120,
-    barGap: 2,
-    normalize: true,
-    responsive: true,
-    fillParent: true,
-    minPxPerSec: 1,
-    hideScrollbar: true,
-    interact: true,
-    autoCenter: true,
-  });
-
-  // Charger les releases après l'initialisation de WaveSurfer
-  loadReleases();
-
-  // Gérer le bouton play/pause
-  const playButton = document.querySelector(".play-button");
-  if (playButton) {
-    playButton.addEventListener("click", () => {
-      wavesurfer.playPause();
-    });
-  }
-
-  // Mettre à jour l'icône du bouton play/pause
-  wavesurfer.on("play", () => {
-    const playButton = document.querySelector(".play-button svg path");
-    if (playButton) {
-      playButton.setAttribute("d", "M6 19h4V5H6v14zm8-14v14h4V5h-4z");
-    }
-  });
-
-  wavesurfer.on("pause", () => {
-    const playButton = document.querySelector(".play-button svg path");
-    if (playButton) {
-      playButton.setAttribute("d", "M8 5v14l11-7z");
-    }
-  });
 });
