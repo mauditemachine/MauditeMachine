@@ -605,3 +605,101 @@ document.addEventListener('DOMContentLoaded', function() {
         wavesurfer.seekTo(percent);
     });
 });
+
+// Fonction pour charger les releases
+async function loadReleases() {
+  try {
+    const response = await fetch("releases.json");
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json();
+
+    // Mettre à jour le featured track avec la première release
+    const featuredTrack = data.releases[0];
+    updateFeaturedTrack(featuredTrack);
+
+    // Ajouter les écouteurs d'événements pour les release cards
+    const releaseCards = document.querySelectorAll(".release-card");
+    releaseCards.forEach((card, index) => {
+      if (data.releases[index]) {
+        card.addEventListener("click", () => {
+          updateFeaturedTrack(data.releases[index]);
+        });
+      }
+    });
+
+  } catch (error) {
+    console.error("Erreur lors du chargement des releases:", error);
+  }
+}
+
+// Fonction pour mettre à jour le featured track
+function updateFeaturedTrack(track) {
+  const trackCover = document.querySelector(".track-cover img");
+  const trackTitle = document.querySelector(".track-title");
+  const trackDetails = document.querySelector(".track-details");
+
+  if (trackCover) trackCover.src = track.cover;
+  if (trackTitle) trackTitle.textContent = track.title;
+  if (trackDetails) {
+    trackDetails.innerHTML = `${track.label} - ${track.date} - ISRC: ${track.isrc} - <a href="${track.buy_link}" class="buy-button" target="_blank">Buy</a>`;
+  }
+
+  // Mettre à jour le waveform avec le nouveau fichier audio
+  if (window.wavesurfer) {
+    window.wavesurfer.load(track.file);
+  }
+}
+
+// Initialiser WaveSurfer
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("DOM chargé, chargement des événements et des releases...");
+  loadEvents();
+  
+  // Initialiser WaveSurfer
+  window.wavesurfer = WaveSurfer.create({
+    container: "#waveform",
+    waveColor: "#4a4a4a",
+    progressColor: "#FFDD00",
+    cursorColor: "#FFDD00",
+    barWidth: 2,
+    barRadius: 3,
+    cursorWidth: 1,
+    height: 120,
+    barGap: 2,
+    normalize: true,
+    responsive: true,
+    fillParent: true,
+    minPxPerSec: 1,
+    hideScrollbar: true,
+    interact: true,
+    autoCenter: true,
+  });
+
+  // Charger les releases après l'initialisation de WaveSurfer
+  loadReleases();
+
+  // Gérer le bouton play/pause
+  const playButton = document.querySelector(".play-button");
+  if (playButton) {
+    playButton.addEventListener("click", () => {
+      wavesurfer.playPause();
+    });
+  }
+
+  // Mettre à jour l'icône du bouton play/pause
+  wavesurfer.on("play", () => {
+    const playButton = document.querySelector(".play-button svg path");
+    if (playButton) {
+      playButton.setAttribute("d", "M6 19h4V5H6v14zm8-14v14h4V5h-4z");
+    }
+  });
+
+  wavesurfer.on("pause", () => {
+    const playButton = document.querySelector(".play-button svg path");
+    if (playButton) {
+      playButton.setAttribute("d", "M8 5v14l11-7z");
+    }
+  });
+});
