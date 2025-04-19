@@ -575,8 +575,13 @@ document.addEventListener('DOMContentLoaded', function() {
         backend: 'MediaElement'
     });
 
+    // Charger l'audio avec gestion d'erreur
+    wavesurfer.on('error', function(err) {
+        console.error('Erreur WaveSurfer:', err);
+    });
+
     // Charger l'audio
-    wavesurfer.load('files/Maudite Machine - Autopsynth (Original Mix).wav');
+    wavesurfer.load('files/Maudite Machine - Autopsynth (Original Mix).mp3');
 
     // Gestion du bouton play/pause
     playButton.addEventListener('click', function() {
