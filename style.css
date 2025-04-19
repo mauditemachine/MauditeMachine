@@ -1,0 +1,45 @@
+.featured-track {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    width: 100%;
+    background: transparent;
+}
+
+.release-card {
+    width: 100px;
+    height: 100px;
+    margin: 10px;
+    overflow: hidden;
+    cursor: pointer !important;
+}
+
+.release-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease !important;
+}
+
+.release-card:hover img {
+    transform: scale(1.1) !important;
+}
+
+.releases-container .release-card {
+    width: 100px;
+    height: 100px;
+    margin: 10px;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.releases-container .release-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: all 0.3s ease;
+}
+
+.releases-container .release-card:hover img {
+    transform: scale(1.1);
+} 
