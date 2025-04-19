@@ -1275,4 +1275,117 @@
     }
   }
   
+  .featured-track {
+    width: 100%;
+    max-width: 900px;
+    margin: 2rem auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1rem;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+  }
+  
+  .track-cover {
+    width: 100%;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 8px;
+  }
+  
+  .track-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .track-player {
+    width: 100%;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  
+  #waveform {
+    width: 100%;
+    height: 120px;
+    margin-bottom: 1rem;
+  }
+  
+  .player-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  .play-button {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: #ffffff;
+    color: #000000;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: transform 0.2s ease;
+  }
+  
+  .play-button:hover {
+    transform: scale(1.1);
+  }
+  
+  .track-details {
+    text-align: center;
+  }
+  
+  .track-details h3 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: #ffffff;
+  }
+  
+  .track-details p {
+    font-size: 1rem;
+    color: #cccccc;
+    margin-bottom: 0.5rem;
+  }
+  
+  .buy-button {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    background-color: #ffffff;
+    color: #000000;
+    text-decoration: none;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-top: 1rem;
+    transition: background-color 0.2s ease;
+  }
+  
+  .buy-button:hover {
+    background-color: #cccccc;
+  }
+  
+  .release-card {
+    width: calc(50% - 10px);
+    margin-bottom: 1rem;
+    cursor: pointer;
+  }
+  
+  .release-card img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 8px;
+    transition: transform 0.2s ease;
+  }
+  
+  .release-card:hover img {
+    transform: scale(1.05);
+  }
+  
   

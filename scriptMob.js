@@ -598,3 +598,151 @@ function handleTouchEnd() {
         }
     }
 }
+
+// Initialisation de Wavesurfer
+let wavesurfer;
+let currentTrack = null;
+let releases = [];
+
+// Fonction pour charger les releases
+async function loadReleases() {
+  try {
+    const response = await fetch('releases.json');
+    const data = await response.json();
+    releases = data.releases;
+    console.log('Releases chargées:', releases);
+    
+    // Ajouter les event listeners aux cartes de release
+    const releaseCards = document.querySelectorAll('.release-card');
+    releaseCards.forEach((card, index) => {
+      card.addEventListener('click', () => {
+        const img = card.querySelector('img');
+        const altText = img.alt;
+        console.log('Carte cliquée:', altText);
+        
+        // Trouver la release correspondante
+        const release = releases.find(r => {
+          const title = r.title.split(' - ')[1].split(' (')[0];
+          return title.toLowerCase() === altText.toLowerCase();
+        });
+        
+        if (release) {
+          console.log('Release trouvée:', release);
+          updateFeaturedTrack(release);
+        } else {
+          console.log('Release non trouvée pour:', altText);
+        }
+      });
+    });
+    
+    // Initialiser avec la première release
+    if (releases.length > 0) {
+      updateFeaturedTrack(releases[0]);
+    }
+  } catch (error) {
+    console.error('Erreur lors du chargement des releases:', error);
+  }
+}
+
+// Fonction pour mettre à jour la piste en vedette
+function updateFeaturedTrack(track) {
+  console.log('Mise à jour de la piste:', track);
+  
+  // Mettre à jour la couverture
+  const trackCover = document.querySelector('.track-cover img');
+  trackCover.src = track.cover;
+  trackCover.alt = track.title;
+  
+  // Mettre à jour les détails
+  const trackDetails = document.querySelector('.track-details');
+  trackDetails.querySelector('h3').textContent = track.title.split(' - ')[1].split(' (')[0];
+  trackDetails.querySelector('p:nth-of-type(1)').textContent = track.label;
+  trackDetails.querySelector('p:nth-of-type(2)').textContent = track.date;
+  
+  const buyButton = trackDetails.querySelector('.buy-button');
+  if (track.buy_link) {
+    buyButton.href = track.buy_link;
+    buyButton.style.display = 'block';
+  } else {
+    buyButton.style.display = 'none';
+  }
+  
+  // Sauvegarder l'état de lecture actuel
+  const wasPlaying = wavesurfer && wavesurfer.isPlaying();
+  
+  // Détruire l'instance Wavesurfer existante si elle existe
+  if (wavesurfer) {
+    wavesurfer.destroy();
+  }
+  
+  // Créer une nouvelle instance Wavesurfer
+  wavesurfer = WaveSurfer.create({
+    container: '#waveform',
+    waveColor: '#4a4a4a',
+    progressColor: '#ffffff',
+    cursorColor: '#ffffff',
+    barWidth: 2,
+    barRadius: 3,
+    cursorWidth: 1,
+    height: 120,
+    barGap: 3,
+    responsive: true,
+    normalize: true,
+    partialRender: true
+  });
+  
+  // Charger le nouveau fichier audio
+  wavesurfer.load(track.file);
+  
+  // Restaurer l'état de lecture
+  if (wasPlaying) {
+    wavesurfer.on('ready', () => {
+      wavesurfer.play();
+    });
+  }
+  
+  // Mettre à jour le bouton play/pause
+  const playButton = document.getElementById('play-button');
+  playButton.onclick = () => {
+    wavesurfer.playPause();
+  };
+  
+  // Mettre à jour l'icône du bouton play/pause
+  wavesurfer.on('play', () => {
+    playButton.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" fill="currentColor"/></svg>';
+  });
+  
+  wavesurfer.on('pause', () => {
+    playButton.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>';
+  });
+  
+  currentTrack = track;
+}
+
+// Charger les releases au chargement de la page
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM chargé, chargement des releases...');
+  loadReleases();
+  
+  // Charger la galerie
+  loadGallery();
+  createSlides();
+  
+  // Événements pour les boutons
+  prevButton.addEventListener('click', () => goToSlide(currentSlide - 1));
+  nextButton.addEventListener('click', () => goToSlide(currentSlide + 1));
+  
+  // Événements tactiles
+  slider.addEventListener('touchstart', handleTouchStart);
+  slider.addEventListener('touchmove', handleTouchMove);
+  slider.addEventListener('touchend', handleTouchEnd);
+  
+  // Navigation au clavier
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') {
+      goToSlide(currentSlide - 1);
+    } else if (e.key === 'ArrowRight') {
+      goToSlide(currentSlide + 1);
+    }
+  });
+});

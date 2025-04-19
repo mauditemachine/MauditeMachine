@@ -69,79 +69,56 @@
           <a href="#media">Media</a>
         </div>
 
-        <iframe width="100%" height="300" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/2041486933&color=%23363125&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=false&show_artwork=true&visual=true"></iframe>
-        <div style="font-size: 10px; color: #cccccc;line-break: anywhere;word-break: normal;overflow: hidden;white-space: nowrap;text-overflow: ellipsis; font-family: Interstate,Lucida Grande,Lucida Sans Unicode,Lucida Sans,Garuda,Verdana,Tahoma,sans-serif;font-weight: 100;">
-          <a href="https://soundcloud.com/mauditemachine" title="Maudite Machine" target="_blank" style="color: #cccccc; text-decoration: none;">Maudite Machine</a> · 
-          <a href="https://soundcloud.com/mauditemachine/autopsynth" title="Autopsynth" target="_blank" style="color: #cccccc; text-decoration: none;">Autopsynth</a>
-        </div>
-
-        <iframe width="100%" height="300" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/2033069728&color=%23363125&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=false&show_artwork=true&visual=true"></iframe>
-        <div style="font-size: 10px; color: #cccccc;line-break: anywhere;word-break: normal;overflow: hidden;white-space: nowrap;text-overflow: ellipsis; font-family: Interstate,Lucida Grande,Lucida Sans Unicode,Lucida Sans,Garuda,Verdana,Tahoma,sans-serif;font-weight: 100;">
-          <a href="https://soundcloud.com/mauditemachine" title="Maudite Machine" target="_blank" style="color: #cccccc; text-decoration: none;">Maudite Machine</a> · 
-          <a href="https://soundcloud.com/mauditemachine/nocturne" title="Nocturne" target="_blank" style="color: #cccccc; text-decoration: none;">Nocturne</a>
-        </div>
+        <section class="featured-track">
+          <div class="track-cover">
+            <img src="files/Autopsynth.jpg" alt="Featured Track Cover" />
+          </div>
+          <div class="track-player">
+            <div id="waveform"></div>
+            <div class="player-controls">
+              <button id="play-button" class="play-button">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                  <path d="M8 5v14l11-7z" fill="currentColor" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="track-details">
+            <h3>Autopsynth</h3>
+            <p>VRSTL Records</p>
+            <p>March 21, 2025</p>
+            <a href="https://bit.ly/3Rhh7xz" class="buy-button" target="_blank">Buy</a>
+          </div>
+        </section>
 
         <section class="releases-section">
-          <div class="featured-release">
-            <iframe width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/2041486933&color=%23363636&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true"></iframe>
-            <div style="font-size: 10px; color: #cccccc;line-break: anywhere;word-break: normal;overflow: hidden;white-space: nowrap;text-overflow: ellipsis; font-family: Interstate,Lucida Grande,Lucida Sans Unicode,Lucida Sans,Garuda,Verdana,Tahoma,sans-serif;font-weight: 100;"><a href="https://soundcloud.com/mauditemachine" title="Maudite Machine" target="_blank" style="color: #cccccc; text-decoration: none;">Maudite Machine</a> · <a href="https://soundcloud.com/mauditemachine/autopsynth" title="Autopsynth" target="_blank" style="color: #cccccc; text-decoration: none;">Autopsynth</a></div>
-          </div>
           <div class="releases-container">
-            <div class="release-iframe">
-              <div class="release-cover">
-                <img src="files/Autopsynth.jpg" alt="Autopsynth" />
-                <div class="soundcloud-overlay">
-                  <iframe width="100%" height="100%" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/2041486933&color=%23232323&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true"></iframe>
-                </div>
-              </div>
+            <div class="release-card">
+              <img src="files/Autopsynth.jpg" alt="Autopsynth" />
             </div>
-            <div class="release-iframe">
-              <div class="release-cover">
-                <img src="files/Nocturne.jpg" alt="Nocturne" />
-                <div class="soundcloud-overlay">
-                  <iframe width="100%" height="100%" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/2033069728&color=%23232323&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true"></iframe>
-                </div>
-              </div>
+            <div class="release-card">
+              <img src="files/Nocturne.jpg" alt="Nocturne" />
             </div>
-            <div class="release-iframe">
-              <div class="release-cover">
-                <img src="files/BackOnTrack.jpg" alt="Back On Track" />
-                <div class="soundcloud-overlay">
-                  <iframe width="100%" height="100%" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/2043036668&color=%23232323&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true"></iframe>
-                </div>
-              </div>
+            <div class="release-card">
+              <img src="files/BackOnTrack.jpg" alt="Back On Track" />
             </div>
-            <div class="release-iframe">
-              <div class="release-cover">
-                <img src="files/Coagule.jpg" alt="Coagule" />
-                <div class="soundcloud-overlay">
-                  <iframe width="100%" height="100%" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/2026644908&color=%23232323&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true"></iframe>
-                </div>
-              </div>
+            <div class="release-card">
+              <img src="files/Coagule.jpg" alt="Coagule" />
             </div>
-            <div class="release-iframe">
-              <div class="release-cover">
-                <img src="files/Richie.jpg" alt="Richie" />
-                <div class="soundcloud-overlay">
-                  <iframe width="100%" height="100%" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/2002621459&color=%23232323&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true"></iframe>
-                </div>
-              </div>
+            <div class="release-card">
+              <img src="files/Richie.jpg" alt="Richie" />
             </div>
-            <div class="release-iframe">
-              <div class="release-cover">
-                <img src="files/TatiCardi.jpg" alt="Tati Cardi" />
-                <div class="soundcloud-overlay">
-                  <iframe width="100%" height="100%" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/2001680067&color=%23232323&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true"></iframe>
-                </div>
-              </div>
+            <div class="release-card">
+              <img src="files/TatiCardi.jpg" alt="Tati Cardi" />
             </div>
-            <div class="release-iframe">
-              <div class="release-cover">
-                <img src="files/CrushOnYou.jpg" alt="Crush On You" />
-                <div class="soundcloud-overlay">
-                  <iframe width="100%" height="100%" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/2001678383&color=%23232323&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true&visual=true"></iframe>
-                </div>
-              </div>
+            <div class="release-card">
+              <img src="files/CrushOnYou.jpg" alt="Crush On You" />
+            </div>
+            <div class="release-card">
+              <img src="files/DramaQueen.jpg" alt="Drama Queen" />
+            </div>
+            <div class="release-card">
+              <img src="files/Discowriders.jpg" alt="Discowriders" />
             </div>
           </div>
         </section>
@@ -197,18 +174,6 @@
               <div class="gallery-item">
                 <img src="medias/462865694_8685759721483015_5923342074493657173_n.jpg" alt="Performance" />
               </div>
-              <div class="gallery-item">
-                <img src="medias/485846148_1274711884374187_5193956134369394734_n.jpg" alt="Performance" />
-              </div>
-              <div class="gallery-item">
-                <img src="medias/242FAB21-F40A-47D7-990A-C6D381272F08.jpg" alt="Performance" />
-              </div>
-              <div class="gallery-item">
-                <img src="medias/462809259_8678821465510174_6870811168329643396_n.jpg" alt="Performance" />
-              </div>
-              <div class="gallery-item">
-                <img src="medias/489986640_1292139175964791_2919881732553449897_n.jpg" alt="Performance" />
-              </div>
             </div>
           </div>
         </section>
@@ -230,5 +195,6 @@
     <script src="https://w.soundcloud.com/player/api.js"></script>
     <script src="scriptMob.js"></script>
     <script src="script.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7"></script>
   </body>
 </html>
