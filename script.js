@@ -212,7 +212,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         
         // Réinitialiser les boutons
-        document.querySelectorAll('.nav-button').forEach(button => {
+        navButtons.forEach(button => {
             button.classList.remove('active');
         });
         
@@ -232,16 +232,18 @@ document.addEventListener('DOMContentLoaded', function() {
         button.addEventListener('click', function(e) {
             e.preventDefault();
             
-            // Réinitialiser l'état
-            resetState();
+            // Retirer la classe active de tous les boutons
+            navButtons.forEach(btn => {
+                btn.classList.remove('active');
+            });
             
             // Activer le bouton cliqué
             button.classList.add('active');
             
-            // Déplacer le contenu vers le haut uniquement la première fois
+            // Déplacer le contenu vers le bas uniquement la première fois
             if (!contentMoved) {
                 requestAnimationFrame(() => {
-                    content.style.marginTop = '8rem';
+                    content.style.marginTop = '25px';
                 });
                 contentMoved = true;
             }
@@ -300,7 +302,8 @@ function loadMedias() {
     }
 
     mediasGrid.innerHTML = '';
-    
+
+    // Liste des images avec leur chemin exact comme dans le dossier
     const images = [
         'medias/_DSC2160.jpg',
         'medias/_DSC1941-Enhanced-NR.jpg',
@@ -312,17 +315,11 @@ function loadMedias() {
         'medias/YUL_0324-2.jpg',
         'medias/YUL_0330.jpg',
         'medias/JoGorsky_2025-02_Pinup-Valentines_091.jpg',
-        'medias/Locomote 12.jpg',
-        'medias/Photo (7272)uu.jpg',
         'medias/JoGorsky_2024-10_Monstrocity-Halloween_074.jpg',
         'medias/JoGorsky_2024-10_Monstrocity-Halloween_077.jpg',
         'medias/DSCF9997_edit1.jpg',
         'medias/DSCF9991_edit1.jpg',
         'medias/DSCF0006_edit1.jpg',
-        'medias/Capture d\'écran, le 2025-04-16 à 15.00.06.png',
-        'medias/Capture d\'écran, le 2025-04-16 à 14.27.04.png',
-        'medias/Capture d\'écran, le 2025-04-16 à 14.26.38.png',
-        'medias/Capture d\'écran, le 2025-04-16 à 14.26.25.png',
         'medias/7AF2D730-3F53-4942-984E-FABAC8C9B85E.jpg',
         'medias/BackOnTrack.jpg',
         'medias/53690C8F-98DC-4FAF-843F-51397D20FF2D.jpg',
@@ -404,24 +401,146 @@ function loadMedias() {
         'medias/2022-03-28(417).jpg'
     ];
 
-    images.forEach(src => {
-        const thumbnail = document.createElement('div');
-        thumbnail.className = 'media-thumbnail';
-        
-        const img = document.createElement('img');
-        img.src = src;
-        img.alt = '';
-        
-        // Ajouter un gestionnaire d'erreurs
-        img.onerror = function() {
-            console.error(`Erreur de chargement de l'image: ${src}`);
-            this.style.display = 'none';
-            thumbnail.style.backgroundColor = '#ff0000';
-            thumbnail.style.cursor = 'not-allowed';
-        };
-        
-        thumbnail.appendChild(img);
-        mediasGrid.appendChild(thumbnail);
+    function createThumbnail(imagePath, index) {
+        return new Promise((resolve) => {
+            const thumbnail = document.createElement('div');
+            thumbnail.className = 'media-thumbnail';
+            
+            const img = new Image();
+            img.alt = 'Media thumbnail';
+            
+            // Nettoyer le chemin de l'image
+            const cleanPath = imagePath
+                .replace(/\n/g, '') // Enlever les retours à la ligne
+                .replace(/\./g, '.') // Remplacer les points potentiellement cassés
+                .trim(); // Enlever les espaces en début/fin
+            
+            img.onload = () => {
+                thumbnail.appendChild(img);
+                thumbnail.addEventListener('click', () => openLightbox(index));
+                resolve(thumbnail);
+            };
+            
+            img.onerror = () => {
+                console.error(`Erreur de chargement: ${cleanPath}`);
+                // Essayer avec l'encodage complet
+                const encodedPath = encodeURIComponent(cleanPath)
+                    .replace(/%2F/g, '/') // Restaurer les slashes
+                    .replace(/%20/g, ' ') // Restaurer les espaces
+                    .replace(/%27/g, "'") // Restaurer les apostrophes
+                    .replace(/%28/g, '(') // Restaurer les parenthèses
+                    .replace(/%29/g, ')');
+                
+                img.src = encodedPath;
+                
+                // Si ça échoue encore, dernier essai avec un autre encodage
+                img.onerror = () => {
+                    const lastTry = btoa(cleanPath);
+                    img.src = `data:image/jpeg;base64,${lastTry}`;
+                    
+                    img.onerror = () => {
+                        console.error(`Échec définitif: ${cleanPath}`);
+                        thumbnail.style.backgroundColor = 'red';
+                        thumbnail.style.cursor = 'not-allowed';
+                        resolve(thumbnail);
+                    };
+                };
+            };
+            
+            img.src = cleanPath;
+        });
+    }
+
+    // Charger toutes les images
+    Promise.all(images.map((path, index) => createThumbnail(path, index)))
+        .then(thumbnails => {
+            thumbnails.forEach(thumbnail => mediasGrid.appendChild(thumbnail));
+        });
+
+    // Initialisation de la lightbox
+    const lightbox = document.querySelector('.lightbox');
+    const lightboxImage = document.querySelector('.lightbox-image');
+    const lightboxClose = document.querySelector('.lightbox-close');
+    const lightboxPrev = document.querySelector('.lightbox-prev');
+    const lightboxNext = document.querySelector('.lightbox-next');
+    let currentImageIndex = 0;
+    let autoSlideInterval;
+
+    function showImage(index) {
+        if (index < 0) index = images.length - 1;
+        if (index >= images.length) index = 0;
+        currentImageIndex = index;
+        const encodedPath = encodeURI(images[index]);
+        lightboxImage.src = encodedPath;
+    }
+
+    function startAutoSlide() {
+        autoSlideInterval = setInterval(() => {
+            showImage(currentImageIndex + 1);
+        }, 5000); // Change d'image toutes les 5 secondes
+    }
+
+    function stopAutoSlide() {
+        if (autoSlideInterval) {
+            clearInterval(autoSlideInterval);
+        }
+    }
+
+    function openLightbox(index) {
+        currentImageIndex = index;
+        lightboxImage.src = images[index];
+        lightbox.classList.add('active');
+        document.body.style.overflow = 'hidden';
+        startAutoSlide();
+    }
+
+    function closeLightbox() {
+        lightbox.classList.remove('active');
+        document.body.style.overflow = '';
+        stopAutoSlide();
+    }
+
+    // Ajout des événements pour la navigation
+    lightboxPrev.addEventListener('click', (e) => {
+        e.stopPropagation();
+        stopAutoSlide();
+        showImage(currentImageIndex - 1);
+        startAutoSlide();
+    });
+
+    lightboxNext.addEventListener('click', (e) => {
+        e.stopPropagation();
+        stopAutoSlide();
+        showImage(currentImageIndex + 1);
+        startAutoSlide();
+    });
+
+    lightboxClose.addEventListener('click', (e) => {
+        e.stopPropagation();
+        closeLightbox();
+    });
+
+    lightbox.addEventListener('click', (e) => {
+        if (e.target === lightbox) {
+            closeLightbox();
+        }
+    });
+
+    // Navigation au clavier
+    document.addEventListener('keydown', (e) => {
+        if (lightbox.classList.contains('active')) {
+            if (e.key === 'Escape') {
+                closeLightbox();
+            } else if (e.key === 'ArrowLeft') {
+                stopAutoSlide();
+                showImage(currentImageIndex - 1);
+                startAutoSlide();
+            } else if (e.key === 'ArrowRight') {
+                stopAutoSlide();
+                showImage(currentImageIndex + 1);
+                startAutoSlide();
+            }
+        }
     });
 }
 
