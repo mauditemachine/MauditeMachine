@@ -625,10 +625,23 @@ async function loadReleases() {
 
     // Ajouter les écouteurs d'événements pour les release cards
     const releaseCards = document.querySelectorAll(".release-card");
-    releaseCards.forEach((card, index) => {
-      if (data.releases[index]) {
+    releaseCards.forEach((card) => {
+      const img = card.querySelector('img');
+      if (img) {
+        const altText = img.alt; // Par exemple "Back On Track"
         card.addEventListener("click", () => {
-          updateFeaturedTrack(data.releases[index]);
+          // Trouver la release correspondante dans le JSON
+          const release = data.releases.find(r => {
+            // Vérifier plusieurs critères pour trouver la bonne release
+            return r.cover.includes(altText.replace(/\s+/g, '')) || // Vérifie le nom du fichier sans espaces
+                   r.title.includes(altText) || // Vérifie si le titre contient le texte alt
+                   altText.includes(r.title.split(' - ')[1].split(' (')[0]); // Vérifie le nom de la track sans le préfixe et le suffixe
+          });
+          
+          if (release) {
+            console.log('Clicked release:', release.title);
+            updateFeaturedTrack(release);
+          }
         });
       }
     });
@@ -640,11 +653,15 @@ async function loadReleases() {
 
 // Fonction pour mettre à jour le featured track
 function updateFeaturedTrack(track) {
+  console.log('Updating featured track with:', track);
   const trackCover = document.querySelector(".track-cover img");
   const trackTitle = document.querySelector(".track-title");
   const trackDetails = document.querySelector(".track-details");
 
-  if (trackCover) trackCover.src = track.cover;
+  if (trackCover) {
+    console.log('Updating cover image to:', track.cover);
+    trackCover.src = track.cover;
+  }
   if (trackTitle) trackTitle.textContent = track.title;
   if (trackDetails) {
     trackDetails.innerHTML = `${track.label} - ${track.date} - ISRC: ${track.isrc} - <a href="${track.buy_link}" class="buy-button" target="_blank">Buy</a>`;
@@ -652,6 +669,7 @@ function updateFeaturedTrack(track) {
 
   // Mettre à jour le waveform avec le nouveau fichier audio
   if (window.wavesurfer) {
+    console.log('Loading new audio file:', track.file);
     window.wavesurfer.load(track.file);
   }
 }

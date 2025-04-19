@@ -23,9 +23,9 @@
       "file": "files/Maudite Machine - Nocturne (Original Mix).mp3",
       "cover": "files/Nocturne.jpg",
       "isrc": "UKXN22566699",
-      "date": "February 13, 2025 - ISRC: UKXN22566699",
+      "date": "February 13, 2025",
       "label": "VRSTL",
-      "buy": "https://bit.ly/3CSe37i"
+      "buy_link": "https://bit.ly/3CSe37i"
     },
     {
       "title": "Maudite Machine - Back On Track",
@@ -34,52 +34,52 @@
       "isrc": "",
       "date": "March 6, 2025",
       "label": "VRSTL",
-      "buy": "https://bit.ly/41xletQ"
+      "buy_link": "https://bit.ly/41xletQ"
     },
     {
       "title": "Maudite Machine - Richie",
       "file": "files/Maudite Machine - Richie (Original Mix).mp3",
       "cover": "files/Richie.jpg",
       "isrc": "GXF9Q2587530",
-      "date": "January 16, 2025 - ISRC: GXF9Q2587530",
+      "date": "January 16, 2025",
       "label": "VRSTL",
-      "buy": "https://bit.ly/40itaie"
+      "buy_link": "https://bit.ly/40itaie"
     },
     {
       "title": "Maudite Machine - Crush On You",
       "file": "files/Maudite Machine - Crush On You (Original Mix).mp3",
       "cover": "files/CrushOnYou.jpg",
       "isrc": "GXF9Q2523899",
-      "date": "December 25, 2024 - ISRC: GXF9Q2523899",
+      "date": "December 25, 2024",
       "label": "VRSTL",
-      "buy": "https://bit.ly/3Pe4CBB"
+      "buy_link": "https://bit.ly/3Pe4CBB"
     },
     {
       "title": "Maudite Machine - Tati Cardi",
       "file": "files/Maudite Machine - Tati Cardi (Original Mix).mp3",
       "cover": "files/TatiCardi.jpg",
       "isrc": "GXF9Q2523898",
-      "date": "December 25, 2024 - ISRC: GXF9Q2523898",
+      "date": "December 25, 2024",
       "label": "VRSTL",
-      "buy": "https://bit.ly/4gWPgxn"
+      "buy_link": "https://bit.ly/4gWPgxn"
     },
     {
       "title": "Maudite Machine - DramaQueen",
       "file": "files/Maudite Machine - Drama Queen (Original Mix).mp3",
       "cover": "files/DramaQueen.jpg",
       "isrc": "GXF9Q2447852",
-      "date": "December 6, 2024 - ISRC: GXF9Q2447852",
+      "date": "December 6, 2024",
       "label": "VRSTL",
-      "buy": "https://bit.ly/3BP8xC0"
+      "buy_link": "https://bit.ly/3BP8xC0"
     },
     {
       "title": "Maudite Machine - Discowriders",
       "file": "files/Maudite Machine - Discowriders (Original Mix).mp3",
       "cover": "files/Discowriders.jpg",
       "isrc": "GBMA22420292",
-      "date": "July 4, 2024 - ISRC: GBMA22420292",
+      "date": "July 4, 2024",
       "label": "VRSTL",
-      "buy": "https://bit.ly/4admFSp"
+      "buy_link": "https://bit.ly/4admFSp"
     }
   ]
 } 
