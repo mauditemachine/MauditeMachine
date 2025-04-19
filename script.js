@@ -549,3 +549,54 @@ document.addEventListener('DOMContentLoaded', () => {
   loadMedias();
   loadEvents();
 });
+
+// Gestion du lecteur audio
+document.addEventListener('DOMContentLoaded', function() {
+    const audio = document.getElementById('featured-audio');
+    const playButton = document.querySelector('.play-button');
+    const waveformContainer = document.getElementById('waveform');
+    
+    // Initialiser Wavesurfer
+    const wavesurfer = WaveSurfer.create({
+        container: '#waveform',
+        waveColor: '#666',
+        progressColor: '#FFDD00',
+        cursorColor: '#FFDD00',
+        barWidth: 2,
+        barGap: 1,
+        barRadius: 0,
+        height: 100,
+        responsive: true,
+        normalize: true,
+        fillParent: true,
+        minPxPerSec: 1,
+        interact: true,
+        hideScrollbar: true,
+        backend: 'MediaElement'
+    });
+
+    // Charger l'audio
+    wavesurfer.load('files/Maudite Machine - Autopsynth (Original Mix).wav');
+
+    // Gestion du bouton play/pause
+    playButton.addEventListener('click', function() {
+        wavesurfer.playPause();
+    });
+
+    // Mettre à jour le bouton play/pause
+    wavesurfer.on('play', function() {
+        playButton.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>';
+    });
+
+    wavesurfer.on('pause', function() {
+        playButton.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+    });
+
+    // Gestion du clic sur la waveform
+    waveformContainer.addEventListener('click', function(e) {
+        const rect = waveformContainer.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const percent = x / waveformContainer.offsetWidth;
+        wavesurfer.seekTo(percent);
+    });
+});

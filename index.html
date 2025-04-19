@@ -69,8 +69,25 @@
 
         <section class="releases-section">
           <div class="featured-release">
-            <iframe width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/2041486933&color=%23363636&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true"></iframe>
-            <div style="font-size: 10px; color: #cccccc;line-break: anywhere;word-break: normal;overflow: hidden;white-space: nowrap;text-overflow: ellipsis; font-family: Interstate,Lucida Grande,Lucida Sans Unicode,Lucida Sans,Garuda,Verdana,Tahoma,sans-serif;font-weight: 100;"><a href="https://soundcloud.com/mauditemachine" title="Maudite Machine" target="_blank" style="color: #cccccc; text-decoration: none;">Maudite Machine</a> · <a href="https://soundcloud.com/mauditemachine/autopsynth" title="Autopsynth" target="_blank" style="color: #cccccc; text-decoration: none;">Autopsynth</a></div>
+            <div class="featured-track">
+                <div class="track-info">
+                    <button class="play-button">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                    </button>
+                    <div class="track-title">Maudite Machine</div>
+                </div>
+                <div class="track-player">
+                    <div class="track-cover">
+                        <img src="files/Autopsynth.jpg" alt="Autopsynth Cover">
+                    </div>
+                    <div class="waveform-container">
+                        <div id="waveform"></div>
+                    </div>
+                </div>
+                <audio id="featured-audio" src="files/Maudite Machine - Autopsynth (Original Mix).wav"></audio>
+            </div>
           </div>
           <div class="releases-container">
             <div class="release-iframe">
@@ -186,6 +203,7 @@
 
     <!-- SoundCloud Widget API -->
     <script src="https://w.soundcloud.com/player/api.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7"></script>
     <script src="script.js"></script>
 
     <div class="lightbox">
