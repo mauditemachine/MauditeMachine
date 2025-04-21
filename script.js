@@ -194,8 +194,9 @@ function createEventList(year, events) {
 
 // Appeler la fonction au chargement de la page
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("DOM chargé, chargement des événements...");
+  console.log("DOM chargé, chargement des événements et des releases...");
   loadEvents();
+  loadReleases();
 });
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -301,9 +302,10 @@ function loadMedias() {
         return;
     }
 
+    // Vider la grille avant de recharger
     mediasGrid.innerHTML = '';
 
-    // Liste des images avec leur chemin exact comme dans le dossier
+    // Liste des images avec leur chemin exact
     const images = [
         'medias/_DSC2160.jpg',
         'medias/_DSC1941-Enhanced-NR.jpg',
@@ -409,11 +411,13 @@ function loadMedias() {
             const img = new Image();
             img.alt = 'Media thumbnail';
             
-            // Nettoyer le chemin de l'image
-            const cleanPath = imagePath
-                .replace(/\n/g, '') // Enlever les retours à la ligne
-                .replace(/\./g, '.') // Remplacer les points potentiellement cassés
-                .trim(); // Enlever les espaces en début/fin
+            // Nettoyer le chemin de l'image et encoder correctement
+            const cleanPath = imagePath.trim();
+            const encodedPath = encodeURI(cleanPath)
+                .replace(/\(/g, '%28')
+                .replace(/\)/g, '%29')
+                .replace(/'/g, '%27')
+                .replace(/,/g, '%2C');
             
             img.onload = () => {
                 thumbnail.appendChild(img);
@@ -423,31 +427,12 @@ function loadMedias() {
             
             img.onerror = () => {
                 console.error(`Erreur de chargement: ${cleanPath}`);
-                // Essayer avec l'encodage complet
-                const encodedPath = encodeURIComponent(cleanPath)
-                    .replace(/%2F/g, '/') // Restaurer les slashes
-                    .replace(/%20/g, ' ') // Restaurer les espaces
-                    .replace(/%27/g, "'") // Restaurer les apostrophes
-                    .replace(/%28/g, '(') // Restaurer les parenthèses
-                    .replace(/%29/g, ')');
-                
-                img.src = encodedPath;
-                
-                // Si ça échoue encore, dernier essai avec un autre encodage
-                img.onerror = () => {
-                    const lastTry = btoa(cleanPath);
-                    img.src = `data:image/jpeg;base64,${lastTry}`;
-                    
-                    img.onerror = () => {
-                        console.error(`Échec définitif: ${cleanPath}`);
-                        thumbnail.style.backgroundColor = 'red';
-                        thumbnail.style.cursor = 'not-allowed';
-                        resolve(thumbnail);
-                    };
-                };
+                // Cacher les thumbnails en erreur
+                thumbnail.style.display = 'none';
+                resolve(thumbnail);
             };
             
-            img.src = cleanPath;
+            img.src = encodedPath;
         });
     }
 
@@ -548,6 +533,7 @@ function loadMedias() {
 document.addEventListener('DOMContentLoaded', () => {
   loadMedias();
   loadEvents();
+  loadReleases();
 });
 
 // Gestion du lecteur audio
@@ -673,9 +659,3 @@ function updateFeaturedTrack(track) {
     window.wavesurfer.load(track.file);
   }
 }
-
-// Supprimer la deuxième initialisation de WaveSurfer
-document.addEventListener("DOMContentLoaded", () => {
-  console.log("DOM chargé, chargement des événements et des releases...");
-  loadEvents();
-});
