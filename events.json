@@ -33,7 +33,9 @@
           "venue": "Louiseville",
           "city": "QC",
           "lineup": ["Maudite Machine"],
-          "facebook_event": "https://www.facebook.com/events/1198681918506290/",
+          "facebook_event": "https://www.facebook.com/events/1198681918506290/"
+        },
+        {
           "name": "TBA",
           "date": "2025-06-05",
           "venue": "Montréal",
