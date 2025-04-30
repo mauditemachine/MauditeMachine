@@ -23,8 +23,12 @@
     <label>Ville : <input type="text" name="city" required></label>
     <label>Lineup (séparé par des virgules) : <input type="text" name="lineup"></label>
     <label>Facebook event : <input type="text" name="facebook_event"></label>
-    <button type="submit">Générer JSON</button>
+    <button type="submit">Ajouter à la liste</button>
   </form>
+
+  <button id="removeLastEvent" style="background:#c00;color:#fff;padding:0.5rem 1rem;border:none;border-radius:4px;cursor:pointer;margin-bottom:1rem;">
+    Supprimer le dernier event généré
+  </button>
 
   <pre id="eventResult"></pre>
 
@@ -37,12 +41,21 @@
     <label>Fichier audio : <input type="text" name="file"></label>
     <label>Pochette (cover) : <input type="text" name="cover"></label>
     <label>Lien d'achat : <input type="text" name="buy_link"></label>
-    <button type="submit">Générer JSON</button>
+    <button type="submit">Ajouter à la liste</button>
   </form>
+
+  <button id="removeLastRelease" style="background:#c00;color:#fff;padding:0.5rem 1rem;border:none;border-radius:4px;cursor:pointer;margin-bottom:1rem;">
+    Supprimer la dernière release générée
+  </button>
 
   <pre id="releaseResult"></pre>
 
   <script>
+    // Liste temporaire des events générés
+    let events = [];
+    // Liste temporaire des releases générées
+    let releases = [];
+
     // Générateur d'event
     document.getElementById('eventForm').onsubmit = function(e) {
       e.preventDefault();
@@ -50,16 +63,42 @@
       if (data.lineup) data.lineup = data.lineup.split(',').map(s => s.trim()).filter(Boolean);
       else delete data.lineup;
       if (!data.facebook_event) delete data.facebook_event;
-      document.getElementById('eventResult').textContent = JSON.stringify(data, null, 2);
+      events.push(data);
+      afficherEvents();
+      this.reset();
     };
+
+    // Supprimer le dernier event
+    document.getElementById('removeLastEvent').onclick = function() {
+      events.pop();
+      afficherEvents();
+    };
+
+    // Afficher la liste des events générés
+    function afficherEvents() {
+      document.getElementById('eventResult').textContent = JSON.stringify(events, null, 2);
+    }
 
     // Générateur de release
     document.getElementById('releaseForm').onsubmit = function(e) {
       e.preventDefault();
       const data = Object.fromEntries(new FormData(this).entries());
       for (const key in data) if (!data[key]) delete data[key];
-      document.getElementById('releaseResult').textContent = JSON.stringify(data, null, 2);
+      releases.push(data);
+      afficherReleases();
+      this.reset();
     };
+
+    // Supprimer la dernière release
+    document.getElementById('removeLastRelease').onclick = function() {
+      releases.pop();
+      afficherReleases();
+    };
+
+    // Afficher la liste des releases générées
+    function afficherReleases() {
+      document.getElementById('releaseResult').textContent = JSON.stringify(releases, null, 2);
+    }
   </script>
 </body>
 </html> 
