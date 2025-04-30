@@ -41,6 +41,13 @@
           "city": "Montréal, QC"
         },
         {
+          "name": "TBA",
+          "date": "2025-06-13",
+          "venue": "Union Française",
+          "city": "Montréal",
+          "lineup": ["Wagnr"]
+        },
+        {
           "date": "2025-06-24",
           "name": "Saint-Jean-Baptiste",
           "venue": "Louiseville",
