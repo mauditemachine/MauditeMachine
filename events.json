@@ -40,6 +40,13 @@
           "date": "2025-06-05",
           "venue": "Jardins Gamelin",
           "city": "Montréal, QC"
+        },
+        {
+          "name": "Tesla Night",
+          "date": "2025-05-10",
+          "venue": "Bar La Shop",
+          "city": "Montréal",
+          "lineup": ["Sabi Non Stop"]
         }
       ]
     },
