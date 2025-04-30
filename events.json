@@ -4,12 +4,12 @@
       "year": 2025,
       "shows": [
         {
-          "name": "Luminarium",
-          "date": "2025-02-28",
+          "name": "Pinup Valentines",
+          "date": "2025-02-14",
           "venue": "Montréal",
           "city": "Québec",
-          "lineup": ["Myda", "Quantaloop", "Kristin", "Nocide", "Narko", "Lara S", "Deadliner", "MauditeMachine"],
-          "facebook_event": "https://www.facebook.com/events/2244952099238528"
+          "lineup": ["Davidé", "Mushkin", "MauditeMachine"],
+          "facebook_event": "https://www.facebook.com/events/994784815560313"
         },
         {
           "name": "Le Petit Quart",
@@ -20,20 +20,19 @@
           "facebook_event": "https://www.facebook.com/events/622026163660681/"
         },
         {
-          "name": "Pinup Valentines",
-          "date": "2025-02-14",
+          "name": "Luminarium",
+          "date": "2025-02-28",
           "venue": "Montréal",
           "city": "Québec",
-          "lineup": ["Davidé", "Mushkin", "MauditeMachine"],
-          "facebook_event": "https://www.facebook.com/events/994784815560313"
+          "lineup": ["Myda", "Quantaloop", "Kristin", "Nocide", "Narko", "Lara S", "Deadliner", "MauditeMachine"],
+          "facebook_event": "https://www.facebook.com/events/2244952099238528"
         },
         {
-          "date": "2025-06-24",
-          "name": "Saint-Jean-Baptiste",
-          "venue": "Louiseville",
-          "city": "QC",
-          "lineup": ["Maudite Machine"],
-          "facebook_event": "https://www.facebook.com/events/1198681918506290/"
+          "name": "Tesla Night",
+          "date": "2025-05-10",
+          "venue": "Bar La Shop",
+          "city": "Montréal",
+          "lineup": ["Sabi", "Non Stop"]
         },
         {
           "name": "TBA",
@@ -42,11 +41,12 @@
           "city": "Montréal, QC"
         },
         {
-          "name": "Tesla Night",
-          "date": "2025-05-10",
-          "venue": "Bar La Shop",
-          "city": "Montréal",
-          "lineup": ["Sabi Non Stop"]
+          "date": "2025-06-24",
+          "name": "Saint-Jean-Baptiste",
+          "venue": "Louiseville",
+          "city": "QC",
+          "lineup": ["Maudite Machine"],
+          "facebook_event": "https://www.facebook.com/events/1198681918506290/"
         }
       ]
     },
