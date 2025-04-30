@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Maudite Machine</title>
+  <style>
+    body { background: #111; color: #fff; font-family: sans-serif; padding: 2rem; }
+    input, textarea, button { margin: 0.5rem 0; width: 100%; }
+    form { background: #222; padding: 1rem; border-radius: 8px; margin-bottom: 2rem; }
+    label { display: block; margin-top: 1rem; }
+    h2 { color: #FFDD00; }
+    pre { background: #222; color: #35ffc3; padding: 1rem; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Admin - Maudite Machine</h1>
+
+  <form id="eventForm">
+    <h2>Ajouter un événement</h2>
+    <label>Date : <input type="date" name="date" required></label>
+    <label>Nom : <input type="text" name="name" required></label>
+    <label>Lieu : <input type="text" name="venue" required></label>
+    <label>Ville : <input type="text" name="city" required></label>
+    <label>Lineup (séparé par des virgules) : <input type="text" name="lineup"></label>
+    <label>Facebook event : <input type="text" name="facebook_event"></label>
+    <button type="submit">Générer JSON</button>
+  </form>
+
+  <pre id="eventResult"></pre>
+
+  <form id="releaseForm">
+    <h2>Ajouter une release</h2>
+    <label>Titre : <input type="text" name="title" required></label>
+    <label>Date : <input type="date" name="date" required></label>
+    <label>Label : <input type="text" name="label"></label>
+    <label>ISRC : <input type="text" name="isrc"></label>
+    <label>Fichier audio : <input type="text" name="file"></label>
+    <label>Pochette (cover) : <input type="text" name="cover"></label>
+    <label>Lien d'achat : <input type="text" name="buy_link"></label>
+    <button type="submit">Générer JSON</button>
+  </form>
+
+  <pre id="releaseResult"></pre>
+
+  <script>
+    // Générateur d'event
+    document.getElementById('eventForm').onsubmit = function(e) {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(this).entries());
+      if (data.lineup) data.lineup = data.lineup.split(',').map(s => s.trim()).filter(Boolean);
+      else delete data.lineup;
+      if (!data.facebook_event) delete data.facebook_event;
+      document.getElementById('eventResult').textContent = JSON.stringify(data, null, 2);
+    };
+
+    // Générateur de release
+    document.getElementById('releaseForm').onsubmit = function(e) {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(this).entries());
+      for (const key in data) if (!data[key]) delete data[key];
+      document.getElementById('releaseResult').textContent = JSON.stringify(data, null, 2);
+    };
+  </script>
+</body>
+</html> 
