@@ -303,7 +303,6 @@ function loadMedias() {
 
     // Liste des images avec leur chemin exact
     const images = [
-        'medias/_DSC2160.jpg',
         'medias/_DSC1941-Enhanced-NR.jpg',
         'medias/_DSC2148.jpg',
         'medias/_DSC1808.jpg',
