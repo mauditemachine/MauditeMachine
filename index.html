@@ -38,7 +38,8 @@
     <meta name="twitter:image" content="https://mauditemachine.com/files/default.png">
   </head>
   <body>
-    <div class="main-container">
+    <div id="splash" style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;background:linear-gradient(rgba(9,10,10,0.85),rgba(9,10,10,0.85)),url('files/Background_Luminarium.jpg');background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;"></div>
+    <div class="main-container" style="display:none;opacity:0;transition:opacity 2.5s;">
       <div class="content">
         <div class="top-links">
           <div class="group">
@@ -180,6 +181,7 @@
     </div>
 
     <div class="footer">Copyright Maudite Machine 2024</div>
+    <a href="https://www.instagram.com/no.pixl/" target="_blank" class="photo-credit">Photo Credit : No Pixl 2025</a>
 
     <!-- SoundCloud Widget API -->
     <script src="https://w.soundcloud.com/player/api.js"></script>
@@ -192,5 +194,19 @@
         <span class="lightbox-next">&gt;</span>
         <img src="" alt="" class="lightbox-image">
     </div>
+
+    <script>
+      // Splash screen : masque le contenu 2 secondes puis fade-in
+      window.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+          document.getElementById('splash').style.display = 'none';
+          var main = document.querySelector('.main-container');
+          main.style.display = '';
+          setTimeout(function() {
+            main.style.opacity = 1;
+          }, 10);
+        }, 2000);
+      });
+    </script>
   </body>
 </html>
