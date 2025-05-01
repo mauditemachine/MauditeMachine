@@ -156,6 +156,12 @@ function createEventList(year, events) {
     const eventElement = document.createElement("div");
     eventElement.className = "event";
 
+    // Vérifier si l'événement est dans le futur
+    const eventDate = new Date(event.date);
+    const currentDate = new Date();
+    currentDate.setHours(0, 0, 0, 0);
+    const isFutureEvent = eventDate >= currentDate;
+
     // Formater le lineup avec des retours à la ligne
     let formattedLineup = '';
     if (event.lineup) {
@@ -175,9 +181,10 @@ function createEventList(year, events) {
     }
 
     const formattedName = formatEventName(event.name);
+    const eventNameClass = isFutureEvent ? 'event-name future' : 'event-name';
     const eventName = event.facebook_event 
-      ? `<div class="event-name"><a href="${event.facebook_event}" target="_blank">${formattedName}</a></div>`
-      : `<div class="event-name">${formattedName}</div>`;
+      ? `<div class="${eventNameClass}"><a href="${event.facebook_event}" target="_blank">${formattedName}</a></div>`
+      : `<div class="${eventNameClass}">${formattedName}</div>`;
 
     eventElement.innerHTML = `
       <div class="event-date">${formatDate(event.date)}</div>
