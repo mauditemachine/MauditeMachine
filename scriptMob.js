@@ -149,13 +149,13 @@ function loadEvents() {
       eventsSection.classList.add('active');
     })
     .catch(error => {
-      console.error('Error loading events:', error);
+      // console.error('Error loading events:', error);
     });
 }
 
 // Charger la galerie au chargement de la page
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("DOM chargé, chargement des événements et de la galerie...");
+  // console.log("DOM chargé, chargement des événements et de la galerie...");
   loadEvents();
   loadGallery();
   createSlides();
@@ -297,7 +297,7 @@ function loadGallery() {
     [images[i], images[j]] = [images[j], images[i]];
   }
 
-  console.log("Nombre d'images à charger:", images.length);
+  // console.log("Nombre d'images à charger:", images.length);
 
   images.forEach((image, index) => {
     const item = document.createElement("div");
@@ -306,16 +306,16 @@ function loadGallery() {
     const fileName = image.src.split("/").pop();
     const encodedFileName = encodeURIComponent(fileName);
     const fullPath = image.src.replace(fileName, encodedFileName);
-    console.log("Chargement de l'image:", fullPath);
+    // console.log("Chargement de l'image:", fullPath);
     img.src = fullPath;
     img.alt = image.alt;
 
     // Ajouter un gestionnaire d'erreur pour chaque image
     img.onerror = function () {
-      console.error("Erreur de chargement de l'image:", fullPath);
+      // console.error("Erreur de chargement de l'image:", fullPath);
       // Essayer de charger l'image sans encodage
       img.src = image.src;
-      console.log("Tentative de chargement sans encodage:", image.src);
+      // console.log("Tentative de chargement sans encodage:", image.src);
     };
 
     item.appendChild(img);
@@ -370,7 +370,7 @@ document.addEventListener("keydown", (e) => {
 
 // Gestion des sections et navigation
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM chargé');
+    // console.log('DOM chargé');
     
     // Gestion des boutons de navigation
     const navButtons = document.querySelectorAll('.nav-buttons a');
@@ -403,11 +403,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const sectionId = button.getAttribute('href').substring(1);
             if (sections[sectionId]) {
                 sections[sectionId].classList.add('active');
-                console.log('Section active:', sectionId);
+                // console.log('Section active:', sectionId);
                 
                 // Si c'est la section media, initialiser le slider et charger la galerie
                 if (sectionId === 'media') {
-                    console.log('Chargement de la galerie et du slider...');
+                    // console.log('Chargement de la galerie et du slider...');
                     loadGallery();
                     if (slider && sliderTrack) {
                         createSlides();
@@ -434,7 +434,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         slider.addEventListener('touchmove', handleTouchMove);
                         slider.addEventListener('touchend', handleTouchEnd);
                     } else {
-                        console.error("Éléments du slider non trouvés:", { slider, sliderTrack });
+                        // console.error("Éléments du slider non trouvés:", { slider, sliderTrack });
                     }
                     // Forcer le reflow pour s'assurer que la transition est appliquée
                     sections[sectionId].offsetHeight;
@@ -449,7 +449,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Gestion du menu hamburger
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM chargé');
+    // console.log('DOM chargé');
     
     const hamburger = document.querySelector('.hamburger');
     const topLinks = document.querySelector('.top-links');
@@ -538,7 +538,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         })
         .catch(error => {
-            console.error('Erreur lors du chargement des événements:', error);
+            // console.error('Erreur lors du chargement des événements:', error);
         });
 });
 
@@ -610,7 +610,7 @@ async function loadReleases() {
     const response = await fetch('releases.json');
     const data = await response.json();
     releases = data.releases;
-    console.log('Releases chargées:', releases);
+    // console.log('Releases chargées:', releases);
     
     // Ajouter les event listeners aux cartes de release
     const releaseCards = document.querySelectorAll('.release-card');
@@ -618,7 +618,7 @@ async function loadReleases() {
       card.addEventListener('click', () => {
         const img = card.querySelector('img');
         const altText = img.alt;
-        console.log('Carte cliquée:', altText);
+        // console.log('Carte cliquée:', altText);
         
         // Trouver la release correspondante
         const release = releases.find(r => {
@@ -627,10 +627,10 @@ async function loadReleases() {
         });
         
         if (release) {
-          console.log('Release trouvée:', release);
+          // console.log('Release trouvée:', release);
           updateFeaturedTrack(release);
         } else {
-          console.log('Release non trouvée pour:', altText);
+          // console.log('Release non trouvée pour:', altText);
         }
       });
     });
@@ -640,13 +640,13 @@ async function loadReleases() {
       updateFeaturedTrack(releases[0]);
     }
   } catch (error) {
-    console.error('Erreur lors du chargement des releases:', error);
+    // console.error('Erreur lors du chargement des releases:', error);
   }
 }
 
 // Fonction pour mettre à jour la piste en vedette
 function updateFeaturedTrack(track) {
-  console.log('Mise à jour de la piste:', track);
+  // console.log('Mise à jour de la piste:', track);
   
   // Mettre à jour la couverture
   const trackCover = document.querySelector('.track-cover img');
@@ -721,7 +721,7 @@ function updateFeaturedTrack(track) {
 
 // Charger les releases au chargement de la page
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('DOM chargé, chargement des releases...');
+  // console.log('DOM chargé, chargement des releases...');
   loadReleases();
   
   // Charger la galerie

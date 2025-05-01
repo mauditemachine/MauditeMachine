@@ -133,7 +133,7 @@ async function loadEvents() {
     }
 
   } catch (error) {
-    console.error("Erreur lors du chargement des événements:", error);
+    // console.error("Erreur lors du chargement des événements:", error);
   }
 }
 
@@ -190,7 +190,7 @@ function createEventList(year, events) {
 
 // Appeler la fonction au chargement de la page
 document.addEventListener("DOMContentLoaded", () => {
-  console.log("DOM chargé, chargement des événements et des releases...");
+  // console.log("DOM chargé, chargement des événements et des releases...");
   loadEvents();
   loadReleases();
 });
@@ -291,10 +291,10 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
 });
 
 function loadMedias() {
-    console.log('Chargement des médias...');
+    // console.log('Chargement des médias...');
     const mediasGrid = document.querySelector('.medias-grid');
     if (!mediasGrid) {
-        console.error('Grid des médias non trouvée');
+        // console.error('Grid des médias non trouvée');
         return;
     }
 
@@ -422,7 +422,7 @@ function loadMedias() {
             };
             
             img.onerror = () => {
-                console.error(`Erreur de chargement: ${cleanPath}`);
+                // console.error(`Erreur de chargement: ${cleanPath}`);
                 // Cacher les thumbnails en erreur
                 thumbnail.style.display = 'none';
                 resolve(thumbnail);
@@ -560,7 +560,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Charger l'audio avec gestion d'erreur
     wavesurfer.on('error', function(err) {
-        console.error('Erreur WaveSurfer:', err);
+        // console.error('Erreur WaveSurfer:', err);
     });
 
     // Charger l'audio
@@ -621,7 +621,7 @@ async function loadReleases() {
           });
           
           if (release) {
-            console.log('Clicked release:', release.title);
+            // console.log('Clicked release:', release.title);
             updateFeaturedTrack(release);
           }
         });
@@ -629,19 +629,19 @@ async function loadReleases() {
     });
 
   } catch (error) {
-    console.error("Erreur lors du chargement des releases:", error);
+    // console.error("Erreur lors du chargement des releases:", error);
   }
 }
 
 // Fonction pour mettre à jour le featured track
 function updateFeaturedTrack(track) {
-  console.log('Updating featured track with:', track);
+  // console.log('Updating featured track with:', track);
   const trackCover = document.querySelector(".track-cover img");
   const trackTitle = document.querySelector(".track-title");
   const trackDetails = document.querySelector(".track-details");
 
   if (trackCover) {
-    console.log('Updating cover image to:', track.cover);
+    // console.log('Updating cover image to:', track.cover);
     trackCover.src = track.cover;
   }
   if (trackTitle) trackTitle.textContent = track.title;
@@ -651,7 +651,7 @@ function updateFeaturedTrack(track) {
 
   // Mettre à jour le waveform avec le nouveau fichier audio
   if (window.wavesurfer) {
-    console.log('Loading new audio file:', track.file);
+    // console.log('Loading new audio file:', track.file);
     window.wavesurfer.load(track.file);
   }
 }
