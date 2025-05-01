@@ -11,15 +11,21 @@
   box-sizing: border-box;
 }
 
+html {
+  height: 100%;
+}
+
 body {
-  background-color: #090a0a;
+  background: linear-gradient(rgba(9, 10, 10, 0.85), rgba(9, 10, 10, 0.85)), url('files/Background_Luminarium.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
   color: white;
   font-family: "Inter", sans-serif;
-  height: auto;
   min-height: 100vh;
-  overflow: hidden;
   margin: 0;
   padding: 0;
+  position: relative;
 }
 
 .main-container {
