@@ -1,3 +1,7 @@
+<!--
+ah bon alors comme ca tu fouille pour voir si j'ai utilisé Wordpress, Squarepace ou Wix ?! eh ben non ! que dale.. j'ai fait tout ca a la main et je me suis fait corriger par l'IA : Claude AI.. ! ho et message pour Ozora, Modem Boom ou autre gros festoch : BOOK ME PLEASE !
+Oh et ce fameux lecteur online.. les tracks sont compressées a mort .. mieux vaut pour toi les pompés directement sur Soundcloud hahahaha ! sert a rien de les download.. la qualité est pas mal pourrie.. sinon tu peux cliquer sur BUY.. et me donner 1.50$usd ca va surement te ruiner et tu vas devoir manger des cailloux pendant des années !
+-->
 <!DOCTYPE html>
 <!-- Test de déploiement GitHub Pages - Version 1.0 -->
 <html lang="fr">
@@ -181,7 +185,7 @@
     </div>
 
     <div class="footer">Copyright Maudite Machine 2024</div>
-    <a href="https://www.instagram.com/no.pixl/" target="_blank" class="photo-credit">Photo Credit : No Pixl 2025</a>
+    <a href="https://www.instagram.com/no.pixl/" target="_blank" class="photo-credit" style="opacity:0;transition:opacity 1.2s;">Photo Credit : No Pixl 2025</a>
 
     <!-- SoundCloud Widget API -->
     <script src="https://w.soundcloud.com/player/api.js"></script>
@@ -196,16 +200,20 @@
     </div>
 
     <script>
-      // Splash screen : masque le contenu 2 secondes puis fade-in
+      // Splash screen : fade-in du crédit photo puis du contenu principal
       window.addEventListener('DOMContentLoaded', function() {
         setTimeout(function() {
-          document.getElementById('splash').style.display = 'none';
-          var main = document.querySelector('.main-container');
-          main.style.display = '';
+          var credit = document.querySelector('.photo-credit');
+          credit.style.opacity = 1;
           setTimeout(function() {
-            main.style.opacity = 1;
-          }, 10);
-        }, 2000);
+            document.getElementById('splash').style.display = 'none';
+            var main = document.querySelector('.main-container');
+            main.style.display = '';
+            setTimeout(function() {
+              main.style.opacity = 1;
+            }, 10);
+          }, 1000); // 1 seconde après le crédit photo
+        }, 1000); // 1 seconde après chargement
       });
     </script>
   </body>
