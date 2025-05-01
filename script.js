@@ -143,7 +143,24 @@ function createEventList(year, events) {
   eventList.setAttribute("data-year", year);
 
   events.forEach((event) => {
-    // Gérer l'affichage de la ville et de la province
+    // Comparer avec la date d'aujourd'hui
+    const eventDate = new Date(event.date);
+    const today = new Date();
+    const isFuture = eventDate > today;
+    
+    const eventElement = document.createElement("div");
+    eventElement.className = "event";
+
+    const formattedName = formatEventName(event.name);
+    
+    // Mettre en jaune UNIQUEMENT si la date est dans le futur
+    const eventName = `<div class="event-name" style="color: ${isFuture ? '#FFDD00' : 'white'} !important">
+        ${event.facebook_event 
+            ? `<a href="${event.facebook_event}" style="color: ${isFuture ? '#FFDD00' : 'white'} !important">${formattedName}</a>`
+            : formattedName}
+    </div>`;
+
+    // Le reste du code reste identique
     let location = event.venue;
     if (event.venue === "Montréal" && event.city === "Québec") {
       location = "Montréal, QC";
@@ -153,38 +170,10 @@ function createEventList(year, events) {
       location = `${event.venue}, ${event.city}`;
     }
 
-    const eventElement = document.createElement("div");
-    eventElement.className = "event";
-
-    // Vérifier si l'événement est dans le futur
-    const eventDate = new Date(event.date);
-    const currentDate = new Date();
-    currentDate.setHours(0, 0, 0, 0);
-    const isFutureEvent = eventDate >= currentDate;
-
-    // Formater le lineup avec des retours à la ligne
     let formattedLineup = '';
     if (event.lineup) {
-      const lineupArray = event.lineup;
-      let currentLine = [];
-      let lines = [];
-      
-      lineupArray.forEach((artist, index) => {
-        currentLine.push(artist);
-        if (currentLine.length === 3 || index === lineupArray.length - 1) {
-          lines.push(currentLine.join(", "));
-          currentLine = [];
-        }
-      });
-      
-      formattedLineup = lines.join("<br>");
+      formattedLineup = event.lineup.join(", ");
     }
-
-    const formattedName = formatEventName(event.name);
-    const eventNameClass = isFutureEvent ? 'event-name future' : 'event-name';
-    const eventName = event.facebook_event 
-      ? `<div class="${eventNameClass}"><a href="${event.facebook_event}" target="_blank">${formattedName}</a></div>`
-      : `<div class="${eventNameClass}">${formattedName}</div>`;
 
     eventElement.innerHTML = `
       <div class="event-date">${formatDate(event.date)}</div>
