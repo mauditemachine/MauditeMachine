@@ -1,10 +1,12 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Maudite Machine</title>
     <!--
+      Encore un site Maudite Machine cette années ! oue... je suis productif et je devrais faire de la musique au lieu de coder comme un coquin !
+      
       Site Maudite Machine 2025
       - Stack: Vite + React + TypeScript, CSS custom
       - Lecteur: widget SoundCloud API + composant personnalisé (playlist, drag window)
@@ -12,12 +14,38 @@
       - Déploiement: build Vite (dist) publié sur gh-pages (+ /medias) ou via GitHub Actions
       - Domaine: CNAME mauditemachine.com + .nojekyll
     -->
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://mauditemachine.com" />
+    <meta property="og:title" content="Maudite Machine - DJ & Producteur" />
+    <meta
+      property="og:description"
+      content="DJ et producteur canadien spécialisé en minimal et indie dance. Fondateur de VRSTL Records."
+    />
+    <meta
+      property="og:image"
+      content="https://mauditemachine.com/medias/images/og-image.jpg"
+    />
+
+    <!-- Twitter Card (bonus) -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://mauditemachine.com" />
+    <meta
+      property="twitter:title"
+      content="Maudite Machine - DJ & Producteur"
+    />
+    <meta
+      property="twitter:description"
+      content="DJ et producteur canadien spécialisé en minimal et indie dance. Fondateur de VRSTL Records."
+    />
+    <meta
+      property="twitter:image"
+      content="https://mauditemachine.com/medias/images/og-image.jpg"
+    />
     <link rel="icon" href="/medias/logos/favicon.ico" type="image/x-icon" />
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
-  </html>
-
-
+</html>
