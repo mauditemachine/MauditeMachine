@@ -1,0 +1,27 @@
+[
+  {
+    "date": "2025-08-01",
+    "title": "Open Mind Festival",
+    "url": "https://example.com/open-mind",
+    "location": "Lac des îles, QC"
+  },
+  {
+    "date": "2025-08-15",
+    "title": "Khumeia Festival",
+    "url": "https://www.facebook.com/events/877316894214690",
+    "location": "Lac des îles, QC"
+  },
+  {
+    "date": "2025-09-26",
+    "title": "Fête Forraine",
+    "url": "https://www.facebook.com/events/1199857025105824",
+    "location": "Louiseville, QC"
+  },
+  {
+    "date": "2025-09-26",
+    "title": "One Festival",
+    "url": "https://www.facebook.com/events/599031379562108",
+    "location": "Stoneham, QC"
+  }
+]
+
