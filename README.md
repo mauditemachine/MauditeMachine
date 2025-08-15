@@ -1,42 +1,4 @@
-# Maudite Machine 2025
-
-Site vitrine 2025 de Maudite Machine.
-
-## Stack
-- Vite + React + TypeScript
-- CSS custom (pas de framework)
-- SoundCloud Widget API pour le lecteur (playlist, navigation, play/pause)
-- Données locales JSON: `medias/events.json`, `medias/messages.json`
-- Images & logos: dossier `medias/`
-
-## Dev
-```
-npm ci
-npm run dev
-```
-
-## Build
-```
-npm run build
-```
-Le build est généré dans `dist/`.
-
-## Déploiement
-Deux options courantes:
-
-1) Branche `gh-pages`
-- Publier `dist/` et `medias/` sur `gh-pages` (root)
-- Ajouter `CNAME` contenant `mauditemachine.com` et créer `.nojekyll`
-
-2) GitHub Actions
-- Workflow qui build `dist/` et uploade l’artifact Pages
-- Le dossier `medias/` doit être inclus dans l’artifact (ou placé dans `public/` avant build)
-
-## Particularités
-- Fenêtre lecteur déplaçable (desktop), draggable via un handle discret
-- Titre de la piste auto-rétréci pour tenir sur une ligne
-- Scrollbar playlist custom (sobre)
-- Messages aléatoires (titre/description/image/lien) affichés à droite (desktop) et sous le logo (mobile)
+# Custom SoundCloud Player - Maudite Machine
 
 ## Comment j'ai redesigné le lecteur SoundCloud
 
@@ -95,10 +57,18 @@ widget.bind(window.SC.Widget.Events.PLAY_PROGRESS, (e: any) => {
 
 C'est comme ça que j'ai pu garder toute la puissance de SoundCloud (streaming, DRM, analytics) tout en ayant un design qui s'intègre parfaitement au site.
 
-## Favicon
-Le site utilise `medias/logos/favicon.ico` via la balise `<link rel="icon" href="/medias/logos/favicon.ico" />` dans `index.html`.
+## Résultat final
 
-## Licences médias
-Les médias (images, polices, sons, logos) restent la propriété de leurs ayants droit. Utilisation restreinte au site.
+![Custom SoundCloud Player](https://mauditemachine.com/medias/images/Simetra.webp)
+
+- **Design intégré** : Le lecteur s'intègre parfaitement au design du site
+- **Performance** : Aucune latence, synchronisation temps réel
+- **Fonctionnalités avancées** : Navigation fluide, backgrounds dynamiques, responsive
+- **Compatibilité** : Garde tous les avantages de SoundCloud (analytics, DRM, etc.)
+
+## Live Demo
+👉 **Voir en action** : [mauditemachine.com](https://mauditemachine.com)
+
+Le lecteur est visible dans une fenêtre draggable sur desktop, ou intégré directement sur mobile.
 
 
