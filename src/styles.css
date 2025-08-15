@@ -369,7 +369,7 @@ body {
 .message-desktop .message-image { width: 90px; height: 90px; }
 
 @media (max-width: 900px) {
-  .message-desktop { display: none; }
+  .message-desktop { display: none !important; }
   .message-mobile { display: block; }
   .message-mobile.message-card { display: flex;padding: 8px; }
   .message-mobile .message-image { width: 80px; height: 80px; }
