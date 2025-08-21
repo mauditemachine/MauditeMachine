@@ -210,7 +210,7 @@ export default function App() {
       </footer>
 
       {/* Mobile Layout */}
-      <div className="mobile-layout" style={{ display: 'none' }}>
+      <div className="mobile-layout">
         {/* Logo 100% largeur */}
         <div className="mobile-section mobile-logo">
           <img

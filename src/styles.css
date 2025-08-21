@@ -132,15 +132,8 @@ body {
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  body {
-    margin: 5px;
-  }
-
-  .page {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-    gap: 10px;
-  }
+  body { margin: 5px !important; padding: 0 !important; overflow-x: hidden !important; }
+  .page { grid-template-columns: 1fr; gap: 10px; padding: 0 !important; width: calc(100vw - 10px); margin: 0 auto !important; }
 
   .nav-buttons {
     display: none;
@@ -599,8 +592,6 @@ body {
 
 .lightwidget-widget {
   width: 100% !important;
-  height: 100% !important;
-  min-height: 1200px !important;
   max-width: none !important;
   /* Cacher la scrollbar grise de l'iframe */
   scrollbar-width: none !important; /* Firefox */
@@ -1922,18 +1913,20 @@ iframe.lightwidget-widget {
 
   body {
     margin: 0 !important;
-    padding: 10px !important;
+    padding: 0 !important;
     overflow-x: hidden !important;
     background: linear-gradient(135deg, #6d1257 0%, #b32d2d 48%, #d87700 100%);
     background-attachment: fixed;
   }
 
+  #root,
+  .page,
+  .mobile-layout,
   .App {
     display: block !important;
     overflow-y: auto;
-    height: calc(100vh - 20px) !important;
-    width: calc(100vw - 20px) !important;
-    margin: 0 !important;
+    width: calc(100vw - 10px) !important; /* 5px gauche + 5px droite */
+    margin: 0 auto !important;
     padding: 0 !important;
     position: relative;
   }
@@ -1948,8 +1941,8 @@ iframe.lightwidget-widget {
   }
 
   .bg-stack .bg-photo {
-    width: 100vw !important;
-    height: 100vh !important;
+    width: 100% !important;
+    height: 100% !important;
     object-fit: cover !important;
     opacity: 0.3 !important;
   }
@@ -1963,20 +1956,9 @@ iframe.lightwidget-widget {
     display: none !important;
   }
 
-  .mobile-layout {
-    display: block !important;
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    position: relative !important;
-    z-index: 1 !important;
-  }
+  .mobile-layout { z-index: 1 !important; }
 
-  .mobile-section {
-    width: 100% !important;
-    margin: 0 0 10px 0 !important;
-    padding: 0 !important;
-  }
+  .mobile-section { width: 100% !important; margin: 0 0 10px 0 !important; padding: 0 !important; }
 
   /* Logo mobile */
   .mobile-logo {
