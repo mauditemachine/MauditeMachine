@@ -28,7 +28,7 @@ const InstagramFeed: React.FC<InstagramFeedProps> = ({ isMobile = false }) => {
 
       <div className="instagram-widget-container">
         <iframe 
-          src="//lightwidget.com/widgets/a1d122902fdd575d988530ac9f0afb96.html" 
+          src="https://cdn.lightwidget.com/widgets/a1d122902fdd575d988530ac9f0afb96.html" 
           scrolling="no" 
           allowtransparency="true" 
           className="lightwidget-widget" 
