@@ -28,7 +28,7 @@ const InstagramFeed: React.FC<InstagramFeedProps> = ({ isMobile = false }) => {
 
       <div className="instagram-widget-container">
         <iframe
-          src="https://cdn.lightwidget.com/widgets/faa495d6f58f5685bc4fadceeef06a31.html"
+          src={`https://cdn.lightwidget.com/widgets/faa495d6f58f5685bc4fadceeef06a31.html?v=${Date.now()}`}
           scrolling="no"
           allowtransparency="true"
           className="lightwidget-widget"
@@ -38,6 +38,11 @@ const InstagramFeed: React.FC<InstagramFeedProps> = ({ isMobile = false }) => {
             overflow: 'hidden'
           }}
         />
+        <div style={{ textAlign: 'right', marginTop: 8 }}>
+          <a href="https://www.instagram.com/mauditemachine/" target="_blank" rel="noreferrer" className="ig-follow-button">
+            VIEW MORE ON INSTAGRAM
+          </a>
+        </div>
       </div>
     </div>
   );
