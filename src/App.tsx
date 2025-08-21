@@ -69,7 +69,7 @@ const socialLinks: {
 export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [bgUrl, setBgUrl] = useState<string>(
-    encodeURI("/medias/images/Simetra.webp")
+    encodeURI("/images/Simetra.webp")
   );
   const [activeSection, setActiveSection] = useState("home");
 
@@ -173,7 +173,7 @@ export default function App() {
         {/* Logo principal MAUDITE MACHINE */}
         <div className="main-logo">
           <img
-            src="/medias/logo/mauditemachine-logo.png"
+            src="/logo/mauditemachine-logo.png"
             alt="Maudite Machine"
           />
         </div>
@@ -203,7 +203,7 @@ export default function App() {
         <a href="https://vrstlrecords.com" target="_blank" rel="noreferrer">
           <img
             className="vrstl"
-            src="/medias/logo/vrstl-logo.svg"
+            src="/logo/vrstl-logo.svg"
             alt="VRSTL Records"
           />
         </a>
@@ -214,7 +214,7 @@ export default function App() {
         {/* Logo 100% largeur */}
         <div className="mobile-section mobile-logo">
           <img
-            src="/medias/logo/mauditemachine-logo.png"
+            src="/logo/mauditemachine-logo.png"
             alt="Maudite Machine"
           />
         </div>
@@ -281,7 +281,7 @@ export default function App() {
           <a href="https://vrstlrecords.com" target="_blank" rel="noreferrer">
             <img
               className="vrstl-mobile"
-              src="/medias/logo/vrstl-logo.svg"
+              src="/logo/vrstl-logo.svg"
               alt="VRSTL Records"
             />
           </a>

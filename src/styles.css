@@ -1,6 +1,6 @@
 @font-face {
   font-family: "DIN Alternate";
-  src: url("/medias/fonts/DIN Alternate Bold.ttf") format("truetype");
+  src: url("/fonts/DIN Alternate Bold.ttf") format("truetype");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -8,14 +8,14 @@
 @font-face {
   font-family: "Fredoka";
   font-weight: 600;
-  src: url("/medias/fonts/DIN Black.ttf") format("truetype");
+  src: url("/fonts/DIN Black.ttf") format("truetype");
   font-weight: 900;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
   font-family: "Fredoka";
-  src: url("/medias/fonts/Fredoka-Light.ttf") format("truetype");
+  src: url("/fonts/Fredoka-Light.ttf") format("truetype");
   font-weight: 300;
   font-style: normal;
   font-display: swap;
@@ -23,7 +23,7 @@
 
 @font-face {
   font-family: "Fredoka";
-  src: url("/medias/fonts/Fredoka-Regular.ttf") format("truetype");
+  src: url("/fonts/Fredoka-Regular.ttf") format("truetype");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -31,7 +31,7 @@
 
 @font-face {
   font-family: "Fredoka";
-  src: url("/medias/fonts/Fredoka-Medium.ttf") format("truetype");
+  src: url("/fonts/Fredoka-Medium.ttf") format("truetype");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
@@ -39,7 +39,7 @@
 
 @font-face {
   font-family: "Fredoka";
-  src: url("/medias/fonts/Fredoka-SemiBold.ttf") format("truetype");
+  src: url("/fonts/Fredoka-SemiBold.ttf") format("truetype");
   font-weight: 600;
   font-style: normal;
   font-display: swap;

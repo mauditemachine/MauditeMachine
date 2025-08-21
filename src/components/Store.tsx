@@ -10,7 +10,7 @@ const Store: React.FC = () => {
       <div className="store-message">
         <div className="store-icon">
           <img 
-            src="/medias/logo/mauditemachine-logo.png" 
+            src="/logo/mauditemachine-logo.png" 
             alt="Maudite Machine Logo"
             className="store-logo"
           />

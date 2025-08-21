@@ -20,7 +20,7 @@ export default function EventsDisplay({ limit }: EventsDisplayProps): JSX.Elemen
 
   useEffect(() => {
     let cancelled = false
-    fetch('/medias/events.json', { cache: 'no-cache' })
+    fetch('/events.json', { cache: 'no-cache' })
       .then(r => r.json())
       .then((data: EventItem[]) => { 
         if (!cancelled) {

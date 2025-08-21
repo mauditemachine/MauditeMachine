@@ -173,18 +173,18 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
     const t = tracks[index]
     if (!t || !onBackgroundChange) return
     const title = (t.title || '').toLowerCase()
-    let url = '/medias/images/Simetra.webp'
-    if (title.includes('autopsynth')) url = '/medias/images/Autopsynth.webp'
-    else if (title.includes('coagule')) url = '/medias/images/Coagule.webp'
-    else if (title.includes('where is the sync button')) url = '/medias/images/Where.webp'
-    else if (title.includes('kouklikou')) url = '/medias/images/Kouklikou.webp'
-    else if (title.includes('discowriders')) url = '/medias/images/Discowriders.webp'
-    else if (title.includes('drama queen')) url = '/medias/images/Drama Queen 1.webp'
-    else if (title.includes('crush on you') || title.includes('tati cardi')) url = '/medias/images/Tati Cardi.webp'
-    else if (title.includes('nocturne')) url = '/medias/images/Nocturne.webp'
-    else if (title.includes('back on track')) url = '/medias/images/BackOnTrack.webp'
-    else if (title.includes('richie')) url = '/medias/images/Richie.webp'
-    else if (title.includes('anarchic') || title.includes('anarchic')) url = '/medias/images/Anarchic.webp'
+    let url = '/images/Simetra.webp'
+    if (title.includes('autopsynth')) url = '/images/Autopsynth.webp'
+    else if (title.includes('coagule')) url = '/images/Coagule.webp'
+    else if (title.includes('where is the sync button')) url = '/images/Where.webp'
+    else if (title.includes('kouklikou')) url = '/images/Kouklikou.webp'
+    else if (title.includes('discowriders')) url = '/images/Discowriders.webp'
+    else if (title.includes('drama queen')) url = '/images/Drama Queen 1.webp'
+    else if (title.includes('crush on you') || title.includes('tati cardi')) url = '/images/Tati Cardi.webp'
+    else if (title.includes('nocturne')) url = '/images/Nocturne.webp'
+    else if (title.includes('back on track')) url = '/images/BackOnTrack.webp'
+    else if (title.includes('richie')) url = '/images/Richie.webp'
+    else if (title.includes('anarchic') || title.includes('anarchic')) url = '/images/Anarchic.webp'
     onBackgroundChange(encodeURI(url))
   }
 

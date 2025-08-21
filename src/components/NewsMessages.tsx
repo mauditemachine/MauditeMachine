@@ -13,7 +13,7 @@ export default function NewsMessages(): JSX.Element {
 
   useEffect(() => {
     let cancelled = false
-    fetch('/medias/messages.json', { cache: 'no-cache' })
+    fetch('/messages.json', { cache: 'no-cache' })
       .then(r => r.json())
       .then((data: MessageItem[]) => { 
         if (!cancelled) setMessages(Array.isArray(data) ? data : []) 
