@@ -1,0 +1,66 @@
+[
+  {
+    "title": "Anarchic",
+    "year": 2025,
+    "category": "Single",
+    "coverImage": "images/Anarchic.webp",
+    "discogsUrl": "https://www.discogs.com/search/?q=Maudite%20Machine%20Anarchic&type=release"
+  },
+  {
+    "title": "Autopsynth",
+    "year": 2025,
+    "category": "Single",
+    "coverImage": "images/Autopsynth.webp",
+    "discogsUrl": "https://www.discogs.com/search/?q=Maudite%20Machine%20Autopsynth&type=release"
+  },
+  {
+    "title": "Back On Track (Luminarium Mix)",
+    "year": 2025,
+    "category": "Single",
+    "coverImage": "images/BackOnTrack.webp",
+    "discogsUrl": "https://www.discogs.com/search/?q=Maudite%20Machine%20Back%20On%20Track%20Luminarium%20Mix&type=release"
+  },
+  {
+    "title": "Coagule",
+    "year": 2025,
+    "category": "Single",
+    "coverImage": "images/Coagule.webp",
+    "discogsUrl": "https://www.discogs.com/search/?q=Maudite%20Machine%20Coagule&type=release"
+  },
+  {
+    "title": "Nocturne",
+    "year": 2025,
+    "category": "Single",
+    "coverImage": "images/Nocturne.webp",
+    "discogsUrl": "https://www.discogs.com/search/?q=Maudite%20Machine%20Nocturne&type=release"
+  },
+  {
+    "title": "Richie",
+    "year": 2025,
+    "category": "Single",
+    "coverImage": "images/Richie.webp",
+    "discogsUrl": "https://www.discogs.com/search/?q=Maudite%20Machine%20Richie&type=release"
+  },
+  {
+    "title": "Tati Cardi Remixes",
+    "year": 2025,
+    "category": "Remix",
+    "coverImage": "images/Tati Cardi.webp",
+    "discogsUrl": "https://www.discogs.com/search/?q=Maudite%20Machine%20Tati%20Cardi%20Remixes&type=release"
+  },
+  {
+    "title": "Where is the Sync Button",
+    "year": 2025,
+    "category": "Single",
+    "coverImage": "images/Where.webp",
+    "discogsUrl": "https://www.discogs.com/search/?q=Maudite%20Machine%20Where%20is%20the%20Sync%20Button&type=release"
+  },
+  {
+    "title": "Discowriders",
+    "year": 2025,
+    "category": "Single",
+    "coverImage": "images/Discowriders.webp",
+    "discogsUrl": "https://www.discogs.com/search/?q=Maudite%20Machine%20Discowriders&type=release"
+  }
+]
+

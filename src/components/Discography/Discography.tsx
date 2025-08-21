@@ -38,25 +38,13 @@ const Discography: React.FC = () => {
   // Utiliser directement les releases filtrées (pas de tri complexe)
   const displayedReleases = filteredReleases;
 
-  // Rendu du loading
+  // Rendu du loading (sans titre/icone)
   if (loading && releases.length === 0) {
     return (
       <div className="discography">
-        <div className="discography-header">
-          <h2 className="discography-title">
-            <span className="title-emoji">💿</span>
-            Discographie
-          </h2>
-        </div>
-        
         <div className="loading-container">
           <div className="loading-spinner"></div>
-          <p className="loading-text">
-            Récupération de la discographie depuis Discogs...
-          </p>
-          <div className="loading-progress">
-            <div className="progress-bar"></div>
-          </div>
+          <p className="loading-text">Chargement…</p>
         </div>
       </div>
     );

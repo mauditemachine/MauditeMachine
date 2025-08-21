@@ -188,6 +188,40 @@ export const useDiscogs = () => {
         'User-Agent': 'MauditeMachine/2.0 +https://mauditemachine.com',
       };
 
+      // 1) Essayer d'abord une liste locale (chargement instantané)
+      try {
+        const localUrl = `${import.meta.env.BASE_URL}discography.json?v=${Date.now()}`;
+        const localResp = await fetch(localUrl, { cache: 'no-cache' });
+        if (localResp.ok) {
+          const localData = await localResp.json();
+          if (Array.isArray(localData) && localData.length > 0) {
+            const localProcessed = localData.map((r: any, idx: number) => ({
+              id: idx + 1,
+              title: r.title,
+              cleanTitle: r.title,
+              artist: 'Maudite Machine',
+              year: r.year,
+              type: 'release',
+              category: (r.category || 'Single') as any,
+              format: r.category || 'Single',
+              role: 'Main',
+              thumb: r.coverImage,
+              coverImage: r.coverImage,
+              discogsUrl: r.discogsUrl,
+              resourceUrl: r.discogsUrl,
+              duration: undefined,
+              trackCount: undefined,
+              labels: [],
+              genres: [],
+              styles: [],
+              community: undefined,
+            } as DiscogsRelease)).sort((a: DiscogsRelease, b: DiscogsRelease) => (b.year || 0) - (a.year || 0))
+            console.log('⚡ Utilisation de la discographie locale');
+            return localProcessed;
+          }
+        }
+      } catch {}
+
       while (hasMore && page <= maxPages) {
         const url = `https://api.discogs.com/artists/${ARTIST_ID}/releases?sort=year&sort_order=desc&per_page=100&page=${page}`;
         
@@ -303,6 +337,7 @@ export const useDiscogs = () => {
 
       // Fetch depuis l'API
       const freshReleases = await fetchReleases();
+      // Afficher rapidement la liste basique avant enrichissement
       setReleases(freshReleases);
 
       // Sauvegarde en cache
