@@ -28,14 +28,15 @@ const InstagramFeed: React.FC<InstagramFeedProps> = ({ isMobile = false }) => {
 
       <div className="instagram-widget-container">
         <iframe
-          src={`https://cdn.lightwidget.com/widgets/faa495d6f58f5685bc4fadceeef06a31.html?v=${Date.now()}`}
+          src="https://cdn.lightwidget.com/widgets/faa495d6f58f5685bc4fadceeef06a31.html"
           scrolling="no"
           allowtransparency="true"
           className="lightwidget-widget"
           style={{
             width: '100%',
             border: '0',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            height: isMobile ? '1800px' : '3200px'
           }}
         />
         <div style={{ textAlign: 'right', marginTop: 8 }}>
