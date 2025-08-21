@@ -5,13 +5,15 @@
 import React, { useState } from 'react';
 import emailjs from '@emailjs/browser';
 
-// Configuration EmailJS - Remplace par tes vraies clés après avoir configuré EmailJS
-const SERVICE_ID = 'YOUR_SERVICE_ID'; // À remplacer
-const TEMPLATE_ID = 'YOUR_TEMPLATE_ID'; // À remplacer
-const PUBLIC_KEY = 'YOUR_PUBLIC_KEY'; // À remplacer
+// Configuration EmailJS avec vos vraies clés
+const SERVICE_ID = 'service_zeuwh04';
+const TEMPLATE_ID = 'template_zlot6be';
+const PUBLIC_KEY = '_e6k6nftsmZZxs29b';
 
 const Message: React.FC = () => {
   const [formData, setFormData] = useState({
+    from_name: '',
+    from_email: '',
     object: '',
     message: ''
   });
@@ -62,7 +64,7 @@ const Message: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.object.trim() || !formData.message.trim()) {
+    if (!formData.from_name.trim() || !formData.from_email.trim() || !formData.object.trim() || !formData.message.trim()) {
       setSubmitStatus('Please fill in all fields.');
       return;
     }
@@ -84,46 +86,23 @@ const Message: React.FC = () => {
     // Envoyer le message via EmailJS
     setIsSubmitting(true);
     
-    // Vérifier si EmailJS est configuré
-    if (SERVICE_ID === 'YOUR_SERVICE_ID' || TEMPLATE_ID === 'YOUR_TEMPLATE_ID' || PUBLIC_KEY === 'YOUR_PUBLIC_KEY') {
-      // Configuration EmailJS non faite - simulation
-      console.log('⚠️ EmailJS non configuré. Message simulé:', {
-        to: 'mauditemachine@gmail.com',
-        object: formData.object,
-        message: formData.message
-      });
-      console.log('📧 Pour recevoir de vrais emails, configure EmailJS (voir EMAILJS_SETUP.md)');
-      
-      setTimeout(() => {
-        setIsSubmitting(false);
-        setSubmitStatus('Message sent successfully! (Simulated - Configure EmailJS to receive real emails)');
-        setFormData({ object: '', message: '' });
-        setShowCaptcha(false);
-        setUserCaptchaAnswer('');
-      }, 2000);
-      return;
-    }
-    
-    // Envoi réel via EmailJS
-    const templateParams = {
-      object: formData.object,
-      message: formData.message,
-      date: new Date().toLocaleString()
-    };
-    
-    emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams, PUBLIC_KEY)
-      .then(() => {
-        setIsSubmitting(false);
-        setSubmitStatus('Message sent successfully! We will get back to you soon.');
-        setFormData({ object: '', message: '' });
-        setShowCaptcha(false);
-        setUserCaptchaAnswer('');
-      })
-      .catch((error) => {
-        console.error('Erreur EmailJS:', error);
-        setIsSubmitting(false);
-        setSubmitStatus('Error sending message. Please try again or contact us directly.');
-      });
+    // Envoi direct via EmailJS avec votre méthode
+    emailjs.sendForm(
+      SERVICE_ID,           // service_zeuwh04
+      TEMPLATE_ID,          // template_zlot6be  
+      e.target as HTMLFormElement,
+      PUBLIC_KEY            // _e6k6nftsmZZxs29b
+    ).then(() => {
+      setIsSubmitting(false);
+      setSubmitStatus('Message sent successfully! We will get back to you soon.');
+      setFormData({ from_name: '', from_email: '', object: '', message: '' });
+      setShowCaptcha(false);
+      setUserCaptchaAnswer('');
+    }).catch((error) => {
+      console.error('Erreur EmailJS:', error);
+      setIsSubmitting(false);
+      setSubmitStatus('Erreur lors de l\'envoi. Please try again or contact us directly.');
+    });
   };
 
   return (
@@ -133,11 +112,39 @@ const Message: React.FC = () => {
           <h2 className="message-title">Contact</h2>
           <p className="message-subtitle">
             Contact Maudite Machine for bookings and inquiries via the form below or email{' '}
-            <span className="email-address">vrstlrecords@gmail.com</span>
+            <a href="mailto:vrstlrecords@gmail.com" className="email-address">vrstlrecords@gmail.com</a>
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="contact-form">
+          <div className="form-group">
+            <label htmlFor="from_name" className="form-label">Name</label>
+            <input
+              type="text"
+              id="from_name"
+              name="from_name"
+              value={formData.from_name}
+              onChange={handleInputChange}
+              className="form-input"
+              placeholder="Your name"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="from_email" className="form-label">Email</label>
+            <input
+              type="email"
+              id="from_email"
+              name="from_email"
+              value={formData.from_email}
+              onChange={handleInputChange}
+              className="form-input"
+              placeholder="your@email.com"
+              required
+            />
+          </div>
+
           <div className="form-group">
             <label htmlFor="object" className="form-label">Object</label>
             <input

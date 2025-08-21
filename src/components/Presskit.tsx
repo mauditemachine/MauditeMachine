@@ -57,7 +57,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
               </div>
               
               <a 
-                href="https://drive.google.com/drive/folders/1qI9hbn2NwDLwAg-q2Jn9-5U202CKP7P3?usp=sharing"
+                href="https://drive.google.com/file/d/1BqKq0UD0yAKS8Cu38pfUIwBz0qV0ufqe/view?usp=drive_link"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="download-button"
