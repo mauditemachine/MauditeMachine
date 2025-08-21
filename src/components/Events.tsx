@@ -22,13 +22,11 @@ export default function Events(): JSX.Element {
 
   const upcoming = useMemo(() => {
     const now = new Date().getTime()
-    const sorted = items
+    return items
       .map(e => ({ ...e, time: new Date(e.date).getTime() }))
       .filter(e => !isNaN(e.time) && e.time >= now)
       .sort((a, b) => a.time - b.time)
-      .slice(0, 4)
-    // enforce layout order: [0]=TL, [1]=TR, [2]=BL, [3]=BR
-    return sorted
+      .slice(0, 8)
   }, [items])
 
   if (error) return <div className="events-grid" aria-live="polite" />

@@ -12,14 +12,18 @@ type MessageItem = {
   link?: LinkInfo
 }
 
-export default function RandomMessage({ className = '' }: { className?: string }): React.ReactElement | null {
+export default function RandomMessage({ className = '', offset = 0, items: presetItems, rotateMs = 6000 }: { className?: string; offset?: number; items?: MessageItem[]; rotateMs?: number }): React.ReactElement | null {
   const [items, setItems] = useState<MessageItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [index, setIndex] = useState<number>(0)
-  const [isFadingOut, setIsFadingOut] = useState<boolean>(false)
+  const [isFadingOut] = useState<boolean>(false)
 
   useEffect(() => {
     let cancelled = false
+    if (presetItems && presetItems.length > 0) {
+      setItems(presetItems)
+      return
+    }
     const url = `/medias/messages.json?v=${Date.now()}`
     fetch(url, { cache: 'no-cache' })
       .then(r => r.json())
@@ -37,40 +41,34 @@ export default function RandomMessage({ className = '' }: { className?: string }
         ])
       })
     return () => { cancelled = true }
-  }, [])
+  }, [presetItems])
 
   useEffect(() => {
     if (!items || items.length === 0) return
-    setIndex(Math.floor(Math.random() * items.length))
+    // Démarre sur le premier item (ex: New Album), pour un ordre contrôlé
+    setIndex(0)
   }, [items])
 
+  // Rotation simple (sans effet) si plusieurs items
   useEffect(() => {
     if (!items || items.length <= 1) return
-    const DISPLAY_MS = 10000
-    const FADE_MS = 800
-    let fadeTimeoutId: number | null = null
-    const intervalId = window.setInterval(() => {
-      setIsFadingOut(true)
-      fadeTimeoutId = window.setTimeout(() => {
-        setIndex((prev) => (prev + 1) % items.length)
-        setIsFadingOut(false)
-      }, FADE_MS)
-    }, DISPLAY_MS)
-    return () => {
-      clearInterval(intervalId)
-      if (fadeTimeoutId) clearTimeout(fadeTimeoutId)
-    }
-  }, [items])
+    const id = window.setInterval(() => {
+      setIndex(prev => (prev + 1) % items.length)
+    }, Math.max(2000, rotateMs))
+    return () => clearInterval(id)
+  }, [items, rotateMs])
 
   const item = useMemo(() => {
     if (!items || items.length === 0) return null
-    return items[index % items.length]
-  }, [items, index])
+    const base = index % items.length
+    const withOffset = (base + (offset % items.length) + items.length) % items.length
+    return items[withOffset]
+  }, [items, index, offset])
 
   if (!item) return null
 
   return (
-    <section className={`message-card ${className} ${isFadingOut ? 'is-fading' : ''}`} aria-live="polite">
+    <section className={`message-card ${className}`} aria-live="polite">
       {item.image ? (
         <img className="message-image" src={item.image} alt={item.title || 'Message'} />
       ) : null}

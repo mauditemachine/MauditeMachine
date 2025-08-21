@@ -9,6 +9,8 @@
     "preview": "vite preview --open"
   },
   "dependencies": {
+    "@emailjs/browser": "^4.4.1",
+    "@fortawesome/fontawesome-free": "^7.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

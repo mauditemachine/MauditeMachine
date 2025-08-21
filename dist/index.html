@@ -1,16 +1,117 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Maudite Machine</title>
-    <link rel="icon" href="/assets/mauditemachine-logo-Fm-s1ZC_.png" />
-    <script type="module" crossorigin src="/assets/index-C2GdWnQS.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-17E1azFc.css">
+    <script>
+      // Supprimer les logs verbeux de SoundCloud et Canvas
+      const originalConsoleError = console.error;
+      const originalConsoleWarn = console.warn;
+      const originalConsoleLog = console.log;
+      
+      console.error = (...args) => {
+        const message = args.join(' ');
+        if (message.includes('SoundCloud') || 
+            message.includes('widget-') || 
+            message.includes('createPattern') ||
+            message.includes('canvas element with a width or height of 0') ||
+            message.includes('InvalidStateError') ||
+            message.includes('CanvasRenderingContext2D')) {
+          return; // Ignore SoundCloud/Canvas errors
+        }
+        originalConsoleError.apply(console, args);
+      };
+      
+      console.warn = (...args) => {
+        const message = args.join(' ');
+        if (message.includes('SoundCloud') || 
+            message.includes('widget-') ||
+            message.includes('validateDOMNesting')) {
+          return; // Ignore SoundCloud warnings et DOM nesting
+        }
+        originalConsoleWarn.apply(console, args);
+      };
+      
+      console.log = (...args) => {
+        const message = args.join(' ');
+        if (message.includes('SoundCloud Embed Player') || 
+            message.includes('constructor {resource_id') ||
+            message.includes('Track changed:')) {
+          return; // Ignore SoundCloud logs
+        }
+        originalConsoleLog.apply(console, args);
+      };
+    </script>
+    
+    <!-- LightWidget Instagram Script -->
+    <script src="https://cdn.lightwidget.com/widgets/lightwidget.js"></script>
+    <!--
+      Encore un site Maudite Machine cette années ! oue... je suis productif et je devrais faire de la musique au lieu de coder comme un coquin !
+      
+      Site Maudite Machine 2025
+      - Stack: Vite + React + TypeScript, CSS custom
+      - Lecteur: widget SoundCloud API + composant personnalisé (playlist, drag window)
+      - Assets: dans /medias (images, fonts, JSON: events/messages)
+      - Déploiement: build Vite (dist) publié sur gh-pages (+ /medias) ou via GitHub Actions
+      - Domaine: CNAME mauditemachine.com + .nojekyll
+    -->
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://mauditemachine.com/" />
+    <meta property="og:title" content="Maudite Machine - DJ & Producteur" />
+    <meta property="og:site_name" content="Maudite Machine" />
+    <meta
+      property="og:description"
+      content="DJ et producteur canadien spécialisé en minimal et indie dance. Fondateur de VRSTL Records."
+    />
+    <meta
+      property="og:image"
+      content="https://mauditemachine.com/medias/images/og-image.jpg?v=2025"
+    />
+    <meta property="og:image:secure_url" content="https://mauditemachine.com/medias/images/og-image.jpg?v=2025" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:alt" content="Maudite Machine - DJ & Producteur" />
+    <meta property="og:locale" content="fr_CA" />
+
+    <!-- Google Analytics -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-HP92HGMNJT"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+      gtag("config", "G-HP92HGMNJT");
+    </script>
+
+    <!-- Twitter Card (bonus) -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://mauditemachine.com" />
+    <meta
+      property="twitter:title"
+      content="Maudite Machine - DJ & Producteur"
+    />
+    <meta
+      property="twitter:description"
+      content="DJ et producteur canadien spécialisé en minimal et indie dance. Fondateur de VRSTL Records."
+    />
+    <meta
+      property="twitter:image"
+      content="https://mauditemachine.com/medias/images/og-image.jpg?v=2025"
+    />
+    <link rel="icon" href="/medias/logos/favicon.ico" type="image/x-icon" />
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script type="module" crossorigin src="/assets/index-B7oh3ErV.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-AKT5O2su.css">
   </head>
   <body>
     <div id="root"></div>
   </body>
-  </html>
-
-
+</html>

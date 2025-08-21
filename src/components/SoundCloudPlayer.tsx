@@ -45,6 +45,7 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
   // Affiche 5 pistes par défaut, puis "Load more" pour le reste
   const [showAll, setShowAll] = useState(false)
   const titleRef = useRef<HTMLDivElement | null>(null)
+  const lastIndexRef = useRef<number>(-1)
 
   // Utilise l'URL publique du set pour laisser SoundCloud résoudre le contenu complet
   const playlistUrl = 'https://soundcloud.com/mauditemachine/sets/tracks-1'
@@ -97,26 +98,55 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
         poll()
       }
 
+      // Fonction pour vérifier et mettre à jour l'index current
+      const checkCurrentTrack = () => {
+        if (cancelled) return
+        widget.getCurrentSoundIndex((i: number) => {
+          const safeIndex = i || 0
+          if (safeIndex !== lastIndexRef.current) {
+            console.log(`Track changed: ${lastIndexRef.current} → ${safeIndex}`)
+            lastIndexRef.current = safeIndex
+            setCurrentIndex(safeIndex)
+            maybeSwapBackground(safeIndex)
+          }
+        })
+      }
+
       widget.bind(window.SC.Widget.Events.READY, tryFetchAll)
       widget.bind(window.SC.Widget.Events.PLAY, () => {
         setIsPlaying(true)
         if (tracks.length === 0) tryFetchAll()
+        checkCurrentTrack()
       })
       widget.bind(window.SC.Widget.Events.PAUSE, () => setIsPlaying(false))
       widget.bind(window.SC.Widget.Events.PLAY_PROGRESS, (e: any) => {
         setPositionMs(Math.floor(e?.currentPosition || 0))
         widget.getCurrentSound((sound: Sound) => setDurationMs(sound?.duration || 0))
-        widget.getCurrentSoundIndex((i: number) => {
-          const safeIndex = i || 0
-          setCurrentIndex(safeIndex)
-          maybeSwapBackground(safeIndex)
-        })
+        checkCurrentTrack()
       })
-      widget.bind(window.SC.Widget.Events.FINISH, () => setIsPlaying(false))
+      // Événements pour changements de track automatiques
+      widget.bind(window.SC.Widget.Events.LOAD_PROGRESS, checkCurrentTrack)
+      widget.bind(window.SC.Widget.Events.SEEK, checkCurrentTrack)
+      widget.bind(window.SC.Widget.Events.FINISH, () => {
+        setIsPlaying(false)
+        // Petit délai pour laisser SoundCloud passer à la track suivante
+        setTimeout(checkCurrentTrack, 100)
+      })
+
+      // Polling agressif pour détecter les changements automatiques
+      const pollInterval = setInterval(() => {
+        if (!cancelled) {
+          checkCurrentTrack()
+        }
+      }, 500) // Vérifier toutes les 500ms (plus agressif)
+
+      return () => {
+        cancelled = true
+        clearInterval(pollInterval)
+      }
     }
     init()
-    return () => { cancelled = true }
-  }, [])
+  }, [isPlaying])
 
   function formatMs(ms?: number): string {
     if (!ms && ms !== 0) return ''
@@ -256,7 +286,11 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
       </div>
 
       <ul className="sc-list">
-        {(showAll ? tracks : tracks.slice(0, 5)).map((t, i) => (
+        {(
+          showAll || tracks.length <= 12
+            ? tracks
+            : tracks.slice(0, 12)
+        ).map((t, i) => (
           <li
             key={t.id}
             className={`sc-row ${i === currentIndex ? 'active' : ''}`}
@@ -267,7 +301,7 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
           </li>
         ))}
       </ul>
-      {tracks.length > 5 && !showAll && (
+      {tracks.length > 12 && !showAll && (
         <button className="sc-loadmore" onClick={() => setShowAll(true)}>Load more…</button>
       )}
 
