@@ -474,15 +474,7 @@ body {
   display: none;
 }
 
-.player-section .draggable-window {
-  position: static !important;
-  transform: none !important;
-  cursor: default;
-  background: transparent !important;
-  border: none !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
+
 
 .player-section .drag-content {
   border-radius: 0;

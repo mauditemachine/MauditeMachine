@@ -1,9 +1,6 @@
 import React, { useState } from "react";
-import BackgroundLines from "./components/BackgroundLines";
 import SoundCloudPlayer from "./components/SoundCloudPlayer";
-import Events from "./components/Events";
 import RandomMessage from "./components/RandomMessage";
-import DraggableWindow from "./components/DraggableWindow";
 import NewsMessages from "./components/NewsMessages";
 import EventsDisplay from "./components/EventsDisplay";
 import { Discography } from "./components/Discography";
