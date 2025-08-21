@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig(({ command }) => ({
   plugins: [react()],
-  base: command === 'build' ? '/MauditeMachine/' : '/',
+  base: '/',
   server: { port: 5173, open: true },
   publicDir: 'medias'
 }))
