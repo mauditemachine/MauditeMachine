@@ -24,7 +24,7 @@ export default function RandomMessage({ className = '', offset = 0, items: prese
       setItems(presetItems)
       return
     }
-    const url = `/messages.json?v=${Date.now()}`
+    const url = `${import.meta.env.BASE_URL}messages.json?v=${Date.now()}`
     fetch(url, { cache: 'no-cache' })
       .then(r => r.json())
       .then((data: MessageItem[]) => { if (!cancelled) setItems(Array.isArray(data) ? data : []) })
@@ -36,7 +36,7 @@ export default function RandomMessage({ className = '', offset = 0, items: prese
           {
             title: 'Stay tuned',
             description: 'News and announcements coming soon.',
-            image: '/images/Simetra.webp'
+            image: import.meta.env.BASE_URL + 'images/Simetra.webp'
           }
         ])
       })

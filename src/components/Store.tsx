@@ -10,7 +10,7 @@ const Store: React.FC = () => {
       <div className="store-message">
         <div className="store-icon">
           <img 
-            src="/logo/mauditemachine-logo.png" 
+            src={import.meta.env.BASE_URL + 'logo/mauditemachine-logo.png'} 
             alt="Maudite Machine Logo"
             className="store-logo"
           />
