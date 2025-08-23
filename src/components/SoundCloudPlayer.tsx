@@ -47,6 +47,29 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
   const titleRef = useRef<HTMLDivElement | null>(null)
   const lastIndexRef = useRef<number>(-1)
 
+  // Supprimer les erreurs SoundCloud de la console
+  useEffect(() => {
+    const originalError = console.error
+    console.error = (...args) => {
+      const message = args[0]?.toString() || ''
+      // Filtrer les erreurs SoundCloud connues
+      if (
+        message.includes('createPattern') ||
+        message.includes('canvas element with a width or height of 0') ||
+        message.includes('widget-') ||
+        message.includes('AbortError') ||
+        message.includes('Script error')
+      ) {
+        return // Ignorer ces erreurs
+      }
+      originalError.apply(console, args)
+    }
+
+    return () => {
+      console.error = originalError
+    }
+  }, [])
+
   // Utilise l'URL publique du set pour laisser SoundCloud résoudre le contenu complet
   const playlistUrl = 'https://soundcloud.com/mauditemachine/sets/tracks-1'
 
@@ -309,9 +332,9 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
       <iframe
         ref={iframeRef}
         title="SC Widget"
-        style={{ position: 'absolute', width: '1px', height: '1px', opacity: 0, pointerEvents: 'none', left: '-9999px' }}
+        style={{ position: 'absolute', width: '300px', height: '166px', opacity: 0, pointerEvents: 'none', left: '-9999px', top: '-9999px' }}
         allow="autoplay"
-        src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(playlistUrl)}&color=%23102b47&auto_play=false&hide_related=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false`}
+        src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(playlistUrl)}&color=%23102b47&auto_play=false&hide_related=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false&visual=false`}
       />
     </div>
   )

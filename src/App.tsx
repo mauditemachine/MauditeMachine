@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import SoundCloudPlayer from "./components/SoundCloudPlayer";
 import RandomMessage from "./components/RandomMessage";
 import NewsMessages from "./components/NewsMessages";
@@ -10,6 +10,40 @@ import Store from "./components/Store";
 import Message from "./components/Message";
 import Presskit from "./components/Presskit";
 import SocialIcon from "./components/SocialIcon";
+
+// Supprimer les erreurs SoundCloud de la console globalement
+const suppressSoundCloudErrors = () => {
+  const originalError = console.error;
+  const originalWarn = console.warn;
+  
+  console.error = (...args) => {
+    const message = args[0]?.toString() || '';
+    if (
+      message.includes('createPattern') ||
+      message.includes('canvas element with a width or height of 0') ||
+      message.includes('widget-') ||
+      message.includes('AbortError') ||
+      message.includes('Script error') ||
+      message.includes('InvalidStateError') ||
+      message.includes('Permissions policy violation: encrypted-media')
+    ) {
+      return;
+    }
+    originalError.apply(console, args);
+  };
+
+  console.warn = (...args) => {
+    const message = args[0]?.toString() || '';
+    if (
+      message.includes('SoundCloud') ||
+      message.includes('widget-') ||
+      message.includes('encrypted-media')
+    ) {
+      return;
+    }
+    originalWarn.apply(console, args);
+  };
+};
 
 const socialLinks: { 
   label: string; 
@@ -73,6 +107,11 @@ export default function App() {
     encodeURI(import.meta.env.BASE_URL + "images/Simetra.webp")
   );
   const [activeSection, setActiveSection] = useState("home");
+
+  // Supprimer les erreurs SoundCloud au chargement
+  useEffect(() => {
+    suppressSoundCloudErrors();
+  }, []);
 
   return (
     <div className="page">
