@@ -82,7 +82,7 @@ body {
 
 /* Force background and overlay behind everything */
 .bg-stack { position: fixed; inset: 0; z-index: -2 !important; pointer-events: none !important; overflow: hidden !important; }
-.bg-photo { position: absolute; inset: 0; z-index: -2 !important; opacity: 0.3; width: 100vw !important; height: 100vh !important; max-width: none !important; max-height: none !important; object-fit: cover !important; object-position: center center !important; }
+.bg-photo { position: absolute; inset: 0; z-index: -2 !important; opacity: 0.2; width: 100vw !important; height: 100vh !important; max-width: none !important; max-height: none !important; object-fit: cover !important; object-position: center center !important; }
 .page::before { z-index: -1 !important; pointer-events: none !important; }
 
 /* Ensure main content is above */
@@ -3344,16 +3344,52 @@ html body .second-third-combined .main-rectangle .message-content {
   transform: scale(1.05);
 }
 
-/* Responsive Instagram - limite sur mobile */
-@media (max-width: 768px) {
-  .lightwidget-widget {
-    max-height: 400px !important;
-    overflow: hidden !important;
-  }
+/* Instagram avec 25 posts et scroll visible */
+.lightwidget-widget {
+  max-height: 600px !important;
+  overflow-y: auto !important;
 }
 
-@media (max-width: 480px) {
-  .lightwidget-widget {
-    max-height: 300px !important;
-  }
+/* Scroll design vert comme medias pour Instagram */
+.lightwidget-widget::-webkit-scrollbar {
+  width: 6px;
+}
+
+.lightwidget-widget::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.lightwidget-widget::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 136, 0.6);
+  border-radius: 3px;
+}
+
+.lightwidget-widget::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 136, 0.8);
+}
+
+/* Scroll design vert pour Past Events */
+.past-events-container {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+.past-events-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.past-events-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.past-events-container::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 136, 0.6);
+  border-radius: 3px;
+}
+
+.past-events-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 136, 0.8);
 }
