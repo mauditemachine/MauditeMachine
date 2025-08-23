@@ -11,13 +11,19 @@ import Message from "./components/Message";
 import Presskit from "./components/Presskit";
 import SocialIcon from "./components/SocialIcon";
 
-// Supprimer les erreurs SoundCloud de la console globalement
+// Supprimer TOUTES les erreurs SoundCloud de la console
 const suppressSoundCloudErrors = () => {
   const originalError = console.error;
   const originalWarn = console.warn;
+  const originalLog = console.log;
+  let errorCount = 0;
+  let hasShownGroupedError = false;
   
   console.error = (...args) => {
     const message = args[0]?.toString() || '';
+    const stack = args[1]?.stack || '';
+    
+    // Liste exhaustive des erreurs SoundCloud à supprimer
     if (
       message.includes('createPattern') ||
       message.includes('canvas element with a width or height of 0') ||
@@ -25,8 +31,22 @@ const suppressSoundCloudErrors = () => {
       message.includes('AbortError') ||
       message.includes('Script error') ||
       message.includes('InvalidStateError') ||
-      message.includes('Permissions policy violation: encrypted-media')
+      message.includes('Permissions policy violation') ||
+      message.includes('encrypted-media') ||
+      message.includes('Failed to execute') ||
+      message.includes('CanvasRenderingContext2D') ||
+      message.includes('signal is aborted') ||
+      message.includes('Uncaught') ||
+      stack.includes('widget-') ||
+      stack.includes('soundcloud') ||
+      args.some(arg => arg?.constructor?.name === 'constructor')
     ) {
+      errorCount++;
+      // Afficher un seul message groupé après 5 erreurs
+      if (!hasShownGroupedError && errorCount >= 5) {
+        originalLog('%c🔇 SoundCloud widget errors suppressed (' + errorCount + ' errors)', 'color: #666; font-style: italic;');
+        hasShownGroupedError = true;
+      }
       return;
     }
     originalError.apply(console, args);
@@ -37,11 +57,26 @@ const suppressSoundCloudErrors = () => {
     if (
       message.includes('SoundCloud') ||
       message.includes('widget-') ||
-      message.includes('encrypted-media')
+      message.includes('encrypted-media') ||
+      message.includes('Permissions policy') ||
+      message.includes('Feature Policy')
     ) {
       return;
     }
     originalWarn.apply(console, args);
+  };
+
+  // Supprimer aussi les logs SoundCloud
+  console.log = (...args) => {
+    const message = args[0]?.toString() || '';
+    if (
+      message.includes('SoundCloud Embed Player') ||
+      message.includes('widget-') ||
+      message.includes('📦 Utilisation du cache')
+    ) {
+      return;
+    }
+    originalLog.apply(console, args);
   };
 };
 
@@ -111,6 +146,47 @@ export default function App() {
   // Supprimer les erreurs SoundCloud au chargement
   useEffect(() => {
     suppressSoundCloudErrors();
+    
+    // Capturer aussi les erreurs globales du window
+    const handleError = (event: ErrorEvent) => {
+      const message = event.message || '';
+      const filename = event.filename || '';
+      
+      if (
+        message.includes('createPattern') ||
+        message.includes('canvas element') ||
+        message.includes('AbortError') ||
+        message.includes('Script error') ||
+        filename.includes('widget-') ||
+        filename.includes('soundcloud')
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        return false;
+      }
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason?.toString() || '';
+      
+      if (
+        reason.includes('AbortError') ||
+        reason.includes('signal is aborted') ||
+        reason.includes('widget-') ||
+        reason.includes('soundcloud')
+      ) {
+        event.preventDefault();
+        return false;
+      }
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
   }, []);
 
   return (
