@@ -2018,6 +2018,7 @@ iframe.lightwidget-widget {
   font-weight: 900;
   line-height: 1.2;
   margin: 2px 0;
+  color: #f7ce02 !important;
 }
 
 .event-location {
@@ -2721,6 +2722,7 @@ iframe.lightwidget-widget {
   font-size: clamp(18px, 4vw, 24px);
   font-weight: 900;
   text-transform: uppercase;
+  color: #f7ce02 !important;
   margin-bottom: 5px;
   letter-spacing: 0px;
 }
