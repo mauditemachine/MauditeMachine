@@ -95,7 +95,7 @@ body {
   inset: 0;
   z-index: 1;
   pointer-events: none;
-  background: radial-gradient(ellipse at center, rgba(0,0,0,0.1), rgba(0,0,0,0.35));
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.05), rgba(0,0,0,0.0));
 }
 
 /* All UI content above overlay */
