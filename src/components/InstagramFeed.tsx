@@ -21,15 +21,15 @@ const InstagramFeed: React.FC = () => {
       <div className="instagram-widget-container">
         <iframe
           src="https://cdn.lightwidget.com/widgets/faa495d6f58f5685bc4fadceeef06a31.html"
-          scrolling="no"
+          scrolling="yes"
           allowTransparency={true as any}
           className="lightwidget-widget"
           style={{ 
             width: '100%', 
             border: '0', 
-            overflow: 'hidden',
-            height: 'auto',
-            minHeight: '400px'
+            overflow: 'auto',
+            height: '600px',
+            minHeight: '600px'
           }}
         />
         
