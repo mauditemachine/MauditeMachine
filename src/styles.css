@@ -3096,19 +3096,25 @@ html body .second-third-combined .main-rectangle .message-content {
 
 /* Round white icon button for download */
 .download-button {
-  width: 38px;
+  min-width: 120px;
   height: 38px;
-  border-radius: 50%;
+  border-radius: 25px;
   background: #ffffff !important;
   color: #4b4b4b !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   border: none !important;
   box-shadow: none !important;
   text-decoration: none !important;
+  padding: 0 15px;
+  font-weight: bold;
+  font-size: 12px;
+  text-transform: uppercase;
 }
 .download-button i { font-size: 16px; color:rgb(46, 46, 46);}
+.download-button span { color:rgb(46, 46, 46); font-weight: bold; }
 .download-button:hover { transform: scale(1.1); background: #ffffff !important; }
 
 /* Styles pour le nouveau DiscographyPlayer */

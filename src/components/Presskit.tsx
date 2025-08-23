@@ -64,6 +64,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
                 aria-label="Download press kit"
               >
                 <i className="fa-solid fa-download" />
+                <span>DOWNLOAD</span>
               </a>
             </div>
           </div>
