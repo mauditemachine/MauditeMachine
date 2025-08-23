@@ -29,13 +29,25 @@ const InstagramFeed: React.FC<InstagramFeedProps> = ({ isMobile = false }) => {
       <div className="instagram-widget-container">
         {/* LightWidget embed exact fourni */}
         <script src="https://cdn.lightwidget.com/widgets/lightwidget.js"></script>
-        <iframe
-          src="https://cdn.lightwidget.com/widgets/faa495d6f58f5685bc4fadceeef06a31.html"
-          scrolling="no"
-          allowTransparency={true as any}
-          className="lightwidget-widget"
-          style={{ width: '100%', border: '0', overflow: 'hidden' }}
-        />
+        {isMobile ? (
+          // Widget mobile avec 20 posts maximum
+          <iframe
+            src="https://cdn.lightwidget.com/widgets/faa495d6f58f5685bc4fadceeef06a31.html"
+            scrolling="no"
+            allowTransparency={true as any}
+            className="lightwidget-widget mobile-instagram-widget"
+            style={{ width: '100%', border: '0', overflow: 'hidden', maxHeight: '350px' }}
+          />
+        ) : (
+          // Widget desktop complet
+          <iframe
+            src="https://cdn.lightwidget.com/widgets/faa495d6f58f5685bc4fadceeef06a31.html"
+            scrolling="no"
+            allowTransparency={true as any}
+            className="lightwidget-widget"
+            style={{ width: '100%', border: '0', overflow: 'hidden' }}
+          />
+        )}
         <div style={{ textAlign: 'right', marginTop: 10 }}>
           <a
             href="https://www.instagram.com/mauditemachine/"

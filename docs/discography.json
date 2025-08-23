@@ -61,6 +61,55 @@
     "category": "Single",
     "coverImage": "images/Discowriders.webp",
     "discogsUrl": "https://www.discogs.com/search/?q=Maudite%20Machine%20Discowriders&type=release"
+  },
+  {
+    "title": "Drama Queen 1",
+    "year": 2024,
+    "category": "Single",
+    "coverImage": "images/Drama Queen 1.webp",
+    "discogsUrl": "https://www.discogs.com/search/?q=Maudite%20Machine%20Drama%20Queen&type=release"
+  },
+  {
+    "title": "Kouklikou",
+    "year": 2025,
+    "category": "Single",
+    "coverImage": "images/Kouklikou.webp",
+    "discogsUrl": "https://www.discogs.com/search/?q=Maudite%20Machine%20Kouklikou&type=release"
+  },
+  {
+    "title": "Crush on You",
+    "year": 2025,
+    "category": "Single",
+    "coverImage": "images/Crush-on-You.webp",
+    "discogsUrl": "https://www.discogs.com/search/?q=Maudite%20Machine%20Crush%20on%20You&type=release"
+  },
+  {
+    "title": "Drama Queen",
+    "year": 2024,
+    "category": "Single",
+    "coverImage": "images/Drama Queen 1.webp",
+    "discogsUrl": "https://www.discogs.com/search/?q=Maudite%20Machine%20Drama%20Queen&type=release"
+  },
+  {
+    "title": "Mixtape 36",
+    "year": 2024,
+    "category": "Compilation",
+    "coverImage": "images/Mixtape-36.webp",
+    "discogsUrl": "https://www.discogs.com/search/?q=Maudite%20Machine%20Mixtape%2036&type=release"
+  },
+  {
+    "title": "Maudite Machine Mixtape #035",
+    "year": 2024,
+    "category": "Compilation",
+    "coverImage": "images/Mixtape-035.webp",
+    "discogsUrl": "https://www.discogs.com/search/?q=Maudite%20Machine%20Mixtape%20035&type=release"
+  },
+  {
+    "title": "Eye In The Sky (Maudite Machine Remix)",
+    "year": 2023,
+    "category": "Remix",
+    "coverImage": "images/Eye-In-The-Sky-Remix.webp",
+    "discogsUrl": "https://www.discogs.com/search/?q=Alan%20Parsons%20Project%20Eye%20In%20The%20Sky%20Maudite%20Machine%20Remix&type=release"
   }
 ]
 

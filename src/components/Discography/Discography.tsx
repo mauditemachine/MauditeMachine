@@ -5,6 +5,8 @@
 import React, { useState } from 'react';
 import { useDiscogs } from '../../hooks/useDiscogs';
 import ReleaseCard from './ReleaseCard';
+import DiscographyPlayer from './DiscographyPlayer';
+import { soundcloudTracks } from '../../data/soundcloudTracks';
 import './Discography.css';
 
 const categoryFilters: Array<{ key: string; label: string;  }> = [
@@ -16,7 +18,11 @@ const categoryFilters: Array<{ key: string; label: string;  }> = [
   { key: 'compilation', label: 'COMPILS' },
 ];
 
-const Discography: React.FC = () => {
+interface DiscographyProps {
+  onBackgroundChange?: (url: string) => void;
+}
+
+const Discography: React.FC<DiscographyProps> = ({ onBackgroundChange }) => {
   const {
     releases,
     filteredReleases,
@@ -97,37 +103,13 @@ const Discography: React.FC = () => {
         })}
       </div>
 
-
-
-      {/* Grille des releases */}
-      {displayedReleases.length > 0 ? (
-        <div className={`releases-container ${viewMode}-view`}>
-          <div className={`releases-grid ${viewMode}`}>
-            {displayedReleases.map((release) => (
-              <ReleaseCard
-                key={release.id}
-                release={release}
-                viewMode={viewMode}
-              />
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="no-results">
-          <div className="no-results-icon">🔍</div>
-          <h3>Aucun résultat</h3>
-          <p>Aucune release dans la catégorie "{currentFilter}"</p>
-          {currentFilter !== 'all' && (
-            <button
-              onClick={() => setFilter('all')}
-              className="clear-filters-button"
-            >
-              Afficher toutes les releases
-            </button>
-          )}
-        </div>
-      )}
-
+      {/* Zone scrollable interne */}
+      <div className="section-scroll">
+        {/* Lecteur de discographie - utilise la playlist SoundCloud */}
+        <DiscographyPlayer
+          onBackgroundChange={onBackgroundChange}
+        />
+      </div>
 
     </div>
   );

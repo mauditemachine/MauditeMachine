@@ -109,7 +109,6 @@ const Message: React.FC = () => {
     <div className="message-container">
       <div className="message-content">
         <div className="message-header">
-          <h2 className="message-title">Contact</h2>
           <p className="message-subtitle">
             Contact Maudite Machine for bookings and inquiries via the form below or email{' '}
             <a href="mailto:vrstlrecords@gmail.com" className="email-address">vrstlrecords@gmail.com</a>

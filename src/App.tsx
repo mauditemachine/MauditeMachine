@@ -5,6 +5,7 @@ import NewsMessages from "./components/NewsMessages";
 import EventsDisplay from "./components/EventsDisplay";
 import { Discography } from "./components/Discography";
 import InstagramFeed from "./components/InstagramFeed";
+import Medias from "./components/Medias";
 import Store from "./components/Store";
 import Message from "./components/Message";
 import Presskit from "./components/Presskit";
@@ -114,38 +115,48 @@ export default function App() {
       {/* Navigation en haut du site */}
       <div className="second-third-combined">
         {/* Boutons de navigation en haut */}
-        <div className="nav-buttons">
+        <div className="nav-buttons-container">
           <button
-            className={`nav-btn ${activeSection === "home" ? "active" : ""}`}
+            className={`nav-icon-btn ${activeSection === "home" ? "active" : ""}`}
             onClick={() => setActiveSection("home")}
           >
-            HOME
+            <i className="fa-solid fa-house-chimney"></i>
           </button>
           <button
-            className={`nav-btn ${activeSection === "events" ? "active" : ""}`}
+            className={`nav-icon-btn ${activeSection === "events" ? "active" : ""}`}
             onClick={() => setActiveSection("events")}
           >
-            EVENTS
+            <i className="fa-solid fa-calendar-days"></i>
           </button>
-          <button className={`nav-btn ${activeSection === "disco" ? "active" : ""}`} onClick={() => setActiveSection("disco")}>DISCO</button>
-          <button className={`nav-btn ${activeSection === "medias" ? "active" : ""}`} onClick={() => setActiveSection("medias")}>MEDIAS</button>
+          <button
+            className={`nav-icon-btn ${activeSection === "disco" ? "active" : ""}`}
+            onClick={() => setActiveSection("disco")}
+          >
+            <i className="fa-solid fa-compact-disc"></i>
+          </button>
+          <button
+            className={`nav-icon-btn ${activeSection === "medias" ? "active" : ""}`}
+            onClick={() => setActiveSection("medias")}
+          >
+            <i className="fa-solid fa-image"></i>
+          </button>
           <button 
-            className={`nav-btn ${activeSection === "store" ? "active" : ""}`}
+            className={`nav-icon-btn ${activeSection === "store" ? "active" : ""}`}
             onClick={() => setActiveSection("store")}
           >
-            STORE
+            <i className="fa-solid fa-store"></i>
           </button>
           <button 
-            className={`nav-btn ${activeSection === "message" ? "active" : ""}`}
+            className={`nav-icon-btn ${activeSection === "message" ? "active" : ""}`}
             onClick={() => setActiveSection("message")}
           >
-            MESSAGE
+            <i className="fa-solid fa-message"></i>
           </button>
           <button 
-            className={`nav-btn ${activeSection === "presskit" ? "active" : ""}`}
+            className={`nav-icon-btn ${activeSection === "presskit" ? "active" : ""}`}
             onClick={() => setActiveSection("presskit")}
           >
-            PRESSKIT
+            <i className="fa-solid fa-newspaper"></i>
           </button>
         </div>
 
@@ -160,9 +171,11 @@ export default function App() {
               <NewsMessages />
             </>
           )}
-          {activeSection === "events" && <EventsDisplay />}
-          {activeSection === "disco" && <Discography />}
-          {activeSection === "medias" && <InstagramFeed />}
+          {activeSection === "events" && <EventsDisplay showPastEventsButton={true} />}
+          {activeSection === "disco" && <Discography onBackgroundChange={(url) => setBgUrl(url)} />}
+          {activeSection === "medias" && (
+            <Medias onBackgroundChange={(url) => setBgUrl(url)} />
+          )}
           {activeSection === "store" && <Store />}
           {activeSection === "message" && <Message />}
           {activeSection === "presskit" && <Presskit onNavigateToMessage={() => setActiveSection("message")} />}
@@ -209,7 +222,7 @@ export default function App() {
         </a>
       </footer>
 
-      {/* Mobile Layout */}
+      {/* Mobile Layout - visible seulement via media query */}
       <div className="mobile-layout">
         {/* Logo 100% largeur */}
         <div className="mobile-section mobile-logo">
@@ -272,7 +285,6 @@ export default function App() {
 
         {/* Message */}
         <div className="mobile-section mobile-message">
-          <h3>Contact</h3>
           <Message />
         </div>
 

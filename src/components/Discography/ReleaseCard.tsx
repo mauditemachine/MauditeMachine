@@ -29,7 +29,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({ release, viewMode }) => {
       case 'EP': return '';
       case 'Single': return '';
       case 'Remix': return '';
-      case 'Compilation': return '📚';
+      case 'Compilation': return '';
       default: return '🎧';
     }
   };
@@ -40,9 +40,13 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({ release, viewMode }) => {
       case 'EP': return '#ffffff';
       case 'Single': return '#ffffff';
       case 'Remix': return '#ffffff';
-      case 'Compilation': return '#ff8800';
+      case 'Compilation': return '#ffffff';
       default: return '#ffffff';
     }
+  };
+
+  const getCategoryLabel = (category: string) => {
+    return category === 'Compilation' ? 'Mixtape' : category;
   };
 
   if (viewMode === 'list') {
@@ -72,7 +76,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({ release, viewMode }) => {
                 className="release-category"
                 style={{ color: getCategoryColor(release.category) }}
               >
-                {getCategoryEmoji(release.category)}{getCategoryEmoji(release.category) && ' '}{release.category}
+                {getCategoryEmoji(release.category)}{getCategoryEmoji(release.category) && ' '}{getCategoryLabel(release.category)}
               </span>
               <div className="release-year-duration">
                 {release.year && (
@@ -146,7 +150,7 @@ const ReleaseCard: React.FC<ReleaseCardProps> = ({ release, viewMode }) => {
                 className="overlay-category"
                 style={{ color: getCategoryColor(release.category) }}
               >
-                {getCategoryEmoji(release.category)}{getCategoryEmoji(release.category) && ' '}{release.category}
+                {getCategoryEmoji(release.category)}{getCategoryEmoji(release.category) && ' '}{getCategoryLabel(release.category)}
               </span>
               <div className="release-year-duration">
                 {release.year && (

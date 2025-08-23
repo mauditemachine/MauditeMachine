@@ -80,40 +80,36 @@ body {
   padding: 10px;
 }
 
-.bg-stack {
+/* Force background and overlay behind everything */
+.bg-stack { position: fixed; inset: 0; z-index: -2 !important; pointer-events: none !important; overflow: hidden !important; }
+.bg-photo { position: absolute; inset: 0; z-index: -2 !important; opacity: 0.3; width: 100vw !important; height: 100vh !important; max-width: none !important; max-height: none !important; object-fit: cover !important; object-position: center center !important; }
+.page::before { z-index: -1 !important; pointer-events: none !important; }
+
+/* Ensure main content is above */
+.second-third-combined, .main-content, .second-third-combined .main-rectangle { position: relative; z-index: 1 !important; }
+
+/* Overlay above background */
+.page::before {
+  content: "";
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: 1;
   pointer-events: none;
-}
-.bg-photo {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center;
-  opacity: 0.3;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.1), rgba(0,0,0,0.35));
 }
 
-/* Navigation dans la colonne de droite */
-.second-third-combined {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-  height: 100%;
-}
+/* All UI content above overlay */
+.second-third-combined, .main-content, .menu, .mobile-layout { z-index: 2 !important; position: relative; }
 
-.nav-buttons {
-  display: flex;
-  gap: 8px;
-  padding: 8px;
-  flex-wrap: wrap;
+/* Ensure main-rectangle is fully above overlay and opaque */
+.second-third-combined .main-rectangle {
+  position: relative;
+  z-index: 2 !important;
+  background: rgba(0,0,0,0.9) !important;
 }
 
 .main-rectangle {
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.0);
   border-radius: 15px;
   padding: 30px;
   flex: 1;
@@ -129,6 +125,9 @@ body {
   text-align: left;
   margin: 0 0 20px 0;
 }
+
+/* Mobile layout masqué par défaut (visible seulement sous 768px) */
+.mobile-layout { display: none; }
 
 /* Responsive Design */
 @media (max-width: 768px) {
@@ -458,7 +457,7 @@ body {
 
 /* Player SoundCloud */
 .player-section {
-  backdrop-filter: blur(1px);
+  backdrop-filter: blur(0.2px);
   padding: 10px;
 }
 
@@ -491,12 +490,14 @@ body {
   align-items: flex-start;
   margin-right: 10px;
   gap: 10px;
+  background: transparent !important;
+  opacity: 1 !important;
 }
 
 .nav-btn {
   width: 70px;
   height: 26px;
-  background: rgba(255, 255, 255, 0.95);
+  background: white;
   border: none;
   border-radius: 40px;
   color: #8b4513;
@@ -509,16 +510,346 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  text-transform: uppercase;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(10px);
-  padding: 8px 16px;
-  text-decoration: none;
-  margin: 10px 0;
+}
+
+.home-btn {
+  background: white !important;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+
+.home-btn:hover {
+  background: white !important;
+  transform: scale(1.2);
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+
+.home-btn.active {
+  background: white !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+}
+
+.home-btn i {
+  color: #333333 !important;
+  font-size: 18px;
+  opacity: 1 !important;
+}
+
+/* Force l'opacité des boutons home-btn dans tous les contextes - ULTRA SPÉCIFIQUE */
+button.home-btn,
+.nav-buttons button.home-btn,
+.second-third-combined .nav-buttons button.home-btn,
+div.second-third-combined div.nav-buttons button.home-btn {
+  background-color: rgb(255, 255, 255) !important;
+  background: rgb(255, 255, 255) !important;
+  opacity: 1 !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+button.home-btn:hover,
+.nav-buttons button.home-btn:hover,
+.second-third-combined .nav-buttons button.home-btn:hover,
+div.second-third-combined div.nav-buttons button.home-btn:hover {
+  background-color: rgb(255, 255, 255) !important;
+  background: rgb(255, 255, 255) !important;
+  opacity: 1 !important;
+  transform: scale(1.2) !important;
+}
+
+button.home-btn.active,
+.nav-buttons button.home-btn.active,
+.second-third-combined .nav-buttons button.home-btn.active,
+div.second-third-combined div.nav-buttons button.home-btn.active {
+  background-color: rgb(255, 255, 255) !important;
+  background: rgb(255, 255, 255) !important;
+  opacity: 1 !important;
+}
+
+/* Force les icônes aussi */
+button.home-btn i,
+.nav-buttons button.home-btn i,
+.second-third-combined .nav-buttons button.home-btn i,
+div.second-third-combined div.nav-buttons button.home-btn i {
+  color: rgb(51, 51, 51) !important;
+  opacity: 1 !important;
 }
 
 .nav-btn:hover {
   background: #f7ce02;
+}
+
+/* ============================================
+   NOUVEAUX BOUTONS DE NAVIGATION - DESIGN PROPRE SANS TRANSPARENCE
+   ============================================ */
+.nav-buttons-container {
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-start;
+  margin-right: 10px;
+  gap: 10px;
+}
+
+.nav-icon-btn {
+  /* Taille et forme */
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  
+  /* Style de base */
+  background: white;
+  border: none;
+  cursor: pointer;
+  
+  /* Centrage du contenu */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  /* Espacement intérieur */
+  padding: 4px;
+  
+  /* Animation */
+  transition: transform 0.3s ease;
+  
+  /* Pas de transparence */
+  opacity: 1;
+  filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+.nav-icon-btn:hover {
+  background: white;
+  transform: scale(1.2);
+  opacity: 1;
+}
+
+.nav-icon-btn.active {
+  background: white;
+  opacity: 1;
+}
+
+.nav-icon-btn i {
+  color: #333333;
+  font-size: 18px;
+  opacity: 1;
+}
+
+/* ============================================
+   FORCE BRUTALE ANTI-TRANSPARENCE - DERNIÈRE TENTATIVE
+   ============================================ */
+html body div.second-third-combined div.nav-buttons-container button.nav-icon-btn {
+  background: rgb(255, 255, 255) !important;
+  background-color: rgb(255, 255, 255) !important;
+  opacity: 1 !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  border: none !important;
+  position: relative !important;
+  z-index: 999999 !important;
+}
+
+html body div.second-third-combined div.nav-buttons-container button.nav-icon-btn:hover {
+  background: rgb(255, 255, 255) !important;
+  background-color: rgb(255, 255, 255) !important;
+  opacity: 1 !important;
+  transform: scale(1.2) !important;
+}
+
+html body div.second-third-combined div.nav-buttons-container button.nav-icon-btn.active {
+  background: rgb(255, 255, 255) !important;
+  background-color: rgb(255, 255, 255) !important;
+  opacity: 1 !important;
+}
+
+html body div.second-third-combined div.nav-buttons-container button.nav-icon-btn i {
+  color: rgb(51, 51, 51) !important;
+  opacity: 1 !important;
+}
+
+/* ============================================
+   LECTEUR DISCOGRAPHIE - DESIGN COMME SOUNDCLOUD
+   ============================================ */
+.discography-player {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding: 20px 0;
+}
+
+.track-item {
+  display: flex;
+  gap: 15px;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.track-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.track-cover {
+  flex-shrink: 0;
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.track-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.track-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.track-title {
+  font-family: "DIN Alternate", system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: white;
+  line-height: 1.2;
+}
+
+.track-category {
+  font-family: "DIN Alternate", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.track-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-top: auto;
+}
+
+.track-year {
+  font-family: "DIN Alternate", system-ui, sans-serif;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  min-width: 40px;
+}
+
+.play-button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.play-button:hover {
+  transform: scale(1.1);
+}
+
+.play-button i {
+  color: #333333;
+  font-size: 16px;
+}
+
+.track-slider {
+  flex: 1;
+  min-width: 150px;
+}
+
+.slider {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.2);
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.track-duration {
+  font-family: "DIN Alternate", system-ui, sans-serif;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  min-width: 45px;
+  text-align: right;
+}
+
+/* Responsive pour les tracks */
+@media (max-width: 768px) {
+  .track-item {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .track-cover {
+    width: 60px;
+    height: 60px;
+    align-self: flex-start;
+  }
+  
+  .track-controls-row {
+    gap: 10px;
+  }
+  
+  .track-slider {
+    min-width: 100px;
+  }
 }
 
 .nav-btn:active {
@@ -538,7 +869,7 @@ body {
   flex: 1;
   height: calc(100vh - 200px);
   max-height: calc(100vh - 200px);
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 
@@ -1100,9 +1431,25 @@ iframe.lightwidget-widget {
 
 /* Responsive Store */
 @media (max-width: 768px) {
+  /* FOLLOW plus compact en mobile - juste assez pour le texte + 3px autour */
+  .ig-follow-button { 
+    min-width: auto !important; 
+    width: auto !important;
+    height: 28px !important; 
+    font-size: 11px !important; 
+    padding: 3px 6px !important;
+    border-radius: 4px !important;
+  }
+
+  /* Limiter Instagram à 18 posts en mobile via hauteur réduite */
+  .lightwidget-widget { 
+    height: 800px !important; 
+    max-height: 800px !important;
+    overflow: hidden !important;
+  }
   .store-message {
     padding: 30px 20px;
-    max-width: 90%;
+    max-width: 100%;
   }
   
   .store-title {
@@ -1540,12 +1887,51 @@ iframe.lightwidget-widget {
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;
   }
+  
+  /* Limiter à 20 posts en mobile */
+  .mobile-instagram-widget {
+    max-height: 400px !important;
+    overflow: hidden !important;
+  }
+  
+  /* Masquer les posts au-delà de 20 en mobile */
+  .mobile-section.mobile-instagram .lightwidget-widget {
+    max-height: 350px !important;
+    overflow: hidden !important;
+  }
 }
 
 @media (max-width: 480px) {
   .instagram-posts {
     grid-template-columns: 1fr;
     gap: 8px;
+  }
+  
+  /* Réduire encore plus en très petit écran */
+  .mobile-instagram-widget {
+    max-height: 300px !important;
+  }
+  
+  .mobile-section.mobile-instagram .lightwidget-widget {
+    max-height: 250px !important;
+  }
+  
+  /* Cartes d'événements sur très petits écrans */
+  .event-content {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+  
+  .event-banner {
+    width: 100%;
+    max-width: 300px;
+    height: clamp(60px, 15vw, 80px);
+    align-self: center;
+  }
+  
+  .event-details {
+    text-align: center;
   }
 }
 
@@ -1583,8 +1969,8 @@ iframe.lightwidget-widget {
 }
 
 .event-banner {
-  width: 200px;
-  height: 100px;
+  width: clamp(150px, 25vw, 200px);
+  height: clamp(75px, 12.5vw, 100px);
   border-radius: 6px;
   overflow: hidden;
   background: rgba(0, 0, 0, 0.3);
@@ -1608,7 +1994,7 @@ iframe.lightwidget-widget {
 }
 
 .event-emoji {
-  font-size: 2rem;
+  font-size: clamp(1.5rem, 4vw, 2rem);
   opacity: 0.6;
 }
 
@@ -1621,14 +2007,14 @@ iframe.lightwidget-widget {
 
 .event-date {
   font-family: "DIN Alternate", system-ui, -apple-system, sans-serif;
-  font-size: 14px;
+  font-size: clamp(12px, 2.5vw, 14px);
   font-weight: 600;
   opacity: 0.9;
 }
 
 .event-title {
   font-family: "DIN Alternate", system-ui, -apple-system, sans-serif;
-  font-size: 18px;
+  font-size: clamp(14px, 3.5vw, 18px);
   font-weight: 900;
   line-height: 1.2;
   margin: 2px 0;
@@ -1636,7 +2022,7 @@ iframe.lightwidget-widget {
 
 .event-location {
   font-family: "DIN Alternate", system-ui, -apple-system, sans-serif;
-  font-size: 14px;
+  font-size: clamp(12px, 2.5vw, 14px);
   color: rgba(255, 255, 255, 0.7);
   opacity: 0.8;
 }
@@ -1944,7 +2330,7 @@ iframe.lightwidget-widget {
     width: 100% !important;
     height: 100% !important;
     object-fit: cover !important;
-    opacity: 0.3 !important;
+    opacity: 0 !important;
   }
 
   /* Cacher le layout desktop en mobile (sauf bg-stack) */
@@ -1969,8 +2355,9 @@ iframe.lightwidget-widget {
   }
 
   .mobile-logo img {
-    width: 100% !important;
+    width: calc(100% - 10px) !important; /* 5px de marge gauche/droite */
     height: auto !important;
+    margin: 5px !important;
   }
 
   /* Social links */
@@ -1986,8 +2373,8 @@ iframe.lightwidget-widget {
   }
 
   .mobile-social-links .social-link {
-    width: 30px !important;
-    height: 28px !important;
+    width: 38px !important;
+    height: 38px !important;
     border-radius: 0px !important;
     background: rgba(255, 255, 255, 0.9) !important;
     backdrop-filter: blur(10px) !important;
@@ -1999,8 +2386,8 @@ iframe.lightwidget-widget {
   }
 
   .mobile-social-links .social-link svg {
-    width: 16px !important;
-    height: 16px !important;
+    width: 38px !important;
+    height: 38px !important;
     fill: #8B4513 !important;
   }
 
@@ -2077,12 +2464,12 @@ iframe.lightwidget-widget {
 
   .mobile-events .event-date,
   .mobile-events .event-location {
-    font-size: 16px !important;
+    font-size: clamp(14px, 4vw, 16px) !important;
     margin: 2px 0;
   }
 
   .mobile-events .event-title {
-    font-size: 18px !important;
+    font-size: clamp(16px, 5vw, 18px) !important;
     font-weight: bold;
     margin: 2px 0;
   }
@@ -2322,7 +2709,7 @@ iframe.lightwidget-widget {
 }
 
 .event-date {
-  font-size: 18px;
+  font-size: clamp(14px, 3vw, 18px);
   font-weight: normal;
   margin-bottom: 5px;
   opacity: 0.9;
@@ -2331,7 +2718,7 @@ iframe.lightwidget-widget {
 .event-title {
   font-family: "Fredoka", system-ui, sans-serif;
   font-weight: 600;
-  font-size: 24px;
+  font-size: clamp(18px, 4vw, 24px);
   font-weight: 900;
   text-transform: uppercase;
   margin-bottom: 5px;
@@ -2339,7 +2726,7 @@ iframe.lightwidget-widget {
 }
 
 .event-location {
-  font-size: 16px;
+  font-size: clamp(14px, 3vw, 16px);
   opacity: 0.8;
 }
 
@@ -2587,4 +2974,326 @@ iframe.lightwidget-widget {
     height: 120px;
     margin: 0 auto;
   }
+}
+
+/* Ensure independent vertical scroll inside main-rectangle (override anywhere) */
+html body .second-third-combined .main-rectangle {
+  overflow-y: auto !important;
+  max-height: calc(100vh - 200px) !important;
+  -webkit-overflow-scrolling: touch;
+  position: relative !important;
+  z-index: 5 !important;
+}
+
+/* Scroll container like medias */
+.section-scroll {
+  flex: 1 1 auto;
+  height: 100%;
+  max-height: calc(100vh - 260px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px;
+  -webkit-overflow-scrolling: touch;
+}
+.section-scroll::-webkit-scrollbar { width: 6px; }
+.section-scroll::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
+.section-scroll::-webkit-scrollbar-thumb { background: rgba(0, 255, 136, 0.6); border-radius: 3px; }
+.section-scroll::-webkit-scrollbar-thumb:hover { background: rgba(0, 255, 136, 0.8); }
+
+/* Force clarity inside main-rectangle: no transparency, no blur */
+html body .second-third-combined .main-rectangle {
+  background: rgba(0, 0, 0, 0.1) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* Ensure medias content appears above overlays */
+.medias-container {
+  position: relative !important;
+  z-index: 9999 !important;
+  background: rgba(0, 0, 0, 0.9) !important;
+  border-radius: 8px !important;
+  padding: 20px !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+.medias-container iframe {
+  position: relative !important;
+  z-index: 10000 !important;
+  width: 100% !important;
+  height: 600px !important;
+}
+html body .second-third-combined .main-rectangle, 
+html body .second-third-combined .main-rectangle * {
+  opacity: 1 !important;
+  filter: none !important;
+}
+/* Solid text colors inside main-rectangle */
+html body .second-third-combined .main-rectangle h1,
+html body .second-third-combined .main-rectangle h2,
+html body .second-third-combined .main-rectangle h3,
+html body .second-third-combined .main-rectangle h4,
+html body .second-third-combined .main-rectangle h5,
+html body .second-third-combined .main-rectangle h6,
+html body .second-third-combined .main-rectangle p,
+html body .second-third-combined .main-rectangle span,
+html body .second-third-combined .main-rectangle li,
+html body .second-third-combined .main-rectangle a {
+  color: #ffffff !important;
+}
+/* Solid buttons in main-rectangle (e.g., Disco filters) */
+html body .second-third-combined .main-rectangle .nav-btn {
+  background: rgba(255, 255, 255, 0.98) !important;
+  color: #111 !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+html body .second-third-combined .main-rectangle .nav-btn.active {
+  background: #ff6a00 !important;
+  color: #ffffff !important;
+}
+
+/* Remove any residual transparency on event texts inside main-rectangle */
+html body .second-third-combined .main-rectangle .event-date,
+html body .second-third-combined .main-rectangle .event-title,
+html body .second-third-combined .main-rectangle .event-location,
+html body .second-third-combined .main-rectangle .event-display-item,
+html body .second-third-combined .main-rectangle .event-content,
+html body .second-third-combined .main-rectangle .event-emoji {
+  opacity: 1 !important;
+  color: #ffffff !important;
+  text-shadow: none !important;
+}
+/* Remove blurred/transparent backgrounds on mobile events inside main-rectangle */
+html body .second-third-combined .main-rectangle .mobile-events .event-content {
+  background: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Make Instagram images fully opaque (no overlay) */
+html body .second-third-combined .main-rectangle .lightwidget-widget,
+html body .second-third-combined .main-rectangle .lightwidget-widget * {
+  opacity: 1 !important;
+  filter: none !important;
+}
+html body .second-third-combined .main-rectangle .instagram-post .instagram-overlay {
+  background: linear-gradient(transparent, rgba(0,0,0,0.6)) !important; /* keep readability but less veil */
+}
+
+/* Ensure logo and player sit above overlay/background */
+html body .main-content .main-logo,
+html body .main-content .player-section {
+  position: relative;
+  z-index: 3 !important;
+}
+
+/* Ensure message container/content are above overlay and clearly visible */
+html body .second-third-combined .main-rectangle .message-container,
+html body .second-third-combined .main-rectangle .message-content {
+  position: relative;
+  z-index: 3 !important;
+}
+
+/* Round white icon button for download */
+.download-button {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #ffffff !important;
+  color: #4b4b4b !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none !important;
+  box-shadow: none !important;
+  text-decoration: none !important;
+}
+.download-button i { font-size: 16px; color:rgb(46, 46, 46);}
+.download-button:hover { transform: scale(1.1); background: #ffffff !important; }
+
+/* Styles pour le nouveau DiscographyPlayer */
+.disco-tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.track-item.active {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px;
+}
+
+.load-more-btn {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.load-more-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Nouveau design Disco personnalisé */
+.disco-tracks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+.disco-tracks-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.disco-tracks-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.disco-tracks-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 136, 0.6);
+  border-radius: 3px;
+}
+
+.disco-tracks-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 136, 0.8);
+}
+
+.disco-track-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  padding: 15px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.disco-track-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.disco-track-item.active {
+  background: rgba(0, 255, 136, 0.2) !important;
+  border: 1px solid rgba(0, 255, 136, 0.5);
+}
+
+.disco-track-cover {
+  width: 60px;
+  height: 60px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.disco-track-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.disco-track-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.disco-track-row-1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.disco-track-title {
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.disco-play-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: white;
+  border: none;
+  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+}
+
+.disco-play-btn:hover {
+  transform: scale(1.1);
+}
+
+.disco-play-btn i {
+  font-size: 12px;
+}
+
+.disco-track-year {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+}
+
+.disco-track-controls {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.disco-track-slider {
+  flex: 1;
+}
+
+.disco-slider {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.disco-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #00ff88;
+  cursor: pointer;
+}
+
+.disco-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #00ff88;
+  cursor: pointer;
+  border: none;
+}
+
+.disco-track-time {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  min-width: 40px;
+  text-align: right;
 }

@@ -61,8 +61,9 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="download-button"
+                aria-label="Download press kit"
               >
-                DOWNLOAD
+                <i className="fa-solid fa-download" />
               </a>
             </div>
           </div>

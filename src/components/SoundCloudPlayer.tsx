@@ -179,8 +179,8 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
     else if (title.includes('where is the sync button')) url = import.meta.env.BASE_URL + 'images/Where.webp'
     else if (title.includes('kouklikou')) url = import.meta.env.BASE_URL + 'images/Kouklikou.webp'
     else if (title.includes('discowriders')) url = import.meta.env.BASE_URL + 'images/Discowriders.webp'
-    else if (title.includes('drama queen')) url = import.meta.env.BASE_URL + 'images/Drama%20Queen%201.webp'
-    else if (title.includes('crush on you') || title.includes('tati cardi')) url = import.meta.env.BASE_URL + 'images/Tati%20Cardi.webp'
+    else if (title.includes('drama queen')) url = import.meta.env.BASE_URL + 'images/Drama Queen 1.webp'
+    else if (title.includes('crush on you') || title.includes('tati cardi')) url = import.meta.env.BASE_URL + 'images/Tati Cardi.webp'
     else if (title.includes('nocturne')) url = import.meta.env.BASE_URL + 'images/Nocturne.webp'
     else if (title.includes('back on track')) url = import.meta.env.BASE_URL + 'images/BackOnTrack.webp'
     else if (title.includes('richie')) url = import.meta.env.BASE_URL + 'images/Richie.webp'
@@ -309,7 +309,7 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
       <iframe
         ref={iframeRef}
         title="SC Widget"
-        style={{ position: 'absolute', width: 0, height: 0, opacity: 0, pointerEvents: 'none' }}
+        style={{ position: 'absolute', width: '1px', height: '1px', opacity: 0, pointerEvents: 'none', left: '-9999px' }}
         allow="autoplay"
         src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(playlistUrl)}&color=%23102b47&auto_play=false&hide_related=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false`}
       />
