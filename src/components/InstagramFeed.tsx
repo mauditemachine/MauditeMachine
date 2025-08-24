@@ -4,7 +4,11 @@
 
 import React, { useEffect } from 'react';
 
-const InstagramFeed: React.FC = () => {
+interface InstagramFeedProps {
+  isMobile?: boolean;
+}
+
+const InstagramFeed: React.FC<InstagramFeedProps> = ({ isMobile = false }) => {
   useEffect(() => {
     // Charger le script LightWidget une seule fois
     if (!document.querySelector('script[src*="lightwidget.js"]')) {
@@ -16,20 +20,21 @@ const InstagramFeed: React.FC = () => {
   }, []);
 
   return (
-    <div className="instagram-feed">
+    <div className={`instagram-feed ${isMobile ? 'mobile-instagram-feed' : ''}`}>
       {/* Widget Instagram responsive */}
       <div className="instagram-widget-container">
         <iframe
-          src="https://cdn.lightwidget.com/widgets/faa495d6f58f5685bc4fadceeef06a31.html"
-          scrolling="yes"
+          src={isMobile 
+            ? "//lightwidget.com/widgets/91e5d65df19a535b82cc9519745b47e1.html"
+            : "https://cdn.lightwidget.com/widgets/faa495d6f58f5685bc4fadceeef06a31.html"
+          }
+          scrolling="no"
           allowTransparency={true as any}
-          className="lightwidget-widget"
+          className={`lightwidget-widget ${isMobile ? 'mobile-limited-posts' : ''}`}
           style={{ 
             width: '100%', 
             border: '0', 
-            overflow: 'auto',
-            height: '600px',
-            minHeight: '600px'
+            overflow: 'hidden'
           }}
         />
         

@@ -100,24 +100,48 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
         let tries = 0
         let lastCount = -1
         let stable = 0
+        let maxTracks = 0
+        
         const poll = () => {
           widget.getSounds((sounds: Sound[]) => {
             if (cancelled) return
             const list = sounds || []
             const count = list.length
-            setTracks(list)
+            
+            // Mise à jour immédiate des tracks
+            if (count > 0) {
+              setTracks(list)
+              maxTracks = Math.max(maxTracks, count)
+            }
+            
             tries += 1
+            console.log(`🎵 Polling tracks: ${count} tracks loaded (attempt ${tries})`)
+            
             if (count > lastCount) {
               lastCount = count
               stable = 0
             } else {
               stable += 1
             }
-            if (tries < 60 && stable < 3) {
-              setTimeout(poll, 250)
+            
+            // Conditions d'arrêt plus agressives :
+            // - Plus de 100 tentatives OU
+            // - 5 tentatives stables OU  
+            // - On a au moins 10 tracks et c'est stable depuis 2 tentatives
+            const shouldStop = tries >= 100 || 
+                              stable >= 5 || 
+                              (count >= 10 && stable >= 2)
+            
+            if (!shouldStop) {
+              // Intervalle plus court pour un chargement plus rapide
+              setTimeout(poll, 150)
+            } else {
+              console.log(`✅ Finished loading ${count} tracks after ${tries} attempts`)
             }
           })
         }
+        
+        // Démarrer immédiatement
         poll()
       }
 
@@ -135,12 +159,27 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
         })
       }
 
-      widget.bind(window.SC.Widget.Events.READY, tryFetchAll)
+      widget.bind(window.SC.Widget.Events.READY, () => {
+        console.log('🎵 SoundCloud widget ready, starting track loading...')
+        tryFetchAll()
+      })
+      
       widget.bind(window.SC.Widget.Events.PLAY, () => {
         setIsPlaying(true)
-        if (tracks.length === 0) tryFetchAll()
+        if (tracks.length === 0) {
+          console.log('🎵 No tracks loaded on play, retrying...')
+          tryFetchAll()
+        }
         checkCurrentTrack()
       })
+      
+      // Fallback: essayer de charger après un délai même si READY ne se déclenche pas
+      setTimeout(() => {
+        if (!cancelled && tracks.length === 0) {
+          console.log('🎵 Fallback loading after 2 seconds...')
+          tryFetchAll()
+        }
+      }, 2000)
       widget.bind(window.SC.Widget.Events.PAUSE, () => setIsPlaying(false))
       widget.bind(window.SC.Widget.Events.PLAY_PROGRESS, (e: any) => {
         setPositionMs(Math.floor(e?.currentPosition || 0))
@@ -160,8 +199,12 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
       const pollInterval = setInterval(() => {
         if (!cancelled) {
           checkCurrentTrack()
+          // Re-essayer de charger les tracks si on en a moins de 5
+          if (tracks.length < 5) {
+            tryFetchAll()
+          }
         }
-      }, 500) // Vérifier toutes les 500ms (plus agressif)
+      }, 300) // Vérifier toutes les 300ms (encore plus agressif)
 
       return () => {
         cancelled = true

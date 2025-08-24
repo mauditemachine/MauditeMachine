@@ -1411,7 +1411,7 @@ iframe.lightwidget-widget {
   padding: 20px;
   background: rgba(0, 255, 136, 0.1);
   border-radius: 8px;
-  border: 1px solid rgba(0, 255, 136, 0.3);
+  border: 1px solid rgba(184, 184, 184, 0.3);
 }
 
 .timeline-label {
@@ -1714,7 +1714,7 @@ iframe.lightwidget-widget {
 }
 
 .download-icon {
-  color: #00ff88;
+  color: #ffffff;
   flex-shrink: 0;
 }
 
@@ -1770,30 +1770,32 @@ iframe.lightwidget-widget {
 }
 
 .download-button {
-  width: 70px;
-  height: 30px;
-  background: rgba(255, 255, 255, 0.95);
-  border: none;
-  border-radius: 50px;
-  color: #4b4b4b;
-  font-family: "Fredoka", system-ui, sans-serif;
-  font-size: 12px;
-  padding-top: 4px;
-  font-weight: 800;
-  letter-spacing: 0.0px;
-  cursor: pointer;
+  display: inline-block;
+  padding: 12px 24px;
+  background: rgb(93 142 119 / 10%);
+  border: 2px solid #ffffff;
+  color: #313131 !important;
+  text-decoration: none;
+  font-weight: bold;
+  font-size: 14px;
+  border-radius: 25px;
   transition: all 0.3s ease;
+  text-transform: uppercase;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  text-transform: uppercase;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(10px);
-  text-decoration: none;
+  gap: 8px;
+  font-family: "DIN Alternate", system-ui, sans-serif;
 }
 
 .download-button:hover {
-  background: #f7ce02;
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.05);
+}
+
+.download-button i {
+  font-size: 16px;
 }
 
 .button-icon {
@@ -1839,7 +1841,7 @@ iframe.lightwidget-widget {
 .contact-message-link {
   background: none;
   border: none;
-  color: #00ff88;
+  color: #ffffff;
   font-family: "DIN Alternate", system-ui, sans-serif;
   font-size: 14px;
   font-weight: 600;
@@ -2210,6 +2212,21 @@ iframe.lightwidget-widget {
 .bottom .social-link svg {
   width: 20px;
   height: 20px;
+}
+
+/* Instagram Buttons */
+.ig-view-more-btn, .ig-follow-button {
+    display: inline-block;
+    padding: 12px 24px;
+    background: rgb(93 142 119 / 10%);
+    border: 2px solid #ffffff;
+    color: #ffffff !important;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 14px;
+    border-radius: 25px;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
 }
 
 /* VRSTL Logo */
@@ -3101,13 +3118,13 @@ html body .second-third-combined .main-rectangle .message-content {
   min-width: 120px;
   height: 38px;
   border-radius: 25px;
-  background: #ffffff !important;
-  color: #4b4b4b !important;
+  background: rgb(93 142 119 / 10%) !important;
+  color: #313131 !important;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: none !important;
+  border: 2px solid #ffffff !important;
   box-shadow: none !important;
   text-decoration: none !important;
   padding: 0 15px;
@@ -3115,8 +3132,8 @@ html body .second-third-combined .main-rectangle .message-content {
   font-size: 12px;
   text-transform: uppercase;
 }
-.download-button i { font-size: 16px; color:rgb(46, 46, 46);}
-.download-button span { color:rgb(46, 46, 46); font-weight: bold; }
+.download-button i { font-size: 16px; color:rgb(224, 224, 224);}
+.download-button span { color:rgb(255, 255, 255); font-weight: bold; }
 .download-button:hover { transform: scale(1.1); background: #ffffff !important; }
 
 /* Styles pour le nouveau DiscographyPlayer */
@@ -3327,9 +3344,9 @@ html body .second-third-combined .main-rectangle .message-content {
 .ig-view-more-btn, .ig-follow-button {
   display: inline-block;
   padding: 12px 24px;
-  background: rgba(0, 255, 136, 0.1);
-  border: 2px solid #00ff88;
-  color: #333 !important;
+  background: rgb(93 142 119 / 10%);
+  border: 2px solid #ffffff;
+  color: #ffffff !important;
   text-decoration: none;
   font-weight: bold;
   font-size: 14px;

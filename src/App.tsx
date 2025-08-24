@@ -289,7 +289,7 @@ export default function App() {
           {activeSection === "events" && <EventsDisplay showPastEventsButton={true} />}
           {activeSection === "disco" && <Discography onBackgroundChange={(url) => setBgUrl(url)} />}
           {activeSection === "medias" && (
-            <Medias onBackgroundChange={(url) => setBgUrl(url)} />
+            <Medias onBackgroundChange={(url) => setBgUrl(url)} isMobile={false} />
           )}
           {activeSection === "store" && <Store />}
           {activeSection === "message" && <Message />}
