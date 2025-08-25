@@ -11,13 +11,15 @@ import Message from "./components/Message";
 import Presskit from "./components/Presskit";
 import SocialIcon from "./components/SocialIcon";
 
-// Supprimer TOUTES les erreurs SoundCloud de la console
-const suppressSoundCloudErrors = () => {
+// Supprimer TOUTES les erreurs SoundCloud ET Bandcamp de la console
+const suppressWidgetErrors = () => {
   const originalError = console.error;
   const originalWarn = console.warn;
   const originalLog = console.log;
-  let errorCount = 0;
-  let hasShownGroupedError = false;
+  let soundcloudErrorCount = 0;
+  let bandcampErrorCount = 0;
+  let hasShownSoundCloudGroupedError = false;
+  let hasShownBandcampGroupedError = false;
   
   console.error = (...args) => {
     const message = args[0]?.toString() || '';
@@ -41,14 +43,34 @@ const suppressSoundCloudErrors = () => {
       stack.includes('soundcloud') ||
       args.some(arg => arg?.constructor?.name === 'constructor')
     ) {
-      errorCount++;
-      // Afficher un seul message groupé après 5 erreurs
-      if (!hasShownGroupedError && errorCount >= 5) {
-        originalLog('%c🔇 SoundCloud widget errors suppressed (' + errorCount + ' errors)', 'color: #666; font-style: italic;');
-        hasShownGroupedError = true;
+      soundcloudErrorCount++;
+      if (!hasShownSoundCloudGroupedError && soundcloudErrorCount >= 5) {
+        originalLog('%c🔇 SoundCloud widget errors suppressed (' + soundcloudErrorCount + ' errors)', 'color: #666; font-style: italic;');
+        hasShownSoundCloudGroupedError = true;
       }
       return;
     }
+
+    // Liste des erreurs Bandcamp à supprimer
+    if (
+      message.includes('bandcamp') ||
+      message.includes('bcbits.com') ||
+      message.includes('embedded_player') ||
+      message.includes('HTMLEmbeddedPlayer') ||
+      message.includes('ErrorCollector') ||
+      message.includes('Tracker record') ||
+      message.includes('no events to send') ||
+      stack.includes('bandcamp') ||
+      stack.includes('bcbits.com')
+    ) {
+      bandcampErrorCount++;
+      if (!hasShownBandcampGroupedError && bandcampErrorCount >= 10) {
+        originalLog('%c🎵 Bandcamp widget errors suppressed (' + bandcampErrorCount + ' errors)', 'color: #666; font-style: italic;');
+        hasShownBandcampGroupedError = true;
+      }
+      return;
+    }
+    
     originalError.apply(console, args);
   };
 
@@ -59,20 +81,26 @@ const suppressSoundCloudErrors = () => {
       message.includes('widget-') ||
       message.includes('encrypted-media') ||
       message.includes('Permissions policy') ||
-      message.includes('Feature Policy')
+      message.includes('Feature Policy') ||
+      message.includes('bandcamp') ||
+      message.includes('bcbits.com')
     ) {
       return;
     }
     originalWarn.apply(console, args);
   };
 
-  // Supprimer aussi les logs SoundCloud
+  // Supprimer aussi les logs SoundCloud et Bandcamp
   console.log = (...args) => {
     const message = args[0]?.toString() || '';
     if (
       message.includes('SoundCloud Embed Player') ||
       message.includes('widget-') ||
-      message.includes('📦 Utilisation du cache')
+      message.includes('📦 Utilisation du cache') ||
+      message.includes('ErrorCollector: enabled') ||
+      message.includes('initing HTMLEmbeddedPlayer3') ||
+      message.includes('user not opted in: skipping Tracker record') ||
+      message.includes('no events to send')
     ) {
       return;
     }
@@ -143,9 +171,9 @@ export default function App() {
   );
   const [activeSection, setActiveSection] = useState("home");
 
-  // Supprimer les erreurs SoundCloud au chargement
+  // Supprimer les erreurs SoundCloud et Bandcamp au chargement
   useEffect(() => {
-    suppressSoundCloudErrors();
+    suppressWidgetErrors();
     
     // Capturer aussi les erreurs globales du window
     const handleError = (event: ErrorEvent) => {
@@ -157,8 +185,12 @@ export default function App() {
         message.includes('canvas element') ||
         message.includes('AbortError') ||
         message.includes('Script error') ||
+        message.includes('bandcamp') ||
+        message.includes('bcbits.com') ||
         filename.includes('widget-') ||
-        filename.includes('soundcloud')
+        filename.includes('soundcloud') ||
+        filename.includes('bandcamp') ||
+        filename.includes('bcbits.com')
       ) {
         event.preventDefault();
         event.stopPropagation();
@@ -173,7 +205,9 @@ export default function App() {
         reason.includes('AbortError') ||
         reason.includes('signal is aborted') ||
         reason.includes('widget-') ||
-        reason.includes('soundcloud')
+        reason.includes('soundcloud') ||
+        reason.includes('bandcamp') ||
+        reason.includes('bcbits.com')
       ) {
         event.preventDefault();
         return false;

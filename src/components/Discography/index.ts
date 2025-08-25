@@ -1,8 +1,6 @@
 /**
- * Export des composants de la discographie
+ * Export des composants de la discographie - Bandcamp uniquement
  */
 
 export { default as Discography } from './Discography';
-export { default as ReleaseCard } from './ReleaseCard';
-export { default as SearchBar } from './SearchBar';
-export { default as DiscographyStats } from './DiscographyStats';
+export { default as BandcampIframe } from './BandcampIframe';
