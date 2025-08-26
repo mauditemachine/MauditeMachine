@@ -2401,22 +2401,32 @@ iframe.lightwidget-widget {
   }
 
   .mobile-social-links .social-link {
-    width: 38px !important;
-    height: 38px !important;
-    border-radius: 0px !important;
-    background: rgba(255, 255, 255, 0.9) !important;
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 50% !important;
+    background: rgb(255, 255, 255) !important;
     backdrop-filter: blur(10px) !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    padding: 4px !important;
+    padding: 0px !important;
     flex-shrink: 0;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2) !important;
+    transition: all 0.3s ease !important;
+    opacity: 1 !important;
   }
 
   .mobile-social-links .social-link svg {
-    width: 38px !important;
-    height: 38px !important;
-    fill: #8B4513 !important;
+    width: 18px !important;
+    height: 18px !important;
+    fill: #333333 !important;
+    color: #333333 !important;
+  }
+
+  .mobile-social-links .social-link:hover {
+    transform: scale(1.2) !important;
+    background: rgb(255, 255, 255) !important;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
   }
 
   /* Bio - centrée avec marges + PLUS DE PADDING */

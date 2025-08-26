@@ -24,10 +24,10 @@ const InstagramFeed: React.FC<InstagramFeedProps> = ({ isMobile = false }) => {
       {/* Widget Instagram responsive */}
       <div className="instagram-widget-container">
         <iframe
-          src={`https://cdn.lightwidget.com/widgets/faa495d6f58f5685bc4fadceeef06a31.html?v=${Date.now()}`}
+          src="https://cdn.lightwidget.com/widgets/faa495d6f58f5685bc4fadceeef06a31.html"
           scrolling="no"
           allowTransparency={true as any}
-          className={`lightwidget-widget ${isMobile ? 'mobile-limited-posts' : ''}`}
+          className="lightwidget-widget"
           style={{ 
             width: '100%', 
             border: '0', 
