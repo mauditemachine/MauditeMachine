@@ -1927,13 +1927,15 @@ iframe.lightwidget-widget {
   }
   
   .mobile-section.mobile-instagram .lightwidget-widget {
-    height: 350px !important;
-    max-height: 350px !important;
+    height: 450px !important;
+    max-height: 450px !important;
     display: block !important;
     visibility: visible !important;
     overflow-y: auto !important;
-    transform: scale(0.85) !important;
-    transform-origin: top left !important;
+    transform: none !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 10px !important;
   }
   
   /* Cartes d'événements sur très petits écrans */
@@ -2527,10 +2529,11 @@ iframe.lightwidget-widget {
 
   /* Instagram Widget Mobile - LightWidget */
   .mobile-instagram {
-    margin: 0 0 10px 0;
+    margin: 0 5px 10px 5px;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 12px;
-    padding: 15px;
+    padding: 0px;
+    width: calc(100vw - 20px);
   }
 
   .mobile-instagram h3 {
@@ -2544,13 +2547,14 @@ iframe.lightwidget-widget {
 
   .mobile-instagram .lightwidget-widget {
     width: 100% !important;
-    height: 400px !important;
-    max-height: 400px !important;
+    height: 500px !important;
+    max-height: 500px !important;
     overflow-y: auto !important;
     border: none !important;
-    border-radius: 8px !important;
-    transform: scale(0.9) !important;
-    transform-origin: top left !important;
+    border-radius: 12px !important;
+    transform: none !important;
+    margin: 0 !important;
+    padding: 10px !important;
   }
 
   .mobile-instagram .mobile-instagram-grid {
