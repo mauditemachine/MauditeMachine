@@ -3,8 +3,8 @@
 # Script de déploiement automatique pour mauditemachine.com
 # Usage: ./deploy.sh [message]
 
-PROJECT="/Users/mauditemachine/Library/Mobile Documents/com~apple~CloudDocs/Dev/Maudite Machine 2025"
-WORKTREE="/Users/mauditemachine/Library/Mobile Documents/com~apple~CloudDocs/Dev/_mm-gh-pages"
+PROJECT="/Users/mauditemachine/Documents/Dev/MauditeMachine2025"
+WORKTREE="/Users/mauditemachine/Documents/Dev/_mm-gh-pages"
 COMMIT_MSG="${1:-Update: Déploiement automatique}"
 
 echo "🚀 Déploiement automatique de mauditemachine.com"

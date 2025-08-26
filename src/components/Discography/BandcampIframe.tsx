@@ -11,9 +11,8 @@ const BandcampIframe: React.FC<BandcampIframeProps> = ({ track }) => {
   const iframeRef = useRef<HTMLDivElement>(null);
 
   const embedType = track.type === 'album' ? 'album' : 'track';
-  // ANCIEN: bgcol=333333 (gris foncé)
-  // NOUVEAU: bgcol=1a1a1a (gris très foncé, plus transparent)
-  const embedUrl = `https://bandcamp.com/EmbeddedPlayer/${embedType}=${track.trackId}/size=large/bgcol=1a1a1a/linkcol=${track.linkColor}/tracklist=false/artwork=small/transparent=true/`;
+  // Fond complètement transparent pour éliminer les rectangles gris
+  const embedUrl = `https://bandcamp.com/EmbeddedPlayer/${embedType}=${track.trackId}/size=large/bgcol=ffffff/linkcol=${track.linkColor}/tracklist=false/artwork=small/transparent=true/`;
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -42,8 +41,9 @@ const BandcampIframe: React.FC<BandcampIframeProps> = ({ track }) => {
       style={{
         width: '100%', 
         height: '120px',
-        backgroundColor: '#333333',
-        borderRadius: '4px',
+        backgroundColor: 'transparent',
+        border: 'none',
+        borderRadius: '0px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -52,7 +52,7 @@ const BandcampIframe: React.FC<BandcampIframeProps> = ({ track }) => {
     >
       {isVisible ? (
         <iframe 
-          style={{border: 0, width: '100%', height: '120px', borderRadius: '4px'}} 
+          style={{border: 'none', width: '100%', height: '120px', borderRadius: '0px', backgroundColor: 'transparent'}} 
           src={embedUrl}
           loading="lazy"
           title={`${track.title} by ${track.artist}`}
