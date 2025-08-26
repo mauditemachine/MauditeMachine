@@ -27,7 +27,7 @@ const InstagramFeed: React.FC<InstagramFeedProps> = ({ isMobile = false }) => {
           src="https://cdn.lightwidget.com/widgets/faa495d6f58f5685bc4fadceeef06a31.html"
           scrolling="no"
           allowTransparency={true as any}
-          className="lightwidget-widget"
+          className={`lightwidget-widget ${isMobile ? 'mobile-instagram-grid' : ''}`}
           style={{ 
             width: '100%', 
             border: '0', 
