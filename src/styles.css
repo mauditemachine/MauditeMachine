@@ -1892,16 +1892,20 @@ iframe.lightwidget-widget {
     gap: 10px;
   }
   
-  /* Limiter à 20 posts en mobile */
+  /* Widget Instagram mobile - s'assurer qu'il est visible */
   .mobile-instagram-widget {
-    max-height: 400px !important;
-    overflow: hidden !important;
+    height: auto !important;
+    min-height: 400px !important;
+    overflow: visible !important;
   }
   
-  /* Masquer les posts au-delà de 20 en mobile */
+  /* LightWidget mobile - affichage complet */
   .mobile-section.mobile-instagram .lightwidget-widget {
-    max-height: 350px !important;
-    overflow: hidden !important;
+    height: 600px !important;
+    max-height: 600px !important;
+    overflow-y: auto !important;
+    display: block !important;
+    visibility: visible !important;
   }
 }
 
@@ -1911,13 +1915,17 @@ iframe.lightwidget-widget {
     gap: 8px;
   }
   
-  /* Réduire encore plus en très petit écran */
+  /* Très petit écran - garder le widget visible */
   .mobile-instagram-widget {
-    max-height: 300px !important;
+    min-height: 300px !important;
+    height: auto !important;
   }
   
   .mobile-section.mobile-instagram .lightwidget-widget {
-    max-height: 250px !important;
+    height: 500px !important;
+    max-height: 500px !important;
+    display: block !important;
+    visibility: visible !important;
   }
   
   /* Cartes d'événements sur très petits écrans */
@@ -2499,50 +2507,54 @@ iframe.lightwidget-widget {
     display: none;
   }
 
-  /* Instagram - 4 premieres rangees seulement */
+  /* Instagram Widget Mobile - LightWidget */
   .mobile-instagram {
     margin: 0 0 10px 0;
-  }
-
-  .mobile-instagram .instagram-grid {
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    padding: 0;
-    max-height: none;
-    overflow: visible;
-    width: 100%;
-  }
-
-  .mobile-instagram .instagram-grid-container {
-    height: auto;
-    overflow: visible;
-    padding: 0;
-    width: 100%;
-  }
-
-  .mobile-instagram .instagram-post {
-    aspect-ratio: 1;
-    width: 100%;
-  }
-
-  .mobile-instagram .instagram-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
-
-  .mobile-instagram .instagram-post:nth-child(n+11) {
-    display: none;
-  }
-
-  .mobile-instagram .instagram-footer a {
-    text-decoration: none;
-    color: #fff;
-    font-size: 14px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 15px;
   }
 
   .mobile-instagram h3 {
     display: none !important;
+  }
+
+  .mobile-instagram .instagram-widget-container {
+    width: 100%;
+    height: auto;
+  }
+
+  .mobile-instagram .lightwidget-widget {
+    width: 100% !important;
+    height: 600px !important;
+    max-height: 600px !important;
+    overflow-y: auto !important;
+    border: none !important;
+    border-radius: 8px !important;
+  }
+
+  .mobile-instagram .instagram-footer {
+    margin-top: 15px;
+    text-align: center;
+  }
+
+  .mobile-instagram .ig-view-more-btn {
+    display: inline-block;
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid #ffffff;
+    color: #ffffff !important;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 12px;
+    border-radius: 20px;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+  }
+
+  .mobile-instagram .ig-view-more-btn:hover {
+    background: #00ff88;
+    color: #000 !important;
   }
 
   /* Store - seulement store-message */
