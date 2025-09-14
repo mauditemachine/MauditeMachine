@@ -161,16 +161,16 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
       const checkCurrentTrack = () => {
         if (cancelled) return
         widget.getCurrentSoundIndex((i: number) => {
-          const currentIndex = i || 0
+          const newCurrentIndex = i || 0
           if (originalTracks.length === 0) return
           
           // L'index correspond directement maintenant
-          if (currentIndex !== lastIndexRef.current) {
-            console.log(`🎵 Track changed: ${lastIndexRef.current} → ${currentIndex}`)
-            console.log(`🎵 Now playing: ${originalTracks[currentIndex]?.title}`)
-            lastIndexRef.current = currentIndex
-            setCurrentIndex(currentIndex)
-            maybeSwapBackground(currentIndex)
+          if (newCurrentIndex !== lastIndexRef.current) {
+            console.log(`🎵 Track changed: ${lastIndexRef.current} → ${newCurrentIndex}`)
+            console.log(`🎵 Now playing: ${originalTracks[newCurrentIndex]?.title}`)
+            lastIndexRef.current = newCurrentIndex
+            setCurrentIndex(newCurrentIndex)
+            maybeSwapBackground(newCurrentIndex)
           }
         })
       }
@@ -280,6 +280,10 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
     
     console.log(`🎵 Playing track: index ${index}`)
     console.log(`🎵 Track: ${tracks[index]?.title}`)
+    
+    // Mettre à jour immédiatement l'index courant pour le cover
+    setCurrentIndex(index)
+    setIsPlaying(true)
     
     // Passer directement à l'index puis jouer
     try {
