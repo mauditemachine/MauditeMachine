@@ -57,11 +57,19 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
               </div>
               
               <a 
-                href="https://drive.google.com/file/d/1BqKq0UD0yAKS8Cu38pfUIwBz0qV0ufqe/view?usp=drive_link"
-                target="_blank"
-                rel="noopener noreferrer"
+                href={`${import.meta.env.BASE_URL}Maudite Machine PressKit & Techrider.zip`}
+                download="Maudite Machine PressKit & Techrider.zip"
                 className="download-button"
                 aria-label="Download press kit"
+                onClick={() => {
+                  // Tracking Facebook Pixel pour le téléchargement
+                  if (typeof window !== 'undefined' && (window as any).fbq) {
+                    (window as any).fbq('track', 'Lead', {
+                      content_name: 'Press Kit Download',
+                      content_category: 'Download'
+                    });
+                  }
+                }}
               >
                 <i className="fa-solid fa-download" />
                 <span>DOWNLOAD</span>
@@ -72,9 +80,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
           <div className="contact-info">
             <h4 className="contact-title">Media Contact</h4>
             <p className="contact-text">
-              For interviews, bookings, and media inquiries, please contact us at{' '}
-              <span className="contact-email">vrstlrecords@gmail.com</span>{' '}
-              or{' '}
+              For interviews, bookings, and media inquiries, please{' '}
               <button 
                 onClick={onNavigateToMessage}
                 className="contact-message-link"

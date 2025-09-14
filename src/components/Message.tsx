@@ -98,6 +98,14 @@ const Message: React.FC = () => {
       setFormData({ from_name: '', from_email: '', object: '', message: '' });
       setShowCaptcha(false);
       setUserCaptchaAnswer('');
+      
+      // Tracking Facebook Pixel pour l'envoi de message
+      if (typeof window !== 'undefined' && (window as any).fbq) {
+        (window as any).fbq('track', 'Contact', {
+          content_name: 'Contact Form Submission',
+          content_category: 'Lead Generation'
+        });
+      }
     }).catch((error) => {
       console.error('Erreur EmailJS:', error);
       setIsSubmitting(false);
@@ -110,8 +118,7 @@ const Message: React.FC = () => {
       <div className="message-content">
         <div className="message-header">
           <p className="message-subtitle">
-            Contact Maudite Machine for bookings and inquiries via the form below or email{' '}
-            <a href="mailto:vrstlrecords@gmail.com" className="email-address">vrstlrecords@gmail.com</a>
+            For interviews, bookings, and media inquiries, please write a message here
           </p>
         </div>
 

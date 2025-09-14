@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react'
+import { loadMessages, Message } from '../utils/adminApi'
 
 type MessageItem = {
   title: string
   description?: string
   image?: string
   link?: { label: string; href: string }
+  date?: string
 }
 
 export default function NewsMessages(): JSX.Element {
@@ -13,14 +15,27 @@ export default function NewsMessages(): JSX.Element {
 
   useEffect(() => {
     let cancelled = false
-    fetch(import.meta.env.BASE_URL + 'messages.json', { cache: 'no-cache' })
-      .then(r => r.json())
-      .then((data: MessageItem[]) => { 
-        if (!cancelled) setMessages(Array.isArray(data) ? data : []) 
-      })
-      .catch(() => { 
-        if (!cancelled) setError('Failed to load messages') 
-      })
+    
+    const loadMessagesData = async () => {
+      try {
+        const data = await loadMessages()
+        if (!cancelled) {
+          // Trier les messages par date (du plus récent au plus ancien)
+          const sortedMessages = Array.isArray(data) ? data.sort((a, b) => {
+            const dateA = new Date(a.date || '1970-01-01').getTime()
+            const dateB = new Date(b.date || '1970-01-01').getTime()
+            return dateB - dateA // Ordre décroissant (plus récent en premier)
+          }) : []
+          setMessages(sortedMessages)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError('Failed to load messages')
+        }
+      }
+    }
+    
+    loadMessagesData()
     return () => { cancelled = true }
   }, [])
 
@@ -50,8 +65,15 @@ export default function NewsMessages(): JSX.Element {
             {message.image && (
               <img 
                 className="message-image" 
-                src={message.image} 
-                alt={message.title} 
+                src={message.image.startsWith('data:') ? message.image : `/${message.image}`} 
+                alt={message.title}
+                onError={(e) => {
+                  // Si l'image ne charge pas, essayer avec le chemin relatif
+                  const target = e.target as HTMLImageElement;
+                  if (!message.image.startsWith('data:') && !message.image.startsWith('/')) {
+                    target.src = `/${message.image}`;
+                  }
+                }}
               />
             )}
           </div>

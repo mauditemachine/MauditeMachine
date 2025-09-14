@@ -38,14 +38,25 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const widgetRef = useRef<any>(null)
   const [tracks, setTracks] = useState<Sound[]>([])
+  const [originalTracks, setOriginalTracks] = useState<Sound[]>([]) // Garder l'ordre original de SoundCloud
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentIndex, setCurrentIndex] = useState<number>(0)
   const [positionMs, setPositionMs] = useState(0)
   const [durationMs, setDurationMs] = useState(0)
-  // Affiche 5 pistes par défaut, puis "Load more" pour le reste
-  const [showAll, setShowAll] = useState(false)
+  // Affiche toutes les pistes sur desktop, limité sur mobile
+  const [showAll, setShowAll] = useState(window.innerWidth > 768)
   const titleRef = useRef<HTMLDivElement | null>(null)
   const lastIndexRef = useRef<number>(-1)
+
+  // Gérer le redimensionnement de la fenêtre pour l'affichage des pistes
+  useEffect(() => {
+    const handleResize = () => {
+      setShowAll(window.innerWidth > 768)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   // Supprimer les erreurs SoundCloud de la console
   useEffect(() => {
@@ -110,7 +121,8 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
             
             // Mise à jour immédiate des tracks
             if (count > 0) {
-              setTracks(list)
+              setOriginalTracks(list) // Garder l'ordre original pour SoundCloud
+              setTracks(list) // Garder l'ordre normal de la playlist
               maxTracks = Math.max(maxTracks, count)
             }
             
@@ -149,12 +161,16 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
       const checkCurrentTrack = () => {
         if (cancelled) return
         widget.getCurrentSoundIndex((i: number) => {
-          const safeIndex = i || 0
-          if (safeIndex !== lastIndexRef.current) {
-            console.log(`Track changed: ${lastIndexRef.current} → ${safeIndex}`)
-            lastIndexRef.current = safeIndex
-            setCurrentIndex(safeIndex)
-            maybeSwapBackground(safeIndex)
+          const currentIndex = i || 0
+          if (originalTracks.length === 0) return
+          
+          // L'index correspond directement maintenant
+          if (currentIndex !== lastIndexRef.current) {
+            console.log(`🎵 Track changed: ${lastIndexRef.current} → ${currentIndex}`)
+            console.log(`🎵 Now playing: ${originalTracks[currentIndex]?.title}`)
+            lastIndexRef.current = currentIndex
+            setCurrentIndex(currentIndex)
+            maybeSwapBackground(currentIndex)
           }
         })
       }
@@ -239,7 +255,7 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
     const t = tracks[index]
     if (!t || !onBackgroundChange) return
     const title = (t.title || '').toLowerCase()
-    let url = import.meta.env.BASE_URL + 'images/Simetra.webp'
+    let url = import.meta.env.BASE_URL + 'images/mixtape37.webp' // Background par défaut
     if (title.includes('autopsynth')) url = import.meta.env.BASE_URL + 'images/Autopsynth.webp'
     else if (title.includes('coagule')) url = import.meta.env.BASE_URL + 'images/Coagule.webp'
     else if (title.includes('where is the sync button')) url = import.meta.env.BASE_URL + 'images/Where.webp'
@@ -251,18 +267,27 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
     else if (title.includes('back on track')) url = import.meta.env.BASE_URL + 'images/BackOnTrack.webp'
     else if (title.includes('richie')) url = import.meta.env.BASE_URL + 'images/Richie.webp'
     else if (title.includes('anarchic') || title.includes('anarchic')) url = import.meta.env.BASE_URL + 'images/Anarchic.webp'
+    else if (title.includes('mixtape') || title.includes('37')) url = import.meta.env.BASE_URL + 'images/mixtape37.webp'
     onBackgroundChange(encodeURI(url))
   }
 
   function playIndex(index: number) {
     const widget = widgetRef.current
-    if (!widget) return
-    // Passer directement à l'index demandé puis jouer
+    if (!widget || !originalTracks.length) return
+    
+    // L'index affiché correspond maintenant directement à l'index réel
+    const realIndex = index
+    
+    console.log(`🎵 Playing track: index ${index}`)
+    console.log(`🎵 Track: ${tracks[index]?.title}`)
+    
+    // Passer directement à l'index puis jouer
     try {
-      widget.skip(index)
+      widget.skip(realIndex)
       widget.play()
-      maybeSwapBackground(index)
+      maybeSwapBackground(index) // Utiliser l'index pour le background
     } catch {
+      console.log(`🎵 Skip failed, using load with playlistIndex: ${realIndex}`)
       // Fallback: si skip n'est pas dispo (ancien widget), on recharge et on joue
       widget.load(playlistUrl, {
         auto_play: true,
@@ -275,7 +300,7 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
         liking: false,
         download: false,
         color: '#102b47',
-        playlistIndex: index
+        playlistIndex: realIndex
       })
       maybeSwapBackground(index)
     }
@@ -347,7 +372,7 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
             />
             <button className="now-toggle" onClick={togglePlay} aria-label="Lecture/Pause">{isPlaying ? '⏸' : '▶'}</button>
           </div>
-          <div className="now-desc">{tracks[currentIndex]?.description || tracks[currentIndex]?.user?.username || ''}</div>
+          <div className="now-desc">{formatMs(positionMs)} / {formatMs(durationMs)}</div>
         </div>
       </div>
 
@@ -367,7 +392,7 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
           </li>
         ))}
       </ul>
-      {tracks.length > 12 && !showAll && (
+      {tracks.length > 12 && !showAll && window.innerWidth <= 768 && (
         <button className="sc-loadmore" onClick={() => setShowAll(true)}>Load more…</button>
       )}
 

@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @font-face {
   font-family: "DIN Alternate";
   src: url("../fonts/DIN Alternate Bold.ttf") format("truetype");
@@ -604,6 +606,14 @@ div.second-third-combined div.nav-buttons button.home-btn i {
   align-items: flex-start;
   margin-right: 10px;
   gap: 10px;
+  position: relative;
+}
+
+/* Largeur fixe sur desktop seulement */
+@media (min-width: 769px) {
+  .nav-buttons-container {
+    width: 300px;
+  }
 }
 
 .nav-icon-btn {
@@ -613,7 +623,7 @@ div.second-third-combined div.nav-buttons button.home-btn i {
   border-radius: 50%;
   
   /* Style de base */
-  background: white;
+  background: linear-gradient(145deg, #ffffff, #f0f0f0);
   border: none;
   cursor: pointer;
   
@@ -621,6 +631,15 @@ div.second-third-combined div.nav-buttons button.home-btn i {
   display: flex;
   align-items: center;
   justify-content: center;
+  
+  /* Ombres élégantes */
+  box-shadow: 
+    0 4px 15px rgba(0, 0, 0, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  
+  /* Transition de base */
+  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
   
   /* Espacement intérieur */
   padding: 4px;
@@ -636,14 +655,23 @@ div.second-third-combined div.nav-buttons button.home-btn i {
 }
 
 .nav-icon-btn:hover {
-  background: white;
-  transform: scale(1.2);
-  opacity: 1;
+  background: linear-gradient(145deg, #ffffff, #f8f8f8);
+  transform: scale(1.15) rotate(3deg) translateY(-2px);
+  box-shadow: 
+    0 12px 35px rgba(0, 0, 0, 0.15),
+    0 6px 20px rgba(0, 0, 0, 0.1),
+    0 0 20px rgba(255, 255, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .nav-icon-btn.active {
-  background: white;
-  opacity: 1;
+  background: linear-gradient(145deg, #ffffff, #f5f5f5);
+  box-shadow: 
+    0 6px 20px rgba(0, 0, 0, 0.12),
+    0 3px 12px rgba(0, 0, 0, 0.08),
+    0 0 15px rgba(0, 255, 136, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transform: scale(1.05);
 }
 
 .nav-icon-btn i {
@@ -684,6 +712,90 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 html body div.second-third-combined div.nav-buttons-container button.nav-icon-btn i {
   color: rgb(51, 51, 51) !important;
   opacity: 1 !important;
+}
+
+/* Tooltip moderne avec ligne blanche */
+.nav-tooltip {
+  position: absolute;
+  top: 50%;
+  left: calc(6 * 40px + 5 * 10px + 30px); /* 6 boutons * 40px + 5 gaps * 10px + 30px d'espacement */
+  transform: translateY(-50%) scale(0);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  z-index: 1000;
+  pointer-events: none;
+  animation: tooltipSlideIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+  transform-origin: left center;
+}
+
+/* Grosse ligne blanche */
+.nav-tooltip::before {
+  content: '';
+  width: 4px;
+  height: 30px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.7));
+  border-radius: 2px;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+  animation: lineGlow 0.4s ease-out 0.1s forwards;
+  transform: scaleY(0);
+  transform-origin: center;
+}
+
+/* Texte épuré */
+.nav-tooltip::after {
+  content: attr(data-text);
+  color: rgba(255, 255, 255, 0.95);
+  font-family: "DIN Alternate", system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  animation: textSlide 0.4s ease-out 0.2s forwards;
+  opacity: 0;
+  transform: translateX(-10px);
+}
+
+@keyframes tooltipSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-50%) scale(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(-50%) scale(1);
+  }
+}
+
+@keyframes lineGlow {
+  0% {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+  100% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+@keyframes textSlide {
+  0% {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Masquer le tooltip sur mobile */
+@media (max-width: 768px) {
+  .nav-tooltip {
+    display: none;
+  }
 }
 
 /* ============================================
@@ -930,9 +1042,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   -ms-overflow-style: none !important; /* IE/Edge */
 }
 
-.lightwidget-widget::-webkit-scrollbar {
-  display: none !important; /* Chrome/Safari/Opera */
-}
+/* Scrollbar cachée supprimée - on veut la scrollbar verte visible */
 
 /* Permettre le scroll dans l'iframe pour voir tous les posts */
 iframe.lightwidget-widget {
@@ -1749,7 +1859,7 @@ iframe.lightwidget-widget {
 .download-items {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
+  gap: 0px;
   margin-bottom: 30px;
 }
 
@@ -1961,6 +2071,7 @@ iframe.lightwidget-widget {
 .event-card {
   width: 100%;
   margin-bottom: 20px;
+  box-sizing: border-box;
 }
 
 .event-link {
@@ -1977,12 +2088,14 @@ iframe.lightwidget-widget {
 .event-content {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 25px;
   /*background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);*/
   border-radius: 8px;
   padding: 12px;
   transition: all 0.3s ease;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .event-content:hover {
@@ -1991,8 +2104,8 @@ iframe.lightwidget-widget {
 }
 
 .event-banner {
-  width: clamp(150px, 25vw, 200px);
-  height: clamp(75px, 12.5vw, 100px);
+  width: clamp(200px, 30vw, 300px);
+  height: clamp(100px, 15vw, 150px);
   border-radius: 6px;
   overflow: hidden;
   background: rgba(0, 0, 0, 0.3);
@@ -2029,14 +2142,14 @@ iframe.lightwidget-widget {
 
 .event-date {
   font-family: "DIN Alternate", system-ui, -apple-system, sans-serif;
-  font-size: clamp(12px, 2.5vw, 14px);
+  font-size: clamp(14px, 3vw, 16px);
   font-weight: 600;
   opacity: 0.9;
 }
 
 .event-title {
   font-family: "DIN Alternate", system-ui, -apple-system, sans-serif;
-  font-size: clamp(14px, 3.5vw, 18px);
+  font-size: clamp(16px, 4vw, 22px);
   font-weight: 900;
   line-height: 1.2;
   margin: 2px 0;
@@ -2045,7 +2158,7 @@ iframe.lightwidget-widget {
 
 .event-location {
   font-family: "DIN Alternate", system-ui, -apple-system, sans-serif;
-  font-size: clamp(12px, 2.5vw, 14px);
+  font-size: clamp(14px, 3vw, 16px);
   color: rgba(255, 255, 255, 0.7);
   opacity: 0.8;
 }
@@ -2563,7 +2676,7 @@ iframe.lightwidget-widget {
   }
 
   .mobile-instagram .instagram-footer {
-    margin-top: 15px;
+    margin-top: -100px;
     text-align: center;
   }
 
@@ -2613,6 +2726,103 @@ iframe.lightwidget-widget {
     color: rgba(255, 255, 255, 0.7);
   }
 
+  /* Presskit mobile - style compact */
+  .mobile-presskit {
+    margin: 0 0 10px 0;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 15px;
+  }
+
+  .mobile-presskit h3 {
+    display: none !important;
+  }
+
+  .mobile-presskit .presskit-container {
+    padding: 0 !important;
+  }
+
+  .mobile-presskit .presskit-content {
+    padding: 0 !important;
+  }
+
+  .mobile-presskit .presskit-header {
+    display: none !important;
+  }
+
+  .mobile-presskit .presskit-section {
+    padding: 0 !important;
+  }
+
+  .mobile-presskit .download-card {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-radius: 8px !important;
+    padding: 15px !important;
+    margin: 0 !important;
+  }
+
+  .mobile-presskit .download-icon {
+    text-align: center !important;
+    margin-bottom: 10px !important;
+  }
+
+  .mobile-presskit .download-icon svg {
+    display: none !important;
+  }
+
+  .mobile-presskit .download-title {
+    font-size: 16px !important;
+    margin: 0 0 8px 0 !important;
+    text-align: center !important;
+  }
+
+  .mobile-presskit .download-description {
+    font-size: 16px !important;
+    margin: 0 0 10px 0 !important;
+    text-align: center !important;
+    line-height: 1.4 !important;
+  }
+
+  .mobile-presskit .download-description::before {
+    content: "PRESSKIT";
+    display: block;
+    font-size: 20px !important;
+    font-weight: bold !important;
+    color: #00ff88 !important;
+    margin: 0 0 8px 0 !important;
+    text-align: center !important;
+  }
+
+  .mobile-presskit .download-items {
+    margin: 0 0 0px 0 !important;
+  }
+
+  .mobile-presskit .download-item {
+    font-size: 16px !important;
+    margin: 0 0 0px 0 !important;
+    text-align: center !important;
+    list-style: none !important;
+  }
+
+  .mobile-presskit .download-item::before {
+    display: none !important;
+  }
+
+  .mobile-presskit .download-button {
+    width: 100% !important;
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+    border-radius: 6px !important;
+    text-align: center !important;
+    display: block !important;
+    margin-top: 12px;
+  }
+
+  .mobile-presskit .contact-info {
+    display: none !important;
+  }
+
   /* Message - plus compact */
   .mobile-message {
     margin: 0 0 10px 0;
@@ -2623,6 +2833,16 @@ iframe.lightwidget-widget {
 
   .mobile-message h3 {
     display: none !important;
+  }
+
+  .mobile-message .message-subtitle::before {
+    content: "CONTACT";
+    display: block;
+    font-size: 20px !important;
+    font-weight: bold !important;
+    color: #00ff88 !important;
+    margin: 0 0 8px 0 !important;
+    text-align: center !important;
   }
 
   .mobile-message .form-group {
@@ -2756,11 +2976,13 @@ iframe.lightwidget-widget {
   flex-direction: column;
   gap: 0px;
   padding: 0px;
+  width: 100%;
 }
 
 .event-display-item {
   text-decoration: none;
   color: white;
+  width: 100%;
   display: block;
   transition: transform 0.3s ease;
 }
@@ -3047,41 +3269,12 @@ html body .second-third-combined .main-rectangle {
   z-index: 5 !important;
 }
 
-/* Scroll container like medias */
-.section-scroll {
-  flex: 1 1 auto;
-  height: 100%;
-  max-height: calc(100vh - 260px);
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-right: 6px;
-  -webkit-overflow-scrolling: touch;
-}
-.section-scroll::-webkit-scrollbar { width: 6px; }
-.section-scroll::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
-.section-scroll::-webkit-scrollbar-thumb { background: rgba(0, 255, 136, 0.6); border-radius: 3px; }
-.section-scroll::-webkit-scrollbar-thumb:hover { background: rgba(0, 255, 136, 0.8); }
 
 /* Force clarity inside main-rectangle: no transparency, no blur */
 html body .second-third-combined .main-rectangle {
   background: rgba(0, 0, 0, 0.1) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-}
-/* Ensure medias content appears above overlays */
-.medias-container {
-  position: relative !important;
-  z-index: 9999 !important;
-  background: rgba(0, 0, 0, 0.9) !important;
-  border-radius: 8px !important;                                                                                                                                                            
-  width: 100% !important;
-  height: 100% !important;
-}
-.medias-container iframe {
-  position: relative !important;
-  z-index: 10000 !important;
-  width: 100% !important;
-  height: 600px !important;
 }
 html body .second-third-combined .main-rectangle, 
 html body .second-third-combined .main-rectangle * {
@@ -3365,9 +3558,14 @@ html body .second-third-combined .main-rectangle .message-content {
   text-align: right;
 }
 
-/* Nouveau design Instagram Feed propre */
-.medias-container {
-  background: transparent !important;
+
+.instagram-feed {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .instagram-widget-container {
@@ -3375,12 +3573,16 @@ html body .second-third-combined .main-rectangle .message-content {
   height: 100%;
   display: flex;
   flex-direction: column;
+  gap: 0;
+  padding: 0;
+  flex: 1;
 }
 
 .instagram-footer {
-  margin-top: 15px;
+  margin-top: 5px;
   text-align: center;
-  padding: 10px;
+  padding: 2px;
+  flex-shrink: 0;
 }
 
 .ig-view-more-btn, .ig-follow-button {
@@ -3403,10 +3605,13 @@ html body .second-third-combined .main-rectangle .message-content {
   transform: scale(1.05);
 }
 
-/* Instagram avec 25 posts et scroll visible */
+/* Instagram avec 25 posts et scroll visible - utiliser plus d'espace */
 .lightwidget-widget {
-  max-height: 600px !important;
+  max-height: 800px !important;
+  min-height: 700px !important;
   overflow-y: auto !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* Scroll design vert comme medias pour Instagram */
@@ -3428,11 +3633,51 @@ html body .second-third-combined .main-rectangle .message-content {
   background: rgba(0, 255, 136, 0.8);
 }
 
+/* Scroll vert pour le conteneur Instagram principal aussi */
+.instagram-widget-container::-webkit-scrollbar {
+  width: 6px;
+}
+.instagram-widget-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+.instagram-widget-container::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 136, 0.6);
+  border-radius: 3px;
+}
+.instagram-widget-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 136, 0.8);
+}
+
+
+/* Scroll vert pour la section instagram-feed */
+.instagram-feed::-webkit-scrollbar {
+  width: 6px;
+}
+.instagram-feed::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+.instagram-feed::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 136, 0.6);
+  border-radius: 3px;
+}
+.instagram-feed::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 136, 0.8);
+}
+
 /* Scroll design vert pour Past Events */
 .past-events-container {
   max-height: 400px;
   overflow-y: auto;
   padding-right: 10px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* S'assurer que le conteneur des événements passés prend toute la largeur */
+.events-display > div {
+  width: 100%;
 }
 
 .past-events-container::-webkit-scrollbar {
@@ -3451,4 +3696,428 @@ html body .second-third-combined .main-rectangle .message-content {
 
 .past-events-container::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 255, 136, 0.8);
+}
+
+/* Styles pour la page d'administration */
+
+.admin-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+  padding: 24px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+.admin-header {
+  text-align: center;
+  margin-bottom: 32px;
+  color: #fff;
+}
+
+.admin-tabs {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+  justify-content: center;
+}
+
+.admin-tab {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.admin-tab:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.admin-tab.active {
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
+}
+
+.admin-header h1 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  letter-spacing: -0.025em;
+  color: #ffffff;
+}
+
+.admin-controls {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.admin-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.2s ease;
+  letter-spacing: 0.01em;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-btn-primary {
+  background: #3b82f6;
+  color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.admin-btn-primary:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.admin-btn-success {
+  background: #10b981;
+  color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.admin-btn-success:hover {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.admin-btn-danger {
+  background: #ef4444;
+  color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.admin-btn-danger:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.admin-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.admin-message {
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  border-radius: 6px;
+  text-align: center;
+  font-weight: 500;
+  font-size: 14px;
+  animation: slideIn 0.3s ease;
+}
+
+.admin-message.success {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.admin-message.error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.admin-messages-grid {
+  display: grid;
+  gap: 20px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.admin-message-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.admin-message-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.admin-message-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-message-title {
+  margin: 0;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.admin-form-group {
+  margin-bottom: 16px;
+}
+
+.admin-form-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #e5e7eb;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+}
+
+.admin-form-input,
+.admin-form-textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #1f2937;
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+  line-height: 1.5;
+}
+
+.admin-form-input:focus,
+.admin-form-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  background: rgba(255, 255, 255, 1);
+}
+
+.admin-form-textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.admin-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.admin-empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: #9ca3af;
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.admin-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-size: 14px;
+  color: #e5e7eb;
+  font-weight: 400;
+}
+
+/* Responsive design pour l'admin */
+@media (max-width: 768px) {
+  .admin-page {
+    padding: 16px;
+  }
+  
+  .admin-header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .admin-controls {
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .admin-btn {
+    width: 100%;
+    max-width: 280px;
+    height: 40px;
+  }
+  
+  .admin-form-row {
+    grid-template-columns: 1fr;
+  }
+  
+  .admin-message-header {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+  
+  .admin-message-card {
+    padding: 16px;
+  }
+}
+
+/* Styles pour l'upload d'images */
+.admin-image-upload {
+  margin-bottom: 16px;
+}
+
+.admin-upload-zone {
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.02);
+  margin-bottom: 10px;
+}
+
+.admin-upload-zone:hover {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.admin-upload-zone.drag-over {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  transform: scale(1.02);
+}
+
+.admin-upload-zone.uploading {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+  cursor: not-allowed;
+}
+
+.upload-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.upload-content i {
+  font-size: 2rem;
+  color: #9ca3af;
+  margin-bottom: 8px;
+}
+
+.upload-content p {
+  margin: 0;
+  color: #e5e7eb;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.upload-content small {
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.upload-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.image-preview {
+  position: relative;
+  display: inline-block;
+  margin: 10px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.image-preview img {
+  max-width: 200px;
+  max-height: 150px;
+  width: auto;
+  height: auto;
+  display: block;
+  object-fit: cover;
+}
+
+.remove-image-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(239, 68, 68, 0.9);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.remove-image-btn:hover {
+  background: #dc2626;
+  transform: scale(1.1);
+}
+
+.upload-help {
+  color: #9ca3af;
+  font-size: 12px;
+  margin-top: 4px;
+  display: block;
 }
