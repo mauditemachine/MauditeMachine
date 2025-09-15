@@ -137,12 +137,19 @@ const socialLinks: {
 
 export default function MainApp() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [bgUrl, setBgUrl] = useState<string>(
+  const [bgUrl, setBgUrl] = useState<string>("");
+  const [defaultBgUrl, setDefaultBgUrl] = useState<string>(
     encodeURI(import.meta.env.BASE_URL + "images/mixtape37.webp")
   );
   const [activeSection, setActiveSection] = useState("home");
   const [bioText, setBioText] = useState<string>("");
   const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    // Vérifier si l'utilisateur a déjà une préférence sauvegardée
+    const savedMode = localStorage.getItem('darkMode');
+    // Par défaut, mode sombre activé (true)
+    return savedMode !== null ? JSON.parse(savedMode) : true;
+  });
 
   // Titres des sections pour les tooltips
   const sectionTitles = {
@@ -153,6 +160,23 @@ export default function MainApp() {
     message: "Contact",
     presskit: "Press Kit"
   };
+
+  // Fonction pour basculer le mode sombre
+  const toggleDarkMode = () => {
+    const newMode = !isDarkMode;
+    setIsDarkMode(newMode);
+    // Sauvegarder la préférence dans localStorage
+    localStorage.setItem('darkMode', JSON.stringify(newMode));
+  };
+
+  // Appliquer la classe dark mode au body
+  useEffect(() => {
+    if (isDarkMode) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+  }, [isDarkMode]);
 
   // Fonction pour déclencher des événements Facebook Pixel
   const trackFacebookEvent = (eventName: string, parameters?: any) => {
@@ -183,6 +207,96 @@ export default function MainApp() {
       // Bio par défaut si aucune sauvegarde
       setBioText("Maudite Machine is a Canadian DJ and producer known for his raw, hypnotic approach to minimal and indie dance. Born from the Montreal underground, he has performed at major events including Piknic Électronik, Eclipse Festival, and the iconic Techno Parade in Paris, delivering sets that blur the line between intensity and atmosphere across Canada and Europe.\n\nAs the founder of VRSTL Records, he curates a sound that embraces tension, groove, and experimentation, having shared the stage with electronic music legends like Carl Craig, Ellen Allien, The Hacker, Popof, and Agoria. His collaborations with influential artists reflect a constant drive to push boundaries and redefine the underground with a distinct sonic signature, championing bold artists who share his vision for the darker, experimental sides of electronic music.");
     }
+  }, []);
+
+  // Charger les paramètres de background depuis localStorage
+  useEffect(() => {
+    const loadBackgroundSettings = () => {
+      const savedBackground = localStorage.getItem('admin_background_settings');
+      console.log('🔄 Chargement background settings:', savedBackground);
+      
+      if (savedBackground) {
+        const backgroundData = JSON.parse(savedBackground);
+        console.log('📊 Background data complet:', backgroundData);
+        
+        // Si l'utilisateur a désactivé le background
+        if (backgroundData.useBackground === false) {
+          console.log('🚫 Background désactivé - suppression de l\'image');
+          setDefaultBgUrl('');
+          setBgUrl('');
+          return;
+        }
+        
+        // Assurer la rétrocompatibilité avec les valeurs par défaut
+        const settings = {
+          useBackground: backgroundData.useBackground !== false,
+          backgroundType: backgroundData.backgroundType || 'image',
+          defaultImage: backgroundData.defaultImage || 'images/mixtape37.webp',
+          gradientColor1: backgroundData.gradientColor1 || '#1a1a2e',
+          gradientColor2: backgroundData.gradientColor2 || '#16213e',
+          gradientDirection: backgroundData.gradientDirection || '135deg'
+        };
+        
+        console.log('🔧 Settings après rétrocompatibilité:', settings);
+        
+        if (settings.backgroundType === 'gradient') {
+          // Créer un gradient CSS
+          const gradient = `linear-gradient(${settings.gradientDirection}, ${settings.gradientColor1}, ${settings.gradientColor2})`;
+          console.log('🎨 Background gradient activé:', gradient);
+          console.log('🌈 Couleurs gradient:', settings.gradientColor1, '→', settings.gradientColor2);
+          console.log('📐 Direction gradient:', settings.gradientDirection);
+          console.log('🔍 Type de background détecté:', settings.backgroundType);
+          console.log('✅ Application du gradient...');
+          setDefaultBgUrl(gradient);
+          setBgUrl(gradient);
+          console.log('✅ Gradient appliqué avec succès!');
+        } else {
+          // Image normale
+          if (settings.defaultImage) {
+            const newDefaultBg = settings.defaultImage.startsWith('data:') 
+              ? settings.defaultImage 
+              : encodeURI(import.meta.env.BASE_URL + settings.defaultImage);
+            console.log('✅ Background image activé:', newDefaultBg.substring(0, 50) + '...');
+            setDefaultBgUrl(newDefaultBg);
+            setBgUrl(newDefaultBg);
+          } else {
+            console.log('⚠️ Pas d\'image définie, utilisation du défaut');
+            const defaultBg = encodeURI(import.meta.env.BASE_URL + "images/mixtape37.webp");
+            setDefaultBgUrl(defaultBg);
+            setBgUrl(defaultBg);
+          }
+        }
+      } else {
+        // Utiliser le background par défaut
+        const defaultBg = encodeURI(import.meta.env.BASE_URL + "images/mixtape37.webp");
+        console.log('🎨 Background par défaut:', defaultBg);
+        setDefaultBgUrl(defaultBg);
+        setBgUrl(defaultBg);
+      }
+    };
+
+    // Charger au démarrage
+    loadBackgroundSettings();
+
+    // Écouter les changements de localStorage (quand l'admin sauvegarde)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'admin_background_settings') {
+        loadBackgroundSettings();
+      }
+    };
+
+    // Écouter les changements personnalisés (même onglet)
+    const handleCustomStorageChange = () => {
+      loadBackgroundSettings();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('admin_background_updated', handleCustomStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('admin_background_updated', handleCustomStorageChange);
+    };
   }, []);
 
   // Supprimer les erreurs SoundCloud et Bandcamp au chargement
@@ -240,7 +354,24 @@ export default function MainApp() {
   return (
     <div className="page">
       <div className="bg-stack">
-        <img className="bg-photo" src={bgUrl} alt="Background" />
+        {bgUrl && (
+          bgUrl.startsWith('linear-gradient') ? (
+            <div 
+              className="bg-photo" 
+              style={{ 
+                background: bgUrl,
+                width: '100%',
+                height: '100%',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                zIndex: -1
+              }}
+            />
+          ) : (
+            <img className="bg-photo" src={bgUrl} alt="Background" />
+          )
+        )}
         {/* <BackgroundLines /> */}
       </div>
       {/* Hamburger + menu mobile (masqué en desktop) */}
@@ -274,6 +405,15 @@ export default function MainApp() {
           </li>
         </ul>
       </nav>
+
+      {/* Bouton Dark Mode en haut à droite */}
+      <button 
+        className="dark-mode-toggle"
+        onClick={toggleDarkMode}
+        title={isDarkMode ? "Mode clair" : "Mode sombre"}
+      >
+        <i className={`fas ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
+      </button>
 
       {/* Navigation en haut du site */}
       <div className="second-third-combined">

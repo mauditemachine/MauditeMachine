@@ -254,8 +254,41 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
   function maybeSwapBackground(index: number) {
     const t = tracks[index]
     if (!t || !onBackgroundChange) return
+    
+    // Vérifier si les backgrounds sont désactivés
+    try {
+      const savedBackground = localStorage.getItem('admin_background_settings');
+      if (savedBackground) {
+        const backgroundData = JSON.parse(savedBackground);
+        if (backgroundData.useBackground === false) {
+          // Ne pas changer le background si désactivé
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors de la vérification des paramètres de background:', error);
+    }
+    
     const title = (t.title || '').toLowerCase()
-    let url = import.meta.env.BASE_URL + 'images/mixtape37.webp' // Background par défaut
+    
+    // Charger le background par défaut depuis l'admin ou utiliser mixtape37.webp
+    const getDefaultBackground = () => {
+      try {
+        const savedBackground = localStorage.getItem('admin_background_settings');
+        if (savedBackground) {
+          const backgroundData = JSON.parse(savedBackground);
+          
+          return backgroundData.defaultImage.startsWith('data:') 
+            ? backgroundData.defaultImage 
+            : import.meta.env.BASE_URL + backgroundData.defaultImage;
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement du background par défaut:', error);
+      }
+      return import.meta.env.BASE_URL + 'images/mixtape37.webp';
+    };
+    
+    let url = getDefaultBackground(); // Background par défaut configuré dans l'admin
     if (title.includes('autopsynth')) url = import.meta.env.BASE_URL + 'images/Autopsynth.webp'
     else if (title.includes('coagule')) url = import.meta.env.BASE_URL + 'images/Coagule.webp'
     else if (title.includes('where is the sync button')) url = import.meta.env.BASE_URL + 'images/Where.webp'
@@ -267,7 +300,7 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
     else if (title.includes('back on track')) url = import.meta.env.BASE_URL + 'images/BackOnTrack.webp'
     else if (title.includes('richie')) url = import.meta.env.BASE_URL + 'images/Richie.webp'
     else if (title.includes('anarchic') || title.includes('anarchic')) url = import.meta.env.BASE_URL + 'images/Anarchic.webp'
-    else if (title.includes('mixtape') || title.includes('37')) url = import.meta.env.BASE_URL + 'images/mixtape37.webp'
+    else if (title.includes('mixtape') || title.includes('37')) url = getDefaultBackground()
     onBackgroundChange(encodeURI(url))
   }
 
