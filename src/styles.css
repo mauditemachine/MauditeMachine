@@ -136,7 +136,7 @@ body {
 /* ===== DARK MODE TOGGLE ===== */
 .dark-mode-toggle {
   position: fixed;
-  top: 20px;
+  top: 10px;
   right: 20px;
   width: 50px;
   height: 50px;
@@ -166,16 +166,24 @@ body {
 
 /* ===== DARK MODE STYLES ===== */
 body.dark-mode {
-  background: linear-gradient(135deg, #000000 0%, #1a1a1a 48%, #000000 100%);
+  background: #000000;
 }
 
 body.dark-mode .page::before {
-  background: radial-gradient(ellipse at center, rgba(0,0,0,0.3), rgba(0,0,0,0.1));
+  background: none;
+}
+
+body.dark-mode .bg-photo {
+  display: none !important;
+}
+
+body.dark-mode .bg-stack {
+  display: none !important;
 }
 
 body.dark-mode .main-rectangle {
   background: rgba(0, 0, 0, 0.8) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 0px solid rgba(255, 255, 255, 0.9);
 }
 
 body.dark-mode .nav-icon-btn {
@@ -199,18 +207,23 @@ body.dark-mode .bio-text {
 
 /* Les liens sociaux restent clairs même en mode sombre */
 body.dark-mode .bottom .social-links-container {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(255, 255, 255, 0.5);
+  background: none;
+  border: none;
 }
 
 body.dark-mode .bottom .social-link {
-  background: rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(0, 0, 0, 0.2);
+  background: linear-gradient(145deg, #ffffff, #f0f0f0);
+  border: none;
 }
 
 body.dark-mode .bottom .social-link:hover {
-  background: rgba(0, 0, 0, 0.2);
-  border-color: rgba(0, 0, 0, 0.4);
+  background: linear-gradient(145deg, #ffffff, #f8f8f8);
+  transform: scale(1.15) rotate(3deg) translateY(-2px);
+  box-shadow: 
+    0 12px 35px rgba(0, 0, 0, 0.15),
+    0 6px 20px rgba(0, 0, 0, 0.1),
+    0 0 20px rgba(255, 255, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 body.dark-mode .dark-mode-toggle {
@@ -2430,14 +2443,12 @@ iframe.lightwidget-widget {
 .bottom .social-links-container {
   display: flex;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 0;
   pointer-events: auto; /* Réactive les clics sur les icônes */
   z-index: 10000; /* S'assurer qu'ils sont au-dessus de tout */
   position: relative;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 25px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: none;
+  border: none;
 }
 
 .bottom .social-link {
@@ -2446,21 +2457,34 @@ iframe.lightwidget-widget {
   z-index: 999999 !important;
   position: relative !important;
   pointer-events: auto !important;
-  background: rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(0, 0, 0, 0.2);
+  background: linear-gradient(145deg, #ffffff, #f0f0f0);
+  border: none;
   border-radius: 50%;
   transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 
+    0 8px 25px rgba(0, 0, 0, 0.1),
+    0 4px 15px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 .bottom .social-link:hover {
-  background: rgba(0, 0, 0, 0.2);
-  border-color: rgba(0, 0, 0, 0.4);
-  transform: scale(1.1);
+  background: linear-gradient(145deg, #ffffff, #f8f8f8);
+  transform: scale(1.15) rotate(3deg) translateY(-2px);
+  box-shadow: 
+    0 12px 35px rgba(0, 0, 0, 0.15),
+    0 6px 20px rgba(0, 0, 0, 0.1),
+    0 0 20px rgba(255, 255, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .bottom .social-link svg {
   width: 20px;
-  height: 20px;
+  height: 22px;
+  color: #333333;
+  fill: #333333;
 }
 
 /* Instagram Buttons */

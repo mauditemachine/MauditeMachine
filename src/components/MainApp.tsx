@@ -147,8 +147,8 @@ export default function MainApp() {
   const [isDarkMode, setIsDarkMode] = useState(() => {
     // Vérifier si l'utilisateur a déjà une préférence sauvegardée
     const savedMode = localStorage.getItem('darkMode');
-    // Par défaut, mode sombre activé (true)
-    return savedMode !== null ? JSON.parse(savedMode) : true;
+    // Par défaut, mode clair activé (false)
+    return savedMode !== null ? JSON.parse(savedMode) : false;
   });
 
   // Titres des sections pour les tooltips
