@@ -93,7 +93,13 @@ const Admin: React.FC = () => {
       try {
         // Charger les messages
         const messagesData = await loadMessages();
-        setMessages(messagesData);
+        // Trier les messages dans le même ordre que sur le site (par date décroissante)
+        const sortedMessages = Array.isArray(messagesData) ? messagesData.sort((a, b) => {
+          const dateA = new Date(a.date || '1970-01-01').getTime();
+          const dateB = new Date(b.date || '1970-01-01').getTime();
+          return dateB - dateA; // Ordre décroissant (plus récent en premier)
+        }) : [];
+        setMessages(sortedMessages);
         
         // Charger les événements
         const eventsResponse = await fetch('/events.json');
@@ -424,10 +430,10 @@ const Admin: React.FC = () => {
               
               <div className="sidebar-nav" data-active={activeTab}>
                 {[
-                  { key: 'messages', label: 'Messages', icon: '' },
-                  { key: 'events', label: 'Événements', icon: '' },
-                  { key: 'bio', label: 'Bio', icon: '' },
-                  { key: 'background', label: 'Background', icon: '' }
+                  { key: 'messages', label: 'Messages', icon: '✉' },
+                  { key: 'events', label: 'Événements', icon: '📅' },
+                  { key: 'bio', label: 'Bio', icon: '👤' },
+                  { key: 'background', label: 'Background', icon: '🖼' }
                 ].map(tab => (
                   <button
                     key={tab.key}
@@ -439,6 +445,7 @@ const Admin: React.FC = () => {
                       }, e.currentTarget);
                     }}
                   >
+                    <span className="tab-icon">{tab.icon}</span>
                     <span className="tab-label">{tab.label}</span>
                   </button>
                 ))}
@@ -451,7 +458,7 @@ const Admin: React.FC = () => {
                       onClick={(e) => handleButtonClick(addMessage, e.currentTarget)}
                       className="admin-btn primary small"
                     >
-                      ➕ Ajouter
+                      + Ajouter
                     </button>
                     
                     <button
@@ -466,7 +473,7 @@ const Admin: React.FC = () => {
                       onClick={(e) => handleButtonClick(resetMessages, e.currentTarget)}
                       className="admin-btn secondary small"
                     >
-                      🔄 Réinitialiser
+                      ↻ Réinitialiser
                     </button>
                   </>
                 )}
@@ -477,7 +484,7 @@ const Admin: React.FC = () => {
                       onClick={(e) => handleButtonClick(addEvent, e.currentTarget)}
                       className="admin-btn primary small"
                     >
-                      ➕ Ajouter
+                      + Ajouter
                     </button>
                     
                     <button
@@ -548,7 +555,7 @@ const Admin: React.FC = () => {
                       }, e.currentTarget)}
                       className="admin-btn danger small"
                     >
-                      🔄 Réinitialiser
+                      ↻ Réinitialiser
                     </button>
                   </>
                 )}
@@ -557,7 +564,7 @@ const Admin: React.FC = () => {
                   onClick={(e) => handleButtonClick(manageUploadedImages, e.currentTarget)}
                   className="admin-btn info small"
                 >
-                  🖼️ Gérer images
+                  🖼 Gérer images
                 </button>
               </div>
             </aside>
@@ -570,7 +577,7 @@ const Admin: React.FC = () => {
                   <div className="admin-items">
                     {messages.length === 0 ? (
                       <div className="admin-empty-state">
-                        📥
+📥
                         <h3>Aucun message</h3>
                         <p>Cliquez sur "Ajouter un message" pour commencer.</p>
                       </div>
@@ -608,7 +615,7 @@ const Admin: React.FC = () => {
                                   }}
                                   className="admin-btn danger small"
                                 >
-                                  🗑️
+                                  🗑
                                 </button>
                                 
                                 <div className={`accordion-toggle ${isExpanded ? 'expanded' : ''}`}>
@@ -696,7 +703,7 @@ const Admin: React.FC = () => {
                   <div className="admin-items">
                     {events.length === 0 ? (
                       <div className="admin-empty-state">
-                        📅
+📅
                         <h3>Aucun événement</h3>
                         <p>Cliquez sur "Ajouter un événement" pour commencer.</p>
                       </div>
@@ -734,7 +741,7 @@ const Admin: React.FC = () => {
                                   }}
                                   className="admin-btn danger small"
                                 >
-                                  🗑️
+                                  🗑
                                 </button>
                                 
                                 <div className={`accordion-toggle ${isExpanded ? 'expanded' : ''}`}>
