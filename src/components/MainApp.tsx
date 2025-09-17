@@ -3,7 +3,6 @@ import SoundCloudPlayer from "./SoundCloudPlayer";
 import RandomMessage from "./RandomMessage";
 import NewsMessages from "./NewsMessages";
 import EventsDisplay from "./EventsDisplay";
-import InstagramFeed from "./InstagramFeed";
 import Store from "./Store";
 import Message from "./Message";
 import Presskit from "./Presskit";
@@ -98,12 +97,6 @@ const socialLinks: {
     hoverColor: "#1877F2"
   },
   {
-    label: "Instagram",
-    href: "https://www.instagram.com/mauditemachine/",
-    platform: "instagram",
-    hoverColor: "#E4405F"
-  },
-  {
     label: "Spotify",
     href: "https://open.spotify.com/artist/2FHPGWPEBQbCsgkLP9uuI4",
     platform: "spotify",
@@ -155,7 +148,6 @@ export default function MainApp() {
   const sectionTitles = {
     home: "Home",
     events: "Events", 
-    medias: "Medias",
     store: "Store",
     message: "Contact",
     presskit: "Press Kit"
@@ -169,13 +161,25 @@ export default function MainApp() {
     localStorage.setItem('darkMode', JSON.stringify(newMode));
   };
 
-  // Appliquer la classe dark mode au body
+  // Appliquer la classe dark mode au body (desktop uniquement)
   useEffect(() => {
-    if (isDarkMode) {
-      document.body.classList.add('dark-mode');
-    } else {
-      document.body.classList.remove('dark-mode');
-    }
+    const applyDarkMode = () => {
+      const isDesktop = window.innerWidth > 768;
+      if (isDarkMode && isDesktop) {
+        document.body.classList.add('dark-mode');
+      } else {
+        document.body.classList.remove('dark-mode');
+      }
+    };
+
+    applyDarkMode();
+    
+    // Écouter les changements de taille d'écran
+    window.addEventListener('resize', applyDarkMode);
+    
+    return () => {
+      window.removeEventListener('resize', applyDarkMode);
+    };
   }, [isDarkMode]);
 
   // Fonction pour déclencher des événements Facebook Pixel
@@ -436,14 +440,6 @@ export default function MainApp() {
             <i className="fa-solid fa-calendar-days"></i>
           </button>
 
-          <button
-            className={`nav-icon-btn ${activeSection === "medias" ? "active" : ""}`}
-            onClick={() => handleSectionChange("medias")}
-            onMouseEnter={() => setHoveredButton("medias")}
-            onMouseLeave={() => setHoveredButton(null)}
-          >
-            <i className="fa-solid fa-image"></i>
-          </button>
           <button 
             className={`nav-icon-btn ${activeSection === "store" ? "active" : ""}`}
             onClick={() => handleSectionChange("store")}
@@ -584,11 +580,6 @@ export default function MainApp() {
           <EventsDisplay limit={3} />
         </div>
 
-        {/* Instagram sans scroll */}
-        <div className="mobile-section mobile-instagram">
-          <h3>Medias</h3>
-          <InstagramFeed isMobile={true} />
-        </div>
 
         {/* Store */}
         <div className="mobile-section mobile-store">
