@@ -332,7 +332,7 @@ export default function MainApp() {
       {bgUrl && !bgUrl.startsWith('linear-gradient') && (
         <div
           style={{
-            opacity: 0.15,
+            opacity: 0.12,
             position: 'fixed',
             top: 0,
             left: 0,
@@ -342,7 +342,7 @@ export default function MainApp() {
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
-            filter: 'blur(2px)',
+            filter: 'blur(1px)',
             zIndex: 1,
             pointerEvents: 'none',
             transition: 'all 0.8s ease-in-out'
