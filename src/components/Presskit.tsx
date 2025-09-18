@@ -13,10 +13,6 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
     <div className="presskit-container">
       <div className="presskit-content">
         <div className="presskit-header">
-          <h2 className="presskit-title">Press Kit</h2>
-          <p className="presskit-subtitle">
-            Download official press materials, bio, photos, and technical requirements for Maudite Machine
-          </p>
         </div>
 
         <div className="presskit-section">

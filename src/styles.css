@@ -133,172 +133,6 @@ body {
 /* Mobile layout masqué par défaut (visible seulement sous 768px) */
 .mobile-layout { display: none; }
 
-/* ===== DARK MODE TOGGLE - Desktop uniquement ===== */
-.dark-mode-toggle {
-  position: fixed;
-  top: 10px;
-  right: 20px;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.1);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-  z-index: 1000;
-}
-
-/* Masquer le bouton dark mode sur mobile */
-@media (max-width: 768px) {
-  .dark-mode-toggle {
-    display: none !important;
-  }
-}
-
-.dark-mode-toggle:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.5);
-  transform: scale(1.1);
-}
-
-.dark-mode-toggle:active {
-  transform: scale(0.95);
-}
-
-/* ===== DARK MODE STYLES - Desktop uniquement ===== */
-@media (min-width: 769px) {
-  body.dark-mode {
-    background: linear-gradient(135deg, #0f0f23, #1a1a2e, #16213e) !important;
-  }
-
-  body.dark-mode .page::before {
-    background: rgba(0, 0, 0, 0.8) !important;
-  }
-
-  body.dark-mode .bg-photo {
-    filter: brightness(0.3) contrast(1.4) saturate(0.8);
-    display: block !important;
-  }
-
-  body.dark-mode .bg-stack {
-    background: rgba(0, 0, 0, 0.9) !important;
-    display: block !important;
-  }
-
-  body.dark-mode .main-rectangle {
-    background: rgba(15, 15, 35, 0.85) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    backdrop-filter: blur(20px);
-  }
-
-  body.dark-mode .nav-icon-btn {
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: rgba(255, 255, 255, 0.9);
-  }
-
-  body.dark-mode .nav-icon-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.4);
-    color: #ffffff;
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-  }
-
-  body.dark-mode .nav-icon-btn.active {
-    background: rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.5);
-    color: #ffffff;
-    box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
-  }
-
-  body.dark-mode .bio-text {
-    color: rgba(255, 255, 255, 0.95);
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-  }
-
-  /* Messages cards en mode sombre */
-  body.dark-mode .message-card {
-    background: rgba(15, 15, 35, 0.8) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(15px);
-  }
-
-  body.dark-mode .message-title {
-    color: #ffdd00 !important;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
-  }
-
-  body.dark-mode .message-desc {
-    color: rgba(255, 255, 255, 0.85);
-  }
-
-  body.dark-mode .message-link {
-    color: #00ff88;
-    border-color: rgba(0, 255, 136, 0.3);
-  }
-
-  body.dark-mode .message-link:hover {
-    background: rgba(0, 255, 136, 0.1);
-    border-color: #00ff88;
-  }
-
-  /* Events cards en mode sombre */
-  body.dark-mode .event-card {
-    background: rgba(15, 15, 35, 0.8) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(15px);
-  }
-
-  body.dark-mode .event-title {
-    color: rgba(255, 255, 255, 0.95);
-  }
-
-  body.dark-mode .event-date,
-  body.dark-mode .event-location {
-    color: rgba(255, 255, 255, 0.7);
-  }
-}
-
-/* Les liens sociaux en mode sombre - Desktop uniquement */
-@media (min-width: 769px) {
-  body.dark-mode .bottom .social-links-container {
-    background: none;
-    border: none;
-  }
-
-  body.dark-mode .bottom .social-link {
-    background: linear-gradient(145deg, #ffffff, #f0f0f0);
-    border: none;
-  }
-
-  body.dark-mode .bottom .social-link:hover {
-    background: linear-gradient(145deg, #ffffff, #f8f8f8);
-    transform: scale(1.15) rotate(3deg) translateY(-2px);
-    box-shadow: 
-      0 12px 35px rgba(0, 0, 0, 0.15),
-      0 6px 20px rgba(0, 0, 0, 0.1),
-      0 0 20px rgba(255, 255, 255, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  }
-
-  /* Toggle dark mode en mode sombre */
-  body.dark-mode .dark-mode-toggle {
-    background: rgba(0, 0, 0, 0.3);
-    border-color: rgba(255, 255, 255, 0.4);
-  }
-
-  body.dark-mode .dark-mode-toggle:hover {
-    background: rgba(0, 0, 0, 0.5);
-    border-color: rgba(255, 255, 255, 0.6);
-  }
-}
 
 
 /* Responsive Design */
@@ -306,14 +140,6 @@ body {
   body { margin: 5px !important; padding: 0 !important; overflow-x: hidden !important; }
   .page { grid-template-columns: 1fr; gap: 10px; padding: 0 !important; width: calc(100vw - 10px); margin: 0 auto !important; }
   
-  /* Dark mode toggle sur mobile */
-  .dark-mode-toggle {
-    top: 10px;
-    right: 10px;
-    width: 45px;
-    height: 45px;
-    font-size: 18px;
-  }
 
   .nav-buttons {
     display: none;
@@ -999,7 +825,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 
 /* Store Page */
 .store-container {
-  height: 100%;
+  height: 60%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1013,8 +839,6 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   border-radius: 16px;
   padding: 40px 30px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(10px);
 }
 
 .store-icon {
@@ -1070,7 +894,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 .timeline-date {
   font-family: "DIN Black", system-ui, sans-serif;
   font-size: 18px;
-  color: #00ff88;
+  color: #ffcf00;
   font-weight: 900;
 }
 
@@ -1478,7 +1302,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 
 .presskit-header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 20px;
 }
 
 .presskit-title {
@@ -1491,18 +1315,12 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   letter-spacing: 1px;
 }
 
-.presskit-subtitle {
-  font-family: "DIN Alternate", system-ui, sans-serif;
-  font-size: 16px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.8);
-  margin: 0;
-}
 
 .presskit-section {
   display: flex;
   flex-direction: column;
   gap: 30px;
+  margin-top: 20px;
 }
 
 .download-card {
@@ -1541,7 +1359,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 
 .download-description {
   font-family: "DIN Alternate", system-ui, sans-serif;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.7);
   margin: 0 0 25px 0;
@@ -1556,7 +1374,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 
 .download-item {
   font-family: "DIN Alternate", system-ui, sans-serif;
-  font-size: 13px;
+  font-size: 16px;
   color: rgba(255, 255, 255, 0.8);
   padding: 8px 0;
   position: relative;
@@ -1572,29 +1390,28 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 }
 
 .download-button {
-  display: inline-block;
-  padding: 12px 24px;
-  background: rgba(238, 238, 238, 0);
-  border: 2px solid #ffffff;
-  color: #ffffff !important;
-  text-decoration: none;
-  font-weight: bold;
-  font-size: 14px;
-  border-radius: 25px;
-  transition: all 0.3s ease;
-  text-transform: uppercase;
+  width: 100px;
+  height: 30px;
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
+  border-radius: 50px;
+  color: #4b4b4b;
+  font-family: "Fredoka", system-ui, sans-serif;
+  font-size: 12px;
+  padding-top: 4px;
+  font-weight: 800;
+  letter-spacing: 0.0px;
   cursor: pointer;
+  transition: all 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  font-family: "DIN Alternate", system-ui, sans-serif;
+  text-decoration: none;
+  text-transform: uppercase;
 }
 
 .download-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-  transform: scale(1.05);
-  color: grey;
+  background: #f7ce02;
 }
 
 .download-button i {
@@ -1695,7 +1512,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   font-size: 16px;
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.8);
-  margin: 0;
+  margin-bottom: 0px;
 }
 
 .email-address {
@@ -1903,8 +1720,16 @@ body.dark-mode .form-textarea:focus {
     font-size: 28px;
   }
   
+  .presskit-header {
+    margin-bottom: 5px;
+  }
+  
+  .presskit-section {
+    margin-top: -20px;
+  }
+  
   .download-title {
-  font-size: 20px;
+    font-size: 20px;
   }
 }
 
@@ -2133,7 +1958,15 @@ body.dark-mode .form-textarea:focus {
   }
 
   .mobile-events h3 {
-    display: none !important;
+    display: block !important;
+    font-size: 18.72px;
+    font-weight: bold;
+    color: white;
+    text-align: left;
+    margin: 18.72px 0px;
+    text-transform: none;
+    letter-spacing: normal;
+    padding-left: 5px;
   }
 
   .mobile-events .event-card {
@@ -2150,9 +1983,14 @@ body.dark-mode .form-textarea:focus {
     backdrop-filter: blur(10px);
   }
 
-  /* Cacher les banners d'events en mobile */
+  /* Afficher les banners d'events en mobile */
   .mobile-events .event-banner {
-    display: none !important;
+    display: block !important;
+    width: 90px;
+    height: 90px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
   }
 
   .mobile-events .event-details {
@@ -2276,8 +2114,8 @@ body.dark-mode .form-textarea:focus {
   margin-right: 8px;
   font-size: 16px;
   filter: grayscale(100%) contrast(200%);
-  display: inline-block;
-}
+           display: inline-block;
+         }
 
 .admin-tab.active .tab-icon {
   filter: grayscale(100%) contrast(200%) invert(1);
@@ -2285,7 +2123,7 @@ body.dark-mode .form-textarea:focus {
 
 /* Style pour les icônes des états vides */
 .admin-empty-state {
-  text-align: center;
+    text-align: center;
   padding: 2rem;
   color: var(--admin-text-muted);
 }

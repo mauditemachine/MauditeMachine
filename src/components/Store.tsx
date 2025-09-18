@@ -21,7 +21,7 @@ const Store: React.FC = () => {
         </p>
         <div className="store-timeline">
           <span className="timeline-label">Currently in production</span>
-          <span className="timeline-date">August 2025</span>
+          <span className="timeline-date">October 2025</span>
         </div>
       </div>
     </div>

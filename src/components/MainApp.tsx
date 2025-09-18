@@ -134,15 +134,13 @@ export default function MainApp() {
   const [defaultBgUrl, setDefaultBgUrl] = useState<string>(
     encodeURI(import.meta.env.BASE_URL + "images/mixtape37.webp")
   );
+
+  const handleBgChange = (url: string) => {
+    setBgUrl(url)
+  }
   const [activeSection, setActiveSection] = useState("home");
   const [bioText, setBioText] = useState<string>("");
   const [hoveredButton, setHoveredButton] = useState<string | null>(null);
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    // Vérifier si l'utilisateur a déjà une préférence sauvegardée
-    const savedMode = localStorage.getItem('darkMode');
-    // Par défaut, mode clair activé (false)
-    return savedMode !== null ? JSON.parse(savedMode) : false;
-  });
 
   // Titres des sections pour les tooltips
   const sectionTitles = {
@@ -153,34 +151,7 @@ export default function MainApp() {
     presskit: "Press Kit"
   };
 
-  // Fonction pour basculer le mode sombre
-  const toggleDarkMode = () => {
-    const newMode = !isDarkMode;
-    setIsDarkMode(newMode);
-    // Sauvegarder la préférence dans localStorage
-    localStorage.setItem('darkMode', JSON.stringify(newMode));
-  };
 
-  // Appliquer la classe dark mode au body (desktop uniquement)
-  useEffect(() => {
-    const applyDarkMode = () => {
-      const isDesktop = window.innerWidth > 768;
-      if (isDarkMode && isDesktop) {
-        document.body.classList.add('dark-mode');
-      } else {
-        document.body.classList.remove('dark-mode');
-      }
-    };
-
-    applyDarkMode();
-    
-    // Écouter les changements de taille d'écran
-    window.addEventListener('resize', applyDarkMode);
-    
-    return () => {
-      window.removeEventListener('resize', applyDarkMode);
-    };
-  }, [isDarkMode]);
 
   // Fonction pour déclencher des événements Facebook Pixel
   const trackFacebookEvent = (eventName: string, parameters?: any) => {
@@ -356,28 +327,46 @@ export default function MainApp() {
   }, []);
 
   return (
-    <div className="page">
-      <div className="bg-stack">
-        {bgUrl && (
-          bgUrl.startsWith('linear-gradient') ? (
-            <div 
-              className="bg-photo" 
-              style={{ 
-                background: bgUrl,
-                width: '100%',
-                height: '100%',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                zIndex: -1
-              }}
-            />
-          ) : (
-            <img className="bg-photo" src={bgUrl} alt="Background" />
-          )
-        )}
-        {/* <BackgroundLines /> */}
-      </div>
+    <>
+      {/* IMAGE DE LA TRACK EN BACKGROUND DYNAMIQUE */}
+      {bgUrl && !bgUrl.startsWith('linear-gradient') && (
+        <div
+          style={{
+            opacity: 0.15,
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundImage: `url(${bgUrl})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            filter: 'blur(2px)',
+            zIndex: 1,
+            pointerEvents: 'none',
+            transition: 'all 0.8s ease-in-out'
+          }}
+        />
+      )}
+      
+      <div className="page">
+        <div className="bg-stack">
+          {/* Background gradient principal - toujours présent */}
+          <div 
+            className="bg-gradient" 
+            style={{ 
+              background: 'linear-gradient(135deg, #6d1257 0%, #b32d2d 48%, #d87700 100%)',
+              width: '100%',
+              height: '100%',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              zIndex: -2
+            }} 
+          />
+          {/* <BackgroundLines /> */}
+        </div>
       {/* Hamburger + menu mobile (masqué en desktop) */}
       <button
         className="hamburger"
@@ -410,14 +399,6 @@ export default function MainApp() {
         </ul>
       </nav>
 
-      {/* Bouton Dark Mode en haut à droite */}
-      <button 
-        className="dark-mode-toggle"
-        onClick={toggleDarkMode}
-        title={isDarkMode ? "Mode clair" : "Mode sombre"}
-      >
-        <i className={`fas ${isDarkMode ? 'fa-sun' : 'fa-moon'}`}></i>
-      </button>
 
       {/* Navigation en haut du site */}
       <div className="second-third-combined">
@@ -505,9 +486,10 @@ export default function MainApp() {
 
 
 
+
         {/* Player SoundCloud en dessous du logo */}
         <div className="player-section" style={{ marginTop: "20px" }}>
-          <SoundCloudPlayer onBackgroundChange={(url) => setBgUrl(url)} />
+          <SoundCloudPlayer onBackgroundChange={handleBgChange} />
         </div>
       </main>
 
@@ -571,7 +553,7 @@ export default function MainApp() {
 
         {/* Lecteur */}
         <div className="mobile-section mobile-player">
-          <SoundCloudPlayer onBackgroundChange={(url) => setBgUrl(url)} />
+          <SoundCloudPlayer onBackgroundChange={handleBgChange} />
         </div>
 
         {/* Events - 3 prochains */}
@@ -587,7 +569,7 @@ export default function MainApp() {
           <div className="store-message">
             <h4>New merch dropping soon!</h4>
             <p>Get ready for fresh t-shirts, hoodies, stickers, and bags in multiple sizes.</p>
-            <span className="timeline-date">August 2025</span>
+            <span className="timeline-date">October 2025</span>
           </div>
         </div>
 
@@ -614,5 +596,6 @@ export default function MainApp() {
         </div>
       </div>
     </div>
+    </>
   );
 }

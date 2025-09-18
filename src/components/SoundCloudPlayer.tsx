@@ -187,6 +187,12 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
           tryFetchAll()
         }
         checkCurrentTrack()
+        // FORCER LE BACKGROUND QUAND ON JOUE
+        setTimeout(() => {
+          widget.getCurrentSoundIndex((i: number) => {
+            maybeSwapBackground(i || 0)
+          })
+        }, 100)
       })
       
       // Fallback: essayer de charger après un délai même si READY ne se déclenche pas
@@ -201,7 +207,12 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
         setPositionMs(Math.floor(e?.currentPosition || 0))
         widget.getCurrentSound((sound: Sound) => setDurationMs(sound?.duration || 0))
         checkCurrentTrack()
+        // FORCER LE BACKGROUND À CHAQUE PROGRESS
+        widget.getCurrentSoundIndex((i: number) => {
+          maybeSwapBackground(i || 0)
+        })
       })
+      
       // Événements pour changements de track automatiques
       widget.bind(window.SC.Widget.Events.LOAD_PROGRESS, checkCurrentTrack)
       widget.bind(window.SC.Widget.Events.SEEK, checkCurrentTrack)
@@ -254,53 +265,21 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
   function maybeSwapBackground(index: number) {
     const t = tracks[index]
     if (!t || !onBackgroundChange) return
-    
-    // Vérifier si les backgrounds sont désactivés
-    try {
-      const savedBackground = localStorage.getItem('admin_background_settings');
-      if (savedBackground) {
-        const backgroundData = JSON.parse(savedBackground);
-        if (backgroundData.useBackground === false) {
-          // Ne pas changer le background si désactivé
-          return;
-        }
-      }
-    } catch (error) {
-      console.error('Erreur lors de la vérification des paramètres de background:', error);
-    }
-    
     const title = (t.title || '').toLowerCase()
+    let url = import.meta.env.BASE_URL + 'medias/images/mixtape37.webp' // Background par défaut
+    if (title.includes('autopsynth')) url = import.meta.env.BASE_URL + 'medias/images/Autopsynth.webp'
+    else if (title.includes('coagule')) url = import.meta.env.BASE_URL + 'medias/images/Coagule.webp'
+    else if (title.includes('where is the sync button')) url = import.meta.env.BASE_URL + 'medias/images/Where.webp'
+    else if (title.includes('kouklikou')) url = import.meta.env.BASE_URL + 'medias/images/Kouklikou.webp'
+    else if (title.includes('discowriders')) url = import.meta.env.BASE_URL + 'medias/images/Discowriders.webp'
+    else if (title.includes('drama queen')) url = import.meta.env.BASE_URL + 'medias/images/Drama Queen 1.webp'
+    else if (title.includes('crush on you') || title.includes('tati cardi')) url = import.meta.env.BASE_URL + 'medias/images/Tati Cardi.webp'
+    else if (title.includes('nocturne')) url = import.meta.env.BASE_URL + 'medias/images/Nocturne.webp'
+    else if (title.includes('back on track')) url = import.meta.env.BASE_URL + 'medias/images/BackOnTrack.webp'
+    else if (title.includes('richie')) url = import.meta.env.BASE_URL + 'medias/images/Richie.webp'
+    else if (title.includes('anarchic') || title.includes('anarchic')) url = import.meta.env.BASE_URL + 'medias/images/Anarchic.webp'
+    else if (title.includes('mixtape') || title.includes('37')) url = import.meta.env.BASE_URL + 'medias/images/mixtape37.webp'
     
-    // Charger le background par défaut depuis l'admin ou utiliser mixtape37.webp
-    const getDefaultBackground = () => {
-      try {
-        const savedBackground = localStorage.getItem('admin_background_settings');
-        if (savedBackground) {
-          const backgroundData = JSON.parse(savedBackground);
-          
-          return backgroundData.defaultImage.startsWith('data:') 
-            ? backgroundData.defaultImage 
-            : import.meta.env.BASE_URL + backgroundData.defaultImage;
-        }
-      } catch (error) {
-        console.error('Erreur lors du chargement du background par défaut:', error);
-      }
-      return import.meta.env.BASE_URL + 'images/mixtape37.webp';
-    };
-    
-    let url = getDefaultBackground(); // Background par défaut configuré dans l'admin
-    if (title.includes('autopsynth')) url = import.meta.env.BASE_URL + 'images/Autopsynth.webp'
-    else if (title.includes('coagule')) url = import.meta.env.BASE_URL + 'images/Coagule.webp'
-    else if (title.includes('where is the sync button')) url = import.meta.env.BASE_URL + 'images/Where.webp'
-    else if (title.includes('kouklikou')) url = import.meta.env.BASE_URL + 'images/Kouklikou.webp'
-    else if (title.includes('discowriders')) url = import.meta.env.BASE_URL + 'images/Discowriders.webp'
-    else if (title.includes('drama queen')) url = import.meta.env.BASE_URL + 'images/Drama Queen 1.webp'
-    else if (title.includes('crush on you') || title.includes('tati cardi')) url = import.meta.env.BASE_URL + 'images/Tati Cardi.webp'
-    else if (title.includes('nocturne')) url = import.meta.env.BASE_URL + 'images/Nocturne.webp'
-    else if (title.includes('back on track')) url = import.meta.env.BASE_URL + 'images/BackOnTrack.webp'
-    else if (title.includes('richie')) url = import.meta.env.BASE_URL + 'images/Richie.webp'
-    else if (title.includes('anarchic') || title.includes('anarchic')) url = import.meta.env.BASE_URL + 'images/Anarchic.webp'
-    else if (title.includes('mixtape') || title.includes('37')) url = getDefaultBackground()
     onBackgroundChange(encodeURI(url))
   }
 
