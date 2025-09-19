@@ -469,7 +469,7 @@ export default function MainApp() {
           )}
           {activeSection === "events" && <EventsDisplay showPastEventsButton={true} />}
 
-          {activeSection === "store" && <Store />}
+          {activeSection === "store" && <Store onSectionChange={handleSectionChange} />}
           {activeSection === "message" && <Message />}
           {activeSection === "presskit" && <Presskit onNavigateToMessage={() => handleSectionChange("message")} />}
         </div>
@@ -566,11 +566,7 @@ export default function MainApp() {
         {/* Store */}
         <div className="mobile-section mobile-store">
           <h3>Store</h3>
-          <div className="store-message">
-            <h4>New merch dropping soon!</h4>
-            <p>Get ready for fresh t-shirts, hoodies, stickers, and bags in multiple sizes.</p>
-            <span className="timeline-date">October 2025</span>
-          </div>
+          <Store onSectionChange={handleSectionChange} />
         </div>
 
         {/* Presskit */}

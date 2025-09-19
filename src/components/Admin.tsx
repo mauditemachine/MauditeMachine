@@ -1,16 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { gsap } from 'gsap';
-import { Message, loadMessages, saveMessages } from '../utils/adminApi';
+import { Message, Event, loadMessages, saveMessages, loadEvents, saveEvents } from '../utils/adminApi';
 import ImageUpload from './ImageUpload';
 
-interface Event {
-  date: string;
-  title: string;
-  url: string;
-  location: string;
-  color: string;
-  image: string;
-}
 
 interface Bio {
   text: string;
@@ -102,11 +94,8 @@ const Admin: React.FC = () => {
         setMessages(sortedMessages);
         
         // Charger les événements
-        const eventsResponse = await fetch('/events.json');
-        if (eventsResponse.ok) {
-          const eventsData = await eventsResponse.json();
-          setEvents(eventsData);
-        }
+        const eventsData = await loadEvents();
+        setEvents(eventsData);
         
         // Charger la bio depuis localStorage ou valeur par défaut
         const savedBio = localStorage.getItem('admin_bio_backup');
@@ -265,11 +254,16 @@ const Admin: React.FC = () => {
   const handleSaveEvents = async () => {
     setSaving(true);
     setMessage('');
-     
+    
     try {
-      localStorage.setItem('admin_events_backup', JSON.stringify(events));
-      setMessage('Événements sauvegardés avec succès !');
-      setTimeout(() => setMessage(''), 3000);
+      const result = await saveEvents(events);
+      
+      if (result.success) {
+        setMessage(result.message);
+        setTimeout(() => setMessage(''), 3000);
+      } else {
+        setMessage(result.message);
+      }
     } catch (error) {
       console.error('Erreur lors de la sauvegarde des événements:', error);
       setMessage('Erreur lors de la sauvegarde des événements');
@@ -305,6 +299,26 @@ const Admin: React.FC = () => {
       const updatedEvents = events.filter((_, i) => i !== index);
       setEvents(updatedEvents);
       setExpandedItem(null);
+    }
+  };
+
+  // Réinitialiser les événements
+  const resetEvents = async () => {
+    if (window.confirm('Êtes-vous sûr de vouloir réinitialiser les événements à leur état original ?')) {
+      try {
+        setLoading(true);
+        localStorage.removeItem('admin_events_backup');
+        const data = await loadEvents();
+        setEvents(data);
+        setExpandedItem(null);
+        setMessage('Événements réinitialisés à leur état original');
+        setTimeout(() => setMessage(''), 3000);
+      } catch (error) {
+        console.error('Erreur lors de la réinitialisation des événements:', error);
+        setMessage('Erreur lors de la réinitialisation des événements');
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -493,6 +507,13 @@ const Admin: React.FC = () => {
                       className="admin-btn success small"
                     >
                       💾 {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+                    </button>
+                    
+                    <button
+                      onClick={(e) => handleButtonClick(resetEvents, e.currentTarget)}
+                      className="admin-btn secondary small"
+                    >
+                      ↻ Réinitialiser
                     </button>
                   </>
                 )}

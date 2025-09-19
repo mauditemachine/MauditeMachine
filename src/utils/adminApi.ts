@@ -12,6 +12,15 @@ export interface Message {
   date: string;
 }
 
+export interface Event {
+  date: string;
+  title: string;
+  url: string;
+  location: string;
+  color: string;
+  image: string;
+}
+
 // Simuler une sauvegarde des messages
 export const saveMessages = async (messages: Message[]): Promise<{ success: boolean; message: string }> => {
   try {
@@ -62,6 +71,60 @@ export const loadMessages = async (): Promise<Message[]> => {
     return await response.json();
   } catch (error) {
     console.error('Erreur lors du chargement des messages:', error);
+    throw error;
+  }
+};
+
+// Simuler une sauvegarde des événements
+export const saveEvents = async (events: Event[]): Promise<{ success: boolean; message: string }> => {
+  try {
+    // Simulation d'un délai de réseau
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Dans un vrai projet, vous feriez ici un appel API :
+    // const response = await fetch('/api/events', {
+    //   method: 'PUT',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify(events)
+    // });
+    
+    // Pour l'instant, on simule juste une sauvegarde réussie
+    console.log('Événements à sauvegarder:', events);
+    
+    // Sauvegarder dans localStorage pour les tests
+    localStorage.setItem('admin_events_backup', JSON.stringify(events));
+    
+    return {
+      success: true,
+      message: 'Événements sauvegardés avec succès !'
+    };
+  } catch (error) {
+    console.error('Erreur lors de la sauvegarde des événements:', error);
+    return {
+      success: false,
+      message: 'Erreur lors de la sauvegarde des événements'
+    };
+  }
+};
+
+// Charger les événements depuis l'API
+export const loadEvents = async (): Promise<Event[]> => {
+  try {
+    // Vérifier d'abord s'il y a des modifications dans localStorage
+    const savedEvents = localStorage.getItem('admin_events_backup');
+    if (savedEvents) {
+      console.log('Chargement des événements modifiés depuis localStorage');
+      return JSON.parse(savedEvents);
+    }
+    
+    // Sinon, charger depuis le fichier JSON public
+    const response = await fetch('/events.json');
+    if (!response.ok) {
+      throw new Error('Erreur lors du chargement des événements');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Erreur lors du chargement des événements:', error);
     throw error;
   }
 };

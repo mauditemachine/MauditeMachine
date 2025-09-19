@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import EventCard from './EventCard'
+import { loadEvents } from '../utils/adminApi'
 
 type EventItem = {
   date: string
@@ -23,9 +24,10 @@ export default function EventsDisplay({ limit, showPastEventsButton = false }: E
 
   useEffect(() => {
     let cancelled = false
-    fetch(import.meta.env.BASE_URL + 'events.json', { cache: 'no-cache' })
-      .then(r => r.json())
-      .then((data: EventItem[]) => { 
+    
+    const loadEventsData = async () => {
+      try {
+        const data = await loadEvents();
         if (!cancelled) {
           const eventsArray = Array.isArray(data) ? data : [];
           const today = new Date();
@@ -46,10 +48,12 @@ export default function EventsDisplay({ limit, showPastEventsButton = false }: E
           setEvents(limitedEvents);
           setPastEvents(pastEventsArray);
         }
-      })
-      .catch(() => { 
-        if (!cancelled) setError('Failed to load events') 
-      })
+      } catch (error) {
+        if (!cancelled) setError('Failed to load events');
+      }
+    };
+    
+    loadEventsData();
     return () => { cancelled = true }
   }, [limit])
 

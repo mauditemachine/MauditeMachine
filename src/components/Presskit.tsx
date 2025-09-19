@@ -67,8 +67,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
                   }
                 }}
               >
-                <i className="fa-solid fa-download" />
-                <span>DOWNLOAD</span>
+                DOWNLOAD
               </a>
             </div>
           </div>
