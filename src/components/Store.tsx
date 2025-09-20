@@ -14,21 +14,21 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
-  // Liste des images de merchandising - CHEMINS ABSOLUS
+  // Liste des images de merchandising - CHEMINS RELATIFS POUR PRODUCTION
   const merchImages: MerchImage[] = [
-    { src: '/public/images/Merch_CrewNeck-Back.webp', alt: 'CrewNeck Back', caption: 'CrewNeck - Back' },
-    { src: '/public/images/Merch_CrewNeck-Front.webp', alt: 'CrewNeck Front', caption: 'CrewNeck - Front' },
-    { src: '/public/images/Merch_Hoodie-Back.webp', alt: 'Hoodie Back', caption: 'Hoodie - Back' },
-    { src: '/public/images/Merch_Hoodie F.webp', alt: 'Hoodie Front', caption: 'Hoodie - Front' },
-    { src: '/public/images/Merch_Bag-Brown.webp', alt: 'Bag Brown', caption: 'Bag - Brown' },
-    { src: '/public/images/Merch_Bag-Orange.webp', alt: 'Bag Orange', caption: 'Bag - Orange' },
-    { src: '/public/images/Merch_Bag-Pink.webp', alt: 'Bag Pink', caption: 'Bag - Pink' },
-    { src: '/public/images/Merch_Bag-red.webp', alt: 'Bag Red', caption: 'Bag - Red' },
-    { src: '/public/images/Merch_Bag-Purple.webp', alt: 'Bag Purple', caption: 'Bag - Purple' },
-    { src: '/public/images/Merch_Sylvain-Tshirt-Back.webp', alt: 'Sylvain Tshirt Back', caption: 'Sylvain T-shirt - Back' },
-    { src: '/public/images/Merch_Sylvain-Tshirt-Front.webp', alt: 'Sylvain Tshirt Front', caption: 'Sylvain T-shirt - Front' },
-    { src: '/public/images/Merch_Tshirt-Back.webp', alt: 'Tshirt Back', caption: 'T-shirt - Back' },
-    { src: '/public/images/Merch_Tshirt-Front.webp', alt: 'Tshirt Front', caption: 'T-shirt - Front' }
+    { src: 'images/Merch_CrewNeck-Back.webp', alt: 'CrewNeck Back', caption: 'CrewNeck - Back' },
+    { src: 'images/Merch_CrewNeck-Front.webp', alt: 'CrewNeck Front', caption: 'CrewNeck - Front' },
+    { src: 'images/Merch_Hoodie-Back.webp', alt: 'Hoodie Back', caption: 'Hoodie - Back' },
+    { src: 'images/Merch_Hoodie F.webp', alt: 'Hoodie Front', caption: 'Hoodie - Front' },
+    { src: 'images/Merch_Bag-Brown.webp', alt: 'Bag Brown', caption: 'Bag - Brown' },
+    { src: 'images/Merch_Bag-Orange.webp', alt: 'Bag Orange', caption: 'Bag - Orange' },
+    { src: 'images/Merch_Bag-Pink.webp', alt: 'Bag Pink', caption: 'Bag - Pink' },
+    { src: 'images/Merch_Bag-red.webp', alt: 'Bag Red', caption: 'Bag - Red' },
+    { src: 'images/Merch_Bag-Purple.webp', alt: 'Bag Purple', caption: 'Bag - Purple' },
+    { src: 'images/Merch_Sylvain-Tshirt-Back.webp', alt: 'Sylvain Tshirt Back', caption: 'Sylvain T-shirt - Back' },
+    { src: 'images/Merch_Sylvain-Tshirt-Front.webp', alt: 'Sylvain Tshirt Front', caption: 'Sylvain T-shirt - Front' },
+    { src: 'images/Merch_Tshirt-Back.webp', alt: 'Tshirt Back', caption: 'T-shirt - Back' },
+    { src: 'images/Merch_Tshirt-Front.webp', alt: 'Tshirt Front', caption: 'T-shirt - Front' }
   ];
 
   // Ouvrir la lightbox
