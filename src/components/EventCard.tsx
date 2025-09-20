@@ -31,7 +31,7 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
     });
   };
 
-  // Utiliser l'image du JSON directement (plus simple et fiable)
+  // Utiliser l'image du JSON directement (medias/ est le publicDir)
   const displayImage = event.image && event.image.trim() !== '' ? event.image : null;
 
   return (

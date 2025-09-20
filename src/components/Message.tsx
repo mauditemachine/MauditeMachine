@@ -160,7 +160,7 @@ const Message: React.FC = () => {
               value={formData.object}
               onChange={handleInputChange}
               className="form-input"
-              placeholder="Booking, collaboration, inquiry..."
+              placeholder="Booking, collaboration, inquiry, merch..."
               required
             />
           </div>
