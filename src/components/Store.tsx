@@ -14,7 +14,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
-  // Liste des images de merchandising - CHEMINS RELATIFS POUR PRODUCTION
+  // Liste des images de merchandising - CHEMINS CORRECTS POUR VITE (images/)
   const merchImages: MerchImage[] = [
     { src: 'images/Merch_CrewNeck-Back.webp', alt: 'CrewNeck Back', caption: 'CrewNeck - Back' },
     { src: 'images/Merch_CrewNeck-Front.webp', alt: 'CrewNeck Front', caption: 'CrewNeck - Front' },
