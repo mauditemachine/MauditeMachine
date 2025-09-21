@@ -720,7 +720,7 @@ div.second-third-combined div.nav-buttons button.home-btn i {
   display: flex;
   justify-content: flex-start;
   align-items: flex-start;
-  margin-right: 10px;
+  margin-left: 10px;
   gap: 10px;
   position: relative;
 }
@@ -1229,8 +1229,8 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   display: flex;
   gap: 12px;
   align-items: flex-start;
-  background: rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(6px);
+  background: transparent;
+  backdrop-filter: none;
   border-radius: 8px;
   padding: 12px;
   transition: all 0.3s ease;
@@ -2282,8 +2282,8 @@ body.dark-mode .form-textarea:focus {
 
   /* Bio - justifiée avec marges + PLUS DE PADDING */
   .mobile-bio {
-    background: rgba(0, 0, 0, 0.2) !important;
-    backdrop-filter: blur(10px) !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
     font-size: 14px !important;
     padding: 15px !important;
     border-radius: 12px !important;
