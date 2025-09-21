@@ -444,10 +444,10 @@ const Admin: React.FC = () => {
               
               <div className="sidebar-nav" data-active={activeTab}>
                 {[
-                  { key: 'messages', label: 'Messages', icon: '✉' },
-                  { key: 'events', label: 'Événements', icon: '📅' },
-                  { key: 'bio', label: 'Bio', icon: '👤' },
-                  { key: 'background', label: 'Background', icon: '🖼' }
+                  { key: 'messages', label: 'Messages', icon: 'fa-solid fa-envelope' },
+                  { key: 'events', label: 'Événements', icon: 'fa-solid fa-calendar-days' },
+                  { key: 'bio', label: 'Bio', icon: 'fa-solid fa-user' },
+                  { key: 'background', label: 'Background', icon: 'fa-solid fa-image' }
                 ].map(tab => (
                   <button
                     key={tab.key}
@@ -459,7 +459,7 @@ const Admin: React.FC = () => {
                       }, e.currentTarget);
                     }}
                   >
-                    <span className="tab-icon">{tab.icon}</span>
+                    <span className="tab-icon"><i className={tab.icon}></i></span>
                     <span className="tab-label">{tab.label}</span>
                   </button>
                 ))}
@@ -472,7 +472,7 @@ const Admin: React.FC = () => {
                       onClick={(e) => handleButtonClick(addMessage, e.currentTarget)}
                       className="admin-btn primary small"
                     >
-                      + Ajouter
+                      <i className="fa-solid fa-plus"></i> Ajouter
                     </button>
                     
                     <button
@@ -480,14 +480,14 @@ const Admin: React.FC = () => {
                       disabled={saving}
                       className="admin-btn success small"
                     >
-                      💾 {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+                      <i className="fa-solid fa-floppy-disk"></i> {saving ? 'Sauvegarde...' : 'Sauvegarder'}
                     </button>
                     
                     <button
                       onClick={(e) => handleButtonClick(resetMessages, e.currentTarget)}
                       className="admin-btn secondary small"
                     >
-                      ↻ Réinitialiser
+                      <i className="fa-solid fa-rotate-right"></i> Réinitialiser
                     </button>
                   </>
                 )}
@@ -498,7 +498,7 @@ const Admin: React.FC = () => {
                       onClick={(e) => handleButtonClick(addEvent, e.currentTarget)}
                       className="admin-btn primary small"
                     >
-                      + Ajouter
+                      <i className="fa-solid fa-plus"></i> Ajouter
                     </button>
                     
                     <button
@@ -506,14 +506,14 @@ const Admin: React.FC = () => {
                       disabled={saving}
                       className="admin-btn success small"
                     >
-                      💾 {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+                      <i className="fa-solid fa-floppy-disk"></i> {saving ? 'Sauvegarde...' : 'Sauvegarder'}
                     </button>
                     
                     <button
                       onClick={(e) => handleButtonClick(resetEvents, e.currentTarget)}
                       className="admin-btn secondary small"
                     >
-                      ↻ Réinitialiser
+                      <i className="fa-solid fa-rotate-right"></i> Réinitialiser
                     </button>
                   </>
                 )}
@@ -535,7 +535,7 @@ const Admin: React.FC = () => {
                       disabled={saving}
                       className="admin-btn success small"
                     >
-                      💾 {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+                      <i className="fa-solid fa-floppy-disk"></i> {saving ? 'Sauvegarde...' : 'Sauvegarder'}
                     </button>
                     
                     <button
@@ -576,7 +576,7 @@ const Admin: React.FC = () => {
                       }, e.currentTarget)}
                       className="admin-btn danger small"
                     >
-                      ↻ Réinitialiser
+                      <i className="fa-solid fa-rotate-right"></i> Réinitialiser
                     </button>
                   </>
                 )}
@@ -636,7 +636,7 @@ const Admin: React.FC = () => {
                                   }}
                                   className="admin-btn danger small"
                                 >
-                                  🗑
+                                  <i className="fa-solid fa-trash"></i>
                                 </button>
                                 
                                 <div className={`accordion-toggle ${isExpanded ? 'expanded' : ''}`}>
@@ -762,7 +762,7 @@ const Admin: React.FC = () => {
                                   }}
                                   className="admin-btn danger small"
                                 >
-                                  🗑
+                                  <i className="fa-solid fa-trash"></i>
                                 </button>
                                 
                                 <div className={`accordion-toggle ${isExpanded ? 'expanded' : ''}`}>

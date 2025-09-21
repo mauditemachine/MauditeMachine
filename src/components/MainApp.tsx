@@ -172,6 +172,33 @@ export default function MainApp() {
     });
   };
 
+  // Support des liens directs (#store, #events, etc.)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '');
+      if (hash && ['home', 'events', 'store', 'message', 'presskit'].includes(hash)) {
+        setActiveSection(hash);
+      }
+    };
+
+    // Vérifier le hash au chargement
+    handleHashChange();
+    
+    // Écouter les changements de hash
+    window.addEventListener('hashchange', handleHashChange);
+    
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  // Mettre à jour l'URL quand la section change
+  useEffect(() => {
+    if (activeSection !== 'home') {
+      window.history.replaceState(null, '', `#${activeSection}`);
+    } else {
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, [activeSection]);
+
   // Charger la bio depuis localStorage
   useEffect(() => {
     const savedBio = localStorage.getItem('admin_bio_backup');
