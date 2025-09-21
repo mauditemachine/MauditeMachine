@@ -1,11 +1,210 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Message, Event, MerchItem, loadMessages, saveMessages, loadEvents, saveEvents, loadMerchItems, saveMerchItems } from '../utils/adminApi';
 import ImageUpload from './ImageUpload';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 
 interface Bio {
   text: string;
 }
+
+// Composant pour les messages sortables
+const SortableMessage: React.FC<{
+  message: Message;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+  onToggleExpand: (id: string) => void;
+  isExpanded: boolean;
+  onUpdate: (index: number, field: keyof Message, value: string) => void;
+  onSave: () => void;
+  saving: boolean;
+  index: number;
+}> = ({ message, onEdit, onDelete, onToggleExpand, isExpanded, onUpdate, onSave, saving, index }) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: message.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`admin-accordion-item ${isExpanded ? 'expanded' : ''}`}
+    >
+      <div 
+        className="admin-accordion-header"
+        onClick={() => onToggleExpand(message.id)}
+      >
+        <div className="accordion-info">
+          <h3 className="accordion-title">
+            Message {index + 1}
+            {message.title && <span className="title-preview">: {message.title}</span>}
+          </h3>
+          <div className="accordion-meta">
+            <span className="meta-date">{message.date}</span>
+            {message.description && (
+              <span className="meta-description">
+                {message.description.substring(0, 50)}...
+              </span>
+            )}
+          </div>
+        </div>
+        
+        <div className="accordion-actions">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(message.id);
+            }}
+            className="admin-btn danger small admin-btn-custom"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon admin-icon-delete">
+              <path d="M232.7 69.9L224 96L128 96C110.3 96 96 110.3 96 128C96 145.7 110.3 160 128 160L512 160C529.7 160 544 145.7 544 128C544 110.3 529.7 96 512 96L416 96L407.3 69.9C402.9 56.8 390.7 48 376.9 48L263.1 48C249.3 48 237.1 56.8 232.7 69.9zM512 208L128 208L149.1 531.1C150.7 556.4 171.7 576 197 576L443 576C468.3 576 489.3 556.4 490.9 531.1L512 208z"/>
+            </svg>
+          </button>
+          
+          <button className="admin-btn secondary small admin-btn-custom">
+            {isExpanded ? <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon">
+              <path d="M297.4 105.4C309.9 92.9 330.2 92.9 342.7 105.4L502.7 265.4C511.9 274.6 514.6 288.3 509.6 300.3C504.6 312.3 492.9 320 480 320L384 320L384 496C384 522.5 362.5 544 336 544L304 544C277.5 544 256 522.5 256 496L256 320L160 320C147.1 320 135.4 312.2 130.4 300.2C125.4 288.2 128.2 274.5 137.4 265.4L297.4 105.4z"/>
+            </svg> : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon admin-icon-open">
+              <path d="M88 289.6L64.4 360.2L64.4 160C64.4 124.7 93.1 96 128.4 96L267.1 96C280.9 96 294.4 100.5 305.5 108.8L343.9 137.6C349.4 141.8 356.2 144 363.1 144L480.4 144C515.7 144 544.4 172.7 544.4 208L544.4 224L179 224C137.7 224 101 250.4 87.9 289.6zM509.8 512L131 512C98.2 512 75.1 479.9 85.5 448.8L133.5 304.8C140 285.2 158.4 272 179 272L557.8 272C590.6 272 613.7 304.1 603.3 335.2L555.3 479.2C548.8 498.8 530.4 512 509.8 512z"/>
+            </svg>}
+          </button>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className={`admin-accordion-content ${isExpanded ? 'expanded' : ''}`}>
+          <div className="accordion-form">
+            <div className="form-row">
+              <div className="form-group">
+                <label>Titre</label>
+                <input
+                  type="text"
+                  value={message.title}
+                  onChange={(e) => onUpdate(index, 'title', e.target.value)}
+                  placeholder="Titre du message"
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Description</label>
+                <textarea
+                  value={message.description}
+                  onChange={(e) => onUpdate(index, 'description', e.target.value)}
+                  rows={3}
+                  placeholder="Description du message"
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <ImageUpload
+                value={message.image}
+                onChange={(value) => onUpdate(index, 'image', value)}
+                placeholder="ex: images/Simetra.webp"
+              />
+            </div>
+
+            <div className="form-row two-cols">
+              <div className="form-group">
+                <label>Label du lien</label>
+                <input
+                  type="text"
+                  value={message.link?.label || ''}
+                  onChange={(e) => onUpdate(index, 'link' as keyof Message, `label|${e.target.value}`)}
+                  placeholder="ex: Soundcloud"
+                />
+              </div>
+              <div className="form-group">
+                <label>URL du lien</label>
+                <input
+                  type="url"
+                  value={message.link?.href || ''}
+                  onChange={(e) => onUpdate(index, 'link' as keyof Message, `href|${e.target.value}`)}
+                  placeholder="ex: https://soundcloud.com/..."
+                />
+              </div>
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Date</label>
+                <input
+                  type="date"
+                  value={message.date}
+                  onChange={(e) => onUpdate(index, 'date', e.target.value)}
+                />
+              </div>
+            </div>
+            
+            {/* Bouton Save individuel */}
+            <div className="form-row" style={{ marginTop: '15px', textAlign: 'right' }}>
+              <button 
+                onClick={(e) => onSave()}
+                disabled={saving}
+                className="admin-btn success small admin-btn-custom"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon admin-icon-save">
+                  <path d="M160 96C124.7 96 96 124.7 96 160L96 480C96 515.3 124.7 544 160 544L480 544C515.3 544 544 515.3 544 480L544 237.3C544 220.3 537.3 204 525.3 192L448 114.7C436 102.7 419.7 96 402.7 96L160 96zM192 192C192 174.3 206.3 160 224 160L384 160C401.7 160 416 174.3 416 192L416 256C416 273.7 401.7 288 384 288L224 288C206.3 288 192 273.7 192 256L192 192zM320 352C355.3 352 384 380.7 384 416C384 451.3 355.3 480 320 480C284.7 480 256 451.3 256 416C256 380.7 284.7 352 320 352z"/>
+                </svg>
+                {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Handle de drag & drop */}
+      <div 
+        className="drag-handle" 
+        {...attributes}
+        {...listeners}
+        style={{ 
+          position: 'absolute', 
+          right: '10px', 
+          top: '50%', 
+          transform: 'translateY(-50%)',
+          cursor: 'grab',
+          padding: '5px',
+          color: '#666'
+        }}
+      >
+        ⋮⋮
+      </div>
+    </div>
+  );
+};
 
 
 const Admin: React.FC = () => {
@@ -18,6 +217,28 @@ const Admin: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
+  
+  // Capteurs pour le drag & drop
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Fonction de gestion du drag & drop
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setMessages((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
   
   // Refs supprimés - plus d'animations GSAP
 
@@ -89,7 +310,7 @@ const Admin: React.FC = () => {
   };
 
   // Fonction de clic simple (sans animation)
-  const handleButtonClick = (callback: () => void) => {
+  const handleButtonClick = (callback: () => void, element?: HTMLElement) => {
     callback();
   };
 
@@ -135,6 +356,7 @@ const Admin: React.FC = () => {
   // Ajouter un nouveau message
   const addMessage = () => {
     const newMessage: Message = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       title: '',
       description: '',
       image: '',
@@ -570,138 +792,53 @@ const Admin: React.FC = () => {
                         <p>Cliquez sur "Ajouter un message" pour commencer.</p>
                       </div>
                     ) : (
-                      messages.map((msg, index) => {
-                        const itemId = `message-${index}`;
-                        const isExpanded = expandedItem === itemId;
-                        
-                        return (
-                          <div key={index} className="admin-accordion-item">
-                            <div 
-                              className="admin-accordion-header"
-                              onClick={() => toggleAccordion(itemId)}
-                            >
-                              <div className="accordion-info">
-                                <h3 className="accordion-title">
-                                  Message {index + 1}
-                                  {msg.title && <span className="title-preview">: {msg.title}</span>}
-                                </h3>
-                                <div className="accordion-meta">
-                                  <span className="meta-date">{msg.date}</span>
-                                  {msg.description && (
-                                    <span className="meta-description">
-                                      {msg.description.substring(0, 50)}...
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              
-                              <div className="accordion-actions">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleButtonClick(() => removeMessage(index), e.currentTarget);
-                                  }}
-                                  className="admin-btn danger small admin-btn-custom"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon admin-icon-delete">
-                                    <path d="M232.7 69.9L224 96L128 96C110.3 96 96 110.3 96 128C96 145.7 110.3 160 128 160L512 160C529.7 160 544 145.7 544 128C544 110.3 529.7 96 512 96L416 96L407.3 69.9C402.9 56.8 390.7 48 376.9 48L263.1 48C249.3 48 237.1 56.8 232.7 69.9zM512 208L128 208L149.1 531.1C150.7 556.4 171.7 576 197 576L443 576C468.3 576 489.3 556.4 490.9 531.1L512 208z"/>
-                                  </svg>
-                                </button>
-                                
-                                <button className="admin-btn secondary small admin-btn-custom">
-                                  {isExpanded ? <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon">
-                                    <path d="M297.4 105.4C309.9 92.9 330.2 92.9 342.7 105.4L502.7 265.4C511.9 274.6 514.6 288.3 509.6 300.3C504.6 312.3 492.9 320 480 320L384 320L384 496C384 522.5 362.5 544 336 544L304 544C277.5 544 256 522.5 256 496L256 320L160 320C147.1 320 135.4 312.2 130.4 300.2C125.4 288.2 128.2 274.5 137.4 265.4L297.4 105.4z"/>
-                                  </svg> : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon admin-icon-open">
-                                    <path d="M88 289.6L64.4 360.2L64.4 160C64.4 124.7 93.1 96 128.4 96L267.1 96C280.9 96 294.4 100.5 305.5 108.8L343.9 137.6C349.4 141.8 356.2 144 363.1 144L480.4 144C515.7 144 544.4 172.7 544.4 208L544.4 224L179 224C137.7 224 101 250.4 87.9 289.6zM509.8 512L131 512C98.2 512 75.1 479.9 85.5 448.8L133.5 304.8C140 285.2 158.4 272 179 272L557.8 272C590.6 272 613.7 304.1 603.3 335.2L555.3 479.2C548.8 498.8 530.4 512 509.8 512z"/>
-                                  </svg>}
-                                </button>
-                              </div>
-                            </div>
-
-                            <div className={`admin-accordion-content ${isExpanded ? 'expanded' : ''}`}>
-                              <div className="accordion-form">
-                                <div className="form-row">
-                                  <div className="form-group">
-                                    <label>Titre</label>
-                                    <input
-                                      type="text"
-                                      value={msg.title}
-                                      onChange={(e) => updateMessage(index, 'title', e.target.value)}
-                                      placeholder="Titre du message"
-                                    />
-                                  </div>
-                                </div>
-
-                                <div className="form-row">
-                                  <div className="form-group">
-                                    <label>Description</label>
-                                    <textarea
-                                      value={msg.description}
-                                      onChange={(e) => updateMessage(index, 'description', e.target.value)}
-                                      rows={3}
-                                      placeholder="Description du message"
-                                    />
-                                  </div>
-                                </div>
-
-                                <div className="form-row">
-                                  <ImageUpload
-                                    value={msg.image}
-                                    onChange={(value) => updateMessage(index, 'image', value)}
-                                    placeholder="ex: images/Simetra.webp"
-                                  />
-                                </div>
-
-                                <div className="form-row two-cols">
-                                  <div className="form-group">
-                                    <label>Label du lien</label>
-                                    <input
-                                      type="text"
-                                      value={msg.link?.label || ''}
-                                      onChange={(e) => updateMessage(index, 'link', `label|${e.target.value}`)}
-                                      placeholder="ex: Soundcloud"
-                                    />
-                                  </div>
-                                  <div className="form-group">
-                                    <label>URL du lien</label>
-                                    <input
-                                      type="url"
-                                      value={msg.link?.href || ''}
-                                      onChange={(e) => updateMessage(index, 'link', `href|${e.target.value}`)}
-                                      placeholder="ex: https://soundcloud.com/..."
-                                    />
-                                  </div>
-                                </div>
-
-                                <div className="form-row">
-                                  <div className="form-group">
-                                    <label>Date</label>
-                                    <input
-                                      type="date"
-                                      value={msg.date}
-                                      onChange={(e) => updateMessage(index, 'date', e.target.value)}
-                                    />
-                                  </div>
-                                </div>
-                                
-                                {/* Bouton Save individuel */}
-                                <div className="form-row" style={{ marginTop: '15px', textAlign: 'right' }}>
-                                  <button 
-                                    onClick={(e) => handleButtonClick(handleSaveMessages, e.currentTarget)}
-                                    disabled={saving}
-                                    className="admin-btn success small admin-btn-custom"
-                                  >
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon admin-icon-save">
-                                      <path d="M160 96C124.7 96 96 124.7 96 160L96 480C96 515.3 124.7 544 160 544L480 544C515.3 544 544 515.3 544 480L544 237.3C544 220.3 537.3 204 525.3 192L448 114.7C436 102.7 419.7 96 402.7 96L160 96zM192 192C192 174.3 206.3 160 224 160L384 160C401.7 160 416 174.3 416 192L416 256C416 273.7 401.7 288 384 288L224 288C206.3 288 192 273.7 192 256L192 192zM320 352C355.3 352 384 380.7 384 416C384 451.3 355.3 480 320 480C284.7 480 256 451.3 256 416C256 380.7 284.7 352 320 352z"/>
-                                    </svg>
-                                    {saving ? 'Sauvegarde...' : 'Sauvegarder'}
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <SortableContext
+                          items={messages.map(msg => msg.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {messages.map((msg, index) => {
+                            const itemId = `message-${index}`;
+                            const isExpanded = expandedItem === itemId;
+                            
+                            return (
+                              <SortableMessage
+                                key={msg.id}
+                                message={msg}
+                                index={index}
+                                onEdit={(id) => {
+                                  const msgIndex = messages.findIndex(m => m.id === id);
+                                  if (msgIndex !== -1) {
+                                    const itemId = `message-${msgIndex}`;
+                                    toggleAccordion(itemId);
+                                  }
+                                }}
+                                onDelete={(id) => {
+                                  const msgIndex = messages.findIndex(m => m.id === id);
+                                  if (msgIndex !== -1) {
+                                    removeMessage(msgIndex);
+                                  }
+                                }}
+                                onToggleExpand={(id) => {
+                                  const msgIndex = messages.findIndex(m => m.id === id);
+                                  if (msgIndex !== -1) {
+                                    const itemId = `message-${msgIndex}`;
+                                    toggleAccordion(itemId);
+                                  }
+                                }}
+                                onUpdate={updateMessage}
+                                onSave={handleSaveMessages}
+                                saving={saving}
+                                isExpanded={isExpanded}
+                              />
+                            );
+                          })}
+                        </SortableContext>
+                      </DndContext>
                     )}
                   </div>
                 )}

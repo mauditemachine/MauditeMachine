@@ -3650,3 +3650,58 @@ body.dark-mode .admin-page .form-group textarea:focus {
     padding: 6px 12px !important;
   }
 }
+
+/* Styles pour le drag & drop des messages */
+.admin-accordion-item {
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.admin-accordion-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.drag-handle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: grab;
+  padding: 8px;
+  color: #666;
+  font-size: 16px;
+  line-height: 1;
+  user-select: none;
+  z-index: 10;
+}
+
+.drag-handle:hover {
+  color: #333;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Animation lors du drag */
+.admin-accordion-item[data-dragging="true"] {
+  opacity: 0.5;
+  transform: rotate(2deg);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+/* Zone de drop */
+.admin-accordion-item[data-over="true"] {
+  border: 2px dashed #007bff;
+  background: rgba(0, 123, 255, 0.1);
+}
+
+/* Indicateur visuel pour le drag */
+.admin-accordion-item[data-dragging="true"] .drag-handle {
+  color: #007bff;
+  background: rgba(0, 123, 255, 0.1);
+  border-radius: 4px;
+}

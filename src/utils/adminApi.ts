@@ -2,6 +2,7 @@
 // Dans un vrai projet, ceci ferait des appels à un backend
 
 export interface Message {
+  id: string;
   title: string;
   description: string;
   image: string;
@@ -60,7 +61,12 @@ export const loadMessages = async (): Promise<Message[]> => {
     const savedMessages = localStorage.getItem('admin_messages_backup');
     if (savedMessages) {
       console.log('Chargement des messages modifiés depuis localStorage');
-      return JSON.parse(savedMessages);
+      const messages = JSON.parse(savedMessages);
+      // Ajouter des IDs aux messages qui n'en ont pas
+      return messages.map((msg: any, index: number) => ({
+        ...msg,
+        id: msg.id || `msg-${Date.now()}-${index}`
+      }));
     }
     
     // Sinon, charger depuis le fichier JSON public
@@ -68,7 +74,12 @@ export const loadMessages = async (): Promise<Message[]> => {
     if (!response.ok) {
       throw new Error('Erreur lors du chargement des messages');
     }
-    return await response.json();
+    const messages = await response.json();
+    // Ajouter des IDs aux messages qui n'en ont pas
+    return messages.map((msg: any, index: number) => ({
+      ...msg,
+      id: msg.id || `msg-${Date.now()}-${index}`
+    }));
   } catch (error) {
     console.error('Erreur lors du chargement des messages:', error);
     throw error;
