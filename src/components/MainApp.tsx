@@ -137,6 +137,8 @@ export default function MainApp() {
 
   const handleBgChange = (url: string) => {
     setBgUrl(url)
+    // Mettre à jour la variable CSS pour le desktop
+    document.documentElement.style.setProperty('--track-bg', `url(${url})`);
   }
   const [activeSection, setActiveSection] = useState("home");
   const [bioText, setBioText] = useState<string>("");
@@ -209,6 +211,11 @@ export default function MainApp() {
       // Bio par défaut si aucune sauvegarde
       setBioText("Maudite Machine is a Canadian DJ and producer known for his raw, hypnotic approach to minimal and indie dance. Born from the Montreal underground, he has performed at major events including Piknic Électronik, Eclipse Festival, and the iconic Techno Parade in Paris, delivering sets that blur the line between intensity and atmosphere across Canada and Europe.\n\nAs the founder of VRSTL Records, he curates a sound that embraces tension, groove, and experimentation, having shared the stage with electronic music legends like Carl Craig, Ellen Allien, The Hacker, Popof, and Agoria. His collaborations with influential artists reflect a constant drive to push boundaries and redefine the underground with a distinct sonic signature, championing bold artists who share his vision for the darker, experimental sides of electronic music.");
     }
+  }, []);
+
+  // Initialiser la variable CSS pour le track background
+  useEffect(() => {
+    document.documentElement.style.setProperty('--track-bg', 'none');
   }, []);
 
   // Charger les paramètres de background depuis localStorage

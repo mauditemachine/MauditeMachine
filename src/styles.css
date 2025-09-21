@@ -112,6 +112,22 @@ body {
   background: rgba(0, 0, 0, 0) !important;
 }
 
+/* TRACK BACKGROUND OVERLAY FUNCTION - DESKTOP ONLY */
+@media (min-width: 769px) {
+  .page::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: var(--track-bg, none);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    transition: background 0.5s ease;
+  }
+}
+
 .main-rectangle {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 15px;
