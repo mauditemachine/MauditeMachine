@@ -227,16 +227,36 @@ const Admin: React.FC = () => {
   );
 
   // Fonction de gestion du drag & drop
-  const handleDragEnd = (event: DragEndEvent) => {
+  const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      setMessages((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over.id);
-
-        return arrayMove(items, oldIndex, newIndex);
-      });
+      const newMessages = arrayMove(
+        messages,
+        messages.findIndex((item) => item.id === active.id),
+        messages.findIndex((item) => item.id === over.id)
+      );
+      
+      setMessages(newMessages);
+      
+      // Sauvegarder automatiquement après le drag & drop
+      try {
+        setSaving(true);
+        const result = await saveMessages(newMessages);
+        if (result.success) {
+          setMessage('Ordre des messages sauvegardé !');
+          setTimeout(() => setMessage(''), 3000);
+        } else {
+          setMessage('Erreur lors de la sauvegarde');
+          setTimeout(() => setMessage(''), 3000);
+        }
+      } catch (error) {
+        console.error('Erreur lors de la sauvegarde:', error);
+        setMessage('Erreur lors de la sauvegarde');
+        setTimeout(() => setMessage(''), 3000);
+      } finally {
+        setSaving(false);
+      }
     }
   };
   
@@ -337,7 +357,7 @@ const Admin: React.FC = () => {
   };
 
   // Mettre à jour un message
-  const updateMessage = (index: number, field: keyof Message, value: string) => {
+  const updateMessage = async (index: number, field: keyof Message, value: string) => {
     const updatedMessages = [...messages];
     if (field === 'link') {
       const linkField = (value.includes('|') ? value.split('|')[0] : 'label') as 'label' | 'href';
@@ -351,6 +371,25 @@ const Admin: React.FC = () => {
       (updatedMessages[index] as any)[field] = value;
     }
     setMessages(updatedMessages);
+    
+    // Sauvegarder automatiquement
+    try {
+      setSaving(true);
+      const result = await saveMessages(updatedMessages);
+      if (result.success) {
+        setMessage('Modification sauvegardée !');
+        setTimeout(() => setMessage(''), 2000);
+      } else {
+        setMessage('Erreur lors de la sauvegarde');
+        setTimeout(() => setMessage(''), 3000);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde:', error);
+      setMessage('Erreur lors de la sauvegarde');
+      setTimeout(() => setMessage(''), 3000);
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Ajouter un nouveau message
@@ -515,10 +554,29 @@ const Admin: React.FC = () => {
   };
 
   // Mettre à jour un article de merchandising
-  const updateMerchItem = (index: number, field: keyof MerchItem, value: string | boolean) => {
+  const updateMerchItem = async (index: number, field: keyof MerchItem, value: string | boolean) => {
     const updatedMerchItems = [...merchItems];
     (updatedMerchItems[index] as any)[field] = value;
     setMerchItems(updatedMerchItems);
+    
+    // Sauvegarder automatiquement
+    try {
+      setSaving(true);
+      const result = await saveMerchItems(updatedMerchItems);
+      if (result.success) {
+        setMessage('Modification sauvegardée !');
+        setTimeout(() => setMessage(''), 2000);
+      } else {
+        setMessage('Erreur lors de la sauvegarde');
+        setTimeout(() => setMessage(''), 3000);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde:', error);
+      setMessage('Erreur lors de la sauvegarde');
+      setTimeout(() => setMessage(''), 3000);
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Ajouter un nouvel article de merchandising

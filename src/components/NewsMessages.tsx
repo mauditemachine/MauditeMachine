@@ -20,13 +20,9 @@ export default function NewsMessages(): JSX.Element {
       try {
         const data = await loadMessages()
         if (!cancelled) {
-          // Trier les messages par date (du plus récent au plus ancien)
-          const sortedMessages = Array.isArray(data) ? data.sort((a, b) => {
-            const dateA = new Date(a.date || '1970-01-01').getTime()
-            const dateB = new Date(b.date || '1970-01-01').getTime()
-            return dateB - dateA // Ordre décroissant (plus récent en premier)
-          }) : []
-          setMessages(sortedMessages)
+          // Utiliser l'ordre de l'admin (pas de tri par date)
+          const messages = Array.isArray(data) ? data : []
+          setMessages(messages)
         }
       } catch (err) {
         if (!cancelled) {
