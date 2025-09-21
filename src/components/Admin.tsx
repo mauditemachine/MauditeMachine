@@ -168,19 +168,7 @@ const SortableMessage: React.FC<{
               </div>
             </div>
             
-            {/* Bouton Save individuel */}
-            <div className="form-row" style={{ marginTop: '15px', textAlign: 'right' }}>
-              <button 
-                onClick={(e) => onSave()}
-                disabled={saving}
-                className="admin-btn success small admin-btn-custom"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon admin-icon-save">
-                  <path d="M160 96C124.7 96 96 124.7 96 160L96 480C96 515.3 124.7 544 160 544L480 544C515.3 544 544 515.3 544 480L544 237.3C544 220.3 537.3 204 525.3 192L448 114.7C436 102.7 419.7 96 402.7 96L160 96zM192 192C192 174.3 206.3 160 224 160L384 160C401.7 160 416 174.3 416 192L416 256C416 273.7 401.7 288 384 288L224 288C206.3 288 192 273.7 192 256L192 192zM320 352C355.3 352 384 380.7 384 416C384 451.3 355.3 480 320 480C284.7 480 256 451.3 256 416C256 380.7 284.7 352 320 352z"/>
-                </svg>
-                {saving ? 'Sauvegarde...' : 'Sauvegarder'}
-              </button>
-            </div>
+                                {/* Sauvegarde automatique - plus de bouton nécessaire */}
           </div>
         </div>
       )}
@@ -888,7 +876,9 @@ const Admin: React.FC = () => {
                                     toggleAccordion(itemId);
                                   }
                                 }}
-                                onUpdate={updateMessage}
+                                onUpdate={(index, field, value) => {
+                                  updateMessage(index, field, value);
+                                }}
                                 onSave={handleSaveMessages}
                                 saving={saving}
                                 isExpanded={isExpanded}
@@ -1116,8 +1106,10 @@ const Admin: React.FC = () => {
                                     <label>Catégorie</label>
                                     <select
                                       value={firstItem.category}
-                                      onChange={(e) => {
-                                        items.forEach(item => updateMerchItem(item.originalIndex, 'category', e.target.value));
+                                      onChange={async (e) => {
+                                        for (const item of items) {
+                                          await updateMerchItem(item.originalIndex, 'category', e.target.value);
+                                        }
                                       }}
                                       className="admin-select"
                                     >
@@ -1134,8 +1126,10 @@ const Admin: React.FC = () => {
                                     <input
                                       type="text"
                                       value={firstItem.price}
-                                      onChange={(e) => {
-                                        items.forEach(item => updateMerchItem(item.originalIndex, 'price', e.target.value));
+                                      onChange={async (e) => {
+                                        for (const item of items) {
+                                          await updateMerchItem(item.originalIndex, 'price', e.target.value);
+                                        }
                                       }}
                                       placeholder="ex: 50$ CAD"
                                     />
@@ -1146,8 +1140,10 @@ const Admin: React.FC = () => {
                                       <input
                                         type="checkbox"
                                         checked={firstItem.active}
-                                        onChange={(e) => {
-                                          items.forEach(item => updateMerchItem(item.originalIndex, 'active', e.target.checked));
+                                        onChange={async (e) => {
+                                          for (const item of items) {
+                                            await updateMerchItem(item.originalIndex, 'active', e.target.checked);
+                                          }
                                         }}
                                       />
                                       <span className="checkmark"></span>
@@ -1165,7 +1161,7 @@ const Admin: React.FC = () => {
                                           </div>
                                           <ImageUpload
                                             value={item.src}
-                                            onChange={(value) => updateMerchItem(item.originalIndex, 'src', value)}
+                                            onChange={async (value) => await updateMerchItem(item.originalIndex, 'src', value)}
                                             placeholder="ex: images/Merch_Tshirt-Front.webp"
                                             useButton={true}
                                           />
@@ -1173,7 +1169,7 @@ const Admin: React.FC = () => {
                                             <input
                                               type="text"
                                               value={item.alt}
-                                              onChange={(e) => updateMerchItem(item.originalIndex, 'alt', e.target.value)}
+                                              onChange={async (e) => await updateMerchItem(item.originalIndex, 'alt', e.target.value)}
                                               placeholder="Texte alternatif"
                                               style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #404040', background: '#2a2a2a', color: '#ffffff' }}
                                             />
