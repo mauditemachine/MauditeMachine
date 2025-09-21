@@ -124,6 +124,7 @@ body {
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
+    opacity: 0.05;
     transition: background 0.5s ease;
   }
 }
