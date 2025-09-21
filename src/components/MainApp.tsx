@@ -383,7 +383,6 @@ export default function MainApp() {
           <div 
             className="bg-gradient" 
             style={{ 
-              background: defaultBgUrl || 'linear-gradient(135deg, #6d1257 0%, #b32d2d 48%, #d87700 100%)',
               width: '100%',
               height: '100%',
               position: 'absolute',

@@ -17,6 +17,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [merchImages, setMerchImages] = useState<MerchImage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentGroupImages, setCurrentGroupImages] = useState<MerchImage[]>([]);
 
   // Charger les données de merchandising au montage du composant
   useEffect(() => {
@@ -62,9 +63,173 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
     loadMerchData();
   }, []);
 
+  // Fonction pour regrouper les articles par catégorie et masquer les vues "Back"
+  const groupMerchItems = (items: MerchImage[]) => {
+    const grouped: { [key: string]: MerchImage[] } = {};
+    
+    items.forEach(item => {
+      // Extraire le nom de base (sans -Back, -Front, etc.)
+      let baseName = item.alt;
+      let category = 'other';
+      
+      // Identifier la catégorie
+      if (baseName.toLowerCase().includes('crewneck')) {
+        category = 'crewneck';
+        baseName = 'CrewNeck';
+      } else if (baseName.toLowerCase().includes('hoodie')) {
+        category = 'hoodie';
+        baseName = 'Hoodie';
+      } else if (baseName.toLowerCase().includes('tshirt') || baseName.toLowerCase().includes('t-shirt')) {
+        category = 'tshirt';
+        baseName = baseName.includes('Sylvain') ? 'Sylvain T-shirt' : 'T-shirt';
+      } else if (baseName.toLowerCase().includes('bag')) {
+        category = 'bag';
+        baseName = 'Hip Bag';
+      }
+      
+      if (!grouped[category]) {
+        grouped[category] = [];
+      }
+      grouped[category].push(item);
+    });
+    
+    // Trier les T-shirts : T-shirt Front, T-shirt Back, Sylvain T-shirt Front, Sylvain T-shirt Back
+    if (grouped['tshirt']) {
+      grouped['tshirt'].sort((a, b) => {
+        const aIsSylvain = a.alt.toLowerCase().includes('sylvain');
+        const bIsSylvain = b.alt.toLowerCase().includes('sylvain');
+        const aIsBack = a.alt.toLowerCase().includes('back');
+        const bIsBack = b.alt.toLowerCase().includes('back');
+        
+        // Ordre : T-shirt Front, T-shirt Back, Sylvain Front, Sylvain Back
+        if (!aIsSylvain && !bIsSylvain) {
+          return aIsBack ? 1 : -1; // T-shirt Front avant T-shirt Back
+        } else if (aIsSylvain && bIsSylvain) {
+          return aIsBack ? 1 : -1; // Sylvain Front avant Sylvain Back
+        } else if (!aIsSylvain && bIsSylvain) {
+          return -1; // T-shirt avant Sylvain
+        } else {
+          return 1; // Sylvain après T-shirt
+        }
+      });
+    }
+    
+    return grouped;
+  };
+
+  // Fonction pour obtenir les images à afficher (masquer les vues Back pour les vêtements)
+  const getDisplayImages = (items: MerchImage[]) => {
+    const grouped = groupMerchItems(items);
+    const displayImages: MerchImage[] = [];
+    
+    // Ordre spécifique : T-shirt, CrewNeck, Hoodie, puis Hip Bag Purple en premier
+    const categoryOrder = ['tshirt', 'crewneck', 'hoodie'];
+    
+    // Pour les vêtements, ne montrer que les vues Front dans l'ordre spécifié
+    categoryOrder.forEach(category => {
+      if (grouped[category]) {
+        if (category === 'tshirt') {
+          // Pour les T-shirts, afficher seulement T-shirt Front (pas Sylvain)
+          const tshirtFront = grouped[category].find(item => 
+            !item.alt.toLowerCase().includes('back') && !item.alt.toLowerCase().includes('sylvain')
+          );
+          
+          if (tshirtFront) displayImages.push(tshirtFront);
+        } else {
+          // Pour les autres vêtements, ne montrer que les vues Front
+          const frontItems = grouped[category].filter(item => 
+            !item.alt.toLowerCase().includes('back')
+          );
+          if (frontItems.length > 0) {
+            displayImages.push(...frontItems);
+          }
+        }
+      }
+    });
+    
+    // Pour les hip bags, afficher seulement Purple en premier
+    if (grouped['bag']) {
+      const purpleBag = grouped['bag'].find(item => 
+        item.alt.toLowerCase().includes('purple')
+      );
+      
+      if (purpleBag) {
+        displayImages.push(purpleBag);
+      }
+    }
+    
+    return displayImages;
+  };
+
+  // Fonction pour obtenir toutes les images d'un groupe (pour la lightbox)
+  const getAllImagesForGroup = (items: MerchImage[], clickedItem: MerchImage) => {
+    const grouped = groupMerchItems(items);
+    
+    // Identifier la catégorie de l'item cliqué
+    let category = 'other';
+    if (clickedItem.alt.toLowerCase().includes('crewneck')) {
+      category = 'crewneck';
+    } else if (clickedItem.alt.toLowerCase().includes('hoodie')) {
+      category = 'hoodie';
+    } else if (clickedItem.alt.toLowerCase().includes('tshirt') || clickedItem.alt.toLowerCase().includes('t-shirt')) {
+      category = 'tshirt';
+    } else if (clickedItem.alt.toLowerCase().includes('bag')) {
+      category = 'bag';
+    }
+    
+    // Retourner toutes les images du groupe
+    let groupImages = grouped[category] || [clickedItem];
+    
+    // Pour les T-shirts, réorganiser pour l'ordre : T-shirt Front, T-shirt Back, Sylvain Front, Sylvain Back
+    if (category === 'tshirt') {
+      const tshirtFront = groupImages.find(item => 
+        !item.alt.toLowerCase().includes('back') && !item.alt.toLowerCase().includes('sylvain')
+      );
+      const tshirtBack = groupImages.find(item => 
+        item.alt.toLowerCase().includes('back') && !item.alt.toLowerCase().includes('sylvain')
+      );
+      const sylvainFront = groupImages.find(item => 
+        !item.alt.toLowerCase().includes('back') && item.alt.toLowerCase().includes('sylvain')
+      );
+      const sylvainBack = groupImages.find(item => 
+        item.alt.toLowerCase().includes('back') && item.alt.toLowerCase().includes('sylvain')
+      );
+      
+      groupImages = [];
+      if (tshirtFront) groupImages.push(tshirtFront);
+      if (tshirtBack) groupImages.push(tshirtBack);
+      if (sylvainFront) groupImages.push(sylvainFront);
+      if (sylvainBack) groupImages.push(sylvainBack);
+    }
+    
+    // Pour les hip bags, réorganiser pour mettre Purple en premier
+    if (category === 'bag') {
+      const purpleBag = groupImages.find(item => 
+        item.alt.toLowerCase().includes('purple')
+      );
+      const otherBags = groupImages.filter(item => 
+        !item.alt.toLowerCase().includes('purple')
+      );
+      
+      if (purpleBag) {
+        groupImages = [purpleBag, ...otherBags];
+      }
+    }
+    
+    return groupImages;
+  };
+
   // Ouvrir la lightbox
   const openLightbox = (index: number) => {
-    setCurrentImageIndex(index);
+    const displayImages = getDisplayImages(merchImages);
+    const clickedItem = displayImages[index];
+    const allGroupImages = getAllImagesForGroup(merchImages, clickedItem);
+    
+    // Trouver l'index de l'item cliqué dans le groupe complet
+    const groupIndex = allGroupImages.findIndex(item => item.src === clickedItem.src);
+    
+    setCurrentGroupImages(allGroupImages);
+    setCurrentImageIndex(groupIndex);
     setLightboxOpen(true);
     document.body.style.overflow = 'hidden';
   };
@@ -77,14 +242,14 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
 
   // Navigation dans la lightbox
   const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % merchImages.length);
+    setCurrentImageIndex((prev) => (prev + 1) % currentGroupImages.length);
   };
 
   const prevImage = () => {
-    setCurrentImageIndex((prev) => (prev - 1 + merchImages.length) % merchImages.length);
+    setCurrentImageIndex((prev) => (prev - 1 + currentGroupImages.length) % currentGroupImages.length);
   };
 
-  // Gestion des touches clavier
+  // Gestion des touches clavier et clics extérieurs
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (!lightboxOpen) return;
@@ -94,8 +259,26 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
       if (e.key === 'ArrowLeft') prevImage();
     };
 
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!lightboxOpen) return;
+      
+      const target = e.target as HTMLElement;
+      const lightboxContainer = document.querySelector('.lightbox-container');
+      
+      // Si le clic n'est pas dans le conteneur de la lightbox, fermer
+      if (lightboxContainer && !lightboxContainer.contains(target)) {
+        console.log('Clic extérieur détecté, fermeture lightbox');
+        closeLightbox();
+      }
+    };
+
     window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
+    document.addEventListener('mousedown', handleClickOutside);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, [lightboxOpen]);
 
   // Nettoyer le style du body au démontage
@@ -132,7 +315,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
             <p>Aucun article disponible pour le moment.</p>
           </div>
         ) : (
-          merchImages.map((image, index) => (
+          getDisplayImages(merchImages).map((image, index) => (
           <div key={index} className="message-card merch-item" onClick={() => openLightbox(index)}>
             <div className="merch-image-container">
               <img 
@@ -158,9 +341,34 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
       </div>
 
       {/* Lightbox */}
-      {lightboxOpen && (
-        <div className="lightbox-overlay" onClick={closeLightbox}>
-          <div className="lightbox-container" onClick={(e) => e.stopPropagation()}>
+      {lightboxOpen && currentGroupImages.length > 0 && (
+        <div 
+          className="lightbox-overlay" 
+          onClick={(e) => {
+            console.log('Clic sur overlay, fermeture lightbox');
+            closeLightbox();
+          }}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            background: 'transparent',
+            zIndex: 10000,
+            cursor: 'pointer'
+          }}
+        >
+          <div 
+            className="lightbox-container" 
+            onClick={(e) => {
+              console.log('Clic sur container, arrêt propagation');
+              e.stopPropagation();
+            }}
+            style={{
+              cursor: 'default'
+            }}
+          >
             {/* Bouton fermer */}
             <button className="lightbox-close" onClick={closeLightbox}>
               <i className="fas fa-times"></i>
@@ -174,19 +382,19 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
             {/* Image principale */}
             <div className="lightbox-image-container">
               <img 
-                src={merchImages[currentImageIndex].src}
-                alt={merchImages[currentImageIndex].alt}
+                src={currentGroupImages[currentImageIndex].src}
+                alt={currentGroupImages[currentImageIndex].alt}
                 className="lightbox-image"
               />
-              {merchImages[currentImageIndex].caption && (
+              {currentGroupImages[currentImageIndex].caption && (
                 <div className="lightbox-caption">
-                  {merchImages[currentImageIndex].caption}
+                  {currentGroupImages[currentImageIndex].caption}
                 </div>
               )}
               {/* Prix */}
-              {merchImages[currentImageIndex].price && (
+              {currentGroupImages[currentImageIndex].price && (
                 <div className="lightbox-price">
-                  {merchImages[currentImageIndex].price}
+                  {currentGroupImages[currentImageIndex].price}
                 </div>
               )}
             </div>
