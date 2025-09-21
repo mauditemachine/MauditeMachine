@@ -1,0 +1,119 @@
+[
+  {
+    "id": 1,
+    "src": "images/Merch_CrewNeck-Back.webp",
+    "alt": "CrewNeck Back",
+    "caption": "CrewNeck - Back",
+    "price": "50$ CAD",
+    "category": "crewneck",
+    "active": true
+  },
+  {
+    "id": 2,
+    "src": "images/Merch_CrewNeck-Front.webp",
+    "alt": "CrewNeck Front", 
+    "caption": "CrewNeck - Front",
+    "price": "50$ CAD",
+    "category": "crewneck",
+    "active": true
+  },
+  {
+    "id": 3,
+    "src": "images/Merch_Hoodie-Back.webp",
+    "alt": "Hoodie Back",
+    "caption": "Hoodie - Back", 
+    "price": "50$ CAD",
+    "category": "hoodie",
+    "active": true
+  },
+  {
+    "id": 4,
+    "src": "images/Merch_Hoodie F.webp",
+    "alt": "Hoodie Front",
+    "caption": "Hoodie - Front",
+    "price": "50$ CAD", 
+    "category": "hoodie",
+    "active": true
+  },
+  {
+    "id": 5,
+    "src": "images/Merch_Bag-Brown.webp",
+    "alt": "Bag Brown",
+    "caption": "Bag - Brown",
+    "price": "80$ CAD",
+    "category": "bag",
+    "active": true
+  },
+  {
+    "id": 6,
+    "src": "images/Merch_Bag-Orange.webp",
+    "alt": "Bag Orange",
+    "caption": "Bag - Orange", 
+    "price": "80$ CAD",
+    "category": "bag",
+    "active": true
+  },
+  {
+    "id": 7,
+    "src": "images/Merch_Bag-Pink.webp",
+    "alt": "Bag Pink",
+    "caption": "Bag - Pink",
+    "price": "80$ CAD",
+    "category": "bag", 
+    "active": true
+  },
+  {
+    "id": 8,
+    "src": "images/Merch_Bag-red.webp",
+    "alt": "Bag Red",
+    "caption": "Bag - Red",
+    "price": "80$ CAD",
+    "category": "bag",
+    "active": true
+  },
+  {
+    "id": 9,
+    "src": "images/Merch_Bag-Purple.webp",
+    "alt": "Bag Purple",
+    "caption": "Bag - Purple",
+    "price": "80$ CAD",
+    "category": "bag",
+    "active": true
+  },
+  {
+    "id": 10,
+    "src": "images/Merch_Sylvain-Tshirt-Back.webp",
+    "alt": "Sylvain Tshirt Back",
+    "caption": "Sylvain T-shirt - Back",
+    "price": "40$ CAD",
+    "category": "tshirt",
+    "active": true
+  },
+  {
+    "id": 11,
+    "src": "images/Merch_Sylvain-Tshirt-Front.webp",
+    "alt": "Sylvain Tshirt Front", 
+    "caption": "Sylvain T-shirt - Front",
+    "price": "40$ CAD",
+    "category": "tshirt",
+    "active": true
+  },
+  {
+    "id": 12,
+    "src": "images/Merch_Tshirt-Back.webp",
+    "alt": "Tshirt Back",
+    "caption": "T-shirt - Back",
+    "price": "40$ CAD",
+    "category": "tshirt", 
+    "active": true
+  },
+  {
+    "id": 13,
+    "src": "images/Merch_Tshirt-Front.webp",
+    "alt": "Tshirt Front",
+    "caption": "T-shirt - Front", 
+    "price": "40$ CAD",
+    "category": "tshirt",
+    "active": true
+  }
+]

@@ -379,11 +379,11 @@ export default function MainApp() {
       
       <div className="page">
         <div className="bg-stack">
-          {/* Background gradient principal - toujours présent */}
+          {/* Background gradient principal - dynamique depuis admin */}
           <div 
             className="bg-gradient" 
             style={{ 
-              background: 'linear-gradient(135deg, #6d1257 0%, #b32d2d 48%, #d87700 100%)',
+              background: defaultBgUrl || 'linear-gradient(135deg, #6d1257 0%, #b32d2d 48%, #d87700 100%)',
               width: '100%',
               height: '100%',
               position: 'absolute',

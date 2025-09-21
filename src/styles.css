@@ -942,7 +942,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   font-weight: 900;
   color: #fbcd00f2;
   margin: 0 0 20px 0;
-  letter-spacing: 1px;
+  letter-spacing: -10px;
 }
 
 .message-subtitle {
@@ -1504,7 +1504,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   font-size: 18px;
   font-weight: 900;
   color: rgba(255, 208, 0, 0.95);
-  letter-spacing: 1px;
+  letter-spacing: 0px;
 }
 
 .message-subtitle {
@@ -2285,8 +2285,8 @@ body.dark-mode .form-textarea:focus {
   --admin-info: #4682b4;
   
   min-height: 100vh;
-  background: var(--admin-bg);
-  color: var(--admin-text);
+  background: #1a1a1a;
+  color: #ffffff;
   font-family: "DIN Alternate", sans-serif !important;
   line-height: 1.6;
 }
@@ -2313,8 +2313,8 @@ body.dark-mode .form-textarea:focus {
 .admin-sidebar {
   display: flex;
   flex-direction: column;
-  background: var(--admin-surface);
-  border: 1px solid var(--admin-border);
+  background: #2a2a2a;
+  border: 1px solid #404040;
     border-radius: 12px;
   padding: 0.7rem;
   position: sticky;
@@ -2323,10 +2323,10 @@ body.dark-mode .form-textarea:focus {
 }
 
 .admin-sidebar .admin-title {
-  font-size: 1.1rem;
+  font-size: 1.4rem;
   margin-bottom: 1rem;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--admin-border);
+  border-bottom: 1px solid #404040;
 }
 
 .sidebar-nav {
@@ -2337,44 +2337,41 @@ body.dark-mode .form-textarea:focus {
   position: relative;
 }
 
-.sidebar-nav::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-    width: 100%;
-  height: 48px;
-  background: var(--admin-accent);
-  border-radius: 8px;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 8px rgba(255, 109, 158, 0.3);
-  z-index: 1;
-  transform: translateY(0);
-}
 
-.admin-sidebar .admin-tab {
-           width: 100%;
+.admin-sidebar .sidebar-tab {
+  width: 100%;
   justify-content: flex-start;
   position: relative;
+  background: none;
+  border: none;
+  color: #888888;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.950rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: left;
 }
 
-/* Icônes Unicode dans l'admin - Noir et blanc */
-.admin-tab .tab-icon {
-  margin-right: 8px;
-  font-size: 16px;
-  filter: grayscale(100%) contrast(200%);
-           display: inline-block;
-         }
-
-.admin-tab.active .tab-icon {
-  filter: grayscale(100%) contrast(200%) invert(1);
+.admin-sidebar .sidebar-tab:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
 }
+
+.admin-sidebar .sidebar-tab.active {
+  color: #ffa500;
+}
+
 
 /* Style pour les icônes des états vides */
 .admin-empty-state {
     text-align: center;
   padding: 2rem;
-  color: var(--admin-text-muted);
+  color: #888888;
 }
 
 .admin-empty-state > * {
@@ -2388,13 +2385,13 @@ body.dark-mode .form-textarea:focus {
   flex-direction: column;
   gap: 0.5rem;
   padding-top: 1rem;
-  border-top: 1px solid var(--admin-border);
+  border-top: 1px solid #404040;
   margin-top: auto;
 }
 
 .sidebar-actions .admin-btn.small {
-  padding: 0.5rem 0.75rem;
-  font-size: 0.75rem;
+  padding: 0.125rem 0.25rem;
+  font-size: 0.90rem;
   min-width: auto;
 }
 
@@ -2404,8 +2401,8 @@ body.dark-mode .form-textarea:focus {
 
 /* ===== HEADER ===== */
 .admin-header {
-  background: var(--admin-surface);
-  border-bottom: 1px solid var(--admin-border);
+  background: #2a2a2a;
+  border-bottom: 1px solid #404040;
   padding: 2rem 0;
   position: sticky;
   top: 0;
@@ -2418,7 +2415,7 @@ body.dark-mode .form-textarea:focus {
   font-weight: 700;
   margin: 0 0 2rem 0;
   text-align: center;
-  background: linear-gradient(135deg, var(--admin-accent), #ff9a56);
+  background: linear-gradient(135deg, #c800cf, #ff9a56);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -2430,7 +2427,7 @@ body.dark-mode .form-textarea:focus {
   opacity: 1;
   margin-left: 0.3rem;
   vertical-align: super;
-  color: var(--admin-accent);
+  color: #c800cf;
 }
 
 /* ===== TABS ===== */
@@ -2438,10 +2435,10 @@ body.dark-mode .form-textarea:focus {
   display: flex;
   gap: 0;
   justify-content: center;
-  background: var(--admin-bg);
+  background: #1a1a1a;
   border-radius: 12px;
   padding: 0.5rem;
-  border: 1px solid var(--admin-border);
+  border: 1px solid #404040;
   position: relative;
 }
 
@@ -2452,7 +2449,7 @@ body.dark-mode .form-textarea:focus {
   left: 0.5rem;
   width: 120px;
   height: calc(100% - 1rem);
-  background: var(--admin-accent);
+  background: #c800cf;
   border-radius: 8px;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 2px 8px rgba(255, 109, 158, 0.3);
@@ -2460,53 +2457,8 @@ body.dark-mode .form-textarea:focus {
   transform: translateX(0);
 }
 
-.admin-tab {
-  background: none;
-  border: none;
-  color: var(--admin-text-muted);
-  padding: 0.75rem 1.5rem;
-  font-size: 0.950rem;
-  font-weight: 800;
-  cursor: pointer;
-  transition: color 0.2s ease;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 120px;
-  justify-content: center;
-  position: relative;
-  z-index: 2;
-}
 
-.admin-tab:hover {
-  color: var(--admin-text);
-}
 
-.admin-tab.active {
-  color: var(--admin-text);
-}
-
-/* Positions du cadre orange selon l'onglet actif dans la sidebar */
-.sidebar-nav[data-active="messages"]::before {
-  transform: translateY(0);
-}
-
-.sidebar-nav[data-active="events"]::before {
-  transform: translateY(48px);
-}
-
-.sidebar-nav[data-active="bio"]::before {
-  transform: translateY(96px);
-}
-
-.sidebar-nav[data-active="background"]::before {
-  transform: translateY(144px);
-}
-
-.tab-icon {
-  font-size: 1rem;
-}
 
 .tab-label {
   font-weight: 600;
@@ -2525,13 +2477,13 @@ body.dark-mode .form-textarea:focus {
 .admin-message.success {
   background: rgba(34, 197, 94, 0.1);
   border: 1px solid rgba(34, 197, 94, 0.3);
-  color: var(--admin-success);
+  color: #22c55e;
 }
 
 .admin-message.error {
   background: rgba(239, 68, 68, 0.1);
   border: 1px solid rgba(239, 68, 68, 0.3);
-  color: var(--admin-error);
+  color: #ef4444;
 }
 
 /* ===== CONTENT ===== */
@@ -2566,11 +2518,12 @@ body.dark-mode .form-textarea:focus {
   flex-wrap: wrap;
 }
 
+/* ===== BOUTONS ADMIN ===== */
 .admin-btn {
-  background: var(--admin-surface);
-  border: 0px solid var(--admin-border);
-  color: var(--admin-text);
-  padding: 0.5rem 1rem;
+  background: #2a2a2a;
+  border: 1px solid #404040;
+  color: #ffffff;
+  padding: 0.125rem 0.25rem;
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
@@ -2582,10 +2535,16 @@ body.dark-mode .form-textarea:focus {
   text-decoration: none;
 }
 
+/* Animation de clic simple */
+.admin-btn:active {
+  transform: scale(0.95);
+  transition: transform 0.1s ease;
+}
+
 .admin-btn:hover {
-  background: var(--admin-surface-hover);
-  border-color: var(--admin-border-hover);
-  transform: translateY(0px);
+  background: #3a3a3a;
+  border-color: #505050;
+  transform: translateY(-1px);
 }
 
 .admin-btn:active {
@@ -2595,12 +2554,13 @@ body.dark-mode .form-textarea:focus {
 .admin-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none !important;
+  transform: none;
 }
 
+/* ===== VARIANTES DE BOUTONS ===== */
 .admin-btn.primary {
-  background: var(--admin-accent);
-  border-color: var(--admin-accent);
+  background: #ff6b9d;
+  border-color: #ff6b9d;
   color: white;
 }
 
@@ -2610,8 +2570,8 @@ body.dark-mode .form-textarea:focus {
 }
 
 .admin-btn.success {
-  background: var(--admin-success);
-  border-color: var(--admin-success);
+  background: #22c55e;
+  border-color: #22c55e;
   color: white;
 }
 
@@ -2621,8 +2581,8 @@ body.dark-mode .form-textarea:focus {
 }
 
 .admin-btn.warning {
-  background: var(--admin-warning);
-  border-color: var(--admin-warning);
+  background: #f59e0b;
+  border-color: #f59e0b;
   color: white;
 }
 
@@ -2632,40 +2592,74 @@ body.dark-mode .form-textarea:focus {
 }
 
 .admin-btn.danger {
-  background: var(--admin-error);
-  border-color: var(--admin-error);
+  background: #ff4700;
   color: white;
 }
 
 .admin-btn.danger:hover {
   background: #dc2626;
-  border-color: #dc2626;
+}
+
+/* Bouton spécifique pour suppression des variantes */
+.admin-btn.variant-delete {
+  background: #dc2626;
+  color: white;
+  border: 1px solid #dc2626;
+}
+
+.admin-btn.variant-delete:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
 }
 
 .admin-btn.secondary {
-  background: var(--admin-text-subtle);
-  border-color: var(--admin-text-subtle);
+  background: #a5bae4;
   color: white;
 }
 
 .admin-btn.secondary:hover {
-  background: #555;
-  border-color: #555;
+  background: #4b5563;
+  border-color: #4b5563;
 }
 
-.admin-btn.info {
-  background: var(--admin-info);
-  border-color: var(--admin-info);
-  color: white;
+/* ===== BOUTONS PERSONNALISÉS ===== */
+.admin-btn-custom {
+  background-color: white;
+  color: black;
+  font-size: 12px;
+  font-family: 'DIN', sans-serif;
 }
 
-.admin-btn.info:hover {
-  background: #2563eb;
-  border-color: #2563eb;
+/* ===== ICÔNES ===== */
+.admin-icon {
+  width: 18px;
+  height: 18px;
+  fill: white;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  display: inline-block;
 }
+
+.admin-icon:hover {
+  transform: scale(1.1);
+}
+
+.admin-icon-fa {
+  font-size: 20px;
+  color: inherit;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  display: inline-block;
+  line-height: 1;
+}
+
+.admin-icon-fa:hover {
+  transform: scale(1.1);
+}
+
 
 .admin-btn.small {
-  padding: 0.5rem;
+  padding: 0.3rem;
   font-size: 0.75rem;
   min-width: auto;
 }
@@ -2678,15 +2672,15 @@ body.dark-mode .form-textarea:focus {
 }
 
 .admin-accordion-item {
-  background: var(--admin-surface);
-  border: 1px solid var(--admin-border);
+  background: #2a2a2a;
+  border: 1px solid #404040;
   border-radius: 12px;
   overflow: hidden;
   transition: all 0.2s ease;
 }
 
 .admin-accordion-item:hover {
-  border-color: var(--admin-border-hover);
+  border-color: #505050;
 }
 
 .admin-accordion-header {
@@ -2700,7 +2694,7 @@ body.dark-mode .form-textarea:focus {
 }
 
 .admin-accordion-header:hover {
-  background: var(--admin-surface-hover);
+  background: #3a3a3a;
 }
 
 .accordion-info {
@@ -2712,12 +2706,12 @@ body.dark-mode .form-textarea:focus {
   font-size: 1.125rem;
   font-weight: 600;
   margin: 0 0 0.5rem 0;
-  color: var(--admin-text);
+  color: #ffffff;
 }
 
 .title-preview {
   font-weight: 400;
-  color: var(--admin-text-muted);
+  color: #888888;
 }
 
 .accordion-meta {
@@ -2729,13 +2723,13 @@ body.dark-mode .form-textarea:focus {
 
 .meta-date {
   font-size: 0.875rem;
-  color: var(--admin-text-muted);
+  color: #888888;
   font-family: "DIN Alternate", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .meta-description {
   font-size: 0.875rem;
-  color: var(--admin-text-subtle);
+  color: #666666;
   flex: 1;
   min-width: 0;
   white-space: nowrap;
@@ -2745,7 +2739,7 @@ body.dark-mode .form-textarea:focus {
 
 .meta-location {
   font-size: 0.875rem;
-  color: var(--admin-text-muted);
+  color: #888888;
   display: flex;
   align-items: center;
   gap: 0.25rem;
@@ -2753,7 +2747,7 @@ body.dark-mode .form-textarea:focus {
 
 .meta-length {
   font-size: 0.875rem;
-  color: var(--admin-text-muted);
+  color: #888888;
   word-break: break-all;
   overflow-wrap: break-word;
   max-width: 300px;
@@ -2774,13 +2768,13 @@ body.dark-mode .form-textarea:focus {
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 6px;
-  background: var(--admin-surface);
-  border: 1px solid var(--admin-border);
+  background: #2a2a2a;
+  border: 1px solid #404040;
 }
 
 .accordion-toggle:hover {
-  background: var(--admin-surface-hover);
-  border-color: var(--admin-accent);
+  background: #3a3a3a;
+  border-color: #c800cf;
   transform: scale(1.05);
 }
 
@@ -2789,19 +2783,19 @@ body.dark-mode .form-textarea:focus {
   height: 0;
   border-left: 4px solid transparent;
   border-right: 4px solid transparent;
-  border-top: 6px solid var(--admin-text-muted);
+  border-top: 6px solid #888888;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   transform: rotate(0deg);
 }
 
 .accordion-toggle.expanded .arrow {
   transform: rotate(180deg);
-  border-top-color: var(--admin-accent);
+  border-top-color: #c800cf;
 }
 
 .accordion-toggle.expanded {
-  background: var(--admin-accent-light);
-  border-color: var(--admin-accent);
+  background: #e066e6;
+  border-color: #c800cf;
 }
 
 /* ===== ACCORDION CONTENT ===== */
@@ -2817,7 +2811,7 @@ body.dark-mode .form-textarea:focus {
 
 .accordion-form {
   padding: 0 1.5rem 1.5rem 1.5rem;
-  border-top: 0px solid var(--admin-border);
+  border-top: 0px solid #404040;
   margin-top: 20px;
 }
 
@@ -2839,18 +2833,19 @@ body.dark-mode .form-textarea:focus {
 .form-group label {
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--admin-text);
+  color: #ffffff;
   margin-bottom: 0.5rem;
+  padding: 9px;
 }
 
 .form-group input,
 .form-group textarea {
   background: rgba(0, 0, 0, 0.2);
-  border: 1px solid var(--admin-border);
-  color: var(--admin-text);
+  border: 1px solid #404040;
+  color: #ffffff;
   padding: 0.75rem;
   border-radius: 6px;
-  font-size: 0.750rem;
+  font-size: 0.850rem;
   transition: all 0.2s ease;
 }
 
@@ -2865,20 +2860,20 @@ body.dark-mode .admin-page .form-group textarea {
 body.dark-mode .admin-page .form-group input:focus,
 body.dark-mode .admin-page .form-group textarea:focus {
   background: rgba(255, 255, 255, 0.25);
-  border-color: var(--admin-accent);
+  border-color: #c800cf;
   box-shadow: 0 0 0 3px rgba(255, 109, 158, 0.2);
 }
 
 .form-group input:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: var(--admin-accent);
+  border-color: #c800cf;
   box-shadow: 0 0 0 3px rgba(255, 109, 158, 0.1);
 }
 
 .form-group input:hover,
 .form-group textarea:hover {
-  border-color: var(--admin-border-hover);
+  border-color: #505050;
 }
 
 .form-group textarea {
@@ -2888,7 +2883,7 @@ body.dark-mode .admin-page .form-group textarea:focus {
 
 .form-help {
   font-size: 0.75rem;
-  color: var(--admin-text-subtle);
+  color: #666666;
   margin-top: 0.25rem;
 }
 
@@ -2910,14 +2905,14 @@ body.dark-mode .admin-page .form-group textarea:focus {
 .color-value {
   font-family: "DIN Alternate", -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 0.875rem;
-  color: var(--admin-text-muted);
+  color: #888888;
 }
 
 /* ===== EMPTY STATE ===== */
 .admin-empty-state {
   text-align: center;
   padding: 4rem 2rem;
-  color: var(--admin-text-muted);
+  color: #888888;
 }
 
 .admin-empty-state i {
@@ -2950,8 +2945,8 @@ body.dark-mode .admin-page .form-group textarea:focus {
 .loading-spinner {
   width: 2rem;
   height: 2rem;
-  border: 2px solid var(--admin-border);
-  border-top: 2px solid var(--admin-accent);
+  border: 2px solid #404040;
+  border-top: 2px solid #c800cf;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -2972,7 +2967,7 @@ body.dark-mode .admin-page .form-group textarea:focus {
   position: relative;
   width: 50px;
   height: 24px;
-  background: var(--admin-border);
+  background: #404040;
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -2991,7 +2986,7 @@ body.dark-mode .admin-page .form-group textarea:focus {
 }
 
 .toggle-switch input[type="checkbox"]:checked + .toggle-label {
-  background: var(--admin-accent);
+  background: #c800cf;
 }
 
 .toggle-switch input[type="checkbox"]:checked + .toggle-label .toggle-slider {
@@ -3000,7 +2995,7 @@ body.dark-mode .admin-page .form-group textarea:focus {
 
 .toggle-text {
   font-size: 0.875rem;
-  color: var(--admin-text-muted);
+  color: #888888;
   font-weight: 500;
 }
 
@@ -3008,7 +3003,7 @@ body.dark-mode .admin-page .form-group textarea:focus {
 .admin-color-picker {
   width: 60px;
   height: 40px;
-  border: 1px solid var(--admin-border);
+  border: 1px solid #404040;
   border-radius: 6px;
   cursor: pointer;
   margin-right: 10px;
@@ -3016,9 +3011,9 @@ body.dark-mode .admin-page .form-group textarea:focus {
 }
 
 .admin-select {
-  background: var(--admin-bg);
-  border: 1px solid var(--admin-border);
-  color: var(--admin-text);
+  background: #1a1a1a;
+  border: 1px solid #404040;
+  color: #ffffff;
   padding: 0.75rem;
   border-radius: 6px;
   font-size: 0.875rem;
@@ -3028,12 +3023,12 @@ body.dark-mode .admin-page .form-group textarea:focus {
 }
 
 .admin-select:hover {
-  border-color: var(--admin-border-hover);
+  border-color: #505050;
 }
 
 .admin-select:focus {
   outline: none;
-  border-color: var(--admin-accent);
+  border-color: #c800cf;
   box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.1);
 }
 

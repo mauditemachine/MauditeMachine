@@ -128,3 +128,61 @@ export const loadEvents = async (): Promise<Event[]> => {
     throw error;
   }
 };
+
+// Interface pour le merchandising
+export interface MerchItem {
+  id: number;
+  src: string;
+  alt: string;
+  caption: string;
+  price: string;
+  category: string;
+  active: boolean;
+}
+
+// Simuler une sauvegarde du merchandising
+export const saveMerchItems = async (merchItems: MerchItem[]): Promise<{ success: boolean; message: string }> => {
+  try {
+    // Simulation d'un délai de réseau
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Pour l'instant, on simule juste une sauvegarde réussie
+    console.log('Articles de merchandising à sauvegarder:', merchItems);
+    
+    // Sauvegarder dans localStorage pour les tests
+    localStorage.setItem('admin_merch_backup', JSON.stringify(merchItems));
+    
+    return {
+      success: true,
+      message: 'Merchandising sauvegardé avec succès !'
+    };
+  } catch (error) {
+    console.error('Erreur lors de la sauvegarde du merchandising:', error);
+    return {
+      success: false,
+      message: 'Erreur lors de la sauvegarde du merchandising'
+    };
+  }
+};
+
+// Charger les articles de merchandising depuis l'API
+export const loadMerchItems = async (): Promise<MerchItem[]> => {
+  try {
+    // Vérifier d'abord s'il y a des modifications dans localStorage
+    const savedMerch = localStorage.getItem('admin_merch_backup');
+    if (savedMerch) {
+      console.log('Chargement du merchandising modifié depuis localStorage');
+      return JSON.parse(savedMerch);
+    }
+    
+    // Sinon, charger depuis le fichier JSON public
+    const response = await fetch('/store.json');
+    if (!response.ok) {
+      throw new Error('Erreur lors du chargement du merchandising');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Erreur lors du chargement du merchandising:', error);
+    throw error;
+  }
+};

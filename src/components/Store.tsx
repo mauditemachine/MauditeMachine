@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { MerchItem, loadMerchItems } from '../utils/adminApi';
 
 interface MerchImage {
   src: string;
   alt: string;
   caption?: string;
+  price?: string;
 }
 
 interface StoreProps {
@@ -13,23 +15,52 @@ interface StoreProps {
 const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  
-  // Liste des images de merchandising - CHEMINS CORRECTS POUR VITE (images/)
-  const merchImages: MerchImage[] = [
-    { src: 'images/Merch_CrewNeck-Back.webp', alt: 'CrewNeck Back', caption: 'CrewNeck - Back' },
-    { src: 'images/Merch_CrewNeck-Front.webp', alt: 'CrewNeck Front', caption: 'CrewNeck - Front' },
-    { src: 'images/Merch_Hoodie-Back.webp', alt: 'Hoodie Back', caption: 'Hoodie - Back' },
-    { src: 'images/Merch_Hoodie F.webp', alt: 'Hoodie Front', caption: 'Hoodie - Front' },
-    { src: 'images/Merch_Bag-Brown.webp', alt: 'Bag Brown', caption: 'Bag - Brown' },
-    { src: 'images/Merch_Bag-Orange.webp', alt: 'Bag Orange', caption: 'Bag - Orange' },
-    { src: 'images/Merch_Bag-Pink.webp', alt: 'Bag Pink', caption: 'Bag - Pink' },
-    { src: 'images/Merch_Bag-red.webp', alt: 'Bag Red', caption: 'Bag - Red' },
-    { src: 'images/Merch_Bag-Purple.webp', alt: 'Bag Purple', caption: 'Bag - Purple' },
-    { src: 'images/Merch_Sylvain-Tshirt-Back.webp', alt: 'Sylvain Tshirt Back', caption: 'Sylvain T-shirt - Back' },
-    { src: 'images/Merch_Sylvain-Tshirt-Front.webp', alt: 'Sylvain Tshirt Front', caption: 'Sylvain T-shirt - Front' },
-    { src: 'images/Merch_Tshirt-Back.webp', alt: 'Tshirt Back', caption: 'T-shirt - Back' },
-    { src: 'images/Merch_Tshirt-Front.webp', alt: 'Tshirt Front', caption: 'T-shirt - Front' }
-  ];
+  const [merchImages, setMerchImages] = useState<MerchImage[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Charger les données de merchandising au montage du composant
+  useEffect(() => {
+    const loadMerchData = async () => {
+      try {
+        setLoading(true);
+        const merchData = await loadMerchItems();
+        
+        // Convertir les données MerchItem en MerchImage pour la compatibilité
+        const convertedData: MerchImage[] = merchData
+          .filter(item => item.active) // Ne prendre que les articles actifs
+          .map(item => ({
+            src: item.src,
+            alt: item.alt,
+            caption: item.caption,
+            price: item.price
+          }));
+        
+        setMerchImages(convertedData);
+      } catch (error) {
+        console.error('Erreur lors du chargement du merchandising:', error);
+        // En cas d'erreur, utiliser les données par défaut
+        setMerchImages([
+          { src: 'images/Merch_CrewNeck-Back.webp', alt: 'CrewNeck Back', caption: 'CrewNeck - Back', price: '50$ CAD' },
+          { src: 'images/Merch_CrewNeck-Front.webp', alt: 'CrewNeck Front', caption: 'CrewNeck - Front', price: '50$ CAD' },
+          { src: 'images/Merch_Hoodie-Back.webp', alt: 'Hoodie Back', caption: 'Hoodie - Back', price: '50$ CAD' },
+          { src: 'images/Merch_Hoodie F.webp', alt: 'Hoodie Front', caption: 'Hoodie - Front', price: '50$ CAD' },
+          { src: 'images/Merch_Bag-Brown.webp', alt: 'Bag Brown', caption: 'Bag - Brown', price: '80$ CAD' },
+          { src: 'images/Merch_Bag-Orange.webp', alt: 'Bag Orange', caption: 'Bag - Orange', price: '80$ CAD' },
+          { src: 'images/Merch_Bag-Pink.webp', alt: 'Bag Pink', caption: 'Bag - Pink', price: '80$ CAD' },
+          { src: 'images/Merch_Bag-red.webp', alt: 'Bag Red', caption: 'Bag - Red', price: '80$ CAD' },
+          { src: 'images/Merch_Bag-Purple.webp', alt: 'Bag Purple', caption: 'Bag - Purple', price: '80$ CAD' },
+          { src: 'images/Merch_Sylvain-Tshirt-Back.webp', alt: 'Sylvain Tshirt Back', caption: 'Sylvain T-shirt - Back', price: '40$ CAD' },
+          { src: 'images/Merch_Sylvain-Tshirt-Front.webp', alt: 'Sylvain Tshirt Front', caption: 'Sylvain T-shirt - Front', price: '40$ CAD' },
+          { src: 'images/Merch_Tshirt-Back.webp', alt: 'Tshirt Back', caption: 'T-shirt - Back', price: '40$ CAD' },
+          { src: 'images/Merch_Tshirt-Front.webp', alt: 'Tshirt Front', caption: 'T-shirt - Front', price: '40$ CAD' }
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMerchData();
+  }, []);
 
   // Ouvrir la lightbox
   const openLightbox = (index: number) => {
@@ -78,7 +109,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
     <>
       {/* TEXTE D'INSTRUCTIONS POUR LES COMMANDES */}
       <p className="message-subtitle">
-        For all merch requests, please email us{' '}
+        For all merch requests, please email{' '}
         <a href="#contact" 
            style={{ color: '#ffdd00', textDecoration: 'none', cursor: 'pointer' }}
            onClick={(e) => {
@@ -87,12 +118,21 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
             onSectionChange('message'); // 'message' est la clé pour Contact
           }
         }}>here</a>{' '}
-        specifying the item you want and your postal address. We'll send you payment instructions.
+        specifying the item and postal address. Payment instructions will be provided upon request.
       </p>
 
       {/* GALERIE DE MERCHANDISING - FORCÉE À S'AFFICHER */}
       <div className="merch-gallery" style={{ display: 'grid !important' }}>
-        {merchImages.map((image, index) => (
+        {loading ? (
+          <div className="loading-state" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem' }}>
+            <p>Chargement du merchandising...</p>
+          </div>
+        ) : merchImages.length === 0 ? (
+          <div className="empty-state" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem' }}>
+            <p>Aucun article disponible pour le moment.</p>
+          </div>
+        ) : (
+          merchImages.map((image, index) => (
           <div key={index} className="message-card merch-item" onClick={() => openLightbox(index)}>
             <div className="merch-image-container">
               <img 
@@ -113,7 +153,8 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
               </div>
             </div>
           </div>
-        ))}
+        ))
+        )}
       </div>
 
       {/* Lightbox */}
@@ -143,12 +184,11 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
                 </div>
               )}
               {/* Prix */}
-              <div className="lightbox-price">
-                {merchImages[currentImageIndex].caption?.toLowerCase().includes('crewneck') && '50$ CAD'}
-                {merchImages[currentImageIndex].caption?.toLowerCase().includes('hoodie') && '50$ CAD'}
-                {merchImages[currentImageIndex].caption?.toLowerCase().includes('bag') && '80$ CAD'}
-                {merchImages[currentImageIndex].caption?.toLowerCase().includes('t-shirt') && '40$ CAD'}
-              </div>
+              {merchImages[currentImageIndex].price && (
+                <div className="lightbox-price">
+                  {merchImages[currentImageIndex].price}
+                </div>
+              )}
             </div>
             
             {/* Navigation suivante */}

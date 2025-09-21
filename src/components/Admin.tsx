@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { gsap } from 'gsap';
-import { Message, Event, loadMessages, saveMessages, loadEvents, saveEvents } from '../utils/adminApi';
+import { Message, Event, MerchItem, loadMessages, saveMessages, loadEvents, saveEvents, loadMerchItems, saveMerchItems } from '../utils/adminApi';
 import ImageUpload from './ImageUpload';
 
 
@@ -8,60 +7,21 @@ interface Bio {
   text: string;
 }
 
-interface BackgroundSettings {
-  defaultImage: string;
-  useBackground: boolean;
-  backgroundType: 'image' | 'gradient';
-  gradientColor1: string;
-  gradientColor2: string;
-  gradientDirection: string;
-}
 
 const Admin: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'messages' | 'events' | 'bio' | 'background'>('messages');
+  const [activeTab, setActiveTab] = useState<'messages' | 'events' | 'store' | 'bio'>('messages');
   const [messages, setMessages] = useState<Message[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
+  const [merchItems, setMerchItems] = useState<MerchItem[]>([]);
   const [bio, setBio] = useState<Bio>({ text: '' });
-  const [backgroundSettings, setBackgroundSettings] = useState<BackgroundSettings>({ 
-    defaultImage: 'images/mixtape37.webp',
-    useBackground: true,
-    backgroundType: 'image',
-    gradientColor1: '#1a1a2e',
-    gradientColor2: '#16213e',
-    gradientDirection: '135deg'
-  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   
-  // Refs pour les animations GSAP
-  const pageRef = useRef<HTMLDivElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
-  const tabsRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
+  // Refs supprimés - plus d'animations GSAP
 
-  // Animation d'entrée de la page
-  useEffect(() => {
-    if (!loading && pageRef.current) {
-      const tl = gsap.timeline();
-      
-      tl.fromTo(headerRef.current, 
-        { y: -50, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.6, ease: "power3.out" }
-      )
-      .fromTo(tabsRef.current?.children || [], 
-        { x: -30, opacity: 0 },
-        { x: 0, opacity: 1, duration: 0.4, stagger: 0.1, ease: "power2.out" },
-        "-=0.3"
-      )
-      .fromTo(contentRef.current, 
-        { y: 30, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.5, ease: "power2.out" },
-        "-=0.2"
-      );
-    }
-  }, [loading]);
+  // Pas d'animation d'entrée - chargement direct
 
   // Animation lors du changement d'onglet - désactivée pour éviter les conflits
   // useEffect(() => {
@@ -97,6 +57,10 @@ const Admin: React.FC = () => {
         const eventsData = await loadEvents();
         setEvents(eventsData);
         
+        // Charger le merchandising
+        const merchData = await loadMerchItems();
+        setMerchItems(merchData);
+        
         // Charger la bio depuis localStorage ou valeur par défaut
         const savedBio = localStorage.getItem('admin_bio_backup');
         if (savedBio) {
@@ -107,35 +71,6 @@ const Admin: React.FC = () => {
           });
         }
 
-        // Charger les paramètres de background depuis localStorage
-        const savedBackground = localStorage.getItem('admin_background_settings');
-        if (savedBackground) {
-          const backgroundData = JSON.parse(savedBackground);
-          console.log('🔄 Admin - Chargement background data:', backgroundData);
-          
-          // Assurer la rétrocompatibilité avec les nouvelles propriétés
-          const completeSettings: BackgroundSettings = {
-            defaultImage: backgroundData.defaultImage || 'images/mixtape37.webp',
-            useBackground: backgroundData.useBackground !== false,
-            backgroundType: backgroundData.backgroundType || 'image',
-            gradientColor1: backgroundData.gradientColor1 || '#1a1a2e',
-            gradientColor2: backgroundData.gradientColor2 || '#16213e',
-            gradientDirection: backgroundData.gradientDirection || '135deg'
-          };
-          
-          console.log('✅ Admin - Settings complets:', completeSettings);
-          setBackgroundSettings(completeSettings);
-        } else {
-          // Valeurs par défaut si aucune sauvegarde
-          setBackgroundSettings({
-            defaultImage: 'images/mixtape37.webp',
-            useBackground: true,
-            backgroundType: 'image',
-            gradientColor1: '#1a1a2e',
-            gradientColor2: '#16213e',
-            gradientDirection: '135deg'
-          });
-        }
         
         setLoading(false);
       } catch (error) {
@@ -153,20 +88,9 @@ const Admin: React.FC = () => {
     setExpandedItem(expandedItem === itemId ? null : itemId);
   };
 
-  // Fonctions d'animation
-  const animateButton = (element: HTMLElement) => {
-    gsap.to(element, {
-      scale: 0.95,
-      duration: 0.1,
-      ease: "power2.out",
-      yoyo: true,
-      repeat: 1
-    });
-  };
-
-  const handleButtonClick = (callback: () => void, element: HTMLElement) => {
-    animateButton(element);
-    setTimeout(callback, 100);
+  // Fonction de clic simple (sans animation)
+  const handleButtonClick = (callback: () => void) => {
+    callback();
   };
 
   // Sauvegarder les messages
@@ -222,11 +146,22 @@ const Admin: React.FC = () => {
   };
 
   // Supprimer un message
-  const removeMessage = (index: number) => {
+  const removeMessage = async (index: number) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer ce message ?')) {
       const updatedMessages = messages.filter((_, i) => i !== index);
       setMessages(updatedMessages);
       setExpandedItem(null);
+      
+      // Sauvegarder automatiquement après suppression
+      try {
+        await saveMessages(updatedMessages);
+        setMessage('Message supprimé avec succès');
+        setTimeout(() => setMessage(''), 3000);
+      } catch (error) {
+        console.error('Erreur lors de la suppression:', error);
+        setMessage('Erreur lors de la suppression');
+        setTimeout(() => setMessage(''), 3000);
+      }
     }
   };
 
@@ -294,11 +229,22 @@ const Admin: React.FC = () => {
   };
 
   // Supprimer un événement
-  const removeEvent = (index: number) => {
+  const removeEvent = async (index: number) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer cet événement ?')) {
       const updatedEvents = events.filter((_, i) => i !== index);
       setEvents(updatedEvents);
       setExpandedItem(null);
+      
+      // Sauvegarder automatiquement après suppression
+      try {
+        await saveEvents(updatedEvents);
+        setMessage('Événement supprimé avec succès');
+        setTimeout(() => setMessage(''), 3000);
+      } catch (error) {
+        console.error('Erreur lors de la suppression:', error);
+        setMessage('Erreur lors de la suppression');
+        setTimeout(() => setMessage(''), 3000);
+      }
     }
   };
 
@@ -316,6 +262,93 @@ const Admin: React.FC = () => {
       } catch (error) {
         console.error('Erreur lors de la réinitialisation des événements:', error);
         setMessage('Erreur lors de la réinitialisation des événements');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  // ========== FONCTIONS MERCHANDISING ==========
+  
+  // Sauvegarder le merchandising
+  const handleSaveMerchItems = async () => {
+    setSaving(true);
+    setMessage('');
+    
+    try {
+      const result = await saveMerchItems(merchItems);
+      
+      if (result.success) {
+        setMessage(result.message);
+        setTimeout(() => setMessage(''), 3000);
+      } else {
+        setMessage(result.message);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde du merchandising:', error);
+      setMessage('Erreur lors de la sauvegarde du merchandising');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Mettre à jour un article de merchandising
+  const updateMerchItem = (index: number, field: keyof MerchItem, value: string | boolean) => {
+    const updatedMerchItems = [...merchItems];
+    (updatedMerchItems[index] as any)[field] = value;
+    setMerchItems(updatedMerchItems);
+  };
+
+  // Ajouter un nouvel article de merchandising
+  const addMerchItem = () => {
+    const newId = Math.max(...merchItems.map(item => item.id), 0) + 1;
+    const newMerchItem: MerchItem = {
+      id: newId,
+      src: '',
+      alt: '',
+      caption: '',
+      price: '',
+      category: '',
+      active: true
+    };
+    setMerchItems([...merchItems, newMerchItem]);
+    setExpandedItem(`merch-${merchItems.length}`);
+  };
+
+  // Supprimer un article de merchandising
+  const removeMerchItem = async (index: number) => {
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer cet article ?')) {
+      const updatedMerchItems = merchItems.filter((_, i) => i !== index);
+      setMerchItems(updatedMerchItems);
+      setExpandedItem(null);
+      
+      // Sauvegarder automatiquement après suppression
+      try {
+        await saveMerchItems(updatedMerchItems);
+        setMessage('Article supprimé avec succès');
+        setTimeout(() => setMessage(''), 3000);
+      } catch (error) {
+        console.error('Erreur lors de la suppression:', error);
+        setMessage('Erreur lors de la suppression');
+        setTimeout(() => setMessage(''), 3000);
+      }
+    }
+  };
+
+  // Réinitialiser le merchandising
+  const resetMerchItems = async () => {
+    if (window.confirm('Êtes-vous sûr de vouloir réinitialiser le merchandising à son état original ?')) {
+      try {
+        setLoading(true);
+        localStorage.removeItem('admin_merch_backup');
+        const data = await loadMerchItems();
+        setMerchItems(data);
+        setExpandedItem(null);
+        setMessage('Merchandising réinitialisé à son état original');
+        setTimeout(() => setMessage(''), 3000);
+      } catch (error) {
+        console.error('Erreur lors de la réinitialisation du merchandising:', error);
+        setMessage('Erreur lors de la réinitialisation du merchandising');
       } finally {
         setLoading(false);
       }
@@ -344,48 +377,56 @@ const Admin: React.FC = () => {
     setBio(prev => ({ ...prev, [field]: value }));
   };
 
-  // Sauvegarder les paramètres de background
-  const handleSaveBackground = async () => {
-    setSaving(true);
-    setMessage('');
-    
-    try {
-      console.log('💾 Sauvegarde background:', backgroundSettings);
-      console.log('🎨 Type de background:', backgroundSettings.backgroundType);
-      console.log('🌈 Gradient colors:', backgroundSettings.gradientColor1, backgroundSettings.gradientColor2);
-      console.log('📐 Gradient direction:', backgroundSettings.gradientDirection);
-      
-      localStorage.setItem('admin_background_settings', JSON.stringify(backgroundSettings));
-      
-      // Déclencher un événement pour notifier MainApp du changement
-      window.dispatchEvent(new CustomEvent('admin_background_updated'));
-      
-      setMessage(`Paramètres sauvegardés ! Background ${backgroundSettings.useBackground ? 'activé' : 'désactivé'} (${backgroundSettings.backgroundType})`);
-      setTimeout(() => setMessage(''), 3000);
-    } catch (error) {
-      console.error('Erreur lors de la sauvegarde du background:', error);
-      setMessage('Erreur lors de la sauvegarde du background');
-    } finally {
-      setSaving(false);
-    }
-  };
 
-  // Mettre à jour les paramètres de background
-  const updateBackground = (field: keyof BackgroundSettings, value: string | boolean) => {
-    console.log(`🔧 Mise à jour ${field}:`, value);
-    const newSettings = { ...backgroundSettings, [field]: value };
-    console.log('📝 Nouveaux paramètres:', newSettings);
-    setBackgroundSettings(newSettings);
-    
-    // Si c'est un changement de type, sauvegarder automatiquement
-    if (field === 'backgroundType') {
-      console.log('🎨 Changement de type détecté, sauvegarde automatique...');
-      setTimeout(() => {
-        localStorage.setItem('admin_background_settings', JSON.stringify(newSettings));
-        window.dispatchEvent(new CustomEvent('admin_background_updated'));
-        console.log('✅ Sauvegarde automatique terminée');
-      }, 100);
+
+  // Fonction pour convertir les couleurs en format hexadécimal
+  const convertToHex = (color: string): string => {
+    // Si c'est déjà en hexadécimal, le retourner
+    if (color.startsWith('#')) {
+      return color;
     }
+    
+    // Si c'est en RGB, le convertir
+    if (color.startsWith('rgb')) {
+      const rgbMatch = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+      if (rgbMatch) {
+        const r = parseInt(rgbMatch[1]);
+        const g = parseInt(rgbMatch[2]);
+        const b = parseInt(rgbMatch[3]);
+        return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+      }
+    }
+    
+    // Si c'est en RGBA, le convertir
+    if (color.startsWith('rgba')) {
+      const rgbaMatch = color.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*[\d.]+\)/);
+      if (rgbaMatch) {
+        const r = parseInt(rgbaMatch[1]);
+        const g = parseInt(rgbaMatch[2]);
+        const b = parseInt(rgbaMatch[3]);
+        return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+      }
+    }
+    
+    // Si c'est un nom de couleur CSS, essayer de le convertir
+    const tempDiv = document.createElement('div');
+    tempDiv.style.color = color;
+    document.body.appendChild(tempDiv);
+    const computedColor = window.getComputedStyle(tempDiv).color;
+    document.body.removeChild(tempDiv);
+    
+    if (computedColor.startsWith('rgb')) {
+      const rgbMatch = computedColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+      if (rgbMatch) {
+        const r = parseInt(rgbMatch[1]);
+        const g = parseInt(rgbMatch[2]);
+        const b = parseInt(rgbMatch[3]);
+        return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+      }
+    }
+    
+    // Par défaut, retourner la couleur originale
+    return color;
   };
 
   // Gérer les images uploadées
@@ -419,9 +460,9 @@ const Admin: React.FC = () => {
   }
 
   return (
-    <div className="admin-page" ref={pageRef}>
+    <div className="admin-page">
       {/* Header - maintenant vide pour plus d'espace */}
-      <div className="admin-header" ref={headerRef} style={{ display: 'none' }}>
+      <div className="admin-header" style={{ display: 'none' }}>
       </div>
 
       {/* Message de statut */}
@@ -434,24 +475,24 @@ const Admin: React.FC = () => {
       )}
 
       {/* Contenu principal */}
-      <div className="admin-content" ref={contentRef}>
+      <div className="admin-content">
         <div className="admin-container">
           <div className="admin-layout">
-            <aside className="admin-sidebar" ref={tabsRef}>
+            <aside className="admin-sidebar" data-active={activeTab}>
               <h1 className="admin-title">
                 ADMINISTRATION<sup className="admin-subtitle">CMS</sup>
               </h1>
               
-              <div className="sidebar-nav" data-active={activeTab}>
+              <div className="sidebar-nav">
                 {[
                   { key: 'messages', label: 'Messages', icon: 'fa-solid fa-envelope' },
                   { key: 'events', label: 'Événements', icon: 'fa-solid fa-calendar-days' },
-                  { key: 'bio', label: 'Bio', icon: 'fa-solid fa-user' },
-                  { key: 'background', label: 'Background', icon: 'fa-solid fa-image' }
+                  { key: 'store', label: 'Store', icon: 'fa-solid fa-shopping-bag' },
+                  { key: 'bio', label: 'Bio', icon: 'fa-solid fa-user' }
                 ].map(tab => (
                   <button
                     key={tab.key}
-                    className={`admin-tab ${activeTab === tab.key ? 'active' : ''}`}
+                    className={`sidebar-tab ${activeTab === tab.key ? 'active' : ''}`}
                     onClick={(e) => {
                       handleButtonClick(() => {
                         setActiveTab(tab.key as any);
@@ -459,7 +500,6 @@ const Admin: React.FC = () => {
                       }, e.currentTarget);
                     }}
                   >
-                    <span className="tab-icon"><i className={tab.icon}></i></span>
                     <span className="tab-label">{tab.label}</span>
                   </button>
                 ))}
@@ -472,23 +512,12 @@ const Admin: React.FC = () => {
                       onClick={(e) => handleButtonClick(addMessage, e.currentTarget)}
                       className="admin-btn primary small"
                     >
-                      <i className="fa-solid fa-plus"></i> Ajouter
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon">
+                        <path d="M352 128C352 110.3 337.7 96 320 96C302.3 96 288 110.3 288 128L288 288L128 288C110.3 288 96 302.3 96 320C96 337.7 110.3 352 128 352L288 352L288 512C288 529.7 302.3 544 320 544C337.7 544 352 529.7 352 512L352 352L512 352C529.7 352 544 337.7 544 320C544 302.3 529.7 288 512 288L352 288L352 128z"/>
+                      </svg> Ajouter
                     </button>
                     
-                    <button
-                      onClick={(e) => handleButtonClick(handleSaveMessages, e.currentTarget)}
-                      disabled={saving}
-                      className="admin-btn success small"
-                    >
-                      <i className="fa-solid fa-floppy-disk"></i> {saving ? 'Sauvegarde...' : 'Sauvegarder'}
-                    </button>
                     
-                    <button
-                      onClick={(e) => handleButtonClick(resetMessages, e.currentTarget)}
-                      className="admin-btn secondary small"
-                    >
-                      <i className="fa-solid fa-rotate-right"></i> Réinitialiser
-                    </button>
                   </>
                 )}
 
@@ -498,95 +527,33 @@ const Admin: React.FC = () => {
                       onClick={(e) => handleButtonClick(addEvent, e.currentTarget)}
                       className="admin-btn primary small"
                     >
-                      <i className="fa-solid fa-plus"></i> Ajouter
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon">
+                        <path d="M352 128C352 110.3 337.7 96 320 96C302.3 96 288 110.3 288 128L288 288L128 288C110.3 288 96 302.3 96 320C96 337.7 110.3 352 128 352L288 352L288 512C288 529.7 302.3 544 320 544C337.7 544 352 529.7 352 512L352 352L512 352C529.7 352 544 337.7 544 320C544 302.3 529.7 288 512 288L352 288L352 128z"/>
+                      </svg> Ajouter
                     </button>
                     
-                    <button
-                      onClick={(e) => handleButtonClick(handleSaveEvents, e.currentTarget)}
-                      disabled={saving}
-                      className="admin-btn success small"
-                    >
-                      <i className="fa-solid fa-floppy-disk"></i> {saving ? 'Sauvegarde...' : 'Sauvegarder'}
-                    </button>
                     
-                    <button
-                      onClick={(e) => handleButtonClick(resetEvents, e.currentTarget)}
-                      className="admin-btn secondary small"
-                    >
-                      <i className="fa-solid fa-rotate-right"></i> Réinitialiser
-                    </button>
                   </>
                 )}
 
-                {activeTab === 'bio' && (
-                  <button
-                    onClick={(e) => handleButtonClick(handleSaveBio, e.currentTarget)}
-                    disabled={saving}
-                    className="admin-btn success small"
-                  >
-                    💾 {saving ? 'Sauvegarde...' : 'Sauvegarder'}
-                  </button>
-                )}
-
-                {activeTab === 'background' && (
+                {activeTab === 'store' && (
                   <>
                     <button
-                      onClick={(e) => handleButtonClick(handleSaveBackground, e.currentTarget)}
-                      disabled={saving}
-                      className="admin-btn success small"
+                      onClick={(e) => handleButtonClick(addMerchItem, e.currentTarget)}
+                      className="admin-btn primary small"
                     >
-                      <i className="fa-solid fa-floppy-disk"></i> {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon">
+                        <path d="M352 128C352 110.3 337.7 96 320 96C302.3 96 288 110.3 288 128L288 288L128 288C110.3 288 96 302.3 96 320C96 337.7 110.3 352 128 352L288 352L288 512C288 529.7 302.3 544 320 544C337.7 544 352 529.7 352 512L352 352L512 352C529.7 352 544 337.7 544 320C544 302.3 529.7 288 512 288L352 288L352 128z"/>
+                      </svg> Ajouter
                     </button>
                     
-                    <button
-                      onClick={() => {
-                        console.log('🧪 TEST GRADIENT FORCÉ');
-                        const testSettings = {
-                          defaultImage: 'images/mixtape37.webp',
-                          useBackground: true,
-                          backgroundType: 'gradient' as const,
-                          gradientColor1: '#ff0000',
-                          gradientColor2: '#0000ff',
-                          gradientDirection: '45deg'
-                        };
-                        console.log('📝 Settings de test:', testSettings);
-                        localStorage.setItem('admin_background_settings', JSON.stringify(testSettings));
-                        window.dispatchEvent(new CustomEvent('admin_background_updated'));
-                        setBackgroundSettings(testSettings);
-                        console.log('✅ Test gradient appliqué!');
-                      }}
-                      className="admin-btn warning small"
-                    >
-                      🧪 TEST
-                    </button>
-                    <button
-                      onClick={(e) => handleButtonClick(() => {
-                        localStorage.removeItem('admin_background_settings');
-                        setBackgroundSettings({
-                          defaultImage: 'images/mixtape37.webp',
-                          useBackground: true,
-                          backgroundType: 'image',
-                          gradientColor1: '#1a1a2e',
-                          gradientColor2: '#16213e',
-                          gradientDirection: '135deg'
-                        });
-                        window.dispatchEvent(new CustomEvent('admin_background_updated'));
-                        setMessage('Paramètres de background réinitialisés !');
-                        setTimeout(() => setMessage(''), 3000);
-                      }, e.currentTarget)}
-                      className="admin-btn danger small"
-                    >
-                      <i className="fa-solid fa-rotate-right"></i> Réinitialiser
-                    </button>
+                    
                   </>
                 )}
+
+
                 
-                <button
-                  onClick={(e) => handleButtonClick(manageUploadedImages, e.currentTarget)}
-                  className="admin-btn info small"
-                >
-                  🖼 Gérer images
-                </button>
+                
               </div>
             </aside>
             <main className="admin-main">
@@ -634,14 +601,20 @@ const Admin: React.FC = () => {
                                     e.stopPropagation();
                                     handleButtonClick(() => removeMessage(index), e.currentTarget);
                                   }}
-                                  className="admin-btn danger small"
+                                  className="admin-btn danger small admin-btn-custom"
                                 >
-                                  <i className="fa-solid fa-trash"></i>
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon admin-icon-delete">
+                                    <path d="M232.7 69.9L224 96L128 96C110.3 96 96 110.3 96 128C96 145.7 110.3 160 128 160L512 160C529.7 160 544 145.7 544 128C544 110.3 529.7 96 512 96L416 96L407.3 69.9C402.9 56.8 390.7 48 376.9 48L263.1 48C249.3 48 237.1 56.8 232.7 69.9zM512 208L128 208L149.1 531.1C150.7 556.4 171.7 576 197 576L443 576C468.3 576 489.3 556.4 490.9 531.1L512 208z"/>
+                                  </svg>
                                 </button>
                                 
-                                <div className={`accordion-toggle ${isExpanded ? 'expanded' : ''}`}>
-                                  <div className="arrow"></div>
-                                </div>
+                                <button className="admin-btn secondary small admin-btn-custom">
+                                  {isExpanded ? <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon">
+                                    <path d="M297.4 105.4C309.9 92.9 330.2 92.9 342.7 105.4L502.7 265.4C511.9 274.6 514.6 288.3 509.6 300.3C504.6 312.3 492.9 320 480 320L384 320L384 496C384 522.5 362.5 544 336 544L304 544C277.5 544 256 522.5 256 496L256 320L160 320C147.1 320 135.4 312.2 130.4 300.2C125.4 288.2 128.2 274.5 137.4 265.4L297.4 105.4z"/>
+                                  </svg> : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon admin-icon-open">
+                                    <path d="M88 289.6L64.4 360.2L64.4 160C64.4 124.7 93.1 96 128.4 96L267.1 96C280.9 96 294.4 100.5 305.5 108.8L343.9 137.6C349.4 141.8 356.2 144 363.1 144L480.4 144C515.7 144 544.4 172.7 544.4 208L544.4 224L179 224C137.7 224 101 250.4 87.9 289.6zM509.8 512L131 512C98.2 512 75.1 479.9 85.5 448.8L133.5 304.8C140 285.2 158.4 272 179 272L557.8 272C590.6 272 613.7 304.1 603.3 335.2L555.3 479.2C548.8 498.8 530.4 512 509.8 512z"/>
+                                  </svg>}
+                                </button>
                               </div>
                             </div>
 
@@ -710,6 +683,20 @@ const Admin: React.FC = () => {
                                     />
                                   </div>
                                 </div>
+                                
+                                {/* Bouton Save individuel */}
+                                <div className="form-row" style={{ marginTop: '15px', textAlign: 'right' }}>
+                                  <button 
+                                    onClick={(e) => handleButtonClick(handleSaveMessages, e.currentTarget)}
+                                    disabled={saving}
+                                    className="admin-btn success small admin-btn-custom"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon admin-icon-save">
+                                      <path d="M160 96C124.7 96 96 124.7 96 160L96 480C96 515.3 124.7 544 160 544L480 544C515.3 544 544 515.3 544 480L544 237.3C544 220.3 537.3 204 525.3 192L448 114.7C436 102.7 419.7 96 402.7 96L160 96zM192 192C192 174.3 206.3 160 224 160L384 160C401.7 160 416 174.3 416 192L416 256C416 273.7 401.7 288 384 288L224 288C206.3 288 192 273.7 192 256L192 192zM320 352C355.3 352 384 380.7 384 416C384 451.3 355.3 480 320 480C284.7 480 256 451.3 256 416C256 380.7 284.7 352 320 352z"/>
+                                    </svg>
+                                    {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -760,14 +747,20 @@ const Admin: React.FC = () => {
                                     e.stopPropagation();
                                     handleButtonClick(() => removeEvent(index), e.currentTarget);
                                   }}
-                                  className="admin-btn danger small"
+                                  className="admin-btn danger small admin-btn-custom"
                                 >
-                                  <i className="fa-solid fa-trash"></i>
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon admin-icon-delete">
+                                    <path d="M232.7 69.9L224 96L128 96C110.3 96 96 110.3 96 128C96 145.7 110.3 160 128 160L512 160C529.7 160 544 145.7 544 128C544 110.3 529.7 96 512 96L416 96L407.3 69.9C402.9 56.8 390.7 48 376.9 48L263.1 48C249.3 48 237.1 56.8 232.7 69.9zM512 208L128 208L149.1 531.1C150.7 556.4 171.7 576 197 576L443 576C468.3 576 489.3 556.4 490.9 531.1L512 208z"/>
+                                  </svg>
                                 </button>
                                 
-                                <div className={`accordion-toggle ${isExpanded ? 'expanded' : ''}`}>
-                                  <div className="arrow"></div>
-                                </div>
+                                <button className="admin-btn secondary small admin-btn-custom">
+                                  {isExpanded ? <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon">
+                                    <path d="M297.4 105.4C309.9 92.9 330.2 92.9 342.7 105.4L502.7 265.4C511.9 274.6 514.6 288.3 509.6 300.3C504.6 312.3 492.9 320 480 320L384 320L384 496C384 522.5 362.5 544 336 544L304 544C277.5 544 256 522.5 256 496L256 320L160 320C147.1 320 135.4 312.2 130.4 300.2C125.4 288.2 128.2 274.5 137.4 265.4L297.4 105.4z"/>
+                                  </svg> : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon admin-icon-open">
+                                    <path d="M88 289.6L64.4 360.2L64.4 160C64.4 124.7 93.1 96 128.4 96L267.1 96C280.9 96 294.4 100.5 305.5 108.8L343.9 137.6C349.4 141.8 356.2 144 363.1 144L480.4 144C515.7 144 544.4 172.7 544.4 208L544.4 224L179 224C137.7 224 101 250.4 87.9 289.6zM509.8 512L131 512C98.2 512 75.1 479.9 85.5 448.8L133.5 304.8C140 285.2 158.4 272 179 272L557.8 272C590.6 272 613.7 304.1 603.3 335.2L555.3 479.2C548.8 498.8 530.4 512 509.8 512z"/>
+                                  </svg>}
+                                </button>
                               </div>
                             </div>
 
@@ -834,14 +827,196 @@ const Admin: React.FC = () => {
                                       value={event.image}
                                       onChange={(value) => updateEvent(index, 'image', value)}
                                       placeholder="ex: events/lancement.webp"
+                                      useButton={true}
                                     />
                                   </div>
+                                </div>
+                                
+                                {/* Bouton Save individuel */}
+                                <div className="form-row" style={{ marginTop: '15px', textAlign: 'right' }}>
+                                  <button 
+                                    onClick={(e) => handleButtonClick(handleSaveMessages, e.currentTarget)}
+                                    disabled={saving}
+                                    className="admin-btn success small admin-btn-custom"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon admin-icon-save">
+                                      <path d="M160 96C124.7 96 96 124.7 96 160L96 480C96 515.3 124.7 544 160 544L480 544C515.3 544 544 515.3 544 480L544 237.3C544 220.3 537.3 204 525.3 192L448 114.7C436 102.7 419.7 96 402.7 96L160 96zM192 192C192 174.3 206.3 160 224 160L384 160C401.7 160 416 174.3 416 192L416 256C416 273.7 401.7 288 384 288L224 288C206.3 288 192 273.7 192 256L192 192zM320 352C355.3 352 384 380.7 384 416C384 451.3 355.3 480 320 480C284.7 480 256 451.3 256 416C256 380.7 284.7 352 320 352z"/>
+                                    </svg>
+                                    {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+                                  </button>
                                 </div>
                               </div>
                             </div>
                           </div>
                         );
                       })
+                    )}
+                  </div>
+                )}
+
+                {/* Store / Merchandising */}
+                {activeTab === 'store' && (
+                  <div className="admin-items">
+                    {merchItems.length === 0 ? (
+                      <div className="admin-empty-state">
+                        🛍️
+                        <h3>Aucun article</h3>
+                        <p>Commencez par ajouter votre premier article de merchandising</p>
+                      </div>
+                    ) : (
+                      (() => {
+                        // Grouper les articles par catégorie
+                        const groupedItems = merchItems.reduce((acc, item, index) => {
+                          if (!acc[item.category]) {
+                            acc[item.category] = [];
+                          }
+                          acc[item.category].push({ ...item, originalIndex: index });
+                          return acc;
+                        }, {} as Record<string, Array<MerchItem & { originalIndex: number }>>);
+
+                        return Object.entries(groupedItems).map(([category, items]) => {
+                          const categoryId = `category-${category}`;
+                          const isExpanded = expandedItem === categoryId;
+                          const firstItem = items[0];
+                          const categoryNames: Record<string, string> = {
+                            'crewneck': 'CrewNeck',
+                            'hoodie': 'Hoodie',
+                            'tshirt': 'T-shirt',
+                            'bag': 'Sac',
+                            'other': 'Autre'
+                          };
+
+                          return (
+                            <div key={categoryId} className="admin-accordion-item">
+                              <div 
+                                className="admin-accordion-header"
+                                onClick={() => toggleAccordion(categoryId)}
+                              >
+                                <div className="accordion-info">
+                                  <h3 className="accordion-title">
+                                    {categoryNames[category] || category} ({items.length} variante{items.length > 1 ? 's' : ''})
+                                  </h3>
+                                  <div className="accordion-meta">
+                                    <span className="meta-category">{firstItem.category}</span>
+                                    <span className="meta-price">{firstItem.price}</span>
+                                    <span className={`meta-status ${firstItem.active ? 'active' : 'inactive'}`}>
+                                      {firstItem.active ? 'Actif' : 'Inactif'}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="accordion-actions">
+                                  <button className="admin-btn secondary small admin-btn-custom">
+                                    {isExpanded ? <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon">
+                                      <path d="M297.4 105.4C309.9 92.9 330.2 92.9 342.7 105.4L502.7 265.4C511.9 274.6 514.6 288.3 509.6 300.3C504.6 312.3 492.9 320 480 320L384 320L384 496C384 522.5 362.5 544 336 544L304 544C277.5 544 256 522.5 256 496L256 320L160 320C147.1 320 135.4 312.2 130.4 300.2C125.4 288.2 128.2 274.5 137.4 265.4L297.4 105.4z"/>
+                                    </svg> : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon admin-icon-open">
+                                      <path d="M88 289.6L64.4 360.2L64.4 160C64.4 124.7 93.1 96 128.4 96L267.1 96C280.9 96 294.4 100.5 305.5 108.8L343.9 137.6C349.4 141.8 356.2 144 363.1 144L480.4 144C515.7 144 544.4 172.7 544.4 208L544.4 224L179 224C137.7 224 101 250.4 87.9 289.6zM509.8 512L131 512C98.2 512 75.1 479.9 85.5 448.8L133.5 304.8C140 285.2 158.4 272 179 272L557.8 272C590.6 272 613.7 304.1 603.3 335.2L555.3 479.2C548.8 498.8 530.4 512 509.8 512z"/>
+                                    </svg>}
+                                  </button>
+                                </div>
+                              </div>
+                              
+                              <div className={`admin-accordion-content ${isExpanded ? 'expanded' : ''}`}>
+                                <div className="admin-form-grid">
+                                  <div className="form-group">
+                                    <label>Catégorie</label>
+                                    <select
+                                      value={firstItem.category}
+                                      onChange={(e) => {
+                                        items.forEach(item => updateMerchItem(item.originalIndex, 'category', e.target.value));
+                                      }}
+                                      className="admin-select"
+                                    >
+                                      <option value="crewneck">CrewNeck</option>
+                                      <option value="hoodie">Hoodie</option>
+                                      <option value="tshirt">T-shirt</option>
+                                      <option value="bag">Sac</option>
+                                      <option value="other">Autre</option>
+                                    </select>
+                                  </div>
+                                  
+                                  <div className="form-group">
+                                    <label>Prix (pour tous les articles de cette catégorie)</label>
+                                    <input
+                                      type="text"
+                                      value={firstItem.price}
+                                      onChange={(e) => {
+                                        items.forEach(item => updateMerchItem(item.originalIndex, 'price', e.target.value));
+                                      }}
+                                      placeholder="ex: 50$ CAD"
+                                    />
+                                  </div>
+                                  
+                                  <div className="form-group">
+                                    <label className="checkbox-label">
+                                      <input
+                                        type="checkbox"
+                                        checked={firstItem.active}
+                                        onChange={(e) => {
+                                          items.forEach(item => updateMerchItem(item.originalIndex, 'active', e.target.checked));
+                                        }}
+                                      />
+                                      <span className="checkmark"></span>
+                                      Tous les articles actifs (visibles sur le site)
+                                    </label>
+                                  </div>
+                                  
+                                  <div className="form-group full-width">
+                                    <label>Images ({items.length} variante{items.length > 1 ? 's' : ''})</label>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '0.5rem' }}>
+                                      {items.map((item, itemIndex) => (
+                                        <div key={item.originalIndex} style={{ border: '1px solid #404040', borderRadius: '8px', padding: '1rem' }}>
+                                          <div style={{ marginBottom: '0.5rem', fontWeight: 'bold' }}>
+                                            {item.caption}
+                                          </div>
+                                          <ImageUpload
+                                            value={item.src}
+                                            onChange={(value) => updateMerchItem(item.originalIndex, 'src', value)}
+                                            placeholder="ex: images/Merch_Tshirt-Front.webp"
+                                            useButton={true}
+                                          />
+                                          <div style={{ marginTop: '0.5rem' }}>
+                                            <input
+                                              type="text"
+                                              value={item.alt}
+                                              onChange={(e) => updateMerchItem(item.originalIndex, 'alt', e.target.value)}
+                                              placeholder="Texte alternatif"
+                                              style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #404040', background: '#2a2a2a', color: '#ffffff' }}
+                                            />
+                                          </div>
+                                          <button
+                                            onClick={() => removeMerchItem(item.originalIndex)}
+                                            className="admin-btn variant-delete small"
+                                            style={{ marginTop: '0.5rem', width: '100%' }}
+                                          >
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon">
+                                              <path d="M232.7 69.9L224 96L128 96C110.3 96 96 110.3 96 128C96 145.7 110.3 160 128 160L512 160C529.7 160 544 145.7 544 128C544 110.3 529.7 96 512 96L416 96L407.3 69.9C402.9 56.8 390.7 48 376.9 48L263.1 48C249.3 48 237.1 56.8 232.7 69.9zM512 208L128 208L149.1 531.1C150.7 556.4 171.7 576 197 576L443 576C468.3 576 489.3 556.4 490.9 531.1L512 208z"/>
+                                            </svg>
+                                            Supprimer cette variante
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Bouton Save individuel */}
+                                  <div className="form-row" style={{ marginTop: '15px', textAlign: 'right' }}>
+                                    <button 
+                                      onClick={(e) => handleButtonClick(handleSaveMessages, e.currentTarget)}
+                                      disabled={saving}
+                                      className="admin-btn success small admin-btn-custom"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon admin-icon-save">
+                                        <path d="M160 96C124.7 96 96 124.7 96 160L96 480C96 515.3 124.7 544 160 544L480 544C515.3 544 544 515.3 544 480L544 237.3C544 220.3 537.3 204 525.3 192L448 114.7C436 102.7 419.7 96 402.7 96L160 96zM192 192C192 174.3 206.3 160 224 160L384 160C401.7 160 416 174.3 416 192L416 256C416 273.7 401.7 288 384 288L224 288C206.3 288 192 273.7 192 256L192 192zM320 352C355.3 352 384 380.7 384 416C384 451.3 355.3 480 320 480C284.7 480 256 451.3 256 416C256 380.7 284.7 352 320 352z"/>
+                                      </svg>
+                                      {saving ? 'Sauvegarde...' : 'Sauvegarder'}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()
                     )}
                   </div>
                 )}
@@ -869,9 +1044,13 @@ const Admin: React.FC = () => {
                         </div>
                         
                         <div className="accordion-actions">
-                          <div className={`accordion-toggle ${expandedItem === 'bio' ? 'expanded' : ''}`}>
-                            <div className="arrow"></div>
-                          </div>
+                          <button className="admin-btn secondary small admin-btn-custom">
+                            {expandedItem === 'bio' ? <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon">
+                              <path d="M183.1 137.4C170.6 124.9 150.3 124.9 137.8 137.4C125.3 149.9 125.3 170.2 137.8 182.7L275.2 320L137.9 457.4C125.4 469.9 125.4 490.2 137.9 502.7C150.4 515.2 170.7 515.2 183.2 502.7L320.5 365.3L457.9 502.6C470.4 515.1 490.7 515.1 503.2 502.6C515.7 490.1 515.7 469.8 503.2 457.3L365.8 320L503.1 182.6C515.6 170.1 515.6 149.8 503.1 137.3C490.6 124.8 470.3 124.8 457.8 137.3L320.5 274.7L183.1 137.4z"/>
+                            </svg> : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon admin-icon-open">
+                              <path d="M88 289.6L64.4 360.2L64.4 160C64.4 124.7 93.1 96 128.4 96L267.1 96C280.9 96 294.4 100.5 305.5 108.8L343.9 137.6C349.4 141.8 356.2 144 363.1 144L480.4 144C515.7 144 544.4 172.7 544.4 208L544.4 224L179 224C137.7 224 101 250.4 87.9 289.6zM509.8 512L131 512C98.2 512 75.1 479.9 85.5 448.8L133.5 304.8C140 285.2 158.4 272 179 272L557.8 272C590.6 272 613.7 304.1 603.3 335.2L555.3 479.2C548.8 498.8 530.4 512 509.8 512z"/>
+                            </svg>}
+                          </button>
                         </div>
                       </div>
 
@@ -897,209 +1076,6 @@ const Admin: React.FC = () => {
                   </div>
                 )}
 
-                {/* Background */}
-                {activeTab === 'background' && (
-                  <div className="admin-items">
-                    <div className="admin-accordion-item">
-                      <div 
-                        className="admin-accordion-header"
-                        onClick={() => toggleAccordion('background')}
-                      >
-                        <div className="accordion-info">
-                          <h3 className="accordion-title">Paramètres du Background</h3>
-                          <div className="accordion-meta">
-                            <span className="meta-description">
-                              Fond d'écran du site principal
-                            </span>
-                            <span className="meta-length">
-                              {!backgroundSettings.useBackground ? 'Désactivé' : 
-                               backgroundSettings.backgroundType === 'gradient' ? 'Dégradé actif' : 
-                               backgroundSettings.defaultImage.startsWith('data:') ? 'Image uploadée' : 'Image par défaut'}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <div className="accordion-actions">
-                          <div className={`accordion-toggle ${expandedItem === 'background' ? 'expanded' : ''}`}>
-                            <div className="arrow"></div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className={`admin-accordion-content ${expandedItem === 'background' ? 'expanded' : ''}`}>
-                        <div className="accordion-form">
-                          <div className="form-row">
-                            <div className="form-group">
-                              <label>Utiliser un fond d'écran</label>
-                              <div className="toggle-switch">
-                                <input
-                                  type="checkbox"
-                                  id="useBackground"
-                                  checked={backgroundSettings.useBackground}
-                                  onChange={(e) => updateBackground('useBackground', e.target.checked)}
-                                />
-                                <label htmlFor="useBackground" className="toggle-label">
-                                  <span className="toggle-slider"></span>
-                                </label>
-                                <span className="toggle-text">
-                                  {backgroundSettings.useBackground ? 'Activé' : 'Désactivé'}
-                                </span>
-                              </div>
-                              <small className="form-help">
-                                Désactiver pour avoir un fond uni sans image.
-                              </small>
-                            </div>
-                          </div>
-
-                          {backgroundSettings.useBackground && (
-                            <>
-                              <div className="form-row">
-                                <div className="form-group">
-                                  <label>Type de fond</label>
-                                  <select
-                                    value={backgroundSettings.backgroundType}
-                                    onChange={(e) => updateBackground('backgroundType', e.target.value as 'image' | 'gradient')}
-                                    className="admin-select"
-                                  >
-                                    <option value="image">Image</option>
-                                    <option value="gradient">Dégradé</option>
-                                  </select>
-                                  <small className="form-help">
-                                    Choisir entre une image ou un dégradé de couleurs.
-                                  </small>
-                                </div>
-                              </div>
-
-                              {backgroundSettings.backgroundType === 'image' && (
-                                <div className="form-row">
-                                  <div className="form-group">
-                                    <label>Image de fond par défaut</label>
-                                    <ImageUpload
-                                      value={backgroundSettings.defaultImage}
-                                      onChange={(value) => updateBackground('defaultImage', value)}
-                                      placeholder="ex: images/mon-background.webp"
-                                    />
-                                    <small className="form-help">
-                                      Cette image sera utilisée comme fond par défaut du site. Les tracks de la playlist peuvent toujours changer le fond temporairement.
-                                    </small>
-                                  </div>
-                                </div>
-                              )}
-
-                              {backgroundSettings.backgroundType === 'gradient' && (
-                                <>
-                                  <div className="form-row">
-                                    <div className="form-group">
-                                      <label>Couleur 1 du dégradé</label>
-                                      <input
-                                        type="color"
-                                        value={backgroundSettings.gradientColor1}
-                                        onChange={(e) => updateBackground('gradientColor1', e.target.value)}
-                                        className="admin-color-picker"
-                                      />
-                                      <input
-                                        type="text"
-                                        value={backgroundSettings.gradientColor1}
-                                        onChange={(e) => updateBackground('gradientColor1', e.target.value)}
-                                        className="admin-input"
-                                        placeholder="#1a1a2e"
-                                      />
-                                    </div>
-                                  </div>
-
-                                  <div className="form-row">
-                                    <div className="form-group">
-                                      <label>Couleur 2 du dégradé</label>
-                                      <input
-                                        type="color"
-                                        value={backgroundSettings.gradientColor2}
-                                        onChange={(e) => updateBackground('gradientColor2', e.target.value)}
-                                        className="admin-color-picker"
-                                      />
-                                      <input
-                                        type="text"
-                                        value={backgroundSettings.gradientColor2}
-                                        onChange={(e) => updateBackground('gradientColor2', e.target.value)}
-                                        className="admin-input"
-                                        placeholder="#16213e"
-                                      />
-                                    </div>
-                                  </div>
-
-                                  <div className="form-row">
-                                    <div className="form-group">
-                                      <label>Direction du dégradé</label>
-                                      <select
-                                        value={backgroundSettings.gradientDirection}
-                                        onChange={(e) => updateBackground('gradientDirection', e.target.value)}
-                                        className="admin-select"
-                                      >
-                                        <option value="0deg">Vertical (haut → bas)</option>
-                                        <option value="90deg">Horizontal (gauche → droite)</option>
-                                        <option value="45deg">Diagonal (↗)</option>
-                                        <option value="135deg">Diagonal (↘)</option>
-                                        <option value="180deg">Vertical (bas → haut)</option>
-                                        <option value="270deg">Horizontal (droite → gauche)</option>
-                                      </select>
-                                    </div>
-                                  </div>
-                                </>
-                              )}
-                            </>
-                          )}
-
-                          {backgroundSettings.useBackground && (
-                            <div className="form-row">
-                              <div className="form-group">
-                                <label>Aperçu</label>
-                                <div className="background-preview">
-                                  {backgroundSettings.backgroundType === 'image' && backgroundSettings.defaultImage && (
-                                    <img 
-                                      src={backgroundSettings.defaultImage.startsWith('data:') ? backgroundSettings.defaultImage : `/${backgroundSettings.defaultImage}`}
-                                      alt="Aperçu du background"
-                                      style={{
-                                        width: '100%',
-                                        maxWidth: '300px',
-                                        height: '200px',
-                                        objectFit: 'cover',
-                                        borderRadius: '8px',
-                                        border: '1px solid var(--admin-border)'
-                                      }}
-                                      onError={(e) => {
-                                        const target = e.target as HTMLImageElement;
-                                        target.style.display = 'none';
-                                      }}
-                                    />
-                                  )}
-                                  {backgroundSettings.backgroundType === 'gradient' && (
-                                    <div
-                                      style={{
-                                        width: '100%',
-                                        maxWidth: '300px',
-                                        height: '200px',
-                                        background: `linear-gradient(${backgroundSettings.gradientDirection}, ${backgroundSettings.gradientColor1}, ${backgroundSettings.gradientColor2})`,
-                                        borderRadius: '8px',
-                                        border: '1px solid var(--admin-border)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        color: 'white',
-                                        fontSize: '14px',
-                                        fontWeight: '500'
-                                      }}
-                                    >
-                                      Aperçu du dégradé
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </main>
           </div>
