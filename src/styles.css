@@ -92,15 +92,7 @@ body {
 /* Ensure main content is above */
 .second-third-combined, .main-content, .second-third-combined .main-rectangle { position: relative; z-index: 1 !important; }
 
-/* Overlay above background */
-.page::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  background: none;
-}
+/* Overlay above background - SUPPRIMÉ */
 
 /* All UI content above overlay */
 .second-third-combined, .main-content, .menu, .mobile-layout { z-index: 2 !important; position: relative; }
@@ -109,12 +101,19 @@ body {
 .second-third-combined .main-rectangle {
   position: relative;
   z-index: 2 !important;
-  background: rgba(0, 0, 0, 0) !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
 }
 
-/* TRACK BACKGROUND OVERLAY FUNCTION - DESKTOP ONLY */
+/* TRACK BACKGROUND OVERLAY FUNCTION - DESKTOP ONLY - SEULEMENT QUAND TRACK ACTIVE */
 @media (min-width: 769px) {
+  /* Overlay caché par défaut */
   .page::before {
+    display: none !important;
+  }
+  
+  /* AFFICHER L'OVERLAY SEULEMENT QUAND TRACK ACTIVE */
+  .page.track-active::before {
     content: "";
     position: fixed;
     inset: 0;
@@ -126,6 +125,7 @@ body {
     background-repeat: no-repeat;
     opacity: 0.05;
     transition: background 0.5s ease;
+    display: block !important;
   }
 }
 
@@ -136,6 +136,37 @@ body {
   flex: 1;
   color: white;
   overflow-y: auto;
+}
+
+/* DESKTOP BACKGROUNDS - RESTAURER LES FONDS POUR DESKTOP */
+@media (min-width: 769px) {
+  .message-card,
+  .merch-item,
+  .store-message,
+  .news-message .message-card,
+  .bio-section,
+  .merch-section,
+  .events-section,
+  .store-section,
+  .message-section {
+    background: rgba(0, 0, 0, 0.2) !important;
+    backdrop-filter: blur(6px) !important;
+  }
+  
+  /* SECTIONS TRANSPARENTES DANS HOME SEULEMENT */
+  .home-section .main-rectangle,
+  .news-section,
+  .event-content {
+    background: transparent !important;
+    backdrop-filter: none !important;
+  }
+  
+  /* MAIN-RECTANGLE DANS EVENTS AVEC OPACITY VISIBLE */
+  .events-section .main-rectangle,
+  .second-third-combined .events-section .main-rectangle {
+    background: rgba(0, 0, 0, 0.2) !important;
+    backdrop-filter: blur(6px) !important;
+  }
 }
 
 .bio-text {
@@ -570,7 +601,7 @@ body {
 }
 
 .main-logo img {
-  width: 100%;
+  width: 98%;
   height: auto;
   opacity: 0.95;
 }

@@ -131,14 +131,14 @@ const socialLinks: {
 export default function MainApp() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [bgUrl, setBgUrl] = useState<string>("");
-  const [defaultBgUrl, setDefaultBgUrl] = useState<string>(
-    encodeURI(import.meta.env.BASE_URL + "images/mixtape37.webp")
-  );
+  const [defaultBgUrl, setDefaultBgUrl] = useState<string>("");
 
   const handleBgChange = (url: string) => {
     setBgUrl(url)
-    // Mettre à jour la variable CSS pour le desktop
+    // Mettre à jour la variable CSS pour le desktop et afficher l'overlay
     document.documentElement.style.setProperty('--track-bg', `url(${url})`);
+    // Ajouter la classe track-active pour afficher l'overlay
+    document.querySelector('.page')?.classList.add('track-active');
   }
   const [activeSection, setActiveSection] = useState("home");
   const [bioText, setBioText] = useState<string>("");
@@ -216,6 +216,13 @@ export default function MainApp() {
   // Initialiser la variable CSS pour le track background
   useEffect(() => {
     document.documentElement.style.setProperty('--track-bg', 'none');
+    // Supprimer la classe track-active pour cacher l'overlay
+    document.querySelector('.page')?.classList.remove('track-active');
+    // Forcer le refresh pour s'assurer qu'aucune image n'est chargée
+    setTimeout(() => {
+      document.documentElement.style.setProperty('--track-bg', 'none');
+      document.querySelector('.page')?.classList.remove('track-active');
+    }, 100);
   }, []);
 
   // Charger les paramètres de background depuis localStorage
@@ -362,27 +369,7 @@ export default function MainApp() {
 
   return (
     <>
-      {/* IMAGE DE LA TRACK EN BACKGROUND DYNAMIQUE */}
-      {bgUrl && !bgUrl.startsWith('linear-gradient') && (
-        <div
-          style={{
-            opacity: 0.12,
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            backgroundImage: `url(${bgUrl})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-            filter: 'blur(1px)',
-            zIndex: 1,
-            pointerEvents: 'none',
-            transition: 'all 0.8s ease-in-out'
-          }}
-        />
-      )}
+      {/* IMAGE DE LA TRACK EN BACKGROUND DYNAMIQUE - SUPPRIMÉ */}
       
       <div className="page">
         <div className="bg-stack">
