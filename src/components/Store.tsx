@@ -134,7 +134,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
       let category = 'other';
       
       // Identifier la catégorie
-      if (baseName.toLowerCase().includes('crewneck') || baseName.toLowerCase().includes('sweatshirt')) {
+      if (baseName.toLowerCase().includes('sweatshirt')) {
         category = 'sweatshirt';
         baseName = 'Sweatshirt';
       } else if (baseName.toLowerCase().includes('hoodie')) {
@@ -228,7 +228,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
     
     // Identifier la catégorie de l'item cliqué
     let category = 'other';
-    if (clickedItem.alt.toLowerCase().includes('crewneck') || clickedItem.alt.toLowerCase().includes('sweatshirt')) {
+    if (clickedItem.alt.toLowerCase().includes('sweatshirt')) {
       category = 'sweatshirt';
     } else if (clickedItem.alt.toLowerCase().includes('hoodie')) {
       category = 'hoodie';

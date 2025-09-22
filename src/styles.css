@@ -2080,7 +2080,7 @@ body.dark-mode .form-textarea:focus {
   transform: translate(-50%, -50%) rotate(45deg);
   width: 20px;
   height: 1px;
-  background: #ff4444;
+  background: #ffffff;
 }
 
 .cross::after {
@@ -2091,7 +2091,7 @@ body.dark-mode .form-textarea:focus {
   transform: translate(-50%, -50%) rotate(-45deg);
   width: 20px;
   height: 1px;
-  background: #ff4444;
+  background: #ffffff;
 }
 
 /* Mobile : afficher les tailles uniquement dans lightbox */
