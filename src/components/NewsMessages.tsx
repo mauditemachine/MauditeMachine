@@ -22,10 +22,12 @@ export default function NewsMessages(): JSX.Element {
         if (!cancelled) {
           // Utiliser l'ordre de l'admin (pas de tri par date)
           const messages = Array.isArray(data) ? data : []
+          console.log('Messages chargés dans NewsMessages:', messages)
           setMessages(messages)
         }
       } catch (err) {
         if (!cancelled) {
+          console.error('Erreur chargement messages:', err)
           setError('Failed to load messages')
         }
       }
@@ -37,11 +39,20 @@ export default function NewsMessages(): JSX.Element {
     // Écouter les mises à jour depuis l'admin
     const handleMessagesUpdate = () => {
       if (!cancelled) {
+        console.log('Événement messagesUpdated reçu, rechargement...')
         loadMessagesData()
       }
     }
     
     window.addEventListener('messagesUpdated', handleMessagesUpdate)
+    
+    // Forcer une synchronisation au démarrage
+    setTimeout(() => {
+      if (!cancelled) {
+        console.log('Synchronisation forcée des messages...')
+        loadMessagesData()
+      }
+    }, 1000)
     
     return () => { 
       cancelled = true

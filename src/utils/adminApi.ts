@@ -49,11 +49,16 @@ export const saveMessages = async (messages: Message[]): Promise<{ success: bool
 // Charger les messages depuis l'API
 export const loadMessages = async (): Promise<Message[]> => {
   try {
+    console.log('loadMessages appelé...');
+    
     // Vérifier d'abord s'il y a des modifications dans localStorage (admin)
     const savedMessages = localStorage.getItem('admin_messages_backup');
+    console.log('localStorage admin_messages_backup:', savedMessages ? 'présent' : 'absent');
+    
     if (savedMessages) {
       console.log('Chargement des messages modifiés depuis localStorage');
       const messages = JSON.parse(savedMessages);
+      console.log('Messages depuis localStorage:', messages);
       // Ajouter des IDs aux messages qui n'en ont pas
       return messages.map((msg: any, index: number) => ({
         ...msg,
@@ -61,12 +66,14 @@ export const loadMessages = async (): Promise<Message[]> => {
       }));
     }
     
+    console.log('Aucun message dans localStorage, chargement depuis /messages.json');
     // Sinon, charger depuis le fichier JSON public
     const response = await fetch('/messages.json');
     if (!response.ok) {
       throw new Error('Erreur lors du chargement des messages');
     }
     const messages = await response.json();
+    console.log('Messages depuis /messages.json:', messages);
     // Ajouter des IDs aux messages qui n'en ont pas
     return messages.map((msg: any, index: number) => ({
       ...msg,
