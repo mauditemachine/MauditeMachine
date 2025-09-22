@@ -2,8 +2,8 @@
   {
     "id": 1,
     "src": "images/Merch_CrewNeck-Back.webp",
-    "alt": "CrewNeck Back",
-    "caption": "CrewNeck - Back",
+    "alt": "Sweatshirt Back",
+    "caption": "Sweatshirt - Back",
     "price": "50$ CAD",
     "category": "sweatshirt",
     "active": true
@@ -11,8 +11,8 @@
   {
     "id": 2,
     "src": "images/Merch_CrewNeck-Front.webp",
-    "alt": "CrewNeck Front", 
-    "caption": "CrewNeck - Front",
+    "alt": "Sweatshirt Front", 
+    "caption": "Sweatshirt - Front",
     "price": "50$ CAD",
     "category": "sweatshirt",
     "active": true

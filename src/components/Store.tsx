@@ -43,8 +43,8 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
         console.error('Erreur lors du chargement du merchandising:', error);
         // En cas d'erreur, utiliser les données par défaut
         setMerchImages([
-          { src: 'images/Merch_CrewNeck-Back.webp', alt: 'CrewNeck', caption: 'CrewNeck', price: '50$ CAD' },
-          { src: 'images/Merch_CrewNeck-Front.webp', alt: 'CrewNeck', caption: 'CrewNeck', price: '50$ CAD' },
+          { src: 'images/Merch_CrewNeck-Back.webp', alt: 'Sweatshirt', caption: 'Sweatshirt', price: '50$ CAD' },
+          { src: 'images/Merch_CrewNeck-Front.webp', alt: 'Sweatshirt', caption: 'Sweatshirt', price: '50$ CAD' },
           { src: 'images/Merch_Hoodie-Back.webp', alt: 'Hoodie', caption: 'Hoodie', price: '50$ CAD' },
           { src: 'images/Merch_Hoodie F.webp', alt: 'Hoodie', caption: 'Hoodie', price: '50$ CAD' },
           { src: 'images/Merch_Bag-Brown.webp', alt: 'Bag Brown', caption: 'Hip Bag Brown', price: '80$ CAD' },
@@ -98,7 +98,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
       // Identifier la catégorie
       if (baseName.toLowerCase().includes('crewneck') || baseName.toLowerCase().includes('sweatshirt')) {
         category = 'sweatshirt';
-        baseName = 'CrewNeck';
+        baseName = 'Sweatshirt';
       } else if (baseName.toLowerCase().includes('hoodie')) {
         category = 'hoodie';
         baseName = 'Hoodie';
@@ -145,7 +145,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
     const grouped = groupMerchItems(items);
     const displayImages: MerchImage[] = [];
     
-    // Ordre spécifique : T-shirt, CrewNeck, Hoodie, puis Hip Bag Purple en premier
+    // Ordre spécifique : T-shirt, Sweatshirt, Hoodie, puis Hip Bag Purple en premier
     const categoryOrder = ['tshirt', 'sweatshirt', 'hoodie'];
     
     // Pour les vêtements, ne montrer que les vues dans l'ordre spécifié
