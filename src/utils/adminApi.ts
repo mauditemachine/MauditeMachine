@@ -64,7 +64,7 @@ export const loadMessages = async (): Promise<Message[]> => {
   try {
     console.log('loadMessages appelé...');
     
-    // Vérifier d'abord s'il y a des modifications dans localStorage (admin)
+    // PRIORITÉ ABSOLUE AU LOCALSTORAGE (admin)
     let savedMessages = null;
     try {
       savedMessages = localStorage.getItem('admin_messages_backup');
@@ -72,48 +72,31 @@ export const loadMessages = async (): Promise<Message[]> => {
       console.warn('Erreur accès localStorage:', e);
     }
     
-    console.log('localStorage admin_messages_backup:', savedMessages ? 'présent' : 'absent');
-    
     if (savedMessages) {
-      try {
-        console.log('Chargement des messages modifiés depuis localStorage');
-        const messages = JSON.parse(savedMessages);
-        console.log('Messages depuis localStorage:', messages);
-        // Ajouter des IDs aux messages qui n'en ont pas
-        return messages.map((msg: any, index: number) => ({
-          ...msg,
-          id: msg.id || `msg-${Date.now()}-${index}`
-        }));
-      } catch (e) {
-        console.warn('Erreur parsing localStorage, fallback vers JSON:', e);
-      }
+      console.log('✅ Messages admin trouvés dans localStorage');
+      const messages = JSON.parse(savedMessages);
+      console.log('Messages admin:', messages);
+      return messages.map((msg: any, index: number) => ({
+        ...msg,
+        id: msg.id || `msg-${Date.now()}-${index}`
+      }));
     }
     
-    console.log('Aucun message dans localStorage, chargement depuis /messages.json');
-    // Sinon, charger depuis le fichier JSON public
+    console.log('❌ Aucun message admin, chargement JSON statique');
+    // Fallback vers JSON statique
     const response = await fetch('/messages.json');
     if (!response.ok) {
       throw new Error('Erreur lors du chargement des messages');
     }
     const messages = await response.json();
-    console.log('Messages depuis /messages.json:', messages);
-    // Ajouter des IDs aux messages qui n'en ont pas
+    console.log('Messages JSON statique:', messages);
     return messages.map((msg: any, index: number) => ({
       ...msg,
       id: msg.id || `msg-${Date.now()}-${index}`
     }));
   } catch (error) {
     console.error('Erreur lors du chargement des messages:', error);
-    // Fallback en cas d'erreur
-    return [
-      {
-        id: 'fallback-1',
-        title: 'Stay tuned',
-        description: 'News and announcements coming soon.',
-        image: 'images/Simetra.webp',
-        date: new Date().toISOString().split('T')[0]
-      }
-    ];
+    return [];
   }
 };
 

@@ -47,38 +47,33 @@ export default function NewsMessages(): JSX.Element {
     // Écouter les événements personnalisés
     window.addEventListener('messagesUpdated', handleMessagesUpdate)
     
-    // Écouter les changements de localStorage (pour Safari)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'admin_messages_backup' && e.newValue) {
-        if (!cancelled) {
-          console.log('Changement localStorage détecté, rechargement...')
-          loadMessagesData()
-        }
-      }
-    }
-    
-    window.addEventListener('storage', handleStorageChange)
-    
-    // Forcer une synchronisation périodique (pour Safari)
+    // SYNCHRONISATION AGRESSIVE POUR MOBILE - toutes les 2 secondes
     const syncInterval = setInterval(() => {
       if (!cancelled) {
-        console.log('Synchronisation périodique des messages...')
+        console.log('Synchronisation mobile des messages...')
         loadMessagesData()
       }
-    }, 5000) // Toutes les 5 secondes
+    }, 2000) // Toutes les 2 secondes pour mobile
     
-    // Forcer une synchronisation au démarrage
+    // Forcer une synchronisation immédiate au démarrage
     setTimeout(() => {
       if (!cancelled) {
-        console.log('Synchronisation forcée des messages...')
+        console.log('Synchronisation immédiate des messages...')
         loadMessagesData()
       }
-    }, 1000)
+    }, 500)
+    
+    // Forcer une synchronisation après 3 secondes
+    setTimeout(() => {
+      if (!cancelled) {
+        console.log('Synchronisation différée des messages...')
+        loadMessagesData()
+      }
+    }, 3000)
     
     return () => { 
       cancelled = true
       window.removeEventListener('messagesUpdated', handleMessagesUpdate)
-      window.removeEventListener('storage', handleStorageChange)
       clearInterval(syncInterval)
     }
   }, [])
