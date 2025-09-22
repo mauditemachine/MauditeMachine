@@ -29,9 +29,22 @@ export const saveMessages = async (messages: Message[]): Promise<{ success: bool
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     // Sauvegarder dans localStorage (source de vérité pour les modifications)
-    localStorage.setItem('admin_messages_backup', JSON.stringify(messages));
-    
-    console.log('Messages sauvegardés dans localStorage:', messages);
+    try {
+      localStorage.setItem('admin_messages_backup', JSON.stringify(messages));
+      console.log('Messages sauvegardés dans localStorage:', messages);
+      
+      // Déclencher un événement storage pour Safari
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'admin_messages_backup',
+        newValue: JSON.stringify(messages),
+        oldValue: localStorage.getItem('admin_messages_backup'),
+        storageArea: localStorage
+      }));
+      
+    } catch (e) {
+      console.warn('Erreur sauvegarde localStorage:', e);
+      // Continuer même si localStorage échoue
+    }
     
     return {
       success: true,
@@ -52,18 +65,28 @@ export const loadMessages = async (): Promise<Message[]> => {
     console.log('loadMessages appelé...');
     
     // Vérifier d'abord s'il y a des modifications dans localStorage (admin)
-    const savedMessages = localStorage.getItem('admin_messages_backup');
+    let savedMessages = null;
+    try {
+      savedMessages = localStorage.getItem('admin_messages_backup');
+    } catch (e) {
+      console.warn('Erreur accès localStorage:', e);
+    }
+    
     console.log('localStorage admin_messages_backup:', savedMessages ? 'présent' : 'absent');
     
     if (savedMessages) {
-      console.log('Chargement des messages modifiés depuis localStorage');
-      const messages = JSON.parse(savedMessages);
-      console.log('Messages depuis localStorage:', messages);
-      // Ajouter des IDs aux messages qui n'en ont pas
-      return messages.map((msg: any, index: number) => ({
-        ...msg,
-        id: msg.id || `msg-${Date.now()}-${index}`
-      }));
+      try {
+        console.log('Chargement des messages modifiés depuis localStorage');
+        const messages = JSON.parse(savedMessages);
+        console.log('Messages depuis localStorage:', messages);
+        // Ajouter des IDs aux messages qui n'en ont pas
+        return messages.map((msg: any, index: number) => ({
+          ...msg,
+          id: msg.id || `msg-${Date.now()}-${index}`
+        }));
+      } catch (e) {
+        console.warn('Erreur parsing localStorage, fallback vers JSON:', e);
+      }
     }
     
     console.log('Aucun message dans localStorage, chargement depuis /messages.json');
@@ -81,7 +104,16 @@ export const loadMessages = async (): Promise<Message[]> => {
     }));
   } catch (error) {
     console.error('Erreur lors du chargement des messages:', error);
-    throw error;
+    // Fallback en cas d'erreur
+    return [
+      {
+        id: 'fallback-1',
+        title: 'Stay tuned',
+        description: 'News and announcements coming soon.',
+        image: 'images/Simetra.webp',
+        date: new Date().toISOString().split('T')[0]
+      }
+    ];
   }
 };
 

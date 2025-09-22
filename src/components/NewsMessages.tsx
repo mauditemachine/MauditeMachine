@@ -44,7 +44,28 @@ export default function NewsMessages(): JSX.Element {
       }
     }
     
+    // Écouter les événements personnalisés
     window.addEventListener('messagesUpdated', handleMessagesUpdate)
+    
+    // Écouter les changements de localStorage (pour Safari)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'admin_messages_backup' && e.newValue) {
+        if (!cancelled) {
+          console.log('Changement localStorage détecté, rechargement...')
+          loadMessagesData()
+        }
+      }
+    }
+    
+    window.addEventListener('storage', handleStorageChange)
+    
+    // Forcer une synchronisation périodique (pour Safari)
+    const syncInterval = setInterval(() => {
+      if (!cancelled) {
+        console.log('Synchronisation périodique des messages...')
+        loadMessagesData()
+      }
+    }, 5000) // Toutes les 5 secondes
     
     // Forcer une synchronisation au démarrage
     setTimeout(() => {
@@ -57,6 +78,8 @@ export default function NewsMessages(): JSX.Element {
     return () => { 
       cancelled = true
       window.removeEventListener('messagesUpdated', handleMessagesUpdate)
+      window.removeEventListener('storage', handleStorageChange)
+      clearInterval(syncInterval)
     }
   }, [])
 
