@@ -19,10 +19,16 @@ export default function NewsMessages(): JSX.Element {
     const loadMessagesData = async () => {
       try {
         console.log('🔄 Chargement des messages...')
-        const data = await loadMessages()
+        
+        // FORCER le chargement depuis le JSON public (production)
+        const response = await fetch('/messages.json?t=' + Date.now())
+        if (!response.ok) {
+          throw new Error('Erreur lors du chargement des messages')
+        }
+        const messages = await response.json()
+        
         if (!cancelled) {
-          const messages = Array.isArray(data) ? data : []
-          console.log('✅ Messages chargés:', messages.length, 'messages')
+          console.log('✅ Messages chargés depuis JSON:', messages.length, 'messages')
           setMessages(messages)
         }
       } catch (err) {
@@ -46,13 +52,13 @@ export default function NewsMessages(): JSX.Element {
     
     window.addEventListener('messagesUpdated', handleMessagesUpdate)
     
-    // SYNCHRONISATION ULTRA-AGRESSIVE - toutes les 1 seconde
+    // SYNCHRONISATION ULTRA-AGRESSIVE - toutes les 2 secondes
     const syncInterval = setInterval(() => {
       if (!cancelled) {
         console.log('🔄 Sync automatique...')
         loadMessagesData()
       }
-    }, 1000) // Toutes les 1 seconde
+    }, 2000) // Toutes les 2 secondes
     
     // Sync immédiate après 100ms
     setTimeout(() => {
@@ -77,6 +83,14 @@ export default function NewsMessages(): JSX.Element {
         loadMessagesData()
       }
     }, 3000)
+    
+    // Sync après 5 secondes
+    setTimeout(() => {
+      if (!cancelled) {
+        console.log('🔄 Sync 5s...')
+        loadMessagesData()
+      }
+    }, 5000)
     
     return () => { 
       cancelled = true
