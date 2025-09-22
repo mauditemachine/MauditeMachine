@@ -2011,7 +2011,8 @@ body.dark-mode .form-textarea:focus {
 
 .merch-caption {
   text-align: center;
-  padding: 8px 0;
+  padding: 12px;
+  margin-bottom: 12px;
   color: rgba(255, 255, 255, 0.9);
   font-size: 16px;
   font-weight: 500;
