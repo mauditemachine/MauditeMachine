@@ -1071,7 +1071,7 @@ const Admin: React.FC = () => {
                           const isExpanded = expandedItem === categoryId;
                           const firstItem = items[0];
                           const categoryNames: Record<string, string> = {
-                            'crewneck': 'CrewNeck',
+                            'sweatshirt': 'Sweatshirt',
                             'hoodie': 'Hoodie',
                             'tshirt': 'T-shirt',
                             'bag': 'Sac',
@@ -1120,7 +1120,7 @@ const Admin: React.FC = () => {
                                       }}
                                       className="admin-select"
                                     >
-                                      <option value="crewneck">CrewNeck</option>
+                                      <option value="sweatshirt">Sweatshirt</option>
                                       <option value="hoodie">Hoodie</option>
                                       <option value="tshirt">T-shirt</option>
                                       <option value="bag">Sac</option>

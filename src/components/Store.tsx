@@ -96,8 +96,8 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
       let category = 'other';
       
       // Identifier la catégorie
-      if (baseName.toLowerCase().includes('crewneck')) {
-        category = 'crewneck';
+      if (baseName.toLowerCase().includes('crewneck') || baseName.toLowerCase().includes('sweatshirt')) {
+        category = 'sweatshirt';
         baseName = 'CrewNeck';
       } else if (baseName.toLowerCase().includes('hoodie')) {
         category = 'hoodie';
@@ -146,7 +146,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
     const displayImages: MerchImage[] = [];
     
     // Ordre spécifique : T-shirt, CrewNeck, Hoodie, puis Hip Bag Purple en premier
-    const categoryOrder = ['tshirt', 'crewneck', 'hoodie'];
+    const categoryOrder = ['tshirt', 'sweatshirt', 'hoodie'];
     
     // Pour les vêtements, ne montrer que les vues dans l'ordre spécifié
     categoryOrder.forEach(category => {
@@ -190,8 +190,8 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
     
     // Identifier la catégorie de l'item cliqué
     let category = 'other';
-    if (clickedItem.alt.toLowerCase().includes('crewneck')) {
-      category = 'crewneck';
+    if (clickedItem.alt.toLowerCase().includes('crewneck') || clickedItem.alt.toLowerCase().includes('sweatshirt')) {
+      category = 'sweatshirt';
     } else if (clickedItem.alt.toLowerCase().includes('hoodie')) {
       category = 'hoodie';
     } else if (clickedItem.alt.toLowerCase().includes('tshirt') || clickedItem.alt.toLowerCase().includes('t-shirt')) {
