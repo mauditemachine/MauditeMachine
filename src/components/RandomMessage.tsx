@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { loadMessages, Message } from '../utils/adminApi'
 
 type LinkInfo = {
   label: string
@@ -24,23 +25,45 @@ export default function RandomMessage({ className = '', offset = 0, items: prese
       setItems(presetItems)
       return
     }
-    const url = `${import.meta.env.BASE_URL}messages.json?v=${Date.now()}`
-    fetch(url, { cache: 'no-cache' })
-      .then(r => r.json())
-      .then((data: MessageItem[]) => { if (!cancelled) setItems(Array.isArray(data) ? data : []) })
-      .catch(() => {
-        if (cancelled) return
-        setError('load_failed')
-        // Fallback pour garder une visibilité si le JSON ne charge pas
-        setItems([
-          {
-            title: 'Stay tuned',
-            description: 'News and announcements coming soon.',
-            image: import.meta.env.BASE_URL + 'images/Simetra.webp'
-          }
-        ])
-      })
-    return () => { cancelled = true }
+    
+    // Utiliser loadMessages() pour la cohérence avec l'admin
+    const loadMessagesData = async () => {
+      try {
+        const data = await loadMessages()
+        if (!cancelled) {
+          const messages = Array.isArray(data) ? data : []
+          setItems(messages)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError('load_failed')
+          // Fallback pour garder une visibilité si le JSON ne charge pas
+          setItems([
+            {
+              title: 'Stay tuned',
+              description: 'News and announcements coming soon.',
+              image: import.meta.env.BASE_URL + 'images/Simetra.webp'
+            }
+          ])
+        }
+      }
+    }
+    
+    loadMessagesData()
+    
+    // Écouter les mises à jour de l'admin
+    const handleMessagesUpdate = () => {
+      if (!cancelled) {
+        loadMessagesData()
+      }
+    }
+    
+    window.addEventListener('messagesUpdated', handleMessagesUpdate)
+    
+    return () => { 
+      cancelled = true
+      window.removeEventListener('messagesUpdated', handleMessagesUpdate)
+    }
   }, [presetItems])
 
   useEffect(() => {

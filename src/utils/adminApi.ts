@@ -28,18 +28,10 @@ export const saveMessages = async (messages: Message[]): Promise<{ success: bool
     // Simulation d'un délai de réseau
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Dans un vrai projet, vous feriez ici un appel API :
-    // const response = await fetch('/api/messages', {
-    //   method: 'PUT',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(messages)
-    // });
-    
-    // Pour l'instant, on simule juste une sauvegarde réussie
-    console.log('Messages à sauvegarder:', messages);
-    
-    // Vous pourriez aussi sauvegarder dans localStorage pour les tests
+    // Sauvegarder dans localStorage (source de vérité pour les modifications)
     localStorage.setItem('admin_messages_backup', JSON.stringify(messages));
+    
+    console.log('Messages sauvegardés dans localStorage:', messages);
     
     return {
       success: true,
@@ -57,7 +49,7 @@ export const saveMessages = async (messages: Message[]): Promise<{ success: bool
 // Charger les messages depuis l'API
 export const loadMessages = async (): Promise<Message[]> => {
   try {
-    // Vérifier d'abord s'il y a des modifications dans localStorage
+    // Vérifier d'abord s'il y a des modifications dans localStorage (admin)
     const savedMessages = localStorage.getItem('admin_messages_backup');
     if (savedMessages) {
       console.log('Chargement des messages modifiés depuis localStorage');
