@@ -7,7 +7,7 @@ interface ImageUploadProps {
   useButton?: boolean; // Nouvelle prop pour choisir entre bouton et drop zone
 }
 
-const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, placeholder = "ex: images/Simetra.webp", useButton = false }) => {
+const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, placeholder = "", useButton = false }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -225,9 +225,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, placeholder 
                 </>
               )}
             </button>
-            <small style={{ display: 'block', color: '#888', marginBottom: '10px' }}>
-              Formats acceptés: JPG, PNG, WEBP (max 2MB)
-            </small>
           </div>
         ) : (
           <div
@@ -246,7 +243,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, placeholder 
               <div className="upload-content">
                 <i className="fa-solid fa-cloud-upload-alt"></i>
                 <p>Glissez-déposez une image ici ou cliquez pour parcourir</p>
-                <small>Formats acceptés: JPG, PNG, WEBP (max 2MB)</small>
               </div>
             )}
           </div>
@@ -295,9 +291,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, placeholder 
           className="admin-form-input"
           style={{ marginTop: '10px' }}
         />
-        <small className="upload-help">
-          Vous pouvez aussi saisir manuellement le chemin de l'image (ex: images/Simetra.webp)
-        </small>
       </div>
     </div>
   );

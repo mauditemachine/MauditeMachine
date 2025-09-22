@@ -43,19 +43,19 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
         console.error('Erreur lors du chargement du merchandising:', error);
         // En cas d'erreur, utiliser les données par défaut
         setMerchImages([
-          { src: 'images/Merch_CrewNeck-Back.webp', alt: 'CrewNeck Back', caption: 'CrewNeck - Back', price: '50$ CAD' },
-          { src: 'images/Merch_CrewNeck-Front.webp', alt: 'CrewNeck Front', caption: 'CrewNeck - Front', price: '50$ CAD' },
-          { src: 'images/Merch_Hoodie-Back.webp', alt: 'Hoodie Back', caption: 'Hoodie - Back', price: '50$ CAD' },
-          { src: 'images/Merch_Hoodie F.webp', alt: 'Hoodie Front', caption: 'Hoodie - Front', price: '50$ CAD' },
-          { src: 'images/Merch_Bag-Brown.webp', alt: 'Bag Brown', caption: 'Bag - Brown', price: '80$ CAD' },
-          { src: 'images/Merch_Bag-Orange.webp', alt: 'Bag Orange', caption: 'Bag - Orange', price: '80$ CAD' },
-          { src: 'images/Merch_Bag-Pink.webp', alt: 'Bag Pink', caption: 'Bag - Pink', price: '80$ CAD' },
-          { src: 'images/Merch_Bag-red.webp', alt: 'Bag Red', caption: 'Bag - Red', price: '80$ CAD' },
-          { src: 'images/Merch_Bag-Purple.webp', alt: 'Bag Purple', caption: 'Bag - Purple', price: '80$ CAD' },
-          { src: 'images/Merch_Sylvain-Tshirt-Back.webp', alt: 'Sylvain Tshirt Back', caption: 'Sylvain T-shirt - Back', price: '40$ CAD' },
-          { src: 'images/Merch_Sylvain-Tshirt-Front.webp', alt: 'Sylvain Tshirt Front', caption: 'Sylvain T-shirt - Front', price: '40$ CAD' },
-          { src: 'images/Merch_Tshirt-Back.webp', alt: 'Tshirt Back', caption: 'T-shirt - Back', price: '40$ CAD' },
-          { src: 'images/Merch_Tshirt-Front.webp', alt: 'Tshirt Front', caption: 'T-shirt - Front', price: '40$ CAD' }
+          { src: 'images/Merch_CrewNeck-Back.webp', alt: 'CrewNeck', caption: 'CrewNeck', price: '50$ CAD' },
+          { src: 'images/Merch_CrewNeck-Front.webp', alt: 'CrewNeck', caption: 'CrewNeck', price: '50$ CAD' },
+          { src: 'images/Merch_Hoodie-Back.webp', alt: 'Hoodie', caption: 'Hoodie', price: '50$ CAD' },
+          { src: 'images/Merch_Hoodie F.webp', alt: 'Hoodie', caption: 'Hoodie', price: '50$ CAD' },
+          { src: 'images/Merch_Bag-Brown.webp', alt: 'Bag Brown', caption: 'Hip Bag Brown', price: '80$ CAD' },
+          { src: 'images/Merch_Bag-Orange.webp', alt: 'Bag Orange', caption: 'Hip-Bag Orange', price: '80$ CAD' },
+          { src: 'images/Merch_Bag-Pink.webp', alt: 'Bag Pink', caption: 'Hip-Bag Pink', price: '80$ CAD' },
+          { src: 'images/Merch_Bag-red.webp', alt: 'Bag Red', caption: 'Hip-Bag Red', price: '80$ CAD' },
+          { src: 'images/Merch_Bag-Purple.webp', alt: 'Bag Purple', caption: 'Hip-Bag Purple', price: '80$ CAD' },
+          { src: 'images/Merch_Sylvain-Tshirt-Back.webp', alt: 'Sylvain Tshirt', caption: 'Sylvain T-shirt', price: '40$ CAD' },
+          { src: 'images/Merch_Sylvain-Tshirt-Front.webp', alt: 'Sylvain Tshirt', caption: 'Sylvain T-shirt', price: '40$ CAD' },
+          { src: 'images/Merch_Tshirt-Back.webp', alt: 'Tshirt', caption: 'T-shirt', price: '40$ CAD' },
+          { src: 'images/Merch_Tshirt-Front.webp', alt: 'Tshirt', caption: 'T-shirt', price: '40$ CAD' }
         ]);
       } finally {
         setLoading(false);
@@ -63,6 +63,27 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
     };
 
     loadMerchData();
+
+    // Écouter les changements dans localStorage pour recharger les données
+    const handleStorageChange = () => {
+      loadMerchData();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Écouter les changements dans la même fenêtre (pour les modifications dans l'admin)
+    const handleCustomStorageChange = (e: CustomEvent) => {
+      if (e.detail.key === 'merchItems') {
+        loadMerchData();
+      }
+    };
+
+    window.addEventListener('merchItemsUpdated', handleCustomStorageChange as EventListener);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('merchItemsUpdated', handleCustomStorageChange as EventListener);
+    };
   }, []);
 
   // Fonction pour regrouper les articles par catégorie et masquer les vues "Back"
@@ -95,7 +116,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
       grouped[category].push(item);
     });
     
-    // Trier les T-shirts : T-shirt Front, T-shirt Back, Sylvain T-shirt Front, Sylvain T-shirt Back
+    // Trier les T-shirts : T-shirt, T-shirt, Sylvain T-shirt, Sylvain T-shirt
     if (grouped['tshirt']) {
       grouped['tshirt'].sort((a, b) => {
         const aIsSylvain = a.alt.toLowerCase().includes('sylvain');
@@ -103,11 +124,11 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
         const aIsBack = a.alt.toLowerCase().includes('back');
         const bIsBack = b.alt.toLowerCase().includes('back');
         
-        // Ordre : T-shirt Front, T-shirt Back, Sylvain Front, Sylvain Back
+        // Ordre : T-shirt, T-shirt, Sylvain, Sylvain
         if (!aIsSylvain && !bIsSylvain) {
-          return aIsBack ? 1 : -1; // T-shirt Front avant T-shirt Back
+          return aIsBack ? 1 : -1; // T-shirt avant T-shirt
         } else if (aIsSylvain && bIsSylvain) {
-          return aIsBack ? 1 : -1; // Sylvain Front avant Sylvain Back
+          return aIsBack ? 1 : -1; // Sylvain avant Sylvain
         } else if (!aIsSylvain && bIsSylvain) {
           return -1; // T-shirt avant Sylvain
         } else {
@@ -119,7 +140,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
     return grouped;
   };
 
-  // Fonction pour obtenir les images à afficher (masquer les vues Back pour les vêtements)
+  // Fonction pour obtenir les images à afficher (masquer les vues pour les vêtements)
   const getDisplayImages = (items: MerchImage[]) => {
     const grouped = groupMerchItems(items);
     const displayImages: MerchImage[] = [];
@@ -127,21 +148,21 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
     // Ordre spécifique : T-shirt, CrewNeck, Hoodie, puis Hip Bag Purple en premier
     const categoryOrder = ['tshirt', 'crewneck', 'hoodie'];
     
-    // Pour les vêtements, ne montrer que les vues Front dans l'ordre spécifié
+    // Pour les vêtements, ne montrer que les vues dans l'ordre spécifié
     categoryOrder.forEach(category => {
       if (grouped[category]) {
         if (category === 'tshirt') {
-          // Pour les T-shirts, afficher seulement T-shirt Front (pas Sylvain)
+          // Pour les T-shirts, afficher seulement T-shirt (pas Sylvain)
           const tshirtFront = grouped[category].find(item => 
             !item.alt.toLowerCase().includes('back') && !item.alt.toLowerCase().includes('sylvain')
           );
           
           if (tshirtFront) displayImages.push(tshirtFront);
         } else {
-          // Pour les autres vêtements, ne montrer que les vues Front
-          const frontItems = grouped[category].filter(item => 
-            !item.alt.toLowerCase().includes('back')
-          );
+         // Pour les autres vêtements, ne montrer que les vues
+         const frontItems = grouped[category].filter(item => 
+           !item.alt.toLowerCase().includes('back')
+         );
           if (frontItems.length > 0) {
             displayImages.push(...frontItems);
           }
@@ -182,7 +203,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
     // Retourner toutes les images du groupe
     let groupImages = grouped[category] || [clickedItem];
     
-    // Pour les T-shirts, réorganiser pour l'ordre : T-shirt Front, T-shirt Back, Sylvain Front, Sylvain Back
+    // Pour les T-shirts, réorganiser pour l'ordre : T-shirt, T-shirt, Sylvain, Sylvain
     if (category === 'tshirt') {
       const tshirtFront = groupImages.find(item => 
         !item.alt.toLowerCase().includes('back') && !item.alt.toLowerCase().includes('sylvain')
@@ -322,7 +343,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
             <div className="merch-image-container">
               <img 
                 src={image.src}
-                alt={image.caption || image.alt}
+                alt={image.alt}
                 className="merch-image"
                 loading="lazy"
                 onError={(e) => {
@@ -337,21 +358,10 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
                 <i className="fas fa-search-plus"></i>
               </div>
             </div>
-            {/* Caption de l'image */}
+            
+            {/* Nom de l'image */}
             {image.caption && (
-              <div style={{
-                position: 'absolute',
-                bottom: image.soldOut ? '50px' : '10px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                background: 'rgba(0, 0, 0, 0.8)',
-                color: 'white',
-                padding: '6px 12px',
-                borderRadius: '4px',
-                fontSize: '12px',
-                textAlign: 'center',
-                zIndex: 10
-              }}>
+              <div className="merch-caption">
                 {image.caption}
               </div>
             )}
@@ -363,7 +373,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
                 bottom: '10px',
                 left: '50%',
                 transform: 'translateX(-50%)',
-                background: 'rgba(255, 0, 0, 0.9)',
+                  background: 'rgba(255, 0, 0, 0.9)',
                 color: 'white',
                 padding: '8px 16px',
                 borderRadius: '4px',
@@ -423,14 +433,17 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
             <div className="lightbox-image-container">
               <img 
                 src={currentGroupImages[currentImageIndex].src}
-                alt={currentGroupImages[currentImageIndex].caption || currentGroupImages[currentImageIndex].alt}
+                alt={currentGroupImages[currentImageIndex].alt}
                 className="lightbox-image"
               />
+              
+              {/* Caption de l'image */}
               {currentGroupImages[currentImageIndex].caption && (
                 <div className="lightbox-caption">
                   {currentGroupImages[currentImageIndex].caption}
                 </div>
               )}
+              
               {/* Prix */}
               {currentGroupImages[currentImageIndex].price && (
                 <div className="lightbox-price">
@@ -444,7 +457,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
                   bottom: '20px',
                   left: '50%',
                   transform: 'translateX(-50%)',
-                  background: 'rgba(255, 0, 0, 0.9)',
+                 background: 'rgba(255, 0, 0, 0.9)',
                   color: 'white',
                   padding: '12px 24px',
                   borderRadius: '6px',

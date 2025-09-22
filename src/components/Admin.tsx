@@ -554,6 +554,12 @@ const Admin: React.FC = () => {
       if (result.success) {
         setMessage('Modification sauvegardée !');
         setTimeout(() => setMessage(''), 2000);
+        
+        // Déclencher un événement personnalisé pour notifier le Store
+        const event = new CustomEvent('merchItemsUpdated', {
+          detail: { key: 'merchItems', data: updatedMerchItems }
+        });
+        window.dispatchEvent(event);
       } else {
         setMessage('Erreur lors de la sauvegarde');
         setTimeout(() => setMessage(''), 3000);
@@ -1169,9 +1175,9 @@ const Admin: React.FC = () => {
                                           <div style={{ marginTop: '0.5rem' }}>
                                             <input
                                               type="text"
-                                              value={item.alt}
-                                              onChange={async (e) => await updateMerchItem(item.originalIndex, 'alt', e.target.value)}
-                                              placeholder="Texte alternatif"
+                                              value={item.caption}
+                                              onChange={async (e) => await updateMerchItem(item.originalIndex, 'caption', e.target.value)}
+                                              placeholder="Nom affiché sous l'image"
                                               style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #404040', background: '#2a2a2a', color: '#ffffff' }}
                                             />
                                           </div>

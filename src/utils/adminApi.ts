@@ -180,19 +180,40 @@ export const saveMerchItems = async (merchItems: MerchItem[]): Promise<{ success
 // Charger les articles de merchandising depuis l'API
 export const loadMerchItems = async (): Promise<MerchItem[]> => {
   try {
+    let merchItems: MerchItem[] = [];
+    
     // Vérifier d'abord s'il y a des modifications dans localStorage
     const savedMerch = localStorage.getItem('admin_merch_backup');
     if (savedMerch) {
       console.log('Chargement du merchandising modifié depuis localStorage');
-      return JSON.parse(savedMerch);
+      merchItems = JSON.parse(savedMerch);
+    } else {
+      // Sinon, charger depuis le fichier JSON public
+      const response = await fetch('/store.json');
+      if (!response.ok) {
+        throw new Error('Erreur lors du chargement du merchandising');
+      }
+      merchItems = await response.json();
     }
     
-    // Sinon, charger depuis le fichier JSON public
-    const response = await fetch('/store.json');
-    if (!response.ok) {
-      throw new Error('Erreur lors du chargement du merchandising');
+    // Nettoyer automatiquement les noms avec "- Front"
+    const cleanedItems = merchItems.map(item => ({
+      ...item,
+      caption: item.caption?.replace(/\s*-\s*Front\s*$/i, '').trim() || item.caption
+    }));
+    
+    // Si des noms ont été nettoyés, sauvegarder automatiquement
+    const hasChanges = cleanedItems.some((item, index) => 
+      item.caption !== merchItems[index].caption
+    );
+    
+    if (hasChanges) {
+      console.log('Nettoyage automatique des noms avec "- Front"');
+      await saveMerchItems(cleanedItems);
+      return cleanedItems;
     }
-    return await response.json();
+    
+    return merchItems;
   } catch (error) {
     console.error('Erreur lors du chargement du merchandising:', error);
     throw error;
