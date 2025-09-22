@@ -81,7 +81,30 @@ export const loadMessages = async (): Promise<Message[]> => {
       console.warn('⚠️ Erreur localStorage:', e);
     }
     
-    // 2. FALLBACK VERS JSON STATIQUE
+    // 2. ESSAYER DE RÉCUPÉRER LES DONNÉES DE L'ADMIN EN PRODUCTION
+    try {
+      console.log('🌐 Tentative de récupération des données admin...');
+      const adminResponse = await fetch('https://mauditemachine.com/ms-admin');
+      if (adminResponse.ok) {
+        const adminHtml = await adminResponse.text();
+        // Chercher les données dans le HTML de l'admin
+        const match = adminHtml.match(/admin_messages_backup['"]\s*:\s*['"]([^'"]+)['"]/);
+        if (match) {
+          const encodedData = match[1];
+          const decodedData = decodeURIComponent(encodedData);
+          const messages = JSON.parse(decodedData);
+          console.log('✅ Messages admin récupérés depuis la production:', messages.length, 'messages');
+          return messages.map((msg: any, index: number) => ({
+            ...msg,
+            id: msg.id || `msg-${Date.now()}-${index}`
+          }));
+        }
+      }
+    } catch (e) {
+      console.warn('⚠️ Erreur récupération admin:', e);
+    }
+    
+    // 3. FALLBACK VERS JSON STATIQUE
     console.log('📄 Chargement depuis /messages.json...');
     const response = await fetch('/messages.json');
     if (!response.ok) {
