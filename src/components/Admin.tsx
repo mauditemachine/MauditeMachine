@@ -465,8 +465,15 @@ const Admin: React.FC = () => {
 
   // Ajouter un nouvel événement
   const addEvent = () => {
+    // Utiliser la date locale pour éviter les problèmes de fuseau horaire
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const localDate = `${year}-${month}-${day}`;
+    
     const newEvent: Event = {
-      date: new Date().toISOString().split('T')[0],
+      date: localDate,
       title: '',
       url: '',
       location: '',
