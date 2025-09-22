@@ -18,55 +18,62 @@ export default function NewsMessages(): JSX.Element {
     
     const loadMessagesData = async () => {
       try {
+        console.log('🔄 Chargement des messages...')
         const data = await loadMessages()
         if (!cancelled) {
-          // Utiliser l'ordre de l'admin (pas de tri par date)
           const messages = Array.isArray(data) ? data : []
-          console.log('Messages chargés dans NewsMessages:', messages)
+          console.log('✅ Messages chargés:', messages.length, 'messages')
           setMessages(messages)
         }
       } catch (err) {
         if (!cancelled) {
-          console.error('Erreur chargement messages:', err)
+          console.error('❌ Erreur chargement messages:', err)
           setError('Failed to load messages')
         }
       }
     }
     
-    // Charger les messages au montage
+    // Charger immédiatement
     loadMessagesData()
     
     // Écouter les mises à jour depuis l'admin
     const handleMessagesUpdate = () => {
       if (!cancelled) {
-        console.log('Événement messagesUpdated reçu, rechargement...')
+        console.log('🔔 Événement messagesUpdated reçu')
         loadMessagesData()
       }
     }
     
-    // Écouter les événements personnalisés
     window.addEventListener('messagesUpdated', handleMessagesUpdate)
     
-    // SYNCHRONISATION AGRESSIVE POUR MOBILE - toutes les 2 secondes
+    // SYNCHRONISATION ULTRA-AGRESSIVE - toutes les 1 seconde
     const syncInterval = setInterval(() => {
       if (!cancelled) {
-        console.log('Synchronisation mobile des messages...')
+        console.log('🔄 Sync automatique...')
         loadMessagesData()
       }
-    }, 2000) // Toutes les 2 secondes pour mobile
+    }, 1000) // Toutes les 1 seconde
     
-    // Forcer une synchronisation immédiate au démarrage
+    // Sync immédiate après 100ms
     setTimeout(() => {
       if (!cancelled) {
-        console.log('Synchronisation immédiate des messages...')
+        console.log('🔄 Sync immédiate...')
         loadMessagesData()
       }
-    }, 500)
+    }, 100)
     
-    // Forcer une synchronisation après 3 secondes
+    // Sync après 1 seconde
     setTimeout(() => {
       if (!cancelled) {
-        console.log('Synchronisation différée des messages...')
+        console.log('🔄 Sync 1s...')
+        loadMessagesData()
+      }
+    }, 1000)
+    
+    // Sync après 3 secondes
+    setTimeout(() => {
+      if (!cancelled) {
+        console.log('🔄 Sync 3s...')
         loadMessagesData()
       }
     }, 3000)

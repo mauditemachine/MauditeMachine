@@ -62,40 +62,39 @@ export const saveMessages = async (messages: Message[]): Promise<{ success: bool
 // Charger les messages depuis l'API
 export const loadMessages = async (): Promise<Message[]> => {
   try {
-    console.log('loadMessages appelé...');
+    console.log('🔍 Recherche des messages...');
     
-    // PRIORITÉ ABSOLUE AU LOCALSTORAGE (admin)
+    // 1. PRIORITÉ ABSOLUE AU LOCALSTORAGE (admin)
     let savedMessages = null;
     try {
       savedMessages = localStorage.getItem('admin_messages_backup');
+      if (savedMessages) {
+        console.log('✅ Messages admin trouvés dans localStorage');
+        const messages = JSON.parse(savedMessages);
+        console.log('📝 Messages admin:', messages.length, 'messages');
+        return messages.map((msg: any, index: number) => ({
+          ...msg,
+          id: msg.id || `msg-${Date.now()}-${index}`
+        }));
+      }
     } catch (e) {
-      console.warn('Erreur accès localStorage:', e);
+      console.warn('⚠️ Erreur localStorage:', e);
     }
     
-    if (savedMessages) {
-      console.log('✅ Messages admin trouvés dans localStorage');
-      const messages = JSON.parse(savedMessages);
-      console.log('Messages admin:', messages);
-      return messages.map((msg: any, index: number) => ({
-        ...msg,
-        id: msg.id || `msg-${Date.now()}-${index}`
-      }));
-    }
-    
-    console.log('❌ Aucun message admin, chargement JSON statique');
-    // Fallback vers JSON statique
+    // 2. FALLBACK VERS JSON STATIQUE
+    console.log('📄 Chargement depuis /messages.json...');
     const response = await fetch('/messages.json');
     if (!response.ok) {
       throw new Error('Erreur lors du chargement des messages');
     }
     const messages = await response.json();
-    console.log('Messages JSON statique:', messages);
+    console.log('📝 Messages JSON:', messages.length, 'messages');
     return messages.map((msg: any, index: number) => ({
       ...msg,
       id: msg.id || `msg-${Date.now()}-${index}`
     }));
   } catch (error) {
-    console.error('Erreur lors du chargement des messages:', error);
+    console.error('❌ Erreur chargement messages:', error);
     return [];
   }
 };
