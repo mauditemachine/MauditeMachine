@@ -13,6 +13,17 @@ echo "📁 Worktree: $WORKTREE"
 echo "💬 Message: $COMMIT_MSG"
 echo ""
 
+# 0. Git operations sur la branche main
+echo "📝 Sauvegarde des modifications sur main..."
+cd "$PROJECT"
+git add .
+git commit -m "$COMMIT_MSG"
+git push origin main
+if [ $? -ne 0 ]; then
+    echo "❌ Erreur lors du push vers main"
+    exit 1
+fi
+
 # 1. Build du projet
 echo "🔨 Build du projet..."
 cd "$PROJECT"
