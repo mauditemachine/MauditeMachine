@@ -84,18 +84,10 @@ export const saveEvents = async (events: Event[]): Promise<{ success: boolean; m
     // Simulation d'un délai de réseau
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Dans un vrai projet, vous feriez ici un appel API :
-    // const response = await fetch('/api/events', {
-    //   method: 'PUT',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(events)
-    // });
-    
-    // Pour l'instant, on simule juste une sauvegarde réussie
-    console.log('Événements à sauvegarder:', events);
-    
-    // Sauvegarder dans localStorage pour les tests
+    // Sauvegarder dans localStorage (source de vérité pour les modifications)
     localStorage.setItem('admin_events_backup', JSON.stringify(events));
+    
+    console.log('Événements sauvegardés dans localStorage:', events);
     
     return {
       success: true,

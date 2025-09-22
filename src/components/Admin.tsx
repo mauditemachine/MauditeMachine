@@ -1033,7 +1033,7 @@ const Admin: React.FC = () => {
                                 {/* Bouton Save individuel */}
                                 <div className="form-row" style={{ marginTop: '15px', textAlign: 'right' }}>
                                   <button 
-                                    onClick={(e) => handleButtonClick(handleSaveMessages, e.currentTarget)}
+                                    onClick={(e) => handleButtonClick(handleSaveEvents, e.currentTarget)}
                                     disabled={saving}
                                     className="admin-btn success small admin-btn-custom"
                                   >
