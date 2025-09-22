@@ -197,7 +197,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, placeholder 
   return (
     <div className="admin-image-upload">
       <div className="admin-form-group">
-        <label className="admin-form-label">
+        <label>
           Image:
         </label>
         
@@ -288,7 +288,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, placeholder 
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="admin-form-input"
           style={{ marginTop: '10px' }}
         />
       </div>

@@ -7,11 +7,48 @@ interface MerchImage {
   caption?: string;
   price?: string;
   soldOut?: boolean;
+  sizes?: {
+    S: boolean;
+    M: boolean;
+    L: boolean;
+    XL: boolean;
+  };
 }
 
 interface StoreProps {
   onSectionChange?: (section: string) => void;
 }
+
+interface SizeSelectorProps {
+  sizes?: {
+    S: boolean;
+    M: boolean;
+    L: boolean;
+    XL: boolean;
+  };
+  isMobile?: boolean;
+}
+
+const SizeSelector: React.FC<SizeSelectorProps> = ({ sizes, isMobile = false }) => {
+  if (!sizes) return null;
+
+  const sizeLabels = ['S', 'M', 'L', 'XL'];
+  
+  return (
+    <div className={`size-selector ${isMobile ? 'mobile-only' : ''}`}>
+      {sizeLabels.map(size => (
+        <div 
+          key={size} 
+          className={`size-option ${!sizes[size as keyof typeof sizes] ? 'out-of-stock' : ''}`}
+          style={{ pointerEvents: 'none', cursor: 'default' }}
+        >
+          {!sizes[size as keyof typeof sizes] && <span className="cross"></span>}
+          <span className="size-label">{size}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -35,7 +72,8 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
             alt: item.alt,
             caption: item.caption,
             price: item.price,
-            soldOut: item.soldOut
+            soldOut: item.soldOut,
+            sizes: item.sizes
           }));
         
         setMerchImages(convertedData);
@@ -107,7 +145,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
         baseName = baseName.includes('Sylvain') ? 'Sylvain T-shirt' : 'T-shirt';
       } else if (baseName.toLowerCase().includes('bag')) {
         category = 'bag';
-        baseName = 'Hip Bag';
+        baseName = 'Hip Bags';
       }
       
       if (!grouped[category]) {
@@ -362,9 +400,12 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
             {/* Nom de l'image */}
             {image.caption && (
               <div className="merch-caption">
-                {image.caption}
+                {image.alt.toLowerCase().includes('bag') ? 'Hip Bag' : image.caption}
               </div>
             )}
+            
+            {/* Tailles disponibles (pas pour les hip bags) */}
+            {!image.alt.toLowerCase().includes('bag') && <SizeSelector sizes={image.sizes} />}
             
             {/* Message SOLD OUT */}
             {image.soldOut && (
@@ -442,6 +483,14 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
                 <div className="lightbox-caption">
                   {currentGroupImages[currentImageIndex].caption}
                 </div>
+              )}
+              
+              {/* Tailles disponibles dans lightbox (pas pour les hip bags) */}
+              {!currentGroupImages[currentImageIndex].alt.toLowerCase().includes('bag') && (
+                <SizeSelector 
+                  sizes={currentGroupImages[currentImageIndex].sizes} 
+                  isMobile={true}
+                />
               )}
               
               {/* Prix */}

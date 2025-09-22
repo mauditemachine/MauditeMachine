@@ -142,6 +142,12 @@ export interface MerchItem {
   category: string;
   active: boolean;
   soldOut: boolean;
+  sizes?: {
+    S: boolean;
+    M: boolean;
+    L: boolean;
+    XL: boolean;
+  };
 }
 
 // Simuler une sauvegarde du merchandising
@@ -188,10 +194,16 @@ export const loadMerchItems = async (): Promise<MerchItem[]> => {
       merchItems = await response.json();
     }
     
-    // Nettoyer automatiquement les noms avec "- Front"
+    // Nettoyer automatiquement les noms avec "- Front" et initialiser les tailles
     const cleanedItems = merchItems.map(item => ({
       ...item,
-      caption: item.caption?.replace(/\s*-\s*Front\s*$/i, '').trim() || item.caption
+      caption: item.caption?.replace(/\s*-\s*Front\s*$/i, '').trim() || item.caption,
+      sizes: item.sizes || {
+        S: true,
+        M: true,
+        L: true,
+        XL: true
+      }
     }));
     
     // Si des noms ont été nettoyés, sauvegarder automatiquement

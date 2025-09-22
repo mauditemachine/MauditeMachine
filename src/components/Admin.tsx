@@ -584,7 +584,13 @@ const Admin: React.FC = () => {
       price: '',
       category: '',
       active: true,
-      soldOut: false
+      soldOut: false,
+      sizes: {
+        S: true,
+        M: true,
+        L: true,
+        XL: true
+      }
     };
     setMerchItems([...merchItems, newMerchItem]);
     setExpandedItem(`merch-${merchItems.length}`);
@@ -1074,7 +1080,7 @@ const Admin: React.FC = () => {
                             'sweatshirt': 'Sweatshirt',
                             'hoodie': 'Hoodie',
                             'tshirt': 'T-shirt',
-                            'bag': 'Sac',
+                            'bag': 'Hip Bag',
                             'other': 'Autre'
                           };
 
@@ -1109,24 +1115,26 @@ const Admin: React.FC = () => {
                               
                               <div className={`admin-accordion-content ${isExpanded ? 'expanded' : ''}`}>
                                 <div className="admin-form-grid">
-                                  <div className="form-group">
-                                    <label>Catégorie</label>
-                                    <select
-                                      value={firstItem.category}
-                                      onChange={async (e) => {
-                                        for (const item of items) {
-                                          await updateMerchItem(item.originalIndex, 'category', e.target.value);
-                                        }
-                                      }}
-                                      className="admin-select"
-                                    >
-                                      <option value="sweatshirt">Sweatshirt</option>
-                                      <option value="hoodie">Hoodie</option>
-                                      <option value="tshirt">T-shirt</option>
-                                      <option value="bag">Sac</option>
-                                      <option value="other">Autre</option>
-                                    </select>
-                                  </div>
+                                  {category !== 'bag' && (
+                                    <div className="form-group">
+                                      <label>Catégorie</label>
+                                      <select
+                                        value={firstItem.category}
+                                        onChange={async (e) => {
+                                          for (const item of items) {
+                                            await updateMerchItem(item.originalIndex, 'category', e.target.value);
+                                          }
+                                        }}
+                                        className="admin-select"
+                                      >
+                                        <option value="sweatshirt">Sweatshirt</option>
+                                        <option value="hoodie">Hoodie</option>
+                                        <option value="tshirt">T-shirt</option>
+                                        <option value="bag">Hip Bag</option>
+                                        <option value="other">Autre</option>
+                                      </select>
+                                    </div>
+                                  )}
                                   
                                   <div className="form-group">
                                     <label>Prix (pour tous les articles de cette catégorie)</label>
@@ -1159,8 +1167,8 @@ const Admin: React.FC = () => {
                                   </div>
                                   
                                   <div className="form-group full-width">
-                                    <label>Images ({items.length} variante{items.length > 1 ? 's' : ''})</label>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: '0.5rem' }}>
+                                    {category !== 'bag' && <label>Images ({items.length} variante{items.length > 1 ? 's' : ''})</label>}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginTop: category !== 'bag' ? '0.5rem' : '0' }}>
                                       {items.map((item, itemIndex) => (
                                         <div key={item.originalIndex} style={{ border: '1px solid #404040', borderRadius: '8px', padding: '1rem' }}>
                                           <div style={{ marginBottom: '0.5rem', fontWeight: 'bold' }}>
@@ -1177,7 +1185,7 @@ const Admin: React.FC = () => {
                                               type="text"
                                               value={item.caption}
                                               onChange={async (e) => await updateMerchItem(item.originalIndex, 'caption', e.target.value)}
-                                              placeholder="Nom affiché sous l'image"
+                                              placeholder={category === 'bag' ? 'Hip Bag' : 'Nom affiché sous l\'image'}
                                               style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #404040', background: '#2a2a2a', color: '#ffffff' }}
                                             />
                                           </div>
@@ -1194,6 +1202,34 @@ const Admin: React.FC = () => {
                                               <span style={{ color: '#ffffff', fontWeight: 'bold' }}>SOLD OUT</span>
                                             </label>
                                           </div>
+                                          
+                                          {/* Tailles disponibles (pas pour les hip bags) */}
+                                          {!item.alt.toLowerCase().includes('bag') && (
+                                            <div style={{ marginTop: '1rem' }}>
+                                              <label style={{ color: '#ffffff', fontWeight: 'bold', marginBottom: '0.5rem', display: 'block' }}>
+                                                Tailles disponibles :
+                                              </label>
+                                              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                                                {['S', 'M', 'L', 'XL'].map(size => (
+                                                  <label key={size} className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <input
+                                                      type="checkbox"
+                                                      checked={item.sizes?.[size as keyof typeof item.sizes] || false}
+                                                      onChange={async (e) => {
+                                                        const updatedSizes = {
+                                                          ...item.sizes,
+                                                          [size]: e.target.checked
+                                                        };
+                                                        await updateMerchItem(item.originalIndex, 'sizes', updatedSizes);
+                                                      }}
+                                                    />
+                                                    <span className="checkmark"></span>
+                                                    <span style={{ color: '#ffffff', fontWeight: 'bold' }}>{size}</span>
+                                                  </label>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          )}
                                           <button
                                             onClick={() => removeMerchItem(item.originalIndex)}
                                             className="admin-btn variant-delete small"

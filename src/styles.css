@@ -1994,7 +1994,7 @@ body.dark-mode .form-textarea:focus {
 .merch-image-container {
   position: relative;
   width: 100%;
-  height: 355px;
+  height: 435px;
   overflow: hidden;
 }
 
@@ -2017,6 +2017,102 @@ body.dark-mode .form-textarea:focus {
   font-size: 16px;
   font-weight: 500;
   margin-top: 8px;
+}
+
+/* Styles pour les tailles */
+.size-selector {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  margin-bottom: 12px;
+}
+
+.size-option {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  border-radius: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+  pointer-events: none;
+  cursor: default;
+}
+
+.size-option:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.size-option.out-of-stock {
+  background: rgba(255, 68, 68, 0.2);
+  opacity: 0.8;
+  position: relative;
+}
+
+.size-label {
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: "DIN Alternate", system-ui, sans-serif;
+  position: relative;
+  z-index: 2;
+}
+
+.cross {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.cross::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(45deg);
+  width: 20px;
+  height: 1px;
+  background: #ff4444;
+}
+
+.cross::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-45deg);
+  width: 20px;
+  height: 1px;
+  background: #ff4444;
+}
+
+/* Mobile : afficher les tailles uniquement dans lightbox */
+@media (max-width: 768px) {
+  .size-selector:not(.mobile-only) {
+    display: none;
+  }
+  
+  .size-selector.mobile-only {
+    display: flex;
+    margin-top: 15px;
+  }
+  
+  .size-option {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .size-label {
+    font-size: 11px;
+  }
 }
 
 .merch-overlay {
@@ -2464,14 +2560,14 @@ body.dark-mode .form-textarea:focus {
   min-height: 100vh;
   background: #1a1a1a;
   color: #ffffff;
-  font-family: "DIN Alternate", sans-serif !important;
+  font-family: "Inter", sans-serif !important;
   line-height: 1.6;
 }
 
 .admin-page *,
 .admin-page *::before,
 .admin-page *::after {
-  font-family: "DIN Alternate", sans-serif !important;
+  font-family: "Inter", sans-serif !important;
 }
 
 .admin-container {
@@ -2500,7 +2596,7 @@ body.dark-mode .form-textarea:focus {
 }
 
 .admin-sidebar .admin-title {
-  font-size: 1.4rem;
+  font-size: 1.1rem;
   margin-bottom: 1rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid #404040;
@@ -2573,7 +2669,7 @@ body.dark-mode .form-textarea:focus {
 }
 
 .admin-main {
-  min-width: 0;
+  width: 1200px;
 }
 
 /* ===== HEADER ===== */
@@ -3436,7 +3532,7 @@ body.dark-mode .admin-page .form-group textarea:focus {
 .merch-image-container {
   position: relative !important;
   width: 100% !important;
-  height: 355px !important;
+  height: 435px !important;
   overflow: hidden !important;
   border-radius: 8px !important;
 }
