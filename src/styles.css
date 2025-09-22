@@ -2094,6 +2094,13 @@ body.dark-mode .form-textarea:focus {
   background: #ffffff;
 }
 
+/* Desktop : afficher les tailles dans la galerie */
+@media (min-width: 769px) {
+  .size-selector:not(.mobile-only) {
+    display: flex;
+  }
+}
+
 /* Mobile : afficher les tailles uniquement dans lightbox */
 @media (max-width: 768px) {
   .size-selector:not(.mobile-only) {

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import SoundCloudPlayer from "./SoundCloudPlayer";
-import RandomMessage from "./RandomMessage";
 import NewsMessages from "./NewsMessages";
 import EventsDisplay from "./EventsDisplay";
 import Store from "./Store";
@@ -566,9 +565,9 @@ export default function MainApp() {
           ))}
         </div>
 
-        {/* Random messages */}
+        {/* News messages */}
         <div className="mobile-section mobile-random-messages">
-          <RandomMessage />
+          <NewsMessages />
         </div>
 
         {/* Lecteur */}

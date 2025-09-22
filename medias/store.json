@@ -6,7 +6,13 @@
     "caption": "Sweatshirt - Back",
     "price": "50$ CAD",
     "category": "sweatshirt",
-    "active": true
+    "active": true,
+    "sizes": {
+      "S": true,
+      "M": false,
+      "L": true,
+      "XL": false
+    }
   },
   {
     "id": 2,
@@ -15,7 +21,13 @@
     "caption": "Sweatshirt - Front",
     "price": "50$ CAD",
     "category": "sweatshirt",
-    "active": true
+    "active": true,
+    "sizes": {
+      "S": true,
+      "M": false,
+      "L": true,
+      "XL": false
+    }
   },
   {
     "id": 3,
@@ -24,16 +36,28 @@
     "caption": "Hoodie - Back", 
     "price": "50$ CAD",
     "category": "hoodie",
-    "active": true
+    "active": true,
+    "sizes": {
+      "S": false,
+      "M": true,
+      "L": true,
+      "XL": true
+    }
   },
   {
     "id": 4,
     "src": "images/Merch_Hoodie F.webp",
     "alt": "Hoodie Front",
     "caption": "Hoodie - Front",
-    "price": "50$ CAD", 
+    "price": "50$ CAD",
     "category": "hoodie",
-    "active": true
+    "active": true,
+    "sizes": {
+      "S": false,
+      "M": true,
+      "L": true,
+      "XL": true
+    }
   },
   {
     "id": 5,
@@ -87,7 +111,13 @@
     "caption": "Sylvain T-shirt - Back",
     "price": "40$ CAD",
     "category": "tshirt",
-    "active": true
+    "active": true,
+    "sizes": {
+      "S": true,
+      "M": true,
+      "L": false,
+      "XL": true
+    }
   },
   {
     "id": 11,
@@ -96,7 +126,13 @@
     "caption": "Sylvain T-shirt - Front",
     "price": "40$ CAD",
     "category": "tshirt",
-    "active": true
+    "active": true,
+    "sizes": {
+      "S": true,
+      "M": true,
+      "L": false,
+      "XL": true
+    }
   },
   {
     "id": 12,
@@ -105,7 +141,13 @@
     "caption": "T-shirt - Back",
     "price": "40$ CAD",
     "category": "tshirt", 
-    "active": true
+    "active": true,
+    "sizes": {
+      "S": true,
+      "M": true,
+      "L": false,
+      "XL": true
+    }
   },
   {
     "id": 13,
@@ -114,6 +156,12 @@
     "caption": "T-shirt - Front", 
     "price": "40$ CAD",
     "category": "tshirt",
-    "active": true
+    "active": true,
+    "sizes": {
+      "S": true,
+      "M": true,
+      "L": false,
+      "XL": true
+    }
   }
 ]
