@@ -322,7 +322,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
             <div className="merch-image-container">
               <img 
                 src={image.src}
-                alt={image.alt}
+                alt={image.caption || image.alt}
                 className="merch-image"
                 loading="lazy"
                 onError={(e) => {
@@ -337,6 +337,25 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
                 <i className="fas fa-search-plus"></i>
               </div>
             </div>
+            {/* Caption de l'image */}
+            {image.caption && (
+              <div style={{
+                position: 'absolute',
+                bottom: image.soldOut ? '50px' : '10px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(0, 0, 0, 0.8)',
+                color: 'white',
+                padding: '6px 12px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                textAlign: 'center',
+                zIndex: 10
+              }}>
+                {image.caption}
+              </div>
+            )}
+            
             {/* Message SOLD OUT */}
             {image.soldOut && (
               <div style={{
@@ -404,7 +423,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
             <div className="lightbox-image-container">
               <img 
                 src={currentGroupImages[currentImageIndex].src}
-                alt={currentGroupImages[currentImageIndex].alt}
+                alt={currentGroupImages[currentImageIndex].caption || currentGroupImages[currentImageIndex].alt}
                 className="lightbox-image"
               />
               {currentGroupImages[currentImageIndex].caption && (
