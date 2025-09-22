@@ -333,6 +333,12 @@ const Admin: React.FC = () => {
       if (result.success) {
         setMessage(result.message);
         setTimeout(() => setMessage(''), 3000);
+        
+        // Déclencher l'événement pour mettre à jour les composants
+        const event = new CustomEvent('messagesUpdated', {
+          detail: { key: 'messages', data: messages }
+        });
+        window.dispatchEvent(event);
       } else {
         setMessage(result.message);
       }
@@ -367,6 +373,12 @@ const Admin: React.FC = () => {
       if (result.success) {
         setMessage('Modification sauvegardée !');
         setTimeout(() => setMessage(''), 2000);
+        
+        // Déclencher l'événement pour mettre à jour les composants
+        const event = new CustomEvent('messagesUpdated', {
+          detail: { key: 'messages', data: updatedMessages }
+        });
+        window.dispatchEvent(event);
       } else {
         setMessage('Erreur lors de la sauvegarde');
         setTimeout(() => setMessage(''), 3000);

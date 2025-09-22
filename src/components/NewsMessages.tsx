@@ -31,8 +31,22 @@ export default function NewsMessages(): JSX.Element {
       }
     }
     
+    // Charger les messages au montage
     loadMessagesData()
-    return () => { cancelled = true }
+    
+    // Écouter les mises à jour depuis l'admin
+    const handleMessagesUpdate = () => {
+      if (!cancelled) {
+        loadMessagesData()
+      }
+    }
+    
+    window.addEventListener('messagesUpdated', handleMessagesUpdate)
+    
+    return () => { 
+      cancelled = true
+      window.removeEventListener('messagesUpdated', handleMessagesUpdate)
+    }
   }, [])
 
   if (error) return <div>Error loading messages</div>
