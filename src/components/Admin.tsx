@@ -577,7 +577,8 @@ const Admin: React.FC = () => {
       caption: '',
       price: '',
       category: '',
-      active: true
+      active: true,
+      soldOut: false
     };
     setMerchItems([...merchItems, newMerchItem]);
     setExpandedItem(`merch-${merchItems.length}`);
@@ -1173,6 +1174,19 @@ const Admin: React.FC = () => {
                                               placeholder="Texte alternatif"
                                               style={{ width: '100%', padding: '0.5rem', borderRadius: '4px', border: '1px solid #404040', background: '#2a2a2a', color: '#ffffff' }}
                                             />
+                                          </div>
+                                          
+                                          {/* Checkbox SOLD OUT */}
+                                          <div style={{ marginTop: '0.5rem' }}>
+                                            <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                              <input
+                                                type="checkbox"
+                                                checked={item.soldOut}
+                                                onChange={async (e) => await updateMerchItem(item.originalIndex, 'soldOut', e.target.checked)}
+                                              />
+                                              <span className="checkmark"></span>
+                                              <span style={{ color: '#ffffff', fontWeight: 'bold' }}>SOLD OUT</span>
+                                            </label>
                                           </div>
                                           <button
                                             onClick={() => removeMerchItem(item.originalIndex)}

@@ -149,6 +149,7 @@ export interface MerchItem {
   price: string;
   category: string;
   active: boolean;
+  soldOut: boolean;
 }
 
 // Simuler une sauvegarde du merchandising

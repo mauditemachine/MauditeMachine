@@ -6,6 +6,7 @@ interface MerchImage {
   alt: string;
   caption?: string;
   price?: string;
+  soldOut?: boolean;
 }
 
 interface StoreProps {
@@ -33,7 +34,8 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
             src: item.src,
             alt: item.alt,
             caption: item.caption,
-            price: item.price
+            price: item.price,
+            soldOut: item.soldOut
           }));
         
         setMerchImages(convertedData);
@@ -335,6 +337,25 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
                 <i className="fas fa-search-plus"></i>
               </div>
             </div>
+            {/* Message SOLD OUT */}
+            {image.soldOut && (
+              <div style={{
+                position: 'absolute',
+                bottom: '10px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(255, 0, 0, 0.9)',
+                color: 'white',
+                padding: '8px 16px',
+                borderRadius: '4px',
+                fontWeight: 'bold',
+                fontSize: '14px',
+                textAlign: 'center',
+                zIndex: 10
+              }}>
+                SOLD OUT
+              </div>
+            )}
           </div>
         ))
         )}
@@ -395,6 +416,25 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
               {currentGroupImages[currentImageIndex].price && (
                 <div className="lightbox-price">
                   {currentGroupImages[currentImageIndex].price}
+                </div>
+              )}
+              {/* Message SOLD OUT */}
+              {currentGroupImages[currentImageIndex].soldOut && (
+                <div style={{
+                  position: 'absolute',
+                  bottom: '20px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  background: 'rgba(255, 0, 0, 0.9)',
+                  color: 'white',
+                  padding: '12px 24px',
+                  borderRadius: '6px',
+                  fontWeight: 'bold',
+                  fontSize: '16px',
+                  textAlign: 'center',
+                  zIndex: 10
+                }}>
+                  SOLD OUT
                 </div>
               )}
             </div>
