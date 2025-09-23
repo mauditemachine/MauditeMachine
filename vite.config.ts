@@ -26,7 +26,7 @@ export default defineConfig(({ command }) => ({
   ],
   base: command === 'build' ? '/' : '/',
   server: { port: 5173, open: true },
-  publicDir: 'medias'
+  publicDir: 'public'
 }))
 
 

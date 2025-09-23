@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
-import { loadMessages, Message } from '../utils/adminApi'
 
 type MessageItem = {
+  id: string
   title: string
   description?: string
   image?: string
@@ -18,10 +18,13 @@ export default function NewsMessages(): JSX.Element {
     
     const loadMessagesData = async () => {
       try {
-        console.log('🔄 Chargement des messages...')
+        console.log('🔄 Chargement des messages depuis JSON...')
         
-        // FORCER le chargement depuis le JSON public (production)
-        const response = await fetch('/messages.json?t=' + Date.now())
+        // Chargement direct depuis le JSON public avec cache-busting agressif
+        const timestamp = Date.now()
+        const random = Math.random()
+        const response = await fetch(`/messages.json?t=${timestamp}&force=${random}&cache=${Math.random()}`)
+        
         if (!response.ok) {
           throw new Error('Erreur lors du chargement des messages')
         }
@@ -29,6 +32,7 @@ export default function NewsMessages(): JSX.Element {
         
         if (!cancelled) {
           console.log('✅ Messages chargés depuis JSON:', messages.length, 'messages')
+          console.log('📸 Première image:', messages[0]?.image)
           setMessages(messages)
         }
       } catch (err) {
@@ -42,60 +46,19 @@ export default function NewsMessages(): JSX.Element {
     // Charger immédiatement
     loadMessagesData()
     
-    // Écouter les mises à jour depuis l'admin
+    // Écouter les mises à jour depuis l'admin (synchronisation automatique)
     const handleMessagesUpdate = () => {
       if (!cancelled) {
-        console.log('🔔 Événement messagesUpdated reçu')
+        console.log('🔔 Événement messagesUpdated reçu (sync auto)')
         loadMessagesData()
       }
     }
     
     window.addEventListener('messagesUpdated', handleMessagesUpdate)
     
-    // SYNCHRONISATION ULTRA-AGRESSIVE - toutes les 2 secondes
-    const syncInterval = setInterval(() => {
-      if (!cancelled) {
-        console.log('🔄 Sync automatique...')
-        loadMessagesData()
-      }
-    }, 2000) // Toutes les 2 secondes
-    
-    // Sync immédiate après 100ms
-    setTimeout(() => {
-      if (!cancelled) {
-        console.log('🔄 Sync immédiate...')
-        loadMessagesData()
-      }
-    }, 100)
-    
-    // Sync après 1 seconde
-    setTimeout(() => {
-      if (!cancelled) {
-        console.log('🔄 Sync 1s...')
-        loadMessagesData()
-      }
-    }, 1000)
-    
-    // Sync après 3 secondes
-    setTimeout(() => {
-      if (!cancelled) {
-        console.log('🔄 Sync 3s...')
-        loadMessagesData()
-      }
-    }, 3000)
-    
-    // Sync après 5 secondes
-    setTimeout(() => {
-      if (!cancelled) {
-        console.log('🔄 Sync 5s...')
-        loadMessagesData()
-      }
-    }, 5000)
-    
     return () => { 
       cancelled = true
       window.removeEventListener('messagesUpdated', handleMessagesUpdate)
-      clearInterval(syncInterval)
     }
   }, [])
 

@@ -22,42 +22,29 @@ export interface Event {
   image: string;
 }
 
-// Simuler une sauvegarde des messages
+// Sauvegarder les messages directement dans localStorage (synchronisation manuelle)
 export const saveMessages = async (messages: Message[]): Promise<{ success: boolean; message: string }> => {
   try {
-    // Simulation d'un délai de réseau
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log('💾 Sauvegarde des messages dans localStorage...');
     
-    // Sauvegarder dans localStorage (source de vérité pour les modifications)
-    try {
-      localStorage.setItem('admin_messages_backup', JSON.stringify(messages));
-      console.log('Messages sauvegardés dans localStorage:', messages);
-      
-      // Déclencher un événement storage pour Safari
-      window.dispatchEvent(new StorageEvent('storage', {
-        key: 'admin_messages_backup',
-        newValue: JSON.stringify(messages),
-        oldValue: localStorage.getItem('admin_messages_backup'),
-        storageArea: localStorage
-      }));
-      
-      // Déclencher un événement custom pour notifier les autres composants
-      const event = new CustomEvent('messagesUpdated', {
-        detail: { key: 'messages', data: messages }
-      });
-      window.dispatchEvent(event);
-      
-    } catch (e) {
-      console.warn('Erreur sauvegarde localStorage:', e);
-      // Continuer même si localStorage échoue
-    }
+    // Sauvegarder dans localStorage
+    localStorage.setItem('admin_messages_backup', JSON.stringify(messages));
+    
+    // Déclencher un événement custom pour notifier les autres composants
+    const event = new CustomEvent('messagesUpdated', {
+      detail: { key: 'messages', data: messages }
+    });
+    window.dispatchEvent(event);
+    
+    console.log('✅ Messages sauvegardés dans localStorage');
+    console.log('📝 Pour synchroniser avec le fichier JSON, modifie manuellement public/messages.json');
     
     return {
       success: true,
-      message: 'Messages sauvegardés avec succès ! (localStorage + événements)'
+      message: 'Messages sauvegardés ! Modifie public/messages.json pour synchroniser.'
     };
   } catch (error) {
-    console.error('Erreur lors de la sauvegarde:', error);
+    console.error('❌ Erreur lors de la sauvegarde:', error);
     return {
       success: false,
       message: 'Erreur lors de la sauvegarde des messages'
@@ -65,92 +52,153 @@ export const saveMessages = async (messages: Message[]): Promise<{ success: bool
   }
 };
 
-// Charger les messages depuis l'API
+// Système de synchronisation automatique
+let syncInterval: NodeJS.Timeout | null = null;
+
+// Démarrer la synchronisation automatique toutes les 15 secondes
+export const startAutoSync = () => {
+  if (syncInterval) {
+    clearInterval(syncInterval);
+  }
+  
+  console.log('🔄 Démarrage de la synchronisation automatique (15s)');
+  
+  syncInterval = setInterval(async () => {
+    try {
+      const localData = localStorage.getItem('admin_messages_backup');
+      if (localData) {
+        const messages = JSON.parse(localData);
+        console.log('🔄 Synchronisation automatique localStorage → JSON...');
+        
+        // Sauvegarder réellement dans le fichier JSON via l'API
+        try {
+          const response = await fetch('http://localhost:3001/api/save-messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(messages)
+          });
+          
+          if (response.ok) {
+            console.log('✅ Synchronisation automatique terminée - Fichier JSON mis à jour');
+          } else {
+            console.warn('⚠️ Erreur lors de la mise à jour du fichier JSON');
+          }
+        } catch (error) {
+          console.warn('⚠️ Serveur API non disponible, synchronisation locale seulement');
+        }
+        
+        // Déclencher un événement pour notifier les composants
+        const event = new CustomEvent('messagesUpdated', {
+          detail: { key: 'messages', data: messages }
+        });
+        window.dispatchEvent(event);
+      }
+    } catch (error) {
+      console.error('❌ Erreur synchronisation automatique:', error);
+    }
+  }, 15000); // 15 secondes
+};
+
+// Arrêter la synchronisation automatique
+export const stopAutoSync = () => {
+  if (syncInterval) {
+    clearInterval(syncInterval);
+    syncInterval = null;
+    console.log('⏹️ Synchronisation automatique arrêtée');
+  }
+};
+
+// Charger les messages directement depuis le fichier JSON (source unique de vérité)
 export const loadMessages = async (): Promise<Message[]> => {
   try {
-    console.log('🔍 Recherche des messages...');
+    console.log('📥 Chargement des messages depuis JSON (source unique)...');
     
-    // 1. PRIORITÉ ABSOLUE AU LOCALSTORAGE (admin)
-    let savedMessages = null;
-    try {
-      savedMessages = localStorage.getItem('admin_messages_backup');
-      if (savedMessages) {
-        console.log('✅ Messages admin trouvés dans localStorage');
-        const messages = JSON.parse(savedMessages);
-        console.log('📝 Messages admin:', messages.length, 'messages');
-        return messages.map((msg: any, index: number) => ({
-          ...msg,
-          id: msg.id || `msg-${Date.now()}-${index}`
-        }));
-      }
-    } catch (e) {
-      console.warn('⚠️ Erreur localStorage:', e);
-    }
+    // Charger directement depuis le fichier JSON public avec cache-busting
+    const timestamp = Date.now();
+    const random = Math.random();
+    const response = await fetch(`/messages.json?t=${timestamp}&force=${random}&cache=${Math.random()}`);
     
-    // 2. ESSAYER DE RÉCUPÉRER LES DONNÉES DE L'ADMIN EN PRODUCTION
-    try {
-      console.log('🌐 Tentative de récupération des données admin...');
-      const adminResponse = await fetch('https://mauditemachine.com/ms-admin');
-      if (adminResponse.ok) {
-        const adminHtml = await adminResponse.text();
-        // Chercher les données dans le HTML de l'admin
-        const match = adminHtml.match(/admin_messages_backup['"]\s*:\s*['"]([^'"]+)['"]/);
-        if (match) {
-          const encodedData = match[1];
-          const decodedData = decodeURIComponent(encodedData);
-          const messages = JSON.parse(decodedData);
-          console.log('✅ Messages admin récupérés depuis la production:', messages.length, 'messages');
-          return messages.map((msg: any, index: number) => ({
-            ...msg,
-            id: msg.id || `msg-${Date.now()}-${index}`
-          }));
-        }
-      }
-    } catch (e) {
-      console.warn('⚠️ Erreur récupération admin:', e);
-    }
-    
-    // 3. FALLBACK VERS JSON STATIQUE
-    console.log('📄 Chargement depuis /messages.json...');
-    const response = await fetch('/messages.json');
     if (!response.ok) {
       throw new Error('Erreur lors du chargement des messages');
     }
     const messages = await response.json();
-    console.log('📝 Messages JSON:', messages.length, 'messages');
+    
+    console.log('✅ Messages chargés depuis JSON:', messages.length, 'messages');
+    
+    // Synchroniser avec localStorage pour la cohérence de l'admin
+    localStorage.setItem('admin_messages_backup', JSON.stringify(messages));
+    
+    // Démarrer la synchronisation automatique
+    startAutoSync();
+    
     return messages.map((msg: any, index: number) => ({
       ...msg,
       id: msg.id || `msg-${Date.now()}-${index}`
     }));
   } catch (error) {
     console.error('❌ Erreur chargement messages:', error);
+    
+    // En cas d'erreur, essayer localStorage comme fallback
+    try {
+      const localData = localStorage.getItem('admin_messages_backup');
+      if (localData) {
+        console.log('⚠️ Fallback vers localStorage');
+        const messages = JSON.parse(localData);
+        
+        // Démarrer la synchronisation automatique même en fallback
+        startAutoSync();
+        
+        return messages.map((msg: any, index: number) => ({
+          ...msg,
+          id: msg.id || `msg-${Date.now()}-${index}`
+        }));
+      }
+    } catch (e) {
+      console.warn('⚠️ Erreur localStorage fallback:', e);
+    }
+    
     return [];
   }
 };
 
-// Simuler une sauvegarde des événements
+// Sauvegarder les événements directement dans le fichier JSON via l'API
 export const saveEvents = async (events: Event[]): Promise<{ success: boolean; message: string }> => {
   try {
-    // Simulation d'un délai de réseau
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log('💾 Sauvegarde des événements via API...');
     
-    // Sauvegarder dans localStorage (source de vérité pour les modifications)
-    localStorage.setItem('admin_events_backup', JSON.stringify(events));
-    
-    console.log('Événements sauvegardés dans localStorage:', events);
-    
-    // Déclencher un événement custom pour notifier les autres composants
-    const event = new CustomEvent('eventsUpdated', {
-      detail: { key: 'events', data: events }
+    // Envoyer les données au serveur API
+    const response = await fetch('http://localhost:3001/api/save-events', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(events)
     });
-    window.dispatchEvent(event);
     
-    return {
-      success: true,
-      message: 'Événements sauvegardés avec succès ! (localStorage + événements)'
-    };
+    const result = await response.json();
+    
+    if (result.success) {
+      // Sauvegarder aussi dans localStorage pour la synchronisation
+      localStorage.setItem('admin_events_backup', JSON.stringify(events));
+      
+      // Déclencher un événement custom pour notifier les autres composants
+      const event = new CustomEvent('eventsUpdated', {
+        detail: { key: 'events', data: events }
+      });
+      window.dispatchEvent(event);
+      
+      console.log('✅ Événements sauvegardés dans events.json');
+      return {
+        success: true,
+        message: 'Événements sauvegardés dans events.json !'
+      };
+    } else {
+      throw new Error(result.message);
+    }
   } catch (error) {
-    console.error('Erreur lors de la sauvegarde des événements:', error);
+    console.error('❌ Erreur lors de la sauvegarde des événements:', error);
     return {
       success: false,
       message: 'Erreur lors de la sauvegarde des événements'
@@ -198,29 +246,42 @@ export interface MerchItem {
   };
 }
 
-// Simuler une sauvegarde du merchandising
+// Sauvegarder le merchandising directement dans le fichier JSON via l'API
 export const saveMerchItems = async (merchItems: MerchItem[]): Promise<{ success: boolean; message: string }> => {
   try {
-    // Simulation d'un délai de réseau
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    console.log('💾 Sauvegarde du merchandising via API...');
     
-    // Sauvegarder dans localStorage pour les tests
-    localStorage.setItem('admin_merch_backup', JSON.stringify(merchItems));
-    
-    console.log('Articles de merchandising sauvegardés dans localStorage:', merchItems);
-    
-    // Déclencher un événement custom pour notifier les autres composants
-    const event = new CustomEvent('merchItemsUpdated', {
-      detail: { key: 'merchItems', data: merchItems }
+    // Envoyer les données au serveur API
+    const response = await fetch('http://localhost:3001/api/save-merch', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(merchItems)
     });
-    window.dispatchEvent(event);
     
-    return {
-      success: true,
-      message: 'Merchandising sauvegardé avec succès ! (localStorage + événements)'
-    };
+    const result = await response.json();
+    
+    if (result.success) {
+      // Sauvegarder aussi dans localStorage pour la synchronisation
+      localStorage.setItem('admin_merch_backup', JSON.stringify(merchItems));
+      
+      // Déclencher un événement custom pour notifier les autres composants
+      const event = new CustomEvent('merchItemsUpdated', {
+        detail: { key: 'merchItems', data: merchItems }
+      });
+      window.dispatchEvent(event);
+      
+      console.log('✅ Merchandising sauvegardé dans store.json');
+      return {
+        success: true,
+        message: 'Merchandising sauvegardé dans store.json !'
+      };
+    } else {
+      throw new Error(result.message);
+    }
   } catch (error) {
-    console.error('Erreur lors de la sauvegarde du merchandising:', error);
+    console.error('❌ Erreur lors de la sauvegarde du merchandising:', error);
     return {
       success: false,
       message: 'Erreur lors de la sauvegarde du merchandising'
