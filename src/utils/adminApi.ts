@@ -41,6 +41,12 @@ export const saveMessages = async (messages: Message[]): Promise<{ success: bool
         storageArea: localStorage
       }));
       
+      // Déclencher un événement custom pour notifier les autres composants
+      const event = new CustomEvent('messagesUpdated', {
+        detail: { key: 'messages', data: messages }
+      });
+      window.dispatchEvent(event);
+      
     } catch (e) {
       console.warn('Erreur sauvegarde localStorage:', e);
       // Continuer même si localStorage échoue
@@ -48,7 +54,7 @@ export const saveMessages = async (messages: Message[]): Promise<{ success: bool
     
     return {
       success: true,
-      message: 'Messages sauvegardés avec succès !'
+      message: 'Messages sauvegardés avec succès ! (localStorage + événements)'
     };
   } catch (error) {
     console.error('Erreur lors de la sauvegarde:', error);
@@ -133,9 +139,15 @@ export const saveEvents = async (events: Event[]): Promise<{ success: boolean; m
     
     console.log('Événements sauvegardés dans localStorage:', events);
     
+    // Déclencher un événement custom pour notifier les autres composants
+    const event = new CustomEvent('eventsUpdated', {
+      detail: { key: 'events', data: events }
+    });
+    window.dispatchEvent(event);
+    
     return {
       success: true,
-      message: 'Événements sauvegardés avec succès !'
+      message: 'Événements sauvegardés avec succès ! (localStorage + événements)'
     };
   } catch (error) {
     console.error('Erreur lors de la sauvegarde des événements:', error);
@@ -192,15 +204,20 @@ export const saveMerchItems = async (merchItems: MerchItem[]): Promise<{ success
     // Simulation d'un délai de réseau
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Pour l'instant, on simule juste une sauvegarde réussie
-    console.log('Articles de merchandising à sauvegarder:', merchItems);
-    
     // Sauvegarder dans localStorage pour les tests
     localStorage.setItem('admin_merch_backup', JSON.stringify(merchItems));
     
+    console.log('Articles de merchandising sauvegardés dans localStorage:', merchItems);
+    
+    // Déclencher un événement custom pour notifier les autres composants
+    const event = new CustomEvent('merchItemsUpdated', {
+      detail: { key: 'merchItems', data: merchItems }
+    });
+    window.dispatchEvent(event);
+    
     return {
       success: true,
-      message: 'Merchandising sauvegardé avec succès !'
+      message: 'Merchandising sauvegardé avec succès ! (localStorage + événements)'
     };
   } catch (error) {
     console.error('Erreur lors de la sauvegarde du merchandising:', error);

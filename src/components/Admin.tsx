@@ -677,6 +677,37 @@ const Admin: React.FC = () => {
     setBio(prev => ({ ...prev, [field]: value }));
   };
 
+  // Exporter les données vers JSON (pour synchronisation)
+  const handleExportToJson = async (dataType: string, data: any) => {
+    setSaving(true);
+    setMessage('');
+    
+    try {
+      // Créer un fichier JSON téléchargeable
+      const jsonString = JSON.stringify(data, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      
+      // Créer un lien de téléchargement
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${dataType}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      setMessage(`${dataType} exporté vers JSON avec succès ! Téléchargez le fichier et remplacez-le dans public/`);
+      setTimeout(() => setMessage(''), 5000);
+    } catch (error) {
+      console.error(`Erreur lors de l'export ${dataType}:`, error);
+      setMessage(`Erreur lors de l'export ${dataType}`);
+      setTimeout(() => setMessage(''), 3000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
 
 
   // Fonction pour convertir les couleurs en format hexadécimal
@@ -847,6 +878,14 @@ const Admin: React.FC = () => {
                       </svg> Ajouter
                     </button>
                     
+                    <button
+                      onClick={(e) => handleButtonClick(() => handleExportToJson('store', merchItems), e.currentTarget)}
+                      className="admin-btn warning small"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon admin-icon-download">
+                        <path d="M320 96C320 78.3 334.3 64 352 64C369.7 64 384 78.3 384 96L384 313.4L425.4 272C437.9 259.5 458.1 259.5 470.6 272C483.1 284.5 483.1 304.7 470.6 317.2L340.6 447.2C328.1 459.7 307.9 459.7 295.4 447.2L165.4 317.2C152.9 304.7 152.9 284.5 165.4 272C177.9 259.5 198.1 259.5 210.6 272L252 313.4L252 96C252 78.3 266.3 64 284 64C301.7 64 316 78.3 316 96L320 96zM96 512C96 494.3 110.3 480 128 480L512 480C529.7 480 544 494.3 544 512C544 529.7 529.7 544 512 544L128 544C110.3 544 96 529.7 96 512z"/>
+                      </svg> Exporter JSON
+                    </button>
                     
                   </>
                 )}
@@ -1050,7 +1089,17 @@ const Admin: React.FC = () => {
                                 </div>
                                 
                                 {/* Bouton Save individuel */}
-                                <div className="form-row" style={{ marginTop: '15px', textAlign: 'right' }}>
+                                <div className="form-row" style={{ marginTop: '15px', textAlign: 'right', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                  <button 
+                                    onClick={(e) => handleButtonClick(() => handleExportToJson('events', events), e.currentTarget)}
+                                    disabled={saving}
+                                    className="admin-btn warning small admin-btn-custom"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon admin-icon-download">
+                                      <path d="M320 96C320 78.3 334.3 64 352 64C369.7 64 384 78.3 384 96L384 313.4L425.4 272C437.9 259.5 458.1 259.5 470.6 272C483.1 284.5 483.1 304.7 470.6 317.2L340.6 447.2C328.1 459.7 307.9 459.7 295.4 447.2L165.4 317.2C152.9 304.7 152.9 284.5 165.4 272C177.9 259.5 198.1 259.5 210.6 272L252 313.4L252 96C252 78.3 266.3 64 284 64C301.7 64 316 78.3 316 96L320 96zM96 512C96 494.3 110.3 480 128 480L512 480C529.7 480 544 494.3 544 512C544 529.7 529.7 544 512 544L128 544C110.3 544 96 529.7 96 512z"/>
+                                    </svg>
+                                    Exporter JSON
+                                  </button>
                                   <button 
                                     onClick={(e) => handleButtonClick(handleSaveEvents, e.currentTarget)}
                                     disabled={saving}
@@ -1265,7 +1314,17 @@ const Admin: React.FC = () => {
                                   </div>
                                   
                                   {/* Bouton Save individuel */}
-                                  <div className="form-row" style={{ marginTop: '15px', textAlign: 'right' }}>
+                                  <div className="form-row" style={{ marginTop: '15px', textAlign: 'right', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                    <button 
+                                      onClick={(e) => handleButtonClick(() => handleExportToJson('messages', messages), e.currentTarget)}
+                                      disabled={saving}
+                                      className="admin-btn warning small admin-btn-custom"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" className="admin-icon admin-icon-download">
+                                        <path d="M320 96C320 78.3 334.3 64 352 64C369.7 64 384 78.3 384 96L384 313.4L425.4 272C437.9 259.5 458.1 259.5 470.6 272C483.1 284.5 483.1 304.7 470.6 317.2L340.6 447.2C328.1 459.7 307.9 459.7 295.4 447.2L165.4 317.2C152.9 304.7 152.9 284.5 165.4 272C177.9 259.5 198.1 259.5 210.6 272L252 313.4L252 96C252 78.3 266.3 64 284 64C301.7 64 316 78.3 316 96L320 96zM96 512C96 494.3 110.3 480 128 480L512 480C529.7 480 544 494.3 544 512C544 529.7 529.7 544 512 544L128 544C110.3 544 96 529.7 96 512z"/>
+                                      </svg>
+                                      Exporter JSON
+                                    </button>
                                     <button 
                                       onClick={(e) => handleButtonClick(handleSaveMessages, e.currentTarget)}
                                       disabled={saving}
