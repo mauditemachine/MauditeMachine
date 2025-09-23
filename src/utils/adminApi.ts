@@ -70,23 +70,31 @@ export const startAutoSync = () => {
         const messages = JSON.parse(localData);
         console.log('🔄 Synchronisation automatique localStorage → JSON...');
         
-        // Sauvegarder réellement dans le fichier JSON via l'API
-        try {
-          const response = await fetch('http://localhost:3001/api/save-messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(messages)
-          });
-          
-          if (response.ok) {
-            console.log('✅ Synchronisation automatique terminée - Fichier JSON mis à jour');
-          } else {
-            console.warn('⚠️ Erreur lors de la mise à jour du fichier JSON');
+        // Vérifier si on est en localhost (serveur disponible)
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        
+        if (isLocalhost) {
+          // En localhost, essayer de sauvegarder via l'API
+          try {
+            const response = await fetch('http://localhost:3001/api/save-messages', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(messages)
+            });
+            
+            if (response.ok) {
+              console.log('✅ Synchronisation automatique terminée - Fichier JSON mis à jour');
+            } else {
+              console.warn('⚠️ Erreur lors de la mise à jour du fichier JSON');
+            }
+          } catch (error) {
+            console.warn('⚠️ Serveur API non disponible, synchronisation locale seulement');
           }
-        } catch (error) {
-          console.warn('⚠️ Serveur API non disponible, synchronisation locale seulement');
+        } else {
+          // En production, juste déclencher l'événement
+          console.log('🌐 Production: Synchronisation locale seulement');
         }
         
         // Déclencher un événement pour notifier les composants
