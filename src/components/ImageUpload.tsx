@@ -32,50 +32,16 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, placeholder 
     try {
       console.log('Début de l\'upload:', { name: file.name, type: file.type, size: file.size });
       
-      // Convertir l'image en base64
-      const base64 = await convertToBase64(file);
-      console.log('Base64 généré, longueur:', base64.length);
-      
       // Créer un nom de fichier unique
       const timestamp = Date.now();
       const extension = file.name.split('.').pop() || 'webp';
       const fileName = `uploaded-${timestamp}.${extension}`;
       
-      // Pour l'instant, on stocke en base64 dans localStorage
-      // Dans un vrai projet, vous uploaderiez vers un serveur
-      const imageData = {
-        fileName,
-        base64,
-        originalName: file.name,
-        uploadedAt: new Date().toISOString()
-      };
+      // Plus besoin de convertir en base64 - on utilise juste le chemin
+      console.log('Image prête pour upload vers serveur:', fileName);
       
-      // Sauvegarder dans localStorage avec gestion du quota
-      const existingImages = JSON.parse(localStorage.getItem('admin_uploaded_images') || '[]');
-      
-      // Nettoyer les anciennes images pour économiser l'espace
-      const recentImages = existingImages.slice(-2); // Garder seulement les 2 dernières
-      
-      recentImages.push(imageData);
-      
-      try {
-        localStorage.setItem('admin_uploaded_images', JSON.stringify(recentImages));
-        console.log('Image sauvegardée dans localStorage');
-      } catch (storageError) {
-        console.error('Erreur localStorage:', storageError);
-        // Si localStorage est encore plein, garder seulement la dernière image
-        if (storageError instanceof Error && storageError.message.includes('quota')) {
-          console.log('localStorage plein, garde seulement la dernière image');
-          localStorage.setItem('admin_uploaded_images', JSON.stringify([imageData]));
-        } else {
-          throw storageError;
-        }
-      }
-      
-      // Mettre à jour le chemin de l'image avec le type MIME correct
-      const dataUrl = `data:${file.type};base64,${base64}`;
-      console.log('Data URL créé:', dataUrl.substring(0, 50) + '...');
-      onChange(dataUrl);
+      // Retourner directement le chemin de l'image (sans base64)
+      onChange(`images/${fileName}`);
       
       console.log('Upload terminé avec succès');
       

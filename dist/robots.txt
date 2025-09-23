@@ -1,0 +1,21 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://mauditemachine.com/sitemap.xml
+
+# Crawl-delay pour éviter la surcharge
+Crawl-delay: 1
+
+# Bloquer les dossiers inutiles
+Disallow: /node_modules/
+Disallow: /src/
+Disallow: /.git/
+Disallow: /dist/
+
+# Autoriser les ressources importantes
+Allow: /images/
+Allow: /logo/
+Allow: /fonts/
+Allow: /events/
+Allow: /medias/
