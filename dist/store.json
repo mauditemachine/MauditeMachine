@@ -9,10 +9,10 @@
     "category": "sweatshirt",
     "active": true,
     "sizes": {
-      "S": true,
+      "S": false,
       "M": true,
       "L": true,
-      "XL": true
+      "XL": false
     },
     "soldOut": false
   },
@@ -25,10 +25,10 @@
     "category": "sweatshirt",
     "active": true,
     "sizes": {
-      "S": true,
+      "S": false,
       "M": true,
       "L": true,
-      "XL": true
+      "XL": false
     },
     "soldOut": false
   },

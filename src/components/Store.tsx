@@ -233,6 +233,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
         
         if (representativeItem) {
           // Calculer les tailles combinées pour cette catégorie
+          // Une taille est disponible SI AU MOINS UN article de la catégorie l'a en stock
           const combinedSizes = { S: false, M: false, L: false, XL: false };
           
           if (category !== 'bag') {
