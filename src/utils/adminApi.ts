@@ -53,8 +53,9 @@ export const saveMessages = async (messages: Message[]): Promise<{ success: bool
         console.warn('⚠️ Serveur API non disponible, sauvegarde locale seulement');
       }
     } else {
-      // En production, juste localStorage
-      console.log('🌐 Production: Sauvegarde locale seulement');
+      // En production, sauvegarder localStorage + télécharger le JSON
+      console.log('🌐 Production: Sauvegarde locale + téléchargement JSON');
+      downloadUpdatedJSON(messages, 'messages.json');
     }
     
     // Déclencher un événement custom pour notifier les autres composants
@@ -94,6 +95,23 @@ export const stopAutoSync = () => {
     syncInterval = null;
     console.log('⏹️ Synchronisation automatique arrêtée');
   }
+};
+
+// Télécharger le JSON mis à jour pour remplacer le fichier en production
+export const downloadUpdatedJSON = (data: any, filename: string) => {
+  const jsonString = JSON.stringify(data, null, 2);
+  const blob = new Blob([jsonString], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  
+  console.log(`📥 Téléchargement de ${filename} pour mise à jour en production`);
 };
 
 // Charger les messages directement depuis le fichier JSON (source unique de vérité)
@@ -180,8 +198,9 @@ export const saveEvents = async (events: Event[]): Promise<{ success: boolean; m
         console.warn('⚠️ Serveur API non disponible, sauvegarde locale seulement');
       }
     } else {
-      // En production, juste localStorage
-      console.log('🌐 Production: Sauvegarde locale seulement');
+      // En production, sauvegarder localStorage + télécharger le JSON
+      console.log('🌐 Production: Sauvegarde locale + téléchargement JSON');
+      downloadUpdatedJSON(events, 'events.json');
     }
     
     // Déclencher un événement custom pour notifier les autres composants
@@ -276,8 +295,9 @@ export const saveMerchItems = async (merchItems: MerchItem[]): Promise<{ success
         console.warn('⚠️ Serveur API non disponible, sauvegarde locale seulement');
       }
     } else {
-      // En production, juste localStorage
-      console.log('🌐 Production: Sauvegarde locale seulement');
+      // En production, sauvegarder localStorage + télécharger le JSON
+      console.log('🌐 Production: Sauvegarde locale + téléchargement JSON');
+      downloadUpdatedJSON(merchItems, 'store.json');
     }
     
     // Déclencher un événement custom pour notifier les autres composants
