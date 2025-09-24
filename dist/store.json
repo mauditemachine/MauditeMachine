@@ -1,5 +1,4 @@
 [
-  // ========== SWEATSHIRTS ==========
   {
     "id": 1,
     "src": "images/Merch_CrewNeck-Back.webp",
@@ -12,7 +11,7 @@
       "S": false,
       "M": true,
       "L": true,
-      "XL": false
+      "XL": true
     },
     "soldOut": false
   },
@@ -28,12 +27,11 @@
       "S": false,
       "M": true,
       "L": true,
-      "XL": false
+      "XL": true
     },
     "soldOut": false
   },
-  
-  // ========== HOODIES ==========
+
   {
     "id": 3,
     "src": "images/Merch_Hoodie-Back.webp",
@@ -43,10 +41,10 @@
     "category": "hoodie",
     "active": true,
     "sizes": {
-      "S": true,
-      "M": true,
+      "S": false,
+      "M": false,
       "L": true,
-      "XL": true
+      "XL": false
     },
     "soldOut": false
   },
@@ -59,15 +57,14 @@
     "category": "hoodie",
     "active": true,
     "sizes": {
-      "S": true,
-      "M": true,
+      "S": false,
+      "M": false,
       "L": true,
-      "XL": true
+      "XL": false
     },
     "soldOut": false
   },
-  
-  // ========== HIP BAGS ==========
+
   {
     "id": 5,
     "src": "images/Merch_Bag-Brown.webp",
@@ -118,8 +115,6 @@
     "active": true,
     "soldOut": false
   },
-  
-  // ========== T-SHIRTS ==========
   {
     "id": 10,
     "src": "images/Merch_Sylvain-Tshirt-Back.webp",

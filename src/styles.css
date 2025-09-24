@@ -1979,6 +1979,14 @@ body.dark-mode .form-textarea:focus {
   max-width: 100%;
 }
 
+.loading-state,
+.empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 2rem;
+  color: white;
+}
+
 .merch-item {
   cursor: pointer;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -2034,14 +2042,158 @@ body.dark-mode .form-textarea:focus {
   width: 32px;
   height: 32px;
   border: 2px solid rgba(255, 255, 255, 0.6);
-  border-radius: 50px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.1);
-  transition: all 0.3s ease;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
   pointer-events: none;
   cursor: default;
+}
+
+.size-option.available {
+  background-color: rgba(0, 255, 0, 0.3);
+}
+
+.size-option.out-of-stock {
+  background-color: rgba(255, 0, 0, 0.5);
+}
+
+.size-option .size-label {
+  z-index: 1;
+}
+
+.size-option .cross {
+  position: absolute;
+  width: 20px;
+  height: 2px;
+  background-color: red;
+  transform: rotate(45deg);
+  z-index: 2;
+}
+
+/* Lightbox styles */
+.lightbox-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 10000;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-container {
+  cursor: default;
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(255, 255, 255, 0.8);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  z-index: 10001;
+}
+
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.8);
+  border: none;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  cursor: pointer;
+  font-size: 20px;
+  z-index: 10001;
+}
+
+.lightbox-nav.prev {
+  left: 20px;
+}
+
+.lightbox-nav.next {
+  right: 20px;
+}
+
+.lightbox-content {
+  text-align: center;
+}
+
+.lightbox-image {
+  max-width: 100%;
+  max-height: 80vh;
+  object-fit: contain;
+}
+
+.lightbox-info {
+  color: white;
+  margin-top: 20px;
+}
+
+.lightbox-info h3 {
+  margin: 0 0 10px 0;
+}
+
+.lightbox-info p {
+  margin: 0 0 15px 0;
+}
+
+.lightbox-sizes {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.lightbox-size-option {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.lightbox-size-option.available {
+  background-color: rgba(0, 255, 0, 0.3);
+}
+
+.lightbox-size-option.out-of-stock {
+  background-color: rgba(255, 0, 0, 0.5);
+}
+
+.lightbox-size-option .size-label {
+  z-index: 1;
+}
+
+.lightbox-size-option .cross {
+  position: absolute;
+  width: 24px;
+  height: 2px;
+  background-color: red;
+  transform: rotate(45deg);
+  z-index: 2;
 }
 
 .size-option:hover {
@@ -2075,34 +2227,37 @@ body.dark-mode .form-textarea:focus {
 }
 
 .cross {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 100 !important;
+  display: block !important;
 }
 
 .cross::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) rotate(45deg);
-  width: 20px;
-  height: 1px;
-  background: #ffffff;
+  content: '' !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) rotate(45deg) !important;
+  width: 24px !important;
+  height: 3px !important;
+  background: #ffffff !important;
+  display: block !important;
 }
 
 .cross::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%) rotate(-45deg);
-  width: 20px;
-  height: 1px;
-  background: #ffffff;
+  content: '' !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) rotate(-45deg) !important;
+  width: 24px !important;
+  height: 3px !important;
+  background: #ffffff !important;
+  display: block !important;
 }
 
 /* Desktop : afficher les tailles dans la galerie */
