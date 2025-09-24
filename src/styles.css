@@ -2055,6 +2055,16 @@ body.dark-mode .form-textarea:focus {
   position: relative;
 }
 
+.size-option.out-of-stock .cross {
+  display: block !important;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+}
+
 .size-label {
   color: white;
   font-size: 12px;
