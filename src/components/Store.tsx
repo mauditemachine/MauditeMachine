@@ -197,46 +197,68 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
     return grouped;
   };
 
-  // Fonction pour obtenir les images à afficher (masquer les vues pour les vêtements)
+  // Fonction pour obtenir exactement 4 rectangles (1 par catégorie)
   const getDisplayImages = (items: MerchImage[]) => {
     const grouped = groupMerchItems(items);
     const displayImages: MerchImage[] = [];
     
-    // Ordre spécifique : T-shirt, Sweatshirt, Hoodie, puis Hip Bag Purple en premier
-    const categoryOrder = ['tshirt', 'sweatshirt', 'hoodie'];
+    // Ordre spécifique : T-shirt, Sweatshirt, Hoodie, Hip Bag
+    const categoryOrder = ['tshirt', 'sweatshirt', 'hoodie', 'bag'];
     
-    // Pour les vêtements, ne montrer que les vues dans l'ordre spécifié
     categoryOrder.forEach(category => {
-      if (grouped[category]) {
+      if (grouped[category] && grouped[category].length > 0) {
+        let representativeItem: MerchImage | undefined;
+        
         if (category === 'tshirt') {
-          // Pour les T-shirts, afficher seulement T-shirt (pas Sylvain)
-          const tshirtFront = grouped[category].find(item => 
+          // Pour T-shirt : prendre le T-shirt normal (pas Sylvain) et pas Back
+          representativeItem = grouped[category].find(item => 
             !item.alt.toLowerCase().includes('back') && !item.alt.toLowerCase().includes('sylvain')
           );
-          
-          if (tshirtFront) displayImages.push(tshirtFront);
+        } else if (category === 'bag') {
+          // Pour Hip Bag : prendre Purple en premier
+          representativeItem = grouped[category].find(item => 
+            item.alt.toLowerCase().includes('purple')
+          );
         } else {
-         // Pour les autres vêtements, ne montrer que les vues
-         const frontItems = grouped[category].filter(item => 
-           !item.alt.toLowerCase().includes('back')
-         );
-          if (frontItems.length > 0) {
-            displayImages.push(...frontItems);
+          // Pour Sweatshirt et Hoodie : prendre la vue Front
+          representativeItem = grouped[category].find(item => 
+            !item.alt.toLowerCase().includes('back')
+          );
+        }
+        
+        // Si pas trouvé, prendre le premier de la catégorie
+        if (!representativeItem && grouped[category].length > 0) {
+          representativeItem = grouped[category][0];
+        }
+        
+        if (representativeItem) {
+          // Calculer les tailles combinées pour cette catégorie
+          const combinedSizes = { S: false, M: false, L: false, XL: false };
+          
+          if (category !== 'bag') {
+            grouped[category].forEach(item => {
+              if (item.sizes) {
+                Object.keys(item.sizes).forEach(size => {
+                  if (item.sizes![size as keyof typeof item.sizes]) {
+                    combinedSizes[size as keyof typeof combinedSizes] = true;
+                  }
+                });
+              }
+            });
           }
+          
+          // Créer l'item représentatif avec les tailles combinées
+          displayImages.push({
+            ...representativeItem,
+            caption: category === 'tshirt' ? 'T-shirt' :
+                     category === 'sweatshirt' ? 'Sweatshirt' :
+                     category === 'hoodie' ? 'Hoodie' :
+                     'Hip Bag',
+            sizes: category === 'bag' ? undefined : combinedSizes
+          });
         }
       }
     });
-    
-    // Pour les hip bags, afficher seulement Purple en premier
-    if (grouped['bag']) {
-      const purpleBag = grouped['bag'].find(item => 
-        item.alt.toLowerCase().includes('purple')
-      );
-      
-      if (purpleBag) {
-        displayImages.push(purpleBag);
-      }
-    }
     
     return displayImages;
   };
