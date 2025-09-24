@@ -109,7 +109,7 @@
     "src": "images/Merch_Sylvain-Tshirt-Back.webp",
     "alt": "Sylvain Tshirt Back",
     "caption": "Sylvain T-shirt - Back",
-    "price": "40$ CAD",
+    "price": "30$ CAD",
     "category": "tshirt",
     "active": true,
     "sizes": {
@@ -124,7 +124,7 @@
     "src": "images/Merch_Sylvain-Tshirt-Front.webp",
     "alt": "Sylvain Tshirt Front", 
     "caption": "Sylvain T-shirt - Front",
-    "price": "40$ CAD",
+    "price": "30$ CAD",
     "category": "tshirt",
     "active": true,
     "sizes": {
@@ -139,7 +139,7 @@
     "src": "images/Merch_Tshirt-Back.webp",
     "alt": "Tshirt Back",
     "caption": "T-shirt - Back",
-    "price": "40$ CAD",
+    "price": "30$ CAD",
     "category": "tshirt", 
     "active": true,
     "sizes": {
@@ -154,7 +154,7 @@
     "src": "images/Merch_Tshirt-Front.webp",
     "alt": "Tshirt Front",
     "caption": "T-shirt - Front", 
-    "price": "40$ CAD",
+    "price": "30$ CAD",
     "category": "tshirt",
     "active": true,
     "sizes": {
