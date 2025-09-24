@@ -62,7 +62,17 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
     const loadMerchData = async () => {
       try {
         setLoading(true);
-        const merchData = await loadMerchItems();
+        console.log('🛍️ Chargement des données de merchandising...');
+        
+        // Charger directement depuis le fichier JSON public
+        const response = await fetch('/store.json');
+        if (!response.ok) {
+          throw new Error('Erreur lors du chargement du merchandising');
+        }
+        const merchData = await response.json();
+        
+        console.log('✅ Données chargées:', merchData.length, 'articles');
+        console.log('📏 Première taille:', merchData[0]?.sizes);
         
         // Convertir les données MerchItem en MerchImage pour la compatibilité
         const convertedData: MerchImage[] = merchData
@@ -73,27 +83,36 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
             caption: item.caption,
             price: item.price,
             soldOut: item.soldOut,
-            sizes: item.sizes
+            sizes: item.sizes || {
+              S: true,
+              M: true,
+              L: true,
+              XL: true
+            }
           }));
+        
+        console.log('🎯 Articles convertis:', convertedData.length);
+        console.log('📏 Tailles du premier article:', convertedData[0]?.sizes);
         
         setMerchImages(convertedData);
       } catch (error) {
         console.error('Erreur lors du chargement du merchandising:', error);
-        // En cas d'erreur, utiliser les données par défaut
+        // En cas d'erreur, utiliser les données par défaut avec tailles
+        const defaultSizes = { S: true, M: true, L: true, XL: true };
         setMerchImages([
-          { src: 'images/Merch_CrewNeck-Back.webp', alt: 'Sweatshirt', caption: 'Sweatshirt', price: '50$ CAD' },
-          { src: 'images/Merch_CrewNeck-Front.webp', alt: 'Sweatshirt', caption: 'Sweatshirt', price: '50$ CAD' },
-          { src: 'images/Merch_Hoodie-Back.webp', alt: 'Hoodie', caption: 'Hoodie', price: '50$ CAD' },
-          { src: 'images/Merch_Hoodie F.webp', alt: 'Hoodie', caption: 'Hoodie', price: '50$ CAD' },
+          { src: 'images/Merch_CrewNeck-Back.webp', alt: 'Sweatshirt', caption: 'Sweatshirt', price: '50$ CAD', sizes: defaultSizes },
+          { src: 'images/Merch_CrewNeck-Front.webp', alt: 'Sweatshirt', caption: 'Sweatshirt', price: '50$ CAD', sizes: defaultSizes },
+          { src: 'images/Merch_Hoodie-Back.webp', alt: 'Hoodie', caption: 'Hoodie', price: '50$ CAD', sizes: defaultSizes },
+          { src: 'images/Merch_Hoodie F.webp', alt: 'Hoodie', caption: 'Hoodie', price: '50$ CAD', sizes: defaultSizes },
           { src: 'images/Merch_Bag-Brown.webp', alt: 'Bag Brown', caption: 'Hip Bag Brown', price: '80$ CAD' },
           { src: 'images/Merch_Bag-Orange.webp', alt: 'Bag Orange', caption: 'Hip-Bag Orange', price: '80$ CAD' },
           { src: 'images/Merch_Bag-Pink.webp', alt: 'Bag Pink', caption: 'Hip-Bag Pink', price: '80$ CAD' },
           { src: 'images/Merch_Bag-red.webp', alt: 'Bag Red', caption: 'Hip-Bag Red', price: '80$ CAD' },
           { src: 'images/Merch_Bag-Purple.webp', alt: 'Bag Purple', caption: 'Hip-Bag Purple', price: '80$ CAD' },
-          { src: 'images/Merch_Sylvain-Tshirt-Back.webp', alt: 'Sylvain Tshirt', caption: 'Sylvain T-shirt', price: '40$ CAD' },
-          { src: 'images/Merch_Sylvain-Tshirt-Front.webp', alt: 'Sylvain Tshirt', caption: 'Sylvain T-shirt', price: '40$ CAD' },
-          { src: 'images/Merch_Tshirt-Back.webp', alt: 'Tshirt', caption: 'T-shirt', price: '40$ CAD' },
-          { src: 'images/Merch_Tshirt-Front.webp', alt: 'Tshirt', caption: 'T-shirt', price: '40$ CAD' }
+          { src: 'images/Merch_Sylvain-Tshirt-Back.webp', alt: 'Sylvain Tshirt', caption: 'Sylvain T-shirt', price: '40$ CAD', sizes: defaultSizes },
+          { src: 'images/Merch_Sylvain-Tshirt-Front.webp', alt: 'Sylvain Tshirt', caption: 'Sylvain T-shirt', price: '40$ CAD', sizes: defaultSizes },
+          { src: 'images/Merch_Tshirt-Back.webp', alt: 'Tshirt', caption: 'T-shirt', price: '40$ CAD', sizes: defaultSizes },
+          { src: 'images/Merch_Tshirt-Front.webp', alt: 'Tshirt', caption: 'T-shirt', price: '40$ CAD', sizes: defaultSizes }
         ]);
       } finally {
         setLoading(false);
