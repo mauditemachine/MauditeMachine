@@ -57,9 +57,9 @@
     "active": true,
     "sizes": {
       "S": false,
-      "M": true,
+      "M": false,
       "L": true,
-      "XL": true
+      "XL": false
     }
   },
   

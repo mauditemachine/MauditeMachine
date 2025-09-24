@@ -4,16 +4,17 @@
     "id": 1,
     "src": "images/Merch_CrewNeck-Back.webp",
     "alt": "Sweatshirt Back",
-    "caption": "Sweatshirt - Back",
+    "caption": "Sweatshirt",
     "price": "50$ CAD",
     "category": "sweatshirt",
     "active": true,
     "sizes": {
       "S": true,
-      "M": false,
+      "M": true,
       "L": true,
-      "XL": false
-    }
+      "XL": true
+    },
+    "soldOut": false
   },
   {
     "id": 2,
@@ -25,10 +26,11 @@
     "active": true,
     "sizes": {
       "S": true,
-      "M": false,
+      "M": true,
       "L": true,
-      "XL": false
-    }
+      "XL": true
+    },
+    "soldOut": false
   },
   
   // ========== HOODIES ==========
@@ -36,16 +38,17 @@
     "id": 3,
     "src": "images/Merch_Hoodie-Back.webp",
     "alt": "Hoodie Back",
-    "caption": "Hoodie - Back",
+    "caption": "Hoodie",
     "price": "50$ CAD",
     "category": "hoodie",
     "active": true,
     "sizes": {
-      "S": false,
-      "M": false,
+      "S": true,
+      "M": true,
       "L": true,
-      "XL": false
-    }
+      "XL": true
+    },
+    "soldOut": false
   },
   {
     "id": 4,
@@ -56,11 +59,12 @@
     "category": "hoodie",
     "active": true,
     "sizes": {
-      "S": false,
-      "M": false,
+      "S": true,
+      "M": true,
       "L": true,
-      "XL": false
-    }
+      "XL": true
+    },
+    "soldOut": false
   },
   
   // ========== HIP BAGS ==========
@@ -120,7 +124,7 @@
     "id": 10,
     "src": "images/Merch_Sylvain-Tshirt-Back.webp",
     "alt": "Sylvain Tshirt Back",
-    "caption": "Sylvain T-shirt - Back",
+    "caption": "Sylvain T-shirt",
     "price": "30$ CAD",
     "category": "tshirt",
     "active": true,
@@ -152,7 +156,7 @@
     "id": 12,
     "src": "images/Merch_Tshirt-Back.webp",
     "alt": "Tshirt Back",
-    "caption": "T-shirt - Back",
+    "caption": "T-shirt",
     "price": "30$ CAD",
     "category": "tshirt",
     "active": true,
