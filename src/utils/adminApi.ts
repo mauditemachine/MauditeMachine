@@ -55,58 +55,10 @@ export const saveMessages = async (messages: Message[]): Promise<{ success: bool
 // Système de synchronisation automatique
 let syncInterval: NodeJS.Timeout | null = null;
 
-// Démarrer la synchronisation automatique toutes les 15 secondes
+// Désactiver la synchronisation automatique - sauvegarde manuelle seulement
 export const startAutoSync = () => {
-  if (syncInterval) {
-    clearInterval(syncInterval);
-  }
-  
-  console.log('🔄 Démarrage de la synchronisation automatique (15s)');
-  
-  syncInterval = setInterval(async () => {
-    try {
-      const localData = localStorage.getItem('admin_messages_backup');
-      if (localData) {
-        const messages = JSON.parse(localData);
-        console.log('🔄 Synchronisation automatique localStorage → JSON...');
-        
-        // Vérifier si on est en localhost (serveur disponible)
-        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        
-        if (isLocalhost) {
-          // En localhost, essayer de sauvegarder via l'API
-          try {
-            const response = await fetch('http://localhost:3001/api/save-messages', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify(messages)
-            });
-            
-            if (response.ok) {
-              console.log('✅ Synchronisation automatique terminée - Fichier JSON mis à jour');
-            } else {
-              console.warn('⚠️ Erreur lors de la mise à jour du fichier JSON');
-            }
-          } catch (error) {
-            console.warn('⚠️ Serveur API non disponible, synchronisation locale seulement');
-          }
-        } else {
-          // En production, juste déclencher l'événement
-          console.log('🌐 Production: Synchronisation locale seulement');
-        }
-        
-        // Déclencher un événement pour notifier les composants
-        const event = new CustomEvent('messagesUpdated', {
-          detail: { key: 'messages', data: messages }
-        });
-        window.dispatchEvent(event);
-      }
-    } catch (error) {
-      console.error('❌ Erreur synchronisation automatique:', error);
-    }
-  }, 15000); // 15 secondes
+  console.log('⏹️ Synchronisation automatique désactivée - Sauvegarde manuelle seulement');
+  // Ne fait rien - pas de synchronisation automatique
 };
 
 // Arrêter la synchronisation automatique
@@ -137,9 +89,9 @@ export const loadMessages = async (): Promise<Message[]> => {
     
     // Synchroniser avec localStorage pour la cohérence de l'admin
     localStorage.setItem('admin_messages_backup', JSON.stringify(messages));
-    
-    // Démarrer la synchronisation automatique
-    startAutoSync();
+
+    // Pas de synchronisation automatique - sauvegarde manuelle seulement
+    console.log('📝 Messages chargés - Sauvegarde manuelle disponible');
     
     return messages.map((msg: any, index: number) => ({
       ...msg,
@@ -155,8 +107,8 @@ export const loadMessages = async (): Promise<Message[]> => {
         console.log('⚠️ Fallback vers localStorage');
         const messages = JSON.parse(localData);
         
-        // Démarrer la synchronisation automatique même en fallback
-        startAutoSync();
+        // Pas de synchronisation automatique - sauvegarde manuelle seulement
+        console.log('📝 Messages chargés depuis localStorage - Sauvegarde manuelle disponible');
         
         return messages.map((msg: any, index: number) => ({
           ...msg,
