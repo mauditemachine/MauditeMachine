@@ -67,7 +67,7 @@
     "price": "80$ CAD",
     "category": "bag",
     "active": true,
-    "soldOut": false
+    "soldOut": true
   },
   {
     "id": 6,
