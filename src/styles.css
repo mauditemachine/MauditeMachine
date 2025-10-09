@@ -2041,7 +2041,7 @@ body.dark-mode .form-textarea:focus {
   position: relative;
   width: 30px;
   height: 30px;
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  border: 2px solid white;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -2056,11 +2056,12 @@ body.dark-mode .form-textarea:focus {
 
 .size-option .size-label {
   z-index: 1;
-  color: #343434;
+  color: black;
 }
 
-.size-option.out-of-stock .size-label {
-  color: white;
+.size-option.out-of-stock {
+  border: none;
+  background-color: white;
 }
 
 .size-option.out-of-stock::after {
@@ -2068,7 +2069,7 @@ body.dark-mode .form-textarea:focus {
   position: absolute;
   width: 20px;
   height: 1px;
-  background-color: white;
+  background-color: black;
   transform: rotate(45deg);
   z-index: 2;
 }
@@ -2162,34 +2163,32 @@ body.dark-mode .form-textarea:focus {
 
 .lightbox-size-option {
   position: relative;
-  width: 40px;
-  height: 40px;
-  border: 1px solid rgba(255, 255, 255, 0.8);
+  width: 30px;
+  height: 30px;
+  border: 2px solid white;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   background-color: white;
   color: black;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: bold;
+  pointer-events: none;
+  cursor: default;
 }
 
 .lightbox-size-option .size-label {
   z-index: 1;
-  color: #343434;
-}
-
-.lightbox-size-option.out-of-stock .size-label {
-  color: white;
+  color: black;
 }
 
 .lightbox-size-option.out-of-stock::after {
   content: '';
   position: absolute;
-  width: 26px;
+  width: 20px;
   height: 1px;
-  background-color: white;
+  background-color: black;
   transform: rotate(45deg);
   z-index: 2;
 }
@@ -2200,8 +2199,8 @@ body.dark-mode .form-textarea:focus {
 }
 
 .size-option.out-of-stock {
-  background: rgba(255, 68, 68, 0.2);
-  opacity: 0.8;
+  background: rgba(255, 255, 255, 1);
+  opacity: 1;
   position: relative;
 }
 
