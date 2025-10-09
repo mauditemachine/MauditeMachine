@@ -346,7 +346,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
                   {Object.entries(item.sizes).map(([size, available]) => (
                     <div 
                       key={size}
-                      className={`size-option ${available ? 'available' : 'out-of-stock'}`}
+                      className={`size-option ${!available ? 'out-of-stock' : ''}`}
                     >
                       <span className="size-label">{size}</span>
                     </div>
@@ -422,7 +422,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
                     {Object.entries(currentGroupImages[currentImageIndex].sizes).map(([size, available]) => (
                       <div 
                         key={size}
-                        className={`lightbox-size-option ${available ? 'available' : 'out-of-stock'}`}
+                        className={`lightbox-size-option ${!available ? 'out-of-stock' : ''}`}
                       >
                         <span className="size-label">{size}</span>
                       </div>
