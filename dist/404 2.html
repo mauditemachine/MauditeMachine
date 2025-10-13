@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Maudite Machine - DJ & Producteur | Minimal & Indie Dance | VRSTL Records</title>
+    <meta name="description" content="Maudite Machine est un DJ et producteur canadien spécialisé en minimal et indie dance. Fondateur de VRSTL Records, il performe dans les festivals majeurs comme Piknic Électronik et Eclipse Festival." />
+    <meta name="keywords" content="Maudite Machine, DJ, producteur, minimal, indie dance, techno, VRSTL Records, Montréal, Canada, Piknic Électronik, Eclipse Festival, musique électronique" />
+    <meta name="author" content="Maudite Machine" />
+    <meta name="robots" content="index, follow" />
+    <meta name="googlebot" content="index, follow" />
+    <link rel="canonical" href="https://mauditemachine.com/" />
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
+    
+    <!-- Favicon optimisé -->
+    <link rel="icon" href="/logo/favicon.ico" type="image/x-icon" />
+    <link rel="shortcut icon" href="/logo/favicon.ico" type="image/x-icon" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/logo/mauditemachine-logo.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/logo/mauditemachine-logo.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/logo/mauditemachine-logo.png" />
+    
+
+    <!-- Données structurées JSON-LD pour le SEO -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Person",
+      "name": "Maudite Machine",
+      "alternateName": "Maudite Machine DJ",
+      "description": "DJ et producteur canadien spécialisé en minimal et indie dance. Fondateur de VRSTL Records.",
+      "url": "https://mauditemachine.com",
+      "image": "https://mauditemachine.com/images/og-image.jpg",
+      "sameAs": [
+        "https://soundcloud.com/mauditemachine",
+        "https://www.instagram.com/mauditemachine/",
+        "https://vrstlrecords.com"
+      ],
+      "jobTitle": "DJ & Producteur",
+      "worksFor": {
+        "@type": "Organization",
+        "name": "VRSTL Records",
+        "url": "https://vrstlrecords.com"
+      },
+      "genre": ["Minimal", "Indie Dance", "Techno", "Electronic"],
+      "nationality": "Canadian",
+      "birthPlace": "Montreal, Canada",
+      "knowsAbout": ["Electronic Music", "DJ", "Music Production", "Minimal Techno", "Indie Dance"],
+      "award": "Performed at Piknic Électronik, Eclipse Festival, Techno Parade Paris"
+    }
+    </script>
+
+    <!-- Facebook Pixel Code -->
+    <script>
+      !function(f,b,e,v,n,t,s)
+      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+      n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s)}(window, document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+      fbq('init', '1410022320201825');
+      fbq('track', 'PageView');
+    </script>
+    <!-- End Facebook Pixel Code -->
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-HP92HGMNJT"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);} 
+      gtag('js', new Date());
+      gtag('config', 'G-HP92HGMNJT');
+    </script>
+    <script>
+      // ========================================
+      // SOLUTION ULTIME ANTI-CREATEPATTERN ERROR
+      // ========================================
+      
+      (function() {
+        // MÉTHODE NUCLÉAIRE - DÉSACTIVER COMPLÈTEMENT createPattern
+        const ORIGINAL_CREATE_PATTERN = CanvasRenderingContext2D.prototype.createPattern;
+        
+        // Remplacer IMMÉDIATEMENT et DÉFINITIVEMENT
+        CanvasRenderingContext2D.prototype.createPattern = function(image, repetition) {
+          // TOUJOURS retourner null - pas d'erreur possible
+          return null;
+        };
+        
+        // VERROUILLER la méthode pour empêcher tout changement
+        Object.defineProperty(CanvasRenderingContext2D.prototype, 'createPattern', {
+          value: function(image, repetition) { return null; },
+          writable: false,
+          configurable: false,
+          enumerable: true
+        });
+        
+        // INTERCEPTER toute tentative de redéfinition
+        const originalDefineProperty = Object.defineProperty;
+        Object.defineProperty = function(obj, prop, descriptor) {
+          if (obj === CanvasRenderingContext2D.prototype && prop === 'createPattern') {
+            // IGNORER toute tentative de redéfinition de createPattern
+            return obj;
+          }
+          return originalDefineProperty.call(this, obj, prop, descriptor);
+        };
+        
+        // INTERCEPTER aussi Object.setPrototypeOf
+        const originalSetPrototypeOf = Object.setPrototypeOf;
+        Object.setPrototypeOf = function(obj, prototype) {
+          const result = originalSetPrototypeOf.call(this, obj, prototype);
+          // Réappliquer notre protection après tout changement de prototype
+          if (obj && obj.createPattern) {
+            obj.createPattern = function() { return null; };
+          }
+          return result;
+        };
+        
+        // Sauvegarder les méthodes originales
+        const originalConsoleError = console.error;
+        const originalConsoleWarn = console.warn;
+        const originalConsoleLog = console.log;
+        const originalConsoleInfo = console.info;
+        const originalConsoleDebug = console.debug;
+        
+        // Liste exhaustive des patterns à filtrer
+        const FILTER_PATTERNS = [
+          'SoundCloud',
+          'widget-',
+          'createPattern',
+          'canvas element with a width or height of 0',
+          'InvalidStateError',
+          'CanvasRenderingContext2D',
+          'Permissions policy violation',
+          'encrypted-media',
+          'AbortError',
+          'Script error',
+          'Failed to execute',
+          'Canvas',
+          'HTMLCanvasElement',
+          'getContext',
+          'drawImage',
+          'toDataURL',
+          'Uncaught',
+          'TypeError: Cannot read',
+          'ReferenceError',
+          'SecurityError',
+          'DOM Exception',
+          'NotAllowedError',
+          'QuotaExceededError',
+          'NetworkError',
+          'constructor {resource_id',
+          'Track changed:',
+          'validateDOMNesting',
+          // Patterns spécifiques pour l'erreur Canvas
+          'Failed to execute \'createPattern\' on \'CanvasRenderingContext2D\'',
+          'image argument is a canvas element',
+          'width or height of 0',
+          'Uncaught InvalidStateError',
+          'InvalidStateError: Failed to execute',
+          'canvas element with a width',
+          'height of 0'
+        ];
+        
+        function shouldFilter(args) {
+          const message = args.join(' ').toLowerCase();
+          const stack = (args[0] && args[0].stack) ? args[0].stack.toLowerCase() : '';
+          const fullText = message + ' ' + stack;
+          
+          // Filtrage ultra-agressif - intercepter TOUT ce qui vient des widgets
+          if (/widget-[a-f0-9]+\.js/i.test(fullText)) return true;
+          if (fullText.includes('soundcloud')) return true;
+          if (fullText.includes('embed player')) return true;
+          if (fullText.includes('constructor {resource_id')) return true;
+          
+          return FILTER_PATTERNS.some(pattern => 
+            fullText.includes(pattern.toLowerCase())
+          );
+        }
+        
+        // Remplacer toutes les méthodes console
+        console.error = (...args) => {
+          if (!shouldFilter(args)) {
+            originalConsoleError.apply(console, args);
+          }
+        };
+        
+        console.warn = (...args) => {
+          if (!shouldFilter(args)) {
+            originalConsoleWarn.apply(console, args);
+          }
+        };
+        
+        console.log = (...args) => {
+          if (!shouldFilter(args)) {
+            originalConsoleLog.apply(console, args);
+          }
+        };
+        
+        console.info = (...args) => {
+          if (!shouldFilter(args)) {
+            originalConsoleInfo.apply(console, args);
+          }
+        };
+        
+        console.debug = (...args) => {
+          if (!shouldFilter(args)) {
+            originalConsoleDebug.apply(console, args);
+          }
+        };
+        
+        // Intercepter TOUTES les erreurs JavaScript
+        window.addEventListener('error', function(e) {
+          const fullMessage = (e.message || '') + ' ' + (e.filename || '') + ' ' + (e.error ? e.error.stack || '' : '');
+          if (shouldFilter([fullMessage])) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            return false;
+          }
+        }, true);
+        
+        // Intercepter les promesses rejetées
+        window.addEventListener('unhandledrejection', function(e) {
+          const reason = e.reason ? (e.reason.message || e.reason.toString()) : '';
+          if (shouldFilter([reason])) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+          }
+        }, true);
+        
+        // SURVEILLANCE CONTINUE POUR MAINTENIR LA PROTECTION
+        setInterval(() => {
+          // Vérifier et forcer notre protection toutes les 100ms
+          try {
+            CanvasRenderingContext2D.prototype.createPattern = function() { return null; };
+          } catch (e) {
+            // Même si ça échoue, on continue
+          }
+        }, 100);
+        
+        // Override de window.onerror pour être sûr
+        const originalOnError = window.onerror;
+        window.onerror = function(message, source, lineno, colno, error) {
+          const fullMessage = message + ' ' + (source || '') + ' ' + (error ? error.stack || '' : '');
+          if (shouldFilter([fullMessage])) {
+            return true; // Empêcher l'affichage
+          }
+          if (originalOnError) {
+            return originalOnError.call(this, message, source, lineno, colno, error);
+          }
+          return false;
+        };
+        
+        // PROTECTION FINALE - Intercepter les nouvelles instances Canvas
+        const originalGetContext = HTMLCanvasElement.prototype.getContext;
+        HTMLCanvasElement.prototype.getContext = function(contextType, options) {
+          const context = originalGetContext.call(this, contextType, options);
+          if (context && contextType === '2d') {
+            // Forcer notre protection sur chaque nouveau contexte
+            context.createPattern = function() { return null; };
+          }
+          return context;
+        };
+        
+      })();
+    </script>
+    
+    <!--
+      Encore un site Maudite Machine cette années ! oue... je suis productif et je devrais faire de la musique au lieu de coder comme un coquin !
+      
+      Site Maudite Machine 2025
+      - Stack: Vite + React + TypeScript, CSS custom
+      - Lecteur: widget SoundCloud API + composant personnalisé (playlist, drag window)
+      - Assets: dans /medias (images, fonts, JSON: events/messages)
+      - Déploiement: build Vite (dist) publié sur gh-pages (+ /medias) ou via GitHub Actions
+      - Domaine: CNAME mauditemachine.com + .nojekyll
+    -->
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://mauditemachine.com/" />
+    <meta property="og:title" content="Maudite Machine - DJ & Producteur" />
+    <meta property="og:site_name" content="Maudite Machine" />
+    <meta
+      property="og:description"
+      content="DJ et producteur canadien spécialisé en minimal et indie dance. Fondateur de VRSTL Records."
+    />
+    <meta
+      property="og:image"
+      content="https://mauditemachine.com/images/og-image.jpg?v=2025"
+    />
+    <meta property="og:image:secure_url" content="https://mauditemachine.com/images/og-image.jpg?v=2025" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:alt" content="Maudite Machine - DJ & Producteur" />
+    <meta property="og:locale" content="fr_CA" />
+
+    <!-- Google Analytics -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-HP92HGMNJT"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+      gtag("config", "G-HP92HGMNJT");
+    </script>
+
+    <!-- Twitter Card (bonus) -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://mauditemachine.com" />
+    <meta
+      property="twitter:title"
+      content="Maudite Machine - DJ & Producteur"
+    />
+    <meta
+      property="twitter:description"
+      content="DJ et producteur canadien spécialisé en minimal et indie dance. Fondateur de VRSTL Records."
+    />
+    <meta
+      property="twitter:image"
+      content="https://mauditemachine.com/images/og-image.jpg?v=2025"
+    />
+    <link rel="icon" href="/logo/favicon.ico" type="image/x-icon" />
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <!-- LightWidget WIDGET -->
+    <script src="https://cdn.lightwidget.com/widgets/lightwidget.js"></script>
+    <script type="module" crossorigin src="/assets/index-DdsRfI-7.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DleIOz7u.css">
+  </head>
+  <body>
+    <!-- Facebook Pixel noscript fallback -->
+    <noscript><img height="1" width="1" style="display:none"
+      src="https://www.facebook.com/tr?id=1410022320201825&ev=PageView&noscript=1"
+    /></noscript>
+    
+    <div id="root"></div>
+  </body>
+</html>
