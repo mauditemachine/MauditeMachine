@@ -22,31 +22,55 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, placeholder 
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) { // 2MB limit
-      alert('L\'image est trop volumineuse. Taille maximum: 2MB');
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      alert('L\'image est trop volumineuse. Taille maximum: 5MB');
       return;
     }
 
     setIsUploading(true);
 
     try {
-      console.log('Début de l\'upload:', { name: file.name, type: file.type, size: file.size });
+      console.log('🚀 Début de l\'upload:', { name: file.name, type: file.type, size: file.size });
       
-      // Créer un nom de fichier unique
-      const timestamp = Date.now();
-      const extension = file.name.split('.').pop() || 'webp';
-      const fileName = `uploaded-${timestamp}.${extension}`;
+      // Vérifier si on est en localhost (serveur disponible)
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       
-      // Plus besoin de convertir en base64 - on utilise juste le chemin
-      console.log('Image prête pour upload vers serveur:', fileName);
+      if (isLocalhost) {
+        // En localhost, uploader via l'API
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        const response = await fetch('http://localhost:3001/api/upload-image', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!response.ok) {
+          throw new Error('Erreur lors de l\'upload de l\'image');
+        }
+        
+        const result = await response.json();
+        console.log('✅ Image uploadée:', result.imagePath);
+        
+        // Retourner le chemin de l'image
+        onChange(result.imagePath);
+      } else {
+        // En production, générer un nom de fichier et informer l'utilisateur
+        const timestamp = Date.now();
+        const extension = file.name.split('.').pop() || 'webp';
+        const fileName = `uploaded-${timestamp}.${extension}`;
+        const imagePath = `images/${fileName}`;
+        
+        console.log('📦 Mode production: Chemin généré:', imagePath);
+        alert(`⚠️ Mode production: Vous devez manuellement uploader le fichier "${fileName}" dans le dossier public/images/`);
+        
+        onChange(imagePath);
+      }
       
-      // Retourner directement le chemin de l'image (sans base64)
-      onChange(`images/${fileName}`);
-      
-      console.log('Upload terminé avec succès');
+      console.log('✅ Upload terminé avec succès');
       
     } catch (error) {
-      console.error('Erreur détaillée lors de l\'upload:', error);
+      console.error('❌ Erreur détaillée lors de l\'upload:', error);
       alert(`Erreur lors de l'upload de l'image: ${error.message || 'Erreur inconnue'}`);
     } finally {
       setIsUploading(false);
