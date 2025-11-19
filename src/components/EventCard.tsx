@@ -21,9 +21,11 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  // Formater la date
+  // Formater la date (sans problème de fuseau horaire)
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    // Parser la date manuellement pour éviter les problèmes de fuseau horaire
+    const [year, month, day] = dateString.split('-').map(num => parseInt(num));
+    const date = new Date(year, month - 1, day);
     return date.toLocaleDateString('en-US', { 
       month: 'long',
       day: 'numeric',

@@ -3,9 +3,17 @@
     "date": "2026-02-27",
     "title": "LUMIERE NOIRE",
     "url": "https://www.facebook.com/events/1119445916830223",
-    "location": "TBA",
+    "location": "Sainte Catherine Hall",
     "color": "#9d4edd",
     "image": "events/lumierenoire2026.webp"
+  },
+  {
+    "date": "2025-12-31",
+    "title": "CIRQUE DE BOUDOIR CARNAVALESQUE",
+    "url": "https://www.facebook.com/share/1ByYRFc5UJ/",
+    "location": "Theatre Paradoxe",
+    "color": "#ff6d9e",
+    "image": "images/uploaded-1763522916734.webp"
   },
   {
     "date": "2025-11-06",
@@ -24,20 +32,20 @@
     "image": "events/boudoir2025.webp"
   },
   {
-    "date": "2025-09-13",
-    "title": "VRSTL RECORDS LAUNCH EVENT",
-    "url": "https://www.facebook.com/Mikamauditemachine/posts/pfbid0fXBh21JKEyHd8ZHuecWJn74yQyUBthPLE92AKughL16vwmY2jdCVGhm5FYsb5ghJl?__cft__[0]=AZVeWJcyrkXd7iQpRdsNjrEnJqztlrMi7wh0fT2emQ_hpPuhoMBjKDHf6UMCgCQCaeeMq2gIx0pVaIM_DApgEcA0Y9pEjDwoUHN4NmLyl1Y9yZp7ZOZE--pC_g-rLVVKGnZOa_KSKTLb85zz8rR5h4XFwODpYx2HOm2tu36Hnkxr9w&__tn__=%2CO%2CP-R",
-    "location": "Montreal, QC",
-    "color": "#ffcc00",
-    "image": "events/lancement.webp"
-  },
-  {
     "date": "2025-09-26",
     "title": "ONE FESTIVAL",
     "url": "https://www.facebook.com/events/599031379562108",
     "location": "Stoneham",
     "color": "#00ff66",
     "image": "events/One.webp"
+  },
+  {
+    "date": "2025-09-13",
+    "title": "VRSTL RECORDS LAUNCH EVENT",
+    "url": "https://www.facebook.com/Mikamauditemachine/posts/pfbid0fXBh21JKEyHd8ZHuecWJn74yQyUBthPLE92AKughL16vwmY2jdCVGhm5FYsb5ghJl?__cft__[0]=AZVeWJcyrkXd7iQpRdsNjrEnJqztlrMi7wh0fT2emQ_hpPuhoMBjKDHf6UMCgCQCaeeMq2gIx0pVaIM_DApgEcA0Y9pEjDwoUHN4NmLyl1Y9yZp7ZOZE--pC_g-rLVVKGnZOa_KSKTLb85zz8rR5h4XFwODpYx2HOm2tu36Hnkxr9w&__tn__=%2CO%2CP-R",
+    "location": "Montreal, QC",
+    "color": "#ffcc00",
+    "image": "events/lancement.webp"
   },
   {
     "date": "2025-08-29",
