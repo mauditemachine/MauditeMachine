@@ -34,7 +34,10 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
   };
 
   // Utiliser l'image du JSON directement (medias/ est le publicDir)
-  const displayImage = event.image && event.image.trim() !== '' ? event.image : null;
+  // Ajouter le slash initial si nécessaire pour les chemins relatifs
+  const displayImage = event.image && event.image.trim() !== '' 
+    ? (event.image.startsWith('/') ? event.image : `/${event.image}`)
+    : null;
 
   return (
     <div className="event-card">
