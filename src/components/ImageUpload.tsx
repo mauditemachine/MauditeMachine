@@ -11,6 +11,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, placeholder 
   const [isUploading, setIsUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Détecter si on est en production
+  const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
   const handleFileSelect = async (file: File) => {
     // Vérifier le type de fichier plus spécifiquement
@@ -191,61 +194,66 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, placeholder 
           Image:
         </label>
         
-        {/* Zone de drop ou bouton selon useButton */}
-        {useButton ? (
-          <div className="admin-upload-button-container">
-            <button
-              type="button"
-              onClick={handleButtonClick}
-              disabled={isUploading}
-              className="admin-btn secondary small"
-              style={{ marginBottom: '10px' }}
-            >
-              {isUploading ? (
-                <>
-                  <div className="spinner" style={{ width: '12px', height: '12px', marginRight: '8px' }}></div>
-                  Upload en cours...
-                </>
-              ) : (
-                <>
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" style={{ width: '12px', height: '12px', marginRight: '8px', fill: 'currentColor' }}>
-                    <path d="M129.5 464L179.5 304L558.9 304L508.9 464L129.5 464zM320.2 512L509 512C530 512 548.6 498.4 554.8 478.3L604.8 318.3C614.5 287.4 591.4 256 559 256L179.6 256C158.6 256 140 269.6 133.8 289.7L112.2 358.4L112.2 160C112.2 151.2 119.4 144 128.2 144L266.9 144C270.4 144 273.7 145.1 276.5 147.2L314.9 176C328.7 186.4 345.6 192 362.9 192L480.2 192C489 192 496.2 199.2 496.2 208L544.2 208C544.2 172.7 515.5 144 480.2 144L362.9 144C356 144 349.2 141.8 343.7 137.6L305.3 108.8C294.2 100.5 280.8 96 266.9 96L128.2 96C92.9 96 64.2 124.7 64.2 160L64.2 448C64.2 483.3 92.9 512 128.2 512L320.2 512z"/>
-                  </svg>
-                  Parcourir
-                </>
-              )}
-            </button>
-          </div>
-        ) : (
-          <div
-            className={`admin-upload-zone ${dragOver ? 'drag-over' : ''} ${isUploading ? 'uploading' : ''}`}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onClick={handleButtonClick}
-          >
-            {isUploading ? (
-              <div className="upload-loading">
-                <div className="spinner"></div>
-                <span>Upload en cours...</span>
+        {/* En production, ne montrer que le champ texte */}
+        {!isProduction && (
+          <>
+            {/* Zone de drop ou bouton selon useButton */}
+            {useButton ? (
+              <div className="admin-upload-button-container">
+                <button
+                  type="button"
+                  onClick={handleButtonClick}
+                  disabled={isUploading}
+                  className="admin-btn secondary small"
+                  style={{ marginBottom: '10px' }}
+                >
+                  {isUploading ? (
+                    <>
+                      <div className="spinner" style={{ width: '12px', height: '12px', marginRight: '8px' }}></div>
+                      Upload en cours...
+                    </>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" style={{ width: '12px', height: '12px', marginRight: '8px', fill: 'currentColor' }}>
+                        <path d="M129.5 464L179.5 304L558.9 304L508.9 464L129.5 464zM320.2 512L509 512C530 512 548.6 498.4 554.8 478.3L604.8 318.3C614.5 287.4 591.4 256 559 256L179.6 256C158.6 256 140 269.6 133.8 289.7L112.2 358.4L112.2 160C112.2 151.2 119.4 144 128.2 144L266.9 144C270.4 144 273.7 145.1 276.5 147.2L314.9 176C328.7 186.4 345.6 192 362.9 192L480.2 192C489 192 496.2 199.2 496.2 208L544.2 208C544.2 172.7 515.5 144 480.2 144L362.9 144C356 144 349.2 141.8 343.7 137.6L305.3 108.8C294.2 100.5 280.8 96 266.9 96L128.2 96C92.9 96 64.2 124.7 64.2 160L64.2 448C64.2 483.3 92.9 512 128.2 512L320.2 512z"/>
+                      </svg>
+                      Parcourir
+                    </>
+                  )}
+                </button>
               </div>
             ) : (
-              <div className="upload-content">
-                <i className="fa-solid fa-cloud-upload-alt"></i>
-                <p>Glissez-déposez une image ici ou cliquez pour parcourir</p>
+              <div
+                className={`admin-upload-zone ${dragOver ? 'drag-over' : ''} ${isUploading ? 'uploading' : ''}`}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onClick={handleButtonClick}
+              >
+                {isUploading ? (
+                  <div className="upload-loading">
+                    <div className="spinner"></div>
+                    <span>Upload en cours...</span>
+                  </div>
+                ) : (
+                  <div className="upload-content">
+                    <i className="fa-solid fa-cloud-upload-alt"></i>
+                    <p>Glissez-déposez une image ici ou cliquez pour parcourir</p>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        )}
 
-        {/* Input file caché */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileInputChange}
-          style={{ display: 'none' }}
-        />
+            {/* Input file caché */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileInputChange}
+              style={{ display: 'none' }}
+            />
+          </>
+        )}
 
         {/* Aperçu de l'image */}
         {value && (
@@ -277,9 +285,16 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, placeholder 
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          style={{ marginTop: '10px' }}
+          placeholder={placeholder || (isProduction ? "Chemin de l'image (ex: events/nom.webp)" : placeholder)}
+          style={{ marginTop: isProduction ? '0' : '10px' }}
         />
+        
+        {/* Message d'aide en production */}
+        {isProduction && (
+          <small style={{ display: 'block', marginTop: '5px', color: '#888', fontSize: '0.85em' }}>
+            💡 Uploadez d'abord vos images dans le dossier public/events/ de votre repo GitHub, puis entrez le chemin ici
+          </small>
+        )}
       </div>
     </div>
   );
