@@ -114,6 +114,12 @@ const socialLinks: {
     hoverColor: "#FF3300"
   },
   {
+    label: "Instagram",
+    href: "https://www.instagram.com/mauditemachine/",
+    platform: "instagram",
+    hoverColor: "#E4405F"
+  },
+  {
     label: "Bandcamp",
     href: "https://mauditemachine.bandcamp.com/",
     platform: "bandcamp",
