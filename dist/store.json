@@ -31,7 +31,6 @@
     },
     "soldOut": false
   },
-
   {
     "id": 3,
     "src": "images/Merch_Hoodie-Back.webp",
@@ -64,7 +63,6 @@
     },
     "soldOut": false
   },
-
   {
     "id": 5,
     "src": "images/Merch_Bag-Brown.webp",
@@ -113,38 +111,6 @@
     "price": "80$ CAD",
     "category": "bag",
     "active": true,
-    "soldOut": false
-  },
-  {
-    "id": 10,
-    "src": "images/Merch_Sylvain-Tshirt-Back.webp",
-    "alt": "Sylvain Tshirt Back",
-    "caption": "Sylvain T-shirt",
-    "price": "30$ CAD",
-    "category": "tshirt",
-    "active": true,
-    "sizes": {
-      "S": true,
-      "M": true,
-      "L": true,
-      "XL": true
-    },
-    "soldOut": false
-  },
-  {
-    "id": 11,
-    "src": "images/Merch_Sylvain-Tshirt-Front.webp",
-    "alt": "Sylvain Tshirt Front",
-    "caption": "Sylvain T-shirt",
-    "price": "30$ CAD",
-    "category": "tshirt",
-    "active": true,
-    "sizes": {
-      "S": true,
-      "M": true,
-      "L": true,
-      "XL": true
-    },
     "soldOut": false
   },
   {

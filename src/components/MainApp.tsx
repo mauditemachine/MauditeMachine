@@ -5,6 +5,7 @@ import EventsDisplay from "./EventsDisplay";
 import Store from "./Store";
 import Message from "./Message";
 import Presskit from "./Presskit";
+import Goodies from "./Goodies";
 import SocialIcon from "./SocialIcon";
 
 // Supprimer les erreurs SoundCloud de la console
@@ -190,7 +191,7 @@ export default function MainApp() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.replace('#', '');
-      if (hash && ['home', 'events', 'store', 'message', 'presskit'].includes(hash)) {
+      if (hash && ['home', 'events', 'store', 'message', 'goodies', 'presskit'].includes(hash)) {
         setActiveSection(hash);
       }
     };
@@ -357,13 +358,19 @@ export default function MainApp() {
                 className={activeSection === "message" ? "active" : ""}
                 onClick={() => handleSectionChange("message")}
               >
-                CONTACTS
-              </button>
-              <button 
-                className={activeSection === "presskit" ? "active" : ""}
-                onClick={() => handleSectionChange("presskit")}
-              >
-                PRESSKIT
+              CONTACTS
+            </button>
+            <button 
+              className={activeSection === "goodies" ? "active" : ""}
+              onClick={() => handleSectionChange("goodies")}
+            >
+              GOODIES
+            </button>
+            <button 
+              className={activeSection === "presskit" ? "active" : ""}
+              onClick={() => handleSectionChange("presskit")}
+            >
+              PRESSKIT
               </button>
             </nav>
           </div>
@@ -415,6 +422,12 @@ export default function MainApp() {
                   <Message prefillSubject={messagePrefill?.subject} prefillMessage={messagePrefill?.message} />
                 </>
               )}
+              {activeSection === "goodies" && (
+                <>
+                  <h2 className="section-title">Goodies</h2>
+                  <Goodies />
+                </>
+              )}
               {activeSection === "presskit" && (
                 <>
                   <h2 className="section-title">Press Kit</h2>
@@ -454,8 +467,9 @@ export default function MainApp() {
           
           {/* Massive Medias */}
           <a href="https://massivemedias.com" target="_blank" rel="noreferrer" className="footer-massive">
+            <span className="footer-madeby">website made by</span>
             <img src={import.meta.env.BASE_URL + "logo/massive-medias.svg"} alt="Massive Medias" />
-            <span>&copy; Massive Medias 2026</span>
+            <span>&copy; 2026</span>
           </a>
         </div>
       </footer>
@@ -511,6 +525,12 @@ export default function MainApp() {
         <div className="mobile-section mobile-store">
           <h3>Merch</h3>
           <Store onSectionChange={handleSectionChange} />
+        </div>
+
+        {/* Goodies */}
+        <div className="mobile-section mobile-goodies">
+          <h3>Goodies</h3>
+          <Goodies />
         </div>
 
         {/* Presskit */}

@@ -873,6 +873,129 @@ body {
   filter: grayscale(100%) brightness(10);
 }
 
+.footer-madeby {
+  font-size: 8px;
+  color: rgba(255, 255, 255, 0.3);
+  text-transform: lowercase;
+}
+
+/* ===== GOODIES PAGE ===== */
+.goodies-page {
+  padding: 0;
+}
+
+.goodies-section {
+  margin-bottom: 40px;
+}
+
+.goodies-category {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-mint);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 15px 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.goodies-grid {
+  display: grid;
+  gap: 15px;
+}
+
+.goodies-grid-large {
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+
+.goodies-grid-desktop {
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+}
+
+.goodies-grid-phone {
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+.goodies-grid-covers {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
+.goodie-card {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.goodie-card:hover {
+  transform: translateY(-3px);
+}
+
+.goodie-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 4px;
+}
+
+.goodie-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  gap: 8px;
+}
+
+.goodie-title {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.goodie-download {
+  background: var(--accent-gold);
+  color: #111;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+}
+
+.goodie-download:hover {
+  background: var(--accent-mint);
+}
+
+@media (max-width: 600px) {
+  .goodies-grid-desktop {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .goodies-grid-phone {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .goodies-grid-covers {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .goodie-title {
+    font-size: 9px;
+  }
+  
+  .goodie-download {
+    padding: 3px 8px;
+    font-size: 8px;
+  }
+}
+
 /* ===== RESPONSIVE DESKTOP ===== */
 @media (max-width: 1200px) {
   .site-main {

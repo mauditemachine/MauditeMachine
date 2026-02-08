@@ -183,16 +183,18 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
       widget.bind(window.SC.Widget.Events.PLAY, () => {
         setIsPlaying(true)
         if (tracks.length === 0) {
-          // console.log('🎵 No tracks loaded on play, retrying...')
           tryFetchAll()
         }
         checkCurrentTrack()
-        // FORCER LE BACKGROUND QUAND ON JOUE
-        setTimeout(() => {
-          widget.getCurrentSoundIndex((i: number) => {
-            maybeSwapBackground(i || 0)
-          })
-        }, 100)
+        // FORCER LE BACKGROUND QUAND ON JOUE - via getCurrentSound pour avoir le cover même si tracks pas chargées
+        widget.getCurrentSound((sound: Sound) => {
+          if (sound && onBackgroundChange) {
+            const cover = getHiRes(sound.artwork_url) || getHiRes(sound.user?.avatar_url || null)
+            if (cover) {
+              onBackgroundChange(cover)
+            }
+          }
+        })
       })
       
       // Fallback: essayer de charger après un délai même si READY ne se déclenche pas
