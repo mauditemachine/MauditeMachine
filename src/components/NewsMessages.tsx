@@ -64,44 +64,46 @@ export default function NewsMessages(): JSX.Element {
 
   if (error) return <div>Error loading messages</div>
 
+  const displayMessages = messages.slice(0, 1)
+
   return (
     <div className="news-section">
-      {messages.map((message, index) => (
-        <div key={index} className="news-message">
-          <div className="message-card">
-            <div className="message-body">
-              <div className="message-title">{message.title}</div>
-              {message.description && (
-                <div className="message-desc">{message.description}</div>
+      {displayMessages.map((message, index) => {
+        const linkHref = message.link?.href || '#';
+        const isClickable = !!message.link?.href;
+        
+        return (
+          <a 
+            key={index} 
+            className="news-message-link"
+            href={linkHref}
+            target={isClickable ? "_blank" : undefined}
+            rel={isClickable ? "noreferrer" : undefined}
+          >
+            <div className="message-card">
+              {message.image && (
+                <img 
+                  className="message-image" 
+                  src={message.image.startsWith('data:') ? message.image : `/${message.image}`} 
+                  alt={message.title}
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (!message.image.startsWith('data:') && !message.image.startsWith('/')) {
+                      target.src = `/${message.image}`;
+                    }
+                  }}
+                />
               )}
-              {message.link && message.link.label && message.link.href && (
-                <a 
-                  className="message-link" 
-                  href={message.link.href} 
-                  target="_blank" 
-                  rel="noreferrer"
-                >
-                  {message.link.label}
-                </a>
-              )}
+              <div className="message-body">
+                <div className="message-title">{message.title}</div>
+                {message.description && (
+                  <div className="message-desc">{message.description}</div>
+                )}
+              </div>
             </div>
-            {message.image && (
-              <img 
-                className="message-image" 
-                src={message.image.startsWith('data:') ? message.image : `/${message.image}`} 
-                alt={message.title}
-                onError={(e) => {
-                  // Si l'image ne charge pas, essayer avec le chemin relatif
-                  const target = e.target as HTMLImageElement;
-                  if (!message.image.startsWith('data:') && !message.image.startsWith('/')) {
-                    target.src = `/${message.image}`;
-                  }
-                }}
-              />
-            )}
-          </div>
-        </div>
-      ))}
+          </a>
+        );
+      })}
     </div>
   )
 }

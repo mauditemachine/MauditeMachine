@@ -21,7 +21,15 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 // Configuration de multer pour l'upload d'images
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(PUBLIC_DIR, 'images'));
+    // Déterminer le dossier de destination selon le paramètre 'folder' 
+    const folder = req.query.folder || 'images';
+    const destDir = path.join(PUBLIC_DIR, folder);
+    // Créer le dossier s'il n'existe pas
+    fs.mkdir(destDir, { recursive: true }).then(() => {
+      cb(null, destDir);
+    }).catch(() => {
+      cb(null, path.join(PUBLIC_DIR, 'images'));
+    });
   },
   filename: function (req, file, cb) {
     // Générer un nom de fichier unique avec timestamp
@@ -118,7 +126,8 @@ app.post('/api/upload-image', upload.single('image'), async (req, res) => {
     }
     
     // Retourner le chemin relatif de l'image
-    const imagePath = `images/${req.file.filename}`;
+    const folder = req.query.folder || 'images';
+    const imagePath = `${folder}/${req.file.filename}`;
     
     console.log('✅ Image uploadée:', imagePath);
     res.json({ 

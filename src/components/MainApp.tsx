@@ -135,8 +135,8 @@ const socialLinks: {
 
 export default function MainApp() {
   const [menuOpen, setMenuOpen] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [bgUrl, setBgUrl] = useState<string>("");
-  const [defaultBgUrl, setDefaultBgUrl] = useState<string>("");
 
   const handleBgChange = (url: string) => {
     setBgUrl(url)
@@ -148,6 +148,7 @@ export default function MainApp() {
   const [activeSection, setActiveSection] = useState("home");
   const [bioText, setBioText] = useState<string>("");
   const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+  const [messagePrefill, setMessagePrefill] = useState<{ subject: string; message: string } | null>(null);
 
   // Titres des sections pour les tooltips
   const sectionTitles = {
@@ -167,10 +168,16 @@ export default function MainApp() {
     }
   };
 
-  // Fonction pour changer de section avec tracking
-  const handleSectionChange = (section: string) => {
+  // Fonction pour changer de section avec tracking et préremplissage optionnel
+  const handleSectionChange = (section: string, prefill?: { subject: string; message: string }) => {
     setActiveSection(section);
     setMenuOpen(false);
+    
+    if (prefill) {
+      setMessagePrefill(prefill);
+    } else {
+      setMessagePrefill(null);
+    }
     
     // Tracking Facebook Pixel pour les interactions
     trackFacebookEvent('ViewContent', {
@@ -221,104 +228,10 @@ export default function MainApp() {
   // Initialiser la variable CSS pour le track background
   useEffect(() => {
     document.documentElement.style.setProperty('--track-bg', 'none');
-    // Supprimer la classe track-active pour cacher l'overlay
     document.querySelector('.page')?.classList.remove('track-active');
-    // Forcer le refresh pour s'assurer qu'aucune image n'est chargée
-    setTimeout(() => {
-      document.documentElement.style.setProperty('--track-bg', 'none');
-      document.querySelector('.page')?.classList.remove('track-active');
-    }, 100);
   }, []);
 
-  // Charger les paramètres de background depuis localStorage
-  useEffect(() => {
-    const loadBackgroundSettings = () => {
-      const savedBackground = localStorage.getItem('admin_background_settings');
-      console.log('🔄 Chargement background settings:', savedBackground);
-      
-      if (savedBackground) {
-        const backgroundData = JSON.parse(savedBackground);
-        console.log('📊 Background data complet:', backgroundData);
-        
-        // Si l'utilisateur a désactivé le background
-        if (backgroundData.useBackground === false) {
-          console.log('🚫 Background désactivé - suppression de l\'image');
-          setDefaultBgUrl('');
-          setBgUrl('');
-          return;
-        }
-        
-        // Assurer la rétrocompatibilité avec les valeurs par défaut
-        const settings = {
-          useBackground: backgroundData.useBackground !== false,
-          backgroundType: backgroundData.backgroundType || 'image',
-          defaultImage: backgroundData.defaultImage || 'images/mixtape37.webp',
-          gradientColor1: backgroundData.gradientColor1 || '#1a1a2e',
-          gradientColor2: backgroundData.gradientColor2 || '#16213e',
-          gradientDirection: backgroundData.gradientDirection || '135deg'
-        };
-        
-        console.log('🔧 Settings après rétrocompatibilité:', settings);
-        
-        if (settings.backgroundType === 'gradient') {
-          // Créer un gradient CSS
-          const gradient = `linear-gradient(${settings.gradientDirection}, ${settings.gradientColor1}, ${settings.gradientColor2})`;
-          console.log('🎨 Background gradient activé:', gradient);
-          console.log('🌈 Couleurs gradient:', settings.gradientColor1, '→', settings.gradientColor2);
-          console.log('📐 Direction gradient:', settings.gradientDirection);
-          console.log('🔍 Type de background détecté:', settings.backgroundType);
-          console.log('✅ Application du gradient...');
-          setDefaultBgUrl(gradient);
-          setBgUrl(gradient);
-          console.log('✅ Gradient appliqué avec succès!');
-        } else {
-          // Image normale
-          if (settings.defaultImage) {
-            const newDefaultBg = settings.defaultImage.startsWith('data:') 
-              ? settings.defaultImage 
-              : encodeURI(import.meta.env.BASE_URL + settings.defaultImage);
-            console.log('✅ Background image activé:', newDefaultBg.substring(0, 50) + '...');
-            setDefaultBgUrl(newDefaultBg);
-            setBgUrl(newDefaultBg);
-          } else {
-            console.log('⚠️ Pas d\'image définie, utilisation du défaut');
-            const defaultBg = encodeURI(import.meta.env.BASE_URL + "images/mixtape37.webp");
-            setDefaultBgUrl(defaultBg);
-            setBgUrl(defaultBg);
-          }
-        }
-      } else {
-        // Utiliser le background par défaut
-        const defaultBg = encodeURI(import.meta.env.BASE_URL + "images/mixtape37.webp");
-        console.log('🎨 Background par défaut:', defaultBg);
-        setDefaultBgUrl(defaultBg);
-        setBgUrl(defaultBg);
-      }
-    };
-
-    // Charger au démarrage
-    loadBackgroundSettings();
-
-    // Écouter les changements de localStorage (quand l'admin sauvegarde)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'admin_background_settings') {
-        loadBackgroundSettings();
-      }
-    };
-
-    // Écouter les changements personnalisés (même onglet)
-    const handleCustomStorageChange = () => {
-      loadBackgroundSettings();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('admin_background_updated', handleCustomStorageChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('admin_background_updated', handleCustomStorageChange);
-    };
-  }, []);
+  // Background géré en CSS (rock-bg.png) - pas besoin de JS
 
   // Supprimer les erreurs SoundCloud et Bandcamp au chargement
   useEffect(() => {
@@ -377,21 +290,6 @@ export default function MainApp() {
       {/* IMAGE DE LA TRACK EN BACKGROUND DYNAMIQUE - SUPPRIMÉ */}
       
       <div className="page">
-        <div className="bg-stack">
-          {/* Background gradient principal - dynamique depuis admin */}
-          <div 
-            className="bg-gradient" 
-            style={{ 
-              width: '100%',
-              height: '100%',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              zIndex: -2
-            }} 
-          />
-          {/* <BackgroundLines /> */}
-        </div>
       {/* Hamburger + menu mobile (masqué en desktop) */}
       <button
         className="hamburger"
@@ -425,120 +323,141 @@ export default function MainApp() {
       </nav>
 
 
-      {/* Navigation en haut du site */}
-      <div className="second-third-combined">
-        {/* Boutons de navigation en haut */}
-        <div className="nav-buttons-container">
-          <button
-            className={`nav-icon-btn ${activeSection === "home" ? "active" : ""}`}
-            onClick={() => handleSectionChange("home")}
-            onMouseEnter={() => setHoveredButton("home")}
-            onMouseLeave={() => setHoveredButton(null)}
-          >
-            <i className="fa-solid fa-house-chimney"></i>
-          </button>
-          <button
-            className={`nav-icon-btn ${activeSection === "events" ? "active" : ""}`}
-            onClick={() => handleSectionChange("events")}
-            onMouseEnter={() => setHoveredButton("events")}
-            onMouseLeave={() => setHoveredButton(null)}
-          >
-            <i className="fa-solid fa-calendar-days"></i>
-          </button>
-
-          <button 
-            className={`nav-icon-btn ${activeSection === "store" ? "active" : ""}`}
-            onClick={() => handleSectionChange("store")}
-            onMouseEnter={() => setHoveredButton("store")}
-            onMouseLeave={() => setHoveredButton(null)}
-          >
-            <i className="fa-solid fa-store"></i>
-          </button>
-          <button 
-            className={`nav-icon-btn ${activeSection === "message" ? "active" : ""}`}
-            onClick={() => handleSectionChange("message")}
-            onMouseEnter={() => setHoveredButton("message")}
-            onMouseLeave={() => setHoveredButton(null)}
-          >
-            <i className="fa-solid fa-message"></i>
-          </button>
-          <button 
-            className={`nav-icon-btn ${activeSection === "presskit" ? "active" : ""}`}
-            onClick={() => handleSectionChange("presskit")}
-            onMouseEnter={() => setHoveredButton("presskit")}
-            onMouseLeave={() => setHoveredButton(null)}
-          >
-            <i className="fa-solid fa-newspaper"></i>
-          </button>
-          
-          {/* Tooltip pour afficher le titre de la section */}
-          {hoveredButton && (
-            <div 
-              className="nav-tooltip"
-              data-text={sectionTitles[hoveredButton as keyof typeof sectionTitles]}
+      {/* HEADER - Logo gauche + Navigation droite */}
+      <header className="site-header">
+        <div className="header-content">
+          {/* Logo en haut à gauche - Gold */}
+          <div className="header-logo-left">
+            <img
+              src={import.meta.env.BASE_URL + "logo/mauditemachine-logo-gold.png"}
+              alt="Maudite Machine"
+              onClick={() => handleSectionChange("home")}
             />
-          )}
+          </div>
+          
+          {/* Player + Navigation en haut à droite */}
+          <div className="header-right">
+            <div className="header-player">
+              <SoundCloudPlayer onBackgroundChange={handleBgChange} />
+            </div>
+            <nav className="header-nav-right">
+              <button 
+                className={activeSection === "events" ? "active" : ""}
+                onClick={() => handleSectionChange("events")}
+              >
+                EVENTS
+              </button>
+              <button 
+                className={activeSection === "store" ? "active" : ""}
+                onClick={() => handleSectionChange("store")}
+              >
+                MERCH
+              </button>
+              <button 
+                className={activeSection === "message" ? "active" : ""}
+                onClick={() => handleSectionChange("message")}
+              >
+                CONTACTS
+              </button>
+              <button 
+                className={activeSection === "presskit" ? "active" : ""}
+                onClick={() => handleSectionChange("presskit")}
+              >
+                PRESSKIT
+              </button>
+            </nav>
+          </div>
         </div>
+      </header>
 
-        {/* Rectangle principal sous les boutons */}
-        <div className="main-rectangle">
-          {activeSection === "home" && (
-            <>
-              <div className="bio-text">
+      {/* MAIN CONTENT */}
+      <main className="site-main">
+        {/* Page d'accueil - Landing page */}
+        {activeSection === "home" ? (
+          <div className="landing-page">
+            <div className="landing-content">
+              <h1 className="landing-subtitle">WE ARE MUSIC MAKERS</h1>
+              <div className="landing-logo">
+                <img
+                  src={import.meta.env.BASE_URL + "logo/mauditemachine-logo-yellow.svg"}
+                  alt="Maudite Machine"
+                />
+              </div>
+              <div className="landing-bio">
                 {bioText.split('\n\n').map((paragraph, index) => (
                   <p key={index}>{paragraph}</p>
                 ))}
               </div>
+            </div>
+            <div className="landing-news">
               <NewsMessages />
-            </>
-          )}
-          {activeSection === "events" && <EventsDisplay showPastEventsButton={true} />}
-
-          {activeSection === "store" && <Store onSectionChange={handleSectionChange} />}
-          {activeSection === "message" && <Message />}
-          {activeSection === "presskit" && <Presskit onNavigateToMessage={() => handleSectionChange("message")} />}
-        </div>
-      </div>
-
-      <main className="main-content">
-        {/* Logo principal MAUDITE MACHINE */}
-        <div className="main-logo">
-          <img
-            src={import.meta.env.BASE_URL + "logo/mauditemachine-logo.png"}
-            alt="Maudite Machine"
-          />
-        </div>
-
-
-
-
-        {/* Player SoundCloud en dessous du logo */}
-        <div className="player-section" style={{ marginTop: "20px" }}>
-          <SoundCloudPlayer onBackgroundChange={handleBgChange} />
-        </div>
+            </div>
+          </div>
+        ) : (
+          /* Contenu des autres sections */
+          <div className="content-wrapper">
+            <div className="content-section">
+              {activeSection === "events" && (
+                <>
+                  <h2 className="section-title">Upcoming Events</h2>
+                  <EventsDisplay showPastEventsButton={true} />
+                </>
+              )}
+              {activeSection === "store" && (
+                <>
+                  <h2 className="section-title">Merch</h2>
+                  <Store onSectionChange={handleSectionChange} />
+                </>
+              )}
+              {activeSection === "message" && (
+                <>
+                  <h2 className="section-title">Contact</h2>
+                  <Message prefillSubject={messagePrefill?.subject} prefillMessage={messagePrefill?.message} />
+                </>
+              )}
+              {activeSection === "presskit" && (
+                <>
+                  <h2 className="section-title">Press Kit</h2>
+                  <Presskit onNavigateToMessage={() => handleSectionChange("message")} />
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </main>
 
-      <footer className="bottom">
-        {/* Social Links */}
-        <div className="social-links-container">
-          {socialLinks.map((link) => (
-            <SocialIcon
-              key={link.label}
-              platform={link.platform}
-              href={link.href}
-              label={link.label}
-              hoverColor={link.hoverColor}
-            />
-          ))}
+      {/* Logo VRSTL fixé en bas à droite */}
+      <a href="https://vrstlrecords.com" target="_blank" rel="noreferrer" className="vrstl-fixed">
+        <img src={import.meta.env.BASE_URL + "logo/vrstl-logo-orange.png"} alt="VRSTL Records" />
+      </a>
+
+      {/* FOOTER avec player, icônes sociales et logo */}
+      <footer className="site-footer">
+        <div className="footer-content">
+          {/* Icônes sociales à gauche */}
+          <div className="footer-social">
+            {socialLinks.map((link) => (
+              <a 
+                key={link.label}
+                href={link.href} 
+                target="_blank" 
+                rel="noreferrer"
+                className="social-icon-link"
+                title={link.label}
+                style={{ '--hover-color': link.hoverColor } as React.CSSProperties}
+              >
+                <i className={`fab fa-${link.platform === 'apple' ? 'apple' : link.platform}`}></i>
+              </a>
+            ))}
+          </div>
+
+          
+          {/* Massive Medias */}
+          <a href="https://massivemedias.com" target="_blank" rel="noreferrer" className="footer-massive">
+            <img src={import.meta.env.BASE_URL + "logo/massive-medias.svg"} alt="Massive Medias" />
+            <span>&copy; Massive Medias 2026</span>
+          </a>
         </div>
-        
-        <a href="https://vrstlrecords.com" target="_blank" rel="noreferrer">
-          <img
-            className="vrstl"
-            src={import.meta.env.BASE_URL + "logo/vrstl-logo.svg"}
-            alt="VRSTL Records"
-          />
-        </a>
       </footer>
 
       {/* Mobile Layout - visible seulement via media query */}
@@ -588,9 +507,9 @@ export default function MainApp() {
         </div>
 
 
-        {/* Store */}
+        {/* Merch */}
         <div className="mobile-section mobile-store">
-          <h3>Store</h3>
+          <h3>Merch</h3>
           <Store onSectionChange={handleSectionChange} />
         </div>
 
@@ -602,7 +521,7 @@ export default function MainApp() {
 
         {/* Message */}
         <div className="mobile-section mobile-message">
-          <Message />
+          <Message prefillSubject={messagePrefill?.subject} prefillMessage={messagePrefill?.message} />
         </div>
 
         {/* Footer VRSTL Logo */}

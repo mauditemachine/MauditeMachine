@@ -10,12 +10,17 @@ const SERVICE_ID = 'service_zeuwh04';
 const TEMPLATE_ID = 'template_zlot6be';
 const PUBLIC_KEY = '_e6k6nftsmZZxs29b';
 
-const Message: React.FC = () => {
+interface MessageProps {
+  prefillSubject?: string;
+  prefillMessage?: string;
+}
+
+const Message: React.FC<MessageProps> = ({ prefillSubject, prefillMessage }) => {
   const [formData, setFormData] = useState({
     from_name: '',
     from_email: '',
-    object: '',
-    message: ''
+    object: prefillSubject || '',
+    message: prefillMessage || ''
   });
   const [showCaptcha, setShowCaptcha] = useState(false);
   const [captchaQuestion, setCaptchaQuestion] = useState('');
@@ -23,6 +28,17 @@ const Message: React.FC = () => {
   const [userCaptchaAnswer, setUserCaptchaAnswer] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState('');
+
+  // Mettre à jour le formulaire quand les props de préremplissage changent
+  React.useEffect(() => {
+    if (prefillSubject || prefillMessage) {
+      setFormData(prev => ({
+        ...prev,
+        object: prefillSubject || prev.object,
+        message: prefillMessage || prev.message
+      }));
+    }
+  }, [prefillSubject, prefillMessage]);
 
   // Générer une question de captcha simple
   const generateCaptcha = () => {

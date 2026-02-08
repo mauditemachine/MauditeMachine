@@ -265,8 +265,17 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
   function maybeSwapBackground(index: number) {
     const t = tracks[index]
     if (!t || !onBackgroundChange) return
+    
+    // Utiliser le cover art de la track directement depuis SoundCloud
+    const cover = getCover(t)
+    if (cover) {
+      onBackgroundChange(cover)
+      return
+    }
+    
+    // Fallback: chercher par nom dans les images locales
     const title = (t.title || '').toLowerCase()
-    let url = import.meta.env.BASE_URL + 'images/mixtape37.webp' // Background par défaut
+    let url = import.meta.env.BASE_URL + 'images/mixtape37.webp'
     if (title.includes('autopsynth')) url = import.meta.env.BASE_URL + 'images/Autopsynth.webp'
     else if (title.includes('coagule')) url = import.meta.env.BASE_URL + 'images/Coagule.webp'
     else if (title.includes('where is the sync button')) url = import.meta.env.BASE_URL + 'images/Where.webp'
@@ -277,7 +286,7 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
     else if (title.includes('nocturne')) url = import.meta.env.BASE_URL + 'images/Nocturne.webp'
     else if (title.includes('back on track')) url = import.meta.env.BASE_URL + 'images/BackOnTrack.webp'
     else if (title.includes('richie')) url = import.meta.env.BASE_URL + 'images/Richie.webp'
-    else if (title.includes('anarchic') || title.includes('anarchic')) url = import.meta.env.BASE_URL + 'images/Anarchic.webp'
+    else if (title.includes('anarchic')) url = import.meta.env.BASE_URL + 'images/Anarchic.webp'
     else if (title.includes('mixtape') || title.includes('37')) url = import.meta.env.BASE_URL + 'images/mixtape37.webp'
     
     onBackgroundChange(encodeURI(url))
@@ -330,8 +339,29 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
     })
   }
 
-  function next() { widgetRef.current?.next() }
-  function prev() { widgetRef.current?.prev() }
+  function next() {
+    if (!widgetRef.current) return
+    widgetRef.current.next()
+    setTimeout(() => {
+      widgetRef.current?.getCurrentSoundIndex((i: number) => {
+        setCurrentIndex(i || 0)
+        maybeSwapBackground(i || 0)
+      })
+      widgetRef.current?.play()
+    }, 200)
+  }
+
+  function prev() {
+    if (!widgetRef.current) return
+    widgetRef.current.prev()
+    setTimeout(() => {
+      widgetRef.current?.getCurrentSoundIndex((i: number) => {
+        setCurrentIndex(i || 0)
+        maybeSwapBackground(i || 0)
+      })
+      widgetRef.current?.play()
+    }, 200)
+  }
 
   function playOrToggle(index: number) {
     if (!widgetRef.current) return
@@ -344,60 +374,36 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
     })
   }
 
-  // Ajuste dynamiquement la taille du titre pour tenir sur une ligne (desktop)
-  useEffect(() => {
-    const el = titleRef.current
-    if (!el) return
-    const base = 22
-    const min = 12
-    function fit() {
-      if (!el) return
-      el.style.fontSize = base + 'px'
-      // force mesure après reflow
-      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-      el.offsetWidth
-      let size = base
-      while (el.scrollWidth > el.clientWidth && size > min) {
-        size -= 1
-        el.style.fontSize = size + 'px'
-      }
-    }
-    const ro = new ResizeObserver(fit)
-    ro.observe(el)
-    fit()
-    window.addEventListener('resize', fit)
-    return () => { ro.disconnect(); window.removeEventListener('resize', fit) }
-  }, [currentIndex, tracks])
+  // Titre géré en CSS (text-overflow: ellipsis)
 
   return (
     <div className="sc-player">
       <div className="sc-now">
-        {getCover(tracks[currentIndex] || ({} as any)) && (
-          <img className="now-cover" src={getCover(tracks[currentIndex] as any) as any} alt="cover" />
-        )}
-        <div className="now-right">
+        <div className="now-controls">
+          <button className="now-nav" onClick={prev} aria-label="Précédent">⏮</button>
+          <button className="now-toggle" onClick={togglePlay} aria-label="Lecture/Pause">{isPlaying ? '⏸' : '▶'}</button>
+          <button className="now-nav" onClick={next} aria-label="Suivant">⏭</button>
+          <input
+            className="now-range"
+            type="range"
+            min={0}
+            max={Math.max(1, durationMs)}
+            value={Math.min(positionMs, durationMs)}
+            onChange={(e) => widgetRef.current?.seekTo(Number(e.target.value))}
+          />
+          <span className="now-time">{formatMs(positionMs)} / {formatMs(durationMs)}</span>
+        </div>
+        <div className="now-track-info">
           <div ref={titleRef} className="now-title">{tracks[currentIndex]?.title || ''}</div>
-          <div className="now-row">
-            <input
-              className="now-range"
-              type="range"
-              min={0}
-              max={Math.max(1, durationMs)}
-              value={Math.min(positionMs, durationMs)}
-              onChange={(e) => widgetRef.current?.seekTo(Number(e.target.value))}
-            />
-            <button className="now-toggle" onClick={togglePlay} aria-label="Lecture/Pause">{isPlaying ? '⏸' : '▶'}</button>
-          </div>
-          <div className="now-desc">{formatMs(positionMs)} / {formatMs(durationMs)}</div>
+          {getCover(tracks[currentIndex] || ({} as any)) && (
+            <img className="now-cover" src={getCover(tracks[currentIndex] as any) as any} alt="cover" />
+          )}
         </div>
       </div>
 
       <ul className="sc-list">
-        {(
-          showAll || tracks.length <= 12
-            ? tracks
-            : tracks.slice(0, 12)
-        ).map((t, i) => (
+        {/* Afficher seulement les 5 premières pistes */}
+        {tracks.slice(0, 5).map((t, i) => (
           <li
             key={t.id}
             className={`sc-row ${i === currentIndex ? 'active' : ''}`}
@@ -408,9 +414,6 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
           </li>
         ))}
       </ul>
-      {tracks.length > 12 && !showAll && window.innerWidth <= 768 && (
-        <button className="sc-loadmore" onClick={() => setShowAll(true)}>Load more…</button>
-      )}
 
       {/* Iframe SoundCloud caché, sert uniquement au playback via l'API */}
       <iframe

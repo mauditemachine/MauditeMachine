@@ -1,651 +1,256 @@
 import React, { useState, useEffect } from 'react';
-import { loadEvents, saveEvents, Event } from '../utils/adminApi';
+import { loadEvents, saveEvents, Event, loadMessages, saveMessages, Message, loadMerchItems, saveMerchItems, MerchItem } from '../utils/adminApi';
 import ImageUpload from './ImageUpload';
 
+type Tab = 'events' | 'merch' | 'news';
+
 const AdminEvents: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<Tab>('events');
+  
   const [events, setEvents] = useState<Event[]>([]);
+  const [editingEventIndex, setEditingEventIndex] = useState<number | null>(null);
+  const [eventForm, setEventForm] = useState<Event>({ date: '', title: '', url: '', location: '', color: '#ff6d9e', image: '' });
+  
+  const [merchItems, setMerchItems] = useState<MerchItem[]>([]);
+  const [editingMerchIndex, setEditingMerchIndex] = useState<number | null>(null);
+  const [merchForm, setMerchForm] = useState<Partial<MerchItem>>({ src: '', alt: '', caption: '', price: '', category: 'tshirt', active: true, soldOut: false });
+  
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [editingMsgIndex, setEditingMsgIndex] = useState<number | null>(null);
+  const [msgForm, setMsgForm] = useState<Partial<Message>>({ title: '', description: '', image: '', date: '', link: { label: '', href: '' } });
+  
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [formData, setFormData] = useState<Event>({
-    date: '',
-    title: '',
-    url: '',
-    location: '',
-    color: '#ff6d9e',
-    image: ''
-  });
+  const [status, setStatus] = useState('');
 
-  useEffect(() => {
-    loadEventsData();
-  }, []);
+  useEffect(() => { loadAll(); }, []);
 
-  const loadEventsData = async () => {
+  const loadAll = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const data = await loadEvents();
-      // Trier les événements par date (plus récents en premier)
-      const sortedEvents = [...data].sort((a, b) => b.date.localeCompare(a.date));
-      setEvents(sortedEvents);
-    } catch (error) {
-      console.error('Erreur lors du chargement des événements:', error);
-      setMessage('Erreur lors du chargement des événements');
-    } finally {
-      setLoading(false);
-    }
+      const [evts, merch, msgs] = await Promise.all([
+        loadEvents().catch(() => []),
+        loadMerchItems().catch(() => []),
+        loadMessages().catch(() => [])
+      ]);
+      setEvents([...evts].sort((a, b) => b.date.localeCompare(a.date)));
+      setMerchItems(merch);
+      setMessages(msgs);
+    } finally { setLoading(false); }
   };
 
-  const handleSave = async () => {
-    // Validation
-    if (!formData.title || !formData.date || !formData.location) {
-      setMessage('⚠️ Veuillez remplir au moins le titre, la date et le lieu');
-      setTimeout(() => setMessage(''), 3000);
-      return;
-    }
+  const flash = (msg: string) => { setStatus(msg); setTimeout(() => setStatus(''), 3000); };
 
+  // Events
+  const saveEvent = async () => {
+    if (!eventForm.title || !eventForm.date) { flash('Title and date required'); return; }
     setSaving(true);
-    try {
-      let updatedEvents;
-      if (editingIndex !== null) {
-        // Modification
-        updatedEvents = [...events];
-        updatedEvents[editingIndex] = formData;
-      } else {
-        // Ajout
-        updatedEvents = [...events, formData];
-      }
-      
-      // Trier par date
-      updatedEvents.sort((a, b) => b.date.localeCompare(a.date));
-      
-      const result = await saveEvents(updatedEvents);
-      
-      if (result.success) {
-        setEvents(updatedEvents);
-        setMessage('✅ ' + result.message);
-        resetForm();
-      } else {
-        setMessage('❌ ' + result.message);
-      }
-    } catch (error) {
-      console.error('Erreur lors de la sauvegarde:', error);
-      setMessage('❌ Erreur lors de la sauvegarde');
-    } finally {
-      setSaving(false);
-      setTimeout(() => setMessage(''), 3000);
-    }
+    const updated = editingEventIndex !== null ? events.map((e, i) => i === editingEventIndex ? eventForm : e) : [...events, eventForm];
+    updated.sort((a, b) => b.date.localeCompare(a.date));
+    const res = await saveEvents(updated);
+    if (res.success) { setEvents(updated); resetEventForm(); flash('Event saved'); } else flash('Error saving');
+    setSaving(false);
   };
+  const deleteEvent = async (i: number) => { if (!confirm('Delete this event?')) return; const updated = events.filter((_, idx) => idx !== i); await saveEvents(updated); setEvents(updated); flash('Event deleted'); };
+  const resetEventForm = () => { setEventForm({ date: '', title: '', url: '', location: '', color: '#ff6d9e', image: '' }); setEditingEventIndex(null); };
 
-  const handleEdit = (index: number) => {
-    setFormData(events[index]);
-    setEditingIndex(index);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleDelete = async (index: number) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cet événement ?')) {
-      return;
-    }
-
+  // Merch
+  const saveMerch = async () => {
+    if (!merchForm.caption || !merchForm.price) { flash('Name and price required'); return; }
     setSaving(true);
-    try {
-      const updatedEvents = events.filter((_, i) => i !== index);
-      const result = await saveEvents(updatedEvents);
-      
-      if (result.success) {
-        setEvents(updatedEvents);
-        setMessage('✅ Événement supprimé');
-        if (editingIndex === index) {
-          resetForm();
-        }
-      } else {
-        setMessage('❌ ' + result.message);
-      }
-    } catch (error) {
-      console.error('Erreur lors de la suppression:', error);
-      setMessage('❌ Erreur lors de la suppression');
-    } finally {
-      setSaving(false);
-      setTimeout(() => setMessage(''), 3000);
-    }
+    const item: MerchItem = { id: editingMerchIndex !== null ? merchItems[editingMerchIndex].id : Date.now(), src: merchForm.src || '', alt: merchForm.alt || merchForm.caption || '', caption: merchForm.caption || '', price: merchForm.price || '', category: merchForm.category || 'tshirt', active: merchForm.active !== false, soldOut: merchForm.soldOut || false };
+    const updated = editingMerchIndex !== null ? merchItems.map((m, i) => i === editingMerchIndex ? item : m) : [...merchItems, item];
+    const res = await saveMerchItems(updated);
+    if (res.success) { setMerchItems(updated); resetMerchForm(); flash('Merch saved'); } else flash('Error saving');
+    setSaving(false);
   };
+  const deleteMerch = async (i: number) => { if (!confirm('Delete this item?')) return; const updated = merchItems.filter((_, idx) => idx !== i); await saveMerchItems(updated); setMerchItems(updated); flash('Item deleted'); };
+  const resetMerchForm = () => { setMerchForm({ src: '', alt: '', caption: '', price: '', category: 'tshirt', active: true, soldOut: false }); setEditingMerchIndex(null); };
 
-  const resetForm = () => {
-    setFormData({
-      date: '',
-      title: '',
-      url: '',
-      location: '',
-      color: '#ff6d9e',
-      image: ''
-    });
-    setEditingIndex(null);
+  // News
+  const saveMsg = async () => {
+    if (!msgForm.title) { flash('Title required'); return; }
+    setSaving(true);
+    const item: Message = { id: editingMsgIndex !== null ? messages[editingMsgIndex].id : `msg-${Date.now()}`, title: msgForm.title || '', description: msgForm.description || '', image: msgForm.image || '', date: msgForm.date || new Date().toISOString().split('T')[0], link: msgForm.link?.href ? msgForm.link : undefined };
+    const updated = editingMsgIndex !== null ? messages.map((m, i) => i === editingMsgIndex ? item : m) : [...messages, item];
+    const res = await saveMessages(updated);
+    if (res.success) { setMessages(updated); resetMsgForm(); flash('News saved'); } else flash('Error saving');
+    setSaving(false);
   };
+  const deleteMsg = async (i: number) => { if (!confirm('Delete this news?')) return; const updated = messages.filter((_, idx) => idx !== i); await saveMessages(updated); setMessages(updated); flash('News deleted'); };
+  const resetMsgForm = () => { setMsgForm({ title: '', description: '', image: '', date: '', link: { label: '', href: '' } }); setEditingMsgIndex(null); };
 
-  const updateFormField = (field: keyof Event, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  if (loading) {
-    return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: 'white',
-        fontSize: '1.2rem'
-      }}>
-        <div>Chargement...</div>
-      </div>
-    );
-  }
+  if (loading) return <div className="admin-loading">Loading...</div>;
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      padding: '2rem',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-    }}>
-      <div style={{
-        maxWidth: '1200px',
-        margin: '0 auto'
-      }}>
-        {/* Header */}
-        <div style={{
-          textAlign: 'center',
-          marginBottom: '3rem'
-        }}>
-          <h1 style={{
-            color: 'white',
-            fontSize: '3rem',
-            fontWeight: 'bold',
-            margin: '0 0 0.5rem 0',
-            textShadow: '2px 2px 4px rgba(0,0,0,0.2)'
-          }}>
-            📅 GESTION DES ÉVÉNEMENTS
-          </h1>
-          <p style={{
-            color: 'rgba(255,255,255,0.9)',
-            fontSize: '1.1rem'
-          }}>
-            Ajoutez et gérez vos événements facilement
-          </p>
+    <div className="admin-page">
+      <div className="admin-container">
+        <h1 className="admin-title">MM ADMIN</h1>
+
+        <div className="admin-tabs">
+          {(['events', 'merch', 'news'] as Tab[]).map(tab => (
+            <button key={tab} className={`admin-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>
+              {tab} ({tab === 'events' ? events.length : tab === 'merch' ? merchItems.length : messages.length})
+            </button>
+          ))}
         </div>
 
-        {/* Message de statut */}
-        {message && (
-          <div style={{
-            background: message.includes('❌') ? '#ef4444' : '#10b981',
-            color: 'white',
-            padding: '1rem',
-            borderRadius: '12px',
-            marginBottom: '2rem',
-            textAlign: 'center',
-            fontWeight: '500',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-          }}>
-            {message}
-          </div>
+        {status && <div className={`admin-status ${status.includes('Error') ? 'error' : 'success'}`}>{status}</div>}
+
+        {/* EVENTS */}
+        {activeTab === 'events' && (
+          <>
+            <div className="admin-form-card">
+              <h3 className="admin-form-title">{editingEventIndex !== null ? 'Edit Event' : 'New Event'}</h3>
+              <div className="admin-form-grid">
+                <div className="admin-field-full">
+                  <label className="admin-label">Title *</label>
+                  <input className="admin-input" value={eventForm.title} onChange={e => setEventForm({...eventForm, title: e.target.value})} placeholder="LUMIERE NOIRE" />
+                </div>
+                <div className="admin-field-half">
+                  <label className="admin-label">Date *</label>
+                  <input type="date" className="admin-input" value={eventForm.date} onChange={e => setEventForm({...eventForm, date: e.target.value})} />
+                </div>
+                <div className="admin-field-half">
+                  <label className="admin-label">Location *</label>
+                  <input className="admin-input" value={eventForm.location} onChange={e => setEventForm({...eventForm, location: e.target.value})} placeholder="Théâtre du Lion d'Or" />
+                </div>
+                <div className="admin-field-full">
+                  <label className="admin-label">Event URL</label>
+                  <input className="admin-input" value={eventForm.url} onChange={e => setEventForm({...eventForm, url: e.target.value})} placeholder="https://facebook.com/events/..." />
+                </div>
+                <div className="admin-field-color">
+                  <label className="admin-label">Color</label>
+                  <input type="color" className="admin-color-input" value={eventForm.color} onChange={e => setEventForm({...eventForm, color: e.target.value})} />
+                </div>
+                <div className="admin-field-image">
+                  <label className="admin-label">Image</label>
+                  <ImageUpload value={eventForm.image} onChange={v => setEventForm({...eventForm, image: v})} placeholder="events/photo.webp" useButton={true} />
+                </div>
+                <div className="admin-actions">
+                  <button className="admin-btn-primary" onClick={saveEvent} disabled={saving}>{saving ? 'Saving...' : editingEventIndex !== null ? 'Update' : 'Add Event'}</button>
+                  {editingEventIndex !== null && <button className="admin-btn-secondary" onClick={resetEventForm}>Cancel</button>}
+                </div>
+              </div>
+            </div>
+            {events.map((ev, i) => (
+              <div key={i} className="admin-list-item">
+                <div className="admin-color-bar" style={{ background: ev.color }} />
+                <div className="admin-item-info">
+                  <div className="admin-item-title">{ev.title}</div>
+                  <div className="admin-item-meta">{ev.date} — {ev.location}</div>
+                </div>
+                <button className="admin-btn-secondary" onClick={() => { setEventForm(ev); setEditingEventIndex(i); window.scrollTo(0,0); }}>Edit</button>
+                <button className="admin-btn-danger" onClick={() => deleteEvent(i)}>Del</button>
+              </div>
+            ))}
+          </>
         )}
 
-        {/* Formulaire */}
-        <div style={{
-          background: 'white',
-          borderRadius: '16px',
-          padding: '2rem',
-          marginBottom: '2rem',
-          boxShadow: '0 8px 16px rgba(0,0,0,0.1)'
-        }}>
-          <h2 style={{
-            color: '#667eea',
-            marginTop: 0,
-            marginBottom: '1.5rem',
-            fontSize: '1.5rem'
-          }}>
-            {editingIndex !== null ? '✏️ Modifier l\'événement' : '➕ Nouvel événement'}
-          </h2>
-
-          <div style={{
-            display: 'grid',
-            gap: '1.5rem'
-          }}>
-            {/* Titre */}
-            <div>
-              <label style={{
-                display: 'block',
-                marginBottom: '0.5rem',
-                fontWeight: '600',
-                color: '#374151'
-              }}>
-                Titre de l'événement *
-              </label>
-              <input
-                type="text"
-                value={formData.title}
-                onChange={(e) => updateFormField('title', e.target.value)}
-                placeholder="Ex: LUMIERE NOIRE"
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '2px solid #e5e7eb',
-                  borderRadius: '8px',
-                  fontSize: '1rem',
-                  outline: 'none',
-                  transition: 'border-color 0.2s',
-                  boxSizing: 'border-box'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#667eea'}
-                onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
-              />
-            </div>
-
-            {/* Date et Lieu */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '1rem'
-            }}>
-              <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '0.5rem',
-                  fontWeight: '600',
-                  color: '#374151'
-                }}>
-                  Date *
-                </label>
-                <input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => updateFormField('date', e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '8px',
-                    fontSize: '1rem',
-                    outline: 'none',
-                    transition: 'border-color 0.2s',
-                    boxSizing: 'border-box'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#667eea'}
-                  onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
-                />
-              </div>
-
-              <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '0.5rem',
-                  fontWeight: '600',
-                  color: '#374151'
-                }}>
-                  Lieu *
-                </label>
-                <input
-                  type="text"
-                  value={formData.location}
-                  onChange={(e) => updateFormField('location', e.target.value)}
-                  placeholder="Ex: Théâtre du Lion d'Or - Mtl"
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '2px solid #e5e7eb',
-                    borderRadius: '8px',
-                    fontSize: '1rem',
-                    outline: 'none',
-                    transition: 'border-color 0.2s',
-                    boxSizing: 'border-box'
-                  }}
-                  onFocus={(e) => e.target.style.borderColor = '#667eea'}
-                  onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
-                />
-              </div>
-            </div>
-
-            {/* Lien */}
-            <div>
-              <label style={{
-                display: 'block',
-                marginBottom: '0.5rem',
-                fontWeight: '600',
-                color: '#374151'
-              }}>
-                Lien de l'événement
-              </label>
-              <input
-                type="url"
-                value={formData.url}
-                onChange={(e) => updateFormField('url', e.target.value)}
-                placeholder="Ex: https://www.facebook.com/events/..."
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '2px solid #e5e7eb',
-                  borderRadius: '8px',
-                  fontSize: '1rem',
-                  outline: 'none',
-                  transition: 'border-color 0.2s',
-                  boxSizing: 'border-box'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#667eea'}
-                onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
-              />
-            </div>
-
-            {/* Couleur et Image */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '200px 1fr',
-              gap: '1rem',
-              alignItems: 'start'
-            }}>
-              <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '0.5rem',
-                  fontWeight: '600',
-                  color: '#374151'
-                }}>
-                  Couleur
-                </label>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem'
-                }}>
-                  <input
-                    type="color"
-                    value={formData.color}
-                    onChange={(e) => updateFormField('color', e.target.value)}
-                    style={{
-                      width: '60px',
-                      height: '45px',
-                      border: '2px solid #e5e7eb',
-                      borderRadius: '8px',
-                      cursor: 'pointer'
-                    }}
-                  />
-                  <input
-                    type="text"
-                    value={formData.color}
-                    onChange={(e) => updateFormField('color', e.target.value)}
-                    style={{
-                      width: '100px',
-                      padding: '0.75rem',
-                      border: '2px solid #e5e7eb',
-                      borderRadius: '8px',
-                      fontSize: '0.9rem',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                  />
+        {/* MERCH */}
+        {activeTab === 'merch' && (
+          <>
+            <div className="admin-form-card">
+              <h3 className="admin-form-title">{editingMerchIndex !== null ? 'Edit Item' : 'New Item'}</h3>
+              <div className="admin-form-grid">
+                <div className="admin-field-half">
+                  <label className="admin-label">Name *</label>
+                  <input className="admin-input" value={merchForm.caption} onChange={e => setMerchForm({...merchForm, caption: e.target.value})} placeholder="T-shirt" />
+                </div>
+                <div className="admin-field-half">
+                  <label className="admin-label">Price *</label>
+                  <input className="admin-input" value={merchForm.price} onChange={e => setMerchForm({...merchForm, price: e.target.value})} placeholder="30$ CAD" />
+                </div>
+                <div className="admin-field-half">
+                  <label className="admin-label">Category</label>
+                  <select className="admin-input" value={merchForm.category} onChange={e => setMerchForm({...merchForm, category: e.target.value})}>
+                    <option value="tshirt">T-shirt</option>
+                    <option value="sweatshirt">Sweatshirt</option>
+                    <option value="hoodie">Hoodie</option>
+                    <option value="bag">Bag</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div className="admin-field-half admin-checkboxes">
+                  <label className="admin-checkbox-label"><input type="checkbox" checked={merchForm.active !== false} onChange={e => setMerchForm({...merchForm, active: e.target.checked})} /> Active</label>
+                  <label className="admin-checkbox-label"><input type="checkbox" checked={merchForm.soldOut || false} onChange={e => setMerchForm({...merchForm, soldOut: e.target.checked})} /> Sold Out</label>
+                </div>
+                <div className="admin-field-full">
+                  <label className="admin-label">Image</label>
+                  <ImageUpload value={merchForm.src || ''} onChange={v => setMerchForm({...merchForm, src: v, alt: merchForm.caption || ''})} placeholder="images/Merch_Tshirt-Front.webp" useButton={true} />
+                </div>
+                <div className="admin-actions">
+                  <button className="admin-btn-primary" onClick={saveMerch} disabled={saving}>{saving ? 'Saving...' : editingMerchIndex !== null ? 'Update' : 'Add Item'}</button>
+                  {editingMerchIndex !== null && <button className="admin-btn-secondary" onClick={resetMerchForm}>Cancel</button>}
                 </div>
               </div>
+            </div>
+            {merchItems.map((item, i) => (
+              <div key={i} className="admin-list-item">
+                {item.src && <img src={item.src} alt={item.alt} className="admin-item-thumb" />}
+                <div className="admin-item-info">
+                  <div className="admin-item-title">{item.caption} {item.soldOut && <span className="admin-badge-danger">SOLD OUT</span>} {!item.active && <span className="admin-badge-muted">HIDDEN</span>}</div>
+                  <div className="admin-item-meta">{item.price} — {item.category}</div>
+                </div>
+                <button className="admin-btn-secondary" onClick={() => { setMerchForm(item); setEditingMerchIndex(i); window.scrollTo(0,0); }}>Edit</button>
+                <button className="admin-btn-danger" onClick={() => deleteMerch(i)}>Del</button>
+              </div>
+            ))}
+          </>
+        )}
 
-              <div>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '0.5rem',
-                  fontWeight: '600',
-                  color: '#374151'
-                }}>
-                  Photo de l'événement
-                </label>
-                <ImageUpload
-                  value={formData.image}
-                  onChange={(value) => updateFormField('image', value)}
-                  placeholder="Ex: events/lancement.webp"
-                  useButton={true}
-                />
+        {/* NEWS */}
+        {activeTab === 'news' && (
+          <>
+            <div className="admin-form-card">
+              <h3 className="admin-form-title">{editingMsgIndex !== null ? 'Edit News' : 'New News'}</h3>
+              <div className="admin-form-grid">
+                <div className="admin-field-full">
+                  <label className="admin-label">Title *</label>
+                  <input className="admin-input" value={msgForm.title} onChange={e => setMsgForm({...msgForm, title: e.target.value})} placeholder="New album out now" />
+                </div>
+                <div className="admin-field-full">
+                  <label className="admin-label">Description</label>
+                  <textarea className="admin-input admin-textarea" value={msgForm.description} onChange={e => setMsgForm({...msgForm, description: e.target.value})} placeholder="Album description..." />
+                </div>
+                <div className="admin-field-half">
+                  <label className="admin-label">Date</label>
+                  <input type="date" className="admin-input" value={msgForm.date} onChange={e => setMsgForm({...msgForm, date: e.target.value})} />
+                </div>
+                <div className="admin-field-half">
+                  <label className="admin-label">Image</label>
+                  <ImageUpload value={msgForm.image || ''} onChange={v => setMsgForm({...msgForm, image: v})} placeholder="images/news-photo.webp" useButton={true} />
+                </div>
+                <div className="admin-field-half">
+                  <label className="admin-label">Link Label</label>
+                  <input className="admin-input" value={msgForm.link?.label || ''} onChange={e => setMsgForm({...msgForm, link: {...(msgForm.link || { label: '', href: '' }), label: e.target.value}})} placeholder="Bandcamp" />
+                </div>
+                <div className="admin-field-half">
+                  <label className="admin-label">Link URL</label>
+                  <input className="admin-input" value={msgForm.link?.href || ''} onChange={e => setMsgForm({...msgForm, link: {...(msgForm.link || { label: '', href: '' }), href: e.target.value}})} placeholder="https://..." />
+                </div>
+                <div className="admin-actions">
+                  <button className="admin-btn-primary" onClick={saveMsg} disabled={saving}>{saving ? 'Saving...' : editingMsgIndex !== null ? 'Update' : 'Add News'}</button>
+                  {editingMsgIndex !== null && <button className="admin-btn-secondary" onClick={resetMsgForm}>Cancel</button>}
+                </div>
               </div>
             </div>
-
-            {/* Boutons d'action */}
-            <div style={{
-              display: 'flex',
-              gap: '1rem',
-              marginTop: '1rem'
-            }}>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                style={{
-                  flex: 1,
-                  padding: '1rem',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '1rem',
-                  fontWeight: '600',
-                  cursor: saving ? 'not-allowed' : 'pointer',
-                  opacity: saving ? 0.7 : 1,
-                  transition: 'transform 0.2s, box-shadow 0.2s',
-                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-                }}
-                onMouseEnter={(e) => {
-                  if (!saving) {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 6px 12px rgba(0,0,0,0.15)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
-                }}
-              >
-                {saving ? 'Sauvegarde...' : (editingIndex !== null ? '💾 Mettre à jour' : '➕ Ajouter l\'événement')}
-              </button>
-
-              {editingIndex !== null && (
-                <button
-                  onClick={resetForm}
-                  style={{
-                    padding: '1rem 2rem',
-                    background: '#6b7280',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '1rem',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    transition: 'background 0.2s'
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = '#4b5563'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = '#6b7280'}
-                >
-                  Annuler
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Liste des événements */}
-        <div>
-          <h2 style={{
-            color: 'white',
-            marginBottom: '1.5rem',
-            fontSize: '1.8rem',
-            textShadow: '2px 2px 4px rgba(0,0,0,0.2)'
-          }}>
-            📋 Événements existants ({events.length})
-          </h2>
-
-          {events.length === 0 ? (
-            <div style={{
-              background: 'white',
-              borderRadius: '16px',
-              padding: '3rem',
-              textAlign: 'center',
-              color: '#6b7280',
-              fontSize: '1.1rem'
-            }}>
-              Aucun événement pour le moment. Ajoutez-en un ci-dessus ! 🎉
-            </div>
-          ) : (
-            <div style={{
-              display: 'grid',
-              gap: '1rem'
-            }}>
-              {events.map((event, index) => (
-                <div
-                  key={index}
-                  style={{
-                    background: 'white',
-                    borderRadius: '12px',
-                    padding: '1.5rem',
-                    display: 'grid',
-                    gridTemplateColumns: 'auto 1fr auto',
-                    gap: '1.5rem',
-                    alignItems: 'center',
-                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-                    transition: 'transform 0.2s, box-shadow 0.2s'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 6px 12px rgba(0,0,0,0.15)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
-                  }}
-                >
-                  {/* Indicateur de couleur */}
-                  <div style={{
-                    width: '4px',
-                    height: '80px',
-                    background: event.color,
-                    borderRadius: '2px'
-                  }} />
-
-                  {/* Informations */}
-                  <div>
-                    <h3 style={{
-                      margin: '0 0 0.5rem 0',
-                      fontSize: '1.3rem',
-                      color: '#1f2937',
-                      fontWeight: 'bold'
-                    }}>
-                      {event.title}
-                    </h3>
-                    <div style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: '1rem',
-                      color: '#6b7280',
-                      fontSize: '0.95rem'
-                    }}>
-                      <span>📅 {(() => {
-                        const [year, month, day] = event.date.split('-');
-                        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day)).toLocaleDateString('fr-FR', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric'
-                        });
-                      })()}</span>
-                      <span>📍 {event.location}</span>
-                      {event.url && (
-                        <a
-                          href={event.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            color: '#667eea',
-                            textDecoration: 'none',
-                            fontWeight: '500'
-                          }}
-                        >
-                          🔗 Lien
-                        </a>
-                      )}
-                    </div>
-                    {event.image && (
-                      <div style={{
-                        marginTop: '0.5rem',
-                        fontSize: '0.85rem',
-                        color: '#9ca3af'
-                      }}>
-                        🖼️ {event.image}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div style={{
-                    display: 'flex',
-                    gap: '0.5rem'
-                  }}>
-                    <button
-                      onClick={() => handleEdit(index)}
-                      style={{
-                        padding: '0.75rem 1.25rem',
-                        background: '#667eea',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '0.9rem',
-                        fontWeight: '600',
-                        cursor: 'pointer',
-                        transition: 'background 0.2s'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = '#5568d3'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = '#667eea'}
-                    >
-                      ✏️ Modifier
-                    </button>
-                    <button
-                      onClick={() => handleDelete(index)}
-                      disabled={saving}
-                      style={{
-                        padding: '0.75rem 1.25rem',
-                        background: '#ef4444',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '0.9rem',
-                        fontWeight: '600',
-                        cursor: saving ? 'not-allowed' : 'pointer',
-                        opacity: saving ? 0.5 : 1,
-                        transition: 'background 0.2s'
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!saving) e.currentTarget.style.background = '#dc2626';
-                      }}
-                      onMouseLeave={(e) => e.currentTarget.style.background = '#ef4444'}
-                    >
-                      🗑️ Supprimer
-                    </button>
-                  </div>
+            {messages.map((msg, i) => (
+              <div key={i} className="admin-list-item">
+                {msg.image && <img src={msg.image} alt={msg.title} className="admin-item-thumb" />}
+                <div className="admin-item-info">
+                  <div className="admin-item-title">{msg.title}</div>
+                  <div className="admin-item-meta">{msg.date} {msg.description && `— ${msg.description.substring(0, 60)}...`}</div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div style={{
-          marginTop: '3rem',
-          padding: '1.5rem',
-          background: 'rgba(255,255,255,0.1)',
-          borderRadius: '12px',
-          textAlign: 'center',
-          color: 'rgba(255,255,255,0.8)',
-          backdropFilter: 'blur(10px)'
-        }}>
-          <p style={{ margin: 0, fontSize: '0.9rem' }}>
-            💡 Les modifications sont automatiquement sauvegardées dans le fichier events.json
-          </p>
-        </div>
+                <button className="admin-btn-secondary" onClick={() => { setMsgForm({...msg, link: msg.link || { label: '', href: '' }}); setEditingMsgIndex(i); window.scrollTo(0,0); }}>Edit</button>
+                <button className="admin-btn-danger" onClick={() => deleteMsg(i)}>Del</button>
+              </div>
+            ))}
+          </>
+        )}
       </div>
     </div>
   );
 };
 
 export default AdminEvents;
-

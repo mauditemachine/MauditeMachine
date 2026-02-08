@@ -1,31 +1,13 @@
 [
   {
-    "id": "msg-prod-3",
-    "title": "New album out now",
-    "description": "Album \"Limbos\" is out now on Bandcamp",
-    "image": "images/message-1761066353022.webp",
-    "link": {
-      "label": "Bandcamp",
-      "href": "https://mauditemachine.bandcamp.com/album/limbos"
-    },
-    "date": "2025-10-21"
-  },
-  {
     "id": "msg-prod-2",
     "title": "Merch available on the store section",
     "description": "T-shirts, hoodies & stickers tote bags, cantle bags & stickers",
     "image": "images/message-1761066353021.png",
-    "date": "2024-12-10"
-  },
-  {
-    "id": "msg-prod-1",
-    "title": "Mixtape 37 Out Now",
-    "description": "Latest mixtape ! mixtape 37 is out now ! listen now",
-    "image": "images/message-1761066353018.webp",
+    "date": "2024-12-10",
     "link": {
-      "label": "Soundcloud",
-      "href": "https://soundcloud.com/mauditemachine/maudite-machine-mixtape-37"
-    },
-    "date": "2025-01-15"
+      "label": "",
+      "href": "http://localhost:5173/#store"
+    }
   }
 ]

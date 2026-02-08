@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 interface StoreProps {
-  onSectionChange?: (section: string) => void;
+  onSectionChange?: (section: string, prefill?: { subject: string; message: string }) => void;
 }
 
 interface MerchItem {
@@ -21,420 +21,259 @@ interface MerchItem {
   soldOut: boolean;
 }
 
+// Grouper les produits par type unique (ex: "T-shirt", "Sylvain T-shirt", etc.)
+interface ProductGroup {
+  name: string;
+  price: string;
+  category: string;
+  sizes?: { S: boolean; M: boolean; L: boolean; XL: boolean };
+  soldOut: boolean;
+  images: MerchItem[];
+  mainImage: MerchItem;
+}
+
 const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
   const [merchItems, setMerchItems] = useState<MerchItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [currentProduct, setCurrentProduct] = useState<ProductGroup | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [currentGroupImages, setCurrentGroupImages] = useState<MerchItem[]>([]);
 
   useEffect(() => {
     const loadMerchData = async () => {
       try {
-        console.log('🔍 Début chargement /store.json');
         const response = await fetch('/store.json');
-        console.log('🔍 Response status:', response.status, response.ok);
-        
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        
         const data = await response.json();
-        console.log('🔍 Données brutes:', data);
-        console.log('🔍 Type des données:', Array.isArray(data), typeof data);
-        console.log('🔍 Nombre total d\'articles:', data.length);
-        
         const activeItems = data.filter((item: MerchItem) => item.active);
-        console.log('🔍 Articles actifs:', activeItems.length);
-        console.log('🔍 Premier article actif:', activeItems[0]);
-        
         setMerchItems(activeItems);
       } catch (error) {
-        console.error('❌ ERREUR chargement store:', error);
-        // Données de test en cas d'erreur - utiliser les vraies données avec plusieurs images par catégorie
-        const testData = [
-          // T-shirts - T-shirt normal en premier
-          {
-            id: 13,
-            src: 'images/Merch_Tshirt-Front.webp',
-            alt: 'Tshirt Front',
-            caption: 'T-shirt',
-            price: '30$ CAD',
-            category: 'tshirt',
-            active: true,
-            sizes: { S: true, M: true, L: true, XL: true },
-            soldOut: false
-          },
-          {
-            id: 12,
-            src: 'images/Merch_Tshirt-Back.webp',
-            alt: 'Tshirt Back',
-            caption: 'T-shirt',
-            price: '30$ CAD',
-            category: 'tshirt',
-            active: true,
-            sizes: { S: true, M: true, L: true, XL: true },
-            soldOut: false
-          },
-          {
-            id: 11,
-            src: 'images/Merch_Sylvain-Tshirt-Front.webp',
-            alt: 'Sylvain Tshirt Front',
-            caption: 'Sylvain T-shirt',
-            price: '30$ CAD',
-            category: 'tshirt',
-            active: true,
-            sizes: { S: true, M: true, L: true, XL: true },
-            soldOut: false
-          },
-          {
-            id: 10,
-            src: 'images/Merch_Sylvain-Tshirt-Back.webp',
-            alt: 'Sylvain Tshirt Back',
-            caption: 'Sylvain T-shirt',
-            price: '30$ CAD',
-            category: 'tshirt',
-            active: true,
-            sizes: { S: true, M: true, L: true, XL: true },
-            soldOut: false
-          },
-          // Sweatshirts
-          {
-            id: 1,
-            src: 'images/Merch_CrewNeck-Back.webp',
-            alt: 'Sweatshirt Back',
-            caption: 'Sweatshirt',
-            price: '50$ CAD',
-            category: 'sweatshirt',
-            active: true,
-            sizes: { S: false, M: true, L: true, XL: true },
-            soldOut: false
-          },
-          {
-            id: 2,
-            src: 'images/Merch_CrewNeck-Front.webp',
-            alt: 'Sweatshirt Front',
-            caption: 'Sweatshirt',
-            price: '50$ CAD',
-            category: 'sweatshirt',
-            active: true,
-            sizes: { S: false, M: true, L: true, XL: true },
-            soldOut: false
-          },
-          // Hoodies
-          {
-            id: 3,
-            src: 'images/Merch_Hoodie-Back.webp',
-            alt: 'Hoodie Back',
-            caption: 'Hoodie',
-            price: '50$ CAD',
-            category: 'hoodie',
-            active: true,
-            sizes: { S: false, M: false, L: true, XL: false },
-            soldOut: false
-          },
-          {
-            id: 4,
-            src: 'images/Merch_Hoodie F.webp',
-            alt: 'Hoodie Front',
-            caption: 'Hoodie',
-            price: '50$ CAD',
-            category: 'hoodie',
-            active: true,
-            sizes: { S: false, M: false, L: true, XL: false },
-            soldOut: false
-          },
-          // Hip Bags
-          {
-            id: 5,
-            src: 'images/Merch_Bag-Brown.webp',
-            alt: 'Bag Brown',
-            caption: 'Hip Bag Brown',
-            price: '80$ CAD',
-            category: 'bag',
-            active: true,
-            soldOut: true
-          },
-          {
-            id: 6,
-            src: 'images/Merch_Bag-Orange.webp',
-            alt: 'Bag Orange',
-            caption: 'Hip Bag Orange',
-            price: '80$ CAD',
-            category: 'bag',
-            active: true,
-            soldOut: false
-          },
-          {
-            id: 7,
-            src: 'images/Merch_Bag-Pink.webp',
-            alt: 'Bag Pink',
-            caption: 'Hip Bag Pink',
-            price: '80$ CAD',
-            category: 'bag',
-            active: true,
-            soldOut: false
-          },
-          {
-            id: 8,
-            src: 'images/Merch_Bag-red.webp',
-            alt: 'Bag Red',
-            caption: 'Hip Bag Red',
-            price: '80$ CAD',
-            category: 'bag',
-            active: true,
-            soldOut: true
-          },
-          {
-            id: 9,
-            src: 'images/Merch_Bag-Purple.webp',
-            alt: 'Bag Purple',
-            caption: 'Hip Bag Purple',
-            price: '80$ CAD',
-            category: 'bag',
-            active: true,
-            soldOut: false
-          }
+        console.error('Erreur chargement store:', error);
+        // Données de fallback
+        const fallbackData: MerchItem[] = [
+          { id: 13, src: 'images/Merch_Tshirt-Front.webp', alt: 'Tshirt Front', caption: 'T-shirt', price: '30$ CAD', category: 'tshirt', active: true, sizes: { S: true, M: true, L: true, XL: true }, soldOut: false },
+          { id: 12, src: 'images/Merch_Tshirt-Back.webp', alt: 'Tshirt Back', caption: 'T-shirt', price: '30$ CAD', category: 'tshirt', active: true, sizes: { S: true, M: true, L: true, XL: true }, soldOut: false },
+          { id: 2, src: 'images/Merch_CrewNeck-Front.webp', alt: 'Sweatshirt Front', caption: 'Sweatshirt', price: '50$ CAD', category: 'sweatshirt', active: true, sizes: { S: false, M: true, L: true, XL: true }, soldOut: false },
+          { id: 1, src: 'images/Merch_CrewNeck-Back.webp', alt: 'Sweatshirt Back', caption: 'Sweatshirt', price: '50$ CAD', category: 'sweatshirt', active: true, sizes: { S: false, M: true, L: true, XL: true }, soldOut: false },
+          { id: 4, src: 'images/Merch_Hoodie F.webp', alt: 'Hoodie Front', caption: 'Hoodie', price: '50$ CAD', category: 'hoodie', active: true, sizes: { S: false, M: false, L: true, XL: false }, soldOut: false },
+          { id: 3, src: 'images/Merch_Hoodie-Back.webp', alt: 'Hoodie Back', caption: 'Hoodie', price: '50$ CAD', category: 'hoodie', active: true, sizes: { S: false, M: false, L: true, XL: false }, soldOut: false },
+          { id: 5, src: 'images/Merch_Bag-Brown.webp', alt: 'Bag Brown', caption: 'Hip Bag Brown', price: '80$ CAD', category: 'bag', active: true, soldOut: true },
+          { id: 6, src: 'images/Merch_Bag-Orange.webp', alt: 'Bag Orange', caption: 'Hip Bag Orange', price: '80$ CAD', category: 'bag', active: true, soldOut: false },
+          { id: 7, src: 'images/Merch_Bag-Pink.webp', alt: 'Bag Pink', caption: 'Hip Bag Pink', price: '80$ CAD', category: 'bag', active: true, soldOut: false },
+          { id: 8, src: 'images/Merch_Bag-red.webp', alt: 'Bag Red', caption: 'Hip Bag Red', price: '80$ CAD', category: 'bag', active: true, soldOut: true },
+          { id: 9, src: 'images/Merch_Bag-Purple.webp', alt: 'Bag Purple', caption: 'Hip Bag Purple', price: '80$ CAD', category: 'bag', active: true, soldOut: false },
         ];
-        console.log('🔍 Utilisation des données de test:', testData);
-        setMerchItems(testData);
+        setMerchItems(fallbackData);
       } finally {
         setLoading(false);
       }
     };
-    
     loadMerchData();
   }, []);
 
-  // Obtenir un représentant par catégorie
-  const getDisplayItems = () => {
-    const categories = ['tshirt', 'sweatshirt', 'hoodie', 'bag'];
-    return categories.map(category => {
-      const categoryItems = merchItems.filter(item => item.category === category);
-      if (categoryItems.length === 0) return null;
-      
-      // Pour T-shirt, prendre spécifiquement le T-shirt normal (pas Sylvain) et Front
-      if (category === 'tshirt') {
-        const normalTshirt = categoryItems.find(item => 
-          !item.alt.toLowerCase().includes('sylvain') && 
-          item.alt.toLowerCase().includes('front')
+  // Grouper les produits par nom (caption)
+  const getProductGroups = (): ProductGroup[] => {
+    const groups: { [key: string]: ProductGroup } = {};
+    
+    merchItems.forEach(item => {
+      const key = item.caption;
+      if (!groups[key]) {
+        // Trouver l'image "Front" si disponible
+        const frontImage = merchItems.find(
+          i => i.caption === item.caption && i.alt.toLowerCase().includes('front')
         );
-        if (normalTshirt) return normalTshirt;
+        groups[key] = {
+          name: item.caption,
+          price: item.price,
+          category: item.category,
+          sizes: item.sizes,
+          soldOut: item.soldOut,
+          images: [],
+          mainImage: frontImage || item
+        };
       }
-      
-      // Pour Sweatshirt, prendre spécifiquement l'id 2 (Sweatshirt Front)
-      if (category === 'sweatshirt') {
-        const sweatshirtFront = categoryItems.find(item => item.id === 2);
-        if (sweatshirtFront) return sweatshirtFront;
-      }
-      
-      // Pour Hoodie, prendre spécifiquement l'id 4 (Hoodie Front)
-      if (category === 'hoodie') {
-        const hoodieFront = categoryItems.find(item => item.id === 4);
-        if (hoodieFront) return hoodieFront;
-      }
-      
-      // Pour les autres catégories, prendre le premier item
-      return categoryItems[0];
-    }).filter(Boolean);
+      groups[key].images.push(item);
+    });
+    
+    // Ordonner: T-shirts, Sweatshirts, Hoodies, Bags
+    const order = ['tshirt', 'sweatshirt', 'hoodie', 'bag'];
+    return Object.values(groups).sort((a, b) => {
+      return order.indexOf(a.category) - order.indexOf(b.category);
+    });
   };
 
-  // Ouvrir la lightbox
-  const openLightbox = (index: number) => {
-    const displayItems = getDisplayItems();
-    const clickedItem = displayItems[index];
-    
-    // Obtenir toutes les images de la même catégorie
-    const categoryItems = merchItems.filter(item => item.category === clickedItem.category);
-    
-    // Trouver l'index de l'item cliqué dans sa catégorie
-    const itemIndex = categoryItems.findIndex(item => item.id === clickedItem.id);
-    
-    setCurrentGroupImages(categoryItems);
-    setCurrentImageIndex(itemIndex >= 0 ? itemIndex : 0);
+  const openLightbox = (product: ProductGroup) => {
+    setCurrentProduct(product);
+    setCurrentImageIndex(0);
     setLightboxOpen(true);
     document.body.style.overflow = 'hidden';
   };
 
-  // Fermer la lightbox
   const closeLightbox = () => {
     setLightboxOpen(false);
+    setCurrentProduct(null);
     document.body.style.overflow = 'auto';
   };
 
-  // Navigation dans la lightbox
   const nextImage = () => {
-    setCurrentImageIndex((prev) => (prev + 1) % currentGroupImages.length);
+    if (currentProduct) {
+      setCurrentImageIndex((prev) => (prev + 1) % currentProduct.images.length);
+    }
   };
 
   const prevImage = () => {
-    setCurrentImageIndex((prev) => (prev - 1 + currentGroupImages.length) % currentGroupImages.length);
+    if (currentProduct) {
+      setCurrentImageIndex((prev) => (prev - 1 + currentProduct.images.length) % currentProduct.images.length);
+    }
   };
 
-  // Gestion des touches clavier
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
       if (!lightboxOpen) return;
-      
       if (e.key === 'Escape') closeLightbox();
       if (e.key === 'ArrowRight') nextImage();
       if (e.key === 'ArrowLeft') prevImage();
     };
-
     window.addEventListener('keydown', handleKeyPress);
-    
-    return () => {
-      window.removeEventListener('keydown', handleKeyPress);
-    };
-  }, [lightboxOpen]);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [lightboxOpen, currentProduct]);
 
-  // Nettoyer le style du body au démontage
   useEffect(() => {
-    return () => {
-      document.body.style.overflow = 'auto';
-    };
+    return () => { document.body.style.overflow = 'auto'; };
   }, []);
 
-  const displayItems = getDisplayItems();
+  const products = getProductGroups();
 
   return (
-    <>
-      <p className="message-subtitle">
-        For all merch requests, please email{' '}
-        <a href="#contact" 
-           style={{ color: '#ffdd00', textDecoration: 'none', cursor: 'pointer' }}
-           onClick={(e) => {
-          e.preventDefault();
-          if (onSectionChange) {
-            onSectionChange('message');
-          }
-        }}>here</a>{' '}
-        specifying the item and postal address. Payment instructions will be provided upon request.
-      </p>
+    <div className="store-page">
+      {/* Message d'intro */}
+      <div className="store-intro">
+        <p>
+          To place an order, send us an email via the{' '}
+          <a 
+            href="#contact" 
+            onClick={(e) => {
+              e.preventDefault();
+              if (onSectionChange) onSectionChange('message');
+            }}
+          >
+            contact form
+          </a>{' '}
+          specifying the item, size and your shipping address. All sizes are available to order. Prices are taxes included. Shipping fees apply.
+        </p>
+      </div>
 
-      <div className="merch-gallery">
+      {/* Grille de produits */}
+      <div className="store-grid">
         {loading ? (
-          <div className="loading-state">
-            <p>Chargement...</p>
-          </div>
-        ) : displayItems.length === 0 ? (
-          <div className="empty-state">
-            <p>Aucun article trouvé</p>
-          </div>
+          <div className="store-loading">Loading...</div>
         ) : (
-          displayItems.map((item, index) => (
-            <div key={item.id} className="message-card merch-item" onClick={() => openLightbox(index)}>
-              <div className="merch-image-container">
+          products.map((product) => (
+            <div 
+              key={product.name} 
+              className="product-card"
+              onClick={() => openLightbox(product)}
+            >
+              
+              {/* Image du produit */}
+              <div className="product-image-wrapper">
                 <img 
-                  src={item.src}
-                  alt={item.alt}
-                  className="merch-image"
+                  src={product.mainImage.src} 
+                  alt={product.name}
+                  className="product-image"
                   loading="lazy"
                 />
-                <div className="merch-overlay">
-                  <i className="fas fa-search-plus"></i>
-                </div>
+                {product.images.length > 1 && (
+                  <div className="product-image-count">
+                    <span>{product.images.length} photos</span>
+                  </div>
+                )}
               </div>
-              
-              <div className="merch-caption">
-                {item.caption}
+
+              {/* Infos produit */}
+              <div className="product-info">
+                <h3 className="product-name">{product.name}</h3>
+                <div className="product-price">{product.price}</div>
               </div>
-              
-              {/* Sélecteur de tailles */}
-              {item.sizes && (
-                <div className="size-selector">
-                  {Object.entries(item.sizes).map(([size, available]) => (
-                    <div 
-                      key={size}
-                      className={`size-option ${!available ? 'out-of-stock' : ''}`}
-                    >
-                      <span className="size-label">{size}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           ))
         )}
       </div>
 
       {/* Lightbox */}
-      {lightboxOpen && currentGroupImages.length > 0 && (
-        <div className="lightbox-overlay" onClick={closeLightbox}>
-          <div className="lightbox-container" onClick={(e) => e.stopPropagation()}>
+      {lightboxOpen && currentProduct && (
+        <div className="store-lightbox" onClick={closeLightbox}>
+          <div className="lightbox-content" onClick={(e) => e.stopPropagation()}>
             {/* Bouton fermer */}
-            <button className="lightbox-close" onClick={closeLightbox}>
-              ✕
-            </button>
+            <button className="lightbox-close" onClick={closeLightbox}>×</button>
 
-            {/* Flèche précédente */}
-            {currentGroupImages.length > 1 && (
-              <button className="lightbox-nav prev" onClick={prevImage}>
-                ‹
-              </button>
-            )}
+            {/* Galerie d'images */}
+            <div className="lightbox-gallery">
+              {/* Navigation */}
+              {currentProduct.images.length > 1 && (
+                <>
+                  <button className="lightbox-nav prev" onClick={prevImage}>‹</button>
+                  <button className="lightbox-nav next" onClick={nextImage}>›</button>
+                </>
+              )}
 
-            {/* Flèche suivante */}
-            {currentGroupImages.length > 1 && (
-              <button className="lightbox-nav next" onClick={nextImage}>
-                ›
-              </button>
-            )}
-            
-            {/* Image principale */}
-            <div className="lightbox-content">
-              <div style={{ position: 'relative', display: 'inline-block' }}>
+              {/* Image principale */}
+              <div className="lightbox-main-image">
                 <img 
-                  src={currentGroupImages[currentImageIndex].src}
-                  alt={currentGroupImages[currentImageIndex].alt}
-                  className="lightbox-image"
+                  src={currentProduct.images[currentImageIndex].src}
+                  alt={currentProduct.images[currentImageIndex].alt}
                 />
-                
-                {/* Message Out Of Stock par-dessus l'image */}
-                {currentGroupImages[currentImageIndex].soldOut && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '20px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    background: 'rgba(255, 0, 0, 0.9)',
-                    color: 'white',
-                    padding: '10px 20px',
-                    borderRadius: '6px',
-                    fontWeight: 'bold',
-                    fontSize: '18px',
-                    textAlign: 'center',
-                    zIndex: 10
-                  }}>
-                    Out Of Stock
-                  </div>
-                )}
               </div>
-              
-              {/* Caption et prix */}
-              <div className="lightbox-info">
-                <h3>{currentGroupImages[currentImageIndex].caption}</h3>
-                <p>{currentGroupImages[currentImageIndex].price}</p>
-                
-                {/* Tailles dans lightbox */}
-                {currentGroupImages[currentImageIndex].sizes && (
-                  <div className="lightbox-sizes">
-                    {Object.entries(currentGroupImages[currentImageIndex].sizes).map(([size, available]) => (
-                      <div 
-                        key={size}
-                        className={`lightbox-size-option ${!available ? 'out-of-stock' : ''}`}
-                      >
-                        <span className="size-label">{size}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+
+              {/* Thumbnails */}
+              {currentProduct.images.length > 1 && (
+                <div className="lightbox-thumbnails">
+                  {currentProduct.images.map((img, idx) => (
+                    <button
+                      key={img.id}
+                      className={`thumbnail ${idx === currentImageIndex ? 'active' : ''}`}
+                      onClick={() => setCurrentImageIndex(idx)}
+                    >
+                      <img src={img.src} alt={img.alt} />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Détails produit */}
+            <div className="lightbox-details">
+              <h2 className="lightbox-title">{currentProduct.name}</h2>
+              <div className="lightbox-price">{currentProduct.price}</div>
+
+              {/* Instructions */}
+              <div className="lightbox-order-info">
+                <p>
+                  To order this item, send us an email via the contact form 
+                  specifying the product{currentProduct.category !== 'bag' ? ', size' : ''} and your shipping address. 
+                  Price is taxes included. Shipping fees apply.
+                </p>
+                <button 
+                  className="order-button"
+                  onClick={() => {
+                    closeLightbox();
+                    const hasSize = currentProduct.category !== 'bag';
+                    if (onSectionChange) onSectionChange('message', {
+                      subject: `Order: ${currentProduct.name}`,
+                      message: `Item: ${currentProduct.name}\nPrice: ${currentProduct.price} (taxes included)\n${hasSize ? 'Size: \n' : ''}Shipping address: \n\n`
+                    });
+                  }}
+                >
+                  Order
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };
 
