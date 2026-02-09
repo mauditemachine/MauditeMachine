@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { loadMerchItems } from '../utils/adminApi';
 
 interface StoreProps {
   onSectionChange?: (section: string, prefill?: { subject: string; message: string }) => void;
@@ -42,11 +43,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
   useEffect(() => {
     const loadMerchData = async () => {
       try {
-        const response = await fetch('/store.json');
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        const data = await response.json();
+        const data = await loadMerchItems();
         const activeItems = data.filter((item: MerchItem) => item.active);
         setMerchItems(activeItems);
       } catch (error) {

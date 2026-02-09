@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { loadMessages } from '../utils/adminApi'
 
 type MessageItem = {
   id: string
@@ -13,53 +14,22 @@ export default function NewsMessages(): JSX.Element {
   const [messages, setMessages] = useState<MessageItem[]>([])
   const [error, setError] = useState<string | null>(null)
 
+  const fetchMessages = async () => {
+    try {
+      const data = await loadMessages()
+      setMessages(data)
+    } catch (err) {
+      setError('Failed to load messages')
+    }
+  }
+
   useEffect(() => {
-    let cancelled = false
-    
-    const loadMessagesData = async () => {
-      try {
-        console.log('🔄 Chargement des messages depuis JSON...')
-        
-        // Chargement direct depuis le JSON public avec cache-busting agressif
-        const timestamp = Date.now()
-        const random = Math.random()
-        const response = await fetch(`/messages.json?t=${timestamp}&force=${random}&cache=${Math.random()}`)
-        
-        if (!response.ok) {
-          throw new Error('Erreur lors du chargement des messages')
-        }
-        const messages = await response.json()
-        
-        if (!cancelled) {
-          console.log('✅ Messages chargés depuis JSON:', messages.length, 'messages')
-          console.log('📸 Première image:', messages[0]?.image)
-          setMessages(messages)
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.error('❌ Erreur chargement messages:', err)
-          setError('Failed to load messages')
-        }
-      }
-    }
-    
-    // Charger immédiatement
-    loadMessagesData()
-    
-    // Écouter les mises à jour depuis l'admin (synchronisation automatique)
-    const handleMessagesUpdate = () => {
-      if (!cancelled) {
-        console.log('🔔 Événement messagesUpdated reçu (sync auto)')
-        loadMessagesData()
-      }
-    }
-    
-    window.addEventListener('messagesUpdated', handleMessagesUpdate)
-    
-    return () => { 
-      cancelled = true
-      window.removeEventListener('messagesUpdated', handleMessagesUpdate)
-    }
+    fetchMessages()
+
+    // Écouter les mises à jour depuis l'admin
+    const handleUpdate = () => fetchMessages()
+    window.addEventListener('messagesUpdated', handleUpdate)
+    return () => window.removeEventListener('messagesUpdated', handleUpdate)
   }, [])
 
   if (error) return <div>Error loading messages</div>
