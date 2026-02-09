@@ -70,14 +70,28 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
     loadMerchData();
   }, []);
 
-  // Grouper les produits par nom (caption)
+  // Grouper par catégorie
+  const getCategoryGroups = () => {
+    const categories = [
+      { key: 'tshirt', label: 'T-Shirts' },
+      { key: 'hoodie', label: 'Hoodies' },
+      { key: 'bag', label: 'Bags' },
+      { key: 'sweatshirt', label: 'Crewneck' }
+    ];
+    
+    return categories.map(cat => ({
+      ...cat,
+      items: merchItems.filter(item => item.category === cat.key)
+    })).filter(cat => cat.items.length > 0);
+  };
+
+  // Grouper les produits par nom (caption) - pour la lightbox
   const getProductGroups = (): ProductGroup[] => {
     const groups: { [key: string]: ProductGroup } = {};
     
     merchItems.forEach(item => {
       const key = item.caption;
       if (!groups[key]) {
-        // Trouver l'image "Front" si disponible
         const frontImage = merchItems.find(
           i => i.caption === item.caption && i.alt.toLowerCase().includes('front')
         );
@@ -94,11 +108,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
       groups[key].images.push(item);
     });
     
-    // Ordonner: T-shirts, Sweatshirts, Hoodies, Bags
-    const order = ['tshirt', 'sweatshirt', 'hoodie', 'bag'];
-    return Object.values(groups).sort((a, b) => {
-      return order.indexOf(a.category) - order.indexOf(b.category);
-    });
+    return Object.values(groups);
   };
 
   const openLightbox = (product: ProductGroup) => {
@@ -141,7 +151,19 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
     return () => { document.body.style.overflow = 'auto'; };
   }, []);
 
+  const categoryGroups = getCategoryGroups();
   const products = getProductGroups();
+
+  const openLightboxForItem = (item: MerchItem) => {
+    const product = products.find(p => p.category === item.category && p.images.some(img => img.id === item.id));
+    if (product) {
+      setCurrentProduct(product);
+      const idx = product.images.findIndex(img => img.id === item.id);
+      setCurrentImageIndex(idx >= 0 ? idx : 0);
+      setLightboxOpen(true);
+      document.body.style.overflow = 'hidden';
+    }
+  };
 
   return (
     <div className="store-page">
@@ -162,42 +184,29 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
         </p>
       </div>
 
-      {/* Grille de produits */}
-      <div className="store-grid">
-        {loading ? (
-          <div className="store-loading">Loading...</div>
-        ) : (
-          products.map((product) => (
-            <div 
-              key={product.name} 
-              className="product-card"
-              onClick={() => openLightbox(product)}
-            >
-              
-              {/* Image du produit */}
-              <div className="product-image-wrapper">
-                <img 
-                  src={product.mainImage.src} 
-                  alt={product.name}
-                  className="product-image"
-                  loading="lazy"
-                />
-                {product.images.length > 1 && (
-                  <div className="product-image-count">
-                    <span>{product.images.length} photos</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Infos produit */}
-              <div className="product-info">
-                <h3 className="product-name">{product.name}</h3>
-                <div className="product-price">{product.price}</div>
+      {loading ? (
+        <div className="store-loading">Loading...</div>
+      ) : (
+        categoryGroups.map(cat => {
+          const frontItem = cat.items.find(i => i.alt.toLowerCase().includes('front')) || cat.items[0];
+          return (
+            <div key={cat.key} className="store-category" onClick={() => openLightboxForItem(frontItem)}>
+              <div className="store-category-card">
+                <div className="store-category-image">
+                  <img src={frontItem.src} alt={cat.label} loading="lazy" />
+                  {cat.items.length > 1 && (
+                    <div className="store-category-count">{cat.items.length} photos</div>
+                  )}
+                </div>
+                <div className="store-category-info">
+                  <h3 className="store-category-title">{cat.label}</h3>
+                  <div className="store-category-price">{cat.items[0]?.price}</div>
+                </div>
               </div>
             </div>
-          ))
-        )}
-      </div>
+          );
+        })
+      )}
 
       {/* Lightbox */}
       {lightboxOpen && currentProduct && (
