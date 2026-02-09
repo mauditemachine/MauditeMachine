@@ -51,14 +51,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, placeholder 
         const result = await response.json();
         onChange(result.imagePath);
       } else {
-        // En production, convertir en base64 pour utilisation directe
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const dataUrl = e.target?.result as string;
-          onChange(dataUrl);
-        };
-        reader.onerror = () => { throw new Error('Failed to read file'); };
-        reader.readAsDataURL(file);
+        // En production, compresser et convertir en base64
+        const compressed = await compressImage(file, 400, 0.6);
+        onChange(`data:image/jpeg;base64,${compressed}`);
       }
     } catch (error: any) {
       console.error('Upload error:', error);

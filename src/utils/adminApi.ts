@@ -25,20 +25,24 @@ export interface Event {
 // Sauvegarder les messages directement dans localStorage (synchronisation manuelle)
 export const saveMessages = async (messages: Message[]): Promise<{ success: boolean; message: string }> => {
   try {
-    localStorage.setItem('admin_messages_backup', JSON.stringify(messages));
+    const json = JSON.stringify(messages);
+    try {
+      localStorage.setItem('admin_messages_backup', json);
+    } catch (e) {
+      // localStorage plein - nettoyer et réessayer
+      localStorage.removeItem('admin_messages_backup');
+      localStorage.setItem('admin_messages_backup', json);
+    }
     
-    // En localhost, aussi sauvegarder via l'API serveur
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     if (isLocalhost) {
-      try {
-        await fetch('http://localhost:3001/api/save-messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(messages) });
-      } catch (_) {}
+      try { await fetch('http://localhost:3001/api/save-messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json }); } catch (_) {}
     }
     
     window.dispatchEvent(new CustomEvent('messagesUpdated', { detail: { key: 'messages', data: messages } }));
     return { success: true, message: 'Saved!' };
-  } catch (error) {
-    return { success: false, message: 'Error saving' };
+  } catch (error: any) {
+    return { success: false, message: 'Error: ' + (error.message || 'Storage full, try smaller image') };
   }
 };
 
@@ -109,19 +113,16 @@ export const loadMessages = async (): Promise<Message[]> => {
 
 export const saveEvents = async (events: Event[]): Promise<{ success: boolean; message: string }> => {
   try {
-    localStorage.setItem('admin_events_backup', JSON.stringify(events));
+    const json = JSON.stringify(events);
+    try { localStorage.setItem('admin_events_backup', json); } catch (e) { localStorage.removeItem('admin_events_backup'); localStorage.setItem('admin_events_backup', json); }
     
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isLocalhost) {
-      try {
-        await fetch('http://localhost:3001/api/save-events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(events) });
-      } catch (_) {}
-    }
+    if (isLocalhost) { try { await fetch('http://localhost:3001/api/save-events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json }); } catch (_) {} }
     
     window.dispatchEvent(new CustomEvent('eventsUpdated', { detail: { key: 'events', data: events } }));
     return { success: true, message: 'Saved!' };
-  } catch (error) {
-    return { success: false, message: 'Error saving' };
+  } catch (error: any) {
+    return { success: false, message: 'Error: ' + (error.message || 'Storage full') };
   }
 };
 
@@ -167,19 +168,16 @@ export interface MerchItem {
 
 export const saveMerchItems = async (merchItems: MerchItem[]): Promise<{ success: boolean; message: string }> => {
   try {
-    localStorage.setItem('admin_merch_backup', JSON.stringify(merchItems));
+    const json = JSON.stringify(merchItems);
+    try { localStorage.setItem('admin_merch_backup', json); } catch (e) { localStorage.removeItem('admin_merch_backup'); localStorage.setItem('admin_merch_backup', json); }
     
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isLocalhost) {
-      try {
-        await fetch('http://localhost:3001/api/save-merch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(merchItems) });
-      } catch (_) {}
-    }
+    if (isLocalhost) { try { await fetch('http://localhost:3001/api/save-merch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json }); } catch (_) {} }
     
     window.dispatchEvent(new CustomEvent('merchItemsUpdated', { detail: { key: 'merchItems', data: merchItems } }));
     return { success: true, message: 'Saved!' };
-  } catch (error) {
-    return { success: false, message: 'Error saving' };
+  } catch (error: any) {
+    return { success: false, message: 'Error: ' + (error.message || 'Storage full') };
   }
 };
 
