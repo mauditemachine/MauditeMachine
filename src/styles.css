@@ -151,6 +151,7 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  padding-bottom: 60px;
 }
 
 /* Overlay bleu pétrole #175268 par-dessus le fond rock */
@@ -162,7 +163,7 @@ body {
   right: 0;
   bottom: 0;
   background: #175268;
-  opacity: 0.55;
+  opacity: 0.75;
   z-index: 0;
   pointer-events: none;
 }
@@ -284,7 +285,7 @@ body {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  font-size: 9px;
+  font-size: 15px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -302,7 +303,7 @@ body {
 .header-player .now-toggle {
   width: 24px;
   height: 24px;
-  font-size: 10px;
+  font-size: 15px;
   padding: 0;
   margin: 0;
   border-radius: 50%;
@@ -355,7 +356,7 @@ body {
 .header-nav-right button {
   background: none;
   border: none;
-  color: #7AFF9D;
+  color: #d2d2d2;
   font-family: var(--font-menu);
   font-size: 16px;
   font-weight: 400;
@@ -440,7 +441,7 @@ body {
   font-family: var(--font-menu);
   font-size: 20px;
   font-weight: 400;
-  color: #7AFF9D;
+  color: #d2d2d2;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin: 0 0 5px 0;
@@ -461,9 +462,10 @@ body {
   max-width: 750px;
   margin: 0 auto;
   text-align: center;
-  font-family: var(--font-body);
-  font-size: 12px;
+  font-family: SF Pro Rounded, system-ui, sans-serif;
+  font-size: 13px;
   line-height: 1.26;
+  letter-spacing: 0.3px;
   color: #FFFFFF;
 }
 
@@ -528,7 +530,7 @@ body {
 
 /* Quand on est sur une page intérieure, le header a un fond */
 .page:has(.content-wrapper) .site-header {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.2);
   backdrop-filter: blur(15px);
 }
 
@@ -624,19 +626,24 @@ body {
 /* ===== SITE FOOTER ===== */
 /* ===== SITE FOOTER avec player et icônes sociales ===== */
 .site-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   padding: 6px 30px;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(0, 0, 0, 0.25);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(15px);
+  z-index: 998;
 }
 
 .footer-content {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 30px;
+  justify-content: space-between;
+  gap: 20px;
   max-width: 1600px;
   margin: 0 auto;
-  position: relative;
 }
 
 /* Icônes sociales à gauche */
@@ -655,7 +662,7 @@ body {
   height: 36px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 0px solid rgba(255, 255, 255, 0.15);
   color: rgba(255, 255, 255, 0.8);
   font-size: 15px;
   transition: all 0.3s ease;
@@ -672,9 +679,9 @@ body {
 
 /* Player au centre - style horizontal compact */
 .footer-player {
-  flex: 1;
-  max-width: 600px;
+  max-width: 450px;
   min-width: 0;
+  flex-shrink: 0;
 }
 
 .footer-player .sc-player {
@@ -685,12 +692,14 @@ body {
 }
 
 .footer-player .sc-now {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 0;
-  background: transparent;
-  padding: 0;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  grid-template-columns: unset !important;
   flex: 1;
   min-width: 0;
 }
@@ -716,7 +725,7 @@ body {
 .footer-player .now-cover {
   width: 40px;
   height: 40px;
-  border-radius: 4px;
+  border-radius: 0px;
   flex-shrink: 0;
   order: 1;
 }
@@ -850,14 +859,13 @@ body {
 
 /* Massive Medias à droite */
 .footer-massive {
-  position: absolute;
-  right: 0;
   display: flex;
   align-items: center;
   gap: 6px;
   opacity: 0.4;
   transition: opacity 0.3s ease;
   text-decoration: none;
+  flex-shrink: 0;
   color: rgba(255, 255, 255, 0.8);
   font-size: 11px;
   font-family: var(--font-body);
@@ -868,14 +876,14 @@ body {
 }
 
 .footer-massive img {
-  height: 15px;
+  height: 11px;
   width: auto;
   filter: grayscale(100%) brightness(10);
 }
 
 .footer-madeby {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.3);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
   text-transform: lowercase;
 }
 

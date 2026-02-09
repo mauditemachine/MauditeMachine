@@ -336,11 +336,8 @@ export default function MainApp() {
             />
           </div>
           
-          {/* Player + Navigation en haut à droite */}
+          {/* Navigation en haut à droite */}
           <div className="header-right">
-            <div className="header-player">
-              <SoundCloudPlayer onBackgroundChange={handleBgChange} />
-            </div>
             <nav className="header-nav-right">
               <button 
                 className={activeSection === "events" ? "active" : ""}
@@ -447,7 +444,12 @@ export default function MainApp() {
       {/* FOOTER avec player, icônes sociales et logo */}
       <footer className="site-footer">
         <div className="footer-content">
-          {/* Icônes sociales à gauche */}
+          {/* Player à gauche */}
+          <div className="footer-player">
+            <SoundCloudPlayer onBackgroundChange={handleBgChange} />
+          </div>
+
+          {/* Icônes sociales au centre */}
           <div className="footer-social">
             {socialLinks.map((link) => (
               <a 
@@ -464,7 +466,6 @@ export default function MainApp() {
             ))}
           </div>
 
-          
           {/* Massive Medias */}
           <a href="https://massivemedias.com" target="_blank" rel="noreferrer" className="footer-massive">
             <span className="footer-madeby">website made by</span>
