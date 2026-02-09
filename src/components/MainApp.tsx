@@ -527,10 +527,10 @@ export default function MainApp() {
           <Store onSectionChange={handleSectionChange} />
         </div>
 
-        {/* Goodies */}
+        {/* Goodies - phone wallpapers only on mobile */}
         <div className="mobile-section mobile-goodies">
-          <h3>Goodies</h3>
-          <Goodies />
+          <h3>Phone Wallpapers</h3>
+          <Goodies mobileOnly={true} />
         </div>
 
         {/* Presskit */}

@@ -4,10 +4,11 @@ interface ImageUploadProps {
   value: string;
   onChange: (imagePath: string) => void;
   placeholder?: string;
-  useButton?: boolean; // Nouvelle prop pour choisir entre bouton et drop zone
+  useButton?: boolean;
+  folder?: string; // Dossier de destination (images, events, etc.)
 }
 
-const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, placeholder = "", useButton = false }) => {
+const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, placeholder = "", useButton = false, folder = "images" }) => {
   const [isUploading, setIsUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -43,7 +44,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value, onChange, placeholder 
         const formData = new FormData();
         formData.append('image', file);
         
-        const response = await fetch('http://localhost:3001/api/upload-image', {
+        const response = await fetch(`http://localhost:3001/api/upload-image?folder=${folder}`, {
           method: 'POST',
           body: formData
         });

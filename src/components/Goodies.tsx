@@ -44,7 +44,11 @@ const goodies: GoodieItem[] = [
   { src: 'images/goodies/cover-mixtape38.png', title: 'Mixtape 38', category: 'cover' },
 ];
 
-const Goodies: React.FC = () => {
+interface GoodiesProps {
+  mobileOnly?: boolean;
+}
+
+const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
   const sticker = goodies.filter(g => g.category === 'sticker');
   const desktopWallpapers = goodies.filter(g => g.category === 'wallpaper-desktop');
   const phoneWallpapers = goodies.filter(g => g.category === 'wallpaper-phone');
@@ -58,6 +62,23 @@ const Goodies: React.FC = () => {
     link.click();
     document.body.removeChild(link);
   };
+
+  if (mobileOnly) {
+    return (
+      <div className="goodies-page goodies-mobile-compact">
+        <div className="goodies-grid goodies-grid-phone-compact">
+          {phoneWallpapers.map((item, i) => (
+            <div key={i} className="goodie-card">
+              <img src={`/${item.src}`} alt={item.title} className="goodie-image" />
+              <div className="goodie-info">
+                <button className="goodie-download" onClick={() => handleDownload(item.src, item.title)}>Download</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="goodies-page">

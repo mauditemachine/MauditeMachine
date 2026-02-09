@@ -125,7 +125,7 @@ const AdminEvents: React.FC = () => {
                 </div>
                 <div className="admin-field-image">
                   <label className="admin-label">Image</label>
-                  <ImageUpload value={eventForm.image} onChange={v => setEventForm({...eventForm, image: v})} placeholder="events/photo.webp" useButton={true} />
+                  <ImageUpload value={eventForm.image} onChange={v => setEventForm({...eventForm, image: v})} placeholder="events/photo.webp" useButton={true} folder="events" />
                 </div>
                 <div className="admin-actions">
                   <button className="admin-btn-primary" onClick={saveEvent} disabled={saving}>{saving ? 'Saving...' : editingEventIndex !== null ? 'Update' : 'Add Event'}</button>

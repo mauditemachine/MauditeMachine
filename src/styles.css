@@ -874,7 +874,7 @@ body {
 }
 
 .footer-madeby {
-  font-size: 8px;
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.3);
   text-transform: lowercase;
 }
@@ -971,6 +971,31 @@ body {
 
 .goodie-download:hover {
   background: var(--accent-mint);
+}
+
+/* Goodies compact pour mobile */
+.goodies-mobile-compact {
+  padding: 0;
+}
+
+.goodies-grid-phone-compact {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.goodies-mobile-compact .goodie-image {
+  border-radius: 3px;
+}
+
+.goodies-mobile-compact .goodie-info {
+  padding: 4px 0;
+  justify-content: center;
+}
+
+.goodies-mobile-compact .goodie-download {
+  padding: 2px 8px;
+  font-size: 8px;
 }
 
 @media (max-width: 600px) {
@@ -3622,13 +3647,16 @@ body.dark-mode .form-textarea:focus {
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 50%;
   color: white;
-  font-size: 28px;
+  font-size: 24px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
   z-index: 5;
+  padding: 0;
+  line-height: 1;
+  padding-bottom: 3px;
 }
 
 .store-lightbox .lightbox-nav:hover {
@@ -3799,18 +3827,28 @@ body.dark-mode .form-textarea:focus {
     min-height: 300px;
   }
   
+  .store-lightbox .lightbox-close {
+    top: 10px;
+    right: 10px;
+    width: 36px;
+    height: 36px;
+    font-size: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    border: 2px solid rgba(255, 255, 255, 0.5);
+  }
+  
   .store-lightbox .lightbox-nav {
-    width: 40px;
-    height: 40px;
-    font-size: 22px;
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
   }
   
   .store-lightbox .lightbox-nav.prev {
-    left: 25px;
+    left: 10px;
   }
   
   .store-lightbox .lightbox-nav.next {
-    right: 25px;
+    right: 10px;
   }
   
   .lightbox-details {
