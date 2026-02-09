@@ -114,55 +114,32 @@ export const downloadUpdatedJSON = (data: any, filename: string) => {
   console.log(`📥 Téléchargement de ${filename} pour mise à jour en production`);
 };
 
-// Charger les messages directement depuis le fichier JSON (source unique de vérité)
+// Charger les messages - localStorage en priorité (modifications admin), puis JSON comme fallback
 export const loadMessages = async (): Promise<Message[]> => {
   try {
-    console.log('📥 Chargement des messages depuis JSON (source unique)...');
+    // Vérifier d'abord s'il y a des modifications dans localStorage
+    const savedMessages = localStorage.getItem('admin_messages_backup');
+    if (savedMessages) {
+      const messages = JSON.parse(savedMessages);
+      return messages.map((msg: any, index: number) => ({
+        ...msg,
+        id: msg.id || `msg-${Date.now()}-${index}`
+      }));
+    }
     
-    // Charger directement depuis le fichier JSON public avec cache-busting
-    const timestamp = Date.now();
-    const random = Math.random();
-    const response = await fetch(`/messages.json?t=${timestamp}&force=${random}&cache=${Math.random()}`);
-    
+    // Sinon, charger depuis le fichier JSON public
+    const response = await fetch('/messages.json');
     if (!response.ok) {
       throw new Error('Erreur lors du chargement des messages');
     }
     const messages = await response.json();
-    
-    console.log('✅ Messages chargés depuis JSON:', messages.length, 'messages');
-    
-    // Synchroniser avec localStorage pour la cohérence de l'admin
-    localStorage.setItem('admin_messages_backup', JSON.stringify(messages));
-
-    // Pas de synchronisation automatique - sauvegarde manuelle seulement
-    console.log('📝 Messages chargés - Sauvegarde manuelle disponible');
     
     return messages.map((msg: any, index: number) => ({
       ...msg,
       id: msg.id || `msg-${Date.now()}-${index}`
     }));
   } catch (error) {
-    console.error('❌ Erreur chargement messages:', error);
-    
-    // En cas d'erreur, essayer localStorage comme fallback
-    try {
-      const localData = localStorage.getItem('admin_messages_backup');
-      if (localData) {
-        console.log('⚠️ Fallback vers localStorage');
-        const messages = JSON.parse(localData);
-        
-        // Pas de synchronisation automatique - sauvegarde manuelle seulement
-        console.log('📝 Messages chargés depuis localStorage - Sauvegarde manuelle disponible');
-        
-        return messages.map((msg: any, index: number) => ({
-          ...msg,
-          id: msg.id || `msg-${Date.now()}-${index}`
-        }));
-      }
-    } catch (e) {
-      console.warn('⚠️ Erreur localStorage fallback:', e);
-    }
-    
+    console.error('Erreur chargement messages:', error);
     return [];
   }
 };
