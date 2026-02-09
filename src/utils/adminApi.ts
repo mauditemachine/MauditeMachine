@@ -25,57 +25,20 @@ export interface Event {
 // Sauvegarder les messages directement dans localStorage (synchronisation manuelle)
 export const saveMessages = async (messages: Message[]): Promise<{ success: boolean; message: string }> => {
   try {
-    console.log('💾 Sauvegarde des messages dans localStorage...');
-    
-    // Sauvegarder dans localStorage
     localStorage.setItem('admin_messages_backup', JSON.stringify(messages));
     
-    // Vérifier si on est en localhost (serveur disponible)
+    // En localhost, aussi sauvegarder via l'API serveur
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    
     if (isLocalhost) {
-      // En localhost, essayer de sauvegarder via l'API
       try {
-        const response = await fetch('http://localhost:3001/api/save-messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(messages)
-        });
-        
-        if (response.ok) {
-          console.log('✅ Messages sauvegardés dans le fichier JSON');
-        } else {
-          console.warn('⚠️ Erreur lors de la mise à jour du fichier JSON');
-        }
-      } catch (error) {
-        console.warn('⚠️ Serveur API non disponible, sauvegarde locale seulement');
-      }
-    } else {
-      // En production, sauvegarder localStorage + télécharger le JSON
-      console.log('🌐 Production: Sauvegarde locale + téléchargement JSON');
-      downloadUpdatedJSON(messages, 'messages.json');
+        await fetch('http://localhost:3001/api/save-messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(messages) });
+      } catch (_) {}
     }
     
-    // Déclencher un événement custom pour notifier les autres composants
-    const event = new CustomEvent('messagesUpdated', {
-      detail: { key: 'messages', data: messages }
-    });
-    window.dispatchEvent(event);
-    
-    console.log('✅ Messages sauvegardés dans localStorage');
-    
-    return {
-      success: true,
-      message: 'Messages sauvegardés avec succès !'
-    };
+    window.dispatchEvent(new CustomEvent('messagesUpdated', { detail: { key: 'messages', data: messages } }));
+    return { success: true, message: 'Saved!' };
   } catch (error) {
-    console.error('❌ Erreur lors de la sauvegarde:', error);
-    return {
-      success: false,
-      message: 'Erreur lors de la sauvegarde des messages'
-    };
+    return { success: false, message: 'Error saving' };
   }
 };
 
@@ -144,60 +107,21 @@ export const loadMessages = async (): Promise<Message[]> => {
   }
 };
 
-// Sauvegarder les événements directement dans le fichier JSON via l'API
 export const saveEvents = async (events: Event[]): Promise<{ success: boolean; message: string }> => {
   try {
-    console.log('💾 Sauvegarde des événements...');
-    
-    // Sauvegarder dans localStorage
     localStorage.setItem('admin_events_backup', JSON.stringify(events));
     
-    // Vérifier si on est en localhost (serveur disponible)
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    
     if (isLocalhost) {
-      // En localhost, essayer de sauvegarder via l'API
       try {
-        const response = await fetch('http://localhost:3001/api/save-events', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(events)
-        });
-        
-        if (response.ok) {
-          console.log('✅ Événements sauvegardés dans le fichier JSON');
-        } else {
-          console.warn('⚠️ Erreur lors de la mise à jour du fichier JSON');
-        }
-      } catch (error) {
-        console.warn('⚠️ Serveur API non disponible, sauvegarde locale seulement');
-      }
-    } else {
-      // En production, sauvegarder localStorage + télécharger le JSON
-      console.log('🌐 Production: Sauvegarde locale + téléchargement JSON');
-      downloadUpdatedJSON(events, 'events.json');
+        await fetch('http://localhost:3001/api/save-events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(events) });
+      } catch (_) {}
     }
     
-    // Déclencher un événement custom pour notifier les autres composants
-    const event = new CustomEvent('eventsUpdated', {
-      detail: { key: 'events', data: events }
-    });
-    window.dispatchEvent(event);
-    
-    console.log('✅ Événements sauvegardés dans localStorage');
-    
-    return {
-      success: true,
-      message: 'Événements sauvegardés avec succès !'
-    };
+    window.dispatchEvent(new CustomEvent('eventsUpdated', { detail: { key: 'events', data: events } }));
+    return { success: true, message: 'Saved!' };
   } catch (error) {
-    console.error('❌ Erreur lors de la sauvegarde des événements:', error);
-    return {
-      success: false,
-      message: 'Erreur lors de la sauvegarde des événements'
-    };
+    return { success: false, message: 'Error saving' };
   }
 };
 
@@ -241,60 +165,21 @@ export interface MerchItem {
   };
 }
 
-// Sauvegarder le merchandising directement dans le fichier JSON via l'API
 export const saveMerchItems = async (merchItems: MerchItem[]): Promise<{ success: boolean; message: string }> => {
   try {
-    console.log('💾 Sauvegarde du merchandising...');
-    
-    // Sauvegarder dans localStorage
     localStorage.setItem('admin_merch_backup', JSON.stringify(merchItems));
     
-    // Vérifier si on est en localhost (serveur disponible)
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    
     if (isLocalhost) {
-      // En localhost, essayer de sauvegarder via l'API
       try {
-        const response = await fetch('http://localhost:3001/api/save-merch', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(merchItems)
-        });
-        
-        if (response.ok) {
-          console.log('✅ Merchandising sauvegardé dans le fichier JSON');
-        } else {
-          console.warn('⚠️ Erreur lors de la mise à jour du fichier JSON');
-        }
-      } catch (error) {
-        console.warn('⚠️ Serveur API non disponible, sauvegarde locale seulement');
-      }
-    } else {
-      // En production, sauvegarder localStorage + télécharger le JSON
-      console.log('🌐 Production: Sauvegarde locale + téléchargement JSON');
-      downloadUpdatedJSON(merchItems, 'store.json');
+        await fetch('http://localhost:3001/api/save-merch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(merchItems) });
+      } catch (_) {}
     }
     
-    // Déclencher un événement custom pour notifier les autres composants
-    const event = new CustomEvent('merchItemsUpdated', {
-      detail: { key: 'merchItems', data: merchItems }
-    });
-    window.dispatchEvent(event);
-    
-    console.log('✅ Merchandising sauvegardé dans localStorage');
-    
-    return {
-      success: true,
-      message: 'Merchandising sauvegardé avec succès !'
-    };
+    window.dispatchEvent(new CustomEvent('merchItemsUpdated', { detail: { key: 'merchItems', data: merchItems } }));
+    return { success: true, message: 'Saved!' };
   } catch (error) {
-    console.error('❌ Erreur lors de la sauvegarde du merchandising:', error);
-    return {
-      success: false,
-      message: 'Erreur lors de la sauvegarde du merchandising'
-    };
+    return { success: false, message: 'Error saving' };
   }
 };
 
