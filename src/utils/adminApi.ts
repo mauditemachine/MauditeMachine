@@ -84,21 +84,19 @@ export const downloadUpdatedJSON = (data: any, filename: string) => {
 // Charger les messages - localStorage en priorité (modifications admin), puis JSON comme fallback
 export const loadMessages = async (): Promise<Message[]> => {
   try {
-    // Vérifier d'abord s'il y a des modifications dans localStorage
     const savedMessages = localStorage.getItem('admin_messages_backup');
     if (savedMessages) {
-      const messages = JSON.parse(savedMessages);
-      return messages.map((msg: any, index: number) => ({
-        ...msg,
-        id: msg.id || `msg-${Date.now()}-${index}`
-      }));
+      const parsed = JSON.parse(savedMessages);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map((msg: any, index: number) => ({
+          ...msg,
+          id: msg.id || `msg-${Date.now()}-${index}`
+        }));
+      }
     }
     
-    // Sinon, charger depuis le fichier JSON public
     const response = await fetch('/messages.json');
-    if (!response.ok) {
-      throw new Error('Erreur lors du chargement des messages');
-    }
+    if (!response.ok) throw new Error('Failed');
     const messages = await response.json();
     
     return messages.map((msg: any, index: number) => ({
@@ -126,24 +124,18 @@ export const saveEvents = async (events: Event[]): Promise<{ success: boolean; m
   }
 };
 
-// Charger les événements depuis l'API
 export const loadEvents = async (): Promise<Event[]> => {
   try {
-    // Vérifier d'abord s'il y a des modifications dans localStorage
     const savedEvents = localStorage.getItem('admin_events_backup');
     if (savedEvents) {
-      console.log('Chargement des événements modifiés depuis localStorage');
-      return JSON.parse(savedEvents);
+      const parsed = JSON.parse(savedEvents);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
     
-    // Sinon, charger depuis le fichier JSON public
     const response = await fetch('/events.json');
-    if (!response.ok) {
-      throw new Error('Erreur lors du chargement des événements');
-    }
+    if (!response.ok) throw new Error('Failed');
     return await response.json();
   } catch (error) {
-    console.error('Erreur lors du chargement des événements:', error);
     throw error;
   }
 };
@@ -186,17 +178,17 @@ export const loadMerchItems = async (): Promise<MerchItem[]> => {
   try {
     let merchItems: MerchItem[] = [];
     
-    // Vérifier d'abord s'il y a des modifications dans localStorage
     const savedMerch = localStorage.getItem('admin_merch_backup');
     if (savedMerch) {
-      console.log('Chargement du merchandising modifié depuis localStorage');
-      merchItems = JSON.parse(savedMerch);
-    } else {
-      // Sinon, charger depuis le fichier JSON public
-      const response = await fetch('/store.json');
-      if (!response.ok) {
-        throw new Error('Erreur lors du chargement du merchandising');
+      const parsed = JSON.parse(savedMerch);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        merchItems = parsed;
       }
+    }
+    
+    if (merchItems.length === 0) {
+      const response = await fetch('/store.json');
+      if (!response.ok) throw new Error('Failed');
       merchItems = await response.json();
     }
     

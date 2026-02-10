@@ -16,10 +16,6 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         </div>
 
         <div className="presskit-section">
-          <div className="presskit-artist-photo">
-            <img src={`${import.meta.env.BASE_URL}images/dj-photo.png`} alt="Maudite Machine" />
-          </div>
-
           <div className="download-card">
             <div className="download-content">
               <h3 className="download-title">Official Press Kit & Tech Rider</h3>
