@@ -462,12 +462,9 @@ body {
   max-width: 750px;
   margin: 0 auto;
   text-align: center;
-  font-family: SF Pro Display, system-ui, sans-serif;
-  font-size: 16px;
-  line-height: 1;
-  letter-spacing: 0.3px;
-  font-weight: 500;
-  color: #FFFFFF;
+  font-size: 14px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .landing-bio p {
