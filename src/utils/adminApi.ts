@@ -84,27 +84,14 @@ export const downloadUpdatedJSON = (data: any, filename: string) => {
 // Charger les messages - localStorage en priorité (modifications admin), puis JSON comme fallback
 export const loadMessages = async (): Promise<Message[]> => {
   try {
-    const savedMessages = localStorage.getItem('admin_messages_backup');
-    if (savedMessages) {
-      const parsed = JSON.parse(savedMessages);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((msg: any, index: number) => ({
-          ...msg,
-          id: msg.id || `msg-${Date.now()}-${index}`
-        }));
-      }
-    }
-    
-    const response = await fetch('/messages.json');
+    const response = await fetch(`/messages.json?t=${Date.now()}`);
     if (!response.ok) throw new Error('Failed');
     const messages = await response.json();
-    
     return messages.map((msg: any, index: number) => ({
       ...msg,
       id: msg.id || `msg-${Date.now()}-${index}`
     }));
   } catch (error) {
-    console.error('Erreur chargement messages:', error);
     return [];
   }
 };
@@ -126,13 +113,7 @@ export const saveEvents = async (events: Event[]): Promise<{ success: boolean; m
 
 export const loadEvents = async (): Promise<Event[]> => {
   try {
-    const savedEvents = localStorage.getItem('admin_events_backup');
-    if (savedEvents) {
-      const parsed = JSON.parse(savedEvents);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-    
-    const response = await fetch('/events.json');
+    const response = await fetch(`/events.json?t=${Date.now()}`);
     if (!response.ok) throw new Error('Failed');
     return await response.json();
   } catch (error) {
@@ -178,19 +159,9 @@ export const loadMerchItems = async (): Promise<MerchItem[]> => {
   try {
     let merchItems: MerchItem[] = [];
     
-    const savedMerch = localStorage.getItem('admin_merch_backup');
-    if (savedMerch) {
-      const parsed = JSON.parse(savedMerch);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        merchItems = parsed;
-      }
-    }
-    
-    if (merchItems.length === 0) {
-      const response = await fetch('/store.json');
-      if (!response.ok) throw new Error('Failed');
-      merchItems = await response.json();
-    }
+    const response = await fetch(`/store.json?t=${Date.now()}`);
+    if (!response.ok) throw new Error('Failed');
+    merchItems = await response.json();
     
     // Nettoyer automatiquement les noms avec "- Front" et initialiser les tailles
     const cleanedItems = merchItems.map(item => ({
