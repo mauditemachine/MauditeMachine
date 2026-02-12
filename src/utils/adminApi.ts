@@ -92,20 +92,22 @@ export const downloadUpdatedJSON = (data: any, filename: string) => {
   console.log(`📥 Téléchargement de ${filename} pour mise à jour en production`);
 };
 
-// Charger les messages - backup localStorage en priorité (admin), puis JSON
-export const loadMessages = async (): Promise<Message[]> => {
+// Charger les messages - forAdmin: backup localStorage (admin); site public: TOUJOURS JSON
+export const loadMessages = async (forAdmin = false): Promise<Message[]> => {
   try {
-    const backup = localStorage.getItem('admin_messages_backup');
-    if (backup) {
-      try {
-        const parsed = JSON.parse(backup);
-        if (Array.isArray(parsed)) {
-          return parsed.map((msg: any, index: number) => ({
-            ...msg,
-            id: msg.id || `msg-${Date.now()}-${index}`
-          }));
-        }
-      } catch (_) {}
+    if (forAdmin) {
+      const backup = localStorage.getItem('admin_messages_backup');
+      if (backup) {
+        try {
+          const parsed = JSON.parse(backup);
+          if (Array.isArray(parsed)) {
+            return parsed.map((msg: any, index: number) => ({
+              ...msg,
+              id: msg.id || `msg-${Date.now()}-${index}`
+            }));
+          }
+        } catch (_) {}
+      }
     }
     const response = await fetch(`/messages.json?t=${Date.now()}`);
     if (!response.ok) throw new Error('Failed');
@@ -134,15 +136,17 @@ export const saveEvents = async (events: Event[]): Promise<{ success: boolean; m
   }
 };
 
-// Charger les events - backup localStorage en priorité, puis JSON
-export const loadEvents = async (): Promise<Event[]> => {
+// Charger les events - forAdmin: backup localStorage; site public: TOUJOURS JSON
+export const loadEvents = async (forAdmin = false): Promise<Event[]> => {
   try {
-    const backup = localStorage.getItem('admin_events_backup');
-    if (backup) {
-      try {
-        const parsed = JSON.parse(backup);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (_) {}
+    if (forAdmin) {
+      const backup = localStorage.getItem('admin_events_backup');
+      if (backup) {
+        try {
+          const parsed = JSON.parse(backup);
+          if (Array.isArray(parsed)) return parsed;
+        } catch (_) {}
+      }
     }
     const response = await fetch(`/events.json?t=${Date.now()}`);
     if (!response.ok) throw new Error('Failed');
@@ -185,20 +189,22 @@ export const saveMerchItems = async (merchItems: MerchItem[]): Promise<{ success
   }
 };
 
-// Charger le merchandising - backup localStorage en priorité, puis JSON
-export const loadMerchItems = async (): Promise<MerchItem[]> => {
+// Charger le merchandising - forAdmin: backup; site public: TOUJOURS JSON
+export const loadMerchItems = async (forAdmin = false): Promise<MerchItem[]> => {
   try {
-    const backup = localStorage.getItem('admin_merch_backup');
-    if (backup) {
-      try {
-        const parsed = JSON.parse(backup);
-        if (Array.isArray(parsed)) {
-          return parsed.map(item => ({
-            ...item,
-            sizes: item.sizes || { S: true, M: true, L: true, XL: true }
-          }));
-        }
-      } catch (_) {}
+    if (forAdmin) {
+      const backup = localStorage.getItem('admin_merch_backup');
+      if (backup) {
+        try {
+          const parsed = JSON.parse(backup);
+          if (Array.isArray(parsed)) {
+            return parsed.map(item => ({
+              ...item,
+              sizes: item.sizes || { S: true, M: true, L: true, XL: true }
+            }));
+          }
+        } catch (_) {}
+      }
     }
     const response = await fetch(`/store.json?t=${Date.now()}`);
     if (!response.ok) throw new Error('Failed');

@@ -29,9 +29,9 @@ const AdminEvents: React.FC = () => {
     setLoading(true);
     try {
       const [evts, merch, msgs] = await Promise.all([
-        loadEvents().catch(() => []),
-        loadMerchItems().catch(() => []),
-        loadMessages().catch(() => [])
+        loadEvents(true).catch(() => []),
+        loadMerchItems(true).catch(() => []),
+        loadMessages(true).catch(() => [])
       ]);
       setEvents([...evts].sort((a, b) => b.date.localeCompare(a.date)));
       setMerchItems(merch);
