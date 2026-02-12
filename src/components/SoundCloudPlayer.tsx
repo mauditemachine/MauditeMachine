@@ -376,7 +376,13 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
     })
   }
 
-  // Titre géré en CSS (text-overflow: ellipsis)
+  function formatTrackDisplay(title: string): string {
+    if (!title) return ''
+    const clean = title.replace(/^Maudite Machine\s*[-–—]\s*/i, '').replace(/\s*\([^)]*\)\s*$/g, '').trim()
+    return clean ? `Maudite Machine - ${clean} (Original Mix)` : ''
+  }
+
+  const displayTitle = formatTrackDisplay(tracks[currentIndex]?.title || '')
 
   return (
     <div className="sc-player">
@@ -396,7 +402,12 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
           <span className="now-time">{formatMs(positionMs)} / {formatMs(durationMs)}</span>
         </div>
         <div className="now-track-info">
-          <div ref={titleRef} className="now-title">{tracks[currentIndex]?.title || ''}</div>
+          <div ref={titleRef} className="now-title" title={displayTitle}>
+            <div className="now-title-marquee">
+              <span>{displayTitle}</span>
+              <span aria-hidden="true">{displayTitle}</span>
+            </div>
+          </div>
           {getCover(tracks[currentIndex] || ({} as any)) && (
             <img className="now-cover" src={getCover(tracks[currentIndex] as any) as any} alt="cover" />
           )}
@@ -411,7 +422,7 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
             className={`sc-row ${i === currentIndex ? 'active' : ''}`}
             onClick={() => playOrToggle(i)}
           >
-            <span className="row-title">{t.title}</span>
+            <span className="row-title">{formatTrackDisplay(t.title)}</span>
             <span className="row-time">{formatMs(t.duration)}</span>
           </li>
         ))}

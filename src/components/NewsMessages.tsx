@@ -13,6 +13,7 @@ type MessageItem = {
 export default function NewsMessages(): JSX.Element {
   const [messages, setMessages] = useState<MessageItem[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [currentIndex, setCurrentIndex] = useState(0)
 
   const fetchMessages = async () => {
     try {
@@ -32,48 +33,58 @@ export default function NewsMessages(): JSX.Element {
     return () => window.removeEventListener('messagesUpdated', handleUpdate)
   }, [])
 
+  // Alterner entre les 2 premières news toutes les 10 secondes
+  const displayMessages = messages.slice(0, 2)
+  useEffect(() => {
+    if (displayMessages.length < 2) return
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % 2)
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [displayMessages.length])
+
   if (error) return <div>Error loading messages</div>
 
-  const displayMessages = messages.slice(0, 1)
+  const messageToShow = displayMessages.length === 2 
+    ? displayMessages[currentIndex] 
+    : displayMessages[0]
+
+  if (!messageToShow) return <div className="news-section" />
+
+  const linkHref = messageToShow.link?.href || '#';
+  const isClickable = !!messageToShow.link?.href;
 
   return (
-    <div className="news-section">
-      {displayMessages.map((message, index) => {
-        const linkHref = message.link?.href || '#';
-        const isClickable = !!message.link?.href;
-        
-        return (
-          <a 
-            key={index} 
-            className="news-message-link"
-            href={linkHref}
-            target={isClickable ? "_blank" : undefined}
-            rel={isClickable ? "noreferrer" : undefined}
-          >
-            <div className="message-card">
-              {message.image && (
-                <img 
-                  className="message-image" 
-                  src={message.image.startsWith('data:') ? message.image : `/${message.image}`} 
-                  alt={message.title}
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    if (!message.image.startsWith('data:') && !message.image.startsWith('/')) {
-                      target.src = `/${message.image}`;
-                    }
-                  }}
-                />
-              )}
-              <div className="message-body">
-                <div className="message-title">{message.title}</div>
-                {message.description && (
-                  <div className="message-desc">{message.description}</div>
-                )}
-              </div>
-            </div>
-          </a>
-        );
-      })}
+    <div className="news-section news-rotating">
+      <a 
+        key={messageToShow.id}
+        className="news-message-link"
+        href={linkHref}
+        target={isClickable ? "_blank" : undefined}
+        rel={isClickable ? "noreferrer" : undefined}
+      >
+        <div key={messageToShow.id} className="message-card">
+          {messageToShow.image && (
+            <img 
+              className="message-image" 
+              src={messageToShow.image.startsWith('data:') ? messageToShow.image : `/${messageToShow.image}`} 
+              alt={messageToShow.title}
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                if (!messageToShow.image.startsWith('data:') && !messageToShow.image.startsWith('/')) {
+                  target.src = `/${messageToShow.image}`;
+                }
+              }}
+            />
+          )}
+          <div className="message-body">
+            <div className="message-title">{messageToShow.title}</div>
+            {messageToShow.description && (
+              <div className="message-desc">{messageToShow.description}</div>
+            )}
+          </div>
+        </div>
+      </a>
     </div>
   )
 }
