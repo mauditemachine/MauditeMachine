@@ -459,12 +459,13 @@ body {
 }
 
 .landing-bio {
-  max-width: 750px;
+  max-width: 850px;
   margin: 0 auto;
   text-align: center;
-  font-size: 14px;
+  font-size: 12px;
+  font-weight: 600;
   line-height: 1.4;
-  color: rgba(255, 255, 255, 0.8);
+  color: #edededcc;
 }
 
 .landing-bio p {
