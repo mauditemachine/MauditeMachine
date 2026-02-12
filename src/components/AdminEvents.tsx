@@ -17,7 +17,7 @@ const AdminEvents: React.FC = () => {
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [editingMsgIndex, setEditingMsgIndex] = useState<number | null>(null);
-  const [msgForm, setMsgForm] = useState<Partial<Message>>({ title: '', description: '', image: '', date: '', link: { label: '', href: '' } });
+  const [msgForm, setMsgForm] = useState<Partial<Message>>({ title: '', description: '', image: '', date: '', link: { label: '', href: '' }, main: false });
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -71,14 +71,15 @@ const AdminEvents: React.FC = () => {
   const saveMsg = async () => {
     if (!msgForm.title) { flash('Title required'); return; }
     setSaving(true);
-    const item: Message = { id: editingMsgIndex !== null ? messages[editingMsgIndex].id : `msg-${Date.now()}`, title: msgForm.title || '', description: msgForm.description || '', image: msgForm.image || '', date: msgForm.date || new Date().toISOString().split('T')[0], link: msgForm.link?.href ? msgForm.link : undefined };
-    const updated = editingMsgIndex !== null ? messages.map((m, i) => i === editingMsgIndex ? item : m) : [...messages, item];
+    const item: Message = { id: editingMsgIndex !== null ? messages[editingMsgIndex].id : `msg-${Date.now()}`, title: msgForm.title || '', description: msgForm.description || '', image: msgForm.image || '', date: msgForm.date || new Date().toISOString().split('T')[0], link: msgForm.link?.href ? msgForm.link : undefined, main: !!msgForm.main };
+    const updated = (editingMsgIndex !== null ? messages.map((m, i) => i === editingMsgIndex ? item : m) : [...messages, item])
+      .map(m => ({ ...m, main: m.id === item.id ? !!msgForm.main : false })); // Une seule main
     const res = await saveMessages(updated);
     if (res.success) { setMessages(updated); resetMsgForm(); flash('News saved'); } else flash('Error saving');
     setSaving(false);
   };
   const deleteMsg = async (i: number) => { if (!confirm('Delete this news?')) return; const updated = messages.filter((_, idx) => idx !== i); await saveMessages(updated); setMessages(updated); flash('News deleted'); };
-  const resetMsgForm = () => { setMsgForm({ title: '', description: '', image: '', date: '', link: { label: '', href: '' } }); setEditingMsgIndex(null); };
+  const resetMsgForm = () => { setMsgForm({ title: '', description: '', image: '', date: '', link: { label: '', href: '' }, main: false }); setEditingMsgIndex(null); };
 
   if (loading) return <div className="admin-loading">Loading...</div>;
 
@@ -217,6 +218,9 @@ const AdminEvents: React.FC = () => {
                   <label className="admin-label">Date</label>
                   <input type="date" className="admin-input" value={msgForm.date} onChange={e => setMsgForm({...msgForm, date: e.target.value})} />
                 </div>
+                <div className="admin-field-half admin-checkboxes">
+                  <label className="admin-checkbox-label"><input type="checkbox" checked={!!msgForm.main} onChange={e => setMsgForm({...msgForm, main: e.target.checked})} /> Main news (20s first)</label>
+                </div>
                 <div className="admin-field-half">
                   <label className="admin-label">Image</label>
                   <ImageUpload value={msgForm.image || ''} onChange={v => setMsgForm({...msgForm, image: v})} placeholder="images/news-photo.webp" useButton={true} />
@@ -239,7 +243,7 @@ const AdminEvents: React.FC = () => {
               <div key={i} className="admin-list-item">
                 {msg.image && <img src={msg.image} alt={msg.title} className="admin-item-thumb" />}
                 <div className="admin-item-info">
-                  <div className="admin-item-title">{msg.title}</div>
+                  <div className="admin-item-title">{msg.title} {msg.main && <span className="admin-badge-main">MAIN</span>}</div>
                   <div className="admin-item-meta">{msg.date} {msg.description && `— ${msg.description.substring(0, 60)}...`}</div>
                 </div>
                 <button className="admin-btn-secondary" onClick={() => { setMsgForm({...msg, link: msg.link || { label: '', href: '' }}); setEditingMsgIndex(i); window.scrollTo(0,0); }}>Edit</button>

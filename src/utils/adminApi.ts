@@ -11,6 +11,7 @@ export interface Message {
     href: string;
   };
   date: string;
+  main?: boolean; // News principale affichée 20s en premier
 }
 
 export interface Event {
@@ -22,23 +23,33 @@ export interface Event {
   image: string;
 }
 
-// Sauvegarder les messages directement dans localStorage (synchronisation manuelle)
+// Sauvegarder les messages - localStorage TOUJOURS (persistance admin), + API si localhost
 export const saveMessages = async (messages: Message[]): Promise<{ success: boolean; message: string }> => {
   try {
-    const json = JSON.stringify(messages);
+    const json = JSON.stringify(messages, null, 2);
     try {
       localStorage.setItem('admin_messages_backup', json);
-    } catch (e) {
-      // localStorage plein - nettoyer et réessayer
-      localStorage.removeItem('admin_messages_backup');
-      localStorage.setItem('admin_messages_backup', json);
+    } catch (e: any) {
+      if (e?.name === 'QuotaExceededError') {
+        localStorage.removeItem('admin_messages_backup');
+        try { localStorage.setItem('admin_messages_backup', json); } catch (_) {
+          return { success: false, message: 'Storage full - reduce image size' };
+        }
+      } else throw e;
     }
-    
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     if (isLocalhost) {
-      try { await fetch('http://localhost:3001/api/save-messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json }); } catch (_) {}
+      try {
+        const res = await fetch('http://localhost:3001/api/save-messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: json
+        });
+        if (!res.ok) throw new Error('Server error');
+      } catch (err) {
+        console.warn('API save failed (server down?), data saved to localStorage');
+      }
     }
-    
     window.dispatchEvent(new CustomEvent('messagesUpdated', { detail: { key: 'messages', data: messages } }));
     return { success: true, message: 'Saved!' };
   } catch (error: any) {
@@ -81,9 +92,21 @@ export const downloadUpdatedJSON = (data: any, filename: string) => {
   console.log(`📥 Téléchargement de ${filename} pour mise à jour en production`);
 };
 
-// Charger les messages - localStorage en priorité (modifications admin), puis JSON comme fallback
+// Charger les messages - backup localStorage en priorité (admin), puis JSON
 export const loadMessages = async (): Promise<Message[]> => {
   try {
+    const backup = localStorage.getItem('admin_messages_backup');
+    if (backup) {
+      try {
+        const parsed = JSON.parse(backup);
+        if (Array.isArray(parsed)) {
+          return parsed.map((msg: any, index: number) => ({
+            ...msg,
+            id: msg.id || `msg-${Date.now()}-${index}`
+          }));
+        }
+      } catch (_) {}
+    }
     const response = await fetch(`/messages.json?t=${Date.now()}`);
     if (!response.ok) throw new Error('Failed');
     const messages = await response.json();
@@ -98,12 +121,12 @@ export const loadMessages = async (): Promise<Message[]> => {
 
 export const saveEvents = async (events: Event[]): Promise<{ success: boolean; message: string }> => {
   try {
-    const json = JSON.stringify(events);
-    try { localStorage.setItem('admin_events_backup', json); } catch (e) { localStorage.removeItem('admin_events_backup'); localStorage.setItem('admin_events_backup', json); }
-    
+    const json = JSON.stringify(events, null, 2);
+    try { localStorage.setItem('admin_events_backup', json); } catch (e: any) {
+      if (e?.name === 'QuotaExceededError') { localStorage.removeItem('admin_events_backup'); localStorage.setItem('admin_events_backup', json); } else throw e;
+    }
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isLocalhost) { try { await fetch('http://localhost:3001/api/save-events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json }); } catch (_) {} }
-    
+    if (isLocalhost) { try { const r = await fetch('http://localhost:3001/api/save-events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json }); if (!r.ok) throw new Error('Server error'); } catch (_) { console.warn('API save failed, data in localStorage'); } }
     window.dispatchEvent(new CustomEvent('eventsUpdated', { detail: { key: 'events', data: events } }));
     return { success: true, message: 'Saved!' };
   } catch (error: any) {
@@ -111,8 +134,16 @@ export const saveEvents = async (events: Event[]): Promise<{ success: boolean; m
   }
 };
 
+// Charger les events - backup localStorage en priorité, puis JSON
 export const loadEvents = async (): Promise<Event[]> => {
   try {
+    const backup = localStorage.getItem('admin_events_backup');
+    if (backup) {
+      try {
+        const parsed = JSON.parse(backup);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (_) {}
+    }
     const response = await fetch(`/events.json?t=${Date.now()}`);
     if (!response.ok) throw new Error('Failed');
     return await response.json();
@@ -141,12 +172,12 @@ export interface MerchItem {
 
 export const saveMerchItems = async (merchItems: MerchItem[]): Promise<{ success: boolean; message: string }> => {
   try {
-    const json = JSON.stringify(merchItems);
-    try { localStorage.setItem('admin_merch_backup', json); } catch (e) { localStorage.removeItem('admin_merch_backup'); localStorage.setItem('admin_merch_backup', json); }
-    
+    const json = JSON.stringify(merchItems, null, 2);
+    try { localStorage.setItem('admin_merch_backup', json); } catch (e: any) {
+      if (e?.name === 'QuotaExceededError') { localStorage.removeItem('admin_merch_backup'); localStorage.setItem('admin_merch_backup', json); } else throw e;
+    }
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isLocalhost) { try { await fetch('http://localhost:3001/api/save-merch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json }); } catch (_) {} }
-    
+    if (isLocalhost) { try { const r = await fetch('http://localhost:3001/api/save-merch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json }); if (!r.ok) throw new Error('Server error'); } catch (_) { console.warn('API save failed, data in localStorage'); } }
     window.dispatchEvent(new CustomEvent('merchItemsUpdated', { detail: { key: 'merchItems', data: merchItems } }));
     return { success: true, message: 'Saved!' };
   } catch (error: any) {
@@ -154,39 +185,35 @@ export const saveMerchItems = async (merchItems: MerchItem[]): Promise<{ success
   }
 };
 
-// Charger les articles de merchandising depuis l'API
+// Charger le merchandising - backup localStorage en priorité, puis JSON
 export const loadMerchItems = async (): Promise<MerchItem[]> => {
   try {
-    let merchItems: MerchItem[] = [];
-    
+    const backup = localStorage.getItem('admin_merch_backup');
+    if (backup) {
+      try {
+        const parsed = JSON.parse(backup);
+        if (Array.isArray(parsed)) {
+          return parsed.map(item => ({
+            ...item,
+            sizes: item.sizes || { S: true, M: true, L: true, XL: true }
+          }));
+        }
+      } catch (_) {}
+    }
     const response = await fetch(`/store.json?t=${Date.now()}`);
     if (!response.ok) throw new Error('Failed');
-    merchItems = await response.json();
-    
-    // Nettoyer automatiquement les noms avec "- Front" et initialiser les tailles
-    const cleanedItems = merchItems.map(item => ({
+    let merchItems = await response.json();
+    const cleanedItems = merchItems.map((item: MerchItem) => ({
       ...item,
       caption: item.caption?.replace(/\s*-\s*Front\s*$/i, '').trim() || item.caption,
-      sizes: item.sizes || {
-        S: true,
-        M: true,
-        L: true,
-        XL: true
-      }
+      sizes: item.sizes || { S: true, M: true, L: true, XL: true }
     }));
-    
-    // Si des noms ont été nettoyés, sauvegarder automatiquement
-    const hasChanges = cleanedItems.some((item, index) => 
-      item.caption !== merchItems[index].caption
-    );
-    
-    if (hasChanges) {
-      console.log('Nettoyage automatique des noms avec "- Front"');
+    const hasChanges = cleanedItems.some((item: MerchItem, index: number) => item.caption !== merchItems[index].caption);
+    if (hasChanges && typeof window !== 'undefined' && window.location.hostname === 'localhost') {
       await saveMerchItems(cleanedItems);
       return cleanedItems;
     }
-    
-    return merchItems;
+    return cleanedItems;
   } catch (error) {
     console.error('Erreur lors du chargement du merchandising:', error);
     throw error;

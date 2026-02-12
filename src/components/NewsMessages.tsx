@@ -8,12 +8,14 @@ type MessageItem = {
   image?: string
   link?: { label: string; href: string }
   date?: string
+  main?: boolean
 }
 
 export default function NewsMessages(): JSX.Element {
   const [messages, setMessages] = useState<MessageItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [phase, setPhase] = useState<'main' | 'cycle'>('main') // main = 20s, cycle = 10s
 
   const fetchMessages = async () => {
     try {
@@ -26,28 +28,43 @@ export default function NewsMessages(): JSX.Element {
 
   useEffect(() => {
     fetchMessages()
-
-    // Écouter les mises à jour depuis l'admin
     const handleUpdate = () => fetchMessages()
     window.addEventListener('messagesUpdated', handleUpdate)
     return () => window.removeEventListener('messagesUpdated', handleUpdate)
   }, [])
 
-  // Alterner entre les 2 premières news toutes les 10 secondes
-  const displayMessages = messages.slice(0, 2)
+  // Main en premier 20s, puis cycle toutes les 10s (mobile et desktop)
+  const mainMsg = messages.find(m => m.main)
+  const others = messages.filter(m => !m.main)
+  const cycleList = mainMsg ? [mainMsg, ...others] : messages
+  const hasMain = !!mainMsg && cycleList.length > 1
+
   useEffect(() => {
-    if (displayMessages.length < 2) return
+    if (cycleList.length === 0) return
+    if (cycleList.length === 1) return
+
+    if (hasMain && phase === 'main') {
+      const t = setTimeout(() => {
+        setPhase('cycle')
+        setCurrentIndex(1) // après main, commencer par la suivante
+      }, 20000)
+      return () => clearTimeout(t)
+    }
     const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % 2)
+      setCurrentIndex(prev => (prev + 1) % cycleList.length)
     }, 10000)
     return () => clearInterval(interval)
-  }, [displayMessages.length])
+  }, [cycleList.length, hasMain, phase])
 
   if (error) return <div>Error loading messages</div>
 
-  const messageToShow = displayMessages.length === 2 
-    ? displayMessages[currentIndex] 
-    : displayMessages[0]
+  const messageToShow = cycleList.length === 0
+    ? null
+    : cycleList.length === 1
+      ? cycleList[0]
+      : hasMain && phase === 'main'
+        ? mainMsg!
+        : cycleList[currentIndex]
 
   if (!messageToShow) return <div className="news-section" />
 

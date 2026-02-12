@@ -6165,6 +6165,13 @@ body.dark-mode .admin-page .form-group textarea:focus {
   margin-left: 0.5rem;
 }
 
+.admin-badge-main {
+  color: #f39c12;
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-left: 6px;
+}
+
 .admin-badge-muted {
   color: #666;
   font-size: 0.75rem;
