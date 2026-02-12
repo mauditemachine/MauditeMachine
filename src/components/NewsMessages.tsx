@@ -19,7 +19,8 @@ export default function NewsMessages(): JSX.Element {
 
   const fetchMessages = async () => {
     try {
-      const data = await loadMessages()
+      // Priorité au backup mm-admin pour afficher la même news que l'admin
+      const data = await loadMessages(true)
       setMessages(data)
     } catch (err) {
       setError('Failed to load messages')
