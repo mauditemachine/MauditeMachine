@@ -1,4 +1,5 @@
 import React from 'react';
+import { useApp } from '../context/AppContext';
 
 interface GoodieItem {
   src: string;        // Affichage (low-res via CSS)
@@ -51,6 +52,7 @@ interface GoodiesProps {
 }
 
 const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
+  const { t } = useApp();
   const sticker = goodies.filter(g => g.category === 'sticker');
   const desktopWallpapers = goodies.filter(g => g.category === 'wallpaper-desktop');
   const phoneWallpapers = goodies.filter(g => g.category === 'wallpaper-phone');
@@ -74,7 +76,7 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
             <div key={i} className="goodie-card">
               <img src={`/${item.src}`} alt={item.title} className="goodie-image" />
               <div className="goodie-info">
-                <button className="goodie-download" onClick={() => handleDownload(item)}>Download</button>
+                <button className="goodie-download" onClick={() => handleDownload(item)}>{t.goodies.download}</button>
               </div>
             </div>
           ))}
@@ -87,14 +89,14 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
     <div className="goodies-page">
       {/* Sticker */}
       <div className="goodies-section">
-        <h3 className="goodies-category">Custom Sticker</h3>
+        <h3 className="goodies-category">{t.goodies.sticker}</h3>
         <div className="goodies-grid goodies-grid-large">
           {sticker.map((item, i) => (
             <div key={i} className="goodie-card">
               <img src={`/${item.src}`} alt={item.title} className="goodie-image" />
               <div className="goodie-info">
                 <span className="goodie-title">{item.title}</span>
-                <button className="goodie-download" onClick={() => handleDownload(item)}>Download</button>
+                <button className="goodie-download" onClick={() => handleDownload(item)}>{t.goodies.download}</button>
               </div>
             </div>
           ))}
@@ -103,14 +105,14 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
 
       {/* Desktop Wallpapers */}
       <div className="goodies-section">
-        <h3 className="goodies-category">Desktop Wallpapers</h3>
+        <h3 className="goodies-category">{t.goodies.desktopWallpapers}</h3>
         <div className="goodies-grid goodies-grid-desktop">
           {desktopWallpapers.map((item, i) => (
             <div key={i} className="goodie-card">
               <img src={`/${item.src}`} alt={item.title} className="goodie-image" />
               <div className="goodie-info">
                 <span className="goodie-title">{item.title}</span>
-                <button className="goodie-download" onClick={() => handleDownload(item)}>Download</button>
+                <button className="goodie-download" onClick={() => handleDownload(item)}>{t.goodies.download}</button>
               </div>
             </div>
           ))}
@@ -119,14 +121,14 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
 
       {/* Phone Wallpapers */}
       <div className="goodies-section">
-        <h3 className="goodies-category">Phone Wallpapers</h3>
+        <h3 className="goodies-category">{t.goodies.phoneWallpapers}</h3>
         <div className="goodies-grid goodies-grid-phone">
           {phoneWallpapers.map((item, i) => (
             <div key={i} className="goodie-card">
               <img src={`/${item.src}`} alt={item.title} className="goodie-image" />
               <div className="goodie-info">
                 <span className="goodie-title">{item.title}</span>
-                <button className="goodie-download" onClick={() => handleDownload(item)}>Download</button>
+                <button className="goodie-download" onClick={() => handleDownload(item)}>{t.goodies.download}</button>
               </div>
             </div>
           ))}
@@ -135,14 +137,14 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
 
       {/* Album Covers */}
       <div className="goodies-section">
-        <h3 className="goodies-category">Album Covers</h3>
+        <h3 className="goodies-category">{t.goodies.albumCovers}</h3>
         <div className="goodies-grid goodies-grid-covers">
           {covers.map((item, i) => (
             <div key={i} className="goodie-card">
               <img src={`/${item.src}`} alt={item.title} className="goodie-image" />
               <div className="goodie-info">
                 <span className="goodie-title">{item.title}</span>
-                <button className="goodie-download" onClick={() => handleDownload(item)}>Download</button>
+                <button className="goodie-download" onClick={() => handleDownload(item)}>{t.goodies.download}</button>
               </div>
             </div>
           ))}

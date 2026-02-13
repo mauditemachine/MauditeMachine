@@ -4,6 +4,7 @@
 
 import React, { useState } from 'react';
 import emailjs from '@emailjs/browser';
+import { useApp } from '../context/AppContext';
 
 // Configuration EmailJS avec vos vraies clés
 const SERVICE_ID = 'service_zeuwh04';
@@ -16,6 +17,7 @@ interface MessageProps {
 }
 
 const Message: React.FC<MessageProps> = ({ prefillSubject, prefillMessage }) => {
+  const { t } = useApp();
   const [formData, setFormData] = useState({
     from_name: '',
     from_email: '',
@@ -81,7 +83,7 @@ const Message: React.FC<MessageProps> = ({ prefillSubject, prefillMessage }) => 
     e.preventDefault();
     
     if (!formData.from_name.trim() || !formData.from_email.trim() || !formData.object.trim() || !formData.message.trim()) {
-      setSubmitStatus('Please fill in all fields.');
+      setSubmitStatus(t.contact.fillAll);
       return;
     }
     
@@ -93,7 +95,7 @@ const Message: React.FC<MessageProps> = ({ prefillSubject, prefillMessage }) => 
     }
     
     if (userCaptchaAnswer !== captchaAnswer) {
-      setSubmitStatus('Incorrect captcha answer. Please try again.');
+      setSubmitStatus(t.contact.captchaError);
       generateCaptcha();
       setUserCaptchaAnswer('');
       return;
@@ -110,7 +112,7 @@ const Message: React.FC<MessageProps> = ({ prefillSubject, prefillMessage }) => 
       PUBLIC_KEY            // _e6k6nftsmZZxs29b
     ).then(() => {
       setIsSubmitting(false);
-      setSubmitStatus('Message sent successfully! We will get back to you soon.');
+      setSubmitStatus(t.contact.success);
       setFormData({ from_name: '', from_email: '', object: '', message: '' });
       setShowCaptcha(false);
       setUserCaptchaAnswer('');
@@ -125,7 +127,7 @@ const Message: React.FC<MessageProps> = ({ prefillSubject, prefillMessage }) => 
     }).catch((error) => {
       console.error('Erreur EmailJS:', error);
       setIsSubmitting(false);
-      setSubmitStatus('Erreur lors de l\'envoi. Please try again or contact us directly.');
+      setSubmitStatus(t.contact.error);
     });
   };
 
@@ -134,13 +136,13 @@ const Message: React.FC<MessageProps> = ({ prefillSubject, prefillMessage }) => 
       <div className="message-content">
         <div className="message-header">
           <p className="message-subtitle">
-            For interviews, bookings, and media inquiries, please write a message here
+            {t.contact.subtitle}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="contact-form">
           <div className="form-group">
-            <label htmlFor="from_name" className="form-label">Name</label>
+            <label htmlFor="from_name" className="form-label">{t.contact.name}</label>
             <input
               type="text"
               id="from_name"
@@ -148,13 +150,13 @@ const Message: React.FC<MessageProps> = ({ prefillSubject, prefillMessage }) => 
               value={formData.from_name}
               onChange={handleInputChange}
               className="form-input"
-              placeholder="Your name"
+              placeholder={t.contact.namePlaceholder}
               required
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="from_email" className="form-label">Email</label>
+            <label htmlFor="from_email" className="form-label">{t.contact.email}</label>
             <input
               type="email"
               id="from_email"
@@ -162,13 +164,13 @@ const Message: React.FC<MessageProps> = ({ prefillSubject, prefillMessage }) => 
               value={formData.from_email}
               onChange={handleInputChange}
               className="form-input"
-              placeholder="your@email.com"
+              placeholder={t.contact.emailPlaceholder}
               required
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="object" className="form-label">Object</label>
+            <label htmlFor="object" className="form-label">{t.contact.subject}</label>
             <input
               type="text"
               id="object"
@@ -176,20 +178,20 @@ const Message: React.FC<MessageProps> = ({ prefillSubject, prefillMessage }) => 
               value={formData.object}
               onChange={handleInputChange}
               className="form-input"
-              placeholder="Booking, collaboration, inquiry, merch..."
+              placeholder={t.contact.subjectPlaceholder}
               required
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="message" className="form-label">Message</label>
+            <label htmlFor="message" className="form-label">{t.contact.message}</label>
             <textarea
               id="message"
               name="message"
               value={formData.message}
               onChange={handleInputChange}
               className="form-textarea"
-              placeholder="Your message here..."
+              placeholder={t.contact.messagePlaceholder}
               rows={6}
               required
             />
@@ -198,7 +200,7 @@ const Message: React.FC<MessageProps> = ({ prefillSubject, prefillMessage }) => 
           {showCaptcha && (
             <div className="form-group captcha-group">
               <label htmlFor="captcha" className="form-label">
-                Security Check: What is {captchaQuestion} ?
+                {t.contact.captcha} {captchaQuestion} ?
               </label>
               <input
                 type="text"
@@ -206,7 +208,7 @@ const Message: React.FC<MessageProps> = ({ prefillSubject, prefillMessage }) => 
                 value={userCaptchaAnswer}
                 onChange={(e) => setUserCaptchaAnswer(e.target.value)}
                 className="form-input captcha-input"
-                placeholder="Enter the answer"
+                placeholder={t.contact.captchaPlaceholder}
                 required
               />
             </div>
@@ -217,11 +219,11 @@ const Message: React.FC<MessageProps> = ({ prefillSubject, prefillMessage }) => 
             className={`submit-button ${isSubmitting ? 'submitting' : ''}`}
             disabled={isSubmitting}
           >
-            {isSubmitting ? 'SENDING' : showCaptcha ? 'SEND' : 'SEND'}
+            {isSubmitting ? t.contact.sending : t.contact.send}
           </button>
 
           {submitStatus && (
-            <div className={`submit-status ${submitStatus.includes('success') ? 'success' : 'error'}`}>
+            <div className={`submit-status ${submitStatus.includes('success') || submitStatus.includes('succes') ? 'success' : 'error'}`}>
               {submitStatus}
             </div>
           )}

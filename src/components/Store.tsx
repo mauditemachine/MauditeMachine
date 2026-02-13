@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { loadMerchItems } from '../utils/adminApi';
+import { useApp } from '../context/AppContext';
 
 interface StoreProps {
   onSectionChange?: (section: string, prefill?: { subject: string; message: string }) => void;
@@ -34,6 +35,7 @@ interface ProductGroup {
 }
 
 const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
+  const { t } = useApp();
   const [merchItems, setMerchItems] = useState<MerchItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -170,7 +172,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
       {/* Message d'intro */}
       <div className="store-intro">
         <p>
-          To place an order, send us an email via the{' '}
+          {t.store.intro}{' '}
           <a 
             href="#contact" 
             onClick={(e) => {
@@ -178,14 +180,14 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
               if (onSectionChange) onSectionChange('message');
             }}
           >
-            contact form
+            {t.store.contactForm}
           </a>{' '}
-          specifying the item, size and your shipping address. All sizes are available to order. Prices are taxes included. Shipping fees apply.
+          {t.store.introEnd}
         </p>
       </div>
 
       {loading ? (
-        <div className="store-loading">Loading...</div>
+        <div className="store-loading">{t.store.loading}</div>
       ) : (
         categoryGroups.map(cat => {
           const frontItem = cat.items.find(i => i.alt.toLowerCase().includes('front')) || cat.items[0];
@@ -195,7 +197,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
                 <div className="store-category-image">
                   <img src={frontItem.src} alt={cat.label} loading="lazy" />
                   {cat.items.length > 1 && (
-                    <div className="store-category-count">{cat.items.length} photos</div>
+                    <div className="store-category-count">{cat.items.length} {t.store.photos}</div>
                   )}
                 </div>
                 <div className="store-category-info">
@@ -257,9 +259,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
               {/* Instructions */}
               <div className="lightbox-order-info">
                 <p>
-                  To order this item, send us an email via the contact form 
-                  specifying the product{currentProduct.category !== 'bag' ? ', size' : ''} and your shipping address. 
-                  Price is taxes included. Shipping fees apply.
+                  {t.store.orderIntro}{currentProduct.category !== 'bag' ? t.store.orderSize : ''} {t.store.orderEnd}
                 </p>
                 <button 
                   className="order-button"
@@ -267,12 +267,12 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
                     closeLightbox();
                     const hasSize = currentProduct.category !== 'bag';
                     if (onSectionChange) onSectionChange('message', {
-                      subject: `Order: ${currentProduct.name}`,
-                      message: `Item: ${currentProduct.name}\nPrice: ${currentProduct.price} (taxes included)\n${hasSize ? 'Size: \n' : ''}Shipping address: \n\n`
+                      subject: `${t.store.order}: ${currentProduct.name}`,
+                      message: `${currentProduct.name}\n${currentProduct.price}\n${hasSize ? 'Size / Taille: \n' : ''}\n`
                     });
                   }}
                 >
-                  Order
+                  {t.store.order}
                 </button>
               </div>
             </div>

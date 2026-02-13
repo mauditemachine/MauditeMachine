@@ -209,11 +209,45 @@ body {
   opacity: 0.7;
 }
 
-/* Bloc droite du header : player + nav */
+/* Boutons design + langue (type light/dark) */
+.header-toggles {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-toggle-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.2);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.header-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--accent-gold);
+  border-color: rgba(255, 204, 0, 0.4);
+}
+
+.header-lang-btn {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* Bloc droite du header : toggles + player + nav */
 .header-right {
   display: flex;
   align-items: center;
-  gap: 30px;
+  gap: 20px;
 }
 
 /* Player dans le header */
@@ -1439,6 +1473,29 @@ body {
 
 .menu.open {
   display: flex;
+}
+
+.menu-toggles {
+  display: flex;
+  gap: 12px;
+  padding: 20px 30px 15px;
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+  margin-bottom: 15px;
+}
+
+.menu-toggle-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.3);
+  background: rgba(0,0,0,0.3);
+  color: white;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.menu-toggle-btn:hover {
+  background: rgba(255,204,0,0.2);
+  border-color: var(--accent-gold);
 }
 
 .links-mobile {
@@ -6177,6 +6234,331 @@ body.dark-mode .admin-page .form-group textarea:focus {
   font-size: 0.75rem;
   font-weight: 700;
   margin-left: 0.5rem;
+}
+
+/* ===== DESIGN ALTERNATIF ===== */
+
+/* -- Couleurs & overlay -- */
+.design-alternate .page {
+  --accent-gold: #FFCC00;
+  --accent-mint: #00e5a0;
+}
+
+.design-alternate .page::after {
+  background: linear-gradient(160deg, #0a0e14 0%, #111922 40%, #0d1820 100%);
+  opacity: 0.92;
+}
+
+/* -- Header : barre flottante avec glassmorphism -- */
+.design-alternate .site-header {
+  padding: 0;
+  margin: 15px 30px 0;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(30px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  left: 0;
+  right: 0;
+  width: auto;
+}
+
+.design-alternate .header-content {
+  padding: 14px 28px;
+}
+
+.design-alternate .header-logo-left {
+  height: 20px;
+}
+
+.design-alternate .header-logo-left img {
+  filter: brightness(1.2) drop-shadow(0 0 8px rgba(255, 204, 0, 0.2));
+}
+
+/* Nav : pilules translucides */
+.design-alternate .header-nav-right {
+  gap: 6px;
+}
+
+.design-alternate .header-nav-right button {
+  padding: 7px 16px;
+  border-radius: 20px;
+  background: transparent;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.design-alternate .header-nav-right button:hover {
+  background: rgba(255, 204, 0, 0.08);
+  color: #FFCC00;
+}
+
+.design-alternate .header-nav-right button.active {
+  background: rgba(255, 204, 0, 0.12);
+  color: #FFCC00;
+  box-shadow: 0 0 20px rgba(255, 204, 0, 0.08);
+}
+
+/* Toggles design/lang plus subtils */
+.design-alternate .header-toggle-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(255, 204, 0, 0.06);
+  border-color: rgba(255, 204, 0, 0.15);
+  font-size: 12px;
+}
+
+.design-alternate .header-toggle-btn:hover {
+  background: rgba(255, 204, 0, 0.15);
+  box-shadow: 0 0 15px rgba(255, 204, 0, 0.1);
+}
+
+/* -- Landing page : layout cinéma immersif -- */
+.design-alternate .landing-page {
+  min-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  padding: 100px 60px 120px;
+}
+
+.design-alternate .landing-content {
+  max-width: 1000px;
+  text-align: center;
+  margin: 0 auto;
+}
+
+.design-alternate .landing-subtitle {
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.35em;
+  color: rgba(255, 204, 0, 0.6);
+  margin: 0 0 30px 0;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.design-alternate .landing-logo {
+  margin: 0 0 50px 0;
+  position: relative;
+}
+
+.design-alternate .landing-logo img {
+  max-width: 750px;
+  filter: drop-shadow(0 0 60px rgba(255, 204, 0, 0.08));
+  animation: alt-logo-glow 6s ease-in-out infinite alternate;
+}
+
+@keyframes alt-logo-glow {
+  0%   { filter: drop-shadow(0 0 40px rgba(255, 204, 0, 0.05)); }
+  100% { filter: drop-shadow(0 0 80px rgba(255, 204, 0, 0.12)); }
+}
+
+.design-alternate .landing-bio {
+  text-align: center;
+  max-width: 680px;
+  margin: 0 auto;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.01em;
+}
+
+.design-alternate .landing-bio p {
+  margin: 0 0 18px 0;
+}
+
+/* News en bas, centrée, avec séparateur */
+.design-alternate .landing-news {
+  margin-top: 50px;
+  max-width: 500px;
+  opacity: 0.5;
+  position: relative;
+  padding-top: 30px;
+}
+
+.design-alternate .landing-news::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 1px;
+  background: rgba(255, 204, 0, 0.3);
+}
+
+.design-alternate .landing-news:hover {
+  opacity: 0.9;
+}
+
+/* -- Content pages : aéré et élégant -- */
+.design-alternate .content-wrapper {
+  padding: 40px 60px 120px;
+  max-width: 1100px;
+}
+
+.design-alternate .section-title {
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.3em;
+  color: rgba(255, 204, 0, 0.5);
+  margin: 0 0 40px 0;
+  padding-bottom: 0;
+  border-bottom: none;
+  display: block;
+  text-align: left;
+  position: relative;
+  padding-left: 24px;
+}
+
+.design-alternate .section-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 2px;
+  background: var(--accent-gold);
+}
+
+/* -- Footer : encore plus glass -- */
+.design-alternate .site-footer {
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(30px) saturate(1.3);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.design-alternate .social-icon-link {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.design-alternate .social-icon-link:hover {
+  background: var(--hover-color, var(--accent-mint));
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 15px var(--hover-color, var(--accent-mint));
+}
+
+/* -- VRSTL : subtil -- */
+.design-alternate .vrstl-fixed {
+  opacity: 0.4;
+}
+
+.design-alternate .vrstl-fixed:hover {
+  opacity: 0.8;
+}
+
+/* -- Event cards -- */
+.design-alternate .event-banner {
+  border-radius: 10px;
+  overflow: hidden;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+}
+
+.design-alternate .event-banner:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* -- Store cards -- */
+.design-alternate .store-category-card {
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.design-alternate .store-category-card:hover {
+  transform: translateY(-8px);
+}
+
+/* -- Goodies -- */
+.design-alternate .goodie-card {
+  border-radius: 10px;
+}
+
+.design-alternate .goodie-download {
+  border-radius: 20px;
+  padding: 5px 16px;
+  background: rgba(255, 204, 0, 0.15);
+  color: var(--accent-gold);
+  border: 1px solid rgba(255, 204, 0, 0.2);
+}
+
+.design-alternate .goodie-download:hover {
+  background: var(--accent-gold);
+  color: #111;
+}
+
+/* -- Scrollbar -- */
+.design-alternate ::-webkit-scrollbar {
+  width: 4px;
+}
+
+.design-alternate ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.design-alternate ::-webkit-scrollbar-thumb {
+  background: rgba(255, 204, 0, 0.15);
+  border-radius: 4px;
+}
+
+/* -- Responsive -- */
+@media (max-width: 1024px) {
+  .design-alternate .landing-logo img {
+    max-width: 500px;
+  }
+
+  .design-alternate .landing-bio {
+    font-size: 13px;
+    max-width: 550px;
+  }
+}
+
+@media (max-width: 768px) {
+  .design-alternate .site-header {
+    margin: 10px 15px 0;
+    border-radius: 12px;
+  }
+
+  .design-alternate .header-content {
+    padding: 10px 16px;
+  }
+
+  .design-alternate .landing-page {
+    padding: 80px 25px 100px;
+  }
+
+  .design-alternate .landing-subtitle {
+    font-size: 11px;
+    letter-spacing: 0.25em;
+  }
+
+  .design-alternate .landing-logo img {
+    max-width: 300px;
+  }
+
+  .design-alternate .landing-bio {
+    font-size: 12px;
+    max-width: 100%;
+    line-height: 1.6;
+  }
+
+  .design-alternate .content-wrapper {
+    padding: 30px 20px 100px;
+  }
+
+  .design-alternate .section-title {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+  }
 }
 
 @media (max-width: 600px) {

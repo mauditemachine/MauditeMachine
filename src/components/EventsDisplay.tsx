@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import EventCard from './EventCard'
 import { loadEvents } from '../utils/adminApi'
+import { useApp } from '../context/AppContext'
 
 type EventItem = {
   date: string
@@ -35,6 +36,7 @@ interface EventsDisplayProps {
 }
 
 export default function EventsDisplay({ limit, showPastEventsButton = false }: EventsDisplayProps): JSX.Element {
+  const { t } = useApp()
   const [events, setEvents] = useState<EventItem[]>([])
   const [pastEventsData, setPastEventsData] = useState<YearData[]>([])
   const [showPastEvents, setShowPastEvents] = useState(false)
@@ -105,7 +107,7 @@ export default function EventsDisplay({ limit, showPastEventsButton = false }: E
     return pastEventsData.reduce((acc, year) => acc + year.shows.length, 0);
   };
 
-  if (error) return <div>Error loading events</div>
+  if (error) return <div>{t.events.errorLoading}</div>
 
   return (
     <div className="events-display">
@@ -129,8 +131,8 @@ export default function EventsDisplay({ limit, showPastEventsButton = false }: E
             onClick={() => setShowPastEvents(!showPastEvents)}
           >
             <span className="toggle-icon">{showPastEvents ? '−' : '+'}</span>
-            <span className="toggle-text">Past Events</span>
-            <span className="toggle-count">{getTotalShows()} shows</span>
+            <span className="toggle-text">{t.events.pastEvents}</span>
+            <span className="toggle-count">{getTotalShows()} {t.events.shows}</span>
           </button>
           
           {showPastEvents && (
@@ -142,7 +144,7 @@ export default function EventsDisplay({ limit, showPastEventsButton = false }: E
                     onClick={() => toggleYear(yearData.year)}
                   >
                     <span className="year-number">{yearData.year}</span>
-                    <span className="year-count">{yearData.shows.length} shows</span>
+                    <span className="year-count">{yearData.shows.length} {t.events.shows}</span>
                     <span className="year-arrow">{expandedYears.includes(yearData.year) ? '▼' : '▶'}</span>
                   </button>
                   

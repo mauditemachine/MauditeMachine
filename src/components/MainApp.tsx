@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import SoundCloudPlayer from "./SoundCloudPlayer";
 import NewsMessages from "./NewsMessages";
+import { useApp } from "../context/AppContext";
 import EventsDisplay from "./EventsDisplay";
 import Store from "./Store";
 import Message from "./Message";
@@ -135,6 +136,7 @@ const socialLinks: {
 ];
 
 export default function MainApp() {
+  const { designMode, setDesignMode, lang, setLang, t } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [bgUrl, setBgUrl] = useState<string>("");
@@ -214,17 +216,22 @@ export default function MainApp() {
     }
   }, [activeSection]);
 
-  // Charger la bio depuis localStorage
+  // Charger la bio depuis localStorage (EN uniquement)
   useEffect(() => {
-    const savedBio = localStorage.getItem('admin_bio_backup');
-    if (savedBio) {
-      const bio = JSON.parse(savedBio);
-      setBioText(bio.text);
-    } else {
-      // Bio par défaut si aucune sauvegarde
-      setBioText("Maudite Machine is a Canadian DJ and producer known for his raw, hypnotic approach to minimal and indie dance. Born from the Montreal underground, he has performed at major events including Piknic Électronik, Eclipse Festival, and the iconic Techno Parade in Paris, delivering sets that blur the line between intensity and atmosphere across Canada and Europe.\n\nAs the founder of VRSTL Records, he curates a sound that embraces tension, groove, and experimentation, having shared the stage with electronic music legends like Carl Craig, Ellen Allien, The Hacker, Popof, and Agoria. His collaborations with influential artists reflect a constant drive to push boundaries and redefine the underground with a distinct sonic signature, championing bold artists who share his vision for the darker, experimental sides of electronic music.");
+    if (lang === 'en') {
+      const savedBio = localStorage.getItem('admin_bio_backup');
+      if (savedBio) {
+        try {
+          const bio = JSON.parse(savedBio);
+          setBioText(bio.text || '');
+        } catch (_) { setBioText(''); }
+      } else {
+        setBioText(t.home.bio);
+      }
     }
-  }, []);
+  }, [lang, t.home.bio]);
+
+  const displayBioText = lang === 'fr' ? t.home.bio : bioText || t.home.bio;
 
   // Initialiser la variable CSS pour le track background
   useEffect(() => {
@@ -290,7 +297,7 @@ export default function MainApp() {
     <>
       {/* IMAGE DE LA TRACK EN BACKGROUND DYNAMIQUE - SUPPRIMÉ */}
       
-      <div className="page">
+      <div className={`page ${designMode === 'alternate' ? 'design-alternate' : ''}`}>
       {/* Hamburger + menu mobile (masqué en desktop) */}
       <button
         className="hamburger"
@@ -301,8 +308,17 @@ export default function MainApp() {
       </button>
       <nav
         className={`menu ${menuOpen ? "open" : ""}`}
-        onClick={() => setMenuOpen(false)}
+        onClick={(e) => { if ((e.target as HTMLElement).closest('.menu-toggles')) return; setMenuOpen(false); }}
       >
+        <div className="menu-toggles">
+          <button
+            className="menu-toggle-btn"
+            onClick={() => setLang(lang === 'en' ? 'fr' : 'en')}
+            aria-label="Changer de langue"
+          >
+            {lang === 'en' ? 'FR' : 'EN'}
+          </button>
+        </div>
         <ul className="links links-mobile">
           {socialLinks.map((link) => (
             <li key={link.label}>
@@ -336,38 +352,48 @@ export default function MainApp() {
             />
           </div>
           
-          {/* Navigation en haut à droite */}
+          {/* Boutons design + langue en haut à droite, puis Navigation */}
           <div className="header-right">
+            <div className="header-toggles">
+              <button
+                className="header-toggle-btn header-lang-btn"
+                onClick={() => setLang(lang === 'en' ? 'fr' : 'en')}
+                title={lang === 'en' ? 'Français' : 'English'}
+                aria-label="Changer de langue"
+              >
+                {lang === 'en' ? 'FR' : 'EN'}
+              </button>
+            </div>
             <nav className="header-nav-right">
               <button 
                 className={activeSection === "events" ? "active" : ""}
                 onClick={() => handleSectionChange("events")}
               >
-                EVENTS
+                {t.nav.events}
               </button>
               <button 
                 className={activeSection === "store" ? "active" : ""}
                 onClick={() => handleSectionChange("store")}
               >
-                MERCH
+                {t.nav.merch}
               </button>
               <button 
                 className={activeSection === "message" ? "active" : ""}
                 onClick={() => handleSectionChange("message")}
               >
-              CONTACTS
-            </button>
-            <button 
-              className={activeSection === "goodies" ? "active" : ""}
-              onClick={() => handleSectionChange("goodies")}
-            >
-              GOODIES
-            </button>
-            <button 
-              className={activeSection === "presskit" ? "active" : ""}
-              onClick={() => handleSectionChange("presskit")}
-            >
-              PRESSKIT
+                {t.nav.contacts}
+              </button>
+              <button 
+                className={activeSection === "goodies" ? "active" : ""}
+                onClick={() => handleSectionChange("goodies")}
+              >
+                {t.nav.goodies}
+              </button>
+              <button 
+                className={activeSection === "presskit" ? "active" : ""}
+                onClick={() => handleSectionChange("presskit")}
+              >
+                {t.nav.presskit}
               </button>
             </nav>
           </div>
@@ -380,7 +406,7 @@ export default function MainApp() {
         {activeSection === "home" ? (
           <div className="landing-page">
             <div className="landing-content">
-              <h1 className="landing-subtitle">WE ARE MUSIC MAKERS</h1>
+              <h1 className="landing-subtitle">{t.home.subtitle}</h1>
               <div className="landing-logo">
                 <img
                   src={import.meta.env.BASE_URL + "logo/mauditemachine-logo-yellow.svg"}
@@ -388,7 +414,7 @@ export default function MainApp() {
                 />
               </div>
               <div className="landing-bio">
-                {bioText.split('\n\n').map((paragraph, index) => (
+                {displayBioText.split('\n\n').map((paragraph, index) => (
                   <p key={index}>{paragraph}</p>
                 ))}
               </div>
@@ -403,31 +429,31 @@ export default function MainApp() {
             <div className="content-section">
               {activeSection === "events" && (
                 <>
-                  <h2 className="section-title">Upcoming Events</h2>
+                  <h2 className="section-title">{t.sections.upcomingEvents}</h2>
                   <EventsDisplay showPastEventsButton={true} />
                 </>
               )}
               {activeSection === "store" && (
                 <>
-                  <h2 className="section-title">Merch</h2>
+                  <h2 className="section-title">{t.sections.merch}</h2>
                   <Store onSectionChange={handleSectionChange} />
                 </>
               )}
               {activeSection === "message" && (
                 <>
-                  <h2 className="section-title">Contact</h2>
+                  <h2 className="section-title">{t.sections.contact}</h2>
                   <Message prefillSubject={messagePrefill?.subject} prefillMessage={messagePrefill?.message} />
                 </>
               )}
               {activeSection === "goodies" && (
                 <>
-                  <h2 className="section-title">Goodies</h2>
+                  <h2 className="section-title">{t.sections.goodies}</h2>
                   <Goodies />
                 </>
               )}
               {activeSection === "presskit" && (
                 <>
-                  <h2 className="section-title">Press Kit</h2>
+                  <h2 className="section-title">{t.sections.pressKit}</h2>
                   <Presskit onNavigateToMessage={() => handleSectionChange("message")} />
                 </>
               )}
@@ -468,7 +494,7 @@ export default function MainApp() {
 
           {/* Massive Medias */}
           <a href="https://massivemedias.com" target="_blank" rel="noreferrer" className="footer-massive">
-            <span className="footer-madeby">website made by</span>
+            <span className="footer-madeby">{t.footer.madeBy}</span>
             <img src={import.meta.env.BASE_URL + "logo/massive-medias.svg"} alt="Massive Medias" />
             <span>&copy; 2026</span>
           </a>

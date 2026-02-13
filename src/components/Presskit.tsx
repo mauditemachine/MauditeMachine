@@ -3,12 +3,14 @@
  */
 
 import React from 'react';
+import { useApp } from '../context/AppContext';
 
 interface PresskitProps {
   onNavigateToMessage?: () => void;
 }
 
 const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
+  const { t } = useApp();
   return (
     <div className="presskit-container">
       <div className="presskit-content">
@@ -18,24 +20,23 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         <div className="presskit-section">
           <div className="download-card">
             <div className="download-content">
-              <h3 className="download-title">Official Press Kit & Tech Rider</h3>
+              <h3 className="download-title">{t.presskit.title}</h3>
               <p className="download-description">
-                Complete press materials including high-resolution photos, artist bio, 
-                logos, and technical requirements for bookings and media coverage.
+                {t.presskit.description}
               </p>
               
               <div className="download-items">
                 <div className="download-item">
-                  <span>High-resolution photos</span>
+                  <span>{t.presskit.photos}</span>
                 </div>
                 <div className="download-item">
-                  <span>Artist biography</span>
+                  <span>{t.presskit.biography}</span>
                 </div>
                 <div className="download-item">
-                  <span>Official logos & artwork</span>
+                  <span>{t.presskit.logos}</span>
                 </div>
                 <div className="download-item">
-                  <span>Technical rider</span>
+                  <span>{t.presskit.techrider}</span>
                 </div>
               </div>
               
@@ -54,20 +55,20 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
                   }
                 }}
               >
-                DOWNLOAD
+                {t.presskit.download}
               </a>
             </div>
           </div>
 
           <div className="contact-info">
-            <h4 className="contact-title">Media Contact</h4>
+            <h4 className="contact-title">{t.presskit.mediaContact}</h4>
             <p className="contact-text">
-              For interviews, bookings, and media inquiries, please{' '}
+              {t.presskit.mediaText}{' '}
               <button 
                 onClick={onNavigateToMessage}
                 className="contact-message-link"
               >
-                write a message here
+                {t.presskit.mediaLink}
               </button>
             </p>
           </div>
