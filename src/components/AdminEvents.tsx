@@ -49,7 +49,7 @@ const AdminEvents: React.FC = () => {
     updated.sort((a, b) => b.date.localeCompare(a.date));
     const res = await saveEvents(updated);
     if (res.success) { setEvents(updated); resetEventForm(); flash('Event saved'); } else flash('Error saving');
-    setSaving(false);
+      setSaving(false);
   };
   const deleteEvent = async (i: number) => { if (!confirm('Delete this event?')) return; const updated = events.filter((_, idx) => idx !== i); await saveEvents(updated); setEvents(updated); flash('Event deleted'); };
   const resetEventForm = () => { setEventForm({ date: '', title: '', url: '', location: '', color: '#ff6d9e', image: '' }); setEditingEventIndex(null); };
@@ -76,7 +76,7 @@ const AdminEvents: React.FC = () => {
       .map(m => ({ ...m, main: m.id === item.id ? !!msgForm.main : false })); // Une seule main
     const res = await saveMessages(updated);
     if (res.success) { setMessages(updated); resetMsgForm(); flash('News saved'); } else flash('Error saving');
-    setSaving(false);
+      setSaving(false);
   };
   const deleteMsg = async (i: number) => { if (!confirm('Delete this news?')) return; const updated = messages.filter((_, idx) => idx !== i); await saveMessages(updated); setMessages(updated); flash('News deleted'); };
   const resetMsgForm = () => { setMsgForm({ title: '', description: '', image: '', date: '', link: { label: '', href: '' }, main: false }); setEditingMsgIndex(null); };
@@ -123,15 +123,15 @@ const AdminEvents: React.FC = () => {
                 <div className="admin-field-color">
                   <label className="admin-label">Color</label>
                   <input type="color" className="admin-color-input" value={eventForm.color} onChange={e => setEventForm({...eventForm, color: e.target.value})} />
-                </div>
+          </div>
                 <div className="admin-field-image">
                   <label className="admin-label">Image</label>
                   <ImageUpload value={eventForm.image} onChange={v => setEventForm({...eventForm, image: v})} placeholder="events/photo.webp" useButton={true} folder="events" />
-                </div>
+            </div>
                 <div className="admin-actions">
                   <button className="admin-btn-primary" onClick={saveEvent} disabled={saving}>{saving ? 'Saving...' : editingEventIndex !== null ? 'Update' : 'Add Event'}</button>
                   {editingEventIndex !== null && <button className="admin-btn-secondary" onClick={resetEventForm}>Cancel</button>}
-                </div>
+              </div>
               </div>
             </div>
             {events.map((ev, i) => (
@@ -209,30 +209,30 @@ const AdminEvents: React.FC = () => {
                 <div className="admin-field-full">
                   <label className="admin-label">Title *</label>
                   <input className="admin-input" value={msgForm.title} onChange={e => setMsgForm({...msgForm, title: e.target.value})} placeholder="New album out now" />
-                </div>
+            </div>
                 <div className="admin-field-full">
                   <label className="admin-label">Description</label>
                   <textarea className="admin-input admin-textarea" value={msgForm.description} onChange={e => setMsgForm({...msgForm, description: e.target.value})} placeholder="Album description..." />
-                </div>
+          </div>
                 <div className="admin-field-half">
                   <label className="admin-label">Date</label>
                   <input type="date" className="admin-input" value={msgForm.date} onChange={e => setMsgForm({...msgForm, date: e.target.value})} />
-                </div>
+        </div>
                 <div className="admin-field-half admin-checkboxes">
                   <label className="admin-checkbox-label"><input type="checkbox" checked={!!msgForm.main} onChange={e => setMsgForm({...msgForm, main: e.target.checked})} /> Main news (20s first)</label>
-                </div>
+            </div>
                 <div className="admin-field-half">
                   <label className="admin-label">Image</label>
                   <ImageUpload value={msgForm.image || ''} onChange={v => setMsgForm({...msgForm, image: v})} placeholder="images/news-photo.webp" useButton={true} />
-                </div>
+                    </div>
                 <div className="admin-field-half">
                   <label className="admin-label">Link Label</label>
                   <input className="admin-input" value={msgForm.link?.label || ''} onChange={e => setMsgForm({...msgForm, link: {...(msgForm.link || { label: '', href: '' }), label: e.target.value}})} placeholder="Bandcamp" />
-                </div>
+                      </div>
                 <div className="admin-field-half">
                   <label className="admin-label">Link URL</label>
                   <input className="admin-input" value={msgForm.link?.href || ''} onChange={e => setMsgForm({...msgForm, link: {...(msgForm.link || { label: '', href: '' }), href: e.target.value}})} placeholder="https://..." />
-                </div>
+                  </div>
                 <div className="admin-actions">
                   <button className="admin-btn-primary" onClick={saveMsg} disabled={saving}>{saving ? 'Saving...' : editingMsgIndex !== null ? 'Update' : 'Add News'}</button>
                   {editingMsgIndex !== null && <button className="admin-btn-secondary" onClick={resetMsgForm}>Cancel</button>}
@@ -245,10 +245,10 @@ const AdminEvents: React.FC = () => {
                 <div className="admin-item-info">
                   <div className="admin-item-title">{msg.title} {msg.main && <span className="admin-badge-main">MAIN</span>}</div>
                   <div className="admin-item-meta">{msg.date} {msg.description && `— ${msg.description.substring(0, 60)}...`}</div>
-                </div>
+        </div>
                 <button className="admin-btn-secondary" onClick={() => { setMsgForm({...msg, link: msg.link || { label: '', href: '' }}); setEditingMsgIndex(i); window.scrollTo(0,0); }}>Edit</button>
                 <button className="admin-btn-danger" onClick={() => deleteMsg(i)}>Del</button>
-              </div>
+        </div>
             ))}
           </>
         )}

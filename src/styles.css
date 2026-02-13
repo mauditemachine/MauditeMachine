@@ -199,7 +199,7 @@ body {
 }
 
 .header-logo-left img {
-  height: 80%;
+  height: 100%;
   width: auto;
   cursor: pointer;
   transition: opacity 0.3s ease;
@@ -389,7 +389,7 @@ body {
 .header-nav-right button {
   background: none;
   border: none;
-  color: #d2d2d2;
+  color: #ffffff;
   font-family: var(--font-menu);
   font-size: 16px;
   font-weight: 400;

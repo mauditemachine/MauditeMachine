@@ -13,18 +13,18 @@ const goodies: GoodieItem[] = [
   // Sticker
   { src: 'images/goodies/sticker.png', downloadSrc: FULL_PREFIX + 'sticker.png', title: 'Custom Sticker', category: 'sticker' },
   // Desktop Wallpapers
-  { src: 'images/goodies/wallpaper-desktop-1.png', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-1.png', title: 'Desktop Wallpaper 1', category: 'wallpaper-desktop' },
-  { src: 'images/goodies/wallpaper-desktop-2.png', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-2.png', title: 'Desktop Wallpaper 2', category: 'wallpaper-desktop' },
-  { src: 'images/goodies/wallpaper-desktop-3.png', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-3.png', title: 'Desktop Wallpaper 3', category: 'wallpaper-desktop' },
-  { src: 'images/goodies/wallpaper-desktop-4.png', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-4.png', title: 'Desktop Wallpaper 4', category: 'wallpaper-desktop' },
-  { src: 'images/goodies/wallpaper-desktop-5.png', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-5.png', title: 'Desktop Wallpaper 5', category: 'wallpaper-desktop' },
-  { src: 'images/goodies/wallpaper-desktop-6.png', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-6.png', title: 'Desktop Wallpaper 6', category: 'wallpaper-desktop' },
+  { src: 'images/goodies/wallpaper-desktop-1.png', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-1.jpg', title: 'Desktop Wallpaper 1', category: 'wallpaper-desktop' },
+  { src: 'images/goodies/wallpaper-desktop-2.png', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-2.jpg', title: 'Desktop Wallpaper 2', category: 'wallpaper-desktop' },
+  { src: 'images/goodies/wallpaper-desktop-3.png', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-3.jpg', title: 'Desktop Wallpaper 3', category: 'wallpaper-desktop' },
+  { src: 'images/goodies/wallpaper-desktop-4.png', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-4.jpg', title: 'Desktop Wallpaper 4', category: 'wallpaper-desktop' },
+  { src: 'images/goodies/wallpaper-desktop-5.png', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-5.jpg', title: 'Desktop Wallpaper 5', category: 'wallpaper-desktop' },
+  { src: 'images/goodies/wallpaper-desktop-6.png', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-6.jpg', title: 'Desktop Wallpaper 6', category: 'wallpaper-desktop' },
   // Phone Wallpapers
-  { src: 'images/goodies/wallpaper-phone-1.png', downloadSrc: FULL_PREFIX + 'wallpaper-phone-1.png', title: 'Phone Wallpaper 1', category: 'wallpaper-phone' },
-  { src: 'images/goodies/wallpaper-phone-2.png', downloadSrc: FULL_PREFIX + 'wallpaper-phone-2.png', title: 'Phone Wallpaper 2', category: 'wallpaper-phone' },
-  { src: 'images/goodies/wallpaper-phone-3.png', downloadSrc: FULL_PREFIX + 'wallpaper-phone-3.png', title: 'Phone Wallpaper 3', category: 'wallpaper-phone' },
-  { src: 'images/goodies/wallpaper-phone-4.png', downloadSrc: FULL_PREFIX + 'wallpaper-phone-4.png', title: 'Phone Wallpaper 4', category: 'wallpaper-phone' },
-  { src: 'images/goodies/wallpaper-phone-5.png', downloadSrc: FULL_PREFIX + 'wallpaper-phone-5.png', title: 'Phone Wallpaper 5', category: 'wallpaper-phone' },
+  { src: 'images/goodies/wallpaper-phone-1.png', downloadSrc: FULL_PREFIX + 'wallpaper-phone-1.jpg', title: 'Phone Wallpaper 1', category: 'wallpaper-phone' },
+  { src: 'images/goodies/wallpaper-phone-2.png', downloadSrc: FULL_PREFIX + 'wallpaper-phone-2.jpg', title: 'Phone Wallpaper 2', category: 'wallpaper-phone' },
+  { src: 'images/goodies/wallpaper-phone-3.png', downloadSrc: FULL_PREFIX + 'wallpaper-phone-3.jpg', title: 'Phone Wallpaper 3', category: 'wallpaper-phone' },
+  { src: 'images/goodies/wallpaper-phone-4.png', downloadSrc: FULL_PREFIX + 'wallpaper-phone-4.jpg', title: 'Phone Wallpaper 4', category: 'wallpaper-phone' },
+  { src: 'images/goodies/wallpaper-phone-5.png', downloadSrc: FULL_PREFIX + 'wallpaper-phone-5.jpg', title: 'Phone Wallpaper 5', category: 'wallpaper-phone' },
   // Album Covers
   { src: 'images/goodies/cover-limbos.png', downloadSrc: FULL_PREFIX + 'cover-limbos.png', title: 'Limbos', category: 'cover' },
   { src: 'images/goodies/cover-anarchic.png', downloadSrc: FULL_PREFIX + 'cover-anarchic.png', title: 'Anarchic', category: 'cover' },
@@ -60,7 +60,8 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
 
   const handleDownload = async (item: GoodieItem) => {
     const downloadUrl = item.downloadSrc || item.src;
-    const filename = `MauditeMachine_${item.title.replace(/\s+/g, '_')}.png`;
+    const ext = downloadUrl.split('.').pop() || 'png';
+    const filename = `MauditeMachine_${item.title.replace(/\s+/g, '_')}.${ext}`;
     try {
       // Fetch le fichier en blob pour forcer le téléchargement en pleine résolution
       const response = await fetch(`/${downloadUrl}`);
