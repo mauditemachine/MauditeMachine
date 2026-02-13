@@ -1,0 +1,21 @@
+{
+  "name": "Maudite Machine",
+  "short_name": "MM",
+  "description": "Maudite Machine - DJ & Producteur | Minimal & Indie Dance",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#d4a843",
+  "icons": [
+    {
+      "src": "/logo/mauditemachine-logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/logo/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ]
+}
