@@ -58,14 +58,25 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
   const phoneWallpapers = goodies.filter(g => g.category === 'wallpaper-phone');
   const covers = goodies.filter(g => g.category === 'cover');
 
-  const handleDownload = (item: GoodieItem) => {
+  const handleDownload = async (item: GoodieItem) => {
     const downloadUrl = item.downloadSrc || item.src;
-    const link = document.createElement('a');
-    link.href = `/${downloadUrl}`;
-    link.download = `MauditeMachine_${item.title.replace(/\s+/g, '_')}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const filename = `MauditeMachine_${item.title.replace(/\s+/g, '_')}.png`;
+    try {
+      // Fetch le fichier en blob pour forcer le téléchargement en pleine résolution
+      const response = await fetch(`/${downloadUrl}`);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      // Fallback : ouvrir dans un nouvel onglet
+      window.open(`/${downloadUrl}`, '_blank');
+    }
   };
 
   if (mobileOnly) {

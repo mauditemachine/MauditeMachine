@@ -428,34 +428,19 @@ export default function MainApp() {
           <div className="content-wrapper">
             <div className="content-section">
               {activeSection === "events" && (
-                <>
-                  <h2 className="section-title">{t.sections.upcomingEvents}</h2>
-                  <EventsDisplay showPastEventsButton={true} />
-                </>
+                <EventsDisplay showPastEventsButton={true} />
               )}
               {activeSection === "store" && (
-                <>
-                  <h2 className="section-title">{t.sections.merch}</h2>
-                  <Store onSectionChange={handleSectionChange} />
-                </>
+                <Store onSectionChange={handleSectionChange} />
               )}
               {activeSection === "message" && (
-                <>
-                  <h2 className="section-title">{t.sections.contact}</h2>
-                  <Message prefillSubject={messagePrefill?.subject} prefillMessage={messagePrefill?.message} />
-                </>
+                <Message prefillSubject={messagePrefill?.subject} prefillMessage={messagePrefill?.message} />
               )}
               {activeSection === "goodies" && (
-                <>
-                  <h2 className="section-title">{t.sections.goodies}</h2>
-                  <Goodies />
-                </>
+                <Goodies />
               )}
               {activeSection === "presskit" && (
-                <>
-                  <h2 className="section-title">{t.sections.pressKit}</h2>
-                  <Presskit onNavigateToMessage={() => handleSectionChange("message")} />
-                </>
+                <Presskit onNavigateToMessage={() => handleSectionChange("message")} />
               )}
             </div>
           </div>

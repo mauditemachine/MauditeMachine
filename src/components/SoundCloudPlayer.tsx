@@ -41,6 +41,7 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
   const [originalTracks, setOriginalTracks] = useState<Sound[]>([]) // Garder l'ordre original de SoundCloud
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentIndex, setCurrentIndex] = useState<number>(0)
+  const [currentTitle, setCurrentTitle] = useState<string>('') // Titre direct depuis le widget
   const [positionMs, setPositionMs] = useState(0)
   const [durationMs, setDurationMs] = useState(0)
   // Affiche toutes les pistes sur desktop, limité sur mobile
@@ -157,21 +158,24 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
         poll()
       }
 
-      // Fonction pour vérifier et mettre à jour l'index current
+      // Fonction pour vérifier et mettre à jour l'index + titre courant
       const checkCurrentTrack = () => {
         if (cancelled) return
         widget.getCurrentSoundIndex((i: number) => {
           const newCurrentIndex = i || 0
-          if (originalTracks.length === 0) return
           
-          // L'index correspond directement maintenant
           if (newCurrentIndex !== lastIndexRef.current) {
-            console.log(`🎵 Track changed: ${lastIndexRef.current} → ${newCurrentIndex}`)
-            console.log(`🎵 Now playing: ${originalTracks[newCurrentIndex]?.title}`)
             lastIndexRef.current = newCurrentIndex
             setCurrentIndex(newCurrentIndex)
             maybeSwapBackground(newCurrentIndex)
           }
+          
+          // Toujours mettre à jour le titre depuis le widget (source de vérité)
+          widget.getCurrentSound((sound: Sound) => {
+            if (sound?.title) {
+              setCurrentTitle(sound.title)
+            }
+          })
         })
       }
 
@@ -186,12 +190,13 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
           tryFetchAll()
         }
         checkCurrentTrack()
-        // FORCER LE BACKGROUND QUAND ON JOUE - via getCurrentSound pour avoir le cover même si tracks pas chargées
+        // FORCER LE BACKGROUND + TITRE QUAND ON JOUE
         widget.getCurrentSound((sound: Sound) => {
-          if (sound && onBackgroundChange) {
-            const cover = getHiRes(sound.artwork_url) || getHiRes(sound.user?.avatar_url || null)
-            if (cover) {
-              onBackgroundChange(cover)
+          if (sound) {
+            if (sound.title) setCurrentTitle(sound.title)
+            if (onBackgroundChange) {
+              const cover = getHiRes(sound.artwork_url) || getHiRes(sound.user?.avatar_url || null)
+              if (cover) onBackgroundChange(cover)
             }
           }
         })
@@ -349,6 +354,9 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
         setCurrentIndex(i || 0)
         maybeSwapBackground(i || 0)
       })
+      widgetRef.current?.getCurrentSound((sound: Sound) => {
+        if (sound?.title) setCurrentTitle(sound.title)
+      })
       widgetRef.current?.play()
     }, 200)
   }
@@ -360,6 +368,9 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
       widgetRef.current?.getCurrentSoundIndex((i: number) => {
         setCurrentIndex(i || 0)
         maybeSwapBackground(i || 0)
+      })
+      widgetRef.current?.getCurrentSound((sound: Sound) => {
+        if (sound?.title) setCurrentTitle(sound.title)
       })
       widgetRef.current?.play()
     }, 200)
@@ -382,7 +393,8 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
     return clean ? `Maudite Machine - ${clean} (Original Mix)` : ''
   }
 
-  const displayTitle = formatTrackDisplay(tracks[currentIndex]?.title || '')
+  // Utiliser le titre direct du widget (currentTitle) en priorité, fallback sur tracks[]
+  const displayTitle = formatTrackDisplay(currentTitle || tracks[currentIndex]?.title || '')
 
   return (
     <div className="sc-player">
