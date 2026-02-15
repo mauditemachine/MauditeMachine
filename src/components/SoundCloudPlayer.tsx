@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 type Sound = {
   id: number
@@ -48,6 +49,8 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
   const [showAll, setShowAll] = useState(window.innerWidth > 768)
   const titleRef = useRef<HTMLDivElement | null>(null)
   const lastIndexRef = useRef<number>(-1)
+  const [detached, setDetached] = useState(false)
+  const panelRef = useRef<HTMLDivElement | null>(null)
 
   // Gérer le redimensionnement de la fenêtre pour l'affichage des pistes
   useEffect(() => {
@@ -393,8 +396,22 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
     return clean ? `Maudite Machine - ${clean} (Original Mix)` : ''
   }
 
+  // Fermer le panneau si clic en dehors
+  useEffect(() => {
+    if (!detached) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setDetached(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [detached])
+
   // Utiliser le titre direct du widget (currentTitle) en priorité, fallback sur tracks[]
   const displayTitle = formatTrackDisplay(currentTitle || tracks[currentIndex]?.title || '')
+
+  const coverUrl = getCover(tracks[currentIndex] || ({} as any))
 
   return (
     <div className="sc-player">
@@ -412,6 +429,9 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
             onChange={(e) => widgetRef.current?.seekTo(Number(e.target.value))}
           />
           <span className="now-time">{formatMs(positionMs)} / {formatMs(durationMs)}</span>
+          <button className="now-detach" onClick={() => setDetached(!detached)} aria-label="Playlist">
+            {detached ? '✕' : '☰'}
+          </button>
         </div>
         <div className="now-track-info">
           <div ref={titleRef} className="now-title" title={displayTitle}>
@@ -420,14 +440,62 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
               <span aria-hidden="true">{displayTitle}</span>
             </div>
           </div>
-          {getCover(tracks[currentIndex] || ({} as any)) && (
-            <img className="now-cover" src={getCover(tracks[currentIndex] as any) as any} alt="cover" />
+          {coverUrl && (
+            <img className="now-cover" src={coverUrl} alt="cover" />
           )}
         </div>
       </div>
 
+      {/* Panneau détaché — rendu via portal au root pour que backdrop-filter fonctionne */}
+      {detached && createPortal(
+        <div className="sc-detached-panel" ref={panelRef}>
+          <button className="detached-close" onClick={() => setDetached(false)} aria-label="Fermer">✕</button>
+          <div className="detached-now">
+            {coverUrl && (
+              <img className="detached-cover" src={coverUrl} alt="cover" />
+            )}
+            <div className="detached-info">
+              <div className="detached-title">
+                <div className="detached-title-marquee">
+                  <span>{displayTitle}</span>
+                  <span aria-hidden="true">{displayTitle}</span>
+                </div>
+              </div>
+              <div className="detached-controls">
+                <button className="detached-nav" onClick={prev}>⏮</button>
+                <button className="detached-toggle" onClick={togglePlay}>{isPlaying ? '⏸' : '▶'}</button>
+                <button className="detached-nav" onClick={next}>⏭</button>
+              </div>
+              <div className="detached-progress">
+                <input
+                  className="detached-range"
+                  type="range"
+                  min={0}
+                  max={Math.max(1, durationMs)}
+                  value={Math.min(positionMs, durationMs)}
+                  onChange={(e) => widgetRef.current?.seekTo(Number(e.target.value))}
+                />
+                <span className="detached-time">{formatMs(positionMs)} / {formatMs(durationMs)}</span>
+              </div>
+            </div>
+          </div>
+          <ul className="detached-list">
+            {tracks.map((t, i) => (
+              <li
+                key={t.id}
+                className={`detached-row ${i === currentIndex ? 'active' : ''}`}
+                onClick={() => playOrToggle(i)}
+              >
+                <span className="row-title">{formatTrackDisplay(t.title)}</span>
+                <span className="row-time">{formatMs(t.duration)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>,
+        document.body
+      )}
+
       <ul className="sc-list">
-        {/* Afficher seulement les 5 premières pistes */}
         {tracks.slice(0, 5).map((t, i) => (
           <li
             key={t.id}
