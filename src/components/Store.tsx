@@ -58,11 +58,11 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
           { id: 1, src: 'images/Merch_CrewNeck-Back.webp', alt: 'Sweatshirt Back', caption: 'Sweatshirt', price: '50$ CAD', category: 'sweatshirt', active: true, sizes: { S: false, M: true, L: true, XL: true }, soldOut: false },
           { id: 4, src: 'images/Merch_Hoodie F.webp', alt: 'Hoodie Front', caption: 'Hoodie', price: '50$ CAD', category: 'hoodie', active: true, sizes: { S: false, M: false, L: true, XL: false }, soldOut: false },
           { id: 3, src: 'images/Merch_Hoodie-Back.webp', alt: 'Hoodie Back', caption: 'Hoodie', price: '50$ CAD', category: 'hoodie', active: true, sizes: { S: false, M: false, L: true, XL: false }, soldOut: false },
-          { id: 5, src: 'images/Merch_Bag-Brown.webp', alt: 'Bag Brown', caption: 'Hip Bag Brown', price: '80$ CAD', category: 'bag', active: true, soldOut: true },
-          { id: 6, src: 'images/Merch_Bag-Orange.webp', alt: 'Bag Orange', caption: 'Hip Bag Orange', price: '80$ CAD', category: 'bag', active: true, soldOut: false },
-          { id: 7, src: 'images/Merch_Bag-Pink.webp', alt: 'Bag Pink', caption: 'Hip Bag Pink', price: '80$ CAD', category: 'bag', active: true, soldOut: false },
-          { id: 8, src: 'images/Merch_Bag-red.webp', alt: 'Bag Red', caption: 'Hip Bag Red', price: '80$ CAD', category: 'bag', active: true, soldOut: true },
-          { id: 9, src: 'images/Merch_Bag-Purple.webp', alt: 'Bag Purple', caption: 'Hip Bag Purple', price: '80$ CAD', category: 'bag', active: true, soldOut: false },
+          { id: 5, src: 'images/Merch_Bag-Brown.webp', alt: 'Bag Brown', caption: 'Hip Bag', price: '80$ CAD', category: 'bag', active: true, soldOut: true },
+          { id: 6, src: 'images/Merch_Bag-Orange.webp', alt: 'Bag Orange', caption: 'Hip Bag', price: '80$ CAD', category: 'bag', active: true, soldOut: false },
+          { id: 7, src: 'images/Merch_Bag-Pink.webp', alt: 'Bag Pink', caption: 'Hip Bag', price: '80$ CAD', category: 'bag', active: true, soldOut: false },
+          { id: 8, src: 'images/Merch_Bag-red.webp', alt: 'Bag Red', caption: 'Hip Bag', price: '80$ CAD', category: 'bag', active: true, soldOut: true },
+          { id: 9, src: 'images/Merch_Bag-Purple.webp', alt: 'Bag Purple', caption: 'Hip Bag', price: '80$ CAD', category: 'bag', active: true, soldOut: false },
         ];
         setMerchItems(fallbackData);
       } finally {
