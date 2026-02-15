@@ -441,17 +441,18 @@ body {
   bottom: 100px;
   right: 0;
   z-index: 999;
-  transition: opacity 0.3s ease, transform 0.3s ease;
-  opacity: 0.9;
+  transform: translateX(55px);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  opacity: 0.95;
 }
 
 .vrstl-fixed:hover {
   opacity: 1;
-  transform: translateX(-5px);
+  transform: translateX(5px);
 }
 
 .vrstl-fixed img {
-  width: 70px;
+  width: 100px;
   height: auto;
   display: block;
   border-radius: 0;
@@ -492,6 +493,33 @@ body {
   width: 100%;
   max-width: 950px;
   height: auto;
+}
+
+/* Logo géant plein écran */
+.landing-logo-big {
+  width: 75%;
+  max-width: 900px;
+}
+
+.landing-logo-big img {
+  width: 100%;
+  height: auto;
+}
+
+.landing-vertical-text {
+  position: absolute;
+  right: 40px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-menu);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
 }
 
 .landing-bio {
@@ -6245,8 +6273,8 @@ body.dark-mode .admin-page .form-group textarea:focus {
 }
 
 .design-alternate .page::after {
-  background: linear-gradient(160deg, #0a0e14 0%, #111922 40%, #0d1820 100%);
-  opacity: 0.92;
+  background: linear-gradient(180deg, #0C52BA 0%, #175268 0%, #1E5F5D 62%, #106A3D 100%);
+  opacity: 1;
 }
 
 /* -- Header : barre flottante avec glassmorphism -- */
@@ -6257,7 +6285,8 @@ body.dark-mode .admin-page .form-group textarea:focus {
   background: rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(30px) saturate(1.4);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.40);
+  height: 64px;
   left: 0;
   right: 0;
   width: auto;
@@ -6291,14 +6320,13 @@ body.dark-mode .admin-page .form-group textarea:focus {
 }
 
 .design-alternate .header-nav-right button:hover {
-  background: rgba(255, 204, 0, 0.08);
-  color: #FFCC00;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
 }
 
 .design-alternate .header-nav-right button.active {
-  background: rgba(255, 204, 0, 0.12);
-  color: #FFCC00;
-  box-shadow: 0 0 20px rgba(255, 204, 0, 0.08);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
 }
 
 /* Toggles design/lang plus subtils */
@@ -6316,86 +6344,82 @@ body.dark-mode .admin-page .form-group textarea:focus {
   box-shadow: 0 0 15px rgba(255, 204, 0, 0.1);
 }
 
-/* -- Landing page : layout cinéma immersif -- */
+/* -- Landing page : logo géant plein écran -- */
 .design-alternate .landing-page {
-  min-height: calc(100vh - 120px);
+  min-height: 100vh;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   max-width: 100%;
-  padding: 100px 60px 120px;
+  width: 100vw;
+  padding: 0;
+  margin: 0;
+  position: relative;
+  overflow: hidden;
 }
 
-.design-alternate .landing-content {
-  max-width: 950px;
-  text-align: left;
-  margin: 0 auto;
+.design-alternate .landing-logo-big {
+  width: 100%;
+  max-width: none;
+  padding: 80px 20px 0;
+  box-sizing: border-box;
 }
 
-.design-alternate .landing-subtitle {
-  font-size: 26px;
+.design-alternate .landing-logo-big img {
+  width: 100%;
+  height: auto;
+}
+
+.design-alternate .landing-tagline {
+  margin-top: -15px;
+  margin-left: 2%;
+  font-family: var(--font-menu);
+  font-size: 28px;
   font-weight: 400;
   letter-spacing: 0.04em;
-  color: #d2d2d2;
-  margin: 0 0 8px 0;
-  text-align: left;
   text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: left;
+  padding: 0;
+  display: block;
 }
 
-.design-alternate .landing-logo {
-  margin: 0 0 50px 0;
-  position: relative;
-}
-
-.design-alternate .landing-logo img {
-  max-width: 950px;
-  filter: drop-shadow(0 0 60px rgba(255, 204, 0, 0.08));
-  animation: alt-logo-glow 6s ease-in-out infinite alternate;
-}
-
-@keyframes alt-logo-glow {
-  0%   { filter: drop-shadow(0 0 40px rgba(255, 204, 0, 0.05)); }
-  100% { filter: drop-shadow(0 0 80px rgba(255, 204, 0, 0.12)); }
-}
-
-.design-alternate .landing-bio {
+.design-alternate .landing-bio-section {
+  width: 100%;
+  padding: 40px 20px 50px;
+  box-sizing: border-box;
   text-align: center;
-  max-width: 850px;
-  margin: 0 auto;
-  font-size: 14px;
-  font-weight: 400;
-  line-height: 1.8;
-  color: rgba(255, 255, 255, 0.5);
-  letter-spacing: 0.01em;
 }
 
-.design-alternate .landing-bio p {
-  margin: 0 0 18px 0;
+.design-alternate .landing-bio-section p {
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 0 auto 20px;
+  max-width: 900px;
 }
 
-/* News en bas, centrée, avec séparateur */
-.design-alternate .landing-news {
-  margin-top: 50px;
-  max-width: 500px;
-  opacity: 0.5;
-  position: relative;
-  padding-top: 30px;
+.design-alternate .landing-bio-section p:last-child {
+  margin-bottom: 0;
 }
 
-.design-alternate .landing-news::before {
-  content: '';
+.design-alternate .landing-vertical-text {
   position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 40px;
-  height: 1px;
-  background: rgba(255, 204, 0, 0.3);
-}
-
-.design-alternate .landing-news:hover {
-  opacity: 0.9;
+  right: 40px;
+  top: 50%;
+  transform: translateY(-50%) rotate(90deg);
+  transform-origin: center center;
+  font-family: var(--font-menu);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
 }
 
 /* -- Content pages : aéré et élégant -- */
@@ -6429,11 +6453,34 @@ body.dark-mode .admin-page .form-group textarea:focus {
   background: var(--accent-gold);
 }
 
-/* -- Footer : encore plus glass -- */
+/* -- Footer : même glass que le header -- */
 .design-alternate .site-footer {
-  background: rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(30px) saturate(1.3);
-  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(30px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.40);
+  height: 64px;
+  margin: 0 30px 15px;
+  padding: 0 28px;
+  left: 0;
+  right: 0;
+  width: auto;
+  display: flex;
+  align-items: center;
+}
+
+.design-alternate .footer-content {
+  height: 100%;
+  align-items: center;
+}
+
+.design-alternate .social-icon-link {
+  width: 42px;
+  height: 42px;
+  font-size: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .design-alternate .social-icon-link {
@@ -6446,25 +6493,146 @@ body.dark-mode .admin-page .form-group textarea:focus {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 0 15px var(--hover-color, var(--accent-mint));
 }
 
-/* -- VRSTL : subtil -- */
+/* -- VRSTL : visible, inséré dans le bord droit -- */
 .design-alternate .vrstl-fixed {
-  opacity: 0.4;
+  opacity: 0.85;
 }
 
 .design-alternate .vrstl-fixed:hover {
-  opacity: 0.8;
+  opacity: 1;
 }
 
-/* -- Event cards -- */
+/* -- Landing events section -- */
+.design-alternate .landing-events-section {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px 120px;
+  box-sizing: border-box;
+}
+
+/* -- Event cards : liquid glass -- */
+.design-alternate .upcoming-events {
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 28px;
+}
+
+.design-alternate .event-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.40);
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(30px) saturate(1.4);
+}
+
+.design-alternate .event-link {
+  position: relative;
+  z-index: 2;
+}
+
+.design-alternate .event-content {
+  background: transparent;
+  border: none;
+  padding: 12px;
+  gap: 12px;
+}
+
+.design-alternate .event-content:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
 .design-alternate .event-banner {
   border-radius: 10px;
   overflow: hidden;
+  aspect-ratio: auto;
+  height: auto;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
 }
 
+.design-alternate .event-banner img {
+  object-fit: contain;
+  width: 100%;
+  height: auto;
+}
+
+.design-alternate .event-date {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.design-alternate .event-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.design-alternate .event-location {
+  font-size: 13px;
+}
+
 .design-alternate .event-banner:hover {
-  transform: translateY(-6px) scale(1.02);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  transform: translateY(-4px) scale(1.01);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* -- Past years bar : même glass que le header -- */
+.design-alternate .past-years-bar {
+  display: flex;
+  gap: 0;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: visible;
+  flex-wrap: wrap;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(30px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.40);
+  margin-top: 25px;
+  padding: 4px;
+}
+
+/* Bulle animée qui se déplace — même glass que le header */
+.design-alternate .past-years-bubble {
+  position: absolute;
+  z-index: 1;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(30px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.40);
+  pointer-events: none;
+}
+
+.design-alternate .past-year-btn {
+  display: flex;
+  justify-content: space-around;
+  position: relative;
+  z-index: 3;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.0em;
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.design-alternate .past-year-btn:hover {
+  color: #ffffff;
+}
+
+.design-alternate .past-year-btn.active {
+  color: #ffffff;
+  font-weight: 600;
 }
 
 /* -- Store cards -- */
@@ -6512,13 +6680,8 @@ body.dark-mode .admin-page .form-group textarea:focus {
 
 /* -- Responsive -- */
 @media (max-width: 1024px) {
-  .design-alternate .landing-logo img {
-    max-width: 500px;
-  }
-
-  .design-alternate .landing-bio {
-    font-size: 13px;
-    max-width: 550px;
+  .design-alternate .landing-logo-big {
+    padding: 70px 15px;
   }
 }
 
@@ -6532,23 +6695,13 @@ body.dark-mode .admin-page .form-group textarea:focus {
     padding: 10px 16px;
   }
 
-  .design-alternate .landing-page {
-    padding: 80px 25px 100px;
+  .design-alternate .landing-logo-big {
+    padding: 60px 10px;
   }
 
-  .design-alternate .landing-subtitle {
-    font-size: 18px;
-    letter-spacing: 0.04em;
-  }
-
-  .design-alternate .landing-logo img {
-    max-width: 300px;
-  }
-
-  .design-alternate .landing-bio {
-    font-size: 12px;
-    max-width: 100%;
-    line-height: 1.6;
+  .design-alternate .site-footer {
+    margin: 0 15px 10px;
+    border-radius: 12px;
   }
 
   .design-alternate .content-wrapper {

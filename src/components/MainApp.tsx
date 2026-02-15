@@ -175,13 +175,14 @@ export default function MainApp() {
   const handleSectionChange = (section: string, prefill?: { subject: string; message: string }) => {
     setActiveSection(section);
     setMenuOpen(false);
-    
+    window.scrollTo({ top: 0 });
+
     if (prefill) {
       setMessagePrefill(prefill);
     } else {
       setMessagePrefill(null);
     }
-    
+
     // Tracking Facebook Pixel pour les interactions
     trackFacebookEvent('ViewContent', {
       content_name: section,
@@ -348,7 +349,7 @@ export default function MainApp() {
             <img
               src={import.meta.env.BASE_URL + "logo/mauditemachine-logo-gold.png"}
               alt="Maudite Machine"
-              onClick={() => handleSectionChange("home")}
+              onClick={() => { handleSectionChange("home"); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
             />
           </div>
           
@@ -405,22 +406,16 @@ export default function MainApp() {
         {/* Page d'accueil - Landing page */}
         {activeSection === "home" ? (
           <div className="landing-page">
-            <div className="landing-content">
-              <h1 className="landing-subtitle">{t.home.subtitle}</h1>
-              <div className="landing-logo">
-                <img
-                  src={import.meta.env.BASE_URL + "logo/mauditemachine-logo-yellow.svg"}
-                  alt="Maudite Machine"
-                />
-              </div>
-              <div className="landing-bio">
-                {displayBioText.split('\n\n').map((paragraph, index) => (
-                  <p key={index}>{paragraph}</p>
-                ))}
-              </div>
+            <div className="landing-logo-big">
+              <img
+                src={import.meta.env.BASE_URL + "logo/LogoBig.svg"}
+                alt="Maudite Machine"
+              />
+              <div className="landing-tagline">{t.home.subtitle}</div>
             </div>
-            <div className="landing-news">
-              <NewsMessages />
+            <div className="landing-bio-section">
+              <p>Maudite Machine is a Canadian DJ and producer known for his raw, hypnotic approach to minimal and indie dance. Born from the Montreal underground, he has performed at major events including Piknic Électronik, Eclipse Festival, and the iconic Techno Parade in Paris, delivering sets that blur the line between intensity and atmosphere across Canada and Europe.</p>
+              <p>As the founder of VRSTL Records, he curates a sound that embraces tension, groove, and experimentation, having shared the stage with electronic music legends like Carl Craig, Ellen Allien, The Hacker, Popof, and Agoria. His collaborations with influential artists reflect a constant drive to push boundaries and redefine the underground with a distinct sonic signature, championing bold artists who share his vision for the darker, experimental sides of electronic music.</p>
             </div>
           </div>
         ) : (

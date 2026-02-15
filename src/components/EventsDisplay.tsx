@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef, useCallback } from 'react'
 import EventCard from './EventCard'
 import { loadEvents } from '../utils/adminApi'
 import { useApp } from '../context/AppContext'
@@ -42,6 +42,9 @@ export default function EventsDisplay({ limit, showPastEventsButton = false }: E
   const [showPastEvents, setShowPastEvents] = useState(false)
   const [expandedYears, setExpandedYears] = useState<number[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [bubbleStyle, setBubbleStyle] = useState<React.CSSProperties>({ opacity: 0 })
+  const yearsBarRef = useRef<HTMLDivElement>(null)
+  const yearBtnRefs = useRef<Map<number, HTMLButtonElement>>(new Map())
 
   useEffect(() => {
     let cancelled = false
@@ -87,12 +90,35 @@ export default function EventsDisplay({ limit, showPastEventsButton = false }: E
     return () => { cancelled = true }
   }, [limit])
 
+  const updateBubble = useCallback((year: number | null) => {
+    if (!year || !yearsBarRef.current) {
+      setBubbleStyle({ opacity: 0, transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' })
+      return
+    }
+    const btn = yearBtnRefs.current.get(year)
+    const bar = yearsBarRef.current
+    if (btn && bar) {
+      const barRect = bar.getBoundingClientRect()
+      const btnRect = btn.getBoundingClientRect()
+      setBubbleStyle({
+        opacity: 1,
+        left: btnRect.left - barRect.left,
+        top: btnRect.top - barRect.top,
+        width: btnRect.width,
+        height: btnRect.height,
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      })
+    }
+  }, [])
+
   const toggleYear = (year: number) => {
-    setExpandedYears(prev => 
-      prev.includes(year) 
-        ? prev.filter(y => y !== year)
-        : [...prev, year]
-    );
+    setExpandedYears(prev => {
+      const isClosing = prev.includes(year)
+      const next = isClosing ? prev.filter(y => y !== year) : [year]
+      // Update bubble after state change
+      setTimeout(() => updateBubble(isClosing ? null : year), 0)
+      return next
+    })
   };
 
   const formatDate = (dateString: string) => {
@@ -126,62 +152,54 @@ export default function EventsDisplay({ limit, showPastEventsButton = false }: E
       {/* Section événements passés */}
       {showPastEventsButton && pastEventsData.length > 0 && (
         <div className="past-events-section">
-          <button 
-            className="past-events-toggle"
-            onClick={() => setShowPastEvents(!showPastEvents)}
-          >
-            <span className="toggle-icon">{showPastEvents ? '−' : '+'}</span>
-            <span className="toggle-text">{t.events.pastEvents}</span>
-            <span className="toggle-count">{getTotalShows()} {t.events.shows}</span>
-          </button>
-          
-          {showPastEvents && (
-            <div className="past-events-timeline">
-              {pastEventsData.map((yearData) => (
-                <div key={yearData.year} className="year-section">
-                  <button 
-                    className={`year-header ${expandedYears.includes(yearData.year) ? 'expanded' : ''}`}
-                    onClick={() => toggleYear(yearData.year)}
+          {/* Barre horizontale des années */}
+          <div className="past-years-bar" ref={yearsBarRef}>
+            <div className="past-years-bubble" style={bubbleStyle} />
+            {pastEventsData.map((yearData) => (
+              <button
+                key={yearData.year}
+                ref={(el) => { if (el) yearBtnRefs.current.set(yearData.year, el) }}
+                className={`past-year-btn ${expandedYears.includes(yearData.year) ? 'active' : ''}`}
+                onClick={() => toggleYear(yearData.year)}
+              >
+                {yearData.year}
+              </button>
+            ))}
+          </div>
+
+          {/* Shows de l'année sélectionnée */}
+          {pastEventsData.map((yearData) => (
+            expandedYears.includes(yearData.year) && (
+              <div key={yearData.year} className="year-shows">
+                {yearData.shows.map((show, idx) => (
+                  <a
+                    key={idx}
+                    href={show.facebook_event || '#'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="past-show-card"
                   >
-                    <span className="year-number">{yearData.year}</span>
-                    <span className="year-count">{yearData.shows.length} {t.events.shows}</span>
-                    <span className="year-arrow">{expandedYears.includes(yearData.year) ? '▼' : '▶'}</span>
-                  </button>
-                  
-                  {expandedYears.includes(yearData.year) && (
-                    <div className="year-shows">
-                      {yearData.shows.map((show, idx) => (
-                        <a 
-                          key={idx}
-                          href={show.facebook_event || '#'}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="past-show-card"
-                        >
-                          <div className="show-date">{formatDate(show.date)}</div>
-                          <div className="show-details">
-                            <div className="show-name">{show.name}</div>
-                            <div className="show-venue">{show.venue}, {show.city}</div>
-                            {show.lineup && show.lineup.length > 0 && (
-                              <div className="show-lineup">
-                                w/ {show.lineup.slice(0, 4).join(', ')}
-                                {show.lineup.length > 4 && '...'}
-                              </div>
-                            )}
-                          </div>
-                          {show.facebook_event && (
-                            <div className="show-link">
-                              <i className="fab fa-facebook"></i>
-                            </div>
-                          )}
-                        </a>
-                      ))}
+                    <div className="show-date">{formatDate(show.date)}</div>
+                    <div className="show-details">
+                      <div className="show-name">{show.name}</div>
+                      <div className="show-venue">{show.venue}, {show.city}</div>
+                      {show.lineup && show.lineup.length > 0 && (
+                        <div className="show-lineup">
+                          w/ {show.lineup.slice(0, 4).join(', ')}
+                          {show.lineup.length > 4 && '...'}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+                    {show.facebook_event && (
+                      <div className="show-link">
+                        <i className="fab fa-facebook"></i>
+                      </div>
+                    )}
+                  </a>
+                ))}
+              </div>
+            )
+          ))}
         </div>
       )}
     </div>
