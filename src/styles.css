@@ -943,16 +943,16 @@ body {
   background: rgba(255, 255, 255, 0.08);
   border: none;
   color: rgba(255, 255, 255, 0.7);
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  font-size: 13px;
+  font-size: 11px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
   padding: 0;
   margin-left: 2px;
 }
@@ -960,6 +960,12 @@ body {
 .now-detach:hover {
   background: rgba(255, 255, 255, 0.2);
   color: white;
+}
+
+.now-detach-open {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  font-size: 13px;
 }
 
 /* ====== Panneau détaché (mini-lecteur) ====== */
@@ -982,36 +988,36 @@ body {
   animation: detach-slide-up 0.3s ease-out;
 }
 
-/* Bouton fermer en haut à droite */
+/* Bouton fermer au-dessus du panneau */
 .detached-close {
   position: absolute;
-  top: -15px;
-  right: -10px;
-  background: rgb(53 53 53 / 60%);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  top: -18px;
+  right: -8px;
+  background: rgb(40 40 40 / 85%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   color: rgba(255, 255, 255, 0.9);
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  font-size: 14px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
   padding: 0;
-  z-index: 1;
+  z-index: 10000;
 }
 
 .detached-close:hover {
-  background: rgb(53 53 53 / 80%);
+  background: rgb(60 60 60 / 95%);
   color: white;
+  transform: scale(1.1);
 }
 
 @keyframes detach-slide-up {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(30px);
   }
   to {
     opacity: 1;

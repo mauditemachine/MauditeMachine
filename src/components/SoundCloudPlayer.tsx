@@ -393,7 +393,7 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
   function formatTrackDisplay(title: string): string {
     if (!title) return ''
     const clean = title.replace(/^Maudite Machine\s*[-–—]\s*/i, '').replace(/\s*\([^)]*\)\s*$/g, '').trim()
-    return clean ? `Maudite Machine - ${clean} (Original Mix)` : ''
+    return clean || ''
   }
 
   // Fermer le panneau si clic en dehors
@@ -429,8 +429,8 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
             onChange={(e) => widgetRef.current?.seekTo(Number(e.target.value))}
           />
           <span className="now-time">{formatMs(positionMs)} / {formatMs(durationMs)}</span>
-          <button className="now-detach" onClick={() => setDetached(!detached)} aria-label="Playlist">
-            {detached ? '✕' : '☰'}
+          <button className={`now-detach ${detached ? 'now-detach-open' : ''}`} onClick={() => setDetached(!detached)} aria-label="Playlist">
+            {detached ? '✕' : '▲'}
           </button>
         </div>
         <div className="now-track-info">
@@ -449,7 +449,9 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
       {/* Panneau détaché — rendu via portal au root pour que backdrop-filter fonctionne */}
       {detached && createPortal(
         <div className="sc-detached-panel" ref={panelRef}>
-          <button className="detached-close" onClick={() => setDetached(false)} aria-label="Fermer">✕</button>
+          <button className="detached-close" onClick={() => setDetached(false)} aria-label="Fermer">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+          </button>
           <div className="detached-now">
             {coverUrl && (
               <img className="detached-cover" src={coverUrl} alt="cover" />
