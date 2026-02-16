@@ -396,11 +396,13 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
     return clean || ''
   }
 
-  // Fermer le panneau si clic en dehors
+  // Fermer le panneau si clic en dehors (sauf sur le bouton toggle du footer)
   useEffect(() => {
     if (!detached) return
     const handleClickOutside = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+      const target = e.target as HTMLElement
+      if (target.closest('.now-detach')) return
+      if (panelRef.current && !panelRef.current.contains(target)) {
         setDetached(false)
       }
     }
@@ -448,10 +450,11 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
 
       {/* Panneau détaché — rendu via portal au root pour que backdrop-filter fonctionne */}
       {detached && createPortal(
-        <div className="sc-detached-panel" ref={panelRef}>
+        <div className="sc-detached-wrapper" ref={panelRef}>
           <button className="detached-close" onClick={() => setDetached(false)} aria-label="Fermer">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
           </button>
+          <div className="sc-detached-panel">
           <div className="detached-now">
             {coverUrl && (
               <img className="detached-cover" src={coverUrl} alt="cover" />
@@ -493,6 +496,7 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
               </li>
             ))}
           </ul>
+          </div>
         </div>,
         document.body
       )}
