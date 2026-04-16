@@ -1,5 +1,40 @@
 // API utilitaire pour l'administration
-// Dans un vrai projet, ceci ferait des appels à un backend
+// En local: sauvegarde via server.js (localhost:3001)
+// En production: sauvegarde via API Render → commit GitHub → auto-deploy
+
+const PROD_API_URL = import.meta.env.VITE_API_URL || '';
+const ADMIN_API_KEY = import.meta.env.VITE_ADMIN_API_KEY || '';
+
+function getApiUrl(): string {
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  return isLocalhost ? 'http://localhost:3001' : PROD_API_URL;
+}
+
+function getApiHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  if (!isLocalhost && ADMIN_API_KEY) {
+    headers['x-api-key'] = ADMIN_API_KEY;
+  }
+  return headers;
+}
+
+async function callApi(endpoint: string, data: any): Promise<boolean> {
+  const apiUrl = getApiUrl();
+  if (!apiUrl) return false;
+  try {
+    const res = await fetch(`${apiUrl}${endpoint}`, {
+      method: 'POST',
+      headers: getApiHeaders(),
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    return true;
+  } catch (err) {
+    console.warn(`API save failed (${endpoint}):`, err);
+    return false;
+  }
+}
 
 export interface Message {
   id: string;
@@ -37,19 +72,7 @@ export const saveMessages = async (messages: Message[]): Promise<{ success: bool
         }
       } else throw e;
     }
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isLocalhost) {
-      try {
-        const res = await fetch('http://localhost:3001/api/save-messages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: json
-        });
-        if (!res.ok) throw new Error('Server error');
-      } catch (err) {
-        console.warn('API save failed (server down?), data saved to localStorage');
-      }
-    }
+    await callApi('/api/save-messages', messages);
     window.dispatchEvent(new CustomEvent('messagesUpdated', { detail: { key: 'messages', data: messages } }));
     return { success: true, message: 'Saved!' };
   } catch (error: any) {
@@ -127,8 +150,7 @@ export const saveEvents = async (events: Event[]): Promise<{ success: boolean; m
     try { localStorage.setItem('admin_events_backup', json); } catch (e: any) {
       if (e?.name === 'QuotaExceededError') { localStorage.removeItem('admin_events_backup'); localStorage.setItem('admin_events_backup', json); } else throw e;
     }
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isLocalhost) { try { const r = await fetch('http://localhost:3001/api/save-events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json }); if (!r.ok) throw new Error('Server error'); } catch (_) { console.warn('API save failed, data in localStorage'); } }
+    await callApi('/api/save-events', events);
     window.dispatchEvent(new CustomEvent('eventsUpdated', { detail: { key: 'events', data: events } }));
     return { success: true, message: 'Saved!' };
   } catch (error: any) {
@@ -180,8 +202,7 @@ export const saveMerchItems = async (merchItems: MerchItem[]): Promise<{ success
     try { localStorage.setItem('admin_merch_backup', json); } catch (e: any) {
       if (e?.name === 'QuotaExceededError') { localStorage.removeItem('admin_merch_backup'); localStorage.setItem('admin_merch_backup', json); } else throw e;
     }
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (isLocalhost) { try { const r = await fetch('http://localhost:3001/api/save-merch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json }); if (!r.ok) throw new Error('Server error'); } catch (_) { console.warn('API save failed, data in localStorage'); } }
+    await callApi('/api/save-merch', merchItems);
     window.dispatchEvent(new CustomEvent('merchItemsUpdated', { detail: { key: 'merchItems', data: merchItems } }));
     return { success: true, message: 'Saved!' };
   } catch (error: any) {
@@ -215,7 +236,8 @@ export const loadMerchItems = async (forAdmin = false): Promise<MerchItem[]> => 
       sizes: item.sizes || { S: true, M: true, L: true, XL: true }
     }));
     const hasChanges = cleanedItems.some((item: MerchItem, index: number) => item.caption !== merchItems[index].caption);
-    if (hasChanges && typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    if (hasChanges && isLocalhost) {
       await saveMerchItems(cleanedItems);
       return cleanedItems;
     }
