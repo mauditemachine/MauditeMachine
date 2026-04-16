@@ -12,6 +12,7 @@ const FULL_PREFIX = 'images/goodies/full/';
 const goodies: GoodieItem[] = [
   // Sticker
   { src: 'images/goodies/sticker.png', downloadSrc: FULL_PREFIX + 'sticker.png', title: 'Custom Sticker', category: 'sticker' },
+  { src: 'images/goodies/sticker-coagule.webp', downloadSrc: FULL_PREFIX + 'sticker-coagule.webp', title: 'Sticker Coagule', category: 'sticker' },
   // Desktop Wallpapers
   { src: 'images/goodies/wallpaper-desktop-1.png', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-1.jpg', title: 'Desktop Wallpaper 1', category: 'wallpaper-desktop' },
   { src: 'images/goodies/wallpaper-desktop-2.png', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-2.jpg', title: 'Desktop Wallpaper 2', category: 'wallpaper-desktop' },
