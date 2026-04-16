@@ -5,5 +5,6 @@ export default defineCliConfig({
     projectId: 'ofkhqlly',
     dataset: 'production',
   },
+  studioHost: 'mauditemachine',
   autoUpdates: true,
 })
