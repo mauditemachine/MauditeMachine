@@ -12,13 +12,14 @@ export default function HeroSlideshow({
   shuffled = true,
 }: HeroSlideshowProps) {
   const slides = useMemo(() => {
-    if (!shuffled) return images
-    const arr = [...images]
-    for (let i = arr.length - 1; i > 0; i--) {
+    if (!shuffled || images.length <= 1) return images
+    // Garde la première image en premier, shuffle le reste
+    const [first, ...rest] = images
+    for (let i = rest.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1))
-      ;[arr[i], arr[j]] = [arr[j], arr[i]]
+      ;[rest[i], rest[j]] = [rest[j], rest[i]]
     }
-    return arr
+    return [first, ...rest]
   }, [images, shuffled])
 
   const [index, setIndex] = useState(0)

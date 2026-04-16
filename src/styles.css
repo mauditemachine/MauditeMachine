@@ -536,19 +536,19 @@ body {
   background-position: center;
   background-repeat: no-repeat;
   opacity: 0;
-  transition: opacity 2.5s ease-in-out;
-  will-change: opacity;
-  transform: scale(1.05);
+  transition: opacity 2.5s ease-in-out, transform 2.5s ease-in-out;
+  will-change: opacity, transform;
+  transform: scale(1);
 }
 
 .hero-slide.active {
   opacity: 1;
-  animation: heroKenBurns 18s ease-in-out infinite alternate;
+  animation: heroZoomIn 9s linear forwards;
 }
 
-@keyframes heroKenBurns {
-  from { transform: scale(1.05) translate(0, 0); }
-  to   { transform: scale(1.15) translate(-1%, -0.5%); }
+@keyframes heroZoomIn {
+  from { transform: scale(1); }
+  to   { transform: scale(1.18); }
 }
 
 .hero-slideshow-overlay {
