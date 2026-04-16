@@ -447,7 +447,7 @@ body {
 /* Hero logo centré (remplace le patchwork sur la landing) */
 .landing-logo-hero {
   width: 100%;
-  max-width: 460px;
+  max-width: 780px;
   margin: 30px auto 20px;
   display: flex;
   justify-content: center;

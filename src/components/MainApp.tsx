@@ -435,7 +435,7 @@ export default function MainApp() {
             <HeroSlideshow images={HERO_IMAGES} intervalMs={6000} />
             <div className="landing-logo-hero">
               <img
-                src={import.meta.env.BASE_URL + "logo/LogoBig.svg"}
+                src={import.meta.env.BASE_URL + "logo/LogoStack.svg"}
                 alt="Maudite Machine"
                 className="landing-logo-hero-img"
               />
