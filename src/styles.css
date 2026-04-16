@@ -557,7 +557,16 @@ body {
   background:
     linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 40%, rgba(0,0,0,0.75) 100%),
     radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.4) 100%);
+  transition: background 0.8s ease;
 }
+
+/* Fond global assombri quand on n'est pas sur la home */
+.global-bg.dim .hero-slideshow-overlay {
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.78) 40%, rgba(0,0,0,0.9) 100%),
+    radial-gradient(ellipse at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.6) 100%);
+}
+.global-bg.dim .hero-slide { filter: saturate(0.6) brightness(0.7); }
 
 /* Le contenu de la landing doit être au-dessus du slideshow (sauf éléments avec position propre) */
 .landing-page > .landing-bio-section {

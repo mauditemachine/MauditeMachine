@@ -419,12 +419,16 @@ export default function MainApp() {
         </div>
       </header>
 
+      {/* Slideshow global en fond (visible sur toutes les pages, assombri hors home) */}
+      <div className={`global-bg ${activeSection !== 'home' ? 'dim' : ''}`}>
+        <HeroSlideshow images={HERO_IMAGES} intervalMs={6000} />
+      </div>
+
       {/* MAIN CONTENT */}
       <main className="site-main">
         {/* Page d'accueil - Landing page */}
         {activeSection === "home" ? (
           <div className="landing-page">
-            <HeroSlideshow images={HERO_IMAGES} intervalMs={6000} />
             <div className={`landing-logo-hero ${heroLogoFaded ? 'faded' : ''}`}>
               <img
                 src={import.meta.env.BASE_URL + "logo/LogoStack.svg"}
