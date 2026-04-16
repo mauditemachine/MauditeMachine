@@ -536,19 +536,14 @@ body {
   background-position: center;
   background-repeat: no-repeat;
   opacity: 0;
-  transition: opacity 2.5s ease-in-out, transform 2.5s ease-in-out;
-  will-change: opacity, transform;
   transform: scale(1);
+  transition: opacity 2.2s ease-in-out, transform 12s linear;
+  will-change: opacity, transform;
 }
 
 .hero-slide.active {
   opacity: 1;
-  animation: heroZoomIn 9s linear forwards;
-}
-
-@keyframes heroZoomIn {
-  from { transform: scale(1); }
-  to   { transform: scale(1.18); }
+  transform: scale(1.18);
 }
 
 .hero-slideshow-overlay {
@@ -574,8 +569,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-slide.active { animation: none; }
-  .hero-slide { transition: opacity 0.3s ease; }
+  .hero-slide { transition: opacity 0.3s ease; transform: none !important; }
+  .hero-slide.active { transform: none !important; }
 }
 
 /* Logo VRSTL collé à droite comme un marque-page */
