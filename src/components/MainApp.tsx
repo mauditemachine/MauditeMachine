@@ -10,9 +10,10 @@ import Goodies from "./Goodies";
 import SocialIcon from "./SocialIcon";
 import HeroSlideshow from "./HeroSlideshow";
 
+const HERO_SKIP = new Set([10, 16, 18, 19]); // hero-11, 17, 19, 20 supprimés
 const HERO_IMAGES = Array.from({ length: 21 }, (_, i) =>
   `${import.meta.env.BASE_URL}images/hero/hero-${String(i + 1).padStart(2, '0')}.webp`
-).filter((_, i) => i !== 16); // hero-17 supprimé (screenshot)
+).filter((_, i) => !HERO_SKIP.has(i));
 
 // Supprimer les erreurs SoundCloud de la console
 const suppressWidgetErrors = () => {
