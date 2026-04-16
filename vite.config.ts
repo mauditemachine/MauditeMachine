@@ -25,7 +25,7 @@ export default defineConfig(({ command }) => ({
     }
   ],
   base: command === 'build' ? '/' : '/',
-  server: { port: 5173, open: true },
+  server: { port: Number(process.env.PORT) || 5173, open: !process.env.PORT },
   publicDir: 'public'
 }))
 
