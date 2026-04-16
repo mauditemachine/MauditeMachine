@@ -446,12 +446,23 @@ body {
 
 /* Hero logo centré (remplace le patchwork sur la landing) */
 .landing-logo-hero {
-  width: 100%;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90vw;
   max-width: 780px;
-  margin: 30px auto 20px;
   display: flex;
   justify-content: center;
   filter: drop-shadow(0 6px 24px rgba(0, 0, 0, 0.65));
+  opacity: 1;
+  transition: opacity 1.5s ease-out;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.landing-logo-hero.faded {
+  opacity: 0;
 }
 
 .landing-logo-hero-img {
@@ -460,15 +471,49 @@ body {
   display: block;
 }
 
-/* Tagline + bio doivent être lisibles sur slideshow */
-.landing-page .landing-tagline {
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9), 0 0 4px rgba(0, 0, 0, 0.5);
-  color: rgba(255, 255, 255, 0.95);
+/* Bio en bas à gauche, aligné left (override design-alternate) */
+.page .landing-page .landing-bio-section,
+.page.design-alternate .landing-page .landing-bio-section {
+  position: fixed;
+  bottom: 110px;
+  left: 30px;
+  right: auto;
+  top: auto;
+  max-width: 480px;
+  width: auto;
+  padding: 0;
+  text-align: left;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+  z-index: 2;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.9);
 }
 
-.landing-page .landing-bio-section,
-.landing-page .landing-bio {
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+.page .landing-page .landing-bio-section p,
+.page.design-alternate .landing-page .landing-bio-section p {
+  margin: 0 0 10px 0;
+  max-width: none;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.page .landing-page .landing-bio-section p:last-child,
+.page.design-alternate .landing-page .landing-bio-section p:last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+  .page .landing-page .landing-bio-section,
+  .page.design-alternate .landing-page .landing-bio-section {
+    bottom: 80px;
+    left: 15px;
+    right: 15px;
+    max-width: none;
+    font-size: 11px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -514,10 +559,9 @@ body {
     radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.4) 100%);
 }
 
-/* Le contenu de la landing doit être au-dessus du slideshow */
-.landing-page > *:not(.hero-slideshow) {
-  position: relative;
-  z-index: 1;
+/* Le contenu de la landing doit être au-dessus du slideshow (sauf éléments avec position propre) */
+.landing-page > .landing-bio-section {
+  z-index: 2;
 }
 
 @media (prefers-reduced-motion: reduce) {

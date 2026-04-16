@@ -147,26 +147,13 @@ export default function MainApp() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [bgUrl, setBgUrl] = useState<string>("");
   const [activeSection, setActiveSection] = useState("home");
+  const [heroLogoFaded, setHeroLogoFaded] = useState(false);
 
-  // Animation aléatoire des lettres du logo patchwork
+  // Fade-out du logo central après 3s sur la home
   useEffect(() => {
-    if (activeSection !== "home") return
-    const interval = setInterval(() => {
-      const letters = document.querySelectorAll('.logo-letter')
-      if (!letters.length) return
-      // Faire disparaître plusieurs lettres à la fois pour un effet plus visible
-      const count = Math.floor(Math.random() * 3) + 2
-      for (let n = 0; n < count; n++) {
-        const idx = Math.floor(Math.random() * letters.length)
-        const el = letters[idx] as HTMLElement
-        el.style.transition = 'opacity 1.2s ease'
-        el.style.opacity = '0'
-        setTimeout(() => {
-          el.style.opacity = '1'
-        }, 1200)
-      }
-    }, 500)
-    return () => clearInterval(interval)
+    if (activeSection !== "home") { setHeroLogoFaded(false); return; }
+    const t = setTimeout(() => setHeroLogoFaded(true), 3000);
+    return () => clearTimeout(t);
   }, [activeSection])
 
   const handleBgChange = (url: string) => {
@@ -434,14 +421,13 @@ export default function MainApp() {
         {activeSection === "home" ? (
           <div className="landing-page">
             <HeroSlideshow images={HERO_IMAGES} intervalMs={6000} />
-            <div className="landing-logo-hero">
+            <div className={`landing-logo-hero ${heroLogoFaded ? 'faded' : ''}`}>
               <img
                 src={import.meta.env.BASE_URL + "logo/LogoStack.svg"}
                 alt="Maudite Machine"
                 className="landing-logo-hero-img"
               />
             </div>
-            <div className="landing-tagline">{t.home.subtitle}</div>
             <div className="landing-bio-section">
               <p>Maudite Machine is a Canadian DJ and producer known for his raw, hypnotic approach to minimal and indie dance. Born from the Montreal underground, he has performed at major events including Piknic Électronik, Eclipse Festival, and the iconic Techno Parade in Paris, delivering sets that blur the line between intensity and atmosphere across Canada and Europe.</p>
               <p>As the founder of VRSTL Records, he curates a sound that embraces tension, groove, and experimentation, having shared the stage with electronic music legends like Carl Craig, Ellen Allien, The Hacker, Popof, and Agoria. His collaborations with influential artists reflect a constant drive to push boundaries and redefine the underground with a distinct sonic signature, championing bold artists who share his vision for the darker, experimental sides of electronic music.</p>
