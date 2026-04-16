@@ -3297,19 +3297,19 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-top: none;
   border-radius: 0 0 8px 8px;
-  padding: 4px 8px;
+  padding: 10px 14px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 /* Individual show card */
 .past-show-card {
   display: grid;
-  grid-template-columns: 55px 1fr auto;
-  gap: 10px;
+  grid-template-columns: 90px 1fr auto;
+  gap: 16px;
   align-items: center;
-  padding: 6px 12px;
+  padding: 12px 18px;
   background: rgba(0, 0, 0, 0.2);
   border-radius: 10px;
   text-decoration: none;
@@ -3325,7 +3325,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 }
 
 .show-date {
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--accent-mint);
   text-transform: uppercase;
@@ -3336,27 +3336,27 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 }
 
 .show-name {
-  font-size: 12px;
+  font-size: 17px;
   font-weight: 600;
   color: white;
-  margin-bottom: 1px;
+  margin-bottom: 3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .show-venue {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.65);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .show-lineup {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.45);
-  margin-top: 4px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 5px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3364,7 +3364,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 
 .show-link {
   color: rgba(255, 255, 255, 0.4);
-  font-size: 16px;
+  font-size: 20px;
   transition: color 0.2s ease;
 }
 
