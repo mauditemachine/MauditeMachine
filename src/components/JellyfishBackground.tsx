@@ -1,23 +1,31 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useApp, THEMES } from '../context/AppContext'
 
 interface JellyfishBackgroundProps {
-  src?: string
+  srcHd?: string
+  srcMobile?: string
   poster?: string
 }
 
 /**
  * Fond video meduses fullscreen avec teinte adaptative selon le theme.
- * Utilise CSS filter (hue-rotate + saturate + brightness) pour recolorer
- * la video en live - aucun re-encodage necessaire.
+ * Sert la version 4K sur desktop, 1080p sur mobile (economie de data).
+ * Utilise grayscale(1) + multiply overlay pour teinter dynamiquement.
  */
 export default function JellyfishBackground({
-  src = '/videos/jellyfish.mp4',
+  srcHd = '/videos/jellyfish.mp4',         // 4K (16MB)
+  srcMobile = '/videos/jellyfish-1080.mp4', // 1080p (7.6MB)
   poster,
 }: JellyfishBackgroundProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const { theme } = useApp()
   const t = THEMES[theme]
+
+  // Choix de la source selon la largeur d'ecran
+  const [src] = useState(() => {
+    if (typeof window === 'undefined') return srcHd
+    return window.innerWidth <= 900 ? srcMobile : srcHd
+  })
 
   useEffect(() => {
     // Forcer le play apres mount (certains navigateurs bloquent autoplay sans interaction)
