@@ -447,31 +447,44 @@ body {
   position: relative;
 }
 
-/* Hero logo centré (remplace le patchwork sur la landing) */
+/* Hero logo central - fade in puis zoom infini */
 .landing-logo-hero {
   position: fixed;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
   width: 90vw;
   max-width: 780px;
   display: flex;
   justify-content: center;
-  filter: drop-shadow(0 6px 24px rgba(0, 0, 0, 0.65));
-  opacity: 1;
-  transition: opacity 1.5s ease-out;
+  filter: drop-shadow(0 6px 24px rgba(0, 0, 0, 0.75));
   pointer-events: none;
   z-index: 3;
+  /* Logo blanc via filter (SVG source est gold) */
+  transform-origin: center center;
+  animation: landing-logo-dramatic 5.5s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+}
+
+@keyframes landing-logo-dramatic {
+  0%   { opacity: 0;   transform: translate(-50%, -50%) scale(0.75); }
+  18%  { opacity: 1;   transform: translate(-50%, -50%) scale(1.0);  }
+  55%  { opacity: 1;   transform: translate(-50%, -50%) scale(1.05); }
+  100% { opacity: 0;   transform: translate(-50%, -50%) scale(6.5);  }
 }
 
 .landing-logo-hero.faded {
-  opacity: 0;
+  display: none;
 }
 
 .landing-logo-hero-img {
   width: 100%;
   height: auto;
   display: block;
+  /* Logo blanc : SVG gold -> blanc via filter */
+  filter: brightness(0) invert(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-logo-hero { animation: none; opacity: 1; }
 }
 
 /* Bio en bas à gauche, aligné left (override design-alternate) */
@@ -628,42 +641,36 @@ body {
   .hero-slide.active { transform: none !important; }
 }
 
-/* Logo VRSTL - bulle liquid glass detachee du bord */
+/* Logo VRSTL - bulle glass coherente avec header/footer */
 .vrstl-fixed {
   position: fixed;
   bottom: 110px;
   right: 22px;
   z-index: 999;
-  padding: 14px 20px;
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(22px) saturate(1.8);
-  -webkit-backdrop-filter: blur(22px) saturate(1.8);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 26px;
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+  padding: 14px 22px;
+  background: rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0.85;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .vrstl-fixed:hover {
   opacity: 1;
-  transform: translateY(-3px);
-  background: rgba(255, 255, 255, 0.10);
-  border-color: rgba(255, 255, 255, 0.25);
-  box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+  background: rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .vrstl-fixed img {
   width: 90px;
   height: auto;
   display: block;
-  border-radius: 0;
 }
 
 @media (max-width: 768px) {

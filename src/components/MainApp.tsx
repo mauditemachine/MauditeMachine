@@ -144,11 +144,10 @@ export default function MainApp() {
   const [activeSection, setActiveSection] = useState("home");
   const [heroLogoFaded, setHeroLogoFaded] = useState(false);
 
-  // Fade-out du logo central après 3s sur la home
+  // Animation CSS gere tout (5.5s). Rien a faire cote React.
+  // La variable heroLogoFaded reste pour compat mais on ne la set jamais a true.
   useEffect(() => {
-    if (activeSection !== "home") { setHeroLogoFaded(false); return; }
-    const t = setTimeout(() => setHeroLogoFaded(true), 3000);
-    return () => clearTimeout(t);
+    setHeroLogoFaded(false);
   }, [activeSection])
 
   const handleBgChange = (url: string) => {
@@ -440,7 +439,7 @@ export default function MainApp() {
 
       {/* Logo VRSTL fixé en bas à droite */}
       <a href="https://vrstlrecords.com" target="_blank" rel="noreferrer" className="vrstl-fixed">
-        <img src={import.meta.env.BASE_URL + "logo/vrstl-logo.svg"} alt="VRSTL Records" />
+        <img src={import.meta.env.BASE_URL + "logo/vrstl-logo-clean.svg"} alt="VRSTL Records" />
       </a>
 
       {/* FOOTER avec player, icônes sociales et logo */}
