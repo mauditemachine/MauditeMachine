@@ -645,7 +645,7 @@ body {
 .vrstl-fixed {
   position: fixed;
   bottom: 110px;
-  right: 22px;
+  right: 30px; /* aligne sur le padding-right du footer */
   z-index: 999;
   padding: 14px 22px;
   background: rgba(0, 0, 0, 0.28);
@@ -657,12 +657,13 @@ body {
   align-items: center;
   justify-content: center;
   opacity: 0.85;
+  transform-origin: center right;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .vrstl-fixed:hover {
   opacity: 1;
-  transform: translateY(-2px);
+  transform: scale(1.5);
   background: rgba(0, 0, 0, 0.4);
   border-color: rgba(255, 255, 255, 0.12);
 }
