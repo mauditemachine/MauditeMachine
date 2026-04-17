@@ -5,3 +5,5 @@ OLD/
 .claude/
 api/.env
 /public/images/hero/_old/
+*\ 2.*
+*\ 3.*
