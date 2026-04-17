@@ -454,7 +454,7 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
           <button className="detached-close" onClick={() => setDetached(false)} aria-label="Fermer">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
           </button>
-          <div className="sc-detached-panel">
+          <div className="sc-detached-panel liquid-glass lg-frame">
           <div className="detached-now">
             {coverUrl && (
               <img className="detached-cover" src={coverUrl} alt="cover" />

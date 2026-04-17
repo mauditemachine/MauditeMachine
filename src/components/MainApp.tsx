@@ -9,6 +9,7 @@ import Presskit from "./Presskit";
 import Goodies from "./Goodies";
 import SocialIcon from "./SocialIcon";
 import JellyfishBackground from "./JellyfishBackground";
+import LiquidGlass from "./LiquidGlass";
 
 // Supprimer les erreurs SoundCloud de la console
 const suppressWidgetErrors = () => {
@@ -304,8 +305,9 @@ export default function MainApp() {
 
   return (
     <>
-      {/* IMAGE DE LA TRACK EN BACKGROUND DYNAMIQUE - SUPPRIMÉ */}
-      
+      {/* Liquid Glass engine: SVG filters + mouse/tilt tracking */}
+      <LiquidGlass />
+
       <div className={`page ${designMode === 'alternate' ? 'design-alternate' : ''}`}>
       {/* Hamburger + menu mobile (masqué en desktop) */}
       <button
@@ -341,7 +343,7 @@ export default function MainApp() {
 
 
       {/* HEADER - Logo gauche + Navigation droite */}
-      <header className="site-header">
+      <header className="site-header liquid-glass">
         <div className="header-content">
           {/* Logo en haut à gauche - Gold */}
           <div className="header-logo-left">
@@ -438,12 +440,13 @@ export default function MainApp() {
       </main>
 
       {/* Logo VRSTL fixé en bas à droite */}
-      <a href="https://vrstlrecords.com" target="_blank" rel="noreferrer" className="vrstl-fixed">
+      <a href="https://vrstlrecords.com" target="_blank" rel="noreferrer" className="vrstl-fixed liquid-glass">
+        <span className="lg-shimmer" aria-hidden="true" />
         <img src={import.meta.env.BASE_URL + "logo/vrstl-logo-clean.svg"} alt="VRSTL Records" />
       </a>
 
       {/* FOOTER avec player, icônes sociales et logo */}
-      <footer className="site-footer">
+      <footer className="site-footer liquid-glass">
         <div className="footer-content">
           {/* Player à gauche */}
           <div className="footer-player">
