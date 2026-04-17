@@ -10,13 +10,14 @@ import Goodies from "./Goodies";
 import SocialIcon from "./SocialIcon";
 import HeroSlideshow from "./HeroSlideshow";
 
-const HERO_SKIP = new Set([10, 16, 18, 19, 20]); // hero-11, 17, 19, 20, 21 (21 mis en premier à part)
-const HERO_FIRST = `${import.meta.env.BASE_URL}images/hero/hero-21.webp`; // studio en 1er
+// 5 photos paysage haute-qualite (studio en 1er, puis les 4 nouvelles)
+const HERO_FIRST = `${import.meta.env.BASE_URL}images/hero/hero-05.webp`; // studio en 1er
 const HERO_IMAGES = [
   HERO_FIRST,
-  ...Array.from({ length: 21 }, (_, i) =>
-    `${import.meta.env.BASE_URL}images/hero/hero-${String(i + 1).padStart(2, '0')}.webp`
-  ).filter((_, i) => !HERO_SKIP.has(i)),
+  `${import.meta.env.BASE_URL}images/hero/hero-01.webp`,
+  `${import.meta.env.BASE_URL}images/hero/hero-02.webp`,
+  `${import.meta.env.BASE_URL}images/hero/hero-03.webp`,
+  `${import.meta.env.BASE_URL}images/hero/hero-04.webp`,
 ];
 
 // Supprimer les erreurs SoundCloud de la console
