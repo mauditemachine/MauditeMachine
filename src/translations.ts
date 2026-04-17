@@ -71,7 +71,7 @@ export const translations = {
       sticker: 'Custom Sticker',
       desktopWallpapers: 'Desktop Wallpapers',
       phoneWallpapers: 'Phone Wallpapers',
-      albumCovers: 'Album Covers',
+      albumCovers: 'Release Covers',
       download: 'Download',
     },
     footer: {
@@ -148,7 +148,7 @@ export const translations = {
       sticker: 'Autocollant',
       desktopWallpapers: 'Fonds d\'ecran bureau',
       phoneWallpapers: 'Fonds d\'ecran telephone',
-      albumCovers: 'Pochettes d\'albums',
+      albumCovers: 'Pochettes de releases',
       download: 'Telecharger',
     },
     footer: {
