@@ -10,11 +10,10 @@ import Goodies from "./Goodies";
 import SocialIcon from "./SocialIcon";
 import HeroSlideshow from "./HeroSlideshow";
 
-// 5 photos paysage haute-qualite (studio en 1er, puis les 4 nouvelles)
-const HERO_FIRST = `${import.meta.env.BASE_URL}images/hero/hero-05.webp`; // studio en 1er
+// 4 photos paysage haute-qualite (hero-01 en 1er, 4K)
+const HERO_FIRST = `${import.meta.env.BASE_URL}images/hero/hero-01.webp`;
 const HERO_IMAGES = [
   HERO_FIRST,
-  `${import.meta.env.BASE_URL}images/hero/hero-01.webp`,
   `${import.meta.env.BASE_URL}images/hero/hero-02.webp`,
   `${import.meta.env.BASE_URL}images/hero/hero-03.webp`,
   `${import.meta.env.BASE_URL}images/hero/hero-04.webp`,
