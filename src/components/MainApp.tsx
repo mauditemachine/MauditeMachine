@@ -391,8 +391,8 @@ export default function MainApp() {
         </div>
       </header>
 
-      {/* Fond video meduses - visible sur toutes les pages, assombri hors home */}
-      <div className={`global-bg ${activeSection !== 'home' ? 'dim' : ''}`}>
+      {/* Fond video meduses - visible sur toutes les pages, pleine luminosite */}
+      <div className="global-bg">
         <JellyfishBackground />
       </div>
 
