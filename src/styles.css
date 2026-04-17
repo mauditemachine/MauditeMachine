@@ -1715,15 +1715,11 @@ body {
   flex-shrink: 0;
 }
 
-/* Scroll vertical dans la box si le contenu deborde */
+/* Plus de scroll: items compacts pour que tout rentre */
 .goodies-box .goodies-grid {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-right: 6px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.2) transparent;
+  overflow: visible;
   align-content: start;
 }
 .goodies-box .goodies-grid::-webkit-scrollbar { width: 6px; }
@@ -1776,15 +1772,18 @@ body {
 }
 
 .goodies-grid-desktop {
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: repeat(3, 1fr); /* 3 colonnes fixes */
+  gap: 8px;
 }
 
 .goodies-grid-phone {
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(3, 1fr); /* 3 colonnes portraits petits */
+  gap: 8px;
 }
 
 .goodies-grid-covers {
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 8px;
 }
 
 .goodie-card {
@@ -1809,12 +1808,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 0;
-  gap: 8px;
+  padding: 4px 0 0;
+  gap: 4px;
 }
 
 .goodie-title {
-  font-size: 11px;
+  font-size: 9px;
   color: rgba(255, 255, 255, 0.7);
   white-space: nowrap;
   overflow: hidden;
@@ -1825,14 +1824,15 @@ body {
   background: var(--accent-gold);
   color: #111;
   border: none;
-  border-radius: 4px;
-  padding: 4px 12px;
-  font-size: 10px;
+  border-radius: 3px;
+  padding: 2px 7px;
+  font-size: 8px;
   font-weight: 700;
   text-transform: uppercase;
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.2s ease;
+  letter-spacing: 0.3px;
 }
 
 .goodie-download:hover {
