@@ -141,14 +141,17 @@ body,
 * {
   box-sizing: border-box;
 }
-body {
+html, body {
   margin: 0;
   padding: 0;
+  height: 100vh;
+  height: 100dvh; /* iOS safe */
+  overflow: hidden; /* pas de scroll sur le body, le content gere */
+}
+body {
   font-family: var(--font-body);
   color: var(--text);
-  background: url('/images/rock-bg.png') no-repeat center center fixed !important;
-  background-size: cover !important;
-  overflow-x: hidden;
+  background: transparent;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -156,6 +159,9 @@ body {
 
 .page {
   position: relative;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -963,12 +969,26 @@ body {
 }
 
 /* ===== CONTENT WRAPPER (autres sections) ===== */
+/* Position fixe, entre header et footer, avec scroll interne si besoin */
 .content-wrapper {
+  position: fixed;
+  top: 90px;        /* sous le header (padding 16 + height + marge) */
+  bottom: 80px;     /* au dessus du footer */
+  left: 0;
+  right: 0;
   width: 100%;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0;
+  padding: 0 30px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.2) transparent;
 }
+.content-wrapper::-webkit-scrollbar { width: 8px; }
+.content-wrapper::-webkit-scrollbar-track { background: transparent; }
+.content-wrapper::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 999px; }
+.content-wrapper::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
 
 /* Quand on est sur une page intérieure, le header a un fond */
 .page:has(.content-wrapper) .site-header {
@@ -4957,16 +4977,31 @@ body.dark-mode .form-textarea:focus {
   }
 
 
+  html, body {
+    height: auto !important;
+    overflow-y: auto !important;
+  }
   #root,
   .page,
   .mobile-layout,
   .App {
     display: block !important;
     overflow-y: auto;
+    overflow-x: hidden;
+    height: auto !important;
     width: 100vw !important;
     margin: 0 !important;
     padding: 0 !important;
     position: relative;
+  }
+  .page { overflow: visible !important; }
+  /* content-wrapper desktop: plein flux mobile (pas de fixed) */
+  .content-wrapper {
+    position: static !important;
+    top: auto !important;
+    bottom: auto !important;
+    overflow: visible !important;
+    padding: 80px 10px 90px !important;
   }
 
   /* Background mobile - même logique que desktop */
