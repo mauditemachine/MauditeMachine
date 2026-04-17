@@ -628,24 +628,39 @@ body {
   .hero-slide.active { transform: none !important; }
 }
 
-/* Logo VRSTL collé à droite comme un marque-page */
+/* Logo VRSTL - bulle liquid glass detachee du bord */
 .vrstl-fixed {
   position: fixed;
-  bottom: 100px;
-  right: 0;
+  bottom: 110px;
+  right: 22px;
   z-index: 999;
-  transform: translateX(15px);
-  transition: transform 0.3s ease, opacity 0.3s ease;
-  opacity: 0.55;
+  padding: 14px 20px;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(22px) saturate(1.8);
+  -webkit-backdrop-filter: blur(22px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 26px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+  opacity: 0.85;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .vrstl-fixed:hover {
-  opacity: 0.95;
-  transform: translateX(0px);
+  opacity: 1;
+  transform: translateY(-3px);
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
 }
 
 .vrstl-fixed img {
-  width: 100px;
+  width: 90px;
   height: auto;
   display: block;
   border-radius: 0;
@@ -925,13 +940,16 @@ body {
 }
 
 .footer-content {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 20px;
   max-width: 1600px;
   margin: 0 auto;
 }
+.footer-player    { justify-self: start;  }
+.footer-social    { justify-self: center; }
+.footer-massive   { justify-self: end;    }
 
 /* Icônes sociales à gauche */
 .footer-social {
@@ -1454,33 +1472,34 @@ body {
   }
 }
 
-/* Massive Medias à droite */
+/* Massive Medias a droite */
 .footer-massive {
   display: flex;
   align-items: center;
-  gap: 6px;
-  opacity: 0.4;
+  gap: 8px;
+  opacity: 0.55;
   transition: opacity 0.3s ease;
   text-decoration: none;
   flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
   font-family: var(--font-body);
+  letter-spacing: 0.2px;
 }
 
 .footer-massive:hover {
-  opacity: 0.9;
+  opacity: 1;
 }
 
 .footer-massive img {
-  height: 11px;
+  height: 15px;
   width: auto;
   filter: grayscale(100%) brightness(10);
 }
 
 .footer-madeby {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
   text-transform: lowercase;
 }
 
