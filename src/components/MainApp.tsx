@@ -9,7 +9,6 @@ import Presskit from "./Presskit";
 import Goodies from "./Goodies";
 import SocialIcon from "./SocialIcon";
 import JellyfishBackground from "./JellyfishBackground";
-import ThemeSwitcher from "./ThemeSwitcher";
 
 // Supprimer les erreurs SoundCloud de la console
 const suppressWidgetErrors = () => {
@@ -354,9 +353,8 @@ export default function MainApp() {
             />
           </div>
           
-          {/* Switcher de theme + Navigation a droite */}
+          {/* Navigation a droite */}
           <div className="header-right">
-            <ThemeSwitcher />
             <nav className="header-nav-right">
               <button 
                 className={activeSection === "events" ? "active" : ""}
