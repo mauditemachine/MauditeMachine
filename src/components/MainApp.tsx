@@ -348,6 +348,7 @@ export default function MainApp() {
           <div className="header-logo-left">
             <img
               src={import.meta.env.BASE_URL + "logo/mauditemachine-logo-gold.png"}
+              style={{ filter: 'brightness(0) invert(1)' }}
               alt="Maudite Machine"
               onClick={() => { handleSectionChange("home"); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
             />
