@@ -7,7 +7,7 @@ export type DesignMode = 'original' | 'alternate';
 // Approche grayscale + multiply overlay : desature totalement puis teinte
 export type ThemeKey = 'ocean' | 'aqua' | 'ember' | 'forest' | 'amethyst' | 'gold' | 'rose';
 export const THEMES: Record<ThemeKey, { label: string; swatch: string; grayscale: number; brightness: number; contrast: number; tint: string }> = {
-  ocean:    { label: 'Ocean',    swatch: '#7cc7ff', grayscale: 0,    brightness: 1.1, contrast: 1.1, tint: '#66aaff' }, // naturel bleu
+  ocean:    { label: 'Ocean',    swatch: '#7cc7ff', grayscale: 0,    brightness: 1.0, contrast: 1.0, tint: 'transparent' }, // video brute, aucun traitement
   aqua:     { label: 'Aqua',     swatch: '#00e5cc', grayscale: 1,    brightness: 1.4, contrast: 1.2, tint: '#4dffe0' },
   ember:    { label: 'Ember',    swatch: '#ff6a3d', grayscale: 1,    brightness: 1.4, contrast: 1.25,tint: '#ff5522' },
   forest:   { label: 'Forest',   swatch: '#4caf50', grayscale: 1,    brightness: 1.3, contrast: 1.2, tint: '#4dee88' },
