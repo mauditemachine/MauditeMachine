@@ -8,15 +8,8 @@ import Message from "./Message";
 import Presskit from "./Presskit";
 import Goodies from "./Goodies";
 import SocialIcon from "./SocialIcon";
-import HeroSlideshow from "./HeroSlideshow";
-
-// 3 photos paysage (hero-02 en 1er, 4K) - hero-01 etait aussi un studio, vire
-const HERO_FIRST = `${import.meta.env.BASE_URL}images/hero/hero-02.webp`;
-const HERO_IMAGES = [
-  HERO_FIRST,
-  `${import.meta.env.BASE_URL}images/hero/hero-03.webp`,
-  `${import.meta.env.BASE_URL}images/hero/hero-04.webp`,
-];
+import JellyfishBackground from "./JellyfishBackground";
+import ThemeSwitcher from "./ThemeSwitcher";
 
 // Supprimer les erreurs SoundCloud de la console
 const suppressWidgetErrors = () => {
@@ -361,8 +354,9 @@ export default function MainApp() {
             />
           </div>
           
-          {/* Boutons design + langue en haut à droite, puis Navigation */}
+          {/* Switcher de theme + Navigation a droite */}
           <div className="header-right">
+            <ThemeSwitcher />
             <nav className="header-nav-right">
               <button 
                 className={activeSection === "events" ? "active" : ""}
@@ -399,9 +393,9 @@ export default function MainApp() {
         </div>
       </header>
 
-      {/* Slideshow global en fond (visible sur toutes les pages, assombri hors home) */}
+      {/* Fond video meduses - visible sur toutes les pages, assombri hors home */}
       <div className={`global-bg ${activeSection !== 'home' ? 'dim' : ''}`}>
-        <HeroSlideshow images={HERO_IMAGES} intervalMs={6000} />
+        <JellyfishBackground />
       </div>
 
       {/* MAIN CONTENT */}
