@@ -10,9 +10,6 @@ interface GoodieItem {
 
 const FULL_PREFIX = 'images/goodies/full/';
 const goodies: GoodieItem[] = [
-  // Sticker
-  { src: 'images/goodies/sticker.png', downloadSrc: FULL_PREFIX + 'sticker.png', title: 'Custom Sticker', category: 'sticker' },
-  { src: 'images/goodies/sticker-coagule.webp', downloadSrc: FULL_PREFIX + 'sticker-coagule.webp', title: 'Sticker Coagule', category: 'sticker' },
   // Desktop Wallpapers
   { src: 'images/goodies/wallpaper-desktop-1.png', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-1.jpg', title: 'Desktop Wallpaper 1', category: 'wallpaper-desktop' },
   { src: 'images/goodies/wallpaper-desktop-2.png', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-2.jpg', title: 'Desktop Wallpaper 2', category: 'wallpaper-desktop' },
@@ -54,7 +51,6 @@ interface GoodiesProps {
 
 const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
   const { t } = useApp();
-  const sticker = goodies.filter(g => g.category === 'sticker');
   const desktopWallpapers = goodies.filter(g => g.category === 'wallpaper-desktop');
   const phoneWallpapers = goodies.filter(g => g.category === 'wallpaper-phone');
   const covers = goodies.filter(g => g.category === 'cover');
@@ -100,22 +96,6 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
 
   return (
     <div className="goodies-page">
-      {/* Sticker */}
-      <div className="goodies-section">
-        <h3 className="goodies-category">{t.goodies.sticker}</h3>
-        <div className="goodies-grid goodies-grid-large">
-          {sticker.map((item, i) => (
-            <div key={i} className="goodie-card">
-              <img src={`/${item.src}`} alt={item.title} className="goodie-image" />
-              <div className="goodie-info">
-                <span className="goodie-title">{item.title}</span>
-                <button className="goodie-download" onClick={() => handleDownload(item)}>{t.goodies.download}</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* Desktop Wallpapers */}
       <div className="goodies-section">
         <h3 className="goodies-category">{t.goodies.desktopWallpapers}</h3>
