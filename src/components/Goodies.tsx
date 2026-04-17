@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 
 interface GoodieItem {
@@ -51,11 +51,18 @@ interface GoodiesProps {
   mobileOnly?: boolean;
 }
 
+type AccordionKey = 'desktop' | 'phone' | 'covers';
+
 const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
   const { t } = useApp();
   const desktopWallpapers = goodies.filter(g => g.category === 'wallpaper-desktop');
   const phoneWallpapers = goodies.filter(g => g.category === 'wallpaper-phone');
   const covers = goodies.filter(g => g.category === 'cover');
+  const [openSection, setOpenSection] = useState<AccordionKey | null>('covers');
+
+  const toggle = (key: AccordionKey) => {
+    setOpenSection(prev => prev === key ? null : key);
+  };
 
   const handleDownload = async (item: GoodieItem) => {
     const downloadUrl = item.downloadSrc || item.src;
@@ -96,56 +103,49 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
     );
   }
 
+  const renderGrid = (items: GoodieItem[], gridClass: string) => (
+    <div className={`goodies-grid ${gridClass}`}>
+      {items.map((item, i) => (
+        <div key={i} className="goodie-card">
+          <img src={`/${item.src}`} alt={item.title} className="goodie-image" />
+          <div className="goodie-info">
+            <span className="goodie-title">{item.title}</span>
+            <button className="goodie-download" onClick={() => handleDownload(item)}>{t.goodies.download}</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const sections: { key: AccordionKey; title: string; count: number; grid: string; items: GoodieItem[] }[] = [
+    { key: 'desktop', title: t.goodies.desktopWallpapers, count: desktopWallpapers.length, grid: 'goodies-grid-desktop', items: desktopWallpapers },
+    { key: 'phone', title: t.goodies.phoneWallpapers, count: phoneWallpapers.length, grid: 'goodies-grid-phone', items: phoneWallpapers },
+    { key: 'covers', title: t.goodies.albumCovers, count: covers.length, grid: 'goodies-grid-covers', items: covers },
+  ];
+
   return (
-    <div className="goodies-page goodies-boxes">
-      {/* Row 1: 2 boites cote a cote (Desktop + Phone) */}
-      <div className="goodies-row goodies-row-top">
-        <div className="goodies-section goodies-box">
-          <h3 className="goodies-category">{t.goodies.desktopWallpapers}</h3>
-          <div className="goodies-grid goodies-grid-desktop">
-            {desktopWallpapers.map((item, i) => (
-              <div key={i} className="goodie-card">
-                <img src={`/${item.src}`} alt={item.title} className="goodie-image" />
-                <div className="goodie-info">
-                  <span className="goodie-title">{item.title}</span>
-                  <button className="goodie-download" onClick={() => handleDownload(item)}>{t.goodies.download}</button>
-                </div>
+    <div className="goodies-page goodies-accordion">
+      {sections.map((s) => {
+        const isOpen = openSection === s.key;
+        return (
+          <div key={s.key} className={`goodies-acc-item ${isOpen ? 'open' : ''}`}>
+            <button
+              className="goodies-acc-header"
+              onClick={() => toggle(s.key)}
+              aria-expanded={isOpen}
+            >
+              <span className="goodies-acc-title">{s.title}</span>
+              <span className="goodies-acc-count">{s.count}</span>
+              <span className="goodies-acc-chevron">{isOpen ? '−' : '+'}</span>
+            </button>
+            {isOpen && (
+              <div className="goodies-acc-content">
+                {renderGrid(s.items, s.grid)}
               </div>
-            ))}
+            )}
           </div>
-        </div>
-
-        <div className="goodies-section goodies-box">
-          <h3 className="goodies-category">{t.goodies.phoneWallpapers}</h3>
-          <div className="goodies-grid goodies-grid-phone">
-            {phoneWallpapers.map((item, i) => (
-              <div key={i} className="goodie-card">
-                <img src={`/${item.src}`} alt={item.title} className="goodie-image" />
-                <div className="goodie-info">
-                  <span className="goodie-title">{item.title}</span>
-                  <button className="goodie-download" onClick={() => handleDownload(item)}>{t.goodies.download}</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Row 2: Release Covers pleine largeur */}
-      <div className="goodies-section goodies-box goodies-box-wide">
-        <h3 className="goodies-category">{t.goodies.albumCovers}</h3>
-        <div className="goodies-grid goodies-grid-covers">
-          {covers.map((item, i) => (
-            <div key={i} className="goodie-card">
-              <img src={`/${item.src}`} alt={item.title} className="goodie-image" />
-              <div className="goodie-info">
-                <span className="goodie-title">{item.title}</span>
-                <button className="goodie-download" onClick={() => handleDownload(item)}>{t.goodies.download}</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+        );
+      })}
     </div>
   );
 };

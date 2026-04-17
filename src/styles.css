@@ -1677,10 +1677,117 @@ body {
   margin-bottom: 40px;
 }
 
-/* Layout en boites glass (desktop) - 3 zones fixed height pour remplir entre header/footer */
+/* ACCORDEON goodies - 1 section deployee a la fois */
+.goodies-accordion {
+  position: absolute;
+  inset: 16px 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.goodies-acc-item {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px) saturate(1.6) brightness(1.05);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6) brightness(1.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.goodies-acc-item.open {
+  flex: 1;
+}
+
+.goodies-acc-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-family: var(--font-body);
+  text-align: left;
+  transition: background 0.25s ease;
+  flex-shrink: 0;
+}
+
+.goodies-acc-header:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.goodies-acc-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-mint);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  flex: 1;
+}
+
+.goodies-acc-count {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 3px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  margin-right: 12px;
+  font-weight: 600;
+}
+
+.goodies-acc-chevron {
+  font-size: 22px;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1;
+  width: 22px;
+  text-align: center;
+}
+
+.goodies-acc-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 20px 18px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.2) transparent;
+  animation: goodies-acc-expand 0.35s cubic-bezier(0.2, 0, 0.1, 1);
+}
+.goodies-acc-content::-webkit-scrollbar { width: 6px; }
+.goodies-acc-content::-webkit-scrollbar-track { background: transparent; }
+.goodies-acc-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 999px; }
+.goodies-acc-content::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+@keyframes goodies-acc-expand {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 900px) {
+  .goodies-accordion {
+    position: static;
+    inset: auto;
+    padding: 16px 10px;
+  }
+  .goodies-acc-content {
+    max-height: 70vh;
+  }
+}
+
+/* (ancien code .goodies-boxes conserve pour compat) */
 .goodies-boxes {
   display: grid;
-  grid-template-rows: 1fr 1fr; /* 2 rangees egales */
+  grid-template-rows: 1fr 1fr;
   gap: 14px;
   height: 100%;
 }
@@ -1772,18 +1879,18 @@ body {
 }
 
 .goodies-grid-desktop {
-  grid-template-columns: repeat(3, 1fr); /* 3 colonnes fixes */
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
 }
 
 .goodies-grid-phone {
-  grid-template-columns: repeat(3, 1fr); /* 3 colonnes portraits petits */
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
 }
 
 .goodies-grid-covers {
-  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
 }
 
 .goodie-card {
@@ -1808,12 +1915,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 0 0;
-  gap: 4px;
+  padding: 6px 0 0;
+  gap: 6px;
 }
 
 .goodie-title {
-  font-size: 9px;
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.7);
   white-space: nowrap;
   overflow: hidden;
@@ -1824,9 +1931,9 @@ body {
   background: var(--accent-gold);
   color: #111;
   border: none;
-  border-radius: 3px;
-  padding: 2px 7px;
-  font-size: 8px;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   cursor: pointer;
