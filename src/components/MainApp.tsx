@@ -440,7 +440,7 @@ export default function MainApp() {
 
       {/* Logo VRSTL fixé en bas à droite */}
       <a href="https://vrstlrecords.com" target="_blank" rel="noreferrer" className="vrstl-fixed">
-        <img src={import.meta.env.BASE_URL + "logo/vrstl-logo-orange.png"} alt="VRSTL Records" />
+        <img src={import.meta.env.BASE_URL + "logo/vrstl-logo.svg"} alt="VRSTL Records" />
       </a>
 
       {/* FOOTER avec player, icônes sociales et logo */}
