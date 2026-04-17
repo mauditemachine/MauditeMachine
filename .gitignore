@@ -4,3 +4,4 @@ node_modules/
 OLD/
 .claude/
 api/.env
+/public/images/hero/_old/
