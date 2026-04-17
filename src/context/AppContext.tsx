@@ -15,19 +15,14 @@ const AppContext = createContext<AppContextType | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [designMode, setDesignModeState] = useState<DesignMode>('alternate');
-  const [lang, setLangState] = useState<Lang>(() =>
-    (localStorage.getItem('mm_lang') as Lang) || 'en'
-  );
+  // Langue forcee a 'en' (FR desactive)
+  const lang: Lang = 'en';
+  const setLang = (_l: Lang) => {};
 
   const setDesignMode = (m: DesignMode) => {
     setDesignModeState(m);
     localStorage.setItem('mm_design', m);
     document.documentElement.classList.toggle('design-alternate', m === 'alternate');
-  };
-
-  const setLang = (l: Lang) => {
-    setLangState(l);
-    localStorage.setItem('mm_lang', l);
   };
 
   useEffect(() => {

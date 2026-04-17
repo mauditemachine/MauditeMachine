@@ -147,7 +147,7 @@ const socialLinks: {
 ];
 
 export default function MainApp() {
-  const { designMode, setDesignMode, lang, setLang, t } = useApp();
+  const { designMode, setDesignMode, lang, t } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [bgUrl, setBgUrl] = useState<string>("");
@@ -330,15 +330,6 @@ export default function MainApp() {
         className={`menu ${menuOpen ? "open" : ""}`}
         onClick={(e) => { if ((e.target as HTMLElement).closest('.menu-toggles')) return; setMenuOpen(false); }}
       >
-        <div className="menu-toggles">
-          <button
-            className="menu-toggle-btn"
-            onClick={() => setLang(lang === 'en' ? 'fr' : 'en')}
-            aria-label="Changer de langue"
-          >
-            {lang === 'en' ? 'FR' : 'EN'}
-          </button>
-        </div>
         <ul className="links links-mobile">
           {socialLinks.map((link) => (
             <li key={link.label}>
@@ -374,16 +365,6 @@ export default function MainApp() {
           
           {/* Boutons design + langue en haut à droite, puis Navigation */}
           <div className="header-right">
-            <div className="header-toggles">
-              <button
-                className="header-toggle-btn header-lang-btn"
-                onClick={() => setLang(lang === 'en' ? 'fr' : 'en')}
-                title={lang === 'en' ? 'Français' : 'English'}
-                aria-label="Changer de langue"
-              >
-                {lang === 'en' ? 'FR' : 'EN'}
-              </button>
-            </div>
             <nav className="header-nav-right">
               <button 
                 className={activeSection === "events" ? "active" : ""}
