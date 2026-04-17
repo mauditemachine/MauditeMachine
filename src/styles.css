@@ -1677,6 +1677,83 @@ body {
   margin-bottom: 40px;
 }
 
+/* Layout en boites glass (desktop) - 3 zones fixed height pour remplir entre header/footer */
+.goodies-boxes {
+  display: grid;
+  grid-template-rows: 1fr 1fr; /* 2 rangees egales */
+  gap: 14px;
+  height: 100%;
+}
+
+.goodies-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr; /* desktop 2/3, phone 1/3 */
+  gap: 14px;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.goodies-box {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px) saturate(1.6) brightness(1.05);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6) brightness(1.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 14px 18px 16px;
+  margin-bottom: 0;
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.goodies-box .goodies-category {
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  flex-shrink: 0;
+}
+
+/* Scroll vertical dans la box si le contenu deborde */
+.goodies-box .goodies-grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.2) transparent;
+  align-content: start;
+}
+.goodies-box .goodies-grid::-webkit-scrollbar { width: 6px; }
+.goodies-box .goodies-grid::-webkit-scrollbar-track { background: transparent; }
+.goodies-box .goodies-grid::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 999px; }
+.goodies-box .goodies-grid::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+/* Sur la page goodies, goodies-page rempli absolument son conteneur */
+.goodies-boxes {
+  position: absolute;
+  inset: 16px 30px;
+  height: auto !important;
+}
+
+@media (max-width: 900px) {
+  .goodies-boxes {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    gap: 14px;
+  }
+  .goodies-row {
+    grid-template-columns: 1fr;
+  }
+  .goodies-box .goodies-grid {
+    max-height: none;
+    overflow: visible;
+  }
+}
+
 .goodies-category {
   font-family: var(--font-body);
   font-size: 13px;

@@ -97,41 +97,42 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
   }
 
   return (
-    <div className="goodies-page">
-      {/* Desktop Wallpapers */}
-      <div className="goodies-section">
-        <h3 className="goodies-category">{t.goodies.desktopWallpapers}</h3>
-        <div className="goodies-grid goodies-grid-desktop">
-          {desktopWallpapers.map((item, i) => (
-            <div key={i} className="goodie-card">
-              <img src={`/${item.src}`} alt={item.title} className="goodie-image" />
-              <div className="goodie-info">
-                <span className="goodie-title">{item.title}</span>
-                <button className="goodie-download" onClick={() => handleDownload(item)}>{t.goodies.download}</button>
+    <div className="goodies-page goodies-boxes">
+      {/* Row 1: 2 boites cote a cote (Desktop + Phone) */}
+      <div className="goodies-row goodies-row-top">
+        <div className="goodies-section goodies-box">
+          <h3 className="goodies-category">{t.goodies.desktopWallpapers}</h3>
+          <div className="goodies-grid goodies-grid-desktop">
+            {desktopWallpapers.map((item, i) => (
+              <div key={i} className="goodie-card">
+                <img src={`/${item.src}`} alt={item.title} className="goodie-image" />
+                <div className="goodie-info">
+                  <span className="goodie-title">{item.title}</span>
+                  <button className="goodie-download" onClick={() => handleDownload(item)}>{t.goodies.download}</button>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+        </div>
+
+        <div className="goodies-section goodies-box">
+          <h3 className="goodies-category">{t.goodies.phoneWallpapers}</h3>
+          <div className="goodies-grid goodies-grid-phone">
+            {phoneWallpapers.map((item, i) => (
+              <div key={i} className="goodie-card">
+                <img src={`/${item.src}`} alt={item.title} className="goodie-image" />
+                <div className="goodie-info">
+                  <span className="goodie-title">{item.title}</span>
+                  <button className="goodie-download" onClick={() => handleDownload(item)}>{t.goodies.download}</button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Phone Wallpapers */}
-      <div className="goodies-section">
-        <h3 className="goodies-category">{t.goodies.phoneWallpapers}</h3>
-        <div className="goodies-grid goodies-grid-phone">
-          {phoneWallpapers.map((item, i) => (
-            <div key={i} className="goodie-card">
-              <img src={`/${item.src}`} alt={item.title} className="goodie-image" />
-              <div className="goodie-info">
-                <span className="goodie-title">{item.title}</span>
-                <button className="goodie-download" onClick={() => handleDownload(item)}>{t.goodies.download}</button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Album Covers */}
-      <div className="goodies-section">
+      {/* Row 2: Release Covers pleine largeur */}
+      <div className="goodies-section goodies-box goodies-box-wide">
         <h3 className="goodies-category">{t.goodies.albumCovers}</h3>
         <div className="goodies-grid goodies-grid-covers">
           {covers.map((item, i) => (
