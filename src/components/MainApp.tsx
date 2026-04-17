@@ -145,10 +145,13 @@ export default function MainApp() {
   const [activeSection, setActiveSection] = useState("home");
   const [heroLogoFaded, setHeroLogoFaded] = useState(false);
 
-  // Animation CSS gere tout (5.5s). Rien a faire cote React.
-  // La variable heroLogoFaded reste pour compat mais on ne la set jamais a true.
+  // Animation CSS 5.5s: apres ca on retire du DOM (display: none via .faded)
+  // pour eviter que le logo scale(6.5) interfere avec les backdrop-filter
   useEffect(() => {
+    if (activeSection !== "home") { setHeroLogoFaded(true); return; }
     setHeroLogoFaded(false);
+    const t = setTimeout(() => setHeroLogoFaded(true), 5600);
+    return () => clearTimeout(t);
   }, [activeSection])
 
   const handleBgChange = (url: string) => {
