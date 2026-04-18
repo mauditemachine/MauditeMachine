@@ -511,11 +511,6 @@ export default function MainApp() {
           ))}
         </div>
 
-        {/* News messages */}
-        <div className="mobile-section mobile-random-messages">
-          <NewsMessages />
-        </div>
-
         {/* Lecteur */}
         <div className="mobile-section mobile-player">
           <SoundCloudPlayer onBackgroundChange={handleBgChange} />
