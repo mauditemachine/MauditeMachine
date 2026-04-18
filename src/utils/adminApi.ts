@@ -1,9 +1,17 @@
 // API utilitaire pour l'administration
 // En local: sauvegarde via server.js (localhost:3001)
 // En production: sauvegarde via API Render → commit GitHub → auto-deploy
+// Lecture publique: Sanity d'abord, fallback JSON si Sanity vide/erreur
+
+import { fetchEvents, fetchMessages, fetchMerchItems, urlFor } from './sanityQueries';
 
 const PROD_API_URL = import.meta.env.VITE_API_URL || '';
 const ADMIN_API_KEY = import.meta.env.VITE_ADMIN_API_KEY || '';
+
+function sanityImageUrl(img: any): string {
+  if (!img) return '';
+  try { return urlFor(img).url(); } catch { return ''; }
+}
 
 function getApiUrl(): string {
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -115,7 +123,7 @@ export const downloadUpdatedJSON = (data: any, filename: string) => {
   console.log(`📥 Téléchargement de ${filename} pour mise à jour en production`);
 };
 
-// Charger les messages - forAdmin: backup localStorage (admin); site public: TOUJOURS JSON
+// Charger les messages - forAdmin: backup localStorage (admin); site public: Sanity → fallback JSON
 export const loadMessages = async (forAdmin = false): Promise<Message[]> => {
   try {
     if (forAdmin) {
@@ -131,6 +139,20 @@ export const loadMessages = async (forAdmin = false): Promise<Message[]> => {
           }
         } catch (_) {}
       }
+    }
+    try {
+      const sanityData = await fetchMessages();
+      if (sanityData && sanityData.length > 0) {
+        return sanityData.map((m) => ({
+          id: m._id,
+          title: m.title,
+          description: m.description || '',
+          image: sanityImageUrl(m.image),
+          date: m.date,
+        }));
+      }
+    } catch (e) {
+      console.warn('Sanity messages fetch failed, fallback JSON', e);
     }
     const response = await fetch(`/messages.json?t=${Date.now()}`);
     if (!response.ok) throw new Error('Failed');
@@ -158,7 +180,7 @@ export const saveEvents = async (events: Event[]): Promise<{ success: boolean; m
   }
 };
 
-// Charger les events - forAdmin: backup localStorage; site public: TOUJOURS JSON
+// Charger les events - forAdmin: backup localStorage; site public: Sanity → fallback JSON
 export const loadEvents = async (forAdmin = false): Promise<Event[]> => {
   try {
     if (forAdmin) {
@@ -169,6 +191,21 @@ export const loadEvents = async (forAdmin = false): Promise<Event[]> => {
           if (Array.isArray(parsed)) return parsed;
         } catch (_) {}
       }
+    }
+    try {
+      const sanityData = await fetchEvents(false);
+      if (sanityData && sanityData.length > 0) {
+        return sanityData.map((ev) => ({
+          date: ev.date,
+          title: ev.title,
+          url: ev.url || '',
+          location: ev.location || '',
+          color: ev.color || '',
+          image: sanityImageUrl(ev.image),
+        }));
+      }
+    } catch (e) {
+      console.warn('Sanity events fetch failed, fallback JSON', e);
     }
     const response = await fetch(`/events.json?t=${Date.now()}`);
     if (!response.ok) throw new Error('Failed');
@@ -210,7 +247,7 @@ export const saveMerchItems = async (merchItems: MerchItem[]): Promise<{ success
   }
 };
 
-// Charger le merchandising - forAdmin: backup; site public: TOUJOURS JSON
+// Charger le merchandising - forAdmin: backup; site public: Sanity → fallback JSON
 export const loadMerchItems = async (forAdmin = false): Promise<MerchItem[]> => {
   try {
     if (forAdmin) {
@@ -226,6 +263,29 @@ export const loadMerchItems = async (forAdmin = false): Promise<MerchItem[]> => 
           }
         } catch (_) {}
       }
+    }
+    try {
+      const sanityData = await fetchMerchItems(true);
+      if (sanityData && sanityData.length > 0) {
+        return sanityData.map((m, index) => ({
+          id: index + 1,
+          src: sanityImageUrl(m.image),
+          alt: m.alt || m.caption,
+          caption: m.caption,
+          price: m.price || '',
+          category: m.category || '',
+          active: m.active !== false,
+          soldOut: !!m.soldOut,
+          sizes: {
+            S: m.sizes?.S ?? true,
+            M: m.sizes?.M ?? true,
+            L: m.sizes?.L ?? true,
+            XL: m.sizes?.XL ?? true,
+          },
+        }));
+      }
+    } catch (e) {
+      console.warn('Sanity merch fetch failed, fallback JSON', e);
     }
     const response = await fetch(`/store.json?t=${Date.now()}`);
     if (!response.ok) throw new Error('Failed');
