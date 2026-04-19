@@ -83,16 +83,10 @@ export default function NewsMessages(): JSX.Element {
       >
         <div key={messageToShow.id} className="message-card">
           {messageToShow.image && (
-            <img 
-              className="message-image" 
-              src={messageToShow.image.startsWith('data:') ? messageToShow.image : `/${messageToShow.image}`} 
+            <img
+              className="message-image"
+              src={/^(data:|https?:\/\/|\/)/.test(messageToShow.image) ? messageToShow.image : `/${messageToShow.image}`}
               alt={messageToShow.title}
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                if (!messageToShow.image.startsWith('data:') && !messageToShow.image.startsWith('/')) {
-                  target.src = `/${messageToShow.image}`;
-                }
-              }}
             />
           )}
           <div className="message-body">

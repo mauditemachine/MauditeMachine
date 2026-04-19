@@ -33,10 +33,9 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
     });
   };
 
-  // Utiliser l'image du JSON directement (medias/ est le publicDir)
-  // Ajouter le slash initial si nécessaire pour les chemins relatifs
-  const displayImage = event.image && event.image.trim() !== '' 
-    ? (event.image.startsWith('/') ? event.image : `/${event.image}`)
+  // URL absolue (Sanity CDN) → laisser tel quel; sinon prefix "/" pour path relatif
+  const displayImage = event.image && event.image.trim() !== ''
+    ? (/^https?:\/\//.test(event.image) || event.image.startsWith('/') ? event.image : `/${event.image}`)
     : null;
 
   return (
