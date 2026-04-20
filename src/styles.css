@@ -4404,14 +4404,18 @@ body.dark-mode .form-textarea:focus {
 }
 
 .store-intro a {
-  color: var(--accent-gold);
-  text-decoration: none;
+  color: #fff;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(255, 255, 255, 0.5);
   font-weight: 500;
-  transition: color 0.2s ease;
+  transition: text-decoration-color 0.2s ease, opacity 0.2s ease;
 }
 
 .store-intro a:hover {
-  color: var(--accent-mint);
+  color: #fff;
+  text-decoration-color: rgba(255, 255, 255, 0.9);
+  opacity: 0.9;
 }
 
 /* Store categories - une image par catégorie */
@@ -4437,6 +4441,20 @@ body.dark-mode .form-textarea:focus {
 .store-category-card {
   display: flex;
   flex-direction: column;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+.store-category:hover .store-category-card {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .store-category-image {
@@ -4444,7 +4462,7 @@ body.dark-mode .form-textarea:focus {
   width: 100%;
   aspect-ratio: 1 / 1;
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: 10px;
 }
 
 .store-category-image img {
@@ -4471,21 +4489,22 @@ body.dark-mode .form-textarea:focus {
 }
 
 .store-category-info {
-  padding: 10px 0;
+  padding: 10px 4px 2px 4px;
 }
 
 .store-category-title {
   font-family: var(--font-body);
   font-size: 14px;
   font-weight: 600;
-  color: white;
+  color: #fff;
   margin: 0 0 4px 0;
 }
 
 .store-category-price {
-  color: var(--accent-gold);
+  color: #fff;
   font-weight: 700;
   font-size: 15px;
+  opacity: 0.9;
 }
 
 @media (max-width: 600px) {
