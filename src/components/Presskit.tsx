@@ -118,7 +118,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
           <img src="/images/presskit-hero.webp" alt="Maudite Machine" loading="lazy" />
         </div>
         <h1 className="pk-hero-title">MAUDITE MACHINE</h1>
-        <div className="pk-hero-meta">
+        <div className="pk-hero-meta pk-glass">
           <div className="pk-hero-meta-col">
             <div>DJ · Producer · VRSTL Records</div>
             <div className="pk-dim">Montréal / Canada</div>
@@ -135,7 +135,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         <div className="pk-section-label">— Biographie / Biography</div>
         <h2 className="pk-section-title-huge">RAW.<br/>HYPNOTIC.<br/>UNDERGROUND.</h2>
         <div className="pk-bio-grid">
-          <div className="pk-bio-col">
+          <div className="pk-bio-col pk-glass">
             <div className="pk-lang-tag">FR</div>
             <p>
               Maudite Machine est un DJ et producteur canadien reconnu pour son approche
@@ -152,7 +152,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
               distinctive.
             </p>
           </div>
-          <div className="pk-bio-col">
+          <div className="pk-bio-col pk-glass">
             <div className="pk-lang-tag">EN</div>
             <p>
               Maudite Machine is a Canadian DJ and producer known for his raw, hypnotic
@@ -209,7 +209,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
             </ul>
           </div>
         </div>
-        <div className="pk-remix">
+        <div className="pk-remix pk-glass">
           <div className="pk-section-label">Remix work for / Remixes pour</div>
           <div className="pk-remix-names">
             <span>Laurent Garnier</span>
@@ -247,9 +247,9 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
       {/* === FULL CATALOGUE === */}
       <section className="pk-section">
         <div className="pk-section-label">— Full catalogue / Catalogue complet</div>
-        <div className="pk-catalogue-intro">
+        <div className="pk-catalogue-intro pk-glass">
           <h2 className="pk-section-title-huge">13 RELEASES.<br/>2024 — 2026.</h2>
-          <p className="pk-dim">
+          <p>
             De Discowriders (Jul 2024) à Voodoo (Feb 2026), un flux constant de productions
             originales sur VRSTL Records. Singles, EPs et un album, dans une esthétique dark
             disco, indie dance et minimal hypnotique.

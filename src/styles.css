@@ -3999,20 +3999,22 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 /* ==================== PRESSKIT V2 (PDF 2026) ==================== */
 
 .pk-page {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 30px 24px 60px 24px;
+  width: 100%;
+  padding: 30px 40px 60px 40px;
   color: rgba(255, 255, 255, 0.95);
   position: relative;
 }
 
 .pk-glass {
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(20px) saturate(1.6);
-  -webkit-backdrop-filter: blur(20px) saturate(1.6);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(24px) saturate(2.2) brightness(1.1);
+  -webkit-backdrop-filter: blur(24px) saturate(2.2) brightness(1.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
 }
 
 .pk-section {
@@ -4167,8 +4169,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   font-size: 12px;
   letter-spacing: 1px;
   text-transform: uppercase;
-  padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 18px 24px;
 }
 .pk-hero-meta-col.pk-right { text-align: right; }
 .pk-hero-meta-col > div + div { margin-top: 4px; }
@@ -4177,15 +4178,19 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 .pk-bio-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 40px;
+  gap: 20px;
   margin-bottom: 30px;
+}
+.pk-bio-col {
+  padding: 30px 32px;
 }
 .pk-bio-col p {
   font-size: 14px;
   line-height: 1.7;
   margin: 0 0 14px 0;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.9);
 }
+.pk-bio-col p:last-child { margin-bottom: 0; }
 .pk-quote {
   margin: 30px 0 0 0;
   padding: 24px 28px;
@@ -4273,7 +4278,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 
 .pk-remix {
   text-align: center;
-  padding: 24px 0;
+  padding: 28px 24px;
 }
 .pk-remix-names {
   font-family: var(--font-body);
@@ -4349,12 +4354,17 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 /* === CATALOGUE === */
 .pk-catalogue-intro {
   margin-bottom: 24px;
+  padding: 28px 32px;
+}
+.pk-catalogue-intro .pk-section-title-huge {
+  margin-bottom: 18px;
 }
 .pk-catalogue-intro p {
-  max-width: 620px;
-  font-size: 13px;
-  line-height: 1.6;
+  max-width: 720px;
+  font-size: 14px;
+  line-height: 1.65;
   margin: 0;
+  color: rgba(255, 255, 255, 0.85);
 }
 .pk-catalogue-grid {
   display: grid;
