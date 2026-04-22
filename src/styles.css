@@ -4005,6 +4005,17 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   position: relative;
 }
 
+/* Cacher la scrollbar quand on est sur la presskit page (scroll fonctionne mais invisible) */
+.content-wrapper:has(.pk-page) {
+  scrollbar-width: none;           /* Firefox */
+  -ms-overflow-style: none;        /* IE/Edge legacy */
+}
+.content-wrapper:has(.pk-page)::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
 .pk-glass {
   /* Meme recette que .site-header + .site-footer */
   background: rgba(0, 0, 0, 0.2);
