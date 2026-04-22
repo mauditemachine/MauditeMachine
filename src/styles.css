@@ -4006,15 +4006,14 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 }
 
 .pk-glass {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(24px) saturate(2.2) brightness(1.1);
-  -webkit-backdrop-filter: blur(24px) saturate(2.2) brightness(1.1);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(22, 24, 28, 0.72);
+  backdrop-filter: blur(30px) saturate(0.6);
+  -webkit-backdrop-filter: blur(30px) saturate(0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.35),
-    0 0 0 1px rgba(255, 255, 255, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .pk-section {
