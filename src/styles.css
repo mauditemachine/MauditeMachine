@@ -4032,7 +4032,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 
 .pk-section-label {
   font-family: var(--font-body);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 2px;
   color: rgba(255, 255, 255, 0.55);
   text-transform: uppercase;
@@ -4055,9 +4055,9 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 }
 
 .pk-lang-tag {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 3px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.55);
   margin-bottom: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.15);
   padding-top: 10px;
@@ -4066,7 +4066,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 
 .pk-lang-tag-inline {
   display: inline-block;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 2px;
   color: rgba(255, 255, 255, 0.6);
   background: rgba(255, 255, 255, 0.08);
@@ -4133,7 +4133,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 2px;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.65);
@@ -4175,7 +4175,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 .pk-hero-meta {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 1px;
   text-transform: uppercase;
   padding: 18px 24px;
@@ -4194,17 +4194,17 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   padding: 30px 32px;
 }
 .pk-bio-col p {
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.7;
   margin: 0 0 14px 0;
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(255, 255, 255, 0.92);
 }
 .pk-bio-col p:last-child { margin-bottom: 0; }
 .pk-quote {
   margin: 30px 0 0 0;
   padding: 24px 28px;
   font-family: var(--font-body);
-  font-size: 19px;
+  font-size: 21px;
   font-weight: 600;
   font-style: italic;
   line-height: 1.4;
@@ -4216,7 +4216,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 .pk-quote-en {
   display: block;
   margin-top: 10px;
-  font-size: 12px;
+  font-size: 13px;
   font-style: normal;
   letter-spacing: 2px;
   text-transform: uppercase;
@@ -4243,7 +4243,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   letter-spacing: -1px;
 }
 .pk-stat-label {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 1.5px;
   text-transform: uppercase;
   line-height: 1.4;
@@ -4263,12 +4263,12 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 }
 .pk-perf-title {
   font-family: var(--font-body);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 2px;
   text-transform: uppercase;
   margin: 0 0 18px 0;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.85);
 }
 .pk-perf-list {
   list-style: none;
@@ -4279,8 +4279,8 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  font-size: 13px;
-  padding: 8px 0;
+  font-size: 14px;
+  padding: 9px 0;
   border-bottom: 1px dotted rgba(255, 255, 255, 0.1);
 }
 .pk-perf-list li:last-child { border-bottom: 0; }
@@ -4291,7 +4291,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 }
 .pk-remix-names {
   font-family: var(--font-body);
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 900;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -4329,15 +4329,15 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   color: #fff;
 }
 .pk-album-meta {
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 2px;
   text-transform: uppercase;
   margin-bottom: 14px;
 }
 .pk-album-desc {
-  font-size: 13px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.9);
   margin: 0 0 16px 0;
 }
 .pk-tracklist {
@@ -4347,17 +4347,17 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   border-top: 1px solid rgba(255, 255, 255, 0.15);
   columns: 2;
   column-gap: 30px;
-  font-size: 13px;
+  font-size: 14px;
 }
 .pk-tracklist li {
-  padding: 4px 0;
+  padding: 5px 0;
   break-inside: avoid;
 }
 .pk-track-num {
   color: rgba(255, 255, 255, 0.4);
   font-variant-numeric: tabular-nums;
   margin-right: 8px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 /* === CATALOGUE === */
@@ -4369,11 +4369,11 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   margin-bottom: 18px;
 }
 .pk-catalogue-intro p {
-  max-width: 720px;
-  font-size: 14px;
+  max-width: 820px;
+  font-size: 15px;
   line-height: 1.65;
   margin: 0;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.9);
 }
 .pk-catalogue-grid {
   display: grid;
@@ -4399,14 +4399,14 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   padding: 10px 4px 4px 4px;
 }
 .pk-release-title {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #fff;
   margin-bottom: 3px;
   letter-spacing: 0.5px;
 }
 .pk-release-meta {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 1px;
   text-transform: uppercase;
 }
@@ -4433,10 +4433,10 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 .pk-label-text p {
-  font-size: 13px;
-  line-height: 1.6;
+  font-size: 14px;
+  line-height: 1.65;
   margin: 0 0 12px 0;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.9);
 }
 .pk-label-photo {
   width: 100%;
@@ -4446,7 +4446,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 }
 .pk-roster-names {
   font-family: var(--font-body);
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 900;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -4470,21 +4470,21 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   padding: 22px 24px;
 }
 .pk-contact-label {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 2px;
   text-transform: uppercase;
   margin-bottom: 8px;
 }
 .pk-contact-name {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   color: #fff;
   margin-bottom: 6px;
 }
 .pk-contact-link {
   display: block;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.85);
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
   text-decoration: none;
   padding: 2px 0;
 }
@@ -4505,13 +4505,13 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   background: rgba(255, 255, 255, 0.1);
 }
 .pk-contact-cell-label {
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 2px;
   text-transform: uppercase;
   margin-bottom: 3px;
 }
 .pk-contact-cell-value {
-  font-size: 12px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.9);
   word-break: break-all;
 }
@@ -4531,7 +4531,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   cursor: pointer;
 }
 .pk-footer-version {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 2px;
   text-transform: uppercase;
   text-align: center;
