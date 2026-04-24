@@ -125,11 +125,12 @@
 
 :root {
   --text: rgba(255, 255, 255, 1);
-  /* Nouvelle palette - Sticker Maudite Machine */
+  /* Palette monochrome - blanc translucide uniquement (2026-04) */
   --bg-primary: #2d5a6b;
   --bg-dark: #1e4a5a;
-  --accent-gold: #e8b41a;
-  --accent-mint: #5de6b0;
+  /* Accents legacy neutralises en blanc (migration progressive) */
+  --accent-gold: rgba(255, 255, 255, 0.92);
+  --accent-mint: rgba(255, 255, 255, 0.82);
   --border-dark: #333333;
   /* Fonts */
   --font-menu: 'Robot Radicals', 'SF Pro Rounded', sans-serif;
@@ -256,7 +257,7 @@ body {
 .header-toggle-btn:hover {
   background: rgba(255, 255, 255, 0.15);
   color: var(--accent-gold);
-  border-color: rgba(255, 204, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .header-lang-btn {
@@ -1556,9 +1557,9 @@ body {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--accent-gold, #FFCC00);
+  background: var(--accent-gold, rgba(255,255,255,0.92));
   cursor: pointer;
-  box-shadow: 0 0 6px rgba(255, 204, 0, 0.5);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
 }
 
 .detached-time {
@@ -1597,8 +1598,8 @@ body {
 }
 
 .detached-row.active {
-  background: rgba(255, 204, 0, 0.12);
-  border-left: 3px solid var(--accent-gold, #FFCC00);
+  background: rgba(255, 255, 255, 0.12);
+  border-left: 3px solid var(--accent-gold, rgba(255,255,255,0.92));
 }
 
 .detached-row .row-title {
@@ -1614,7 +1615,7 @@ body {
 }
 
 .detached-row.active .row-title {
-  color: var(--accent-gold, #FFCC00);
+  color: var(--accent-gold, rgba(255,255,255,0.92));
   font-weight: 700;
 }
 
@@ -1627,7 +1628,7 @@ body {
 }
 
 .detached-row.active .row-time {
-  color: rgba(255, 204, 0, 0.8);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 /* Mobile : panneau pleine largeur */
@@ -1964,14 +1965,19 @@ body {
   .header-logo-left {
     height: 18px;
   }
-  
+
   .header-nav-right {
     gap: 12px;
   }
-  
+
   .header-nav-right button {
     font-size: 14px;
   }
+}
+
+/* Masquer la nav desktop < 900px (MobileMenu prend le relai) */
+@media (max-width: 900px) {
+  .header-nav-right { display: none !important; }
 }
 
 /* Masquer le layout desktop sur mobile */
@@ -2293,7 +2299,7 @@ body {
 }
 
 .menu-toggle-btn:hover {
-  background: rgba(255,204,0,0.2);
+  background: rgba(255, 255, 255,0.2);
   border-color: var(--accent-gold);
 }
 
@@ -2406,7 +2412,7 @@ body {
 }
 .sc-row.active {
   background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 221, 0, 0.6);
+  border-color: rgba(255, 255, 255, 0.6);
 }
 .sc-loadmore {
   margin-top: 0px;
@@ -3097,7 +3103,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   font-family: "SF Pro Rounded", system-ui, sans-serif;
   font-size: 17px;
   font-weight: 700;
-  color: #fbcd00f2;
+  color: rgba(255, 255, 255, 0.95);
   margin: 0 0 20px 0;
   letter-spacing: -10px;
 }
@@ -3243,7 +3249,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 }
 .message-link:hover {
   color: var(--accent-gold);
-  text-shadow: 0 0 8px rgba(255, 221, 0, 0.35);
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
 }
 .message-image {
   order: -1;
@@ -3384,13 +3390,13 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 
 .year-header:hover {
   background: linear-gradient(135deg, rgba(45, 90, 107, 0.8) 0%, rgba(30, 74, 90, 0.8) 100%);
-  border-color: rgba(232, 180, 26, 0.4);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .year-header.expanded {
   border-radius: 12px 12px 0 0;
   border-color: var(--accent-gold);
-  background: linear-gradient(135deg, rgba(232, 180, 26, 0.2) 0%, rgba(45, 90, 107, 0.6) 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(45, 90, 107, 0.6) 100%);
 }
 
 .year-number {
@@ -6971,7 +6977,7 @@ body.dark-mode .admin-page .form-group textarea:focus {
 }
 
 .admin-title {
-  color: #FFCC00;
+  color: rgba(255, 255, 255, 0.95);
   font-size: 1.8rem;
   margin: 0 0 1.5rem 0;
   font-weight: 700;
@@ -6998,9 +7004,9 @@ body.dark-mode .admin-page .form-group textarea:focus {
 }
 
 .admin-tab.active {
-  background: #FFCC00;
+  background: rgba(255, 255, 255, 0.92);
   color: #111;
-  border-bottom-color: #FFCC00;
+  border-bottom-color: rgba(255, 255, 255, 0.92);
 }
 
 /* Status */
@@ -7024,7 +7030,7 @@ body.dark-mode .admin-page .form-group textarea:focus {
 }
 
 .admin-form-title {
-  color: #FFCC00;
+  color: rgba(255, 255, 255, 0.95);
   margin: 0 0 1rem 0;
   font-size: 1.1rem;
 }
@@ -7062,7 +7068,7 @@ body.dark-mode .admin-page .form-group textarea:focus {
 }
 
 .admin-input:focus {
-  border-color: #FFCC00;
+  border-color: rgba(255, 255, 255, 0.6);
 }
 
 .admin-textarea {
@@ -7107,7 +7113,7 @@ body.dark-mode .admin-page .form-group textarea:focus {
 /* Buttons */
 .admin-btn-primary {
   padding: 0.75rem 1.5rem;
-  background: #FFCC00;
+  background: rgba(255, 255, 255, 0.92);
   color: #111;
   border: none;
   border-radius: 8px;
@@ -7212,8 +7218,9 @@ body.dark-mode .admin-page .form-group textarea:focus {
 
 /* -- Couleurs & overlay -- */
 .design-alternate .page {
-  --accent-gold: #FFCC00;
-  --accent-mint: #00e5a0;
+  /* Monochrome : accents legacy forces en blanc */
+  --accent-gold: rgba(255, 255, 255, 0.92);
+  --accent-mint: rgba(255, 255, 255, 0.82);
 }
 
 .design-alternate .page::after {
@@ -7245,7 +7252,7 @@ body.dark-mode .admin-page .form-group textarea:focus {
 }
 
 .design-alternate .header-logo-left img {
-  filter: brightness(1.2) drop-shadow(0 0 8px rgba(255, 204, 0, 0.2));
+  filter: brightness(1.2) drop-shadow(0 0 8px rgba(255, 255, 255, 0.2));
 }
 
 /* Nav : pilules translucides */
@@ -7278,14 +7285,14 @@ body.dark-mode .admin-page .form-group textarea:focus {
   width: 32px;
   height: 32px;
   border-radius: 10px;
-  background: rgba(255, 204, 0, 0.06);
-  border-color: rgba(255, 204, 0, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
   font-size: 12px;
 }
 
 .design-alternate .header-toggle-btn:hover {
-  background: rgba(255, 204, 0, 0.15);
-  box-shadow: 0 0 15px rgba(255, 204, 0, 0.1);
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
 }
 
 /* -- Landing page : logo géant plein écran -- */
@@ -7381,7 +7388,7 @@ body.dark-mode .admin-page .form-group textarea:focus {
   font-size: 13px;
   font-weight: 400;
   letter-spacing: 0.3em;
-  color: rgba(255, 204, 0, 0.5);
+  color: rgba(255, 255, 255, 0.5);
   margin: 0 0 40px 0;
   padding-bottom: 0;
   border-bottom: none;
@@ -7603,9 +7610,9 @@ body.dark-mode .admin-page .form-group textarea:focus {
 .design-alternate .goodie-download {
   border-radius: 20px;
   padding: 5px 16px;
-  background: rgba(255, 204, 0, 0.15);
+  background: rgba(255, 255, 255, 0.15);
   color: var(--accent-gold);
-  border: 1px solid rgba(255, 204, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .design-alternate .goodie-download:hover {
@@ -7623,7 +7630,7 @@ body.dark-mode .admin-page .form-group textarea:focus {
 }
 
 .design-alternate ::-webkit-scrollbar-thumb {
-  background: rgba(255, 204, 0, 0.15);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 4px;
 }
 

@@ -10,6 +10,7 @@ import Goodies from "./Goodies";
 import SocialIcon from "./SocialIcon";
 import JellyfishBackground from "./JellyfishBackground";
 import LiquidGlass from "./LiquidGlass";
+import MobileMenu from "./ui/MobileMenu";
 
 // Supprimer les erreurs SoundCloud de la console
 const suppressWidgetErrors = () => {
@@ -312,37 +313,21 @@ export default function MainApp() {
       <LiquidGlass />
 
       <div className={`page ${designMode === 'alternate' ? 'design-alternate' : ''}`}>
-      {/* Hamburger + menu mobile (masqué en desktop) */}
-      <button
-        className="hamburger"
-        aria-label="Ouvrir le menu"
-        onClick={() => setMenuOpen((v) => !v)}
-      >
-        <span></span>
-      </button>
-      <nav
-        className={`menu ${menuOpen ? "open" : ""}`}
-        onClick={(e) => { if ((e.target as HTMLElement).closest('.menu-toggles')) return; setMenuOpen(false); }}
-      >
-        <ul className="links links-mobile">
-          {socialLinks.map((link) => (
-            <li key={link.label}>
-              <a href={link.href} target="_blank" rel="noreferrer">
-                {link.label}
-              </a>
-            </li>
-          ))}
-          <li>
-            <a
-              href="https://drive.google.com/drive/folders/1qI9hbn2NwDLwAg-q2Jn9-5U202CKP7P3?usp=drive_link"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Presskit & Techrider
-            </a>
-          </li>
-        </ul>
-      </nav>
+      {/* Menu mobile Pro Max (hamburger → overlay glass + stagger links) */}
+      <MobileMenu
+        isOpen={menuOpen}
+        onToggle={() => setMenuOpen((v) => !v)}
+        onClose={() => setMenuOpen(false)}
+        activeSection={activeSection}
+        onNavigate={handleSectionChange}
+        links={[
+          { key: 'events',   label: t.nav.events,   section: 'events' },
+          { key: 'store',    label: t.nav.merch,    section: 'store' },
+          { key: 'message',  label: t.nav.contacts, section: 'message' },
+          { key: 'goodies',  label: t.nav.goodies,  section: 'goodies' },
+          { key: 'presskit', label: t.nav.presskit, section: 'presskit' },
+        ]}
+      />
 
 
       {/* HEADER - Logo gauche + Navigation droite */}
@@ -403,17 +388,23 @@ export default function MainApp() {
 
       {/* MAIN CONTENT */}
       <main className="site-main">
-        {/* Page d'accueil - Landing page */}
+        {/* Page d'accueil - Landing page avec stagger fade-up */}
         {activeSection === "home" ? (
           <div className="landing-page">
-            <div className={`landing-logo-hero ${heroLogoFaded ? 'faded' : ''}`}>
+            <div
+              className={`landing-logo-hero animate-fade-up ${heroLogoFaded ? 'faded' : ''}`}
+              style={{ animationDelay: '100ms', animationFillMode: 'both' }}
+            >
               <img
                 src={import.meta.env.BASE_URL + "logo/LogoStack.svg"}
                 alt="Maudite Machine"
                 className="landing-logo-hero-img"
               />
             </div>
-            <div className="landing-bio-section">
+            <div
+              className="landing-bio-section animate-fade-up"
+              style={{ animationDelay: '280ms', animationFillMode: 'both' }}
+            >
               <p>Maudite Machine is a Canadian DJ and producer known for his raw, hypnotic approach to minimal and indie dance. Born from the Montreal underground, he has performed at major events including Piknic Électronik, Eclipse Festival, and the iconic Techno Parade in Paris, delivering sets that blur the line between intensity and atmosphere across Canada and Europe.</p>
               <p>As the founder of VRSTL Records, he curates a sound that embraces tension, groove, and experimentation, having shared the stage with electronic music legends like Carl Craig, Ellen Allien, The Hacker, Popof, and Agoria. His collaborations with influential artists reflect a constant drive to push boundaries and redefine the underground with a distinct sonic signature, championing bold artists who share his vision for the darker, experimental sides of electronic music.</p>
             </div>
@@ -484,7 +475,10 @@ export default function MainApp() {
       {/* Mobile Layout - visible seulement via media query */}
       <div className="mobile-layout">
         {/* Logo 100% largeur */}
-        <div className="mobile-section mobile-logo">
+        <div
+          className="mobile-section mobile-logo animate-fade-up"
+          style={{ animationDelay: '80ms', animationFillMode: 'both' }}
+        >
           <img
             src={import.meta.env.BASE_URL + "logo/mauditemachine-logo.png"}
             alt="Maudite Machine"
@@ -492,7 +486,10 @@ export default function MainApp() {
         </div>
 
         {/* Social links carrés */}
-        <div className="mobile-section mobile-social-links">
+        <div
+          className="mobile-section mobile-social-links animate-fade-up"
+          style={{ animationDelay: '180ms', animationFillMode: 'both' }}
+        >
           {socialLinks.map((link) => (
             <SocialIcon
               key={link.label}
@@ -505,7 +502,10 @@ export default function MainApp() {
         </div>
 
         {/* Bio avec background */}
-        <div className="mobile-section mobile-bio">
+        <div
+          className="mobile-section mobile-bio animate-fade-up"
+          style={{ animationDelay: '280ms', animationFillMode: 'both' }}
+        >
           {bioText.split('\n\n').map((paragraph, index) => (
             <p key={index}>{paragraph}</p>
           ))}
