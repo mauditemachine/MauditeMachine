@@ -11,6 +11,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { cn } from '../../lib/cn'
+import { useTranslation } from '../../lib/i18n'
 
 export interface MobileMenuLink {
   key: string
@@ -43,6 +44,8 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
   links,
   socials,
 }) => {
+  const { t } = useTranslation()
+  const a = t.a11y
   // Controle le mount/unmount pour que l'exit animation soit visible
   const [rendered, setRendered] = useState(isOpen)
   useEffect(() => {
@@ -84,7 +87,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
       <button
         type="button"
         onClick={onToggle}
-        aria-label={isOpen ? 'Fermer le menu' : 'Ouvrir le menu'}
+        aria-label={isOpen ? a.closeMenu : a.openMenu}
         aria-expanded={isOpen}
         aria-controls="mobile-menu-panel"
         style={{ position: 'fixed', top: 16, right: 16, zIndex: 1001 }}
@@ -129,7 +132,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
           id="mobile-menu-panel"
           role="dialog"
           aria-modal="true"
-          aria-label="Menu principal"
+          aria-label={a.mainMenu}
           style={{
             position: 'fixed',
             inset: 0,

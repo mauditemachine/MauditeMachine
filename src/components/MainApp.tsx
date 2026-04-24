@@ -317,7 +317,7 @@ export default function MainApp() {
             <button
               type="button"
               onClick={() => scrollToSection('hero')}
-              aria-label="Maudite Machine — accueil"
+              aria-label={t.a11y.homeLink}
               className="h-full flex items-center shrink-0 p-0 m-0 bg-transparent border-0 cursor-pointer hover:opacity-70 transition-opacity leading-none"
             >
               <img

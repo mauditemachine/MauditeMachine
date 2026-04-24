@@ -16,6 +16,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '../lib/cn'
+import { useTranslation } from '../lib/i18n'
 import VaultPanel from './ui/VaultPanel'
 
 type Sound = {
@@ -113,6 +114,8 @@ interface SoundCloudPlayerProps {
 export default function SoundCloudPlayer({
   onBackgroundChange,
 }: SoundCloudPlayerProps): JSX.Element {
+  const { t } = useTranslation()
+  const a = t.a11y
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const widgetRef = useRef<any>(null)
   const [tracks, setTracks] = useState<Sound[]>([])
@@ -338,7 +341,7 @@ export default function SoundCloudPlayer({
       {/* Floating Pill — player flottant Pro Max */}
       <div
         role="region"
-        aria-label="Lecteur audio"
+        aria-label={a.audioPlayer}
         style={{
           position: 'fixed',
           left: '50%',
@@ -359,7 +362,7 @@ export default function SoundCloudPlayer({
           className="relative h-[2px] bg-white/10 cursor-pointer group hover:h-[3px] transition-[height] duration-200"
           onClick={handleProgressClick}
           role="slider"
-          aria-label="Progression du morceau"
+          aria-label={a.trackProgress}
           aria-valuemin={0}
           aria-valuemax={durationMs}
           aria-valuenow={positionMs}
@@ -406,7 +409,7 @@ export default function SoundCloudPlayer({
               whileHover={{ scale: 1.12 }}
               whileTap={{ scale: 0.92 }}
               onClick={prev}
-              aria-label="Morceau precedent"
+              aria-label={a.previousTrack}
               className={cn(
                 'hidden sm:flex items-center justify-center',
                 'w-9 h-9 rounded-full',
@@ -440,7 +443,7 @@ export default function SoundCloudPlayer({
               whileHover={{ scale: 1.12 }}
               whileTap={{ scale: 0.92 }}
               onClick={next}
-              aria-label="Morceau suivant"
+              aria-label={a.nextTrack}
               className={cn(
                 'hidden sm:flex items-center justify-center',
                 'w-9 h-9 rounded-full',
@@ -459,7 +462,7 @@ export default function SoundCloudPlayer({
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.94 }}
             onClick={handleOpenVault}
-            aria-label="Ouvrir la playlist"
+            aria-label={a.openPlaylist}
             aria-expanded={vaultOpen}
             className={cn(
               'flex items-center justify-center flex-shrink-0',

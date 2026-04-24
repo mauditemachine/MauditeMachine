@@ -182,6 +182,21 @@ export const translations = {
     footer: {
       madeBy: 'website made by',
     },
+    a11y: {
+      // Aria-labels pour screen readers + accessibilite
+      homeLink: 'Maudite Machine — home',
+      audioPlayer: 'Audio player',
+      trackProgress: 'Track progress',
+      previousTrack: 'Previous track',
+      nextTrack: 'Next track',
+      openPlaylist: 'Open playlist',
+      closePlaylist: 'Close playlist',
+      nowPlaying: 'Now playing',
+      playlist: 'Playlist',
+      mainMenu: 'Main menu',
+      openMenu: 'Open menu',
+      closeMenu: 'Close menu',
+    },
   },
   fr: {
     nav: {
@@ -352,6 +367,20 @@ export const translations = {
     footer: {
       madeBy: 'site réalisé par',
     },
+    a11y: {
+      homeLink: 'Maudite Machine — accueil',
+      audioPlayer: 'Lecteur audio',
+      trackProgress: 'Progression du morceau',
+      previousTrack: 'Morceau précédent',
+      nextTrack: 'Morceau suivant',
+      openPlaylist: 'Ouvrir la playlist',
+      closePlaylist: 'Fermer la playlist',
+      nowPlaying: 'En cours de lecture',
+      playlist: 'Playlist',
+      mainMenu: 'Menu principal',
+      openMenu: 'Ouvrir le menu',
+      closeMenu: 'Fermer le menu',
+    },
   },
   es: {
     nav: {
@@ -521,6 +550,20 @@ export const translations = {
     },
     footer: {
       madeBy: 'sitio realizado por',
+    },
+    a11y: {
+      homeLink: 'Maudite Machine — inicio',
+      audioPlayer: 'Reproductor de audio',
+      trackProgress: 'Progreso del track',
+      previousTrack: 'Track anterior',
+      nextTrack: 'Track siguiente',
+      openPlaylist: 'Abrir playlist',
+      closePlaylist: 'Cerrar playlist',
+      nowPlaying: 'Reproduciendo',
+      playlist: 'Playlist',
+      mainMenu: 'Menú principal',
+      openMenu: 'Abrir menú',
+      closeMenu: 'Cerrar menú',
     },
   },
 } as const;

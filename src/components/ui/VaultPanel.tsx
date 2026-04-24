@@ -14,6 +14,7 @@
 import React, { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { cn } from '../../lib/cn'
+import { useTranslation } from '../../lib/i18n'
 
 type Sound = {
   id: number
@@ -56,9 +57,9 @@ function formatTrackDisplay(title: string): string {
   return title.replace(/^Maudite Machine\s*[-–—]\s*/i, '').replace(/\s*\([^)]*\)\s*$/g, '').trim()
 }
 
-// Indicateur "en lecture" : 3 barres animees
-const PlayingIndicator = () => (
-  <div className="flex items-end gap-[2px] h-4" aria-label="En cours de lecture">
+// Indicateur "en lecture" : 3 barres animees. Label via prop pour i18n.
+const PlayingIndicator = ({ label }: { label: string }) => (
+  <div className="flex items-end gap-[2px] h-4" aria-label={label}>
     <span className="block w-[3px] bg-ink-95 rounded-sm animate-[vault-bar1_0.9s_ease-in-out_infinite]" style={{ height: '60%' }} />
     <span className="block w-[3px] bg-ink-95 rounded-sm animate-[vault-bar2_1.1s_ease-in-out_infinite]" style={{ height: '100%' }} />
     <span className="block w-[3px] bg-ink-95 rounded-sm animate-[vault-bar3_0.8s_ease-in-out_infinite]" style={{ height: '70%' }} />
@@ -88,6 +89,8 @@ const VaultPanel: React.FC<VaultPanelProps> = ({
   onPlay,
   onTogglePlay,
 }) => {
+  const { t } = useTranslation()
+  const a = t.a11y
   // Scroll lock
   useEffect(() => {
     if (!isOpen) return
@@ -118,7 +121,7 @@ const VaultPanel: React.FC<VaultPanelProps> = ({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Playlist"
+      aria-label={a.playlist}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
       style={{ position: 'fixed', inset: 0, zIndex: 1200 }}
       className={cn(
@@ -131,7 +134,7 @@ const VaultPanel: React.FC<VaultPanelProps> = ({
       <button
         type="button"
         onClick={onClose}
-        aria-label="Fermer la playlist"
+        aria-label={a.closePlaylist}
         className={cn(
           'fixed top-4 right-4 z-[1201]',
           'w-11 h-11 rounded-full',
@@ -214,7 +217,7 @@ const VaultPanel: React.FC<VaultPanelProps> = ({
                   {/* Indicateur playing si actif + en lecture */}
                   {active && isPlaying && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                      <PlayingIndicator />
+                      <PlayingIndicator label={a.nowPlaying} />
                     </div>
                   )}
                   {/* Icon pause au hover si actif et en lecture */}
