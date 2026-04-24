@@ -382,7 +382,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
           </div>
         </div>
 
-        {/* Social grid : icones blanches + label + value */}
+        {/* Social grid : icone + nom de plateforme uniquement (URLs cachees) */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 mt-6 md:mt-10">
           {CONTACTS.map((c) => (
             <a
@@ -390,23 +390,22 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
               href={c.href}
               target="_blank"
               rel="noreferrer"
+              aria-label={c.label}
               className={cn(
-                'group pk-glass rounded-xl md:rounded-2xl p-4 md:p-5',
-                'flex items-center gap-3 md:gap-4',
+                'group pk-glass rounded-xl md:rounded-2xl',
+                'p-5 md:p-6',
+                'flex items-center gap-4 justify-center',
+                'text-white no-underline',
                 'transition-all duration-300',
                 'hover:border-white/40 hover:bg-white/[0.07]',
               )}
+              style={{ color: '#fff', textDecoration: 'none' }}
             >
-              <span className="shrink-0 w-10 h-10 md:w-11 md:h-11 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white group-hover:bg-white/20 group-hover:scale-110 transition-all duration-300">
+              <span className="shrink-0 w-11 h-11 md:w-12 md:h-12 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white group-hover:bg-white/20 group-hover:scale-110 transition-all duration-300">
                 {c.icon}
               </span>
-              <span className="flex-1 min-w-0">
-                <span className="block text-[10px] md:text-xs font-semibold uppercase tracking-[0.15em] text-white/60 mb-0.5">
-                  {c.label}
-                </span>
-                <span className="block text-sm md:text-base font-medium text-white truncate">
-                  {c.value}
-                </span>
+              <span className="text-xl md:text-2xl font-bold text-white capitalize">
+                {c.label}
               </span>
             </a>
           ))}
