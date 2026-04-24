@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import SoundCloudPlayer from "./SoundCloudPlayer";
 import NewsMessages from "./NewsMessages";
 import { useApp } from "../context/AppContext";
 import EventsDisplay from "./EventsDisplay";
 import Store from "./Store";
 import Message from "./Message";
-import Presskit from "./Presskit";
 import Goodies from "./Goodies";
 import SocialIcon from "./SocialIcon";
 import JellyfishBackground from "./JellyfishBackground";
 import LiquidGlass from "./LiquidGlass";
 import MobileMenu from "./ui/MobileMenu";
+
+// Presskit : lazy (360 lignes de contenu statique, seulement sur #presskit)
+const Presskit = React.lazy(() => import("./Presskit"));
 
 // Supprimer les erreurs SoundCloud de la console
 const suppressWidgetErrors = () => {
@@ -426,7 +428,9 @@ export default function MainApp() {
                 <Goodies />
               )}
               {activeSection === "presskit" && (
-                <Presskit onNavigateToMessage={() => handleSectionChange("message")} />
+                <Suspense fallback={null}>
+                  <Presskit onNavigateToMessage={() => handleSectionChange("message")} />
+                </Suspense>
               )}
             </div>
           </div>
