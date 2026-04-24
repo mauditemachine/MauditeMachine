@@ -142,12 +142,12 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
 
       {/* === HERO MAGAZINE : 2-col image / bio + meta === */}
       <section className="py-8 md:py-16 mb-12 md:mb-20">
-        {/* Tags genres — typo mono pour trancher avec le display */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-8 md:mb-12 font-mono uppercase tracking-[0.2em] text-white/60 text-xs md:text-sm">
+        {/* Tags genres — sous-titre editorial centre, serif italic elegant */}
+        <div className="w-full text-center flex flex-wrap justify-center items-center mx-auto gap-x-4 md:gap-x-6 gap-y-1 mb-10 md:mb-16 font-serif italic tracking-widest text-white/70 text-lg md:text-xl">
           <span>Minimal</span>
-          <span className="opacity-40">·</span>
+          <span className="text-white/30 not-italic">·</span>
           <span>Indie Dance</span>
-          <span className="opacity-40">·</span>
+          <span className="text-white/30 not-italic">·</span>
           <span>Dark Disco</span>
         </div>
 
