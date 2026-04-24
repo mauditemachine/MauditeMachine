@@ -152,19 +152,19 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
 
         {/* Grid 2-col : image gauche / bio droite */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10 items-start">
-          {/* Image magazine — col 5 — cover couleur Limbos (latest album) */}
+          {/* Image magazine — col 5 — vraie photo presse couleur Maudite Machine */}
           <div
             className="md:col-span-5 animate-fade-up"
             style={{ animationDelay: '120ms', animationFillMode: 'both' }}
           >
             <div className="relative w-full aspect-[4/5] overflow-hidden rounded-2xl md:rounded-3xl bg-black/40">
               <img
-                src="/images/Limbos.webp"
-                alt="Maudite Machine — Limbos album cover"
+                src="/images/MauditeMachine-2.webp"
+                alt="Maudite Machine — photo presse 2026"
                 className="absolute inset-0 w-full h-full object-cover"
                 loading="eager"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent pointer-events-none" />
               <div className="absolute bottom-4 left-4 right-4">
                 <div className="text-white text-xs md:text-sm font-semibold uppercase tracking-[0.2em]">
                   DJ · Producer · VRSTL Records

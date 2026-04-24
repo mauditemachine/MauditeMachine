@@ -9,6 +9,7 @@ import JellyfishBackground from "./JellyfishBackground";
 import LiquidGlass from "./LiquidGlass";
 import MobileMenu from "./ui/MobileMenu";
 import SectionHeader from "./ui/SectionHeader";
+import EditorialPhoto from "./ui/EditorialPhoto";
 import { cn } from "../lib/cn";
 
 // Presskit : lazy (360 lignes de contenu statique, gros chunk)
@@ -536,6 +537,22 @@ export default function MainApp() {
               className="mb-12 md:mb-20"
             />
             <Goodies />
+          </section>
+
+          {/* EDITORIAL SPREAD — photo pleine largeur avec parallax avant Tech Rider */}
+          <section
+            aria-label="Editorial spread"
+            className="py-8 md:py-16 px-4 md:px-8 max-w-[1600px] mx-auto w-full"
+          >
+            <EditorialPhoto
+              src="/images/MauditeMachine-1.webp"
+              alt="Maudite Machine — photo editoriale"
+              issueTag="N° 01 · Editorial"
+              caption={
+                'Hypnotic machines\nunderground rituals.'
+              }
+              heightVh={75}
+            />
           </section>
 
           {/* TECH RIDER — Bento Box : LIVE SETUP / DJ SETUP / HOSPITALITY + XXL CTA */}
