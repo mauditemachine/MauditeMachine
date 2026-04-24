@@ -339,7 +339,7 @@ export default function MainApp() {
                     onClick={() => handleSectionChange(l.section)}
                     className={cn(
                       'h-full inline-flex items-center',
-                      'font-body text-sm font-semibold uppercase tracking-wide',
+                      'font-body text-sm font-extrabold uppercase tracking-wide',
                       'leading-none m-0 px-0',
                       'bg-transparent border-0 cursor-pointer',
                       'transition-colors duration-300',
