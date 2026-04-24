@@ -1,9 +1,10 @@
 /**
  * Page Presskit — contenu du PDF officiel 2026, design liquid-glass.
+ * Tous les textes visibles passent par useTranslation() (i18n EN/FR/ES).
  */
 
 import React from 'react';
-import { useApp } from '../context/AppContext';
+import { useTranslation } from '../lib/i18n';
 import SectionHeader from './ui/SectionHeader';
 import { cn } from '../lib/cn';
 
@@ -13,18 +14,17 @@ interface PresskitProps {
 
 const PDF_URL = `${import.meta.env.BASE_URL}Presskit_Maudite_Machine_2026.pdf`;
 
-const STATS = [
-  { num: '15+', fr: 'Années de carrière', en: 'Years active' },
-  { num: '21',  fr: 'EPs sur VRSTL',      en: 'EPs released' },
-  { num: '02',  fr: 'Albums publiés',     en: 'Albums released' },
-  { num: '70+', fr: 'Élèves formés',      en: 'Students taught' },
-];
+// Stats : les chiffres restent identiques, les labels viennent de t.presskit.stat*
+const STAT_KEYS = ['statYears', 'statEps', 'statAlbums', 'statStudents'] as const;
+const STAT_NUMS = ['15+', '21', '02', '70+'];
 
+// Track names = proper nouns (album tracks)
 const LIMBOS_TRACKS = [
   'Abyss', 'Cephal', 'Limbos', 'Reaper', 'Nortkele',
   'Muld', 'Simetra', 'Zenith', 'Chimie Électrique (Emotional Remix)',
 ];
 
+// Catalogue : titles + dates techniques, rien a traduire (proper nouns)
 const CATALOGUE = [
   { title: 'Voodoo',        type: 'Single', date: 'Feb 2026', img: '/images/Voodoo.webp' },
   { title: 'Limbos',        type: 'Album',  date: 'Oct 2025', img: '/images/Limbos.webp' },
@@ -84,6 +84,8 @@ const IconLink = (
   <svg {...ICON_PROPS}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
 );
 
+// Contacts : labels = noms des plateformes (proper nouns, pas traduisibles).
+// Le premier (Site) utilise la cle "Site" qui peut etre localisee si besoin.
 const CONTACTS: { label: string; value: string; href: string; icon: React.ReactNode }[] = [
   { label: 'Site',        value: 'mauditemachine.com',         href: 'https://mauditemachine.com',                       icon: IconGlobe },
   { label: 'Spotify',     value: '/artist/maudite-machine',    href: 'https://open.spotify.com/artist/maudite-machine',  icon: IconSpotify },
@@ -109,13 +111,23 @@ function trackDownload() {
 }
 
 const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
-  const { t } = useApp();
+  const { t } = useTranslation();
+  const p = t.presskit;
+
+  // Stats dynamiques : combine chiffre + label localise
+  const stats = STAT_KEYS.map((key, i) => ({
+    num: STAT_NUMS[i],
+    label: p[key],
+  }));
+
+  const [bigTitleLine1, bigTitleLine2] = p.bigTitle.split('\n');
+  const [dlTitleLine1, dlTitleLine2] = p.downloadTitle.split('\n');
 
   return (
     <div className="pk-page">
       {/* === SECTION HEADER MAGAZINE === */}
       <div className="mb-12 md:mb-20 px-0">
-        <SectionHeader title="About" />
+        <SectionHeader title={p.sectionTitle} />
       </div>
 
       {/* === STORYTELLING : RAW. HYPNOTIC. UNDERGROUND. - texte normal === */}
@@ -124,7 +136,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
           className="font-display font-black uppercase text-ink-95 whitespace-nowrap tracking-normal inline-block text-[clamp(2rem,5vw,5rem)] leading-none animate-fade-up"
           style={{ animationDelay: '200ms', animationFillMode: 'both' }}
         >
-          RAW. HYPNOTIC. UNDERGROUND.
+          {p.catchphrase}
         </div>
       </section>
 
@@ -140,10 +152,8 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         </div>
 
         {/* Titre magazine massif */}
-        <h1 className="font-display font-black uppercase text-ink-95 text-[clamp(2.5rem,10vw,8rem)] leading-[0.85] tracking-[-0.05em] mb-10 md:mb-16 animate-fade-up">
-          Maudite
-          <br />
-          Machine
+        <h1 className="font-display font-black uppercase text-ink-95 text-[clamp(2.5rem,10vw,8rem)] leading-[0.85] tracking-[-0.05em] mb-10 md:mb-16 animate-fade-up whitespace-pre-line">
+          {p.bigTitle}
         </h1>
 
         {/* Grid 2-col : image gauche / bio droite */}
@@ -156,45 +166,39 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
             <div className="relative w-full aspect-[4/5] overflow-hidden rounded-2xl md:rounded-3xl bg-black/40">
               <img
                 src="/images/MauditeMachine-2.webp"
-                alt="Maudite Machine — photo presse 2026"
+                alt="Maudite Machine"
                 className="absolute inset-0 w-full h-full object-cover"
                 loading="eager"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent pointer-events-none" />
               <div className="absolute bottom-4 left-4 right-4">
                 <div className="text-white text-xs md:text-sm font-semibold uppercase tracking-[0.2em]">
-                  DJ · Producer · VRSTL Records
+                  {p.metaLine1}
                 </div>
                 <div className="text-white/70 mt-1 text-xs md:text-sm font-medium">
-                  Montréal / Canada
+                  {p.metaLine2}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Bio — col 7, one main paragraph FR + EN condense */}
+          {/* Bio — col 7, main paragraph + secondary + quote */}
           <div
             className="md:col-span-7 animate-fade-up"
             style={{ animationDelay: '220ms', animationFillMode: 'both' }}
           >
             <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-5 md:mb-7">
-              — Biographie / Biography
+              {p.bioLabel}
             </div>
             <p className="font-body text-lg md:text-xl lg:text-2xl leading-relaxed text-ink-95 mb-5 md:mb-6 [text-shadow:_0_2px_10px_rgba(0,0,0,0.5)]">
-              Maudite Machine est un DJ et producteur canadien reconnu pour son approche
-              brute et hypnotique de la minimal et de l'indie dance. Né de l'underground
-              montréalais, il s'est produit dans des événements majeurs et des lieux
-              emblématiques à travers le pays, livrant des sets qui brouillent la frontière
-              entre intensité et atmosphère.
+              {p.bioMain}
             </p>
             <p className="font-body text-base md:text-lg leading-relaxed text-ink-70 mb-6 md:mb-8">
-              As the founder of VRSTL Records, he curates a sound that embraces tension,
-              groove, and experimentation — pushing boundaries and redefining the underground
-              with a distinct sonic signature.
+              {p.bioSecondary}
             </p>
             <blockquote className="font-display italic text-xl md:text-3xl lg:text-4xl leading-tight tracking-[-0.02em] text-ink-95 border-l-2 border-white/30 pl-5 md:pl-7">
               <span className="text-white/40">« </span>
-              Un son qui embrasse la tension, le groove et l'expérimentation
+              {p.bioQuote}
               <span className="text-white/40"> »</span>
             </blockquote>
           </div>
@@ -204,10 +208,10 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
       {/* === STATS : 4 col une seule ligne, subtitles font-semibold === */}
       <section className="pk-section">
         <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-8 md:mb-12">
-          — En chiffres / By the numbers
+          {p.statsLabel}
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-          {STATS.map((s, i) => (
+          {stats.map((s, i) => (
             <div
               key={s.num}
               className="flex flex-col gap-2 md:gap-3 animate-fade-up border-l-2 border-white/20 pl-4 md:pl-6"
@@ -216,28 +220,21 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
                 animationFillMode: 'both',
               }}
             >
-              <span className="font-display font-black text-ink-95
-                               text-[clamp(3rem,7vw,6rem)]
-                               leading-none tracking-[-0.04em]">
+              <span className="font-display font-black text-ink-95 text-[clamp(3rem,7vw,6rem)] leading-none tracking-[-0.04em]">
                 {s.num}
               </span>
-              <span className="font-body text-sm md:text-base
-                               font-semibold uppercase tracking-[0.15em] text-white/90
-                               leading-tight">
-                {s.fr}
-              </span>
-              <span className="font-body text-xs md:text-sm text-white/50 leading-tight">
-                {s.en}
+              <span className="font-body text-sm md:text-base font-semibold uppercase tracking-[0.15em] text-white/90 leading-tight">
+                {s.label}
               </span>
             </div>
           ))}
         </div>
       </section>
 
-      {/* === REMIX WORK (Performances deplacees vers #shows Wall of Fame) === */}
+      {/* === REMIX WORK === */}
       <section className="pk-section">
         <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-6 md:mb-8">
-          — Remix work for / Remixes pour
+          {p.remixLabel}
         </div>
         <div className="pk-glass p-6 md:p-10 rounded-2xl md:rounded-3xl">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-3 font-display font-bold uppercase text-ink-95 text-2xl md:text-4xl lg:text-5xl tracking-[-0.02em]">
@@ -248,25 +245,20 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
             <span>DVS1</span>
           </div>
           <div className="mt-4 md:mt-6 text-xs md:text-sm font-medium uppercase tracking-[0.2em] text-white/60">
-            Full performance archive → Wall of Fame
+            {p.remixFooter}
           </div>
         </div>
       </section>
 
       {/* === LATEST ALBUM === */}
       <section className="pk-section">
-        <div className="pk-section-label">— Dernier album / Latest album</div>
+        <div className="pk-section-label">{p.albumLabel}</div>
         <div className="pk-album pk-glass">
           <img className="pk-album-cover" src="/images/Limbos.webp" alt="Limbos" loading="lazy" />
           <div className="pk-album-info">
             <h2 className="pk-album-title">LIMBOS</h2>
-            <div className="pk-album-meta pk-dim">VRSTL Records · Octobre 2025 · 9 tracks</div>
-            <p className="pk-album-desc">
-              L'espace entre la fin et le recommencement. Cet album traduit en impulsions
-              électroniques l'expérience d'un arrêt complet, le passage vers l'au-delà et le
-              retour inattendu. Chaque titre explore ces territoires extrêmes où la conscience
-              se dissout puis se reforme.
-            </p>
+            <div className="pk-album-meta pk-dim">{p.albumMeta}</div>
+            <p className="pk-album-desc">{p.albumDesc}</p>
             <ol className="pk-tracklist">
               {LIMBOS_TRACKS.map((tr, i) => (
                 <li key={tr}><span className="pk-track-num">{String(i+1).padStart(2,'0')}</span> {tr}</li>
@@ -279,15 +271,11 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
       {/* === FULL CATALOGUE : 2/4/6 cols + hover massive === */}
       <section className="pk-section">
         <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-6 md:mb-10">
-          — Full catalogue / Catalogue complet
+          {p.catalogueLabel}
         </div>
         <div className="pk-catalogue-intro pk-glass mb-8 md:mb-12">
-          <h2 className="pk-section-title-huge">13 RELEASES.<br/>2024 — 2026.</h2>
-          <p>
-            De Discowriders (Jul 2024) à Voodoo (Feb 2026), un flux constant de productions
-            originales sur VRSTL Records. Singles, EPs et un album, dans une esthétique dark
-            disco, indie dance et minimal hypnotique.
-          </p>
+          <h2 className="pk-section-title-huge whitespace-pre-line">{p.catalogueTitle}</h2>
+          <p>{p.catalogueDesc}</p>
         </div>
         <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-8 gap-2 md:gap-3">
           {CATALOGUE.map((r, i) => (
@@ -305,14 +293,12 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
                 animationFillMode: 'both',
               }}
             >
-              {/* Img zoom au hover — scale-125 sur l'img dans overflow-hidden parent */}
               <img
                 src={r.img}
                 alt={r.title}
                 loading="lazy"
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out-expo group-hover:scale-125"
               />
-              {/* Overlay details au hover */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-2 md:p-3">
                 <div className="font-display font-bold text-white text-xs md:text-sm leading-tight truncate">
                   {r.title}
@@ -329,10 +315,9 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
       {/* === VRSTL LABEL : logo SVG grand + texte cote === */}
       <section className="pk-section">
         <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-6 md:mb-10">
-          — Label
+          {p.labelSection}
         </div>
         <div className="pk-glass p-6 md:p-12 rounded-2xl md:rounded-3xl">
-          {/* Grid : logo XXL gauche / texte droite */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 items-center mb-8 md:mb-12">
             <div className="md:col-span-5 flex justify-center md:justify-start">
               <img
@@ -344,27 +329,21 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
             </div>
             <div className="md:col-span-7 space-y-4 md:space-y-5">
               <p className="font-body text-base md:text-lg leading-relaxed text-ink-95">
-                <span className="inline-block text-[10px] font-bold uppercase tracking-[0.2em] px-2 py-[2px] rounded bg-white/10 border border-white/20 mr-2 align-middle">FR</span>
-                VRSTL Records est un label indépendant canadien dédié à l'Indie Dance et au Dark Disco.
-                Depuis sa fondation, le label a publié 21 EPs et 2 albums, signant des artistes
-                émergents d'Argentine, du Québec et d'Europe.
+                {p.labelDescMain}
               </p>
               <p className="font-body text-base md:text-lg leading-relaxed text-ink-70">
-                <span className="inline-block text-[10px] font-bold uppercase tracking-[0.2em] px-2 py-[2px] rounded bg-white/10 border border-white/20 mr-2 align-middle">EN</span>
-                VRSTL Records is an independent Canadian label dedicated to Indie Dance and Dark Disco.
-                Since its founding, the label has released 21 EPs and 2 albums.
+                {p.labelDescSecondary}
               </p>
               <p className="font-body text-sm md:text-base italic text-white/60">
-                Direction artistique : tension, groove, expérimentation. Un catalogue qui redéfinit
-                les frontières de l'underground électronique.
+                {p.labelArtisticDirection}
               </p>
             </div>
           </div>
 
-          {/* Roster */}
+          {/* Roster — noms d'artistes propres, pas traduisibles */}
           <div className="border-t border-white/10 pt-6 md:pt-8">
             <div className="text-xs md:text-sm font-medium uppercase tracking-[0.25em] text-white/80 mb-3 md:mb-4">
-              Roster / Artistes signés
+              {p.rosterLabel}
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 font-display text-lg md:text-2xl lg:text-3xl font-bold text-ink-95 uppercase tracking-[-0.01em]">
               <span>Julian Rocci</span>
@@ -386,17 +365,17 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
       {/* === CONTACT === */}
       <section className="pk-section">
         <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-6 md:mb-10">
-          — Contact
+          {p.contactLabel}
         </div>
         <div className="pk-contact-top">
           <div className="pk-contact-card pk-glass">
-            <div className="pk-contact-label pk-dim">Booking · Management</div>
+            <div className="pk-contact-label pk-dim">{p.contactBooking}</div>
             <div className="pk-contact-name">Mika</div>
             <a href="mailto:mauditemachine@gmail.com" className="pk-contact-link">mauditemachine@gmail.com</a>
             <a href="tel:+15146531423" className="pk-contact-link">+1 514 653 1423</a>
           </div>
           <div className="pk-contact-card pk-glass">
-            <div className="pk-contact-label pk-dim">Label</div>
+            <div className="pk-contact-label pk-dim">{p.contactLabelLabel}</div>
             <div className="pk-contact-name">VRSTL Records</div>
             <a href="mailto:vrstlrecords@gmail.com" className="pk-contact-link">vrstlrecords@gmail.com</a>
             <a href="https://vrstlrecords.com" target="_blank" rel="noreferrer" className="pk-contact-link">vrstlrecords.com</a>
@@ -436,14 +415,14 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         {onNavigateToMessage && (
           <div className="pk-contact-footer">
             <p className="pk-dim">
-              {t.presskit?.mediaText || 'Pour interviews, bookings et demandes média,'}{' '}
+              {p.mediaText}{' '}
               <button onClick={onNavigateToMessage} className="pk-inline-link">
-                {t.presskit?.mediaLink || 'écrire un message ici'}
+                {p.mediaLink}
               </button>
             </p>
           </div>
         )}
-        <div className="pk-footer-version pk-dim">© 2026 Maudite Machine / VRSTL Records · Press Kit V.2026</div>
+        <div className="pk-footer-version pk-dim">{p.contactFooterVersion}</div>
       </section>
 
       {/* === XXL DOWNLOAD BLOCK : le bloc "aimant a clics" === */}
@@ -451,7 +430,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         href={PDF_URL}
         download
         onClick={trackDownload}
-        aria-label="Télécharger le press kit (PDF 10 MB)"
+        aria-label={`${dlTitleLine1} ${dlTitleLine2}`}
         className={cn(
           'group block relative mt-16 md:mt-28 mb-8 md:mb-16',
           'rounded-2xl md:rounded-3xl overflow-hidden',
@@ -465,43 +444,21 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         style={{ animationDelay: '200ms', animationFillMode: 'both' }}
       >
         <div className="relative p-8 md:p-14 lg:p-20">
-          {/* Kicker top */}
           <div className="flex items-center justify-between mb-6 md:mb-10 text-sm md:text-sm uppercase tracking-[0.3em] text-ink-50 font-body">
-            <span>PDF · 10 MB · EN / FR</span>
-            <span>2026 Edition</span>
+            <span>{p.downloadMeta}</span>
+            <span>{p.downloadEdition}</span>
           </div>
 
-          {/* Titre massif qui se remplit au hover (blanc dim → blanc pur) */}
-          <div className="font-display font-black uppercase
-                          text-[clamp(3rem,13vw,11rem)]
-                          leading-[0.85] tracking-[-0.045em]
-                          text-ink-30 group-hover:text-ink-95
-                          transition-colors duration-700 ease-out-expo">
-            Download
-            <br />
-            Presskit
+          <div className="font-display font-black uppercase text-[clamp(3rem,13vw,11rem)] leading-[0.85] tracking-[-0.045em] text-ink-30 group-hover:text-ink-95 transition-colors duration-700 ease-out-expo whitespace-pre-line">
+            {p.downloadTitle}
           </div>
 
-          {/* Footer : fleche + meta */}
           <div className="mt-8 md:mt-12 flex items-center justify-between">
             <span className="text-sm md:text-base text-ink-70 font-body">
-              Full dossier · photos · bio · tech rider
+              {p.downloadFooter}
             </span>
-            <span
-              className="inline-flex items-center justify-center w-14 h-14 md:w-20 md:h-20
-                         rounded-full border border-ink-20 group-hover:border-ink-95
-                         text-ink-85 group-hover:text-ink-95
-                         transition-colors duration-500"
-            >
-              <svg
-                width="28"
-                height="28"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                className="transform group-hover:translate-y-1 transition-transform duration-400 ease-out-expo"
-              >
+            <span className="inline-flex items-center justify-center w-14 h-14 md:w-20 md:h-20 rounded-full border border-ink-20 group-hover:border-ink-95 text-ink-85 group-hover:text-ink-95 transition-colors duration-500">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="transform group-hover:translate-y-1 transition-transform duration-400 ease-out-expo">
                 <line x1="12" y1="5" x2="12" y2="19" />
                 <polyline points="19 12 12 19 5 12" />
               </svg>

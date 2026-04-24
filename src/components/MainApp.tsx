@@ -267,12 +267,12 @@ export default function MainApp() {
   const displayBioText = t.home.bio;
 
   const navLinks = [
-    { key: 'presskit',  label: t.nav.presskit, section: 'presskit' },
-    { key: 'shows',     label: t.nav.events,   section: 'shows' },
-    { key: 'store',     label: t.nav.merch,    section: 'store' },
-    { key: 'goodies',   label: t.nav.goodies,  section: 'goodies' },
-    { key: 'techrider', label: 'Tech Rider',   section: 'techrider' },
-    { key: 'message',   label: t.nav.contacts, section: 'message' },
+    { key: 'presskit',  label: t.nav.presskit,  section: 'presskit' },
+    { key: 'shows',     label: t.nav.events,    section: 'shows' },
+    { key: 'store',     label: t.nav.merch,     section: 'store' },
+    { key: 'goodies',   label: t.nav.goodies,   section: 'goodies' },
+    { key: 'techrider', label: t.nav.techrider, section: 'techrider' },
+    { key: 'message',   label: t.nav.contacts,  section: 'message' },
   ];
 
   return (
@@ -411,8 +411,8 @@ export default function MainApp() {
             className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-7xl mx-auto w-full"
           >
             <SectionHeader
-              title="Shows"
-              subtitle="Festivals, clubs, warehouses — from Montreal underground to iconic stages across Canada, France and beyond."
+              title={t.shows.title}
+              subtitle={t.shows.subtitle}
               className="mb-12 md:mb-20"
             />
 
@@ -424,7 +424,7 @@ export default function MainApp() {
               <div className="mt-24 md:mt-40">
                 <div className="flex items-baseline justify-between mb-8 md:mb-14">
                   <div className="text-sm md:text-base font-semibold uppercase tracking-[0.25em] text-white/80 font-body">
-                    — Wall of Fame
+                    {t.shows.wallOfFame}
                   </div>
                   <div className="text-xs md:text-sm font-semibold uppercase tracking-[0.3em] text-white/50 font-body">
                     {showsArchive[showsArchive.length - 1]?.year} — {showsArchive[0]?.year}
@@ -519,8 +519,8 @@ export default function MainApp() {
             className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-7xl mx-auto w-full"
           >
             <SectionHeader
-              title="Merch"
-              subtitle="Official Maudite Machine & VRSTL Records apparel. Made in limited quantities."
+              title={t.merch.title}
+              subtitle={t.merch.subtitle}
               className="mb-12 md:mb-20"
             />
             <Store onSectionChange={(s) => handleSectionChange(s)} />
@@ -532,8 +532,8 @@ export default function MainApp() {
             className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-7xl mx-auto w-full"
           >
             <SectionHeader
-              title="Goodies"
-              subtitle="Wallpapers, release covers and stickers — grab them all for free."
+              title={t.goodiesSection.title}
+              subtitle={t.goodiesSection.subtitle}
               className="mb-12 md:mb-20"
             />
             <Goodies />
@@ -546,11 +546,9 @@ export default function MainApp() {
           >
             <EditorialPhoto
               src="/images/MauditeMachine-1.webp"
-              alt="Maudite Machine — photo editoriale"
-              issueTag="N° 01 · Editorial"
-              caption={
-                'Hypnotic machines\nunderground rituals.'
-              }
+              alt="Maudite Machine"
+              issueTag={t.editorial.issueTag}
+              caption={t.editorial.caption}
               heightVh={75}
             />
           </section>
@@ -561,8 +559,8 @@ export default function MainApp() {
             className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-7xl mx-auto w-full"
           >
             <SectionHeader
-              title="Tech Rider"
-              subtitle="Live setup, DJ backline, hospitality — everything you need to host the machine."
+              title={t.techrider.title}
+              subtitle={t.techrider.subtitle}
               className="mb-12 md:mb-20"
             />
 
@@ -574,12 +572,10 @@ export default function MainApp() {
                 style={{ animationDelay: '120ms', animationFillMode: 'both' }}
               >
                 <div className="text-xs md:text-sm uppercase tracking-[0.4em] text-ink-50 font-body mb-4 md:mb-6">
-                  01 · Live Setup
+                  {t.techrider.liveLabel}
                 </div>
-                <h3 className="font-display font-black uppercase text-ink-95 text-3xl md:text-5xl lg:text-6xl leading-[0.9] tracking-[-0.03em] mb-6 md:mb-10">
-                  Hybrid
-                  <br />
-                  Live Show
+                <h3 className="font-display font-black uppercase text-ink-95 text-3xl md:text-5xl lg:text-6xl leading-[0.9] tracking-[-0.03em] mb-6 md:mb-10 whitespace-pre-line">
+                  {t.techrider.liveTitle}
                 </h3>
                 <ul className="font-body text-base md:text-xl text-ink-95 space-y-2 md:space-y-3">
                   <li>— Macbook Pro</li>
@@ -595,24 +591,24 @@ export default function MainApp() {
                 style={{ animationDelay: '220ms', animationFillMode: 'both' }}
               >
                 <div className="text-xs md:text-sm uppercase tracking-[0.4em] text-ink-50 font-body mb-4 md:mb-6">
-                  02 · DJ Setup
+                  {t.techrider.djLabel}
                 </div>
-                <h3 className="font-display font-black uppercase text-ink-95 text-3xl md:text-5xl lg:text-6xl leading-[0.9] tracking-[-0.03em] mb-6 md:mb-10">
-                  DJ
-                  <br />
-                  Backline
+                <h3 className="font-display font-black uppercase text-ink-95 text-3xl md:text-5xl lg:text-6xl leading-[0.9] tracking-[-0.03em] mb-6 md:mb-10 whitespace-pre-line">
+                  {t.techrider.djTitle}
                 </h3>
                 <ul className="font-body text-sm md:text-base text-ink-95 space-y-2 md:space-y-3">
                   <li>
-                    — 2× Pioneer <span className="text-ink-95 font-medium">CDJ-3000</span>
-                    <span className="text-ink-50"> ou CDJ-2000 NXS2</span>
+                    — {t.techrider.djLine1Main}{' '}
+                    <span className="text-ink-95 font-medium">{t.techrider.djLine1Variant}</span>
+                    <span className="text-ink-50"> {t.techrider.djLine1Alt}</span>
                   </li>
                   <li className="text-ink-50 text-xs md:text-sm uppercase tracking-[0.2em]">
-                    Firmware update mandatory
+                    {t.techrider.djFirmware}
                   </li>
                   <li className="pt-2">
-                    — Mixer: Pioneer <span className="font-medium">DJM-A9</span>
-                    <span className="text-ink-50">, DJM-V10 ou DJM-900 NXS2</span>
+                    — {t.techrider.djMixerMain}{' '}
+                    <span className="font-medium">{t.techrider.djMixerPrimary}</span>
+                    <span className="text-ink-50">{t.techrider.djMixerAlt}</span>
                   </li>
                 </ul>
               </div>
@@ -623,12 +619,11 @@ export default function MainApp() {
                 style={{ animationDelay: '320ms', animationFillMode: 'both' }}
               >
                 <div className="text-xs md:text-sm uppercase tracking-[0.4em] text-ink-50 font-body mb-4 md:mb-6">
-                  03 · Hospitality
+                  {t.techrider.hospitalityLabel}
                 </div>
                 <blockquote className="font-display italic text-ink-95 text-2xl md:text-4xl lg:text-5xl leading-[1.1] tracking-[-0.02em] max-w-4xl">
                   <span className="text-ink-30">« </span>
-                  Dressing room requirements: Night sky wallpaper with glowing stars. Continuous
-                  recorded bird song.
+                  {t.techrider.hospitalityQuote}
                   <span className="text-ink-30"> »</span>
                 </blockquote>
               </div>
@@ -638,7 +633,7 @@ export default function MainApp() {
             <a
               href={TECH_RIDER_PDF}
               download
-              aria-label="Download Tech Rider & CV (2026 Edition)"
+              aria-label={t.techrider.ctaAria}
               className={cn(
                 'group block relative rounded-2xl md:rounded-3xl overflow-hidden',
                 'border border-ink-10 hover:border-ink-30',
@@ -652,14 +647,14 @@ export default function MainApp() {
             >
               <div className="relative p-8 md:p-14 lg:p-20">
                 <div className="flex items-center justify-between mb-6 md:mb-10 text-xs md:text-sm uppercase tracking-[0.3em] text-ink-50 font-body">
-                  <span>PDF · EN / FR</span>
-                  <span>2026 Edition</span>
+                  <span>{t.techrider.ctaMeta}</span>
+                  <span>{t.techrider.ctaEdition}</span>
                 </div>
 
                 {/* Titre XXL qui se remplit au hover */}
                 <div
                   className={cn(
-                    'font-display font-black uppercase',
+                    'font-display font-black uppercase whitespace-pre-line',
                     'text-[clamp(2.25rem,8vw,9rem)] md:text-[clamp(3rem,6vw,8rem)]',
                     'leading-[0.85] tracking-[-0.045em]',
                     'text-ink-30 group-hover:text-ink-95',
@@ -667,16 +662,12 @@ export default function MainApp() {
                     'group-hover:[text-shadow:_0_4px_40px_rgba(255,255,255,0.25)]',
                   )}
                 >
-                  Download
-                  <br />
-                  Tech Rider
-                  <br />
-                  <span className="text-ink-50 group-hover:text-ink-70">&amp; CV</span>
+                  {t.techrider.ctaTitle}
                 </div>
 
                 <div className="mt-8 md:mt-12 flex items-center justify-between">
                   <span className="text-sm md:text-base text-ink-70 font-body">
-                    Full blueprint · rider · stage plot · contact
+                    {t.techrider.ctaFooter}
                   </span>
                   <span className="inline-flex items-center justify-center w-14 h-14 md:w-20 md:h-20 rounded-full border border-ink-20 group-hover:border-ink-95 text-ink-85 group-hover:text-ink-95 transition-colors duration-500">
                     <svg
@@ -703,8 +694,8 @@ export default function MainApp() {
             className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-5xl mx-auto w-full"
           >
             <SectionHeader
-              title="Contact"
-              subtitle="Bookings, interviews, collaborations — direct line to the studio."
+              title={t.contactSection.title}
+              subtitle={t.contactSection.subtitle}
               className="mb-12 md:mb-20"
               align="center"
             />
