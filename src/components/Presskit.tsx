@@ -118,24 +118,20 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         <SectionHeader title="About" />
       </div>
 
-      {/* === STORYTELLING : RAW. HYPNOTIC. UNDERGROUND. - une seule ligne === */}
+      {/* === STORYTELLING : RAW. HYPNOTIC. UNDERGROUND. - texte normal === */}
       <section className="py-4 md:py-8 mb-6 md:mb-10">
         <div
-          className="font-display font-black uppercase text-ink-95 whitespace-nowrap text-[clamp(2rem,5vw,6rem)] leading-none tracking-[-0.04em] animate-fade-up overflow-hidden"
+          className="font-display font-black uppercase text-ink-95 whitespace-nowrap tracking-normal inline-block text-[clamp(2rem,5vw,5rem)] leading-none animate-fade-up"
           style={{ animationDelay: '200ms', animationFillMode: 'both' }}
         >
-          <span>Raw.</span>{' '}
-          <span className="text-white/80">Hypnotic.</span>{' '}
-          <span className="text-white/60">Underground.</span>
+          RAW. HYPNOTIC. UNDERGROUND.
         </div>
       </section>
 
       {/* === HERO MAGAZINE : 2-col image / bio + meta === */}
       <section className="py-8 md:py-16 mb-12 md:mb-20">
-        {/* Kicker metadata — plus visible : font-medium + text-white/80 */}
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-8 md:mb-12 text-xs md:text-sm font-medium uppercase tracking-[0.25em] text-white/80">
-          <span>Press Kit / 2026</span>
-          <span className="opacity-40">·</span>
+        {/* Tags genres — typo mono pour trancher avec le display */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-8 md:mb-12 font-mono uppercase tracking-[0.2em] text-white/60 text-xs md:text-sm">
           <span>Minimal</span>
           <span className="opacity-40">·</span>
           <span>Indie Dance</span>

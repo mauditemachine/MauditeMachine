@@ -802,8 +802,8 @@ body {
 /* Logo VRSTL - glass discret, aligne sur bord droit du footer */
 .vrstl-fixed {
   position: fixed;
-  bottom: 90px;
-  right: 30px; /* match footer margin-right */
+  bottom: 24px; /* aligne horizontalement avec le lecteur audio flottant (bottom-6) */
+  right: 24px;
   z-index: 999;
   padding: 9px 14px;
   border-radius: 12px;
