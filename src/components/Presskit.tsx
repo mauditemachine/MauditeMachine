@@ -120,7 +120,6 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
     label: p[key],
   }));
 
-  const [bigTitleLine1, bigTitleLine2] = p.bigTitle.split('\n');
   const [dlTitleLine1, dlTitleLine2] = p.downloadTitle.split('\n');
 
   return (
@@ -140,22 +139,8 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         </div>
       </section>
 
-      {/* === HERO MAGAZINE : 2-col image / bio + meta === */}
+      {/* === HERO MAGAZINE : 2-col image / bio (titre MAUDITE MACHINE + tags genres supprimes, redondants) === */}
       <section className="py-8 md:py-16 mb-12 md:mb-20">
-        {/* Tags genres — sous-titre editorial centre, serif italic elegant */}
-        <div className="w-full text-center flex flex-wrap justify-center items-center mx-auto gap-x-4 md:gap-x-6 gap-y-1 mb-10 md:mb-16 font-serif italic tracking-widest text-white/70 text-lg md:text-xl">
-          <span>Minimal</span>
-          <span className="text-white/30 not-italic">·</span>
-          <span>Indie Dance</span>
-          <span className="text-white/30 not-italic">·</span>
-          <span>Dark Disco</span>
-        </div>
-
-        {/* Titre magazine massif */}
-        <h1 className="font-display font-black uppercase text-ink-95 text-[clamp(2.5rem,10vw,8rem)] leading-[0.85] tracking-[-0.05em] mb-10 md:mb-16 animate-fade-up whitespace-pre-line">
-          {p.bigTitle}
-        </h1>
-
         {/* Grid 2-col : image gauche / bio droite */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10 items-start">
           {/* Image magazine — col 5 — vraie photo presse couleur Maudite Machine */}
