@@ -437,26 +437,30 @@ export default function MainApp() {
                   {showsArchive.map((row, i) => (
                     <div
                       key={row.year}
-                      className="grid grid-cols-12 gap-4 md:gap-8 py-6 md:py-10 animate-fade-up"
+                      className={cn(
+                        'grid gap-4 md:gap-8 py-6 md:py-10 animate-fade-up items-start',
+                        // Colonne annee fixe : 160px md, 200px lg. Plus aucun chevauchement
+                        'grid-cols-1 md:grid-cols-[160px_1fr] lg:grid-cols-[200px_1fr]',
+                      )}
                       style={{
                         animationDelay: `${100 + i * 60}ms`,
                         animationFillMode: 'both',
                       }}
                     >
-                      {/* Year massif */}
+                      {/* Year massif — colonne fixe, pas de col-span toxique */}
                       <div
                         className={cn(
-                          'col-span-3 md:col-span-2',
                           'font-display font-black uppercase text-ink-95',
                           'text-4xl md:text-6xl lg:text-7xl',
                           'leading-none tracking-[-0.03em]',
-                          i % 2 === 1 && 'md:pl-4 lg:pl-8',
+                          // Sticky en haut sur desktop pour accompagner le scroll interne
+                          'md:sticky md:top-0',
                         )}
                       >
                         {row.year}
                       </div>
                       {/* Shows stackés — clickables vers Facebook */}
-                      <div className="col-span-9 md:col-span-10 flex flex-col gap-2 md:gap-3 justify-center">
+                      <div className="flex flex-col gap-2 md:gap-3 min-w-0">
                         {row.shows.map((show, j) => {
                           const href = show.facebook_event;
                           const content = (
