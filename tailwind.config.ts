@@ -63,7 +63,8 @@ export default {
       },
       fontFamily: {
         body: ['"SF Pro Rounded"', 'system-ui', 'sans-serif'],
-        display: ['"SF Pro Rounded"', 'system-ui', 'sans-serif'],
+        display: ['"SF Pro Display"', '-apple-system', 'BlinkMacSystemFont', '"Helvetica Neue"', 'sans-serif'],
+        rounded: ['"SF Pro Rounded"', 'system-ui', 'sans-serif'],
       },
       transitionTimingFunction: {
         // Ease Apple-like

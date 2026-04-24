@@ -70,7 +70,7 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
       {/* Titre massif : reveal par masque + stagger par mot, via CSS keyframe */}
       <Tag
         className={cn(
-          'font-body font-black uppercase',
+          'font-display font-black uppercase',
           'text-ink-95',
           'leading-[0.85] tracking-[-0.035em]',
           'text-[18vw] sm:text-[14vw] md:text-[11vw] lg:text-[10vw]',

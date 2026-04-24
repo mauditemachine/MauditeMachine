@@ -167,7 +167,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
                     }}
                     className={cn(
                       'w-full py-3 rounded-xl cursor-pointer',
-                      'font-body text-2xl font-bold uppercase tracking-widest',
+                      'font-display text-3xl font-black uppercase tracking-wide',
                       'transition-all duration-250 ease-out-expo',
                       'animate-fade-up',
                       active

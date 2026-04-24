@@ -114,7 +114,6 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
           number="02"
           kicker="Presskit · About"
           title="About"
-          subtitle="Dossier de presse officiel · Press kit EN / FR · 2026 Edition"
         />
       </div>
 
@@ -124,7 +123,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
           <div
             key={word}
             className={cn(
-              'font-body font-black uppercase text-ink-95',
+              'font-display font-black uppercase text-ink-95',
               'text-[16vw] md:text-[13vw] lg:text-[12vw]',
               'leading-[0.85] tracking-[-0.045em]',
               'animate-fade-up',
@@ -221,7 +220,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
                 animationFillMode: 'both',
               }}
             >
-              <span className="font-body font-black text-ink-95
+              <span className="font-display font-black text-ink-95
                                text-[clamp(4rem,13vw,11rem)]
                                leading-none tracking-[-0.04em]">
                 {s.num}
@@ -422,7 +421,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
           </div>
 
           {/* Titre massif qui se remplit au hover (blanc dim → blanc pur) */}
-          <div className="font-body font-black uppercase
+          <div className="font-display font-black uppercase
                           text-[clamp(3rem,13vw,11rem)]
                           leading-[0.85] tracking-[-0.045em]
                           text-ink-30 group-hover:text-ink-95
