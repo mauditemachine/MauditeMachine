@@ -87,8 +87,8 @@ export const translations = {
       metaLine2: 'Montréal / Canada',
 
       bioLabel: '— Biography',
-      bioMain: "Maudite Machine is a Canadian DJ and producer known for his raw, hypnotic approach to minimal and indie dance. Born from the Montreal underground, he has performed at major events and iconic venues across the country, delivering sets that blur the line between intensity and atmosphere.",
-      bioSecondary: 'As the founder of VRSTL Records, he curates a sound that embraces tension, groove, and experimentation — pushing boundaries and redefining the underground with a distinct sonic signature.',
+      bioMain: "A pillar of the Montreal underground for over 15 years, Mika has forged the identity of Maudite Machine between the immersive walls of SAT and the effervescent stages of Piknic Électronik. Sharing the bill with legends like Carl Craig, Agoria, and Reinier Zonneveld, his footprint reaches far beyond a simple DJ set.",
+      bioSecondary: "At the helm of VRSTL Records, he sculpts the future of North American Indie Dance and Dark Disco. A sonic architect navigating between hardware sequencers and analog synthesizers, he turns every Live Set into a raw, unfiltered ceremony. With a decade and a half dedicated to teaching music production, he doesn't just play tomorrow's music — he trains those who will create it.",
       bioQuote: 'A sound that embraces tension, groove and experimentation',
 
       statsLabel: '— By the numbers',
@@ -272,8 +272,8 @@ export const translations = {
       metaLine2: 'Montréal / Canada',
 
       bioLabel: '— Biographie',
-      bioMain: "Maudite Machine est un DJ et producteur canadien reconnu pour son approche brute et hypnotique de la minimal et de l'indie dance. Né de l'underground montréalais, il s'est produit dans des événements majeurs et des lieux emblématiques à travers le pays, livrant des sets qui brouillent la frontière entre intensité et atmosphère.",
-      bioSecondary: 'En tant que fondateur de VRSTL Records, il cultive un son qui embrasse la tension, le groove et l\'expérimentation — repoussant les limites et redéfinissant l\'underground avec une signature sonore distinctive.',
+      bioMain: "Pilier de l'underground montréalais depuis plus de 15 ans, Mika a forgé l'identité de Maudite Machine entre les murs immersifs de la SAT et les scènes effervescentes du Piknic Électronik. Partageant l'affiche avec des légendes telles que Carl Craig, Agoria ou Reinier Zonneveld, son empreinte s'étend bien au-delà d'un simple DJ set.",
+      bioSecondary: "À la tête de VRSTL Records, il sculpte le futur de l'Indie Dance et du Dark Disco nord-américain. Architecte sonore naviguant entre séquenceurs matériels et synthétiseurs analogiques, il transforme chaque Live Set en une cérémonie brute et sans filtre. Fort d'une décennie et demie dédiée à l'enseignement de la production, il ne se contente pas de jouer la musique de demain : il forme ceux qui la créeront.",
       bioQuote: 'Un son qui embrasse la tension, le groove et l\'expérimentation',
 
       statsLabel: '— En chiffres',
@@ -456,8 +456,8 @@ export const translations = {
       metaLine2: 'Montreal / Canadá',
 
       bioLabel: '— Biografía',
-      bioMain: 'Maudite Machine es un DJ y productor canadiense reconocido por su enfoque crudo e hipnótico del minimal y el indie dance. Nacido del underground de Montreal, se ha presentado en eventos mayores y venues icónicos por todo el país, entregando sets que difuminan la frontera entre intensidad y atmósfera.',
-      bioSecondary: 'Como fundador de VRSTL Records, cultiva un sonido que abraza la tensión, el groove y la experimentación — empujando los límites y redefiniendo el underground con una firma sonora distintiva.',
+      bioMain: 'Pilar del underground de Montreal desde hace más de 15 años, Mika ha forjado la identidad de Maudite Machine entre los muros inmersivos de la SAT y las escenas efervescentes de Piknic Électronik. Compartiendo cartel con leyendas como Carl Craig, Agoria o Reinier Zonneveld, su huella se extiende mucho más allá de un simple DJ set.',
+      bioSecondary: 'Al frente de VRSTL Records, esculpe el futuro del Indie Dance y el Dark Disco norteamericano. Arquitecto sonoro que navega entre secuenciadores de hardware y sintetizadores analógicos, transforma cada Live Set en una ceremonia cruda y sin filtro. Con más de una década y media dedicada a enseñar producción musical, no se limita a tocar la música del mañana: forma a quienes la crearán.',
       bioQuote: 'Un sonido que abraza la tensión, el groove y la experimentación',
 
       statsLabel: '— En cifras',

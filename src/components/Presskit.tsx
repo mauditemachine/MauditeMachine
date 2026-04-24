@@ -190,10 +190,10 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
             <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-5 md:mb-7">
               {p.bioLabel}
             </div>
-            <p className="font-body text-lg md:text-xl lg:text-2xl leading-relaxed text-ink-95 mb-5 md:mb-6 [text-shadow:_0_2px_10px_rgba(0,0,0,0.5)]">
+            <p className="font-body text-lg font-light leading-relaxed text-ink-95 mb-5 md:mb-6 [text-shadow:_0_2px_10px_rgba(0,0,0,0.5)]">
               {p.bioMain}
             </p>
-            <p className="font-body text-base md:text-lg leading-relaxed text-ink-70 mb-6 md:mb-8">
+            <p className="font-body text-lg font-light leading-relaxed text-ink-85 mb-6 md:mb-8">
               {p.bioSecondary}
             </p>
             <blockquote className="font-display italic text-xl md:text-3xl lg:text-4xl leading-tight tracking-[-0.02em] text-ink-95 border-l-2 border-white/30 pl-5 md:pl-7">
