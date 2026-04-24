@@ -83,18 +83,19 @@ const HASH_MAP: Record<string, string> = {
 
 const SECTION_IDS = ['hero', 'presskit', 'shows', 'store', 'goodies', 'techrider', 'message'];
 
-// Archive typographique des performances — Wall of Fame
-const SHOWS_ARCHIVE: { year: string; events: string[] }[] = [
-  { year: '2026', events: ['OKAMI Festival · France'] },
-  { year: '2024', events: ['Future Forest Festival', 'Tesla Nights'] },
-  { year: '2023', events: ['Khumeia Festival', 'Théâtre Fairmount', 'Cirque de Boudoir', 'Groove & Bass'] },
-  { year: '2022', events: ['Festival Illusion · Final Edition'] },
-  { year: '2018', events: ['SAT · Montréal', 'Eclipse Transformation'] },
-  { year: '2017', events: ['Igloofest After · R. Zonneveld', 'Tesla Nights', 'Festival Illusion'] },
-  { year: '2015', events: ['Festival TOTEM'] },
-  { year: '2013', events: ['Piknic Electronik · Angers', 'Phi Centre · avec Agoria', 'Fonderie Darling', 'Festival TOTEM'] },
-  { year: '2010', events: ['Piknic Electronik · Montréal'] },
-];
+// Type Wall of Fame (past-events.json)
+interface PastShow {
+  name: string;
+  date: string;
+  venue: string;
+  city: string;
+  lineup?: string[];
+  facebook_event?: string;
+}
+interface YearArchive {
+  year: number;
+  shows: PastShow[];
+}
 
 const TECH_RIDER_PDF = `${import.meta.env.BASE_URL}Presskit_Maudite_Machine_2026.pdf`;
 
@@ -105,6 +106,7 @@ export default function MainApp() {
   const [bgUrl, setBgUrl] = useState<string>("");
   const [activeSection, setActiveSection] = useState("hero");
   const [messagePrefill, setMessagePrefill] = useState<{ subject: string; message: string } | null>(null);
+  const [showsArchive, setShowsArchive] = useState<YearArchive[]>([]);
 
   const handleBgChange = (url: string) => {
     setBgUrl(url);
@@ -190,6 +192,28 @@ export default function MainApp() {
     }
   }, []);
 
+  // Load past-events.json pour Wall of Fame typographique + clickable
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${import.meta.env.BASE_URL}past-events.json`)
+      .then((r) => r.json())
+      .then((data: { events: YearArchive[] }) => {
+        if (cancelled) return;
+        const sorted = (data.events || [])
+          .slice()
+          .sort((a, b) => b.year - a.year)
+          .map((y) => ({
+            ...y,
+            shows: y.shows
+              .slice()
+              .sort((a, b) => b.date.localeCompare(a.date)),
+          }));
+        setShowsArchive(sorted);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   // Suppression des erreurs externes (SoundCloud/Bandcamp)
   useEffect(() => {
     suppressWidgetErrors();
@@ -270,7 +294,7 @@ export default function MainApp() {
           links={navLinks}
         />
 
-        {/* HEADER — Logo gauche + Nav droite, FIXED TOP (inline style pour force) */}
+        {/* HEADER — Logo gauche + Nav droite, FIXED TOP, tout items-center */}
         <header
           className="site-header"
           style={{
@@ -286,28 +310,44 @@ export default function MainApp() {
             padding: '14px 32px',
           }}
         >
-          <div className="header-content">
-            <div className="header-logo-left">
+          <div className="max-w-[1600px] mx-auto w-full flex items-center justify-between gap-6">
+            {/* Logo gauche */}
+            <button
+              type="button"
+              onClick={() => scrollToSection('hero')}
+              className="flex items-center shrink-0 p-0 m-0 bg-transparent border-0 cursor-pointer hover:opacity-70 transition-opacity"
+              aria-label="Maudite Machine — accueil"
+            >
               <img
                 src={import.meta.env.BASE_URL + "logo/mauditemachine-logo-gold.png"}
-                style={{ filter: 'brightness(0) invert(1)' }}
                 alt="Maudite Machine"
-                onClick={() => scrollToSection('hero')}
+                className="h-[22px] w-auto block"
+                style={{ filter: 'brightness(0) invert(1)' }}
               />
-            </div>
-            <div className="header-right">
-              <nav className="header-nav-right">
-                {navLinks.map((l) => (
+            </button>
+
+            {/* Nav droite — items-center strict + font-medium */}
+            <nav className="hidden max-[900px]:hidden min-[901px]:flex items-center gap-5">
+              {navLinks.map((l) => {
+                const active = activeSection === l.section;
+                return (
                   <button
                     key={l.key}
-                    className={activeSection === l.section ? 'active' : ''}
+                    type="button"
                     onClick={() => handleSectionChange(l.section)}
+                    className={cn(
+                      'font-body text-sm font-medium uppercase tracking-[0.08em]',
+                      'leading-none py-1',
+                      'bg-transparent border-0 cursor-pointer',
+                      'transition-colors duration-300',
+                      active ? 'text-white' : 'text-white/80 hover:text-white',
+                    )}
                   >
                     {l.label}
                   </button>
-                ))}
-              </nav>
-            </div>
+                );
+              })}
+            </nav>
           </div>
         </header>
 
@@ -378,63 +418,95 @@ export default function MainApp() {
             {/* UPCOMING shows (EventsDisplay) */}
             <EventsDisplay showPastEventsButton={false} />
 
-            {/* WALL OF FAME — typographic archive 2010–2026 */}
-            <div className="mt-24 md:mt-40">
-              <div className="flex items-baseline justify-between mb-8 md:mb-14">
-                <div className="text-xs md:text-sm uppercase tracking-[0.4em] text-ink-50 font-body">
-                  — Wall of Fame
-                </div>
-                <div className="text-xs md:text-sm uppercase tracking-[0.4em] text-ink-30 font-body">
-                  2010 — 2026
-                </div>
-              </div>
-
-              <div className="divide-y divide-white/5">
-                {SHOWS_ARCHIVE.map((row, i) => (
-                  <div
-                    key={row.year}
-                    className={cn(
-                      'grid grid-cols-12 gap-4 md:gap-8 py-6 md:py-10',
-                      'animate-fade-up',
-                    )}
-                    style={{
-                      animationDelay: `${100 + i * 60}ms`,
-                      animationFillMode: 'both',
-                    }}
-                  >
-                    {/* Year massif */}
-                    <div
-                      className={cn(
-                        'col-span-4 md:col-span-3',
-                        'font-display font-black uppercase text-ink-95',
-                        'text-4xl md:text-6xl lg:text-7xl',
-                        'leading-none tracking-[-0.03em]',
-                        // Décalage asymétrique alterné
-                        i % 2 === 1 && 'md:pl-8 lg:pl-14',
-                      )}
-                    >
-                      {row.year}
-                    </div>
-                    {/* Events stackés */}
-                    <div className="col-span-8 md:col-span-9 flex flex-col gap-1 md:gap-2 justify-center">
-                      {row.events.map((ev, j) => (
-                        <div
-                          key={ev}
-                          className={cn(
-                            'font-body leading-tight',
-                            j === 0
-                              ? 'text-base md:text-2xl lg:text-3xl text-ink-95 font-medium'
-                              : 'text-sm md:text-lg text-ink-50',
-                          )}
-                        >
-                          {ev}
-                        </div>
-                      ))}
-                    </div>
+            {/* WALL OF FAME — typographic archive avec vrais liens Facebook */}
+            {showsArchive.length > 0 && (
+              <div className="mt-24 md:mt-40">
+                <div className="flex items-baseline justify-between mb-8 md:mb-14">
+                  <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 font-body">
+                    — Wall of Fame
                   </div>
-                ))}
+                  <div className="text-xs md:text-sm font-medium uppercase tracking-[0.3em] text-white/50 font-body">
+                    {showsArchive[showsArchive.length - 1]?.year} — {showsArchive[0]?.year}
+                  </div>
+                </div>
+
+                <div className="divide-y divide-white/5">
+                  {showsArchive.map((row, i) => (
+                    <div
+                      key={row.year}
+                      className="grid grid-cols-12 gap-4 md:gap-8 py-6 md:py-10 animate-fade-up"
+                      style={{
+                        animationDelay: `${100 + i * 60}ms`,
+                        animationFillMode: 'both',
+                      }}
+                    >
+                      {/* Year massif */}
+                      <div
+                        className={cn(
+                          'col-span-3 md:col-span-2',
+                          'font-display font-black uppercase text-ink-95',
+                          'text-4xl md:text-6xl lg:text-7xl',
+                          'leading-none tracking-[-0.03em]',
+                          i % 2 === 1 && 'md:pl-4 lg:pl-8',
+                        )}
+                      >
+                        {row.year}
+                      </div>
+                      {/* Shows stackés — clickables vers Facebook */}
+                      <div className="col-span-9 md:col-span-10 flex flex-col gap-2 md:gap-3 justify-center">
+                        {row.shows.map((show, j) => {
+                          const href = show.facebook_event;
+                          const content = (
+                            <>
+                              <div className="font-body font-medium leading-tight text-ink-95 text-base md:text-xl lg:text-2xl group-hover:text-white transition-colors">
+                                {show.name}
+                              </div>
+                              <div className="font-body text-xs md:text-sm text-white/50 leading-tight mt-0.5">
+                                {show.venue}{show.city ? ` · ${show.city}` : ''}
+                                {show.lineup && show.lineup.length > 0 && (
+                                  <span className="text-white/30">
+                                    {' · w/ '}
+                                    {show.lineup.slice(0, 3).join(', ')}
+                                    {show.lineup.length > 3 && ' …'}
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          );
+                          if (href) {
+                            return (
+                              <a
+                                key={`${row.year}-${j}`}
+                                href={href}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="group flex items-start gap-3 md:gap-4 no-underline text-inherit hover:bg-white/[0.03] rounded-lg px-2 py-1 -mx-2 transition-colors"
+                              >
+                                <span className="flex-1 min-w-0">{content}</span>
+                                <svg
+                                  className="shrink-0 w-4 h-4 md:w-5 md:h-5 mt-1 text-white/30 group-hover:text-white transition-colors"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  <path d="M7 17L17 7M17 7H8M17 7v9" />
+                                </svg>
+                              </a>
+                            );
+                          }
+                          return (
+                            <div key={`${row.year}-${j}`} className="px-2 py-1 -mx-2">
+                              {content}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </section>
 
           {/* STORE / MERCH */}

@@ -20,28 +20,6 @@ const STATS = [
   { num: '70+', fr: 'Élèves formés',      en: 'Students taught' },
 ];
 
-const FESTIVALS = [
-  { name: 'OKAMI Festival (France)', year: '2026' },
-  { name: 'Future Forest Festival', year: '2024' },
-  { name: 'Piknic Electronik Angers', year: '2013' },
-  { name: 'Piknic Electronik Montréal', year: "'10–'13" },
-  { name: 'Khumeia Festival', year: '2023' },
-  { name: 'Festival Illusion', year: "'17–'22" },
-  { name: 'Eclipse Transformation', year: '2018' },
-  { name: 'Festival TOTEM', year: "'13–'15" },
-];
-
-const VENUES = [
-  { name: 'SAT — Montréal', year: '2018' },
-  { name: 'Phi Centre (avec Agoria)', year: '2013' },
-  { name: 'Igloofest After (R. Zonneveld)', year: '2017' },
-  { name: 'Fonderie Darling', year: '2013' },
-  { name: 'Théâtre Fairmount', year: '2023+' },
-  { name: 'Cirque de Boudoir', year: '2023+' },
-  { name: 'Groove & Bass (récurrent)', year: '2023+' },
-  { name: 'Tesla Nights', year: "'17, '24" },
-];
-
 const LIMBOS_TRACKS = [
   'Abyss', 'Cephal', 'Limbos', 'Reaper', 'Nortkele',
   'Muld', 'Simetra', 'Zenith', 'Chimie Électrique (Emotional Remix)',
@@ -63,19 +41,62 @@ const CATALOGUE = [
   { title: 'Discowriders',  type: 'Single', date: 'Jul 2024', img: '/images/Discowriders.webp' },
 ];
 
-const CONTACTS = [
-  { label: 'Site',      value: 'mauditemachine.com',        href: 'https://mauditemachine.com' },
-  { label: 'Spotify',   value: '/artist/maudite-machine',    href: 'https://open.spotify.com/artist/maudite-machine' },
-  { label: 'Beatport',  value: '/artist/maudite-machine',    href: 'https://beatport.com/artist/maudite-machine' },
-  { label: 'Bandcamp',  value: 'mauditemachine.bandcamp.com', href: 'https://mauditemachine.bandcamp.com' },
-  { label: 'SoundCloud',value: '/mauditemachine',            href: 'https://soundcloud.com/mauditemachine' },
-  { label: 'Apple Music', value: '/artist/maudite-machine',  href: 'https://music.apple.com/artist/maudite-machine' },
-  { label: 'Instagram', value: '@mauditemachine',            href: 'https://instagram.com/mauditemachine' },
-  { label: 'Facebook',  value: '/mauditemachine',            href: 'https://facebook.com/mauditemachine' },
-  { label: 'YouTube',   value: '@mauditemachine-official',   href: 'https://youtube.com/@mauditemachine-official' },
-  { label: 'Mixcloud',  value: '/mauditemachine',            href: 'https://mixcloud.com/mauditemachine' },
-  { label: 'TikTok',    value: '@mauditemachine',            href: 'https://tiktok.com/@mauditemachine' },
-  { label: 'Linktree',  value: 'bit.ly/41mdgdg',              href: 'https://bit.ly/41mdgdg' },
+// Icones SVG monochromes blanches pour chaque reseau (inline pour eviter dep lucide)
+const ICON_PROPS = {
+  width: 20,
+  height: 20,
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.8,
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const,
+};
+
+const IconGlobe = (
+  <svg {...ICON_PROPS}><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
+);
+const IconSpotify = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.52 17.34c-.24.36-.66.48-1.02.24-2.82-1.74-6.36-2.1-10.56-1.14-.42.12-.78-.18-.9-.54-.12-.42.18-.78.54-.9 4.56-1.02 8.52-.6 11.64 1.32.42.18.48.66.3 1.02zm1.44-3.3c-.3.42-.84.6-1.26.3-3.24-1.98-8.16-2.58-11.94-1.38-.48.12-1.02-.12-1.14-.6-.12-.48.12-1.02.6-1.14 4.38-1.32 9.78-.66 13.5 1.62.36.18.48.78.24 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.3c-.6.18-1.2-.18-1.38-.72-.18-.6.18-1.2.72-1.38 4.26-1.26 11.28-1.02 15.72 1.62.54.3.72 1.02.42 1.56-.3.42-1.02.6-1.56.3z"/></svg>
+);
+const IconApple = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+);
+const IconInstagram = (
+  <svg {...ICON_PROPS}><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+);
+const IconFacebook = (
+  <svg {...ICON_PROPS}><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+);
+const IconYouTube = (
+  <svg {...ICON_PROPS}><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></svg>
+);
+const IconMusic = (
+  <svg {...ICON_PROPS}><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+);
+const IconSoundcloud = (
+  <svg {...ICON_PROPS}><path d="M3 15v-3M6 17v-7M9 18V9M12 18V6M15 18v-9M18 18v-6"/><path d="M21 18a3 3 0 0 0 0-6"/></svg>
+);
+const IconTikTok = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5.8 20.1a6.34 6.34 0 0 0 10.86-4.43V8.93a8.16 8.16 0 0 0 4.77 1.52V7a4.85 4.85 0 0 1-1.84-.31z"/></svg>
+);
+const IconLink = (
+  <svg {...ICON_PROPS}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+);
+
+const CONTACTS: { label: string; value: string; href: string; icon: React.ReactNode }[] = [
+  { label: 'Site',        value: 'mauditemachine.com',         href: 'https://mauditemachine.com',                       icon: IconGlobe },
+  { label: 'Spotify',     value: '/artist/maudite-machine',    href: 'https://open.spotify.com/artist/maudite-machine',  icon: IconSpotify },
+  { label: 'Beatport',    value: '/artist/maudite-machine',    href: 'https://beatport.com/artist/maudite-machine',      icon: IconMusic },
+  { label: 'Bandcamp',    value: 'mauditemachine.bandcamp.com',href: 'https://mauditemachine.bandcamp.com',               icon: IconMusic },
+  { label: 'SoundCloud',  value: '/mauditemachine',            href: 'https://soundcloud.com/mauditemachine',             icon: IconSoundcloud },
+  { label: 'Apple Music', value: '/artist/maudite-machine',    href: 'https://music.apple.com/artist/maudite-machine',    icon: IconApple },
+  { label: 'Instagram',   value: '@mauditemachine',            href: 'https://instagram.com/mauditemachine',              icon: IconInstagram },
+  { label: 'Facebook',    value: '/mauditemachine',            href: 'https://facebook.com/mauditemachine',               icon: IconFacebook },
+  { label: 'YouTube',     value: '@mauditemachine-official',   href: 'https://youtube.com/@mauditemachine-official',      icon: IconYouTube },
+  { label: 'Mixcloud',    value: '/mauditemachine',            href: 'https://mixcloud.com/mauditemachine',               icon: IconMusic },
+  { label: 'TikTok',      value: '@mauditemachine',            href: 'https://tiktok.com/@mauditemachine',                icon: IconTikTok },
+  { label: 'Linktree',    value: 'bit.ly/41mdgdg',              href: 'https://bit.ly/41mdgdg',                             icon: IconLink },
 ];
 
 function trackDownload() {
@@ -92,22 +113,6 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
 
   return (
     <div className="pk-page">
-      {/* Download button sticky (desktop) */}
-      <a
-        href={PDF_URL}
-        download
-        onClick={trackDownload}
-        className="pk-download-sticky"
-        aria-label="Download Press Kit 2026 (PDF)"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="7 10 12 15 17 10" />
-          <line x1="12" y1="15" x2="12" y2="3" />
-        </svg>
-        <span>Download PDF</span>
-      </a>
-
       {/* === SECTION HEADER MAGAZINE === */}
       <div className="mb-12 md:mb-20 px-0">
         <SectionHeader
@@ -117,22 +122,22 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         />
       </div>
 
-      {/* === STORYTELLING MASSIF : RAW. HYPNOTIC. UNDERGROUND. === */}
-      <section className="py-10 md:py-20 mb-8 md:mb-16">
+      {/* === STORYTELLING : RAW. HYPNOTIC. UNDERGROUND. - fluid + tight === */}
+      <section className="py-6 md:py-10 mb-6 md:mb-10">
         {['Raw.', 'Hypnotic.', 'Underground.'].map((word, i) => (
           <div
             key={word}
             className={cn(
               'font-display font-black uppercase text-ink-95',
-              'text-[16vw] md:text-[13vw] lg:text-[12vw]',
-              'leading-[0.85] tracking-[-0.045em]',
+              'text-[clamp(3rem,13vw,10rem)]',
+              'leading-none tracking-[-0.05em]',
               'animate-fade-up',
               i === 0 && 'text-left',
               i === 1 && 'text-right',
               i === 2 && 'text-left md:text-center',
             )}
             style={{
-              animationDelay: `${200 + i * 180}ms`,
+              animationDelay: `${200 + i * 150}ms`,
               animationFillMode: 'both',
             }}
           >
@@ -141,140 +146,125 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         ))}
       </section>
 
-      {/* === HERO PRESSKIT : meta en bloc asymetrique (image B&W retiree) === */}
-      <section className="pk-section pk-hero">
-        <div className="pk-hero-top">
-          <div className="pk-hero-label">Press Kit / 2026</div>
-          <div className="pk-hero-tags">
-            <span>Minimal</span><span>Indie Dance</span><span>Dark Disco</span>
-          </div>
+      {/* === HERO MAGAZINE : 2-col image / bio + meta === */}
+      <section className="py-8 md:py-16 mb-12 md:mb-20">
+        {/* Kicker metadata — plus visible : font-medium + text-white/80 */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-8 md:mb-12 text-xs md:text-sm font-medium uppercase tracking-[0.25em] text-white/80">
+          <span>Press Kit / 2026</span>
+          <span className="opacity-40">·</span>
+          <span>Minimal</span>
+          <span className="opacity-40">·</span>
+          <span>Indie Dance</span>
+          <span className="opacity-40">·</span>
+          <span>Dark Disco</span>
         </div>
-        <h1 className="pk-hero-title">MAUDITE MACHINE</h1>
-        <div className="pk-hero-meta pk-glass">
-          <div className="pk-hero-meta-col">
-            <div>DJ · Producer · VRSTL Records</div>
-            <div className="pk-dim">Montréal / Canada</div>
-          </div>
-          <div className="pk-hero-meta-col pk-right">
-            <div>Dossier de presse</div>
-            <div className="pk-dim">Press kit · EN / FR</div>
-          </div>
-        </div>
-      </section>
 
-      {/* === BIO === */}
-      <section className="pk-section">
-        <div className="pk-section-label">— Biographie / Biography</div>
-        <div className="pk-bio-grid">
-          <div className="pk-bio-col pk-glass">
-            <div className="pk-lang-tag">FR</div>
-            <p>
+        {/* Titre magazine massif */}
+        <h1 className="font-display font-black uppercase text-ink-95 text-[clamp(2.5rem,10vw,8rem)] leading-[0.85] tracking-[-0.05em] mb-10 md:mb-16 animate-fade-up">
+          Maudite
+          <br />
+          Machine
+        </h1>
+
+        {/* Grid 2-col : image gauche / bio droite */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10 items-start">
+          {/* Image magazine — col 5 */}
+          <div
+            className="md:col-span-5 animate-fade-up"
+            style={{ animationDelay: '120ms', animationFillMode: 'both' }}
+          >
+            <div className="relative w-full aspect-[4/5] overflow-hidden rounded-2xl md:rounded-3xl">
+              <img
+                src="/images/presskit-hero.webp"
+                alt="Maudite Machine"
+                className="absolute inset-0 w-full h-full object-cover"
+                loading="eager"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+              <div className="absolute bottom-4 left-4 right-4 text-white/90 text-xs md:text-sm font-medium uppercase tracking-[0.2em]">
+                DJ · Producer · VRSTL Records
+                <div className="text-white/60 mt-1 normal-case tracking-normal">Montréal / Canada</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bio — col 7, one main paragraph FR + EN condense */}
+          <div
+            className="md:col-span-7 animate-fade-up"
+            style={{ animationDelay: '220ms', animationFillMode: 'both' }}
+          >
+            <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-5 md:mb-7">
+              — Biographie / Biography
+            </div>
+            <p className="font-body text-lg md:text-xl lg:text-2xl leading-relaxed text-ink-95 mb-5 md:mb-6 [text-shadow:_0_2px_10px_rgba(0,0,0,0.5)]">
               Maudite Machine est un DJ et producteur canadien reconnu pour son approche
               brute et hypnotique de la minimal et de l'indie dance. Né de l'underground
               montréalais, il s'est produit dans des événements majeurs et des lieux
               emblématiques à travers le pays, livrant des sets qui brouillent la frontière
               entre intensité et atmosphère.
             </p>
-            <p>
-              En tant que fondateur de VRSTL Records, il cultive un son qui embrasse la
-              tension, le groove et l'expérimentation. Ses collaborations avec des artistes
-              influents de la scène électronique témoignent d'une volonté constante de
-              repousser les limites et de redéfinir l'underground avec une signature sonore
-              distinctive.
-            </p>
-          </div>
-          <div className="pk-bio-col pk-glass">
-            <div className="pk-lang-tag">EN</div>
-            <p>
-              Maudite Machine is a Canadian DJ and producer known for his raw, hypnotic
-              approach to minimal and indie dance. Born from the Montreal underground, he
-              has performed at major events and iconic venues across the country, delivering
-              sets that blur the line between intensity and atmosphere.
-            </p>
-            <p>
+            <p className="font-body text-base md:text-lg leading-relaxed text-ink-70 mb-6 md:mb-8">
               As the founder of VRSTL Records, he curates a sound that embraces tension,
-              groove, and experimentation. His collaborations with influential artists in the
-              electronic music world reflect a constant drive to push boundaries and
-              redefine the underground with a distinct sonic signature.
+              groove, and experimentation — pushing boundaries and redefining the underground
+              with a distinct sonic signature.
             </p>
+            <blockquote className="font-display italic text-xl md:text-3xl lg:text-4xl leading-tight tracking-[-0.02em] text-ink-95 border-l-2 border-white/30 pl-5 md:pl-7">
+              <span className="text-white/40">« </span>
+              Un son qui embrasse la tension, le groove et l'expérimentation
+              <span className="text-white/40"> »</span>
+            </blockquote>
           </div>
         </div>
-        <blockquote className="pk-quote">
-          « Un son qui embrasse la tension, le groove et l'expérimentation »
-          <span className="pk-dim pk-quote-en">A sound that embraces tension, groove and experimentation</span>
-        </blockquote>
       </section>
 
-      {/* === STATS MASSIVES : chiffres magazine === */}
+      {/* === STATS : 4 col une seule ligne, subtitles font-semibold === */}
       <section className="pk-section">
-        <div className="pk-section-label">— En chiffres / By the numbers</div>
-
-        {/* Ligne massive : stats en gros caracteres */}
-        <div className="flex flex-wrap items-baseline gap-x-8 md:gap-x-14 gap-y-6 md:gap-y-8 mb-10 md:mb-16">
+        <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-8 md:mb-12">
+          — En chiffres / By the numbers
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
           {STATS.map((s, i) => (
             <div
               key={s.num}
-              className="flex items-baseline gap-3 md:gap-4 animate-fade-up"
+              className="flex flex-col gap-2 md:gap-3 animate-fade-up border-l-2 border-white/20 pl-4 md:pl-6"
               style={{
-                animationDelay: `${150 + i * 120}ms`,
+                animationDelay: `${150 + i * 100}ms`,
                 animationFillMode: 'both',
               }}
             >
               <span className="font-display font-black text-ink-95
-                               text-[clamp(4rem,13vw,11rem)]
+                               text-[clamp(3rem,7vw,6rem)]
                                leading-none tracking-[-0.04em]">
                 {s.num}
               </span>
-              <span className="font-body text-sm md:text-sm
-                               uppercase tracking-[0.25em] text-ink-70
-                               max-w-[140px] md:max-w-[170px] leading-tight">
+              <span className="font-body text-sm md:text-base
+                               font-semibold uppercase tracking-[0.15em] text-white/90
+                               leading-tight">
                 {s.fr}
               </span>
-            </div>
-          ))}
-        </div>
-
-        {/* Grille glass compacte en dessous pour detail EN */}
-        <div className="pk-stats-grid">
-          {STATS.map((s) => (
-            <div className="pk-stat pk-glass" key={s.num}>
-              <div className="pk-stat-num">{s.num}</div>
-              <div className="pk-stat-label">{s.fr}</div>
-              <div className="pk-stat-label pk-dim">{s.en}</div>
+              <span className="font-body text-xs md:text-sm text-white/50 leading-tight">
+                {s.en}
+              </span>
             </div>
           ))}
         </div>
       </section>
 
-      {/* === PERFORMANCES === */}
+      {/* === REMIX WORK (Performances deplacees vers #shows Wall of Fame) === */}
       <section className="pk-section">
-        <div className="pk-section-label">— Performances sélectives / Selected performances</div>
-        <div className="pk-perf-grid">
-          <div className="pk-perf-col pk-glass">
-            <h3 className="pk-perf-title">Festivals &amp; Événements</h3>
-            <ul className="pk-perf-list">
-              {FESTIVALS.map((f) => (
-                <li key={f.name}><span>{f.name}</span><span className="pk-dim">{f.year}</span></li>
-              ))}
-            </ul>
-          </div>
-          <div className="pk-perf-col pk-glass">
-            <h3 className="pk-perf-title">Lieux emblématiques</h3>
-            <ul className="pk-perf-list">
-              {VENUES.map((v) => (
-                <li key={v.name}><span>{v.name}</span><span className="pk-dim">{v.year}</span></li>
-              ))}
-            </ul>
-          </div>
+        <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-6 md:mb-8">
+          — Remix work for / Remixes pour
         </div>
-        <div className="pk-remix pk-glass">
-          <div className="pk-section-label">Remix work for / Remixes pour</div>
-          <div className="pk-remix-names">
+        <div className="pk-glass p-6 md:p-10 rounded-2xl md:rounded-3xl">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-3 font-display font-bold uppercase text-ink-95 text-2xl md:text-4xl lg:text-5xl tracking-[-0.02em]">
             <span>Laurent Garnier</span>
-            <span className="pk-sep">/</span>
+            <span className="text-white/30">/</span>
             <span>Adam Beyer</span>
-            <span className="pk-sep">/</span>
+            <span className="text-white/30">/</span>
             <span>DVS1</span>
+          </div>
+          <div className="mt-4 md:mt-6 text-xs md:text-sm font-medium uppercase tracking-[0.2em] text-white/60">
+            Full performance archive → Wall of Fame
           </div>
         </div>
       </section>
@@ -302,10 +292,12 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         </div>
       </section>
 
-      {/* === FULL CATALOGUE === */}
+      {/* === FULL CATALOGUE : 2/4/6 cols + hover massive === */}
       <section className="pk-section">
-        <div className="pk-section-label">— Full catalogue / Catalogue complet</div>
-        <div className="pk-catalogue-intro pk-glass">
+        <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-6 md:mb-10">
+          — Full catalogue / Catalogue complet
+        </div>
+        <div className="pk-catalogue-intro pk-glass mb-8 md:mb-12">
           <h2 className="pk-section-title-huge">13 RELEASES.<br/>2024 — 2026.</h2>
           <p>
             De Discowriders (Jul 2024) à Voodoo (Feb 2026), un flux constant de productions
@@ -313,44 +305,96 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
             disco, indie dance et minimal hypnotique.
           </p>
         </div>
-        <div className="pk-catalogue-grid">
-          {CATALOGUE.map((r) => (
-            <div className="pk-release pk-glass" key={r.title}>
-              <img className="pk-release-cover" src={r.img} alt={r.title} loading="lazy" />
-              <div className="pk-release-info">
-                <div className="pk-release-title">{r.title}</div>
-                <div className="pk-release-meta pk-dim">{r.type} · VRSTL · {r.date}</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4 overflow-visible">
+          {CATALOGUE.map((r, i) => (
+            <div
+              key={r.title}
+              className={cn(
+                'group relative rounded-xl md:rounded-2xl overflow-hidden',
+                'border border-white/10 bg-black/20 backdrop-blur-sm',
+                'transition-all duration-300 ease-out-expo',
+                'hover:scale-125 hover:z-50 hover:shadow-2xl hover:border-white/40',
+                'cursor-pointer origin-center',
+                'animate-fade-up',
+              )}
+              style={{
+                animationDelay: `${i * 60}ms`,
+                animationFillMode: 'both',
+              }}
+            >
+              <div className="relative aspect-square overflow-hidden">
+                <img
+                  src={r.img}
+                  alt={r.title}
+                  loading="lazy"
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+                {/* Overlay details au hover */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
+                  <div className="font-display font-bold text-white text-sm md:text-base leading-tight">
+                    {r.title}
+                  </div>
+                  <div className="font-body text-[10px] md:text-xs text-white/70 uppercase tracking-wider mt-1">
+                    {r.type} · {r.date}
+                  </div>
+                </div>
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* === VRSTL LABEL === */}
+      {/* === VRSTL LABEL : logo SVG grand + texte cote === */}
       <section className="pk-section">
-        <div className="pk-section-label">— Label</div>
-        <div className="pk-label pk-glass">
-          <div className="pk-label-logo">VRSTL Records</div>
-          <div className="pk-label-grid">
-            <div className="pk-label-text">
-              <p><span className="pk-lang-tag-inline">FR</span> VRSTL Records est un label indépendant canadien dédié à l'Indie Dance et au Dark Disco. Depuis sa fondation, le label a publié 21 EPs et 2 albums, signant des artistes émergents d'Argentine, du Québec et d'Europe.</p>
-              <p><span className="pk-lang-tag-inline">EN</span> VRSTL Records is an independent Canadian label dedicated to Indie Dance and Dark Disco. Since its founding, the label has released 21 EPs and 2 albums, signing emerging artists from Argentina, Quebec and Europe.</p>
-              <p className="pk-dim">Direction artistique : tension, groove, expérimentation. Un catalogue qui redéfinit les frontières de l'underground électronique.</p>
+        <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-6 md:mb-10">
+          — Label
+        </div>
+        <div className="pk-glass p-6 md:p-12 rounded-2xl md:rounded-3xl">
+          {/* Grid : logo XXL gauche / texte droite */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 items-center mb-8 md:mb-12">
+            <div className="md:col-span-5 flex justify-center md:justify-start">
+              <img
+                src={import.meta.env.BASE_URL + 'logo/vrstl-logo-clean.svg'}
+                alt="VRSTL Records"
+                className="w-full max-w-[280px] md:max-w-none h-auto"
+                style={{ filter: 'brightness(0) invert(1)' }}
+              />
+            </div>
+            <div className="md:col-span-7 space-y-4 md:space-y-5">
+              <p className="font-body text-base md:text-lg leading-relaxed text-ink-95">
+                <span className="inline-block text-[10px] font-bold uppercase tracking-[0.2em] px-2 py-[2px] rounded bg-white/10 border border-white/20 mr-2 align-middle">FR</span>
+                VRSTL Records est un label indépendant canadien dédié à l'Indie Dance et au Dark Disco.
+                Depuis sa fondation, le label a publié 21 EPs et 2 albums, signant des artistes
+                émergents d'Argentine, du Québec et d'Europe.
+              </p>
+              <p className="font-body text-base md:text-lg leading-relaxed text-ink-70">
+                <span className="inline-block text-[10px] font-bold uppercase tracking-[0.2em] px-2 py-[2px] rounded bg-white/10 border border-white/20 mr-2 align-middle">EN</span>
+                VRSTL Records is an independent Canadian label dedicated to Indie Dance and Dark Disco.
+                Since its founding, the label has released 21 EPs and 2 albums.
+              </p>
+              <p className="font-body text-sm md:text-base italic text-white/60">
+                Direction artistique : tension, groove, expérimentation. Un catalogue qui redéfinit
+                les frontières de l'underground électronique.
+              </p>
             </div>
           </div>
-          <div className="pk-roster">
-            <div className="pk-section-label">Roster / Artistes signés</div>
-            <div className="pk-roster-names">
+
+          {/* Roster */}
+          <div className="border-t border-white/10 pt-6 md:pt-8">
+            <div className="text-xs md:text-sm font-medium uppercase tracking-[0.25em] text-white/80 mb-3 md:mb-4">
+              Roster / Artistes signés
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 font-display text-lg md:text-2xl lg:text-3xl font-bold text-ink-95 uppercase tracking-[-0.01em]">
               <span>Julian Rocci</span>
-              <span className="pk-sep">·</span>
+              <span className="text-white/30">·</span>
               <span>Alex Decker</span>
-              <span className="pk-sep">·</span>
+              <span className="text-white/30">·</span>
               <span>Lealtica</span>
-              <span className="pk-sep">·</span>
+              <span className="text-white/30">·</span>
               <span>Jabba2.3</span>
-              <span className="pk-sep">·</span>
+              <span className="text-white/30">·</span>
               <span>Manüman</span>
-              <span className="pk-sep">·</span>
+              <span className="text-white/30">·</span>
               <span>Maudite Machine</span>
             </div>
           </div>
@@ -359,11 +403,13 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
 
       {/* === CONTACT === */}
       <section className="pk-section">
-        <div className="pk-section-label">— Contact</div>
+        <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-6 md:mb-10">
+          — Contact
+        </div>
         <div className="pk-contact-top">
           <div className="pk-contact-card pk-glass">
             <div className="pk-contact-label pk-dim">Booking · Management</div>
-            <div className="pk-contact-name">Michael Sanchez (Mika)</div>
+            <div className="pk-contact-name">Mika</div>
             <a href="mailto:mauditemachine@gmail.com" className="pk-contact-link">mauditemachine@gmail.com</a>
             <a href="tel:+15146531423" className="pk-contact-link">+1 514 653 1423</a>
           </div>
@@ -374,14 +420,37 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
             <a href="https://vrstlrecords.com" target="_blank" rel="noreferrer" className="pk-contact-link">vrstlrecords.com</a>
           </div>
         </div>
-        <div className="pk-contact-grid">
+
+        {/* Social grid : icones blanches + label + value */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 mt-6 md:mt-10">
           {CONTACTS.map((c) => (
-            <a key={c.label} href={c.href} target="_blank" rel="noreferrer" className="pk-contact-cell pk-glass">
-              <div className="pk-contact-cell-label pk-dim">{c.label}</div>
-              <div className="pk-contact-cell-value">{c.value}</div>
+            <a
+              key={c.label}
+              href={c.href}
+              target="_blank"
+              rel="noreferrer"
+              className={cn(
+                'group pk-glass rounded-xl md:rounded-2xl p-4 md:p-5',
+                'flex items-center gap-3 md:gap-4',
+                'transition-all duration-300',
+                'hover:border-white/40 hover:bg-white/[0.07]',
+              )}
+            >
+              <span className="shrink-0 w-10 h-10 md:w-11 md:h-11 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white group-hover:bg-white/20 group-hover:scale-110 transition-all duration-300">
+                {c.icon}
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-[10px] md:text-xs font-semibold uppercase tracking-[0.15em] text-white/60 mb-0.5">
+                  {c.label}
+                </span>
+                <span className="block text-sm md:text-base font-medium text-white truncate">
+                  {c.value}
+                </span>
+              </span>
             </a>
           ))}
         </div>
+
         {onNavigateToMessage && (
           <div className="pk-contact-footer">
             <p className="pk-dim">
