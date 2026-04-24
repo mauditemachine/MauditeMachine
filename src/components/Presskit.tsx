@@ -115,11 +115,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
     <div className="pk-page">
       {/* === SECTION HEADER MAGAZINE === */}
       <div className="mb-12 md:mb-20 px-0">
-        <SectionHeader
-          number="02"
-          kicker="Presskit · About"
-          title="About"
-        />
+        <SectionHeader title="About" />
       </div>
 
       {/* === STORYTELLING : RAW. HYPNOTIC. UNDERGROUND. - une seule ligne === */}

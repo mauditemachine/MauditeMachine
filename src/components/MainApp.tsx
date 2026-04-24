@@ -410,8 +410,6 @@ export default function MainApp() {
             className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-7xl mx-auto w-full"
           >
             <SectionHeader
-              number="03"
-              kicker="Shows · Live"
               title="Shows"
               subtitle="Festivals, clubs, warehouses — from Montreal underground to iconic stages across Canada, France and beyond."
               className="mb-12 md:mb-20"
@@ -520,8 +518,6 @@ export default function MainApp() {
             className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-7xl mx-auto w-full"
           >
             <SectionHeader
-              number="04"
-              kicker="Merch · Apparel"
               title="Merch"
               subtitle="Official Maudite Machine & VRSTL Records apparel. Made in limited quantities."
               className="mb-12 md:mb-20"
@@ -535,8 +531,6 @@ export default function MainApp() {
             className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-7xl mx-auto w-full"
           >
             <SectionHeader
-              number="05"
-              kicker="Free Downloads"
               title="Goodies"
               subtitle="Wallpapers, release covers and stickers — grab them all for free."
               className="mb-12 md:mb-20"
@@ -550,8 +544,6 @@ export default function MainApp() {
             className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-7xl mx-auto w-full"
           >
             <SectionHeader
-              number="06"
-              kicker="The Blueprint · Tech"
               title="Tech Rider"
               subtitle="Live setup, DJ backline, hospitality — everything you need to host the machine."
               className="mb-12 md:mb-20"
@@ -694,8 +686,6 @@ export default function MainApp() {
             className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-5xl mx-auto w-full"
           >
             <SectionHeader
-              number="07"
-              kicker="Contact · Booking"
               title="Contact"
               subtitle="Bookings, interviews, collaborations — direct line to the studio."
               className="mb-12 md:mb-20"

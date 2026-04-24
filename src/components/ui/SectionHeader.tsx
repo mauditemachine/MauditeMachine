@@ -3,21 +3,24 @@
  *
  * Typographie magazine brutaliste (clamp(3rem, 12vw, 12rem)) uppercase
  * font-black tracking serré leading dense. Reveal par masque
- * (overflow-hidden + y translate) via framer-motion whileInView.
+ * (overflow-hidden + y translate) via CSS keyframe reveal-y.
  *
- * Structure :
- *   - kicker (petit tag en tete : "02 / Presskit")
+ * Structure minimaliste :
  *   - title (le mot massif)
  *   - subtitle optionnel (petit texte sous le titre)
+ *
+ * Les kickers ("02 / Presskit · About") ont ete retires pour un look
+ * plus minimaliste. Les props `number` et `kicker` sont conservees pour
+ * backward-compat mais ignorees (deprecated).
  */
 
 import React from 'react'
 import { cn } from '../../lib/cn'
 
 interface SectionHeaderProps {
-  /** Numero de section (ex "02") */
+  /** @deprecated Retire du rendu — conserve pour compat */
   number?: string
-  /** Tag descriptif (ex "Presskit / About") */
+  /** @deprecated Retire du rendu — conserve pour compat */
   kicker?: string
   /** Titre massif */
   title: string
@@ -30,8 +33,6 @@ interface SectionHeaderProps {
 }
 
 const SectionHeader: React.FC<SectionHeaderProps> = ({
-  number,
-  kicker,
   title,
   subtitle,
   align = 'left',
@@ -49,24 +50,6 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
         className,
       )}
     >
-      {/* Kicker : fade-up au mount */}
-      {(number || kicker) && (
-        <div
-          className={cn(
-            'flex items-center gap-3 mb-4 md:mb-6',
-            'text-sm md:text-sm font-body',
-            'uppercase tracking-[0.4em] text-ink-50',
-            'animate-fade-up',
-            align === 'center' && 'justify-center',
-          )}
-          style={{ animationFillMode: 'both' }}
-        >
-          {number && <span>{number}</span>}
-          {number && kicker && <span className="opacity-40">/</span>}
-          {kicker && <span>{kicker}</span>}
-        </div>
-      )}
-
       {/* Titre massif : reveal par masque + stagger par mot, via CSS keyframe */}
       <Tag
         className={cn(
