@@ -8,7 +8,6 @@ import Goodies from "./Goodies";
 import JellyfishBackground from "./JellyfishBackground";
 import LiquidGlass from "./LiquidGlass";
 import MobileMenu from "./ui/MobileMenu";
-import SectionHeader from "./ui/SectionHeader";
 import EditorialPhoto from "./ui/EditorialPhoto";
 import { cn } from "../lib/cn";
 
@@ -407,12 +406,6 @@ export default function MainApp() {
             id="shows"
             className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-7xl mx-auto w-full"
           >
-            <SectionHeader
-              title={t.shows.title}
-              subtitle={t.shows.subtitle}
-              className="mb-12 md:mb-20"
-            />
-
             {/* UPCOMING shows (EventsDisplay) */}
             <EventsDisplay showPastEventsButton={false} />
 
@@ -539,11 +532,6 @@ export default function MainApp() {
             id="store"
             className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-7xl mx-auto w-full"
           >
-            <SectionHeader
-              title={t.merch.title}
-              subtitle={t.merch.subtitle}
-              className="mb-12 md:mb-20"
-            />
             <Store onSectionChange={(s) => handleSectionChange(s)} />
           </section>
 
@@ -552,11 +540,6 @@ export default function MainApp() {
             id="goodies"
             className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-7xl mx-auto w-full"
           >
-            <SectionHeader
-              title={t.goodiesSection.title}
-              subtitle={t.goodiesSection.subtitle}
-              className="mb-12 md:mb-20"
-            />
             <Goodies />
           </section>
 
@@ -579,12 +562,6 @@ export default function MainApp() {
             id="techrider"
             className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-7xl mx-auto w-full"
           >
-            <SectionHeader
-              title={t.techrider.title}
-              subtitle={t.techrider.subtitle}
-              className="mb-12 md:mb-20"
-            />
-
             {/* BENTO GRID — 12 cols asymétrique */}
             <div className="grid grid-cols-12 gap-4 md:gap-6 mb-12 md:mb-20">
               {/* LIVE SETUP — col-span 7 */}
@@ -714,12 +691,6 @@ export default function MainApp() {
             id="message"
             className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-5xl mx-auto w-full"
           >
-            <SectionHeader
-              title={t.contactSection.title}
-              subtitle={t.contactSection.subtitle}
-              className="mb-12 md:mb-20"
-              align="center"
-            />
             <Message
               prefillSubject={messagePrefill?.subject}
               prefillMessage={messagePrefill?.message}

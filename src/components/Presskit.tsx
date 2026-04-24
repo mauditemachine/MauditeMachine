@@ -5,7 +5,6 @@
 
 import React from 'react';
 import { useTranslation } from '../lib/i18n';
-import SectionHeader from './ui/SectionHeader';
 import { cn } from '../lib/cn';
 
 interface PresskitProps {
@@ -124,10 +123,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
 
   return (
     <div className="pk-page">
-      {/* === SECTION HEADER MAGAZINE === */}
-      <div className="mb-12 md:mb-20 px-0">
-        <SectionHeader title={p.sectionTitle} />
-      </div>
+      {/* SectionHeader retire : plus de gros titre "About" en tete */}
 
       {/* === STORYTELLING : RAW. HYPNOTIC. UNDERGROUND. - texte normal === */}
       <section className="py-4 md:py-8 mb-6 md:mb-10">
