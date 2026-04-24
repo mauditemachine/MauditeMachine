@@ -92,7 +92,7 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
   const downloadBtnClass = cn(
     'flex-shrink-0 px-3 py-1 rounded-full',
     'bg-ink-10 hover:bg-ink-20 border border-ink-15 hover:border-ink-50',
-    'text-[10px] font-bold uppercase tracking-wider text-ink-95 font-body',
+    'text-sm font-bold uppercase tracking-wider text-ink-95 font-body',
     'transition-all duration-250 ease-out-expo',
     'hover:shadow-glow-white-soft',
   );
@@ -152,7 +152,7 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
               />
             </div>
             <div className="mt-2 px-1 flex items-center justify-between gap-2">
-              <span className="text-[11px] text-ink-70 truncate font-body" title={item.title}>
+              <span className="text-sm text-ink-70 truncate font-body" title={item.title}>
                 {item.title}
               </span>
               <button

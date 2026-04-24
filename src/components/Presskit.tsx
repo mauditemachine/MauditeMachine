@@ -142,16 +142,13 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         ))}
       </section>
 
-      {/* === HERO PRESSKIT : image + meta en grille asymetrique === */}
+      {/* === HERO PRESSKIT : meta en bloc asymetrique (image B&W retiree) === */}
       <section className="pk-section pk-hero">
         <div className="pk-hero-top">
           <div className="pk-hero-label">Press Kit / 2026</div>
           <div className="pk-hero-tags">
             <span>Minimal</span><span>Indie Dance</span><span>Dark Disco</span>
           </div>
-        </div>
-        <div className="pk-hero-image pk-glass">
-          <img src="/images/presskit-hero.webp" alt="Maudite Machine" loading="lazy" />
         </div>
         <h1 className="pk-hero-title">MAUDITE MACHINE</h1>
         <div className="pk-hero-meta pk-glass">
@@ -229,7 +226,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
                                leading-none tracking-[-0.04em]">
                 {s.num}
               </span>
-              <span className="font-body text-[11px] md:text-xs
+              <span className="font-body text-sm md:text-sm
                                uppercase tracking-[0.25em] text-ink-70
                                max-w-[140px] md:max-w-[170px] leading-tight">
                 {s.fr}
@@ -341,7 +338,6 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
               <p><span className="pk-lang-tag-inline">EN</span> VRSTL Records is an independent Canadian label dedicated to Indie Dance and Dark Disco. Since its founding, the label has released 21 EPs and 2 albums, signing emerging artists from Argentina, Quebec and Europe.</p>
               <p className="pk-dim">Direction artistique : tension, groove, expérimentation. Un catalogue qui redéfinit les frontières de l'underground électronique.</p>
             </div>
-            <img className="pk-label-photo" src="/images/presskit-portrait2.webp" alt="Michael Sanchez" loading="lazy" />
           </div>
           <div className="pk-roster">
             <div className="pk-section-label">Roster / Artistes signés</div>
@@ -420,7 +416,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
       >
         <div className="relative p-8 md:p-14 lg:p-20">
           {/* Kicker top */}
-          <div className="flex items-center justify-between mb-6 md:mb-10 text-[10px] md:text-xs uppercase tracking-[0.3em] text-ink-50 font-body">
+          <div className="flex items-center justify-between mb-6 md:mb-10 text-sm md:text-sm uppercase tracking-[0.3em] text-ink-50 font-body">
             <span>PDF · 10 MB · EN / FR</span>
             <span>2026 Edition</span>
           </div>

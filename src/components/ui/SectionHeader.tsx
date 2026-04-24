@@ -54,7 +54,7 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
         <div
           className={cn(
             'flex items-center gap-3 mb-4 md:mb-6',
-            'text-[10px] md:text-[11px] font-body',
+            'text-sm md:text-sm font-body',
             'uppercase tracking-[0.4em] text-ink-50',
             'animate-fade-up',
             align === 'center' && 'justify-center',

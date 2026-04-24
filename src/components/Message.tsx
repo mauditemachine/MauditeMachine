@@ -34,7 +34,7 @@ const FIELD_BASE = cn(
 
 const LABEL_BASE = cn(
   'block mb-2 font-body',
-  'text-[11px] font-bold uppercase tracking-[0.15em]',
+  'text-sm font-bold uppercase tracking-[0.15em]',
   'text-ink-85',
 )
 
@@ -283,7 +283,7 @@ const Message: React.FC<MessageProps> = ({ prefillSubject, prefillMessage }) => 
                 'bg-ink-10 hover:bg-ink-15',
                 'border border-ink-20 hover:border-ink-50',
                 'text-ink-95 font-body',
-                'text-xs font-bold uppercase tracking-[0.2em]',
+                'text-sm font-bold uppercase tracking-[0.2em]',
                 'transition-all duration-300 ease-out-expo',
                 'hover:shadow-glow-white-soft',
                 'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-ink-10 disabled:hover:border-ink-20 disabled:hover:shadow-none',

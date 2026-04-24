@@ -32,11 +32,11 @@ export default {
           85:  'rgba(255, 255, 255, 0.85)',
           95:  'rgba(255, 255, 255, 0.95)',
         },
-        // Glass fill (fond sombre translucide, comme header/footer)
+        // Glass fill (fond sombre translucide, laisse passer la video)
         glass: {
-          subtle:  'rgba(0, 0, 0, 0.12)',
-          DEFAULT: 'rgba(0, 0, 0, 0.20)',
-          strong:  'rgba(0, 0, 0, 0.35)',
+          subtle:  'rgba(0, 0, 0, 0.08)',
+          DEFAULT: 'rgba(0, 0, 0, 0.14)',
+          strong:  'rgba(0, 0, 0, 0.24)',
         },
       },
       borderRadius: {

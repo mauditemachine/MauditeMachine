@@ -210,14 +210,14 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
                     className="w-full h-full object-cover transition-transform duration-700 ease-out-expo group-hover:scale-[1.08]"
                   />
                   {cat.items.length > 1 && (
-                    <div className="absolute bottom-2 right-2 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-[10px] text-ink-95 font-body">
+                    <div className="absolute bottom-2 right-2 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-sm text-ink-95 font-body">
                       {cat.items.length} {t.store.photos}
                     </div>
                   )}
                 </div>
                 <div className="p-2 pt-3">
                   <h3 className="text-sm font-bold text-ink-95 mb-1 font-body">{cat.label}</h3>
-                  <div className="text-[13px] font-bold text-ink-85 font-body">{cat.items[0]?.price}</div>
+                  <div className="text-sm font-bold text-ink-85 font-body">{cat.items[0]?.price}</div>
                 </div>
               </GlassCard>
             );

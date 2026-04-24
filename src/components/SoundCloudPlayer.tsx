@@ -335,19 +335,28 @@ export default function SoundCloudPlayer({
         src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(PLAYLIST_URL)}&color=%23ffffff&auto_play=false&hide_related=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false&visual=false`}
       />
 
-      {/* Footer bar fixe */}
+      {/* Floating Pill — player flottant Pro Max */}
       <div
-        className={cn(
-          'fixed bottom-0 inset-x-0 z-50',
-          'bg-glass-strong backdrop-blur-heavy backdrop-saturate-glass',
-          'border-t border-ink-8',
-        )}
         role="region"
         aria-label="Lecteur audio"
+        style={{
+          position: 'fixed',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 50,
+        }}
+        className={cn(
+          'bottom-4 md:bottom-6',
+          'w-[95%] max-w-3xl',
+          'rounded-full overflow-hidden',
+          'bg-black/40 backdrop-blur-xl',
+          'border border-white/10',
+          'shadow-2xl shadow-black/50',
+        )}
       >
-        {/* Progress bar 2px (hover → 4px) */}
+        {/* Progress bar 2px en haut de la pill (suit la courbe rounded-full) */}
         <div
-          className="relative h-[2px] bg-ink-8 cursor-pointer group hover:h-[4px] transition-[height] duration-200"
+          className="relative h-[2px] bg-white/10 cursor-pointer group hover:h-[3px] transition-[height] duration-200"
           onClick={handleProgressClick}
           role="slider"
           aria-label="Progression du morceau"
@@ -356,48 +365,53 @@ export default function SoundCloudPlayer({
           aria-valuenow={positionMs}
         >
           <div
-            className="absolute inset-y-0 left-0 bg-ink-95"
+            className="absolute inset-y-0 left-0 bg-white/90"
             style={{ width: `${progress}%`, transition: 'width 120ms linear' }}
           />
         </div>
 
         {/* Controls row */}
-        <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5">
+        <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 pr-3 sm:pr-4 py-2">
           {/* Cover mini */}
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden flex-shrink-0 bg-black/40 border border-ink-8">
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden flex-shrink-0 bg-black/40 border border-white/10">
             {coverUrl ? (
               <img src={coverUrl} alt="" className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-ink-10 to-ink-5" />
+              <div className="w-full h-full bg-gradient-to-br from-white/10 to-white/5" />
             )}
           </div>
 
-          {/* Track info (truncate + marquee fallback) */}
+          {/* Track info : title + Maudite Machine */}
           <div className="min-w-0 flex-1">
             <div
-              className="text-sm sm:text-[15px] font-semibold text-ink-95 truncate font-body"
+              className="text-sm sm:text-[15px] font-semibold text-white truncate font-body [text-shadow:_0_1px_3px_rgba(0,0,0,0.4)]"
               title={displayTitle}
             >
               {displayTitle || 'Loading…'}
             </div>
-            <div className="text-[10px] sm:text-[11px] text-ink-50 uppercase tracking-[0.2em] font-body">
+            <div className="text-sm sm:text-sm text-white/60 uppercase tracking-[0.2em] font-body">
               Maudite Machine
             </div>
+          </div>
+
+          {/* Time (hidden sur petit ecran) */}
+          <div className="hidden md:block text-sm text-white/70 tabular-nums font-body flex-shrink-0 [text-shadow:_0_1px_3px_rgba(0,0,0,0.4)]">
+            {formatMs(positionMs)} / {formatMs(durationMs)}
           </div>
 
           {/* Controls : prev / play / next */}
           <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
             <motion.button
               type="button"
-              whileHover={{ scale: 1.1 }}
+              whileHover={{ scale: 1.12 }}
               whileTap={{ scale: 0.92 }}
               onClick={prev}
               aria-label="Morceau precedent"
               className={cn(
                 'hidden sm:flex items-center justify-center',
                 'w-9 h-9 rounded-full',
-                'bg-transparent text-ink-85',
-                'hover:text-ink-95 hover:bg-ink-8',
+                'bg-transparent text-white/80',
+                'hover:text-white hover:bg-white/10',
                 'transition-colors duration-200',
               )}
             >
@@ -412,9 +426,9 @@ export default function SoundCloudPlayer({
               aria-label={isPlaying ? 'Pause' : 'Lecture'}
               className={cn(
                 'flex items-center justify-center',
-                'w-11 h-11 sm:w-12 sm:h-12 rounded-full',
-                'bg-ink-10 border border-ink-20 text-ink-95',
-                'hover:bg-ink-15 hover:border-ink-50 hover:shadow-glow-white-soft',
+                'w-10 h-10 sm:w-11 sm:h-11 rounded-full',
+                'bg-white/15 border border-white/20 text-white',
+                'hover:bg-white/25 hover:border-white/50 hover:shadow-[0_0_24px_rgba(255,255,255,0.25)]',
                 'transition-all duration-250 ease-out-expo',
               )}
             >
@@ -423,25 +437,20 @@ export default function SoundCloudPlayer({
 
             <motion.button
               type="button"
-              whileHover={{ scale: 1.1 }}
+              whileHover={{ scale: 1.12 }}
               whileTap={{ scale: 0.92 }}
               onClick={next}
               aria-label="Morceau suivant"
               className={cn(
                 'hidden sm:flex items-center justify-center',
                 'w-9 h-9 rounded-full',
-                'bg-transparent text-ink-85',
-                'hover:text-ink-95 hover:bg-ink-8',
+                'bg-transparent text-white/80',
+                'hover:text-white hover:bg-white/10',
                 'transition-colors duration-200',
               )}
             >
               <IconNext />
             </motion.button>
-          </div>
-
-          {/* Time (hidden sur petit ecran) */}
-          <div className="hidden md:block text-xs text-ink-70 tabular-nums font-body flex-shrink-0 min-w-[88px] text-right">
-            {formatMs(positionMs)} / {formatMs(durationMs)}
           </div>
 
           {/* Vault button */}
@@ -454,9 +463,9 @@ export default function SoundCloudPlayer({
             aria-expanded={vaultOpen}
             className={cn(
               'flex items-center justify-center flex-shrink-0',
-              'w-10 h-10 rounded-full',
-              'bg-ink-8 border border-ink-15 text-ink-85',
-              'hover:bg-ink-15 hover:border-ink-30 hover:text-ink-95 hover:shadow-glow-white-soft',
+              'w-9 h-9 rounded-full',
+              'bg-white/8 border border-white/15 text-white/80',
+              'hover:bg-white/15 hover:border-white/30 hover:text-white',
               'transition-all duration-250 ease-out-expo',
             )}
           >

@@ -149,7 +149,7 @@ const VaultPanel: React.FC<VaultPanelProps> = ({
       <div className="max-w-6xl mx-auto px-4 sm:px-6 md:px-8 py-14 md:py-20 pb-32">
         {/* Header */}
         <div className="mb-10 md:mb-14 text-center animate-[vault-fade-up_0.55s_cubic-bezier(0.19,1,0.22,1)_both]">
-          <div className="text-[11px] md:text-xs uppercase tracking-[0.4em] text-ink-50 mb-3 font-body">
+          <div className="text-sm md:text-sm uppercase tracking-[0.4em] text-ink-50 mb-3 font-body">
             Playlist · {tracks.length} tracks
           </div>
           <h2 className="text-4xl md:text-6xl font-black uppercase tracking-tight text-ink-95 font-body leading-none">
@@ -240,13 +240,13 @@ const VaultPanel: React.FC<VaultPanelProps> = ({
                   >
                     {formatTrackDisplay(t.title)}
                   </div>
-                  <div className="text-[10px] md:text-xs text-ink-50 uppercase tracking-[0.2em] font-body mt-0.5">
+                  <div className="text-sm md:text-sm text-ink-50 uppercase tracking-[0.2em] font-body mt-0.5">
                     Maudite Machine
                   </div>
                 </div>
 
                 {/* Duree */}
-                <div className="text-xs md:text-sm text-ink-70 tabular-nums font-body flex-shrink-0 pr-1">
+                <div className="text-sm md:text-sm text-ink-70 tabular-nums font-body flex-shrink-0 pr-1">
                   {formatMs(t.duration)}
                 </div>
               </button>

@@ -252,8 +252,22 @@ export default function MainApp() {
           links={navLinks}
         />
 
-        {/* HEADER — Logo gauche + Nav droite, fixed */}
-        <header className="site-header liquid-glass">
+        {/* HEADER — Logo gauche + Nav droite, FIXED TOP (inline style pour force) */}
+        <header
+          className="site-header"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 50,
+            background: 'rgba(0, 0, 0, 0.15)',
+            backdropFilter: 'blur(12px) saturate(1.2)',
+            WebkitBackdropFilter: 'blur(12px) saturate(1.2)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+            padding: '14px 32px',
+          }}
+        >
           <div className="header-content">
             <div className="header-logo-left">
               <img
@@ -287,38 +301,40 @@ export default function MainApp() {
         {/* MAIN CONTENT — stack vertical single-page */}
         <main className="relative z-[1]" style={{ paddingTop: '90px', paddingBottom: '96px' }}>
 
-          {/* HERO — logo + bio, plein ecran */}
+          {/* HERO — logo + bio alignee gauche, article magazine */}
           <section
             id="hero"
             className={cn(
               'scroll-mt-20',
               'min-h-[calc(100svh-186px)]',
-              'flex flex-col items-center justify-center',
+              'flex flex-col justify-center',
               'px-6 md:px-10 py-16 md:py-24',
+              'max-w-7xl mx-auto w-full',
             )}
           >
-            <div className="max-w-5xl w-full flex flex-col items-center text-center">
-              <img
-                src={import.meta.env.BASE_URL + "logo/LogoStack.svg"}
-                alt="Maudite Machine"
-                className="w-[85vw] max-w-[780px] h-auto mb-8 md:mb-10 animate-fade-up"
-                style={{
-                  filter: 'brightness(0) invert(1)',
-                  animationDelay: '100ms',
-                  animationFillMode: 'both',
-                }}
-              />
-              <p
-                className={cn(
-                  'max-w-2xl text-base md:text-lg lg:text-xl',
-                  'leading-relaxed text-ink-85 font-body',
-                  'animate-fade-up',
-                )}
-                style={{ animationDelay: '280ms', animationFillMode: 'both' }}
-              >
-                {displayBioText}
-              </p>
-            </div>
+            <img
+              src={import.meta.env.BASE_URL + "logo/LogoStack.svg"}
+              alt="Maudite Machine"
+              className="w-[85vw] max-w-[780px] h-auto mb-10 md:mb-14 animate-fade-up"
+              style={{
+                filter: 'brightness(0) invert(1)',
+                animationDelay: '100ms',
+                animationFillMode: 'both',
+              }}
+            />
+            <p
+              className={cn(
+                'max-w-3xl',
+                'text-xl md:text-2xl lg:text-[1.75rem]',
+                'font-light leading-relaxed text-left',
+                'text-ink-95 font-body',
+                '[text-shadow:_0_2px_12px_rgba(0,0,0,0.5)]',
+                'animate-fade-up',
+              )}
+              style={{ animationDelay: '280ms', animationFillMode: 'both' }}
+            >
+              {displayBioText}
+            </p>
           </section>
 
           {/* PRESSKIT — bio, stats, performances, album, catalogue, label, contact */}

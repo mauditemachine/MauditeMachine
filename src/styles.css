@@ -2941,13 +2941,19 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 }
 
 .pk-glass {
-  /* Meme recette que .site-header + .site-footer */
-  background: rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  /* Translucide : laisse passer la video jellyfish + text-shadow pour lisibilite */
+  background: rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(18px) saturate(0.7);
+  -webkit-backdrop-filter: blur(18px) saturate(0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+/* Text-shadow global sur texts des panneaux glass pour lisibilite sur fond plus transparent */
+.pk-glass h1, .pk-glass h2, .pk-glass h3, .pk-glass h4, .pk-glass p,
+.pk-glass li, .pk-glass span, .pk-glass div {
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
 }
 
 .pk-section {
