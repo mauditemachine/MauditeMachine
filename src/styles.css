@@ -150,12 +150,23 @@ body,
 * {
   box-sizing: border-box;
 }
+/* Single-page scrolling : scroll document natif (2026-04) */
+html {
+  scroll-behavior: smooth;
+}
 html, body {
   margin: 0;
   padding: 0;
-  height: 100vh;
-  height: 100dvh; /* iOS safe */
-  overflow: hidden; /* pas de scroll sur le body, le content gere */
+  height: auto;
+  min-height: 100vh;
+}
+body {
+  /* Pas d'overflow-x ici pour eviter de creer un scroll container
+     (overflow-x:hidden force overflow-y:auto par le browser) */
+}
+#root {
+  min-height: 100vh;
+  overflow-x: clip; /* contient les debordements horizontaux sans scroll container */
 }
 body {
   font-family: var(--font-body);
@@ -168,13 +179,7 @@ body {
 
 .page {
   position: relative;
-  height: 100vh;
-  height: 100dvh;
-  overflow: hidden;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  padding-bottom: 60px;
 }
 
 /* Overlay bleu pétrole #175268 par-dessus le fond rock */
@@ -1115,8 +1120,8 @@ body {
 
 /* ACCORDEON goodies - 1 section deployee a la fois */
 .goodies-accordion {
-  position: absolute;
-  inset: 16px 30px;
+  /* Single-page : flow natif, pas d'absolute */
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1138,7 +1143,7 @@ body {
 }
 
 .goodies-acc-item.open {
-  flex: 1;
+  /* Single-page : pas de flex:1, la section grandit naturellement */
 }
 
 .goodies-acc-header {
@@ -1190,13 +1195,9 @@ body {
 }
 
 .goodies-acc-content {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  /* Single-page : pas de scroll interne, le contenu coule naturellement */
+  overflow: visible;
   padding: 0 20px 18px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.2) transparent;
   animation: goodies-acc-expand 0.35s cubic-bezier(0.2, 0, 0.1, 1);
 }
 .goodies-acc-content::-webkit-scrollbar { width: 6px; }

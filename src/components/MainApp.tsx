@@ -1,32 +1,29 @@
 import React, { useState, useEffect, Suspense } from "react";
 import SoundCloudPlayer from "./SoundCloudPlayer";
-import NewsMessages from "./NewsMessages";
 import { useApp } from "../context/AppContext";
 import EventsDisplay from "./EventsDisplay";
 import Store from "./Store";
 import Message from "./Message";
 import Goodies from "./Goodies";
-import SocialIcon from "./SocialIcon";
 import JellyfishBackground from "./JellyfishBackground";
 import LiquidGlass from "./LiquidGlass";
 import MobileMenu from "./ui/MobileMenu";
+import { cn } from "../lib/cn";
 
-// Presskit : lazy (360 lignes de contenu statique, seulement sur #presskit)
+// Presskit : lazy (360 lignes de contenu statique, gros chunk)
 const Presskit = React.lazy(() => import("./Presskit"));
 
-// Supprimer les erreurs SoundCloud de la console
+// Supprimer les erreurs SoundCloud/Bandcamp bruyantes
 const suppressWidgetErrors = () => {
   const originalError = console.error;
   const originalWarn = console.warn;
   const originalLog = console.log;
   let soundcloudErrorCount = 0;
   let hasShownSoundCloudGroupedError = false;
-  
+
   console.error = (...args) => {
     const message = args[0]?.toString() || '';
     const stack = args[1]?.stack || '';
-    
-    // Liste exhaustive des erreurs SoundCloud à supprimer
     if (
       message.includes('createPattern') ||
       message.includes('canvas element with a width or height of 0') ||
@@ -41,8 +38,7 @@ const suppressWidgetErrors = () => {
       message.includes('signal is aborted') ||
       message.includes('Uncaught') ||
       stack.includes('widget-') ||
-      stack.includes('soundcloud') ||
-      args.some(arg => arg?.constructor?.name === 'constructor')
+      stack.includes('soundcloud')
     ) {
       soundcloudErrorCount++;
       if (!hasShownSoundCloudGroupedError && soundcloudErrorCount >= 5) {
@@ -51,221 +47,131 @@ const suppressWidgetErrors = () => {
       }
       return;
     }
-
-    
     originalError.apply(console, args);
   };
 
   console.warn = (...args) => {
-    const message = args[0]?.toString() || '';
-    if (
-      message.includes('SoundCloud') ||
-      message.includes('widget-') ||
-      message.includes('encrypted-media') ||
-      message.includes('Permissions policy') ||
-      message.includes('Feature Policy') ||
-      message.includes('bandcamp') ||
-      message.includes('bcbits.com')
-    ) {
-      return;
-    }
+    const m = args[0]?.toString() || '';
+    if (m.includes('SoundCloud') || m.includes('widget-') || m.includes('encrypted-media') ||
+        m.includes('Permissions policy') || m.includes('Feature Policy') ||
+        m.includes('bandcamp') || m.includes('bcbits.com')) return;
     originalWarn.apply(console, args);
   };
 
-  // Supprimer aussi les logs SoundCloud et Bandcamp
   console.log = (...args) => {
-    const message = args[0]?.toString() || '';
-    if (
-      message.includes('SoundCloud Embed Player') ||
-      message.includes('widget-') ||
-      message.includes('📦 Utilisation du cache') ||
-      message.includes('ErrorCollector: enabled') ||
-      message.includes('initing HTMLEmbeddedPlayer3') ||
-      message.includes('user not opted in: skipping Tracker record') ||
-      message.includes('no events to send')
-    ) {
-      return;
-    }
+    const m = args[0]?.toString() || '';
+    if (m.includes('SoundCloud Embed Player') || m.includes('widget-') ||
+        m.includes('📦 Utilisation du cache') || m.includes('ErrorCollector: enabled') ||
+        m.includes('initing HTMLEmbeddedPlayer3')) return;
     originalLog.apply(console, args);
   };
 };
 
-const socialLinks: { 
-  label: string; 
-  href: string; 
-  platform: string;
-  hoverColor: string;
-}[] = [
-  {
-    label: "Facebook",
-    href: "https://www.facebook.com/MauditeMachine",
-    platform: "facebook",
-    hoverColor: "#1877F2"
-  },
-  {
-    label: "Spotify",
-    href: "https://open.spotify.com/artist/2FHPGWPEBQbCsgkLP9uuI4",
-    platform: "spotify",
-    hoverColor: "#1DB954"
-  },
-  {
-    label: "Youtube",
-    href: "https://www.youtube.com/@mauditemachine-official",
-    platform: "youtube",
-    hoverColor: "#FF0000"
-  },
-  {
-    label: "Soundcloud",
-    href: "https://www.soundcloud.com/mauditemachine/",
-    platform: "soundcloud",
-    hoverColor: "#FF3300"
-  },
-  {
-    label: "Instagram",
-    href: "https://www.instagram.com/mauditemachine/",
-    platform: "instagram",
-    hoverColor: "#E4405F"
-  },
-  {
-    label: "Bandcamp",
-    href: "https://mauditemachine.bandcamp.com/",
-    platform: "bandcamp",
-    hoverColor: "#629AA0"
-  },
-  {
-    label: "Apple Music",
-    href: "https://music.apple.com/us/artist/maudite-machine/1028417516",
-    platform: "apple",
-    hoverColor: "#000000"
-  }
-];
+// Mapping des hashes legacy vers les nouvelles sections (backwards compat)
+const HASH_MAP: Record<string, string> = {
+  'home': 'hero',
+  'presskit': 'presskit',
+  'events': 'events',
+  'store': 'store',
+  'goodies': 'goodies',
+  'message': 'message',
+  'contact': 'message',
+};
+
+const SECTION_IDS = ['hero', 'presskit', 'events', 'store', 'goodies', 'message'];
 
 export default function MainApp() {
-  const { designMode, setDesignMode, lang, t } = useApp();
+  const { designMode, t } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [bgUrl, setBgUrl] = useState<string>("");
-  const [activeSection, setActiveSection] = useState("home");
-  const [heroLogoFaded, setHeroLogoFaded] = useState(false);
-
-  // Animation CSS 5.5s: apres ca on retire du DOM (display: none via .faded)
-  // pour eviter que le logo scale(6.5) interfere avec les backdrop-filter
-  useEffect(() => {
-    if (activeSection !== "home") { setHeroLogoFaded(true); return; }
-    setHeroLogoFaded(false);
-    const t = setTimeout(() => setHeroLogoFaded(true), 5600);
-    return () => clearTimeout(t);
-  }, [activeSection])
-
-  const handleBgChange = (url: string) => {
-    setBgUrl(url)
-    // Mettre à jour la variable CSS pour le desktop et afficher l'overlay
-    document.documentElement.style.setProperty('--track-bg', `url(${url})`);
-    // Ajouter la classe track-active pour afficher l'overlay
-    document.querySelector('.page')?.classList.add('track-active');
-  }
-  const [bioText, setBioText] = useState<string>("");
-  const [hoveredButton, setHoveredButton] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState("hero");
   const [messagePrefill, setMessagePrefill] = useState<{ subject: string; message: string } | null>(null);
 
-  // Titres des sections pour les tooltips
-  const sectionTitles = {
-    home: "Home",
-    events: "Events", 
-    store: "Store",
-    message: "Contact",
-    presskit: "Press Kit"
+  const handleBgChange = (url: string) => {
+    setBgUrl(url);
+    document.documentElement.style.setProperty('--track-bg', `url(${url})`);
+    document.querySelector('.page')?.classList.add('track-active');
   };
 
-
-
-  // Fonction pour déclencher des événements Facebook Pixel
-  const trackFacebookEvent = (eventName: string, parameters?: any) => {
-    if (typeof window !== 'undefined' && (window as any).fbq) {
-      (window as any).fbq('track', eventName, parameters);
+  // Smooth scroll vers une section
+  const scrollToSection = (id: string) => {
+    const target = HASH_MAP[id] || id;
+    const el = document.getElementById(target);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.history.replaceState(null, '', `#${target}`);
     }
   };
 
-  // Fonction pour changer de section avec tracking et préremplissage optionnel
+  // Nav click : scroll vers section + menu close + FB pixel + prefill
   const handleSectionChange = (section: string, prefill?: { subject: string; message: string }) => {
-    setActiveSection(section);
     setMenuOpen(false);
-    window.scrollTo({ top: 0 });
+    if (prefill) setMessagePrefill(prefill);
+    else setMessagePrefill(null);
 
-    if (prefill) {
-      setMessagePrefill(prefill);
-    } else {
-      setMessagePrefill(null);
+    scrollToSection(section);
+
+    if (typeof window !== 'undefined' && (window as any).fbq) {
+      (window as any).fbq('track', 'ViewContent', {
+        content_name: section,
+        content_category: 'Navigation',
+      });
     }
-
-    // Tracking Facebook Pixel pour les interactions
-    trackFacebookEvent('ViewContent', {
-      content_name: section,
-      content_category: 'Navigation'
-    });
   };
 
-  // Support des liens directs (#store, #events, etc.)
+  // Tracking de la section active via IntersectionObserver (pour highlight nav)
   useEffect(() => {
-    const handleHashChange = () => {
-      const hash = window.location.hash.replace('#', '');
-      if (hash && ['home', 'events', 'store', 'message', 'goodies', 'presskit'].includes(hash)) {
-        setActiveSection(hash);
-      }
-    };
+    const sections = SECTION_IDS
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => !!el);
 
-    // Vérifier le hash au chargement
-    handleHashChange();
-    
-    // Écouter les changements de hash
-    window.addEventListener('hashchange', handleHashChange);
-    
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    if (sections.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        if (visible.length > 0) {
+          const id = visible[0].target.id;
+          setActiveSection(id);
+          // Update URL hash without scroll
+          if (id !== 'hero') {
+            window.history.replaceState(null, '', `#${id}`);
+          } else {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        }
+      },
+      { rootMargin: '-30% 0px -60% 0px', threshold: [0, 0.25, 0.5, 0.75] }
+    );
+
+    sections.forEach((s) => observer.observe(s));
+    return () => observer.disconnect();
   }, []);
 
-  // Mettre à jour l'URL quand la section change
+  // Scroll initial vers hash si present
   useEffect(() => {
-    if (activeSection !== 'home') {
-      window.history.replaceState(null, '', `#${activeSection}`);
-    } else {
-      window.history.replaceState(null, '', window.location.pathname);
+    const hash = window.location.hash.replace('#', '');
+    if (hash) {
+      setTimeout(() => scrollToSection(hash), 400);
     }
-  }, [activeSection]);
+  }, []);
 
-  // Charger la bio depuis localStorage (EN uniquement)
-  useEffect(() => {
-    if (lang === 'en') {
-      const savedBio = localStorage.getItem('admin_bio_backup');
-      if (savedBio) {
-        try {
-          const bio = JSON.parse(savedBio);
-          setBioText(bio.text || '');
-        } catch (_) { setBioText(''); }
-      } else {
-        setBioText(t.home.bio);
-      }
-    }
-  }, [lang, t.home.bio]);
-
-  const displayBioText = lang === 'fr' ? t.home.bio : bioText || t.home.bio;
-
-  // Initialiser la variable CSS pour le track background
+  // Init variable CSS track-bg
   useEffect(() => {
     document.documentElement.style.setProperty('--track-bg', 'none');
     document.querySelector('.page')?.classList.remove('track-active');
   }, []);
 
-  // Background géré en CSS (rock-bg.png) - pas besoin de JS
-
-  // Supprimer les erreurs SoundCloud et Bandcamp au chargement
+  // Suppression des erreurs externes (SoundCloud/Bandcamp)
   useEffect(() => {
     suppressWidgetErrors();
-    
-    // Capturer aussi les erreurs globales du window
+
     const handleError = (event: ErrorEvent) => {
       const message = event.message || '';
       const filename = event.filename || '';
-      
       if (
         message.includes('createPattern') ||
         message.includes('canvas element') ||
@@ -286,7 +192,6 @@ export default function MainApp() {
 
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       const reason = event.reason?.toString() || '';
-      
       if (
         reason.includes('AbortError') ||
         reason.includes('signal is aborted') ||
@@ -309,225 +214,159 @@ export default function MainApp() {
     };
   }, []);
 
+  const displayBioText = t.home.bio;
+
+  const navLinks = [
+    { key: 'presskit', label: t.nav.presskit, section: 'presskit' },
+    { key: 'events',   label: t.nav.events,   section: 'events' },
+    { key: 'store',    label: t.nav.merch,    section: 'store' },
+    { key: 'goodies',  label: t.nav.goodies,  section: 'goodies' },
+    { key: 'message',  label: t.nav.contacts, section: 'message' },
+  ];
+
   return (
     <>
-      {/* Liquid Glass engine: SVG filters + mouse/tilt tracking */}
       <LiquidGlass />
 
-      <div className={`page ${designMode === 'alternate' ? 'design-alternate' : ''}`}>
-      {/* Menu mobile Pro Max (hamburger → overlay glass + stagger links) */}
-      <MobileMenu
-        isOpen={menuOpen}
-        onToggle={() => setMenuOpen((v) => !v)}
-        onClose={() => setMenuOpen(false)}
-        activeSection={activeSection}
-        onNavigate={handleSectionChange}
-        links={[
-          { key: 'events',   label: t.nav.events,   section: 'events' },
-          { key: 'store',    label: t.nav.merch,    section: 'store' },
-          { key: 'message',  label: t.nav.contacts, section: 'message' },
-          { key: 'goodies',  label: t.nav.goodies,  section: 'goodies' },
-          { key: 'presskit', label: t.nav.presskit, section: 'presskit' },
-        ]}
-      />
+      <div
+        className={cn(
+          'page',
+          designMode === 'alternate' ? 'design-alternate' : '',
+        )}
+        // Override layout CSS legacy : single-page scroll natif
+        style={{ height: 'auto', minHeight: '100vh', overflow: 'visible', display: 'block' }}
+      >
+        {/* Menu mobile Pro Max */}
+        <MobileMenu
+          isOpen={menuOpen}
+          onToggle={() => setMenuOpen((v) => !v)}
+          onClose={() => setMenuOpen(false)}
+          activeSection={activeSection}
+          onNavigate={handleSectionChange}
+          links={navLinks}
+        />
 
+        {/* HEADER — Logo gauche + Nav droite, fixed */}
+        <header className="site-header liquid-glass">
+          <div className="header-content">
+            <div className="header-logo-left">
+              <img
+                src={import.meta.env.BASE_URL + "logo/mauditemachine-logo-gold.png"}
+                style={{ filter: 'brightness(0) invert(1)' }}
+                alt="Maudite Machine"
+                onClick={() => scrollToSection('hero')}
+              />
+            </div>
+            <div className="header-right">
+              <nav className="header-nav-right">
+                {navLinks.map((l) => (
+                  <button
+                    key={l.key}
+                    className={activeSection === l.section ? 'active' : ''}
+                    onClick={() => handleSectionChange(l.section)}
+                  >
+                    {l.label}
+                  </button>
+                ))}
+              </nav>
+            </div>
+          </div>
+        </header>
 
-      {/* HEADER - Logo gauche + Navigation droite */}
-      <header className="site-header liquid-glass">
-        <div className="header-content">
-          {/* Logo en haut à gauche - Gold */}
-          <div className="header-logo-left">
-            <img
-              src={import.meta.env.BASE_URL + "logo/mauditemachine-logo-gold.png"}
-              style={{ filter: 'brightness(0) invert(1)' }}
-              alt="Maudite Machine"
-              onClick={() => { handleSectionChange("home"); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-            />
-          </div>
-          
-          {/* Navigation a droite */}
-          <div className="header-right">
-            <nav className="header-nav-right">
-              <button 
-                className={activeSection === "events" ? "active" : ""}
-                onClick={() => handleSectionChange("events")}
-              >
-                {t.nav.events}
-              </button>
-              <button 
-                className={activeSection === "store" ? "active" : ""}
-                onClick={() => handleSectionChange("store")}
-              >
-                {t.nav.merch}
-              </button>
-              <button 
-                className={activeSection === "message" ? "active" : ""}
-                onClick={() => handleSectionChange("message")}
-              >
-                {t.nav.contacts}
-              </button>
-              <button 
-                className={activeSection === "goodies" ? "active" : ""}
-                onClick={() => handleSectionChange("goodies")}
-              >
-                {t.nav.goodies}
-              </button>
-              <button 
-                className={activeSection === "presskit" ? "active" : ""}
-                onClick={() => handleSectionChange("presskit")}
-              >
-                {t.nav.presskit}
-              </button>
-            </nav>
-          </div>
+        {/* Fond video meduses — fixed, traverse toutes les sections */}
+        <div className="global-bg">
+          <JellyfishBackground />
         </div>
-      </header>
 
-      {/* Fond video meduses - visible sur toutes les pages, pleine luminosite */}
-      <div className="global-bg">
-        <JellyfishBackground />
-      </div>
+        {/* MAIN CONTENT — stack vertical single-page */}
+        <main className="relative z-[1]" style={{ paddingTop: '90px', paddingBottom: '96px' }}>
 
-      {/* MAIN CONTENT */}
-      <main className="site-main">
-        {/* Page d'accueil - Landing page avec stagger fade-up */}
-        {activeSection === "home" ? (
-          <div className="landing-page">
-            <div
-              className={`landing-logo-hero animate-fade-up ${heroLogoFaded ? 'faded' : ''}`}
-              style={{ animationDelay: '100ms', animationFillMode: 'both' }}
-            >
+          {/* HERO — logo + bio, plein ecran */}
+          <section
+            id="hero"
+            className={cn(
+              'scroll-mt-20',
+              'min-h-[calc(100svh-186px)]',
+              'flex flex-col items-center justify-center',
+              'px-6 md:px-10 py-16 md:py-24',
+            )}
+          >
+            <div className="max-w-5xl w-full flex flex-col items-center text-center">
               <img
                 src={import.meta.env.BASE_URL + "logo/LogoStack.svg"}
                 alt="Maudite Machine"
-                className="landing-logo-hero-img"
+                className="w-[85vw] max-w-[780px] h-auto mb-8 md:mb-10 animate-fade-up"
+                style={{
+                  filter: 'brightness(0) invert(1)',
+                  animationDelay: '100ms',
+                  animationFillMode: 'both',
+                }}
               />
+              <p
+                className={cn(
+                  'max-w-2xl text-base md:text-lg lg:text-xl',
+                  'leading-relaxed text-ink-85 font-body',
+                  'animate-fade-up',
+                )}
+                style={{ animationDelay: '280ms', animationFillMode: 'both' }}
+              >
+                {displayBioText}
+              </p>
             </div>
-            <div
-              className="landing-bio-section animate-fade-up"
-              style={{ animationDelay: '280ms', animationFillMode: 'both' }}
-            >
-              <p>Maudite Machine is a Canadian DJ and producer known for his raw, hypnotic approach to minimal and indie dance. Born from the Montreal underground, he has performed at major events including Piknic Électronik, Eclipse Festival, and the iconic Techno Parade in Paris, delivering sets that blur the line between intensity and atmosphere across Canada and Europe.</p>
-              <p>As the founder of VRSTL Records, he curates a sound that embraces tension, groove, and experimentation, having shared the stage with electronic music legends like Carl Craig, Ellen Allien, The Hacker, Popof, and Agoria. His collaborations with influential artists reflect a constant drive to push boundaries and redefine the underground with a distinct sonic signature, championing bold artists who share his vision for the darker, experimental sides of electronic music.</p>
-            </div>
-          </div>
-        ) : (
-          /* Contenu des autres sections */
-          <div className="content-wrapper">
-            <div className="content-section">
-              {activeSection === "events" && (
-                <EventsDisplay showPastEventsButton={true} />
-              )}
-              {activeSection === "store" && (
-                <Store onSectionChange={handleSectionChange} />
-              )}
-              {activeSection === "message" && (
-                <Message prefillSubject={messagePrefill?.subject} prefillMessage={messagePrefill?.message} />
-              )}
-              {activeSection === "goodies" && (
-                <Goodies />
-              )}
-              {activeSection === "presskit" && (
-                <Suspense fallback={null}>
-                  <Presskit onNavigateToMessage={() => handleSectionChange("message")} />
-                </Suspense>
-              )}
-            </div>
-          </div>
-        )}
-      </main>
+          </section>
 
-      {/* Logo VRSTL fixe en bas a droite */}
-      <a href="https://vrstlrecords.com" target="_blank" rel="noreferrer" className="vrstl-fixed">
-        <img src={import.meta.env.BASE_URL + "logo/vrstl-logo-clean.svg"} alt="VRSTL Records" />
-      </a>
+          {/* PRESSKIT — bio, stats, performances, album, catalogue, label, contact */}
+          <section id="presskit" className="scroll-mt-20">
+            <Suspense fallback={null}>
+              <Presskit onNavigateToMessage={() => scrollToSection('message')} />
+            </Suspense>
+          </section>
 
-      {/* Lecteur audio — UNE SEULE instance, rendu son footer fixe propre (Pro Max) */}
-      <SoundCloudPlayer onBackgroundChange={handleBgChange} />
+          {/* EVENTS */}
+          <section
+            id="events"
+            className="scroll-mt-20 py-16 md:py-24 px-6 md:px-10 max-w-6xl mx-auto w-full"
+          >
+            <EventsDisplay showPastEventsButton={true} />
+          </section>
 
-      {/* Mobile Layout - visible seulement via media query */}
-      <div className="mobile-layout">
-        {/* Logo 100% largeur */}
-        <div
-          className="mobile-section mobile-logo animate-fade-up"
-          style={{ animationDelay: '80ms', animationFillMode: 'both' }}
-        >
-          <img
-            src={import.meta.env.BASE_URL + "logo/mauditemachine-logo.png"}
-            alt="Maudite Machine"
-          />
-        </div>
+          {/* STORE */}
+          <section
+            id="store"
+            className="scroll-mt-20 py-16 md:py-24 px-6 md:px-10 max-w-6xl mx-auto w-full"
+          >
+            <Store onSectionChange={(s) => handleSectionChange(s)} />
+          </section>
 
-        {/* Social links carrés */}
-        <div
-          className="mobile-section mobile-social-links animate-fade-up"
-          style={{ animationDelay: '180ms', animationFillMode: 'both' }}
-        >
-          {socialLinks.map((link) => (
-            <SocialIcon
-              key={link.label}
-              platform={link.platform}
-              href={link.href}
-              label={link.label}
-              hoverColor={link.hoverColor}
+          {/* GOODIES */}
+          <section
+            id="goodies"
+            className="scroll-mt-20 py-16 md:py-24 px-6 md:px-10 max-w-6xl mx-auto w-full"
+          >
+            <Goodies />
+          </section>
+
+          {/* MESSAGE (Contact) */}
+          <section
+            id="message"
+            className="scroll-mt-20 py-16 md:py-24 px-6 md:px-10 max-w-3xl mx-auto w-full"
+          >
+            <Message
+              prefillSubject={messagePrefill?.subject}
+              prefillMessage={messagePrefill?.message}
             />
-          ))}
-        </div>
+          </section>
 
-        {/* Bio avec background */}
-        <div
-          className="mobile-section mobile-bio animate-fade-up"
-          style={{ animationDelay: '280ms', animationFillMode: 'both' }}
-        >
-          {bioText.split('\n\n').map((paragraph, index) => (
-            <p key={index}>{paragraph}</p>
-          ))}
-        </div>
+        </main>
 
-        {/* Lecteur : consolide en footer fixe (voir <SoundCloudPlayer /> au root) */}
+        {/* Logo VRSTL fixe en bas a droite */}
+        <a href="https://vrstlrecords.com" target="_blank" rel="noreferrer" className="vrstl-fixed">
+          <img src={import.meta.env.BASE_URL + "logo/vrstl-logo-clean.svg"} alt="VRSTL Records" />
+        </a>
 
-        {/* Events - 3 prochains */}
-        <div className="mobile-section mobile-events">
-          <h3>Events</h3>
-          <EventsDisplay limit={3} />
-        </div>
-
-
-        {/* Merch */}
-        <div className="mobile-section mobile-store">
-          <h3>Merch</h3>
-          <Store onSectionChange={handleSectionChange} />
-        </div>
-
-        {/* Goodies - phone wallpapers only on mobile */}
-        <div className="mobile-section mobile-goodies">
-          <h3>Phone Wallpapers</h3>
-          <Goodies mobileOnly={true} />
-        </div>
-
-        {/* Presskit */}
-        <div className="mobile-section mobile-presskit">
-          <h3>Press Kit</h3>
-          <Presskit onNavigateToMessage={() => {}} />
-        </div>
-
-        {/* Message */}
-        <div className="mobile-section mobile-message">
-          <Message prefillSubject={messagePrefill?.subject} prefillMessage={messagePrefill?.message} />
-        </div>
-
-        {/* Footer VRSTL Logo */}
-        <div className="mobile-section mobile-footer">
-          <a href="https://vrstlrecords.com" target="_blank" rel="noreferrer">
-            <img
-              className="vrstl-mobile"
-              src={import.meta.env.BASE_URL + "logo/vrstl-logo.svg"}
-              alt="VRSTL Records"
-            />
-          </a>
-        </div>
+        {/* Lecteur audio — 1 seule instance, rendu son footer fixe lui-meme */}
+        <SoundCloudPlayer onBackgroundChange={handleBgChange} />
       </div>
-    </div>
     </>
   );
 }
