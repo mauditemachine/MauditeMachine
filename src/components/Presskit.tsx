@@ -4,6 +4,8 @@
 
 import React from 'react';
 import { useApp } from '../context/AppContext';
+import SectionHeader from './ui/SectionHeader';
+import { cn } from '../lib/cn';
 
 interface PresskitProps {
   onNavigateToMessage?: () => void;
@@ -106,7 +108,41 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         <span>Download PDF</span>
       </a>
 
-      {/* === HERO === */}
+      {/* === SECTION HEADER MAGAZINE === */}
+      <div className="mb-12 md:mb-20 px-0">
+        <SectionHeader
+          number="02"
+          kicker="Presskit · About"
+          title="About"
+          subtitle="Dossier de presse officiel · Press kit EN / FR · 2026 Edition"
+        />
+      </div>
+
+      {/* === STORYTELLING MASSIF : RAW. HYPNOTIC. UNDERGROUND. === */}
+      <section className="py-10 md:py-20 mb-8 md:mb-16">
+        {['Raw.', 'Hypnotic.', 'Underground.'].map((word, i) => (
+          <div
+            key={word}
+            className={cn(
+              'font-body font-black uppercase text-ink-95',
+              'text-[16vw] md:text-[13vw] lg:text-[12vw]',
+              'leading-[0.85] tracking-[-0.045em]',
+              'animate-fade-up',
+              i === 0 && 'text-left',
+              i === 1 && 'text-right',
+              i === 2 && 'text-left md:text-center',
+            )}
+            style={{
+              animationDelay: `${200 + i * 180}ms`,
+              animationFillMode: 'both',
+            }}
+          >
+            {word}
+          </div>
+        ))}
+      </section>
+
+      {/* === HERO PRESSKIT : image + meta en grille asymetrique === */}
       <section className="pk-section pk-hero">
         <div className="pk-hero-top">
           <div className="pk-hero-label">Press Kit / 2026</div>
@@ -133,7 +169,6 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
       {/* === BIO === */}
       <section className="pk-section">
         <div className="pk-section-label">— Biographie / Biography</div>
-        <h2 className="pk-section-title-huge">RAW.<br/>HYPNOTIC.<br/>UNDERGROUND.</h2>
         <div className="pk-bio-grid">
           <div className="pk-bio-col pk-glass">
             <div className="pk-lang-tag">FR</div>
@@ -174,9 +209,36 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         </blockquote>
       </section>
 
-      {/* === STATS === */}
+      {/* === STATS MASSIVES : chiffres magazine === */}
       <section className="pk-section">
         <div className="pk-section-label">— En chiffres / By the numbers</div>
+
+        {/* Ligne massive : stats en gros caracteres */}
+        <div className="flex flex-wrap items-baseline gap-x-8 md:gap-x-14 gap-y-6 md:gap-y-8 mb-10 md:mb-16">
+          {STATS.map((s, i) => (
+            <div
+              key={s.num}
+              className="flex items-baseline gap-3 md:gap-4 animate-fade-up"
+              style={{
+                animationDelay: `${150 + i * 120}ms`,
+                animationFillMode: 'both',
+              }}
+            >
+              <span className="font-body font-black text-ink-95
+                               text-[clamp(4rem,13vw,11rem)]
+                               leading-none tracking-[-0.04em]">
+                {s.num}
+              </span>
+              <span className="font-body text-[11px] md:text-xs
+                               uppercase tracking-[0.25em] text-ink-70
+                               max-w-[140px] md:max-w-[170px] leading-tight">
+                {s.fr}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Grille glass compacte en dessous pour detail EN */}
         <div className="pk-stats-grid">
           {STATS.map((s) => (
             <div className="pk-stat pk-glass" key={s.num}>
@@ -338,20 +400,68 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         <div className="pk-footer-version pk-dim">© 2026 Maudite Machine / VRSTL Records · Press Kit V.2026</div>
       </section>
 
-      {/* === Download button mobile bottom === */}
+      {/* === XXL DOWNLOAD BLOCK : le bloc "aimant a clics" === */}
       <a
         href={PDF_URL}
         download
         onClick={trackDownload}
-        className="pk-download-mobile"
-        aria-label="Download Press Kit 2026 (PDF)"
+        aria-label="Télécharger le press kit (PDF 10 MB)"
+        className={cn(
+          'group block relative mt-16 md:mt-28 mb-8 md:mb-16',
+          'rounded-2xl md:rounded-3xl overflow-hidden',
+          'border border-ink-10 hover:border-ink-30',
+          'bg-glass backdrop-blur-heavy backdrop-saturate-glass',
+          'transition-all duration-500 ease-out-expo',
+          'hover:shadow-glow-white hover:bg-glass-strong',
+          'no-underline text-inherit',
+          'animate-fade-up',
+        )}
+        style={{ animationDelay: '200ms', animationFillMode: 'both' }}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="7 10 12 15 17 10" />
-          <line x1="12" y1="15" x2="12" y2="3" />
-        </svg>
-        Download Press Kit PDF
+        <div className="relative p-8 md:p-14 lg:p-20">
+          {/* Kicker top */}
+          <div className="flex items-center justify-between mb-6 md:mb-10 text-[10px] md:text-xs uppercase tracking-[0.3em] text-ink-50 font-body">
+            <span>PDF · 10 MB · EN / FR</span>
+            <span>2026 Edition</span>
+          </div>
+
+          {/* Titre massif qui se remplit au hover (blanc dim → blanc pur) */}
+          <div className="font-body font-black uppercase
+                          text-[clamp(3rem,13vw,11rem)]
+                          leading-[0.85] tracking-[-0.045em]
+                          text-ink-30 group-hover:text-ink-95
+                          transition-colors duration-700 ease-out-expo">
+            Download
+            <br />
+            Presskit
+          </div>
+
+          {/* Footer : fleche + meta */}
+          <div className="mt-8 md:mt-12 flex items-center justify-between">
+            <span className="text-sm md:text-base text-ink-70 font-body">
+              Full dossier · photos · bio · tech rider
+            </span>
+            <span
+              className="inline-flex items-center justify-center w-14 h-14 md:w-20 md:h-20
+                         rounded-full border border-ink-20 group-hover:border-ink-95
+                         text-ink-85 group-hover:text-ink-95
+                         transition-colors duration-500"
+            >
+              <svg
+                width="28"
+                height="28"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                className="transform group-hover:translate-y-1 transition-transform duration-400 ease-out-expo"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <polyline points="19 12 12 19 5 12" />
+              </svg>
+            </span>
+          </div>
+        </div>
       </a>
     </div>
   );

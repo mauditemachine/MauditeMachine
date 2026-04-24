@@ -160,13 +160,8 @@ html, body {
   height: auto;
   min-height: 100vh;
 }
-body {
-  /* Pas d'overflow-x ici pour eviter de creer un scroll container
-     (overflow-x:hidden force overflow-y:auto par le browser) */
-}
 #root {
   min-height: 100vh;
-  overflow-x: clip; /* contient les debordements horizontaux sans scroll container */
 }
 body {
   font-family: var(--font-body);

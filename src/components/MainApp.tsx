@@ -8,6 +8,7 @@ import Goodies from "./Goodies";
 import JellyfishBackground from "./JellyfishBackground";
 import LiquidGlass from "./LiquidGlass";
 import MobileMenu from "./ui/MobileMenu";
+import SectionHeader from "./ui/SectionHeader";
 import { cn } from "../lib/cn";
 
 // Presskit : lazy (360 lignes de contenu statique, gros chunk)
@@ -159,10 +160,17 @@ export default function MainApp() {
     }
   }, []);
 
-  // Init variable CSS track-bg
+  // Init variable CSS track-bg + garde body overflow propre
   useEffect(() => {
     document.documentElement.style.setProperty('--track-bg', 'none');
     document.querySelector('.page')?.classList.remove('track-active');
+  }, []);
+
+  // One-shot : clear body overflow au mount (au cas ou Store l'aurait laisse a 'auto')
+  useEffect(() => {
+    if (document.body.style.overflow === 'auto') {
+      document.body.style.overflow = '';
+    }
   }, []);
 
   // Suppression des erreurs externes (SoundCloud/Bandcamp)
@@ -233,8 +241,6 @@ export default function MainApp() {
           'page',
           designMode === 'alternate' ? 'design-alternate' : '',
         )}
-        // Override layout CSS legacy : single-page scroll natif
-        style={{ height: 'auto', minHeight: '100vh', overflow: 'visible', display: 'block' }}
       >
         {/* Menu mobile Pro Max */}
         <MobileMenu
@@ -322,35 +328,64 @@ export default function MainApp() {
             </Suspense>
           </section>
 
-          {/* EVENTS */}
+          {/* EVENTS / SHOWS */}
           <section
             id="events"
-            className="scroll-mt-20 py-16 md:py-24 px-6 md:px-10 max-w-6xl mx-auto w-full"
+            className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-7xl mx-auto w-full"
           >
+            <SectionHeader
+              number="03"
+              kicker="Shows · Live"
+              title="Shows"
+              subtitle="Festivals, clubs, warehouses — from Montreal underground to iconic stages across Canada, France and beyond."
+              className="mb-12 md:mb-20"
+            />
             <EventsDisplay showPastEventsButton={true} />
           </section>
 
-          {/* STORE */}
+          {/* STORE / MERCH */}
           <section
             id="store"
-            className="scroll-mt-20 py-16 md:py-24 px-6 md:px-10 max-w-6xl mx-auto w-full"
+            className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-7xl mx-auto w-full"
           >
+            <SectionHeader
+              number="04"
+              kicker="Merch · Apparel"
+              title="Merch"
+              subtitle="Official Maudite Machine & VRSTL Records apparel. Made in limited quantities."
+              className="mb-12 md:mb-20"
+            />
             <Store onSectionChange={(s) => handleSectionChange(s)} />
           </section>
 
           {/* GOODIES */}
           <section
             id="goodies"
-            className="scroll-mt-20 py-16 md:py-24 px-6 md:px-10 max-w-6xl mx-auto w-full"
+            className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-7xl mx-auto w-full"
           >
+            <SectionHeader
+              number="05"
+              kicker="Free Downloads"
+              title="Goodies"
+              subtitle="Wallpapers, release covers and stickers — grab them all for free."
+              className="mb-12 md:mb-20"
+            />
             <Goodies />
           </section>
 
-          {/* MESSAGE (Contact) */}
+          {/* MESSAGE / CONTACT */}
           <section
             id="message"
-            className="scroll-mt-20 py-16 md:py-24 px-6 md:px-10 max-w-3xl mx-auto w-full"
+            className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-5xl mx-auto w-full"
           >
+            <SectionHeader
+              number="06"
+              kicker="Contact · Booking"
+              title="Contact"
+              subtitle="Bookings, interviews, collaborations — direct line to the studio."
+              className="mb-12 md:mb-20"
+              align="center"
+            />
             <Message
               prefillSubject={messagePrefill?.subject}
               prefillMessage={messagePrefill?.message}

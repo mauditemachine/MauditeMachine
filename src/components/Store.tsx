@@ -124,7 +124,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
   const closeLightbox = () => {
     setLightboxOpen(false);
     setCurrentProduct(null);
-    document.body.style.overflow = 'auto';
+    document.body.style.overflow = '';
   };
 
   const nextImage = () => {
@@ -151,7 +151,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
   }, [lightboxOpen, currentProduct]);
 
   useEffect(() => {
-    return () => { document.body.style.overflow = 'auto'; };
+    return () => { document.body.style.overflow = ''; };
   }, []);
 
   const categoryGroups = getCategoryGroups();

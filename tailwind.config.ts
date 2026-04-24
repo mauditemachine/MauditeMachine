@@ -88,11 +88,16 @@ export default {
           '0%': { backgroundPosition: '-200% 0' },
           '100%': { backgroundPosition: '200% 0' },
         },
+        'reveal-y': {
+          '0%':   { transform: 'translateY(110%)' },
+          '100%': { transform: 'translateY(0)' },
+        },
       },
       animation: {
         'fade-up':  'fade-up 0.6s cubic-bezier(0.19, 1, 0.22, 1) both',
         'fade-in':  'fade-in 0.4s ease-out both',
         'shimmer':  'shimmer 3s linear infinite',
+        'reveal-y': 'reveal-y 0.9s cubic-bezier(0.19, 1, 0.22, 1) both',
       },
     },
   },
