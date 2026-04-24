@@ -437,44 +437,13 @@ export default function MainApp() {
         )}
       </main>
 
-      {/* Logo VRSTL fixé en bas à droite */}
+      {/* Logo VRSTL fixe en bas a droite */}
       <a href="https://vrstlrecords.com" target="_blank" rel="noreferrer" className="vrstl-fixed">
         <img src={import.meta.env.BASE_URL + "logo/vrstl-logo-clean.svg"} alt="VRSTL Records" />
       </a>
 
-      {/* FOOTER avec player, icônes sociales et logo */}
-      <footer className="site-footer liquid-glass">
-        <div className="footer-content">
-          {/* Player à gauche */}
-          <div className="footer-player">
-            <SoundCloudPlayer onBackgroundChange={handleBgChange} />
-          </div>
-
-          {/* Icônes sociales au centre */}
-          <div className="footer-social">
-            {socialLinks.map((link) => (
-              <a 
-                key={link.label}
-                href={link.href} 
-                target="_blank" 
-                rel="noreferrer"
-                className="social-icon-link"
-                title={link.label}
-                style={{ '--hover-color': link.hoverColor } as React.CSSProperties}
-              >
-                <i className={`fab fa-${link.platform === 'apple' ? 'apple' : link.platform}`}></i>
-              </a>
-            ))}
-          </div>
-
-          {/* Massive Medias */}
-          <a href="https://massivemedias.com" target="_blank" rel="noreferrer" className="footer-massive">
-            <span className="footer-madeby">{t.footer.madeBy}</span>
-            <img src={import.meta.env.BASE_URL + "logo/massive-medias.svg"} alt="Massive Medias" />
-            <span>&copy; 2026</span>
-          </a>
-        </div>
-      </footer>
+      {/* Lecteur audio — UNE SEULE instance, rendu son footer fixe propre (Pro Max) */}
+      <SoundCloudPlayer onBackgroundChange={handleBgChange} />
 
       {/* Mobile Layout - visible seulement via media query */}
       <div className="mobile-layout">
@@ -515,10 +484,7 @@ export default function MainApp() {
           ))}
         </div>
 
-        {/* Lecteur */}
-        <div className="mobile-section mobile-player">
-          <SoundCloudPlayer onBackgroundChange={handleBgChange} />
-        </div>
+        {/* Lecteur : consolide en footer fixe (voir <SoundCloudPlayer /> au root) */}
 
         {/* Events - 3 prochains */}
         <div className="mobile-section mobile-events">
