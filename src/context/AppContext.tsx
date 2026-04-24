@@ -13,42 +13,34 @@ type AppContextType = {
 
 const AppContext = createContext<AppContextType | null>(null);
 
-/**
- * Detecte la langue du navigateur : 'fr' pour France/Quebec, 'es' pour
- * Espagne/LATAM, 'en' fallback par defaut ABSOLU pour tout le reste
- * (en-US, en-GB, en-CA, en-AU, de, it, pt, ja, zh, etc.).
- * Lit aussi localStorage si l'utilisateur a fait un choix manuel.
- */
-function detectLang(): Lang {
-  if (typeof window === 'undefined') return 'en';
-
-  // Preference utilisateur en localStorage en priorite (mm_lang)
-  try {
-    const stored = window.localStorage.getItem('mm_lang');
-    if (stored === 'fr' || stored === 'en' || stored === 'es') return stored;
-  } catch {}
-
-  // Sinon detection navigateur : navigator.language + fallback legacy userLanguage
-  const raw =
-    (navigator as Navigator & { userLanguage?: string }).language ||
-    (navigator as Navigator & { userLanguage?: string }).userLanguage ||
-    'en';
-
-  // Belt & suspenders : split('-')[0] + slice(0,2) pour isoler le code langue
-  // (gere "en-US", "en-GB", "fr-CA", "es-MX", "zh-Hans-CN", etc.)
-  const code = raw.toLowerCase().split('-')[0].slice(0, 2);
-
-  // Seules 2 langues declenchent un switch. Tout le reste = 'en' par defaut.
-  if (code === 'fr') return 'fr';
-  if (code === 'es') return 'es';
-  return 'en'; // Fallback absolu
-}
-
 export function AppProvider({ children }: { children: ReactNode }) {
   const [designMode, setDesignModeState] = useState<DesignMode>('alternate');
-  // Lazy init : detection fait AU PREMIER RENDER, pas dans useEffect.
-  // Evite le flash "EN -> FR" visible quand localStorage override.
-  const [lang, setLangState] = useState<Lang>(() => detectLang());
+
+  // ETAT INITIAL FORCE SUR 'en' : pas de localStorage read, pas de lazy
+  // init. Detection fait cote client dans le useEffect ci-dessous.
+  const [lang, setLangState] = useState<Lang>('en');
+
+  // Detection navigator.language au mount, fallback absolu 'en'.
+  // Conforme au brief utilisateur : localStorage stale corrige ici.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const browserLang =
+      (navigator as Navigator & { userLanguage?: string }).language ||
+      (navigator as Navigator & { userLanguage?: string }).userLanguage ||
+      'en';
+    const shortLang = browserLang.split('-')[0].toLowerCase();
+
+    if (shortLang === 'fr') setLangState('fr');
+    else if (shortLang === 'es') setLangState('es');
+    else setLangState('en'); // FALLBACK ABSOLU SUR L'ANGLAIS
+
+    // Clean localStorage stale d'anciennes versions pour ne pas
+    // re-contaminer la detection sur rechargements futurs.
+    try {
+      window.localStorage.removeItem('mm_lang');
+    } catch {}
+  }, []);
 
   // Sync <html lang=""> pour SEO + accessibilite
   useEffect(() => {
@@ -57,12 +49,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [lang]);
 
+  // setLang exposee pour toggle manuel futur (sans persistence localStorage)
   const setLang = (l: Lang) => {
     setLangState(l);
-    try {
-      window.localStorage.setItem('mm_lang', l);
-    } catch {}
-    document.documentElement.lang = l;
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = l;
+    }
   };
 
   const setDesignMode = (m: DesignMode) => {
