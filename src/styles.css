@@ -3,6 +3,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap');
 
+/* ================================================================
+   Tailwind CSS — co-existe avec le CSS custom ci-dessous.
+   Migration progressive composant par composant.
+   ================================================================ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* SF Pro Rounded - Toutes les variantes */
 @font-face {
   font-family: "SF Pro Rounded";
