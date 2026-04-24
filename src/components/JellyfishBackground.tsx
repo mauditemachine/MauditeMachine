@@ -47,6 +47,11 @@ export default function JellyfishBackground({
 
   return (
     <div className="jellyfish-bg" aria-hidden="true">
+      {/*
+        Video : zoom 1.03x + decalage -8px x / +8px y pour pousser le watermark
+        "rip Meditation" (coin bas-gauche) hors du cadre visible.
+        Le transform compose avec le translate(-50%, -50%) de centrage CSS.
+      */}
       <video
         ref={videoRef}
         className="jellyfish-video"
@@ -57,8 +62,21 @@ export default function JellyfishBackground({
         muted
         playsInline
         preload="auto"
+        style={{
+          transform: 'translate(calc(-50% - 8px), calc(-50% + 8px)) scale(1.03)',
+        }}
       />
+      {/* Overlay global (existant) : gradient vertical doux */}
       <div className="jellyfish-overlay" />
+      {/*
+        Masque watermark : degrade noir dense en bas-gauche, transparent ailleurs.
+        bg-gradient-to-tr = de bottom-left vers top-right, donc from-black/90
+        se place dans le coin bas-gauche (la ou etait "rip Meditation").
+      */}
+      <div
+        className="absolute inset-0 bg-gradient-to-tr from-black/90 via-transparent to-transparent pointer-events-none"
+        aria-hidden="true"
+      />
     </div>
   )
 }
