@@ -163,7 +163,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
             className="md:col-span-7 animate-fade-up"
             style={{ animationDelay: '220ms', animationFillMode: 'both' }}
           >
-            <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-4 md:mb-5">
+            <div className="text-base md:text-lg font-extrabold uppercase tracking-wide text-white mb-4 md:mb-5">
               {p.bioLabel}
             </div>
 
@@ -194,7 +194,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
 
       {/* === STATS : 4 col une seule ligne, subtitles font-semibold === */}
       <section className="pk-section">
-        <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-8 md:mb-12">
+        <div className="text-base md:text-lg font-extrabold uppercase tracking-wide text-white mb-8 md:mb-12">
           {p.statsLabel}
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
@@ -220,7 +220,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
 
       {/* === REMIX WORK === */}
       <section className="pk-section">
-        <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-6 md:mb-8">
+        <div className="text-base md:text-lg font-extrabold uppercase tracking-wide text-white mb-6 md:mb-8">
           {p.remixLabel}
         </div>
         <div className="pk-glass p-6 md:p-10 rounded-2xl md:rounded-3xl">
@@ -239,7 +239,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
 
       {/* === LATEST ALBUM === */}
       <section className="pk-section">
-        <div className="pk-section-label">{p.albumLabel}</div>
+        <div className="text-base md:text-lg font-extrabold uppercase tracking-wide text-white mb-5">{p.albumLabel}</div>
         <div className="pk-album pk-glass">
           <img className="pk-album-cover" src="/images/Limbos.webp" alt="Limbos" loading="lazy" />
           <div className="pk-album-info">
@@ -257,7 +257,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
 
       {/* === FULL CATALOGUE : 2/4/6 cols + hover massive === */}
       <section className="pk-section">
-        <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-6 md:mb-10">
+        <div className="text-base md:text-lg font-extrabold uppercase tracking-wide text-white mb-6 md:mb-10">
           {p.catalogueLabel}
         </div>
         <div className="pk-catalogue-intro pk-glass mb-8 md:mb-12">
@@ -301,7 +301,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
 
       {/* === VRSTL LABEL : logo SVG grand + texte cote === */}
       <section className="pk-section">
-        <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-6 md:mb-10">
+        <div className="text-base md:text-lg font-extrabold uppercase tracking-wide text-white mb-6 md:mb-10">
           {p.labelSection}
         </div>
         <div className="pk-glass p-6 md:p-12 rounded-2xl md:rounded-3xl">
@@ -329,7 +329,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
 
           {/* Roster — noms d'artistes propres, pas traduisibles */}
           <div className="border-t border-white/10 pt-6 md:pt-8">
-            <div className="text-xs md:text-sm font-medium uppercase tracking-[0.25em] text-white/80 mb-3 md:mb-4">
+            <div className="text-sm md:text-base font-extrabold uppercase tracking-wide text-white mb-3 md:mb-4">
               {p.rosterLabel}
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 font-display text-lg md:text-2xl lg:text-3xl font-bold text-ink-95 uppercase tracking-[-0.01em]">
@@ -351,7 +351,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
 
       {/* === CONTACT === */}
       <section className="pk-section">
-        <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-6 md:mb-10">
+        <div className="text-base md:text-lg font-extrabold uppercase tracking-wide text-white mb-6 md:mb-10">
           {p.contactLabel}
         </div>
         <div className="pk-contact-top">

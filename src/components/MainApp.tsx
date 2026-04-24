@@ -70,8 +70,10 @@ const suppressWidgetErrors = () => {
 };
 
 // Mapping des hashes legacy vers les nouvelles sections (backwards compat)
+// #hero retire : la page ouvre directement sur le fond video + Presskit About
 const HASH_MAP: Record<string, string> = {
-  'home': 'hero',
+  'home': 'presskit',
+  'hero': 'presskit',
   'presskit': 'presskit',
   'events': 'shows',
   'shows': 'shows',
@@ -82,7 +84,7 @@ const HASH_MAP: Record<string, string> = {
   'contact': 'message',
 };
 
-const SECTION_IDS = ['hero', 'presskit', 'shows', 'store', 'goodies', 'techrider', 'message'];
+const SECTION_IDS = ['presskit', 'shows', 'store', 'goodies', 'techrider', 'message'];
 
 // Type Wall of Fame (past-events.json)
 interface PastShow {
@@ -105,7 +107,7 @@ export default function MainApp() {
   const [menuOpen, setMenuOpen] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [bgUrl, setBgUrl] = useState<string>("");
-  const [activeSection, setActiveSection] = useState("hero");
+  const [activeSection, setActiveSection] = useState("presskit");
   const [messagePrefill, setMessagePrefill] = useState<{ subject: string; message: string } | null>(null);
   const [showsArchive, setShowsArchive] = useState<YearArchive[]>([]);
 
@@ -115,8 +117,13 @@ export default function MainApp() {
     document.querySelector('.page')?.classList.add('track-active');
   };
 
-  // Smooth scroll vers une section
+  // Smooth scroll vers une section. Si id=home/hero (legacy), scroll en haut.
   const scrollToSection = (id: string) => {
+    if (id === 'home' || id === 'hero') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.history.replaceState(null, '', window.location.pathname);
+      return;
+    }
     const target = HASH_MAP[id] || id;
     const el = document.getElementById(target);
     if (el) {
@@ -158,11 +165,7 @@ export default function MainApp() {
           const id = visible[0].target.id;
           setActiveSection(id);
           // Update URL hash without scroll
-          if (id !== 'hero') {
-            window.history.replaceState(null, '', `#${id}`);
-          } else {
-            window.history.replaceState(null, '', window.location.pathname);
-          }
+          window.history.replaceState(null, '', `#${id}`);
         }
       },
       { rootMargin: '-30% 0px -60% 0px', threshold: [0, 0.25, 0.5, 0.75] }
@@ -264,8 +267,6 @@ export default function MainApp() {
     };
   }, []);
 
-  const displayBioText = t.home.bio;
-
   const navLinks = [
     { key: 'presskit',  label: t.nav.presskit,  section: 'presskit' },
     { key: 'shows',     label: t.nav.events,    section: 'shows' },
@@ -362,41 +363,7 @@ export default function MainApp() {
         {/* MAIN CONTENT — stack vertical single-page */}
         <main className="relative z-[1]" style={{ paddingTop: '80px', paddingBottom: '96px' }}>
 
-          {/* HERO — logo + bio alignee gauche sur le fond video meduses (restaure) */}
-          <section
-            id="hero"
-            className={cn(
-              'scroll-mt-20',
-              'min-h-[calc(100svh-186px)]',
-              'flex flex-col justify-center',
-              'px-6 md:px-10 py-16 md:py-24',
-              'max-w-7xl mx-auto w-full',
-            )}
-          >
-            <img
-              src={import.meta.env.BASE_URL + "logo/LogoStack.svg"}
-              alt="Maudite Machine"
-              className="w-[85vw] max-w-[780px] h-auto mb-10 md:mb-14 animate-fade-up"
-              style={{
-                filter: 'brightness(0) invert(1)',
-                animationDelay: '100ms',
-                animationFillMode: 'both',
-              }}
-            />
-            <p
-              className={cn(
-                'max-w-3xl',
-                'text-xl md:text-2xl lg:text-[1.75rem]',
-                'font-light leading-relaxed text-left',
-                'text-ink-95 font-body',
-                '[text-shadow:_0_2px_12px_rgba(0,0,0,0.5)]',
-                'animate-fade-up',
-              )}
-              style={{ animationDelay: '280ms', animationFillMode: 'both' }}
-            >
-              {displayBioText}
-            </p>
-          </section>
+          {/* Hero retire : page ouvre directement sur Presskit About sur le fond video meduses (pur) */}
 
           {/* PRESSKIT — bio, stats, performances, album, catalogue, label, contact */}
           <section id="presskit" className="scroll-mt-20">
@@ -423,10 +390,10 @@ export default function MainApp() {
             {showsArchive.length > 0 && (
               <div className="mt-24 md:mt-40">
                 <div className="flex items-baseline justify-between mb-8 md:mb-14">
-                  <div className="text-sm md:text-base font-semibold uppercase tracking-[0.25em] text-white/80 font-body">
+                  <div className="text-base md:text-lg font-extrabold uppercase tracking-wide text-white font-body">
                     {t.shows.wallOfFame}
                   </div>
-                  <div className="text-xs md:text-sm font-semibold uppercase tracking-[0.3em] text-white/50 font-body">
+                  <div className="text-sm md:text-base font-bold uppercase tracking-wide text-white/60 font-body">
                     {showsArchive[showsArchive.length - 1]?.year} — {showsArchive[0]?.year}
                   </div>
                 </div>
