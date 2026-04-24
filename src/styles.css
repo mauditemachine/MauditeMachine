@@ -2187,9 +2187,7 @@ body {
   .second-third-combined .events-section .main-rectangle,
   .main-rectangle,
   .content-section,
-  .presskit-container,
-  .message-container,
-  .contact-form {
+  .presskit-container {
     background: transparent !important;
     backdrop-filter: none !important;
     border-radius: 0 !important;
@@ -2263,7 +2261,6 @@ body {
   }
   
   /* SUPPRIMER TOUS LES MARGINS/PADDING DES CONTAINERS */
-  .message-container,
   .store-container,
   .news-container,
   .presskit-container,
@@ -2338,11 +2335,6 @@ body {
     backdrop-filter: none !important;
   }
   
-  /* CONTACT FORM TRANSPARENT EN MOBILE */
-  .contact-form {
-    background: transparent !important;
-    backdrop-filter: none !important;
-  }
   .page { grid-template-columns: 1fr; gap: 0; padding: 0 !important; width: 100vw !important; margin: 0 !important; }
   
 
@@ -3218,26 +3210,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 }
 
 /* Message/Contact Page */
-.message-container {
-  height: auto;
-  overflow: visible;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.message-content {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.message-header {
-  text-align: center;
-  margin-bottom: 40px;
-}
-
+/* .message-title garde : utilisee par NewsMessages + RandomMessage */
 .message-title {
   font-family: "SF Pro Rounded", system-ui, sans-serif;
   font-size: 17px;
@@ -3247,31 +3220,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   letter-spacing: -10px;
 }
 
-.message-subtitle {
-  font-family: "SF Pro Rounded", system-ui, sans-serif;
-  font-size: 15px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.8);
-  margin: 0;
-}
-
-.email-address {
-  color: var(--accent-mint);
-  font-weight: 600;
-  background: rgba(0, 255, 136, 0.1);
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid rgba(0, 255, 136, 0.3);
-}
-
-.contact-form {
-  border-radius: 0;
-  border: none;
-  background: none;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
+/* Contact form styles retires : Message.tsx migre en Tailwind (2026-04) */
 
 .form-group {
   margin-bottom: 25px;
@@ -3321,18 +3270,6 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   color: rgba(255, 255, 255, 0.5);
 }
 
-.captcha-group {
-  background: rgba(255, 255, 136, 0.05);
-  border: 1px solid rgba(255, 255, 136, 0.3);
-  border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 30px;
-}
-
-.captcha-input {
-  max-width: 150px;
-}
-
 .submit-button {
   width: 70px;
   height: 30px;
@@ -3356,10 +3293,6 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   margin-bottom: 20px;
 }
 
-.submit-button:hover {
-  background: var(--accent-gold);
-}
-
 .submit-button:disabled,
 .submit-button.submitting {
   opacity: 0.6;
@@ -3368,42 +3301,12 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   box-shadow: none;
 }
 
-.submit-status {
-  text-align: center;
-  padding: 15px;
-  border-radius: 8px;
-  font-family: "SF Pro Rounded", system-ui, sans-serif;
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.submit-status.success {
-  background: rgba(255, 204, 0, 0.1);
-  color: var(--accent-gold);
-  border: 1px solid rgba(255, 204, 0, 0.3);
-  font-size: 15px;
-}
-
-.submit-status.error {
-  background: rgba(255, 80, 80, 0.1);
-  color: #ff5050;
-  border: 1px solid rgba(255, 80, 80, 0.3);
-}
-
-/* Responsive Message */
+/* Responsive form inputs (utilises par Admin/ImageUpload) */
 @media (max-width: 768px) {
-  .message-container {
-    padding: 0;
-  }
-  
-  .contact-form {
-    padding: 30px 20px;
-  }
-  
   .message-title {
     font-size: 15px;
   }
-  
+
   .form-input,
   .form-textarea {
     padding: 12px 15px;
@@ -4639,27 +4542,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 }
 
 /* Message/Contact Page */
-.message-container {
-  height: auto;
-  overflow: visible;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-}
-
-.message-content {
-  width: 100%;
-  height: 100%;
-  display: flex;
-    flex-direction: column;
-}
-
-.message-header {
-  text-align: center;
-  margin-bottom: 40px;
-}
-
+/* .message-title duplique — garde : utilisee par NewsMessages + RandomMessage */
 .message-title {
   font-family: "SF Pro Rounded", system-ui, sans-serif;
   font-size: 15px;
@@ -4668,34 +4551,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
   letter-spacing: 0px;
 }
 
-.message-subtitle {
-  font-family: "SF Pro Rounded", system-ui, sans-serif;
-  font-size: 15px;
-  line-height: 1.6;
-  color: rgba(255, 255, 255, 0.8);
-  margin-bottom: 8px;
-}
-
-.email-address {
-  color: var(--accent-mint);
-  font-weight: 600;
-  background: rgba(0, 255, 136, 0.1);
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid rgba(0, 255, 136, 0.3);
-}
-
-.contact-form {
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  padding: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
+/* Form classes gardees pour Admin/ImageUpload (Message.tsx migre en Tailwind) */
 .form-group {
   margin-bottom: 25px;
 }
@@ -4736,41 +4592,14 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: var(--accent-mint);
-  box-shadow: 0 0 0 2px rgba(0, 255, 136, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.15);
   background: rgba(0, 0, 0, 0.75);
-}
-
-/* Mode sombre - page contact inputs plus voyants */
-body.dark-mode .form-input,
-body.dark-mode .form-textarea {
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: rgba(255, 255, 255, 0.95);
-}
-
-body.dark-mode .form-input:focus,
-body.dark-mode .form-textarea:focus {
-  background: rgba(255, 255, 255, 0.25);
-  border-color: var(--accent-mint);
-  box-shadow: 0 0 0 2px rgba(0, 255, 136, 0.3);
 }
 
 .form-input::placeholder,
 .form-textarea::placeholder {
   color: rgba(255, 255, 255, 0.5);
-}
-
-.captcha-group {
-  background: rgba(255, 255, 136, 0.05);
-  border: 1px solid rgba(255, 255, 136, 0.3);
-  border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 30px;
-}
-
-.captcha-input {
-  max-width: 150px;
 }
 
 .submit-button {
@@ -4796,10 +4625,6 @@ body.dark-mode .form-textarea:focus {
   margin-bottom: 20px;
 }
 
-.submit-button:hover {
-  background: var(--accent-gold);
-}
-
 .submit-button:disabled,
 .submit-button.submitting {
   opacity: 0.6;
@@ -4808,52 +4633,22 @@ body.dark-mode .form-textarea:focus {
   box-shadow: none;
 }
 
-.submit-status {
-  text-align: center;
-  padding: 15px;
-  border-radius: 8px;
-  font-family: "SF Pro Rounded", system-ui, sans-serif;
-  font-size: 10px;
-  font-weight: 600;
-}
-
-.submit-status.success {
-  background: rgba(255, 204, 0, 0.1);
-  color: var(--accent-gold);
-  border: 1px solid rgba(255, 204, 0, 0.3);
-  font-size: 15px;
-}
-
-.submit-status.error {
-  background: rgba(255, 80, 80, 0.1);
-  color: #ff5050;
-  border: 1px solid rgba(255, 80, 80, 0.3);
-}
-
-/* Responsive Message */
+/* Responsive form (Admin/ImageUpload) */
 @media (max-width: 768px) {
-  .message-container {
-    padding: 0;
-  }
-  
-  .contact-form {
-    padding: 20px;
-  }
-  
   .message-title {
     font-size: 17px;
   }
-  
+
   .form-label {
     font-size: 15px;
   }
-  
+
   .form-input,
   .form-textarea {
     padding: 12px 15px;
     font-size: 10px;
   }
-  
+
   .form-textarea {
     min-height: 150px;
   }
