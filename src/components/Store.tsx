@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { loadMerchItems } from '../utils/adminApi';
 import { useApp } from '../context/AppContext';
+import GlassCard from './ui/GlassCard';
 
 interface StoreProps {
   onSectionChange?: (section: string, prefill?: { subject: string; message: string }) => void;
@@ -168,17 +169,18 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
   };
 
   return (
-    <div className="store-page">
+    <div className="w-full">
       {/* Message d'intro */}
-      <div className="store-intro">
-        <p>
+      <div className="pb-6 mb-6 border-b border-ink-10">
+        <p className="text-sm md:text-[15px] leading-relaxed text-ink-85 font-body">
           {t.store.intro}{' '}
-          <a 
-            href="#contact" 
+          <a
+            href="#contact"
             onClick={(e) => {
               e.preventDefault();
               if (onSectionChange) onSectionChange('message');
             }}
+            className="text-ink-95 underline underline-offset-4 decoration-ink-30 hover:decoration-ink-70 transition-colors duration-250"
           >
             {t.store.contactForm}
           </a>{' '}
@@ -189,25 +191,38 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
       {loading ? (
         <div className="store-loading">{t.store.loading}</div>
       ) : (
-        categoryGroups.map(cat => {
-          const frontItem = cat.items.find(i => i.alt.toLowerCase().includes('front')) || cat.items[0];
-          return (
-            <div key={cat.key} className="store-category" onClick={() => openLightboxForItem(frontItem)}>
-              <div className="store-category-card">
-                <div className="store-category-image">
-                  <img src={frontItem.src} alt={cat.label} loading="lazy" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
+          {categoryGroups.map((cat, i) => {
+            const frontItem = cat.items.find(i => i.alt.toLowerCase().includes('front')) || cat.items[0];
+            return (
+              <GlassCard
+                key={cat.key}
+                onClick={() => openLightboxForItem(frontItem)}
+                className="group p-2.5"
+                aria-label={`${cat.label} — ${cat.items[0]?.price}`}
+                index={i}
+              >
+                <div className="relative aspect-square overflow-hidden rounded-lg bg-black/40">
+                  <img
+                    src={frontItem.src}
+                    alt={cat.label}
+                    loading="lazy"
+                    className="w-full h-full object-cover transition-transform duration-700 ease-out-expo group-hover:scale-[1.08]"
+                  />
                   {cat.items.length > 1 && (
-                    <div className="store-category-count">{cat.items.length} {t.store.photos}</div>
+                    <div className="absolute bottom-2 right-2 px-2.5 py-0.5 rounded-full bg-black/60 backdrop-blur-sm text-[10px] text-ink-95 font-body">
+                      {cat.items.length} {t.store.photos}
+                    </div>
                   )}
                 </div>
-                <div className="store-category-info">
-                  <h3 className="store-category-title">{cat.label}</h3>
-                  <div className="store-category-price">{cat.items[0]?.price}</div>
+                <div className="p-2 pt-3">
+                  <h3 className="text-sm font-bold text-ink-95 mb-1 font-body">{cat.label}</h3>
+                  <div className="text-[13px] font-bold text-ink-85 font-body">{cat.items[0]?.price}</div>
                 </div>
-              </div>
-            </div>
-          );
-        })
+              </GlassCard>
+            );
+          })}
+        </div>
       )}
 
       {/* Lightbox */}

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { cn } from '../lib/cn';
+import GlassCard from './ui/GlassCard';
 
 interface GoodieItem {
   src: string;        // Affichage (low-res via CSS)
@@ -86,41 +88,91 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
     }
   };
 
+  // Styles du bouton download — monochrome blanc, pas de gold
+  const downloadBtnClass = cn(
+    'flex-shrink-0 px-3 py-1 rounded-full',
+    'bg-ink-10 hover:bg-ink-20 border border-ink-15 hover:border-ink-50',
+    'text-[10px] font-bold uppercase tracking-wider text-ink-95 font-body',
+    'transition-all duration-250 ease-out-expo',
+    'hover:shadow-glow-white-soft',
+  );
+
   if (mobileOnly) {
     return (
-      <div className="goodies-page goodies-mobile-compact">
-        <div className="goodies-grid goodies-grid-phone-compact">
+      <div className="w-full">
+        <div className="grid grid-cols-5 gap-2">
           {phoneWallpapers.map((item, i) => (
-            <div key={i} className="goodie-card">
-              <img src={`/${item.src}`} alt={item.title} className="goodie-image" />
-              <div className="goodie-info">
-                <button className="goodie-download" onClick={() => handleDownload(item)}>{t.goodies.download}</button>
+            <GlassCard key={i} className="group p-1.5" onClick={() => handleDownload(item)} index={i} staggerMs={40}>
+              <div className="relative aspect-[9/16] overflow-hidden rounded-md bg-black/40">
+                <img
+                  src={`/${item.src}`}
+                  alt={item.title}
+                  loading="lazy"
+                  className="w-full h-full object-cover transition-transform duration-700 ease-out-expo group-hover:scale-[1.06]"
+                />
               </div>
-            </div>
+              <div className="mt-1.5 flex justify-center">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleDownload(item); }}
+                  className={downloadBtnClass}
+                >
+                  {t.goodies.download}
+                </button>
+              </div>
+            </GlassCard>
           ))}
         </div>
       </div>
     );
   }
 
-  const renderGrid = (items: GoodieItem[], gridClass: string) => (
-    <div className={`goodies-grid ${gridClass}`}>
-      {items.map((item, i) => (
-        <div key={i} className="goodie-card">
-          <img src={`/${item.src}`} alt={item.title} className="goodie-image" />
-          <div className="goodie-info">
-            <span className="goodie-title">{item.title}</span>
-            <button className="goodie-download" onClick={() => handleDownload(item)}>{t.goodies.download}</button>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+  // Render grille pour une categorie — aspect ratio different selon type
+  const renderGrid = (items: GoodieItem[], kind: 'desktop' | 'phone' | 'covers') => {
+    const gridClass = kind === 'desktop'
+      ? 'grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3.5'
+      : 'grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3';
 
-  const sections: { key: AccordionKey; title: string; count: number; grid: string; items: GoodieItem[] }[] = [
-    { key: 'desktop', title: t.goodies.desktopWallpapers, count: desktopWallpapers.length, grid: 'goodies-grid-desktop', items: desktopWallpapers },
-    { key: 'phone', title: t.goodies.phoneWallpapers, count: phoneWallpapers.length, grid: 'goodies-grid-phone', items: phoneWallpapers },
-    { key: 'covers', title: t.goodies.albumCovers, count: covers.length, grid: 'goodies-grid-covers', items: covers },
+    const aspectClass = kind === 'desktop'
+      ? 'aspect-video'
+      : kind === 'phone'
+      ? 'aspect-[9/16]'
+      : 'aspect-square';
+
+    return (
+      <div className={gridClass}>
+        {items.map((item, i) => (
+          <GlassCard key={i} className="group p-2" index={i} staggerMs={40}>
+            <div className={cn('relative overflow-hidden rounded-md bg-black/40', aspectClass)}>
+              <img
+                src={`/${item.src}`}
+                alt={item.title}
+                loading="lazy"
+                className="w-full h-full object-cover transition-transform duration-700 ease-out-expo group-hover:scale-[1.06]"
+              />
+            </div>
+            <div className="mt-2 px-1 flex items-center justify-between gap-2">
+              <span className="text-[11px] text-ink-70 truncate font-body" title={item.title}>
+                {item.title}
+              </span>
+              <button
+                type="button"
+                onClick={() => handleDownload(item)}
+                className={downloadBtnClass}
+              >
+                {t.goodies.download}
+              </button>
+            </div>
+          </GlassCard>
+        ))}
+      </div>
+    );
+  };
+
+  const sections: { key: AccordionKey; kind: 'desktop' | 'phone' | 'covers'; title: string; count: number; items: GoodieItem[] }[] = [
+    { key: 'desktop', kind: 'desktop', title: t.goodies.desktopWallpapers, count: desktopWallpapers.length, items: desktopWallpapers },
+    { key: 'phone',   kind: 'phone',   title: t.goodies.phoneWallpapers,   count: phoneWallpapers.length,   items: phoneWallpapers },
+    { key: 'covers',  kind: 'covers',  title: t.goodies.albumCovers,       count: covers.length,            items: covers },
   ];
 
   return (
@@ -140,7 +192,7 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
             </button>
             {isOpen && (
               <div className="goodies-acc-content">
-                {renderGrid(s.items, s.grid)}
+                {renderGrid(s.items, s.kind)}
               </div>
             )}
           </div>

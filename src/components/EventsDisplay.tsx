@@ -137,13 +137,14 @@ export default function EventsDisplay({ limit, showPastEventsButton = false }: E
 
   return (
     <div className="events-display">
-      {/* Événements à venir */}
+      {/* Événements à venir — stagger fade-up via CSS animation-delay */}
       {events.length > 0 && (
-        <div className="upcoming-events">
+        <div className="upcoming-events grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
           {events.map((event, index) => (
-            <EventCard 
-              key={index} 
+            <EventCard
+              key={index}
               event={event}
+              index={index}
             />
           ))}
         </div>
