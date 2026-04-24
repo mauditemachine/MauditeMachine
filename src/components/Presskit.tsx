@@ -155,26 +155,28 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
                 className="absolute inset-0 w-full h-full object-cover"
                 loading="eager"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent pointer-events-none" />
-              <div className="absolute bottom-4 left-4 right-4">
-                <div className="text-white text-xs md:text-sm font-semibold uppercase tracking-[0.2em]">
-                  {p.metaLine1}
-                </div>
-                <div className="text-white/70 mt-1 text-xs md:text-sm font-medium">
-                  {p.metaLine2}
-                </div>
-              </div>
             </div>
           </div>
 
-          {/* Bio — col 7, main paragraph + secondary + quote */}
+          {/* Bio — col 7 : kicker + TAGLINE MASSIVE + bio paragraphs + quote */}
           <div
             className="md:col-span-7 animate-fade-up"
             style={{ animationDelay: '220ms', animationFillMode: 'both' }}
           >
-            <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-5 md:mb-7">
+            <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 mb-4 md:mb-5">
               {p.bioLabel}
             </div>
+
+            {/* Tagline massive : introduction forte au-dessus de la bio */}
+            <div className="mb-6 md:mb-8">
+              <div className="font-body font-extrabold uppercase tracking-widest text-white text-lg md:text-xl [text-shadow:_0_2px_10px_rgba(0,0,0,0.5)]">
+                {p.metaLine1}
+              </div>
+              <div className="mt-2 font-body font-semibold tracking-wider text-white/70 text-sm md:text-base [text-shadow:_0_2px_10px_rgba(0,0,0,0.5)]">
+                {p.metaLine2}
+              </div>
+            </div>
+
             <p className="font-body text-lg font-light leading-relaxed text-ink-95 mb-5 md:mb-6 [text-shadow:_0_2px_10px_rgba(0,0,0,0.5)]">
               {p.bioMain}
             </p>
