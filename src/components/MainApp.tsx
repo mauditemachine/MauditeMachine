@@ -1,5 +1,4 @@
 import React, { useState, useEffect, Suspense } from "react";
-import { motion } from "framer-motion";
 import SoundCloudPlayer from "./SoundCloudPlayer";
 import { useApp } from "../context/AppContext";
 import EventsDisplay from "./EventsDisplay";
@@ -363,85 +362,40 @@ export default function MainApp() {
         {/* MAIN CONTENT — stack vertical single-page */}
         <main className="relative z-[1]" style={{ paddingTop: '80px', paddingBottom: '96px' }}>
 
-          {/* HERO — magazine cover : photo MM8 full-bleed + Ken Burns + logo + bio */}
+          {/* HERO — logo + bio alignee gauche sur le fond video meduses (restaure) */}
           <section
             id="hero"
             className={cn(
-              'scroll-mt-20 relative overflow-hidden',
+              'scroll-mt-20',
               'min-h-[calc(100svh-186px)]',
-              '-mt-[80px] pt-[80px]', // Compense le paddingTop du main pour full-bleed
+              'flex flex-col justify-center',
+              'px-6 md:px-10 py-16 md:py-24',
+              'max-w-7xl mx-auto w-full',
             )}
           >
-            {/* Background image avec Ken Burns subtle (scale 1 -> 1.06 sur 28s) */}
-            <motion.div
-              className="absolute inset-0 z-0 will-change-transform"
-              initial={{ scale: 1 }}
-              animate={{ scale: 1.06 }}
-              transition={{
-                duration: 28,
-                ease: 'linear',
-                repeat: Infinity,
-                repeatType: 'reverse',
+            <img
+              src={import.meta.env.BASE_URL + "logo/LogoStack.svg"}
+              alt="Maudite Machine"
+              className="w-[85vw] max-w-[780px] h-auto mb-10 md:mb-14 animate-fade-up"
+              style={{
+                filter: 'brightness(0) invert(1)',
+                animationDelay: '100ms',
+                animationFillMode: 'both',
               }}
-            >
-              <img
-                src="/images/MauditeMachine-8.webp"
-                alt="Maudite Machine"
-                className="w-full h-full object-cover"
-                loading="eager"
-              />
-            </motion.div>
-
-            {/* Gradient overlay pour lisibilite du texte */}
-            <div
-              className="absolute inset-0 z-[1] pointer-events-none bg-gradient-to-t from-black/85 via-black/45 to-black/55"
-              aria-hidden="true"
             />
-
-            {/* Label editorial en bas-gauche : DJ · Producer · VRSTL Records / Montreal */}
-            <div className="absolute bottom-8 md:bottom-12 left-6 md:left-10 z-[2] max-w-sm">
-              <div className="text-white text-xs md:text-sm font-semibold uppercase tracking-[0.2em] [text-shadow:_0_2px_10px_rgba(0,0,0,0.7)]">
-                {t.presskit.metaLine1}
-              </div>
-              <div className="text-white/70 mt-1 text-xs md:text-sm font-medium [text-shadow:_0_2px_10px_rgba(0,0,0,0.7)]">
-                {t.presskit.metaLine2}
-              </div>
-            </div>
-
-            {/* Contenu : logo massif + bio (flex center, z au-dessus overlay) */}
-            <div
+            <p
               className={cn(
-                'relative z-[2]',
-                'flex flex-col justify-center',
-                'px-6 md:px-10 py-16 md:py-24',
-                'max-w-7xl mx-auto w-full',
-                'min-h-[calc(100svh-186px)]',
+                'max-w-3xl',
+                'text-xl md:text-2xl lg:text-[1.75rem]',
+                'font-light leading-relaxed text-left',
+                'text-ink-95 font-body',
+                '[text-shadow:_0_2px_12px_rgba(0,0,0,0.5)]',
+                'animate-fade-up',
               )}
+              style={{ animationDelay: '280ms', animationFillMode: 'both' }}
             >
-              <img
-                src={import.meta.env.BASE_URL + "logo/LogoStack.svg"}
-                alt="Maudite Machine"
-                className="w-[85vw] max-w-[780px] h-auto mb-10 md:mb-14 animate-fade-up"
-                style={{
-                  filter: 'brightness(0) invert(1) drop-shadow(0 4px 24px rgba(0,0,0,0.6))',
-                  animationDelay: '100ms',
-                  animationFillMode: 'both',
-                }}
-              />
-              <p
-                className={cn(
-                  'max-w-3xl',
-                  'text-xl md:text-2xl lg:text-[1.75rem]',
-                  'font-light leading-relaxed text-left',
-                  'text-ink-95 font-body',
-                  '[text-shadow:_0_2px_16px_rgba(0,0,0,0.75)]',
-                  'animate-fade-up',
-                )}
-                style={{ animationDelay: '280ms', animationFillMode: 'both' }}
-              >
-                {displayBioText}
-              </p>
-            </div>
+              {displayBioText}
+            </p>
           </section>
 
           {/* PRESSKIT — bio, stats, performances, album, catalogue, label, contact */}
@@ -561,6 +515,26 @@ export default function MainApp() {
                 </div>
               </div>
             )}
+          </section>
+
+          {/* EDITORIAL BANNER : Mika au casque (MM8) entre Shows et Merch */}
+          <section
+            aria-label="Editorial banner"
+            className="w-[90%] max-w-6xl mx-auto my-16 md:my-24"
+          >
+            <div className="relative overflow-hidden rounded-3xl shadow-2xl h-[400px] md:h-[600px]">
+              <img
+                src="/images/MauditeMachine-8.webp"
+                alt="Maudite Machine"
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+              {/* Subtle gradient en bas pour poser le tag éditorial */}
+              <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/70 to-transparent pointer-events-none" />
+              <div className="absolute bottom-4 md:bottom-6 left-5 md:left-8 text-white text-xs md:text-sm font-semibold uppercase tracking-[0.2em] [text-shadow:_0_2px_10px_rgba(0,0,0,0.6)]">
+                {t.presskit.metaLine1}
+              </div>
+            </div>
           </section>
 
           {/* STORE / MERCH */}
