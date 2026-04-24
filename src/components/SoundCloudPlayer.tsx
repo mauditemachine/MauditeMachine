@@ -16,6 +16,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '../lib/cn'
+import VaultPanel from './ui/VaultPanel'
 
 type Sound = {
   id: number
@@ -107,19 +108,10 @@ const IconPlaylist = () => (
 
 interface SoundCloudPlayerProps {
   onBackgroundChange?: (url: string) => void
-  /** Callback quand user clique le bouton Vault (playlist fullscreen, Commit 2) */
-  onOpenVault?: (ctx: {
-    tracks: Sound[]
-    currentIndex: number
-    isPlaying: boolean
-    play: (i: number) => void
-    togglePlay: () => void
-  }) => void
 }
 
 export default function SoundCloudPlayer({
   onBackgroundChange,
-  onOpenVault,
 }: SoundCloudPlayerProps): JSX.Element {
   const iframeRef = useRef<HTMLIFrameElement | null>(null)
   const widgetRef = useRef<any>(null)
@@ -129,6 +121,7 @@ export default function SoundCloudPlayer({
   const [currentTitle, setCurrentTitle] = useState<string>('')
   const [positionMs, setPositionMs] = useState(0)
   const [durationMs, setDurationMs] = useState(0)
+  const [vaultOpen, setVaultOpen] = useState(false)
   const lastIndexRef = useRef<number>(-1)
 
   // Supprimer les erreurs SoundCloud bruyantes de la console
@@ -315,15 +308,7 @@ export default function SoundCloudPlayer({
   }
 
   function handleOpenVault() {
-    if (onOpenVault) {
-      onOpenVault({
-        tracks,
-        currentIndex,
-        isPlaying,
-        play: playIndex,
-        togglePlay,
-      })
-    }
+    setVaultOpen(true)
   }
 
   const displayTitle = formatTrackDisplay(currentTitle || tracks[currentIndex]?.title || '')
@@ -466,6 +451,7 @@ export default function SoundCloudPlayer({
             whileTap={{ scale: 0.94 }}
             onClick={handleOpenVault}
             aria-label="Ouvrir la playlist"
+            aria-expanded={vaultOpen}
             className={cn(
               'flex items-center justify-center flex-shrink-0',
               'w-10 h-10 rounded-full',
@@ -478,6 +464,17 @@ export default function SoundCloudPlayer({
           </motion.button>
         </div>
       </div>
+
+      {/* VaultPanel — playlist fullscreen (portal) */}
+      <VaultPanel
+        isOpen={vaultOpen}
+        onClose={() => setVaultOpen(false)}
+        tracks={tracks}
+        currentIndex={currentIndex}
+        isPlaying={isPlaying}
+        onPlay={playIndex}
+        onTogglePlay={togglePlay}
+      />
     </>
   )
 }
