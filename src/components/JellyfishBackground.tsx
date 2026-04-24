@@ -7,12 +7,15 @@ interface JellyfishBackgroundProps {
 }
 
 /**
- * Fond video meduses fullscreen - couleurs naturelles de la source.
- * Sert 1080p sur desktop, 720p sur mobile (economie de data).
+ * Fond video fullscreen — ping-pong loop 14s (forward 7s + reverse 7s encode baked).
+ * Le fichier dream-bg-1080/720.mp4 contient deja le ping-pong pre-encode par ffmpeg,
+ * donc un simple <video loop> suffit.
+ *
+ * 1080p (3.4MB) sur desktop, 720p (1.3MB) sur mobile.
  */
 export default function JellyfishBackground({
-  srcHd = '/videos/jellyfish.mp4',          // 1080p (14MB)
-  srcMobile = '/videos/jellyfish-1080.mp4', // 720p (8.6MB)
+  srcHd = '/videos/dream-bg-1080.mp4',
+  srcMobile = '/videos/dream-bg-720.mp4',
   poster,
 }: JellyfishBackgroundProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
