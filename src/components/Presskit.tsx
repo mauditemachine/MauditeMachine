@@ -122,28 +122,16 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         />
       </div>
 
-      {/* === STORYTELLING : RAW. HYPNOTIC. UNDERGROUND. - fluid + tight === */}
-      <section className="py-6 md:py-10 mb-6 md:mb-10">
-        {['Raw.', 'Hypnotic.', 'Underground.'].map((word, i) => (
-          <div
-            key={word}
-            className={cn(
-              'font-display font-black uppercase text-ink-95',
-              'text-[clamp(3rem,13vw,10rem)]',
-              'leading-none tracking-[-0.05em]',
-              'animate-fade-up',
-              i === 0 && 'text-left',
-              i === 1 && 'text-right',
-              i === 2 && 'text-left md:text-center',
-            )}
-            style={{
-              animationDelay: `${200 + i * 150}ms`,
-              animationFillMode: 'both',
-            }}
-          >
-            {word}
-          </div>
-        ))}
+      {/* === STORYTELLING : RAW. HYPNOTIC. UNDERGROUND. - une seule ligne === */}
+      <section className="py-4 md:py-8 mb-6 md:mb-10">
+        <div
+          className="font-display font-black uppercase text-ink-95 whitespace-nowrap text-[clamp(2rem,5vw,6rem)] leading-none tracking-[-0.04em] animate-fade-up overflow-hidden"
+          style={{ animationDelay: '200ms', animationFillMode: 'both' }}
+        >
+          <span>Raw.</span>{' '}
+          <span className="text-white/80">Hypnotic.</span>{' '}
+          <span className="text-white/60">Underground.</span>
+        </div>
       </section>
 
       {/* === HERO MAGAZINE : 2-col image / bio + meta === */}
@@ -168,22 +156,26 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
 
         {/* Grid 2-col : image gauche / bio droite */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10 items-start">
-          {/* Image magazine — col 5 */}
+          {/* Image magazine — col 5 — cover couleur Limbos (latest album) */}
           <div
             className="md:col-span-5 animate-fade-up"
             style={{ animationDelay: '120ms', animationFillMode: 'both' }}
           >
-            <div className="relative w-full aspect-[4/5] overflow-hidden rounded-2xl md:rounded-3xl">
+            <div className="relative w-full aspect-[4/5] overflow-hidden rounded-2xl md:rounded-3xl bg-black/40">
               <img
-                src="/images/presskit-hero.webp"
-                alt="Maudite Machine"
+                src="/images/Limbos.webp"
+                alt="Maudite Machine — Limbos album cover"
                 className="absolute inset-0 w-full h-full object-cover"
                 loading="eager"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-              <div className="absolute bottom-4 left-4 right-4 text-white/90 text-xs md:text-sm font-medium uppercase tracking-[0.2em]">
-                DJ · Producer · VRSTL Records
-                <div className="text-white/60 mt-1 normal-case tracking-normal">Montréal / Canada</div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+              <div className="absolute bottom-4 left-4 right-4">
+                <div className="text-white text-xs md:text-sm font-semibold uppercase tracking-[0.2em]">
+                  DJ · Producer · VRSTL Records
+                </div>
+                <div className="text-white/70 mt-1 text-xs md:text-sm font-medium">
+                  Montréal / Canada
+                </div>
               </div>
             </div>
           </div>
@@ -305,38 +297,36 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
             disco, indie dance et minimal hypnotique.
           </p>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4 overflow-visible">
+        <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-8 gap-2 md:gap-3">
           {CATALOGUE.map((r, i) => (
             <div
               key={r.title}
               className={cn(
-                'group relative rounded-xl md:rounded-2xl overflow-hidden',
-                'border border-white/10 bg-black/20 backdrop-blur-sm',
-                'transition-all duration-300 ease-out-expo',
-                'hover:scale-125 hover:z-50 hover:shadow-2xl hover:border-white/40',
-                'cursor-pointer origin-center',
+                'group relative aspect-square overflow-hidden',
+                'rounded-lg md:rounded-xl',
+                'border border-white/10 bg-black/20',
+                'cursor-pointer',
                 'animate-fade-up',
               )}
               style={{
-                animationDelay: `${i * 60}ms`,
+                animationDelay: `${i * 50}ms`,
                 animationFillMode: 'both',
               }}
             >
-              <div className="relative aspect-square overflow-hidden">
-                <img
-                  src={r.img}
-                  alt={r.title}
-                  loading="lazy"
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-                {/* Overlay details au hover */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
-                  <div className="font-display font-bold text-white text-sm md:text-base leading-tight">
-                    {r.title}
-                  </div>
-                  <div className="font-body text-[10px] md:text-xs text-white/70 uppercase tracking-wider mt-1">
-                    {r.type} · {r.date}
-                  </div>
+              {/* Img zoom au hover — scale-125 sur l'img dans overflow-hidden parent */}
+              <img
+                src={r.img}
+                alt={r.title}
+                loading="lazy"
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out-expo group-hover:scale-125"
+              />
+              {/* Overlay details au hover */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-2 md:p-3">
+                <div className="font-display font-bold text-white text-xs md:text-sm leading-tight truncate">
+                  {r.title}
+                </div>
+                <div className="font-body text-[9px] md:text-[10px] text-white/70 uppercase tracking-wider mt-0.5 truncate">
+                  {r.type} · {r.date}
                 </div>
               </div>
             </div>

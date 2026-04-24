@@ -294,7 +294,7 @@ export default function MainApp() {
           links={navLinks}
         />
 
-        {/* HEADER — Logo gauche + Nav droite, FIXED TOP, tout items-center */}
+        {/* HEADER — hauteur fixe h-16, tout centre via flex items-center */}
         <header
           className="site-header"
           style={{
@@ -303,31 +303,32 @@ export default function MainApp() {
             left: 0,
             right: 0,
             zIndex: 50,
+            height: 64,
+            padding: '0 32px',
             background: 'rgba(0, 0, 0, 0.15)',
             backdropFilter: 'blur(12px) saturate(1.2)',
             WebkitBackdropFilter: 'blur(12px) saturate(1.2)',
             borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-            padding: '14px 32px',
           }}
         >
-          <div className="max-w-[1600px] mx-auto w-full flex items-center justify-between gap-6">
-            {/* Logo gauche */}
+          <div className="h-full max-w-[1600px] mx-auto w-full flex items-center justify-between gap-6">
+            {/* Logo gauche — container flex centre, img block sans marges */}
             <button
               type="button"
               onClick={() => scrollToSection('hero')}
-              className="flex items-center shrink-0 p-0 m-0 bg-transparent border-0 cursor-pointer hover:opacity-70 transition-opacity"
               aria-label="Maudite Machine — accueil"
+              className="h-full flex items-center shrink-0 p-0 m-0 bg-transparent border-0 cursor-pointer hover:opacity-70 transition-opacity leading-none"
             >
               <img
                 src={import.meta.env.BASE_URL + "logo/mauditemachine-logo-gold.png"}
                 alt="Maudite Machine"
-                className="h-[22px] w-auto block"
-                style={{ filter: 'brightness(0) invert(1)' }}
+                className="h-6 w-auto block m-0 p-0 align-middle"
+                style={{ filter: 'brightness(0) invert(1)', display: 'block' }}
               />
             </button>
 
-            {/* Nav droite — items-center strict + font-medium */}
-            <nav className="hidden max-[900px]:hidden min-[901px]:flex items-center gap-5">
+            {/* Nav droite — buttons h-full items-center, font-semibold tracking-wide */}
+            <nav className="h-full hidden max-[900px]:hidden min-[901px]:flex items-center gap-6">
               {navLinks.map((l) => {
                 const active = activeSection === l.section;
                 return (
@@ -336,8 +337,9 @@ export default function MainApp() {
                     type="button"
                     onClick={() => handleSectionChange(l.section)}
                     className={cn(
-                      'font-body text-sm font-medium uppercase tracking-[0.08em]',
-                      'leading-none py-1',
+                      'h-full inline-flex items-center',
+                      'font-body text-sm font-semibold uppercase tracking-wide',
+                      'leading-none m-0 px-0',
                       'bg-transparent border-0 cursor-pointer',
                       'transition-colors duration-300',
                       active ? 'text-white' : 'text-white/80 hover:text-white',
@@ -357,7 +359,7 @@ export default function MainApp() {
         </div>
 
         {/* MAIN CONTENT — stack vertical single-page */}
-        <main className="relative z-[1]" style={{ paddingTop: '90px', paddingBottom: '96px' }}>
+        <main className="relative z-[1]" style={{ paddingTop: '80px', paddingBottom: '96px' }}>
 
           {/* HERO — logo + bio alignee gauche, article magazine */}
           <section
@@ -422,15 +424,17 @@ export default function MainApp() {
             {showsArchive.length > 0 && (
               <div className="mt-24 md:mt-40">
                 <div className="flex items-baseline justify-between mb-8 md:mb-14">
-                  <div className="text-sm md:text-base font-medium uppercase tracking-[0.25em] text-white/80 font-body">
+                  <div className="text-sm md:text-base font-semibold uppercase tracking-[0.25em] text-white/80 font-body">
                     — Wall of Fame
                   </div>
-                  <div className="text-xs md:text-sm font-medium uppercase tracking-[0.3em] text-white/50 font-body">
+                  <div className="text-xs md:text-sm font-semibold uppercase tracking-[0.3em] text-white/50 font-body">
                     {showsArchive[showsArchive.length - 1]?.year} — {showsArchive[0]?.year}
                   </div>
                 </div>
 
-                <div className="divide-y divide-white/5">
+                {/* Glass box avec scroll interne (max-h 500px) */}
+                <div className="pk-glass rounded-2xl md:rounded-3xl p-4 md:p-6">
+                  <div className="max-h-[500px] overflow-y-auto pr-4 custom-scrollbar divide-y divide-white/5">
                   {showsArchive.map((row, i) => (
                     <div
                       key={row.year}
@@ -504,6 +508,7 @@ export default function MainApp() {
                       </div>
                     </div>
                   ))}
+                  </div>
                 </div>
               </div>
             )}
