@@ -357,19 +357,20 @@ export default function MainApp() {
         {/* MAIN CONTENT — stack vertical single-page */}
         <main className="relative z-[1]" style={{ paddingTop: '80px', paddingBottom: '96px' }}>
 
-          {/* HERO LANDING 100vh — logo + signature centres, fond meduses */}
+          {/* HERO LANDING 100vh — stack centre : logo / MUSIK MAKERS / catchphrase / tagline */}
           <section
             id="hero"
             className={cn(
               'relative w-full h-screen',
-              'flex flex-col items-center justify-center text-center',
-              'px-6 -mt-[80px] pt-[80px]', // -mt compense le padding du <main> pour vrai 100vh
+              'flex flex-col items-center justify-center text-center gap-6',
+              'px-6 -mt-[80px] pt-[80px]',
             )}
           >
+            {/* 1. Logo MAUDITE MACHINE */}
             <motion.img
               src={import.meta.env.BASE_URL + 'logo/LogoStack.svg'}
               alt="Maudite Machine"
-              className="w-[85vw] max-w-[780px] h-auto mb-10 md:mb-14"
+              className="w-[85vw] max-w-[780px] h-auto"
               style={{
                 filter: 'brightness(0) invert(1) drop-shadow(0 4px 24px rgba(0,0,0,0.4))',
               }}
@@ -378,18 +379,51 @@ export default function MainApp() {
               transition={{ duration: 1.0, ease: [0.19, 1, 0.22, 1], delay: 0.1 }}
             />
 
-            {/* Signature 3 lignes : role / location / genres — minimaliste premium */}
+            {/* 2. Titre massif "WE ARE MUSIK MAKERS" — vert acide brutaliste */}
+            <motion.h2
+              className={cn(
+                'font-black uppercase tracking-tighter',
+                'text-5xl md:text-7xl lg:text-8xl',
+                'leading-[0.9]',
+                '[text-shadow:_0_2px_18px_rgba(204,255,0,0.25)]',
+              )}
+              style={{ color: '#ccff00' }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1.0, ease: [0.19, 1, 0.22, 1], delay: 0.35 }}
+            >
+              {t.signature.musikMakers}
+            </motion.h2>
+
+            {/* 3. Slogan RAW. HYPNOTIC. UNDERGROUND. — blanc condense espace */}
             <motion.div
               className={cn(
-                'flex flex-col items-center gap-2 md:gap-3',
+                'text-white font-light uppercase',
+                'tracking-[0.3em]',
+                'text-sm md:text-base',
+                '[text-shadow:_0_2px_12px_rgba(0,0,0,0.45)]',
+                'mt-2',
+              )}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1.2, ease: 'easeOut', delay: 0.7 }}
+            >
+              {t.presskit.catchphrase}
+            </motion.div>
+
+            {/* 4. Tagline 3 lignes — role / location / genres */}
+            <motion.div
+              className={cn(
+                'flex flex-col items-center gap-1.5 md:gap-2',
                 'font-light uppercase tracking-[0.25em]',
                 'text-base md:text-lg',
                 'text-white/80',
                 '[text-shadow:_0_2px_12px_rgba(0,0,0,0.45)]',
+                'mt-2',
               )}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 1.4, ease: 'easeOut', delay: 0.6 }}
+              transition={{ duration: 1.4, ease: 'easeOut', delay: 0.9 }}
             >
               <span>{t.signature.role}</span>
               <span className="text-white/60">{t.signature.location}</span>

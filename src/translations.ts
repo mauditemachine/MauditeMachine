@@ -29,6 +29,7 @@ export const translations = {
       role: 'DJ & Producer',
       location: 'Montréal — Canada',
       genres: 'Minimal · Indie Dance · Dark Disco',
+      musikMakers: 'WE ARE MUSIK MAKERS',
     },
     sections: {
       upcomingEvents: 'Upcoming Events',
@@ -222,6 +223,7 @@ export const translations = {
       role: 'DJ & Producteur',
       location: 'Montréal — Canada',
       genres: 'Minimal · Indie Dance · Dark Disco',
+      musikMakers: 'WE ARE MUSIK MAKERS',
     },
     sections: {
       upcomingEvents: 'Prochains concerts',
@@ -413,6 +415,7 @@ export const translations = {
       role: 'DJ & Productor',
       location: 'Montreal — Canadá',
       genres: 'Minimal · Indie Dance · Dark Disco',
+      musikMakers: 'WE ARE MUSIK MAKERS',
     },
     sections: {
       upcomingEvents: 'Próximos shows',

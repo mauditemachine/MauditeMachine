@@ -144,15 +144,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
     <div className="pk-page">
       {/* SectionHeader retire : plus de gros titre "About" en tete */}
 
-      {/* === STORYTELLING : RAW. HYPNOTIC. UNDERGROUND. - texte normal === */}
-      <section className="py-4 md:py-8 mb-6 md:mb-10">
-        <div
-          className="font-display font-black uppercase text-ink-95 whitespace-nowrap tracking-normal inline-block text-[clamp(2rem,5vw,5rem)] leading-none animate-fade-up"
-          style={{ animationDelay: '200ms', animationFillMode: 'both' }}
-        >
-          {p.catchphrase}
-        </div>
-      </section>
+      {/* Catchphrase RAW. HYPNOTIC. UNDERGROUND. retiree d'ici - deplacee dans le Hero */}
 
       {/* === HERO MAGAZINE : 2-col image / bio (titre MAUDITE MACHINE + tags genres supprimes, redondants) === */}
       <section className="py-8 md:py-16 mb-12 md:mb-20">
