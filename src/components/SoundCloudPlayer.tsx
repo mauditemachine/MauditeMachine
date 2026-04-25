@@ -338,7 +338,7 @@ export default function SoundCloudPlayer({
         src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(PLAYLIST_URL)}&color=%23ffffff&auto_play=false&hide_related=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false&visual=false`}
       />
 
-      {/* Floating Pill — player flottant Pro Max */}
+      {/* Floating Pill — Liquid Glass premium 2026 */}
       <div
         role="region"
         aria-label={a.audioPlayer}
@@ -351,15 +351,20 @@ export default function SoundCloudPlayer({
         className={cn(
           'bottom-4 md:bottom-6',
           'w-[95%] max-w-3xl',
-          'rounded-full overflow-hidden',
-          'bg-black/40 backdrop-blur-xl',
+          'relative rounded-full overflow-hidden',
+          // Charte liquid-glass alignee sur les boites Presskit / VRSTL
+          'bg-black/20 backdrop-blur-2xl',
           'border border-white/10',
-          'shadow-2xl shadow-black/50',
+          'shadow-[0_10px_40px_rgba(0,0,0,0.5)]',
         )}
       >
-        {/* Progress bar 2px en haut de la pill (suit la courbe rounded-full) */}
+        {/* Seekbar 3px collee tout en haut de la pill (cliquable) */}
         <div
-          className="relative h-[2px] bg-white/10 cursor-pointer group hover:h-[3px] transition-[height] duration-200"
+          className={cn(
+            'absolute top-0 left-0 w-full h-[3px] z-10',
+            'bg-white/10 cursor-pointer overflow-hidden rounded-t-full',
+            'hover:h-[5px] transition-[height] duration-200',
+          )}
           onClick={handleProgressClick}
           role="slider"
           aria-label={a.trackProgress}
@@ -368,13 +373,13 @@ export default function SoundCloudPlayer({
           aria-valuenow={positionMs}
         >
           <div
-            className="absolute inset-y-0 left-0 bg-white/90"
+            className="absolute inset-y-0 left-0 bg-white"
             style={{ width: `${progress}%`, transition: 'width 120ms linear' }}
           />
         </div>
 
-        {/* Controls row */}
-        <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 pr-3 sm:pr-4 py-2">
+        {/* Controls row (padding-top legerement > seekbar pour laisser respirer) */}
+        <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 pr-3 sm:pr-4 pt-3 pb-2">
           {/* Cover mini */}
           <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden flex-shrink-0 bg-black/40 border border-white/10">
             {coverUrl ? (
@@ -402,37 +407,38 @@ export default function SoundCloudPlayer({
             {formatMs(positionMs)} / {formatMs(durationMs)}
           </div>
 
-          {/* Controls : prev / play / next */}
-          <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
+          {/* Controls : prev / play (gros) / next — tous en cercles glassmorphic uniformes */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             <motion.button
               type="button"
-              whileHover={{ scale: 1.12 }}
-              whileTap={{ scale: 0.92 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={prev}
               aria-label={a.previousTrack}
               className={cn(
                 'hidden sm:flex items-center justify-center',
-                'w-9 h-9 rounded-full',
-                'bg-transparent text-white/80',
-                'hover:text-white hover:bg-white/10',
-                'transition-colors duration-200',
+                'w-10 h-10 rounded-full',
+                'bg-white/5 border border-white/10 text-white',
+                'hover:bg-white/15',
+                'transition-all duration-300',
               )}
             >
               <IconPrev />
             </motion.button>
 
+            {/* Play / Pause : plus gros pour marquer la hierarchie */}
             <motion.button
               type="button"
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.94 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={togglePlay}
-              aria-label={isPlaying ? 'Pause' : 'Lecture'}
+              aria-label={isPlaying ? 'Pause' : 'Play'}
               className={cn(
                 'flex items-center justify-center',
-                'w-10 h-10 sm:w-11 sm:h-11 rounded-full',
-                'bg-white/15 border border-white/20 text-white',
-                'hover:bg-white/25 hover:border-white/50 hover:shadow-[0_0_24px_rgba(255,255,255,0.25)]',
-                'transition-all duration-250 ease-out-expo',
+                'w-12 h-12 rounded-full',
+                'bg-white/5 border border-white/10 text-white',
+                'hover:bg-white/15',
+                'transition-all duration-300',
               )}
             >
               {isPlaying ? <IconPause /> : <IconPlay />}
@@ -440,36 +446,36 @@ export default function SoundCloudPlayer({
 
             <motion.button
               type="button"
-              whileHover={{ scale: 1.12 }}
-              whileTap={{ scale: 0.92 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={next}
               aria-label={a.nextTrack}
               className={cn(
                 'hidden sm:flex items-center justify-center',
-                'w-9 h-9 rounded-full',
-                'bg-transparent text-white/80',
-                'hover:text-white hover:bg-white/10',
-                'transition-colors duration-200',
+                'w-10 h-10 rounded-full',
+                'bg-white/5 border border-white/10 text-white',
+                'hover:bg-white/15',
+                'transition-all duration-300',
               )}
             >
               <IconNext />
             </motion.button>
           </div>
 
-          {/* Vault button */}
+          {/* Vault / Playlist button — meme glassmorphic uniforme */}
           <motion.button
             type="button"
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.94 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={handleOpenVault}
             aria-label={a.openPlaylist}
             aria-expanded={vaultOpen}
             className={cn(
               'flex items-center justify-center flex-shrink-0',
-              'w-9 h-9 rounded-full',
-              'bg-white/8 border border-white/15 text-white/80',
-              'hover:bg-white/15 hover:border-white/30 hover:text-white',
-              'transition-all duration-250 ease-out-expo',
+              'w-10 h-10 rounded-full',
+              'bg-white/5 border border-white/10 text-white',
+              'hover:bg-white/15',
+              'transition-all duration-300',
             )}
           >
             <IconPlaylist />
