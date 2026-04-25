@@ -358,28 +358,31 @@ export default function SoundCloudPlayer({
           'shadow-[0_10px_40px_rgba(0,0,0,0.5)]',
         )}
       >
-        {/* Seekbar 3px collee tout en haut de la pill (cliquable) */}
+        {/* Seekbar 3px collee tout en BAS de la pill (toujours dans le DOM, jamais conditionnee) */}
         <div
           className={cn(
-            'absolute top-0 left-0 w-full h-[3px] z-10',
-            'bg-white/10 cursor-pointer overflow-hidden rounded-t-full',
-            'hover:h-[5px] transition-[height] duration-200',
+            'absolute bottom-0 left-0 w-full h-[3px] z-50',
+            'bg-white/10 cursor-pointer',
+            'hover:h-[6px] transition-all duration-200',
           )}
           onClick={handleProgressClick}
           role="slider"
           aria-label={a.trackProgress}
           aria-valuemin={0}
-          aria-valuemax={durationMs}
+          aria-valuemax={durationMs || 100}
           aria-valuenow={positionMs}
         >
+          {/* Progress fill : NaN guard avec || 0, transition lineaire */}
           <div
-            className="absolute inset-y-0 left-0 bg-white"
-            style={{ width: `${progress}%`, transition: 'width 120ms linear' }}
+            className="absolute top-0 left-0 h-full bg-white rounded-r-full transition-all duration-100 ease-linear"
+            style={{
+              width: `${(positionMs / durationMs) * 100 || 0}%`,
+            }}
           />
         </div>
 
-        {/* Controls row (padding-top legerement > seekbar pour laisser respirer) */}
-        <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 pr-3 sm:pr-4 pt-3 pb-2">
+        {/* Controls row (pb-3 pour laisser respirer la seekbar en bas) */}
+        <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 pr-3 sm:pr-4 pt-2 pb-3">
           {/* Cover mini */}
           <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden flex-shrink-0 bg-black/40 border border-white/10">
             {coverUrl ? (
