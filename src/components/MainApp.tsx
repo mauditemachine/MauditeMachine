@@ -379,15 +379,15 @@ export default function MainApp() {
               transition={{ duration: 1.0, ease: [0.19, 1, 0.22, 1], delay: 0.1 }}
             />
 
-            {/* 2. Titre massif "WE ARE MUSIK MAKERS" — vert acide brutaliste */}
+            {/* 2. Titre "WE ARE MUSIK MAKERS" — police custom Robot Radicals 30px blanc pur */}
             <motion.h2
               className={cn(
-                'font-black uppercase tracking-tighter',
-                'text-5xl md:text-7xl lg:text-8xl',
-                'leading-[0.9]',
-                '[text-shadow:_0_2px_18px_rgba(204,255,0,0.25)]',
+                'font-robot uppercase',
+                'text-[30px]',
+                'text-white',
+                'leading-none',
+                '[text-shadow:_0_2px_12px_rgba(0,0,0,0.5)]',
               )}
-              style={{ color: '#ccff00' }}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 1.0, ease: [0.19, 1, 0.22, 1], delay: 0.35 }}

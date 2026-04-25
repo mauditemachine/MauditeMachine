@@ -65,6 +65,8 @@ export default {
         body: ['"SF Pro Rounded"', 'system-ui', 'sans-serif'],
         display: ['"SF Pro Display"', '-apple-system', 'BlinkMacSystemFont', '"Helvetica Neue"', 'sans-serif'],
         rounded: ['"SF Pro Rounded"', 'system-ui', 'sans-serif'],
+        // Robot Radicals : police brutaliste blocs angulaires (Hero MUSIK MAKERS)
+        robot: ['"Robot Radicals"', 'sans-serif'],
       },
       transitionTimingFunction: {
         // Ease Apple-like
