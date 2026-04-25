@@ -396,10 +396,10 @@ export default function MainApp() {
               {t.signature.musicMakers}
             </motion.h2>
 
-            {/* 3. Slogan RAW. HYPNOTIC. UNDERGROUND. — blanc condense espace */}
+            {/* 3. Slogan RAW. HYPNOTIC. UNDERGROUND. — blanc, font-weight 600 */}
             <motion.div
               className={cn(
-                'text-white font-light uppercase',
+                'text-white font-semibold uppercase',
                 'tracking-[0.3em]',
                 'text-sm md:text-base',
                 '[text-shadow:_0_2px_12px_rgba(0,0,0,0.45)]',
@@ -412,11 +412,11 @@ export default function MainApp() {
               {t.presskit.catchphrase}
             </motion.div>
 
-            {/* 4. Tagline 3 lignes — role / location / genres */}
+            {/* 4. Tagline 3 lignes — font-weight 600 strict (DJ / Montreal / genres) */}
             <motion.div
               className={cn(
                 'flex flex-col items-center gap-1.5 md:gap-2',
-                'font-light uppercase tracking-[0.25em]',
+                'font-semibold uppercase tracking-[0.25em]',
                 'text-base md:text-lg',
                 'text-white/80',
                 '[text-shadow:_0_2px_12px_rgba(0,0,0,0.45)]',
