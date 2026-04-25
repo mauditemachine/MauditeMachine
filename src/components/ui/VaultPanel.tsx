@@ -260,7 +260,7 @@ const VaultPanel: React.FC<VaultPanelProps> = ({
         {/* Empty state */}
         {tracks.length === 0 && (
           <div className="text-center text-ink-50 font-body py-16">
-            Chargement des morceaux…
+            {a.loadingTracks}
           </div>
         )}
       </div>

@@ -395,7 +395,7 @@ export default function SoundCloudPlayer({
               className="text-sm sm:text-[15px] font-semibold text-white truncate font-body [text-shadow:_0_1px_3px_rgba(0,0,0,0.4)]"
               title={displayTitle}
             >
-              {displayTitle || 'Loading…'}
+              {displayTitle || a.loading}
             </div>
             <div className="text-sm sm:text-sm text-white/60 uppercase tracking-[0.2em] font-body">
               Maudite Machine

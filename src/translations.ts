@@ -196,6 +196,8 @@ export const translations = {
       mainMenu: 'Main menu',
       openMenu: 'Open menu',
       closeMenu: 'Close menu',
+      loading: 'Loading…',
+      loadingTracks: 'Loading tracks…',
     },
   },
   fr: {
@@ -380,6 +382,8 @@ export const translations = {
       mainMenu: 'Menu principal',
       openMenu: 'Ouvrir le menu',
       closeMenu: 'Fermer le menu',
+      loading: 'Chargement…',
+      loadingTracks: 'Chargement des morceaux…',
     },
   },
   es: {
@@ -564,6 +568,8 @@ export const translations = {
       mainMenu: 'Menú principal',
       openMenu: 'Abrir menú',
       closeMenu: 'Cerrar menú',
+      loading: 'Cargando…',
+      loadingTracks: 'Cargando tracks…',
     },
   },
 } as const;
