@@ -379,11 +379,12 @@ export default function MainApp() {
               transition={{ duration: 1.0, ease: [0.19, 1, 0.22, 1], delay: 0.1 }}
             />
 
-            {/* 2. Titre "WE ARE MUSIK MAKERS" — police custom Robot Radicals 30px blanc pur */}
+            {/* 2. Titre "WE ARE MUSIC MAKERS" — police custom Robot Radicals, 30px blanc, tracking 4px */}
             <motion.h2
               className={cn(
                 'font-robot uppercase',
                 'text-[30px]',
+                'tracking-[4px]',
                 'text-white',
                 'leading-none',
                 '[text-shadow:_0_2px_12px_rgba(0,0,0,0.5)]',
@@ -392,7 +393,7 @@ export default function MainApp() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 1.0, ease: [0.19, 1, 0.22, 1], delay: 0.35 }}
             >
-              {t.signature.musikMakers}
+              {t.signature.musicMakers}
             </motion.h2>
 
             {/* 3. Slogan RAW. HYPNOTIC. UNDERGROUND. — blanc condense espace */}
