@@ -4,8 +4,27 @@
  */
 
 import React from 'react';
+import { motion } from 'framer-motion';
 import { useTranslation } from '../lib/i18n';
 import { cn } from '../lib/cn';
+
+// Fleche editoriale ArrowUpRight inline (pas de dep lucide-react)
+const ArrowUpRight = (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M7 17L17 7" />
+    <path d="M7 7h10v10" />
+  </svg>
+);
 
 interface PresskitProps {
   onNavigateToMessage?: () => void;
@@ -365,32 +384,51 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
           </div>
         </div>
 
-        {/* Social grid : icone + nom de plateforme uniquement (URLs cachees) */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 mt-6 md:mt-10">
+        {/* Social grid 2026 : motion.a + Glassmorphism reactif + fleche editoriale dynamique */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mt-6 md:mt-10">
           {CONTACTS.map((c) => (
-            <a
+            <motion.a
               key={c.label}
               href={c.href}
               target="_blank"
               rel="noreferrer"
               aria-label={c.label}
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
               className={cn(
-                'group pk-glass rounded-xl md:rounded-2xl',
-                'p-5 md:p-6',
-                'flex items-center gap-4 justify-center',
+                'group relative rounded-xl md:rounded-2xl',
+                'flex items-center justify-between px-6 py-4',
+                'bg-white/5 hover:bg-white/10',
+                'border border-white/10 hover:border-white/30',
+                'backdrop-blur-md',
                 'text-white no-underline',
-                'transition-all duration-300',
-                'hover:border-white/40 hover:bg-white/[0.07]',
+                'transition-all duration-300 ease-out',
+                'hover:shadow-[0_0_20px_rgba(255,255,255,0.15)]',
               )}
               style={{ color: '#fff', textDecoration: 'none' }}
             >
-              <span className="shrink-0 w-11 h-11 md:w-12 md:h-12 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white group-hover:bg-white/20 group-hover:scale-110 transition-all duration-300">
-                {c.icon}
+              {/* Bloc gauche : icone ronde + nom plateforme */}
+              <span className="flex items-center gap-4 min-w-0">
+                <span className="shrink-0 w-11 h-11 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-white group-hover:scale-110 transition-transform duration-300">
+                  {c.icon}
+                </span>
+                <span className="text-xl md:text-2xl font-bold text-white capitalize truncate">
+                  {c.label}
+                </span>
               </span>
-              <span className="text-xl md:text-2xl font-bold text-white capitalize">
-                {c.label}
+
+              {/* Bloc droite : fleche dynamique (slide in diagonal au hover) */}
+              <span
+                className={cn(
+                  'shrink-0 ml-3 text-white/90',
+                  'opacity-0 -translate-x-2 translate-y-2',
+                  'group-hover:opacity-100 group-hover:translate-x-0 group-hover:translate-y-0',
+                  'transition-all duration-300 ease-out',
+                )}
+              >
+                {ArrowUpRight}
               </span>
-            </a>
+            </motion.a>
           ))}
         </div>
 
