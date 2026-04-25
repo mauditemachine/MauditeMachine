@@ -25,6 +25,11 @@ export const translations = {
       subtitle: 'WE ARE MUSIC MAKERS',
       bio: "Maudite Machine is a Canadian DJ and producer known for his raw, hypnotic approach to minimal and indie dance. Born from the Montreal underground, he has performed at major events including Piknic Électronik, Eclipse Festival, and the iconic Techno Parade in Paris, delivering sets that blur the line between intensity and atmosphere across Canada and Europe.\n\nAs the founder of VRSTL Records, he curates a sound that embraces tension, groove, and experimentation, having shared the stage with electronic music legends like Carl Craig, Ellen Allien, The Hacker, Popof, and Agoria. His collaborations with influential artists reflect a constant drive to push boundaries and redefine the underground with a distinct sonic signature, championing bold artists who share his vision for the darker, experimental sides of electronic music.",
     },
+    signature: {
+      role: 'DJ & Producer',
+      location: 'Montréal — Canada',
+      genres: 'Minimal · Indie Dance · Dark Disco',
+    },
     sections: {
       upcomingEvents: 'Upcoming Events',
       merch: 'Merch',
@@ -213,6 +218,11 @@ export const translations = {
       subtitle: 'WE ARE MUSIC MAKERS',
       bio: "Maudite Machine est un DJ et producteur canadien reconnu pour son approche brute et hypnotique du minimal et de l'indie dance. Né de la scène underground montréalaise, il s'est produit lors d'événements majeurs dont Piknic Électronik, Eclipse Festival et la mythique Techno Parade à Paris, livrant des sets qui brouillent la frontière entre intensité et atmosphère au Canada et en Europe.\n\nEn tant que fondateur de VRSTL Records, il façonne un son qui embrasse la tension, le groove et l'expérimentation, ayant partagé la scène avec des légendes de la musique électronique comme Carl Craig, Ellen Allien, The Hacker, Popof et Agoria. Ses collaborations avec des artistes influents reflètent une volonté constante de repousser les limites et de redéfinir l'underground avec une signature sonore distincte.",
     },
+    signature: {
+      role: 'DJ & Producteur',
+      location: 'Montréal — Canada',
+      genres: 'Minimal · Indie Dance · Dark Disco',
+    },
     sections: {
       upcomingEvents: 'Prochains concerts',
       merch: 'Merch',
@@ -398,6 +408,11 @@ export const translations = {
     home: {
       subtitle: 'WE ARE MUSIC MAKERS',
       bio: "Maudite Machine es un DJ y productor canadiense reconocido por su enfoque crudo e hipnótico del minimal y el indie dance. Nacido de la escena underground de Montreal, se ha presentado en eventos mayores como Piknic Électronik, Eclipse Festival y la mítica Techno Parade en París, entregando sets que difuminan la frontera entre intensidad y atmósfera a través de Canadá y Europa.\n\nComo fundador de VRSTL Records, cultiva un sonido que abraza la tensión, el groove y la experimentación, habiendo compartido escenario con leyendas de la música electrónica como Carl Craig, Ellen Allien, The Hacker, Popof y Agoria. Sus colaboraciones con artistas influyentes reflejan una voluntad constante de empujar los límites y redefinir el underground con una firma sonora distintiva, apoyando a artistas audaces que comparten su visión de los lados más oscuros y experimentales de la música electrónica.",
+    },
+    signature: {
+      role: 'DJ & Productor',
+      location: 'Montreal — Canadá',
+      genres: 'Minimal · Indie Dance · Dark Disco',
     },
     sections: {
       upcomingEvents: 'Próximos shows',

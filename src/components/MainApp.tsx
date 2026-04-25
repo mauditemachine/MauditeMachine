@@ -1,4 +1,5 @@
 import React, { useState, useEffect, Suspense } from "react";
+import { motion } from "framer-motion";
 import SoundCloudPlayer from "./SoundCloudPlayer";
 import { useApp } from "../context/AppContext";
 import EventsDisplay from "./EventsDisplay";
@@ -260,8 +261,6 @@ export default function MainApp() {
     };
   }, []);
 
-  const displayBioText = t.home.bio;
-
   const navLinks = [
     { key: 'presskit',  label: t.nav.presskit,  section: 'presskit' },
     { key: 'shows',     label: t.nav.events,    section: 'shows' },
@@ -358,40 +357,46 @@ export default function MainApp() {
         {/* MAIN CONTENT — stack vertical single-page */}
         <main className="relative z-[1]" style={{ paddingTop: '80px', paddingBottom: '96px' }}>
 
-          {/* HERO — logo + bio sur fond video meduses (sans image de fond, MM8 deplacee en banniere entre Shows et Merch) */}
+          {/* HERO LANDING 100vh — logo + signature centres, fond meduses */}
           <section
             id="hero"
             className={cn(
-              'scroll-mt-20',
-              'min-h-[calc(100svh-186px)]',
-              'flex flex-col justify-center',
-              'px-6 md:px-10 py-16 md:py-24',
-              'max-w-7xl mx-auto w-full',
+              'relative w-full h-screen',
+              'flex flex-col items-center justify-center text-center',
+              'px-6 -mt-[80px] pt-[80px]', // -mt compense le padding du <main> pour vrai 100vh
             )}
           >
-            <img
-              src={import.meta.env.BASE_URL + "logo/LogoStack.svg"}
+            <motion.img
+              src={import.meta.env.BASE_URL + 'logo/LogoStack.svg'}
               alt="Maudite Machine"
-              className="w-[85vw] max-w-[780px] h-auto mb-10 md:mb-14 animate-fade-up"
+              className="w-[85vw] max-w-[780px] h-auto mb-10 md:mb-14"
               style={{
-                filter: 'brightness(0) invert(1)',
-                animationDelay: '100ms',
-                animationFillMode: 'both',
+                filter: 'brightness(0) invert(1) drop-shadow(0 4px 24px rgba(0,0,0,0.4))',
               }}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1.0, ease: [0.19, 1, 0.22, 1], delay: 0.1 }}
             />
-            <p
+
+            {/* Signature 3 lignes : role / location / genres — minimaliste premium */}
+            <motion.div
               className={cn(
-                'max-w-3xl',
-                'text-xl md:text-2xl lg:text-[1.75rem]',
-                'font-light leading-relaxed text-left',
-                'text-ink-95 font-body',
-                '[text-shadow:_0_2px_12px_rgba(0,0,0,0.5)]',
-                'animate-fade-up',
+                'flex flex-col items-center gap-2 md:gap-3',
+                'font-light uppercase tracking-[0.25em]',
+                'text-base md:text-lg',
+                'text-white/80',
+                '[text-shadow:_0_2px_12px_rgba(0,0,0,0.45)]',
               )}
-              style={{ animationDelay: '280ms', animationFillMode: 'both' }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 1.4, ease: 'easeOut', delay: 0.6 }}
             >
-              {displayBioText}
-            </p>
+              <span>{t.signature.role}</span>
+              <span className="text-white/60">{t.signature.location}</span>
+              <span className="text-white/50 text-sm md:text-base tracking-[0.3em]">
+                {t.signature.genres}
+              </span>
+            </motion.div>
           </section>
 
           {/* PRESSKIT — bio, stats, performances, album, catalogue, label, contact */}
