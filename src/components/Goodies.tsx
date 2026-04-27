@@ -1,11 +1,21 @@
+/**
+ * Goodies — wallpapers + covers + stickers en telechargement gratuit.
+ *
+ * Telechargement BLINDE MOBILE : chaque carte est un <motion.a download>
+ * natif HTML, pas de JS fetch/blob/createObjectURL qui bloque sur iOS Safari.
+ * Le browser fait le download lui-meme via l'attribut HTML `download`,
+ * fallback target=_blank pour iOS qui ignore parfois `download` -> au moins
+ * l'utilisateur peut "Save Image" via long-press.
+ */
+
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { motion } from 'framer-motion';
+import { useTranslation } from '../lib/i18n';
 import { cn } from '../lib/cn';
-import GlassCard from './ui/GlassCard';
 
 interface GoodieItem {
-  src: string;        // Affichage (low-res via CSS)
-  downloadSrc?: string; // Téléchargement (résolution d'origine, fallback: src)
+  src: string;          // Affichage low-res (thumb)
+  downloadSrc?: string; // Telechargement haute resolution (fallback: src)
   title: string;
   category: string;
 }
@@ -49,6 +59,33 @@ const goodies: GoodieItem[] = [
   { src: 'images/goodies/cover-mixtape38.webp', downloadSrc: FULL_PREFIX + 'cover-mixtape38.webp', title: 'Mixtape 38', category: 'cover' },
 ];
 
+// Genere un nom de fichier propre : MauditeMachine_<Title>.<ext>
+function buildFilename(item: GoodieItem): string {
+  const downloadUrl = item.downloadSrc || item.src;
+  const ext = downloadUrl.split('.').pop() || 'webp';
+  const safeName = item.title.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  return `MauditeMachine_${safeName}.${ext}`;
+}
+
+// Icone download
+const IconDownload = (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
+  </svg>
+);
+
 interface GoodiesProps {
   mobileOnly?: boolean;
 }
@@ -56,72 +93,83 @@ interface GoodiesProps {
 type AccordionKey = 'desktop' | 'phone' | 'covers';
 
 const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
-  const { t } = useApp();
-  const desktopWallpapers = goodies.filter(g => g.category === 'wallpaper-desktop');
-  const phoneWallpapers = goodies.filter(g => g.category === 'wallpaper-phone');
-  const covers = goodies.filter(g => g.category === 'cover');
+  const { t } = useTranslation();
+  const desktopWallpapers = goodies.filter((g) => g.category === 'wallpaper-desktop');
+  const phoneWallpapers = goodies.filter((g) => g.category === 'wallpaper-phone');
+  const covers = goodies.filter((g) => g.category === 'cover');
   const [openSection, setOpenSection] = useState<AccordionKey | null>('covers');
 
   const toggle = (key: AccordionKey) => {
-    setOpenSection(prev => prev === key ? null : key);
+    setOpenSection((prev) => (prev === key ? null : key));
   };
 
-  const handleDownload = async (item: GoodieItem) => {
-    const downloadUrl = item.downloadSrc || item.src;
-    const ext = downloadUrl.split('.').pop() || 'png';
-    const filename = `MauditeMachine_${item.title.replace(/\s+/g, '_')}.${ext}`;
-    try {
-      // Fetch le fichier en blob pour forcer le téléchargement en pleine résolution
-      const response = await fetch(`/${downloadUrl}`);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch {
-      // Fallback : ouvrir dans un nouvel onglet
-      window.open(`/${downloadUrl}`, '_blank');
-    }
-  };
+  // Carte download : <motion.a download> natif HTML, mobile-first.
+  // Aucun JS fetch/blob/click() qui casse sur iOS Safari.
+  const renderCard = (item: GoodieItem, i: number, aspectClass: string, staggerMs = 40) => {
+    const downloadUrl = `/${item.downloadSrc || item.src}`;
+    const filename = buildFilename(item);
 
-  // Styles du bouton download — monochrome blanc, pas de gold
-  const downloadBtnClass = cn(
-    'flex-shrink-0 px-3 py-1 rounded-full',
-    'bg-ink-10 hover:bg-ink-20 border border-ink-15 hover:border-ink-50',
-    'text-sm font-bold uppercase tracking-wider text-ink-95 font-body',
-    'transition-all duration-250 ease-out-expo',
-    'hover:shadow-glow-white-soft',
-  );
+    return (
+      <motion.a
+        key={i}
+        href={downloadUrl}
+        download={filename}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`${t.goodies.download} — ${item.title}`}
+        whileHover={{ scale: 1.02, y: -2 }}
+        whileTap={{ scale: 0.98 }}
+        className={cn(
+          'group relative block rounded-xl md:rounded-2xl',
+          'bg-white/5 hover:bg-white/10',
+          'border border-white/10 hover:border-white/30',
+          'backdrop-blur-md',
+          'overflow-hidden',
+          'transition-all duration-300 ease-out',
+          'hover:shadow-[0_0_20px_rgba(255,255,255,0.15)]',
+          'no-underline text-inherit',
+          'p-2 md:p-2.5',
+          'animate-fade-up',
+        )}
+        style={{
+          color: '#fff',
+          textDecoration: 'none',
+          animationDelay: `${i * staggerMs}ms`,
+          animationFillMode: 'both',
+        }}
+      >
+        <div className={cn('relative overflow-hidden rounded-md bg-black/40', aspectClass)}>
+          <img
+            src={`/${item.src}`}
+            alt={item.title}
+            loading="lazy"
+            className="w-full h-full object-cover transition-transform duration-700 ease-out-expo group-hover:scale-[1.06]"
+          />
+          {/* Overlay download icon (apparait au hover) */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-3">
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15 border border-white/30 backdrop-blur-sm text-white text-xs uppercase tracking-wider font-semibold">
+              {IconDownload}
+              {t.goodies.download}
+            </span>
+          </div>
+        </div>
+        <div className="mt-2 px-1 flex items-center justify-between gap-2">
+          <span className="text-sm text-ink-85 truncate font-body" title={item.title}>
+            {item.title}
+          </span>
+          <span className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full bg-white/5 border border-white/15 text-white/85 group-hover:bg-white/15 group-hover:border-white/40 group-hover:text-white transition-all duration-300">
+            {IconDownload}
+          </span>
+        </div>
+      </motion.a>
+    );
+  };
 
   if (mobileOnly) {
     return (
       <div className="w-full">
-        <div className="grid grid-cols-5 gap-2">
-          {phoneWallpapers.map((item, i) => (
-            <GlassCard key={i} className="group p-1.5" onClick={() => handleDownload(item)} index={i} staggerMs={40}>
-              <div className="relative aspect-[9/16] overflow-hidden rounded-md bg-black/40">
-                <img
-                  src={`/${item.src}`}
-                  alt={item.title}
-                  loading="lazy"
-                  className="w-full h-full object-cover transition-transform duration-700 ease-out-expo group-hover:scale-[1.06]"
-                />
-              </div>
-              <div className="mt-1.5 flex justify-center">
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); handleDownload(item); }}
-                  className={downloadBtnClass}
-                >
-                  {t.goodies.download}
-                </button>
-              </div>
-            </GlassCard>
-          ))}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {phoneWallpapers.map((item, i) => renderCard(item, i, 'aspect-[9/16]'))}
         </div>
       </div>
     );
@@ -129,44 +177,17 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
 
   // Render grille pour une categorie — aspect ratio different selon type
   const renderGrid = (items: GoodieItem[], kind: 'desktop' | 'phone' | 'covers') => {
-    const gridClass = kind === 'desktop'
-      ? 'grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3.5'
-      : 'grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3';
+    const gridClass =
+      kind === 'desktop'
+        ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4'
+        : kind === 'phone'
+        ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4'
+        : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 md:gap-4';
 
-    const aspectClass = kind === 'desktop'
-      ? 'aspect-video'
-      : kind === 'phone'
-      ? 'aspect-[9/16]'
-      : 'aspect-square';
+    const aspectClass =
+      kind === 'desktop' ? 'aspect-video' : kind === 'phone' ? 'aspect-[9/16]' : 'aspect-square';
 
-    return (
-      <div className={gridClass}>
-        {items.map((item, i) => (
-          <GlassCard key={i} className="group p-2" index={i} staggerMs={40}>
-            <div className={cn('relative overflow-hidden rounded-md bg-black/40', aspectClass)}>
-              <img
-                src={`/${item.src}`}
-                alt={item.title}
-                loading="lazy"
-                className="w-full h-full object-cover transition-transform duration-700 ease-out-expo group-hover:scale-[1.06]"
-              />
-            </div>
-            <div className="mt-2 px-1 flex items-center justify-between gap-2">
-              <span className="text-sm text-ink-70 truncate font-body" title={item.title}>
-                {item.title}
-              </span>
-              <button
-                type="button"
-                onClick={() => handleDownload(item)}
-                className={downloadBtnClass}
-              >
-                {t.goodies.download}
-              </button>
-            </div>
-          </GlassCard>
-        ))}
-      </div>
-    );
+    return <div className={gridClass}>{items.map((item, i) => renderCard(item, i, aspectClass))}</div>;
   };
 
   const sections: { key: AccordionKey; kind: 'desktop' | 'phone' | 'covers'; title: string; count: number; items: GoodieItem[] }[] = [
@@ -190,11 +211,7 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
               <span className="goodies-acc-count">{s.count}</span>
               <span className="goodies-acc-chevron">{isOpen ? '−' : '+'}</span>
             </button>
-            {isOpen && (
-              <div className="goodies-acc-content">
-                {renderGrid(s.items, s.kind)}
-              </div>
-            )}
+            {isOpen && <div className="goodies-acc-content">{renderGrid(s.items, s.kind)}</div>}
           </div>
         );
       })}
