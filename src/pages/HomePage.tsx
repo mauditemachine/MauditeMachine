@@ -59,14 +59,14 @@ const HomePage: React.FC = () => {
         {t.signature.musicMakers}
       </motion.h2>
 
-      {/* 3. RAW. HYPNOTIC. UNDERGROUND. — font-semibold 600 */}
+      {/* 3. RAW. HYPNOTIC. UNDERGROUND. — fin et aere, plus classe */}
       <motion.div
         className={cn(
-          'text-white font-semibold uppercase',
-          'tracking-[0.3em]',
-          'text-sm md:text-base',
+          'text-white font-light uppercase',
+          'tracking-[0.4em]',
+          'text-[11px] md:text-xs',
           '[text-shadow:_0_2px_12px_rgba(0,0,0,0.45)]',
-          'mt-2',
+          'mt-1',
         )}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -75,23 +75,23 @@ const HomePage: React.FC = () => {
         {t.presskit.catchphrase}
       </motion.div>
 
-      {/* 4. Tagline 3 lignes — DJ & Producer / Montreal / genres */}
+      {/* 4. Tagline 3 lignes — fines et minimalistes */}
       <motion.div
         className={cn(
-          'flex flex-col items-center gap-1.5 md:gap-2',
-          'font-semibold uppercase tracking-[0.25em]',
-          'text-base md:text-lg',
-          'text-white/80',
+          'flex flex-col items-center gap-1 md:gap-1.5',
+          'font-light uppercase tracking-[0.35em]',
+          'text-[11px] md:text-xs',
+          'text-white/75',
           '[text-shadow:_0_2px_12px_rgba(0,0,0,0.45)]',
-          'mt-2',
+          'mt-1',
         )}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 1.4, ease: 'easeOut', delay: 0.9 }}
       >
         <span>{t.signature.role}</span>
-        <span className="text-white/60">{t.signature.location}</span>
-        <span className="text-white/50 text-sm md:text-base tracking-[0.3em]">
+        <span className="text-white/55">{t.signature.location}</span>
+        <span className="text-white/45 tracking-[0.4em]">
           {t.signature.genres}
         </span>
       </motion.div>
