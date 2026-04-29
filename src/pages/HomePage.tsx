@@ -61,10 +61,10 @@ const HomePage: React.FC = () => {
         {t.signature.musicMakers}
       </motion.h2>
 
-      {/* 3. RAW. HYPNOTIC. UNDERGROUND. — fin et aere, plus classe */}
+      {/* 3. RAW. HYPNOTIC. UNDERGROUND. — font-semibold 600 strict */}
       <motion.div
         className={cn(
-          'text-white font-light uppercase',
+          'text-white font-semibold uppercase',
           'tracking-[0.4em]',
           'text-[11px] md:text-xs',
           '[text-shadow:_0_2px_12px_rgba(0,0,0,0.45)]',
@@ -77,13 +77,13 @@ const HomePage: React.FC = () => {
         {t.presskit.catchphrase}
       </motion.div>
 
-      {/* 4. Tagline 3 lignes — fines et minimalistes */}
+      {/* 4. Tagline 3 lignes — font-semibold 600 sur tout le bloc */}
       <motion.div
         className={cn(
           'flex flex-col items-center gap-1 md:gap-1.5',
-          'font-light uppercase tracking-[0.35em]',
+          'font-semibold uppercase tracking-[0.35em]',
           'text-[11px] md:text-xs',
-          'text-white/75',
+          'text-white/85',
           '[text-shadow:_0_2px_12px_rgba(0,0,0,0.45)]',
           'mt-1',
         )}
@@ -92,8 +92,8 @@ const HomePage: React.FC = () => {
         transition={{ duration: 1.4, ease: 'easeOut', delay: 0.9 }}
       >
         <span>{t.signature.role}</span>
-        <span className="text-white/55">{t.signature.location}</span>
-        <span className="text-white/45 tracking-[0.4em]">
+        <span className="text-white/70">{t.signature.location}</span>
+        <span className="text-white/60 tracking-[0.4em]">
           {t.signature.genres}
         </span>
       </motion.div>

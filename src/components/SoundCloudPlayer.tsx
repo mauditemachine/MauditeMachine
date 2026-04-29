@@ -126,6 +126,10 @@ export default function SoundCloudPlayer({
   const [durationMs, setDurationMs] = useState(0)
   const [vaultOpen, setVaultOpen] = useState(false)
   const lastIndexRef = useRef<number>(-1)
+  // Flag : passe a true des que l'utilisateur a interagi (play / next / prev /
+  // skip via Vault). Avant ca, on ignore les reports du widget qui indique
+  // parfois un index > 0 a tort pendant le chargement de la playlist.
+  const userPlayedRef = useRef<boolean>(false)
 
   // Supprimer les erreurs SoundCloud bruyantes de la console
   useEffect(() => {
@@ -195,10 +199,17 @@ export default function SoundCloudPlayer({
       const checkCurrentTrack = () => {
         if (cancelled) return
         widget.getCurrentSoundIndex((i: number) => {
-          const newIndex = i || 0
-          if (newIndex !== lastIndexRef.current) {
-            lastIndexRef.current = newIndex
-            setCurrentIndex(newIndex)
+          const reported = typeof i === 'number' && i >= 0 ? i : 0
+          // BUG FIX : si l'utilisateur n'a JAMAIS lance la musique et que
+          // le widget reporte un index > 0, on ignore (quirk SoundCloud
+          // pendant le chargement de la playlist). Le track par defaut
+          // doit rester index 0.
+          if (!userPlayedRef.current && reported > 0) {
+            return
+          }
+          if (reported !== lastIndexRef.current) {
+            lastIndexRef.current = reported
+            setCurrentIndex(reported)
           }
           widget.getCurrentSound((sound: Sound) => {
             if (sound?.title) setCurrentTitle(sound.title)
@@ -210,6 +221,15 @@ export default function SoundCloudPlayer({
 
       widget.bind(window.SC.Widget.Events.READY, () => {
         tryFetchAll()
+        // FIX BUG SKIP : force le widget a commencer au track 0 (Voodoo).
+        // Sans ca, SoundCloud auto-avance parfois sur le track 1 pendant
+        // le chargement de la playlist, ce qui affichait Simetra a l'init.
+        try {
+          widget.skip(0)
+          widget.pause()
+        } catch {}
+        setCurrentIndex(0)
+        lastIndexRef.current = 0
       })
 
       widget.bind(window.SC.Widget.Events.PLAY, () => {
@@ -260,6 +280,7 @@ export default function SoundCloudPlayer({
   function togglePlay() {
     const w = widgetRef.current
     if (!w) return
+    userPlayedRef.current = true
     w.isPaused((paused: boolean) => {
       if (paused) w.play()
       else w.pause()
@@ -269,6 +290,7 @@ export default function SoundCloudPlayer({
   function next() {
     const w = widgetRef.current
     if (!w) return
+    userPlayedRef.current = true
     w.next()
     setTimeout(() => w.play(), 120)
   }
@@ -276,6 +298,7 @@ export default function SoundCloudPlayer({
   function prev() {
     const w = widgetRef.current
     if (!w) return
+    userPlayedRef.current = true
     w.prev()
     setTimeout(() => w.play(), 120)
   }
@@ -283,6 +306,7 @@ export default function SoundCloudPlayer({
   function playIndex(index: number) {
     const w = widgetRef.current
     if (!w) return
+    userPlayedRef.current = true
     setCurrentIndex(index)
     setIsPlaying(true)
     try {
@@ -370,15 +394,15 @@ export default function SoundCloudPlayer({
               )}
             </div>
 
-            {/* Track title + artist */}
+            {/* Track title + artist — SF Pro Rounded, font-extrabold, uppercase, text-sm */}
             <div className="min-w-0 max-w-[140px] sm:max-w-[200px] md:max-w-[240px]">
               <div
-                className="text-sm sm:text-[15px] font-semibold text-white truncate font-body leading-tight [text-shadow:_0_1px_3px_rgba(0,0,0,0.4)]"
+                className="font-rounded text-[14px] font-extrabold uppercase text-white truncate leading-tight [text-shadow:_0_1px_3px_rgba(0,0,0,0.4)]"
                 title={displayTitle}
               >
                 {displayTitle || a.loading}
               </div>
-              <div className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/55 font-light leading-tight mt-0.5">
+              <div className="font-rounded text-[14px] font-extrabold uppercase text-white/65 truncate leading-tight mt-0.5">
                 Maudite Machine
               </div>
             </div>
