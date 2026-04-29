@@ -338,7 +338,7 @@ export default function SoundCloudPlayer({
         src={`https://w.soundcloud.com/player/?url=${encodeURIComponent(PLAYLIST_URL)}&color=%23ffffff&auto_play=false&hide_related=true&show_comments=false&show_user=false&show_reposts=false&show_teaser=false&visual=false`}
       />
 
-      {/* Floating Pill — Liquid Glass premium 2026 */}
+      {/* Floating Pill — Liquid Glass premium 2026, seekbar inline flex-1 au centre */}
       <div
         role="region"
         aria-label={a.audioPlayer}
@@ -351,67 +351,65 @@ export default function SoundCloudPlayer({
         className={cn(
           'bottom-4 md:bottom-6',
           'w-[95%] max-w-3xl',
-          'relative rounded-full overflow-hidden',
-          // Charte liquid-glass alignee sur les boites Presskit / VRSTL
+          'rounded-full',
           'bg-black/20 backdrop-blur-2xl',
           'border border-white/10',
           'shadow-[0_10px_40px_rgba(0,0,0,0.5)]',
         )}
       >
-        {/* Seekbar 3px collee tout en BAS de la pill (toujours dans le DOM, jamais conditionnee) */}
-        <div
-          className={cn(
-            'absolute bottom-0 left-0 w-full h-[3px] z-50',
-            'bg-white/10 cursor-pointer',
-            'hover:h-[6px] transition-all duration-200',
-          )}
-          onClick={handleProgressClick}
-          role="slider"
-          aria-label={a.trackProgress}
-          aria-valuemin={0}
-          aria-valuemax={durationMs || 100}
-          aria-valuenow={positionMs}
-        >
-          {/* Progress fill : NaN guard avec || 0, transition lineaire */}
+        {/* Single row : [Cover + Title] | seekbar flex-1 | [Time + Controls] */}
+        <div className="flex flex-row items-center pl-2 sm:pl-3 pr-2 sm:pr-3 py-2">
+          {/* === LEFT BLOCK : Cover + Track Info === */}
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-shrink">
+            {/* Cover mini */}
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden flex-shrink-0 bg-black/40 border border-white/10">
+              {coverUrl ? (
+                <img src={coverUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-white/10 to-white/5" />
+              )}
+            </div>
+
+            {/* Track title + artist */}
+            <div className="min-w-0 max-w-[140px] sm:max-w-[200px] md:max-w-[240px]">
+              <div
+                className="text-sm sm:text-[15px] font-semibold text-white truncate font-body leading-tight [text-shadow:_0_1px_3px_rgba(0,0,0,0.4)]"
+                title={displayTitle}
+              >
+                {displayTitle || a.loading}
+              </div>
+              <div className="text-[10px] sm:text-[11px] uppercase tracking-[0.3em] text-white/55 font-light leading-tight mt-0.5">
+                Maudite Machine
+              </div>
+            </div>
+          </div>
+
+          {/* === MIDDLE : Seekbar flex-1, toujours visible === */}
           <div
-            className="absolute top-0 left-0 h-full bg-white rounded-r-full transition-all duration-100 ease-linear"
-            style={{
-              width: `${(positionMs / durationMs) * 100 || 0}%`,
-            }}
-          />
-        </div>
-
-        {/* Controls row (pb-3 pour laisser respirer la seekbar en bas) */}
-        <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 pr-3 sm:pr-4 pt-2 pb-3">
-          {/* Cover mini */}
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full overflow-hidden flex-shrink-0 bg-black/40 border border-white/10">
-            {coverUrl ? (
-              <img src={coverUrl} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-white/10 to-white/5" />
-            )}
-          </div>
-
-          {/* Track info : title + Maudite Machine */}
-          <div className="min-w-0 flex-1">
+            className="flex-1 mx-4 md:mx-6 h-1.5 bg-white/20 rounded-full relative overflow-hidden cursor-pointer hover:h-2 transition-all duration-200"
+            onClick={handleProgressClick}
+            role="slider"
+            aria-label={a.trackProgress}
+            aria-valuemin={0}
+            aria-valuemax={durationMs || 100}
+            aria-valuenow={positionMs}
+          >
             <div
-              className="text-sm sm:text-[15px] font-semibold text-white truncate font-body [text-shadow:_0_1px_3px_rgba(0,0,0,0.4)]"
-              title={displayTitle}
-            >
-              {displayTitle || a.loading}
-            </div>
-            <div className="text-sm sm:text-sm text-white/60 uppercase tracking-[0.2em] font-body">
-              Maudite Machine
-            </div>
+              className="absolute top-0 left-0 h-full bg-white rounded-full transition-all duration-100 ease-linear"
+              style={{
+                width: `${durationMs > 0 ? (positionMs / durationMs) * 100 : 0}%`,
+              }}
+            />
           </div>
 
-          {/* Time (hidden sur petit ecran) */}
-          <div className="hidden md:block text-sm text-white/70 tabular-nums font-body flex-shrink-0 [text-shadow:_0_1px_3px_rgba(0,0,0,0.4)]">
-            {formatMs(positionMs)} / {formatMs(durationMs)}
-          </div>
-
-          {/* Controls : prev / play (gros) / next — tous en cercles glassmorphic uniformes */}
+          {/* === RIGHT BLOCK : Chrono + Controls === */}
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            {/* Time (desktop only) */}
+            <div className="hidden md:block text-xs text-white/70 tabular-nums font-body mr-1 [text-shadow:_0_1px_3px_rgba(0,0,0,0.4)]">
+              {formatMs(positionMs)} / {formatMs(durationMs)}
+            </div>
+
+            {/* Prev — desktop only */}
             <motion.button
               type="button"
               whileHover={{ scale: 1.05 }}
@@ -429,7 +427,7 @@ export default function SoundCloudPlayer({
               <IconPrev />
             </motion.button>
 
-            {/* Play / Pause : plus gros pour marquer la hierarchie */}
+            {/* Play / Pause central plus gros */}
             <motion.button
               type="button"
               whileHover={{ scale: 1.05 }}
@@ -447,6 +445,7 @@ export default function SoundCloudPlayer({
               {isPlaying ? <IconPause /> : <IconPlay />}
             </motion.button>
 
+            {/* Next — desktop only */}
             <motion.button
               type="button"
               whileHover={{ scale: 1.05 }}
@@ -463,26 +462,26 @@ export default function SoundCloudPlayer({
             >
               <IconNext />
             </motion.button>
-          </div>
 
-          {/* Vault / Playlist button — meme glassmorphic uniforme */}
-          <motion.button
-            type="button"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleOpenVault}
-            aria-label={a.openPlaylist}
-            aria-expanded={vaultOpen}
-            className={cn(
-              'flex items-center justify-center flex-shrink-0',
-              'w-10 h-10 rounded-full',
-              'bg-white/5 border border-white/10 text-white',
-              'hover:bg-white/15',
-              'transition-all duration-300',
-            )}
-          >
-            <IconPlaylist />
-          </motion.button>
+            {/* Vault / Playlist */}
+            <motion.button
+              type="button"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleOpenVault}
+              aria-label={a.openPlaylist}
+              aria-expanded={vaultOpen}
+              className={cn(
+                'flex items-center justify-center',
+                'w-10 h-10 rounded-full',
+                'bg-white/5 border border-white/10 text-white',
+                'hover:bg-white/15',
+                'transition-all duration-300',
+              )}
+            >
+              <IconPlaylist />
+            </motion.button>
+          </div>
         </div>
       </div>
 
