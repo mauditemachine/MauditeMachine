@@ -12,6 +12,7 @@
 import React, { useEffect, useState } from 'react'
 import { cn } from '../../lib/cn'
 import { useTranslation } from '../../lib/i18n'
+import { SOCIAL_LINKS } from './SocialIcons'
 
 export interface MobileMenuLink {
   key: string
@@ -184,35 +185,32 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
               })}
             </nav>
 
-            {/* Socials row */}
-            {socials && socials.length > 0 && (
-              <div
-                style={{
-                  animationDelay: `${100 + links.length * 70}ms`,
-                  animationFillMode: 'both',
-                }}
-                className="flex items-center gap-4 pt-4 animate-fade-up"
-              >
-                {socials.map((s) => (
-                  <a
-                    key={s.label}
-                    href={s.href}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={s.label}
-                    className={cn(
-                      'w-10 h-10 rounded-full',
-                      'flex items-center justify-center',
-                      'bg-ink-8 border border-ink-15',
-                      'text-ink-85 hover:text-ink-95 hover:bg-ink-15',
-                      'transition-all duration-250',
-                    )}
-                  >
-                    {s.icon}
-                  </a>
-                ))}
-              </div>
-            )}
+            {/* Socials row — utilise SOCIAL_LINKS partage (10 reseaux)
+                Icones plus grandes (w-6 h-6) pour cibles tactiles, sans fond. */}
+            <div
+              style={{
+                animationDelay: `${100 + links.length * 70}ms`,
+                animationFillMode: 'both',
+              }}
+              className="flex flex-row flex-wrap justify-center items-center gap-6 mt-12 w-full animate-fade-up"
+            >
+              {SOCIAL_LINKS.map((s) => (
+                <a
+                  key={s.label}
+                  href={s.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={s.label}
+                  className="flex items-center justify-center text-white/60 hover:text-white transition-all duration-200 hover:scale-110 [&>svg]:w-6 [&>svg]:h-6 no-underline"
+                  style={{ color: 'inherit', textDecoration: 'none' }}
+                >
+                  {s.icon}
+                </a>
+              ))}
+            </div>
+
+            {/* Socials prop legacy (compat) — non utilise, conserve pour signature */}
+            {socials && socials.length > 0 && null}
           </div>
         </div>
       )}

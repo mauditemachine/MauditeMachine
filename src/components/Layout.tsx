@@ -17,6 +17,7 @@ import SoundCloudPlayer from './SoundCloudPlayer';
 import JellyfishBackground from './JellyfishBackground';
 import LiquidGlass from './LiquidGlass';
 import MobileMenu from './ui/MobileMenu';
+import SocialSidebar from './ui/SocialSidebar';
 import { useApp } from '../context/AppContext';
 import { cn } from '../lib/cn';
 
@@ -233,7 +234,7 @@ const Layout: React.FC = () => {
                   className={({ isActive }) =>
                     cn(
                       'h-full inline-flex items-center',
-                      'font-body text-sm font-extrabold uppercase tracking-wide',
+                      'font-body text-[13px] font-extrabold uppercase tracking-wide',
                       'leading-none m-0 px-0',
                       'transition-colors duration-300 no-underline',
                       isActive ? 'text-white' : 'text-white/80 hover:text-white',
@@ -262,6 +263,9 @@ const Layout: React.FC = () => {
         <a href="https://vrstlrecords.com" target="_blank" rel="noreferrer" className="vrstl-fixed">
           <img src={import.meta.env.BASE_URL + 'logo/vrstl-logo-clean.svg'} alt="VRSTL Records" />
         </a>
+
+        {/* Social sidebar fixe right (desktop only) — persiste entre toutes les pages */}
+        <SocialSidebar />
 
         {/* Lecteur audio — UNE SEULE INSTANCE persistante au niveau Layout.
             Ne se demonte JAMAIS pendant la navigation entre pages.
