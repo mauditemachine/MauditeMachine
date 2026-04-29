@@ -24,16 +24,18 @@ const HomePage: React.FC = () => {
   return (
     <section
       className={cn(
-        'relative w-full h-screen',
-        'flex flex-col items-center justify-center text-center gap-6',
-        'px-6',
+        'relative w-full',
+        'h-screen h-[100svh]', // svh : small viewport height stable sur iOS Safari (URL bar)
+        'flex flex-col items-center justify-center text-center',
+        'gap-4 sm:gap-6',
+        'px-4 sm:px-6',
       )}
     >
-      {/* 1. Logo MAUDITE MACHINE */}
+      {/* 1. Logo MAUDITE MACHINE — pleine largeur ecran sur mobile */}
       <motion.img
         src={import.meta.env.BASE_URL + 'logo/LogoStack.svg'}
         alt="Maudite Machine"
-        className="w-[85vw] max-w-[780px] h-auto"
+        className="w-[92vw] max-w-[780px] h-auto"
         style={{
           filter: 'brightness(0) invert(1) drop-shadow(0 4px 24px rgba(0,0,0,0.4))',
         }}

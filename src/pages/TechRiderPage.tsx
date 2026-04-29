@@ -12,11 +12,11 @@ const TechRiderPage: React.FC = () => {
   const { t } = useTranslation();
 
   return (
-    <section className="pt-24 pb-32 py-20 md:py-32 px-6 md:px-10 max-w-7xl mx-auto w-full">
+    <section className="pt-24 pb-32 py-20 md:py-32 px-4 md:px-10 max-w-7xl mx-auto w-full">
       <div className="grid grid-cols-12 gap-4 md:gap-6 mb-12 md:mb-20">
         {/* LIVE SETUP — col 7 */}
         <div
-          className="col-span-12 md:col-span-7 pk-glass p-6 md:p-10 rounded-2xl md:rounded-3xl animate-fade-up"
+          className="col-span-12 md:col-span-7 pk-glass p-5 md:p-10 rounded-2xl md:rounded-3xl animate-fade-up"
           style={{ animationDelay: '120ms', animationFillMode: 'both' }}
         >
           <div className="text-xs md:text-sm uppercase tracking-[0.4em] text-ink-50 font-body mb-4 md:mb-6">
@@ -35,7 +35,7 @@ const TechRiderPage: React.FC = () => {
 
         {/* DJ SETUP — col 5 */}
         <div
-          className="col-span-12 md:col-span-5 pk-glass p-6 md:p-10 rounded-2xl md:rounded-3xl animate-fade-up"
+          className="col-span-12 md:col-span-5 pk-glass p-5 md:p-10 rounded-2xl md:rounded-3xl animate-fade-up"
           style={{ animationDelay: '220ms', animationFillMode: 'both' }}
         >
           <div className="text-xs md:text-sm uppercase tracking-[0.4em] text-ink-50 font-body mb-4 md:mb-6">
@@ -63,7 +63,7 @@ const TechRiderPage: React.FC = () => {
 
         {/* HOSPITALITY — col 12 quote italic */}
         <div
-          className="col-span-12 pk-glass p-8 md:p-14 rounded-2xl md:rounded-3xl animate-fade-up"
+          className="col-span-12 pk-glass p-6 md:p-14 rounded-2xl md:rounded-3xl animate-fade-up"
           style={{ animationDelay: '320ms', animationFillMode: 'both' }}
         >
           <div className="text-xs md:text-sm uppercase tracking-[0.4em] text-ink-50 font-body mb-4 md:mb-6">
@@ -93,7 +93,7 @@ const TechRiderPage: React.FC = () => {
         )}
         style={{ animationDelay: '440ms', animationFillMode: 'both' }}
       >
-        <div className="relative p-8 md:p-14 lg:p-20">
+        <div className="relative p-6 md:p-14 lg:p-20">
           <div className="flex items-center justify-between mb-6 md:mb-10 text-xs md:text-sm uppercase tracking-[0.3em] text-ink-50 font-body">
             <span>{t.techrider.ctaMeta}</span>
             <span>{t.techrider.ctaEdition}</span>

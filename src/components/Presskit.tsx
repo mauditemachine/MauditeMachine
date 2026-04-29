@@ -230,7 +230,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         <div className="text-base md:text-lg font-extrabold uppercase tracking-wide text-white mb-6 md:mb-8">
           {p.remixLabel}
         </div>
-        <div className="pk-glass p-6 md:p-10 rounded-2xl md:rounded-3xl">
+        <div className="pk-glass p-5 md:p-10 rounded-2xl md:rounded-3xl">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-3 font-display font-bold uppercase text-ink-95 text-2xl md:text-4xl lg:text-5xl tracking-[-0.02em]">
             <span>Laurent Garnier</span>
             <span className="text-white/30">/</span>
@@ -311,7 +311,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         <div className="text-base md:text-lg font-extrabold uppercase tracking-wide text-white mb-6 md:mb-10">
           {p.labelSection}
         </div>
-        <div className="pk-glass p-6 md:p-12 rounded-2xl md:rounded-3xl">
+        <div className="pk-glass p-5 md:p-12 rounded-2xl md:rounded-3xl">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 items-center mb-8 md:mb-12">
             <div className="md:col-span-5 flex justify-center md:justify-start">
               <img
@@ -455,7 +455,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         )}
         style={{ animationDelay: '200ms', animationFillMode: 'both' }}
       >
-        <div className="relative p-8 md:p-14 lg:p-20">
+        <div className="relative p-6 md:p-14 lg:p-20">
           <div className="flex items-center justify-between mb-6 md:mb-10 text-sm md:text-sm uppercase tracking-[0.3em] text-ink-50 font-body">
             <span>{p.downloadMeta}</span>
             <span>{p.downloadEdition}</span>

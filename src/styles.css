@@ -208,12 +208,12 @@ body {
 }
 
 /* ===== SITE HEADER ===== */
+/* Padding gere par Tailwind dans Layout.tsx (px-4 md:px-8) — pas d'override ici. */
 .site-header {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  padding: 16px 40px;
   z-index: 1000;
   /* liquid-glass class gere: background + backdrop-filter + border + shadows */
   border-radius: 0;
@@ -1431,9 +1431,10 @@ body {
   .header-nav-right { display: none !important; }
 }
 
-/* Masquer le layout desktop sur mobile */
+/* Legacy : .site-main et .site-footer ne sont plus utilises dans la nouvelle
+   architecture multi-pages. .site-header par contre sert TOUJOURS sur mobile
+   (logo a gauche, hamburger a droite via MobileMenu). On ne le cache plus. */
 @media (max-width: 768px) {
-  .site-header,
   .site-main,
   .site-footer {
     display: none !important;
