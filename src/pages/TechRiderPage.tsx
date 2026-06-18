@@ -26,10 +26,10 @@ const TechRiderPage: React.FC = () => {
             {t.techrider.liveTitle}
           </h3>
           <ul className="font-body text-base md:text-xl text-ink-95 space-y-2 md:space-y-3">
-            <li>— Macbook Pro</li>
-            <li>— Ableton Push 3</li>
-            <li>— Dreadbox Typhon</li>
-            <li>— Akai APC40</li>
+            <li>Macbook Pro</li>
+            <li>Ableton Push 3</li>
+            <li>Dreadbox Typhon</li>
+            <li>Akai APC40</li>
           </ul>
         </div>
 
@@ -46,7 +46,7 @@ const TechRiderPage: React.FC = () => {
           </h3>
           <ul className="font-body text-sm md:text-base text-ink-95 space-y-2 md:space-y-3">
             <li>
-              — {t.techrider.djLine1Main}{' '}
+              {t.techrider.djLine1Main}{' '}
               <span className="text-ink-95 font-medium">{t.techrider.djLine1Variant}</span>
               <span className="text-ink-50"> {t.techrider.djLine1Alt}</span>
             </li>
@@ -54,7 +54,7 @@ const TechRiderPage: React.FC = () => {
               {t.techrider.djFirmware}
             </li>
             <li className="pt-2">
-              — {t.techrider.djMixerMain}{' '}
+              {t.techrider.djMixerMain}{' '}
               <span className="font-medium">{t.techrider.djMixerPrimary}</span>
               <span className="text-ink-50">{t.techrider.djMixerAlt}</span>
             </li>

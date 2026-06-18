@@ -57,7 +57,7 @@ const ShowsPage: React.FC = () => {
               {t.shows.wallOfFame}
             </div>
             <div className="text-sm md:text-base font-bold uppercase tracking-wide text-white/60 font-body">
-              {showsArchive[showsArchive.length - 1]?.year} — {showsArchive[0]?.year}
+              {showsArchive[showsArchive.length - 1]?.year} / {showsArchive[0]?.year}
             </div>
           </div>
 

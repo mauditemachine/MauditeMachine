@@ -139,7 +139,7 @@ const AdminEvents: React.FC = () => {
                 <div className="admin-color-bar" style={{ background: ev.color }} />
                 <div className="admin-item-info">
                   <div className="admin-item-title">{ev.title}</div>
-                  <div className="admin-item-meta">{ev.date} — {ev.location}</div>
+                  <div className="admin-item-meta">{ev.date} · {ev.location}</div>
                 </div>
                 <button className="admin-btn-secondary" onClick={() => { setEventForm(ev); setEditingEventIndex(i); window.scrollTo(0,0); }}>Edit</button>
                 <button className="admin-btn-danger" onClick={() => deleteEvent(i)}>Del</button>
@@ -191,7 +191,7 @@ const AdminEvents: React.FC = () => {
                 {item.src && <img src={item.src} alt={item.alt} className="admin-item-thumb" />}
                 <div className="admin-item-info">
                   <div className="admin-item-title">{item.caption} {item.soldOut && <span className="admin-badge-danger">SOLD OUT</span>} {!item.active && <span className="admin-badge-muted">HIDDEN</span>}</div>
-                  <div className="admin-item-meta">{item.price} — {item.category}</div>
+                  <div className="admin-item-meta">{item.price} · {item.category}</div>
                 </div>
                 <button className="admin-btn-secondary" onClick={() => { setMerchForm(item); setEditingMerchIndex(i); window.scrollTo(0,0); }}>Edit</button>
                 <button className="admin-btn-danger" onClick={() => deleteMerch(i)}>Del</button>
@@ -244,7 +244,7 @@ const AdminEvents: React.FC = () => {
                 {msg.image && <img src={msg.image} alt={msg.title} className="admin-item-thumb" />}
                 <div className="admin-item-info">
                   <div className="admin-item-title">{msg.title} {msg.main && <span className="admin-badge-main">MAIN</span>}</div>
-                  <div className="admin-item-meta">{msg.date} {msg.description && `— ${msg.description.substring(0, 60)}...`}</div>
+                  <div className="admin-item-meta">{msg.date} {msg.description && `· ${msg.description.substring(0, 60)}...`}</div>
         </div>
                 <button className="admin-btn-secondary" onClick={() => { setMsgForm({...msg, link: msg.link || { label: '', href: '' }}); setEditingMsgIndex(i); window.scrollTo(0,0); }}>Edit</button>
                 <button className="admin-btn-danger" onClick={() => deleteMsg(i)}>Del</button>

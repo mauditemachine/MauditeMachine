@@ -27,7 +27,7 @@ export const translations = {
     },
     signature: {
       role: 'DJ & Producer',
-      location: 'Montréal — Canada',
+      location: 'Montréal, Canada',
       genres: 'Minimal · Indie Dance · Dark Disco',
       musicMakers: 'WE ARE MUSIC MAKERS',
     },
@@ -92,12 +92,12 @@ export const translations = {
       metaLine1: 'DJ · Producer · VRSTL Records',
       metaLine2: 'Montréal / Canada',
 
-      bioLabel: '— Biography',
+      bioLabel: 'Biography',
       bioMain: "A pillar of the Montreal underground for over 15 years, Mika has forged the identity of Maudite Machine between the immersive walls of SAT and the effervescent stages of Piknic Électronik. Sharing the bill with legends like Carl Craig, Agoria, and Reinier Zonneveld, his footprint reaches far beyond a simple DJ set.",
-      bioSecondary: "At the helm of VRSTL Records, he sculpts the future of North American Indie Dance and Dark Disco. A sonic architect navigating between hardware sequencers and analog synthesizers, he turns every Live Set into a raw, unfiltered ceremony. With a decade and a half dedicated to teaching music production, he doesn't just play tomorrow's music — he trains those who will create it.",
+      bioSecondary: "At the helm of VRSTL Records, he sculpts the future of North American Indie Dance and Dark Disco. A sonic architect navigating between hardware sequencers and analog synthesizers, he turns every Live Set into a raw, unfiltered ceremony. With a decade and a half dedicated to teaching music production, he doesn't just play tomorrow's music: he trains those who will create it.",
       bioQuote: 'A sound that embraces tension, groove and experimentation',
 
-      statsLabel: '— By the numbers',
+      statsLabel: 'By the numbers',
       statYears: 'Years active',
       statEps: 'EPs on VRSTL',
       statAlbums: 'Albums released',
@@ -107,24 +107,24 @@ export const translations = {
       statAlbumsEn: 'Albums released',
       statStudentsEn: 'Students taught',
 
-      remixLabel: '— Remix work for',
+      remixLabel: 'Remix work for',
       remixFooter: 'Full performance archive → Wall of Fame',
 
-      albumLabel: '— Latest album',
+      albumLabel: 'Latest album',
       albumMeta: 'VRSTL Records · October 2025 · 9 tracks',
       albumDesc: "The space between the end and the new beginning. This album translates the experience of a complete stop, the passage to the afterlife and the unexpected return into electronic impulses. Each track explores those extreme territories where consciousness dissolves and reforms.",
 
-      catalogueLabel: '— Full catalogue',
-      catalogueTitle: '13 RELEASES.\n2024 — 2026.',
+      catalogueLabel: 'Full catalogue',
+      catalogueTitle: '13 RELEASES.\n2024 / 2026.',
       catalogueDesc: 'From Discowriders (Jul 2024) to Voodoo (Feb 2026), a constant flow of original productions on VRSTL Records. Singles, EPs and an album, in a dark disco, indie dance and hypnotic minimal aesthetic.',
 
-      labelSection: '— Label',
+      labelSection: 'Label',
       labelDescMain: 'VRSTL Records is an independent Canadian label dedicated to Indie Dance and Dark Disco. Since its founding, the label has released 21 EPs and 2 albums, signing emerging artists from Argentina, Quebec and Europe.',
       labelDescSecondary: 'The label champions a bold underground aesthetic, with a focus on tension, groove and experimentation across its growing roster.',
       labelArtisticDirection: 'Artistic direction: tension, groove, experimentation. A catalogue that redefines the frontiers of electronic underground.',
       rosterLabel: 'Roster / Signed artists',
 
-      contactLabel: '— Contact',
+      contactLabel: 'Contact',
       contactBooking: 'Booking · Management',
       contactLabelLabel: 'Label',
       contactFooterVersion: '© 2026 Maudite Machine / VRSTL Records · Press Kit V.2026',
@@ -136,8 +136,8 @@ export const translations = {
     },
     shows: {
       title: 'Shows',
-      subtitle: 'Festivals, clubs, warehouses — from Montreal underground to iconic stages across Canada, France and beyond.',
-      wallOfFame: '— Wall of Fame',
+      subtitle: 'Festivals, clubs, warehouses, from Montreal underground to iconic stages across Canada, France and beyond.',
+      wallOfFame: 'Wall of Fame',
     },
     merch: {
       title: 'Merch',
@@ -145,11 +145,11 @@ export const translations = {
     },
     goodiesSection: {
       title: 'Goodies',
-      subtitle: 'Wallpapers, release covers and stickers — grab them all for free.',
+      subtitle: 'Wallpapers, release covers and stickers. Grab them all for free.',
     },
     techrider: {
       title: 'Tech Rider',
-      subtitle: 'Live setup, DJ backline, hospitality — everything you need to host the machine.',
+      subtitle: 'Live setup, DJ backline, hospitality. Everything you need to host the machine.',
       liveLabel: '01 · Live Setup',
       liveTitle: 'Hybrid\nLive Show',
       djLabel: '02 · DJ Setup',
@@ -172,7 +172,7 @@ export const translations = {
     },
     contactSection: {
       title: 'Contact',
-      subtitle: 'Bookings, interviews, collaborations — direct line to the studio.',
+      subtitle: 'Bookings, interviews, collaborations. Direct line to the studio.',
     },
     editorial: {
       issueTag: 'N° 01 · Editorial',
@@ -190,7 +190,7 @@ export const translations = {
     },
     a11y: {
       // Aria-labels pour screen readers + accessibilite
-      homeLink: 'Maudite Machine — home',
+      homeLink: 'Maudite Machine',
       audioPlayer: 'Audio player',
       trackProgress: 'Track progress',
       previousTrack: 'Previous track',
@@ -221,7 +221,7 @@ export const translations = {
     },
     signature: {
       role: 'DJ & Producteur',
-      location: 'Montréal — Canada',
+      location: 'Montréal, Canada',
       genres: 'Minimal · Indie Dance · Dark Disco',
       musicMakers: 'WE ARE MUSIC MAKERS',
     },
@@ -285,12 +285,12 @@ export const translations = {
       metaLine1: 'DJ · Producteur · VRSTL Records',
       metaLine2: 'Montréal / Canada',
 
-      bioLabel: '— Biographie',
+      bioLabel: 'Biographie',
       bioMain: "Pilier de l'underground montréalais depuis plus de 15 ans, Mika a forgé l'identité de Maudite Machine entre les murs immersifs de la SAT et les scènes effervescentes du Piknic Électronik. Partageant l'affiche avec des légendes telles que Carl Craig, Agoria ou Reinier Zonneveld, son empreinte s'étend bien au-delà d'un simple DJ set.",
       bioSecondary: "À la tête de VRSTL Records, il sculpte le futur de l'Indie Dance et du Dark Disco nord-américain. Architecte sonore naviguant entre séquenceurs matériels et synthétiseurs analogiques, il transforme chaque Live Set en une cérémonie brute et sans filtre. Fort d'une décennie et demie dédiée à l'enseignement de la production, il ne se contente pas de jouer la musique de demain : il forme ceux qui la créeront.",
       bioQuote: 'Un son qui embrasse la tension, le groove et l\'expérimentation',
 
-      statsLabel: '— En chiffres',
+      statsLabel: 'En chiffres',
       statYears: 'Années de carrière',
       statEps: 'EPs sur VRSTL',
       statAlbums: 'Albums publiés',
@@ -300,24 +300,24 @@ export const translations = {
       statAlbumsEn: 'Albums released',
       statStudentsEn: 'Students taught',
 
-      remixLabel: '— Remixes pour',
+      remixLabel: 'Remixes pour',
       remixFooter: 'Archives complètes des performances → Wall of Fame',
 
-      albumLabel: '— Dernier album',
+      albumLabel: 'Dernier album',
       albumMeta: 'VRSTL Records · Octobre 2025 · 9 titres',
       albumDesc: "L'espace entre la fin et le recommencement. Cet album traduit en impulsions électroniques l'expérience d'un arrêt complet, le passage vers l'au-delà et le retour inattendu. Chaque titre explore ces territoires extrêmes où la conscience se dissout puis se reforme.",
 
-      catalogueLabel: '— Catalogue complet',
-      catalogueTitle: '13 SORTIES.\n2024 — 2026.',
+      catalogueLabel: 'Catalogue complet',
+      catalogueTitle: '13 SORTIES.\n2024 / 2026.',
       catalogueDesc: 'De Discowriders (juil. 2024) à Voodoo (févr. 2026), un flux constant de productions originales sur VRSTL Records. Singles, EPs et un album, dans une esthétique dark disco, indie dance et minimal hypnotique.',
 
-      labelSection: '— Label',
+      labelSection: 'Label',
       labelDescMain: "VRSTL Records est un label indépendant canadien dédié à l'Indie Dance et au Dark Disco. Depuis sa fondation, le label a publié 21 EPs et 2 albums, signant des artistes émergents d'Argentine, du Québec et d'Europe.",
       labelDescSecondary: "Le label défend une esthétique underground affirmée, centrée sur la tension, le groove et l'expérimentation à travers son roster en pleine croissance.",
       labelArtisticDirection: "Direction artistique : tension, groove, expérimentation. Un catalogue qui redéfinit les frontières de l'underground électronique.",
       rosterLabel: 'Roster / Artistes signés',
 
-      contactLabel: '— Contact',
+      contactLabel: 'Contact',
       contactBooking: 'Booking · Management',
       contactLabelLabel: 'Label',
       contactFooterVersion: '© 2026 Maudite Machine / VRSTL Records · Press Kit V.2026',
@@ -329,8 +329,8 @@ export const translations = {
     },
     shows: {
       title: 'Concerts',
-      subtitle: 'Festivals, clubs, warehouses — de l\'underground montréalais aux scènes iconiques du Canada, de la France et au-delà.',
-      wallOfFame: '— Wall of Fame',
+      subtitle: 'Festivals, clubs, warehouses, de l\'underground montréalais aux scènes iconiques du Canada, de la France et au-delà.',
+      wallOfFame: 'Wall of Fame',
     },
     merch: {
       title: 'Merch',
@@ -338,11 +338,11 @@ export const translations = {
     },
     goodiesSection: {
       title: 'Goodies',
-      subtitle: 'Fonds d\'écran, pochettes de releases et stickers — tout en téléchargement gratuit.',
+      subtitle: 'Fonds d\'écran, pochettes de releases et stickers. Tout en téléchargement gratuit.',
     },
     techrider: {
       title: 'Tech Rider',
-      subtitle: 'Setup live, backline DJ, hospitalité — tout ce qu\'il faut pour accueillir la machine.',
+      subtitle: 'Setup live, backline DJ, hospitalité. Tout ce qu\'il faut pour accueillir la machine.',
       liveLabel: '01 · Setup Live',
       liveTitle: 'Live\nHybride',
       djLabel: '02 · Setup DJ',
@@ -365,7 +365,7 @@ export const translations = {
     },
     contactSection: {
       title: 'Contact',
-      subtitle: 'Bookings, entrevues, collaborations — ligne directe vers le studio.',
+      subtitle: 'Bookings, entrevues, collaborations. Ligne directe vers le studio.',
     },
     editorial: {
       issueTag: 'N° 01 · Éditorial',
@@ -382,7 +382,7 @@ export const translations = {
       madeBy: 'site réalisé par',
     },
     a11y: {
-      homeLink: 'Maudite Machine — accueil',
+      homeLink: 'Maudite Machine, accueil',
       audioPlayer: 'Lecteur audio',
       trackProgress: 'Progression du morceau',
       previousTrack: 'Morceau précédent',
@@ -413,7 +413,7 @@ export const translations = {
     },
     signature: {
       role: 'DJ & Productor',
-      location: 'Montreal — Canadá',
+      location: 'Montreal, Canadá',
       genres: 'Minimal · Indie Dance · Dark Disco',
       musicMakers: 'WE ARE MUSIC MAKERS',
     },
@@ -477,12 +477,12 @@ export const translations = {
       metaLine1: 'DJ · Productor · VRSTL Records',
       metaLine2: 'Montreal / Canadá',
 
-      bioLabel: '— Biografía',
+      bioLabel: 'Biografía',
       bioMain: 'Pilar del underground de Montreal desde hace más de 15 años, Mika ha forjado la identidad de Maudite Machine entre los muros inmersivos de la SAT y las escenas efervescentes de Piknic Électronik. Compartiendo cartel con leyendas como Carl Craig, Agoria o Reinier Zonneveld, su huella se extiende mucho más allá de un simple DJ set.',
       bioSecondary: 'Al frente de VRSTL Records, esculpe el futuro del Indie Dance y el Dark Disco norteamericano. Arquitecto sonoro que navega entre secuenciadores de hardware y sintetizadores analógicos, transforma cada Live Set en una ceremonia cruda y sin filtro. Con más de una década y media dedicada a enseñar producción musical, no se limita a tocar la música del mañana: forma a quienes la crearán.',
       bioQuote: 'Un sonido que abraza la tensión, el groove y la experimentación',
 
-      statsLabel: '— En cifras',
+      statsLabel: 'En cifras',
       statYears: 'Años de carrera',
       statEps: 'EPs en VRSTL',
       statAlbums: 'Álbumes publicados',
@@ -492,24 +492,24 @@ export const translations = {
       statAlbumsEn: 'Albums released',
       statStudentsEn: 'Students taught',
 
-      remixLabel: '— Remixes para',
+      remixLabel: 'Remixes para',
       remixFooter: 'Archivo completo de performances → Wall of Fame',
 
-      albumLabel: '— Último álbum',
+      albumLabel: 'Último álbum',
       albumMeta: 'VRSTL Records · Octubre 2025 · 9 tracks',
       albumDesc: 'El espacio entre el final y el nuevo comienzo. Este álbum traduce en impulsos electrónicos la experiencia de una parada completa, el paso al más allá y el regreso inesperado. Cada tema explora esos territorios extremos donde la conciencia se disuelve y se reconforma.',
 
-      catalogueLabel: '— Catálogo completo',
-      catalogueTitle: '13 LANZAMIENTOS.\n2024 — 2026.',
+      catalogueLabel: 'Catálogo completo',
+      catalogueTitle: '13 LANZAMIENTOS.\n2024 / 2026.',
       catalogueDesc: 'Desde Discowriders (jul. 2024) a Voodoo (feb. 2026), un flujo constante de producciones originales en VRSTL Records. Singles, EPs y un álbum, en una estética dark disco, indie dance y minimal hipnótico.',
 
-      labelSection: '— Label',
+      labelSection: 'Label',
       labelDescMain: 'VRSTL Records es un sello independiente canadiense dedicado al Indie Dance y al Dark Disco. Desde su fundación, el sello ha publicado 21 EPs y 2 álbumes, firmando artistas emergentes de Argentina, Quebec y Europa.',
       labelDescSecondary: 'El sello defiende una estética underground afirmada, centrada en la tensión, el groove y la experimentación en su roster en crecimiento.',
       labelArtisticDirection: 'Dirección artística: tensión, groove, experimentación. Un catálogo que redefine las fronteras del underground electrónico.',
       rosterLabel: 'Roster / Artistas firmados',
 
-      contactLabel: '— Contacto',
+      contactLabel: 'Contacto',
       contactBooking: 'Booking · Management',
       contactLabelLabel: 'Label',
       contactFooterVersion: '© 2026 Maudite Machine / VRSTL Records · Press Kit V.2026',
@@ -521,8 +521,8 @@ export const translations = {
     },
     shows: {
       title: 'Shows',
-      subtitle: 'Festivales, clubs, warehouses — del underground de Montreal a escenarios icónicos de Canadá, Francia y más allá.',
-      wallOfFame: '— Wall of Fame',
+      subtitle: 'Festivales, clubs, warehouses, del underground de Montreal a escenarios icónicos de Canadá, Francia y más allá.',
+      wallOfFame: 'Wall of Fame',
     },
     merch: {
       title: 'Merch',
@@ -530,11 +530,11 @@ export const translations = {
     },
     goodiesSection: {
       title: 'Goodies',
-      subtitle: 'Wallpapers, portadas de releases y stickers — todos gratuitos.',
+      subtitle: 'Wallpapers, portadas de releases y stickers. Todos gratuitos.',
     },
     techrider: {
       title: 'Tech Rider',
-      subtitle: 'Setup live, backline DJ, hospitalidad — todo lo necesario para recibir a la máquina.',
+      subtitle: 'Setup live, backline DJ, hospitalidad. Todo lo necesario para recibir a la máquina.',
       liveLabel: '01 · Setup Live',
       liveTitle: 'Live\nHíbrido',
       djLabel: '02 · Setup DJ',
@@ -557,7 +557,7 @@ export const translations = {
     },
     contactSection: {
       title: 'Contacto',
-      subtitle: 'Bookings, entrevistas, colaboraciones — línea directa al estudio.',
+      subtitle: 'Bookings, entrevistas, colaboraciones. Línea directa al estudio.',
     },
     editorial: {
       issueTag: 'N° 01 · Editorial',
@@ -574,7 +574,7 @@ export const translations = {
       madeBy: 'sitio realizado por',
     },
     a11y: {
-      homeLink: 'Maudite Machine — inicio',
+      homeLink: 'Maudite Machine, inicio',
       audioPlayer: 'Reproductor de audio',
       trackProgress: 'Progreso del track',
       previousTrack: 'Track anterior',

@@ -193,9 +193,9 @@ const Layout: React.FC = () => {
           links={mobileLinks}
         />
 
-        {/* HEADER fixe — NavLink router-based, padding responsive (16px mobile / 32px desktop) */}
+        {/* HEADER fixe, NavLink router-based, padding responsive (16px mobile / 48px desktop / 64px large) */}
         <header
-          className="site-header px-4 md:px-8"
+          className="site-header px-4 md:px-12 lg:px-16"
           style={{
             position: 'fixed',
             top: 0,

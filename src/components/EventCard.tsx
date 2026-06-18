@@ -51,7 +51,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, index = 0 }) => {
       href={event.url}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label={`${event.title} — ${formatDate(event.date)}`}
+      aria-label={`${event.title}, ${formatDate(event.date)}`}
       className="group"
       index={index}
     >

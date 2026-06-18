@@ -116,7 +116,7 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
         download={filename}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label={`${t.goodies.download} — ${item.title}`}
+        aria-label={`${t.goodies.download}: ${item.title}`}
         whileHover={{ scale: 1.02, y: -2 }}
         whileTap={{ scale: 0.98 }}
         className={cn(
