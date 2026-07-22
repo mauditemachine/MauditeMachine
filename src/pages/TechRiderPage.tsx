@@ -13,6 +13,8 @@ const TechRiderPage: React.FC = () => {
 
   return (
     <section className="pt-24 pb-32 py-20 md:py-32 px-4 md:px-10 max-w-7xl mx-auto w-full">
+      <h1 className="sr-only">{t.headings.techrider}</h1>
+
       <div className="grid grid-cols-12 gap-4 md:gap-6 mb-12 md:mb-20">
         {/* LIVE SETUP — col 7 */}
         <div

@@ -17,6 +17,8 @@ const AboutPage: React.FC = () => {
 
   return (
     <div className="pt-24 pb-32">
+      <h1 className="sr-only">{t.headings.about}</h1>
+
       <Suspense fallback={null}>
         <Presskit onNavigateToMessage={() => navigate('/contact')} />
       </Suspense>

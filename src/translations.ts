@@ -31,6 +31,17 @@ export const translations = {
       genres: 'Minimal · Indie Dance · Dark Disco',
       musicMakers: 'WE ARE MUSIC MAKERS',
     },
+    // H1 de chaque page. Rendus en sr-only (lus par Google + lecteurs d'ecran,
+    // invisibles a l'oeil) pour ne pas casser le design minimaliste.
+    headings: {
+      home: 'Maudite Machine, indie dance DJ and producer in Montreal',
+      about: 'Maudite Machine biography',
+      shows: 'Maudite Machine shows and tour dates',
+      merch: 'Maudite Machine official merch',
+      goodies: 'Free Maudite Machine wallpapers and artwork',
+      techrider: 'Maudite Machine tech rider',
+      contact: 'Contact and booking Maudite Machine',
+    },
     sections: {
       upcomingEvents: 'Upcoming Events',
       merch: 'Merch',
@@ -225,6 +236,15 @@ export const translations = {
       genres: 'Minimal · Indie Dance · Dark Disco',
       musicMakers: 'WE ARE MUSIC MAKERS',
     },
+    headings: {
+      home: 'Maudite Machine, DJ et producteur indie dance à Montréal',
+      about: 'Biographie de Maudite Machine',
+      shows: 'Concerts et dates de Maudite Machine',
+      merch: 'Merch officiel Maudite Machine',
+      goodies: 'Fonds d\'écran et visuels gratuits Maudite Machine',
+      techrider: 'Fiche technique de Maudite Machine',
+      contact: 'Contact et booking Maudite Machine',
+    },
     sections: {
       upcomingEvents: 'Prochains concerts',
       merch: 'Merch',
@@ -416,6 +436,15 @@ export const translations = {
       location: 'Montreal, Canadá',
       genres: 'Minimal · Indie Dance · Dark Disco',
       musicMakers: 'WE ARE MUSIC MAKERS',
+    },
+    headings: {
+      home: 'Maudite Machine, DJ y productor indie dance en Montreal',
+      about: 'Biografía de Maudite Machine',
+      shows: 'Shows y fechas de Maudite Machine',
+      merch: 'Merch oficial de Maudite Machine',
+      goodies: 'Wallpapers y artwork gratis de Maudite Machine',
+      techrider: 'Rider técnico de Maudite Machine',
+      contact: 'Contacto y booking de Maudite Machine',
     },
     sections: {
       upcomingEvents: 'Próximos shows',

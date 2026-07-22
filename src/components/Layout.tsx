@@ -19,6 +19,7 @@ import LiquidGlass from './LiquidGlass';
 import MobileMenu from './ui/MobileMenu';
 import SocialSidebar from './ui/SocialSidebar';
 import { useApp } from '../context/AppContext';
+import { useSEO } from '../lib/seo';
 import { cn } from '../lib/cn';
 
 // Suppression silencieuse des erreurs SoundCloud / Bandcamp bruyantes
@@ -84,6 +85,10 @@ const Layout: React.FC = () => {
   const { designMode, t } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // SEO : synchronise title / description / canonical / OG / hreflang / JSON-LD
+  // a chaque changement de route ou de langue.
+  useSEO();
   const [menuOpen, setMenuOpen] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [bgUrl, setBgUrl] = useState<string>('');

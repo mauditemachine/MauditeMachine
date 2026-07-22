@@ -5,6 +5,8 @@
 import React, { useEffect, useState } from 'react';
 import EventsDisplay from '../components/EventsDisplay';
 import { useTranslation } from '../lib/i18n';
+import { setJsonLd } from '../lib/seo';
+import { buildEventsJsonLd, type UpcomingEvent } from '../lib/eventSchema';
 import { cn } from '../lib/cn';
 
 interface PastShow {
@@ -45,8 +47,28 @@ const ShowsPage: React.FC = () => {
     };
   }, []);
 
+  // JSON-LD MusicEvent pour les dates a venir : declenche les rich results
+  // Google Events (carrousel de concerts dans les resultats de recherche).
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${import.meta.env.BASE_URL}events.json`)
+      .then((r) => r.json())
+      .then((data: UpcomingEvent[]) => {
+        if (cancelled) return;
+        setJsonLd('ld-events', buildEventsJsonLd(Array.isArray(data) ? data : []));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      // Retire le JSON-LD events quand on quitte la page Shows
+      document.getElementById('ld-events')?.remove();
+    };
+  }, []);
+
   return (
     <section className="pt-24 pb-32 py-20 md:py-32 px-4 md:px-10 max-w-7xl mx-auto w-full">
+      <h1 className="sr-only">{t.headings.shows}</h1>
+
       <EventsDisplay showPastEventsButton={false} />
 
       {/* WALL OF FAME — typographic archive avec liens Facebook */}

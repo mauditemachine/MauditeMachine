@@ -31,6 +31,10 @@ const HomePage: React.FC = () => {
         'px-4 sm:px-6',
       )}
     >
+      {/* H1 SEO : lu par Google et les lecteurs d'ecran, invisible a l'oeil.
+          Le logo juste en dessous joue le role de titre visuel. */}
+      <h1 className="sr-only">{t.headings.home}</h1>
+
       {/* 1. Logo MAUDITE MACHINE — pleine largeur ecran sur mobile */}
       <motion.img
         src={import.meta.env.BASE_URL + 'logo/LogoStack.svg'}

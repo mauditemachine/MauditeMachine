@@ -3,8 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Maudite Machine - DJ & Producteur | Minimal & Indie Dance | VRSTL Records</title>
-    <meta name="description" content="Maudite Machine est un DJ et producteur canadien spécialisé en minimal et indie dance. Fondateur de VRSTL Records, il performe dans les festivals majeurs comme Piknic Électronik et Eclipse Festival." />
+    <!-- Title/description statiques en EN (langue de fallback du site + celle
+         vue par les crawlers sociaux). useSEO() bascule en FR/ES au mount
+         selon navigator.language. Source : src/data/seo-meta.json -->
+    <title>Maudite Machine | Indie Dance DJ &amp; Producer, Montreal</title>
+    <meta name="description" content="Montreal DJ and producer for 15 years. Indie dance, dark disco and hypnotic minimal. Founder of VRSTL Records. Booking inquiries and upcoming shows." />
     <meta name="keywords" content="Maudite Machine, DJ, producteur, minimal, indie dance, techno, VRSTL Records, Montréal, Canada, Piknic Électronik, Eclipse Festival, musique électronique" />
     <meta name="author" content="Maudite Machine" />
     <meta name="robots" content="index, follow" />
@@ -26,7 +29,10 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/logo/mauditemachine-logo.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/logo/mauditemachine-logo.png" />
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#d4a843" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="geo.region" content="CA-QC" />
+    <meta name="geo.placename" content="Montréal" />
 
     <!-- Données structurées JSON-LD pour le SEO -->
     <script type="application/ld+json">
@@ -51,15 +57,41 @@
       ],
       "member": {
         "@type": "Person",
-        "name": "Maudite Machine",
+        "name": "Mika",
+        "alternateName": "Maudite Machine",
         "jobTitle": "DJ & Producteur",
         "nationality": "Canadian",
         "birthPlace": "Montreal, Canada",
-        "knowsAbout": ["Electronic Music", "DJ", "Music Production", "Minimal Techno", "Indie Dance"]
+        "worksFor": { "@type": "Organization", "name": "VRSTL Records" },
+        "knowsAbout": ["Electronic Music", "DJ", "Music Production", "Minimal Techno", "Indie Dance", "Dark Disco", "Ableton Live"]
       },
       "foundingLocation": {
         "@type": "Place",
         "name": "Montreal, Canada"
+      },
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Montréal",
+        "addressRegion": "QC",
+        "addressCountry": "CA"
+      },
+      "email": "mauditemachine@gmail.com",
+      "knowsLanguage": ["fr", "en", "es"]
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "@id": "https://vrstlrecords.com/#organization",
+      "name": "VRSTL Records",
+      "url": "https://vrstlrecords.com",
+      "description": "Label indépendant canadien dédié à l'Indie Dance et au Dark Disco. 21 EPs et 2 albums publiés.",
+      "founder": { "@type": "Person", "name": "Mika", "alternateName": "Maudite Machine" },
+      "email": "vrstlrecords@gmail.com",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Montréal",
+        "addressRegion": "QC",
+        "addressCountry": "CA"
       }
     },
     {
@@ -67,7 +99,9 @@
       "@type": "WebSite",
       "name": "Maudite Machine",
       "url": "https://mauditemachine.com",
-      "description": "Site officiel de Maudite Machine - DJ & Producteur"
+      "description": "Site officiel de Maudite Machine, DJ & Producteur",
+      "inLanguage": ["fr-CA", "en", "es"],
+      "publisher": { "@type": "Organization", "name": "VRSTL Records" }
     }]
     </script>
 
@@ -302,11 +336,11 @@
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://mauditemachine.com/" />
-    <meta property="og:title" content="Maudite Machine - DJ & Producteur" />
+    <meta property="og:title" content="Maudite Machine | Indie Dance DJ &amp; Producer, Montreal" />
     <meta property="og:site_name" content="Maudite Machine" />
     <meta
       property="og:description"
-      content="DJ et producteur canadien spécialisé en minimal et indie dance. Fondateur de VRSTL Records."
+      content="Montreal DJ and producer for 15 years. Indie dance, dark disco and hypnotic minimal. Founder of VRSTL Records. Booking inquiries and upcoming shows."
     />
     <meta
       property="og:image"
@@ -324,11 +358,11 @@
     <meta property="twitter:url" content="https://mauditemachine.com" />
     <meta
       property="twitter:title"
-      content="Maudite Machine - DJ & Producteur"
+      content="Maudite Machine | Indie Dance DJ &amp; Producer, Montreal"
     />
     <meta
       property="twitter:description"
-      content="DJ et producteur canadien spécialisé en minimal et indie dance. Fondateur de VRSTL Records."
+      content="Montreal DJ and producer for 15 years. Indie dance, dark disco and hypnotic minimal. Founder of VRSTL Records. Booking inquiries and upcoming shows."
     />
     <meta
       property="twitter:image"
@@ -338,8 +372,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <!-- LightWidget WIDGET -->
     <script src="https://cdn.lightwidget.com/widgets/lightwidget.js"></script>
-    <script type="module" crossorigin src="/assets/index-MOuhsB8A.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CF_g35m2.css">
+    <script type="module" crossorigin src="/assets/index-sSaGi2va.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BrUbOkVb.css">
   </head>
   <body>
     <!-- Facebook Pixel noscript fallback -->

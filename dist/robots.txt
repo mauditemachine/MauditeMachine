@@ -1,4 +1,28 @@
 User-agent: *
 Allow: /
 
+# Panneaux d'administration : contenu privé, aucun intérêt pour la recherche
+Disallow: /ms-admin/
+Disallow: /mm-admin
+
+# Bots IA autorisés : visibilité de l'artiste dans les réponses des assistants
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+# Crawlers SEO commerciaux agressifs : bloqués pour économiser la bande passante
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
 Sitemap: https://mauditemachine.com/sitemap.xml
