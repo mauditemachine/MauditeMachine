@@ -278,39 +278,76 @@ export const saveEvents = async (events: Event[]): Promise<{ success: boolean; m
   }
 };
 
-// Charger les events - forAdmin: backup localStorage; site public: Sanity → fallback JSON
-export const loadEvents = async (forAdmin = false): Promise<Event[]> => {
+/** Cle de rapprochement entre un event Sanity et une entree de events.json. */
+const eventKey = (date: string, title: string): string =>
+  `${String(date || '').slice(0, 10)}|${String(title || '').trim().toLowerCase()}`;
+
+/** true si l'image vient d'un CDN externe plutot que du depot. */
+const isRemoteImage = (src: string): boolean => /^https?:\/\//i.test(src || '');
+
+/** Charge public/events.json. null si illisible, pour distinguer "vide" de "echec". */
+const fetchLocalEvents = async (): Promise<Event[] | null> => {
   try {
-    if (forAdmin) {
-      const backup = localStorage.getItem('admin_events_backup');
-      if (backup) {
-        try {
-          const parsed = JSON.parse(backup);
-          if (Array.isArray(parsed)) return parsed;
-        } catch (_) {}
-      }
-    }
-    try {
-      const sanityData = await fetchEvents(false);
-      if (sanityData && sanityData.length > 0) {
-        return sanityData.map((ev) => ({
-          date: ev.date,
-          title: ev.title,
-          url: ev.url || '',
-          location: ev.location || '',
-          color: ev.color || '',
-          image: sanityImageUrl(ev.image),
-        }));
-      }
-    } catch (e) {
-      console.warn('Sanity events fetch failed, fallback JSON', e);
-    }
-    const response = await fetch(`/events.json?t=${Date.now()}`);
-    if (!response.ok) throw new Error('Failed');
-    return await response.json();
-  } catch (error) {
-    throw error;
+    const res = await fetch(`/events.json?t=${Date.now()}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return Array.isArray(data) ? data : null;
+  } catch {
+    return null;
   }
+};
+
+/**
+ * Charger les events. forAdmin : backup localStorage d'abord.
+ *
+ * Sanity fournit le texte (titre, date, lieu, lien, couleur) mais PAS les
+ * images : le site sert ses visuels depuis le depot. Sans ca, un event
+ * charge depuis Sanity repartait avec une URL cdn.sanity.io, et sauvegarder
+ * un seul event reecrivait les 11 chemins de events.json en URL distantes,
+ * rendant les fichiers de public/events/ inutiles.
+ *
+ * On rapproche donc chaque event Sanity de son entree locale (date + titre)
+ * pour recuperer son chemin. S'il n'y en a pas (event tout neuf cree dans
+ * Sanity), on garde l'URL Sanity le temps d'afficher quelque chose : le
+ * serveur d'ecriture la rapatriera dans public/events/ a la sauvegarde.
+ */
+export const loadEvents = async (forAdmin = false): Promise<Event[]> => {
+  if (forAdmin) {
+    const backup = localStorage.getItem('admin_events_backup');
+    if (backup) {
+      try {
+        const parsed = JSON.parse(backup);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (_) {}
+    }
+  }
+
+  const localEvents = await fetchLocalEvents();
+
+  try {
+    const sanityData = await fetchEvents(false);
+    if (sanityData && sanityData.length > 0) {
+      const localImages = new Map<string, string>();
+      for (const ev of localEvents ?? []) {
+        if (ev.image && !isRemoteImage(ev.image)) {
+          localImages.set(eventKey(ev.date, ev.title), ev.image);
+        }
+      }
+      return sanityData.map((ev) => ({
+        date: ev.date,
+        title: ev.title,
+        url: ev.url || '',
+        location: ev.location || '',
+        color: ev.color || '',
+        image: localImages.get(eventKey(ev.date, ev.title)) || sanityImageUrl(ev.image),
+      }));
+    }
+  } catch (e) {
+    console.warn('Sanity events fetch failed, fallback JSON', e);
+  }
+
+  if (localEvents) return localEvents;
+  throw new Error('Failed to load events');
 };
 
 // Interface pour le merchandising

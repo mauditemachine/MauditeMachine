@@ -126,6 +126,112 @@ const upload = multer({
   }
 });
 
+// ============================================================
+// IMAGES DES EVENTS : le depot fait autorite, jamais le CDN Sanity
+//
+// Sanity fournit le texte des events, mais le site doit servir ses visuels
+// depuis public/. Sans ce filet, sauvegarder un seul event reecrivait tous
+// les chemins de events.json en URL cdn.sanity.io et les fichiers de
+// public/events/ ne servaient plus a rien.
+//
+// Cote client, loadEvents() rapproche deja chaque event de son entree locale.
+// Ici c'est la ceinture de securite : un backup localStorage d'une ancienne
+// session peut encore contenir des URL distantes, et elles ne doivent pas
+// atterrir dans le JSON.
+// ============================================================
+
+const SANITY_CDN_HOST = 'cdn.sanity.io';
+const EVENTS_DIR = path.join(PUBLIC_DIR, 'events');
+const MAX_REMOTE_IMAGE_BYTES = 10 * 1024 * 1024;
+
+const isRemoteImage = (src) => typeof src === 'string' && /^https?:\/\//i.test(src);
+
+const eventKey = (date, title) =>
+  `${String(date ?? '').slice(0, 10)}|${String(title ?? '').trim().toLowerCase()}`;
+
+/** Slug de nom de fichier, deduit du titre de l'event. */
+function slugify(text) {
+  const s = String(text ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40);
+  return s || 'event';
+}
+
+/**
+ * Rapatrie une image Sanity dans public/events/ et renvoie son chemin relatif.
+ * Renvoie null au moindre doute : mieux vaut garder l'URL distante que
+ * d'ecrire un fichier douteux ou de faire echouer la sauvegarde.
+ */
+async function downloadSanityImage(rawUrl, title) {
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    return null;
+  }
+  // Garde SSRF : uniquement le CDN Sanity en https, aucune autre destination.
+  if (url.protocol !== 'https:' || url.hostname !== SANITY_CDN_HOST) return null;
+
+  const assetName = url.pathname.split('/').pop() || '';
+  const ext = safeExtension(assetName);
+  if (!ext) return null;
+
+  // Le hash de l'asset rend le nom deterministe : re-sauvegarder ne
+  // retelecharge pas et ne cree pas de doublon.
+  const hash = (assetName.match(/^([a-f0-9]{8})/i) || [])[1] || 'asset';
+  const filename = `${slugify(title)}-${hash}.${ext}`;
+  const target = path.join(EVENTS_DIR, filename);
+
+  // Meme garde que l'upload : le fichier doit rester dans public/events/.
+  if (path.dirname(path.resolve(target)) !== path.resolve(EVENTS_DIR)) return null;
+
+  try {
+    await fs.access(target);
+    return `events/${filename}`; // deja rapatrie
+  } catch {}
+
+  try {
+    const res = await fetch(url.href);
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length > MAX_REMOTE_IMAGE_BYTES) return null;
+    if (!detectImageType(buf)) return null; // magic bytes, comme a l'upload
+    await fs.mkdir(EVENTS_DIR, { recursive: true });
+    await fs.writeFile(target, buf);
+    console.log(`⬇️  Image rapatriée depuis Sanity : public/events/${filename}`);
+    return `events/${filename}`;
+  } catch (err) {
+    console.warn(`⚠️  Rapatriement impossible (${rawUrl}) :`, err.message);
+    return null;
+  }
+}
+
+/** Remplace toute URL distante par un chemin local, en rapatriant si besoin. */
+async function localizeEventImages(events, previous) {
+  const known = new Map();
+  for (const ev of previous) {
+    if (ev?.image && !isRemoteImage(ev.image)) {
+      known.set(eventKey(ev.date, ev.title), ev.image);
+    }
+  }
+
+  const out = [];
+  for (const ev of events) {
+    if (!ev || !isRemoteImage(ev.image)) {
+      out.push(ev);
+      continue;
+    }
+    const local =
+      known.get(eventKey(ev.date, ev.title)) || (await downloadSanityImage(ev.image, ev.title));
+    out.push(local ? { ...ev, image: local } : ev);
+  }
+  return out;
+}
+
 // Route pour sauvegarder les messages
 app.post('/api/save-messages', authMiddleware, async (req, res) => {
   try {
@@ -145,11 +251,26 @@ app.post('/api/save-messages', authMiddleware, async (req, res) => {
 // Route pour sauvegarder les événements
 app.post('/api/save-events', authMiddleware, async (req, res) => {
   try {
-    const events = req.body;
     const filePath = path.join(PUBLIC_DIR, 'events.json');
-    
+
+    // Etat actuel : sert a retrouver le chemin local deja connu d'un event
+    // dont l'admin renverrait une URL distante.
+    let previous = [];
+    try {
+      const parsed = JSON.parse(await fs.readFile(filePath, 'utf8'));
+      if (Array.isArray(parsed)) previous = parsed;
+    } catch {}
+
+    const incoming = Array.isArray(req.body) ? req.body : [];
+    const events = await localizeEventImages(incoming, previous);
+
+    const remoteLeft = events.filter((ev) => isRemoteImage(ev?.image)).length;
+    if (remoteLeft > 0) {
+      console.warn(`⚠️  ${remoteLeft} event(s) gardent une image distante : rapatriement impossible.`);
+    }
+
     await fs.writeFile(filePath, JSON.stringify(events, null, 2));
-    
+
     console.log('✅ Événements sauvegardés dans events.json');
     res.json({ success: true, message: 'Événements sauvegardés avec succès' });
   } catch (error) {
