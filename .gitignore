@@ -7,3 +7,14 @@ api/.env
 /public/images/hero/_old/
 *\ 2.*
 *\ 3.*
+
+# Secrets : aucun .env ne doit etre suivi par git.
+# Deux exceptions, qui ne contiennent AUCUN secret :
+#   .env.example    documentation des variables, sans valeurs
+#   .env.production valeurs publiques du build prod (URL API, ids Sanity)
+# Tout VITE_* etant inline en clair dans le bundle, ces fichiers ne doivent
+# jamais recevoir de mot de passe ni de token.
+.env
+.env.*
+!.env.example
+!.env.production

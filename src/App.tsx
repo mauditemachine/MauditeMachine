@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
+import AdminGate from './components/ui/AdminGate';
 import { AppProvider } from './context/AppContext';
 
 // Pages : lazy load pour code-splitting (chargees a la demande)
@@ -83,12 +84,16 @@ export default function App() {
             />
           </Route>
 
-          {/* Admin routes (hors Layout, panels independants) */}
+          {/* Admin routes (hors Layout, panels independants).
+              AdminGate = ecran de login. Le verrou reel est cote serveur :
+              toute ecriture sans le bon secret repond 401. */}
           <Route
             path="/ms-admin/"
             element={
               <Suspense fallback={null}>
-                <Admin />
+                <AdminGate>
+                  <Admin />
+                </AdminGate>
               </Suspense>
             }
           />
@@ -96,7 +101,9 @@ export default function App() {
             path="/mm-admin"
             element={
               <Suspense fallback={null}>
-                <AdminEvents />
+                <AdminGate>
+                  <AdminEvents />
+                </AdminGate>
               </Suspense>
             }
           />

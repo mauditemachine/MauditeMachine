@@ -6,24 +6,106 @@
 import { fetchEvents, fetchMessages, fetchMerchItems, urlFor } from './sanityQueries';
 
 const PROD_API_URL = import.meta.env.VITE_API_URL || '';
-const ADMIN_API_KEY = import.meta.env.VITE_ADMIN_API_KEY || '';
+
+// ============================================================
+// SECRET ADMIN
+// Le secret n'est PLUS un VITE_* (qui serait inline dans le bundle public).
+// Il est saisi par l'utilisateur dans l'ecran de login, garde en memoire +
+// sessionStorage (efface a la fermeture de l'onglet), et renvoye en header
+// sur chaque appel d'ecriture. Le verrou reel est cote serveur.
+// ============================================================
+
+const SECRET_STORAGE_KEY = 'mm_admin_secret';
+let adminSecret = '';
+
+/** Restaure le secret depuis sessionStorage (survit a un refresh de l'onglet). */
+export function restoreAdminSecret(): string {
+  if (adminSecret) return adminSecret;
+  try {
+    adminSecret = sessionStorage.getItem(SECRET_STORAGE_KEY) || '';
+  } catch {
+    adminSecret = '';
+  }
+  return adminSecret;
+}
+
+export function setAdminSecret(secret: string): void {
+  adminSecret = secret;
+  try {
+    sessionStorage.setItem(SECRET_STORAGE_KEY, secret);
+  } catch {}
+}
+
+export function clearAdminSecret(): void {
+  adminSecret = '';
+  try {
+    sessionStorage.removeItem(SECRET_STORAGE_KEY);
+  } catch {}
+}
+
+/** Emis quand l'API renvoie 401 : le panel admin repasse a l'ecran de login. */
+export const ADMIN_UNAUTHORIZED_EVENT = 'adminUnauthorized';
+
+function notifyUnauthorized() {
+  clearAdminSecret();
+  window.dispatchEvent(new CustomEvent(ADMIN_UNAUTHORIZED_EVENT));
+}
+
+/**
+ * Valide le secret aupres du serveur sans rien ecrire.
+ * Retourne true si le secret est bon.
+ */
+export async function verifyAdminSecret(secret: string): Promise<{ ok: boolean; status: number }> {
+  const apiUrl = getApiUrl();
+  if (!apiUrl) return { ok: false, status: 0 };
+  try {
+    const res = await fetch(`${apiUrl}/api/auth`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${secret}` },
+    });
+    return { ok: res.ok, status: res.status };
+  } catch {
+    return { ok: false, status: 0 };
+  }
+}
 
 function sanityImageUrl(img: any): string {
   if (!img) return '';
   try { return urlFor(img).url(); } catch { return ''; }
 }
 
+let warnedMissingApiUrl = false;
+
 function getApiUrl(): string {
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  return isLocalhost ? 'http://localhost:3001' : PROD_API_URL;
+  if (isLocalhost) return 'http://localhost:3001';
+
+  // Garde-fou : sans VITE_API_URL, callApi() sortait en silence et TOUTES les
+  // ecritures de prod echouaient sans le moindre message. Ce bug est passe
+  // inapercu longtemps ; on le rend bruyant.
+  if (!PROD_API_URL && !warnedMissingApiUrl) {
+    warnedMissingApiUrl = true;
+    console.error(
+      '[admin] VITE_API_URL est vide : aucune ecriture ne partira. ' +
+        'Definir VITE_API_URL au build (.env.production) avec l\'URL de l\'API Render.',
+    );
+  }
+  return PROD_API_URL;
 }
 
+/** true si l'API d'ecriture est joignable (URL configuree). */
+export function isApiConfigured(): boolean {
+  return !!getApiUrl();
+}
+
+/**
+ * Headers d'ecriture : le secret saisi par l'admin part en Bearer.
+ * Envoye aussi en local (le serveur de dev l'exige si ADMIN_PASSWORD est defini).
+ */
 function getApiHeaders(): Record<string, string> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  if (!isLocalhost && ADMIN_API_KEY) {
-    headers['x-api-key'] = ADMIN_API_KEY;
-  }
+  const secret = restoreAdminSecret();
+  if (secret) headers['Authorization'] = `Bearer ${secret}`;
   return headers;
 }
 
@@ -36,6 +118,11 @@ async function callApi(endpoint: string, data: any): Promise<boolean> {
       headers: getApiHeaders(),
       body: JSON.stringify(data),
     });
+    if (res.status === 401 || res.status === 429) {
+      // Secret invalide ou expire : on renvoie l'admin a l'ecran de login
+      notifyUnauthorized();
+      throw new Error(`Unauthorized (${res.status})`);
+    }
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     return true;
   } catch (err) {
