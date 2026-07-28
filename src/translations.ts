@@ -33,7 +33,9 @@ export const translations = {
       tooMany: 'Too many attempts. Try again in a few minutes.',
       unreachable: 'API unreachable. Check that the server is running.',
       hint: 'The password is set server-side. It is never stored in the site code.',
-      notConfigured: 'Write API not configured (VITE_API_URL missing at build time).',
+      notConfigured: 'Online editing is disabled.',
+      offlineTitle: 'Online editing disabled',
+      offlineBody: 'No remote write server is deployed for this site. Use the local admin (npm run dev + node server.js), or ask Claude Code to update the content.',
     },
     radar: {
       kicker: 'Radar // Music watch',
@@ -270,7 +272,9 @@ export const translations = {
       tooMany: 'Trop de tentatives. Réessayez dans quelques minutes.',
       unreachable: 'API injoignable. Vérifiez que le serveur tourne.',
       hint: 'Le mot de passe est défini côté serveur. Il n\'est jamais stocké dans le code du site.',
-      notConfigured: 'API d\'écriture non configurée (VITE_API_URL absent au build).',
+      notConfigured: 'Édition en ligne désactivée.',
+      offlineTitle: 'Édition en ligne désactivée',
+      offlineBody: 'Aucun serveur d\'écriture distant n\'est déployé pour ce site. Utiliser l\'admin en local (npm run dev + node server.js), ou passer par Claude Code pour mettre à jour le contenu.',
     },
     radar: {
       kicker: 'Radar // Veille musicale',
@@ -503,7 +507,9 @@ export const translations = {
       tooMany: 'Demasiados intentos. Inténtalo en unos minutos.',
       unreachable: 'API inalcanzable. Comprueba que el servidor esté activo.',
       hint: 'La contraseña se define en el servidor. Nunca se guarda en el código del sitio.',
-      notConfigured: 'API de escritura no configurada (falta VITE_API_URL en el build).',
+      notConfigured: 'Edición en línea desactivada.',
+      offlineTitle: 'Edición en línea desactivada',
+      offlineBody: 'No hay servidor de escritura remoto desplegado para este sitio. Usa el admin en local (npm run dev + node server.js), o pide la actualización a Claude Code.',
     },
     radar: {
       kicker: 'Radar // Novedades',

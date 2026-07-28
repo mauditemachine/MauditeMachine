@@ -100,6 +100,26 @@ const AdminGate: React.FC<AdminGateProps> = ({ children }) => {
     return <>{children}</>;
   }
 
+  // Aucun serveur d'ecriture joignable (VITE_API_URL absente en production).
+  // On affiche un ecran explicite AVANT le formulaire : proposer un champ
+  // mot de passe qui ne peut pas aboutir ne ferait que boucler sur une erreur.
+  if (!isApiConfigured()) {
+    return (
+      <div className="admin-page">
+        <div className="admin-container" style={{ maxWidth: 480, paddingTop: '12vh' }}>
+          <h1 className="admin-title">{a.offlineTitle}</h1>
+          <div className="admin-form-card">
+            <p style={{ color: '#ccc', lineHeight: 1.6, margin: 0 }}>{a.offlineBody}</p>
+          </div>
+          <p style={{ color: '#888', fontSize: '0.85rem', lineHeight: 1.5 }}>
+            <code>npm run dev</code> + <code>node server.js</code> puis{' '}
+            <code>localhost:5173/mm-admin</code>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="admin-page">
       <div className="admin-container" style={{ maxWidth: 420, paddingTop: '12vh' }}>

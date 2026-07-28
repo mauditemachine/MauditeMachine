@@ -1,3 +1,28 @@
+/**
+ * ============================================================
+ * NON DEPLOYE. CE SERVEUR NE TOURNE NULLE PART.
+ * ============================================================
+ *
+ * Ce fichier ciblait un hebergement Render qui n'a jamais existe :
+ * le sous-domaine attendu renvoyait `x-render-routing: no-server`,
+ * c'est a dire aucun service derriere. Render a ete abandonne pour
+ * ce projet, et api/render.yaml (un blueprint jamais applique, qui
+ * laissait croire au contraire) a ete supprime.
+ *
+ * Consequence : l'admin en ligne est desactive par conception.
+ * VITE_API_URL est volontairement absente de .env.production, et
+ * AdminGate affiche un ecran explicite au lieu d'un login inutile.
+ *
+ * Le circuit d'edition reel est decrit dans le README, section
+ * "Mettre a jour les releases (page /radar)".
+ *
+ * Le code est conserve, pas supprime : il reste la base pret-a-l'emploi
+ * si un hebergement d'ecriture est remis en place un jour. Il embarque
+ * deja l'auth server-side (timingSafeEqual, rate-limit, fail closed) et
+ * l'upload durci (whitelist, basename sur, magic bytes).
+ * Pour l'admin en local, c'est server.js a la racine qui sert, pas celui-ci.
+ */
+
 import express from 'express';
 import cors from 'cors';
 import crypto from 'node:crypto';

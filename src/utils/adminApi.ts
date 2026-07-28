@@ -80,14 +80,15 @@ function getApiUrl(): string {
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   if (isLocalhost) return 'http://localhost:3001';
 
-  // Garde-fou : sans VITE_API_URL, callApi() sortait en silence et TOUTES les
-  // ecritures de prod echouaient sans le moindre message. Ce bug est passe
-  // inapercu longtemps ; on le rend bruyant.
+  // VITE_API_URL est volontairement absente en production : il n'existe
+  // aucun serveur d'ecriture distant. L'admin en ligne le detecte via
+  // isApiConfigured() et affiche un ecran explicite au lieu d'un login
+  // qui echouerait en boucle. Simple info, ce n'est pas une erreur.
   if (!PROD_API_URL && !warnedMissingApiUrl) {
     warnedMissingApiUrl = true;
-    console.error(
-      '[admin] VITE_API_URL est vide : aucune ecriture ne partira. ' +
-        'Definir VITE_API_URL au build (.env.production) avec l\'URL de l\'API Render.',
+    console.info(
+      '[admin] Edition en ligne desactivee (aucun serveur d\'ecriture distant). ' +
+        'Utiliser l\'admin local : npm run dev + node server.js.',
     );
   }
   return PROD_API_URL;
