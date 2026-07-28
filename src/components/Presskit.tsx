@@ -162,7 +162,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
             <span className="text-white/30">/</span>
             <span>DVS1</span>
           </div>
-          <div className="mt-4 md:mt-6 text-xs md:text-sm font-medium uppercase tracking-[0.2em] text-white/60">
+          <div className="mt-4 md:mt-6 text-xs md:text-sm font-medium text-white/60">
             {p.remixFooter}
           </div>
         </div>
@@ -335,7 +335,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
         style={{ animationDelay: '200ms', animationFillMode: 'both' }}
       >
         <div className="relative p-6 md:p-14 lg:p-20">
-          <div className="flex items-center justify-between mb-6 md:mb-10 text-sm md:text-sm uppercase tracking-[0.3em] text-ink-50 font-body">
+          <div className="flex items-center justify-between mb-6 md:mb-10 text-sm font-medium text-ink-50 font-body">
             <span>{p.downloadMeta}</span>
             <span>{p.downloadEdition}</span>
           </div>

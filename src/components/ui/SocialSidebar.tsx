@@ -17,7 +17,19 @@ const SocialSidebar: React.FC = () => {
   return (
     <aside
       aria-label="Social links"
-      className="hidden md:flex fixed right-6 top-1/2 -translate-y-1/2 z-50 flex-col gap-5"
+      // position:fixed en inline style OBLIGATOIRE : la regle legacy
+      // `.page > * { position: relative }` (styles.css) ecrase la classe
+      // Tailwind `fixed` — meme piege que le player et le hamburger.
+      // Sans ca, la sidebar tombe dans le flux en bas de page et ses liens
+      // interceptent les clics du contenu (bug "+ Goodies -> Apple Music").
+      className="hidden md:flex flex-col gap-5"
+      style={{
+        position: 'fixed',
+        right: 24,
+        top: '50%',
+        transform: 'translateY(-50%)',
+        zIndex: 50,
+      }}
     >
       {SOCIAL_LINKS.map((s) => (
         <a

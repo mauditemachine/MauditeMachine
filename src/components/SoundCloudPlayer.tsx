@@ -221,13 +221,10 @@ export default function SoundCloudPlayer({
 
       widget.bind(window.SC.Widget.Events.READY, () => {
         tryFetchAll()
-        // FIX BUG SKIP : force le widget a commencer au track 0 (Voodoo).
-        // Sans ca, SoundCloud auto-avance parfois sur le track 1 pendant
-        // le chargement de la playlist, ce qui affichait Simetra a l'init.
-        try {
-          widget.skip(0)
-          widget.pause()
-        } catch {}
+        // ATTENTION : ne JAMAIS appeler widget.skip() ici. skip() DEMARRE la
+        // lecture chez SoundCloud -> c'etait la cause de l'autoplay au load.
+        // On se contente d'afficher le track 0 (Voodoo) ; le forcage reel se
+        // fait au premier clic play (voir togglePlay).
         setCurrentIndex(0)
         lastIndexRef.current = 0
       })
@@ -280,10 +277,28 @@ export default function SoundCloudPlayer({
   function togglePlay() {
     const w = widgetRef.current
     if (!w) return
+    const firstPlay = !userPlayedRef.current
     userPlayedRef.current = true
     w.isPaused((paused: boolean) => {
-      if (paused) w.play()
-      else w.pause()
+      if (!paused) {
+        w.pause()
+        return
+      }
+      if (firstPlay) {
+        // Premier play : garantit que la lecture demarre sur le track 0
+        // (Voodoo), meme si le widget a auto-avance pendant le chargement.
+        // skip(0) lance la lecture — c'est voulu ici (l'utilisateur vient
+        // de cliquer play), jamais au mount.
+        w.getCurrentSoundIndex((i: number) => {
+          if (typeof i === 'number' && i > 0) {
+            try { w.skip(0) } catch { w.play() }
+          } else {
+            w.play()
+          }
+        })
+      } else {
+        w.play()
+      }
     })
   }
 

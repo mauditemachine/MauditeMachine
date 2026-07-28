@@ -62,10 +62,11 @@ export default {
         'glow-white': '0 0 0 1px rgba(255, 255, 255, 0.4), 0 0 32px rgba(255, 255, 255, 0.15)',
       },
       fontFamily: {
-        body: ['"SF Pro Rounded"', 'system-ui', 'sans-serif'],
+        // SF Pro Display partout (demande utilisateur), graisses via font-light..font-black
+        body: ['"SF Pro Display"', '-apple-system', 'BlinkMacSystemFont', '"Helvetica Neue"', 'sans-serif'],
         display: ['"SF Pro Display"', '-apple-system', 'BlinkMacSystemFont', '"Helvetica Neue"', 'sans-serif'],
-        rounded: ['"SF Pro Rounded"', 'system-ui', 'sans-serif'],
-        // Robot Radicals : police brutaliste blocs angulaires (Hero MUSIK MAKERS)
+        rounded: ['"SF Pro Display"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        // Robot Radicals : police brutaliste blocs angulaires (Hero MUSIC MAKERS uniquement)
         robot: ['"Robot Radicals"', 'sans-serif'],
       },
       transitionTimingFunction: {

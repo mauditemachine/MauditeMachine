@@ -259,8 +259,13 @@ const Layout: React.FC = () => {
           <JellyfishBackground />
         </div>
 
-        {/* MAIN — contenu de la page courante via Outlet */}
-        <main className="relative z-[1]">
+        {/* MAIN — contenu de la page courante via Outlet.
+            md:pr-16 sur les pages de contenu : reserve la colonne de droite
+            a la SocialSidebar (fixed right-6 z-50). Sans ca, sur ecran
+            <= ~1400px la sidebar recouvrait les elements cliquables au bord
+            droit (ex: le "+" des accordeons Goodies ouvrait Apple Music).
+            La home reste sans padding : son contenu est centre plein ecran. */}
+        <main className={cn('relative z-[1]', location.pathname !== '/' && 'md:pr-16')}>
           <Outlet />
         </main>
 

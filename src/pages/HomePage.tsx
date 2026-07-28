@@ -2,10 +2,13 @@
  * HomePage — page d'accueil "couverture d'album" 100vh sans scroll.
  * Contenu : logo + WE ARE MUSIC MAKERS (Robot Radicals) + slogan + tagline.
  * Le fond meduses + lecteur audio sont rendus par Layout (persistents).
+ *
+ * Entrances en CSS animate-fade-up (PAS framer-motion : le pattern
+ * initial->animate au mount ne se declenche pas de facon fiable dans ce
+ * codebase — StrictMode + Vite HMR — et laissait la page a opacity 0).
  */
 
 import React, { useEffect } from 'react';
-import { motion } from 'framer-motion';
 import { useTranslation } from '../lib/i18n';
 import { cn } from '../lib/cn';
 
@@ -36,71 +39,66 @@ const HomePage: React.FC = () => {
       <h1 className="sr-only">{t.headings.home}</h1>
 
       {/* 1. Logo MAUDITE MACHINE — pleine largeur ecran sur mobile */}
-      <motion.img
+      <img
         src={import.meta.env.BASE_URL + 'logo/LogoStack.svg'}
         alt="Maudite Machine"
-        className="w-[92vw] max-w-[780px] h-auto"
+        className="w-[92vw] max-w-[780px] h-auto animate-fade-up"
         style={{
           filter: 'brightness(0) invert(1) drop-shadow(0 4px 24px rgba(0,0,0,0.4))',
+          animationDelay: '100ms',
+          animationFillMode: 'both',
         }}
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1.0, ease: [0.19, 1, 0.22, 1], delay: 0.1 }}
       />
 
       {/* 2. WE ARE MUSIC MAKERS — Robot Radicals 30px blanc tracking 4px */}
-      <motion.h2
+      <h2
         className={cn(
-          'font-robot uppercase',
+          'font-robot',
           'text-[30px]',
           'tracking-[4px]',
           'text-white',
           'leading-none',
           '[text-shadow:_0_2px_12px_rgba(0,0,0,0.5)]',
+          'animate-fade-up',
         )}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1.0, ease: [0.19, 1, 0.22, 1], delay: 0.35 }}
+        style={{ animationDelay: '350ms', animationFillMode: 'both' }}
       >
         {t.signature.musicMakers}
-      </motion.h2>
+      </h2>
 
-      {/* 3. RAW. HYPNOTIC. UNDERGROUND. — font-semibold 600 strict */}
-      <motion.div
+      {/* 3. RAW. HYPNOTIC. UNDERGROUND. — la string est en caps (signature
+          brand), pas de classe uppercase ni de tracking geant */}
+      <div
         className={cn(
-          'text-white font-semibold uppercase',
-          'tracking-[0.4em]',
-          'text-[11px] md:text-xs',
+          'text-white font-semibold',
+          'tracking-widest',
+          'text-xs md:text-sm',
           '[text-shadow:_0_2px_12px_rgba(0,0,0,0.45)]',
           'mt-1',
+          'animate-fade-up',
         )}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 1.2, ease: 'easeOut', delay: 0.7 }}
+        style={{ animationDelay: '600ms', animationFillMode: 'both' }}
       >
         {t.presskit.catchphrase}
-      </motion.div>
+      </div>
 
-      {/* 4. Tagline 3 lignes — font-semibold 600 sur tout le bloc */}
-      <motion.div
+      {/* 4. Tagline 3 lignes — casse normale, tracking discret, weight 600 */}
+      <div
         className={cn(
           'flex flex-col items-center gap-1 md:gap-1.5',
-          'font-semibold uppercase tracking-[0.35em]',
-          'text-[11px] md:text-xs',
+          'font-semibold tracking-wide',
+          'text-xs md:text-sm',
           'text-white/85',
           '[text-shadow:_0_2px_12px_rgba(0,0,0,0.45)]',
           'mt-1',
+          'animate-fade-up',
         )}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 1.4, ease: 'easeOut', delay: 0.9 }}
+        style={{ animationDelay: '800ms', animationFillMode: 'both' }}
       >
         <span>{t.signature.role}</span>
         <span className="text-white/70">{t.signature.location}</span>
-        <span className="text-white/60 tracking-[0.4em]">
-          {t.signature.genres}
-        </span>
-      </motion.div>
+        <span className="text-white/60">{t.signature.genres}</span>
+      </div>
     </section>
   );
 };

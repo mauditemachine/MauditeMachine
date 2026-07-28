@@ -21,7 +21,7 @@ const TechRiderPage: React.FC = () => {
           className="col-span-12 md:col-span-7 pk-glass p-5 md:p-10 rounded-2xl md:rounded-3xl animate-fade-up"
           style={{ animationDelay: '120ms', animationFillMode: 'both' }}
         >
-          <div className="text-xs md:text-sm uppercase tracking-[0.4em] text-ink-50 font-body mb-4 md:mb-6">
+          <div className="text-sm md:text-base font-medium text-ink-70 font-body mb-4 md:mb-6">
             {t.techrider.liveLabel}
           </div>
           <h3 className="font-display font-black uppercase text-ink-95 text-3xl md:text-5xl lg:text-6xl leading-[0.9] tracking-[-0.03em] mb-6 md:mb-10 whitespace-pre-line">
@@ -40,7 +40,7 @@ const TechRiderPage: React.FC = () => {
           className="col-span-12 md:col-span-5 pk-glass p-5 md:p-10 rounded-2xl md:rounded-3xl animate-fade-up"
           style={{ animationDelay: '220ms', animationFillMode: 'both' }}
         >
-          <div className="text-xs md:text-sm uppercase tracking-[0.4em] text-ink-50 font-body mb-4 md:mb-6">
+          <div className="text-sm md:text-base font-medium text-ink-70 font-body mb-4 md:mb-6">
             {t.techrider.djLabel}
           </div>
           <h3 className="font-display font-black uppercase text-ink-95 text-3xl md:text-5xl lg:text-6xl leading-[0.9] tracking-[-0.03em] mb-6 md:mb-10 whitespace-pre-line">
@@ -52,7 +52,7 @@ const TechRiderPage: React.FC = () => {
               <span className="text-ink-95 font-medium">{t.techrider.djLine1Variant}</span>
               <span className="text-ink-50"> {t.techrider.djLine1Alt}</span>
             </li>
-            <li className="text-ink-50 text-xs md:text-sm uppercase tracking-[0.2em]">
+            <li className="text-ink-50 text-xs md:text-sm font-medium">
               {t.techrider.djFirmware}
             </li>
             <li className="pt-2">
@@ -68,7 +68,7 @@ const TechRiderPage: React.FC = () => {
           className="col-span-12 pk-glass p-6 md:p-14 rounded-2xl md:rounded-3xl animate-fade-up"
           style={{ animationDelay: '320ms', animationFillMode: 'both' }}
         >
-          <div className="text-xs md:text-sm uppercase tracking-[0.4em] text-ink-50 font-body mb-4 md:mb-6">
+          <div className="text-sm md:text-base font-medium text-ink-70 font-body mb-4 md:mb-6">
             {t.techrider.hospitalityLabel}
           </div>
           <blockquote className="font-display italic text-ink-95 text-2xl md:text-4xl lg:text-5xl leading-[1.1] tracking-[-0.02em] max-w-4xl">
@@ -96,7 +96,7 @@ const TechRiderPage: React.FC = () => {
         style={{ animationDelay: '440ms', animationFillMode: 'both' }}
       >
         <div className="relative p-6 md:p-14 lg:p-20">
-          <div className="flex items-center justify-between mb-6 md:mb-10 text-xs md:text-sm uppercase tracking-[0.3em] text-ink-50 font-body">
+          <div className="flex items-center justify-between mb-6 md:mb-10 text-sm font-medium text-ink-50 font-body">
             <span>{t.techrider.ctaMeta}</span>
             <span>{t.techrider.ctaEdition}</span>
           </div>

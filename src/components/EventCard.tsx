@@ -90,7 +90,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, index = 0 }) => {
 
       {/* Details */}
       <div className="relative p-5 md:p-6 pl-6 md:pl-7">
-        <div className="text-sm uppercase tracking-[0.2em] text-ink-70 mb-2 font-body">
+        <div className="text-sm font-medium text-ink-70 mb-2 font-body">
           {formatDate(event.date)}
         </div>
         <h3 className="text-xl md:text-2xl font-bold text-ink-95 mb-2 leading-tight font-body">
