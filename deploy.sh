@@ -1,68 +1,92 @@
 #!/bin/bash
+#
+# Publication de mauditemachine.com
+#
+#   ./deploy.sh "message de commit"
+#   ./deploy.sh --dry-run "message"   # montre ce qui serait fait, sans rien pousser
+#
+# Le site est servi par GitHub Actions depuis la branche main :
+# .github/workflows/pages.yml rebuild et redeploie a chaque push. Publier se
+# resume donc a committer et pousser main.
+#
+# NOTE : l'ancienne version de ce script copiait dist/ vers une branche
+# gh-pages depuis /Users/mauditemachine/Documents/Dev/MauditeMachine2025.
+# Ce chemin n'existe plus (le projet vit sur iCloud Drive), et gh-pages n'est
+# plus ce qui est servi : sa derniere mise a jour date de fevrier 2026 alors
+# que le site sert bien ce qui est pousse sur main. Ne pas restaurer.
 
-# Script de déploiement automatique pour mauditemachine.com
-# Usage: ./deploy.sh [message]
+set -euo pipefail
+cd "$(dirname "$0")"
 
-PROJECT="/Users/mauditemachine/Documents/Dev/MauditeMachine2025"
-WORKTREE="/Users/mauditemachine/Documents/Dev/_mm-gh-pages"
-COMMIT_MSG="${1:-Update: Déploiement automatique}"
+DRY_RUN=0
+if [ "${1:-}" = "--dry-run" ]; then
+  DRY_RUN=1
+  shift
+fi
 
-echo "🚀 Déploiement automatique de mauditemachine.com"
-echo "📁 Projet: $PROJECT"
-echo "📁 Worktree: $WORKTREE"
-echo "💬 Message: $COMMIT_MSG"
+COMMIT_MSG="${1:-Update: contenu du site}"
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+
+echo "Publication de mauditemachine.com"
+echo "  branche : $BRANCH"
+echo "  message : $COMMIT_MSG"
+[ "$DRY_RUN" = "1" ] && echo "  MODE    : dry-run, rien ne sera pousse"
 echo ""
 
-# 0. Git operations sur la branche main
-echo "📝 Sauvegarde des modifications sur main..."
-cd "$PROJECT"
-git add .
-git commit -m "$COMMIT_MSG"
+if [ "$BRANCH" != "main" ]; then
+  echo "Tu es sur '$BRANCH', pas sur main. Le deploiement part de main."
+  echo "Bascule avec : git checkout main"
+  exit 1
+fi
+
+# Ce qui va etre publie, affiche avant de committer : pas de surprise.
+if [ -n "$(git status --porcelain)" ]; then
+  echo "Modifications a publier :"
+  git status --short
+  echo ""
+else
+  echo "Rien de modifie en local."
+  echo ""
+fi
+
+# Build local avant le push : si le build casse, GitHub Actions echouera et
+# rien ne sera deploye. Autant s'en apercevoir maintenant. Ca met aussi le
+# dist/ versionne d'accord avec les sources.
+echo "Build..."
+if [ "$DRY_RUN" = "1" ]; then
+  echo "  (dry-run : build saute)"
+else
+  npm run build
+fi
+echo ""
+
+if [ -n "$(git status --porcelain)" ]; then
+  if [ "$DRY_RUN" = "1" ]; then
+    echo "(dry-run) git add -A && git commit -m \"$COMMIT_MSG\""
+  else
+    git add -A
+    git commit -m "$COMMIT_MSG"
+  fi
+else
+  echo "Rien a committer."
+fi
+echo ""
+
+if [ "$DRY_RUN" = "1" ]; then
+  echo "(dry-run) git push origin main"
+  echo ""
+  echo "Dry-run termine, rien n'a ete pousse."
+  exit 0
+fi
+
+echo "Push vers main..."
 git push origin main
-if [ $? -ne 0 ]; then
-    echo "❌ Erreur lors du push vers main"
-    exit 1
-fi
-
-# 1. Build du projet
-echo "🔨 Build du projet..."
-cd "$PROJECT"
-npm run build
-if [ $? -ne 0 ]; then
-    echo "❌ Erreur lors du build"
-    exit 1
-fi
-
-# 2. Préparation du worktree
-echo "📦 Préparation du déploiement..."
-git fetch origin
-
-# Supprimer et recréer le worktree si nécessaire
-git worktree remove -f "$WORKTREE" 2>/dev/null || true
-git worktree add -B gh-pages "$WORKTREE"
-
-# 3. Nettoyage automatique (sans confirmation)
-echo "🧹 Nettoyage du worktree..."
-cd "$WORKTREE"
-find . -maxdepth 1 -not -name '.' -not -name '.git' -not -name '.github' -exec rm -rf {} + 2>/dev/null || true
-
-# 4. Copie des fichiers
-echo "📋 Copie des fichiers..."
-rsync -a "$PROJECT/dist/" "$WORKTREE/"
-rsync -a "$PROJECT/medias/" "$WORKTREE/medias/"
-
-# 5. Configuration GitHub Pages
-echo "⚙️  Configuration GitHub Pages..."
-echo "mauditemachine.com" > "$WORKTREE/CNAME"
-touch "$WORKTREE/.nojekyll"
-
-# 6. Git commit et push
-echo "🚀 Déploiement vers GitHub Pages..."
-git add -A
-git commit -m "$COMMIT_MSG"
-git push -f origin gh-pages
-
 echo ""
-echo "✅ Déploiement terminé !"
-echo "🌐 Site disponible sur: https://mauditemachine.com"
-echo "⏰ Attendre 1-2 minutes pour la propagation..."
+
+echo "Pousse. GitHub Actions rebuild et deploie, environ 1 minute."
+echo "  https://mauditemachine.com"
+if command -v gh >/dev/null 2>&1; then
+  echo ""
+  echo "Suivre le deploiement :"
+  echo "  gh run watch \$(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')"
+fi

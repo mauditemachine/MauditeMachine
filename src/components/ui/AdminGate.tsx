@@ -9,6 +9,12 @@
  * Le secret saisi n'est jamais dans le code ni dans le bundle : il vit en
  * memoire + sessionStorage (efface a la fermeture de l'onglet) et repart
  * en header Authorization sur chaque appel.
+ *
+ * EN LOCAL (localhost / 127.0.0.1) : pas d'ecran de mot de passe. Le gate
+ * demande au serveur de dev s'il exige un secret ; s'il n'en exige pas, on
+ * entre directement. Ca ne retire aucune protection, ca ne fait qu'arreter
+ * de reclamer un mot de passe la ou le serveur n'en demande deja pas.
+ * Rien ne change hors localhost.
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -18,6 +24,7 @@ import {
   clearAdminSecret,
   verifyAdminSecret,
   isApiConfigured,
+  isLocalAdmin,
   ADMIN_UNAUTHORIZED_EVENT,
 } from '../../utils/adminApi';
 import { useTranslation } from '../../lib/i18n';
@@ -35,21 +42,46 @@ const AdminGate: React.FC<AdminGateProps> = ({ children }) => {
   const [error, setError] = useState('');
   const [checking, setChecking] = useState(false);
   const [booting, setBooting] = useState(true);
+  const [localDown, setLocalDown] = useState(false);
 
-  // Revalide un secret deja present en sessionStorage (refresh de l'onglet)
   useEffect(() => {
     let cancelled = false;
-    const existing = restoreAdminSecret();
-    if (!existing) {
-      setBooting(false);
-      return;
-    }
-    verifyAdminSecret(existing).then(({ ok }) => {
+
+    (async () => {
+      // En local, on entre sans rien saisir. Le serveur de dev laisse passer
+      // l'ecriture tant qu'ADMIN_PASSWORD n'est pas defini : on le lui demande
+      // plutot que de le supposer, donc quelqu'un qui definit ce mot de passe
+      // sur sa machine retrouve le login normalement.
+      if (isLocalAdmin()) {
+        const { ok, status } = await verifyAdminSecret('');
+        if (cancelled) return;
+        if (ok) {
+          setUnlocked(true);
+          setBooting(false);
+          return;
+        }
+        // status 0 = rien n'ecoute sur le port 3001. Afficher un champ mot de
+        // passe serait trompeur : le probleme est que le serveur n'est pas la.
+        if (status === 0) {
+          setLocalDown(true);
+          setBooting(false);
+          return;
+        }
+      }
+
+      // Sinon : revalide un secret deja present en sessionStorage (refresh d'onglet)
+      const existing = restoreAdminSecret();
+      if (!existing) {
+        setBooting(false);
+        return;
+      }
+      const { ok } = await verifyAdminSecret(existing);
       if (cancelled) return;
       if (ok) setUnlocked(true);
       else clearAdminSecret();
       setBooting(false);
-    });
+    })();
+
     return () => {
       cancelled = true;
     };
@@ -100,6 +132,23 @@ const AdminGate: React.FC<AdminGateProps> = ({ children }) => {
     return <>{children}</>;
   }
 
+  // En local, serveur d'ecriture eteint : on dit quoi lancer.
+  if (localDown) {
+    return (
+      <div className="admin-page">
+        <div className="admin-container" style={{ maxWidth: 480, paddingTop: '12vh' }}>
+          <h1 className="admin-title">{a.localDownTitle}</h1>
+          <div className="admin-form-card">
+            <p style={{ color: '#ccc', lineHeight: 1.6, margin: 0 }}>{a.localDownBody}</p>
+          </div>
+          <p style={{ color: '#888', fontSize: '0.85rem', lineHeight: 1.5 }}>
+            <code>npm run admin</code>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // Aucun serveur d'ecriture joignable (VITE_API_URL absente en production).
   // On affiche un ecran explicite AVANT le formulaire : proposer un champ
   // mot de passe qui ne peut pas aboutir ne ferait que boucler sur une erreur.
@@ -112,8 +161,7 @@ const AdminGate: React.FC<AdminGateProps> = ({ children }) => {
             <p style={{ color: '#ccc', lineHeight: 1.6, margin: 0 }}>{a.offlineBody}</p>
           </div>
           <p style={{ color: '#888', fontSize: '0.85rem', lineHeight: 1.5 }}>
-            <code>npm run dev</code> + <code>node server.js</code> puis{' '}
-            <code>localhost:5173/mm-admin</code>
+            <code>npm run admin</code> puis <code>localhost:5173/mm-admin</code>
           </p>
         </div>
       </div>

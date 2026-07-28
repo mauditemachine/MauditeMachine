@@ -35,7 +35,9 @@ export const translations = {
       hint: 'The password is set server-side. It is never stored in the site code.',
       notConfigured: 'Online editing is disabled.',
       offlineTitle: 'Online editing disabled',
-      offlineBody: 'No remote write server is deployed for this site. Use the local admin (npm run dev + node server.js), or ask Claude Code to update the content.',
+      offlineBody: 'No remote write server is deployed for this site. Use the local admin (npm run admin), or ask Claude Code to update the content.',
+      localDownTitle: 'Local server not running',
+      localDownBody: 'The local write server is not answering on port 3001. Run npm run admin in the project folder: the admin then opens on its own, with no password.',
     },
     radar: {
       kicker: 'Radar // Music watch',
@@ -274,7 +276,9 @@ export const translations = {
       hint: 'Le mot de passe est défini côté serveur. Il n\'est jamais stocké dans le code du site.',
       notConfigured: 'Édition en ligne désactivée.',
       offlineTitle: 'Édition en ligne désactivée',
-      offlineBody: 'Aucun serveur d\'écriture distant n\'est déployé pour ce site. Utiliser l\'admin en local (npm run dev + node server.js), ou passer par Claude Code pour mettre à jour le contenu.',
+      offlineBody: 'Aucun serveur d\'écriture distant n\'est déployé pour ce site. Utiliser l\'admin en local (npm run admin), ou passer par Claude Code pour mettre à jour le contenu.',
+      localDownTitle: 'Serveur local non démarré',
+      localDownBody: 'Le serveur d\'écriture local ne répond pas sur le port 3001. Lance npm run admin dans le dossier du projet : l\'admin s\'ouvre alors tout seul, sans mot de passe.',
     },
     radar: {
       kicker: 'Radar // Veille musicale',
@@ -509,7 +513,9 @@ export const translations = {
       hint: 'La contraseña se define en el servidor. Nunca se guarda en el código del sitio.',
       notConfigured: 'Edición en línea desactivada.',
       offlineTitle: 'Edición en línea desactivada',
-      offlineBody: 'No hay servidor de escritura remoto desplegado para este sitio. Usa el admin en local (npm run dev + node server.js), o pide la actualización a Claude Code.',
+      offlineBody: 'No hay servidor de escritura remoto desplegado para este sitio. Usa el admin en local (npm run admin), o pide la actualización a Claude Code.',
+      localDownTitle: 'Servidor local no iniciado',
+      localDownBody: 'El servidor de escritura local no responde en el puerto 3001. Ejecuta npm run admin en la carpeta del proyecto: el admin se abre solo, sin contraseña.',
     },
     radar: {
       kicker: 'Radar // Novedades',

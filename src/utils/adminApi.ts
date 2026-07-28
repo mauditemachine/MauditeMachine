@@ -76,9 +76,19 @@ function sanityImageUrl(img: any): string {
 
 let warnedMissingApiUrl = false;
 
+/**
+ * true quand l'admin tourne sur la machine de dev.
+ * C'est la seule condition qui ouvre l'acces sans mot de passe : ailleurs,
+ * rien ne change. Le verrou reel reste de toute facon cote serveur.
+ */
+export function isLocalAdmin(): boolean {
+  if (typeof window === 'undefined') return false;
+  const h = window.location.hostname;
+  return h === 'localhost' || h === '127.0.0.1';
+}
+
 function getApiUrl(): string {
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  if (isLocalhost) return 'http://localhost:3001';
+  if (isLocalAdmin()) return 'http://localhost:3001';
 
   // VITE_API_URL est volontairement absente en production : il n'existe
   // aucun serveur d'ecriture distant. L'admin en ligne le detecte via
@@ -384,8 +394,7 @@ export const loadMerchItems = async (forAdmin = false): Promise<MerchItem[]> => 
       sizes: item.sizes || { S: true, M: true, L: true, XL: true }
     }));
     const hasChanges = cleanedItems.some((item: MerchItem, index: number) => item.caption !== merchItems[index].caption);
-    const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    if (hasChanges && isLocalhost) {
+    if (hasChanges && isLocalAdmin()) {
       await saveMerchItems(cleanedItems);
       return cleanedItems;
     }
