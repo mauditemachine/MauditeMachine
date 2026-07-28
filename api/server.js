@@ -133,6 +133,23 @@ app.post('/api/save-merch', authMiddleware, async (req, res) => {
   }
 });
 
+// Save releases (Radar / veille musicale)
+app.post('/api/save-releases', authMiddleware, async (req, res) => {
+  try {
+    const releases = req.body;
+    if (!Array.isArray(releases)) {
+      return res.status(400).json({ success: false, message: 'Body must be an array' });
+    }
+    const content = JSON.stringify(releases, null, 2);
+    await updateGitHubFile('public/releases.json', content, 'Update releases from admin panel');
+    console.log('Releases saved to GitHub');
+    res.json({ success: true, message: 'Releases saved & deploy triggered' });
+  } catch (error) {
+    console.error('Save releases error:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // Upload image
 app.post('/api/upload-image', authMiddleware, async (req, res) => {
   try {

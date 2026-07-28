@@ -102,6 +102,7 @@ const Layout: React.FC = () => {
   const navLinks = [
     { key: 'about',     label: t.nav.presskit,  to: '/about' },
     { key: 'shows',     label: t.nav.events,    to: '/shows' },
+    { key: 'radar',     label: t.nav.radar,     to: '/radar' },
     { key: 'merch',     label: t.nav.merch,     to: '/merch' },
     { key: 'goodies',   label: t.nav.goodies,   to: '/goodies' },
     { key: 'techrider', label: t.nav.techrider, to: '/techrider' },

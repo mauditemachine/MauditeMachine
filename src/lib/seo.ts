@@ -19,7 +19,7 @@ export const SITE_URL = 'https://mauditemachine.com';
 export const OG_IMAGE = `${SITE_URL}/images/og-image.jpg`;
 
 type SeoEntry = { title: string; description: string };
-type RouteKey = '/' | '/about' | '/shows' | '/merch' | '/goodies' | '/techrider' | '/contact';
+type RouteKey = '/' | '/about' | '/shows' | '/radar' | '/merch' | '/goodies' | '/techrider' | '/contact';
 
 /**
  * Metadonnees par route et par langue.
@@ -39,7 +39,7 @@ const OG_LOCALE: Record<Lang, string> = {
 /** Normalise un pathname vers une RouteKey connue (fallback '/'). */
 function toRouteKey(pathname: string): RouteKey {
   const clean = pathname.replace(/\/+$/, '') || '/';
-  const known: RouteKey[] = ['/', '/about', '/shows', '/merch', '/goodies', '/techrider', '/contact'];
+  const known: RouteKey[] = ['/', '/about', '/shows', '/radar', '/merch', '/goodies', '/techrider', '/contact'];
   return (known.find((k) => k === clean) as RouteKey) || '/';
 }
 

@@ -1,8 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { loadEvents, saveEvents, Event, loadMessages, saveMessages, Message, loadMerchItems, saveMerchItems, MerchItem } from '../utils/adminApi';
+import {
+  loadEvents, saveEvents, Event,
+  loadMessages, saveMessages, Message,
+  loadMerchItems, saveMerchItems, MerchItem,
+  loadReleases, saveReleases, Release, RELEASE_FORMATS, RELEASE_SECTIONS,
+} from '../utils/adminApi';
 import ImageUpload from './ImageUpload';
 
-type Tab = 'events' | 'merch' | 'news';
+type Tab = 'events' | 'merch' | 'news' | 'releases';
+
+const EMPTY_RELEASE: Release = {
+  id: 0,
+  artist: '',
+  title: '',
+  label: '',
+  releaseDate: '',
+  genre: '',
+  format: 'EP',
+  link: '',
+  cover: '',
+  section: 'labels',
+  favorite: false,
+  colorFrom: '#ff2e4d',
+  colorTo: '#3a0d18',
+  publishedRadar: true,
+};
 
 const AdminEvents: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>('events');
@@ -18,7 +40,11 @@ const AdminEvents: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [editingMsgIndex, setEditingMsgIndex] = useState<number | null>(null);
   const [msgForm, setMsgForm] = useState<Partial<Message>>({ title: '', description: '', image: '', date: '', link: { label: '', href: '' }, main: false });
-  
+
+  const [releases, setReleases] = useState<Release[]>([]);
+  const [editingReleaseIndex, setEditingReleaseIndex] = useState<number | null>(null);
+  const [releaseForm, setReleaseForm] = useState<Release>({ ...EMPTY_RELEASE });
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
@@ -28,14 +54,16 @@ const AdminEvents: React.FC = () => {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const [evts, merch, msgs] = await Promise.all([
+      const [evts, merch, msgs, rels] = await Promise.all([
         loadEvents(true).catch(() => []),
         loadMerchItems(true).catch(() => []),
-        loadMessages(true).catch(() => [])
+        loadMessages(true).catch(() => []),
+        loadReleases(true).catch(() => [])
       ]);
       setEvents([...evts].sort((a, b) => b.date.localeCompare(a.date)));
       setMerchItems(merch);
       setMessages(msgs);
+      setReleases([...rels].sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || '')));
     } finally { setLoading(false); }
   };
 
@@ -81,6 +109,25 @@ const AdminEvents: React.FC = () => {
   const deleteMsg = async (i: number) => { if (!confirm('Delete this news?')) return; const updated = messages.filter((_, idx) => idx !== i); await saveMessages(updated); setMessages(updated); flash('News deleted'); };
   const resetMsgForm = () => { setMsgForm({ title: '', description: '', image: '', date: '', link: { label: '', href: '' }, main: false }); setEditingMsgIndex(null); };
 
+  // Releases (Radar)
+  const saveRelease = async () => {
+    if (!releaseForm.artist || !releaseForm.label || !releaseForm.releaseDate) { flash('Artist, label and date required'); return; }
+    setSaving(true);
+    const item: Release = {
+      ...releaseForm,
+      id: editingReleaseIndex !== null ? releases[editingReleaseIndex].id : Date.now(),
+    };
+    const updated = (editingReleaseIndex !== null
+      ? releases.map((rel, i) => (i === editingReleaseIndex ? item : rel))
+      : [...releases, item]
+    ).sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || ''));
+    const res = await saveReleases(updated);
+    if (res.success) { setReleases(updated); resetReleaseForm(); flash('Release saved'); } else flash('Error saving');
+    setSaving(false);
+  };
+  const deleteRelease = async (i: number) => { if (!confirm('Delete this release?')) return; const updated = releases.filter((_, idx) => idx !== i); await saveReleases(updated); setReleases(updated); flash('Release deleted'); };
+  const resetReleaseForm = () => { setReleaseForm({ ...EMPTY_RELEASE }); setEditingReleaseIndex(null); };
+
   if (loading) return <div className="admin-loading">Loading...</div>;
 
   return (
@@ -89,11 +136,19 @@ const AdminEvents: React.FC = () => {
         <h1 className="admin-title">MM ADMIN</h1>
 
         <div className="admin-tabs">
-          {(['events', 'merch', 'news'] as Tab[]).map(tab => (
-            <button key={tab} className={`admin-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>
-              {tab} ({tab === 'events' ? events.length : tab === 'merch' ? merchItems.length : messages.length})
-            </button>
-          ))}
+          {(['events', 'merch', 'news', 'releases'] as Tab[]).map(tab => {
+            const counts: Record<Tab, number> = {
+              events: events.length,
+              merch: merchItems.length,
+              news: messages.length,
+              releases: releases.length,
+            };
+            return (
+              <button key={tab} className={`admin-tab ${activeTab === tab ? 'active' : ''}`} onClick={() => setActiveTab(tab)}>
+                {tab} ({counts[tab]})
+              </button>
+            );
+          })}
         </div>
 
         {status && <div className={`admin-status ${status.includes('Error') ? 'error' : 'success'}`}>{status}</div>}
@@ -249,6 +304,90 @@ const AdminEvents: React.FC = () => {
                 <button className="admin-btn-secondary" onClick={() => { setMsgForm({...msg, link: msg.link || { label: '', href: '' }}); setEditingMsgIndex(i); window.scrollTo(0,0); }}>Edit</button>
                 <button className="admin-btn-danger" onClick={() => deleteMsg(i)}>Del</button>
         </div>
+            ))}
+          </>
+        )}
+
+        {/* RELEASES (Radar / veille musicale) */}
+        {activeTab === 'releases' && (
+          <>
+            <div className="admin-form-card">
+              <h3 className="admin-form-title">{editingReleaseIndex !== null ? 'Edit Release' : 'New Release'}</h3>
+              <div className="admin-form-grid">
+                <div className="admin-field-half">
+                  <label className="admin-label">Artist *</label>
+                  <input className="admin-input" value={releaseForm.artist} onChange={e => setReleaseForm({...releaseForm, artist: e.target.value})} placeholder="Damon Jee &amp; Darlyn Vlys" />
+                </div>
+                <div className="admin-field-half">
+                  <label className="admin-label">Title</label>
+                  <input className="admin-input" value={releaseForm.title} onChange={e => setReleaseForm({...releaseForm, title: e.target.value})} placeholder="Club Scenes" />
+                </div>
+                <div className="admin-field-half">
+                  <label className="admin-label">Label *</label>
+                  <input className="admin-input" value={releaseForm.label} onChange={e => setReleaseForm({...releaseForm, label: e.target.value})} placeholder="Surefire" />
+                </div>
+                <div className="admin-field-half">
+                  <label className="admin-label">Release date *</label>
+                  <input type="date" className="admin-input" value={releaseForm.releaseDate} onChange={e => setReleaseForm({...releaseForm, releaseDate: e.target.value})} />
+                </div>
+                <div className="admin-field-half">
+                  <label className="admin-label">Genre</label>
+                  <input className="admin-input" value={releaseForm.genre} onChange={e => setReleaseForm({...releaseForm, genre: e.target.value})} placeholder="Indie Dance" />
+                </div>
+                <div className="admin-field-half">
+                  <label className="admin-label">Format</label>
+                  <select className="admin-input" value={releaseForm.format} onChange={e => setReleaseForm({...releaseForm, format: e.target.value as Release['format']})}>
+                    {RELEASE_FORMATS.map(f => <option key={f} value={f}>{f}</option>)}
+                  </select>
+                </div>
+                <div className="admin-field-half">
+                  <label className="admin-label">Section</label>
+                  <select className="admin-input" value={releaseForm.section} onChange={e => setReleaseForm({...releaseForm, section: e.target.value as Release['section']})}>
+                    {RELEASE_SECTIONS.map(s => <option key={s} value={s}>{s === 'feature' ? 'Coup de cœur' : s === 'labels' ? 'Radar labels' : 'Radar artistes'}</option>)}
+                  </select>
+                </div>
+                <div className="admin-field-half admin-checkboxes">
+                  <label className="admin-checkbox-label"><input type="checkbox" checked={releaseForm.favorite} onChange={e => setReleaseForm({...releaseForm, favorite: e.target.checked})} /> Coup de cœur</label>
+                  <label className="admin-checkbox-label"><input type="checkbox" checked={releaseForm.publishedRadar} onChange={e => setReleaseForm({...releaseForm, publishedRadar: e.target.checked})} /> Visible</label>
+                </div>
+                <div className="admin-field-full">
+                  <label className="admin-label">Link (Beatport / Bandcamp / SoundCloud)</label>
+                  <input className="admin-input" value={releaseForm.link} onChange={e => setReleaseForm({...releaseForm, link: e.target.value})} placeholder="https://www.beatport.com/..." />
+                </div>
+                <div className="admin-field-half">
+                  <label className="admin-label">Gradient from</label>
+                  <input className="admin-input" value={releaseForm.colorFrom} onChange={e => setReleaseForm({...releaseForm, colorFrom: e.target.value})} placeholder="#ff2e4d" />
+                </div>
+                <div className="admin-field-half">
+                  <label className="admin-label">Gradient to</label>
+                  <input className="admin-input" value={releaseForm.colorTo} onChange={e => setReleaseForm({...releaseForm, colorTo: e.target.value})} placeholder="#3a0d18" />
+                </div>
+                <div className="admin-field-full">
+                  <label className="admin-label">Cover (optionnel — sinon dégradé + initiales)</label>
+                  <ImageUpload value={releaseForm.cover || ''} onChange={v => setReleaseForm({...releaseForm, cover: v})} placeholder="images/releases/cover.webp" useButton={true} />
+                </div>
+                <div className="admin-actions">
+                  <button className="admin-btn-primary" onClick={saveRelease} disabled={saving}>{saving ? 'Saving...' : editingReleaseIndex !== null ? 'Update' : 'Add Release'}</button>
+                  {editingReleaseIndex !== null && <button className="admin-btn-secondary" onClick={resetReleaseForm}>Cancel</button>}
+                </div>
+              </div>
+            </div>
+            {releases.map((rel, i) => (
+              <div key={rel.id} className="admin-list-item">
+                <div
+                  className="admin-item-thumb"
+                  style={{ background: `linear-gradient(150deg, ${rel.colorFrom}, ${rel.colorTo})` }}
+                  aria-hidden="true"
+                />
+                <div className="admin-item-info">
+                  <div className="admin-item-title">
+                    {rel.artist} {rel.favorite && <span className="admin-badge-main">COUP DE CŒUR</span>} {!rel.publishedRadar && <span className="admin-badge-muted">HIDDEN</span>}
+                  </div>
+                  <div className="admin-item-meta">{rel.releaseDate} · {rel.label} · {rel.format} · {rel.section}</div>
+                </div>
+                <button className="admin-btn-secondary" onClick={() => { setReleaseForm(rel); setEditingReleaseIndex(i); window.scrollTo(0,0); }}>Edit</button>
+                <button className="admin-btn-danger" onClick={() => deleteRelease(i)}>Del</button>
+              </div>
             ))}
           </>
         )}

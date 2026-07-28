@@ -1,0 +1,50 @@
+[
+  {
+    "id": 1,
+    "artist": "Damon Jee & Darlyn Vlys",
+    "title": "Club Scenes",
+    "label": "Surefire",
+    "releaseDate": "2026-07-24",
+    "genre": "Indie Dance",
+    "format": "EP",
+    "link": "https://www.beatport.com/artist/darlyn-vlys/110661/releases",
+    "cover": "",
+    "section": "feature",
+    "favorite": true,
+    "colorFrom": "#ff2e4d",
+    "colorTo": "#3a0d18",
+    "publishedRadar": true
+  },
+  {
+    "id": 2,
+    "artist": "V/A — Permanent Vacation XX",
+    "title": "feat. Lauer, Midnight Magic, Pional, Benjamin Fröhlich, Curses",
+    "label": "Permanent Vacation",
+    "releaseDate": "2026-07-24",
+    "genre": "Nu Disco / Dark",
+    "format": "Compilation",
+    "link": "https://www.beatport.com/artist/curses/344701/releases",
+    "cover": "",
+    "section": "feature",
+    "favorite": true,
+    "colorFrom": "#8a5cff",
+    "colorTo": "#1a1030",
+    "publishedRadar": true
+  },
+  {
+    "id": 3,
+    "artist": "Sean Fender",
+    "title": "Rematch / Groove Cycle / Syncospatial",
+    "label": "Correspondant",
+    "releaseDate": "2026-07-24",
+    "genre": "Trance / à valider",
+    "format": "EP",
+    "link": "https://www.beatport.com/label/correspondant/20970/tracks",
+    "cover": "",
+    "section": "labels",
+    "favorite": false,
+    "colorFrom": "#2b6f6a",
+    "colorTo": "#0e2422",
+    "publishedRadar": true
+  }
+]

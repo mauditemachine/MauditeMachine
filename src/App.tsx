@@ -11,6 +11,7 @@ const MerchPage = React.lazy(() => import('./pages/MerchPage'));
 const GoodiesPage = React.lazy(() => import('./pages/GoodiesPage'));
 const TechRiderPage = React.lazy(() => import('./pages/TechRiderPage'));
 const ContactPage = React.lazy(() => import('./pages/ContactPage'));
+const RadarPage = React.lazy(() => import('./pages/RadarPage'));
 
 // Admin panels : lazy load (panels internes, ~1750 lignes hors du chunk principal)
 const Admin = React.lazy(() => import('./components/Admin'));
@@ -69,6 +70,14 @@ export default function App() {
               element={
                 <Suspense fallback={null}>
                   <ContactPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="radar"
+              element={
+                <Suspense fallback={null}>
+                  <RadarPage />
                 </Suspense>
               }
             />

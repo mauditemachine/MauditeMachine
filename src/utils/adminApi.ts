@@ -307,3 +307,75 @@ export const loadMerchItems = async (forAdmin = false): Promise<MerchItem[]> => 
     throw error;
   }
 };
+
+// ============================================================
+// RELEASES / RADAR — veille musicale (labels & artistes suivis)
+// Meme flux que events/merch/news : ecriture via API -> commit
+// GitHub -> auto-deploy ; lecture depuis public/releases.json.
+// ============================================================
+
+export type ReleaseSection = 'feature' | 'labels' | 'artistes';
+export type ReleaseFormat = 'Single' | 'EP' | 'Album' | 'Compilation' | 'VA';
+
+export interface Release {
+  id: number;
+  artist: string;
+  title: string;
+  label: string;
+  /** ISO YYYY-MM-DD */
+  releaseDate: string;
+  genre: string;
+  format: ReleaseFormat;
+  /** URL Beatport / Bandcamp / SoundCloud */
+  link: string;
+  /** Chemin image optionnel ; si vide -> degrade colorFrom/colorTo + initiales */
+  cover?: string;
+  section: ReleaseSection;
+  favorite: boolean;
+  colorFrom: string;
+  colorTo: string;
+  /** Permet de masquer une sortie sans la supprimer */
+  publishedRadar: boolean;
+}
+
+export const RELEASE_FORMATS: ReleaseFormat[] = ['Single', 'EP', 'Album', 'Compilation', 'VA'];
+export const RELEASE_SECTIONS: ReleaseSection[] = ['feature', 'labels', 'artistes'];
+
+export const saveReleases = async (releases: Release[]): Promise<{ success: boolean; message: string }> => {
+  try {
+    const json = JSON.stringify(releases, null, 2);
+    try {
+      localStorage.setItem('admin_releases_backup', json);
+    } catch (e: any) {
+      if (e?.name === 'QuotaExceededError') {
+        localStorage.removeItem('admin_releases_backup');
+        localStorage.setItem('admin_releases_backup', json);
+      } else throw e;
+    }
+    await callApi('/api/save-releases', releases);
+    window.dispatchEvent(new CustomEvent('releasesUpdated', { detail: { key: 'releases', data: releases } }));
+    return { success: true, message: 'Saved!' };
+  } catch (error: any) {
+    return { success: false, message: 'Error: ' + (error.message || 'Storage full') };
+  }
+};
+
+/**
+ * Charge les sorties. forAdmin=true lit d'abord le backup localStorage
+ * (edition en cours non encore deployee), comme loadEvents.
+ */
+export const loadReleases = async (forAdmin = false): Promise<Release[]> => {
+  if (forAdmin) {
+    try {
+      const backup = localStorage.getItem('admin_releases_backup');
+      if (backup) {
+        const parsed = JSON.parse(backup);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (_) {}
+  }
+  const response = await fetch(`/releases.json?t=${Date.now()}`);
+  if (!response.ok) throw new Error('Failed to load releases');
+  const data = await response.json();
+  return Array.isArray(data) ? data : [];
+};
