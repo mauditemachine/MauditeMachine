@@ -143,3 +143,49 @@ export function scSeekRatio(ratio: number): void {
 export function scSetVolume(v: number): void {
   widget?.setVolume(Math.round(Math.max(0, Math.min(1, v)) * 100));
 }
+
+export interface ScSetTrack {
+  title: string;
+  artist: string;
+  permalinkUrl: string;
+  artworkUrl: string | null;
+}
+
+let setTracksCache: Promise<ScSetTrack[]> | null = null;
+
+/**
+ * Pistes d'un set SoundCloud (la playlist "mes tracks" du site), lues via
+ * getSounds() du widget partage, sans lancer la lecture. Mis en cache : le
+ * set ne change pas pendant une session.
+ */
+export function scGetSetTracks(setUrl: string): Promise<ScSetTrack[]> {
+  if (!setTracksCache) {
+    setTracksCache = (async () => {
+      const w = await ensureWidget(setUrl);
+      const sounds: any[] = await new Promise((resolve) => {
+        if (currentUrl === setUrl) {
+          w.getSounds((s: any[]) => resolve(s || []));
+        } else {
+          currentUrl = setUrl;
+          durationMs = 0;
+          w.load(setUrl, {
+            auto_play: false,
+            callback: () => w.getSounds((s: any[]) => resolve(s || [])),
+          });
+        }
+      });
+      return sounds
+        .filter((s) => s && s.permalink_url)
+        .map((s) => ({
+          title: String(s.title || ''),
+          artist: String(s.user?.username || 'Maudite Machine'),
+          permalinkUrl: String(s.permalink_url),
+          artworkUrl: s.artwork_url ? String(s.artwork_url) : s.user?.avatar_url ? String(s.user.avatar_url) : null,
+        }));
+    })().catch((err) => {
+      setTracksCache = null; // re-essayable apres un echec reseau
+      throw err;
+    });
+  }
+  return setTracksCache;
+}

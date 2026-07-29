@@ -32,7 +32,25 @@
   color: var(--radar-accent-2);
 }
 
-/* Curseur de volume du lecteur d'extraits */
-.radar-page input[type='range'] {
-  accent-color: var(--radar-accent);
+/*
+ * Panneau explorateur : meme famille de verre que .pk-glass (page Shows),
+ * densifie pour du texte en petit corps par-dessus la video meduses.
+ * Translucide, mais le blur fort + le voile sombre gardent le ratio AA.
+ */
+.radar-page .radar-glass {
+  background: rgba(6, 8, 12, 0.42);
+  backdrop-filter: blur(26px) saturate(0.7);
+  -webkit-backdrop-filter: blur(26px) saturate(0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+/* Meme filet de lisibilite que .pk-glass */
+.radar-page .radar-glass h1,
+.radar-page .radar-glass h2,
+.radar-page .radar-glass p,
+.radar-page .radar-glass span,
+.radar-page .radar-glass div,
+.radar-page .radar-glass button {
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
 }

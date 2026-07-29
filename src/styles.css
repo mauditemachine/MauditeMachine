@@ -7002,3 +7002,9 @@ body.dark-mode .admin-page .form-group textarea:focus {
     flex-wrap: wrap;
   }
 }
+
+/* Lecteur global (PlayerContext) : la barre fixe du bas mesure 64px.
+   Quand elle est visible, le contenu des pages garde de l'air dessous. */
+body.radar-audio-open {
+  padding-bottom: 76px;
+}

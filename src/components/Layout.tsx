@@ -14,6 +14,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import SoundCloudPlayer from './SoundCloudPlayer';
+import { PlayerProvider } from '../context/PlayerContext';
 import JellyfishBackground from './JellyfishBackground';
 import LiquidGlass from './LiquidGlass';
 import MobileMenu from './ui/MobileMenu';
@@ -182,7 +183,7 @@ const Layout: React.FC = () => {
   const currentSection = location.pathname === '/' ? 'home' : location.pathname.replace(/^\//, '');
 
   return (
-    <>
+    <PlayerProvider>
       <LiquidGlass />
 
       <div className={cn('page', designMode === 'alternate' ? 'design-alternate' : '')}>
@@ -283,7 +284,7 @@ const Layout: React.FC = () => {
             La musique continue de jouer quand on switche /about -> /shows etc. */}
         <SoundCloudPlayer onBackgroundChange={handleBgChange} />
       </div>
-    </>
+    </PlayerProvider>
   );
 };
 
