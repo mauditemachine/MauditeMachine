@@ -20,6 +20,7 @@ const EMPTY_RELEASE: Release = {
   genre: '',
   format: 'EP',
   link: '',
+  soundcloudUrl: '',
   cover: '',
   section: 'labels',
   favorite: false,
@@ -403,6 +404,10 @@ const AdminEvents: React.FC = () => {
                 <div className="admin-field-full">
                   <label className="admin-label">Link (Beatport / Bandcamp / SoundCloud)</label>
                   <input className="admin-input" value={releaseForm.link} onChange={e => setReleaseForm({...releaseForm, link: e.target.value})} placeholder="https://www.beatport.com/..." />
+                </div>
+                <div className="admin-field-full">
+                  <label className="admin-label">SoundCloud URL (optionnel, joue la track complète sur /radar)</label>
+                  <input className="admin-input" value={releaseForm.soundcloudUrl || ''} onChange={e => setReleaseForm({...releaseForm, soundcloudUrl: e.target.value})} placeholder="https://soundcloud.com/artiste/track" />
                 </div>
                 <div className="admin-field-half">
                   <label className="admin-label">Gradient from</label>

@@ -492,6 +492,12 @@ export interface Release {
   format: ReleaseFormat;
   /** URL Beatport / Bandcamp / SoundCloud */
   link: string;
+  /**
+   * URL SoundCloud optionnelle (track ou set). Si presente, le lecteur du
+   * Radar joue la VERSION COMPLETE via le widget SoundCloud au lieu de
+   * l'extrait iTunes de 30 s.
+   */
+  soundcloudUrl?: string;
   /** Chemin image optionnel ; si vide -> degrade colorFrom/colorTo + initiales */
   cover?: string;
   section: ReleaseSection;
@@ -587,6 +593,7 @@ export function prepareReleasesImport(raw: string, existing: Release[]): Release
         ? (str(e.format) as ReleaseFormat)
         : 'EP',
       link: str(e.link),
+      soundcloudUrl: str(e.soundcloudUrl),
       cover: str(e.cover),
       section: (RELEASE_SECTIONS as string[]).includes(str(e.section))
         ? (str(e.section) as ReleaseSection)

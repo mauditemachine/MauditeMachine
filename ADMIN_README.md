@@ -117,6 +117,7 @@ localhost.
   "genre": "Indie Dance",
   "format": "EP",
   "link": "https://www.beatport.com/...",
+  "soundcloudUrl": "",
   "cover": "",
   "section": "feature",
   "favorite": true,
@@ -131,6 +132,9 @@ localhost.
 `cover` vide fait générer une pochette en dégradé `colorFrom` vers `colorTo`
 avec les initiales de l'artiste.
 `publishedRadar: false` masque une sortie sans la supprimer.
+`soundcloudUrl` (optionnel) : URL d'une track ou d'un set SoundCloud. Si
+présent, le lecteur du Radar joue la version complète via le widget
+SoundCloud au lieu de l'extrait iTunes de 30 secondes.
 
 ## Sécurité
 

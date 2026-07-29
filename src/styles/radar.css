@@ -12,7 +12,9 @@
 
 .radar-page {
   --radar-accent: #ff2e4d;
-  --radar-accent-2: #8a5cff;
+  /* Violet eclairci (etait #8a5cff) : sur les fonds sombres du panneau et
+     des lignes, l'ancien tombait sous le ratio AA pour du texte de 11px. */
+  --radar-accent-2: #a98bff;
 }
 
 /* Mention "Coup de coeur" (texte) */
