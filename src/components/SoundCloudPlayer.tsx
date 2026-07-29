@@ -273,6 +273,20 @@ export default function SoundCloudPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Le lecteur Radar demarre un extrait -> on se met en pause, sinon les
+  // deux sources jouent en meme temps.
+  useEffect(() => {
+    const onRadarPlay = () => {
+      const w = widgetRef.current
+      if (!w) return
+      w.isPaused((paused: boolean) => {
+        if (!paused) w.pause()
+      })
+    }
+    window.addEventListener('mm:radar-play', onRadarPlay)
+    return () => window.removeEventListener('mm:radar-play', onRadarPlay)
+  }, [])
+
   // Actions
   function togglePlay() {
     const w = widgetRef.current
@@ -389,6 +403,9 @@ export default function SoundCloudPlayer({
         }}
         className={cn(
           'bottom-4 md:bottom-6',
+          // Le lecteur Radar (extraits iTunes) occupe le bas de l'ecran quand
+          // il est ouvert : la pilule remonte pour ne pas etre recouverte.
+          '[.radar-audio-open_&]:bottom-[76px] md:[.radar-audio-open_&]:bottom-[84px]',
           'w-[95%] max-w-3xl',
           'rounded-full',
           'bg-black/20 backdrop-blur-2xl',

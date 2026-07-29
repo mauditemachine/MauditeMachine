@@ -29,3 +29,8 @@
 .radar-page .radar-label-tag {
   color: var(--radar-accent-2);
 }
+
+/* Curseur de volume du lecteur d'extraits */
+.radar-page input[type='range'] {
+  accent-color: var(--radar-accent);
+}
