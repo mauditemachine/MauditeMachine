@@ -18,3 +18,13 @@ api/.env
 .env.*
 !.env.example
 !.env.production
+
+# Sources haute-res des goodies (131 Mo).
+# Le site ne sert que les .webp, qui restent suivis normalement. Les .png et
+# .jpg d'origine ne sont references nulle part : ce sont les fichiers qui ont
+# servi a generer les webp. Ils restent en local, hors depot.
+# Sans ca, le `git add -A` de deploy.sh les embarquerait par accident dans un
+# depot qui est aussi ce que GitHub Pages sert.
+/public/images/goodies/**/*.png
+/public/images/goodies/**/*.jpg
+/public/images/goodies/**/*.jpeg
