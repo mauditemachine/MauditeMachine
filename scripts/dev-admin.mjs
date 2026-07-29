@@ -43,7 +43,7 @@ function pipeLines(stream, onLine) {
   });
 }
 
-function start(name, color, command, args) {
+function start(name, color, command, args, { detectUrl = false } = {}) {
   const child = spawn(command, args, {
     cwd: ROOT,
     env: process.env,
@@ -56,7 +56,9 @@ function start(name, color, command, args) {
 
   pipeLines(child.stdout, (line) => {
     write(line);
-    detectViteUrl(line);
+    // Uniquement sur la sortie de vite : le serveur API annonce son propre
+    // port (3001) en premier, et on annoncerait l'admin sur le mauvais port.
+    if (detectUrl) detectViteUrl(line);
   });
   pipeLines(child.stderr, (line) => write(line));
 
@@ -120,4 +122,4 @@ start('api', C.magenta, process.execPath, [path.join(ROOT, 'server.js')]);
 
 // vite en direct plutot que `npm run dev`, pour ouvrir sur /mm-admin.
 const viteBin = path.join(ROOT, 'node_modules', '.bin', 'vite');
-start('vite', C.cyan, viteBin, ['--open', '/mm-admin']);
+start('vite', C.cyan, viteBin, ['--open', '/mm-admin'], { detectUrl: true });
