@@ -7,6 +7,7 @@ import EventsDisplay from '../components/EventsDisplay';
 import { useTranslation } from '../lib/i18n';
 import { setJsonLd } from '../lib/seo';
 import { buildEventsJsonLd, type UpcomingEvent } from '../lib/eventSchema';
+import { fetchEvents } from '../utils/sanityQueries';
 import { cn } from '../lib/cn';
 
 interface PastShow {
@@ -22,26 +23,94 @@ interface YearArchive {
   shows: PastShow[];
 }
 
+/** "2026-07-23" -> 2026 */
+const anneeDe = (date: string): number => Number(String(date).slice(0, 4)) || 0;
+
+/**
+ * Cle de dedup du Wall of Fame, insensible a la casse et a la ponctuation :
+ * le meme show peut s'ecrire "GROOVE & BASS" dans l'archive et "GROOVE&BASS"
+ * dans events.json, il ne doit pas apparaitre deux fois.
+ */
+const showKey = (name: string, date: string): string =>
+  `${String(date).slice(0, 10)}|${String(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')}`;
+
 const ShowsPage: React.FC = () => {
   const { t } = useTranslation();
   const [showsArchive, setShowsArchive] = useState<YearArchive[]>([]);
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${import.meta.env.BASE_URL}past-events.json`)
-      .then((r) => r.json())
-      .then((data: { events: YearArchive[] }) => {
-        if (cancelled) return;
-        const sorted = (data.events || [])
-          .slice()
-          .sort((a, b) => b.year - a.year)
-          .map((y) => ({
-            ...y,
-            shows: y.shows.slice().sort((a, b) => b.date.localeCompare(a.date)),
-          }));
-        setShowsArchive(sorted);
-      })
-      .catch(() => {});
+
+    const base = import.meta.env.BASE_URL;
+    const jour = (d: unknown) => String(d ?? '').slice(0, 10);
+
+    Promise.all([
+      // 1. L'archive curee, avec lineups et liens Facebook.
+      fetch(`${base}past-events.json`)
+        .then((r) => r.json())
+        .catch(() => null),
+      // 2. Le fichier des dates, jamais filtre : c'est le filet de securite.
+      fetch(`${base}events.json?t=${Date.now()}`)
+        .then((r) => r.json())
+        .catch(() => null),
+      // 3. Sanity en incluant les dates marquees "past", que fetchEvents()
+      //    ecarte par defaut. Un event qui n'existerait que la doit remonter.
+      fetchEvents(true).catch(() => null),
+    ]).then(([archive, locaux, distants]) => {
+      if (cancelled) return;
+
+      const parAnnee = new Map<number, PastShow[]>();
+      const vus = new Set<string>();
+
+      const ajouter = (show: PastShow) => {
+        const date = jour(show.date);
+        if (!date) return;
+        const cle = showKey(show.name, date);
+        if (vus.has(cle)) return;
+        vus.add(cle);
+        const an = anneeDe(date);
+        if (!parAnnee.has(an)) parAnnee.set(an, []);
+        parAnnee.get(an)!.push({ ...show, date });
+      };
+
+      // L'archive passe en premier : ses entrees sont les plus riches, et
+      // le dedup garde la premiere vue de chaque show.
+      for (const y of (archive?.events ?? []) as YearArchive[]) {
+        for (const s of y?.shows ?? []) ajouter(s);
+      }
+
+      // Toute date deja passee rejoint l'archive automatiquement. C'est ce
+      // qui manquait : un show termine mais jamais recopie a la main dans
+      // past-events.json n'apparaissait nulle part sur le site, ni dans les
+      // dates a venir (trop tard) ni dans le Wall of Fame (jamais ajoute).
+      const aujourdhui = new Date().toISOString().slice(0, 10);
+      const versShow = (e: any): PastShow => ({
+        name: e?.title ?? '',
+        date: jour(e?.date),
+        venue: e?.location ?? '',
+        city: '',
+        facebook_event: e?.url || undefined,
+      });
+
+      for (const e of Array.isArray(locaux) ? locaux : []) {
+        if (jour(e?.date) < aujourdhui) ajouter(versShow(e));
+      }
+      for (const e of Array.isArray(distants) ? distants : []) {
+        if (jour(e?.date) < aujourdhui) ajouter(versShow(e));
+      }
+
+      const fusionne = Array.from(parAnnee.entries())
+        .map(([year, shows]) => ({
+          year,
+          shows: shows.slice().sort((a, b) => b.date.localeCompare(a.date)),
+        }))
+        .sort((a, b) => b.year - a.year);
+
+      setShowsArchive(fusionne);
+    });
+
     return () => {
       cancelled = true;
     };
