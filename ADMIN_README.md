@@ -71,9 +71,20 @@ C'est la voie normale, notamment pour la veille musicale hebdomadaire.
 1. Coller le bloc JSON des nouvelles sorties dans Claude Code.
 2. Claude Code met à jour `public/releases.json`, en dédupliquant sur
    artist + title + label + releaseDate.
-3. Commit et push sur `main`.
-4. GitHub Actions rebuild et déploie, environ 1 minute.
-5. Les sorties apparaissent sur `mauditemachine.com/radar`.
+3. `npm run covers` : récupère les pochettes manquantes (og:image du lien
+   de chaque sortie) dans `public/images/releases/`, en webp 800px max.
+   À relancer après CHAQUE import, les nouvelles entrées arrivent sans
+   cover. Committer les images avec releases.json.
+4. Commit et push sur `main`.
+5. GitHub Actions rebuild et déploie, environ 1 minute.
+6. Les sorties apparaissent sur `mauditemachine.com/radar`.
+
+Note covers : Beatport bloque le fetch serveur (403 anti-bot) sur ses
+pages. Si `npm run covers` échoue sur un lien Beatport, ouvrir la page
+dans un navigateur, copier le `content` de la balise `og:image`, le
+coller dans le champ `cover` de la release, puis relancer `npm run
+covers` : le script télécharge alors l'image directement depuis le CDN,
+qui lui n'est pas bloqué. Bandcamp passe sans manipulation.
 
 Aucun serveur, aucun mot de passe, tout est versionné dans git.
 

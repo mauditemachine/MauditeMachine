@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --open",
     "admin": "node scripts/dev-admin.mjs",
+    "covers": "node scripts/fetch-covers.mjs",
     "prebuild": "node scripts/generate-sitemap.mjs",
     "build": "vite build",
     "postbuild": "node scripts/prerender-seo.mjs",

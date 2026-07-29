@@ -15,9 +15,14 @@
   --radar-accent-2: #8a5cff;
 }
 
-/* Mention "Coup de coeur" sur les cartes Nouveautes */
+/* Mention "Coup de coeur" (texte) */
 .radar-page .radar-pick {
   color: var(--radar-accent);
+}
+
+/* Marqueur discret des favoris (petit point rouge devant l'artiste) */
+.radar-page .radar-pick-bg {
+  background: var(--radar-accent);
 }
 
 /* Nom du label dans les lignes meta */
