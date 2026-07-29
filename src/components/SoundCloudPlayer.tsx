@@ -83,10 +83,7 @@ export default function SoundCloudPlayer({ onBackgroundChange }: SoundCloudPlaye
     setStarting(true)
     try {
       const list = tracks && tracks.length > 0 ? tracks : await scGetSetTracks(PLAYLIST_URL)
-      if (!list.length) {
-        window.open(PLAYLIST_URL, '_blank', 'noopener')
-        return
-      }
+      if (!list.length) return // un play ne doit jamais ouvrir un onglet
       await player.playQueue(
         list.map((tr) => ({
           title: tr.title,

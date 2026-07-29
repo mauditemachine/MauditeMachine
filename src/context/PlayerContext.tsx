@@ -26,7 +26,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { albumTracks, resolveTrackPreview } from '../utils/itunes';
+import { albumTracks, resolveTrackPreviewSmart } from '../utils/itunes';
 import {
   setScHandlers,
   scPlay,
@@ -116,6 +116,15 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [player, setPlayer] = useState<PlayerState>({ queue: [], index: -1, status: 'idle' });
   const [progress, setProgress] = useState(0);
   const [volume, setVolume] = useState(0.9);
+  /** Piste introuvable : message non bloquant dans la barre, jamais d'onglet. */
+  const [notice, setNotice] = useState<{ title: string; link?: string } | null>(null);
+  const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showNotice = (title: string, link?: string) => {
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    setNotice({ title, link });
+    noticeTimer.current = setTimeout(() => setNotice(null), 8000);
+  };
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   /** Moteur en cours : garde les handlers des deux moteurs etanches. */
@@ -197,16 +206,16 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     let url = track.previewUrl || null;
-    if (!url) url = await resolveTrackPreview(track.artist, track.title);
+    if (!url) url = await resolveTrackPreviewSmart(track.artist, track.title);
     if (seq !== seqRef.current) return; // une autre lecture a pris la main
 
     if (!url) {
-      if (manual) {
-        // Premier clic direct : fallback honnete vers la page de la release
-        if (track.link) window.open(track.link, '_blank', 'noopener');
-        setPlayer({ queue: [], index: -1, status: 'idle' });
-      } else if (index + 1 < queue.length) {
-        playAt(queue, index + 1, false); // la file saute les introuvables
+      // JAMAIS d'onglet ouvert par le play : message non bloquant dans la
+      // barre (avec un bouton "Ouvrir sur Beatport" que l'utilisateur
+      // decidera de cliquer), et la file passe a la piste suivante.
+      showNotice(track.title, track.link);
+      if (index + 1 < queue.length) {
+        playAt(queue, index + 1, false);
       } else {
         endOfQueue();
       }
@@ -295,6 +304,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     engineRef.current = null;
     setPlayer({ queue: [], index: -1, status: 'idle' });
     setProgress(0);
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    setNotice(null);
   }, []);
 
   const playQueue = useCallback((queue: QueueTrack[], startIndex: number) => {
@@ -426,15 +437,36 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             >
               {currentIsFull ? r.fullBadge : r.playerPreview}
             </span>
-            {!currentIsFull && (
-              <a
-                href={scSearchUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 hidden md:inline font-body text-[11px] text-white/70 hover:text-white underline underline-offset-2 whitespace-nowrap"
+            {notice ? (
+              /* Piste sautee : info non bloquante, l'onglet ne s'ouvre que si
+                 l'utilisateur clique lui-meme le bouton */
+              <span
+                className="shrink-0 font-body text-[10px] md:text-[11px] text-white/80 bg-white/10 border border-white/15 rounded-full px-2 py-0.5 whitespace-nowrap max-w-[46vw] md:max-w-none overflow-hidden text-ellipsis"
+                title={notice.title}
               >
-                {r.findFull} ↗
-              </a>
+                {r.noticeNotFound}
+                {notice.link && (
+                  <a
+                    href={notice.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-1.5 text-white underline underline-offset-2 hover:text-white"
+                  >
+                    {r.noticeOpen} ↗
+                  </a>
+                )}
+              </span>
+            ) : (
+              !currentIsFull && (
+                <a
+                  href={scSearchUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 hidden md:inline font-body text-[11px] text-white/70 hover:text-white underline underline-offset-2 whitespace-nowrap"
+                >
+                  {r.findFull} ↗
+                </a>
+              )
             )}
 
             <div

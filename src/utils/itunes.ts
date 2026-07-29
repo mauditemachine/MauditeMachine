@@ -26,6 +26,29 @@ export interface ExplorerResult {
   items: ExplorerItem[];
   /** true quand le filtre label n'a rien matche et qu'on montre les resultats bruts. */
   approximate: boolean;
+  /**
+   * Nom composee resolu vers UN artiste ("Damon Jee & Darlyn Vlys" ->
+   * "Damon Jee") : le panneau affiche cet artiste-la.
+   */
+  resolvedArtist?: string;
+  /** Les autres artistes du combo, a afficher en chips cliquables. */
+  otherArtists?: string[];
+}
+
+/**
+ * Decoupe un nom compose en artistes individuels.
+ * Separateurs : "&", ",", " x ", "vs", "feat." / "ft.", prefixe "V/A -".
+ * "Damon Jee & Darlyn Vlys" -> ["Damon Jee", "Darlyn Vlys"].
+ */
+export function splitArtists(name: string): string[] {
+  const base = String(name || '')
+    .replace(/^\s*V\s*\/\s*A\s*[-–—:]*\s*/i, '')
+    .trim();
+  const parts = base
+    .split(/\s*&\s*|\s*,\s*|\s+x\s+|\s+vs\.?\s+|\s+feat\.?\s+|\s+ft\.?\s+/i)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 1);
+  return parts.length > 0 ? parts : [base];
 }
 
 const API = 'https://itunes.apple.com';
@@ -135,15 +158,37 @@ export function searchArtist(name: string): Promise<ExplorerResult> {
     cache.set(
       key,
       (async () => {
-        const artists = await itunesFetch('/search', {
-          term: name,
-          entity: 'musicArtist',
-          limit: '5',
-        });
-        const target = norm(name);
-        const exact = artists.find((a) => norm(a.artistName || '') === target);
-        const picked = exact || artists[0];
+        // Nom compose ("Damon Jee & Darlyn Vlys") : les duos n'ont presque
+        // jamais de fiche iTunes. On tente l'artistId sur le nom complet
+        // PUIS sur chaque artiste du combo, premier match exact gagnant.
+        const parts = splitArtists(name);
+        const candidates = [name, ...parts.filter((p) => norm(p) !== norm(name))];
+
+        let picked: any = null;
+        let exact = false;
+        for (const cand of candidates) {
+          const artists = await itunesFetch('/search', {
+            term: cand,
+            entity: 'musicArtist',
+            limit: '5',
+          });
+          const hit = artists.find((a) => norm(a.artistName || '') === norm(cand));
+          if (hit) {
+            picked = hit;
+            exact = true;
+            break;
+          }
+          // Nom simple sans match exact : on garde le comportement souple
+          // d'avant (premier resultat, marque approximatif).
+          if (!picked && candidates.length === 1 && artists[0]) picked = artists[0];
+        }
+
         const artistId = picked?.artistId;
+        const resolvedArtist = picked ? String(picked.artistName || '') : undefined;
+        const otherArtists =
+          parts.length > 1
+            ? parts.filter((p) => !resolvedArtist || norm(p) !== norm(resolvedArtist))
+            : [];
 
         if (artistId) {
           const raw = await itunesFetch('/lookup', {
@@ -165,11 +210,14 @@ export function searchArtist(name: string): Promise<ExplorerResult> {
           items.sort(byDateDesc);
           if (items.length > 0) {
             // approximate quand on est parti d'un match non exact
-            return { items, approximate: !exact };
+            return { items, approximate: !exact, resolvedArtist, otherArtists };
           }
         }
 
-        return searchArtistBySongs(name);
+        // Aucun artistId : recherche par morceaux (triee par date et
+        // dedupliquee), chips pour chaque artiste du combo quand meme.
+        const fallback = await searchArtistBySongs(name);
+        return { ...fallback, otherArtists: parts.length > 1 ? parts : [] };
       })().catch((err) => {
         cache.delete(key); // un echec reseau ne doit pas s'installer dans le cache
         throw err;
@@ -288,6 +336,67 @@ export function resolveTrackPreview(artist: string, title: string): Promise<stri
         );
         const loose = match || raw.find((r) => r.previewUrl && fuzzyMatch(r.artistName, artist));
         return loose ? String(loose.previewUrl) : null;
+      })().catch(() => {
+        previewCache.delete(key);
+        return null;
+      }),
+    );
+  }
+  return previewCache.get(key)!;
+}
+
+/** Titre nettoye des parentheses, crochets et suffixes remix/edit. */
+const cleanTitle = (t: string) =>
+  String(t || '')
+    .replace(/\s*[([][^)\]]*[)\]]/g, ' ')
+    .replace(/\s+(?:rmx|remix(?:es)?|edit|extended|original mix|club mix)\b.*$/i, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+/**
+ * Resolution renforcee d'un extrait : plusieurs requetes successives avant
+ * d'abandonner. Le lecteur ne doit JAMAIS ouvrir un onglet a la place du
+ * play : si tout echoue ici, il affiche un message et passe a la suivante.
+ * 1. artiste complet + titre
+ * 2. premier artiste du combo + titre
+ * 3. premier artiste + titre nettoye (parentheses, rmx...)
+ * 4. titre seul, filtre par n'importe quel artiste du combo
+ */
+export function resolveTrackPreviewSmart(artist: string, title: string): Promise<string | null> {
+  const key = `ts:${norm(artist)}|${norm(title)}`;
+  if (!previewCache.has(key)) {
+    previewCache.set(
+      key,
+      (async () => {
+        const parts = splitArtists(artist);
+        const first = parts[0] || artist;
+        const cleaned = cleanTitle(title);
+
+        const attempts: Array<() => Promise<string | null>> = [
+          () => resolveTrackPreview(artist, title),
+        ];
+        if (norm(first) !== norm(artist)) attempts.push(() => resolveTrackPreview(first, title));
+        if (cleaned && norm(cleaned) !== norm(title))
+          attempts.push(() => resolveTrackPreview(first, cleaned));
+        attempts.push(async () => {
+          const raw = await itunesFetch('/search', {
+            term: cleaned || title,
+            entity: 'song',
+            limit: '15',
+          });
+          const hit = raw.find(
+            (s) => s.previewUrl && parts.some((p) => fuzzyMatch(s.artistName, p)),
+          );
+          return hit ? String(hit.previewUrl) : null;
+        });
+
+        for (const attempt of attempts) {
+          try {
+            const url = await attempt();
+            if (url) return url;
+          } catch {}
+        }
+        return null;
       })().catch(() => {
         previewCache.delete(key);
         return null;

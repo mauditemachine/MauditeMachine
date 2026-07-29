@@ -449,8 +449,9 @@ const RadarPage: React.FC = () => {
             <span className="font-body text-[11px] text-white/55">
               {explorer.type === 'artist' ? r.artistTag : r.labelTag}
             </span>
+            {/* Nom compose resolu vers un artiste : on affiche le resolu */}
             <div className="font-body font-extrabold text-white text-base md:text-lg leading-tight truncate">
-              {explorer.name}
+              {explorer.result?.resolvedArtist || explorer.name}
             </div>
           </div>
           <div className="shrink-0 flex items-center gap-2">
@@ -475,6 +476,22 @@ const RadarPage: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Chips des autres artistes du combo ("Damon Jee & Darlyn Vlys") */}
+        {explorer.status === 'done' && (explorer.result?.otherArtists?.length ?? 0) > 0 && (
+          <div className="shrink-0 flex flex-wrap gap-1.5 mb-2">
+            {explorer.result!.otherArtists!.map((name) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => openExplorer('artist', name)}
+                className="font-body text-[11px] text-white/70 border border-white/15 rounded-full px-2.5 py-0.5 bg-transparent cursor-pointer hover:text-white hover:border-white/45 transition-colors"
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className={cn(fill && 'flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1')}>
           {explorer.status === 'loading' && (
