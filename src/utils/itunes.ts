@@ -62,39 +62,114 @@ async function itunesFetch(path: string, params: Record<string, string>): Promis
 
 const byDateDesc = (a: ExplorerItem, b: ExplorerItem) => (b.date || '').localeCompare(a.date || '');
 
-/** Dernieres sorties d'un artiste : morceaux avec extrait, tries par date. */
+/**
+ * Cle de dedoublonnage des albums : titre normalise sans les qualificatifs
+ * type "(Radio Edit)" / "(Extended Mix)" ni le suffixe " - Single/EP"
+ * qu'iTunes accole, plus la date. Deux editions du meme EP a la meme date
+ * ne comptent qu'une fois.
+ */
+const albumKey = (title: string, date: string) =>
+  `${norm(
+    String(title || '')
+      .replace(/\s*[([][^)\]]*\b(edit|mix|version|remaster(?:ed)?)\b[^)\]]*[)\]]/gi, '')
+      .replace(/\s*-\s*(single|ep)\s*$/i, ''),
+  )}|${date}`;
+
+const albumToItem = (r: any, i: number): ExplorerItem => ({
+  id: r.collectionId || i,
+  kind: 'album',
+  title: r.collectionName || '',
+  artist: r.artistName || '',
+  date: String(r.releaseDate || '').slice(0, 10),
+  artwork: artwork300(r.artworkUrl100),
+  collectionId: r.collectionId || undefined,
+  storeUrl: r.collectionViewUrl || undefined,
+});
+
+/**
+ * Ancienne recherche par morceaux : /search?entity=song trie par POPULARITE,
+ * donc elle remonte les vieux hits (2020-2022) avant les sorties recentes.
+ * Conservee uniquement en secours quand l'artiste n'a pas de fiche iTunes.
+ */
+async function searchArtistBySongs(name: string): Promise<ExplorerResult> {
+  const raw = await itunesFetch('/search', {
+    term: name,
+    entity: 'song',
+    limit: '25',
+  });
+  const seen = new Set<string>();
+  const items: ExplorerItem[] = [];
+  for (const r of raw) {
+    if (!fuzzyMatch(r.artistName, name)) continue;
+    const dedupe = norm(`${r.trackName}|${r.collectionName}`);
+    if (seen.has(dedupe)) continue;
+    seen.add(dedupe);
+    items.push({
+      id: r.trackId || r.collectionId || items.length,
+      kind: 'song',
+      title: r.trackName || '',
+      artist: r.artistName || '',
+      album: r.collectionName || '',
+      date: String(r.releaseDate || '').slice(0, 10),
+      artwork: artwork300(r.artworkUrl100),
+      previewUrl: r.previewUrl || undefined,
+      storeUrl: r.trackViewUrl || r.collectionViewUrl || undefined,
+    });
+  }
+  items.sort(byDateDesc);
+  return { items, approximate: items.length > 0 };
+}
+
+/**
+ * Dernieres sorties d'un artiste, DU PLUS RECENT AU PLUS ANCIEN.
+ * Methode en 2 etapes :
+ * 1. /search entity=musicArtist -> artistId (nom exact insensible a la
+ *    casse et aux accents, sinon premier resultat)
+ * 2. /lookup id=<artistId> entity=album sort=recent -> sa discographie
+ *    triee par date (re-triee cote client par securite)
+ * Sans fiche artiste ou sans albums : retour a la recherche par morceaux.
+ */
 export function searchArtist(name: string): Promise<ExplorerResult> {
   const key = `a:${norm(name)}`;
   if (!cache.has(key)) {
     cache.set(
       key,
       (async () => {
-        const raw = await itunesFetch('/search', {
+        const artists = await itunesFetch('/search', {
           term: name,
-          entity: 'song',
-          limit: '25',
+          entity: 'musicArtist',
+          limit: '5',
         });
-        const seen = new Set<string>();
-        const items: ExplorerItem[] = [];
-        for (const r of raw) {
-          if (!fuzzyMatch(r.artistName, name)) continue;
-          const dedupe = norm(`${r.trackName}|${r.collectionName}`);
-          if (seen.has(dedupe)) continue;
-          seen.add(dedupe);
-          items.push({
-            id: r.trackId || r.collectionId || items.length,
-            kind: 'song',
-            title: r.trackName || '',
-            artist: r.artistName || '',
-            album: r.collectionName || '',
-            date: String(r.releaseDate || '').slice(0, 10),
-            artwork: artwork300(r.artworkUrl100),
-            previewUrl: r.previewUrl || undefined,
-            storeUrl: r.trackViewUrl || r.collectionViewUrl || undefined,
+        const target = norm(name);
+        const exact = artists.find((a) => norm(a.artistName || '') === target);
+        const picked = exact || artists[0];
+        const artistId = picked?.artistId;
+
+        if (artistId) {
+          const raw = await itunesFetch('/lookup', {
+            id: String(artistId),
+            entity: 'album',
+            sort: 'recent',
+            limit: '50',
           });
+          const seen = new Set<string>();
+          const items: ExplorerItem[] = [];
+          for (const r of raw) {
+            if (r.wrapperType !== 'collection') continue; // le 1er resultat est la fiche artiste
+            const item = albumToItem(r, items.length);
+            const dedupe = albumKey(item.title, item.date);
+            if (seen.has(dedupe)) continue;
+            seen.add(dedupe);
+            items.push(item);
+          }
+          items.sort(byDateDesc);
+          if (items.length > 0) {
+            // approximate quand on est parti d'un match non exact
+            return { items, approximate: !exact };
+          }
         }
-        items.sort(byDateDesc);
-        return { items, approximate: false };
+
+        return searchArtistBySongs(name);
       })().catch((err) => {
         cache.delete(key); // un echec reseau ne doit pas s'installer dans le cache
         throw err;
@@ -131,16 +206,15 @@ export function searchLabel(name: string): Promise<ExplorerResult> {
         const matched = byCopyright.length > 0 ? byCopyright : byName;
         const approximate = byCopyright.length === 0 && raw.length > 0;
         const source = matched.length > 0 ? matched : raw;
-        const items: ExplorerItem[] = source.map((r, i) => ({
-          id: r.collectionId || i,
-          kind: 'album' as const,
-          title: r.collectionName || '',
-          artist: r.artistName || '',
-          date: String(r.releaseDate || '').slice(0, 10),
-          artwork: artwork300(r.artworkUrl100),
-          collectionId: r.collectionId || undefined,
-          storeUrl: r.collectionViewUrl || undefined,
-        }));
+        const seen = new Set<string>();
+        const items: ExplorerItem[] = [];
+        for (const r of source) {
+          const item = albumToItem(r, items.length);
+          const dedupe = albumKey(item.title, item.date);
+          if (seen.has(dedupe)) continue;
+          seen.add(dedupe);
+          items.push(item);
+        }
         items.sort(byDateDesc);
         return { items, approximate };
       })().catch((err) => {
@@ -152,27 +226,43 @@ export function searchLabel(name: string): Promise<ExplorerResult> {
   return cache.get(key)!;
 }
 
-/** Premier extrait jouable d'un album (lookup a la demande, mis en cache). */
-export function resolveAlbumPreview(collectionId: number): Promise<string | null> {
+export interface AlbumTrack {
+  title: string;
+  artist: string;
+  previewUrl: string;
+}
+
+const albumTracksCache = new Map<string, Promise<AlbumTrack[]>>();
+
+/**
+ * Pistes jouables d'un album, dans l'ordre du disque (lookup a la demande,
+ * mis en cache). Le lecteur les injecte dans la file a la place de l'album.
+ */
+export function albumTracks(collectionId: number): Promise<AlbumTrack[]> {
   const key = `c:${collectionId}`;
-  if (!previewCache.has(key)) {
-    previewCache.set(
+  if (!albumTracksCache.has(key)) {
+    albumTracksCache.set(
       key,
       (async () => {
         const raw = await itunesFetch('/lookup', {
           id: String(collectionId),
           entity: 'song',
-          limit: '30',
+          limit: '50',
         });
-        const song = raw.find((r) => r.wrapperType === 'track' && r.previewUrl);
-        return song ? String(song.previewUrl) : null;
+        return raw
+          .filter((r) => r.wrapperType === 'track' && r.previewUrl)
+          .map((r) => ({
+            title: String(r.trackName || ''),
+            artist: String(r.artistName || ''),
+            previewUrl: String(r.previewUrl),
+          }));
       })().catch(() => {
-        previewCache.delete(key);
-        return null;
+        albumTracksCache.delete(key);
+        return [];
       }),
     );
   }
-  return previewCache.get(key)!;
+  return albumTracksCache.get(key)!;
 }
 
 /**

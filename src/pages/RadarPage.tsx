@@ -29,7 +29,7 @@ import { loadReleases, type Release } from '../utils/adminApi';
 import {
   searchArtist,
   searchLabel,
-  resolveAlbumPreview,
+  albumTracks,
   resolveTrackPreview,
   fallbackLinks,
   type ExplorerItem,
@@ -268,8 +268,23 @@ const RadarPage: React.FC = () => {
     // --- Moteur iTunes : resolution paresseuse puis extrait 30 s ---
     scPause();
     engineRef.current = 'audio';
+
+    // Un album atteint dans la file se deplie en ses pistes : l'entree est
+    // remplacee par les morceaux du disque et la lecture part du premier.
+    if (!track.previewUrl && track.collectionId) {
+      const tracks = await albumTracks(track.collectionId);
+      if (seq !== seqRef.current) return;
+      if (tracks.length > 0) {
+        const expanded = [
+          ...queue.slice(0, index),
+          ...tracks.map((tr) => ({ title: tr.title, artist: tr.artist, previewUrl: tr.previewUrl, link: track.link })),
+          ...queue.slice(index + 1),
+        ];
+        return playAt(expanded, index, manual);
+      }
+    }
+
     let url = track.previewUrl || null;
-    if (!url && track.collectionId) url = await resolveAlbumPreview(track.collectionId);
     if (!url) url = await resolveTrackPreview(track.artist, track.title);
     if (seq !== seqRef.current) return; // une autre lecture a pris la main
 
