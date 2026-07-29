@@ -146,8 +146,14 @@ const MAX_REMOTE_IMAGE_BYTES = 10 * 1024 * 1024;
 
 const isRemoteImage = (src) => typeof src === 'string' && /^https?:\/\//i.test(src);
 
+// Insensible a la casse, aux espaces ET a la ponctuation : sans ca, renommer
+// "GROOVE & BASS" en "GROOVE&BASS" d'un seul cote cassait le rapprochement.
 const eventKey = (date, title) =>
-  `${String(date ?? '').slice(0, 10)}|${String(title ?? '').trim().toLowerCase()}`;
+  `${String(date ?? '').slice(0, 10)}|${String(title ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')}`;
+
+const eventDay = (date) => String(date ?? '').slice(0, 10);
 
 /** Slug de nom de fichier, deduit du titre de l'event. */
 function slugify(text) {
@@ -212,11 +218,14 @@ async function downloadSanityImage(rawUrl, title) {
 
 /** Remplace toute URL distante par un chemin local, en rapatriant si besoin. */
 async function localizeEventImages(events, previous) {
-  const known = new Map();
+  const parCle = new Map();
+  // Repli par date, neutralise si deux events partagent la meme date.
+  const parDate = new Map();
   for (const ev of previous) {
-    if (ev?.image && !isRemoteImage(ev.image)) {
-      known.set(eventKey(ev.date, ev.title), ev.image);
-    }
+    if (!ev?.image || isRemoteImage(ev.image)) continue;
+    parCle.set(eventKey(ev.date, ev.title), ev.image);
+    const jour = eventDay(ev.date);
+    parDate.set(jour, parDate.has(jour) ? null : ev.image);
   }
 
   const out = [];
@@ -226,7 +235,9 @@ async function localizeEventImages(events, previous) {
       continue;
     }
     const local =
-      known.get(eventKey(ev.date, ev.title)) || (await downloadSanityImage(ev.image, ev.title));
+      parCle.get(eventKey(ev.date, ev.title)) ||
+      parDate.get(eventDay(ev.date)) ||
+      (await downloadSanityImage(ev.image, ev.title));
     out.push(local ? { ...ev, image: local } : ev);
   }
   return out;

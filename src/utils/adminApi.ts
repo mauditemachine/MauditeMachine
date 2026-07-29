@@ -278,9 +278,19 @@ export const saveEvents = async (events: Event[]): Promise<{ success: boolean; m
   }
 };
 
-/** Cle de rapprochement entre un event Sanity et une entree de events.json. */
+/**
+ * Cle de rapprochement entre un event Sanity et une entree de events.json.
+ * Insensible a la casse, aux espaces ET a la ponctuation : renommer
+ * "GROOVE & BASS" en "GROOVE&BASS" d'un cote seulement cassait le
+ * rapprochement, et l'image repartait alors en URL cdn.sanity.io.
+ */
 const eventKey = (date: string, title: string): string =>
-  `${String(date || '').slice(0, 10)}|${String(title || '').trim().toLowerCase()}`;
+  `${String(date || '').slice(0, 10)}|${String(title || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')}`;
+
+/** Date seule, repli quand le titre a ete trop reecrit pour correspondre. */
+const eventDay = (date: string): string => String(date || '').slice(0, 10);
 
 /** true si l'image vient d'un CDN externe plutot que du depot. */
 const isRemoteImage = (src: string): boolean => /^https?:\/\//i.test(src || '');
@@ -327,11 +337,15 @@ export const loadEvents = async (forAdmin = false): Promise<Event[]> => {
   try {
     const sanityData = await fetchEvents(false);
     if (sanityData && sanityData.length > 0) {
-      const localImages = new Map<string, string>();
+      const parCle = new Map<string, string>();
+      // Repli par date. Une date portee par deux events devient ambigue, on
+      // la neutralise plutot que de risquer d'attribuer la mauvaise image.
+      const parDate = new Map<string, string | null>();
       for (const ev of localEvents ?? []) {
-        if (ev.image && !isRemoteImage(ev.image)) {
-          localImages.set(eventKey(ev.date, ev.title), ev.image);
-        }
+        if (!ev.image || isRemoteImage(ev.image)) continue;
+        parCle.set(eventKey(ev.date, ev.title), ev.image);
+        const jour = eventDay(ev.date);
+        parDate.set(jour, parDate.has(jour) ? null : ev.image);
       }
       return sanityData.map((ev) => ({
         date: ev.date,
@@ -339,7 +353,10 @@ export const loadEvents = async (forAdmin = false): Promise<Event[]> => {
         url: ev.url || '',
         location: ev.location || '',
         color: ev.color || '',
-        image: localImages.get(eventKey(ev.date, ev.title)) || sanityImageUrl(ev.image),
+        image:
+          parCle.get(eventKey(ev.date, ev.title)) ||
+          parDate.get(eventDay(ev.date)) ||
+          sanityImageUrl(ev.image),
       }));
     }
   } catch (e) {
