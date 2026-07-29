@@ -505,6 +505,112 @@ export interface Release {
 export const RELEASE_FORMATS: ReleaseFormat[] = ['Single', 'EP', 'Album', 'Compilation', 'VA'];
 export const RELEASE_SECTIONS: ReleaseSection[] = ['feature', 'labels', 'artistes'];
 
+// ============================================================
+// IMPORT EN LOT (onglet releases)
+// Le JSON de la veille hebdo se colle tel quel dans l'admin. Fonction pure :
+// aucune ecriture ici, l'appelant fait UNE seule sauvegarde avec `merged`.
+// ============================================================
+
+export type ReleasesImportResult =
+  | { ok: true; merged: Release[]; added: number; duplicates: number; invalid: number }
+  | { ok: false; reason: 'invalid-json' | 'not-array' };
+
+/**
+ * Cle de deduplication : artist + title + label + releaseDate, insensible
+ * a la casse et aux espaces. "Damon Jee - Club Scenes" et "damon jee -
+ * club  scenes" sont la meme sortie.
+ */
+const releaseDedupKey = (r: {
+  artist?: unknown;
+  title?: unknown;
+  label?: unknown;
+  releaseDate?: unknown;
+}): string =>
+  [r.artist, r.title, r.label, r.releaseDate]
+    .map((v) => String(v ?? '').toLowerCase().replace(/\s+/g, ''))
+    .join('|');
+
+/**
+ * Parse et prepare un lot colle dans l'admin.
+ * - JSON invalide ou pas un tableau : erreur, rien a sauvegarder.
+ * - Entree sans artist ou sans title : comptee invalide, ignoree.
+ * - Champs manquants : format EP, section labels, favorite false,
+ *   publishedRadar true, degrade par defaut.
+ * - Doublons (contre l'existant ET a l'interieur du lot) : comptes, pas
+ *   ajoutes. Re-importer le meme JSON doit donner 0 ajout.
+ */
+export function prepareReleasesImport(raw: string, existing: Release[]): ReleasesImportResult {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { ok: false, reason: 'invalid-json' };
+  }
+  // Tolere un objet release seul, colle sans ses crochets.
+  const batch = Array.isArray(parsed)
+    ? parsed
+    : parsed && typeof parsed === 'object'
+      ? [parsed]
+      : null;
+  if (!batch) return { ok: false, reason: 'not-array' };
+
+  const seen = new Set(existing.map(releaseDedupKey));
+  let nextId = existing.reduce((max, r) => Math.max(max, Number(r.id) || 0), 0) + 1;
+  const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+
+  const merged = [...existing];
+  let added = 0;
+  let duplicates = 0;
+  let invalid = 0;
+
+  for (const entry of batch) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      invalid++;
+      continue;
+    }
+    const e = entry as Record<string, unknown>;
+    const artist = str(e.artist);
+    const title = str(e.title);
+    if (!artist || !title) {
+      invalid++;
+      continue;
+    }
+
+    const release: Release = {
+      id: nextId,
+      artist,
+      title,
+      label: str(e.label),
+      releaseDate: str(e.releaseDate),
+      genre: str(e.genre),
+      format: (RELEASE_FORMATS as string[]).includes(str(e.format))
+        ? (str(e.format) as ReleaseFormat)
+        : 'EP',
+      link: str(e.link),
+      cover: str(e.cover),
+      section: (RELEASE_SECTIONS as string[]).includes(str(e.section))
+        ? (str(e.section) as ReleaseSection)
+        : 'labels',
+      favorite: e.favorite === true,
+      colorFrom: str(e.colorFrom) || '#ff2e4d',
+      colorTo: str(e.colorTo) || '#3a0d18',
+      publishedRadar: e.publishedRadar !== false,
+    };
+
+    const key = releaseDedupKey(release);
+    if (seen.has(key)) {
+      duplicates++;
+      continue;
+    }
+    seen.add(key);
+    merged.push(release);
+    nextId++;
+    added++;
+  }
+
+  return { ok: true, merged, added, duplicates, invalid };
+}
+
 export const saveReleases = async (releases: Release[]): Promise<{ success: boolean; message: string }> => {
   try {
     const json = JSON.stringify(releases, null, 2);

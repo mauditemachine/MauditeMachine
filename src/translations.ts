@@ -39,6 +39,15 @@ export const translations = {
       localDownTitle: 'Local server not running',
       localDownBody: 'The local write server is not answering on port 3001. Run npm run admin in the project folder: the admin then opens on its own, with no password.',
     },
+    adminImport: {
+      title: 'Bulk import (JSON)',
+      hint: 'Paste a JSON array of releases (same format as releases.json). Missing fields get defaults, duplicates are skipped.',
+      button: 'Import',
+      importing: 'Importing...',
+      invalidJson: 'Invalid JSON. Nothing was saved.',
+      notArray: 'Expected a JSON array of releases. Nothing was saved.',
+      recap: '{added} added · {dups} duplicates ignored · {invalid} invalid',
+    },
     radar: {
       kicker: 'Radar // Music watch',
       title: 'New releases',
@@ -280,6 +289,15 @@ export const translations = {
       localDownTitle: 'Serveur local non démarré',
       localDownBody: 'Le serveur d\'écriture local ne répond pas sur le port 3001. Lance npm run admin dans le dossier du projet : l\'admin s\'ouvre alors tout seul, sans mot de passe.',
     },
+    adminImport: {
+      title: 'Importer en lot (JSON)',
+      hint: 'Colle un tableau JSON de sorties (même format que releases.json). Champs manquants = valeurs par défaut, doublons ignorés.',
+      button: 'Importer',
+      importing: 'Import en cours...',
+      invalidJson: 'JSON invalide. Rien n\'a été sauvegardé.',
+      notArray: 'Un tableau JSON de sorties est attendu. Rien n\'a été sauvegardé.',
+      recap: '{added} ajoutées · {dups} doublons ignorés · {invalid} invalides',
+    },
     radar: {
       kicker: 'Radar // Veille musicale',
       title: 'Nouveautés',
@@ -516,6 +534,15 @@ export const translations = {
       offlineBody: 'No hay servidor de escritura remoto desplegado para este sitio. Usa el admin en local (npm run admin), o pide la actualización a Claude Code.',
       localDownTitle: 'Servidor local no iniciado',
       localDownBody: 'El servidor de escritura local no responde en el puerto 3001. Ejecuta npm run admin en la carpeta del proyecto: el admin se abre solo, sin contraseña.',
+    },
+    adminImport: {
+      title: 'Importar en lote (JSON)',
+      hint: 'Pega un array JSON de lanzamientos (mismo formato que releases.json). Campos faltantes = valores por defecto, duplicados ignorados.',
+      button: 'Importar',
+      importing: 'Importando...',
+      invalidJson: 'JSON inválido. No se guardó nada.',
+      notArray: 'Se espera un array JSON de lanzamientos. No se guardó nada.',
+      recap: '{added} añadidas · {dups} duplicados ignorados · {invalid} inválidas',
     },
     radar: {
       kicker: 'Radar // Novedades',

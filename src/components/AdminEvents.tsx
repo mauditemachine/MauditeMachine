@@ -4,8 +4,10 @@ import {
   loadMessages, saveMessages, Message,
   loadMerchItems, saveMerchItems, MerchItem,
   loadReleases, saveReleases, Release, RELEASE_FORMATS, RELEASE_SECTIONS,
+  prepareReleasesImport,
 } from '../utils/adminApi';
 import ImageUpload from './ImageUpload';
+import { useTranslation } from '../lib/i18n';
 
 type Tab = 'events' | 'merch' | 'news' | 'releases';
 
@@ -27,6 +29,7 @@ const EMPTY_RELEASE: Release = {
 };
 
 const AdminEvents: React.FC = () => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<Tab>('events');
   
   const [events, setEvents] = useState<Event[]>([]);
@@ -44,6 +47,12 @@ const AdminEvents: React.FC = () => {
   const [releases, setReleases] = useState<Release[]>([]);
   const [editingReleaseIndex, setEditingReleaseIndex] = useState<number | null>(null);
   const [releaseForm, setReleaseForm] = useState<Release>({ ...EMPTY_RELEASE });
+
+  // Import en lot : le JSON de la veille hebdo colle tel quel
+  const [importText, setImportText] = useState('');
+  const [importBusy, setImportBusy] = useState(false);
+  const [importResult, setImportResult] = useState('');
+  const [importFailed, setImportFailed] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -127,6 +136,47 @@ const AdminEvents: React.FC = () => {
   };
   const deleteRelease = async (i: number) => { if (!confirm('Delete this release?')) return; const updated = releases.filter((_, idx) => idx !== i); await saveReleases(updated); setReleases(updated); flash('Release deleted'); };
   const resetReleaseForm = () => { setReleaseForm({ ...EMPTY_RELEASE }); setEditingReleaseIndex(null); };
+
+  /**
+   * Import en lot. Une seule sauvegarde pour tout le lot : soit tout le
+   * merge part sur le disque, soit rien (JSON invalide ou echec d'ecriture).
+   */
+  const runImport = async () => {
+    const ti = t.adminImport;
+    if (!importText.trim() || importBusy) return;
+
+    const prep = prepareReleasesImport(importText, releases);
+    if (!prep.ok) {
+      setImportFailed(true);
+      setImportResult(prep.reason === 'invalid-json' ? ti.invalidJson : ti.notArray);
+      return;
+    }
+
+    setImportBusy(true);
+    try {
+      if (prep.added > 0) {
+        const res = await saveReleases(prep.merged);
+        if (!res.success) {
+          setImportFailed(true);
+          setImportResult(res.message);
+          return;
+        }
+        setReleases(
+          [...prep.merged].sort((a, b) => (b.releaseDate || '').localeCompare(a.releaseDate || '')),
+        );
+        setImportText('');
+      }
+      setImportFailed(false);
+      setImportResult(
+        ti.recap
+          .replace('{added}', String(prep.added))
+          .replace('{dups}', String(prep.duplicates))
+          .replace('{invalid}', String(prep.invalid)),
+      );
+    } finally {
+      setImportBusy(false);
+    }
+  };
 
   if (loading) return <div className="admin-loading">Loading...</div>;
 
@@ -372,6 +422,43 @@ const AdminEvents: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Import en lot : coller le JSON de la veille hebdo tel quel */}
+            <div className="admin-form-card">
+              <h3 className="admin-form-title">{t.adminImport.title}</h3>
+              <p style={{ color: '#888', fontSize: '0.85rem', lineHeight: 1.5, margin: '0 0 0.75rem' }}>
+                {t.adminImport.hint}
+              </p>
+              <textarea
+                className="admin-textarea"
+                rows={8}
+                spellCheck={false}
+                value={importText}
+                onChange={e => setImportText(e.target.value)}
+                placeholder='[{"artist":"Damon Jee","title":"Club Scenes","label":"Surefire","releaseDate":"2026-07-24"}]'
+                style={{ width: '100%', fontFamily: 'monospace', fontSize: '0.8rem' }}
+                aria-label={t.adminImport.title}
+              />
+              <div className="admin-actions" style={{ marginTop: '0.75rem' }}>
+                <button
+                  className="admin-btn-primary"
+                  onClick={runImport}
+                  disabled={importBusy || !importText.trim()}
+                >
+                  {importBusy ? t.adminImport.importing : t.adminImport.button}
+                </button>
+              </div>
+              {importResult && (
+                <div
+                  className={`admin-status ${importFailed ? 'error' : 'success'}`}
+                  role="status"
+                  style={{ marginTop: '0.75rem' }}
+                >
+                  {importResult}
+                </div>
+              )}
+            </div>
+
             {releases.map((rel, i) => (
               <div key={rel.id} className="admin-list-item">
                 <div
