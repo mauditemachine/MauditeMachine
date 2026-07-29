@@ -290,6 +290,25 @@ app.post('/api/save-events', authMiddleware, async (req, res) => {
   }
 });
 
+// Route pour sauvegarder les releases (onglet releases -> page /radar).
+// Longtemps absente d'ICI alors qu'elle existait dans api/server.js, le
+// serveur jamais deploye : l'admin local repondait "Saved!" mais le POST
+// partait en 404 et public/releases.json ne changeait jamais.
+app.post('/api/save-releases', authMiddleware, async (req, res) => {
+  try {
+    if (!Array.isArray(req.body)) {
+      return res.status(400).json({ success: false, message: 'Body must be an array' });
+    }
+    const filePath = path.join(PUBLIC_DIR, 'releases.json');
+    await fs.writeFile(filePath, JSON.stringify(req.body, null, 2));
+    console.log('✅ Releases sauvegardées dans releases.json');
+    res.json({ success: true, message: 'Releases sauvegardées avec succès' });
+  } catch (error) {
+    console.error('❌ Erreur sauvegarde releases:', error);
+    res.status(500).json({ success: false, message: 'Erreur lors de la sauvegarde' });
+  }
+});
+
 // Route pour sauvegarder le merchandising
 app.post('/api/save-merch', authMiddleware, async (req, res) => {
   try {

@@ -120,6 +120,16 @@ function getApiHeaders(): Record<string, string> {
   return headers;
 }
 
+/**
+ * Message d'echec commun aux sauvegardes. Avant, les fonctions save*
+ * ignoraient le retour de callApi() et affichaient "Saved!" meme quand le
+ * POST partait en 404 : l'onglet releases a fonctionne des semaines en
+ * n'ecrivant QUE dans le brouillon localStorage, jamais sur le disque.
+ */
+const SAVE_FAILED_MESSAGE =
+  'NOT saved to disk: write server unreachable or refused. ' +
+  'Draft kept in this browser only. Is `npm run admin` running?';
+
 async function callApi(endpoint: string, data: any): Promise<boolean> {
   const apiUrl = getApiUrl();
   if (!apiUrl) return false;
@@ -178,7 +188,8 @@ export const saveMessages = async (messages: Message[]): Promise<{ success: bool
         }
       } else throw e;
     }
-    await callApi('/api/save-messages', messages);
+    const written = await callApi('/api/save-messages', messages);
+    if (!written) return { success: false, message: SAVE_FAILED_MESSAGE };
     window.dispatchEvent(new CustomEvent('messagesUpdated', { detail: { key: 'messages', data: messages } }));
     return { success: true, message: 'Saved!' };
   } catch (error: any) {
@@ -270,7 +281,8 @@ export const saveEvents = async (events: Event[]): Promise<{ success: boolean; m
     try { localStorage.setItem('admin_events_backup', json); } catch (e: any) {
       if (e?.name === 'QuotaExceededError') { localStorage.removeItem('admin_events_backup'); localStorage.setItem('admin_events_backup', json); } else throw e;
     }
-    await callApi('/api/save-events', events);
+    const written = await callApi('/api/save-events', events);
+    if (!written) return { success: false, message: SAVE_FAILED_MESSAGE };
     window.dispatchEvent(new CustomEvent('eventsUpdated', { detail: { key: 'events', data: events } }));
     return { success: true, message: 'Saved!' };
   } catch (error: any) {
@@ -391,7 +403,8 @@ export const saveMerchItems = async (merchItems: MerchItem[]): Promise<{ success
     try { localStorage.setItem('admin_merch_backup', json); } catch (e: any) {
       if (e?.name === 'QuotaExceededError') { localStorage.removeItem('admin_merch_backup'); localStorage.setItem('admin_merch_backup', json); } else throw e;
     }
-    await callApi('/api/save-merch', merchItems);
+    const written = await callApi('/api/save-merch', merchItems);
+    if (!written) return { success: false, message: SAVE_FAILED_MESSAGE };
     window.dispatchEvent(new CustomEvent('merchItemsUpdated', { detail: { key: 'merchItems', data: merchItems } }));
     return { success: true, message: 'Saved!' };
   } catch (error: any) {
@@ -503,7 +516,8 @@ export const saveReleases = async (releases: Release[]): Promise<{ success: bool
         localStorage.setItem('admin_releases_backup', json);
       } else throw e;
     }
-    await callApi('/api/save-releases', releases);
+    const written = await callApi('/api/save-releases', releases);
+    if (!written) return { success: false, message: SAVE_FAILED_MESSAGE };
     window.dispatchEvent(new CustomEvent('releasesUpdated', { detail: { key: 'releases', data: releases } }));
     return { success: true, message: 'Saved!' };
   } catch (error: any) {
