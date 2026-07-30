@@ -353,6 +353,58 @@ const cleanTitle = (t: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+/** Normalisation sans ponctuation : "Friends Of Misty, Vol. 1" ~ "Friends Of Misty Vol. 1". */
+const normLoose = (s: string) => norm(s).replace(/[.,'":!?&-]/g, '').replace(/\s+/g, ' ').trim();
+
+const looseMatch = (a: string, b: string) => {
+  const na = normLoose(a);
+  const nb = normLoose(b);
+  return !!na && !!nb && (na === nb || na.includes(nb) || nb.includes(na));
+};
+
+/** true pour les entrees compilation : prefixe "V/A" ou liste d'artistes. */
+export const isCompilationArtist = (artist: string) =>
+  /^\s*V\s*\/\s*A\b/i.test(String(artist || '')) || splitArtists(artist).length >= 3;
+
+const compilationCache = new Map<string, Promise<AlbumTrack[]>>();
+
+/**
+ * Pistes d'une compilation dont on ne connait que le nom.
+ * Dans les donnees du Radar, le nom de la compil vit dans le champ artiste
+ * ("V/A - Friends Of Misty Vol. 1") et le champ titre liste les artistes.
+ * On cherche l'album par chacun des deux, ponctuation ignoree ("Vol. 1"
+ * matche "Vol 1"), puis on remonte ses pistes jouables.
+ */
+export function resolveCompilationTracks(artist: string, title: string): Promise<AlbumTrack[]> {
+  const key = `va:${norm(artist)}|${norm(title)}`;
+  if (!compilationCache.has(key)) {
+    compilationCache.set(
+      key,
+      (async () => {
+        const fromArtist = String(artist || '')
+          .replace(/^\s*V\s*\/\s*A\s*[-–—:]*\s*/i, '')
+          .trim();
+        const candidates = Array.from(
+          new Set([fromArtist, cleanTitle(title)].filter((c) => c.length > 2)),
+        );
+        for (const cand of candidates) {
+          const raw = await itunesFetch('/search', { term: cand, entity: 'album', limit: '10' });
+          const hit = raw.find((r) => r.collectionId && looseMatch(r.collectionName || '', cand));
+          if (hit) {
+            const tracks = await albumTracks(hit.collectionId);
+            if (tracks.length > 0) return tracks;
+          }
+        }
+        return [];
+      })().catch(() => {
+        compilationCache.delete(key);
+        return [];
+      }),
+    );
+  }
+  return compilationCache.get(key)!;
+}
+
 /**
  * Resolution renforcee d'un extrait : plusieurs requetes successives avant
  * d'abandonner. Le lecteur ne doit JAMAIS ouvrir un onglet a la place du
@@ -378,6 +430,23 @@ export function resolveTrackPreviewSmart(artist: string, title: string): Promise
         if (norm(first) !== norm(artist)) attempts.push(() => resolveTrackPreview(first, title));
         if (cleaned && norm(cleaned) !== norm(title))
           attempts.push(() => resolveTrackPreview(first, cleaned));
+        // Compilations : le champ titre liste des artistes ("Rebolledo,
+        // Perel...") et le champ artiste porte le nom de l'album. On cherche
+        // par artiste cite et on ne garde qu'une piste de CETTE release.
+        const albumHint = String(artist || '')
+          .replace(/^\s*V\s*\/\s*A\s*[-–—:]*\s*/i, '')
+          .trim();
+        const cited = splitArtists(title).slice(0, 3);
+        if (albumHint && cited.length > 1) {
+          attempts.push(async () => {
+            for (const c of cited) {
+              const raw = await itunesFetch('/search', { term: c, entity: 'song', limit: '20' });
+              const hit = raw.find((s) => s.previewUrl && looseMatch(s.collectionName || '', albumHint));
+              if (hit) return String(hit.previewUrl);
+            }
+            return null;
+          });
+        }
         attempts.push(async () => {
           const raw = await itunesFetch('/search', {
             term: cleaned || title,

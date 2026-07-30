@@ -26,7 +26,12 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { albumTracks, resolveTrackPreviewSmart } from '../utils/itunes';
+import {
+  albumTracks,
+  resolveTrackPreviewSmart,
+  resolveCompilationTracks,
+  isCompilationArtist,
+} from '../utils/itunes';
 import {
   setScHandlers,
   scPlay,
@@ -132,14 +137,27 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [player, setPlayer] = useState<PlayerState>({ queue: [], index: -1, status: 'idle' });
   const [progress, setProgress] = useState(0);
   const [volume, setVolume] = useState(0.9);
-  /** Piste introuvable : message non bloquant dans la barre, jamais d'onglet. */
-  const [notice, setNotice] = useState<{ title: string; link?: string } | null>(null);
+  /** Piste introuvable ou sautee : message non bloquant, jamais d'onglet. */
+  const [notice, setNotice] = useState<{ kind: 'notfound' | 'skipped'; title: string; link?: string } | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showNotice = (title: string, link?: string) => {
+  const showNotice = (kind: 'notfound' | 'skipped', title: string, link?: string) => {
     if (noticeTimer.current) clearTimeout(noticeTimer.current);
-    setNotice({ title, link });
+    setNotice({ kind, title, link });
     noticeTimer.current = setTimeout(() => setNotice(null), 8000);
+  };
+
+  /** Nom du site du lien, pour le bouton "Ouvrir sur ..." de la notice. */
+  const sourceName = (link?: string) => {
+    try {
+      const host = new URL(link || '').hostname;
+      if (host.includes('beatport')) return 'Beatport';
+      if (host.includes('bandcamp')) return 'Bandcamp';
+      if (host.includes('soundcloud')) return 'SoundCloud';
+      return host.replace(/^www\./, '');
+    } catch {
+      return '';
+    }
   };
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -240,19 +258,40 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
+    // Compilation ("V/A - ..." ou liste d'artistes) : on retrouve l'album
+    // par son nom et on le deplie dans la file, premiere piste jouee, le
+    // reste de la compil a la suite.
+    if (!track.previewUrl && isCompilationArtist(track.artist)) {
+      const tracks = await resolveCompilationTracks(track.artist, track.title);
+      if (seq !== seqRef.current) return;
+      if (tracks.length > 0) {
+        const expanded = [
+          ...queue.slice(0, index),
+          ...tracks.map((tr) => ({ title: tr.title, artist: tr.artist, previewUrl: tr.previewUrl, link: track.link })),
+          ...queue.slice(index + 1),
+        ];
+        return playAt(expanded, index, manual);
+      }
+    }
+
     let url = track.previewUrl || null;
     if (!url) url = await resolveTrackPreviewSmart(track.artist, track.title);
     if (seq !== seqRef.current) return; // une autre lecture a pris la main
 
     if (!url) {
-      // JAMAIS d'onglet ouvert par le play : message non bloquant dans la
-      // barre (avec un bouton "Ouvrir sur Beatport" que l'utilisateur
-      // decidera de cliquer), et la file passe a la piste suivante.
-      showNotice(track.title, track.link);
-      if (index + 1 < queue.length) {
-        playAt(queue, index + 1, false);
+      // JAMAIS d'onglet ouvert par le play, et JAMAIS de saut silencieux
+      // sur un clic direct : la piste cliquee reste affichee en erreur avec
+      // la notice. Le saut automatique ne vaut qu'en enchainement de file.
+      if (manual) {
+        showNotice('notfound', track.title, track.link);
+        setPlayer({ queue, index, status: 'error' });
       } else {
-        endOfQueue();
+        showNotice('skipped', track.title, track.link);
+        if (index + 1 < queue.length) {
+          playAt(queue, index + 1, false);
+        } else {
+          endOfQueue();
+        }
       }
       return;
     }
@@ -541,7 +580,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 className="shrink-0 font-body text-[10px] md:text-[11px] text-white/80 bg-white/10 border border-white/15 rounded-full px-2 py-0.5 whitespace-nowrap max-w-[46vw] md:max-w-none overflow-hidden text-ellipsis"
                 title={notice.title}
               >
-                {r.noticeNotFound}
+                {notice.kind === 'skipped' ? r.noticeSkipped : r.noticeNotFound}
                 {notice.link && (
                   <a
                     href={notice.link}
@@ -549,7 +588,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     rel="noopener noreferrer"
                     className="ml-1.5 text-white underline underline-offset-2 hover:text-white"
                   >
-                    {r.noticeOpen} ↗
+                    {r.noticeOpenOn} {sourceName(notice.link)} ↗
                   </a>
                 )}
               </span>
