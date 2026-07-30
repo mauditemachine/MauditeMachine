@@ -5,16 +5,17 @@
  * - Header fixe avec NavLink (router-based, plus de scroll-to-section)
  * - MobileMenu hamburger
  * - JellyfishBackground (video meduses, fixed z-0, persiste entre routes)
- * - SoundCloudPlayer (pilule flottante bottom-center, persiste -> la
- *   musique continue quand on change de page)
+ * - PlayerProvider : LA barre de lecture du site (remplace l'ancienne
+ *   pilule flottante), persistante -> la musique continue quand on change
+ *   de page
  * - VRSTL logo flottant bottom-right
  * - <Outlet /> pour le contenu de la page courante
  */
 
 import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import SoundCloudPlayer from './SoundCloudPlayer';
-import { PlayerProvider } from '../context/PlayerContext';
+import { PlayerProvider, usePlayer } from '../context/PlayerContext';
+import { scGetSetTracks, MM_PLAYLIST_URL, type ScSetTrack } from '../utils/scWidget';
 import JellyfishBackground from './JellyfishBackground';
 import LiquidGlass from './LiquidGlass';
 import MobileMenu from './ui/MobileMenu';
@@ -22,6 +23,41 @@ import SocialSidebar from './ui/SocialSidebar';
 import { useApp } from '../context/AppContext';
 import { useSEO } from '../lib/seo';
 import { cn } from '../lib/cn';
+
+/**
+ * Synchro du fond video avec la pochette de la track en cours, quand c'est
+ * une track de la playlist du site (comportement herite de l'ancienne
+ * pilule). Composant sans rendu, place sous PlayerProvider.
+ */
+const PlayerBackgroundSync: React.FC<{ onBackgroundChange: (url: string) => void }> = ({
+  onBackgroundChange,
+}) => {
+  const player = usePlayer();
+  const [tracks, setTracks] = useState<ScSetTrack[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    scGetSetTracks(MM_PLAYLIST_URL)
+      .then((list) => {
+        if (!cancelled) setTracks(list);
+      })
+      .catch(() => {
+        if (!cancelled) setTracks([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!player.current || !tracks) return;
+    const mine = tracks.find((tr) => tr.title === player.current!.title);
+    const cover = mine?.artworkUrl ? mine.artworkUrl.replace('-large', '-t500x500') : null;
+    if (cover) onBackgroundChange(cover);
+  }, [player.current, tracks, onBackgroundChange]);
+
+  return null;
+};
 
 // Suppression silencieuse des erreurs SoundCloud / Bandcamp bruyantes
 const suppressWidgetErrors = () => {
@@ -279,10 +315,9 @@ const Layout: React.FC = () => {
         {/* Social sidebar fixe right (desktop only) — persiste entre toutes les pages */}
         <SocialSidebar />
 
-        {/* Lecteur audio — UNE SEULE INSTANCE persistante au niveau Layout.
-            Ne se demonte JAMAIS pendant la navigation entre pages.
-            La musique continue de jouer quand on switche /about -> /shows etc. */}
-        <SoundCloudPlayer onBackgroundChange={handleBgChange} />
+        {/* Synchro du fond video avec la pochette de la track en cours
+            (heritee de l'ancienne pilule, la barre globale a pris le relais) */}
+        <PlayerBackgroundSync onBackgroundChange={handleBgChange} />
       </div>
     </PlayerProvider>
   );

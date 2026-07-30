@@ -30,6 +30,15 @@ let durationMs = 0;
 let handlers: ScEvents | null = null;
 /** FINISH declenche aussi un PAUSE : on l'ignore pendant l'enchainement. */
 let finishing = false;
+/**
+ * true des qu'un PLAY a reellement demarre dans le document iframe courant.
+ * Politique autoplay : un document charge SANS geste utilisateur (metadata
+ * au boot) refuse les play() par postMessage. La parade : re-naviguer
+ * l'iframe PENDANT le geste (load() re-delegue l'activation), puis jouer.
+ */
+let hasPlayed = false;
+/** Derniere position demandee dans un set (pour reprendre au bon index). */
+let lastSetIndex = 0;
 
 export function setScHandlers(h: ScEvents | null): void {
   handlers = h;
@@ -78,6 +87,7 @@ function ensureWidget(firstUrl: string): Promise<any> {
       const E = SC.Widget.Events;
       w.bind(E.PLAY, () => {
         finishing = false;
+        hasPlayed = true; // le document iframe a maintenant le droit de jouer
         w.getDuration((d: number) => {
           durationMs = d || 0;
         });
@@ -104,13 +114,18 @@ function ensureWidget(firstUrl: string): Promise<any> {
   return widgetReady;
 }
 
-/** Charge (si besoin) puis joue une URL SoundCloud. */
+/**
+ * Charge (si besoin) puis joue une URL SoundCloud (track seule).
+ * Si le document courant n'a jamais joue (charge hors geste), on recharge
+ * l'URL DANS le geste en cours : la navigation re-delegue l'autoplay.
+ */
 export async function scPlay(url: string): Promise<void> {
   const w = await ensureWidget(url);
   finishing = false;
-  if (url !== currentUrl) {
+  if (url !== currentUrl || !hasPlayed) {
     currentUrl = url;
     durationMs = 0;
+    hasPlayed = false;
     w.load(url, {
       auto_play: true,
       visual: false,
@@ -125,13 +140,54 @@ export async function scPlay(url: string): Promise<void> {
   }
 }
 
+/**
+ * Joue la piste n d'un set SoundCloud via skip() : c'est la mecanique de
+ * l'ancienne pilule. Le set reste UN document iframe, donc l'enchainement
+ * automatique piste a piste ne re-navigue pas (pas de re-activation requise).
+ */
+export async function scPlaySetTrack(setUrl: string, index: number): Promise<void> {
+  const w = await ensureWidget(setUrl);
+  finishing = false;
+  lastSetIndex = index;
+  if (currentUrl !== setUrl || !hasPlayed) {
+    currentUrl = setUrl;
+    durationMs = 0;
+    hasPlayed = false;
+    w.load(setUrl, {
+      auto_play: false,
+      visual: false,
+      show_artwork: false,
+      callback: () => w.skip(index), // skip() lance la lecture a cet index
+    });
+  } else {
+    w.skip(index);
+  }
+}
+
 export function scPause(): void {
   widget?.pause();
 }
 
 export function scResume(): void {
   finishing = false;
-  widget?.play();
+  const w = widget;
+  if (!w) return;
+  if (!hasPlayed && currentUrl) {
+    // Document jamais active : recharge dans le geste, puis relance.
+    durationMs = 0;
+    if (currentUrl === MM_PLAYLIST_URL) {
+      w.load(currentUrl, {
+        auto_play: false,
+        visual: false,
+        show_artwork: false,
+        callback: () => w.skip(lastSetIndex),
+      });
+    } else {
+      w.load(currentUrl, { auto_play: true, visual: false, show_artwork: false, callback: () => w.play() });
+    }
+    return;
+  }
+  w.play();
 }
 
 /** Seek relatif 0..1 (la barre de progression clique). */
@@ -143,6 +199,9 @@ export function scSeekRatio(ratio: number): void {
 export function scSetVolume(v: number): void {
   widget?.setVolume(Math.round(Math.max(0, Math.min(1, v)) * 100));
 }
+
+/** La playlist "mes tracks" du site (source du lecteur par defaut). */
+export const MM_PLAYLIST_URL = 'https://soundcloud.com/mauditemachine/sets/tracks-1';
 
 export interface ScSetTrack {
   title: string;

@@ -30,10 +30,14 @@ import { albumTracks, resolveTrackPreviewSmart } from '../utils/itunes';
 import {
   setScHandlers,
   scPlay,
+  scPlaySetTrack,
   scPause,
   scResume,
   scSeekRatio,
   scSetVolume,
+  scGetSetTracks,
+  MM_PLAYLIST_URL,
+  type ScSetTrack,
 } from '../utils/scWidget';
 import { useTranslation } from '../lib/i18n';
 import { cn } from '../lib/cn';
@@ -43,6 +47,8 @@ export interface QueueTrack {
   title: string;
   artist: string;
   soundcloudUrl?: string;
+  /** Piste d un set SoundCloud (mes tracks) : jouee par skip(), sans re-navigation. */
+  scSet?: { url: string; index: number };
   previewUrl?: string;
   collectionId?: number;
   link?: string;
@@ -75,6 +81,16 @@ const normName = (s: string) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
+
+/** Pochette SoundCloud en haute resolution. */
+const getHiRes = (url?: string | null) => (url ? url.replace('-large', '-t500x500') : null);
+
+/** "Maudite Machine - Voodoo (Original Mix)" -> "Voodoo". */
+const formatTrackDisplay = (title: string) =>
+  String(title || '')
+    .replace(/^Maudite Machine\s*[-\u2013\u2014]\s*/i, '')
+    .replace(/\s*\([^)]*\)\s*$/g, '')
+    .trim();
 
 const PlayIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -136,13 +152,31 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   /** Sequence de lecture : invalide les resolutions async depassees. */
   const seqRef = useRef(0);
 
-  // Signale au reste du site (pilule raccourci, padding des pages) que la
-  // barre est visible.
+  /**
+   * Playlist SoundCloud du site : la source du lecteur PAR DEFAUT.
+   * La barre est visible des l'arrivee, en etat "pret" sur la track la plus
+   * recente ; un clic la joue en entier et met le reste du set en file.
+   */
+  const [myTracks, setMyTracks] = useState<ScSetTrack[] | null>(null);
   useEffect(() => {
-    if (player.queue.length > 0) document.body.classList.add('radar-audio-open');
-    else document.body.classList.remove('radar-audio-open');
+    let cancelled = false;
+    scGetSetTracks(MM_PLAYLIST_URL)
+      .then((list) => {
+        if (!cancelled) setMyTracks(list);
+      })
+      .catch(() => {
+        if (!cancelled) setMyTracks([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // La barre est permanente : le contenu des pages garde de l'air dessous.
+  useEffect(() => {
+    document.body.classList.add('radar-audio-open');
     return () => document.body.classList.remove('radar-audio-open');
-  }, [player.queue.length]);
+  }, []);
 
   const stopEngines = () => {
     const audio = audioRef.current;
@@ -169,8 +203,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setPlayer({ queue, index, status: 'loading' });
     setProgress(0);
 
-    // --- Moteur SoundCloud : version complete ---
-    if (track.soundcloudUrl) {
+    // --- Moteur SoundCloud : version complete (set via skip(), ou track seule) ---
+    if (track.scSet || track.soundcloudUrl) {
       const audio = audioRef.current;
       if (audio) {
         audio.pause();
@@ -179,7 +213,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       engineRef.current = 'sc';
       try {
         scSetVolume(volumeRef.current);
-        await scPlay(track.soundcloudUrl);
+        if (track.scSet) await scPlaySetTrack(track.scSet.url, track.scSet.index);
+        else await scPlay(track.soundcloudUrl!);
       } catch {
         if (seq === seqRef.current) setPlayer({ queue, index, status: 'error' });
       }
@@ -273,7 +308,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const currentTrack = player.queue[player.index];
-  const currentIsFull = !!currentTrack?.soundcloudUrl;
+  const currentIsFull = !!(currentTrack?.soundcloudUrl || currentTrack?.scSet);
 
   const toggle = useCallback(() => {
     const p = playerRef.current;
@@ -312,6 +347,26 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return playAt(queue, startIndex, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Le play par defaut : ma playlist SoundCloud, versions completes. */
+  const playMyTracks = async () => {
+    const list =
+      myTracks && myTracks.length > 0
+        ? myTracks
+        : await scGetSetTracks(MM_PLAYLIST_URL).catch(() => [] as ScSetTrack[]);
+    if (!list.length) return; // un play n'ouvre jamais d'onglet
+    await playAt(
+      list.map((tr, i) => ({
+        title: tr.title,
+        artist: tr.artist,
+        soundcloudUrl: tr.permalinkUrl,
+        scSet: { url: MM_PLAYLIST_URL, index: i },
+        link: tr.permalinkUrl,
+      })),
+      0,
+      true,
+    );
+  };
 
   const isCurrent = useCallback((artist: string, title: string) => {
     const cur = playerRef.current.queue[playerRef.current.index];
@@ -377,10 +432,52 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }}
       />
 
-      {currentTrack && (
+      {/*
+        LA barre du site, toujours visible. Verre depoli comme les GlassCard
+        (fond translucide + blur fort + saturation coupee), texte SF Pro avec
+        un text-shadow leger pour rester lisible sur la video.
+        Etat "pret" (rien en file) : ma track SoundCloud la plus recente +
+        gros play qui lance la playlist complete.
+      */}
+      {!currentTrack ? (
         <div
           style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 80 }}
-          className="bg-[#0b0b0d]/90 backdrop-blur-2xl border-t border-white/15 shadow-[0_-8px_30px_rgba(0,0,0,0.5)]"
+          className="bg-black/25 backdrop-blur-2xl backdrop-saturate-[0.7] border-t border-white/10 shadow-[0_-8px_30px_rgba(0,0,0,0.35)]"
+        >
+          <div className="max-w-7xl mx-auto px-3 md:px-10 h-[64px] flex items-center gap-3 md:gap-4">
+            <div className="shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-black/40 border border-white/10">
+              {myTracks?.[0]?.artworkUrl ? (
+                <img src={getHiRes(myTracks[0].artworkUrl)!} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-white/10 to-white/5" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="font-body font-semibold text-white text-xs md:text-sm truncate leading-tight [text-shadow:_0_1px_6px_rgba(0,0,0,0.5)]">
+                {myTracks?.[0] ? formatTrackDisplay(myTracks[0].title) : 'Maudite Machine'}
+              </div>
+              <div className="font-body text-[11px] text-white/70 truncate leading-tight mt-0.5 [text-shadow:_0_1px_6px_rgba(0,0,0,0.5)]">
+                Maudite Machine
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={playMyTracks}
+              aria-label={r.listen}
+              className="shrink-0 w-11 h-11 rounded-full bg-white text-black border-0 cursor-pointer flex items-center justify-center hover:scale-105 transition-transform"
+            >
+              {player.status === 'loading' ? (
+                <Spinner className="border-black/20 border-t-black" />
+              ) : (
+                <PlayIcon className="w-5 h-5 ml-0.5" />
+              )}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div
+          style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 80 }}
+          className="bg-black/25 backdrop-blur-2xl backdrop-saturate-[0.7] border-t border-white/10 shadow-[0_-8px_30px_rgba(0,0,0,0.35)]"
         >
           <div className="max-w-7xl mx-auto px-3 md:px-10 h-[64px] flex items-center gap-2 md:gap-4">
             <div className="shrink-0 flex items-center gap-1">
@@ -416,11 +513,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               </button>
             </div>
 
-            <span className="shrink-0 font-body text-[11px] text-white/70 tabular-nums">
+            <span className="shrink-0 hidden sm:inline font-body text-[11px] text-white/70 tabular-nums">
               {player.index + 1}/{player.queue.length}
             </span>
 
-            <div className="min-w-0 w-36 md:w-64">
+            <div className="min-w-0 flex-1 md:flex-none md:w-64">
               <div className="font-body font-semibold text-white text-xs md:text-sm truncate leading-tight">
                 {currentTrack.title}
               </div>
@@ -431,7 +528,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
             <span
               className={cn(
-                'shrink-0 font-body font-semibold text-[10px] md:text-[11px] rounded-full px-2 py-0.5 whitespace-nowrap',
+                'shrink-0 hidden sm:inline font-body font-semibold text-[10px] md:text-[11px] rounded-full px-2 py-0.5 whitespace-nowrap',
                 currentIsFull ? 'bg-white/15 text-white' : 'bg-white/10 text-white/80',
               )}
             >
