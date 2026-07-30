@@ -739,11 +739,6 @@ export default function MainApp() {
 
         </main>
 
-        {/* Logo VRSTL fixe en bas a droite */}
-        <a href="https://vrstlrecords.com" target="_blank" rel="noreferrer" className="vrstl-fixed">
-          <img src={import.meta.env.BASE_URL + "logo/vrstl-logo-clean.svg"} alt="VRSTL Records" />
-        </a>
-
         {/* Lecteur audio — 1 seule instance, rendu son footer fixe lui-meme */}
         <SoundCloudPlayer onBackgroundChange={handleBgChange} />
       </div>

@@ -307,10 +307,8 @@ const Layout: React.FC = () => {
           <Outlet />
         </main>
 
-        {/* Logo VRSTL fixe bottom-right (persiste) */}
-        <a href="https://vrstlrecords.com" target="_blank" rel="noreferrer" className="vrstl-fixed">
-          <img src={import.meta.env.BASE_URL + 'logo/vrstl-logo-clean.svg'} alt="VRSTL Records" />
-        </a>
+        {/* Le logo VRSTL flottant a ete retire : le lien vrstlrecords.com
+            reste accessible en clair sur la page About (Presskit). */}
 
         {/* Social sidebar fixe right (desktop only) — persiste entre toutes les pages */}
         <SocialSidebar />
