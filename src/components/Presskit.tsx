@@ -291,6 +291,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
             <div className="pk-contact-name">Mika</div>
             <a href="mailto:mauditemachine@gmail.com" className="pk-contact-link">mauditemachine@gmail.com</a>
             <a href="tel:+15146531423" className="pk-contact-link">+1 514 653 1423</a>
+            <a href="https://michaelsanchez.massivemedias.com" target="_blank" rel="noreferrer" className="pk-contact-link">Michael Sanchez, portfolio</a>
           </div>
           <div className="pk-contact-card pk-glass">
             <div className="pk-contact-label pk-dim">{p.contactLabelLabel}</div>
