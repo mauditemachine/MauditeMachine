@@ -105,14 +105,14 @@ export const translations = {
     },
     signature: {
       role: 'DJ & Producer',
-      location: 'Montréal, Canada',
+      location: 'Montréal → Montpellier (2027)',
       genres: 'Minimal · Indie Dance · Dark Disco',
       musicMakers: 'WE ARE MUSIC MAKERS',
     },
     // H1 de chaque page. Rendus en sr-only (lus par Google + lecteurs d'ecran,
     // invisibles a l'oeil) pour ne pas casser le design minimaliste.
     headings: {
-      home: 'Maudite Machine, indie dance DJ and producer in Montreal',
+      home: 'Maudite Machine, indie dance DJ and producer, Montréal → Montpellier (2027)',
       about: 'Maudite Machine biography',
       shows: 'Maudite Machine shows and tour dates',
       merch: 'Maudite Machine official merch',
@@ -180,7 +180,7 @@ export const translations = {
       catchphrase: 'RAW. HYPNOTIC. UNDERGROUND.',
       bigTitle: 'Maudite\nMachine',
       metaLine1: 'DJ · Producer · VRSTL Records',
-      metaLine2: 'Montréal / Canada',
+      metaLine2: 'Montréal → Montpellier (2027)',
 
       bioLabel: 'Biography',
       bioMain: "A pillar of the Montreal underground for over 15 years, Mika has forged the identity of Maudite Machine between the immersive walls of SAT and the effervescent stages of Piknic Électronik. Sharing the bill with legends like Carl Craig, Agoria, and Reinier Zonneveld, his footprint reaches far beyond a simple DJ set.",
@@ -389,12 +389,12 @@ export const translations = {
     },
     signature: {
       role: 'DJ & Producteur',
-      location: 'Montréal, Canada',
+      location: 'Montréal → Montpellier (2027)',
       genres: 'Minimal · Indie Dance · Dark Disco',
       musicMakers: 'WE ARE MUSIC MAKERS',
     },
     headings: {
-      home: 'Maudite Machine, DJ et producteur indie dance à Montréal',
+      home: 'Maudite Machine, DJ et producteur indie dance, Montréal → Montpellier (2027)',
       about: 'Biographie de Maudite Machine',
       shows: 'Concerts et dates de Maudite Machine',
       merch: 'Merch officiel Maudite Machine',
@@ -461,7 +461,7 @@ export const translations = {
       catchphrase: 'RAW. HYPNOTIC. UNDERGROUND.',
       bigTitle: 'Maudite\nMachine',
       metaLine1: 'DJ · Producteur · VRSTL Records',
-      metaLine2: 'Montréal / Canada',
+      metaLine2: 'Montréal → Montpellier (2027)',
 
       bioLabel: 'Biographie',
       bioMain: "Pilier de l'underground montréalais depuis plus de 15 ans, Mika a forgé l'identité de Maudite Machine entre les murs immersifs de la SAT et les scènes effervescentes du Piknic Électronik. Partageant l'affiche avec des légendes telles que Carl Craig, Agoria ou Reinier Zonneveld, son empreinte s'étend bien au-delà d'un simple DJ set.",
@@ -669,12 +669,12 @@ export const translations = {
     },
     signature: {
       role: 'DJ & Productor',
-      location: 'Montreal, Canadá',
+      location: 'Montréal → Montpellier (2027)',
       genres: 'Minimal · Indie Dance · Dark Disco',
       musicMakers: 'WE ARE MUSIC MAKERS',
     },
     headings: {
-      home: 'Maudite Machine, DJ y productor indie dance en Montreal',
+      home: 'Maudite Machine, DJ y productor indie dance, Montréal → Montpellier (2027)',
       about: 'Biografía de Maudite Machine',
       shows: 'Shows y fechas de Maudite Machine',
       merch: 'Merch oficial de Maudite Machine',
@@ -741,7 +741,7 @@ export const translations = {
       catchphrase: 'RAW. HYPNOTIC. UNDERGROUND.',
       bigTitle: 'Maudite\nMachine',
       metaLine1: 'DJ · Productor · VRSTL Records',
-      metaLine2: 'Montreal / Canadá',
+      metaLine2: 'Montréal → Montpellier (2027)',
 
       bioLabel: 'Biografía',
       bioMain: 'Pilar del underground de Montreal desde hace más de 15 años, Mika ha forjado la identidad de Maudite Machine entre los muros inmersivos de la SAT y las escenas efervescentes de Piknic Électronik. Compartiendo cartel con leyendas como Carl Craig, Agoria o Reinier Zonneveld, su huella se extiende mucho más allá de un simple DJ set.',
