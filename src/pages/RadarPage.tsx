@@ -357,10 +357,12 @@ const RadarPage: React.FC = () => {
           {rel.favorite && (
             <span className="radar-pick-bg shrink-0 inline-block w-1.5 h-1.5 rounded-full" title={r.badgeFavorite} />
           )}
-          <span className="shrink-0 font-body font-bold text-ink-95 text-sm md:text-base leading-tight group-hover:text-white transition-colors">
+          {/* xs : l'artiste prend la place avec une vraie ellipsis, le titre
+              s'efface. A partir de sm : artiste entier, titre en ellipsis. */}
+          <span className="min-w-0 truncate sm:shrink-0 font-body font-bold text-ink-95 text-sm md:text-base leading-tight group-hover:text-white transition-colors">
             {rel.artist}
           </span>
-          <span className="truncate font-body text-white/55 text-xs md:text-sm">{rel.title}</span>
+          <span className="hidden sm:block truncate font-body text-white/55 text-xs md:text-sm">{rel.title}</span>
         </div>
 
         {/* Libelles : aeres en pleine largeur, condenses quand le split est ouvert */}

@@ -263,7 +263,7 @@ const Layout: React.FC = () => {
               <img
                 src={import.meta.env.BASE_URL + 'logo/mauditemachine-logo-gold.png'}
                 alt="Maudite Machine"
-                className="h-6 w-auto block m-0 p-0 align-middle"
+                className="h-6 w-auto block m-0 p-0 align-middle max-w-[calc(100vw-186px)] object-contain object-left min-[901px]:max-w-none"
                 style={{ filter: 'brightness(0) invert(1)', display: 'block' }}
               />
             </NavLink>
