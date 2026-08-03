@@ -292,14 +292,15 @@ const Layout: React.FC = () => {
           </div>
         </header>
 
-        {/* Fond video meduses (fixed z-0, persiste entre toutes les routes).
-            Hors home, la classe dim tamise la video (saturation et luminosite
-            reduites + overlay dense) : le CSS existait mais plus personne ne
-            posait la classe depuis le passage au multi-pages, laissant le
-            fond cyan eclatant partout, tres visible en mobile. */}
-        <div className={cn('global-bg', location.pathname !== '/' && 'dim')}>
-          <JellyfishBackground />
-        </div>
+        {/* Fond video meduses : HOME UNIQUEMENT. Hors home, aucun rendu du
+            wrapper ni de la video, fond noir uni (html/body #000) : la video
+            debordait autour du conteneur des pages en mobile (body padding
+            11px + html transparent) et creait un halo cyan sur les bords. */}
+        {location.pathname === '/' && (
+          <div className="global-bg">
+            <JellyfishBackground />
+          </div>
+        )}
 
         {/* MAIN — contenu de la page courante via Outlet.
             md:pr-16 sur les pages de contenu : reserve la colonne de droite

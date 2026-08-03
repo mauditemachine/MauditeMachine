@@ -208,6 +208,7 @@ body,
 /* Single-page scrolling : scroll document natif (2026-04) */
 html {
   scroll-behavior: smooth;
+  background: #000;
 }
 html, body {
   margin: 0;
@@ -221,7 +222,8 @@ html, body {
 body {
   font-family: var(--font-body);
   color: var(--text);
-  background: transparent;
+  /* Noir opaque : les zones d'overscroll et de safe-area Safari restent noires */
+  background: #000;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -240,8 +242,10 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: #175268;
-  opacity: 0.75;
+  /* Noir uni : l'ancien voile teal (#175268) creait le halo bleu-vert
+     sur les bords en mobile, la video etant desormais limitee a la home */
+  background: #000;
+  opacity: 1;
   z-index: 0;
   pointer-events: none;
 }
@@ -551,6 +555,21 @@ body {
   filter: brightness(0) invert(1);
 }
 
+@media (max-width: 768px) {
+  /* Home mobile : vignettage noir sur les 4 bords, les meduses vivent au
+     centre derriere le contenu, les bords de l'ecran restent noirs */
+  .jellyfish-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(180deg, #000 0%, rgba(0, 0, 0, 0) 16%, rgba(0, 0, 0, 0) 84%, #000 100%),
+      linear-gradient(90deg, #000 0%, rgba(0, 0, 0, 0) 10%, rgba(0, 0, 0, 0) 90%, #000 100%);
+    box-shadow: inset 0 0 48px 18px #000;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-logo-hero { animation: none; opacity: 1; }
 }
@@ -680,12 +699,6 @@ body {
     linear-gradient(180deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.45) 100%);
   transition: background 0.8s ease;
   pointer-events: none;
-}
-
-/* Dim plus fort hors de la page home */
-.global-bg.dim .jellyfish-video {
-  filter: saturate(0.55) brightness(0.55) blur(1px);
-  transition: filter 0.6s ease;
 }
 
 /* ============================================================
@@ -831,11 +844,6 @@ body {
 }
 .liquid-glass.lg-frame:hover {
   background: rgba(0, 0, 0, 0.42);
-}
-.global-bg.dim .jellyfish-overlay {
-  background:
-    linear-gradient(180deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.7) 40%, rgba(0,0,0,0.88) 100%),
-    radial-gradient(ellipse at center, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.6) 100%);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1640,9 +1648,10 @@ body {
     box-sizing: border-box !important;
   }
   
-  /* Video meduses en fond, geree par .jellyfish-bg - html/body transparent */
+  /* Fond noir opaque : la video (home uniquement) ne doit jamais deborder
+     autour du conteneur des pages ni colorer l'overscroll Safari */
   html {
-    background: transparent !important;
+    background: #000 !important;
     width: 100vw !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -1650,7 +1659,7 @@ body {
   }
 
   body {
-    background: transparent !important;
+    background: #000 !important;
     width: 100vw !important;
     margin: 0 !important;
     padding: 11px !important;
@@ -6504,7 +6513,8 @@ body.dark-mode .admin-page .form-group textarea:focus {
 }
 
 .design-alternate .page::after {
-  background: linear-gradient(180deg, #0C52BA 0%, #175268 0%, #1E5F5D 62%, #106A3D 100%);
+  /* Ancien gradient bleu-teal-vert : remplace par le noir uni du site */
+  background: #000;
   opacity: 1;
 }
 
