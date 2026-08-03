@@ -292,8 +292,12 @@ const Layout: React.FC = () => {
           </div>
         </header>
 
-        {/* Fond video meduses (fixed z-0, persiste entre toutes les routes) */}
-        <div className="global-bg">
+        {/* Fond video meduses (fixed z-0, persiste entre toutes les routes).
+            Hors home, la classe dim tamise la video (saturation et luminosite
+            reduites + overlay dense) : le CSS existait mais plus personne ne
+            posait la classe depuis le passage au multi-pages, laissant le
+            fond cyan eclatant partout, tres visible en mobile. */}
+        <div className={cn('global-bg', location.pathname !== '/' && 'dim')}>
           <JellyfishBackground />
         </div>
 
