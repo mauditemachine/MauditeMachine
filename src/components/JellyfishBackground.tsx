@@ -16,9 +16,23 @@ interface JellyfishBackgroundProps {
 export default function JellyfishBackground({
   srcHd = '/videos/dream-bg-1080.mp4',
   srcMobile = '/videos/dream-bg-720.mp4',
-  poster,
+  // Frame extraite de la video : si la lecture est bloquee (iOS economie
+  // d'energie, reduced motion), on voit les meduses figees, jamais un fond uni.
+  poster = '/videos/dream-bg-poster.jpg',
 }: JellyfishBackgroundProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
+
+  // Safari iOS n'autoplay que si l'attribut muted est REELLEMENT dans le DOM.
+  // Or React ne rend pas la prop muted en attribut (bug connu) : on force les
+  // deux (propriete + attribut) des que l'element existe, via un ref callback.
+  const attachVideo = (el: HTMLVideoElement | null) => {
+    videoRef.current = el
+    if (el) {
+      el.muted = true
+      el.setAttribute('muted', '')
+      el.setAttribute('playsinline', '')
+    }
+  }
 
   // Choix de la source selon la largeur d'ecran
   const [src] = useState(() => {
@@ -30,18 +44,30 @@ export default function JellyfishBackground({
     // Forcer le play apres mount (certains navigateurs bloquent autoplay sans interaction)
     const v = videoRef.current
     if (!v) return
-    const playPromise = v.play()
-    if (playPromise && typeof playPromise.catch === 'function') {
-      playPromise.catch(() => {
-        // Autoplay bloque - retenter au premier click sur le document
-        const retry = () => {
-          v.play().catch(() => {})
-          document.removeEventListener('click', retry)
-          document.removeEventListener('touchstart', retry)
-        }
-        document.addEventListener('click', retry, { once: true })
-        document.addEventListener('touchstart', retry, { once: true })
-      })
+
+    try {
+      const playPromise = v.play()
+      if (playPromise && typeof playPromise.catch === 'function') playPromise.catch(() => {})
+    } catch {}
+
+    // Fallback iOS (economie d'energie, autoplay bloque) : a CHAQUE geste,
+    // si la video est en pause, on retente. Pas de { once: true }, et les
+    // listeners restent pour toute la vie du composant : iOS en mode
+    // economie d'energie peut re-suspendre la video en cours de session,
+    // le prochain tap la relance. Cout nul (listeners passifs).
+    const retry = () => {
+      if (v.paused) {
+        try {
+          const p = v.play()
+          if (p && typeof p.catch === 'function') p.catch(() => {})
+        } catch {}
+      }
+    }
+    document.addEventListener('click', retry, { passive: true })
+    document.addEventListener('touchstart', retry, { passive: true })
+    return () => {
+      document.removeEventListener('click', retry)
+      document.removeEventListener('touchstart', retry)
     }
   }, [])
 
@@ -53,7 +79,7 @@ export default function JellyfishBackground({
         Le transform compose avec le translate(-50%, -50%) de centrage CSS.
       */}
       <video
-        ref={videoRef}
+        ref={attachVideo}
         className="jellyfish-video"
         src={src}
         poster={poster}

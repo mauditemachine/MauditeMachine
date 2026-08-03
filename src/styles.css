@@ -839,8 +839,16 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* Accessibilite : pas de video en mouvement, mais JAMAIS un fond uni.
+     On fige les meduses via le poster extrait de la video. C'est aussi ce
+     que voit un iPhone avec "Reduire les animations" active. */
   .jellyfish-video { display: none; }
-  .jellyfish-bg { background: linear-gradient(180deg, #0a1a2e 0%, #000 100%); }
+  .jellyfish-bg {
+    background:
+      linear-gradient(180deg, rgba(10, 26, 46, 0.35) 0%, rgba(0, 0, 0, 0.55) 100%),
+      url('/videos/dream-bg-poster.jpg') center / cover no-repeat,
+      #0a1a2e;
+  }
 }
 
 
