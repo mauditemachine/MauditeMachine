@@ -386,8 +386,133 @@ app.post('/api/upload-image', authMiddleware, upload.single('image'), async (req
   }
 });
 
+// ============================================================
+// STATS : dashboard /mm-admin/stats (refresh manuel + imports CSV)
+//
+// Le snapshot public va dans public/data/stats-public.json (versionne,
+// affichable en prod). Les REVENUS Ditto vont dans data/stats-private.json,
+// local uniquement (gitignore) : jamais servis par GitHub Pages.
+// ============================================================
+
+import { spawn } from 'child_process';
+import { parseDitto, parseBandcamp, parseTikTok } from './scripts/csv-parsers.mjs';
+
+const STATS_PUBLIC = path.join(PUBLIC_DIR, 'data', 'stats-public.json');
+const STATS_PRIVATE = path.join(__dirname, 'data', 'stats-private.json');
+const STATS_MANUAL_DIR = path.join(__dirname, 'data', 'stats-manual');
+
+// Uploader dedie aux CSV : le multer "upload" existant est reserve aux
+// images (fileFilter + magic bytes) et refuserait un text/csv.
+const uploadCsv = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
+async function readJsonSafe(file, fallback) {
+  try {
+    return JSON.parse(await fs.readFile(file, 'utf8'));
+  } catch {
+    return fallback;
+  }
+}
+
+// Refresh manuel : relance le collecteur (les cles viennent du .env local).
+// Une seule execution a la fois.
+let statsRunning = false;
+app.post('/api/stats/refresh', authMiddleware, (req, res) => {
+  if (statsRunning) {
+    return res.status(409).json({ success: false, message: 'Un refresh est deja en cours' });
+  }
+  statsRunning = true;
+  const child = spawn(process.execPath, [path.join(__dirname, 'scripts', 'fetch-stats.mjs')], {
+    cwd: __dirname,
+    env: process.env,
+  });
+  let log = '';
+  child.stdout.on('data', (d) => (log += d));
+  child.stderr.on('data', (d) => (log += d));
+  child.on('close', (code) => {
+    statsRunning = false;
+    console.log(`📊 Refresh stats termine (code ${code})`);
+    res.json({ success: code === 0, log: log.slice(-2000) });
+  });
+});
+
+// Revenus prives (Ditto) : lecture locale uniquement
+app.get('/api/stats/private', authMiddleware, async (req, res) => {
+  res.json(await readJsonSafe(STATS_PRIVATE, { dittoRevenue: [] }));
+});
+
+// Import CSV : ?type=ditto|bandcamp|tiktok, fichier en memoire, parse,
+// integre au bloc manual du JSON public (les revenus partent en prive).
+app.post('/api/stats/upload-csv', authMiddleware, uploadCsv.single('csv'), async (req, res) => {
+  try {
+    const type = String(req.query.type || '').toLowerCase();
+    if (!['ditto', 'bandcamp', 'tiktok'].includes(type)) {
+      return res.status(400).json({ success: false, message: 'type invalide (ditto|bandcamp|tiktok)' });
+    }
+    if (!req.file?.buffer) {
+      return res.status(400).json({ success: false, message: 'aucun fichier' });
+    }
+    const text = req.file.buffer.toString('utf8');
+    const importedAt = new Date().toISOString();
+
+    // Copie source conservee en local (audit, re-parse eventuel)
+    await fs.mkdir(STATS_MANUAL_DIR, { recursive: true });
+    await fs.writeFile(path.join(STATS_MANUAL_DIR, `${type}-${importedAt.slice(0, 10)}.csv`), text);
+
+    const pub = await readJsonSafe(STATS_PUBLIC, { snapshots: [], manual: {} });
+    pub.manual = pub.manual || {};
+    let recap = {};
+
+    if (type === 'ditto') {
+      const parsed = parseDitto(text);
+      pub.manual.ditto = {
+        importedAt,
+        streamsByPlatform: parsed.streamsByPlatform,
+        streamsByCountry: parsed.streamsByCountry,
+      };
+      // Revenus -> fichier prive local, jamais dans public/
+      const priv = await readJsonSafe(STATS_PRIVATE, { dittoRevenue: [] });
+      priv.dittoRevenue.push({
+        importedAt,
+        total: parsed.totalRevenue,
+        currency: parsed.currency,
+        byPlatform: parsed.revenueByPlatform,
+        byCountry: parsed.revenueByCountry,
+      });
+      await fs.mkdir(path.dirname(STATS_PRIVATE), { recursive: true });
+      await fs.writeFile(STATS_PRIVATE, JSON.stringify(priv, null, 2));
+      recap = { rows: parsed.rowCount, warnings: parsed.warnings, revenue: 'enregistre en local uniquement' };
+    } else if (type === 'bandcamp') {
+      const parsed = parseBandcamp(text);
+      pub.manual.bandcamp = { importedAt, plays: parsed.plays, sales: parsed.sales };
+      recap = { rows: parsed.rowCount, warnings: parsed.warnings };
+    } else {
+      const parsed = parseTikTok(text);
+      pub.manual.tiktok = {
+        importedAt,
+        followers: parsed.followers,
+        videoViews: parsed.videoViews,
+        profileViews: parsed.profileViews,
+        likes: parsed.likes,
+      };
+      recap = { rows: parsed.rowCount, warnings: parsed.warnings };
+    }
+
+    await fs.mkdir(path.dirname(STATS_PUBLIC), { recursive: true });
+    await fs.writeFile(STATS_PUBLIC, JSON.stringify(pub, null, 2) + '\n');
+    console.log(`📊 CSV ${type} importe (${recap.rows} lignes)`);
+    res.json({ success: true, type, ...recap });
+  } catch (error) {
+    console.error('❌ Erreur import CSV:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Serveur API démarré sur http://localhost:${PORT}`);
   console.log('📁 Fichiers JSON mis à jour automatiquement dans public/');
   console.log('📸 Upload d\'images disponible sur /api/upload-image');
+  console.log('📊 Stats : /api/stats/refresh, /api/stats/upload-csv, /api/stats/private');
 });

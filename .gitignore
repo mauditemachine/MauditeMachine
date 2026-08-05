@@ -28,3 +28,7 @@ api/.env
 /public/images/goodies/**/*.png
 /public/images/goodies/**/*.jpg
 /public/images/goodies/**/*.jpeg
+
+# Stats privees (revenus Ditto) et CSV sources : local uniquement.
+# Ancre a la racine : public/data/ (stats publiques) reste versionne.
+/data/

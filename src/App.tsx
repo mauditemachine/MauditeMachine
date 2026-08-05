@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
 import AdminGate from './components/ui/AdminGate';
 import { AppProvider } from './context/AppContext';
+const AdminStatsPage = React.lazy(() => import('./pages/AdminStatsPage'));
 
 // Pages : lazy load pour code-splitting (chargees a la demande)
 const AboutPage = React.lazy(() => import('./pages/AboutPage'));
@@ -97,6 +98,16 @@ export default function App() {
               </Suspense>
             }
           />
+          <Route
+            path="/mm-admin/stats"
+            element={
+              <Suspense fallback={null}>
+                <AdminStatsPage />
+              </Suspense>
+            }
+
+          />
+
           <Route
             path="/mm-admin"
             element={

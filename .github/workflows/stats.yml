@@ -1,0 +1,65 @@
+# Snapshot quotidien des stats de diffusion (equivalent du "cron Vercel" du
+# brief, adapte a l'hebergement GitHub Pages : pas de serveur en prod).
+#
+# Tourne chaque jour, execute scripts/fetch-stats.mjs avec les secrets du
+# repo, committe public/data/stats-public.json si change (ce qui redeploie
+# le site via pages.yml). Mode degrade assume : tant que les secrets ne sont
+# pas colles dans Settings > Secrets, chaque source est marquee
+# "unavailable" et le dashboard l'affiche comme telle. Le workflow reussit
+# quand meme.
+#
+# Secrets attendus (tous optionnels, source par source) :
+#   YOUTUBE_API_KEY, YOUTUBE_CHANNEL_ID
+#   YT_OAUTH_CLIENT_ID, YT_OAUTH_CLIENT_SECRET, YT_REFRESH_TOKEN
+#   SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET
+#   META_ACCESS_TOKEN, IG_BUSINESS_ACCOUNT_ID, FB_PAGE_ID
+#   SOUNDCLOUD_CLIENT_ID
+
+name: Daily music stats
+
+on:
+  schedule:
+    - cron: '0 6 * * *' # 06:00 UTC chaque jour
+  workflow_dispatch: {} # declenchable a la main depuis l'onglet Actions
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Fetch stats (mode degrade tolere)
+        env:
+          ORIGIN: cron
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          YOUTUBE_CHANNEL_ID: ${{ secrets.YOUTUBE_CHANNEL_ID }}
+          YT_OAUTH_CLIENT_ID: ${{ secrets.YT_OAUTH_CLIENT_ID }}
+          YT_OAUTH_CLIENT_SECRET: ${{ secrets.YT_OAUTH_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
+          SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+          IG_BUSINESS_ACCOUNT_ID: ${{ secrets.IG_BUSINESS_ACCOUNT_ID }}
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
+        run: node scripts/fetch-stats.mjs
+
+      - name: Commit snapshot si change
+        run: |
+          git config user.name "stats-bot"
+          git config user.email "actions@github.com"
+          git add public/data/stats-public.json
+          if git diff --cached --quiet; then
+            echo "Aucun changement a committer."
+          else
+            git commit -m "chore(stats): snapshot quotidien"
+            git pull --rebase origin main
+            git push origin main
+          fi
