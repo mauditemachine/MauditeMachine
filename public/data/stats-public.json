@@ -57,19 +57,5 @@
       }
     }
   ],
-  "manual": {
-    "ditto": {
-      "importedAt": "2026-08-05T21:12:30.303Z",
-      "streamsByPlatform": {
-        "Spotify": 2000,
-        "Apple Music": 300,
-        "Deezer": 150
-      },
-      "streamsByCountry": {
-        "FR": 1500,
-        "CA": 800,
-        "DE": 150
-      }
-    }
-  }
+  "manual": {}
 }
