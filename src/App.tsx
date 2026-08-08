@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
 import AdminGate from './components/ui/AdminGate';
@@ -13,7 +13,7 @@ const MerchPage = React.lazy(() => import('./pages/MerchPage'));
 const GoodiesPage = React.lazy(() => import('./pages/GoodiesPage'));
 const TechRiderPage = React.lazy(() => import('./pages/TechRiderPage'));
 const ContactPage = React.lazy(() => import('./pages/ContactPage'));
-const RadarPage = React.lazy(() => import('./pages/RadarPage'));
+const AdminRadarPage = React.lazy(() => import('./pages/AdminRadarPage'));
 
 // Admin panels : lazy load (panels internes, ~1750 lignes hors du chunk principal)
 const Admin = React.lazy(() => import('./components/Admin'));
@@ -75,11 +75,16 @@ export default function App() {
                 </Suspense>
               }
             />
+            {/* Le Radar est devenu un outil d'admin : l'ancienne URL
+                publique redirige vers la home. */}
+            <Route path="radar" element={<Navigate to="/" replace />} />
+            {/* Dans le Layout expres : le lecteur global (PlayerProvider)
+                et le fond du site y vivent. */}
             <Route
-              path="radar"
+              path="mm-admin/radar"
               element={
                 <Suspense fallback={null}>
-                  <RadarPage />
+                  <AdminRadarPage />
                 </Suspense>
               }
             />

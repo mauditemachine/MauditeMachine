@@ -19,7 +19,6 @@ const SITE = 'https://mauditemachine.com';
 const ROUTES = [
   { path: '/',          changefreq: 'weekly',  priority: '1.0' },
   { path: '/shows',     changefreq: 'weekly',  priority: '0.9' },
-  { path: '/radar',     changefreq: 'weekly',  priority: '0.9' },
   { path: '/about',     changefreq: 'monthly', priority: '0.8' },
   { path: '/merch',     changefreq: 'weekly',  priority: '0.8' },
   { path: '/techrider', changefreq: 'monthly', priority: '0.7' },

@@ -27,10 +27,6 @@
     "/contact": {
       "title": "Contact & Booking | Maudite Machine",
       "description": "Contactez Maudite Machine pour un booking, une interview, un remix ou une collaboration. Réponse rapide, management direct, Montréal → France."
-    },
-    "/radar": {
-      "title": "Radar | Nouveautés indie dance & dark disco",
-      "description": "Les dernières sorties des labels et artistes suivis par Maudite Machine. Indie dance, dark disco et minimal, sélection hebdomadaire depuis Montréal."
     }
   },
   "en": {
@@ -61,10 +57,6 @@
     "/contact": {
       "title": "Contact & Booking | Maudite Machine",
       "description": "Get in touch with Maudite Machine for bookings, interviews, remixes or collaborations. Fast reply, direct management, Montréal → France."
-    },
-    "/radar": {
-      "title": "Radar | New Indie Dance & Dark Disco Releases",
-      "description": "The latest releases from the labels and artists on Maudite Machine radar. Indie dance, dark disco and minimal, hand-picked weekly from Montreal."
     }
   },
   "es": {
@@ -95,10 +87,6 @@
     "/contact": {
       "title": "Contacto y Booking | Maudite Machine",
       "description": "Contacta con Maudite Machine para bookings, entrevistas, remixes o colaboraciones. Respuesta rápida, management directo, Montréal → France."
-    },
-    "/radar": {
-      "title": "Radar | Novedades Indie Dance y Dark Disco",
-      "description": "Los últimos lanzamientos de los sellos y artistas que sigue Maudite Machine. Indie dance, dark disco y minimal, selección semanal desde Montreal."
     }
   }
 }

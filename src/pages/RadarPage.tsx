@@ -93,7 +93,7 @@ const Spinner: React.FC<{ className?: string }> = ({ className }) => (
   />
 );
 
-const RadarPage: React.FC = () => {
+const RadarPage: React.FC<{ topSlot?: React.ReactNode }> = ({ topSlot }) => {
   const { t, lang } = useTranslation();
   const r = t.radar;
   const player = usePlayer();
@@ -569,6 +569,9 @@ const RadarPage: React.FC = () => {
   return (
     <section className="radar-page pt-24 pb-32 py-20 md:py-32 px-4 md:px-10 max-w-7xl mx-auto w-full">
       <h1 className="sr-only">{t.headings.radar}</h1>
+
+      {/* Slot de la nav admin (le Radar vit desormais sous /mm-admin/radar) */}
+      {topSlot}
 
       <p className="font-body text-sm md:text-base text-white/60 leading-relaxed max-w-2xl mb-8 md:mb-12 animate-fade-up">
         {r.subtitle}

@@ -8,6 +8,7 @@ import {
 } from '../utils/adminApi';
 import ImageUpload from './ImageUpload';
 import { useTranslation } from '../lib/i18n';
+import AdminNav from './ui/AdminNav';
 
 type Tab = 'events' | 'merch' | 'news' | 'releases';
 
@@ -185,6 +186,7 @@ const AdminEvents: React.FC = () => {
     <div className="admin-page">
       <div className="admin-container">
         <h1 className="admin-title">MM ADMIN</h1>
+        <AdminNav />
 
         <div className="admin-tabs">
           {(['events', 'merch', 'news', 'releases'] as Tab[]).map(tab => {
