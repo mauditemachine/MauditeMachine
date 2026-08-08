@@ -44,7 +44,7 @@ const HomePage: React.FC = () => {
         alt="Maudite Machine"
         className="w-[92vw] max-w-[780px] h-auto animate-fade-up"
         style={{
-          filter: 'brightness(0) invert(1) drop-shadow(0 4px 24px rgba(0,0,0,0.4))',
+          filter: 'brightness(0) invert(1)',
           animationDelay: '100ms',
           animationFillMode: 'both',
         }}
@@ -58,7 +58,6 @@ const HomePage: React.FC = () => {
           'tracking-[4px]',
           'text-white',
           'leading-none',
-          '[text-shadow:_0_2px_12px_rgba(0,0,0,0.5)]',
           'animate-fade-up',
         )}
         style={{ animationDelay: '350ms', animationFillMode: 'both' }}
@@ -73,7 +72,6 @@ const HomePage: React.FC = () => {
           'text-white font-semibold',
           'tracking-widest',
           'text-xs md:text-sm',
-          '[text-shadow:_0_2px_12px_rgba(0,0,0,0.45)]',
           'mt-1',
           'animate-fade-up',
         )}
@@ -89,7 +87,6 @@ const HomePage: React.FC = () => {
           'font-semibold tracking-wide',
           'text-xs md:text-sm',
           'text-white/85',
-          '[text-shadow:_0_2px_12px_rgba(0,0,0,0.45)]',
           'mt-1',
           'animate-fade-up',
         )}

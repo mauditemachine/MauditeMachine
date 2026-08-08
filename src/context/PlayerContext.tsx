@@ -481,7 +481,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       {!currentTrack ? (
         <div
           style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 80 }}
-          className="bg-black/25 backdrop-blur-2xl backdrop-saturate-[0.7] border-t border-white/10 shadow-[0_-8px_30px_rgba(0,0,0,0.35)]"
+          className="bg-black/25 backdrop-blur-2xl backdrop-saturate-[0.7] border-t border-white/10"
         >
           <div className="max-w-7xl mx-auto px-3 md:px-10 h-[64px] flex items-center gap-3 md:gap-4">
             <div className="shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-black/40 border border-white/10">
@@ -516,7 +516,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ) : (
         <div
           style={{ position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 80 }}
-          className="bg-black/25 backdrop-blur-2xl backdrop-saturate-[0.7] border-t border-white/10 shadow-[0_-8px_30px_rgba(0,0,0,0.35)]"
+          className="bg-black/25 backdrop-blur-2xl backdrop-saturate-[0.7] border-t border-white/10"
         >
           <div className="max-w-7xl mx-auto px-3 md:px-10 h-[64px] flex items-center gap-2 md:gap-4">
             <div className="shrink-0 flex items-center gap-1">

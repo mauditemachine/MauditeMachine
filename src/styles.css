@@ -527,7 +527,6 @@ body {
   max-width: 780px;
   display: flex;
   justify-content: center;
-  filter: drop-shadow(0 6px 24px rgba(0, 0, 0, 0.75));
   pointer-events: none;
   z-index: 3;
   /* Logo blanc via filter (SVG source est gold) */
@@ -586,7 +585,6 @@ body {
   width: auto;
   padding: 0;
   text-align: left;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
   z-index: 2;
   font-size: 13px;
   line-height: 1.5;
@@ -6528,7 +6526,6 @@ body.dark-mode .admin-page .form-group textarea:focus {
   background: rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(30px) saturate(1.4);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.40);
   height: 64px;
   left: 0;
   right: 0;
