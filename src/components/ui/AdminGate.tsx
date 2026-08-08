@@ -28,6 +28,7 @@ import {
   ADMIN_UNAUTHORIZED_EVENT,
 } from '../../utils/adminApi';
 import { useTranslation } from '../../lib/i18n';
+import AdminNav from './AdminNav';
 
 interface AdminGateProps {
   children: React.ReactNode;
@@ -157,6 +158,9 @@ const AdminGate: React.FC<AdminGateProps> = ({ children }) => {
       <div className="admin-page">
         <div className="admin-container" style={{ maxWidth: 480, paddingTop: '12vh' }}>
           <h1 className="admin-title">{a.offlineTitle}</h1>
+          {/* Radar et Stats restent consultables en prod : ne pas laisser
+              cet ecran en cul-de-sac */}
+          <AdminNav />
           <div className="admin-form-card">
             <p style={{ color: '#ccc', lineHeight: 1.6, margin: 0 }}>{a.offlineBody}</p>
           </div>
