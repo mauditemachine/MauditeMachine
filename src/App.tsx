@@ -14,6 +14,8 @@ const GoodiesPage = React.lazy(() => import('./pages/GoodiesPage'));
 const TechRiderPage = React.lazy(() => import('./pages/TechRiderPage'));
 const ContactPage = React.lazy(() => import('./pages/ContactPage'));
 const AdminRadarPage = React.lazy(() => import('./pages/AdminRadarPage'));
+// Refonte /v2 : one-page isolee, hors Layout (nav + player + fond propres)
+const V2App = React.lazy(() => import('./v2/V2App'));
 
 // Admin panels : lazy load (panels internes, ~1750 lignes hors du chunk principal)
 const Admin = React.lazy(() => import('./components/Admin'));
@@ -89,6 +91,17 @@ export default function App() {
               }
             />
           </Route>
+
+          {/* Refonte /v2 en preview (hors Layout : elle a sa propre nav,
+              son propre player et son propre fond). noindex pose par V2App. */}
+          <Route
+            path="/v2"
+            element={
+              <Suspense fallback={null}>
+                <V2App />
+              </Suspense>
+            }
+          />
 
           {/* Admin routes (hors Layout, panels independants).
               AdminGate = ecran de login. Le verrou reel est cote serveur :
