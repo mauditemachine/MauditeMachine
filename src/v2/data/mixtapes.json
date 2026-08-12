@@ -20,49 +20,31 @@
       "featured": true
     },
     {
-      "title": "Mixtape 37 (placeholder)",
+      "title": "Mixtape 37",
       "number": 37,
       "year": 2025,
-      "duration": "1:00:00",
-      "soundcloudUrl": "https://soundcloud.com/mauditemachine",
+      "duration": "2:01:23",
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/maudite-machine-mixtape-37",
       "artwork": "/images/mixtapes/mixtape-37.webp",
       "featured": true
     },
     {
-      "title": "Mixtape 36 (placeholder)",
+      "title": "Mixtape 36",
       "number": 36,
-      "year": 2025,
-      "duration": "1:00:00",
-      "soundcloudUrl": "https://soundcloud.com/mauditemachine",
-      "artwork": null,
+      "year": 2024,
+      "duration": "1:56:57",
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/mixtape-036",
+      "artwork": "/images/mixtapes/mixtape-36.webp",
       "featured": true
     },
     {
-      "title": "Mixtape 35 (placeholder)",
+      "title": "Mixtape #035",
       "number": 35,
       "year": 2024,
-      "duration": "1:00:00",
-      "soundcloudUrl": "https://soundcloud.com/mauditemachine",
-      "artwork": null,
+      "duration": "1:30:22",
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/mauditemachine-mixtape035",
+      "artwork": "/images/mixtapes/mixtape-35.webp",
       "featured": true
-    },
-    {
-      "title": "Mixtape 34 (placeholder)",
-      "number": 34,
-      "year": 2024,
-      "duration": "1:00:00",
-      "soundcloudUrl": "https://soundcloud.com/mauditemachine",
-      "artwork": null,
-      "featured": true
-    },
-    {
-      "title": "Mixtape 33 (placeholder)",
-      "number": 33,
-      "year": 2024,
-      "duration": "1:00:00",
-      "soundcloudUrl": "https://soundcloud.com/mauditemachine",
-      "artwork": null,
-      "featured": false
     }
   ]
 }

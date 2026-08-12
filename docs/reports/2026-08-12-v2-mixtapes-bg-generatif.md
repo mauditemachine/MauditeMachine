@@ -74,10 +74,12 @@ par un background génératif code.
 ## Ce qui reste à faire / points en suspens
 
 Côté Mika :
-- Remplacer les 5 mixtapes placeholder de mixtapes.json par les vraies
-  (les plus écoutées) : title, number, year, duration, soundcloudUrl,
-  artwork (déposer les pochettes en WebP 500px dans
-  public/images/mixtapes/ ou me passer les liens SC, je peux extraire).
+- ~~Remplacer les mixtapes placeholder~~ FAIT en fin de session : Mika a
+  fourni les permalinks 37/36/35, métadonnées et artworks extraits du
+  profil SoundCloud (37 : 2:01:23 2025, 36 : 1:56:57 2024, #035 :
+  1:30:22 2024), 39/38 revérifiées conformes. La section affiche 5
+  mixtapes réelles, plus aucun placeholder, et le bouton Show all
+  disparaît de lui-même (aucune entrée masquée).
 - Ajuster la sélection featured de discography.json si souhaité.
 - Toujours en attente (session précédente) : tech riders PDF EN/FR dans
   public/, profil Bandsintown, crédits finaux discographie, vrais MP3.
