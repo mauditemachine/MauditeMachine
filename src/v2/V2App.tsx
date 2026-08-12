@@ -8,11 +8,12 @@
  * retiree au unmount (la v1 reste indexable).
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import '@fontsource/space-mono/400.css';
 import '@fontsource/space-mono/700.css';
 import './v2.css';
 import { AudioPlayerProvider, useAudioPlayer } from './context/AudioPlayerContext';
+import useReveals from './hooks/useReveals';
 import Cursor from './components/Cursor';
 import Nav from './components/Nav';
 import Hero from './components/Hero';
@@ -25,28 +26,36 @@ import Footer from './components/Footer';
 
 const V2Shell: React.FC = () => {
   const { current } = useAudioPlayer();
+  const rootRef = useRef<HTMLDivElement>(null);
+  useReveals(rootRef);
   useEffect(() => {
     // Neutralise le padding mobile du body v1 + fond noir garanti
     document.body.classList.add('v2-active');
 
-    // noindex tant que la refonte est en preview
-    const robots = document.createElement('meta');
+    // noindex tant que la refonte est en preview. index.html porte deja
+    // une meta robots "index, follow" : on la MODIFIE (pas d'empilement,
+    // deux metas contradictoires c'est fragile) et on la restaure en
+    // quittant /v2.
+    const existing = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    const robots = existing ?? document.createElement('meta');
+    const prevRobots = existing?.content ?? null;
     robots.name = 'robots';
     robots.content = 'noindex, nofollow';
-    document.head.appendChild(robots);
+    if (!existing) document.head.appendChild(robots);
 
     const prevTitle = document.title;
     document.title = 'Maudite Machine — V2 preview';
 
     return () => {
       document.body.classList.remove('v2-active');
-      robots.remove();
+      if (prevRobots !== null) robots.content = prevRobots;
+      else robots.remove();
       document.title = prevTitle;
     };
   }, []);
 
   return (
-    <div className={`v2-root${current ? ' has-player' : ''}`}>
+    <div ref={rootRef} className={`v2-root${current ? ' has-player' : ''}`}>
       <Cursor />
       <Nav />
       <Hero />

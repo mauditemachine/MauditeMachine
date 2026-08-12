@@ -1848,7 +1848,7 @@ body {
 }
 
 /* SoundCloud Player */
-/* SC legacy CSS (sc-*/.now-*) supprime — migre en Tailwind */
+/* SC legacy CSS (classes sc- et .now-) supprime — migre en Tailwind */
 
 .main-content {
   display: flex;

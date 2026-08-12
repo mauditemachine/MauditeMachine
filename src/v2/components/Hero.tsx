@@ -52,10 +52,14 @@ const Hero: React.FC = () => {
 
       <div className="v2-hero-content">
         <h1 style={{ margin: 0 }}>
+          {/* SVG vectoriel (le PNG blanc ne fait que 357px de large) ;
+              width/height intrinseques contre le CLS */}
           <img
             className="v2-hero-logo"
-            src="/logo/mauditemachine-logo-white.png"
+            src="/logo/mauditemachine-logo.svg"
             alt="Maudite Machine"
+            width={396}
+            height={87}
           />
         </h1>
 
