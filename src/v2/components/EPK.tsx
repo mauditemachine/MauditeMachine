@@ -12,10 +12,12 @@ import React, { useEffect, useState } from 'react';
 
 const BIO = {
   en: {
+    meta: 'DJ · Producer · VRSTL Records · Canada · France · Spain',
     main: "A pillar of the Montreal underground for over 15 years, Mika has forged the identity of Maudite Machine between the immersive walls of SAT and the effervescent stages of Piknic Électronik. Sharing the bill with legends like Carl Craig, Agoria, and Reinier Zonneveld, his footprint reaches far beyond a simple DJ set.",
     secondary: "At the helm of VRSTL Records, he sculpts the future of North American Indie Dance and Dark Disco. A sonic architect navigating between hardware sequencers and analog synthesizers, he turns every Live Set into a raw, unfiltered ceremony. With a decade and a half dedicated to teaching music production, he doesn't just play tomorrow's music: he trains those who will create it.",
   },
   fr: {
+    meta: 'DJ · Producteur · VRSTL Records · Canada · France · Espagne',
     main: "Pilier de l'underground montréalais depuis plus de 15 ans, Mika a forgé l'identité de Maudite Machine entre les murs immersifs de la SAT et les scènes effervescentes du Piknic Électronik. Partageant l'affiche avec des légendes telles que Carl Craig, Agoria ou Reinier Zonneveld, son empreinte s'étend bien au-delà d'un simple DJ set.",
     secondary: "À la tête de VRSTL Records, il sculpte le futur de l'Indie Dance et du Dark Disco nord-américain. Architecte sonore naviguant entre séquenceurs matériels et synthétiseurs analogiques, il transforme chaque Live Set en une cérémonie brute et sans filtre. Fort d'une décennie et demie dédiée à l'enseignement de la production, il ne se contente pas de jouer la musique de demain : il forme ceux qui la créeront.",
   },
@@ -76,7 +78,7 @@ const EPK: React.FC = () => {
           </div>
           <p className="v2-epk-bio-main">{BIO[lang].main}</p>
           <p className="v2-epk-bio-secondary">{BIO[lang].secondary}</p>
-          <p className="v2-label">DJ · Producer · VRSTL Records · Montréal → France</p>
+          <p className="v2-label">{BIO[lang].meta}</p>
         </div>
 
         <div className="v2-epk-downloads">

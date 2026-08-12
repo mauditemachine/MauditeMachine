@@ -47,10 +47,21 @@ const V2Shell: React.FC = () => {
     const prevTitle = document.title;
     document.title = 'Maudite Machine — V2 preview';
 
+    // Meme principe pour la description : celle d'index.html (v1) porte
+    // encore « Montréal → France » ; /v2 affiche ses territoires, la v1
+    // retrouve son texte au unmount.
+    const desc = document.querySelector<HTMLMetaElement>('meta[name="description"]');
+    const prevDesc = desc?.content ?? null;
+    if (desc) {
+      desc.content =
+        'DJ and producer for 15 years. Indie dance, dark disco and hypnotic minimal. Founder of VRSTL Records. Canada · France · Spain.';
+    }
+
     return () => {
       document.body.classList.remove('v2-active');
       if (prevRobots !== null) robots.content = prevRobots;
       else robots.remove();
+      if (desc && prevDesc !== null) desc.content = prevDesc;
       document.title = prevTitle;
     };
   }, []);

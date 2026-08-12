@@ -76,7 +76,7 @@ const Hero: React.FC = () => {
 
         <div className="v2-hero-tagline">
           <span className="v2-label">Raw. Hypnotic. Underground.</span>
-          <span className="v2-label">Montréal → France</span>
+          <span className="v2-label">Canada · France · Spain</span>
         </div>
 
         <div className="v2-hero-ctas">

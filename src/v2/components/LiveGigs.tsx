@@ -122,7 +122,7 @@ const LiveGigs: React.FC = () => {
         <div className="v2-gigs-empty">
           <p className="v2-gigs-empty-line v2-display">Next dates coming soon</p>
           <p className="v2-label">
-            Booking inquiries welcome for Canada &amp; Europe.
+            Booking inquiries welcome for Canada, France &amp; Spain.
           </p>
           <a className="v2-cta" href="mailto:booking@mauditemachine.com">
             Book Maudite Machine
