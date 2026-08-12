@@ -13,6 +13,10 @@ export default function useReveals(rootRef: RefObject<HTMLElement | null>) {
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     if (!rootRef.current) return;
+    // Onglet cache au mount (ouverture en arriere-plan, previews) : rAF est
+    // gele, un gsap.from resterait fige a opacity 0. On saute les entrances,
+    // le contenu est simplement visible quand l'onglet le devient.
+    if (document.visibilityState === 'hidden') return;
 
     gsap.registerPlugin(ScrollTrigger);
 

@@ -766,7 +766,10 @@ body.v2-active {
 
 .v2-footer-mail {
   display: inline-block;
-  font-size: clamp(20px, 4vw, 46px);
+  font-family: var(--v2-mono);
+  font-size: clamp(17px, 2.6vw, 30px);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   word-break: break-all;
   opacity: 0.9;
   transition: opacity 0.3s var(--v2-ease), letter-spacing 0.4s var(--v2-ease);

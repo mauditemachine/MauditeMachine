@@ -11,10 +11,9 @@ const Footer: React.FC = () => (
       <span className="v2-label">Booking &amp; press</span>
     </div>
 
-    <a
-      className="v2-footer-mail v2-display"
-      href="mailto:booking@mauditemachine.com"
-    >
+    {/* En mono, pas en Robot Radicals : le glyphe @ de la display se lit
+        comme un E, illisible pour une adresse de contact */}
+    <a className="v2-footer-mail" href="mailto:booking@mauditemachine.com">
       booking@mauditemachine.com
     </a>
 
