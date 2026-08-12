@@ -326,6 +326,232 @@ body.v2-active {
   margin: 0;
 }
 
+/* ---------- Matrice discographie ---------- */
+
+.v2-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.v2-filter {
+  font-family: var(--v2-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--v2-dim);
+  background: transparent;
+  border: 1px solid var(--v2-line);
+  padding: 9px 16px;
+  cursor: pointer;
+  transition: color 0.3s var(--v2-ease), border-color 0.3s var(--v2-ease), background 0.3s var(--v2-ease);
+}
+
+.v2-filter:hover {
+  color: var(--v2-ink);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.v2-filter.is-active {
+  color: var(--v2-bg);
+  background: var(--v2-ink);
+  border-color: var(--v2-ink);
+}
+
+.v2-matrix {
+  border-top: 1px solid var(--v2-line);
+}
+
+.v2-matrix-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.4fr) minmax(0, 1.4fr) minmax(0, 1fr) 64px 92px;
+  gap: 16px;
+  align-items: center;
+  padding: 13px 4px;
+  border-bottom: 1px solid var(--v2-line);
+  transition: background 0.25s var(--v2-ease);
+}
+
+.v2-matrix-row:not(.v2-matrix-head):hover {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.v2-matrix-row.is-playing {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.v2-matrix-head {
+  padding: 9px 4px;
+}
+
+.v2-matrix-title {
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.v2-matrix-project,
+.v2-matrix-role {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.v2-matrix-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.v2-play-btn,
+.v2-link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--v2-line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--v2-ink);
+  cursor: pointer;
+  transition: background 0.3s var(--v2-ease), color 0.3s var(--v2-ease), border-color 0.3s var(--v2-ease);
+}
+
+.v2-play-btn:hover,
+.v2-link-btn:hover {
+  background: var(--v2-ink);
+  color: var(--v2-bg);
+  border-color: var(--v2-ink);
+}
+
+.v2-matrix-note {
+  margin-top: 22px;
+}
+
+@media (max-width: 767px) {
+  .v2-matrix-row {
+    grid-template-columns: minmax(0, 1fr) 48px 88px;
+  }
+  .v2-matrix-project,
+  .v2-matrix-role {
+    display: none;
+  }
+}
+
+/* ---------- Player sticky ---------- */
+
+.v2-player {
+  background: rgba(10, 10, 10, 0.72);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--v2-line);
+}
+
+.v2-player-progress {
+  position: relative;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+}
+
+.v2-player-progress:focus-visible {
+  outline: 1px solid var(--v2-ink);
+  outline-offset: 2px;
+}
+
+.v2-player-progress-fill {
+  height: 100%;
+  background: var(--v2-ink);
+}
+
+.v2-player-inner {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 5vw;
+}
+
+.v2-player-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.v2-player-title {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.v2-player-sub {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.v2-player-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.v2-player-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--v2-ink);
+  cursor: pointer;
+  transition: border-color 0.3s var(--v2-ease), background 0.3s var(--v2-ease), color 0.3s var(--v2-ease);
+}
+
+.v2-player-btn:hover {
+  border-color: var(--v2-line);
+}
+
+.v2-player-btn-main {
+  border-color: var(--v2-line);
+  width: 40px;
+  height: 40px;
+}
+
+.v2-player-btn-main:hover {
+  background: var(--v2-ink);
+  color: var(--v2-bg);
+}
+
+.v2-player-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* La barre ne doit jamais recouvrir la fin du footer */
+.v2-root.has-player {
+  padding-bottom: 84px;
+}
+
+@media (max-width: 767px) {
+  .v2-player-time {
+    display: none;
+  }
+  .v2-player-inner {
+    gap: 10px;
+    padding: 8px 16px;
+  }
+}
+
 /* ---------- Footer ---------- */
 
 .v2-footer-mail {

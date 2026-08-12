@@ -12,12 +12,16 @@ import React, { useEffect } from 'react';
 import '@fontsource/space-mono/400.css';
 import '@fontsource/space-mono/700.css';
 import './v2.css';
+import { AudioPlayerProvider, useAudioPlayer } from './context/AudioPlayerContext';
 import Cursor from './components/Cursor';
 import Nav from './components/Nav';
 import Hero from './components/Hero';
+import Discography from './components/Discography';
+import StickyPlayer from './components/StickyPlayer';
 import Footer from './components/Footer';
 
-const V2App: React.FC = () => {
+const V2Shell: React.FC = () => {
+  const { current } = useAudioPlayer();
   useEffect(() => {
     // Neutralise le padding mobile du body v1 + fond noir garanti
     document.body.classList.add('v2-active');
@@ -39,20 +43,14 @@ const V2App: React.FC = () => {
   }, []);
 
   return (
-    <div className="v2-root">
+    <div className={`v2-root${current ? ' has-player' : ''}`}>
       <Cursor />
       <Nav />
       <Hero />
 
-      {/* Sections livrees aux etapes 3 et 4 */}
-      <section className="v2-section" id="music">
-        <div className="v2-section-head">
-          <h2 className="v2-section-title">Music</h2>
-          <span className="v2-label">Discography</span>
-        </div>
-        <p className="v2-label">Coming in step 3.</p>
-      </section>
+      <Discography />
 
+      {/* Sections livrees a l'etape 4 */}
       <section className="v2-section" id="live">
         <div className="v2-section-head">
           <h2 className="v2-section-title">Live</h2>
@@ -78,8 +76,15 @@ const V2App: React.FC = () => {
       </section>
 
       <Footer />
+      <StickyPlayer />
     </div>
   );
 };
+
+const V2App: React.FC = () => (
+  <AudioPlayerProvider>
+    <V2Shell />
+  </AudioPlayerProvider>
+);
 
 export default V2App;
