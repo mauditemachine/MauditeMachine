@@ -9,7 +9,8 @@
       "year": 2025,
       "category": "vrstl",
       "audio": "/audio/placeholder-3.mp3",
-      "link": "https://vrstlrecords.com"
+      "link": "https://vrstlrecords.com",
+      "featured": true
     },
     {
       "id": "autopsynth-2",
@@ -20,7 +21,8 @@
       "year": 2025,
       "category": "vrstl",
       "audio": "/audio/placeholder-1.mp3",
-      "link": "https://vrstlrecords.com"
+      "link": "https://vrstlrecords.com",
+      "featured": true
     },
     {
       "id": "autopsynth-3",
@@ -31,7 +33,8 @@
       "year": 2025,
       "category": "vrstl",
       "audio": "/audio/placeholder-2.mp3",
-      "link": "https://vrstlrecords.com"
+      "link": "https://vrstlrecords.com",
+      "featured": true
     },
     {
       "id": "limbo-01",
@@ -42,7 +45,8 @@
       "year": 2024,
       "category": "originals",
       "audio": "/audio/placeholder-3.mp3",
-      "link": "https://mauditemachine.bandcamp.com"
+      "link": "https://mauditemachine.bandcamp.com",
+      "featured": true
     },
     {
       "id": "limbo-02",
@@ -53,7 +57,8 @@
       "year": 2024,
       "category": "originals",
       "audio": "/audio/placeholder-1.mp3",
-      "link": "https://mauditemachine.bandcamp.com"
+      "link": "https://mauditemachine.bandcamp.com",
+      "featured": false
     },
     {
       "id": "limbo-03",
@@ -64,7 +69,8 @@
       "year": 2024,
       "category": "originals",
       "audio": "/audio/placeholder-2.mp3",
-      "link": "https://mauditemachine.bandcamp.com"
+      "link": "https://mauditemachine.bandcamp.com",
+      "featured": false
     },
     {
       "id": "limbo-04",
@@ -75,7 +81,8 @@
       "year": 2024,
       "category": "originals",
       "audio": "/audio/placeholder-3.mp3",
-      "link": "https://mauditemachine.bandcamp.com"
+      "link": "https://mauditemachine.bandcamp.com",
+      "featured": false
     },
     {
       "id": "limbo-05",
@@ -86,7 +93,8 @@
       "year": 2024,
       "category": "originals",
       "audio": "/audio/placeholder-1.mp3",
-      "link": "https://mauditemachine.bandcamp.com"
+      "link": "https://mauditemachine.bandcamp.com",
+      "featured": true
     },
     {
       "id": "limbo-06",
@@ -97,7 +105,8 @@
       "year": 2024,
       "category": "originals",
       "audio": "/audio/placeholder-2.mp3",
-      "link": "https://mauditemachine.bandcamp.com"
+      "link": "https://mauditemachine.bandcamp.com",
+      "featured": false
     },
     {
       "id": "limbo-07",
@@ -108,7 +117,8 @@
       "year": 2024,
       "category": "originals",
       "audio": "/audio/placeholder-3.mp3",
-      "link": "https://mauditemachine.bandcamp.com"
+      "link": "https://mauditemachine.bandcamp.com",
+      "featured": false
     },
     {
       "id": "limbo-08",
@@ -119,7 +129,8 @@
       "year": 2024,
       "category": "originals",
       "audio": "/audio/placeholder-1.mp3",
-      "link": "https://mauditemachine.bandcamp.com"
+      "link": "https://mauditemachine.bandcamp.com",
+      "featured": false
     },
     {
       "id": "limbo-09",
@@ -130,7 +141,8 @@
       "year": 2024,
       "category": "originals",
       "audio": "/audio/placeholder-2.mp3",
-      "link": "https://mauditemachine.bandcamp.com"
+      "link": "https://mauditemachine.bandcamp.com",
+      "featured": true
     },
     {
       "id": "kouklikou",
@@ -141,7 +153,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-1.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/kouklikou"
+      "link": "https://mauditemachine.bandcamp.com/track/kouklikou",
+      "featured": true
     },
     {
       "id": "where-is-the-sync-button",
@@ -152,7 +165,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-2.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/where-is-the-sync-button"
+      "link": "https://mauditemachine.bandcamp.com/track/where-is-the-sync-button",
+      "featured": false
     },
     {
       "id": "anarchic",
@@ -163,7 +177,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-3.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/anarchic"
+      "link": "https://mauditemachine.bandcamp.com/track/anarchic",
+      "featured": false
     },
     {
       "id": "autopsynth",
@@ -174,7 +189,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-1.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/autopsynth"
+      "link": "https://mauditemachine.bandcamp.com/track/autopsynth",
+      "featured": false
     },
     {
       "id": "back-on-track",
@@ -185,7 +201,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-2.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/back-on-track-luminarium-mix"
+      "link": "https://mauditemachine.bandcamp.com/track/back-on-track-luminarium-mix",
+      "featured": false
     },
     {
       "id": "nocturne",
@@ -196,7 +213,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-3.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/nocturne"
+      "link": "https://mauditemachine.bandcamp.com/track/nocturne",
+      "featured": false
     },
     {
       "id": "coagule",
@@ -207,7 +225,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-1.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/coagule"
+      "link": "https://mauditemachine.bandcamp.com/track/coagule",
+      "featured": false
     },
     {
       "id": "richie",
@@ -218,7 +237,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-2.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/richie"
+      "link": "https://mauditemachine.bandcamp.com/track/richie",
+      "featured": false
     },
     {
       "id": "tati-cardi-ep",
@@ -229,7 +249,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-3.mp3",
-      "link": "https://mauditemachine.bandcamp.com/album/tati-cardi-ep"
+      "link": "https://mauditemachine.bandcamp.com/album/tati-cardi-ep",
+      "featured": true
     },
     {
       "id": "drama-queen",
@@ -240,7 +261,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-1.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/drama-queen"
+      "link": "https://mauditemachine.bandcamp.com/track/drama-queen",
+      "featured": true
     },
     {
       "id": "discowriders",
@@ -251,7 +273,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-2.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/discowriders-2"
+      "link": "https://mauditemachine.bandcamp.com/track/discowriders-2",
+      "featured": false
     },
     {
       "id": "digital-ep",
@@ -262,7 +285,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-3.mp3",
-      "link": "https://mauditemachine.bandcamp.com/album/digital-ep"
+      "link": "https://mauditemachine.bandcamp.com/album/digital-ep",
+      "featured": false
     },
     {
       "id": "alan-parsons-remix",
@@ -273,7 +297,8 @@
       "year": 2023,
       "category": "remixes",
       "audio": "/audio/placeholder-1.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/the-alan-parsons-project-eye-in-the-sky-maudite-machine-remix"
+      "link": "https://mauditemachine.bandcamp.com/track/the-alan-parsons-project-eye-in-the-sky-maudite-machine-remix",
+      "featured": true
     },
     {
       "id": "robots-remix",
@@ -284,7 +309,8 @@
       "year": 2023,
       "category": "remixes",
       "audio": "/audio/placeholder-2.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/robots-maudite-machine-remix"
+      "link": "https://mauditemachine.bandcamp.com/track/robots-maudite-machine-remix",
+      "featured": false
     },
     {
       "id": "cupertino",
@@ -295,7 +321,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-3.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/cupertino"
+      "link": "https://mauditemachine.bandcamp.com/track/cupertino",
+      "featured": false
     },
     {
       "id": "montreal-calling",
@@ -306,7 +333,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-1.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/montreal-calling"
+      "link": "https://mauditemachine.bandcamp.com/track/montreal-calling",
+      "featured": false
     },
     {
       "id": "laurent-garnier-remix",
@@ -317,7 +345,8 @@
       "year": 2023,
       "category": "remixes",
       "audio": "/audio/placeholder-2.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/laurent-garnier-dangerous-drive-maudite-machine-remix"
+      "link": "https://mauditemachine.bandcamp.com/track/laurent-garnier-dangerous-drive-maudite-machine-remix",
+      "featured": true
     },
     {
       "id": "fuck-that",
@@ -328,7 +357,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-3.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/fuck-that"
+      "link": "https://mauditemachine.bandcamp.com/track/fuck-that",
+      "featured": false
     },
     {
       "id": "so-hard",
@@ -339,7 +369,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-1.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/so-hard"
+      "link": "https://mauditemachine.bandcamp.com/track/so-hard",
+      "featured": false
     },
     {
       "id": "timeout",
@@ -350,7 +381,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-2.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/timeout"
+      "link": "https://mauditemachine.bandcamp.com/track/timeout",
+      "featured": false
     },
     {
       "id": "strange-effect",
@@ -361,7 +393,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-3.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/strange-effect"
+      "link": "https://mauditemachine.bandcamp.com/track/strange-effect",
+      "featured": false
     },
     {
       "id": "electrochimie-remix",
@@ -372,7 +405,8 @@
       "year": 2023,
       "category": "remixes",
       "audio": "/audio/placeholder-1.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/electrochimie-pleasure-seeker-maudite-machine-remix"
+      "link": "https://mauditemachine.bandcamp.com/track/electrochimie-pleasure-seeker-maudite-machine-remix",
+      "featured": false
     },
     {
       "id": "big-babou-remix",
@@ -383,7 +417,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-2.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/the-sound-of-the-big-babou-remix"
+      "link": "https://mauditemachine.bandcamp.com/track/the-sound-of-the-big-babou-remix",
+      "featured": false
     },
     {
       "id": "north-river",
@@ -394,7 +429,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-3.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/north-river"
+      "link": "https://mauditemachine.bandcamp.com/track/north-river",
+      "featured": false
     },
     {
       "id": "origan",
@@ -405,7 +441,8 @@
       "year": 2023,
       "category": "originals",
       "audio": "/audio/placeholder-1.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/origan"
+      "link": "https://mauditemachine.bandcamp.com/track/origan",
+      "featured": false
     },
     {
       "id": "dvs1-plaid-remix",
@@ -416,7 +453,8 @@
       "year": 2023,
       "category": "remixes",
       "audio": "/audio/placeholder-2.mp3",
-      "link": "https://mauditemachine.bandcamp.com/track/dvs1-plaid-confused-oi-maudite-machine-remix"
+      "link": "https://mauditemachine.bandcamp.com/track/dvs1-plaid-confused-oi-maudite-machine-remix",
+      "featured": true
     }
   ]
 }

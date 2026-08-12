@@ -23,19 +23,27 @@ const TRACKS = (discographyData as { tracks: V2Track[] }).tracks;
 
 const Discography: React.FC = () => {
   const [filter, setFilter] = useState<Filter>('all');
+  const [showAll, setShowAll] = useState(false);
   const { current, playing, play } = useAudioPlayer();
 
-  const visible = useMemo(
+  // Le filtre s'applique d'abord ; la selection featured (editable dans
+  // discography.json) ne restreint que l'affichage par defaut.
+  const filtered = useMemo(
     () => (filter === 'all' ? TRACKS : TRACKS.filter((t) => t.category === filter)),
     [filter]
   );
+  const visible = useMemo(
+    () => (showAll ? filtered : filtered.filter((t) => t.featured)),
+    [filtered, showAll]
+  );
+  const hiddenCount = filtered.length - visible.length;
 
   return (
     <section className="v2-section" id="music">
       <div className="v2-section-head">
         <h2 className="v2-section-title">Music</h2>
         <span className="v2-label">
-          {visible.length} track{visible.length > 1 ? 's' : ''}
+          {hiddenCount > 0 ? `${visible.length} / ${filtered.length} tracks` : `${visible.length} track${visible.length > 1 ? 's' : ''}`}
         </span>
       </div>
 
@@ -63,12 +71,16 @@ const Discography: React.FC = () => {
           <span role="columnheader" className="v2-label v2-matrix-actions">Play</span>
         </div>
 
-        {visible.map((t) => {
+        {visible.map((t, i) => {
           const isCurrent = current?.id === t.id;
+          // Les lignes hors selection n'existent qu'en mode deplie : elles
+          // montent avec un fade-up discret (remount = l'animation rejoue)
+          const isExpanded = showAll && !t.featured;
           return (
             <div
               key={t.id}
-              className={`v2-matrix-row${isCurrent ? ' is-playing' : ''}`}
+              className={`v2-matrix-row${isCurrent ? ' is-playing' : ''}${isExpanded ? ' v2-row-in' : ''}`}
+              style={isExpanded ? { animationDelay: `${Math.min(i * 14, 260)}ms` } : undefined}
               role="row"
               data-category={t.category}
             >
@@ -118,6 +130,17 @@ const Discography: React.FC = () => {
           );
         })}
       </div>
+
+      {(hiddenCount > 0 || showAll) && (
+        <button
+          type="button"
+          className="v2-showall"
+          aria-expanded={showAll}
+          onClick={() => setShowAll((s) => !s)}
+        >
+          {showAll ? 'Show less' : `Show all (${filtered.length})`}
+        </button>
+      )}
 
       <p className="v2-label v2-matrix-note">
         Placeholder audio while final masters are being prepared. Full releases on{' '}

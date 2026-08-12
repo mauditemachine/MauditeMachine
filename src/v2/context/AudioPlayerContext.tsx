@@ -25,6 +25,8 @@ export interface V2Track {
   category: 'originals' | 'remixes' | 'vrstl';
   audio: string;
   link: string;
+  /** true = dans la selection courte affichee par defaut (editable en JSON) */
+  featured?: boolean;
 }
 
 interface AudioPlayerCtx {
