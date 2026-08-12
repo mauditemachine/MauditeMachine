@@ -1,20 +1,25 @@
 /**
- * Hero /v2 : video fullscreen en boucle (dream-bg deja optimisee, 3.6 Mo),
- * overlay noir 50 %, logo en mix-blend difference, tagline, 3 CTA ancres,
- * indicateur de scroll.
+ * Hero /v2 : background generatif code (GenerativeBg, canvas 2D) derriere
+ * le logo en mix-blend difference, tagline, 3 CTA ancres, indicateur scroll.
  *
- * iOS Safari : muted doit etre pose en VRAI attribut DOM via ref callback,
- * React ne le rend pas (piege verifie sur le site v1). prefers-reduced-motion
- * ou data saver : on montre le poster, pas la video.
+ * USE_VIDEO : l'ancien fond video (dream-bg) est conserve derriere ce flag.
+ * Si Mika fournit une nouvelle video, il suffit de repasser a true (et le
+ * pattern muted iOS via ref callback est deja la). L'overlay 50 % n'a de
+ * sens que sur la video : le generatif est deja sombre.
  */
 
 import React, { useCallback } from 'react';
+import GenerativeBg from './GenerativeBg';
+
+const USE_VIDEO = false;
 
 const REDUCED =
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const Hero: React.FC = () => {
+  // iOS Safari : muted doit etre pose en VRAI attribut DOM, React ne le
+  // rend pas (piege verifie sur le site v1)
   const videoRef = useCallback((el: HTMLVideoElement | null) => {
     if (!el) return;
     el.muted = true;
@@ -26,29 +31,35 @@ const Hero: React.FC = () => {
 
   return (
     <header className="v2-hero" id="top">
-      {REDUCED ? (
-        <img
-          className="v2-hero-video"
-          src="/videos/dream-bg-poster.jpg"
-          alt=""
-          aria-hidden="true"
-        />
+      {USE_VIDEO ? (
+        <>
+          {REDUCED ? (
+            <img
+              className="v2-hero-video"
+              src="/videos/dream-bg-poster.jpg"
+              alt=""
+              aria-hidden="true"
+            />
+          ) : (
+            <video
+              ref={videoRef}
+              className="v2-hero-video"
+              autoPlay
+              loop
+              playsInline
+              preload="metadata"
+              poster="/videos/dream-bg-poster.jpg"
+              aria-hidden="true"
+            >
+              <source src="/videos/dream-bg-720.mp4" media="(max-width: 768px)" type="video/mp4" />
+              <source src="/videos/dream-bg-1080.mp4" type="video/mp4" />
+            </video>
+          )}
+          <div className="v2-hero-overlay" aria-hidden="true" />
+        </>
       ) : (
-        <video
-          ref={videoRef}
-          className="v2-hero-video"
-          autoPlay
-          loop
-          playsInline
-          preload="metadata"
-          poster="/videos/dream-bg-poster.jpg"
-          aria-hidden="true"
-        >
-          <source src="/videos/dream-bg-720.mp4" media="(max-width: 768px)" type="video/mp4" />
-          <source src="/videos/dream-bg-1080.mp4" type="video/mp4" />
-        </video>
+        <GenerativeBg />
       )}
-      <div className="v2-hero-overlay" aria-hidden="true" />
 
       <div className="v2-hero-content">
         <h1 style={{ margin: 0 }}>
