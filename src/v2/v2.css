@@ -52,11 +52,14 @@ body.v2-active {
 
 /* ---------- Typo utilitaires ---------- */
 
+/* Robot Radicals a des glyphes tres serres qui se touchent (ex. X/T de
+   MIXTAPES) : tracking fixe 5px sur tous ses usages, 3px sous 768px.
+   Le logo hero n'est pas concerne (SVG, espacement fige dans le trace). */
 .v2-display {
   font-family: var(--v2-display);
   font-weight: 400;
   line-height: 0.95;
-  letter-spacing: 0.01em;
+  letter-spacing: 5px;
   text-transform: uppercase;
 }
 
@@ -162,6 +165,7 @@ body.v2-active {
   font-family: var(--v2-display);
   font-size: clamp(34px, 7vw, 84px);
   line-height: 1.12;
+  letter-spacing: 5px;
   text-transform: uppercase;
   color: var(--v2-ink);
   width: fit-content;
@@ -345,8 +349,18 @@ body.v2-active {
   font-family: var(--v2-display);
   font-size: clamp(30px, 5vw, 58px);
   text-transform: uppercase;
+  letter-spacing: 5px;
   line-height: 1;
   margin: 0;
+}
+
+/* Titres plus petits en mobile : tracking reduit proportionnellement */
+@media (max-width: 767px) {
+  .v2-display,
+  .v2-menu-link,
+  .v2-section-title {
+    letter-spacing: 3px;
+  }
 }
 
 /* ---------- Matrice discographie ---------- */
