@@ -1,0 +1,68 @@
+{
+  "profileUrl": "https://soundcloud.com/mauditemachine",
+  "mixtapes": [
+    {
+      "title": "Maudite Machine @ Groove & Bass 2026 (Groove Town Stage)",
+      "number": 39,
+      "year": 2026,
+      "duration": "1:29:33",
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/mixtape-39-maudite-machine",
+      "artwork": "/images/mixtapes/mixtape-39.webp",
+      "featured": true
+    },
+    {
+      "title": "Mixtape 38",
+      "number": 38,
+      "year": 2025,
+      "duration": "1:16:07",
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/maudite-machine-mixtape-38",
+      "artwork": "/images/mixtapes/mixtape-38.webp",
+      "featured": true
+    },
+    {
+      "title": "Mixtape 37 (placeholder)",
+      "number": 37,
+      "year": 2025,
+      "duration": "1:00:00",
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine",
+      "artwork": "/images/mixtapes/mixtape-37.webp",
+      "featured": true
+    },
+    {
+      "title": "Mixtape 36 (placeholder)",
+      "number": 36,
+      "year": 2025,
+      "duration": "1:00:00",
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine",
+      "artwork": null,
+      "featured": true
+    },
+    {
+      "title": "Mixtape 35 (placeholder)",
+      "number": 35,
+      "year": 2024,
+      "duration": "1:00:00",
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine",
+      "artwork": null,
+      "featured": true
+    },
+    {
+      "title": "Mixtape 34 (placeholder)",
+      "number": 34,
+      "year": 2024,
+      "duration": "1:00:00",
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine",
+      "artwork": null,
+      "featured": true
+    },
+    {
+      "title": "Mixtape 33 (placeholder)",
+      "number": 33,
+      "year": 2024,
+      "duration": "1:00:00",
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine",
+      "artwork": null,
+      "featured": false
+    }
+  ]
+}

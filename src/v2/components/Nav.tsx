@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 
 const ANCHORS = [
   { href: '#music', label: 'Music' },
+  { href: '#mixtapes', label: 'Mixtapes' },
   { href: '#live', label: 'Live' },
   { href: '#gallery', label: 'Gallery' },
   { href: '#epk', label: 'EPK' },

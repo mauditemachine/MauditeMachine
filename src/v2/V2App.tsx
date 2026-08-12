@@ -18,6 +18,7 @@ import Cursor from './components/Cursor';
 import Nav from './components/Nav';
 import Hero from './components/Hero';
 import Discography from './components/Discography';
+import Mixtapes from './components/Mixtapes';
 import StickyPlayer from './components/StickyPlayer';
 import LiveGigs from './components/LiveGigs';
 import Gallery from './components/Gallery';
@@ -61,6 +62,7 @@ const V2Shell: React.FC = () => {
       <Hero />
 
       <Discography />
+      <Mixtapes />
       <LiveGigs />
       <Gallery />
       <EPK />
