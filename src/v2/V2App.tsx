@@ -18,6 +18,9 @@ import Nav from './components/Nav';
 import Hero from './components/Hero';
 import Discography from './components/Discography';
 import StickyPlayer from './components/StickyPlayer';
+import LiveGigs from './components/LiveGigs';
+import Gallery from './components/Gallery';
+import EPK from './components/EPK';
 import Footer from './components/Footer';
 
 const V2Shell: React.FC = () => {
@@ -49,32 +52,9 @@ const V2Shell: React.FC = () => {
       <Hero />
 
       <Discography />
-
-      {/* Sections livrees a l'etape 4 */}
-      <section className="v2-section" id="live">
-        <div className="v2-section-head">
-          <h2 className="v2-section-title">Live</h2>
-          <span className="v2-label">Upcoming dates</span>
-        </div>
-        <p className="v2-label">Coming in step 4.</p>
-      </section>
-
-      <section className="v2-section" id="gallery">
-        <div className="v2-section-head">
-          <h2 className="v2-section-title">Gallery</h2>
-          <span className="v2-label">Photos</span>
-        </div>
-        <p className="v2-label">Coming in step 4.</p>
-      </section>
-
-      <section className="v2-section" id="epk">
-        <div className="v2-section-head">
-          <h2 className="v2-section-title">EPK</h2>
-          <span className="v2-label">Press kit</span>
-        </div>
-        <p className="v2-label">Coming in step 4.</p>
-      </section>
-
+      <LiveGigs />
+      <Gallery />
+      <EPK />
       <Footer />
       <StickyPlayer />
     </div>

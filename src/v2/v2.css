@@ -552,6 +552,208 @@ body.v2-active {
   }
 }
 
+/* ---------- Live & gigs ---------- */
+
+.v2-gigs {
+  border-top: 1px solid var(--v2-line);
+}
+
+.v2-gig-row {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 2fr) minmax(0, 1.4fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 4px;
+  border-bottom: 1px solid var(--v2-line);
+  transition: background 0.25s var(--v2-ease);
+}
+
+.v2-gig-row:hover {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.v2-gig-date {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+}
+
+.v2-gig-venue {
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.v2-gig-cta {
+  padding: 9px 16px;
+}
+
+.v2-gigs-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  padding: 7vh 0;
+  border-top: 1px solid var(--v2-line);
+  border-bottom: 1px solid var(--v2-line);
+}
+
+.v2-gigs-empty-line {
+  font-size: clamp(24px, 4vw, 44px);
+  margin: 0;
+  opacity: 0.9;
+}
+
+@media (max-width: 767px) {
+  .v2-gig-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'date cta' 'venue cta' 'city cta';
+    row-gap: 2px;
+  }
+  .v2-gig-date { grid-area: date; }
+  .v2-gig-venue { grid-area: venue; }
+  .v2-gig-city { grid-area: city; }
+  .v2-gig-cta { grid-area: cta; }
+}
+
+/* ---------- EPK ---------- */
+
+.v2-epk {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 48px;
+}
+
+.v2-epk-langs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.v2-epk-bio-main {
+  font-size: 16px;
+  line-height: 1.75;
+  margin: 0 0 18px;
+}
+
+.v2-epk-bio-secondary {
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--v2-dim);
+  margin: 0 0 22px;
+}
+
+.v2-epk-downloads {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.v2-download {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid var(--v2-line);
+  padding: 15px 18px;
+  font-size: 13px;
+  transition: background 0.3s var(--v2-ease), border-color 0.3s var(--v2-ease);
+}
+
+.v2-download:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.v2-epk-booking {
+  margin-top: 14px;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .v2-epk {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 36px;
+  }
+}
+
+/* ---------- Galerie + lightbox ---------- */
+
+.v2-gallery {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.v2-gallery-item {
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.v2-gallery-item img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+  filter: grayscale(35%);
+  transform: scale(1);
+  transition: filter 0.5s var(--v2-ease), transform 0.7s var(--v2-ease);
+}
+
+.v2-gallery-item:hover img,
+.v2-gallery-item:focus-visible img {
+  filter: grayscale(0%);
+  transform: scale(1.04);
+}
+
+@media (max-width: 767px) {
+  .v2-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.v2-lightbox {
+  background: rgba(5, 5, 5, 0.94);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.v2-lightbox-img {
+  max-width: min(1400px, 88vw);
+  max-height: 84vh;
+  object-fit: contain;
+}
+
+.v2-lightbox-count {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.v2-lightbox-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  border-color: var(--v2-line);
+}
+
+.v2-lightbox-prev,
+.v2-lightbox-next {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  border-color: var(--v2-line);
+}
+
+.v2-lightbox-prev { left: 16px; }
+.v2-lightbox-next { right: 16px; }
+
 /* ---------- Footer ---------- */
 
 .v2-footer-mail {
