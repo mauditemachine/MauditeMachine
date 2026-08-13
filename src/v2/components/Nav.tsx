@@ -1,9 +1,11 @@
 /**
  * Nav /v2 : bouton burger minimal (mono, blend difference) qui ouvre un
- * overlay plein ecran avec les ancres de la one-page + liens sociaux.
+ * overlay plein ecran avec les ancres de la one-page, les PAGES dediees
+ * (bloc distinct, ex. Radar) et les liens sociaux.
  */
 
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 const ANCHORS = [
   { href: '#music', label: 'Music' },
@@ -77,6 +79,22 @@ const Nav: React.FC = () => {
             {a.label}
           </a>
         ))}
+
+        {/* Pages dediees : visuellement distinctes des ancres de la landing */}
+        <div className="v2-menu-pages">
+          <span className="v2-label">Pages</span>
+          <Link
+            className="v2-menu-link v2-menu-link-page"
+            to="/v2/radar"
+            onClick={() => {
+              setOpen(false);
+              document.body.style.overflow = '';
+            }}
+          >
+            Radar →
+          </Link>
+        </div>
+
         <div className="v2-menu-socials">
           {SOCIALS.map((s) => (
             <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer">

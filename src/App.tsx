@@ -16,6 +16,7 @@ const ContactPage = React.lazy(() => import('./pages/ContactPage'));
 const AdminRadarPage = React.lazy(() => import('./pages/AdminRadarPage'));
 // Refonte /v2 : one-page isolee, hors Layout (nav + player + fond propres)
 const V2App = React.lazy(() => import('./v2/V2App'));
+const V2RadarPage = React.lazy(() => import('./v2/pages/RadarPage'));
 
 // Admin panels : lazy load (panels internes, ~1750 lignes hors du chunk principal)
 const Admin = React.lazy(() => import('./components/Admin'));
@@ -99,6 +100,14 @@ export default function App() {
             element={
               <Suspense fallback={null}>
                 <V2App />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/v2/radar"
+            element={
+              <Suspense fallback={null}>
+                <V2RadarPage />
               </Suspense>
             }
           />

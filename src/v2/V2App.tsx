@@ -8,12 +8,16 @@
  * retiree au unmount (la v1 reste indexable).
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import '@fontsource/space-mono/400.css';
 import '@fontsource/space-mono/700.css';
+import '@fontsource/inter/400.css';
+import '@fontsource/inter/500.css';
+import '@fontsource/inter/600.css';
 import './v2.css';
 import { AudioPlayerProvider, useAudioPlayer } from './context/AudioPlayerContext';
 import useReveals from './hooks/useReveals';
+import useV2Chrome from './hooks/useV2Chrome';
 import Cursor from './components/Cursor';
 import Nav from './components/Nav';
 import Hero from './components/Hero';
@@ -29,42 +33,9 @@ const V2Shell: React.FC = () => {
   const { current } = useAudioPlayer();
   const rootRef = useRef<HTMLDivElement>(null);
   useReveals(rootRef);
-  useEffect(() => {
-    // Neutralise le padding mobile du body v1 + fond noir garanti
-    document.body.classList.add('v2-active');
-
-    // noindex tant que la refonte est en preview. index.html porte deja
-    // une meta robots "index, follow" : on la MODIFIE (pas d'empilement,
-    // deux metas contradictoires c'est fragile) et on la restaure en
-    // quittant /v2.
-    const existing = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
-    const robots = existing ?? document.createElement('meta');
-    const prevRobots = existing?.content ?? null;
-    robots.name = 'robots';
-    robots.content = 'noindex, nofollow';
-    if (!existing) document.head.appendChild(robots);
-
-    const prevTitle = document.title;
-    document.title = 'Maudite Machine — V2 preview';
-
-    // Meme principe pour la description : celle d'index.html (v1) porte
-    // encore « Montréal → France » ; /v2 affiche ses territoires, la v1
-    // retrouve son texte au unmount.
-    const desc = document.querySelector<HTMLMetaElement>('meta[name="description"]');
-    const prevDesc = desc?.content ?? null;
-    if (desc) {
-      desc.content =
-        'DJ and producer for 15 years. Indie dance, dark disco and hypnotic minimal. Founder of VRSTL Records. Canada · France · Spain.';
-    }
-
-    return () => {
-      document.body.classList.remove('v2-active');
-      if (prevRobots !== null) robots.content = prevRobots;
-      else robots.remove();
-      if (desc && prevDesc !== null) desc.content = prevDesc;
-      document.title = prevTitle;
-    };
-  }, []);
+  // Chrome commun /v2 (body class, noindex, description, titre),
+  // restaure au unmount — partage avec /v2/radar
+  useV2Chrome('Maudite Machine — V2 preview');
 
   return (
     <div ref={rootRef} className={`v2-root${current ? ' has-player' : ''}`}>

@@ -120,11 +120,12 @@ const LiveGigs: React.FC = () => {
         </div>
       ) : (
         <div className="v2-gigs-empty">
-          <p className="v2-gigs-empty-line v2-display">Next dates coming soon</p>
+          <p className="v2-gigs-empty-line v2-subtitle">Next dates coming soon</p>
           <p className="v2-label">
             Booking inquiries welcome for Canada, France &amp; Spain.
           </p>
-          <a className="v2-cta" href="mailto:booking@mauditemachine.com">
+          {/* Les deux contacts booking vivent dans la section Contact */}
+          <a className="v2-cta" href="#contact">
             Book Maudite Machine
           </a>
         </div>

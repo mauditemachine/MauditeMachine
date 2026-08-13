@@ -9,6 +9,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
+import { BOOKING_CONTACTS } from '../data/contacts';
 
 const BIO = {
   en: {
@@ -110,9 +111,17 @@ const EPK: React.FC = () => {
             <span className="v2-label">ZIP · Hi-res</span>
           </a>
 
-          <a className="v2-cta v2-epk-booking" href="mailto:booking@mauditemachine.com">
-            booking@mauditemachine.com
-          </a>
+          <div className="v2-contacts v2-epk-contacts">
+            {BOOKING_CONTACTS.map((c) => (
+              <div key={c.id} className="v2-contact-block">
+                <span className="v2-label">{c.label[lang]}</span>
+                {c.name && <span className="v2-contact-name">{c.name}</span>}
+                <a className="v2-contact-mail" href={`mailto:${c.email}`}>
+                  {c.email}
+                </a>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </section>

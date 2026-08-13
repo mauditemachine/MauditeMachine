@@ -66,7 +66,7 @@ const Mixtapes: React.FC = () => {
                   height={56}
                 />
               ) : (
-                <span className="v2-mix-art v2-mix-art-empty v2-display" aria-hidden="true">
+                <span className="v2-mix-art v2-mix-art-empty" aria-hidden="true">
                   {m.number}
                 </span>
               )}

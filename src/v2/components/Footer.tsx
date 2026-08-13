@@ -1,8 +1,10 @@
 /**
- * Footer /v2 : contact booking, liens VRSTL / Massive Medias, retour v1.
+ * Footer /v2 : contacts booking (international / Canada-USA), liens
+ * VRSTL / Massive Medias, retour v1.
  */
 
 import React from 'react';
+import { BOOKING_CONTACTS } from '../data/contacts';
 
 const Footer: React.FC = () => (
   <footer className="v2-section" id="contact">
@@ -11,11 +13,17 @@ const Footer: React.FC = () => (
       <span className="v2-label">Booking &amp; press</span>
     </div>
 
-    {/* En mono, pas en Robot Radicals : le glyphe @ de la display se lit
-        comme un E, illisible pour une adresse de contact */}
-    <a className="v2-footer-mail" href="mailto:booking@mauditemachine.com">
-      booking@mauditemachine.com
-    </a>
+    <div className="v2-contacts">
+      {BOOKING_CONTACTS.map((c) => (
+        <div key={c.id} className="v2-contact-block">
+          <span className="v2-label">{c.label.en}</span>
+          {c.name && <span className="v2-contact-name">{c.name}</span>}
+          <a className="v2-contact-mail" href={`mailto:${c.email}`}>
+            {c.email}
+          </a>
+        </div>
+      ))}
+    </div>
 
     <div className="v2-footer-bottom">
       <span className="v2-label">© {new Date().getFullYear()} Maudite Machine</span>
