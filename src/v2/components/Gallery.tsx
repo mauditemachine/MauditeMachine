@@ -7,13 +7,14 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
+/* presskit-hero.webp retiree : c'etait le meme shot que MauditeMachine-1
+   (Cirque de Boudoir) en noir et blanc — on garde la version couleur. */
 const PHOTOS = [
-  { src: '/images/presskit-hero.webp', alt: 'Maudite Machine, portrait presskit' },
-  { src: '/images/presskit-performance.webp', alt: 'Maudite Machine en performance live' },
-  { src: '/images/presskit-portrait2.webp', alt: 'Maudite Machine, portrait studio' },
-  { src: '/images/MauditeMachine-1.webp', alt: 'Maudite Machine, photo editoriale 1' },
-  { src: '/images/MauditeMachine-2.webp', alt: 'Maudite Machine, photo editoriale 2' },
-  { src: '/images/MauditeMachine-8.webp', alt: 'Maudite Machine, photo editoriale 3' },
+  { src: '/images/MauditeMachine-1.webp', alt: 'Maudite Machine, live au Cirque de Boudoir', cap: 'Cirque de Boudoir' },
+  { src: '/images/MauditeMachine-2.webp', alt: 'Maudite Machine aux platines, gros plan', cap: 'Live set' },
+  { src: '/images/MauditeMachine-8.webp', alt: 'Maudite Machine sous les faisceaux', cap: 'On stage' },
+  { src: '/images/presskit-performance.webp', alt: 'Maudite Machine en performance live', cap: 'Live' },
+  { src: '/images/presskit-portrait2.webp', alt: 'Maudite Machine, portrait', cap: 'Portrait' },
 ];
 
 const Gallery: React.FC = () => {
@@ -66,6 +67,9 @@ const Gallery: React.FC = () => {
             }}
           >
             <img src={p.src} alt={p.alt} loading="lazy" decoding="async" />
+            <span className="v2-gallery-cap" aria-hidden="true">
+              {p.cap}
+            </span>
           </button>
         ))}
       </div>

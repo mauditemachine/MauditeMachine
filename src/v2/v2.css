@@ -201,6 +201,8 @@ body.v2-active {
 .v2-menu.is-open .v2-menu-link:nth-child(3) { animation-delay: 0.1s; }
 .v2-menu.is-open .v2-menu-link:nth-child(4) { animation-delay: 0.15s; }
 .v2-menu.is-open .v2-menu-link:nth-child(5) { animation-delay: 0.2s; }
+.v2-menu.is-open .v2-menu-link:nth-child(6) { animation-delay: 0.25s; }
+.v2-menu.is-open .v2-menu-link:nth-child(7) { animation-delay: 0.3s; }
 
 @keyframes v2-menu-in {
   from { opacity: 0; transform: translateX(-18px); }
@@ -210,25 +212,6 @@ body.v2-active {
 .v2-menu-link:hover {
   opacity: 1;
   transform: translateX(10px);
-}
-
-/* Pages dediees dans le menu : bloc separe, corps reduit, fleche */
-.v2-menu-pages {
-  margin-top: 4vh;
-  padding-top: 3vh;
-  border-top: 1px solid var(--v2-line);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.v2-menu-link-page {
-  font-size: clamp(22px, 3.4vw, 40px);
-  opacity: 0.6;
-}
-
-.v2-menu-link-page:hover {
-  opacity: 1;
 }
 
 .v2-menu-socials {
@@ -271,18 +254,40 @@ body.v2-active {
   object-fit: cover;
 }
 
-/* Background generatif (canvas ondes) + fallback reduced-motion */
+/* Background generatif (canvas ondes) + fallback reduced-motion.
+   Masque degrade en bas : les ondes fondent dans le noir avant la
+   premiere section au lieu de s'arreter net sur la bordure. */
 .v2-hero-canvas {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
+  -webkit-mask-image: linear-gradient(180deg, #000 76%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 76%, transparent 100%);
 }
 
 .v2-hero-fallback {
   position: absolute;
   inset: 0;
   background: radial-gradient(120% 90% at 28% 78%, #12121a 0%, #0a0a0a 62%);
+  -webkit-mask-image: linear-gradient(180deg, #000 76%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 76%, transparent 100%);
+}
+
+/* Rideau d'entree : voile noir qui se leve a la premiere arrivee sur le
+   site (une fois par session, jamais en reduced-motion). */
+@keyframes v2-curtain-up {
+  from { transform: translateY(0); }
+  to { transform: translateY(-101%); }
+}
+
+.v2-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  background: #0a0a0a;
+  pointer-events: none;
+  animation: v2-curtain-up 0.65s var(--v2-ease) 0.12s forwards;
 }
 
 .v2-hero-overlay {
@@ -1006,6 +1011,7 @@ body.v2-active {
 }
 
 .v2-gallery-item {
+  position: relative;
   display: block;
   padding: 0;
   border: none;
@@ -1014,20 +1020,68 @@ body.v2-active {
   overflow: hidden;
 }
 
+/* Traitement underground : contraste releve qui VALORISE les photos de
+   sets sombres (l'ancien grayscale les eteignait), grain photographique
+   statique par-dessus. */
 .v2-gallery-item img {
   display: block;
   width: 100%;
   aspect-ratio: 4 / 5;
   object-fit: cover;
-  filter: grayscale(35%);
+  filter: contrast(1.14) saturate(0.82) brightness(1.06);
   transform: scale(1);
   transition: filter 0.5s var(--v2-ease), transform 0.7s var(--v2-ease);
 }
 
+/* Grain : bruit SVG rasterise une fois (aucune animation, zero cout) */
+.v2-gallery-item::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  opacity: 0.13;
+  mix-blend-mode: overlay;
+}
+
 .v2-gallery-item:hover img,
 .v2-gallery-item:focus-visible img {
-  filter: grayscale(0%);
-  transform: scale(1.04);
+  filter: contrast(1.08) saturate(1) brightness(1.1);
+  transform: scale(1.025);
+}
+
+/* Legende mono revelee au survol, posee sur un degrade bas */
+.v2-gallery-cap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  padding: 26px 12px 10px;
+  font-family: var(--v2-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--v2-ink);
+  background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.72));
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.35s var(--v2-ease), transform 0.4s var(--v2-ease);
+  text-align: left;
+}
+
+.v2-gallery-item:hover .v2-gallery-cap,
+.v2-gallery-item:focus-visible .v2-gallery-cap {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (pointer: coarse) {
+  /* Tactile : pas de hover, la legende reste visible discretement */
+  .v2-gallery-cap {
+    opacity: 0.85;
+    transform: none;
+  }
 }
 
 @media (max-width: 767px) {
@@ -1036,17 +1090,36 @@ body.v2-active {
   }
 }
 
+@keyframes v2-lightbox-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes v2-lightbox-img-in {
+  from { opacity: 0; transform: scale(0.965); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 .v2-lightbox {
   background: rgba(5, 5, 5, 0.94);
   display: flex;
   align-items: center;
   justify-content: center;
+  animation: v2-lightbox-in 0.25s ease-out;
 }
 
 .v2-lightbox-img {
   max-width: min(1400px, 88vw);
   max-height: 84vh;
   object-fit: contain;
+  animation: v2-lightbox-img-in 0.35s var(--v2-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v2-lightbox,
+  .v2-lightbox-img {
+    animation: none;
+  }
 }
 
 .v2-lightbox-count {
@@ -1353,6 +1426,24 @@ button.v2-radar-artist:hover {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 32px;
+}
+
+/* Geste final : dans la section Contact, les deux adresses passent a
+   l'echelle display, empilees pleine largeur — la page se termine sur
+   une derniere rupture, pas en fondu. */
+#contact .v2-contacts {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 44px;
+}
+
+#contact .v2-contact-mail {
+  font-size: clamp(24px, 4.4vw, 54px);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+#contact .v2-contact-name {
+  font-size: 16px;
 }
 
 .v2-contact-block {

@@ -29,9 +29,27 @@ import Gallery from './components/Gallery';
 import EPK from './components/EPK';
 import Footer from './components/Footer';
 
+/** Rideau d'entree : une fois par session, jamais en reduced-motion. */
+const useCurtain = () => {
+  const [show, setShow] = React.useState(() => {
+    if (typeof window === 'undefined') return false;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+    if (document.visibilityState === 'hidden') return false;
+    if (sessionStorage.getItem('mm_v2_entered')) return false;
+    try {
+      sessionStorage.setItem('mm_v2_entered', '1');
+    } catch {
+      /* stockage bloque : le rideau jouera a chaque visite, sans gravite */
+    }
+    return true;
+  });
+  return { show, done: () => setShow(false) };
+};
+
 const V2Shell: React.FC = () => {
   const { current } = useAudioPlayer();
   const rootRef = useRef<HTMLDivElement>(null);
+  const curtain = useCurtain();
   useReveals(rootRef);
   // Chrome commun /v2 (body class, noindex, description, titre),
   // restaure au unmount — partage avec /v2/radar
@@ -39,6 +57,9 @@ const V2Shell: React.FC = () => {
 
   return (
     <div ref={rootRef} className={`v2-root${current ? ' has-player' : ''}`}>
+      {curtain.show && (
+        <div className="v2-curtain" aria-hidden="true" onAnimationEnd={curtain.done} />
+      )}
       <Cursor />
       <Nav />
       <Hero />

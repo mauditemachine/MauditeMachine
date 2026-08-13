@@ -32,22 +32,39 @@ export default function useReveals(rootRef: RefObject<HTMLElement | null>) {
         clearProps: 'all',
       });
 
-      // Tetes de section : fade-up a l'entree dans le viewport
+      // Tetes de section : chaque type a son timing propre (les reveals
+      // uniformes lisaient comme mecaniques). Titre geant : glissement
+      // lateral bref ; label droit : fondu decale.
       gsap.utils.toArray<HTMLElement>('.v2-section-head').forEach((el) => {
-        gsap.from(el, {
-          autoAlpha: 0,
-          y: 28,
-          duration: 0.8,
-          ease: 'power3.out',
-          clearProps: 'all',
-          scrollTrigger: { trigger: el, start: 'top 88%', once: true },
-        });
+        const title = el.querySelector('.v2-section-title');
+        const label = el.querySelector(':scope > .v2-label, :scope > a');
+        const trigger = { trigger: el, start: 'top 88%', once: true };
+        if (title) {
+          gsap.from(title, {
+            autoAlpha: 0,
+            x: -30,
+            duration: 0.7,
+            ease: 'power3.out',
+            clearProps: 'all',
+            scrollTrigger: trigger,
+          });
+        }
+        if (label) {
+          gsap.from(label, {
+            autoAlpha: 0,
+            duration: 0.6,
+            delay: 0.18,
+            ease: 'power2.out',
+            clearProps: 'all',
+            scrollTrigger: trigger,
+          });
+        }
       });
 
-      // Listes (gigs, downloads, galerie) : stagger discret par lot.
-      // Les lignes de la matrice n'y sont pas : elles remontent au changement
-      // de filtre et doivent rester instantanees.
-      ScrollTrigger.batch('.v2-gig-row, .v2-download, .v2-gallery-item', {
+      // Listes (gigs, downloads) : stagger discret par lot. Les lignes de
+      // la matrice n'y sont pas : elles remontent au changement de filtre
+      // et doivent rester instantanees.
+      ScrollTrigger.batch('.v2-gig-row, .v2-download', {
         start: 'top 92%',
         once: true,
         onEnter: (els) =>
@@ -57,6 +74,22 @@ export default function useReveals(rootRef: RefObject<HTMLElement | null>) {
             duration: 0.55,
             ease: 'power2.out',
             stagger: 0.05,
+            clearProps: 'all',
+          }),
+      });
+
+      // Galerie : entree en damier (ordre aleatoire, leger scale)
+      ScrollTrigger.batch('.v2-gallery-item', {
+        start: 'top 92%',
+        once: true,
+        onEnter: (els) =>
+          gsap.from(els, {
+            autoAlpha: 0,
+            scale: 0.965,
+            y: 14,
+            duration: 0.6,
+            ease: 'power2.out',
+            stagger: { each: 0.07, from: 'random' },
             clearProps: 'all',
           }),
       });

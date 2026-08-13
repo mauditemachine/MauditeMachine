@@ -58,7 +58,7 @@ const EPK: React.FC = () => {
   return (
     <section className="v2-section" id="epk">
       <div className="v2-section-head">
-        <h2 className="v2-section-title"><span className="v2-section-num">05</span>EPK</h2>
+        <h2 className="v2-section-title"><span className="v2-section-num">05</span>Press Kit</h2>
         <span className="v2-label">Press kit &amp; booking</span>
       </div>
 

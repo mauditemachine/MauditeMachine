@@ -1,18 +1,23 @@
 /**
  * Nav /v2 : bouton burger minimal (mono, blend difference) qui ouvre un
- * overlay plein ecran avec les ancres de la one-page, les PAGES dediees
- * (bloc distinct, ex. Radar) et les liens sociaux.
+ * overlay plein ecran. Les entrees melangent ancres de la one-page et
+ * pages dediees (Radar), toutes au meme niveau visuel — seule la
+ * mecanique de navigation differe (scroll vs route).
  */
 
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-const ANCHORS = [
+type Entry = { label: string; href?: string; to?: string };
+
+/* Ordre des sections reelles, Radar (page dediee) juste avant Press Kit */
+const ENTRIES: Entry[] = [
   { href: '#music', label: 'Music' },
   { href: '#mixtapes', label: 'Mixtapes' },
   { href: '#live', label: 'Live' },
   { href: '#gallery', label: 'Gallery' },
-  { href: '#epk', label: 'EPK' },
+  { to: '/v2/radar', label: 'Radar' },
+  { href: '#epk', label: 'Press Kit' },
   { href: '#contact', label: 'Contact' },
 ];
 
@@ -74,26 +79,30 @@ const Nav: React.FC = () => {
       </button>
 
       <nav id="v2-menu" className={`v2-menu${open ? ' is-open' : ''}`} aria-hidden={!open}>
-        {ANCHORS.map((a) => (
-          <a key={a.href} className="v2-menu-link" href={a.href} onClick={(e) => go(e, a.href)}>
-            {a.label}
-          </a>
-        ))}
-
-        {/* Pages dediees : visuellement distinctes des ancres de la landing */}
-        <div className="v2-menu-pages">
-          <span className="v2-label">Pages</span>
-          <Link
-            className="v2-menu-link v2-menu-link-page"
-            to="/v2/radar"
-            onClick={() => {
-              setOpen(false);
-              document.body.style.overflow = '';
-            }}
-          >
-            Radar →
-          </Link>
-        </div>
+        {ENTRIES.map((e) =>
+          e.to ? (
+            <Link
+              key={e.to}
+              className="v2-menu-link"
+              to={e.to}
+              onClick={() => {
+                setOpen(false);
+                document.body.style.overflow = '';
+              }}
+            >
+              {e.label}
+            </Link>
+          ) : (
+            <a
+              key={e.href}
+              className="v2-menu-link"
+              href={e.href}
+              onClick={(ev) => go(ev, e.href!)}
+            >
+              {e.label}
+            </a>
+          )
+        )}
 
         <div className="v2-menu-socials">
           {SOCIALS.map((s) => (
