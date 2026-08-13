@@ -30,7 +30,7 @@ const Mixtapes: React.FC = () => {
   return (
     <section className="v2-section" id="mixtapes">
       <div className="v2-section-head">
-        <h2 className="v2-section-title">Mixtapes</h2>
+        <h2 className="v2-section-title"><span className="v2-section-num">02</span>Mixtapes</h2>
         <a
           className="v2-label v2-mix-profile"
           href={DATA.profileUrl}

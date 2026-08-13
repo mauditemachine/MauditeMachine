@@ -8,7 +8,7 @@
  * sens que sur la video : le generatif est deja sombre.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import GenerativeBg from './GenerativeBg';
 
 const USE_VIDEO = false;
@@ -18,6 +18,15 @@ const REDUCED =
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const Hero: React.FC = () => {
+  // Le hint SCROLL s'efface des que l'utilisateur a compris (premier scroll)
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   // iOS Safari : muted doit etre pose en VRAI attribut DOM, React ne le
   // rend pas (piege verifie sur le site v1)
   const videoRef = useCallback((el: HTMLVideoElement | null) => {
@@ -86,7 +95,7 @@ const Hero: React.FC = () => {
         </div>
       </div>
 
-      <div className="v2-scroll-hint" aria-hidden="true">
+      <div className={`v2-scroll-hint${scrolled ? ' is-done' : ''}`} aria-hidden="true">
         <span className="v2-label">Scroll</span>
       </div>
     </header>

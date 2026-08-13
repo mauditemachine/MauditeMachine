@@ -88,7 +88,7 @@ const LiveGigs: React.FC = () => {
   return (
     <section className="v2-section" id="live">
       <div className="v2-section-head">
-        <h2 className="v2-section-title">Live</h2>
+        <h2 className="v2-section-title"><span className="v2-section-num">03</span>Live</h2>
         <span className="v2-label">Upcoming dates</span>
       </div>
 

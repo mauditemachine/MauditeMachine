@@ -41,7 +41,7 @@ const Discography: React.FC = () => {
   return (
     <section className="v2-section" id="music">
       <div className="v2-section-head">
-        <h2 className="v2-section-title">Music</h2>
+        <h2 className="v2-section-title"><span className="v2-section-num">01</span>Music</h2>
         <span className="v2-label">
           {hiddenCount > 0 ? `${visible.length} / ${filtered.length} tracks` : `${visible.length} track${visible.length > 1 ? 's' : ''}`}
         </span>

@@ -49,7 +49,7 @@ const Gallery: React.FC = () => {
   return (
     <section className="v2-section" id="gallery">
       <div className="v2-section-head">
-        <h2 className="v2-section-title">Gallery</h2>
+        <h2 className="v2-section-title"><span className="v2-section-num">04</span>Gallery</h2>
         <span className="v2-label">{PHOTOS.length} photos</span>
       </div>
 

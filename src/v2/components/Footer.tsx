@@ -9,7 +9,7 @@ import { BOOKING_CONTACTS } from '../data/contacts';
 const Footer: React.FC = () => (
   <footer className="v2-section" id="contact">
     <div className="v2-section-head">
-      <h2 className="v2-section-title">Contact</h2>
+      <h2 className="v2-section-title"><span className="v2-section-num">06</span>Contact</h2>
       <span className="v2-label">Booking &amp; press</span>
     </div>
 

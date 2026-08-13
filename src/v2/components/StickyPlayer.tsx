@@ -57,6 +57,10 @@ const StickyPlayer: React.FC = () => {
       </div>
 
       <div className="v2-player-inner">
+        {/* VU-metre : respire en lecture, gele en pause (CSS pur) */}
+        <span className={`v2-vu${playing ? ' is-on' : ''}`} aria-hidden="true">
+          <i /><i /><i /><i />
+        </span>
         <div className="v2-player-meta">
           <span className="v2-player-title">{current.title}</span>
           <span className="v2-label v2-player-sub">
