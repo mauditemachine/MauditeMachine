@@ -126,6 +126,18 @@ const Layout: React.FC = () => {
   // SEO : synchronise title / description / canonical / OG / hreflang / JSON-LD
   // a chaque changement de route ou de langue.
   useSEO();
+
+  // v1 archivee : tout ce qui vit dans ce Layout (pages /v1/* et l'outil
+  // /mm-admin/radar) est en noindex depuis la bascule v2. La meta robots
+  // d'index.html (index, follow) est restauree en quittant.
+  useEffect(() => {
+    const robots = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    const prev = robots?.content ?? null;
+    if (robots) robots.content = 'noindex, nofollow';
+    return () => {
+      if (robots && prev !== null) robots.content = prev;
+    };
+  }, []);
   const [menuOpen, setMenuOpen] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [bgUrl, setBgUrl] = useState<string>('');
@@ -137,12 +149,12 @@ const Layout: React.FC = () => {
   };
 
   const navLinks = [
-    { key: 'about',     label: t.nav.presskit,  to: '/about' },
-    { key: 'shows',     label: t.nav.events,    to: '/shows' },
-    { key: 'merch',     label: t.nav.merch,     to: '/merch' },
-    { key: 'goodies',   label: t.nav.goodies,   to: '/goodies' },
-    { key: 'techrider', label: t.nav.techrider, to: '/techrider' },
-    { key: 'contact',   label: t.nav.contacts,  to: '/contact' },
+    { key: 'about',     label: t.nav.presskit,  to: '/v1/about' },
+    { key: 'shows',     label: t.nav.events,    to: '/v1/shows' },
+    { key: 'merch',     label: t.nav.merch,     to: '/v1/merch' },
+    { key: 'goodies',   label: t.nav.goodies,   to: '/v1/goodies' },
+    { key: 'techrider', label: t.nav.techrider, to: '/v1/techrider' },
+    { key: 'contact',   label: t.nav.contacts,  to: '/v1/contact' },
   ];
 
   // Init suppression erreurs externes une fois
@@ -215,7 +227,7 @@ const Layout: React.FC = () => {
   }));
 
   // activeSection pour MobileMenu : derive du pathname courant
-  const currentSection = location.pathname === '/' ? 'home' : location.pathname.replace(/^\//, '');
+  const currentSection = location.pathname === '/v1' ? 'home' : location.pathname.replace(/^\/v1\//, '').replace(/^\//, '');
 
   return (
     <PlayerProvider>
@@ -254,7 +266,7 @@ const Layout: React.FC = () => {
           <div className="h-full max-w-[1600px] mx-auto w-full flex items-center justify-between gap-6">
             {/* Logo gauche -> Home */}
             <NavLink
-              to="/"
+              to="/v1"
               aria-label={t.a11y.homeLink}
               className="h-full flex items-center shrink-0 p-0 m-0 cursor-pointer hover:opacity-70 transition-opacity leading-none no-underline"
               style={{ color: '#fff', textDecoration: 'none' }}
@@ -295,7 +307,7 @@ const Layout: React.FC = () => {
             wrapper ni de la video, fond noir uni (html/body #000) : la video
             debordait autour du conteneur des pages en mobile (body padding
             11px + html transparent) et creait un halo cyan sur les bords. */}
-        {location.pathname === '/' && (
+        {location.pathname === '/v1' && (
           <div className="global-bg">
             <JellyfishBackground />
           </div>

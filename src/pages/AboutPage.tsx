@@ -20,7 +20,7 @@ const AboutPage: React.FC = () => {
       <h1 className="sr-only">{t.headings.about}</h1>
 
       <Suspense fallback={null}>
-        <Presskit onNavigateToMessage={() => navigate('/contact')} />
+        <Presskit onNavigateToMessage={() => navigate('/v1/contact')} />
       </Suspense>
 
       {/* Editorial photo MM1 avec parallax — ferme la page About en beaute */}

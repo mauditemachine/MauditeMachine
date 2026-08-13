@@ -3,6 +3,7 @@ Allow: /
 
 # Panneaux d'administration : contenu privé, aucun intérêt pour la recherche
 Disallow: /ms-admin/
+Disallow: /v1
 Disallow: /mm-admin
 
 # Bots IA autorisés : visibilité de l'artiste dans les réponses des assistants

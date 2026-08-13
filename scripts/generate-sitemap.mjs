@@ -17,13 +17,10 @@ const SITE = 'https://mauditemachine.com';
 // Routes reelles du router (src/App.tsx). Les pages admin sont exclues
 // volontairement (noindex, contenu prive).
 const ROUTES = [
-  { path: '/',          changefreq: 'weekly',  priority: '1.0' },
-  { path: '/shows',     changefreq: 'weekly',  priority: '0.9' },
-  { path: '/about',     changefreq: 'monthly', priority: '0.8' },
-  { path: '/merch',     changefreq: 'weekly',  priority: '0.8' },
-  { path: '/techrider', changefreq: 'monthly', priority: '0.7' },
-  { path: '/goodies',   changefreq: 'monthly', priority: '0.6' },
-  { path: '/contact',   changefreq: 'monthly', priority: '0.6' },
+  // Bascule v2 (2026-08) : le site est la one-page + la page Radar.
+  // /v1 (archive) et les admins restent hors sitemap.
+  { path: '/',      changefreq: 'weekly', priority: '1.0' },
+  { path: '/radar', changefreq: 'weekly', priority: '0.8' },
 ];
 
 const LANGS = ['en', 'fr', 'es'];
@@ -50,20 +47,11 @@ const urls = ROUTES.map((r) => {
   const loc = r.path === '/' ? `${SITE}/` : `${SITE}${r.path}`;
   const lastmod = r.path === '/shows' ? showsLastmod() : today;
 
-  // hreflang : le site detecte navigator.language, ?lang= est l'override
-  const alternates = [
-    `    <xhtml:link rel="alternate" hreflang="x-default" href="${loc}"/>`,
-    ...LANGS.map(
-      (l) => `    <xhtml:link rel="alternate" hreflang="${l}" href="${loc}?lang=${l}"/>`,
-    ),
-  ].join('\n');
-
   return `  <url>
     <loc>${loc}</loc>
     <lastmod>${lastmod}</lastmod>
     <changefreq>${r.changefreq}</changefreq>
     <priority>${r.priority}</priority>
-${alternates}
   </url>`;
 }).join('\n');
 

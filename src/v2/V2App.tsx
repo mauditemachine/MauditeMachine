@@ -8,7 +8,7 @@
  * retiree au unmount (la v1 reste indexable).
  */
 
-import React, { useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import '@fontsource/space-mono/400.css';
 import '@fontsource/space-mono/700.css';
 import '@fontsource/inter/400.css';
@@ -54,7 +54,18 @@ const V2Shell: React.FC = () => {
   useReveals(rootRef);
   // Chrome commun /v2 (body class, noindex, description, titre),
   // restaure au unmount — partage avec /v2/radar
-  useV2Chrome('Maudite Machine — V2 preview');
+  useV2Chrome('Maudite Machine | DJ & Producer · Indie Dance, Dark Disco');
+
+  // Arrivee avec une ancre (redirections /about -> /#epk, liens partages) :
+  // le contenu monte apres le paint initial, le jump natif rate sa cible.
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash) return;
+    const t = window.setTimeout(() => {
+      document.querySelector(hash)?.scrollIntoView({ behavior: 'instant' as ScrollBehavior });
+    }, 60);
+    return () => window.clearTimeout(t);
+  }, []);
 
   return (
     <div ref={rootRef} className={`v2-root${current ? ' has-player' : ''}`}>

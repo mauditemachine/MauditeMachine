@@ -39,7 +39,7 @@ const SEO_META = JSON.parse(
 const STATIC_LANG = 'en';
 
 // '/' est deja gere par dist/index.html, on prerender les 6 autres routes
-const ROUTES = ['/about', '/shows', '/merch', '/goodies', '/techrider', '/contact'];
+const ROUTES = []; // bascule v2 : les URLs v1 redirigent cote client, plus de prerender
 
 const indexPath = join(DIST, 'index.html');
 if (!existsSync(indexPath)) {

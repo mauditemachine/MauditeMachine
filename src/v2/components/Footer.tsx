@@ -34,8 +34,8 @@ const Footer: React.FC = () => (
         <a href="https://massivemedias.com" target="_blank" rel="noopener noreferrer" className="v2-label">
           Massive Medias
         </a>
-        <a href="/" className="v2-label">
-          ← Site actuel
+        <a href="/v1" className="v2-label">
+          Archive v1
         </a>
       </div>
     </div>

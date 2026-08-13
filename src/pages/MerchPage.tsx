@@ -16,7 +16,7 @@ const MerchPage: React.FC = () => {
 
       <Store
         onSectionChange={(s) => {
-          if (s === 'message' || s === 'contact') navigate('/contact');
+          if (s === 'message' || s === 'contact') navigate('/v1/contact');
         }}
       />
     </section>
