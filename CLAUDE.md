@@ -35,6 +35,16 @@ Le rapport se committe avec le reste du travail de la session.
 - iOS Safari : l'attribut muted doit etre pose en VRAI attribut DOM
   (ref callback), React ne le rend pas.
 
+## Tests audio : JAMAIS de lecture reelle
+
+Ne jamais lancer de lecture audio pendant les tests (player SoundCloud,
+previews iTunes, elements <audio>) : le son sort sur les enceintes de
+Mika sans prevenir. Verifier l'etat du player par le DOM et les
+evenements (classes is-playing, .v2-vu.is-on, progress/timeupdate,
+compteurs, etat des boutons), jamais par le son. Si un test de lecture
+reelle est indispensable, le demander explicitement a Mika ou le lui
+laisser faire.
+
 ## Donnees et securite
 
 - Contenu : public/*.json (releases, events, following, stats-public...),
