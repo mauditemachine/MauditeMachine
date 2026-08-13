@@ -8,7 +8,7 @@
 
 import React, { useMemo, useState } from 'react';
 import discographyData from '../data/discography.json';
-import { useAudioPlayer, V2Track } from '../context/AudioPlayerContext';
+import { useAudioPlayer, isPlayable, V2Track } from '../context/AudioPlayerContext';
 
 type Filter = 'all' | 'originals' | 'remixes' | 'vrstl';
 
@@ -92,9 +92,15 @@ const Discography: React.FC = () => {
                 <button
                   type="button"
                   className="v2-play-btn"
+                  disabled={!isPlayable(t)}
                   aria-label={
-                    isCurrent && playing ? `Mettre en pause ${t.title}` : `Écouter ${t.title}`
+                    !isPlayable(t)
+                      ? `${t.title} : écoute bientôt disponible`
+                      : isCurrent && playing
+                        ? `Mettre en pause ${t.title}`
+                        : `Écouter ${t.title}`
                   }
+                  title={!isPlayable(t) ? 'Coming soon' : undefined}
                   onClick={() => play(t, visible)}
                 >
                   {isCurrent && playing ? (
@@ -143,7 +149,16 @@ const Discography: React.FC = () => {
       )}
 
       <p className="v2-label v2-matrix-note">
-        Placeholder audio while final masters are being prepared. Full releases on{' '}
+        Streaming via{' '}
+        <a
+          href="https://soundcloud.com/mauditemachine"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ textDecoration: 'underline' }}
+        >
+          SoundCloud
+        </a>
+        . Full releases on{' '}
         <a
           href="https://mauditemachine.bandcamp.com"
           target="_blank"

@@ -8,9 +8,9 @@
       "role": "Producer / Label",
       "year": 2025,
       "category": "vrstl",
-      "audio": "/audio/placeholder-3.mp3",
       "link": "https://vrstlrecords.com",
-      "featured": true
+      "featured": true,
+      "soundcloudUrl": ""
     },
     {
       "id": "autopsynth-2",
@@ -20,9 +20,9 @@
       "role": "Producer / Label",
       "year": 2025,
       "category": "vrstl",
-      "audio": "/audio/placeholder-1.mp3",
       "link": "https://vrstlrecords.com",
-      "featured": true
+      "featured": true,
+      "soundcloudUrl": ""
     },
     {
       "id": "autopsynth-3",
@@ -32,9 +32,9 @@
       "role": "Producer / Label",
       "year": 2025,
       "category": "vrstl",
-      "audio": "/audio/placeholder-2.mp3",
       "link": "https://vrstlrecords.com",
-      "featured": true
+      "featured": true,
+      "soundcloudUrl": ""
     },
     {
       "id": "limbo-01",
@@ -44,9 +44,9 @@
       "role": "Producer",
       "year": 2024,
       "category": "originals",
-      "audio": "/audio/placeholder-3.mp3",
       "link": "https://mauditemachine.bandcamp.com",
-      "featured": true
+      "featured": true,
+      "soundcloudUrl": ""
     },
     {
       "id": "limbo-02",
@@ -56,9 +56,9 @@
       "role": "Producer",
       "year": 2024,
       "category": "originals",
-      "audio": "/audio/placeholder-1.mp3",
       "link": "https://mauditemachine.bandcamp.com",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": ""
     },
     {
       "id": "limbo-03",
@@ -68,9 +68,9 @@
       "role": "Producer",
       "year": 2024,
       "category": "originals",
-      "audio": "/audio/placeholder-2.mp3",
       "link": "https://mauditemachine.bandcamp.com",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": ""
     },
     {
       "id": "limbo-04",
@@ -80,9 +80,9 @@
       "role": "Producer",
       "year": 2024,
       "category": "originals",
-      "audio": "/audio/placeholder-3.mp3",
       "link": "https://mauditemachine.bandcamp.com",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": ""
     },
     {
       "id": "limbo-05",
@@ -92,9 +92,9 @@
       "role": "Producer",
       "year": 2024,
       "category": "originals",
-      "audio": "/audio/placeholder-1.mp3",
       "link": "https://mauditemachine.bandcamp.com",
-      "featured": true
+      "featured": true,
+      "soundcloudUrl": ""
     },
     {
       "id": "limbo-06",
@@ -104,9 +104,9 @@
       "role": "Producer",
       "year": 2024,
       "category": "originals",
-      "audio": "/audio/placeholder-2.mp3",
       "link": "https://mauditemachine.bandcamp.com",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": ""
     },
     {
       "id": "limbo-07",
@@ -116,9 +116,9 @@
       "role": "Producer",
       "year": 2024,
       "category": "originals",
-      "audio": "/audio/placeholder-3.mp3",
       "link": "https://mauditemachine.bandcamp.com",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": ""
     },
     {
       "id": "limbo-08",
@@ -128,9 +128,9 @@
       "role": "Producer",
       "year": 2024,
       "category": "originals",
-      "audio": "/audio/placeholder-1.mp3",
       "link": "https://mauditemachine.bandcamp.com",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": ""
     },
     {
       "id": "limbo-09",
@@ -140,9 +140,9 @@
       "role": "Producer",
       "year": 2024,
       "category": "originals",
-      "audio": "/audio/placeholder-2.mp3",
       "link": "https://mauditemachine.bandcamp.com",
-      "featured": true
+      "featured": true,
+      "soundcloudUrl": ""
     },
     {
       "id": "kouklikou",
@@ -152,9 +152,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-1.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/kouklikou",
-      "featured": true
+      "featured": true,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/kouklikou"
     },
     {
       "id": "where-is-the-sync-button",
@@ -164,9 +164,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-2.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/where-is-the-sync-button",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/where-is-the-sync-button"
     },
     {
       "id": "anarchic",
@@ -176,9 +176,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-3.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/anarchic",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/anarchic-1"
     },
     {
       "id": "autopsynth",
@@ -188,9 +188,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-1.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/autopsynth",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/autopsynth"
     },
     {
       "id": "back-on-track",
@@ -200,9 +200,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-2.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/back-on-track-luminarium-mix",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/maudite-machine-back-on-track"
     },
     {
       "id": "nocturne",
@@ -212,9 +212,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-3.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/nocturne",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/nocturne"
     },
     {
       "id": "coagule",
@@ -224,9 +224,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-1.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/coagule",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/coagule"
     },
     {
       "id": "richie",
@@ -236,9 +236,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-2.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/richie",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/richie-original-mix"
     },
     {
       "id": "tati-cardi-ep",
@@ -248,9 +248,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-3.mp3",
       "link": "https://mauditemachine.bandcamp.com/album/tati-cardi-ep",
-      "featured": true
+      "featured": true,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/tati-cardi-1"
     },
     {
       "id": "drama-queen",
@@ -260,9 +260,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-1.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/drama-queen",
-      "featured": true
+      "featured": true,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/drama-queen-1"
     },
     {
       "id": "discowriders",
@@ -272,9 +272,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-2.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/discowriders-2",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/discowriders"
     },
     {
       "id": "digital-ep",
@@ -284,9 +284,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-3.mp3",
       "link": "https://mauditemachine.bandcamp.com/album/digital-ep",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": ""
     },
     {
       "id": "alan-parsons-remix",
@@ -296,9 +296,9 @@
       "role": "Remixer",
       "year": 2023,
       "category": "remixes",
-      "audio": "/audio/placeholder-1.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/the-alan-parsons-project-eye-in-the-sky-maudite-machine-remix",
-      "featured": true
+      "featured": true,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/eye-in-the-sky-maudite-machine-remix"
     },
     {
       "id": "robots-remix",
@@ -308,9 +308,9 @@
       "role": "Remixer",
       "year": 2023,
       "category": "remixes",
-      "audio": "/audio/placeholder-2.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/robots-maudite-machine-remix",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/green-velvet-riva-starr-robots-maudite-machine-remix"
     },
     {
       "id": "cupertino",
@@ -320,9 +320,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-3.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/cupertino",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/locomote-cupertino-original-mix"
     },
     {
       "id": "montreal-calling",
@@ -332,9 +332,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-1.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/montreal-calling",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": ""
     },
     {
       "id": "laurent-garnier-remix",
@@ -344,9 +344,9 @@
       "role": "Remixer",
       "year": 2023,
       "category": "remixes",
-      "audio": "/audio/placeholder-2.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/laurent-garnier-dangerous-drive-maudite-machine-remix",
-      "featured": true
+      "featured": true,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/laurent-garnier-dangerous"
     },
     {
       "id": "fuck-that",
@@ -356,9 +356,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-3.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/fuck-that",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/mauditemachine-fuck-that"
     },
     {
       "id": "so-hard",
@@ -368,9 +368,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-1.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/so-hard",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/so-hard-original-mix"
     },
     {
       "id": "timeout",
@@ -380,9 +380,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-2.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/timeout",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/timeout-original-mix"
     },
     {
       "id": "strange-effect",
@@ -392,9 +392,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-3.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/strange-effect",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/mauditemachine-strangeeffect"
     },
     {
       "id": "electrochimie-remix",
@@ -404,9 +404,9 @@
       "role": "Remixer",
       "year": 2023,
       "category": "remixes",
-      "audio": "/audio/placeholder-1.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/electrochimie-pleasure-seeker-maudite-machine-remix",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": ""
     },
     {
       "id": "big-babou-remix",
@@ -416,9 +416,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-2.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/the-sound-of-the-big-babou-remix",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/mauditemachine-thesoundofthebigbabou"
     },
     {
       "id": "north-river",
@@ -428,9 +428,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-3.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/north-river",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": ""
     },
     {
       "id": "origan",
@@ -440,9 +440,9 @@
       "role": "Producer",
       "year": 2023,
       "category": "originals",
-      "audio": "/audio/placeholder-1.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/origan",
-      "featured": false
+      "featured": false,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/mauditemachine-origan"
     },
     {
       "id": "dvs1-plaid-remix",
@@ -452,9 +452,9 @@
       "role": "Remixer",
       "year": 2023,
       "category": "remixes",
-      "audio": "/audio/placeholder-2.mp3",
       "link": "https://mauditemachine.bandcamp.com/track/dvs1-plaid-confused-oi-maudite-machine-remix",
-      "featured": true
+      "featured": true,
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/dvs1-plaid-confused-oi-maudite-machine-mix"
     }
   ]
 }
