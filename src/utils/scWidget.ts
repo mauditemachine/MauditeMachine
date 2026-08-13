@@ -133,6 +133,10 @@ export async function scPlay(url: string): Promise<void> {
       callback: () => {
         // Certains navigateurs ignorent auto_play au premier load : on force.
         w.play();
+        // Filet unique si la commande a ete avalee malgre tout
+        window.setTimeout(() => {
+          if (!hasPlayed && currentUrl === url) w.play();
+        }, 1200);
       },
     });
   } else {

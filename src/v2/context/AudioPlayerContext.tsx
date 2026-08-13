@@ -57,6 +57,8 @@ interface AudioPlayerCtx {
   progress: number;
   duration: number;
   queue: V2Track[];
+  /** Piste sautee pour erreur (URL morte/privee) : titre affiche ~4 s. */
+  notice: string | null;
   play: (track: V2Track, queue?: V2Track[]) => void;
   toggle: () => void;
   next: () => void;
@@ -80,6 +82,16 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimerRef = useRef<number | undefined>(undefined);
+
+  /** Signale la piste sautee dans la barre, s'efface tout seul. */
+  const flagSkipped = useCallback((title: string | undefined) => {
+    if (!title) return;
+    window.clearTimeout(noticeTimerRef.current);
+    setNotice(title);
+    noticeTimerRef.current = window.setTimeout(() => setNotice(null), 4000);
+  }, []);
   // Refs miroirs pour les listeners (poses une seule fois)
   const currentRef = useRef<V2Track | null>(null);
   const queueRef = useRef<V2Track[]>([]);
@@ -163,6 +175,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
     };
     const onError = () => {
       if (engineRef.current !== 'audio' || !el.src) return;
+      flagSkipped(currentRef.current?.title);
       if (errorHopsRef.current < queueRef.current.length) {
         errorHopsRef.current += 1;
         step(1);
@@ -182,7 +195,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       el.pause();
       el.removeAttribute('src');
     };
-  }, [step]);
+  }, [step, flagSkipped]);
 
   // Handlers du moteur SoundCloud, poses pour la duree de vie du provider.
   // L'iframe (singleton module) survit a la navigation : on la met en pause
@@ -198,7 +211,10 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       onFinish: () => {
         if (engineRef.current !== 'sc') return;
         errorHopsRef.current = 0;
-        if (queueRef.current.length > 1) step(1);
+        // Differe : un load() lance DANS le callback FINISH se fait avaler
+        // par le cycle de fin du widget (PAUSE/SEEK internes) et la piste
+        // suivante se charge sans jouer. 300 ms laissent le widget retomber.
+        if (queueRef.current.length > 1) window.setTimeout(() => step(1), 300);
         else setPlaying(false);
       },
       onProgress: (positionMs, durationMs) => {
@@ -208,6 +224,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       },
       onError: () => {
         if (engineRef.current !== 'sc') return;
+        flagSkipped(currentRef.current?.title);
         if (errorHopsRef.current < queueRef.current.length) {
           errorHopsRef.current += 1;
           step(1);
@@ -220,7 +237,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       setScHandlers(null);
       scPause();
     };
-  }, [step]);
+  }, [step, flagSkipped]);
 
   const play = useCallback(
     (track: V2Track, newQueue?: V2Track[]) => {
@@ -301,6 +318,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       progress,
       duration,
       queue,
+      notice,
       play,
       toggle,
       next: () => step(1),
@@ -308,7 +326,7 @@ export const AudioPlayerProvider: React.FC<{ children: React.ReactNode }> = ({ c
       seek,
       close,
     }),
-    [current, playing, progress, duration, queue, play, toggle, step, seek, close]
+    [current, playing, progress, duration, queue, notice, play, toggle, step, seek, close]
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

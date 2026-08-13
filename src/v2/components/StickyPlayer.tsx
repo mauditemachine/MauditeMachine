@@ -16,7 +16,7 @@ const fmt = (s: number) => {
 };
 
 const StickyPlayer: React.FC = () => {
-  const { current, playing, progress, duration, queue, toggle, next, prev, seek, close } =
+  const { current, playing, progress, duration, queue, notice, toggle, next, prev, seek, close } =
     useAudioPlayer();
   const barRef = useRef<HTMLDivElement>(null);
 
@@ -63,8 +63,10 @@ const StickyPlayer: React.FC = () => {
         </span>
         <div className="v2-player-meta">
           <span className="v2-player-title">{current.title}</span>
-          <span className="v2-label v2-player-sub">
-            {current.project} · {current.year}
+          <span className="v2-label v2-player-sub" role="status">
+            {notice
+              ? `« ${notice} » unavailable — skipped`
+              : `${current.project} · ${current.year}`}
           </span>
         </div>
 
