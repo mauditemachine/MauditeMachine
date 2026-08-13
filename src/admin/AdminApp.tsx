@@ -14,13 +14,15 @@ import { NavLink, Route, Routes, Navigate, useLocation } from 'react-router-dom'
 import './admin.css';
 import AdminGate from '../components/ui/AdminGate';
 import DashboardPage from './pages/DashboardPage';
+const DiscographyPage = React.lazy(() => import('./pages/DiscographyPage'));
+const MixtapesPage = React.lazy(() => import('./pages/MixtapesPage'));
 
 const AdminEvents = React.lazy(() => import('../components/AdminEvents'));
 
 const EDIT_LINKS = [
   { to: '/mm-admin', label: 'Tableau de bord', end: true },
-  { to: '/mm-admin/discographie', label: 'Discographie', soon: 'étape 3' },
-  { to: '/mm-admin/mixtapes', label: 'Mixtapes', soon: 'étape 3' },
+  { to: '/mm-admin/discographie', label: 'Discographie' },
+  { to: '/mm-admin/mixtapes', label: 'Mixtapes' },
   { to: '/mm-admin/medias', label: 'Médias', soon: 'étape 4' },
   { to: '/mm-admin/textes', label: 'Textes', soon: 'étape 4' },
   { to: '/mm-admin/contenu', label: 'Événements & boutique' },
@@ -137,8 +139,8 @@ const AdminApp: React.FC = () => {
               </AdminGate>
             }
           />
-          <Route path="discographie" element={<AdminGate><ComingSoon step="étape 3" /></AdminGate>} />
-          <Route path="mixtapes" element={<AdminGate><ComingSoon step="étape 3" /></AdminGate>} />
+          <Route path="discographie" element={<AdminGate><Suspense fallback={null}><DiscographyPage /></Suspense></AdminGate>} />
+          <Route path="mixtapes" element={<AdminGate><Suspense fallback={null}><MixtapesPage /></Suspense></AdminGate>} />
           <Route path="medias" element={<AdminGate><ComingSoon step="étape 4" /></AdminGate>} />
           <Route path="textes" element={<AdminGate><ComingSoon step="étape 4" /></AdminGate>} />
           <Route path="publier" element={<AdminGate><ComingSoon step="étape 5" /></AdminGate>} />

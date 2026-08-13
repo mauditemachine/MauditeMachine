@@ -32,3 +32,4 @@ api/.env
 # Stats privees (revenus Ditto) et CSV sources : local uniquement.
 # Ancre a la racine : public/data/ (stats publiques) reste versionne.
 /data/
+.admin-backups/

@@ -279,6 +279,131 @@ body.admx-active {
   background: #1d4fd7;
 }
 
+/* ---------- Lignes editables (discographie, mixtapes) ---------- */
+
+.admx-trow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--ax-panel);
+  border: 1px solid var(--ax-line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.admx-trow.is-dragging {
+  opacity: 0.6;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+
+.admx-drag {
+  cursor: grab;
+  border: none;
+  background: none;
+  color: var(--ax-dim);
+  font-size: 15px;
+  padding: 8px 4px;
+  touch-action: none;
+}
+
+.admx-trow-fields {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admx-input {
+  border: 1px solid var(--ax-line);
+  border-radius: 7px;
+  background: #fcfcfd;
+  color: var(--ax-ink);
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 9px;
+  min-width: 90px;
+  flex: 1;
+}
+
+.admx-input:focus {
+  outline: none;
+  border-color: var(--ax-accent);
+}
+
+.admx-in-title { flex: 2 1 180px; font-weight: 600; }
+.admx-in-role { flex: 0 1 130px; }
+.admx-in-year { flex: 0 0 84px; }
+.admx-in-cat { flex: 0 0 116px; }
+.admx-in-url { flex: 2 1 220px; font-size: 12px; }
+
+.admx-trow-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.admx-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ax-dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.admx-btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.admx-btn-danger {
+  color: var(--ax-danger);
+}
+
+.admx-btn-danger:hover {
+  background: #fdf1f1;
+  border-color: #ecc8c8;
+}
+
+.admx-pill.danger {
+  color: var(--ax-danger);
+  border-color: #ecc8c8;
+  background: #fdf3f3;
+}
+
+.admx-art {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.admx-art-empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ax-line);
+  color: var(--ax-dim);
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .admx-trow {
+    flex-direction: column;
+  }
+  .admx-trow-side {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+}
+
 /* ---------- Etat "a venir" ---------- */
 
 .admx-coming {

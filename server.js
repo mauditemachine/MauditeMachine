@@ -645,6 +645,187 @@ app.get('/api/admin/summary', authMiddleware, async (req, res) => {
   }
 });
 
+/* ============================================================
+ * Panneau admin — donnees editables (etape 3)
+ * ============================================================ */
+
+/**
+ * Fichiers editables par l'admin : whitelist stricte + validateur par
+ * fichier. Toute ecriture passe par un backup horodate dans
+ * .admin-backups/ (gitignore, 20 versions par fichier) puis une ecriture
+ * atomique (tmp + rename).
+ */
+const ADMIN_DATA_FILES = {
+  discography: {
+    path: 'src/v2/data/discography.json',
+    validate(data) {
+      if (!data || !Array.isArray(data.tracks)) return 'tracks manquant';
+      for (const t of data.tracks) {
+        if (!t.id || typeof t.id !== 'string') return `id manquant (${t.title || '?'})`;
+        if (typeof t.title !== 'string') return 'title invalide';
+        if (!['originals', 'remixes', 'vrstl'].includes(t.category)) {
+          return `category invalide (${t.title})`;
+        }
+        if (t.soundcloudUrl && !/^https:\/\/soundcloud\.com\//.test(t.soundcloudUrl)) {
+          return `soundcloudUrl invalide (${t.title})`;
+        }
+      }
+      const ids = data.tracks.map((t) => t.id);
+      if (new Set(ids).size !== ids.length) return 'ids en double';
+      return null;
+    },
+  },
+  mixtapes: {
+    path: 'src/v2/data/mixtapes.json',
+    validate(data) {
+      if (!data || !Array.isArray(data.mixtapes)) return 'mixtapes manquant';
+      for (const m of data.mixtapes) {
+        if (typeof m.title !== 'string' || !m.title) return 'title manquant';
+        if (!Number.isFinite(m.number)) return `number invalide (${m.title})`;
+        if (!/^https:\/\/soundcloud\.com\//.test(m.soundcloudUrl || '')) {
+          return `soundcloudUrl invalide (${m.title})`;
+        }
+      }
+      return null;
+    },
+  },
+};
+
+const BACKUPS_DIR = path.join(__dirname, '.admin-backups');
+
+async function backupDataFile(name, absPath) {
+  await fs.mkdir(BACKUPS_DIR, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  try {
+    await fs.copyFile(absPath, path.join(BACKUPS_DIR, `${name}.${stamp}.json`));
+  } catch {
+    return; // fichier source absent : rien a sauvegarder
+  }
+  // Rotation : 20 versions par fichier
+  const all = (await fs.readdir(BACKUPS_DIR))
+    .filter((f) => f.startsWith(`${name}.`))
+    .sort();
+  for (const old of all.slice(0, Math.max(0, all.length - 20))) {
+    await fs.unlink(path.join(BACKUPS_DIR, old)).catch(() => {});
+  }
+}
+
+app.get('/api/admin/data/:name', authMiddleware, async (req, res) => {
+  const entry = ADMIN_DATA_FILES[req.params.name];
+  if (!entry) return res.status(404).json({ success: false, message: 'Fichier inconnu' });
+  try {
+    const data = JSON.parse(await fs.readFile(path.join(__dirname, entry.path), 'utf8'));
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+app.put('/api/admin/data/:name', authMiddleware, async (req, res) => {
+  const entry = ADMIN_DATA_FILES[req.params.name];
+  if (!entry) return res.status(404).json({ success: false, message: 'Fichier inconnu' });
+  const problem = entry.validate(req.body);
+  if (problem) return res.status(400).json({ success: false, message: problem });
+  try {
+    const abs = path.join(__dirname, entry.path);
+    await backupDataFile(req.params.name, abs);
+    const tmp = `${abs}.tmp`;
+    await fs.writeFile(tmp, JSON.stringify(req.body, null, 2) + '\n', 'utf8');
+    await fs.rename(tmp, abs);
+    res.json({ success: true });
+  } catch (error) {
+    console.error(`❌ PUT data/${req.params.name}:`, error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * Une URL SoundCloud repond-elle encore ? oEmbed public : 200 = lisible,
+ * 403/404 = privee ou morte. Zero cle.
+ */
+app.post('/api/admin/sc-check', authMiddleware, async (req, res) => {
+  const { url } = req.body || {};
+  if (!/^https:\/\/soundcloud\.com\//.test(url || '')) {
+    return res.status(400).json({ success: false, message: 'URL SoundCloud attendue' });
+  }
+  try {
+    const r = await fetch(
+      `https://soundcloud.com/oembed?format=json&url=${encodeURIComponent(url)}`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    res.json({ success: true, ok: r.ok, status: r.status });
+  } catch {
+    res.json({ success: true, ok: false, status: 0 });
+  }
+});
+
+/**
+ * Extraction SoundCloud pour les mixtapes : titre, duree, annee et artwork
+ * (telecharge en WebP 500px local via sharp). Meme mecanisme d'hydration
+ * que les imports faits a la main dans les sessions precedentes.
+ */
+app.post('/api/admin/sc-extract', authMiddleware, async (req, res) => {
+  const { url } = req.body || {};
+  if (!/^https:\/\/soundcloud\.com\/[\w-]+\/[\w-]+/.test(url || '')) {
+    return res.status(400).json({ success: false, message: 'URL de track SoundCloud attendue' });
+  }
+  try {
+    const page = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!page.ok) {
+      return res.status(404).json({ success: false, message: `SoundCloud repond ${page.status}` });
+    }
+    const html = await page.text();
+    const m = html.match(/window\.__sc_hydration\s*=\s*(\[.*?\]);/s);
+    const sound = m ? JSON.parse(m[1]).find((h) => h.hydratable === 'sound') : null;
+    const d = sound?.data;
+    if (!d) return res.status(422).json({ success: false, message: 'Page illisible (hydration absente)' });
+
+    const ms = d.duration || 0;
+    const h = Math.floor(ms / 3600000);
+    const mn = Math.floor((ms % 3600000) / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    const duration = `${h ? h + ':' + String(mn).padStart(2, '0') : mn}:${String(s).padStart(2, '0')}`;
+    const year = Number(String(d.display_date || d.created_at || '').slice(0, 4)) || null;
+    const numberMatch = String(d.title || '').match(/(\d{2,3})/);
+
+    // Artwork : t500x500 -> WebP local (public/images/mixtapes/)
+    let artwork = null;
+    if (d.artwork_url) {
+      const artUrl = d.artwork_url.replace('-large.', '-t500x500.');
+      const img = await fetch(artUrl, { signal: AbortSignal.timeout(12000) });
+      if (img.ok) {
+        const buf = Buffer.from(await img.arrayBuffer());
+        const slug = (numberMatch ? `mixtape-${numberMatch[1]}` : `mixtape-${Date.now()}`);
+        const rel = `images/mixtapes/${slug}.webp`;
+        const { default: sharp } = await import('sharp');
+        await fs.mkdir(path.join(__dirname, 'public/images/mixtapes'), { recursive: true });
+        await sharp(buf).resize(500, 500, { fit: 'inside' }).webp({ quality: 78 }).toFile(
+          path.join(__dirname, 'public', rel)
+        );
+        artwork = `/${rel}`;
+      }
+    }
+
+    res.json({
+      success: true,
+      extracted: {
+        title: String(d.title || ''),
+        number: numberMatch ? Number(numberMatch[1]) : null,
+        year,
+        duration,
+        soundcloudUrl: String(d.permalink_url || url),
+        artwork,
+      },
+    });
+  } catch (error) {
+    console.error('❌ sc-extract:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 /** git/gh en lecture seule, avec timeout court et repli silencieux. */
 async function runQuiet(cmd, args, timeout = 5000) {
   try {
