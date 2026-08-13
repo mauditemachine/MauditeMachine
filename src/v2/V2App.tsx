@@ -26,6 +26,7 @@ import Mixtapes from './components/Mixtapes';
 import StickyPlayer from './components/StickyPlayer';
 import LiveGigs from './components/LiveGigs';
 import Gallery from './components/Gallery';
+import Merch from './components/Merch';
 import EPK from './components/EPK';
 import Footer from './components/Footer';
 
@@ -68,6 +69,7 @@ const V2Shell: React.FC = () => {
       <Mixtapes />
       <LiveGigs />
       <Gallery />
+      <Merch />
       <EPK />
       <Footer />
       <StickyPlayer />

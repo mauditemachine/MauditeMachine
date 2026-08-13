@@ -79,7 +79,7 @@ export default function useReveals(rootRef: RefObject<HTMLElement | null>) {
       });
 
       // Galerie : entree en damier (ordre aleatoire, leger scale)
-      ScrollTrigger.batch('.v2-gallery-item', {
+      ScrollTrigger.batch('.v2-gallery-item, .v2-merch-card', {
         start: 'top 92%',
         once: true,
         onEnter: (els) =>
