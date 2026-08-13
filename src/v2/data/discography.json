@@ -1,6 +1,114 @@
 {
   "tracks": [
     {
+      "id": "abyss",
+      "title": "Abyss",
+      "project": "Limbos LP",
+      "artist": "Maudite Machine",
+      "role": "Producer",
+      "year": 2025,
+      "category": "originals",
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/maudite-machine-abyss-original",
+      "link": "https://mauditemachine.bandcamp.com/album/limbos",
+      "featured": true
+    },
+    {
+      "id": "cephal",
+      "title": "Cephal",
+      "project": "Limbos LP",
+      "artist": "Maudite Machine",
+      "role": "Producer",
+      "year": 2025,
+      "category": "originals",
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/maudite-machine-cephal",
+      "link": "https://mauditemachine.bandcamp.com/album/limbos",
+      "featured": false
+    },
+    {
+      "id": "limbos",
+      "title": "Limbos",
+      "project": "Limbos LP",
+      "artist": "Maudite Machine",
+      "role": "Producer",
+      "year": 2025,
+      "category": "originals",
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/limbos-original-mix",
+      "link": "https://mauditemachine.bandcamp.com/album/limbos",
+      "featured": true
+    },
+    {
+      "id": "reaper",
+      "title": "Reaper",
+      "project": "Limbos LP",
+      "artist": "Maudite Machine",
+      "role": "Producer",
+      "year": 2025,
+      "category": "originals",
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/reaper-original-mix",
+      "link": "https://mauditemachine.bandcamp.com/album/limbos",
+      "featured": false
+    },
+    {
+      "id": "nortkele",
+      "title": "Nortkele",
+      "project": "Limbos LP",
+      "artist": "Maudite Machine",
+      "role": "Producer",
+      "year": 2025,
+      "category": "originals",
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/nortkele-original-mix",
+      "link": "https://mauditemachine.bandcamp.com/album/limbos",
+      "featured": false
+    },
+    {
+      "id": "muld",
+      "title": "Muld",
+      "project": "Limbos LP",
+      "artist": "Maudite Machine",
+      "role": "Producer",
+      "year": 2025,
+      "category": "originals",
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/muld-original-mix",
+      "link": "https://mauditemachine.bandcamp.com/album/limbos",
+      "featured": false
+    },
+    {
+      "id": "simetra",
+      "title": "Simetra",
+      "project": "Limbos LP",
+      "artist": "Maudite Machine",
+      "role": "Producer",
+      "year": 2025,
+      "category": "originals",
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/simetra-original-mix",
+      "link": "https://mauditemachine.bandcamp.com/album/limbos",
+      "featured": false
+    },
+    {
+      "id": "zenith",
+      "title": "Zenith",
+      "project": "Limbos LP",
+      "artist": "Maudite Machine",
+      "role": "Producer",
+      "year": 2025,
+      "category": "originals",
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/zenith-original-mix",
+      "link": "https://mauditemachine.bandcamp.com/album/limbos",
+      "featured": true
+    },
+    {
+      "id": "chimie-electrique-emotional-remix",
+      "title": "Chimie Electrique (Emotional Remix)",
+      "project": "Limbos LP",
+      "artist": "Maudite Machine",
+      "role": "Producer",
+      "year": 2025,
+      "category": "originals",
+      "soundcloudUrl": "https://soundcloud.com/mauditemachine/chimie-electrique-emotional-remix",
+      "link": "https://mauditemachine.bandcamp.com/album/limbos",
+      "featured": false
+    },
+    {
       "id": "autopsynth-1",
       "title": "AUTOPSYNTH 001 (placeholder)",
       "project": "AUTOPSYNTH series",
@@ -33,114 +141,6 @@
       "year": 2025,
       "category": "vrstl",
       "link": "https://vrstlrecords.com",
-      "featured": true,
-      "soundcloudUrl": ""
-    },
-    {
-      "id": "limbo-01",
-      "title": "Limbo I (placeholder)",
-      "project": "Limbo LP",
-      "artist": "Maudite Machine",
-      "role": "Producer",
-      "year": 2024,
-      "category": "originals",
-      "link": "https://mauditemachine.bandcamp.com",
-      "featured": true,
-      "soundcloudUrl": ""
-    },
-    {
-      "id": "limbo-02",
-      "title": "Limbo II (placeholder)",
-      "project": "Limbo LP",
-      "artist": "Maudite Machine",
-      "role": "Producer",
-      "year": 2024,
-      "category": "originals",
-      "link": "https://mauditemachine.bandcamp.com",
-      "featured": false,
-      "soundcloudUrl": ""
-    },
-    {
-      "id": "limbo-03",
-      "title": "Limbo III (placeholder)",
-      "project": "Limbo LP",
-      "artist": "Maudite Machine",
-      "role": "Producer",
-      "year": 2024,
-      "category": "originals",
-      "link": "https://mauditemachine.bandcamp.com",
-      "featured": false,
-      "soundcloudUrl": ""
-    },
-    {
-      "id": "limbo-04",
-      "title": "Limbo IV (placeholder)",
-      "project": "Limbo LP",
-      "artist": "Maudite Machine",
-      "role": "Producer",
-      "year": 2024,
-      "category": "originals",
-      "link": "https://mauditemachine.bandcamp.com",
-      "featured": false,
-      "soundcloudUrl": ""
-    },
-    {
-      "id": "limbo-05",
-      "title": "Limbo V (placeholder)",
-      "project": "Limbo LP",
-      "artist": "Maudite Machine",
-      "role": "Producer",
-      "year": 2024,
-      "category": "originals",
-      "link": "https://mauditemachine.bandcamp.com",
-      "featured": true,
-      "soundcloudUrl": ""
-    },
-    {
-      "id": "limbo-06",
-      "title": "Limbo VI (placeholder)",
-      "project": "Limbo LP",
-      "artist": "Maudite Machine",
-      "role": "Producer",
-      "year": 2024,
-      "category": "originals",
-      "link": "https://mauditemachine.bandcamp.com",
-      "featured": false,
-      "soundcloudUrl": ""
-    },
-    {
-      "id": "limbo-07",
-      "title": "Limbo VII (placeholder)",
-      "project": "Limbo LP",
-      "artist": "Maudite Machine",
-      "role": "Producer",
-      "year": 2024,
-      "category": "originals",
-      "link": "https://mauditemachine.bandcamp.com",
-      "featured": false,
-      "soundcloudUrl": ""
-    },
-    {
-      "id": "limbo-08",
-      "title": "Limbo VIII (placeholder)",
-      "project": "Limbo LP",
-      "artist": "Maudite Machine",
-      "role": "Producer",
-      "year": 2024,
-      "category": "originals",
-      "link": "https://mauditemachine.bandcamp.com",
-      "featured": false,
-      "soundcloudUrl": ""
-    },
-    {
-      "id": "limbo-09",
-      "title": "Limbo IX (placeholder)",
-      "project": "Limbo LP",
-      "artist": "Maudite Machine",
-      "role": "Producer",
-      "year": 2024,
-      "category": "originals",
-      "link": "https://mauditemachine.bandcamp.com",
       "featured": true,
       "soundcloudUrl": ""
     },
@@ -277,18 +277,6 @@
       "soundcloudUrl": "https://soundcloud.com/mauditemachine/discowriders"
     },
     {
-      "id": "digital-ep",
-      "title": "Digital ep",
-      "project": "Single / EP",
-      "artist": "Maudite Machine",
-      "role": "Producer",
-      "year": 2023,
-      "category": "originals",
-      "link": "https://mauditemachine.bandcamp.com/album/digital-ep",
-      "featured": false,
-      "soundcloudUrl": ""
-    },
-    {
       "id": "alan-parsons-remix",
       "title": "The Alan Parsons project - Eye in the sky (Maudite Machine Remix)",
       "project": "Remix",
@@ -334,7 +322,7 @@
       "category": "originals",
       "link": "https://mauditemachine.bandcamp.com/track/montreal-calling",
       "featured": false,
-      "soundcloudUrl": ""
+      "soundcloudUrl": "https://soundcloud.com/8day-montreal/mauditemachine-montrealcalling"
     },
     {
       "id": "laurent-garnier-remix",
@@ -455,6 +443,18 @@
       "link": "https://mauditemachine.bandcamp.com/track/dvs1-plaid-confused-oi-maudite-machine-remix",
       "featured": true,
       "soundcloudUrl": "https://soundcloud.com/mauditemachine/dvs1-plaid-confused-oi-maudite-machine-mix"
+    },
+    {
+      "id": "digital-ep",
+      "title": "Digital ep",
+      "project": "Single / EP",
+      "artist": "Maudite Machine",
+      "role": "Producer",
+      "year": 2020,
+      "category": "originals",
+      "link": "https://mauditemachine.bandcamp.com/album/digital-ep",
+      "featured": false,
+      "soundcloudUrl": "https://soundcloud.com/8day-montreal/maudite-machine-digital-worms"
     }
   ]
 }
