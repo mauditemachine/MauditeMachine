@@ -1,10 +1,15 @@
 import express from 'express';
 import { promises as fs } from 'fs';
+import { existsSync, statSync, readdirSync } from 'node:fs';
 import path from 'path';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import crypto from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,15 +21,40 @@ const PORT = 3001;
 // S'il est defini, il est exige comme en production.
 const ADMIN_SECRET = process.env.ADMIN_PASSWORD || process.env.ADMIN_API_KEY || '';
 
+// Mode reseau local (iPad) : OPT-IN EXPLICITE uniquement (--lan ou ADMIN_LAN=1).
+// Par defaut le serveur n'ecoute que 127.0.0.1. En mode LAN, ADMIN_PASSWORD
+// devient OBLIGATOIRE : refus de demarrer sans mot de passe.
+const LAN_MODE = process.argv.includes('--lan') || process.env.ADMIN_LAN === '1';
+if (LAN_MODE && !ADMIN_SECRET) {
+  console.error('❌ Mode LAN demande (--lan) sans ADMIN_PASSWORD defini : refus de demarrer.');
+  console.error('   export ADMIN_PASSWORD=... puis relance.');
+  process.exit(1);
+}
+
 // CORS restreint aux origines de dev.
 // Avant : app.use(cors()) acceptait TOUTES les origines, donc n'importe quel
 // site ouvert dans le navigateur pouvait ecrire dans les JSON locaux pendant
 // que ce serveur tournait.
+// En mode LAN : les origines http://<ip-privee>:5173 sont aussi admises
+// (l'auth par mot de passe reste exigee sur chaque requete).
+const isPrivateLanOrigin = (origin) =>
+  /^http:\/\/(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|\[?fd[0-9a-f:]+\]?|[a-z0-9-]+\.local)(:\d+)?$/i.test(
+    origin || ''
+  );
 app.use(
   cors({
-    origin: ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:3000'],
+    origin: (origin, cb) => {
+      // localhost sur N'IMPORTE quel port : vite choisit un port libre
+      // (autoPort) et une whitelist de ports figes casserait l'admin.
+      // Une page web externe ne peut pas avoir une origin localhost.
+      const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin || '');
+      if (!origin || isLocalhost || (LAN_MODE && isPrivateLanOrigin(origin))) {
+        return cb(null, true);
+      }
+      cb(null, false);
+    },
     allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
-    methods: ['GET', 'POST', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   }),
 );
 app.use(express.json({ limit: '50mb' })); // Augmenter la limite à 50MB
@@ -510,8 +540,172 @@ app.post('/api/stats/upload-csv', authMiddleware, uploadCsv.single('csv'), async
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Serveur API démarré sur http://localhost:${PORT}`);
+/* ============================================================
+ * Panneau admin — tableau de bord (etape 2)
+ * ============================================================ */
+
+/** Lit un JSON du repo sans planter (null si absent/illisible). */
+async function readJsonQuiet(rel) {
+  try {
+    return JSON.parse(await fs.readFile(path.join(__dirname, rel), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+/** Poids total d'un dossier (stat récursif, pas de lecture de contenu). */
+function dirSize(rel) {
+  const abs = path.join(__dirname, rel);
+  if (!existsSync(abs)) return 0;
+  let total = 0;
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(p);
+      else total += statSync(p).size;
+    }
+  };
+  walk(abs);
+  return total;
+}
+
+/** Une image referencee par les donnees existe-t-elle dans public/ ? */
+const publicFileExists = (rel) =>
+  !!rel && existsSync(path.join(__dirname, 'public', String(rel).replace(/^\//, '')));
+
+/**
+ * Vue d'ensemble pour le tableau de bord : compteurs, sante des donnees,
+ * medias. Tout est calcule cote serveur (fs), rien n'est modifie.
+ */
+app.get('/api/admin/summary', authMiddleware, async (req, res) => {
+  try {
+    const [disco, mixtapes, releases, events, mixes, store] = await Promise.all([
+      readJsonQuiet('src/v2/data/discography.json'),
+      readJsonQuiet('src/v2/data/mixtapes.json'),
+      readJsonQuiet('public/releases.json'),
+      readJsonQuiet('public/events.json'),
+      readJsonQuiet('public/mixes.json'),
+      readJsonQuiet('public/store.json'),
+    ]);
+
+    const tracks = disco?.tracks || [];
+    const tracksNoSc = tracks.filter((t) => !t.soundcloudUrl);
+    const tracksIncomplete = tracks.filter(
+      (t) => !t.title || !t.project || !t.year || !t.link
+    );
+
+    const mxs = mixtapes?.mixtapes || [];
+    const mixtapesNoArt = mxs.filter((m) => !publicFileExists(m.artwork));
+
+    const rels = Array.isArray(releases) ? releases : releases?.releases || [];
+    const releasesNoCover = rels.filter((r) => !publicFileExists(r.cover));
+
+    const evts = Array.isArray(events) ? events : events?.events || [];
+    const today = new Date().toISOString().slice(0, 10);
+    const upcoming = evts.filter((e) => String(e.date || '') >= today);
+
+    // Images referencees introuvables (par domaine, en langage humain)
+    const missingImages = [
+      ...mixtapesNoArt.map((m) => `Mixtape ${m.number} : pochette introuvable`),
+      ...releasesNoCover.map((r) => `Release « ${r.title} » : visuel introuvable`),
+    ];
+
+    res.json({
+      success: true,
+      counts: {
+        tracks: tracks.length,
+        tracksPlayable: tracks.length - tracksNoSc.length,
+        tracksFeatured: tracks.filter((t) => t.featured).length,
+        mixtapes: mxs.length,
+        releases: rels.length,
+        upcomingEvents: upcoming.length,
+        pastEvents: evts.length - upcoming.length,
+        mixes: Array.isArray(mixes) ? mixes.length : 0,
+        storeItems: Array.isArray(store) ? store.length : 0,
+      },
+      health: {
+        tracksWithoutPlayback: tracksNoSc.map((t) => t.title),
+        tracksIncomplete: tracksIncomplete.map((t) => t.title),
+        missingImages,
+        pdfs: {
+          presskit: existsSync(path.join(__dirname, 'public/Presskit_Maudite_Machine_2026.pdf')),
+          riderEn: existsSync(path.join(__dirname, 'public/techrider-en.pdf')),
+          riderFr: existsSync(path.join(__dirname, 'public/techrider-fr.pdf')),
+        },
+      },
+      media: {
+        imagesBytes: dirSize('public/images'),
+        videosBytes: dirSize('public/videos'),
+        eventsBytes: dirSize('public/events'),
+      },
+    });
+  } catch (error) {
+    console.error('❌ /api/admin/summary:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/** git/gh en lecture seule, avec timeout court et repli silencieux. */
+async function runQuiet(cmd, args, timeout = 5000) {
+  try {
+    const { stdout } = await execFileAsync(cmd, args, { cwd: __dirname, timeout });
+    return stdout.trim();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Etat de publication pour le tableau de bord : branche, fichiers modifies
+ * non publies, dernier commit, statut du dernier deploiement Pages.
+ * Lecture seule (le bouton Publier arrive a l'etape 5).
+ */
+app.get('/api/admin/git/status', authMiddleware, async (req, res) => {
+  try {
+    const [branch, porcelain, lastCommit, ghRun] = await Promise.all([
+      runQuiet('git', ['branch', '--show-current']),
+      runQuiet('git', ['status', '--porcelain']),
+      runQuiet('git', ['log', '-1', '--format=%cr|%s']),
+      runQuiet('gh', [
+        'run', 'list', '--workflow=pages.yml', '--limit', '1',
+        '--json', 'status,conclusion,updatedAt',
+      ], 8000),
+    ]);
+
+    // Format porcelain : 2 colonnes d'etat puis le chemin ; le nombre
+    // d'espaces varie selon l'etat, slice(2).trim() couvre tous les cas.
+    const changedFiles = (porcelain || '')
+      .split('\n')
+      .filter(Boolean)
+      .map((l) => l.slice(2).trim());
+
+    let deploy = null;
+    if (ghRun) {
+      try {
+        const run = JSON.parse(ghRun)[0];
+        if (run) deploy = { status: run.status, conclusion: run.conclusion, at: run.updatedAt };
+      } catch {
+        /* gh absent ou sortie inattendue : le front affichera un lien Actions */
+      }
+    }
+
+    const [last = '', ...msgParts] = (lastCommit || '').split('|');
+    res.json({
+      success: true,
+      branch: branch || 'main',
+      changedFiles,
+      lastCommit: lastCommit ? { when: last, message: msgParts.join('|') } : null,
+      deploy,
+    });
+  } catch (error) {
+    console.error('❌ /api/admin/git/status:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+const HOST = LAN_MODE ? '0.0.0.0' : '127.0.0.1';
+app.listen(PORT, HOST, () => {
+  console.log(`🚀 Serveur API démarré sur http://localhost:${PORT}${LAN_MODE ? ' (mode LAN : accessible sur le réseau local, mot de passe exigé)' : ''}`);
   console.log('📁 Fichiers JSON mis à jour automatiquement dans public/');
   console.log('📸 Upload d\'images disponible sur /api/upload-image');
   console.log('📊 Stats : /api/stats/refresh, /api/stats/upload-csv, /api/stats/private');

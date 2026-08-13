@@ -115,11 +115,15 @@ process.on('SIGINT', () => {
 });
 process.on('SIGTERM', () => shutdown(0));
 
-console.log(`${C.bold}Demarrage du site + du serveur d'ecriture local...${C.reset}\n`);
+// Mode iPad / reseau local : `npm run admin -- --lan` (opt-in explicite).
+// server.js refusera de demarrer sans ADMIN_PASSWORD dans ce mode.
+const LAN = process.argv.includes('--lan');
+
+console.log(`${C.bold}Demarrage du site + du serveur d'ecriture local${LAN ? ' (mode reseau local)' : ''}...${C.reset}\n`);
 
 // Le serveur d'ecriture d'abord : il doit repondre quand l'admin sonde /api/auth.
-start('api', C.magenta, process.execPath, [path.join(ROOT, 'server.js')]);
+start('api', C.magenta, process.execPath, [path.join(ROOT, 'server.js'), ...(LAN ? ['--lan'] : [])]);
 
 // vite en direct plutot que `npm run dev`, pour ouvrir sur /mm-admin.
 const viteBin = path.join(ROOT, 'node_modules', '.bin', 'vite');
-start('vite', C.cyan, viteBin, ['--open', '/mm-admin'], { detectUrl: true });
+start('vite', C.cyan, viteBin, ['--open', '/mm-admin', ...(LAN ? ['--host'] : [])], { detectUrl: true });

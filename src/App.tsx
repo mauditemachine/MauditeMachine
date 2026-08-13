@@ -17,10 +17,11 @@ const AdminRadarPage = React.lazy(() => import('./pages/AdminRadarPage'));
 // Refonte /v2 : one-page isolee, hors Layout (nav + player + fond propres)
 const V2App = React.lazy(() => import('./v2/V2App'));
 const V2RadarPage = React.lazy(() => import('./v2/pages/RadarPage'));
+// Panneau admin local (shell sidebar : dashboard, contenu, medias, publier)
+const AdminApp = React.lazy(() => import('./admin/AdminApp'));
 
 // Admin panels : lazy load (panels internes, ~1750 lignes hors du chunk principal)
 const Admin = React.lazy(() => import('./components/Admin'));
-const AdminEvents = React.lazy(() => import('./components/AdminEvents'));
 
 export default function App() {
   return (
@@ -135,13 +136,14 @@ export default function App() {
 
           />
 
+          {/* Shell admin : dashboard + sections. Les routes statiques
+              /mm-admin/stats et /mm-admin/radar ci-dessus gagnent sur le
+              splat (ranking React Router), rien ne change pour elles. */}
           <Route
-            path="/mm-admin"
+            path="/mm-admin/*"
             element={
               <Suspense fallback={null}>
-                <AdminGate>
-                  <AdminEvents />
-                </AdminGate>
+                <AdminApp />
               </Suspense>
             }
           />

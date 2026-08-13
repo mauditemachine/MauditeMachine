@@ -87,8 +87,25 @@ export function isLocalAdmin(): boolean {
   return h === 'localhost' || h === '127.0.0.1';
 }
 
-function getApiUrl(): string {
+/**
+ * true quand le site est ouvert depuis le reseau local (iPad sur l'IP du
+ * Mac, `npm run admin -- --lan`). L'API d'ecriture est alors le meme hote
+ * port 3001, et le mot de passe reste exige (AdminGate + serveur).
+ */
+function isPrivateLanHost(): boolean {
+  if (typeof window === 'undefined') return false;
+  const h = window.location.hostname;
+  return (
+    /^192\.168\.\d{1,3}\.\d{1,3}$/.test(h) ||
+    /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(h) ||
+    /^172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}$/.test(h) ||
+    h.endsWith('.local')
+  );
+}
+
+export function getApiUrl(): string {
   if (isLocalAdmin()) return 'http://localhost:3001';
+  if (isPrivateLanHost()) return `http://${window.location.hostname}:3001`;
 
   // VITE_API_URL est volontairement absente en production : il n'existe
   // aucun serveur d'ecriture distant. L'admin en ligne le detecte via
