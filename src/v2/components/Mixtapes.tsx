@@ -42,7 +42,7 @@ const Mixtapes: React.FC = () => {
       </div>
 
       <p className="v2-section-intro">
-        Long-form sets recorded through the years — deep, patient selections
+        Long-form sets recorded through the years. Deep, patient selections
         that go where a club night goes, two hours at a time.
       </p>
 

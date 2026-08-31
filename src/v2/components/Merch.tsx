@@ -107,7 +107,7 @@ const Merch: React.FC = () => {
       </div>
 
       <p className="v2-section-intro">
-        Small runs, printed in Montréal, ordered by email — sizes and colors
+        Small runs, printed in Montréal, ordered by email. Sizes and colors
         below, first come first served.
       </p>
 

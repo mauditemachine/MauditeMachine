@@ -49,7 +49,7 @@ const Discography: React.FC = () => {
 
       <p className="v2-section-intro">
         Original productions, remixes for fellow artists and the VRSTL
-        catalog. Press play — full tracks stream right here via SoundCloud.
+        catalog. Press play : full tracks stream right here via SoundCloud.
       </p>
 
       <div className="v2-filters" role="group" aria-label="Filtrer la discographie">

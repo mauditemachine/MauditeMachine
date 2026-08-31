@@ -10,9 +10,9 @@ import React from 'react';
 const Intro: React.FC = () => (
   <section className="v2-intro" aria-label="About Maudite Machine">
     <p className="v2-intro-lead">
-      Maudite Machine is the solo project of Mika — a Canadian DJ and
-      producer known for a raw, hypnotic approach to minimal and indie
-      dance.
+      Maudite Machine bends minimal and indie dance into something raw
+      and hypnotic: machine grooves with a human pulse, built for dark
+      rooms and long nights.
     </p>
     <div className="v2-intro-cols">
       <p>
@@ -30,7 +30,7 @@ const Intro: React.FC = () => (
           VRSTL Records
         </a>
         , he curates releases that reflect an uncompromising vision and a
-        deep connection to the scene's roots — no-nonsense, immersive,
+        deep connection to the scene's roots. No-nonsense, immersive,
         built for those who understand that the best moments happen when
         the music takes control.
       </p>

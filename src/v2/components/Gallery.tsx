@@ -55,7 +55,7 @@ const Gallery: React.FC = () => {
       </div>
 
       <p className="v2-section-intro">
-        From the booth and beyond — live shots and portraits, shipped in
+        From the booth and beyond. Live shots and portraits, shipped in
         hi-res in the press kit below.
       </p>
 
