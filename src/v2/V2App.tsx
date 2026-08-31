@@ -1,19 +1,11 @@
 /**
  * /v2 — refonte parallele du site, one-page isolee du reste de l'app :
  * montee HORS Layout (pas de nav v1, pas de PlayerProvider v1, pas de fond
- * jellyfish). Le CSS est scope .v2-root, les fonts Space Mono viennent de
- * @fontsource, Robot Radicals du @font-face global.
- *
- * Tant que /v2 est une preview : meta robots noindex posee au mount,
- * retiree au unmount (la v1 reste indexable).
+ * jellyfish). Le CSS est scope .v2-root ; la typo du site est Larsseit
+ * (woff2 auto-heberges, @font-face dans v2.css).
  */
 
 import React, { useEffect, useRef } from 'react';
-import '@fontsource/space-mono/400.css';
-import '@fontsource/space-mono/700.css';
-import '@fontsource/inter/400.css';
-import '@fontsource/inter/500.css';
-import '@fontsource/inter/600.css';
 import './v2.css';
 import { AudioPlayerProvider, useAudioPlayer } from './context/AudioPlayerContext';
 import useReveals from './hooks/useReveals';

@@ -81,7 +81,7 @@ const GenerativeBg: React.FC = () => {
     };
 
     const draw = () => {
-      ctx.fillStyle = '#0a0a0a';
+      ctx.fillStyle = '#f6f1e7';
       ctx.fillRect(0, 0, W, H);
       ctx.lineWidth = 1;
 
@@ -96,7 +96,7 @@ const GenerativeBg: React.FC = () => {
         // Plus proche du focus = plus visible
         const prox = Math.max(0, 1 - Math.abs(ln.base - focus) * 4.5);
         const alpha = 0.035 + 0.075 * (amp / 23) + 0.16 * prox * prox;
-        ctx.strokeStyle = `rgba(242, 240, 235, ${alpha.toFixed(3)})`;
+        ctx.strokeStyle = `rgba(25, 25, 25, ${(alpha * 0.75).toFixed(3)})`;
         ctx.beginPath();
         for (let x = 0; x <= W + step; x += step) {
           const y =

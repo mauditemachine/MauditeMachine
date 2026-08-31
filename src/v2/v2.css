@@ -2,38 +2,72 @@
  * /v2 — design system isole. Tout est scope sous .v2-root : le CSS global
  * du site v1 (6900 lignes) ne doit ni fuir ici ni etre pollue.
  *
- * DA : sombre pur #0A0A0A, brutal minimal. Robot Radicals (la police du
- * logo, deja en @font-face global) pour les titres, Space Mono
- * (@fontsource) pour data/credits/nav. Ease standard des hovers :
- * cubic-bezier(0.16, 1, 0.3, 1).
+ * DA (rebrand 2026-08) : fond creme #F6F1E7, texte #191919, TOUT en
+ * Larsseit (fonte licenciee de Mika, auto-hebergee en woff2 — pas de
+ * Regular droit dans sa licence : Light couvre 300-400, Medium 500-600,
+ * Bold 700+). Ease standard des hovers : cubic-bezier(0.16, 1, 0.3, 1).
  */
 
+@font-face {
+  font-family: 'Larsseit';
+  src: url('/fonts/larsseit/larsseit-light.woff2') format('woff2');
+  font-weight: 300 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Larsseit';
+  src: url('/fonts/larsseit/larsseit-medium.woff2') format('woff2');
+  font-weight: 500 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Larsseit';
+  src: url('/fonts/larsseit/larsseit-bold.woff2') format('woff2');
+  font-weight: 700 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 .v2-root {
-  --v2-bg: #0a0a0a;
-  --v2-ink: #f2f0eb;
-  --v2-dim: rgba(242, 240, 235, 0.55);
-  --v2-faint: rgba(242, 240, 235, 0.3);
-  --v2-line: rgba(255, 255, 255, 0.14);
+  --v2-bg: #f6f1e7;
+  --v2-ink: #191919;
+  --v2-dim: rgba(25, 25, 25, 0.6);
+  --v2-faint: rgba(25, 25, 25, 0.35);
+  --v2-line: rgba(25, 25, 25, 0.16);
   --v2-ease: cubic-bezier(0.16, 1, 0.3, 1);
-  --v2-mono: 'Space Mono', 'SF Mono', monospace;
-  --v2-display: 'Robot Radicals', 'SF Pro Display', sans-serif;
-  /* Texte secondaire : SF Pro natif Apple, Inter (@fontsource) ailleurs.
-     Robot Radicals est RESERVEE aux titres de section et au menu. */
-  --v2-sans: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+  /* Tout le site est en Larsseit ; --v2-mono garde son nom (donnees,
+     labels) mais pointe aussi Larsseit, en Medium pour les petits corps.
+     tabular-nums est pose la ou les chiffres doivent s'aligner (player). */
+  --v2-mono: 'Larsseit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --v2-display: 'Larsseit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --v2-sans: 'Larsseit', -apple-system, BlinkMacSystemFont, sans-serif;
 
   background: var(--v2-bg);
   color: var(--v2-ink);
-  font-family: var(--v2-mono);
-  font-size: 14px;
+  font-family: var(--v2-sans);
+  font-weight: 400;
+  font-size: 14.5px;
   line-height: 1.6;
   min-height: 100vh;
   overflow-x: clip;
 }
 
-/* Le body v1 impose un padding 11px !important en mobile : neutralise sur /v2 */
+/* Le body v1 impose un padding 11px !important en mobile : neutralise sur
+   les pages v2. Le html reste noir dans le CSS v1 : on l'ecrase aussi pour
+   que l'overscroll (Safari) soit creme, pas noir. */
 body.v2-active {
   padding: 0 !important;
-  background: #0a0a0a !important;
+  background: #f6f1e7 !important;
+}
+
+/* !important : le CSS v1 pose html { background:#000 !important } dans son
+   bloc mobile ; a importance egale, la specificite de :has() l'emporte. */
+html:has(body.v2-active) {
+  background: #f6f1e7 !important;
 }
 
 .v2-root a {
@@ -55,14 +89,12 @@ body.v2-active {
 
 /* ---------- Typo utilitaires ---------- */
 
-/* Robot Radicals a des glyphes tres serres qui se touchent (ex. X/T de
-   MIXTAPES) : tracking fixe 5px sur tous ses usages, 3px sous 768px.
-   Le logo hero n'est pas concerne (SVG, espacement fige dans le trace). */
+/* Titres display : Larsseit Bold uppercase, tracking legerement serre */
 .v2-display {
   font-family: var(--v2-display);
-  font-weight: 400;
+  font-weight: 700;
   line-height: 0.95;
-  letter-spacing: 5px;
+  letter-spacing: -0.01em;
   text-transform: uppercase;
 }
 
@@ -153,12 +185,11 @@ body.v2-active {
   text-transform: uppercase;
   padding: 10px 16px;
   cursor: pointer;
-  mix-blend-mode: difference;
   transition: border-color 0.3s var(--v2-ease);
 }
 
 .v2-burger:hover {
-  border-color: rgba(255, 255, 255, 0.7);
+  border-color: rgba(25, 25, 25, 0.55);
 }
 
 .v2-menu {
@@ -182,9 +213,10 @@ body.v2-active {
 
 .v2-menu-link {
   font-family: var(--v2-display);
+  font-weight: 700;
   font-size: clamp(34px, 7vw, 84px);
-  line-height: 1.12;
-  letter-spacing: 5px;
+  line-height: 1.08;
+  letter-spacing: -0.01em;
   text-transform: uppercase;
   color: var(--v2-ink);
   width: fit-content;
@@ -269,7 +301,7 @@ body.v2-active {
 .v2-hero-fallback {
   position: absolute;
   inset: 0;
-  background: radial-gradient(120% 90% at 28% 78%, #12121a 0%, #0a0a0a 62%);
+  background: radial-gradient(120% 90% at 28% 78%, #ede6d8 0%, #f6f1e7 62%);
   -webkit-mask-image: linear-gradient(180deg, #000 76%, transparent 100%);
   mask-image: linear-gradient(180deg, #000 76%, transparent 100%);
 }
@@ -285,7 +317,8 @@ body.v2-active {
   position: fixed;
   inset: 0;
   z-index: 10001;
-  background: #0a0a0a;
+  /* Rideau encre qui se leve sur le creme : contraste d'entree */
+  background: #191919;
   pointer-events: none;
   animation: v2-curtain-up 0.65s var(--v2-ease) 0.12s forwards;
 }
@@ -305,7 +338,10 @@ body.v2-active {
 .v2-hero-logo {
   width: min(680px, 82vw);
   height: auto;
-  mix-blend-mode: difference;
+  /* SVG blanc rendu encre : le blend difference ne traverse plus le
+     stacking context du canvas masque, on teinte directement. */
+  filter: brightness(0);
+  opacity: 0.92;
   display: block;
 }
 
@@ -399,10 +435,11 @@ body.v2-active {
    blancs de Robot Radicals la recouvrent). */
 .v2-section-title {
   font-family: var(--v2-display);
+  font-weight: 700;
   font-size: clamp(44px, 8vw, 96px);
   text-transform: uppercase;
-  letter-spacing: 5px;
-  line-height: 0.92;
+  letter-spacing: -0.015em;
+  line-height: 0.94;
   margin: 0;
 }
 
@@ -421,15 +458,6 @@ body.v2-active {
   letter-spacing: 0.2em;
   color: var(--v2-dim);
   margin-bottom: 14px;
-}
-
-/* Titres plus petits en mobile : tracking reduit proportionnellement */
-@media (max-width: 767px) {
-  .v2-display,
-  .v2-menu-link,
-  .v2-section-title {
-    letter-spacing: 3px;
-  }
 }
 
 /* ---------- Matrice discographie ---------- */
@@ -456,7 +484,7 @@ body.v2-active {
 
 .v2-filter:hover {
   color: var(--v2-ink);
-  border-color: rgba(255, 255, 255, 0.4);
+  border-color: rgba(25, 25, 25, 0.4);
 }
 
 .v2-filter.is-active {
@@ -480,11 +508,11 @@ body.v2-active {
 }
 
 .v2-matrix-row:not(.v2-matrix-head):hover {
-  background: rgba(255, 255, 255, 0.045);
+  background: rgba(25, 25, 25, 0.05);
 }
 
 .v2-matrix-row.is-playing {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(25, 25, 25, 0.08);
 }
 
 .v2-matrix-head {
@@ -593,17 +621,17 @@ body.v2-active {
 }
 
 .v2-player {
-  background: rgba(13, 13, 13, 0.82);
+  background: rgba(246, 241, 231, 0.88);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  border-top: 1px solid rgba(25, 25, 25, 0.22);
   animation: v2-player-in 0.45s var(--v2-ease);
 }
 
 .v2-player-progress {
   position: relative;
   height: 5px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(25, 25, 25, 0.12);
   cursor: pointer;
   transition: height 0.2s var(--v2-ease);
 }
@@ -635,8 +663,8 @@ body.v2-active {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
+  background: #191919;
+  box-shadow: 0 0 8px rgba(25, 25, 25, 0.55);
 }
 
 /* VU-metre minimal : 4 barres qui respirent pendant la lecture, gelees
@@ -794,7 +822,7 @@ body.v2-active {
 }
 
 .v2-mix-row:hover {
-  background: rgba(255, 255, 255, 0.045);
+  background: rgba(25, 25, 25, 0.05);
 }
 
 .v2-mix-art {
@@ -877,7 +905,7 @@ body.v2-active {
 }
 
 .v2-gig-row:hover {
-  background: rgba(255, 255, 255, 0.045);
+  background: rgba(25, 25, 25, 0.05);
 }
 
 .v2-gig-date {
@@ -976,8 +1004,8 @@ body.v2-active {
 }
 
 .v2-download:hover {
-  background: rgba(255, 255, 255, 0.05);
-  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(25, 25, 25, 0.05);
+  border-color: rgba(25, 25, 25, 0.4);
 }
 
 /* Dans la sidebar EPK, les deux contacts s'empilent.
@@ -1063,7 +1091,7 @@ body.v2-active {
   font-size: 10px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--v2-ink);
+  color: #f6f1e7;
   background: linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.72));
   opacity: 0;
   transform: translateY(6px);
@@ -1148,7 +1176,7 @@ body.v2-active {
   font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--v2-ink);
+  color: #f6f1e7;
   background: rgba(5, 5, 5, 0.72);
   border: 1px solid var(--v2-line);
   padding: 9px 16px;
@@ -1317,7 +1345,7 @@ body.v2-active {
 
 .v2-radar-search:focus {
   outline: none;
-  border-color: rgba(255, 255, 255, 0.5);
+  border-color: rgba(25, 25, 25, 0.5);
 }
 
 .v2-radar-dirpanel {
@@ -1356,7 +1384,7 @@ body.v2-active {
 
 .v2-chip:hover {
   color: var(--v2-ink);
-  border-color: rgba(255, 255, 255, 0.45);
+  border-color: rgba(25, 25, 25, 0.45);
 }
 
 .v2-radar-explorer {
@@ -1400,17 +1428,17 @@ body.v2-active {
 
 .v2-radar-xitem {
   grid-template-columns: 44px minmax(0, 1fr) 54px 92px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid rgba(25, 25, 25, 0.08);
 }
 
 .v2-radar-row:hover,
 .v2-radar-xitem:hover {
-  background: rgba(255, 255, 255, 0.045);
+  background: rgba(25, 25, 25, 0.05);
 }
 
 .v2-radar-row.is-playing,
 .v2-radar-xitem.is-playing {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(25, 25, 25, 0.08);
 }
 
 .v2-radar-cover {
@@ -1461,7 +1489,7 @@ button.v2-radar-artist {
 }
 
 button.v2-radar-artist:hover {
-  border-bottom-color: rgba(255, 255, 255, 0.5);
+  border-bottom-color: rgba(25, 25, 25, 0.5);
 }
 
 .v2-radar-title {
@@ -1475,7 +1503,7 @@ button.v2-radar-artist:hover {
 }
 
 .v2-radar-noprev {
-  color: rgba(255, 160, 120, 0.8);
+  color: #a3492a;
 }
 
 .v2-radar-label {
@@ -1732,4 +1760,35 @@ button.v2-radar-artist:hover {
 /* Etat initial des reveals GSAP : sans JS ou reduced-motion, tout visible */
 .v2-reveal {
   opacity: 1;
+}
+
+/* ---------- Larsseit : ajustements de graisse ----------
+   Pas de Regular droit dans la licence : le corps tombe en Light (300-400),
+   parfait au-dela de 14px mais trop fin pour les micro-corps utilitaires,
+   qui passent en Medium. tabular-nums aligne les chiffres qui defilent. */
+.v2-label,
+.v2-cta,
+.v2-filter,
+.v2-chip,
+.v2-burger,
+.v2-showall,
+.v2-matrix-title,
+.v2-mix-title,
+.v2-radar-title,
+.v2-gig-date,
+.v2-gallery-cap,
+.v2-merch-soldout,
+.v2-merch-price,
+.v2-menu-socials a,
+.v2-footer-links a {
+  font-weight: 500;
+}
+
+.v2-player-time,
+.v2-player-count,
+.v2-gig-date,
+.v2-mix-duration,
+.v2-radar-date,
+.v2-lightbox-count {
+  font-variant-numeric: tabular-nums;
 }

@@ -30,8 +30,10 @@ Le rapport se committe avec le reste du travail de la session.
   secret ne doit JAMAIS etre un VITE_*.
 - Projet sur iCloud Drive : builds lents, git log parfois tres lent,
   serveurs Node locaux capricieux.
-- La video de fond est limitee a la home ; hors home fond noir uni
-  (html/body #000, .page::after noir). Ne pas reintroduire de fond colore.
+- V1 ARCHIVEE UNIQUEMENT (/v1) : video limitee a sa home, fond noir uni
+  (html/body #000, .page::after noir). Le SITE PRINCIPAL (v2) est en
+  fond creme #F6F1E7 / texte #191919 / typo Larsseit depuis 2026-08 :
+  ne pas le "corriger" en noir, c'est la DA voulue.
 - iOS Safari : l'attribut muted doit etre pose en VRAI attribut DOM
   (ref callback), React ne le rend pas.
 
