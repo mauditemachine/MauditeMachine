@@ -1792,3 +1792,62 @@ button.v2-radar-artist:hover {
 .v2-lightbox-count {
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------- Bloc About (home, entre hero et Music) ---------- */
+
+.v2-intro {
+  padding: 4vh 5vw 10vh;
+}
+
+.v2-intro-lead {
+  font-family: var(--v2-sans);
+  font-weight: 300;
+  font-size: clamp(23px, 3.4vw, 40px);
+  line-height: 1.32;
+  letter-spacing: -0.01em;
+  max-width: 26ch;
+  margin: 0 0 40px;
+}
+
+.v2-intro-cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 44px;
+  max-width: 1060px;
+}
+
+.v2-intro-cols p {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.75;
+  color: rgba(25, 25, 25, 0.78);
+}
+
+.v2-intro a {
+  font-weight: 500;
+  color: var(--v2-ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  transition: opacity 0.25s var(--v2-ease);
+}
+
+.v2-intro a:hover {
+  opacity: 0.65;
+}
+
+@media (max-width: 767px) {
+  .v2-intro-cols {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+}
+
+/* Intro editoriale d'une ligne sous les tetes de section */
+.v2-section-intro {
+  max-width: 58ch;
+  margin: -32px 0 44px;
+  font-size: 15px;
+  line-height: 1.7;
+  color: rgba(25, 25, 25, 0.72);
+}

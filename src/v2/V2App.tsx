@@ -13,6 +13,7 @@ import useV2Chrome from './hooks/useV2Chrome';
 import Cursor from './components/Cursor';
 import Nav from './components/Nav';
 import Hero from './components/Hero';
+import Intro from './components/Intro';
 import Discography from './components/Discography';
 import Mixtapes from './components/Mixtapes';
 import StickyPlayer from './components/StickyPlayer';
@@ -67,6 +68,7 @@ const V2Shell: React.FC = () => {
       <Cursor />
       <Nav />
       <Hero />
+      <Intro />
 
       <Discography />
       <Mixtapes />

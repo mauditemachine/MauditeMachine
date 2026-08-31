@@ -54,6 +54,11 @@ const Gallery: React.FC = () => {
         <span className="v2-label">{PHOTOS.length} photos</span>
       </div>
 
+      <p className="v2-section-intro">
+        From the booth and beyond — live shots and portraits, shipped in
+        hi-res in the press kit below.
+      </p>
+
       <div className="v2-gallery">
         {PHOTOS.map((p, i) => (
           <button

@@ -106,6 +106,11 @@ const Merch: React.FC = () => {
         </span>
       </div>
 
+      <p className="v2-section-intro">
+        Small runs, printed in Montréal, ordered by email — sizes and colors
+        below, first come first served.
+      </p>
+
       {items === null && <p className="v2-label">Loading…</p>}
 
       <div className="v2-merch">

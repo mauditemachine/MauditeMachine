@@ -41,6 +41,11 @@ const Mixtapes: React.FC = () => {
         </a>
       </div>
 
+      <p className="v2-section-intro">
+        Long-form sets recorded through the years — deep, patient selections
+        that go where a club night goes, two hours at a time.
+      </p>
+
       <div className="v2-mixes" role="list">
         {visible.map((m, i) => {
           const isExpanded = showAll && !m.featured;
