@@ -1793,27 +1793,73 @@ button.v2-radar-artist:hover {
   font-variant-numeric: tabular-nums;
 }
 
-/* ---------- Bloc About (home, entre hero et Music) ---------- */
+/* ---------- Bloc About (home, entre hero et Music) ----------
+   Grille editoriale asymetrique : colonne laterale mono (label +
+   affiliations), lead tres grand en graisses melees, paragraphes
+   decales. Memes couleurs que le reste, seule la composition porte. */
 
 .v2-intro {
-  padding: 4vh 5vw 10vh;
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 24px 56px;
+  padding: 5vh 5vw 12vh;
 }
 
+.v2-intro-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-top: 10px;
+}
+
+.v2-intro-affil {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.v2-intro-affil a {
+  font-family: var(--v2-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--v2-ink);
+  width: fit-content;
+  background: linear-gradient(currentColor, currentColor) left bottom / 0% 1px no-repeat;
+  padding-bottom: 2px;
+  transition: background-size 0.35s var(--v2-ease);
+}
+
+.v2-intro-affil a:hover {
+  background-size: 100% 1px;
+}
+
+.v2-intro-main {
+  min-width: 0;
+}
+
+/* Lead en tres grand, Light avec les mots-cles en Bold */
 .v2-intro-lead {
   font-family: var(--v2-sans);
   font-weight: 300;
-  font-size: clamp(23px, 3.4vw, 40px);
-  line-height: 1.32;
-  letter-spacing: -0.01em;
-  max-width: 26ch;
-  margin: 0 0 40px;
+  font-size: clamp(27px, 4.4vw, 54px);
+  line-height: 1.16;
+  letter-spacing: -0.015em;
+  max-width: 21ch;
+  margin: 0;
+}
+
+.v2-intro-lead strong {
+  font-weight: 700;
 }
 
 .v2-intro-cols {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 44px;
-  max-width: 1060px;
+  gap: 56px;
+  max-width: 900px;
+  margin-top: 54px;
 }
 
 .v2-intro-cols p {
@@ -1823,23 +1869,33 @@ button.v2-radar-artist:hover {
   color: rgba(25, 25, 25, 0.78);
 }
 
-.v2-intro a {
-  font-weight: 500;
-  color: var(--v2-ink);
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 4px;
-  transition: opacity 0.25s var(--v2-ease);
+/* Le second paragraphe demarre plus bas : rythme de page magazine */
+.v2-intro-offset {
+  padding-top: 56px;
 }
 
-.v2-intro a:hover {
-  opacity: 0.65;
-}
-
-@media (max-width: 767px) {
+@media (max-width: 900px) {
+  .v2-intro {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 26px;
+  }
+  .v2-intro-aside {
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-top: 0;
+  }
+  .v2-intro-affil {
+    flex-direction: row;
+    gap: 18px;
+  }
   .v2-intro-cols {
     grid-template-columns: minmax(0, 1fr);
     gap: 22px;
+    margin-top: 34px;
+  }
+  .v2-intro-offset {
+    padding-top: 0;
   }
 }
 
