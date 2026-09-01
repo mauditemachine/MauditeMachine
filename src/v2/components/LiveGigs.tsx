@@ -1,9 +1,16 @@
 /**
- * Live & gigs /v2 : dates via l'API publique Bandsintown (app_id public,
- * aucun secret), cache localStorage 24 h. Pas encore de profil artiste :
- * fallback elegant "Next dates coming soon" + CTA booking. Des que le
- * profil Bandsintown existera, les vraies dates apparaitront toutes
- * seules, sans redeploiement.
+ * Live & gigs /v2 : DEUX sources fusionnees, triees par date :
+ *
+ * - public/events.json (dates a venir) : la source editee dans l'admin
+ *   local (onglet Evenements & boutique) — un ajout dans l'admin apparait
+ *   ici ET sur l'archive v1, puis migre au Wall of Fame une fois passe.
+ * - l'API publique Bandsintown (app_id public, aucun secret, cache
+ *   localStorage 24 h) : vide tant que le profil artiste n'existe pas,
+ *   bascule automatique des qu'il aura des dates.
+ *
+ * Le fallback "Next dates coming soon" ne s'affiche que si les deux
+ * sources sont vides. CTA par origine : Tickets (Bandsintown, billets)
+ * vs Details (event local, lien Facebook/infos).
  */
 
 import React, { useEffect, useState } from 'react';
@@ -23,7 +30,24 @@ interface BitEvent {
   offers?: { type?: string; url?: string }[];
 }
 
-type State = { status: 'loading' | 'ready' | 'empty'; events: BitEvent[] };
+/** Ligne normalisee, quelle que soit la source. */
+interface GigRow {
+  id: string;
+  dateISO: string;
+  name: string;
+  place: string;
+  url?: string;
+  cta: 'Tickets' | 'Details';
+}
+
+interface LocalEvent {
+  date: string;
+  title: string;
+  url?: string;
+  location?: string;
+}
+
+type State = { status: 'loading' | 'ready' | 'empty'; rows: GigRow[] };
 
 const readCache = (): BitEvent[] | null => {
   try {
@@ -46,44 +70,80 @@ const writeCache = (events: BitEvent[]) => {
 };
 
 const fmtDate = (iso: string) => {
-  const d = new Date(iso);
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00`);
   if (Number.isNaN(d.getTime())) return iso;
   return d
     .toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     .toUpperCase();
 };
 
+const bitToRow = (ev: BitEvent): GigRow => ({
+  id: `bit-${ev.id || ev.datetime}`,
+  dateISO: ev.datetime,
+  name: ev.venue?.name || 'TBA',
+  place: [ev.venue?.city, ev.venue?.country].filter(Boolean).join(', '),
+  url: ev.offers?.find((o) => o.url)?.url || ev.url,
+  cta: 'Tickets',
+});
+
+const localToRow = (ev: LocalEvent): GigRow => ({
+  id: `local-${ev.date}-${ev.title}`,
+  dateISO: ev.date,
+  name: ev.title,
+  place: ev.location || '',
+  url: ev.url,
+  cta: 'Details',
+});
+
+/** Fusion des deux sources : tri par date, dedup par jour + nom proche. */
+const merge = (locals: GigRow[], bit: GigRow[]): GigRow[] => {
+  const seen = new Set(locals.map((r) => r.dateISO.slice(0, 10)));
+  const rows = [...locals, ...bit.filter((r) => !seen.has(r.dateISO.slice(0, 10)))];
+  return rows.sort((a, b) => a.dateISO.localeCompare(b.dateISO));
+};
+
+const fetchLocalEvents = async (): Promise<GigRow[]> => {
+  try {
+    const res = await fetch('/events.json');
+    const data = await res.json();
+    const list: LocalEvent[] = Array.isArray(data) ? data : data.events || [];
+    const today = new Date().toISOString().slice(0, 10);
+    return list.filter((e) => String(e.date || '') >= today).map(localToRow);
+  } catch {
+    return [];
+  }
+};
+
+const fetchBitEvents = async (): Promise<GigRow[]> => {
+  const cached = readCache();
+  if (cached) return cached.map(bitToRow);
+  const res = await fetch(
+    `https://rest.bandsintown.com/artists/${encodeURIComponent(ARTIST)}/events?app_id=${encodeURIComponent(APP_ID)}`
+  );
+  if (!res.ok) throw new Error(String(res.status));
+  const data = await res.json();
+  // Artiste inconnu : Bandsintown renvoie un objet erreur, pas un tableau
+  const events = Array.isArray(data) ? (data as BitEvent[]) : [];
+  writeCache(events);
+  return events.map(bitToRow);
+};
+
 const LiveGigs: React.FC = () => {
-  const [state, setState] = useState<State>(() => {
-    const cached = readCache();
-    if (cached) return { status: cached.length ? 'ready' : 'empty', events: cached };
-    return { status: 'loading', events: [] };
-  });
+  const [state, setState] = useState<State>({ status: 'loading', rows: [] });
 
   useEffect(() => {
-    if (state.status !== 'loading') return;
     let alive = true;
-    fetch(
-      `https://rest.bandsintown.com/artists/${encodeURIComponent(ARTIST)}/events?app_id=${encodeURIComponent(APP_ID)}`
-    )
-      .then(async (res) => {
-        if (!res.ok) throw new Error(String(res.status));
-        const data = await res.json();
-        // Artiste inconnu : Bandsintown renvoie un objet erreur, pas un tableau
-        return Array.isArray(data) ? (data as BitEvent[]) : [];
-      })
-      .then((events) => {
+    Promise.all([fetchLocalEvents(), fetchBitEvents().catch(() => [] as GigRow[])]).then(
+      ([locals, bit]) => {
         if (!alive) return;
-        writeCache(events);
-        setState({ status: events.length ? 'ready' : 'empty', events });
-      })
-      .catch(() => {
-        if (alive) setState({ status: 'empty', events: [] });
-      });
+        const rows = merge(locals, bit);
+        setState({ status: rows.length ? 'ready' : 'empty', rows });
+      }
+    );
     return () => {
       alive = false;
     };
-  }, [state.status]);
+  }, []);
 
   return (
     <section className="v2-section" id="live">
@@ -94,31 +154,27 @@ const LiveGigs: React.FC = () => {
 
       {state.status === 'ready' ? (
         <div className="v2-gigs" role="list">
-          {state.events.map((ev) => {
-            const ticket = ev.offers?.find((o) => o.url)?.url || ev.url;
-            const place = [ev.venue?.city, ev.venue?.country].filter(Boolean).join(', ');
-            return (
-              <div key={ev.id || ev.datetime} className="v2-gig-row" role="listitem">
-                <span className="v2-gig-date">{fmtDate(ev.datetime)}</span>
-                <span className="v2-gig-venue">{ev.venue?.name || 'TBA'}</span>
-                <span className="v2-label v2-gig-city">{place}</span>
-                {ticket ? (
-                  <a
-                    className="v2-cta v2-gig-cta"
-                    href={ticket}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Tickets
-                  </a>
-                ) : (
-                  <span className="v2-label">TBA</span>
-                )}
-              </div>
-            );
-          })}
+          {state.rows.map((row) => (
+            <div key={row.id} className="v2-gig-row" role="listitem">
+              <span className="v2-gig-date">{fmtDate(row.dateISO)}</span>
+              <span className="v2-gig-venue">{row.name}</span>
+              <span className="v2-label v2-gig-city">{row.place}</span>
+              {row.url ? (
+                <a
+                  className="v2-cta v2-gig-cta"
+                  href={row.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {row.cta}
+                </a>
+              ) : (
+                <span className="v2-label">TBA</span>
+              )}
+            </div>
+          ))}
         </div>
-      ) : (
+      ) : state.status === 'empty' ? (
         <div className="v2-gigs-empty">
           <p className="v2-gigs-empty-line v2-subtitle">Next dates coming soon</p>
           <p className="v2-label">
@@ -129,6 +185,8 @@ const LiveGigs: React.FC = () => {
             Book Maudite Machine
           </a>
         </div>
+      ) : (
+        <p className="v2-label">Loading…</p>
       )}
     </section>
   );
