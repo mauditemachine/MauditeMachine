@@ -3593,6 +3593,128 @@
         "status": "disabled",
         "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
       }
+    },
+    {
+      "generatedAt": "2026-09-02T10:08:41.714Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "ok",
+        "subscribers": 85,
+        "totalViews": 9081,
+        "videoCount": 40,
+        "videos": [
+          {
+            "id": "vzocog-D5Ts",
+            "title": "DJ fails FPV drone catch mid-set",
+            "publishedAt": "2026-08-05T02:55:09Z",
+            "thumbnail": "https://i.ytimg.com/vi/vzocog-D5Ts/mqdefault.jpg",
+            "views": 1240,
+            "likes": 5,
+            "comments": 0
+          },
+          {
+            "id": "4bmpR6F6FPc",
+            "title": "Mixtape 39 | Maudite Machine @ Groove & Bass 2026 (Groove Town stage)",
+            "publishedAt": "2026-08-05T02:53:19Z",
+            "thumbnail": "https://i.ytimg.com/vi/4bmpR6F6FPc/mqdefault.jpg",
+            "views": 27,
+            "likes": 0,
+            "comments": 0
+          },
+          {
+            "id": "xqEB33LxqEo",
+            "title": "Okami DjNee",
+            "publishedAt": "2026-06-15T09:31:22Z",
+            "thumbnail": "https://i.ytimg.com/vi/xqEB33LxqEo/mqdefault.jpg",
+            "views": 100,
+            "likes": 2,
+            "comments": 1
+          },
+          {
+            "id": "YMDnAc1Hptc",
+            "title": "Maudite Machine - Voodoo (Original Mix)",
+            "publishedAt": "2026-02-12T11:37:50Z",
+            "thumbnail": "https://i.ytimg.com/vi/YMDnAc1Hptc/mqdefault.jpg",
+            "views": 47,
+            "likes": 2,
+            "comments": 0
+          },
+          {
+            "id": "Zy2xK4BaSck",
+            "title": "Maudite Machine - Back On Track (Luminarium Mix)",
+            "publishedAt": "2025-03-07T01:06:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/Zy2xK4BaSck/mqdefault.jpg",
+            "views": 297,
+            "likes": 13,
+            "comments": 2
+          },
+          {
+            "id": "9Dlmcd9oKHQ",
+            "title": "Maudite Machine - Nocturne (Original Mix)",
+            "publishedAt": "2025-02-13T19:14:23Z",
+            "thumbnail": "https://i.ytimg.com/vi/9Dlmcd9oKHQ/mqdefault.jpg",
+            "views": 326,
+            "likes": 22,
+            "comments": 2
+          },
+          {
+            "id": "CBe-InjbcoQ",
+            "title": "Maudite Machine - Coagule (Original Mix)",
+            "publishedAt": "2025-02-05T14:41:40Z",
+            "thumbnail": "https://i.ytimg.com/vi/CBe-InjbcoQ/mqdefault.jpg",
+            "views": 150,
+            "likes": 6,
+            "comments": 5
+          },
+          {
+            "id": "jmZjJhor8U0",
+            "title": "Maudite Machine - Richie (Original Mix)",
+            "publishedAt": "2025-01-11T20:39:06Z",
+            "thumbnail": "https://i.ytimg.com/vi/jmZjJhor8U0/mqdefault.jpg",
+            "views": 111,
+            "likes": 8,
+            "comments": 0
+          },
+          {
+            "id": "f8b801OX66A",
+            "title": "Maudite Machine - Crush on you (Original Mix)",
+            "publishedAt": "2024-12-28T17:18:21Z",
+            "thumbnail": "https://i.ytimg.com/vi/f8b801OX66A/mqdefault.jpg",
+            "views": 803,
+            "likes": 23,
+            "comments": 0
+          },
+          {
+            "id": "EcvU0r_K25o",
+            "title": "Maudite Machine - Tati Cardi (Original Mix)",
+            "publishedAt": "2024-12-28T17:10:14Z",
+            "thumbnail": "https://i.ytimg.com/vi/EcvU0r_K25o/mqdefault.jpg",
+            "views": 487,
+            "likes": 21,
+            "comments": 0
+          }
+        ]
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      }
     }
   ],
   "manual": {}
