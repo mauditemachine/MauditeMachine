@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { BOOKING_CONTACTS } from '../data/contacts';
+import SocialLinks from './SocialLinks';
 
 const Footer: React.FC = () => (
   <footer className="v2-section" id="contact">
@@ -23,6 +24,12 @@ const Footer: React.FC = () => (
           </a>
         </div>
       ))}
+    </div>
+
+    {/* Tous les reseaux : la liste canonique complete (14 liens) */}
+    <div className="v2-follow">
+      <span className="v2-label">Follow</span>
+      <SocialLinks />
     </div>
 
     <div className="v2-footer-bottom">

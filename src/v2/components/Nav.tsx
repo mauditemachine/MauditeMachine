@@ -7,6 +7,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import SocialLinks from './SocialLinks';
 
 type Entry = { label: string; href?: string; to?: string };
 
@@ -22,14 +23,6 @@ const ENTRIES: Entry[] = [
   { href: '#contact', label: 'Contact' },
 ];
 
-const SOCIALS = [
-  { label: 'SoundCloud', href: 'https://www.soundcloud.com/mauditemachine/' },
-  { label: 'Instagram', href: 'https://www.instagram.com/mauditemachine/' },
-  { label: 'Bandcamp', href: 'https://mauditemachine.bandcamp.com/' },
-  { label: 'Spotify', href: 'https://open.spotify.com/artist/2FHPGWPEBQbCsgkLP9uuI4' },
-  { label: 'Beatport', href: 'https://www.beatport.com/artist/maudite-machine/1158916' },
-  { label: 'YouTube', href: 'https://www.youtube.com/@mauditemachine-official' },
-];
 
 const Nav: React.FC = () => {
   const [open, setOpen] = useState(false);
@@ -105,13 +98,7 @@ const Nav: React.FC = () => {
           )
         )}
 
-        <div className="v2-menu-socials">
-          {SOCIALS.map((s) => (
-            <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer">
-              {s.label}
-            </a>
-          ))}
-        </div>
+        <SocialLinks className="v2-menu-socialicons" />
       </nav>
     </>
   );
