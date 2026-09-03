@@ -47,7 +47,7 @@ const V2Shell: React.FC = () => {
   useReveals(rootRef);
   // Chrome commun /v2 (body class, noindex, description, titre),
   // restaure au unmount — partage avec /v2/radar
-  useV2Chrome('Maudite Machine | DJ & Producer · Indie Dance, Dark Disco');
+  useV2Chrome('Maudite Machine | DJ Montréal · Indie Dance, Dark Disco, Techno');
 
   // Arrivee avec une ancre (redirections /about -> /#epk, liens partages) :
   // le contenu monte apres le paint initial, le jump natif rate sa cible.

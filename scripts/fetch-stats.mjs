@@ -286,6 +286,84 @@ async function fetchSoundCloud() {
 }
 
 /* ---------------- Assemblage ---------------- */
+/* ---------------- Google Analytics 4 (Data API, OAuth) ----------------
+ * Qui visite le site : villes (focus Montreal/Quebec/Canada), pays,
+ * age, genre, canaux d'acquisition. Reutilise les identifiants OAuth
+ * Google de YouTube Analytics (meme compte) : il suffit d'ajouter la
+ * portee analytics.readonly et GA4_PROPERTY_ID.
+ * Rappel : l'age et le genre n'apparaissent que si les signaux Google
+ * sont actives ET au-dessus du seuil de confidentialite (trafic faible
+ * => Google masque ces lignes, c'est normal, pas un bug).
+ */
+async function fetchGA4() {
+  const propertyId = env('GA4_PROPERTY_ID');
+  const clientId = env('YT_OAUTH_CLIENT_ID');
+  const clientSecret = env('YT_OAUTH_CLIENT_SECRET');
+  const refreshToken = env('GA4_REFRESH_TOKEN') || env('YT_REFRESH_TOKEN');
+  if (!propertyId || !clientId || !clientSecret || !refreshToken) {
+    return unavailable('GA4 non configure (GA4_PROPERTY_ID + OAuth Google)');
+  }
+
+  const tok = await getJson('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    }),
+  });
+  const auth = { Authorization: `Bearer ${tok.access_token}`, 'Content-Type': 'application/json' };
+  const url = `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`;
+  const range = [{ startDate: '90daysAgo', endDate: 'today' }];
+
+  const report = (dimensions, metrics, limit = 15) =>
+    getJson(url, {
+      method: 'POST',
+      headers: auth,
+      body: JSON.stringify({
+        dateRanges: range,
+        dimensions: dimensions.map((name) => ({ name })),
+        metrics: metrics.map((name) => ({ name })),
+        limit,
+      }),
+    });
+
+  // Les rapports demographiques echouent si les signaux sont off :
+  // chacun est isole pour ne pas faire tomber tout le collecteur.
+  const soft = async (fn) => { try { return await fn(); } catch { return null; } };
+  const rows = (r) => (r?.rows || []).map((x) => ({
+    key: x.dimensionValues.map((d) => d.value).join(' · '),
+    value: Number(x.metricValues[0].value),
+  }));
+
+  const [totals, cities, countries, channels, age, gender, pages] = await Promise.all([
+    report([], ['activeUsers', 'sessions', 'screenPageViews'], 1),
+    report(['city'], ['activeUsers'], 15),
+    report(['country'], ['activeUsers'], 10),
+    report(['sessionDefaultChannelGroup'], ['sessions'], 10),
+    soft(() => report(['userAgeBracket'], ['activeUsers'], 10)),
+    soft(() => report(['userGender'], ['activeUsers'], 5)),
+    report(['pagePath'], ['screenPageViews'], 10),
+  ]);
+
+  const t = totals?.rows?.[0]?.metricValues || [];
+  return {
+    status: 'ok',
+    windowDays: 90,
+    users: Number(t[0]?.value || 0),
+    sessions: Number(t[1]?.value || 0),
+    pageViews: Number(t[2]?.value || 0),
+    cities: rows(cities),
+    countries: rows(countries),
+    channels: rows(channels),
+    age: age ? rows(age) : null,
+    gender: gender ? rows(gender) : null,
+    topPages: rows(pages),
+  };
+}
+
 async function main() {
   const run = async (name, fn) => {
     try {
@@ -298,13 +376,14 @@ async function main() {
     }
   };
 
-  const [youtube, youtubeGeo, spotify, instagram, facebook, soundcloud] = await Promise.all([
+  const [youtube, youtubeGeo, spotify, instagram, facebook, soundcloud, ga4] = await Promise.all([
     run('youtube', fetchYouTube),
     run('youtube-geo', fetchYouTubeGeo),
     run('spotify', fetchSpotify),
     run('instagram', fetchInstagram),
     run('facebook', fetchFacebook),
     run('soundcloud', fetchSoundCloud),
+    run('ga4', fetchGA4),
   ]);
 
   const snapshot = {
@@ -316,6 +395,7 @@ async function main() {
     instagram,
     facebook,
     soundcloud,
+    ga4,
   };
 
   let current = { snapshots: [], manual: {} };
@@ -328,10 +408,10 @@ async function main() {
   await fs.mkdir(path.dirname(PUBLIC_FILE), { recursive: true });
   await fs.writeFile(PUBLIC_FILE, JSON.stringify(current, null, 2) + '\n');
 
-  const okCount = [youtube, youtubeGeo, spotify, instagram, facebook, soundcloud].filter(
+  const okCount = [youtube, youtubeGeo, spotify, instagram, facebook, soundcloud, ga4].filter(
     (s) => s.status === 'ok',
   ).length;
-  console.log(`\nSnapshot ajoute (${okCount}/6 sources ok) -> public/data/stats-public.json (${current.snapshots.length} snapshots)`);
+  console.log(`\nSnapshot ajoute (${okCount}/7 sources ok) -> public/data/stats-public.json (${current.snapshots.length} snapshots)`);
 }
 
 main().catch((err) => {
