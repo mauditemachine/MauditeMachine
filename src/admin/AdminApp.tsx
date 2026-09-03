@@ -16,19 +16,21 @@ import AdminGate from '../components/ui/AdminGate';
 import DashboardPage from './pages/DashboardPage';
 const DiscographyPage = React.lazy(() => import('./pages/DiscographyPage'));
 const MixtapesPage = React.lazy(() => import('./pages/MixtapesPage'));
+const SeoPage = React.lazy(() => import('./pages/SeoPage'));
 
 const AdminEvents = React.lazy(() => import('../components/AdminEvents'));
 
 const EDIT_LINKS = [
   { to: '/mm-admin', label: 'Tableau de bord', end: true },
+  { to: '/mm-admin/contenu', label: 'Événements & boutique' },
   { to: '/mm-admin/discographie', label: 'Discographie' },
   { to: '/mm-admin/mixtapes', label: 'Mixtapes' },
-  { to: '/mm-admin/medias', label: 'Médias', soon: 'étape 4' },
-  { to: '/mm-admin/textes', label: 'Textes', soon: 'étape 4' },
-  { to: '/mm-admin/contenu', label: 'Événements & boutique' },
+  { to: '/mm-admin/medias', label: 'Médias', soon: 'bientôt' },
+  { to: '/mm-admin/textes', label: 'Textes', soon: 'bientôt' },
 ];
 
 const TOOL_LINKS = [
+  { to: '/mm-admin/seo', label: 'Visibilité Google' },
   { to: '/mm-admin/stats', label: 'Stats' },
   { to: '/mm-admin/radar', label: 'Radar' },
 ];
@@ -110,7 +112,7 @@ const AdminApp: React.FC = () => {
           className={({ isActive }) => `admx-side-link${isActive ? ' is-active' : ''}`}
         >
           Publier
-          <span className="admx-soon">étape 5</span>
+          <span className="admx-soon">bientôt</span>
         </NavLink>
 
         <div className="admx-side-foot">
@@ -141,9 +143,10 @@ const AdminApp: React.FC = () => {
           />
           <Route path="discographie" element={<AdminGate><Suspense fallback={null}><DiscographyPage /></Suspense></AdminGate>} />
           <Route path="mixtapes" element={<AdminGate><Suspense fallback={null}><MixtapesPage /></Suspense></AdminGate>} />
-          <Route path="medias" element={<AdminGate><ComingSoon step="étape 4" /></AdminGate>} />
-          <Route path="textes" element={<AdminGate><ComingSoon step="étape 4" /></AdminGate>} />
-          <Route path="publier" element={<AdminGate><ComingSoon step="étape 5" /></AdminGate>} />
+          <Route path="seo" element={<AdminGate><Suspense fallback={null}><SeoPage /></Suspense></AdminGate>} />
+          <Route path="medias" element={<AdminGate><ComingSoon step="prochaine étape" /></AdminGate>} />
+          <Route path="textes" element={<AdminGate><ComingSoon step="prochaine étape" /></AdminGate>} />
+          <Route path="publier" element={<AdminGate><ComingSoon step="prochaine étape" /></AdminGate>} />
           <Route path="*" element={<Navigate to="/mm-admin" replace />} />
         </Routes>
       </main>

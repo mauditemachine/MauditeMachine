@@ -841,6 +841,135 @@ async function runQuiet(cmd, args, timeout = 5000) {
  * non publies, dernier commit, statut du dernier deploiement Pages.
  * Lecture seule (le bouton Publier arrive a l'etape 5).
  */
+/**
+ * Audit SEO : lit index.html (la source des balises), le sitemap, le
+ * robots.txt et le dernier snapshot de stats, puis renvoie un bilan
+ * en langage humain pour la page /mm-admin/seo. Lecture seule.
+ */
+app.get('/api/admin/seo', authMiddleware, async (req, res) => {
+  try {
+    const html = await fs.readFile(path.join(__dirname, 'index.html'), 'utf8');
+    const pick = (re) => (html.match(re) || [])[1] || null;
+
+    const title = pick(/<title>([^<]*)<\/title>/);
+    const description = pick(/name="description" content="([^"]*)"/);
+    const keywords = pick(/name="keywords" content="([^"]*)"/);
+    const ogImage = pick(/property="og:image"\s+content="([^"]*)"/);
+
+    // JSON-LD : on verifie les signaux de booking local
+    let ld = null;
+    try {
+      ld = JSON.parse((html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/) || [])[1]);
+    } catch {}
+    const musicGroup = Array.isArray(ld) ? ld.find((x) => x['@type'] === 'MusicGroup') : null;
+
+    let sitemapUrls = [];
+    try {
+      const sm = await fs.readFile(path.join(__dirname, 'public', 'sitemap.xml'), 'utf8');
+      sitemapUrls = [...sm.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    } catch {}
+
+    let robotsOk = false;
+    try {
+      const rb = await fs.readFile(path.join(__dirname, 'public', 'robots.txt'), 'utf8');
+      robotsOk = rb.includes('Sitemap:');
+    } catch {}
+
+    // Analytics : la balise vit dans index.html
+    const ga4 = (html.match(/G-[A-Z0-9]{8,}/) || [])[0] || null;
+    const fbPixel = /fbq\('init'/.test(html);
+
+    // Donnees de visite : dernier snapshot du collecteur
+    let visits = null;
+    try {
+      const stats = JSON.parse(await fs.readFile(path.join(__dirname, 'public', 'data', 'stats-public.json'), 'utf8'));
+      const last = (stats.snapshots || []).slice(-1)[0];
+      if (last && last.ga4 && last.ga4.status === 'ok') visits = last.ga4;
+      else if (last && last.ga4) visits = { status: last.ga4.status, reason: last.ga4.reason || null };
+    } catch {}
+
+    // Verifications, formulees pour un humain
+    const checks = [
+      {
+        key: 'title',
+        label: 'Titre du site',
+        ok: !!title && /montr[ée]al/i.test(title),
+        detail: title || 'absent',
+        why: `Le titre est la premiere chose que Google affiche. Contenir "Montreal" aide a sortir sur "DJ Montreal".`,
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        ok: !!description && description.length > 80 && description.length < 320,
+        detail: description ? description.slice(0, 160) + (description.length > 160 ? '…' : '') : 'absente',
+        why: 'Le texte affiche sous le titre dans Google. Entre 80 et 320 caracteres.',
+      },
+      {
+        key: 'localBusiness',
+        label: 'Zones desservies (booking local)',
+        ok: !!(musicGroup && musicGroup.areaServed),
+        detail: musicGroup && musicGroup.areaServed
+          ? musicGroup.areaServed.map((a) => a.name).join(', ')
+          : 'non declarees',
+        why: 'Indique a Google les villes ou tu es disponible pour jouer.',
+      },
+      {
+        key: 'offer',
+        label: 'Service DJ declare',
+        ok: !!(musicGroup && musicGroup.makesOffer),
+        detail: musicGroup && musicGroup.makesOffer
+          ? musicGroup.makesOffer.itemOffered.name
+          : 'non declare',
+        why: 'Permet a Google de comprendre que tu proposes des prestations.',
+      },
+      {
+        key: 'socials',
+        label: 'Reseaux sociaux lies',
+        ok: !!(musicGroup && (musicGroup.sameAs || []).length >= 10),
+        detail: musicGroup ? (musicGroup.sameAs || []).length + ' profils' : '0',
+        why: 'Relie le site a tes profils : Google recoupe et te reconnait.',
+      },
+      {
+        key: 'sitemap',
+        label: 'Plan du site',
+        ok: sitemapUrls.length > 0,
+        detail: sitemapUrls.length + ' page(s) : ' + sitemapUrls.map((u) => u.replace('https://mauditemachine.com', '') || '/').join(', '),
+        why: 'La liste des pages a indexer, a soumettre dans Search Console.',
+      },
+      {
+        key: 'robots',
+        label: 'Fichier robots',
+        ok: robotsOk,
+        detail: robotsOk ? 'present, plan du site declare' : 'plan du site non declare',
+        why: 'Autorise les moteurs et leur indique le plan du site.',
+      },
+      {
+        key: 'analytics',
+        label: 'Mesure d audience',
+        ok: !!ga4,
+        detail: ga4 ? 'Google Analytics actif (' + ga4 + ')' + (fbPixel ? ' + pixel Facebook' : '') : 'absente',
+        why: 'Sans mesure, impossible de savoir qui visite le site.',
+      },
+    ];
+
+    res.json({
+      success: true,
+      title,
+      description,
+      keywords: keywords ? keywords.split(',').map((k) => k.trim()) : [],
+      ogImage,
+      checks,
+      score: checks.filter((c) => c.ok).length,
+      total: checks.length,
+      visits,
+      sitemapUrls,
+    });
+  } catch (error) {
+    console.error('❌ /api/admin/seo:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 app.get('/api/admin/git/status', authMiddleware, async (req, res) => {
   try {
     const [branch, porcelain, lastCommit, ghRun] = await Promise.all([

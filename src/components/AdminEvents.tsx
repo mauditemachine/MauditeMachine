@@ -185,7 +185,7 @@ const AdminEvents: React.FC = () => {
   return (
     <div className="admin-page">
       <div className="admin-container">
-        <h1 className="admin-title">MM ADMIN</h1>
+        <h1 className="admin-title">Contenu du site</h1>
         <AdminNav />
 
         <div className="admin-tabs">
@@ -210,10 +210,10 @@ const AdminEvents: React.FC = () => {
         {activeTab === 'events' && (
           <>
             <div className="admin-form-card">
-              <h3 className="admin-form-title">{editingEventIndex !== null ? 'Edit Event' : 'New Event'}</h3>
+              <h3 className="admin-form-title">{editingEventIndex !== null ? 'Modifier la date' : 'Ajouter une date'}</h3>
               <div className="admin-form-grid">
                 <div className="admin-field-full">
-                  <label className="admin-label">Title *</label>
+                  <label className="admin-label">Titre *</label>
                   <input className="admin-input" value={eventForm.title} onChange={e => setEventForm({...eventForm, title: e.target.value})} placeholder="LUMIERE NOIRE" />
                 </div>
                 <div className="admin-field-half">
@@ -221,24 +221,24 @@ const AdminEvents: React.FC = () => {
                   <input type="date" className="admin-input" value={eventForm.date} onChange={e => setEventForm({...eventForm, date: e.target.value})} />
                 </div>
                 <div className="admin-field-half">
-                  <label className="admin-label">Location *</label>
+                  <label className="admin-label">Lieu *</label>
                   <input className="admin-input" value={eventForm.location} onChange={e => setEventForm({...eventForm, location: e.target.value})} placeholder="Théâtre du Lion d'Or" />
                 </div>
                 <div className="admin-field-full">
-                  <label className="admin-label">Event URL</label>
+                  <label className="admin-label">Lien (Facebook, billetterie…)</label>
                   <input className="admin-input" value={eventForm.url} onChange={e => setEventForm({...eventForm, url: e.target.value})} placeholder="https://facebook.com/events/..." />
                 </div>
                 <div className="admin-field-color">
-                  <label className="admin-label">Color</label>
+                  <label className="admin-label">Couleur</label>
                   <input type="color" className="admin-color-input" value={eventForm.color} onChange={e => setEventForm({...eventForm, color: e.target.value})} />
           </div>
                 <div className="admin-field-image">
-                  <label className="admin-label">Image</label>
+                  <label className="admin-label">Affiche</label>
                   <ImageUpload value={eventForm.image} onChange={v => setEventForm({...eventForm, image: v})} placeholder="events/photo.webp" useButton={true} folder="events" />
             </div>
                 <div className="admin-actions">
-                  <button className="admin-btn-primary" onClick={saveEvent} disabled={saving}>{saving ? 'Saving...' : editingEventIndex !== null ? 'Update' : 'Add Event'}</button>
-                  {editingEventIndex !== null && <button className="admin-btn-secondary" onClick={resetEventForm}>Cancel</button>}
+                  <button className="admin-btn-primary" onClick={saveEvent} disabled={saving}>{saving ? 'Enregistrement…' : editingEventIndex !== null ? 'Mettre à jour' : 'Ajouter la date'}</button>
+                  {editingEventIndex !== null && <button className="admin-btn-secondary" onClick={resetEventForm}>Annuler</button>}
               </div>
               </div>
             </div>
@@ -249,8 +249,8 @@ const AdminEvents: React.FC = () => {
                   <div className="admin-item-title">{ev.title}</div>
                   <div className="admin-item-meta">{ev.date} · {ev.location}</div>
                 </div>
-                <button className="admin-btn-secondary" onClick={() => { setEventForm(ev); setEditingEventIndex(i); window.scrollTo(0,0); }}>Edit</button>
-                <button className="admin-btn-danger" onClick={() => deleteEvent(i)}>Del</button>
+                <button className="admin-btn-secondary" onClick={() => { setEventForm(ev); setEditingEventIndex(i); window.scrollTo(0,0); }}>Modifier</button>
+                <button className="admin-btn-danger" onClick={() => deleteEvent(i)}>Supprimer</button>
               </div>
             ))}
           </>
@@ -285,12 +285,12 @@ const AdminEvents: React.FC = () => {
                   <label className="admin-checkbox-label"><input type="checkbox" checked={merchForm.soldOut || false} onChange={e => setMerchForm({...merchForm, soldOut: e.target.checked})} /> Sold Out</label>
                 </div>
                 <div className="admin-field-full">
-                  <label className="admin-label">Image</label>
+                  <label className="admin-label">Affiche</label>
                   <ImageUpload value={merchForm.src || ''} onChange={v => setMerchForm({...merchForm, src: v, alt: merchForm.caption || ''})} placeholder="images/Merch_Tshirt-Front.webp" useButton={true} />
                 </div>
                 <div className="admin-actions">
                   <button className="admin-btn-primary" onClick={saveMerch} disabled={saving}>{saving ? 'Saving...' : editingMerchIndex !== null ? 'Update' : 'Add Item'}</button>
-                  {editingMerchIndex !== null && <button className="admin-btn-secondary" onClick={resetMerchForm}>Cancel</button>}
+                  {editingMerchIndex !== null && <button className="admin-btn-secondary" onClick={resetMerchForm}>Annuler</button>}
                 </div>
               </div>
             </div>
@@ -301,8 +301,8 @@ const AdminEvents: React.FC = () => {
                   <div className="admin-item-title">{item.caption} {item.soldOut && <span className="admin-badge-danger">SOLD OUT</span>} {!item.active && <span className="admin-badge-muted">HIDDEN</span>}</div>
                   <div className="admin-item-meta">{item.price} · {item.category}</div>
                 </div>
-                <button className="admin-btn-secondary" onClick={() => { setMerchForm(item); setEditingMerchIndex(i); window.scrollTo(0,0); }}>Edit</button>
-                <button className="admin-btn-danger" onClick={() => deleteMerch(i)}>Del</button>
+                <button className="admin-btn-secondary" onClick={() => { setMerchForm(item); setEditingMerchIndex(i); window.scrollTo(0,0); }}>Modifier</button>
+                <button className="admin-btn-danger" onClick={() => deleteMerch(i)}>Supprimer</button>
               </div>
             ))}
           </>
@@ -315,7 +315,7 @@ const AdminEvents: React.FC = () => {
               <h3 className="admin-form-title">{editingMsgIndex !== null ? 'Edit News' : 'New News'}</h3>
               <div className="admin-form-grid">
                 <div className="admin-field-full">
-                  <label className="admin-label">Title *</label>
+                  <label className="admin-label">Titre *</label>
                   <input className="admin-input" value={msgForm.title} onChange={e => setMsgForm({...msgForm, title: e.target.value})} placeholder="New album out now" />
             </div>
                 <div className="admin-field-full">
@@ -330,7 +330,7 @@ const AdminEvents: React.FC = () => {
                   <label className="admin-checkbox-label"><input type="checkbox" checked={!!msgForm.main} onChange={e => setMsgForm({...msgForm, main: e.target.checked})} /> Main news (20s first)</label>
             </div>
                 <div className="admin-field-half">
-                  <label className="admin-label">Image</label>
+                  <label className="admin-label">Affiche</label>
                   <ImageUpload value={msgForm.image || ''} onChange={v => setMsgForm({...msgForm, image: v})} placeholder="images/news-photo.webp" useButton={true} />
                     </div>
                 <div className="admin-field-half">
@@ -343,7 +343,7 @@ const AdminEvents: React.FC = () => {
                   </div>
                 <div className="admin-actions">
                   <button className="admin-btn-primary" onClick={saveMsg} disabled={saving}>{saving ? 'Saving...' : editingMsgIndex !== null ? 'Update' : 'Add News'}</button>
-                  {editingMsgIndex !== null && <button className="admin-btn-secondary" onClick={resetMsgForm}>Cancel</button>}
+                  {editingMsgIndex !== null && <button className="admin-btn-secondary" onClick={resetMsgForm}>Annuler</button>}
                 </div>
               </div>
             </div>
@@ -354,8 +354,8 @@ const AdminEvents: React.FC = () => {
                   <div className="admin-item-title">{msg.title} {msg.main && <span className="admin-badge-main">MAIN</span>}</div>
                   <div className="admin-item-meta">{msg.date} {msg.description && `· ${msg.description.substring(0, 60)}...`}</div>
         </div>
-                <button className="admin-btn-secondary" onClick={() => { setMsgForm({...msg, link: msg.link || { label: '', href: '' }}); setEditingMsgIndex(i); window.scrollTo(0,0); }}>Edit</button>
-                <button className="admin-btn-danger" onClick={() => deleteMsg(i)}>Del</button>
+                <button className="admin-btn-secondary" onClick={() => { setMsgForm({...msg, link: msg.link || { label: '', href: '' }}); setEditingMsgIndex(i); window.scrollTo(0,0); }}>Modifier</button>
+                <button className="admin-btn-danger" onClick={() => deleteMsg(i)}>Supprimer</button>
         </div>
             ))}
           </>
@@ -425,7 +425,7 @@ const AdminEvents: React.FC = () => {
                 </div>
                 <div className="admin-actions">
                   <button className="admin-btn-primary" onClick={saveRelease} disabled={saving}>{saving ? 'Saving...' : editingReleaseIndex !== null ? 'Update' : 'Add Release'}</button>
-                  {editingReleaseIndex !== null && <button className="admin-btn-secondary" onClick={resetReleaseForm}>Cancel</button>}
+                  {editingReleaseIndex !== null && <button className="admin-btn-secondary" onClick={resetReleaseForm}>Annuler</button>}
                 </div>
               </div>
             </div>
@@ -479,8 +479,8 @@ const AdminEvents: React.FC = () => {
                   </div>
                   <div className="admin-item-meta">{rel.releaseDate} · {rel.label} · {rel.format} · {rel.section}</div>
                 </div>
-                <button className="admin-btn-secondary" onClick={() => { setReleaseForm(rel); setEditingReleaseIndex(i); window.scrollTo(0,0); }}>Edit</button>
-                <button className="admin-btn-danger" onClick={() => deleteRelease(i)}>Del</button>
+                <button className="admin-btn-secondary" onClick={() => { setReleaseForm(rel); setEditingReleaseIndex(i); window.scrollTo(0,0); }}>Modifier</button>
+                <button className="admin-btn-danger" onClick={() => deleteRelease(i)}>Supprimer</button>
               </div>
             ))}
           </>
