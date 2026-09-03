@@ -6,9 +6,10 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { adminGet } from '../lib/api';
+import { adminGet, isReadOnly } from '../lib/api';
 
 interface Summary {
+  readOnly?: boolean;
   counts: {
     tracks: number;
     tracksPlayable: number;
@@ -209,7 +210,7 @@ const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="admx-card">
+        <div className="admx-card" style={{ display: isReadOnly() ? 'none' : undefined }}>
           <h3>Publication</h3>
           {git ? (
             <>
@@ -258,7 +259,7 @@ const DashboardPage: React.FC = () => {
           )}
         </div>
 
-        <div className="admx-card">
+        <div className="admx-card" style={{ display: isReadOnly() ? 'none' : undefined }}>
           <h3>Médias</h3>
           <div className="admx-health-item">
             <span className={`admx-dot ${media.imagesBytes > 150 * 1024 * 1024 ? 'warn' : 'ok'}`} />

@@ -13,6 +13,8 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { NavLink, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import './admin.css';
 import AdminGate from '../components/ui/AdminGate';
+import AdminCurtain from '../components/ui/AdminCurtain';
+import { isReadOnly } from './lib/api';
 import DashboardPage from './pages/DashboardPage';
 const DiscographyPage = React.lazy(() => import('./pages/DiscographyPage'));
 const MixtapesPage = React.lazy(() => import('./pages/MixtapesPage'));
@@ -34,6 +36,35 @@ const TOOL_LINKS = [
   { to: '/mm-admin/stats', label: 'Stats' },
   { to: '/mm-admin/radar', label: 'Radar' },
 ];
+
+/**
+ * En ligne le site est statique : pas de serveur d'ecriture. Les pages de
+ * lecture passent par le rideau mot de passe, les pages d'edition
+ * expliquent qu'il faut l'admin local.
+ */
+const Protected: React.FC<{ children: React.ReactNode }> = ({ children }) =>
+  isReadOnly() ? <AdminCurtain>{children}</AdminCurtain> : <AdminGate>{children}</AdminGate>;
+
+const LocalOnly: React.FC<{ what: string }> = ({ what }) => (
+  <div>
+    <div className="admx-head">
+      <h1 className="admx-title">{what}</h1>
+      <span className="admx-pill warn">consultation seule</span>
+    </div>
+    <div className="admx-card">
+      <p style={{ marginTop: 0 }}>
+        Cette page permet de <b>modifier</b> le contenu du site : elle ne
+        fonctionne que sur ton ordinateur, jamais en ligne (personne d'autre
+        ne peut donc toucher à ton site).
+      </p>
+      <p style={{ marginBottom: 0 }}>
+        Ouvre le Terminal dans le dossier du projet et lance{' '}
+        <code>npm run admin</code> : le panneau s'ouvre tout seul, avec
+        l'édition activée.
+      </p>
+    </div>
+  </div>
+);
 
 const ComingSoon: React.FC<{ step: string }> = ({ step }) => (
   <div>
@@ -116,37 +147,22 @@ const AdminApp: React.FC = () => {
         </NavLink>
 
         <div className="admx-side-foot">
-          Modifications enregistrées sur cet ordinateur, publiées seulement
-          via « Publier ».
+          {isReadOnly()
+            ? 'Mode consultation en ligne. Pour modifier le contenu, lance « npm run admin » sur ton ordinateur.'
+            : 'Modifications enregistrées sur cet ordinateur, publiées seulement via « Publier ».'}
         </div>
       </aside>
 
       <main className="admx-main">
         <Routes>
-          <Route
-            index
-            element={
-              <AdminGate>
-                <DashboardPage />
-              </AdminGate>
-            }
-          />
-          <Route
-            path="contenu"
-            element={
-              <AdminGate>
-                <Suspense fallback={null}>
-                  <AdminEvents />
-                </Suspense>
-              </AdminGate>
-            }
-          />
-          <Route path="discographie" element={<AdminGate><Suspense fallback={null}><DiscographyPage /></Suspense></AdminGate>} />
-          <Route path="mixtapes" element={<AdminGate><Suspense fallback={null}><MixtapesPage /></Suspense></AdminGate>} />
-          <Route path="seo" element={<AdminGate><Suspense fallback={null}><SeoPage /></Suspense></AdminGate>} />
-          <Route path="medias" element={<AdminGate><ComingSoon step="prochaine étape" /></AdminGate>} />
-          <Route path="textes" element={<AdminGate><ComingSoon step="prochaine étape" /></AdminGate>} />
-          <Route path="publier" element={<AdminGate><ComingSoon step="prochaine étape" /></AdminGate>} />
+          <Route index element={<Protected><DashboardPage /></Protected>} />
+          <Route path="contenu" element={<Protected>{isReadOnly() ? <LocalOnly what="Événements & boutique" /> : <Suspense fallback={null}><AdminEvents /></Suspense>}</Protected>} />
+          <Route path="discographie" element={<Protected>{isReadOnly() ? <LocalOnly what="Discographie" /> : <Suspense fallback={null}><DiscographyPage /></Suspense>}</Protected>} />
+          <Route path="mixtapes" element={<Protected>{isReadOnly() ? <LocalOnly what="Mixtapes" /> : <Suspense fallback={null}><MixtapesPage /></Suspense>}</Protected>} />
+          <Route path="seo" element={<Protected><Suspense fallback={null}><SeoPage /></Suspense></Protected>} />
+          <Route path="medias" element={<Protected><ComingSoon step="prochaine étape" /></Protected>} />
+          <Route path="textes" element={<Protected><ComingSoon step="prochaine étape" /></Protected>} />
+          <Route path="publier" element={<Protected><ComingSoon step="prochaine étape" /></Protected>} />
           <Route path="*" element={<Navigate to="/mm-admin" replace />} />
         </Routes>
       </main>
