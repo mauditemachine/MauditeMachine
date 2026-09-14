@@ -97,3 +97,69 @@ grep -rniE "indie[ -]?dance|dark[ -]?disco" --include="*.ts" --include="*.tsx" \
 
 Doit ne rien retourner. Les seules occurrences legitimes restantes sont dans
 `public/releases.json` (genres d'autres artistes sur le Radar).
+
+---
+
+# Suite de session : retrait des Archives, survol des reseaux, lead
+
+Commits : `97e30f5` (les trois changements) + `0132c02` (fix sitemap)
+
+## 1. Ce qui a ete fait
+
+### Page Archives supprimee
+
+Verdict de Mika : « enleve Archives c'est de la marde ». Retrait complet :
+
+- `src/v2/pages/ArchivePage.tsx` et `src/v2/data/archive.json` supprimes
+- `public/images/archive/` (3 captures webp) supprime
+- `src/v2/components/Nav.tsx` : entree de menu retiree (8 entrees restantes)
+- `src/v2/v2.css` : bloc `.v2-arc-*` retire, 144 lignes
+- `src/App.tsx` : import lazy et route retires, remplaces par une
+  redirection `/archives` -> `/`
+- `scripts/generate-sitemap.mjs` + `public/sitemap.xml` : entree retiree,
+  sitemap de nouveau a 2 URLs
+
+### Nom du reseau en gros au survol
+
+`src/v2/components/SocialLinks.tsx` : l'attribut `title` natif est
+remplace par `data-label`. `src/v2/v2.css` : `.v2-social-icons a::after`
+affiche `attr(data-label)` en `clamp(20px, 2.6vw, 34px)` juste au-dessus
+du rond, fond opaque et `z-index: 6` pour rester lisible quand la rangee
+passe sur deux lignes. Vaut pour le footer ET le menu overlay, les deux
+utilisent le meme composant.
+
+### Lead de l'intro
+
+« built for dark rooms and long nights » devient « built for the floor
+and the small hours ».
+
+## 2. Decisions prises et pourquoi
+
+**Redirection plutot que suppression seche de la route.** Sans route
+catch-all dans `src/App.tsx`, `/archives` aurait rendu une page blanche.
+La page a ete en ligne et indexable, donc redirection vers l'accueil.
+
+**`title` natif retire des icones.** Le laisser aurait fait doublon : le
+tooltip du navigateur par-dessus le nom en gros. L'`aria-label` reste,
+l'accessibilite n'est pas touchee.
+
+**Survol desactive sur tactile** (`@media (hover: none)`) : sur telephone
+le nom geant reste colle apres le tap et masque la rangee d'icones.
+
+**Le lien « Archive v1 » du footer est conserve.** C'est le vrai ancien
+site sous `/v1`, pas le musee de captures Wayback qui vient d'etre
+retire. A confirmer avec Mika s'il veut le retirer aussi.
+
+## 3. Ce qui reste a faire / points en suspens
+
+- Confirmer si le lien « Archive v1 » du footer reste ou part
+- La formulation « the small hours » est une proposition, a valider
+- Points de la premiere partie de session toujours ouverts (description
+  du label VRSTL, presskit PDF, profils externes, image OG)
+
+## 4. Piege repere
+
+`public/sitemap.xml` est **regenere a chaque build** par
+`scripts/generate-sitemap.mjs`. Editer le XML a la main ne sert a rien,
+l'entree revient au build suivant : c'est le tableau `PAGES` du script
+qu'il faut modifier.
