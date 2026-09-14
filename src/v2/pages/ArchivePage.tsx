@@ -87,9 +87,10 @@ const ArchivePage: React.FC = () => {
         </div>
 
         <p className="v2-label v2-matrix-note">
-          Certaines pages apparaissent sans mise en forme : la Wayback Machine
-          a gardé le texte mais pas toujours les feuilles de style d’époque.
-          C’est l’archive telle qu’elle existe.{' '}
+          Seules les versions dont l’archive a gardé quelque chose de
+          visible sont affichées : certaines années, la Wayback Machine n’a
+          capturé qu’une page blanche. Ailleurs elle a gardé le texte mais
+          pas les feuilles de style d’époque.{' '}
           <a
             href={WAYBACK_ALL}
             target="_blank"

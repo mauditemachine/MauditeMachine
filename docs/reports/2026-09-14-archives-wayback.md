@@ -18,10 +18,15 @@ chercher dans la Wayback Machine, avec liens et images des vieux designs.
   converties en WebP 1000 px dans `public/images/archive/` — **175 Ko
   au total pour 7 images**. Elles sont stockées en local : la page ne
   dépend d'aucun service externe au chargement.
-- **7 versions retenues**, de la plus récente à la plus ancienne :
-  2026 (actuelle), 2025 (React orange), 2024 (press kit), 2020 → 2022
-  (DJ and producer), 2018 (le logo pleine page), 2011 (El Gamiq,
-  webzine), 2010 (Joomla 1.5, Le Musée du Rock'n'Roll).
+- **5 versions retenues**, de la plus récente à la plus ancienne :
+  2026 (actuelle), 2025 (React orange), 2020 → 2022 (DJ and producer),
+  2011 (El Gamiq, webzine), 2010 (Joomla 1.5, Le Musée du Rock'n'Roll).
+- **2018 et 2024 retirées après coup** (retour de Mika : n'afficher que
+  ce qui montre quelque chose). Mesure du taux de pixels de contenu :
+  2024 tombait à **0,43 %** et 2018 à 2,78 %, contre 10 à 13 % pour les
+  autres. Les captures alternatives de ces deux années, testées, sont
+  pires encore (2018 : page entièrement blanche, 0,00 %). L'archive n'a
+  simplement rien gardé de visible ces années-là.
 - **[archive.json](../../src/v2/data/archive.json)** : données éditables
   (année, titre, note, techno, image, lien Wayback).
 - **[ArchivePage.tsx](../../src/v2/pages/ArchivePage.tsx)** + CSS : page
