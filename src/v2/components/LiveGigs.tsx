@@ -178,7 +178,7 @@ const LiveGigs: React.FC = () => {
         <div className="v2-gigs-empty">
           <p className="v2-gigs-empty-line v2-subtitle">Next dates coming soon</p>
           <p className="v2-label">
-            Available for clubs, festivals and private events in Montréal, Québec and across Canada — also booking in France &amp; Spain.
+            Available for clubs, festivals and private events across Canada. Also booking in France &amp; Spain.
           </p>
           {/* Les deux contacts booking vivent dans la section Contact */}
           <a className="v2-cta" href="#contact">
