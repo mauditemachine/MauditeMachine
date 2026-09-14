@@ -72,3 +72,41 @@ chercher dans la Wayback Machine, avec liens et images des vieux designs.
 
 Aucune. Les captures ont été générées une fois via microlink, elles
 n'ont pas besoin d'être régénérées.
+
+
+## Correction (même jour) : des captures qui n'étaient pas ce site
+
+Mika a signalé que les entrées 2010 et 2011 n'avaient rien à voir avec
+lui. Vérification du HTML archivé : c'est exact.
+
+- **2010** : un communiqué de presse du Musée du Rock'n'Roll du Québec,
+  signé Patrice Caron, collé depuis Word.
+- **2011** : un webzine avec les rubriques « Urbanalogue »,
+  « WebMusique », « MusiqueBizness », « WebBusiness », « Old School ».
+
+Le domaine mauditemachine.com hébergeait **un autre projet** avant
+Mika. Mon erreur : j'ai supposé que toute capture du domaine était son
+site, et j'ai écrit des descriptions qui romançaient un passé qui n'est
+pas le sien (« époque collectif », « le site vit au rythme des events »).
+
+Contrôle appliqué a posteriori sur chaque capture, en comptant les
+signaux propres à son projet (SoundCloud, Bandcamp, VRSTL, producer,
+indie dance, techno, mixtape) :
+
+| Capture | Signaux | Verdict |
+|---|---|---|
+| 2010 | 0/8 | autre projet, retirée |
+| 2011 | 0/8 | autre projet, retirée |
+| 2018 | 0/8 | rien de probant, déjà retirée |
+| 2020 | 5/8 | son site, conservée |
+| 2025 | 3/8 | son site, conservée |
+| 2026 | site actuel | conservée |
+
+**Reste 3 versions : 2026, 2025, 2020.** La note de bas de page dit
+maintenant que le domaine hébergeait un autre projet avant 2020, ce qui
+explique le point de départ au lieu de le laisser paraître arbitraire.
+
+**Leçon pour les prochaines fois** : une capture Wayback d'un domaine
+ne prouve pas qu'elle appartient au propriétaire actuel. Vérifier le
+contenu avant de l'attribuer, et ne jamais écrire de description
+narrative à partir d'une image sans confirmer les faits dans le HTML.

@@ -46,15 +46,15 @@ const ArchivePage: React.FC = () => {
         </Link>
         <div className="v2-section-head" style={{ marginBottom: 0 }}>
           <h1 className="v2-section-title">Archives</h1>
-          <span className="v2-label">{VERSIONS.length} versions · depuis 2010</span>
+          <span className="v2-label">{VERSIONS.length} versions archivées</span>
         </div>
       </header>
 
       <section className="v2-section v2-radar-body">
         <p className="v2-section-intro">
-          Seize ans de mauditemachine.com, exhumés de la Wayback Machine :
-          du portail Joomla de 2010 au site actuel. Clique sur une version
-          pour la parcourir dans l'archive, telle qu'elle était.
+          Les versions précédentes de mauditemachine.com, retrouvées dans
+          la Wayback Machine. Clique sur l'une d'elles pour la parcourir
+          dans l'archive, telle qu'elle était.
         </p>
 
         <div className="v2-arc-grid">
@@ -87,10 +87,10 @@ const ArchivePage: React.FC = () => {
         </div>
 
         <p className="v2-label v2-matrix-note">
-          Seules les versions dont l’archive a gardé quelque chose de
-          visible sont affichées : certaines années, la Wayback Machine n’a
-          capturé qu’une page blanche. Ailleurs elle a gardé le texte mais
-          pas les feuilles de style d’époque.{' '}
+          Avant 2020, le domaine hébergeait un tout autre projet : ces
+          captures ne font pas partie de cette histoire et ne sont pas
+          affichées. Les années où l’archive n’a gardé qu’une page blanche
+          non plus.{' '}
           <a
             href={WAYBACK_ALL}
             target="_blank"
