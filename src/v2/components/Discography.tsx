@@ -2,8 +2,8 @@
  * Matrice discographie /v2 : table CSS Grid (Titre | Projet | Role | Annee |
  * Play | Link), filtres All / Originals / Remixes / VRSTL. Le clic play met
  * la liste FILTREE en file : next/prev suivent ce que l'utilisateur voit.
- * Donnees : src/v2/data/discography.json (placeholders en attendant les
- * credits finaux et les vrais MP3).
+ * Donnees : src/v2/data/discography.json, classees de la sortie la plus
+ * recente a la plus ancienne (dates reelles relevees sur SoundCloud).
  */
 
 import React, { useMemo, useState } from 'react';
@@ -19,7 +19,21 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: 'vrstl', label: 'VRSTL' },
 ];
 
-const TRACKS = (discographyData as { tracks: V2Track[] }).tracks;
+/**
+ * Classement : sortie la plus recente d'abord. A l'interieur d'un album,
+ * l'ordre de la tracklist prime (trackNo). Le tri est fait ici et pas
+ * seulement dans le JSON : une piste ajoutee depuis l'admin se range
+ * toute seule au bon endroit.
+ */
+const sortTracks = (list: V2Track[]) =>
+  [...list].sort(
+    (a, b) =>
+      (b.releaseDate || `${b.year}-01-01`).localeCompare(a.releaseDate || `${a.year}-01-01`) ||
+      (a.trackNo ?? 0) - (b.trackNo ?? 0) ||
+      a.title.localeCompare(b.title)
+  );
+
+const TRACKS = sortTracks((discographyData as { tracks: V2Track[] }).tracks);
 
 const Discography: React.FC = () => {
   const [filter, setFilter] = useState<Filter>('all');
@@ -53,7 +67,9 @@ const Discography: React.FC = () => {
       </p>
 
       <div className="v2-filters" role="group" aria-label="Filtrer la discographie">
-        {FILTERS.map((f) => (
+        {FILTERS.filter(
+          (f) => f.key === 'all' || TRACKS.some((t) => t.category === f.key)
+        ).map((f) => (
           <button
             key={f.key}
             type="button"

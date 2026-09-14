@@ -47,6 +47,12 @@ export interface V2Track {
   link: string;
   /** true = dans la selection courte affichee par defaut (editable en JSON) */
   featured?: boolean;
+  /** date de sortie reelle (AAAA-MM-JJ) : sert au classement chronologique */
+  releaseDate?: string;
+  /** rang dans la tracklist d'un album (0 pour un single) */
+  trackNo?: number;
+  /** true quand la date n'a pas pu etre confirmee et reste approximative */
+  dateApprox?: boolean;
 }
 
 export const isPlayable = (t: V2Track) => !!(t.soundcloudUrl || t.audio);
