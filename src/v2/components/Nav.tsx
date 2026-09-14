@@ -15,7 +15,7 @@ type Entry = { label: string; href?: string; to?: string };
 const ENTRIES: Entry[] = [
   { href: '#music', label: 'Music' },
   { href: '#mixtapes', label: 'Mixtapes' },
-  { href: '#live', label: 'Live' },
+  { href: '#live', label: 'Shows' },
   { href: '#gallery', label: 'Gallery' },
   { to: '/radar', label: 'Radar' },
   { href: '#merch', label: 'Merch' },

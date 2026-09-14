@@ -100,10 +100,11 @@ const Discography: React.FC = () => {
           return (
             <div
               key={t.id}
-              className={`v2-matrix-row${isCurrent ? ' is-playing' : ''}${isExpanded ? ' v2-row-in' : ''}`}
+              className={`v2-matrix-row${isCurrent ? ' is-playing' : ''}${isExpanded ? ' v2-row-in' : ''}${isPlayable(t) ? ' is-clickable' : ''}`}
               style={isExpanded ? { animationDelay: `${Math.min(i * 14, 260)}ms` } : undefined}
               role="row"
               data-category={t.category}
+              onClick={isPlayable(t) ? () => play(t, visible) : undefined}
             >
               <span role="cell" className="v2-matrix-title">{t.title}</span>
               <span role="cell" className="v2-label v2-matrix-project">{t.project}</span>
@@ -122,7 +123,10 @@ const Discography: React.FC = () => {
                         : `Écouter ${t.title}`
                   }
                   title={!isPlayable(t) ? 'Coming soon' : undefined}
-                  onClick={() => play(t, visible)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    play(t, visible);
+                  }}
                 >
                   {isCurrent && playing ? (
                     <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
@@ -141,6 +145,7 @@ const Discography: React.FC = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={`Ouvrir ${t.title} sur la plateforme`}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true">
                     <path

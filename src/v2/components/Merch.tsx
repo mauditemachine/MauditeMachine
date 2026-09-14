@@ -107,8 +107,9 @@ const Merch: React.FC = () => {
       </div>
 
       <p className="v2-section-intro">
-        Small runs, printed in Montréal, ordered by email. Sizes and colors
-        below, first come first served.
+        Small runs, printed in Montréal. No cart, no checkout : pick a
+        piece and click, your message is written for you, just add your
+        size and address. First come first served.
       </p>
 
       {items === null && <p className="v2-label">Loading…</p>}
@@ -140,7 +141,7 @@ const Merch: React.FC = () => {
                 )}
                 {!p.available && <span className="v2-merch-soldout">Sold out</span>}
                 {p.available && (
-                  <span className="v2-gallery-cap v2-merch-cap">Order by email →</span>
+                  <span className="v2-gallery-cap v2-merch-cap">Write your order →</span>
                 )}
               </a>
 

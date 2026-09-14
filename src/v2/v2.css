@@ -1036,7 +1036,9 @@ html:has(body.v2-active) {
 
 .v2-gallery {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Vignettes volontairement petites : la grille se remplit selon la
+     largeur au lieu d imposer 3 grandes colonnes. */
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 10px;
 }
 
@@ -2135,4 +2137,20 @@ button.v2-radar-artist:hover {
     gap: 14px;
     align-items: stretch;
   }
+}
+
+/* ---------- Lignes cliquables (discographie, mixtapes) ----------
+   Toute la ligne lance la lecture ; le bouton play reste le controle
+   clavier et le lien plateforme garde son propre clic. */
+
+.v2-matrix-row.is-clickable,
+.v2-mix-row.is-clickable {
+  cursor: pointer;
+}
+
+.v2-mix-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
 }
