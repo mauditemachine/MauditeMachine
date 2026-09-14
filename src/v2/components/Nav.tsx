@@ -17,9 +17,10 @@ const ENTRIES: Entry[] = [
   { href: '#mixtapes', label: 'Mixtapes' },
   { href: '#live', label: 'Live' },
   { href: '#gallery', label: 'Gallery' },
-  { to: '/v2/radar', label: 'Radar' },
+  { to: '/radar', label: 'Radar' },
   { href: '#merch', label: 'Merch' },
   { href: '#epk', label: 'Press Kit' },
+  { to: '/archives', label: 'Archives' },
   { href: '#contact', label: 'Contact' },
 ];
 

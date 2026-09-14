@@ -1,0 +1,76 @@
+{
+  "source": "https://web.archive.org/web/*/mauditemachine.com",
+  "versions": [
+    {
+      "id": "2026",
+      "year": "2026",
+      "label": "Aujourd'hui",
+      "title": "Crème & Larsseit",
+      "note": "Refonte brutaliste : fond crème, titres géants, player SoundCloud intégré et Radar de veille musicale.",
+      "tech": "React · Vite",
+      "image": "/images/archive/2026.webp",
+      "url": "https://mauditemachine.com/",
+      "live": true
+    },
+    {
+      "id": "2025",
+      "year": "2025",
+      "label": "Août 2025",
+      "title": "L'ère orange",
+      "note": "Première version React : grand dégradé orange, lecteur audio et bio défilante. Le site devient une vraie vitrine d'artiste.",
+      "tech": "React",
+      "image": "/images/archive/2025.webp",
+      "url": "https://web.archive.org/web/20250823071919/https://mauditemachine.com/"
+    },
+    {
+      "id": "2024",
+      "year": "2024",
+      "label": "Août 2024",
+      "title": "Press kit & tech rider",
+      "note": "Page d'atterrissage minimale tournée booking : les liens essentiels et le dossier de presse à télécharger.",
+      "tech": "Page statique",
+      "image": "/images/archive/2024.webp",
+      "url": "https://web.archive.org/web/20240811085929/https://www.mauditemachine.com/"
+    },
+    {
+      "id": "2020",
+      "year": "2020",
+      "label": "2020 → 2022",
+      "title": "DJ and producer",
+      "note": "« Maudite Machine - dj and producer of electronic music ». Bio, réseaux et premières dates : Piknic Électronik, Eclipse Festival.",
+      "tech": "Page statique",
+      "image": "/images/archive/2020.webp",
+      "url": "https://web.archive.org/web/20201101010700/https://mauditemachine.com/"
+    },
+    {
+      "id": "2018",
+      "year": "2018",
+      "label": "2018",
+      "title": "Le logo prend toute la place",
+      "note": "Le lettrage angulaire en pleine page, un menu de cinq entrées : Accueil, Bio, Liens, Photos, Contact. Tout est dit.",
+      "tech": "Page statique",
+      "image": "/images/archive/2018.webp",
+      "url": "https://web.archive.org/web/20180806103643/http://mauditemachine.com/"
+    },
+    {
+      "id": "2011",
+      "year": "2011",
+      "label": "2011",
+      "title": "El Gamiq & le webzine",
+      "note": "Époque collectif : affiches de soirées, rubriques « Qui est-on ? », « WebMachin », « Old School ». Le site vit au rythme des events.",
+      "tech": "Joomla 1.5",
+      "image": "/images/archive/2011.webp",
+      "url": "https://web.archive.org/web/20110128082144/http://mauditemachine.com/"
+    },
+    {
+      "id": "2010",
+      "year": "2010",
+      "label": "Mai 2010",
+      "title": "Le Musée du Rock'n'Roll",
+      "note": "La plus ancienne trace archivée. Le site relaie l'appel public du Musée du Rock'n'Roll du Québec. « Nous sommes la maudite machine. »",
+      "tech": "Joomla 1.5",
+      "image": "/images/archive/2010.webp",
+      "url": "https://web.archive.org/web/20100516062005/http://mauditemachine.com/"
+    }
+  ]
+}

@@ -235,6 +235,8 @@ html:has(body.v2-active) {
 .v2-menu.is-open .v2-menu-link:nth-child(5) { animation-delay: 0.2s; }
 .v2-menu.is-open .v2-menu-link:nth-child(6) { animation-delay: 0.25s; }
 .v2-menu.is-open .v2-menu-link:nth-child(7) { animation-delay: 0.3s; }
+.v2-menu.is-open .v2-menu-link:nth-child(8) { animation-delay: 0.35s; }
+.v2-menu.is-open .v2-menu-link:nth-child(9) { animation-delay: 0.4s; }
 
 @keyframes v2-menu-in {
   from { opacity: 0; transform: translateX(-18px); }
@@ -1988,5 +1990,149 @@ button.v2-radar-artist:hover {
   .v2-social-icons a {
     width: 38px;
     height: 38px;
+  }
+}
+
+/* ---------- Archives : le musee du site ---------- */
+
+.v2-arc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 34px 26px;
+}
+
+.v2-arc-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* La version actuelle ouvre la grille sur toute la largeur */
+.v2-arc-card.is-wide {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  gap: 32px;
+  align-items: center;
+}
+
+.v2-arc-card.is-wide .v2-arc-shot {
+  flex: 1 1 60%;
+}
+
+.v2-arc-card.is-wide .v2-arc-meta {
+  flex: 1 1 40%;
+}
+
+.v2-arc-shot {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border: 1px solid var(--v2-line);
+  background: #fff;
+}
+
+.v2-arc-shot img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  object-position: top center;
+  filter: contrast(1.04) saturate(0.94);
+  transform: scale(1);
+  transition: transform 0.7s var(--v2-ease), filter 0.5s var(--v2-ease);
+}
+
+/* Meme grain que la galerie : les captures d'epoque respirent pareil */
+.v2-arc-shot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  opacity: 0.1;
+  mix-blend-mode: multiply;
+}
+
+.v2-arc-card:hover .v2-arc-shot img {
+  transform: scale(1.03);
+  filter: contrast(1) saturate(1);
+}
+
+/* L'annee, posee en grand sur le coin de la capture */
+.v2-arc-year {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  z-index: 1;
+  font-family: var(--v2-display);
+  font-weight: 700;
+  font-size: clamp(30px, 4.4vw, 58px);
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  color: var(--v2-bg);
+  background: var(--v2-ink);
+  padding: 10px 16px 8px;
+}
+
+.v2-arc-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.v2-arc-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.v2-arc-live {
+  font-family: var(--v2-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--v2-bg);
+  background: var(--v2-ink);
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.v2-arc-title {
+  font-family: var(--v2-sans);
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: -0.01em;
+}
+
+.v2-arc-note {
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: rgba(25, 25, 25, 0.72);
+}
+
+.v2-arc-go {
+  margin-top: 4px;
+  background: linear-gradient(currentColor, currentColor) left bottom / 0% 1px no-repeat;
+  padding-bottom: 2px;
+  width: fit-content;
+  transition: color 0.3s var(--v2-ease), background-size 0.35s var(--v2-ease);
+}
+
+.v2-arc-card:hover .v2-arc-go {
+  color: var(--v2-ink);
+  background-size: 100% 1px;
+}
+
+@media (max-width: 900px) {
+  .v2-arc-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 30px;
+  }
+  .v2-arc-card.is-wide {
+    flex-direction: column;
+    gap: 14px;
+    align-items: stretch;
   }
 }

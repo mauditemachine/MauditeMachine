@@ -21,6 +21,7 @@ const ROUTES = [
   // /v1 (archive) et les admins restent hors sitemap.
   { path: '/',      changefreq: 'weekly', priority: '1.0' },
   { path: '/radar', changefreq: 'weekly', priority: '0.8' },
+  { path: '/archives', changefreq: 'yearly', priority: '0.5' },
 ];
 
 const LANGS = ['en', 'fr', 'es'];
