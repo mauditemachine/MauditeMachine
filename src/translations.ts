@@ -52,7 +52,7 @@ export const translations = {
       kicker: 'Radar // Music watch',
       title: 'New releases',
       subtitle:
-        'What the labels and artists on my radar are putting out. Indie dance, dark disco and minimal, hand-picked.',
+        'What the labels and artists on my radar are putting out. Hypnotic techno, minimal and everything in between, hand-picked.',
       badgeFavorite: 'Pick of the week',
       listen: 'Listen',
       sectionFeature: 'Picks of the week',
@@ -101,25 +101,25 @@ export const translations = {
     },
     home: {
       subtitle: 'WE ARE MUSIC MAKERS',
-      bio: "Maudite Machine is a Canadian DJ and producer known for his raw, hypnotic approach to minimal and indie dance. Born from the Montreal underground, he has performed at major events including Piknic Électronik, Eclipse Festival, and the iconic Techno Parade in Paris, delivering sets that blur the line between intensity and atmosphere across Canada and Europe.\n\nAs the founder of VRSTL Records, he curates a sound that embraces tension, groove, and experimentation, having shared the stage with electronic music legends like Carl Craig, Ellen Allien, The Hacker, Popof, and Agoria. His collaborations with influential artists reflect a constant drive to push boundaries and redefine the underground with a distinct sonic signature, championing bold artists who share his vision for the darker, experimental sides of electronic music.",
+      bio: "Maudite Machine is a Canadian DJ and producer known for his raw approach to hypnotic techno and minimal. Born from the Montreal underground, he has performed at major events including Piknic Électronik, Eclipse Festival, and the iconic Techno Parade in Paris, delivering sets that blur the line between intensity and atmosphere across Canada and Europe.\n\nAs the founder of VRSTL Records, he curates a sound that embraces tension, groove, and experimentation, having shared the stage with electronic music legends like Carl Craig, Ellen Allien, The Hacker, Popof, and Agoria. His collaborations with influential artists reflect a constant drive to push boundaries and redefine the underground with a distinct sonic signature, championing bold artists who share his vision for the darker, experimental sides of electronic music.",
     },
     signature: {
       role: 'DJ & Producer',
       location: 'Montréal → France',
-      genres: 'Minimal · Indie Dance · Dark Disco',
+      genres: 'Hypnotic Techno · Minimal · Electronic',
       musicMakers: 'WE ARE MUSIC MAKERS',
     },
     // H1 de chaque page. Rendus en sr-only (lus par Google + lecteurs d'ecran,
     // invisibles a l'oeil) pour ne pas casser le design minimaliste.
     headings: {
-      home: 'Maudite Machine, indie dance DJ and producer, Montréal → France',
+      home: 'Maudite Machine, hypnotic techno DJ and producer, Montréal → France',
       about: 'Maudite Machine biography',
       shows: 'Maudite Machine shows and tour dates',
       merch: 'Maudite Machine official merch',
       goodies: 'Free Maudite Machine wallpapers and artwork',
       techrider: 'Maudite Machine tech rider',
       contact: 'Contact and booking Maudite Machine',
-      radar: 'New indie dance and dark disco releases, curated by Maudite Machine',
+      radar: 'New hypnotic techno and minimal releases, curated by Maudite Machine',
     },
     sections: {
       upcomingEvents: 'Upcoming Events',
@@ -184,7 +184,7 @@ export const translations = {
 
       bioLabel: 'Biography',
       bioMain: "A pillar of the Montreal underground for over 15 years, Mika has forged the identity of Maudite Machine between the immersive walls of SAT and the effervescent stages of Piknic Électronik. Sharing the bill with legends like Carl Craig, Agoria, and Reinier Zonneveld, his footprint reaches far beyond a simple DJ set.",
-      bioSecondary: "At the helm of VRSTL Records, he sculpts the future of North American Indie Dance and Dark Disco. A sonic architect navigating between hardware sequencers and analog synthesizers, he turns every Live Set into a raw, unfiltered ceremony. With a decade and a half dedicated to teaching music production, he doesn't just play tomorrow's music: he trains those who will create it.",
+      bioSecondary: "At the helm of VRSTL Records, he sculpts the future of North American hypnotic techno. A sonic architect navigating between hardware sequencers and analog synthesizers, he turns every Live Set into a raw, unfiltered ceremony. With a decade and a half dedicated to teaching music production, he doesn't just play tomorrow's music: he trains those who will create it.",
       bioQuote: 'A sound that embraces tension, groove and experimentation',
 
       statsLabel: 'By the numbers',
@@ -206,10 +206,10 @@ export const translations = {
 
       catalogueLabel: 'Full catalogue',
       catalogueTitle: '13 RELEASES.\n2024 / 2026.',
-      catalogueDesc: 'From Discowriders (Jul 2024) to Voodoo (Feb 2026), a constant flow of original productions on VRSTL Records. Singles, EPs and an album, in a dark disco, indie dance and hypnotic minimal aesthetic.',
+      catalogueDesc: 'From Discowriders (Jul 2024) to Voodoo (Feb 2026), a constant flow of original productions on VRSTL Records. Singles, EPs and an album, in a hypnotic techno and minimal aesthetic.',
 
       labelSection: 'Label',
-      labelDescMain: 'VRSTL Records is an independent Canadian label dedicated to Indie Dance and Dark Disco. Since its founding, the label has released 21 EPs and 2 albums, signing emerging artists from Argentina, Quebec and Europe.',
+      labelDescMain: 'VRSTL Records is an independent Canadian label dedicated to hypnotic electronic music. Since its founding, the label has released 21 EPs and 2 albums, signing emerging artists from Argentina, Quebec and Europe.',
       labelDescSecondary: 'The label champions a bold underground aesthetic, with a focus on tension, groove and experimentation across its growing roster.',
       labelArtisticDirection: 'Artistic direction: tension, groove, experimentation. A catalogue that redefines the frontiers of electronic underground.',
       rosterLabel: 'Roster / Signed artists',
@@ -336,7 +336,7 @@ export const translations = {
       kicker: 'Radar // Veille musicale',
       title: 'Nouveautés',
       subtitle:
-        'Ce que sortent les labels et les artistes que je suis. Indie dance, dark disco et minimal, sélectionnés à la main.',
+        'Ce que sortent les labels et les artistes que je suis. Hypnotic techno, minimal et alentours, sélectionnés à la main.',
       badgeFavorite: 'Coup de cœur',
       listen: 'Écouter',
       sectionFeature: 'Coups de cœur',
@@ -385,23 +385,23 @@ export const translations = {
     },
     home: {
       subtitle: 'WE ARE MUSIC MAKERS',
-      bio: "Maudite Machine est un DJ et producteur canadien reconnu pour son approche brute et hypnotique du minimal et de l'indie dance. Né de la scène underground montréalaise, il s'est produit lors d'événements majeurs dont Piknic Électronik, Eclipse Festival et la mythique Techno Parade à Paris, livrant des sets qui brouillent la frontière entre intensité et atmosphère au Canada et en Europe.\n\nEn tant que fondateur de VRSTL Records, il façonne un son qui embrasse la tension, le groove et l'expérimentation, ayant partagé la scène avec des légendes de la musique électronique comme Carl Craig, Ellen Allien, The Hacker, Popof et Agoria. Ses collaborations avec des artistes influents reflètent une volonté constante de repousser les limites et de redéfinir l'underground avec une signature sonore distincte.",
+      bio: "Maudite Machine est un DJ et producteur canadien reconnu pour son approche brute et hypnotique de la techno et du minimal. Né de la scène underground montréalaise, il s'est produit lors d'événements majeurs dont Piknic Électronik, Eclipse Festival et la mythique Techno Parade à Paris, livrant des sets qui brouillent la frontière entre intensité et atmosphère au Canada et en Europe.\n\nEn tant que fondateur de VRSTL Records, il façonne un son qui embrasse la tension, le groove et l'expérimentation, ayant partagé la scène avec des légendes de la musique électronique comme Carl Craig, Ellen Allien, The Hacker, Popof et Agoria. Ses collaborations avec des artistes influents reflètent une volonté constante de repousser les limites et de redéfinir l'underground avec une signature sonore distincte.",
     },
     signature: {
       role: 'DJ & Producteur',
       location: 'Montréal → France',
-      genres: 'Minimal · Indie Dance · Dark Disco',
+      genres: 'Hypnotic Techno · Minimal · Electronic',
       musicMakers: 'WE ARE MUSIC MAKERS',
     },
     headings: {
-      home: 'Maudite Machine, DJ et producteur indie dance, Montréal → France',
+      home: 'Maudite Machine, DJ et producteur hypnotic techno, Montréal → France',
       about: 'Biographie de Maudite Machine',
       shows: 'Concerts et dates de Maudite Machine',
       merch: 'Merch officiel Maudite Machine',
       goodies: 'Fonds d\'écran et visuels gratuits Maudite Machine',
       techrider: 'Fiche technique de Maudite Machine',
       contact: 'Contact et booking Maudite Machine',
-      radar: 'Nouveautés indie dance et dark disco sélectionnées par Maudite Machine',
+      radar: 'Nouveautés hypnotic techno et minimal sélectionnées par Maudite Machine',
     },
     sections: {
       upcomingEvents: 'Prochains concerts',
@@ -465,7 +465,7 @@ export const translations = {
 
       bioLabel: 'Biographie',
       bioMain: "Pilier de l'underground montréalais depuis plus de 15 ans, Mika a forgé l'identité de Maudite Machine entre les murs immersifs de la SAT et les scènes effervescentes du Piknic Électronik. Partageant l'affiche avec des légendes telles que Carl Craig, Agoria ou Reinier Zonneveld, son empreinte s'étend bien au-delà d'un simple DJ set.",
-      bioSecondary: "À la tête de VRSTL Records, il sculpte le futur de l'Indie Dance et du Dark Disco nord-américain. Architecte sonore naviguant entre séquenceurs matériels et synthétiseurs analogiques, il transforme chaque Live Set en une cérémonie brute et sans filtre. Fort d'une décennie et demie dédiée à l'enseignement de la production, il ne se contente pas de jouer la musique de demain : il forme ceux qui la créeront.",
+      bioSecondary: "À la tête de VRSTL Records, il sculpte le futur de la techno hypnotique nord-américaine. Architecte sonore naviguant entre séquenceurs matériels et synthétiseurs analogiques, il transforme chaque Live Set en une cérémonie brute et sans filtre. Fort d'une décennie et demie dédiée à l'enseignement de la production, il ne se contente pas de jouer la musique de demain : il forme ceux qui la créeront.",
       bioQuote: 'Un son qui embrasse la tension, le groove et l\'expérimentation',
 
       statsLabel: 'En chiffres',
@@ -487,10 +487,10 @@ export const translations = {
 
       catalogueLabel: 'Catalogue complet',
       catalogueTitle: '13 SORTIES.\n2024 / 2026.',
-      catalogueDesc: 'De Discowriders (juil. 2024) à Voodoo (févr. 2026), un flux constant de productions originales sur VRSTL Records. Singles, EPs et un album, dans une esthétique dark disco, indie dance et minimal hypnotique.',
+      catalogueDesc: 'De Discowriders (juil. 2024) à Voodoo (févr. 2026), un flux constant de productions originales sur VRSTL Records. Singles, EPs et un album, dans une esthétique techno hypnotique et minimal.',
 
       labelSection: 'Label',
-      labelDescMain: "VRSTL Records est un label indépendant canadien dédié à l'Indie Dance et au Dark Disco. Depuis sa fondation, le label a publié 21 EPs et 2 albums, signant des artistes émergents d'Argentine, du Québec et d'Europe.",
+      labelDescMain: "VRSTL Records est un label indépendant canadien dédié aux musiques électroniques hypnotiques. Depuis sa fondation, le label a publié 21 EPs et 2 albums, signant des artistes émergents d'Argentine, du Québec et d'Europe.",
       labelDescSecondary: "Le label défend une esthétique underground affirmée, centrée sur la tension, le groove et l'expérimentation à travers son roster en pleine croissance.",
       labelArtisticDirection: "Direction artistique : tension, groove, expérimentation. Un catalogue qui redéfinit les frontières de l'underground électronique.",
       rosterLabel: 'Roster / Artistes signés',
@@ -616,7 +616,7 @@ export const translations = {
       kicker: 'Radar // Novedades',
       title: 'Novedades',
       subtitle:
-        'Lo que sacan los sellos y artistas que sigo. Indie dance, dark disco y minimal, seleccionados a mano.',
+        'Lo que sacan los sellos y artistas que sigo. Hypnotic techno, minimal y alrededores, seleccionados a mano.',
       badgeFavorite: 'Favorito',
       listen: 'Escuchar',
       sectionFeature: 'Favoritos',
@@ -665,23 +665,23 @@ export const translations = {
     },
     home: {
       subtitle: 'WE ARE MUSIC MAKERS',
-      bio: "Maudite Machine es un DJ y productor canadiense reconocido por su enfoque crudo e hipnótico del minimal y el indie dance. Nacido de la escena underground de Montreal, se ha presentado en eventos mayores como Piknic Électronik, Eclipse Festival y la mítica Techno Parade en París, entregando sets que difuminan la frontera entre intensidad y atmósfera a través de Canadá y Europa.\n\nComo fundador de VRSTL Records, cultiva un sonido que abraza la tensión, el groove y la experimentación, habiendo compartido escenario con leyendas de la música electrónica como Carl Craig, Ellen Allien, The Hacker, Popof y Agoria. Sus colaboraciones con artistas influyentes reflejan una voluntad constante de empujar los límites y redefinir el underground con una firma sonora distintiva, apoyando a artistas audaces que comparten su visión de los lados más oscuros y experimentales de la música electrónica.",
+      bio: "Maudite Machine es un DJ y productor canadiense reconocido por su enfoque crudo e hipnótico del techno y el minimal. Nacido de la escena underground de Montreal, se ha presentado en eventos mayores como Piknic Électronik, Eclipse Festival y la mítica Techno Parade en París, entregando sets que difuminan la frontera entre intensidad y atmósfera a través de Canadá y Europa.\n\nComo fundador de VRSTL Records, cultiva un sonido que abraza la tensión, el groove y la experimentación, habiendo compartido escenario con leyendas de la música electrónica como Carl Craig, Ellen Allien, The Hacker, Popof y Agoria. Sus colaboraciones con artistas influyentes reflejan una voluntad constante de empujar los límites y redefinir el underground con una firma sonora distintiva, apoyando a artistas audaces que comparten su visión de los lados más oscuros y experimentales de la música electrónica.",
     },
     signature: {
       role: 'DJ & Productor',
       location: 'Montréal → France',
-      genres: 'Minimal · Indie Dance · Dark Disco',
+      genres: 'Hypnotic Techno · Minimal · Electronic',
       musicMakers: 'WE ARE MUSIC MAKERS',
     },
     headings: {
-      home: 'Maudite Machine, DJ y productor indie dance, Montréal → France',
+      home: 'Maudite Machine, DJ y productor hypnotic techno, Montréal → France',
       about: 'Biografía de Maudite Machine',
       shows: 'Shows y fechas de Maudite Machine',
       merch: 'Merch oficial de Maudite Machine',
       goodies: 'Wallpapers y artwork gratis de Maudite Machine',
       techrider: 'Rider técnico de Maudite Machine',
       contact: 'Contacto y booking de Maudite Machine',
-      radar: 'Novedades indie dance y dark disco seleccionadas por Maudite Machine',
+      radar: 'Novedades hypnotic techno y minimal seleccionadas por Maudite Machine',
     },
     sections: {
       upcomingEvents: 'Próximos shows',
@@ -745,7 +745,7 @@ export const translations = {
 
       bioLabel: 'Biografía',
       bioMain: 'Pilar del underground de Montreal desde hace más de 15 años, Mika ha forjado la identidad de Maudite Machine entre los muros inmersivos de la SAT y las escenas efervescentes de Piknic Électronik. Compartiendo cartel con leyendas como Carl Craig, Agoria o Reinier Zonneveld, su huella se extiende mucho más allá de un simple DJ set.',
-      bioSecondary: 'Al frente de VRSTL Records, esculpe el futuro del Indie Dance y el Dark Disco norteamericano. Arquitecto sonoro que navega entre secuenciadores de hardware y sintetizadores analógicos, transforma cada Live Set en una ceremonia cruda y sin filtro. Con más de una década y media dedicada a enseñar producción musical, no se limita a tocar la música del mañana: forma a quienes la crearán.',
+      bioSecondary: 'Al frente de VRSTL Records, esculpe el futuro del techno hipnótico norteamericano. Arquitecto sonoro que navega entre secuenciadores de hardware y sintetizadores analógicos, transforma cada Live Set en una ceremonia cruda y sin filtro. Con más de una década y media dedicada a enseñar producción musical, no se limita a tocar la música del mañana: forma a quienes la crearán.',
       bioQuote: 'Un sonido que abraza la tensión, el groove y la experimentación',
 
       statsLabel: 'En cifras',
@@ -767,10 +767,10 @@ export const translations = {
 
       catalogueLabel: 'Catálogo completo',
       catalogueTitle: '13 LANZAMIENTOS.\n2024 / 2026.',
-      catalogueDesc: 'Desde Discowriders (jul. 2024) a Voodoo (feb. 2026), un flujo constante de producciones originales en VRSTL Records. Singles, EPs y un álbum, en una estética dark disco, indie dance y minimal hipnótico.',
+      catalogueDesc: 'Desde Discowriders (jul. 2024) a Voodoo (feb. 2026), un flujo constante de producciones originales en VRSTL Records. Singles, EPs y un álbum, en una estética techno hipnótico y minimal.',
 
       labelSection: 'Label',
-      labelDescMain: 'VRSTL Records es un sello independiente canadiense dedicado al Indie Dance y al Dark Disco. Desde su fundación, el sello ha publicado 21 EPs y 2 álbumes, firmando artistas emergentes de Argentina, Quebec y Europa.',
+      labelDescMain: 'VRSTL Records es un sello independiente canadiense dedicado a la música electrónica hipnótica. Desde su fundación, el sello ha publicado 21 EPs y 2 álbumes, firmando artistas emergentes de Argentina, Quebec y Europa.',
       labelDescSecondary: 'El sello defiende una estética underground afirmada, centrada en la tensión, el groove y la experimentación en su roster en crecimiento.',
       labelArtisticDirection: 'Dirección artística: tensión, groove, experimentación. Un catálogo que redefine las fronteras del underground electrónico.',
       rosterLabel: 'Roster / Artistas firmados',
