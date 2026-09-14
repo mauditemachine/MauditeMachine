@@ -3,6 +3,10 @@
  * entre le menu overlay et le footer. SVG inline fill currentColor ;
  * les marques absentes de Font Awesome (Beatport, Songkick, Hypeddit)
  * ont une pastille initiale dans le meme rond borde.
+ *
+ * Au survol, le nom du reseau s'affiche en gros au-dessus du rond
+ * (::after sur data-label, voir v2.css) : pas de title natif, sinon le
+ * tooltip du navigateur double l'affichage.
  */
 
 import React from 'react';
@@ -20,7 +24,7 @@ const SocialLinks: React.FC<{ className?: string }> = ({ className }) => (
           target="_blank"
           rel="noopener noreferrer"
           aria-label={s.label}
-          title={s.label}
+          data-label={s.label}
         >
           {icon ? (
             <svg viewBox={icon.vb} width="18" height="18" aria-hidden="true">

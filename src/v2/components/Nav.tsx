@@ -20,7 +20,6 @@ const ENTRIES: Entry[] = [
   { to: '/radar', label: 'Radar' },
   { href: '#merch', label: 'Merch' },
   { href: '#epk', label: 'Press Kit' },
-  { to: '/archives', label: 'Archives' },
   { href: '#contact', label: 'Contact' },
 ];
 

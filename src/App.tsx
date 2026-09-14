@@ -17,7 +17,6 @@ const AdminRadarPage = React.lazy(() => import('./pages/AdminRadarPage'));
 // Le site principal depuis la bascule (2026-08) : la refonte v2
 const V2App = React.lazy(() => import('./v2/V2App'));
 const V2RadarPage = React.lazy(() => import('./v2/pages/RadarPage'));
-const V2ArchivePage = React.lazy(() => import('./v2/pages/ArchivePage'));
 // Panneau admin local (shell sidebar : dashboard, contenu, medias, publier)
 const AdminApp = React.lazy(() => import('./admin/AdminApp'));
 
@@ -34,9 +33,11 @@ export default function App() {
           {/* ============ Site principal : la v2 ============ */}
           <Route path="/" element={lazyEl(<V2App />)} />
           <Route path="/radar" element={lazyEl(<V2RadarPage />)} />
-          <Route path="/archives" element={lazyEl(<V2ArchivePage />)} />
           {/* Compat : les liens /v2 deja partages restent valides */}
           <Route path="/v2" element={<Navigate to="/" replace />} />
+          {/* La page Archives (musee du site) a ete retiree : on ne laisse
+              pas une page blanche aux liens deja partages ou indexes. */}
+          <Route path="/archives" element={<Navigate to="/" replace />} />
           <Route path="/v2/radar" element={<Navigate to="/radar" replace />} />
 
           {/* ============ Redirections des anciennes URLs v1 ============ */}
