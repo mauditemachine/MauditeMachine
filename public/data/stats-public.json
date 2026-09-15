@@ -5227,6 +5227,38 @@
         "status": "unavailable",
         "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
       }
+    },
+    {
+      "generatedAt": "2026-09-15T10:39:09.893Z",
+      "origin": "cron",
+      "youtube": {
+        "status": "unavailable",
+        "error": "fetch failed"
+      },
+      "youtubeGeo": {
+        "status": "unavailable",
+        "error": "OAuth non configure (voir scripts/youtube-oauth.mjs)"
+      },
+      "spotify": {
+        "status": "unavailable",
+        "error": "HTTP 403 {\"error\": {\"status\": 403, \"message\": \"Forbidden\" } }"
+      },
+      "instagram": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / IG_BUSINESS_ACCOUNT_ID manquants"
+      },
+      "facebook": {
+        "status": "unavailable",
+        "error": "META_ACCESS_TOKEN / FB_PAGE_ID manquants"
+      },
+      "soundcloud": {
+        "status": "disabled",
+        "error": "SOUNDCLOUD_CLIENT_ID absent (module optionnel)"
+      },
+      "ga4": {
+        "status": "unavailable",
+        "error": "GA4 non configure (GA4_PROPERTY_ID + OAuth Google)"
+      }
     }
   ],
   "manual": {}
