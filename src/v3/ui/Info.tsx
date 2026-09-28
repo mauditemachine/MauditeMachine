@@ -112,4 +112,4 @@ const Info: React.FC<InfoProps> = ({ inline = false }) => {
   );
 };
 
-export default Info;
+export default React.memo(Info);

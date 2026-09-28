@@ -39,6 +39,13 @@ let finishing = false;
 let hasPlayed = false;
 /** Derniere position demandee dans un set (pour reprendre au bon index). */
 let lastSetIndex = 0;
+/**
+ * Generation de lecture : un pause() (ou un nouveau play) survenu pendant
+ * que l'API ou l'iframe se charge encore annule le play en attente. Sans
+ * ca, quitter la page pendant le tout premier chargement lancait le son
+ * apres coup, sans aucun bouton pour l'arreter.
+ */
+let playGen = 0;
 
 export function setScHandlers(h: ScEvents | null): void {
   handlers = h;
@@ -120,7 +127,9 @@ function ensureWidget(firstUrl: string): Promise<any> {
  * l'URL DANS le geste en cours : la navigation re-delegue l'autoplay.
  */
 export async function scPlay(url: string): Promise<void> {
+  const gen = ++playGen;
   const w = await ensureWidget(url);
+  if (gen !== playGen) return; // pause() ou autre play() entre-temps
   finishing = false;
   if (url !== currentUrl || !hasPlayed) {
     currentUrl = url;
@@ -150,7 +159,9 @@ export async function scPlay(url: string): Promise<void> {
  * automatique piste a piste ne re-navigue pas (pas de re-activation requise).
  */
 export async function scPlaySetTrack(setUrl: string, index: number): Promise<void> {
+  const gen = ++playGen;
   const w = await ensureWidget(setUrl);
+  if (gen !== playGen) return; // pause() ou autre play() entre-temps
   finishing = false;
   lastSetIndex = index;
   if (currentUrl !== setUrl || !hasPlayed) {
@@ -169,6 +180,7 @@ export async function scPlaySetTrack(setUrl: string, index: number): Promise<voi
 }
 
 export function scPause(): void {
+  playGen += 1; // annule un play encore en attente du widget
   widget?.pause();
 }
 

@@ -18,7 +18,7 @@ const MOCK_MODE: string | null = import.meta.env.DEV
 export const ENGINE_IS_MOCK = MOCK_MODE !== null;
 
 const MockWithMode: React.FC<{ children: React.ReactNode }> = ({ children }) =>
-  React.createElement(MockEngineProvider, { failSecond: MOCK_MODE === 'fail' }, children);
+  React.createElement(MockEngineProvider, { failSecond: MOCK_MODE === 'fail', children });
 
 export const EngineProvider: React.FC<{ children: React.ReactNode }> = ENGINE_IS_MOCK
   ? MockWithMode

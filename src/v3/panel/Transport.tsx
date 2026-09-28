@@ -1,14 +1,16 @@
 /**
- * Transport : BACK (prev), RUN/STOP (play ou toggle, aria-pressed = playing),
- * FWD (next). Le contour rouge de RUN respire quand une selection attend.
+ * Transport : BACK (prev, ou selection precedente si rien n'est charge),
+ * RUN/STOP (bouton bascule : nom constant "Play", aria-pressed = en lecture),
+ * FWD (next, ou selection suivante). Le contour rouge de RUN respire quand
+ * une selection attend.
  */
 
 import React from 'react';
 
 interface TransportProps {
-  runRef?: React.RefObject<HTMLButtonElement>;
+  runRef?: React.RefObject<HTMLButtonElement | null>;
   playing: boolean;
-  hasCurrent: boolean;
+  navEnabled: boolean;
   runEnabled: boolean;
   breathing: boolean;
   onRun: () => void;
@@ -16,13 +18,13 @@ interface TransportProps {
   onFwd: () => void;
 }
 
-const Transport: React.FC<TransportProps> = ({ runRef, playing, hasCurrent, runEnabled, breathing, onRun, onBack, onFwd }) => (
+const Transport: React.FC<TransportProps> = ({ runRef, playing, navEnabled, runEnabled, breathing, onRun, onBack, onFwd }) => (
   <div className="v3-transport" role="group" aria-label="Transport">
     <button
       type="button"
       className="v3-tbtn v3-tbtn-back"
       aria-label="Previous track"
-      aria-disabled={!hasCurrent}
+      aria-disabled={!navEnabled}
       onClick={onBack}
     >
       <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -34,7 +36,7 @@ const Transport: React.FC<TransportProps> = ({ runRef, playing, hasCurrent, runE
       ref={runRef}
       type="button"
       className={`v3-tbtn v3-tbtn-run${breathing ? ' is-breathing' : ''}${playing ? ' is-on' : ''}`}
-      aria-label={playing ? 'Pause' : 'Play'}
+      aria-label="Play"
       aria-pressed={playing}
       aria-disabled={!runEnabled}
       onClick={onRun}
@@ -55,7 +57,7 @@ const Transport: React.FC<TransportProps> = ({ runRef, playing, hasCurrent, runE
       type="button"
       className="v3-tbtn v3-tbtn-fwd"
       aria-label="Next track"
-      aria-disabled={!hasCurrent}
+      aria-disabled={!navEnabled}
       onClick={onFwd}
     >
       <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
@@ -66,4 +68,4 @@ const Transport: React.FC<TransportProps> = ({ runRef, playing, hasCurrent, runE
   </div>
 );
 
-export default Transport;
+export default React.memo(Transport);

@@ -13,6 +13,7 @@ import {
   BufferGeometry,
   Mesh,
   MeshStandardMaterial,
+  NormalBlending,
   PMREMGenerator,
   SRGBColorSpace,
   Scene,
@@ -20,6 +21,7 @@ import {
   Vector2,
   Vector3,
   WebGLRenderer,
+  type IUniform,
   type Texture,
   type WebGLRenderTarget,
 } from 'three';
@@ -29,13 +31,13 @@ import { bridge } from '../state/bridge';
 import { knobs, knobUniforms } from '../state/knobs';
 import { motion } from '../state/motion';
 import { BeatClock } from './beatClock';
-import { Beads } from './Beads';
+import { Beads, type BeadsInput } from './Beads';
 import { CameraRig } from './CameraRig';
 import { Monolith } from './Monolith';
-import { clamp01, damp, frameAt, makeFrame, type Frame } from './path';
+import { WOB_PERIOD, damp, frameAt, makeFrame, type Frame } from './path';
 import { Picker, type PickHit } from './pick';
-import { Ribbon } from './Ribbon';
-import { Sequencer, type SeqMode } from './Sequencer';
+import { Ribbon, type Uniforms } from './Ribbon';
+import { Sequencer, type SeqInput, type SeqMode } from './Sequencer';
 import { BACKGROUND_FRAG, GRAIN_FRAG, SCREEN_VERT } from './shaders';
 import { Tweens, easeInCubic, easeOutBack, easeOutCubic, linear } from './tween';
 
@@ -55,6 +57,7 @@ export interface AcidLineOpts {
   onError: (where: string, message: string) => void;
 }
 
+/** Un slot d'enroulement : son etat et ses sept uniforms, resolus une fois. */
 interface FocusSlot {
   id: string | null;
   t: number;
@@ -62,11 +65,36 @@ interface FocusSlot {
   turns: number;
   pos: Vector3;
   frame: Frame;
+  uWrap: IUniform<number>;
+  uTurns: IUniform<number>;
+  uFocusT: IUniform<number>;
+  uPos: IUniform<Vector3>;
+  uN1: IUniform<Vector3>;
+  uN2: IUniform<Vector3>;
+  uTan: IUniform<Vector3>;
 }
 
-const makeSlot = (): FocusSlot => ({ id: null, t: 0.94, wrap: 0, turns: 2, pos: new Vector3(), frame: makeFrame() });
+const makeSlot = (u: Uniforms, s: 'A' | 'B'): FocusSlot => ({
+  id: null,
+  t: 0.94,
+  wrap: 0,
+  turns: 2,
+  pos: new Vector3(),
+  frame: makeFrame(),
+  uWrap: u[`uWrap${s}`],
+  uTurns: u[`uTurns${s}`],
+  uFocusT: u[`uFocusT${s}`],
+  uPos: u[`uFocusPos${s}`],
+  uN1: u[`uFocusN1${s}`],
+  uN2: u[`uFocusN2${s}`],
+  uTan: u[`uFocusTan${s}`],
+});
 
 const INTRO_END = 2.4;
+/** Temps des tirets replie sur 64 s : 1.5625 x 64 = 100 cycles exacts. */
+const DASH_PERIOD = 64;
+/** Le grain n'a pas de periode (hash) : un repli a 100 s est invisible. */
+const GRAIN_PERIOD = 100;
 
 function screenQuad(frag: string, uniforms: Record<string, { value: unknown }>, order: number, additive: boolean): Mesh {
   const g = new BufferGeometry();
@@ -78,7 +106,7 @@ function screenQuad(frag: string, uniforms: Record<string, { value: unknown }>, 
     depthTest: false,
     depthWrite: false,
     transparent: additive,
-    blending: additive ? AdditiveBlending : undefined,
+    blending: additive ? AdditiveBlending : NormalBlending,
     toneMapped: false,
   });
   const mesh = new Mesh(g, m);
@@ -110,7 +138,9 @@ export class AcidLine {
   private raf = 0;
   private running = false;
   private disposed = false;
+  private contextLost = false;
   private dirty = true;
+  private frameParity = 0;
   private time = 0;
   private lastNow = -1;
   private bootStart: number;
@@ -121,8 +151,8 @@ export class AcidLine {
   private dim = 1;
   private idleSince = -1;
   private focusId: string | null = null;
-  private slotA = makeSlot();
-  private slotB = makeSlot();
+  private slotA: FocusSlot;
+  private slotB: FocusSlot;
   private prevSelected: string | null = null;
   private prevCurrent: string | null = null;
   private prevPlaying = false;
@@ -137,64 +167,87 @@ export class AcidLine {
   private lastCallsWrite = 0;
   private width = 1;
   private height = 1;
+  /** Entrees des sous-systemes : un objet chacun, mute a chaque frame (zero allocation). */
+  private beadsIn: BeadsInput = {
+    hoverId: null,
+    selectedId: null,
+    currentId: null,
+    playing: false,
+    group: 1,
+    noticeAt: 0,
+    noticeId: null,
+    reveal: 0,
+    reduced: false,
+    camPos: new Vector3(),
+  };
+  private seqIn: SeqInput = {
+    mode: 'boot',
+    progress: 0,
+    step: -1,
+    reduced: false,
+    bootT: 0,
+    ledsOff: false,
+    camPos: new Vector3(),
+  };
   private unsubMotion: () => void;
   private onVis: () => void;
   private onLost: (e: Event) => void;
   private onRestored: () => void;
 
   static create(opts: AcidLineOpts): AcidLine | null {
+    let canvas: HTMLCanvasElement | null = null;
+    let renderer: WebGLRenderer | null = null;
     try {
-      return new AcidLine(opts);
+      canvas = document.createElement('canvas');
+      canvas.className = 'v3-canvas';
+      canvas.setAttribute('aria-hidden', 'true');
+      opts.host.appendChild(canvas);
+      renderer = new WebGLRenderer({
+        canvas,
+        antialias: !opts.isMobile,
+        alpha: false,
+        powerPreference: 'high-performance',
+      });
+      return new AcidLine(opts, canvas, renderer);
     } catch (e) {
       opts.onError('create', e instanceof Error ? e.message : String(e));
-      opts.host.querySelector('canvas.v3-canvas')?.remove();
+      // Un echec APRES la creation du contexte (PMREM, shaders) : on le rend
+      // tout de suite, sinon il survit sur un canvas detache jusqu'au GC et
+      // compte dans le plafond de contextes du navigateur
+      if (renderer) {
+        try {
+          renderer.dispose();
+          renderer.forceContextLoss();
+        } catch {
+          /* contexte deja perdu */
+        }
+      }
+      canvas?.remove();
       return null;
     }
   }
 
-  private constructor(opts: AcidLineOpts) {
+  private constructor(opts: AcidLineOpts, canvas: HTMLCanvasElement, renderer: WebGLRenderer) {
     this.opts = opts;
     this.tier = opts.tier;
     this.stats.tier = opts.tier;
+    this.canvas = canvas;
+    this.renderer = renderer;
     const reduced = motion.get();
     const low = opts.tier === 'low';
     const mobile = opts.isMobile;
-
-    this.canvas = document.createElement('canvas');
-    this.canvas.className = 'v3-canvas';
-    this.canvas.setAttribute('aria-hidden', 'true');
-    opts.host.appendChild(this.canvas);
     this.width = Math.max(1, opts.host.clientWidth);
     this.height = Math.max(1, opts.host.clientHeight);
 
-    this.renderer = new WebGLRenderer({
-      canvas: this.canvas,
-      antialias: !mobile,
-      alpha: false,
-      powerPreference: 'high-performance',
-    });
-    this.renderer.setPixelRatio(low ? 1 : Math.min(window.devicePixelRatio || 1, 1.5));
-    this.renderer.setSize(this.width, this.height, false);
-    this.renderer.setClearColor(0x0c0c0c, 1);
-    this.renderer.toneMapping = ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.0;
-    this.renderer.outputColorSpace = SRGBColorSpace;
-
-    this.onLost = (e: Event) => {
-      e.preventDefault();
-      this.stopLoop();
-      opts.onContextLost();
-    };
-    this.onRestored = () => {
-      opts.onContextRestored();
-      this.dirty = true;
-      this.startLoop();
-    };
-    this.canvas.addEventListener('webglcontextlost', this.onLost, false);
-    this.canvas.addEventListener('webglcontextrestored', this.onRestored, false);
+    renderer.setPixelRatio(low ? 1 : Math.min(window.devicePixelRatio || 1, 1.5));
+    renderer.setSize(this.width, this.height, false);
+    renderer.setClearColor(0x0c0c0c, 1);
+    renderer.toneMapping = ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.0;
+    renderer.outputColorSpace = SRGBColorSpace;
 
     // Environnement : la piece de RoomEnvironment, sans fichier
-    const pmrem = new PMREMGenerator(this.renderer);
+    const pmrem = new PMREMGenerator(renderer);
     this.room = new RoomEnvironment();
     this.envRT = pmrem.fromScene(this.room, 0.04);
     this.env = this.envRT.texture;
@@ -207,6 +260,8 @@ export class AcidLine {
     this.ribbon = new Ribbon(segments, !mobile);
     this.ribbon.setHaloVisible(!low);
     this.scene.add(this.ribbon.group);
+    this.slotA = makeSlot(this.ribbon.u, 'A');
+    this.slotB = makeSlot(this.ribbon.u, 'B');
 
     this.beads = new Beads(metal, mobile ? 1 : 2);
     this.scene.add(this.beads.mesh, this.beads.gates);
@@ -230,8 +285,10 @@ export class AcidLine {
     this.rig = new CameraRig(this.width / this.height);
     this.rig.touch = opts.isTouch;
     this.rig.reduced = reduced;
+    // La camera est lue en direct par les perles et l'anneau (taper de la bobine)
+    this.beadsIn.camPos = this.rig.camera.position;
+    this.seqIn.camPos = this.rig.camera.position;
     this.monolith.layout(this.rig.portrait, low);
-    this.monolith.raster(() => this.requestRender());
 
     const now = performance.now() / 1000;
     this.bootStart = now;
@@ -249,10 +306,28 @@ export class AcidLine {
 
     // Compilation des shaders pendant la frame noire : aucun a-coup a la revelation
     try {
-      this.renderer.compile(this.scene, this.rig.camera);
+      renderer.compile(this.scene, this.rig.camera);
     } catch (e) {
       opts.onError('compile', e instanceof Error ? e.message : String(e));
     }
+
+    // A partir d'ici plus rien ne touche au GL : ecouteurs, abonnements,
+    // raster du nom. Un echec plus haut ne laisse donc rien d'accroche.
+    this.onLost = (e: Event) => {
+      e.preventDefault();
+      this.contextLost = true;
+      this.stopLoop();
+      opts.onContextLost();
+    };
+    this.onRestored = () => {
+      this.contextLost = false;
+      opts.onContextRestored();
+      this.dirty = true;
+      this.lastNow = -1;
+      this.startLoop();
+    };
+    this.canvas.addEventListener('webglcontextlost', this.onLost, false);
+    this.canvas.addEventListener('webglcontextrestored', this.onRestored, false);
 
     this.unsubMotion = motion.subscribe(() => {
       const r = motion.get();
@@ -274,6 +349,7 @@ export class AcidLine {
       }
     };
     document.addEventListener('visibilitychange', this.onVis);
+    this.monolith.raster(() => this.requestRender());
 
     if (opts.dev) {
       (window as unknown as { __v3: unknown }).__v3 = {
@@ -296,6 +372,7 @@ export class AcidLine {
 
   resize(w: number, h: number): void {
     if (w < 1 || h < 1) return;
+    if (w === this.width && h === this.height) return;
     const wasPortrait = this.rig.portrait;
     this.width = w;
     this.height = h;
@@ -398,7 +475,8 @@ export class AcidLine {
   /* ---------------- boucle ---------------- */
 
   private startLoop(): void {
-    if (this.running || this.disposed) return;
+    // Contexte perdu : rien a dessiner, la boucle repart a la restauration
+    if (this.running || this.disposed || this.contextLost) return;
     this.running = true;
     this.raf = requestAnimationFrame(this.tick);
   }
@@ -410,6 +488,13 @@ export class AcidLine {
 
   private tick = (): void => {
     if (!this.running || this.disposed) return;
+    // Tactile au repos : une frame sur deux (30 Hz). La veille (pulsation
+    // d'une LED, rotation des perles, tremblement) n'a pas besoin de 60 Hz
+    // et la batterie d'un telephone, si. Le dt de la frame rendue suit.
+    if (this.idleThrottle() && (this.frameParity ^= 1)) {
+      this.raf = requestAnimationFrame(this.tick);
+      return;
+    }
     const nowMs = performance.now();
     const dt = this.lastNow < 0 ? 1 / 60 : Math.min(0.05, (nowMs - this.lastNow) / 1000);
     this.lastNow = nowMs;
@@ -430,7 +515,13 @@ export class AcidLine {
   };
 
   private hasWork(): boolean {
-    return this.dirty || this.tweens.alive > 0 || this.rig.busy || this.knobsMoving;
+    return this.dirty || this.tweens.alive > 0 || this.rig.busy || this.seq.traveling || this.knobsMoving;
+  }
+
+  private idleThrottle(): boolean {
+    if (!this.opts.isTouch || !this.introDone || this.rig.dragging) return false;
+    if (bridge.state !== 'idle' && bridge.state !== 'selected') return false;
+    return !this.hasWork();
   }
 
   private syncKnobs(snap: boolean, dt = 1 / 60): void {
@@ -461,18 +552,17 @@ export class AcidLine {
     slot.t = bead ? bead.t : NEWEST_TRACK.t;
   }
 
-  private writeSlot(slot: FocusSlot, suffix: 'A' | 'B'): void {
-    const u = this.ribbon.u;
+  private writeSlot(slot: FocusSlot): void {
     const b = slot.id ? BEAD_BY_ID[slot.id] : null;
     if (b) this.beads.positionOf(b.index, slot.pos);
     frameAt(slot.t, this.ku.tuning, slot.frame);
-    u[`uWrap${suffix}`].value = slot.wrap;
-    u[`uTurns${suffix}`].value = slot.turns;
-    u[`uFocusT${suffix}`].value = slot.t;
-    (u[`uFocusPos${suffix}`].value as Vector3).copy(slot.pos);
-    (u[`uFocusN1${suffix}`].value as Vector3).copy(slot.frame.n1);
-    (u[`uFocusN2${suffix}`].value as Vector3).copy(slot.frame.n2);
-    (u[`uFocusTan${suffix}`].value as Vector3).copy(slot.frame.T);
+    slot.uWrap.value = slot.wrap;
+    slot.uTurns.value = slot.turns;
+    slot.uFocusT.value = slot.t;
+    slot.uPos.value.copy(slot.pos);
+    slot.uN1.value.copy(slot.frame.n1);
+    slot.uN2.value.copy(slot.frame.n2);
+    slot.uTan.value.copy(slot.frame.T);
   }
 
   /** Diffe le pont : selection, courant, lecture, groupe, drawer. */
@@ -563,6 +653,8 @@ export class AcidLine {
     const reduced = motion.get();
     const now = nowMs / 1000;
     if (!reduced) this.time += dt;
+    // Temps replie pour tout ce qui finit en float32 (GPU) : voir WOB_PERIOD
+    const wobT = this.time % WOB_PERIOD;
     this.tweens.update(now);
     this.syncKnobs(false, dt);
     this.diffBridge(now, reduced);
@@ -571,36 +663,35 @@ export class AcidLine {
     const reveal = this.introDone ? 1 : this.reveal;
 
     // Perles et portes
-    this.beads.update(dt, this.time, nowMs, this.ku, {
-      hoverId: bridge.hoverId,
-      selectedId: bridge.selectedId,
-      currentId: bridge.currentId,
-      playing: bridge.playing,
-      group: bridge.group,
-      noticeAt: bridge.noticeAt,
-      noticeId: bridge.noticeId,
-      reveal,
-      reduced,
-      camPos: this.rig.camera.position,
-    });
+    const bi = this.beadsIn;
+    bi.hoverId = bridge.hoverId;
+    bi.selectedId = bridge.selectedId;
+    bi.currentId = bridge.currentId;
+    bi.playing = bridge.playing;
+    bi.group = bridge.group;
+    bi.noticeAt = bridge.noticeAt;
+    bi.noticeId = bridge.noticeId;
+    bi.reveal = reveal;
+    bi.reduced = reduced;
+    this.beads.update(dt, wobT, nowMs, this.ku, bi);
 
     // Slots d'enroulement (suivent TUNING et le tremblement)
     const focusBead = this.slotA.id ? BEAD_BY_ID[this.slotA.id] : null;
     this.slotA.turns = focusBead && bridge.currentId === focusBead.id ? 2 + 6 * bridge.progress : 2;
-    this.writeSlot(this.slotA, 'A');
-    this.writeSlot(this.slotB, 'B');
+    this.writeSlot(this.slotA);
+    this.writeSlot(this.slotB);
 
     // Anneau
     const step = this.clock.step(nowMs);
     const mode = this.seqMode();
-    this.seq.update(dt, this.time, now, this.ku, {
-      mode,
-      progress: bridge.currentId ? bridge.progress : 0,
-      step,
-      reduced,
-      bootT,
-      ledsOff: !!focusBead && !focusBead.playable,
-    });
+    const si = this.seqIn;
+    si.mode = mode;
+    si.progress = bridge.currentId ? bridge.progress : 0;
+    si.step = step;
+    si.reduced = reduced;
+    si.bootT = bootT;
+    si.ledsOff = !!focusBead && !focusBead.playable;
+    this.seq.update(dt, wobT, now, this.ku, si);
     const shownStep = mode === 'playing' ? step : -1;
     if (shownStep !== this.prevStep) {
       this.prevStep = shownStep;
@@ -630,14 +721,15 @@ export class AcidLine {
 
     // Uniforms du ruban
     const u = this.ribbon.u;
-    u.uTime.value = this.time;
+    u.uTime.value = wobT;
+    u.uDashTime.value = this.time % DASH_PERIOD;
     u.uFlow.value = this.flow;
     u.uReveal.value = reveal;
     u.uDim.value = this.dim;
     u.uGhostOn.value = ghostOn;
     u.uGhostT.value = ghostT;
     u.uWrapGlow.value = reduced && bridge.playing ? 1 : 0;
-    (this.grain.material as ShaderMaterial).uniforms.uTime.value = reduced ? 0 : this.time;
+    (this.grain.material as ShaderMaterial).uniforms.uTime.value = reduced ? 0 : this.time % GRAIN_PERIOD;
 
     this.renderer.render(this.scene, this.rig.camera);
     this.dirty = false;
@@ -649,8 +741,11 @@ export class AcidLine {
       this.opts.root.dataset.v3Calls = String(this.stats.calls);
     }
 
-    // Sonde de palier : moyenne des frames 30..90 apres l'intro
-    if (this.probeFrames >= 0) {
+    // Sonde de palier : moyenne des frames 30..90 apres l'intro. Un document
+    // non visible (onglet en arriere-plan, panneau cache) a des frames
+    // bridees par le navigateur : elles ne comptent pas, sinon la page se
+    // retrouve en palier bas pour toute la session sans raison
+    if (this.probeFrames >= 0 && document.visibilityState === 'visible') {
       this.probeFrames += 1;
       if (this.probeFrames >= 30 && this.probeFrames < 90) {
         this.probeSum += dt * 1000;

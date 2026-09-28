@@ -12,7 +12,7 @@ export interface KeyHandlers {
   hasGesture: RefObject<boolean>;
   hasCurrent: boolean;
   drawerOpen: boolean;
-  stageRef: RefObject<HTMLElement>;
+  stageRef: RefObject<HTMLElement | null>;
   onToggle: () => void;
   onPrev: () => void;
   onNext: () => void;
@@ -39,12 +39,16 @@ export function useKeys(h: KeyHandlers): void {
         return;
       }
       if (k.drawerOpen || isEditable(e.target)) return;
-      const t = e.target as HTMLElement | null;
-      if (t && t.tagName === 'BUTTON') return;
       if (e.altKey || e.ctrlKey || e.metaKey) return;
+      const t = e.target as HTMLElement | null;
+      // Un bouton focalise garde Espace pour lui (activation native) ;
+      // fleches et chiffres passent, sinon la selection est bloquee apres
+      // qu'une ligne de la tracklist a mis le focus sur RUN
+      const onButton = !!t && t.tagName === 'BUTTON';
       switch (e.key) {
         case ' ':
         case 'Spacebar':
+          if (onButton) return;
           if (k.hasCurrent && k.hasGesture.current) {
             e.preventDefault();
             k.onToggle();

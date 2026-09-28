@@ -11,7 +11,7 @@ interface DrawerProps {
   kind: 'tracklist' | 'info';
   label: string;
   onClose: () => void;
-  returnTo: React.RefObject<HTMLElement>;
+  returnTo: React.RefObject<HTMLElement | null>;
   children: React.ReactNode;
 }
 
@@ -108,4 +108,4 @@ const Drawer: React.FC<DrawerProps> = ({ open, kind, label, onClose, returnTo, c
   );
 };
 
-export default Drawer;
+export default React.memo(Drawer);

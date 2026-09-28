@@ -24,7 +24,6 @@
     "@fortawesome/fontawesome-free": "^7.0.0",
     "@sanity/client": "^7.21.0",
     "@sanity/image-url": "^2.1.1",
-    "@types/three": "^0.186.0",
     "bandcamp-fetch": "^2.0.0",
     "clsx": "^2.1.1",
     "cors": "^2.8.5",
@@ -43,6 +42,7 @@
   "devDependencies": {
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
+    "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^4.3.0",
     "autoprefixer": "^10.5.0",
     "postcss": "^8.5.10",

@@ -32,19 +32,19 @@ const StaticLine: React.FC = () => {
     const pts: string[] = [];
     const v = new Vector3();
     for (let i = 0; i <= 512; i += 1) {
-      fullPos(i / 512, k, 0, v);
+      fullPos(i / 512, k, 0, v, cam.position);
       const p = project(cam, v);
       if (p) pts.push(`${p[0].toFixed(1)},${p[1].toFixed(1)}`);
     }
     const beads = BEADS.map((b) => {
-      fullPos(b.t, k, 0, v);
+      fullPos(b.t, k, 0, v, cam.position);
       const p = project(cam, v);
       if (!p) return null;
       const dist = cam.position.distanceTo(v);
       return { id: b.id, x: p[0], y: p[1], r: Math.max(1.5, (b.radius * 520) / dist), hub: b.kind === 'mixtape' };
     });
     const gates = GROUPS[4].map((b) => {
-      fullPos(b.t, k, 0, v);
+      fullPos(b.t, k, 0, v, cam.position);
       const p = project(cam, v);
       if (!p) return null;
       const dist = cam.position.distanceTo(v);

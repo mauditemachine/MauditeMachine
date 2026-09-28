@@ -50,6 +50,7 @@ export class Ribbon {
     this.segments = segments;
     this.u = {
       uTime: { value: 0 },
+      uDashTime: { value: 0 },
       uTuning: { value: 1 },
       uResonance: { value: 0.25 },
       uCutoff: { value: 0.5 },

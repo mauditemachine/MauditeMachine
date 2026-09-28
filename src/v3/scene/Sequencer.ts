@@ -46,6 +46,8 @@ export interface SeqInput {
   bootT: number;
   /** focus injouable : LEDs eteintes, pas de veille */
   ledsOff: boolean;
+  /** position camera : la bobine de la ligne s'efface pres d'elle (path.ts) */
+  camPos: Vector3;
 }
 
 const UP = new Vector3(0, 1, 0);
@@ -238,6 +240,11 @@ export class Sequencer {
     }
   }
 
+  /** Un voyage est en cours : la boucle doit tourner (rendu a la demande). */
+  get traveling(): boolean {
+    return this.travel !== null;
+  }
+
   private clamp(nowS: number): void {
     for (let k = 0; k < 16; k += 1) {
       this.off[k] = 0.5;
@@ -324,7 +331,7 @@ export class Sequencer {
         if (!inp.reduced) this.clamp(nowS);
       }
     }
-    fullPos(this.t, knobs, time, _pos);
+    fullPos(this.t, knobs, time, _pos, inp.camPos);
     frameAt(this.t, knobs.tuning, _frame);
     _z.copy(_frame.T);
     _y.copy(UP).addScaledVector(_z, -UP.dot(_z));

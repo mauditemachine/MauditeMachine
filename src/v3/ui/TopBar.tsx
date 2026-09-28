@@ -9,11 +9,11 @@ interface TopBarProps {
   drawer: 'none' | 'tracklist' | 'info';
   onTracklist: () => void;
   onInfo: () => void;
-  tracklistRef: React.RefObject<HTMLButtonElement>;
-  infoRef: React.RefObject<HTMLButtonElement>;
+  tracklistRef: React.RefObject<HTMLButtonElement | null>;
+  infoRef: React.RefObject<HTMLButtonElement | null>;
 }
 
-const TopBar = forwardRef<HTMLElement, TopBarProps>(({ drawer, onTracklist, onInfo, tracklistRef, infoRef }, ref) => (
+const TopBarInner = forwardRef<HTMLElement, TopBarProps>(({ drawer, onTracklist, onInfo, tracklistRef, infoRef }, ref) => (
   <header className="v3-top" ref={ref}>
     <div className="v3-brand">
       <Link to="/" className="v3-wordmark" aria-label="Maudite Machine, main site">
@@ -43,6 +43,8 @@ const TopBar = forwardRef<HTMLElement, TopBarProps>(({ drawer, onTracklist, onIn
     </nav>
   </header>
 ));
-TopBar.displayName = 'TopBar';
+TopBarInner.displayName = 'TopBar';
+
+const TopBar = React.memo(TopBarInner);
 
 export default TopBar;

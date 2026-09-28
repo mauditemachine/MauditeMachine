@@ -127,9 +127,34 @@ const V3Shell: React.FC = () => {
   const [noticeKey, setNoticeKey] = useState(0);
   const [devErrors, setDevErrors] = useState<string[]>([]);
 
+  // Miroirs lus par les actions : le contexte moteur change a chaque
+  // PLAY_PROGRESS (plusieurs fois par seconde). Avec des handlers stables,
+  // tout ce qui est sous le shell en React.memo ne se re-rend pas a chaque
+  // tick ; seuls Display et les pas suivent la progression.
+  const engineRef = useRef(engine);
+  engineRef.current = engine;
+  const currentRef = useRef(current);
+  currentRef.current = current;
+  const playingRef = useRef(playing);
+  playingRef.current = playing;
+  const durationRef = useRef(duration);
+  durationRef.current = duration;
+  const pendingRef = useRef(pending);
+  pendingRef.current = pending;
+  const selectedRef = useRef(selectedId);
+  selectedRef.current = selectedId;
+  const groupRef = useRef(group);
+  groupRef.current = group;
+
   const onError = useCallback((where: string, message: string) => {
     devLog(where, message);
     if (IS_DEV) setDevErrors((e) => [...e.slice(-4), `${where}: ${message}`]);
+    // Une exception dans la boucle de rendu (ou a la creation) : la page
+    // continue sans WebGL, ligne SVG et listes ; jamais un canvas fige
+    if (where === 'frame' || where === 'create') {
+      setGl('fallback');
+      setBootDone(true);
+    }
   }, []);
 
   /* ---------- pending (LOADING) : 8 s max ---------- */
@@ -197,6 +222,8 @@ const V3Shell: React.FC = () => {
   const currentBead = current ? BEAD_BY_ID[current.id] ?? null : null;
   const displayBead = selectedBead ?? currentBead;
   const displayIsCurrent = !!displayBead && !!current && displayBead.id === current.id;
+  const displayBeadRef = useRef(displayBead);
+  displayBeadRef.current = displayBead;
 
   /* ---------- pont vers la scene (un effet, pas de render par frame) ---------- */
   useEffect(() => {
@@ -282,14 +309,16 @@ const V3Shell: React.FC = () => {
       return undefined;
     }
     sceneRef.current = line;
-    let t = 0;
+    // Une frame, pas 100 ms : le canvas ne reste jamais etire pendant un
+    // redimensionnement ou une rotation (resize() ignore les tailles egales)
+    let raf = 0;
     const ro = new ResizeObserver(() => {
-      window.clearTimeout(t);
-      t = window.setTimeout(() => line.resize(host.clientWidth, host.clientHeight), 100);
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => line.resize(host.clientWidth, host.clientHeight));
     });
     ro.observe(host);
     return () => {
-      window.clearTimeout(t);
+      cancelAnimationFrame(raf);
       ro.disconnect();
       line.dispose();
       sceneRef.current = null;
@@ -302,7 +331,7 @@ const V3Shell: React.FC = () => {
     if (w.__v3) w.__v3.state.engine = engine;
   }, [engine]);
 
-  /* ---------- actions ---------- */
+  /* ---------- actions (toutes stables : elles lisent les miroirs) ---------- */
   const getScene = useCallback(() => sceneRef.current, []);
 
   const select = useCallback((id: string | null) => {
@@ -319,11 +348,7 @@ const V3Shell: React.FC = () => {
     (id: string, alt: string | null) => {
       // Deux perles a moins de 20 px : un second clic passe a l'autre
       setHover(null);
-      setSelectedId((prev) => {
-        const next = prev === id && alt ? alt : id;
-        window.setTimeout(() => select(next), 0);
-        return prev;
-      });
+      select(selectedRef.current === id && alt ? alt : id);
     },
     [select]
   );
@@ -340,10 +365,13 @@ const V3Shell: React.FC = () => {
   });
 
   const playBead = useCallback(
-    (b: Bead) => {
+    (b: Bead, forced?: GroupId) => {
       hasGesture.current = true;
       if (!b.playable) return;
-      const g = beadInGroup(b, group) ? group : groupOf(b, group);
+      // La file : la section cliquee dans la tracklist si elle est donnee,
+      // sinon le groupe courant s'il contient la perle, sinon sa categorie
+      const g0 = groupRef.current;
+      const g = forced ?? (beadInGroup(b, g0) ? g0 : groupOf(b, g0));
       setGroupState(g);
       setSelectedId(b.id);
       setTimedOut(false);
@@ -351,57 +379,74 @@ const V3Shell: React.FC = () => {
       // RUN/STOP (Espace met alors en pause par le bouton lui-meme)
       setDrawer('none');
       window.setTimeout(() => runBtnRef.current?.focus({ preventScroll: true }), 60);
-      if (current?.id === b.id) {
-        if (!playing) setPending(true);
+      const engine = engineRef.current;
+      if (currentRef.current?.id === b.id) {
+        if (!playingRef.current) setPending(true);
         engine.toggle();
         return;
       }
       setPending(true);
       engine.play(b.track, GROUP_TRACKS[g]);
     },
-    [engine, current, playing, group, setPending]
+    [setPending]
   );
 
   const onRun = useCallback(() => {
     hasGesture.current = true;
-    if (!displayBead || !displayBead.playable) return;
-    playBead(displayBead);
-  }, [displayBead, playBead]);
+    const b = displayBeadRef.current;
+    if (!b || !b.playable) return;
+    playBead(b);
+  }, [playBead]);
+
+  const onMoveSelection = useCallback(
+    (dir: 1 | -1) => {
+      const next = stepInGroup(selectedRef.current, groupRef.current, dir);
+      if (next) select(next.id);
+    },
+    [select]
+  );
 
   const onBack = useCallback(() => {
-    if (!current) return;
     hasGesture.current = true;
+    // Rien de charge : BACK et FWD deplacent la selection, comme les fleches
+    if (!currentRef.current) {
+      onMoveSelection(-1);
+      return;
+    }
     setPending(true);
-    engine.prev();
-  }, [engine, current, setPending]);
+    engineRef.current.prev();
+  }, [onMoveSelection, setPending]);
 
   const onFwd = useCallback(() => {
-    if (!current) return;
     hasGesture.current = true;
+    if (!currentRef.current) {
+      onMoveSelection(1);
+      return;
+    }
     setPending(true);
-    engine.next();
-  }, [engine, current, setPending]);
+    engineRef.current.next();
+  }, [onMoveSelection, setPending]);
 
   const onClear = useCallback(() => {
-    engine.close();
+    engineRef.current.close();
     setSelectedId(null);
     setPending(false);
     setTimedOut(false);
     setLive('Cleared');
-  }, [engine, setPending]);
+  }, [setPending]);
 
   const onToggle = useCallback(() => {
-    if (!current) return;
-    if (!playing) setPending(true);
-    engine.toggle();
-  }, [engine, current, playing, setPending]);
+    if (!currentRef.current) return;
+    if (!playingRef.current) setPending(true);
+    engineRef.current.toggle();
+  }, [setPending]);
 
-  const onSeek = useCallback(
-    (r: number) => {
-      if (current) engine.seek(r);
-    },
-    [engine, current]
-  );
+  const onSeek = useCallback((r: number) => {
+    // Pendant LOADING la duree est inconnue : le widget ignorerait le seek
+    // et le timecode afficherait une position fictive
+    if (!currentRef.current || pendingRef.current || durationRef.current <= 0) return;
+    engineRef.current.seek(r);
+  }, []);
 
   const onGroup = useCallback((g: GroupId) => {
     setGroupState(g);
@@ -410,19 +455,15 @@ const V3Shell: React.FC = () => {
 
   const openDrawer = useCallback((kind: DrawerKind) => setDrawer((d) => (d === kind ? 'none' : kind)), []);
   const closeDrawer = useCallback(() => setDrawer('none'), []);
-
-  const onMoveSelection = useCallback(
-    (dir: 1 | -1) => {
-      const next = stepInGroup(selectedId, group, dir);
-      if (next) select(next.id);
-    },
-    [selectedId, group, select]
-  );
+  const onTracklist = useCallback(() => openDrawer('tracklist'), [openDrawer]);
+  const onInfo = useCallback(() => openDrawer('info'), [openDrawer]);
+  const onKnobsToggle = useCallback(() => setKnobsOpen((k) => !k), []);
 
   const onEnter = useCallback(() => {
     hasGesture.current = true;
-    if (displayBead) playBead(displayBead);
-  }, [displayBead, playBead]);
+    const b = displayBeadRef.current;
+    if (b) playBead(b);
+  }, [playBead]);
 
   useKeys({
     hasGesture,
@@ -471,6 +512,16 @@ const V3Shell: React.FC = () => {
 
   const introPlays = !bootDone && !reduced && gl === 'webgl';
 
+  // Progression arrondie a la seconde : le display et les pas n'affichent
+  // rien de plus fin, et le panneau (memo) ne se re-rend qu'a la seconde
+  const shownProgress = duration > 0 ? Math.round(progress * duration) / duration : progress;
+  const currentId = current?.id ?? null;
+  const tracklistEl = useMemo(
+    () => <Tracklist currentId={currentId} playing={playing} onPlay={playBead} />,
+    [currentId, playing, playBead]
+  );
+  const infoEl = useMemo(() => <Info />, []);
+
   return (
     <div
       ref={rootRef}
@@ -478,7 +529,7 @@ const V3Shell: React.FC = () => {
       style={{ position: 'fixed' }}
       data-v3-state={state}
       data-v3-selected={selectedId ?? ''}
-      data-v3-current={current?.id ?? ''}
+      data-v3-current={currentId ?? ''}
       data-v3-group={group}
       data-v3-notice={notice ? '1' : '0'}
       data-v3-motion={reduced ? 'reduced' : 'full'}
@@ -490,13 +541,7 @@ const V3Shell: React.FC = () => {
       onPointerUpCapture={onRootPointerUp}
       onKeyDownCapture={onRootKeyDown}
     >
-      <TopBar
-        drawer={drawer}
-        onTracklist={() => openDrawer('tracklist')}
-        onInfo={() => openDrawer('info')}
-        tracklistRef={tracklistBtnRef}
-        infoRef={infoBtnRef}
-      />
+      <TopBar drawer={drawer} onTracklist={onTracklist} onInfo={onInfo} tracklistRef={tracklistBtnRef} infoRef={infoBtnRef} />
 
       {!isMobile && gl === 'webgl' && <Ruler activeT={displayBead ? displayBead.t : null} onJump={onJumpYear} />}
 
@@ -525,7 +570,7 @@ const V3Shell: React.FC = () => {
         isCurrent={displayIsCurrent}
         hasCurrent={!!current}
         playing={playing}
-        progress={progress}
+        progress={shownProgress}
         duration={duration}
         notice={notice}
         noticeKey={noticeKey}
@@ -535,7 +580,7 @@ const V3Shell: React.FC = () => {
         isTouch={isTouch}
         reduced={reduced}
         knobsOpen={knobsOpen}
-        onKnobsToggle={() => setKnobsOpen((k) => !k)}
+        onKnobsToggle={onKnobsToggle}
         onGroup={onGroup}
         onRun={onRun}
         onBack={onBack}
@@ -546,16 +591,16 @@ const V3Shell: React.FC = () => {
 
       {gl === 'fallback' && (
         <div className="v3-fallback-body">
-          <Tracklist currentId={current?.id ?? null} playing={playing} onPlay={playBead} inline />
+          <Tracklist currentId={currentId} playing={playing} onPlay={playBead} inline />
           <Info inline />
         </div>
       )}
 
       <Drawer open={drawer === 'tracklist'} kind="tracklist" label="Tracklist" onClose={closeDrawer} returnTo={tracklistBtnRef}>
-        <Tracklist currentId={current?.id ?? null} playing={playing} onPlay={playBead} />
+        {tracklistEl}
       </Drawer>
       <Drawer open={drawer === 'info'} kind="info" label="Info" onClose={closeDrawer} returnTo={infoBtnRef}>
-        <Info />
+        {infoEl}
       </Drawer>
 
       <div className="v3-sr" aria-live="polite" role="status">

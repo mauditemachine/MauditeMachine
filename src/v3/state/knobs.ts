@@ -1,7 +1,9 @@
 /**
  * Les six boutons du panneau (0..1), store externe pour React
  * (useSyncExternalStore) et lecture directe par la scene a chaque frame.
- * Persistes dans localStorage mm_v3_knobs, valides a la lecture.
+ * Persistes dans localStorage mm_v3_knobs (ecriture differee de 200 ms :
+ * un drag ne fait pas d'entree-sortie disque a chaque pointermove),
+ * valides a la lecture.
  */
 
 import { useSyncExternalStore } from 'react';
@@ -39,6 +41,7 @@ export const KNOB_TIPS: Record<KnobKey, string> = {
 };
 
 const STORAGE_KEY = 'mm_v3_knobs';
+const SAVE_DELAY_MS = 200;
 
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
 
@@ -70,18 +73,47 @@ let values: KnobValues = typeof window === 'undefined' ? { ...KNOB_DEFAULTS } : 
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 
+let saveTimer: number | undefined;
+let unsaved = false;
+
+/** Ecrit tout de suite ce qui attend (fin de fenetre, page cachee ou quittee). */
+function flushSave(): void {
+  if (saveTimer !== undefined) {
+    window.clearTimeout(saveTimer);
+    saveTimer = undefined;
+  }
+  if (!unsaved) return;
+  unsaved = false;
+  save(values);
+}
+
+/** Debounce : la sauvegarde part 200 ms apres le dernier changement. */
+function scheduleSave(): void {
+  unsaved = true;
+  if (typeof window === 'undefined') return;
+  window.clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(flushSave, SAVE_DELAY_MS);
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('pagehide', flushSave);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushSave();
+  });
+}
+
 export const knobs = {
   get: (): KnobValues => values,
   set(key: KnobKey, value: number): void {
     const v = clamp01(value);
     if (values[key] === v) return;
     values = { ...values, [key]: v };
-    save(values);
+    scheduleSave();
     emit();
   },
   reset(key?: KnobKey): void {
     values = key ? { ...values, [key]: KNOB_DEFAULTS[key] } : { ...KNOB_DEFAULTS };
-    save(values);
+    scheduleSave();
     emit();
   },
   subscribe(fn: () => void): () => void {

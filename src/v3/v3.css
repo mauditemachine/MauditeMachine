@@ -48,7 +48,7 @@ html:has(body.v3-active) {
 .v3-root {
   --cream: #f6f1e7;
   --cream-70: rgba(246, 241, 231, 0.7);
-  --cream-45: rgba(246, 241, 231, 0.45);
+  --cream-45: rgba(246, 241, 231, 0.5);
   --cream-30: rgba(246, 241, 231, 0.3);
   --cream-15: rgba(246, 241, 231, 0.15);
   --cream-08: rgba(246, 241, 231, 0.08);
@@ -103,7 +103,9 @@ html:has(body.v3-active) {
   min-width: 0;
 }
 
-.v3-root button {
+/* Reset a specificite (0,1,0) grace a :where() : les classes des boutons
+   (.v3-tbtn, .v3-row-btn, .v3-top-btn...) gardent leurs bordures et paddings */
+.v3-root :where(button) {
   font: inherit;
   color: inherit;
   background: none;
@@ -168,12 +170,15 @@ html:has(body.v3-active) {
 }
 
 .v3-wordmark {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin: -11px 0;
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.28em;
   text-transform: uppercase;
   line-height: 1;
-  padding: 4px 0;
 }
 
 .v3-tagline {
@@ -208,6 +213,15 @@ html:has(body.v3-active) {
 
 .v3-top-btn.is-active {
   border-bottom-color: var(--red);
+}
+
+/* Le ruban peut passer sous la barre haute (drag, ruler, TUNING) : une ombre
+   garde le texte lisible sans voile sur la scene */
+.v3-wordmark,
+.v3-tagline,
+.v3-top-btn,
+.v3-ruler-btn {
+  text-shadow: 0 1px 6px rgba(12, 12, 12, 0.9);
 }
 
 /* ---------- ruler ---------- */
@@ -347,15 +361,18 @@ html:has(body.v3-active) {
 /* ---------- panneau 303 ---------- */
 
 .v3-panel {
+  /* Decalage horizontal du centrage, lu aussi par l'animation d'intro
+     (0 sur mobile, ou le panneau est cale a gauche) */
+  --panel-x: -50%;
   position: absolute;
   left: 50%;
   bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
+  transform: translateX(var(--panel-x));
   width: min(1180px, calc(100% - 32px));
   height: 168px;
   z-index: 25;
   display: grid;
-  grid-template-columns: 120px 96px 372px minmax(280px, 1fr) 216px;
+  grid-template-columns: 120px 96px 372px minmax(264px, 1fr) 216px;
   grid-template-areas: 'silk rotary knobs display transport';
   background: var(--ink-92);
   border: 1px solid rgba(246, 241, 231, 0.6);
@@ -413,10 +430,18 @@ html:has(body.v3-active) {
 }
 
 .v3-rotary-title {
-  font-size: 8px;
+  font-size: 9px;
   letter-spacing: 0.16em;
   text-align: center;
   white-space: nowrap;
+  line-height: 1.25;
+}
+
+.v3-rotary-current {
+  display: block;
+  margin-top: 2px;
+  color: var(--red);
+  letter-spacing: 0.12em;
 }
 
 .v3-rotary-dial {
@@ -477,26 +502,6 @@ html:has(body.v3-active) {
   outline-offset: 2px;
 }
 
-.v3-rotary-legend {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -14px;
-  font-size: 8px;
-  letter-spacing: 0.08em;
-  color: var(--cream-45);
-  text-align: center;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.v3-rotary:hover .v3-rotary-legend,
-.v3-rotary:focus-within .v3-rotary-legend {
-  opacity: 1;
-}
-
 /* boutons */
 .v3-knobs {
   grid-area: knobs;
@@ -534,12 +539,12 @@ html:has(body.v3-active) {
 }
 
 .v3-knob-label {
-  font-size: 7.5px;
+  font-size: 9px;
   letter-spacing: 0.08em;
   text-align: center;
   white-space: normal;
   line-height: 1.2;
-  min-height: 18px;
+  min-height: 22px;
   max-width: 56px;
 }
 
@@ -658,7 +663,7 @@ html:has(body.v3-active) {
   vertical-align: bottom;
 }
 
-.v3-display-title.is-marquee .v3-display-title-inner {
+.v3-root:not([data-v3-motion='reduced']) .v3-display-title.is-marquee .v3-display-title-inner {
   max-width: none;
   overflow: visible;
   animation: v3-marquee 9s linear infinite;
@@ -721,6 +726,12 @@ html:has(body.v3-active) {
   text-decoration: underline;
   text-underline-offset: 3px;
   letter-spacing: 0.02em;
+}
+
+.v3-display-word--wrap {
+  white-space: normal;
+  overflow: visible;
+  letter-spacing: 0.04em;
 }
 
 .v3-steps {
@@ -833,7 +844,7 @@ html:has(body.v3-active) {
 }
 
 .v3-tbtn-label {
-  font-size: 7px;
+  font-size: 9px;
   font-weight: 500;
   letter-spacing: 0.12em;
   color: var(--cream-70);
@@ -1111,8 +1122,8 @@ html:has(body.v3-active) {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 4px 12px;
-  min-height: 32px;
-  padding: 4px 0;
+  min-height: 44px;
+  padding: 0;
 }
 
 .v3-info-label {
@@ -1123,7 +1134,7 @@ html:has(body.v3-active) {
   color: var(--cream);
   text-decoration: underline;
   text-underline-offset: 3px;
-  min-height: 24px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
 }
@@ -1274,11 +1285,11 @@ html:has(body.v3-active) {
 @keyframes v3-panel-in {
   from {
     opacity: 0;
-    transform: translate(-50%, 24px);
+    transform: translate(var(--panel-x), 24px);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, 0);
+    transform: translate(var(--panel-x), 0);
   }
 }
 
@@ -1382,15 +1393,34 @@ html:has(body.v3-active) {
   transition: none;
 }
 
+/* ---------- tablette tactile (iPad) : cibles sans survol ---------- */
+
+@media (hover: none) and (min-width: 768px) {
+  .v3-ruler-btn {
+    min-height: 40px;
+  }
+
+  /* I a IV sur deux rangees de 40 x 30 dans la colonne de 96 px */
+  .v3-rotary-ticks {
+    flex-wrap: wrap;
+    width: 84px;
+  }
+
+  .v3-rotary-tick {
+    min-width: 40px;
+    height: 30px;
+  }
+}
+
 /* ---------- tablette : 768 a 1099 ---------- */
 
 @media (max-width: 1099px) {
   .v3-panel {
     height: auto;
-    grid-template-columns: 120px 96px 1fr;
+    grid-template-columns: 120px 96px 1fr 216px;
     grid-template-areas:
-      'silk rotary knobs'
-      'display display transport';
+      'silk rotary knobs knobs'
+      'display display display transport';
   }
 
   .v3-display-col {
@@ -1400,8 +1430,6 @@ html:has(body.v3-active) {
 
   .v3-transport-wrap {
     border-top: 1px solid var(--cream-15);
-    justify-content: flex-end;
-    padding-right: 16px;
   }
 
   .v3-knobs {
@@ -1433,6 +1461,7 @@ html:has(body.v3-active) {
   }
 
   .v3-panel {
+    --panel-x: 0px;
     left: 0;
     right: 0;
     bottom: 0;
@@ -1530,7 +1559,8 @@ html:has(body.v3-active) {
   }
 
   .v3-rotary-title {
-    font-size: 8px;
+    white-space: normal;
+    width: min-content;
   }
 
   .v3-rotary-dial {
@@ -1555,10 +1585,6 @@ html:has(body.v3-active) {
   .v3-rotary-tick.is-active {
     background: var(--cream);
     color: var(--ink);
-  }
-
-  .v3-rotary-legend {
-    display: none;
   }
 
   .v3-knobs-toggle {
@@ -1599,10 +1625,6 @@ html:has(body.v3-active) {
 
   .v3-knob-dial {
     height: 48px;
-  }
-
-  .v3-knob-label {
-    font-size: 7px;
   }
 
   .v3-knob-tip {
@@ -1722,8 +1744,7 @@ html:has(body.v3-active) {
     display: none;
   }
 
-  .v3-rotary-dial,
-  .v3-rotary-legend {
+  .v3-rotary-dial {
     display: none;
   }
 

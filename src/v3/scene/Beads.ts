@@ -17,7 +17,7 @@ import {
   Vector3,
 } from 'three';
 import { BEADS, BEAD_COUNT, GROUPS, TRACK_COUNT, beadInGroup, type Bead, type GroupId } from '../data/beads';
-import { damp, frameAt, fullPos, makeFrame, type PathKnobs } from './path';
+import { damp, frameAt, fullPos, makeFrame, smooth01, type PathKnobs } from './path';
 import { easeOutBack } from './tween';
 
 const SILVER = new Color(0.93, 0.91, 0.87);
@@ -37,10 +37,6 @@ const _axis = new Vector3();
 const _frame = makeFrame();
 const Z = new Vector3(0, 0, 1);
 const popEase = easeOutBack(1.4);
-const smooth01 = (x: number) => {
-  const t = x < 0 ? 0 : x > 1 ? 1 : x;
-  return t * t * (3 - 2 * t);
-};
 
 /** mulberry32 : aleatoire seede, les axes de rotation ne changent pas d'une visite a l'autre. */
 const seeded = (seed: number) => () => {
@@ -60,7 +56,7 @@ export interface BeadsInput {
   noticeId: string | null;
   reveal: number;
   reduced: boolean;
-  /** position camera : une porte trop proche s'efface (pas d'arc geant au premier plan) */
+  /** position camera : une porte trop proche s'efface, la bobine aussi (path.ts) */
   camPos: Vector3;
 }
 
@@ -140,7 +136,7 @@ export class Beads {
     let colorDirty = false;
     for (let i = 0; i < BEAD_COUNT; i += 1) {
       const b = BEADS[i];
-      fullPos(b.t, knobs, time, _pos);
+      fullPos(b.t, knobs, time, _pos, inp.camPos);
       this.positions[i * 3] = _pos.x;
       this.positions[i * 3 + 1] = _pos.y;
       this.positions[i * 3 + 2] = _pos.z;
@@ -156,11 +152,13 @@ export class Beads {
         pop = x >= 1 ? 1 : Math.max(0, popEase(x));
       }
 
-      // Survol : 1.0 -> 1.08 en 150 ms, retour en 250 ms
+      // Survol : 1.0 -> 1.08 en 150 ms, retour en 250 ms ; coupe nette en
+      // reduced motion (la boucle s'arrete des que rien ne bouge, un lissage
+      // resterait a mi-chemin)
       const hoverTarget = inp.hoverId === b.id ? 1 : 0;
-      this.hoverAmt[i] = damp(this.hoverAmt[i], hoverTarget, hoverTarget ? 20 : 12, dt);
+      this.hoverAmt[i] = inp.reduced ? hoverTarget : damp(this.hoverAmt[i], hoverTarget, hoverTarget ? 20 : 12, dt);
       let s = b.radius * pop * (1 + 0.08 * this.hoverAmt[i]);
-      if (inp.currentId === b.id && inp.playing && !inp.reduced) s *= 1 + 0.03 + 0.03 * Math.sin(time * Math.PI * 2);
+      if (inp.currentId === b.id && inp.playing && !inp.reduced) s *= 1 + 0.03 + 0.03 * Math.sin(nowS * Math.PI * 2);
       _scale.set(s, s, s);
 
       if (inp.reduced) _quat.identity();
@@ -173,11 +171,16 @@ export class Beads {
 
       this.targetColor(b, inp, nowMs, c);
       const o = i * 3;
-      const up = c.r + c.g + c.b > this.colors[o] + this.colors[o + 1] + this.colors[o + 2];
-      const lambda = inp.reduced ? 60 : up ? 20 : 8;
-      const r = damp(this.colors[o], c.r, lambda, dt);
-      const g = damp(this.colors[o + 1], c.g, lambda, dt);
-      const bb = damp(this.colors[o + 2], c.b, lambda, dt);
+      let r = c.r;
+      let g = c.g;
+      let bb = c.b;
+      if (!inp.reduced) {
+        const up = c.r + c.g + c.b > this.colors[o] + this.colors[o + 1] + this.colors[o + 2];
+        const lambda = up ? 20 : 8;
+        r = damp(this.colors[o], c.r, lambda, dt);
+        g = damp(this.colors[o + 1], c.g, lambda, dt);
+        bb = damp(this.colors[o + 2], c.b, lambda, dt);
+      }
       if (Math.abs(r - this.colors[o]) + Math.abs(g - this.colors[o + 1]) + Math.abs(bb - this.colors[o + 2]) > 1e-4) {
         this.colors[o] = r;
         this.colors[o + 1] = g;

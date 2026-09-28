@@ -27,6 +27,8 @@ interface Tween {
 
 export class Tweens {
   private list: Tween[] = [];
+  /** Tampon des tweens finis dans la frame (reutilise : zero allocation). */
+  private done: Tween[] = [];
 
   /** Nombre de tweens encore vivants (reduced motion : rendu a la demande). */
   get alive(): number {
@@ -70,18 +72,33 @@ export class Tweens {
   }
 
   update(now: number): void {
-    if (!this.list.length) return;
-    const done: Tween[] = [];
-    for (const t of this.list) {
-      if (now < t.start) continue;
+    const l = this.list;
+    if (!l.length) return;
+    const done = this.done;
+    // Retrait par echange avec le dernier : pas de copie de la liste par
+    // frame (les tags empechent deux tweens sur la meme cible, l'ordre est libre)
+    let i = 0;
+    while (i < l.length) {
+      const t = l[i];
+      if (now < t.start) {
+        i += 1;
+        continue;
+      }
       t.started = true;
       const x = Math.min(1, (now - t.start) / t.dur);
       t.set(t.from + (t.to - t.from) * t.ease(x));
-      if (x >= 1) done.push(t);
+      if (x >= 1) {
+        l[i] = l[l.length - 1];
+        l.pop();
+        done.push(t);
+      } else {
+        i += 1;
+      }
     }
     if (done.length) {
-      this.list = this.list.filter((t) => !done.includes(t));
-      for (const t of done) t.onDone?.();
+      // onDone apres la boucle : un callback peut relancer ou annuler un tween
+      for (let k = 0; k < done.length; k += 1) done[k].onDone?.();
+      done.length = 0;
     }
   }
 

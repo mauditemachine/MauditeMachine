@@ -35,13 +35,17 @@ float wob(float t, float k) {
        + 0.2 * sin(t * 389.1 + uTime * 0.07 + k * 2.3);
 }
 
+// La bobine s'efface a moins de 5.5 unites de la camera (meme formule que
+// path.ts) : pas de boucle geante au premier plan
 vec3 fullPos(float t) {
   vec3 T; vec3 n1; vec3 n2;
   frameAt(t, T, n1, n2);
+  vec3 b = basePos(t);
   float c = t * TAU * 38.0;
-  float r = uResonance * 0.9;
+  float taper = smoothstep(0.0, 1.0, (distance(b, cameraPosition) - 2.5) / 3.0);
+  float r = uResonance * 0.9 * taper;
   float w = uCutoff * 0.6;
-  return basePos(t)
+  return b
     + n1 * (r * cos(c) + w * wob(t, 0.0))
     + n2 * (r * sin(c) + w * wob(t, 1.0));
 }
@@ -54,6 +58,7 @@ attribute float aT;
 attribute float aSide;
 uniform float uEnvMod;
 uniform float uDecay;
+uniform float uDashTime;
 uniform float uFlow;
 uniform float uWidthMul;
 uniform float uWrapA;
@@ -94,10 +99,11 @@ vec3 wrapped(float t, out float e) {
 }
 
 // Le courant : tirets espaces de 0.16 en t, partant de la perle en lecture
-// dans les deux sens a 0.25 t/s ; uDecay = longueur de la queue.
+// dans les deux sens a 0.25 t/s ; uDecay = longueur de la queue. uDashTime
+// est replie sur 64 s cote CPU (100 cycles exacts) : float32 reste precis.
 float dashAt(float t) {
   float d = abs(t - uFocusTA);
-  float ph = fract(d * 6.25 - uTime * 1.5625);
+  float ph = fract(d * 6.25 - uDashTime * 1.5625);
   return (1.0 - smoothstep(0.0, uDecay, ph * 0.16)) * uFlow;
 }
 

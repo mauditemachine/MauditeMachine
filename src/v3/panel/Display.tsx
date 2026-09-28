@@ -1,8 +1,9 @@
 /**
  * Le display du panneau : titre + meta de la perle affichee (selection ou
- * piste courante), les mots d'etat (LOADING, PAUSED, Tap RUN again., Not on
- * SoundCloud.), le timecode, le notice "Skipped: ..." en rouge, la vignette
- * 48 px des mixtapes. Tout etat est dit en toutes lettres.
+ * piste courante), les mots d'etat (LOADING, PAUSED, Press RUN again., Not
+ * on SoundCloud.), le timecode, le notice "Skipped: ..." en rouge, la
+ * vignette 48 px des mixtapes. Tout etat est dit en toutes lettres ; la
+ * region live globale (V3App) les annonce, ici rien n'est role=status.
  */
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -18,34 +19,29 @@ interface DisplayProps {
   duration: number;
   timedOut: boolean;
   isMobile: boolean;
+  reduced: boolean;
 }
 
-const Display: React.FC<DisplayProps> = ({ bead, state, isCurrent, notice, progress, duration, timedOut, isMobile }) => {
+const Display: React.FC<DisplayProps> = ({ bead, state, isCurrent, notice, progress, duration, timedOut, isMobile, reduced }) => {
   const titleRef = useRef<HTMLSpanElement>(null);
   const [overflow, setOverflow] = useState(false);
 
   useEffect(() => {
     const el = titleRef.current;
-    if (!el || !isMobile) {
+    // Reduced motion : pas de defilement, le titre long garde son ellipse
+    if (!el || !isMobile || reduced) {
       setOverflow(false);
       return;
     }
     setOverflow(el.scrollWidth > el.clientWidth + 2);
-  }, [bead, isMobile]);
+  }, [bead, isMobile, reduced]);
 
-  let word: React.ReactNode = null;
-  if (bead && !bead.playable) {
-    word = (
-      <>
-        Not on SoundCloud.{' '}
-        <a href={bead.track.link} target="_blank" rel="noopener" className="v3-display-link">
-          Listen on Bandcamp
-        </a>
-      </>
-    );
-  } else if (timedOut) word = 'Tap RUN again.';
+  const unplayable = !!bead && !bead.playable;
+  let word: string | null = null;
+  if (timedOut) word = isMobile ? 'Tap RUN again.' : 'Press RUN again.';
   else if (state === 'loading') word = 'LOADING';
   else if (state === 'paused' && isCurrent) word = 'PAUSED';
+  const loading = state === 'loading' && !timedOut;
 
   return (
     <div className="v3-display" aria-live="off">
@@ -76,13 +72,18 @@ const Display: React.FC<DisplayProps> = ({ bead, state, isCurrent, notice, progr
       )}
       <div className="v3-display-status">
         {notice ? (
-          <span className="v3-display-notice" role="status">
-            Skipped: {notice}
+          <span className="v3-display-notice">Skipped: {notice}</span>
+        ) : unplayable && bead ? (
+          // Sa propre ligne, qui replie : le lien Bandcamp reste atteignable
+          // dans les colonnes etroites (mobile, tablette)
+          <span className="v3-display-word v3-display-word--wrap">
+            Not on SoundCloud.{' '}
+            <a href={bead.track.link} target="_blank" rel="noopener" className="v3-display-link">
+              Bandcamp
+            </a>
           </span>
         ) : (
-          <span className={`v3-display-word${state === 'loading' && !timedOut ? ' is-loading' : ''}`} role="status">
-            {word}
-          </span>
+          <span className={`v3-display-word${loading ? ' is-loading' : ''}`}>{word}</span>
         )}
         {isCurrent && (
           <span className="v3-display-time">

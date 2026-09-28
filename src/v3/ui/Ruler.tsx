@@ -33,4 +33,4 @@ const Ruler: React.FC<RulerProps> = ({ activeT, onJump }) => {
   );
 };
 
-export default Ruler;
+export default React.memo(Ruler);

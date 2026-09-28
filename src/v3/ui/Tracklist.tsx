@@ -1,8 +1,8 @@
 /**
  * La tracklist : sections I a IV avec compte, un vrai bouton par piste
- * jouable et par mixtape (une ligne JOUE), une ancre Bandcamp pour les
- * injouables. La ligne courante porte un point rouge et aria-current.
- * Aussi rendue inline (page sans WebGL).
+ * jouable et par mixtape (une ligne JOUE, et sa section fait la file), une
+ * ancre Bandcamp pour les injouables. La ligne courante porte un point rouge
+ * et aria-current. Aussi rendue inline (page sans WebGL).
  */
 
 import React from 'react';
@@ -11,17 +11,21 @@ import { GROUPS, GROUP_IDS, GROUP_LABELS, GROUP_ROMAN, type Bead, type GroupId }
 interface TracklistProps {
   currentId: string | null;
   playing: boolean;
-  onPlay: (b: Bead) => void;
+  /** g = la section cliquee : elle devient la file de lecture */
+  onPlay: (b: Bead, g?: GroupId) => void;
   inline?: boolean;
 }
 
-const Row: React.FC<{ bead: Bead; n: number; current: boolean; playing: boolean; onPlay: (b: Bead) => void }> = ({
-  bead,
-  n,
-  current,
-  playing,
-  onPlay,
-}) => {
+interface RowProps {
+  bead: Bead;
+  n: number;
+  group: GroupId;
+  current: boolean;
+  playing: boolean;
+  onPlay: (b: Bead, g?: GroupId) => void;
+}
+
+const Row: React.FC<RowProps> = React.memo(({ bead, n, group, current, playing, onPlay }) => {
   const nn = String(n).padStart(2, '0');
   const right = bead.mixtape ? bead.mixtape.duration : String(bead.year);
   if (!bead.playable) {
@@ -43,7 +47,7 @@ const Row: React.FC<{ bead: Bead; n: number; current: boolean; playing: boolean;
         className="v3-row-btn"
         aria-label={`${current && playing ? 'Pause' : 'Play'} ${bead.track.title}, ${bead.year}, ${bead.categoryLabel}`}
         aria-current={current ? 'true' : undefined}
-        onClick={() => onPlay(bead)}
+        onClick={() => onPlay(bead, group)}
       >
         {bead.mixtape?.artwork ? (
           <img className="v3-row-art" src={bead.mixtape.artwork} alt="" width={40} height={40} loading="lazy" decoding="async" />
@@ -58,7 +62,8 @@ const Row: React.FC<{ bead: Bead; n: number; current: boolean; playing: boolean;
       </button>
     </li>
   );
-};
+});
+Row.displayName = 'Row';
 
 const Tracklist: React.FC<TracklistProps> = ({ currentId, playing, onPlay, inline = false }) => (
   <div className={`v3-tracklist${inline ? ' is-inline' : ''}`}>
@@ -72,7 +77,15 @@ const Tracklist: React.FC<TracklistProps> = ({ currentId, playing, onPlay, inlin
         </h3>
         <ul className="v3-tl-list">
           {GROUPS[g].map((b, i) => (
-            <Row key={b.id} bead={b} n={i + 1} current={currentId === b.id} playing={playing} onPlay={onPlay} />
+            <Row
+              key={b.id}
+              bead={b}
+              n={i + 1}
+              group={g}
+              current={currentId === b.id}
+              playing={currentId === b.id && playing}
+              onPlay={onPlay}
+            />
           ))}
         </ul>
       </section>
@@ -80,4 +93,4 @@ const Tracklist: React.FC<TracklistProps> = ({ currentId, playing, onPlay, inlin
   </div>
 );
 
-export default Tracklist;
+export default React.memo(Tracklist);

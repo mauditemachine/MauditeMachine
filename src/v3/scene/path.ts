@@ -11,6 +11,20 @@ import { Vector3 } from 'three';
 
 export const TAU = Math.PI * 2;
 
+/**
+ * Periode exacte du tremblement : ses trois pulsations (0.15, 0.11, 0.07),
+ * la respiration du ruban (3.77) et la rotation des perles (0.2) sont des
+ * multiples de 0.01, donc tout se repete a l'identique toutes les 200 pi
+ * secondes. Le temps envoye au GPU (float32) est replie sur cette periode :
+ * aucune perte de precision sur une longue session, aucun saut au repli, et
+ * les perles (CPU) restent exactement sur le ruban (GPU).
+ */
+export const WOB_PERIOD = TAU * 100;
+
+/** La bobine s'efface entre CAM_NEAR et CAM_NEAR + CAM_SPAN unites de la camera. */
+export const CAM_NEAR = 2.5;
+export const CAM_SPAN = 3;
+
 export interface PathKnobs {
   /** uTuning : nombre d'ondes de la ligne (0.25..1.75, 1.0 par defaut) */
   tuning: number;
@@ -73,12 +87,17 @@ export function wob(t: number, time: number, k: number): number {
   );
 }
 
-/** full(t) : base + bobine (RESONANCE) + tremblement (CUT OFF). */
-export function fullPos(t: number, k: PathKnobs, time: number, out: Vector3): Vector3 {
+/**
+ * full(t) : base + bobine (RESONANCE) + tremblement (CUT OFF). Avec `cam`,
+ * la bobine s'efface pres de la camera (meme formule que le shader) : pas
+ * de boucle geante au premier plan dans les plans Focus et pendant le dolly.
+ */
+export function fullPos(t: number, k: PathKnobs, time: number, out: Vector3, cam?: Vector3 | null): Vector3 {
   basePos(t, k.tuning, out);
   frameAt(t, k.tuning, _f);
   const c = t * TAU * 38.0;
-  const r = k.resonance * 0.9;
+  const taper = cam ? smooth01((out.distanceTo(cam) - CAM_NEAR) / CAM_SPAN) : 1;
+  const r = k.resonance * 0.9 * taper;
   const w = k.cutoff * 0.6;
   out.addScaledVector(_f.n1, r * Math.cos(c) + w * wob(t, time, 0));
   out.addScaledVector(_f.n2, r * Math.sin(c) + w * wob(t, time, 1));
@@ -88,6 +107,11 @@ export function fullPos(t: number, k: PathKnobs, time: number, out: Vector3): Ve
 export const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
 export const clamp = (x: number, a: number, b: number) => (x < a ? a : x > b ? b : x);
 export const lerp = (a: number, b: number, k: number) => a + (b - a) * k;
+/** smoothstep(0, 1, x) */
+export const smooth01 = (x: number) => {
+  const t = x < 0 ? 0 : x > 1 ? 1 : x;
+  return t * t * (3 - 2 * t);
+};
 /** Lissage exponentiel independant du framerate. */
 export const damp = (cur: number, target: number, lambda: number, dt: number) =>
   cur + (target - cur) * (1 - Math.exp(-lambda * dt));

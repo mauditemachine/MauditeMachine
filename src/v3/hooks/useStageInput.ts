@@ -24,7 +24,7 @@ interface StageInputOpts {
 const DRAG_PX = 10;
 
 export function useStageInput(
-  stageRef: RefObject<HTMLElement>,
+  stageRef: RefObject<HTMLElement | null>,
   getScene: () => AcidLine | null,
   opts: StageInputOpts
 ): void {
@@ -47,6 +47,14 @@ export function useStageInput(
     let sAcc = 0;
     let hoverAt = 0;
     let hoverId: string | null = null;
+    // Le rectangle de la scene ne change qu'au redimensionnement : lu une
+    // fois, rafraichi par ResizeObserver et a chaque pointerdown, jamais a
+    // la cadence du pointeur (getBoundingClientRect force la mise en page)
+    let rect = el.getBoundingClientRect();
+    const ro = new ResizeObserver(() => {
+      rect = el.getBoundingClientRect();
+    });
+    ro.observe(el);
 
     const setHover = (h: HoverInfo | null) => {
       if ((h?.id ?? null) === hoverId && !h) return;
@@ -57,6 +65,7 @@ export function useStageInput(
 
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0 && e.pointerType === 'mouse') return;
+      rect = el.getBoundingClientRect();
       down = true;
       dragging = false;
       touch = e.pointerType !== 'mouse';
@@ -77,7 +86,6 @@ export function useStageInput(
     const onMove = (e: PointerEvent) => {
       const scene = getScene();
       if (!scene) return;
-      const rect = el.getBoundingClientRect();
       if (down) {
         const dx = e.clientX - lx;
         const dy = e.clientY - ly;
@@ -136,7 +144,6 @@ export function useStageInput(
         return;
       }
       if (!scene) return;
-      const rect = el.getBoundingClientRect();
       const hit = scene.pick(e.clientX - rect.left, e.clientY - rect.top, e.pointerType === 'mouse' ? 28 : 36);
       if (hit) onSelect(hit.id, hit.alt);
     };
@@ -166,6 +173,7 @@ export function useStageInput(
     el.addEventListener('pointerleave', onLeave);
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => {
+      ro.disconnect();
       el.removeEventListener('pointerdown', onDown);
       el.removeEventListener('pointermove', onMove);
       el.removeEventListener('pointerup', onUp);

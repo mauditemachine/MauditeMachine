@@ -1,7 +1,8 @@
 /**
  * Un bouton du 303 : SVG (anneau de 11 graduations sur 270 degres, capuchon
- * encre, index cream), role slider, drag vertical (1 px = 0.6 %), molette
- * (1 % par cran), fleches, double-clic = defaut, infobulle apres 250 ms.
+ * encre, index cream), role slider, drag vertical (1 px = 0.6 %, une
+ * ecriture par frame), molette (1 % par cran), fleches, double-clic =
+ * defaut, infobulle apres 250 ms.
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -23,6 +24,8 @@ const Knob: React.FC<KnobProps> = ({ id, reduced, isTouch }) => {
   const drag = useRef<{ y0: number; v0: number } | null>(null);
   const lastTap = useRef(0);
   const dialRef = useRef<HTMLDivElement>(null);
+  const raf = useRef(0);
+  const pendingValue = useRef<number | null>(null);
 
   const label = KNOB_LABELS[id];
   const inert = reduced && (id === 'envmod' || id === 'decay');
@@ -30,6 +33,16 @@ const Knob: React.FC<KnobProps> = ({ id, reduced, isTouch }) => {
   const pct = Math.round(value * 100);
 
   const set = useCallback((v: number) => knobs.set(id, v), [id]);
+
+  // Le drag ecrit au plus une valeur par frame : pointermove arrive jusqu'a
+  // 120 Hz et chaque set() reveille les six boutons
+  const flush = useCallback(() => {
+    raf.current = 0;
+    if (pendingValue.current !== null) {
+      set(pendingValue.current);
+      pendingValue.current = null;
+    }
+  }, [set]);
 
   // Molette : listener natif non passif (React ne laisse pas preventDefault ici)
   useEffect(() => {
@@ -44,7 +57,13 @@ const Knob: React.FC<KnobProps> = ({ id, reduced, isTouch }) => {
     return () => el.removeEventListener('wheel', onWheel);
   }, [id]);
 
-  useEffect(() => () => window.clearTimeout(tipTimer.current), []);
+  useEffect(
+    () => () => {
+      window.clearTimeout(tipTimer.current);
+      cancelAnimationFrame(raf.current);
+    },
+    []
+  );
 
   const showTip = (delay: number) => {
     window.clearTimeout(tipTimer.current);
@@ -57,6 +76,9 @@ const Knob: React.FC<KnobProps> = ({ id, reduced, isTouch }) => {
   };
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Le cadran prend le focus au clic (preventDefault ci-dessous l'en
+    // empecherait) : les fleches reglent ensuite la valeur, pas la selection
+    e.currentTarget.focus({ preventScroll: true });
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     drag.current = { y0: e.clientY, v0: value };
@@ -70,11 +92,14 @@ const Knob: React.FC<KnobProps> = ({ id, reduced, isTouch }) => {
   };
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!drag.current) return;
-    set(drag.current.v0 + (drag.current.y0 - e.clientY) * 0.006);
+    pendingValue.current = drag.current.v0 + (drag.current.y0 - e.clientY) * 0.006;
+    if (!raf.current) raf.current = requestAnimationFrame(flush);
   };
   const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!drag.current) return;
     drag.current = null;
+    cancelAnimationFrame(raf.current);
+    flush();
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
@@ -173,4 +198,4 @@ const Knob: React.FC<KnobProps> = ({ id, reduced, isTouch }) => {
   );
 };
 
-export default Knob;
+export default React.memo(Knob);
