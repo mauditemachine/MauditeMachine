@@ -133,7 +133,7 @@ export const RIDER: { en: RiderCopy; fr: RiderCopy } = {
         items: [
           {
             term: 'Departure city',
-            text: 'Montréal (YUL) until March 2027, then the South of France from spring 2027.',
+            text: 'Montpellier, France (MPL), or Marseille (MRS) when fares are better.',
           },
           {
             term: 'Flights',
@@ -280,7 +280,7 @@ export const RIDER: { en: RiderCopy; fr: RiderCopy } = {
         items: [
           {
             term: 'Ville de départ',
-            text: 'Montréal (YUL) jusqu’en mars 2027, puis le sud de la France à partir du printemps 2027.',
+            text: 'Montpellier, France (MPL), ou Marseille (MRS) quand les tarifs sont meilleurs.',
           },
           {
             term: 'Vols',

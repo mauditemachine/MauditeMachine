@@ -180,11 +180,11 @@ export const translations = {
       catchphrase: 'RAW. HYPNOTIC. UNDERGROUND.',
       bigTitle: 'Maudite\nMachine',
       metaLine1: 'DJ · Producer · Live · VRSTL Records',
-      metaLine2: 'Montréal → France',
+      metaLine2: 'Montpellier · France',
 
       bioLabel: 'Biography',
-      bioMain: "Maudite Machine started playing in Montréal in 2010, when Piknic Électronik and the SAT were the two rooms every local DJ wanted. He has played both since, along with Igloofest afters, the Phi Centre, Fonderie Darling, Théâtre Fairmount and a run of Québec festivals from TOTEM and Illusion to Future Forest and Groove & Bass. In 2026 he played OKAMI Festival in France.",
-      bioSecondary: "His sets are hypnotic techno. The bass rolls, the changes come slowly and under the surface, and after a while the room stops watching the booth and moves as one. He plays it as a DJ on CDJs and as a hybrid live set where Ableton Live, a Push 3, a Dreadbox Typhon and an APC40 drive the sequences in real time. He founded VRSTL Records, an independent Canadian label with 21 EPs and 2 albums, teaches Ableton Live production, and moves to the South of France in 2027.",
+      bioMain: "Maudite Machine is based in Montpellier, France. He started playing in Montréal in 2010, when Piknic Électronik and the SAT were the two rooms every local DJ wanted. He has played both since, along with Igloofest afters, the Phi Centre, Fonderie Darling, Théâtre Fairmount and a run of Québec festivals from TOTEM and Illusion to Future Forest and Groove & Bass. In 2026 he played OKAMI Festival in France.",
+      bioSecondary: "His sets are hypnotic techno. The bass rolls, the changes come slowly and under the surface, and after a while the room stops watching the booth and moves as one. He plays it as a DJ on CDJs and as a hybrid live set where Ableton Live, a Push 3, a Dreadbox Typhon and an APC40 drive the sequences in real time. He founded VRSTL Records, an independent Canadian label with 21 EPs and 2 albums, teaches Ableton Live production, and is available for club and festival dates across Europe.",
       bioQuote: 'A sound that embraces tension, groove and experimentation',
 
       statsLabel: 'By the numbers',
@@ -198,6 +198,9 @@ export const translations = {
       statStudentsEn: 'Students taught',
 
       remixLabel: 'Edits & reworks',
+      sharedBillsLabel: 'Shared bills',
+      sharedBillsFooter: 'Rooms from 100 to 4,000 people, from Piknic Électronik to the SAT',
+
       remixFooter: 'Unofficial edits, free download on SoundCloud',
 
       albumLabel: 'Latest album',
@@ -465,11 +468,11 @@ export const translations = {
       catchphrase: 'RAW. HYPNOTIC. UNDERGROUND.',
       bigTitle: 'Maudite\nMachine',
       metaLine1: 'DJ · Producteur · Live · VRSTL Records',
-      metaLine2: 'Montréal → France',
+      metaLine2: 'Montpellier · France',
 
       bioLabel: 'Biographie',
-      bioMain: "Maudite Machine joue à Montréal depuis 2010. Il est passé par le Piknic Électronik et la SAT, les afters d'Igloofest, le Centre Phi, la Fonderie Darling, le Théâtre Fairmount, et par les festivals québécois, de TOTEM et Illusion à Future Forest et Groove & Bass. En 2026, il a joué au OKAMI Festival en France.",
-      bioSecondary: "Ses sets sont de la techno hypnotique. La basse roule, les changements arrivent lentement et sous la surface, et au bout d'un moment la salle arrête de regarder la cabine pour bouger d'un seul bloc. Il la joue en DJ set sur CDJ et en live hybride où Ableton Live, un Push 3, un Dreadbox Typhon et un APC40 pilotent les séquences en direct. Il a fondé VRSTL Records, label indépendant canadien (21 EPs, 2 albums), enseigne la production sur Ableton Live, et s'installe dans le sud de la France en 2027.",
+      bioMain: "Maudite Machine est basé à Montpellier. Il a commencé à jouer à Montréal en 2010. Il est passé par le Piknic Électronik et la SAT, les afters d'Igloofest, le Centre Phi, la Fonderie Darling, le Théâtre Fairmount, et par les festivals québécois, de TOTEM et Illusion à Future Forest et Groove & Bass. En 2026, il a joué au OKAMI Festival en France.",
+      bioSecondary: "Ses sets sont de la techno hypnotique. La basse roule, les changements arrivent lentement et sous la surface, et au bout d'un moment la salle arrête de regarder la cabine pour bouger d'un seul bloc. Il la joue en DJ set sur CDJ et en live hybride où Ableton Live, un Push 3, un Dreadbox Typhon et un APC40 pilotent les séquences en direct. Il a fondé VRSTL Records, label indépendant canadien (21 EPs, 2 albums), enseigne la production sur Ableton Live, et est disponible pour des dates en club et en festival partout en Europe.",
       bioQuote: 'Un son qui embrasse la tension, le groove et l\'expérimentation',
 
       statsLabel: 'En chiffres',
@@ -483,6 +486,9 @@ export const translations = {
       statStudentsEn: 'Students taught',
 
       remixLabel: 'Edits & reworks',
+      sharedBillsLabel: 'Plateaux partagés',
+      sharedBillsFooter: 'Des salles de 100 à 4 000 personnes, du Piknic Électronik à la SAT',
+
       remixFooter: 'Edits non officiels, téléchargement gratuit sur SoundCloud',
 
       albumLabel: 'Dernier album',
@@ -749,11 +755,11 @@ export const translations = {
       catchphrase: 'RAW. HYPNOTIC. UNDERGROUND.',
       bigTitle: 'Maudite\nMachine',
       metaLine1: 'DJ · Productor · Live · VRSTL Records',
-      metaLine2: 'Montréal → France',
+      metaLine2: 'Montpellier · France',
 
       bioLabel: 'Biografía',
-      bioMain: 'Maudite Machine toca en Montreal desde 2010. Ha pasado por el Piknic Électronik y la SAT, los afters de Igloofest, el Centro Phi, la Fonderie Darling, el Théâtre Fairmount, y por los festivales quebequenses, de TOTEM e Illusion a Future Forest y Groove & Bass. En 2026 tocó en el OKAMI Festival en Francia.',
-      bioSecondary: 'Sus sets son techno hipnótico. El bajo rueda, los cambios llegan despacio y bajo la superficie, y al cabo de un rato la sala deja de mirar la cabina y se mueve en bloque. Lo toca como DJ en CDJ y en live híbrido, donde Ableton Live, un Push 3, un Dreadbox Typhon y un APC40 pilotan las secuencias en directo. Fundó VRSTL Records, sello independiente canadiense con 21 EPs y 2 álbumes, enseña producción en Ableton Live, y se instala en el sur de Francia en 2027.',
+      bioMain: 'Maudite Machine tiene su base en Montpellier. Empezó a tocar en Montreal en 2010. Ha pasado por el Piknic Électronik y la SAT, los afters de Igloofest, el Centro Phi, la Fonderie Darling, el Théâtre Fairmount, y por los festivales quebequenses, de TOTEM e Illusion a Future Forest y Groove & Bass. En 2026 tocó en el OKAMI Festival en Francia.',
+      bioSecondary: 'Sus sets son techno hipnótico. El bajo rueda, los cambios llegan despacio y bajo la superficie, y al cabo de un rato la sala deja de mirar la cabina y se mueve en bloque. Lo toca como DJ en CDJ y en live híbrido, donde Ableton Live, un Push 3, un Dreadbox Typhon y un APC40 pilotan las secuencias en directo. Fundó VRSTL Records, sello independiente canadiense con 21 EPs y 2 álbumes, enseña producción en Ableton Live, y está disponible para fechas en club y festival por toda Europa.',
       bioQuote: 'Un sonido que abraza la tensión, el groove y la experimentación',
 
       statsLabel: 'En cifras',
@@ -767,6 +773,9 @@ export const translations = {
       statStudentsEn: 'Students taught',
 
       remixLabel: 'Edits & reworks',
+      sharedBillsLabel: 'Carteles compartidos',
+      sharedBillsFooter: 'Salas de 100 a 4 000 personas, del Piknic Électronik a la SAT',
+
       remixFooter: 'Edits no oficiales, descarga gratuita en SoundCloud',
 
       albumLabel: 'Último álbum',

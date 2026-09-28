@@ -1,12 +1,12 @@
 {
   "fr": {
     "/": {
-      "title": "Maudite Machine | DJ & Producteur Hypnotic Techno, Montréal → France",
-      "description": "DJ et producteur depuis 15 ans. Hypnotic techno, profonde et immersive. Fondateur du label VRSTL Records. Montréal → France, booking Canada & Europe."
+      "title": "Maudite Machine | DJ & Producteur Hypnotic Techno, Montpellier",
+      "description": "DJ et producteur depuis 15 ans. Hypnotic techno, profonde et immersive. Fondateur du label VRSTL Records. Basé à Montpellier (France), issu de l'underground montréalais, booking Europe & Canada."
     },
     "/about": {
-      "title": "Biographie | Maudite Machine, DJ Montréal → France",
-      "description": "Pilier de l'underground montréalais depuis 15 ans. Mika a joué au Piknic Électronik, à la SAT et partagé l'affiche avec Carl Craig, Agoria et Reinier Zonneveld."
+      "title": "Biographie | Maudite Machine, DJ Montpellier · Montréal",
+      "description": "Basé à Montpellier (France), issu de l'underground montréalais. Mika a joué au Piknic Électronik, à la SAT et partagé l'affiche avec Carl Craig, Agoria et Reinier Zonneveld."
     },
     "/shows": {
       "title": "Concerts & Dates | Maudite Machine",
@@ -31,12 +31,12 @@
   },
   "en": {
     "/": {
-      "title": "Maudite Machine | Hypnotic Techno DJ & Producer, Montréal → France",
-      "description": "DJ and producer for 15 years. Hypnotic techno, deep and immersive. Founder of VRSTL Records. Montréal → France, booking Canada & Europe."
+      "title": "Maudite Machine | Hypnotic Techno DJ & Producer, Montpellier",
+      "description": "DJ and producer for 15 years. Hypnotic techno, deep and immersive. Founder of VRSTL Records. Based in Montpellier (France), out of the Montréal underground, booking Europe & Canada."
     },
     "/about": {
-      "title": "Biography | Maudite Machine, DJ Montréal → France",
-      "description": "A pillar of the Montreal underground for 15 years. Mika has played Piknic Électronik, SAT, and shared the bill with Carl Craig, Agoria and Reinier Zonneveld."
+      "title": "Biography | Maudite Machine, DJ Montpellier · Montréal",
+      "description": "Based in Montpellier (France), out of the Montreal underground. Mika has played Piknic Électronik, SAT, and shared the bill with Carl Craig, Agoria and Reinier Zonneveld."
     },
     "/shows": {
       "title": "Shows & Tour Dates | Maudite Machine",
@@ -61,12 +61,12 @@
   },
   "es": {
     "/": {
-      "title": "Maudite Machine | DJ y Productor Hypnotic Techno, Montréal → France",
-      "description": "DJ y productor desde hace 15 años. Hypnotic techno, profundo e inmersivo. Fundador de VRSTL Records. Montréal → France, booking Canadá & Europa."
+      "title": "Maudite Machine | DJ y Productor Hypnotic Techno, Montpellier",
+      "description": "DJ y productor desde hace 15 años. Hypnotic techno, profundo e inmersivo. Fundador de VRSTL Records. Con base en Montpellier (Francia), salido del underground de Montreal, booking Europa & Canadá."
     },
     "/about": {
-      "title": "Biografía | Maudite Machine, DJ Montréal → France",
-      "description": "Pilar del underground de Montreal desde hace 15 años. Mika ha tocado en Piknic Électronik, la SAT y compartido cartel con Carl Craig y Agoria."
+      "title": "Biografía | Maudite Machine, DJ Montpellier · Montréal",
+      "description": "Con base en Montpellier (Francia), salido del underground de Montreal. Mika ha tocado en Piknic Électronik, la SAT y compartido cartel con Carl Craig, Agoria y Reinier Zonneveld."
     },
     "/shows": {
       "title": "Shows y Fechas | Maudite Machine",
