@@ -1,5 +1,5 @@
 /**
- * Admin — Mixtapes : coller un lien SoundCloud remplit tout (titre,
+ * Admin - Mixtapes : coller un lien SoundCloud remplit tout (titre,
  * numero, annee, duree, pochette telechargee en WebP local par le
  * serveur), liste editable en dessous. Sauvegarde automatique locale.
  */

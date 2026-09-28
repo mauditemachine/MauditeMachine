@@ -1,5 +1,5 @@
 /**
- * ShowsPage — concerts a venir + Wall of Fame (archive typographique).
+ * ShowsPage - concerts a venir + Wall of Fame (archive typographique).
  */
 
 import React, { useEffect, useState } from 'react';
@@ -140,7 +140,7 @@ const ShowsPage: React.FC = () => {
 
       <EventsDisplay showPastEventsButton={false} />
 
-      {/* WALL OF FAME — typographic archive avec liens Facebook */}
+      {/* WALL OF FAME - typographic archive avec liens Facebook */}
       {showsArchive.length > 0 && (
         <div className="mt-24 md:mt-40">
           <div className="flex items-baseline justify-between mb-8 md:mb-14">

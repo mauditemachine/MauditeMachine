@@ -1,5 +1,5 @@
 /**
- * AdminGate — ecran de login devant les panels d'administration.
+ * AdminGate - ecran de login devant les panels d'administration.
  *
  * IMPORTANT : ce gate est une commodite d'interface, PAS la securite.
  * Le vrai verrou est cote serveur (authMiddleware dans api/server.js) :

@@ -1,5 +1,5 @@
 /**
- * EventCard — carte d'evenement Pro Max en Tailwind + GlassCard.
+ * EventCard - carte d'evenement Pro Max en Tailwind + GlassCard.
  *
  * Design monochrome blanc/verre. Le event.color (venant de Sanity)
  * est utilise uniquement comme fin liseré gauche subtil, pas sur
@@ -55,7 +55,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, index = 0 }) => {
       className="group"
       index={index}
     >
-      {/* Fin liseré vertical de couleur event.color — hyper subtil */}
+      {/* Fin liseré vertical de couleur event.color - hyper subtil */}
       <span
         aria-hidden
         className="absolute left-0 top-0 bottom-0 w-[3px] opacity-60 transition-opacity duration-300 group-hover:opacity-100"

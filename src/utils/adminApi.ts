@@ -490,7 +490,7 @@ export const loadMerchItems = async (forAdmin = false): Promise<MerchItem[]> => 
 };
 
 // ============================================================
-// RELEASES / RADAR — veille musicale (labels & artistes suivis)
+// RELEASES / RADAR - veille musicale (labels & artistes suivis)
 // Meme flux que events/merch/news : ecriture via API -> commit
 // GitHub -> auto-deploy ; lecture depuis public/releases.json.
 // ============================================================

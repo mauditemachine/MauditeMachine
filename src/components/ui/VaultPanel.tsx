@@ -1,5 +1,5 @@
 /**
- * VaultPanel — playlist fullscreen overlay Pro Max.
+ * VaultPanel - playlist fullscreen overlay Pro Max.
  *
  * - Overlay fullscreen bg-glass-strong + blur-heavy + saturate 0.6
  * - Grille 1 col (mobile) / 2 col (desktop) des morceaux
@@ -35,7 +35,7 @@ interface VaultPanelProps {
 }
 
 function formatMs(ms?: number): string {
-  if (!ms && ms !== 0) return '—:—'
+  if (!ms && ms !== 0) return '--:--'
   const total = Math.floor(ms / 1000)
   const m = Math.floor(total / 60)
   const s = (total % 60).toString().padStart(2, '0')

@@ -420,7 +420,7 @@ const AdminEvents: React.FC = () => {
                   <input className="admin-input" value={releaseForm.colorTo} onChange={e => setReleaseForm({...releaseForm, colorTo: e.target.value})} placeholder="#3a0d18" />
                 </div>
                 <div className="admin-field-full">
-                  <label className="admin-label">Cover (optionnel — sinon dégradé + initiales)</label>
+                  <label className="admin-label">Cover (optionnel - sinon dégradé + initiales)</label>
                   <ImageUpload value={releaseForm.cover || ''} onChange={v => setReleaseForm({...releaseForm, cover: v})} placeholder="images/releases/cover.webp" useButton={true} />
                 </div>
                 <div className="admin-actions">

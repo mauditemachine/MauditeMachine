@@ -2,7 +2,7 @@
  * Live & gigs /v2 : DEUX sources fusionnees, triees par date :
  *
  * - public/events.json (dates a venir) : la source editee dans l'admin
- *   local (onglet Evenements & boutique) — un ajout dans l'admin apparait
+ *   local (onglet Evenements & boutique) - un ajout dans l'admin apparait
  *   ici ET sur l'archive v1, puis migre au Wall of Fame une fois passe.
  * - l'API publique Bandsintown (app_id public, aucun secret, cache
  *   localStorage 24 h) : vide tant que le profil artiste n'existe pas,

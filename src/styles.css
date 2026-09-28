@@ -4,7 +4,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap');
 
 /* ================================================================
-   Tailwind CSS — co-existe avec le CSS custom ci-dessous.
+   Tailwind CSS - co-existe avec le CSS custom ci-dessous.
    Migration progressive composant par composant.
    ================================================================ */
 @tailwind base;
@@ -123,7 +123,7 @@
   font-display: swap;
 }
 
-/* Robot Radicals — police custom brutaliste/blocs angulaires (Hero title) */
+/* Robot Radicals - police custom brutaliste/blocs angulaires (Hero title) */
 @font-face {
   font-family: "Robot Radicals";
   src: url("/fonts/RobotRadicals.otf") format("opentype"),
@@ -133,7 +133,7 @@
   font-display: swap;
 }
 
-/* SF Pro Display — police principale du site (subset latin, woff2 ~20KB/graisse).
+/* SF Pro Display - police principale du site (subset latin, woff2 ~20KB/graisse).
    Sur Apple, -apple-system prend le relai nativement si le woff2 tarde. */
 @font-face {
   font-family: "SF Pro Display";
@@ -257,7 +257,7 @@ body {
 }
 
 /* ===== SITE HEADER ===== */
-/* Padding gere par Tailwind dans Layout.tsx (px-4 md:px-8) — pas d'override ici. */
+/* Padding gere par Tailwind dans Layout.tsx (px-4 md:px-8) - pas d'override ici. */
 .site-header {
   position: fixed;
   top: 0;
@@ -1848,7 +1848,7 @@ body {
 }
 
 /* SoundCloud Player */
-/* SC legacy CSS (classes sc- et .now-) supprime — migre en Tailwind */
+/* SC legacy CSS (classes sc- et .now-) supprime - migre en Tailwind */
 
 .main-content {
   display: flex;
@@ -3612,7 +3612,7 @@ html body div.second-third-combined div.nav-buttons-container button.nav-icon-bt
 }
 
 /* Message/Contact Page */
-/* .message-title duplique — garde : utilisee par NewsMessages + RandomMessage */
+/* .message-title duplique - garde : utilisee par NewsMessages + RandomMessage */
 .message-title {
   font-family: "SF Pro Display", system-ui, sans-serif;
   font-size: 15px;
@@ -5971,7 +5971,7 @@ body.dark-mode .admin-page .form-group textarea:focus {
   opacity: 1 !important;
 }
 
-/* .merch-item/.merch-overlay/.merch-image supprimes — orphelins code legacy */
+/* .merch-item/.merch-overlay/.merch-image supprimes - orphelins code legacy */
 
 /* RESPONSIVE BREAKPOINTS */
 @media (min-width: 1200px) {
@@ -6831,7 +6831,7 @@ body.dark-mode .admin-page .form-group textarea:focus {
   padding: 4px;
 }
 
-/* Bulle animée qui se déplace — même glass que le header */
+/* Bulle animée qui se déplace - même glass que le header */
 .design-alternate .past-years-bubble {
   position: absolute;
   z-index: 1;

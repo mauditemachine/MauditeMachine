@@ -1,5 +1,5 @@
 /**
- * SEO — metadonnees par page + injection DOM dynamique.
+ * SEO - metadonnees par page + injection DOM dynamique.
  *
  * Le site est une SPA client-side (GitHub Pages, pas de SSR). Googlebot
  * execute le JS et lit le DOM final, donc on injecte title / description /
@@ -87,7 +87,7 @@ export function setJsonLd(id: string, data: unknown) {
 }
 
 /**
- * useSEO — synchronise <title>, meta description, canonical, OG, Twitter,
+ * useSEO - synchronise <title>, meta description, canonical, OG, Twitter,
  * hreflang et le JSON-LD BreadcrumbList avec la route + la langue courante.
  * Appele une seule fois dans Layout (englobe toutes les pages via Outlet).
  */

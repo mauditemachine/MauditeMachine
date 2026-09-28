@@ -1,5 +1,5 @@
 /**
- * GlassCard — wrapper generique liquid-glass avec hover premium.
+ * GlassCard - wrapper generique liquid-glass avec hover premium.
  *
  * - bg-glass-strong + backdrop-blur + saturate 0.6 (tue le bleu jellyfish)
  * - border qui s'illumine au hover (ink-8 → ink-30)

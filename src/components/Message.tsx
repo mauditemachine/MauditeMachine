@@ -1,5 +1,5 @@
 /**
- * Page Message / Contact — design Pro Max en Tailwind + Framer Motion.
+ * Page Message / Contact - design Pro Max en Tailwind + Framer Motion.
  *
  * Migration 2026-04 : 100% Tailwind, conteneur glass, inputs "en creux",
  * focus glow blanc, submit button avec micro-interaction.

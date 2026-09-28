@@ -1,5 +1,5 @@
 /**
- * MerchPage — boutique merchandising.
+ * MerchPage - boutique merchandising.
  */
 
 import React from 'react';

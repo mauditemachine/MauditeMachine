@@ -3,7 +3,7 @@
  *
  * En LOCAL (npm run admin) : requetes vers server.js, lecture ET
  * ecriture. EN LIGNE : le site est statique, aucun serveur d'ecriture
- * n'existe — les pages de lecture basculent sur staticData.ts (audit du
+ * n'existe - les pages de lecture basculent sur staticData.ts (audit du
  * site reellement deploye), l'ecriture est refusee avec un message clair.
  */
 

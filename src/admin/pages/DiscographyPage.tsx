@@ -1,5 +1,5 @@
 /**
- * Admin — Discographie : le tableau des pistes /v2 en edition inline.
+ * Admin - Discographie : le tableau des pistes /v2 en edition inline.
  * Reordonnancement par glisser-deposer (@dnd-kit), test d'ecoute par
  * piste (oEmbed via server.js), badge sur les pistes incompletes,
  * toggle selection (featured), ajout/suppression avec confirmation.

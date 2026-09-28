@@ -1,5 +1,5 @@
 /**
- * AdminNav — navigation commune des trois zones d'admin :
+ * AdminNav - navigation commune des trois zones d'admin :
  * Contenu (/mm-admin), Radar (/mm-admin/radar), Stats (/mm-admin/stats).
  * Pills sobres, meme langage que le reste du site.
  */

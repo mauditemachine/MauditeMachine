@@ -1,5 +1,5 @@
 /**
- * Panneau admin local — shell : sidebar claire + routes imbriquees.
+ * Panneau admin local - shell : sidebar claire + routes imbriquees.
  * Monte sur /mm-admin/* (hors Layout). Chaque page d'edition est derriere
  * AdminGate (localhost sans mot de passe, LAN avec ADMIN_PASSWORD, en
  * ligne : ecran « edition locale uniquement »). Stats et Radar gardent
@@ -84,7 +84,7 @@ const AdminApp: React.FC = () => {
   useEffect(() => {
     document.body.classList.add('admx-active');
     const prevTitle = document.title;
-    document.title = 'Admin — Maudite Machine';
+    document.title = 'Admin - Maudite Machine';
     return () => {
       document.body.classList.remove('admx-active');
       document.title = prevTitle;

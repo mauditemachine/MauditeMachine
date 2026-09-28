@@ -1,5 +1,5 @@
 /**
- * i18n lib — hook `useTranslation` zero-dependance.
+ * i18n lib - hook `useTranslation` zero-dependance.
  *
  * Re-exporte au-dessus de AppContext (qui gere deja la detection
  * navigator.language + le store localStorage). Ce fichier fournit l'API

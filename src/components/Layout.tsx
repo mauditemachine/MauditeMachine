@@ -1,5 +1,5 @@
 /**
- * Layout — shell persistant pour toutes les pages.
+ * Layout - shell persistant pour toutes les pages.
  *
  * Contient :
  * - Header fixe avec NavLink (router-based, plus de scroll-to-section)
@@ -279,7 +279,7 @@ const Layout: React.FC = () => {
               />
             </NavLink>
 
-            {/* Nav droite — NavLink */}
+            {/* Nav droite - NavLink */}
             <nav className="h-full hidden max-[900px]:hidden min-[901px]:flex items-center gap-6">
               {navLinks.map((l) => (
                 <NavLink
@@ -313,7 +313,7 @@ const Layout: React.FC = () => {
           </div>
         )}
 
-        {/* MAIN — contenu de la page courante via Outlet.
+        {/* MAIN - contenu de la page courante via Outlet.
             md:pr-16 sur les pages de contenu : reserve la colonne de droite
             a la SocialSidebar (fixed right-6 z-50). Sans ca, sur ecran
             <= ~1400px la sidebar recouvrait les elements cliquables au bord
@@ -326,7 +326,7 @@ const Layout: React.FC = () => {
         {/* Le logo VRSTL flottant a ete retire : le lien vrstlrecords.com
             reste accessible en clair sur la page About (Presskit). */}
 
-        {/* Social sidebar fixe right (desktop only) — persiste entre toutes les pages */}
+        {/* Social sidebar fixe right (desktop only) - persiste entre toutes les pages */}
         <SocialSidebar />
 
         {/* Synchro du fond video avec la pochette de la track en cours

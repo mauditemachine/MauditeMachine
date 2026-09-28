@@ -1,5 +1,5 @@
 /**
- * EditorialPhoto — bloc photo "double-page magazine" full-width avec parallax au scroll.
+ * EditorialPhoto - bloc photo "double-page magazine" full-width avec parallax au scroll.
  *
  * - useScroll + useTransform (framer-motion) reagit au scroll global, donc
  *   fonctionne meme sans animation de mount (ce qui est fiable dans ce codebase).
@@ -19,7 +19,7 @@ interface EditorialPhotoProps {
   caption?: string
   /** Numero de spread magazine (ex "N° 03") */
   issueTag?: string
-  /** Hauteur du bloc en vh — default 70 */
+  /** Hauteur du bloc en vh - default 70 */
   heightVh?: number
   className?: string
 }
@@ -73,7 +73,7 @@ const EditorialPhoto: React.FC<EditorialPhotoProps> = ({
         </div>
       )}
 
-      {/* Caption magazine (coin bas) — whitespace-pre-line pour gerer les \n */}
+      {/* Caption magazine (coin bas) - whitespace-pre-line pour gerer les \n */}
       {caption && (
         <div className="absolute bottom-5 md:bottom-10 left-5 md:left-10 right-5 md:right-10 max-w-3xl">
           <div className="font-display font-black uppercase text-white text-[clamp(1.25rem,3.5vw,3rem)] leading-[0.95] tracking-[-0.03em] whitespace-pre-line [text-shadow:_0_2px_20px_rgba(0,0,0,0.6)]">

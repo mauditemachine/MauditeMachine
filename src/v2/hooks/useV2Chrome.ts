@@ -4,7 +4,7 @@
  *
  * Depuis la bascule (2026-08), la v2 EST le site : les metas par defaut
  * d'index.html (description, OG, JSON-LD, robots "index, follow") sont
- * deja les siennes — ce hook n'y touche plus. Le noindex de l'archive
+ * deja les siennes - ce hook n'y touche plus. Le noindex de l'archive
  * v1 est pose par son Layout.
  */
 

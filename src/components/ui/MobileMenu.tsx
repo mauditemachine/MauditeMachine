@@ -1,5 +1,5 @@
 /**
- * MobileMenu — hamburger + overlay full-screen Pro Max.
+ * MobileMenu - hamburger + overlay full-screen Pro Max.
  *
  * - Bouton hamburger (3 lignes → croix) anime via CSS transforms (framer a du
  *   mal avec cette base de code pour les entrances, on reste pragmatique)
@@ -84,7 +84,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
 
   return (
     <>
-      {/* Bouton hamburger — fixed top-right, au-dessus de l'overlay */}
+      {/* Bouton hamburger - fixed top-right, au-dessus de l'overlay */}
       <button
         type="button"
         onClick={onToggle}
@@ -185,7 +185,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
               })}
             </nav>
 
-            {/* Socials row — utilise SOCIAL_LINKS partage (10 reseaux)
+            {/* Socials row - utilise SOCIAL_LINKS partage (10 reseaux)
                 Icones plus grandes (w-6 h-6) pour cibles tactiles, sans fond. */}
             <div
               style={{
@@ -209,7 +209,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({
               ))}
             </div>
 
-            {/* Socials prop legacy (compat) — non utilise, conserve pour signature */}
+            {/* Socials prop legacy (compat) - non utilise, conserve pour signature */}
             {socials && socials.length > 0 && null}
           </div>
         </div>

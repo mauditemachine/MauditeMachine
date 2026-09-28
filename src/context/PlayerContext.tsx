@@ -1,5 +1,5 @@
 /**
- * PlayerContext — LE lecteur officiel du site, toutes pages confondues.
+ * PlayerContext - LE lecteur officiel du site, toutes pages confondues.
  *
  * Etat + <audio> natif + moteur SoundCloud (scWidget) + la barre fixe du
  * bas vivent ici, au niveau du Layout : la lecture survit a la navigation.

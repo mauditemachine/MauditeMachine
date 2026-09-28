@@ -1,11 +1,11 @@
 /**
- * HomePage — page d'accueil "couverture d'album" 100vh sans scroll.
+ * HomePage - page d'accueil "couverture d'album" 100vh sans scroll.
  * Contenu : logo + WE ARE MUSIC MAKERS (Robot Radicals) + slogan + tagline.
  * Le fond meduses + lecteur audio sont rendus par Layout (persistents).
  *
  * Entrances en CSS animate-fade-up (PAS framer-motion : le pattern
  * initial->animate au mount ne se declenche pas de facon fiable dans ce
- * codebase — StrictMode + Vite HMR — et laissait la page a opacity 0).
+ * codebase - StrictMode + Vite HMR - et laissait la page a opacity 0).
  */
 
 import React, { useEffect } from 'react';
@@ -38,7 +38,7 @@ const HomePage: React.FC = () => {
           Le logo juste en dessous joue le role de titre visuel. */}
       <h1 className="sr-only">{t.headings.home}</h1>
 
-      {/* 1. Logo MAUDITE MACHINE — pleine largeur ecran sur mobile */}
+      {/* 1. Logo MAUDITE MACHINE - pleine largeur ecran sur mobile */}
       <img
         src={import.meta.env.BASE_URL + 'logo/LogoStack.svg'}
         alt="Maudite Machine"
@@ -50,7 +50,7 @@ const HomePage: React.FC = () => {
         }}
       />
 
-      {/* 2. WE ARE MUSIC MAKERS — Robot Radicals 30px blanc tracking 4px */}
+      {/* 2. WE ARE MUSIC MAKERS - Robot Radicals 30px blanc tracking 4px */}
       <h2
         className={cn(
           'font-robot',
@@ -65,7 +65,7 @@ const HomePage: React.FC = () => {
         {t.signature.musicMakers}
       </h2>
 
-      {/* 3. RAW. HYPNOTIC. UNDERGROUND. — la string est en caps (signature
+      {/* 3. RAW. HYPNOTIC. UNDERGROUND. - la string est en caps (signature
           brand), pas de classe uppercase ni de tracking geant */}
       <div
         className={cn(
@@ -80,7 +80,7 @@ const HomePage: React.FC = () => {
         {t.presskit.catchphrase}
       </div>
 
-      {/* 4. Tagline 3 lignes — casse normale, tracking discret, weight 600 */}
+      {/* 4. Tagline 3 lignes - casse normale, tracking discret, weight 600 */}
       <div
         className={cn(
           'flex flex-col items-center gap-1 md:gap-1.5',

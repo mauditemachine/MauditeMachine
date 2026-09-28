@@ -140,7 +140,7 @@ export const SummaryCards: React.FC<{ stats: StatsPublic; labels: { unavailable:
           {d.status === 'ok' ? (
             <>
               <div className="font-body font-bold text-white text-xl md:text-2xl leading-none">
-                {d.value !== undefined ? nf.format(d.value) : '–'}
+                {d.value !== undefined ? nf.format(d.value) : '-'}
               </div>
               <div className="mt-1.5 flex items-center gap-2 min-h-[18px]">
                 {d.diff !== null && d.diff !== 0 && (

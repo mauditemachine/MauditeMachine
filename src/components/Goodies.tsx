@@ -1,5 +1,5 @@
 /**
- * Goodies — wallpapers + covers + stickers en telechargement gratuit.
+ * Goodies - wallpapers + covers + stickers en telechargement gratuit.
  *
  * Telechargement BLINDE MOBILE : chaque carte est un <motion.a download>
  * natif HTML, pas de JS fetch/blob/createObjectURL qui bloque sur iOS Safari.
@@ -175,7 +175,7 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
     );
   }
 
-  // Render grille pour une categorie — aspect ratio different selon type
+  // Render grille pour une categorie - aspect ratio different selon type
   const renderGrid = (items: GoodieItem[], kind: 'desktop' | 'phone' | 'covers') => {
     const gridClass =
       kind === 'desktop'

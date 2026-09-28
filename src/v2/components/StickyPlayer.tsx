@@ -65,7 +65,7 @@ const StickyPlayer: React.FC = () => {
           <span className="v2-player-title">{current.title}</span>
           <span className="v2-label v2-player-sub" role="status">
             {notice
-              ? `« ${notice} » unavailable — skipped`
+              ? `« ${notice} » unavailable - skipped`
               : `${current.project} · ${current.year}`}
           </span>
         </div>

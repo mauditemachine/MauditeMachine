@@ -1,5 +1,5 @@
 /**
- * SocialIcons — module partage : icones SVG monochromes + liste SOCIAL_LINKS.
+ * SocialIcons - module partage : icones SVG monochromes + liste SOCIAL_LINKS.
  * Utilise par SocialSidebar (desktop fixed right) et MobileMenu (mobile row).
  */
 

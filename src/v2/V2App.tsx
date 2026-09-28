@@ -1,5 +1,5 @@
 /**
- * /v2 — refonte parallele du site, one-page isolee du reste de l'app :
+ * /v2 - refonte parallele du site, one-page isolee du reste de l'app :
  * montee HORS Layout (pas de nav v1, pas de PlayerProvider v1, pas de fond
  * jellyfish). Le CSS est scope .v2-root ; la typo du site est Larsseit
  * (woff2 auto-heberges, @font-face dans v2.css).
@@ -46,7 +46,7 @@ const V2Shell: React.FC = () => {
   const curtain = useCurtain();
   useReveals(rootRef);
   // Chrome commun /v2 (body class, noindex, description, titre),
-  // restaure au unmount — partage avec /v2/radar
+  // restaure au unmount - partage avec /v2/radar
   useV2Chrome('Maudite Machine | DJ Montréal · Hypnotic Techno');
 
   // Arrivee avec une ancre (redirections /about -> /#epk, liens partages) :

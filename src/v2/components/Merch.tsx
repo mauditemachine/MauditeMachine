@@ -1,6 +1,6 @@
 /**
  * Merch /v2 : grille de produits depuis public/store.json (la MEME source
- * que la boutique v1 et l'admin — un edit dans l'admin met a jour les
+ * que la boutique v1 et l'admin - un edit dans l'admin met a jour les
  * deux sites sans rebuild).
  *
  * store.json liste des VUES (front/back, couleurs) : on les regroupe par
@@ -172,7 +172,7 @@ const Merch: React.FC = () => {
       </div>
 
       {items !== null && products.length === 0 && (
-        <p className="v2-label">Store is being restocked — check back soon.</p>
+        <p className="v2-label">Store is being restocked - check back soon.</p>
       )}
     </section>
   );

@@ -1,5 +1,5 @@
 /**
- * RadarPage v3.2 — tableau de bord musical : flux + explorateur, lecteur global.
+ * RadarPage v3.2 - tableau de bord musical : flux + explorateur, lecteur global.
  *
  * Layout adaptatif : sans selection, le flux prend TOUTE la largeur (lignes
  * aerees, libelles lisibles). Selectionner un artiste ou un label ouvre le

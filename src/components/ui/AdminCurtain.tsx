@@ -1,5 +1,5 @@
 /**
- * AdminCurtain — rideau mot de passe cote client pour les outils admin
+ * AdminCurtain - rideau mot de passe cote client pour les outils admin
  * consultables en prod (/mm-admin/stats, /mm-admin/radar).
  *
  * C'est un RIDEAU, pas un coffre : site statique, le hash SHA-256 du mot de

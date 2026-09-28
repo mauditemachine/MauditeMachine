@@ -1,5 +1,5 @@
 /**
- * /mm-admin/radar — le tableau de bord Radar, deplace dans l'admin.
+ * /mm-admin/radar - le tableau de bord Radar, deplace dans l'admin.
  *
  * C'est l'outil de veille perso (flux des sorties, explorateur iTunes,
  * ecoute integree) : il n'est plus une page publique du site. Le composant

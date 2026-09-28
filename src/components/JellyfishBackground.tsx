@@ -7,7 +7,7 @@ interface JellyfishBackgroundProps {
 }
 
 /**
- * Fond video fullscreen — ping-pong loop 14s (forward 7s + reverse 7s encode baked).
+ * Fond video fullscreen - ping-pong loop 14s (forward 7s + reverse 7s encode baked).
  * Le fichier dream-bg-1080/720.mp4 contient deja le ping-pong pre-encode par ffmpeg,
  * donc un simple <video loop> suffit.
  *

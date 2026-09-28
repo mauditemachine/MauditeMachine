@@ -1,5 +1,5 @@
 /**
- * useInView — hook IntersectionObserver simple et fiable.
+ * useInView - hook IntersectionObserver simple et fiable.
  *
  * framer-motion whileInView a des quirks dans ce codebase (StrictMode +
  * Vite HMR + Preflight disable), donc on fait du vanilla robuste.

@@ -1,7 +1,7 @@
 /**
  * Donnees editables de l'admin : chargement + sauvegarde automatique
  * deboucee (800 ms apres la derniere frappe) vers server.js, avec etat
- * lisible pour l'indicateur « Enregistre » — le brouillon local, la
+ * lisible pour l'indicateur « Enregistre » - le brouillon local, la
  * publication reste le bouton Publier.
  */
 

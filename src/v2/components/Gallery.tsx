@@ -8,7 +8,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 /* presskit-hero.webp retiree : c'etait le meme shot que MauditeMachine-1
-   (Cirque de Boudoir) en noir et blanc — on garde la version couleur. */
+   (Cirque de Boudoir) en noir et blanc - on garde la version couleur. */
 const PHOTOS = [
   { src: '/images/MauditeMachine-1.webp', alt: 'Maudite Machine, live au Cirque de Boudoir', cap: 'Cirque de Boudoir' },
   { src: '/images/MauditeMachine-2.webp', alt: 'Maudite Machine aux platines, gros plan', cap: 'Live set' },

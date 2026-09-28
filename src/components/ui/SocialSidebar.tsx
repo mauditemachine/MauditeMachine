@@ -1,5 +1,5 @@
 /**
- * SocialSidebar — barre laterale fixe right, vertical, desktop only.
+ * SocialSidebar - barre laterale fixe right, vertical, desktop only.
  *
  * - hidden md:flex : invisible mobile, visible >= 768px
  * - fixed right-6 top-1/2 -translate-y-1/2 z-50
@@ -19,7 +19,7 @@ const SocialSidebar: React.FC = () => {
       aria-label="Social links"
       // position:fixed en inline style OBLIGATOIRE : la regle legacy
       // `.page > * { position: relative }` (styles.css) ecrase la classe
-      // Tailwind `fixed` — meme piege que le player et le hamburger.
+      // Tailwind `fixed` - meme piege que le player et le hamburger.
       // Sans ca, la sidebar tombe dans le flux en bas de page et ses liens
       // interceptent les clics du contenu (bug "+ Goodies -> Apple Music").
       className="hidden md:flex flex-col gap-5"
@@ -46,7 +46,7 @@ const SocialSidebar: React.FC = () => {
             {s.icon}
           </span>
 
-          {/* Tooltip glassmorphic — slide-in depuis la gauche au hover */}
+          {/* Tooltip glassmorphic - slide-in depuis la gauche au hover */}
           <span
             className={[
               'absolute right-full mr-4',

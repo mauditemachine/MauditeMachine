@@ -199,7 +199,7 @@ const Store: React.FC<StoreProps> = ({ onSectionChange }) => {
                 key={cat.key}
                 onClick={() => openLightboxForItem(frontItem)}
                 className="group p-2.5"
-                aria-label={`${cat.label} — ${cat.items[0]?.price}`}
+                aria-label={`${cat.label} - ${cat.items[0]?.price}`}
                 index={i}
               >
                 <div className="relative aspect-square overflow-hidden rounded-lg bg-black/40">

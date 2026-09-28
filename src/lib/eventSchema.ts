@@ -1,5 +1,5 @@
 /**
- * eventSchema — genere le JSON-LD schema.org/MusicEvent pour les concerts.
+ * eventSchema - genere le JSON-LD schema.org/MusicEvent pour les concerts.
  *
  * Objectif SEO : declencher les "rich results" Google Events. Quand quelqu'un
  * cherche "Maudite Machine concert" ou "DJ Montreal ce weekend", Google peut

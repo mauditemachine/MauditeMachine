@@ -1,5 +1,5 @@
 /**
- * AboutPage — biographie complete + photos.
+ * AboutPage - biographie complete + photos.
  * Wrap le composant Presskit (deja existant, contient toute la mise en page
  * magazine : bio 2-col, stats, remix, album, catalogue, VRSTL, contact, download).
  */
@@ -23,7 +23,7 @@ const AboutPage: React.FC = () => {
         <Presskit onNavigateToMessage={() => navigate('/v1/contact')} />
       </Suspense>
 
-      {/* Editorial photo MM1 avec parallax — ferme la page About en beaute */}
+      {/* Editorial photo MM1 avec parallax - ferme la page About en beaute */}
       <section
         aria-label="Editorial spread"
         className="py-8 md:py-16 px-4 md:px-8 max-w-[1600px] mx-auto w-full"

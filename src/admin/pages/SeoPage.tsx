@@ -201,7 +201,7 @@ const SeoPage: React.FC = () => {
           <div className="admx-health-item" key={c.key}>
             <span className={`admx-dot ${c.ok ? 'ok' : 'warn'}`} />
             <span>
-              <b style={{ fontWeight: 600 }}>{c.label}</b> — {c.detail}
+              <b style={{ fontWeight: 600 }}>{c.label}</b> - {c.detail}
               <br />
               <span className="admx-muted" style={{ fontSize: 12 }}>
                 {c.why}

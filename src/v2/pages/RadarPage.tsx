@@ -1,5 +1,5 @@
 /**
- * /v2/radar — veille musicale dans la DA v2, page dediee (pas une ancre).
+ * /v2/radar - veille musicale dans la DA v2, page dediee (pas une ancre).
  *
  * Reprend les donnees et la mecanique du Radar v1 (public/releases.json,
  * public/following.json, moteur iTunes de src/utils/itunes.ts) avec le
@@ -68,7 +68,7 @@ const fmtDate = (iso: string) => {
 const coverSrc = (r: Release) => (r.cover ? `/${r.cover.replace(/^\//, '')}` : null);
 
 const RadarShell: React.FC = () => {
-  useV2Chrome('Maudite Machine — Radar');
+  useV2Chrome('Maudite Machine - Radar');
   const rootRef = useRef<HTMLDivElement>(null);
   useReveals(rootRef);
   const { current, playing, play } = useAudioPlayer();
@@ -333,7 +333,7 @@ const RadarShell: React.FC = () => {
           <span className="v2-radar-artist-static">{item.artist}</span>
           <span className="v2-radar-title">
             {item.title}
-            {item.kind === 'album' ? ' — album' : ''}
+            {item.kind === 'album' ? ' - album' : ''}
           </span>
           {hasFailed && <span className="v2-label v2-radar-noprev">No preview found</span>}
         </span>
@@ -523,7 +523,7 @@ const RadarShell: React.FC = () => {
 
             {!explorer.loading && (explorer.res?.items.length || 0) === 0 && (
               <div className="v2-radar-xempty">
-                <span className="v2-label">Nothing on iTunes — try elsewhere:</span>
+                <span className="v2-label">Nothing on iTunes - try elsewhere:</span>
                 <div className="v2-radar-chips">
                   {fallbackLinks(explorer.q).map((f) => (
                     <a
@@ -556,7 +556,7 @@ const RadarShell: React.FC = () => {
         <div className="v2-radar-list" role="table" aria-label="Nouveautés">
           {releases === null && <p className="v2-label">Loading…</p>}
           {releases !== null && news.length === 0 && (
-            <p className="v2-label">Quiet weeks — check the archives below.</p>
+            <p className="v2-label">Quiet weeks - check the archives below.</p>
           )}
           {news.map(renderRow)}
         </div>

@@ -1,5 +1,5 @@
 /**
- * GoodiesPage — wallpapers + covers + stickers en telechargement gratuit.
+ * GoodiesPage - wallpapers + covers + stickers en telechargement gratuit.
  */
 
 import React from 'react';

@@ -1,5 +1,5 @@
 /**
- * /mm-admin/stats — dashboard analytics musique multi-plateformes.
+ * /mm-admin/stats - dashboard analytics musique multi-plateformes.
  *
  * Lecture : public/data/stats-public.json (fichier statique, dispo partout,
  * y compris en prod GitHub Pages derriere le rideau StatsGate).

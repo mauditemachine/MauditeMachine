@@ -1,5 +1,5 @@
 /**
- * ContactPage — formulaire de contact (Message component).
+ * ContactPage - formulaire de contact (Message component).
  */
 
 import React from 'react';

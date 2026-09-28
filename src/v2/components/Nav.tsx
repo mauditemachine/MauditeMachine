@@ -1,7 +1,7 @@
 /**
  * Nav /v2 : bouton burger minimal (mono, blend difference) qui ouvre un
  * overlay plein ecran. Les entrees melangent ancres de la one-page et
- * pages dediees (Radar), toutes au meme niveau visuel — seule la
+ * pages dediees (Radar), toutes au meme niveau visuel - seule la
  * mecanique de navigation differe (scroll vs route).
  */
 

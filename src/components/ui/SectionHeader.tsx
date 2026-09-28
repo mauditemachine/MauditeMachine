@@ -1,5 +1,5 @@
 /**
- * SectionHeader — titre titanesque avec reveal cinematique au scroll.
+ * SectionHeader - titre titanesque avec reveal cinematique au scroll.
  *
  * Typographie magazine brutaliste (clamp(3rem, 12vw, 12rem)) uppercase
  * font-black tracking serré leading dense. Reveal par masque
@@ -18,9 +18,9 @@ import React from 'react'
 import { cn } from '../../lib/cn'
 
 interface SectionHeaderProps {
-  /** @deprecated Retire du rendu — conserve pour compat */
+  /** @deprecated Retire du rendu - conserve pour compat */
   number?: string
-  /** @deprecated Retire du rendu — conserve pour compat */
+  /** @deprecated Retire du rendu - conserve pour compat */
   kicker?: string
   /** Titre massif */
   title: string
