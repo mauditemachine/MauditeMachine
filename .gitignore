@@ -33,3 +33,9 @@ api/.env
 # Ancre a la racine : public/data/ (stats publiques) reste versionne.
 /data/
 .admin-backups/
+
+# .nosync : dossiers regenerables sortis de la sync iCloud (+ lien symbolique du meme nom)
+*.nosync
+*.nosync/
+node_modules
+.next

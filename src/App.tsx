@@ -18,6 +18,8 @@ const AdminRadarPage = React.lazy(() => import('./pages/AdminRadarPage'));
 const V2App = React.lazy(() => import('./v2/V2App'));
 const V2RadarPage = React.lazy(() => import('./v2/pages/RadarPage'));
 const V2TechRiderPage = React.lazy(() => import('./v2/pages/TechRiderPage'));
+// Experiment v3 : Acid Line, hors sitemap (chunk lazy, v1 et v2 n'en chargent rien)
+const V3App = React.lazy(() => import('./v3/V3App'));
 // Panneau admin local (shell sidebar : dashboard, contenu, medias, publier)
 const AdminApp = React.lazy(() => import('./admin/AdminApp'));
 
@@ -35,6 +37,7 @@ export default function App() {
           <Route path="/" element={lazyEl(<V2App />)} />
           <Route path="/radar" element={lazyEl(<V2RadarPage />)} />
           <Route path="/techrider" element={lazyEl(<V2TechRiderPage />)} />
+          <Route path="/v3" element={lazyEl(<V3App />)} />
           {/* Compat : les liens /v2 deja partages restent valides */}
           <Route path="/v2" element={<Navigate to="/" replace />} />
           {/* La page Archives (musee du site) a ete retiree : on ne laisse
