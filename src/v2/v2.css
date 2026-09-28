@@ -1,9 +1,9 @@
 /**
- * /v2 — design system isole. Tout est scope sous .v2-root : le CSS global
+ * /v2 - design system isole. Tout est scope sous .v2-root : le CSS global
  * du site v1 (6900 lignes) ne doit ni fuir ici ni etre pollue.
  *
  * DA (rebrand 2026-08) : fond creme #F6F1E7, texte #191919, TOUT en
- * Larsseit (fonte licenciee de Mika, auto-hebergee en woff2 — pas de
+ * Larsseit (fonte licenciee de Mika, auto-hebergee en woff2 - pas de
  * Regular droit dans sa licence : Light couvre 300-400, Medium 500-600,
  * Bold 700+). Ease standard des hovers : cubic-bezier(0.16, 1, 0.3, 1).
  */
@@ -1010,6 +1010,27 @@ html:has(body.v2-active) {
   border-color: rgba(25, 25, 25, 0.4);
 }
 
+/* Lien vers la page /press/ (pack complet), sous les telechargements */
+.v2-epk-presslink {
+  display: inline-block;
+  margin-top: 2px;
+  background: linear-gradient(currentColor, currentColor) left bottom / 0% 1px no-repeat;
+  padding-bottom: 2px;
+  transition: color 0.3s var(--v2-ease), background-size 0.35s var(--v2-ease);
+}
+
+.v2-epk-presslink:hover {
+  color: var(--v2-ink);
+  background-size: 100% 1px;
+}
+
+.v2-epk-downloads-footer {
+  margin-top: 6px;
+  line-height: 1.6;
+  text-transform: none;
+  letter-spacing: 0.06em;
+}
+
 /* Dans la sidebar EPK, les deux contacts s'empilent.
    Double classe : .v2-contacts (defini plus bas dans le fichier) ecrasait
    cette regle a specificite egale et l'email cassait en deux colonnes. */
@@ -1587,7 +1608,7 @@ button.v2-radar-artist:hover {
 }
 
 /* Geste final : dans la section Contact, les deux adresses passent a
-   l'echelle display, empilees pleine largeur — la page se termine sur
+   l'echelle display, empilees pleine largeur - la page se termine sur
    une derniere rupture, pas en fondu. */
 #contact .v2-contacts {
   grid-template-columns: minmax(0, 1fr);
@@ -2045,4 +2066,126 @@ button.v2-radar-artist:hover {
   gap: 8px;
   justify-content: flex-end;
   align-items: center;
+}
+
+/* ---------- Fiche technique (/techrider) ---------- */
+
+.v2-rider-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px 40px;
+  padding-bottom: 34px;
+  border-bottom: 1px solid var(--v2-line);
+}
+
+.v2-rider-lead {
+  flex: 1 1 420px;
+  max-width: 62ch;
+  margin: 0;
+  font-size: clamp(19px, 2.2vw, 27px);
+  font-weight: 500;
+  line-height: 1.32;
+  letter-spacing: -0.01em;
+}
+
+.v2-rider-blocks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 56px 64px;
+  margin-top: 6vh;
+}
+
+.v2-rider-block-title {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin: 0 0 18px;
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.v2-rider-list {
+  margin: 0;
+  border-top: 1px solid var(--v2-line);
+}
+
+.v2-rider-row {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 6px 22px;
+  padding: 15px 0;
+  border-bottom: 1px solid var(--v2-line);
+}
+
+.v2-rider-row dt {
+  padding-top: 3px;
+}
+
+.v2-rider-row dd {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.56;
+}
+
+/* Stage plot : le SVG garde son ratio, la boite scrolle si l'ecran est
+   plus etroit que la largeur minimale lisible du trace. */
+.v2-plot {
+  margin: 9vh 0 0;
+}
+
+.v2-plot-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 24px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--v2-line);
+}
+
+.v2-plot-head .v2-rider-block-title {
+  margin: 0;
+}
+
+.v2-plot-frame {
+  margin-top: 26px;
+  overflow-x: auto;
+  border: 1px solid var(--v2-line);
+  padding: 26px 22px;
+}
+
+.v2-plot-svg {
+  display: block;
+  width: 100%;
+  min-width: 620px;
+  height: auto;
+  color: var(--v2-ink);
+}
+
+.v2-rider-cta {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 9vh;
+  padding-top: 30px;
+  border-top: 1px solid var(--v2-line);
+}
+
+.v2-rider-cta .v2-download {
+  min-width: min(100%, 420px);
+}
+
+@media (max-width: 767px) {
+  .v2-rider-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .v2-rider-blocks {
+    gap: 44px;
+  }
 }

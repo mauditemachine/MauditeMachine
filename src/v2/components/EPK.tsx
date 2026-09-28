@@ -1,59 +1,75 @@
 /**
- * Hub EPK /v2 : bio FR/EN (textes du site actuel), telechargements
- * (press kit PDF, tech riders EN/FR, bundle ZIP) et CTA booking.
+ * Hub EPK /v2 : bio FR/EN (edition 2026/27), telechargements (press kit
+ * PDF, tech rider PDF, pack presse) et CTA booking.
  *
- * Les tech riders PDF separes seront deposes par Mika dans public/
- * (techrider-en.pdf / techrider-fr.pdf) : on sonde leur existence au
- * runtime (HEAD + content-type pdf, car le fallback SPA repond 200 en
- * html), et on bascule automatiquement du ZIP aux PDF sans redeploiement.
+ * Les deux PDF sont desormais dans public/ : la sonde runtime qui
+ * cherchait des tech riders absents n'a plus de raison d'etre, les liens
+ * sont directs. Le pack complet vit sous /press/ (page statique hors
+ * routeur React) avec les photos, le logo et les pochettes.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { BOOKING_CONTACTS } from '../data/contacts';
 
 const BIO = {
   en: {
-    meta: 'DJ · Producer · VRSTL Records · Canada · France · Spain',
-    main: "A pillar of the Montreal underground for over 15 years, Maudite Machine has forged its identity between the immersive walls of SAT and the effervescent stages of Piknic Électronik. Sharing the bill with legends like Carl Craig, Agoria, and Reinier Zonneveld, its footprint reaches far beyond a simple DJ set.",
-    secondary: "A member of Montréal's 8day collective and at the helm of VRSTL Records, he sculpts the future of North American hypnotic techno. A sonic architect navigating between hardware sequencers and analog synthesizers, he turns every Live Set into a raw, unfiltered ceremony. With a decade and a half dedicated to teaching music production, he doesn't just play tomorrow's music: he trains those who will create it.",
+    meta: 'DJ · Producer · Live · VRSTL Records · Canada · France · Spain',
+    main: "Maudite Machine started playing in Montréal in 2010, when Piknic Électronik and the SAT were the two rooms every local DJ wanted. He has played both since, along with Igloofest afters, the Phi Centre, Fonderie Darling, Théâtre Fairmount and a run of Québec festivals from TOTEM and Illusion to Future Forest and Groove & Bass. In 2026 he played OKAMI Festival in France.",
+    secondary: "His sets are hypnotic techno. The bass rolls, the changes come slowly and under the surface, and after a while the room stops watching the booth and moves as one. He plays it as a DJ on CDJs and as a hybrid live set where Ableton Live, a Push 3, a Dreadbox Typhon and an APC40 drive the sequences in real time. He founded VRSTL Records, an independent Canadian label with 21 EPs and 2 albums, teaches Ableton Live production, and moves to the South of France in 2027.",
   },
   fr: {
-    meta: 'DJ · Producteur · VRSTL Records · Canada · France · Espagne',
-    main: "Pilier de l'underground montréalais depuis plus de 15 ans, Maudite Machine a forgé son identité entre les murs immersifs de la SAT et les scènes effervescentes du Piknic Électronik. Partageant l'affiche avec des légendes telles que Carl Craig, Agoria ou Reinier Zonneveld, son empreinte s'étend bien au-delà d'un simple DJ set.",
-    secondary: "Membre du collectif montréalais 8day et à la tête de VRSTL Records, il sculpte le futur de la techno hypnotique nord-américaine. Architecte sonore naviguant entre séquenceurs matériels et synthétiseurs analogiques, il transforme chaque Live Set en une cérémonie brute et sans filtre. Fort d'une décennie et demie dédiée à l'enseignement de la production, il ne se contente pas de jouer la musique de demain : il forme ceux qui la créeront.",
+    meta: 'DJ · Producteur · Live · VRSTL Records · Canada · France · Espagne',
+    main: "Maudite Machine joue à Montréal depuis 2010. Il est passé par le Piknic Électronik et la SAT, les afters d'Igloofest, le Centre Phi, la Fonderie Darling, le Théâtre Fairmount, et par les festivals québécois, de TOTEM et Illusion à Future Forest et Groove & Bass. En 2026, il a joué au OKAMI Festival en France.",
+    secondary: "Ses sets sont de la techno hypnotique. La basse roule, les changements arrivent lentement et sous la surface, et au bout d'un moment la salle arrête de regarder la cabine pour bouger d'un seul bloc. Il la joue en DJ set sur CDJ et en live hybride où Ableton Live, un Push 3, un Dreadbox Typhon et un APC40 pilotent les séquences en direct. Il a fondé VRSTL Records, label indépendant canadien (21 EPs, 2 albums), enseigne la production sur Ableton Live, et s'installe dans le sud de la France en 2027.",
   },
 };
 
-const PRESSKIT_PDF = '/Presskit_Maudite_Machine_2026.pdf';
-const BUNDLE_ZIP = `/${encodeURIComponent('Maudite Machine PressKit & Techrider.zip')}`;
-const RIDER_EN = '/techrider-en.pdf';
-const RIDER_FR = '/techrider-fr.pdf';
+const COPY = {
+  en: {
+    downloads: 'Downloads',
+    presskit: 'Press Kit 2026 / 27',
+    presskitMeta: 'PDF · 5 MB · EN / FR',
+    rider: 'Tech Rider 2026 / 27',
+    riderMeta: 'PDF · EN',
+    riderPage: 'Full tech rider',
+    riderPageMeta: 'Setup · stage plot · travel',
+    assets: 'Press photos, logo and artwork',
+    assetsLink: 'mauditemachine.com/press',
+    assetsAll: 'Download all',
+    assetsMeta: 'ZIP · 7 MB',
+    footer: 'Full dossier · bios · performances · discography · tech rider',
+  },
+  fr: {
+    downloads: 'Téléchargements',
+    presskit: 'Press Kit 2026 / 27',
+    presskitMeta: 'PDF · 5 MO · EN / FR',
+    rider: 'Fiche technique 2026 / 27',
+    riderMeta: 'PDF · EN',
+    riderPage: 'Fiche technique complète',
+    riderPageMeta: 'Setup · stage plot · déplacements',
+    assets: 'Photos presse, logo et pochettes',
+    assetsLink: 'mauditemachine.com/press',
+    assetsAll: 'Tout télécharger',
+    assetsMeta: 'ZIP · 7 MO',
+    footer: 'Dossier complet · bios · performances · discographie · fiche technique',
+  },
+};
 
-/** true si l'URL sert un vrai PDF (le fallback SPA renvoie 200 en text/html) */
-const pdfExists = async (url: string) => {
-  try {
-    const res = await fetch(url, { method: 'HEAD' });
-    return res.ok && (res.headers.get('content-type') || '').includes('pdf');
-  } catch {
-    return false;
-  }
+const PRESSKIT_PDF = '/Presskit_Maudite_Machine_2026-27.pdf';
+const RIDER_PDF = '/Tech_Rider_Maudite_Machine_2026-27.pdf';
+const PRESS_PAGE = '/press/';
+const PRESS_ZIP = '/press/maudite-machine-press-kit.zip';
+
+/** Pixel Meta : meme evenement Lead que la v1, edition mise a jour. */
+const trackDownload = (name: string) => {
+  const fbq = (window as unknown as { fbq?: (...a: unknown[]) => void }).fbq;
+  if (typeof fbq === 'function') fbq('track', 'Lead', { content_name: name });
 };
 
 const EPK: React.FC = () => {
   const [lang, setLang] = useState<'en' | 'fr'>('en');
-  const [riders, setRiders] = useState<{ en: boolean; fr: boolean }>({ en: false, fr: false });
-
-  useEffect(() => {
-    let alive = true;
-    Promise.all([pdfExists(RIDER_EN), pdfExists(RIDER_FR)]).then(([en, fr]) => {
-      if (alive) setRiders({ en, fr });
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const hasRiders = riders.en || riders.fr;
+  const t = COPY[lang];
 
   return (
     <section className="v2-section" id="epk">
@@ -83,33 +99,50 @@ const EPK: React.FC = () => {
         </div>
 
         <div className="v2-epk-downloads">
-          <span className="v2-label">Downloads</span>
-          <a className="v2-download" href={PRESSKIT_PDF} target="_blank" rel="noopener noreferrer">
-            <span>Press Kit 2026</span>
-            <span className="v2-label">PDF · 10 MB</span>
+          <span className="v2-label">{t.downloads}</span>
+
+          <a
+            className="v2-download"
+            href={PRESSKIT_PDF}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackDownload('Press Kit Download 2026-27')}
+          >
+            <span>{t.presskit}</span>
+            <span className="v2-label">{t.presskitMeta}</span>
           </a>
-          {riders.en && (
-            <a className="v2-download" href={RIDER_EN} target="_blank" rel="noopener noreferrer">
-              <span>Tech Rider</span>
-              <span className="v2-label">PDF · EN</span>
-            </a>
-          )}
-          {riders.fr && (
-            <a className="v2-download" href={RIDER_FR} target="_blank" rel="noopener noreferrer">
-              <span>Tech Rider</span>
-              <span className="v2-label">PDF · FR</span>
-            </a>
-          )}
-          {!hasRiders && (
-            <a className="v2-download" href={BUNDLE_ZIP}>
-              <span>Press Kit + Tech Rider</span>
-              <span className="v2-label">ZIP bundle</span>
-            </a>
-          )}
-          <a className="v2-download" href={BUNDLE_ZIP}>
-            <span>Photos pack</span>
-            <span className="v2-label">ZIP · Hi-res</span>
+
+          <a
+            className="v2-download"
+            href={RIDER_PDF}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => trackDownload('Tech Rider Download 2026-27')}
+          >
+            <span>{t.rider}</span>
+            <span className="v2-label">{t.riderMeta}</span>
           </a>
+
+          <Link className="v2-download" to="/techrider">
+            <span>{t.riderPage}</span>
+            <span className="v2-label">{t.riderPageMeta}</span>
+          </Link>
+
+          <a className="v2-download" href={PRESS_ZIP}>
+            <span>{t.assets}</span>
+            <span className="v2-label">{t.assetsAll} · {t.assetsMeta}</span>
+          </a>
+
+          <a
+            className="v2-epk-presslink v2-label"
+            href={PRESS_PAGE}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {t.assetsLink} ↗
+          </a>
+
+          <p className="v2-label v2-epk-downloads-footer">{t.footer}</p>
 
           <div className="v2-contacts v2-epk-contacts">
             {BOOKING_CONTACTS.map((c) => (

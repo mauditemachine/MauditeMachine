@@ -17,6 +17,7 @@ const AdminRadarPage = React.lazy(() => import('./pages/AdminRadarPage'));
 // Le site principal depuis la bascule (2026-08) : la refonte v2
 const V2App = React.lazy(() => import('./v2/V2App'));
 const V2RadarPage = React.lazy(() => import('./v2/pages/RadarPage'));
+const V2TechRiderPage = React.lazy(() => import('./v2/pages/TechRiderPage'));
 // Panneau admin local (shell sidebar : dashboard, contenu, medias, publier)
 const AdminApp = React.lazy(() => import('./admin/AdminApp'));
 
@@ -33,6 +34,7 @@ export default function App() {
           {/* ============ Site principal : la v2 ============ */}
           <Route path="/" element={lazyEl(<V2App />)} />
           <Route path="/radar" element={lazyEl(<V2RadarPage />)} />
+          <Route path="/techrider" element={lazyEl(<V2TechRiderPage />)} />
           {/* Compat : les liens /v2 deja partages restent valides */}
           <Route path="/v2" element={<Navigate to="/" replace />} />
           {/* La page Archives (musee du site) a ete retiree : on ne laisse
@@ -45,7 +47,6 @@ export default function App() {
           <Route path="/shows" element={<Navigate to="/#live" replace />} />
           <Route path="/merch" element={<Navigate to="/#merch" replace />} />
           <Route path="/goodies" element={<Navigate to="/#merch" replace />} />
-          <Route path="/techrider" element={<Navigate to="/#epk" replace />} />
           <Route path="/contact" element={<Navigate to="/#contact" replace />} />
 
           {/* ============ v1 archivee, navigable sous /v1 (noindex) ============ */}

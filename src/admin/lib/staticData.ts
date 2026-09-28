@@ -79,7 +79,7 @@ export async function staticSummary() {
   ];
 
   const [presskit, riderEn, riderFr] = await Promise.all([
-    imageExists('Presskit_Maudite_Machine_2026.pdf'),
+    imageExists('Presskit_Maudite_Machine_2026-27.pdf'),
     imageExists('techrider-en.pdf'),
     imageExists('techrider-fr.pdf'),
   ]);

@@ -1,12 +1,12 @@
 /**
- * TechRiderPage — Bento Box Live Setup / DJ Setup / Hospitality + CTA XXL.
+ * TechRiderPage - Bento Box Live Setup / DJ Setup / Hospitality + CTA XXL.
  */
 
 import React from 'react';
 import { useTranslation } from '../lib/i18n';
 import { cn } from '../lib/cn';
 
-const TECH_RIDER_PDF = `${import.meta.env.BASE_URL}Presskit_Maudite_Machine_2026.pdf`;
+const TECH_RIDER_PDF = `${import.meta.env.BASE_URL}Tech_Rider_Maudite_Machine_2026-27.pdf`;
 
 const TechRiderPage: React.FC = () => {
   const { t } = useTranslation();
@@ -16,7 +16,7 @@ const TechRiderPage: React.FC = () => {
       <h1 className="sr-only">{t.headings.techrider}</h1>
 
       <div className="grid grid-cols-12 gap-4 md:gap-6 mb-12 md:mb-20">
-        {/* LIVE SETUP — col 7 */}
+        {/* LIVE SETUP - col 7 */}
         <div
           className="col-span-12 md:col-span-7 pk-glass p-5 md:p-10 rounded-2xl md:rounded-3xl animate-fade-up"
           style={{ animationDelay: '120ms', animationFillMode: 'both' }}
@@ -35,7 +35,7 @@ const TechRiderPage: React.FC = () => {
           </ul>
         </div>
 
-        {/* DJ SETUP — col 5 */}
+        {/* DJ SETUP - col 5 */}
         <div
           className="col-span-12 md:col-span-5 pk-glass p-5 md:p-10 rounded-2xl md:rounded-3xl animate-fade-up"
           style={{ animationDelay: '220ms', animationFillMode: 'both' }}
@@ -63,7 +63,7 @@ const TechRiderPage: React.FC = () => {
           </ul>
         </div>
 
-        {/* HOSPITALITY — col 12 quote italic */}
+        {/* HOSPITALITY - col 12 quote italic */}
         <div
           className="col-span-12 pk-glass p-6 md:p-14 rounded-2xl md:rounded-3xl animate-fade-up"
           style={{ animationDelay: '320ms', animationFillMode: 'both' }}

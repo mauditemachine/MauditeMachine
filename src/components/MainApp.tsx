@@ -99,7 +99,7 @@ interface YearArchive {
   shows: PastShow[];
 }
 
-const TECH_RIDER_PDF = `${import.meta.env.BASE_URL}Presskit_Maudite_Machine_2026.pdf`;
+const TECH_RIDER_PDF = `${import.meta.env.BASE_URL}Tech_Rider_Maudite_Machine_2026-27.pdf`;
 
 export default function MainApp() {
   const { designMode, t } = useApp();
@@ -290,7 +290,7 @@ export default function MainApp() {
           links={navLinks}
         />
 
-        {/* HEADER — hauteur fixe h-16, tout centre via flex items-center */}
+        {/* HEADER - hauteur fixe h-16, tout centre via flex items-center */}
         <header
           className="site-header"
           style={{
@@ -308,7 +308,7 @@ export default function MainApp() {
           }}
         >
           <div className="h-full max-w-[1600px] mx-auto w-full flex items-center justify-between gap-6">
-            {/* Logo gauche — container flex centre, img block sans marges */}
+            {/* Logo gauche - container flex centre, img block sans marges */}
             <button
               type="button"
               onClick={() => scrollToSection('hero')}
@@ -323,7 +323,7 @@ export default function MainApp() {
               />
             </button>
 
-            {/* Nav droite — buttons h-full items-center, font-semibold tracking-wide */}
+            {/* Nav droite - buttons h-full items-center, font-semibold tracking-wide */}
             <nav className="h-full hidden max-[900px]:hidden min-[901px]:flex items-center gap-6">
               {navLinks.map((l) => {
                 const active = activeSection === l.section;
@@ -349,15 +349,15 @@ export default function MainApp() {
           </div>
         </header>
 
-        {/* Fond video meduses — fixed, traverse toutes les sections */}
+        {/* Fond video meduses - fixed, traverse toutes les sections */}
         <div className="global-bg">
           <JellyfishBackground />
         </div>
 
-        {/* MAIN CONTENT — stack vertical single-page */}
+        {/* MAIN CONTENT - stack vertical single-page */}
         <main className="relative z-[1]" style={{ paddingTop: '80px', paddingBottom: '96px' }}>
 
-          {/* HERO LANDING 100vh — stack centre : logo / MUSIK MAKERS / catchphrase / tagline */}
+          {/* HERO LANDING 100vh - stack centre : logo / MUSIK MAKERS / catchphrase / tagline */}
           <section
             id="hero"
             className={cn(
@@ -379,7 +379,7 @@ export default function MainApp() {
               transition={{ duration: 1.0, ease: [0.19, 1, 0.22, 1], delay: 0.1 }}
             />
 
-            {/* 2. Titre "WE ARE MUSIC MAKERS" — police custom Robot Radicals, 30px blanc, tracking 4px */}
+            {/* 2. Titre "WE ARE MUSIC MAKERS" - police custom Robot Radicals, 30px blanc, tracking 4px */}
             <motion.h2
               className={cn(
                 'font-robot uppercase',
@@ -396,7 +396,7 @@ export default function MainApp() {
               {t.signature.musicMakers}
             </motion.h2>
 
-            {/* 3. Slogan RAW. HYPNOTIC. UNDERGROUND. — blanc, font-weight 600 */}
+            {/* 3. Slogan RAW. HYPNOTIC. UNDERGROUND. - blanc, font-weight 600 */}
             <motion.div
               className={cn(
                 'text-white font-semibold uppercase',
@@ -412,7 +412,7 @@ export default function MainApp() {
               {t.presskit.catchphrase}
             </motion.div>
 
-            {/* 4. Tagline 3 lignes — font-weight 600 strict (DJ / Montreal / genres) */}
+            {/* 4. Tagline 3 lignes - font-weight 600 strict (DJ / Montreal / genres) */}
             <motion.div
               className={cn(
                 'flex flex-col items-center gap-1.5 md:gap-2',
@@ -434,14 +434,14 @@ export default function MainApp() {
             </motion.div>
           </section>
 
-          {/* PRESSKIT — bio, stats, performances, album, catalogue, label, contact */}
+          {/* PRESSKIT - bio, stats, performances, album, catalogue, label, contact */}
           <section id="presskit" className="scroll-mt-20">
             <Suspense fallback={null}>
               <Presskit onNavigateToMessage={() => scrollToSection('message')} />
             </Suspense>
           </section>
 
-          {/* SHOWS — upcoming events + Wall of Fame typographic archive */}
+          {/* SHOWS - upcoming events + Wall of Fame typographic archive */}
           <section
             id="shows"
             className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-7xl mx-auto w-full"
@@ -449,7 +449,7 @@ export default function MainApp() {
             {/* UPCOMING shows (EventsDisplay) */}
             <EventsDisplay showPastEventsButton={false} />
 
-            {/* WALL OF FAME — typographic archive avec vrais liens Facebook */}
+            {/* WALL OF FAME - typographic archive avec vrais liens Facebook */}
             {showsArchive.length > 0 && (
               <div className="mt-24 md:mt-40">
                 <div className="flex items-baseline justify-between mb-8 md:mb-14">
@@ -457,7 +457,7 @@ export default function MainApp() {
                     {t.shows.wallOfFame}
                   </div>
                   <div className="text-sm md:text-base font-bold uppercase tracking-wide text-white/60 font-body">
-                    {showsArchive[showsArchive.length - 1]?.year} — {showsArchive[0]?.year}
+                    {showsArchive[showsArchive.length - 1]?.year} - {showsArchive[0]?.year}
                   </div>
                 </div>
 
@@ -477,7 +477,7 @@ export default function MainApp() {
                         animationFillMode: 'both',
                       }}
                     >
-                      {/* Year massif — colonne fixe, pas de col-span toxique */}
+                      {/* Year massif - colonne fixe, pas de col-span toxique */}
                       <div
                         className={cn(
                           'font-display font-black uppercase text-ink-95',
@@ -489,7 +489,7 @@ export default function MainApp() {
                       >
                         {row.year}
                       </div>
-                      {/* Shows stackés — clickables vers Facebook */}
+                      {/* Shows stackés - clickables vers Facebook */}
                       <div className="flex flex-col gap-2 md:gap-3 min-w-0">
                         {row.shows.map((show, j) => {
                           const href = show.facebook_event;
@@ -583,7 +583,7 @@ export default function MainApp() {
             <Goodies />
           </section>
 
-          {/* EDITORIAL SPREAD — photo pleine largeur avec parallax avant Tech Rider */}
+          {/* EDITORIAL SPREAD - photo pleine largeur avec parallax avant Tech Rider */}
           <section
             aria-label="Editorial spread"
             className="py-8 md:py-16 px-4 md:px-8 max-w-[1600px] mx-auto w-full"
@@ -597,14 +597,14 @@ export default function MainApp() {
             />
           </section>
 
-          {/* TECH RIDER — Bento Box : LIVE SETUP / DJ SETUP / HOSPITALITY + XXL CTA */}
+          {/* TECH RIDER - Bento Box : LIVE SETUP / DJ SETUP / HOSPITALITY + XXL CTA */}
           <section
             id="techrider"
             className="scroll-mt-20 py-20 md:py-32 px-6 md:px-10 max-w-7xl mx-auto w-full"
           >
-            {/* BENTO GRID — 12 cols asymétrique */}
+            {/* BENTO GRID - 12 cols asymétrique */}
             <div className="grid grid-cols-12 gap-4 md:gap-6 mb-12 md:mb-20">
-              {/* LIVE SETUP — col-span 7 */}
+              {/* LIVE SETUP - col-span 7 */}
               <div
                 className="col-span-12 md:col-span-7 pk-glass p-6 md:p-10 rounded-2xl md:rounded-3xl animate-fade-up"
                 style={{ animationDelay: '120ms', animationFillMode: 'both' }}
@@ -616,14 +616,14 @@ export default function MainApp() {
                   {t.techrider.liveTitle}
                 </h3>
                 <ul className="font-body text-base md:text-xl text-ink-95 space-y-2 md:space-y-3">
-                  <li>— Macbook Pro</li>
-                  <li>— Ableton Push 3</li>
-                  <li>— Dreadbox Typhon</li>
-                  <li>— Akai APC40</li>
+                  <li>- Macbook Pro</li>
+                  <li>- Ableton Push 3</li>
+                  <li>- Dreadbox Typhon</li>
+                  <li>- Akai APC40</li>
                 </ul>
               </div>
 
-              {/* DJ SETUP — col-span 5 */}
+              {/* DJ SETUP - col-span 5 */}
               <div
                 className="col-span-12 md:col-span-5 pk-glass p-6 md:p-10 rounded-2xl md:rounded-3xl animate-fade-up"
                 style={{ animationDelay: '220ms', animationFillMode: 'both' }}
@@ -636,7 +636,7 @@ export default function MainApp() {
                 </h3>
                 <ul className="font-body text-sm md:text-base text-ink-95 space-y-2 md:space-y-3">
                   <li>
-                    — {t.techrider.djLine1Main}{' '}
+                    - {t.techrider.djLine1Main}{' '}
                     <span className="text-ink-95 font-medium">{t.techrider.djLine1Variant}</span>
                     <span className="text-ink-50"> {t.techrider.djLine1Alt}</span>
                   </li>
@@ -644,14 +644,14 @@ export default function MainApp() {
                     {t.techrider.djFirmware}
                   </li>
                   <li className="pt-2">
-                    — {t.techrider.djMixerMain}{' '}
+                    - {t.techrider.djMixerMain}{' '}
                     <span className="font-medium">{t.techrider.djMixerPrimary}</span>
                     <span className="text-ink-50">{t.techrider.djMixerAlt}</span>
                   </li>
                 </ul>
               </div>
 
-              {/* HOSPITALITY — col-span 12 (full width, quote italique) */}
+              {/* HOSPITALITY - col-span 12 (full width, quote italique) */}
               <div
                 className="col-span-12 pk-glass p-8 md:p-14 rounded-2xl md:rounded-3xl animate-fade-up"
                 style={{ animationDelay: '320ms', animationFillMode: 'both' }}
@@ -667,7 +667,7 @@ export default function MainApp() {
               </div>
             </div>
 
-            {/* XXL DOWNLOAD CTA — Tech Rider & CV */}
+            {/* XXL DOWNLOAD CTA : Tech Rider */}
             <a
               href={TECH_RIDER_PDF}
               download
@@ -739,7 +739,7 @@ export default function MainApp() {
 
         </main>
 
-        {/* Lecteur audio — 1 seule instance, rendu son footer fixe lui-meme */}
+        {/* Lecteur audio - 1 seule instance, rendu son footer fixe lui-meme */}
         <SoundCloudPlayer onBackgroundChange={handleBgChange} />
       </div>
     </>

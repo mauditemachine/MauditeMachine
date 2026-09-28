@@ -1,5 +1,5 @@
 /**
- * i18n dictionary — 3 langues : en / fr / es.
+ * i18n dictionary - 3 langues : en / fr / es.
  * Detection automatique via navigator.language (voir AppContext).
  *
  * Regles :
@@ -179,12 +179,12 @@ export const translations = {
       sectionTitle: 'About',
       catchphrase: 'RAW. HYPNOTIC. UNDERGROUND.',
       bigTitle: 'Maudite\nMachine',
-      metaLine1: 'DJ · Producer · VRSTL Records',
+      metaLine1: 'DJ · Producer · Live · VRSTL Records',
       metaLine2: 'Montréal → France',
 
       bioLabel: 'Biography',
-      bioMain: "A pillar of the Montreal underground for over 15 years, Mika has forged the identity of Maudite Machine between the immersive walls of SAT and the effervescent stages of Piknic Électronik. Sharing the bill with legends like Carl Craig, Agoria, and Reinier Zonneveld, his footprint reaches far beyond a simple DJ set.",
-      bioSecondary: "At the helm of VRSTL Records, he sculpts the future of North American hypnotic techno. A sonic architect navigating between hardware sequencers and analog synthesizers, he turns every Live Set into a raw, unfiltered ceremony. With a decade and a half dedicated to teaching music production, he doesn't just play tomorrow's music: he trains those who will create it.",
+      bioMain: "Maudite Machine started playing in Montréal in 2010, when Piknic Électronik and the SAT were the two rooms every local DJ wanted. He has played both since, along with Igloofest afters, the Phi Centre, Fonderie Darling, Théâtre Fairmount and a run of Québec festivals from TOTEM and Illusion to Future Forest and Groove & Bass. In 2026 he played OKAMI Festival in France.",
+      bioSecondary: "His sets are hypnotic techno. The bass rolls, the changes come slowly and under the surface, and after a while the room stops watching the booth and moves as one. He plays it as a DJ on CDJs and as a hybrid live set where Ableton Live, a Push 3, a Dreadbox Typhon and an APC40 drive the sequences in real time. He founded VRSTL Records, an independent Canadian label with 21 EPs and 2 albums, teaches Ableton Live production, and moves to the South of France in 2027.",
       bioQuote: 'A sound that embraces tension, groove and experimentation',
 
       statsLabel: 'By the numbers',
@@ -197,8 +197,8 @@ export const translations = {
       statAlbumsEn: 'Albums released',
       statStudentsEn: 'Students taught',
 
-      remixLabel: 'Remix work for',
-      remixFooter: 'Full performance archive → Wall of Fame',
+      remixLabel: 'Edits & reworks',
+      remixFooter: 'Unofficial edits, free download on SoundCloud',
 
       albumLabel: 'Latest album',
       albumMeta: 'VRSTL Records · October 2025 · 9 tracks',
@@ -217,12 +217,16 @@ export const translations = {
       contactLabel: 'Contact',
       contactBooking: 'Booking · Management',
       contactLabelLabel: 'Label',
-      contactFooterVersion: '© 2026 Maudite Machine / VRSTL Records · Press Kit V.2026',
+      contactFooterVersion: '© 2026 Maudite Machine / VRSTL Records · Press Kit V.2026/27',
+      pressAssets: 'Press photos, logo and artwork',
+      pressAssetsLink: 'mauditemachine.com/press',
+      pressAssetsAll: 'Download all',
+
 
       downloadTitle: 'Download\nPresskit',
-      downloadMeta: 'PDF · 10 MB · EN / FR / ES',
-      downloadEdition: '2026 Edition',
-      downloadFooter: 'Full dossier · photos · bio · tech rider',
+      downloadMeta: 'PDF · 5 MB · EN / FR',
+      downloadEdition: 'Edition 2026 / 27',
+      downloadFooter: 'Full dossier · bios · performances · discography · tech rider',
     },
     shows: {
       title: 'Shows',
@@ -239,7 +243,7 @@ export const translations = {
     },
     techrider: {
       title: 'Tech Rider',
-      subtitle: 'Live setup, DJ backline, hospitality. Everything you need to host the machine.',
+      subtitle: 'DJ setup, hybrid live, hospitality and travel. Everything a promoter needs to book the machine.',
       liveLabel: '01 · Live Setup',
       liveTitle: 'Hybrid\nLive Show',
       djLabel: '02 · DJ Setup',
@@ -252,13 +256,13 @@ export const translations = {
       djMixerPrimary: 'DJM-A9',
       djMixerAlt: ', DJM-V10 or DJM-900 NXS2',
       hospitalityLabel: '03 · Hospitality',
-      hospitalityQuote: 'Dressing room requirements: Night sky wallpaper with glowing stars. Continuous recorded bird song.',
-      ctaTitle: 'Download\nTech Rider\n& CV',
-      ctaTitleEnd: '& CV',
-      ctaMeta: 'PDF · EN / FR',
-      ctaEdition: '2026 Edition',
-      ctaFooter: 'Full blueprint · rider · stage plot · contact',
-      ctaAria: 'Download Tech Rider & CV (2026 Edition)',
+      hospitalityQuote: 'A private, lockable space for bags and equipment, still and sparkling water at the booth and in the green room, a hot meal before the set, two guest list spots and one contact person on site.',
+      ctaTitle: 'Download\nTech Rider',
+      ctaTitleEnd: '',
+      ctaMeta: 'PDF · EN',
+      ctaEdition: 'Edition 2026 / 27',
+      ctaFooter: 'DJ set · hybrid live · stage plot · hospitality · travel',
+      ctaAria: 'Download Tech Rider (Edition 2026 / 27)',
     },
     contactSection: {
       title: 'Contact',
@@ -460,12 +464,12 @@ export const translations = {
       sectionTitle: 'À propos',
       catchphrase: 'RAW. HYPNOTIC. UNDERGROUND.',
       bigTitle: 'Maudite\nMachine',
-      metaLine1: 'DJ · Producteur · VRSTL Records',
+      metaLine1: 'DJ · Producteur · Live · VRSTL Records',
       metaLine2: 'Montréal → France',
 
       bioLabel: 'Biographie',
-      bioMain: "Pilier de l'underground montréalais depuis plus de 15 ans, Mika a forgé l'identité de Maudite Machine entre les murs immersifs de la SAT et les scènes effervescentes du Piknic Électronik. Partageant l'affiche avec des légendes telles que Carl Craig, Agoria ou Reinier Zonneveld, son empreinte s'étend bien au-delà d'un simple DJ set.",
-      bioSecondary: "À la tête de VRSTL Records, il sculpte le futur de la techno hypnotique nord-américaine. Architecte sonore naviguant entre séquenceurs matériels et synthétiseurs analogiques, il transforme chaque Live Set en une cérémonie brute et sans filtre. Fort d'une décennie et demie dédiée à l'enseignement de la production, il ne se contente pas de jouer la musique de demain : il forme ceux qui la créeront.",
+      bioMain: "Maudite Machine joue à Montréal depuis 2010. Il est passé par le Piknic Électronik et la SAT, les afters d'Igloofest, le Centre Phi, la Fonderie Darling, le Théâtre Fairmount, et par les festivals québécois, de TOTEM et Illusion à Future Forest et Groove & Bass. En 2026, il a joué au OKAMI Festival en France.",
+      bioSecondary: "Ses sets sont de la techno hypnotique. La basse roule, les changements arrivent lentement et sous la surface, et au bout d'un moment la salle arrête de regarder la cabine pour bouger d'un seul bloc. Il la joue en DJ set sur CDJ et en live hybride où Ableton Live, un Push 3, un Dreadbox Typhon et un APC40 pilotent les séquences en direct. Il a fondé VRSTL Records, label indépendant canadien (21 EPs, 2 albums), enseigne la production sur Ableton Live, et s'installe dans le sud de la France en 2027.",
       bioQuote: 'Un son qui embrasse la tension, le groove et l\'expérimentation',
 
       statsLabel: 'En chiffres',
@@ -478,8 +482,8 @@ export const translations = {
       statAlbumsEn: 'Albums released',
       statStudentsEn: 'Students taught',
 
-      remixLabel: 'Remixes pour',
-      remixFooter: 'Archives complètes des performances → Wall of Fame',
+      remixLabel: 'Edits & reworks',
+      remixFooter: 'Edits non officiels, téléchargement gratuit sur SoundCloud',
 
       albumLabel: 'Dernier album',
       albumMeta: 'VRSTL Records · Octobre 2025 · 9 titres',
@@ -498,12 +502,16 @@ export const translations = {
       contactLabel: 'Contact',
       contactBooking: 'Booking · Management',
       contactLabelLabel: 'Label',
-      contactFooterVersion: '© 2026 Maudite Machine / VRSTL Records · Press Kit V.2026',
+      contactFooterVersion: '© 2026 Maudite Machine / VRSTL Records · Press Kit V.2026/27',
+      pressAssets: 'Photos presse, logo et pochettes',
+      pressAssetsLink: 'mauditemachine.com/press',
+      pressAssetsAll: 'Tout télécharger',
+
 
       downloadTitle: 'Télécharger\nle Presskit',
-      downloadMeta: 'PDF · 10 MO · EN / FR / ES',
-      downloadEdition: 'Édition 2026',
-      downloadFooter: 'Dossier complet · photos · bio · fiche technique',
+      downloadMeta: 'PDF · 5 MO · EN / FR',
+      downloadEdition: 'Édition 2026 / 27',
+      downloadFooter: 'Dossier complet · bios · performances · discographie · fiche technique',
     },
     shows: {
       title: 'Concerts',
@@ -520,7 +528,7 @@ export const translations = {
     },
     techrider: {
       title: 'Tech Rider',
-      subtitle: 'Setup live, backline DJ, hospitalité. Tout ce qu\'il faut pour accueillir la machine.',
+      subtitle: 'Setup DJ, live hybride, hospitalité et déplacements. Tout ce qu\'il faut à un promoteur pour booker la machine.',
       liveLabel: '01 · Setup Live',
       liveTitle: 'Live\nHybride',
       djLabel: '02 · Setup DJ',
@@ -533,13 +541,13 @@ export const translations = {
       djMixerPrimary: 'DJM-A9',
       djMixerAlt: ', DJM-V10 ou DJM-900 NXS2',
       hospitalityLabel: '03 · Hospitalité',
-      hospitalityQuote: 'Loge : papier peint ciel étoilé avec étoiles lumineuses. Chants d\'oiseaux enregistrés en continu.',
-      ctaTitle: 'Télécharger\nTech Rider\n& CV',
-      ctaTitleEnd: '& CV',
-      ctaMeta: 'PDF · EN / FR',
-      ctaEdition: 'Édition 2026',
+      hospitalityQuote: 'Un espace privé qui ferme à clé pour les sacs et le matériel, eau plate et pétillante en cabine et en loge, un repas chaud avant le set, deux places en guest list et une personne de contact sur place.',
+      ctaTitle: 'Télécharger\nle Tech Rider',
+      ctaTitleEnd: '',
+      ctaMeta: 'PDF · EN',
+      ctaEdition: 'Édition 2026 / 27',
       ctaFooter: 'Dossier complet · rider · stage plot · contact',
-      ctaAria: 'Télécharger Tech Rider & CV (Édition 2026)',
+      ctaAria: 'Télécharger le Tech Rider (Édition 2026 / 27)',
     },
     contactSection: {
       title: 'Contact',
@@ -740,12 +748,12 @@ export const translations = {
       sectionTitle: 'Sobre',
       catchphrase: 'RAW. HYPNOTIC. UNDERGROUND.',
       bigTitle: 'Maudite\nMachine',
-      metaLine1: 'DJ · Productor · VRSTL Records',
+      metaLine1: 'DJ · Productor · Live · VRSTL Records',
       metaLine2: 'Montréal → France',
 
       bioLabel: 'Biografía',
-      bioMain: 'Pilar del underground de Montreal desde hace más de 15 años, Mika ha forjado la identidad de Maudite Machine entre los muros inmersivos de la SAT y las escenas efervescentes de Piknic Électronik. Compartiendo cartel con leyendas como Carl Craig, Agoria o Reinier Zonneveld, su huella se extiende mucho más allá de un simple DJ set.',
-      bioSecondary: 'Al frente de VRSTL Records, esculpe el futuro del techno hipnótico norteamericano. Arquitecto sonoro que navega entre secuenciadores de hardware y sintetizadores analógicos, transforma cada Live Set en una ceremonia cruda y sin filtro. Con más de una década y media dedicada a enseñar producción musical, no se limita a tocar la música del mañana: forma a quienes la crearán.',
+      bioMain: 'Maudite Machine toca en Montreal desde 2010. Ha pasado por el Piknic Électronik y la SAT, los afters de Igloofest, el Centro Phi, la Fonderie Darling, el Théâtre Fairmount, y por los festivales quebequenses, de TOTEM e Illusion a Future Forest y Groove & Bass. En 2026 tocó en el OKAMI Festival en Francia.',
+      bioSecondary: 'Sus sets son techno hipnótico. El bajo rueda, los cambios llegan despacio y bajo la superficie, y al cabo de un rato la sala deja de mirar la cabina y se mueve en bloque. Lo toca como DJ en CDJ y en live híbrido, donde Ableton Live, un Push 3, un Dreadbox Typhon y un APC40 pilotan las secuencias en directo. Fundó VRSTL Records, sello independiente canadiense con 21 EPs y 2 álbumes, enseña producción en Ableton Live, y se instala en el sur de Francia en 2027.',
       bioQuote: 'Un sonido que abraza la tensión, el groove y la experimentación',
 
       statsLabel: 'En cifras',
@@ -758,8 +766,8 @@ export const translations = {
       statAlbumsEn: 'Albums released',
       statStudentsEn: 'Students taught',
 
-      remixLabel: 'Remixes para',
-      remixFooter: 'Archivo completo de performances → Wall of Fame',
+      remixLabel: 'Edits & reworks',
+      remixFooter: 'Edits no oficiales, descarga gratuita en SoundCloud',
 
       albumLabel: 'Último álbum',
       albumMeta: 'VRSTL Records · Octubre 2025 · 9 tracks',
@@ -778,12 +786,16 @@ export const translations = {
       contactLabel: 'Contacto',
       contactBooking: 'Booking · Management',
       contactLabelLabel: 'Label',
-      contactFooterVersion: '© 2026 Maudite Machine / VRSTL Records · Press Kit V.2026',
+      contactFooterVersion: '© 2026 Maudite Machine / VRSTL Records · Press Kit V.2026/27',
+      pressAssets: 'Fotos de prensa, logo y portadas',
+      pressAssetsLink: 'mauditemachine.com/press',
+      pressAssetsAll: 'Descargar todo',
+
 
       downloadTitle: 'Descargar\nPresskit',
-      downloadMeta: 'PDF · 10 MB · EN / FR / ES',
-      downloadEdition: 'Edición 2026',
-      downloadFooter: 'Dossier completo · fotos · bio · rider técnico',
+      downloadMeta: 'PDF · 5 MB · EN / FR',
+      downloadEdition: 'Edición 2026 / 27',
+      downloadFooter: 'Dossier completo · bios · actuaciones · discografía · rider técnico',
     },
     shows: {
       title: 'Shows',
@@ -800,7 +812,7 @@ export const translations = {
     },
     techrider: {
       title: 'Tech Rider',
-      subtitle: 'Setup live, backline DJ, hospitalidad. Todo lo necesario para recibir a la máquina.',
+      subtitle: 'Setup DJ, live híbrido, hospitalidad y viajes. Todo lo que un promotor necesita para bookear la máquina.',
       liveLabel: '01 · Setup Live',
       liveTitle: 'Live\nHíbrido',
       djLabel: '02 · Setup DJ',
@@ -813,11 +825,11 @@ export const translations = {
       djMixerPrimary: 'DJM-A9',
       djMixerAlt: ', DJM-V10 o DJM-900 NXS2',
       hospitalityLabel: '03 · Hospitalidad',
-      hospitalityQuote: 'Camerino: papel tapiz cielo estrellado con estrellas luminosas. Cantos de pájaros grabados en continuo.',
-      ctaTitle: 'Descargar\nTech Rider\n& CV',
-      ctaTitleEnd: '& CV',
-      ctaMeta: 'PDF · EN / FR',
-      ctaEdition: 'Edición 2026',
+      hospitalityQuote: 'Un espacio privado con llave para bolsas y equipo, agua sin gas y con gas en cabina y en camerino, una comida caliente antes del set, dos entradas en guest list y una persona de contacto en el sitio.',
+      ctaTitle: 'Descargar\nel Tech Rider',
+      ctaTitleEnd: '',
+      ctaMeta: 'PDF · EN',
+      ctaEdition: 'Edición 2026 / 27',
       ctaFooter: 'Dossier completo · rider · stage plot · contacto',
       ctaAria: 'Descargar Tech Rider y CV (Edición 2026)',
     },

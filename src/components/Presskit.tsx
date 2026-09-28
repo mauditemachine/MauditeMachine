@@ -1,5 +1,5 @@
 /**
- * Page Presskit — contenu du PDF officiel 2026, design liquid-glass.
+ * Page Presskit - contenu du PDF officiel 2026, design liquid-glass.
  * Tous les textes visibles passent par useTranslation() (i18n EN/FR/ES).
  */
 
@@ -11,7 +11,7 @@ interface PresskitProps {
   onNavigateToMessage?: () => void;
 }
 
-const PDF_URL = `${import.meta.env.BASE_URL}Presskit_Maudite_Machine_2026.pdf`;
+const PDF_URL = `${import.meta.env.BASE_URL}Presskit_Maudite_Machine_2026-27.pdf`;
 
 // Stats : les chiffres restent identiques, les labels viennent de t.presskit.stat*
 const STAT_KEYS = ['statYears', 'statEps', 'statAlbums', 'statStudents'] as const;
@@ -46,7 +46,7 @@ const CATALOGUE = [
 function trackDownload() {
   if (typeof window !== 'undefined' && (window as any).fbq) {
     (window as any).fbq('track', 'Lead', {
-      content_name: 'Press Kit Download 2026',
+      content_name: 'Press Kit Download 2026-27',
       content_category: 'Download',
     });
   }
@@ -74,7 +74,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
       <section className="py-8 md:py-16 mb-12 md:mb-20">
         {/* Grid 2-col : image gauche / bio droite */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-10 items-start">
-          {/* Image magazine — col 5 — vraie photo presse couleur Maudite Machine */}
+          {/* Image magazine - col 5 - vraie photo presse couleur Maudite Machine */}
           <div
             className="md:col-span-5 animate-fade-up"
             style={{ animationDelay: '120ms', animationFillMode: 'both' }}
@@ -89,7 +89,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
             </div>
           </div>
 
-          {/* Bio — col 7 : kicker + TAGLINE MASSIVE + bio paragraphs + quote */}
+          {/* Bio - col 7 : kicker + TAGLINE MASSIVE + bio paragraphs + quote */}
           <div
             className="md:col-span-7 animate-fade-up"
             style={{ animationDelay: '220ms', animationFillMode: 'both' }}
@@ -155,12 +155,11 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
           {p.remixLabel}
         </div>
         <div className="pk-glass p-5 md:p-10 rounded-2xl md:rounded-3xl">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-3 font-display font-bold uppercase text-ink-95 text-2xl md:text-4xl lg:text-5xl tracking-[-0.02em]">
-            <span>Laurent Garnier</span>
-            <span className="text-white/30">/</span>
-            <span>Adam Beyer</span>
-            <span className="text-white/30">/</span>
-            <span>DVS1</span>
+          <div className="flex flex-col gap-2 md:gap-3 font-display font-bold uppercase text-ink-95 text-xl md:text-3xl lg:text-4xl tracking-[-0.02em]">
+            <span>Laurent Garnier · Dangerous Drive</span>
+            <span>DVS1 &amp; Plaid · Confused Oi</span>
+            <span>Green Velvet &amp; Riva Starr · Robots</span>
+            <span>The Alan Parsons Project · Eye in the Sky</span>
           </div>
           <div className="mt-4 md:mt-6 text-xs md:text-sm font-medium text-white/60">
             {p.remixFooter}
@@ -258,7 +257,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
             </div>
           </div>
 
-          {/* Roster — noms d'artistes propres, pas traduisibles */}
+          {/* Roster - noms d'artistes propres, pas traduisibles */}
           <div className="border-t border-white/10 pt-6 md:pt-8">
             <div className="text-sm md:text-base font-extrabold uppercase tracking-wide text-white mb-3 md:mb-4">
               {p.rosterLabel}
@@ -273,6 +272,8 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
               <span>Jabba2.3</span>
               <span className="text-white/30">·</span>
               <span>Manüman</span>
+              <span className="text-white/30">·</span>
+              <span>COACH</span>
               <span className="text-white/30">·</span>
               <span>Maudite Machine</span>
             </div>
@@ -298,6 +299,11 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
             <div className="pk-contact-name">VRSTL Records</div>
             <a href="mailto:vrstlrecords@gmail.com" className="pk-contact-link">vrstlrecords@gmail.com</a>
             <a href="https://vrstlrecords.com" target="_blank" rel="noreferrer" className="pk-contact-link">vrstlrecords.com</a>
+          </div>
+          <div className="pk-contact-card pk-glass">
+            <div className="pk-contact-label pk-dim">{p.pressAssets}</div>
+            <a href="https://mauditemachine.com/press/" target="_blank" rel="noreferrer" className="pk-contact-link">{p.pressAssetsLink}</a>
+            <a href="/press/maudite-machine-press-kit.zip" className="pk-contact-link">{p.pressAssetsAll}</a>
           </div>
         </div>
 
