@@ -31,9 +31,8 @@ const Intro: React.FC = () => (
 
       <div className="v2-intro-cols">
         <p>
-          Deeply rooted in the Montréal scene as a member of the 8day
-          collective, Maudite Machine has performed at major events and
-          iconic venues across the country, delivering sets that blur the
+          A member of the 8day collective, Maudite Machine has performed
+          at major events and iconic venues, delivering sets that blur the
           line between underground grit and dancefloor euphoria.
         </p>
         <p className="v2-intro-offset">

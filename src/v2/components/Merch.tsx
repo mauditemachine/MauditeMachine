@@ -102,14 +102,14 @@ const Merch: React.FC = () => {
       <div className="v2-section-head">
         <h2 className="v2-section-title"><span className="v2-section-num">05</span>Merch</h2>
         <span className="v2-label">
-          {products.length ? `${products.length} items · ships from Montréal` : 'Store'}
+          {products.length ? `${products.length} items` : 'Store'}
         </span>
       </div>
 
       <p className="v2-section-intro">
-        Small runs, printed in Montréal. No cart, no checkout : pick a
-        piece and click, your message is written for you, just add your
-        size and address. First come first served.
+        Small runs. No cart, no checkout : pick a piece and click, your
+        message is written for you, just add your size and address. First
+        come first served.
       </p>
 
       {items === null && <p className="v2-label">Loading…</p>}
