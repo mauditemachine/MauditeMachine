@@ -41,11 +41,13 @@ import {
   dialReset,
   dialValue,
   gesture,
+  muteToggle,
   openToggle,
   padHit,
   page,
   resetView,
   runToggle,
+  soloToggle,
   stepClear,
   stepToggle,
 } from '../actions';
@@ -56,6 +58,7 @@ import type { HotspotKind, HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { chipsLive, explode } from '../state/explode';
 import { section } from '../state/section';
+import { voices } from '../state/voices';
 import { EXTERNAL_REL } from './ExternalLink';
 import {
   CHIPS,
@@ -239,6 +242,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       else if (d.kind === 'run') runToggle();
       else if (d.kind === 'clear') clearPattern();
+      else if (d.kind === 'mute') muteToggle();
+      else if (d.kind === 'solo') soloToggle();
       else if (d.kind === 'chip' && d.chip && d.id) activateChip(d.id, d.chip);
       else if (d.dial) tapDial(d.dial);
       else return null;
@@ -556,6 +561,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const s = useSyncExternalStore(explode.subscribe, explode.get, explode.get);
   const p = useSyncExternalStore(pattern.subscribe, pattern.get, pattern.get);
   const running = useSyncExternalStore(clock.subscribe, () => clock.running, () => clock.running);
+  const v = useSyncExternalStore(voices.subscribe, voices.get, voices.get);
+  const muteOn = p.instrument ? v.muted.includes(p.instrument) : v.muted.length > 0;
   const open = useSyncExternalStore(section.subscribe, section.get, section.get);
   const tone = useSyncExternalStore(mix.subscribe, () => mix.tone, () => mix.tone);
   const level = useSyncExternalStore(mix.subscribe, () => mix.level, () => mix.level);
@@ -788,6 +795,28 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
         aria-label={TWIN_ARIA.clear}
         onKeyDown={noRepeat}
         onClick={() => clearPattern()}
+      />
+      <button
+        ref={refFor('mute')}
+        type="button"
+        className="v4-twin"
+        data-twin="mute"
+        data-hotspot="mute"
+        aria-label={TWIN_ARIA.mute}
+        aria-pressed={muteOn}
+        onKeyDown={noRepeat}
+        onClick={() => muteToggle()}
+      />
+      <button
+        ref={refFor('solo')}
+        type="button"
+        className="v4-twin"
+        data-twin="solo"
+        data-hotspot="solo"
+        aria-label={TWIN_ARIA.solo}
+        aria-pressed={v.solo !== null}
+        onKeyDown={noRepeat}
+        onClick={() => soloToggle()}
       />
       {STEP_INDEXES.map((i) => {
         const on = inst ? isOn(p.steps, inst, i) : false;

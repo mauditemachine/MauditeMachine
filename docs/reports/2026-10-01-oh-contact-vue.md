@@ -10,6 +10,7 @@
 - Icones des reseaux : couleur de la marque au survol et au focus.
 - Formulaire de contact dans CONTACT (EmailJS, config commune `src/data/emailjs.ts`), objet pre-rempli selon la provenance (Booking, live, Lesson, Press, Merch order) ; MERCH commande par le formulaire.
 - Spec : `docs/v4/spec.md` section 22.
+- Deuxieme passe : boutons MUTE et SOLO a cote de RUN/STOP et CLEAR (3D, jumeaux, Dock) ; pads LABEL et SONAA retires, leurs liens dans CONTACT ; CONTACT : liens en tete, formulaire en bas ; machine compacte 12.6 x 8 (14 x 9 avant), cadrage re-mesure. Spec section 23.
 
 ## 2. Decisions prises et pourquoi
 
@@ -17,6 +18,7 @@
 - Anti-robots : champ piege invisible plutot qu'un captcha (formulaire simple).
 - X et TikTok : blanc et cyan au survol, leurs couleurs officielles (noir) etant invisibles sur le fond.
 - Cadrage garde a l'azimut 45 : la vue de face ne deborde jamais quand on tourne.
+- MUTE et SOLO agissent sur la voix selectionnee (dernier pad frappe), sans persistance ; un pad frappe a la main sonne toujours.
 
 ## 3. Ce qui reste a faire / points en suspens
 

@@ -83,15 +83,15 @@ export const PRESS_LINKS: readonly { label: string; href: string }[] = [
 ];
 
 /**
- * LABEL (revision 2, pad LABEL) : une ligne, le label, et sa page Bandcamp
- * (verifiee par la session principale), la meme que la puce LABEL. Rien
- * d'autre n'est invente.
+ * Liens de CONTACT (2026-10-01), en tete du panneau avec les reseaux : le
+ * label (VRSTL Records sur Bandcamp, la page de l'ancienne puce LABEL),
+ * SONAA (l'ancien pad SONAA) et Massive Medias. Nouvel onglet.
  */
-export const LABEL_NAME = 'VRSTL Records';
-export const LABEL_LINK = { label: 'Bandcamp', href: LABEL_URL } as const;
-
-/** SONAA (revision 2, pad SONAA) : le lien ; le texte est dans ui/sections/Sonaa.tsx. */
-export const SONAA_LINK = { label: 'sonaa.ca', href: 'https://sonaa.ca' } as const;
+export const CONTACT_LINKS: readonly { label: string; href: string }[] = [
+  { label: 'VRSTL Records, the label', href: LABEL_URL },
+  { label: 'SONAA, electronic music atlas', href: 'https://sonaa.ca' },
+  { label: 'Print and merch, Massive Medias', href: 'https://massivemedias.com' },
+];
 
 /**
  * LIVE (revision 2, puce LIVE) : les deux PDF en telechargement, leur

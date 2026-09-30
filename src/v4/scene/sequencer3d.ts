@@ -27,16 +27,18 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { INSTRUMENTS, STEP_COUNT, isOn, type Steps } from '../audio/pattern';
-import { COLOR, KEYS, LIT, MATERIAL, RUN_GLOW, TRANSPORT, keyX, type Inst } from '../theme';
+import { COLOR, KEYS, LIT, MATERIAL, MUTE_GLOW, RUN_GLOW, TRANSPORT, keyX, type Inst } from '../theme';
 import type { HotspotDef } from './hit';
 import { withInstanceEmissive } from './materials';
 
 export type LedTone = 'line' | 'ledSet' | 'ledHover' | 'yellowHi';
 
-/** Instances des touches : les 16 trig, puis RUN et CLEAR. */
+/** Instances des touches : les 16 trig, puis RUN, CLEAR, MUTE et SOLO. */
 const RUN = STEP_COUNT;
 const CLEAR = STEP_COUNT + 1;
-const KEY_COUNT = STEP_COUNT + 2;
+const MUTE = STEP_COUNT + 2;
+const SOLO = STEP_COUNT + 3;
+const KEY_COUNT = STEP_COUNT + 4;
 
 const LED_HEX: Readonly<Record<LedTone, number>> = {
   line: COLOR.line,
@@ -89,6 +91,8 @@ export class Sequencer3D {
   /** LED du test de l'intro (spec 7.4), -1 hors intro */
   private introLed = -1;
   private running = false;
+  private muteOn = false;
+  private soloOn = false;
 
   constructor() {
     const kGeo = keyGeometry();
@@ -112,6 +116,10 @@ export class Sequencer3D {
     this.keys.setMatrixAt(RUN, m4.makeScale(sx, sy, sz).setPosition(TRANSPORT.run.x, 0, TRANSPORT.z));
     this.keys.setMatrixAt(CLEAR, m4.makeScale(sx, sy, sz).setPosition(TRANSPORT.clear.x, 0, TRANSPORT.z));
     this.keys.setColorAt(CLEAR, col.setRGB(LIT.clear[0], LIT.clear[1], LIT.clear[2]));
+    this.keys.setMatrixAt(MUTE, m4.makeScale(sx, sy, sz).setPosition(TRANSPORT.mute.x, 0, TRANSPORT.z));
+    this.keys.setMatrixAt(SOLO, m4.makeScale(sx, sy, sz).setPosition(TRANSPORT.solo.x, 0, TRANSPORT.z));
+    this.paintVoiceKey(MUTE, false);
+    this.paintVoiceKey(SOLO, false);
     this.paintRun();
     this.keys.instanceMatrix.needsUpdate = true;
     this.keys.instanceColor?.setUsage(DynamicDrawUsage);
@@ -127,6 +135,32 @@ export class Sequencer3D {
     }
     this.leds.instanceMatrix.needsUpdate = true;
     this.leds.instanceColor?.setUsage(DynamicDrawUsage);
+  }
+
+  /**
+   * MUTE et SOLO (2026-10-01) : graphite eteints ; allumes, MUTE en orange
+   * (la voix selectionnee est coupee), SOLO en jaune (un solo est en cours).
+   */
+  private paintVoiceKey(k: number, on: boolean): void {
+    const c = on ? (k === MUTE ? LIT.muteOn : LIT.runOn) : LIT.clear;
+    this.keys.setColorAt(k, col.setRGB(c[0], c[1], c[2]));
+    const e = this.emissive.array as Float32Array;
+    const g = on ? (k === MUTE ? MUTE_GLOW : RUN_GLOW) : [0, 0, 0];
+    e[k * 3] = g[0];
+    e[k * 3 + 1] = g[1];
+    e[k * 3 + 2] = g[2];
+    this.emissive.needsUpdate = true;
+    if (this.keys.instanceColor) this.keys.instanceColor.needsUpdate = true;
+  }
+
+  /** Allume MUTE et SOLO ; true s'il faut une frame. */
+  setVoiceKeys(muteOn: boolean, soloOn: boolean): boolean {
+    if (muteOn === this.muteOn && soloOn === this.soloOn) return false;
+    this.muteOn = muteOn;
+    this.soloOn = soloOn;
+    this.paintVoiceKey(MUTE, muteOn);
+    this.paintVoiceKey(SOLO, soloOn);
+    return true;
   }
 
   /** RUN : rouge a l'arret ; jaune et emissif pendant la lecture. */
@@ -229,6 +263,8 @@ export class Sequencer3D {
     for (const [id, x] of [
       ['run', TRANSPORT.run.x],
       ['clear', TRANSPORT.clear.x],
+      ['mute', TRANSPORT.mute.x],
+      ['solo', TRANSPORT.solo.x],
     ] as const) {
       defs.push({ id, kind: id, layer, shape: 'box', x, z: TRANSPORT.z, hx: h, hz: h, y0: 0, y1: TRANSPORT.h, enabled: true });
     }

@@ -3,12 +3,12 @@
  * l'un de l'autre, on programme donc le sequenceur ici, sous la machine.
  * Une rangee d'instruments (BD SD TOM CH OH, le selectionne en jaune ;
  * toucher choisit sans jouer), les 16 pas en deux rangees de 8 cases, le
- * transport (RUN/STOP, CLEAR, tempo - / valeur / +), puis la grille de
- * navigation : tous les boutons visibles d'un coup, aucun defilement
- * (6 colonnes x 2 rangees, 4 x 3 sur les ecrans etroits, v4.css). Machine
- * fermee : TRACKS a SONAA, RESET et OPEN (bouton plein orange sur trois
- * cellules) ; ouverte : GOODIES, MERCH et STUDIO remplacent LIVE, SONAA et
- * RESET, OPEN devient CLOSE. Icones Font Awesome 6.5.1 (deja chargee par
+ * transport (RUN/STOP, CLEAR, MUTE, SOLO, tempo - / valeur / +), puis la
+ * grille de navigation : tous les boutons visibles d'un coup, aucun
+ * defilement (6 colonnes x 2 rangees, v4.css). Machine fermee : TRACKS a
+ * LIVE, RESET et OPEN (bouton plein orange) ; ouverte : GOODIES, MERCH et
+ * STUDIO remplacent RESET, OPEN devient CLOSE. Un instrument coupe (MUTE)
+ * est barre, celui en solo cerne d'orange. Icones Font Awesome 6.5.1 (deja chargee par
  * index.html), en aria-hidden ; chaque bouton garde son nom en toutes
  * lettres. Un appui long (400 ms) vide un pas. Memes
  * stores que la machine : les deux changent ensemble. Monte seulement sur
@@ -16,13 +16,27 @@
  */
 
 import React, { useRef, useState, useSyncExternalStore } from 'react';
-import { clearPattern, openSection, openToggle, page, resetView, runToggle, selectInstrument, setTempo, stepClear, stepToggle } from '../actions';
+import {
+  clearPattern,
+  muteToggle,
+  openSection,
+  openToggle,
+  page,
+  resetView,
+  runToggle,
+  selectInstrument,
+  setTempo,
+  soloToggle,
+  stepClear,
+  stepToggle,
+} from '../actions';
 import { clock } from '../audio/clock';
 import { BPM, INSTRUMENTS, STEP_COUNT, isOn, pattern } from '../audio/pattern';
 import type { Stage } from '../scene/renderer';
 import { explode } from '../state/explode';
 import { playhead } from '../state/playhead';
 import { section } from '../state/section';
+import { voices } from '../state/voices';
 import { INST_NAMES, STEP_HOLD_MS, type SectionId } from '../theme';
 
 const STEP_INDEXES = Array.from({ length: STEP_COUNT }, (_, i) => i);
@@ -41,14 +55,10 @@ const PAGE_CELLS: readonly Cell[] = [
   { id: 'press', label: 'PRESS', aria: 'Press', icon: 'fa-solid fa-file-lines' },
   { id: 'shows', label: 'SHOWS', aria: 'Shows', icon: 'fa-solid fa-calendar-days' },
   { id: 'contact', label: 'CONTACT', aria: 'Contact', icon: 'fa-solid fa-envelope' },
-  { id: 'label', label: 'LABEL', aria: 'Label', icon: 'fa-brands fa-bandcamp' },
+  { id: 'live', label: 'LIVE', aria: 'Live', icon: 'fa-solid fa-sliders' },
 ];
 /** Machine fermee : la fin de la grille */
-const CLOSED_CELLS: readonly Cell[] = [
-  { id: 'live', label: 'LIVE', aria: 'Live', icon: 'fa-solid fa-sliders' },
-  { id: 'sonaa', label: 'SONAA', aria: 'Sonaa', icon: 'fa-solid fa-compass' },
-  { id: 'reset', label: 'RESET', aria: 'Reset view', icon: 'fa-solid fa-arrows-rotate' },
-];
+const CLOSED_CELLS: readonly Cell[] = [{ id: 'reset', label: 'RESET', aria: 'Reset view', icon: 'fa-solid fa-arrows-rotate' }];
 /** Machine ouverte : les trois puces du PCB */
 const OPEN_CELLS: readonly Cell[] = [
   { id: 'goodies', label: 'GOODIES', aria: 'Goodies', icon: 'fa-solid fa-gift' },
@@ -75,6 +85,7 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
   const running = useSyncExternalStore(clock.subscribe, () => clock.running, () => clock.running);
   const ex = useSyncExternalStore(explode.subscribe, explode.get, explode.get);
   const open = useSyncExternalStore(section.subscribe, section.get, section.get);
+  const v = useSyncExternalStore(voices.subscribe, voices.get, voices.get);
   // Un pas touche sans instrument : l'indication clignote une fois
   const [nudge, setNudge] = useState(0);
   // Appui long sur un pas : le pas et l'instant du pointerdown ; le clic qui suit est ignore
@@ -103,18 +114,24 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
         {hint}
       </p>
       <div className="v4-dock-insts" role="group" aria-label="Instrument">
-        {INSTRUMENTS.map((k) => (
-          <button
-            key={k}
-            type="button"
-            className="v4-dock-inst"
-            aria-pressed={inst === k}
-            aria-label={`Select ${INST_NAMES[k]}`}
-            onClick={() => selectInstrument(k)}
-          >
-            {k}
-          </button>
-        ))}
+        {INSTRUMENTS.map((k) => {
+          const muted = v.muted.includes(k);
+          const solo = v.solo === k;
+          return (
+            <button
+              key={k}
+              type="button"
+              className="v4-dock-inst"
+              data-muted={muted ? '1' : '0'}
+              data-solo={solo ? '1' : '0'}
+              aria-pressed={inst === k}
+              aria-label={`Select ${INST_NAMES[k]}${muted ? ', muted' : ''}${solo ? ', solo' : ''}`}
+              onClick={() => selectInstrument(k)}
+            >
+              {k}
+            </button>
+          );
+        })}
       </div>
       <div className="v4-dock-steps" role="group" aria-label="Steps">
         {STEP_INDEXES.map((i) => {
@@ -169,6 +186,20 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
         <button type="button" className="v4-dock-key" aria-label="Clear pattern" onClick={() => clearPattern()}>
           <Icon name="fa-solid fa-eraser" />
           <span>CLEAR</span>
+        </button>
+        <button
+          type="button"
+          className="v4-dock-key v4-dock-mute"
+          aria-pressed={inst ? v.muted.includes(inst) : v.muted.length > 0}
+          aria-label="Mute the selected voice"
+          onClick={() => muteToggle()}
+        >
+          <Icon name="fa-solid fa-volume-xmark" />
+          <span>MUTE</span>
+        </button>
+        <button type="button" className="v4-dock-key" aria-pressed={v.solo !== null} aria-label="Solo the selected voice" onClick={() => soloToggle()}>
+          <Icon name="fa-solid fa-headphones" />
+          <span>SOLO</span>
         </button>
         <button
           type="button"

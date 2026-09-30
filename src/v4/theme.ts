@@ -148,24 +148,25 @@ export const PCB_TYPE = { weight: 700, tracking: 0.18 } as const;
 /* ---------- le corps : chassis en coin, panneau, pieds (spec 20.3.2 et 20.3.3) ---------- */
 
 /**
- * Chassis : 14 x 9 au sol, dessous a y 0.12 (les pieds), 2.2 de haut a
- * l'arriere et 1.3 a l'avant au-dessus du dessous : le panneau s'incline
- * de atan(0.9 / 9) = 5.711 deg vers l'utilisateur (la signature Elektron).
- * Toutes les aretes sont chanfreinees (chamfer).
+ * Chassis : 12.6 x 8 au sol (2026-10-01, plus compact : 14 x 9 avant,
+ * LABEL et SONAA ont quitte les pads), dessous a y 0.12 (les pieds), 2.2
+ * de haut a l'arriere et 1.3 a l'avant au-dessus du dessous : le panneau
+ * s'incline de atan(0.9 / 8) = 6.42 deg vers l'utilisateur (la signature
+ * Elektron). Toutes les aretes sont chanfreinees (chamfer).
  */
-export const BODY = { w: 14, d: 9, back: 2.2, front: 1.3, feet: 0.12, chamfer: 0.06 } as const;
+export const BODY = { w: 12.6, d: 8, back: 2.2, front: 1.3, feet: 0.12, chamfer: 0.06 } as const;
 /** Inclinaison du panneau (rad) : son avant descend. */
 export const TILT = Math.atan((BODY.back - BODY.front) / BODY.d);
 
 /**
- * Panneau (spec 20.3.3) : dalle a coins arrondis 13.8 x 8.845 + chanfrein
- * de 0.1 (empreinte 14 x 9.045 le long de la pente, 14 x 9 au sol), 0.14
- * d'epaisseur, dessus a y 0 du repere panneau. Le cadre de l'ecran OLED
- * lui est fusionne.
+ * Panneau (spec 20.3.3) : dalle a coins arrondis (le chassis moins 0.2) +
+ * chanfrein de 0.1 (empreinte BODY.w x BODY.d / cos TILT le long de la
+ * pente, BODY.w x BODY.d au sol), 0.14 d'epaisseur, dessus a y 0 du repere
+ * panneau. Le cadre de l'ecran OLED lui est fusionne.
  */
 export const PANEL = {
-  shapeW: 13.8,
-  shapeD: 8.845,
+  shapeW: BODY.w - 0.2,
+  shapeD: BODY.d / Math.cos(TILT) - 0.2,
   radius: 0.2,
   /** three subdivise les arcs en 2 x curveSegments */
   curveSegments: 4,
@@ -173,7 +174,7 @@ export const PANEL = {
   bevelThickness: 0.05,
   bevelSize: 0.1,
 } as const;
-/** Longueur de la pente du panneau : 9 / cos 5.711 = 9.045. */
+/** Longueur de la pente du panneau : BODY.d / cos TILT. */
 export const PANEL_D = PANEL.shapeD + 2 * PANEL.bevelSize;
 /** Centre du dessus du panneau, monde, machine fermee : 0.12 + (2.2 + 1.3) / 2. */
 export const PANEL_TOP_Y = BODY.feet + (BODY.back + BODY.front) / 2;
@@ -192,19 +193,19 @@ export const chassisTopY = (z: number): number => PANEL_TOP_Y - PANEL.t / Math.c
 export const TRAY = { wall: 0.18, depth: 0.55 } as const;
 
 /** Pieds en caoutchouc aux quatre coins (visibles en orbite basse). */
-export const FEET = { r: 0.42, h: BODY.feet, x: 6.45, z: 3.95, segments: { desktop: 16, mobile: 12 } } as const;
+export const FEET = { r: 0.42, h: BODY.feet, x: BODY.w / 2 - 0.55, z: BODY.d / 2 - 0.55, segments: { desktop: 16, mobile: 12 } } as const;
 
 /**
- * Connectique de la face arriere (z -4.5), decorative, fusionnee au
+ * Connectique de la face arriere (z -BODY.d / 2), decorative, fusionnee au
  * chassis (zero draw call) : la recompense de l'orbite. Prise secteur,
  * USB-B, deux jacks 6.35 (ecrou hexagonal, fut, trou). x, y : centre.
  */
 export const CONNECTORS = {
-  inlet: { x: 5.2, y: 1.15, w: 1.1, h: 0.75, d: 0.06, recess: { w: 0.8, h: 0.5 }, pin: { w: 0.05, h: 0.18, d: 0.04, dx: 0.2 } },
-  usb: { x: 3.9, y: 1.15, w: 0.46, h: 0.42, d: 0.05, inner: { w: 0.3, h: 0.26 } },
+  inlet: { x: BODY.w / 2 - 1.8, y: 1.15, w: 1.1, h: 0.75, d: 0.06, recess: { w: 0.8, h: 0.5 }, pin: { w: 0.05, h: 0.18, d: 0.04, dx: 0.2 } },
+  usb: { x: BODY.w / 2 - 3.1, y: 1.15, w: 0.46, h: 0.42, d: 0.05, inner: { w: 0.3, h: 0.26 } },
   jacks: [
-    { x: -3.6, y: 1.1 },
-    { x: -4.4, y: 1.1 },
+    { x: -3.2, y: 1.1 },
+    { x: -4.0, y: 1.1 },
   ],
   nut: { r: 0.2, h: 0.05 },
   barrel: { r: 0.14, h: 0.08 },
@@ -230,10 +231,10 @@ export const MATERIAL = {
 
 /* ---------- PCB (spec 5.6 et 20.3.11) ---------- */
 
-/** Carte : 12.6 x 0.1 x 7.8 dans pcbGroup (incline comme le panneau). */
+/** Carte : le chassis moins 1.4 x 1.2 (11.2 x 6.8), 0.1 d'epaisseur, dans pcbGroup (incline comme le panneau). */
 export const PCB = {
-  w: 12.6,
-  d: 7.8,
+  w: BODY.w - 1.4,
+  d: BODY.d - 1.2,
   h: 0.1,
   tex: { desktop: [1024, 640], mobile: [512, 320] },
   /** generateur des pistes (spec 5.7) : grille de 0.4, graine 808 (mulberry32) */
@@ -250,6 +251,13 @@ export const PCB = {
   designatorPx: 16,
   chipLabelPx: 30,
 } as const;
+
+/**
+ * Une position de la carte dessinee pour la carte d'origine 12.6 x 7.8,
+ * ramenee a la carte actuelle (2026-10-01, machine compacte) : les
+ * composants, les puces et la serigraphie gardent leur place relative.
+ */
+export const pcbAt = (x: number, z: number): { x: number; z: number } => ({ x: (x * PCB.w) / 12.6, z: (z * PCB.d) / 7.8 });
 
 /**
  * Origines des trois couches (monde, machine fermee). Le plateauGroup est
@@ -303,8 +311,8 @@ export const FLOOR = {
 
 /** Ecran OLED en haut a gauche : verre 3.6 x 1.35, cadre fusionne au panneau. */
 export const OLED = {
-  x: -4.5,
-  z: -2.35,
+  x: -3.95,
+  z: -2.05,
   w: 3.6,
   d: 1.35,
   y: 0.025,
@@ -330,10 +338,10 @@ export const ENCODER = {
   r: 0.3,
   rTop: 0.285,
   h: 0.42,
-  z: -0.95,
-  x0: -6.0,
-  pitch: 0.98,
-  labelZ: -0.45,
+  z: -0.6,
+  x0: -5.55,
+  pitch: 0.9,
+  labelZ: -0.1,
   collar: { r: 0.36, h: 0.025 },
   mark: { w: 0.04, h: 0.012, d: 0.2 },
   segments: { desktop: 32, mobile: 20 },
@@ -350,30 +358,36 @@ export const ENCODERS: readonly { id: EncId; label: string; aria: string }[] = [
   { id: 'reverb', label: 'REVERB', aria: 'Reverb' },
 ];
 
-/** RUN/STOP et CLEAR : boutons carres sous les encodeurs. */
+/**
+ * RUN/STOP, CLEAR, MUTE et SOLO (2026-10-01) : boutons carres sous les
+ * quatre premiers encodeurs. MUTE coupe la voix selectionnee, SOLO ne
+ * laisse jouer qu'elle (state/voices.ts).
+ */
 export const TRANSPORT = {
   size: 0.62,
   h: 0.1,
-  z: 0.35,
-  labelZ: 0.85,
-  run: { x: -6.0 },
-  clear: { x: -5.02 },
+  z: 0.48,
+  labelZ: 0.98,
+  run: { x: ENCODER.x0 },
+  clear: { x: ENCODER.x0 + ENCODER.pitch },
+  mute: { x: ENCODER.x0 + 2 * ENCODER.pitch },
+  solo: { x: ENCODER.x0 + 3 * ENCODER.pitch },
 } as const;
 
 /* ---------- panneau : moitie droite, les 12 pads (spec 20.3.5) ---------- */
 
 export type Inst = 'BD' | 'SD' | 'TOM' | 'CH' | 'OH';
-/** Les huit pages du site, pads de navigation (touches 1 a 8). */
-export type PageId = 'tracks' | 'mixtapes' | 'press' | 'shows' | 'contact' | 'label' | 'live' | 'sonaa';
-/** Les sections du panneau : les huit pages, GOODIES, MERCH et STUDIO (puces de la vue eclatee). */
+/** Les six pages du site, pads de navigation (touches 1 a 6). */
+export type PageId = 'tracks' | 'mixtapes' | 'press' | 'shows' | 'contact' | 'live';
+/** Les sections du panneau : les six pages, GOODIES, MERCH et STUDIO (puces de la vue eclatee). */
 export type SectionId = PageId | 'goodies' | 'merch' | 'studio';
 export type PadId = Inst | PageId | 'open';
 
 /**
  * Pad en caoutchouc : 0.86 x 0.22 x 0.86 a coins arrondis (0.08), dome de
- * 0.04 sur son dessus plat ; deux rangees de sept, pas de 1.0 (revision 4 :
- * la voix OH et la page LIVE portent la grille de 12 a 14 pads, la
- * rangee commence plus a gauche, a 0.44 de la collerette de REVERB).
+ * 0.04 sur son dessus plat ; deux rangees de six, pas de 1.0 (2026-10-01 :
+ * 12 pads, LABEL et SONAA sont partis dans CONTACT ; la rangee finit a
+ * l'aplomb de la derniere touche trig).
  * Frappe : il s'enfonce de 0.06 en 60 ms, remonte en 180 ms. Halo : un
  * carre de 1.0 a plat sous chaque pad (retroeclairage).
  */
@@ -386,9 +400,9 @@ export const PAD = {
   domeSegments: 6,
   /** hauteur du plan du dome, un soupcon au-dessus du dessus plat (pas de z-fight) */
   domeY: 0.222,
-  x0: 0.13,
+  x0: 0.37,
   pitch: 1.0,
-  rowZ: [-2.4, -1.0],
+  rowZ: [-2.05, -0.75],
   /** serigraphie sous chaque pad */
   labelDz: 0.58,
   press: 0.06,
@@ -422,14 +436,14 @@ export interface OpenPad {
 }
 export type PadSpec = VoicePad | PagePad | OpenPad;
 
-/** Colonnes de la grille des pads (revision 4 : sept). */
-export const PAD_COLS = 7;
+/** Colonnes de la grille des pads (six depuis le 2026-10-01). */
+export const PAD_COLS = 6;
 const padAt = (i: number): { x: number; z: number } => ({ x: PAD.x0 + PAD.pitch * (i % PAD_COLS), z: PAD.rowZ[i < PAD_COLS ? 0 : 1] });
 
 /**
- * Les 14 pads en ordre de lecture (revision 4) : rangee du haut BD SD TOM
- * CH OH TRACKS MIXTAPES, rangee du bas PRESS SHOWS CONTACT LABEL LIVE
- * SONAA OPEN. Voix : A S D F G. Pages : 1 a 8. OPEN : 9 (et O).
+ * Les 12 pads en ordre de lecture (2026-10-01) : rangee du haut BD SD TOM
+ * CH OH TRACKS, rangee du bas MIXTAPES PRESS SHOWS CONTACT LIVE OPEN.
+ * Voix : A S D F G. Pages : 1 a 6. OPEN : 7 (et O).
  */
 export const PADS: readonly PadSpec[] = [
   { id: 'BD', kind: 'voice', label: 'BD', key: 'A', ...padAt(0) },
@@ -442,10 +456,8 @@ export const PADS: readonly PadSpec[] = [
   { id: 'press', kind: 'page', label: 'PRESS', key: '3', ...padAt(7) },
   { id: 'shows', kind: 'page', label: 'SHOWS', key: '4', ...padAt(8) },
   { id: 'contact', kind: 'page', label: 'CONTACT', key: '5', ...padAt(9) },
-  { id: 'label', kind: 'page', label: 'LABEL', key: '6', ...padAt(10) },
-  { id: 'live', kind: 'page', label: 'LIVE', key: '7', ...padAt(11) },
-  { id: 'sonaa', kind: 'page', label: 'SONAA', key: '8', ...padAt(12) },
-  { id: 'open', kind: 'open', label: 'OPEN', key: '9', ...padAt(13) },
+  { id: 'live', kind: 'page', label: 'LIVE', key: '6', ...padAt(10) },
+  { id: 'open', kind: 'open', label: 'OPEN', key: '7', ...padAt(11) },
 ];
 
 /** Les huit pages, dans l'ordre des pads (onglets de la feuille, touches 1 a 8). */
@@ -508,19 +520,19 @@ export const PAD_HALO = { selected: 0.025, faint: 0.025, hover: 0.06, active: 0.
  */
 export const KEYS = {
   count: 16,
-  x0: -6.0,
-  pitch: 0.8,
-  z: 2.5,
-  w: 0.52,
+  x0: -5.55,
+  pitch: 0.74,
+  z: 2.4,
+  w: 0.5,
   d: 0.9,
   h: 0.1,
   radius: 0.04,
-  ledZ: 1.72,
+  ledZ: 1.62,
   ledW: 0.22,
   ledD: 0.07,
   ledY: 0.006,
-  numberZ: 3.18,
-  bracketZ: 3.35,
+  numberZ: 3.08,
+  bracketZ: 3.25,
   bracketTick: 0.06,
 } as const;
 export const keyX = (i: number): number => KEYS.x0 + KEYS.pitch * i;
@@ -553,12 +565,16 @@ export const LIT = {
   run: [0.61, 0.0805, 0.0478],
   runOn: [1.0709, 0.3069, 0],
   clear: [0.0217, 0.0229, 0.0385],
+  /** MUTE allume (2026-10-01) : orange, avec MUTE_GLOW */
+  muteOn: [1.0, 0.1, 0.004],
   /** repere des encodeurs : bone */
   mark: [2.8308, 2.6988, 2.4532],
 } as const;
 
 /** Emissif de RUN pendant la lecture : jaune x 0.5 (spec 5.3), lineaire. */
 export const RUN_GLOW = [0.444, 0.2635, 0.0148] as const;
+/** Emissif de MUTE allume : l'orange de navigation x 0.5, lineaire. */
+export const MUTE_GLOW = [0.5, 0.072, 0.003] as const;
 
 /**
  * TEMPO (spec 6.1) : glisser vertical, 100 px = 50 BPM (vers le haut =
@@ -612,8 +628,6 @@ export const SECTION_TITLES: Readonly<Record<SectionId, string>> = {
   press: 'PRESS',
   shows: 'SHOWS',
   contact: 'CONTACT',
-  label: 'LABEL',
-  sonaa: 'SONAA',
   live: 'LIVE',
   goodies: 'GOODIES',
   merch: 'MERCH',
@@ -626,11 +640,11 @@ export const SECTION_TITLES: Readonly<Record<SectionId, string>> = {
  * stageW = bord gauche du panneau - gap, et tient par son cercle
  * englobant (rayon horizontal : la plus grande distance d'un sommet a
  * l'axe vertical du pivot, measure().fit.radius sur les maillages reels :
- * 8.32 fermee, les coins du chassis ; 9.17 ouverte, le panneau recule) :
+ * 7.46 fermee, les coins du chassis ; 8.32 ouverte, le panneau recule ; machine compacte) :
  * aucune orientation ne la fait passer sous le panneau a zoom <= 1.
  * Jamais plus grande qu'au repos.
  */
-export const SECTION_FRAME = { ms: 400, gap: 16, radius: { closed: 8.33, open: 9.18 } } as const;
+export const SECTION_FRAME = { ms: 400, gap: 16, radius: { closed: 7.47, open: 8.33 } } as const;
 
 /**
  * Boite du panneau desktop, en phase avec v4.css (.v4-panel) : 460 px au
@@ -717,14 +731,16 @@ const padLabel = (p: PadSpec): SilkText =>
     : { text: p.label, x: p.x, z: p.z + PAD.labelDz, cap: PAD_CAP, maxW: 0.94, group: 'pads', weight: 700, ink: 'orange', alpha: 1 };
 
 export const SILK_TEXTS: readonly SilkText[] = [
-  { text: 'MAUDITE MACHINE', x: -6.3, z: -3.95, cap: 0.2, align: 'left', weight: SILK.strongWeight },
-  { text: 'MM-808', x: -2.3, z: -3.95, cap: 0.13, align: 'left' },
-  { text: 'V.4 / 2026', x: 6.5, z: -3.95, cap: 0.07, align: 'right', alpha: 0.45 },
-  { text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: -3.05, cap: 0.06, align: 'left' },
-  { text: 'PAGES', x: PAD.x0 + 5 * PAD.pitch - PAD.size / 2, z: -3.05, cap: 0.06, align: 'left' },
-  ...ENCODERS.map((e, i) => ({ text: e.label, x: encX(i), z: ENCODER.labelZ, cap: 0.085, maxW: 0.9, group: 'enc' })),
-  { text: 'RUN/STOP', x: TRANSPORT.run.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'enc' },
-  { text: 'CLEAR', x: TRANSPORT.clear.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'enc' },
+  { text: 'MAUDITE MACHINE', x: -5.8, z: -3.5, cap: 0.2, align: 'left', weight: SILK.strongWeight },
+  { text: 'MM-808', x: -1.95, z: -3.5, cap: 0.13, align: 'left' },
+  { text: 'V.4 / 2026', x: 5.8, z: -3.5, cap: 0.07, align: 'right', alpha: 0.45 },
+  { text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - 0.72, cap: 0.06, align: 'left' },
+  { text: 'PAGES', x: PAD.x0 + 5 * PAD.pitch - PAD.size / 2, z: PAD.rowZ[0] - 0.72, cap: 0.06, align: 'left' },
+  ...ENCODERS.map((e, i) => ({ text: e.label, x: encX(i), z: ENCODER.labelZ, cap: 0.085, maxW: 0.84, group: 'enc' })),
+  { text: 'RUN/STOP', x: TRANSPORT.run.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.84, group: 'tr' },
+  { text: 'CLEAR', x: TRANSPORT.clear.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.84, group: 'tr' },
+  { text: 'MUTE', x: TRANSPORT.mute.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.84, group: 'tr' },
+  { text: 'SOLO', x: TRANSPORT.solo.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.84, group: 'tr' },
   ...PADS.map(padLabel),
   ...Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ, cap: 0.075 })),
 ];
@@ -738,7 +754,14 @@ export const OPEN_SILK_INDEX = SILK_TEXTS.findIndex((t) => t.text === 'OPEN');
  */
 export const SILK_LINES: readonly (readonly number[])[] = [
   // entre OH et TRACKS, puis sous la rangee des voix
-  [PAD.x0 + 4.5 * PAD.pitch, -3.2, PAD.x0 + 4.5 * PAD.pitch, -1.6, PAD.x0 - PAD.size / 2 - 0.09, -1.6],
+  [
+    PAD.x0 + 4.5 * PAD.pitch,
+    PAD.rowZ[0] - 0.85,
+    PAD.x0 + 4.5 * PAD.pitch,
+    PAD.rowZ[0] + 0.73,
+    PAD.x0 - PAD.size / 2 - 0.09,
+    PAD.rowZ[0] + 0.73,
+  ],
   ...[0, 1, 2, 3].map((g) => {
     const a = keyX(4 * g) - KEYS.w / 2;
     const b = keyX(4 * g + 3) + KEYS.w / 2;
@@ -757,11 +780,11 @@ export const PLATEAU_W = Math.SQRT1_2 * (BODY.w + BODY.d);
 /**
  * Hauteur projetee de la machine fermee a la vue par defaut (azimut 45,
  * elevation 38), mesuree sur les sommets reels (measure().fit, encodeurs
- * compris) : 11.68 (le plan disait 11.84, sur un modele grossier). Elle
+ * compris) : 10.64 pour la machine compacte du 2026-10-01 (11.68 a 14 x 9). Elle
  * tient toujours dans 86 % du canvas a la vue par defaut ; le cadre ne suit
  * jamais l'orbite (echelle constante, spec 20.1 R2-5).
  */
-export const MACHINE_H = 11.68;
+export const MACHINE_H = 10.64;
 export const FIT_H = 0.86;
 
 /**
@@ -812,8 +835,8 @@ export const ORBIT = {
   distance: 30,
   near: 0.1,
   far: 100,
-  /** centre projete de la machine fermee a la vue par defaut (measure().fit.targetY : 1.265) */
-  targetY: 1.265,
+  /** centre projete de la machine fermee a la vue d'arrivee (measure().fit.targetY : 1.216, machine compacte) */
+  targetY: 1.216,
 } as const;
 
 export const MOBILE_QUERY = '(max-width: 767px)';
@@ -910,10 +933,10 @@ export const EXPLODE = {
   slideZ: -1.5,
   tiltOpenDeg: -12,
   pcbRise: 0.9,
-  /** la pile ouverte fait 14.04 de haut a la vue par defaut : 14.04 / 0.86 / 2 */
-  fitHalfH: 8.17,
-  /** son centre projete (measure().fit.targetY, ouverte) */
-  targetY: 2.763,
+  /** la pile ouverte fait 13.09 de haut a l'azimut 45 (le pire cas), machine compacte : 13.09 / 0.86 / 2 */
+  fitHalfH: 7.61,
+  /** son centre projete a la vue d'arrivee (measure().fit.targetY, ouverte) */
+  targetY: 2.976,
   /** echelle verticale des composants replies (jamais 0 : matrice inversible) */
   partsMin: 0.001,
   /**
@@ -990,9 +1013,9 @@ export const CHIPS: readonly {
   /** section ouverte par la puce */
   section: 'goodies' | 'merch' | 'studio' | null;
 }[] = [
-  { id: 'goodies', silk: 'GOODIES', x: -3.4, z: 2.6, aria: 'Goodies: wallpapers and covers', href: null, section: 'goodies' },
-  { id: 'merch', silk: 'MERCH', x: 0, z: 2.6, aria: 'Merch: apparel and stickers', href: null, section: 'merch' },
-  { id: 'studio', silk: 'STUDIO', x: 3.4, z: 2.6, aria: 'Studio: setup, lessons, print', href: null, section: 'studio' },
+  { id: 'goodies', silk: 'GOODIES', ...pcbAt(-3.4, 2.45), aria: 'Goodies: wallpapers and covers', href: null, section: 'goodies' },
+  { id: 'merch', silk: 'MERCH', ...pcbAt(0, 2.45), aria: 'Merch: apparel and stickers', href: null, section: 'merch' },
+  { id: 'studio', silk: 'STUDIO', ...pcbAt(3.4, 2.45), aria: 'Studio: setup, lessons, print', href: null, section: 'studio' },
 ];
 
 /**
@@ -1002,26 +1025,11 @@ export const CHIPS: readonly {
  * defaut, le reste passe sous le panneau leve.
  */
 export const PCB_PARTS = {
-  small: [
-    { x: -5.3, z: 2.6 },
-    { x: 5.3, z: 2.6 },
-    { x: 5.35, z: -3.2 },
-    { x: -2.7, z: -2.9 },
-  ],
-  caps: [
-    { x: -5.55, z: 3.5 },
-    { x: 1.7, z: 2.3 },
-    { x: 5.55, z: -1.6 },
-    { x: 5.55, z: -2.35 },
-    { x: -3.6, z: -2.2 },
-    { x: 0.4, z: -2.8 },
-  ],
-  cell: { x: 5.35, z: -0.55 },
-  resistors: Array.from({ length: 10 }, (_, k) => ({ x: -4.6 + 0.9 * k, z: 1.25 })),
-  crystals: [
-    { x: -1.7, z: 3.5 },
-    { x: 1.7, z: 3.5 },
-  ],
+  small: [pcbAt(-5.3, 2.6), pcbAt(5.3, 2.6), pcbAt(5.35, -3.2), pcbAt(-2.7, -2.9)],
+  caps: [pcbAt(-5.55, 3.5), pcbAt(1.7, 2.3), pcbAt(5.55, -1.6), pcbAt(5.55, -2.35), pcbAt(-3.6, -2.2), pcbAt(0.4, -2.8)],
+  cell: pcbAt(5.35, -0.55),
+  resistors: Array.from({ length: 10 }, (_, k) => pcbAt(-4.6 + 0.9 * k, 1.25)),
+  crystals: [pcbAt(-1.7, 3.5), pcbAt(1.7, 3.5)],
   small3: { w: 0.8, h: 0.14, d: 0.6 },
   cap3: { r: 0.28, h: 0.6, topH: 0.02 },
   cell3: { r: 0.5, h: 0.14 },
@@ -1036,9 +1044,9 @@ export const PCB_PARTS = {
  * pour la remettre : { text: 'MONTPELLIER', x: 6.0, z: -0.3, px: 28, align: 'right' }.
  */
 export const PCB_SILK: readonly { text: string; x: number; z: number; px: number; align: 'left' | 'right' }[] = [
-  { text: 'MAUDITE MACHINE', x: -6.0, z: 0.4, px: 48, align: 'left' },
-  { text: 'MM-808  REV 4.0', x: 6.0, z: 0.4, px: 28, align: 'right' },
-  { text: 'V.4 2026', x: 6.1, z: 1.25, px: 22, align: 'right' },
+  { text: 'MAUDITE MACHINE', ...pcbAt(-6.0, 0.4), px: 48, align: 'left' },
+  { text: 'MM-808  REV 4.0', ...pcbAt(6.0, 0.4), px: 28, align: 'right' },
+  { text: 'V.4 2026', ...pcbAt(6.1, 1.25), px: 22, align: 'right' },
 ];
 
 /* ---------- jumeaux HTML et clavier (spec 6.1, 6.3, 13 et 20.7) ---------- */
@@ -1056,7 +1064,7 @@ export const PAD_ARIA: Readonly<Record<Inst, string>> = {
  * Jumeau du pad OPEN (spec 6.1) : un nom fixe, l'etat passe par
  * aria-pressed (un bouton bascule ne change pas de nom, revue).
  */
-export const OPEN_ARIA = 'Open the machine, key 9 or O';
+export const OPEN_ARIA = 'Open the machine, key 7 or O';
 
 /** Bouton de retour a la vue par defaut (spec 20.2.9), visible des que la vue a bouge. */
 export const RESET_VIEW = { label: 'RESET VIEW', aria: 'Reset view' } as const;
@@ -1065,6 +1073,8 @@ export const RESET_VIEW = { label: 'RESET VIEW', aria: 'Reset view' } as const;
 export const TWIN_ARIA = {
   run: 'Run, Space',
   clear: 'Clear pattern',
+  mute: 'Mute the selected voice',
+  solo: 'Solo the selected voice',
   group: 'MM-808 drum machine',
 } as const;
 

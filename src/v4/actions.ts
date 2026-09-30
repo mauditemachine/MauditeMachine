@@ -16,6 +16,7 @@ import { chipsLive, explode } from './state/explode';
 import { lcdMessage } from './state/lcdMessage';
 import { contactDraft, type ContactTopic } from './state/contactDraft';
 import { section } from './state/section';
+import { voices } from './state/voices';
 import { CHIPS, POT_UI, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
 
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
@@ -116,6 +117,49 @@ export function runToggle(): boolean {
   return clock.toggle();
 }
 
+/**
+ * MUTE (2026-10-01) : coupe ou rend la voix selectionnee au sequenceur.
+ * Sans selection : rend toutes les voix coupees, sinon TAP A PAD FIRST.
+ */
+export function muteToggle(): boolean {
+  resume();
+  const inst = pattern.get().instrument;
+  if (!inst) {
+    if (voices.get().muted.length) {
+      voices.clearMutes();
+      lcdMessage.show('ALL VOICES ON');
+      return true;
+    }
+    lcdMessage.show('TAP A PAD FIRST');
+    return false;
+  }
+  voices.toggleMute(inst);
+  lcdMessage.show(`${inst} ${voices.isMuted(inst) ? 'MUTED' : 'ON'}`);
+  return true;
+}
+
+/**
+ * SOLO (2026-10-01) : ne laisse jouer que la voix selectionnee, ou rend
+ * toutes les voix. Sans selection : coupe un solo en cours, sinon TAP A
+ * PAD FIRST.
+ */
+export function soloToggle(): boolean {
+  resume();
+  const inst = pattern.get().instrument;
+  if (!inst) {
+    if (voices.get().solo) {
+      voices.clearSolo();
+      lcdMessage.show('SOLO OFF');
+      return true;
+    }
+    lcdMessage.show('TAP A PAD FIRST');
+    return false;
+  }
+  voices.toggleSolo(inst);
+  lcdMessage.show(voices.get().solo ? `SOLO ${inst}` : 'SOLO OFF');
+  return true;
+}
+
 /** CLEAR : les quatre rangees a zero, la lecture continue. */
 export function clearPattern(): void {
   resume();
@@ -191,7 +235,7 @@ export function openSection(s: SectionId): void {
  * visiteur : booking, live, merch, lesson, press (2026-10-01).
  */
 export function openContact(topic: ContactTopic, subject?: string, message?: string): void {
-  contactDraft.set(topic, subject, message);
+  contactDraft.set(topic, subject, message, true);
   section.set('contact');
 }
 

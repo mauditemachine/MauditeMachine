@@ -25,6 +25,7 @@
  * au plus 100 ms plus tard (l'horizon), comme un changement de tempo.
  */
 
+import { voices } from '../state/voices';
 import { SWING } from '../theme';
 import { cancelVoice, context, trigger, type Voice } from './drums';
 import { INSTRUMENTS, STEP_COUNT, pattern } from './pattern';
@@ -150,8 +151,9 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
   let mask = 0;
   for (let k = 0; k < INSTRUMENTS.length; k += 1) {
     const inst = INSTRUMENTS[k];
-    // '1' = 49 ; les coups du sequenceur sont toujours des charleys fermes
-    if (steps[inst].charCodeAt(s) === 49) {
+    // '1' = 49 ; les coups du sequenceur sont toujours des charleys fermes ;
+    // MUTE et SOLO (state/voices.ts) retirent la voix du sequenceur
+    if (steps[inst].charCodeAt(s) === 49 && voices.plays(inst)) {
       mask |= 1 << k;
       trigger(inst, when, false, pending);
     }

@@ -10,7 +10,7 @@
  *   bouton de fermeture ;
  *   glisser vers le bas (80 px ou geste vif) la ferme. La machine au-dessus
  *   reste visible et jouable.
- * Les onze sections (les huit pages, GOODIES, MERCH et STUDIO, ouvertes par leurs
+ * Les neuf sections (les six pages, GOODIES, MERCH et STUDIO, ouvertes par leurs
  * puces) sont toujours rendues (texte dans le DOM des le chargement, pour
  * le referencement et les lecteurs d'ecran) : seule la section ouverte est
  * affichee, les autres sont masquees visuellement et sortent de l'ordre de
@@ -26,13 +26,11 @@ import { PAGES, SHEET, type SectionId } from '../theme';
 import { Contact } from './sections/Contact';
 import { keepInRow } from './sections/common';
 import { Goodies } from './sections/Goodies';
-import { Label } from './sections/Label';
 import { Live } from './sections/Live';
 import { Merch } from './sections/Merch';
 import { Mixtapes } from './sections/Mixtapes';
 import { Press } from './sections/Press';
 import { Shows } from './sections/Shows';
-import { Sonaa } from './sections/Sonaa';
 import { Studio } from './sections/Studio';
 import { Tracks } from './sections/Tracks';
 
@@ -234,8 +232,6 @@ export const Panel: React.FC<Props> = ({ mobile, panelRef }) => {
         <Press active={active === 'press'} focusable={s === 'press'} />
         <Shows active={active === 'shows'} focusable={s === 'shows'} />
         <Contact active={active === 'contact'} focusable={s === 'contact'} />
-        <Label active={active === 'label'} focusable={s === 'label'} />
-        <Sonaa active={active === 'sonaa'} focusable={s === 'sonaa'} />
         <Live active={active === 'live'} focusable={s === 'live'} />
         <Goodies active={active === 'goodies'} focusable={s === 'goodies'} />
         <Merch active={active === 'merch'} focusable={s === 'merch'} />

@@ -15,6 +15,8 @@ export interface ContactDraft {
   subject: string;
   message: string;
   seq: number;
+  /** le panneau defile jusqu'au formulaire (demande venue d'un bouton, pas du pad CONTACT) */
+  scroll: boolean;
 }
 
 export const TOPIC_SUBJECT: Readonly<Record<ContactTopic, string>> = {
@@ -26,7 +28,7 @@ export const TOPIC_SUBJECT: Readonly<Record<ContactTopic, string>> = {
   other: 'Message',
 };
 
-let draft: ContactDraft = { topic: 'booking', subject: TOPIC_SUBJECT.booking, message: '', seq: 0 };
+let draft: ContactDraft = { topic: 'booking', subject: TOPIC_SUBJECT.booking, message: '', seq: 0, scroll: false };
 const listeners = new Set<() => void>();
 
 export const contactDraft = {
@@ -38,8 +40,8 @@ export const contactDraft = {
     };
   },
   /** Nouvel objet propose (et message, s'il y en a un). */
-  set(topic: ContactTopic, subject?: string, message = ''): void {
-    draft = { topic, subject: subject ?? TOPIC_SUBJECT[topic], message, seq: draft.seq + 1 };
+  set(topic: ContactTopic, subject?: string, message = '', scroll = false): void {
+    draft = { topic, subject: subject ?? TOPIC_SUBJECT[topic], message, seq: draft.seq + 1, scroll };
     listeners.forEach((fn) => fn());
   },
 };

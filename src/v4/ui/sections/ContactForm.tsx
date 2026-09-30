@@ -27,6 +27,7 @@ export const ContactForm: React.FC<{ tab: number }> = ({ tab }) => {
   const [status, setStatus] = useState<Status>('idle');
   // Le visiteur a ecrit son propre message : une nouvelle demande ne l'efface pas
   const typed = useRef(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     setSubject(d.subject);
@@ -35,7 +36,19 @@ export const ContactForm: React.FC<{ tab: number }> = ({ tab }) => {
       typed.current = false;
     }
     setStatus('idle');
-  }, [d.seq, d.subject, d.message]);
+    // Venu d'un bouton (MERCH, LIVE, STUDIO, PRESS) : le formulaire, sous les liens, vient a l'ecran
+    if (d.scroll) {
+      const f = formRef.current;
+      window.setTimeout(() => {
+        if (!f) return;
+        // Seul le corps du panneau defile : scrollIntoView ferait aussi
+        // glisser le cadre du panneau (overflow hidden) et cacherait son titre
+        const body = f.closest<HTMLElement>('.v4-panel-body');
+        if (body) body.scrollTop += f.getBoundingClientRect().top - body.getBoundingClientRect().top - 8;
+        else f.scrollIntoView({ block: 'start' });
+      }, 60);
+    }
+  }, [d.seq, d.subject, d.message, d.scroll]);
 
   const send = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -71,7 +84,7 @@ export const ContactForm: React.FC<{ tab: number }> = ({ tab }) => {
 
   const busy = status === 'sending';
   return (
-    <form className="v4-form" onSubmit={send} noValidate={false}>
+    <form ref={formRef} className="v4-form" onSubmit={send} noValidate={false}>
       <label className="v4-field">
         <span className="v4-field-label">Name</span>
         <input

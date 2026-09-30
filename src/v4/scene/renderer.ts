@@ -51,6 +51,7 @@ import { explode as explodeState } from '../state/explode';
 import { intro } from '../state/intro';
 import { playhead } from '../state/playhead';
 import { section } from '../state/section';
+import { voices } from '../state/voices';
 import {
   BODY,
   CHIP,
@@ -312,6 +313,7 @@ export class Stage {
   private coarseMql: MediaQueryList;
   private unsubMotion: () => void;
   private unsubPattern: () => void;
+  private unsubVoices: () => void;
   private unsubClock: () => void;
   /** les 16 pas du picking (coupes quand le Dock les remplace) */
   private stepDefs: HotspotDef[];
@@ -548,6 +550,8 @@ export class Stage {
     this.unsubMotion = motion.subscribe(this.syncMotion);
     this.syncPattern();
     this.unsubPattern = pattern.subscribe(this.syncPattern);
+    this.syncVoices();
+    this.unsubVoices = voices.subscribe(this.syncVoices);
     this.syncMix();
     this.unsubMix = mix.subscribe(this.syncMix);
     // Section deja ouverte (remontage) : etat pose sans animation
@@ -1344,8 +1348,25 @@ export class Stage {
     const p = pattern.get();
     let lit = this.pads.setSelected(p.instrument);
     if (this.seq.setPattern(p.steps, p.instrument)) lit = true;
+    if (this.syncVoiceKeys()) lit = true;
     if (this.encoders.setValue('tempo', (p.bpm - BPM.min) / (BPM.max - BPM.min))) this.encodersMoved();
     else if (lit) this.repaint();
+  };
+
+  /**
+   * MUTE et SOLO (2026-10-01) : MUTE allume si la voix selectionnee est
+   * coupee (sans selection : si une voix l'est), SOLO si un solo est en
+   * cours. true s'il faut une frame.
+   */
+  private syncVoiceKeys = (): boolean => {
+    const v = voices.get();
+    const inst = pattern.get().instrument;
+    const muteOn = inst ? v.muted.includes(inst) : v.muted.length > 0;
+    return this.seq.setVoiceKeys(muteOn, v.solo !== null);
+  };
+
+  private syncVoices = (): void => {
+    if (this.syncVoiceKeys()) this.repaint();
   };
 
   /** RUN/STOP : couleur du bouton ; la boucle se met a lire l'horloge audio. */
@@ -1483,6 +1504,7 @@ export class Stage {
     this.io?.disconnect();
     this.unsubMotion();
     this.unsubPattern();
+    this.unsubVoices();
     this.unsubClock();
     this.unsubMix();
     this.unsubSection();
