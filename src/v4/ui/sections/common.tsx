@@ -8,7 +8,7 @@
  * tant qu'elle n'est pas affichee. Les liens sortants : ui/ExternalLink.tsx.
  */
 
-import React, { useSyncExternalStore } from 'react';
+import React, { useEffect, useSyncExternalStore } from 'react';
 import type { V2Track } from '../../../v2/context/AudioPlayerContext';
 import { playItem } from '../../actions';
 import { sc } from '../../audio/soundcloud';
@@ -90,6 +90,8 @@ interface PlayListProps {
   queue: V2Track[];
   tab: number;
   label: string;
+  /** la section est affichee : le widget SoundCloud se prechauffe */
+  active: boolean;
 }
 
 /**
@@ -108,18 +110,36 @@ function rowClick(e: React.MouseEvent<HTMLLIElement>, track: V2Track, queue: V2T
   playItem(track, queue);
 }
 
+/** Lien Buy d'une piste (page Bandcamp, nouvel onglet) : son clic ne lance pas la lecture de la ligne. */
+const BuyLink: React.FC<{ href: string; title: string; tab: number }> = ({ href, title, tab }) => (
+  <ExternalLink
+    className="v4-row-link v4-row-buy"
+    href={href}
+    tabIndex={tab}
+    aria-label={`Buy ${title} on Bandcamp`}
+    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+  >
+    Buy
+  </ExternalLink>
+);
+
 /**
  * Lignes jouables : titre et meta en texte simple (selectionnables : un
  * bouton ne se selectionne pas a la souris), un bouton sans texte etendu
  * sous eux sur toute la ligne pour le clavier et les lecteurs d'ecran
  * (aria-label "Play {titre}", aria-describedby la meta). Un clic n'importe
  * ou sur la ligne lance, met en pause ou reprend la piste par le moteur
- * SoundCloud (actions.playItem ; l'iframe du widget ne nait qu'a ce premier
- * clic). La ligne courante : point jaune, titre en yellowHi, aria-current
- * sur son bouton. Les pistes absentes de SoundCloud renvoient a Bandcamp.
+ * SoundCloud (actions.playItem). Le widget se prechauffe des que la liste
+ * s'affiche (sc.warm) : le premier clic part dans le geste. La ligne
+ * courante : point jaune, titre en yellowHi, aria-current sur son bouton.
+ * Chaque piste porte un lien Buy vers sa page Bandcamp (2026-09-30) ; les
+ * pistes absentes de SoundCloud n'ont que lui.
  */
-export const PlayList: React.FC<PlayListProps> = ({ items, queue, tab, label }) => {
+export const PlayList: React.FC<PlayListProps> = ({ items, queue, tab, label, active }) => {
   const st = useSyncExternalStore(sc.subscribe, sc.get, sc.get);
+  useEffect(() => {
+    if (active) sc.warm(queue[0]);
+  }, [active, queue]);
   return (
     <ol className="v4-list" aria-label={label}>
       {items.map((it) => {
@@ -131,9 +151,7 @@ export const PlayList: React.FC<PlayListProps> = ({ items, queue, tab, label }) 
                 <span className="v4-row-title">{it.title}</span>
                 <span className="v4-row-meta">not on SoundCloud</span>
               </span>
-              <ExternalLink className="v4-row-link" href={it.link} tabIndex={tab}>
-                Bandcamp
-              </ExternalLink>
+              <BuyLink href={it.buy ?? it.link} title={it.title} tab={tab} />
             </li>
           );
         }
@@ -145,6 +163,7 @@ export const PlayList: React.FC<PlayListProps> = ({ items, queue, tab, label }) 
             className="v4-row v4-row-play"
             data-current={current ? '1' : undefined}
             data-state={current ? st.status : undefined}
+            data-buy={it.buy ? '1' : undefined}
             onClick={(e) => rowClick(e, it.track, queue)}
           >
             <button
@@ -159,6 +178,7 @@ export const PlayList: React.FC<PlayListProps> = ({ items, queue, tab, label }) 
             <span className="v4-row-meta" id={metaId}>
               {it.meta}
             </span>
+            {it.buy && <BuyLink href={it.buy} title={it.title} tab={tab} />}
           </li>
         );
       })}

@@ -6,7 +6,7 @@ import { PlayList, SectionFrame, tabOf, type SectionProps } from './common';
 
 export const Tracks: React.FC<SectionProps> = ({ active, focusable }) => (
   <SectionFrame id="tracks" active={active}>
-    <PlayList items={TRACKS} queue={TRACK_QUEUE} tab={tabOf(focusable)} label="Tracks" />
+    <PlayList items={TRACKS} queue={TRACK_QUEUE} tab={tabOf(focusable)} label="Tracks" active={active} />
   </SectionFrame>
 );
 

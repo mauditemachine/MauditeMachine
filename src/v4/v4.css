@@ -1148,6 +1148,28 @@ html:has(body.v4-active) {
   color: var(--bone-70);
 }
 
+/* Buy (2026-09-30) : la page Bandcamp de la piste, en orange gras, a droite
+   de la ligne et au-dessus de son bouton de lecture */
+.v4-root .v4-row-buy {
+  color: var(--orange);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.v4-root .v4-row-play .v4-row-buy {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  z-index: 2;
+  transform: translateY(-50%);
+}
+
+.v4-root .v4-row-play[data-buy='1'] {
+  padding-right: 82px;
+}
+
 /* Jaune au survol ET au focus clavier, comme les icones (brief) */
 .v4-root .v4-row-link:hover,
 .v4-root .v4-row-link:focus-visible,

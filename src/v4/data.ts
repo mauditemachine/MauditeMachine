@@ -29,6 +29,11 @@ export interface PlayItem {
   /** false : pas de SoundCloud, la ligne renvoie a Bandcamp */
   playable: boolean;
   link: string;
+  /**
+   * Page Bandcamp de la sortie (track ou album) : le lien Buy de la ligne
+   * (2026-09-30), null sans page precise (mixtapes, lien vers l'accueil).
+   */
+  buy: string | null;
   track: V2Track;
 }
 
@@ -42,12 +47,17 @@ function trackMeta(b: Bead): string {
   return parts.join(', ');
 }
 
+/** Une page precise de Bandcamp (/track/ ou /album/), sinon null. */
+const BUY_RE = /^https:\/\/[a-z0-9-]+\.bandcamp\.com\/(track|album)\/[^/?#]+\/?$/;
+const buyUrl = (link: string | undefined): string | null => (link && BUY_RE.test(link) ? link : null);
+
 const item = (b: Bead, meta: string): PlayItem => ({
   id: b.id,
   title: b.track.title,
   meta,
   playable: b.playable,
   link: b.track.link,
+  buy: b.kind === 'track' ? buyUrl(b.track.link) : null,
   track: b.track,
 });
 

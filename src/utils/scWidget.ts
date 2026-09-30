@@ -75,7 +75,10 @@ function ensureWidget(firstUrl: string): Promise<any> {
     widgetReady = (async () => {
       await loadApiOnce();
       const iframe = document.createElement('iframe');
-      iframe.setAttribute('allow', 'autoplay');
+      // encrypted-media : SoundCloud sert certaines pistes monetisees en HLS
+      // chiffre (DRM) ; sans cette permission l'iframe (autre origine) ne
+      // peut pas les dechiffrer et le widget saute la piste (2026-09-30).
+      iframe.setAttribute('allow', 'autoplay; encrypted-media');
       iframe.setAttribute('title', 'Radar SoundCloud engine');
       iframe.setAttribute('aria-hidden', 'true');
       iframe.tabIndex = -1;
@@ -119,6 +122,17 @@ function ensureWidget(firstUrl: string): Promise<any> {
     });
   }
   return widgetReady;
+}
+
+/**
+ * Cree le widget d'avance, sans rien jouer (auto_play=false) : quand la
+ * liste des pistes s'ouvre, l'iframe et l'API se chargent tout de suite.
+ * Le premier clic trouve alors un widget pret et recharge la piste DANS le
+ * geste (voir hasPlayed) ; sans ca, la toute premiere piste cliquee se
+ * chargeait apres le geste et Safari refusait de la jouer (2026-09-30).
+ */
+export function scPreload(url: string): void {
+  ensureWidget(url).catch(() => undefined);
 }
 
 /**

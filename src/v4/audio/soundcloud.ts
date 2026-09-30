@@ -21,6 +21,7 @@
  * La position (s) vit hors du store : l'ecran la lit a 4 Hz.
  */
 
+import { scPreload } from '../../utils/scWidget';
 import { isPlayable, type V2Track } from '../../v2/context/AudioPlayerContext';
 import { FLAGS } from '../state/flags';
 import { lcdMessage } from '../state/lcdMessage';
@@ -110,6 +111,9 @@ function setPending(v: boolean): void {
   }, LCD_TEXT.pendingMs);
 }
 
+/** Le widget a deja ete prechauffe (une fois par page). */
+let warmed = false;
+
 export const sc = {
   get: (): ScState => state,
   subscribe(fn: () => void): () => void {
@@ -117,6 +121,16 @@ export const sc = {
     return () => {
       listeners.delete(fn);
     };
+  },
+  /**
+   * Liste TRACKS ou MIXTAPES ouverte : le widget SoundCloud se cree
+   * d'avance, sans jouer (scPreload), pour que le premier clic parte dans
+   * le geste. Rien avec le moteur factice (?v4mock) ni une fois cree.
+   */
+  warm(track: V2Track | undefined): void {
+    if (warmed || !track?.soundcloudUrl || FLAGS.v4mock !== 'off' || simEngine) return;
+    warmed = true;
+    scPreload(track.soundcloudUrl);
   },
   /** Position de lecture en s (0 sans piste). */
   position: (): number => (snap.current ? snap.progress * snap.duration : 0),
