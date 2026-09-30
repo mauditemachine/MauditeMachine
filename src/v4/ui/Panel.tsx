@@ -10,7 +10,7 @@
  *   bouton de fermeture ;
  *   glisser vers le bas (80 px ou geste vif) la ferme. La machine au-dessus
  *   reste visible et jouable.
- * Les neuf sections (les sept pages, LIVE et STUDIO, ouvertes par leurs
+ * Les dix sections (les sept pages, LIVE, STUDIO et MERCH, ouvertes par leurs
  * puces) sont toujours rendues (texte dans le DOM des le chargement, pour
  * le referencement et les lecteurs d'ecran) : seule la section ouverte est
  * affichee, les autres sont masquees visuellement et sortent de l'ordre de
@@ -27,6 +27,7 @@ import { Contact } from './sections/Contact';
 import { keepInRow } from './sections/common';
 import { Label } from './sections/Label';
 import { Live } from './sections/Live';
+import { Merch } from './sections/Merch';
 import { Mixtapes } from './sections/Mixtapes';
 import { Press } from './sections/Press';
 import { Shows } from './sections/Shows';
@@ -236,6 +237,7 @@ export const Panel: React.FC<Props> = ({ mobile, panelRef }) => {
         <Sonaa active={active === 'sonaa'} focusable={s === 'sonaa'} />
         <Live active={active === 'live'} focusable={s === 'live'} />
         <Studio active={active === 'studio'} focusable={s === 'studio'} />
+        <Merch active={active === 'merch'} focusable={s === 'merch'} />
       </div>
     </aside>
   );

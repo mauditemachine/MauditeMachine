@@ -330,7 +330,7 @@ export class Stage {
   private dprMql: MediaQueryList | null = null;
   private unsubSection: () => void;
   private unsubMix: () => void;
-  /** les trois puces (allumees pendant l'ouverture et vue ouverte) */
+  /** les quatre puces (allumees pendant l'ouverture et vue ouverte) */
   private chipDefs: HotspotDef[];
   /** les puces repondent (ouverture decouverte, vue ouverte) */
   private chipsOn = false;
@@ -492,7 +492,7 @@ export class Stage {
       () => this.coarseMql.matches
     );
     // Ordre de la liste = ordre de tabulation des jumeaux (spec 20.19) : les
-    // 12 pads (4 voix, 7 pages, OPEN), les trois puces (juste apres OPEN
+    // 12 pads (4 voix, 7 pages, OPEN), les quatre puces (juste apres OPEN
     // qui les decouvre), les six encodeurs, RUN, CLEAR, les 16 pas
     const padDefs = this.pads.hotspots(plateau);
     this.hit.add(padDefs);

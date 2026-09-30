@@ -5,8 +5,9 @@
  * du brief de la revision 2), les dates de public/events.json lues au
  * runtime. Les listes vont du plus recent au plus ancien. Tout ce qui est
  * affiche est une donnee ; les seuls textes ecrits ici sont les liens de
- * presse et de LIVE et les messages vides (le francais de LIVE et de SONAA
- * est dans leurs composants).
+ * presse et de LIVE et les messages vides. Tout le site est en anglais
+ * (2026-09-30) : LIVE et SONAA aussi. MERCH lit public/store.json au
+ * runtime, la meme source que la boutique v2 et l'admin.
  */
 
 import type { V2Track } from '../v2/context/AudioPlayerContext';
@@ -78,13 +79,13 @@ export const PRESS_LINKS: readonly { label: string; href: string }[] = [
 export const LABEL_NAME = 'VRSTL Records';
 export const LABEL_LINK = { label: 'Bandcamp', href: LABEL_URL } as const;
 
-/** SONAA (revision 2, pad SONAA) : le lien ; le texte francais est dans ui/sections/Sonaa.tsx. */
+/** SONAA (revision 2, pad SONAA) : le lien ; le texte est dans ui/sections/Sonaa.tsx. */
 export const SONAA_LINK = { label: 'sonaa.ca', href: 'https://sonaa.ca' } as const;
 
 /**
  * LIVE (revision 2, puce LIVE) : les deux PDF en telechargement, leur
- * taille mesuree (878 617 et 4 460 360 octets) ; le reste du texte, en
- * francais, est dans ui/sections/Live.tsx.
+ * taille mesuree (878 617 et 4 460 360 octets) ; le reste du texte est
+ * dans ui/sections/Live.tsx.
  */
 export const LIVE_DOCS: readonly { label: string; href: string; size: string }[] = [
   { label: 'Tech rider (PDF)', href: '/Tech_Rider_Maudite_Machine_2026-27.pdf', size: '0.9 MB' },
@@ -93,8 +94,8 @@ export const LIVE_DOCS: readonly { label: string; href: string; size: string }[]
 /** Les deux pages du site ouvertes par LIVE, en nouvel onglet. */
 export const LIVE_PAGES = { press: '/press/', techrider: '/techrider' } as const;
 
-/** Le setup materiel (section STUDIO, ouverte par la puce de la vue eclatee). */
-export const STUDIO_GEAR: readonly string[] = ['Ableton Live', 'Push 3', 'Dreadbox Typhon', 'Minilogue XD', 'APC40', 'SSL 2+'];
+/** STUDIO (puce de la vue eclatee) : les cours de musique en PDF viendront plus tard. */
+export const STUDIO_TEXT = 'Coming soon.';
 
 export const CONTACTS: readonly BookingContact[] = BOOKING_CONTACTS;
 
@@ -110,7 +111,6 @@ export interface Show {
 }
 
 export const SHOWS_EMPTY = 'No upcoming dates.';
-export const SHOWS_LINK = { label: 'All shows', href: '/shows' } as const;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const pad2 = (n: number): string => (n < 10 ? `0${n}` : String(n));
@@ -168,4 +168,104 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 export function fmtShowDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
   return `${d} ${MONTHS[(m || 1) - 1] ?? ''} ${y}`;
+}
+
+/* ---------------- merch (public/store.json) ---------------- */
+
+/**
+ * La boutique (puce MERCH de la vue eclatee) : public/store.json, la meme
+ * source que la boutique v2 et l'admin (un edit met a jour le site sans
+ * rebuild). Le fichier liste des VUES (face, dos, couleurs) : regroupees
+ * par categorie en produits, comme src/v2/components/Merch.tsx. Pas de
+ * panier : la commande part par un courriel prerempli. Epuise = marque
+ * Sold out, jamais masque.
+ */
+interface StoreView {
+  id: number;
+  src: string;
+  alt: string;
+  caption: string;
+  price: string;
+  category: string;
+  active: boolean;
+  sizes?: Record<string, boolean>;
+  soldOut: boolean;
+}
+
+export interface MerchProduct {
+  id: string;
+  name: string;
+  price: string;
+  image: { src: string; alt: string };
+  /** tailles dans l'ordre S M L XL, en stock ou non ; null sans tailles (sacs) */
+  sizes: { size: string; inStock: boolean }[] | null;
+  /** produits a couleurs (sacs) : couleurs en stock sur le total */
+  colors: { inStock: number; total: number } | null;
+  available: boolean;
+  orderHref: string;
+}
+
+export const MERCH_TEXT = 'Small runs, first come first served. Pick a piece: the order email is written for you, just add your size and address.';
+export const MERCH_EMPTY = 'The store is being restocked. Check back soon.';
+
+const ORDER_EMAIL = BOOKING_CONTACTS.find((c) => c.id === 'na')?.email || 'mauditemachine@gmail.com';
+const SIZE_ORDER = ['S', 'M', 'L', 'XL'];
+
+const isView = (v: unknown): v is StoreView => {
+  if (!v || typeof v !== 'object') return false;
+  const o = v as Record<string, unknown>;
+  return typeof o.src === 'string' && typeof o.caption === 'string' && typeof o.category === 'string' && typeof o.price === 'string';
+};
+
+const orderHref = (name: string, price: string, sized: boolean, colored: boolean): string =>
+  `mailto:${ORDER_EMAIL}?subject=${encodeURIComponent(`Order: ${name}`)}&body=${encodeURIComponent(
+    `Hi,\n\nI'd like to order: ${name} (${price})\n${sized ? 'Size: \n' : ''}${colored ? 'Color: \n' : ''}Shipping address: \n\nThanks!`
+  )}`;
+
+/** Les vues actives regroupees en produits, dans l'ordre du fichier ; la face avant d'abord. */
+export function groupMerch(raw: unknown): MerchProduct[] {
+  if (!Array.isArray(raw)) return [];
+  const byCat = new Map<string, StoreView[]>();
+  for (const v of raw) {
+    if (!isView(v) || v.active === false) continue;
+    const list = byCat.get(v.category) ?? [];
+    list.push(v);
+    byCat.set(v.category, list);
+  }
+  return [...byCat.entries()].map(([category, raw]) => {
+    const views = [...raw].sort((a, b) => Number(/front/i.test(b.alt)) - Number(/front/i.test(a.alt)));
+    const colored = !views[0].sizes;
+    const available = views.some((v) => !v.soldOut);
+    // Sacs : la premiere couleur en stock ; textiles : la face avant
+    const shown = (colored && views.find((v) => !v.soldOut)) || views[0];
+    const sizes = views[0].sizes
+      ? SIZE_ORDER.filter((k) => k in views[0].sizes!).map((k) => ({ size: k, inStock: !views[0].soldOut && views[0].sizes![k] === true }))
+      : null;
+    return {
+      id: category,
+      name: views[0].caption,
+      price: views[0].price,
+      image: { src: encodeURI(`/${shown.src.replace(/^\//, '')}`), alt: shown.alt },
+      sizes,
+      colors: colored ? { inStock: views.filter((v) => !v.soldOut).length, total: views.length } : null,
+      available: available && (!sizes || sizes.some((z) => z.inStock)),
+      orderHref: orderHref(views[0].caption, views[0].price, sizes !== null, colored),
+    };
+  });
+}
+
+let merchPromise: Promise<MerchProduct[]> | null = null;
+
+/** Une lecture par page (cache) ; un echec rend [] et laisse le prochain montage reessayer. */
+export function fetchMerch(): Promise<MerchProduct[]> {
+  if (!merchPromise) {
+    const p: Promise<MerchProduct[]> = fetch('/store.json', { cache: 'no-cache' })
+      .then((r) => (r.ok ? r.json() : []))
+      .then(groupMerch, () => {
+        if (merchPromise === p) merchPromise = null;
+        return [];
+      });
+    merchPromise = p;
+  }
+  return merchPromise;
 }

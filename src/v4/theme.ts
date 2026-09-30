@@ -24,7 +24,10 @@ export const HEX = {
   yellow: '#F2C230',
   yellowHi: '#FFD75E',
   red: '#C8442F',
-  ledSet: '#6E6C6A',
+  /** orange de navigation : noms des pages et des puces, pas programmes (demande de Mika, 2026-09-30) */
+  orange: '#FF6A13',
+  /** pas programme : orange, pour voir d'un coup d'oeil quels pas sont mis */
+  ledSet: '#FF6A13',
   ledHover: '#A9A69F',
   // Revision 2 (spec 20.3), couleurs AFFICHEES visees (voir GAIN)
   /** flancs et dessous du chassis, mats (brief) */
@@ -135,6 +138,8 @@ export const SILK = {
   capRatio: 0.7,
   lineWidth: 0.012,
   lineAlpha: 0.35,
+  /** lueur des noms orange (emissif = leur couleur x orangeGlow) : lisibles sous la lumiere */
+  orangeGlow: 0.6,
 } as const;
 
 /** Serigraphie du PCB : l'ancienne, 700, 0.18 em (spec 5.7). */
@@ -361,7 +366,7 @@ export type Inst = 'BD' | 'SD' | 'TOM' | 'CH';
 /** Les sept pages du site, pads de navigation (touches 1 a 7). */
 export type PageId = 'tracks' | 'mixtapes' | 'press' | 'shows' | 'contact' | 'label' | 'sonaa';
 /** Les sections du panneau : les sept pages, LIVE et STUDIO (puces de la vue eclatee). */
-export type SectionId = PageId | 'live' | 'studio';
+export type SectionId = PageId | 'live' | 'studio' | 'merch';
 export type PadId = Inst | PageId | 'open';
 
 /**
@@ -598,6 +603,7 @@ export const SECTION_TITLES: Readonly<Record<SectionId, string>> = {
   sonaa: 'SONAA',
   live: 'LIVE',
   studio: 'STUDIO',
+  merch: 'MERCH',
 };
 
 /**
@@ -685,11 +691,16 @@ export interface SilkText {
   /** les textes d'un meme groupe partagent le plus petit corps */
   group?: string;
   weight?: number;
+  /** encre : bone (defaut) ou orange (noms des pages et OPEN, en gras) */
+  ink?: 'bone' | 'orange';
 }
 
 /** Le libelle du pad OPEN (OPEN, CLOSE vue eclatee) : l'index de son texte dans SILK_TEXTS. */
 const PAD_CAP = 0.09;
-const padLabel = (p: PadSpec): SilkText => ({ text: p.label, x: p.x, z: p.z + PAD.labelDz, cap: PAD_CAP, maxW: 1.0, group: 'pads' });
+const padLabel = (p: PadSpec): SilkText =>
+  p.kind === 'voice'
+    ? { text: p.label, x: p.x, z: p.z + PAD.labelDz, cap: PAD_CAP, maxW: 1.0, group: 'pads' }
+    : { text: p.label, x: p.x, z: p.z + PAD.labelDz, cap: PAD_CAP, maxW: 1.0, group: 'pads', weight: 700, ink: 'orange', alpha: 1 };
 
 export const SILK_TEXTS: readonly SilkText[] = [
   { text: 'MAUDITE MACHINE', x: -6.3, z: -3.95, cap: 0.2, align: 'left', weight: SILK.strongWeight },
@@ -853,7 +864,7 @@ export const INTRO = { ms: 700, dropY: 0.6, ledFromMs: 100, ledMs: 400 } as cons
 /* ---------- textes ---------- */
 
 export const COPY = {
-  title: 'Maudite Machine | MM-808',
+  title: 'Maudite Machine | DJ & Producer \u00B7 Hypnotic Techno',
   wordmark: 'MAUDITE MACHINE',
   model: 'MM-808',
 } as const;
@@ -892,12 +903,12 @@ export const EXPLODE = {
   chipsFrom: 0.85,
 } as const;
 
-export type ChipId = 'label' | 'live' | 'studio';
+export type ChipId = 'label' | 'live' | 'studio' | 'merch';
 
 /**
  * Grosse puce (spec 5.6) : corps 1.7 x 0.2 x 1.2 pose 0.03 au-dessus de la
  * carte, 2 x 8 pattes de 0.06 x 0.08 x 0.16 a z +/-0.66, pas de 0.2 ; un
- * point jaune marque la broche 1 des trois puces cliquables.
+ * point jaune marque la broche 1 des puces cliquables.
  */
 export const CHIP = {
   w: 1.7,
@@ -939,12 +950,13 @@ export const LABEL_URL = 'https://vrstlrecords.bandcamp.com';
 export const EXTERNAL_MARK = { d: 'M3.5 2.5h6v6M9.5 2.5l-7 7', box: 12, stroke: 1.4 } as const;
 
 /**
- * Les trois puces cliquables (spec 6.1, 20.3.11 et 20.5), rangee a z 2.6
+ * Les quatre puces cliquables (spec 6.1, 20.3.11 et 20.5), rangee a z 2.6
  * de la carte : sous le panneau leve et recule, la moitie avant de la
- * carte se voit depuis la vue par defaut (100 % des trois puces), les
- * cotes et les vues basses de l'arriere en montrent une partie. LABEL est
- * un lien direct, nouvel onglet ; LIVE et STUDIO ouvrent leur section (et
- * portent l'ancre de sa trace).
+ * carte se voit depuis la vue par defaut, les cotes et les vues basses de
+ * l'arriere en montrent une partie. LABEL est un lien direct, nouvel
+ * onglet ; LIVE, STUDIO et MERCH ouvrent leur section (et portent l'ancre
+ * de sa trace). MERCH (2026-09-30) : la quatrieme, les autres pieces de la
+ * carte se sont ecartees pour lui faire place.
  */
 export const CHIPS: readonly {
   id: ChipId;
@@ -956,11 +968,12 @@ export const CHIPS: readonly {
   /** lien sortant du jumeau (nouvel onglet) ; null : la puce ouvre sa section */
   href: string | null;
   /** section ouverte par la puce */
-  section: 'live' | 'studio' | null;
+  section: 'live' | 'studio' | 'merch' | null;
 }[] = [
-  { id: 'label', silk: 'LABEL', x: -3.4, z: 2.6, aria: 'VRSTL Records on Bandcamp', href: LABEL_URL, section: null },
-  { id: 'live', silk: 'LIVE', x: 0, z: 2.6, aria: 'Live setup and documents', href: null, section: 'live' },
-  { id: 'studio', silk: 'STUDIO', x: 3.4, z: 2.6, aria: 'Studio setup', href: null, section: 'studio' },
+  { id: 'label', silk: 'LABEL', x: -4.5, z: 2.6, aria: 'VRSTL Records on Bandcamp', href: LABEL_URL, section: null },
+  { id: 'live', silk: 'LIVE', x: -1.5, z: 2.6, aria: 'Live setup and documents', href: null, section: 'live' },
+  { id: 'studio', silk: 'STUDIO', x: 1.5, z: 2.6, aria: 'Studio', href: null, section: 'studio' },
+  { id: 'merch', silk: 'MERCH', x: 4.5, z: 2.6, aria: 'Merch: hoodies and t-shirts', href: null, section: 'merch' },
 ];
 
 /**
@@ -971,14 +984,14 @@ export const CHIPS: readonly {
  */
 export const PCB_PARTS = {
   small: [
-    { x: -5.3, z: 2.6 },
-    { x: 5.3, z: 2.6 },
+    { x: -5.85, z: 2.6 },
+    { x: 5.85, z: 2.6 },
     { x: 5.35, z: -3.2 },
     { x: -2.7, z: -2.9 },
   ],
   caps: [
-    { x: -5.55, z: 3.5 },
-    { x: 1.7, z: 2.3 },
+    { x: -5.3, z: -1.0 },
+    { x: 0, z: 2.3 },
     { x: 5.55, z: -1.6 },
     { x: 5.55, z: -2.35 },
     { x: -3.6, z: -2.2 },
@@ -987,8 +1000,8 @@ export const PCB_PARTS = {
   cell: { x: 5.35, z: -0.55 },
   resistors: Array.from({ length: 10 }, (_, k) => ({ x: -4.6 + 0.9 * k, z: 1.25 })),
   crystals: [
-    { x: -1.7, z: 3.5 },
-    { x: 1.7, z: 3.5 },
+    { x: -3.0, z: 3.5 },
+    { x: 3.0, z: 3.5 },
   ],
   small3: { w: 0.8, h: 0.14, d: 0.6 },
   cap3: { r: 0.28, h: 0.6, topH: 0.02 },

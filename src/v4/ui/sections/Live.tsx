@@ -1,11 +1,9 @@
 /**
  * LIVE (revision 2, spec 20.5) : ouverte par la puce LIVE de la vue
- * eclatee, un vrai bouton (elle ne navigue plus vers /techrider : le
- * visiteur reste sur /v4). Le texte du brief, en francais exactement
- * (lang="fr") ; les accents passent par les entites nommees du JSX, les
- * fichiers restent en ASCII. Documents : les deux PDF a telecharger
- * (attribut download, fleche a gauche, taille a droite), puis /press/ et
- * /techrider en nouvel onglet (chevron sortant).
+ * eclatee, un vrai bouton (le visiteur reste sur la page). Tout le site
+ * est en anglais (2026-09-30) : le texte du brief, traduit. Documents :
+ * les deux PDF a telecharger (attribut download, fleche a gauche, taille a
+ * droite), puis /press/ et /techrider en nouvel onglet (chevron sortant).
  */
 
 import React from 'react';
@@ -16,10 +14,10 @@ import { DocLink, SectionFrame, tabOf, type SectionProps } from './common';
 export const Live: React.FC<SectionProps> = ({ active, focusable }) => {
   const tab = tabOf(focusable);
   return (
-    <SectionFrame id="live" active={active} lang="fr">
+    <SectionFrame id="live" active={active}>
       <h3 className="v4-sec-sub">Setup</h3>
-      <p className="v4-sec-text">DJ set sur CDJ, ou live hybride Ableton Live, Push 3, Dreadbox Typhon, APC40.</p>
-      <p className="v4-sec-text">Dur&eacute;e : 90 minutes &agrave; 4 heures en DJ, 60 &agrave; 75 minutes en live.</p>
+      <p className="v4-sec-text">DJ set on CDJs, or hybrid live set: Ableton Live, Push 3, Dreadbox Typhon, APC40.</p>
+      <p className="v4-sec-text">Length: 90 minutes to 4 hours as a DJ, 60 to 75 minutes live.</p>
       <h3 className="v4-sec-sub">Documents</h3>
       <ul className="v4-links">
         {LIVE_DOCS.map((d) => (
@@ -29,12 +27,12 @@ export const Live: React.FC<SectionProps> = ({ active, focusable }) => {
         ))}
         <li>
           <ExternalLink className="v4-link" href={LIVE_PAGES.press} tabIndex={tab}>
-            <span>Photos et logos</span>
+            <span>Photos and logos</span>
           </ExternalLink>
         </li>
         <li>
           <ExternalLink className="v4-link" href={LIVE_PAGES.techrider} tabIndex={tab}>
-            <span>Fiche technique compl&egrave;te</span>
+            <span>Full tech rider</span>
           </ExternalLink>
         </li>
       </ul>

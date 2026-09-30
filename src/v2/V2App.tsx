@@ -49,6 +49,17 @@ const V2Shell: React.FC = () => {
   // restaure au unmount - partage avec /v2/radar
   useV2Chrome('Maudite Machine | Hypnotic Techno');
 
+  // Archivee sous /v2 depuis 2026-09-30 (la machine MM-808 est l'accueil) :
+  // noindex comme la v1, la meta robots d'index.html restauree en quittant.
+  useEffect(() => {
+    const robots = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
+    const prev = robots?.content ?? null;
+    if (robots) robots.content = 'noindex, nofollow';
+    return () => {
+      if (robots && prev !== null) robots.content = prev;
+    };
+  }, []);
+
   // Arrivee avec une ancre (redirections /about -> /#epk, liens partages) :
   // le contenu monte apres le paint initial, le jump natif rate sa cible.
   useEffect(() => {

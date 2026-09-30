@@ -207,7 +207,7 @@ function panelTop(): React.ReactNode {
               fontSize={size}
               fontWeight={t.weight ?? SILK.weight}
               textAnchor={anchor}
-              fill={t.alpha ? `rgba(246, 241, 231, ${t.alpha})` : C.bone85}
+              fill={t.ink === 'orange' ? HEX.orange : t.alpha ? `rgba(246, 241, 231, ${t.alpha})` : C.bone85}
               className="v4-silk"
             >
               {t.text}

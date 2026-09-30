@@ -20,6 +20,9 @@ import { CHIPS, POT_UI, swingRatio, type ChipId, type EncId, type Inst, type Pag
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
 const pct = (v: number): number => Math.round(v * 100);
 
+/** Le beat par defaut (autoRun, plus bas) a-t-il deja eu sa chance ? */
+let autoRunDone = false;
+
 /** Premier geste : cree le contexte audio ; ensuite, le relance s'il dort. */
 export function gesture(): void {
   ensure();
@@ -84,6 +87,7 @@ export function stepToggle(i: number): boolean {
  * source a la fois (spec decision 5).
  */
 export function runToggle(): boolean {
+  autoRunDone = true;
   gesture();
   if (!clock.running) sc.pauseForRun();
   return clock.toggle();
@@ -177,8 +181,8 @@ export function openToggle(stage: Stage | null = null): boolean {
 }
 
 /**
- * Puce de la vue eclatee (spec 20.6.2 CHIP) : LIVE ouvre sa section ou la
- * referme (bascule, comme un pad de page) ; STUDIO ouvre la sienne
+ * Puce de la vue eclatee (spec 20.6.2 CHIP) : LIVE et MERCH ouvrent leur
+ * section ou la referment (bascule, comme un pad de page) ; STUDIO ouvre la sienne
  * (inchange) ; LABEL, un lien, ouvre sa page Bandcamp dans un onglet sans
  * opener ni referer, seulement quand son jumeau manque (sinon le jumeau,
  * un vrai lien, fait le travail).
@@ -187,7 +191,7 @@ export function chipAction(id: ChipId): void {
   if (!chipsLive(explode.get())) return;
   const c = CHIPS.find((k) => k.id === id);
   if (!c) return;
-  if (c.section === 'live') section.toggle('live');
+  if (c.section === 'live' || c.section === 'merch') section.toggle(c.section);
   else if (c.section) openSection(c.section);
   else if (c.href) window.open(c.href, '_blank', 'noopener,noreferrer');
 }
@@ -212,5 +216,23 @@ export function escape(): boolean {
 
 /** Ligne TRACKS ou MIXTAPES : lecture, pause ou reprise par le moteur SoundCloud. */
 export function playItem(track: V2Track, queue: V2Track[]): void {
+  autoRunDone = true;
   sc.play(track, queue);
+}
+
+/**
+ * Beat par defaut (2026-09-30) : le motif de depart doit tourner des
+ * l'arrivee du visiteur. Les navigateurs refusent le son avant un geste :
+ * le premier geste de la page (clic, toucher, glisser, touche) lance donc
+ * RUN, une seule fois par visite, apres l'action de ce geste (index.tsx) ;
+ * rien si ce geste a lui-meme choisi le son (RUN/STOP, une piste ou une
+ * mixtape) ou si une piste joue deja.
+ */
+export function autoRun(): void {
+  if (autoRunDone) return;
+  autoRunDone = true;
+  const st = sc.get().status;
+  if (clock.running || st === 'playing' || st === 'loading') return;
+  gesture();
+  clock.start();
 }

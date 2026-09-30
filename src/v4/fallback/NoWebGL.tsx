@@ -12,6 +12,7 @@ import { COPY } from '../theme';
 import { Contact } from '../ui/sections/Contact';
 import { Label } from '../ui/sections/Label';
 import { Live } from '../ui/sections/Live';
+import { Merch } from '../ui/sections/Merch';
 import { Mixtapes } from '../ui/sections/Mixtapes';
 import { Press } from '../ui/sections/Press';
 import { Shows } from '../ui/sections/Shows';
@@ -37,6 +38,7 @@ const NoWebGL: React.FC = () => (
       <Sonaa active focusable />
       <Live active focusable />
       <Studio active focusable />
+      <Merch active focusable />
     </div>
   </section>
 );

@@ -14,13 +14,13 @@ const GoodiesPage = React.lazy(() => import('./pages/GoodiesPage'));
 const TechRiderPage = React.lazy(() => import('./pages/TechRiderPage'));
 const ContactPage = React.lazy(() => import('./pages/ContactPage'));
 const AdminRadarPage = React.lazy(() => import('./pages/AdminRadarPage'));
-// Le site principal depuis la bascule (2026-08) : la refonte v2
+// La v2 (site principal de 2026-08 a 2026-09) : archivee sous /v2
 const V2App = React.lazy(() => import('./v2/V2App'));
 const V2RadarPage = React.lazy(() => import('./v2/pages/RadarPage'));
 const V2TechRiderPage = React.lazy(() => import('./v2/pages/TechRiderPage'));
 // Experiment v3 : Acid Line, hors sitemap (chunk lazy, v1 et v2 n'en chargent rien)
 const V3App = React.lazy(() => import('./v3/V3App'));
-// Experiment v4 : la machine isometrique MM-808, hors sitemap (chunk lazy)
+// Le site principal depuis 2026-09-30 : la machine MM-808 (chunk lazy)
 const V4App = React.lazy(() => import('./v4/index'));
 // Panneau admin local (shell sidebar : dashboard, contenu, medias, publier)
 const AdminApp = React.lazy(() => import('./admin/AdminApp'));
@@ -35,25 +35,26 @@ export default function App() {
     <Router>
       <AppProvider>
         <Routes>
-          {/* ============ Site principal : la v2 ============ */}
-          <Route path="/" element={lazyEl(<V2App />)} />
+          {/* ============ Site principal : la machine MM-808 (v4) ============ */}
+          <Route path="/" element={lazyEl(<V4App />)} />
           <Route path="/radar" element={lazyEl(<V2RadarPage />)} />
           <Route path="/techrider" element={lazyEl(<V2TechRiderPage />)} />
           <Route path="/v3" element={lazyEl(<V3App />)} />
-          <Route path="/v4" element={lazyEl(<V4App />)} />
-          {/* Compat : les liens /v2 deja partages restent valides */}
-          <Route path="/v2" element={<Navigate to="/" replace />} />
+          {/* Compat : les liens /v4 deja partages menent a l'accueil */}
+          <Route path="/v4" element={<Navigate to="/" replace />} />
+          {/* La v2 archivee, navigable sous /v2 */}
+          <Route path="/v2" element={lazyEl(<V2App />)} />
           {/* La page Archives (musee du site) a ete retiree : on ne laisse
               pas une page blanche aux liens deja partages ou indexes. */}
           <Route path="/archives" element={<Navigate to="/" replace />} />
           <Route path="/v2/radar" element={<Navigate to="/radar" replace />} />
 
           {/* ============ Redirections des anciennes URLs v1 ============ */}
-          <Route path="/about" element={<Navigate to="/#epk" replace />} />
-          <Route path="/shows" element={<Navigate to="/#live" replace />} />
-          <Route path="/merch" element={<Navigate to="/#merch" replace />} />
-          <Route path="/goodies" element={<Navigate to="/#merch" replace />} />
-          <Route path="/contact" element={<Navigate to="/#contact" replace />} />
+          <Route path="/about" element={<Navigate to="/" replace />} />
+          <Route path="/shows" element={<Navigate to="/" replace />} />
+          <Route path="/merch" element={<Navigate to="/" replace />} />
+          <Route path="/goodies" element={<Navigate to="/" replace />} />
+          <Route path="/contact" element={<Navigate to="/" replace />} />
 
           {/* ============ v1 archivee, navigable sous /v1 (noindex) ============ */}
           <Route path="/v1" element={<Layout />}>

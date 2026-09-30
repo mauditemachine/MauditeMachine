@@ -25,6 +25,7 @@ import {
   FONT_DISPLAY,
   FONT_LOADS,
   FONT_TIMEOUT_MS,
+  HEX,
   OPEN_SILK_INDEX,
   PAD,
   SILK,
@@ -267,6 +268,16 @@ export class PanelSilk {
       metalness: 0,
     });
     mat.name = 'silk';
+    // Noms des pages en orange (2026-09-30) : sous la lumiere l'encre
+    // orange rendait brun ; seule elle luit un peu (texel ou le rouge
+    // domine nettement le bleu : le bone, lui, n'est pas touche).
+    mat.onBeforeCompile = (shader) => {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += diffuseColor.rgb * step(0.5, diffuseColor.r - diffuseColor.b) * ${SILK.orangeGlow.toFixed(2)};`
+      );
+    };
+    mat.customProgramCacheKey = () => 'silkOrange';
     this.mesh = new Mesh(geo, mat);
     this.mesh.name = 'silk';
     this.mesh.position.y = SILK_PLANE.y;
@@ -331,7 +342,7 @@ export class PanelSilk {
       const w = trackedWidth(ctx, it.text, fontPx, weight);
       const cx = this.px(it.x);
       const x0 = it.align === 'right' ? cx - w : it.align === 'left' ? cx : cx - w / 2;
-      ctx.fillStyle = boneA(it.alpha ?? SILK.alpha);
+      ctx.fillStyle = it.ink === 'orange' ? HEX.orange : boneA(it.alpha ?? SILK.alpha);
       drawTracked(ctx, it.text, x0, this.py(it.z) + (cap * u) / 2, fontPx, weight);
     });
 

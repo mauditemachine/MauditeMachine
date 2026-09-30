@@ -30,7 +30,7 @@ import React, {
   type ErrorInfo,
 } from 'react';
 import './v4.css';
-import { gesture } from './actions';
+import { autoRun, gesture } from './actions';
 import { clock } from './audio/clock';
 import { quiet, resume, suspend } from './audio/drums';
 import { pattern } from './audio/pattern';
@@ -94,10 +94,16 @@ class StageBoundary extends Component<BoundaryProps, { failed: boolean }> {
  * contexte audio, tout geste le relance s'il dort. pointerup et touchend
  * aussi : sur iOS et Android un doigt n'active l'audio qu'au relachement,
  * le premier coup (programme au pointerdown) part alors. Le premier geste
- * termine aussi l'intro (spec 7.4). Demontage : la lecture s'arrete, la
+ * termine aussi l'intro (spec 7.4). Beat par defaut (2026-09-30) : a la
+ * fin du premier geste (relachement du pointeur, ou d'une touche autre que
+ * Tab et les modificateurs), apres son action, autoRun lance RUN une fois.
+ * Demontage : la lecture s'arrete, la
  * queue de reverbe est jetee (quiet), le contexte dort, le motif en
  * attente est ecrit.
  */
+/** Touches qui ne lancent pas le beat : la navigation au clavier et les modificateurs. */
+const NOT_A_START = new Set(['Tab', 'Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Escape']);
+
 function useAudioGestures(getStage: () => Stage | null): void {
   useEffect(() => {
     const onGesture = (): void => {
@@ -105,11 +111,29 @@ function useAudioGestures(getStage: () => Stage | null): void {
       gesture();
     };
     const opts = { capture: true, passive: true } as const;
+    let autoTimer = 0;
+    const offAuto = (): void => {
+      window.removeEventListener('pointerup', onFirstUp, opts);
+      window.removeEventListener('keyup', onFirstKey, opts);
+    };
+    // Apres le clic, la frappe ou le glisser qui suivent ce relachement
+    const armAuto = (): void => {
+      offAuto();
+      autoTimer = window.setTimeout(autoRun, 0);
+    };
+    const onFirstUp = (): void => armAuto();
+    const onFirstKey = (e: KeyboardEvent): void => {
+      if (!NOT_A_START.has(e.key)) armAuto();
+    };
     window.addEventListener('pointerdown', onGesture, opts);
     window.addEventListener('keydown', onGesture, opts);
     window.addEventListener('pointerup', resume, opts);
     window.addEventListener('touchend', resume, opts);
+    window.addEventListener('pointerup', onFirstUp, opts);
+    window.addEventListener('keyup', onFirstKey, opts);
     return () => {
+      window.clearTimeout(autoTimer);
+      offAuto();
       window.removeEventListener('pointerdown', onGesture, opts);
       window.removeEventListener('keydown', onGesture, opts);
       window.removeEventListener('pointerup', resume, opts);

@@ -117,7 +117,7 @@ const twinEls = new Map<string, HTMLElement>();
 
 /**
  * Puce touchee sur le canvas : son jumeau est active (LABEL : lien vers la
- * page Bandcamp du label en nouvel onglet ; LIVE et STUDIO : boutons de
+ * page Bandcamp du label en nouvel onglet ; LIVE, STUDIO et MERCH : boutons de
  * leur section), le geste en cours donne l'activation utilisateur ; sans
  * jumeau, l'action directe.
  */

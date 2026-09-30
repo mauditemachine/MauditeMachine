@@ -60,6 +60,8 @@ const TEX = {
   silk: boneA(0.9),
   /** serigraphie et chevron de la puce LABEL allumee (survol, focus) */
   lit: litCss('yellow', 1.2),
+  /** nom des puces cliquables : l'orange de navigation, comme les pages du panneau */
+  nav: litCss('orange', 1.2),
 } as const;
 
 /**
@@ -125,6 +127,8 @@ interface SilkText {
   px: number;
   align: 'left' | 'center' | 'right';
   reserve: number;
+  /** nom d'une puce cliquable : en orange (navigation), pas en bone */
+  nav?: boolean;
 }
 
 /** Nom d'une puce en px de la texture : bord gauche, ligne de base, hauteur de capitale, taille, depart du chevron. */
@@ -193,7 +197,7 @@ function footprints(): Footprint[] {
   });
   P.small.forEach((s, k) => {
     const hz = P.small3.d / 2 + 0.05;
-    out.push({ x: s.x, z: s.z, hx: P.small3.w / 2 + 0.05, hz, round: false, frame: false, ref: `U${k + 4}`, refX: s.x, refZ: s.z - hz - 0.2, refAlign: 'center', axis: 'x' });
+    out.push({ x: s.x, z: s.z, hx: P.small3.w / 2 + 0.05, hz, round: false, frame: false, ref: `U${k + CHIPS.length + 1}`, refX: s.x, refZ: s.z - hz - 0.2, refAlign: 'center', axis: 'x' });
   });
   P.caps.forEach((c, k) => {
     const r = P.cap3.r + 0.05;
@@ -268,7 +272,7 @@ function buildParts(mobile: boolean): { geo: BufferGeometry; ranges: ChipRange[]
     pieces.push(g);
     offset += g.getAttribute('position').count;
   };
-  // Les trois puces d'abord : leurs plages de sommets restent simples
+  // Les quatre puces d'abord : leurs plages de sommets restent simples
   for (const c of CHIPS) {
     const sub: BufferGeometry[] = [box(CHIP.w, CHIP.y1 - CHIP.y0, CHIP.d, c.x, (CHIP.y0 + CHIP.y1) / 2, c.z, RGB.chip)];
     for (const side of [-1, 1]) {
@@ -421,7 +425,7 @@ export class Pcb {
     // Puce qui sort du site : la place du chevron, a droite de son nom
     for (const c of CHIPS) {
       const reserve = c.href ? CHIP.extGapPx + PCB.chipLabelPx * SILK.capRatio : 0;
-      out.push({ text: c.silk, x: c.x, z: c.z + CHIP.labelDz, px: PCB.chipLabelPx, align: 'center', reserve });
+      out.push({ text: c.silk, x: c.x, z: c.z + CHIP.labelDz, px: PCB.chipLabelPx, align: 'center', reserve, nav: true });
     }
     for (const f of this.prints) out.push({ text: f.ref, x: f.refX, z: f.refZ, px: PCB.designatorPx, align: f.refAlign, reserve: 0 });
     return out;
@@ -635,7 +639,7 @@ export class Pcb {
     }
     for (const [x, z] of this.vias) pad(x, z);
 
-    // Contours : blancs, jaunes pour les trois puces cliquables
+    // Contours : blancs, jaunes pour les puces cliquables
     for (const f of this.prints) {
       ctx.strokeStyle = f.frame ? TEX.frame : TEX.silk;
       ctx.lineWidth = Math.max(1, (f.frame ? PCB.chipFrame : PCB.outline) * k);
@@ -649,6 +653,7 @@ export class Pcb {
     ctx.fillStyle = TEX.silk;
     ctx.textBaseline = 'alphabetic';
     for (const t of this.texts()) {
+      ctx.fillStyle = t.nav ? TEX.nav : TEX.silk;
       const px = t.px * k;
       const w = trackedWidth(ctx, t.text, px, PCB_TYPE.weight, PCB_TYPE.tracking);
       const x = this.px(t.x);
@@ -741,7 +746,7 @@ export class Pcb {
 
   /* ---------- puces ---------- */
 
-  /** Les trois puces pour le picking : leur boite pattes comprises, sur le dessus de la carte. */
+  /** Les quatre puces pour le picking : leur boite pattes comprises, sur le dessus de la carte. */
   hotspots(layer: Object3D): HotspotDef[] {
     return CHIPS.map((c) => ({
       id: `chip-${c.id}`,
@@ -812,8 +817,8 @@ export class Pcb {
 
   info(): PcbInfo {
     const idx = this.parts.geometry.getIndex();
-    const rise = { label: 0, live: 0, studio: 0 } as Record<ChipId, number>;
-    const lit = { label: false, live: false, studio: false } as Record<ChipId, boolean>;
+    const rise = { label: 0, live: 0, studio: 0, merch: 0 } as Record<ChipId, number>;
+    const lit = { label: false, live: false, studio: false, merch: false } as Record<ChipId, boolean>;
     for (const r of this.ranges) {
       rise[r.id] = +r.rise.toFixed(4);
       lit[r.id] = r.lit;

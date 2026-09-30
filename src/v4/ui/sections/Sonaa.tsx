@@ -1,7 +1,6 @@
 /**
- * SONAA (revision 2, spec 20.5) : ouverte par le pad SONAA. Le texte du
- * brief, en francais exactement (lang="fr") ; les accents passent par les
- * entites nommees du JSX, les fichiers restent en ASCII. Puis le lien
+ * SONAA (revision 2, spec 20.5) : ouverte par le pad SONAA. Tout le site
+ * est en anglais (2026-09-30) : le texte du brief, traduit. Puis le lien
  * sonaa.ca en nouvel onglet (chevron sortant, sans opener ni referer).
  */
 
@@ -11,9 +10,9 @@ import { ExternalLink } from '../ExternalLink';
 import { SectionFrame, tabOf, type SectionProps } from './common';
 
 export const Sonaa: React.FC<SectionProps> = ({ active, focusable }) => (
-  <SectionFrame id="sonaa" active={active} lang="fr">
-    <p className="v4-sec-text">L&apos;atlas et le calendrier des musiques &eacute;lectroniques.</p>
-    <p className="v4-sec-text">Genres, sc&egrave;nes, &eacute;v&eacute;nements.</p>
+  <SectionFrame id="sonaa" active={active}>
+    <p className="v4-sec-text">The atlas and calendar of electronic music.</p>
+    <p className="v4-sec-text">Genres, scenes, events.</p>
     <ul className="v4-links">
       <li>
         <ExternalLink className="v4-link" href={SONAA_LINK.href} tabIndex={tabOf(focusable)}>

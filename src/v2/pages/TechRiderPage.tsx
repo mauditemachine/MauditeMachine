@@ -138,7 +138,7 @@ const TechRiderPage: React.FC = () => {
       <Cursor />
 
       <header className="v2-radar-top">
-        <Link className="v2-label v2-radar-back" to="/#epk">
+        <Link className="v2-label v2-radar-back" to="/">
           {t.back}
         </Link>
         <div className="v2-section-head" style={{ marginBottom: 0 }}>
