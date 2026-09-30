@@ -11,6 +11,7 @@
 - Formulaire de contact dans CONTACT (EmailJS, config commune `src/data/emailjs.ts`), objet pre-rempli selon la provenance (Booking, live, Lesson, Press, Merch order) ; MERCH commande par le formulaire.
 - Spec : `docs/v4/spec.md` section 22.
 - Deuxieme passe : boutons MUTE et SOLO a cote de RUN/STOP et CLEAR (3D, jumeaux, Dock) ; pads LABEL et SONAA retires, leurs liens dans CONTACT ; CONTACT : liens en tete, formulaire en bas ; machine compacte 12.6 x 8 (14 x 9 avant), cadrage re-mesure. Spec section 23.
+- Troisieme passe : LIVE fondu dans PRESS (un seul pad) ; 11 pads, OPEN seul a droite.
 
 ## 2. Decisions prises et pourquoi
 

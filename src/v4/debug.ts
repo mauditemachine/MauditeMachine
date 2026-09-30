@@ -26,7 +26,7 @@
  * clock.scheduled[].off (retard du swing), state.pattern.fx (la forme
  * stockee). Revision 2, etape 4 (icones, LABEL, LIVE, SONAA) : pcb.lit et
  * pcb.litDraws (puce LABEL allumee au survol ou au focus), twins.controls
- * (aria-controls des puces LIVE et STUDIO), state.section 'live'. Revue
+ * (aria-controls des puces GOODIES, MERCH et STUDIO), state.section 'press'. Revue
  * de la revision 2 : orbit.lastTap.quick (moins de 400 ms : la double tape
  * du fond), audio.fx apres le demontage (reverbOn false : la queue est
  * jetee), state type (V4DebugState). Lire l'etat ici, jamais par

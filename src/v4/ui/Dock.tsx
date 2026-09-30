@@ -5,9 +5,9 @@
  * toucher choisit sans jouer), les 16 pas en deux rangees de 8 cases, le
  * transport (RUN/STOP, CLEAR, MUTE, SOLO, tempo - / valeur / +), puis la
  * grille de navigation : tous les boutons visibles d'un coup, aucun
- * defilement (6 colonnes x 2 rangees, v4.css). Machine fermee : TRACKS a
- * LIVE, RESET et OPEN (bouton plein orange) ; ouverte : GOODIES, MERCH et
- * STUDIO remplacent RESET, OPEN devient CLOSE. Un instrument coupe (MUTE)
+ * defilement (6 colonnes x 2 rangees, v4.css) : les cinq pages et RESET,
+ * puis OPEN (bouton plein orange) sur toute la rangee ; machine ouverte,
+ * GOODIES, MERCH et STUDIO a cote de CLOSE. Un instrument coupe (MUTE)
  * est barre, celui en solo cerne d'orange. Icones Font Awesome 6.5.1 (deja chargee par
  * index.html), en aria-hidden ; chaque bouton garde son nom en toutes
  * lettres. Un appui long (400 ms) vide un pas. Memes
@@ -55,10 +55,10 @@ const PAGE_CELLS: readonly Cell[] = [
   { id: 'press', label: 'PRESS', aria: 'Press', icon: 'fa-solid fa-file-lines' },
   { id: 'shows', label: 'SHOWS', aria: 'Shows', icon: 'fa-solid fa-calendar-days' },
   { id: 'contact', label: 'CONTACT', aria: 'Contact', icon: 'fa-solid fa-envelope' },
-  { id: 'live', label: 'LIVE', aria: 'Live', icon: 'fa-solid fa-sliders' },
+  { id: 'reset', label: 'RESET', aria: 'Reset view', icon: 'fa-solid fa-arrows-rotate' },
 ];
-/** Machine fermee : la fin de la grille */
-const CLOSED_CELLS: readonly Cell[] = [{ id: 'reset', label: 'RESET', aria: 'Reset view', icon: 'fa-solid fa-arrows-rotate' }];
+/** Machine fermee : rien d'autre, OPEN prend toute la rangee */
+const CLOSED_CELLS: readonly Cell[] = [];
 /** Machine ouverte : les trois puces du PCB */
 const OPEN_CELLS: readonly Cell[] = [
   { id: 'goodies', label: 'GOODIES', aria: 'Goodies', icon: 'fa-solid fa-gift' },

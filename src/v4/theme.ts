@@ -377,9 +377,9 @@ export const TRANSPORT = {
 /* ---------- panneau : moitie droite, les 12 pads (spec 20.3.5) ---------- */
 
 export type Inst = 'BD' | 'SD' | 'TOM' | 'CH' | 'OH';
-/** Les six pages du site, pads de navigation (touches 1 a 6). */
-export type PageId = 'tracks' | 'mixtapes' | 'press' | 'shows' | 'contact' | 'live';
-/** Les sections du panneau : les six pages, GOODIES, MERCH et STUDIO (puces de la vue eclatee). */
+/** Les cinq pages du site, pads de navigation (touches 1 a 5). */
+export type PageId = 'tracks' | 'mixtapes' | 'press' | 'shows' | 'contact';
+/** Les sections du panneau : les cinq pages, GOODIES, MERCH et STUDIO (puces de la vue eclatee). */
 export type SectionId = PageId | 'goodies' | 'merch' | 'studio';
 export type PadId = Inst | PageId | 'open';
 
@@ -436,31 +436,30 @@ export interface OpenPad {
 }
 export type PadSpec = VoicePad | PagePad | OpenPad;
 
-/** Colonnes de la grille des pads (six depuis le 2026-10-01). */
-export const PAD_COLS = 6;
-const padAt = (i: number): { x: number; z: number } => ({ x: PAD.x0 + PAD.pitch * (i % PAD_COLS), z: PAD.rowZ[i < PAD_COLS ? 0 : 1] });
+/** Un pad de la grille : colonne 0 a 4, rangee 0 (voix) ou 1 (pages). */
+const padAt = (col: number, row: 0 | 1): { x: number; z: number } => ({ x: PAD.x0 + PAD.pitch * col, z: PAD.rowZ[row] });
 
 /**
- * Les 12 pads en ordre de lecture (2026-10-01) : rangee du haut BD SD TOM
- * CH OH TRACKS, rangee du bas MIXTAPES PRESS SHOWS CONTACT LIVE OPEN.
- * Voix : A S D F G. Pages : 1 a 6. OPEN : 7 (et O).
+ * Les 11 pads (2026-10-01, LIVE fondu dans PRESS) : les cinq voix en haut
+ * (BD SD TOM CH OH), les cinq pages en bas (TRACKS MIXTAPES PRESS SHOWS
+ * CONTACT), OPEN seul dans la sixieme colonne, a mi-hauteur des deux
+ * rangees. Voix : A S D F G. Pages : 1 a 5. OPEN : 6 (et O).
  */
 export const PADS: readonly PadSpec[] = [
-  { id: 'BD', kind: 'voice', label: 'BD', key: 'A', ...padAt(0) },
-  { id: 'SD', kind: 'voice', label: 'SD', key: 'S', ...padAt(1) },
-  { id: 'TOM', kind: 'voice', label: 'TOM', key: 'D', ...padAt(2) },
-  { id: 'CH', kind: 'voice', label: 'CH', key: 'F', ...padAt(3) },
-  { id: 'OH', kind: 'voice', label: 'OH', key: 'G', ...padAt(4) },
-  { id: 'tracks', kind: 'page', label: 'TRACKS', key: '1', ...padAt(5) },
-  { id: 'mixtapes', kind: 'page', label: 'MIXTAPES', key: '2', ...padAt(6) },
-  { id: 'press', kind: 'page', label: 'PRESS', key: '3', ...padAt(7) },
-  { id: 'shows', kind: 'page', label: 'SHOWS', key: '4', ...padAt(8) },
-  { id: 'contact', kind: 'page', label: 'CONTACT', key: '5', ...padAt(9) },
-  { id: 'live', kind: 'page', label: 'LIVE', key: '6', ...padAt(10) },
-  { id: 'open', kind: 'open', label: 'OPEN', key: '7', ...padAt(11) },
+  { id: 'BD', kind: 'voice', label: 'BD', key: 'A', ...padAt(0, 0) },
+  { id: 'SD', kind: 'voice', label: 'SD', key: 'S', ...padAt(1, 0) },
+  { id: 'TOM', kind: 'voice', label: 'TOM', key: 'D', ...padAt(2, 0) },
+  { id: 'CH', kind: 'voice', label: 'CH', key: 'F', ...padAt(3, 0) },
+  { id: 'OH', kind: 'voice', label: 'OH', key: 'G', ...padAt(4, 0) },
+  { id: 'tracks', kind: 'page', label: 'TRACKS', key: '1', ...padAt(0, 1) },
+  { id: 'mixtapes', kind: 'page', label: 'MIXTAPES', key: '2', ...padAt(1, 1) },
+  { id: 'press', kind: 'page', label: 'PRESS', key: '3', ...padAt(2, 1) },
+  { id: 'shows', kind: 'page', label: 'SHOWS', key: '4', ...padAt(3, 1) },
+  { id: 'contact', kind: 'page', label: 'CONTACT', key: '5', ...padAt(4, 1) },
+  { id: 'open', kind: 'open', label: 'OPEN', key: '6', x: PAD.x0 + 5 * PAD.pitch, z: (PAD.rowZ[0] + PAD.rowZ[1]) / 2 },
 ];
 
-/** Les huit pages, dans l'ordre des pads (onglets de la feuille, touches 1 a 8). */
+/** Les cinq pages, dans l'ordre des pads (onglets de la feuille, touches 1 a 5). */
 export const PAGES: readonly PagePad[] = PADS.filter((p): p is PagePad => p.kind === 'page');
 export const isPage = (s: string | null): s is PageId => PAGES.some((p) => p.id === s);
 
@@ -628,7 +627,6 @@ export const SECTION_TITLES: Readonly<Record<SectionId, string>> = {
   press: 'PRESS',
   shows: 'SHOWS',
   contact: 'CONTACT',
-  live: 'LIVE',
   goodies: 'GOODIES',
   merch: 'MERCH',
   studio: 'STUDIO',
@@ -735,7 +733,6 @@ export const SILK_TEXTS: readonly SilkText[] = [
   { text: 'MM-808', x: -1.95, z: -3.5, cap: 0.13, align: 'left' },
   { text: 'V.4 / 2026', x: 5.8, z: -3.5, cap: 0.07, align: 'right', alpha: 0.45 },
   { text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - 0.72, cap: 0.06, align: 'left' },
-  { text: 'PAGES', x: PAD.x0 + 5 * PAD.pitch - PAD.size / 2, z: PAD.rowZ[0] - 0.72, cap: 0.06, align: 'left' },
   ...ENCODERS.map((e, i) => ({ text: e.label, x: encX(i), z: ENCODER.labelZ, cap: 0.085, maxW: 0.84, group: 'enc' })),
   { text: 'RUN/STOP', x: TRANSPORT.run.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.84, group: 'tr' },
   { text: 'CLEAR', x: TRANSPORT.clear.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.84, group: 'tr' },
@@ -753,15 +750,9 @@ export const OPEN_SILK_INDEX = SILK_TEXTS.findIndex((t) => t.text === 'OPEN');
  * crochet sous chaque groupe de quatre touches trig.
  */
 export const SILK_LINES: readonly (readonly number[])[] = [
-  // entre OH et TRACKS, puis sous la rangee des voix
-  [
-    PAD.x0 + 4.5 * PAD.pitch,
-    PAD.rowZ[0] - 0.85,
-    PAD.x0 + 4.5 * PAD.pitch,
-    PAD.rowZ[0] + 0.73,
-    PAD.x0 - PAD.size / 2 - 0.09,
-    PAD.rowZ[0] + 0.73,
-  ],
+  // sous la rangee des voix (les pages dessous), puis la colonne d'OPEN a part
+  [PAD.x0 - PAD.size / 2 - 0.09, PAD.rowZ[0] + 0.73, PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[0] + 0.73],
+  [PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[0] - 0.5, PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[1] + 0.72],
   ...[0, 1, 2, 3].map((g) => {
     const a = keyX(4 * g) - KEYS.w / 2;
     const b = keyX(4 * g + 3) + KEYS.w / 2;
@@ -1064,7 +1055,7 @@ export const PAD_ARIA: Readonly<Record<Inst, string>> = {
  * Jumeau du pad OPEN (spec 6.1) : un nom fixe, l'etat passe par
  * aria-pressed (un bouton bascule ne change pas de nom, revue).
  */
-export const OPEN_ARIA = 'Open the machine, key 7 or O';
+export const OPEN_ARIA = 'Open the machine, key 6 or O';
 
 /** Bouton de retour a la vue par defaut (spec 20.2.9), visible des que la vue a bouge. */
 export const RESET_VIEW = { label: 'RESET VIEW', aria: 'Reset view' } as const;

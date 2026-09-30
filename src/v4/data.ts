@@ -76,10 +76,14 @@ export const TRACK_QUEUE: V2Track[] = TRACKS.filter((t) => t.playable).map((t) =
 export const MIXTAPE_QUEUE: V2Track[] = MIXTAPES.filter((t) => t.playable).map((t) => t.track);
 
 export const PRESS_TEXT = 'Press kit, tech rider, hi-res photos and artwork.';
-export const PRESS_LINKS: readonly { label: string; href: string }[] = [
-  { label: 'Press kit (PDF)', href: '/Presskit_Maudite_Machine_2026-27.pdf' },
-  { label: 'Tech rider (PDF)', href: '/Tech_Rider_Maudite_Machine_2026-27.pdf' },
-  { label: 'Press assets', href: '/press/' },
+
+/**
+ * PRESS (2026-10-01, LIVE y est fondu) : le setup et la duree des sets,
+ * puis les documents.
+ */
+export const PRESS_SETUP: readonly string[] = [
+  'DJ set on CDJs, or hybrid live set: Ableton Live, Push 3, Dreadbox Typhon, APC40.',
+  'Length: 90 minutes to 4 hours as a DJ, 60 to 75 minutes live.',
 ];
 
 /**
@@ -94,15 +98,14 @@ export const CONTACT_LINKS: readonly { label: string; href: string }[] = [
 ];
 
 /**
- * LIVE (revision 2, puce LIVE) : les deux PDF en telechargement, leur
- * taille mesuree (878 617 et 4 460 360 octets) ; le reste du texte est
- * dans ui/sections/Live.tsx.
+ * Documents de PRESS : les deux PDF en telechargement, leur taille mesuree
+ * (878 617 et 4 460 360 octets).
  */
 export const LIVE_DOCS: readonly { label: string; href: string; size: string }[] = [
   { label: 'Tech rider (PDF)', href: '/Tech_Rider_Maudite_Machine_2026-27.pdf', size: '0.9 MB' },
   { label: 'Press kit (PDF)', href: '/Presskit_Maudite_Machine_2026-27.pdf', size: '4.5 MB' },
 ];
-/** Les deux pages du site ouvertes par LIVE, en nouvel onglet. */
+/** Les deux pages du site ouvertes par PRESS, en nouvel onglet. */
 export const LIVE_PAGES = { press: '/press/', techrider: '/techrider' } as const;
 
 /** Massive Medias (revision 4) : STUDIO et CONTACT, nouvel onglet ; https://massivemedias.com repond 200. */

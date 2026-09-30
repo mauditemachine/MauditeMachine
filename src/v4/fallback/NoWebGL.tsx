@@ -11,7 +11,6 @@ import React from 'react';
 import { COPY } from '../theme';
 import { Contact } from '../ui/sections/Contact';
 import { Goodies } from '../ui/sections/Goodies';
-import { Live } from '../ui/sections/Live';
 import { Merch } from '../ui/sections/Merch';
 import { Mixtapes } from '../ui/sections/Mixtapes';
 import { Press } from '../ui/sections/Press';
@@ -33,7 +32,6 @@ const NoWebGL: React.FC = () => (
       <Press active focusable />
       <Shows active focusable />
       <Contact active focusable />
-      <Live active focusable />
       <Goodies active focusable />
       <Merch active focusable />
       <Studio active focusable />
