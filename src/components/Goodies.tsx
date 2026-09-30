@@ -12,57 +12,15 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTranslation } from '../lib/i18n';
 import { cn } from '../lib/cn';
+import { GOODIES, type GoodieItem as SharedGoodie } from '../data/goodies';
 
-interface GoodieItem {
-  src: string;          // Affichage low-res (thumb)
-  downloadSrc?: string; // Telechargement haute resolution (fallback: src)
-  title: string;
-  category: string;
-}
-
-const FULL_PREFIX = 'images/goodies/full/';
-const goodies: GoodieItem[] = [
-  // Desktop Wallpapers
-  { src: 'images/goodies/wallpaper-desktop-1.webp', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-1.webp', title: 'Desktop Wallpaper 1', category: 'wallpaper-desktop' },
-  { src: 'images/goodies/wallpaper-desktop-2.webp', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-2.webp', title: 'Desktop Wallpaper 2', category: 'wallpaper-desktop' },
-  { src: 'images/goodies/wallpaper-desktop-3.webp', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-3.webp', title: 'Desktop Wallpaper 3', category: 'wallpaper-desktop' },
-  { src: 'images/goodies/wallpaper-desktop-4.webp', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-4.webp', title: 'Desktop Wallpaper 4', category: 'wallpaper-desktop' },
-  { src: 'images/goodies/wallpaper-desktop-5.webp', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-5.webp', title: 'Desktop Wallpaper 5', category: 'wallpaper-desktop' },
-  { src: 'images/goodies/wallpaper-desktop-6.webp', downloadSrc: FULL_PREFIX + 'wallpaper-desktop-6.webp', title: 'Desktop Wallpaper 6', category: 'wallpaper-desktop' },
-  // Phone Wallpapers
-  { src: 'images/goodies/wallpaper-phone-1.webp', downloadSrc: FULL_PREFIX + 'wallpaper-phone-1.webp', title: 'Phone Wallpaper 1', category: 'wallpaper-phone' },
-  { src: 'images/goodies/wallpaper-phone-2.webp', downloadSrc: FULL_PREFIX + 'wallpaper-phone-2.webp', title: 'Phone Wallpaper 2', category: 'wallpaper-phone' },
-  { src: 'images/goodies/wallpaper-phone-3.webp', downloadSrc: FULL_PREFIX + 'wallpaper-phone-3.webp', title: 'Phone Wallpaper 3', category: 'wallpaper-phone' },
-  { src: 'images/goodies/wallpaper-phone-4.webp', downloadSrc: FULL_PREFIX + 'wallpaper-phone-4.webp', title: 'Phone Wallpaper 4', category: 'wallpaper-phone' },
-  { src: 'images/goodies/wallpaper-phone-5.webp', downloadSrc: FULL_PREFIX + 'wallpaper-phone-5.webp', title: 'Phone Wallpaper 5', category: 'wallpaper-phone' },
-  // Album Covers
-  { src: 'images/goodies/cover-limbos.webp', downloadSrc: FULL_PREFIX + 'cover-limbos.webp', title: 'Limbos', category: 'cover' },
-  { src: 'images/goodies/cover-anarchic.webp', downloadSrc: FULL_PREFIX + 'cover-anarchic.webp', title: 'Anarchic', category: 'cover' },
-  { src: 'images/goodies/cover-nocturne.webp', downloadSrc: FULL_PREFIX + 'cover-nocturne.webp', title: 'Nocturne', category: 'cover' },
-  { src: 'images/goodies/cover-backontrack.webp', downloadSrc: FULL_PREFIX + 'cover-backontrack.webp', title: 'Back On Track', category: 'cover' },
-  { src: 'images/goodies/cover-dramaqueen.webp', downloadSrc: FULL_PREFIX + 'cover-dramaqueen.webp', title: 'Drama Queen', category: 'cover' },
-  { src: 'images/goodies/cover-taticardi.webp', downloadSrc: FULL_PREFIX + 'cover-taticardi.webp', title: 'Crush On You', category: 'cover' },
-  { src: 'images/goodies/cover-taticardi2.webp', downloadSrc: FULL_PREFIX + 'cover-taticardi2.webp', title: 'Tati Cardi', category: 'cover' },
-  { src: 'images/goodies/cover-taticardi-remixes.webp', downloadSrc: FULL_PREFIX + 'cover-taticardi-remixes.webp', title: 'Tati Cardi Remixes', category: 'cover' },
-  { src: 'images/goodies/cover-discowriders.webp', downloadSrc: FULL_PREFIX + 'cover-discowriders.webp', title: 'Discowriders', category: 'cover' },
-  { src: 'images/goodies/cover-coagule.webp', downloadSrc: FULL_PREFIX + 'cover-coagule.webp', title: 'Coagule', category: 'cover' },
-  { src: 'images/goodies/cover-voodoo.webp', downloadSrc: FULL_PREFIX + 'cover-voodoo.webp', title: 'Voodoo', category: 'cover' },
-  { src: 'images/goodies/cover-autopsynth.webp', downloadSrc: FULL_PREFIX + 'cover-autopsynth.webp', title: 'Autopsynth', category: 'cover' },
-  { src: 'images/goodies/cover-autopsynth-alt.webp', downloadSrc: FULL_PREFIX + 'cover-autopsynth-alt.webp', title: 'Autopsynth (Alt)', category: 'cover' },
-  { src: 'images/goodies/cover-richie.webp', downloadSrc: FULL_PREFIX + 'cover-richie.webp', title: 'Richie', category: 'cover' },
-  { src: 'images/goodies/cover-kouklikou.webp', downloadSrc: FULL_PREFIX + 'cover-kouklikou.webp', title: 'Kouklikou', category: 'cover' },
-  { src: 'images/goodies/cover-syncbutton.webp', downloadSrc: FULL_PREFIX + 'cover-syncbutton.webp', title: 'Where Is The Sync Button', category: 'cover' },
-  { src: 'images/goodies/cover-digitalworms.webp', downloadSrc: FULL_PREFIX + 'cover-digitalworms.webp', title: 'Digital Worms Attack', category: 'cover' },
-  { src: 'images/goodies/cover-vsnocide.webp', downloadSrc: FULL_PREFIX + 'cover-vsnocide.webp', title: 'VS Nocide', category: 'cover' },
-  { src: 'images/goodies/cover-mixtape36.webp', downloadSrc: FULL_PREFIX + 'cover-mixtape36.webp', title: 'Mixtape 36', category: 'cover' },
-  { src: 'images/goodies/cover-mixtape37.webp', downloadSrc: FULL_PREFIX + 'cover-mixtape37.webp', title: 'Mixtape 37', category: 'cover' },
-  { src: 'images/goodies/cover-mixtape38.webp', downloadSrc: FULL_PREFIX + 'cover-mixtape38.webp', title: 'Mixtape 38', category: 'cover' },
-];
+// Source partagee avec la section GOODIES de la machine (chemins absolus)
+type GoodieItem = Pick<SharedGoodie, 'src' | 'downloadSrc' | 'title' | 'category'>;
+const goodies: readonly GoodieItem[] = GOODIES;
 
 // Genere un nom de fichier propre : MauditeMachine_<Title>.<ext>
 function buildFilename(item: GoodieItem): string {
-  const downloadUrl = item.downloadSrc || item.src;
-  const ext = downloadUrl.split('.').pop() || 'webp';
+  const ext = item.downloadSrc.split('.').pop() || 'webp';
   const safeName = item.title.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
   return `MauditeMachine_${safeName}.${ext}`;
 }
@@ -106,7 +64,7 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
   // Carte download : <motion.a download> natif HTML, mobile-first.
   // Aucun JS fetch/blob/click() qui casse sur iOS Safari.
   const renderCard = (item: GoodieItem, i: number, aspectClass: string, staggerMs = 40) => {
-    const downloadUrl = `/${item.downloadSrc || item.src}`;
+    const downloadUrl = item.downloadSrc;
     const filename = buildFilename(item);
 
     return (
@@ -140,7 +98,7 @@ const Goodies: React.FC<GoodiesProps> = ({ mobileOnly = false }) => {
       >
         <div className={cn('relative overflow-hidden rounded-md bg-black/40', aspectClass)}>
           <img
-            src={`/${item.src}`}
+            src={item.src}
             alt={item.title}
             loading="lazy"
             className="w-full h-full object-cover transition-transform duration-700 ease-out-expo group-hover:scale-[1.06]"

@@ -1,0 +1,23 @@
+{
+  "packs": [
+    {
+      "id": "pack-mm",
+      "name": "Maudite Machine sticker pack",
+      "price": "15$ CAD",
+      "count": 8,
+      "active": false,
+      "soldOut": false,
+      "cover": "/images/stickers/pack-mm-cover.png",
+      "items": [
+        { "src": "/images/stickers/mm-01.png", "alt": "Maudite Machine sticker 1", "brand": "mm" },
+        { "src": "/images/stickers/mm-02.png", "alt": "Maudite Machine sticker 2", "brand": "mm" },
+        { "src": "/images/stickers/mm-03.png", "alt": "Maudite Machine sticker 3", "brand": "mm" },
+        { "src": "/images/stickers/mm-04.png", "alt": "Maudite Machine sticker 4", "brand": "mm" },
+        { "src": "/images/stickers/mm-05.png", "alt": "Maudite Machine sticker 5", "brand": "mm" },
+        { "src": "/images/stickers/mm-06.png", "alt": "Maudite Machine sticker 6", "brand": "mm" },
+        { "src": "/images/stickers/vrstl.png", "alt": "VRSTL Records sticker", "brand": "vrstl" },
+        { "src": "/images/stickers/massive-medias.png", "alt": "Massive Medias sticker", "brand": "massive" }
+      ]
+    }
+  ]
+}

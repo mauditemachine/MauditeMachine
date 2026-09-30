@@ -52,7 +52,7 @@ type ExplorerState = {
  */
 export function initials(name: string): string {
   const clean = (name || '')
-    .replace(/^\s*V\s*\/\s*A\s*[-–—:]*\s*/i, '')
+    .replace(/^\s*V\s*\/\s*A\s*[-\u2013\u2014:]*\s*/i, '')
     .trim();
   const words = clean.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w));
   return words

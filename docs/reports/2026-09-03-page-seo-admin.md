@@ -1,4 +1,4 @@
-# Rapport de session — Page SEO dans l'admin + édition simplifiée
+# Rapport de session - Page SEO dans l'admin + édition simplifiée
 
 Date : 2026-09-03
 Mission : une page /mm-admin pour voir les résultats du référencement,
@@ -14,12 +14,12 @@ page SEO, et l'interface d'édition était en anglais technique.
 ## Ce qui a été fait
 
 - **[/api/admin/seo](../../server.js)** : nouvelle route serveur qui
-  audite le site en lecture seule — balises (titre, description,
+  audite le site en lecture seule - balises (titre, description,
   mots-clés), JSON-LD (zones desservies, service DJ, réseaux liés),
   sitemap, robots.txt, présence de la mesure d'audience, et remonte
   les données de visite du dernier snapshot GA4 s'il existe.
 - **[SeoPage.tsx](../../src/admin/pages/SeoPage.tsx)** : nouvelle page
-  « Visibilité Google » — score global, **aperçu de ce que Google
+  « Visibilité Google » - score global, **aperçu de ce que Google
   affiche** (rendu façon résultat de recherche), 8 vérifications
   expliquées en français simple (chacune avec son « à quoi ça sert »),
   graphiques villes / âge / genre / canaux / pages vues quand GA4 est
@@ -29,7 +29,7 @@ page SEO, et l'interface d'édition était en anglais technique.
   rejoint Stats et Radar dans Outils, et les badges « étape 4/5 »
   deviennent « bientôt » (pas de jargon de chantier).
 - **[AdminEvents.tsx](../../src/components/AdminEvents.tsx)** : 24
-  libellés francisés — « Contenu du site », Titre / Date / Lieu /
+  libellés francisés - « Contenu du site », Titre / Date / Lieu /
   Lien (Facebook, billetterie…) / Couleur / Affiche, « Ajouter la
   date », « Modifier », « Supprimer », « Annuler ».
 
@@ -52,4 +52,4 @@ page SEO, et l'interface d'édition était en anglais technique.
 
 ## Commandes utiles
 
-`npm run admin` — lance le site + le serveur d'écriture, ouvre /mm-admin.
+`npm run admin` - lance le site + le serveur d'écriture, ouvre /mm-admin.

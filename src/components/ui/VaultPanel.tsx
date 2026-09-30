@@ -54,7 +54,7 @@ function getCover(sound?: Sound | null): string | null {
 
 function formatTrackDisplay(title: string): string {
   if (!title) return ''
-  return title.replace(/^Maudite Machine\s*[-–—]\s*/i, '').replace(/\s*\([^)]*\)\s*$/g, '').trim()
+  return title.replace(/^Maudite Machine\s*[-\u2013\u2014]\s*/i, '').replace(/\s*\([^)]*\)\s*$/g, '').trim()
 }
 
 // Indicateur "en lecture" : 3 barres animees. Label via prop pour i18n.

@@ -362,21 +362,23 @@ export const TRANSPORT = {
 
 /* ---------- panneau : moitie droite, les 12 pads (spec 20.3.5) ---------- */
 
-export type Inst = 'BD' | 'SD' | 'TOM' | 'CH';
-/** Les sept pages du site, pads de navigation (touches 1 a 7). */
-export type PageId = 'tracks' | 'mixtapes' | 'press' | 'shows' | 'contact' | 'label' | 'sonaa';
-/** Les sections du panneau : les sept pages, LIVE et STUDIO (puces de la vue eclatee). */
-export type SectionId = PageId | 'live' | 'studio' | 'merch';
+export type Inst = 'BD' | 'SD' | 'TOM' | 'CH' | 'BASS';
+/** Les huit pages du site, pads de navigation (touches 1 a 8). */
+export type PageId = 'tracks' | 'mixtapes' | 'press' | 'shows' | 'contact' | 'label' | 'live' | 'sonaa';
+/** Les sections du panneau : les huit pages, GOODIES, MERCH et STUDIO (puces de la vue eclatee). */
+export type SectionId = PageId | 'goodies' | 'merch' | 'studio';
 export type PadId = Inst | PageId | 'open';
 
 /**
- * Pad en caoutchouc : 0.96 x 0.22 x 0.96 a coins arrondis (0.08), dome de
- * 0.04 sur son dessus plat ; deux rangees de six, pas de 1.12. Frappe : il
- * s'enfonce de 0.06 en 60 ms, remonte en 180 ms. Halo : un carre de 1.25
- * a plat sous chaque pad (retroeclairage).
+ * Pad en caoutchouc : 0.86 x 0.22 x 0.86 a coins arrondis (0.08), dome de
+ * 0.04 sur son dessus plat ; deux rangees de sept, pas de 1.0 (revision 4 :
+ * la voix BASS et la page LIVE portent la grille de 12 a 14 pads, la
+ * rangee commence plus a gauche, a 0.44 de la collerette de REVERB).
+ * Frappe : il s'enfonce de 0.06 en 60 ms, remonte en 180 ms. Halo : un
+ * carre de 1.0 a plat sous chaque pad (retroeclairage).
  */
 export const PAD = {
-  size: 0.96,
+  size: 0.86,
   height: 0.22,
   radius: 0.08,
   segments: { desktop: 3, mobile: 2 },
@@ -384,13 +386,13 @@ export const PAD = {
   domeSegments: 6,
   /** hauteur du plan du dome, un soupcon au-dessus du dessus plat (pas de z-fight) */
   domeY: 0.222,
-  x0: 0.47,
-  pitch: 1.12,
+  x0: 0.13,
+  pitch: 1.0,
   rowZ: [-2.4, -1.0],
   /** serigraphie sous chaque pad */
-  labelDz: 0.62,
+  labelDz: 0.58,
   press: 0.06,
-  halo: 1.25,
+  halo: 1.0,
   haloY: 0.003,
 } as const;
 
@@ -420,29 +422,33 @@ export interface OpenPad {
 }
 export type PadSpec = VoicePad | PagePad | OpenPad;
 
-const padAt = (i: number): { x: number; z: number } => ({ x: PAD.x0 + PAD.pitch * (i % 6), z: PAD.rowZ[i < 6 ? 0 : 1] });
+/** Colonnes de la grille des pads (revision 4 : sept). */
+export const PAD_COLS = 7;
+const padAt = (i: number): { x: number; z: number } => ({ x: PAD.x0 + PAD.pitch * (i % PAD_COLS), z: PAD.rowZ[i < PAD_COLS ? 0 : 1] });
 
 /**
- * Les 12 pads en ordre de lecture (spec 20.3.5) : rangee du haut BD SD TOM
- * CH TRACKS MIXTAPES, rangee du bas PRESS SHOWS CONTACT LABEL SONAA OPEN.
- * Voix : A S D F. Pages : 1 a 7. OPEN : 8 (et O).
+ * Les 14 pads en ordre de lecture (revision 4) : rangee du haut BD SD TOM
+ * CH BASS TRACKS MIXTAPES, rangee du bas PRESS SHOWS CONTACT LABEL LIVE
+ * SONAA OPEN. Voix : A S D F G. Pages : 1 a 8. OPEN : 9 (et O).
  */
 export const PADS: readonly PadSpec[] = [
   { id: 'BD', kind: 'voice', label: 'BD', key: 'A', ...padAt(0) },
   { id: 'SD', kind: 'voice', label: 'SD', key: 'S', ...padAt(1) },
   { id: 'TOM', kind: 'voice', label: 'TOM', key: 'D', ...padAt(2) },
   { id: 'CH', kind: 'voice', label: 'CH', key: 'F', ...padAt(3) },
-  { id: 'tracks', kind: 'page', label: 'TRACKS', key: '1', ...padAt(4) },
-  { id: 'mixtapes', kind: 'page', label: 'MIXTAPES', key: '2', ...padAt(5) },
-  { id: 'press', kind: 'page', label: 'PRESS', key: '3', ...padAt(6) },
-  { id: 'shows', kind: 'page', label: 'SHOWS', key: '4', ...padAt(7) },
-  { id: 'contact', kind: 'page', label: 'CONTACT', key: '5', ...padAt(8) },
-  { id: 'label', kind: 'page', label: 'LABEL', key: '6', ...padAt(9) },
-  { id: 'sonaa', kind: 'page', label: 'SONAA', key: '7', ...padAt(10) },
-  { id: 'open', kind: 'open', label: 'OPEN', key: '8', ...padAt(11) },
+  { id: 'BASS', kind: 'voice', label: 'BASS', key: 'G', ...padAt(4) },
+  { id: 'tracks', kind: 'page', label: 'TRACKS', key: '1', ...padAt(5) },
+  { id: 'mixtapes', kind: 'page', label: 'MIXTAPES', key: '2', ...padAt(6) },
+  { id: 'press', kind: 'page', label: 'PRESS', key: '3', ...padAt(7) },
+  { id: 'shows', kind: 'page', label: 'SHOWS', key: '4', ...padAt(8) },
+  { id: 'contact', kind: 'page', label: 'CONTACT', key: '5', ...padAt(9) },
+  { id: 'label', kind: 'page', label: 'LABEL', key: '6', ...padAt(10) },
+  { id: 'live', kind: 'page', label: 'LIVE', key: '7', ...padAt(11) },
+  { id: 'sonaa', kind: 'page', label: 'SONAA', key: '8', ...padAt(12) },
+  { id: 'open', kind: 'open', label: 'OPEN', key: '9', ...padAt(13) },
 ];
 
-/** Les sept pages, dans l'ordre des pads (onglets de la feuille, touches 1 a 7). */
+/** Les huit pages, dans l'ordre des pads (onglets de la feuille, touches 1 a 8). */
 export const PAGES: readonly PagePad[] = PADS.filter((p): p is PagePad => p.kind === 'page');
 export const isPage = (s: string | null): s is PageId => PAGES.some((p) => p.id === s);
 
@@ -480,6 +486,10 @@ export const PAD_GLOW = {
   hover: [0.085, 0.06, 0.003],
   /** dessus 246,223,124 (#FFD75E : 255,215,94, meme limite de gamut) */
   active: [1.8, 0.85, 0.02],
+  /** OPEN, machine fermee (revision 4) : orange plein, l'action qui transforme la page */
+  orange: [1.6, 0.2, 0.004],
+  /** OPEN devenu CLOSE, machine ouverte : orange faible */
+  orangeDim: [0.16, 0.024, 0],
 } as const;
 
 /**
@@ -487,7 +497,7 @@ export const PAD_GLOW = {
  * blanc chaud pour la selection, lineaire x intensite) : +20 niveaux au
  * ras d'une page au repos, +75 autour de la page ouverte.
  */
-export const PAD_HALO = { selected: 0.025, faint: 0.025, hover: 0.06, active: 0.35, flash: 0.45 } as const;
+export const PAD_HALO = { selected: 0.025, faint: 0.025, hover: 0.06, active: 0.35, flash: 0.45, orange: 0.3, orangeDim: 0.06 } as const;
 
 /* ---------- panneau : les 16 touches trig (spec 20.3.6) ---------- */
 
@@ -509,11 +519,16 @@ export const KEYS = {
   ledW: 0.22,
   ledD: 0.07,
   ledY: 0.006,
+  /** BASS selectionnee : le batonnet d'une LED s'allonge de barStep par degre (revision 4) */
+  barStep: 0.15,
   numberZ: 3.18,
   bracketZ: 3.35,
   bracketTick: 0.06,
 } as const;
 export const keyX = (i: number): number => KEYS.x0 + KEYS.pitch * i;
+
+/** Appui long sur un pas (revision 4) : il se vide au lieu de changer, en ms. */
+export const STEP_HOLD_MS = 400;
 
 /* ---------- picking (spec 6.2, 6.5 et 20.7) ---------- */
 
@@ -527,7 +542,7 @@ export const HIT = {
 } as const;
 
 /** Noms parles des instruments : etiquettes aria, Dock. */
-export const INST_NAMES: Readonly<Record<Inst, string>> = { BD: 'bass drum', SD: 'snare', TOM: 'tom', CH: 'hi-hat' };
+export const INST_NAMES: Readonly<Record<Inst, string>> = { BD: 'bass drum', SD: 'snare', TOM: 'tom', CH: 'hi-hat', BASS: 'bass' };
 
 /**
  * Albedos LINEAIRES des touches (spec 20.3.6), cales sur la couleur
@@ -602,8 +617,9 @@ export const SECTION_TITLES: Readonly<Record<SectionId, string>> = {
   label: 'LABEL',
   sonaa: 'SONAA',
   live: 'LIVE',
-  studio: 'STUDIO',
+  goodies: 'GOODIES',
   merch: 'MERCH',
+  studio: 'STUDIO',
 };
 
 /**
@@ -699,15 +715,15 @@ export interface SilkText {
 const PAD_CAP = 0.09;
 const padLabel = (p: PadSpec): SilkText =>
   p.kind === 'voice'
-    ? { text: p.label, x: p.x, z: p.z + PAD.labelDz, cap: PAD_CAP, maxW: 1.0, group: 'pads' }
-    : { text: p.label, x: p.x, z: p.z + PAD.labelDz, cap: PAD_CAP, maxW: 1.0, group: 'pads', weight: 700, ink: 'orange', alpha: 1 };
+    ? { text: p.label, x: p.x, z: p.z + PAD.labelDz, cap: PAD_CAP, maxW: 0.94, group: 'pads' }
+    : { text: p.label, x: p.x, z: p.z + PAD.labelDz, cap: PAD_CAP, maxW: 0.94, group: 'pads', weight: 700, ink: 'orange', alpha: 1 };
 
 export const SILK_TEXTS: readonly SilkText[] = [
   { text: 'MAUDITE MACHINE', x: -6.3, z: -3.95, cap: 0.2, align: 'left', weight: SILK.strongWeight },
   { text: 'MM-808', x: -2.3, z: -3.95, cap: 0.13, align: 'left' },
   { text: 'V.4 / 2026', x: 6.5, z: -3.95, cap: 0.07, align: 'right', alpha: 0.45 },
   { text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: -3.05, cap: 0.06, align: 'left' },
-  { text: 'PAGES', x: PAD.x0 + 4 * PAD.pitch - PAD.size / 2, z: -3.05, cap: 0.06, align: 'left' },
+  { text: 'PAGES', x: PAD.x0 + 5 * PAD.pitch - PAD.size / 2, z: -3.05, cap: 0.06, align: 'left' },
   ...ENCODERS.map((e, i) => ({ text: e.label, x: encX(i), z: ENCODER.labelZ, cap: 0.085, maxW: 0.9, group: 'enc' })),
   { text: 'RUN/STOP', x: TRANSPORT.run.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'enc' },
   { text: 'CLEAR', x: TRANSPORT.clear.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'enc' },
@@ -723,7 +739,8 @@ export const OPEN_SILK_INDEX = SILK_TEXTS.findIndex((t) => t.text === 'OPEN');
  * crochet sous chaque groupe de quatre touches trig.
  */
 export const SILK_LINES: readonly (readonly number[])[] = [
-  [4.39, -3.2, 4.39, -1.6, -0.1, -1.6],
+  // entre BASS et TRACKS, puis sous la rangee des voix
+  [PAD.x0 + 4.5 * PAD.pitch, -3.2, PAD.x0 + 4.5 * PAD.pitch, -1.6, PAD.x0 - PAD.size / 2 - 0.09, -1.6],
   ...[0, 1, 2, 3].map((g) => {
     const a = keyX(4 * g) - KEYS.w / 2;
     const b = keyX(4 * g + 3) + KEYS.w / 2;
@@ -903,7 +920,7 @@ export const EXPLODE = {
   chipsFrom: 0.85,
 } as const;
 
-export type ChipId = 'label' | 'live' | 'studio' | 'merch';
+export type ChipId = 'goodies' | 'merch' | 'studio';
 
 /**
  * Grosse puce (spec 5.6) : corps 1.7 x 0.2 x 1.2 pose 0.03 au-dessus de la
@@ -950,13 +967,13 @@ export const LABEL_URL = 'https://vrstlrecords.bandcamp.com';
 export const EXTERNAL_MARK = { d: 'M3.5 2.5h6v6M9.5 2.5l-7 7', box: 12, stroke: 1.4 } as const;
 
 /**
- * Les quatre puces cliquables (spec 6.1, 20.3.11 et 20.5), rangee a z 2.6
- * de la carte : sous le panneau leve et recule, la moitie avant de la
- * carte se voit depuis la vue par defaut, les cotes et les vues basses de
- * l'arriere en montrent une partie. LABEL est un lien direct, nouvel
- * onglet ; LIVE, STUDIO et MERCH ouvrent leur section (et portent l'ancre
- * de sa trace). MERCH (2026-09-30) : la quatrieme, les autres pieces de la
- * carte se sont ecartees pour lui faire place.
+ * Les trois puces cliquables (revision 4), rangee a z 2.6 de la carte :
+ * sous le panneau leve et recule, la moitie avant de la carte se voit
+ * depuis la vue par defaut, les cotes et les vues basses de l'arriere en
+ * montrent une partie. GOODIES, MERCH et STUDIO ouvrent leur section (et
+ * portent l'ancre de sa trace). LABEL et LIVE ont quitte la carte : ce
+ * sont des pads de page (et des boutons du Dock), machine fermee. Une puce
+ * a href (lien sortant) reste possible : pcb.ts sait la dessiner.
  */
 export const CHIPS: readonly {
   id: ChipId;
@@ -968,12 +985,11 @@ export const CHIPS: readonly {
   /** lien sortant du jumeau (nouvel onglet) ; null : la puce ouvre sa section */
   href: string | null;
   /** section ouverte par la puce */
-  section: 'live' | 'studio' | 'merch' | null;
+  section: 'goodies' | 'merch' | 'studio' | null;
 }[] = [
-  { id: 'label', silk: 'LABEL', x: -4.5, z: 2.6, aria: 'VRSTL Records on Bandcamp', href: LABEL_URL, section: null },
-  { id: 'live', silk: 'LIVE', x: -1.5, z: 2.6, aria: 'Live setup and documents', href: null, section: 'live' },
-  { id: 'studio', silk: 'STUDIO', x: 1.5, z: 2.6, aria: 'Studio', href: null, section: 'studio' },
-  { id: 'merch', silk: 'MERCH', x: 4.5, z: 2.6, aria: 'Merch: hoodies and t-shirts', href: null, section: 'merch' },
+  { id: 'goodies', silk: 'GOODIES', x: -3.4, z: 2.6, aria: 'Goodies: wallpapers and covers', href: null, section: 'goodies' },
+  { id: 'merch', silk: 'MERCH', x: 0, z: 2.6, aria: 'Merch: apparel and stickers', href: null, section: 'merch' },
+  { id: 'studio', silk: 'STUDIO', x: 3.4, z: 2.6, aria: 'Studio: setup, lessons, print', href: null, section: 'studio' },
 ];
 
 /**
@@ -984,14 +1000,14 @@ export const CHIPS: readonly {
  */
 export const PCB_PARTS = {
   small: [
-    { x: -5.85, z: 2.6 },
-    { x: 5.85, z: 2.6 },
+    { x: -5.3, z: 2.6 },
+    { x: 5.3, z: 2.6 },
     { x: 5.35, z: -3.2 },
     { x: -2.7, z: -2.9 },
   ],
   caps: [
-    { x: -5.3, z: -1.0 },
-    { x: 0, z: 2.3 },
+    { x: -5.55, z: 3.5 },
+    { x: 1.7, z: 2.3 },
     { x: 5.55, z: -1.6 },
     { x: 5.55, z: -2.35 },
     { x: -3.6, z: -2.2 },
@@ -1000,8 +1016,8 @@ export const PCB_PARTS = {
   cell: { x: 5.35, z: -0.55 },
   resistors: Array.from({ length: 10 }, (_, k) => ({ x: -4.6 + 0.9 * k, z: 1.25 })),
   crystals: [
-    { x: -3.0, z: 3.5 },
-    { x: 3.0, z: 3.5 },
+    { x: -1.7, z: 3.5 },
+    { x: 1.7, z: 3.5 },
   ],
   small3: { w: 0.8, h: 0.14, d: 0.6 },
   cap3: { r: 0.28, h: 0.6, topH: 0.02 },
@@ -1030,13 +1046,14 @@ export const PAD_ARIA: Readonly<Record<Inst, string>> = {
   SD: 'Snare pad, key S',
   TOM: 'Tom pad, key D',
   CH: 'Hi-hat pad, key F',
+  BASS: 'Bass pad, key G',
 };
 
 /**
  * Jumeau du pad OPEN (spec 6.1) : un nom fixe, l'etat passe par
  * aria-pressed (un bouton bascule ne change pas de nom, revue).
  */
-export const OPEN_ARIA = 'Open the machine, key 8 or O';
+export const OPEN_ARIA = 'Open the machine, key 9 or O';
 
 /** Bouton de retour a la vue par defaut (spec 20.2.9), visible des que la vue a bouge. */
 export const RESET_VIEW = { label: 'RESET VIEW', aria: 'Reset view' } as const;

@@ -1,39 +1,63 @@
 /**
- * Dock (spec 11.4 et 20.1 R2-12) : sur telephone les 16 pas 3D sont a 7 px
+ * Dock (spec 11.4, revision 4) : sur telephone les 16 pas 3D sont a 7 px
  * l'un de l'autre, on programme donc le sequenceur ici, sous la machine.
- * Une rangee d'instruments (le selectionne en jaune ; toucher choisit sans
- * jouer), les 16 pas en deux rangees de 8 cases, puis le transport : RUN,
- * CLEAR, OPEN et le tempo (- / valeur / +). Sur le telephone RUN et CLEAR
- * font 20 x 15 px projetes a 18 px l'un de l'autre, le pad OPEN 30 x 24 px
- * a 20 px de SONAA (revision 2) : ici chaque commande a au moins 48 px de
- * haut (48 x 48 pour le transport, regle 5). En bas, la rangee PAGES
- * (revision 2, R2-12) : les sept pages des pads de navigation (TRACKS a
- * SONAA), 48 px de haut, qui defile de cote comme les onglets de la
- * feuille ; les pads 3D ne font que 30 x 24 px a 20 px l'un de l'autre sur
- * un telephone. Toucher une page l'ouvre (le pad 3D s'enfonce et passe au
- * jaune) ; la feuille qui monte recouvre le Dock, ses onglets prennent le
- * relais. Chaque case de pas montre le pas pour l'instrument selectionne,
- * ou l'union attenuee tant qu'aucun n'est choisi ; la case sous la tete de
- * lecture passe en yellowHi. Memes stores que la machine : les deux
- * changent ensemble. Monte seulement sur la mise en page mobile
- * (index.tsx), jamais dans le repli.
+ * Une rangee d'instruments (BD SD TOM CH BASS, le selectionne en jaune ;
+ * toucher choisit sans jouer), les 16 pas en deux rangees de 8 cases, le
+ * transport (RUN/STOP, CLEAR, tempo - / valeur / +), puis la grille de
+ * navigation : tous les boutons visibles d'un coup, aucun defilement
+ * (6 colonnes x 2 rangees, 4 x 3 sur les ecrans etroits, v4.css). Machine
+ * fermee : TRACKS a SONAA, RESET et OPEN (bouton plein orange sur trois
+ * cellules) ; ouverte : GOODIES, MERCH et STUDIO remplacent LIVE, SONAA et
+ * RESET, OPEN devient CLOSE. Icones Font Awesome 6.5.1 (deja chargee par
+ * index.html), en aria-hidden ; chaque bouton garde son nom en toutes
+ * lettres. BASS selectionnee : chaque case montre un batonnet a cinq
+ * niveaux (le degre du pas) ; un appui long (400 ms) vide un pas. Memes
+ * stores que la machine : les deux changent ensemble. Monte seulement sur
+ * la mise en page mobile (index.tsx), jamais dans le repli.
  */
 
-import React, { useState, useSyncExternalStore } from 'react';
-import { clearPattern, openToggle, page, runToggle, selectInstrument, setTempo, stepToggle } from '../actions';
+import React, { useRef, useState, useSyncExternalStore } from 'react';
+import { clearPattern, openSection, openToggle, page, resetView, runToggle, selectInstrument, setTempo, stepClear, stepToggle } from '../actions';
 import { clock } from '../audio/clock';
-import { BPM, INSTRUMENTS, STEP_COUNT, pattern } from '../audio/pattern';
+import { BPM, INSTRUMENTS, STEP_COUNT, bassDegree, isOn, pattern } from '../audio/pattern';
 import type { Stage } from '../scene/renderer';
 import { explode } from '../state/explode';
 import { playhead } from '../state/playhead';
 import { section } from '../state/section';
-import { INST_NAMES, PAGES } from '../theme';
-import { keepInRow } from './sections/common';
+import { INST_NAMES, STEP_HOLD_MS, type SectionId } from '../theme';
 
 const STEP_INDEXES = Array.from({ length: STEP_COUNT }, (_, i) => i);
 
-/** "TRACKS" -> "Tracks" */
-const title = (label: string): string => label.charAt(0) + label.slice(1).toLowerCase();
+/** Une cellule de la grille : une section a ouvrir, ou RESET. */
+interface Cell {
+  id: SectionId | 'reset';
+  label: string;
+  aria: string;
+  icon: string;
+}
+
+const PAGE_CELLS: readonly Cell[] = [
+  { id: 'tracks', label: 'TRACKS', aria: 'Tracks', icon: 'fa-solid fa-compact-disc' },
+  { id: 'mixtapes', label: 'MIXTAPES', aria: 'Mixtapes', icon: 'fa-solid fa-record-vinyl' },
+  { id: 'press', label: 'PRESS', aria: 'Press', icon: 'fa-solid fa-file-lines' },
+  { id: 'shows', label: 'SHOWS', aria: 'Shows', icon: 'fa-solid fa-calendar-days' },
+  { id: 'contact', label: 'CONTACT', aria: 'Contact', icon: 'fa-solid fa-envelope' },
+  { id: 'label', label: 'LABEL', aria: 'Label', icon: 'fa-brands fa-bandcamp' },
+];
+/** Machine fermee : la fin de la grille */
+const CLOSED_CELLS: readonly Cell[] = [
+  { id: 'live', label: 'LIVE', aria: 'Live', icon: 'fa-solid fa-sliders' },
+  { id: 'sonaa', label: 'SONAA', aria: 'Sonaa', icon: 'fa-solid fa-compass' },
+  { id: 'reset', label: 'RESET', aria: 'Reset view', icon: 'fa-solid fa-arrows-rotate' },
+];
+/** Machine ouverte : les trois puces du PCB */
+const OPEN_CELLS: readonly Cell[] = [
+  { id: 'goodies', label: 'GOODIES', aria: 'Goodies', icon: 'fa-solid fa-gift' },
+  { id: 'merch', label: 'MERCH', aria: 'Merch', icon: 'fa-solid fa-shirt' },
+  { id: 'studio', label: 'STUDIO', aria: 'Studio', icon: 'fa-solid fa-microchip' },
+];
+
+const Icon: React.FC<{ name: string }> = ({ name }) => <i className={`${name} v4-fa`} aria-hidden="true" />;
 
 const Glyph: React.FC<{ plus: boolean }> = ({ plus }) => (
   <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
@@ -54,18 +78,31 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
   const open = useSyncExternalStore(section.subscribe, section.get, section.get);
   // Un pas touche sans instrument : l'indication clignote une fois
   const [nudge, setNudge] = useState(0);
+  // Appui long sur un pas : le pas et l'instant du pointerdown ; le clic qui suit est ignore
+  const hold = useRef<{ i: number; t: number } | null>(null);
+  const skipClick = useRef(-1);
   const inst = p.instrument;
   const bpm = p.bpm;
   const opened = ex === 'opening' || ex === 'open';
+  const bass = inst === 'BASS';
 
   const onStep = (i: number): void => {
     if (!stepToggle(i)) setNudge((n) => n + 1);
   };
+  const onCell = (c: Cell): void => {
+    if (c.id === 'reset') resetView(getStage());
+    else if (c.id === 'goodies' || c.id === 'merch' || c.id === 'studio') {
+      if (open === c.id) section.set(null);
+      else openSection(c.id);
+    } else page(c.id, getStage());
+  };
+  const cells = [...PAGE_CELLS, ...(opened ? OPEN_CELLS : CLOSED_CELLS)];
+  const hint = !inst ? 'Tap a pad, then the steps.' : bass ? 'Tap to raise the note, hold to clear.' : '';
 
   return (
-    <div className="v4-dock" data-mode={inst ? 'edit' : 'union'}>
+    <div className="v4-dock" data-mode={inst ? 'edit' : 'union'} data-bass={bass ? '1' : '0'}>
       <p key={nudge} className="v4-dock-hint" data-nudge={nudge > 0 ? '1' : '0'} aria-live="polite">
-        {inst ? '' : 'Tap a pad, then the steps.'}
+        {hint}
       </p>
       <div className="v4-dock-insts" role="group" aria-label="Instrument">
         {INSTRUMENTS.map((k) => (
@@ -83,9 +120,10 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
       </div>
       <div className="v4-dock-steps" role="group" aria-label="Steps">
         {STEP_INDEXES.map((i) => {
-          const on = inst ? p.steps[inst][i] === '1' : INSTRUMENTS.some((k) => p.steps[k][i] === '1');
+          const level = bass ? bassDegree(p.steps, i) : 0;
+          const on = inst ? isOn(p.steps, inst, i) : INSTRUMENTS.some((k) => isOn(p.steps, k, i));
           const label = inst
-            ? `Step ${i + 1}, ${INST_NAMES[inst]} ${on ? 'on' : 'off'}`
+            ? `Step ${i + 1}, ${INST_NAMES[inst]} ${bass ? (level > 0 ? `note ${level} of 5` : 'off') : on ? 'on' : 'off'}`
             : `Step ${i + 1}, no instrument selected`;
           return (
             <button
@@ -97,9 +135,31 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
               aria-pressed={inst ? on : false}
               aria-disabled={inst ? undefined : true}
               aria-label={label}
-              onClick={() => onStep(i)}
+              onPointerDown={(e) => {
+                hold.current = { i, t: e.timeStamp };
+              }}
+              onPointerUp={(e) => {
+                const h = hold.current;
+                hold.current = null;
+                if (h && h.i === i && e.timeStamp - h.t >= STEP_HOLD_MS) {
+                  skipClick.current = i;
+                  if (!stepClear(i)) setNudge((n) => n + 1);
+                }
+              }}
+              onPointerCancel={() => {
+                hold.current = null;
+              }}
+              onContextMenu={(e) => e.preventDefault()}
+              onClick={() => {
+                if (skipClick.current === i) {
+                  skipClick.current = -1;
+                  return;
+                }
+                onStep(i);
+              }}
             >
-              {i + 1}
+              {bass && <span className="v4-dock-bar" data-level={level} aria-hidden="true" />}
+              <span className="v4-dock-num">{i + 1}</span>
             </button>
           );
         })}
@@ -107,13 +167,12 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
       {/* Transport : nom fixe, l'etat passe par aria-pressed (comme les jumeaux) */}
       <div className="v4-dock-transport" role="group" aria-label="Transport">
         <button type="button" className="v4-dock-key" aria-pressed={running} aria-label="Run" onClick={() => runToggle()}>
-          RUN
+          <Icon name={running ? 'fa-solid fa-stop' : 'fa-solid fa-play'} />
+          <span>{running ? 'STOP' : 'RUN'}</span>
         </button>
         <button type="button" className="v4-dock-key" aria-label="Clear pattern" onClick={() => clearPattern()}>
-          CLEAR
-        </button>
-        <button type="button" className="v4-dock-key" aria-pressed={opened} aria-label="Open the machine" onClick={() => openToggle(getStage())}>
-          OPEN
+          <Icon name="fa-solid fa-eraser" />
+          <span>CLEAR</span>
         </button>
         <button
           type="button"
@@ -138,22 +197,33 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
           <Glyph plus />
         </button>
       </div>
-      {/* Les pages (R2-12) : comme les pads de page et leurs jumeaux */}
-      <div className="v4-dock-pages" role="group" aria-label="Pages">
-        {PAGES.map((k) => (
+      {/* Navigation : tous les boutons visibles d'un coup, OPEN / CLOSE a part */}
+      <div className="v4-dock-grid" role="group" aria-label="Navigation">
+        {cells.map((c) => (
           <button
-            key={k.id}
+            key={c.id}
             type="button"
-            className="v4-dock-page"
-            aria-label={title(k.label)}
-            aria-expanded={open === k.id}
-            aria-controls={`v4-section-${k.id}`}
-            onFocus={keepInRow}
-            onClick={() => page(k.id, getStage())}
+            className="v4-dock-cell"
+            data-active={open === c.id ? '1' : '0'}
+            aria-label={c.aria}
+            aria-expanded={c.id === 'reset' ? undefined : open === c.id}
+            aria-controls={c.id === 'reset' ? undefined : `v4-section-${c.id}`}
+            onClick={() => onCell(c)}
           >
-            {k.label}
+            <Icon name={c.icon} />
+            <span className="v4-dock-cell-label">{c.label}</span>
           </button>
         ))}
+        <button
+          type="button"
+          className="v4-dock-open"
+          data-open={opened ? '1' : '0'}
+          aria-pressed={opened}
+          aria-label={opened ? 'Close the machine' : 'Open the machine'}
+          onClick={() => openToggle(getStage())}
+        >
+          {opened ? 'CLOSE' : 'OPEN'}
+        </button>
       </div>
     </div>
   );

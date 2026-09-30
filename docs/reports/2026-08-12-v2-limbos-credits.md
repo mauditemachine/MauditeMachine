@@ -1,4 +1,4 @@
-# Rapport de session — Discographie /v2 : LP Limbos + rapprochements
+# Rapport de session - Discographie /v2 : LP Limbos + rapprochements
 
 Date : 2026-08-12
 Mission : remplacer les 9 placeholders Limbo par les vrais titres du LP
@@ -32,7 +32,7 @@ correspondance.
   (introuvable sur tout SoundCloud) et North River (n'existe qu'en
   continuous mix V.A.), plus les 3 placeholders AUTOPSYNTH.
 - **Featured** : la sélection reste à 12 ; les 3 slots des placeholders
-  Limbo passent à Abyss (ouverture), Limbos (title track) et Zenith —
+  Limbo passent à Abyss (ouverture), Limbos (title track) et Zenith -
   éditable dans le JSON comme le reste.
 - **Tri** : année desc ; à année égale (2025) le LP jouable passe
   devant les AUTOPSYNTH grisés. La matrice ouvre désormais sur
@@ -60,7 +60,7 @@ rapprochements), 5 grisées (3 AUTOPSYNTH, Electrochimie, North River).
 
 ## Décisions prises et pourquoi
 
-- **« Limbos LP », year 2025 — Bandcamp fait foi** (décision Mika).
+- **« Limbos LP », year 2025 - Bandcamp fait foi** (décision Mika).
   ⚠️ **INCOHÉRENCE À CORRIGER PLUS TARD** : le CV artistique et le
   press kit disent « Limbo 2024 » alors que l'album officiel est
   « Limbos », sorti le 16 octobre 2025 (le presskit v1 du site dit

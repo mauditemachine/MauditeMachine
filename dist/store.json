@@ -1,7 +1,7 @@
 [
   {
     "id": 1,
-    "src": "images/Merch_CrewNeck-Back.webp",
+    "src": "/images/Merch_CrewNeck-Back.webp",
     "alt": "Sweatshirt Back",
     "caption": "Sweatshirt",
     "price": "50$ CAD",
@@ -17,7 +17,7 @@
   },
   {
     "id": 2,
-    "src": "images/Merch_CrewNeck-Front.webp",
+    "src": "/images/Merch_CrewNeck-Front.webp",
     "alt": "Sweatshirt Front",
     "caption": "Sweatshirt",
     "price": "50$ CAD",
@@ -33,7 +33,7 @@
   },
   {
     "id": 3,
-    "src": "images/Merch_Hoodie-Back.webp",
+    "src": "/images/Merch_Hoodie-Back.webp",
     "alt": "Hoodie Back",
     "caption": "Hoodie",
     "price": "50$ CAD",
@@ -49,7 +49,7 @@
   },
   {
     "id": 4,
-    "src": "images/Merch_Hoodie F.webp",
+    "src": "/images/Merch_Hoodie-Front.webp",
     "alt": "Hoodie Front",
     "caption": "Hoodie",
     "price": "50$ CAD",
@@ -65,7 +65,7 @@
   },
   {
     "id": 5,
-    "src": "images/Merch_Bag-Brown.webp",
+    "src": "/images/Merch_Bag-Brown.webp",
     "alt": "Bag Brown",
     "caption": "Hip Bag",
     "price": "80$ CAD",
@@ -75,7 +75,7 @@
   },
   {
     "id": 6,
-    "src": "images/Merch_Bag-Orange.webp",
+    "src": "/images/Merch_Bag-Orange.webp",
     "alt": "Bag Orange",
     "caption": "Hip Bag",
     "price": "80$ CAD",
@@ -85,7 +85,7 @@
   },
   {
     "id": 7,
-    "src": "images/Merch_Bag-Pink.webp",
+    "src": "/images/Merch_Bag-Pink.webp",
     "alt": "Bag Pink",
     "caption": "Hip Bag",
     "price": "80$ CAD",
@@ -95,7 +95,7 @@
   },
   {
     "id": 8,
-    "src": "images/Merch_Bag-red.webp",
+    "src": "/images/Merch_Bag-red.webp",
     "alt": "Bag Red",
     "caption": "Hip Bag",
     "price": "80$ CAD",
@@ -105,7 +105,7 @@
   },
   {
     "id": 9,
-    "src": "images/Merch_Bag-Purple.webp",
+    "src": "/images/Merch_Bag-Purple.webp",
     "alt": "Bag Purple",
     "caption": "Hip Bag",
     "price": "80$ CAD",
@@ -115,7 +115,7 @@
   },
   {
     "id": 12,
-    "src": "images/Merch_Tshirt-Back.webp",
+    "src": "/images/Merch_Tshirt-Back.webp",
     "alt": "Tshirt Back",
     "caption": "T-shirt",
     "price": "30$ CAD",
@@ -131,7 +131,7 @@
   },
   {
     "id": 13,
-    "src": "images/Merch_Tshirt-Front.webp",
+    "src": "/images/Merch_Tshirt-Front.webp",
     "alt": "Tshirt Front",
     "caption": "T-shirt",
     "price": "30$ CAD",

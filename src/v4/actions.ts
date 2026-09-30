@@ -9,7 +9,8 @@
 import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
 import { ensure, mix, resume, setDrive, setLevel, setReverb, setSwing, setTone, trigger } from './audio/drums';
-import { BPM, pattern } from './audio/pattern';
+import { BASS_NOTE_NAMES } from './audio/bass';
+import { BPM, bassDegree, isOn, pattern } from './audio/pattern';
 import { sc } from './audio/soundcloud';
 import type { Stage } from './scene/renderer';
 import { chipsLive, explode } from './state/explode';
@@ -76,8 +77,33 @@ export function stepToggle(i: number): boolean {
     return false;
   }
   pattern.toggle(inst, i);
-  const on = pattern.get().steps[inst][i] === '1';
-  lcdMessage.show(`STEP ${two(i + 1)} ${inst} ${on ? 'ON' : 'OFF'}`);
+  lcdMessage.show(stepLine(inst, i));
+  return true;
+}
+
+/** Ligne d'ecran d'un pas : STEP 07 BD ON / OFF, STEP 07 BASS EB / OFF. */
+function stepLine(inst: Inst, i: number): string {
+  const steps = pattern.get().steps;
+  if (inst === 'BASS') {
+    const d = bassDegree(steps, i);
+    return `STEP ${two(i + 1)} BASS ${d > 0 ? BASS_NOTE_NAMES[d - 1] : 'OFF'}`;
+  }
+  return `STEP ${two(i + 1)} ${inst} ${isOn(steps, inst, i) ? 'ON' : 'OFF'}`;
+}
+
+/**
+ * Appui long sur un pas (revision 4, 400 ms) : le pas de l'instrument
+ * selectionne se vide. false sans selection.
+ */
+export function stepClear(i: number): boolean {
+  resume();
+  const inst = pattern.get().instrument;
+  if (!inst) {
+    lcdMessage.show('TAP A PAD FIRST');
+    return false;
+  }
+  pattern.clearStep(inst, i);
+  lcdMessage.show(stepLine(inst, i));
   return true;
 }
 
@@ -181,8 +207,9 @@ export function openToggle(stage: Stage | null = null): boolean {
 }
 
 /**
- * Puce de la vue eclatee (spec 20.6.2 CHIP) : LIVE et MERCH ouvrent leur
- * section ou la referment (bascule, comme un pad de page) ; STUDIO ouvre la sienne
+ * Puce de la vue eclatee (spec 20.6.2 CHIP, revision 4) : GOODIES, MERCH
+ * et STUDIO ouvrent leur section ou la referment (bascule, comme un pad de
+ * page)
  * (inchange) ; LABEL, un lien, ouvre sa page Bandcamp dans un onglet sans
  * opener ni referer, seulement quand son jumeau manque (sinon le jumeau,
  * un vrai lien, fait le travail).
@@ -191,8 +218,7 @@ export function chipAction(id: ChipId): void {
   if (!chipsLive(explode.get())) return;
   const c = CHIPS.find((k) => k.id === id);
   if (!c) return;
-  if (c.section === 'live' || c.section === 'merch') section.toggle(c.section);
-  else if (c.section) openSection(c.section);
+  if (c.section) section.toggle(c.section);
   else if (c.href) window.open(c.href, '_blank', 'noopener,noreferrer');
 }
 

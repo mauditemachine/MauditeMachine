@@ -42,7 +42,7 @@ export interface ExplorerResult {
  */
 export function splitArtists(name: string): string[] {
   const base = String(name || '')
-    .replace(/^\s*V\s*\/\s*A\s*[-–—:]*\s*/i, '')
+    .replace(/^\s*V\s*\/\s*A\s*[-\u2013\u2014:]*\s*/i, '')
     .trim();
   const parts = base
     .split(/\s*&\s*|\s*,\s*|\s+x\s+|\s+vs\.?\s+|\s+feat\.?\s+|\s+ft\.?\s+/i)
@@ -382,7 +382,7 @@ export function resolveCompilationTracks(artist: string, title: string): Promise
       key,
       (async () => {
         const fromArtist = String(artist || '')
-          .replace(/^\s*V\s*\/\s*A\s*[-–—:]*\s*/i, '')
+          .replace(/^\s*V\s*\/\s*A\s*[-\u2013\u2014:]*\s*/i, '')
           .trim();
         const candidates = Array.from(
           new Set([fromArtist, cleanTitle(title)].filter((c) => c.length > 2)),
@@ -434,7 +434,7 @@ export function resolveTrackPreviewSmart(artist: string, title: string): Promise
         // Perel...") et le champ artiste porte le nom de l'album. On cherche
         // par artiste cite et on ne garde qu'une piste de CETTE release.
         const albumHint = String(artist || '')
-          .replace(/^\s*V\s*\/\s*A\s*[-–—:]*\s*/i, '')
+          .replace(/^\s*V\s*\/\s*A\s*[-\u2013\u2014:]*\s*/i, '')
           .trim();
         const cited = splitArtists(title).slice(0, 3);
         if (albumHint && cited.length > 1) {

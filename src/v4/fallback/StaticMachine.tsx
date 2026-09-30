@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import { BPM, DEFAULT_STEPS, INSTRUMENTS } from '../audio/pattern';
+import { BPM, DEFAULT_STEPS, INSTRUMENTS, isOn } from '../audio/pattern';
 import {
   BODY,
   ENCODER,
@@ -161,7 +161,7 @@ const silkCaps = (() => {
 
 /** Le dessus du panneau : filets, LED, serigraphie, ecran. */
 function panelTop(): React.ReactNode {
-  const union = Array.from({ length: KEYS.count }, (_, i) => INSTRUMENTS.some((k) => DEFAULT_STEPS[k][i] === '1'));
+  const union = Array.from({ length: KEYS.count }, (_, i) => INSTRUMENTS.some((k) => isOn(DEFAULT_STEPS, k, i)));
   const O = OLED;
   const b = O.bezel;
   const lines = [

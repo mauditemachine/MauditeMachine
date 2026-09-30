@@ -7,11 +7,12 @@
  * deux rangees sur desktop (8 + 7), trois sur telephone (5 + 5 + 5), jamais
  * une icone seule sur sa rangee (v4.css). Icones bone, jaunes au survol et
  * au focus ; chaque lien porte le nom du service et s'ouvre en nouvel
- * onglet, sans opener ni referer.
+ * onglet, sans opener ni referer. Revision 4 : sous les adresses de
+ * booking, Massive Medias (impression et merch), nouvel onglet.
  */
 
 import React from 'react';
-import { CONTACTS, SOCIALS } from '../../data';
+import { CONTACTS, MASSIVE_LINK, SOCIALS } from '../../data';
 import { ExternalLink } from '../ExternalLink';
 import { SOCIAL_ICONS } from '../icons';
 import { SectionFrame, tabOf, type SectionProps } from './common';
@@ -32,6 +33,13 @@ export const Contact: React.FC<SectionProps> = ({ active, focusable }) => {
             </span>
           </li>
         ))}
+      </ul>
+      <ul className="v4-links v4-contact-extra">
+        <li>
+          <ExternalLink className="v4-link" href={MASSIVE_LINK.href} tabIndex={tab}>
+            <span>{MASSIVE_LINK.contactLabel}</span>
+          </ExternalLink>
+        </li>
       </ul>
       <ul className="v4-socials" aria-label="Social links">
         {SOCIALS.map((s) => {

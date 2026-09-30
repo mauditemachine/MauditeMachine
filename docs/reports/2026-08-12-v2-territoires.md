@@ -1,4 +1,4 @@
-# Rapport de session — Territoires /v2 (Canada · France · Espagne)
+# Rapport de session - Territoires /v2 (Canada · France · Espagne)
 
 Date : 2026-08-12
 Mission : remplacer la mention « Montréal → France » du hero /v2 par la

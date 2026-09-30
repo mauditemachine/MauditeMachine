@@ -1,4 +1,4 @@
-# Rapport de session — /v2 : hiérarchie typo, contacts booking, page Radar
+# Rapport de session - /v2 : hiérarchie typo, contacts booking, page Radar
 
 Date : 2026-08-12
 Mission en trois volets : 1) Robot Radicals réservée aux titres de
@@ -46,7 +46,7 @@ booking distincts (international / Canada-USA) ; 3) page dédiée
   et la pastille numéro des mixtapes sans artwork passent en sans ;
   plus AUCUN usage de `.v2-display` dans les composants. Robot
   Radicals ne subsiste que sur `.v2-section-title` et les ancres du
-  menu overlay (typo display du menu plein écran, assumée — dis-moi si
+  menu overlay (typo display du menu plein écran, assumée - dis-moi si
   tu veux aussi les passer en sans).
 - Space Mono conservée pour données/labels/meta lines.
 
@@ -68,7 +68,7 @@ booking distincts (international / Canada-USA) ; 3) page dédiée
 - Nouvelle route dédiée hors Layout ([App.tsx](../../src/App.tsx)),
   lazy, chunk 11,6 kB (3,4 kB gzip). Chrome de page factorisé en hook
   [useV2Chrome.ts](../../src/v2/hooks/useV2Chrome.ts) (body class,
-  noindex, description, titre — partagé avec la landing).
+  noindex, description, titre - partagé avec la landing).
 - [src/v2/pages/RadarPage.tsx](../../src/v2/pages/RadarPage.tsx) : flux
   Nouveautés (60 jours) / Archives depuis releases.json (respecte
   publishedRadar), lignes grid DA v2 (cover 44 px, artiste sans 500
@@ -100,7 +100,7 @@ booking distincts (international / Canada-USA) ; 3) page dédiée
 - **Radar desktop** : DA complète capturée ; explorateur testé en réel
   (chip « The Magic Ray » → 2 releases iTunes) ; play d'un item
   explorateur ET d'une release du flux (« Club Scenes » → barre
-  « Surefire · 2026 », ligne marquée en lecture) — l'API iTunes passe
+  « Surefire · 2026 », ligne marquée en lecture) - l'API iTunes passe
   depuis l'environnement de test, résolution + lecture réelles
   confirmées.
 - **Navigation** : menu overlay → Radar (SPA, scroll top, overflow

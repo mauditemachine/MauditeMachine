@@ -1,4 +1,4 @@
-# Rapport de session — SEO local (booking Montréal/Québec) + Analytics
+# Rapport de session - SEO local (booking Montréal/Québec) + Analytics
 
 Date : 2026-09-03
 Mission : être booké davantage à Montréal, au Québec et au Canada ;
@@ -9,7 +9,7 @@ savoir qui visite le site (villes, âge, genre) via Google Analytics.
 - **Google Analytics est DÉJÀ installé** : balise GA4 `G-HP92HGMNJT`
   active en production (vérifié par curl), plus un pixel Facebook
   (`1410022320201825`). Le site collecte donc des données depuis un
-  moment — elles n'étaient simplement jamais consultées.
+  moment - elles n'étaient simplement jamais consultées.
 - Ce que je ne peux pas faire à la place de Mika : lire son compte
   Google (identifiants personnels). D'où le double travail ci-dessous :
   automatiser la remontée des chiffres dans SON dashboard, et lui
@@ -34,7 +34,7 @@ savoir qui visite le site (villes, âge, genre) via Google Analytics.
 
 ### 2. SEO local (le levier de booking)
 - **Title** : « Maudite Machine | DJ Montréal · Indie Dance, Dark
-  Disco, Techno » — la requête d'un bookeur (« DJ Montréal ») passe
+  Disco, Techno » - la requête d'un bookeur (« DJ Montréal ») passe
   devant. Corrigé aussi dans `useV2Chrome` (le hook réécrivait le
   title au runtime et annulait la balise statique).
 - **Description** : orientée booking et villes explicites (« basé à
@@ -63,20 +63,20 @@ savoir qui visite le site (villes, âge, genre) via Google Analytics.
   vérifiée au rendu.
 - `node --check` sur le collecteur, build de prod clean.
 
-## Ce qui reste à faire — CÔTÉ MIKA (rien ne marche sans ces étapes)
+## Ce qui reste à faire - CÔTÉ MIKA (rien ne marche sans ces étapes)
 
 1. **Voir ses chiffres tout de suite** : analytics.google.com →
    propriété Maudite Machine → Rapports → « Données démographiques »
    (villes, âge, genre) et « Acquisition ». Les données existent déjà.
 2. **Activer les signaux Google** (Admin → Collecte de données) sinon
    âge et genre restent vides. Note : sous un certain volume de
-   trafic, Google masque ces lignes par confidentialité — c'est
+   trafic, Google masque ces lignes par confidentialité - c'est
    attendu, pas un bug.
 3. **Google Search Console** (le vrai outil SEO, gratuit) :
    search.google.com/search-console → ajouter mauditemachine.com →
    soumettre `https://mauditemachine.com/sitemap.xml`. C'est ce qui
    montre sur quelles requêtes le site apparaît.
-4. **Fiche Google Business Profile** « Maudite Machine — DJ, Montréal » :
+4. **Fiche Google Business Profile** « Maudite Machine - DJ, Montréal » :
    c'est LE levier n°1 pour apparaître dans les recherches locales
    type « DJ Montréal ». Gratuit, ~15 minutes.
 5. Pour brancher les chiffres dans le dashboard interne : créer

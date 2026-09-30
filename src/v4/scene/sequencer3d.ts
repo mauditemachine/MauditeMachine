@@ -26,7 +26,7 @@ import {
   type Object3D,
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { INSTRUMENTS, STEP_COUNT, type Steps } from '../audio/pattern';
+import { INSTRUMENTS, STEP_COUNT, bassDegree, isOn, type Steps } from '../audio/pattern';
 import { COLOR, KEYS, LIT, MATERIAL, RUN_GLOW, TRANSPORT, keyX, type Inst } from '../theme';
 import type { HotspotDef } from './hit';
 import { withInstanceEmissive } from './materials';
@@ -72,6 +72,8 @@ export interface SequencerInfo {
   hover: number;
   /** '1' = pas programme selon la regle 7.5 */
   programmed: string;
+  /** BASS selectionnee : hauteur de chaque batonnet (0 a 5) */
+  levels: number[];
   instrument: Inst | null;
 }
 
@@ -82,6 +84,8 @@ export class Sequencer3D {
   private ledMat: MeshBasicMaterial;
   private emissive: InstancedBufferAttribute;
   private ledTone: LedTone[] = [];
+  /** BASS selectionnee : hauteur du batonnet de chaque LED (0 : LED normale) */
+  private ledLevel: number[] = [];
   private steps: Steps | null = null;
   private instrument: Inst | null = null;
   private hover = -1;
@@ -124,6 +128,7 @@ export class Sequencer3D {
       this.leds.setMatrixAt(i, m4.makeTranslation(keyX(i), KEYS.ledY, KEYS.ledZ));
       this.leds.setColorAt(i, col.setHex(LED_HEX.line));
       this.ledTone.push('line');
+      this.ledLevel.push(0);
     }
     this.leds.instanceMatrix.needsUpdate = true;
     this.leds.instanceColor?.setUsage(DynamicDrawUsage);
@@ -145,14 +150,39 @@ export class Sequencer3D {
   private programmed(i: number): boolean {
     const s = this.steps;
     if (!s) return false;
-    if (this.instrument) return s[this.instrument].charCodeAt(i) === 49;
-    for (const k of INSTRUMENTS) if (s[k].charCodeAt(i) === 49) return true;
+    if (this.instrument) return isOn(s, this.instrument, i);
+    for (const k of INSTRUMENTS) if (isOn(s, k, i)) return true;
     return false;
+  }
+
+  /**
+   * BASS selectionnee (revision 4) : chaque LED programmee devient un
+   * batonnet qui monte vers l'arriere du panneau, un cran par degre (1 a
+   * 5), depuis le bord avant de la LED. true si une forme a change.
+   */
+  private reshape(): boolean {
+    let changed = false;
+    const bass = this.instrument === 'BASS' && this.steps !== null;
+    const front = KEYS.ledZ + KEYS.ledD / 2;
+    for (let i = 0; i < STEP_COUNT; i += 1) {
+      const lv = bass && this.steps ? bassDegree(this.steps, i) : 0;
+      if (lv === this.ledLevel[i]) continue;
+      this.ledLevel[i] = lv;
+      if (lv === 0) m4.makeTranslation(keyX(i), KEYS.ledY, KEYS.ledZ);
+      else {
+        const len = KEYS.ledD + (lv - 1) * KEYS.barStep;
+        m4.makeScale(1, 1, len / KEYS.ledD).setPosition(keyX(i), KEYS.ledY, front - len / 2);
+      }
+      this.leds.setMatrixAt(i, m4);
+      changed = true;
+    }
+    if (changed) this.leds.instanceMatrix.needsUpdate = true;
+    return changed;
   }
 
   /** Recolore les LED selon la regle 7.5 ; true si une couleur a change. */
   private refresh(): boolean {
-    let changed = false;
+    let changed = this.reshape();
     for (let i = 0; i < STEP_COUNT; i += 1) {
       const tone: LedTone =
         i === this.playhead || i === this.introLed
@@ -244,6 +274,7 @@ export class Sequencer3D {
       playhead: this.playhead,
       hover: this.hover,
       programmed,
+      levels: [...this.ledLevel],
       instrument: this.instrument,
     };
   }

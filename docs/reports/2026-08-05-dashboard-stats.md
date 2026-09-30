@@ -1,4 +1,4 @@
-# Rapport de session — 2026-08-05 — Dashboard stats multi-plateformes
+# Rapport de session - 2026-08-05 - Dashboard stats multi-plateformes
 
 ## Ce qui a été fait
 

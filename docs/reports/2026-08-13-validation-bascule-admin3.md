@@ -1,11 +1,11 @@
-# Rapport de session — Validation player, bascule v2, admin étape 3
+# Rapport de session - Validation player, bascule v2, admin étape 3
 
 Date : 2026-08-13
 Trois missions en ordre strict : 1) valider le player SoundCloud à fond
 (bloquante), 2) basculer /v2 en site principal (plan validé par GO avec
 deux ajustements), 3) admin étape 3 (discographie + mixtapes).
 
-## Mission 1 — Validation du player
+## Mission 1 - Validation du player
 
 ### Testé et validé (prod + local)
 - Lecture réelle de 4 pistes full-track en PROD (Abyss, Zenith, Limbos,
@@ -18,7 +18,7 @@ deux ajustements), 3) admin étape 3 (discographie + mixtapes).
 - Bascule moteurs : SC coupé proprement en naviguant vers le radar,
   preview iTunes (HTML5) jouée, retour, relecture SC. Zéro conflit.
 - Erreur URL morte (sabotage temporaire en local puis restauration) :
-  ERROR → notice « « titre » unavailable — skipped » 4 s dans la barre
+  ERROR → notice « « titre » unavailable - skipped » 4 s dans la barre
   (AJOUTÉE cette session, deux moteurs) → la suivante joue réellement →
   jamais bloqué. Privé/géobloqué = même chemin ERROR.
 
@@ -42,7 +42,7 @@ prétendant jouer.
 - ⚠️ Les résultats des tests humains annoncés dans le GO sont restés en
   placeholders (« [OK / décris le problème] ») : toujours en attente.
 
-## Mission 2 — Bascule v2 en site principal
+## Mission 2 - Bascule v2 en site principal
 
 ### Fait (plan validé + 2 ajustements de Mika)
 - `/` sert la v2, `/radar` la page Radar (ex /v2/radar), `/v2` et
@@ -76,7 +76,7 @@ prétendant jouer.
 - En local avant push : les 8 redirections testées une par une,
   /v1/about rendu, /mm-admin/radar dans le Layout ✓
 
-## Mission 3 — Admin étape 3
+## Mission 3 - Admin étape 3
 
 ### Serveur (server.js)
 - GET/PUT /api/admin/data/:name : whitelist stricte (discography,
@@ -127,7 +127,7 @@ prétendant jouer.
 
 ## Ce qui reste à faire / points en suspens
 - MIKA : résultats des tests humains du player (placeholders restés
-  vides) — iOS Safari + enchaînement auto au vrai clic.
+  vides) - iOS Safari + enchaînement auto au vrai clic.
 - MIKA : un glisser-déposer réel dans la discographie admin pour
   confirmer le drag.
 - Étapes 4 (médias + textes) et 5 (publier + polish) du panneau admin.

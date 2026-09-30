@@ -1,4 +1,4 @@
-# Rapport de session — Page Archives (musée du site)
+# Rapport de session - Page Archives (musée du site)
 
 Date : 2026-09-14
 Mission : un menu pour voir les anciennes versions du site, en allant
@@ -15,7 +15,7 @@ chercher dans la Wayback Machine, avec liens et images des vieux designs.
   empreinte MD5) donc fusionnées en une seule entrée.
 - **Captures d'écran** : générées via l'API microlink (mshots de
   WordPress et thum.io renvoient 403 ou un GIF de chargement),
-  converties en WebP 1000 px dans `public/images/archive/` — **175 Ko
+  converties en WebP 1000 px dans `public/images/archive/` - **175 Ko
   au total pour 7 images**. Elles sont stockées en local : la page ne
   dépend d'aucun service externe au chargement.
 - **5 versions retenues**, de la plus récente à la plus ancienne :

@@ -1,4 +1,4 @@
-# Rapport de session — Rebrand Larsseit / crème / #191919
+# Rapport de session - Rebrand Larsseit / crème / #191919
 
 Date : 2026-08-31
 Mission : tout le site en Larsseit, fond crème, texte #191919.
@@ -11,7 +11,7 @@ Mission : tout le site en Larsseit, fond crème, texte #191919.
   Regular droit dans la licence : Light couvre 300-400, Medium 500-600,
   Bold 700+ (@font-face à plages dans v2.css). Les @fontsource
   Space Mono / Inter sont retirés du bundle.
-- **Palette** ([v2.css](../../src/v2/v2.css)) : tokens inversés —
+- **Palette** ([v2.css](../../src/v2/v2.css)) : tokens inversés -
   fond #F6F1E7 (crème), encre #191919, dim/faint/line en alpha d'encre.
   Toutes les valeurs codées en dur converties : hovers des listes,
   player (verre crème rgba(246,241,231,.88), tête de lecture encre),
@@ -27,7 +27,7 @@ Mission : tout le site en Larsseit, fond crème, texte #191919.
   chiffres défilants (temps du player, durées, dates).
 - **Cas particuliers** : logo hero passé de mix-blend difference à
   `filter: brightness(0)` (le blend ne traversait plus le stacking
-  context du canvas masqué — constaté à l'écran, logo resté blanc) ;
+  context du canvas masqué - constaté à l'écran, logo resté blanc) ;
   burger sans blend (l'inversion le rendait illisible sur crème) ;
   curseur custom GARDÉ en blend difference (blanc inversé = sombre sur
   crème, clair sur photos : exactement son rôle) ; légendes photos et
@@ -61,11 +61,11 @@ Mission : tout le site en Larsseit, fond crème, texte #191919.
 ## Décisions prises et pourquoi
 
 - **Robot Radicals abandonnée pour les titres** : la demande est
-  « tout en Larsseit » — le logo SVG reste le seul porteur du lettrage
+  « tout en Larsseit » - le logo SVG reste le seul porteur du lettrage
   Robot Radicals (c'est un tracé, pas du texte).
 - **Licence Larsseit** : fichiers convertis depuis la licence desktop
   de Mika. L'usage webfont auto-hébergé dépend des termes de sa
-  licence Type Dynamic — à vérifier de son côté, rien de bloquant
+  licence Type Dynamic - à vérifier de son côté, rien de bloquant
   techniquement.
 - **Lightbox sombre conservée** : standard photo même sur site clair.
 

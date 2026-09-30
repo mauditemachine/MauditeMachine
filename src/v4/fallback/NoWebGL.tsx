@@ -10,6 +10,7 @@
 import React from 'react';
 import { COPY } from '../theme';
 import { Contact } from '../ui/sections/Contact';
+import { Goodies } from '../ui/sections/Goodies';
 import { Label } from '../ui/sections/Label';
 import { Live } from '../ui/sections/Live';
 import { Merch } from '../ui/sections/Merch';
@@ -37,8 +38,9 @@ const NoWebGL: React.FC = () => (
       <Label active focusable />
       <Sonaa active focusable />
       <Live active focusable />
-      <Studio active focusable />
+      <Goodies active focusable />
       <Merch active focusable />
+      <Studio active focusable />
     </div>
   </section>
 );

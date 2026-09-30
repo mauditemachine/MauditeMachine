@@ -817,8 +817,8 @@ export class Pcb {
 
   info(): PcbInfo {
     const idx = this.parts.geometry.getIndex();
-    const rise = { label: 0, live: 0, studio: 0, merch: 0 } as Record<ChipId, number>;
-    const lit = { label: false, live: false, studio: false, merch: false } as Record<ChipId, boolean>;
+    const rise = Object.fromEntries(CHIPS.map((c) => [c.id, 0])) as Record<ChipId, number>;
+    const lit = Object.fromEntries(CHIPS.map((c) => [c.id, false])) as Record<ChipId, boolean>;
     for (const r of this.ranges) {
       rise[r.id] = +r.rise.toFixed(4);
       lit[r.id] = r.lit;

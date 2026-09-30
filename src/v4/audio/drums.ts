@@ -18,6 +18,7 @@
 
 import { FLAGS } from '../state/flags';
 import type { Inst } from '../theme';
+import { bassVoice } from './bass';
 import { buildFx, glide, type FxChain, type FxInfo } from './fx';
 import { pattern } from './pattern';
 
@@ -41,6 +42,9 @@ interface Graph {
 
 export interface TriggerInfo {
   inst: Inst;
+  /** BASS : degre joue (1 a 5) et degre d'ou part le glissando (0 : aucun) */
+  degree: number;
+  from: number;
   open: boolean;
   /** instant programme (temps du contexte) */
   when: number;
@@ -334,17 +338,29 @@ function voiceCH(g: Graph, when: number, open: boolean): Voice {
  * jamais le contexte : sans geste prealable, rien ne sonne. `open` : charley
  * ouvert (pad CH tenu ; les coups du sequenceur sont toujours fermes).
  * `out` recoit la voix programmee (l'horloge, pour pouvoir l'annuler).
+ * BASS (revision 4, audio/bass.ts) : `degree` 1 a 5 (le pad joue la
+ * fondamentale), `from` le degre du pas precedent s'il jouait (glissando).
  */
-export function trigger(inst: Inst, when?: number, open = false, out?: Voice[]): boolean {
+export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], degree = 1, from = 0): boolean {
   const g = graph;
   if (!g) return false;
   enforceMute(g);
   const now = g.ctx.currentTime;
   const t = when === undefined || when < now ? now : when;
-  const v = inst === 'BD' ? voiceBD(g, t) : inst === 'SD' ? voiceSD(g, t) : inst === 'TOM' ? voiceTOM(g, t) : voiceCH(g, t, open);
+  const v =
+    inst === 'BD'
+      ? voiceBD(g, t)
+      : inst === 'SD'
+        ? voiceSD(g, t)
+        : inst === 'TOM'
+          ? voiceTOM(g, t)
+          : inst === 'BASS'
+            ? bassVoice(g.ctx, g.bus, t, degree, from)
+            : voiceCH(g, t, open);
   out?.push(v);
   triggers += 1;
-  last = { inst, open: inst === 'CH' && open, when: t, at: performance.now(), state: g.ctx.state };
+  const bass = inst === 'BASS';
+  last = { inst, open: inst === 'CH' && open, degree: bass ? degree : 0, from: bass ? from : 0, when: t, at: performance.now(), state: g.ctx.state };
   return true;
 }
 

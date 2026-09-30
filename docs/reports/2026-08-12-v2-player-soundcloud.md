@@ -1,4 +1,4 @@
-# Rapport de session — Player /v2 : full tracks SoundCloud
+# Rapport de session - Player /v2 : full tracks SoundCloud
 
 Date : 2026-08-12
 Mission : brancher le player sticky /v2 sur les tracks SoundCloud comme
@@ -19,7 +19,7 @@ commune sur la question iframe.
   l'URL dans l'iframe PENDANT le geste utilisateur ; FINISH émet aussi
   un PAUSE à ignorer pendant l'enchaînement.
 - **Alternative testée par curl** (pour trancher en connaissance de
-  cause) : api-v2.soundcloud.com — client_id scrapé des assets JS,
+  cause) : api-v2.soundcloud.com - client_id scrapé des assets JS,
   /resolve, transcoding progressive + track_authorization → MP3 signé
   CloudFront, CORS `*`, jouable dans un `<audio>` nu. Fonctionnelle
   AUJOURD'HUI mais non-officielle : client_id impossible à scraper au
@@ -29,14 +29,14 @@ commune sur la question iframe.
 - **Décision Mika** : Widget API avec iframe caché (mécanisme v1). La
   règle zéro-iframe était esthétique ; un iframe de pilotage invisible
   n'affecte pas l'esthétique, et c'est le seul chemin officiel vers le
-  full-track — bonus : les écoutes comptent sur le profil SoundCloud.
+  full-track - bonus : les écoutes comptent sur le profil SoundCloud.
 
 ## Ce qui a été fait
 
 - **[discography.json](../../src/v2/data/discography.json)** : le champ
   `audio` (MP3 locaux) devient `soundcloudUrl` (permalinks publics).
   Préremplissage depuis le profil (62 tracks listées) : **22 des 26
-  titres réels mappés** — Kouklikou, Sync Button, Anarchic, Autopsynth,
+  titres réels mappés** - Kouklikou, Sync Button, Anarchic, Autopsynth,
   Back On Track, Nocturne, Coagule, Richie, Tati Cardi, Drama Queen,
   Discowriders, Cupertino, TimeOut, So Hard, Fuck That, Strange Effect,
   Origan + les 5 remixes (Alan Parsons, Robots, Dangerous Drive, Big
@@ -59,7 +59,7 @@ commune sur la question iframe.
   sans URL ; le lien plateforme reste actif. Note : « Streaming via
   SoundCloud. Full releases on Bandcamp. »
 - **[StickyPlayer.tsx](../../src/v2/components/StickyPlayer.tsx)** :
-  AUCUN changement — l'UI, la progress bar, prev/next, le seek
+  AUCUN changement - l'UI, la progress bar, prev/next, le seek
   souris/clavier et l'enchaînement passent par le contexte, qui route
   vers le bon moteur.
 - **public/audio/placeholder-{1,2,3}.mp3 supprimés** (git rm, dossier
@@ -105,7 +105,7 @@ commune sur la question iframe.
   Voodoo, Crush on you, Music Machine, Passport, Ruckus, Bassheiser,
   Plastic Hanger, Calcium, Cardioid, DarkSide, Chimie Electrique (+
   Emotional Remix), Paul Ritch Walk The Line (MM Remix), Number in
-  between… — probablement les vrais titres du Limbo LP et d'autres
+  between… - probablement les vrais titres du Limbo LP et d'autres
   crédits. J'attends ta liste finale pour les brancher.
 
 ## Ce qui reste à faire / points en suspens

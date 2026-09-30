@@ -1,4 +1,4 @@
-# Rapport de session — Event Soirée Versatile + fusion Live
+# Rapport de session - Event Soirée Versatile + fusion Live
 
 Date : 2026-09-01
 Mission : ajouter l'événement Facebook

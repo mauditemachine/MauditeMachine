@@ -1,4 +1,4 @@
-# Rapport de session — Polish esthétique /v2 (2 vagues + corrections menu)
+# Rapport de session - Polish esthétique /v2 (2 vagues + corrections menu)
 
 Dates : 2026-08-12 → 2026-08-13
 Mission : monter le niveau de finition de /v2. Revue critique honnête
@@ -57,7 +57,7 @@ Radar dans le menu principal, EPK → Press Kit).
   labels en fondu décalé, galerie en damier aléatoire avec micro-scale,
   listes inchangées. Fini l'uniformité mécanique.
 - **Geste final Contact** : les deux adresses booking à l'échelle
-  display (clamp 24→54 px), empilées pleine largeur — la page se
+  display (clamp 24→54 px), empilées pleine largeur - la page se
   termine sur une rupture, pas en fondu.
 
 ## Corrections menu et galerie (demandes du GO vague 2)
@@ -69,7 +69,7 @@ Radar dans le menu principal, EPK → Press Kit).
   (4 photos restantes toutes distinctes). La galerie passe à 5 photos.
 - **Radar au niveau principal du menu** : entrée normale, même style
   que les ancres, placée juste avant Press Kit (ordre : Music ·
-  Mixtapes · Live · Gallery · Radar · Press Kit · Contact — l'ordre
+  Mixtapes · Live · Gallery · Radar · Press Kit · Contact - l'ordre
   réel des sections, Radar juste avant Press Kit comme demandé). Le
   bloc « Pages » séparé est supprimé (JSX + CSS). Radar reste une
   page dédiée, seul son traitement dans le menu change.
@@ -109,7 +109,7 @@ Radar dans le menu principal, EPK → Press Kit).
   existants pour zéro gain visible.
 - **Artefacts du panneau de test documentés** : le pane garde l'onglet
   en visibilityState hidden (rideau et reveals sautés par design dans
-  ce cas — comportement onglet en arrière-plan), et certaines zones ne
+  ce cas - comportement onglet en arrière-plan), et certaines zones ne
   sont pas rasterisées sur les captures (trous noirs) alors que le DOM
   confirme 5/5 vignettes visibles. Vérité DOM systématiquement croisée.
 

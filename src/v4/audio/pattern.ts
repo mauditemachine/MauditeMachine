@@ -1,5 +1,5 @@
 /**
- * Motif du sequenceur (spec 10) : 16 pas x 4 instruments, l'instrument
+ * Motif du sequenceur (spec 10) : 16 pas x 5 voix, l'instrument
  * selectionne (celui du dernier pad frappe) et le tempo. Petit store
  * observable : React le lit par useSyncExternalStore, la scene par get().
  * Motif, tempo et, depuis la revision 2, les trois effets SWING, DIST et
@@ -8,16 +8,25 @@
  * commencerait muette serait un piege). Chaque lecture et chaque ecriture
  * du localStorage passent par try/catch : navigation privee, stockage
  * bloque ou plein, JSON corrompu, rien ne leve jamais.
+ *
+ * BASS (revision 4) : sa rangee porte un chiffre par pas, 0 (vide) a 5,
+ * le degre de do mineur pentatonique (do, mi bemol, fa, sol, si bemol) ;
+ * les quatre autres voix restent en 0 / 1. Un appui monte d'un degre (5
+ * repart a vide), un appui long efface. Meme cle, meme forme stockee : un
+ * motif enregistre avant la basse la recoit par defaut.
  */
 
 import type { Inst } from '../theme';
 
-export const INSTRUMENTS: readonly Inst[] = ['BD', 'SD', 'TOM', 'CH'];
+export const INSTRUMENTS: readonly Inst[] = ['BD', 'SD', 'TOM', 'CH', 'BASS'];
+/** Degres de la basse : 1 a 5 (0 = pas vide). */
+export const BASS_DEGREES = 5;
 export const STEP_COUNT = 16;
 export const BPM = { min: 100, max: 150, initial: 130 } as const;
 export const STORAGE_KEY = 'mm.v4.pattern';
 const SAVE_DEBOUNCE_MS = 300;
 const STEPS_RE = /^[01]{16}$/;
+const BASS_RE = /^[0-5]{16}$/;
 
 export type Steps = Record<Inst, string>;
 
@@ -55,12 +64,29 @@ export interface PatternState extends Pattern {
   instrument: Inst | null;
 }
 
-/** Four to the floor minimal : BD 1 5 9 13, CH 3 7 11 15, SD 5 13, TOM 15 (index 0 = pas 1). */
+/**
+ * Four to the floor minimal : BD 1 5 9 13, CH 3 7 11 15, SD 5 13, TOM 15
+ * (index 0 = pas 1). BASS (revision 4) : I . I . I . III . I . I . V . III .
+ * (I, III, V : 1er, 3e et 5e degre de la pentatonique, do, fa, si bemol).
+ */
 export const DEFAULT_STEPS: Readonly<Steps> = {
   BD: '1000100010001000',
   SD: '0000100000001000',
   TOM: '0000000000000010',
   CH: '0010001000100010',
+  BASS: '1010103010105030',
+};
+
+/** Pas i joue par inst (tout chiffre sauf 0). */
+export const isOn = (steps: Steps, inst: Inst, i: number): boolean => {
+  const c = steps[inst].charCodeAt(i);
+  return c > 48 && c <= 53;
+};
+
+/** Degre de basse du pas i : 0 (vide) a 5. */
+export const bassDegree = (steps: Steps, i: number): number => {
+  const c = steps.BASS.charCodeAt(i) - 48;
+  return c >= 0 && c <= BASS_DEGREES ? c : 0;
 };
 
 export const defaultPattern = (): Pattern => ({ bpm: BPM.initial, steps: { ...DEFAULT_STEPS } });
@@ -81,7 +107,7 @@ export function validate(raw: unknown): Pattern {
     const steps = o.steps as Record<string, unknown>;
     for (const inst of INSTRUMENTS) {
       const s = steps[inst];
-      if (typeof s === 'string' && STEPS_RE.test(s)) out.steps[inst] = s;
+      if (typeof s === 'string' && (inst === 'BASS' ? BASS_RE : STEPS_RE).test(s)) out.steps[inst] = s;
     }
   }
   return out;
@@ -134,17 +160,28 @@ export function save(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX): boolean {
   }
 }
 
-/** Nouveau motif avec le pas i de inst inverse (mise a jour immuable). */
+/**
+ * Nouveau motif avec le pas i de inst change (mise a jour immuable) : une
+ * voix de batterie s'inverse ; BASS monte d'un degre, 5 repart a vide.
+ */
 export function toggleStep(p: Pattern, inst: Inst, i: number): Pattern {
   if (!Number.isInteger(i) || i < 0 || i >= STEP_COUNT) return p;
   const s = p.steps[inst];
-  const flipped = s.slice(0, i) + (s[i] === '1' ? '0' : '1') + s.slice(i + 1);
-  return { ...p, steps: { ...p.steps, [inst]: flipped } };
+  const next = inst === 'BASS' ? String((bassDegree(p.steps, i) + 1) % (BASS_DEGREES + 1)) : s[i] === '1' ? '0' : '1';
+  return { ...p, steps: { ...p.steps, [inst]: s.slice(0, i) + next + s.slice(i + 1) } };
+}
+
+/** Le pas i de inst vide (appui long) ; le meme motif s'il l'etait deja. */
+export function clearStep(p: Pattern, inst: Inst, i: number): Pattern {
+  if (!Number.isInteger(i) || i < 0 || i >= STEP_COUNT) return p;
+  const s = p.steps[inst];
+  if (s[i] === '0') return p;
+  return { ...p, steps: { ...p.steps, [inst]: s.slice(0, i) + '0' + s.slice(i + 1) } };
 }
 
 export function clearSteps(p: Pattern): Pattern {
   const empty = '0'.repeat(STEP_COUNT);
-  return { ...p, steps: { BD: empty, SD: empty, TOM: empty, CH: empty } };
+  return { ...p, steps: { BD: empty, SD: empty, TOM: empty, CH: empty, BASS: empty } };
 }
 
 /* ---------------- le store ---------------- */
@@ -227,6 +264,11 @@ export const pattern = {
   },
   toggle(inst: Inst, i: number): void {
     const next = toggleStep(state, inst, i);
+    if (next !== state) commit({ ...next, instrument: state.instrument }, true);
+  },
+  /** Appui long : le pas vide. */
+  clearStep(inst: Inst, i: number): void {
+    const next = clearStep(state, inst, i);
     if (next !== state) commit({ ...next, instrument: state.instrument }, true);
   },
   clear(): void {

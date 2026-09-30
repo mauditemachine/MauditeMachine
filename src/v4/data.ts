@@ -13,6 +13,7 @@
 import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { BOOKING_CONTACTS, type BookingContact } from '../v2/data/contacts';
 import { BEADS, fmtTime, type Bead } from '../v3/data/beads';
+import { GOODIES, type GoodieCategory, type GoodieItem } from '../data/goodies';
 import { LABEL_URL } from './theme';
 
 export { SOCIALS, type Social, type SocialId } from './data/socials';
@@ -94,8 +95,37 @@ export const LIVE_DOCS: readonly { label: string; href: string; size: string }[]
 /** Les deux pages du site ouvertes par LIVE, en nouvel onglet. */
 export const LIVE_PAGES = { press: '/press/', techrider: '/techrider' } as const;
 
-/** STUDIO (puce de la vue eclatee) : les cours de musique en PDF viendront plus tard. */
-export const STUDIO_TEXT = 'Coming soon.';
+/** Massive Medias (revision 4) : STUDIO et CONTACT, nouvel onglet ; https://massivemedias.com repond 200. */
+export const MASSIVE_LINK = {
+  href: 'https://massivemedias.com',
+  label: 'massivemedias.com',
+  contactLabel: 'Print and merch, Massive Medias',
+} as const;
+
+/** STUDIO (puce de la vue eclatee, revision 4) : le texte du brief, en anglais. */
+export const STUDIO = {
+  setup: 'Ableton Live, Push 3, Dreadbox Typhon, Dreadbox Artemis, Minilogue XD, Roto Control, Akai APC40, SSL2+ interface, Audeze LCD-XC Pro.',
+  lessons: ['Ableton Live production, one to one, remote or in person.', 'Over 70 students since 2010. Beginners welcome.'],
+  print: 'Posters, stickers, waterproof menus, apparel, produced in house.',
+} as const;
+
+/* ---------------- goodies (src/data/goodies.ts, la source de /goodies) ---------------- */
+
+export { goodieFilename } from '../data/goodies';
+
+/** Poids affiche : 520 KB, 1.4 MB (unites decimales, comme les PDF de LIVE). */
+export function fmtBytes(b: number): string {
+  if (!Number.isFinite(b) || b <= 0) return '';
+  return b < 1e6 ? `${Math.max(1, Math.round(b / 1e3))} KB` : `${(b / 1e6).toFixed(1)} MB`;
+}
+
+export const GOODIE_GROUPS: readonly { category: GoodieCategory; title: string; items: readonly GoodieItem[] }[] = (
+  [
+    ['wallpaper-desktop', 'Desktop wallpapers'],
+    ['wallpaper-phone', 'Phone wallpapers'],
+    ['cover', 'Release covers'],
+  ] as const
+).map(([category, title]) => ({ category, title, items: GOODIES.filter((g) => g.category === category) }));
 
 export const CONTACTS: readonly BookingContact[] = BOOKING_CONTACTS;
 
@@ -170,15 +200,16 @@ export function fmtShowDate(iso: string): string {
   return `${d} ${MONTHS[(m || 1) - 1] ?? ''} ${y}`;
 }
 
-/* ---------------- merch (public/store.json) ---------------- */
+/* ---------------- merch (public/store.json, public/stickers.json) ---------------- */
 
 /**
- * La boutique (puce MERCH de la vue eclatee) : public/store.json, la meme
- * source que la boutique v2 et l'admin (un edit met a jour le site sans
- * rebuild). Le fichier liste des VUES (face, dos, couleurs) : regroupees
- * par categorie en produits, comme src/v2/components/Merch.tsx. Pas de
- * panier : la commande part par un courriel prerempli. Epuise = marque
- * Sold out, jamais masque.
+ * La boutique (puce MERCH de la vue eclatee). public/store.json reste A
+ * PLAT (une entree par vue : face, dos, couleur) : c'est le format que
+ * l'admin ecrit (server.js, /api/save-merch) et que lisent /v1 et /v2 ;
+ * le regrouper par produit ici evite de casser l'admin. Chemins absolus.
+ * Les vues d'un meme produit (category) deviennent un produit : textiles
+ * (face, dos, tailles), sacs (une vue par couleur, chacune son stock).
+ * Pas de panier : la commande part par courriel prerempli (orderHref).
  */
 interface StoreView {
   id: number;
@@ -192,24 +223,35 @@ interface StoreView {
   soldOut: boolean;
 }
 
+/** Une vue d'un produit : face ou dos (textiles), une couleur (sacs). */
+export interface MerchView {
+  src: string;
+  alt: string;
+  /** Front, Back, ou le nom de la couleur */
+  label: string;
+  inStock: boolean;
+}
+
 export interface MerchProduct {
   id: string;
   name: string;
   price: string;
-  image: { src: string; alt: string };
-  /** tailles dans l'ordre S M L XL, en stock ou non ; null sans tailles (sacs) */
+  /** colors : chaque vue est une couleur a choisir ; views : face et dos d'un meme article */
+  kind: 'views' | 'colors';
+  views: MerchView[];
+  /** tailles dans l'ordre S M L XL, en stock ou non ; null sans tailles */
   sizes: { size: string; inStock: boolean }[] | null;
-  /** produits a couleurs (sacs) : couleurs en stock sur le total */
-  colors: { inStock: number; total: number } | null;
   available: boolean;
-  orderHref: string;
 }
 
-export const MERCH_TEXT = 'Small runs, first come first served. Pick a piece: the order email is written for you, just add your size and address.';
+export const MERCH_TEXT = 'Small runs, first come first served. No online payment: pick a piece, the order email is written for you.';
 export const MERCH_EMPTY = 'The store is being restocked. Check back soon.';
-
-const ORDER_EMAIL = BOOKING_CONTACTS.find((c) => c.id === 'na')?.email || 'mauditemachine@gmail.com';
+export const MERCH_NOTE = 'Payment details and shipping cost sent by reply. Ships from Montpellier.';
+const ORDER_EMAIL = 'mauditemachine@gmail.com';
 const SIZE_ORDER = ['S', 'M', 'L', 'XL'];
+
+/** Chemin absolu (barre oblique initiale), espaces encodes. */
+const absPath = (p: string): string => encodeURI(`/${p.replace(/^\/+/, '')}`);
 
 const isView = (v: unknown): v is StoreView => {
   if (!v || typeof v !== 'object') return false;
@@ -217,10 +259,12 @@ const isView = (v: unknown): v is StoreView => {
   return typeof o.src === 'string' && typeof o.caption === 'string' && typeof o.category === 'string' && typeof o.price === 'string';
 };
 
-const orderHref = (name: string, price: string, sized: boolean, colored: boolean): string =>
-  `mailto:${ORDER_EMAIL}?subject=${encodeURIComponent(`Order: ${name}`)}&body=${encodeURIComponent(
-    `Hi,\n\nI'd like to order: ${name} (${price})\n${sized ? 'Size: \n' : ''}${colored ? 'Color: \n' : ''}Shipping address: \n\nThanks!`
-  )}`;
+/** "Bag Brown" -> "Brown", "Hoodie Front" -> "Front" : le dernier mot du alt. */
+const viewLabel = (alt: string): string => {
+  const w = alt.trim().split(/\s+/);
+  const last = w[w.length - 1] || alt;
+  return last.charAt(0).toUpperCase() + last.slice(1);
+};
 
 /** Les vues actives regroupees en produits, dans l'ordre du fichier ; la face avant d'abord. */
 export function groupMerch(raw: unknown): MerchProduct[] {
@@ -232,26 +276,41 @@ export function groupMerch(raw: unknown): MerchProduct[] {
     list.push(v);
     byCat.set(v.category, list);
   }
-  return [...byCat.entries()].map(([category, raw]) => {
-    const views = [...raw].sort((a, b) => Number(/front/i.test(b.alt)) - Number(/front/i.test(a.alt)));
-    const colored = !views[0].sizes;
-    const available = views.some((v) => !v.soldOut);
-    // Sacs : la premiere couleur en stock ; textiles : la face avant
-    const shown = (colored && views.find((v) => !v.soldOut)) || views[0];
-    const sizes = views[0].sizes
-      ? SIZE_ORDER.filter((k) => k in views[0].sizes!).map((k) => ({ size: k, inStock: !views[0].soldOut && views[0].sizes![k] === true }))
+  return [...byCat.entries()].map(([category, list]) => {
+    const colors = !list[0].sizes;
+    const ordered = colors ? list : [...list].sort((a, b) => Number(/front/i.test(b.alt)) - Number(/front/i.test(a.alt)));
+    const views = ordered.map((v) => ({ src: absPath(v.src), alt: v.alt, label: viewLabel(v.alt), inStock: !v.soldOut }));
+    const first = ordered[0];
+    const sizes = first.sizes
+      ? SIZE_ORDER.filter((k) => k in first.sizes!).map((k) => ({ size: k, inStock: !first.soldOut && first.sizes![k] === true }))
       : null;
-    return {
-      id: category,
-      name: views[0].caption,
-      price: views[0].price,
-      image: { src: encodeURI(`/${shown.src.replace(/^\//, '')}`), alt: shown.alt },
-      sizes,
-      colors: colored ? { inStock: views.filter((v) => !v.soldOut).length, total: views.length } : null,
-      available: available && (!sizes || sizes.some((z) => z.inStock)),
-      orderHref: orderHref(views[0].caption, views[0].price, sizes !== null, colored),
-    };
+    const available = colors ? views.some((v) => v.inStock) : !first.soldOut && (!sizes || sizes.some((z) => z.inStock));
+    return { id: category, name: first.caption, price: first.price, kind: colors ? 'colors' : 'views', views, sizes, available };
   });
+}
+
+/**
+ * Courriel de commande (revision 4) vers mauditemachine@gmail.com : sujet
+ * "Order - <produit>", corps pre-rempli (taille et couleur choisies, sinon
+ * n/a), l'acheteur n'a qu'a completer. encodeURIComponent : les sauts de
+ * ligne partent en %0A.
+ */
+export function orderHref(o: { name: string; price: string; size?: string | null; colour?: string | null }): string {
+  const body = [
+    `Product : ${o.name}`,
+    `Size : ${o.size || 'n/a'}`,
+    `Colour : ${o.colour || 'n/a'}`,
+    'Quantity : 1',
+    `Price : ${o.price}`,
+    '',
+    'Full name :',
+    'Shipping address :',
+    'Country :',
+    'Phone :',
+    '',
+    'I will reply with the payment details and the shipping cost.',
+  ].join('\n');
+  return `mailto:${ORDER_EMAIL}?subject=${encodeURIComponent(`Order - ${o.name}`)}&body=${encodeURIComponent(body)}`;
 }
 
 let merchPromise: Promise<MerchProduct[]> | null = null;
@@ -268,4 +327,68 @@ export function fetchMerch(): Promise<MerchProduct[]> {
     merchPromise = p;
   }
   return merchPromise;
+}
+
+/**
+ * Packs d'autocollants (revision 4) : public/stickers.json, { packs: [...] }.
+ * Un pack s'affiche s'il est actif, complet (nom, prix, couverture, au
+ * moins un visuel) et s'il contient un autocollant VRSTL Records ET un
+ * autocollant Massive Medias (items[].brand 'vrstl' et 'massive'). Fichier
+ * absent, illisible ou sans pack affichable : la section n'existe pas.
+ * Les PNG vont dans public/images/stickers/.
+ */
+export interface StickerItem {
+  src: string;
+  alt: string;
+  brand: 'mm' | 'vrstl' | 'massive';
+}
+
+export interface StickerPack {
+  id: string;
+  name: string;
+  price: string;
+  count: number;
+  soldOut: boolean;
+  cover: string;
+  items: StickerItem[];
+}
+
+const BRANDS = ['mm', 'vrstl', 'massive'] as const;
+
+function toPack(v: unknown): StickerPack | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  if (o.active !== true) return null;
+  if (typeof o.id !== 'string' || typeof o.name !== 'string' || typeof o.price !== 'string' || typeof o.cover !== 'string') return null;
+  if (!Array.isArray(o.items)) return null;
+  const items: StickerItem[] = [];
+  for (const it of o.items) {
+    if (!it || typeof it !== 'object') continue;
+    const r = it as Record<string, unknown>;
+    if (typeof r.src !== 'string') continue;
+    const brand = BRANDS.find((b) => b === r.brand) ?? 'mm';
+    items.push({ src: absPath(r.src), alt: typeof r.alt === 'string' ? r.alt : '', brand });
+  }
+  if (items.length === 0 || !items.some((i) => i.brand === 'vrstl') || !items.some((i) => i.brand === 'massive')) return null;
+  const count = typeof o.count === 'number' && Number.isInteger(o.count) && o.count > 0 ? o.count : items.length;
+  return { id: o.id, name: o.name, price: o.price, count, soldOut: o.soldOut === true, cover: absPath(o.cover), items };
+}
+
+export function parseStickers(raw: unknown): StickerPack[] {
+  if (!raw || typeof raw !== 'object') return [];
+  const packs = (raw as { packs?: unknown }).packs;
+  if (!Array.isArray(packs)) return [];
+  return packs.map(toPack).filter((p): p is StickerPack => p !== null);
+}
+
+let stickersPromise: Promise<StickerPack[]> | null = null;
+
+/** Une lecture par page ; absent (404, repli HTML de Pages) ou illisible : []. */
+export function fetchStickers(): Promise<StickerPack[]> {
+  if (!stickersPromise) {
+    stickersPromise = fetch('/stickers.json', { cache: 'no-cache' })
+      .then((r) => (r.ok && (r.headers.get('content-type') ?? '').includes('json') ? r.json() : null))
+      .then(parseStickers, () => []);
+  }
+  return stickersPromise;
 }

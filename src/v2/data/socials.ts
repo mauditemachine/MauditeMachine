@@ -23,7 +23,6 @@ export const SOCIALS: SocialLink[] = [
   { label: 'Mixcloud', href: 'https://www.mixcloud.com/mauditemachine/', icon: 'mixcloud' },
   { label: 'TikTok', href: 'https://www.tiktok.com/@mauditemachine', icon: 'tiktok' },
   { label: 'Linktree', href: 'https://linktr.ee/mauditemachine', icon: 'linktree' },
-  { label: 'Hypeddit', href: 'https://music.vrstlrecords.com/mauditemachine', icon: null },
   { label: 'Songkick', href: 'https://www.songkick.com/artists/10363218-maudite-machine', icon: null },
   { label: 'Gigmit', href: 'https://www.gigmit.com/maudite-machine', icon: null },
   { label: 'Apple Music', href: 'https://music.apple.com/us/artist/maudite-machine/1028417516', icon: 'applemusic' },

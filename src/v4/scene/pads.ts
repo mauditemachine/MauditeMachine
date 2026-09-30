@@ -41,17 +41,29 @@ import { makeHaloTexture } from './silk';
 import { easeOutCubic, linear, type Tweens } from './tween';
 
 /** Etat lumineux d'un pad. */
-type Glow = 0 | 1 | 2 | 3 | 4 | 5;
+type Glow = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 const OFF: Glow = 0;
 const SELECTED: Glow = 1;
 const FAINT: Glow = 2;
 const HOVER: Glow = 3;
 const ACTIVE: Glow = 4;
 const FLASH: Glow = 5;
-const GLOW_NAME = ['off', 'selected', 'faint', 'hover', 'active', 'flash'] as const;
+/** OPEN (revision 4) : orange plein machine fermee, faible machine ouverte */
+const ORANGE: Glow = 6;
+const ORANGE_DIM: Glow = 7;
+const GLOW_NAME = ['off', 'selected', 'faint', 'hover', 'active', 'flash', 'orange', 'orangeDim'] as const;
 const ZERO = [0, 0, 0] as const;
-const GLOW_RGB: readonly (readonly number[])[] = [ZERO, PAD_GLOW.selected, PAD_GLOW.faint, PAD_GLOW.hover, PAD_GLOW.active, PAD_GLOW.flash];
-const HALO_K = [0, PAD_HALO.selected, PAD_HALO.faint, PAD_HALO.hover, PAD_HALO.active, PAD_HALO.flash];
+const GLOW_RGB: readonly (readonly number[])[] = [
+  ZERO,
+  PAD_GLOW.selected,
+  PAD_GLOW.faint,
+  PAD_GLOW.hover,
+  PAD_GLOW.active,
+  PAD_GLOW.flash,
+  PAD_GLOW.orange,
+  PAD_GLOW.orangeDim,
+];
+const HALO_K = [0, PAD_HALO.selected, PAD_HALO.faint, PAD_HALO.hover, PAD_HALO.active, PAD_HALO.flash, PAD_HALO.orange, PAD_HALO.orangeDim];
 const COUNT = PADS.length;
 
 const m4 = new Matrix4();
@@ -60,6 +72,7 @@ const col = new Color();
 const YELLOW = new Color(COLOR.yellow);
 const YELLOW_HI = new Color(COLOR.yellowHi);
 const WARM = new Color(COLOR.bone);
+const ORANGE_TINT = new Color(COLOR.orange);
 
 const smoothstep = (a: number, b: number, x: number): number => {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
@@ -219,7 +232,7 @@ export class Pads {
     a[i * 3 + 1] = c[1];
     a[i * 3 + 2] = c[2];
     this.emissive.needsUpdate = true;
-    const tint = g === SELECTED ? WARM : g === ACTIVE ? YELLOW_HI : YELLOW;
+    const tint = g === SELECTED ? WARM : g === ACTIVE ? YELLOW_HI : g === ORANGE || g === ORANGE_DIM ? ORANGE_TINT : YELLOW;
     this.halos.setColorAt(i, col.copy(tint).multiplyScalar(HALO_K[g]));
     if (this.halos.instanceColor) this.halos.instanceColor.needsUpdate = true;
   }
@@ -228,7 +241,8 @@ export class Pads {
   private restGlow(i: number): Glow {
     const k = PADS[i].kind;
     if (k === 'voice') return i === this.selected ? SELECTED : OFF;
-    const on = k === 'open' ? this.open : i === this.activePage;
+    if (k === 'open') return this.open ? ORANGE_DIM : ORANGE;
+    const on = i === this.activePage;
     if (on) return ACTIVE;
     return i === this.hover ? HOVER : FAINT;
   }

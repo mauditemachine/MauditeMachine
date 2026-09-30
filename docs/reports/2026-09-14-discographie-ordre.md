@@ -1,4 +1,4 @@
-# Rapport de session — Discographie : placeholders et classement
+# Rapport de session - Discographie : placeholders et classement
 
 Date : 2026-09-14
 Signalé par Mika : des placeholders sans rapport dans la liste, et des

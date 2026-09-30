@@ -1,4 +1,4 @@
-# Rapport de session — /v2 : matrice réduite, Mixtapes, background génératif
+# Rapport de session - /v2 : matrice réduite, Mixtapes, background génératif
 
 Date : 2026-08-12 (2e session du jour sur /v2)
 Mission : trois modifications sur la refonte /v2 : discographie réduite à

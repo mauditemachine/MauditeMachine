@@ -39,7 +39,11 @@ const SEO_META = JSON.parse(
 const STATIC_LANG = 'en';
 
 // '/' est deja gere par dist/index.html, on prerender les 6 autres routes
-const ROUTES = []; // bascule v2 : les URLs v1 redirigent cote client, plus de prerender
+// bascule v2 : les URLs v1 redirigent cote client, plus de prerender.
+// 2026-09-30 : /techrider/ (route React) recoit sa vraie page statique :
+// GitHub Pages la sert en 200 au lieu du repli 404.html. Avec la barre
+// finale, comme /press/ : /techrider repond 301 vers elle.
+const ROUTES = ['/techrider/'];
 
 const indexPath = join(DIST, 'index.html');
 if (!existsSync(indexPath)) {
@@ -87,7 +91,7 @@ function setCanonical(html, href) {
 
 let count = 0;
 for (const route of ROUTES) {
-  const meta = SEO_META[STATIC_LANG][route];
+  const meta = SEO_META[STATIC_LANG][route] ?? SEO_META[STATIC_LANG][route.replace(/\/$/, '')];
   if (!meta) {
     console.warn(`⚠️  pas de meta pour ${route}, ignoré`);
     continue;

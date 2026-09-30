@@ -1,4 +1,4 @@
-# Rapport de session — Écoute sur place et ajustements
+# Rapport de session - Écoute sur place et ajustements
 
 Date : 2026-09-14
 Demandes de Mika : écouter en cliquant la ligne (pistes et mixtapes),

@@ -46,11 +46,12 @@ import {
   page,
   resetView,
   runToggle,
+  stepClear,
   stepToggle,
 } from '../actions';
 import { clock } from '../audio/clock';
 import { mix } from '../audio/drums';
-import { BPM, STEP_COUNT, pattern } from '../audio/pattern';
+import { BPM, STEP_COUNT, isOn, pattern } from '../audio/pattern';
 import type { HotspotKind, HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { chipsLive, explode } from '../state/explode';
@@ -68,6 +69,7 @@ import {
   PADS,
   PAD_ARIA,
   POT_UI,
+  STEP_HOLD_MS,
   TEMPO_UI,
   TWIN_ARIA,
   isPage,
@@ -230,7 +232,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (d.kind === 'pad' && d.inst) padHit(d.inst, stage);
       else if (d.kind === 'page' && d.section && isPage(d.section)) page(d.section, stage);
       else if (d.kind === 'open') openToggle(stage);
-      else if (d.kind === 'step' && d.index !== undefined) stepToggle(d.index);
+      else if (d.kind === 'step' && d.index !== undefined) {
+        // Appui long (revision 4) : le pas se vide ; sinon il change
+        if (stage.orbit.lastTap.ms >= STEP_HOLD_MS) stepClear(d.index);
+        else stepToggle(d.index);
+      }
       else if (d.kind === 'run') runToggle();
       else if (d.kind === 'clear') clearPattern();
       else if (d.kind === 'chip' && d.chip && d.id) activateChip(d.id, d.chip);
@@ -784,7 +790,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
         onClick={() => clearPattern()}
       />
       {STEP_INDEXES.map((i) => {
-        const on = inst ? p.steps[inst][i] === '1' : false;
+        const on = inst ? isOn(p.steps, inst, i) : false;
         return (
           <button
             key={i}
@@ -795,7 +801,13 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
             data-hotspot={`step-${i + 1}`}
             aria-label={inst ? `Step ${i + 1}, ${INST_NAMES[inst]} ${on ? 'on' : 'off'}` : `Step ${i + 1}, no instrument selected`}
             aria-pressed={on}
-            onKeyDown={noRepeat}
+            onKeyDown={(e) => {
+              // Suppr ou retour arriere : le pas se vide (l'appui long du clavier)
+              if (e.key === 'Delete' || e.key === 'Backspace') {
+                e.preventDefault();
+                stepClear(i);
+              } else noRepeat(e);
+            }}
             onClick={() => stepToggle(i)}
           />
         );

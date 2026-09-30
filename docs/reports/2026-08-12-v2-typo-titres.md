@@ -1,4 +1,4 @@
-# Rapport de session — Typo titres /v2 (letter-spacing Robot Radicals)
+# Rapport de session - Typo titres /v2 (letter-spacing Robot Radicals)
 
 Date : 2026-08-12
 Mission : Robot Radicals a des glyphes très serrés qui se touchent
@@ -10,10 +10,10 @@ nécessaire, sans toucher le logo SVG du hero.
 
 - **[v2.css](../../src/v2/v2.css)** : letter-spacing 5px posé sur les
   trois règles qui utilisent `var(--v2-display)` (Robot Radicals) :
-  - `.v2-display` (0.01em → 5px) — couvre « Next dates coming soon »
+  - `.v2-display` (0.01em → 5px) - couvre « Next dates coming soon »
     du fallback Live et la pastille numéro des mixtapes sans artwork
-  - `.v2-menu-link` (aucun → 5px) — les ancres du menu overlay
-  - `.v2-section-title` (aucun → 5px) — Music / Mixtapes / Live /
+  - `.v2-menu-link` (aucun → 5px) - les ancres du menu overlay
+  - `.v2-section-title` (aucun → 5px) - Music / Mixtapes / Live /
     Gallery / EPK / Contact
 - **Media query < 768px** : les trois règles passent à 3px (tailles de
   police réduites en mobile, tracking proportionnel).
