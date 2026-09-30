@@ -5,9 +5,9 @@
  * couleurs du sac, une couleur epuisee barree), les tailles a choisir
  * (taille epuisee barree et inactive), Sold out quand plus rien ne reste.
  * Puis les packs d'autocollants de public/stickers.json, s'il y en a :
- * aucun bloc sinon. Commande : courriel pre-rempli avec la taille et la
- * couleur choisies (data.ts orderHref). Les photos ne se chargent qu'a la
- * premiere ouverture de la section.
+ * aucun bloc sinon. Commande : le formulaire de CONTACT, objet et
+ * commande (taille et couleur choisies) deja ecrits (data.ts orderDraft).
+ * Les photos ne se chargent qu'a la premiere ouverture de la section.
  */
 
 import React, { useEffect, useState } from 'react';
@@ -17,11 +17,28 @@ import {
   MERCH_TEXT,
   fetchMerch,
   fetchStickers,
-  orderHref,
+  orderDraft,
   type MerchProduct,
   type StickerPack,
 } from '../../data';
+import { openContact } from '../../actions';
 import { SectionFrame, tabOf, type SectionProps } from './common';
+
+/** Commander : ouvre CONTACT, objet et commande deja ecrits. */
+const OrderButton: React.FC<{ tab: number; draft: () => { subject: string; message: string } }> = ({ tab, draft }) => (
+  <button
+    type="button"
+    className="v4-link v4-link-btn v4-merch-order"
+    tabIndex={tab}
+    aria-controls="v4-section-contact"
+    onClick={() => {
+      const d = draft();
+      openContact('merch', d.subject, d.message);
+    }}
+  >
+    <span>Order</span>
+  </button>
+);
 
 interface CardProps {
   p: MerchProduct;
@@ -89,9 +106,7 @@ const ProductCard: React.FC<CardProps> = ({ p, seen, tab }) => {
         </div>
       )}
       {canOrder && (
-        <a className="v4-link v4-merch-order" href={orderHref({ name: p.name, price: p.price, size, colour })} tabIndex={tab}>
-          <span>Order by email</span>
-        </a>
+        <OrderButton tab={tab} draft={() => orderDraft({ name: p.name, price: p.price, size, colour })} />
       )}
     </li>
   );
@@ -115,9 +130,7 @@ const StickerCard: React.FC<{ pack: StickerPack; seen: boolean; tab: number }> =
     {pack.soldOut ? (
       <p className="v4-merch-sold-line">Sold out</p>
     ) : (
-      <a className="v4-link v4-merch-order" href={orderHref({ name: pack.name, price: pack.price })} tabIndex={tab}>
-        <span>Order by email</span>
-      </a>
+      <OrderButton tab={tab} draft={() => orderDraft({ name: pack.name, price: pack.price })} />
     )}
   </li>
 );

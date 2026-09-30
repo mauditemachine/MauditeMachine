@@ -7,6 +7,7 @@
  */
 
 import React from 'react';
+import { openContact } from '../../actions';
 import { LIVE_DOCS, LIVE_PAGES } from '../../data';
 import { ExternalLink } from '../ExternalLink';
 import { DocLink, SectionFrame, tabOf, type SectionProps } from './common';
@@ -18,6 +19,13 @@ export const Live: React.FC<SectionProps> = ({ active, focusable }) => {
       <h3 className="v4-sec-sub">Setup</h3>
       <p className="v4-sec-text">DJ set on CDJs, or hybrid live set: Ableton Live, Push 3, Dreadbox Typhon, APC40.</p>
       <p className="v4-sec-text">Length: 90 minutes to 4 hours as a DJ, 60 to 75 minutes live.</p>
+      <ul className="v4-links">
+        <li>
+          <button type="button" className="v4-link v4-link-btn" tabIndex={tab} aria-controls="v4-section-contact" onClick={() => openContact('live')}>
+            <span>Book a set</span>
+          </button>
+        </li>
+      </ul>
       <h3 className="v4-sec-sub">Documents</h3>
       <ul className="v4-links">
         {LIVE_DOCS.map((d) => (

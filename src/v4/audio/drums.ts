@@ -18,7 +18,6 @@
 
 import { FLAGS } from '../state/flags';
 import type { Inst } from '../theme';
-import { bassVoice } from './bass';
 import { buildFx, glide, type FxChain, type FxInfo } from './fx';
 import { pattern } from './pattern';
 
@@ -42,9 +41,6 @@ interface Graph {
 
 export interface TriggerInfo {
   inst: Inst;
-  /** BASS : degre joue (1 a 5) et degre d'ou part le glissando (0 : aucun) */
-  degree: number;
-  from: number;
   open: boolean;
   /** instant programme (temps du contexte) */
   when: number;
@@ -64,7 +60,9 @@ export interface Voice {
 }
 
 /** Enveloppes des voix, en secondes (spec 8.2). */
-const TAIL = { BD: 0.42, SD: 0.18, SDbody: 0.12, TOM: 0.3, CH: 0.045, CHopen: 0.22 } as const;
+const TAIL = { BD: 0.42, SD: 0.18, SDbody: 0.12, TOM: 0.3, CH: 0.045, CHopen: 0.22, OH: 0.34 } as const;
+/** Un charley (ferme ou ouvert) coupe le charley ouvert qui sonne encore, en 8 ms (choke 808). */
+const CHOKE_S = 0.008;
 /** Les sources s'arretent 50 ms apres la fin de leur enveloppe. */
 const STOP_PAD = 0.05;
 
@@ -314,8 +312,56 @@ function voiceTOM(g: Graph, when: number): Voice {
   return { when, srcs: [osc], nodes };
 }
 
+/** La porte du dernier charley ouvert et la fin de son enveloppe (choke). */
+let ohGate: GainNode | null = null;
+let ohEnd = 0;
+
+/** Ferme le charley ouvert qui sonne encore a `when` (le suivant le coupe). */
+function chokeOH(when: number): void {
+  if (!ohGate || ohEnd <= when) return;
+  ohGate.gain.setValueAtTime(1, when);
+  ohGate.gain.linearRampToValueAtTime(0, when + CHOKE_S);
+  ohGate = null;
+}
+
+/**
+ * Charley ouvert (2026-10-01) : bruit filtre haut (6.8 kHz) et un peu de
+ * brillance (crete a 10 kHz), 340 ms. Un charley ferme ou ouvert suivant le
+ * coupe (chokeOH) : sur le motif d'arrivee, le "tss" court des contretemps.
+ */
+function voiceOH(g: Graph, when: number): Voice {
+  const c = g.ctx;
+  chokeOH(when);
+  const src = noiseSource(g);
+  const hp = c.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 6800;
+  hp.Q.value = 0.7;
+  const shine = c.createBiquadFilter();
+  shine.type = 'peaking';
+  shine.frequency.value = 10000;
+  shine.Q.value = 1.2;
+  shine.gain.value = 4;
+  const env = c.createGain();
+  env.gain.setValueAtTime(0.55, when);
+  env.gain.exponentialRampToValueAtTime(0.001, when + TAIL.OH);
+  const gate = c.createGain();
+  gate.gain.value = 1;
+  src.connect(hp);
+  hp.connect(shine);
+  shine.connect(env);
+  env.connect(gate);
+  gate.connect(g.bus);
+  ohGate = gate;
+  ohEnd = when + TAIL.OH;
+  const nodes = [src, hp, shine, env, gate];
+  startNoise(src, when, TAIL.OH, nodes);
+  return { when, srcs: [src], nodes };
+}
+
 function voiceCH(g: Graph, when: number, open: boolean): Voice {
   const c = g.ctx;
+  chokeOH(when);
   const tail = open ? TAIL.CHopen : TAIL.CH;
   const src = noiseSource(g);
   const hp = c.createBiquadFilter();
@@ -338,10 +384,8 @@ function voiceCH(g: Graph, when: number, open: boolean): Voice {
  * jamais le contexte : sans geste prealable, rien ne sonne. `open` : charley
  * ouvert (pad CH tenu ; les coups du sequenceur sont toujours fermes).
  * `out` recoit la voix programmee (l'horloge, pour pouvoir l'annuler).
- * BASS (revision 4, audio/bass.ts) : `degree` 1 a 5 (le pad joue la
- * fondamentale), `from` le degre du pas precedent s'il jouait (glissando).
  */
-export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], degree = 1, from = 0): boolean {
+export function trigger(inst: Inst, when?: number, open = false, out?: Voice[]): boolean {
   const g = graph;
   if (!g) return false;
   enforceMute(g);
@@ -354,13 +398,12 @@ export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], 
         ? voiceSD(g, t)
         : inst === 'TOM'
           ? voiceTOM(g, t)
-          : inst === 'BASS'
-            ? bassVoice(g.ctx, g.bus, t, degree, from)
+          : inst === 'OH'
+            ? voiceOH(g, t)
             : voiceCH(g, t, open);
   out?.push(v);
   triggers += 1;
-  const bass = inst === 'BASS';
-  last = { inst, open: inst === 'CH' && open, degree: bass ? degree : 0, from: bass ? from : 0, when: t, at: performance.now(), state: g.ctx.state };
+  last = { inst, open: inst === 'CH' && open, when: t, at: performance.now(), state: g.ctx.state };
   return true;
 }
 

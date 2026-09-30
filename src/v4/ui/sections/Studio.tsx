@@ -1,12 +1,12 @@
 /**
  * STUDIO (revision 4) : ouverte par la puce STUDIO de la vue eclatee. Le
- * setup, les cours d'Ableton Live (le bouton ouvre CONTACT) et la
+ * setup, les cours d'Ableton Live (le bouton ouvre CONTACT, objet Lesson) et la
  * production d'impression et de merch (Massive Medias, nouvel onglet). Le
  * texte du brief, en anglais ; aucun PDF de cours.
  */
 
 import React from 'react';
-import { openSection } from '../../actions';
+import { openContact } from '../../actions';
 import { MASSIVE_LINK, STUDIO } from '../../data';
 import { ExternalLink } from '../ExternalLink';
 import { SectionFrame, tabOf, type SectionProps } from './common';
@@ -25,7 +25,7 @@ export const Studio: React.FC<SectionProps> = ({ active, focusable }) => {
       ))}
       <ul className="v4-links">
         <li>
-          <button type="button" className="v4-link v4-link-btn" tabIndex={tab} aria-controls="v4-section-contact" onClick={() => openSection('contact')}>
+          <button type="button" className="v4-link v4-link-btn" tabIndex={tab} aria-controls="v4-section-contact" onClick={() => openContact('lesson')}>
             <span>Ask about a lesson</span>
           </button>
         </li>

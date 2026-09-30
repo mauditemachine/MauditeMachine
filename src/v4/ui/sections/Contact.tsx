@@ -9,6 +9,8 @@
  * au focus ; chaque lien porte le nom du service et s'ouvre en nouvel
  * onglet, sans opener ni referer. Revision 4 : sous les adresses de
  * booking, Massive Medias (impression et merch), nouvel onglet.
+ * 2026-10-01 : le formulaire (ContactForm.tsx) en tete, un vrai courriel
+ * a Mika, objet pre-rempli selon d'ou arrive le visiteur.
  */
 
 import React from 'react';
@@ -16,11 +18,14 @@ import { CONTACTS, MASSIVE_LINK, SOCIALS } from '../../data';
 import { ExternalLink } from '../ExternalLink';
 import { SOCIAL_ICONS } from '../icons';
 import { SectionFrame, tabOf, type SectionProps } from './common';
+import { ContactForm } from './ContactForm';
 
 export const Contact: React.FC<SectionProps> = ({ active, focusable }) => {
   const tab = tabOf(focusable);
   return (
     <SectionFrame id="contact" active={active}>
+      <ContactForm tab={tab} />
+      <h3 className="v4-sec-sub">Booking</h3>
       <ul className="v4-contacts">
         {CONTACTS.map((c) => (
           <li key={c.id} className="v4-contact">
@@ -46,7 +51,14 @@ export const Contact: React.FC<SectionProps> = ({ active, focusable }) => {
           const Icon = SOCIAL_ICONS[s.id];
           return (
             <li key={s.id}>
-              <ExternalLink className="v4-social" href={s.href} aria-label={s.label} tabIndex={tab} mark={false}>
+              <ExternalLink
+                className="v4-social"
+                href={s.href}
+                aria-label={s.label}
+                tabIndex={tab}
+                mark={false}
+                style={{ '--brand': s.color } as React.CSSProperties}
+              >
                 <Icon />
               </ExternalLink>
             </li>

@@ -26,9 +26,8 @@
  */
 
 import { SWING } from '../theme';
-import { resetBass } from './bass';
 import { cancelVoice, context, trigger, type Voice } from './drums';
-import { INSTRUMENTS, STEP_COUNT, bassDegree, pattern } from './pattern';
+import { INSTRUMENTS, STEP_COUNT, pattern } from './pattern';
 
 /** Reveil de l'ordonnanceur, en ms. */
 export const TICK_MS = 25;
@@ -101,11 +100,6 @@ let head = 0;
 const pending: Voice[] = [];
 /** repli sans WebGL affiche : plus de machine, RUN refuse (index.tsx) */
 let locked = false;
-/**
- * Degre de basse du dernier pas programme (0 : silence, saute ou debut de
- * lecture) : le glissando ne part que d'un pas voisin qui a joue.
- */
-let prevBass = 0;
 
 const stats = {
   count: 0,
@@ -156,16 +150,6 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
   let mask = 0;
   for (let k = 0; k < INSTRUMENTS.length; k += 1) {
     const inst = INSTRUMENTS[k];
-    if (inst === 'BASS') {
-      // Un degre 1 a 5 ; glissando depuis le pas precedent s'il a joue
-      const d = bassDegree(steps, s);
-      if (d > 0) {
-        mask |= 1 << k;
-        trigger('BASS', when, false, pending, d, prevBass);
-      }
-      prevBass = d;
-      continue;
-    }
     // '1' = 49 ; les coups du sequenceur sont toujours des charleys fermes
     if (steps[inst].charCodeAt(s) === 49) {
       mask |= 1 << k;
@@ -217,10 +201,7 @@ function tick(): void {
       anchor = nextTime;
       n = 0;
     }
-    if (nextTime < now - DROP_AFTER_S) {
-      stats.dropped += 1;
-      prevBass = 0;
-    }
+    if (nextTime < now - DROP_AFTER_S) stats.dropped += 1;
     else {
       // SWING : un pas pair (index impair) part plus tard, jamais au-dela d'un tiers de pas
       const off = (step & 1) === 1 ? pattern.fx.get().swing * SWING.maxDelay * stepDur : 0;
@@ -260,8 +241,6 @@ function start(): boolean {
   n = 0;
   step = 0;
   runFirst = seq;
-  prevBass = 0;
-  resetBass();
   resetStats();
   running = true;
   timer = window.setInterval(tick, TICK_MS);
@@ -291,8 +270,6 @@ function stop(): void {
     }
   }
   pending.length = 0;
-  prevBass = 0;
-  resetBass();
   emit();
 }
 

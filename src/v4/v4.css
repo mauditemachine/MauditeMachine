@@ -422,42 +422,6 @@ html:has(body.v4-active) {
   color: var(--ink);
 }
 
-/* BASS : la case reste graphite, un batonnet orange monte du bas, un
-   cinquieme de la hauteur par degre (revision 4) */
-.v4-root .v4-dock[data-bass='1'] .v4-dock-step[data-on='1'] {
-  background: var(--graphite);
-  color: var(--bone);
-}
-
-.v4-dock-bar {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 0;
-  background: var(--orange);
-}
-
-.v4-dock-bar[data-level='1'] {
-  height: 20%;
-}
-
-.v4-dock-bar[data-level='2'] {
-  height: 40%;
-}
-
-.v4-dock-bar[data-level='3'] {
-  height: 60%;
-}
-
-.v4-dock-bar[data-level='4'] {
-  height: 80%;
-}
-
-.v4-dock-bar[data-level='5'] {
-  height: 100%;
-}
-
 /* Sans instrument : l'union des cinq, attenuee */
 .v4-root .v4-dock[data-mode='union'] .v4-dock-step[data-on='1'] {
   background: #6b3414;
@@ -1302,9 +1266,10 @@ html:has(body.v4-active) {
   transition: color 160ms ease;
 }
 
+/* Survol et focus : la couleur de la marque (data/socials.ts, --brand) */
 .v4-root .v4-social:hover,
 .v4-root .v4-social:focus-visible {
-  color: var(--yellow);
+  color: var(--brand, var(--yellow));
 }
 
 .v4-social .v4-icon {
@@ -1318,6 +1283,109 @@ html:has(body.v4-active) {
 .v4-root[data-v4-motion='reduced'] .v4-link,
 .v4-root[data-v4-motion='reduced'] .v4-row-link,
 .v4-root[data-v4-motion='reduced'] .v4-contact-mail {
+  transition: none;
+}
+
+/* ---------- formulaire de CONTACT (2026-10-01) ---------- */
+
+.v4-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 0 20px;
+}
+
+.v4-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.v4-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bone-60);
+}
+
+.v4-root .v4-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--ink);
+  color: var(--bone);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.4;
+  outline: none;
+  transition: border-color 160ms ease;
+}
+
+.v4-root .v4-textarea {
+  min-height: 132px;
+  resize: vertical;
+}
+
+.v4-root .v4-input:focus-visible,
+.v4-root .v4-input:focus {
+  border-color: var(--orange);
+}
+
+/* Piege a robots : hors ecran (pas display:none, que certains robots sautent) */
+.v4-trap {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.v4-form-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.v4-root .v4-send {
+  min-width: 120px;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 10px;
+  background: var(--orange);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-indent: 0.14em;
+  text-transform: uppercase;
+}
+
+.v4-root .v4-send:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.v4-form-status {
+  flex: 1 1 180px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--bone-70);
+}
+
+.v4-form-status[data-status='sent'] {
+  color: var(--bone);
+}
+
+.v4-form-status[data-status='error'] {
+  color: #ff8a7a;
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-input {
   transition: none;
 }
 

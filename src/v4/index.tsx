@@ -123,7 +123,9 @@ function useAudioGestures(getStage: () => Stage | null): void {
     };
     const onFirstUp = (): void => armAuto();
     const onFirstKey = (e: KeyboardEvent): void => {
-      if (!NOT_A_START.has(e.key)) armAuto();
+      const t = e.target;
+      const typing = t instanceof HTMLElement && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+      if (!NOT_A_START.has(e.key) && !typing) armAuto();
     };
     window.addEventListener('pointerdown', onGesture, opts);
     window.addEventListener('keydown', onGesture, opts);

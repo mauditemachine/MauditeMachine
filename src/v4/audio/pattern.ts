@@ -9,24 +9,20 @@
  * du localStorage passent par try/catch : navigation privee, stockage
  * bloque ou plein, JSON corrompu, rien ne leve jamais.
  *
- * BASS (revision 4) : sa rangee porte un chiffre par pas, 0 (vide) a 5,
- * le degre de do mineur pentatonique (do, mi bemol, fa, sol, si bemol) ;
- * les quatre autres voix restent en 0 / 1. Un appui monte d'un degre (5
- * repart a vide), un appui long efface. Meme cle, meme forme stockee : un
- * motif enregistre avant la basse la recoit par defaut.
+ * OH (2026-10-01) : le charley ouvert remplace la basse de la revision 4 ;
+ * un motif enregistre sans lui (ou avec l'ancienne rangee BASS) recoit la
+ * rangee OH par defaut, la rangee BASS est ignoree. Un appui long vide un
+ * pas (toutes les voix).
  */
 
 import type { Inst } from '../theme';
 
-export const INSTRUMENTS: readonly Inst[] = ['BD', 'SD', 'TOM', 'CH', 'BASS'];
-/** Degres de la basse : 1 a 5 (0 = pas vide). */
-export const BASS_DEGREES = 5;
+export const INSTRUMENTS: readonly Inst[] = ['BD', 'SD', 'TOM', 'CH', 'OH'];
 export const STEP_COUNT = 16;
 export const BPM = { min: 100, max: 150, initial: 130 } as const;
 export const STORAGE_KEY = 'mm.v4.pattern';
 const SAVE_DEBOUNCE_MS = 300;
 const STEPS_RE = /^[01]{16}$/;
-const BASS_RE = /^[0-5]{16}$/;
 
 export type Steps = Record<Inst, string>;
 
@@ -65,29 +61,29 @@ export interface PatternState extends Pattern {
 }
 
 /**
- * Four to the floor minimal : BD 1 5 9 13, CH 3 7 11 15, SD 5 13, TOM 15
- * (index 0 = pas 1). BASS (revision 4) : I . I . I . III . I . I . V . III .
- * (I, III, V : 1er, 3e et 5e degre de la pentatonique, do, fa, si bemol).
+ * Le motif d'arrivee (2026-10-01), techno hypnotique a 130 BPM : grosse
+ * caisse four to the floor, charley ferme en doubles croches qui laisse la
+ * place au charley ouvert sur les contretemps (le ferme suivant le coupe,
+ * comme une 808 : le "tss" court), clap sur 2 et 4, tom syncope sur 7, 12
+ * et 15 qui fait tourner la boucle. Index 0 = pas 1.
  */
 export const DEFAULT_STEPS: Readonly<Steps> = {
   BD: '1000100010001000',
   SD: '0000100000001000',
-  TOM: '0000000000000010',
-  CH: '0010001000100010',
-  BASS: '1010103010105030',
+  TOM: '0000001000010010',
+  CH: '1101110111011101',
+  OH: '0010001000100010',
 };
 
-/** Pas i joue par inst (tout chiffre sauf 0). */
-export const isOn = (steps: Steps, inst: Inst, i: number): boolean => {
-  const c = steps[inst].charCodeAt(i);
-  return c > 48 && c <= 53;
-};
+/** Pas i joue par inst. */
+export const isOn = (steps: Steps, inst: Inst, i: number): boolean => steps[inst].charCodeAt(i) === 49;
 
-/** Degre de basse du pas i : 0 (vide) a 5. */
-export const bassDegree = (steps: Steps, i: number): number => {
-  const c = steps.BASS.charCodeAt(i) - 48;
-  return c >= 0 && c <= BASS_DEGREES ? c : 0;
-};
+/**
+ * Les effets de l'arrivee : un soupcon de SWING (55 %) pour que les
+ * doubles croches roulent, DIST et REVERB neutres. Un motif stocke garde
+ * les siens.
+ */
+export const DEFAULT_FX: Readonly<Fx> = { swing: 0.3, drive: 0, reverb: 0 };
 
 export const defaultPattern = (): Pattern => ({ bpm: BPM.initial, steps: { ...DEFAULT_STEPS } });
 
@@ -107,7 +103,7 @@ export function validate(raw: unknown): Pattern {
     const steps = o.steps as Record<string, unknown>;
     for (const inst of INSTRUMENTS) {
       const s = steps[inst];
-      if (typeof s === 'string' && (inst === 'BASS' ? BASS_RE : STEPS_RE).test(s)) out.steps[inst] = s;
+      if (typeof s === 'string' && STEPS_RE.test(s)) out.steps[inst] = s;
     }
   }
   return out;
@@ -118,7 +114,8 @@ export const clampFx = (v: number): number => (Number.isFinite(v) ? (v < 0 ? 0 :
 
 /** Les effets d'un objet stocke : chaque valeur hors de 0..1 (ou absente) reste neutre. */
 export function validateFx(raw: unknown): Fx {
-  const out = { ...NEUTRAL_FX };
+  // Rien de stocke : les effets de l'arrivee (un soupcon de swing)
+  const out = { ...DEFAULT_FX };
   if (!raw || typeof raw !== 'object') return out;
   const o = raw as { v?: unknown; fx?: unknown };
   if (o.v !== 1 || !o.fx || typeof o.fx !== 'object') return out;
@@ -160,15 +157,12 @@ export function save(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX): boolean {
   }
 }
 
-/**
- * Nouveau motif avec le pas i de inst change (mise a jour immuable) : une
- * voix de batterie s'inverse ; BASS monte d'un degre, 5 repart a vide.
- */
+/** Nouveau motif avec le pas i de inst inverse (mise a jour immuable). */
 export function toggleStep(p: Pattern, inst: Inst, i: number): Pattern {
   if (!Number.isInteger(i) || i < 0 || i >= STEP_COUNT) return p;
   const s = p.steps[inst];
-  const next = inst === 'BASS' ? String((bassDegree(p.steps, i) + 1) % (BASS_DEGREES + 1)) : s[i] === '1' ? '0' : '1';
-  return { ...p, steps: { ...p.steps, [inst]: s.slice(0, i) + next + s.slice(i + 1) } };
+  const flipped = s.slice(0, i) + (s[i] === '1' ? '0' : '1') + s.slice(i + 1);
+  return { ...p, steps: { ...p.steps, [inst]: flipped } };
 }
 
 /** Le pas i de inst vide (appui long) ; le meme motif s'il l'etait deja. */
@@ -181,7 +175,7 @@ export function clearStep(p: Pattern, inst: Inst, i: number): Pattern {
 
 export function clearSteps(p: Pattern): Pattern {
   const empty = '0'.repeat(STEP_COUNT);
-  return { ...p, steps: { BD: empty, SD: empty, TOM: empty, CH: empty, BASS: empty } };
+  return { ...p, steps: { BD: empty, SD: empty, TOM: empty, CH: empty, OH: empty } };
 }
 
 /* ---------------- le store ---------------- */

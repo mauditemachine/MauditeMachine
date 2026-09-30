@@ -362,7 +362,7 @@ export const TRANSPORT = {
 
 /* ---------- panneau : moitie droite, les 12 pads (spec 20.3.5) ---------- */
 
-export type Inst = 'BD' | 'SD' | 'TOM' | 'CH' | 'BASS';
+export type Inst = 'BD' | 'SD' | 'TOM' | 'CH' | 'OH';
 /** Les huit pages du site, pads de navigation (touches 1 a 8). */
 export type PageId = 'tracks' | 'mixtapes' | 'press' | 'shows' | 'contact' | 'label' | 'live' | 'sonaa';
 /** Les sections du panneau : les huit pages, GOODIES, MERCH et STUDIO (puces de la vue eclatee). */
@@ -372,7 +372,7 @@ export type PadId = Inst | PageId | 'open';
 /**
  * Pad en caoutchouc : 0.86 x 0.22 x 0.86 a coins arrondis (0.08), dome de
  * 0.04 sur son dessus plat ; deux rangees de sept, pas de 1.0 (revision 4 :
- * la voix BASS et la page LIVE portent la grille de 12 a 14 pads, la
+ * la voix OH et la page LIVE portent la grille de 12 a 14 pads, la
  * rangee commence plus a gauche, a 0.44 de la collerette de REVERB).
  * Frappe : il s'enfonce de 0.06 en 60 ms, remonte en 180 ms. Halo : un
  * carre de 1.0 a plat sous chaque pad (retroeclairage).
@@ -428,7 +428,7 @@ const padAt = (i: number): { x: number; z: number } => ({ x: PAD.x0 + PAD.pitch 
 
 /**
  * Les 14 pads en ordre de lecture (revision 4) : rangee du haut BD SD TOM
- * CH BASS TRACKS MIXTAPES, rangee du bas PRESS SHOWS CONTACT LABEL LIVE
+ * CH OH TRACKS MIXTAPES, rangee du bas PRESS SHOWS CONTACT LABEL LIVE
  * SONAA OPEN. Voix : A S D F G. Pages : 1 a 8. OPEN : 9 (et O).
  */
 export const PADS: readonly PadSpec[] = [
@@ -436,7 +436,7 @@ export const PADS: readonly PadSpec[] = [
   { id: 'SD', kind: 'voice', label: 'SD', key: 'S', ...padAt(1) },
   { id: 'TOM', kind: 'voice', label: 'TOM', key: 'D', ...padAt(2) },
   { id: 'CH', kind: 'voice', label: 'CH', key: 'F', ...padAt(3) },
-  { id: 'BASS', kind: 'voice', label: 'BASS', key: 'G', ...padAt(4) },
+  { id: 'OH', kind: 'voice', label: 'OH', key: 'G', ...padAt(4) },
   { id: 'tracks', kind: 'page', label: 'TRACKS', key: '1', ...padAt(5) },
   { id: 'mixtapes', kind: 'page', label: 'MIXTAPES', key: '2', ...padAt(6) },
   { id: 'press', kind: 'page', label: 'PRESS', key: '3', ...padAt(7) },
@@ -519,8 +519,6 @@ export const KEYS = {
   ledW: 0.22,
   ledD: 0.07,
   ledY: 0.006,
-  /** BASS selectionnee : le batonnet d'une LED s'allonge de barStep par degre (revision 4) */
-  barStep: 0.15,
   numberZ: 3.18,
   bracketZ: 3.35,
   bracketTick: 0.06,
@@ -542,7 +540,7 @@ export const HIT = {
 } as const;
 
 /** Noms parles des instruments : etiquettes aria, Dock. */
-export const INST_NAMES: Readonly<Record<Inst, string>> = { BD: 'bass drum', SD: 'snare', TOM: 'tom', CH: 'hi-hat', BASS: 'bass' };
+export const INST_NAMES: Readonly<Record<Inst, string>> = { BD: 'bass drum', SD: 'snare', TOM: 'tom', CH: 'closed hi-hat', OH: 'open hi-hat' };
 
 /**
  * Albedos LINEAIRES des touches (spec 20.3.6), cales sur la couleur
@@ -739,7 +737,7 @@ export const OPEN_SILK_INDEX = SILK_TEXTS.findIndex((t) => t.text === 'OPEN');
  * crochet sous chaque groupe de quatre touches trig.
  */
 export const SILK_LINES: readonly (readonly number[])[] = [
-  // entre BASS et TRACKS, puis sous la rangee des voix
+  // entre OH et TRACKS, puis sous la rangee des voix
   [PAD.x0 + 4.5 * PAD.pitch, -3.2, PAD.x0 + 4.5 * PAD.pitch, -1.6, PAD.x0 - PAD.size / 2 - 0.09, -1.6],
   ...[0, 1, 2, 3].map((g) => {
     const a = keyX(4 * g) - KEYS.w / 2;
@@ -786,8 +784,13 @@ export const FIT_H = 0.86;
  * EXPLODE.targetY.
  */
 export const ORBIT = {
-  azDeg: 45,
-  elDeg: 38,
+  /**
+   * Vue d'arrivee (2026-10-01) : la machine de face, droite, vue de 40 deg
+   * au-dessus (toujours en 3D). Le cadrage reste celui de l'azimut 45 (le
+   * pire cas, PLATEAU_W et MACHINE_H) : tourner ne la fait jamais sortir.
+   */
+  azDeg: 0,
+  elDeg: 40,
   zoom: 1,
   elMinDeg: 18,
   elMaxDeg: 78,
@@ -1046,7 +1049,7 @@ export const PAD_ARIA: Readonly<Record<Inst, string>> = {
   SD: 'Snare pad, key S',
   TOM: 'Tom pad, key D',
   CH: 'Hi-hat pad, key F',
-  BASS: 'Bass pad, key G',
+  OH: 'Open hi-hat pad, key G',
 };
 
 /**

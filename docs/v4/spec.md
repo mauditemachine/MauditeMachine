@@ -2023,3 +2023,17 @@ R4-7. Stickers. `public/stickers.json`, one example pack `"active": false`. A pa
 R4-8. Order by email, all products: `mailto:mauditemachine@gmail.com`, subject `Order - <product>`, body with Product, Size, Colour (the chosen ones or n/a), Quantity 1, Price, then the buyer's fields.
 
 R4-9. /techrider. `scripts/prerender-seo.mjs` writes `dist/techrider/index.html` (the SPA shell with its own meta): GitHub Pages answers 200 on /techrider/ (301 from /techrider) instead of the 404 fallback. The sitemap lists `/techrider/`. /radar keeps the fallback (not touched in this revision).
+
+## 22. 2026-10-01: OH, the arrival pattern, front view, brand colours, contact form
+
+R5-1. The BASS voice of revision 4 is replaced by OH, the open hi-hat (pad OH, key G): noise through a 6.8 kHz high-pass and a +4 dB peak at 10 kHz, 340 ms. Any hi-hat (closed or open) chokes the ringing OH in 8 ms, like an 808. `audio/bass.ts`, the pitched steps, the LED bars and the dock bars are gone; a hold (400 ms) or Delete still clears a step. A stored pattern keeps its rows; its old BASS row is ignored and OH gets the default row.
+
+R5-2. Arrival pattern (130 BPM): BD 1000100010001000, SD 0000100000001000, TOM 0000001000010010, CH 1101110111011101, OH 0010001000100010, with SWING 0.3 (55 %) when nothing is stored (`DEFAULT_FX`). It starts at the visitor's first gesture, as before.
+
+R5-3. Default view: azimuth 0, elevation 40 (the machine straight on, still 3D). The framing constants stay those of azimuth 45, the worst case, so no orbit ever pushes the machine out of the canvas.
+
+R5-4. Social icons take their brand colour on hover and keyboard focus (`--brand`, data/socials.ts): Simple Icons 16.33.0 colours; X in white and TikTok in its cyan (both brands are black, invisible on graphite); gigmit green #16C98D from its stylesheet.
+
+R5-5. Contact form (ui/sections/ContactForm.tsx) at the top of CONTACT: name, email, subject, message, sent by EmailJS with the account, template and public key of the /v1 form (src/data/emailjs.ts; the library loads only on send). The subject is filled from where the visitor came from (state/contactDraft.ts): CONTACT pad or dock Booking, LIVE "Book a set" Booking - live set, STUDIO "Ask about a lesson" Lesson, PRESS "Interview or press request" Press, MERCH "Order" Merch order - <product> with the order (size, colour, price) written in the message. A hidden trap field stops simple bots. Merch orders no longer use mailto.
+
+R5-6. TRACKS: a Buy link to the release's Bandcamp page on each of the 37 tracks; the SoundCloud widget is created when TRACKS or MIXTAPES opens (no playback) so the first click plays inside the gesture, and its iframe allows encrypted-media (some tracks are served as encrypted HLS).

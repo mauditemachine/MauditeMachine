@@ -10,11 +10,12 @@ import emailjs from '@emailjs/browser'
 import { motion } from 'framer-motion'
 import { useApp } from '../context/AppContext'
 import { cn } from '../lib/cn'
+import { EMAILJS } from '../data/emailjs'
 
-// EmailJS config
-const SERVICE_ID = 'service_zeuwh04'
-const TEMPLATE_ID = 'template_zlot6be'
-const PUBLIC_KEY = '_e6k6nftsmZZxs29b'
+// EmailJS config (partagee avec CONTACT de la machine)
+const SERVICE_ID = EMAILJS.serviceId
+const TEMPLATE_ID = EMAILJS.templateId
+const PUBLIC_KEY = EMAILJS.publicKey
 
 interface MessageProps {
   prefillSubject?: string

@@ -9,12 +9,12 @@
 import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
 import { ensure, mix, resume, setDrive, setLevel, setReverb, setSwing, setTone, trigger } from './audio/drums';
-import { BASS_NOTE_NAMES } from './audio/bass';
-import { BPM, bassDegree, isOn, pattern } from './audio/pattern';
+import { BPM, isOn, pattern } from './audio/pattern';
 import { sc } from './audio/soundcloud';
 import type { Stage } from './scene/renderer';
 import { chipsLive, explode } from './state/explode';
 import { lcdMessage } from './state/lcdMessage';
+import { contactDraft, type ContactTopic } from './state/contactDraft';
 import { section } from './state/section';
 import { CHIPS, POT_UI, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
 
@@ -49,6 +49,8 @@ export function padHit(inst: Inst, stage: Stage | null): void {
  */
 export function page(id: PageId, stage: Stage | null): void {
   resume();
+  // CONTACT ouvert directement : l'objet propose est Booking
+  if (id === 'contact' && section.get() !== 'contact') contactDraft.set('booking');
   section.toggle(id);
   stage?.pads.press(id);
 }
@@ -81,14 +83,9 @@ export function stepToggle(i: number): boolean {
   return true;
 }
 
-/** Ligne d'ecran d'un pas : STEP 07 BD ON / OFF, STEP 07 BASS EB / OFF. */
+/** Ligne d'ecran d'un pas : STEP 07 OH ON / OFF. */
 function stepLine(inst: Inst, i: number): string {
-  const steps = pattern.get().steps;
-  if (inst === 'BASS') {
-    const d = bassDegree(steps, i);
-    return `STEP ${two(i + 1)} BASS ${d > 0 ? BASS_NOTE_NAMES[d - 1] : 'OFF'}`;
-  }
-  return `STEP ${two(i + 1)} ${inst} ${isOn(steps, inst, i) ? 'ON' : 'OFF'}`;
+  return `STEP ${two(i + 1)} ${inst} ${isOn(pattern.get().steps, inst, i) ? 'ON' : 'OFF'}`;
 }
 
 /**
@@ -187,6 +184,15 @@ export function dialReset(id: EncId): number {
 /** Onglet de la feuille, raccourci : ouvre une section (sans bascule). */
 export function openSection(s: SectionId): void {
   section.set(s);
+}
+
+/**
+ * Ouvre CONTACT avec l'objet (et le message) propose selon d'ou vient le
+ * visiteur : booking, live, merch, lesson, press (2026-10-01).
+ */
+export function openContact(topic: ContactTopic, subject?: string, message?: string): void {
+  contactDraft.set(topic, subject, message);
+  section.set('contact');
 }
 
 /** Bouton x, Echap, glisser de la feuille. */

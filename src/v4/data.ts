@@ -219,7 +219,7 @@ export function fmtShowDate(iso: string): string {
  * le regrouper par produit ici evite de casser l'admin. Chemins absolus.
  * Les vues d'un meme produit (category) deviennent un produit : textiles
  * (face, dos, tailles), sacs (une vue par couleur, chacune son stock).
- * Pas de panier : la commande part par courriel prerempli (orderHref).
+ * Pas de panier : la commande part par le formulaire de CONTACT (orderDraft).
  */
 interface StoreView {
   id: number;
@@ -254,10 +254,9 @@ export interface MerchProduct {
   available: boolean;
 }
 
-export const MERCH_TEXT = 'Small runs, first come first served. No online payment: pick a piece, the order email is written for you.';
+export const MERCH_TEXT = 'Small runs, first come first served. No online payment: pick a piece, your order is written for you in the contact form.';
 export const MERCH_EMPTY = 'The store is being restocked. Check back soon.';
 export const MERCH_NOTE = 'Payment details and shipping cost sent by reply. Ships from Montpellier.';
-const ORDER_EMAIL = 'mauditemachine@gmail.com';
 const SIZE_ORDER = ['S', 'M', 'L', 'XL'];
 
 /** Chemin absolu (barre oblique initiale), espaces encodes. */
@@ -300,27 +299,23 @@ export function groupMerch(raw: unknown): MerchProduct[] {
 }
 
 /**
- * Courriel de commande (revision 4) vers mauditemachine@gmail.com : sujet
- * "Order - <produit>", corps pre-rempli (taille et couleur choisies, sinon
- * n/a), l'acheteur n'a qu'a completer. encodeURIComponent : les sauts de
- * ligne partent en %0A.
+ * Commande (2026-10-01) : elle passe par le formulaire de CONTACT, objet
+ * "Merch order - <produit>" et la commande deja ecrite dans le message
+ * (taille et couleur choisies, sinon n/a) ; l'acheteur complete l'adresse.
  */
-export function orderHref(o: { name: string; price: string; size?: string | null; colour?: string | null }): string {
-  const body = [
+export function orderDraft(o: { name: string; price: string; size?: string | null; colour?: string | null }): { subject: string; message: string } {
+  const message = [
     `Product : ${o.name}`,
     `Size : ${o.size || 'n/a'}`,
     `Colour : ${o.colour || 'n/a'}`,
     'Quantity : 1',
     `Price : ${o.price}`,
     '',
-    'Full name :',
     'Shipping address :',
     'Country :',
     'Phone :',
-    '',
-    'I will reply with the payment details and the shipping cost.',
   ].join('\n');
-  return `mailto:${ORDER_EMAIL}?subject=${encodeURIComponent(`Order - ${o.name}`)}&body=${encodeURIComponent(body)}`;
+  return { subject: `Merch order - ${o.name}`, message };
 }
 
 let merchPromise: Promise<MerchProduct[]> | null = null;

@@ -1,7 +1,7 @@
 /**
  * Dock (spec 11.4, revision 4) : sur telephone les 16 pas 3D sont a 7 px
  * l'un de l'autre, on programme donc le sequenceur ici, sous la machine.
- * Une rangee d'instruments (BD SD TOM CH BASS, le selectionne en jaune ;
+ * Une rangee d'instruments (BD SD TOM CH OH, le selectionne en jaune ;
  * toucher choisit sans jouer), les 16 pas en deux rangees de 8 cases, le
  * transport (RUN/STOP, CLEAR, tempo - / valeur / +), puis la grille de
  * navigation : tous les boutons visibles d'un coup, aucun defilement
@@ -10,8 +10,7 @@
  * cellules) ; ouverte : GOODIES, MERCH et STUDIO remplacent LIVE, SONAA et
  * RESET, OPEN devient CLOSE. Icones Font Awesome 6.5.1 (deja chargee par
  * index.html), en aria-hidden ; chaque bouton garde son nom en toutes
- * lettres. BASS selectionnee : chaque case montre un batonnet a cinq
- * niveaux (le degre du pas) ; un appui long (400 ms) vide un pas. Memes
+ * lettres. Un appui long (400 ms) vide un pas. Memes
  * stores que la machine : les deux changent ensemble. Monte seulement sur
  * la mise en page mobile (index.tsx), jamais dans le repli.
  */
@@ -19,7 +18,7 @@
 import React, { useRef, useState, useSyncExternalStore } from 'react';
 import { clearPattern, openSection, openToggle, page, resetView, runToggle, selectInstrument, setTempo, stepClear, stepToggle } from '../actions';
 import { clock } from '../audio/clock';
-import { BPM, INSTRUMENTS, STEP_COUNT, bassDegree, isOn, pattern } from '../audio/pattern';
+import { BPM, INSTRUMENTS, STEP_COUNT, isOn, pattern } from '../audio/pattern';
 import type { Stage } from '../scene/renderer';
 import { explode } from '../state/explode';
 import { playhead } from '../state/playhead';
@@ -84,7 +83,6 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
   const inst = p.instrument;
   const bpm = p.bpm;
   const opened = ex === 'opening' || ex === 'open';
-  const bass = inst === 'BASS';
 
   const onStep = (i: number): void => {
     if (!stepToggle(i)) setNudge((n) => n + 1);
@@ -97,10 +95,10 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
     } else page(c.id, getStage());
   };
   const cells = [...PAGE_CELLS, ...(opened ? OPEN_CELLS : CLOSED_CELLS)];
-  const hint = !inst ? 'Tap a pad, then the steps.' : bass ? 'Tap to raise the note, hold to clear.' : '';
+  const hint = inst ? '' : 'Tap a pad, then the steps.';
 
   return (
-    <div className="v4-dock" data-mode={inst ? 'edit' : 'union'} data-bass={bass ? '1' : '0'}>
+    <div className="v4-dock" data-mode={inst ? 'edit' : 'union'}>
       <p key={nudge} className="v4-dock-hint" data-nudge={nudge > 0 ? '1' : '0'} aria-live="polite">
         {hint}
       </p>
@@ -120,10 +118,9 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
       </div>
       <div className="v4-dock-steps" role="group" aria-label="Steps">
         {STEP_INDEXES.map((i) => {
-          const level = bass ? bassDegree(p.steps, i) : 0;
           const on = inst ? isOn(p.steps, inst, i) : INSTRUMENTS.some((k) => isOn(p.steps, k, i));
           const label = inst
-            ? `Step ${i + 1}, ${INST_NAMES[inst]} ${bass ? (level > 0 ? `note ${level} of 5` : 'off') : on ? 'on' : 'off'}`
+            ? `Step ${i + 1}, ${INST_NAMES[inst]} ${on ? 'on' : 'off'}`
             : `Step ${i + 1}, no instrument selected`;
           return (
             <button
@@ -158,7 +155,6 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
                 onStep(i);
               }}
             >
-              {bass && <span className="v4-dock-bar" data-level={level} aria-hidden="true" />}
               <span className="v4-dock-num">{i + 1}</span>
             </button>
           );
