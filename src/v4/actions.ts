@@ -1,23 +1,24 @@
 /**
- * Actions partagees (spec 7.2) : la couche de saisie, le Dock, le panneau,
- * le clavier et les jumeaux HTML passent tous par ici, pour qu'un
- * objet se comporte pareil d'ou qu'il soit actionne. Ordre d'un coup de
- * pad : le son, puis l'etat (instrument selectionne), puis l'animation.
+ * Actions partagees (spec 7.2 et 20.6.2) : la couche de saisie, le Dock,
+ * le panneau, le clavier et les jumeaux HTML passent tous par ici, pour
+ * qu'un objet se comporte pareil d'ou qu'il soit actionne. Ordre d'un coup
+ * de pad : le son, puis l'etat (instrument selectionne), puis l'animation.
  * Chaque action relance le contexte audio s'il dort (regle iOS).
  */
 
 import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
-import { ensure, resume, setLevel, setTone, trigger } from './audio/drums';
-import { pattern } from './audio/pattern';
+import { ensure, mix, resume, setDrive, setLevel, setReverb, setSwing, setTone, trigger } from './audio/drums';
+import { BPM, pattern } from './audio/pattern';
 import { sc } from './audio/soundcloud';
 import type { Stage } from './scene/renderer';
 import { chipsLive, explode } from './state/explode';
 import { lcdMessage } from './state/lcdMessage';
 import { section } from './state/section';
-import { CHIPS, type ChipId, type Inst, type NavId, type SectionId } from './theme';
+import { CHIPS, POT_UI, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
 
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
+const pct = (v: number): number => Math.round(v * 100);
 
 /** Premier geste : cree le contexte audio ; ensuite, le relance s'il dort. */
 export function gesture(): void {
@@ -25,19 +26,32 @@ export function gesture(): void {
   resume();
 }
 
-/** Pad frappe (pointerdown, touche) : le son part avant tout le reste. */
-export function padDown(inst: Inst, stage: Stage | null): void {
+/**
+ * Pad de voix frappe (spec 20.6.2 PAD_HIT) : tape au pointeur (au
+ * relachement, regle des 6 px et 400 ms), touche A S D F ou jumeau
+ * (immediats). Le son part avant tout le reste. Plus de charley ouvert au
+ * pointeur : un appui immobile de plus de 400 ms n'active rien.
+ */
+export function padHit(inst: Inst, stage: Stage | null): void {
   gesture();
   trigger(inst);
   pattern.select(inst);
   stage?.pads.press(inst);
 }
 
-/** CH tenu plus de 300 ms : un charley ouvert, le pad reclignote. */
-export function padHold(inst: Inst, stage: Stage | null): void {
+/**
+ * Pad de page (spec 20.6.2 PAGE) : tape, touches 1 a 7, jumeau, onglet.
+ * Ouvre sa section, ou la ferme si elle l'est deja ; le pad s'enfonce.
+ */
+export function page(id: PageId, stage: Stage | null): void {
   resume();
-  trigger(inst, undefined, true);
-  stage?.pads.flash(inst);
+  section.toggle(id);
+  stage?.pads.press(id);
+}
+
+/** RESET VIEW, touche R, double tape du fond : retour a la vue par defaut (500 ms). */
+export function resetView(stage: Stage | null): void {
+  stage?.orbit.reset();
 }
 
 /** Choix de l'instrument sans le jouer (rangee du Dock). */
@@ -88,22 +102,56 @@ export function setTempo(bpm: number): void {
   pattern.setBpm(bpm);
 }
 
-/** TONE : passe-bas du bus de batterie, 0 a 1 (borne par drums.ts). */
-export function dialTone(v: number): void {
-  resume();
-  setTone(v);
+/** Valeur affichee en ligne 3 de l'ecran : TONE 80%, SWING 58% (rapport de doubles croches). */
+function readout(id: Exclude<EncId, 'tempo'>, v: number): string {
+  if (id === 'swing') return `SWING ${swingRatio(v)}%`;
+  return `${id.toUpperCase()} ${pct(v)}%`;
 }
 
-/** LEVEL : gain du bus, 0 a 1 ; jamais le master (?mute=1 tient). */
-export function dialLevel(v: number): void {
+/**
+ * Un encodeur (spec 20.6.2 ENC_SET) : glisser, molette, jumeau au clavier.
+ * TEMPO en BPM (100 a 150, l'ecran le montre deja en ligne 1), les cinq
+ * autres de 0 a 1 (bornes par drums.ts et le store du motif), leur valeur
+ * 1200 ms en ligne 3 de l'ecran. TONE : passe-bas du bus ; LEVEL : gain du
+ * bus, jamais le master (?mute=1 tient) ; SWING : retard des pas pairs
+ * (horloge) ; DIST : saturation parallele du bus ; REVERB : envoi vers la
+ * reverbe a convolution. Les trois derniers persistent avec le motif.
+ */
+export function dial(id: EncId, v: number): void {
   resume();
-  setLevel(v);
+  if (id === 'tempo') {
+    pattern.setBpm(v);
+    return;
+  }
+  if (id === 'tone') setTone(v);
+  else if (id === 'level') setLevel(v);
+  else if (id === 'swing') setSwing(v);
+  else if (id === 'dist') setDrive(v);
+  else setReverb(v);
+  lcdMessage.show(readout(id, dialValue(id)), POT_UI.readoutMs, true);
 }
 
-/** Knob de navigation : ouvre sa section, ou la ferme si elle l'est deja. */
-export function knob(s: NavId): void {
-  resume();
-  section.toggle(s);
+/** Valeur courante d'un encodeur : BPM, ou 0 a 1. */
+export function dialValue(id: EncId): number {
+  switch (id) {
+    case 'tempo':
+      return pattern.get().bpm;
+    case 'tone':
+      return mix.tone;
+    case 'level':
+      return mix.level;
+    case 'swing':
+      return mix.swing;
+    case 'dist':
+      return mix.drive;
+    default:
+      return mix.reverb;
+  }
+}
+
+/** Valeur de depart (double tape) : 130 BPM, TONE ouvert, LEVEL 80 %, le reste a 0. */
+export function dialReset(id: EncId): number {
+  return id === 'tempo' ? BPM.initial : POT_UI.reset[id];
 }
 
 /** Onglet de la feuille, raccourci : ouvre une section (sans bascule). */
@@ -118,25 +166,30 @@ export function closeSection(): void {
 
 /**
  * OPEN / CLOSE (spec 7.2 OPEN_TOGGLE) : la vue eclatee, depuis un etat pose
- * seulement ; la musique continue. true si la demande est prise.
+ * seulement ; la musique continue ; le pad OPEN s'enfonce. true si la
+ * demande est prise.
  */
-export function openToggle(): boolean {
+export function openToggle(stage: Stage | null = null): boolean {
   resume();
-  return explode.toggle();
+  const ok = explode.toggle();
+  if (ok) stage?.pads.press('open');
+  return ok;
 }
 
 /**
- * Puce de la vue eclatee (spec 7.2 CHIP), quand son jumeau manque (sinon
- * le jumeau, un vrai lien, fait le travail) : LABEL ouvre VRSTL Records
- * dans un onglet, LIVE la fiche technique, STUDIO sa section.
+ * Puce de la vue eclatee (spec 20.6.2 CHIP) : LIVE ouvre sa section ou la
+ * referme (bascule, comme un pad de page) ; STUDIO ouvre la sienne
+ * (inchange) ; LABEL, un lien, ouvre sa page Bandcamp dans un onglet sans
+ * opener ni referer, seulement quand son jumeau manque (sinon le jumeau,
+ * un vrai lien, fait le travail).
  */
 export function chipAction(id: ChipId): void {
   if (!chipsLive(explode.get())) return;
   const c = CHIPS.find((k) => k.id === id);
   if (!c) return;
-  if (!c.href) openSection('studio');
-  else if (c.external) window.open(c.href, '_blank', 'noopener');
-  else window.location.assign(c.href);
+  if (c.section === 'live') section.toggle('live');
+  else if (c.section) openSection(c.section);
+  else if (c.href) window.open(c.href, '_blank', 'noopener,noreferrer');
 }
 
 /**

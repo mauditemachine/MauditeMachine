@@ -1,0 +1,1 @@
+const a=[{id:"intl",name:"Diane",email:"vrstlrecords@gmail.com",label:{en:"International booking",fr:"Booking international"}},{id:"na",name:null,email:"mauditemachine@gmail.com",label:{en:"Canada / USA booking",fr:"Booking Canada - États-Unis"}}];export{a as B};

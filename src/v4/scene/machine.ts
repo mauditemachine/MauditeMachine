@@ -1,17 +1,50 @@
 /**
- * Le corps de la MM-808 (spec 5.1 et 5.2) : trois couches pour la vue
- * eclatee (scene/explode.ts). plateauGroup (y 1.6) porte le plateau
- * graphite a chanfrein graphiteHi et tout ce qui est pose dessus ;
- * pcbGroup (y 0.72) porte le PCB (scene/pcb.ts), cache tant que la machine
- * est fermee ; socleGroup (y 0) porte le socle graphiteLo, un peu plus
- * large, ses connecteurs, sa mention et le plan d'ombre. machineRoot recoit
- * la parallaxe. Deux draw calls pour tout le corps.
+ * Le corps de la MM-808, revision 2 (spec 20.3.1 a 20.3.3) : une boite a
+ * rythmes noire en coin, facon Elektron Analog Rytm. Trois couches pour la
+ * vue eclatee (scene/explode.ts) :
+ * - plateauGroup : le panneau (dalle d'aluminium anodise a chanfrein, le
+ *   cadre de l'ecran fusionne) et tout ce qui est pose dessus ; son repere
+ *   est incline de 5.711 deg (l'avant plus bas), origine au centre du
+ *   dessus du panneau ;
+ * - pcbGroup : le PCB (scene/pcb.ts), incline pareil, cache dans le
+ *   chassis tant que la machine est fermee ;
+ * - socleGroup : le chassis (le coin, ses chanfreins, son bac, quatre
+ *   pieds en caoutchouc, la connectique arriere, un seul maillage) et le
+ *   sol ; il ne bouge jamais.
+ * machineRoot porte l'intro (la machine monte a sa place). Deux draw calls
+ * pour tout le corps : chassis, panneau.
  */
 
-import { BoxGeometry, CylinderGeometry, ExtrudeGeometry, Group, Mesh, Shape, type BufferGeometry, type MeshStandardMaterial } from 'three';
+import {
+  BoxGeometry,
+  BufferGeometry,
+  Color,
+  CylinderGeometry,
+  ExtrudeGeometry,
+  Float32BufferAttribute,
+  Group,
+  Mesh,
+  Shape,
+  type CanvasTexture,
+  type MeshStandardMaterial,
+} from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { CONNECTORS, LAYERS, LCD_BEZEL, PLATE, SOCLE, type BodySpec, type Tone } from '../theme';
-import { makeBodyMaterial, paintByNormal, paintSolid } from './materials';
+import {
+  BODY,
+  CONNECTORS,
+  FEET,
+  GAIN,
+  LAYERS,
+  OLED,
+  PANEL,
+  PANEL_TOP_Y,
+  TILT,
+  TRAY,
+  chassisTopY,
+  gainOf,
+  type Tone,
+} from '../theme';
+import { albedo, makeChassisMaterial, makePanelMaterial, paintFaces, paintSolid } from './materials';
 
 /** Rectangle a coins arrondis centre, une suite d'arcs (three ajoute les cotes droits). */
 function roundedRect(w: number, d: number, r: number): Shape {
@@ -25,131 +58,346 @@ function roundedRect(w: number, d: number, r: number): Shape {
   return s;
 }
 
+/** Intersection de deux droites a.x + b.y = c (profil du coin). */
+function meet(a1: number, b1: number, c1: number, a2: number, b2: number, c2: number): [number, number] {
+  const det = a1 * b2 - a2 * b1;
+  return [(c1 * b2 - c2 * b1) / det, (a1 * c2 - a2 * c1) / det];
+}
+
 /**
- * Bloc extrude a chanfreins, axe d'extrusion vertical. La depth de three
- * exclut les deux chanfreins : on la deduit de l'epaisseur totale pour que
- * le bloc occupe exactement [yBottom, yBottom + thickness].
+ * Profil du coin dans le plan (u, v) = (-z, y), retreci du chanfrein
+ * (l'extrusion le rend en bevelSize) et ses quatre coins chanfreines :
+ * 8 points. Extrude le long de x, chaque arete finit chanfreinee.
  */
-function extrudeBody(spec: BodySpec, yBottom: number): BufferGeometry {
-  const depth = spec.thickness - 2 * spec.bevelThickness;
-  const g = new ExtrudeGeometry(roundedRect(spec.shapeW, spec.shapeD, spec.radius), {
-    depth,
+function wedgeProfile(): Shape {
+  const s = BODY.chamfer;
+  const hz = BODY.d / 2;
+  const y0 = BODY.feet;
+  // Dessus : y = t0 - z tan(TILT), soit en (u = -z) : -tan(TILT) u + y = t0... en u : y = t0 + u tan
+  const tanT = Math.tan(TILT);
+  const t0 = chassisTopY(0);
+  // Droites du profil (a u + b v = c), deja rentrees de s vers l'interieur
+  const nrm = Math.hypot(tanT, 1);
+  const top = { a: -tanT, b: 1, c: t0 - s * nrm }; // v - u tan = t0 - s |n|
+  const bottom = { a: 0, b: 1, c: y0 + s };
+  const back = { a: 1, b: 0, c: hz - s }; // u = +hz - s (z = -hz)
+  const front = { a: 1, b: 0, c: -hz + s }; // u = -hz + s (z = +hz)
+  const corners = [
+    meet(back.a, back.b, back.c, bottom.a, bottom.b, bottom.c),
+    meet(back.a, back.b, back.c, top.a, top.b, top.c),
+    meet(front.a, front.b, front.c, top.a, top.b, top.c),
+    meet(front.a, front.b, front.c, bottom.a, bottom.b, bottom.c),
+  ];
+  // Chaque coin coupe de s le long de ses deux aretes
+  const pts: [number, number][] = [];
+  for (let i = 0; i < 4; i += 1) {
+    const p = corners[i];
+    const prev = corners[(i + 3) % 4];
+    const next = corners[(i + 1) % 4];
+    const toward = (q: [number, number]): [number, number] => {
+      const dx = q[0] - p[0];
+      const dy = q[1] - p[1];
+      const l = Math.hypot(dx, dy);
+      return [p[0] + (dx / l) * s, p[1] + (dy / l) * s];
+    };
+    pts.push(toward(prev), toward(next));
+  }
+  const shape = new Shape();
+  shape.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i += 1) shape.lineTo(pts[i][0], pts[i][1]);
+  shape.closePath();
+  return shape;
+}
+
+/** Repere du panneau ferme (x, y, z) -> monde du socle : rotation TILT autour de x, dessus a PANEL_TOP_Y. */
+function fromPanel(x: number, y: number, z: number, out: number[]): void {
+  const c = Math.cos(TILT);
+  const sn = Math.sin(TILT);
+  out.push(x, PANEL_TOP_Y + y * c - z * sn, y * sn + z * c);
+}
+
+/**
+ * Le coin : dessous a y 0.12, dessus = le dessous du panneau (2.18 a
+ * l'arriere, 1.28 a l'avant), x de -7 a 7. Couleurs par normale : flancs
+ * et dessous body, chanfreins tournes vers le haut bodyEdge (ils
+ * accrochent la lumiere). Puis le dessus plein devient un bac (tray) : un
+ * rebord de TRAY.wall, des parois interieures et un fond TRAY.depth plus
+ * bas, paralleles au panneau (bodyTop, body). Le PCB vit dans le bac et en
+ * sort a l'ouverture sans jamais traverser une surface.
+ */
+function buildWedge(): BufferGeometry {
+  const s = BODY.chamfer;
+  const g = new ExtrudeGeometry(wedgeProfile(), {
+    depth: BODY.w - 2 * s,
     steps: 1,
-    curveSegments: spec.curveSegments,
+    curveSegments: 1,
     bevelEnabled: true,
-    bevelThickness: spec.bevelThickness,
-    bevelSize: spec.bevelSize,
-    bevelSegments: spec.bevelSegments,
+    bevelThickness: s,
+    bevelSize: s,
+    bevelSegments: 1,
   });
-  // (x, y, z) -> (x, z, -y) : l'extrusion devient la hauteur, de -bevel a depth + bevel
-  g.rotateX(-Math.PI / 2);
-  g.translate(0, yBottom + spec.bevelThickness, 0);
+  // (u, v, w) -> (x = w, y = v, z = -u) : rotation de +90 deg autour de y
+  g.rotateY(Math.PI / 2);
+  g.translate(-BODY.w / 2 + s, 0, 0);
   g.deleteAttribute('uv');
-  return g;
+  const topNy = Math.cos(TILT);
+  const isTop = (nx: number, ny: number): boolean => ny > topNy - 0.01 && Math.abs(nx) < 0.01;
+  paintFaces(g, (nx, ny) => {
+    if (isTop(nx, ny)) return 'bodyTop';
+    if (Math.abs(ny) < 0.15 || ny < -0.97) return 'body';
+    return ny > 0 ? 'bodyEdge' : 'body';
+  });
+  return toTray(g, isTop);
 }
 
-/** Plateau : dessus a y 0, dessous a -0.9 ; cadre de l'ecran fusionne. */
-function buildPlate(): BufferGeometry {
-  const plate = extrudeBody(PLATE, -PLATE.thickness);
-  paintByNormal(plate, { top: 'graphite', bottom: 'graphiteLo', side: 'graphite', bevelUp: 'graphiteHi', bevelDown: 'graphiteLo' });
-  const bezelIndexed = new BoxGeometry(LCD_BEZEL.w, LCD_BEZEL.h, LCD_BEZEL.d);
-  const bezel = bezelIndexed.toNonIndexed();
-  bezelIndexed.dispose();
-  bezel.translate(LCD_BEZEL.x, LCD_BEZEL.h / 2, LCD_BEZEL.z);
-  bezel.deleteAttribute('uv');
-  paintSolid(bezel, 'graphiteLo');
-  const merged = mergeGeometries([plate, bezel], false);
-  plate.dispose();
-  bezel.dispose();
-  if (!merged) throw new Error('machine: plate merge failed');
-  return merged;
-}
-
-/** Piece non indexee (comme l'extrusion), une teinte, prete a fusionner. */
-function part(g: BufferGeometry, tone: Tone): BufferGeometry {
-  const out = g.toNonIndexed();
+/**
+ * Remplace le dessus plein du coin par le bac : le contour exact du
+ * dessus (lu sur ses triangles, dans le repere du panneau) donne le
+ * rebord ; l'ouverture est rentree de TRAY.wall, le fond est TRAY.depth
+ * sous le rebord. Chaque quad est oriente vers sa normale (faces avant).
+ */
+function toTray(g: BufferGeometry, isTop: (nx: number, ny: number) => boolean): BufferGeometry {
+  const pos = g.getAttribute('position');
+  const nor = g.getAttribute('normal');
+  const col = g.getAttribute('color');
+  const P: number[] = [];
+  const N: number[] = [];
+  const C: number[] = [];
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  let z0 = Infinity;
+  let z1 = -Infinity;
+  const c = Math.cos(TILT);
+  const sn = Math.sin(TILT);
+  for (let i = 0; i + 2 < pos.count; i += 3) {
+    const nx = (nor.getX(i) + nor.getX(i + 1) + nor.getX(i + 2)) / 3;
+    const ny = (nor.getY(i) + nor.getY(i + 1) + nor.getY(i + 2)) / 3;
+    if (isTop(nx, ny)) {
+      for (let k = 0; k < 3; k += 1) {
+        // Monde -> repere du panneau (rotation -TILT autour de x)
+        const y = pos.getY(i + k) - PANEL_TOP_Y;
+        const z = pos.getZ(i + k);
+        const zp = -y * sn + z * c;
+        x0 = Math.min(x0, pos.getX(i + k));
+        x1 = Math.max(x1, pos.getX(i + k));
+        z0 = Math.min(z0, zp);
+        z1 = Math.max(z1, zp);
+      }
+      continue;
+    }
+    for (let k = 0; k < 3; k += 1) {
+      P.push(pos.getX(i + k), pos.getY(i + k), pos.getZ(i + k));
+      N.push(nor.getX(i + k), nor.getY(i + k), nor.getZ(i + k));
+      C.push(col.getX(i + k), col.getY(i + k), col.getZ(i + k));
+    }
+  }
+  const yTop = -PANEL.t;
+  const yBot = yTop - TRAY.depth;
+  const w = TRAY.wall;
+  const ix0 = x0 + w;
+  const ix1 = x1 - w;
+  const iz0 = z0 + w;
+  const iz1 = z1 - w;
+  const top = albedo('bodyTop', new Color(), gainOf('bodyTop'));
+  const side = albedo('body', new Color(), gainOf('body'));
+  const tmp: number[] = [];
+  /** Un quad (4 points du repere panneau), sa normale (repere panneau), sa couleur. */
+  const quad = (q: number[][], n: [number, number, number], rgb: Color): void => {
+    tmp.length = 0;
+    for (const v of q) fromPanel(v[0], v[1], v[2], tmp);
+    // Normale monde (rotation seule)
+    const wn = [n[0], n[1] * c - n[2] * sn, n[1] * sn + n[2] * c];
+    // Ordre des sommets : la face avant regarde la normale
+    const ax = tmp[3] - tmp[0];
+    const ay = tmp[4] - tmp[1];
+    const az = tmp[5] - tmp[2];
+    const bx = tmp[6] - tmp[0];
+    const by = tmp[7] - tmp[1];
+    const bz = tmp[8] - tmp[2];
+    const flip = (ay * bz - az * by) * wn[0] + (az * bx - ax * bz) * wn[1] + (ax * by - ay * bx) * wn[2] < 0;
+    const order = flip ? [0, 2, 1, 0, 3, 2] : [0, 1, 2, 0, 2, 3];
+    for (const k of order) {
+      P.push(tmp[k * 3], tmp[k * 3 + 1], tmp[k * 3 + 2]);
+      N.push(wn[0], wn[1], wn[2]);
+      C.push(rgb.r, rgb.g, rgb.b);
+    }
+  };
+  const up: [number, number, number] = [0, 1, 0];
+  // Rebord : quatre bandes entre le contour du dessus et l'ouverture
+  quad([[x0, yTop, z0], [x1, yTop, z0], [x1, yTop, iz0], [x0, yTop, iz0]], up, top);
+  quad([[x0, yTop, iz1], [x1, yTop, iz1], [x1, yTop, z1], [x0, yTop, z1]], up, top);
+  quad([[x0, yTop, iz0], [ix0, yTop, iz0], [ix0, yTop, iz1], [x0, yTop, iz1]], up, top);
+  quad([[ix1, yTop, iz0], [x1, yTop, iz0], [x1, yTop, iz1], [ix1, yTop, iz1]], up, top);
+  // Parois interieures, tournees vers le bac
+  quad([[ix0, yTop, iz0], [ix1, yTop, iz0], [ix1, yBot, iz0], [ix0, yBot, iz0]], [0, 0, 1], side);
+  quad([[ix0, yTop, iz1], [ix1, yTop, iz1], [ix1, yBot, iz1], [ix0, yBot, iz1]], [0, 0, -1], side);
+  quad([[ix0, yTop, iz0], [ix0, yTop, iz1], [ix0, yBot, iz1], [ix0, yBot, iz0]], [1, 0, 0], side);
+  quad([[ix1, yTop, iz0], [ix1, yTop, iz1], [ix1, yBot, iz1], [ix1, yBot, iz0]], [-1, 0, 0], side);
+  // Fond
+  quad([[ix0, yBot, iz0], [ix1, yBot, iz0], [ix1, yBot, iz1], [ix0, yBot, iz1]], up, top);
   g.dispose();
-  out.deleteAttribute('uv');
-  paintSolid(out, tone);
+  const out = new BufferGeometry();
+  out.setAttribute('position', new Float32BufferAttribute(P, 3));
+  out.setAttribute('normal', new Float32BufferAttribute(N, 3));
+  out.setAttribute('color', new Float32BufferAttribute(C, 3));
   return out;
 }
 
+/** Piece non indexee, une teinte, prete a fusionner. */
+function part(g: BufferGeometry, tone: Tone): BufferGeometry {
+  const out = g.index ? g.toNonIndexed() : g;
+  if (out !== g) g.dispose();
+  out.deleteAttribute('uv');
+  paintSolid(out, tone, GAIN.parts);
+  return out;
+}
+
+/** Un pave (w, h, d) centre en (x, y, z). */
+function box(w: number, h: number, d: number, x: number, y: number, z: number, tone: Tone): BufferGeometry {
+  const g = new BoxGeometry(w, h, d);
+  g.translate(x, y, z);
+  return part(g, tone);
+}
+
+/** Un cylindre d'axe z (face arriere), sa face externe a zFace - h. */
+function disc(r: number, h: number, seg: number, x: number, y: number, zFace: number, tone: Tone): BufferGeometry {
+  const g = new CylinderGeometry(r, r, h, seg);
+  g.rotateX(Math.PI / 2);
+  g.translate(x, y, zFace - h / 2);
+  return part(g, tone);
+}
+
 /**
- * Alimentation et connecteurs du flanc droit (spec 5.2) : prise secteur,
- * deux jacks (fut line, trou encre), USB. Fusionnes au socle : zero draw
- * call de plus.
+ * Connectique de la face arriere (z -4.5), decorative : prise secteur
+ * (cadre, creux, trois broches), USB-B (cadre metal, creux), deux jacks
+ * 6.35 (ecrou hexagonal, fut, trou). Quelques paves et cylindres a peu de
+ * facettes, fusionnes au chassis : zero draw call de plus.
  */
 function buildConnectors(): BufferGeometry[] {
   const C = CONNECTORS;
+  const zb = -BODY.d / 2;
   const out: BufferGeometry[] = [];
-  const inlet = new BoxGeometry(C.inlet.w, C.inlet.h, C.inlet.d);
-  inlet.translate(C.inlet.x, C.inlet.y, C.inlet.z);
-  out.push(part(inlet, 'graphite'));
-  for (const j of C.jacks) {
-    const body = new CylinderGeometry(C.jackR, C.jackR, C.jackL, 16);
-    body.rotateZ(Math.PI / 2);
-    body.translate(j.x, j.y, j.z);
-    out.push(part(body, 'line'));
-    const hole = new CylinderGeometry(C.holeR, C.holeR, C.jackL + 0.004, 12);
-    hole.rotateZ(Math.PI / 2);
-    hole.translate(j.x + 0.002, j.y, j.z);
-    out.push(part(hole, 'ink'));
+  const i = C.inlet;
+  out.push(box(i.w, i.h, i.d, i.x, i.y, zb - i.d / 2, 'line'));
+  out.push(box(i.recess.w, i.recess.h, 0.004, i.x, i.y, zb - i.d - 0.002, 'ink'));
+  for (const k of [-1, 0, 1]) {
+    out.push(box(i.pin.w, i.pin.h, i.pin.d, i.x + k * i.pin.dx, i.y + (k === 0 ? 0.06 : 0), zb - i.d - i.pin.d / 2, 'leg'));
   }
-  const usb = new BoxGeometry(C.usb.w, C.usb.h, C.usb.d);
-  usb.translate(C.usb.x, C.usb.y, C.usb.z);
-  out.push(part(usb, 'line'));
+  const u = C.usb;
+  out.push(box(u.w, u.h, u.d, u.x, u.y, zb - u.d / 2, 'leg'));
+  out.push(box(u.inner.w, u.inner.h, 0.004, u.x, u.y, zb - u.d - 0.002, 'ink'));
+  for (const j of C.jacks) {
+    out.push(disc(C.nut.r, C.nut.h, 6, j.x, j.y, zb, 'leg'));
+    out.push(disc(C.barrel.r, C.barrel.h, 16, j.x, j.y, zb, 'line'));
+    out.push(disc(C.hole.r, 0.004, 12, j.x, j.y, zb - C.barrel.h, 'ink'));
+  }
   return out;
 }
 
-/** Socle : y 0 a 0.7, sa bande de chanfrein en graphite, ses connecteurs. */
-function buildSocle(): BufferGeometry {
-  const g = extrudeBody(SOCLE, 0);
-  paintByNormal(g, { top: 'graphiteLo', bottom: 'graphiteLo', side: 'graphiteLo', bevelUp: 'graphite', bevelDown: 'graphiteLo' });
-  const parts = [g, ...buildConnectors()];
+/** Quatre pieds en caoutchouc sous les coins (visibles en orbite basse). */
+function buildFeet(mobile: boolean): BufferGeometry[] {
+  const seg = mobile ? FEET.segments.mobile : FEET.segments.desktop;
+  const out: BufferGeometry[] = [];
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const g = new CylinderGeometry(FEET.r, FEET.r, FEET.h, seg);
+      g.translate(sx * FEET.x, FEET.h / 2, sz * FEET.z);
+      out.push(part(g, 'rubber'));
+    }
+  }
+  return out;
+}
+
+/** Chassis complet : coin, pieds, connectique ; une geometrie, un draw call. */
+function buildChassis(mobile: boolean): BufferGeometry {
+  const parts = [buildWedge(), ...buildFeet(mobile), ...buildConnectors()];
   const merged = mergeGeometries(parts, false);
   for (const p of parts) p.dispose();
-  if (!merged) throw new Error('machine: socle merge failed');
+  if (!merged) throw new Error('machine: chassis merge failed');
+  return merged;
+}
+
+/**
+ * Panneau : dalle extrudee (dessus a y 0, dessous a -0.14) a chanfrein
+ * tourne vers le haut (panelEdge), cadre de l'ecran fusionne (oled). UV
+ * du dessus en unites (x, -z) : le brossage (roughnessMap) court le long
+ * de x.
+ */
+function buildPanel(): BufferGeometry {
+  const P = PANEL;
+  const depth = P.t - 2 * P.bevelThickness;
+  const slab = new ExtrudeGeometry(roundedRect(P.shapeW, P.shapeD, P.radius), {
+    depth,
+    steps: 1,
+    curveSegments: P.curveSegments,
+    bevelEnabled: true,
+    bevelThickness: P.bevelThickness,
+    bevelSize: P.bevelSize,
+    bevelSegments: 1,
+  });
+  // (x, y, z) -> (x, z, -y) : l'extrusion devient la hauteur, dessus a 0
+  slab.rotateX(-Math.PI / 2);
+  slab.translate(0, -(depth + P.bevelThickness), 0);
+  paintFaces(slab, (_nx, ny) => (ny > 0.995 ? 'panel' : ny > 0.15 ? 'panelEdge' : 'panelSide'));
+  const b = OLED.bezel;
+  const bezelIndexed = new BoxGeometry(b.w, b.h, b.d);
+  const bezel = bezelIndexed.toNonIndexed();
+  bezelIndexed.dispose();
+  bezel.translate(OLED.x, b.h / 2, OLED.z);
+  paintSolid(bezel, 'oled', GAIN.parts);
+  const merged = mergeGeometries([slab, bezel], false);
+  slab.dispose();
+  bezel.dispose();
+  if (!merged) throw new Error('machine: panel merge failed');
   return merged;
 }
 
 export class Machine {
-  /** machineRoot : la parallaxe tourne ce groupe, jamais la camera */
+  /** machineRoot : l'intro le deplace, jamais la camera */
   readonly root = new Group();
+  /** le panneau et tout ce qui est pose dessus (repere incline) */
   readonly plateau = new Group();
   readonly pcb = new Group();
+  /** chassis et sol : fixes */
   readonly socle = new Group();
-  readonly body: MeshStandardMaterial;
-  readonly plate: Mesh;
-  readonly base: Mesh;
+  readonly chassisMat: MeshStandardMaterial;
+  readonly panelMat: MeshStandardMaterial;
+  readonly chassis: Mesh;
+  readonly panel: Mesh;
 
-  constructor(mobile: boolean) {
+  constructor(mobile: boolean, brush: CanvasTexture) {
     this.root.name = 'machineRoot';
     this.plateau.name = 'plateauGroup';
     this.pcb.name = 'pcbGroup';
     this.socle.name = 'socleGroup';
     this.plateau.position.set(0, LAYERS.plateauY, 0);
+    this.plateau.rotation.x = TILT;
     this.pcb.position.set(0, LAYERS.pcbY, 0);
+    this.pcb.rotation.x = TILT;
     this.pcb.visible = false;
     this.socle.position.set(0, LAYERS.socleY, 0);
-    this.root.add(this.plateau, this.pcb, this.socle);
+    this.root.add(this.socle, this.pcb, this.plateau);
 
-    this.body = makeBodyMaterial();
-    this.plate = new Mesh(buildPlate(), this.body);
-    this.plate.name = 'plateau';
-    this.plate.castShadow = true;
-    this.plate.receiveShadow = true;
-    this.base = new Mesh(buildSocle(), this.body);
-    this.base.name = 'socle';
-    // Mobile : seuls le plateau et les pads projettent (spec 4.3)
-    this.base.castShadow = !mobile;
-    this.base.receiveShadow = true;
-    this.plateau.add(this.plate);
-    this.socle.add(this.base);
+    this.chassisMat = makeChassisMaterial();
+    this.chassis = new Mesh(buildChassis(mobile), this.chassisMat);
+    this.chassis.name = 'chassis';
+    this.chassis.castShadow = true;
+    this.chassis.receiveShadow = true;
+    this.socle.add(this.chassis);
+
+    this.panelMat = makePanelMaterial(brush);
+    this.panel = new Mesh(buildPanel(), this.panelMat);
+    this.panel.name = 'panel';
+    // Mobile : le chassis et les pads suffisent a l'ombre (spec 20.9.1)
+    this.panel.castShadow = !mobile;
+    this.panel.receiveShadow = true;
+    this.plateau.add(this.panel);
   }
 
   dispose(): void {
-    this.plate.geometry.dispose();
-    this.base.geometry.dispose();
-    this.body.dispose();
+    this.chassis.geometry.dispose();
+    this.panel.geometry.dispose();
+    this.chassisMat.dispose();
+    this.panelMat.dispose();
   }
 }

@@ -174,16 +174,79 @@ html:has(body.v4-active) {
 }
 
 /* Couche de saisie (spec 6.2) : pointeurs seulement, jamais de defilement,
-   de zoom, de selection ni de loupe sous le doigt (CH tenu 300 ms). */
+   de zoom, de selection ni de loupe sous le doigt. Revision 2 : la main
+   ouverte dit que la machine se tourne (fermee pendant l'orbite, doigt sur
+   un objet : style en ligne pose par ui/Hotspots.tsx). */
 .v4-hit {
   position: absolute;
   inset: 0;
   z-index: 10;
+  cursor: grab;
   touch-action: none;
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* RESET VIEW (spec 20.2.9) : hors de la scene (ses pointeurs n'orbitent
+   pas), etiquette facon serigraphie, visible seulement quand la vue a
+   bouge ; cache, il sort aussi du clavier et des lecteurs d'ecran. */
+.v4-root .v4-reset {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  z-index: 22;
+  height: 44px;
+  padding: 0 12px;
+  font-family: 'SF Pro Display', system-ui, -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  line-height: 44px;
+  color: var(--bone-70);
+  background: transparent;
+  border: 0;
+  border-radius: 10px;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 150ms ease,
+    visibility 0s linear 150ms,
+    color 160ms ease;
+}
+
+.v4-root .v4-reset[data-visible='1'] {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity 150ms ease,
+    visibility 0s linear 0s,
+    color 160ms ease;
+}
+
+.v4-root .v4-reset:hover,
+.v4-root .v4-reset:focus-visible {
+  color: var(--yellow);
+}
+
+@media (max-width: 767px) {
+  .v4-root .v4-reset {
+    right: 12px;
+    bottom: auto;
+    top: calc(55vh - 56px);
+    top: calc(var(--canvas-h-mobile) - 56px);
+  }
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-reset,
+.v4-root[data-v4-motion='reduced'] .v4-reset[data-visible='1'] {
+  transition: none;
+}
+
+.v4-root[data-v4-gl='fallback'] .v4-reset {
+  display: none;
 }
 
 @media (max-width: 767px) {
@@ -235,7 +298,8 @@ html:has(body.v4-active) {
 
 /* Mobile seulement : sous la scene, dans les 45 % du bas. La rangee
    d'instruments, deux rangees de 8 pas (44 x 48 px, 380 px sur un ecran
-   de 390), puis le transport (48 px de haut). Pas de bordure : des aplats
+   de 390), le transport (48 px de haut), puis la rangee PAGES (revision
+   2, 48 px, elle defile de cote). Pas de bordure : des aplats
    graphite, bone 40 % (le ledSet des LED 3D) pour un pas programme,
    yellowHi pour la tete de lecture. Textes a 4.5:1 au moins (AA). */
 .v4-dock {
@@ -411,11 +475,66 @@ html:has(body.v4-active) {
   color: var(--bone-60);
 }
 
-/* ---------- trace du knob au panneau (spec 11.2), desktop ---------- */
+/* PAGES (spec 20.1 R2-12) : les sept pages en une rangee de 48 px qui
+   defile de cote, comme les onglets de la feuille (le bouton coupe au bord
+   dit qu'il y en a d'autres), memes aplats que les instruments */
+.v4-dock-pages {
+  display: flex;
+  gap: 4px;
+  width: min(380px, calc(100vw - 10px));
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+
+.v4-dock-pages::-webkit-scrollbar {
+  display: none;
+}
+
+.v4-root .v4-dock-page {
+  flex: 0 0 auto;
+  height: 48px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: var(--graphite);
+  color: var(--bone-60);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-indent: 0.18em;
+}
+
+/* La rangee coupe ce qui depasse de ses 48 px : le contour de focus passe
+   a l'interieur du bouton */
+.v4-root .v4-dock-page:focus-visible {
+  outline-offset: -2px;
+}
+
+/* Ecrans courts : sous 700 px de haut les ecarts se resserrent (le Dock
+   tient dans 45 % de 640 px) ; sous 600 px la rangee PAGES laisse sa
+   place (les pads 3D et les onglets de la feuille restent) */
+@media (max-width: 767px) and (max-height: 699px) {
+  .v4-dock {
+    gap: 4px;
+    padding-top: 4px;
+    padding-bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 767px) and (max-height: 599px) {
+  .v4-dock-pages {
+    display: none;
+  }
+}
+
+/* ---------- trace de l'objet au panneau (spec 11.2 et 20.2.7), desktop ---------- */
 
 /* SVG par-dessus le canvas, sous le panneau ; aucun pointeur. Le dessin
    (stroke-dashoffset) et le point lumineux sont pilotes par Trace.tsx ;
-   la fermeture est un fondu de 150 ms. */
+   la fermeture est un fondu de 150 ms. Revision 2 : ancre hors champ ou
+   cachee par la machine (data-visible 0), fondu de 150 ms, et retour de
+   meme ; le panneau ne bouge pas. */
 .v4-trace {
   position: absolute;
   left: 0;
@@ -431,7 +550,10 @@ html:has(body.v4-active) {
 
 .v4-trace[data-on='1'] {
   opacity: 1;
-  transition: none;
+}
+
+.v4-trace[data-on='1'][data-visible='0'] {
+  opacity: 0;
 }
 
 .v4-trace-line {
@@ -729,6 +851,19 @@ html:has(body.v4-active) {
   margin: 0 0 6px;
 }
 
+/* Intertitres d'une section (LIVE : Setup, Documents), texte tel quel */
+.v4-sec-sub {
+  margin: 18px 0 6px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--bone-60);
+}
+
+.v4-sec-title + .v4-sec-sub {
+  margin-top: 0;
+}
+
 .v4-list,
 .v4-links,
 .v4-contacts,
@@ -878,6 +1013,7 @@ html:has(body.v4-active) {
   text-decoration: none;
   color: var(--bone);
   font-size: 14px;
+  transition: color 160ms ease;
 }
 
 .v4-root .v4-row-link {
@@ -885,14 +1021,40 @@ html:has(body.v4-active) {
   color: var(--bone-70);
 }
 
+/* Jaune au survol ET au focus clavier, comme les icones (brief) */
 .v4-root .v4-row-link:hover,
-.v4-root .v4-link:hover {
+.v4-root .v4-row-link:focus-visible,
+.v4-root .v4-link:hover,
+.v4-root .v4-link:focus-visible {
   color: var(--yellow);
 }
 
 .v4-ext {
   flex: 0 0 auto;
   opacity: 0.7;
+}
+
+/* LIVE (spec 20.5) : un document a telecharger, la fleche a gauche, la
+   taille a droite en petit */
+.v4-root .v4-doc {
+  gap: 8px;
+}
+
+.v4-dl {
+  flex: 0 0 auto;
+  opacity: 0.7;
+}
+
+.v4-doc-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.v4-doc-size {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--bone-60);
+  font-variant-numeric: tabular-nums;
 }
 
 .v4-links {
@@ -946,24 +1108,37 @@ html:has(body.v4-active) {
   text-decoration: none;
   color: var(--bone);
   overflow-wrap: anywhere;
+  transition: color 160ms ease;
 }
 
-.v4-root .v4-contact-mail:hover {
+.v4-root .v4-contact-mail:hover,
+.v4-root .v4-contact-mail:focus-visible {
   color: var(--yellow);
 }
 
+/* Reseaux (spec 20.4) : grille qui se remplit toute seule, cases egales
+   d'au moins 44 px, sans ecart irregulier. Desktop : 392 px au plus, donc
+   8 colonnes pour tout panneau (contenu de 372 a 412 px) : 8 + 7, deux
+   rangees. 7 ou 14 colonnes (une icone seule sur sa rangee) n'arrivent
+   jamais. La marge gauche aligne le premier glyphe sur le texte.
+   Telephone : 5 colonnes de 44 px reparties sur toute la largeur de la
+   feuille, ecarts egaux, le premier glyphe sur le texte et le dernier sur
+   le bord droit : 5 + 5 + 5, trois rangees (revue de la revision 2 : la
+   grille plafonnee a 260 px laissait 100 px vides a droite). */
 .v4-socials {
   display: grid;
-  grid-template-columns: repeat(8, 44px);
-  gap: 4px;
-  margin: 22px -10px 0;
+  grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
+  gap: 0;
+  max-width: 392px;
+  margin: 22px 0 0 -12px;
 }
 
 @media (max-width: 767px) {
   .v4-socials {
-    grid-template-columns: repeat(5, 1fr);
-    justify-items: center;
-    margin: 18px 0 0;
+    grid-template-columns: repeat(5, 44px);
+    justify-content: space-between;
+    max-width: none;
+    margin: 18px -10px 0;
   }
 }
 
@@ -971,10 +1146,11 @@ html:has(body.v4-active) {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  min-width: 44px;
+  height: 48px;
   border-radius: 10px;
   color: var(--bone);
+  transition: color 160ms ease;
 }
 
 .v4-root .v4-social:hover,
@@ -982,22 +1158,18 @@ html:has(body.v4-active) {
   color: var(--yellow);
 }
 
-.v4-social svg {
+.v4-social .v4-icon {
   display: block;
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
 }
 
-.v4-social-initial {
-  display: block;
-  width: 20px;
-  height: 20px;
-  border: 1.5px solid currentColor;
-  border-radius: 50%;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 17px;
-  text-align: center;
+/* Reduced motion : les couleurs changent d'un coup */
+.v4-root[data-v4-motion='reduced'] .v4-social,
+.v4-root[data-v4-motion='reduced'] .v4-link,
+.v4-root[data-v4-motion='reduced'] .v4-row-link,
+.v4-root[data-v4-motion='reduced'] .v4-contact-mail {
+  transition: none;
 }
 
 .v4-gear {
@@ -1071,8 +1243,7 @@ html:has(body.v4-active) {
 
 .v4-fallback-machine .v4-silk {
   font-family: 'SF Pro Display', system-ui, -apple-system, sans-serif;
-  font-weight: 700;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.2em;
 }
 
 .v4-fallback-machine .v4-lcd-text {

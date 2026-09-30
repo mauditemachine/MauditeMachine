@@ -1,20 +1,27 @@
 /**
  * /v4 MM-808 : le Stage. Un WebGLRenderer sur son propre canvas, la camera
- * orthographique en (12, 10, 12), les trois lumieres (cle, ciel, lisere
- * jaune en PointLight), l'intro (spec 7.4), l'ombre portee, la
- * machine et sa serigraphie, les pads, le sequenceur, les huit knobs (TEMPO,
- * les cinq knobs de navigation, TONE, LEVEL) et leurs LED, l'ecran LCD et
- * le bouton OPEN, le PCB et la vue eclatee (explode.ts), le picking
- * (hit.ts), le cadrage quand une section s'ouvre (spec 3.3) et quand la
- * machine s'eclate (spec 3.4). Boucle A LA
+ * orthographique qui ORBITE autour de la machine (scene/orbit.ts : glisser,
+ * molette, pincement ; vue par defaut azimut 45, elevation 38), les
+ * lumieres fixes dans le monde (cle, ciel, lisere jaune en PointLight,
+ * contre-jour sur la face arriere), l'intro (spec 7.4), le sol a l'encre
+ * (halo, ombres, brouillard : scene/floor.ts) et la machine de la revision
+ * 2 (spec 20.3) : le chassis en coin et le panneau anodise incline, la
+ * serigraphie, l'ecran OLED, les six encodeurs, RUN/STOP et CLEAR, les 12
+ * pads retroeclaires, les 16 touches trig et leurs LED, le PCB et la vue
+ * eclatee (explode.ts), le picking (hit.ts), le cadrage quand une section
+ * s'ouvre et quand la machine s'eclate (spec 20.2.5). Boucle A LA
  * DEMANDE : une frame seulement si quelque chose a change (invalidate,
- * animateur ou tween vivant), zero frame au repos, rien du tout quand
- * l'onglet ou le canvas n'est pas visible. Pendant la lecture la boucle lit
- * l'horloge audio a chaque rAF mais ne rend qu'au changement de pas (et a
- * la fin d'un flash). Apres chaque frame rendue, les ecouteurs onView (la
- * trace du panneau, les jumeaux qui ont le focus) relisent la projection ;
- * quand la boucle s'arrete, les ecouteurs onIdle (les jumeaux) se recalent
- * une fois. Aucune reprojection du picking par frame.
+ * orbite, animateur ou tween vivant), zero frame au repos, rien du tout
+ * quand l'onglet ou le canvas n'est pas visible. La carte d'ombre n'est
+ * refaite que si un objet qui projette une ombre a bouge (invalidate,
+ * animateur qui renvoie true) : une frame ou seule la vue a bouge, ou
+ * seules des couleurs ont change (pas du sequenceur, flash, LED, ecran,
+ * survol : repaint, animateur qui renvoie 'paint'), la reutilise.
+ * Pendant la lecture la boucle lit l'horloge audio a chaque rAF mais ne
+ * rend qu'au changement de pas (et a la fin d'un flash). Dans chaque frame
+ * rendue, juste apres le rendu, les ecouteurs onView (les jumeaux, la
+ * trace du panneau) relisent la projection : meme passe que le rendu, sans
+ * allocation. Quand la boucle s'arrete, onIdle.
  * create() et dispose() sont re-executables (StrictMode double-monte les
  * effets en DEV).
  */
@@ -23,161 +30,94 @@ import {
   ACESFilmicToneMapping,
   DirectionalLight,
   HemisphereLight,
-  Mesh,
+  Matrix4,
   OrthographicCamera,
   PCFShadowMap,
-  PlaneGeometry,
   PointLight,
-  Quaternion,
   SRGBColorSpace,
   Scene,
-  ShadowMaterial,
   Vector3,
   WebGLRenderer,
-  type BufferGeometry,
-  type Object3D,
+  type CanvasTexture,
+  type InstancedMesh,
+  type Mesh,
   type Texture,
 } from 'three';
 import { clock } from '../audio/clock';
 import { context, mix } from '../audio/drums';
-import { INSTRUMENTS, pattern } from '../audio/pattern';
+import { BPM, INSTRUMENTS, pattern } from '../audio/pattern';
 import { motion } from '../state/motion';
 import { explode as explodeState } from '../state/explode';
 import { intro } from '../state/intro';
 import { playhead } from '../state/playhead';
 import { section } from '../state/section';
 import {
-  CAMERA,
+  BODY,
   CHIP,
+  CHIPS,
   COARSE_QUERY,
   COLOR,
   DPR_MAX,
+  ENCODERS,
   EXPLODE,
   FIRST_FRAME_WAIT_MS,
   FIT_H,
   FRAME_DESKTOP,
   FRAME_MOBILE,
   INTRO,
-  KNOB,
-  KNOB_FX,
-  LCD_RIGHT_SX,
-  LEVEL_KNOB,
+  LIGHT_BACK,
   LIGHT_HEMI,
   LIGHT_KEY,
   LIGHT_RIM,
-  MACHINE,
   MACHINE_H,
   MOBILE_QUERY,
-  NAV_KNOBS,
-  NAV_KNOB_SPECS,
+  ORBIT,
   PAD_FX,
-  PARALLAX,
+  PANEL,
+  PANEL_D,
+  PCB,
   PLATEAU_W,
   SECTION_FRAME,
-  SHADOW_PLANE,
-  TEMPO_KNOB,
-  TONE_KNOB,
+  TILT,
+  TRACE,
+  chassisTopY,
+  isPage,
   panelLeft,
   type ChipId,
-  type NavId,
+  type PadId,
+  type SectionId,
 } from '../theme';
+import { Encoders } from './encoders';
 import { Explode, type ExplodeInfo } from './explode';
+import { Floor } from './floor';
 import { HitMap, type HotspotDef } from './hit';
-import { Knobs, potAngle, tempoAngle } from './knobs';
 import { Machine } from './machine';
-import { withContactShadow } from './materials';
+import { Orbit } from './orbit';
 import { Pads } from './pads';
 import { Pcb } from './pcb';
 import { Screen } from './screen';
 import { Sequencer3D } from './sequencer3d';
-import { Mention, PlateauSilk, fontsReady, whenFonts } from './silk';
+import { PanelSilk, fontsReady, makeBrushTexture, whenFonts } from './silk';
 import { Tweens, easeInOutCubic, easeOutCubic } from './tween';
 
-/* ---------------- parallaxe (spec 3.5) ---------------- */
-
 const DEG = Math.PI / 180;
-const AXIS_Y = new Vector3(0, 1, 0);
-/** Axe horizontal de l'ecran (la droite de la camera) : un angle positif baisse le bord avant. */
-const AXIS_PITCH = new Vector3(1, 0, -1).normalize();
-const qYaw = new Quaternion();
-const qPitch = new Quaternion();
-const clamp1 = (v: number): number => (v < -1 ? -1 : v > 1 ? 1 : v);
-
-export class Parallax {
-  yaw = 0;
-  pitch = 0;
-  targetYaw = 0;
-  targetPitch = 0;
-  /** souris (pointeur fin) et mouvement complet seulement */
-  enabled = false;
-
-  /** nx, ny dans [-1, 1] sur l'hote du canvas ; true s'il faut une frame. */
-  setPointer(nx: number, ny: number): boolean {
-    if (!this.enabled) return false;
-    const max = PARALLAX.maxDeg * DEG;
-    this.targetYaw = -clamp1(nx) * max;
-    this.targetPitch = clamp1(ny) * max;
-    return this.moving;
-  }
-
-  release(): boolean {
-    this.targetYaw = 0;
-    this.targetPitch = 0;
-    return this.moving;
-  }
-
-  get moving(): boolean {
-    return this.yaw !== this.targetYaw || this.pitch !== this.targetPitch;
-  }
-
-  /**
-   * Lissage independant du framerate : 0.06 par frame a 60 fps. Sous
-   * 0.0003 rad d'ecart la cible est prise telle quelle et la boucle s'arrete.
-   * Renvoie true si la machine a bouge (une frame a rendre).
-   */
-  step(dt: number, target: Object3D): boolean {
-    if (!this.moving) return false;
-    const dy = this.targetYaw - this.yaw;
-    const dp = this.targetPitch - this.pitch;
-    if (Math.abs(dy) <= PARALLAX.epsilon && Math.abs(dp) <= PARALLAX.epsilon) {
-      this.yaw = this.targetYaw;
-      this.pitch = this.targetPitch;
-    } else {
-      const k = 1 - Math.pow(1 - PARALLAX.lerp, dt / 16.667);
-      this.yaw += dy * k;
-      this.pitch += dp * k;
-    }
-    this.apply(target);
-    return true;
-  }
-
-  snap(target: Object3D): void {
-    this.yaw = this.targetYaw;
-    this.pitch = this.targetPitch;
-    this.apply(target);
-  }
-
-  private apply(target: Object3D): void {
-    qYaw.setFromAxisAngle(AXIS_Y, this.yaw);
-    qPitch.setFromAxisAngle(AXIS_PITCH, this.pitch);
-    target.quaternion.multiplyQuaternions(qPitch, qYaw);
-  }
-}
 
 /* ---------------- Stage ---------------- */
 
 /**
- * Un animateur renvoie true s'il a change la scene (frame rendue, boucle
- * gardee), 'poll' s'il n'a rien change mais doit etre relu a la prochaine
- * frame (horloge audio, echeance d'un flash : boucle gardee, rien rendu),
- * false s'il n'a plus rien a faire.
+ * Un animateur renvoie true s'il a deplace un objet qui projette une ombre
+ * (frame rendue avec la passe d'ombre, boucle gardee), 'paint' s'il n'a
+ * change que des couleurs, textures ou objets sans ombre (frame rendue
+ * sans passe d'ombre), 'poll' s'il n'a rien change mais doit etre relu a
+ * la prochaine frame (horloge audio, echeance d'un flash : boucle gardee,
+ * rien rendu), false s'il n'a plus rien a faire.
  */
-export type Animator = (now: number, dt: number) => boolean | 'poll';
+export type Animator = (now: number, dt: number) => boolean | 'paint' | 'poll';
 
 export interface StageOpts {
   /** conteneur du canvas : taille, visibilite */
   host: HTMLElement;
-  /** element qui recoit les pointermove (parallaxe) */
+  /** element des pointeurs de l'orbite (.v4-stage : la couche de saisie y remonte) */
   input: HTMLElement;
   /** palier de qualite, fige a la creation : antialias, DPR, ombres, textures */
   mobile: boolean;
@@ -194,11 +134,27 @@ export interface StageStats {
   frames: number;
   /** rAF executes, rendus ou non (la lecture interroge l'horloge sans rendre) */
   rafs: number;
+  /** derniere frame rendue (une frame d'orbite seule n'a pas de passe d'ombre) */
   drawCalls: number;
   triangles: number;
+  /** pire frame depuis le montage ou depuis reset() (passe d'ombre comprise) */
+  maxDrawCalls: number;
+  maxTriangles: number;
+  /** frames qui ont refait la carte d'ombre */
+  shadowUpdates: number;
   lastRenderAt: number;
   loopActive: boolean;
   dpr: number;
+  /** remet a zero les maxima et le compte des passes d'ombre (tests) */
+  reset: () => void;
+}
+
+/** Ancre de la trace : un point du canvas (px CSS) et sa visibilite. */
+export interface AnchorPoint {
+  x: number;
+  y: number;
+  /** dans le canvas (marge 8 px), calque visible, pas cache par la machine */
+  visible: boolean;
 }
 
 export interface ScreenBox {
@@ -208,23 +164,45 @@ export interface ScreenBox {
   h: number;
 }
 
+/** Emprise projetee de la machine dans la vue courante (unites monde, sur les axes de l'ecran). */
+export interface StageFit {
+  /** largeur et hauteur projetees, sommets reels (instances comprises, sol exclu) */
+  w: number;
+  h: number;
+  /** centre vertical projete (le long du haut de l'ecran), et le pivot y qui le centrerait */
+  cy: number;
+  targetY: number;
+  /** plus grande distance horizontale d'un sommet a l'axe vertical du pivot (cadrage de section) */
+  radius: number;
+}
+
 export interface StageMeasure {
   viewport: { w: number; h: number };
   canvas: ScreenBox;
+  /** px CSS par unite, zoom compris */
   pxPerUnit: number;
+  /** demi-largeur et demi-hauteur du frustum a zoom 1 (unites) */
   frustum: { hw: number; hh: number };
+  /** vue de l'orbite (deg) */
+  orbit: { azDeg: number; elDeg: number; zoom: number };
   /**
-   * cadrage de section (spec 3.3) : t de 0 a 1, decalage horizontal du
-   * frustum (unites) ; vue eclatee (spec 3.4) : t de 0 a 1, montee de la vue
+   * cadrage de section (spec 20.2.5) : t de 0 a 1, decalage horizontal du
+   * frustum (unites, a zoom 1) ; vue eclatee : t de 0 a 1, hauteur du pivot
    */
-  framing: { section: number; ox: number; explode: number; oy: number };
+  framing: { section: number; ox: number; explode: number; targetY: number };
   /** empreinte 14 x 9 a coins vifs : la definition du cadrage (spec 3.2) */
   footprint: ScreenBox & { ratio: number };
-  /** maillages reels (coins arrondis), en px CSS de la fenetre */
+  /** maillages reels, en px CSS de la fenetre : le panneau, le chassis, leur union */
   plateau: ScreenBox & { ratio: number };
   socle: ScreenBox & { ratio: number };
   machine: ScreenBox & { ratio: number };
-  parallax: { yawDeg: number; pitchDeg: number };
+  /** emprise de toute la machine (unites), pour caler MACHINE_H, ORBIT.targetY, SECTION_FRAME, EXPLODE */
+  fit: StageFit;
+  /**
+   * etendue en espace lumiere des maillages qui projettent une ombre, dans
+   * l'etat courant (fermee ou ouverte), contre celle de la camera d'ombre
+   */
+  shadow: { x: number; y: number; near: number; far: number; extent: number };
   explode: ExplodeInfo;
 }
 
@@ -233,21 +211,43 @@ const v3 = new Vector3();
 /** les 16 LED des pas (test de l'intro) */
 const STEP_LEDS = 16;
 
+/**
+ * Le coin du chassis en demi-espaces (repere du socle) et ses 8 coins :
+ * l'occulteur du picking et la silhouette de la machine (fond ou non).
+ * Les pieds comptent dans la silhouette (du sol au dessus).
+ */
+function wedgeOccluder(): { planes: number[]; corners: number[] } {
+  const hx = BODY.w / 2;
+  const hz = BODY.d / 2;
+  const tanT = Math.tan(TILT);
+  const t0 = chassisTopY(0);
+  const planes = [-1, 0, 0, -hx, 1, 0, 0, -hx, 0, 0, -1, -hz, 0, 0, 1, -hz, 0, -1, 0, 0, 0, 1, tanT, -t0];
+  const corners: number[] = [];
+  for (const x of [-hx, hx]) {
+    for (const z of [-hz, hz]) corners.push(x, 0, z, x, chassisTopY(z), z);
+  }
+  return { planes, corners };
+}
+
 export class Stage {
   readonly renderer: WebGLRenderer;
   readonly scene = new Scene();
   readonly camera: OrthographicCamera;
+  /** l'orbite de la camera (glisser, molette, pincement, retour a la vue par defaut) */
+  readonly orbit: Orbit;
   readonly machine: Machine;
-  readonly silk: PlateauSilk;
-  readonly parallax = new Parallax();
-  /** tweens de la scene (pads aujourd'hui), avances en tete de chaque frame */
+  readonly silk: PanelSilk;
+  /** tweens des objets qui projettent une ombre (enfoncement des pads) : passe d'ombre */
   readonly tweens = new Tweens();
+  /** tweens sans ombre (soulevement des puces, cadrage de section) : frames sans passe d'ombre */
+  private paintTweens = new Tweens();
+  /** les 12 pads (voix, pages, OPEN) et leurs halos */
   readonly pads: Pads;
-  /** zone B : pas, RUN/STOP, CLEAR, LED (et les LED des knobs de navigation) */
+  /** touches trig, RUN/STOP, CLEAR et les 16 LED */
   readonly seq: Sequencer3D;
-  /** TEMPO, les cinq knobs de navigation, TONE, LEVEL */
-  readonly knobs: Knobs;
-  /** zone D : l'ecran LCD, texte de state/lcd.ts */
+  /** TEMPO, TONE, LEVEL, SWING, DIST, REVERB */
+  readonly encoders: Encoders;
+  /** l'ecran OLED, texte de state/lcd.ts */
   readonly screen: Screen;
   /** le PCB de la vue eclatee : carte texturee et composants */
   readonly pcb: Pcb;
@@ -255,7 +255,23 @@ export class Stage {
   readonly explode: Explode;
   /** picking en espace ecran : la liste explicite des objets interactifs */
   readonly hit: HitMap;
-  readonly stats: StageStats = { frames: 0, rafs: 0, drawCalls: 0, triangles: 0, lastRenderAt: 0, loopActive: false, dpr: 1 };
+  readonly stats: StageStats = {
+    frames: 0,
+    rafs: 0,
+    drawCalls: 0,
+    triangles: 0,
+    maxDrawCalls: 0,
+    maxTriangles: 0,
+    shadowUpdates: 0,
+    lastRenderAt: 0,
+    loopActive: false,
+    dpr: 1,
+    reset: () => {
+      this.stats.maxDrawCalls = 0;
+      this.stats.maxTriangles = 0;
+      this.stats.shadowUpdates = 0;
+    },
+  };
 
   private opts: StageOpts;
   private canvas: HTMLCanvasElement;
@@ -263,7 +279,16 @@ export class Stage {
   private hemi: HemisphereLight;
   /** lisere jaune depuis la gauche (PointLight, voir theme.ts LIGHT_RIM) */
   private rim: PointLight;
-  private shadowMesh: Mesh;
+  /** contre-jour : la face arriere et sa connectique */
+  private back: DirectionalLight;
+  /** brossage du panneau (roughnessMap) */
+  private brush: CanvasTexture;
+  /** le sol a l'encre : halo, ombres, brouillard */
+  private floor: Floor;
+  /** la carte d'ombre est a refaire (tout sauf une frame d'orbite seule) */
+  private shadowDirty = true;
+  /** ancre de la trace par section : le pad de la page, la puce LIVE ou STUDIO */
+  private anchors = new Map<SectionId, HotspotDef>();
   private animators: Animator[] = [];
   private timers: number[] = [];
   private width = 1;
@@ -271,7 +296,6 @@ export class Stage {
   private hw = 1;
   private ppu = 1;
   private layoutMobile: boolean;
-  private hostRect = { left: 0, top: 0, width: 1, height: 1 };
   private raf = 0;
   private resizeRaf = 0;
   private last = -1;
@@ -293,18 +317,12 @@ export class Stage {
   private stepDefs: HotspotDef[];
   /** seq du pas affiche par la tete de lecture, -1 a l'arret */
   private headSeq = -1;
-  /** knob de navigation sous la souris : souleve, lisere yellowHi */
-  private hoverNav: NavId | null = null;
-  /** angle vise par chaque knob de navigation : un tween ne repart que si la cible change */
-  private navGoal = new Map<NavId, number>();
-  /** cadrage de section (spec 3.3) : 0 = base, 1 = machine decalee pour le panneau */
+  /** cadrage de section (spec 20.2.5) : 0 = base, 1 = machine decalee pour le panneau */
   private secT = 0;
   private secGoal = 0;
-  /** decalage horizontal du frustum, en unites (cadrage de section) */
+  /** decalage horizontal du frustum, en unites a zoom 1 (cadrage de section) */
   private ox = 0;
-  /** montee de la vue, en unites (vue eclatee) */
-  private oy = 0;
-  /** relus apres chaque frame rendue (trace du panneau) : un tableau, pas d'iterateur par frame */
+  /** relus dans chaque frame rendue (jumeaux, trace du panneau) : un tableau, pas d'iterateur par frame */
   private viewListeners: (() => void)[] = [];
   /** appeles quand la boucle s'arrete et apres un redimensionnement (jumeaux) */
   private idleListeners: (() => void)[] = [];
@@ -312,11 +330,15 @@ export class Stage {
   private dprMql: MediaQueryList | null = null;
   private unsubSection: () => void;
   private unsubMix: () => void;
-  private mention: Mention;
   /** les trois puces (allumees pendant l'ouverture et vue ouverte) */
   private chipDefs: HotspotDef[];
-  /** puce sous la souris : soulevee */
+  /** les puces repondent (ouverture decouverte, vue ouverte) */
+  private chipsOn = false;
+  /** puce sous la souris, puce dont le jumeau a le focus clavier */
   private hoverChip: ChipId | null = null;
+  private focusChip: ChipId | null = null;
+  /** puces soulevees (et LABEL allumee) : survolees ou au focus */
+  private hotChips = new Set<ChipId>();
   /** vue eclatee visee : true pendant l'ouverture et vue ouverte */
   private explodeGoal = false;
   private unsubExplode: () => void;
@@ -379,12 +401,22 @@ export class Stage {
     // PCF avec shadow.radius donne la meme ombre douce, sans l'avertissement
     renderer.shadowMap.type = PCFShadowMap;
 
-    this.camera = new OrthographicCamera(-10, 10, 10, -10, CAMERA.near, CAMERA.far);
-    this.camera.position.set(CAMERA.x, CAMERA.y, CAMERA.z);
-    this.camera.up.set(0, 1, 0);
-    this.camera.lookAt(0, 0, 0);
+    // La carte d'ombre n'est refaite que si une ombre a pu changer : une
+    // frame ou seule la camera tourne la reutilise (lumiere et machine fixes)
+    renderer.shadowMap.autoUpdate = false;
 
-    // Lumiere principale : blanc chaud, seule a projeter une ombre
+    // Camera : posee par l'orbite (vue par defaut azimut 45, elevation 38)
+    this.camera = new OrthographicCamera(-10, 10, 10, -10, ORBIT.near, ORBIT.far);
+    this.orbit = new Orbit({
+      camera: this.camera,
+      input: opts.input,
+      wake: () => this.kick(),
+      onZoom: () => this.updateCamera(),
+      reduced: motion.reduced,
+    });
+
+    // Lumiere principale : blanc chaud, seule a projeter une ombre ; fixe
+    // dans le monde, sa camera d'ombre couvre la machine sous tous les angles
     const key = new DirectionalLight(LIGHT_KEY.color, LIGHT_KEY.intensity);
     key.position.set(LIGHT_KEY.x, LIGHT_KEY.y, LIGHT_KEY.z);
     key.target.position.set(0, 0, 0);
@@ -404,56 +436,50 @@ export class Stage {
     key.shadow.radius = mobile ? LIGHT_KEY.radius.mobile : LIGHT_KEY.radius.desktop;
     this.key = key;
     this.hemi = new HemisphereLight(LIGHT_HEMI.sky, LIGHT_HEMI.ground, LIGHT_HEMI.intensity);
-    // Lisere chaud : un PointLight sans ombre (0 Ko), pas le RectAreaLight
-    // et ses 101 Ko de tables LTC (section 19)
+    // Lisere chaud : un PointLight sans ombre (section 19 point 80)
     this.rim = new PointLight(LIGHT_RIM.color, LIGHT_RIM.intensity, 0, LIGHT_RIM.decay);
     this.rim.position.set(LIGHT_RIM.x, LIGHT_RIM.y, LIGHT_RIM.z);
-    this.scene.add(key, key.target, this.hemi, this.rim);
+    // Contre-jour (R2-13) : la cle n'atteint jamais la face arriere
+    this.back = new DirectionalLight(LIGHT_BACK.color, LIGHT_BACK.intensity);
+    this.back.position.set(LIGHT_BACK.x, LIGHT_BACK.y, LIGHT_BACK.z);
+    this.back.target.position.set(0, 0, 0);
+    this.scene.add(key, key.target, this.hemi, this.rim, this.back, this.back.target);
 
-    // La machine, sa serigraphie, le plan d'ombre (enfant du socle : il
-    // descendra avec lui pendant l'eclate)
-    this.machine = new Machine(mobile);
+    // La machine (chassis en coin, panneau brosse), sa serigraphie, le sol
+    // (enfant du socle : il suit l'intro, jamais la vue eclatee) ; le
+    // brossage sans anisotropie (il doit se fondre de loin, voir silk.ts),
+    // les textures a texte avec
     const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
-    this.silk = new PlateauSilk(mobile, aniso);
-    this.machine.plateau.add(this.silk.mesh);
-    const shadowGeo: BufferGeometry = new PlaneGeometry(SHADOW_PLANE.size, SHADOW_PLANE.size);
-    shadowGeo.rotateX(-Math.PI / 2);
-    // L'ombre de la cle tombe derriere la machine (lumiere cote camera) : le
-    // meme plan porte aussi une ombre de contact calculee, visible devant
-    this.shadowMesh = new Mesh(shadowGeo, withContactShadow(new ShadowMaterial({ opacity: SHADOW_PLANE.opacity, depthWrite: false })));
-    this.shadowMesh.name = 'shadowPlane';
-    this.shadowMesh.position.y = SHADOW_PLANE.y;
-    this.shadowMesh.receiveShadow = true;
-    this.machine.socle.add(this.shadowMesh);
+    this.brush = makeBrushTexture();
+    this.machine = new Machine(mobile, this.brush);
+    this.silk = new PanelSilk(mobile, aniso);
+    const plateau = this.machine.plateau;
+    plateau.add(this.silk.mesh);
+    this.floor = new Floor();
+    this.machine.socle.add(this.floor.mesh);
     this.scene.add(this.machine.root);
 
-    // Zone A : les pads (ils projettent leur ombre sur mobile aussi, spec 4.3)
+    // Moitie droite : les 12 pads (ils projettent leur ombre sur mobile
+    // aussi ; leur lumiere seule ne refait pas la carte d'ombre)
     this.pads = new Pads({
       tweens: this.tweens,
       reduced: motion.reduced,
-      invalidate: () => this.invalidate(),
+      repaint: () => this.repaint(),
       castShadow: true,
+      mobile,
     });
-    this.machine.plateau.add(this.pads.mesh);
-    // Zone B : pas, RUN/STOP, CLEAR et leurs LED (plus les LED des knobs) ;
-    // zones C et D : les huit knobs, un draw call par maillage partage
-    this.seq = new Sequencer3D(mobile);
-    this.knobs = new Knobs([TEMPO_KNOB, ...NAV_KNOB_SPECS, TONE_KNOB, LEVEL_KNOB], { mobile, castShadow: !mobile });
-    const plateau = this.machine.plateau;
-    plateau.add(this.seq.buttons, this.seq.leds, this.knobs.bodies, this.knobs.caps, this.knobs.rings);
-    // Zone D : l'ecran (redessine 4 fois par seconde au plus, jamais par
-    // frame) ; il ne s'abonne a state/lcd.ts qu'avec les autres ecouteurs
-    this.screen = new Screen(aniso, () => this.invalidate());
+    // Bas : touches trig, RUN/STOP, CLEAR, LED ; moitie gauche : les six encodeurs
+    this.seq = new Sequencer3D();
+    this.encoders = new Encoders({ mobile, castShadow: !mobile });
+    plateau.add(this.pads.mesh, this.pads.halos, this.seq.keys, this.seq.leds, this.encoders.mesh);
+    // L'ecran (redessine 4 fois par seconde au plus, jamais par frame) ; il
+    // ne s'abonne a state/lcd.ts qu'avec les autres ecouteurs
+    this.screen = new Screen(aniso, () => this.repaint());
     plateau.add(this.screen.mesh);
-    // Socle : la mention V.4 / 2026 ; PCB : la carte et ses composants
-    this.mention = new Mention(aniso);
-    this.machine.socle.add(this.mention.mesh);
+    // PCB : la carte et ses composants, dans le chassis
     this.pcb = new Pcb(mobile, aniso);
     this.machine.pcb.add(this.pcb.board, this.pcb.parts);
-    this.explode = new Explode(
-      { plateau, pcb: this.machine.pcb, parts: this.pcb.parts, socle: this.machine.socle },
-      (open) => explodeState.settle(open)
-    );
+    this.explode = new Explode({ plateau, pcb: this.machine.pcb, parts: this.pcb.parts }, (open) => explodeState.settle(open));
     // Une seule boite relue a chaque frame par le picking (aucune allocation)
     const sizeBox = { w: 1, h: 1 };
     this.hit = new HitMap(
@@ -465,18 +491,27 @@ export class Stage {
       },
       () => this.coarseMql.matches
     );
-    // Ordre de la liste = ordre de tabulation des jumeaux (spec 6.1) : pads,
-    // pas, RUN, CLEAR, TEMPO, knobs, OPEN, TONE, LEVEL, puces
-    this.hit.add(this.pads.hotspots(plateau));
-    const seqDefs = this.seq.hotspots(plateau);
-    this.stepDefs = seqDefs.filter((d) => d.kind === 'step');
-    this.hit.add(seqDefs);
-    this.hit.add([this.knobs.hotspot(TEMPO_KNOB.id, 'tempo', plateau)]);
-    this.hit.add(NAV_KNOBS.map((k) => this.knobs.hotspot(k.id, 'knob', plateau, `knob-${k.id}`, k.id)));
-    this.hit.add([this.seq.openHotspot(plateau)]);
-    this.hit.add([this.knobs.hotspot(TONE_KNOB.id, 'tone', plateau), this.knobs.hotspot(LEVEL_KNOB.id, 'level', plateau)]);
+    // Ordre de la liste = ordre de tabulation des jumeaux (spec 20.19) : les
+    // 12 pads (4 voix, 7 pages, OPEN), les trois puces (juste apres OPEN
+    // qui les decouvre), les six encodeurs, RUN, CLEAR, les 16 pas
+    const padDefs = this.pads.hotspots(plateau);
+    this.hit.add(padDefs);
     this.chipDefs = this.pcb.hotspots(this.machine.pcb);
     this.hit.add(this.chipDefs);
+    this.hit.add(ENCODERS.map((e) => this.encoders.hotspot(e.id, plateau)));
+    const seqDefs = this.seq.hotspots(plateau);
+    this.stepDefs = seqDefs.filter((d) => d.kind === 'step');
+    this.hit.add(seqDefs.filter((d) => d.kind !== 'step'));
+    this.hit.add(this.stepDefs);
+    // Les volumes pleins de la machine : ils cachent ce qui est derriere eux
+    // (picking, ancre de la trace) et dessinent sa silhouette (fond ou machine)
+    const pd = PANEL_D / 2;
+    this.hit.addOccluder({ layer: plateau, min: [-BODY.w / 2, -PANEL.t, -pd], max: [BODY.w / 2, 0, pd] });
+    this.hit.addOccluder({ layer: this.machine.socle, ...wedgeOccluder() });
+    this.hit.addOccluder({ layer: this.machine.pcb, min: [-PCB.w / 2, 0, -PCB.d / 2], max: [PCB.w / 2, PCB.h, PCB.d / 2] });
+    // Ancres de la trace : le pad de chaque page, les puces LIVE et STUDIO
+    for (const d of padDefs) if (d.section) this.anchors.set(d.section, d);
+    for (const d of this.chipDefs) if (d.section) this.anchors.set(d.section, d);
 
     // Taille initiale ; le canvas passe a l'encre tout de suite (jamais un noir pur)
     this.width = Math.max(1, opts.host.clientWidth);
@@ -484,13 +519,13 @@ export class Stage {
     renderer.setSize(this.width, this.height, false);
     this.stats.dpr = renderer.getPixelRatio();
     this.updateCamera();
-    this.readHostRect();
+    this.orbit.apply();
     renderer.clear();
 
     this.animators.push(
       this.stepIntro,
       (now) => this.tweens.update(now),
-      (_now, dt) => this.parallax.step(dt, this.machine.root),
+      (now) => (this.paintTweens.update(now) ? 'paint' : false),
       this.stepExplode,
       (now) => this.pads.update(now),
       this.pollPlayhead
@@ -508,8 +543,9 @@ export class Stage {
     // Plus rien ne touche au GL d'ici la fin du constructeur : un echec plus
     // haut ne laisse donc aucun ecouteur accroche
     this.screen.listen();
-    this.syncParallax();
-    this.unsubMotion = motion.subscribe(this.syncParallax);
+    this.orbit.listen();
+    this.syncMotion();
+    this.unsubMotion = motion.subscribe(this.syncMotion);
     this.syncPattern();
     this.unsubPattern = pattern.subscribe(this.syncPattern);
     this.syncMix();
@@ -531,10 +567,8 @@ export class Stage {
     this.applyExplode(true);
     this.unsubExplode = explodeState.subscribe(this.syncExplode);
     this.detachExplode = explodeState.attach();
-    this.coarseMql.addEventListener('change', this.syncParallax);
+    this.coarseMql.addEventListener('change', this.onCoarse);
     this.layoutMql.addEventListener('change', this.onLayout);
-    opts.input.addEventListener('pointermove', this.onPointerMove);
-    opts.input.addEventListener('pointerleave', this.onPointerLeave);
     canvas.addEventListener('webglcontextlost', this.onLost, false);
     canvas.addEventListener('webglcontextrestored', this.onRestored, false);
     document.addEventListener('visibilitychange', this.onVisibility);
@@ -552,8 +586,22 @@ export class Stage {
 
   /* ---------------- API ---------------- */
 
-  /** Demande une frame. Sans effet au repos tant que rien ne l'appelle. */
+  /**
+   * Demande une frame (le contenu a change : la carte d'ombre est refaite
+   * avec). Sans effet au repos tant que rien ne l'appelle.
+   */
   invalidate(): void {
+    this.dirty = true;
+    this.shadowDirty = true;
+    this.kick();
+  }
+
+  /**
+   * Demande une frame sans passe d'ombre : seules des couleurs, des
+   * emissifs ou des textures ont change (LED, flash, ecran, survol), aucun
+   * objet qui projette une ombre n'a bouge.
+   */
+  repaint(): void {
     this.dirty = true;
     this.kick();
   }
@@ -578,73 +626,67 @@ export class Stage {
   }
 
   /**
-   * Cadrage de base (spec 3.2) : 78 % desktop, 92 % mobile, 86 % de la
-   * hauteur au plus. Section ouverte sur desktop (spec 3.3) : la machine
-   * tient dans la largeur moins la goutiere du panneau (304 px, 200 sous
-   * 1100 px), sans que l'ecran passe sous le panneau (16 px de marge), et
-   * son centre passe de W/2 a stageW/2. Vue eclatee (spec 3.4) : la pile
-   * tient dans 86 % de la hauteur (le frustum s'agrandit si besoin, jamais
-   * sur un telephone en portrait) et la vue monte de EXPLODE.shiftY ; les
-   * deux cadrages se composent. Les decalages passent par le frustum
-   * (left/right/top/bottom), pas par la camera : la parallaxe tourne
-   * toujours autour du centre de la machine.
+   * Cadrage (spec 20.2.5), fixe par mise en page et proportions, jamais
+   * par orientation : tourner ne fait pas "respirer" la machine.
+   * 1. Base : 78 % desktop, 92 % mobile de l'empreinte a la vue par defaut,
+   *    86 % de la hauteur au plus.
+   * 2. Vue eclatee : la pile dans 86 % de la hauteur (le frustum s'agrandit
+   *    si besoin, jamais sur un telephone en portrait) ; le pivot de
+   *    l'orbite monte de ORBIT.targetY a EXPLODE.targetY.
+   * 3. Section ouverte (desktop) : le centre de la machine passe a
+   *    stageW / 2 (stageW = bord gauche du panneau - 16) et son cercle
+   *    englobant y tient : aucun azimut ne la met sous le panneau a zoom
+   *    <= 1 ; jamais plus grande qu'au repos. 400 ms (retargetFraming).
+   * 4. Zoom : le decalage du frustum est divise par camera.zoom (three
+   *    centre le frustum zoome sur (left + right) / 2) : zoomer ne deplace
+   *    jamais le centre de la machine hors de sa zone libre.
    */
   private updateCamera(): void {
     const W = this.width;
     const aspect = W / this.height;
     const frame = this.layoutMobile ? FRAME_MOBILE : FRAME_DESKTOP;
     const hwBase = Math.max(PLATEAU_W / 2 / frame, (MACHINE_H / FIT_H / 2) * aspect);
+    const e = this.explode.p.frame;
+    let hw = hwBase + (Math.max(hwBase, EXPLODE.fitHalfH * aspect) - hwBase) * e;
     const t = this.layoutMobile ? 0 : this.secT;
-    let hw = hwBase;
     // Decalage du centre de la machine vers la gauche, en px (cadrage de section)
     let shiftPx = 0;
     if (t > 0) {
-      const gutter = W >= SECTION_FRAME.wideMin ? SECTION_FRAME.gutterWide : SECTION_FRAME.gutterNarrow;
-      // Coin droit de l'ecran a stageW x (0.5 + sx / 2 hw) : il reste a gauche du panneau
-      const lcdRatio = 0.5 + LCD_RIGHT_SX / (2 * hwBase);
-      const fit = (panelLeft(W) - SECTION_FRAME.lcdGap) / lcdRatio;
-      const stageW = Math.max(W / 3, Math.min(W - gutter, fit));
-      const hwS = (hwBase * W) / stageW;
-      hw = hwBase + (hwS - hwBase) * t;
+      const R = SECTION_FRAME.radius.closed + (SECTION_FRAME.radius.open - SECTION_FRAME.radius.closed) * e;
+      const stageW = Math.max(W / 3, panelLeft(W) - SECTION_FRAME.gap);
+      // Echelle min(celle du repos, stageW / 2R) : demi-largeur max(hw, W R / stageW)
+      const hwS = Math.max(hw, (W * R) / stageW);
+      hw += (hwS - hw) * t;
       shiftPx = ((W - stageW) / 2) * t;
     }
-    const e = this.explode.p.frame;
-    if (e > 0) {
-      const hwExp = Math.max(hw, EXPLODE.fitHalfH * aspect);
-      hw += (hwExp - hw) * e;
-    }
-    // px -> unites a l'echelle courante : le centre de la machine reste a stageW / 2
+    // px -> unites a l'echelle courante (zoom 1) : le centre de la machine reste a stageW / 2
     const ox = shiftPx * ((2 * hw) / W);
-    const oy = EXPLODE.shiftY * e;
     const hh = hw / aspect;
     const c = this.camera;
-    c.left = -hw + ox;
-    c.right = hw + ox;
-    c.top = hh + oy;
-    c.bottom = -hh + oy;
+    const z = c.zoom;
+    c.left = -hw + ox / z;
+    c.right = hw + ox / z;
+    c.top = hh;
+    c.bottom = -hh;
     c.updateProjectionMatrix();
     this.hw = hw;
     this.ox = ox;
-    this.oy = oy;
-    this.ppu = W / (2 * hw);
+    this.ppu = (W * z) / (2 * hw);
+    // Le pivot monte avec la pile eclatee : la camera suit
+    const ty = ORBIT.targetY + (EXPLODE.targetY - ORBIT.targetY) * e;
+    if (this.orbit.target.y !== ty) {
+      this.orbit.target.y = ty;
+      this.orbit.place();
+    }
   }
 
   private dprCap(): number {
     return Math.min(window.devicePixelRatio || 1, this.opts.mobile ? DPR_MAX.mobile : DPR_MAX.desktop);
   }
 
-  private readHostRect(): void {
-    const r = this.opts.host.getBoundingClientRect();
-    this.hostRect.left = r.left;
-    this.hostRect.top = r.top;
-    this.hostRect.width = r.width;
-    this.hostRect.height = r.height;
-  }
-
   /** Taille du canvas ; rendu synchrone pour ne jamais montrer un tampon vide. */
   resize(w: number, h: number): void {
     if (this.disposed || w < 1 || h < 1) return;
-    this.readHostRect();
     const dpr = this.dprCap();
     if (w === this.width && h === this.height && dpr === this.renderer.getPixelRatio()) return;
     this.width = w;
@@ -658,6 +700,63 @@ export class Stage {
     if (this.dirty) this.kick();
     // Rendu direct, hors boucle : les jumeaux se recalent ici si elle dort
     if (this.raf === 0) this.emitIdle();
+  }
+
+  /**
+   * Emprise de la machine dans la vue courante (revue, calage des
+   * constantes) : tous les sommets des maillages visibles, instances
+   * comprises, sauf le sol ; projetes sur les axes droite et haut de la
+   * camera (unites monde).
+   */
+  private fit(): StageFit {
+    const cam = this.camera;
+    cam.updateMatrixWorld();
+    const e = cam.matrixWorld.elements;
+    // Colonnes de la matrice monde de la camera : droite (x), haut (y)
+    const rx = e[0];
+    const ry = e[1];
+    const rz = e[2];
+    const ux = e[4];
+    const uy = e[5];
+    const uz = e[6];
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    let y0 = Infinity;
+    let y1 = -Infinity;
+    let radius = 0;
+    const tx = this.orbit.target.x;
+    const tz = this.orbit.target.z;
+    const inst = new Matrix4();
+    const lm = new Matrix4();
+    this.scene.updateMatrixWorld(true);
+    this.scene.traverseVisible((node) => {
+      const m = node as Mesh;
+      if (!m.isMesh || m === this.floor.mesh) return;
+      const im = node as InstancedMesh;
+      const n = im.isInstancedMesh ? im.count : 1;
+      const pos = m.geometry.getAttribute('position');
+      for (let k = 0; k < n; k += 1) {
+        lm.copy(m.matrixWorld);
+        if (im.isInstancedMesh) {
+          im.getMatrixAt(k, inst);
+          lm.multiply(inst);
+        }
+        for (let i = 0; i < pos.count; i += 1) {
+          v3.fromBufferAttribute(pos, i).applyMatrix4(lm);
+          const px = v3.x * rx + v3.y * ry + v3.z * rz;
+          const py = v3.x * ux + v3.y * uy + v3.z * uz;
+          if (px < x0) x0 = px;
+          if (px > x1) x1 = px;
+          if (py < y0) y0 = py;
+          if (py > y1) y1 = py;
+          const r = Math.hypot(v3.x - tx, v3.z - tz);
+          if (r > radius) radius = r;
+        }
+      }
+    });
+    const cy = (y0 + y1) / 2;
+    const r4 = (v: number): number => +v.toFixed(4);
+    return { w: r4(x1 - x0), h: r4(y1 - y0), cy: r4(cy), targetY: r4(cy / uy), radius: r4(radius) };
   }
 
   /** Revue : boites projetees (px CSS de la fenetre) de l'empreinte et des maillages. */
@@ -695,43 +794,78 @@ export class Stage {
       for (let i = 0; i < pos.count; i += 1) add(v3.fromBufferAttribute(pos, i).applyMatrix4(m.matrixWorld));
       return toBox(acc.x0, acc.x1, acc.y0, acc.y1);
     };
-    const plateau = meshBox(this.machine.plate);
-    const socle = meshBox(this.machine.base);
+    const plateau = meshBox(this.machine.panel);
+    const socle = meshBox(this.machine.chassis);
     const machine = toBox(
       Math.min(plateau.x, socle.x),
       Math.max(plateau.x + plateau.w, socle.x + socle.w),
       Math.min(plateau.y, socle.y),
       Math.max(plateau.y + plateau.h, socle.y + socle.h)
     );
-    // Empreinte a coins vifs du plateau (celle qui definit PLATEAU_W)
+    // Empreinte 14 x 9 a coins vifs, au sol (celle qui definit PLATEAU_W)
     reset();
-    const hx = MACHINE.width / 2;
-    const hz = MACHINE.depth / 2;
+    const hx = BODY.w / 2;
+    const hz = BODY.d / 2;
     for (const [x, z] of [
       [-hx, -hz],
       [hx, -hz],
       [hx, hz],
       [-hx, hz],
     ]) {
-      add(v3.set(x, 0, z).applyMatrix4(this.machine.plateau.matrixWorld));
+      add(v3.set(x, 0, z).applyMatrix4(this.machine.root.matrixWorld));
     }
     const footprint = toBox(acc.x0, acc.x1, acc.y0, acc.y1);
+    // Espace lumiere : tous les sommets des maillages visibles qui projettent
+    // une ombre (instances comprises), contre la camera d'ombre de la cle
+    const sc = this.key.shadow.camera;
+    sc.updateMatrixWorld(true);
+    const lm = new Matrix4();
+    const inst = new Matrix4();
+    const sh = { x: 0, y: 0, near: Infinity, far: -Infinity };
+    this.scene.traverseVisible((node) => {
+      const m = node as Mesh;
+      if (!m.isMesh || !m.castShadow) return;
+      const im = node as InstancedMesh;
+      const n = im.isInstancedMesh ? im.count : 1;
+      const pos = m.geometry.getAttribute('position');
+      for (let k = 0; k < n; k += 1) {
+        lm.multiplyMatrices(sc.matrixWorldInverse, m.matrixWorld);
+        if (im.isInstancedMesh) {
+          im.getMatrixAt(k, inst);
+          lm.multiply(inst);
+        }
+        for (let i = 0; i < pos.count; i += 1) {
+          v3.fromBufferAttribute(pos, i).applyMatrix4(lm);
+          sh.x = Math.max(sh.x, Math.abs(v3.x));
+          sh.y = Math.max(sh.y, Math.abs(v3.y));
+          sh.near = Math.min(sh.near, -v3.z);
+          sh.far = Math.max(sh.far, -v3.z);
+        }
+      }
+    });
+    const DEGR = 180 / Math.PI;
     return {
       viewport: { w: vw, h: window.innerHeight },
       canvas: { x: rect.left, y: rect.top, w: rect.width, h: rect.height },
       pxPerUnit: +this.ppu.toFixed(3),
       frustum: { hw: +this.hw.toFixed(4), hh: +(this.hw * (this.height / this.width)).toFixed(4) },
+      orbit: {
+        azDeg: +(this.orbit.azimuth * DEGR).toFixed(3),
+        elDeg: +(this.orbit.elevation * DEGR).toFixed(3),
+        zoom: +this.orbit.zoom.toFixed(4),
+      },
       framing: {
         section: +this.secT.toFixed(4),
         ox: +this.ox.toFixed(4),
         explode: +this.explode.p.frame.toFixed(4),
-        oy: +this.oy.toFixed(4),
+        targetY: +this.orbit.target.y.toFixed(4),
       },
       footprint,
       plateau,
       socle,
       machine,
-      parallax: { yawDeg: +(this.parallax.yaw / DEG).toFixed(3), pitchDeg: +(this.parallax.pitch / DEG).toFixed(3) },
+      fit: this.fit(),
+      shadow: { x: +sh.x.toFixed(3), y: +sh.y.toFixed(3), near: +sh.near.toFixed(3), far: +sh.far.toFixed(3), extent: LIGHT_KEY.extent },
       explode: this.explode.info(),
     };
   }
@@ -753,7 +887,6 @@ export class Stage {
       if (this.disposed) return;
       this.silk.draw();
       this.pcb.draw();
-      this.mention.draw();
       this.start();
       this.invalidate();
     });
@@ -823,22 +956,33 @@ export class Stage {
     const dt = this.last < 0 ? 16.667 : Math.min(50, now - this.last);
     this.last = now;
     let moved = false;
+    let painted = false;
     let poll = false;
+    let viewMoved = false;
     try {
+      // L'orbite d'abord : les animateurs (cadrage de l'eclate) partent de la vue de la frame
+      viewMoved = this.orbit.update(now, dt);
       const list = this.animators;
       for (let i = 0; i < list.length; i += 1) {
         const r = list[i](now, dt);
         if (r === true) moved = true;
+        else if (r === 'paint') painted = true;
         else if (r === 'poll') poll = true;
       }
-      if (moved) this.dirty = true;
+      // Un objet qui projette une ombre a bouge : la carte d'ombre aussi ;
+      // la vue seule, ou des couleurs seules, non
+      if (moved) {
+        this.dirty = true;
+        this.shadowDirty = true;
+      }
+      if (viewMoved || painted) this.dirty = true;
       if (this.dirty) this.render(now);
     } catch (e) {
       this.stats.loopActive = false;
       this.opts.onError('frame', msg(e));
       return;
     }
-    if (moved || poll) {
+    if (viewMoved || moved || painted || poll) {
       this.kick();
     } else {
       this.last = -1;
@@ -861,15 +1005,24 @@ export class Stage {
 
   private render(now: number): void {
     if (!this.started || this.paused || this.contextLost || this.disposed) return;
+    // Passe d'ombre seulement si une ombre a pu changer (autoUpdate coupe)
+    const shadow = this.shadowDirty;
+    this.renderer.shadowMap.needsUpdate = shadow;
+    this.shadowDirty = false;
     this.renderer.render(this.scene, this.camera);
     this.dirty = false;
     const r = this.renderer.info.render;
-    this.stats.frames += 1;
-    this.stats.lastRenderAt = now;
-    this.stats.drawCalls = r.calls;
-    this.stats.triangles = r.triangles;
-    // La trace suit le knob (cadrage, parallaxe, taille) ; une erreur chez
-    // un ecouteur ne coupe jamais le WebGL. Boucle indexee : aucun iterateur
+    const s = this.stats;
+    s.frames += 1;
+    s.lastRenderAt = now;
+    s.drawCalls = r.calls;
+    s.triangles = r.triangles;
+    if (r.calls > s.maxDrawCalls) s.maxDrawCalls = r.calls;
+    if (r.triangles > s.maxTriangles) s.maxTriangles = r.triangles;
+    if (shadow) s.shadowUpdates += 1;
+    // Meme passe que le rendu : les jumeaux et la trace suivent la vue
+    // (orbite, cadrage, taille) ; une erreur chez un ecouteur ne coupe
+    // jamais le WebGL. Boucle indexee : aucun iterateur
     const list = this.viewListeners;
     for (let i = 0; i < list.length; i += 1) {
       try {
@@ -880,7 +1033,7 @@ export class Stage {
     }
   }
 
-  /** Appele apres chaque frame rendue ; renvoie la fonction de retrait. */
+  /** Appele dans chaque frame rendue, juste apres le rendu ; renvoie la fonction de retrait. */
   onView(fn: () => void): () => void {
     this.viewListeners.push(fn);
     return () => {
@@ -902,16 +1055,41 @@ export class Stage {
   }
 
   /**
-   * Un point du plateau (repere local, parallaxe comprise) en px CSS du
-   * canvas ; `out` evite une allocation (la trace l'appelle par frame).
+   * Un point du panneau (repere local) en px CSS du canvas ; `out` evite
+   * une allocation.
    */
   projectPlateau(x: number, y: number, z: number, out: { x: number; y: number } = { x: 0, y: 0 }): { x: number; y: number } {
-    this.machine.plateau.updateWorldMatrix(true, false);
-    this.camera.updateMatrixWorld();
-    v3.set(x, y, z).applyMatrix4(this.machine.plateau.matrixWorld).project(this.camera);
-    out.x = ((v3.x + 1) / 2) * this.width;
-    out.y = ((1 - v3.y) / 2) * this.height;
+    return this.hit.project(this.machine.plateau, x, y, z, out);
+  }
+
+  /** La section s a-t-elle une ancre de trace (pad de page, puce LIVE ou STUDIO) ? */
+  hasAnchor(s: SectionId | null): boolean {
+    return s !== null && this.anchors.has(s);
+  }
+
+  /**
+   * Ancre de la trace de la section s (spec 20.2.7) : le centre du dessus
+   * de l'objet qui l'a ouverte, en px CSS du canvas, et sa visibilite (dans
+   * le canvas a 8 px pres, calque visible, pas cachee par la machine : rayon
+   * vers la camera contre les volumes de la machine). Appele a chaque frame
+   * rendue tant qu'un panneau est ouvert : aucune allocation.
+   */
+  projectAnchor(s: SectionId, out: AnchorPoint): AnchorPoint {
+    const d = this.anchors.get(s);
+    if (!d) {
+      out.visible = false;
+      return out;
+    }
+    this.hit.project(d.layer, d.x, d.y1, d.z, out);
+    const m = TRACE.edgeMargin;
+    out.visible =
+      out.x >= m && out.x <= this.width - m && out.y >= m && out.y <= this.height - m && this.hit.visible(d.layer, d.x, d.y1, d.z, d.id);
     return out;
+  }
+
+  /** Bord droit projete de la machine (px CSS du canvas) : les coins de ses volumes visibles. */
+  machineRightEdge(): number {
+    return this.hit.rightEdge();
   }
 
   /* ---------------- evenements ---------------- */
@@ -953,52 +1131,64 @@ export class Stage {
     this.invalidate();
   };
 
-  private onPointerMove = (e: PointerEvent): void => {
-    if (e.pointerType === 'touch' || !this.parallax.enabled) return;
-    const r = this.hostRect;
-    if (r.width < 1 || r.height < 1) return;
-    const nx = ((e.clientX - r.left) / r.width) * 2 - 1;
-    const ny = ((e.clientY - r.top) / r.height) * 2 - 1;
-    if (this.parallax.setPointer(nx, ny)) this.kick();
-  };
-
-  private onPointerLeave = (): void => {
-    if (this.parallax.release()) this.kick();
+  /** Le pointeur change de nature (tactile, souris) : les rectangles cibles des jumeaux aussi. */
+  private onCoarse = (): void => {
+    this.hit.invalidate();
+    this.repaint();
   };
 
   /**
    * Survol au pointeur fin (HitLayer) : la LED du pas survole passe en
-   * ledHover ; un knob de navigation se souleve de 0.08 en 150 ms et son
-   * lisere passe en yellowHi ; le quitter le repose de meme.
+   * ledHover ; un pad de page (ou OPEN) s'eclaire un peu plus ; une puce du
+   * PCB se souleve (LABEL, qui sort du site, passe aussi au jaune avec son
+   * chevron) ; le quitter les repose.
    */
   setHover(id: string | null): void {
     const i = id !== null && id.startsWith('step-') ? Number(id.slice(5)) - 1 : -1;
     let changed = this.seq.setHover(i);
-    const nav = id !== null && id.startsWith('knob-') ? (id.slice(5) as NavId) : null;
-    if (nav !== this.hoverNav) {
-      if (this.hoverNav) this.lift(this.hoverNav, false);
-      this.hoverNav = nav;
-      if (nav) this.lift(nav, true);
-      changed = true;
-    }
-    // Puce du PCB (vue ouverte) : elle se souleve comme un knob
-    const chip = id !== null && id.startsWith('chip-') ? (id.slice(5) as ChipId) : null;
-    if (chip !== this.hoverChip) {
-      if (this.hoverChip) this.liftChip(this.hoverChip, false);
-      this.hoverChip = chip;
-      if (chip) this.liftChip(chip, true);
-      changed = true;
-    }
-    if (changed) this.invalidate();
+    const pad = id !== null && id.startsWith('pad-') ? (id.slice(4) as PadId) : null;
+    if (this.pads.setHover(pad)) changed = true;
+    // Puce du PCB (vue ouverte)
+    this.hoverChip = id !== null && id.startsWith('chip-') ? (id.slice(5) as ChipId) : null;
+    if (this.syncChipHot()) changed = true;
+    if (changed) this.repaint();
   }
 
+  /**
+   * Focus clavier (focus-visible) sur le jumeau d'une puce, ou null : la
+   * puce reagit comme au survol (spec 20.5). Ignore tant que les puces ne
+   * repondent pas.
+   */
+  setChipFocus(id: ChipId | null): void {
+    const next = this.chipsOn ? id : null;
+    if (next === this.focusChip) return;
+    this.focusChip = next;
+    if (this.syncChipHot()) this.repaint();
+  }
+
+  /** Soulevement (et LABEL allumee) des puces survolees ou au focus ; true si l'une a change. */
+  private syncChipHot(): boolean {
+    let changed = false;
+    for (const c of CHIPS) {
+      const hot = c.id === this.hoverChip || c.id === this.focusChip;
+      if (hot === this.hotChips.has(c.id)) continue;
+      if (hot) this.hotChips.add(c.id);
+      else this.hotChips.delete(c.id);
+      this.liftChip(c.id, hot);
+      this.pcb.setLit(c.id, hot);
+      changed = true;
+    }
+    return changed;
+  }
+
+  /** Les puces ne projettent pas d'ombre : leur soulevement ne refait pas la carte. */
   private liftChip(id: ChipId, on: boolean): void {
-    this.tweens.run(
+    this.paintTweens.run(
       `chip.rise.${id}`,
       (v) => this.pcb.setRise(id, v),
       this.pcb.riseOf(id),
       on ? CHIP.rise : 0,
-      motion.reduced() ? 0 : KNOB_FX.riseMs,
+      motion.reduced() ? 0 : CHIP.riseMs,
       easeOutCubic,
       performance.now()
     );
@@ -1009,26 +1199,46 @@ export class Stage {
     if (!this.explode.update(now)) return false;
     this.updateCamera();
     this.syncChips();
+    this.syncCasters();
     return true;
   };
 
   /**
+   * Palier mobile : le panneau ne projette son ombre que leve (revue de la
+   * revision 2). Ferme, celle du chassis la couvre (un draw call de moins) ;
+   * leve, sans elle les pads qu'il porte jetaient six carres flottants sur
+   * le sol derriere la machine. true si le drapeau a change (la carte
+   * d'ombre est a refaire : l'appelant invalide).
+   */
+  private syncCasters(): boolean {
+    if (!this.opts.mobile) return false;
+    const on = this.explode.p.plateau > 0;
+    const panel = this.machine.panel;
+    if (panel.castShadow === on) return false;
+    panel.castShadow = on;
+    return true;
+  }
+
+  /**
    * Les puces repondent au pointeur vue ouverte, et pendant l'ouverture des
-   * que le plateau les a decouvertes (EXPLODE.chipsFrom) ; jamais pendant la
-   * fermeture. true si un drapeau a change.
+   * que le panneau les a decouvertes (EXPLODE.chipsFrom) ; jamais pendant
+   * la fermeture. true si un drapeau a change.
    */
   private syncChips(): boolean {
     const s = explodeState.get();
     const live = s === 'open' || (s === 'opening' && this.explode.p.plateau >= EXPLODE.chipsFrom);
+    this.chipsOn = live;
     let changed = false;
     for (const d of this.chipDefs) {
       if (d.enabled === live) continue;
       d.enabled = live;
       changed = true;
     }
-    if (!live && this.hoverChip) {
-      this.liftChip(this.hoverChip, false);
+    if (!live) {
+      // La vue se referme : plus de survol ni de focus sur les puces
       this.hoverChip = null;
+      this.focusChip = null;
+      if (this.syncChipHot()) changed = true;
     }
     if (changed) this.hit.invalidate();
     return changed;
@@ -1036,11 +1246,11 @@ export class Stage {
 
   /**
    * OPEN (store state/explode.ts) : opening ou closing lance l'animation
-   * (coupe franche a la frame suivante en reduced motion) ; la
-   * serigraphie passe de OPEN a CLOSE des le depart ; les puces repondent
-   * une fois decouvertes (syncChips). open et closed sont poses par
-   * l'animation elle-meme (settle) ; une remise a closed pendant une
-   * animation (demontage) coupe net.
+   * (coupe franche a la frame suivante en reduced motion) ; le pad OPEN
+   * s'allume (yellowHi) et sa serigraphie passe a CLOSE des le depart ; les
+   * puces repondent une fois decouvertes (syncChips). open et closed sont
+   * poses par l'animation elle-meme (settle) ; une remise a closed pendant
+   * une animation (demontage) coupe net.
    */
   private syncExplode = (): void => {
     this.applyExplode(false);
@@ -1062,32 +1272,20 @@ export class Stage {
       else this.explode.snap(goal);
       changed = true;
     }
+    if (this.pads.setOpen(goal)) changed = true;
     if (this.silk.setOpenLabel(goal ? 'CLOSE' : 'OPEN')) changed = true;
     if (this.syncChips()) changed = true;
+    if (this.syncCasters()) changed = true;
     if (!changed) return;
     this.hit.invalidate();
     this.updateCamera();
     this.invalidate();
   }
 
-  private lift(id: NavId, on: boolean): void {
-    this.knobs.setRing(id, on ? 'yellowHi' : 'yellow');
-    const dur = motion.reduced() ? 0 : KNOB_FX.riseMs;
-    this.tweens.run(
-      `knob.rise.${id}`,
-      (v) => this.knobs.setRise(id, v),
-      this.knobs.riseOf(id),
-      on ? KNOB.rise : 0,
-      dur,
-      easeOutCubic,
-      performance.now()
-    );
-  }
-
   /**
-   * Section ouverte (spec 7.2 KNOB) : le knob actif tourne de 30 deg vers la
-   * droite en 220 ms et sa LED s'allume, le precedent revient a 0 ; un seul
-   * actif. Sur desktop la camera recadre pour le panneau (400 ms).
+   * Section ouverte (spec 20.6.2 PAGE) : le pad de sa page passe en
+   * yellowHi, le precedent revient au jaune faible ; une seule a la fois.
+   * Sur desktop la camera recadre pour le panneau (400 ms).
    */
   private syncSection = (): void => {
     this.applySection(false);
@@ -1095,20 +1293,10 @@ export class Stage {
 
   private applySection(instant: boolean): void {
     const s = section.get();
-    const now = performance.now();
-    const dur = instant || motion.reduced() ? 0 : KNOB_FX.turnMs;
-    let changed = false;
-    NAV_KNOBS.forEach((k, j) => {
-      const on = k.id === s;
-      if (this.seq.setKnobLed(j, on)) changed = true;
-      const goal = on ? KNOB.turnDeg * DEG : 0;
-      if (this.navGoal.get(k.id) === goal) return;
-      this.navGoal.set(k.id, goal);
-      this.tweens.run(`knob.angle.${k.id}`, (v) => this.knobs.setAngle(k.id, v), this.knobs.angleOf(k.id), goal, dur, easeOutCubic, now);
-      changed = true;
-    });
+    let changed = this.pads.setActivePage(isPage(s) ? s : null);
     if (this.retargetFraming(instant)) changed = true;
-    if (changed) this.invalidate();
+    // Lumiere d'un pad et cadrage : rien qui projette une ombre ne bouge
+    if (changed) this.repaint();
   }
 
   /** Cadrage de section : vise 1 si une section est ouverte sur desktop ; true s'il change. */
@@ -1117,7 +1305,7 @@ export class Stage {
     if (goal === this.secGoal) return false;
     this.secGoal = goal;
     const dur = cut || motion.reduced() ? 0 : SECTION_FRAME.ms;
-    this.tweens.run(
+    this.paintTweens.run(
       'frame.section',
       (v) => {
         this.secT = v;
@@ -1132,11 +1320,20 @@ export class Stage {
     return true;
   }
 
-  /** TONE et LEVEL suivent le bus (glisser, molette, double tape, tests). */
+  /** Un encodeur a tourne : carte d'ombre refaite la ou ils en projettent une (desktop). */
+  private encodersMoved(): void {
+    if (this.encoders.mesh.castShadow) this.invalidate();
+    else this.repaint();
+  }
+
+  /** TONE, LEVEL, SWING, DIST, REVERB suivent le bus (glisser, molette, clavier, tests). */
   private syncMix = (): void => {
-    let changed = this.knobs.setAngle(TONE_KNOB.id, potAngle(mix.tone));
-    if (this.knobs.setAngle(LEVEL_KNOB.id, potAngle(mix.level))) changed = true;
-    if (changed) this.invalidate();
+    let changed = this.encoders.setValue('tone', mix.tone);
+    if (this.encoders.setValue('level', mix.level)) changed = true;
+    if (this.encoders.setValue('swing', mix.swing)) changed = true;
+    if (this.encoders.setValue('dist', mix.drive)) changed = true;
+    if (this.encoders.setValue('reverb', mix.reverb)) changed = true;
+    if (changed) this.encodersMoved();
   };
 
   /**
@@ -1145,21 +1342,21 @@ export class Stage {
    */
   private syncPattern = (): void => {
     const p = pattern.get();
-    this.pads.setSelected(p.instrument);
-    let changed = this.seq.setPattern(p.steps, p.instrument);
-    if (this.knobs.setAngle(TEMPO_KNOB.id, tempoAngle(p.bpm))) changed = true;
-    if (changed) this.invalidate();
+    let lit = this.pads.setSelected(p.instrument);
+    if (this.seq.setPattern(p.steps, p.instrument)) lit = true;
+    if (this.encoders.setValue('tempo', (p.bpm - BPM.min) / (BPM.max - BPM.min))) this.encodersMoved();
+    else if (lit) this.repaint();
   };
 
   /** RUN/STOP : couleur du bouton ; la boucle se met a lire l'horloge audio. */
   private syncRun = (): void => {
-    if (this.seq.setRunning(clock.running)) this.invalidate();
+    if (this.seq.setRunning(clock.running)) this.repaint();
     this.kick();
   };
 
   /**
    * Les pas 3D se coupent quand le Dock HTML les remplace (mise en page
-   * mobile : 7 px entre deux pas sur un telephone, section 19).
+   * mobile : 15 px entre deux touches sur un telephone, section 19).
    */
   private syncSteps(): void {
     const on = !this.layoutMobile;
@@ -1171,16 +1368,17 @@ export class Stage {
     }
     if (!changed) return;
     this.hit.invalidate();
-    if (!on && this.seq.setHover(-1)) this.invalidate();
+    if (!on && this.seq.setHover(-1)) this.repaint();
   }
 
   /**
    * Tete de lecture (spec 7.5 et 14.1). Pendant la lecture chaque rAF lit
    * l'horloge audio ; une frame n'est rendue que quand le pas change : LED,
    * flash des pads du pas (a l'instant ou il sonne, pas a sa programmation),
-   * Dock. Entre deux pas, 'poll' garde la boucle sans rien rendre.
+   * Dock ; des couleurs seulement, 'paint' (pas de passe d'ombre). Entre
+   * deux pas, 'poll' garde la boucle sans rien rendre.
    */
-  private pollPlayhead = (now: number): boolean | 'poll' => {
+  private pollPlayhead = (now: number): 'paint' | 'poll' | false => {
     const c = context();
     const e = clock.running && c ? clock.entryAt(c.currentTime) : null;
     const seqNo = e ? e.seq : -1;
@@ -1194,20 +1392,15 @@ export class Stage {
         if (e.mask & (1 << k)) this.pads.flash(INSTRUMENTS[k], PAD_FX.seqFlashMs, now);
       }
     }
-    return true;
+    return 'paint';
   };
 
-  /** Parallaxe : pointeur fin et mouvement complet seulement ; reduced motion coupe aussi l'intro. */
-  private syncParallax = (): void => {
+  /**
+   * Reduced motion coupe l'intro. (Sous reduced motion l'orbite suit le
+   * doigt sans inertie et le retour a la vue par defaut est une coupe.)
+   */
+  private syncMotion = (): void => {
     if (motion.reduced()) this.finishIntro();
-    const on = !this.coarseMql.matches && !motion.reduced();
-    if (on === this.parallax.enabled) return;
-    this.parallax.enabled = on;
-    if (!on) {
-      this.parallax.release();
-      this.parallax.snap(this.machine.root);
-      this.invalidate();
-    }
   };
 
   private setPaused(): void {
@@ -1248,7 +1441,8 @@ export class Stage {
 
   private onRestored = (): void => {
     // three reconstruit son etat GL (textures et geometries se re-televersent)
-    // mais recree aussi son fond : la couleur de clear retomberait au noir
+    // mais recree aussi son fond : la couleur de clear retomberait au noir ;
+    // la carte d'ombre est a refaire (invalidate s'en charge)
     this.contextLost = false;
     this.renderer.setClearColor(COLOR.ink, 1);
     this.opts.onContextRestored();
@@ -1261,7 +1455,7 @@ export class Stage {
   private sharedTextures(): Texture[] {
     const out: Texture[] = [];
     try {
-      const p = this.renderer.properties.get(this.machine.body) as {
+      const p = this.renderer.properties.get(this.machine.chassisMat) as {
         uniforms?: { dfgLUT?: { value?: Texture | null } };
       };
       const dfg = p.uniforms?.dfgLUT?.value;
@@ -1300,10 +1494,10 @@ export class Stage {
     this.dprMql = null;
     playhead.set(-1);
     this.tweens.clear();
-    this.coarseMql.removeEventListener('change', this.syncParallax);
+    this.paintTweens.clear();
+    this.orbit.dispose();
+    this.coarseMql.removeEventListener('change', this.onCoarse);
     this.layoutMql.removeEventListener('change', this.onLayout);
-    this.opts.input.removeEventListener('pointermove', this.onPointerMove);
-    this.opts.input.removeEventListener('pointerleave', this.onPointerLeave);
     this.canvas.removeEventListener('webglcontextlost', this.onLost, false);
     this.canvas.removeEventListener('webglcontextrestored', this.onRestored, false);
     document.removeEventListener('visibilitychange', this.onVisibility);
@@ -1312,18 +1506,18 @@ export class Stage {
     // prochain montage depuis ses donnees en memoire
     const shared = this.sharedTextures();
     this.machine.dispose();
+    this.brush.dispose();
     this.silk.dispose();
     this.pads.dispose();
     this.seq.dispose();
-    this.knobs.dispose();
+    this.encoders.dispose();
     this.screen.dispose();
-    this.mention.dispose();
     this.pcb.dispose();
-    this.shadowMesh.geometry.dispose();
-    (this.shadowMesh.material as ShadowMaterial).dispose();
+    this.floor.dispose();
     this.key.dispose();
     this.hemi.dispose();
     this.rim.dispose();
+    this.back.dispose();
     for (const t of shared) t.dispose();
     this.scene.clear();
     if (this.opts.dev) {

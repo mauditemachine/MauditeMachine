@@ -1,19 +1,19 @@
 /**
- * Materiaux partages et couleurs de sommets (spec 4.4). Les couleurs de
- * sommets sont ecrites dans l'espace lineaire de three (Color convertit
- * depuis le sRGB des constantes), multipliees par ALBEDO_GAIN pour que la
- * face rendue ait la teinte du brief (voir theme.ts).
+ * Materiaux partages et couleurs de sommets (spec 4.4 et 20.3). Les
+ * couleurs de sommets sont ecrites dans l'espace lineaire de three (Color
+ * convertit depuis le sRGB des constantes), multipliees par un gain cale
+ * pour que la face rendue ait la teinte du brief (theme.ts GAIN).
  */
 
-import { Color, Float32BufferAttribute, MeshStandardMaterial, type BufferGeometry, type ShadowMaterial } from 'three';
-import { ALBEDO_GAIN, COLOR, CONTACT_SHADOW, type Tone } from '../theme';
+import { Color, Float32BufferAttribute, MeshStandardMaterial, type BufferGeometry, type Texture } from 'three';
+import { ALBEDO_GAIN, COLOR, MATERIAL, gainOf, type Tone } from '../theme';
 
 const tmp = new Color();
 
 /**
- * Albedo lineaire d'une teinte de la palette (teinte affichee visee). Le
- * gain depend de la luminance : l'ACES n'est pas lineaire, un dessus plus
- * clair que le graphite demande moins que x 3 (voir PAD_TOP_GAIN).
+ * Albedo lineaire d'une teinte de la palette (teinte affichee visee) : la
+ * teinte lineaire x gain (l'ACES n'est pas lineaire : chaque materiau a le
+ * sien, cale par lecture de pixels).
  */
 export function albedo(tone: Tone, target: Color = tmp, gain: number = ALBEDO_GAIN): Color {
   return target.setHex(COLOR[tone]).multiplyScalar(gain);
@@ -22,8 +22,8 @@ export function albedo(tone: Tone, target: Color = tmp, gain: number = ALBEDO_GA
 /**
  * Emissif par instance (spec 4.4), que three n'a pas : un attribut
  * d'instance vec3 instanceEmissive ajoute au rayonnement emissif. Avec
- * `masked`, il est pondere par un attribut de sommet emissiveMask (1 sur la
- * face superieure d'un pad, 0 sur ses flancs) : seul le dessus s'allume.
+ * `masked`, il est pondere par un attribut de sommet emissiveMask (le
+ * dessus d'un pad s'allume, ses flancs moins) : le retroeclairage.
  */
 export function withInstanceEmissive<M extends MeshStandardMaterial>(m: M, masked: boolean): M {
   const mask = masked ? ' * emissiveMask' : '';
@@ -43,80 +43,38 @@ export function withInstanceEmissive<M extends MeshStandardMaterial>(m: M, maske
   return m;
 }
 
-const glf = (v: number): string => v.toFixed(4);
-
-/**
- * Ombre de contact sur le plan d'ombre (theme.ts CONTACT_SHADOW) : le
- * ShadowMaterial garde son ombre portee et prend le max avec un
- * assombrissement calcule depuis la position du fragment dans le repere du
- * socle (distance a son empreinte arrondie). Aucune texture, aucun draw
- * call ; le plan etant enfant du socle, l'ombre descend avec lui (OPEN).
- */
-export function withContactShadow<M extends ShadowMaterial>(m: M): M {
-  const c = CONTACT_SHADOW;
-  const fn = `
-varying vec2 vContact;
-float v4Contact(vec2 p) {
-  vec2 q = abs(p) - vec2(${glf(c.halfW - c.radius)}, ${glf(c.halfD - c.radius)});
-  float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - ${glf(c.radius)};
-  return ${glf(c.opacity)} * (1.0 - smoothstep(0.0, ${glf(c.falloff)}, d));
-}`;
-  m.onBeforeCompile = (shader) => {
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec2 vContact;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvContact = position.xz;');
-    shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', `#include <common>${fn}`)
-      .replace(
-        'gl_FragColor = vec4( color, opacity * ( 1.0 - getShadowMask() ) );',
-        'gl_FragColor = vec4( color, max( opacity * ( 1.0 - getShadowMask() ), v4Contact( vContact ) ) );'
-      );
-  };
-  m.customProgramCacheKey = () => 'v4Contact';
+/** Chassis (coin, pieds, connectique) : couleurs de sommets, facettes franches, mat. */
+export function makeChassisMaterial(): MeshStandardMaterial {
+  const m = new MeshStandardMaterial({ vertexColors: true, flatShading: true, ...MATERIAL.chassis });
+  m.name = 'chassis';
   return m;
 }
 
-/** Corps (plateau, socle) : couleurs de sommets, facettes franches. */
-export function makeBodyMaterial(): MeshStandardMaterial {
-  const m = new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.7, metalness: 0 });
-  m.name = 'body';
+/**
+ * Panneau (brief) : aluminium anodise noir mat, roughness 0.62 et
+ * metalness 0.35, le brossage en roughnessMap (fines lignes horizontales).
+ */
+export function makePanelMaterial(brush: Texture): MeshStandardMaterial {
+  const m = new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughnessMap: brush, ...MATERIAL.panel });
+  m.name = 'panel';
   return m;
 }
 
-/** Une teinte par face selon sa pente (voir BodyTones). */
-export interface BodyTones {
-  top: Tone;
-  bottom: Tone;
-  side: Tone;
-  /** chanfrein tourne vers le haut : la bande claire */
-  bevelUp: Tone;
-  /** chanfrein tourne vers le bas : dans l'ombre */
-  bevelDown: Tone;
-}
-
 /**
- * Colore une geometrie NON indexee face par face d'apres la normale de la
- * face (ExtrudeGeometry en donne une par face). Le dessus plat est a ny = 1
- * exactement ; la facette interieure du chanfrein a ny = 0.97, d'ou le
- * seuil a 0.995 et non 0.97 : toute la bande de 0.3 prend graphiteHi.
+ * Colore une geometrie NON indexee face par face d'apres sa normale (une
+ * par face pour une extrusion) : pick(nx, ny, nz) choisit la teinte, son
+ * gain la cale (theme.ts GAIN).
  */
-export function paintByNormal(g: BufferGeometry, tones: BodyTones): void {
+export function paintFaces(g: BufferGeometry, pick: (nx: number, ny: number, nz: number) => Tone): void {
   const n = g.getAttribute('normal');
   const count = n.count;
   const col = new Float32Array(count * 3);
   for (let i = 0; i + 2 < count; i += 3) {
+    const nx = (n.getX(i) + n.getX(i + 1) + n.getX(i + 2)) / 3;
     const ny = (n.getY(i) + n.getY(i + 1) + n.getY(i + 2)) / 3;
-    const tone =
-      ny > 0.995
-        ? tones.top
-        : ny < -0.995
-          ? tones.bottom
-          : Math.abs(ny) < 0.15
-            ? tones.side
-            : ny > 0
-              ? tones.bevelUp
-              : tones.bevelDown;
-    albedo(tone);
+    const nz = (n.getZ(i) + n.getZ(i + 1) + n.getZ(i + 2)) / 3;
+    const tone = pick(nx, ny, nz);
+    albedo(tone, tmp, gainOf(tone));
     for (let k = 0; k < 3; k += 1) {
       const o = (i + k) * 3;
       col[o] = tmp.r;
@@ -127,9 +85,9 @@ export function paintByNormal(g: BufferGeometry, tones: BodyTones): void {
   g.setAttribute('color', new Float32BufferAttribute(col, 3));
 }
 
-/** Une seule teinte pour toute la geometrie. */
-export function paintSolid(g: BufferGeometry, tone: Tone): void {
-  albedo(tone);
+/** Une seule teinte pour toute la geometrie (gain de la teinte par defaut). */
+export function paintSolid(g: BufferGeometry, tone: Tone, gain: number = gainOf(tone)): void {
+  albedo(tone, tmp, gain);
   paintLinear(g, [tmp.r, tmp.g, tmp.b]);
 }
 

@@ -1,37 +1,51 @@
 /**
- * Couche de saisie au-dessus du canvas (spec 6.2) : un seul element
- * transparent (touch-action none) recoit les pointeurs et interroge la
- * liste explicite des objets interactifs (scene/hit.ts), seulement au
- * pointerdown, au pointermove et a la molette. Semantique :
- * - pads : au pointerdown, le son n'attend pas le relachement ; le CH tenu
- *   300 ms relance un charley ouvert ;
- * - pas, RUN/STOP, CLEAR, knobs de navigation, OPEN, puces du PCB : au
- *   relachement, si le pointeur a bouge de moins de 10 px et reste sur le
- *   meme objet ; une puce active son jumeau (un vrai lien : onglet ou
- *   navigation natifs) ;
- * - potards (TEMPO, TONE, LEVEL) : glisser vertical (vers le haut = plus ;
- *   TEMPO 100 px = 50 BPM, TONE et LEVEL 150 px = toute la course), molette
- *   (1 BPM ou 2 % par cran), double tape = valeur de depart.
- * Survol a la souris : curseur, LED du pas survole, knob ou puce souleves.
- * Les jumeaux HTML (Twins, plus bas) portent le clavier et les lecteurs
- * d'ecran, un par objet. Un appui au pointeur ne leur donne pas le focus
- * (et retire celui d'un jumeau) : Espace reste RUN/STOP apres un clic, au
- * lieu de rejouer le dernier objet touche (section 19).
+ * Couche de saisie au-dessus du canvas (spec 6.2, 20.2.3 et 20.7) : un
+ * seul element transparent (touch-action none) recoit les pointeurs et
+ * interroge la liste explicite des objets interactifs (scene/hit.ts),
+ * seulement aux evenements de pointeur et a la molette. La camera orbite
+ * (scene/orbit.ts, sur le parent .v4-stage, qui voit chaque evenement
+ * APRES cette couche). Regle du brief pour TOUS les objets, pads compris :
+ * un objet ne part qu'au relachement, si le pointeur a bouge de moins de
+ * 6 px depuis le pointerdown, sans second doigt, et si le relachement tombe
+ * sur le meme objet (orbit.isTap) ; un glisser fait tourner la machine et
+ * n'active jamais rien. Un appui lent et immobile part aussi (revue de la
+ * revision 2, test T1 : la limite de 400 ms ne sert plus qu'a la double
+ * tape du fond). Semantique :
+ * - pads de voix (le son), pads de page (la section), pad OPEN, touches
+ *   trig, RUN/STOP, CLEAR, puces du PCB : la tape ; une puce active son
+ *   jumeau (un vrai lien : onglet ou navigation natifs) ;
+ * - encodeurs (TEMPO, TONE, LEVEL, SWING, DIST, REVERB) : un glisser parti
+ *   d'eux les tourne et ne fait JAMAIS orbiter la vue (orbit.gate) ; l'axe
+ *   dominant au seuil de 6 px decide (vers le haut ou vers la droite =
+ *   plus ; TEMPO 100 px = 50 BPM, les autres 150 px = toute la course) ;
+ *   au doigt, seulement apres 250 ms de repos sur lui : un glisser rapide
+ *   qui en part fait tourner la vue (au telephone les encodeurs couvrent
+ *   12 % de la machine, orbiter ne doit pas changer le tempo) ;
+ *   molette au-dessus d'eux (1 BPM ou 2 % par cran), ailleurs elle zoome ;
+ *   une tape ne change rien, une double tape = valeur de depart ;
+ * - fond (ni objet ni machine) : une double tape (ou un double clic)
+ *   ramene la vue par defaut.
+ * Survol a la souris (jamais pendant une orbite) : curseur, LED du pas
+ * survole, pad de page plus lumineux, puce soulevee. Les jumeaux HTML
+ * (Twins, plus bas) portent le clavier et les lecteurs d'ecran, un par
+ * objet. Un appui au pointeur ne leur donne pas le focus (et retire celui
+ * d'un jumeau) : Espace reste RUN/STOP apres un clic, au lieu de rejouer le
+ * dernier objet touche (section 19).
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import {
   chipAction,
   clearPattern,
-  dialLevel,
-  dialTone,
+  dial,
+  dialReset,
+  dialValue,
   gesture,
-  knob,
   openToggle,
-  padDown,
-  padHold,
+  padHit,
+  page,
+  resetView,
   runToggle,
-  setTempo,
   stepToggle,
 } from '../actions';
 import { clock } from '../audio/clock';
@@ -41,48 +55,71 @@ import type { HotspotKind, HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { chipsLive, explode } from '../state/explode';
 import { section } from '../state/section';
+import { EXTERNAL_REL } from './ExternalLink';
 import {
   CHIPS,
   COARSE_QUERY,
   DIAL_KEYS,
+  ENCODERS,
+  ENC_GRAB,
   INST_NAMES,
-  NAV_KNOBS,
   OPEN_ARIA,
+  ORBIT,
   PADS,
   PAD_ARIA,
-  PAD_FX,
   POT_UI,
-  PRESS_SLOP_PX,
   TEMPO_UI,
   TWIN_ARIA,
+  isPage,
+  swingRatio,
   type ChipId,
-  type NavId,
+  type EncId,
+  type Inst,
+  type SectionId,
 } from '../theme';
 
 const STEP_INDEXES = Array.from({ length: STEP_COUNT }, (_, i) => i);
 
 interface Props {
   getStage: () => Stage | null;
+  /** le Stage monte : la couche y branche la garde des encodeurs (orbit.gate) */
+  stage: Stage | null;
 }
 
-/** Appui en attente de son relachement (pas, RUN, CLEAR, knob, OPEN, puce). */
-interface Press {
-  id: string;
-  kind: HotspotKind;
+/** Un pointeur pose : l'objet sous lui au pointerdown (ou le fond), en attente de son relachement. */
+interface Down {
+  /** id de l'objet, null = le fond */
+  id: string | null;
+  kind: HotspotKind | null;
+  inst?: Inst;
   index?: number;
-  section?: NavId;
+  section?: SectionId;
   chip?: ChipId;
   x: number;
   y: number;
+  /** encodeur sous le pointerdown, et sa valeur de depart */
+  dial: EncId | null;
+  v0: number;
+  /** la garde l'a pris : glisser parti de l'encodeur, qui le tourne */
+  turning: boolean;
+  /** axe dominant au seuil : y (vers le haut = plus) ou x (vers la droite = plus) */
+  axis: 'x' | 'y';
+  /** pointeur souris : le curseur suit l'axe pendant qu'il tourne */
+  mouse: boolean;
+  /** doigt : un encodeur ne se prend qu'apres un repos (ENC_GRAB) */
+  touch: boolean;
+  /** instant du pointerdown (performance.now) */
+  t: number;
 }
 
 /** Jumeaux montes, par id de hotspot : la couche de saisie active ceux des puces. */
 const twinEls = new Map<string, HTMLElement>();
 
 /**
- * Puce touchee sur le canvas : son jumeau est active (lien vers VRSTL
- * Records en nouvel onglet, lien /techrider, bouton STUDIO), le geste en
- * cours donne l'activation utilisateur ; sans jumeau, l'action directe.
+ * Puce touchee sur le canvas : son jumeau est active (LABEL : lien vers la
+ * page Bandcamp du label en nouvel onglet ; LIVE et STUDIO : boutons de
+ * leur section), le geste en cours donne l'activation utilisateur ; sans
+ * jumeau, l'action directe.
  */
 function activateChip(id: string, chip: ChipId): void {
   const el = twinEls.get(id);
@@ -90,55 +127,40 @@ function activateChip(id: string, chip: ChipId): void {
   else chipAction(chip);
 }
 
-type DialKind = 'tempo' | 'tone' | 'level';
+/** Valeur par px de glisser : TEMPO 2 px par BPM, les autres 150 px la course. */
+const perPx = (k: EncId): number => (k === 'tempo' ? 1 / TEMPO_UI.pxPerBpm : 1 / POT_UI.pxRange);
 
-/** Glisser sur un potard. */
-interface Drag {
-  kind: DialKind;
-  y0: number;
-  v0: number;
-  moved: boolean;
+/** L'encodeur d'un glisser qui le tient : valeur de depart + ecart sur son axe, depuis le pointerdown. */
+function turnDial(d: Down, dx: number, dy: number): void {
+  if (!d.dial) return;
+  dial(d.dial, d.v0 + (d.axis === 'y' ? -dy : dx) * perPx(d.dial));
 }
-
-const isDial = (k: HotspotKind): k is DialKind => k === 'tempo' || k === 'tone' || k === 'level';
-
-/** Valeur courante d'un potard : BPM, ou 0 a 1. */
-const dialValue = (k: DialKind): number => (k === 'tempo' ? pattern.get().bpm : k === 'tone' ? mix.tone : mix.level);
-
-/** Pose une valeur (bornee par l'action). */
-const setDial = (k: DialKind, v: number): void => {
-  if (k === 'tempo') setTempo(v);
-  else if (k === 'tone') dialTone(v);
-  else dialLevel(v);
-};
-
-/** Valeur par unite de glisser vertical (px) : TEMPO 2 px par BPM, TONE et LEVEL 150 px la course. */
-const perPx = (k: DialKind): number => (k === 'tempo' ? 1 / TEMPO_UI.pxPerBpm : 1 / POT_UI.pxRange);
-
-/** Double tape : 130 BPM, TONE ouvert, LEVEL 80 %. */
-const dialReset = (k: DialKind): number => (k === 'tempo' ? BPM.initial : POT_UI.reset[k]);
 
 interface Point {
   clientX: number;
   clientY: number;
 }
 
-export const HitLayer: React.FC<Props> = ({ getStage }) => {
+/** Revue : le dernier relachement juge par la couche de saisie. */
+export const hitDebug = { lastUp: { id: null as string | null, tap: false, fired: null as string | null, bg: false }, bgResets: 0 };
+
+export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = ref.current;
-    if (!el) return undefined;
+    if (!el || !stage) return undefined;
     const coarseMql = window.matchMedia(COARSE_QUERY);
-    /** pointerId -> minuterie du CH tenu */
-    const holds = new Map<number, number>();
-    const presses = new Map<number, Press>();
-    const drags = new Map<number, Drag>();
+    let disposed = false;
+    /** pointerId -> l'objet (ou le fond) sous son pointerdown */
+    const downs = new Map<number, Down>();
     let hover: string | null = null;
-    /** derniere tape par potard (double tape = remise a la valeur de depart) */
-    const lastTap: Record<DialKind, number> = { tempo: -Infinity, tone: -Infinity, level: -Infinity };
+    /** derniere tape par encodeur (double tape = remise a la valeur de depart) */
+    const lastTap = new Map<EncId, number>();
+    /** derniere tape du fond (double tape = vue par defaut) */
+    let lastBg: { t: number; x: number; y: number } | null = null;
     let wheelAcc = 0;
-    let wheelKind: DialKind | null = null;
+    let wheelKind: EncId | null = null;
     // Le rectangle ne change qu'au redimensionnement : pas de lecture de
     // mise en page a la cadence du pointeur
     let rect = el.getBoundingClientRect();
@@ -149,23 +171,39 @@ export const HitLayer: React.FC<Props> = ({ getStage }) => {
 
     const isCoarse = (e: PointerEvent): boolean =>
       e.pointerType === 'touch' || e.pointerType === 'pen' || coarseMql.matches;
-    const pickAt = (e: Point, stage: Stage, coarse: boolean): HotspotView | null =>
+    const pickAt = (e: Point, coarse: boolean): HotspotView | null =>
       stage.hit.pick(e.clientX - rect.left, e.clientY - rect.top, coarse);
 
-    const endHold = (id: number): void => {
-      const t = holds.get(id);
-      if (t === undefined) return;
-      window.clearTimeout(t);
-      holds.delete(id);
+    let hoverDial = false;
+    /** axe de l'encodeur que la souris tourne, null sinon */
+    let turnAxis: 'x' | 'y' | null = null;
+    /**
+     * Curseur : main ouverte par defaut (CSS), fermee pendant l'orbite,
+     * doigt sur un objet, fleches sur un encodeur (celles de son axe pendant
+     * qu'on le tourne).
+     */
+    const setCursor = (): void => {
+      el.style.cursor =
+        turnAxis !== null
+          ? turnAxis === 'y'
+            ? 'ns-resize'
+            : 'ew-resize'
+          : stage.orbit.dragging
+            ? 'grabbing'
+            : hover === null
+              ? ''
+              : hoverDial
+                ? 'ns-resize'
+                : 'pointer';
     };
-
     const setHover = (h: HotspotView | null): void => {
       const id = h ? h.id : null;
-      if (id === hover) return;
-      hover = id;
-      // Les potards se reglent en glissant verticalement
-      el.style.cursor = !h ? '' : isDial(h.kind) ? 'ns-resize' : 'pointer';
-      getStage()?.setHover(id);
+      hoverDial = !!h && h.kind === 'encoder';
+      if (id !== hover) {
+        hover = id;
+        stage.setHover(id);
+      }
+      setCursor();
     };
 
     const capture = (id: number): void => {
@@ -176,24 +214,62 @@ export const HitLayer: React.FC<Props> = ({ getStage }) => {
       }
     };
 
-    const fire = (p: Press): void => {
-      if (p.kind === 'step' && p.index !== undefined) stepToggle(p.index);
-      else if (p.kind === 'run') runToggle();
-      else if (p.kind === 'clear') clearPattern();
-      else if (p.kind === 'knob' && p.section) knob(p.section);
-      else if (p.kind === 'open') openToggle();
-      else if (p.kind === 'chip' && p.chip) activateChip(p.id, p.chip);
+    /** Deux tapes sur un encodeur en moins de 350 ms : sa valeur de depart. */
+    const tapDial = (k: EncId): void => {
+      const t = performance.now();
+      if (t - (lastTap.get(k) ?? -Infinity) <= TEMPO_UI.tapMs) {
+        lastTap.delete(k);
+        dial(k, dialReset(k));
+      } else {
+        lastTap.set(k, t);
+      }
     };
 
-    /** Deux tapes sur un potard en moins de 350 ms : sa valeur de depart. */
-    const tapDial = (k: DialKind): void => {
-      const t = performance.now();
-      if (t - lastTap[k] <= TEMPO_UI.tapMs) {
-        lastTap[k] = -Infinity;
-        setDial(k, dialReset(k));
-      } else {
-        lastTap[k] = t;
+    /** L'objet tape (relache sur lui, tape au sens du brief) part ; renvoie son id. */
+    const fire = (d: Down): string | null => {
+      if (d.kind === 'pad' && d.inst) padHit(d.inst, stage);
+      else if (d.kind === 'page' && d.section && isPage(d.section)) page(d.section, stage);
+      else if (d.kind === 'open') openToggle(stage);
+      else if (d.kind === 'step' && d.index !== undefined) stepToggle(d.index);
+      else if (d.kind === 'run') runToggle();
+      else if (d.kind === 'clear') clearPattern();
+      else if (d.kind === 'chip' && d.chip && d.id) activateChip(d.id, d.chip);
+      else if (d.dial) tapDial(d.dial);
+      else return null;
+      return d.id;
+    };
+
+    /** Tape sur le fond : la deuxieme en moins de 300 ms et 30 px ramene la vue par defaut. */
+    const tapBackground = (e: PointerEvent): boolean => {
+      const t = e.timeStamp || performance.now();
+      if (lastBg && t - lastBg.t < ORBIT.bgTapMs && Math.hypot(e.clientX - lastBg.x, e.clientY - lastBg.y) < ORBIT.bgTapPx) {
+        lastBg = null;
+        hitDebug.bgResets += 1;
+        resetView(stage);
+        return true;
       }
+      lastBg = { t, x: e.clientX, y: e.clientY };
+      return false;
+    };
+
+    // Garde de l'orbite, appelee quand un pointeur passe 6 px : un glisser
+    // parti d'un encodeur le tourne et n'orbite jamais (la couche le garde
+    // jusqu'au relachement ; l'axe dominant a ce seuil devient le sien) ;
+    // au doigt, seulement apres un repos (ENC_GRAB) ; tout le reste fait
+    // tourner la machine
+    stage.orbit.gate = (pointerId, dx, dy) => {
+      const d = downs.get(pointerId);
+      if (!d || !d.dial) return true;
+      // Au doigt : pris seulement apres un repos, sinon la vue tourne
+      if (d.touch && performance.now() - d.t < ENC_GRAB.touchHoldMs) return true;
+      d.turning = true;
+      d.axis = Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
+      turnDial(d, dx, dy);
+      if (d.mouse) {
+        turnAxis = d.axis;
+        setCursor();
+      }
+      return false;
     };
 
     const onDown = (e: PointerEvent): void => {
@@ -202,134 +278,167 @@ export const HitLayer: React.FC<Props> = ({ getStage }) => {
       // Le clavier reprend la ou il en etait, mais Espace redevient RUN/STOP
       const a = document.activeElement;
       if (a instanceof HTMLElement && a.classList.contains('v4-twin')) a.blur();
-      const stage = getStage();
-      if (!stage) return;
       rect = el.getBoundingClientRect();
-      const h = pickAt(e, stage, isCoarse(e));
-      if (!h) return;
-      e.preventDefault();
+      // Chaque pointeur est capture : un glisser continue d'orbiter hors du canvas
       capture(e.pointerId);
-      if (h.kind === 'pad') {
-        if (!h.inst) return;
-        const inst = h.inst;
-        padDown(inst, stage);
-        if (inst === 'CH') {
-          const id = e.pointerId;
-          endHold(id);
-          holds.set(
-            id,
-            window.setTimeout(() => {
-              holds.delete(id);
-              padHold('CH', getStage());
-            }, PAD_FX.holdMs)
-          );
-        }
-        return;
+      const h = pickAt(e, isCoarse(e));
+      const encoder = h && h.kind === 'encoder' && h.param ? h.param : null;
+      downs.set(e.pointerId, {
+        id: h ? h.id : null,
+        kind: h ? h.kind : null,
+        inst: h?.inst,
+        index: h?.index,
+        section: h?.section,
+        chip: h?.chip,
+        x: e.clientX,
+        y: e.clientY,
+        dial: encoder,
+        v0: encoder ? dialValue(encoder) : 0,
+        turning: false,
+        axis: 'y',
+        mouse: e.pointerType === 'mouse',
+        touch: e.pointerType === 'touch',
+        t: performance.now(),
+      });
+      // Rien ne part ici : un objet attend la tape (relachement)
+      if (h) e.preventDefault();
+    };
+
+    /**
+     * Un pointeur perdu (capture perdue, bouton relache hors de la page) :
+     * oublie sans rien activer, le curseur quitte l'axe de l'encodeur.
+     */
+    const forget = (id: number): void => {
+      const d = downs.get(id);
+      if (!d) return;
+      downs.delete(id);
+      try {
+        if (el.hasPointerCapture(id)) el.releasePointerCapture(id);
+      } catch {
+        /* pointeur deja inactif */
       }
-      if (isDial(h.kind)) {
-        drags.set(e.pointerId, { kind: h.kind, y0: e.clientY, v0: dialValue(h.kind), moved: false });
-        return;
+      if (d.turning && d.mouse) {
+        turnAxis = null;
+        setCursor();
       }
-      presses.set(e.pointerId, { id: h.id, kind: h.kind, index: h.index, section: h.section, chip: h.chip, x: e.clientX, y: e.clientY });
     };
 
     const onMove = (e: PointerEvent): void => {
-      const stage = getStage();
-      if (!stage) return;
-      const d = drags.get(e.pointerId);
-      if (d) {
-        const dy = d.y0 - e.clientY;
-        if (!d.moved && Math.abs(dy) >= TEMPO_UI.slopPx) d.moved = true;
-        if (d.moved) setDial(d.kind, d.v0 + dy * perPx(d.kind));
+      const d = downs.get(e.pointerId);
+      // Souris sans bouton mais encore tenue ici : son pointerup s'est perdu
+      if (d && d.mouse && (e.buttons & 1) === 0) forget(e.pointerId);
+      else if (d && d.turning) {
+        turnDial(d, e.clientX - d.x, e.clientY - d.y);
         return;
       }
-      const p = presses.get(e.pointerId);
-      if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) > PRESS_SLOP_PX) presses.delete(e.pointerId);
-      // Le doigt a quitte le CH avant 300 ms : pas de charley ouvert
-      if (holds.has(e.pointerId) && pickAt(e, stage, isCoarse(e))?.id !== 'pad-CH') endHold(e.pointerId);
-      if (e.pointerType === 'mouse') setHover(pickAt(e, stage, false));
+      if (e.pointerType !== 'mouse') return;
+      // Pendant une orbite : ni survol ni picking
+      if (stage.orbit.dragging) {
+        if (hover !== null) setHover(null);
+        else setCursor();
+        return;
+      }
+      setHover(pickAt(e, false));
     };
 
     const onUp = (e: PointerEvent): void => {
-      endHold(e.pointerId);
-      const d = drags.get(e.pointerId);
-      if (d) {
-        drags.delete(e.pointerId);
-        if (!d.moved && e.type === 'pointerup') tapDial(d.kind);
+      const d = downs.get(e.pointerId);
+      downs.delete(e.pointerId);
+      if (d && d.turning && d.mouse) {
+        turnAxis = null;
+        setCursor();
       }
-      const p = presses.get(e.pointerId);
-      if (p) {
-        presses.delete(e.pointerId);
-        const stage = getStage();
-        // Relache a moins de 10 px et sur le meme objet : l'appui compte
-        if (
-          stage &&
-          e.type === 'pointerup' &&
-          Math.hypot(e.clientX - p.x, e.clientY - p.y) <= PRESS_SLOP_PX &&
-          pickAt(e, stage, isCoarse(e))?.id === p.id
-        ) {
-          fire(p);
+      // Lu AVANT le pointerup de l'orbite (elle ecoute le parent) : sa fiche existe encore
+      if (d && !d.turning && e.type === 'pointerup') {
+        const tap = stage.orbit.isTap(e);
+        let fired: string | null = null;
+        let bg = false;
+        if (tap && d.id !== null) {
+          // Relache sur le meme objet : il part
+          if (pickAt(e, isCoarse(e))?.id === d.id) fired = fire(d);
+        } else if (tap && stage.orbit.lastTap.quick && !stage.hit.onMachine(e.clientX - rect.left, e.clientY - rect.top)) {
+          bg = true;
+          tapBackground(e);
         }
+        hitDebug.lastUp = { id: d.id, tap, fired, bg };
       }
       if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+      if (e.pointerType === 'mouse' && e.type === 'pointerup') {
+        // L'orbite lache ce pointeur juste apres (son ecouteur est sur le
+        // parent) : le survol et le curseur se recalculent une fois
+        // l'evenement passe. Une tache, pas une microtache : avec de vrais
+        // evenements, les microtaches passent apres CHAQUE ecouteur, donc
+        // avant celui de l'orbite, et le curseur restait 'grabbing'
+        const px = e.clientX;
+        const py = e.clientY;
+        window.setTimeout(() => {
+          if (!disposed) setHover(stage.hit.pick(px - rect.left, py - rect.top, false));
+        }, 0);
+      }
     };
 
     const onWheel = (e: WheelEvent): void => {
-      // Ctrl + molette : le zoom du navigateur (ou le pincement d'un pave)
+      // Ctrl + molette (pincement d'un pave tactile) : le zoom de la vue
       if (e.ctrlKey) return;
-      const stage = getStage();
-      const h = stage ? pickAt(e, stage, false) : null;
-      if (!h || !isDial(h.kind)) {
+      const h = pickAt(e, false);
+      if (!h || h.kind !== 'encoder' || !h.param) {
         wheelAcc = 0;
         wheelKind = null;
         return;
       }
+      // Au-dessus d'un encodeur : il tourne, l'orbite ne zoome pas
       e.preventDefault();
-      if (h.kind !== wheelKind) {
+      const k = h.param;
+      if (k !== wheelKind) {
         wheelAcc = 0;
-        wheelKind = h.kind;
+        wheelKind = k;
       }
       const unit = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1;
       // Molette vers le haut = plus ; un cran de 100 px = 1 BPM ou 2 %, les
       // petits deltas d'un pave tactile s'accumulent
       wheelAcc -= e.deltaY * unit;
-      const px = h.kind === 'tempo' ? TEMPO_UI.wheelPx : POT_UI.wheelPx;
+      const px = k === 'tempo' ? TEMPO_UI.wheelPx : POT_UI.wheelPx;
       const steps = Math.trunc(wheelAcc / px);
       if (steps !== 0) {
         wheelAcc -= steps * px;
-        const step = h.kind === 'tempo' ? 1 : POT_UI.wheelStep;
-        setDial(h.kind, dialValue(h.kind) + steps * step);
+        const step = k === 'tempo' ? 1 : POT_UI.wheelStep;
+        dial(k, dialValue(k) + steps * step);
       }
     };
 
-    const onLeave = (): void => setHover(null);
-    // Appui long sur un pad : ni menu contextuel ni loupe
+    const onLost = (e: PointerEvent): void => forget(e.pointerId);
+
+    const onLeave = (e: PointerEvent): void => {
+      if (e.pointerType === 'mouse' && !stage.orbit.dragging) setHover(null);
+    };
+    // Appui long : ni menu contextuel ni loupe
     const onMenu = (e: Event): void => e.preventDefault();
 
     el.addEventListener('pointerdown', onDown);
     el.addEventListener('pointermove', onMove);
     el.addEventListener('pointerup', onUp);
     el.addEventListener('pointercancel', onUp);
+    el.addEventListener('lostpointercapture', onLost);
     el.addEventListener('pointerleave', onLeave);
     el.addEventListener('contextmenu', onMenu);
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => {
+      disposed = true;
       ro.disconnect();
-      for (const t of holds.values()) window.clearTimeout(t);
-      holds.clear();
-      presses.clear();
-      drags.clear();
+      downs.clear();
+      stage.orbit.gate = () => true;
       el.removeEventListener('pointerdown', onDown);
       el.removeEventListener('pointermove', onMove);
       el.removeEventListener('pointerup', onUp);
       el.removeEventListener('pointercancel', onUp);
+      el.removeEventListener('lostpointercapture', onLost);
       el.removeEventListener('pointerleave', onLeave);
       el.removeEventListener('contextmenu', onMenu);
       el.removeEventListener('wheel', onWheel);
       el.style.cursor = '';
       getStage()?.setHover(null);
     };
-  }, [getStage]);
+  }, [getStage, stage]);
 
   return <div ref={ref} className="v4-hit" aria-hidden="true" />;
 };
@@ -344,10 +453,9 @@ const noRepeat = (e: React.KeyboardEvent): void => {
 };
 
 /**
- * Puces LABEL et LIVE (de vrais liens) : un lien natif ne part qu'avec
- * Entree ; Espace l'active aussi (spec 8 : Entree et Espace activent tous
- * les jumeaux). keydown est une activation utilisateur : le nouvel onglet
- * de LABEL reste permis.
+ * Puce LABEL (un vrai lien) : un lien natif ne part qu'avec Entree ; Espace
+ * l'active aussi (spec 8 : Entree et Espace activent tous les jumeaux).
+ * keydown est une activation utilisateur : le nouvel onglet reste permis.
  */
 const linkSpace = (e: React.KeyboardEvent<HTMLAnchorElement>): void => {
   if (e.key !== ' ' || e.altKey || e.ctrlKey || e.metaKey) return;
@@ -355,26 +463,16 @@ const linkSpace = (e: React.KeyboardEvent<HTMLAnchorElement>): void => {
   if (!e.repeat) e.currentTarget.click();
 };
 
-/** Le jumeau qui a le focus clavier (son contour doit suivre l'objet), ou null. */
-const focusedTwin = (): HTMLElement | null => {
-  const a = document.activeElement;
-  return a instanceof HTMLElement && a.classList.contains('v4-twin') ? a : null;
-};
-
-/** Pose un jumeau sur le rectangle cible de son objet. */
-const writeTwin = (el: HTMLElement, v: HotspotView): void => {
-  el.style.transform = `translate(${v.x}px, ${v.y}px)`;
-  el.style.width = `${v.w}px`;
-  el.style.height = `${v.h}px`;
-};
+/** Arrondi au dixieme de px : ce que les jumeaux ecrivent. */
+const r1 = (n: number): number => Math.round(n * 10) / 10;
 
 /**
- * Potard au clavier (jumeau role slider) : fleches 1 BPM ou 2 %, Maj ou
+ * Encodeur au clavier (jumeau role slider) : fleches 1 BPM ou 2 %, Maj ou
  * Page 5 BPM ou 10 %, Debut et Fin aux butees. Les autres touches passent
  * (A S D F, chiffres, O restent des raccourcis).
  */
 const onDialKey =
-  (k: DialKind) =>
+  (k: EncId) =>
   (e: React.KeyboardEvent<HTMLElement>): void => {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
     const cfg = k === 'tempo' ? DIAL_KEYS.tempo : DIAL_KEYS.pot;
@@ -407,8 +505,8 @@ const onDialKey =
         return;
     }
     e.preventDefault();
-    // TONE et LEVEL au centieme : pas de derive de 0.02 en 0.0199999
-    setDial(k, k === 'tempo' ? v : Math.round(v * 100) / 100);
+    // Au centieme : pas de derive de 0.02 en 0.0199999
+    dial(k, k === 'tempo' ? v : Math.round(v * 100) / 100);
   };
 
 const pct = (v: number): number => Math.round(v * 100);
@@ -416,24 +514,37 @@ const pct = (v: number): number => Math.round(v * 100);
 /** "TRACKS" -> "Tracks" */
 const title = (label: string): string => label.charAt(0) + label.slice(1).toLowerCase();
 
+/** Texte lu d'un encodeur : "130 BPM", "80 %", "54 % swing" (rapport de doubles croches). */
+function dialText(k: EncId, v: number): string {
+  if (k === 'tempo') return `${v} BPM`;
+  if (k === 'swing') return `${swingRatio(v)} % swing`;
+  return `${pct(v)} %`;
+}
+
 /**
- * Jumeaux HTML (spec 6.3) : un element transparent par objet interactif,
- * pose sur sa silhouette projetee (rectangle cible de hit.ts : 48 x 48 px
- * au moins au doigt, 32 x 32 a la souris), focusable, nomme par son
- * aria-label ; contour jaune de 2 px au focus clavier. Le clavier et les
- * lecteurs d'ecran passent par eux, le pointeur par la couche de saisie
+ * Jumeaux HTML (spec 6.3 et 20.7) : un element transparent par objet
+ * interactif, pose sur sa silhouette projetee (rectangle cible de hit.ts :
+ * 48 x 48 px au moins au doigt, 32 x 32 a la souris), focusable, nomme par
+ * son aria-label ; contour jaune de 2 px au focus clavier. Le clavier et
+ * les lecteurs d'ecran passent par eux, le pointeur par la couche de saisie
  * (ils ne prennent aucun pointeur). Ordre du DOM = ordre de tabulation
- * (spec 6.1) : pads, pas, RUN, CLEAR, TEMPO, knobs de navigation, OPEN,
- * TONE, LEVEL, puis les puces du PCB, rendues de l'ouverture a la fin de
- * la fermeture (actives pendant l'ouverture et vue ouverte) ; LABEL et
- * LIVE sont de vrais liens (Espace les active aussi). Boutons : Entree et
- * Espace natifs ; potards : role slider et fleches. RUN et OPEN gardent un
- * nom fixe, leur etat passe par aria-pressed. Positions : ecrites dans le
- * style sans rendu React, seulement quand la projection a change, et
- * seulement une fois la vue posee (fin d'un mouvement : boucle au repos ou
- * frame suivante a signature identique) ; pendant un mouvement (cadrage,
- * parallaxe, intro, eclate) les jumeaux transparents attendent, sauf celui
- * qui a le focus clavier : son contour suit chaque frame (lui seul).
+ * (spec 20.7 et 20.19) : les 4 pads de voix (aria-pressed = instrument
+ * selectionne), les 8 pads de navigation en ordre de lecture (pages :
+ * aria-expanded et aria-controls ; OPEN : aria-pressed), les puces du PCB
+ * juste apres OPEN qui les decouvre (rendues de l'ouverture a la fin de la
+ * fermeture, actives pendant l'ouverture et vue ouverte), les six
+ * encodeurs (role slider), RUN, CLEAR, les 16 touches trig ; RESET VIEW
+ * suit (index.tsx). LABEL est un vrai lien (nouvel onglet, Espace l'active
+ * aussi), LIVE et STUDIO des boutons de leur section (aria-expanded,
+ * aria-controls) ; le focus clavier d'une puce la souleve comme le survol
+ * (LABEL passe aussi au jaune, avec son chevron). RUN et OPEN gardent un
+ * nom fixe, leur etat passe par aria-pressed. Positions (spec 20.2.8) : ecrites dans
+ * le style sans rendu React, DANS la passe de rendu (stage.onView, juste
+ * apres renderer.render) a chaque frame rendue, depuis les rectangles de
+ * hit.rects() (projection analytique, sans allocation) : les jumeaux
+ * suivent l'orbite et le contour jaune du jumeau qui a le focus reste sur
+ * son objet. Seules les valeurs qui ont change (au dixieme de px) sont
+ * reecrites ; le montage ecrit tout, onIdle rattrape un rendu hors boucle.
  */
 export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const s = useSyncExternalStore(explode.subscribe, explode.get, explode.get);
@@ -442,6 +553,9 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const open = useSyncExternalStore(section.subscribe, section.get, section.get);
   const tone = useSyncExternalStore(mix.subscribe, () => mix.tone, () => mix.tone);
   const level = useSyncExternalStore(mix.subscribe, () => mix.level, () => mix.level);
+  const swing = useSyncExternalStore(mix.subscribe, () => mix.swing, () => mix.swing);
+  const drive = useSyncExternalStore(mix.subscribe, () => mix.drive, () => mix.drive);
+  const reverb = useSyncExternalStore(mix.subscribe, () => mix.reverb, () => mix.reverb);
   const els = useRef(new Map<string, HTMLElement>());
   const refs = useRef(new Map<string, (el: HTMLElement | null) => void>());
   const stageRef = useRef(stage);
@@ -450,6 +564,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const live = chipsLive(s);
   const pressed = s === 'opening' || s === 'open';
   const inst = p.instrument;
+  const values: Record<EncId, number> = { tempo: p.bpm, tone, level, swing, dist: drive, reverb };
 
   /** Ref stable par id : l'element entre et sort des deux registres. */
   const refFor = (id: string): ((el: HTMLElement | null) => void) => {
@@ -471,48 +586,38 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
 
   useLayoutEffect(() => {
     if (!stage) return undefined;
-    // hit.list() rend le meme tableau tant que rien n'a bouge : rien a ecrire
-    let last: HotspotView[] | null = null;
-    // numero de vue de la frame precedente (hit.version())
-    let seen = -1;
-    const place = (): void => {
-      const list = stage.hit.list();
-      if (list === last) return;
-      last = list;
-      for (let i = 0; i < list.length; i += 1) {
-        const v = list[i];
-        const el = els.current.get(v.id);
-        if (el) writeTwin(el, v);
-      }
-    };
-    // Apres chaque frame rendue : posee (meme numero de vue), un recalage
-    // (gratuit sans changement) ; en mouvement, seul le jumeau qui a le
-    // focus suit, les autres attendent la fin du mouvement
-    const onView = (): void => {
-      const v = stage.hit.version();
-      const moving = v !== seen;
-      seen = v;
-      if (!moving) {
-        place();
-        return;
-      }
-      const el = focusedTwin();
-      const id = el?.dataset.hotspot;
-      if (!el || !id) return;
-      const list = stage.hit.list();
-      for (let i = 0; i < list.length; i += 1) {
-        if (list[i].id === id) {
-          writeTwin(el, list[i]);
-          return;
+    const ids = stage.hit.ids();
+    // Dernieres valeurs ecrites par jumeau (x, y, w, h au dixieme de px) : NaN = a ecrire
+    const last = new Float64Array(ids.length * 4).fill(NaN);
+    /** Ecrit les jumeaux dont le rectangle a change ; force : tous (montage). */
+    const place = (force: boolean): void => {
+      const r = stage.hit.rects();
+      for (let i = 0; i < ids.length; i += 1) {
+        const el = els.current.get(ids[i]);
+        if (!el) continue;
+        const o = i * 4;
+        const x = r1(r[o]);
+        const y = r1(r[o + 1]);
+        const w = r1(r[o + 2]);
+        const h = r1(r[o + 3]);
+        if (force || x !== last[o] || y !== last[o + 1]) {
+          el.style.transform = `translate(${x}px, ${y}px)`;
+          last[o] = x;
+          last[o + 1] = y;
+        }
+        if (force || w !== last[o + 2] || h !== last[o + 3]) {
+          el.style.width = `${w}px`;
+          el.style.height = `${h}px`;
+          last[o + 2] = w;
+          last[o + 3] = h;
         }
       }
     };
+    // Dans la passe de rendu : les jumeaux suivent l'orbite, frame par frame
+    const onView = (): void => place(false);
     // La boucle s'arrete (ou un redimensionnement hors boucle) : recalage
-    const onIdle = (): void => {
-      seen = stage.hit.version();
-      place();
-    };
-    place();
+    const onIdle = (): void => place(false);
+    place(true);
     const offView = stage.onView(onView);
     const offIdle = stage.onIdle(onIdle);
     return () => {
@@ -521,44 +626,139 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
     };
   }, [stage, showChips]);
 
-  // La vue se referme : un focus clavier sur une puce revient a OPEN
+  // La vue se referme : un focus clavier sur une puce revient au pad OPEN
   useEffect(() => {
     if (live) return;
     const a = document.activeElement;
-    if (a instanceof HTMLElement && a.dataset.twin === 'chip') els.current.get('open')?.focus({ preventScroll: true });
+    if (a instanceof HTMLElement && a.dataset.twin === 'chip') els.current.get('pad-open')?.focus({ preventScroll: true });
   }, [live]);
 
-  const bpm = p.bpm;
-  return (
-    <div className="v4-twins" role="group" aria-label={TWIN_ARIA.group}>
-      {PADS.map((pad) => (
+  // Les puces : juste apres OPEN, qui les decouvre (motif d'un bouton de divulgation)
+  const chips =
+    showChips &&
+    CHIPS.map((c) => {
+      const id = `chip-${c.id}`;
+      const tab = live ? 0 : -1;
+      // Focus clavier (focus-visible) : la puce reagit comme au survol
+      const onFocus = (e: React.FocusEvent<HTMLElement>): void => {
+        if (e.currentTarget.matches(':focus-visible')) stageRef.current?.setChipFocus(c.id);
+      };
+      const onBlur = (): void => stageRef.current?.setChipFocus(null);
+      return c.href ? (
+        <a
+          key={id}
+          ref={refFor(id)}
+          className="v4-twin"
+          data-twin="chip"
+          data-chip={c.id}
+          data-hotspot={id}
+          href={c.href}
+          target="_blank"
+          rel={EXTERNAL_REL}
+          aria-label={c.aria}
+          tabIndex={tab}
+          onKeyDown={linkSpace}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          onClick={(e) => {
+            // La vue se referme : plus de lien
+            if (!chipsLive(explode.get())) e.preventDefault();
+          }}
+        />
+      ) : (
         <button
-          key={pad.id}
-          ref={refFor(`pad-${pad.id}`)}
+          key={id}
+          ref={refFor(id)}
           type="button"
           className="v4-twin"
-          data-twin="pad"
-          data-hotspot={`pad-${pad.id}`}
-          aria-label={PAD_ARIA[pad.id]}
-          aria-pressed={inst === pad.id}
+          data-twin="chip"
+          data-chip={c.id}
+          data-hotspot={id}
+          aria-label={c.aria}
+          aria-expanded={c.section !== null && open === c.section}
+          aria-controls={c.section ? `v4-section-${c.section}` : undefined}
+          tabIndex={tab}
           onKeyDown={noRepeat}
-          onClick={() => padDown(pad.id, stageRef.current)}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          onClick={() => chipAction(c.id)}
         />
-      ))}
-      {STEP_INDEXES.map((i) => {
-        const on = inst ? p.steps[inst][i] === '1' : false;
+      );
+    });
+
+  return (
+    <div className="v4-twins" role="group" aria-label={TWIN_ARIA.group}>
+      {PADS.map((pad) => {
+        const id = `pad-${pad.id}`;
+        if (pad.kind === 'voice') {
+          return (
+            <button
+              key={id}
+              ref={refFor(id)}
+              type="button"
+              className="v4-twin"
+              data-twin="pad"
+              data-hotspot={id}
+              aria-label={PAD_ARIA[pad.id]}
+              aria-pressed={inst === pad.id}
+              onKeyDown={noRepeat}
+              onClick={() => padHit(pad.id, stageRef.current)}
+            />
+          );
+        }
+        if (pad.kind === 'page') {
+          return (
+            <button
+              key={id}
+              ref={refFor(id)}
+              type="button"
+              className="v4-twin"
+              data-twin="page"
+              data-hotspot={id}
+              aria-label={`${title(pad.label)}, key ${pad.key}`}
+              aria-expanded={open === pad.id}
+              aria-controls={`v4-section-${pad.id}`}
+              onKeyDown={noRepeat}
+              onClick={() => page(pad.id, stageRef.current)}
+            />
+          );
+        }
         return (
           <button
-            key={i}
-            ref={refFor(`step-${i + 1}`)}
+            key={id}
+            ref={refFor(id)}
             type="button"
             className="v4-twin"
-            data-twin="step"
-            data-hotspot={`step-${i + 1}`}
-            aria-label={inst ? `Step ${i + 1}, ${INST_NAMES[inst]} ${on ? 'on' : 'off'}` : `Step ${i + 1}, no instrument selected`}
-            aria-pressed={on}
+            data-twin="open"
+            data-hotspot={id}
+            aria-pressed={pressed}
+            aria-label={OPEN_ARIA}
             onKeyDown={noRepeat}
-            onClick={() => stepToggle(i)}
+            onClick={() => openToggle(stageRef.current)}
+          />
+        );
+      })}
+      {chips}
+      {ENCODERS.map((enc) => {
+        const id = `enc-${enc.id}`;
+        const v = values[enc.id];
+        const tempo = enc.id === 'tempo';
+        return (
+          <div
+            key={id}
+            ref={refFor(id)}
+            className="v4-twin"
+            data-twin="encoder"
+            data-hotspot={id}
+            role="slider"
+            tabIndex={0}
+            aria-label={enc.aria}
+            aria-orientation="vertical"
+            aria-valuemin={tempo ? BPM.min : 0}
+            aria-valuemax={tempo ? BPM.max : 100}
+            aria-valuenow={tempo ? v : pct(v)}
+            aria-valuetext={dialText(enc.id, v)}
+            onKeyDown={onDialKey(enc.id)}
           />
         );
       })}
@@ -583,107 +783,23 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
         onKeyDown={noRepeat}
         onClick={() => clearPattern()}
       />
-      <div
-        ref={refFor('tempo')}
-        className="v4-twin"
-        data-twin="tempo"
-        data-hotspot="tempo"
-        role="slider"
-        tabIndex={0}
-        aria-label={TWIN_ARIA.tempo}
-        aria-orientation="vertical"
-        aria-valuemin={BPM.min}
-        aria-valuemax={BPM.max}
-        aria-valuenow={bpm}
-        aria-valuetext={`${bpm} BPM`}
-        onKeyDown={onDialKey('tempo')}
-      />
-      {NAV_KNOBS.map((k) => (
-        <button
-          key={k.id}
-          ref={refFor(`knob-${k.id}`)}
-          type="button"
-          className="v4-twin"
-          data-twin="knob"
-          data-hotspot={`knob-${k.id}`}
-          aria-label={`${title(k.label)}, key ${k.key}`}
-          aria-expanded={open === k.id}
-          aria-controls={`v4-section-${k.id}`}
-          onKeyDown={noRepeat}
-          onClick={() => knob(k.id)}
-        />
-      ))}
-      <button
-        ref={refFor('open')}
-        type="button"
-        className="v4-twin"
-        data-twin="open"
-        data-hotspot="open"
-        aria-pressed={pressed}
-        aria-label={OPEN_ARIA}
-        onKeyDown={noRepeat}
-        onClick={() => openToggle()}
-      />
-      {(['tone', 'level'] as const).map((k) => {
-        const v = pct(k === 'tone' ? tone : level);
+      {STEP_INDEXES.map((i) => {
+        const on = inst ? p.steps[inst][i] === '1' : false;
         return (
-          <div
-            key={k}
-            ref={refFor(k)}
+          <button
+            key={i}
+            ref={refFor(`step-${i + 1}`)}
+            type="button"
             className="v4-twin"
-            data-twin={k}
-            data-hotspot={k}
-            role="slider"
-            tabIndex={0}
-            aria-label={TWIN_ARIA[k]}
-            aria-orientation="vertical"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={v}
-            aria-valuetext={`${v} %`}
-            onKeyDown={onDialKey(k)}
+            data-twin="step"
+            data-hotspot={`step-${i + 1}`}
+            aria-label={inst ? `Step ${i + 1}, ${INST_NAMES[inst]} ${on ? 'on' : 'off'}` : `Step ${i + 1}, no instrument selected`}
+            aria-pressed={on}
+            onKeyDown={noRepeat}
+            onClick={() => stepToggle(i)}
           />
         );
       })}
-      {showChips &&
-        CHIPS.map((c) => {
-          const id = `chip-${c.id}`;
-          const tab = live ? 0 : -1;
-          return c.href ? (
-            <a
-              key={id}
-              ref={refFor(id)}
-              className="v4-twin"
-              data-twin="chip"
-              data-chip={c.id}
-              data-hotspot={id}
-              href={c.href}
-              target={c.external ? '_blank' : undefined}
-              rel={c.external ? 'noopener' : undefined}
-              aria-label={c.aria}
-              tabIndex={tab}
-              onKeyDown={linkSpace}
-              onClick={(e) => {
-                // La vue se referme : plus de lien
-                if (!chipsLive(explode.get())) e.preventDefault();
-              }}
-            />
-          ) : (
-            <button
-              key={id}
-              ref={refFor(id)}
-              type="button"
-              className="v4-twin"
-              data-twin="chip"
-              data-chip={c.id}
-              data-hotspot={id}
-              aria-label={c.aria}
-              tabIndex={tab}
-              onKeyDown={noRepeat}
-              onClick={() => chipAction(c.id)}
-            />
-          );
-        })}
     </div>
   );
 };

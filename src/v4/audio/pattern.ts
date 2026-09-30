@@ -2,10 +2,12 @@
  * Motif du sequenceur (spec 10) : 16 pas x 4 instruments, l'instrument
  * selectionne (celui du dernier pad frappe) et le tempo. Petit store
  * observable : React le lit par useSyncExternalStore, la scene par get().
- * Motif et tempo persistent sous mm.v4.pattern ; l'instrument non (une
- * visite commence sans selection). Chaque lecture et chaque ecriture du
- * localStorage passent par try/catch : navigation privee, stockage bloque
- * ou plein, JSON corrompu, rien ne leve jamais.
+ * Motif, tempo et, depuis la revision 2, les trois effets SWING, DIST et
+ * REVERB (pattern.fx) persistent sous mm.v4.pattern ; l'instrument non (une
+ * visite commence sans selection), TONE et LEVEL non plus (une visite qui
+ * commencerait muette serait un piege). Chaque lecture et chaque ecriture
+ * du localStorage passent par try/catch : navigation privee, stockage
+ * bloque ou plein, JSON corrompu, rien ne leve jamais.
  */
 
 import type { Inst } from '../theme';
@@ -24,11 +26,29 @@ export interface Pattern {
   steps: Steps;
 }
 
-/** Forme stockee (et celle de window.__v4.state.pattern). */
+/**
+ * SWING, DIST, REVERB (revision 2, spec 20.8) : 0 a 1, 0 = neutre (le
+ * son de la revision 1). Persistes avec le motif.
+ */
+export interface Fx {
+  swing: number;
+  drive: number;
+  reverb: number;
+}
+
+export const NEUTRAL_FX: Readonly<Fx> = { swing: 0, drive: 0, reverb: 0 };
+const FX_KEYS: readonly (keyof Fx)[] = ['swing', 'drive', 'reverb'];
+
+/**
+ * Forme stockee (et celle de window.__v4.state.pattern). fx vient de la
+ * revision 2 : un motif stocke sans lui (ou un fx invalide) repart neutre,
+ * et la revision 1 ignore ce champ (tout le reste de l'objet l'est).
+ */
 export interface StoredPattern {
   v: 1;
   bpm: number;
   steps: Steps;
+  fx: Fx;
 }
 
 export interface PatternState extends Pattern {
@@ -67,25 +87,47 @@ export function validate(raw: unknown): Pattern {
   return out;
 }
 
-export function load(): Pattern {
-  let raw: unknown = null;
-  try {
-    const text = window.localStorage.getItem(STORAGE_KEY);
-    raw = text ? JSON.parse(text) : null;
-  } catch {
-    raw = null;
+/** Un reglage d'effet : 0 a 1 ; NaN et l'infini valent 0. */
+export const clampFx = (v: number): number => (Number.isFinite(v) ? (v < 0 ? 0 : v > 1 ? 1 : v) : 0);
+
+/** Les effets d'un objet stocke : chaque valeur hors de 0..1 (ou absente) reste neutre. */
+export function validateFx(raw: unknown): Fx {
+  const out = { ...NEUTRAL_FX };
+  if (!raw || typeof raw !== 'object') return out;
+  const o = raw as { v?: unknown; fx?: unknown };
+  if (o.v !== 1 || !o.fx || typeof o.fx !== 'object') return out;
+  const f = o.fx as Record<string, unknown>;
+  for (const k of FX_KEYS) {
+    const v = f[k];
+    if (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1) out[k] = v;
   }
-  return validate(raw);
+  return out;
 }
 
-export function serialize(p: Pattern): StoredPattern {
-  return { v: 1, bpm: p.bpm, steps: { ...p.steps } };
+function readStored(): unknown {
+  try {
+    const text = window.localStorage.getItem(STORAGE_KEY);
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function load(): Pattern {
+  return validate(readStored());
+}
+
+/** Au millieme : le JSON reste court, un glisser donne des valeurs continues. */
+const r3 = (v: number): number => Math.round(v * 1000) / 1000;
+
+export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX): StoredPattern {
+  return { v: 1, bpm: p.bpm, steps: { ...p.steps }, fx: { swing: r3(f.swing), drive: r3(f.drive), reverb: r3(f.reverb) } };
 }
 
 /** true si l'ecriture a reussi. */
-export function save(p: Pattern): boolean {
+export function save(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX): boolean {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize(p)));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize(p, f)));
     return true;
   } catch {
     return false;
@@ -107,8 +149,11 @@ export function clearSteps(p: Pattern): Pattern {
 
 /* ---------------- le store ---------------- */
 
-let state: PatternState = { ...load(), instrument: null };
+const stored = typeof window === 'undefined' ? null : readStored();
+let state: PatternState = { ...validate(stored), instrument: null };
+let fxState: Readonly<Fx> = validateFx(stored);
 const listeners = new Set<() => void>();
+const fxListeners = new Set<() => void>();
 let saveTimer = 0;
 
 const emit = (): void => listeners.forEach((l) => l());
@@ -117,7 +162,7 @@ function scheduleSave(): void {
   if (saveTimer !== 0) window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     saveTimer = 0;
-    save(state);
+    save(state, fxState);
   }, SAVE_DEBOUNCE_MS);
 }
 
@@ -126,7 +171,7 @@ function flush(): void {
   if (saveTimer === 0) return;
   window.clearTimeout(saveTimer);
   saveTimer = 0;
-  save(state);
+  save(state, fxState);
 }
 
 function commit(next: PatternState, persist: boolean): void {
@@ -134,6 +179,38 @@ function commit(next: PatternState, persist: boolean): void {
   if (persist) scheduleSave();
   emit();
 }
+
+/**
+ * Les effets : leurs propres ecouteurs (l'audio, les encodeurs, leurs
+ * jumeaux), pas ceux du motif. Un encodeur tourne a la cadence du pointeur
+ * sans rerendre le Dock, les LED ni la racine ; la sauvegarde est la meme
+ * (300 ms apres le dernier changement).
+ */
+const fxStore = {
+  get: (): Readonly<Fx> => fxState,
+  /** Un ou plusieurs reglages, bornes a 0..1 ; rien ne part si rien ne change. */
+  set(patch: Partial<Fx>): void {
+    let next: Fx | null = null;
+    for (const k of FX_KEYS) {
+      const v = patch[k];
+      if (v === undefined) continue;
+      const c = clampFx(v);
+      if (c === fxState[k]) continue;
+      if (!next) next = { ...fxState };
+      next[k] = c;
+    }
+    if (!next) return;
+    fxState = next;
+    scheduleSave();
+    fxListeners.forEach((l) => l());
+  },
+  subscribe(fn: () => void): () => void {
+    fxListeners.add(fn);
+    return () => {
+      fxListeners.delete(fn);
+    };
+  },
+};
 
 export const pattern = {
   get: (): PatternState => state,
@@ -159,8 +236,10 @@ export const pattern = {
     const b = clampBpm(bpm);
     if (b !== state.bpm) commit({ ...state, bpm: b }, true);
   },
-  serialize: (): StoredPattern => serialize(state),
+  serialize: (): StoredPattern => serialize(state, fxState),
   flush,
+  /** SWING, DIST, REVERB (0 a 1) : get, set(patch), subscribe. */
+  fx: fxStore,
 };
 
 if (typeof window !== 'undefined') window.addEventListener('pagehide', flush);

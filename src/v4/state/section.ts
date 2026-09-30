@@ -1,8 +1,10 @@
 /**
- * Section ouverte (spec 7.1 et 7.2) : null, ou l'une des six. Les knobs de
- * navigation (angle, LED), le panneau desktop, la feuille mobile, la trace,
- * le cadrage de la camera et l'ecran la lisent. Un seul knob actif : ouvrir
- * une section remplace la precedente ; recliquer le knob actif ferme.
+ * Section ouverte (spec 7.1 et 20.6.1) : null, l'une des sept pages (pads
+ * TRACKS a SONAA), LIVE ou STUDIO (puces de la vue eclatee). Les pads (page
+ * active en yellowHi), le panneau desktop, la feuille mobile, la trace, le
+ * cadrage de la camera et l'ecran la lisent. Une seule a la fois : ouvrir
+ * une section remplace la precedente ; retaper le pad actif (ou la puce
+ * LIVE) ferme.
  */
 
 import type { SectionId } from '../theme';
@@ -20,7 +22,7 @@ export const section = {
     changes += 1;
     listeners.forEach((fn) => fn());
   },
-  /** Knob : la section, ou la fermeture si c'est deja elle. */
+  /** Pad de page, puce LIVE : la section, ou la fermeture si c'est deja elle. */
   toggle(s: SectionId): void {
     section.set(current === s ? null : s);
   },

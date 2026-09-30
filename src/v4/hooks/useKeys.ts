@@ -1,21 +1,23 @@
 /**
- * Clavier global (spec 7.2 et 13), sur le modele de src/v3/hooks/useKeys.ts.
- * A S D F frappent BD SD TOM CH (le son part a la touche, sans charley
- * ouvert : pas de maintien au clavier), Espace lance ou arrete le
- * sequenceur, 1 a 5 ouvrent TRACKS a CONTACT (ou ferment la section deja
- * ouverte), O ouvre ou referme la machine, Echap ferme la section ouverte
- * (sinon referme la vue eclatee, sinon deselectionne l'instrument).
+ * Clavier global (spec 7.2, 13 et 20.6.2), sur le modele de
+ * src/v3/hooks/useKeys.ts. A S D F frappent BD SD TOM CH (le son part a la
+ * touche), 1 a 7 ouvrent les pages des pads en ordre de lecture (TRACKS,
+ * MIXTAPES, PRESS, SHOWS, CONTACT, LABEL, SONAA ; la page deja ouverte se
+ * ferme), 8 et O ouvrent ou referment la machine (le pad OPEN), Espace
+ * lance ou arrete le sequenceur, R ramene la vue par defaut, Echap ferme
+ * la section ouverte (sinon referme la vue eclatee, sinon deselectionne
+ * l'instrument).
  * Rien ne part avec Alt, Ctrl ou Meta, dans un champ editable, ni sur une
  * repetition de touche. Espace est laisse au controle qui l'utilise deja
  * (bouton, lien, jumeau bouton ou lien) : il l'active, comme partout. Un
- * potard (role slider) n'a rien a faire d'Espace : il reste RUN/STOP.
+ * encodeur (role slider) n'a rien a faire d'Espace : il reste RUN/STOP.
  * Sans WebGL (page de repli, pas de machine) seul Echap reste.
  */
 
 import { useEffect, useRef } from 'react';
-import { escape, knob, openToggle, padDown, runToggle } from '../actions';
+import { escape, openToggle, padHit, page, resetView, runToggle } from '../actions';
 import type { Stage } from '../scene/renderer';
-import { NAV_KNOBS, PADS } from '../theme';
+import { PADS } from '../theme';
 
 const isEditable = (t: EventTarget | null): boolean => {
   if (!(t instanceof HTMLElement)) return false;
@@ -23,14 +25,16 @@ const isEditable = (t: EventTarget | null): boolean => {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable;
 };
 
-/** Un controle qui fait deja quelque chose d'Espace (pas les potards : fleches seulement). */
+/** Un controle qui fait deja quelque chose d'Espace (pas les encodeurs : fleches seulement). */
 const ownsSpace = (t: EventTarget | null): boolean => {
   if (!(t instanceof Element)) return false;
   return t.closest('button, a[href], [role="button"], summary, input, textarea, select, [contenteditable="true"]') !== null;
 };
 
 /** 'a' -> BD ... ; les majuscules (verrou) comptent aussi. */
-const PAD_KEYS = new Map(PADS.map((p) => [p.key.toLowerCase(), p.id] as const));
+const PAD_KEYS = new Map(PADS.flatMap((p) => (p.kind === 'voice' ? [[p.key.toLowerCase(), p.id] as const] : [])));
+/** Les pads de navigation et OPEN : leur chiffre. */
+const DIGIT_PADS = PADS.filter((p) => p.kind !== 'voice');
 
 export function useKeys(getStage: () => Stage | null, machine: boolean): void {
   // Le gestionnaire ne change pas : il lit l'etat courant ici
@@ -49,7 +53,7 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
       const inst = PAD_KEYS.get(e.key.toLowerCase());
       if (inst) {
         e.preventDefault();
-        padDown(inst, getStage());
+        padHit(inst, getStage());
         return;
       }
       if (e.key === ' ' || e.code === 'Space') {
@@ -60,15 +64,21 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         return;
       }
       // Touche physique aussi : sur un clavier AZERTY les chiffres sont en Maj
-      const nav = NAV_KNOBS.find((k) => k.key === e.key || e.code === `Digit${k.key}` || e.code === `Numpad${k.key}`);
-      if (nav) {
+      const pad = DIGIT_PADS.find((p) => p.key === e.key || e.code === `Digit${p.key}` || e.code === `Numpad${p.key}`);
+      if (pad) {
         e.preventDefault();
-        knob(nav.id);
+        if (pad.kind === 'page') page(pad.id, getStage());
+        else openToggle(getStage());
         return;
       }
       if (e.key === 'o' || e.key === 'O') {
         e.preventDefault();
-        openToggle();
+        openToggle(getStage());
+        return;
+      }
+      if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        resetView(getStage());
       }
     };
     window.addEventListener('keydown', onKey);

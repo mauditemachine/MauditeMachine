@@ -1,19 +1,22 @@
 /**
  * Adaptateur de donnees de /v4 (spec 11.1) : la source de /v3 (BEADS de
  * src/v3/data/beads.ts, lecture seule : 37 pistes et 5 mixtapes), les
- * contacts et reseaux de la v2, les dates de public/events.json lues au
+ * contacts de la v2, les reseaux propres a /v4 (data/socials.ts, la liste
+ * du brief de la revision 2), les dates de public/events.json lues au
  * runtime. Les listes vont du plus recent au plus ancien. Tout ce qui est
  * affiche est une donnee ; les seuls textes ecrits ici sont les liens de
- * presse et les messages vides, en anglais.
+ * presse et de LIVE et les messages vides (le francais de LIVE et de SONAA
+ * est dans leurs composants).
  */
 
 import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { BOOKING_CONTACTS, type BookingContact } from '../v2/data/contacts';
-import { SOCIALS, type SocialLink } from '../v2/data/socials';
 import { BEADS, fmtTime, type Bead } from '../v3/data/beads';
+import { LABEL_URL } from './theme';
 
-export { fmtTime, SOCIALS };
-export type { BookingContact, SocialLink };
+export { SOCIALS, type Social, type SocialId } from './data/socials';
+export { fmtTime };
+export type { BookingContact };
 
 /** Une ligne de TRACKS ou MIXTAPES. */
 export interface PlayItem {
@@ -66,6 +69,29 @@ export const PRESS_LINKS: readonly { label: string; href: string }[] = [
   { label: 'Tech rider (PDF)', href: '/Tech_Rider_Maudite_Machine_2026-27.pdf' },
   { label: 'Press assets', href: '/press/' },
 ];
+
+/**
+ * LABEL (revision 2, pad LABEL) : une ligne, le label, et sa page Bandcamp
+ * (verifiee par la session principale), la meme que la puce LABEL. Rien
+ * d'autre n'est invente.
+ */
+export const LABEL_NAME = 'VRSTL Records';
+export const LABEL_LINK = { label: 'Bandcamp', href: LABEL_URL } as const;
+
+/** SONAA (revision 2, pad SONAA) : le lien ; le texte francais est dans ui/sections/Sonaa.tsx. */
+export const SONAA_LINK = { label: 'sonaa.ca', href: 'https://sonaa.ca' } as const;
+
+/**
+ * LIVE (revision 2, puce LIVE) : les deux PDF en telechargement, leur
+ * taille mesuree (878 617 et 4 460 360 octets) ; le reste du texte, en
+ * francais, est dans ui/sections/Live.tsx.
+ */
+export const LIVE_DOCS: readonly { label: string; href: string; size: string }[] = [
+  { label: 'Tech rider (PDF)', href: '/Tech_Rider_Maudite_Machine_2026-27.pdf', size: '0.9 MB' },
+  { label: 'Press kit (PDF)', href: '/Presskit_Maudite_Machine_2026-27.pdf', size: '4.5 MB' },
+];
+/** Les deux pages du site ouvertes par LIVE, en nouvel onglet. */
+export const LIVE_PAGES = { press: '/press/', techrider: '/techrider' } as const;
 
 /** Le setup materiel (section STUDIO, ouverte par la puce de la vue eclatee). */
 export const STUDIO_GEAR: readonly string[] = ['Ableton Live', 'Push 3', 'Dreadbox Typhon', 'Minilogue XD', 'APC40', 'SSL 2+'];

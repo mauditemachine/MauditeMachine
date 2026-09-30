@@ -1,20 +1,21 @@
 /**
- * L'etat de l'ecran (spec 5.5) : deux lignes de 20 colonnes, composees au
- * plus 4 fois par seconde et publiees seulement quand leur texte change.
- * Le maillage de l'ecran (CanvasTexture) et son jumeau accessible lisent
- * cet etat ; il ne dessine rien lui-meme.
+ * L'etat de l'ecran OLED (spec 5.5 et 20.3.8) : trois lignes de 20
+ * colonnes, composees au plus 4 fois par seconde et publiees seulement
+ * quand leur texte change. Le maillage de l'ecran (CanvasTexture) et son
+ * jumeau accessible lisent cet etat ; il ne dessine rien lui-meme.
  *
  * Ligne 1 : la section ouverte (ou MM-808) a gauche, le tempo a droite.
  * Ligne 2, la premiere regle qui s'applique :
- *   message passager (STEP 07 BD ON, CLEARED, TAP A PAD FIRST, NO SIGNAL)
- *   > piste sautee (SKIPPED titre) > chargement (LOADING)
+ *   piste sautee (SKIPPED titre) > chargement (LOADING)
  *   > piste en lecture (titre a gauche, m:ss a droite)
  *   > sequenceur en marche (RUN et l'instrument) > piste en pause (titre,
  *   PAUSED) > READY et l'instrument.
- * RUN passe avant une piste en pause (ecart a la spec, section 19) : la
- * machine qui joue est l'information du moment.
- * Le minuteur ne tourne que pendant la lecture d'une piste (timecode) ou
- * un message passager ; au repos, rien.
+ * Ligne 3 : le message passager (STEP 07 BD ON, CLEARED, TAP A PAD FIRST,
+ * NO SIGNAL) ou la valeur de l'encodeur tourne dans les 1200 ms, sinon
+ * rien (revision 2 : les messages quittent la ligne 2).
+ * RUN passe avant une piste en pause (section 19) : la machine qui joue
+ * est l'information du moment. Le minuteur ne tourne que pendant la
+ * lecture d'une piste (timecode) ou un message passager ; au repos, rien.
  */
 
 import { clock } from '../audio/clock';
@@ -32,8 +33,12 @@ export interface LcdState {
   /** ligne 2 : gauche, droite (droite vide sauf timecode ou PAUSED) */
   l2: string;
   r2: string;
-  /** les deux lignes telles qu'affichees (gauche, espaces, droite) */
-  text: [string, string];
+  /** ligne 3 : message passager ou valeur d'encodeur, '' sinon */
+  l3: string;
+  /** la ligne 3 est une valeur d'encodeur (le jumeau ne l'annonce pas) */
+  param: boolean;
+  /** les trois lignes telles qu'affichees (gauche, espaces, droite) */
+  text: [string, string, string];
   /** compositions publiees (revue) */
   updates: number;
 }
@@ -63,8 +68,7 @@ function compose(now: number): Omit<LcdState, 'updates'> {
   const msg = lcdMessage.get(now);
   let l2 = '';
   let r2 = '';
-  if (msg) l2 = msg.text;
-  else if (st.notice) l2 = `${LCD_TEXT.skipped} ${st.notice.toUpperCase()}`;
+  if (st.notice) l2 = `${LCD_TEXT.skipped} ${st.notice.toUpperCase()}`;
   else if (st.status === 'loading') l2 = LCD_TEXT.loading;
   else if (st.status === 'playing') {
     l2 = (st.title ?? '').toUpperCase();
@@ -75,10 +79,20 @@ function compose(now: number): Omit<LcdState, 'updates'> {
     r2 = LCD_TEXT.paused;
   } else l2 = `${LCD_TEXT.ready}${inst}`;
   const line2 = row(l2, r2);
-  return { l1: line1.l, r1: line1.r, l2: line2.l, r2: line2.r, text: [line1.t, line2.t] };
+  const l3 = msg ? fit(msg.text, COLS) : '';
+  return { l1: line1.l, r1: line1.r, l2: line2.l, r2: line2.r, l3, param: !!msg && msg.param, text: [line1.t, line2.t, l3] };
 }
 
-let current: LcdState = { l1: LCD_TEXT.idle, r1: '', l2: LCD_TEXT.ready, r2: '', text: [LCD_TEXT.idle, LCD_TEXT.ready], updates: 0 };
+let current: LcdState = {
+  l1: LCD_TEXT.idle,
+  r1: '',
+  l2: LCD_TEXT.ready,
+  r2: '',
+  l3: '',
+  param: false,
+  text: [LCD_TEXT.idle, LCD_TEXT.ready, ''],
+  updates: 0,
+};
 const listeners = new Set<() => void>();
 let timer = 0;
 let last = -Infinity;
@@ -94,7 +108,7 @@ function run(): void {
   const now = performance.now();
   last = now;
   const next = compose(now);
-  if (next.text[0] !== current.text[0] || next.text[1] !== current.text[1]) {
+  if (next.text[0] !== current.text[0] || next.text[1] !== current.text[1] || next.text[2] !== current.text[2]) {
     current = { ...next, updates: current.updates + 1 };
     listeners.forEach((fn) => fn());
   }

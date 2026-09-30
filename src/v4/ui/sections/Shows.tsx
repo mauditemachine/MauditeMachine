@@ -4,12 +4,15 @@
  * chargement), de la plus proche a la plus lointaine. Aucune date ou
  * lecture en echec (5 s au plus) : "No upcoming dates." et le lien vers
  * /shows. Pendant la lecture, le lien vers /shows est deja la : la section
- * n'est jamais vide.
+ * n'est jamais vide. Revision 2 : tous ses liens s'ouvrent en nouvel
+ * onglet (chevron sortant), /shows compris : le visiteur ne quitte jamais
+ * /v4 (brief, point 5).
  */
 
 import React, { useEffect, useState } from 'react';
 import { SHOWS_EMPTY, SHOWS_LINK, fetchShows, fmtShowDate, type Show } from '../../data';
-import { ExternalMark, SectionFrame, tabOf, type SectionProps } from './common';
+import { ExternalLink } from '../ExternalLink';
+import { SectionFrame, tabOf, type SectionProps } from './common';
 
 export const Shows: React.FC<SectionProps> = ({ active, focusable }) => {
   const [shows, setShows] = useState<Show[] | null>(null);
@@ -28,9 +31,9 @@ export const Shows: React.FC<SectionProps> = ({ active, focusable }) => {
   const allShows = (
     <ul className="v4-links">
       <li>
-        <a className="v4-link" href={SHOWS_LINK.href} tabIndex={tab}>
+        <ExternalLink className="v4-link" href={SHOWS_LINK.href} tabIndex={tab}>
           <span>{SHOWS_LINK.label}</span>
-        </a>
+        </ExternalLink>
       </li>
     </ul>
   );
@@ -59,10 +62,9 @@ export const Shows: React.FC<SectionProps> = ({ active, focusable }) => {
             return (
               <li key={`${s.date}-${s.title}`} className="v4-row">
                 {s.url ? (
-                  <a className="v4-show" href={s.url} target="_blank" rel="noopener" tabIndex={tab}>
+                  <ExternalLink className="v4-show" href={s.url} tabIndex={tab}>
                     {body}
-                    <ExternalMark />
-                  </a>
+                  </ExternalLink>
                 ) : (
                   <span className="v4-show">{body}</span>
                 )}

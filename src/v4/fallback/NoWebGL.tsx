@@ -10,9 +10,12 @@
 import React from 'react';
 import { COPY } from '../theme';
 import { Contact } from '../ui/sections/Contact';
+import { Label } from '../ui/sections/Label';
+import { Live } from '../ui/sections/Live';
 import { Mixtapes } from '../ui/sections/Mixtapes';
 import { Press } from '../ui/sections/Press';
 import { Shows } from '../ui/sections/Shows';
+import { Sonaa } from '../ui/sections/Sonaa';
 import { Studio } from '../ui/sections/Studio';
 import { Tracks } from '../ui/sections/Tracks';
 import { StaticMachine } from './StaticMachine';
@@ -30,6 +33,9 @@ const NoWebGL: React.FC = () => (
       <Press active focusable />
       <Shows active focusable />
       <Contact active focusable />
+      <Label active focusable />
+      <Sonaa active focusable />
+      <Live active focusable />
       <Studio active focusable />
     </div>
   </section>

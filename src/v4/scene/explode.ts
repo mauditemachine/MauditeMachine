@@ -1,31 +1,31 @@
 /**
- * OPEN : la vue eclatee (spec 12), trois couches qui se separent.
- * 1. plateauGroup (pads, knobs, serigraphie, ecran) monte de 3.5 et
- *    s'incline de 12 deg autour de l'axe horizontal de l'ecran, pivot au
- *    centre de son dessus (theme.ts EXPLODE, signe en section 19) ;
- * 2. le PCB reste en place et se revele : pcbGroup visible des le depart,
- *    ses composants sortent de la carte (parts.scale.y 0.001 -> 1) ;
- * 3. socleGroup (ombre et mention comprises) descend de 1.5.
- * 900 ms easeInOutQuart par couche, 80 ms de decalage : ouverture plateau,
- * PCB, socle ; fermeture dans l'ordre inverse (socle, PCB, plateau), le
- * PCB se cache a la fin. Le cadrage (spec 3.4) suit la couche la plus
- * ecartee, max(plateau, socle) : a l'ouverture le plateau (sans decalage),
- * a la fermeture encore le plateau, qui ne redescend qu'apres 160 ms ; un
- * cadrage parti tout de suite coupait le haut du plateau encore leve sur
- * les ecrans larges (revue). Reduced motion : les deux etats extremes
- * seulement, poses a la frame suivante. Le sequenceur n'est jamais
- * touche : la musique continue.
+ * OPEN : la vue eclatee sur le coin (spec 20.3.11 et 20.1 R2-8), trois
+ * couches qui se separent sans jamais se traverser.
+ * 1. plateauGroup (le panneau et tout ce qui est dessus) monte de 3.6,
+ *    recule de 1.5 et s'incline de +5.7 deg (sa pente) a -12 deg (le bord
+ *    avant monte, comme un capot), rotation autour de l'axe x de la
+ *    machine passant par le centre du panneau ;
+ * 2. le PCB, cache dans le chassis, sort de 0.9 (pcbGroup visible des le
+ *    depart) et ses composants poussent de la carte (parts.scale.y 0.001 a
+ *    1) ;
+ * 3. le chassis (et le sol) ne bouge pas : la machine reste sur la table.
+ * 900 ms easeInOutQuart par couche, 80 ms de decalage : a l'ouverture le
+ * panneau part d'abord, le PCB ensuite ; a la fermeture le PCB redescend
+ * d'abord, le panneau ensuite. Le PCB (1.52 de montee au plus, carte et
+ * composants) reste ainsi toujours en retard sur le dessous du panneau
+ * (2.2 de montee au moins) : aucune interpenetration a aucun instant. Le
+ * cadrage suit la couche la plus ecartee, max(panneau, PCB). Reduced
+ * motion : les deux etats extremes seulement, poses a la frame suivante.
+ * Le sequenceur n'est jamais touche : la musique continue.
  */
 
-import { Vector3, type Object3D } from 'three';
-import { EXPLODE, LAYERS } from '../theme';
+import type { Object3D } from 'three';
+import { EXPLODE, LAYERS, TILT } from '../theme';
 import { easeInOutQuart } from './tween';
 
-/** Axe horizontal de l'ecran : la droite de la camera. */
-const AXIS = new Vector3(1, 0, -1).normalize();
 const DEG = Math.PI / 180;
-/** ouverture ou fermeture complete, decalages compris */
-export const EXPLODE_TOTAL_MS = EXPLODE.ms + 2 * EXPLODE.staggerMs;
+/** ouverture ou fermeture complete, decalage compris */
+export const EXPLODE_TOTAL_MS = EXPLODE.ms + EXPLODE.staggerMs;
 
 const clamp01 = (v: number): number => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -35,14 +35,12 @@ export interface ExplodeLayers {
   pcb: Object3D;
   /** les composants du PCB (echelle verticale) */
   parts: Object3D;
-  socle: Object3D;
 }
 
 /** Progression (apres la courbe) de chaque couche et du cadrage, 0 ferme a 1 ouvert. */
 export interface ExplodeProgress {
   plateau: number;
   pcb: number;
-  socle: number;
   frame: number;
 }
 
@@ -51,8 +49,9 @@ export interface ExplodeInfo extends ExplodeProgress {
   /** vers ou va (ou est) la vue : true ouverte */
   open: boolean;
   plateauY: number;
+  plateauZ: number;
   tiltDeg: number;
-  socleY: number;
+  pcbY: number;
   partsScaleY: number;
   pcbVisible: boolean;
   /** animations terminees et duree mesuree de la derniere (ms, horloge des frames) */
@@ -60,8 +59,17 @@ export interface ExplodeInfo extends ExplodeProgress {
   lastMs: number;
 }
 
+/** Pose des couches pour les progressions (panneau, PCB) : la meme fonction pour l'animation et les tests. */
+export function applyLayers(layers: ExplodeLayers, plateau: number, pcb: number): void {
+  const { plateau: pg, pcb: cg, parts } = layers;
+  pg.position.set(0, LAYERS.plateauY + EXPLODE.lift * plateau, EXPLODE.slideZ * plateau);
+  pg.rotation.x = TILT + (EXPLODE.tiltOpenDeg * DEG - TILT) * plateau;
+  cg.position.y = LAYERS.pcbY + EXPLODE.pcbRise * pcb;
+  parts.scale.y = Math.max(EXPLODE.partsMin, pcb);
+}
+
 export class Explode {
-  readonly p: ExplodeProgress = { plateau: 0, pcb: 0, socle: 0, frame: 0 };
+  readonly p: ExplodeProgress = { plateau: 0, pcb: 0, frame: 0 };
   /** 1 ouverture, -1 fermeture, 0 au repos */
   private dir: -1 | 0 | 1 = 0;
   private t0 = 0;
@@ -101,13 +109,12 @@ export class Explode {
     const v = open ? 1 : 0;
     this.p.plateau = v;
     this.p.pcb = v;
-    this.p.socle = v;
     this.p.frame = v;
     this.layers.pcb.visible = open;
     this.apply();
   }
 
-  /** Progression d'une couche partie apres `delay` ms, t ms apres le depart (sans fermeture allouee par frame). */
+  /** Progression d'une couche partie apres `delay` ms, t ms apres le depart. */
   private k(t: number, delay: number): number {
     return easeInOutQuart(clamp01((t - delay) / EXPLODE.ms));
   }
@@ -121,14 +128,12 @@ export class Explode {
     if (this.dir === 1) {
       p.plateau = this.k(t, 0);
       p.pcb = this.k(t, s);
-      p.socle = this.k(t, 2 * s);
     } else {
-      p.socle = 1 - this.k(t, 0);
-      p.pcb = 1 - this.k(t, s);
-      p.plateau = 1 - this.k(t, 2 * s);
+      p.pcb = 1 - this.k(t, 0);
+      p.plateau = 1 - this.k(t, s);
     }
-    // Le cadrage tient la couche la plus ecartee (le plateau leve, en haut)
-    p.frame = Math.max(p.plateau, p.socle);
+    // Le cadrage tient la couche la plus ecartee (le panneau leve, en haut)
+    p.frame = Math.max(p.plateau, p.pcb);
     this.apply();
     if (t >= EXPLODE_TOTAL_MS) {
       this.dir = 0;
@@ -141,27 +146,22 @@ export class Explode {
   }
 
   private apply(): void {
-    const { plateau, parts, socle } = this.layers;
-    const p = this.p;
-    plateau.position.y = LAYERS.plateauY + EXPLODE.lift * p.plateau;
-    plateau.quaternion.setFromAxisAngle(AXIS, EXPLODE.tiltDeg * DEG * p.plateau);
-    parts.scale.y = Math.max(EXPLODE.partsMin, p.pcb);
-    socle.position.y = LAYERS.socleY - EXPLODE.drop * p.socle;
+    applyLayers(this.layers, this.p.plateau, this.p.pcb);
   }
 
   info(): ExplodeInfo {
     const r4 = (v: number): number => +v.toFixed(4);
-    const { plateau, pcb, parts, socle } = this.layers;
+    const { plateau, pcb, parts } = this.layers;
     return {
       plateau: r4(this.p.plateau),
       pcb: r4(this.p.pcb),
-      socle: r4(this.p.socle),
       frame: r4(this.p.frame),
       animating: this.animating,
       open: this.open,
       plateauY: r4(plateau.position.y),
-      tiltDeg: r4(EXPLODE.tiltDeg * this.p.plateau),
-      socleY: r4(socle.position.y),
+      plateauZ: r4(plateau.position.z),
+      tiltDeg: r4(plateau.rotation.x / DEG),
+      pcbY: r4(pcb.position.y),
       partsScaleY: r4(parts.scale.y),
       pcbVisible: pcb.visible,
       runs: this.runs,

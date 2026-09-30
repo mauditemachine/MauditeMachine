@@ -1,13 +1,19 @@
 /**
- * CONTACT (spec 11.1) : les deux contacts booking (BOOKING_CONTACTS de la
- * v2 : libelle, nom s'il y en a un, adresse en mailto), puis tous les
- * reseaux (SOCIALS) en grille compacte d'icones monochromes bone, jaunes au
- * survol et au focus.
+ * CONTACT (spec 11.1 et 20.4) : les deux contacts booking
+ * (BOOKING_CONTACTS de la v2 : libelle, nom s'il y en a un, adresse en
+ * mailto), puis les 15 reseaux de la revision 2 (data/socials.ts, dans
+ * l'ordre du brief), chacun avec sa vraie icone de marque (ui/icons.tsx)
+ * en grille qui se remplit toute seule : cases egales d'au moins 44 px,
+ * deux rangees sur desktop (8 + 7), trois sur telephone (5 + 5 + 5), jamais
+ * une icone seule sur sa rangee (v4.css). Icones bone, jaunes au survol et
+ * au focus ; chaque lien porte le nom du service et s'ouvre en nouvel
+ * onglet, sans opener ni referer.
  */
 
 import React from 'react';
 import { CONTACTS, SOCIALS } from '../../data';
-import { SocialIcon } from '../SocialIcon';
+import { ExternalLink } from '../ExternalLink';
+import { SOCIAL_ICONS } from '../icons';
 import { SectionFrame, tabOf, type SectionProps } from './common';
 
 export const Contact: React.FC<SectionProps> = ({ active, focusable }) => {
@@ -28,13 +34,16 @@ export const Contact: React.FC<SectionProps> = ({ active, focusable }) => {
         ))}
       </ul>
       <ul className="v4-socials" aria-label="Social links">
-        {SOCIALS.map((s) => (
-          <li key={s.label}>
-            <a className="v4-social" href={s.href} target="_blank" rel="noopener" aria-label={s.label} tabIndex={tab}>
-              <SocialIcon icon={s.icon} label={s.label} />
-            </a>
-          </li>
-        ))}
+        {SOCIALS.map((s) => {
+          const Icon = SOCIAL_ICONS[s.id];
+          return (
+            <li key={s.id}>
+              <ExternalLink className="v4-social" href={s.href} aria-label={s.label} tabIndex={tab} mark={false}>
+                <Icon />
+              </ExternalLink>
+            </li>
+          );
+        })}
       </ul>
     </SectionFrame>
   );

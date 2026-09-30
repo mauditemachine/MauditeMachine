@@ -6,25 +6,31 @@
  *   plus, defilement interne ; entree 220 ms apres le depart de la trace,
  *   sortie en fondu 150 ms ;
  * - mobile : feuille du bas (45 % de la hauteur) qui monte en 280 ms, avec
- *   une poignee, les onglets des cinq sections et le bouton de fermeture ;
+ *   une poignee, les onglets des sept pages (les pads TRACKS a SONAA) et le
+ *   bouton de fermeture ;
  *   glisser vers le bas (80 px ou geste vif) la ferme. La machine au-dessus
  *   reste visible et jouable.
- * Les six sections sont toujours rendues (texte dans le DOM des le
- * chargement, pour le referencement et les lecteurs d'ecran) : seule la
- * section ouverte est affichee, les autres sont masquees visuellement et
- * sortent de l'ordre de tabulation. Fermer : bouton x, Echap (useKeys),
- * le knob actif, le glisser de la feuille.
+ * Les neuf sections (les sept pages, LIVE et STUDIO, ouvertes par leurs
+ * puces) sont toujours rendues (texte dans le DOM des le chargement, pour
+ * le referencement et les lecteurs d'ecran) : seule la section ouverte est
+ * affichee, les autres sont masquees visuellement et sortent de l'ordre de
+ * tabulation. Fermer : bouton x, Echap (useKeys),
+ * le pad de la page ouverte, le glisser de la feuille.
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { closeSection, openSection } from '../actions';
 import { motion } from '../state/motion';
 import { section } from '../state/section';
-import { NAV_KNOBS, SHEET, type SectionId } from '../theme';
+import { PAGES, SHEET, type SectionId } from '../theme';
 import { Contact } from './sections/Contact';
+import { keepInRow } from './sections/common';
+import { Label } from './sections/Label';
+import { Live } from './sections/Live';
 import { Mixtapes } from './sections/Mixtapes';
 import { Press } from './sections/Press';
 import { Shows } from './sections/Shows';
+import { Sonaa } from './sections/Sonaa';
 import { Studio } from './sections/Studio';
 import { Tracks } from './sections/Tracks';
 
@@ -189,15 +195,18 @@ export const Panel: React.FC<Props> = ({ mobile, panelRef }) => {
       >
         <span className="v4-sheet-handle" aria-hidden="true" />
         <div className="v4-panel-bar">
-          {/* Pas de fondu aux bords (degrade sur du texte, brief) : l'onglet coupe suffit */}
-          <div ref={tabsRef} className="v4-tabs" role="group" aria-label="Choose a section">
-            {NAV_KNOBS.map((k) => (
+          {/* Pas de fondu aux bords (degrade sur du texte, brief) : l'onglet coupe suffit.
+              tabIndex -1 : Chrome rend focusable un conteneur qui defile sans
+              enfant focusable (feuille fermee) ; ses onglets portent le focus */}
+          <div ref={tabsRef} className="v4-tabs" role="group" aria-label="Choose a section" tabIndex={-1}>
+            {PAGES.map((k) => (
               <button
                 key={k.id}
                 type="button"
                 className="v4-tab"
                 aria-pressed={s === k.id}
                 tabIndex={tabs}
+                onFocus={keepInRow}
                 onClick={() => openSection(k.id)}
               >
                 {k.label}
@@ -216,12 +225,16 @@ export const Panel: React.FC<Props> = ({ mobile, panelRef }) => {
           </button>
         </div>
       </div>
-      <div ref={bodyRef} className="v4-panel-body">
+      {/* Ferme, le corps qui defile encore (section en fondu de sortie) n'entre pas dans la tabulation */}
+      <div ref={bodyRef} className="v4-panel-body" tabIndex={open ? undefined : -1}>
         <Tracks active={active === 'tracks'} focusable={s === 'tracks'} />
         <Mixtapes active={active === 'mixtapes'} focusable={s === 'mixtapes'} />
         <Press active={active === 'press'} focusable={s === 'press'} />
         <Shows active={active === 'shows'} focusable={s === 'shows'} />
         <Contact active={active === 'contact'} focusable={s === 'contact'} />
+        <Label active={active === 'label'} focusable={s === 'label'} />
+        <Sonaa active={active === 'sonaa'} focusable={s === 'sonaa'} />
+        <Live active={active === 'live'} focusable={s === 'live'} />
         <Studio active={active === 'studio'} focusable={s === 'studio'} />
       </div>
     </aside>

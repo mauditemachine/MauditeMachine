@@ -1,7 +1,9 @@
 /**
  * /v4 : MM-808, la machine isometrique de Maudite Machine. Montee hors
- * Layout comme /v2 et /v3 (chunk lazy, hors sitemap). La scene (corps a
- * deux tons, serigraphie, ombre, parallaxe, pads, sequenceur, knobs), le
+ * Layout comme /v2 et /v3 (chunk lazy, hors sitemap). La scene (revision
+ * 2 : la boite a rythmes noire en coin facon Elektron, ecran OLED, six
+ * encodeurs, 12 pads, 16 touches trig, sol et ombres ; la camera orbite,
+ * bouton RESET VIEW et data-v4-view), le
  * son (audio/drums.ts, contexte cree au premier geste seulement), le motif
  * (audio/pattern.ts), l'horloge (audio/clock.ts), la couche de saisie
  * (ui/Hotspots.tsx), le Dock du telephone (ui/Dock.tsx), les sections
@@ -30,7 +32,7 @@ import React, {
 import './v4.css';
 import { gesture } from './actions';
 import { clock } from './audio/clock';
-import { resume, suspend } from './audio/drums';
+import { quiet, resume, suspend } from './audio/drums';
 import { pattern } from './audio/pattern';
 import { sc } from './audio/soundcloud';
 import { installDebug, type DebugState } from './debug';
@@ -45,11 +47,13 @@ import { intro } from './state/intro';
 import { lcd } from './state/lcd';
 import { useReducedMotion } from './state/motion';
 import { section } from './state/section';
+import { view } from './state/view';
 import { COARSE_QUERY, COPY, HEX, MOBILE_QUERY } from './theme';
 import { Dock } from './ui/Dock';
 import { HitLayer, Twins } from './ui/Hotspots';
 import { Lcd } from './ui/Lcd';
 import { Panel } from './ui/Panel';
+import { ResetView } from './ui/ResetView';
 import { Trace } from './ui/Trace';
 
 const IS_DEV = import.meta.env.DEV;
@@ -90,8 +94,9 @@ class StageBoundary extends Component<BoundaryProps, { failed: boolean }> {
  * contexte audio, tout geste le relance s'il dort. pointerup et touchend
  * aussi : sur iOS et Android un doigt n'active l'audio qu'au relachement,
  * le premier coup (programme au pointerdown) part alors. Le premier geste
- * termine aussi l'intro (spec 7.4). Demontage : la lecture s'arrete, le
- * contexte dort, le motif en attente est ecrit.
+ * termine aussi l'intro (spec 7.4). Demontage : la lecture s'arrete, la
+ * queue de reverbe est jetee (quiet), le contexte dort, le motif en
+ * attente est ecrit.
  */
 function useAudioGestures(getStage: () => Stage | null): void {
   useEffect(() => {
@@ -110,6 +115,7 @@ function useAudioGestures(getStage: () => Stage | null): void {
       window.removeEventListener('pointerup', resume, opts);
       window.removeEventListener('touchend', resume, opts);
       clock.stop();
+      quiet();
       suspend();
       pattern.flush();
     };
@@ -179,6 +185,7 @@ const V4Shell: React.FC = () => {
   const scStatus = useSyncExternalStore(sc.subscribe, () => sc.get().status);
   const exploded = useSyncExternalStore(explode.subscribe, explode.get, explode.get);
   const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
+  const viewMoved = useSyncExternalStore(view.subscribe, view.get, view.get);
 
   const hostRef = useRef<HTMLDivElement>(null);
   const stageElRef = useRef<HTMLDivElement>(null);
@@ -280,6 +287,7 @@ const V4Shell: React.FC = () => {
       data-v4-section={openSection ?? ''}
       data-v4-sc={scStatus}
       data-v4-exploded={exploded}
+      data-v4-view={viewMoved ? 'moved' : 'default'}
     >
       {gl === 'webgl' && (
         <h1 className="v4-sr">
@@ -292,16 +300,18 @@ const V4Shell: React.FC = () => {
         </StageBoundary>
         {gl === 'webgl' && (
           <StageBoundary onError={onError}>
-            <HitLayer getStage={getStage} />
+            <HitLayer getStage={getStage} stage={stage} />
             <Twins stage={stage} />
           </StageBoundary>
         )}
       </div>
       {gl === 'webgl' && (
         <StageBoundary onError={onError}>
+          {/* Hors de .v4-stage : ses pointeurs n'atteignent jamais l'orbite */}
+          <ResetView getStage={getStage} />
           <Lcd />
           {/* Le Dock n'existe que sur la mise en page mobile : pas de rendu React par pas sur desktop */}
-          {mobile && <Dock />}
+          {mobile && <Dock getStage={getStage} />}
           <Trace stage={stage} panelRef={panelRef} mobile={mobile} />
           <Panel mobile={mobile} panelRef={panelRef} />
         </StageBoundary>

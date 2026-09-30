@@ -2,10 +2,12 @@
  * Horloge du sequenceur (spec 9) : ordonnancement par anticipation sur
  * l'horloge AUDIO. Un setInterval de 25 ms reveille l'ordonnanceur, qui
  * programme sur ctx.currentTime chaque pas tombant dans les 100 ms a venir.
- * La grille est exacte : nextTime += stepDur depuis une ancre, jamais une
- * mesure du temps ecoule, et un pas programme ne bouge plus. Le minuteur
- * ne donne jamais l'heure (pas de setTimeout seul) : un reveil en retard
- * programme plus pres de l'echeance, il ne decale rien.
+ * La grille est exacte : nextTime = ancre + n x stepDur, jamais une
+ * mesure du temps ecoule ni une somme de pas (revue de la revision 2 : la
+ * somme derivait de 1e-8 ms par minute, en flottants), et un pas programme
+ * ne bouge plus. Le minuteur ne donne jamais l'heure (pas de setTimeout
+ * seul) : un reveil en retard programme plus pres de l'echeance, il ne
+ * decale rien.
  *
  * Le rendu (LED, flash des pads, Dock) suit la position AUDIO avec
  * entryAt(ctx.currentTime), pas l'instant de programmation qui la precede
@@ -14,8 +16,16 @@
  * annule les coups deja programmes qui n'ont pas encore sonne : un RUN
  * juste apres ne les entend pas par-dessus son premier pas, et une piste
  * SoundCloud qui demarre n'a pas 100 ms de batterie sur ses premieres notes.
+ *
+ * SWING (revision 2, spec 20.8) : les pas pairs (2, 4 ... 16, index
+ * impairs) partent en retard de swing x un tiers de pas, sur le temps
+ * programme lui-meme (jamais un minuteur) ; la grille attendue du journal
+ * (expected) porte le meme retard, drift() se mesure donc contre la grille
+ * swinguee. La valeur est lue a chaque pas programme : un reglage s'entend
+ * au plus 100 ms plus tard (l'horizon), comme un changement de tempo.
  */
 
+import { SWING } from '../theme';
 import { cancelVoice, context, trigger, type Voice } from './drums';
 import { INSTRUMENTS, STEP_COUNT, pattern } from './pattern';
 
@@ -40,14 +50,16 @@ export interface StepEvent {
   seq: number;
   /** 0 a 15 */
   step: number;
-  /** instant programme, temps du contexte (la grille) */
+  /** instant programme, temps du contexte (la grille, swing compris) */
   when: number;
-  /** grille ideale : ancre + n x duree du pas */
+  /** grille ideale : ancre + n x duree du pas + retard du swing */
   expected: number;
   /** ctx.currentTime au moment de la programmation */
   at: number;
   /** instruments joues : bit k = INSTRUMENTS[k] */
   mask: number;
+  /** retard du swing (s) : 0 sur les pas impairs (1, 3 ... 15) */
+  off: number;
 }
 
 export interface Drift {
@@ -133,7 +145,7 @@ function recent(i: number): StepEvent | undefined {
 }
 
 /** Programme un pas : les voix a `when`, l'entree du journal, les ecouteurs. */
-function schedule(s: number, when: number, expected: number, now: number): void {
+function schedule(s: number, when: number, expected: number, now: number, off: number): void {
   const steps = pattern.get().steps;
   let mask = 0;
   for (let k = 0; k < INSTRUMENTS.length; k += 1) {
@@ -144,7 +156,7 @@ function schedule(s: number, when: number, expected: number, now: number): void 
       trigger(inst, when, false, pending);
     }
   }
-  const e: StepEvent = { seq, step: s, when, expected, at: now, mask };
+  const e: StepEvent = { seq, step: s, when, expected, at: now, mask, off };
   seq += 1;
   push(e);
   const drift = Math.abs(when - expected);
@@ -190,10 +202,15 @@ function tick(): void {
       n = 0;
     }
     if (nextTime < now - DROP_AFTER_S) stats.dropped += 1;
-    else schedule(step, nextTime, anchor + n * stepDur, now);
-    nextTime += stepDur;
-    step = (step + 1) % STEP_COUNT;
+    else {
+      // SWING : un pas pair (index impair) part plus tard, jamais au-dela d'un tiers de pas
+      const off = (step & 1) === 1 ? pattern.fx.get().swing * SWING.maxDelay * stepDur : 0;
+      schedule(step, nextTime + off, anchor + n * stepDur + off, now, off);
+    }
+    // Depuis l'ancre, pas par addition : aucune erreur qui s'accumule
     n += 1;
+    nextTime = anchor + n * stepDur;
+    step = (step + 1) % STEP_COUNT;
   }
 }
 

@@ -12,7 +12,24 @@
  * l'ecran : redessins, plus petit ecart), pcb (pistes, pastilles,
  * composants), twins (jumeaux montes : liens, cibles), openToggle().
  * Stage 6 : state.intro (store de l'intro), twins pour les 34 objets
- * (role, aria-pressed / expanded / valuenow). Lire l'etat ici, jamais par
+ * (role, aria-pressed / expanded / valuenow). Revision 2, etape 1 (spec
+ * 20.11) : orbit (azimut, elevation, zoom, moving, dragging, target,
+ * reset(), set(), lastTap, lastUp, bgResets), stats.maxDrawCalls /
+ * maxTriangles / shadowUpdates / reset(), state.view, trace.anchor /
+ * visible / fades, measure().orbit / shadow ; plus de parallaxe.
+ * Revision 2, etape 2 (le corps Rytm) : encoders (remplace knobs), pads
+ * (12, page active, OPEN), seq sans knobLeds, state.lcd sur trois lignes,
+ * hotspots (39), twins (36 fermee, 39 ouverte), measure().fit (emprise de
+ * la machine pour caler le cadrage), explode (panneau, PCB). Revision 2,
+ * etape 3 (SWING, DIST, REVERB) : audio.fx (branches, reponse de la
+ * reverbe), audio.setSwing / setDrive / setReverb, pattern.fx (le store),
+ * clock.scheduled[].off (retard du swing), state.pattern.fx (la forme
+ * stockee). Revision 2, etape 4 (icones, LABEL, LIVE, SONAA) : pcb.lit et
+ * pcb.litDraws (puce LABEL allumee au survol ou au focus), twins.controls
+ * (aria-controls des puces LIVE et STUDIO), state.section 'live'. Revue
+ * de la revision 2 : orbit.lastTap.quick (moins de 400 ms : la double tape
+ * du fond), audio.fx apres le demontage (reverbOn false : la queue est
+ * jetee), state type (V4DebugState). Lire l'etat ici, jamais par
  * console.log : index.html filtre la console.
  */
 
@@ -23,7 +40,7 @@ import { pattern, type StoredPattern } from './audio/pattern';
 import { scDebug, type ScDebug, type ScState } from './audio/soundcloud';
 import type { ExplodeInfo } from './scene/explode';
 import type { HotspotView } from './scene/hit';
-import type { KnobsInfo } from './scene/knobs';
+import type { EncodersInfo } from './scene/encoders';
 import type { PadsInfo } from './scene/pads';
 import type { PcbInfo } from './scene/pcb';
 import type { Stage, StageMeasure, StageStats } from './scene/renderer';
@@ -36,7 +53,9 @@ import { lcd, type LcdState } from './state/lcd';
 import { lcdMessage } from './state/lcdMessage';
 import { playhead } from './state/playhead';
 import { section } from './state/section';
+import { view } from './state/view';
 import type { Inst, SectionId } from './theme';
+import { hitDebug } from './ui/Hotspots';
 import { traceDebug, type TraceDebug } from './ui/Trace';
 
 export interface DebugState {
@@ -66,10 +85,33 @@ export interface V4DebugState extends DebugState {
   section: SectionId | null;
   /** lecture SoundCloud vue par le pont : statut, piste, position (s) */
   sc: ScState & { position: number };
-  /** les deux lignes de l'ecran telles qu'affichees */
-  lcd: [string, string];
+  /** les trois lignes de l'ecran telles qu'affichees */
+  lcd: [string, string, string];
   /** vue eclatee : closed, opening, open, closing */
   exploded: ExplodeState;
+  /** orbite : a la vue par defaut, ou deplacee (RESET VIEW visible) */
+  view: 'default' | 'moved';
+}
+
+/** L'orbite (revision 2) : lecture en degres, commandes de test. */
+export interface OrbitDebug {
+  /** deg, 0 a 360 */
+  azimuth: number;
+  /** deg, 18 a 78 */
+  elevation: number;
+  zoom: number;
+  moving: boolean;
+  dragging: boolean;
+  target: { x: number; y: number; z: number };
+  /** derniere tape jugee : ecart (px), duree (ms), tape ou non, en moins de 400 ms */
+  lastTap: { dist: number; ms: number; fired: boolean; quick: boolean };
+  /** dernier relachement vu par la couche de saisie : objet, tape, objet parti, fond */
+  lastUp: { id: string | null; tap: boolean; fired: string | null; bg: boolean };
+  /** retours a la vue par defaut par double tape du fond */
+  bgResets: number;
+  reset: () => void;
+  /** une vue en degres ; instant = posee tout de suite */
+  set: (azDeg: number, elDeg: number, zoom?: number, instant?: boolean) => void;
 }
 
 /** Un jumeau HTML monte (spec 6.3). */
@@ -83,6 +125,7 @@ export interface TwinInfo {
   rel: string | null;
   pressed: string | null;
   expanded: string | null;
+  controls: string | null;
   valueNow: string | null;
   tabIndex: number;
   /** rectangle en px CSS de la fenetre */
@@ -96,6 +139,8 @@ export interface V4Debug {
   version: 'v4';
   readonly stats: StageStats;
   readonly state: V4DebugState;
+  /** l'orbite de la camera (null sans Stage) */
+  readonly orbit: OrbitDebug | null;
   readonly audio: AudioDebug;
   /** horloge : scheduled (64 derniers pas), drift(), resetStats() */
   readonly clock: ClockDebug;
@@ -104,8 +149,8 @@ export interface V4Debug {
   readonly pads: PadsInfo | null;
   /** LED des pas (couleurs), RUN, tete de lecture, survol */
   readonly seq: SequencerInfo | null;
-  /** les huit knobs : angles (deg), soulevement, lisere */
-  readonly knobs: KnobsInfo | null;
+  /** les six encodeurs : angles (deg), valeurs (0 a 1) */
+  readonly encoders: EncodersInfo | null;
   /** pont SoundCloud : etat, compteurs, simulate() ; mock : ?v4mock actif (DEV) */
   readonly sc: ScDebug;
   /** l'etat complet de l'ecran (parties gauche et droite, mises a jour) */
@@ -138,7 +183,21 @@ export interface V4Debug {
   measure: () => StageMeasure | null;
 }
 
-const NO_STATS: StageStats = { frames: 0, rafs: 0, drawCalls: 0, triangles: 0, lastRenderAt: 0, loopActive: false, dpr: 0 };
+const NO_STATS: StageStats = {
+  frames: 0,
+  rafs: 0,
+  drawCalls: 0,
+  triangles: 0,
+  maxDrawCalls: 0,
+  maxTriangles: 0,
+  shadowUpdates: 0,
+  lastRenderAt: 0,
+  loopActive: false,
+  dpr: 0,
+  reset: () => undefined,
+};
+const DEGR = 180 / Math.PI;
+const r3 = (v: number): number => Math.round(v * 1000) / 1000;
 
 /** Installe window.__v4 ; renvoie la fonction qui le retire (demontage). */
 export function installDebug(src: DebugSource): () => void {
@@ -147,7 +206,7 @@ export function installDebug(src: DebugSource): () => void {
     get stats() {
       return src.stage()?.stats ?? NO_STATS;
     },
-    get state() {
+    get state(): V4DebugState {
       const p = pattern.get();
       return {
         ...src.state(),
@@ -160,8 +219,27 @@ export function installDebug(src: DebugSource): () => void {
         lcdMessage: lcdMessage.get()?.text ?? null,
         section: section.get(),
         sc: scDebug.state,
-        lcd: [...lcd.get().text] as [string, string],
+        lcd: [...lcd.get().text] as [string, string, string],
         exploded: explode.get(),
+        view: view.get() ? 'moved' : 'default',
+      };
+    },
+    get orbit() {
+      const st = src.stage();
+      if (!st) return null;
+      const o = st.orbit;
+      return {
+        azimuth: r3(o.azimuth * DEGR),
+        elevation: r3(o.elevation * DEGR),
+        zoom: r3(o.zoom),
+        moving: o.moving,
+        dragging: o.dragging,
+        target: { x: r3(o.target.x), y: r3(o.target.y), z: r3(o.target.z) },
+        lastTap: { ...o.lastTap },
+        lastUp: { ...hitDebug.lastUp },
+        bgResets: hitDebug.bgResets,
+        reset: () => o.reset(),
+        set: (azDeg: number, elDeg: number, zoom = o.zoom, instant = false) => o.set(azDeg, elDeg, zoom, instant),
       };
     },
     audio: audioDebug,
@@ -173,8 +251,8 @@ export function installDebug(src: DebugSource): () => void {
     get seq() {
       return src.stage()?.seq.info() ?? null;
     },
-    get knobs() {
-      return src.stage()?.knobs.info() ?? null;
+    get encoders() {
+      return src.stage()?.encoders.info() ?? null;
     },
     sc: scDebug,
     get lcd() {
@@ -189,7 +267,7 @@ export function installDebug(src: DebugSource): () => void {
     openToggle: () => openToggle(),
     get screen() {
       const st = src.stage();
-      return st ? { ...st.screen.info, text: [...st.screen.info.text] as [string, string] } : null;
+      return st ? { ...st.screen.info, text: [...st.screen.info.text] as [string, string, string] } : null;
     },
     get pcb() {
       return src.stage()?.pcb.info() ?? null;
@@ -207,6 +285,7 @@ export function installDebug(src: DebugSource): () => void {
           rel: el.getAttribute('rel'),
           pressed: el.getAttribute('aria-pressed'),
           expanded: el.getAttribute('aria-expanded'),
+          controls: el.getAttribute('aria-controls'),
           valueNow: el.getAttribute('aria-valuenow'),
           tabIndex: el.tabIndex,
           x: +r.left.toFixed(1),

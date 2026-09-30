@@ -2,18 +2,24 @@
  * Boite a rythmes synthetisee (spec 8) : quatre voix Web Audio, aucun
  * fichier. Un seul AudioContext pour la page, cree au premier geste de
  * l'utilisateur (jamais au montage, jamais par un timer) et repris a
- * chaque interaction s'il est suspendu (regle iOS). Graphe :
+ * chaque interaction s'il est suspendu (regle iOS). Graphe (revision 2 :
+ * DIST et REVERB, audio/fx.ts) :
  *
- *   voix -> bus -> passe-bas (TONE) -> gain (LEVEL) -> compresseur leger
- *        -> analyseur -> master -> destination
+ *   voix -> bus -> [sec + DIST] -> passe-bas (TONE) -> gain (LEVEL)
+ *        -> compresseur leger -> analyseur -> master -> destination
+ *   LEVEL -> envoi REVERB -> convolueur -> analyseur
  *
  * L'analyseur est AVANT le master : avec ?mute=1 le master reste a 0 pour
  * toute la session (LEVEL ne pilote que son propre gain) et le signal
- * reste mesurable sans rien envoyer aux enceintes.
+ * reste mesurable sans rien envoyer aux enceintes. SWING, DIST et REVERB
+ * vivent dans le store du motif (pattern.fx, persistes avec lui) : ce
+ * module les applique au graphe, l'horloge lit SWING a chaque pas.
  */
 
 import { FLAGS } from '../state/flags';
 import type { Inst } from '../theme';
+import { buildFx, glide, type FxChain, type FxInfo } from './fx';
+import { pattern } from './pattern';
 
 type Ctor = typeof AudioContext;
 
@@ -25,6 +31,8 @@ interface Graph {
   comp: DynamicsCompressorNode;
   analyser: AnalyserNode;
   master: GainNode;
+  /** DIST et REVERB */
+  fx: FxChain;
   /** une seconde de bruit blanc, generee une fois, partagee par SD et CH */
   noise: AudioBuffer;
   /** drive du BD : tanh(2.5 x) sur 1024 points */
@@ -55,8 +63,6 @@ export interface Voice {
 const TAIL = { BD: 0.42, SD: 0.18, SDbody: 0.12, TOM: 0.3, CH: 0.045, CHopen: 0.22 } as const;
 /** Les sources s'arretent 50 ms apres la fin de leur enveloppe. */
 const STOP_PAD = 0.05;
-/** TONE et LEVEL rejoignent leur valeur en 20 ms (pas de marches audibles) */
-const GLIDE_S = 0.02;
 
 let ctx: AudioContext | undefined;
 let graph: Graph | undefined;
@@ -102,12 +108,14 @@ function build(c: AudioContext): Graph {
   // Mute : 0 AVANT tout branchement, jamais d'automation sur ce gain
   master.gain.value = FLAGS.mute ? 0 : 1;
 
-  bus.connect(toneF);
+  // Le bus rejoint TONE par DIST (sec, et mouille si DIST > 0)
   toneF.connect(lvl);
   lvl.connect(comp);
   comp.connect(analyser);
   analyser.connect(master);
   master.connect(c.destination);
+  const f = pattern.fx.get();
+  const fx = buildFx(c, { bus, tone: toneF, level: lvl, out: analyser }, f.drive, f.reverb);
 
   const noise = c.createBuffer(1, Math.round(c.sampleRate), c.sampleRate);
   const d = noise.getChannelData(0);
@@ -116,7 +124,7 @@ function build(c: AudioContext): Graph {
   const curve = new Float32Array(1024);
   for (let i = 0; i < curve.length; i += 1) curve[i] = Math.tanh(2.5 * ((i / (curve.length - 1)) * 2 - 1));
 
-  return { ctx: c, bus, tone: toneF, level: lvl, comp, analyser, master, noise, curve };
+  return { ctx: c, bus, tone: toneF, level: lvl, comp, analyser, master, fx, noise, curve };
 }
 
 /** ?mute=1 vu une fois = master a 0 pour toute la page, meme sur un contexte cree avant. */
@@ -138,6 +146,8 @@ function enforceMute(g: Graph): void {
 export function ensure(): AudioContext | undefined {
   if (ctx && graph) {
     enforceMute(graph);
+    // Apres quiet() (demontage) : la reverbe du store revient, convolueur neuf
+    graph.fx.setReverb(pattern.fx.get().reverb);
     return ctx;
   }
   const C = getCtor();
@@ -167,6 +177,15 @@ export function resume(): void {
   want = 'running';
   if (!ctx || (ctx.state as string) === 'closed') return;
   ctx.resume().catch(() => undefined);
+}
+
+/**
+ * Demontage de /v4, avant suspend() : la queue de reverbe en cours est
+ * jetee (un convolueur gele la rejouerait au retour). Les voix deja
+ * parties gardent leur fin (0.47 s au plus), comme en revision 1.
+ */
+export function quiet(): void {
+  graph?.fx.silence();
 }
 
 /** Onglet cache, canvas hors ecran, demontage : le contexte dort, on le garde. */
@@ -347,25 +366,26 @@ export function cancelVoice(v: Voice): void {
   for (const n of v.nodes) n.disconnect();
 }
 
-/* ---------------- TONE et LEVEL (spec 7.2) ---------------- */
+/* ---------------- TONE, LEVEL (spec 7.2), SWING, DIST, REVERB (spec 20.8) ---------------- */
 
 const mixListeners = new Set<() => void>();
 const emitMix = (): void => mixListeners.forEach((fn) => fn());
 
-/**
- * Rampe lineaire de 20 ms depuis une valeur posee a l'instant present.
- * Pas setTargetAtTime : Chrome calcule cette approche pas a pas sur les
- * blocs REELLEMENT rendus, et un noeud au repos (bus muet entre deux coups)
- * n'en rend aucun ; le premier coup apres un reglage partait alors avec
- * l'ancienne valeur (mesure a l'analyseur : CH plein pot juste apres TONE
- * a 0). Une rampe se calcule depuis ses deux points, rendu ou non.
+/*
+ * SWING, DIST, REVERB : le store du motif les garde (et les persiste) ;
+ * tout changement, d'ou qu'il vienne (encodeur, jumeau, rechargement,
+ * test), passe par ici : DIST et REVERB rejoignent le graphe s'il existe
+ * (rampes de 20 ms), les encodeurs et leurs jumeaux se mettent a jour.
+ * Sans contexte, les valeurs attendent le graphe (build() les lit).
  */
-function glide(p: AudioParam, target: number, c: AudioContext): void {
-  const now = c.currentTime;
-  p.cancelScheduledValues(now);
-  p.setValueAtTime(p.value, now);
-  p.linearRampToValueAtTime(target, now + GLIDE_S);
-}
+pattern.fx.subscribe(() => {
+  if (graph) {
+    const f = pattern.fx.get();
+    graph.fx.setDrive(f.drive);
+    graph.fx.setReverb(f.reverb);
+  }
+  emitMix();
+});
 
 /** Passe-bas du bus : 0 a 1 (300 Hz a 18 kHz). Sans contexte, la valeur attend le graphe. */
 export function setTone(v: number): void {
@@ -385,13 +405,37 @@ export function setLevel(v: number): void {
   emitMix();
 }
 
-/** Les deux potards, lus par la scene (angles) et les commandes (glisser). */
+/** SWING : 0 a 1, retard des pas pairs de 0 a un tiers de pas (l'horloge le lit a chaque pas). */
+export function setSwing(v: number): void {
+  pattern.fx.set({ swing: v });
+}
+
+/** DIST : 0 a 1 (saturation parallele du bus, 0 = le son d'origine). */
+export function setDrive(v: number): void {
+  pattern.fx.set({ drive: v });
+}
+
+/** REVERB : 0 a 1 (envoi vers la reverbe, 0 = rien d'envoye). */
+export function setReverb(v: number): void {
+  pattern.fx.set({ reverb: v });
+}
+
+/** Les potards du bus, lus par la scene (angles) et les commandes (glisser). */
 export const mix = {
   get tone(): number {
     return tone;
   },
   get level(): number {
     return level;
+  },
+  get swing(): number {
+    return pattern.fx.get().swing;
+  },
+  get drive(): number {
+    return pattern.fx.get().drive;
+  },
+  get reverb(): number {
+    return pattern.fx.get().reverb;
   },
   subscribe(fn: () => void): () => void {
     mixListeners.add(fn);
@@ -413,6 +457,12 @@ export interface AudioDebug {
   readonly muted: boolean;
   readonly tone: number;
   readonly level: number;
+  /** SWING, DIST, REVERB (0 a 1), les valeurs du store du motif */
+  readonly swing: number;
+  readonly drive: number;
+  readonly reverb: number;
+  /** DIST et REVERB tels qu'appliques au graphe (null avant le premier geste) */
+  readonly fx: FxInfo | null;
   /**
    * valeurs du dernier bloc rendu : coupure du passe-bas (Hz), gain LEVEL
    * (level au carre) ; en retard tant que le bus est muet (rien a rendre)
@@ -427,6 +477,9 @@ export interface AudioDebug {
   peak(): number;
   setTone(v: number): void;
   setLevel(v: number): void;
+  setSwing(v: number): void;
+  setDrive(v: number): void;
+  setReverb(v: number): void;
 }
 
 export const audioDebug: AudioDebug = {
@@ -447,6 +500,18 @@ export const audioDebug: AudioDebug = {
   },
   get level() {
     return level;
+  },
+  get swing() {
+    return mix.swing;
+  },
+  get drive() {
+    return mix.drive;
+  },
+  get reverb() {
+    return mix.reverb;
+  },
+  get fx() {
+    return graph ? graph.fx.info() : null;
   },
   get toneHz() {
     return graph?.tone.frequency.value;
@@ -475,4 +540,7 @@ export const audioDebug: AudioDebug = {
   },
   setTone,
   setLevel,
+  setSwing,
+  setDrive,
+  setReverb,
 };

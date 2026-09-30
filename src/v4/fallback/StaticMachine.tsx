@@ -1,106 +1,90 @@
 /**
- * La MM-808 en SVG statique (spec 11.5), pour la page de repli : meme
- * camera que la scene (orthographique, (12, 10, 12) vers l'origine), meme
- * formule de projection (spec 0), dessinee depuis les constantes de
- * theme.ts. Socle et plateau a chanfrein, les quatre pads, les 16 pas et
- * leurs LED (le motif par defaut), RUN, CLEAR, OPEN dans son cadre jaune,
- * les huit knobs (liseres jaunes pour la navigation), l'ecran, la
- * serigraphie en bone 70 %. Aucune animation ; calcule une fois au
- * chargement du module.
+ * La MM-808 en SVG statique (spec 11.5 et 20.10), pour la page de repli :
+ * la machine de la revision 2 vue comme la scene a sa vue par defaut
+ * (orthographique, azimut 45, elevation 38), dessinee depuis les
+ * constantes de theme.ts. Le chassis en coin (faces avant et droite, leurs
+ * chanfreins), le panneau incline (tranche et dessus), la serigraphie,
+ * l'ecran OLED (MM-808, le tempo, READY), les 16 LED (le motif par defaut),
+ * puis les volumes du plus lointain au plus proche : les six encodeurs, les
+ * 12 pads (les pages en jaune faible), RUN, CLEAR, les 16 touches trig.
+ * Aucune animation ; calcule une fois au chargement du module.
  */
 
 import React from 'react';
 import { BPM, DEFAULT_STEPS, INSTRUMENTS } from '../audio/pattern';
 import {
-  AUDIO_KNOBS,
-  CAMERA,
+  BODY,
+  ENCODER,
+  ENCODERS,
   HEX,
-  KNOB,
-  LAYERS,
-  LCD,
-  LCD_BEZEL,
-  NAV_KNOBS,
-  NAV_ROW,
-  OPEN_FRAME,
-  OPEN_LABEL,
+  KEYS,
+  OLED,
+  ORBIT,
   PAD,
   PADS,
-  PLATE,
+  PANEL,
+  PANEL_D,
+  PANEL_TOP_Y,
   SILK,
-  SILK_RULES,
+  SILK_LINES,
   SILK_TEXTS,
-  SOCLE,
-  STEPS,
   TEMPO_UI,
+  TILT,
   TRANSPORT,
-  stepX,
-  type BodySpec,
+  chassisTopY,
+  encX,
+  keyX,
   type SilkText,
 } from '../theme';
 
-/* ---------- projection (spec 0) ---------- */
+/* ---------- projection : la vue par defaut de l'orbite ---------- */
 
-// Base de la camera : droite R = normalize(up x Z), haut U = Z x R
-const CL = Math.hypot(CAMERA.x, CAMERA.y, CAMERA.z);
-const ZX = CAMERA.x / CL;
-const ZY = CAMERA.y / CL;
-const ZZ = CAMERA.z / CL;
-const RL = Math.hypot(ZZ, ZX);
-const RX = ZZ / RL;
-const RZ = -ZX / RL;
-const UX = ZY * RZ;
-const UY = ZZ * RX - ZX * RZ;
-const UZ = -ZY * RX;
-
+type V3 = [number, number, number];
 type V2 = [number, number];
 
+const DEG = Math.PI / 180;
+const AZ = ORBIT.azDeg * DEG;
+const EL = ORBIT.elDeg * DEG;
+// Vers la camera Z, droite R = normalize(haut x Z), haut U = Z x R
+const Z: V3 = [Math.cos(EL) * Math.sin(AZ), Math.sin(EL), Math.cos(EL) * Math.cos(AZ)];
+const RL = Math.hypot(Z[2], Z[0]);
+const R: V3 = [Z[2] / RL, 0, -Z[0] / RL];
+const U: V3 = [Z[1] * R[2] - Z[2] * R[1], Z[2] * R[0] - Z[0] * R[2], Z[0] * R[1] - Z[1] * R[0]];
+const dot = (a: V3, b: V3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+
 /** Point du monde -> ecran brut (unites, y vers le bas). */
-const raw = (x: number, y: number, z: number): V2 => [RX * x + RZ * z, -(UX * x + UY * y + UZ * z)];
+const raw = (p: V3): V2 => [dot(R, p), -dot(U, p)];
+
+const COS = Math.cos(TILT);
+const SIN = Math.sin(TILT);
+/** Point du repere panneau (x, y, z) -> monde (machine fermee). */
+const panel = (x: number, y: number, z: number): V3 => [x, PANEL_TOP_Y + y * COS - z * SIN, y * SIN + z * COS];
 
 /* ---------- cadrage dans le viewBox ---------- */
 
 const VB_W = 800;
 const VB_H = 480;
 const PAD_PX = 20;
-const TOP_Y = LAYERS.plateauY;
+const HX = BODY.w / 2;
+const HZ = BODY.d / 2;
+const PZ = PANEL_D / 2;
 
-/** Contour d'un rectangle a coins arrondis (x, z), 6 facettes par coin. */
-function outline(w: number, d: number, r: number, cx = 0, cz = 0): [number, number][] {
-  const out: [number, number][] = [];
-  const corners: [number, number, number][] = [
-    [cx + w / 2 - r, cz + d / 2 - r, 0],
-    [cx - w / 2 + r, cz + d / 2 - r, 90],
-    [cx - w / 2 + r, cz - d / 2 + r, 180],
-    [cx + w / 2 - r, cz - d / 2 + r, 270],
-  ];
-  for (const [ox, oz, a0] of corners) {
-    for (let k = 0; k <= 6; k += 1) {
-      const a = ((a0 + (k * 90) / 6) * Math.PI) / 180;
-      out.push([ox + r * Math.cos(a), oz + r * Math.sin(a)]);
-    }
-  }
-  return out;
-}
-
-const socleOuter = outline(SOCLE.shapeW + 2 * SOCLE.bevelSize, SOCLE.shapeD + 2 * SOCLE.bevelSize, SOCLE.radius + SOCLE.bevelSize);
-const socleInner = outline(SOCLE.shapeW, SOCLE.shapeD, SOCLE.radius);
-const plateOuter = outline(PLATE.shapeW + 2 * PLATE.bevelSize, PLATE.shapeD + 2 * PLATE.bevelSize, PLATE.radius + PLATE.bevelSize);
-const plateInner = outline(PLATE.shapeW, PLATE.shapeD, PLATE.radius);
-
-// Boite englobante : le socle au sol, le dessus des knobs
 const bounds = (() => {
   let x0 = Infinity;
   let x1 = -Infinity;
   let y0 = Infinity;
   let y1 = -Infinity;
-  const add = ([x, y]: V2): void => {
+  const add = (p: V3): void => {
+    const [x, y] = raw(p);
     x0 = Math.min(x0, x);
     x1 = Math.max(x1, x);
     y0 = Math.min(y0, y);
     y1 = Math.max(y1, y);
   };
-  for (const [x, z] of socleOuter) add(raw(x, 0, z));
-  for (const [x, z] of plateOuter) add(raw(x, TOP_Y + KNOB.h + KNOB.capH, z));
+  for (const x of [-HX, HX]) {
+    for (const z of [-HZ, HZ]) add([x, 0, z]);
+    for (const z of [-PZ, PZ]) add(panel(x, ENCODER.h, z));
+  }
   return { x0, x1, y0, y1 };
 })();
 
@@ -111,303 +95,265 @@ const OY = (VB_H - (bounds.y1 - bounds.y0) * S) / 2 - bounds.y0 * S;
 const r1 = (n: number): number => Math.round(n * 10) / 10;
 
 /** Point du monde -> px du viewBox. */
-const P = (x: number, y: number, z: number): V2 => {
-  const [a, b] = raw(x, y, z);
+const P = (p: V3): V2 => {
+  const [a, b] = raw(p);
   return [r1(a * S + OX), r1(b * S + OY)];
 };
 
-/** Transformation SVG d'un plan horizontal a la hauteur y : (x, z) du plan -> viewBox. */
-const plane = (y: number): string =>
-  `matrix(${(RX * S).toFixed(4)} ${(-UX * S).toFixed(4)} ${(RZ * S).toFixed(4)} ${(-UZ * S).toFixed(4)} ${OX.toFixed(2)} ${(OY - UY * y * S).toFixed(2)})`;
-
-/* ---------- formes ---------- */
-
-/** Enveloppe convexe (chaine monotone d'Andrew). */
-function hull(pts: V2[]): V2[] {
-  const p = [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-  const cross = (o: V2, a: V2, b: V2): number => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
-  const lower: V2[] = [];
-  for (const q of p) {
-    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], q) <= 0) lower.pop();
-    lower.push(q);
-  }
-  const upper: V2[] = [];
-  for (let i = p.length - 1; i >= 0; i -= 1) {
-    const q = p[i];
-    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], q) <= 0) upper.pop();
-    upper.push(q);
-  }
-  lower.pop();
-  upper.pop();
-  return lower.concat(upper);
-}
-
 const pathOf = (pts: V2[]): string => `M${pts.map(([x, y]) => `${x} ${y}`).join('L')}Z`;
 
-/** Contour (x, z) projete a la hauteur y. */
-const at = (o: [number, number][], y: number): V2[] => o.map(([x, z]) => P(x, y, z));
+/** Polyligne [x0, z0, x1, z1, ...] du plan du panneau. */
+const polyline = (l: readonly number[]): string => {
+  let d = '';
+  for (let j = 0; j < l.length; j += 2) d += `${j === 0 ? 'M' : 'L'}${l[j]} ${l[j + 1]}`;
+  return d;
+};
+const poly = (pts: V3[]): string => pathOf(pts.map(P));
 
-/** Prisme d'un contour entre plusieurs hauteurs : sa silhouette. */
-const prism = (layers: [[number, number][], number][]): string => pathOf(hull(layers.flatMap(([o, y]) => at(o, y))));
-
-/** Cylindre vertical : flanc (silhouette) et dessus (ellipse). */
-function cylinder(key: string, x: number, z: number, r: number, y0: number, h: number, side: string, top: string): React.ReactNode[] {
-  const [bx, by] = P(x, y0, z);
-  const [tx, ty] = P(x, y0 + h, z);
-  const rx = r1(r * S);
-  const ry = r1(r * Math.hypot(UX, UZ) * S);
-  return [
-    <path key={`${key}-s`} d={`M${bx - rx} ${ty}L${bx - rx} ${by}A${rx} ${ry} 0 0 0 ${bx + rx} ${by}L${bx + rx} ${ty}Z`} fill={side} />,
-    <ellipse key={`${key}-t`} cx={tx} cy={ty} rx={rx} ry={ry} fill={top} />,
-  ];
+/**
+ * Transformation SVG du plan du panneau a la hauteur locale y : (x, z) du
+ * panneau -> viewBox (application affine).
+ */
+function planeAt(y: number): string {
+  const o = P(panel(0, y, 0));
+  const ex = raw(panel(1, y, 0));
+  const ez = raw(panel(0, y, 1));
+  const e0 = raw(panel(0, y, 0));
+  const a = (ex[0] - e0[0]) * S;
+  const b = (ex[1] - e0[1]) * S;
+  const c = (ez[0] - e0[0]) * S;
+  const d = (ez[1] - e0[1]) * S;
+  return `matrix(${a.toFixed(4)} ${b.toFixed(4)} ${c.toFixed(4)} ${d.toFixed(4)} ${o[0]} ${o[1]})`;
 }
 
 /* ---------- couleurs affichees (celles que la scene rend) ---------- */
 
 const C = {
-  socleSide: '#060607',
-  plateSide: '#0e0e10',
-  padSideX: '#19191c',
-  padSideZ: '#121215',
-  stepSide: '#2a2928',
+  bodyFront: '#0b0b0d',
+  bodyRight: '#101013',
+  bodyEdge: HEX.bodyEdge,
+  panelFront: '#0e0e10',
+  panelRight: '#131316',
+  panelEdge: '#2c2d31',
+  padSide: '#0c0c0e',
+  pageTop: '#332c17',
+  pageSide: '#241f12',
+  keySide: '#141518',
   runSide: '#7d2a1d',
-  darkSide: '#111113',
-  darkTop: '#1d1c1d',
-  knobSide: '#151518',
-  cap: '#918e8a',
-  bone70: 'rgba(246, 241, 231, 0.7)',
+  clearSide: '#121215',
+  encSide: '#0b0b0c',
+  bone85: 'rgba(246, 241, 231, 0.85)',
 } as const;
 
 /* ---------- serigraphie : corps ajuste comme la texture (silk.ts) ---------- */
 
-/** Avance moyenne d'une capitale SF Pro Display 700, en em (estimation). */
-const ADVANCE_EM = 0.62;
+/** Avance moyenne d'une capitale SF Pro Display 500, en em (estimation). */
+const ADVANCE_EM = 0.6;
 const textW = (t: SilkText, cap: number): number => (cap / SILK.capRatio) * (t.text.length * ADVANCE_EM + (t.text.length - 1) * SILK.tracking);
-
-const OPEN_TEXT: SilkText = { ...OPEN_LABEL, text: 'OPEN' };
-const SILK_ALL: SilkText[] = [...SILK_TEXTS, OPEN_TEXT];
 const silkCaps = (() => {
-  const fit = SILK_ALL.map((t) => (t.maxW && textW(t, t.cap) > t.maxW ? t.maxW / textW(t, t.cap) : 1));
+  const fit = SILK_TEXTS.map((t) => (t.maxW && textW(t, t.cap) > t.maxW ? t.maxW / textW(t, t.cap) : 1));
   const group = new Map<string, number>();
-  SILK_ALL.forEach((t, i) => {
+  SILK_TEXTS.forEach((t, i) => {
     if (t.group) group.set(t.group, Math.min(group.get(t.group) ?? 1, fit[i]));
   });
-  return SILK_ALL.map((t, i) => t.cap * (t.group ? group.get(t.group) ?? fit[i] : fit[i]));
+  return SILK_TEXTS.map((t, i) => t.cap * (t.group ? group.get(t.group) ?? fit[i] : fit[i]));
 })();
 
-/* ---------- la machine ---------- */
-
-const DEG = Math.PI / 180;
-const potDeg = (t: number): number => TEMPO_UI.sweepDeg / 2 - TEMPO_UI.sweepDeg * t;
-
-interface KnobDraw {
-  id: string;
-  x: number;
-  z: number;
-  sr: number;
-  sh: number;
-  capY: number;
-  ring: string;
-  angleDeg: number;
-}
-
-const KNOBS: KnobDraw[] = [
-  ...NAV_KNOBS.map((k) => ({ id: k.id, x: k.x, z: NAV_ROW.z, sr: 1, sh: 1, capY: NAV_ROW.capY, ring: HEX.yellow, angleDeg: 0 })),
-  {
-    id: 'tempo',
-    x: AUDIO_KNOBS.tempo.x,
-    z: AUDIO_KNOBS.tempo.z,
-    sr: AUDIO_KNOBS.tempo.scale[0],
-    sh: AUDIO_KNOBS.tempo.scale[1],
-    capY: AUDIO_KNOBS.tempo.capY,
-    ring: HEX.line,
-    angleDeg: potDeg((BPM.initial - BPM.min) / (BPM.max - BPM.min)),
-  },
-  {
-    id: 'tone',
-    x: AUDIO_KNOBS.tone.x,
-    z: AUDIO_KNOBS.tone.z,
-    sr: AUDIO_KNOBS.tone.scale[0],
-    sh: AUDIO_KNOBS.tone.scale[1],
-    capY: AUDIO_KNOBS.tone.capY,
-    ring: HEX.line,
-    angleDeg: potDeg(1),
-  },
-  {
-    id: 'level',
-    x: AUDIO_KNOBS.level.x,
-    z: AUDIO_KNOBS.level.z,
-    sr: AUDIO_KNOBS.level.scale[0],
-    sh: AUDIO_KNOBS.level.scale[1],
-    capY: AUDIO_KNOBS.level.capY,
-    ring: HEX.line,
-    angleDeg: potDeg(0.8),
-  },
-];
-
-/** Objets en relief, du plus lointain au plus proche (x + z croissant). */
-function solids(): React.ReactNode[] {
-  const items: { depth: number; nodes: React.ReactNode[] }[] = [];
-  const y0 = TOP_Y;
-  // Pads : dessus, face avant (+z), face droite (+x)
-  for (const p of PADS) {
-    const h = PAD.size / 2;
-    const y1 = y0 + PAD.height;
-    const q = (pts: [number, number, number][]): string => pathOf(pts.map(([x, y, z]) => P(x, y, z)));
-    items.push({
-      depth: p.x + p.z,
-      nodes: [
-        <path key={`pad-${p.id}-x`} d={q([[p.x + h, y0, p.z - h], [p.x + h, y0, p.z + h], [p.x + h, y1, p.z + h], [p.x + h, y1, p.z - h]])} fill={C.padSideX} />,
-        <path key={`pad-${p.id}-z`} d={q([[p.x - h, y0, p.z + h], [p.x + h, y0, p.z + h], [p.x + h, y1, p.z + h], [p.x - h, y1, p.z + h]])} fill={C.padSideZ} />,
-        <path key={`pad-${p.id}-t`} d={q([[p.x - h, y1, p.z - h], [p.x + h, y1, p.z - h], [p.x + h, y1, p.z + h], [p.x - h, y1, p.z + h]])} fill={HEX.padTop} />,
-      ],
-    });
-  }
-  // Pas, RUN, CLEAR, OPEN : cylindres plats
-  for (let i = 0; i < STEPS.count; i += 1) {
-    const x = stepX(i);
-    items.push({ depth: x + STEPS.z, nodes: cylinder(`step-${i}`, x, STEPS.z, STEPS.r, y0, STEPS.h, C.stepSide, HEX.stepBtn) });
-  }
-  const T = TRANSPORT;
-  items.push({ depth: T.run.x + T.run.z, nodes: cylinder('run', T.run.x, T.run.z, T.run.r, y0, T.run.h, C.runSide, HEX.red) });
-  items.push({ depth: T.clear.x + T.clear.z, nodes: cylinder('clear', T.clear.x, T.clear.z, T.clear.r, y0, T.clear.h, C.darkSide, C.darkTop) });
-  items.push({ depth: T.open.x + T.open.z, nodes: cylinder('open', T.open.x, T.open.z, T.open.r, y0, T.open.h, C.darkSide, C.darkTop) });
-  // Knobs : lisere a plat, corps, repere bone, capuchon metal
-  for (const k of KNOBS) {
-    const r = KNOB.r * k.sr;
-    const h = KNOB.h * k.sh;
-    const [rx0, ry0] = P(k.x, y0 + KNOB.ringTube, k.z);
-    const a = k.angleDeg * DEG;
-    const dx = -Math.sin(a);
-    const dz = -Math.cos(a);
-    const m0 = P(k.x + dx * 0.09 * k.sr, y0 + h, k.z + dz * 0.09 * k.sr);
-    const m1 = P(k.x + dx * 0.35 * k.sr, y0 + h, k.z + dz * 0.35 * k.sr);
-    items.push({
-      depth: k.x + k.z,
-      nodes: [
-        <ellipse
-          key={`${k.id}-ring`}
-          cx={rx0}
-          cy={ry0}
-          rx={r1(r * S)}
-          ry={r1(r * Math.hypot(UX, UZ) * S)}
-          fill="none"
-          stroke={k.ring}
-          strokeWidth={r1(KNOB.ringTube * 2 * S)}
-        />,
-        ...cylinder(`${k.id}-body`, k.x, k.z, r, y0, h, C.knobSide, C.darkTop),
-        <line key={`${k.id}-mark`} x1={m0[0]} y1={m0[1]} x2={m1[0]} y2={m1[1]} stroke={HEX.bone} strokeWidth={r1(0.05 * S)} strokeLinecap="round" />,
-        ...cylinder(`${k.id}-cap`, k.x, k.z, KNOB.capR, y0 + k.capY, KNOB.capH, C.darkSide, C.cap),
-      ],
-    });
-  }
-  return items.sort((a, b) => a.depth - b.depth).flatMap((it) => it.nodes);
-}
-
-/** Le dessus du plateau : filets, cadre OPEN, LED, serigraphie (plan y = dessus). */
-function silkPlane(): React.ReactNode {
-  const union = Array.from({ length: STEPS.count }, (_, i) => INSTRUMENTS.some((k) => DEFAULT_STEPS[k][i] === '1'));
-  const F = OPEN_FRAME;
-  return (
-    <g transform={plane(TOP_Y + 0.004)}>
-      {SILK_RULES.map((r, i) => (
-        <line key={`rule-${i}`} x1={r.x0} y1={r.z0} x2={r.x1} y2={r.z1} stroke={HEX.line} strokeWidth={SILK.ruleWidth} />
-      ))}
-      <rect x={F.x0} y={F.z0} width={F.x1 - F.x0} height={F.z1 - F.z0} rx={F.radius} fill="none" stroke={HEX.yellow} strokeWidth={F.stroke} />
-      {union.map((on, i) => (
-        <circle key={`led-${i}`} cx={stepX(i)} cy={STEPS.ledZ} r={STEPS.ledR} fill={on ? HEX.ledSet : HEX.line} />
-      ))}
-      {NAV_KNOBS.map((k) => (
-        <circle key={`kled-${k.id}`} cx={k.x} cy={NAV_ROW.ledZ} r={STEPS.ledR} fill={HEX.line} />
-      ))}
-      {SILK_ALL.map((t, i) => {
-        const size = silkCaps[i] / SILK.capRatio;
-        // letter-spacing suit aussi la derniere lettre : on la compense
-        const shift = t.align === 'right' ? SILK.tracking * size : (SILK.tracking * size) / 2;
-        return (
-          <text
-            key={`silk-${i}`}
-            x={t.x + shift}
-            y={t.z + silkCaps[i] / 2}
-            fontSize={size}
-            textAnchor={t.align === 'right' ? 'end' : 'middle'}
-            fill={t.alpha ? `rgba(246, 241, 231, ${t.alpha})` : C.bone70}
-            className="v4-silk"
-          >
-            {t.text}
-          </text>
-        );
-      })}
-    </g>
-  );
-}
-
-/** L'ecran et son cadre : MM-808, le tempo, READY. */
-function screen(): React.ReactNode {
-  const y = TOP_Y + LCD.y;
-  const x0 = LCD.x - LCD.w / 2;
-  const z0 = LCD.z - LCD.d / 2;
-  const [tw, th] = LCD.tex;
-  const px = (v: number): number => (v / tw) * LCD.w;
-  const pz = (v: number): number => (v / th) * LCD.d;
-  const size = pz(34);
-  const bez = outline(LCD_BEZEL.w, LCD_BEZEL.d, 0.001, LCD_BEZEL.x, LCD_BEZEL.z);
+/** Le dessus du panneau : filets, LED, serigraphie, ecran. */
+function panelTop(): React.ReactNode {
+  const union = Array.from({ length: KEYS.count }, (_, i) => INSTRUMENTS.some((k) => DEFAULT_STEPS[k][i] === '1'));
+  const O = OLED;
+  const b = O.bezel;
+  const lines = [
+    ['MM-808', `${BPM.initial} BPM`],
+    ['READY', ''],
+  ];
+  const fz = (O.d * 40) / O.tex[1];
+  const k = O.w / O.tex[0];
   return (
     <>
-      <path d={prism([
-        [bez, TOP_Y],
-        [bez, TOP_Y + LCD_BEZEL.h],
-      ])} fill={HEX.graphiteLo} />
-      <g transform={plane(y)}>
-        <rect x={x0} y={z0} width={LCD.w} height={LCD.d} fill={HEX.lcdGlass} />
-        <g className="v4-lcd-text" fill={HEX.lcdInk} fontSize={size}>
-          <text x={x0 + px(24)} y={z0 + pz(76)}>
-            MM-808
-          </text>
-          <text x={x0 + LCD.w - px(24)} y={z0 + pz(76)} textAnchor="end">
-            {`${BPM.initial} BPM`}
-          </text>
-          <text x={x0 + px(24)} y={z0 + pz(150)}>
-            READY
-          </text>
+      <g transform={planeAt(0.004)}>
+        {SILK_LINES.map((l, i) => (
+          <path
+            key={`line-${i}`}
+            d={polyline(l)}
+            fill="none"
+            stroke={`rgba(246, 241, 231, ${SILK.lineAlpha})`}
+            strokeWidth={SILK.lineWidth}
+          />
+        ))}
+        {union.map((on, i) => (
+          <rect
+            key={`led-${i}`}
+            x={keyX(i) - KEYS.ledW / 2}
+            y={KEYS.ledZ - KEYS.ledD / 2}
+            width={KEYS.ledW}
+            height={KEYS.ledD}
+            fill={on ? HEX.ledSet : HEX.line}
+          />
+        ))}
+        {SILK_TEXTS.map((t, i) => {
+          const cap = silkCaps[i];
+          const size = cap / SILK.capRatio;
+          // letter-spacing suit aussi la derniere lettre : on la compense
+          const ls = SILK.tracking * size;
+          const anchor = t.align === 'right' ? 'end' : t.align === 'left' ? 'start' : 'middle';
+          const shift = t.align === 'right' ? ls : t.align === 'left' ? 0 : ls / 2;
+          return (
+            <text
+              key={`silk-${i}`}
+              x={t.x + shift}
+              y={t.z + cap / 2}
+              fontSize={size}
+              fontWeight={t.weight ?? SILK.weight}
+              textAnchor={anchor}
+              fill={t.alpha ? `rgba(246, 241, 231, ${t.alpha})` : C.bone85}
+              className="v4-silk"
+            >
+              {t.text}
+            </text>
+          );
+        })}
+        <rect x={O.x - b.w / 2} y={O.z - b.d / 2} width={b.w} height={b.d} fill={HEX.oled} />
+      </g>
+      <g transform={planeAt(O.y)}>
+        <rect x={O.x - O.w / 2} y={O.z - O.d / 2} width={O.w} height={O.d} fill={HEX.oled} />
+        <g className="v4-lcd-text" fill={HEX.bone} fontSize={fz}>
+          {lines.map(([l, r], i) => {
+            const y = O.z - O.d / 2 + (O.d * [64, 136][i]) / O.tex[1];
+            return (
+              <React.Fragment key={`oled-${i}`}>
+                <text x={O.x - O.w / 2 + 24 * k} y={y}>
+                  {l}
+                </text>
+                {r && (
+                  <text x={O.x + O.w / 2 - 24 * k} y={y} textAnchor="end">
+                    {r}
+                  </text>
+                )}
+              </React.Fragment>
+            );
+          })}
         </g>
       </g>
     </>
   );
 }
 
-const plateY0 = TOP_Y - PLATE.thickness;
+/* ---------- volumes poses sur le panneau ---------- */
 
-function body(spec: BodySpec, outer: [number, number][], inner: [number, number][], y0: number): { side: string; band: string; top: string } {
-  const t = spec.thickness;
-  const b = spec.bevelThickness;
+interface Solid {
+  depth: number;
+  nodes: React.ReactNode[];
+}
+
+/** Pave du repere panneau : ses faces vues (dessus, avant, droite). */
+function box(key: string, x: number, z: number, hx: number, hz: number, h: number, top: string, front: string, right: string): Solid {
+  const c = (sx: number, y: number, sz: number): V3 => panel(x + sx * hx, y, z + sz * hz);
   return {
-    side: prism([
-      [inner, y0],
-      [outer, y0 + b],
-      [outer, y0 + t - b],
-    ]),
-    band: prism([
-      [outer, y0 + t - b],
-      [inner, y0 + t],
-    ]),
-    top: pathOf(at(inner, y0 + t)),
+    depth: dot(Z, panel(x, h / 2, z)),
+    nodes: [
+      <path key={`${key}-r`} d={poly([c(1, 0, -1), c(1, 0, 1), c(1, h, 1), c(1, h, -1)])} fill={right} />,
+      <path key={`${key}-f`} d={poly([c(-1, 0, 1), c(1, 0, 1), c(1, h, 1), c(-1, h, 1)])} fill={front} />,
+      <path key={`${key}-t`} d={poly([c(-1, h, -1), c(1, h, -1), c(1, h, 1), c(-1, h, 1)])} fill={top} />,
+    ],
   };
 }
 
-const SOCLE_D = body(SOCLE, socleOuter, socleInner, LAYERS.socleY);
-const PLATE_D = body(PLATE, plateOuter, plateInner, plateY0);
+/** Encodeur : flanc (enveloppe des deux cercles), dessus, repere bone. */
+function encoder(i: number, angleDeg: number): Solid {
+  const x = encX(i);
+  const z = ENCODER.z;
+  const ring = (r: number, y: number): V2[] =>
+    Array.from({ length: 24 }, (_, k) => {
+      const a = (k / 24) * Math.PI * 2;
+      return P(panel(x + Math.cos(a) * r, y, z + Math.sin(a) * r));
+    });
+  const bottom = ring(ENCODER.r, 0);
+  const top = ring(ENCODER.rTop, ENCODER.h);
+  const all = [...bottom, ...top].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  // Enveloppe convexe (chaine monotone) du flanc
+  const cross = (o: V2, a: V2, b: V2): number => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const half = (pts: V2[]): V2[] => {
+    const h: V2[] = [];
+    for (const q of pts) {
+      while (h.length >= 2 && cross(h[h.length - 2], h[h.length - 1], q) <= 0) h.pop();
+      h.push(q);
+    }
+    h.pop();
+    return h;
+  };
+  const hull = [...half(all), ...half([...all].reverse())];
+  const a = angleDeg * DEG;
+  const m0 = P(panel(x, ENCODER.h, z));
+  const m1 = P(panel(x - Math.sin(a) * ENCODER.mark.d, ENCODER.h, z - Math.cos(a) * ENCODER.mark.d));
+  return {
+    depth: dot(Z, panel(x, ENCODER.h / 2, z)),
+    nodes: [
+      <path key={`enc-${i}-s`} d={pathOf(hull)} fill={C.encSide} />,
+      <path key={`enc-${i}-t`} d={pathOf(top)} fill={HEX.encoder} />,
+      <line key={`enc-${i}-m`} x1={m0[0]} y1={m0[1]} x2={m1[0]} y2={m1[1]} stroke={HEX.bone} strokeWidth={r1(ENCODER.mark.w * S)} strokeLinecap="round" />,
+    ],
+  };
+}
+
+const potDeg = (t: number): number => TEMPO_UI.sweepDeg / 2 - TEMPO_UI.sweepDeg * t;
+const START: Record<string, number> = { tempo: (BPM.initial - BPM.min) / (BPM.max - BPM.min), tone: 1, level: 0.8, swing: 0, dist: 0, reverb: 0 };
+
+function solids(): React.ReactNode[] {
+  const items: Solid[] = [];
+  ENCODERS.forEach((e, i) => items.push(encoder(i, potDeg(START[e.id] ?? 0))));
+  const ph = PAD.height + PAD.dome;
+  for (const p of PADS) {
+    const page = p.kind !== 'voice';
+    items.push(box(`pad-${p.id}`, p.x, p.z, PAD.size / 2, PAD.size / 2, ph, page ? C.pageTop : HEX.pad, page ? C.pageSide : C.padSide, page ? C.pageSide : C.padSide));
+  }
+  const t = TRANSPORT;
+  const h = t.size / 2;
+  items.push(box('run', t.run.x, t.z, h, h, t.h, HEX.red, C.runSide, C.runSide));
+  items.push(box('clear', t.clear.x, t.z, h, h, t.h, HEX.graphiteHi, C.clearSide, C.clearSide));
+  for (let i = 0; i < KEYS.count; i += 1) items.push(box(`key-${i}`, keyX(i), KEYS.z, KEYS.w / 2, KEYS.d / 2, KEYS.h, HEX.key, C.keySide, C.keySide));
+  return items.sort((a, b) => a.depth - b.depth).flatMap((it) => it.nodes);
+}
+
+/* ---------- corps : chassis en coin et panneau ---------- */
+
+function body(): React.ReactNode {
+  const yb = BODY.feet;
+  const front: V3[] = [
+    [-HX, yb, HZ],
+    [HX, yb, HZ],
+    [HX, chassisTopY(HZ), HZ],
+    [-HX, chassisTopY(HZ), HZ],
+  ];
+  const right: V3[] = [
+    [HX, yb, -HZ],
+    [HX, yb, HZ],
+    [HX, chassisTopY(HZ), HZ],
+    [HX, chassisTopY(-HZ), -HZ],
+  ];
+  const t = PANEL.t;
+  const pf: V3[] = [panel(-HX, -t, PZ), panel(HX, -t, PZ), panel(HX, 0, PZ), panel(-HX, 0, PZ)];
+  const pr: V3[] = [panel(HX, -t, -PZ), panel(HX, -t, PZ), panel(HX, 0, PZ), panel(HX, 0, -PZ)];
+  const top: V3[] = [panel(-HX, 0, -PZ), panel(HX, 0, -PZ), panel(HX, 0, PZ), panel(-HX, 0, PZ)];
+  const bw = PANEL.bevelSize;
+  const inner: V3[] = [panel(-HX + bw, 0, -PZ + bw), panel(HX - bw, 0, -PZ + bw), panel(HX - bw, 0, PZ - bw), panel(-HX + bw, 0, PZ - bw)];
+  return (
+    <>
+      <path d={poly(front)} fill={C.bodyFront} />
+      <path d={poly(right)} fill={C.bodyRight} />
+      <path d={poly(pf)} fill={C.panelFront} />
+      <path d={poly(pr)} fill={C.panelRight} />
+      <path d={poly(top)} fill={C.panelEdge} />
+      <path d={poly(inner)} fill={HEX.panel} />
+    </>
+  );
+}
 
 const DRAWING = (
   <>
-    <path d={SOCLE_D.side} fill={C.socleSide} />
-    <path d={SOCLE_D.band} fill={HEX.graphite} />
-    <path d={SOCLE_D.top} fill={HEX.graphiteLo} />
-    <path d={PLATE_D.side} fill={C.plateSide} />
-    <path d={PLATE_D.band} fill={HEX.graphiteHi} />
-    <path d={PLATE_D.top} fill={HEX.graphite} />
-    {silkPlane()}
-    {screen()}
+    {body()}
+    {panelTop()}
     {solids()}
   </>
 );
@@ -415,7 +361,7 @@ const DRAWING = (
 export const StaticMachine: React.FC = () => (
   <svg className="v4-fallback-machine" viewBox={`0 0 ${VB_W} ${VB_H}`} role="img" aria-labelledby="v4-machine-title v4-machine-desc">
     <title id="v4-machine-title">MM-808 drum machine</title>
-    <desc id="v4-machine-desc">Four pads, sixteen steps with a red RUN button, five knobs for the sections and a small screen.</desc>
+    <desc id="v4-machine-desc">A black drum machine: a screen and six encoders, twelve pads, sixteen trig keys with a red RUN button.</desc>
     {DRAWING}
   </svg>
 );

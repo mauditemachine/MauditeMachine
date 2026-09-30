@@ -1,5 +1,7 @@
 /**
- * Le PCB de la vue eclatee (spec 5.6 et 5.7). La carte : vert sombre mat
+ * Le PCB de la vue eclatee (spec 5.6, 5.7 et 20.3.11), incline comme le
+ * panneau dans le chassis en coin ; il en sort de 0.9 quand la machine
+ * s'ouvre. La carte : vert sombre mat
  * (#12301F), pistes de cuivre (#B8763A) dessinees au runtime dans une
  * CanvasTexture par un generateur a graine (mulberry32, 808) qui marche
  * sur une grille de 0.4 en lignes droites et virages a 45 ou 90 deg, sans
@@ -7,7 +9,11 @@
  * deux bouts et sur 20 vias ; contours des composants et serigraphie en
  * blanc casse, bone a 90 % (MAUDITE MACHINE, MM-808, versions,
  * designateurs ; aucun lieu, regle du site), cadre jaune autour des trois
- * puces cliquables LABEL, LIVE, STUDIO.
+ * puces cliquables LABEL, LIVE, STUDIO. LABEL sort du site (spec 20.5) :
+ * au survol, et au focus clavier de son jumeau, le dessus de la puce passe
+ * au jaune, sa serigraphie aussi, suivie du chevron sortant ; seul le
+ * rectangle de ce texte est redessine (depuis une copie de la carte), le
+ * routage lui garde sa place une fois pour toutes.
  * Les composants en volume : trois grosses puces a pattes, quatre petites,
  * six condensateurs cylindriques, une pile bouton, dix resistances, deux
  * quartz. Chaque famille est un gabarit place par une liste de
@@ -30,10 +36,10 @@ import {
   type Object3D,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { CHIP, CHIPS, PCB, PCB_PARTS, PCB_SILK, SILK, boneA, type ChipId } from '../theme';
+import { CHIP, CHIPS, EXTERNAL_MARK, PCB, PCB_PARTS, PCB_SILK, PCB_TYPE, SILK, boneA, type ChipId } from '../theme';
 import type { HotspotDef } from './hit';
 import { albedoRgb, litCss, paintLinear } from './materials';
-import { drawTracked, fontsReady, makeCanvasTexture, trackedWidth } from './silk';
+import { drawTracked, fontsReady, makeCanvasTexture, mulberry32, trackedWidth } from './silk';
 
 /* ---------------- teintes ---------------- */
 
@@ -52,6 +58,8 @@ const TEX = {
   frame: litCss('yellow', 1.2),
   // Le blanc du brief est le blanc casse chaud : bone, pas un blanc pur
   silk: boneA(0.9),
+  /** serigraphie et chevron de la puce LABEL allumee (survol, focus) */
+  lit: litCss('yellow', 1.2),
 } as const;
 
 /**
@@ -68,21 +76,15 @@ const RGB = {
   cell: albedoRgb('cell', 1.25),
   resistor: albedoRgb('resistor', 1.3),
   dot: albedoRgb('yellow', 1.3),
+  /**
+   * dessus de la puce LABEL allumee : jaune, gain par canal (l'ACES delave
+   * un jaune vif et fait monter son bleu), lu 241,195,73 a la vue ouverte
+   * par defaut, comme le flash des pads (241,193,74)
+   */
+  litTop: albedoRgb('yellow', 1).map((v, i) => v * [2, 1.3, 0.3][i]),
 } as const;
 
 /* ---------------- generateur ---------------- */
-
-/** mulberry32 : 32 bits d'etat, assez pour un decor reproductible. */
-function mulberry32(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 /** Grille des pistes : 0.4 de pas, 0.3 de marge au bord de la carte. */
 const G = PCB.grid;
@@ -113,6 +115,43 @@ interface Rect {
   z0: number;
   x1: number;
   z1: number;
+}
+
+/** Un texte serigraphie ; reserve : px (texture desktop) gardes libres a sa droite (chevron). */
+interface SilkText {
+  text: string;
+  x: number;
+  z: number;
+  px: number;
+  align: 'left' | 'center' | 'right';
+  reserve: number;
+}
+
+/** Nom d'une puce en px de la texture : bord gauche, ligne de base, hauteur de capitale, taille, depart du chevron. */
+interface LabelGeom {
+  x0: number;
+  baseline: number;
+  cap: number;
+  px: number;
+  markX: number;
+}
+
+/** Zone redessinee d'une puce qui sort du site : son nom et son chevron, en px de la texture. */
+interface ExtZone {
+  id: ChipId;
+  text: string;
+  geom: LabelGeom;
+  /** rectangle a restaurer (px entiers) */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /**
+   * la carte sous ce rectangle, sans rien d'allume : copie dans un petit
+   * canvas (drawImage, pas de relecture getImageData), prise apres chaque
+   * dessin complet
+   */
+  base: HTMLCanvasElement | null;
 }
 
 /** Un contour serigraphie (et son designateur). */
@@ -213,6 +252,10 @@ interface ChipRange {
   count: number;
   baseY: Float32Array;
   rise: number;
+  /** sommets du dessus du corps (4, contigus) : premier et nombre */
+  topStart: number;
+  topCount: number;
+  lit: boolean;
 }
 
 function buildParts(mobile: boolean): { geo: BufferGeometry; ranges: ChipRange[] } {
@@ -241,9 +284,20 @@ function buildParts(mobile: boolean): { geo: BufferGeometry; ranges: ChipRange[]
     push(g);
     const count = g.getAttribute('position').count;
     const pos = g.getAttribute('position');
+    const nrm = g.getAttribute('normal');
     const baseY = new Float32Array(count);
-    for (let k = 0; k < count; k += 1) baseY[k] = pos.getY(k);
-    ranges.push({ id: c.id, start, count, baseY, rise: 0 });
+    // Le dessus du corps : normale vers le haut, a la hauteur du corps (ni
+    // le point jaune, 0.012 plus haut, ni le dessus des pattes)
+    let t0 = -1;
+    let t1 = -1;
+    for (let k = 0; k < count; k += 1) {
+      baseY[k] = pos.getY(k);
+      if (nrm.getY(k) > 0.9 && Math.abs(pos.getY(k) - CHIP.y1) < 1e-5) {
+        if (t0 < 0) t0 = k;
+        t1 = k;
+      }
+    }
+    ranges.push({ id: c.id, start, count, baseY, rise: 0, topStart: start + t0, topCount: t0 < 0 ? 0 : t1 - t0 + 1, lit: false });
   }
   for (const s of P.small) push(box(P.small3.w, P.small3.h, P.small3.d, s.x, P.small3.h / 2, s.z, RGB.chip));
   for (const c of P.caps) {
@@ -284,6 +338,10 @@ export interface PcbInfo {
   webfont: boolean;
   /** soulevement des puces (survol) */
   rise: Record<ChipId, number>;
+  /** puce allumee (LABEL : survol ou focus clavier) */
+  lit: Record<ChipId, boolean>;
+  /** redessins de la zone d'une puce allumee ou eteinte */
+  litDraws: number;
 }
 
 export class Pcb {
@@ -301,7 +359,10 @@ export class Pcb {
   private traces: number[][] = [];
   private vias: [number, number][] = [];
   private ranges: ChipRange[];
+  /** noms des puces qui sortent du site et leur chevron (redessins au survol) */
+  private zones: ExtZone[] = [];
   private draws = 0;
+  private litDraws = 0;
   private segments = 0;
 
   constructor(mobile: boolean, anisotropy: number) {
@@ -326,6 +387,7 @@ export class Pcb {
     const { geo, ranges } = buildParts(mobile);
     this.ranges = ranges;
     (geo.getAttribute('position') as BufferAttribute).setUsage(DynamicDrawUsage);
+    (geo.getAttribute('color') as BufferAttribute).setUsage(DynamicDrawUsage);
     this.partsMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0 });
     this.partsMat.name = 'parts';
     this.parts = new Mesh(geo, this.partsMat);
@@ -353,22 +415,29 @@ export class Pcb {
   }
 
   /** Les textes du PCB : serigraphie, noms des puces, designateurs. */
-  private texts(): { text: string; x: number; z: number; px: number; align: 'left' | 'center' | 'right' }[] {
-    const out: { text: string; x: number; z: number; px: number; align: 'left' | 'center' | 'right' }[] = [];
-    for (const s of PCB_SILK) out.push({ text: s.text, x: s.x, z: s.z, px: s.px, align: s.align });
-    for (const c of CHIPS) out.push({ text: c.silk, x: c.x, z: c.z + CHIP.labelDz, px: PCB.chipLabelPx, align: 'center' });
-    for (const f of this.prints) out.push({ text: f.ref, x: f.refX, z: f.refZ, px: PCB.designatorPx, align: f.refAlign });
+  private texts(): SilkText[] {
+    const out: SilkText[] = [];
+    for (const s of PCB_SILK) out.push({ text: s.text, x: s.x, z: s.z, px: s.px, align: s.align, reserve: 0 });
+    // Puce qui sort du site : la place du chevron, a droite de son nom
+    for (const c of CHIPS) {
+      const reserve = c.href ? CHIP.extGapPx + PCB.chipLabelPx * SILK.capRatio : 0;
+      out.push({ text: c.silk, x: c.x, z: c.z + CHIP.labelDz, px: PCB.chipLabelPx, align: 'center', reserve });
+    }
+    for (const f of this.prints) out.push({ text: f.ref, x: f.refX, z: f.refZ, px: PCB.designatorPx, align: f.refAlign, reserve: 0 });
     return out;
   }
 
-  /** Boite d'un texte en unites de la carte (largeur mesuree + 20 % : la police du site peut arriver apres). */
-  private textRect(t: { text: string; x: number; z: number; px: number; align: 'left' | 'center' | 'right' }): Rect {
+  /**
+   * Boite d'un texte en unites de la carte (largeur mesuree + 20 % : la
+   * police du site peut arriver apres), plus la place reservee a sa droite.
+   */
+  private textRect(t: SilkText): Rect {
     const u = this.W / PCB.w;
     const px = t.px * this.k;
-    const w = (trackedWidth(this.ctx, t.text, px) * 1.2) / u;
+    const w = (trackedWidth(this.ctx, t.text, px, PCB_TYPE.weight, PCB_TYPE.tracking) * 1.2) / u;
     const h = (px * SILK.capRatio) / u;
     const x0 = t.align === 'left' ? t.x : t.align === 'right' ? t.x - w : t.x - w / 2;
-    return { x0, z0: t.z - h / 2, x1: x0 + w, z1: t.z + h / 2 };
+    return { x0, z0: t.z - h / 2, x1: x0 + w + (t.reserve * this.k) / u, z1: t.z + h / 2 };
   }
 
   /**
@@ -581,13 +650,93 @@ export class Pcb {
     ctx.textBaseline = 'alphabetic';
     for (const t of this.texts()) {
       const px = t.px * k;
-      const w = trackedWidth(ctx, t.text, px);
+      const w = trackedWidth(ctx, t.text, px, PCB_TYPE.weight, PCB_TYPE.tracking);
       const x = this.px(t.x);
       const x0 = t.align === 'left' ? x : t.align === 'right' ? x - w : x - w / 2;
-      drawTracked(ctx, t.text, x0, this.py(t.z) + (px * SILK.capRatio) / 2, px);
+      drawTracked(ctx, t.text, x0, this.py(t.z) + (px * SILK.capRatio) / 2, px, PCB_TYPE.weight, PCB_TYPE.tracking);
     }
+    // La carte au repos sous le nom des puces qui sortent du site, puis
+    // leur etat allume s'il l'etait (dessin refait a l'arrivee des polices)
+    this.captureZones();
+    for (const z of this.zones) if (this.rangeOf(z.id)?.lit) this.paintZone(z, true);
     this.draws += 1;
     this.texture.needsUpdate = true;
+  }
+
+  /**
+   * Zone de chaque puce qui sort du site (spec 20.5) : son nom et la place
+   * du chevron, en px de la texture, et la copie de la carte dessous. Le
+   * routage l'a gardee libre (textRect, reserve), un aplat suffit donc a
+   * effacer le nom.
+   */
+  private captureZones(): void {
+    const k = this.k;
+    const old = this.zones.slice();
+    this.zones.length = 0;
+    for (const c of CHIPS) {
+      if (!c.href) continue;
+      const g = this.labelGeom(c.silk, c.x, c.z + CHIP.labelDz);
+      const pad = Math.ceil(4 * k);
+      const x0 = Math.max(0, Math.floor(g.x0) - pad);
+      const y0 = Math.max(0, Math.floor(g.baseline - g.cap) - pad);
+      const x1 = Math.min(this.W, Math.ceil(g.markX + g.cap) + pad);
+      const y1 = Math.min(this.H, Math.ceil(g.baseline) + pad);
+      const w = x1 - x0;
+      const h = y1 - y0;
+      // Copie a l'echelle 1, en px entiers : exacte
+      let base = old.find((z) => z.id === c.id)?.base ?? null;
+      if (w > 0 && h > 0) {
+        if (!base) base = document.createElement('canvas');
+        base.width = w;
+        base.height = h;
+        base.getContext('2d')?.drawImage(this.canvas, x0, y0, w, h, 0, 0, w, h);
+      } else base = null;
+      this.zones.push({ id: c.id, text: c.silk, geom: g, x: x0, y: y0, w, h, base });
+    }
+  }
+
+  /** Nom d'une puce en px de la texture (mesure avec la police du moment). */
+  private labelGeom(text: string, x: number, z: number): LabelGeom {
+    const k = this.k;
+    const px = PCB.chipLabelPx * k;
+    const cap = px * SILK.capRatio;
+    const w = trackedWidth(this.ctx, text, px, PCB_TYPE.weight, PCB_TYPE.tracking);
+    const x0 = this.px(x) - w / 2;
+    return { x0, baseline: this.py(z) + cap / 2, cap, px, markX: x0 + w + CHIP.extGapPx * k };
+  }
+
+  /**
+   * La zone d'une puce : la copie de la carte au repos, ou allumee (aplat
+   * de la carte, le nom en jaune et le chevron sortant apres lui, haut
+   * comme les capitales, trait CHIP.extStroke dans la boite de 12).
+   */
+  private paintZone(z: ExtZone, lit: boolean): void {
+    const ctx = this.ctx;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (!lit) {
+      if (z.base) ctx.drawImage(z.base, z.x, z.y);
+    } else {
+      const g = z.geom;
+      ctx.fillStyle = TEX.board;
+      ctx.fillRect(z.x, z.y, z.w, z.h);
+      ctx.fillStyle = TEX.lit;
+      ctx.textBaseline = 'alphabetic';
+      drawTracked(ctx, z.text, g.x0, g.baseline, g.px, PCB_TYPE.weight, PCB_TYPE.tracking);
+      const s = g.cap / EXTERNAL_MARK.box;
+      ctx.setTransform(s, 0, 0, s, g.markX, g.baseline - g.cap);
+      ctx.strokeStyle = TEX.lit;
+      ctx.lineWidth = CHIP.extStroke;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke(new Path2D(EXTERNAL_MARK.d));
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+    this.litDraws += 1;
+    this.texture.needsUpdate = true;
+  }
+
+  private rangeOf(id: ChipId): ChipRange | undefined {
+    return this.ranges.find((q) => q.id === id);
   }
 
   /* ---------- puces ---------- */
@@ -608,16 +757,47 @@ export class Pcb {
       // Actives seulement pendant l'ouverture et vue ouverte (le Stage les allume)
       enabled: false,
       chip: c.id,
+      // LIVE et STUDIO : leur section, dont la trace part de la puce
+      section: c.section ?? undefined,
     }));
   }
 
   riseOf(id: ChipId): number {
-    return this.ranges.find((r) => r.id === id)?.rise ?? 0;
+    return this.rangeOf(id)?.rise ?? 0;
+  }
+
+  /**
+   * Survol ou focus clavier d'une puce qui sort du site (LABEL) : le dessus
+   * de son corps passe au jaune (couleurs de sommets, ses quatre sommets
+   * seulement, RGB.litTop), son nom au jaune avec le chevron (zone de la
+   * texture) ; eteinte, tout revient. true s'il faut une frame. Les puces
+   * LIVE et STUDIO (des boutons) ne s'allument pas : elles se soulevent.
+   */
+  setLit(id: ChipId, on: boolean): boolean {
+    const r = this.rangeOf(id);
+    if (!r || r.lit === on || !CHIPS.some((c) => c.id === id && c.href)) return false;
+    r.lit = on;
+    if (r.topCount > 0) {
+      const col = this.parts.geometry.getAttribute('color') as BufferAttribute;
+      const a = col.array as Float32Array;
+      const rgb = on ? RGB.litTop : RGB.chip;
+      for (let n = 0; n < r.topCount; n += 1) {
+        const o = (r.topStart + n) * 3;
+        a[o] = rgb[0];
+        a[o + 1] = rgb[1];
+        a[o + 2] = rgb[2];
+      }
+      col.addUpdateRange(r.topStart * 3, r.topCount * 3);
+      col.needsUpdate = true;
+    }
+    const z = this.zones.find((q) => q.id === id);
+    if (z) this.paintZone(z, on);
+    return true;
   }
 
   /** Survol : la puce se souleve (sommets de sa plage seulement) ; true s'il faut une frame. */
   setRise(id: ChipId, y: number): boolean {
-    const r = this.ranges.find((q) => q.id === id);
+    const r = this.rangeOf(id);
     if (!r || r.rise === y) return false;
     r.rise = y;
     const pos = this.parts.geometry.getAttribute('position') as BufferAttribute;
@@ -633,7 +813,11 @@ export class Pcb {
   info(): PcbInfo {
     const idx = this.parts.geometry.getIndex();
     const rise = { label: 0, live: 0, studio: 0 } as Record<ChipId, number>;
-    for (const r of this.ranges) rise[r.id] = +r.rise.toFixed(4);
+    const lit = { label: false, live: false, studio: false } as Record<ChipId, boolean>;
+    for (const r of this.ranges) {
+      rise[r.id] = +r.rise.toFixed(4);
+      lit[r.id] = r.lit;
+    }
     return {
       size: [this.W, this.H],
       traces: this.traces.length,
@@ -645,6 +829,8 @@ export class Pcb {
       draws: this.draws,
       webfont: fontsReady(),
       rise,
+      lit,
+      litDraws: this.litDraws,
     };
   }
 
@@ -654,6 +840,12 @@ export class Pcb {
     this.boardMat.dispose();
     this.partsMat.dispose();
     this.texture.dispose();
+    for (const z of this.zones) {
+      if (!z.base) continue;
+      z.base.width = 0;
+      z.base.height = 0;
+    }
+    this.zones.length = 0;
     this.canvas.width = 0;
     this.canvas.height = 0;
   }

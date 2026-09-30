@@ -1,10 +1,11 @@
 /**
- * Pieces communes des sections (spec 11.1) : le cadre (section, titre en
- * Robot Radicals, lie par aria-labelledby) et la liste jouable de TRACKS et
- * MIXTAPES. Le texte de toutes les sections est dans le DOM des le
- * chargement : une section inactive est masquee visuellement (v4.css
- * .v4-sec[data-active='0']), pas retiree, et ses controles sortent de
- * l'ordre de tabulation (tabIndex -1) tant qu'elle n'est pas affichee.
+ * Pieces communes des sections (spec 11.1 et 20.5) : le cadre (section,
+ * titre en Robot Radicals, lie par aria-labelledby), la ligne de document
+ * a telecharger (LIVE) et la liste jouable de TRACKS et MIXTAPES. Le texte
+ * de toutes les sections est dans le DOM des le chargement : une section
+ * inactive est masquee visuellement (v4.css .v4-sec[data-active='0']), pas
+ * retiree, et ses controles sortent de l'ordre de tabulation (tabIndex -1)
+ * tant qu'elle n'est pas affichee. Les liens sortants : ui/ExternalLink.tsx.
  */
 
 import React, { useSyncExternalStore } from 'react';
@@ -13,6 +14,7 @@ import { playItem } from '../../actions';
 import { sc } from '../../audio/soundcloud';
 import type { PlayItem } from '../../data';
 import { SECTION_TITLES, type SectionId } from '../../theme';
+import { ExternalLink } from '../ExternalLink';
 
 export interface SectionProps {
   /** affichee (panneau ouvert sur elle, ou page de repli) */
@@ -23,8 +25,30 @@ export interface SectionProps {
 
 export const tabOf = (focusable: boolean): number => (focusable ? 0 : -1);
 
-export const SectionFrame: React.FC<{ id: SectionId; active: boolean; children: React.ReactNode }> = ({ id, active, children }) => (
-  <section className="v4-sec" id={`v4-section-${id}`} data-section={id} data-active={active ? '1' : '0'} aria-labelledby={`v4-sec-${id}-title`}>
+/**
+ * Rangee qui defile de cote (onglets de la feuille, pages du Dock) : le
+ * bouton qui prend le focus au clavier y est ramene en entier (8 px de
+ * marge), son contour jaune reste visible ; la page ne bouge jamais.
+ */
+export function keepInRow(e: React.FocusEvent<HTMLElement>): void {
+  const b = e.currentTarget;
+  const row = b.parentElement;
+  if (!row) return;
+  const rr = row.getBoundingClientRect();
+  const br = b.getBoundingClientRect();
+  const dx = br.left < rr.left ? br.left - rr.left - 8 : br.right > rr.right ? br.right - rr.right + 8 : 0;
+  if (dx !== 0) row.scrollLeft += dx;
+}
+
+export const SectionFrame: React.FC<{ id: SectionId; active: boolean; lang?: string; children: React.ReactNode }> = ({ id, active, lang, children }) => (
+  <section
+    className="v4-sec"
+    id={`v4-section-${id}`}
+    data-section={id}
+    data-active={active ? '1' : '0'}
+    aria-labelledby={`v4-sec-${id}-title`}
+    lang={lang}
+  >
     <h2 className="v4-sec-title" id={`v4-sec-${id}-title`}>
       {SECTION_TITLES[id]}
     </h2>
@@ -32,11 +56,33 @@ export const SectionFrame: React.FC<{ id: SectionId; active: boolean; children: 
   </section>
 );
 
-/** Fleche discrete des liens qui ouvrent un nouvel onglet. */
-export const ExternalMark: React.FC = () => (
-  <svg className="v4-ext" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false">
-    <path d="M3.5 2.5h6v6M9.5 2.5l-7 7" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+/** Fleche vers le bas sur sa ligne de base : un document a telecharger (12 px, couleur du lien). */
+export const DownloadMark: React.FC = () => (
+  <svg className="v4-dl" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false">
+    <path d="M6 2v7M2.5 5.5L6 9l3.5-3.5M2.5 11h7" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
+);
+
+interface DocLinkProps {
+  href: string;
+  label: string;
+  /** taille du fichier, "0.9 MB" */
+  size: string;
+  tab: number;
+}
+
+/**
+ * Un document du site a telecharger (attribut download : le fichier, pas
+ * un onglet) : la fleche a gauche, le libelle, la taille a droite en petit
+ * (spec 20.5). Au moins 44 px de haut, comme toute ligne du panneau.
+ */
+export const DocLink: React.FC<DocLinkProps> = ({ href, label, size, tab }) => (
+  <a className="v4-link v4-doc" href={href} download tabIndex={tab}>
+    <DownloadMark />
+    <span className="v4-doc-label">{label}</span>
+    {/* L'espace separe le nom et la taille dans le nom accessible ; le flex l'ignore */}{' '}
+    <span className="v4-doc-size">{size}</span>
+  </a>
 );
 
 interface PlayListProps {
@@ -85,10 +131,9 @@ export const PlayList: React.FC<PlayListProps> = ({ items, queue, tab, label }) 
                 <span className="v4-row-title">{it.title}</span>
                 <span className="v4-row-meta">not on SoundCloud</span>
               </span>
-              <a className="v4-row-link" href={it.link} target="_blank" rel="noopener" tabIndex={tab}>
+              <ExternalLink className="v4-row-link" href={it.link} tabIndex={tab}>
                 Bandcamp
-                <ExternalMark />
-              </a>
+              </ExternalLink>
             </li>
           );
         }
