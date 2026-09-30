@@ -23,7 +23,7 @@
 
 ## 3. Ce qui reste a faire / points en suspens
 
-- Mika : envoyer un message test depuis le site pour confirmer la reception (aucun courriel envoye pendant les tests).
+- Message test envoye depuis le site en ligne (avec l'accord de Mika) : recu. Le modele EmailJS affiche {{from_email}} tel quel ; le site ecrit donc aussi l'adresse de l'expediteur a la fin du message. A corriger dans EmailJS : retaper la variable {{from_email}} du modele (et le champ Reply To).
 - Mika : confirmer que Voodoo joue maintenant (aucun son joue pendant les tests).
 - Verifier dans le tableau de bord EmailJS que mauditemachine.com est un domaine autorise et le quota mensuel.
 

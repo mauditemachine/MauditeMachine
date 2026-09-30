@@ -66,9 +66,15 @@ export const ContactForm: React.FC<{ tab: number }> = ({ tab }) => {
         {
           from_name: name.trim(),
           from_email: email.trim(),
+          // Le modele EmailJS a affiche {{from_email}} tel quel au premier test
+          // (2026-10-01) : l'adresse part aussi sous les noms courants et, surtout,
+          // en clair a la fin du message, pour que Mika puisse toujours repondre.
+          email: email.trim(),
+          user_email: email.trim(),
           reply_to: email.trim(),
           object: subject.trim(),
-          message: message.trim(),
+          subject: subject.trim(),
+          message: `${message.trim()}\n\n--\nFrom: ${name.trim()} <${email.trim()}>`,
         },
         { publicKey: EMAILJS.publicKey }
       );
