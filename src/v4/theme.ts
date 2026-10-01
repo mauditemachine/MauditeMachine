@@ -692,6 +692,16 @@ export const PAD_GLOW = {
 export const PAD_HALO = { selected: 0.025, faint: 0.025, hover: 0.06, active: 0.35, flash: 0.45, orange: 0.3, orangeDim: 0.06 } as const;
 
 /**
+ * Pads de voix coupes ou en solo (2026-10-01, demande de Mika) : le
+ * caoutchouc change de teinte, meme matiere (rugosite, dome, flancs) ;
+ * MUTE en rose (un rose poudre, pas bonbon), SOLO en bleu. Couleurs
+ * AFFICHEES visees, converties par pads.ts en multiplicateur du
+ * caoutchouc. Le solo passe avant le mute (state/voices.ts). La machine
+ * claire a les siennes (applyAppearance).
+ */
+export const VOICE_TINT = { mute: '#7A5662', solo: '#2B5896' };
+
+/**
  * OPEN respire (2026-10-01, demande de Mika : le pad lui-meme, plus le
  * carre lumineux pose sur son jumeau) : son retroeclairage et son halo
  * descendent a min puis remontent, une sinusoide de periodMs, machine
@@ -1553,6 +1563,8 @@ const LIGHT = {
   press: [0.55, 0.14, 0.012],
   /** OPEN, multiplicateur de sa couleur : l'orange plein sur le caoutchouc clair */
   openTint: [1.32, 0.19, 0.012],
+  /** pads de voix coupes (rose poudre) et en solo (bleu) */
+  voiceTint: { mute: '#E3B1A9', solo: '#8DB2E4' },
 };
 
 /** Multiplicateur de couleur du pad OPEN (blanc : la teinte du caoutchouc). */
@@ -1576,6 +1588,7 @@ const DARK = {
   rim: LIGHT_RIM.intensity as number,
   press: [...STEP_PRESS.glow],
   silk: [...INK.silk],
+  voiceTint: { ...VOICE_TINT },
 };
 
 /**
@@ -1615,5 +1628,6 @@ export function applyAppearance(a: Appearance): void {
   OPEN_TINT.splice(0, 3, ...(L ? LIGHT.openTint : [1, 1, 1]));
   PRESS_TINT.rgb = L ? [1.0, 0.24, 0.035] : null;
   BACKDROP.transparent = !L;
+  Object.assign(VOICE_TINT, L ? LIGHT.voiceTint : DARK.voiceTint);
   APPEARANCE.current = a;
 }

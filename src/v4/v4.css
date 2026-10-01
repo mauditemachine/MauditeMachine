@@ -503,14 +503,28 @@ html:has(body.v4-active) {
   color: var(--yellow);
 }
 
-/* MUTE : l'instrument coupe est barre ; SOLO : cerne d'orange */
+/* MUTE : rose poudre et barre ; SOLO : bleu (2026-10-01, les teintes des
+   pads de la machine, theme VOICE_TINT ; le solo passe avant le mute) */
 .v4-root .v4-dock-inst[data-muted='1'] {
+  background: #7e4e50;
+  color: #f6f1e7;
   text-decoration: line-through;
-  opacity: 0.55;
 }
 
 .v4-root .v4-dock-inst[data-solo='1'] {
-  box-shadow: inset 0 0 0 1.5px var(--orange);
+  background: #2b5896;
+  color: #f6f1e7;
+  text-decoration: none;
+}
+
+.v4-root[data-v4-theme='light'] .v4-dock-inst[data-muted='1'] {
+  background: #e3b1a9;
+  color: #434343;
+}
+
+.v4-root[data-v4-theme='light'] .v4-dock-inst[data-solo='1'] {
+  background: #8db2e4;
+  color: #191919;
 }
 
 /* 8 par rangee, 44 de haut. Numero eteint : bone 60 % sur graphite,

@@ -1579,7 +1579,10 @@ export class Stage {
   };
 
   private syncVoices = (): void => {
-    if (this.syncVoiceKeys()) this.repaint();
+    const v = voices.get();
+    // Les pads aussi : rose poudre pour une voix coupee, bleu pour le solo
+    const pads = this.pads.setVoiceState(v.muted, v.solo);
+    if (this.syncVoiceKeys() || pads) this.repaint();
   };
 
   /** RUN/STOP : couleur du bouton ; la boucle se met a lire l'horloge audio. */

@@ -11,6 +11,8 @@
  * - pages TRACKS a SONAA : jaune faible en permanence (on les distingue),
  *   plus fort au survol de la souris, yellowHi pour la page ouverte, une
  *   seule a la fois ;
+ * - teinte des voix (2026-10-01, VOICE_TINT) : caoutchouc rose poudre
+ *   pour une voix coupee, bleu pour la voix en solo (setVoiceState) ;
  * - OPEN : orange plein machine fermee, et il respire (OPEN_BREATHE,
  *   breathe() appele par le Stage) ; orange faible vue ouverte.
  * Frappe (les 12) : le pad s'enfonce de 0.06 en 60 ms et remonte en 180 ms
@@ -35,7 +37,7 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { COLOR, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD, PADS, PAD_FX, PAD_GLOW, PAD_HALO, gainOf, type Inst, type PadId, type PageId } from '../theme';
+import { COLOR, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD, PADS, PAD_FX, PAD_GLOW, PAD_HALO, VOICE_TINT, gainOf, type Inst, type PadId, type PageId } from '../theme';
 import type { HotspotDef } from './hit';
 import { albedo, withInstanceEmissive } from './materials';
 import { makeHaloTexture } from './silk';
@@ -150,6 +152,8 @@ export interface PadsInfo {
   lastPress: { id: PadId | null; at: number; count: number };
   /** flashs recus par pad (frappes et coups du sequenceur), ordre des pads */
   flashes: number[];
+  /** teinte de chaque pad : la sienne, coupee (rose), en solo (bleu) */
+  tint: ('none' | 'mute' | 'solo')[];
 }
 
 export class Pads {
@@ -173,6 +177,11 @@ export class Pads {
   private hover = -1;
   /** respiration d'OPEN : facteur de sa lumiere orange (1 : pleine) */
   private breath = 1;
+  /** teinte de chaque pad de voix : 0 la sienne, 1 coupee, 2 en solo */
+  private voiceState = new Uint8Array(COUNT);
+  /** multiplicateurs du caoutchouc : rose (coupee), bleu (solo) */
+  private tintMute = new Color();
+  private tintSolo = new Color();
   // Cles et setters prepares : un appui n'alloue presque rien
   private keyY = PADS.map((p) => `pad.y.${p.id}`);
   private setters = PADS.map((_, i) => (v: number) => this.setY(i, v));
@@ -194,6 +203,14 @@ export class Pads {
     this.mesh.setColorAt(OPEN_I, col.setRGB(OPEN_TINT[0], OPEN_TINT[1], OPEN_TINT[2]));
     // OPEN respire : sa teinte change a chaque image
     this.mesh.instanceColor?.setUsage(DynamicDrawUsage);
+    // Couleur visee / caoutchouc, canal par canal (lineaires : le gain s'annule)
+    const rubber = new Color(COLOR.pad);
+    const ratio = (hex: string, out: Color): Color => {
+      out.set(hex);
+      return out.setRGB(out.r / rubber.r, out.g / rubber.g, out.b / rubber.b);
+    };
+    ratio(VOICE_TINT.mute, this.tintMute);
+    ratio(VOICE_TINT.solo, this.tintSolo);
 
     // Halos : un carre de 1.25 a plat sous chaque pad, additif, sans profondeur
     this.haloTex = makeHaloTexture();
@@ -359,6 +376,24 @@ export class Pads {
     return this.glow[OPEN_I] === ORANGE;
   }
 
+  /**
+   * Voix coupees (rose poudre) et voix en solo (bleu) ; le solo passe avant
+   * le mute. true s'il faut une frame.
+   */
+  setVoiceState(muted: readonly Inst[], solo: Inst | null): boolean {
+    let changed = false;
+    PADS.forEach((p, i) => {
+      if (p.kind !== 'voice') return;
+      const s = p.id === solo ? 2 : muted.includes(p.id) ? 1 : 0;
+      if (s === this.voiceState[i]) return;
+      this.voiceState[i] = s;
+      this.mesh.setColorAt(i, s === 2 ? this.tintSolo : s === 1 ? this.tintMute : col.setRGB(1, 1, 1));
+      changed = true;
+    });
+    if (changed && this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+    return changed;
+  }
+
   /** L'instrument selectionne reste allume (blanc chaud faible). */
   setSelected(inst: Inst | null): boolean {
     const i = inst ? this.index(inst) : -1;
@@ -437,6 +472,7 @@ export class Pads {
       hover: this.hover >= 0 ? PADS[this.hover].id : null,
       lastPress: { ...this.lastPress },
       flashes: Array.from(this.flashCount),
+      tint: Array.from(this.voiceState, (s) => (s === 2 ? 'solo' : s === 1 ? 'mute' : 'none')),
     };
   }
 
