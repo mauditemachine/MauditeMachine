@@ -28,6 +28,7 @@
 
 import {
   ACESFilmicToneMapping,
+  NeutralToneMapping,
   DirectionalLight,
   HemisphereLight,
   Matrix4,
@@ -66,6 +67,8 @@ import {
   DPR_MAX,
   ENCODERS,
   EXPLODE,
+  EXPOSURE,
+  APPEARANCE,
   FIRST_FRAME_WAIT_MS,
   FIT_H,
   FRAME_DESKTOP,
@@ -138,6 +141,8 @@ export interface StageOpts {
   onContextRestored: () => void;
   /** onglet ou canvas visible / cache (le son s'y branchera) */
   onVisibility?: (visible: boolean) => void;
+  /** pas d'intro (reconstruction apres un changement d'apparence) */
+  skipIntro?: boolean;
 }
 
 export interface StageStats {
@@ -410,8 +415,10 @@ export class Stage {
 
     renderer.setPixelRatio(this.dprCap());
     renderer.setClearColor(COLOR.ink, 1);
-    renderer.toneMapping = ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.0;
+    // Machine claire (2026-10-01) : la courbe Neutral garde ses blancs et l'orange ;
+    // l'ACES de la machine noire les grisait
+    renderer.toneMapping = APPEARANCE.current === 'light' ? NeutralToneMapping : ACESFilmicToneMapping;
+    renderer.toneMappingExposure = EXPOSURE.value;
     renderer.outputColorSpace = SRGBColorSpace;
     renderer.shadowMap.enabled = true;
     // three 0.186 a retire PCFSoftShadowMap (il avertit puis bascule sur PCF) :
@@ -580,7 +587,7 @@ export class Stage {
     );
     // Intro (2026-10-01) : mouvement complet seulement ; la machine attend
     // eclatee jusqu'a la premiere frame, puis s'assemble (stepIntro)
-    if (!motion.reduced()) {
+    if (!motion.reduced() && !opts.skipIntro) {
       this.introOn = true;
       // L'intro montre le PCB eclate : ses textures se font maintenant
       this.pcb.prepare();

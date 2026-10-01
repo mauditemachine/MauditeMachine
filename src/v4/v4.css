@@ -2048,3 +2048,165 @@ html:has(body.v4-active) {
 .v4-root[data-v4-motion='reduced'] .v4-kit-hint {
   animation: none;
 }
+
+/* ---------- apparence : Dark / Light (2026-10-01) ---------- */
+
+/* Le bouton : deux segments, l'apparence en cours pleine. Desktop : au bout
+   du menu ; mobile : en haut a droite de la zone de la machine. */
+.v4-header .v4-nav {
+  margin-left: auto;
+}
+
+.v4-look {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: rgba(246, 241, 231, 0.07);
+}
+
+.v4-root .v4-look-btn {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  color: var(--bone-60);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-indent: 0.16em;
+  text-transform: uppercase;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.v4-root .v4-look-btn:hover {
+  color: var(--bone);
+}
+
+.v4-root .v4-look-btn[aria-pressed='true'] {
+  background: var(--bone);
+  color: var(--ink);
+}
+
+.v4-root .v4-look-btn:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.v4-look-float {
+  position: absolute;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  right: 10px;
+  z-index: 24;
+}
+
+.v4-look-float .v4-look-btn {
+  height: 32px;
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-look-btn {
+  transition: none;
+}
+
+/* La page claire : les couleurs du press kit. Papier creme, texte #434343,
+   gris secondaire #6E6E6E, filets #D8D4CC, orange #FF6A13 pour les accents
+   (le jaune de la version sombre devient l'orange : il lit sur le clair). */
+body.v4-active.v4-light,
+html:has(body.v4-active.v4-light) {
+  background: #f1ede5 !important;
+}
+
+.v4-root[data-v4-theme='light'] {
+  --ink: #f1ede5;
+  --graphite: #faf8f4;
+  --graphite-hi: #ece8df;
+  --line: #d8d4cc;
+  --bone: #434343;
+  --bone-70: rgba(67, 67, 67, 0.82);
+  --bone-60: #6e6e6e;
+  --yellow: #ff6a13;
+  --yellow-hi: #ff6a13;
+  --orange: #ff6a13;
+  color-scheme: light;
+}
+
+.v4-root[data-v4-theme='light'] .v4-header {
+  background: linear-gradient(to bottom, rgba(241, 237, 229, 0.92), rgba(241, 237, 229, 0));
+}
+
+.v4-root[data-v4-theme='light'] .v4-nav-sep {
+  background: rgba(67, 67, 67, 0.2);
+}
+
+.v4-root[data-v4-theme='light'] .v4-nav-link:hover,
+.v4-root[data-v4-theme='light'] .v4-nav-link:focus-visible,
+.v4-root[data-v4-theme='light'] .v4-panel-close:hover,
+.v4-root[data-v4-theme='light'] a.v4-show:hover {
+  background: rgba(67, 67, 67, 0.06);
+}
+
+.v4-root[data-v4-theme='light'] .v4-look {
+  background: rgba(67, 67, 67, 0.07);
+}
+
+.v4-root[data-v4-theme='light'] .v4-look-btn[aria-pressed='true'] {
+  background: #434343;
+  color: #faf8f4;
+}
+
+/* La feuille des sections : papier blanc, ombre douce */
+.v4-root[data-v4-theme='light'] .v4-panel {
+  background: rgba(250, 248, 244, 0.96);
+  box-shadow: 0 18px 50px rgba(67, 67, 67, 0.16);
+}
+
+.v4-root[data-v4-theme='light'] .v4-panel-body {
+  scrollbar-color: rgba(67, 67, 67, 0.25) transparent;
+}
+
+.v4-root[data-v4-theme='light'] .v4-input {
+  background: #fff;
+}
+
+/* Le Dock : surfaces blanches, pas en orange degrade, tete de lecture grise */
+.v4-root[data-v4-theme='light'] .v4-dock-step[data-on='1'] {
+  color: #fff;
+}
+
+.v4-root[data-v4-theme='light'] .v4-dock-step[data-vel='2'] {
+  background: #ffb48a;
+  color: #434343;
+}
+
+.v4-root[data-v4-theme='light'] .v4-dock-step[data-vel='3'] {
+  background: #ffdcc6;
+  color: #434343;
+}
+
+.v4-root[data-v4-theme='light'] .v4-dock[data-mode='union'] .v4-dock-step[data-on='1'] {
+  background: #f6c9a9;
+  color: #434343;
+}
+
+.v4-root[data-v4-theme='light'] .v4-dock[data-mode] .v4-dock-step[data-head='1'] {
+  background: #434343;
+  color: #fff;
+}
+
+.v4-root[data-v4-theme='light'] .v4-dock-inst,
+.v4-root[data-v4-theme='light'] .v4-dock-step,
+.v4-root[data-v4-theme='light'] .v4-dock-key,
+.v4-root[data-v4-theme='light'] .v4-dock-cell {
+  box-shadow: inset 0 0 0 1px #e4e0d8;
+}
+
+.v4-root[data-v4-theme='light'] .v4-kit-hint {
+  background: rgba(250, 248, 244, 0.96);
+  color: #434343;
+  box-shadow: 0 6px 20px rgba(67, 67, 67, 0.14);
+}
+
+.v4-root[data-v4-theme='light'] .v4-merch-sold {
+  background: #434343;
+  color: #faf8f4;
+}

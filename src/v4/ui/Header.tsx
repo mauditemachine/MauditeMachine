@@ -11,9 +11,11 @@
 import React, { useSyncExternalStore } from 'react';
 import { closeSection, openSection, openToggle, page, resetView } from '../actions';
 import type { Stage } from '../scene/renderer';
+import { appearance } from '../state/appearance';
 import { explode } from '../state/explode';
 import { section } from '../state/section';
 import { EXPLODE, type PageId } from '../theme';
+import { AppearanceToggle } from './AppearanceToggle';
 
 type HoodId = 'goodies' | 'merch' | 'studio';
 
@@ -40,6 +42,7 @@ interface Props {
 
 export const Header: React.FC<Props> = ({ getStage }) => {
   const open = useSyncExternalStore(section.subscribe, section.get, section.get);
+  const look = useSyncExternalStore(appearance.subscribe, appearance.get, appearance.get);
 
   const onHome = (e: React.MouseEvent): void => {
     e.preventDefault();
@@ -61,7 +64,7 @@ export const Header: React.FC<Props> = ({ getStage }) => {
   return (
     <header className="v4-header">
       <a className="v4-logo" href="/" aria-label="Maudite Machine, back to the machine" onClick={onHome}>
-        <img src="/logo/mauditemachine-logo-gold.svg" alt="Maudite Machine" width={118} height={26} />
+        <img src={look === 'light' ? '/logo/mauditemachine-logo-ink.svg' : '/logo/mauditemachine-logo-gold.svg'} alt="Maudite Machine" width={118} height={26} />
       </a>
       <nav className="v4-nav" aria-label="Main">
         <ul>
@@ -95,6 +98,7 @@ export const Header: React.FC<Props> = ({ getStage }) => {
           ))}
         </ul>
       </nav>
+      <AppearanceToggle />
     </header>
   );
 };

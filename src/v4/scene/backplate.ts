@@ -10,7 +10,7 @@
  */
 
 import { Mesh, MeshStandardMaterial, PlaneGeometry, type CanvasTexture } from 'three';
-import { BACK, BODY, FONT_DISPLAY, SILK, boneA } from '../theme';
+import { BACK, BODY, FONT_DISPLAY, SILK, silkA } from '../theme';
 import { drawTracked, logoImage, makeCanvasTexture, trackedWidth } from './silk';
 
 type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
@@ -62,7 +62,7 @@ export class BackPlate {
     const px = (cap / SILK.capRatio) * ppu;
     const w = trackedWidth(this.ctx, t, px, weight);
     const x0 = align === 'left' ? this.px(u) : this.px(u) - w / 2;
-    this.ctx.fillStyle = boneA(alpha);
+    this.ctx.fillStyle = silkA(alpha);
     drawTracked(this.ctx, t, x0, this.py(y) + (cap * ppu) / 2, px, weight);
   }
 
@@ -86,7 +86,7 @@ export class BackPlate {
       if (t) {
         t.drawImage(img, 0, 0, w, h);
         t.globalCompositeOperation = 'source-in';
-        t.fillStyle = boneA(SILK.alpha);
+        t.fillStyle = silkA(SILK.alpha);
         t.fillRect(0, 0, w, h);
         ctx.drawImage(tmp, Math.round(this.px(L.u)), Math.round(this.py(L.y) - h / 2));
       }
@@ -128,7 +128,7 @@ export class BackPlate {
       this.text(p.label, p.u, BACK.labelY, BACK.cap, 'center');
       if (p.group) groups.set(p.group, [...(groups.get(p.group) ?? []), p.u]);
     }
-    ctx.strokeStyle = boneA(SILK.lineAlpha);
+    ctx.strokeStyle = silkA(SILK.lineAlpha);
     ctx.lineWidth = Math.max(1, SILK.lineWidth * ppu);
     for (const [name, us] of groups) {
       const a = Math.min(...us) - 0.22;

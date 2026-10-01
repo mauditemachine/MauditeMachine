@@ -56,12 +56,8 @@ const BUTTON_COUNT = 5;
 
 const BARS = KEYS.velBars;
 
-const LED_HEX: Readonly<Record<Exclude<LedTone, 'none'>, number>> = {
-  line: COLOR.line,
-  ledSet: COLOR.ledSet,
-  ledHover: COLOR.ledHover,
-  yellowHi: COLOR.yellowHi,
-};
+/** Teintes des traits, lues a la construction (l'apparence claire change line et ledHover). */
+let LED_HEX: Readonly<Record<Exclude<LedTone, 'none'>, number>> = { line: 0, ledSet: 0, ledHover: 0, yellowHi: 0 };
 
 /** z du trait b d'un pas (0 : la LED du bas). */
 const barZ = (b: number): number => KEYS.ledZ - KEYS.velPitch * b;
@@ -130,6 +126,7 @@ export class Sequencer3D {
   private soloOn = false;
 
   constructor(opts: { mobile: boolean } = { mobile: false }) {
+    LED_HEX = { line: COLOR.line, ledSet: COLOR.ledSet, ledHover: COLOR.ledHover, yellowHi: COLOR.yellowHi };
     const kGeo = keyGeometry(opts.mobile);
     this.emissive = new InstancedBufferAttribute(new Float32Array(STEP_COUNT * 3), 3);
     this.emissive.setUsage(DynamicDrawUsage);

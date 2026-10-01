@@ -1368,3 +1368,124 @@ export const TWIN_ARIA = {
  * Maj ou Page 5 BPM ou 10 % ; Debut et Fin aux butees.
  */
 export const DIAL_KEYS = { tempo: { step: 1, big: 5 }, pot: { step: 0.02, big: 0.1 } } as const;
+
+/* ---------- apparence : sombre ou claire (2026-10-01) ---------- */
+
+export type Appearance = 'dark' | 'light';
+
+/**
+ * Encre de la serigraphie du panneau et de la face arriere (r, g, b) :
+ * bone sur la machine noire, le gris du press kit (#434343) sur la
+ * machine claire. Le PCB garde la sienne (bone sur vert).
+ */
+export const INK = { silk: [246, 241, 231] as number[] };
+/** L'encre de la serigraphie a une opacite donnee (canvas). */
+export const silkA = (a: number): string => `rgba(${INK.silk[0]}, ${INK.silk[1]}, ${INK.silk[2]}, ${a})`;
+
+/** Exposition du rendu, selon l'apparence. */
+export const EXPOSURE = { value: 1 };
+/** L'apparence posee sur la scene (lue a la construction des modules). */
+export const APPEARANCE: { current: Appearance } = { current: 'dark' };
+
+type Mutable<T> = { -readonly [K in keyof T]: T[K] extends object ? Mutable<T[K]> : T[K] };
+
+/**
+ * La machine claire (demande de Mika, 2026-10-01) : un blanc a peine creme,
+ * plus blanc que le papier du press kit, sur une table creme (#F1EDE5) ;
+ * serigraphie gris #434343, noms des pages en orange #FF6A13, encodeurs
+ * charbon a repere bone, touches et pads gris tres clair, ecran noir.
+ * Teintes AFFICHEES visees ; gains cales par lecture de pixels comme ceux
+ * de la machine noire.
+ */
+const LIGHT = {
+  hex: {
+    ink: '#F1EDE5',
+    body: '#E6E2DA',
+    bodyEdge: '#F8F6F1',
+    bodyTop: '#DCD8CF',
+    rubber: '#3B3A37',
+    panel: '#FAF8F4',
+    panelEdge: '#FFFFFF',
+    panelSide: '#E4E0D8',
+    pad: '#E6E3DD',
+    key: '#E8E5DF',
+    encoder: '#26262A',
+    collar: '#D4D0C8',
+    line: '#D7D3CB',
+    ledHover: '#8E8A83',
+  } as Partial<Record<Tone, string>>,
+  gain: { body: 1.25, bodyEdge: 1, bodyTop: 1.1, panel: 1, panelEdge: 1, panelSide: 1.2, pad: 1.05, encoder: 2.4, collar: 1 } as Partial<Record<Tone, number>>,
+  lit: { key: [0.84, 0.82, 0.78], clear: [0.82, 0.8, 0.76] } as Record<string, number[]>,
+  material: { panel: { roughness: 0.5, metalness: 0 }, chassis: { roughness: 0.7, metalness: 0 }, key: { roughness: 0.55, metalness: 0 }, pad: { roughness: 0.85, metalness: 0 } },
+  /** lueurs des pads en orange (le jaune palit sur le caoutchouc clair) */
+  glow: {
+    selected: [0.05, 0.016, 0.0],
+    active: [0.42, 0.1, 0.0],
+    flash: [0.55, 0.14, 0.0],
+    orange: [0.32, 0.035, 0.0],
+    orangeDim: [0.08, 0.01, 0.0],
+  } as Record<string, number[]>,
+  floor: { haloHex: '#FAF8F4', shadow: 0.32, contact: 0.32 },
+  hemi: { ground: 0xe9e5dd, intensity: 0.6, sky: 0xffffff },
+  /** lumieres blanches neutres : la machine reste blanche, pas creme */
+  key: 0xffffff,
+  rim: 1.5,
+  silk: [67, 67, 67],
+  exposure: 1.3,
+  /** OPEN, multiplicateur de sa couleur : l'orange plein sur le caoutchouc clair */
+  openTint: [1.32, 0.19, 0.012],
+};
+
+/** Multiplicateur de couleur du pad OPEN (blanc : la teinte du caoutchouc). */
+export const OPEN_TINT: number[] = [1, 1, 1];
+
+/** L'etat sombre d'origine, copie au chargement pour pouvoir y revenir. */
+const DARK = {
+  hex: { ...HEX },
+  gain: { ...GAIN },
+  lit: Object.fromEntries(Object.entries(LIT).map(([k, v]) => [k, [...v]])) as Record<string, number[]>,
+  material: JSON.parse(JSON.stringify(MATERIAL)) as Mutable<typeof MATERIAL>,
+  glow: Object.fromEntries((['selected', 'active', 'flash', 'orange', 'orangeDim'] as const).map((k) => [k, [...PAD_GLOW[k]]])) as Record<string, number[]>,
+  floor: { haloHex: FLOOR.haloHex as string, shadow: FLOOR.shadow as number, contact: FLOOR.contact.opacity as number },
+  hemi: { ground: LIGHT_HEMI.ground as number, intensity: LIGHT_HEMI.intensity as number, sky: LIGHT_HEMI.sky as number },
+  key: LIGHT_KEY.color as number,
+  rim: LIGHT_RIM.intensity as number,
+  silk: [...INK.silk],
+};
+
+/**
+ * Pose une apparence sur les constantes de la scene, AVANT la creation du
+ * Stage (index.tsx le reconstruit a chaque changement) : chaque module lit
+ * ses teintes a la construction. Les memes objets sont modifies en place :
+ * les references gardees ailleurs (pads, encodeurs) suivent.
+ */
+export function applyAppearance(a: Appearance): void {
+  const L = a === 'light';
+  const hex = HEX as Record<Tone, string>;
+  Object.assign(hex, DARK.hex, L ? LIGHT.hex : {});
+  const color = COLOR as Record<Tone, number>;
+  for (const k of Object.keys(hex) as Tone[]) color[k] = parseInt(hex[k].slice(1), 16);
+  const gain = GAIN as Record<string, number>;
+  for (const k of Object.keys(gain)) delete gain[k];
+  Object.assign(gain, DARK.gain, L ? LIGHT.gain : {});
+  for (const [k, v] of Object.entries(DARK.lit)) Object.assign((LIT as unknown as Record<string, number[]>)[k], L && LIGHT.lit[k] ? LIGHT.lit[k] : v);
+  const mat = MATERIAL as unknown as Mutable<typeof MATERIAL>;
+  for (const k of Object.keys(DARK.material) as (keyof typeof MATERIAL)[]) {
+    Object.assign(mat[k], DARK.material[k], L ? (LIGHT.material as Record<string, object>)[k] ?? {} : {});
+  }
+  for (const k of ['selected', 'active', 'flash', 'orange', 'orangeDim'] as const) Object.assign(PAD_GLOW[k] as unknown as number[], L ? LIGHT.glow[k] : DARK.glow[k]);
+  const floor = FLOOR as unknown as { haloHex: string; shadow: number; contact: { opacity: number } };
+  floor.haloHex = L ? LIGHT.floor.haloHex : DARK.floor.haloHex;
+  floor.shadow = L ? LIGHT.floor.shadow : DARK.floor.shadow;
+  floor.contact.opacity = L ? LIGHT.floor.contact : DARK.floor.contact;
+  const hemi = LIGHT_HEMI as unknown as { ground: number; intensity: number; sky: number };
+  hemi.ground = L ? LIGHT.hemi.ground : DARK.hemi.ground;
+  hemi.intensity = L ? LIGHT.hemi.intensity : DARK.hemi.intensity;
+  hemi.sky = L ? LIGHT.hemi.sky : DARK.hemi.sky;
+  (LIGHT_KEY as unknown as { color: number }).color = L ? LIGHT.key : DARK.key;
+  (LIGHT_RIM as unknown as { intensity: number }).intensity = L ? LIGHT.rim : DARK.rim;
+  INK.silk.splice(0, 3, ...(L ? LIGHT.silk : DARK.silk));
+  EXPOSURE.value = L ? LIGHT.exposure : 1;
+  OPEN_TINT.splice(0, 3, ...(L ? LIGHT.openTint : [1, 1, 1]));
+  APPEARANCE.current = a;
+}

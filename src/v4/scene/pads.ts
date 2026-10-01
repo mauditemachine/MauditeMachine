@@ -34,7 +34,7 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { COLOR, MATERIAL, PAD, PADS, PAD_FX, PAD_GLOW, PAD_HALO, gainOf, type Inst, type PadId, type PageId } from '../theme';
+import { COLOR, MATERIAL, OPEN_TINT, PAD, PADS, PAD_FX, PAD_GLOW, PAD_HALO, gainOf, type Inst, type PadId, type PageId } from '../theme';
 import type { HotspotDef } from './hit';
 import { albedo, withInstanceEmissive } from './materials';
 import { makeHaloTexture } from './silk';
@@ -185,6 +185,9 @@ export class Pads {
     this.mesh.instanceMatrix.setUsage(DynamicDrawUsage);
     this.mesh.castShadow = opts.castShadow;
     this.mesh.receiveShadow = true;
+    // Couleur par pad : blanche (le caoutchouc), OPEN teinte en orange sur la machine claire
+    for (let i = 0; i < COUNT; i += 1) this.mesh.setColorAt(i, col.setRGB(1, 1, 1));
+    this.mesh.setColorAt(PADS.findIndex((p) => p.id === 'open'), col.setRGB(OPEN_TINT[0], OPEN_TINT[1], OPEN_TINT[2]));
 
     // Halos : un carre de 1.25 a plat sous chaque pad, additif, sans profondeur
     this.haloTex = makeHaloTexture();

@@ -35,7 +35,7 @@ import {
   SILK_LOGOS,
   SILK_PLANE,
   SILK_TEXTS,
-  boneA,
+  silkA,
   type SilkLogoId,
   type SilkText,
 } from '../theme';
@@ -358,7 +358,7 @@ export class PanelSilk {
     ctx.textBaseline = 'alphabetic';
 
     // Filets : le separateur VOICES / PAGES, les crochets des touches trig
-    ctx.strokeStyle = boneA(SILK.lineAlpha);
+    ctx.strokeStyle = silkA(SILK.lineAlpha);
     ctx.lineWidth = Math.max(1, SILK.lineWidth * u);
     ctx.lineJoin = 'miter';
     ctx.lineCap = 'butt';
@@ -401,7 +401,7 @@ export class PanelSilk {
       const w = trackedWidth(ctx, it.text, fontPx, weight);
       const cx = this.px(it.x);
       const x0 = it.align === 'right' ? cx - w : it.align === 'left' ? cx : cx - w / 2;
-      ctx.fillStyle = it.ink === 'orange' ? HEX.orange : boneA(it.alpha ?? SILK.alpha);
+      ctx.fillStyle = it.ink === 'orange' ? HEX.orange : silkA(it.alpha ?? SILK.alpha);
       drawTracked(ctx, it.text, x0, this.py(it.z) + (cap * u) / 2, fontPx, weight);
     });
 
@@ -423,7 +423,7 @@ export class PanelSilk {
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, 0, 0, w, h);
     ctx.globalCompositeOperation = 'source-in';
-    ctx.fillStyle = boneA(SILK.alpha);
+    ctx.fillStyle = silkA(SILK.alpha);
     ctx.fillRect(0, 0, w, h);
     this.tinted.set(key, canvas);
     return canvas;

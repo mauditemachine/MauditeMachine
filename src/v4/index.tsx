@@ -47,11 +47,13 @@ import { explode } from './state/explode';
 import { FLAGS, syncFlags } from './state/flags';
 import { intro } from './state/intro';
 import { lcd } from './state/lcd';
+import { appearance } from './state/appearance';
 import { presskit } from './state/presskit';
 import { useReducedMotion } from './state/motion';
 import { section } from './state/section';
 import { view } from './state/view';
-import { COARSE_QUERY, COPY, HEX, MOBILE_QUERY, PRESSKIT_ROUTE } from './theme';
+import { COARSE_QUERY, COPY, HEX, MOBILE_QUERY, PRESSKIT_ROUTE, applyAppearance } from './theme';
+import { AppearanceToggle } from './ui/AppearanceToggle';
 import { Dock } from './ui/Dock';
 import { Header } from './ui/Header';
 import { HitLayer, Twins } from './ui/Hotspots';
@@ -241,6 +243,9 @@ const V4Shell: React.FC = () => {
   const exploded = useSyncExternalStore(explode.subscribe, explode.get, explode.get);
   const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
   const viewMoved = useSyncExternalStore(view.subscribe, view.get, view.get);
+  // Apparence (2026-10-01) : la machine se reconstruit a chaque changement
+  const look = useSyncExternalStore(appearance.subscribe, appearance.get, appearance.get);
+  const builtOnce = useRef(false);
 
   const hostRef = useRef<HTMLDivElement>(null);
   const stageElRef = useRef<HTMLDivElement>(null);
@@ -265,11 +270,15 @@ const V4Shell: React.FC = () => {
 
   /* ---------- la scene ---------- */
   useEffect(() => {
+    // Les teintes de la scene, posees avant sa construction (repli SVG compris)
+    applyAppearance(look);
     if (FLAGS.nowebgl || glFailed) return undefined;
     const host = hostRef.current;
     const input = stageElRef.current;
     if (!host || !input) return undefined;
     const stage = Stage.create({
+      // Une reconstruction (changement d'apparence) ne rejoue pas l'intro
+      skipIntro: builtOnce.current,
       host,
       input,
       // Palier de qualite par classe d'appareil, pas par largeur : un
@@ -291,6 +300,7 @@ const V4Shell: React.FC = () => {
       setGl('fallback');
       return undefined;
     }
+    builtOnce.current = true;
     stageRef.current = stage;
     setStage(stage);
     // Un premier montage en echec (StrictMode, contexte sature) ne fige pas le repli
@@ -300,7 +310,14 @@ const V4Shell: React.FC = () => {
       setStage(null);
       stage.dispose();
     };
-  }, [onError, glFailed]);
+  }, [onError, glFailed, look]);
+
+  /* Fond de la page et theme-color du navigateur selon l'apparence */
+  useEffect(() => {
+    document.body.classList.toggle('v4-light', look === 'light');
+    document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute('content', look === 'light' ? '#F1EDE5' : HEX.ink);
+    return () => document.body.classList.remove('v4-light');
+  }, [look]);
 
   /*
    * Repli affiche (perte de contexte, erreur) : la page n'a plus de RUN/STOP
@@ -343,6 +360,7 @@ const V4Shell: React.FC = () => {
       data-v4-sc={scStatus}
       data-v4-exploded={exploded}
       data-v4-view={viewMoved ? 'moved' : 'default'}
+      data-v4-theme={look}
     >
       {gl === 'webgl' && (
         <h1 className="v4-sr">
@@ -369,6 +387,7 @@ const V4Shell: React.FC = () => {
           {mobile && <Dock getStage={getStage} />}
           {/* L'en-tete fin (logo et menu) n'existe que sur desktop */}
           {!mobile && <Header getStage={getStage} />}
+          {mobile && <AppearanceToggle floating />}
           <Trace stage={stage} panelRef={panelRef} mobile={mobile} />
           <Panel mobile={mobile} panelRef={panelRef} />
         </StageBoundary>
