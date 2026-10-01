@@ -1496,6 +1496,13 @@ export const TWIN_ARIA = {
  */
 export const DIAL_KEYS = { tempo: { step: 1, big: 5 }, pot: { step: 0.02, big: 0.1 } } as const;
 
+/**
+ * Reglage fin, Maj tenue sur un potard (2026-10-01, comme dans Ableton) :
+ * le glisser dix fois plus fin (1 % pour 15 px au lieu de 1.5), la molette
+ * a 1 % le cran (TEMPO garde 1 BPM le cran, deja son plus petit pas).
+ */
+export const DIAL_FINE = { drag: 0.1, wheelStep: 0.01 } as const;
+
 /* ---------- apparence : sombre ou claire (2026-10-01) ---------- */
 
 export type Appearance = 'dark' | 'light';

@@ -65,6 +65,7 @@ import { EXTERNAL_REL } from './ExternalLink';
 import {
   CHIPS,
   COARSE_QUERY,
+  DIAL_FINE,
   DIAL_KEYS,
   ENCODERS,
   ENC_GRAB,
@@ -110,6 +111,9 @@ interface Down {
   /** encodeur sous le pointerdown, et sa valeur de depart */
   dial: EncId | null;
   v0: number;
+  /** reglage fin (Maj) en cours, et la course a laquelle il a ete pris ou lache */
+  fine: boolean;
+  a: number;
   /** la garde l'a pris : glisser parti de l'encodeur, qui le tourne */
   turning: boolean;
   /** axe dominant au seuil : y (vers le haut = plus) ou x (vers la droite = plus) */
@@ -140,10 +144,21 @@ function activateChip(id: string, chip: ChipId): void {
 /** Valeur par px de glisser : TEMPO 2 px par BPM, les autres 150 px la course (TONE : 2 unites). */
 const perPx = (k: EncId): number => (k === 'tempo' ? 1 / TEMPO_UI.pxPerBpm : (1 - potMin(k)) / POT_UI.pxRange);
 
-/** L'encodeur d'un glisser qui le tient : valeur de depart + ecart sur son axe, depuis le pointerdown. */
-function turnDial(d: Down, dx: number, dy: number): void {
+/**
+ * L'encodeur d'un glisser qui le tient : valeur de depart + ecart sur son
+ * axe, depuis le pointerdown. Maj tenue : dix fois plus fin (DIAL_FINE,
+ * comme dans Ableton) ; prise ou lachee en cours de geste, la course repart
+ * de la valeur du moment, sans saut.
+ */
+function turnDial(d: Down, dx: number, dy: number, fine: boolean): void {
   if (!d.dial) return;
-  dial(d.dial, d.v0 + (d.axis === 'y' ? -dy : dx) * perPx(d.dial));
+  const travel = d.axis === 'y' ? -dy : dx;
+  if (fine !== d.fine) {
+    d.v0 = dialValue(d.dial);
+    d.a = travel;
+    d.fine = fine;
+  }
+  dial(d.dial, d.v0 + (travel - d.a) * perPx(d.dial) * (fine ? DIAL_FINE.drag : 1));
 }
 
 interface Point {
@@ -171,6 +186,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     let lastBg: { t: number; x: number; y: number } | null = null;
     let wheelAcc = 0;
     let wheelKind: EncId | null = null;
+    /** Maj tenue au dernier mouvement du pointeur (reglage fin des potards) */
+    let shiftHeld = false;
     // Le rectangle ne change qu'au redimensionnement : pas de lecture de
     // mise en page a la cadence du pointeur
     let rect = el.getBoundingClientRect();
@@ -282,7 +299,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (d.touch && performance.now() - d.t < ENC_GRAB.touchHoldMs) return true;
       d.turning = true;
       d.axis = Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
-      turnDial(d, dx, dy);
+      turnDial(d, dx, dy, shiftHeld);
       if (d.mouse) {
         turnAxis = d.axis;
         setCursor();
@@ -312,6 +329,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         y: e.clientY,
         dial: encoder,
         v0: encoder ? dialValue(encoder) : 0,
+        fine: false,
+        a: 0,
         turning: false,
         axis: 'y',
         mouse: e.pointerType === 'mouse',
@@ -342,11 +361,13 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     };
 
     const onMove = (e: PointerEvent): void => {
+      // Lu ici, avant l'orbite (sur le parent) dont la garde prend l'encodeur
+      shiftHeld = e.shiftKey;
       const d = downs.get(e.pointerId);
       // Souris sans bouton mais encore tenue ici : son pointerup s'est perdu
       if (d && d.mouse && (e.buttons & 1) === 0) forget(e.pointerId);
       else if (d && d.turning) {
-        turnDial(d, e.clientX - d.x, e.clientY - d.y);
+        turnDial(d, e.clientX - d.x, e.clientY - d.y, e.shiftKey);
         return;
       }
       if (e.pointerType !== 'mouse') return;
@@ -413,14 +434,17 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       const unit = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1;
       // Molette vers le haut = plus ; un cran de 100 px = 1 BPM ou 2 %, les
-      // petits deltas d'un pave tactile s'accumulent
-      wheelAcc -= e.deltaY * unit;
+      // petits deltas d'un pave tactile s'accumulent. Maj : macOS fait de la
+      // molette un defilement horizontal (deltaX), lu a sa place
+      const delta = e.shiftKey && e.deltaY === 0 ? e.deltaX : e.deltaY;
+      wheelAcc -= delta * unit;
       const px = k === 'tempo' ? TEMPO_UI.wheelPx : POT_UI.wheelPx;
       const steps = Math.trunc(wheelAcc / px);
       if (steps !== 0) {
         wheelAcc -= steps * px;
-        const step = k === 'tempo' ? 1 : isBipolar(k) ? POT_UI.bipolarStep : POT_UI.wheelStep;
-        dial(k, dialValue(k) + steps * step);
+        // Maj : reglage fin, 1 % le cran (TEMPO reste a 1 BPM)
+        const step = k === 'tempo' ? 1 : e.shiftKey ? DIAL_FINE.wheelStep : isBipolar(k) ? POT_UI.bipolarStep : POT_UI.wheelStep;
+        dial(k, Math.round((dialValue(k) + steps * step) * 1000) / 1000);
       }
     };
 
