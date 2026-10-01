@@ -25,3 +25,11 @@
 ## 4. Commandes utiles ajoutees
 
 - Debug : `__v4.lcd.mix` (page MIX), `__v4.stage.screen.canvas` (texture de l'ecran), `__v4.stage.pcb.canvas` (texture de la carte entiere).
+
+## Complement : deux volumes, rangee alignee, transport sous l'ecran, face arriere
+
+- `theme.ts` : MASTER (level) au-dessus de TEMPO ; VOLUME (vol, nouveau) pour la voix selectionnee seulement ; rangee de huit potards sur la grille des touches 9 a 16 ; TRANSPORT en carres de 0.8 sous l'ecran ; BACK (connectique et serigraphie de la face arriere).
+- `actions.ts` : VOLUME sans pad -> TAP A PAD FIRST ; avec un pad -> page MIX. MASTER ne regle plus jamais une voix.
+- `scene/sequencer3d.ts` : les boutons de transport ont leur propre maillage (coins reguliers).
+- `scene/machine.ts` : vraie connectique (casque, L/R, SYNC, MIDI DIN, USB-C, DC 12V, interrupteur) ; `scene/backplate.ts` (nouveau) : logo, noms des prises, etiquette de serie.
+- Decision : libelles MASTER et VOLUME (deux potards marques VOLUME pretaient a confusion).

@@ -42,13 +42,17 @@ import { withInstanceEmissive } from './materials';
 /** Teinte d'un trait ; 'none' : trait cache (au-dessus de la LED du bas, pas assez fort). */
 export type LedTone = 'line' | 'ledSet' | 'ledHover' | 'yellowHi' | 'none';
 
-/** Instances des touches : les 16 trig, puis RUN, CLEAR, MUTE, SOLO et RANDOM. */
+/**
+ * Index des touches : les 16 trig (maillage keys), puis RUN, CLEAR, MUTE,
+ * SOLO et RANDOM (maillage buttons, 2026-10-01 : des carres de 0.8 a leur
+ * propre geometrie, coins reguliers).
+ */
 const RUN = STEP_COUNT;
 const CLEAR = STEP_COUNT + 1;
 const MUTE = STEP_COUNT + 2;
 const SOLO = STEP_COUNT + 3;
 export const RANDOM = STEP_COUNT + 4;
-const KEY_COUNT = STEP_COUNT + 5;
+const BUTTON_COUNT = 5;
 
 const BARS = KEYS.velBars;
 
@@ -69,6 +73,15 @@ const col = new Color();
 function keyGeometry(mobile: boolean): BufferGeometry {
   const g = new RoundedBoxGeometry(KEYS.w, KEYS.h, KEYS.d, mobile ? KEYS.segments.mobile : KEYS.segments.desktop, KEYS.radius);
   g.translate(0, KEYS.h / 2, 0);
+  g.deleteAttribute('uv');
+  return g;
+}
+
+/** Bouton carre du transport (2026-10-01), memes arrondis que les touches, base a y 0. */
+function buttonGeometry(mobile: boolean): BufferGeometry {
+  const T = TRANSPORT;
+  const g = new RoundedBoxGeometry(T.size, T.h, T.size, mobile ? KEYS.segments.mobile : KEYS.segments.desktop, T.radius);
+  g.translate(0, T.h / 2, 0);
   g.deleteAttribute('uv');
   return g;
 }
@@ -98,10 +111,12 @@ export interface SequencerInfo {
 
 export class Sequencer3D {
   readonly keys: InstancedMesh;
+  readonly buttons: InstancedMesh;
   readonly leds: InstancedMesh;
   private keyMat: MeshStandardMaterial;
   private ledMat: MeshBasicMaterial;
   private emissive: InstancedBufferAttribute;
+  private btnEmissive: InstancedBufferAttribute;
   /** teinte de chaque trait, index pas x BARS + trait */
   private ledTone: LedTone[] = [];
   private steps: Steps | null = null;
@@ -116,35 +131,45 @@ export class Sequencer3D {
 
   constructor(opts: { mobile: boolean } = { mobile: false }) {
     const kGeo = keyGeometry(opts.mobile);
-    this.emissive = new InstancedBufferAttribute(new Float32Array(KEY_COUNT * 3), 3);
+    this.emissive = new InstancedBufferAttribute(new Float32Array(STEP_COUNT * 3), 3);
     this.emissive.setUsage(DynamicDrawUsage);
     kGeo.setAttribute('instanceEmissive', this.emissive);
     this.keyMat = withInstanceEmissive(new MeshStandardMaterial({ ...MATERIAL.key }), false);
     this.keyMat.name = 'key';
-    this.keys = new InstancedMesh(kGeo, this.keyMat, KEY_COUNT);
+    this.keys = new InstancedMesh(kGeo, this.keyMat, STEP_COUNT);
     this.keys.name = 'keys';
     this.keys.receiveShadow = true;
-
     for (let i = 0; i < STEP_COUNT; i += 1) {
       this.keys.setMatrixAt(i, m4.makeTranslation(keyX(i), 0, KEYS.z));
       this.keys.setColorAt(i, col.setRGB(LIT.key[0], LIT.key[1], LIT.key[2]));
     }
-    // RUN et CLEAR : la meme boite, carree par l'echelle
-    const sx = TRANSPORT.size / KEYS.w;
-    const sy = TRANSPORT.h / KEYS.h;
-    const sz = TRANSPORT.size / KEYS.d;
-    this.keys.setMatrixAt(RUN, m4.makeScale(sx, sy, sz).setPosition(TRANSPORT.run.x, 0, TRANSPORT.z));
-    this.keys.setMatrixAt(CLEAR, m4.makeScale(sx, sy, sz).setPosition(TRANSPORT.clear.x, 0, TRANSPORT.z));
-    this.keys.setColorAt(CLEAR, col.setRGB(LIT.clear[0], LIT.clear[1], LIT.clear[2]));
-    this.keys.setMatrixAt(MUTE, m4.makeScale(sx, sy, sz).setPosition(TRANSPORT.mute.x, 0, TRANSPORT.z));
-    this.keys.setMatrixAt(SOLO, m4.makeScale(sx, sy, sz).setPosition(TRANSPORT.solo.x, 0, TRANSPORT.z));
-    this.keys.setMatrixAt(RANDOM, m4.makeScale(sx, sy, sz).setPosition(TRANSPORT.random.x, 0, TRANSPORT.z));
-    this.keys.setColorAt(RANDOM, col.setRGB(LIT.clear[0], LIT.clear[1], LIT.clear[2]));
+    this.keys.instanceMatrix.needsUpdate = true;
+    this.keys.instanceColor?.setUsage(DynamicDrawUsage);
+
+    // Transport : RUN, CLEAR, MUTE, SOLO, RANDOM (meme materiau, sa geometrie)
+    const bGeo = buttonGeometry(opts.mobile);
+    this.btnEmissive = new InstancedBufferAttribute(new Float32Array(BUTTON_COUNT * 3), 3);
+    this.btnEmissive.setUsage(DynamicDrawUsage);
+    bGeo.setAttribute('instanceEmissive', this.btnEmissive);
+    this.buttons = new InstancedMesh(bGeo, this.keyMat, BUTTON_COUNT);
+    this.buttons.name = 'buttons';
+    this.buttons.receiveShadow = true;
+    const T = TRANSPORT;
+    for (const [k, x] of [
+      [RUN, T.run.x],
+      [CLEAR, T.clear.x],
+      [MUTE, T.mute.x],
+      [SOLO, T.solo.x],
+      [RANDOM, T.random.x],
+    ] as const) {
+      this.buttons.setMatrixAt(k - STEP_COUNT, m4.makeTranslation(x, 0, T.z));
+      this.buttons.setColorAt(k - STEP_COUNT, col.setRGB(LIT.clear[0], LIT.clear[1], LIT.clear[2]));
+    }
     this.paintVoiceKey(MUTE, false);
     this.paintVoiceKey(SOLO, false);
     this.paintRun();
-    this.keys.instanceMatrix.needsUpdate = true;
-    this.keys.instanceColor?.setUsage(DynamicDrawUsage);
+    this.buttons.instanceMatrix.needsUpdate = true;
+    this.buttons.instanceColor?.setUsage(DynamicDrawUsage);
 
     this.ledMat = new MeshBasicMaterial({ toneMapped: false });
     this.ledMat.name = 'led';
@@ -169,14 +194,19 @@ export class Sequencer3D {
    */
   private paintVoiceKey(k: number, on: boolean): void {
     const c = on ? (k === MUTE ? LIT.muteOn : LIT.runOn) : LIT.clear;
-    this.keys.setColorAt(k, col.setRGB(c[0], c[1], c[2]));
-    const e = this.emissive.array as Float32Array;
-    const g = on ? (k === MUTE ? MUTE_GLOW : RUN_GLOW) : [0, 0, 0];
-    e[k * 3] = g[0];
-    e[k * 3 + 1] = g[1];
-    e[k * 3 + 2] = g[2];
-    this.emissive.needsUpdate = true;
-    if (this.keys.instanceColor) this.keys.instanceColor.needsUpdate = true;
+    this.paintButton(k, c, on ? (k === MUTE ? MUTE_GLOW : RUN_GLOW) : [0, 0, 0]);
+  }
+
+  /** Teinte et eclat d'un bouton du transport. */
+  private paintButton(k: number, c: readonly number[], g: readonly number[]): void {
+    const i = k - STEP_COUNT;
+    this.buttons.setColorAt(i, col.setRGB(c[0], c[1], c[2]));
+    const e = this.btnEmissive.array as Float32Array;
+    e[i * 3] = g[0];
+    e[i * 3 + 1] = g[1];
+    e[i * 3 + 2] = g[2];
+    this.btnEmissive.needsUpdate = true;
+    if (this.buttons.instanceColor) this.buttons.instanceColor.needsUpdate = true;
   }
 
   /** Allume MUTE et SOLO ; true s'il faut une frame. */
@@ -191,15 +221,7 @@ export class Sequencer3D {
 
   /** RUN : rouge a l'arret ; jaune et emissif pendant la lecture. */
   private paintRun(): void {
-    const c = this.running ? LIT.runOn : LIT.run;
-    this.keys.setColorAt(RUN, col.setRGB(c[0], c[1], c[2]));
-    const e = this.emissive.array as Float32Array;
-    const g = this.running ? RUN_GLOW : [0, 0, 0];
-    e[RUN * 3] = g[0];
-    e[RUN * 3 + 1] = g[1];
-    e[RUN * 3 + 2] = g[2];
-    this.emissive.needsUpdate = true;
-    if (this.keys.instanceColor) this.keys.instanceColor.needsUpdate = true;
+    this.paintButton(RUN, this.running ? LIT.runOn : LIT.run, this.running ? RUN_GLOW : [0, 0, 0]);
   }
 
   /** Velocite du pas i (0 vide, 1 fort, 2 moyen, 3 doux) ; sans selection, la plus forte des voix. */
@@ -223,13 +245,17 @@ export class Sequencer3D {
   setKeyPress(i: number, v: number, move: boolean): void {
     // Les 16 pas et RANDOM
     if (i < 0 || (i >= STEP_COUNT && i !== RANDOM)) return;
-    this.keys.instanceMatrix.array[i * 16 + 13] = move ? -STEP_PRESS.depth * v : 0;
-    this.keys.instanceMatrix.needsUpdate = true;
-    const e = this.emissive.array as Float32Array;
-    e[i * 3] = STEP_PRESS.glow[0] * v;
-    e[i * 3 + 1] = STEP_PRESS.glow[1] * v;
-    e[i * 3 + 2] = STEP_PRESS.glow[2] * v;
-    this.emissive.needsUpdate = true;
+    const btn = i >= STEP_COUNT;
+    const mesh = btn ? this.buttons : this.keys;
+    const attr = btn ? this.btnEmissive : this.emissive;
+    const j = btn ? i - STEP_COUNT : i;
+    mesh.instanceMatrix.array[j * 16 + 13] = move ? -STEP_PRESS.depth * v : 0;
+    mesh.instanceMatrix.needsUpdate = true;
+    const e = attr.array as Float32Array;
+    e[j * 3] = STEP_PRESS.glow[0] * v;
+    e[j * 3 + 1] = STEP_PRESS.glow[1] * v;
+    e[j * 3 + 2] = STEP_PRESS.glow[2] * v;
+    attr.needsUpdate = true;
   }
 
   /** Teinte du trait b du pas i (regle de l'en-tete). */
@@ -357,8 +383,10 @@ export class Sequencer3D {
 
   dispose(): void {
     this.keys.geometry.dispose();
+    this.buttons.geometry.dispose();
     this.keyMat.dispose();
     this.keys.dispose();
+    this.buttons.dispose();
     this.leds.geometry.dispose();
     this.ledMat.dispose();
     this.leds.dispose();

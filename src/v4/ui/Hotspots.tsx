@@ -54,7 +54,7 @@ import {
 } from '../actions';
 import { clock } from '../audio/clock';
 import { mix } from '../audio/drums';
-import { voiceFx } from '../audio/voicefx';
+import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
 import { BPM, STEP_COUNT, isOn, pattern } from '../audio/pattern';
 import type { HotspotKind, HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
@@ -600,8 +600,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const inst = p.instrument;
   const sel = p.instrument ? vfx[p.instrument] : null;
   const values: Record<EncId, number> = sel
-    ? { tempo: p.bpm, tone: sel.tone, stretch: sel.stretch, level: sel.level, swing, dist: sel.dist, reverb: sel.reverb, delay: sel.delay, chorus: sel.chorus }
-    : { tempo: p.bpm, tone, stretch, level, swing, dist: drive, reverb, delay, chorus };
+    ? { tempo: p.bpm, tone: sel.tone, stretch: sel.stretch, level, vol: sel.level, swing, dist: sel.dist, reverb: sel.reverb, delay: sel.delay, chorus: sel.chorus }
+    : { tempo: p.bpm, tone, stretch, level, vol: VOICE_FX_DEFAULT.level, swing, dist: drive, reverb, delay, chorus };
 
   /** Ref stable par id : l'element entre et sort des deux registres. */
   const refFor = (id: string): ((el: HTMLElement | null) => void) => {
@@ -789,7 +789,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
             data-hotspot={id}
             role="slider"
             tabIndex={0}
-            aria-label={p.instrument && VOICE_ENCODERS.includes(enc.id) ? `${enc.aria}, ${INST_NAMES[p.instrument]}` : enc.aria}
+            aria-label={p.instrument && VOICE_ENCODERS.includes(enc.id) ? `${enc.aria}, ${INST_NAMES[p.instrument]}` : enc.id === 'vol' ? `${enc.aria}, tap a pad first` : enc.aria}
             aria-orientation="vertical"
             aria-valuemin={tempo ? BPM.min : potMin(enc.id) * 100}
             aria-valuemax={tempo ? BPM.max : 100}

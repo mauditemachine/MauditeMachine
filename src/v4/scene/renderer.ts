@@ -49,7 +49,7 @@ import { clock } from '../audio/clock';
 import { sc } from '../audio/soundcloud';
 import { context, mix } from '../audio/drums';
 import { BPM, INSTRUMENTS, pattern } from '../audio/pattern';
-import { voiceFx } from '../audio/voicefx';
+import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
 import { motion } from '../state/motion';
 import { explode as explodeState } from '../state/explode';
 import { intro } from '../state/intro';
@@ -106,6 +106,7 @@ import { Orbit } from './orbit';
 import { Pads } from './pads';
 import { Pcb } from './pcb';
 import { Screen } from './screen';
+import { BackPlate } from './backplate';
 import { RANDOM, Sequencer3D } from './sequencer3d';
 import { PanelSilk, fontsReady, makeBrushTexture, whenFonts, whenLogos } from './silk';
 import { Tweens, easeInOutCubic, easeOutCubic, linear } from './tween';
@@ -247,6 +248,7 @@ export class Stage {
   readonly orbit: Orbit;
   readonly machine: Machine;
   readonly silk: PanelSilk;
+  readonly backPlate: BackPlate;
   /** tweens des objets qui projettent une ombre (enfoncement des pads) : passe d'ombre */
   readonly tweens = new Tweens();
   /** tweens sans ombre (soulevement des puces, cadrage de section) : frames sans passe d'ombre */
@@ -468,10 +470,14 @@ export class Stage {
     this.brush = makeBrushTexture();
     this.machine = new Machine(mobile, this.brush);
     this.silk = new PanelSilk(mobile, aniso);
+    // La face arriere (2026-10-01) : logo, noms des prises, numero de serie
+    this.backPlate = new BackPlate(mobile, aniso);
+    this.machine.socle.add(this.backPlate.mesh);
     // Les logos du panneau arrivent pendant l'intro : un redessin de la serigraphie
     void whenLogos().then(() => {
       if (this.disposed) return;
       this.silk.draw();
+      this.backPlate.draw();
       this.repaint();
     });
     const plateau = this.machine.plateau;
@@ -492,7 +498,7 @@ export class Stage {
     // Bas : touches trig, RUN/STOP, CLEAR, LED ; moitie gauche : les six encodeurs
     this.seq = new Sequencer3D({ mobile });
     this.encoders = new Encoders({ mobile, castShadow: !mobile });
-    plateau.add(this.pads.mesh, this.pads.halos, this.seq.keys, this.seq.leds, this.encoders.mesh);
+    plateau.add(this.pads.mesh, this.pads.halos, this.seq.keys, this.seq.buttons, this.seq.leds, this.encoders.mesh);
     // L'ecran (redessine 4 fois par seconde au plus, jamais par frame) ; il
     // ne s'abonne a state/lcd.ts qu'avec les autres ecouteurs
     this.screen = new Screen(aniso, () => this.repaint());
@@ -996,6 +1002,7 @@ export class Stage {
     void whenFonts().then(() => {
       if (this.disposed) return;
       this.silk.draw();
+      this.backPlate.draw();
       this.pcb.redraw();
       this.start();
       this.invalidate();
@@ -1471,7 +1478,9 @@ export class Stage {
     // TONE va de -1 a 1 : sa course est centree (repere a midi a 0)
     let changed = this.encoders.setValue('tone', potCourse('tone', v ? v.tone : mix.tone));
     if (this.encoders.setValue('stretch', potCourse('stretch', v ? v.stretch : mix.stretch))) changed = true;
-    if (this.encoders.setValue('level', v ? v.level : mix.level)) changed = true;
+    // MASTER : le volume principal seul ; VOLUME : celui de la voix (sinon son neutre)
+    if (this.encoders.setValue('level', mix.level)) changed = true;
+    if (this.encoders.setValue('vol', v ? v.level : VOICE_FX_DEFAULT.level)) changed = true;
     if (this.encoders.setValue('swing', mix.swing)) changed = true;
     if (this.encoders.setValue('dist', v ? v.dist : mix.drive)) changed = true;
     if (this.encoders.setValue('reverb', v ? v.reverb : mix.reverb)) changed = true;
@@ -1673,6 +1682,7 @@ export class Stage {
     this.machine.dispose();
     this.brush.dispose();
     this.silk.dispose();
+    this.backPlate.dispose();
     this.pads.dispose();
     this.seq.dispose();
     this.encoders.dispose();

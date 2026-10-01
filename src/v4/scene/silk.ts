@@ -104,6 +104,9 @@ export function whenLogos(): Promise<void> {
   return logosPromise;
 }
 
+/** Un logo charge (blanc), ou undefined tant qu'il manque (face arriere, 2026-10-01). */
+export const logoImage = (id: SilkLogoId): HTMLImageElement | undefined => logoImages.get(id);
+
 /* ---------------- texte suivi (interlettrage) ---------------- */
 
 const setFont = (ctx: Ctx, px: number, weight: number): void => {

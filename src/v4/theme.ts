@@ -202,20 +202,52 @@ export const TRAY = { wall: 0.18, depth: 0.55 } as const;
 export const FEET = { r: 0.42, h: BODY.feet, x: BODY.w / 2 - 0.55, z: BODY.d / 2 - 0.55, segments: { desktop: 16, mobile: 12 } } as const;
 
 /**
- * Connectique de la face arriere (z -BODY.d / 2), decorative, fusionnee au
- * chassis (zero draw call) : la recompense de l'orbite. Prise secteur,
- * USB-B, deux jacks 6.35 (ecrou hexagonal, fut, trou). x, y : centre.
+ * Face arriere (2026-10-01, plus realiste) : la connectique d'une vraie
+ * boite a rythmes et sa serigraphie, le logo a gauche. u : abscisse vue de
+ * derriere (de gauche a droite pour qui regarde l'arriere ; x monde = -u),
+ * y : hauteur du centre. La face va de y 0.12 a 2.32 (z -BODY.d / 2).
+ * Les pieces sont fusionnees au chassis (zero draw call) ; la serigraphie
+ * est une texture sur un plan pose 0.003 devant la face (scene/backplate.ts).
  */
-export const CONNECTORS = {
-  inlet: { x: BODY.w / 2 - 1.8, y: 1.15, w: 1.1, h: 0.75, d: 0.06, recess: { w: 0.8, h: 0.5 }, pin: { w: 0.05, h: 0.18, d: 0.04, dx: 0.2 } },
-  usb: { x: BODY.w / 2 - 3.1, y: 1.15, w: 0.46, h: 0.42, d: 0.05, inner: { w: 0.3, h: 0.26 } },
-  jacks: [
-    { x: -3.2, y: 1.1 },
-    { x: -4.0, y: 1.1 },
-  ],
-  nut: { r: 0.2, h: 0.05 },
-  barrel: { r: 0.14, h: 0.08 },
-  hole: { r: 0.065 },
+export type BackPortKind = 'jack' | 'mini' | 'din' | 'usb' | 'dc' | 'power';
+export const BACK = {
+  portY: 1.0,
+  /** libelle sous chaque groupe : nom du port ; au-dessus : titre du groupe et son crochet */
+  labelY: 1.43,
+  bracketY: 1.6,
+  groupY: 1.75,
+  cap: 0.075,
+  groupCap: 0.065,
+  ports: [
+    { id: 'phones', kind: 'jack', u: -1.9, label: 'PHONES' },
+    { id: 'outL', kind: 'jack', u: -1.0, label: 'L', group: 'MAIN OUT' },
+    { id: 'outR', kind: 'jack', u: -0.25, label: 'R', group: 'MAIN OUT' },
+    { id: 'syncIn', kind: 'mini', u: 0.65, label: 'IN', group: 'SYNC' },
+    { id: 'syncOut', kind: 'mini', u: 1.25, label: 'OUT', group: 'SYNC' },
+    { id: 'midiIn', kind: 'din', u: 2.2, label: 'IN', group: 'MIDI' },
+    { id: 'midiOut', kind: 'din', u: 2.95, label: 'OUT', group: 'MIDI' },
+    { id: 'usb', kind: 'usb', u: 3.85, label: 'USB' },
+    { id: 'dc', kind: 'dc', u: 4.65, label: 'DC 12V' },
+    { id: 'power', kind: 'power', u: 5.45, label: 'POWER' },
+  ] as readonly { id: string; kind: BackPortKind; u: number; label: string; group?: string }[],
+  /** jack 6.35 : ecrou hexagonal, fut, trou ; mini-jack 3.5 : plus petit */
+  jack: { nut: 0.2, nutH: 0.05, barrel: 0.14, barrelH: 0.08, hole: 0.065 },
+  mini: { nut: 0.13, nutH: 0.04, barrel: 0.09, barrelH: 0.06, hole: 0.04 },
+  /** DIN 5 broches : collerette, fut, fond noir, broches sur un demi-cercle, ergot */
+  din: { flange: 0.28, flangeH: 0.02, shell: 0.23, shellH: 0.06, inner: 0.19, pinR: 0.022, pinRing: 0.11, key: 0.05 },
+  /** USB-C : coque en stade, fond noir, languette */
+  usb: { w: 0.34, h: 0.13, d: 0.04, inner: { w: 0.29, h: 0.085 }, tongue: { w: 0.17, h: 0.026 } },
+  /** jack d'alimentation : boitier carre, trou, broche centrale */
+  dc: { w: 0.36, d: 0.05, hole: 0.11, pin: 0.03 },
+  /** interrupteur a bascule : cadre, bascule inclinee */
+  power: { w: 0.32, h: 0.5, d: 0.05, rocker: { w: 0.25, h: 0.42, d: 0.06, tiltDeg: 9 } },
+  /** serigraphie : plan de la face, texture (px), logo, textes, etiquette du numero de serie */
+  plane: { w: BODY.w - 0.3, y0: 0.2, y1: 2.24, gap: 0.003 },
+  tex: { desktop: 2048, mobile: 1024 },
+  logo: { u: -5.95, y: 1.66, w: 3.2 },
+  model: { u: -5.95, y: 1.3, text: 'MM-808 DRUM MACHINE', cap: 0.08 },
+  firmware: { u: -5.95, y: 1.08, text: 'FIRMWARE V.2.1 / 2026', cap: 0.06, alpha: 0.55 },
+  sticker: { u0: -5.95, u1: -4.45, y0: 0.42, y1: 0.78, serial: 'S/N MM808-000808' },
 } as const;
 
 /**
@@ -383,14 +415,16 @@ export const OLED_MIX = {
   ruleInset: 14,
 } as const;
 
-export type EncId = 'tempo' | 'tone' | 'stretch' | 'level' | 'swing' | 'dist' | 'reverb' | 'delay' | 'chorus';
+/** level : le volume principal (MASTER) ; vol : le volume de la voix selectionnee (VOLUME). */
+export type EncId = 'tempo' | 'tone' | 'stretch' | 'level' | 'vol' | 'swing' | 'dist' | 'reverb' | 'delay' | 'chorus';
 
 /**
  * Les potards qui reglent une voix quand un pad est selectionne (effets
  * par piste, 2026-10-01 ; STRETCH aussi depuis qu'il raccourcit ou allonge
- * les coups) ; TEMPO et SWING restent ceux du pattern.
+ * les coups ; VOLUME n'agit que sur une voix). TEMPO, MASTER et SWING
+ * restent ceux du pattern.
  */
-export const VOICE_ENCODERS: readonly EncId[] = ['tone', 'stretch', 'level', 'dist', 'reverb', 'delay', 'chorus'];
+export const VOICE_ENCODERS: readonly EncId[] = ['vol', 'tone', 'stretch', 'dist', 'reverb', 'delay', 'chorus'];
 
 /** Potards a zero au centre (-1 a 1) : TONE et STRETCH. */
 export const BIPOLAR: readonly EncId[] = ['tone', 'stretch'];
@@ -413,15 +447,16 @@ export const ENCODER = {
 } as const;
 
 /**
- * Dans l'ordre de lecture (2026-10-01) : TEMPO et VOLUME a droite de
- * l'ecran, puis la rangee sous les pads, SWING, TONE et STRETCH, et les
- * effets dans l'ordre du signal (DIST, CHORUS, DELAY, REVERB). VOLUME est
- * l'ancien LEVEL : le volume general, ou celui de la voix du pad
- * selectionne. aria : nom du jumeau (role slider).
+ * Dans l'ordre de lecture (2026-10-01) : MASTER au-dessus de TEMPO, a
+ * droite de l'ecran ; puis la rangee sous les pads : VOLUME (la voix
+ * selectionnee seulement), SWING, TONE, STRETCH et les effets dans l'ordre
+ * du signal (DIST, CHORUS, DELAY, REVERB). MASTER est l'ancien LEVEL, le
+ * volume principal seul. aria : nom du jumeau (role slider).
  */
 export const ENCODERS: readonly { id: EncId; label: string; aria: string }[] = [
+  { id: 'level', label: 'MASTER', aria: 'Master volume' },
   { id: 'tempo', label: 'TEMPO', aria: 'Tempo' },
-  { id: 'level', label: 'VOLUME', aria: 'Volume' },
+  { id: 'vol', label: 'VOLUME', aria: 'Voice volume' },
   { id: 'swing', label: 'SWING', aria: 'Swing' },
   { id: 'tone', label: 'TONE', aria: 'Tone, pitch and filter' },
   { id: 'stretch', label: 'STRETCH', aria: 'Stretch, shorter or longer hits' },
@@ -435,21 +470,24 @@ export const ENCODERS: readonly { id: EncId; label: string; aria: string }[] = [
 export const encLabel = (id: EncId): string => ENCODERS.find((e) => e.id === id)?.label ?? id.toUpperCase();
 
 /**
- * RUN/STOP, CLEAR, RANDOM, MUTE et SOLO (2026-10-01) : boutons carres sur
- * les colonnes des cinq premieres touches trig (pas de 0.74 depuis x
- * -5.55). RANDOM tire un motif house (audio/house.ts). MUTE coupe la voix
- * selectionnee, SOLO ne laisse jouer qu'elle (state/voices.ts).
+ * RUN/STOP, CLEAR, RANDOM, MUTE et SOLO (2026-10-01) : boutons carres de
+ * 0.8 (0.62 avant, environ 30 px de plus a l'ecran), sous l'ecran, alignes
+ * sur le bord gauche de son cadre (x -5.88), pas de 1.0 ; libelles 0.58
+ * sous leur centre, comme les pads. RANDOM tire un motif house
+ * (audio/house.ts). MUTE coupe la voix selectionnee, SOLO ne laisse jouer
+ * qu'elle (state/voices.ts).
  */
 export const TRANSPORT = {
-  size: 0.62,
+  size: 0.8,
   h: 0.1,
-  z: 0.58,
-  labelZ: 1.06,
-  run: { x: -5.55 },
-  clear: { x: -5.55 + 0.74 },
-  random: { x: -5.55 + 2 * 0.74 },
-  mute: { x: -5.55 + 3 * 0.74 },
-  solo: { x: -5.55 + 4 * 0.74 },
+  radius: 0.04,
+  z: -0.5,
+  labelZ: 0.08,
+  run: { x: -5.48 },
+  clear: { x: -4.48 },
+  random: { x: -3.48 },
+  mute: { x: -2.48 },
+  solo: { x: -1.48 },
 } as const;
 
 /* ---------- panneau : moitie droite, les 12 pads (spec 20.3.5) ---------- */
@@ -626,36 +664,27 @@ export const keyX = (i: number): number => KEYS.x0 + KEYS.pitch * i;
 
 /**
  * Places des encodeurs (2026-10-01) :
- * - TEMPO et VOLUME a droite de l'ecran, centres entre son cadre et les
- *   pads (pas de 0.86), a la hauteur de l'ecran et des pads de voix,
- *   libelles sur la ligne de ceux des pads ;
- * - les sept autres sous les pads de page, a la hauteur des boutons de
- *   transport (libelles sur leur ligne), centres sur le bloc des pads (du
- *   bord gauche de BD au bord droit d'OPEN), pas de 0.8 et un ecart de
- *   0.2 de plus entre les groupes : SWING | TONE STRETCH | DIST CHORUS
- *   DELAY REVERB.
+ * - MASTER au-dessus de TEMPO, a droite de l'ecran, centres entre son
+ *   cadre et les pads ; un pas de 1.07 (TEMPO, devant, ne cache pas le
+ *   libelle de MASTER), libelles 0.45 sous leur centre ;
+ * - la rangee sous les pads de page, parfaitement alignee sur la grille
+ *   des touches trig : VOLUME, SWING, TONE, STRETCH, DIST, CHORUS, DELAY
+ *   et REVERB au-dessus des touches 9 a 16 (pas de 0.74), z 0.58,
+ *   libelles a 1.06.
  */
-const ENC_SIDE = { pitch: 0.86 } as const;
-const ENC_ROW = { pitch: 0.8, gap: 0.2, groups: [['swing'], ['tone', 'stretch'], ['dist', 'chorus', 'delay', 'reverb']] as readonly (readonly EncId[])[] } as const;
+const ENC_SIDE = { masterZ: -2.62, tempoZ: -1.55, labelDz: 0.45 } as const;
+const ENC_ROW: readonly EncId[] = ['vol', 'swing', 'tone', 'stretch', 'dist', 'chorus', 'delay', 'reverb'];
+const ENC_ROW_Z = { z: 0.58, labelZ: 1.06 } as const;
 
 function encPlaces(): Record<EncId, { x: number; z: number; labelZ: number }> {
   const out = {} as Record<EncId, { x: number; z: number; labelZ: number }>;
   const left = OLED.x + OLED.bezel.w / 2;
   const right = PAD.x0 - PAD.size / 2;
   const mid = (left + right) / 2;
-  const top = { z: PAD.rowZ[0], labelZ: PAD.rowZ[0] + PAD.labelDz };
-  out.tempo = { x: mid - ENC_SIDE.pitch / 2, ...top };
-  out.level = { x: mid + ENC_SIDE.pitch / 2, ...top };
-  const n = ENC_ROW.groups.reduce((a, g) => a + g.length, 0);
-  const span = (n - 1) * ENC_ROW.pitch + (ENC_ROW.groups.length - 1) * ENC_ROW.gap;
-  const openX = PAD.x0 + 5 * PAD.pitch + PAD.size / 2;
-  let x = (right + openX) / 2 - span / 2;
-  ENC_ROW.groups.forEach((g, gi) => {
-    if (gi > 0) x += ENC_ROW.gap;
-    for (const id of g) {
-      out[id] = { x, z: TRANSPORT.z, labelZ: TRANSPORT.labelZ };
-      x += ENC_ROW.pitch;
-    }
+  out.level = { x: mid, z: ENC_SIDE.masterZ, labelZ: ENC_SIDE.masterZ + ENC_SIDE.labelDz };
+  out.tempo = { x: mid, z: ENC_SIDE.tempoZ, labelZ: ENC_SIDE.tempoZ + ENC_SIDE.labelDz };
+  ENC_ROW.forEach((id, k) => {
+    out[id] = { x: keyX(KEYS.count - ENC_ROW.length + k), ...ENC_ROW_Z };
   });
   return out;
 }
@@ -740,7 +769,7 @@ export const POT_UI = {
   wheelStep: 0.02,
   bipolarStep: 0.05,
   readoutMs: 1200,
-  reset: { tone: 0, stretch: 0, level: 0.8, swing: 0, dist: 0, reverb: 0, delay: 0, chorus: 0 },
+  reset: { tone: 0, stretch: 0, level: 0.8, vol: 0.8, swing: 0, dist: 0, reverb: 0, delay: 0, chorus: 0 },
 } as const;
 
 /** Bornes d'un encodeur hors TEMPO : TONE et STRETCH -1 a 1, les autres 0 a 1. */
@@ -897,12 +926,12 @@ export const SILK_TEXTS: readonly SilkText[] = [
   { text: 'MM-808', x: -1.95, z: -3.5, cap: 0.13, align: 'left' },
   { text: 'FIRMWARE V.2.1 / 2026', x: 4.95, z: -3.5, cap: 0.07, align: 'right', alpha: 0.45 },
   { text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - 0.72, cap: 0.06, align: 'left' },
-  ...ENCODERS.map((e, i) => ({ text: e.label, x: encPos(i).x, z: encPos(i).labelZ, cap: 0.085, maxW: 0.7, group: 'enc' })),
-  { text: 'RUN/STOP', x: TRANSPORT.run.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
-  { text: 'CLEAR', x: TRANSPORT.clear.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
-  { text: 'RANDOM', x: TRANSPORT.random.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
-  { text: 'MUTE', x: TRANSPORT.mute.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
-  { text: 'SOLO', x: TRANSPORT.solo.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
+  ...ENCODERS.map((e, i) => ({ text: e.label, x: encPos(i).x, z: encPos(i).labelZ, cap: 0.085, maxW: 0.66, group: 'enc' })),
+  { text: 'RUN/STOP', x: TRANSPORT.run.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'tr' },
+  { text: 'CLEAR', x: TRANSPORT.clear.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'tr' },
+  { text: 'RANDOM', x: TRANSPORT.random.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'tr' },
+  { text: 'MUTE', x: TRANSPORT.mute.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'tr' },
+  { text: 'SOLO', x: TRANSPORT.solo.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'tr' },
   ...PADS.map(padLabel),
   ...Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ, cap: 0.075 })),
 ];

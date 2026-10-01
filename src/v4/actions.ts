@@ -211,13 +211,13 @@ function readout(id: Exclude<EncId, 'tempo'>, v: number, inst: Inst | null): str
   return `${who}${name} ${pct(v)}%`;
 }
 
-/** Le parametre d'une voix que regle un potard (DIST -> dist ; TEMPO, SWING : aucun). */
-const voiceParam = (id: EncId): VoiceParam | null => (VOICE_ENCODERS.includes(id) ? (id as VoiceParam) : null);
+/** Le parametre d'une voix que regle un potard (DIST -> dist, VOLUME -> level ; TEMPO, MASTER, SWING : aucun). */
+const voiceParam = (id: EncId): VoiceParam | null => (id === 'vol' ? 'level' : VOICE_ENCODERS.includes(id) ? (id as VoiceParam) : null);
 
 /**
  * La voix que reglent les potards (effets par piste, 2026-10-01) : celle
- * du pad selectionne, pour TONE, STRETCH, LEVEL, DIST, REVERB, DELAY et
- * CHORUS ; null : tout le pattern.
+ * du pad selectionne, pour VOLUME, TONE, STRETCH, DIST, REVERB, DELAY et
+ * CHORUS ; null : tout le pattern (VOLUME, lui, ne regle qu'une voix).
  */
 export function dialTarget(id: EncId): Inst | null {
   return voiceParam(id) ? pattern.get().instrument : null;
@@ -243,6 +243,11 @@ export function dial(id: EncId, v: number): void {
   }
   const inst = dialTarget(id);
   const p = voiceParam(id);
+  // VOLUME n'a de sens que pour une voix
+  if (id === 'vol' && !inst) {
+    lcdMessage.show('TAP A PAD FIRST');
+    return;
+  }
   if (inst && p) setVoiceFx(inst, p, v);
   else if (id === 'tone') setTone(v);
   else if (id === 'stretch') setStretch(v);
@@ -253,7 +258,7 @@ export function dial(id: EncId, v: number): void {
   else if (id === 'delay') setDelay(v);
   else setChorus(v);
   // VOLUME d'une voix : la page MIX montre les cinq volumes (facon Elektron)
-  if (id === 'level' && inst) {
+  if (id === 'vol' && inst) {
     lcdMix.show(inst);
     return;
   }
@@ -266,6 +271,8 @@ export function dialValue(id: EncId): number {
   const p = voiceParam(id);
   if (inst && p) return voiceFx.of(inst)[p];
   switch (id) {
+    case 'vol':
+      return VOICE_FX_DEFAULT.level;
     case 'tempo':
       return pattern.get().bpm;
     case 'tone':
@@ -290,7 +297,7 @@ export function dialValue(id: EncId): number {
 /** Valeur de depart (double tape) : 130 BPM, TONE et STRETCH au centre, LEVEL 80 %, le reste a 0 (pour une voix aussi). */
 export function dialReset(id: EncId): number {
   const p = voiceParam(id);
-  if (p && dialTarget(id)) return VOICE_FX_DEFAULT[p];
+  if (p && (dialTarget(id) || id === 'vol')) return VOICE_FX_DEFAULT[p];
   return id === 'tempo' ? BPM.initial : POT_UI.reset[id];
 }
 

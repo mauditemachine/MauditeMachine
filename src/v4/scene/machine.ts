@@ -31,7 +31,7 @@ import {
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {
   BODY,
-  CONNECTORS,
+  BACK,
   FEET,
   GAIN,
   LAYERS,
@@ -268,28 +268,62 @@ function disc(r: number, h: number, seg: number, x: number, y: number, zFace: nu
 }
 
 /**
- * Connectique de la face arriere (z -4.5), decorative : prise secteur
- * (cadre, creux, trois broches), USB-B (cadre metal, creux), deux jacks
- * 6.35 (ecrou hexagonal, fut, trou). Quelques paves et cylindres a peu de
- * facettes, fusionnes au chassis : zero draw call de plus.
+ * Connectique de la face arriere (2026-10-01, theme BACK) : casque, sorties
+ * L et R (jacks 6.35, ecrou hexagonal, fut, trou), SYNC IN et OUT
+ * (mini-jacks), MIDI IN et OUT (DIN 5 broches : collerette, fut, insert
+ * noir perce de cinq trous et d'un ergot), USB-C (coque en stade, fond,
+ * languette), jack d'alimentation, interrupteur a bascule. Des paves et
+ * des cylindres a peu de facettes, fusionnes au chassis : zero draw call.
  */
-function buildConnectors(): BufferGeometry[] {
-  const C = CONNECTORS;
+function buildConnectors(mobile: boolean): BufferGeometry[] {
+  const B = BACK;
   const zb = -BODY.d / 2;
+  const seg = mobile ? 14 : 20;
+  const y = B.portY;
   const out: BufferGeometry[] = [];
-  const i = C.inlet;
-  out.push(box(i.w, i.h, i.d, i.x, i.y, zb - i.d / 2, 'line'));
-  out.push(box(i.recess.w, i.recess.h, 0.004, i.x, i.y, zb - i.d - 0.002, 'ink'));
-  for (const k of [-1, 0, 1]) {
-    out.push(box(i.pin.w, i.pin.h, i.pin.d, i.x + k * i.pin.dx, i.y + (k === 0 ? 0.06 : 0), zb - i.d - i.pin.d / 2, 'leg'));
-  }
-  const u = C.usb;
-  out.push(box(u.w, u.h, u.d, u.x, u.y, zb - u.d / 2, 'leg'));
-  out.push(box(u.inner.w, u.inner.h, 0.004, u.x, u.y, zb - u.d - 0.002, 'ink'));
-  for (const j of C.jacks) {
-    out.push(disc(C.nut.r, C.nut.h, 6, j.x, j.y, zb, 'leg'));
-    out.push(disc(C.barrel.r, C.barrel.h, 16, j.x, j.y, zb, 'line'));
-    out.push(disc(C.hole.r, 0.004, 12, j.x, j.y, zb - C.barrel.h, 'ink'));
+  /** Stade (coque USB-C) : un pave et deux demi-disques, face externe a zFace - h. */
+  const stadium = (w: number, h: number, d: number, x: number, zFace: number, tone: Tone): void => {
+    out.push(box(w - h, h, d, x, y, zFace - d / 2, tone));
+    for (const sd of [-1, 1]) out.push(disc(h / 2, d, 12, x + (sd * (w - h)) / 2, y, zFace, tone));
+  };
+  for (const p of B.ports) {
+    const x = -p.u;
+    if (p.kind === 'jack' || p.kind === 'mini') {
+      const J = B[p.kind];
+      out.push(disc(J.nut, J.nutH, 6, x, y, zb, 'leg'));
+      out.push(disc(J.barrel, J.barrelH, seg, x, y, zb, 'line'));
+      out.push(disc(J.hole, 0.004, 12, x, y, zb - J.barrelH, 'ink'));
+    } else if (p.kind === 'din') {
+      const D = B.din;
+      out.push(disc(D.flange, D.flangeH, seg + 8, x, y, zb, 'leg'));
+      out.push(disc(D.shell, D.shellH, seg + 8, x, y, zb, 'leg'));
+      const zf = zb - D.shellH;
+      out.push(disc(D.inner, 0.004, seg + 8, x, y, zf, 'line'));
+      // Cinq trous sur le demi-cercle du bas, l'ergot en haut
+      for (let k = 0; k < 5; k += 1) {
+        const a = Math.PI + (Math.PI * k) / 4;
+        out.push(disc(D.pinR, 0.004, 8, x + Math.cos(a) * D.pinRing, y + Math.sin(a) * D.pinRing, zf - 0.004, 'ink'));
+      }
+      out.push(box(D.key, D.key * 0.9, 0.004, x, y + D.inner - D.key * 0.45, zf - 0.006, 'ink'));
+    } else if (p.kind === 'usb') {
+      const U = B.usb;
+      stadium(U.w, U.h, U.d, x, zb, 'leg');
+      stadium(U.inner.w, U.inner.h, 0.004, x, zb - U.d, 'ink');
+      out.push(box(U.tongue.w, U.tongue.h, 0.004, x, y, zb - U.d - 0.006, 'line'));
+    } else if (p.kind === 'dc') {
+      const D = B.dc;
+      out.push(box(D.w, D.w, D.d, x, y, zb - D.d / 2, 'line'));
+      out.push(disc(D.hole, 0.004, seg, x, y, zb - D.d, 'ink'));
+      out.push(disc(D.pin, 0.03, 10, x, y, zb - D.d + 0.02, 'leg'));
+    } else {
+      const P = B.power;
+      out.push(box(P.w, P.h, P.d, x, y, zb - P.d / 2, 'line'));
+      const r = P.rocker;
+      const g = new BoxGeometry(r.w, r.h, r.d);
+      g.rotateX((r.tiltDeg * Math.PI) / 180);
+      g.translate(x, y, zb - P.d - r.d / 2 + 0.03);
+      out.push(part(g, 'ink'));
+    }
   }
   return out;
 }
@@ -310,7 +344,7 @@ function buildFeet(mobile: boolean): BufferGeometry[] {
 
 /** Chassis complet : coin, pieds, connectique ; une geometrie, un draw call. */
 function buildChassis(mobile: boolean): BufferGeometry {
-  const parts = [buildWedge(), ...buildFeet(mobile), ...buildConnectors()];
+  const parts = [buildWedge(), ...buildFeet(mobile), ...buildConnectors(mobile)];
   const merged = mergeGeometries(parts, false);
   for (const p of parts) p.dispose();
   if (!merged) throw new Error('machine: chassis merge failed');
