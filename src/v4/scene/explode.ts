@@ -20,8 +20,8 @@
  */
 
 import type { Object3D } from 'three';
-import { EXPLODE, LAYERS, TILT } from '../theme';
-import { easeInOutQuart } from './tween';
+import { EXPLODE, INTRO, LAYERS, TILT } from '../theme';
+import { easeInOutCubic, easeInOutQuart } from './tween';
 
 const DEG = Math.PI / 180;
 /** ouverture ou fermeture complete, decalage compris */
@@ -111,6 +111,23 @@ export class Explode {
     this.p.pcb = v;
     this.p.frame = v;
     this.layers.pcb.visible = open;
+    this.apply();
+  }
+
+  /**
+   * Intro (2026-10-01) : la machine eclatee s'assemble, t ms apres la
+   * premiere frame (INTRO). Le store OPEN reste a closed : rien ne repond
+   * comme vue ouverte (puces, pad OPEN) pendant l'assemblage.
+   */
+  assemble(t: number): void {
+    this.open = false;
+    this.dir = 0;
+    const e = (from: number, ms: number): number => easeInOutCubic(clamp01((t - from) / ms));
+    const p = this.p;
+    p.pcb = 1 - e(INTRO.pcb.from, INTRO.pcb.ms);
+    p.plateau = 1 - e(INTRO.plateau.from, INTRO.plateau.ms);
+    p.frame = Math.max(p.plateau, p.pcb);
+    this.layers.pcb.visible = p.frame > 0;
     this.apply();
   }
 

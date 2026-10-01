@@ -893,7 +893,23 @@ export const FIRST_FRAME_WAIT_MS = 1500;
  * test, de gauche a droite puis retour (ledMs, apres ledFromMs). Le
  * premier geste la termine d'un coup.
  */
-export const INTRO = { ms: 700, dropY: 0.6, ledFromMs: 100, ledMs: 400 } as const;
+/**
+ * Intro (2026-10-01) : la machine arrive eclatee et s'assemble toute seule
+ * en 3 s. Elle reste ouverte hold ms, le PCB rentre dans le chassis, puis
+ * le panneau redescend (il part apres et finit apres : il reste toujours
+ * au-dessus de la carte, aucune interpenetration), et les LED des pas font
+ * leur test une fois posee. Le cadrage suit, du plan large au plan de la
+ * machine fermee. Le premier geste la termine d'un coup ; rien sous
+ * reduced motion.
+ */
+export const INTRO = {
+  ms: 3100,
+  hold: 300,
+  pcb: { from: 300, ms: 1500 },
+  plateau: { from: 800, ms: 2000 },
+  ledFromMs: 2700,
+  ledMs: 400,
+} as const;
 
 /* ---------- textes ---------- */
 

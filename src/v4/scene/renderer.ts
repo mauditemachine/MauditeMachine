@@ -532,11 +532,13 @@ export class Stage {
       (now) => this.pads.update(now),
       this.pollPlayhead
     );
-    // Intro (spec 7.4) : mouvement complet seulement ; la machine attend
-    // plus bas jusqu'a la premiere frame
+    // Intro (2026-10-01) : mouvement complet seulement ; la machine attend
+    // eclatee jusqu'a la premiere frame, puis s'assemble (stepIntro)
     if (!motion.reduced()) {
       this.introOn = true;
-      this.machine.root.position.y = -INTRO.dropY;
+      this.explode.assemble(0);
+      this.syncCasters();
+      this.updateCamera();
       intro.set('pending');
     } else {
       intro.set('done');
@@ -913,9 +915,10 @@ export class Stage {
   /* ---------------- intro (spec 7.4) ---------------- */
 
   /**
-   * Animateur de l'intro : la machine monte de INTRO.dropY a sa place en
-   * 700 ms (easeOutCubic), les LED des pas font leur test (aller et retour
-   * en 400 ms). Le temps part de la premiere frame rendue.
+   * Animateur de l'intro (2026-10-01) : la machine eclatee s'assemble en
+   * 3 s (Explode.assemble, le cadrage la suit), puis les LED des pas font
+   * leur test (aller et retour en 400 ms). Le temps part de la premiere
+   * frame rendue.
    */
   private stepIntro = (now: number): boolean => {
     if (!this.introOn) return false;
@@ -925,7 +928,9 @@ export class Stage {
       this.finishIntro();
       return true;
     }
-    this.machine.root.position.y = -INTRO.dropY * (1 - easeOutCubic(t / INTRO.ms));
+    this.explode.assemble(t);
+    this.updateCamera();
+    this.syncCasters();
     const u = (t - INTRO.ledFromMs) / INTRO.ledMs;
     const n = STEP_LEDS;
     // 0 -> 15 puis 15 -> 0 : une LED a la fois
@@ -938,7 +943,10 @@ export class Stage {
   finishIntro(): void {
     if (!this.introOn) return;
     this.introOn = false;
-    this.machine.root.position.y = 0;
+    // Assemblee d'un coup (premier geste, fin du temps, demontage)
+    this.explode.snap(explodeState.get() === 'open');
+    this.updateCamera();
+    this.syncCasters();
     this.seq.setIntroLed(-1);
     intro.set('done');
     this.invalidate();
