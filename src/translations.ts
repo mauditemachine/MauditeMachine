@@ -52,7 +52,7 @@ export const translations = {
       kicker: 'Radar // Music watch',
       title: 'New releases',
       subtitle:
-        'What the labels and artists on my radar are putting out. Deep techno, indie dance and everything in between, hand-picked.',
+        'What the labels and artists on my radar are putting out. Indie dance, psy prog and everything in between, hand-picked.',
       badgeFavorite: 'Pick of the week',
       listen: 'Listen',
       sectionFeature: 'Picks of the week',
@@ -101,25 +101,25 @@ export const translations = {
     },
     home: {
       subtitle: 'WE ARE MUSIC MAKERS',
-      bio: "Maudite Machine is a Canadian DJ and producer who plays deep techno and indie dance. Born from the Montreal underground, he has performed at major events including the Techno Parade in Paris, Piknic Électronik and Eclipse, delivering sets that blur the line between intensity and atmosphere across Canada and Europe.\n\nAs the founder of VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe, he curates a sound that embraces tension, groove and experimentation, and has played on bills with Carl Craig, Popof, Christian Smith, Perc, Agoria, Nick Curly and Damon Jee. His collaborations with influential artists reflect a constant drive to push boundaries and redefine the underground with a distinct sonic signature, championing bold artists who share his vision for the darker, experimental sides of electronic music.",
+      bio: "Maudite Machine is a Canadian DJ and producer who plays indie dance and psy prog. Born from the Montreal underground, he has performed at major events including the Techno Parade in Paris, Piknic Électronik and Eclipse, delivering sets that blur the line between intensity and atmosphere across Canada and Europe.\n\nAs the founder of VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe, he curates a sound that embraces tension, groove and experimentation, and has played on bills with Carl Craig, Popof, Christian Smith, Perc, Agoria, Nick Curly and Damon Jee. His collaborations with influential artists reflect a constant drive to push boundaries and redefine the underground with a distinct sonic signature, championing bold artists who share his vision for the darker, experimental sides of electronic music.",
     },
     signature: {
       role: 'DJ & Producer',
       location: 'Canada · France · Spain',
-      genres: 'Deep Techno · Indie Dance · Electronic',
+      genres: 'Indie Dance · Psy Prog · Electronic',
       musicMakers: 'WE ARE MUSIC MAKERS',
     },
     // H1 de chaque page. Rendus en sr-only (lus par Google + lecteurs d'ecran,
     // invisibles a l'oeil) pour ne pas casser le design minimaliste.
     headings: {
-      home: 'Maudite Machine, deep techno and indie dance DJ and producer, Canada · France · Spain',
+      home: 'Maudite Machine, indie dance and psy prog DJ and producer, Canada · France · Spain',
       about: 'Maudite Machine biography',
       shows: 'Maudite Machine shows and tour dates',
       merch: 'Maudite Machine official merch',
       goodies: 'Free Maudite Machine wallpapers and artwork',
       techrider: 'Maudite Machine tech rider',
       contact: 'Contact and booking Maudite Machine',
-      radar: 'New deep techno and indie dance releases, curated by Maudite Machine',
+      radar: 'New indie dance and psy prog releases, curated by Maudite Machine',
     },
     sections: {
       upcomingEvents: 'Upcoming Events',
@@ -184,7 +184,7 @@ export const translations = {
 
       bioLabel: 'Biography',
       bioMain: "Maudite Machine is based between Canada, France and Spain, after fifteen years in the Montréal underground. He started playing in Montréal in 2010, when Piknic Électronik and the SAT were the two rooms every local DJ wanted, and in 2013 he played the Techno Parade in Paris on the MEG float. He has played Piknic and the SAT ever since, along with the Igloofest afters, the Phi Centre, Fonderie Darling, Théâtre Fairmount, Québec festivals from TOTEM and Illusion to Groove and Bass, and Future Forest in New Brunswick. In 2026 he played OKAMI Festival in France, on the Selva stage.",
-      bioSecondary: "His sets move between deep techno and indie dance. The bass rolls, the changes come slowly and under the surface, and after a while the room stops watching the booth and moves as one. He plays it as a DJ on CDJs and as a hybrid live set where synths and grooveboxes drive the sequences in real time. He founded VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe, teaches Ableton Live production, and is available for club and festival dates across France, Spain and the rest of Europe, and still playing Canada.",
+      bioSecondary: "His sets move between indie dance and psy prog. The bass rolls, the changes come slowly and under the surface, and after a while the room stops watching the booth and moves as one. He plays it as a DJ on CDJs and as a hybrid live set where synths and grooveboxes drive the sequences in real time. He founded VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe, teaches Ableton Live production, and is available for club and festival dates across France, Spain and the rest of Europe, and still playing Canada.",
       bioQuote: 'A sound that embraces tension, groove and experimentation',
 
       statsLabel: 'By the numbers',
@@ -209,7 +209,7 @@ export const translations = {
 
       catalogueLabel: 'Full catalogue',
       catalogueTitle: '13 RELEASES.\n2024 / 2026.',
-      catalogueDesc: 'From Discowriders (Jul 2024) to Voodoo (Feb 2026), a constant flow of original productions on VRSTL Records. Singles, EPs and an album, in a deep techno and indie dance aesthetic.',
+      catalogueDesc: 'From Discowriders (Jul 2024) to Voodoo (Feb 2026), a constant flow of original productions on VRSTL Records. Singles, EPs and an album, in an indie dance and psy prog aesthetic.',
 
       labelSection: 'Label',
       labelDescMain: 'VRSTL Records is an independent Canadian label dedicated to deep, hypnotic electronic music. Since its founding, the label has released 21 EPs and 2 albums, signing emerging artists from Québec, Brazil, Argentina and Europe.',
@@ -343,7 +343,7 @@ export const translations = {
       kicker: 'Radar // Veille musicale',
       title: 'Nouveautés',
       subtitle:
-        'Ce que sortent les labels et les artistes que je suis. Deep techno, indie dance et alentours, sélectionnés à la main.',
+        'Ce que sortent les labels et les artistes que je suis. Indie dance, psy prog et alentours, sélectionnés à la main.',
       badgeFavorite: 'Coup de cœur',
       listen: 'Écouter',
       sectionFeature: 'Coups de cœur',
@@ -392,23 +392,23 @@ export const translations = {
     },
     home: {
       subtitle: 'WE ARE MUSIC MAKERS',
-      bio: "Maudite Machine est un DJ et producteur canadien qui joue deep techno et indie dance. Né de la scène underground montréalaise, il s'est produit lors d'événements majeurs dont la Techno Parade à Paris, le Piknic Électronik et Eclipse, livrant des sets qui brouillent la frontière entre intensité et atmosphère au Canada et en Europe.\n\nFondateur de VRSTL Records, label indépendant (21 EPs et 2 albums d'artistes du Québec, du Brésil, d'Argentine et d'Europe), il façonne un son qui embrasse la tension, le groove et l'expérimentation, et a partagé l'affiche avec Carl Craig, Popof, Christian Smith, Perc, Agoria, Nick Curly et Damon Jee. Ses collaborations avec des artistes influents reflètent une volonté constante de repousser les limites et de redéfinir l'underground avec une signature sonore distincte.",
+      bio: "Maudite Machine est un DJ et producteur canadien qui joue indie dance et psy prog. Né de la scène underground montréalaise, il s'est produit lors d'événements majeurs dont la Techno Parade à Paris, le Piknic Électronik et Eclipse, livrant des sets qui brouillent la frontière entre intensité et atmosphère au Canada et en Europe.\n\nFondateur de VRSTL Records, label indépendant (21 EPs et 2 albums d'artistes du Québec, du Brésil, d'Argentine et d'Europe), il façonne un son qui embrasse la tension, le groove et l'expérimentation, et a partagé l'affiche avec Carl Craig, Popof, Christian Smith, Perc, Agoria, Nick Curly et Damon Jee. Ses collaborations avec des artistes influents reflètent une volonté constante de repousser les limites et de redéfinir l'underground avec une signature sonore distincte.",
     },
     signature: {
       role: 'DJ & Producteur',
       location: 'Canada · France · Espagne',
-      genres: 'Deep Techno · Indie Dance · Electronic',
+      genres: 'Indie Dance · Psy Prog · Electronic',
       musicMakers: 'WE ARE MUSIC MAKERS',
     },
     headings: {
-      home: 'Maudite Machine, DJ et producteur deep techno et indie dance, Canada · France · Espagne',
+      home: 'Maudite Machine, DJ et producteur indie dance et psy prog, Canada · France · Espagne',
       about: 'Biographie de Maudite Machine',
       shows: 'Concerts et dates de Maudite Machine',
       merch: 'Merch officiel Maudite Machine',
       goodies: 'Fonds d\'écran et visuels gratuits Maudite Machine',
       techrider: 'Fiche technique de Maudite Machine',
       contact: 'Contact et booking Maudite Machine',
-      radar: 'Nouveautés deep techno et indie dance sélectionnées par Maudite Machine',
+      radar: 'Nouveautés indie dance et psy prog sélectionnées par Maudite Machine',
     },
     sections: {
       upcomingEvents: 'Prochains concerts',
@@ -472,7 +472,7 @@ export const translations = {
 
       bioLabel: 'Biographie',
       bioMain: "Maudite Machine est basé entre le Canada, la France et l'Espagne, après quinze ans dans l'underground montréalais. Il a commencé à jouer à Montréal en 2010 et, en 2013, il a joué à la Techno Parade de Paris sur le char du MEG. Il est passé par le Piknic Électronik et la SAT, les afters d'Igloofest, le Centre Phi, la Fonderie Darling, le Théâtre Fairmount, les festivals québécois de TOTEM et Illusion à Groove and Bass, et Future Forest au Nouveau-Brunswick. En 2026, il a joué au OKAMI Festival en France, sur la scène Selva.",
-      bioSecondary: "Ses sets naviguent entre deep techno et indie dance. La basse roule, les changements arrivent lentement et sous la surface, et au bout d'un moment la salle arrête de regarder la cabine pour bouger d'un seul bloc. Il la joue en DJ set sur CDJ et en live hybride où synthés et grooveboxes pilotent les séquences en direct. Il a fondé VRSTL Records, label indépendant (21 EPs et 2 albums d'artistes du Québec, du Brésil, d'Argentine et d'Europe), enseigne la production sur Ableton Live, et est disponible pour des dates en club et en festival en France, en Espagne et dans le reste de l'Europe, tout en jouant encore au Canada.",
+      bioSecondary: "Ses sets naviguent entre indie dance et psy prog. La basse roule, les changements arrivent lentement et sous la surface, et au bout d'un moment la salle arrête de regarder la cabine pour bouger d'un seul bloc. Il la joue en DJ set sur CDJ et en live hybride où synthés et grooveboxes pilotent les séquences en direct. Il a fondé VRSTL Records, label indépendant (21 EPs et 2 albums d'artistes du Québec, du Brésil, d'Argentine et d'Europe), enseigne la production sur Ableton Live, et est disponible pour des dates en club et en festival en France, en Espagne et dans le reste de l'Europe, tout en jouant encore au Canada.",
       bioQuote: 'Un son qui embrasse la tension, le groove et l\'expérimentation',
 
       statsLabel: 'En chiffres',
@@ -497,7 +497,7 @@ export const translations = {
 
       catalogueLabel: 'Catalogue complet',
       catalogueTitle: '13 SORTIES.\n2024 / 2026.',
-      catalogueDesc: 'De Discowriders (juil. 2024) à Voodoo (févr. 2026), un flux constant de productions originales sur VRSTL Records. Singles, EPs et un album, dans une esthétique deep techno et indie dance.',
+      catalogueDesc: 'De Discowriders (juil. 2024) à Voodoo (févr. 2026), un flux constant de productions originales sur VRSTL Records. Singles, EPs et un album, dans une esthétique indie dance et psy prog.',
 
       labelSection: 'Label',
       labelDescMain: "VRSTL Records est un label indépendant canadien dédié aux musiques électroniques hypnotiques. Depuis sa fondation, le label a publié 21 EPs et 2 albums, signant des artistes émergents du Québec, du Brésil, d'Argentine et d'Europe.",
@@ -630,7 +630,7 @@ export const translations = {
       kicker: 'Radar // Novedades',
       title: 'Novedades',
       subtitle:
-        'Lo que sacan los sellos y artistas que sigo. Deep techno, indie dance y alrededores, seleccionados a mano.',
+        'Lo que sacan los sellos y artistas que sigo. Indie dance, psy prog y alrededores, seleccionados a mano.',
       badgeFavorite: 'Favorito',
       listen: 'Escuchar',
       sectionFeature: 'Favoritos',
@@ -679,23 +679,23 @@ export const translations = {
     },
     home: {
       subtitle: 'WE ARE MUSIC MAKERS',
-      bio: "Maudite Machine es un DJ y productor canadiense que toca deep techno e indie dance. Nacido de la escena underground de Montreal, se ha presentado en eventos mayores como la Techno Parade en París, el Piknic Électronik y Eclipse, entregando sets que difuminan la frontera entre intensidad y atmósfera a través de Canadá y Europa.\n\nComo fundador de VRSTL Records, sello independiente con 21 EPs y 2 álbumes de artistas de Quebec, Brasil, Argentina y Europa, cultiva un sonido que abraza la tensión, el groove y la experimentación, y ha compartido cartel con Carl Craig, Popof, Christian Smith, Perc, Agoria, Nick Curly y Damon Jee. Sus colaboraciones con artistas influyentes reflejan una voluntad constante de empujar los límites y redefinir el underground con una firma sonora distintiva, apoyando a artistas audaces que comparten su visión de los lados más oscuros y experimentales de la música electrónica.",
+      bio: "Maudite Machine es un DJ y productor canadiense que toca indie dance y psy prog. Nacido de la escena underground de Montreal, se ha presentado en eventos mayores como la Techno Parade en París, el Piknic Électronik y Eclipse, entregando sets que difuminan la frontera entre intensidad y atmósfera a través de Canadá y Europa.\n\nComo fundador de VRSTL Records, sello independiente con 21 EPs y 2 álbumes de artistas de Quebec, Brasil, Argentina y Europa, cultiva un sonido que abraza la tensión, el groove y la experimentación, y ha compartido cartel con Carl Craig, Popof, Christian Smith, Perc, Agoria, Nick Curly y Damon Jee. Sus colaboraciones con artistas influyentes reflejan una voluntad constante de empujar los límites y redefinir el underground con una firma sonora distintiva, apoyando a artistas audaces que comparten su visión de los lados más oscuros y experimentales de la música electrónica.",
     },
     signature: {
       role: 'DJ & Productor',
       location: 'Canadá · Francia · España',
-      genres: 'Deep Techno · Indie Dance · Electronic',
+      genres: 'Indie Dance · Psy Prog · Electronic',
       musicMakers: 'WE ARE MUSIC MAKERS',
     },
     headings: {
-      home: 'Maudite Machine, DJ y productor deep techno e indie dance, Canadá · Francia · España',
+      home: 'Maudite Machine, DJ y productor indie dance y psy prog, Canadá · Francia · España',
       about: 'Biografía de Maudite Machine',
       shows: 'Shows y fechas de Maudite Machine',
       merch: 'Merch oficial de Maudite Machine',
       goodies: 'Wallpapers y artwork gratis de Maudite Machine',
       techrider: 'Rider técnico de Maudite Machine',
       contact: 'Contacto y booking de Maudite Machine',
-      radar: 'Novedades deep techno e indie dance seleccionadas por Maudite Machine',
+      radar: 'Novedades indie dance y psy prog seleccionadas por Maudite Machine',
     },
     sections: {
       upcomingEvents: 'Próximos shows',
@@ -759,7 +759,7 @@ export const translations = {
 
       bioLabel: 'Biografía',
       bioMain: 'Maudite Machine tiene su base entre Canadá, Francia y España, tras quince años en el underground de Montreal. Empezó a tocar en Montreal en 2010 y en 2013 tocó en la Techno Parade de París, en la carroza del MEG. Ha pasado por el Piknic Électronik y la SAT, los afters de Igloofest, el Centro Phi, la Fonderie Darling, el Théâtre Fairmount, los festivales quebequenses de TOTEM e Illusion a Groove and Bass, y Future Forest en Nuevo Brunswick. En 2026 tocó en el OKAMI Festival en Francia, en el escenario Selva.',
-      bioSecondary: 'Sus sets se mueven entre deep techno e indie dance. El bajo rueda, los cambios llegan despacio y bajo la superficie, y al cabo de un rato la sala deja de mirar la cabina y se mueve en bloque. Lo toca como DJ en CDJ y en live híbrido, donde sintetizadores y grooveboxes pilotan las secuencias en directo. Fundó VRSTL Records, sello independiente con 21 EPs y 2 álbumes de artistas de Quebec, Brasil, Argentina y Europa, enseña producción en Ableton Live, y está disponible para fechas en club y festival en Francia, España y el resto de Europa, sin dejar de tocar en Canadá.',
+      bioSecondary: 'Sus sets se mueven entre indie dance y psy prog. El bajo rueda, los cambios llegan despacio y bajo la superficie, y al cabo de un rato la sala deja de mirar la cabina y se mueve en bloque. Lo toca como DJ en CDJ y en live híbrido, donde sintetizadores y grooveboxes pilotan las secuencias en directo. Fundó VRSTL Records, sello independiente con 21 EPs y 2 álbumes de artistas de Quebec, Brasil, Argentina y Europa, enseña producción en Ableton Live, y está disponible para fechas en club y festival en Francia, España y el resto de Europa, sin dejar de tocar en Canadá.',
       bioQuote: 'Un sonido que abraza la tensión, el groove y la experimentación',
 
       statsLabel: 'En cifras',
@@ -784,7 +784,7 @@ export const translations = {
 
       catalogueLabel: 'Catálogo completo',
       catalogueTitle: '13 LANZAMIENTOS.\n2024 / 2026.',
-      catalogueDesc: 'Desde Discowriders (jul. 2024) a Voodoo (feb. 2026), un flujo constante de producciones originales en VRSTL Records. Singles, EPs y un álbum, en una estética deep techno e indie dance.',
+      catalogueDesc: 'Desde Discowriders (jul. 2024) a Voodoo (feb. 2026), un flujo constante de producciones originales en VRSTL Records. Singles, EPs y un álbum, en una estética indie dance y psy prog.',
 
       labelSection: 'Label',
       labelDescMain: 'VRSTL Records es un sello independiente canadiense dedicado a la música electrónica hipnótica. Desde su fundación, el sello ha publicado 21 EPs y 2 álbumes, firmando artistas emergentes de Quebec, Brasil, Argentina y Europa.',

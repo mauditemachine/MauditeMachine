@@ -2,8 +2,10 @@
  * Contenu du press kit 2027, en anglais seulement (version 4 pages).
  * Sources : le press kit 2026-27 (faits, dates, salles, jauges, fiche
  * technique), le brief Boom Festival 2027, les consignes de Mika du
- * 2026-09-30 (deep techno et indie dance ; Canada, France, Espagne a la
- * place de Montpellier). Aucun fait invente. Mots bannis : raw, hypnotic.
+ * 2026-09-30 (Canada, France, Espagne a la place de Montpellier) et du
+ * 2026-10-01 (positionnement : indie dance and psy prog ; plus d'etiquette
+ * deep, hypnotic ou hard techno). Aucun fait invente. Mots bannis : raw,
+ * hypnotic.
  * Chaque lien est une vraie adresse : le PDF les garde cliquables.
  */
 
@@ -20,12 +22,12 @@ export const URL = {
 export const C = {
   kit: 'Press kit 2027',
   name: 'MAUDITE MACHINE',
-  positioning: 'Deep techno and indie dance · DJ and hybrid live · Canada · France · Spain',
+  positioning: 'Indie dance and psy prog · DJ and hybrid live · Canada · France · Spain',
   folio: 'Maudite Machine · Press kit 2027',
 
   /* 1. couverture et identite */
   bio:
-    'Maudite Machine is a DJ and producer based between Canada, France and Spain, after fifteen years in the Montréal underground. He plays deep techno and indie dance: deep, rolling, made for the second half of the night. He runs VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe, and is a member of the 8day collective in Montréal. He has played the Techno Parade in Paris, the SAT, Piknic Électronik and the Igloofest afters, on bills with Carl Craig, Popof, Christian Smith, Perc, Agoria, Nick Curly and Damon Jee, and is available for club and festival dates across France, Spain and the rest of Europe, and still playing Canada.',
+    'Maudite Machine is a DJ and producer based between Canada, France and Spain, after fifteen years in the Montréal underground. He plays indie dance and psy prog: deep, rolling, made for the second half of the night. He runs VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe, and is a member of the 8day collective in Montréal. He has played the Techno Parade in Paris, the SAT, Piknic Électronik and the Igloofest afters, on bills with Carl Craig, Popof, Christian Smith, Perc, Agoria, Nick Curly and Damon Jee, and is available for club and festival dates across France, Spain and the rest of Europe, and still playing Canada.',
   stats: [
     ['15+', 'Years active'],
     ['21', 'EPs on VRSTL'],
@@ -34,7 +36,7 @@ export const C = {
   ],
   facts: [
     ['Artist', 'Maudite Machine (Michael “Mika” Sanchez)'],
-    ['Genre', 'Deep techno and indie dance'],
+    ['Genre', 'Indie dance and psy prog'],
     ['Formats', 'DJ set (CDJ) · Hybrid live (synths and grooveboxes)'],
     ['Base', 'Canada · France · Spain'],
     ['Roots', 'Montréal, Canada'],
@@ -53,7 +55,7 @@ export const C = {
   bioLead: 'Fifteen years in the Montréal underground',
   bioLong: [
     'Maudite Machine started playing in Montréal in 2010, when Piknic Électronik and the SAT were the two rooms every local DJ wanted. In 2013 he played the Techno Parade in Paris on the MEG float. He has played Piknic and the SAT ever since, along with the Igloofest afters, the Phi Centre, Fonderie Darling, Théâtre Fairmount, Québec festivals from TOTEM and Illusion to Groove and Bass, and Future Forest in New Brunswick. In 2026 he played OKAMI Festival in France, on the Selva stage.',
-    'His sets move between deep techno and indie dance. The bass rolls, the changes come slowly and under the surface, and after a while the room stops watching the booth and moves as one. He plays it two ways: as a DJ on CDJs, and as a hybrid live set where synths and grooveboxes drive the sequences in real time.',
+    'His sets move between indie dance and psy prog. The bass rolls, the changes come slowly and under the surface, and after a while the room stops watching the booth and moves as one. He plays it two ways: as a DJ on CDJs, and as a hybrid live set where synths and grooveboxes drive the sequences in real time.',
     'He founded VRSTL Records, an independent label that has released 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe. His own catalogue on VRSTL runs to 13 releases since July 2024, including Limbos (October 2025), a nine-track album about a complete stop and an unexpected return.',
     'He also teaches Ableton Live production, remotely and in person, and has trained more than 70 students. Based between Canada, France and Spain, he is available for club and festival dates across France, Spain and the rest of Europe, and still playing Canada.',
   ],
@@ -101,7 +103,7 @@ export const C = {
   /* 3. le son et l'ecoute */
   setTitle: 'The set',
   set: [
-    ['The sound', ['Deep techno and indie dance: a rolling bass line, slow changes beneath the surface, no artificial peaks. Built to last, not for effect.']],
+    ['The sound', ['Indie dance and psy prog: a rolling bass line, slow changes beneath the surface, no artificial peaks. Built to last, not for effect.']],
     [
       'Two formats',
       [

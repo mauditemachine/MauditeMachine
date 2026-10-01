@@ -47,7 +47,7 @@ const V2Shell: React.FC = () => {
   useReveals(rootRef);
   // Chrome commun /v2 (body class, noindex, description, titre),
   // restaure au unmount - partage avec /v2/radar
-  useV2Chrome('Maudite Machine | Deep Techno · Indie Dance');
+  useV2Chrome('Maudite Machine | Indie Dance · Psy Prog');
 
   // Archivee sous /v2 depuis 2026-09-30 (la machine MM-808 est l'accueil) :
   // noindex comme la v1, la meta robots d'index.html restauree en quittant.

@@ -1264,7 +1264,7 @@ export const PRESSKIT_ROUTE = {
 } as const;
 
 export const COPY = {
-  title: 'Maudite Machine | DJ & Producer \u00B7 Deep Techno \u00B7 Indie Dance',
+  title: 'Maudite Machine | DJ & Producer \u00B7 Indie Dance \u00B7 Psy Prog',
   wordmark: 'MAUDITE MACHINE',
   model: 'MM-808',
 } as const;
