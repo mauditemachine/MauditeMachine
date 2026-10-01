@@ -395,13 +395,255 @@ html:has(body.v4-active) {
   }
 }
 
+/* ---------- en-tete mobile : logo et hamburger (2026-10-01) ---------- */
+
+/* La scene prend toute la hauteur moins le Dock compact ; l'en-tete (52 px)
+   se pose par-dessus son haut, sur un degrade : la machine, plus large que
+   haute, laisse toujours de l'air au-dessus d'elle. */
+@media (max-width: 767px) {
+  .v4-root {
+    --dock-h-mobile: 174px;
+    --canvas-h-mobile: calc(100vh - var(--dock-h-mobile) - env(safe-area-inset-bottom, 0px));
+    --canvas-h-mobile: calc(100dvh - var(--dock-h-mobile) - env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.v4-mhead {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 26;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: calc(52px + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) 6px 0 16px;
+  background: linear-gradient(to bottom, rgba(12, 11, 9, 0.85), rgba(12, 11, 9, 0));
+  pointer-events: none;
+}
+
+.v4-mhead > * {
+  pointer-events: auto;
+}
+
+.v4-mhead .v4-logo img {
+  display: block;
+  width: 104px;
+  height: auto;
+}
+
+.v4-root .v4-burger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  color: var(--bone);
+}
+
+.v4-burger-bars {
+  position: relative;
+  display: block;
+  width: 20px;
+  height: 14px;
+}
+
+.v4-burger-bars > i {
+  position: absolute;
+  left: 0;
+  width: 20px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  transition: transform 200ms ease, opacity 200ms ease, top 200ms ease;
+}
+
+.v4-burger-bars > i:nth-child(1) {
+  top: 0;
+}
+
+.v4-burger-bars > i:nth-child(2) {
+  top: 6px;
+}
+
+.v4-burger-bars > i:nth-child(3) {
+  top: 12px;
+}
+
+/* Ouvert : les trois traits deviennent une croix */
+.v4-burger[data-open='1'] .v4-burger-bars > i:nth-child(1) {
+  top: 6px;
+  transform: rotate(45deg);
+}
+
+.v4-burger[data-open='1'] .v4-burger-bars > i:nth-child(2) {
+  opacity: 0;
+}
+
+.v4-burger[data-open='1'] .v4-burger-bars > i:nth-child(3) {
+  top: 6px;
+  transform: rotate(-45deg);
+}
+
+.v4-root .v4-burger:focus-visible,
+.v4-root .v4-mmenu button:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+/* Le menu : une carte sous l'en-tete, au-dessus de tout sauf la visionneuse */
+.v4-mmenu-veil {
+  position: absolute;
+  inset: 0;
+  z-index: 48;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.v4-mmenu {
+  position: absolute;
+  top: calc(52px + env(safe-area-inset-top, 0px));
+  left: 8px;
+  right: 8px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: calc(100% - 64px - env(safe-area-inset-top, 0px));
+  padding: 10px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(20, 20, 23, 0.98);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+  animation: v4-mmenu-in 180ms ease-out both;
+}
+
+.v4-mmenu[hidden] {
+  display: none;
+}
+
+.v4-mmenu-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.v4-mmenu-hood {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.v4-root .v4-mmenu-link,
+.v4-root .v4-mmenu-reset {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: var(--graphite-hi);
+  color: var(--bone);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.v4-root .v4-mmenu-hood .v4-mmenu-link {
+  justify-content: center;
+  padding: 0 6px;
+  letter-spacing: 0.08em;
+}
+
+.v4-root .v4-mmenu-link .v4-fa,
+.v4-root .v4-mmenu-reset .v4-fa {
+  font-size: 15px;
+  color: var(--orange);
+}
+
+.v4-root .v4-mmenu-link[data-active='1'] {
+  color: var(--orange);
+  box-shadow: inset 0 0 0 1.5px var(--orange);
+}
+
+.v4-mmenu-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+/* OPEN / CLOSE : l'orange plein de l'action qui transforme la page */
+.v4-root .v4-mmenu-open {
+  min-height: 48px;
+  border-radius: 10px;
+  background: var(--orange);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.v4-root .v4-mmenu-open[data-open='1'] {
+  background: var(--graphite-hi);
+  color: var(--orange);
+  box-shadow: inset 0 0 0 1.5px var(--orange);
+}
+
+.v4-root .v4-mmenu-reset {
+  justify-content: center;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.v4-mmenu .v4-look {
+  align-self: stretch;
+  justify-content: center;
+}
+
+.v4-mmenu .v4-look-btn {
+  flex: 1 1 0;
+  height: 40px;
+}
+
+@keyframes v4-mmenu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-mmenu,
+.v4-root[data-v4-motion='reduced'] .v4-burger-bars > i {
+  animation: none;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v4-mmenu,
+  .v4-burger-bars > i {
+    animation: none;
+    transition: none;
+  }
+}
+
 /* ---------- Dock : le pas a pas du telephone (spec 11.4, revision 4) ---------- */
 
-/* Mobile seulement : sous la scene, dans la moitie du bas. Les instruments
-   (5), deux rangees de 8 pas, le transport, puis la grille de navigation :
-   tout est visible d'un coup, jamais de defilement horizontal (un ecran
-   trop court defile en hauteur). Aplats graphite, pas programmes en
-   orange, tete de lecture en yellowHi. Textes a 4.5:1 au moins (AA). */
+/* Mobile seulement : sous la scene. Compact depuis le 2026-10-01 (Mika le
+   trouvait trop haut) : les instruments, deux rangees de 8 pas, le
+   transport, rien d'autre (la navigation est dans le menu de l'en-tete) ;
+   --dock-h-mobile de haut, la scene prend tout le reste. Jamais de
+   defilement horizontal. Aplats graphite, pas programmes en orange, tete
+   de lecture en yellowHi. Textes a 4.5:1 au moins (AA). */
 .v4-dock {
   display: none;
 }
@@ -419,7 +661,7 @@ html:has(body.v4-active) {
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    gap: 6px;
+    gap: 5px;
     padding: 6px 8px calc(8px + env(safe-area-inset-bottom, 0px));
     overflow-x: hidden;
     overflow-y: auto;
@@ -435,31 +677,25 @@ html:has(body.v4-active) {
   display: none;
 }
 
-.v4-dock-hint {
-  min-height: 17px;
-  font-size: 12px;
-  line-height: 17px;
-  color: var(--bone-60);
-}
-
-.v4-dock-hint[data-nudge='1'] {
+/* Un pas touche sans instrument : les voix clignotent une fois (l'ecran dit TAP A PAD FIRST) */
+.v4-dock-insts[data-nudge='1'] .v4-dock-inst:not(.v4-dock-random) {
   animation: v4-nudge 600ms ease-out;
 }
 
 @keyframes v4-nudge {
   0%,
   40% {
-    color: var(--yellow);
+    box-shadow: inset 0 0 0 2px var(--orange);
   }
-  100% {
-    color: var(--bone-60);
-  }
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-dock-insts[data-nudge='1'] .v4-dock-inst {
+  animation: none;
 }
 
 .v4-dock-insts,
 .v4-dock-steps,
-.v4-dock-transport,
-.v4-dock-grid {
+.v4-dock-transport {
   display: grid;
   gap: 4px;
   width: 100%;
@@ -476,13 +712,13 @@ html:has(body.v4-active) {
   grid-template-columns: repeat(8, 1fr);
 }
 
-/* RUN/STOP, CLEAR, MUTE, SOLO, tempo - / valeur / + : 44 px de haut */
+/* RUN/STOP, CLEAR, MUTE, SOLO, tempo - / valeur / + : 40 px de haut */
 .v4-dock-transport {
   grid-template-columns: repeat(4, minmax(0, 1fr)) 40px 64px 40px;
 }
 
 .v4-root .v4-dock-inst {
-  height: 44px;
+  height: 38px;
   border-radius: 10px;
   background: var(--graphite);
   color: var(--bone-60);
@@ -527,13 +763,13 @@ html:has(body.v4-active) {
   color: #191919;
 }
 
-/* 8 par rangee, 44 de haut. Numero eteint : bone 60 % sur graphite,
+/* 8 par rangee, 34 de haut (44 avant le 2026-10-01). Numero eteint : bone 60 % sur graphite,
    6.4:1 ; pas programme : encre sur orange, 7:1 */
 .v4-root .v4-dock-step {
   position: relative;
   /* pas d'aspect-ratio : il reporterait la hauteur sur la largeur */
   min-width: 0;
-  height: 44px;
+  height: 34px;
   border-radius: 8px;
   overflow: hidden;
   background: var(--graphite);
@@ -551,7 +787,7 @@ html:has(body.v4-active) {
    la machine ; fort trois, moyen deux, doux un, de la couleur du chiffre */
 .v4-dock-vel {
   position: absolute;
-  top: 5px;
+  top: 4px;
   left: 50%;
   display: flex;
   flex-direction: column-reverse;
@@ -617,7 +853,7 @@ html:has(body.v4-active) {
   justify-content: center;
   gap: 3px;
   min-width: 40px;
-  min-height: 44px;
+  min-height: 40px;
   border-radius: 10px;
   background: var(--graphite);
   color: var(--bone-60);
@@ -666,160 +902,6 @@ html:has(body.v4-active) {
   font-weight: 700;
   letter-spacing: 0.18em;
   color: var(--bone-60);
-}
-
-/* Navigation (revision 4) : 6 colonnes x 2 rangees de cellules de 56 px
-   au moins (4 x 3 sous 372 px de large), icone bone de 20 px, nom en 9 px
-   majuscules, gras et orange dessous. OPEN tient trois cellules. */
-.v4-dock-grid {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 6px;
-  margin-top: 2px;
-}
-
-.v4-root .v4-dock-cell {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  min-width: 0;
-  min-height: 56px;
-  border-radius: 12px;
-  background: var(--graphite);
-  color: var(--bone);
-  transition: transform 90ms ease;
-}
-
-.v4-root .v4-dock-cell .v4-fa {
-  font-size: 20px;
-  line-height: 1;
-}
-
-.v4-dock-cell-label {
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--orange);
-  white-space: nowrap;
-}
-
-.v4-root .v4-dock-cell[data-active='1'] {
-  background: var(--graphite-hi);
-  color: var(--orange);
-}
-
-.v4-root .v4-dock-cell[data-active='1']::after {
-  content: '';
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: 0;
-  height: 2px;
-  border-radius: 1px;
-  background: var(--orange);
-}
-
-.v4-root .v4-dock-cell:active,
-.v4-root .v4-dock-open:active {
-  transform: scale(0.94);
-}
-
-@media (hover: hover) {
-  .v4-root .v4-dock-cell:hover {
-    background: var(--graphite-hi);
-  }
-}
-
-/* OPEN : bouton plein orange, le mot en blanc, 800, 0.14 em, sur trois
-   cellules et detache de 8 px. Il respire (revision 5) : cycle de 3.2 s
-   (1.6 s aller, 1.6 s retour, ease-in-out : une sinusoide), luminosite de
-   88 a 100 %, lueur orange de 0 a 6 px ; rien d'autre ne bouge. Arrete
-   machine ouverte (CLOSE), au focus clavier et en mouvement reduit.
-   CLOSE : graphiteHi, texte et contour orange de 1.5 px. */
-.v4-root .v4-dock-open {
-  grid-column: span 3;
-  /* machine fermee : OPEN prend toute la rangee */
-  margin-left: 8px;
-  min-height: 56px;
-  border-radius: 12px;
-  background: var(--orange);
-  color: #fff;
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-indent: 0.14em;
-  text-transform: uppercase;
-  animation: v4-open-breathe 1.6s ease-in-out infinite alternate;
-  transition: transform 90ms ease;
-}
-
-.v4-root .v4-dock-open:focus-visible {
-  animation: none;
-}
-
-.v4-root .v4-dock-open[data-open='0'] {
-  grid-column: 1 / -1;
-  margin-left: 0;
-}
-
-.v4-root .v4-dock-open[data-open='1'] {
-  background: var(--graphite-hi);
-  color: var(--orange);
-  box-shadow: inset 0 0 0 1.5px var(--orange);
-  animation: none;
-}
-
-@keyframes v4-open-breathe {
-  from {
-    filter: brightness(0.88);
-    box-shadow: 0 0 0 0 rgba(255, 106, 19, 0);
-  }
-  to {
-    filter: brightness(1);
-    box-shadow: 0 0 6px 0 rgba(255, 106, 19, 0.9);
-  }
-}
-
-/* Le pad OPEN de la machine 3D respire dans la scene depuis le 2026-10-01
-   (theme OPEN_BREATHE, sa propre lumiere) : la lueur rectangulaire posee
-   sur son jumeau, qui clignotait en carre par-dessus le pad, est retiree. */
-
-@media (prefers-reduced-motion: reduce) {
-  .v4-root .v4-dock-open {
-    animation: none;
-  }
-}
-
-.v4-root[data-v4-motion='reduced'] .v4-dock-open {
-  animation: none;
-}
-
-@media (max-width: 371px) {
-  .v4-dock-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .v4-root .v4-dock-open,
-  .v4-root .v4-dock-open[data-open='0'] {
-    grid-column: 1 / -1;
-    margin-left: 0;
-  }
-}
-
-/* Ecrans courts : les ecarts se resserrent, l'indication laisse sa place */
-@media (max-width: 767px) and (max-height: 699px) {
-  .v4-dock {
-    gap: 4px;
-    padding-top: 4px;
-  }
-
-  .v4-dock-hint {
-    display: none;
-  }
 }
 
 /* ---------- trace de l'objet au panneau (spec 11.2 et 20.2.7), desktop ---------- */
@@ -2093,17 +2175,6 @@ html:has(body.v4-active) {
   outline-offset: 2px;
 }
 
-.v4-look-float {
-  position: absolute;
-  top: calc(10px + env(safe-area-inset-top, 0px));
-  right: 10px;
-  z-index: 24;
-}
-
-.v4-look-float .v4-look-btn {
-  height: 32px;
-}
-
 .v4-root[data-v4-motion='reduced'] .v4-look-btn {
   transition: none;
 }
@@ -2130,8 +2201,32 @@ html:has(body.v4-active.v4-light) {
   color-scheme: light;
 }
 
-.v4-root[data-v4-theme='light'] .v4-header {
+.v4-root[data-v4-theme='light'] .v4-header,
+.v4-root[data-v4-theme='light'] .v4-mhead {
   background: linear-gradient(to bottom, rgba(241, 237, 229, 0.92), rgba(241, 237, 229, 0));
+}
+
+.v4-root[data-v4-theme='light'] .v4-mmenu {
+  background: rgba(250, 248, 244, 0.98);
+  box-shadow: 0 18px 50px rgba(67, 67, 67, 0.18);
+}
+
+.v4-root[data-v4-theme='light'] .v4-mmenu-link,
+.v4-root[data-v4-theme='light'] .v4-mmenu-reset {
+  background: #fff;
+  box-shadow: inset 0 0 0 1px #e4e0d8;
+}
+
+.v4-root[data-v4-theme='light'] .v4-mmenu-link[data-active='1'] {
+  box-shadow: inset 0 0 0 1.5px var(--orange);
+}
+
+.v4-root[data-v4-theme='light'] .v4-mmenu-open[data-open='1'] {
+  background: #fff;
+}
+
+.v4-root[data-v4-theme='light'] .v4-mmenu-veil {
+  background: rgba(67, 67, 67, 0.18);
 }
 
 .v4-root[data-v4-theme='light'] .v4-nav-sep {
@@ -2195,8 +2290,7 @@ html:has(body.v4-active.v4-light) {
 
 .v4-root[data-v4-theme='light'] .v4-dock-inst,
 .v4-root[data-v4-theme='light'] .v4-dock-step,
-.v4-root[data-v4-theme='light'] .v4-dock-key,
-.v4-root[data-v4-theme='light'] .v4-dock-cell {
+.v4-root[data-v4-theme='light'] .v4-dock-key {
   box-shadow: inset 0 0 0 1px #e4e0d8;
 }
 

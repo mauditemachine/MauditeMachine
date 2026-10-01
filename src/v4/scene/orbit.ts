@@ -14,6 +14,11 @@
  * (.v4-hit, son enfant) voit chaque evenement AVANT, juge au relachement
  * si c'etait une tape (isTap) et garde par gate un glisser parti d'un
  * encodeur, dans toutes les directions. Aucune allocation par frame.
+ *
+ * Au doigt (2026-10-01, demande de Mika : on n'attrapait pas les potards
+ * au telephone) : un seul doigt ne tourne jamais la vue, il reste aux
+ * potards, aux pads et aux pas ; deux doigts tournent la vue (leur milieu
+ * qui glisse) et la pincent. Souris et stylet : inchanges.
  */
 
 import { Vector3, type PerspectiveCamera } from 'three';
@@ -60,6 +65,8 @@ interface Ptr {
   orbiting: boolean;
   foreign: boolean;
   multi: boolean;
+  /** doigt : seul, il ne tourne pas la vue */
+  touch: boolean;
 }
 
 export class Orbit {
@@ -90,6 +97,9 @@ export class Orbit {
   private d0 = 0;
   private lz0 = 0;
   private h = 1;
+  /** deux doigts : leur milieu a la derniere mesure (la vue tourne de son glissement) */
+  private cx = 0;
+  private cy = 0;
   /** transition (reset, set) : depart et arrivee [azimut, elevation, log du zoom] */
   private tw = false;
   private tw0 = 0;
@@ -318,10 +328,26 @@ export class Orbit {
     return 0;
   }
 
+  /** Le milieu des deux premiers doigts du pincement (cx, cy) ; false sans eux. */
+  private centre(): boolean {
+    let a: Ptr | null = null;
+    for (const p of this.ptrs.values()) {
+      if (!p.multi) continue;
+      if (!a) a = p;
+      else {
+        this.cx = (a.x + p.x) / 2;
+        this.cy = (a.y + p.y) / 2;
+        return true;
+      }
+    }
+    return false;
+  }
+
   /** Pincement (re)pris a la position courante des doigts : aucun saut. */
   private pinchFrom(): void {
     this.d0 = this.spread();
     this.lz0 = Math.log(this.zoom) + this.pZ;
+    this.centre();
   }
 
   private onDown = (e: PointerEvent): void => {
@@ -337,7 +363,7 @@ export class Orbit {
     this.h = Math.max(1, this.opts.input.clientHeight);
     const x = e.clientX;
     const y = e.clientY;
-    const p: Ptr = { x0: x, y0: y, t0: e.timeStamp || performance.now(), x, y, max: 0, orbiting: false, foreign: false, multi: false };
+    const p: Ptr = { x0: x, y0: y, t0: e.timeStamp || performance.now(), x, y, max: 0, orbiting: false, foreign: false, multi: false, touch: e.pointerType === 'touch' };
     // Un deuxieme pointeur libre : pincement, plus de tape ni de rotation
     for (const q of this.ptrs.values()) {
       if (q.foreign) continue;
@@ -371,6 +397,10 @@ export class Orbit {
       // l'autre sens sans zone morte
       if (goal !== raw) this.lz0 = goal - Math.log(s / this.d0);
       this.pZ = goal - Math.log(this.zoom);
+      // Deux doigts qui glissent ensemble : la vue tourne de leur milieu
+      const px = this.cx;
+      const py = this.cy;
+      if (this.centre()) this.turn(this.cx - px, this.cy - py);
     } else if (p.orbiting) {
       this.turn(dx, dy);
     } else {
@@ -379,6 +409,8 @@ export class Orbit {
         p.foreign = true;
         return;
       }
+      // Un seul doigt ne tourne pas la vue : il faut le deuxieme
+      if (p.touch) return;
       p.orbiting = true;
       this.recount();
       // Tout l'ecart depuis le pointerdown : pas de retard de zone morte

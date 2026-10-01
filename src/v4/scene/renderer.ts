@@ -75,6 +75,7 @@ import {
   FIT_H,
   FRAME_DESKTOP,
   FRAME_MOBILE,
+  FRONT_W,
   INTRO,
   OLED,
   OLED_BAR,
@@ -779,7 +780,9 @@ export class Stage {
     const W = this.width;
     const aspect = W / this.height;
     const frame = this.layoutMobile ? FRAME_MOBILE : FRAME_DESKTOP;
-    const hwBase = Math.max(PLATEAU_W / 2 / frame, (MACHINE_H / FIT_H / 2) * aspect);
+    // Mobile : la largeur de face (un seul doigt ne tourne plus la vue)
+    const plate = this.layoutMobile ? FRONT_W : PLATEAU_W;
+    const hwBase = Math.max(plate / 2 / frame, (MACHINE_H / FIT_H / 2) * aspect);
     const e = this.explode.p.frame;
     let hw = hwBase + (Math.max(hwBase, EXPLODE.fitHalfH * aspect) - hwBase) * e;
     const t = this.layoutMobile ? 0 : this.secT;

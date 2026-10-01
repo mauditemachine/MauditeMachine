@@ -68,7 +68,6 @@ import {
   DIAL_FINE,
   DIAL_KEYS,
   ENCODERS,
-  ENC_GRAB,
   INST_NAMES,
   OPEN_ARIA,
   ORBIT,
@@ -120,8 +119,6 @@ interface Down {
   axis: 'x' | 'y';
   /** pointeur souris : le curseur suit l'axe pendant qu'il tourne */
   mouse: boolean;
-  /** doigt : un encodeur ne se prend qu'apres un repos (ENC_GRAB) */
-  touch: boolean;
   /** instant du pointerdown (performance.now) */
   t: number;
 }
@@ -289,14 +286,12 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
 
     // Garde de l'orbite, appelee quand un pointeur passe 6 px : un glisser
     // parti d'un encodeur le tourne et n'orbite jamais (la couche le garde
-    // jusqu'au relachement ; l'axe dominant a ce seuil devient le sien) ;
-    // au doigt, seulement apres un repos (ENC_GRAB) ; tout le reste fait
-    // tourner la machine
+    // jusqu'au relachement ; l'axe dominant a ce seuil devient le sien),
+    // au doigt comme a la souris (un seul doigt ne tourne plus la vue,
+    // 2026-10-01) ; tout le reste fait tourner la machine
     stage.orbit.gate = (pointerId, dx, dy) => {
       const d = downs.get(pointerId);
       if (!d || !d.dial) return true;
-      // Au doigt : pris seulement apres un repos, sinon la vue tourne
-      if (d.touch && performance.now() - d.t < ENC_GRAB.touchHoldMs) return true;
       d.turning = true;
       d.axis = Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
       turnDial(d, dx, dy, shiftHeld);
@@ -334,7 +329,6 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         turning: false,
         axis: 'y',
         mouse: e.pointerType === 'mouse',
-        touch: e.pointerType === 'touch',
         t: performance.now(),
       });
       // Rien ne part ici : un objet attend la tape (relachement)

@@ -1,71 +1,30 @@
 /**
- * Dock (spec 11.4, revision 4) : sur telephone les 16 pas 3D sont a 7 px
- * l'un de l'autre, on programme donc le sequenceur ici, sous la machine.
- * Une rangee d'instruments (BD SD TOM CH OH, le selectionne en jaune ;
- * toucher choisit sans jouer), les 16 pas en deux rangees de 8 cases, le
- * transport (RUN/STOP, CLEAR, MUTE, SOLO, tempo - / valeur / +), puis la
- * grille de navigation : tous les boutons visibles d'un coup, aucun
- * defilement (6 colonnes x 2 rangees, v4.css) : les cinq pages et RESET,
- * puis OPEN (bouton plein orange) sur toute la rangee ; machine ouverte,
- * GOODIES, MERCH et STUDIO a cote de CLOSE. Un instrument coupe (MUTE)
- * est barre, celui en solo cerne d'orange. Icones Font Awesome 6.5.1 (deja chargee par
- * index.html), en aria-hidden ; chaque bouton garde son nom en toutes
- * lettres. Un appui long (400 ms) vide un pas. Memes
- * stores que la machine : les deux changent ensemble. Monte seulement sur
- * la mise en page mobile (index.tsx), jamais dans le repli.
+ * Dock (spec 11.4, revision 4 ; compact le 2026-10-01) : sur telephone les
+ * 16 pas 3D sont a 7 px l'un de l'autre, on programme donc le sequenceur
+ * ici, sous la machine. Trois bandes seulement : les instruments (RANDOM,
+ * puis BD SD TOM CH OH, le selectionne en jaune ; toucher choisit sans
+ * jouer ; coupe en rose, en solo en bleu), les 16 pas en deux rangees de 8
+ * cases, le transport (RUN/STOP, CLEAR, MUTE, SOLO, tempo - / valeur / +).
+ * La navigation, OPEN et l'apparence sont dans le menu de l'en-tete
+ * (ui/MobileHeader.tsx) : Mika trouvait le Dock trop haut. Un pas touche
+ * sans instrument : les instruments clignotent une fois (l'ecran dit TAP A
+ * PAD FIRST). Icones Font Awesome 6.5.1 (deja chargee par index.html), en
+ * aria-hidden ; chaque bouton garde son nom en toutes lettres. Un appui
+ * long (400 ms) vide un pas. Memes stores que la machine : les deux
+ * changent ensemble. Monte seulement sur la mise en page mobile
+ * (index.tsx), jamais dans le repli.
  */
 
 import React, { useRef, useState, useSyncExternalStore } from 'react';
-import {
-  clearPattern,
-  randomPattern,
-  muteToggle,
-  openSection,
-  openToggle,
-  page,
-  resetView,
-  runToggle,
-  selectInstrument,
-  setTempo,
-  soloToggle,
-  stepClear,
-  stepToggle,
-} from '../actions';
+import { clearPattern, randomPattern, muteToggle, runToggle, selectInstrument, setTempo, soloToggle, stepClear, stepToggle } from '../actions';
 import { clock } from '../audio/clock';
 import { BPM, INSTRUMENTS, STEP_COUNT, VEL_BARS, VEL_NAMES, pattern, velocity } from '../audio/pattern';
 import type { Stage } from '../scene/renderer';
-import { explode } from '../state/explode';
 import { playhead } from '../state/playhead';
-import { section } from '../state/section';
 import { voices } from '../state/voices';
-import { INST_NAMES, STEP_HOLD_MS, type SectionId } from '../theme';
+import { INST_NAMES, STEP_HOLD_MS } from '../theme';
 
 const STEP_INDEXES = Array.from({ length: STEP_COUNT }, (_, i) => i);
-
-/** Une cellule de la grille : une section a ouvrir, ou RESET. */
-interface Cell {
-  id: SectionId | 'reset';
-  label: string;
-  aria: string;
-  icon: string;
-}
-
-const PAGE_CELLS: readonly Cell[] = [
-  { id: 'tracks', label: 'TRACKS', aria: 'Tracks', icon: 'fa-solid fa-compact-disc' },
-  { id: 'mixtapes', label: 'MIXTAPES', aria: 'Mixtapes', icon: 'fa-solid fa-record-vinyl' },
-  { id: 'shows', label: 'SHOWS', aria: 'Shows', icon: 'fa-solid fa-calendar-days' },
-  { id: 'press', label: 'PRESS', aria: 'Press', icon: 'fa-solid fa-file-lines' },
-  { id: 'contact', label: 'CONTACT', aria: 'Contact', icon: 'fa-solid fa-envelope' },
-  { id: 'reset', label: 'RESET', aria: 'Reset view', icon: 'fa-solid fa-arrows-rotate' },
-];
-/** Machine fermee : rien d'autre, OPEN prend toute la rangee */
-const CLOSED_CELLS: readonly Cell[] = [];
-/** Machine ouverte : les trois puces du PCB */
-const OPEN_CELLS: readonly Cell[] = [
-  { id: 'goodies', label: 'GOODIES', aria: 'Goodies', icon: 'fa-solid fa-gift' },
-  { id: 'merch', label: 'MERCH', aria: 'Merch', icon: 'fa-solid fa-shirt' },
-  { id: 'studio', label: 'STUDIO', aria: 'Studio', icon: 'fa-solid fa-microchip' },
-];
 
 const Icon: React.FC<{ name: string }> = ({ name }) => <i className={`${name} v4-fa`} aria-hidden="true" />;
 
@@ -84,37 +43,22 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
   const p = useSyncExternalStore(pattern.subscribe, pattern.get, pattern.get);
   const head = useSyncExternalStore(playhead.subscribe, playhead.get, playhead.get);
   const running = useSyncExternalStore(clock.subscribe, () => clock.running, () => clock.running);
-  const ex = useSyncExternalStore(explode.subscribe, explode.get, explode.get);
-  const open = useSyncExternalStore(section.subscribe, section.get, section.get);
   const v = useSyncExternalStore(voices.subscribe, voices.get, voices.get);
-  // Un pas touche sans instrument : l'indication clignote une fois
+  // Un pas touche sans instrument : les instruments clignotent une fois
   const [nudge, setNudge] = useState(0);
   // Appui long sur un pas : le pas et l'instant du pointerdown ; le clic qui suit est ignore
   const hold = useRef<{ i: number; t: number } | null>(null);
   const skipClick = useRef(-1);
   const inst = p.instrument;
   const bpm = p.bpm;
-  const opened = ex === 'opening' || ex === 'open';
 
   const onStep = (i: number): void => {
     if (!stepToggle(i, getStage())) setNudge((n) => n + 1);
   };
-  const onCell = (c: Cell): void => {
-    if (c.id === 'reset') resetView(getStage());
-    else if (c.id === 'goodies' || c.id === 'merch' || c.id === 'studio') {
-      if (open === c.id) section.set(null);
-      else openSection(c.id);
-    } else page(c.id, getStage());
-  };
-  const cells = [...PAGE_CELLS, ...(opened ? OPEN_CELLS : CLOSED_CELLS)];
-  const hint = inst ? '' : 'Tap a pad, then the steps.';
 
   return (
     <div className="v4-dock" data-mode={inst ? 'edit' : 'union'}>
-      <p key={nudge} className="v4-dock-hint" data-nudge={nudge > 0 ? '1' : '0'} aria-live="polite">
-        {hint}
-      </p>
-      <div className="v4-dock-insts" role="group" aria-label="Instrument">
+      <div key={nudge} className="v4-dock-insts" data-nudge={nudge > 0 ? '1' : '0'} role="group" aria-label="Instrument, tap one, then the steps">
         {/* RANDOM a gauche des voix, comme sur la machine */}
         <button type="button" className="v4-dock-inst v4-dock-random" aria-label="Random house pattern" onClick={() => randomPattern(getStage())}>
           <Icon name="fa-solid fa-dice" />
@@ -243,35 +187,6 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
           onClick={() => setTempo(bpm + 1)}
         >
           <Glyph plus />
-        </button>
-      </div>
-      {/* Navigation : tous les boutons visibles d'un coup, OPEN / CLOSE a part */}
-      <div className="v4-dock-grid" role="group" aria-label="Navigation">
-        {cells.map((c) => (
-          <button
-            key={c.id}
-            type="button"
-            className="v4-dock-cell"
-            data-active={open === c.id ? '1' : '0'}
-            aria-label={c.aria}
-            aria-expanded={c.id === 'reset' ? undefined : open === c.id}
-            aria-controls={c.id === 'reset' ? undefined : `v4-section-${c.id}`}
-            data-press-button={c.id === 'press' ? '' : undefined}
-            onClick={() => onCell(c)}
-          >
-            <Icon name={c.icon} />
-            <span className="v4-dock-cell-label">{c.label}</span>
-          </button>
-        ))}
-        <button
-          type="button"
-          className="v4-dock-open"
-          data-open={opened ? '1' : '0'}
-          aria-pressed={opened}
-          aria-label={opened ? 'Close the machine' : 'Open the machine'}
-          onClick={() => openToggle(getStage())}
-        >
-          {opened ? 'CLOSE' : 'OPEN'}
         </button>
       </div>
     </div>

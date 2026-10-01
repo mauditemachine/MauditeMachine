@@ -858,7 +858,8 @@ export const LIT = {
  * au seuil de l'orbite (6 px) ; parti d'un encodeur, il ne fait jamais
  * orbiter la vue : l'axe dominant au seuil le tourne (vers le haut ou vers
  * la droite = plus ; spec 20.17 FX-5, qui remplace la regle verticale de
- * R2-2). Au doigt, apres un repos seulement (ENC_GRAB).
+ * R2-2). Au doigt aussi, tout de suite depuis le 2026-10-01 : un seul
+ * doigt ne tourne plus la vue (scene/orbit.ts), plus rien a departager.
  */
 export const TEMPO_UI = { pxPerBpm: 2, wheelPx: 100, tapMs: 350, sweepDeg: 270 } as const;
 
@@ -883,15 +884,6 @@ export const POT_UI = {
 export const potMin = (id: EncId): number => (isBipolar(id) ? -1 : 0);
 /** Course 0 a 1 d'un encodeur hors TEMPO (angle) : TONE et STRETCH au centre a 0. */
 export const potCourse = (id: EncId, v: number): number => (isBipolar(id) ? (v + 1) / 2 : v);
-
-/**
- * Au doigt, un encodeur (TEMPO compris) ne se prend qu'apres touchHoldMs
- * de repos sur lui : un glisser qui en part plus tot fait tourner la vue
- * (revue de la revision 2 : au telephone les six cibles couvrent 12 % de
- * la machine, orbiter changeait le tempo et le sauvegardait). La souris
- * et le stylet gardent la prise immediate (spec 20.17 FX-5).
- */
-export const ENC_GRAB = { touchHoldMs: 250 } as const;
 
 /**
  * SWING (spec 20.8) : les pas pairs (2, 4 ... 16) partent en retard, de 0
@@ -1094,6 +1086,13 @@ export const FRAME_DESKTOP = 0.78;
 export const FRAME_MOBILE = 0.92;
 /** Largeur projetee de l'empreinte 14 x 9 (coins vifs) a l'azimut 45 : 0.7071 x (14 + 9). */
 export const PLATEAU_W = Math.SQRT1_2 * (BODY.w + BODY.d);
+/**
+ * Mobile (2026-10-01) : un seul doigt ne tourne plus la vue, la machine
+ * reste de face ; le cadre suit sa largeur reelle (14) et non celle de
+ * l'azimut 45 (16.3) : environ 20 % plus grande a l'ecran. Tournee a deux
+ * doigts, elle peut deborder un peu : c'est le geste qui le veut.
+ */
+export const FRONT_W = BODY.w;
 /**
  * Hauteur projetee de la machine fermee a la vue par defaut (azimut 45,
  * elevation 38), mesuree sur les sommets reels (measure().fit, encodeurs

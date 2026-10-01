@@ -1,7 +1,7 @@
 /**
  * Dark / Light (2026-10-01) : deux boutons cote a cote, celui de
  * l'apparence en cours enfonce (aria-pressed). Desktop : au bout du menu de
- * l'en-tete ; mobile : en haut a droite de la zone de la machine.
+ * l'en-tete ; mobile : au bas du menu du hamburger (ui/MobileHeader.tsx).
  */
 
 import React, { useSyncExternalStore } from 'react';
@@ -13,10 +13,10 @@ const MODES: readonly { id: Appearance; label: string; aria: string }[] = [
   { id: 'light', label: 'Light', aria: 'Light mode' },
 ];
 
-export const AppearanceToggle: React.FC<{ floating?: boolean }> = ({ floating = false }) => {
+export const AppearanceToggle: React.FC = () => {
   const look = useSyncExternalStore(appearance.subscribe, appearance.get, appearance.get);
   return (
-    <div className={floating ? 'v4-look v4-look-float' : 'v4-look'} role="group" aria-label="Appearance">
+    <div className="v4-look" role="group" aria-label="Appearance">
       {MODES.map((m) => (
         <button key={m.id} type="button" className="v4-look-btn" aria-pressed={look === m.id} aria-label={m.aria} onClick={() => appearance.set(m.id)}>
           {m.label}

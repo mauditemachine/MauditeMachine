@@ -17,9 +17,10 @@ import { section } from '../state/section';
 import { EXPLODE, type PageId } from '../theme';
 import { AppearanceToggle } from './AppearanceToggle';
 
-type HoodId = 'goodies' | 'merch' | 'studio';
+export type HoodId = 'goodies' | 'merch' | 'studio';
 
-const PAGE_LINKS: readonly { id: PageId; label: string }[] = [
+/** Les liens du menu, partages avec l'en-tete mobile (ui/MobileHeader.tsx). */
+export const PAGE_LINKS: readonly { id: PageId; label: string }[] = [
   { id: 'tracks', label: 'Tracks' },
   { id: 'mixtapes', label: 'Mixtapes' },
   { id: 'shows', label: 'Shows' },
@@ -27,7 +28,7 @@ const PAGE_LINKS: readonly { id: PageId; label: string }[] = [
   { id: 'contact', label: 'Contact' },
 ];
 
-const HOOD_LINKS: readonly { id: HoodId; label: string }[] = [
+export const HOOD_LINKS: readonly { id: HoodId; label: string }[] = [
   { id: 'goodies', label: 'Goodies' },
   { id: 'merch', label: 'Merch' },
   { id: 'studio', label: 'Studio' },
@@ -35,6 +36,24 @@ const HOOD_LINKS: readonly { id: HoodId; label: string }[] = [
 
 /** Le capot s'ouvre : la section part quand les puces sont decouvertes. */
 const HOOD_DELAY_MS = Math.round(EXPLODE.ms * EXPLODE.chipsFrom);
+
+/** Le logo : retour a la vue d'arrivee (sections et capot fermes, vue recentree). */
+export function goHome(stage: Stage | null): void {
+  closeSection();
+  if (explode.get() === 'open') openToggle(stage);
+  resetView(stage);
+}
+
+/** GOODIES, MERCH, STUDIO : le capot s'ouvre d'abord, puis la section de la puce. */
+export function openHood(id: HoodId, stage: Stage | null): void {
+  const s = explode.get();
+  if (s === 'closed') {
+    if (openToggle(stage)) window.setTimeout(() => openSection(id), HOOD_DELAY_MS);
+    return;
+  }
+  if (section.get() === id) closeSection();
+  else openSection(id);
+}
 
 interface Props {
   getStage: () => Stage | null;
@@ -46,20 +65,10 @@ export const Header: React.FC<Props> = ({ getStage }) => {
 
   const onHome = (e: React.MouseEvent): void => {
     e.preventDefault();
-    closeSection();
-    if (explode.get() === 'open') openToggle(getStage());
-    resetView(getStage());
+    goHome(getStage());
   };
 
-  const onHood = (id: HoodId): void => {
-    const s = explode.get();
-    if (s === 'closed') {
-      if (openToggle(getStage())) window.setTimeout(() => openSection(id), HOOD_DELAY_MS);
-      return;
-    }
-    if (section.get() === id) closeSection();
-    else openSection(id);
-  };
+  const onHood = (id: HoodId): void => openHood(id, getStage());
 
   return (
     <header className="v4-header">
