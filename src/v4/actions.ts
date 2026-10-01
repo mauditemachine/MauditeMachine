@@ -8,7 +8,7 @@
 
 import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
-import { ensure, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setTone, setVoiceFx, trigger } from './audio/drums';
+import { ensure, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, trigger } from './audio/drums';
 import { VOICE_FX_DEFAULT, voiceFx, type VoiceParam } from './audio/voicefx';
 import { randomHouse } from './audio/house';
 import { BPM, VEL_NAMES, pattern, velocity } from './audio/pattern';
@@ -21,7 +21,7 @@ import { contactDraft, type ContactTopic } from './state/contactDraft';
 import { presskit } from './state/presskit';
 import { section } from './state/section';
 import { voices } from './state/voices';
-import { CHIPS, POT_UI, VOICE_ENCODERS, encLabel, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
+import { CHIPS, POT_UI, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
 
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
 const pct = (v: number): number => Math.round(v * 100);
@@ -211,25 +211,25 @@ export function setTempo(bpm: number): void {
   pattern.setBpm(bpm);
 }
 
-/** Valeur affichee en ligne 3 de l'ecran : TONE +35, STRETCH -40%, SWING 58%, VOLUME 80% ; BD DELAY 40% pour une voix. */
+/** Valeur affichee en ligne 3 de l'ecran : TONE +35, STRETCH -40%, SWING 58%, MASTER 80% ; BD DELAY 40% pour une voix. */
 function readout(id: Exclude<EncId, 'tempo'>, v: number, inst: Inst | null): string {
   const who = inst ? `${inst} ` : '';
   const name = encLabel(id);
   if (id === 'swing') return `SWING ${swingRatio(v)}%`;
-  if (id === 'tone' || id === 'stretch') {
+  if (isBipolar(id)) {
     const n = Math.round(v * 100);
-    return `${who}${name} ${n > 0 ? '+' : ''}${n}${id === 'stretch' ? '%' : ''}`;
+    return `${who}${name} ${n > 0 ? '+' : ''}${n}${id === 'tone' ? '' : '%'}`;
   }
   return `${who}${name} ${pct(v)}%`;
 }
 
-/** Le parametre d'une voix que regle un potard (DIST -> dist, VOLUME -> level ; TEMPO, MASTER, SWING : aucun). */
-const voiceParam = (id: EncId): VoiceParam | null => (id === 'vol' ? 'level' : VOICE_ENCODERS.includes(id) ? (id as VoiceParam) : null);
+/** Le parametre de voix que regle un potard de la rangee VOICE (VOLUME -> level, DIST -> dist) ; null hors de cette rangee. */
+const voiceParam = (id: EncId): VoiceParam | null => (isVoiceEnc(id) ? VOICE_PARAM[id] : null);
 
 /**
- * La voix que reglent les potards (effets par piste, 2026-10-01) : celle
- * du pad selectionne, pour VOLUME, TONE, STRETCH, DIST, REVERB, DELAY et
- * CHORUS ; null : tout le pattern (VOLUME, lui, ne regle qu'une voix).
+ * La voix que regle un potard : celle du pad selectionne pour la rangee
+ * VOICE (VOLUME, TONE, STRETCH, DIST, CHORUS, DELAY, REVERB) ; null pour
+ * TEMPO, MASTER et la rangee GLOBAL, qui reglent tout le pattern.
  */
 export function dialTarget(id: EncId): Inst | null {
   return voiceParam(id) ? pattern.get().instrument : null;
@@ -239,13 +239,13 @@ export function dialTarget(id: EncId): Inst | null {
  * Un encodeur (spec 20.6.2 ENC_SET) : glisser, molette, jumeau au clavier.
  * TEMPO en BPM (100 a 150, l'ecran le montre deja en ligne 1), TONE et
  * STRETCH de -1 a 1 (accroches a 0 au centre), les autres de 0 a 1, leur
- * valeur 1200 ms en ligne 3 de l'ecran. Un pad selectionne : TONE,
- * STRETCH, LEVEL, DIST, REVERB, DELAY et CHORUS reglent sa voix seule
- * (audio/voicefx.ts) ; sans selection, tout le pattern : TONE hauteur et
- * filtre du bus, STRETCH duree des coups (le Time d'Impulse), LEVEL gain
- * du bus (jamais le master, ?mute=1 tient), SWING retard des pas pairs,
- * DIST saturation parallele, REVERB et DELAY envois, CHORUS insert. SWING, DIST, REVERB, DELAY et CHORUS du
- * pattern persistent avec le motif.
+ * valeur 1200 ms en ligne 3 de l'ecran. Deux rangees depuis le 2026-10-01 :
+ * VOICE regle la voix du pad selectionne (audio/voicefx.ts), et sans pad
+ * demande d'en toucher un ; GLOBAL regle tout le pattern : SWING retard des
+ * pas pairs, STRETCH duree des coups (le Time d'Impulse), DIST saturation
+ * parallele, CHORUS insert, DELAY et REVERB envois. MASTER : le volume
+ * principal (jamais le master du site, ?mute=1 tient). SWING, DIST, REVERB,
+ * DELAY et CHORUS du pattern persistent avec le motif.
  */
 export function dial(id: EncId, v: number): void {
   resume();
@@ -253,42 +253,39 @@ export function dial(id: EncId, v: number): void {
     pattern.setBpm(v);
     return;
   }
-  const inst = dialTarget(id);
   const p = voiceParam(id);
-  // VOLUME n'a de sens que pour une voix
-  if (id === 'vol' && !inst) {
-    lcdMessage.show('TAP A PAD FIRST');
+  if (p) {
+    const inst = pattern.get().instrument;
+    if (!inst) {
+      lcdMessage.show('TAP A PAD FIRST');
+      return;
+    }
+    setVoiceFx(inst, p, v);
+    // VOLUME d'une voix : la page MIX montre les cinq volumes (facon Elektron)
+    if (id === 'vol') lcdMix.show(inst);
+    else lcdMessage.show(readout(id, dialValue(id), inst), POT_UI.readoutMs, true);
     return;
   }
-  if (inst && p) setVoiceFx(inst, p, v);
-  else if (id === 'tone') setTone(v);
-  else if (id === 'stretch') setStretch(v);
+  if (id === 'stretch') setStretch(v);
   else if (id === 'level') setLevel(v);
   else if (id === 'swing') setSwing(v);
   else if (id === 'dist') setDrive(v);
   else if (id === 'reverb') setReverb(v);
   else if (id === 'delay') setDelay(v);
   else setChorus(v);
-  // VOLUME d'une voix : la page MIX montre les cinq volumes (facon Elektron)
-  if (id === 'vol' && inst) {
-    lcdMix.show(inst);
-    return;
-  }
-  lcdMessage.show(readout(id, dialValue(id), inst), POT_UI.readoutMs, true);
+  lcdMessage.show(readout(id, dialValue(id), null), POT_UI.readoutMs, true);
 }
 
-/** Valeur courante d'un encodeur (celle de la voix selectionnee s'il la regle) : BPM, ou -1 a 1, ou 0 a 1. */
+/** Valeur courante d'un encodeur (rangee VOICE : la voix selectionnee, sinon son depart) : BPM, ou -1 a 1, ou 0 a 1. */
 export function dialValue(id: EncId): number {
-  const inst = dialTarget(id);
   const p = voiceParam(id);
-  if (inst && p) return voiceFx.of(inst)[p];
+  if (p) {
+    const inst = pattern.get().instrument;
+    return inst ? voiceFx.of(inst)[p] : VOICE_FX_DEFAULT[p];
+  }
   switch (id) {
-    case 'vol':
-      return VOICE_FX_DEFAULT.level;
     case 'tempo':
       return pattern.get().bpm;
-    case 'tone':
-      return mix.tone;
     case 'stretch':
       return mix.stretch;
     case 'level':
@@ -306,10 +303,10 @@ export function dialValue(id: EncId): number {
   }
 }
 
-/** Valeur de depart (double tape) : 130 BPM, TONE et STRETCH au centre, LEVEL 80 %, le reste a 0 (pour une voix aussi). */
+/** Valeur de depart (double tape) : 130 BPM, TONE et STRETCH au centre, MASTER et VOLUME 80 %, le reste a 0. */
 export function dialReset(id: EncId): number {
   const p = voiceParam(id);
-  if (p && (dialTarget(id) || id === 'vol')) return VOICE_FX_DEFAULT[p];
+  if (p) return VOICE_FX_DEFAULT[p];
   return id === 'tempo' ? BPM.initial : POT_UI.reset[id];
 }
 

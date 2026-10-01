@@ -262,14 +262,16 @@ function box(key: string, x: number, z: number, hx: number, hz: number, h: numbe
 
 /** Encodeur : flanc (enveloppe des deux cercles), dessus, repere bone. */
 function encoder(i: number, angleDeg: number): Solid {
-  const { x, z } = encPos(i);
+  const { x, z, s } = encPos(i);
   const ring = (r: number, y: number): V2[] =>
     Array.from({ length: 24 }, (_, k) => {
       const a = (k / 24) * Math.PI * 2;
       return P(panel(x + Math.cos(a) * r, y, z + Math.sin(a) * r));
     });
-  const bottom = ring(ENCODER.r, 0);
-  const top = ring(ENCODER.rTop, ENCODER.h);
+  // La rangee VOICE, plus petite (ENCODER.voiceScale)
+  const topY = ENCODER.h * s;
+  const bottom = ring(ENCODER.r * s, 0);
+  const top = ring(ENCODER.rTop * s, topY);
   const all = [...bottom, ...top].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   // Enveloppe convexe (chaine monotone) du flanc
   const cross = (o: V2, a: V2, b: V2): number => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
@@ -284,10 +286,10 @@ function encoder(i: number, angleDeg: number): Solid {
   };
   const hull = [...half(all), ...half([...all].reverse())];
   const a = angleDeg * DEG;
-  const m0 = P(panel(x, ENCODER.h, z));
-  const m1 = P(panel(x - Math.sin(a) * ENCODER.mark.d, ENCODER.h, z - Math.cos(a) * ENCODER.mark.d));
+  const m0 = P(panel(x, topY, z));
+  const m1 = P(panel(x - Math.sin(a) * ENCODER.mark.d * s, topY, z - Math.cos(a) * ENCODER.mark.d * s));
   return {
-    depth: dot(Z, panel(x, ENCODER.h / 2, z)),
+    depth: dot(Z, panel(x, topY / 2, z)),
     nodes: [
       <path key={`enc-${i}-s`} d={pathOf(hull)} fill={C.encSide} />,
       <path key={`enc-${i}-t`} d={pathOf(top)} fill={HEX.encoder} />,
@@ -297,7 +299,7 @@ function encoder(i: number, angleDeg: number): Solid {
 }
 
 const potDeg = (t: number): number => TEMPO_UI.sweepDeg / 2 - TEMPO_UI.sweepDeg * t;
-const START: Record<string, number> = { tempo: (BPM.initial - BPM.min) / (BPM.max - BPM.min), tone: 0.5, stretch: 0.5, level: 0.8, vol: 0.8, swing: 0, dist: 0, reverb: 0, delay: 0, chorus: 0 };
+const START: Record<string, number> = { tempo: (BPM.initial - BPM.min) / (BPM.max - BPM.min), tone: 0.5, stretch: 0.5, vstretch: 0.5, level: 0.8, vol: 0.8 };
 
 function solids(): React.ReactNode[] {
   const items: Solid[] = [];

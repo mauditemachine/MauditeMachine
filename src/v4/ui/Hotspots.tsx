@@ -74,9 +74,9 @@ import {
   PADS,
   PAD_ARIA,
   POT_UI,
-  VOICE_ENCODERS,
   potMin,
   isBipolar,
+  isVoiceEnc,
   STEP_HOLD_MS,
   TEMPO_UI,
   TWIN_ARIA,
@@ -541,7 +541,7 @@ function dialText(k: EncId, v: number): string {
     const n = pct(v);
     return n === 0 ? '0, centre, bypass' : `${n > 0 ? '+' : ''}${n}`;
   }
-  if (k === 'stretch') {
+  if (k === 'stretch' || k === 'vstretch') {
     const n = pct(v);
     return n === 0 ? '0, centre, original length' : `${n > 0 ? '+' : ''}${n} %, ${n > 0 ? 'longer' : 'shorter'}`;
   }
@@ -580,7 +580,6 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const v = useSyncExternalStore(voices.subscribe, voices.get, voices.get);
   const muteOn = p.instrument ? v.muted.includes(p.instrument) : v.muted.length > 0;
   const open = useSyncExternalStore(section.subscribe, section.get, section.get);
-  const tone = useSyncExternalStore(mix.subscribe, () => mix.tone, () => mix.tone);
   const stretch = useSyncExternalStore(mix.subscribe, () => mix.stretch, () => mix.stretch);
   const level = useSyncExternalStore(mix.subscribe, () => mix.level, () => mix.level);
   const swing = useSyncExternalStore(mix.subscribe, () => mix.swing, () => mix.swing);
@@ -588,7 +587,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const reverb = useSyncExternalStore(mix.subscribe, () => mix.reverb, () => mix.reverb);
   const delay = useSyncExternalStore(mix.subscribe, () => mix.delay, () => mix.delay);
   const chorus = useSyncExternalStore(mix.subscribe, () => mix.chorus, () => mix.chorus);
-  // Effets par piste : un pad selectionne, ses sept potards montrent sa voix
+  // Rangee VOICE : la voix du pad selectionne, sinon ses valeurs de depart
   const vfx = useSyncExternalStore(voiceFx.subscribe, voiceFx.get, voiceFx.get);
   const els = useRef(new Map<string, HTMLElement>());
   const refs = useRef(new Map<string, (el: HTMLElement | null) => void>());
@@ -598,10 +597,24 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const live = chipsLive(s);
   const pressed = s === 'opening' || s === 'open';
   const inst = p.instrument;
-  const sel = p.instrument ? vfx[p.instrument] : null;
-  const values: Record<EncId, number> = sel
-    ? { tempo: p.bpm, tone: sel.tone, stretch: sel.stretch, level, vol: sel.level, swing, dist: sel.dist, reverb: sel.reverb, delay: sel.delay, chorus: sel.chorus }
-    : { tempo: p.bpm, tone, stretch, level, vol: VOICE_FX_DEFAULT.level, swing, dist: drive, reverb, delay, chorus };
+  const sel = p.instrument ? vfx[p.instrument] : VOICE_FX_DEFAULT;
+  const values: Record<EncId, number> = {
+    tempo: p.bpm,
+    level,
+    swing,
+    stretch,
+    dist: drive,
+    chorus,
+    delay,
+    reverb,
+    vol: sel.level,
+    tone: sel.tone,
+    vstretch: sel.stretch,
+    vdist: sel.dist,
+    vchorus: sel.chorus,
+    vdelay: sel.delay,
+    vreverb: sel.reverb,
+  };
 
   /** Ref stable par id : l'element entre et sort des deux registres. */
   const refFor = (id: string): ((el: HTMLElement | null) => void) => {
@@ -789,7 +802,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
             data-hotspot={id}
             role="slider"
             tabIndex={0}
-            aria-label={p.instrument && VOICE_ENCODERS.includes(enc.id) ? `${enc.aria}, ${INST_NAMES[p.instrument]}` : enc.id === 'vol' ? `${enc.aria}, tap a pad first` : enc.aria}
+            aria-label={isVoiceEnc(enc.id) ? (p.instrument ? `${enc.aria}, ${INST_NAMES[p.instrument]}` : `${enc.aria}, tap a pad first`) : enc.aria}
             aria-orientation="vertical"
             aria-valuemin={tempo ? BPM.min : potMin(enc.id) * 100}
             aria-valuemax={tempo ? BPM.max : 100}

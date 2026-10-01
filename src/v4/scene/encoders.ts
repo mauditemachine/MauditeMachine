@@ -1,7 +1,7 @@
 /**
- * Les six encodeurs noirs a repere blanc sous l'ecran (spec 20.3.7) :
- * TEMPO, TONE, LEVEL, SWING, DIST, REVERB. UN InstancedMesh de 6, une
- * geometrie fusionnee a couleurs de sommets : corps legerement conique
+ * Les encodeurs noirs a repere blanc (spec 20.3.7) : MASTER, TEMPO et les
+ * rangees GLOBAL et VOICE (celle-ci a l'echelle ENCODER.voiceScale). UN
+ * InstancedMesh, une geometrie fusionnee a couleurs de sommets : corps legerement conique
  * (le haut plus etroit : un chanfrein), repere bone sur le dessus, du
  * centre vers l'arriere, collerette a la base. L'angle tourne autour de la
  * normale du panneau (y du repere panneau) : 270 deg de course centres sur
@@ -31,7 +31,7 @@ const AXIS_Y = new Vector3(0, 1, 0);
 const m4 = new Matrix4();
 const pos = new Vector3();
 const quat = new Quaternion();
-const ONE = new Vector3(1, 1, 1);
+const scl = new Vector3();
 
 /**
  * Angle d'un encodeur pour une course t de 0 a 1 : 270 deg centres sur le
@@ -101,7 +101,8 @@ export class Encoders {
   private place(i: number): void {
     quat.setFromAxisAngle(AXIS_Y, this.angle[i]);
     const p = encPos(i);
-    this.mesh.setMatrixAt(i, m4.compose(pos.set(p.x, 0, p.z), quat, ONE));
+    // La rangee VOICE, plus petite (ENCODER.voiceScale)
+    this.mesh.setMatrixAt(i, m4.compose(pos.set(p.x, 0, p.z), quat, scl.setScalar(p.s)));
     this.mesh.instanceMatrix.needsUpdate = true;
   }
 
@@ -118,21 +119,22 @@ export class Encoders {
     return true;
   }
 
-  /** L'encodeur pour le picking : un cylindre de son rayon, 0 a 0.42. */
+  /** L'encodeur pour le picking : un cylindre de son rayon, 0 a 0.42 (a son echelle). */
   hotspot(id: EncId, layer: Object3D): HotspotDef {
     const i = this.index(id);
     if (i < 0) throw new Error(`encoders: unknown ${id}`);
+    const p = encPos(i);
     return {
       id: `enc-${id}`,
       kind: 'encoder',
       layer,
       shape: 'disc',
-      x: encPos(i).x,
-      z: encPos(i).z,
-      hx: ENCODER.r,
-      hz: ENCODER.r,
+      x: p.x,
+      z: p.z,
+      hx: ENCODER.r * p.s,
+      hz: ENCODER.r * p.s,
       y0: 0,
-      y1: ENCODER.h,
+      y1: ENCODER.h * p.s,
       enabled: true,
       param: id,
     };

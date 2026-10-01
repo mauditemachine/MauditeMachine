@@ -428,26 +428,59 @@ export const OLED_MIX = {
 } as const;
 
 /** level : le volume principal (MASTER) ; vol : le volume de la voix selectionnee (VOLUME). */
-export type EncId = 'tempo' | 'tone' | 'stretch' | 'level' | 'vol' | 'swing' | 'dist' | 'reverb' | 'delay' | 'chorus';
+/**
+ * Deux jeux de potards depuis le 2026-10-01 (demande de Mika) : GLOBAL a
+ * gauche, sous RUN/STOP (SWING, STRETCH, DIST, CHORUS, DELAY, REVERB : tout
+ * le pattern), VOICE a droite, sous les pads (VOLUME, TONE et les effets de
+ * la voix selectionnee). Les potards de voix ont leurs ids (vstretch...) :
+ * deux STRETCH, deux DIST... coexistent sur le panneau.
+ */
+export type EncId =
+  | 'tempo'
+  | 'level'
+  | 'swing'
+  | 'stretch'
+  | 'dist'
+  | 'chorus'
+  | 'delay'
+  | 'reverb'
+  | 'vol'
+  | 'tone'
+  | 'vstretch'
+  | 'vdist'
+  | 'vchorus'
+  | 'vdelay'
+  | 'vreverb';
 
 /**
- * Les potards qui reglent une voix quand un pad est selectionne (effets
- * par piste, 2026-10-01 ; STRETCH aussi depuis qu'il raccourcit ou allonge
- * les coups ; VOLUME n'agit que sur une voix). TEMPO, MASTER et SWING
- * restent ceux du pattern.
+ * Les potards de la rangee VOICE et le parametre de voix qu'ils reglent
+ * (audio/voicefx.ts) : sans pad selectionne, ils demandent d'en toucher un
+ * (TAP A PAD FIRST). TEMPO, MASTER et la rangee GLOBAL reglent le pattern.
  */
-export const VOICE_ENCODERS: readonly EncId[] = ['vol', 'tone', 'stretch', 'dist', 'reverb', 'delay', 'chorus'];
+export const VOICE_PARAM = {
+  vol: 'level',
+  tone: 'tone',
+  vstretch: 'stretch',
+  vdist: 'dist',
+  vchorus: 'chorus',
+  vdelay: 'delay',
+  vreverb: 'reverb',
+} as const;
+export type VoiceEncId = keyof typeof VOICE_PARAM;
+export const VOICE_ENCODERS = Object.keys(VOICE_PARAM) as readonly VoiceEncId[];
+export const isVoiceEnc = (id: EncId): id is VoiceEncId => id in VOICE_PARAM;
 
-/** Potards a zero au centre (-1 a 1) : TONE et STRETCH. */
-export const BIPOLAR: readonly EncId[] = ['tone', 'stretch'];
+/** Potards a zero au centre (-1 a 1) : TONE et les deux STRETCH. */
+export const BIPOLAR: readonly EncId[] = ['tone', 'stretch', 'vstretch'];
 export const isBipolar = (id: EncId): boolean => BIPOLAR.includes(id);
 
 /**
- * Neuf encodeurs noirs a repere blanc (spec 20.3.7 ; STRETCH a cote de
- * TONE en revision 5, DELAY et CHORUS le 2026-10-01) : corps legerement
- * conique (0.27 a la base, 0.256 en haut, 0.42 de haut), repere bone du
- * centre vers l'arriere, collerette a la base. Places : encPos (apres
- * KEYS), deux rangees depuis le 2026-10-01.
+ * Encodeurs noirs a repere blanc (spec 20.3.7 ; STRETCH a cote de TONE en
+ * revision 5, DELAY et CHORUS le 2026-10-01) : corps legerement conique
+ * (0.27 a la base, 0.256 en haut, 0.42 de haut), repere bone du centre
+ * vers l'arriere, collerette a la base. Places : encPos (apres KEYS). Ceux
+ * de la rangee VOICE sont a l'echelle voiceScale (6 px de moins a l'ecran
+ * a 1440 x 900 : 34.5 px contre 40.6, 2026-10-01).
  */
 export const ENCODER = {
   r: 0.27,
@@ -456,26 +489,33 @@ export const ENCODER = {
   collar: { r: 0.32, h: 0.025 },
   mark: { w: 0.036, h: 0.012, d: 0.18 },
   segments: { desktop: 32, mobile: 20 },
+  voiceScale: 0.85,
 } as const;
 
 /**
  * Dans l'ordre de lecture (2026-10-01) : MASTER au-dessus de TEMPO, a
- * droite de l'ecran ; puis la rangee sous les pads : VOLUME (la voix
- * selectionnee seulement), SWING, TONE, STRETCH et les effets dans l'ordre
- * du signal (DIST, CHORUS, DELAY, REVERB). MASTER est l'ancien LEVEL, le
- * volume principal seul. aria : nom du jumeau (role slider).
+ * droite de l'ecran ; la rangee GLOBAL a gauche (SWING, STRETCH, puis les
+ * effets dans l'ordre du signal : DIST, CHORUS, DELAY, REVERB) ; la rangee
+ * VOICE a droite (VOLUME, TONE, STRETCH et les memes effets, pour la voix
+ * selectionnee). MASTER est l'ancien LEVEL, le volume principal seul.
+ * aria : nom du jumeau (role slider).
  */
 export const ENCODERS: readonly { id: EncId; label: string; aria: string }[] = [
   { id: 'level', label: 'MASTER', aria: 'Master volume' },
   { id: 'tempo', label: 'TEMPO', aria: 'Tempo' },
+  { id: 'swing', label: 'SWING', aria: 'Global swing' },
+  { id: 'stretch', label: 'STRETCH', aria: 'Global stretch, shorter or longer hits' },
+  { id: 'dist', label: 'DIST', aria: 'Global distortion' },
+  { id: 'chorus', label: 'CHORUS', aria: 'Global chorus' },
+  { id: 'delay', label: 'DELAY', aria: 'Global delay' },
+  { id: 'reverb', label: 'REVERB', aria: 'Global reverb' },
   { id: 'vol', label: 'VOLUME', aria: 'Voice volume' },
-  { id: 'swing', label: 'SWING', aria: 'Swing' },
-  { id: 'tone', label: 'TONE', aria: 'Tone, pitch and filter' },
-  { id: 'stretch', label: 'STRETCH', aria: 'Stretch, shorter or longer hits' },
-  { id: 'dist', label: 'DIST', aria: 'Distortion' },
-  { id: 'chorus', label: 'CHORUS', aria: 'Chorus' },
-  { id: 'delay', label: 'DELAY', aria: 'Delay' },
-  { id: 'reverb', label: 'REVERB', aria: 'Reverb' },
+  { id: 'tone', label: 'TONE', aria: 'Voice tone, pitch and filter' },
+  { id: 'vstretch', label: 'STRETCH', aria: 'Voice stretch, shorter or longer hits' },
+  { id: 'vdist', label: 'DIST', aria: 'Voice distortion' },
+  { id: 'vchorus', label: 'CHORUS', aria: 'Voice chorus' },
+  { id: 'vdelay', label: 'DELAY', aria: 'Voice delay' },
+  { id: 'vreverb', label: 'REVERB', aria: 'Voice reverb' },
 ];
 
 /** Libelle serigraphie d'un encodeur (l'ecran l'affiche aussi : VOLUME 80%). */
@@ -485,7 +525,8 @@ export const encLabel = (id: EncId): string => ENCODERS.find((e) => e.id === id)
  * RUN/STOP, CLEAR, RANDOM, MUTE et SOLO (2026-10-01) : boutons carres de
  * 0.8 (0.62 avant, environ 30 px de plus a l'ecran), sous l'ecran, alignes
  * sur le bord gauche de son cadre (x -5.88), pas de 1.0 ; libelles 0.58
- * sous leur centre, comme les pads. RANDOM tire un motif house
+ * sous leur centre, comme les pads. Remontes de 0.06 le 2026-10-01 : la
+ * rangee GLOBAL est dessous (TEMPO garde 0.1 au-dessus de SOLO). RANDOM tire un motif house
  * (audio/house.ts). MUTE coupe la voix selectionnee, SOLO ne laisse jouer
  * qu'elle (state/voices.ts).
  */
@@ -493,8 +534,8 @@ export const TRANSPORT = {
   size: 0.8,
   h: 0.1,
   radius: 0.04,
-  z: -0.5,
-  labelZ: 0.08,
+  z: -0.56,
+  labelZ: 0.02,
   run: { x: -5.48 },
   clear: { x: -4.48 },
   random: { x: -3.48 },
@@ -691,34 +732,60 @@ export const keyX = (i: number): number => KEYS.x0 + KEYS.pitch * i;
  * - MASTER au-dessus de TEMPO, a droite de l'ecran, centres entre son
  *   cadre et les pads ; un pas de 1.07 (TEMPO, devant, ne cache pas le
  *   libelle de MASTER), libelles 0.45 sous leur centre ;
- * - la rangee sous les pads de page, parfaitement alignee sur la grille
- *   des touches trig : VOLUME, SWING, TONE, STRETCH, DIST, CHORUS, DELAY
- *   et REVERB au-dessus des touches 9 a 16 (pas de 0.74), z 0.58,
- *   libelles a 1.06.
+ * - deux rangees alignees sur la grille des touches trig (pas de 0.74) :
+ *   GLOBAL au-dessus des touches 1 a 6, sous RUN/STOP ; VOICE au-dessus
+ *   des touches 10 a 16, sous les pads, plus petits (ENCODER.voiceScale),
+ *   libelles remontes d'autant. Un filet de groupe sous chaque rangee,
+ *   coupe par son nom (ENC_GROUPS).
  */
 const ENC_SIDE = { masterZ: -2.62, tempoZ: -1.55, labelDz: 0.45 } as const;
-const ENC_ROW: readonly EncId[] = ['vol', 'swing', 'tone', 'stretch', 'dist', 'chorus', 'delay', 'reverb'];
-const ENC_ROW_Z = { z: 0.58, labelZ: 1.06 } as const;
+const ENC_GLOBAL: readonly EncId[] = ['swing', 'stretch', 'dist', 'chorus', 'delay', 'reverb'];
+const ENC_ROW_Z = { z: 0.62, labelDz: 0.48 } as const;
 
-function encPlaces(): Record<EncId, { x: number; z: number; labelZ: number }> {
-  const out = {} as Record<EncId, { x: number; z: number; labelZ: number }>;
+export interface EncPlace {
+  x: number;
+  z: number;
+  labelZ: number;
+  /** echelle du potard (1, ou voiceScale pour la rangee VOICE) */
+  s: number;
+}
+
+function encPlaces(): Record<EncId, EncPlace> {
+  const out = {} as Record<EncId, EncPlace>;
   const left = OLED.x + OLED.bezel.w / 2;
   const right = PAD.x0 - PAD.size / 2;
   const mid = (left + right) / 2;
-  out.level = { x: mid, z: ENC_SIDE.masterZ, labelZ: ENC_SIDE.masterZ + ENC_SIDE.labelDz };
-  out.tempo = { x: mid, z: ENC_SIDE.tempoZ, labelZ: ENC_SIDE.tempoZ + ENC_SIDE.labelDz };
-  ENC_ROW.forEach((id, k) => {
-    out[id] = { x: keyX(KEYS.count - ENC_ROW.length + k), ...ENC_ROW_Z };
+  out.level = { x: mid, z: ENC_SIDE.masterZ, labelZ: ENC_SIDE.masterZ + ENC_SIDE.labelDz, s: 1 };
+  out.tempo = { x: mid, z: ENC_SIDE.tempoZ, labelZ: ENC_SIDE.tempoZ + ENC_SIDE.labelDz, s: 1 };
+  const z = ENC_ROW_Z.z;
+  ENC_GLOBAL.forEach((id, k) => {
+    out[id] = { x: keyX(k), z, labelZ: z + ENC_ROW_Z.labelDz, s: 1 };
+  });
+  const s = ENCODER.voiceScale;
+  // Le libelle suit le bord de la collerette : remonte de ce qu'elle perd
+  const labelZ = z + ENC_ROW_Z.labelDz - ENCODER.collar.r * (1 - s);
+  VOICE_ENCODERS.forEach((id, k) => {
+    out[id] = { x: keyX(KEYS.count - VOICE_ENCODERS.length + k), z, labelZ, s };
   });
   return out;
 }
 
-let places: Record<EncId, { x: number; z: number; labelZ: number }> | null = null;
+let places: Record<EncId, EncPlace> | null = null;
 /** Place de l'encodeur i (ordre de ENCODERS). */
-export const encPos = (i: number): { x: number; z: number; labelZ: number } => {
+export const encPos = (i: number): EncPlace => {
   places ??= encPlaces();
   return places[ENCODERS[i].id];
 };
+
+/**
+ * Les deux rangees nommees (2026-10-01) : un filet sous les libelles, d'un
+ * bord a l'autre de la rangee, coupe au centre par GLOBAL ou VOICE.
+ */
+export const ENC_GROUPS: readonly { text: string; ids: readonly EncId[] }[] = [
+  { text: 'GLOBAL', ids: ENC_GLOBAL },
+  { text: 'VOICE', ids: VOICE_ENCODERS },
+];
+export const ENC_GROUP_TYPE = { cap: 0.06, dz: 0.17, gapPerChar: 0.075, pad: 0.1 } as const;
 /** Index d'un encodeur dans ENCODERS. */
 export const encIndex = (id: EncId): number => ENCODERS.findIndex((e) => e.id === id);
 
@@ -786,7 +853,7 @@ export const POT_UI = {
   wheelStep: 0.02,
   bipolarStep: 0.05,
   readoutMs: 1200,
-  reset: { tone: 0, stretch: 0, level: 0.8, vol: 0.8, swing: 0, dist: 0, reverb: 0, delay: 0, chorus: 0 },
+  reset: { level: 0.8, swing: 0, stretch: 0, dist: 0, chorus: 0, delay: 0, reverb: 0, vol: 0.8, tone: 0, vstretch: 0, vdist: 0, vchorus: 0, vdelay: 0, vreverb: 0 },
 } as const;
 
 /** Bornes d'un encodeur hors TEMPO : TONE et STRETCH -1 a 1, les autres 0 a 1. */
@@ -933,6 +1000,14 @@ export const SILK_LOGOS: readonly { id: SilkLogoId; src: string; x: number; z: n
 
 /** Le libelle du pad OPEN (OPEN, CLOSE vue eclatee) : l'index de son texte dans SILK_TEXTS. */
 const PAD_CAP = 0.09;
+/** Etendue d'une rangee nommee : bords des collerettes, centre, z du filet. */
+function groupSpan(ids: readonly EncId[]): { a: number; b: number; mid: number; z: number } {
+  const ps = ids.map((id) => encPos(encIndex(id)));
+  const a = ps[0].x - ENCODER.collar.r * ps[0].s;
+  const b = ps[ps.length - 1].x + ENCODER.collar.r * ps[ps.length - 1].s;
+  return { a, b, mid: (a + b) / 2, z: Math.max(...ps.map((p) => p.labelZ)) + ENC_GROUP_TYPE.dz };
+}
+
 const padLabel = (p: PadSpec): SilkText =>
   p.kind === 'voice'
     ? { text: p.label, x: p.x, z: p.z + PAD.labelDz, cap: PAD_CAP, maxW: 0.94, group: 'pads' }
@@ -944,6 +1019,7 @@ export const SILK_TEXTS: readonly SilkText[] = [
   { text: 'FIRMWARE V.2.1 / 2026', x: 4.95, z: -3.5, cap: 0.07, align: 'right', alpha: 0.45 },
   { text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - 0.72, cap: 0.06, align: 'left' },
   ...ENCODERS.map((e, i) => ({ text: e.label, x: encPos(i).x, z: encPos(i).labelZ, cap: 0.085, maxW: 0.66, group: 'enc' })),
+  ...ENC_GROUPS.map((g) => ({ text: g.text, x: groupSpan(g.ids).mid, z: groupSpan(g.ids).z, cap: ENC_GROUP_TYPE.cap })),
   { text: 'RUN/STOP', x: TRANSPORT.run.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'tr' },
   { text: 'CLEAR', x: TRANSPORT.clear.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'tr' },
   { text: 'RANDOM', x: TRANSPORT.random.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'tr' },
@@ -961,10 +1037,21 @@ export const OPEN_SILK_INDEX = SILK_TEXTS.findIndex((t) => t.text === 'OPEN');
  * crochet sous chaque groupe de quatre touches trig.
  */
 export const SILK_LINES: readonly (readonly number[])[] = [
-  // le cran du centre de TONE (revision 5) et de STRETCH : un trait a midi, derriere l'encodeur
-  ...(['tone', 'stretch'] as const).map((id) => {
-    const { x, z } = encPos(encIndex(id));
-    return [x, z - ENCODER.collar.r - 0.05, x, z - ENCODER.collar.r - 0.17];
+  // le cran du centre de TONE (revision 5) et des STRETCH : un trait a midi, derriere l'encodeur
+  ...BIPOLAR.map((id) => {
+    const { x, z, s } = encPos(encIndex(id));
+    const r = ENCODER.collar.r * s;
+    return [x, z - r - 0.05, x, z - r - 0.05 - 0.12 * s];
+  }),
+  // le filet de chaque rangee nommee, de part et d'autre de son nom
+  ...ENC_GROUPS.flatMap((g) => {
+    const { a, b, mid, z } = groupSpan(g.ids);
+    const half = (g.text.length * ENC_GROUP_TYPE.gapPerChar) / 2 + ENC_GROUP_TYPE.pad;
+    const t = z - KEYS.bracketTick;
+    return [
+      [a, t, a, z, mid - half, z],
+      [mid + half, z, b, z, b, t],
+    ];
   }),
   // sous la rangee des voix (les pages dessous), puis la colonne d'OPEN a part
   [PAD.x0 - PAD.size / 2 - 0.09, PAD.rowZ[0] + 0.73, PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[0] + 0.73],

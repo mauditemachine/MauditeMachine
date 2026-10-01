@@ -1504,24 +1504,34 @@ export class Stage {
   }
 
   /**
-   * Les potards suivent leur cible : la voix du pad selectionne pour TONE,
-   * STRETCH, LEVEL, DIST, REVERB, DELAY et CHORUS (effets par piste), tout
-   * le pattern sinon ; ils tournent aussi quand la selection change.
+   * Les potards suivent leur cible : la rangee GLOBAL et MASTER, le
+   * pattern ; la rangee VOICE, la voix du pad selectionne (ses valeurs de
+   * depart sans selection) ; elle tourne aussi quand la selection change.
+   * TONE et les STRETCH vont de -1 a 1 : course centree (repere a midi a 0).
    */
   private syncMix = (): void => {
     const inst = pattern.get().instrument;
-    const v = inst ? voiceFx.of(inst) : null;
-    // TONE va de -1 a 1 : sa course est centree (repere a midi a 0)
-    let changed = this.encoders.setValue('tone', potCourse('tone', v ? v.tone : mix.tone));
-    if (this.encoders.setValue('stretch', potCourse('stretch', v ? v.stretch : mix.stretch))) changed = true;
-    // MASTER : le volume principal seul ; VOLUME : celui de la voix (sinon son neutre)
-    if (this.encoders.setValue('level', mix.level)) changed = true;
-    if (this.encoders.setValue('vol', v ? v.level : VOICE_FX_DEFAULT.level)) changed = true;
-    if (this.encoders.setValue('swing', mix.swing)) changed = true;
-    if (this.encoders.setValue('dist', v ? v.dist : mix.drive)) changed = true;
-    if (this.encoders.setValue('reverb', v ? v.reverb : mix.reverb)) changed = true;
-    if (this.encoders.setValue('delay', v ? v.delay : mix.delay)) changed = true;
-    if (this.encoders.setValue('chorus', v ? v.chorus : mix.chorus)) changed = true;
+    const v = inst ? voiceFx.of(inst) : VOICE_FX_DEFAULT;
+    const e = this.encoders;
+    let changed = false;
+    for (const [id, t] of [
+      ['level', mix.level],
+      ['swing', mix.swing],
+      ['stretch', potCourse('stretch', mix.stretch)],
+      ['dist', mix.drive],
+      ['chorus', mix.chorus],
+      ['delay', mix.delay],
+      ['reverb', mix.reverb],
+      ['vol', v.level],
+      ['tone', potCourse('tone', v.tone)],
+      ['vstretch', potCourse('vstretch', v.stretch)],
+      ['vdist', v.dist],
+      ['vchorus', v.chorus],
+      ['vdelay', v.delay],
+      ['vreverb', v.reverb],
+    ] as const) {
+      if (e.setValue(id, t)) changed = true;
+    }
     if (changed) this.encodersMoved();
   };
 
