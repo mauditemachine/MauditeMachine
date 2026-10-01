@@ -1,8 +1,8 @@
 /**
- * Le press kit en popup devant la machine (2026-09-30) : les dix pages en
- * image (WebP, chargees a la demande) dans une colonne qui defile, la
- * langue (EN, FR, ES ; celle du navigateur a l'ouverture), le PDF de la
- * langue en telechargement, la fermeture (bouton x, Echap, clic sur le
+ * Le press kit en popup devant la machine (2026-09-30, version 4 pages,
+ * anglais seulement) : les quatre pages en image (WebP) dans une colonne
+ * qui defile, le PDF unique a ouvrir dans un onglet (ses liens y sont
+ * cliquables) ou a telecharger, la fermeture (bouton x, Echap, clic sur le
  * fond). Dialogue modal : le focus y entre et y reste (Tab boucle), il
  * revient a l'element qui l'a ouvert ; les raccourcis de la machine sont
  * coupes tant qu'il est ouvert.
@@ -10,10 +10,8 @@
 
 import React, { useEffect, useRef, useSyncExternalStore } from 'react';
 import { PRESSKIT } from '../data';
-import { KIT_LANGS, presskit, type KitLang } from '../state/presskit';
+import { presskit } from '../state/presskit';
 import { DownloadMark } from './sections/common';
-
-const LANG_NAMES: Readonly<Record<KitLang, string>> = { en: 'English', fr: 'French', es: 'Spanish' };
 
 const CloseIcon: React.FC = () => (
   <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
@@ -21,16 +19,21 @@ const CloseIcon: React.FC = () => (
   </svg>
 );
 
+const OpenMark: React.FC = () => (
+  <svg className="v4-dl" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false">
+    <path d="M3.5 2.5h6v6M9.5 2.5l-7 7" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
 export const PresskitViewer: React.FC = () => {
-  const s = useSyncExternalStore(presskit.subscribe, presskit.get, presskit.get);
+  const open = useSyncExternalStore(presskit.subscribe, presskit.get, presskit.get);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const bodyRef = useRef<HTMLDivElement>(null);
   const returnTo = useRef<HTMLElement | null>(null);
 
   // Ouverture : le focus entre (bouton x), il reviendra a l'element d'avant
   useEffect(() => {
-    if (!s.open) return undefined;
+    if (!open) return undefined;
     returnTo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeRef.current?.focus({ preventScroll: true });
     /**
@@ -64,16 +67,10 @@ export const PresskitViewer: React.FC = () => {
       window.removeEventListener('keydown', onKey, true);
       returnTo.current?.focus({ preventScroll: true });
     };
-  }, [s.open]);
+  }, [open]);
 
-  // Nouvelle langue : retour en haut des pages
-  useEffect(() => {
-    if (bodyRef.current) bodyRef.current.scrollTop = 0;
-  }, [s.lang]);
-
-  if (!s.open) return null;
-  const pdf = PRESSKIT.pdf[s.lang];
-  const file = pdf.slice(pdf.lastIndexOf('/') + 1);
+  if (!open) return null;
+  const file = PRESSKIT.pdf.slice(PRESSKIT.pdf.lastIndexOf('/') + 1);
   const pages = Array.from({ length: PRESSKIT.pages }, (_, k) => k + 1);
 
   return (
@@ -84,19 +81,16 @@ export const PresskitViewer: React.FC = () => {
         if (e.target === e.currentTarget) presskit.close();
       }}
     >
-      <div ref={dialogRef} className="v4-kit-dialog" role="dialog" aria-modal="true" aria-label="Press kit 2027" lang={s.lang}>
+      <div ref={dialogRef} className="v4-kit-dialog" role="dialog" aria-modal="true" aria-label="Press kit 2027">
         <div className="v4-kit-bar">
           <p className="v4-kit-title">
             Press kit <span>2027</span>
           </p>
-          <div className="v4-kit-langs" role="group" aria-label="Language">
-            {KIT_LANGS.map((l) => (
-              <button key={l} type="button" className="v4-kit-lang" aria-pressed={s.lang === l} aria-label={LANG_NAMES[l]} onClick={() => presskit.setLang(l)}>
-                {l.toUpperCase()}
-              </button>
-            ))}
-          </div>
-          <a className="v4-kit-dl" href={pdf} download={file} aria-label={`Download the press kit, PDF, ${LANG_NAMES[s.lang]}`}>
+          <a className="v4-kit-open" href={PRESSKIT.pdf} target="_blank" rel="noopener noreferrer" aria-label="Open the press kit PDF in a new tab, its links are clickable">
+            <OpenMark />
+            <span>Open PDF</span>
+          </a>
+          <a className="v4-kit-dl" href={PRESSKIT.pdf} download={file} aria-label={`Download the press kit, PDF, ${PRESSKIT.size}`}>
             <DownloadMark />
             <span>Download</span>
             <span className="v4-kit-size">PDF {PRESSKIT.size}</span>
@@ -105,12 +99,12 @@ export const PresskitViewer: React.FC = () => {
             <CloseIcon />
           </button>
         </div>
-        <div ref={bodyRef} className="v4-kit-pages">
+        <div className="v4-kit-pages">
           {pages.map((n) => (
             <img
-              key={`${s.lang}-${n}`}
+              key={n}
               className="v4-kit-page"
-              src={PRESSKIT.page(s.lang, n)}
+              src={PRESSKIT.page(n)}
               width={PRESSKIT.w}
               height={PRESSKIT.h}
               loading={n <= 2 ? 'eager' : 'lazy'}

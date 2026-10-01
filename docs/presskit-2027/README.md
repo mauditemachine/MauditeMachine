@@ -1,6 +1,6 @@
 # Press kit 2027
 
-Dix pages A4 en anglais, français et espagnol, tout en SF Pro Display, photos encadrées (aucune pleine page). Le site l'ouvre en popup devant la machine (bouton PRESS, document « Press kit 2027 »).
+Quatre pages A4, en anglais seulement, tout en SF Pro Display, fond clair, texte `#434343`. Aucun QR code : chaque lien est une vraie balise `<a href>`, que Chrome garde cliquable dans le PDF. Le site l'ouvre en popup devant la machine (bouton PRESS, document « Press kit 2027 »).
 
 ## Régénérer
 
@@ -10,25 +10,25 @@ node docs/presskit-2027/build.mjs
 
 Produit :
 
-- `public/Presskit_Maudite_Machine_2027_EN.pdf`, `_FR.pdf`, `_ES.pdf` : les trois langues ;
-- `public/Presskit_Maudite_Machine_2027.pdf` : l'anglais avec le bandeau « Boom Festival 2027 · Alchemy Circle » et la phrase Alchemy Circle de la page 4 ;
-- `public/press/kit-2027/{en,fr,es}/01.webp` à `10.webp` : les pages en image pour le popup ;
-- deux copies de l'anglais aux anciennes adresses déjà envoyées : `Presskit_Maudite_Machine_2027_generic.pdf` et `Presskit_Maudite_Machine_2026-27.pdf`.
+- `public/Presskit_Maudite_Machine_2027.pdf` : avec le bandeau « Boom Festival 2027 · Alchemy Circle » et la phrase Alchemy Circle de la page 3 ;
+- `public/Presskit_Maudite_Machine_2027_generic.pdf` : les mêmes quatre pages sans le bandeau, la version du site ;
+- `public/press/kit-2027/01.webp` à `04.webp` : les pages en image pour le popup ;
+- une copie de la version neutre à l'ancienne adresse déjà envoyée : `Presskit_Maudite_Machine_2026-27.pdf`.
 
 Outils : Google Chrome (variable `CHROME` s'il est ailleurs), `pdftoppm` (poppler) et `cwebp` (webp), via Homebrew. Aucune dépendance npm.
 
 ## Fichiers
 
-- `content.mjs` : tout le texte, par langue (`T.en`, `T.fr`, `T.es`), et ce qui ne se traduit pas (`SHARED` : noms, liens, catalogue, liste d'écoute).
-- `build.mjs` : le gabarit des dix pages (HTML généré depuis `content.mjs`), les variantes, le rendu PDF et les images de pages. Si le nombre de pages change, mettre à jour `PAGES` ici et `PRESSKIT.pages` dans `src/v4/data.ts`.
-- `presskit.css` : la mise en page, polices de `public/fonts/`.
-- `prep_images.py` : recadrages des photos et pochettes (pillow), 300 ppp, sRGB, JPEG 85, depuis `public/press/`.
-- `make_qr.py` : les QR codes SVG, chacun décodé avant d'être écrit (segno, zxing-cpp, pillow).
+- `content.mjs` : tout le texte et toutes les adresses des liens.
+- `build.mjs` : le gabarit des quatre pages (HTML généré depuis `content.mjs`), les deux variantes, le rendu PDF et les images de pages. Si le nombre de pages change, mettre à jour `PAGES` ici et `PRESSKIT.pages` dans `src/v4/data.ts`.
+- `presskit.css` : la mise en page. Marges 14 mm, corps 9 pt, interligne 1.35 (1.28 en page 4), titres de section 11 pt en 700, capitales, 0.16 em, chiffres clés 34 pt. Palette : texte `#434343`, texte clair `#6E6E6E`, filets `#D8D4CC`, papier `#F6F1E7`, orange `#FF6A13` pour les chiffres clés et les filets de titre seulement.
+- `prep_images.py` : les trois images (pillow), JPEG 82, 300 ppp à leur taille d'affichage au plus, depuis `public/press/`.
 
-## Règles du contenu
+## Vérifier
 
-- Aucun fait inventé : sources, le press kit 2026-27, le brief Boom Festival 2027, les consignes de Mika.
-- Genre : deep techno et indie dance. Base : Canada, France, Espagne. Mots bannis : raw, hypnotic.
+- Quatre pages, moins de 5 Mo : `pdfinfo public/Presskit_Maudite_Machine_2027.pdf`.
+- Une seule famille de polices : `pdffonts public/Presskit_Maudite_Machine_2027.pdf` (le double prime ″ n'existe pas dans SF Pro Display : écrire 12" en guillemet droit).
+- Les liens : extraire les annotations du PDF (pypdf) et les comparer aux adresses de `content.mjs`.
 - Aucun tiret cadratin ni demi-cadratin :
 
 ```bash

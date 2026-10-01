@@ -1,9 +1,11 @@
 /*
- * Press kit 2027 : dix pages A4, rendu en PDF par Chrome sans tete
- * (build.mjs). Une seule famille, SF Pro Display (Light a Black). Fond
- * #0A0A0B (couverture, le set, contact), papier #F6F1E7 ailleurs, orange
- * #FF6A13 pour les chiffres, les libelles et les filets. Photos encadrees
- * dans les marges de 15 mm : aucune photo pleine page.
+ * Press kit 2027, version 4 pages A4, rendu en PDF par Chrome sans tete
+ * (build.mjs). Une seule famille, SF Pro Display, titres compris. Fond
+ * clair sur les quatre pages. Texte #434343 (jamais de noir pur) et ses
+ * derives : texte clair #6E6E6E, filets #D8D4CC ; papier #F6F1E7 ; orange
+ * #FF6A13 pour les chiffres cles et les filets de titre, rien d'autre.
+ * Liens : soulignes d'un filet fin #434343. Marges de 14 mm, corps 9 pt,
+ * interligne 1.35, titres de section 11 pt en 700, capitales, 0.16 em.
  */
 
 @font-face {
@@ -43,10 +45,12 @@
 }
 
 :root {
-  --ink: #0a0a0b;
+  --text: #434343;
+  --text-light: #6e6e6e;
+  --rule: #d8d4cc;
   --paper: #f6f1e7;
-  --orange: #ff6a13;
-  --m: 15mm;
+  --accent: #ff6a13;
+  --m: 14mm;
 }
 
 * {
@@ -59,15 +63,15 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--ink);
+  background: var(--paper);
 }
 
 body {
   font-family: 'SF Pro Display', sans-serif;
   font-weight: 400;
-  font-size: 9.5pt;
-  line-height: 1.5;
-  font-kerning: normal;
+  font-size: 9pt;
+  line-height: 1.35;
+  color: var(--text);
 }
 
 p,
@@ -75,7 +79,6 @@ ul,
 ol,
 dl,
 dd,
-figure,
 h1,
 h2 {
   margin: 0;
@@ -87,12 +90,25 @@ ol {
   list-style: none;
 }
 
+b {
+  font-weight: 600;
+}
+
+a {
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--text);
+  text-decoration-thickness: 0.35pt;
+  text-underline-offset: 1.6pt;
+}
+
 .page {
   position: relative;
   width: 210mm;
   height: 297mm;
   overflow: hidden;
-  padding: var(--m) var(--m) 22mm;
+  padding: var(--m) var(--m) 20mm;
+  background: var(--paper);
   break-after: page;
 }
 
@@ -100,901 +116,472 @@ ol {
   break-after: auto;
 }
 
-.dark {
-  background: var(--ink);
-  color: var(--paper);
+.muted {
+  color: var(--text-light);
 }
 
-.light {
-  background: var(--paper);
-  color: var(--ink);
-}
-
-.lbl {
-  display: block;
-  font-size: 6.8pt;
-  font-weight: 600;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--orange);
-}
-
-.photo {
-  display: block;
-  width: 100%;
-  object-fit: cover;
-  border-radius: 1.2mm;
-}
-
-.qr {
-  display: block;
-  image-rendering: pixelated;
-}
-
-.url {
-  margin-top: 1mm;
-  font-size: 6.6pt;
-  opacity: 0.55;
-  word-break: break-all;
-}
-
-/* En-tete : numero orange, titre gras, filet fin, mention a droite */
-.head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding-bottom: 3.5mm;
-  margin-bottom: 7mm;
-  border-bottom: 0.25mm solid currentColor;
-}
-
-.head .num {
-  display: block;
-  margin-bottom: 1.5mm;
+.small {
   font-size: 7.5pt;
-  font-weight: 600;
-  letter-spacing: 0.2em;
-  color: var(--orange);
 }
 
-.head h2 {
-  font-size: 27pt;
+/* Titre de section : 11 pt, 700, capitales, 0.16 em, filet orange court */
+.st {
+  position: relative;
+  margin: 5.5mm 0 3mm;
+  padding-bottom: 1.6mm;
+  border-bottom: 0.4pt solid var(--rule);
+  font-size: 11pt;
   font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  line-height: 1.2;
 }
 
-.head .kicker {
-  font-size: 6.8pt;
-  font-weight: 500;
-  letter-spacing: 0.22em;
+.st::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -0.4pt;
+  width: 14mm;
+  height: 1.2pt;
+  background: var(--accent);
+}
+
+.page > .st:first-child,
+.p3 > .banner-crowd + .st {
+  margin-top: 0;
+}
+
+.p3 > .banner-crowd + .st {
+  margin-top: 5mm;
+}
+
+/* Petit libelle : capitales, texte clair */
+.sub {
+  margin-bottom: 1.2mm;
+  font-size: 7pt;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  opacity: 0.6;
+  color: var(--text-light);
 }
 
 .folio {
   position: absolute;
   left: var(--m);
   right: var(--m);
-  bottom: 9mm;
+  bottom: 8mm;
   display: flex;
   justify-content: space-between;
-  font-size: 6.3pt;
-  letter-spacing: 0.2em;
+  padding-top: 2mm;
+  border-top: 0.4pt solid var(--rule);
+  font-size: 6.5pt;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  opacity: 0.45;
-}
-
-/* ---------- 1. couverture ---------- */
-
-.cover .top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 7mm;
-}
-
-.cover .banner {
-  font-size: 6.8pt;
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  padding: 1.6mm 3mm 1.5mm;
-  border: 0.25mm solid rgba(246, 241, 231, 0.4);
-  border-radius: 10mm;
-}
-
-.cover h1 {
-  margin-top: 9mm;
-  font-size: 66pt;
-  font-weight: 900;
-  line-height: 0.88;
-  letter-spacing: -0.035em;
-}
-
-.cover .tag {
-  display: flex;
-  gap: 7mm;
-  margin-top: 6mm;
-  padding-top: 4mm;
-  border-top: 0.25mm solid rgba(246, 241, 231, 0.25);
-  font-size: 10.5pt;
-}
-
-.cover .genre {
-  font-weight: 600;
-  color: var(--orange);
-}
-
-.cover .roles {
-  font-weight: 500;
-}
-
-.cover .base {
-  font-weight: 300;
-  opacity: 0.8;
-  margin-left: auto;
-}
-
-.cover .cover-photo {
-  position: absolute;
-  left: var(--m);
-  right: var(--m);
-  bottom: 26mm;
-  width: 180mm;
-  height: 165mm;
-}
-
-.cover .foot {
-  position: absolute;
-  left: var(--m);
-  right: var(--m);
-  bottom: 13mm;
-  display: flex;
-  justify-content: space-between;
-  font-size: 7pt;
-  font-weight: 500;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  opacity: 0.7;
-}
-
-/* ---------- 2. en bref ---------- */
-
-.glance .g-top {
-  display: grid;
-  grid-template-columns: 1fr 62mm;
-  gap: 9mm;
-}
-
-.glance .lead {
-  font-size: 12pt;
-  font-weight: 300;
-  line-height: 1.55;
-}
-
-.glance .portrait {
-  width: 62mm;
-  height: 80mm;
-}
-
-.stats {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 4mm;
-  margin-top: 9mm;
-  padding: 6mm 0;
-  border-top: 0.25mm solid rgba(10, 10, 11, 0.18);
-  border-bottom: 0.25mm solid rgba(10, 10, 11, 0.18);
-}
-
-.stats b {
-  display: block;
-  font-size: 30pt;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.03em;
-  color: var(--orange);
-  white-space: nowrap;
-}
-
-.stats span {
-  display: block;
-  margin-top: 2.5mm;
-  font-size: 6.6pt;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  opacity: 0.65;
-}
-
-.facts-cols {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10mm;
-  margin-top: 7mm;
-}
-
-.facts > div {
-  display: grid;
-  grid-template-columns: 27mm 1fr;
-  gap: 3mm;
-  padding: 2.4mm 0;
-  border-bottom: 0.25mm solid rgba(10, 10, 11, 0.1);
-}
-
-.facts dt {
-  font-size: 6.6pt;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  opacity: 0.6;
-  padding-top: 0.6mm;
-}
-
-.facts dd {
-  font-size: 9pt;
-}
-
-/* ---------- 3. biographie ---------- */
-
-.bio .bio-lead {
-  font-size: 24pt;
-  font-weight: 300;
-  line-height: 1.15;
-  letter-spacing: -0.015em;
-  max-width: 150mm;
-}
-
-.bio .bio-text {
-  column-count: 2;
-  column-gap: 9mm;
-  margin-top: 9mm;
-  font-size: 11pt;
-  line-height: 1.62;
-}
-
-.bio .bio-text p + p {
-  margin-top: 3.5mm;
-}
-
-.bio .shared {
-  position: absolute;
-  left: var(--m);
-  right: var(--m);
-  bottom: 24mm;
-  padding-top: 5mm;
-  border-top: 0.25mm solid rgba(10, 10, 11, 0.18);
-}
-
-.bio .shared p {
-  margin-top: 3mm;
-  font-size: 14pt;
-  font-weight: 300;
-  line-height: 1.5;
-  letter-spacing: -0.005em;
-}
-
-.bio .shared i,
-.contact .roster i {
-  font-style: normal;
-  color: var(--orange);
-}
-
-/* ---------- 4. le set ---------- */
-
-.set .set-photo {
-  height: 110mm;
-}
-
-.set .rows {
-  margin-top: 4mm;
-}
-
-.set .row {
-  display: grid;
-  grid-template-columns: 50mm 1fr;
-  gap: 8mm;
-  padding: 6mm 0;
-  border-bottom: 0.25mm solid rgba(246, 241, 231, 0.16);
-}
-
-.set .row:last-child {
-  border-bottom: 0;
-}
-
-.set .row .lbl {
-  padding-top: 1.4mm;
-}
-
-.set .row p {
-  font-size: 12pt;
-  font-weight: 300;
-  line-height: 1.5;
-}
-
-.set .row p + p {
-  margin-top: 2.5mm;
-}
-
-/* ---------- 5. performances ---------- */
-
-.perfp .crowd-photo {
-  height: 72mm;
+  color: var(--text-light);
 }
 
 .cols2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 9mm;
-  margin-top: 7mm;
+  gap: 3mm 8mm;
 }
-
-.perf {
-  margin-top: 2.5mm;
-}
-
-.perf li {
-  display: flex;
-  justify-content: space-between;
-  gap: 4mm;
-  padding: 1.9mm 0;
-  border-bottom: 0.25mm solid rgba(10, 10, 11, 0.1);
-  font-size: 8.6pt;
-  line-height: 1.35;
-}
-
-.perf li span:last-child {
-  flex: 0 0 auto;
-  opacity: 0.55;
-  font-variant-numeric: tabular-nums;
-}
-
-.perfp .rooms {
-  margin-top: 6mm;
-  font-size: 12pt;
-  font-weight: 300;
-}
-
-/* ---------- 6. discographie ---------- */
-
-.disco .feature {
-  display: grid;
-  grid-template-columns: 50mm 1fr;
-  gap: 8mm;
-  margin-bottom: 7mm;
-}
-
-.disco .cover-big {
-  width: 50mm;
-  height: 50mm;
-  border-radius: 1mm;
-}
-
-.disco .f-title {
-  margin-top: 1.5mm;
-  font-size: 22pt;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
-
-.disco .f-meta {
-  margin-top: 1.5mm;
-  font-size: 8.5pt;
-  opacity: 0.65;
-}
-
-.disco .f-text {
-  margin-top: 2.5mm;
-  font-size: 9pt;
-  line-height: 1.5;
-}
-
-.disco .tracklist {
-  columns: 3;
-  column-gap: 5mm;
-  margin-top: 3mm;
-  font-size: 8pt;
-  counter-reset: t;
-}
-
-.disco .tracklist li {
-  counter-increment: t;
-  padding: 0.4mm 0;
-  break-inside: avoid;
-}
-
-.disco .tracklist li::before {
-  content: counter(t, decimal-leading-zero) '  ';
-  color: var(--orange);
-  font-weight: 600;
-  font-size: 7pt;
-}
-
-.disco .catalogue {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 5mm 3.2mm;
-  margin-top: 3mm;
-}
-
-.disco figure img {
-  display: block;
-  width: 100%;
-  aspect-ratio: 1;
-  object-fit: cover;
-  border-radius: 0.8mm;
-}
-
-.disco figcaption {
-  margin-top: 1.6mm;
-  font-size: 7pt;
-  line-height: 1.3;
-}
-
-.disco figcaption b {
-  display: block;
-  font-weight: 600;
-}
-
-.disco figcaption span {
-  opacity: 0.6;
-  font-size: 6.4pt;
-}
-
-.disco .also {
-  margin-top: 5mm;
-  font-size: 8.3pt;
-  opacity: 0.75;
-}
-
-.disco .edits {
-  margin-top: 6mm;
-  padding-top: 4mm;
-  border-top: 0.25mm solid rgba(10, 10, 11, 0.18);
-}
-
-.disco .edits ul {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1mm 8mm;
-  margin-top: 2.5mm;
-  font-size: 9pt;
-}
-
-.disco .edits small {
-  display: block;
-  margin-top: 2mm;
-  font-size: 7pt;
-  opacity: 0.6;
-}
-
-/* ---------- 7. ecouter ---------- */
-
-.listen .intro,
-.tech .intro {
-  font-size: 10.5pt;
-  font-weight: 300;
-}
-
-.listen .mix {
-  display: grid;
-  grid-template-columns: 30mm 1fr;
-  gap: 8mm;
-  align-items: center;
-  margin-top: 5mm;
-  padding: 6mm;
-  background: #ebe3d3;
-  border-radius: 1.5mm;
-}
-
-.listen .mix .qr {
-  width: 30mm;
-  height: 30mm;
-}
-
-.listen .m-name {
-  margin-top: 1.5mm;
-  font-size: 22pt;
-  font-weight: 700;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-}
-
-.listen .m-meta {
-  margin-top: 1.5mm;
-  font-size: 10pt;
-}
-
-.listen .tracks {
-  margin-top: 4mm;
-}
-
-.listen .track {
-  display: grid;
-  grid-template-columns: 20mm 1fr 18mm;
-  gap: 6mm;
-  align-items: center;
-  padding: 3.4mm 0;
-  border-bottom: 0.25mm solid rgba(10, 10, 11, 0.12);
-}
-
-.listen .t-cover {
-  width: 20mm;
-  height: 20mm;
-  object-fit: cover;
-  border-radius: 0.8mm;
-}
-
-.listen .mono {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--ink);
-  color: var(--paper);
-  font-size: 9pt;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-
-.listen .track .qr {
-  width: 18mm;
-  height: 18mm;
-}
-
-.listen .t-name {
-  font-size: 13pt;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  line-height: 1.1;
-}
-
-.listen .t-meta {
-  margin-top: 1mm;
-  font-size: 8.5pt;
-  opacity: 0.7;
-}
-
-.listen .platforms {
-  position: absolute;
-  left: var(--m);
-  right: var(--m);
-  bottom: 22mm;
-}
-
-.listen .platforms .row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6mm;
-  margin-top: 2.5mm;
-}
-
-.listen .platforms .cell {
-  display: flex;
-  align-items: center;
-  gap: 3mm;
-  font-size: 8.5pt;
-  font-weight: 500;
-}
-
-.listen .platforms .qr {
-  width: 14mm;
-  height: 14mm;
-}
-
-/* ---------- 8. fiche technique ---------- */
 
 .items li {
   position: relative;
-  padding-left: 3.4mm;
-  margin-top: 1.8mm;
-  font-size: 8.7pt;
-  line-height: 1.45;
+  padding-left: 2.8mm;
+  margin-top: 0.9mm;
 }
 
 .items li::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 1.9mm;
+  top: 1.75mm;
   width: 1.2mm;
-  height: 0.25mm;
-  background: var(--orange);
+  height: 0.4pt;
+  background: var(--text-light);
 }
 
-.rider strong {
+/* ---------- 1. couverture et identite ---------- */
+
+.p1 {
+  padding-top: 0;
+}
+
+.banner-cover {
+  display: block;
+  width: 210mm;
+  height: 90mm;
+  margin: 0 calc(-1 * var(--m));
+  object-fit: cover;
+}
+
+.p1 .meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6mm;
+}
+
+.p1 .boom {
+  color: var(--text);
+}
+
+.p1 h1 {
+  margin-top: 2.5mm;
+  font-size: 38pt;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.025em;
+}
+
+.p1 .pos {
+  margin-top: 2.5mm;
+  font-size: 11pt;
+  font-weight: 500;
+}
+
+.p1 .bio {
+  margin-top: 5mm;
+  font-size: 10pt;
+  line-height: 1.45;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4mm;
+  margin-top: 6mm;
+  padding: 4.5mm 0;
+  border-top: 0.4pt solid var(--rule);
+  border-bottom: 0.4pt solid var(--rule);
+}
+
+.stats b {
+  display: block;
+  font-size: 34pt;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--accent);
+}
+
+.stats span {
+  display: block;
+  margin-top: 1.8mm;
+  font-size: 7pt;
   font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-light);
 }
 
-.tech .rider-cols {
-  margin-top: 5mm;
-}
-
-.tech .length {
-  margin-top: 5mm;
-}
-
-.tech .length .items {
+.facts {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0 9mm;
+  gap: 0 8mm;
+  margin-top: 4mm;
 }
 
-.tech .plot {
-  position: absolute;
-  left: var(--m);
-  right: var(--m);
-  bottom: 22mm;
+.facts > div {
+  display: grid;
+  grid-template-columns: 26mm 1fr;
+  gap: 2.5mm;
+  padding: 1.5mm 0;
+  border-bottom: 0.4pt solid var(--rule);
 }
 
-.stage {
-  position: relative;
-  height: 60mm;
-  margin-top: 2.5mm;
-  border: 0.25mm solid rgba(10, 10, 11, 0.25);
-  border-radius: 1.2mm;
-  font-size: 6.6pt;
-  line-height: 1.25;
-}
-
-.stage > div {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  border-radius: 0.8mm;
-}
-
-.stage .mon {
-  top: 16mm;
-  width: 22mm;
-  height: 16mm;
-  background: var(--ink);
-  color: var(--paper);
-}
-
-.stage .mon.l {
-  left: 4mm;
-}
-
-.stage .mon.r {
-  right: 4mm;
-}
-
-.stage .mon b {
-  font-weight: 600;
-}
-
-.stage .mon span {
-  opacity: 0.7;
-}
-
-.stage .dj {
-  left: 30mm;
-  top: 16mm;
-  width: 24mm;
-  height: 16mm;
-  border: 0.25mm dashed rgba(10, 10, 11, 0.5);
-  padding: 1mm;
-}
-
-.stage .artist {
-  left: 58mm;
-  right: 30mm;
-  top: 3mm;
-  height: 6mm;
+.facts dt {
+  padding-top: 0.4mm;
+  font-size: 7pt;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+  color: var(--text-light);
 }
 
-.stage .table {
-  left: 58mm;
-  right: 30mm;
-  top: 10mm;
-  height: 30mm;
-  padding: 2mm;
-  justify-content: space-between;
-  background: #e7dfcd;
+.p1-links {
+  margin-top: 5mm;
+  font-size: 9.5pt;
 }
 
-.stage .gear {
-  display: flex;
-  gap: 1.5mm;
-  width: 100%;
+.p1-links span {
+  margin: 0 2.5mm;
+  color: var(--text-light);
 }
 
-.stage .gear span {
-  flex: 1;
-  padding: 2mm 1mm;
-  background: var(--paper);
-  border: 0.25mm solid rgba(10, 10, 11, 0.3);
-  border-radius: 0.6mm;
+/* ---------- 2. parcours et preuves ---------- */
+
+.p2-top {
+  display: grid;
+  grid-template-columns: 55mm 1fr;
+  gap: 8mm;
 }
 
-.stage .gear .mac {
-  flex: 1.4;
-  background: var(--ink);
-  color: var(--paper);
-  border-color: var(--ink);
+.portrait {
+  display: block;
+  width: 55mm;
+  height: 72mm;
+  object-fit: cover;
 }
 
-.stage .iface {
-  padding: 1mm 4mm;
-  background: var(--paper);
-  border: 0.25mm solid var(--orange);
-  border-radius: 0.6mm;
+.shared {
+  margin-top: 4mm;
+  padding-top: 3mm;
+  border-top: 0.4pt solid var(--rule);
 }
 
-.stage .table p {
-  font-size: 6pt;
-  opacity: 0.7;
+.shared p:last-child {
+  font-size: 10pt;
+  line-height: 1.45;
 }
 
-.stage .di {
-  right: 30mm;
-  top: 42mm;
-  width: 52mm;
-  height: 7mm;
-  border: 0.25mm solid var(--orange);
-  color: var(--ink);
+.p2 .lead {
+  font-size: 13pt;
+  font-weight: 300;
+  line-height: 1.2;
+  margin-bottom: 2.5mm;
 }
 
-.stage .aud {
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 7mm;
-  border-radius: 0 0 1.2mm 1.2mm;
-  background: rgba(10, 10, 11, 0.08);
-  font-weight: 600;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-}
-
-.tech .note {
+.p2 .para + .para {
   margin-top: 2mm;
-  font-size: 7pt;
-  opacity: 0.65;
 }
 
-/* ---------- 9. accueil et voyage ---------- */
+.perf li {
+  display: flex;
+  justify-content: space-between;
+  gap: 3mm;
+  padding: 0.5mm 0;
+  border-bottom: 0.4pt solid var(--rule);
+}
 
-.hosp .grid4 {
+.perf li span:last-child {
+  flex: 0 0 auto;
+  color: var(--text-light);
+  font-variant-numeric: tabular-nums;
+}
+
+.rooms {
+  margin-top: 2mm;
+  color: var(--text-light);
+}
+
+.label {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10mm 9mm;
+  gap: 8mm;
+  margin-top: 4mm;
+  padding-top: 3mm;
+  border-top: 0.4pt solid var(--rule);
 }
 
-.hosp .hosp-photo {
-  position: absolute;
-  left: var(--m);
-  right: var(--m);
-  bottom: 22mm;
-  width: 180mm;
-  height: 66mm;
+/* ---------- 3. le son et l'ecoute ---------- */
+
+.banner-crowd {
+  display: block;
+  width: 182mm;
+  height: 55mm;
+  object-fit: cover;
 }
 
-.hosp .items li {
-  font-size: 9.6pt;
+.p3 .row {
+  display: grid;
+  grid-template-columns: 34mm 1fr;
+  gap: 5mm;
+  padding: 1.6mm 0;
+  border-bottom: 0.4pt solid var(--rule);
+}
+
+.p3 .row:last-child {
+  border-bottom: 0;
+}
+
+.p3 .row .sub {
+  margin: 0.4mm 0 0;
+}
+
+.p3 .row p + p {
+  margin-top: 1mm;
+}
+
+.p3 .mix {
+  font-size: 10pt;
+  font-weight: 600;
+}
+
+.p3 .mix .muted {
+  font-weight: 400;
+  font-size: 9pt;
+}
+
+.tracks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 8mm;
+  margin-top: 1.5mm;
+}
+
+.tracks li {
+  display: flex;
+  justify-content: space-between;
+  gap: 3mm;
+  padding: 0.75mm 0;
+  border-bottom: 0.4pt solid var(--rule);
+}
+
+.tracks li a {
+  font-weight: 600;
+}
+
+.platforms {
+  margin-top: 2.5mm;
+}
+
+.platforms a {
+  margin-left: 4mm;
+  font-weight: 600;
+}
+
+.limbos .about {
+  margin-top: 1mm;
+}
+
+.tracklist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4mm 4mm;
+  margin-top: 1.2mm;
+  counter-reset: t;
+}
+
+.tracklist li {
+  counter-increment: t;
+}
+
+.tracklist li::before {
+  content: counter(t, decimal-leading-zero) ' ';
+  color: var(--text-light);
+  font-size: 7.5pt;
+}
+
+.cat-title {
+  margin-top: 3mm;
+}
+
+.catalogue {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0 6mm;
+}
+
+.catalogue li {
+  display: flex;
+  justify-content: space-between;
+  gap: 2mm;
+  padding: 0.6mm 0;
+  border-bottom: 0.4pt solid var(--rule);
+}
+
+.also {
+  margin-top: 2mm;
+  color: var(--text-light);
+}
+
+.edits {
+  margin-top: 3mm;
+}
+
+/* ---------- 4. technique et contact ---------- */
+
+.p4 .intro {
+  margin-bottom: 2.5mm;
+}
+
+/* Colonnes equilibrees : le texte coule, aucune rangee ne gaspille de hauteur */
+.flow {
+  column-count: 2;
+  column-gap: 8mm;
+}
+
+.flow > div + div {
   margin-top: 2.6mm;
-  line-height: 1.5;
 }
 
-.hosp .items li::before {
-  top: 2.3mm;
+.flow .sub {
+  break-after: avoid;
 }
 
-/* ---------- 10. contact ---------- */
-
-.contact .head {
-  border-bottom-color: rgba(246, 241, 231, 0.4);
+.flow li {
+  break-inside: avoid;
 }
 
-.contact .who {
+.who {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8mm;
 }
 
-.contact .who p {
-  font-size: 9.5pt;
-}
-
-.contact .who .big {
-  margin: 2mm 0 1mm;
-  font-size: 15pt;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-
-.contact .links-wrap {
-  display: grid;
-  grid-template-columns: 1fr 52mm;
-  gap: 10mm;
-  margin-top: 9mm;
-  padding-top: 6mm;
-  border-top: 0.25mm solid rgba(246, 241, 231, 0.2);
-}
-
-.contact .links {
-  margin-top: 2mm;
-}
-
-.contact .links > div {
-  display: grid;
-  grid-template-columns: 24mm 1fr;
-  gap: 3mm;
-  padding: 1.25mm 0;
-  border-bottom: 0.25mm solid rgba(246, 241, 231, 0.1);
-  font-size: 8.4pt;
-}
-
-.contact .links dt {
-  opacity: 0.6;
-}
-
-.contact .assets p {
-  margin-top: 2mm;
-  font-size: 8.5pt;
-  line-height: 1.45;
-  opacity: 0.85;
-}
-
-.contact .qr-card {
-  margin-top: 3mm;
-  width: 36mm;
-  padding: 3mm;
-  background: var(--paper);
-  border-radius: 1.2mm;
-}
-
-.contact .qr-card .qr {
-  width: 30mm;
-  height: 30mm;
-}
-
-.contact .a-url {
-  font-weight: 600;
-  opacity: 1 !important;
-}
-
-.contact .roster {
-  margin-top: 8mm;
-  padding-top: 5mm;
-  border-top: 0.25mm solid rgba(246, 241, 231, 0.2);
-}
-
-.contact .roster p {
-  margin-top: 2mm;
+.who .name {
   font-size: 11pt;
-  font-weight: 300;
+  font-weight: 700;
+  margin-bottom: 0.5mm;
 }
 
-.contact .end {
-  position: absolute;
-  left: var(--m);
-  right: var(--m);
-  bottom: 18mm;
+.links {
+  margin-top: 3.5mm;
 }
 
-.contact .name {
-  font-size: 30pt;
-  font-weight: 900;
-  letter-spacing: -0.035em;
-  line-height: 1;
+.link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2mm 5mm;
 }
 
-.contact .copy {
-  margin-top: 2.5mm;
-  font-size: 6.6pt;
-  letter-spacing: 0.08em;
-  opacity: 0.55;
+.assets {
+  margin-top: 3mm;
 }
 
-.contact .folio {
-  display: none;
+.assets p + p {
+  margin-top: 0.8mm;
+}
+
+.copy {
+  margin-top: 3.5mm;
+  font-size: 7pt;
+  color: var(--text-light);
+}
+
+/* Page 4, la plus dense : interligne et espacements resserres (le corps
+   reste a 9 pt), pour tout garder sur la page */
+.p4 {
+  line-height: 1.28;
+  padding-bottom: 15mm;
+}
+
+.p4 .st {
+  margin: 4mm 0 2.4mm;
+}
+
+.p4 .intro {
+  margin-bottom: 1.6mm;
+}
+
+.p4 .items li {
+  margin-top: 0.45mm;
+}
+
+.p4 .items li::before {
+  top: 1.65mm;
+}
+
+.p4 .flow > div + div {
+  margin-top: 1.8mm;
+}
+
+.p4 .link-row {
+  gap: 1mm 4.2mm;
+}
+
+.p4 .folio {
+  bottom: 6mm;
 }
