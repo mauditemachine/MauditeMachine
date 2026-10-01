@@ -26,7 +26,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const DIST = join(ROOT, 'dist');
 const SITE = 'https://mauditemachine.com';
-const OG_IMAGE = `${SITE}/images/og-image.jpg`;
+const OG_IMAGE = `${SITE}/images/og-image.jpg?v=2027`;
 
 // Source unique partagee avec src/lib/seo.ts (pas de divergence possible)
 const SEO_META = JSON.parse(

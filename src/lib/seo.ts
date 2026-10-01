@@ -16,7 +16,7 @@ import type { Lang } from '../translations';
 import seoMeta from '../data/seo-meta.json';
 
 export const SITE_URL = 'https://mauditemachine.com';
-export const OG_IMAGE = `${SITE_URL}/images/og-image.jpg`;
+export const OG_IMAGE = `${SITE_URL}/images/og-image.jpg?v=2027`;
 
 type SeoEntry = { title: string; description: string };
 type RouteKey = '/' | '/about' | '/shows' | '/radar' | '/merch' | '/goodies' | '/techrider' | '/contact';
