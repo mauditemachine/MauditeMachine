@@ -370,25 +370,20 @@ export const BIPOLAR: readonly EncId[] = ['tone', 'stretch'];
 export const isBipolar = (id: EncId): boolean => BIPOLAR.includes(id);
 
 /**
- * Neuf encodeurs noirs a repere blanc, sous l'ecran (spec 20.3.7 ; STRETCH
- * a cote de TONE en revision 5, DELAY et CHORUS au bout le 2026-10-01) :
- * corps legerement conique (0.24 a la base, 0.228 en haut, 0.42 de haut),
- * repere bone du centre vers l'arriere, collerette a la base. Pas de
- * 0.64 : la rangee tient entre le bord gauche et les pads.
+ * Neuf encodeurs noirs a repere blanc (spec 20.3.7 ; STRETCH a cote de
+ * TONE en revision 5, DELAY et CHORUS le 2026-10-01) : corps legerement
+ * conique (0.27 a la base, 0.256 en haut, 0.42 de haut), repere bone du
+ * centre vers l'arriere, collerette a la base. Places : encPos (apres
+ * KEYS), deux rangees depuis le 2026-10-01.
  */
 export const ENCODER = {
-  r: 0.24,
-  rTop: 0.228,
+  r: 0.27,
+  rTop: 0.256,
   h: 0.42,
-  z: -0.6,
-  x0: -5.6,
-  pitch: 0.64,
-  labelZ: -0.1,
-  collar: { r: 0.285, h: 0.025 },
-  mark: { w: 0.032, h: 0.012, d: 0.16 },
+  collar: { r: 0.32, h: 0.025 },
+  mark: { w: 0.036, h: 0.012, d: 0.18 },
   segments: { desktop: 32, mobile: 20 },
 } as const;
-export const encX = (i: number): number => ENCODER.x0 + ENCODER.pitch * i;
 
 /** De gauche a droite ; aria : nom du jumeau (role slider). */
 export const ENCODERS: readonly { id: EncId; label: string; aria: string }[] = [
@@ -405,8 +400,8 @@ export const ENCODERS: readonly { id: EncId; label: string; aria: string }[] = [
 
 /**
  * RUN/STOP, CLEAR, MUTE et SOLO (2026-10-01) : boutons carres sur les
- * colonnes des quatre premieres touches trig (pas de 0.74 depuis x -5.55 ;
- * les encodeurs, plus serres, ne les portent plus). MUTE coupe la voix
+ * colonnes des quatre premieres touches trig (pas de 0.74 depuis x -5.55,
+ * sous TEMPO, TONE, STRETCH et LEVEL). MUTE coupe la voix
  * selectionnee, SOLO ne laisse jouer qu'elle (state/voices.ts).
  */
 export const TRANSPORT = {
@@ -595,6 +590,22 @@ export const KEYS = {
   bracketTick: 0.06,
 } as const;
 export const keyX = (i: number): number => KEYS.x0 + KEYS.pitch * i;
+
+/** Encodeurs de la rangee sous l'ecran : TEMPO, TONE, STRETCH, LEVEL, SWING. */
+const MAIN_ENCODERS = 5;
+
+/**
+ * Places des encodeurs (2026-10-01, la rangee de neuf etait trop serree a
+ * gauche) : TEMPO, TONE, STRETCH, LEVEL et SWING sous l'ecran, sur la
+ * grille des touches trig (pas de 0.74 depuis x -5.55, au-dessus de
+ * RUN/STOP, CLEAR, MUTE et SOLO), z -0.6, libelles a -0.1 ; DIST, REVERB,
+ * DELAY et CHORUS sous les pads de page, centres sur leur bloc (pas de
+ * 1.0), a la hauteur des boutons de transport, libelles sur leur ligne.
+ */
+export const encPos = (i: number): { x: number; z: number; labelZ: number } =>
+  i < MAIN_ENCODERS
+    ? { x: keyX(i), z: -0.6, labelZ: -0.1 }
+    : { x: PAD.x0 + PAD.pitch * (i - MAIN_ENCODERS + 0.5), z: TRANSPORT.z, labelZ: TRANSPORT.labelZ };
 
 /** Appui long sur un pas (revision 4) : il se vide au lieu de changer, en ms. */
 export const STEP_HOLD_MS = 400;
@@ -824,7 +835,7 @@ export const SILK_TEXTS: readonly SilkText[] = [
   { text: 'MM-808', x: -1.95, z: -3.5, cap: 0.13, align: 'left' },
   { text: 'V.4 / 2026', x: 4.95, z: -3.5, cap: 0.07, align: 'right', alpha: 0.45 },
   { text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - 0.72, cap: 0.06, align: 'left' },
-  ...ENCODERS.map((e, i) => ({ text: e.label, x: encX(i), z: ENCODER.labelZ, cap: 0.085, maxW: 0.6, group: 'enc' })),
+  ...ENCODERS.map((e, i) => ({ text: e.label, x: encPos(i).x, z: encPos(i).labelZ, cap: 0.085, maxW: 0.7, group: 'enc' })),
   { text: 'RUN/STOP', x: TRANSPORT.run.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
   { text: 'CLEAR', x: TRANSPORT.clear.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
   { text: 'MUTE', x: TRANSPORT.mute.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
@@ -843,8 +854,10 @@ export const OPEN_SILK_INDEX = SILK_TEXTS.findIndex((t) => t.text === 'OPEN');
  */
 export const SILK_LINES: readonly (readonly number[])[] = [
   // le cran du centre de TONE (revision 5) et de STRETCH : un trait a midi, derriere l'encodeur
-  [encX(1), ENCODER.z - ENCODER.collar.r - 0.05, encX(1), ENCODER.z - ENCODER.collar.r - 0.17],
-  [encX(2), ENCODER.z - ENCODER.collar.r - 0.05, encX(2), ENCODER.z - ENCODER.collar.r - 0.17],
+  ...[1, 2].map((i) => {
+    const { x, z } = encPos(i);
+    return [x, z - ENCODER.collar.r - 0.05, x, z - ENCODER.collar.r - 0.17];
+  }),
   // sous la rangee des voix (les pages dessous), puis la colonne d'OPEN a part
   [PAD.x0 - PAD.size / 2 - 0.09, PAD.rowZ[0] + 0.73, PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[0] + 0.73],
   [PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[0] - 0.5, PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[1] + 0.72],

@@ -22,7 +22,7 @@ import {
   type Object3D,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { ENCODER, ENCODERS, LIT, MATERIAL, TEMPO_UI, encX, type EncId } from '../theme';
+import { ENCODER, ENCODERS, LIT, MATERIAL, TEMPO_UI, encPos, type EncId } from '../theme';
 import type { HotspotDef } from './hit';
 import { paintLinear, paintSolid } from './materials';
 
@@ -100,7 +100,8 @@ export class Encoders {
 
   private place(i: number): void {
     quat.setFromAxisAngle(AXIS_Y, this.angle[i]);
-    this.mesh.setMatrixAt(i, m4.compose(pos.set(encX(i), 0, ENCODER.z), quat, ONE));
+    const p = encPos(i);
+    this.mesh.setMatrixAt(i, m4.compose(pos.set(p.x, 0, p.z), quat, ONE));
     this.mesh.instanceMatrix.needsUpdate = true;
   }
 
@@ -126,8 +127,8 @@ export class Encoders {
       kind: 'encoder',
       layer,
       shape: 'disc',
-      x: encX(i),
-      z: ENCODER.z,
+      x: encPos(i).x,
+      z: encPos(i).z,
       hx: ENCODER.r,
       hz: ENCODER.r,
       y0: 0,

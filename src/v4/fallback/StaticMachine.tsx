@@ -33,7 +33,7 @@ import {
   RANDOM_KEY,
   TRANSPORT,
   chassisTopY,
-  encX,
+  encPos,
   keyX,
   type SilkText,
 } from '../theme';
@@ -263,8 +263,7 @@ function box(key: string, x: number, z: number, hx: number, hz: number, h: numbe
 
 /** Encodeur : flanc (enveloppe des deux cercles), dessus, repere bone. */
 function encoder(i: number, angleDeg: number): Solid {
-  const x = encX(i);
-  const z = ENCODER.z;
+  const { x, z } = encPos(i);
   const ring = (r: number, y: number): V2[] =>
     Array.from({ length: 24 }, (_, k) => {
       const a = (k / 24) * Math.PI * 2;

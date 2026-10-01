@@ -27,3 +27,8 @@
 ## 4. Commandes utiles ajoutees
 
 - Debug (`?debug=1`) : `__v4.audio.timeOf('BD')` (facteur de duree du prochain coup), `__v4.seq.bars` (traits par pas), `__v4.audio.renderOffline({ single: 'TOM', stretch: 1 })`, `__v4.pattern.replace(steps)`.
+
+## Complement : deux rangees de potards
+
+- `src/v4/theme.ts` : `encPos(i)` remplace `encX` ; TEMPO, TONE, STRETCH, LEVEL, SWING sous l'ecran (grille des touches, potards de 0.27 comme en revision 5), DIST, REVERB, DELAY, CHORUS sous les pads de page, a la hauteur de RUN/STOP. `scene/encoders.ts` et `fallback/StaticMachine.tsx` suivent.
+- Pourquoi : demande de Mika, trop de potards a gauche et un grand vide sous TRACKS a CONTACT.
