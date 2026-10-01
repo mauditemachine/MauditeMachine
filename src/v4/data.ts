@@ -277,7 +277,7 @@ export interface MerchProduct {
 
 export const MERCH_TEXT = 'Small runs, first come first served. No online payment: pick a piece, your order is written for you in the contact form.';
 export const MERCH_EMPTY = 'The store is being restocked. Check back soon.';
-export const MERCH_NOTE = 'Payment details and shipping cost sent by reply. Ships from Montpellier.';
+export const MERCH_NOTE = 'Payment details and shipping cost sent by reply.';
 const SIZE_ORDER = ['S', 'M', 'L', 'XL'];
 
 /** Chemin absolu (barre oblique initiale), espaces encodes. */
