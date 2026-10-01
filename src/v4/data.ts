@@ -82,7 +82,7 @@ export const PRESS_TEXT = 'Press kit, tech rider, hi-res photos and artwork.';
  * puis les documents.
  */
 export const PRESS_SETUP: readonly string[] = [
-  'DJ set on CDJs, or hybrid live set: Ableton Live, Push 3, Dreadbox Typhon, APC40.',
+  'DJ set on CDJs, or hybrid live set with synths and grooveboxes.',
   'Length: 90 minutes to 4 hours as a DJ, 60 to 75 minutes live.',
 ];
 
@@ -121,7 +121,7 @@ export const MASSIVE_LINK = {
 
 /** STUDIO (puce de la vue eclatee, revision 4) : le texte du brief, en anglais. */
 export const STUDIO = {
-  setup: 'Ableton Live, Push 3, Dreadbox Typhon, Dreadbox Artemis, Minilogue XD, Roto Control, Akai APC40, SSL2+ interface, Audeze LCD-XC Pro.',
+  setup: 'Synths and grooveboxes, a studio built for production and live sets.',
   lessons: ['Ableton Live production, one to one, remote or in person.', 'Over 70 students since 2010. Beginners welcome.'],
   print: 'Posters, stickers, waterproof menus, apparel, produced in house.',
 } as const;

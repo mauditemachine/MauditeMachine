@@ -1,7 +1,7 @@
 /**
  * Reseaux de /v4 (revision 2, spec 20.4) : la liste finale du brief, 15
  * liens dans son ordre, ses URL exactes (verifiees par la session
- * principale dans un vrai navigateur). Hypeddit est retire (URL morte,
+ * principale dans un vrai navigateur). le lien de pre-sauvegarde est retire (URL morte,
  * 410). Propre a /v4 : src/v2/data/socials.ts (menu et pied de page du
  * site) n'est ni lu ni modifie. L'icone de chaque lien : ui/icons.tsx.
  */

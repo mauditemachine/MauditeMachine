@@ -15,13 +15,13 @@ import { BOOKING_CONTACTS } from '../data/contacts';
 const BIO = {
   en: {
     meta: 'DJ · Producer · Live · VRSTL Records · Canada · France · Spain',
-    main: "Maudite Machine is based between Canada, France and Spain. He started playing in Montréal in 2010, when Piknic Électronik and the SAT were the two rooms every local DJ wanted. He has played both since, along with Igloofest afters, the Phi Centre, Fonderie Darling, Théâtre Fairmount and a run of Québec festivals from TOTEM and Illusion to Future Forest and Groove & Bass. In 2026 he played OKAMI Festival in France.",
-    secondary: "His sets move between deep techno and indie dance. The bass rolls, the changes come slowly and under the surface, and after a while the room stops watching the booth and moves as one. He plays it as a DJ on CDJs and as a hybrid live set where Ableton Live, a Push 3, a Dreadbox Typhon and an APC40 drive the sequences in real time. He founded VRSTL Records, an independent Canadian label with 21 EPs and 2 albums, teaches Ableton Live production, and is available for club and festival dates across Europe.",
+    main: "Maudite Machine is based between Canada, France and Spain, after fifteen years in the Montréal underground. He started playing in Montréal in 2010, when Piknic Électronik and the SAT were the two rooms every local DJ wanted, and in 2013 he played the Techno Parade in Paris on the MEG float. He has played Piknic and the SAT ever since, along with the Igloofest afters, the Phi Centre, Fonderie Darling, Théâtre Fairmount, Québec festivals from TOTEM and Illusion to Groove and Bass, and Future Forest in New Brunswick. In 2026 he played OKAMI Festival in France, on the Selva stage.",
+    secondary: "His sets move between deep techno and indie dance. The bass rolls, the changes come slowly and under the surface, and after a while the room stops watching the booth and moves as one. He plays it as a DJ on CDJs and as a hybrid live set where synths and grooveboxes drive the sequences in real time. He founded VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe, teaches Ableton Live production, and is available for club and festival dates across France, Spain and the rest of Europe, and still playing Canada.",
   },
   fr: {
     meta: 'DJ · Producteur · Live · VRSTL Records · Canada · France · Espagne',
-    main: "Maudite Machine est basé entre le Canada, la France et l'Espagne. Il a commencé à jouer à Montréal en 2010. Il est passé par le Piknic Électronik et la SAT, les afters d'Igloofest, le Centre Phi, la Fonderie Darling, le Théâtre Fairmount, et par les festivals québécois, de TOTEM et Illusion à Future Forest et Groove & Bass. En 2026, il a joué au OKAMI Festival en France.",
-    secondary: "Ses sets naviguent entre deep techno et indie dance. La basse roule, les changements arrivent lentement et sous la surface, et au bout d'un moment la salle arrête de regarder la cabine pour bouger d'un seul bloc. Il les joue en DJ set sur CDJ et en live hybride où Ableton Live, un Push 3, un Dreadbox Typhon et un APC40 pilotent les séquences en direct. Il a fondé VRSTL Records, label indépendant canadien (21 EPs, 2 albums), enseigne la production sur Ableton Live, et est disponible pour des dates en club et en festival partout en Europe.",
+    main: "Maudite Machine est basé entre le Canada, la France et l'Espagne, après quinze ans dans l'underground montréalais. Il a commencé à jouer à Montréal en 2010 et, en 2013, il a joué à la Techno Parade de Paris sur le char du MEG. Il est passé par le Piknic Électronik et la SAT, les afters d'Igloofest, le Centre Phi, la Fonderie Darling, le Théâtre Fairmount, les festivals québécois de TOTEM et Illusion à Groove and Bass, et Future Forest au Nouveau-Brunswick. En 2026, il a joué au OKAMI Festival en France, sur la scène Selva.",
+    secondary: "Ses sets naviguent entre deep techno et indie dance. La basse roule, les changements arrivent lentement et sous la surface, et au bout d'un moment la salle arrête de regarder la cabine pour bouger d'un seul bloc. Il les joue en DJ set sur CDJ et en live hybride où synthés et grooveboxes pilotent les séquences en direct. Il a fondé VRSTL Records, label indépendant (21 EPs et 2 albums d'artistes du Québec, du Brésil, d'Argentine et d'Europe), enseigne la production sur Ableton Live, et est disponible pour des dates en club et en festival en France, en Espagne et dans le reste de l'Europe, tout en jouant encore au Canada.",
   },
 };
 
@@ -60,25 +60,26 @@ const COPY = {
   },
 };
 
-/** Plateaux partages, ordre fourni par Mika (2026-09). */
+/** Plateaux partages, liste et ordre fournis par Mika (2026-10-01). */
 const SHARED_BILLS = [
   'Carl Craig',
+  'Popof',
+  'Christian Smith',
+  'Perc',
   'Agoria',
+  'Nick Curly',
+  'Damon Jee',
+  'John 00 Fleming',
   'Reinier Zonneveld',
   'Akufen',
+  'D-Nox',
+  'Perfect Stranger',
   'Riva Starr',
   'Alle Farben',
-  'Arno Gonzalez',
-  'Egokind',
+  'FM Radio Gods',
+  'Tom Baker',
   'Kassian',
   'Mateo Murphy',
-  'Elite Force',
-  'Crystal Distortion',
-  'Hedflux',
-  'Vilify',
-  'Adam Husa',
-  'Van Did',
-  'Florian MSK',
 ];
 
 const PRESSKIT_PDF = '/Presskit_Maudite_Machine_2026-27.pdf';

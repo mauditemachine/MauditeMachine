@@ -619,7 +619,7 @@ export default function MainApp() {
                   <li>- Macbook Pro</li>
                   <li>- Ableton Push 3</li>
                   <li>- Dreadbox Typhon</li>
-                  <li>- Akai APC40</li>
+                  <li>- Melbourne Instruments Roto-Control</li>
                 </ul>
               </div>
 

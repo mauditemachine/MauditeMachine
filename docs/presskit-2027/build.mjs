@@ -81,10 +81,6 @@ function pages(v) {
     </div>
   </div>
   <div class="stats">${C.stats.map(([n, l]) => `<div><b>${esc(n)}</b><span>${esc(l)}</span></div>`).join('')}</div>
-  <div class="shared">
-    <p class="sub">${esc(C.sharedTitle)}</p>
-    <p>${C.shared.map(esc).join(' · ')}</p>
-  </div>
   ${img('wide', 'p2-wide.jpg')}
   ${folio(2)}
 </section>`);
@@ -127,6 +123,10 @@ function pages(v) {
     <div><p class="sub">${esc(C.venuesTitle)}</p>${perf(C.venues)}</div>
   </div>
   <p class="rooms">${esc(C.rooms)}</p>
+  <div class="shared">
+    <p class="sub">${esc(C.sharedTitle)}</p>
+    <p>${C.shared.map((n) => `<span class="nobr">${esc(n)}</span>`).join(' · ')}</p>
+  </div>
   <div class="label">
     <div><p class="sub">${esc(C.labelTitle)}</p><p>${esc(C.labelText)} ${a('vrstlrecords.com', URL.vrstl)}</p></div>
     <div><p class="sub">${esc(C.rosterTitle)}</p><p>${C.roster.map(esc).join(' · ')}</p></div>
@@ -207,7 +207,7 @@ function riderPages() {
     <div class="dj">2 x CDJ + DJM<span>optional, transitions</span></div>
     <div class="artist">Artist, facing the audience</div>
     <div class="table">
-      <div class="gear"><span>Push 3</span><span>APC40</span><span class="mac">MacBook Pro<br>Ableton Live</span><span>Typhon<br>Dreadbox</span></div>
+      <div class="gear"><span>Push 3</span><span>Roto-Control</span><span class="mac">MacBook Pro<br>Ableton Live</span><span>Typhon<br>Dreadbox</span></div>
       <div class="iface">Audio interface</div>
       <p>Table 180 x 70 cm \u00b7 90 to 100 cm high \u00b7 4 x power</p>
     </div>

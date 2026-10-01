@@ -58,14 +58,6 @@
           "facebook_event": "https://www.facebook.com/share/1PbKhpUq1Q/"
         },
         {
-          "name": "Saint Jean Basstiste",
-          "date": "2025-06-24",
-          "venue": "Louiseville",
-          "city": "QC",
-          "lineup": ["Maudite Machine"],
-          "facebook_event": "https://www.facebook.com/events/1198681918506290/"
-        },
-        {
           "name": "Festival Open Mind",
           "date": "2025-08-01",
           "venue": "St Fortunat",
@@ -263,28 +255,12 @@
           "facebook_event": "https://www.facebook.com/events/1784470271890954/"
         },
         {
-          "name": "St Jean BassTiste",
-          "date": "2023-06-23",
-          "venue": "Montréal",
-          "city": "Québec",
-          "lineup": ["jossie telch", "bensolo", "digital committee", "nocide"],
-          "facebook_event": "https://www.facebook.com/events/1356787455122249/"
-        },
-        {
           "name": "T.H.C: Transition",
           "date": "2023-07-14",
           "venue": "Montréal",
           "city": "Québec",
           "lineup": ["rögue", "wagnr"],
           "facebook_event": "https://www.facebook.com/events/775772904265934/"
-        },
-        {
-          "name": "Weekend With Dimensions",
-          "date": "2023-08-11",
-          "venue": "Montréal",
-          "city": "Québec",
-          "lineup": ["thomas von party", "iñigo vontier"],
-          "facebook_event": "https://www.facebook.com/events/768092378216486/"
         },
         {
           "name": "Khûmeia Festival",
@@ -401,22 +377,6 @@
           "city": "Québec",
           "lineup": ["nicolas kehl", "hybriid"],
           "facebook_event": "https://www.facebook.com/events/598796337140067/"
-        },
-        {
-          "name": "Free Party Saint Jean Basstiste",
-          "date": "2018-06-23",
-          "venue": "Montréal",
-          "city": "Québec",
-          "lineup": ["nocide", "mat moebius", "marcin", "tom-h", "nimrod"],
-          "facebook_event": "https://www.facebook.com/events/986066894902721/"
-        },
-        {
-          "name": "Portail Festival",
-          "date": "2018-07-06",
-          "venue": "Montréal",
-          "city": "Québec",
-          "lineup": ["narko", "wavelength", "the jool4rry box", "clectic"],
-          "facebook_event": "https://www.facebook.com/events/306525833171626/"
         },
         {
           "name": "Eclipse Transformation",
@@ -571,13 +531,6 @@
           "lineup": ["Drol", "Syla", "Noxell", "D&D", "Tambalache"]
         },
         {
-          "name": "St Jean Basstiste 2014 Festival",
-          "date": "2014-07-10",
-          "venue": "Parc Jean Drapeau",
-          "city": "Montréal",
-          "lineup": ["Flo MSK", "Spoonani", "Tenzin"]
-        },
-        {
           "name": "Grreat Label Record Night XIII",
           "date": "2014-07-19",
           "venue": "Inspecteur Epingle",
@@ -627,13 +580,6 @@
           "city": "Montréal",
           "lineup": ["okin", "pinkpopo", "sipherdee"],
           "facebook_event": "https://www.facebook.com/events/423234834437085/"
-        },
-        {
-          "name": "St Jean Basstiste 2013 Festival",
-          "date": "2013-07-10",
-          "venue": "Parc Jean Drapeau",
-          "city": "Montréal",
-          "lineup": ["Flo MSK", "Spoonani", "Tenzin"]
         },
         {
           "name": "Totem 2013 Festival",

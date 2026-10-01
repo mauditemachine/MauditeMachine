@@ -23,7 +23,7 @@ const Info: React.FC<InfoProps> = ({ inline = false }) => {
       {inline && <h2 className="v3-drawer-title">INFO</h2>}
       <p className="v3-info-brand">MAUDITE MACHINE</p>
       <p className="v3-info-line">deep machine grooves with a human pulse</p>
-      <p className="v3-info-line v3-info-sub">Hypnotic techno. VRSTL Records. 8day.</p>
+      <p className="v3-info-line v3-info-sub">Deep techno and indie dance. VRSTL Records. 8day.</p>
 
       <section className="v3-info-section" aria-labelledby="v3-info-booking">
         <h3 id="v3-info-booking" className="v3-info-head">

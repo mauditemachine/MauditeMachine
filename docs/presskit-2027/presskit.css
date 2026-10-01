@@ -403,13 +403,22 @@ a {
 .p2 .wide {
   display: block;
   width: 182mm;
-  height: 84mm;
-  margin-top: 6mm;
+  height: 104mm;
+  margin-top: 8mm;
   object-fit: cover;
 }
 
+/* Un nom ne se coupe jamais (D-Nox) */
+.nobr {
+  white-space: nowrap;
+}
+
+.shows .shared {
+  margin-top: 3mm;
+}
+
 .shows .banner {
-  height: 70mm;
+  height: 60mm;
 }
 
 /* Ce qu'il joue a gauche, les deux formats en photo a droite */
@@ -474,13 +483,13 @@ a {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4mm;
-  margin-top: 6mm;
+  margin-top: 5mm;
 }
 
 .strip img {
   display: block;
   width: 89mm;
-  height: 62mm;
+  height: 46mm;
   object-fit: cover;
 }
 
@@ -706,6 +715,10 @@ a {
 
 .p4:not(.rider) .copy {
   margin-top: 1.6mm;
+}
+
+.p4:not(.rider) {
+  line-height: 1.25;
 }
 
 /* ---------- fiche technique (2 pages) ---------- */

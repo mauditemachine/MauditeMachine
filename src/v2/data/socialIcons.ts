@@ -1,7 +1,7 @@
 /**
  * Icones SVG des reseaux, extraites de Font Awesome Free 7 (licence
  * icons CC BY 4.0) : inlinees en path, fill currentColor, aucun CSS ni
- * webfont FA charge. Beatport, Songkick et Hypeddit ne sont pas dans
+ * webfont FA charge. Beatport et Songkick ne sont pas dans
  * FA : pastille initiale rendue par SocialLinks.
  */
 

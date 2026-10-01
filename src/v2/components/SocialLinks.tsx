@@ -1,7 +1,7 @@
 /**
  * Rangee d'icones des reseaux (liste canonique de socials.ts), partagee
  * entre le menu overlay et le footer. SVG inline fill currentColor ;
- * les marques absentes de Font Awesome (Beatport, Songkick, Hypeddit)
+ * les marques absentes de Font Awesome (Beatport, Songkick)
  * ont une pastille initiale dans le meme rond borde.
  *
  * Au survol, le nom du reseau s'affiche en gros au-dessus du rond

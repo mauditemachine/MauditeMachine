@@ -131,40 +131,39 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 font-display font-bold uppercase text-ink-95 text-lg md:text-2xl lg:text-3xl tracking-[-0.02em]">
               <span>Carl Craig</span>
               <span className="text-white/30">·</span>
+              <span>Popof</span>
+              <span className="text-white/30">·</span>
+              <span>Christian Smith</span>
+              <span className="text-white/30">·</span>
+              <span>Perc</span>
+              <span className="text-white/30">·</span>
               <span>Agoria</span>
+              <span className="text-white/30">·</span>
+              <span>Nick Curly</span>
+              <span className="text-white/30">·</span>
+              <span>Damon Jee</span>
+              <span className="text-white/30">·</span>
+              <span>John 00 Fleming</span>
               <span className="text-white/30">·</span>
               <span>Reinier Zonneveld</span>
               <span className="text-white/30">·</span>
               <span>Akufen</span>
               <span className="text-white/30">·</span>
+              <span>D-Nox</span>
+              <span className="text-white/30">·</span>
+              <span>Perfect Stranger</span>
+              <span className="text-white/30">·</span>
               <span>Riva Starr</span>
               <span className="text-white/30">·</span>
               <span>Alle Farben</span>
               <span className="text-white/30">·</span>
-              <span>Arno Gonzalez</span>
+              <span>FM Radio Gods</span>
               <span className="text-white/30">·</span>
-              <span>Egokind</span>
+              <span>Tom Baker</span>
               <span className="text-white/30">·</span>
               <span>Kassian</span>
               <span className="text-white/30">·</span>
               <span>Mateo Murphy</span>
-              <span className="text-white/30">·</span>
-              <span>Elite Force</span>
-              <span className="text-white/30">·</span>
-              <span>Crystal Distortion</span>
-              <span className="text-white/30">·</span>
-              <span>Hedflux</span>
-              <span className="text-white/30">·</span>
-              <span>Vilify</span>
-              <span className="text-white/30">·</span>
-              <span>Adam Husa</span>
-              <span className="text-white/30">·</span>
-              <span>Van Did</span>
-              <span className="text-white/30">·</span>
-              <span>Florian MSK</span>
-            </div>
-            <div className="mt-4 md:mt-6 text-xs md:text-sm font-medium text-white/60">
-              {p.sharedBillsFooter}
             </div>
           </div>
         </div>

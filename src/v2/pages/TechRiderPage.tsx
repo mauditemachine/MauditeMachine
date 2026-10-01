@@ -96,7 +96,7 @@ const StagePlot: React.FC<{ label: (k: string) => string }> = ({ label }) => (
       <text x="460" y="259" textAnchor="middle">MACBOOK PRO</text>
       <text x="604" y="259" textAnchor="middle">INTERFACE</text>
       <text x="362" y="328" textAnchor="middle">PUSH 3</text>
-      <text x="552" y="328" textAnchor="middle">APC40</text>
+      <text x="552" y="328" textAnchor="middle">ROTO-CONTROL</text>
       <text x="460" y="386" textAnchor="middle">180 CM</text>
       <text
         x="206"

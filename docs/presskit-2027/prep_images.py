@@ -30,15 +30,15 @@ PHOTOS = [
     ("p1-stage-crowd.jpg", "stage-crowd.jpg", (0.5, 0.5), (210, 122)),
     # 2. parcours : le portrait couleur en lumiere rose
     ("p2-portrait.jpg", "portrait-pink.jpg", (0.5, 0.27), (70, 93)),
-    ("p2-wide.jpg", "booth-trails.jpg", (0.55, 0.45), (182, 84)),
+    ("p2-wide.jpg", "booth-trails.jpg", (0.55, 0.45), (182, 104)),
     # 3. le son : la cabine en grand, puis les deux formats
     ("p3-booth.jpg", "booth-blue-fist.jpg", (0.62, 0.42), (182, 122)),
     ("p3-dj.jpg", "booth-orange.jpg", (0.5, 0.42), (44, 66)),
     ("p3-live.jpg", "live-ledwall.jpg", (0.62, 0.55), (44, 66)),
     # 4. dates : la foule vue de la cabine, puis deux scenes
-    ("p4-crowd.jpg", "booth-crowd-ring.jpg", (0.55, 0.55), (182, 70)),
-    ("p4-day.jpg", "booth-daylight.jpg", (0.42, 0.42), (89, 62)),
-    ("p4-flare.jpg", "booth-flare.jpg", (0.55, 0.5), (89, 62)),
+    ("p4-crowd.jpg", "booth-crowd-ring.jpg", (0.55, 0.55), (182, 60)),
+    ("p4-day.jpg", "booth-daylight.jpg", (0.42, 0.42), (89, 46)),
+    ("p4-flare.jpg", "booth-flare.jpg", (0.55, 0.5), (89, 46)),
     # 5. ecoute : la cabine sous le faisceau
     ("p5-booth.jpg", "booth-blue-beam.jpg", (0.42, 0.5), (182, 88)),
     # 6. technique et contact : le portrait noir et blanc, en vignette

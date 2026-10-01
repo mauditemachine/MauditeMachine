@@ -20,12 +20,12 @@ export const URL = {
 export const C = {
   kit: 'Press kit 2027',
   name: 'MAUDITE MACHINE',
-  positioning: 'Deep techno · Indie dance · DJ and hybrid live · Canada · France · Spain',
+  positioning: 'Deep techno and indie dance · DJ and hybrid live · Canada · France · Spain',
   folio: 'Maudite Machine · Press kit 2027',
 
   /* 1. couverture et identite */
   bio:
-    'Maudite Machine is a DJ and producer based between Canada, France and Spain, after fifteen years in the Montréal underground. He plays deep techno and indie dance: deep, rolling, made for the second half of the night. He runs VRSTL Records, an independent Canadian label with 21 EPs and 2 albums, and is a member of the 8day collective in Montréal. He has played the SAT, Piknic Électronik and the Igloofest afters, on bills with Carl Craig, Agoria, Akufen and Reinier Zonneveld, and takes club and festival dates in Europe and North America.',
+    'Maudite Machine is a DJ and producer based between Canada, France and Spain, after fifteen years in the Montréal underground. He plays deep techno and indie dance: deep, rolling, made for the second half of the night. He runs VRSTL Records, an independent label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe, and is a member of the 8day collective in Montréal. He has played the Techno Parade in Paris, the SAT, Piknic Électronik and the Igloofest afters, on bills with Carl Craig, Popof, Christian Smith, Perc, Agoria, Nick Curly and Damon Jee, and is available for club and festival dates across France, Spain and the rest of Europe, and still playing Canada.',
   stats: [
     ['15+', 'Years active'],
     ['21', 'EPs on VRSTL'],
@@ -34,8 +34,8 @@ export const C = {
   ],
   facts: [
     ['Artist', 'Maudite Machine (Michael “Mika” Sanchez)'],
-    ['Genre', 'Deep techno · Indie dance'],
-    ['Formats', 'DJ set (CDJ) · Hybrid live (Ableton + hardware)'],
+    ['Genre', 'Deep techno and indie dance'],
+    ['Formats', 'DJ set (CDJ) · Hybrid live (synths and grooveboxes)'],
     ['Base', 'Canada · France · Spain'],
     ['Roots', 'Montréal, Canada'],
     ['Languages', 'French · English · Spanish'],
@@ -52,19 +52,20 @@ export const C = {
   bioTitle: 'Background',
   bioLead: 'Fifteen years in the Montréal underground',
   bioLong: [
-    'Maudite Machine started playing in Montréal in 2010, when Piknic Électronik and the SAT were the two rooms every local DJ wanted. He has played both since, along with the Igloofest afters, the Phi Centre, Fonderie Darling, Théâtre Fairmount and a run of Québec festivals from TOTEM and Illusion to Future Forest and Groove & Bass. In 2026 he played OKAMI Festival in France.',
-    'His sets move between deep techno and indie dance. The bass rolls, the changes come slowly and under the surface, and after a while the room stops watching the booth and moves as one. He plays it two ways: as a DJ on CDJs, and as a hybrid live set where Ableton Live, a Push 3, a Dreadbox Typhon and an APC40 drive the sequences in real time.',
-    'He founded VRSTL Records, an independent Canadian label that has released 21 EPs and 2 albums from artists in Québec, Argentina and Europe. His own catalogue on VRSTL runs to 13 releases since July 2024, including Limbos (October 2025), a nine-track album about a complete stop and an unexpected return.',
-    'He also teaches Ableton Live production, remotely and in person, and has trained more than 70 students. Based between Canada, France and Spain, he takes club and festival dates in Europe and North America.',
+    'Maudite Machine started playing in Montréal in 2010, when Piknic Électronik and the SAT were the two rooms every local DJ wanted. In 2013 he played the Techno Parade in Paris on the MEG float. He has played Piknic and the SAT ever since, along with the Igloofest afters, the Phi Centre, Fonderie Darling, Théâtre Fairmount, Québec festivals from TOTEM and Illusion to Groove and Bass, and Future Forest in New Brunswick. In 2026 he played OKAMI Festival in France, on the Selva stage.',
+    'His sets move between deep techno and indie dance. The bass rolls, the changes come slowly and under the surface, and after a while the room stops watching the booth and moves as one. He plays it two ways: as a DJ on CDJs, and as a hybrid live set where synths and grooveboxes drive the sequences in real time.',
+    'He founded VRSTL Records, an independent label that has released 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe. His own catalogue on VRSTL runs to 13 releases since July 2024, including Limbos (October 2025), a nine-track album about a complete stop and an unexpected return.',
+    'He also teaches Ableton Live production, remotely and in person, and has trained more than 70 students. Based between Canada, France and Spain, he is available for club and festival dates across France, Spain and the rest of Europe, and still playing Canada.',
   ],
   perfTitle: 'Selected performances',
   festivalsTitle: 'Festivals and events',
   venuesTitle: 'Venues and club nights',
   festivals: [
-    ['OKAMI Festival, France', '2026'],
-    ['Groove & Bass, Groove Town stage, Québec', '2023-2026'],
-    ['Future Forest Festival', '2024'],
-    ['Khumeia Festival', '2023'],
+    ['Techno Parade, Paris, France, MEG float (Montréal Électronique Groove)', '2013'],
+    ['OKAMI Festival, Saint-Christaud, France, Selva stage', '2026'],
+    ['Groove and Bass Festival, Groove Town stage, Québec', '2023-2026'],
+    ['Future Forest, New Brunswick', '2024'],
+    ['Khůmeia Festival, Laurentides, Québec', '2023'],
     ['Festival Illusion', '2017-2022'],
     ['Eclipse Transformation', '2018'],
     ['Festival TOTEM (1,200)', '2013 · 2015'],
@@ -89,11 +90,11 @@ export const C = {
   rooms: 'Rooms from 100 to 4,000 people.',
   sharedTitle: 'Shared bills',
   shared: [
-    'Carl Craig', 'Agoria', 'Reinier Zonneveld', 'Akufen', 'Riva Starr', 'Alle Farben', 'Arno Gonzalez', 'Egokind',
-    'Kassian', 'Mateo Murphy', 'Elite Force', 'Crystal Distortion', 'Hedflux', 'Vilify', 'Adam Husa', 'Van Did', 'Florian MSK',
+    'Carl Craig', 'Popof', 'Christian Smith', 'Perc', 'Agoria', 'Nick Curly', 'Damon Jee', 'John 00 Fleming', 'Reinier Zonneveld',
+    'Akufen', 'D-Nox', 'Perfect Stranger', 'Riva Starr', 'Alle Farben', 'FM Radio Gods', 'Tom Baker', 'Kassian', 'Mateo Murphy',
   ],
   labelTitle: 'VRSTL Records',
-  labelText: 'Independent Canadian label founded by Maudite Machine: 21 EPs and 2 albums from artists in Québec, Argentina and Europe. Montréal, Canada.',
+  labelText: 'Independent label founded by Maudite Machine: 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe. Montréal, Canada.',
   rosterTitle: 'Roster',
   roster: ['Julian Rocci', 'Alex Decker', 'Lealtica', 'Jabba2.3', 'Manüman', 'COACH', 'Maudite Machine'],
 
@@ -105,7 +106,7 @@ export const C = {
       'Two formats',
       [
         'DJ set on CDJs, from 90 minutes to 4 hours, longer on request.',
-        'Hybrid live with Ableton Live, Push 3, Dreadbox Typhon and APC40, 60 to 75 minutes, sequences driven live, followed by a DJ set when the slot allows.',
+        'Hybrid live with synths and grooveboxes, 60 to 75 minutes, sequences driven live, followed by a DJ set when the slot allows.',
       ],
     ],
     ['Built for long sets', ['In clubs and at festivals, he plays long slots, deep into the night and through sunrise.']],
@@ -174,7 +175,7 @@ export const C = {
     [
       'Hybrid live',
       [
-        'Artist brings: MacBook Pro with Ableton Live, Ableton Push 3, Dreadbox Typhon, Akai APC40, an audio interface with two balanced outputs, and all cables between his own devices.',
+        'Artist brings: Ableton Push 3, Dreadbox Typhon, Melbourne Instruments Roto-Control, MacBook Pro with Ableton Live, an audio interface with 2 balanced outputs, and all cables between his own devices.',
         "Venue provides: 2 active DI boxes or 2 balanced XLR lines (stereo L/R) from the artist's interface to FOH.",
         'Power: one clean circuit with 4 grounded outlets at the table. Total draw under 300 W.',
         'Table: at least 180 x 70 cm, 90 to 100 cm high, stable. When the space allows, separate from the DJ mixer.',
@@ -187,7 +188,7 @@ export const C = {
     [
       'Stage plot, hybrid live',
       [
-        'Top view: the artist faces the audience behind the table (180 x 70 cm, 90 to 100 cm high, 4 x power) with Push 3, APC40, MacBook Pro (Ableton Live) and Typhon (Dreadbox), the audio interface behind them; monitor L and monitor R (12"/15" + horn) on each side; 2 x CDJ + DJM beside the table, optional, for transitions; 2 x DI, L/R XLR to FOH.',
+        'Top view: the artist faces the audience behind the table (180 x 70 cm, 90 to 100 cm high, 4 x power) with Push 3, Roto-Control, MacBook Pro (Ableton Live) and Typhon (Dreadbox), the audio interface behind them; monitor L and monitor R (12"/15" + horn) on each side; 2 x CDJ + DJM beside the table, optional, for transitions; 2 x DI, L/R XLR to FOH.',
         "Live set audio: one stereo line from the artist's interface, through 2 DI boxes, to FOH. DJ set audio: mixer master to FOH as usual. Both formats use the same booth monitors.",
       ],
     ],

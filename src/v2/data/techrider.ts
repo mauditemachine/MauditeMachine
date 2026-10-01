@@ -44,7 +44,7 @@ export const RIDER: { en: RiderCopy; fr: RiderCopy } = {
         items: [
           {
             term: 'Artist brings',
-            text: 'MacBook Pro with Ableton Live, Ableton Push 3, Dreadbox Typhon, Akai APC40, audio interface with two balanced outputs, all cables between his own devices.',
+            text: 'Ableton Push 3, Dreadbox Typhon, Melbourne Instruments Roto-Control, MacBook Pro with Ableton Live, audio interface with 2 balanced outputs, all cables between his own devices.',
           },
           {
             term: 'Venue provides',
@@ -191,7 +191,7 @@ export const RIDER: { en: RiderCopy; fr: RiderCopy } = {
         items: [
           {
             term: 'Apporté par l’artiste',
-            text: 'MacBook Pro avec Ableton Live, Ableton Push 3, Dreadbox Typhon, Akai APC40, interface audio avec deux sorties symétriques, tous les câbles entre ses propres machines.',
+            text: 'Ableton Push 3, Dreadbox Typhon, Melbourne Instruments Roto-Control, MacBook Pro avec Ableton Live, interface audio avec 2 sorties symétriques, tous les câbles entre ses propres machines.',
           },
           {
             term: 'Fourni par la salle',
