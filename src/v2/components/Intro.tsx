@@ -24,9 +24,9 @@ const Intro: React.FC = () => (
 
     <div className="v2-intro-main">
       <p className="v2-intro-lead">
-        Maudite Machine pushes techno into its most{' '}
-        <strong>hypnotic</strong> territory: <strong>deep</strong> machine
-        grooves with a human pulse, built for the floor and the small hours.
+        Maudite Machine plays <strong>deep techno</strong> and{' '}
+        <strong>indie dance</strong>: machine grooves with a human pulse,
+        built for the floor and the small hours.
       </p>
 
       <div className="v2-intro-cols">

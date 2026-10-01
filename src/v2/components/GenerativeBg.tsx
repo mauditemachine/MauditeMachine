@@ -3,7 +3,7 @@
  *
  * Direction : lignes/ondes horizontales qui pulsent lentement, blanc casse
  * tres discret sur #0A0A0A, avec une bande de focus qui derive verticalement
- * (sensation de balayage hypnotique, esthetique signal/oscilloscope).
+ * (sensation de balayage lent, esthetique signal/oscilloscope).
  *
  * Perf : ~24 courbes x ~90 segments par frame (trivial en 2D), DPR cap 2
  * desktop / 1.5 mobile, moins de lignes sous 768px, boucle rAF avec delta
