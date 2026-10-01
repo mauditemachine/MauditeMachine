@@ -490,6 +490,17 @@ export const TRANSPORT = {
   solo: { x: -1.48 },
 } as const;
 
+/**
+ * Temoin des boutons du transport (2026-10-01) : un fin trait lumineux sur
+ * le dessus, pres du bord arriere (back : du bord a son centre), comme un
+ * guide de lumiere. Eteint, une fente discrete (line) ; allume, l'orange
+ * des pas programmes (ledSet), jaune (yellowHi) sur RUN, rouge. RUN/STOP, MUTE et SOLO restent allumes tant
+ * que leur etat dure (lecture, voix coupee, solo) ; chaque appui le fait
+ * briller flashMs (plein sur hold de sa duree, puis il s'eteint), le seul
+ * signe de CLEAR et RANDOM, boutons a un coup.
+ */
+export const BTN_LED = { w: 0.46, d: 0.05, back: 0.13, y: 0.002, flashMs: 520, hold: 0.5 } as const;
+
 /* ---------- panneau : moitie droite, les 12 pads (spec 20.3.5) ---------- */
 
 export type Inst = 'BD' | 'SD' | 'TOM' | 'CH' | 'OH';
@@ -725,24 +736,17 @@ export const INST_NAMES: Readonly<Record<Inst, string>> = { BD: 'bass drum', SD:
 /**
  * Albedos LINEAIRES des touches (spec 20.3.6), cales sur la couleur
  * AFFICHEE du dessus a 1440 x 900 (vue par defaut) : key #1E1F23 ; run :
- * red #C8442F ; runOn (avec RUN_GLOW) : jaune, le bleu hors gamut sous
- * l'ACES ; clear : graphiteHi #1C1D21.
+ * red #C8442F ; clear : graphiteHi #1C1D21. Depuis le 2026-10-01, RUN,
+ * MUTE et SOLO gardent leur teinte allumes : leur etat passe par le temoin
+ * (BTN_LED), plus par un bouton entier jaune ou orange.
  */
 export const LIT = {
   key: [0.0286, 0.0299, 0.0495],
   run: [0.61, 0.0805, 0.0478],
-  runOn: [1.0709, 0.3069, 0],
   clear: [0.0217, 0.0229, 0.0385],
-  /** MUTE allume (2026-10-01) : orange, avec MUTE_GLOW */
-  muteOn: [1.0, 0.1, 0.004],
   /** repere des encodeurs : bone */
   mark: [2.8308, 2.6988, 2.4532],
 } as const;
-
-/** Emissif de RUN pendant la lecture : jaune x 0.5 (spec 5.3), lineaire. */
-export const RUN_GLOW = [0.444, 0.2635, 0.0148] as const;
-/** Emissif de MUTE allume : l'orange de navigation x 0.5, lineaire. */
-export const MUTE_GLOW = [0.5, 0.072, 0.003] as const;
 
 /**
  * TEMPO (spec 6.1) : glisser vertical, 100 px = 50 BPM (vers le haut =

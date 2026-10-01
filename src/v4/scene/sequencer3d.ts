@@ -17,8 +17,11 @@
  * de poser.
  * Programme = les coups de l'instrument selectionne ; sans selection, le
  * plus fort des cinq, pour que le motif par defaut se voie des l'arrivee.
- * RUN/STOP est le seul element rouge ; il passe au jaune (emissif) pendant
- * la lecture. Le Stage ne rend une frame que si un trait a change.
+ * RUN/STOP est le seul element rouge. Temoins du transport (2026-10-01,
+ * maillage btnLeds) : un fin trait sur le dessus de chaque bouton, allume
+ * pour RUN/STOP en lecture, MUTE et SOLO actifs, un eclair a chaque appui
+ * (le seul signe de CLEAR et RANDOM). Le Stage ne rend une frame que si un
+ * trait a change.
  */
 
 import {
@@ -35,7 +38,7 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { INSTRUMENTS, STEP_COUNT, VEL_BARS, velocity, type Steps } from '../audio/pattern';
-import { COLOR, KEYS, LIT, MATERIAL, MUTE_GLOW, PRESS_TINT, RUN_GLOW, STEP_PRESS, TRANSPORT, keyX, type Inst } from '../theme';
+import { BTN_LED, COLOR, KEYS, LIT, MATERIAL, PRESS_TINT, STEP_PRESS, TRANSPORT, keyX, type Inst } from '../theme';
 import type { HotspotDef } from './hit';
 import { withInstanceEmissive } from './materials';
 
@@ -57,6 +60,10 @@ const BUTTON_COUNT = 5;
 /** Les boutons du transport par nom (appui anime, renderer.pressButton). */
 export type TransportButton = 'run' | 'clear' | 'mute' | 'solo' | 'random';
 export const BUTTON_INDEX: Readonly<Record<TransportButton, number>> = { run: RUN, clear: CLEAR, mute: MUTE, solo: SOLO, random: RANDOM };
+/** x de chaque bouton, dans l'ordre des index (RUN, CLEAR, MUTE, SOLO, RANDOM). */
+const BUTTON_X = [TRANSPORT.run.x, TRANSPORT.clear.x, TRANSPORT.mute.x, TRANSPORT.solo.x, TRANSPORT.random.x] as const;
+/** z du temoin : sur le dessus, pres du bord arriere. */
+const BTN_LED_Z = TRANSPORT.z - TRANSPORT.size / 2 + BTN_LED.back;
 
 const BARS = KEYS.velBars;
 
@@ -86,8 +93,8 @@ function buttonGeometry(mobile: boolean): BufferGeometry {
   return g;
 }
 
-function ledGeometry(): BufferGeometry {
-  const g = new PlaneGeometry(KEYS.ledW, KEYS.ledD);
+function ledGeometry(w: number = KEYS.ledW, d: number = KEYS.ledD): BufferGeometry {
+  const g = new PlaneGeometry(w, d);
   // Rectangle couche, face vers le haut
   g.rotateX(-Math.PI / 2);
   g.deleteAttribute('uv');
@@ -101,7 +108,9 @@ export interface SequencerInfo {
   bars: string;
   /** teinte de chaque trait, pas par pas, du bas vers le haut */
   barTones: LedTone[][];
-  run: 'red' | 'yellow';
+  run: boolean;
+  /** eclat du temoin de chaque bouton (0 a 1) : RUN, CLEAR, MUTE, SOLO, RANDOM */
+  buttonLeds: number[];
   playhead: number;
   hover: number;
   /** velocite de chaque pas selon la regle 7.5 (0 vide, 1 fort, 2 moyen, 3 doux) */
@@ -113,13 +122,21 @@ export class Sequencer3D {
   readonly keys: InstancedMesh;
   readonly buttons: InstancedMesh;
   readonly leds: InstancedMesh;
+  /** les temoins du transport, un trait par bouton */
+  readonly btnLeds: InstancedMesh;
   private keyMat: MeshStandardMaterial;
   private ledMat: MeshBasicMaterial;
   private emissive: InstancedBufferAttribute;
   private btnEmissive: InstancedBufferAttribute;
-  /** eclat propre de chaque bouton (RUN qui joue, MUTE, SOLO) et son appui en cours (0 a 1) */
-  private btnBase = new Float32Array(BUTTON_COUNT * 3);
+  /** appui en cours de chaque bouton (0 a 1) */
   private btnPress = new Float32Array(BUTTON_COUNT);
+  /** temoins : etat tenu (RUN qui joue, MUTE, SOLO) et eclair d'appui (0 a 1) */
+  private btnLatch = new Uint8Array(BUTTON_COUNT);
+  private btnFlash = new Float32Array(BUTTON_COUNT);
+  private btnLedOff = new Color();
+  private btnLedOn = new Color();
+  /** RUN est rouge : son temoin passe au jaune (l'orange s'y perdait) */
+  private runLedOn = new Color();
   /** teinte propre de chaque bouton (l'appui la tire vers PRESS_TINT en mode clair) */
   private btnColor = new Float32Array(BUTTON_COUNT * 3);
   /** teinte de chaque trait, index pas x BARS + trait */
@@ -131,8 +148,6 @@ export class Sequencer3D {
   /** LED du test de l'intro (spec 7.4), -1 hors intro */
   private introLed = -1;
   private running = false;
-  private muteOn = false;
-  private soloOn = false;
 
   constructor(opts: { mobile: boolean } = { mobile: false }) {
     LED_HEX = { line: COLOR.line, ledSet: COLOR.ledSet, ledHover: COLOR.ledHover, yellowHi: COLOR.yellowHi };
@@ -160,27 +175,29 @@ export class Sequencer3D {
     this.buttons = new InstancedMesh(bGeo, this.keyMat, BUTTON_COUNT);
     this.buttons.name = 'buttons';
     this.buttons.receiveShadow = true;
-    const T = TRANSPORT;
-    for (const [k, x] of [
-      [RUN, T.run.x],
-      [CLEAR, T.clear.x],
-      [MUTE, T.mute.x],
-      [SOLO, T.solo.x],
-      [RANDOM, T.random.x],
-    ] as const) {
-      this.buttons.setMatrixAt(k - STEP_COUNT, m4.makeTranslation(x, 0, T.z));
-      this.buttons.setColorAt(k - STEP_COUNT, col.setRGB(LIT.clear[0], LIT.clear[1], LIT.clear[2]));
+    for (let j = 0; j < BUTTON_COUNT; j += 1) {
+      this.buttons.setMatrixAt(j, m4.makeTranslation(BUTTON_X[j], 0, TRANSPORT.z));
+      // Chaque bouton passe par paintButton : sa teinte est gardee pour l'appui
+      this.paintButton(j + STEP_COUNT, j + STEP_COUNT === RUN ? LIT.run : LIT.clear);
     }
-    // Chaque bouton passe par paintButton : sa teinte est gardee pour l'appui
-    this.paintButton(CLEAR, LIT.clear, [0, 0, 0]);
-    this.paintButton(RANDOM, LIT.clear, [0, 0, 0]);
-    this.paintVoiceKey(MUTE, false);
-    this.paintVoiceKey(SOLO, false);
-    this.paintRun();
     this.buttons.instanceMatrix.needsUpdate = true;
     this.buttons.instanceColor?.setUsage(DynamicDrawUsage);
 
     this.ledMat = new MeshBasicMaterial({ toneMapped: false });
+
+    // Temoins : eteints, une fente (line) ; allumes, l'orange des pas mis (RUN : jaune)
+    this.btnLedOff.setHex(COLOR.line);
+    this.btnLedOn.setHex(COLOR.ledSet);
+    this.runLedOn.setHex(COLOR.yellowHi);
+    this.btnLeds = new InstancedMesh(ledGeometry(BTN_LED.w, BTN_LED.d), this.ledMat, BUTTON_COUNT);
+    this.btnLeds.name = 'btnLeds';
+    for (let j = 0; j < BUTTON_COUNT; j += 1) {
+      this.btnLeds.setMatrixAt(j, m4.makeTranslation(BUTTON_X[j], TRANSPORT.h + BTN_LED.y, BTN_LED_Z));
+      this.paintButtonLed(j);
+    }
+    this.btnLeds.instanceMatrix.needsUpdate = true;
+    this.btnLeds.instanceColor?.setUsage(DynamicDrawUsage);
+
     this.ledMat.name = 'led';
     this.leds = new InstancedMesh(ledGeometry(), this.ledMat, STEP_COUNT * BARS);
     this.leds.name = 'leds';
@@ -197,25 +214,40 @@ export class Sequencer3D {
     this.leds.instanceColor?.setUsage(DynamicDrawUsage);
   }
 
-  /**
-   * MUTE et SOLO (2026-10-01) : graphite eteints ; allumes, MUTE en orange
-   * (la voix selectionnee est coupee), SOLO en jaune (un solo est en cours).
-   */
-  private paintVoiceKey(k: number, on: boolean): void {
-    const c = on ? (k === MUTE ? LIT.muteOn : LIT.runOn) : LIT.clear;
-    this.paintButton(k, c, on ? (k === MUTE ? MUTE_GLOW : RUN_GLOW) : [0, 0, 0]);
-  }
-
-  /** Teinte et eclat d'un bouton du transport (l'appui en cours s'y ajoute). */
-  private paintButton(k: number, c: readonly number[], g: readonly number[]): void {
+  /** Teinte d'un bouton du transport (l'appui en cours s'y ajoute). */
+  private paintButton(k: number, c: readonly number[]): void {
     const i = k - STEP_COUNT;
     this.btnColor.set([c[0], c[1], c[2]], i * 3);
     this.buttons.setColorAt(i, this.pressedColor(c, this.btnPress[i]));
-    this.btnBase[i * 3] = g[0];
-    this.btnBase[i * 3 + 1] = g[1];
-    this.btnBase[i * 3 + 2] = g[2];
     this.writeButtonGlow(i);
     if (this.buttons.instanceColor) this.buttons.instanceColor.needsUpdate = true;
+  }
+
+  /** Eclat du temoin j : allume si son etat tient, sinon son eclair d'appui. */
+  private ledLevel(j: number): number {
+    return this.btnLatch[j] ? 1 : this.btnFlash[j];
+  }
+
+  private paintButtonLed(j: number): void {
+    const on = j + STEP_COUNT === RUN ? this.runLedOn : this.btnLedOn;
+    this.btnLeds.setColorAt(j, col.copy(this.btnLedOff).lerp(on, this.ledLevel(j)));
+    if (this.btnLeds.instanceColor) this.btnLeds.instanceColor.needsUpdate = true;
+  }
+
+  /** Etat tenu du temoin du bouton k ; true s'il a change. */
+  private latch(k: number, on: boolean): boolean {
+    const j = k - STEP_COUNT;
+    if (Boolean(this.btnLatch[j]) === on) return false;
+    this.btnLatch[j] = on ? 1 : 0;
+    this.paintButtonLed(j);
+    return true;
+  }
+
+  /** Eclair d'appui du temoin d'un bouton, v de 1 (appui) a 0 (le Stage l'anime). */
+  setButtonFlash(b: TransportButton, v: number): void {
+    const j = BUTTON_INDEX[b] - STEP_COUNT;
+    this.btnFlash[j] = v;
+    this.paintButtonLed(j);
   }
 
   /** Teinte affichee : la sienne, tiree vers l'orange de l'appui en mode clair. */
@@ -225,27 +257,19 @@ export class Sequencer3D {
     return col.setRGB(c[0] + (t[0] - c[0]) * v, c[1] + (t[1] - c[1]) * v, c[2] + (t[2] - c[2]) * v);
   }
 
-  /** Eclat d'un bouton = le sien + celui de l'appui (2026-10-01 : l'appui ne l'efface plus). */
+  /** Eclat d'un bouton : celui de l'appui. */
   private writeButtonGlow(i: number): void {
     const e = this.btnEmissive.array as Float32Array;
     const v = this.btnPress[i];
-    for (let c = 0; c < 3; c += 1) e[i * 3 + c] = this.btnBase[i * 3 + c] + STEP_PRESS.glow[c] * v;
+    for (let c = 0; c < 3; c += 1) e[i * 3 + c] = STEP_PRESS.glow[c] * v;
     this.btnEmissive.needsUpdate = true;
   }
 
-  /** Allume MUTE et SOLO ; true s'il faut une frame. */
+  /** Temoins de MUTE (voix coupee) et SOLO (solo en cours) ; true s'il faut une frame. */
   setVoiceKeys(muteOn: boolean, soloOn: boolean): boolean {
-    if (muteOn === this.muteOn && soloOn === this.soloOn) return false;
-    this.muteOn = muteOn;
-    this.soloOn = soloOn;
-    this.paintVoiceKey(MUTE, muteOn);
-    this.paintVoiceKey(SOLO, soloOn);
-    return true;
-  }
-
-  /** RUN : rouge a l'arret ; jaune et emissif pendant la lecture. */
-  private paintRun(): void {
-    this.paintButton(RUN, this.running ? LIT.runOn : LIT.run, this.running ? RUN_GLOW : [0, 0, 0]);
+    const a = this.latch(MUTE, muteOn);
+    const b = this.latch(SOLO, soloOn);
+    return a || b;
   }
 
   /** Velocite du pas i (0 vide, 1 fort, 2 moyen, 3 doux) ; sans selection, la plus forte des voix. */
@@ -272,9 +296,13 @@ export class Sequencer3D {
     const btn = i >= STEP_COUNT;
     const mesh = btn ? this.buttons : this.keys;
     const j = btn ? i - STEP_COUNT : i;
-    mesh.instanceMatrix.array[j * 16 + 13] = move ? -STEP_PRESS.depth * v : 0;
+    const dy = move ? -STEP_PRESS.depth * v : 0;
+    mesh.instanceMatrix.array[j * 16 + 13] = dy;
     mesh.instanceMatrix.needsUpdate = true;
     if (btn) {
+      // Le temoin descend avec son bouton
+      this.btnLeds.instanceMatrix.array[j * 16 + 13] = TRANSPORT.h + BTN_LED.y + dy;
+      this.btnLeds.instanceMatrix.needsUpdate = true;
       this.btnPress[j] = v;
       this.writeButtonGlow(j);
       if (PRESS_TINT.rgb) {
@@ -357,10 +385,11 @@ export class Sequencer3D {
     return this.refresh();
   }
 
+  /** RUN/STOP : son temoin reste allume pendant la lecture ; true s'il faut une frame. */
   setRunning(on: boolean): boolean {
     if (on === this.running) return false;
     this.running = on;
-    this.paintRun();
+    this.latch(RUN, on);
     return true;
   }
 
@@ -409,7 +438,8 @@ export class Sequencer3D {
       leds: barTones.map((t) => t[0]),
       bars,
       barTones,
-      run: this.running ? 'yellow' : 'red',
+      run: this.running,
+      buttonLeds: Array.from({ length: BUTTON_COUNT }, (_, j) => Math.round(this.ledLevel(j) * 100) / 100),
       playhead: this.playhead,
       hover: this.hover,
       programmed,
@@ -424,7 +454,9 @@ export class Sequencer3D {
     this.keys.dispose();
     this.buttons.dispose();
     this.leds.geometry.dispose();
+    this.btnLeds.geometry.dispose();
     this.ledMat.dispose();
     this.leds.dispose();
+    this.btnLeds.dispose();
   }
 }

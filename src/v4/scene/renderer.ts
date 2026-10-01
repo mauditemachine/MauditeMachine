@@ -60,6 +60,7 @@ import { section } from '../state/section';
 import { voices } from '../state/voices';
 import {
   BODY,
+  BTN_LED,
   CHIP,
   CHIPS,
   COARSE_QUERY,
@@ -115,6 +116,9 @@ import { PanelSilk, fontsReady, makeBrushTexture, whenFonts, whenLogos } from '.
 import { Tweens, easeInOutCubic, easeOutCubic, linear } from './tween';
 
 const DEG = Math.PI / 180;
+
+/** Eclair d'un temoin : plein sur BTN_LED.hold de sa duree, puis il s'eteint. */
+const holdThenOut = (t: number): number => (t < BTN_LED.hold ? 0 : easeOutCubic((t - BTN_LED.hold) / (1 - BTN_LED.hold)));
 
 /* ---------------- Stage ---------------- */
 
@@ -505,7 +509,7 @@ export class Stage {
     // Bas : touches trig, RUN/STOP, CLEAR, LED ; moitie gauche : les six encodeurs
     this.seq = new Sequencer3D({ mobile });
     this.encoders = new Encoders({ mobile, castShadow: !mobile });
-    plateau.add(this.pads.mesh, this.pads.halos, this.seq.keys, this.seq.buttons, this.seq.leds, this.encoders.mesh);
+    plateau.add(this.pads.mesh, this.pads.halos, this.seq.keys, this.seq.buttons, this.seq.leds, this.seq.btnLeds, this.encoders.mesh);
     // L'ecran (redessine 4 fois par seconde au plus, jamais par frame) ; il
     // ne s'abonne a state/lcd.ts qu'avec les autres ecouteurs
     this.screen = new Screen(aniso, () => this.repaint());
@@ -682,10 +686,13 @@ export class Stage {
 
   /**
    * Un bouton du transport (2026-10-01 : RUN/STOP, CLEAR, RANDOM, MUTE et
-   * SOLO) s'enfonce et s'eclaire comme un pas, quel que soit son etat.
+   * SOLO) s'enfonce et s'eclaire comme un pas, quel que soit son etat ; son
+   * temoin brille (BTN_LED : plein, puis il s'eteint, sauf si l'etat tient).
    */
   pressButton(b: TransportButton): void {
     if (this.disposed) return;
+    const flash = (v: number): void => this.seq.setButtonFlash(b, v);
+    this.paintTweens.run(`btn.flash.${b}`, flash, 1, 0, BTN_LED.flashMs, holdThenOut, performance.now());
     this.pressKey(BUTTON_INDEX[b]);
   }
 
