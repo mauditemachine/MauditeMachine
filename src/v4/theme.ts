@@ -809,12 +809,14 @@ export const FIT_H = 0.86;
  */
 export const ORBIT = {
   /**
-   * Vue d'arrivee (2026-10-01) : la machine de face, droite, vue de 40 deg
-   * au-dessus (toujours en 3D). Le cadrage reste celui de l'azimut 45 (le
-   * pire cas, PLATEAU_W et MACHINE_H) : tourner ne la fait jamais sortir.
+   * Vue d'arrivee (2026-10-01) : la machine de face, droite, vue de haut
+   * (69 deg, l'angle choisi par Mika sur une capture : le panneau se lit en
+   * entier, la face avant n'est plus qu'un filet). Le cadrage reste celui
+   * de l'azimut 45 (le pire cas, PLATEAU_W et MACHINE_H) : tourner ne la
+   * fait jamais sortir.
    */
   azDeg: 0,
-  elDeg: 40,
+  elDeg: 69,
   zoom: 1,
   elMinDeg: 18,
   elMaxDeg: 78,
@@ -920,6 +922,8 @@ export const FIRST_FRAME_WAIT_MS = 1500;
  * reduced motion.
  */
 export const INTRO = {
+  /** l'intro part plus bas (les couches se voient) et rejoint ORBIT.elDeg en s'assemblant */
+  elFromDeg: 40,
   ms: 3100,
   hold: 300,
   pcb: { from: 300, ms: 1500 },

@@ -538,6 +538,7 @@ export class Stage {
     if (!motion.reduced()) {
       this.introOn = true;
       this.explode.assemble(0);
+      this.introElevation();
       this.syncCasters();
       this.updateCamera();
       intro.set('pending');
@@ -954,6 +955,7 @@ export class Stage {
       return true;
     }
     this.explode.assemble(t);
+    this.introElevation();
     this.updateCamera();
     this.syncCasters();
     const u = (t - INTRO.ledFromMs) / INTRO.ledMs;
@@ -964,12 +966,26 @@ export class Stage {
     return true;
   };
 
+  /**
+   * Pendant l'intro, la camera descend de INTRO.elFromDeg (les couches
+   * eclatees se voient) a ORBIT.elDeg au rythme de l'assemblage. L'elevation
+   * est posee directement (pas de commit de l'orbite) : la vue n'est pas
+   * "deplacee", RESET VIEW reste cache.
+   */
+  private introElevation(): void {
+    const el = ORBIT.elDeg + (INTRO.elFromDeg - ORBIT.elDeg) * this.explode.p.frame;
+    this.orbit.elevation = (el * Math.PI) / 180;
+    this.orbit.place();
+  }
+
   /** Fin de l'intro, tout de suite (premier geste, fin du temps, reduced motion, demontage). */
   finishIntro(): void {
     if (!this.introOn) return;
     this.introOn = false;
-    // Assemblee d'un coup (premier geste, fin du temps, demontage)
+    // Assemblee d'un coup (premier geste, fin du temps, demontage), a l'angle par defaut
     this.explode.snap(explodeState.get() === 'open');
+    this.orbit.elevation = (ORBIT.elDeg * Math.PI) / 180;
+    this.orbit.place();
     this.updateCamera();
     this.syncCasters();
     this.seq.setIntroLed(-1);
