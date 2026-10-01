@@ -585,3 +585,169 @@ a {
 .p4 .folio {
   bottom: 6mm;
 }
+
+/* ---------- fiche technique (2 pages) ---------- */
+
+.r-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 5mm;
+}
+
+.r-name {
+  font-size: 20pt;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.rider .st {
+  margin-top: 0;
+}
+
+.rider .flow + .st,
+.rider .stage + .note + .st {
+  margin-top: 5mm;
+}
+
+.rider .items li {
+  margin-top: 0.9mm;
+}
+
+.rider .flow > div + div {
+  margin-top: 2.6mm;
+}
+
+.rider .who,
+.rider .links,
+.rider .assets {
+  margin-bottom: 3.5mm;
+}
+
+/* Plan de scene, vue de dessus */
+.stage {
+  position: relative;
+  height: 64mm;
+  margin-top: 1mm;
+  border: 0.4pt solid var(--rule);
+  font-size: 7.4pt;
+  line-height: 1.25;
+}
+
+.stage > div {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.stage .mon {
+  top: 17mm;
+  width: 24mm;
+  height: 17mm;
+  border: 0.6pt solid var(--text);
+}
+
+.stage .mon.l {
+  left: 4mm;
+}
+
+.stage .mon.r {
+  right: 4mm;
+}
+
+.stage .mon b {
+  font-weight: 600;
+}
+
+.stage .mon span,
+.stage .dj span {
+  color: var(--text-light);
+}
+
+.stage .dj {
+  left: 32mm;
+  top: 17mm;
+  width: 26mm;
+  height: 17mm;
+  border: 0.6pt dashed var(--text-light);
+}
+
+.stage .artist {
+  left: 62mm;
+  right: 32mm;
+  top: 3mm;
+  height: 6mm;
+  font-size: 6.8pt;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-light);
+}
+
+.stage .table {
+  left: 62mm;
+  right: 32mm;
+  top: 10mm;
+  height: 32mm;
+  padding: 2mm;
+  justify-content: space-between;
+  border: 0.6pt solid var(--text);
+}
+
+.stage .gear {
+  display: flex;
+  gap: 1.5mm;
+  width: 100%;
+}
+
+.stage .gear span {
+  flex: 1;
+  padding: 1.6mm 1mm;
+  border: 0.4pt solid var(--text-light);
+}
+
+.stage .gear .mac {
+  flex: 1.3;
+  border-color: var(--text);
+  font-weight: 600;
+}
+
+.stage .iface {
+  padding: 1mm 4mm;
+  border: 0.4pt solid var(--text);
+}
+
+.stage .table p {
+  font-size: 6.6pt;
+  color: var(--text-light);
+}
+
+.stage .di {
+  right: 32mm;
+  top: 45mm;
+  width: 56mm;
+  height: 6.5mm;
+  border: 0.4pt solid var(--text-light);
+}
+
+.stage .aud {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 7mm;
+  border-top: 0.4pt solid var(--rule);
+  font-size: 6.8pt;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--text-light);
+}
+
+.note {
+  margin-top: 2mm;
+  color: var(--text-light);
+}

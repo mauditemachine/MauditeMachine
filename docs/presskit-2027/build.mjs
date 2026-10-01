@@ -6,6 +6,8 @@
  *   public/press/kit-2027/01.webp a 04.webp           pages en image (popup du site)
  * Copie de la version neutre a l'ancienne adresse deja envoyee :
  * public/Presskit_Maudite_Machine_2026-27.pdf.
+ * Fiche technique, 2 pages, memes donnees et meme style :
+ *   public/Tech_Rider_Maudite_Machine_2026-27.pdf  (adresse gardee : liens deja envoyes)
  *
  * Gabarit en HTML genere depuis content.mjs, styles dans presskit.css,
  * rendu par Google Chrome sans tete : chaque <a href> devient un lien
@@ -159,6 +161,58 @@ function pages(v) {
   return out.join('\n');
 }
 
+/** Fiche technique : 2 pages, la fiche, le plan de scene, l'accueil et les contacts. */
+function riderPages() {
+  const [dj, live, length, plot] = C.tech;
+  const head = (n) => `<div class="r-head"><p class="r-name">${esc(C.name)}</p><p class="sub">Tech rider 2027 \u00b7 ${n} / 2</p></div>`;
+  const rfolio = (n) => `<footer class="folio"><span>Maudite Machine \u00b7 Tech rider 2027</span><span>${n} / 2</span></footer>`;
+  return `
+<section class="page p4 rider">
+  ${head(1)}
+  ${title(C.techTitle)}
+  <p class="intro">${esc(C.techIntro)}</p>
+  <div class="flow tech">
+    ${[dj, live, length].map(([h, list]) => `<div><p class="sub">${esc(h)}</p>${items(list)}</div>`).join('')}
+  </div>
+  ${title(plot[0])}
+  <div class="stage">
+    <div class="mon l"><b>Monitor L</b><span>12" or 15" + horn</span></div>
+    <div class="dj">2 x CDJ + DJM<span>optional, transitions</span></div>
+    <div class="artist">Artist, facing the audience</div>
+    <div class="table">
+      <div class="gear"><span>Push 3</span><span>APC40</span><span class="mac">MacBook Pro<br>Ableton Live</span><span>Typhon<br>Dreadbox</span></div>
+      <div class="iface">Audio interface</div>
+      <p>Table 180 x 70 cm \u00b7 90 to 100 cm high \u00b7 4 x power</p>
+    </div>
+    <div class="di">2 x DI \u00b7 L/R XLR to FOH</div>
+    <div class="mon r"><b>Monitor R</b><span>12" or 15" + horn</span></div>
+    <div class="aud">Audience</div>
+  </div>
+  <p class="note">${esc(plot[1][1])}</p>
+  ${rfolio(1)}
+</section>
+<section class="page p4 rider">
+  ${head(2)}
+  ${title(C.hospTitle)}
+  <div class="flow hosp">
+    ${C.hosp.map(([h, list]) => `<div><p class="sub">${esc(h)}</p>${items(list)}</div>`).join('')}
+  </div>
+  ${title(C.contactTitle)}
+  <div class="who">
+    ${C.contacts.map(([h, name, lines]) => `<div><p class="sub">${esc(h)}</p><p class="name">${esc(name)}</p>${lines.map(([t, href]) => `<p>${a(t, href)}</p>`).join('')}</div>`).join('')}
+  </div>
+  <div class="links">
+    <p class="sub">${esc(C.linksTitle)}</p>
+    <p class="link-row">${C.links.map(([t, href]) => a(t, href)).join('')}</p>
+  </div>
+  <div class="assets">
+    <p>${a('Press kit 2027 (PDF)', URL.site + 'Presskit_Maudite_Machine_2027_generic.pdf')}<span class="muted"> \u00b7 </span>${a(C.assets[0][0], C.assets[0][1])}<span class="muted"> \u00b7 ${esc(C.assets[0][2])}</span></p>
+  </div>
+  <p class="copy">${esc(C.copyright)}</p>
+  ${rfolio(2)}
+</section>`;
+}
+
 const html = (v) => `<!doctype html>
 <html lang="en">
 <head>
@@ -167,13 +221,13 @@ const html = (v) => `<!doctype html>
 <link rel="stylesheet" href="presskit.css">
 </head>
 <body>
-${pages(v)}
+${v.rider ? riderPages() : pages(v)}
 </body>
 </html>
 `;
 
 function render(v, pdf) {
-  const tmp = join(HERE, `.render-${v.boom ? 'boom' : 'generic'}.html`);
+  const tmp = join(HERE, `.render-${v.rider ? 'rider' : v.boom ? 'boom' : 'generic'}.html`);
   writeFileSync(tmp, html(v));
   try {
     execFileSync(
@@ -217,3 +271,8 @@ for (const v of VARIANTS) {
 }
 for (const c of COPIES) copyFileSync(join(PUB, 'Presskit_Maudite_Machine_2027_generic.pdf'), join(PUB, c));
 console.log(`copie : ${COPIES.join(', ')}`);
+
+// Fiche technique (2 pages) a son adresse d'origine
+const RIDER = 'Tech_Rider_Maudite_Machine_2026-27.pdf';
+render({ rider: true }, join(PUB, RIDER));
+console.log(`${RIDER}  ${(statSync(join(PUB, RIDER)).size / 1024 / 1024).toFixed(2)} Mo`);

@@ -132,8 +132,8 @@ export const RIDER: { en: RiderCopy; fr: RiderCopy } = {
         title: 'Travel',
         items: [
           {
-            term: 'Departure city',
-            text: 'Montpellier, France (MPL), or Marseille (MRS) when fares are better.',
+            term: 'Departure',
+            text: 'Canada, France or Spain.',
           },
           {
             term: 'Flights',
@@ -167,7 +167,7 @@ export const RIDER: { en: RiderCopy; fr: RiderCopy } = {
           },
           {
             term: 'Contact',
-            text: 'Booking & advancing: Mika, mauditemachine@gmail.com, +1 514 653 1423. Label: VRSTL Records, vrstlrecords@gmail.com. Languages: French, English, Spanish.',
+            text: 'Booking international: Diane, vrstlrecords@gmail.com. Booking Canada and USA: Mika, mauditemachine@gmail.com, +1 514 653 1423. Label: VRSTL Records, vrstlrecords@gmail.com. Languages: French, English, Spanish.',
           },
         ],
       },
@@ -279,8 +279,8 @@ export const RIDER: { en: RiderCopy; fr: RiderCopy } = {
         title: 'Déplacements',
         items: [
           {
-            term: 'Ville de départ',
-            text: 'Montpellier, France (MPL), ou Marseille (MRS) quand les tarifs sont meilleurs.',
+            term: 'Départ',
+            text: 'Canada, France ou Espagne.',
           },
           {
             term: 'Vols',
@@ -314,7 +314,7 @@ export const RIDER: { en: RiderCopy; fr: RiderCopy } = {
           },
           {
             term: 'Contact',
-            text: 'Booking et préparation : Mika, mauditemachine@gmail.com, +1 514 653 1423. Label : VRSTL Records, vrstlrecords@gmail.com. Langues : français, anglais, espagnol.',
+            text: 'Booking international : Diane, vrstlrecords@gmail.com. Booking Canada et États-Unis : Mika, mauditemachine@gmail.com, +1 514 653 1423. Label : VRSTL Records, vrstlrecords@gmail.com. Langues : français, anglais, espagnol.',
           },
         ],
       },

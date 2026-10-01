@@ -98,14 +98,14 @@ export const CONTACT_LINKS: readonly { label: string; href: string }[] = [
 ];
 
 /**
- * Documents de PRESS : la fiche technique en telechargement (878 617
- * octets) et le press kit 2027, qui s'ouvre en popup (ui/PresskitViewer.tsx)
- * ; son lien reste un vrai lien vers le PDF (clic du milieu, sans
- * JavaScript).
+ * Documents de PRESS : la fiche technique en telechargement (2 pages,
+ * 97 106 octets, regeneree par docs/presskit-2027/build.mjs) et le press
+ * kit 2027, qui s'ouvre en popup (ui/PresskitViewer.tsx) ; son lien reste
+ * un vrai lien vers le PDF (clic du milieu, sans JavaScript).
  */
 export const LIVE_DOCS: readonly { label: string; href: string; size: string; viewer?: boolean }[] = [
   { label: 'Press kit 2027', href: '/Presskit_Maudite_Machine_2027_generic.pdf', size: '4 pages', viewer: true },
-  { label: 'Tech rider (PDF)', href: '/Tech_Rider_Maudite_Machine_2026-27.pdf', size: '0.9 MB' },
+  { label: 'Tech rider (PDF)', href: '/Tech_Rider_Maudite_Machine_2026-27.pdf', size: '0.1 MB' },
 ];
 
 /**

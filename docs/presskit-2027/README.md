@@ -13,7 +13,8 @@ Produit :
 - `public/Presskit_Maudite_Machine_2027.pdf` : avec le bandeau « Boom Festival 2027 · Alchemy Circle » et la phrase Alchemy Circle de la page 3 ;
 - `public/Presskit_Maudite_Machine_2027_generic.pdf` : les mêmes quatre pages sans le bandeau, la version du site ;
 - `public/press/kit-2027/01.webp` à `04.webp` : les pages en image pour le popup ;
-- une copie de la version neutre à l'ancienne adresse déjà envoyée : `Presskit_Maudite_Machine_2026-27.pdf`.
+- une copie de la version neutre à l'ancienne adresse déjà envoyée : `Presskit_Maudite_Machine_2026-27.pdf` ;
+- la fiche technique, 2 pages, mêmes données et même style (plan de scène dessiné) : `public/Tech_Rider_Maudite_Machine_2026-27.pdf` (adresse gardée).
 
 Outils : Google Chrome (variable `CHROME` s'il est ailleurs), `pdftoppm` (poppler) et `cwebp` (webp), via Homebrew. Aucune dépendance npm.
 
