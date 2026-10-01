@@ -84,6 +84,7 @@ import {
   PANEL,
   PANEL_D,
   PCB,
+  potCourse,
   PLATEAU_W,
   SECTION_FRAME,
   TILT,
@@ -574,6 +575,8 @@ export class Stage {
     // eclatee jusqu'a la premiere frame, puis s'assemble (stepIntro)
     if (!motion.reduced()) {
       this.introOn = true;
+      // L'intro montre le PCB eclate : ses textures se font maintenant
+      this.pcb.prepare();
       this.explode.assemble(0);
       this.introElevation();
       this.syncCasters();
@@ -982,7 +985,7 @@ export class Stage {
     void whenFonts().then(() => {
       if (this.disposed) return;
       this.silk.draw();
-      this.pcb.draw();
+      this.pcb.redraw();
       this.start();
       this.invalidate();
     });
@@ -1379,12 +1382,15 @@ export class Stage {
     let changed = false;
     if (instant) {
       this.explodeGoal = goal;
+      if (goal) this.pcb.prepare();
       this.explode.snap(goal);
       // Pas d'ecouteur de ce Stage encore : pas de reentrance
       if (s === 'opening' || s === 'closing') explodeState.settle(goal);
       changed = true;
     } else if (goal !== this.explodeGoal) {
       this.explodeGoal = goal;
+      // Premiere apparition du PCB : textures de cuivre et de serigraphie
+      if (goal) this.pcb.prepare();
       if (s === 'opening' || s === 'closing') this.explode.start(goal, performance.now(), motion.reduced());
       else this.explode.snap(goal);
       changed = true;
@@ -1443,9 +1449,11 @@ export class Stage {
     else this.repaint();
   }
 
-  /** TONE, LEVEL, SWING, DIST, REVERB suivent le bus (glisser, molette, clavier, tests). */
+  /** TONE, STRETCH, LEVEL, SWING, DIST, REVERB suivent le bus (glisser, molette, clavier, tests). */
   private syncMix = (): void => {
-    let changed = this.encoders.setValue('tone', mix.tone);
+    // TONE va de -1 a 1 : sa course est centree (repere a midi a 0)
+    let changed = this.encoders.setValue('tone', potCourse('tone', mix.tone));
+    if (this.encoders.setValue('stretch', mix.stretch)) changed = true;
     if (this.encoders.setValue('level', mix.level)) changed = true;
     if (this.encoders.setValue('swing', mix.swing)) changed = true;
     if (this.encoders.setValue('dist', mix.drive)) changed = true;

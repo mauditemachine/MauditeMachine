@@ -235,21 +235,38 @@ export const MATERIAL = {
 
 /* ---------- PCB (spec 5.6 et 20.3.11) ---------- */
 
-/** Carte : le chassis moins 1.4 x 1.2 (11.2 x 6.8), 0.1 d'epaisseur, dans pcbGroup (incline comme le panneau). */
+/**
+ * Carte : le chassis moins 1.4 x 1.2 (11.2 x 6.8), 0.1 d'epaisseur, dans
+ * pcbGroup (incline comme le panneau). Revision 5 : chanfrein de 0.03 sur
+ * les quatre bords (la fibre de verre nue en tranche), pistes sur une
+ * grille de 0.2 a 45 deg (jamais d'angle droit), largeurs en unites de la
+ * carte (signal, alimentation, paires differentielles), textures de
+ * 2048 x 1280 (desktop) generees a la premiere apparition du PCB.
+ */
 export const PCB = {
   w: BODY.w - 1.4,
   d: BODY.d - 1.2,
   h: 0.1,
-  tex: { desktop: [1024, 640], mobile: [512, 320] },
-  /** generateur des pistes (spec 5.7) : grille de 0.4, graine 808 (mulberry32) */
-  grid: 0.4,
+  chamfer: 0.03,
+  tex: { desktop: [2048, 1280], mobile: [1024, 640] },
+  /** generateur des pistes (spec 5.7) : grille de 0.2, graine 808 (mulberry32) */
+  grid: 0.2,
   seed: 808,
-  traces: 24,
-  vias: 20,
-  /** en px de la texture desktop (1024 de large) ; la moitie sur mobile */
-  traceW: 3,
-  padR: 6,
-  padRing: 2,
+  traces: 64,
+  vias: 36,
+  /** largeurs (unites de la carte) */
+  signalW: 0.03,
+  powerW: 0.1,
+  pairW: 0.024,
+  pairGap: 0.07,
+  padR: 0.045,
+  viaR: 0.04,
+  viaHole: 0.017,
+  /** paires differentielles, pistes d'alimentation, serpentins d'egalisation */
+  pairs: 4,
+  power: 4,
+  meanders: 2,
+  /** px de la texture de reference (1024 de large) : traits et textes */
   outline: 1,
   chipFrame: 2,
   designatorPx: 16,
@@ -339,23 +356,25 @@ export const OLED_DRAW = { font: `400 40px ${FONT_MONO}`, pad: 24, baselines: [6
  */
 export const OLED_BAR = { h: 22, lift: 3, gap: 14, stroke: 2, inset: 4, bandY0: 160, bandY1: 236 } as const;
 
-export type EncId = 'tempo' | 'tone' | 'level' | 'swing' | 'dist' | 'reverb';
+export type EncId = 'tempo' | 'tone' | 'stretch' | 'level' | 'swing' | 'dist' | 'reverb';
 
 /**
- * Six encodeurs noirs a repere blanc, sous l'ecran (spec 20.3.7) : corps
- * legerement conique (0.3 a la base, 0.285 en haut, 0.42 de haut), repere
- * bone du centre vers l'arriere, collerette a la base.
+ * Sept encodeurs noirs a repere blanc, sous l'ecran (spec 20.3.7 ; STRETCH
+ * a cote de TONE en revision 5) : corps legerement conique (0.27 a la
+ * base, 0.256 en haut, 0.42 de haut), repere bone du centre vers
+ * l'arriere, collerette a la base. Pas de 0.74 : les colonnes des touches
+ * trig, la rangee tient entre le bord gauche et les pads.
  */
 export const ENCODER = {
-  r: 0.3,
-  rTop: 0.285,
+  r: 0.27,
+  rTop: 0.256,
   h: 0.42,
   z: -0.6,
   x0: -5.55,
-  pitch: 0.9,
+  pitch: 0.74,
   labelZ: -0.1,
-  collar: { r: 0.36, h: 0.025 },
-  mark: { w: 0.04, h: 0.012, d: 0.2 },
+  collar: { r: 0.32, h: 0.025 },
+  mark: { w: 0.036, h: 0.012, d: 0.18 },
   segments: { desktop: 32, mobile: 20 },
 } as const;
 export const encX = (i: number): number => ENCODER.x0 + ENCODER.pitch * i;
@@ -363,7 +382,8 @@ export const encX = (i: number): number => ENCODER.x0 + ENCODER.pitch * i;
 /** De gauche a droite ; aria : nom du jumeau (role slider). */
 export const ENCODERS: readonly { id: EncId; label: string; aria: string }[] = [
   { id: 'tempo', label: 'TEMPO', aria: 'Tempo' },
-  { id: 'tone', label: 'TONE', aria: 'Tone' },
+  { id: 'tone', label: 'TONE', aria: 'Tone, pitch and filter' },
+  { id: 'stretch', label: 'STRETCH', aria: 'Stretch' },
   { id: 'level', label: 'LEVEL', aria: 'Level' },
   { id: 'swing', label: 'SWING', aria: 'Swing' },
   { id: 'dist', label: 'DIST', aria: 'Distortion' },
@@ -606,18 +626,26 @@ export const MUTE_GLOW = [0.5, 0.072, 0.003] as const;
 export const TEMPO_UI = { pxPerBpm: 2, wheelPx: 100, tapMs: 350, sweepDeg: 270 } as const;
 
 /**
- * Les cinq autres encodeurs : glisser, 150 px = toute la course ; molette
- * 2 % par cran de 100 px ; double tape = valeur de depart (TONE ouvert,
- * LEVEL 80 %, SWING, DIST et REVERB a 0, leur neutre). Ecran : la valeur
- * reste 1200 ms en ligne 3 (spec 20.3.8).
+ * Les six autres encodeurs : glisser, 150 px = toute la course ; molette
+ * 2 % par cran de 100 px ; double tape = valeur de depart (TONE au centre,
+ * LEVEL 80 %, STRETCH, SWING, DIST et REVERB a 0, leur neutre). Ecran : la
+ * valeur reste 1200 ms en ligne 3 (spec 20.3.8). TONE va de -1 a 1 (sa
+ * course fait 2) : molette et fleches de 0.05, pour sortir du cran du
+ * centre (+/-0.04) en un pas.
  */
 export const POT_UI = {
   pxRange: 150,
   wheelPx: 100,
   wheelStep: 0.02,
+  toneStep: 0.05,
   readoutMs: 1200,
-  reset: { tone: 1, level: 0.8, swing: 0, dist: 0, reverb: 0 },
+  reset: { tone: 0, stretch: 0, level: 0.8, swing: 0, dist: 0, reverb: 0 },
 } as const;
+
+/** Bornes d'un encodeur hors TEMPO : TONE -1 a 1, les autres 0 a 1. */
+export const potMin = (id: EncId): number => (id === 'tone' ? -1 : 0);
+/** Course 0 a 1 d'un encodeur hors TEMPO (angle) : TONE au centre a 0. */
+export const potCourse = (id: EncId, v: number): number => (id === 'tone' ? (v + 1) / 2 : v);
 
 /**
  * Au doigt, un encodeur (TEMPO compris) ne se prend qu'apres touchHoldMs
@@ -768,11 +796,11 @@ export const SILK_TEXTS: readonly SilkText[] = [
   { text: 'MM-808', x: -1.95, z: -3.5, cap: 0.13, align: 'left' },
   { text: 'V.4 / 2026', x: 4.95, z: -3.5, cap: 0.07, align: 'right', alpha: 0.45 },
   { text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - 0.72, cap: 0.06, align: 'left' },
-  ...ENCODERS.map((e, i) => ({ text: e.label, x: encX(i), z: ENCODER.labelZ, cap: 0.085, maxW: 0.84, group: 'enc' })),
-  { text: 'RUN/STOP', x: TRANSPORT.run.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.84, group: 'tr' },
-  { text: 'CLEAR', x: TRANSPORT.clear.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.84, group: 'tr' },
-  { text: 'MUTE', x: TRANSPORT.mute.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.84, group: 'tr' },
-  { text: 'SOLO', x: TRANSPORT.solo.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.84, group: 'tr' },
+  ...ENCODERS.map((e, i) => ({ text: e.label, x: encX(i), z: ENCODER.labelZ, cap: 0.085, maxW: 0.7, group: 'enc' })),
+  { text: 'RUN/STOP', x: TRANSPORT.run.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
+  { text: 'CLEAR', x: TRANSPORT.clear.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
+  { text: 'MUTE', x: TRANSPORT.mute.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
+  { text: 'SOLO', x: TRANSPORT.solo.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
   ...PADS.map(padLabel),
   ...Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ, cap: 0.075 })),
 ];
@@ -785,6 +813,8 @@ export const OPEN_SILK_INDEX = SILK_TEXTS.findIndex((t) => t.text === 'OPEN');
  * crochet sous chaque groupe de quatre touches trig.
  */
 export const SILK_LINES: readonly (readonly number[])[] = [
+  // le cran du centre de TONE (revision 5) : un trait a midi, derriere l'encodeur
+  [encX(1), ENCODER.z - ENCODER.collar.r - 0.05, encX(1), ENCODER.z - ENCODER.collar.r - 0.17],
   // sous la rangee des voix (les pages dessous), puis la colonne d'OPEN a part
   [PAD.x0 - PAD.size / 2 - 0.09, PAD.rowZ[0] + 0.73, PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[0] + 0.73],
   [PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[0] - 0.5, PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[1] + 0.72],
@@ -1078,15 +1108,57 @@ export const CHIPS: readonly {
  * defaut, le reste passe sous le panneau leve.
  */
 export const PCB_PARTS = {
-  small: [pcbAt(-5.3, 2.6), pcbAt(5.3, 2.6), pcbAt(5.35, -3.2), pcbAt(-2.7, -2.9)],
-  caps: [pcbAt(-5.55, 3.5), pcbAt(1.7, 2.3), pcbAt(5.55, -1.6), pcbAt(5.55, -2.35), pcbAt(-3.6, -2.2), pcbAt(0.4, -2.8)],
+  small: [pcbAt(-5.3, 2.6), pcbAt(5.3, 2.6), { x: 4.45, z: -2.75 }, pcbAt(-2.7, -2.9)],
+  /** references serigraphiees en blanc sur le dessus des petites puces */
+  smallRefs: ['TL072', 'NE555', '74HC595', 'LM386'],
+  caps: [{ x: -4.5, z: 3.02 }, pcbAt(1.7, 2.3), pcbAt(5.55, -1.6), pcbAt(5.55, -2.35), pcbAt(-3.6, -2.2), pcbAt(0.4, -2.8)],
+  /** deux hauteurs de condensateurs electrolytiques */
+  capTall: [true, false, true, false, true, false],
   cell: pcbAt(5.35, -0.55),
-  resistors: Array.from({ length: 10 }, (_, k) => pcbAt(-4.6 + 0.9 * k, 1.25)),
+  /** resistances CMS : la rangee d'origine et quatre entre les puces, code a trois chiffres */
+  resistors: [
+    ...Array.from({ length: 10 }, (_, k) => pcbAt(-4.6 + 0.9 * k, 1.25)),
+    { x: -1.5, z: 2.3 },
+    { x: -1.5, z: 2.6 },
+    { x: 1.5, z: 2.6 },
+    { x: -4.71, z: 1.66 },
+  ],
+  resistorCodes: ['103', '472', '221', '100', '331', '473', '102', '222', '470', '104', '101', '683', '152', '334'],
+  /** condensateurs ceramiques CMS (decouplage) */
+  ceramics: [
+    { x: -1.8, z: 1.7 },
+    { x: -1.2, z: 1.7 },
+    { x: 1.15, z: 1.55 },
+    { x: 1.9, z: 1.55 },
+    { x: 4.2, z: 1.6 },
+    { x: 5.2, z: 1.6 },
+    { x: -3.75, z: -2.8 },
+    { x: -3.75, z: -1.62 },
+    { x: 2.7, z: -1.9 },
+    { x: -0.2, z: -1.6 },
+  ],
   crystals: [pcbAt(-1.7, 3.5), pcbAt(1.7, 3.5)],
+  /** regulateur TO-220 debout contre son dissipateur vertical, dans le plan de masse */
+  regulator: { x: -4.3, z: -2.1 },
+  /** connecteur de nappe 2 x 8 a broches dorees, et bornier a vis 3 points */
+  header: { x: 1.7, z: -2.7, cols: 8 },
+  terminal: { x: 3.2, z: -2.85, n: 3 },
+  /** LED temoin, allumee */
+  led: { x: 4.4, z: 3.12 },
+  /** trous de fixation et leurs vis cruciformes, aux quatre coins */
+  holes: [
+    { x: -5.3, z: -3.1 },
+    { x: 5.3, z: -3.1 },
+    { x: -5.3, z: 3.1 },
+    { x: 5.3, z: 3.1 },
+  ],
+  /** plan de masse hachure (unites de la carte) */
+  pour: { x0: -5.5, z0: -3.3, x1: -0.7, z1: -0.55 },
   small3: { w: 0.8, h: 0.14, d: 0.6 },
-  cap3: { r: 0.28, h: 0.6, topH: 0.02 },
+  cap3: { r: 0.28, h: 0.6, hShort: 0.4, topH: 0.02 },
   cell3: { r: 0.5, h: 0.14 },
-  resistor3: { w: 0.5, h: 0.16, d: 0.16 },
+  resistor3: { w: 0.32, h: 0.08, d: 0.16 },
+  ceramic3: { w: 0.26, h: 0.12, d: 0.14 },
   crystal3: { r: 0.12, l: 0.5 },
 } as const;
 

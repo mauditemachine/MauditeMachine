@@ -679,8 +679,11 @@ html:has(body.v4-active) {
 }
 
 /* OPEN : bouton plein orange, le mot en blanc, 800, 0.14 em, sur trois
-   cellules et detache de 8 px ; une pulsation lente de luminosite au repos
-   (2.5 s). CLOSE : graphiteHi, texte et contour orange de 1.5 px. */
+   cellules et detache de 8 px. Il respire (revision 5) : cycle de 3.2 s
+   (1.6 s aller, 1.6 s retour, ease-in-out : une sinusoide), luminosite de
+   88 a 100 %, lueur orange de 0 a 6 px ; rien d'autre ne bouge. Arrete
+   machine ouverte (CLOSE), au focus clavier et en mouvement reduit.
+   CLOSE : graphiteHi, texte et contour orange de 1.5 px. */
 .v4-root .v4-dock-open {
   grid-column: span 3;
   /* machine fermee : OPEN prend toute la rangee */
@@ -694,8 +697,12 @@ html:has(body.v4-active) {
   letter-spacing: 0.14em;
   text-indent: 0.14em;
   text-transform: uppercase;
-  animation: v4-open-pulse 2.5s ease-in-out infinite;
+  animation: v4-open-breathe 1.6s ease-in-out infinite alternate;
   transition: transform 90ms ease;
+}
+
+.v4-root .v4-dock-open:focus-visible {
+  animation: none;
 }
 
 .v4-root .v4-dock-open[data-open='0'] {
@@ -710,23 +717,58 @@ html:has(body.v4-active) {
   animation: none;
 }
 
-@keyframes v4-open-pulse {
-  0%,
-  100% {
-    filter: brightness(1);
+@keyframes v4-open-breathe {
+  from {
+    filter: brightness(0.88);
+    box-shadow: 0 0 0 0 rgba(255, 106, 19, 0);
   }
-  50% {
-    filter: brightness(1.12);
+  to {
+    filter: brightness(1);
+    box-shadow: 0 0 6px 0 rgba(255, 106, 19, 0.9);
+  }
+}
+
+/* Le pad OPEN de la machine 3D respire pareil, sans aucune frame WebGL :
+   animer son emissif ferait tourner la boucle de rendu en continu. Son
+   jumeau (pose sur sa silhouette a chaque frame rendue) porte un voile
+   clair et une lueur orange de 6 px dont seule l'opacite varie (animation
+   du compositeur), meme cycle de 3.2 s, memes arrets. */
+.v4-root .v4-twin[data-twin='open']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(255, 170, 110, 0.08);
+  box-shadow: 0 0 6px 0 rgba(255, 106, 19, 0.6);
+  opacity: 0;
+  pointer-events: none;
+  animation: v4-open-glow 1.6s ease-in-out infinite alternate;
+}
+
+.v4-root .v4-twin[data-twin='open'][aria-pressed='true']::after,
+.v4-root .v4-twin[data-twin='open']:focus-visible::after {
+  animation: none;
+  opacity: 0;
+}
+
+@keyframes v4-open-glow {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .v4-root .v4-dock-open {
+  .v4-root .v4-dock-open,
+  .v4-root .v4-twin[data-twin='open']::after {
     animation: none;
   }
 }
 
-.v4-root[data-v4-motion='reduced'] .v4-dock-open {
+.v4-root[data-v4-motion='reduced'] .v4-dock-open,
+.v4-root[data-v4-motion='reduced'] .v4-twin[data-twin='open']::after {
   animation: none;
 }
 

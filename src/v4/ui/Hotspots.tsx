@@ -72,6 +72,7 @@ import {
   PADS,
   PAD_ARIA,
   POT_UI,
+  potMin,
   STEP_HOLD_MS,
   TEMPO_UI,
   TWIN_ARIA,
@@ -132,8 +133,8 @@ function activateChip(id: string, chip: ChipId): void {
   else chipAction(chip);
 }
 
-/** Valeur par px de glisser : TEMPO 2 px par BPM, les autres 150 px la course. */
-const perPx = (k: EncId): number => (k === 'tempo' ? 1 / TEMPO_UI.pxPerBpm : 1 / POT_UI.pxRange);
+/** Valeur par px de glisser : TEMPO 2 px par BPM, les autres 150 px la course (TONE : 2 unites). */
+const perPx = (k: EncId): number => (k === 'tempo' ? 1 / TEMPO_UI.pxPerBpm : (1 - potMin(k)) / POT_UI.pxRange);
 
 /** L'encodeur d'un glisser qui le tient : valeur de depart + ecart sur son axe, depuis le pointerdown. */
 function turnDial(d: Down, dx: number, dy: number): void {
@@ -413,7 +414,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       const steps = Math.trunc(wheelAcc / px);
       if (steps !== 0) {
         wheelAcc -= steps * px;
-        const step = k === 'tempo' ? 1 : POT_UI.wheelStep;
+        const step = k === 'tempo' ? 1 : k === 'tone' ? POT_UI.toneStep : POT_UI.wheelStep;
         dial(k, dialValue(k) + steps * step);
       }
     };
@@ -488,9 +489,10 @@ const onDialKey =
   (e: React.KeyboardEvent<HTMLElement>): void => {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
     const cfg = k === 'tempo' ? DIAL_KEYS.tempo : DIAL_KEYS.pot;
-    const min = k === 'tempo' ? BPM.min : 0;
+    const min = k === 'tempo' ? BPM.min : potMin(k);
     const max = k === 'tempo' ? BPM.max : 1;
-    const step = e.shiftKey ? cfg.big : cfg.step;
+    // TONE : un pas de 0.05 sort du cran du centre (+/-0.04)
+    const step = e.shiftKey ? cfg.big : k === 'tone' ? POT_UI.toneStep : cfg.step;
     let v = dialValue(k);
     switch (e.key) {
       case 'ArrowUp':
@@ -526,10 +528,14 @@ const pct = (v: number): number => Math.round(v * 100);
 /** "TRACKS" -> "Tracks" */
 const title = (label: string): string => label.charAt(0) + label.slice(1).toLowerCase();
 
-/** Texte lu d'un encodeur : "130 BPM", "80 %", "54 % swing" (rapport de doubles croches). */
+/** Texte lu d'un encodeur : "130 BPM", "80 %", "54 % swing", TONE "+35, centre 0". */
 function dialText(k: EncId, v: number): string {
   if (k === 'tempo') return `${v} BPM`;
   if (k === 'swing') return `${swingRatio(v)} % swing`;
+  if (k === 'tone') {
+    const n = pct(v);
+    return n === 0 ? '0, centre, bypass' : `${n > 0 ? '+' : ''}${n}`;
+  }
   return `${pct(v)} %`;
 }
 
@@ -566,6 +572,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const muteOn = p.instrument ? v.muted.includes(p.instrument) : v.muted.length > 0;
   const open = useSyncExternalStore(section.subscribe, section.get, section.get);
   const tone = useSyncExternalStore(mix.subscribe, () => mix.tone, () => mix.tone);
+  const stretch = useSyncExternalStore(mix.subscribe, () => mix.stretch, () => mix.stretch);
   const level = useSyncExternalStore(mix.subscribe, () => mix.level, () => mix.level);
   const swing = useSyncExternalStore(mix.subscribe, () => mix.swing, () => mix.swing);
   const drive = useSyncExternalStore(mix.subscribe, () => mix.drive, () => mix.drive);
@@ -578,7 +585,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const live = chipsLive(s);
   const pressed = s === 'opening' || s === 'open';
   const inst = p.instrument;
-  const values: Record<EncId, number> = { tempo: p.bpm, tone, level, swing, dist: drive, reverb };
+  const values: Record<EncId, number> = { tempo: p.bpm, tone, stretch, level, swing, dist: drive, reverb };
 
   /** Ref stable par id : l'element entre et sort des deux registres. */
   const refFor = (id: string): ((el: HTMLElement | null) => void) => {
@@ -768,7 +775,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
             tabIndex={0}
             aria-label={enc.aria}
             aria-orientation="vertical"
-            aria-valuemin={tempo ? BPM.min : 0}
+            aria-valuemin={tempo ? BPM.min : potMin(enc.id) * 100}
             aria-valuemax={tempo ? BPM.max : 100}
             aria-valuenow={tempo ? v : pct(v)}
             aria-valuetext={dialText(enc.id, v)}

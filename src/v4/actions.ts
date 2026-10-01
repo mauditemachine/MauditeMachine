@@ -8,7 +8,7 @@
 
 import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
-import { ensure, mix, resume, setDrive, setLevel, setReverb, setSwing, setTone, trigger } from './audio/drums';
+import { ensure, mix, resume, setDrive, setLevel, setReverb, setStretch, setSwing, setTone, trigger } from './audio/drums';
 import { BPM, VEL_NAMES, pattern, velocity } from './audio/pattern';
 import { sc } from './audio/soundcloud';
 import type { Stage } from './scene/renderer';
@@ -173,17 +173,22 @@ export function setTempo(bpm: number): void {
   pattern.setBpm(bpm);
 }
 
-/** Valeur affichee en ligne 3 de l'ecran : TONE 80%, SWING 58% (rapport de doubles croches). */
+/** Valeur affichee en ligne 3 de l'ecran : TONE +35, STRETCH 40%, SWING 58% (rapport de doubles croches). */
 function readout(id: Exclude<EncId, 'tempo'>, v: number): string {
   if (id === 'swing') return `SWING ${swingRatio(v)}%`;
+  if (id === 'tone') {
+    const n = Math.round(v * 100);
+    return `TONE ${n > 0 ? '+' : ''}${n}`;
+  }
   return `${id.toUpperCase()} ${pct(v)}%`;
 }
 
 /**
  * Un encodeur (spec 20.6.2 ENC_SET) : glisser, molette, jumeau au clavier.
- * TEMPO en BPM (100 a 150, l'ecran le montre deja en ligne 1), les cinq
- * autres de 0 a 1 (bornes par drums.ts et le store du motif), leur valeur
- * 1200 ms en ligne 3 de l'ecran. TONE : passe-bas du bus ; LEVEL : gain du
+ * TEMPO en BPM (100 a 150, l'ecran le montre deja en ligne 1), TONE de -1
+ * a 1 (accroche a 0 au centre), les autres de 0 a 1 (bornes par drums.ts et
+ * le store du motif), leur valeur 1200 ms en ligne 3 de l'ecran. TONE :
+ * hauteur et filtre du bus ; STRETCH : etirement granulaire ; LEVEL : gain du
  * bus, jamais le master (?mute=1 tient) ; SWING : retard des pas pairs
  * (horloge) ; DIST : saturation parallele du bus ; REVERB : envoi vers la
  * reverbe a convolution. Les trois derniers persistent avec le motif.
@@ -195,6 +200,7 @@ export function dial(id: EncId, v: number): void {
     return;
   }
   if (id === 'tone') setTone(v);
+  else if (id === 'stretch') setStretch(v);
   else if (id === 'level') setLevel(v);
   else if (id === 'swing') setSwing(v);
   else if (id === 'dist') setDrive(v);
@@ -209,6 +215,8 @@ export function dialValue(id: EncId): number {
       return pattern.get().bpm;
     case 'tone':
       return mix.tone;
+    case 'stretch':
+      return mix.stretch;
     case 'level':
       return mix.level;
     case 'swing':
@@ -220,7 +228,7 @@ export function dialValue(id: EncId): number {
   }
 }
 
-/** Valeur de depart (double tape) : 130 BPM, TONE ouvert, LEVEL 80 %, le reste a 0. */
+/** Valeur de depart (double tape) : 130 BPM, TONE au centre, LEVEL 80 %, le reste a 0. */
 export function dialReset(id: EncId): number {
   return id === 'tempo' ? BPM.initial : POT_UI.reset[id];
 }

@@ -1,94 +1,143 @@
 /**
- * Le PCB de la vue eclatee (spec 5.6, 5.7 et 20.3.11), incline comme le
- * panneau dans le chassis en coin ; il en sort de 0.9 quand la machine
- * s'ouvre. La carte : vert sombre mat
- * (#12301F), pistes de cuivre (#B8763A) dessinees au runtime dans une
- * CanvasTexture par un generateur a graine (mulberry32, 808) qui marche
- * sur une grille de 0.4 en lignes droites et virages a 45 ou 90 deg, sans
- * jamais traverser un composant ni une autre piste, pastilles rondes aux
- * deux bouts et sur 20 vias ; contours des composants et serigraphie en
- * blanc casse, bone a 90 % (MAUDITE MACHINE, MM-808, versions,
- * designateurs ; aucun lieu, regle du site), cadre jaune autour des trois
- * puces cliquables LABEL, LIVE, STUDIO. LABEL sort du site (spec 20.5) :
- * au survol, et au focus clavier de son jumeau, le dessus de la puce passe
- * au jaune, sa serigraphie aussi, suivie du chevron sortant ; seul le
- * rectangle de ce texte est redessine (depuis une copie de la carte), le
- * routage lui garde sa place une fois pour toutes.
- * Les composants en volume : trois grosses puces a pattes, quatre petites,
- * six condensateurs cylindriques, une pile bouton, dix resistances, deux
- * quartz. Chaque famille est un gabarit place par une liste de
- * transformations (l'idee de l'InstancedMesh), instancie sur le CPU puis
- * fusionne en UNE geometrie a couleurs de sommets : six InstancedMesh
- * couteraient six draw calls et le budget mobile (16) ne les tient pas
- * (section 19). Deux draw calls en tout : la carte, les composants.
- * parts.scale.y (0.001 a 1) fait sortir les composants de la carte.
+ * Le PCB de la vue eclatee (spec 5.6, 5.7 et 20.3.11 ; revision 5 : une
+ * carte qui a l'air vraie), incline comme le panneau dans le chassis en
+ * coin ; il en sort de 0.9 quand la machine s'ouvre.
+ *
+ * La carte : chanfrein sur les quatre bords, tranche en fibre de verre nue
+ * (beige). Vernis epargne vert sombre jamais uni (bruit tres doux en
+ * couleur et en rugosite, un peu de poussiere), cuivre metallique
+ * (metalness 0.85, roughness 0.34, par la carte ORM : occlusion en rouge,
+ * rugosite en vert, metal en bleu) qui accroche la lumiere grace a une
+ * petite carte d'environnement procedurale. Routage a graine (mulberry32,
+ * 808) sur une grille de 0.2 : lignes droites et virages a 45 deg, jamais
+ * d'angle droit ; pistes de signal fines, d'alimentation larges, paires
+ * differentielles (deux pistes paralleles a ecartement constant),
+ * serpentins d'egalisation de longueur, vias aux changements de couche ;
+ * plan de masse hachure avec ses vias de couture ; pastilles dorees sous
+ * les pattes ; trous de fixation a pastille metallique et vis cruciformes.
+ * Ombre de contact courte et sombre au pied de chaque composant (cuite dans
+ * la couleur et dans l'occlusion). Serigraphie d'origine gardee (MAUDITE
+ * MACHINE, MM-808, versions, designateurs), noms des puces cliquables en
+ * orange. Les textures sont generees une fois, a la premiere apparition du
+ * PCB (intro ou premier OPEN), pas au montage.
+ *
+ * Les composants : quatre geometries fusionnees, une par materiau (le
+ * budget de draw calls ne tient pas un InstancedMesh par famille) :
+ * plastiques et corps (couleurs de sommets, mat), metaux (pattes, broches
+ * dorees, boitiers de quartz, dissipateur, vis, dessus des condensateurs :
+ * metalness 0.85), marquages blancs (references des puces, codes des
+ * resistances, un atlas), la LED allumee et sa lueur sur le cuivre
+ * (additive, non eclairee). parts.scale.y (0.001 a 1) fait sortir le tout
+ * de la carte : les trois autres sont ses enfants.
  */
 
 import {
+  AdditiveBlending,
   BoxGeometry,
+  BufferGeometry,
+  Color,
   CylinderGeometry,
   DynamicDrawUsage,
+  EquirectangularReflectionMapping,
+  Float32BufferAttribute,
   Mesh,
+  MeshBasicMaterial,
   MeshStandardMaterial,
+  NoColorSpace,
+  PlaneGeometry,
+  SphereGeometry,
+  SRGBColorSpace,
   type BufferAttribute,
-  type BufferGeometry,
   type CanvasTexture,
   type Object3D,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { CHIP, CHIPS, EXTERNAL_MARK, PCB, PCB_PARTS, PCB_SILK, PCB_TYPE, SILK, boneA, type ChipId } from '../theme';
+import { CHIP, CHIPS, EXTERNAL_MARK, FONT_DISPLAY, PCB, PCB_PARTS, PCB_SILK, PCB_TYPE, SILK, boneA, type ChipId } from '../theme';
 import type { HotspotDef } from './hit';
-import { albedoRgb, litCss, paintLinear } from './materials';
+import { albedoRgb, litCss } from './materials';
 import { drawTracked, fontsReady, makeCanvasTexture, mulberry32, trackedWidth } from './silk';
+
+type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
+type Rgb = readonly number[];
 
 /* ---------------- teintes ---------------- */
 
+/** Px de la texture de reference (1024 de large) : traits et textes gardent leur taille. */
+const PX_REF = 1024;
+
+const tmpC = new Color();
+/** Couleur de sommet : sRGB -> lineaire x gain. */
+const lin = (hex: number, gain = 1): [number, number, number] => {
+  tmpC.setHex(hex).multiplyScalar(gain);
+  return [tmpC.r, tmpC.g, tmpC.b];
+};
+/** Couleur a peindre dans une texture eclairee : lineaire x gain, reencodee en sRGB. */
+const css = (hex: number, gain = 1): string => `#${tmpC.setHex(hex).multiplyScalar(gain).getHexString()}`;
+
 /**
- * Peintes dans la texture de la carte (eclairee), calees par lecture de
- * pixels a 1440 x 900 comme les couleurs de sommets du corps : la carte
- * par canal (la lumiere chaude mange son bleu), le cuivre a x 1.4 rend
- * 183,117,51 pour #B8763A (section 19).
+ * Peintes dans la texture de la carte (eclairee), calees comme les
+ * couleurs de sommets du corps (section 19) : le vernis par canal (la
+ * lumiere chaude mange son bleu).
  */
 const BOARD_GAIN = [1.47, 1.94, 2.57] as const;
 const TEX = {
   board: litCss('pcb', BOARD_GAIN),
-  side: litCss('pcbSide', BOARD_GAIN),
-  copper: litCss('copper', 1.4),
-  core: litCss('pcbPadCore', 3),
+  copper: css(0xc98a55, 1),
+  /** pastilles en or (finition ENIG) */
+  gold: css(0xd9b45e, 1),
+  hole: '#070807',
+  /** tranche : fibre de verre nue */
+  fiber: css(0xc4b88c, 1.25),
   frame: litCss('yellow', 1.2),
-  // Le blanc du brief est le blanc casse chaud : bone, pas un blanc pur
   silk: boneA(0.9),
-  /** serigraphie et chevron de la puce LABEL allumee (survol, focus) */
   lit: litCss('yellow', 1.2),
-  /** nom des puces cliquables : l'orange de navigation, comme les pages du panneau */
   nav: litCss('orange', 1.2),
 } as const;
 
-/**
- * Albedos lineaires des composants (couleurs de sommets), cales de meme :
- * dessus des puces 10,8,7 (#0B0B0D), pattes 147,147,147 (#8A8F98),
- * resistances 197,177,135 (#C9B48A), pile 183,180,178 (#B9BCC4) ; le
- * corps des condensateurs est vu de flanc, moins eclaire : gain fort.
- */
+/** Carte ORM : occlusion (rouge), rugosite (vert), metal (bleu). */
+const ORM = {
+  board: 'rgb(255, 191, 13)',
+  copper: 'rgb(255, 87, 217)',
+  silk: 'rgb(255, 204, 0)',
+  hole: 'rgb(150, 235, 0)',
+  fiber: 'rgb(255, 217, 0)',
+} as const;
+
+/** Albedos lineaires des composants (couleurs de sommets). */
 const RGB = {
   chip: albedoRgb('chip', 3),
-  leg: albedoRgb('leg', 1.4),
-  capBody: albedoRgb('capBody', 4),
-  capTop: albedoRgb('capTop', 1.5),
-  cell: albedoRgb('cell', 1.25),
-  resistor: albedoRgb('resistor', 1.3),
   dot: albedoRgb('yellow', 1.3),
+  dimple: lin(0x1c1c1f, 3),
+  capBody: albedoRgb('capBody', 4),
+  capBand: lin(0xb8bcc4, 1.5),
+  ceramic: lin(0xb8996a, 1.9),
+  resistor: lin(0x131315, 3),
+  shroud: lin(0x151517, 3),
+  block: lin(0x2f6fb5, 2),
+  blockHole: lin(0x050506, 1),
+  holder: lin(0x111113, 3),
   /**
    * dessus de la puce LABEL allumee : jaune, gain par canal (l'ACES delave
-   * un jaune vif et fait monter son bleu), lu 241,195,73 a la vue ouverte
-   * par defaut, comme le flash des pads (241,193,74)
+   * un jaune vif et fait monter son bleu)
    */
   litTop: albedoRgb('yellow', 1).map((v, i) => v * [2, 1.3, 0.3][i]),
 } as const;
+/** Metaux (couleur speculaire). */
+const METAL = {
+  leg: lin(0xc8ccd2),
+  gold: lin(0xe2b65a),
+  can: lin(0xdadde1),
+  alu: lin(0xbcc0c6),
+  capTop: lin(0xd0d3d8),
+  capCross: lin(0x8f939a),
+  screw: lin(0xc4c7cc),
+  recess: lin(0x2a2c30),
+  cell: lin(0xd5d8dc),
+} as const;
+const LED_RGB = { dome: [1.0, 0.5, 0.2], glow: [0.95, 0.36, 0.08] } as const;
 
-/* ---------------- generateur ---------------- */
+/* ---------------- grille des pistes ---------------- */
 
-/** Grille des pistes : 0.4 de pas, 0.3 de marge au bord de la carte. */
 const G = PCB.grid;
 const X0 = -PCB.w / 2 + 0.3;
 const Z0 = -PCB.d / 2 + 0.3;
@@ -111,7 +160,6 @@ const FREE = 0;
 const BLOCKED = 1;
 const USED = 2;
 
-/** Emprise d'un composant ou d'un texte, en unites de la carte. */
 interface Rect {
   x0: number;
   z0: number;
@@ -119,7 +167,6 @@ interface Rect {
   z1: number;
 }
 
-/** Un texte serigraphie ; reserve : px (texture desktop) gardes libres a sa droite (chevron). */
 interface SilkText {
   text: string;
   x: number;
@@ -127,11 +174,9 @@ interface SilkText {
   px: number;
   align: 'left' | 'center' | 'right';
   reserve: number;
-  /** nom d'une puce cliquable : en orange (navigation), pas en bone */
   nav?: boolean;
 }
 
-/** Nom d'une puce en px de la texture : bord gauche, ligne de base, hauteur de capitale, taille, depart du chevron. */
 interface LabelGeom {
   x0: number;
   baseline: number;
@@ -140,47 +185,69 @@ interface LabelGeom {
   markX: number;
 }
 
-/** Zone redessinee d'une puce qui sort du site : son nom et son chevron, en px de la texture. */
 interface ExtZone {
   id: ChipId;
   text: string;
   geom: LabelGeom;
-  /** rectangle a restaurer (px entiers) */
   x: number;
   y: number;
   w: number;
   h: number;
-  /**
-   * la carte sous ce rectangle, sans rien d'allume : copie dans un petit
-   * canvas (drawImage, pas de relecture getImageData), prise apres chaque
-   * dessin complet
-   */
   base: HTMLCanvasElement | null;
 }
 
-/** Un contour serigraphie (et son designateur). */
+/** Un composant sur la carte : contour, designateur, pastilles, ombre. */
 interface Footprint {
   x: number;
   z: number;
   hx: number;
   hz: number;
   round: boolean;
-  /** cadre jaune : puce cliquable */
   frame: boolean;
   ref: string;
-  /** position du designateur (x, z) et son alignement */
   refX: number;
   refZ: number;
   refAlign: 'left' | 'center' | 'right';
-  /** direction des pistes qui en partent : sur z (puces) ou sur x */
-  axis: 'x' | 'z';
+  /** direction des pistes qui en partent ; null : aucune */
+  axis: 'x' | 'z' | null;
+  /** contour serigraphie */
+  outline: boolean;
+  /** pastilles (rectangles centres) en unites */
+  pads: { x: number; z: number; w: number; d: number; round?: boolean }[];
+  /** emprise de l'ombre de contact */
+  shadow: { x: number; z: number; hx: number; hz: number; round: boolean } | null;
 }
+
+/** Une piste routee et son rendu. */
+interface Trace {
+  pts: number[];
+  kind: 'signal' | 'power' | 'pair';
+  /** index du point ou la piste change de couche (via) ; -1 : aucun */
+  viaAt: number;
+  /** serpentin : index du premier point d'une ligne droite et nombre de pas */
+  meander: [number, number] | null;
+  /** score de visibilite (vue ouverte : bande avant et bande droite) */
+  vis: number;
+}
+
+/* ---------------- les composants, en donnees ---------------- */
+
+const P = PCB_PARTS;
+const LEG_SMALL = { n: 6, pitch: 0.12, w: 0.05, h: 0.05, d: 0.1 } as const;
+const HEADER = { pitch: 0.13, w: 1.2, d: 0.42, h: 0.3, wall: 0.035 } as const;
+const TERM = { pitch: 0.35, d: 0.34, h: 0.36 } as const;
 
 function footprints(): Footprint[] {
   const out: Footprint[] = [];
-  const P = PCB_PARTS;
   const legHz = CHIP.legZ + CHIP.legD / 2;
   CHIPS.forEach((c, k) => {
+    const pads: Footprint['pads'] = [];
+    for (const side of [-1, 1]) {
+      for (let j = 0; j < CHIP.legsPerSide; j += 1) {
+        const lx = c.x - ((CHIP.legsPerSide - 1) * CHIP.legPitch) / 2 + j * CHIP.legPitch;
+        pads.push({ x: lx, z: c.z + side * CHIP.legZ, w: CHIP.legW + 0.04, d: CHIP.legD + 0.08 });
+      }
+    }
     out.push({
       x: c.x,
       z: c.z,
@@ -193,178 +260,552 @@ function footprints(): Footprint[] {
       refZ: c.z - legHz - 0.26,
       refAlign: 'left',
       axis: 'z',
+      outline: true,
+      pads,
+      shadow: { x: c.x, z: c.z, hx: CHIP.w / 2, hz: CHIP.d / 2, round: false },
     });
   });
   P.small.forEach((s, k) => {
-    const hz = P.small3.d / 2 + 0.05;
-    out.push({ x: s.x, z: s.z, hx: P.small3.w / 2 + 0.05, hz, round: false, frame: false, ref: `U${k + CHIPS.length + 1}`, refX: s.x, refZ: s.z - hz - 0.2, refAlign: 'center', axis: 'x' });
+    const hz = P.small3.d / 2 + 0.1;
+    const pads: Footprint['pads'] = [];
+    for (const side of [-1, 1]) {
+      for (let j = 0; j < LEG_SMALL.n; j += 1) {
+        const lx = s.x - ((LEG_SMALL.n - 1) * LEG_SMALL.pitch) / 2 + j * LEG_SMALL.pitch;
+        pads.push({ x: lx, z: s.z + side * (P.small3.d / 2 + 0.04), w: LEG_SMALL.w + 0.03, d: LEG_SMALL.d + 0.04 });
+      }
+    }
+    out.push({ x: s.x, z: s.z, hx: P.small3.w / 2 + 0.05, hz, round: false, frame: false, ref: `U${k + CHIPS.length + 1}`, refX: s.x, refZ: s.z - hz - 0.16, refAlign: 'center', axis: 'x', outline: true, pads, shadow: { x: s.x, z: s.z, hx: P.small3.w / 2, hz: P.small3.d / 2, round: false } });
   });
   P.caps.forEach((c, k) => {
     const r = P.cap3.r + 0.05;
-    out.push({ x: c.x, z: c.z, hx: r, hz: r, round: true, frame: false, ref: `C${k + 1}`, refX: c.x + r + 0.08, refZ: c.z, refAlign: 'left', axis: 'x' });
+    out.push({ x: c.x, z: c.z, hx: r, hz: r, round: true, frame: false, ref: `C${k + 1}`, refX: c.x + r + 0.08, refZ: c.z, refAlign: 'left', axis: 'x', outline: true, pads: [], shadow: { x: c.x, z: c.z, hx: P.cap3.r, hz: P.cap3.r, round: true } });
   });
-  const r = P.cell3.r + 0.05;
-  out.push({ x: P.cell.x, z: P.cell.z, hx: r, hz: r, round: true, frame: false, ref: 'BT1', refX: P.cell.x, refZ: P.cell.z - r - 0.2, refAlign: 'center', axis: 'x' });
+  {
+    const r = P.cell3.r + 0.08;
+    out.push({ x: P.cell.x, z: P.cell.z, hx: r, hz: r, round: true, frame: false, ref: 'BT1', refX: P.cell.x, refZ: P.cell.z - r - 0.16, refAlign: 'center', axis: 'x', outline: true, pads: [], shadow: { x: P.cell.x, z: P.cell.z, hx: r - 0.02, hz: r - 0.02, round: true } });
+  }
   P.resistors.forEach((s, k) => {
-    const hz = P.resistor3.d / 2 + 0.05;
-    out.push({ x: s.x, z: s.z, hx: P.resistor3.w / 2 + 0.05, hz, round: false, frame: false, ref: `R${k + 1}`, refX: s.x, refZ: s.z - hz - 0.18, refAlign: 'center', axis: 'z' });
+    const R = P.resistor3;
+    const hz = R.d / 2 + 0.04;
+    const pads = [-1, 1].map((sd) => ({ x: s.x + sd * (R.w / 2 - 0.03), z: s.z, w: 0.1, d: R.d + 0.04 }));
+    out.push({ x: s.x, z: s.z, hx: R.w / 2 + 0.06, hz, round: false, frame: false, ref: `R${k + 1}`, refX: s.x, refZ: s.z - hz - 0.12, refAlign: 'center', axis: 'z', outline: false, pads, shadow: { x: s.x, z: s.z, hx: R.w / 2, hz: R.d / 2, round: false } });
+  });
+  P.ceramics.forEach((s, k) => {
+    const Cc = P.ceramic3;
+    const pads = [-1, 1].map((sd) => ({ x: s.x + sd * (Cc.w / 2 - 0.03), z: s.z, w: 0.09, d: Cc.d + 0.04 }));
+    out.push({ x: s.x, z: s.z, hx: Cc.w / 2 + 0.06, hz: Cc.d / 2 + 0.04, round: false, frame: false, ref: `C${k + P.caps.length + 1}`, refX: s.x, refZ: s.z + Cc.d / 2 + 0.16, refAlign: 'center', axis: 'z', outline: false, pads, shadow: { x: s.x, z: s.z, hx: Cc.w / 2, hz: Cc.d / 2, round: false } });
   });
   P.crystals.forEach((s, k) => {
     const hz = P.crystal3.r + 0.05;
-    out.push({ x: s.x, z: s.z, hx: P.crystal3.l / 2 + 0.05, hz, round: false, frame: false, ref: `X${k + 1}`, refX: s.x, refZ: s.z - hz - 0.18, refAlign: 'center', axis: 'x' });
+    const pads = [-1, 1].map((sd) => ({ x: s.x + sd * (P.crystal3.l / 2 + 0.05), z: s.z, w: 0.08, d: 0.1 }));
+    out.push({ x: s.x, z: s.z, hx: P.crystal3.l / 2 + 0.1, hz, round: false, frame: false, ref: `X${k + 1}`, refX: s.x, refZ: s.z - hz - 0.16, refAlign: 'center', axis: 'x', outline: true, pads, shadow: { x: s.x, z: s.z, hx: P.crystal3.l / 2, hz: P.crystal3.r * 0.9, round: false } });
   });
+  {
+    const r = P.regulator;
+    const pads = [-1, 0, 1].map((k) => ({ x: r.x + k * 0.1, z: r.z + 0.05, w: 0.07, d: 0.1, round: true }));
+    out.push({ x: r.x, z: r.z - 0.15, hx: 0.42, hz: 0.33, round: false, frame: false, ref: 'VR1', refX: r.x + 0.48, refZ: r.z + 0.05, refAlign: 'left', axis: null, outline: true, pads, shadow: { x: r.x, z: r.z - 0.17, hx: 0.38, hz: 0.27, round: false } });
+  }
+  {
+    const h = P.header;
+    const pads: Footprint['pads'] = [];
+    for (let c = 0; c < h.cols; c += 1) {
+      for (const row of [-1, 1]) pads.push({ x: h.x + (c - (h.cols - 1) / 2) * HEADER.pitch, z: h.z + row * HEADER.pitch * 0.5, w: 0.07, d: 0.07, round: true });
+    }
+    out.push({ x: h.x, z: h.z, hx: HEADER.w / 2 + 0.05, hz: HEADER.d / 2 + 0.05, round: false, frame: false, ref: 'J1', refX: h.x - HEADER.w / 2, refZ: h.z + HEADER.d / 2 + 0.16, refAlign: 'left', axis: 'z', outline: true, pads, shadow: { x: h.x, z: h.z, hx: HEADER.w / 2, hz: HEADER.d / 2, round: false } });
+  }
+  {
+    const t = P.terminal;
+    const w = t.n * TERM.pitch;
+    out.push({ x: t.x, z: t.z, hx: w / 2 + 0.05, hz: TERM.d / 2 + 0.05, round: false, frame: false, ref: 'J2', refX: t.x + w / 2, refZ: t.z + TERM.d / 2 + 0.16, refAlign: 'right', axis: 'z', outline: true, pads: [], shadow: { x: t.x, z: t.z, hx: w / 2, hz: TERM.d / 2, round: false } });
+  }
+  {
+    const l = P.led;
+    const pads = [-1, 1].map((sd) => ({ x: l.x + sd * 0.06, z: l.z, w: 0.06, d: 0.09 }));
+    out.push({ x: l.x, z: l.z, hx: 0.12, hz: 0.12, round: true, frame: false, ref: 'D1', refX: l.x + 0.2, refZ: l.z - 0.05, refAlign: 'left', axis: 'x', outline: true, pads, shadow: { x: l.x, z: l.z, hx: 0.08, hz: 0.08, round: true } });
+  }
+  for (const h of P.holes) {
+    out.push({ x: h.x, z: h.z, hx: 0.24, hz: 0.24, round: true, frame: false, ref: '', refX: 0, refZ: 0, refAlign: 'center', axis: null, outline: false, pads: [], shadow: { x: h.x, z: h.z, hx: 0.15, hz: 0.15, round: true } });
+  }
   return out;
 }
 
-/* ---------------- geometrie des composants ---------------- */
+/* ---------------- geometrie ---------------- */
 
-type Rgb = readonly number[];
-
-function box(w: number, h: number, d: number, x: number, y: number, z: number, rgb: Rgb): BufferGeometry {
+function box(w: number, h: number, d: number, x: number, y: number, z: number, rgb: Rgb | null): BufferGeometry {
   const g = new BoxGeometry(w, h, d);
   g.translate(x, y, z);
-  g.deleteAttribute('uv');
-  paintLinear(g, rgb);
+  if (rgb) {
+    g.deleteAttribute('uv');
+    paint(g, rgb);
+  }
   return g;
 }
 
-/** Cylindre vertical pose a y0 (ou couche le long de x, centre a y0 + r). */
-function cyl(r: number, h: number, seg: number, x: number, y0: number, z: number, rgb: Rgb, alongX = false): BufferGeometry {
-  const g = new CylinderGeometry(r, r, h, seg);
-  if (alongX) {
+interface CylOpts {
+  /** couche le long de x (centre a y0 + r) */
+  alongX?: boolean;
+  open?: boolean;
+  thetaStart?: number;
+  thetaLength?: number;
+  /** aplatissement vertical (boitier ovale) */
+  squash?: number;
+}
+
+function cyl(r: number, h: number, seg: number, x: number, y0: number, z: number, rgb: Rgb, o: CylOpts = {}): BufferGeometry {
+  const g = new CylinderGeometry(r, r, h, seg, 1, o.open ?? false, o.thetaStart ?? 0, o.thetaLength ?? Math.PI * 2);
+  if (o.alongX) {
     g.rotateZ(Math.PI / 2);
-    g.translate(x, y0 + r, z);
+    if (o.squash) {
+      g.scale(1, o.squash, 1);
+      g.computeVertexNormals();
+    }
+    g.translate(x, y0 + r * (o.squash ?? 1), z);
   } else {
     g.translate(x, y0 + h / 2, z);
   }
   g.deleteAttribute('uv');
-  paintLinear(g, rgb);
+  paint(g, rgb);
   return g;
 }
 
-function merge(parts: BufferGeometry[], what: string): BufferGeometry {
-  const g = mergeGeometries(parts, false);
-  for (const p of parts) p.dispose();
-  if (!g) throw new Error(`pcb: ${what} merge failed`);
-  return g;
+function paint(g: BufferGeometry, rgb: Rgb): void {
+  const count = g.getAttribute('position').count;
+  const col = new Float32Array(count * 3);
+  for (let i = 0; i < count; i += 1) {
+    col[i * 3] = rgb[0];
+    col[i * 3 + 1] = rgb[1];
+    col[i * 3 + 2] = rgb[2];
+  }
+  g.setAttribute('color', new Float32BufferAttribute(col, 3));
 }
 
-/** Plage de sommets d'une grosse puce dans la geometrie fusionnee (survol). */
-interface ChipRange {
-  id: ChipId;
+/** Pieces d'une geometrie fusionnee ; add rend le premier sommet de la piece. */
+class Bucket {
+  private pieces: BufferGeometry[] = [];
+  count = 0;
+  add(g: BufferGeometry): number {
+    const start = this.count;
+    this.pieces.push(g);
+    this.count += g.getAttribute('position').count;
+    return start;
+  }
+  build(what: string): BufferGeometry {
+    const g = mergeGeometries(this.pieces, false);
+    for (const p of this.pieces) p.dispose();
+    this.pieces = [];
+    if (!g) throw new Error(`pcb: ${what} merge failed`);
+    return g;
+  }
+}
+
+/** Plage de sommets d'une geometrie fusionnee (soulevement d'une puce). */
+interface Span {
   start: number;
   count: number;
   baseY: Float32Array;
+}
+
+interface ChipRange {
+  id: ChipId;
+  spans: [Span | null, Span | null, Span | null];
   rise: number;
-  /** sommets du dessus du corps (4, contigus) : premier et nombre */
   topStart: number;
   topCount: number;
   lit: boolean;
 }
 
-function buildParts(mobile: boolean): { geo: BufferGeometry; ranges: ChipRange[] } {
-  const P = PCB_PARTS;
+/** Atlas des marquages : cellules de 4 x 1, texte blanc. */
+const ATLAS = { cols: 4, rows: 8 } as const;
+
+interface AtlasEntry {
+  lines: string[];
+  weight: number;
+}
+
+/** Quad de marquage couche sur un dessus, UV sur sa cellule de l'atlas. */
+function labelQuad(cell: number, w: number, h: number, x: number, y: number, z: number): BufferGeometry {
+  const g = new PlaneGeometry(w, h);
+  g.rotateX(-Math.PI / 2);
+  g.translate(x, y, z);
+  const uv = g.getAttribute('uv');
+  const cu = (cell % ATLAS.cols) / ATLAS.cols;
+  const cv = 1 - (Math.floor(cell / ATLAS.cols) + 1) / ATLAS.rows;
+  for (let i = 0; i < uv.count; i += 1) uv.setXY(i, cu + uv.getX(i) / ATLAS.cols, cv + uv.getY(i) / ATLAS.rows);
+  return g;
+}
+
+interface Built {
+  parts: BufferGeometry;
+  metal: BufferGeometry;
+  labels: BufferGeometry;
+  led: BufferGeometry;
+  ranges: ChipRange[];
+  atlas: AtlasEntry[];
+}
+
+function buildParts(mobile: boolean): Built {
   const seg = mobile ? 12 : 16;
-  const pieces: BufferGeometry[] = [];
+  const parts = new Bucket();
+  const metal = new Bucket();
+  const labels = new Bucket();
+  const led = new Bucket();
+  const atlas: AtlasEntry[] = [];
   const ranges: ChipRange[] = [];
-  let offset = 0;
-  const push = (g: BufferGeometry): void => {
-    pieces.push(g);
-    offset += g.getAttribute('position').count;
+  const span = (b: Bucket, start: number, g: BufferGeometry): Span => {
+    const pos = g.getAttribute('position');
+    const baseY = new Float32Array(pos.count);
+    for (let k = 0; k < pos.count; k += 1) baseY[k] = pos.getY(k);
+    return { start, count: pos.count, baseY };
   };
-  // Les quatre puces d'abord : leurs plages de sommets restent simples
-  for (const c of CHIPS) {
-    const sub: BufferGeometry[] = [box(CHIP.w, CHIP.y1 - CHIP.y0, CHIP.d, c.x, (CHIP.y0 + CHIP.y1) / 2, c.z, RGB.chip)];
+  const mergeOf = (list: BufferGeometry[], what: string): BufferGeometry => {
+    const g = mergeGeometries(list, false);
+    for (const p of list) p.dispose();
+    if (!g) throw new Error(`pcb: ${what} merge failed`);
+    return g;
+  };
+
+  // Les trois puces cliquables d'abord : corps et point jaune (plastique),
+  // pattes (metal), reference blanche sur le dessus (marquage)
+  CHIPS.forEach((c, k) => {
+    const body = box(CHIP.w, CHIP.y1 - CHIP.y0, CHIP.d, c.x, (CHIP.y0 + CHIP.y1) / 2, c.z, RGB.chip);
+    const dot = cyl(CHIP.dotR, 0.012, 12, c.x - CHIP.w / 2 + 0.22, CHIP.y1, c.z - CHIP.d / 2 + 0.22, RGB.dot);
+    const gp = mergeOf([body, dot], 'chip');
+    const pStart = parts.add(gp);
+    const pos = gp.getAttribute('position');
+    const nrm = gp.getAttribute('normal');
+    let t0 = -1;
+    let t1 = -1;
+    for (let q = 0; q < pos.count; q += 1) {
+      if (nrm.getY(q) > 0.9 && Math.abs(pos.getY(q) - CHIP.y1) < 1e-5) {
+        if (t0 < 0) t0 = q;
+        t1 = q;
+      }
+    }
+    const legs: BufferGeometry[] = [];
     for (const side of [-1, 1]) {
       for (let j = 0; j < CHIP.legsPerSide; j += 1) {
         const lx = c.x - ((CHIP.legsPerSide - 1) * CHIP.legPitch) / 2 + j * CHIP.legPitch;
-        sub.push(box(CHIP.legW, CHIP.legH, CHIP.legD, lx, CHIP.legH / 2, c.z + side * CHIP.legZ, RGB.leg));
+        legs.push(box(CHIP.legW, CHIP.legH, CHIP.legD, lx, CHIP.legH / 2, c.z + side * CHIP.legZ, METAL.leg));
       }
     }
-    // Broche 1 : le point jaune des puces cliquables
-    sub.push(cyl(CHIP.dotR, 0.012, 12, c.x - CHIP.w / 2 + 0.22, CHIP.y1, c.z - CHIP.d / 2 + 0.22, RGB.dot));
-    const g = merge(sub, 'chip');
-    const start = offset;
-    push(g);
-    const count = g.getAttribute('position').count;
-    const pos = g.getAttribute('position');
-    const nrm = g.getAttribute('normal');
-    const baseY = new Float32Array(count);
-    // Le dessus du corps : normale vers le haut, a la hauteur du corps (ni
-    // le point jaune, 0.012 plus haut, ni le dessus des pattes)
-    let t0 = -1;
-    let t1 = -1;
-    for (let k = 0; k < count; k += 1) {
-      baseY[k] = pos.getY(k);
-      if (nrm.getY(k) > 0.9 && Math.abs(pos.getY(k) - CHIP.y1) < 1e-5) {
-        if (t0 < 0) t0 = k;
-        t1 = k;
+    const gm = mergeOf(legs, 'legs');
+    const mStart = metal.add(gm);
+    const cell = atlas.length;
+    atlas.push({ lines: [`MM-808 ${['G1', 'M2', 'S3'][k] ?? 'X'}`, 'VRSTL 2026'], weight: 600 });
+    const gl = labelQuad(cell, 1.1, 0.275, c.x + 0.1, CHIP.y1 + 0.002, c.z + 0.08);
+    const lStart = labels.add(gl);
+    ranges.push({
+      id: c.id,
+      spans: [span(parts, pStart, gp), span(metal, mStart, gm), span(labels, lStart, gl)],
+      rise: 0,
+      topStart: pStart + t0,
+      topCount: t0 < 0 ? 0 : t1 - t0 + 1,
+      lit: false,
+    });
+  });
+
+  // Petites puces : corps, creux de la broche 1, pattes sur les flancs, reference
+  P.small.forEach((s, k) => {
+    const S = P.small3;
+    parts.add(box(S.w, S.h, S.d, s.x, 0.03 + S.h / 2, s.z, RGB.chip));
+    parts.add(cyl(0.035, 0.004, 10, s.x - S.w / 2 + 0.1, 0.03 + S.h, s.z - S.d / 2 + 0.1, RGB.dimple));
+    for (const side of [-1, 1]) {
+      for (let j = 0; j < LEG_SMALL.n; j += 1) {
+        const lx = s.x - ((LEG_SMALL.n - 1) * LEG_SMALL.pitch) / 2 + j * LEG_SMALL.pitch;
+        metal.add(box(LEG_SMALL.w, LEG_SMALL.h, LEG_SMALL.d, lx, LEG_SMALL.h / 2, s.z + side * (S.d / 2 + 0.03), METAL.leg));
       }
     }
-    ranges.push({ id: c.id, start, count, baseY, rise: 0, topStart: start + t0, topCount: t0 < 0 ? 0 : t1 - t0 + 1, lit: false });
+    const cell = atlas.length;
+    atlas.push({ lines: [P.smallRefs[k] ?? 'IC'], weight: 600 });
+    labels.add(labelQuad(cell, 0.56, 0.14, s.x + 0.04, 0.03 + S.h + 0.002, s.z + 0.05));
+  });
+
+  // Condensateurs electrolytiques, deux hauteurs : gaine, bande de polarite,
+  // dessus en aluminium et sa croix en relief
+  P.caps.forEach((c, k) => {
+    const C3 = P.cap3;
+    const h = P.capTall[k] ? C3.h : C3.hShort;
+    parts.add(cyl(C3.r, h, seg, c.x, 0, c.z, RGB.capBody));
+    parts.add(cyl(C3.r * 1.012, h * 0.9, 4, c.x, h * 0.04, c.z, RGB.capBand, { open: true, thetaStart: Math.PI * 1.15, thetaLength: 0.75 }));
+    metal.add(cyl(C3.r * 0.93, 0.014, seg, c.x, h, c.z, METAL.capTop));
+    metal.add(box(C3.r * 1.3, 0.016, 0.026, c.x, h + 0.014 + 0.008, c.z, METAL.capCross));
+    metal.add(box(0.026, 0.016, C3.r * 1.3, c.x, h + 0.014 + 0.008, c.z, METAL.capCross));
+  });
+
+  // Pile bouton dans son support
+  {
+    const C = P.cell3;
+    parts.add(cyl(C.r + 0.06, 0.06, seg + 8, P.cell.x, 0, P.cell.z, RGB.holder));
+    metal.add(cyl(C.r, C.h - 0.03, seg + 8, P.cell.x, 0.03, P.cell.z, METAL.cell));
+    metal.add(box(0.62, 0.02, 0.12, P.cell.x, C.h + 0.01, P.cell.z, METAL.leg));
   }
-  for (const s of P.small) push(box(P.small3.w, P.small3.h, P.small3.d, s.x, P.small3.h / 2, s.z, RGB.chip));
-  for (const c of P.caps) {
-    push(cyl(P.cap3.r, P.cap3.h, seg, c.x, 0, c.z, RGB.capBody));
-    push(cyl(P.cap3.r * 0.92, P.cap3.topH, seg, c.x, P.cap3.h, c.z, RGB.capTop));
+
+  // Resistances CMS : corps noir, terminaisons argentees, code sur le dessus
+  P.resistors.forEach((s, k) => {
+    const R = P.resistor3;
+    parts.add(box(R.w - 0.1, R.h, R.d, s.x, R.h / 2, s.z, RGB.resistor));
+    for (const sd of [-1, 1]) metal.add(box(0.05, R.h + 0.006, R.d + 0.006, s.x + sd * (R.w / 2 - 0.025), (R.h + 0.006) / 2, s.z, METAL.leg));
+    const cell = atlas.length;
+    atlas.push({ lines: [P.resistorCodes[k] ?? '000'], weight: 500 });
+    labels.add(labelQuad(cell, 0.2, 0.05, s.x, R.h + 0.002, s.z));
+  });
+
+  // Condensateurs ceramiques CMS : petits blocs beiges, terminaisons
+  for (const s of P.ceramics) {
+    const Cc = P.ceramic3;
+    parts.add(box(Cc.w - 0.08, Cc.h, Cc.d, s.x, Cc.h / 2, s.z, RGB.ceramic));
+    for (const sd of [-1, 1]) metal.add(box(0.04, Cc.h + 0.006, Cc.d + 0.006, s.x + sd * (Cc.w / 2 - 0.02), (Cc.h + 0.006) / 2, s.z, METAL.leg));
   }
-  push(cyl(P.cell3.r, P.cell3.h, seg + 8, P.cell.x, 0, P.cell.z, RGB.cell));
-  for (const s of P.resistors) push(box(P.resistor3.w, P.resistor3.h, P.resistor3.d, s.x, P.resistor3.h / 2, s.z, RGB.resistor));
-  for (const s of P.crystals) push(cyl(P.crystal3.r, P.crystal3.l, 12, s.x, 0, s.z, RGB.leg, true));
-  return { geo: merge(pieces, 'parts'), ranges };
+
+  // Quartz : boitier metallique ovale, couche
+  for (const s of P.crystals) metal.add(cyl(P.crystal3.r, P.crystal3.l, seg, s.x, 0, s.z, METAL.can, { alongX: true, squash: 0.62 }));
+
+  // Regulateur TO-220 debout, sa languette, son dissipateur vertical a ailettes
+  {
+    const r = P.regulator;
+    for (const k of [-1, 0, 1]) metal.add(box(0.035, 0.1, 0.035, r.x + k * 0.1, 0.05, r.z + 0.05, METAL.leg));
+    parts.add(box(0.4, 0.3, 0.16, r.x, 0.1 + 0.15, r.z + 0.05, RGB.chip));
+    metal.add(box(0.4, 0.44, 0.04, r.x, 0.1 + 0.22, r.z - 0.05, METAL.leg));
+    metal.add(box(0.72, 0.6, 0.05, r.x, 0.3, r.z - 0.095, METAL.alu));
+    for (let f = 0; f < 6; f += 1) metal.add(box(0.035, 0.6, 0.28, r.x - 0.3 + f * 0.12, 0.3, r.z - 0.26, METAL.alu));
+  }
+
+  // Connecteur de nappe 2 x 8 : boitier noir, broches dorees
+  {
+    const h = P.header;
+    const H = HEADER;
+    parts.add(box(H.w, 0.04, H.d, h.x, 0.02, h.z, RGB.shroud));
+    for (const sd of [-1, 1]) parts.add(box(H.w, H.h, H.wall, h.x, H.h / 2, h.z + sd * (H.d / 2 - H.wall / 2), RGB.shroud));
+    for (const sd of [-1, 1]) parts.add(box(H.wall, H.h, H.d - 2 * H.wall, h.x + sd * (H.w / 2 - H.wall / 2), H.h / 2, h.z, RGB.shroud));
+    for (let c = 0; c < h.cols; c += 1) {
+      for (const row of [-1, 1]) metal.add(box(0.03, 0.24, 0.03, h.x + (c - (h.cols - 1) / 2) * H.pitch, 0.04 + 0.12, h.z + row * H.pitch * 0.5, METAL.gold));
+    }
+  }
+
+  // Bornier a vis 3 points : bloc bleu, entrees des fils, vis et leur fente
+  {
+    const t = P.terminal;
+    const w = t.n * TERM.pitch;
+    parts.add(box(w, TERM.h, TERM.d, t.x, TERM.h / 2, t.z, RGB.block));
+    for (let k = 0; k < t.n; k += 1) {
+      const x = t.x - w / 2 + TERM.pitch * (k + 0.5);
+      parts.add(box(0.2, 0.14, 0.012, x, 0.13, t.z - TERM.d / 2 - 0.004, RGB.blockHole));
+      metal.add(cyl(0.1, 0.03, seg, x, TERM.h, t.z + 0.03, METAL.screw));
+      metal.add(box(0.15, 0.012, 0.028, x, TERM.h + 0.03 + 0.004, t.z + 0.03, METAL.recess));
+    }
+  }
+
+  // Vis cruciformes des trous de fixation
+  for (const h of P.holes) {
+    metal.add(cyl(0.15, 0.045, seg, h.x, 0, h.z, METAL.screw));
+    metal.add(box(0.17, 0.012, 0.03, h.x, 0.045 + 0.004, h.z, METAL.recess));
+    metal.add(box(0.03, 0.012, 0.17, h.x, 0.045 + 0.004, h.z, METAL.recess));
+  }
+
+  // LED allumee : son dome, et sa lueur couchee sur le cuivre
+  {
+    const l = P.led;
+    const body = new CylinderGeometry(0.07, 0.075, 0.06, 12);
+    body.translate(l.x, 0.03, l.z);
+    const dome = new SphereGeometry(0.07, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2);
+    dome.translate(l.x, 0.06, l.z);
+    for (const g of [body, dome]) {
+      const uv = g.getAttribute('uv');
+      for (let i = 0; i < uv.count; i += 1) uv.setXY(i, 0.5, 0.5);
+      paint(g, LED_RGB.dome);
+      led.add(g);
+    }
+    const glow = new PlaneGeometry(1.1, 1.1);
+    glow.rotateX(-Math.PI / 2);
+    glow.translate(l.x, 0.004, l.z);
+    paint(glow, LED_RGB.glow);
+    led.add(glow);
+  }
+
+  return { parts: parts.build('parts'), metal: metal.build('metal'), labels: labels.build('labels'), led: led.build('led'), ranges, atlas };
 }
 
-/** Carte : dessus texture, flancs et dessous sur l'aplat pcbSide du coin de la texture. */
+/**
+ * La carte : dessus (texture), chanfrein de 0.03 sur les quatre bords,
+ * tranches et dessous sur l'aplat de fibre de verre du coin de la texture
+ * (UV constant : niveau 0, l'aplat exact). 20 triangles.
+ */
 function buildBoard(W: number, H: number): BufferGeometry {
-  const g = new BoxGeometry(PCB.w, PCB.h, PCB.d);
-  g.translate(0, PCB.h / 2, 0);
-  const uv = g.getAttribute('uv');
-  const n = g.getAttribute('normal');
-  // UV constant : derivees nulles, niveau 0 de la texture, l'aplat exact
-  const u = 1 - 4 / W;
-  const v = 1 - 4 / H;
-  for (let i = 0; i < uv.count; i += 1) if (n.getY(i) < 0.5) uv.setXY(i, u, v);
+  const w = PCB.w / 2;
+  const d = PCB.d / 2;
+  const h = PCB.h;
+  const c = PCB.chamfer;
+  const eu = 1 - 2 / W;
+  const ev = 1 - 2 / H;
+  const pos: number[] = [];
+  const uv: number[] = [];
+  type V = [number, number, number];
+  const topUv = (p: V): [number, number] => [(p[0] + w) / (2 * w), 1 - (p[2] + d) / (2 * d)];
+  const quad = (a: V, b: V, cc: V, dd: V, out: V, mapped: boolean): void => {
+    // Ordre des sommets : la normale geometrique du triangle suit `out`
+    const ux = b[0] - a[0];
+    const uy = b[1] - a[1];
+    const uz = b[2] - a[2];
+    const vx = cc[0] - a[0];
+    const vy = cc[1] - a[1];
+    const vz = cc[2] - a[2];
+    const nx = uy * vz - uz * vy;
+    const ny = uz * vx - ux * vz;
+    const nz = ux * vy - uy * vx;
+    const flip = nx * out[0] + ny * out[1] + nz * out[2] < 0;
+    const tris: V[] = flip ? [a, cc, b, a, dd, cc] : [a, b, cc, a, cc, dd];
+    for (const p of tris) {
+      pos.push(p[0], p[1], p[2]);
+      const t = mapped ? topUv(p) : [eu, ev];
+      uv.push(t[0], t[1]);
+    }
+  };
+  const t = h;
+  const s = h - c;
+  // Dessus
+  quad([-w + c, t, -d + c], [w - c, t, -d + c], [w - c, t, d - c], [-w + c, t, d - c], [0, 1, 0], true);
+  // Chanfreins
+  quad([-w + c, t, d - c], [w - c, t, d - c], [w, s, d], [-w, s, d], [0, 1, 1], false);
+  quad([w - c, t, -d + c], [-w + c, t, -d + c], [-w, s, -d], [w, s, -d], [0, 1, -1], false);
+  quad([w - c, t, d - c], [w - c, t, -d + c], [w, s, -d], [w, s, d], [1, 1, 0], false);
+  quad([-w + c, t, -d + c], [-w + c, t, d - c], [-w, s, d], [-w, s, -d], [-1, 1, 0], false);
+  // Tranches
+  quad([-w, s, d], [w, s, d], [w, 0, d], [-w, 0, d], [0, 0, 1], false);
+  quad([w, s, -d], [-w, s, -d], [-w, 0, -d], [w, 0, -d], [0, 0, -1], false);
+  quad([w, s, d], [w, s, -d], [w, 0, -d], [w, 0, d], [1, 0, 0], false);
+  quad([-w, s, -d], [-w, s, d], [-w, 0, d], [-w, 0, -d], [-1, 0, 0], false);
+  // Dessous
+  quad([-w, 0, -d], [w, 0, -d], [w, 0, d], [-w, 0, d], [0, -1, 0], false);
+  const g = new BufferGeometry();
+  g.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
+  g.computeVertexNormals();
   return g;
+}
+
+/* ---------------- textures annexes ---------------- */
+
+function canvas2d(w: number, h: number): { canvas: HTMLCanvasElement; ctx: Ctx } {
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('pcb: no 2d context');
+  return { canvas, ctx: ctx as Ctx };
+}
+
+/**
+ * Carte d'environnement procedurale (equirectangulaire 256 x 128) : un
+ * studio sombre, une boite a lumiere chaude du cote de la cle, une plus
+ * petite jaune a gauche (le lisere), le sol a l'encre. Les metaux du PCB
+ * y prennent leurs reflets ; three la prefiltre (PMREM) une fois.
+ */
+function drawEnv(ctx: Ctx, W: number, H: number): void {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#b4ab9c');
+  g.addColorStop(0.4, '#6c665c');
+  g.addColorStop(0.5, '#3d3933');
+  g.addColorStop(0.62, '#24221f');
+  g.addColorStop(1, '#141413');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  const soft = (x: number, y: number, rx: number, ry: number, color: string): void => {
+    const r = ctx.createRadialGradient(x, y, 0, x, y, Math.max(rx, ry));
+    r.addColorStop(0, color);
+    r.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(rx / Math.max(rx, ry), ry / Math.max(rx, ry));
+    ctx.translate(-x, -y);
+    ctx.fillStyle = r;
+    ctx.fillRect(x - Math.max(rx, ry), y - Math.max(rx, ry), 2 * Math.max(rx, ry), 2 * Math.max(rx, ry));
+    ctx.restore();
+  };
+  soft(W * 0.62, H * 0.2, W * 0.14, H * 0.13, 'rgba(255, 244, 226, 1)');
+  soft(W * 0.12, H * 0.38, W * 0.06, H * 0.09, 'rgba(242, 194, 48, 0.9)');
+  soft(W * 0.88, H * 0.3, W * 0.09, H * 0.1, 'rgba(246, 241, 231, 0.7)');
+  soft(W * 0.37, H * 0.42, W * 0.1, H * 0.06, 'rgba(246, 241, 231, 0.45)');
+}
+
+/** Halo de la LED : blanc, alpha de 1 au centre a 0 au bord, decroissance au carre. */
+function drawRadial(ctx: Ctx, n: number): void {
+  const img = ctx.createImageData(n, n);
+  for (let j = 0; j < n; j += 1) {
+    for (let i = 0; i < n; i += 1) {
+      const dx = ((i + 0.5) / n) * 2 - 1;
+      const dy = ((j + 0.5) / n) * 2 - 1;
+      const a = Math.max(0, 1 - Math.hypot(dx, dy)) ** 2;
+      const o = (j * n + i) * 4;
+      img.data[o] = 255;
+      img.data[o + 1] = 255;
+      img.data[o + 2] = 255;
+      img.data[o + 3] = Math.round(a * 255);
+    }
+  }
+  ctx.putImageData(img, 0, 0);
 }
 
 /* ---------------- le PCB ---------------- */
 
 export interface PcbInfo {
   size: [number, number];
+  /** textures generees (premiere apparition), et leur cout */
+  prepared: boolean;
+  prepareMs: number;
   traces: number;
-  /** segments de piste (grille) */
   segments: number;
+  pairs: number;
+  power: number;
+  meanders: number;
   pads: number;
   vias: number;
   parts: number;
+  /** triangles de toutes les geometries du PCB (carte comprise) */
   triangles: number;
+  /** objets dessines du PCB : carte, plastiques, metaux, marquages, LED */
+  meshes: number;
   draws: number;
   webfont: boolean;
-  /** soulevement des puces (survol) */
   rise: Record<ChipId, number>;
-  /** puce allumee (LABEL : survol ou focus clavier) */
   lit: Record<ChipId, boolean>;
-  /** redessins de la zone d'une puce allumee ou eteinte */
   litDraws: number;
 }
 
 export class Pcb {
   readonly board: Mesh;
   readonly parts: Mesh;
+  readonly metal: Mesh;
+  readonly labels: Mesh;
+  readonly led: Mesh;
   readonly texture: CanvasTexture;
+  private orm: CanvasTexture;
+  private atlasTex: CanvasTexture;
+  private radialTex: CanvasTexture;
+  private envTex: CanvasTexture;
   private canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D & { letterSpacing?: string };
+  private ctx: Ctx;
+  private ormCanvas: HTMLCanvasElement;
+  private ormCtx: Ctx;
+  private atlasCanvas: HTMLCanvasElement;
+  private envCanvas: HTMLCanvasElement;
   private W: number;
   private H: number;
+  private aW: number;
+  private aH: number;
   private boardMat: MeshStandardMaterial;
   private partsMat: MeshStandardMaterial;
+  private metalMat: MeshStandardMaterial;
+  private labelMat: MeshStandardMaterial;
+  private ledMat: MeshBasicMaterial;
   private prints: Footprint[];
-  /** polylignes en unites de la carte [x0, z0, x1, z1, ...] */
-  private traces: number[][] = [];
+  private atlas: AtlasEntry[];
+  private traces: Trace[] = [];
   private vias: [number, number][] = [];
+  private stitch: [number, number][] = [];
   private ranges: ChipRange[];
-  /** noms des puces qui sortent du site et leur chevron (redessins au survol) */
   private zones: ExtZone[] = [];
+  private prepared = false;
+  private prepareMs = 0;
   private draws = 0;
   private litDraws = 0;
   private segments = 0;
@@ -373,37 +814,122 @@ export class Pcb {
     const [W, H] = mobile ? PCB.tex.mobile : PCB.tex.desktop;
     this.W = W;
     this.H = H;
-    this.canvas = document.createElement('canvas');
-    this.canvas.width = W;
-    this.canvas.height = H;
-    const ctx = this.canvas.getContext('2d');
-    if (!ctx) throw new Error('pcb: no 2d context');
-    this.ctx = ctx;
-    this.texture = makeCanvasTexture(this.canvas, anisotropy);
-    this.prints = footprints();
-    this.route();
+    this.aW = mobile ? 512 : 1024;
+    this.aH = this.aW / 2;
+    // Petits aplats tant que le PCB n'est pas apparu : les materiaux ont
+    // leurs cartes des le depart (programmes compiles une fois), les vraies
+    // tailles viennent a prepare()
+    const c = canvas2d(4, 4);
+    this.canvas = c.canvas;
+    this.ctx = c.ctx;
+    this.ctx.fillStyle = TEX.board;
+    this.ctx.fillRect(0, 0, 4, 4);
+    const o = canvas2d(4, 4);
+    this.ormCanvas = o.canvas;
+    this.ormCtx = o.ctx;
+    this.ormCtx.fillStyle = ORM.board;
+    this.ormCtx.fillRect(0, 0, 4, 4);
+    this.atlasCanvas = canvas2d(4, 4).canvas;
+    // L'environnement tout de suite (256 x 128, un instant) : three le
+    // prefiltre une seule fois, a la compilation des programmes
+    const e = canvas2d(256, 128);
+    drawEnv(e.ctx, 256, 128);
+    this.envCanvas = e.canvas;
+    const r = canvas2d(64, 64);
+    drawRadial(r.ctx, 64);
 
-    this.boardMat = new MeshStandardMaterial({ map: this.texture, roughness: 0.75, metalness: 0 });
+    this.texture = makeCanvasTexture(this.canvas, anisotropy);
+    this.orm = makeCanvasTexture(this.ormCanvas, anisotropy);
+    this.orm.colorSpace = NoColorSpace;
+    this.atlasTex = makeCanvasTexture(this.atlasCanvas, anisotropy);
+    this.radialTex = makeCanvasTexture(r.canvas, 1);
+    this.envTex = makeCanvasTexture(this.envCanvas, 1, false);
+    this.envTex.mapping = EquirectangularReflectionMapping;
+    this.envTex.colorSpace = SRGBColorSpace;
+
+    this.prints = footprints();
+
+    this.boardMat = new MeshStandardMaterial({
+      map: this.texture,
+      roughnessMap: this.orm,
+      metalnessMap: this.orm,
+      aoMap: this.orm,
+      aoMapIntensity: 1,
+      roughness: 1,
+      metalness: 1,
+      envMap: this.envTex,
+      envMapIntensity: 1,
+    });
     this.boardMat.name = 'pcb';
     this.board = new Mesh(buildBoard(W, H), this.boardMat);
     this.board.name = 'pcbBoard';
 
-    const { geo, ranges } = buildParts(mobile);
-    this.ranges = ranges;
-    (geo.getAttribute('position') as BufferAttribute).setUsage(DynamicDrawUsage);
-    (geo.getAttribute('color') as BufferAttribute).setUsage(DynamicDrawUsage);
-    this.partsMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0 });
+    const built = buildParts(mobile);
+    this.ranges = built.ranges;
+    this.atlas = built.atlas;
+    for (const g of [built.parts, built.metal, built.labels]) {
+      (g.getAttribute('position') as BufferAttribute).setUsage(DynamicDrawUsage);
+    }
+    (built.parts.getAttribute('color') as BufferAttribute).setUsage(DynamicDrawUsage);
+    this.partsMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0, envMap: this.envTex, envMapIntensity: 0.35 });
     this.partsMat.name = 'parts';
-    this.parts = new Mesh(geo, this.partsMat);
+    this.parts = new Mesh(built.parts, this.partsMat);
     this.parts.name = 'pcbParts';
-    // Les composants poussent depuis le dessus de la carte
+    this.metalMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.32, metalness: 0.85, envMap: this.envTex, envMapIntensity: 1.5 });
+    this.metalMat.name = 'pcbMetal';
+    this.metal = new Mesh(built.metal, this.metalMat);
+    this.metal.name = 'pcbMetal';
+    this.labelMat = new MeshStandardMaterial({ map: this.atlasTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1, roughness: 0.7, metalness: 0 });
+    this.labelMat.name = 'pcbLabels';
+    this.labels = new Mesh(built.labels, this.labelMat);
+    this.labels.name = 'pcbLabels';
+    this.ledMat = new MeshBasicMaterial({ map: this.radialTex, vertexColors: true, transparent: true, blending: AdditiveBlending, depthWrite: false, toneMapped: false });
+    this.ledMat.name = 'pcbLed';
+    this.led = new Mesh(built.led, this.ledMat);
+    this.led.name = 'pcbLed';
+    this.led.renderOrder = 2;
+    // Les composants poussent depuis le dessus de la carte, les trois autres avec eux
     this.parts.position.y = PCB.h;
     this.parts.scale.y = 0.001;
+    this.parts.add(this.metal, this.labels, this.led);
     // Ni ombre portee ni recue : sous le plateau leve la carte serait noire
-    this.draw();
   }
 
-  /* ---------- texture ---------- */
+  /* ---------- textures (premiere apparition) ---------- */
+
+  /**
+   * Genere une fois les textures : routage, carte (couleur et ORM), atlas
+   * des marquages, environnement. A la premiere apparition du PCB (intro,
+   * premier OPEN), jamais au montage. true si elles viennent d'etre faites.
+   */
+  prepare(): boolean {
+    if (this.prepared) return false;
+    const t0 = performance.now();
+    this.canvas.width = this.W;
+    this.canvas.height = this.H;
+    this.ormCanvas.width = this.W;
+    this.ormCanvas.height = this.H;
+    this.atlasCanvas.width = this.aW;
+    this.atlasCanvas.height = this.aH;
+    this.route();
+    this.prepared = true;
+    this.draw();
+    this.prepareMs = performance.now() - t0;
+    return true;
+  }
+
+  /** Polices arrivees : redessin, seulement si les textures existent deja. */
+  redraw(): void {
+    if (this.prepared) this.draw();
+  }
+
+  private get ux(): number {
+    return this.W / PCB.w;
+  }
+
+  private get uz(): number {
+    return this.H / PCB.d;
+  }
 
   private px(x: number): number {
     return ((x + PCB.w / 2) / PCB.w) * this.W;
@@ -413,41 +939,45 @@ export class Pcb {
     return ((z + PCB.d / 2) / PCB.d) * this.H;
   }
 
-  /** Echelle des tailles en px (donnees pour la texture desktop). */
+  /** Echelle des tailles en px donnees pour la texture de reference (1024). */
   private get k(): number {
-    return this.W / PCB.tex.desktop[0];
+    return this.W / PX_REF;
   }
 
-  /** Les textes du PCB : serigraphie, noms des puces, designateurs. */
+  /** Repere en unites de la carte (x, z), origine au centre. */
+  private units(ctx: Ctx): void {
+    ctx.setTransform(this.ux, 0, 0, this.uz, this.W / 2, this.H / 2);
+  }
+
   private texts(): SilkText[] {
     const out: SilkText[] = [];
     for (const s of PCB_SILK) out.push({ text: s.text, x: s.x, z: s.z, px: s.px, align: s.align, reserve: 0 });
-    // Puce qui sort du site : la place du chevron, a droite de son nom
     for (const c of CHIPS) {
       const reserve = c.href ? CHIP.extGapPx + PCB.chipLabelPx * SILK.capRatio : 0;
       out.push({ text: c.silk, x: c.x, z: c.z + CHIP.labelDz, px: PCB.chipLabelPx, align: 'center', reserve, nav: true });
     }
-    for (const f of this.prints) out.push({ text: f.ref, x: f.refX, z: f.refZ, px: PCB.designatorPx, align: f.refAlign, reserve: 0 });
+    for (const f of this.prints) if (f.ref) out.push({ text: f.ref, x: f.refX, z: f.refZ, px: PCB.designatorPx, align: f.refAlign, reserve: 0 });
+    out.push({ text: 'PWR', x: P.led.x + 0.2, z: P.led.z + 0.12, px: 13, align: 'left', reserve: 0 });
+    out.push({ text: 'GND', x: P.pour.x0 + 0.25, z: P.pour.z1 - 0.2, px: 18, align: 'left', reserve: 0 });
+    for (const c of P.caps) out.push({ text: '+', x: c.x - P.cap3.r - 0.12, z: c.z, px: 18, align: 'center', reserve: 0 });
     return out;
   }
 
-  /**
-   * Boite d'un texte en unites de la carte (largeur mesuree + 20 % : la
-   * police du site peut arriver apres), plus la place reservee a sa droite.
-   */
   private textRect(t: SilkText): Rect {
-    const u = this.W / PCB.w;
+    const u = this.ux;
     const px = t.px * this.k;
     const w = (trackedWidth(this.ctx, t.text, px, PCB_TYPE.weight, PCB_TYPE.tracking) * 1.2) / u;
-    const h = (px * SILK.capRatio) / u;
+    const h = (px * SILK.capRatio) / this.uz;
     const x0 = t.align === 'left' ? t.x : t.align === 'right' ? t.x - w : t.x - w / 2;
     return { x0, z0: t.z - h / 2, x1: x0 + w + (t.reserve * this.k) / u, z1: t.z + h / 2 };
   }
 
   /**
    * Le routage, une fois pour toutes (graine fixe) : grille des obstacles
-   * (composants et textes, marge 0.12), departs au ras des composants,
-   * marches aleatoires qui preferent la ligne droite et le virage a 45 deg.
+   * (composants, textes, trous, plan de masse ; marge 0.1), departs au ras
+   * des composants, marches aleatoires a 45 deg (tout droit d'abord, jamais
+   * d'angle droit). Puis le choix des paires, des pistes d'alimentation,
+   * des serpentins et des changements de couche, et les vias.
    */
   private route(): void {
     const rnd = mulberry32(PCB.seed);
@@ -457,22 +987,23 @@ export class Pcb {
       grid[j * COLS + i] = v;
     };
     const inGrid = (i: number, j: number): boolean => i >= 0 && j >= 0 && i < COLS && j < ROWS;
-    const M = 0.12;
-    const block = (r: Rect): void => {
+    const M = 0.1;
+    const block = (r: Rect, m = M): void => {
       for (let j = 0; j < ROWS; j += 1) {
         for (let i = 0; i < COLS; i += 1) {
           const x = gx(i);
           const z = gz(j);
-          if (x >= r.x0 - M && x <= r.x1 + M && z >= r.z0 - M && z <= r.z1 + M) put(i, j, BLOCKED);
+          if (x >= r.x0 - m && x <= r.x1 + m && z >= r.z0 - m && z <= r.z1 + m) put(i, j, BLOCKED);
         }
       }
     };
     for (const f of this.prints) block({ x0: f.x - f.hx, z0: f.z - f.hz, x1: f.x + f.hx, z1: f.z + f.hz });
     for (const t of this.texts()) block(this.textRect(t));
+    block({ x0: P.pour.x0, z0: P.pour.z0, x1: P.pour.x1, z1: P.pour.z1 }, 0.12);
 
-    // Departs : les points libres au ras de chaque composant, direction vers l'exterieur
     const starts: { i: number; j: number; d: number; main: boolean }[] = [];
     for (const f of this.prints) {
+      if (!f.axis) continue;
       const x0 = f.x - f.hx - M;
       const x1 = f.x + f.hx + M;
       const z0 = f.z - f.hz - M;
@@ -495,10 +1026,9 @@ export class Pcb {
         }
       }
     }
-    // Melange reproductible, les puces cliquables en tete
-    for (let k = starts.length - 1; k > 0; k -= 1) {
-      const m = Math.floor(rnd() * (k + 1));
-      [starts[k], starts[m]] = [starts[m], starts[k]];
+    for (let q = starts.length - 1; q > 0; q -= 1) {
+      const m = Math.floor(rnd() * (q + 1));
+      [starts[q], starts[m]] = [starts[m], starts[q]];
     }
     starts.sort((a, b) => Number(b.main) - Number(a.main));
 
@@ -510,7 +1040,7 @@ export class Pcb {
       return `${ci},${cj},${flip ? !slash : slash}`;
     };
     let segments = 0;
-    /** Une piste depuis (i0, j0) vers d0 ; gardee si elle a au moins 4 points. */
+    const raw: number[][] = [];
     const walk = (i0: number, j0: number, d0: number): void => {
       if (at(i0, j0) !== FREE) return;
       const path = [i0, j0];
@@ -519,25 +1049,22 @@ export class Pcb {
       let i = i0;
       let j = j0;
       let d = d0;
-      const len = 5 + Math.floor(rnd() * 11);
+      const len = 6 + Math.floor(rnd() * 17);
       for (let step = 0; step < len; step += 1) {
-        // Tout droit d'abord, puis 45 deg, rarement 90
+        // Tout droit d'abord, puis 45 deg ; jamais 90 (regle de routage)
         const cands: [number, number][] =
           step < 2
             ? [[d, 1]]
             : [
-                [d, 6],
-                [(d + 1) % 8, 1.6],
-                [(d + 7) % 8, 1.6],
-                [(d + 2) % 8, 0.5],
-                [(d + 6) % 8, 0.5],
+                [d, 7],
+                [(d + 1) % 8, 1.5],
+                [(d + 7) % 8, 1.5],
               ];
         const ok = cands.filter(([nd]) => {
           const [di, dj] = DIRS[nd];
           const ni = i + di;
           const nj = j + dj;
           if (!inGrid(ni, nj) || at(ni, nj) !== FREE) return false;
-          // Une diagonale ne croise jamais l'autre diagonale de la meme case
           return !(di !== 0 && dj !== 0 && diag.has(diagKey(i, j, di, dj, true)));
         });
         if (ok.length === 0) break;
@@ -562,118 +1089,471 @@ export class Pcb {
         put(i, j, USED);
         path.push(i, j);
       }
-      if (path.length < 8) {
-        // Trop courte : on rend la place
-        for (let k = 0; k < path.length; k += 2) put(path[k], path[k + 1], FREE);
+      if (path.length < 10) {
+        for (let q = 0; q < path.length; q += 2) put(path[q], path[q + 1], FREE);
         for (const key of mine) diag.delete(key);
         return;
       }
       segments += path.length / 2 - 1;
-      const pts: number[] = [];
-      for (let k = 0; k < path.length; k += 2) pts.push(gx(path[k]), gz(path[k + 1]));
-      this.traces.push(pts);
+      raw.push(path);
     };
     for (const s of starts) {
-      if (this.traces.length >= PCB.traces) break;
+      if (raw.length >= PCB.traces) break;
       walk(s.i, s.j, s.d);
     }
-    // Les departs au ras des composants s'epuisent vite (voisins pris) : le
-    // reste part de points libres tires au hasard, d'une pastille a l'autre
-    for (let guard = 0; this.traces.length < PCB.traces && guard < 800; guard += 1) {
+    for (let guard = 0; raw.length < PCB.traces && guard < 1500; guard += 1) {
       walk(Math.floor(rnd() * COLS), Math.floor(rnd() * ROWS), Math.floor(rnd() * 4) * 2);
     }
-    // Vias : des pastilles seules sur la grille libre
-    for (let guard = 0; this.vias.length < PCB.vias && guard < 2000; guard += 1) {
+
+    // Les pistes en unites, leur visibilite (vue ouverte : bande avant, bande droite)
+    const traces: Trace[] = raw.map((path) => {
+      const pts: number[] = [];
+      let vis = 0;
+      for (let q = 0; q < path.length; q += 2) {
+        const x = gx(path[q]);
+        const z = gz(path[q + 1]);
+        pts.push(x, z);
+        vis += (z > 1.1 ? 1 : 0) + (x > 3.6 ? 0.6 : 0);
+      }
+      return { pts, kind: 'signal', viaAt: -1, meander: null, vis: vis / (path.length / 2) };
+    });
+    // Ligne droite sur un axe d'au moins 4 pas : la place d'un serpentin
+    const straightRun = (pts: number[]): [number, number] | null => {
+      let best: [number, number] | null = null;
+      let a = 0;
+      for (let q = 1; q < pts.length / 2; q += 1) {
+        const dx = pts[q * 2] - pts[(q - 1) * 2];
+        const dz = pts[q * 2 + 1] - pts[(q - 1) * 2 + 1];
+        const axial = Math.abs(dx) < 1e-6 || Math.abs(dz) < 1e-6;
+        const pdx = q > 1 ? pts[(q - 1) * 2] - pts[(q - 2) * 2] : dx;
+        const pdz = q > 1 ? pts[(q - 1) * 2 + 1] - pts[(q - 2) * 2 + 1] : dz;
+        const same = Math.abs(dx - pdx) < 1e-6 && Math.abs(dz - pdz) < 1e-6;
+        if (!axial || !same) a = q - 1;
+        const n = q - a;
+        if (axial && n >= 4 && (!best || n > best[1])) best = [a, n];
+      }
+      return best;
+    };
+    const byVis = traces.map((t, q) => q).sort((p, q) => traces[q].vis - traces[p].vis);
+    let pairs = 0;
+    let power = 0;
+    let meanders = 0;
+    for (const q of byVis) {
+      const t = traces[q];
+      const n = t.pts.length / 2;
+      if (meanders < PCB.meanders && t.kind === 'signal') {
+        const run = straightRun(t.pts);
+        if (run) {
+          t.meander = run;
+          meanders += 1;
+          continue;
+        }
+      }
+      if (pairs < PCB.pairs && n >= 8) {
+        t.kind = 'pair';
+        pairs += 1;
+        continue;
+      }
+      if (power < PCB.power && n >= 6) {
+        t.kind = 'power';
+        power += 1;
+      }
+    }
+    // Changement de couche : une piste de signal sur trois s'arrete sur un via
+    for (const t of traces) {
+      if (t.kind !== 'signal' || t.meander || rnd() > 0.34) continue;
+      const n = t.pts.length / 2;
+      t.viaAt = 3 + Math.floor(rnd() * Math.max(1, n - 4));
+    }
+    this.traces = traces;
+    // Vias seuls sur la grille libre
+    for (let guard = 0; this.vias.length < PCB.vias && guard < 3000; guard += 1) {
       const i = Math.floor(rnd() * COLS);
       const j = Math.floor(rnd() * ROWS);
       if (at(i, j) !== FREE) continue;
       put(i, j, USED);
       this.vias.push([gx(i), gz(j)]);
     }
+    // Vias de couture du plan de masse : un reseau de 0.32, hors des composants
+    const R = P.pour;
+    for (let z = R.z0 + 0.2; z < R.z1 - 0.1; z += 0.32) {
+      for (let x = R.x0 + 0.2; x < R.x1 - 0.1; x += 0.32) {
+        const hit = this.prints.some((f) => x > f.x - f.hx - 0.12 && x < f.x + f.hx + 0.12 && z > f.z - f.hz - 0.12 && z < f.z + f.hz + 0.12);
+        const text = x < R.x0 + 0.9 && z > R.z1 - 0.35;
+        if (!hit && !text) this.stitch.push([x, z]);
+      }
+    }
     this.segments = segments;
   }
 
-  /** Dessine toute la carte (au montage, puis a l'arrivee des polices). */
-  draw(): void {
-    const ctx = this.ctx;
-    const { W, H } = this;
-    const k = this.k;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = TEX.board;
-    ctx.fillRect(0, 0, W, H);
-    // L'aplat des flancs, dans le coin arriere droit (sous le plateau leve)
-    ctx.fillStyle = TEX.side;
-    ctx.fillRect(W - 8, 0, 8, 8);
-
-    // Pistes
-    ctx.strokeStyle = TEX.copper;
-    ctx.lineWidth = PCB.traceW * k;
-    ctx.lineJoin = 'round';
-    ctx.lineCap = 'round';
-    for (const t of this.traces) {
-      ctx.beginPath();
-      for (let n = 0; n < t.length; n += 2) {
-        const x = this.px(t[n]);
-        const y = this.py(t[n + 1]);
-        if (n === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+  /** Le trace d'une piste en unites (serpentin compris) ; jusqu'au via s'il y en a un. */
+  private tracePath(ctx: Ctx, t: Trace, offset = 0): void {
+    const n = t.viaAt > 0 ? t.viaAt + 1 : t.pts.length / 2;
+    const P2: [number, number][] = [];
+    for (let q = 0; q < n; q += 1) P2.push([t.pts[q * 2], t.pts[q * 2 + 1]]);
+    // Decalage parallele (paires) : normale moyenne des deux segments a chaque sommet, en onglet
+    const pts = offset === 0 ? P2 : P2.map((p, q) => {
+      const a = P2[Math.max(0, q - 1)];
+      const b = P2[Math.min(P2.length - 1, q + 1)];
+      const n1 = q > 0 ? norm(p[0] - a[0], p[1] - a[1]) : norm(b[0] - p[0], b[1] - p[1]);
+      const n2 = q < P2.length - 1 ? norm(b[0] - p[0], b[1] - p[1]) : n1;
+      let nx = -(n1[1] + n2[1]);
+      let nz = n1[0] + n2[0];
+      const l = Math.hypot(nx, nz) || 1;
+      nx /= l;
+      nz /= l;
+      const cos = Math.max(0.5, nx * -n1[1] + nz * n1[0]);
+      return [p[0] + (nx * offset) / cos, p[1] + (nz * offset) / cos] as [number, number];
+    });
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (let q = 1; q < pts.length; q += 1) {
+      if (t.meander && q - 1 === t.meander[0]) {
+        // Serpentin : des zigzags serres le long de la ligne droite
+        const a = pts[q - 1];
+        const b = pts[t.meander[0] + t.meander[1]];
+        const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        const ux = (b[0] - a[0]) / len;
+        const uz = (b[1] - a[1]) / len;
+        const amp = 0.07;
+        const pitch = 0.055;
+        const lead = 0.08;
+        ctx.lineTo(a[0] + ux * lead, a[1] + uz * lead);
+        let s = lead;
+        let side = 1;
+        while (s + pitch < len - lead) {
+          const cx = a[0] + ux * s;
+          const cz = a[1] + uz * s;
+          ctx.lineTo(cx - uz * amp * side, cz + ux * amp * side);
+          ctx.lineTo(cx + ux * pitch - uz * amp * side, cz + uz * pitch + ux * amp * side);
+          ctx.lineTo(cx + ux * pitch, cz + uz * pitch);
+          s += pitch;
+          side = -side;
+        }
+        ctx.lineTo(b[0], b[1]);
+        q = t.meander[0] + t.meander[1];
+        continue;
       }
-      ctx.stroke();
+      ctx.lineTo(pts[q][0], pts[q][1]);
     }
-    // Pastilles : bouts de pistes et vias
-    const pad = (x: number, z: number): void => {
-      const cx = this.px(x);
-      const cy = this.py(z);
+  }
+
+  /** Tout le cuivre visible (hors plan de masse), dans un style de remplissage donne. */
+  private copper(ctx: Ctx, copper: string, pads: string): void {
+    this.units(ctx);
+    ctx.lineJoin = 'miter';
+    ctx.miterLimit = 3;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = copper;
+    for (const t of this.traces) {
+      if (t.kind === 'pair') {
+        ctx.lineWidth = PCB.pairW;
+        for (const sd of [-1, 1]) {
+          this.tracePath(ctx, t, (sd * PCB.pairGap) / 2);
+          ctx.stroke();
+        }
+      } else {
+        ctx.lineWidth = t.kind === 'power' ? PCB.powerW : PCB.signalW;
+        this.tracePath(ctx, t);
+        ctx.stroke();
+      }
+    }
+    ctx.fillStyle = pads;
+    const disc = (x: number, z: number, r: number): void => {
       ctx.beginPath();
-      ctx.arc(cx, cy, PCB.padR * k, 0, Math.PI * 2);
-      ctx.fillStyle = TEX.copper;
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(cx, cy, (PCB.padR - PCB.padRing) * k, 0, Math.PI * 2);
-      ctx.fillStyle = TEX.core;
+      ctx.ellipse(x, z, r, r, 0, 0, Math.PI * 2);
       ctx.fill();
     };
+    // Bouts de pistes, vias, pastilles des composants, anneaux des trous de fixation
     for (const t of this.traces) {
-      pad(t[0], t[1]);
-      pad(t[t.length - 2], t[t.length - 1]);
+      const n = t.viaAt > 0 ? t.viaAt + 1 : t.pts.length / 2;
+      const r = t.kind === 'power' ? PCB.padR * 1.6 : PCB.padR;
+      if (t.kind === 'pair') {
+        continue;
+      }
+      disc(t.pts[0], t.pts[1], r);
+      disc(t.pts[(n - 1) * 2], t.pts[(n - 1) * 2 + 1], t.viaAt > 0 ? PCB.viaR * 1.2 : r);
     }
-    for (const [x, z] of this.vias) pad(x, z);
-
-    // Contours : blancs, jaunes pour les puces cliquables
+    for (const [x, z] of this.vias) disc(x, z, PCB.viaR);
+    for (const [x, z] of this.stitch) disc(x, z, PCB.viaR);
     for (const f of this.prints) {
-      ctx.strokeStyle = f.frame ? TEX.frame : TEX.silk;
-      ctx.lineWidth = Math.max(1, (f.frame ? PCB.chipFrame : PCB.outline) * k);
-      ctx.beginPath();
-      if (f.round) ctx.arc(this.px(f.x), this.py(f.z), f.hx * (this.W / PCB.w), 0, Math.PI * 2);
-      else ctx.rect(this.px(f.x - f.hx), this.py(f.z - f.hz), f.hx * 2 * (this.W / PCB.w), f.hz * 2 * (this.H / PCB.d));
-      ctx.stroke();
+      for (const p of f.pads) {
+        if (p.round) disc(p.x, p.z, p.w / 2);
+        else ctx.fillRect(p.x - p.w / 2, p.z - p.d / 2, p.w, p.d);
+      }
     }
+    for (const h of P.holes) disc(h.x, h.z, 0.22);
+  }
 
-    // Textes, centres en z sur leur hauteur de capitale
-    ctx.fillStyle = TEX.silk;
-    ctx.textBaseline = 'alphabetic';
-    for (const t of this.texts()) {
-      ctx.fillStyle = t.nav ? TEX.nav : TEX.silk;
-      const px = t.px * k;
-      const w = trackedWidth(ctx, t.text, px, PCB_TYPE.weight, PCB_TYPE.tracking);
-      const x = this.px(t.x);
-      const x0 = t.align === 'left' ? x : t.align === 'right' ? x - w : x - w / 2;
-      drawTracked(ctx, t.text, x0, this.py(t.z) + (px * SILK.capRatio) / 2, px, PCB_TYPE.weight, PCB_TYPE.tracking);
-    }
-    // La carte au repos sous le nom des puces qui sortent du site, puis
-    // leur etat allume s'il l'etait (dessin refait a l'arrivee des polices)
-    this.captureZones();
-    for (const z of this.zones) if (this.rangeOf(z.id)?.lit) this.paintZone(z, true);
-    this.draws += 1;
-    this.texture.needsUpdate = true;
+  /** Trous : centres des vias et trous de fixation. */
+  private holes(ctx: Ctx, color: string): void {
+    this.units(ctx);
+    ctx.fillStyle = color;
+    const disc = (x: number, z: number, r: number): void => {
+      ctx.beginPath();
+      ctx.ellipse(x, z, r, r, 0, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    for (const t of this.traces) if (t.viaAt > 0) disc(t.pts[t.viaAt * 2], t.pts[t.viaAt * 2 + 1], PCB.viaHole);
+    for (const [x, z] of this.vias) disc(x, z, PCB.viaHole);
+    for (const [x, z] of this.stitch) disc(x, z, PCB.viaHole);
+    for (const h of P.holes) disc(h.x, h.z, 0.12);
   }
 
   /**
-   * Zone de chaque puce qui sort du site (spec 20.5) : son nom et la place
-   * du chevron, en px de la texture, et la copie de la carte dessous. Le
-   * routage l'a gardee libre (textRect, reserve), un aplat suffit donc a
-   * effacer le nom.
+   * Plan de masse : hachures a 45 deg dans un rectangle arrondi, degagees
+   * de 0.08 autour des composants et de leurs pastilles ; un masque blanc
+   * (alpha), teinte ensuite pour la couleur et pour l'ORM.
    */
+  private pourMask(): HTMLCanvasElement {
+    const { canvas, ctx } = canvas2d(this.W, this.H);
+    this.units(ctx);
+    const R = P.pour;
+    const rr = (x0: number, z0: number, x1: number, z1: number, r: number): void => {
+      ctx.beginPath();
+      ctx.moveTo(x0 + r, z0);
+      ctx.arcTo(x1, z0, x1, z1, r);
+      ctx.arcTo(x1, z1, x0, z1, r);
+      ctx.arcTo(x0, z1, x0, z0, r);
+      ctx.arcTo(x0, z0, x1, z0, r);
+      ctx.closePath();
+    };
+    ctx.save();
+    rr(R.x0, R.z0, R.x1, R.z1, 0.12);
+    ctx.clip();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 0.022;
+    const span = R.x1 - R.x0 + R.z1 - R.z0;
+    for (let s = -span; s < span; s += 0.09) {
+      ctx.beginPath();
+      ctx.moveTo(R.x0 + s, R.z0);
+      ctx.lineTo(R.x0 + s + span, R.z0 + span);
+      ctx.moveTo(R.x0 + s, R.z1);
+      ctx.lineTo(R.x0 + s + span, R.z1 - span);
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.lineWidth = 0.04;
+    rr(R.x0, R.z0, R.x1, R.z1, 0.12);
+    ctx.stroke();
+    // Degagements
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = '#000';
+    const clr = 0.08;
+    for (const f of this.prints) {
+      if (f.round) {
+        ctx.beginPath();
+        ctx.ellipse(f.x, f.z, f.hx + clr, f.hz + clr, 0, 0, Math.PI * 2);
+        ctx.fill();
+      } else ctx.fillRect(f.x - f.hx - clr, f.z - f.hz - clr, 2 * (f.hx + clr), 2 * (f.hz + clr));
+    }
+    // La place du texte GND
+    ctx.fillRect(R.x0 + 0.12, R.z1 - 0.34, 0.85, 0.26);
+    for (const [x, z] of this.stitch) {
+      ctx.beginPath();
+      ctx.ellipse(x, z, PCB.viaR + 0.035, PCB.viaR + 0.035, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    return canvas;
+  }
+
+  /** Le masque teinte d'une couleur, pose sur ctx. */
+  private stamp(ctx: Ctx, mask: HTMLCanvasElement, color: string, tint: { canvas: HTMLCanvasElement; ctx: Ctx }): void {
+    const t = tint.ctx;
+    t.globalCompositeOperation = 'source-over';
+    t.clearRect(0, 0, this.W, this.H);
+    t.drawImage(mask, 0, 0);
+    t.globalCompositeOperation = 'source-in';
+    t.fillStyle = color;
+    t.fillRect(0, 0, this.W, this.H);
+    t.globalCompositeOperation = 'source-over';
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(tint.canvas, 0, 0);
+  }
+
+  /** Ombres de contact : une tache sombre et floue au pied de chaque composant. */
+  private shadows(ctx: Ctx, color: string, op: GlobalCompositeOperation): void {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = op;
+    const off = this.W * 3;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 0.07 * this.ux;
+    ctx.shadowOffsetX = off;
+    ctx.fillStyle = '#000';
+    const spread = 0.03;
+    for (const f of this.prints) {
+      const s = f.shadow;
+      if (!s) continue;
+      const x = this.px(s.x) - off;
+      const y = this.py(s.z);
+      const rx = (s.hx + spread) * this.ux;
+      const ry = (s.hz + spread) * this.uz;
+      ctx.beginPath();
+      if (s.round) ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+      else ctx.rect(x - rx, y - ry, 2 * rx, 2 * ry);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /** Bruit tres doux (vernis jamais uni) : une petite grille aleatoire etiree, lissee. */
+  private blotches(seed: number, cols: number, rows: number): HTMLCanvasElement {
+    const { canvas, ctx } = canvas2d(cols, rows);
+    const img = ctx.createImageData(cols, rows);
+    const rnd = mulberry32(seed);
+    for (let q = 0; q < cols * rows; q += 1) {
+      img.data[q * 4] = 255;
+      img.data[q * 4 + 1] = 255;
+      img.data[q * 4 + 2] = 255;
+      img.data[q * 4 + 3] = Math.round(rnd() * 255);
+    }
+    ctx.putImageData(img, 0, 0);
+    return canvas;
+  }
+
+  /** Dessine toute la carte (couleur et ORM) et l'atlas des marquages. */
+  draw(): void {
+    if (!this.prepared) return;
+    const ctx = this.ctx;
+    const orm = this.ormCtx;
+    const { W, H } = this;
+    const k = this.k;
+    const rnd = mulberry32(PCB.seed + 1);
+    for (const c of [ctx, orm]) {
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.globalCompositeOperation = 'source-over';
+      c.globalAlpha = 1;
+      c.imageSmoothingEnabled = true;
+    }
+
+    // Vernis : un vert sombre jamais uni (taches tres douces), rugosite qui varie
+    ctx.fillStyle = TEX.board;
+    ctx.fillRect(0, 0, W, H);
+    orm.fillStyle = ORM.board;
+    orm.fillRect(0, 0, W, H);
+    const lo = this.blotches(PCB.seed + 2, 28, 18);
+    const hi = this.blotches(PCB.seed + 3, 9, 6);
+    const tintOf = (mask: HTMLCanvasElement, color: string): HTMLCanvasElement => {
+      const { canvas, ctx: t } = canvas2d(mask.width, mask.height);
+      t.drawImage(mask, 0, 0);
+      t.globalCompositeOperation = 'source-in';
+      t.fillStyle = color;
+      t.fillRect(0, 0, mask.width, mask.height);
+      return canvas;
+    };
+    ctx.globalAlpha = 0.07;
+    ctx.drawImage(tintOf(lo, '#3d6b4a'), 0, 0, W, H);
+    ctx.globalAlpha = 0.1;
+    ctx.drawImage(tintOf(hi, '#040a06'), 0, 0, W, H);
+    ctx.globalAlpha = 1;
+    orm.globalAlpha = 0.45;
+    orm.drawImage(tintOf(lo, 'rgb(255, 214, 13)'), 0, 0, W, H);
+    orm.globalAlpha = 0.35;
+    orm.drawImage(tintOf(hi, 'rgb(255, 168, 13)'), 0, 0, W, H);
+    orm.globalAlpha = 1;
+
+    // Cuivre : plan de masse, pistes, pastilles (or), vias
+    const mask = this.pourMask();
+    const tint = canvas2d(W, H);
+    this.stamp(ctx, mask, TEX.copper, tint);
+    this.stamp(orm, mask, ORM.copper, tint);
+    mask.width = 0;
+    mask.height = 0;
+    tint.canvas.width = 0;
+    tint.canvas.height = 0;
+    this.copper(ctx, TEX.copper, TEX.gold);
+    this.copper(orm, ORM.copper, ORM.copper);
+    this.holes(ctx, TEX.hole);
+    this.holes(orm, ORM.hole);
+
+    // Serigraphie : contours (jaunes pour les puces cliquables), textes
+    for (const [c, ink, frame] of [
+      [ctx, TEX.silk, TEX.frame],
+      [orm, ORM.silk, ORM.silk],
+    ] as const) {
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      for (const f of this.prints) {
+        if (!f.outline) continue;
+        c.strokeStyle = f.frame ? frame : ink;
+        c.lineWidth = Math.max(1, (f.frame ? PCB.chipFrame : PCB.outline) * k);
+        c.beginPath();
+        if (f.round) c.ellipse(this.px(f.x), this.py(f.z), f.hx * this.ux, f.hz * this.uz, 0, 0, Math.PI * 2);
+        else c.rect(this.px(f.x - f.hx), this.py(f.z - f.hz), f.hx * 2 * this.ux, f.hz * 2 * this.uz);
+        c.stroke();
+      }
+      c.textBaseline = 'alphabetic';
+      for (const t of this.texts()) {
+        c.fillStyle = c === ctx ? (t.nav ? TEX.nav : TEX.silk) : ORM.silk;
+        const px = t.px * k;
+        const w = trackedWidth(c, t.text, px, PCB_TYPE.weight, PCB_TYPE.tracking);
+        const x = this.px(t.x);
+        const x0 = t.align === 'left' ? x : t.align === 'right' ? x - w : x - w / 2;
+        drawTracked(c, t.text, x0, this.py(t.z) + (px * SILK.capRatio) / 2, px, PCB_TYPE.weight, PCB_TYPE.tracking);
+      }
+    }
+
+    // Ombres de contact : la couleur s'assombrit, l'occlusion (rouge) aussi
+    this.shadows(ctx, 'rgba(0, 0, 0, 0.62)', 'source-over');
+    this.shadows(orm, 'rgb(70, 255, 255)', 'darken');
+
+    // Poussiere : des grains clairs tres discrets
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const specks = Math.round(2600 * (W / 2048) * (H / 1280));
+    for (let q = 0; q < specks; q += 1) {
+      const x = rnd() * W;
+      const y = rnd() * H;
+      const s = (0.6 + rnd() * 1.4) * k;
+      ctx.fillStyle = `rgba(225, 222, 205, ${(0.04 + rnd() * 0.08).toFixed(3)})`;
+      ctx.fillRect(x, y, s, s);
+    }
+
+    // Tranche : l'aplat de fibre de verre du coin (sous le chanfrein)
+    ctx.fillStyle = TEX.fiber;
+    ctx.fillRect(W - 4, 0, 4, 4);
+    orm.fillStyle = ORM.fiber;
+    orm.fillRect(W - 4, 0, 4, 4);
+
+    this.captureZones();
+    for (const z of this.zones) if (this.rangeOf(z.id)?.lit) this.paintZone(z, true);
+    this.drawAtlas();
+    this.draws += 1;
+    this.texture.needsUpdate = true;
+    this.orm.needsUpdate = true;
+  }
+
+  /** Atlas des marquages : references des puces et codes des resistances, en blanc. */
+  private drawAtlas(): void {
+    const c = this.atlasCanvas.getContext('2d') as Ctx | null;
+    if (!c) return;
+    const cw = this.aW / ATLAS.cols;
+    const ch = this.aH / ATLAS.rows;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, this.aW, this.aH);
+    c.fillStyle = 'rgba(236, 234, 228, 0.92)';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    this.atlas.forEach((e, n) => {
+      const x = (n % ATLAS.cols) * cw + cw / 2;
+      const y = Math.floor(n / ATLAS.cols) * ch + ch / 2;
+      const lines = e.lines.length;
+      const px = (ch * 0.62) / lines;
+      c.font = `${e.weight} ${px.toFixed(1)}px ${FONT_DISPLAY}`;
+      const wmax = Math.max(...e.lines.map((l) => c.measureText(l).width));
+      const s = Math.min(1, (cw * 0.9) / Math.max(1, wmax));
+      e.lines.forEach((l, q) => {
+        c.save();
+        c.translate(x, y + (q - (lines - 1) / 2) * px * 1.15);
+        c.scale(s, 1);
+        c.fillText(l, 0, 0);
+        c.restore();
+      });
+    });
+    this.atlasTex.needsUpdate = true;
+  }
+
   private captureZones(): void {
     const k = this.k;
     const old = this.zones.slice();
@@ -688,7 +1568,6 @@ export class Pcb {
       const y1 = Math.min(this.H, Math.ceil(g.baseline) + pad);
       const w = x1 - x0;
       const h = y1 - y0;
-      // Copie a l'echelle 1, en px entiers : exacte
       let base = old.find((z) => z.id === c.id)?.base ?? null;
       if (w > 0 && h > 0) {
         if (!base) base = document.createElement('canvas');
@@ -700,7 +1579,6 @@ export class Pcb {
     }
   }
 
-  /** Nom d'une puce en px de la texture (mesure avec la police du moment). */
   private labelGeom(text: string, x: number, z: number): LabelGeom {
     const k = this.k;
     const px = PCB.chipLabelPx * k;
@@ -710,11 +1588,6 @@ export class Pcb {
     return { x0, baseline: this.py(z) + cap / 2, cap, px, markX: x0 + w + CHIP.extGapPx * k };
   }
 
-  /**
-   * La zone d'une puce : la copie de la carte au repos, ou allumee (aplat
-   * de la carte, le nom en jaune et le chevron sortant apres lui, haut
-   * comme les capitales, trait CHIP.extStroke dans la boite de 12).
-   */
   private paintZone(z: ExtZone, lit: boolean): void {
     const ctx = this.ctx;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -746,7 +1619,6 @@ export class Pcb {
 
   /* ---------- puces ---------- */
 
-  /** Les quatre puces pour le picking : leur boite pattes comprises, sur le dessus de la carte. */
   hotspots(layer: Object3D): HotspotDef[] {
     return CHIPS.map((c) => ({
       id: `chip-${c.id}`,
@@ -759,10 +1631,8 @@ export class Pcb {
       hz: CHIP.legZ + CHIP.legD / 2,
       y0: PCB.h,
       y1: PCB.h + CHIP.y1,
-      // Actives seulement pendant l'ouverture et vue ouverte (le Stage les allume)
       enabled: false,
       chip: c.id,
-      // LIVE et STUDIO : leur section, dont la trace part de la puce
       section: c.section ?? undefined,
     }));
   }
@@ -771,13 +1641,6 @@ export class Pcb {
     return this.rangeOf(id)?.rise ?? 0;
   }
 
-  /**
-   * Survol ou focus clavier d'une puce qui sort du site (LABEL) : le dessus
-   * de son corps passe au jaune (couleurs de sommets, ses quatre sommets
-   * seulement, RGB.litTop), son nom au jaune avec le chevron (zone de la
-   * texture) ; eteinte, tout revient. true s'il faut une frame. Les puces
-   * LIVE et STUDIO (des boutons) ne s'allument pas : elles se soulevent.
-   */
   setLit(id: ChipId, on: boolean): boolean {
     const r = this.rangeOf(id);
     if (!r || r.lit === on || !CHIPS.some((c) => c.id === id && c.href)) return false;
@@ -800,23 +1663,28 @@ export class Pcb {
     return true;
   }
 
-  /** Survol : la puce se souleve (sommets de sa plage seulement) ; true s'il faut une frame. */
+  /** Survol : la puce se souleve (corps, pattes, reference) ; true s'il faut une frame. */
   setRise(id: ChipId, y: number): boolean {
     const r = this.rangeOf(id);
     if (!r || r.rise === y) return false;
     r.rise = y;
-    const pos = this.parts.geometry.getAttribute('position') as BufferAttribute;
-    const a = pos.array as Float32Array;
-    for (let n = 0; n < r.count; n += 1) a[(r.start + n) * 3 + 1] = r.baseY[n] + y;
-    // Pas de clearUpdateRanges : deux puces changees avant le prochain envoi
-    // gardent chacune leur plage ; three fusionne et vide apres l'envoi
-    pos.addUpdateRange(r.start * 3, r.count * 3);
-    pos.needsUpdate = true;
+    const meshes = [this.parts, this.metal, this.labels];
+    r.spans.forEach((sp, m) => {
+      if (!sp) return;
+      const pos = meshes[m].geometry.getAttribute('position') as BufferAttribute;
+      const a = pos.array as Float32Array;
+      for (let n = 0; n < sp.count; n += 1) a[(sp.start + n) * 3 + 1] = sp.baseY[n] + y;
+      pos.addUpdateRange(sp.start * 3, sp.count * 3);
+      pos.needsUpdate = true;
+    });
     return true;
   }
 
   info(): PcbInfo {
-    const idx = this.parts.geometry.getIndex();
+    const tris = (g: BufferGeometry): number => {
+      const idx = g.getIndex();
+      return idx ? idx.count / 3 : g.getAttribute('position').count / 3;
+    };
     const rise = Object.fromEntries(CHIPS.map((c) => [c.id, 0])) as Record<ChipId, number>;
     const lit = Object.fromEntries(CHIPS.map((c) => [c.id, false])) as Record<ChipId, boolean>;
     for (const r of this.ranges) {
@@ -825,12 +1693,18 @@ export class Pcb {
     }
     return {
       size: [this.W, this.H],
+      prepared: this.prepared,
+      prepareMs: Math.round(this.prepareMs * 10) / 10,
       traces: this.traces.length,
       segments: this.segments,
-      pads: this.traces.length * 2 + this.vias.length,
-      vias: this.vias.length,
-      parts: CHIPS.length + PCB_PARTS.small.length + PCB_PARTS.caps.length + 1 + PCB_PARTS.resistors.length + PCB_PARTS.crystals.length,
-      triangles: idx ? idx.count / 3 : this.parts.geometry.getAttribute('position').count / 3,
+      pairs: this.traces.filter((t) => t.kind === 'pair').length,
+      power: this.traces.filter((t) => t.kind === 'power').length,
+      meanders: this.traces.filter((t) => t.meander).length,
+      pads: this.prints.reduce((a, f) => a + f.pads.length, 0),
+      vias: this.vias.length + this.stitch.length + this.traces.filter((t) => t.viaAt > 0).length,
+      parts: this.prints.length,
+      triangles: [this.board, this.parts, this.metal, this.labels, this.led].reduce((a, m) => a + tris(m.geometry), 0),
+      meshes: 5,
       draws: this.draws,
       webfont: fontsReady(),
       rise,
@@ -840,18 +1714,24 @@ export class Pcb {
   }
 
   dispose(): void {
-    this.board.geometry.dispose();
-    this.parts.geometry.dispose();
-    this.boardMat.dispose();
-    this.partsMat.dispose();
-    this.texture.dispose();
+    for (const m of [this.board, this.parts, this.metal, this.labels, this.led]) m.geometry.dispose();
+    for (const m of [this.boardMat, this.partsMat, this.metalMat, this.labelMat, this.ledMat]) m.dispose();
+    for (const t of [this.texture, this.orm, this.atlasTex, this.radialTex, this.envTex]) t.dispose();
     for (const z of this.zones) {
       if (!z.base) continue;
       z.base.width = 0;
       z.base.height = 0;
     }
     this.zones.length = 0;
-    this.canvas.width = 0;
-    this.canvas.height = 0;
+    for (const c of [this.canvas, this.ormCanvas, this.atlasCanvas, this.envCanvas]) {
+      c.width = 0;
+      c.height = 0;
+    }
   }
+}
+
+/** Vecteur unitaire (x, z). */
+function norm(x: number, z: number): [number, number] {
+  const l = Math.hypot(x, z) || 1;
+  return [x / l, z / l];
 }
