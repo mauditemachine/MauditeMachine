@@ -1,0 +1,678 @@
+/*
+ * Press kit 2027 : six pages A4, rendu en PDF par Chrome sans tete
+ * (build.mjs). La grammaire du site : fond #0A0A0B, papier #F6F1E7,
+ * orange #FF6A13 a petite dose (chiffres, filets) ; titres en Robot
+ * Radicals, texte en SF Pro Display ; marges de 15 mm.
+ */
+
+@font-face {
+  font-family: 'Robot Radicals';
+  src: url('../../public/fonts/RobotRadicals.otf') format('opentype');
+  font-weight: 400;
+}
+@font-face {
+  font-family: 'SF Pro Display';
+  src: url('../../public/fonts/SF-Pro-Display-Light.woff2') format('woff2');
+  font-weight: 300;
+}
+@font-face {
+  font-family: 'SF Pro Display';
+  src: url('../../public/fonts/SF-Pro-Display-Regular.woff2') format('woff2');
+  font-weight: 400;
+}
+@font-face {
+  font-family: 'SF Pro Display';
+  src: url('../../public/fonts/SF-Pro-Display-Medium.woff2') format('woff2');
+  font-weight: 500;
+}
+@font-face {
+  font-family: 'SF Pro Display';
+  src: url('../../public/fonts/SF-Pro-Display-Semibold.woff2') format('woff2');
+  font-weight: 600;
+}
+
+@page {
+  size: A4;
+  margin: 0;
+}
+
+:root {
+  --ink: #0a0a0b;
+  --paper: #f6f1e7;
+  --orange: #ff6a13;
+  --m: 15mm;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--ink);
+}
+
+body {
+  font-family: 'SF Pro Display', sans-serif;
+  font-weight: 400;
+  font-size: 9.5pt;
+  line-height: 1.45;
+}
+
+.page {
+  position: relative;
+  width: 210mm;
+  height: 297mm;
+  overflow: hidden;
+  break-after: page;
+}
+
+.page:last-child {
+  break-after: auto;
+}
+
+.dark {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.light {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+p {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 400;
+}
+
+/* Titre de page : Robot Radicals, filet fin dessous, un trait orange */
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 3mm;
+  border-bottom: 0.25mm solid currentColor;
+  position: relative;
+}
+
+.head::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -0.25mm;
+  width: 18mm;
+  height: 0.6mm;
+  background: var(--orange);
+}
+
+.head h2 {
+  font-family: 'Robot Radicals', sans-serif;
+  font-size: 24pt;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.head .kicker {
+  font-size: 7pt;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+h3 {
+  font-size: 7pt;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.dark h3 {
+  color: var(--orange);
+}
+
+/* Numerotation discrete */
+.folio {
+  position: absolute;
+  left: var(--m);
+  right: var(--m);
+  bottom: 8mm;
+  display: flex;
+  justify-content: space-between;
+  font-size: 6.5pt;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+/* ---------- 1. couverture ---------- */
+
+.cover .bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cover .veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(10, 10, 11, 0) 48%, rgba(10, 10, 11, 0.55) 70%, rgba(10, 10, 11, 0.94) 100%);
+}
+
+.cover .banner {
+  position: absolute;
+  top: var(--m);
+  right: var(--m);
+  font-size: 7pt;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--paper);
+  padding: 1.6mm 3mm 1.5mm;
+  background: rgba(10, 10, 11, 0.62);
+}
+
+.cover .banner:empty {
+  display: none;
+}
+
+.cover .title {
+  position: absolute;
+  left: var(--m);
+  right: var(--m);
+  bottom: 18mm;
+}
+
+.cover h1 {
+  font-family: 'Robot Radicals', sans-serif;
+  font-size: 44pt;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.cover .pos {
+  margin-top: 5mm;
+  font-size: 13pt;
+  font-weight: 500;
+}
+
+.cover .place {
+  margin-top: 1.5mm;
+  font-size: 10pt;
+  font-weight: 300;
+  opacity: 0.85;
+}
+
+.cover .kit {
+  margin-top: 6mm;
+  display: inline-block;
+  padding-top: 2.2mm;
+  border-top: 0.6mm solid var(--orange);
+  font-size: 7.5pt;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+/* ---------- 2. qui ---------- */
+
+.who .inner {
+  position: absolute;
+  inset: var(--m);
+  bottom: 20mm;
+}
+
+.who .grid {
+  display: grid;
+  grid-template-columns: 1fr 90mm;
+  gap: 9mm;
+  margin-top: 9mm;
+}
+
+.who .bio {
+  font-size: 12pt;
+  line-height: 1.58;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6mm;
+  margin-top: 13mm;
+  padding-top: 7mm;
+  border-top: 0.25mm solid rgba(10, 10, 11, 0.2);
+}
+
+.stats b {
+  display: block;
+  font-family: 'Robot Radicals', sans-serif;
+  font-weight: 400;
+  font-size: 44pt;
+  line-height: 1;
+  color: var(--orange);
+  white-space: nowrap;
+}
+
+.stats span {
+  display: block;
+  margin-top: 3mm;
+  font-size: 7.5pt;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.who .shared {
+  margin-top: 13mm;
+}
+
+.who .shared p {
+  margin-top: 4mm;
+  font-size: 15pt;
+  font-weight: 300;
+  line-height: 1.5;
+}
+
+.who .portrait {
+  width: 90mm;
+  height: 126mm;
+  object-fit: cover;
+  display: block;
+}
+
+.who .side p {
+  margin-top: 3mm;
+  font-size: 7.5pt;
+  opacity: 0.7;
+}
+
+/* ---------- 3. le set ---------- */
+
+.set .photo {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 210mm;
+  height: 148.5mm;
+  object-fit: cover;
+}
+
+.set .fade {
+  position: absolute;
+  left: 0;
+  top: 100mm;
+  width: 210mm;
+  height: 48.5mm;
+  background: linear-gradient(to bottom, rgba(10, 10, 11, 0), var(--ink));
+}
+
+.set .inner {
+  position: absolute;
+  left: var(--m);
+  right: var(--m);
+  top: 154mm;
+}
+
+.set .blocks {
+  margin-top: 4mm;
+}
+
+.set .blocks > div {
+  display: grid;
+  grid-template-columns: 48mm 1fr;
+  gap: 8mm;
+  padding: 7mm 0;
+  border-bottom: 0.25mm solid rgba(246, 241, 231, 0.18);
+}
+
+.set .blocks > div:last-child {
+  border-bottom: 0;
+}
+
+.set .blocks h3 {
+  padding-top: 1.6mm;
+}
+
+.set .blocks p {
+  font-size: 12pt;
+  line-height: 1.55;
+}
+
+.set .blocks p + p {
+  margin-top: 2mm;
+}
+
+/* ---------- 4. ecouter ---------- */
+
+.listen .inner {
+  position: absolute;
+  inset: var(--m);
+  bottom: 20mm;
+}
+
+.mix {
+  display: grid;
+  grid-template-columns: 30mm 1fr;
+  gap: 8mm;
+  align-items: center;
+  margin-top: 10mm;
+  padding: 8mm;
+  background: #ece5d6;
+}
+
+.qr {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.mix .qr {
+  width: 30mm;
+  height: 30mm;
+}
+
+.mix .what {
+  font-size: 7pt;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--orange);
+}
+
+.mix .name {
+  margin-top: 2mm;
+  font-family: 'Robot Radicals', sans-serif;
+  font-size: 24pt;
+  line-height: 1.1;
+}
+
+.mix .meta {
+  margin-top: 2mm;
+  font-size: 12pt;
+}
+
+.url {
+  margin-top: 2mm;
+  font-size: 7pt;
+  opacity: 0.6;
+  word-break: break-all;
+}
+
+.tracks {
+  margin-top: 10mm;
+}
+
+.track {
+  display: grid;
+  grid-template-columns: 28mm 1fr 18mm;
+  gap: 7mm;
+  align-items: center;
+  padding: 7mm 0;
+  border-bottom: 0.25mm solid rgba(10, 10, 11, 0.15);
+}
+
+.track img.cover {
+  width: 28mm;
+  height: 28mm;
+  object-fit: cover;
+  display: block;
+}
+
+.track .qr {
+  width: 18mm;
+  height: 18mm;
+}
+
+.track .name {
+  font-family: 'Robot Radicals', sans-serif;
+  font-size: 18pt;
+  line-height: 1.1;
+}
+
+.track .meta {
+  margin-top: 1.5mm;
+  font-size: 10.5pt;
+  opacity: 0.75;
+}
+
+.everywhere {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+.everywhere .row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6mm;
+  margin-top: 3mm;
+}
+
+.everywhere .cell {
+  display: flex;
+  align-items: center;
+  gap: 3mm;
+  font-size: 8.5pt;
+  font-weight: 500;
+}
+
+.everywhere .qr {
+  width: 14mm;
+  height: 14mm;
+  flex: 0 0 auto;
+}
+
+/* ---------- 5. les preuves ---------- */
+
+.proof .band {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 210mm;
+  height: 45mm;
+  object-fit: cover;
+}
+
+.proof .inner {
+  position: absolute;
+  left: var(--m);
+  right: var(--m);
+  top: 53mm;
+  bottom: 30mm;
+}
+
+.proof .cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10mm;
+  margin-top: 7mm;
+}
+
+.perf {
+  list-style: none;
+  margin: 3mm 0 0;
+  padding: 0;
+}
+
+.perf li {
+  display: flex;
+  justify-content: space-between;
+  gap: 4mm;
+  padding: 3.1mm 0;
+  border-bottom: 0.25mm solid rgba(10, 10, 11, 0.12);
+  font-size: 10.5pt;
+}
+
+.perf li span:last-child {
+  opacity: 0.6;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.release {
+  display: grid;
+  grid-template-columns: 30mm 1fr;
+  gap: 5mm;
+  align-items: center;
+  margin-top: 3mm;
+}
+
+.release + .release {
+  margin-top: 4mm;
+}
+
+.release img {
+  width: 30mm;
+  height: 30mm;
+  object-fit: cover;
+  display: block;
+}
+
+.release .name {
+  font-family: 'Robot Radicals', sans-serif;
+  font-size: 16pt;
+  line-height: 1.1;
+}
+
+.release .meta {
+  margin-top: 1.5mm;
+  font-size: 10pt;
+  line-height: 1.45;
+  opacity: 0.75;
+}
+
+.proof .count {
+  margin-top: 7mm;
+  font-size: 10.5pt;
+}
+
+.proof .count b {
+  color: var(--orange);
+  font-weight: 600;
+}
+
+.proof .edits {
+  margin-top: 8mm;
+}
+
+.proof .edits p {
+  margin-top: 3mm;
+  font-size: 10.5pt;
+}
+
+.proof .edits small {
+  display: block;
+  margin-top: 1.5mm;
+  font-size: 7pt;
+  opacity: 0.6;
+}
+
+.roster {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 14mm;
+  padding: 3.2mm var(--m);
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 7.5pt;
+  letter-spacing: 0.04em;
+}
+
+.roster b {
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--orange);
+  margin-right: 3mm;
+}
+
+/* ---------- 6. technique et contact ---------- */
+
+.tech .inner {
+  position: absolute;
+  inset: var(--m);
+  bottom: 20mm;
+}
+
+.tech .blocks {
+  margin-top: 3mm;
+}
+
+.tech .blocks > div {
+  display: grid;
+  grid-template-columns: 40mm 1fr;
+  gap: 8mm;
+  padding: 6mm 0;
+  border-bottom: 0.25mm solid rgba(10, 10, 11, 0.12);
+}
+
+.tech .blocks > div:last-child {
+  border-bottom: 0;
+}
+
+.tech .blocks h3 {
+  padding-top: 1.4mm;
+}
+
+.tech .blocks p:first-child {
+  margin-top: 0;
+}
+
+.tech .blocks p {
+  margin-top: 3mm;
+  font-size: 11pt;
+  line-height: 1.55;
+}
+
+.tech .blocks p + p {
+  margin-top: 1.5mm;
+}
+
+.tech .contact {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding-top: 7mm;
+  border-top: 0.25mm solid rgba(10, 10, 11, 0.2);
+  display: grid;
+  grid-template-columns: 1fr 34mm;
+  gap: 10mm;
+  align-items: end;
+}
+
+.tech .contact p {
+  margin-top: 3mm;
+  font-size: 11pt;
+  line-height: 1.6;
+}
+
+.tech .contact .qr {
+  width: 34mm;
+  height: 34mm;
+}
+
+.tech .contact .qrcap {
+  margin-top: 2mm;
+  font-size: 7pt;
+  opacity: 0.7;
+}
+
+strong {
+  font-weight: 600;
+}
