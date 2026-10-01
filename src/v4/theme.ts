@@ -990,7 +990,7 @@ export const INTRO = {
 /* ---------- textes ---------- */
 
 export const COPY = {
-  title: 'Maudite Machine | DJ & Producer \u00B7 Hypnotic Techno',
+  title: 'Maudite Machine | DJ & Producer \u00B7 Deep Techno \u00B7 Indie Dance',
   wordmark: 'MAUDITE MACHINE',
   model: 'MM-808',
 } as const;

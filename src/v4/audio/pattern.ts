@@ -71,7 +71,7 @@ export interface PatternState extends Pattern {
 }
 
 /**
- * Le motif d'arrivee (2026-10-01), techno hypnotique a 130 BPM, charge
+ * Le motif d'arrivee (2026-10-01), deep techno a 130 BPM, charge
  * mais muet tant qu'on n'appuie pas sur RUN : grosse caisse four to the
  * floor, clap sur 2 et 4, charley ferme en doubles croches avec des
  * velocites (moyen sur le temps, doux sur le "e", fort juste avant le
