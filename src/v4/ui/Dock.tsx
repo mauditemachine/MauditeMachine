@@ -18,6 +18,7 @@
 import React, { useRef, useState, useSyncExternalStore } from 'react';
 import {
   clearPattern,
+  randomPattern,
   muteToggle,
   openSection,
   openToggle,
@@ -31,7 +32,7 @@ import {
   stepToggle,
 } from '../actions';
 import { clock } from '../audio/clock';
-import { BPM, INSTRUMENTS, STEP_COUNT, VEL_NAMES, pattern, velocity } from '../audio/pattern';
+import { BPM, INSTRUMENTS, STEP_COUNT, VEL_BARS, VEL_NAMES, pattern, velocity } from '../audio/pattern';
 import type { Stage } from '../scene/renderer';
 import { explode } from '../state/explode';
 import { playhead } from '../state/playhead';
@@ -114,6 +115,10 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
         {hint}
       </p>
       <div className="v4-dock-insts" role="group" aria-label="Instrument">
+        {/* RANDOM a gauche des voix, comme sur la machine */}
+        <button type="button" className="v4-dock-inst v4-dock-random" aria-label="Random house pattern" onClick={() => randomPattern(getStage())}>
+          <Icon name="fa-solid fa-dice" />
+        </button>
         {INSTRUMENTS.map((k) => {
           const muted = v.muted.includes(k);
           const solo = v.solo === k;
@@ -180,6 +185,14 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
                 onStep(i);
               }}
             >
+              {/* Velocite : fort trois traits, moyen deux, doux un */}
+              {on && (
+                <span className="v4-dock-vel" aria-hidden="true">
+                  {Array.from({ length: VEL_BARS[vel] }, (_, b) => (
+                    <i key={b} />
+                  ))}
+                </span>
+              )}
               <span className="v4-dock-num">{i + 1}</span>
             </button>
           );

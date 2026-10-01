@@ -1,28 +1,31 @@
 /**
  * Effets par piste (2026-10-01) : chaque voix (BD, SD, TOM, CH, OH) a son
- * propre TONE (hauteur et filtre), LEVEL, DIST, REVERB, DELAY et CHORUS.
+ * propre TONE (hauteur et filtre), STRETCH (duree des coups), LEVEL, DIST,
+ * REVERB, DELAY et CHORUS.
  * Un pad selectionne : les potards reglent cette voix ; sans selection,
  * ils reglent tout le pattern (le bus, drums.ts). Neutre au depart :
- * TONE 0, LEVEL 0.8 (gain 1, la voix telle quelle), le reste a 0 ; a ces
+ * TONE et STRETCH 0, LEVEL 0.8 (gain 1, la voix telle quelle), le reste a 0 ; a ces
  * valeurs chaque insert est en bypass reel et chaque envoi debranche.
  * Garde en memoire seulement : une visite repart neutre.
  */
 
 import type { Inst } from '../theme';
+import { snapTime } from './time';
 import { snapTone } from './tone';
 
-export type VoiceParam = 'tone' | 'level' | 'dist' | 'reverb' | 'delay' | 'chorus';
-export const VOICE_PARAMS: readonly VoiceParam[] = ['tone', 'level', 'dist', 'reverb', 'delay', 'chorus'];
+export type VoiceParam = 'tone' | 'stretch' | 'level' | 'dist' | 'reverb' | 'delay' | 'chorus';
+export const VOICE_PARAMS: readonly VoiceParam[] = ['tone', 'stretch', 'level', 'dist', 'reverb', 'delay', 'chorus'];
 
 export type VoiceFx = Record<VoiceParam, number>;
 
-export const VOICE_FX_DEFAULT: Readonly<VoiceFx> = { tone: 0, level: 0.8, dist: 0, reverb: 0, delay: 0, chorus: 0 };
+export const VOICE_FX_DEFAULT: Readonly<VoiceFx> = { tone: 0, stretch: 0, level: 0.8, dist: 0, reverb: 0, delay: 0, chorus: 0 };
 
 /** LEVEL d'une voix : gain (v / 0.8)^2, donc exactement 1 au depart, +3.9 dB a fond. */
 export const voiceGain = (level: number): number => (level / VOICE_FX_DEFAULT.level) ** 2;
 
 const clamp = (p: VoiceParam, v: number): number => {
   if (p === 'tone') return snapTone(v);
+  if (p === 'stretch') return snapTime(v);
   return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;
 };
 

@@ -452,7 +452,8 @@ html:has(body.v4-active) {
 }
 
 .v4-dock-insts {
-  grid-template-columns: repeat(5, 1fr);
+  /* RANDOM (de), puis les cinq voix */
+  grid-template-columns: 0.8fr repeat(5, 1fr);
 }
 
 .v4-dock-steps {
@@ -474,6 +475,11 @@ html:has(body.v4-active) {
   letter-spacing: 0.14em;
   /* l'interlettrage pousse le mot a gauche : on le compense */
   text-indent: 0.14em;
+}
+
+.v4-root .v4-dock-random {
+  font-size: 15px;
+  text-indent: 0;
 }
 
 .v4-root .v4-dock-inst[aria-pressed='true'] {
@@ -509,6 +515,26 @@ html:has(body.v4-active) {
 
 .v4-dock-num {
   position: relative;
+}
+
+/* Velocite (2026-10-01) : un a trois traits au-dessus du numero, comme sur
+   la machine ; fort trois, moyen deux, doux un, de la couleur du chiffre */
+.v4-dock-vel {
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+  transform: translateX(-50%);
+}
+
+.v4-dock-vel > i {
+  display: block;
+  width: 12px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
 }
 
 .v4-root .v4-dock-step[data-on='1'] {

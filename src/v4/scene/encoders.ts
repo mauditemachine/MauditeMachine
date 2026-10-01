@@ -109,8 +109,9 @@ export class Encoders {
     const i = this.index(id);
     if (i < 0) return false;
     const a = potAngle(t);
-    if (this.angle[i] === Math.fround(a)) return false;
+    // La valeur d'abord : TONE et STRETCH au centre ont deja leur angle de depart
     this.value[i] = t;
+    if (this.angle[i] === Math.fround(a)) return false;
     this.angle[i] = a;
     this.place(i);
     return true;

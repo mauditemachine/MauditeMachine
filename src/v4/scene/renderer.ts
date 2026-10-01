@@ -106,7 +106,7 @@ import { Orbit } from './orbit';
 import { Pads } from './pads';
 import { Pcb } from './pcb';
 import { Screen } from './screen';
-import { Sequencer3D } from './sequencer3d';
+import { RANDOM, Sequencer3D } from './sequencer3d';
 import { PanelSilk, fontsReady, makeBrushTexture, whenFonts, whenLogos } from './silk';
 import { Tweens, easeInOutCubic, easeOutCubic, linear } from './tween';
 
@@ -664,6 +664,16 @@ export class Stage {
    */
   pressStep(i: number): void {
     if (this.disposed || i < 0 || i >= STEP_LEDS) return;
+    this.pressKey(i);
+  }
+
+  /** RANDOM (2026-10-01) : le bouton s'enfonce et s'eclaire comme un pas. */
+  pressRandom(): void {
+    if (this.disposed) return;
+    this.pressKey(RANDOM);
+  }
+
+  private pressKey(i: number): void {
     const move = !motion.reduced();
     const set = (v: number): void => this.seq.setKeyPress(i, v, move);
     const tw = this.paintTweens;
@@ -1450,18 +1460,17 @@ export class Stage {
     else this.repaint();
   }
 
-  /** TONE, STRETCH, LEVEL, SWING, DIST, REVERB suivent le bus (glisser, molette, clavier, tests). */
   /**
    * Les potards suivent leur cible : la voix du pad selectionne pour TONE,
-   * LEVEL, DIST, REVERB, DELAY et CHORUS (effets par piste), tout le
-   * pattern sinon ; ils tournent aussi quand la selection change.
+   * STRETCH, LEVEL, DIST, REVERB, DELAY et CHORUS (effets par piste), tout
+   * le pattern sinon ; ils tournent aussi quand la selection change.
    */
   private syncMix = (): void => {
     const inst = pattern.get().instrument;
     const v = inst ? voiceFx.of(inst) : null;
     // TONE va de -1 a 1 : sa course est centree (repere a midi a 0)
     let changed = this.encoders.setValue('tone', potCourse('tone', v ? v.tone : mix.tone));
-    if (this.encoders.setValue('stretch', mix.stretch)) changed = true;
+    if (this.encoders.setValue('stretch', potCourse('stretch', v ? v.stretch : mix.stretch))) changed = true;
     if (this.encoders.setValue('level', v ? v.level : mix.level)) changed = true;
     if (this.encoders.setValue('swing', mix.swing)) changed = true;
     if (this.encoders.setValue('dist', v ? v.dist : mix.drive)) changed = true;

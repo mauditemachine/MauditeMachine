@@ -1,16 +1,24 @@
 /**
  * Le sequenceur (spec 7.5 et 20.3.6) : les 16 touches trig etroites du bas
- * du panneau, RUN/STOP et CLEAR (les deux boutons carres sous les
- * encodeurs) sont UN InstancedMesh de 18 boites a coins arrondis (echelle
- * par instance) ; les 16 LED au-dessus des touches, UN InstancedMesh de
- * petits rectangles a couleur par instance, non eclaires (la teinte
- * affichee est le jeton exact).
- * LED, par priorite : pas en cours pendant la lecture yellowHi, survol
- * (pointeur fin) ledHover, pas programme ledSet, sinon line. Programme =
- * les coups de l'instrument selectionne ; sans selection, l'union des
- * quatre, pour que le motif par defaut se voie des l'arrivee. RUN/STOP est
- * le seul element rouge ; il passe au jaune (emissif) pendant la lecture.
- * Le Stage ne rend une frame que si une couleur a change.
+ * du panneau, RUN/STOP, CLEAR, MUTE, SOLO et RANDOM (boutons carres) sont
+ * UN InstancedMesh de boites a coins arrondis (echelle par instance) ; les
+ * traits de velocite au-dessus des touches, UN InstancedMesh de petits
+ * rectangles a couleur par instance, non eclaires (la teinte affichee est
+ * le jeton exact).
+ *
+ * Velocite (2026-10-01) : trois traits par pas, empiles vers l'arriere,
+ * la LED du bas comprise. Fort : trois traits ledSet, moyen deux, doux un ;
+ * un pas vide ne garde que la LED du bas, eteinte (line), les deux autres
+ * disparaissent. Le compte se lit quel que soit l'etat : pendant la lecture
+ * les traits du pas en cours passent en yellowHi (la LED du bas seule sur
+ * un pas vide) ; le survol (pointeur fin) n'eclaire que la LED du bas d'un
+ * pas vide, en ledHover. Avant, la LED unique changeait de teinte selon la
+ * velocite et le survol la recouvrait : on ne voyait plus ce qu'on venait
+ * de poser.
+ * Programme = les coups de l'instrument selectionne ; sans selection, le
+ * plus fort des cinq, pour que le motif par defaut se voie des l'arrivee.
+ * RUN/STOP est le seul element rouge ; il passe au jaune (emissif) pendant
+ * la lecture. Le Stage ne rend une frame que si un trait a change.
  */
 
 import {
@@ -26,31 +34,33 @@ import {
   type Object3D,
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { INSTRUMENTS, STEP_COUNT, velocity, type Steps } from '../audio/pattern';
-import { COLOR, KEYS, LIT, MATERIAL, MUTE_GLOW, RUN_GLOW, STEP_PRESS, TRANSPORT, keyX, type Inst } from '../theme';
+import { INSTRUMENTS, STEP_COUNT, VEL_BARS, velocity, type Steps } from '../audio/pattern';
+import { COLOR, KEYS, LIT, MATERIAL, MUTE_GLOW, RANDOM_KEY, RUN_GLOW, STEP_PRESS, TRANSPORT, keyX, type Inst } from '../theme';
 import type { HotspotDef } from './hit';
 import { withInstanceEmissive } from './materials';
 
-export type LedTone = 'line' | 'ledSet' | 'ledMid' | 'ledLow' | 'ledHover' | 'yellowHi';
+/** Teinte d'un trait ; 'none' : trait cache (au-dessus de la LED du bas, pas assez fort). */
+export type LedTone = 'line' | 'ledSet' | 'ledHover' | 'yellowHi' | 'none';
 
-/** Instances des touches : les 16 trig, puis RUN, CLEAR, MUTE et SOLO. */
+/** Instances des touches : les 16 trig, puis RUN, CLEAR, MUTE, SOLO et RANDOM. */
 const RUN = STEP_COUNT;
 const CLEAR = STEP_COUNT + 1;
 const MUTE = STEP_COUNT + 2;
 const SOLO = STEP_COUNT + 3;
-const KEY_COUNT = STEP_COUNT + 4;
+export const RANDOM = STEP_COUNT + 4;
+const KEY_COUNT = STEP_COUNT + 5;
 
-const LED_HEX: Readonly<Record<LedTone, number>> = {
+const BARS = KEYS.velBars;
+
+const LED_HEX: Readonly<Record<Exclude<LedTone, 'none'>, number>> = {
   line: COLOR.line,
   ledSet: COLOR.ledSet,
-  ledMid: COLOR.ledMid,
-  ledLow: COLOR.ledLow,
   ledHover: COLOR.ledHover,
   yellowHi: COLOR.yellowHi,
 };
 
-/** Couleur de LED par velocite : vide, fort, moyen, doux. */
-const LED_BY_VEL: readonly LedTone[] = ['line', 'ledSet', 'ledMid', 'ledLow'];
+/** z du trait b d'un pas (0 : la LED du bas). */
+const barZ = (b: number): number => KEYS.ledZ - KEYS.velPitch * b;
 
 const m4 = new Matrix4();
 const col = new Color();
@@ -72,8 +82,12 @@ function ledGeometry(): BufferGeometry {
 }
 
 export interface SequencerInfo {
-  /** couleur de chaque LED, pas 1 a 16 */
+  /** couleur de la LED du bas de chaque pas, pas 1 a 16 */
   leds: LedTone[];
+  /** traits allumes de chaque pas (0 a 3), pas 1 a 16 */
+  bars: string;
+  /** teinte de chaque trait, pas par pas, du bas vers le haut */
+  barTones: LedTone[][];
   run: 'red' | 'yellow';
   playhead: number;
   hover: number;
@@ -88,6 +102,7 @@ export class Sequencer3D {
   private keyMat: MeshStandardMaterial;
   private ledMat: MeshBasicMaterial;
   private emissive: InstancedBufferAttribute;
+  /** teinte de chaque trait, index pas x BARS + trait */
   private ledTone: LedTone[] = [];
   private steps: Steps | null = null;
   private instrument: Inst | null = null;
@@ -123,6 +138,8 @@ export class Sequencer3D {
     this.keys.setColorAt(CLEAR, col.setRGB(LIT.clear[0], LIT.clear[1], LIT.clear[2]));
     this.keys.setMatrixAt(MUTE, m4.makeScale(sx, sy, sz).setPosition(TRANSPORT.mute.x, 0, TRANSPORT.z));
     this.keys.setMatrixAt(SOLO, m4.makeScale(sx, sy, sz).setPosition(TRANSPORT.solo.x, 0, TRANSPORT.z));
+    this.keys.setMatrixAt(RANDOM, m4.makeScale(sx, sy, sz).setPosition(RANDOM_KEY.x, 0, RANDOM_KEY.z));
+    this.keys.setColorAt(RANDOM, col.setRGB(LIT.clear[0], LIT.clear[1], LIT.clear[2]));
     this.paintVoiceKey(MUTE, false);
     this.paintVoiceKey(SOLO, false);
     this.paintRun();
@@ -131,12 +148,16 @@ export class Sequencer3D {
 
     this.ledMat = new MeshBasicMaterial({ toneMapped: false });
     this.ledMat.name = 'led';
-    this.leds = new InstancedMesh(ledGeometry(), this.ledMat, STEP_COUNT);
+    this.leds = new InstancedMesh(ledGeometry(), this.ledMat, STEP_COUNT * BARS);
     this.leds.name = 'leds';
     for (let i = 0; i < STEP_COUNT; i += 1) {
-      this.leds.setMatrixAt(i, m4.makeTranslation(keyX(i), KEYS.ledY, KEYS.ledZ));
-      this.leds.setColorAt(i, col.setHex(LED_HEX.line));
-      this.ledTone.push('line');
+      for (let b = 0; b < BARS; b += 1) {
+        const k = i * BARS + b;
+        // Au repos : la LED du bas eteinte, les traits du dessus caches
+        this.leds.setMatrixAt(k, b === 0 ? m4.makeTranslation(keyX(i), KEYS.ledY, barZ(b)) : m4.makeScale(0, 0, 0));
+        this.leds.setColorAt(k, col.setHex(LED_HEX.line));
+        this.ledTone.push(b === 0 ? 'line' : 'none');
+      }
     }
     this.leds.instanceMatrix.needsUpdate = true;
     this.leds.instanceColor?.setUsage(DynamicDrawUsage);
@@ -200,7 +221,8 @@ export class Sequencer3D {
    * s'eclaire. Le Stage l'anime (pressStep).
    */
   setKeyPress(i: number, v: number, move: boolean): void {
-    if (i < 0 || i >= STEP_COUNT) return;
+    // Les 16 pas et RANDOM
+    if (i < 0 || (i >= STEP_COUNT && i !== RANDOM)) return;
     this.keys.instanceMatrix.array[i * 16 + 13] = move ? -STEP_PRESS.depth * v : 0;
     this.keys.instanceMatrix.needsUpdate = true;
     const e = this.emissive.array as Float32Array;
@@ -210,23 +232,39 @@ export class Sequencer3D {
     this.emissive.needsUpdate = true;
   }
 
-  /** Recolore les LED selon la regle 7.5 ; true si une couleur a change. */
+  /** Teinte du trait b du pas i (regle de l'en-tete). */
+  private barTone(i: number, b: number): LedTone {
+    const n = VEL_BARS[this.programmed(i)];
+    const head = i === this.playhead || i === this.introLed;
+    if (b < n) return head ? 'yellowHi' : 'ledSet';
+    if (b > 0) return 'none';
+    return head ? 'yellowHi' : i === this.hover ? 'ledHover' : 'line';
+  }
+
+  /** Recolore les traits ; true si un trait a change. */
   private refresh(): boolean {
-    let changed = false;
+    let colors = false;
+    let shapes = false;
     for (let i = 0; i < STEP_COUNT; i += 1) {
-      const tone: LedTone =
-        i === this.playhead || i === this.introLed
-          ? 'yellowHi'
-          : i === this.hover
-            ? 'ledHover'
-            : LED_BY_VEL[this.programmed(i)];
-      if (tone === this.ledTone[i]) continue;
-      this.ledTone[i] = tone;
-      this.leds.setColorAt(i, col.setHex(LED_HEX[tone]));
-      changed = true;
+      for (let b = 0; b < BARS; b += 1) {
+        const k = i * BARS + b;
+        const tone = this.barTone(i, b);
+        const was = this.ledTone[k];
+        if (tone === was) continue;
+        this.ledTone[k] = tone;
+        if ((tone === 'none') !== (was === 'none')) {
+          this.leds.setMatrixAt(k, tone === 'none' ? m4.makeScale(0, 0, 0) : m4.makeTranslation(keyX(i), KEYS.ledY, barZ(b)));
+          shapes = true;
+        }
+        if (tone !== 'none') {
+          this.leds.setColorAt(k, col.setHex(LED_HEX[tone]));
+          colors = true;
+        }
+      }
     }
-    if (changed && this.leds.instanceColor) this.leds.instanceColor.needsUpdate = true;
-    return changed;
+    if (colors && this.leds.instanceColor) this.leds.instanceColor.needsUpdate = true;
+    if (shapes) this.leds.instanceMatrix.needsUpdate = true;
+    return colors || shapes;
   }
 
   /** Motif et instrument selectionne (store pattern.ts) ; true s'il faut une frame. */
@@ -292,14 +330,23 @@ export class Sequencer3D {
     ] as const) {
       defs.push({ id, kind: id, layer, shape: 'box', x, z: TRANSPORT.z, hx: h, hz: h, y0: 0, y1: TRANSPORT.h, enabled: true });
     }
+    defs.push({ id: 'random', kind: 'random', layer, shape: 'box', x: RANDOM_KEY.x, z: RANDOM_KEY.z, hx: h, hz: h, y0: 0, y1: TRANSPORT.h, enabled: true });
     return defs;
   }
 
   info(): SequencerInfo {
     let programmed = '';
-    for (let i = 0; i < STEP_COUNT; i += 1) programmed += String(this.programmed(i));
+    let bars = '';
+    const barTones: LedTone[][] = [];
+    for (let i = 0; i < STEP_COUNT; i += 1) {
+      programmed += String(this.programmed(i));
+      bars += String(VEL_BARS[this.programmed(i)]);
+      barTones.push(this.ledTone.slice(i * BARS, i * BARS + BARS));
+    }
     return {
-      leds: [...this.ledTone],
+      leds: barTones.map((t) => t[0]),
+      bars,
+      barTones,
       run: this.running ? 'yellow' : 'red',
       playhead: this.playhead,
       hover: this.hover,

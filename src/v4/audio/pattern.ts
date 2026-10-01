@@ -105,6 +105,8 @@ export const isOn = (steps: Steps, inst: Inst, i: number): boolean => velocity(s
 export const VEL_GAIN: readonly number[] = [0, 1, 0.6, 0.32];
 /** Noms de l'ecran : STEP 05 CH MID. */
 export const VEL_NAMES: readonly string[] = ['OFF', 'HIGH', 'MID', 'LOW'];
+/** Traits de velocite au-dessus d'un pas (2026-10-01) : vide 0, fort 3, moyen 2, doux 1. */
+export const VEL_BARS: readonly number[] = [0, 3, 2, 1];
 
 /**
  * Les effets de l'arrivee : un soupcon de SWING (55 %) pour que les
@@ -298,6 +300,12 @@ export const pattern = {
   },
   clear(): void {
     commit({ ...clearSteps(state), instrument: state.instrument }, true);
+  },
+  /** Un motif entier (RANDOM) ; les rangees invalides gardent les leurs. */
+  replace(steps: Steps): void {
+    const next = { ...state.steps };
+    for (const inst of INSTRUMENTS) if (STEPS_RE.test(steps[inst])) next[inst] = steps[inst];
+    commit({ ...state, steps: next }, true);
   },
   setBpm(bpm: number): void {
     const b = clampBpm(bpm);

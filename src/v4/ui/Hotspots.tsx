@@ -37,6 +37,7 @@ import React, { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 
 import {
   chipAction,
   clearPattern,
+  randomPattern,
   dial,
   dialReset,
   dialValue,
@@ -75,6 +76,7 @@ import {
   POT_UI,
   VOICE_ENCODERS,
   potMin,
+  isBipolar,
   STEP_HOLD_MS,
   TEMPO_UI,
   TWIN_ARIA,
@@ -247,6 +249,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.kind === 'clear') clearPattern();
       else if (d.kind === 'mute') muteToggle();
       else if (d.kind === 'solo') soloToggle();
+      else if (d.kind === 'random') randomPattern(stage);
       else if (d.kind === 'seek') stage.seekAt(d.x, d.y);
       else if (d.kind === 'chip' && d.chip && d.id) activateChip(d.id, d.chip);
       else if (d.dial) tapDial(d.dial);
@@ -416,7 +419,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       const steps = Math.trunc(wheelAcc / px);
       if (steps !== 0) {
         wheelAcc -= steps * px;
-        const step = k === 'tempo' ? 1 : k === 'tone' ? POT_UI.toneStep : POT_UI.wheelStep;
+        const step = k === 'tempo' ? 1 : isBipolar(k) ? POT_UI.bipolarStep : POT_UI.wheelStep;
         dial(k, dialValue(k) + steps * step);
       }
     };
@@ -493,8 +496,8 @@ const onDialKey =
     const cfg = k === 'tempo' ? DIAL_KEYS.tempo : DIAL_KEYS.pot;
     const min = k === 'tempo' ? BPM.min : potMin(k);
     const max = k === 'tempo' ? BPM.max : 1;
-    // TONE : un pas de 0.05 sort du cran du centre (+/-0.04)
-    const step = e.shiftKey ? cfg.big : k === 'tone' ? POT_UI.toneStep : cfg.step;
+    // TONE et STRETCH : un pas de 0.05 sort du cran du centre (+/-0.04)
+    const step = e.shiftKey ? cfg.big : isBipolar(k) ? POT_UI.bipolarStep : cfg.step;
     let v = dialValue(k);
     switch (e.key) {
       case 'ArrowUp':
@@ -530,13 +533,17 @@ const pct = (v: number): number => Math.round(v * 100);
 /** "TRACKS" -> "Tracks" */
 const title = (label: string): string => label.charAt(0) + label.slice(1).toLowerCase();
 
-/** Texte lu d'un encodeur : "130 BPM", "80 %", "54 % swing", TONE "+35, centre 0". */
+/** Texte lu d'un encodeur : "130 BPM", "80 %", "54 % swing", TONE "+35", STRETCH "-40 %, shorter". */
 function dialText(k: EncId, v: number): string {
   if (k === 'tempo') return `${v} BPM`;
   if (k === 'swing') return `${swingRatio(v)} % swing`;
   if (k === 'tone') {
     const n = pct(v);
     return n === 0 ? '0, centre, bypass' : `${n > 0 ? '+' : ''}${n}`;
+  }
+  if (k === 'stretch') {
+    const n = pct(v);
+    return n === 0 ? '0, centre, original length' : `${n > 0 ? '+' : ''}${n} %, ${n > 0 ? 'longer' : 'shorter'}`;
   }
   return `${pct(v)} %`;
 }
@@ -581,7 +588,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const reverb = useSyncExternalStore(mix.subscribe, () => mix.reverb, () => mix.reverb);
   const delay = useSyncExternalStore(mix.subscribe, () => mix.delay, () => mix.delay);
   const chorus = useSyncExternalStore(mix.subscribe, () => mix.chorus, () => mix.chorus);
-  // Effets par piste : un pad selectionne, ses six potards montrent sa voix
+  // Effets par piste : un pad selectionne, ses sept potards montrent sa voix
   const vfx = useSyncExternalStore(voiceFx.subscribe, voiceFx.get, voiceFx.get);
   const els = useRef(new Map<string, HTMLElement>());
   const refs = useRef(new Map<string, (el: HTMLElement | null) => void>());
@@ -593,7 +600,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const inst = p.instrument;
   const sel = p.instrument ? vfx[p.instrument] : null;
   const values: Record<EncId, number> = sel
-    ? { tempo: p.bpm, tone: sel.tone, stretch, level: sel.level, swing, dist: sel.dist, reverb: sel.reverb, delay: sel.delay, chorus: sel.chorus }
+    ? { tempo: p.bpm, tone: sel.tone, stretch: sel.stretch, level: sel.level, swing, dist: sel.dist, reverb: sel.reverb, delay: sel.delay, chorus: sel.chorus }
     : { tempo: p.bpm, tone, stretch, level, swing, dist: drive, reverb, delay, chorus };
 
   /** Ref stable par id : l'element entre et sort des deux registres. */
@@ -812,6 +819,16 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
         aria-label={TWIN_ARIA.clear}
         onKeyDown={noRepeat}
         onClick={() => clearPattern()}
+      />
+      <button
+        ref={refFor('random')}
+        type="button"
+        className="v4-twin"
+        data-twin="random"
+        data-hotspot="random"
+        aria-label={TWIN_ARIA.random}
+        onKeyDown={noRepeat}
+        onClick={() => randomPattern(stageRef.current)}
       />
       <button
         ref={refFor('mute')}

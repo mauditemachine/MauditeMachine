@@ -31,7 +31,7 @@ import { HIT, type ChipId, type EncId, type Inst, type SectionId } from '../them
  * a REVERB, spec 20.17 FX-5), une tape double le remet a sa valeur de
  * depart.
  */
-export type HotspotKind = 'pad' | 'page' | 'open' | 'step' | 'run' | 'clear' | 'mute' | 'solo' | 'encoder' | 'chip' | 'seek';
+export type HotspotKind = 'pad' | 'page' | 'open' | 'step' | 'run' | 'clear' | 'mute' | 'solo' | 'random' | 'encoder' | 'chip' | 'seek';
 
 export interface HotspotDef {
   id: string;

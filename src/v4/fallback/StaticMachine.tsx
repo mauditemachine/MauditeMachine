@@ -30,6 +30,7 @@ import {
   SILK_TEXTS,
   TEMPO_UI,
   TILT,
+  RANDOM_KEY,
   TRANSPORT,
   chassisTopY,
   encX,
@@ -298,7 +299,7 @@ function encoder(i: number, angleDeg: number): Solid {
 }
 
 const potDeg = (t: number): number => TEMPO_UI.sweepDeg / 2 - TEMPO_UI.sweepDeg * t;
-const START: Record<string, number> = { tempo: (BPM.initial - BPM.min) / (BPM.max - BPM.min), tone: 0.5, stretch: 0, level: 0.8, swing: 0, dist: 0, reverb: 0, delay: 0, chorus: 0 };
+const START: Record<string, number> = { tempo: (BPM.initial - BPM.min) / (BPM.max - BPM.min), tone: 0.5, stretch: 0.5, level: 0.8, swing: 0, dist: 0, reverb: 0, delay: 0, chorus: 0 };
 
 function solids(): React.ReactNode[] {
   const items: Solid[] = [];
@@ -312,6 +313,7 @@ function solids(): React.ReactNode[] {
   const h = t.size / 2;
   items.push(box('run', t.run.x, t.z, h, h, t.h, HEX.red, C.runSide, C.runSide));
   items.push(box('clear', t.clear.x, t.z, h, h, t.h, HEX.graphiteHi, C.clearSide, C.clearSide));
+  items.push(box('random', RANDOM_KEY.x, RANDOM_KEY.z, h, h, t.h, HEX.graphiteHi, C.clearSide, C.clearSide));
   for (let i = 0; i < KEYS.count; i += 1) items.push(box(`key-${i}`, keyX(i), KEYS.z, KEYS.w / 2, KEYS.d / 2, KEYS.h, HEX.key, C.keySide, C.keySide));
   return items.sort((a, b) => a.depth - b.depth).flatMap((it) => it.nodes);
 }

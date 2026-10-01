@@ -360,9 +360,14 @@ export type EncId = 'tempo' | 'tone' | 'stretch' | 'level' | 'swing' | 'dist' | 
 
 /**
  * Les potards qui reglent une voix quand un pad est selectionne (effets
- * par piste, 2026-10-01) ; TEMPO, STRETCH et SWING restent ceux du pattern.
+ * par piste, 2026-10-01 ; STRETCH aussi depuis qu'il raccourcit ou allonge
+ * les coups) ; TEMPO et SWING restent ceux du pattern.
  */
-export const VOICE_ENCODERS: readonly EncId[] = ['tone', 'level', 'dist', 'reverb', 'delay', 'chorus'];
+export const VOICE_ENCODERS: readonly EncId[] = ['tone', 'stretch', 'level', 'dist', 'reverb', 'delay', 'chorus'];
+
+/** Potards a zero au centre (-1 a 1) : TONE et STRETCH. */
+export const BIPOLAR: readonly EncId[] = ['tone', 'stretch'];
+export const isBipolar = (id: EncId): boolean => BIPOLAR.includes(id);
 
 /**
  * Neuf encodeurs noirs a repere blanc, sous l'ecran (spec 20.3.7 ; STRETCH
@@ -389,7 +394,7 @@ export const encX = (i: number): number => ENCODER.x0 + ENCODER.pitch * i;
 export const ENCODERS: readonly { id: EncId; label: string; aria: string }[] = [
   { id: 'tempo', label: 'TEMPO', aria: 'Tempo' },
   { id: 'tone', label: 'TONE', aria: 'Tone, pitch and filter' },
-  { id: 'stretch', label: 'STRETCH', aria: 'Stretch' },
+  { id: 'stretch', label: 'STRETCH', aria: 'Stretch, shorter or longer hits' },
   { id: 'level', label: 'LEVEL', aria: 'Level' },
   { id: 'swing', label: 'SWING', aria: 'Swing' },
   { id: 'dist', label: 'DIST', aria: 'Distortion' },
@@ -450,6 +455,13 @@ export const PAD = {
   halo: 1.0,
   haloY: 0.003,
 } as const;
+
+/**
+ * RANDOM (2026-10-01) : le meme bouton carre que CLEAR, a gauche des pads
+ * de voix, dans la colonne qui precede BD et sur leur rangee ; son libelle
+ * sur la ligne de ceux des pads. Il tire un motif house (audio/house.ts).
+ */
+export const RANDOM_KEY = { x: PAD.x0 - PAD.pitch, z: PAD.rowZ[0], labelZ: PAD.rowZ[0] + PAD.labelDz } as const;
 
 export interface VoicePad {
   id: Inst;
@@ -569,8 +581,15 @@ export const KEYS = {
   radius: 0.04,
   ledZ: 1.62,
   ledW: 0.22,
-  ledD: 0.07,
+  ledD: 0.055,
   ledY: 0.006,
+  /**
+   * Velocite (2026-10-01) : jusqu'a trois traits empiles au-dessus de la
+   * touche (vers l'arriere, pas de 0.09), la LED du bas comprise : fort
+   * trois, moyen deux, doux un ; un pas vide n'a que la LED du bas, eteinte.
+   */
+  velBars: 3,
+  velPitch: 0.09,
   numberZ: 3.08,
   bracketZ: 3.25,
   bracketTick: 0.06,
@@ -635,26 +654,26 @@ export const MUTE_GLOW = [0.5, 0.072, 0.003] as const;
 export const TEMPO_UI = { pxPerBpm: 2, wheelPx: 100, tapMs: 350, sweepDeg: 270 } as const;
 
 /**
- * Les six autres encodeurs : glisser, 150 px = toute la course ; molette
- * 2 % par cran de 100 px ; double tape = valeur de depart (TONE au centre,
- * LEVEL 80 %, STRETCH, SWING, DIST et REVERB a 0, leur neutre). Ecran : la
- * valeur reste 1200 ms en ligne 3 (spec 20.3.8). TONE va de -1 a 1 (sa
- * course fait 2) : molette et fleches de 0.05, pour sortir du cran du
- * centre (+/-0.04) en un pas.
+ * Les autres encodeurs : glisser, 150 px = toute la course ; molette
+ * 2 % par cran de 100 px ; double tape = valeur de depart (TONE et STRETCH
+ * au centre, LEVEL 80 %, SWING, DIST, REVERB, DELAY et CHORUS a 0, leur
+ * neutre). Ecran : la valeur reste 1200 ms en ligne 3 (spec 20.3.8). TONE
+ * et STRETCH vont de -1 a 1 (leur course fait 2) : molette et fleches de
+ * 0.05, pour sortir du cran du centre (+/-0.04) en un pas.
  */
 export const POT_UI = {
   pxRange: 150,
   wheelPx: 100,
   wheelStep: 0.02,
-  toneStep: 0.05,
+  bipolarStep: 0.05,
   readoutMs: 1200,
   reset: { tone: 0, stretch: 0, level: 0.8, swing: 0, dist: 0, reverb: 0, delay: 0, chorus: 0 },
 } as const;
 
-/** Bornes d'un encodeur hors TEMPO : TONE -1 a 1, les autres 0 a 1. */
-export const potMin = (id: EncId): number => (id === 'tone' ? -1 : 0);
-/** Course 0 a 1 d'un encodeur hors TEMPO (angle) : TONE au centre a 0. */
-export const potCourse = (id: EncId, v: number): number => (id === 'tone' ? (v + 1) / 2 : v);
+/** Bornes d'un encodeur hors TEMPO : TONE et STRETCH -1 a 1, les autres 0 a 1. */
+export const potMin = (id: EncId): number => (isBipolar(id) ? -1 : 0);
+/** Course 0 a 1 d'un encodeur hors TEMPO (angle) : TONE et STRETCH au centre a 0. */
+export const potCourse = (id: EncId, v: number): number => (isBipolar(id) ? (v + 1) / 2 : v);
 
 /**
  * Au doigt, un encodeur (TEMPO compris) ne se prend qu'apres touchHoldMs
@@ -810,6 +829,7 @@ export const SILK_TEXTS: readonly SilkText[] = [
   { text: 'CLEAR', x: TRANSPORT.clear.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
   { text: 'MUTE', x: TRANSPORT.mute.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
   { text: 'SOLO', x: TRANSPORT.solo.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
+  { text: 'RANDOM', x: RANDOM_KEY.x, z: RANDOM_KEY.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
   ...PADS.map(padLabel),
   ...Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ, cap: 0.075 })),
 ];
@@ -822,8 +842,9 @@ export const OPEN_SILK_INDEX = SILK_TEXTS.findIndex((t) => t.text === 'OPEN');
  * crochet sous chaque groupe de quatre touches trig.
  */
 export const SILK_LINES: readonly (readonly number[])[] = [
-  // le cran du centre de TONE (revision 5) : un trait a midi, derriere l'encodeur
+  // le cran du centre de TONE (revision 5) et de STRETCH : un trait a midi, derriere l'encodeur
   [encX(1), ENCODER.z - ENCODER.collar.r - 0.05, encX(1), ENCODER.z - ENCODER.collar.r - 0.17],
+  [encX(2), ENCODER.z - ENCODER.collar.r - 0.05, encX(2), ENCODER.z - ENCODER.collar.r - 0.17],
   // sous la rangee des voix (les pages dessous), puis la colonne d'OPEN a part
   [PAD.x0 - PAD.size / 2 - 0.09, PAD.rowZ[0] + 0.73, PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[0] + 0.73],
   [PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[0] - 0.5, PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[1] + 0.72],
@@ -1209,6 +1230,7 @@ export const TWIN_ARIA = {
   clear: 'Clear pattern',
   mute: 'Mute the selected voice',
   solo: 'Solo the selected voice',
+  random: 'Random house pattern',
   group: 'MM-808 drum machine',
 } as const;
 

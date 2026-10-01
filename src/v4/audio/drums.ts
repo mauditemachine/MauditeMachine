@@ -3,11 +3,11 @@
  * fichier. Un seul AudioContext pour la page, cree au premier geste de
  * l'utilisateur (jamais au montage, jamais par un timer) et repris a
  * chaque interaction s'il est suspendu (regle iOS). Graphe (revision 2 :
- * DIST et REVERB, audio/fx.ts ; revision 5 : TONE et STRETCH, inserts a
- * bypass reel, audio/tone.ts et audio/stretch.ts) :
+ * DIST et REVERB, audio/fx.ts ; revision 5 : TONE, insert a bypass reel,
+ * audio/tone.ts) :
  *
  *   voix -> tranche de la voix -> bus -> [sec + DIST] -> TONE -> CHORUS
- *        -> STRETCH -> gain (LEVEL) -> compresseur leger -> analyseur
+ *        -> gain (LEVEL) -> compresseur leger -> analyseur
  *        -> master -> destination
  *   tranche (2026-10-01, effets par piste) : LEVEL de la voix -> TONE
  *        (filtre) -> DIST -> CHORUS, puis envois REVERB et DELAY
@@ -18,7 +18,9 @@
  * debranche : au depart, une voix traverse quatre gains a 1, rien d'autre.
  *
  * TONE transpose aussi : chaque coup est programme avec ses frequences
- * multipliees par 2^(demi-tons / 12), exactement 1 a TONE 0.
+ * multipliees par 2^(demi-tons / 12), exactement 1 a TONE 0. STRETCH
+ * (2026-10-01, le Time d'Impulse, audio/time.ts) agit pareil sur les
+ * durees : balayages et enveloppes multiplies par 4^v, exactement 1 a 0.
  *
  * L'analyseur est AVANT le master : avec ?mute=1 le master reste a 0 pour
  * toute la session (LEVEL ne pilote que son propre gain) et le signal
@@ -33,7 +35,7 @@ import { buildChorus, type ChorusInfo, type ChorusStage } from './chorus';
 import { buildDrive, buildFx, glide, type DriveStage, type FxChain } from './fx';
 import { pattern, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
 import { buildDelayBus, buildReverbBus, type BusInfo, type DelayBus, type Send, type SendBus, type SendInfo } from './sends';
-import { buildStretch, clampStretch, type StretchInfo, type StretchStage } from './stretch';
+import { hitTime, snapTime } from './time';
 import { buildTone, pitchFactor, snapTone, type ToneInfo, type ToneStage } from './tone';
 import { VOICE_FX_DEFAULT, voiceFx, voiceGain, type VoiceFx, type VoiceParam } from './voicefx';
 
@@ -55,7 +57,6 @@ interface Graph {
   bus: GainNode;
   tone: ToneStage;
   chorus: ChorusStage;
-  stretch: StretchStage;
   level: GainNode;
   comp: DynamicsCompressorNode;
   analyser: AnalyserNode;
@@ -109,7 +110,7 @@ let triggers = 0;
 let last: TriggerInfo | null = null;
 /** TONE : -1 a 1, 0 = bypass (revision 5) */
 let tone = 0;
-/** STRETCH : 0 a 1, 0 = bypass (revision 5) */
+/** STRETCH : -1 a 1, 0 = duree d'origine (2026-10-01, audio/time.ts) */
 let stretch = 0;
 let level = 0.8;
 /**
@@ -125,10 +126,9 @@ function getCtor(): Ctor | undefined {
   return window.AudioContext ?? (window as Window & { webkitAudioContext?: Ctor }).webkitAudioContext;
 }
 
-/** Options du graphe hors ligne (tests) : valeurs imposees, master force, sans TONE ni STRETCH. */
+/** Options du graphe hors ligne (tests) : valeurs imposees, master force. */
 interface BuildOpts {
   tone?: number;
-  stretch?: number;
   drive?: number;
   reverb?: number;
   delay?: number;
@@ -138,7 +138,7 @@ interface BuildOpts {
   voice?: Partial<Record<Inst, Partial<VoiceFx>>>;
   /** master a 1 quel que soit ?mute=1 (rendu hors ligne : rien ne sort des enceintes) */
   master?: number;
-  /** reference : le bus rejoint LEVEL sans aucun stage TONE, CHORUS ni STRETCH, les voix sans tranche */
+  /** reference : le bus rejoint LEVEL sans aucun stage TONE ni CHORUS, les voix sans tranche */
   bare?: boolean;
 }
 
@@ -163,7 +163,7 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   // Mute : 0 AVANT tout branchement, jamais d'automation sur ce gain
   master.gain.value = o.master ?? (FLAGS.mute ? 0 : 1);
 
-  // Le bus rejoint TONE par DIST (sec, et mouille si DIST > 0), puis STRETCH
+  // Le bus rejoint TONE par DIST (sec, et mouille si DIST > 0), puis CHORUS
   lvl.connect(comp);
   comp.connect(analyser);
   analyser.connect(master);
@@ -172,14 +172,11 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   const direct = { direct: true, linked: false, dry: 1, wet: 0, unlinks: 0 };
   let toneSt: ToneStage;
   let chorusSt: ChorusStage;
-  let stretchSt: StretchStage;
   if (o.bare) {
     toneSt = { input: lvl, set: () => undefined, reset: () => undefined, info: () => ({ value: 0, semitones: 0, hpHz: 0, lpHz: 0, insert: direct }) };
     chorusSt = { input: lvl, set: () => undefined, value: () => 0, reset: () => undefined, info: () => ({ value: 0, live: false, built: 0, insert: direct }) };
-    stretchSt = { input: lvl, set: () => undefined, reset: () => undefined, info: () => ({ value: 0, ratio: 1, worklet: false, created: 0, module: null, insert: direct }), ready: async () => false, stats: async () => null };
   } else {
-    stretchSt = buildStretch(c, lvl, o.stretch ?? stretch);
-    chorusSt = buildChorus(c, stretchSt.input);
+    chorusSt = buildChorus(c, lvl);
     toneSt = buildTone(c, chorusSt.input, o.tone ?? tone);
   }
   const fx = buildFx(c, { bus, tone: toneSt.input }, o.drive ?? f.drive);
@@ -215,7 +212,7 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   const curve = new Float32Array(1024);
   for (let i = 0; i < curve.length; i += 1) curve[i] = Math.tanh(2.5 * ((i / (curve.length - 1)) * 2 - 1));
 
-  const g: Graph = { ctx: c, bus, tone: toneSt, chorus: chorusSt, stretch: stretchSt, level: lvl, comp, analyser, master, fx, reverb, delay, reverbSend, delaySend, ch, noise, curve };
+  const g: Graph = { ctx: c, bus, tone: toneSt, chorus: chorusSt, level: lvl, comp, analyser, master, fx, reverb, delay, reverbSend, delaySend, ch, noise, curve };
   if (!o.bare) {
     reverbSend.set(o.reverb ?? f.reverb);
     delaySend.set(o.delay ?? f.delay);
@@ -245,6 +242,10 @@ const voiceIn = (g: Graph, inst: Inst): AudioNode => g.ch?.[inst].input ?? g.bus
 const voicePitch = (inst: Inst, globalTone: number, voiceTone?: number): number =>
   pitchFactor(globalTone) * pitchFactor(voiceTone ?? voiceFx.of(inst).tone);
 
+/** Facteur des durees d'une voix : STRETCH du pattern et STRETCH de la voix (exactement 1 a 0 et 0). */
+const voiceTime = (inst: Inst, globalStretch: number, voiceStretch?: number): number =>
+  hitTime(globalStretch, voiceStretch ?? voiceFx.of(inst).stretch);
+
 /** ?mute=1 vu une fois = master a 0 pour toute la page, meme sur un contexte cree avant. */
 function enforceMute(g: Graph): void {
   if (!FLAGS.mute) return;
@@ -265,10 +266,9 @@ export function ensure(): AudioContext | undefined {
   if (ctx && graph) {
     enforceMute(graph);
     // Apres quiet() (demontage) : REVERB et DELAY reviennent sur des unites
-    // neuves (envois gardes) ; STRETCH aussi (son worklet s'etait arrete)
+    // neuves (envois gardes)
     graph.reverb.revive();
     graph.delay.revive();
-    graph.stretch.set(stretch);
     return ctx;
   }
   const C = getCtor();
@@ -308,8 +308,6 @@ export function resume(): void {
 export function quiet(): void {
   graph?.reverb.silence();
   graph?.delay.silence();
-  // Le tampon de 2 s ne rejouera pas l'ancienne visite : worklet arrete
-  graph?.stretch.reset();
 }
 
 /** Onglet cache, canvas hors ecran, demontage : le contexte dort, on le garde. */
@@ -348,26 +346,33 @@ function noiseSource(g: Graph): AudioBufferSourceNode {
   return src;
 }
 
-/** Depart au hasard dans la seconde de bruit : deux coups ne sont jamais identiques. */
+/**
+ * Depart au hasard dans la seconde de bruit : deux coups ne sont jamais
+ * identiques. En boucle : une queue etiree (STRETCH) peut durer plus d'une
+ * seconde.
+ */
 function startNoise(src: AudioBufferSourceNode, when: number, tail: number, nodes: AudioNode[]): void {
   src.onended = () => {
     for (const n of nodes) n.disconnect();
   };
+  src.loop = true;
   const span = (src.buffer?.duration ?? 1) - tail - STOP_PAD - 0.01;
   src.start(when, Math.random() * Math.max(0, span));
   src.stop(when + tail + STOP_PAD);
 }
 
-function voiceBD(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1): Voice {
+function voiceBD(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
   const c = g.ctx;
+  const tail = TAIL.BD * ts;
   const osc = c.createOscillator();
   osc.type = 'sine';
   osc.frequency.setValueAtTime(150 * pf, when);
-  osc.frequency.exponentialRampToValueAtTime(48 * pf, when + 0.06);
+  osc.frequency.exponentialRampToValueAtTime(48 * pf, when + 0.06 * ts);
   const env = c.createGain();
   env.gain.setValueAtTime(0, when);
+  // L'attaque (2 ms) ne s'etire pas : le coup garde son claquement
   env.gain.linearRampToValueAtTime(1, when + 0.002);
-  env.gain.exponentialRampToValueAtTime(0.001, when + TAIL.BD);
+  env.gain.exponentialRampToValueAtTime(0.001, when + tail);
   const drive = c.createGain();
   drive.gain.value = 1.4;
   const shaper = c.createWaveShaper();
@@ -381,12 +386,14 @@ function voiceBD(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1): Voice
   shaper.connect(post);
   post.connect(dest);
   const nodes = [osc, env, drive, shaper, post];
-  play(osc, when, TAIL.BD, nodes);
+  play(osc, when, tail, nodes);
   return { when, srcs: [osc], nodes };
 }
 
-function voiceSD(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1): Voice {
+function voiceSD(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
   const c = g.ctx;
+  const tail = TAIL.SD * ts;
+  const bodyTail = TAIL.SDbody * ts;
   const src = noiseSource(g);
   const bp = c.createBiquadFilter();
   bp.type = 'bandpass';
@@ -394,14 +401,14 @@ function voiceSD(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1): Voice
   bp.Q.value = 1.2;
   const nEnv = c.createGain();
   nEnv.gain.setValueAtTime(1, when);
-  nEnv.gain.exponentialRampToValueAtTime(0.001, when + TAIL.SD);
+  nEnv.gain.exponentialRampToValueAtTime(0.001, when + tail);
   const body = c.createOscillator();
   body.type = 'triangle';
   body.frequency.setValueAtTime(180 * pf, when);
-  body.frequency.exponentialRampToValueAtTime(140 * pf, when + 0.06);
+  body.frequency.exponentialRampToValueAtTime(140 * pf, when + 0.06 * ts);
   const bEnv = c.createGain();
   bEnv.gain.setValueAtTime(0.6, when);
-  bEnv.gain.exponentialRampToValueAtTime(0.001, when + TAIL.SDbody);
+  bEnv.gain.exponentialRampToValueAtTime(0.001, when + bodyTail);
   const out = c.createGain();
   out.gain.value = 0.9;
   src.connect(bp);
@@ -411,26 +418,27 @@ function voiceSD(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1): Voice
   bEnv.connect(out);
   out.connect(dest);
   body.start(when);
-  body.stop(when + TAIL.SDbody + STOP_PAD);
+  body.stop(when + bodyTail + STOP_PAD);
   // Le bruit finit en dernier : c'est lui qui debranche toute la voix
   const nodes = [src, bp, nEnv, body, bEnv, out];
-  startNoise(src, when, TAIL.SD, nodes);
+  startNoise(src, when, tail, nodes);
   return { when, srcs: [src, body], nodes };
 }
 
-function voiceTOM(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1): Voice {
+function voiceTOM(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
   const c = g.ctx;
+  const tail = TAIL.TOM * ts;
   const osc = c.createOscillator();
   osc.type = 'sine';
   osc.frequency.setValueAtTime(220 * pf, when);
-  osc.frequency.exponentialRampToValueAtTime(110 * pf, when + 0.12);
+  osc.frequency.exponentialRampToValueAtTime(110 * pf, when + 0.12 * ts);
   const env = c.createGain();
   env.gain.setValueAtTime(1, when);
-  env.gain.exponentialRampToValueAtTime(0.001, when + TAIL.TOM);
+  env.gain.exponentialRampToValueAtTime(0.001, when + tail);
   osc.connect(env);
   env.connect(dest);
   const nodes = [osc, env];
-  play(osc, when, TAIL.TOM, nodes);
+  play(osc, when, tail, nodes);
   return { when, srcs: [osc], nodes };
 }
 
@@ -451,8 +459,9 @@ function chokeOH(when: number): void {
  * brillance (crete a 10 kHz), 340 ms. Un charley ferme ou ouvert suivant le
  * coupe (chokeOH) : sur le motif d'arrivee, le "tss" court des contretemps.
  */
-function voiceOH(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1): Voice {
+function voiceOH(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
   const c = g.ctx;
+  const tail = TAIL.OH * ts;
   chokeOH(when);
   const src = noiseSource(g);
   const hp = c.createBiquadFilter();
@@ -466,7 +475,7 @@ function voiceOH(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1): Voice
   shine.gain.value = 4;
   const env = c.createGain();
   env.gain.setValueAtTime(0.55, when);
-  env.gain.exponentialRampToValueAtTime(0.001, when + TAIL.OH);
+  env.gain.exponentialRampToValueAtTime(0.001, when + tail);
   const gate = c.createGain();
   gate.gain.value = 1;
   src.connect(hp);
@@ -475,16 +484,16 @@ function voiceOH(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1): Voice
   env.connect(gate);
   gate.connect(dest);
   ohGate = gate;
-  ohEnd = when + TAIL.OH;
+  ohEnd = when + tail;
   const nodes = [src, hp, shine, env, gate];
-  startNoise(src, when, TAIL.OH, nodes);
+  startNoise(src, when, tail, nodes);
   return { when, srcs: [src], nodes };
 }
 
-function voiceCH(g: Graph, when: number, open: boolean, dest: AudioNode = g.bus, pf = 1): Voice {
+function voiceCH(g: Graph, when: number, open: boolean, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
   const c = g.ctx;
   chokeOH(when);
-  const tail = open ? TAIL.CHopen : TAIL.CH;
+  const tail = (open ? TAIL.CHopen : TAIL.CH) * ts;
   const src = noiseSource(g);
   const hp = c.createBiquadFilter();
   hp.type = 'highpass';
@@ -501,17 +510,17 @@ function voiceCH(g: Graph, when: number, open: boolean, dest: AudioNode = g.bus,
   return { when, srcs: [src], nodes };
 }
 
-/** Une voix, frequences multipliees par pf (TONE : exactement 1 a 0). */
-function voice(g: Graph, inst: Inst, t: number, open: boolean, dest: AudioNode, pf: number): Voice {
+/** Une voix, frequences multipliees par pf (TONE), durees par ts (STRETCH) : exactement 1 a 0. */
+function voice(g: Graph, inst: Inst, t: number, open: boolean, dest: AudioNode, pf: number, ts: number): Voice {
   return inst === 'BD'
-    ? voiceBD(g, t, dest, pf)
+    ? voiceBD(g, t, dest, pf, ts)
     : inst === 'SD'
-      ? voiceSD(g, t, dest, pf)
+      ? voiceSD(g, t, dest, pf, ts)
       : inst === 'TOM'
-        ? voiceTOM(g, t, dest, pf)
+        ? voiceTOM(g, t, dest, pf, ts)
         : inst === 'OH'
-          ? voiceOH(g, t, dest, pf)
-          : voiceCH(g, t, open, dest, pf);
+          ? voiceOH(g, t, dest, pf, ts)
+          : voiceCH(g, t, open, dest, pf, ts);
 }
 
 /**
@@ -536,7 +545,7 @@ export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], 
     vg.connect(dest);
     dest = vg;
   }
-  const v = voice(g, inst, t, open, dest, voicePitch(inst, tone));
+  const v = voice(g, inst, t, open, dest, voicePitch(inst, tone), voiceTime(inst, stretch));
   // Le gain part avec la voix (meme liste de noeuds a debrancher)
   if (vg) v.nodes.push(vg);
   out?.push(v);
@@ -609,12 +618,14 @@ export function setTone(v: number): void {
   emitMix();
 }
 
-/** STRETCH : 0 a 1 (etirement granulaire, audio/stretch.ts), 0 = bypass reel. */
+/**
+ * STRETCH : -1 a 1 (audio/time.ts), accroche a 0 entre -0.04 et 0.04 ;
+ * les coups programmes ensuite durent 4^v fois plus (ou moins) longtemps.
+ */
 export function setStretch(v: number): void {
-  const t = clampStretch(v);
+  const t = snapTime(v);
   if (t === stretch) return;
   stretch = t;
-  graph?.stretch.set(stretch);
   emitMix();
 }
 
@@ -705,6 +716,7 @@ export interface OfflineOpts {
   /** sinus continus (Hz) dans le bus, au lieu de la batterie */
   sines?: number[];
   tone?: number;
+  /** STRETCH du pattern, -1 a 1 (0 par defaut hors ligne) */
   stretch?: number;
   /** effets de tout le pattern (0 par defaut hors ligne) */
   drive?: number;
@@ -713,11 +725,10 @@ export interface OfflineOpts {
   chorus?: number;
   /** effets par voix (neutres par defaut hors ligne) */
   voice?: Partial<Record<Inst, Partial<VoiceFx>>>;
-  /** reference : sans aucun stage TONE, CHORUS ni STRETCH, voix sans tranche */
+  /** reference : sans aucun stage TONE ni CHORUS, voix sans tranche */
   bare?: boolean;
   /** reglages pendant le rendu : [instant (s), valeur], 50 ms d'ecart au moins */
   toneAt?: [number, number][];
-  stretchAt?: [number, number][];
   seed?: number;
 }
 
@@ -738,6 +749,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
   const sr = o.sampleRate ?? 48000;
   const oc = new OfflineAudioContext(1, Math.round(o.seconds * sr), sr);
   const tone0 = snapTone(o.tone ?? 0);
+  const stretch0 = snapTime(o.stretch ?? 0);
   const rnd = Math.random;
   const gate = ohGate;
   const end = ohEnd;
@@ -752,7 +764,6 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
   try {
     g = build(oc, {
       tone: tone0,
-      stretch: 0,
       drive: o.drive ?? 0,
       reverb: o.reverb ?? 0,
       delay: o.delay ?? 0,
@@ -763,6 +774,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
       bare: o.bare,
     });
     const vt = (inst: Inst): number => snapTone(o.voice?.[inst]?.tone ?? 0);
+    const vs = (inst: Inst): number => voiceTime(inst, stretch0, snapTime(o.voice?.[inst]?.stretch ?? 0));
     if (o.sines) {
       for (const hz of o.sines) {
         const osc = oc.createOscillator();
@@ -774,7 +786,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
         osc.start(0);
       }
     } else if (o.single) {
-      voices.push(voice(g, o.single, 0.05, false, voiceIn(g, o.single), voicePitch(o.single, tone0, vt(o.single))));
+      voices.push(voice(g, o.single, 0.05, false, voiceIn(g, o.single), voicePitch(o.single, tone0, vt(o.single)), vs(o.single)));
     } else {
       const steps = o.steps ?? pattern.get().steps;
       const step = 60 / (o.bpm ?? pattern.get().bpm) / 4;
@@ -789,7 +801,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
             vg.connect(dest);
             dest = vg;
           }
-          voices.push(voice(g, inst, t, false, dest, voicePitch(inst, tone0, vt(inst))));
+          voices.push(voice(g, inst, t, false, dest, voicePitch(inst, tone0, vt(inst)), vs(inst)));
         }
       }
     }
@@ -799,17 +811,11 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
     ohGate = gate;
     ohEnd = end;
   }
-  const needsWorklet = (o.stretch ?? 0) > 0 || (o.stretchAt?.length ?? 0) > 0;
-  if (needsWorklet && !(await g.stretch.ready())) throw new Error('AudioWorklet unavailable');
-  if (o.stretch) g.stretch.set(o.stretch);
   // Chaque reglage : pose a son instant, puis une pause de 80 ms (temps reel)
   // 30 ms plus loin, rampe finie : le debranchement differe (setTimeout) y tombe
   const q = 128 / sr;
   const at = (t: number): number => Math.round(t / q) * q;
-  const events = [
-    ...(o.toneAt ?? []).map(([t, v]) => ({ t, run: () => g.tone.set(snapTone(v)) })),
-    ...(o.stretchAt ?? []).map(([t, v]) => ({ t, run: () => g.stretch.set(v) })),
-  ].sort((a, b) => a.t - b.t);
+  const events = (o.toneAt ?? []).map(([t, v]) => ({ t, run: () => g.tone.set(snapTone(v)) })).sort((a, b) => a.t - b.t);
   const used = new Set<number>();
   for (const e of events) {
     const t0 = at(e.t);
@@ -841,7 +847,7 @@ export interface AudioDebug {
   readonly analyser: AnalyserNode | undefined;
   readonly master: GainNode | undefined;
   readonly muted: boolean;
-  /** TONE (-1 a 1) et STRETCH (0 a 1), revision 5 */
+  /** TONE (-1 a 1, revision 5) et STRETCH (-1 a 1, 2026-10-01) */
   readonly tone: number;
   readonly stretch: number;
   readonly level: number;
@@ -855,9 +861,8 @@ export interface AudioDebug {
   readonly fx: FxDebug | null;
   /** effets par voix appliques aux tranches (null avant le premier geste) */
   readonly voices: Record<Inst, VoiceDebug> | null;
-  /** TONE et STRETCH tels qu'appliques au graphe (insert direct ou engage, worklet) */
+  /** TONE tel qu'applique au graphe (insert direct ou engage) */
   readonly toneInfo: ToneInfo | null;
-  readonly stretchInfo: StretchInfo | null;
   /** gain LEVEL du dernier bloc rendu (level au carre) */
   readonly levelGain: number | undefined;
   /** contextes crees depuis le chargement de la page (0 avant le premier geste, 1 ensuite) */
@@ -868,8 +873,8 @@ export interface AudioDebug {
   peak(): number;
   setTone(v: number): void;
   setStretch(v: number): void;
-  /** compteurs du processeur STRETCH (grains, sauts, retard en s) */
-  stretchStats(): Promise<unknown>;
+  /** facteur des durees du prochain coup de inst (STRETCH du pattern et de la voix) */
+  timeOf(inst: Inst): number;
   /** rendu hors ligne du graphe reel (tests) */
   renderOffline(o: OfflineOpts): Promise<Float32Array>;
   setLevel(v: number): void;
@@ -966,9 +971,6 @@ export const audioDebug: AudioDebug = {
   get toneInfo() {
     return graph ? graph.tone.info() : null;
   },
-  get stretchInfo() {
-    return graph ? graph.stretch.info() : null;
-  },
   get levelGain() {
     return graph?.level.gain.value;
   },
@@ -993,7 +995,7 @@ export const audioDebug: AudioDebug = {
   },
   setTone,
   setStretch,
-  stretchStats: () => (graph ? graph.stretch.stats() : Promise.resolve(null)),
+  timeOf: (inst: Inst) => voiceTime(inst, stretch),
   renderOffline,
   setLevel,
   setSwing,
