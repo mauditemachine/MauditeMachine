@@ -823,9 +823,16 @@ export const ORBIT = {
   resetMs: 500,
   movedDeg: 0.5,
   movedZoom: 0.01,
+  /** distance de depart ; le Stage la recalcule (cadrage en perspective) */
   distance: 30,
+  /**
+   * Camera perspective (2026-10-01, a la place de l'orthographique : les
+   * proportions se deformaient en tournant). Champ vertical de 30 deg, un
+   * cadrage de photo produit : la perspective se voit sans deformer.
+   */
+  fovDeg: 30,
   near: 0.1,
-  far: 100,
+  far: 160,
   /** centre projete de la machine fermee a la vue d'arrivee (measure().fit.targetY : 1.216, machine compacte) */
   targetY: 1.216,
 } as const;

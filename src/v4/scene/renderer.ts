@@ -31,7 +31,7 @@ import {
   DirectionalLight,
   HemisphereLight,
   Matrix4,
-  OrthographicCamera,
+  PerspectiveCamera,
   PCFShadowMap,
   PointLight,
   SRGBColorSpace,
@@ -233,7 +233,7 @@ function wedgeOccluder(): { planes: number[]; corners: number[] } {
 export class Stage {
   readonly renderer: WebGLRenderer;
   readonly scene = new Scene();
-  readonly camera: OrthographicCamera;
+  readonly camera: PerspectiveCamera;
   /** l'orbite de la camera (glisser, molette, pincement, retour a la vue par defaut) */
   readonly orbit: Orbit;
   readonly machine: Machine;
@@ -408,7 +408,7 @@ export class Stage {
     renderer.shadowMap.autoUpdate = false;
 
     // Camera : posee par l'orbite (vue par defaut azimut 45, elevation 38)
-    this.camera = new OrthographicCamera(-10, 10, 10, -10, ORBIT.near, ORBIT.far);
+    this.camera = new PerspectiveCamera(ORBIT.fovDeg, 1, ORBIT.near, ORBIT.far);
     this.orbit = new Orbit({
       camera: this.camera,
       input: opts.input,
@@ -643,7 +643,11 @@ export class Stage {
    *    stageW / 2 (stageW = bord gauche du panneau - 16) et son cercle
    *    englobant y tient : aucun azimut ne la met sous le panneau a zoom
    *    <= 1 ; jamais plus grande qu'au repos. 400 ms (retargetFraming).
-   * 4. Zoom : le decalage du frustum est divise par camera.zoom (three
+   * 4. Camera perspective (2026-10-01) : hw est la demi-largeur vue dans le
+   *    plan du pivot ; la distance de la camera en decoule (champ ORBIT.fovDeg),
+   *    le decalage de section passe par setViewOffset, en px (le zoom ne
+   *    deplace donc jamais le centre de la machine).
+   * 5. Zoom (orthographique, historique) : le decalage du frustum est divise par camera.zoom (three
    *    centre le frustum zoome sur (left + right) / 2) : zoomer ne deplace
    *    jamais le centre de la machine hors de sa zone libre.
    */
@@ -670,18 +674,21 @@ export class Stage {
     const hh = hw / aspect;
     const c = this.camera;
     const z = c.zoom;
-    c.left = -hw + ox / z;
-    c.right = hw + ox / z;
-    c.top = hh;
-    c.bottom = -hh;
+    c.aspect = aspect;
+    // La machine glisse a gauche du panneau : la fenetre de rendu se decale, en px
+    if (shiftPx > 0) c.setViewOffset(W, this.height, shiftPx, 0, W, this.height);
+    else c.clearViewOffset();
     c.updateProjectionMatrix();
     this.hw = hw;
     this.ox = ox;
     this.ppu = (W * z) / (2 * hw);
+    // Distance : la demi-hauteur hh tient dans le champ vertical, au pivot
+    const D = hh / Math.tan((ORBIT.fovDeg * Math.PI) / 360);
     // Le pivot monte avec la pile eclatee : la camera suit
     const ty = ORBIT.targetY + (EXPLODE.targetY - ORBIT.targetY) * e;
-    if (this.orbit.target.y !== ty) {
+    if (this.orbit.target.y !== ty || this.orbit.distance !== D) {
       this.orbit.target.y = ty;
+      this.orbit.distance = D;
       this.orbit.place();
     }
   }

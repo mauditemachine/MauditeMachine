@@ -21,7 +21,7 @@
  * bord d'un objet dont le dessus se voit ; le centre le plus proche gagne.
  */
 
-import { Matrix4, Vector3, type Camera, type Object3D } from 'three';
+import { Matrix4, Vector3, type Camera, type Object3D, type PerspectiveCamera } from 'three';
 import { HIT, type ChipId, type EncId, type Inst, type SectionId } from '../theme';
 
 /**
@@ -454,11 +454,13 @@ export class HitMap {
         if (this.py > b.y1) b.y1 = this.py;
       }
     } else {
-      // Ellipse projetee d'un cercle horizontal : demi-axes ecran exacts
+      // Ellipse projetee d'un cercle horizontal : demi-axes ecran (exacts en
+      // orthographique, a la profondeur du centre en perspective)
       const e = this.mvp[li].elements;
       const s = this.size();
-      const ex = def.hx * (s.w / 2) * Math.hypot(e[0], e[8]);
-      const ey = def.hx * (s.h / 2) * Math.hypot(e[1], e[9]);
+      const wc = Math.abs(e[3] * def.x + e[7] * def.y1 + e[11] * def.z + e[15]) || 1;
+      const ex = (def.hx * (s.w / 2) * Math.hypot(e[0], e[8])) / wc;
+      const ey = (def.hx * (s.h / 2) * Math.hypot(e[1], e[9])) / wc;
       for (let k = 0; k < 2; k += 1) {
         this.toPx(li, def.x, k ? def.y1 : def.y0, def.z);
         if (this.px - ex < b.x0) b.x0 = this.px - ex;
@@ -590,9 +592,11 @@ export class HitMap {
     for (let p: Object3D | null = layer; p; p = p.parent) if (!p.visible) return false;
     this.sync();
     this.prepare();
-    // Monde : le point, et la direction vers la camera (orthographique : la meme partout)
+    // Monde : le point, et la direction vers la camera (perspective : vers
+    // son centre ; orthographique : la meme partout)
     o.set(x, y, z).applyMatrix4(layer.matrixWorld);
-    d.set(0, 0, 1).transformDirection(this.camera.matrixWorld);
+    if ((this.camera as PerspectiveCamera).isPerspectiveCamera) d.setFromMatrixPosition(this.camera.matrixWorld).sub(o).normalize();
+    else d.set(0, 0, 1).transformDirection(this.camera.matrixWorld);
     for (let j = 0; j < this.occluders.length; j += 1) {
       const oc = this.occluders[j];
       if (!oc.layer.visible) continue;
@@ -640,8 +644,11 @@ export class HitMap {
   /** Rayon de vue du point ecran (x, y) : origine sur le plan proche (o), direction (d), monde. */
   private ray(x: number, y: number): void {
     const s = this.size();
-    o.set((x / s.w) * 2 - 1, 1 - (y / s.h) * 2, -1).unproject(this.camera);
-    d.set(0, 0, -1).transformDirection(this.camera.matrixWorld);
+    // Du plan proche au plan lointain : juste en perspective comme en orthographique
+    const nx = (x / s.w) * 2 - 1;
+    const ny = 1 - (y / s.h) * 2;
+    o.set(nx, ny, -1).unproject(this.camera);
+    d.set(nx, ny, 1).unproject(this.camera).sub(o).normalize();
   }
 
   /**

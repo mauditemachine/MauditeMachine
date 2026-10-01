@@ -12,6 +12,8 @@
 - Spec : `docs/v4/spec.md` section 22.
 - Deuxieme passe : boutons MUTE et SOLO a cote de RUN/STOP et CLEAR (3D, jumeaux, Dock) ; pads LABEL et SONAA retires, leurs liens dans CONTACT ; CONTACT : liens en tete, formulaire en bas ; machine compacte 12.6 x 8 (14 x 9 avant), cadrage re-mesure. Spec section 23.
 - Troisieme passe : LIVE fondu dans PRESS (un seul pad) ; 11 pads, OPEN seul a droite.
+- Intro : la machine arrive eclatee et s'assemble en 3 s.
+- Camera perspective (champ de 30 deg) a la place de l'orthographique ; en-tete fin desktop avec le logo et un menu qui actionne les boutons de la machine.
 
 ## 2. Decisions prises et pourquoi
 

@@ -295,6 +295,90 @@ html:has(body.v4-active) {
   display: none;
 }
 
+/* ---------- en-tete fin (2026-10-01, desktop) : logo et menu ---------- */
+
+.v4-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 26;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0 24px 0 28px;
+  background: linear-gradient(to bottom, rgba(10, 10, 11, 0.85), rgba(10, 10, 11, 0));
+  /* le degrade ne bloque rien : seuls le logo et les liens repondent */
+  pointer-events: none;
+}
+
+.v4-header > * {
+  pointer-events: auto;
+}
+
+.v4-root .v4-logo {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  border-radius: 8px;
+}
+
+.v4-logo img {
+  display: block;
+  height: 26px;
+  width: auto;
+}
+
+.v4-nav ul {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.v4-root .v4-nav-link {
+  height: 36px;
+  padding: 0 11px;
+  border-radius: 8px;
+  color: var(--bone-70);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  transition: color 160ms ease, background-color 160ms ease;
+}
+
+.v4-root .v4-nav-link:hover,
+.v4-root .v4-nav-link:focus-visible {
+  color: var(--bone);
+  background: rgba(246, 241, 231, 0.06);
+}
+
+.v4-root .v4-nav-link[aria-expanded='true'] {
+  color: var(--orange);
+}
+
+.v4-nav-sep {
+  width: 1px;
+  height: 16px;
+  margin: 0 8px;
+  background: rgba(246, 241, 231, 0.2);
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-nav-link {
+  transition: none;
+}
+
+@media (max-width: 767px) {
+  .v4-header {
+    display: none;
+  }
+}
+
 /* ---------- Dock : le pas a pas du telephone (spec 11.4, revision 4) ---------- */
 
 /* Mobile seulement : sous la scene, dans la moitie du bas. Les instruments

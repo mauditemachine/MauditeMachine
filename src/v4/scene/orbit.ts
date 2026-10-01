@@ -16,7 +16,7 @@
  * encodeur, dans toutes les directions. Aucune allocation par frame.
  */
 
-import { Vector3, type OrthographicCamera } from 'three';
+import { Vector3, type PerspectiveCamera } from 'three';
 import { view } from '../state/view';
 import { ORBIT } from '../theme';
 import { easeOutCubic } from './tween';
@@ -34,7 +34,7 @@ const clamp = (v: number, a: number, b: number): number => (v < a ? a : v > b ? 
 const wrapPi = (a: number): number => a - TAU * Math.round(a / TAU);
 
 export interface OrbitOpts {
-  camera: OrthographicCamera;
+  camera: PerspectiveCamera;
   /** element des pointeurs : .v4-stage (les evenements de .v4-hit y remontent) */
   input: HTMLElement;
   /** reveil de la boucle a la demande */
@@ -67,6 +67,12 @@ export class Orbit {
   azimuth = AZ0;
   elevation = EL0;
   zoom: number = ORBIT.zoom;
+  /**
+   * Distance camera - pivot (2026-10-01, camera perspective) : le Stage la
+   * calcule pour que le cadrage tienne (renderer.updateCamera) ; place()
+   * la lit.
+   */
+  distance: number = ORBIT.distance;
   /** pivot : le Stage le monte avec la vue eclatee */
   readonly target = new Vector3(0, ORBIT.targetY, 0);
   /** appele une fois par pointeur au seuil de 6 px ; false = la couche de saisie le garde */
@@ -286,7 +292,7 @@ export class Orbit {
   place(): void {
     const c = this.opts.camera;
     const ce = Math.cos(this.elevation);
-    const D = ORBIT.distance;
+    const D = this.distance;
     const t = this.target;
     c.position.set(t.x + D * ce * Math.sin(this.azimuth), t.y + D * Math.sin(this.elevation), t.z + D * ce * Math.cos(this.azimuth));
     c.lookAt(t);

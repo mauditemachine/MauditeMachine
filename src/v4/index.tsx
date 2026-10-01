@@ -50,6 +50,7 @@ import { section } from './state/section';
 import { view } from './state/view';
 import { COARSE_QUERY, COPY, HEX, MOBILE_QUERY } from './theme';
 import { Dock } from './ui/Dock';
+import { Header } from './ui/Header';
 import { HitLayer, Twins } from './ui/Hotspots';
 import { Lcd } from './ui/Lcd';
 import { Panel } from './ui/Panel';
@@ -338,6 +339,8 @@ const V4Shell: React.FC = () => {
           <Lcd />
           {/* Le Dock n'existe que sur la mise en page mobile : pas de rendu React par pas sur desktop */}
           {mobile && <Dock getStage={getStage} />}
+          {/* L'en-tete fin (logo et menu) n'existe que sur desktop */}
+          {!mobile && <Header getStage={getStage} />}
           <Trace stage={stage} panelRef={panelRef} mobile={mobile} />
           <Panel mobile={mobile} panelRef={panelRef} />
         </StageBoundary>
