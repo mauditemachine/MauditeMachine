@@ -557,9 +557,10 @@ const padAt = (col: number, row: 0 | 1): { x: number; z: number } => ({ x: PAD.x
 
 /**
  * Les 11 pads (2026-10-01, LIVE fondu dans PRESS) : les cinq voix en haut
- * (BD SD TOM CH OH), les cinq pages en bas (TRACKS MIXTAPES PRESS SHOWS
- * CONTACT), OPEN seul dans la sixieme colonne, a mi-hauteur des deux
- * rangees. Voix : A S D F G. Pages : 1 a 5. OPEN : 6 (et O).
+ * (BD SD TOM CH OH), les cinq pages en bas (TRACKS MIXTAPES SHOWS PRESS
+ * CONTACT : PRESS a gauche de CONTACT depuis le 2026-10-01), OPEN seul dans
+ * la sixieme colonne, a mi-hauteur des deux rangees. Voix : A S D F G.
+ * Pages : 1 a 5. OPEN : 6 (et O).
  */
 export const PADS: readonly PadSpec[] = [
   { id: 'BD', kind: 'voice', label: 'BD', key: 'A', ...padAt(0, 0) },
@@ -569,8 +570,8 @@ export const PADS: readonly PadSpec[] = [
   { id: 'OH', kind: 'voice', label: 'OH', key: 'G', ...padAt(4, 0) },
   { id: 'tracks', kind: 'page', label: 'TRACKS', key: '1', ...padAt(0, 1) },
   { id: 'mixtapes', kind: 'page', label: 'MIXTAPES', key: '2', ...padAt(1, 1) },
-  { id: 'press', kind: 'page', label: 'PRESS', key: '3', ...padAt(2, 1) },
-  { id: 'shows', kind: 'page', label: 'SHOWS', key: '4', ...padAt(3, 1) },
+  { id: 'shows', kind: 'page', label: 'SHOWS', key: '3', ...padAt(2, 1) },
+  { id: 'press', kind: 'page', label: 'PRESS', key: '4', ...padAt(3, 1) },
   { id: 'contact', kind: 'page', label: 'CONTACT', key: '5', ...padAt(4, 1) },
   { id: 'open', kind: 'open', label: 'OPEN', key: '6', x: PAD.x0 + 5 * PAD.pitch, z: (PAD.rowZ[0] + PAD.rowZ[1]) / 2 },
 ];

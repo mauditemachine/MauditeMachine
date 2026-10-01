@@ -22,8 +22,8 @@ type HoodId = 'goodies' | 'merch' | 'studio';
 const PAGE_LINKS: readonly { id: PageId; label: string }[] = [
   { id: 'tracks', label: 'Tracks' },
   { id: 'mixtapes', label: 'Mixtapes' },
-  { id: 'press', label: 'Press' },
   { id: 'shows', label: 'Shows' },
+  { id: 'press', label: 'Press' },
   { id: 'contact', label: 'Contact' },
 ];
 

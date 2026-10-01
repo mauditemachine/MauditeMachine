@@ -53,8 +53,8 @@ interface Cell {
 const PAGE_CELLS: readonly Cell[] = [
   { id: 'tracks', label: 'TRACKS', aria: 'Tracks', icon: 'fa-solid fa-compact-disc' },
   { id: 'mixtapes', label: 'MIXTAPES', aria: 'Mixtapes', icon: 'fa-solid fa-record-vinyl' },
-  { id: 'press', label: 'PRESS', aria: 'Press', icon: 'fa-solid fa-file-lines' },
   { id: 'shows', label: 'SHOWS', aria: 'Shows', icon: 'fa-solid fa-calendar-days' },
+  { id: 'press', label: 'PRESS', aria: 'Press', icon: 'fa-solid fa-file-lines' },
   { id: 'contact', label: 'CONTACT', aria: 'Contact', icon: 'fa-solid fa-envelope' },
   { id: 'reset', label: 'RESET', aria: 'Reset view', icon: 'fa-solid fa-arrows-rotate' },
 ];
