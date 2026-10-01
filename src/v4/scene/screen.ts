@@ -9,12 +9,14 @@
  * redessine a la meme cadence au plus (un second verrou de 250 ms ici),
  * jamais a chaque frame, et ne demande une frame qu'apres un redessin.
  * Materiau non eclaire, sans tone mapping : les deux teintes s'affichent
- * telles quelles.
+ * telles quelles. Page MIX (2026-10-01) : les cinq volumes en potards
+ * dessines, a la place des trois lignes, tant que lcd.mix la tient.
  */
 
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
+import { INSTRUMENTS } from '../audio/pattern';
 import { lcd, type LcdState } from '../state/lcd';
-import { HEX, LCD_TEXT, OLED, OLED_BAR, OLED_DRAW } from '../theme';
+import { HEX, LCD_TEXT, OLED, OLED_BAR, OLED_DRAW, OLED_MIX } from '../theme';
 import { makeCanvasTexture } from './silk';
 
 export interface ScreenInfo {
@@ -115,6 +117,12 @@ export class Screen {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = HEX.oled;
     ctx.fillRect(0, 0, W, H);
+    if (s.mix) {
+      this.paintMix(s.mix);
+      this.bar = null;
+      this.done(s, now);
+      return;
+    }
     ctx.font = OLED_DRAW.font;
     ctx.fillStyle = HEX.bone;
     ctx.textBaseline = 'alphabetic';
@@ -150,6 +158,72 @@ export class Screen {
         this.bar = { x0, x1, y0, y1 };
       }
     }
+    this.done(s, now);
+  }
+
+  /** Page MIX : une cellule par voix, son nom, un potard dessine, sa valeur. */
+  private paintMix(m: NonNullable<LcdState['mix']>): void {
+    const ctx = this.ctx;
+    const [W, H] = OLED.tex;
+    const M = OLED_MIX;
+    const n = INSTRUMENTS.length;
+    const cw = W / n;
+    const DEG = Math.PI / 180;
+    ctx.fillStyle = HEX.bone;
+    ctx.globalAlpha = M.ruleA;
+    for (let k = 1; k < n; k += 1) ctx.fillRect(Math.round(k * cw - M.rule / 2), M.ruleInset, M.rule, H - 2 * M.ruleInset);
+    ctx.globalAlpha = 1;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineCap = 'round';
+    INSTRUMENTS.forEach((inst, k) => {
+      const cx = cw * (k + 0.5);
+      const v = Math.max(0, Math.min(1, m.levels[k] ?? 0));
+      // Nom : la voix reglee en negatif
+      ctx.font = M.font;
+      if (inst === m.sel) {
+        ctx.fillStyle = HEX.bone;
+        ctx.beginPath();
+        // roundRect manque aux navigateurs anciens : un rectangle simple
+        if (typeof ctx.roundRect === 'function') ctx.roundRect(cx - M.tag.w / 2, M.labelY - M.tag.h / 2, M.tag.w, M.tag.h, M.tag.r);
+        else ctx.rect(cx - M.tag.w / 2, M.labelY - M.tag.h / 2, M.tag.w, M.tag.h);
+        ctx.fill();
+        ctx.fillStyle = HEX.oled;
+      } else ctx.fillStyle = HEX.bone;
+      ctx.fillText(inst, cx, M.labelY + 1);
+      // Potard : piste de 270 deg (repere a midi au milieu), arc de la valeur, aiguille
+      const a0 = (-90 - 135) * DEG;
+      const a = (-90 - 135 + 270 * v) * DEG;
+      ctx.strokeStyle = HEX.bone;
+      ctx.globalAlpha = M.trackA;
+      ctx.lineWidth = M.track;
+      ctx.beginPath();
+      ctx.arc(cx, M.dialY, M.r, a0, (-90 + 135) * DEG);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      if (v > 0) {
+        ctx.lineWidth = M.arc;
+        ctx.beginPath();
+        ctx.arc(cx, M.dialY, M.r, a0, a);
+        ctx.stroke();
+      }
+      ctx.lineWidth = M.needle;
+      ctx.beginPath();
+      ctx.moveTo(cx, M.dialY);
+      ctx.lineTo(cx + Math.cos(a) * (M.r - 10), M.dialY + Math.sin(a) * (M.r - 10));
+      ctx.stroke();
+      // Valeur
+      ctx.fillStyle = HEX.bone;
+      ctx.font = M.valueFont;
+      ctx.fillText(String(Math.round(v * 100)), cx, M.valueY);
+    });
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = OLED_DRAW.font;
+  }
+
+  /** Fin d'un redessin : la texture part, les compteurs suivent. */
+  private done(s: LcdState, now: number): void {
+    const ctx = this.ctx;
     this.texture.needsUpdate = true;
     const info = this.info;
     if (info.draws > 0) info.minGapMs = Math.min(info.minGapMs, now - info.lastDrawAt);

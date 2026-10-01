@@ -35,7 +35,7 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { INSTRUMENTS, STEP_COUNT, VEL_BARS, velocity, type Steps } from '../audio/pattern';
-import { COLOR, KEYS, LIT, MATERIAL, MUTE_GLOW, RANDOM_KEY, RUN_GLOW, STEP_PRESS, TRANSPORT, keyX, type Inst } from '../theme';
+import { COLOR, KEYS, LIT, MATERIAL, MUTE_GLOW, RUN_GLOW, STEP_PRESS, TRANSPORT, keyX, type Inst } from '../theme';
 import type { HotspotDef } from './hit';
 import { withInstanceEmissive } from './materials';
 
@@ -138,7 +138,7 @@ export class Sequencer3D {
     this.keys.setColorAt(CLEAR, col.setRGB(LIT.clear[0], LIT.clear[1], LIT.clear[2]));
     this.keys.setMatrixAt(MUTE, m4.makeScale(sx, sy, sz).setPosition(TRANSPORT.mute.x, 0, TRANSPORT.z));
     this.keys.setMatrixAt(SOLO, m4.makeScale(sx, sy, sz).setPosition(TRANSPORT.solo.x, 0, TRANSPORT.z));
-    this.keys.setMatrixAt(RANDOM, m4.makeScale(sx, sy, sz).setPosition(RANDOM_KEY.x, 0, RANDOM_KEY.z));
+    this.keys.setMatrixAt(RANDOM, m4.makeScale(sx, sy, sz).setPosition(TRANSPORT.random.x, 0, TRANSPORT.z));
     this.keys.setColorAt(RANDOM, col.setRGB(LIT.clear[0], LIT.clear[1], LIT.clear[2]));
     this.paintVoiceKey(MUTE, false);
     this.paintVoiceKey(SOLO, false);
@@ -330,7 +330,7 @@ export class Sequencer3D {
     ] as const) {
       defs.push({ id, kind: id, layer, shape: 'box', x, z: TRANSPORT.z, hx: h, hz: h, y0: 0, y1: TRANSPORT.h, enabled: true });
     }
-    defs.push({ id: 'random', kind: 'random', layer, shape: 'box', x: RANDOM_KEY.x, z: RANDOM_KEY.z, hx: h, hz: h, y0: 0, y1: TRANSPORT.h, enabled: true });
+    defs.push({ id: 'random', kind: 'random', layer, shape: 'box', x: TRANSPORT.random.x, z: TRANSPORT.z, hx: h, hz: h, y0: 0, y1: TRANSPORT.h, enabled: true });
     return defs;
   }
 

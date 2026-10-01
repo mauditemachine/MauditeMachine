@@ -8,6 +8,8 @@
  * le jumeau n'annonce pas (le curseur du jumeau annonce deja la sienne).
  */
 
+import { lcdMix } from './lcdMix';
+
 export interface LcdMessage {
   text: string;
   /** performance.now() de fin d'affichage */
@@ -28,6 +30,8 @@ export const lcdMessage = {
     return current && now < current.until ? current : null;
   },
   show(text: string, ms: number = LCD_MESSAGE_MS, param = false): void {
+    // Un message ferme la page MIX : le dernier geste a l'ecran
+    lcdMix.hide();
     current = { text, until: performance.now() + ms, param };
     listeners.forEach((fn) => fn());
   },

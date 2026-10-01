@@ -58,6 +58,8 @@ export const HEX = {
   collar: '#1A1B1F',
   // Le PCB de la vue eclatee (spec 5.6)
   pcb: '#12301F',
+  /** piste sous le vernis (2026-10-01) : le cuivre eclaircit le vert, sans briller */
+  pcbTrace: '#22573A',
   pcbSide: '#0E2418',
   pcbPadCore: '#0B1A11',
   copper: '#B8763A',
@@ -252,24 +254,24 @@ export const PCB = {
   /** generateur des pistes (spec 5.7) : grille de 0.2, graine 808 (mulberry32) */
   grid: 0.2,
   seed: 808,
-  traces: 64,
-  vias: 36,
-  /** largeurs (unites de la carte) */
-  signalW: 0.03,
-  powerW: 0.1,
-  pairW: 0.024,
-  pairGap: 0.07,
-  padR: 0.045,
-  viaR: 0.04,
-  viaHole: 0.017,
+  traces: 150,
+  vias: 90,
+  /** largeurs (unites de la carte) ; 2026-10-01 : plus fines, plus nombreuses, sous le vernis */
+  signalW: 0.022,
+  powerW: 0.08,
+  pairW: 0.018,
+  pairGap: 0.06,
+  padR: 0.035,
+  viaR: 0.03,
+  viaHole: 0.013,
   /** paires differentielles, pistes d'alimentation, serpentins d'egalisation */
   pairs: 4,
   power: 4,
   meanders: 2,
   /** px de la texture de reference (1024 de large) : traits et textes */
   outline: 1,
-  chipFrame: 2,
-  designatorPx: 16,
+  chipFrame: 1,
+  designatorPx: 10,
   chipLabelPx: 30,
 } as const;
 
@@ -356,6 +358,31 @@ export const OLED_DRAW = { font: `400 40px ${FONT_MONO}`, pad: 24, baselines: [6
  */
 export const OLED_BAR = { h: 22, lift: 3, gap: 14, stroke: 2, inset: 4, bandY0: 160, bandY1: 236 } as const;
 
+/**
+ * Page MIX de l'ecran (2026-10-01, facon Elektron), px de la texture
+ * 640 x 240 : cinq cellules de 128 separees par un filet (bone 30 %) ; en
+ * haut le nom de la voix (la voix reglee en negatif, dans une etiquette
+ * arrondie), au milieu un potard dessine (piste de 270 deg comme les
+ * encodeurs, arc de la valeur, aiguille du centre vers le bord), en bas la
+ * valeur (0 a 100).
+ */
+export const OLED_MIX = {
+  font: `400 30px ${FONT_MONO}`,
+  valueFont: `400 26px ${FONT_MONO}`,
+  labelY: 42,
+  tag: { w: 94, h: 40, r: 8 },
+  dialY: 128,
+  r: 40,
+  track: 3,
+  trackA: 0.35,
+  arc: 6,
+  needle: 4,
+  valueY: 212,
+  rule: 2,
+  ruleA: 0.3,
+  ruleInset: 14,
+} as const;
+
 export type EncId = 'tempo' | 'tone' | 'stretch' | 'level' | 'swing' | 'dist' | 'reverb' | 'delay' | 'chorus';
 
 /**
@@ -385,34 +412,44 @@ export const ENCODER = {
   segments: { desktop: 32, mobile: 20 },
 } as const;
 
-/** De gauche a droite ; aria : nom du jumeau (role slider). */
+/**
+ * Dans l'ordre de lecture (2026-10-01) : TEMPO et VOLUME a droite de
+ * l'ecran, puis la rangee sous les pads, SWING, TONE et STRETCH, et les
+ * effets dans l'ordre du signal (DIST, CHORUS, DELAY, REVERB). VOLUME est
+ * l'ancien LEVEL : le volume general, ou celui de la voix du pad
+ * selectionne. aria : nom du jumeau (role slider).
+ */
 export const ENCODERS: readonly { id: EncId; label: string; aria: string }[] = [
   { id: 'tempo', label: 'TEMPO', aria: 'Tempo' },
+  { id: 'level', label: 'VOLUME', aria: 'Volume' },
+  { id: 'swing', label: 'SWING', aria: 'Swing' },
   { id: 'tone', label: 'TONE', aria: 'Tone, pitch and filter' },
   { id: 'stretch', label: 'STRETCH', aria: 'Stretch, shorter or longer hits' },
-  { id: 'level', label: 'LEVEL', aria: 'Level' },
-  { id: 'swing', label: 'SWING', aria: 'Swing' },
   { id: 'dist', label: 'DIST', aria: 'Distortion' },
-  { id: 'reverb', label: 'REVERB', aria: 'Reverb' },
-  { id: 'delay', label: 'DELAY', aria: 'Delay' },
   { id: 'chorus', label: 'CHORUS', aria: 'Chorus' },
+  { id: 'delay', label: 'DELAY', aria: 'Delay' },
+  { id: 'reverb', label: 'REVERB', aria: 'Reverb' },
 ];
 
+/** Libelle serigraphie d'un encodeur (l'ecran l'affiche aussi : VOLUME 80%). */
+export const encLabel = (id: EncId): string => ENCODERS.find((e) => e.id === id)?.label ?? id.toUpperCase();
+
 /**
- * RUN/STOP, CLEAR, MUTE et SOLO (2026-10-01) : boutons carres sur les
- * colonnes des quatre premieres touches trig (pas de 0.74 depuis x -5.55,
- * sous TEMPO, TONE, STRETCH et LEVEL). MUTE coupe la voix
+ * RUN/STOP, CLEAR, RANDOM, MUTE et SOLO (2026-10-01) : boutons carres sur
+ * les colonnes des cinq premieres touches trig (pas de 0.74 depuis x
+ * -5.55). RANDOM tire un motif house (audio/house.ts). MUTE coupe la voix
  * selectionnee, SOLO ne laisse jouer qu'elle (state/voices.ts).
  */
 export const TRANSPORT = {
   size: 0.62,
   h: 0.1,
-  z: 0.48,
-  labelZ: 0.98,
+  z: 0.58,
+  labelZ: 1.06,
   run: { x: -5.55 },
   clear: { x: -5.55 + 0.74 },
-  mute: { x: -5.55 + 2 * 0.74 },
-  solo: { x: -5.55 + 3 * 0.74 },
+  random: { x: -5.55 + 2 * 0.74 },
+  mute: { x: -5.55 + 3 * 0.74 },
+  solo: { x: -5.55 + 4 * 0.74 },
 } as const;
 
 /* ---------- panneau : moitie droite, les 12 pads (spec 20.3.5) ---------- */
@@ -450,13 +487,6 @@ export const PAD = {
   halo: 1.0,
   haloY: 0.003,
 } as const;
-
-/**
- * RANDOM (2026-10-01) : le meme bouton carre que CLEAR, a gauche des pads
- * de voix, dans la colonne qui precede BD et sur leur rangee ; son libelle
- * sur la ligne de ceux des pads. Il tire un motif house (audio/house.ts).
- */
-export const RANDOM_KEY = { x: PAD.x0 - PAD.pitch, z: PAD.rowZ[0], labelZ: PAD.rowZ[0] + PAD.labelDz } as const;
 
 export interface VoicePad {
   id: Inst;
@@ -594,21 +624,50 @@ export const KEYS = {
 } as const;
 export const keyX = (i: number): number => KEYS.x0 + KEYS.pitch * i;
 
-/** Encodeurs de la rangee sous l'ecran : TEMPO, TONE, STRETCH, LEVEL, SWING. */
-const MAIN_ENCODERS = 5;
-
 /**
- * Places des encodeurs (2026-10-01, la rangee de neuf etait trop serree a
- * gauche) : TEMPO, TONE, STRETCH, LEVEL et SWING sous l'ecran, sur la
- * grille des touches trig (pas de 0.74 depuis x -5.55, au-dessus de
- * RUN/STOP, CLEAR, MUTE et SOLO), z -0.6, libelles a -0.1 ; DIST, REVERB,
- * DELAY et CHORUS sous les pads de page, centres sur leur bloc (pas de
- * 1.0), a la hauteur des boutons de transport, libelles sur leur ligne.
+ * Places des encodeurs (2026-10-01) :
+ * - TEMPO et VOLUME a droite de l'ecran, centres entre son cadre et les
+ *   pads (pas de 0.86), a la hauteur de l'ecran et des pads de voix,
+ *   libelles sur la ligne de ceux des pads ;
+ * - les sept autres sous les pads de page, a la hauteur des boutons de
+ *   transport (libelles sur leur ligne), centres sur le bloc des pads (du
+ *   bord gauche de BD au bord droit d'OPEN), pas de 0.8 et un ecart de
+ *   0.2 de plus entre les groupes : SWING | TONE STRETCH | DIST CHORUS
+ *   DELAY REVERB.
  */
-export const encPos = (i: number): { x: number; z: number; labelZ: number } =>
-  i < MAIN_ENCODERS
-    ? { x: keyX(i), z: -0.6, labelZ: -0.1 }
-    : { x: PAD.x0 + PAD.pitch * (i - MAIN_ENCODERS + 0.5), z: TRANSPORT.z, labelZ: TRANSPORT.labelZ };
+const ENC_SIDE = { pitch: 0.86 } as const;
+const ENC_ROW = { pitch: 0.8, gap: 0.2, groups: [['swing'], ['tone', 'stretch'], ['dist', 'chorus', 'delay', 'reverb']] as readonly (readonly EncId[])[] } as const;
+
+function encPlaces(): Record<EncId, { x: number; z: number; labelZ: number }> {
+  const out = {} as Record<EncId, { x: number; z: number; labelZ: number }>;
+  const left = OLED.x + OLED.bezel.w / 2;
+  const right = PAD.x0 - PAD.size / 2;
+  const mid = (left + right) / 2;
+  const top = { z: PAD.rowZ[0], labelZ: PAD.rowZ[0] + PAD.labelDz };
+  out.tempo = { x: mid - ENC_SIDE.pitch / 2, ...top };
+  out.level = { x: mid + ENC_SIDE.pitch / 2, ...top };
+  const n = ENC_ROW.groups.reduce((a, g) => a + g.length, 0);
+  const span = (n - 1) * ENC_ROW.pitch + (ENC_ROW.groups.length - 1) * ENC_ROW.gap;
+  const openX = PAD.x0 + 5 * PAD.pitch + PAD.size / 2;
+  let x = (right + openX) / 2 - span / 2;
+  ENC_ROW.groups.forEach((g, gi) => {
+    if (gi > 0) x += ENC_ROW.gap;
+    for (const id of g) {
+      out[id] = { x, z: TRANSPORT.z, labelZ: TRANSPORT.labelZ };
+      x += ENC_ROW.pitch;
+    }
+  });
+  return out;
+}
+
+let places: Record<EncId, { x: number; z: number; labelZ: number }> | null = null;
+/** Place de l'encodeur i (ordre de ENCODERS). */
+export const encPos = (i: number): { x: number; z: number; labelZ: number } => {
+  places ??= encPlaces();
+  return places[ENCODERS[i].id];
+};
+/** Index d'un encodeur dans ENCODERS. */
+export const encIndex = (id: EncId): number => ENCODERS.findIndex((e) => e.id === id);
 
 /** Appui long sur un pas (revision 4) : il se vide au lieu de changer, en ms. */
 export const STEP_HOLD_MS = 400;
@@ -817,7 +876,7 @@ export type SilkLogoId = 'wordmark' | 'mark';
  * Logos serigraphies sur le panneau (2026-09-30) : dessines dans la meme
  * texture que les legendes, ils suivent la machine en 3D. Le logo aligne
  * (wordmark, 971 x 57) prend la place du texte MAUDITE MACHINE en haut a
- * gauche ; le logotype (le M, 1891 x 1612) se pose en haut a droite, V.4 /
+ * gauche ; le logotype (le M, 1891 x 1612) se pose en haut a droite, FIRMWARE V.2.1 /
  * 2026 a sa gauche. Images blanches, teintees a l'encre de la serigraphie.
  * x : bord d'alignement, z : centre ; w ou h fixe la taille (unites).
  */
@@ -836,14 +895,14 @@ const padLabel = (p: PadSpec): SilkText =>
 export const SILK_TEXTS: readonly SilkText[] = [
   { text: 'MAUDITE MACHINE', x: -5.8, z: -3.5, cap: 0.2, align: 'left', weight: SILK.strongWeight, fallbackFor: 'wordmark' },
   { text: 'MM-808', x: -1.95, z: -3.5, cap: 0.13, align: 'left' },
-  { text: 'V.4 / 2026', x: 4.95, z: -3.5, cap: 0.07, align: 'right', alpha: 0.45 },
+  { text: 'FIRMWARE V.2.1 / 2026', x: 4.95, z: -3.5, cap: 0.07, align: 'right', alpha: 0.45 },
   { text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - 0.72, cap: 0.06, align: 'left' },
   ...ENCODERS.map((e, i) => ({ text: e.label, x: encPos(i).x, z: encPos(i).labelZ, cap: 0.085, maxW: 0.7, group: 'enc' })),
   { text: 'RUN/STOP', x: TRANSPORT.run.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
   { text: 'CLEAR', x: TRANSPORT.clear.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
+  { text: 'RANDOM', x: TRANSPORT.random.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
   { text: 'MUTE', x: TRANSPORT.mute.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
   { text: 'SOLO', x: TRANSPORT.solo.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
-  { text: 'RANDOM', x: RANDOM_KEY.x, z: RANDOM_KEY.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
   ...PADS.map(padLabel),
   ...Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ, cap: 0.075 })),
 ];
@@ -857,8 +916,8 @@ export const OPEN_SILK_INDEX = SILK_TEXTS.findIndex((t) => t.text === 'OPEN');
  */
 export const SILK_LINES: readonly (readonly number[])[] = [
   // le cran du centre de TONE (revision 5) et de STRETCH : un trait a midi, derriere l'encodeur
-  ...[1, 2].map((i) => {
-    const { x, z } = encPos(i);
+  ...(['tone', 'stretch'] as const).map((id) => {
+    const { x, z } = encPos(encIndex(id));
     return [x, z - ENCODER.collar.r - 0.05, x, z - ENCODER.collar.r - 0.17];
   }),
   // sous la rangee des voix (les pages dessous), puis la colonne d'OPEN a part
@@ -1058,14 +1117,19 @@ export const COPY = {
 export const EXPLODE = {
   ms: 900,
   staggerMs: 80,
-  lift: 3.6,
-  slideZ: -1.5,
-  tiltOpenDeg: -12,
+  lift: 4.0,
+  slideZ: -2.4,
+  tiltOpenDeg: -14,
   pcbRise: 0.9,
-  /** la pile ouverte fait 13.09 de haut a l'azimut 45 (le pire cas), machine compacte : 13.09 / 0.86 / 2 */
-  fitHalfH: 7.61,
+  /**
+   * Ouverture du 2026-10-01 (plus grande) : la pile fait 11.30 de haut a la
+   * vue d'arrivee et 16.76 a l'azimut 45 (le pire cas). 8.4 garde la part de
+   * hauteur d'avant a l'arrivee (67 %) et tient encore l'azimut 45 entier
+   * (100 % au lieu de 86 %) : la machine ouverte ne rapetisse que de 10 %.
+   */
+  fitHalfH: 8.4,
   /** son centre projete a la vue d'arrivee (measure().fit.targetY, ouverte) */
-  targetY: 2.976,
+  targetY: 5.562,
   /** echelle verticale des composants replies (jamais 0 : matrice inversible) */
   partsMin: 0.001,
   /**
@@ -1079,20 +1143,24 @@ export type ChipId = 'goodies' | 'merch' | 'studio';
 
 /**
  * Grosse puce (spec 5.6) : corps 1.7 x 0.2 x 1.2 pose 0.03 au-dessus de la
- * carte, 2 x 8 pattes de 0.06 x 0.08 x 0.16 a z +/-0.66, pas de 0.2 ; un
- * point jaune marque la broche 1 des puces cliquables.
+ * carte ; un point jaune marque la broche 1 des puces cliquables. Boitier
+ * QFP depuis le 2026-10-01 : des pattes fines (0.04 de large, pas de 0.1)
+ * sur les quatre cotes, 14 devant et derriere, 9 a gauche et a droite,
+ * 0.14 de long, au ras du corps.
  */
 export const CHIP = {
   w: 1.7,
   d: 1.2,
   y0: 0.03,
   y1: 0.23,
-  legW: 0.06,
-  legH: 0.08,
-  legD: 0.16,
+  legW: 0.04,
+  legH: 0.035,
+  legD: 0.14,
   legZ: 0.66,
-  legPitch: 0.2,
-  legsPerSide: 8,
+  legX: 0.91,
+  legPitch: 0.1,
+  legsPerSide: 14,
+  legsPerEnd: 9,
   dotR: 0.07,
   /** leur serigraphie : centree 1.02 devant le centre de la puce */
   labelDz: 1.02,
@@ -1168,8 +1236,10 @@ export const PCB_PARTS = {
     { x: -1.5, z: 2.6 },
     { x: 1.5, z: 2.6 },
     { x: -4.71, z: 1.66 },
+    // 2026-10-01 : une rangee de plus sous MAUDITE MACHINE devenue plus petite
+    ...[-1.2, -0.2, 0.8, 1.8, 2.8].map((x) => ({ x, z: 0.35 })),
   ],
-  resistorCodes: ['103', '472', '221', '100', '331', '473', '102', '222', '470', '104', '101', '683', '152', '334'],
+  resistorCodes: ['103', '472', '221', '100', '331', '473', '102', '222', '470', '104', '101', '683', '152', '334', '473', '102', '220', '104', '331'],
   /** condensateurs ceramiques CMS (decouplage) */
   ceramics: [
     { x: -1.8, z: 1.7 },
@@ -1182,6 +1252,7 @@ export const PCB_PARTS = {
     { x: -3.75, z: -1.62 },
     { x: 2.7, z: -1.9 },
     { x: -0.2, z: -1.6 },
+    ...[-0.7, 0.3, 1.3, 2.3].map((x) => ({ x, z: 0.35 })),
   ],
   crystals: [pcbAt(-1.7, 3.5), pcbAt(1.7, 3.5)],
   /** regulateur TO-220 debout contre son dissipateur vertical, dans le plan de masse */
@@ -1215,9 +1286,9 @@ export const PCB_PARTS = {
  * pour la remettre : { text: 'MONTPELLIER', x: 6.0, z: -0.3, px: 28, align: 'right' }.
  */
 export const PCB_SILK: readonly { text: string; x: number; z: number; px: number; align: 'left' | 'right' }[] = [
-  { text: 'MAUDITE MACHINE', ...pcbAt(-6.0, 0.4), px: 48, align: 'left' },
-  { text: 'MM-808  REV 4.0', ...pcbAt(6.0, 0.4), px: 28, align: 'right' },
-  { text: 'V.4 2026', ...pcbAt(6.1, 1.25), px: 22, align: 'right' },
+  { text: 'MAUDITE MACHINE', ...pcbAt(-6.0, 0.4), px: 26, align: 'left' },
+  { text: 'MM-808  REV 4.0', ...pcbAt(6.0, 0.4), px: 18, align: 'right' },
+  { text: 'V.4 2026', ...pcbAt(6.1, 1.25), px: 14, align: 'right' },
 ];
 
 /* ---------- jumeaux HTML et clavier (spec 6.1, 6.3, 13 et 20.7) ---------- */

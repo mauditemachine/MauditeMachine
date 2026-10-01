@@ -16,10 +16,11 @@ import { sc } from './audio/soundcloud';
 import type { Stage } from './scene/renderer';
 import { chipsLive, explode } from './state/explode';
 import { lcdMessage } from './state/lcdMessage';
+import { lcdMix } from './state/lcdMix';
 import { contactDraft, type ContactTopic } from './state/contactDraft';
 import { section } from './state/section';
 import { voices } from './state/voices';
-import { CHIPS, POT_UI, VOICE_ENCODERS, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
+import { CHIPS, POT_UI, VOICE_ENCODERS, encLabel, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
 
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
 const pct = (v: number): number => Math.round(v * 100);
@@ -198,15 +199,16 @@ export function setTempo(bpm: number): void {
   pattern.setBpm(bpm);
 }
 
-/** Valeur affichee en ligne 3 de l'ecran : TONE +35, STRETCH -40%, SWING 58% ; BD DELAY 40% pour une voix. */
+/** Valeur affichee en ligne 3 de l'ecran : TONE +35, STRETCH -40%, SWING 58%, VOLUME 80% ; BD DELAY 40% pour une voix. */
 function readout(id: Exclude<EncId, 'tempo'>, v: number, inst: Inst | null): string {
   const who = inst ? `${inst} ` : '';
+  const name = encLabel(id);
   if (id === 'swing') return `SWING ${swingRatio(v)}%`;
   if (id === 'tone' || id === 'stretch') {
     const n = Math.round(v * 100);
-    return `${who}${id.toUpperCase()} ${n > 0 ? '+' : ''}${n}${id === 'stretch' ? '%' : ''}`;
+    return `${who}${name} ${n > 0 ? '+' : ''}${n}${id === 'stretch' ? '%' : ''}`;
   }
-  return `${who}${id.toUpperCase()} ${pct(v)}%`;
+  return `${who}${name} ${pct(v)}%`;
 }
 
 /** Le parametre d'une voix que regle un potard (DIST -> dist ; TEMPO, SWING : aucun). */
@@ -250,6 +252,11 @@ export function dial(id: EncId, v: number): void {
   else if (id === 'reverb') setReverb(v);
   else if (id === 'delay') setDelay(v);
   else setChorus(v);
+  // VOLUME d'une voix : la page MIX montre les cinq volumes (facon Elektron)
+  if (id === 'level' && inst) {
+    lcdMix.show(inst);
+    return;
+  }
   lcdMessage.show(readout(id, dialValue(id), inst), POT_UI.readoutMs, true);
 }
 

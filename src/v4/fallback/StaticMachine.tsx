@@ -30,7 +30,6 @@ import {
   SILK_TEXTS,
   TEMPO_UI,
   TILT,
-  RANDOM_KEY,
   TRANSPORT,
   chassisTopY,
   encPos,
@@ -312,7 +311,9 @@ function solids(): React.ReactNode[] {
   const h = t.size / 2;
   items.push(box('run', t.run.x, t.z, h, h, t.h, HEX.red, C.runSide, C.runSide));
   items.push(box('clear', t.clear.x, t.z, h, h, t.h, HEX.graphiteHi, C.clearSide, C.clearSide));
-  items.push(box('random', RANDOM_KEY.x, RANDOM_KEY.z, h, h, t.h, HEX.graphiteHi, C.clearSide, C.clearSide));
+  items.push(box('random', t.random.x, t.z, h, h, t.h, HEX.graphiteHi, C.clearSide, C.clearSide));
+  items.push(box('mute', t.mute.x, t.z, h, h, t.h, HEX.graphiteHi, C.clearSide, C.clearSide));
+  items.push(box('solo', t.solo.x, t.z, h, h, t.h, HEX.graphiteHi, C.clearSide, C.clearSide));
   for (let i = 0; i < KEYS.count; i += 1) items.push(box(`key-${i}`, keyX(i), KEYS.z, KEYS.w / 2, KEYS.d / 2, KEYS.h, HEX.key, C.keySide, C.keySide));
   return items.sort((a, b) => a.depth - b.depth).flatMap((it) => it.nodes);
 }

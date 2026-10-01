@@ -15,17 +15,23 @@
  * FIRST, NO SIGNAL) ou la valeur de l'encodeur tourne dans les 1200 ms ;
  * sinon, une piste en lecture ou en pause : sa position, une barre de
  * progression (bar, 0 a 1 ; cliquable sur l'ecran) et sa duree.
+ * Page MIX (2026-10-01, state/lcdMix.ts) : le VOLUME d'une voix qu'on
+ * tourne affiche un instant les cinq volumes en potards dessines ; les
+ * trois lignes de texte (le jumeau) les donnent en clair : VOLUME BD, puis
+ * BD80 SD80 TOM80 et CH80 OH80.
  * RUN passe avant une piste en pause (section 19) : la machine qui joue
  * est l'information du moment. Le minuteur ne tourne que pendant la
  * lecture d'une piste (timecode) ou un message passager ; au repos, rien.
  */
 
 import { clock } from '../audio/clock';
-import { pattern } from '../audio/pattern';
+import { INSTRUMENTS, pattern } from '../audio/pattern';
+import { voiceFx } from '../audio/voicefx';
 import { sc } from '../audio/soundcloud';
 import { fmtTime } from '../data';
-import { LCD_TEXT, SECTION_TITLES } from '../theme';
+import { LCD_TEXT, SECTION_TITLES, type Inst } from '../theme';
 import { lcdMessage } from './lcdMessage';
+import { lcdMix } from './lcdMix';
 import { section } from './section';
 
 export interface LcdState {
@@ -43,6 +49,8 @@ export interface LcdState {
   bar: number | null;
   /** la ligne 3 est une valeur d'encodeur (le jumeau ne l'annonce pas) */
   param: boolean;
+  /** page MIX : la voix reglee et les cinq volumes (0 a 1, ordre BD SD TOM CH OH) ; null : le texte */
+  mix: { sel: Inst; levels: number[] } | null;
   /** les trois lignes telles qu'affichees (gauche, espaces, droite) */
   text: [string, string, string];
   /** compositions publiees (revue) */
@@ -79,7 +87,21 @@ function row(left: string, right: string): { l: string; r: string; t: string } {
   return { l, r, t: r ? `${l}${' '.repeat(gap)}${r}` : l };
 }
 
+const pct = (v: number): number => Math.round(v * 100);
+
+/** Page MIX : les cinq volumes, et leur texte pour le jumeau. */
+function composeMix(sel: Inst): Omit<LcdState, 'updates'> {
+  const levels = INSTRUMENTS.map((i) => voiceFx.of(i).level);
+  const cell = (k: number): string => `${INSTRUMENTS[k]}${pct(levels[k])}`;
+  const line1 = row('VOLUME', sel);
+  const t2 = [0, 1, 2].map(cell).join(' ');
+  const t3 = [3, 4].map(cell).join(' ');
+  return { l1: line1.l, r1: line1.r, l2: t2, r2: '', l3: t3, r3: '', bar: null, param: true, mix: { sel, levels }, text: [line1.t, t2, t3] };
+}
+
 function compose(now: number): Omit<LcdState, 'updates'> {
+  const mixPage = lcdMix.get(now);
+  if (mixPage) return composeMix(mixPage.sel);
   const s = section.get();
   const p = pattern.get();
   const line1 = row(s ? SECTION_TITLES[s] : LCD_TEXT.idle, `${p.bpm} BPM`);
@@ -114,7 +136,7 @@ function compose(now: number): Omit<LcdState, 'updates'> {
     bar = sc.progress();
   }
   const t3 = bar !== null ? `${l3} ${r3}` : l3;
-  return { l1: line1.l, r1: line1.r, l2: line2.l, r2: line2.r, l3, r3, bar, param: !!msg && msg.param, text: [line1.t, line2.t, t3] };
+  return { l1: line1.l, r1: line1.r, l2: line2.l, r2: line2.r, l3, r3, bar, param: !!msg && msg.param, mix: null, text: [line1.t, line2.t, t3] };
 }
 
 let current: LcdState = {
@@ -126,6 +148,7 @@ let current: LcdState = {
   r3: '',
   bar: null,
   param: false,
+  mix: null,
   text: [LCD_TEXT.idle, LCD_TEXT.ready, ''],
   updates: 0,
 };
@@ -136,7 +159,7 @@ let running = false;
 let unsubs: (() => void)[] = [];
 
 /** Encore quelque chose qui bouge sans evenement : un timecode, un message a eteindre. */
-const live = (now: number): boolean => sc.get().status === 'playing' || lcdMessage.get(now) !== null;
+const live = (now: number): boolean => sc.get().status === 'playing' || lcdMessage.get(now) !== null || lcdMix.get(now) !== null;
 
 function run(): void {
   timer = 0;
@@ -188,6 +211,8 @@ export const lcd = {
       clock.subscribe(request),
       sc.subscribe(request),
       lcdMessage.subscribe(request),
+      lcdMix.subscribe(request),
+      voiceFx.subscribe(request),
     ];
     last = -Infinity;
     request();

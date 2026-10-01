@@ -83,6 +83,8 @@ const BOARD_GAIN = [1.47, 1.94, 2.57] as const;
 const TEX = {
   board: litCss('pcb', BOARD_GAIN),
   copper: css(0xc98a55, 1),
+  /** piste et plan de masse sous le vernis (2026-10-01) : un vert plus clair */
+  trace: litCss('pcbTrace', BOARD_GAIN),
   /** pastilles en or (finition ENIG) */
   gold: css(0xd9b45e, 1),
   hole: '#070807',
@@ -96,7 +98,10 @@ const TEX = {
 
 /** Carte ORM : occlusion (rouge), rugosite (vert), metal (bleu). */
 const ORM = {
-  board: 'rgb(255, 191, 13)',
+  /** vernis satine (2026-10-01 : rugosite 0.55 au lieu de 0.75, il accroche la lumiere) */
+  board: 'rgb(255, 140, 13)',
+  /** piste sous le vernis : un peu plus lisse, jamais metallique */
+  trace: 'rgb(255, 115, 13)',
   copper: 'rgb(255, 87, 217)',
   silk: 'rgb(255, 204, 0)',
   hole: 'rgb(150, 235, 0)',
@@ -232,6 +237,23 @@ interface Trace {
 
 /* ---------------- les composants, en donnees ---------------- */
 
+/**
+ * Pattes d'une puce QFP (2026-10-01) : rectangles (centre, largeur en x,
+ * profondeur en z), devant et derriere puis a gauche et a droite.
+ */
+function qfpLegs(cx: number, cz: number): { x: number; z: number; w: number; d: number }[] {
+  const out: { x: number; z: number; w: number; d: number }[] = [];
+  for (const side of [-1, 1]) {
+    for (let j = 0; j < CHIP.legsPerSide; j += 1) {
+      out.push({ x: cx - ((CHIP.legsPerSide - 1) * CHIP.legPitch) / 2 + j * CHIP.legPitch, z: cz + side * CHIP.legZ, w: CHIP.legW, d: CHIP.legD });
+    }
+    for (let j = 0; j < CHIP.legsPerEnd; j += 1) {
+      out.push({ x: cx + side * CHIP.legX, z: cz - ((CHIP.legsPerEnd - 1) * CHIP.legPitch) / 2 + j * CHIP.legPitch, w: CHIP.legD, d: CHIP.legW });
+    }
+  }
+  return out;
+}
+
 const P = PCB_PARTS;
 const LEG_SMALL = { n: 6, pitch: 0.12, w: 0.05, h: 0.05, d: 0.1 } as const;
 const HEADER = { pitch: 0.13, w: 1.2, d: 0.42, h: 0.3, wall: 0.035 } as const;
@@ -240,25 +262,22 @@ const TERM = { pitch: 0.35, d: 0.34, h: 0.36 } as const;
 function footprints(): Footprint[] {
   const out: Footprint[] = [];
   const legHz = CHIP.legZ + CHIP.legD / 2;
+  const legHx = CHIP.legX + CHIP.legD / 2;
   CHIPS.forEach((c, k) => {
     const pads: Footprint['pads'] = [];
-    for (const side of [-1, 1]) {
-      for (let j = 0; j < CHIP.legsPerSide; j += 1) {
-        const lx = c.x - ((CHIP.legsPerSide - 1) * CHIP.legPitch) / 2 + j * CHIP.legPitch;
-        pads.push({ x: lx, z: c.z + side * CHIP.legZ, w: CHIP.legW + 0.04, d: CHIP.legD + 0.08 });
-      }
-    }
+    for (const leg of qfpLegs(c.x, c.z)) pads.push({ x: leg.x, z: leg.z, w: leg.w + 0.03, d: leg.d + 0.06 });
     out.push({
       x: c.x,
       z: c.z,
-      hx: CHIP.w / 2 + 0.06,
+      hx: legHx + 0.04,
       hz: legHz + 0.04,
       round: false,
       frame: true,
       ref: `U${k + 1}`,
-      refX: c.x - CHIP.w / 2 - 0.06,
-      refZ: c.z - legHz - 0.26,
-      refAlign: 'left',
+      // Au-dessus du coin droit de la puce, entre elle et la rangee de resistances
+      refX: c.x + legHx,
+      refZ: c.z - legHz - 0.1,
+      refAlign: 'right',
       axis: 'z',
       outline: true,
       pads,
@@ -481,13 +500,7 @@ function buildParts(mobile: boolean): Built {
         t1 = q;
       }
     }
-    const legs: BufferGeometry[] = [];
-    for (const side of [-1, 1]) {
-      for (let j = 0; j < CHIP.legsPerSide; j += 1) {
-        const lx = c.x - ((CHIP.legsPerSide - 1) * CHIP.legPitch) / 2 + j * CHIP.legPitch;
-        legs.push(box(CHIP.legW, CHIP.legH, CHIP.legD, lx, CHIP.legH / 2, c.z + side * CHIP.legZ, METAL.leg));
-      }
-    }
+    const legs = qfpLegs(c.x, c.z).map((l) => box(l.w, CHIP.legH, l.d, l.x, CHIP.legH / 2, l.z, METAL.leg));
     const gm = mergeOf(legs, 'legs');
     const mStart = metal.add(gm);
     const cell = atlas.length;
@@ -957,9 +970,9 @@ export class Pcb {
       out.push({ text: c.silk, x: c.x, z: c.z + CHIP.labelDz, px: PCB.chipLabelPx, align: 'center', reserve, nav: true });
     }
     for (const f of this.prints) if (f.ref) out.push({ text: f.ref, x: f.refX, z: f.refZ, px: PCB.designatorPx, align: f.refAlign, reserve: 0 });
-    out.push({ text: 'PWR', x: P.led.x + 0.2, z: P.led.z + 0.12, px: 13, align: 'left', reserve: 0 });
-    out.push({ text: 'GND', x: P.pour.x0 + 0.25, z: P.pour.z1 - 0.2, px: 18, align: 'left', reserve: 0 });
-    for (const c of P.caps) out.push({ text: '+', x: c.x - P.cap3.r - 0.12, z: c.z, px: 18, align: 'center', reserve: 0 });
+    out.push({ text: 'PWR', x: P.led.x + 0.2, z: P.led.z + 0.12, px: 10, align: 'left', reserve: 0 });
+    out.push({ text: 'GND', x: P.pour.x0 + 0.25, z: P.pour.z1 - 0.2, px: 12, align: 'left', reserve: 0 });
+    for (const c of P.caps) out.push({ text: '+', x: c.x - P.cap3.r - 0.1, z: c.z, px: 12, align: 'center', reserve: 0 });
     return out;
   }
 
@@ -1238,7 +1251,11 @@ export class Pcb {
     }
   }
 
-  /** Tout le cuivre visible (hors plan de masse), dans un style de remplissage donne. */
+  /**
+   * Tout le cuivre (hors plan de masse) : pistes, bouts de pistes et vias
+   * dans `copper` (sous le vernis depuis le 2026-10-01), pastilles des
+   * composants et anneaux des trous de fixation dans `pads` (l'or, nu).
+   */
   private copper(ctx: Ctx, copper: string, pads: string): void {
     this.units(ctx);
     ctx.lineJoin = 'miter';
@@ -1258,13 +1275,13 @@ export class Pcb {
         ctx.stroke();
       }
     }
-    ctx.fillStyle = pads;
+    ctx.fillStyle = copper;
     const disc = (x: number, z: number, r: number): void => {
       ctx.beginPath();
       ctx.ellipse(x, z, r, r, 0, 0, Math.PI * 2);
       ctx.fill();
     };
-    // Bouts de pistes, vias, pastilles des composants, anneaux des trous de fixation
+    // Bouts de pistes et vias (sous le vernis), puis pastilles et anneaux (or)
     for (const t of this.traces) {
       const n = t.viaAt > 0 ? t.viaAt + 1 : t.pts.length / 2;
       const r = t.kind === 'power' ? PCB.padR * 1.6 : PCB.padR;
@@ -1276,6 +1293,7 @@ export class Pcb {
     }
     for (const [x, z] of this.vias) disc(x, z, PCB.viaR);
     for (const [x, z] of this.stitch) disc(x, z, PCB.viaR);
+    ctx.fillStyle = pads;
     for (const f of this.prints) {
       for (const p of f.pads) {
         if (p.round) disc(p.x, p.z, p.w / 2);
@@ -1458,20 +1476,20 @@ export class Pcb {
     // Cuivre : plan de masse, pistes, pastilles (or), vias
     const mask = this.pourMask();
     const tint = canvas2d(W, H);
-    this.stamp(ctx, mask, TEX.copper, tint);
-    this.stamp(orm, mask, ORM.copper, tint);
+    this.stamp(ctx, mask, TEX.trace, tint);
+    this.stamp(orm, mask, ORM.trace, tint);
     mask.width = 0;
     mask.height = 0;
     tint.canvas.width = 0;
     tint.canvas.height = 0;
-    this.copper(ctx, TEX.copper, TEX.gold);
-    this.copper(orm, ORM.copper, ORM.copper);
+    this.copper(ctx, TEX.trace, TEX.gold);
+    this.copper(orm, ORM.trace, ORM.copper);
     this.holes(ctx, TEX.hole);
     this.holes(orm, ORM.hole);
 
-    // Serigraphie : contours (jaunes pour les puces cliquables), textes
+    // Serigraphie : contours (blancs, les puces cliquables aussi depuis le 2026-10-01), textes
     for (const [c, ink, frame] of [
-      [ctx, TEX.silk, TEX.frame],
+      [ctx, TEX.silk, TEX.silk],
       [orm, ORM.silk, ORM.silk],
     ] as const) {
       c.setTransform(1, 0, 0, 1, 0, 0);
@@ -1627,7 +1645,7 @@ export class Pcb {
       shape: 'box' as const,
       x: c.x,
       z: c.z,
-      hx: CHIP.w / 2,
+      hx: CHIP.legX + CHIP.legD / 2,
       hz: CHIP.legZ + CHIP.legD / 2,
       y0: PCB.h,
       y1: PCB.h + CHIP.y1,
