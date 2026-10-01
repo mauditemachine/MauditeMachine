@@ -105,7 +105,7 @@ import { Pads } from './pads';
 import { Pcb } from './pcb';
 import { Screen } from './screen';
 import { Sequencer3D } from './sequencer3d';
-import { PanelSilk, fontsReady, makeBrushTexture, whenFonts } from './silk';
+import { PanelSilk, fontsReady, makeBrushTexture, whenFonts, whenLogos } from './silk';
 import { Tweens, easeInOutCubic, easeOutCubic, linear } from './tween';
 
 const DEG = Math.PI / 180;
@@ -466,6 +466,12 @@ export class Stage {
     this.brush = makeBrushTexture();
     this.machine = new Machine(mobile, this.brush);
     this.silk = new PanelSilk(mobile, aniso);
+    // Les logos du panneau arrivent pendant l'intro : un redessin de la serigraphie
+    void whenLogos().then(() => {
+      if (this.disposed) return;
+      this.silk.draw();
+      this.repaint();
+    });
     const plateau = this.machine.plateau;
     plateau.add(this.silk.mesh);
     this.floor = new Floor();

@@ -737,7 +737,24 @@ export interface SilkText {
   weight?: number;
   /** encre : bone (defaut) ou orange (noms des pages et OPEN, en gras) */
   ink?: 'bone' | 'orange';
+  /** texte de repli d'un logo : dessine seulement si l'image du logo n'a pas pu se charger */
+  fallbackFor?: SilkLogoId;
 }
+
+export type SilkLogoId = 'wordmark' | 'mark';
+
+/**
+ * Logos serigraphies sur le panneau (2026-09-30) : dessines dans la meme
+ * texture que les legendes, ils suivent la machine en 3D. Le logo aligne
+ * (wordmark, 971 x 57) prend la place du texte MAUDITE MACHINE en haut a
+ * gauche ; le logotype (le M, 1891 x 1612) se pose en haut a droite, V.4 /
+ * 2026 a sa gauche. Images blanches, teintees a l'encre de la serigraphie.
+ * x : bord d'alignement, z : centre ; w ou h fixe la taille (unites).
+ */
+export const SILK_LOGOS: readonly { id: SilkLogoId; src: string; x: number; z: number; w?: number; h?: number; align: 'left' | 'right' }[] = [
+  { id: 'wordmark', src: '/logo/mauditemachine-logo-aligned.svg', x: -5.8, z: -3.5, w: 3.5, align: 'left' },
+  { id: 'mark', src: '/logo/mauditemachine-logotype.png', x: 5.8, z: -3.5, h: 0.52, align: 'right' },
+];
 
 /** Le libelle du pad OPEN (OPEN, CLOSE vue eclatee) : l'index de son texte dans SILK_TEXTS. */
 const PAD_CAP = 0.09;
@@ -747,9 +764,9 @@ const padLabel = (p: PadSpec): SilkText =>
     : { text: p.label, x: p.x, z: p.z + PAD.labelDz, cap: PAD_CAP, maxW: 0.94, group: 'pads', weight: 700, ink: 'orange', alpha: 1 };
 
 export const SILK_TEXTS: readonly SilkText[] = [
-  { text: 'MAUDITE MACHINE', x: -5.8, z: -3.5, cap: 0.2, align: 'left', weight: SILK.strongWeight },
+  { text: 'MAUDITE MACHINE', x: -5.8, z: -3.5, cap: 0.2, align: 'left', weight: SILK.strongWeight, fallbackFor: 'wordmark' },
   { text: 'MM-808', x: -1.95, z: -3.5, cap: 0.13, align: 'left' },
-  { text: 'V.4 / 2026', x: 5.8, z: -3.5, cap: 0.07, align: 'right', alpha: 0.45 },
+  { text: 'V.4 / 2026', x: 4.95, z: -3.5, cap: 0.07, align: 'right', alpha: 0.45 },
   { text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - 0.72, cap: 0.06, align: 'left' },
   ...ENCODERS.map((e, i) => ({ text: e.label, x: encX(i), z: ENCODER.labelZ, cap: 0.085, maxW: 0.84, group: 'enc' })),
   { text: 'RUN/STOP', x: TRANSPORT.run.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.84, group: 'tr' },

@@ -5,6 +5,8 @@
  * dessinee au runtime sur tout le panneau (14 x 9.045). Premier dessin
  * avec la police disponible ; si les polices du site ne sont pas encore
  * chargees, redessin quand document.fonts.load() les livre (ou apres 3 s).
+ * Les deux logos (theme SILK_LOGOS) sont dessines dans la meme texture,
+ * teintes a l'encre bone ; tant qu'une image manque, son texte de repli.
  * Aussi : le brossage du panneau (roughnessMap) et le halo des pads.
  * Jamais de createPattern : index.html le neutralise.
  */
@@ -30,9 +32,11 @@ import {
   PAD,
   SILK,
   SILK_LINES,
+  SILK_LOGOS,
   SILK_PLANE,
   SILK_TEXTS,
   boneA,
+  type SilkLogoId,
   type SilkText,
 } from '../theme';
 
@@ -68,6 +72,36 @@ export function whenFonts(): Promise<void> {
     new Promise<void>((resolve) => window.setTimeout(resolve, FONT_TIMEOUT_MS)),
   ]);
   return fontsPromise;
+}
+
+/* ---------------- logos ---------------- */
+
+const logoImages = new Map<SilkLogoId, HTMLImageElement>();
+let logosPromise: Promise<void> | null = null;
+
+/** Charge les logos du panneau une seule fois ; jamais rejetee (un logo absent garde son texte). */
+export function whenLogos(): Promise<void> {
+  if (logosPromise) return logosPromise;
+  if (typeof Image === 'undefined') {
+    logosPromise = Promise.resolve();
+    return logosPromise;
+  }
+  logosPromise = Promise.all(
+    SILK_LOGOS.map(
+      (l) =>
+        new Promise<void>((resolve) => {
+          const img = new Image();
+          img.decoding = 'async';
+          img.onload = () => {
+            if (img.naturalWidth > 0 && img.naturalHeight > 0) logoImages.set(l.id, img);
+            resolve();
+          };
+          img.onerror = () => resolve();
+          img.src = l.src;
+        })
+    )
+  ).then(() => undefined);
+  return logosPromise;
 }
 
 /* ---------------- texte suivi (interlettrage) ---------------- */
@@ -229,6 +263,8 @@ export interface SilkInfo {
   size: [number, number];
   /** libelle du pad OPEN tel que dessine : OPEN, ou CLOSE vue eclatee */
   openLabel: OpenLabel;
+  /** logos dessines au dernier dessin (0 tant que les images ne sont pas la) */
+  logos: SilkLogoId[];
 }
 
 export class PanelSilk {
@@ -242,13 +278,15 @@ export class PanelSilk {
   /** pixels de texture par unite de scene */
   private ppu: number;
   private openLabel: OpenLabel = 'OPEN';
+  /** logos teintes, par taille en pixels : un redessin OPEN/CLOSE ne les refait pas */
+  private tinted = new Map<string, HTMLCanvasElement>();
 
   constructor(mobile: boolean, anisotropy: number) {
     const [W, H] = mobile ? SILK_PLANE.tex.mobile : SILK_PLANE.tex.desktop;
     this.W = W;
     this.H = H;
     this.ppu = W / SILK_PLANE.w;
-    this.info = { draws: 0, webfont: false, font: '', size: [W, H], openLabel: 'OPEN' };
+    this.info = { draws: 0, webfont: false, font: '', size: [W, H], openLabel: 'OPEN', logos: [] };
     const c = canvas2d(W, H, 'silk');
     this.canvas = c.canvas;
     this.ctx = c.ctx;
@@ -332,8 +370,26 @@ export class PanelSilk {
       ctx.stroke();
     }
 
-    // Textes, la hauteur de capitale centree en z ; le pad OPEN lit CLOSE vue eclatee
-    const items = SILK_TEXTS.map((t, i) => (i === OPEN_SILK_INDEX ? { ...t, text: this.openLabel } : t));
+    // Logos, centres en z, poses sur leur bord d'alignement
+    const logos: SilkLogoId[] = [];
+    for (const l of SILK_LOGOS) {
+      const img = logoImages.get(l.id);
+      if (!img) continue;
+      const ratio = img.naturalWidth / img.naturalHeight;
+      const wU = l.w ?? (l.h ?? 0) * ratio;
+      const hU = l.h ?? wU / ratio;
+      const w = Math.max(1, Math.round(wU * u));
+      const h = Math.max(1, Math.round(hU * u));
+      const x0 = l.align === 'right' ? this.px(l.x) - w : this.px(l.x);
+      ctx.drawImage(this.tint(l.id, img, w, h), Math.round(x0), Math.round(this.py(l.z) - h / 2));
+      logos.push(l.id);
+    }
+
+    // Textes, la hauteur de capitale centree en z ; le pad OPEN lit CLOSE vue eclatee ;
+    // le texte de repli d'un logo s'efface quand le logo est la
+    const items = SILK_TEXTS.map((t, i) => (i === OPEN_SILK_INDEX ? { ...t, text: this.openLabel } : t)).filter(
+      (t) => !(t.fallbackFor && logos.includes(t.fallbackFor))
+    );
     const scales = this.scales(items);
     items.forEach((it, i) => {
       const cap = it.cap * scales[i];
@@ -350,7 +406,24 @@ export class PanelSilk {
     this.info.webfont = fontsReady();
     this.info.font = ctx.font;
     this.info.openLabel = this.openLabel;
+    this.info.logos = logos;
     this.texture.needsUpdate = true;
+  }
+
+  /** Le logo (blanc) a la taille voulue, teinte a l'encre de la serigraphie. */
+  private tint(id: SilkLogoId, img: HTMLImageElement, w: number, h: number): HTMLCanvasElement {
+    const key = `${id}:${w}x${h}`;
+    const hit = this.tinted.get(key);
+    if (hit) return hit;
+    const { canvas, ctx } = canvas2d(w, h, 'logo');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, w, h);
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.fillStyle = boneA(SILK.alpha);
+    ctx.fillRect(0, 0, w, h);
+    this.tinted.set(key, canvas);
+    return canvas;
   }
 
   /** OPEN <-> CLOSE sous le pad OPEN : deux televersements par cycle d'eclate. */
@@ -365,7 +438,12 @@ export class PanelSilk {
     this.mesh.geometry.dispose();
     (this.mesh.material as MeshStandardMaterial).dispose();
     this.texture.dispose();
-    // Libere la memoire du canvas tout de suite (Safari la garde sinon)
+    // Libere la memoire des canvas tout de suite (Safari la garde sinon)
+    for (const c of this.tinted.values()) {
+      c.width = 0;
+      c.height = 0;
+    }
+    this.tinted.clear();
     this.canvas.width = 0;
     this.canvas.height = 0;
   }
