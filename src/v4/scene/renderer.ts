@@ -85,6 +85,7 @@ import {
   LIGHT_RIM,
   MACHINE_H,
   MOBILE_QUERY,
+  OPEN_BREATHE,
   ORBIT,
   PAD_FX,
   PANEL,
@@ -589,7 +590,8 @@ export class Stage {
       (now) => (this.paintTweens.update(now) ? 'paint' : false),
       this.stepExplode,
       (now) => this.pads.update(now),
-      this.pollPlayhead
+      this.pollPlayhead,
+      this.stepBreathe
     );
     // Intro (2026-10-01) : mouvement complet seulement ; la machine attend
     // eclatee jusqu'a la premiere frame, puis s'assemble (stepIntro)
@@ -1163,6 +1165,20 @@ export class Stage {
       this.stats.loopActive = false;
       this.emitIdle();
     }
+  };
+
+  private breatheAt = -Infinity;
+
+  /**
+   * OPEN respire (OPEN_BREATHE) : une image toutes les frameMs ('paint',
+   * sans passe d'ombre), 'poll' entre deux. Machine ouverte, mouvement
+   * reduit ou palier mobile : la lumiere pleine, et plus rien a faire.
+   */
+  private stepBreathe = (now: number): 'paint' | 'poll' | false => {
+    if (this.opts.mobile || motion.reduced() || !this.pads.breathing) return this.pads.stopBreath() ? 'paint' : false;
+    if (now - this.breatheAt < OPEN_BREATHE.frameMs) return 'poll';
+    this.breatheAt = now;
+    return this.pads.breathe(now) ? 'paint' : 'poll';
   };
 
   /** La boucle s'arrete : les jumeaux se recalent une fois (hors de la boucle de rendu). */

@@ -11,7 +11,8 @@
  * - pages TRACKS a SONAA : jaune faible en permanence (on les distingue),
  *   plus fort au survol de la souris, yellowHi pour la page ouverte, une
  *   seule a la fois ;
- * - OPEN : jaune faible, yellowHi pendant l'ouverture et vue ouverte.
+ * - OPEN : orange plein machine fermee, et il respire (OPEN_BREATHE,
+ *   breathe() appele par le Stage) ; orange faible vue ouverte.
  * Frappe (les 12) : le pad s'enfonce de 0.06 en 60 ms et remonte en 180 ms
  * (reduced motion : la lumiere seule). Le son part AVANT : l'appelant
  * declenche la voix puis appelle press() (actions.ts).
@@ -34,7 +35,7 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { COLOR, MATERIAL, OPEN_TINT, PAD, PADS, PAD_FX, PAD_GLOW, PAD_HALO, gainOf, type Inst, type PadId, type PageId } from '../theme';
+import { COLOR, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD, PADS, PAD_FX, PAD_GLOW, PAD_HALO, gainOf, type Inst, type PadId, type PageId } from '../theme';
 import type { HotspotDef } from './hit';
 import { albedo, withInstanceEmissive } from './materials';
 import { makeHaloTexture } from './silk';
@@ -65,6 +66,7 @@ const GLOW_RGB: readonly (readonly number[])[] = [
 ];
 const HALO_K = [0, PAD_HALO.selected, PAD_HALO.faint, PAD_HALO.hover, PAD_HALO.active, PAD_HALO.flash, PAD_HALO.orange, PAD_HALO.orangeDim];
 const COUNT = PADS.length;
+const OPEN_I = PADS.findIndex((p) => p.id === 'open');
 
 const m4 = new Matrix4();
 const col = new Color();
@@ -169,6 +171,8 @@ export class Pads {
   private activePage = -1;
   private open = false;
   private hover = -1;
+  /** respiration d'OPEN : facteur de sa lumiere orange (1 : pleine) */
+  private breath = 1;
   // Cles et setters prepares : un appui n'alloue presque rien
   private keyY = PADS.map((p) => `pad.y.${p.id}`);
   private setters = PADS.map((_, i) => (v: number) => this.setY(i, v));
@@ -187,7 +191,9 @@ export class Pads {
     this.mesh.receiveShadow = true;
     // Couleur par pad : blanche (le caoutchouc), OPEN teinte en orange sur la machine claire
     for (let i = 0; i < COUNT; i += 1) this.mesh.setColorAt(i, col.setRGB(1, 1, 1));
-    this.mesh.setColorAt(PADS.findIndex((p) => p.id === 'open'), col.setRGB(OPEN_TINT[0], OPEN_TINT[1], OPEN_TINT[2]));
+    this.mesh.setColorAt(OPEN_I, col.setRGB(OPEN_TINT[0], OPEN_TINT[1], OPEN_TINT[2]));
+    // OPEN respire : sa teinte change a chaque image
+    this.mesh.instanceColor?.setUsage(DynamicDrawUsage);
 
     // Halos : un carre de 1.25 a plat sous chaque pad, additif, sans profondeur
     this.haloTex = makeHaloTexture();
@@ -229,14 +235,16 @@ export class Pads {
 
   private setGlow(i: number, g: Glow): void {
     this.glow[i] = g;
+    // OPEN qui respire : sa lumiere et son halo au facteur du moment
+    const k = i === OPEN_I && g === ORANGE ? this.breath : 1;
     const a = this.emissive.array as Float32Array;
     const c = GLOW_RGB[g];
-    a[i * 3] = c[0];
-    a[i * 3 + 1] = c[1];
-    a[i * 3 + 2] = c[2];
+    a[i * 3] = c[0] * k;
+    a[i * 3 + 1] = c[1] * k;
+    a[i * 3 + 2] = c[2] * k;
     this.emissive.needsUpdate = true;
     const tint = g === SELECTED ? WARM : g === ACTIVE ? YELLOW_HI : g === ORANGE || g === ORANGE_DIM ? ORANGE_TINT : YELLOW;
-    this.halos.setColorAt(i, col.copy(tint).multiplyScalar(HALO_K[g]));
+    this.halos.setColorAt(i, col.copy(tint).multiplyScalar(HALO_K[g] * k));
     if (this.halos.instanceColor) this.halos.instanceColor.needsUpdate = true;
   }
 
@@ -312,6 +320,43 @@ export class Pads {
       }
     }
     return changed ? 'paint' : pending ? 'poll' : false;
+  }
+
+  /**
+   * OPEN respire (OPEN_BREATHE) : sa lumiere suit une sinusoide, arrondie
+   * au centieme ; true si elle a change. Machine ouverte (orange faible),
+   * elle reste fixe.
+   */
+  breathe(now: number): boolean {
+    if (this.glow[OPEN_I] !== ORANGE) return false;
+    const B = OPEN_BREATHE;
+    const phase = Math.round((0.5 + 0.5 * Math.cos((2 * Math.PI * now) / B.periodMs)) * 100) / 100;
+    const k = B.min + (1 - B.min) * phase;
+    if (k === this.breath) return false;
+    this.breath = k;
+    this.setGlow(OPEN_I, ORANGE);
+    this.paintOpenTint(B.tintMin + (1 - B.tintMin) * phase);
+    return true;
+  }
+
+  /** Teinte d'OPEN (OPEN_TINT) au facteur f : elle respire avec sa lumiere. */
+  private paintOpenTint(f: number): void {
+    this.mesh.setColorAt(OPEN_I, col.setRGB(OPEN_TINT[0] * f, OPEN_TINT[1] * f, OPEN_TINT[2] * f));
+    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
+  }
+
+  /** OPEN cesse de respirer : sa lumiere pleine ; true si elle a change. */
+  stopBreath(): boolean {
+    if (this.breath === 1) return false;
+    this.breath = 1;
+    this.setGlow(OPEN_I, this.glow[OPEN_I] as Glow);
+    this.paintOpenTint(1);
+    return true;
+  }
+
+  /** OPEN peut respirer : machine fermee (orange plein). */
+  get breathing(): boolean {
+    return this.glow[OPEN_I] === ORANGE;
   }
 
   /** L'instrument selectionne reste allume (blanc chaud faible). */

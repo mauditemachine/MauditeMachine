@@ -770,47 +770,17 @@ html:has(body.v4-active) {
   }
 }
 
-/* Le pad OPEN de la machine 3D respire pareil, sans aucune frame WebGL :
-   animer son emissif ferait tourner la boucle de rendu en continu. Son
-   jumeau (pose sur sa silhouette a chaque frame rendue) porte un voile
-   clair et une lueur orange de 6 px dont seule l'opacite varie (animation
-   du compositeur), meme cycle de 3.2 s, memes arrets. */
-.v4-root .v4-twin[data-twin='open']::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: rgba(255, 170, 110, 0.08);
-  box-shadow: 0 0 6px 0 rgba(255, 106, 19, 0.6);
-  opacity: 0;
-  pointer-events: none;
-  animation: v4-open-glow 1.6s ease-in-out infinite alternate;
-}
-
-.v4-root .v4-twin[data-twin='open'][aria-pressed='true']::after,
-.v4-root .v4-twin[data-twin='open']:focus-visible::after {
-  animation: none;
-  opacity: 0;
-}
-
-@keyframes v4-open-glow {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
+/* Le pad OPEN de la machine 3D respire dans la scene depuis le 2026-10-01
+   (theme OPEN_BREATHE, sa propre lumiere) : la lueur rectangulaire posee
+   sur son jumeau, qui clignotait en carre par-dessus le pad, est retiree. */
 
 @media (prefers-reduced-motion: reduce) {
-  .v4-root .v4-dock-open,
-  .v4-root .v4-twin[data-twin='open']::after {
+  .v4-root .v4-dock-open {
     animation: none;
   }
 }
 
-.v4-root[data-v4-motion='reduced'] .v4-dock-open,
-.v4-root[data-v4-motion='reduced'] .v4-twin[data-twin='open']::after {
+.v4-root[data-v4-motion='reduced'] .v4-dock-open {
   animation: none;
 }
 

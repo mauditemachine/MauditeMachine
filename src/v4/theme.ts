@@ -691,6 +691,19 @@ export const PAD_GLOW = {
  */
 export const PAD_HALO = { selected: 0.025, faint: 0.025, hover: 0.06, active: 0.35, flash: 0.45, orange: 0.3, orangeDim: 0.06 } as const;
 
+/**
+ * OPEN respire (2026-10-01, demande de Mika : le pad lui-meme, plus le
+ * carre lumineux pose sur son jumeau) : son retroeclairage et son halo
+ * descendent a min puis remontent, une sinusoide de periodMs, machine
+ * fermee seulement ; ni en mouvement reduit, ni au palier mobile (le Dock
+ * a son bouton OPEN qui respire deja). Sa teinte (OPEN_TINT) suit, de
+ * tintMin a 1 : sur la machine claire l'orange plein sature, la lumiere
+ * seule ne se voyait pas (246,112,63 a 248,119,78 mesure). Une image
+ * toutes les frameMs (20 par seconde), sans passe d'ombre : la boucle ne
+ * dort plus machine fermee, mais ne rend que la lumiere.
+ */
+export const OPEN_BREATHE = { periodMs: 3200, min: 0.45, tintMin: 0.5, frameMs: 50 } as const;
+
 /* ---------- panneau : les 16 touches trig (spec 20.3.6) ---------- */
 
 /**
