@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 /**
- * Press kit 2027, version 4 pages A4, anglais seulement :
+ * Press kit 2027, revision 2 : six pages A4, anglais seulement :
  *   public/Presskit_Maudite_Machine_2027.pdf          bandeau Boom Festival 2027
  *   public/Presskit_Maudite_Machine_2027_generic.pdf  sans le bandeau
- *   public/press/kit-2027/01.webp a 04.webp           pages en image (popup du site)
+ *   public/press/pages/presskit-2027-01.webp a 06     pages en image (visionneuse /presskit)
+ *   src/v4/data/presskit.ts                           pages et liens de la visionneuse
  * Copie de la version neutre a l'ancienne adresse deja envoyee :
  * public/Presskit_Maudite_Machine_2026-27.pdf.
  * Fiche technique, 2 pages, memes donnees et meme style :
@@ -27,7 +28,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '../..');
 const PUB = join(ROOT, 'public');
 const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const PAGES = 4;
+const PAGES = 6;
 
 const VARIANTS = [
   { out: 'Presskit_Maudite_Machine_2027.pdf', banner: 'Boom Festival 2027 · Alchemy Circle', boom: true, images: false },
@@ -53,36 +54,73 @@ const perf = (rows) => `<ul class="perf">${rows.map(([n, y]) => `<li><span>${esc
 
 function pages(v) {
   const out = [];
+  const img = (cls, file, alt = '') => `<img class="${cls}" src="img/${file}" alt="${esc(alt)}">`;
 
-  // 1. Couverture et identite
+  // 1. Couverture : la salle pleine, le nom, le positionnement, le bandeau Boom
   out.push(`
 <section class="page p1">
-  <img class="banner-cover" src="img/banner-cover.jpg" alt="">
+  ${img('cover', 'p1-stage-crowd.jpg')}
   <div class="meta"><span class="sub">${esc(C.kit)}</span>${v.banner ? `<span class="sub boom">${esc(v.banner)}</span>` : ''}</div>
   <h1>${esc(C.name)}</h1>
   <p class="pos">${esc(C.positioning)}</p>
   <p class="bio">${esc(C.bio)}</p>
-  <div class="stats">${C.stats.map(([n, l]) => `<div><b>${esc(n)}</b><span>${esc(l)}</span></div>`).join('')}</div>
   <dl class="facts">${C.facts.map(([k, val]) => `<div><dt>${esc(k)}</dt><dd>${esc(val)}</dd></div>`).join('')}</dl>
   <p class="p1-links">${a('mauditemachine.com', URL.site)}<span>·</span>${a('mauditemachine.com/press', URL.press)}<span>·</span>${a(C.mix.text, C.mix.url)}</p>
   ${folio(1)}
 </section>`);
 
-  // 2. Parcours et preuves
+  // 2. Parcours : le portrait couleur, la bio, les quatre chiffres cles
   out.push(`
 <section class="page p2">
   ${title(C.bioTitle)}
   <div class="p2-top">
-    <img class="portrait" src="img/portrait.jpg" alt="">
+    ${img('portrait', 'p2-portrait.jpg')}
     <div class="main">
       <p class="lead">${esc(C.bioLead)}</p>
       ${C.bioLong.map((p) => `<p class="para">${esc(p)}</p>`).join('')}
     </div>
   </div>
+  <div class="stats">${C.stats.map(([n, l]) => `<div><b>${esc(n)}</b><span>${esc(l)}</span></div>`).join('')}</div>
   <div class="shared">
     <p class="sub">${esc(C.sharedTitle)}</p>
-    <p>${C.shared.map(esc).join(' \u00b7 ')}</p>
+    <p>${C.shared.map(esc).join(' · ')}</p>
   </div>
+  ${img('wide', 'p2-wide.jpg')}
+  ${folio(2)}
+</section>`);
+
+  // 3. Le son : la cabine en grand, ce qu'il joue, les deux formats
+  out.push(`
+<section class="page p3">
+  ${img('hero', 'p3-booth.jpg')}
+  ${title(C.setTitle)}
+  <div class="p3-grid">
+    <div class="rows">
+      ${C.set
+        .map(([h, ps], k) => {
+          const last = k === C.set.length - 1;
+          const body = ps.map((p, q) => `<p>${esc(p)}${last && v.boom && q === ps.length - 1 ? ` ${esc(C.boom)}` : ''}</p>`).join('');
+          return `<div class="row"><p class="sub">${esc(h)}</p><div>${body}</div></div>`;
+        })
+        .join('')}
+    </div>
+    <div class="formats">
+      <figure>${img('fmt', 'p3-dj.jpg')}<figcaption>DJ set</figcaption></figure>
+      <figure>${img('fmt', 'p3-live.jpg')}<figcaption>Hybrid live</figcaption></figure>
+    </div>
+  </div>
+  <div class="edits">
+    <p class="sub">${esc(C.editsTitle)}</p>
+    <p>${C.edits.map(esc).join(' · ')}</p>
+    <p class="muted small">${esc(C.editsNote)}</p>
+  </div>
+  ${folio(3)}
+</section>`);
+
+  // 4. Dates : la foule vue de la cabine, les scenes, les plateaux, le label
+  out.push(`
+<section class="page shows">
+  ${img('banner', 'p4-crowd.jpg')}
   ${title(C.perfTitle)}
   <div class="cols2">
     <div><p class="sub">${esc(C.festivalsTitle)}</p>${perf(C.festivals)}</div>
@@ -93,23 +131,14 @@ function pages(v) {
     <div><p class="sub">${esc(C.labelTitle)}</p><p>${esc(C.labelText)} ${a('vrstlrecords.com', URL.vrstl)}</p></div>
     <div><p class="sub">${esc(C.rosterTitle)}</p><p>${C.roster.map(esc).join(' · ')}</p></div>
   </div>
-  ${folio(2)}
+  <div class="strip">${img('', 'p4-day.jpg')}${img('', 'p4-flare.jpg')}</div>
+  ${folio(4)}
 </section>`);
 
-  // 3. Le son et l'ecoute
+  // 5. Ecoute : la cabine sous le faisceau, le mix, les titres, les pochettes
   out.push(`
-<section class="page p3">
-  <img class="banner-crowd" src="img/banner-crowd.jpg" alt="">
-  ${title(C.setTitle)}
-  <div class="rows">
-    ${C.set
-      .map(([h, ps], k) => {
-        const last = k === C.set.length - 1;
-        const body = ps.map((p, q) => `<p>${esc(p)}${last && v.boom && q === ps.length - 1 ? ` ${esc(C.boom)}` : ''}</p>`).join('');
-        return `<div class="row"><p class="sub">${esc(h)}</p><div>${body}</div></div>`;
-      })
-      .join('')}
-  </div>
+<section class="page listen">
+  ${img('hero5', 'p5-booth.jpg')}
   ${title(C.listenTitle)}
   <p class="mix">${a(C.mix.text, C.mix.url)}<span class="muted"> · ${esc(C.mix.meta)}</span></p>
   <ul class="tracks">${C.tracks.map(([n, meta, url]) => `<li>${a(n, url)}<span class="muted">${esc(meta)}</span></li>`).join('')}</ul>
@@ -121,17 +150,14 @@ function pages(v) {
     <ol class="tracklist">${C.tracklist.map((t) => `<li>${esc(t)}</li>`).join('')}</ol>
   </div>
   <p class="sub cat-title">${esc(C.catalogueTitle)}</p>
-  <ul class="catalogue">${C.catalogue.map(([t, type, d]) => `<li><b>${esc(t)}</b><span class="muted">${esc(type)} · ${esc(d)}</span></li>`).join('')}</ul>
+  <ul class="covers">${C.catalogue
+    .map(([t, type, d]) => `<li>${img('', `cover-${t.toLowerCase().replace(/[^a-z]/g, '')}.jpg`)}<b>${esc(t)}</b><span class="muted">${esc(type)} · ${esc(d)}</span></li>`)
+    .join('')}</ul>
   <p class="also">${esc(C.also)}</p>
-  <div class="edits">
-    <p class="sub">${esc(C.editsTitle)}</p>
-    <p>${C.edits.map(esc).join(' · ')}</p>
-    <p class="muted small">${esc(C.editsNote)}</p>
-  </div>
-  ${folio(3)}
+  ${folio(5)}
 </section>`);
 
-  // 4. Technique et contact
+  // 6. Technique et contact, le portrait noir et blanc en vignette
   out.push(`
 <section class="page p4">
   ${title(C.techTitle)}
@@ -144,7 +170,8 @@ function pages(v) {
     ${C.hosp.map(([h, list]) => `<div><p class="sub">${esc(h)}</p>${items(list)}</div>`).join('')}
   </div>
   ${title(C.contactTitle)}
-  <div class="who">
+  <div class="who with-photo">
+    ${img('thumb', 'p6-portrait-bw.jpg')}
     ${C.contacts.map(([h, name, lines]) => `<div><p class="sub">${esc(h)}</p><p class="name">${esc(name)}</p>${lines.map(([t, href]) => `<p>${a(t, href)}</p>`).join('')}</div>`).join('')}
   </div>
   <div class="links">
@@ -155,7 +182,7 @@ function pages(v) {
     ${C.assets.map(([t, href, note]) => `<p>${a(t, href)}${note ? `<span class="muted"> · ${esc(note)}</span>` : ''}</p>`).join('')}
   </div>
   <p class="copy">${esc(C.copyright)}</p>
-  ${folio(4)}
+  ${folio(6)}
 </section>`);
 
   return out.join('\n');
@@ -240,34 +267,109 @@ function render(v, pdf) {
   }
 }
 
-/** Pages en WebP (1240 px de large, 150 ppp) pour le popup du site. */
+/**
+ * Pages en WebP pour la visionneuse du site (/presskit) : qualite 80,
+ * 1400 px de large ; si les six pesent plus de 900 Ko, 1200 px d'abord,
+ * puis la qualite par pas de 2 (la largeur baisse avant la qualite).
+ * public/press/pages/presskit-2027-NN.webp.
+ */
+const PAGE_DIR = join(PUB, 'press', 'pages');
+const PAGE_BUDGET = 900 * 1024;
 function images(pdf) {
-  const dir = join(PUB, 'press', 'kit-2027');
-  rmSync(dir, { recursive: true, force: true });
-  mkdirSync(dir, { recursive: true });
+  rmSync(join(PUB, 'press', 'kit-2027'), { recursive: true, force: true });
+  rmSync(PAGE_DIR, { recursive: true, force: true });
+  mkdirSync(PAGE_DIR, { recursive: true });
   const work = mkdtempSync(join(tmpdir(), 'mm-kit-'));
   try {
-    execFileSync('pdftoppm', ['-r', '150', '-png', pdf, join(work, 'p')]);
-    const files = readdirSync(work).filter((f) => f.endsWith('.png')).sort();
-    files.forEach((f, k) => {
-      execFileSync('cwebp', ['-quiet', '-q', '82', join(work, f), '-o', join(dir, `${String(k + 1).padStart(2, '0')}.webp`)]);
-    });
-    return files.length;
+    // 1400 px en qualite 80, sinon 1200 px, et seulement ensuite la qualite qui baisse
+    for (const [width, q] of [
+      [1400, 80],
+      [1200, 80],
+      [1200, 78],
+      [1200, 76],
+      [1200, 74],
+    ]) {
+      for (const f of readdirSync(work)) rmSync(join(work, f));
+      execFileSync('pdftoppm', ['-png', '-scale-to-x', String(width), '-scale-to-y', '-1', pdf, join(work, 'p')]);
+      const files = readdirSync(work).filter((f) => f.endsWith('.png')).sort();
+      let total = 0;
+      const out = files.map((f, k) => {
+        const name = `presskit-2027-${String(k + 1).padStart(2, '0')}.webp`;
+        execFileSync('cwebp', ['-quiet', '-q', String(q), join(work, f), '-o', join(PAGE_DIR, name)]);
+        const size = statSync(join(PAGE_DIR, name)).size;
+        total += size;
+        return { name, size };
+      });
+      const h = Math.round((width * 297) / 210);
+      if (total <= PAGE_BUDGET) return { width, q, height: h, total, out };
+    }
+    throw new Error('pages en WebP : plus de 900 Ko meme a 1200 px et qualite 74');
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
 }
 
+/** Toutes les adresses d'un gabarit (les liens du PDF), dans l'ordre, sans doublon. */
+const hrefs = (h) => [...new Set([...h.matchAll(/href="([^"]+)"/g)].map((m) => m[1].replace(/&amp;/g, '&')).filter((u) => u !== 'presskit.css'))];
+
+/**
+ * Les liens de la visionneuse (sous la derniere page) : exactement les
+ * destinations du PDF, rangees par groupe. Verifie : la meme liste, ni un
+ * de plus ni un de moins.
+ */
+function viewerLinks(generic) {
+  const groups = [
+    ['Listen', [[C.mix.text, C.mix.url], ...C.tracks.map(([n, , u]) => [n, u]), [C.limbos.text, URL.limbosAlbum], ...C.platforms]],
+    ['Site and documents', [['mauditemachine.com', URL.site], ...C.assets.map(([t, u]) => [t, u]), ['vrstlrecords.com', URL.vrstl]]],
+    ['Contact', C.contacts.flatMap(([, name, lines]) => lines.map(([t, u]) => [`${name}: ${t}`, u]))],
+    ['Links', C.links],
+  ];
+  const seen = new Set();
+  const out = groups.map(([g, list]) => [g, list.filter(([, u]) => (seen.has(u) ? false : (seen.add(u), true)))]);
+  const want = new Set(hrefs(generic));
+  const missing = [...want].filter((u) => !seen.has(u));
+  const extra = [...seen].filter((u) => !want.has(u));
+  if (missing.length || extra.length) throw new Error(`liens de la visionneuse : manquants ${missing.join(' ')} ; en trop ${extra.join(' ')}`);
+  return out;
+}
+
+const SECTIONS = ['Cover', 'Background', 'The sound', 'Selected shows', 'Listen', 'Technical and contact'];
+
 for (const v of VARIANTS) {
   const pdf = join(PUB, v.out);
   render(v, pdf);
-  const mb = statSync(pdf).size / 1024 / 1024;
-  const n = v.images ? `, ${images(pdf)} pages en image` : '';
-  console.log(`${v.out}  ${mb.toFixed(2)} Mo${n}`);
-  if (mb >= 5) {
-    console.error('Plus de 5 Mo : alleger les images de img/.');
+  const bytes = statSync(pdf).size;
+  const mb = bytes / 1024 / 1024;
+  console.log(`${v.out}  ${mb.toFixed(2)} Mo`);
+  if (mb >= 8) {
+    console.error('Plus de 8 Mo : alleger les images de img/.');
     process.exitCode = 1;
   }
+  if (!v.images) continue;
+  const pg = images(pdf);
+  console.log(`  ${pg.out.length} pages en WebP, ${pg.width} px, qualite ${pg.q} : ${pg.out.map((o) => `${Math.round(o.size / 1024)} Ko`).join(', ')} (total ${Math.round(pg.total / 1024)} Ko)`);
+  // Donnees de la visionneuse, generees : pages, liens, poids du PDF
+  const links = viewerLinks(html(v));
+  const ts = `/**
+ * GENERE par docs/presskit-2027/build.mjs : ne pas editer a la main.
+ * Le press kit 2027 pour la visionneuse du site (/presskit) : les pages en
+ * WebP, leur titre de section (alt), le PDF et ses liens (les memes
+ * destinations que le PDF, rangees par groupe).
+ */
+
+export const KIT = {
+  title: 'Press kit 2027',
+  pdf: '/${v.out}',
+  size: '${mb.toFixed(1)} MB',
+  w: ${pg.width},
+  h: ${pg.height},
+  pages: ${JSON.stringify(pg.out.map((o, k) => ({ src: `/press/pages/${o.name}`, section: SECTIONS[k] })), null, 2).replace(/"(\w+)":/g, '$1:')},
+} as const;
+
+export const KIT_LINKS: readonly (readonly [string, readonly (readonly [string, string])[]])[] = ${JSON.stringify(links, null, 2)};
+`;
+  writeFileSync(join(ROOT, 'src', 'v4', 'data', 'presskit.ts'), ts);
+  console.log(`  src/v4/data/presskit.ts : ${links.reduce((n, [, l]) => n + l.length, 0)} liens`);
 }
 for (const c of COPIES) copyFileSync(join(PUB, 'Presskit_Maudite_Machine_2027_generic.pdf'), join(PUB, c));
 console.log(`copie : ${COPIES.join(', ')}`);

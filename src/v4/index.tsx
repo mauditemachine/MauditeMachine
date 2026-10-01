@@ -20,6 +20,8 @@
 
 import React, {
   Component,
+  Suspense,
+  lazy,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -45,20 +47,69 @@ import { explode } from './state/explode';
 import { FLAGS, syncFlags } from './state/flags';
 import { intro } from './state/intro';
 import { lcd } from './state/lcd';
+import { presskit } from './state/presskit';
 import { useReducedMotion } from './state/motion';
 import { section } from './state/section';
 import { view } from './state/view';
-import { COARSE_QUERY, COPY, HEX, MOBILE_QUERY } from './theme';
+import { COARSE_QUERY, COPY, HEX, MOBILE_QUERY, PRESSKIT_ROUTE } from './theme';
 import { Dock } from './ui/Dock';
 import { Header } from './ui/Header';
 import { HitLayer, Twins } from './ui/Hotspots';
 import { Lcd } from './ui/Lcd';
 import { Panel } from './ui/Panel';
-import { PresskitViewer } from './ui/PresskitViewer';
 import { ResetView } from './ui/ResetView';
 import { Trace } from './ui/Trace';
 
 const IS_DEV = import.meta.env.DEV;
+
+/**
+ * La visionneuse du press kit (2026-10-01) : son propre chunk, charge a
+ * l'ouverture seulement ; l'accueil n'en telecharge aucun octet.
+ */
+const PresskitViewer = lazy(() => import('./ui/PresskitViewer'));
+
+/** /presskit, avec ou sans barre finale : la machine, et le press kit par-dessus. */
+const onPresskitRoute = (): boolean => typeof window !== 'undefined' && PRESSKIT_ROUTE.re.test(window.location.pathname);
+
+/**
+ * Visionneuse et ligne d'apres fermeture (2026-10-01). Arrivee par
+ * /presskit : la visionneuse s'ouvre en fondu 250 ms apres le montage.
+ * Pendant qu'elle est ouverte, la machine continue derriere, a 20 images
+ * par seconde au plus. A la premiere fermeture (arrivee par /presskit),
+ * une ligne discrete, 5 s : "Press kit closed. Reopen from the PRESS
+ * button."
+ */
+const PresskitHost: React.FC<{ getStage: () => Stage | null }> = ({ getStage }) => {
+  const open = useSyncExternalStore(presskit.subscribe, presskit.get, presskit.get);
+  const hint = useSyncExternalStore(presskit.subscribe, presskit.hint, presskit.hint);
+  useEffect(() => {
+    if (!onPresskitRoute()) return undefined;
+    const t = window.setTimeout(() => presskit.open('route'), PRESSKIT_ROUTE.delayMs);
+    return () => window.clearTimeout(t);
+  }, []);
+  useEffect(() => {
+    getStage()?.setFrameCap(open ? PRESSKIT_ROUTE.frameCapMs : 0);
+  }, [open, getStage]);
+  useEffect(() => {
+    if (!hint) return undefined;
+    const t = window.setTimeout(() => presskit.dismissHint(), PRESSKIT_ROUTE.hintMs);
+    return () => window.clearTimeout(t);
+  }, [hint]);
+  return (
+    <>
+      {open && (
+        <Suspense fallback={null}>
+          <PresskitViewer />
+        </Suspense>
+      )}
+      {hint && (
+        <p className="v4-kit-hint" role="status">
+          Press kit closed. Reopen from the PRESS button.
+        </p>
+      )}
+    </>
+  );
+};
 
 const devLog = (where: string, message: string): void => {
   if (!IS_DEV) return;
@@ -135,7 +186,7 @@ function usePageChrome(): void {
   useLayoutEffect(() => {
     document.body.classList.add('v4-active');
     const prevTitle = document.title;
-    document.title = COPY.title;
+    document.title = onPresskitRoute() ? PRESSKIT_ROUTE.title : COPY.title;
     const theme = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
     const prevTheme = theme?.getAttribute('content') ?? null;
     let madeTheme: HTMLMetaElement | null = null;
@@ -320,9 +371,9 @@ const V4Shell: React.FC = () => {
           {!mobile && <Header getStage={getStage} />}
           <Trace stage={stage} panelRef={panelRef} mobile={mobile} />
           <Panel mobile={mobile} panelRef={panelRef} />
-          <PresskitViewer />
         </StageBoundary>
       )}
+      <PresskitHost getStage={getStage} />
       {gl === 'fallback' && <NoWebGL />}
       {IS_DEV && devErrors.length > 0 && (
         <ul className="v4-devlog" aria-hidden="true">

@@ -2,8 +2,8 @@
  * PRESS (2026-10-01) : LIVE y est fondu, un seul pad. Une phrase, le setup
  * et la duree des sets, deux demandes par le formulaire de CONTACT (un
  * set, objet Booking - live set ; une interview, objet Press), puis les
- * documents : le press kit 2027, qui s'ouvre en popup devant la machine
- * (ui/PresskitViewer.tsx, en anglais, francais ou espagnol), la fiche
+ * documents : le press kit 2027, qui s'ouvre dans la visionneuse devant la
+ * machine (ui/PresskitViewer.tsx, six pages, en anglais), la fiche
  * technique a telecharger (attribut download, fleche a gauche, taille a
  * droite), /press/ et /techrider en nouvel onglet (chevron sortant).
  */
@@ -25,7 +25,7 @@ const KitLink: React.FC<{ href: string; label: string; size: string; tab: number
     onClick={(e) => {
       if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       e.preventDefault();
-      presskit.open();
+      presskit.open('link');
     }}
   >
     <svg className="v4-dl" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false">

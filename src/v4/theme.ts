@@ -1123,6 +1123,19 @@ export const INTRO = {
 
 /* ---------- textes ---------- */
 
+/**
+ * /presskit (2026-10-01) : la machine, et la visionneuse du press kit
+ * par-dessus, 250 ms apres le montage ; la machine a 20 images par seconde
+ * au plus pendant qu'elle est ouverte ; la ligne d'apres fermeture 5 s.
+ */
+export const PRESSKIT_ROUTE = {
+  re: /^\/presskit\/?$/,
+  delayMs: 250,
+  frameCapMs: 50,
+  hintMs: 5000,
+  title: 'Press Kit 2027 | Maudite Machine',
+} as const;
+
 export const COPY = {
   title: 'Maudite Machine | DJ & Producer \u00B7 Deep Techno \u00B7 Indie Dance',
   wordmark: 'MAUDITE MACHINE',

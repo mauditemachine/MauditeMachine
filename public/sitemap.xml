@@ -20,6 +20,12 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://mauditemachine.com/presskit/</loc>
+    <lastmod>2026-10-01</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://mauditemachine.com/press/</loc>
     <lastmod>2026-10-01</lastmod>
     <changefreq>yearly</changefreq>

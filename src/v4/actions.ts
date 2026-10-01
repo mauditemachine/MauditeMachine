@@ -18,6 +18,7 @@ import { chipsLive, explode } from './state/explode';
 import { lcdMessage } from './state/lcdMessage';
 import { lcdMix } from './state/lcdMix';
 import { contactDraft, type ContactTopic } from './state/contactDraft';
+import { presskit } from './state/presskit';
 import { section } from './state/section';
 import { voices } from './state/voices';
 import { CHIPS, POT_UI, VOICE_ENCODERS, encLabel, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
@@ -63,6 +64,13 @@ export function page(id: PageId, stage: Stage | null): void {
   resume();
   // CONTACT ouvert directement : l'objet propose est Booking
   if (id === 'contact' && section.get() !== 'contact') contactDraft.set('booking');
+  // Arrive par /presskit (2026-10-01) : PRESS rouvre la visionneuse, sur sa section
+  if (id === 'press' && presskit.fromRoute()) {
+    section.set('press');
+    presskit.open('press');
+    stage?.pads.press(id);
+    return;
+  }
   section.toggle(id);
   stage?.pads.press(id);
 }

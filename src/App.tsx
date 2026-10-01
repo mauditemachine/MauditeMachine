@@ -39,6 +39,8 @@ export default function App() {
           <Route path="/" element={lazyEl(<V4App />)} />
           <Route path="/radar" element={lazyEl(<V2RadarPage />)} />
           <Route path="/techrider" element={lazyEl(<V2TechRiderPage />)} />
+          {/* 2026-10-01 : la machine, et le press kit par-dessus (src/v4) */}
+          <Route path="/presskit" element={lazyEl(<V4App />)} />
           <Route path="/v3" element={lazyEl(<V3App />)} />
           {/* Compat : les liens /v4 deja partages menent a l'accueil */}
           <Route path="/v4" element={<Navigate to="/" replace />} />

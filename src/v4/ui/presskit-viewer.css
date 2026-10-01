@@ -1,0 +1,248 @@
+/*
+ * Visionneuse du press kit (2026-10-01, ui/PresskitViewer.tsx) : chargee
+ * avec son chunk, jamais sur l'accueil seule. Voile sombre a 70 % sans
+ * flou (la machine se devine derriere), panneau de 760 px au plus et 80 %
+ * de la hauteur, pages posees comme des feuilles. Fondu de 300 ms a
+ * l'ouverture, 220 ms a la fermeture, rien en mouvement reduit.
+ */
+
+.v4-kit {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.7);
+  animation: v4-kit-in 300ms ease-out both;
+}
+
+.v4-kit[data-closing='1'] {
+  animation: v4-kit-out 220ms ease-in both;
+}
+
+.v4-kit-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(760px, 100%);
+  height: min(80vh, 100%);
+  background: var(--graphite);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+}
+
+.v4-kit-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  padding: 8px 8px 8px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.v4-kit-title {
+  margin: 0 auto 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--bone);
+}
+
+.v4-root .v4-kit-dl {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: var(--bone);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.v4-root .v4-kit-dl:hover {
+  background: #fff;
+}
+
+.v4-root .v4-kit-dl .v4-dl {
+  opacity: 1;
+}
+
+.v4-root .v4-kit-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  color: var(--bone-60);
+}
+
+.v4-root .v4-kit-close:hover {
+  color: var(--bone);
+  background: rgba(246, 241, 231, 0.06);
+}
+
+.v4-root .v4-kit-dl:focus-visible,
+.v4-root .v4-kit-close:focus-visible,
+.v4-kit-pages:focus-visible,
+.v4-root .v4-kit-links a:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+/* Les pages : une colonne qui defile d'un seul tenant, des feuilles */
+.v4-kit-pages {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 22px;
+  background: #19191c;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(246, 241, 231, 0.22) transparent;
+}
+
+.v4-kit-page {
+  display: block;
+  width: 100%;
+  height: auto;
+  flex: 0 0 auto;
+  background: #f6f1e7;
+  border-radius: 2px;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* Les liens du PDF, en HTML, sous la derniere page */
+.v4-kit-links {
+  width: 100%;
+  padding: 22px 24px 26px;
+  border-radius: 2px;
+  background: #f6f1e7;
+  color: #434343;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 12px 32px rgba(0, 0, 0, 0.4);
+}
+
+.v4-kit-links-title {
+  margin: 0 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.v4-kit-group + .v4-kit-group {
+  margin-top: 14px;
+}
+
+.v4-kit-group h3 {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6e6e6e;
+}
+
+.v4-kit-group ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.v4-root .v4-kit-links a {
+  color: #434343;
+  font-size: 14px;
+  line-height: 1.35;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+@keyframes v4-kit-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes v4-kit-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Mobile : la zone de la machine, le Dock reste dessous */
+@media (max-width: 767px) {
+  .v4-kit {
+    bottom: auto;
+    height: 50vh;
+    height: var(--canvas-h-mobile);
+    padding: 0;
+  }
+
+  .v4-kit-dialog {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    border: 0;
+  }
+
+  .v4-kit-bar {
+    gap: 8px;
+    padding: 4px 4px 4px 12px;
+    padding-top: calc(4px + env(safe-area-inset-top, 0px));
+  }
+
+  .v4-kit-title {
+    font-size: 13px;
+  }
+
+  .v4-root .v4-kit-dl {
+    min-height: 40px;
+    padding: 0 12px;
+  }
+
+  .v4-root .v4-kit-close {
+    width: 48px;
+    height: 48px;
+  }
+
+  .v4-kit-pages {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .v4-kit-links {
+    padding: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v4-kit,
+  .v4-kit[data-closing='1'] {
+    animation: none;
+  }
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-kit,
+.v4-root[data-v4-motion='reduced'] .v4-kit[data-closing='1'] {
+  animation: none;
+}

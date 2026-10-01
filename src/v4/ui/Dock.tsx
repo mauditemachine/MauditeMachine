@@ -256,6 +256,7 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
             aria-label={c.aria}
             aria-expanded={c.id === 'reset' ? undefined : open === c.id}
             aria-controls={c.id === 'reset' ? undefined : `v4-section-${c.id}`}
+            data-press-button={c.id === 'press' ? '' : undefined}
             onClick={() => onCell(c)}
           >
             <Icon name={c.icon} />

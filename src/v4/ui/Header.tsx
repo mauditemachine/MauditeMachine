@@ -72,6 +72,7 @@ export const Header: React.FC<Props> = ({ getStage }) => {
                 className="v4-nav-link"
                 aria-expanded={open === l.id}
                 aria-controls={`v4-section-${l.id}`}
+                data-press-button={l.id === 'press' ? '' : undefined}
                 onClick={() => page(l.id, getStage())}
               >
                 {l.label}

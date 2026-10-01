@@ -1086,9 +1086,26 @@ export class Stage {
     this.stats.loopActive = true;
   }
 
+  /**
+   * Plafond de cadence (2026-10-01) : une frame toutes les capMs au plus,
+   * pendant que la visionneuse du press kit couvre la machine ; 0 : chaque
+   * rAF.
+   */
+  private capMs = 0;
+  private lastFrameAt = -Infinity;
+
+  setFrameCap(ms: number): void {
+    this.capMs = Math.max(0, ms);
+  }
+
   private frame = (now: number): void => {
     this.raf = 0;
     if (this.disposed) return;
+    if (this.capMs > 0 && now - this.lastFrameAt < this.capMs) {
+      this.raf = requestAnimationFrame(this.frame);
+      return;
+    }
+    this.lastFrameAt = now;
     this.stats.rafs += 1;
     // Reveil apres un repos : un pas de 16.7 ms, pas l'ecart depuis la derniere frame
     const dt = this.last < 0 ? 16.667 : Math.min(50, now - this.last);

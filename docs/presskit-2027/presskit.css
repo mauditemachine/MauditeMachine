@@ -1,7 +1,8 @@
 /*
- * Press kit 2027, version 4 pages A4, rendu en PDF par Chrome sans tete
- * (build.mjs). Une seule famille, SF Pro Display, titres compris. Fond
- * clair sur les quatre pages. Texte #434343 (jamais de noir pur) et ses
+ * Press kit 2027, revision 2 : six pages A4, rendu en PDF par Chrome sans
+ * tete (build.mjs). Une seule famille, SF Pro Display, titres compris. Fond
+ * clair sur toutes les pages ; une photo au moins par page, une grande sur
+ * les pages 1, 3 et 5. Photos sans filtre ni grain ni vignettage. Texte #434343 (jamais de noir pur) et ses
  * derives : texte clair #6E6E6E, filets #D8D4CC ; papier #F6F1E7 ; orange
  * #FF6A13 pour les chiffres cles et les filets de titre, rien d'autre.
  * Liens : soulignes d'un filet fin #434343. Marges de 14 mm, corps 9 pt,
@@ -147,13 +148,13 @@ a {
   background: var(--accent);
 }
 
-.page > .st:first-child,
-.p3 > .banner-crowd + .st {
+.page > .st:first-child {
   margin-top: 0;
 }
 
-.p3 > .banner-crowd + .st {
-  margin-top: 5mm;
+/* Une photo en tete de page, puis le premier titre */
+.page > img + .st {
+  margin-top: 5.5mm;
 }
 
 /* Petit libelle : capitales, texte clair */
@@ -209,10 +210,10 @@ a {
   padding-top: 0;
 }
 
-.banner-cover {
+.p1 .cover {
   display: block;
   width: 210mm;
-  height: 90mm;
+  height: 122mm;
   margin: 0 calc(-1 * var(--m));
   object-fit: cover;
 }
@@ -314,15 +315,19 @@ a {
 
 .p2-top {
   display: grid;
-  grid-template-columns: 55mm 1fr;
+  grid-template-columns: 70mm 1fr;
   gap: 8mm;
 }
 
 .portrait {
   display: block;
-  width: 55mm;
-  height: 72mm;
+  width: 70mm;
+  height: 93mm;
   object-fit: cover;
+}
+
+.p2 .stats {
+  margin-top: 8mm;
 }
 
 .shared {
@@ -377,39 +382,114 @@ a {
 
 /* ---------- 3. le son et l'ecoute ---------- */
 
-.banner-crowd {
+/* Grandes photos en tete de page (3 et 5) et bandeau de la page 4 */
+.hero,
+.hero5,
+.shows .banner {
   display: block;
   width: 182mm;
-  height: 55mm;
   object-fit: cover;
 }
 
-.p3 .row {
+.hero {
+  height: 122mm;
+}
+
+.hero5 {
+  height: 88mm;
+}
+
+/* Page 2 : une photo large sous les plateaux partages */
+.p2 .wide {
+  display: block;
+  width: 182mm;
+  height: 84mm;
+  margin-top: 6mm;
+  object-fit: cover;
+}
+
+.shows .banner {
+  height: 70mm;
+}
+
+/* Ce qu'il joue a gauche, les deux formats en photo a droite */
+.p3-grid {
   display: grid;
-  grid-template-columns: 34mm 1fr;
-  gap: 5mm;
-  padding: 1.6mm 0;
+  grid-template-columns: 1fr 92mm;
+  gap: 8mm;
+  align-items: start;
+}
+
+.p3 .row {
+  padding: 1.8mm 0;
   border-bottom: 0.4pt solid var(--rule);
+}
+
+.p3 .row:first-child {
+  padding-top: 0;
 }
 
 .p3 .row:last-child {
   border-bottom: 0;
 }
 
-.p3 .row .sub {
-  margin: 0.4mm 0 0;
-}
-
 .p3 .row p + p {
   margin-top: 1mm;
 }
 
-.p3 .mix {
+.formats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4mm;
+}
+
+.formats figure {
+  margin: 0;
+}
+
+.formats .fmt {
+  display: block;
+  width: 44mm;
+  height: 66mm;
+  object-fit: cover;
+}
+
+.formats figcaption {
+  margin-top: 1.6mm;
+  font-size: 7pt;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-light);
+}
+
+.p3 .edits {
+  margin-top: 6mm;
+  padding-top: 3mm;
+  border-top: 0.4pt solid var(--rule);
+}
+
+/* Page 4 : deux photos cote a cote sous le label */
+.strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4mm;
+  margin-top: 6mm;
+}
+
+.strip img {
+  display: block;
+  width: 89mm;
+  height: 62mm;
+  object-fit: cover;
+}
+
+.listen .mix {
   font-size: 10pt;
   font-weight: 600;
 }
 
-.p3 .mix .muted {
+.listen .mix .muted {
   font-weight: 400;
   font-size: 9pt;
 }
@@ -465,21 +545,36 @@ a {
 }
 
 .cat-title {
-  margin-top: 3mm;
+  margin-top: 3.5mm;
 }
 
-.catalogue {
+/* Le catalogue en pochettes : sept par rangee, titre, type et date dessous */
+.covers {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0 6mm;
+  grid-template-columns: repeat(7, 22.5mm);
+  justify-content: space-between;
+  gap: 3mm 0;
+  margin-top: 1mm;
 }
 
-.catalogue li {
-  display: flex;
-  justify-content: space-between;
-  gap: 2mm;
-  padding: 0.6mm 0;
-  border-bottom: 0.4pt solid var(--rule);
+.covers img {
+  display: block;
+  width: 22.5mm;
+  height: 22.5mm;
+  object-fit: cover;
+  margin-bottom: 1.2mm;
+}
+
+.covers b {
+  display: block;
+  font-size: 7.5pt;
+  line-height: 1.2;
+}
+
+.covers span {
+  display: block;
+  font-size: 6.5pt;
+  line-height: 1.25;
 }
 
 .also {
@@ -521,6 +616,20 @@ a {
   gap: 8mm;
 }
 
+/* Page 6 : le portrait noir et blanc en vignette, devant les contacts */
+.who.with-photo {
+  grid-template-columns: 19mm repeat(3, 1fr);
+  gap: 6mm;
+  align-items: start;
+}
+
+.who .thumb {
+  display: block;
+  width: 19mm;
+  height: 25mm;
+  object-fit: cover;
+}
+
 .who .name {
   font-size: 11pt;
   font-weight: 700;
@@ -559,7 +668,7 @@ a {
 }
 
 .p4 .st {
-  margin: 4mm 0 2.4mm;
+  margin: 3.2mm 0 2.2mm;
 }
 
 .p4 .intro {
@@ -584,6 +693,19 @@ a {
 
 .p4 .folio {
   bottom: 6mm;
+}
+
+/* Page 6 du press kit (six pages) : le bas resserre sous les contacts */
+.p4:not(.rider) .links {
+  margin-top: 2.6mm;
+}
+
+.p4:not(.rider) .assets {
+  margin-top: 2mm;
+}
+
+.p4:not(.rider) .copy {
+  margin-top: 1.6mm;
 }
 
 /* ---------- fiche technique (2 pages) ---------- */

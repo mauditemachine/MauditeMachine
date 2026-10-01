@@ -1,5 +1,5 @@
 /**
- * prerender-seo.mjs — genere un index.html statique par route dans dist/.
+ * prerender-seo.mjs : genere un index.html statique par route dans dist/.
  *
  * POURQUOI : le site est une SPA. Google execute le JS et voit les meta
  * injectees par useSEO(), mais PAS les crawlers sociaux :
@@ -43,11 +43,13 @@ const STATIC_LANG = 'en';
 // 2026-09-30 : /techrider/ (route React) recoit sa vraie page statique :
 // GitHub Pages la sert en 200 au lieu du repli 404.html. Avec la barre
 // finale, comme /press/ : /techrider repond 301 vers elle.
-const ROUTES = ['/techrider/'];
+// 2026-10-01 : /presskit/ aussi (la machine et la visionneuse du press kit),
+// meme principe : 200 et indexable, /presskit repond 301 vers elle.
+const ROUTES = ['/techrider/', '/presskit/'];
 
 const indexPath = join(DIST, 'index.html');
 if (!existsSync(indexPath)) {
-  console.error('❌ dist/index.html introuvable — lancer vite build avant');
+  console.error('❌ dist/index.html introuvable, lancer vite build avant');
   process.exit(1);
 }
 const baseHtml = readFileSync(indexPath, 'utf8');

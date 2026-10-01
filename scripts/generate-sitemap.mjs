@@ -1,5 +1,5 @@
 /**
- * generate-sitemap.mjs — genere public/sitemap.xml au build.
+ * generate-sitemap.mjs : genere public/sitemap.xml au build.
  *
  * Lance automatiquement via `npm run build` (prebuild). Garde le sitemap
  * synchronise avec les routes reelles + met a jour lastmod a chaque deploy,
@@ -22,6 +22,7 @@ const ROUTES = [
   { path: '/',      changefreq: 'weekly', priority: '1.0' },
   { path: '/radar', changefreq: 'weekly', priority: '0.8' },
   { path: '/techrider/', changefreq: 'yearly', priority: '0.7' },
+  { path: '/presskit/', changefreq: 'yearly', priority: '0.8' },
   { path: '/press/', changefreq: 'yearly', priority: '0.6' },
 ];
 
