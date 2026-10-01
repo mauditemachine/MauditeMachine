@@ -99,11 +99,12 @@ export const CONTACT_LINKS: readonly { label: string; href: string }[] = [
 
 /**
  * Documents de PRESS : les deux PDF en telechargement, leur taille mesuree
- * (878 617 et 4 460 360 octets).
+ * (878 617 et 2 782 024 octets). Press kit 2027 en version neutre (sans le
+ * bandeau Boom Festival) ; l'ancien 2026-27 reste en ligne pour les liens deja envoyes.
  */
 export const LIVE_DOCS: readonly { label: string; href: string; size: string }[] = [
   { label: 'Tech rider (PDF)', href: '/Tech_Rider_Maudite_Machine_2026-27.pdf', size: '0.9 MB' },
-  { label: 'Press kit (PDF)', href: '/Presskit_Maudite_Machine_2026-27.pdf', size: '4.5 MB' },
+  { label: 'Press kit 2027 (PDF)', href: '/Presskit_Maudite_Machine_2027_generic.pdf', size: '2.8 MB' },
 ];
 /** Les deux pages du site ouvertes par PRESS, en nouvel onglet. */
 export const LIVE_PAGES = { press: '/press/', techrider: '/techrider' } as const;
