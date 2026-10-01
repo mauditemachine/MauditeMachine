@@ -26,8 +26,12 @@ export const HEX = {
   red: '#C8442F',
   /** orange de navigation : noms des pages et des puces, pas programmes (demande de Mika, 2026-09-30) */
   orange: '#FF6A13',
-  /** pas programme : orange, pour voir d'un coup d'oeil quels pas sont mis */
+  /** pas programme : orange, pour voir d'un coup d'oeil quels pas sont mis (velocite forte) */
   ledSet: '#FF6A13',
+  /** velocite moyenne : l'orange a 68 % */
+  ledMid: '#AD480D',
+  /** velocite douce : l'orange a 38 % */
+  ledLow: '#612807',
   ledHover: '#A9A69F',
   // Revision 2 (spec 20.3), couleurs AFFICHEES visees (voir GAIN)
   /** flancs et dessous du chassis, mats (brief) */
@@ -538,6 +542,12 @@ export const keyX = (i: number): number => KEYS.x0 + KEYS.pitch * i;
 
 /** Appui long sur un pas (revision 4) : il se vide au lieu de changer, en ms. */
 export const STEP_HOLD_MS = 400;
+
+/**
+ * Appui sur un pas (2026-10-01) : la touche s'enfonce de depth et s'eclaire
+ * (emissif glow, lineaire) en downMs, remonte et s'eteint en upMs.
+ */
+export const STEP_PRESS = { depth: 0.045, downMs: 40, upMs: 160, glow: [0.16, 0.04, 0.004] } as const;
 
 /* ---------- picking (spec 6.2, 6.5 et 20.7) ---------- */
 

@@ -66,6 +66,7 @@ import {
   FRAME_DESKTOP,
   FRAME_MOBILE,
   INTRO,
+  STEP_PRESS,
   LIGHT_BACK,
   LIGHT_HEMI,
   LIGHT_KEY,
@@ -99,7 +100,7 @@ import { Pcb } from './pcb';
 import { Screen } from './screen';
 import { Sequencer3D } from './sequencer3d';
 import { PanelSilk, fontsReady, makeBrushTexture, whenFonts } from './silk';
-import { Tweens, easeInOutCubic, easeOutCubic } from './tween';
+import { Tweens, easeInOutCubic, easeOutCubic, linear } from './tween';
 
 const DEG = Math.PI / 180;
 
@@ -610,6 +611,23 @@ export class Stage {
   repaint(): void {
     this.dirty = true;
     this.kick();
+  }
+
+  /**
+   * Appui sur un pas (2026-10-01) : la touche s'enfonce et s'eclaire en
+   * 40 ms, remonte et s'eteint en 160 ms (sans passe d'ombre : les touches
+   * n'en projettent pas). Reduced motion : l'eclat seul.
+   */
+  pressStep(i: number): void {
+    if (this.disposed || i < 0 || i >= STEP_LEDS) return;
+    const move = !motion.reduced();
+    const set = (v: number): void => this.seq.setKeyPress(i, v, move);
+    const tw = this.paintTweens;
+    const key = `step.press.${i}`;
+    tw.run(key, set, 0, 1, STEP_PRESS.downMs, linear, performance.now(), (end) =>
+      tw.run(key, set, 1, 0, STEP_PRESS.upMs, easeOutCubic, end)
+    );
+    this.repaint();
   }
 
   /** Alias du contrat debug (spec 14.1). */

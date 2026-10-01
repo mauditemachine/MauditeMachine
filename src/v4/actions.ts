@@ -9,7 +9,7 @@
 import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
 import { ensure, mix, resume, setDrive, setLevel, setReverb, setSwing, setTone, trigger } from './audio/drums';
-import { BPM, isOn, pattern } from './audio/pattern';
+import { BPM, VEL_NAMES, pattern, velocity } from './audio/pattern';
 import { sc } from './audio/soundcloud';
 import type { Stage } from './scene/renderer';
 import { chipsLive, explode } from './state/explode';
@@ -21,9 +21,6 @@ import { CHIPS, POT_UI, swingRatio, type ChipId, type EncId, type Inst, type Pag
 
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
 const pct = (v: number): number => Math.round(v * 100);
-
-/** Le beat par defaut (autoRun, plus bas) a-t-il deja eu sa chance ? */
-let autoRunDone = false;
 
 /** Premier geste : cree le contexte audio ; ensuite, le relance s'il dort. */
 export function gesture(): void {
@@ -69,11 +66,14 @@ export function selectInstrument(inst: Inst): void {
 
 /**
  * Pas i (0 a 15) pour l'instrument selectionne ; false sans selection
- * (spec 7.2 : il faut d'abord taper un pad). Persiste par pattern.ts ;
- * l'ecran dira STEP 07 BD ON / OFF, ou TAP A PAD FIRST.
+ * (spec 7.2 : il faut d'abord taper un pad). Chaque appui passe au cran
+ * suivant : vide, fort, moyen, doux, vide (2026-10-01). Persiste par
+ * pattern.ts ; la touche s'enfonce (stage.pressStep) ; l'ecran dira
+ * STEP 07 BD HIGH / MID / LOW / OFF, ou TAP A PAD FIRST.
  */
-export function stepToggle(i: number): boolean {
+export function stepToggle(i: number, stage: Stage | null = null): boolean {
   resume();
+  stage?.pressStep(i);
   const inst = pattern.get().instrument;
   if (!inst) {
     lcdMessage.show('TAP A PAD FIRST');
@@ -84,17 +84,18 @@ export function stepToggle(i: number): boolean {
   return true;
 }
 
-/** Ligne d'ecran d'un pas : STEP 07 OH ON / OFF. */
+/** Ligne d'ecran d'un pas : STEP 07 OH HIGH / MID / LOW / OFF. */
 function stepLine(inst: Inst, i: number): string {
-  return `STEP ${two(i + 1)} ${inst} ${isOn(pattern.get().steps, inst, i) ? 'ON' : 'OFF'}`;
+  return `STEP ${two(i + 1)} ${inst} ${VEL_NAMES[velocity(pattern.get().steps, inst, i)]}`;
 }
 
 /**
  * Appui long sur un pas (revision 4, 400 ms) : le pas de l'instrument
  * selectionne se vide. false sans selection.
  */
-export function stepClear(i: number): boolean {
+export function stepClear(i: number, stage: Stage | null = null): boolean {
   resume();
+  stage?.pressStep(i);
   const inst = pattern.get().instrument;
   if (!inst) {
     lcdMessage.show('TAP A PAD FIRST');
@@ -111,7 +112,6 @@ export function stepClear(i: number): boolean {
  * source a la fois (spec decision 5).
  */
 export function runToggle(): boolean {
-  autoRunDone = true;
   gesture();
   if (!clock.running) sc.pauseForRun();
   return clock.toggle();
@@ -292,23 +292,6 @@ export function escape(): boolean {
 
 /** Ligne TRACKS ou MIXTAPES : lecture, pause ou reprise par le moteur SoundCloud. */
 export function playItem(track: V2Track, queue: V2Track[]): void {
-  autoRunDone = true;
   sc.play(track, queue);
 }
 
-/**
- * Beat par defaut (2026-09-30) : le motif de depart doit tourner des
- * l'arrivee du visiteur. Les navigateurs refusent le son avant un geste :
- * le premier geste de la page (clic, toucher, glisser, touche) lance donc
- * RUN, une seule fois par visite, apres l'action de ce geste (index.tsx) ;
- * rien si ce geste a lui-meme choisi le son (RUN/STOP, une piste ou une
- * mixtape) ou si une piste joue deja.
- */
-export function autoRun(): void {
-  if (autoRunDone) return;
-  autoRunDone = true;
-  const st = sc.get().status;
-  if (clock.running || st === 'playing' || st === 'loading') return;
-  gesture();
-  clock.start();
-}

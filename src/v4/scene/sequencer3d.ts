@@ -26,12 +26,12 @@ import {
   type Object3D,
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { INSTRUMENTS, STEP_COUNT, isOn, type Steps } from '../audio/pattern';
-import { COLOR, KEYS, LIT, MATERIAL, MUTE_GLOW, RUN_GLOW, TRANSPORT, keyX, type Inst } from '../theme';
+import { INSTRUMENTS, STEP_COUNT, velocity, type Steps } from '../audio/pattern';
+import { COLOR, KEYS, LIT, MATERIAL, MUTE_GLOW, RUN_GLOW, STEP_PRESS, TRANSPORT, keyX, type Inst } from '../theme';
 import type { HotspotDef } from './hit';
 import { withInstanceEmissive } from './materials';
 
-export type LedTone = 'line' | 'ledSet' | 'ledHover' | 'yellowHi';
+export type LedTone = 'line' | 'ledSet' | 'ledMid' | 'ledLow' | 'ledHover' | 'yellowHi';
 
 /** Instances des touches : les 16 trig, puis RUN, CLEAR, MUTE et SOLO. */
 const RUN = STEP_COUNT;
@@ -43,9 +43,14 @@ const KEY_COUNT = STEP_COUNT + 4;
 const LED_HEX: Readonly<Record<LedTone, number>> = {
   line: COLOR.line,
   ledSet: COLOR.ledSet,
+  ledMid: COLOR.ledMid,
+  ledLow: COLOR.ledLow,
   ledHover: COLOR.ledHover,
   yellowHi: COLOR.yellowHi,
 };
+
+/** Couleur de LED par velocite : vide, fort, moyen, doux. */
+const LED_BY_VEL: readonly LedTone[] = ['line', 'ledSet', 'ledMid', 'ledLow'];
 
 const m4 = new Matrix4();
 const col = new Color();
@@ -72,7 +77,7 @@ export interface SequencerInfo {
   run: 'red' | 'yellow';
   playhead: number;
   hover: number;
-  /** '1' = pas programme selon la regle 7.5 */
+  /** velocite de chaque pas selon la regle 7.5 (0 vide, 1 fort, 2 moyen, 3 doux) */
   programmed: string;
   instrument: Inst | null;
 }
@@ -176,12 +181,33 @@ export class Sequencer3D {
     if (this.keys.instanceColor) this.keys.instanceColor.needsUpdate = true;
   }
 
-  private programmed(i: number): boolean {
+  /** Velocite du pas i (0 vide, 1 fort, 2 moyen, 3 doux) ; sans selection, la plus forte des voix. */
+  private programmed(i: number): number {
     const s = this.steps;
-    if (!s) return false;
-    if (this.instrument) return isOn(s, this.instrument, i);
-    for (const k of INSTRUMENTS) if (isOn(s, k, i)) return true;
-    return false;
+    if (!s) return 0;
+    if (this.instrument) return velocity(s, this.instrument, i);
+    let best = 0;
+    for (const k of INSTRUMENTS) {
+      const v = velocity(s, k, i);
+      if (v > 0 && (best === 0 || v < best)) best = v;
+    }
+    return best;
+  }
+
+  /**
+   * Appui sur le pas i (2026-10-01), v de 0 (repos) a 1 (enfonce) : la
+   * touche descend de STEP_PRESS.depth (pas en reduced motion) et
+   * s'eclaire. Le Stage l'anime (pressStep).
+   */
+  setKeyPress(i: number, v: number, move: boolean): void {
+    if (i < 0 || i >= STEP_COUNT) return;
+    this.keys.instanceMatrix.array[i * 16 + 13] = move ? -STEP_PRESS.depth * v : 0;
+    this.keys.instanceMatrix.needsUpdate = true;
+    const e = this.emissive.array as Float32Array;
+    e[i * 3] = STEP_PRESS.glow[0] * v;
+    e[i * 3 + 1] = STEP_PRESS.glow[1] * v;
+    e[i * 3 + 2] = STEP_PRESS.glow[2] * v;
+    this.emissive.needsUpdate = true;
   }
 
   /** Recolore les LED selon la regle 7.5 ; true si une couleur a change. */
@@ -193,9 +219,7 @@ export class Sequencer3D {
           ? 'yellowHi'
           : i === this.hover
             ? 'ledHover'
-            : this.programmed(i)
-              ? 'ledSet'
-              : 'line';
+            : LED_BY_VEL[this.programmed(i)];
       if (tone === this.ledTone[i]) continue;
       this.ledTone[i] = tone;
       this.leds.setColorAt(i, col.setHex(LED_HEX[tone]));
@@ -273,7 +297,7 @@ export class Sequencer3D {
 
   info(): SequencerInfo {
     let programmed = '';
-    for (let i = 0; i < STEP_COUNT; i += 1) programmed += this.programmed(i) ? '1' : '0';
+    for (let i = 0; i < STEP_COUNT; i += 1) programmed += String(this.programmed(i));
     return {
       leds: [...this.ledTone],
       run: this.running ? 'yellow' : 'red',

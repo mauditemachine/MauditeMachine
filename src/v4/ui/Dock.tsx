@@ -31,7 +31,7 @@ import {
   stepToggle,
 } from '../actions';
 import { clock } from '../audio/clock';
-import { BPM, INSTRUMENTS, STEP_COUNT, isOn, pattern } from '../audio/pattern';
+import { BPM, INSTRUMENTS, STEP_COUNT, VEL_NAMES, pattern, velocity } from '../audio/pattern';
 import type { Stage } from '../scene/renderer';
 import { explode } from '../state/explode';
 import { playhead } from '../state/playhead';
@@ -96,7 +96,7 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
   const opened = ex === 'opening' || ex === 'open';
 
   const onStep = (i: number): void => {
-    if (!stepToggle(i)) setNudge((n) => n + 1);
+    if (!stepToggle(i, getStage())) setNudge((n) => n + 1);
   };
   const onCell = (c: Cell): void => {
     if (c.id === 'reset') resetView(getStage());
@@ -135,9 +135,16 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
       </div>
       <div className="v4-dock-steps" role="group" aria-label="Steps">
         {STEP_INDEXES.map((i) => {
-          const on = inst ? isOn(p.steps, inst, i) : INSTRUMENTS.some((k) => isOn(p.steps, k, i));
+          // Velocite : 1 fort, 2 moyen, 3 doux ; sans selection, la plus forte des voix
+          const vel = inst
+            ? velocity(p.steps, inst, i)
+            : INSTRUMENTS.reduce((b, k) => {
+                const v = velocity(p.steps, k, i);
+                return v > 0 && (b === 0 || v < b) ? v : b;
+              }, 0);
+          const on = vel > 0;
           const label = inst
-            ? `Step ${i + 1}, ${INST_NAMES[inst]} ${on ? 'on' : 'off'}`
+            ? `Step ${i + 1}, ${INST_NAMES[inst]} ${VEL_NAMES[vel].toLowerCase()}`
             : `Step ${i + 1}, no instrument selected`;
           return (
             <button
@@ -145,6 +152,7 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
               type="button"
               className="v4-dock-step"
               data-on={on ? '1' : '0'}
+              data-vel={vel}
               data-head={head === i ? '1' : '0'}
               aria-pressed={inst ? on : false}
               aria-disabled={inst ? undefined : true}
@@ -157,7 +165,7 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
                 hold.current = null;
                 if (h && h.i === i && e.timeStamp - h.t >= STEP_HOLD_MS) {
                   skipClick.current = i;
-                  if (!stepClear(i)) setNudge((n) => n + 1);
+                  if (!stepClear(i, getStage())) setNudge((n) => n + 1);
                 }
               }}
               onPointerCancel={() => {

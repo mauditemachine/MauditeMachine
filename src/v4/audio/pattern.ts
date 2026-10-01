@@ -13,6 +13,11 @@
  * un motif enregistre sans lui (ou avec l'ancienne rangee BASS) recoit la
  * rangee OH par defaut, la rangee BASS est ignoree. Un appui long vide un
  * pas (toutes les voix).
+ *
+ * Velocites (2026-10-01) : chaque pas vaut 0 (vide), 1 (fort), 2 (moyen)
+ * ou 3 (doux). Un appui sur un pas vide le pose fort ; chaque appui
+ * suivant baisse d'un cran, puis le vide (0 1 2 3 0). L'ancien '1' (pose)
+ * reste donc un pas fort.
  */
 
 import type { Inst } from '../theme';
@@ -20,9 +25,14 @@ import type { Inst } from '../theme';
 export const INSTRUMENTS: readonly Inst[] = ['BD', 'SD', 'TOM', 'CH', 'OH'];
 export const STEP_COUNT = 16;
 export const BPM = { min: 100, max: 150, initial: 130 } as const;
-export const STORAGE_KEY = 'mm.v4.pattern';
+/**
+ * Cle de stockage. 2026-10-01 : '.2' avec les velocites ; les motifs
+ * enregistres avant sont laisses de cote une fois, pour que chacun recoive
+ * le motif d'arrivee.
+ */
+export const STORAGE_KEY = 'mm.v4.pattern.2';
 const SAVE_DEBOUNCE_MS = 300;
-const STEPS_RE = /^[01]{16}$/;
+const STEPS_RE = /^[0-3]{16}$/;
 
 export type Steps = Record<Inst, string>;
 
@@ -61,22 +71,36 @@ export interface PatternState extends Pattern {
 }
 
 /**
- * Le motif d'arrivee (2026-10-01), techno hypnotique a 130 BPM : grosse
- * caisse four to the floor, charley ferme en doubles croches qui laisse la
- * place au charley ouvert sur les contretemps (le ferme suivant le coupe,
- * comme une 808 : le "tss" court), clap sur 2 et 4, tom syncope sur 7, 12
- * et 15 qui fait tourner la boucle. Index 0 = pas 1.
+ * Le motif d'arrivee (2026-10-01), techno hypnotique a 130 BPM, charge
+ * mais muet tant qu'on n'appuie pas sur RUN : grosse caisse four to the
+ * floor, clap sur 2 et 4, charley ferme en doubles croches avec des
+ * velocites (moyen sur le temps, doux sur le "e", fort juste avant le
+ * temps suivant : le roulement), charley ouvert fort sur les contretemps
+ * (le ferme suivant le coupe, comme une 808), tom syncope qui monte (doux
+ * sur 7, moyen sur 12, fort sur 15). Index 0 = pas 1 ; 1 fort, 2 moyen,
+ * 3 doux.
  */
 export const DEFAULT_STEPS: Readonly<Steps> = {
   BD: '1000100010001000',
   SD: '0000100000001000',
-  TOM: '0000001000010010',
-  CH: '1101110111011101',
+  TOM: '0000003000020010',
+  CH: '2301230123012301',
   OH: '0010001000100010',
 };
 
+/** Velocite du pas i de inst : 0 (vide), 1 fort, 2 moyen, 3 doux. */
+export const velocity = (steps: Steps, inst: Inst, i: number): number => {
+  const c = steps[inst].charCodeAt(i) - 48;
+  return c >= 0 && c <= 3 ? c : 0;
+};
+
 /** Pas i joue par inst. */
-export const isOn = (steps: Steps, inst: Inst, i: number): boolean => steps[inst].charCodeAt(i) === 49;
+export const isOn = (steps: Steps, inst: Inst, i: number): boolean => velocity(steps, inst, i) > 0;
+
+/** Gain de chaque velocite (index 1 fort, 2 moyen, 3 doux ; 0 : rien). */
+export const VEL_GAIN: readonly number[] = [0, 1, 0.6, 0.32];
+/** Noms de l'ecran : STEP 05 CH MID. */
+export const VEL_NAMES: readonly string[] = ['OFF', 'HIGH', 'MID', 'LOW'];
 
 /**
  * Les effets de l'arrivee : un soupcon de SWING (55 %) pour que les
@@ -157,12 +181,15 @@ export function save(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX): boolean {
   }
 }
 
-/** Nouveau motif avec le pas i de inst inverse (mise a jour immuable). */
+/**
+ * Nouveau motif avec le pas i de inst au cran suivant (mise a jour
+ * immuable) : vide, fort, moyen, doux, vide.
+ */
 export function toggleStep(p: Pattern, inst: Inst, i: number): Pattern {
   if (!Number.isInteger(i) || i < 0 || i >= STEP_COUNT) return p;
   const s = p.steps[inst];
-  const flipped = s.slice(0, i) + (s[i] === '1' ? '0' : '1') + s.slice(i + 1);
-  return { ...p, steps: { ...p.steps, [inst]: flipped } };
+  const next = String((velocity(p.steps, inst, i) + 1) % 4);
+  return { ...p, steps: { ...p.steps, [inst]: s.slice(0, i) + next + s.slice(i + 1) } };
 }
 
 /** Le pas i de inst vide (appui long) ; le meme motif s'il l'etait deja. */

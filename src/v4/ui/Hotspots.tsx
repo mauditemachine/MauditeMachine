@@ -237,8 +237,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.kind === 'open') openToggle(stage);
       else if (d.kind === 'step' && d.index !== undefined) {
         // Appui long (revision 4) : le pas se vide ; sinon il change
-        if (stage.orbit.lastTap.ms >= STEP_HOLD_MS) stepClear(d.index);
-        else stepToggle(d.index);
+        if (stage.orbit.lastTap.ms >= STEP_HOLD_MS) stepClear(d.index, stage);
+        else stepToggle(d.index, stage);
       }
       else if (d.kind === 'run') runToggle();
       else if (d.kind === 'clear') clearPattern();
@@ -834,10 +834,10 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
               // Suppr ou retour arriere : le pas se vide (l'appui long du clavier)
               if (e.key === 'Delete' || e.key === 'Backspace') {
                 e.preventDefault();
-                stepClear(i);
+                stepClear(i, stage);
               } else noRepeat(e);
             }}
-            onClick={() => stepToggle(i)}
+            onClick={() => stepToggle(i, stage)}
           />
         );
       })}

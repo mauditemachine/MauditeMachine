@@ -236,7 +236,7 @@ function startNoise(src: AudioBufferSourceNode, when: number, tail: number, node
   src.stop(when + tail + STOP_PAD);
 }
 
-function voiceBD(g: Graph, when: number): Voice {
+function voiceBD(g: Graph, when: number, dest: AudioNode = g.bus): Voice {
   const c = g.ctx;
   const osc = c.createOscillator();
   osc.type = 'sine';
@@ -257,13 +257,13 @@ function voiceBD(g: Graph, when: number): Voice {
   env.connect(drive);
   drive.connect(shaper);
   shaper.connect(post);
-  post.connect(g.bus);
+  post.connect(dest);
   const nodes = [osc, env, drive, shaper, post];
   play(osc, when, TAIL.BD, nodes);
   return { when, srcs: [osc], nodes };
 }
 
-function voiceSD(g: Graph, when: number): Voice {
+function voiceSD(g: Graph, when: number, dest: AudioNode = g.bus): Voice {
   const c = g.ctx;
   const src = noiseSource(g);
   const bp = c.createBiquadFilter();
@@ -287,7 +287,7 @@ function voiceSD(g: Graph, when: number): Voice {
   nEnv.connect(out);
   body.connect(bEnv);
   bEnv.connect(out);
-  out.connect(g.bus);
+  out.connect(dest);
   body.start(when);
   body.stop(when + TAIL.SDbody + STOP_PAD);
   // Le bruit finit en dernier : c'est lui qui debranche toute la voix
@@ -296,7 +296,7 @@ function voiceSD(g: Graph, when: number): Voice {
   return { when, srcs: [src, body], nodes };
 }
 
-function voiceTOM(g: Graph, when: number): Voice {
+function voiceTOM(g: Graph, when: number, dest: AudioNode = g.bus): Voice {
   const c = g.ctx;
   const osc = c.createOscillator();
   osc.type = 'sine';
@@ -306,7 +306,7 @@ function voiceTOM(g: Graph, when: number): Voice {
   env.gain.setValueAtTime(1, when);
   env.gain.exponentialRampToValueAtTime(0.001, when + TAIL.TOM);
   osc.connect(env);
-  env.connect(g.bus);
+  env.connect(dest);
   const nodes = [osc, env];
   play(osc, when, TAIL.TOM, nodes);
   return { when, srcs: [osc], nodes };
@@ -329,7 +329,7 @@ function chokeOH(when: number): void {
  * brillance (crete a 10 kHz), 340 ms. Un charley ferme ou ouvert suivant le
  * coupe (chokeOH) : sur le motif d'arrivee, le "tss" court des contretemps.
  */
-function voiceOH(g: Graph, when: number): Voice {
+function voiceOH(g: Graph, when: number, dest: AudioNode = g.bus): Voice {
   const c = g.ctx;
   chokeOH(when);
   const src = noiseSource(g);
@@ -351,7 +351,7 @@ function voiceOH(g: Graph, when: number): Voice {
   hp.connect(shine);
   shine.connect(env);
   env.connect(gate);
-  gate.connect(g.bus);
+  gate.connect(dest);
   ohGate = gate;
   ohEnd = when + TAIL.OH;
   const nodes = [src, hp, shine, env, gate];
@@ -359,7 +359,7 @@ function voiceOH(g: Graph, when: number): Voice {
   return { when, srcs: [src], nodes };
 }
 
-function voiceCH(g: Graph, when: number, open: boolean): Voice {
+function voiceCH(g: Graph, when: number, open: boolean, dest: AudioNode = g.bus): Voice {
   const c = g.ctx;
   chokeOH(when);
   const tail = open ? TAIL.CHopen : TAIL.CH;
@@ -373,7 +373,7 @@ function voiceCH(g: Graph, when: number, open: boolean): Voice {
   env.gain.exponentialRampToValueAtTime(0.001, when + tail);
   src.connect(hp);
   hp.connect(env);
-  env.connect(g.bus);
+  env.connect(dest);
   const nodes = [src, hp, env];
   startNoise(src, when, tail, nodes);
   return { when, srcs: [src], nodes };
@@ -384,23 +384,35 @@ function voiceCH(g: Graph, when: number, open: boolean): Voice {
  * jamais le contexte : sans geste prealable, rien ne sonne. `open` : charley
  * ouvert (pad CH tenu ; les coups du sequenceur sont toujours fermes).
  * `out` recoit la voix programmee (l'horloge, pour pouvoir l'annuler).
+ * `vel` : la velocite du pas, en gain (1 fort, 0.6 moyen, 0.32 doux).
  */
-export function trigger(inst: Inst, when?: number, open = false, out?: Voice[]): boolean {
+export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], vel = 1): boolean {
   const g = graph;
   if (!g) return false;
   enforceMute(g);
   const now = g.ctx.currentTime;
   const t = when === undefined || when < now ? now : when;
+  // Velocite (2026-10-01) : un gain de plus entre la voix et le bus, sous 1
+  let dest: AudioNode = g.bus;
+  let vg: GainNode | null = null;
+  if (vel < 1) {
+    vg = g.ctx.createGain();
+    vg.gain.value = Math.max(0, vel);
+    vg.connect(g.bus);
+    dest = vg;
+  }
   const v =
     inst === 'BD'
-      ? voiceBD(g, t)
+      ? voiceBD(g, t, dest)
       : inst === 'SD'
-        ? voiceSD(g, t)
+        ? voiceSD(g, t, dest)
         : inst === 'TOM'
-          ? voiceTOM(g, t)
+          ? voiceTOM(g, t, dest)
           : inst === 'OH'
-            ? voiceOH(g, t)
-            : voiceCH(g, t, open);
+            ? voiceOH(g, t, dest)
+            : voiceCH(g, t, open, dest);
+  // Le gain part avec la voix (meme liste de noeuds a debrancher)
+  if (vg) v.nodes.push(vg);
   out?.push(v);
   triggers += 1;
   last = { inst, open: inst === 'CH' && open, when: t, at: performance.now(), state: g.ctx.state };

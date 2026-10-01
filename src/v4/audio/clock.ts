@@ -28,7 +28,7 @@
 import { voices } from '../state/voices';
 import { SWING } from '../theme';
 import { cancelVoice, context, trigger, type Voice } from './drums';
-import { INSTRUMENTS, STEP_COUNT, pattern } from './pattern';
+import { INSTRUMENTS, STEP_COUNT, VEL_GAIN, pattern, velocity } from './pattern';
 
 /** Reveil de l'ordonnanceur, en ms. */
 export const TICK_MS = 25;
@@ -151,11 +151,12 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
   let mask = 0;
   for (let k = 0; k < INSTRUMENTS.length; k += 1) {
     const inst = INSTRUMENTS[k];
-    // '1' = 49 ; les coups du sequenceur sont toujours des charleys fermes ;
-    // MUTE et SOLO (state/voices.ts) retirent la voix du sequenceur
-    if (steps[inst].charCodeAt(s) === 49 && voices.plays(inst)) {
+    // Velocite 1 a 3 (0 : rien) ; les coups du sequenceur sont toujours des
+    // charleys fermes ; MUTE et SOLO (state/voices.ts) retirent la voix
+    const vel = velocity(steps, inst, s);
+    if (vel > 0 && voices.plays(inst)) {
       mask |= 1 << k;
-      trigger(inst, when, false, pending);
+      trigger(inst, when, false, pending, VEL_GAIN[vel]);
     }
   }
   const e: StepEvent = { seq, step: s, when, expected, at: now, mask, off };
