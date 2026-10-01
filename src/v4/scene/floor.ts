@@ -10,10 +10,15 @@
  * Au-dela du halo le sol vaut exactement la couleur de fond : aucune ligne
  * d'horizon, meme a 18 deg d'elevation, et le bord du plan ne se voit pas.
  * Couleur lineaire, sans tone mapping, puis le chunk d'espace colorimetrique.
+ *
+ * Machine noire (2026-10-01, BACKDROP) : le canevas est transparent et la
+ * page porte le granite de sonaa.ca. Le sol n'ecrit que son ombre, noire,
+ * en alpha, sans halo (voir BACKDROP). La page compose en sRGB : l'alpha
+ * est ramene a l'assombrissement lineaire d'avant.
  */
 
 import { Color, Mesh, PlaneGeometry, ShadowMaterial } from 'three';
-import { COLOR, FLOOR } from '../theme';
+import { BACKDROP, COLOR, FLOOR } from '../theme';
 
 const glf = (v: number): string => v.toFixed(6);
 const vec3 = (c: Color): string => `vec3(${glf(c.r)}, ${glf(c.g)}, ${glf(c.b)})`;
@@ -39,6 +44,10 @@ float v4Contact(vec2 p) {
   float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - ${glf(c.radius)};
   return ${glf(c.opacity)} * (1.0 - smoothstep(0.0, ${glf(c.falloff)}, d));
 }`;
+  const out = BACKDROP.transparent
+    ? `gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0 - pow(1.0 - a, 0.4545));`
+    : `vec3 base = ${vec3(ink)} + ${vec3(halo)} * exp(-hr * hr);
+	gl_FragColor = vec4(base * (1.0 - a), 1.0);`;
   m.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec2 vFloor;')
@@ -49,11 +58,10 @@ float v4Contact(vec2 p) {
 	float fr = ${glf(FLOOR.fog)} * r;
 	float hr = r / ${glf(FLOOR.haloR)};
 	float a = max(opacity * (1.0 - getShadowMask()), v4Contact(vFloor)) * exp(-fr * fr);
-	vec3 base = ${vec3(ink)} + ${vec3(halo)} * exp(-hr * hr);
-	gl_FragColor = vec4(base * (1.0 - a), 1.0);`
+	${out}`
     );
   };
-  m.customProgramCacheKey = () => 'v4Floor';
+  m.customProgramCacheKey = () => (BACKDROP.transparent ? 'v4FloorClear' : 'v4Floor');
   return m;
 }
 

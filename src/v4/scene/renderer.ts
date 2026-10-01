@@ -59,6 +59,7 @@ import { lcd } from '../state/lcd';
 import { section } from '../state/section';
 import { voices } from '../state/voices';
 import {
+  BACKDROP,
   BODY,
   BTN_LED,
   CHIP,
@@ -385,7 +386,8 @@ export class Stage {
       renderer = new WebGLRenderer({
         canvas,
         antialias: !opts.mobile,
-        alpha: false,
+        // Machine noire : transparent, la page porte le granite (BACKDROP)
+        alpha: BACKDROP.transparent,
         powerPreference: 'high-performance',
       });
       return new Stage(opts, canvas, renderer);
@@ -418,7 +420,7 @@ export class Stage {
     this.layoutMobile = this.layoutMql.matches;
 
     renderer.setPixelRatio(this.dprCap());
-    renderer.setClearColor(COLOR.ink, 1);
+    renderer.setClearColor(COLOR.ink, BACKDROP.transparent ? 0 : 1);
     // Machine claire (2026-10-01) : la courbe Neutral garde ses blancs et l'orange ;
     // l'ACES de la machine noire les grisait
     renderer.toneMapping = APPEARANCE.current === 'light' ? NeutralToneMapping : ACESFilmicToneMapping;
@@ -1650,7 +1652,7 @@ export class Stage {
     // mais recree aussi son fond : la couleur de clear retomberait au noir ;
     // la carte d'ombre est a refaire (invalidate s'en charge)
     this.contextLost = false;
-    this.renderer.setClearColor(COLOR.ink, 1);
+    this.renderer.setClearColor(COLOR.ink, BACKDROP.transparent ? 0 : 1);
     this.opts.onContextRestored();
     this.invalidate();
   };

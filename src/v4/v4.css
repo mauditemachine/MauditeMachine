@@ -71,12 +71,12 @@
 body.v4-active {
   padding: 0 !important;
   margin: 0 !important;
-  background: #0a0a0b !important;
+  background: #0c0b09 !important;
   overflow: hidden;
 }
 
 html:has(body.v4-active) {
-  background: #0a0a0b !important;
+  background: #0c0b09 !important;
   overflow: hidden;
   scroll-behavior: auto;
 }
@@ -84,7 +84,7 @@ html:has(body.v4-active) {
 /* ---------- racine ---------- */
 
 .v4-root {
-  --ink: #0a0a0b;
+  --ink: #0c0b09;
   --graphite: #141417;
   --graphite-hi: #1c1d21;
   --line: #2e3036;
@@ -110,6 +110,22 @@ html:has(body.v4-active) {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Le granite de sonaa.ca (2026-10-01, machine noire) : la meme tuile SVG de
+   800 px, ecrite en ligne (aucune requete), a 12 %, sur le fond #0c0b09
+   (oklch 0.15 0.004 70). Fixe, sous tout le contenu ; le canevas est
+   transparent (theme BACKDROP), la machine se pose dessus. Il ne bouge
+   jamais, mouvement reduit compris. La page claire garde son papier creme. */
+.v4-root:not([data-v4-theme='light'])::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='800'><filter id='g' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='.004' numOctaves='3' seed='4' stitchTiles='stitch'/><feColorMatrix result='a' values='0 0 0 0 .93 0 0 0 0 .91 0 0 0 0 .88 .5 0 0 0 -.2'/><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' seed='9' stitchTiles='stitch'/><feColorMatrix result='b' values='0 0 0 0 .93 0 0 0 0 .91 0 0 0 0 .88 0 7 0 0 -4.4'/><feTurbulence type='fractalNoise' baseFrequency='.3' seed='21' stitchTiles='stitch'/><feColorMatrix result='d' values='0 0 0 0 .93 0 0 0 0 .91 0 0 0 0 .88 0 0 10 0 -7'/><feMerge><feMergeNode in='a'/><feMergeNode in='b'/><feMergeNode in='d'/></feMerge></filter><rect width='100%' height='100%' filter='url(%23g)'/></svg>");
+  background-size: 800px 800px;
+  opacity: 0.12;
 }
 
 .v4-root *,
@@ -309,7 +325,7 @@ html:has(body.v4-active) {
   justify-content: space-between;
   gap: 24px;
   padding: 0 24px 0 28px;
-  background: linear-gradient(to bottom, rgba(10, 10, 11, 0.85), rgba(10, 10, 11, 0));
+  background: linear-gradient(to bottom, rgba(12, 11, 9, 0.85), rgba(12, 11, 9, 0));
   /* le degrade ne bloque rien : seuls le logo et les liens repondent */
   pointer-events: none;
 }
@@ -2013,7 +2029,7 @@ html:has(body.v4-active) {
   max-width: calc(100% - 32px);
   padding: 8px 14px;
   border-radius: 999px;
-  background: rgba(10, 10, 11, 0.78);
+  background: rgba(12, 11, 9, 0.78);
   color: var(--bone-60);
   font-size: 12px;
   line-height: 1.3;

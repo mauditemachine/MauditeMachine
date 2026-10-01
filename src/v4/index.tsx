@@ -52,7 +52,7 @@ import { presskit } from './state/presskit';
 import { useReducedMotion } from './state/motion';
 import { section } from './state/section';
 import { view } from './state/view';
-import { COARSE_QUERY, COPY, HEX, MOBILE_QUERY, PRESSKIT_ROUTE, applyAppearance } from './theme';
+import { BACKDROP, COARSE_QUERY, COPY, MOBILE_QUERY, PRESSKIT_ROUTE, applyAppearance } from './theme';
 import { AppearanceToggle } from './ui/AppearanceToggle';
 import { Dock } from './ui/Dock';
 import { Header } from './ui/Header';
@@ -192,11 +192,11 @@ function usePageChrome(): void {
     const theme = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
     const prevTheme = theme?.getAttribute('content') ?? null;
     let madeTheme: HTMLMetaElement | null = null;
-    if (theme) theme.setAttribute('content', HEX.ink);
+    if (theme) theme.setAttribute('content', BACKDROP.page);
     else {
       madeTheme = document.createElement('meta');
       madeTheme.name = 'theme-color';
-      madeTheme.content = HEX.ink;
+      madeTheme.content = BACKDROP.page;
       document.head.appendChild(madeTheme);
     }
     return () => {
@@ -315,7 +315,7 @@ const V4Shell: React.FC = () => {
   /* Fond de la page et theme-color du navigateur selon l'apparence */
   useEffect(() => {
     document.body.classList.toggle('v4-light', look === 'light');
-    document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute('content', look === 'light' ? '#F1EDE5' : HEX.ink);
+    document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute('content', look === 'light' ? '#F1EDE5' : BACKDROP.page);
     return () => document.body.classList.remove('v4-light');
   }, [look]);
 

@@ -362,6 +362,18 @@ export const FLOOR = {
   contact: { halfW: BODY.w / 2, halfD: BODY.d / 2, radius: 0.1, falloff: 1.4, opacity: 0.6 },
 } as const;
 
+/**
+ * Fond granite de la machine noire (2026-10-01, demande de Mika : le fond
+ * de sonaa.ca). La page porte le granite (v4.css : page #0C0B09, soit
+ * oklch(0.15 0.004 70), et la tuile SVG de Sonaa a 12 %) ; le canevas
+ * devient transparent et le sol n'y ecrit plus que son ombre, en alpha.
+ * Pas de halo : un eclaircissement additif (couleur plus forte que l'alpha)
+ * n'est garde par Chrome que la ou l'alpha est non nul, il dessinait un
+ * rectangle clair autour de la machine. La machine claire garde son sol
+ * opaque creme. applyAppearance le pose.
+ */
+export const BACKDROP: { transparent: boolean; readonly page: string } = { transparent: true, page: '#0C0B09' };
+
 /* ---------- panneau : moitie gauche (spec 20.3.4) ---------- */
 
 /** Ecran OLED en haut a gauche : verre 3.6 x 1.35, cadre fusionne au panneau. */
@@ -1502,5 +1514,6 @@ export function applyAppearance(a: Appearance): void {
   EXPOSURE.value = L ? LIGHT.exposure : 1;
   OPEN_TINT.splice(0, 3, ...(L ? LIGHT.openTint : [1, 1, 1]));
   PRESS_TINT.rgb = L ? [1.0, 0.24, 0.035] : null;
+  BACKDROP.transparent = !L;
   APPEARANCE.current = a;
 }
