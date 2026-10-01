@@ -60,7 +60,7 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         if (ownsSpace(e.target)) return;
         // Pas de defilement : la page ne defile jamais
         e.preventDefault();
-        runToggle();
+        runToggle(getStage());
         return;
       }
       // Touche physique aussi : sur un clavier AZERTY les chiffres sont en Maj

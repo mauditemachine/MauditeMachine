@@ -23,3 +23,9 @@
 ## 4. Commandes utiles ajoutées
 
 - Aucune. Pour tester : `?debug=1`, puis le bouton Light (ou `localStorage.setItem('mm.v4.appearance', 'light')`).
+
+## Complément : appui des boutons et dates du Cirque du Boudoir
+
+- `scene/sequencer3d.ts`, `scene/renderer.ts` (pressButton), `actions.ts`, `ui/Hotspots.tsx`, `ui/Dock.tsx`, `hooks/useKeys.ts` : les cinq boutons du transport s'enfoncent et s'éclairent à chaque appui ; en mode clair, la touche enfoncée devient orange (`theme.ts` PRESS_TINT), l'éclat seul restait pêche.
+- Bug corrigé en route : CLEAR et RANDOM passaient au noir après l'appui (leur teinte n'était pas mémorisée).
+- `public/events.json` : 30 oct. 2026 Cirque du Boudoir au Théâtre du Lion d'Or ; 31 oct. 2026 Cirque du Boudoir au Théâtre Paradoxe, b2b avec Omni (ordre confirmé par Mika).

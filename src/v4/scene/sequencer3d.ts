@@ -35,7 +35,7 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { INSTRUMENTS, STEP_COUNT, VEL_BARS, velocity, type Steps } from '../audio/pattern';
-import { COLOR, KEYS, LIT, MATERIAL, MUTE_GLOW, RUN_GLOW, STEP_PRESS, TRANSPORT, keyX, type Inst } from '../theme';
+import { COLOR, KEYS, LIT, MATERIAL, MUTE_GLOW, PRESS_TINT, RUN_GLOW, STEP_PRESS, TRANSPORT, keyX, type Inst } from '../theme';
 import type { HotspotDef } from './hit';
 import { withInstanceEmissive } from './materials';
 
@@ -53,6 +53,10 @@ const MUTE = STEP_COUNT + 2;
 const SOLO = STEP_COUNT + 3;
 export const RANDOM = STEP_COUNT + 4;
 const BUTTON_COUNT = 5;
+
+/** Les boutons du transport par nom (appui anime, renderer.pressButton). */
+export type TransportButton = 'run' | 'clear' | 'mute' | 'solo' | 'random';
+export const BUTTON_INDEX: Readonly<Record<TransportButton, number>> = { run: RUN, clear: CLEAR, mute: MUTE, solo: SOLO, random: RANDOM };
 
 const BARS = KEYS.velBars;
 
@@ -113,6 +117,11 @@ export class Sequencer3D {
   private ledMat: MeshBasicMaterial;
   private emissive: InstancedBufferAttribute;
   private btnEmissive: InstancedBufferAttribute;
+  /** eclat propre de chaque bouton (RUN qui joue, MUTE, SOLO) et son appui en cours (0 a 1) */
+  private btnBase = new Float32Array(BUTTON_COUNT * 3);
+  private btnPress = new Float32Array(BUTTON_COUNT);
+  /** teinte propre de chaque bouton (l'appui la tire vers PRESS_TINT en mode clair) */
+  private btnColor = new Float32Array(BUTTON_COUNT * 3);
   /** teinte de chaque trait, index pas x BARS + trait */
   private ledTone: LedTone[] = [];
   private steps: Steps | null = null;
@@ -162,6 +171,9 @@ export class Sequencer3D {
       this.buttons.setMatrixAt(k - STEP_COUNT, m4.makeTranslation(x, 0, T.z));
       this.buttons.setColorAt(k - STEP_COUNT, col.setRGB(LIT.clear[0], LIT.clear[1], LIT.clear[2]));
     }
+    // Chaque bouton passe par paintButton : sa teinte est gardee pour l'appui
+    this.paintButton(CLEAR, LIT.clear, [0, 0, 0]);
+    this.paintButton(RANDOM, LIT.clear, [0, 0, 0]);
     this.paintVoiceKey(MUTE, false);
     this.paintVoiceKey(SOLO, false);
     this.paintRun();
@@ -194,16 +206,31 @@ export class Sequencer3D {
     this.paintButton(k, c, on ? (k === MUTE ? MUTE_GLOW : RUN_GLOW) : [0, 0, 0]);
   }
 
-  /** Teinte et eclat d'un bouton du transport. */
+  /** Teinte et eclat d'un bouton du transport (l'appui en cours s'y ajoute). */
   private paintButton(k: number, c: readonly number[], g: readonly number[]): void {
     const i = k - STEP_COUNT;
-    this.buttons.setColorAt(i, col.setRGB(c[0], c[1], c[2]));
-    const e = this.btnEmissive.array as Float32Array;
-    e[i * 3] = g[0];
-    e[i * 3 + 1] = g[1];
-    e[i * 3 + 2] = g[2];
-    this.btnEmissive.needsUpdate = true;
+    this.btnColor.set([c[0], c[1], c[2]], i * 3);
+    this.buttons.setColorAt(i, this.pressedColor(c, this.btnPress[i]));
+    this.btnBase[i * 3] = g[0];
+    this.btnBase[i * 3 + 1] = g[1];
+    this.btnBase[i * 3 + 2] = g[2];
+    this.writeButtonGlow(i);
     if (this.buttons.instanceColor) this.buttons.instanceColor.needsUpdate = true;
+  }
+
+  /** Teinte affichee : la sienne, tiree vers l'orange de l'appui en mode clair. */
+  private pressedColor(c: ArrayLike<number>, v: number): Color {
+    const t = PRESS_TINT.rgb;
+    if (!t || v <= 0) return col.setRGB(c[0], c[1], c[2]);
+    return col.setRGB(c[0] + (t[0] - c[0]) * v, c[1] + (t[1] - c[1]) * v, c[2] + (t[2] - c[2]) * v);
+  }
+
+  /** Eclat d'un bouton = le sien + celui de l'appui (2026-10-01 : l'appui ne l'efface plus). */
+  private writeButtonGlow(i: number): void {
+    const e = this.btnEmissive.array as Float32Array;
+    const v = this.btnPress[i];
+    for (let c = 0; c < 3; c += 1) e[i * 3 + c] = this.btnBase[i * 3 + c] + STEP_PRESS.glow[c] * v;
+    this.btnEmissive.needsUpdate = true;
   }
 
   /** Allume MUTE et SOLO ; true s'il faut une frame. */
@@ -240,19 +267,31 @@ export class Sequencer3D {
    * s'eclaire. Le Stage l'anime (pressStep).
    */
   setKeyPress(i: number, v: number, move: boolean): void {
-    // Les 16 pas et RANDOM
-    if (i < 0 || (i >= STEP_COUNT && i !== RANDOM)) return;
+    // Les 16 pas et les 5 boutons du transport (2026-10-01 : tous s'enfoncent)
+    if (i < 0 || i >= STEP_COUNT + BUTTON_COUNT) return;
     const btn = i >= STEP_COUNT;
     const mesh = btn ? this.buttons : this.keys;
-    const attr = btn ? this.btnEmissive : this.emissive;
     const j = btn ? i - STEP_COUNT : i;
     mesh.instanceMatrix.array[j * 16 + 13] = move ? -STEP_PRESS.depth * v : 0;
     mesh.instanceMatrix.needsUpdate = true;
-    const e = attr.array as Float32Array;
+    if (btn) {
+      this.btnPress[j] = v;
+      this.writeButtonGlow(j);
+      if (PRESS_TINT.rgb) {
+        this.buttons.setColorAt(j, this.pressedColor(this.btnColor.subarray(j * 3, j * 3 + 3), v));
+        if (this.buttons.instanceColor) this.buttons.instanceColor.needsUpdate = true;
+      }
+      return;
+    }
+    if (PRESS_TINT.rgb) {
+      this.keys.setColorAt(j, this.pressedColor(LIT.key, v));
+      if (this.keys.instanceColor) this.keys.instanceColor.needsUpdate = true;
+    }
+    const e = this.emissive.array as Float32Array;
     e[j * 3] = STEP_PRESS.glow[0] * v;
     e[j * 3 + 1] = STEP_PRESS.glow[1] * v;
     e[j * 3 + 2] = STEP_PRESS.glow[2] * v;
-    attr.needsUpdate = true;
+    this.emissive.needsUpdate = true;
   }
 
   /** Teinte du trait b du pas i (regle de l'en-tete). */

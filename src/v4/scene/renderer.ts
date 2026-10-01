@@ -110,7 +110,7 @@ import { Pads } from './pads';
 import { Pcb } from './pcb';
 import { Screen } from './screen';
 import { BackPlate } from './backplate';
-import { RANDOM, Sequencer3D } from './sequencer3d';
+import { BUTTON_INDEX, Sequencer3D, type TransportButton } from './sequencer3d';
 import { PanelSilk, fontsReady, makeBrushTexture, whenFonts, whenLogos } from './silk';
 import { Tweens, easeInOutCubic, easeOutCubic, linear } from './tween';
 
@@ -680,10 +680,13 @@ export class Stage {
     this.pressKey(i);
   }
 
-  /** RANDOM (2026-10-01) : le bouton s'enfonce et s'eclaire comme un pas. */
-  pressRandom(): void {
+  /**
+   * Un bouton du transport (2026-10-01 : RUN/STOP, CLEAR, RANDOM, MUTE et
+   * SOLO) s'enfonce et s'eclaire comme un pas, quel que soit son etat.
+   */
+  pressButton(b: TransportButton): void {
     if (this.disposed) return;
-    this.pressKey(RANDOM);
+    this.pressKey(BUTTON_INDEX[b]);
   }
 
   private pressKey(i: number): void {

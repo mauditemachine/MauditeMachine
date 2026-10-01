@@ -1433,12 +1433,19 @@ const LIGHT = {
   rim: 1.5,
   silk: [67, 67, 67],
   exposure: 1.3,
+  /** appui d'une touche ou d'un bouton : un eclat orange franc (le faible ne se voyait pas sur le clair) */
+  press: [0.55, 0.14, 0.012],
   /** OPEN, multiplicateur de sa couleur : l'orange plein sur le caoutchouc clair */
   openTint: [1.32, 0.19, 0.012],
 };
 
 /** Multiplicateur de couleur du pad OPEN (blanc : la teinte du caoutchouc). */
 export const OPEN_TINT: number[] = [1, 1, 1];
+/**
+ * Teinte d'une touche enfoncee (albedo lineaire), machine claire : l'orange
+ * plein, l'eclat seul palissait en peche. null : l'eclat seul (machine noire).
+ */
+export const PRESS_TINT: { rgb: number[] | null } = { rgb: null };
 
 /** L'etat sombre d'origine, copie au chargement pour pouvoir y revenir. */
 const DARK = {
@@ -1451,6 +1458,7 @@ const DARK = {
   hemi: { ground: LIGHT_HEMI.ground as number, intensity: LIGHT_HEMI.intensity as number, sky: LIGHT_HEMI.sky as number },
   key: LIGHT_KEY.color as number,
   rim: LIGHT_RIM.intensity as number,
+  press: [...STEP_PRESS.glow],
   silk: [...INK.silk],
 };
 
@@ -1475,6 +1483,7 @@ export function applyAppearance(a: Appearance): void {
     Object.assign(mat[k], DARK.material[k], L ? (LIGHT.material as Record<string, object>)[k] ?? {} : {});
   }
   for (const k of ['selected', 'active', 'flash', 'orange', 'orangeDim'] as const) Object.assign(PAD_GLOW[k] as unknown as number[], L ? LIGHT.glow[k] : DARK.glow[k]);
+  Object.assign(STEP_PRESS.glow as unknown as number[], L ? LIGHT.press : DARK.press);
   const floor = FLOOR as unknown as { haloHex: string; shadow: number; contact: { opacity: number } };
   floor.haloHex = L ? LIGHT.floor.haloHex : DARK.floor.haloHex;
   floor.shadow = L ? LIGHT.floor.shadow : DARK.floor.shadow;
@@ -1488,5 +1497,6 @@ export function applyAppearance(a: Appearance): void {
   INK.silk.splice(0, 3, ...(L ? LIGHT.silk : DARK.silk));
   EXPOSURE.value = L ? LIGHT.exposure : 1;
   OPEN_TINT.splice(0, 3, ...(L ? LIGHT.openTint : [1, 1, 1]));
+  PRESS_TINT.rgb = L ? [1.0, 0.24, 0.035] : null;
   APPEARANCE.current = a;
 }

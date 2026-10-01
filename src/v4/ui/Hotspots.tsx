@@ -245,10 +245,10 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         if (stage.orbit.lastTap.ms >= STEP_HOLD_MS) stepClear(d.index, stage);
         else stepToggle(d.index, stage);
       }
-      else if (d.kind === 'run') runToggle();
-      else if (d.kind === 'clear') clearPattern();
-      else if (d.kind === 'mute') muteToggle();
-      else if (d.kind === 'solo') soloToggle();
+      else if (d.kind === 'run') runToggle(stage);
+      else if (d.kind === 'clear') clearPattern(stage);
+      else if (d.kind === 'mute') muteToggle(stage);
+      else if (d.kind === 'solo') soloToggle(stage);
       else if (d.kind === 'random') randomPattern(stage);
       else if (d.kind === 'seek') stage.seekAt(d.x, d.y);
       else if (d.kind === 'chip' && d.chip && d.id) activateChip(d.id, d.chip);
@@ -808,7 +808,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
         aria-label={TWIN_ARIA.run}
         aria-pressed={running}
         onKeyDown={noRepeat}
-        onClick={() => runToggle()}
+        onClick={() => runToggle(stageRef.current)}
       />
       <button
         ref={refFor('clear')}
@@ -818,7 +818,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
         data-hotspot="clear"
         aria-label={TWIN_ARIA.clear}
         onKeyDown={noRepeat}
-        onClick={() => clearPattern()}
+        onClick={() => clearPattern(stageRef.current)}
       />
       <button
         ref={refFor('random')}
@@ -839,7 +839,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
         aria-label={TWIN_ARIA.mute}
         aria-pressed={muteOn}
         onKeyDown={noRepeat}
-        onClick={() => muteToggle()}
+        onClick={() => muteToggle(stageRef.current)}
       />
       <button
         ref={refFor('solo')}
@@ -850,7 +850,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
         aria-label={TWIN_ARIA.solo}
         aria-pressed={v.solo !== null}
         onKeyDown={noRepeat}
-        onClick={() => soloToggle()}
+        onClick={() => soloToggle(stageRef.current)}
       />
       {STEP_INDEXES.map((i) => {
         const on = inst ? isOn(p.steps, inst, i) : false;

@@ -133,8 +133,9 @@ export function stepClear(i: number, stage: Stage | null = null): boolean {
  * cours. Une piste SoundCloud qui joue passe d'abord en pause : une seule
  * source a la fois (spec decision 5).
  */
-export function runToggle(): boolean {
+export function runToggle(stage: Stage | null = null): boolean {
   gesture();
+  stage?.pressButton('run');
   if (!clock.running) sc.pauseForRun();
   return clock.toggle();
 }
@@ -143,8 +144,9 @@ export function runToggle(): boolean {
  * MUTE (2026-10-01) : coupe ou rend la voix selectionnee au sequenceur.
  * Sans selection : rend toutes les voix coupees, sinon TAP A PAD FIRST.
  */
-export function muteToggle(): boolean {
+export function muteToggle(stage: Stage | null = null): boolean {
   resume();
+  stage?.pressButton('mute');
   const inst = pattern.get().instrument;
   if (!inst) {
     if (voices.get().muted.length) {
@@ -165,8 +167,9 @@ export function muteToggle(): boolean {
  * toutes les voix. Sans selection : coupe un solo en cours, sinon TAP A
  * PAD FIRST.
  */
-export function soloToggle(): boolean {
+export function soloToggle(stage: Stage | null = null): boolean {
   resume();
+  stage?.pressButton('solo');
   const inst = pattern.get().instrument;
   if (!inst) {
     if (voices.get().solo) {
@@ -183,8 +186,9 @@ export function soloToggle(): boolean {
 }
 
 /** CLEAR : les quatre rangees a zero, la lecture continue. */
-export function clearPattern(): void {
+export function clearPattern(stage: Stage | null = null): void {
   resume();
+  stage?.pressButton('clear');
   clock.clear();
   lcdMessage.show('CLEARED');
 }
@@ -197,7 +201,7 @@ export function clearPattern(): void {
 export function randomPattern(stage: Stage | null = null): void {
   resume();
   pattern.replace(randomHouse(pattern.get().steps));
-  stage?.pressRandom();
+  stage?.pressButton('random');
   lcdMessage.show('RANDOM HOUSE');
 }
 

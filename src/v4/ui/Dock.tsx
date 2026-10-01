@@ -200,11 +200,11 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
       </div>
       {/* Transport : nom fixe, l'etat passe par aria-pressed (comme les jumeaux) */}
       <div className="v4-dock-transport" role="group" aria-label="Transport">
-        <button type="button" className="v4-dock-key" aria-pressed={running} aria-label="Run" onClick={() => runToggle()}>
+        <button type="button" className="v4-dock-key" aria-pressed={running} aria-label="Run" onClick={() => runToggle(getStage())}>
           <Icon name={running ? 'fa-solid fa-stop' : 'fa-solid fa-play'} />
           <span>{running ? 'STOP' : 'RUN'}</span>
         </button>
-        <button type="button" className="v4-dock-key" aria-label="Clear pattern" onClick={() => clearPattern()}>
+        <button type="button" className="v4-dock-key" aria-label="Clear pattern" onClick={() => clearPattern(getStage())}>
           <Icon name="fa-solid fa-eraser" />
           <span>CLEAR</span>
         </button>
@@ -213,12 +213,12 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
           className="v4-dock-key v4-dock-mute"
           aria-pressed={inst ? v.muted.includes(inst) : v.muted.length > 0}
           aria-label="Mute the selected voice"
-          onClick={() => muteToggle()}
+          onClick={() => muteToggle(getStage())}
         >
           <Icon name="fa-solid fa-volume-xmark" />
           <span>MUTE</span>
         </button>
-        <button type="button" className="v4-dock-key" aria-pressed={v.solo !== null} aria-label="Solo the selected voice" onClick={() => soloToggle()}>
+        <button type="button" className="v4-dock-key" aria-pressed={v.solo !== null} aria-label="Solo the selected voice" onClick={() => soloToggle(getStage())}>
           <Icon name="fa-solid fa-headphones" />
           <span>SOLO</span>
         </button>
