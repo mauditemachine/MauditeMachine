@@ -98,14 +98,34 @@ export const CONTACT_LINKS: readonly { label: string; href: string }[] = [
 ];
 
 /**
- * Documents de PRESS : les deux PDF en telechargement, leur taille mesuree
- * (878 617 et 2 782 024 octets). Press kit 2027 en version neutre (sans le
- * bandeau Boom Festival) ; l'ancien 2026-27 reste en ligne pour les liens deja envoyes.
+ * Documents de PRESS : la fiche technique en telechargement (878 617
+ * octets) et le press kit 2027, qui s'ouvre en popup (ui/PresskitViewer.tsx)
+ * ; son lien reste un vrai lien vers le PDF anglais (clic du milieu,
+ * sans JavaScript).
  */
-export const LIVE_DOCS: readonly { label: string; href: string; size: string }[] = [
+export const LIVE_DOCS: readonly { label: string; href: string; size: string; viewer?: boolean }[] = [
+  { label: 'Press kit 2027', href: '/Presskit_Maudite_Machine_2027_EN.pdf', size: 'EN FR ES', viewer: true },
   { label: 'Tech rider (PDF)', href: '/Tech_Rider_Maudite_Machine_2026-27.pdf', size: '0.9 MB' },
-  { label: 'Press kit 2027 (PDF)', href: '/Presskit_Maudite_Machine_2027_generic.pdf', size: '2.8 MB' },
 ];
+
+/**
+ * Le press kit 2027 (docs/presskit-2027/build.mjs) : 10 pages A4, un PDF
+ * par langue (2.0 MB chacun, 1 995 057 a 2 002 707 octets) et les pages
+ * en WebP de 1240 x 1754 (150 ppp) pour le popup.
+ */
+export const PRESSKIT = {
+  pages: 10,
+  w: 1240,
+  h: 1754,
+  pdf: {
+    en: '/Presskit_Maudite_Machine_2027_EN.pdf',
+    fr: '/Presskit_Maudite_Machine_2027_FR.pdf',
+    es: '/Presskit_Maudite_Machine_2027_ES.pdf',
+  },
+  size: '2.0 MB',
+  page: (lang: string, n: number): string => `/press/kit-2027/${lang}/${String(n).padStart(2, '0')}.webp`,
+} as const;
+
 /** Les deux pages du site ouvertes par PRESS, en nouvel onglet. */
 export const LIVE_PAGES = { press: '/press/', techrider: '/techrider' } as const;
 

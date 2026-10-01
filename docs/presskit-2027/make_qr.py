@@ -22,6 +22,8 @@ CODES = {
     "coagule": "https://soundcloud.com/mauditemachine/coagule",
     "zenith": "https://soundcloud.com/mauditemachine/zenith-original-mix",
     "limbos": "https://soundcloud.com/mauditemachine/limbos-original-mix",
+    "tati-cardi": "https://soundcloud.com/mauditemachine/tati-cardi-1",
+    "montreal-calling": "https://soundcloud.com/8day-montreal/mauditemachine-montrealcalling",
     "spotify": "https://open.spotify.com/artist/2FHPGWPEBQbCsgkLP9uuI4",
     "bandcamp": "https://mauditemachine.bandcamp.com",
     "beatport": "https://www.beatport.com/artist/maudite-machine/500537",
@@ -41,5 +43,5 @@ for name, url in CODES.items():
     text = found[0].text if found else None
     good = text == url
     ok = ok and good
-    print(f"{'OK ' if good else 'BAD'} {name:11s} v{qr.version} -> {text}")
+    print(f"{'OK ' if good else 'BAD'} {name:16s} v{qr.version} -> {text}")
 sys.exit(0 if ok else 1)

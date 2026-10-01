@@ -19,7 +19,7 @@ const TopBarInner = forwardRef<HTMLElement, TopBarProps>(({ drawer, onTracklist,
       <Link to="/" className="v3-wordmark" aria-label="Maudite Machine, main site">
         MAUDITE MACHINE
       </Link>
-      <span className="v3-tagline">raw machine grooves with a human pulse</span>
+      <span className="v3-tagline">deep machine grooves with a human pulse</span>
     </div>
     <nav className="v3-top-nav" aria-label="Menu">
       <button

@@ -68,7 +68,7 @@ const Presskit: React.FC<PresskitProps> = ({ onNavigateToMessage }) => {
     <div className="pk-page">
       {/* SectionHeader retire : plus de gros titre "About" en tete */}
 
-      {/* Catchphrase RAW. HYPNOTIC. UNDERGROUND. retiree d'ici - deplacee dans le Hero */}
+      {/* Catchphrase DEEP. HYPNOTIC. UNDERGROUND. retiree d'ici - deplacee dans le Hero */}
 
       {/* === HERO MAGAZINE : 2-col image / bio (titre MAUDITE MACHINE + tags genres supprimes, redondants) === */}
       <section className="py-8 md:py-16 mb-12 md:mb-20">

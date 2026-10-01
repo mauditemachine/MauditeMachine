@@ -54,6 +54,7 @@ import { Header } from './ui/Header';
 import { HitLayer, Twins } from './ui/Hotspots';
 import { Lcd } from './ui/Lcd';
 import { Panel } from './ui/Panel';
+import { PresskitViewer } from './ui/PresskitViewer';
 import { ResetView } from './ui/ResetView';
 import { Trace } from './ui/Trace';
 
@@ -319,6 +320,7 @@ const V4Shell: React.FC = () => {
           {!mobile && <Header getStage={getStage} />}
           <Trace stage={stage} panelRef={panelRef} mobile={mobile} />
           <Panel mobile={mobile} panelRef={panelRef} />
+          <PresskitViewer />
         </StageBoundary>
       )}
       {gl === 'fallback' && <NoWebGL />}

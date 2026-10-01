@@ -396,7 +396,7 @@ export default function MainApp() {
               {t.signature.musicMakers}
             </motion.h2>
 
-            {/* 3. Slogan RAW. HYPNOTIC. UNDERGROUND. - blanc, font-weight 600 */}
+            {/* 3. Slogan DEEP. HYPNOTIC. UNDERGROUND. - blanc, font-weight 600 */}
             <motion.div
               className={cn(
                 'text-white font-semibold uppercase',

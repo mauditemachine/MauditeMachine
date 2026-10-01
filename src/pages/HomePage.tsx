@@ -65,7 +65,7 @@ const HomePage: React.FC = () => {
         {t.signature.musicMakers}
       </h2>
 
-      {/* 3. RAW. HYPNOTIC. UNDERGROUND. - la string est en caps (signature
+      {/* 3. DEEP. HYPNOTIC. UNDERGROUND. - la string est en caps (signature
           brand), pas de classe uppercase ni de tracking geant */}
       <div
         className={cn(

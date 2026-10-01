@@ -1,15 +1,11 @@
 /*
- * Press kit 2027 : six pages A4, rendu en PDF par Chrome sans tete
- * (build.mjs). La grammaire du site : fond #0A0A0B, papier #F6F1E7,
- * orange #FF6A13 a petite dose (chiffres, filets) ; titres en Robot
- * Radicals, texte en SF Pro Display ; marges de 15 mm.
+ * Press kit 2027 : dix pages A4, rendu en PDF par Chrome sans tete
+ * (build.mjs). Une seule famille, SF Pro Display (Light a Black). Fond
+ * #0A0A0B (couverture, le set, contact), papier #F6F1E7 ailleurs, orange
+ * #FF6A13 pour les chiffres, les libelles et les filets. Photos encadrees
+ * dans les marges de 15 mm : aucune photo pleine page.
  */
 
-@font-face {
-  font-family: 'Robot Radicals';
-  src: url('../../public/fonts/RobotRadicals.otf') format('opentype');
-  font-weight: 400;
-}
 @font-face {
   font-family: 'SF Pro Display';
   src: url('../../public/fonts/SF-Pro-Display-Light.woff2') format('woff2');
@@ -29,6 +25,16 @@
   font-family: 'SF Pro Display';
   src: url('../../public/fonts/SF-Pro-Display-Semibold.woff2') format('woff2');
   font-weight: 600;
+}
+@font-face {
+  font-family: 'SF Pro Display';
+  src: url('../../public/fonts/SF-Pro-Display-Bold.woff2') format('woff2');
+  font-weight: 700;
+}
+@font-face {
+  font-family: 'SF Pro Display';
+  src: url('../../public/fonts/SF-Pro-Display-Black.woff2') format('woff2');
+  font-weight: 900;
 }
 
 @page {
@@ -60,7 +66,25 @@ body {
   font-family: 'SF Pro Display', sans-serif;
   font-weight: 400;
   font-size: 9.5pt;
-  line-height: 1.45;
+  line-height: 1.5;
+  font-kerning: normal;
+}
+
+p,
+ul,
+ol,
+dl,
+dd,
+figure,
+h1,
+h2 {
+  margin: 0;
+  padding: 0;
+}
+
+ul,
+ol {
+  list-style: none;
 }
 
 .page {
@@ -68,6 +92,7 @@ body {
   width: 210mm;
   height: 297mm;
   overflow: hidden;
+  padding: var(--m) var(--m) 22mm;
   break-after: page;
 }
 
@@ -85,293 +110,20 @@ body {
   color: var(--ink);
 }
 
-p {
-  margin: 0;
-}
-
-h1,
-h2,
-h3 {
-  margin: 0;
-  font-weight: 400;
-}
-
-/* Titre de page : Robot Radicals, filet fin dessous, un trait orange */
-.head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  padding-bottom: 3mm;
-  border-bottom: 0.25mm solid currentColor;
-  position: relative;
-}
-
-.head::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  bottom: -0.25mm;
-  width: 18mm;
-  height: 0.6mm;
-  background: var(--orange);
-}
-
-.head h2 {
-  font-family: 'Robot Radicals', sans-serif;
-  font-size: 24pt;
-  line-height: 1;
-  letter-spacing: 0.02em;
-}
-
-.head .kicker {
-  font-size: 7pt;
-  font-weight: 500;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  opacity: 0.6;
-}
-
-h3 {
-  font-size: 7pt;
+.lbl {
+  display: block;
+  font-size: 6.8pt;
   font-weight: 600;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-}
-
-.dark h3 {
-  color: var(--orange);
-}
-
-/* Numerotation discrete */
-.folio {
-  position: absolute;
-  left: var(--m);
-  right: var(--m);
-  bottom: 8mm;
-  display: flex;
-  justify-content: space-between;
-  font-size: 6.5pt;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  opacity: 0.5;
-}
-
-/* ---------- 1. couverture ---------- */
-
-.cover .bg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.cover .veil {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to bottom, rgba(10, 10, 11, 0) 48%, rgba(10, 10, 11, 0.55) 70%, rgba(10, 10, 11, 0.94) 100%);
-}
-
-.cover .banner {
-  position: absolute;
-  top: var(--m);
-  right: var(--m);
-  font-size: 7pt;
-  font-weight: 500;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--paper);
-  padding: 1.6mm 3mm 1.5mm;
-  background: rgba(10, 10, 11, 0.62);
-}
-
-.cover .banner:empty {
-  display: none;
-}
-
-.cover .title {
-  position: absolute;
-  left: var(--m);
-  right: var(--m);
-  bottom: 18mm;
-}
-
-.cover h1 {
-  font-family: 'Robot Radicals', sans-serif;
-  font-size: 44pt;
-  line-height: 1;
-  letter-spacing: 0.02em;
-}
-
-.cover .pos {
-  margin-top: 5mm;
-  font-size: 13pt;
-  font-weight: 500;
-}
-
-.cover .place {
-  margin-top: 1.5mm;
-  font-size: 10pt;
-  font-weight: 300;
-  opacity: 0.85;
-}
-
-.cover .kit {
-  margin-top: 6mm;
-  display: inline-block;
-  padding-top: 2.2mm;
-  border-top: 0.6mm solid var(--orange);
-  font-size: 7.5pt;
-  font-weight: 600;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-}
-
-/* ---------- 2. qui ---------- */
-
-.who .inner {
-  position: absolute;
-  inset: var(--m);
-  bottom: 20mm;
-}
-
-.who .grid {
-  display: grid;
-  grid-template-columns: 1fr 90mm;
-  gap: 9mm;
-  margin-top: 9mm;
-}
-
-.who .bio {
-  font-size: 12pt;
-  line-height: 1.58;
-}
-
-.stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6mm;
-  margin-top: 13mm;
-  padding-top: 7mm;
-  border-top: 0.25mm solid rgba(10, 10, 11, 0.2);
-}
-
-.stats b {
-  display: block;
-  font-family: 'Robot Radicals', sans-serif;
-  font-weight: 400;
-  font-size: 44pt;
-  line-height: 1;
   color: var(--orange);
-  white-space: nowrap;
 }
 
-.stats span {
+.photo {
   display: block;
-  margin-top: 3mm;
-  font-size: 7.5pt;
-  font-weight: 500;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  opacity: 0.7;
-}
-
-.who .shared {
-  margin-top: 13mm;
-}
-
-.who .shared p {
-  margin-top: 4mm;
-  font-size: 15pt;
-  font-weight: 300;
-  line-height: 1.5;
-}
-
-.who .portrait {
-  width: 90mm;
-  height: 126mm;
+  width: 100%;
   object-fit: cover;
-  display: block;
-}
-
-.who .side p {
-  margin-top: 3mm;
-  font-size: 7.5pt;
-  opacity: 0.7;
-}
-
-/* ---------- 3. le set ---------- */
-
-.set .photo {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 210mm;
-  height: 148.5mm;
-  object-fit: cover;
-}
-
-.set .fade {
-  position: absolute;
-  left: 0;
-  top: 100mm;
-  width: 210mm;
-  height: 48.5mm;
-  background: linear-gradient(to bottom, rgba(10, 10, 11, 0), var(--ink));
-}
-
-.set .inner {
-  position: absolute;
-  left: var(--m);
-  right: var(--m);
-  top: 154mm;
-}
-
-.set .blocks {
-  margin-top: 4mm;
-}
-
-.set .blocks > div {
-  display: grid;
-  grid-template-columns: 48mm 1fr;
-  gap: 8mm;
-  padding: 7mm 0;
-  border-bottom: 0.25mm solid rgba(246, 241, 231, 0.18);
-}
-
-.set .blocks > div:last-child {
-  border-bottom: 0;
-}
-
-.set .blocks h3 {
-  padding-top: 1.6mm;
-}
-
-.set .blocks p {
-  font-size: 12pt;
-  line-height: 1.55;
-}
-
-.set .blocks p + p {
-  margin-top: 2mm;
-}
-
-/* ---------- 4. ecouter ---------- */
-
-.listen .inner {
-  position: absolute;
-  inset: var(--m);
-  bottom: 20mm;
-}
-
-.mix {
-  display: grid;
-  grid-template-columns: 30mm 1fr;
-  gap: 8mm;
-  align-items: center;
-  margin-top: 10mm;
-  padding: 8mm;
-  background: #ece5d6;
+  border-radius: 1.2mm;
 }
 
 .qr {
@@ -379,90 +131,546 @@ h3 {
   image-rendering: pixelated;
 }
 
-.mix .qr {
+.url {
+  margin-top: 1mm;
+  font-size: 6.6pt;
+  opacity: 0.55;
+  word-break: break-all;
+}
+
+/* En-tete : numero orange, titre gras, filet fin, mention a droite */
+.head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding-bottom: 3.5mm;
+  margin-bottom: 7mm;
+  border-bottom: 0.25mm solid currentColor;
+}
+
+.head .num {
+  display: block;
+  margin-bottom: 1.5mm;
+  font-size: 7.5pt;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  color: var(--orange);
+}
+
+.head h2 {
+  font-size: 27pt;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.head .kicker {
+  font-size: 6.8pt;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.folio {
+  position: absolute;
+  left: var(--m);
+  right: var(--m);
+  bottom: 9mm;
+  display: flex;
+  justify-content: space-between;
+  font-size: 6.3pt;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.45;
+}
+
+/* ---------- 1. couverture ---------- */
+
+.cover .top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 7mm;
+}
+
+.cover .banner {
+  font-size: 6.8pt;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 1.6mm 3mm 1.5mm;
+  border: 0.25mm solid rgba(246, 241, 231, 0.4);
+  border-radius: 10mm;
+}
+
+.cover h1 {
+  margin-top: 9mm;
+  font-size: 66pt;
+  font-weight: 900;
+  line-height: 0.88;
+  letter-spacing: -0.035em;
+}
+
+.cover .tag {
+  display: flex;
+  gap: 7mm;
+  margin-top: 6mm;
+  padding-top: 4mm;
+  border-top: 0.25mm solid rgba(246, 241, 231, 0.25);
+  font-size: 10.5pt;
+}
+
+.cover .genre {
+  font-weight: 600;
+  color: var(--orange);
+}
+
+.cover .roles {
+  font-weight: 500;
+}
+
+.cover .base {
+  font-weight: 300;
+  opacity: 0.8;
+  margin-left: auto;
+}
+
+.cover .cover-photo {
+  position: absolute;
+  left: var(--m);
+  right: var(--m);
+  bottom: 26mm;
+  width: 180mm;
+  height: 165mm;
+}
+
+.cover .foot {
+  position: absolute;
+  left: var(--m);
+  right: var(--m);
+  bottom: 13mm;
+  display: flex;
+  justify-content: space-between;
+  font-size: 7pt;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+/* ---------- 2. en bref ---------- */
+
+.glance .g-top {
+  display: grid;
+  grid-template-columns: 1fr 62mm;
+  gap: 9mm;
+}
+
+.glance .lead {
+  font-size: 12pt;
+  font-weight: 300;
+  line-height: 1.55;
+}
+
+.glance .portrait {
+  width: 62mm;
+  height: 80mm;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4mm;
+  margin-top: 9mm;
+  padding: 6mm 0;
+  border-top: 0.25mm solid rgba(10, 10, 11, 0.18);
+  border-bottom: 0.25mm solid rgba(10, 10, 11, 0.18);
+}
+
+.stats b {
+  display: block;
+  font-size: 30pt;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--orange);
+  white-space: nowrap;
+}
+
+.stats span {
+  display: block;
+  margin-top: 2.5mm;
+  font-size: 6.6pt;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.65;
+}
+
+.facts-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10mm;
+  margin-top: 7mm;
+}
+
+.facts > div {
+  display: grid;
+  grid-template-columns: 27mm 1fr;
+  gap: 3mm;
+  padding: 2.4mm 0;
+  border-bottom: 0.25mm solid rgba(10, 10, 11, 0.1);
+}
+
+.facts dt {
+  font-size: 6.6pt;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  padding-top: 0.6mm;
+}
+
+.facts dd {
+  font-size: 9pt;
+}
+
+/* ---------- 3. biographie ---------- */
+
+.bio .bio-lead {
+  font-size: 24pt;
+  font-weight: 300;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  max-width: 150mm;
+}
+
+.bio .bio-text {
+  column-count: 2;
+  column-gap: 9mm;
+  margin-top: 9mm;
+  font-size: 11pt;
+  line-height: 1.62;
+}
+
+.bio .bio-text p + p {
+  margin-top: 3.5mm;
+}
+
+.bio .shared {
+  position: absolute;
+  left: var(--m);
+  right: var(--m);
+  bottom: 24mm;
+  padding-top: 5mm;
+  border-top: 0.25mm solid rgba(10, 10, 11, 0.18);
+}
+
+.bio .shared p {
+  margin-top: 3mm;
+  font-size: 14pt;
+  font-weight: 300;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+}
+
+.bio .shared i,
+.contact .roster i {
+  font-style: normal;
+  color: var(--orange);
+}
+
+/* ---------- 4. le set ---------- */
+
+.set .set-photo {
+  height: 110mm;
+}
+
+.set .rows {
+  margin-top: 4mm;
+}
+
+.set .row {
+  display: grid;
+  grid-template-columns: 50mm 1fr;
+  gap: 8mm;
+  padding: 6mm 0;
+  border-bottom: 0.25mm solid rgba(246, 241, 231, 0.16);
+}
+
+.set .row:last-child {
+  border-bottom: 0;
+}
+
+.set .row .lbl {
+  padding-top: 1.4mm;
+}
+
+.set .row p {
+  font-size: 12pt;
+  font-weight: 300;
+  line-height: 1.5;
+}
+
+.set .row p + p {
+  margin-top: 2.5mm;
+}
+
+/* ---------- 5. performances ---------- */
+
+.perfp .crowd-photo {
+  height: 72mm;
+}
+
+.cols2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9mm;
+  margin-top: 7mm;
+}
+
+.perf {
+  margin-top: 2.5mm;
+}
+
+.perf li {
+  display: flex;
+  justify-content: space-between;
+  gap: 4mm;
+  padding: 1.9mm 0;
+  border-bottom: 0.25mm solid rgba(10, 10, 11, 0.1);
+  font-size: 8.6pt;
+  line-height: 1.35;
+}
+
+.perf li span:last-child {
+  flex: 0 0 auto;
+  opacity: 0.55;
+  font-variant-numeric: tabular-nums;
+}
+
+.perfp .rooms {
+  margin-top: 6mm;
+  font-size: 12pt;
+  font-weight: 300;
+}
+
+/* ---------- 6. discographie ---------- */
+
+.disco .feature {
+  display: grid;
+  grid-template-columns: 50mm 1fr;
+  gap: 8mm;
+  margin-bottom: 7mm;
+}
+
+.disco .cover-big {
+  width: 50mm;
+  height: 50mm;
+  border-radius: 1mm;
+}
+
+.disco .f-title {
+  margin-top: 1.5mm;
+  font-size: 22pt;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.disco .f-meta {
+  margin-top: 1.5mm;
+  font-size: 8.5pt;
+  opacity: 0.65;
+}
+
+.disco .f-text {
+  margin-top: 2.5mm;
+  font-size: 9pt;
+  line-height: 1.5;
+}
+
+.disco .tracklist {
+  columns: 3;
+  column-gap: 5mm;
+  margin-top: 3mm;
+  font-size: 8pt;
+  counter-reset: t;
+}
+
+.disco .tracklist li {
+  counter-increment: t;
+  padding: 0.4mm 0;
+  break-inside: avoid;
+}
+
+.disco .tracklist li::before {
+  content: counter(t, decimal-leading-zero) '  ';
+  color: var(--orange);
+  font-weight: 600;
+  font-size: 7pt;
+}
+
+.disco .catalogue {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5mm 3.2mm;
+  margin-top: 3mm;
+}
+
+.disco figure img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 0.8mm;
+}
+
+.disco figcaption {
+  margin-top: 1.6mm;
+  font-size: 7pt;
+  line-height: 1.3;
+}
+
+.disco figcaption b {
+  display: block;
+  font-weight: 600;
+}
+
+.disco figcaption span {
+  opacity: 0.6;
+  font-size: 6.4pt;
+}
+
+.disco .also {
+  margin-top: 5mm;
+  font-size: 8.3pt;
+  opacity: 0.75;
+}
+
+.disco .edits {
+  margin-top: 6mm;
+  padding-top: 4mm;
+  border-top: 0.25mm solid rgba(10, 10, 11, 0.18);
+}
+
+.disco .edits ul {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1mm 8mm;
+  margin-top: 2.5mm;
+  font-size: 9pt;
+}
+
+.disco .edits small {
+  display: block;
+  margin-top: 2mm;
+  font-size: 7pt;
+  opacity: 0.6;
+}
+
+/* ---------- 7. ecouter ---------- */
+
+.listen .intro,
+.tech .intro {
+  font-size: 10.5pt;
+  font-weight: 300;
+}
+
+.listen .mix {
+  display: grid;
+  grid-template-columns: 30mm 1fr;
+  gap: 8mm;
+  align-items: center;
+  margin-top: 5mm;
+  padding: 6mm;
+  background: #ebe3d3;
+  border-radius: 1.5mm;
+}
+
+.listen .mix .qr {
   width: 30mm;
   height: 30mm;
 }
 
-.mix .what {
-  font-size: 7pt;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--orange);
+.listen .m-name {
+  margin-top: 1.5mm;
+  font-size: 22pt;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
 }
 
-.mix .name {
-  margin-top: 2mm;
-  font-family: 'Robot Radicals', sans-serif;
-  font-size: 24pt;
-  line-height: 1.1;
+.listen .m-meta {
+  margin-top: 1.5mm;
+  font-size: 10pt;
 }
 
-.mix .meta {
-  margin-top: 2mm;
-  font-size: 12pt;
+.listen .tracks {
+  margin-top: 4mm;
 }
 
-.url {
-  margin-top: 2mm;
-  font-size: 7pt;
-  opacity: 0.6;
-  word-break: break-all;
-}
-
-.tracks {
-  margin-top: 10mm;
-}
-
-.track {
+.listen .track {
   display: grid;
-  grid-template-columns: 28mm 1fr 18mm;
-  gap: 7mm;
+  grid-template-columns: 20mm 1fr 18mm;
+  gap: 6mm;
   align-items: center;
-  padding: 7mm 0;
-  border-bottom: 0.25mm solid rgba(10, 10, 11, 0.15);
+  padding: 3.4mm 0;
+  border-bottom: 0.25mm solid rgba(10, 10, 11, 0.12);
 }
 
-.track img.cover {
-  width: 28mm;
-  height: 28mm;
+.listen .t-cover {
+  width: 20mm;
+  height: 20mm;
   object-fit: cover;
-  display: block;
+  border-radius: 0.8mm;
 }
 
-.track .qr {
+.listen .mono {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 9pt;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.listen .track .qr {
   width: 18mm;
   height: 18mm;
 }
 
-.track .name {
-  font-family: 'Robot Radicals', sans-serif;
-  font-size: 18pt;
+.listen .t-name {
+  font-size: 13pt;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   line-height: 1.1;
 }
 
-.track .meta {
-  margin-top: 1.5mm;
-  font-size: 10.5pt;
-  opacity: 0.75;
+.listen .t-meta {
+  margin-top: 1mm;
+  font-size: 8.5pt;
+  opacity: 0.7;
 }
 
-.everywhere {
+.listen .platforms {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: var(--m);
+  right: var(--m);
+  bottom: 22mm;
 }
 
-.everywhere .row {
+.listen .platforms .row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6mm;
-  margin-top: 3mm;
+  margin-top: 2.5mm;
 }
 
-.everywhere .cell {
+.listen .platforms .cell {
   display: flex;
   align-items: center;
   gap: 3mm;
@@ -470,209 +678,323 @@ h3 {
   font-weight: 500;
 }
 
-.everywhere .qr {
+.listen .platforms .qr {
   width: 14mm;
   height: 14mm;
-  flex: 0 0 auto;
 }
 
-/* ---------- 5. les preuves ---------- */
+/* ---------- 8. fiche technique ---------- */
 
-.proof .band {
+.items li {
+  position: relative;
+  padding-left: 3.4mm;
+  margin-top: 1.8mm;
+  font-size: 8.7pt;
+  line-height: 1.45;
+}
+
+.items li::before {
+  content: '';
   position: absolute;
   left: 0;
-  top: 0;
-  width: 210mm;
-  height: 45mm;
-  object-fit: cover;
+  top: 1.9mm;
+  width: 1.2mm;
+  height: 0.25mm;
+  background: var(--orange);
 }
 
-.proof .inner {
+.rider strong {
+  font-weight: 600;
+}
+
+.tech .rider-cols {
+  margin-top: 5mm;
+}
+
+.tech .length {
+  margin-top: 5mm;
+}
+
+.tech .length .items {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 9mm;
+}
+
+.tech .plot {
   position: absolute;
   left: var(--m);
   right: var(--m);
-  top: 53mm;
-  bottom: 30mm;
+  bottom: 22mm;
 }
 
-.proof .cols {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10mm;
-  margin-top: 7mm;
+.stage {
+  position: relative;
+  height: 60mm;
+  margin-top: 2.5mm;
+  border: 0.25mm solid rgba(10, 10, 11, 0.25);
+  border-radius: 1.2mm;
+  font-size: 6.6pt;
+  line-height: 1.25;
 }
 
-.perf {
-  list-style: none;
-  margin: 3mm 0 0;
-  padding: 0;
-}
-
-.perf li {
-  display: flex;
-  justify-content: space-between;
-  gap: 4mm;
-  padding: 3.1mm 0;
-  border-bottom: 0.25mm solid rgba(10, 10, 11, 0.12);
-  font-size: 10.5pt;
-}
-
-.perf li span:last-child {
-  opacity: 0.6;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-.release {
-  display: grid;
-  grid-template-columns: 30mm 1fr;
-  gap: 5mm;
-  align-items: center;
-  margin-top: 3mm;
-}
-
-.release + .release {
-  margin-top: 4mm;
-}
-
-.release img {
-  width: 30mm;
-  height: 30mm;
-  object-fit: cover;
-  display: block;
-}
-
-.release .name {
-  font-family: 'Robot Radicals', sans-serif;
-  font-size: 16pt;
-  line-height: 1.1;
-}
-
-.release .meta {
-  margin-top: 1.5mm;
-  font-size: 10pt;
-  line-height: 1.45;
-  opacity: 0.75;
-}
-
-.proof .count {
-  margin-top: 7mm;
-  font-size: 10.5pt;
-}
-
-.proof .count b {
-  color: var(--orange);
-  font-weight: 600;
-}
-
-.proof .edits {
-  margin-top: 8mm;
-}
-
-.proof .edits p {
-  margin-top: 3mm;
-  font-size: 10.5pt;
-}
-
-.proof .edits small {
-  display: block;
-  margin-top: 1.5mm;
-  font-size: 7pt;
-  opacity: 0.6;
-}
-
-.roster {
+.stage > div {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 14mm;
-  padding: 3.2mm var(--m);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-radius: 0.8mm;
+}
+
+.stage .mon {
+  top: 16mm;
+  width: 22mm;
+  height: 16mm;
   background: var(--ink);
   color: var(--paper);
-  font-size: 7.5pt;
-  letter-spacing: 0.04em;
 }
 
-.roster b {
+.stage .mon.l {
+  left: 4mm;
+}
+
+.stage .mon.r {
+  right: 4mm;
+}
+
+.stage .mon b {
   font-weight: 600;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--orange);
-  margin-right: 3mm;
 }
 
-/* ---------- 6. technique et contact ---------- */
-
-.tech .inner {
-  position: absolute;
-  inset: var(--m);
-  bottom: 20mm;
-}
-
-.tech .blocks {
-  margin-top: 3mm;
-}
-
-.tech .blocks > div {
-  display: grid;
-  grid-template-columns: 40mm 1fr;
-  gap: 8mm;
-  padding: 6mm 0;
-  border-bottom: 0.25mm solid rgba(10, 10, 11, 0.12);
-}
-
-.tech .blocks > div:last-child {
-  border-bottom: 0;
-}
-
-.tech .blocks h3 {
-  padding-top: 1.4mm;
-}
-
-.tech .blocks p:first-child {
-  margin-top: 0;
-}
-
-.tech .blocks p {
-  margin-top: 3mm;
-  font-size: 11pt;
-  line-height: 1.55;
-}
-
-.tech .blocks p + p {
-  margin-top: 1.5mm;
-}
-
-.tech .contact {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding-top: 7mm;
-  border-top: 0.25mm solid rgba(10, 10, 11, 0.2);
-  display: grid;
-  grid-template-columns: 1fr 34mm;
-  gap: 10mm;
-  align-items: end;
-}
-
-.tech .contact p {
-  margin-top: 3mm;
-  font-size: 11pt;
-  line-height: 1.6;
-}
-
-.tech .contact .qr {
-  width: 34mm;
-  height: 34mm;
-}
-
-.tech .contact .qrcap {
-  margin-top: 2mm;
-  font-size: 7pt;
+.stage .mon span {
   opacity: 0.7;
 }
 
-strong {
+.stage .dj {
+  left: 30mm;
+  top: 16mm;
+  width: 24mm;
+  height: 16mm;
+  border: 0.25mm dashed rgba(10, 10, 11, 0.5);
+  padding: 1mm;
+}
+
+.stage .artist {
+  left: 58mm;
+  right: 30mm;
+  top: 3mm;
+  height: 6mm;
   font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.stage .table {
+  left: 58mm;
+  right: 30mm;
+  top: 10mm;
+  height: 30mm;
+  padding: 2mm;
+  justify-content: space-between;
+  background: #e7dfcd;
+}
+
+.stage .gear {
+  display: flex;
+  gap: 1.5mm;
+  width: 100%;
+}
+
+.stage .gear span {
+  flex: 1;
+  padding: 2mm 1mm;
+  background: var(--paper);
+  border: 0.25mm solid rgba(10, 10, 11, 0.3);
+  border-radius: 0.6mm;
+}
+
+.stage .gear .mac {
+  flex: 1.4;
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
+.stage .iface {
+  padding: 1mm 4mm;
+  background: var(--paper);
+  border: 0.25mm solid var(--orange);
+  border-radius: 0.6mm;
+}
+
+.stage .table p {
+  font-size: 6pt;
+  opacity: 0.7;
+}
+
+.stage .di {
+  right: 30mm;
+  top: 42mm;
+  width: 52mm;
+  height: 7mm;
+  border: 0.25mm solid var(--orange);
+  color: var(--ink);
+}
+
+.stage .aud {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 7mm;
+  border-radius: 0 0 1.2mm 1.2mm;
+  background: rgba(10, 10, 11, 0.08);
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.tech .note {
+  margin-top: 2mm;
+  font-size: 7pt;
+  opacity: 0.65;
+}
+
+/* ---------- 9. accueil et voyage ---------- */
+
+.hosp .grid4 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10mm 9mm;
+}
+
+.hosp .hosp-photo {
+  position: absolute;
+  left: var(--m);
+  right: var(--m);
+  bottom: 22mm;
+  width: 180mm;
+  height: 66mm;
+}
+
+.hosp .items li {
+  font-size: 9.6pt;
+  margin-top: 2.6mm;
+  line-height: 1.5;
+}
+
+.hosp .items li::before {
+  top: 2.3mm;
+}
+
+/* ---------- 10. contact ---------- */
+
+.contact .head {
+  border-bottom-color: rgba(246, 241, 231, 0.4);
+}
+
+.contact .who {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8mm;
+}
+
+.contact .who p {
+  font-size: 9.5pt;
+}
+
+.contact .who .big {
+  margin: 2mm 0 1mm;
+  font-size: 15pt;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.contact .links-wrap {
+  display: grid;
+  grid-template-columns: 1fr 52mm;
+  gap: 10mm;
+  margin-top: 9mm;
+  padding-top: 6mm;
+  border-top: 0.25mm solid rgba(246, 241, 231, 0.2);
+}
+
+.contact .links {
+  margin-top: 2mm;
+}
+
+.contact .links > div {
+  display: grid;
+  grid-template-columns: 24mm 1fr;
+  gap: 3mm;
+  padding: 1.25mm 0;
+  border-bottom: 0.25mm solid rgba(246, 241, 231, 0.1);
+  font-size: 8.4pt;
+}
+
+.contact .links dt {
+  opacity: 0.6;
+}
+
+.contact .assets p {
+  margin-top: 2mm;
+  font-size: 8.5pt;
+  line-height: 1.45;
+  opacity: 0.85;
+}
+
+.contact .qr-card {
+  margin-top: 3mm;
+  width: 36mm;
+  padding: 3mm;
+  background: var(--paper);
+  border-radius: 1.2mm;
+}
+
+.contact .qr-card .qr {
+  width: 30mm;
+  height: 30mm;
+}
+
+.contact .a-url {
+  font-weight: 600;
+  opacity: 1 !important;
+}
+
+.contact .roster {
+  margin-top: 8mm;
+  padding-top: 5mm;
+  border-top: 0.25mm solid rgba(246, 241, 231, 0.2);
+}
+
+.contact .roster p {
+  margin-top: 2mm;
+  font-size: 11pt;
+  font-weight: 300;
+}
+
+.contact .end {
+  position: absolute;
+  left: var(--m);
+  right: var(--m);
+  bottom: 18mm;
+}
+
+.contact .name {
+  font-size: 30pt;
+  font-weight: 900;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+
+.contact .copy {
+  margin-top: 2.5mm;
+  font-size: 6.6pt;
+  letter-spacing: 0.08em;
+  opacity: 0.55;
+}
+
+.contact .folio {
+  display: none;
 }
