@@ -14,7 +14,7 @@
 
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
 import { lcd, type LcdState } from '../state/lcd';
-import { HEX, LCD_TEXT, OLED, OLED_DRAW } from '../theme';
+import { HEX, LCD_TEXT, OLED, OLED_BAR, OLED_DRAW } from '../theme';
 import { makeCanvasTexture } from './silk';
 
 export interface ScreenInfo {
@@ -30,7 +30,7 @@ export interface ScreenInfo {
   size: [number, number];
 }
 
-const key = (s: LcdState): string => `${s.text[0]}\n${s.text[1]}\n${s.text[2]}`;
+const key = (s: LcdState): string => `${s.text[0]}\n${s.text[1]}\n${s.text[2]}\n${s.bar === null ? -1 : Math.round(s.bar * 200)}`;
 
 export class Screen {
   readonly mesh: Mesh;
@@ -102,6 +102,13 @@ export class Screen {
     this.invalidate();
   };
 
+  /**
+   * La barre de progression telle que dessinee (px de la texture : x0 a x1,
+   * y0 a y1), null quand elle n'est pas a l'ecran : le Stage y lit un clic
+   * (seekAt).
+   */
+  bar: { x0: number; x1: number; y0: number; y1: number } | null = null;
+
   private paint(s: LcdState, now: number): void {
     const ctx = this.ctx;
     const [W, H] = OLED.tex;
@@ -114,7 +121,7 @@ export class Screen {
     const rows: [string, string][] = [
       [s.l1, s.r1],
       [s.l2, s.r2],
-      [s.l3, ''],
+      [s.l3, s.r3],
     ];
     rows.forEach(([l, r], i) => {
       const y = OLED_DRAW.baselines[i];
@@ -125,6 +132,24 @@ export class Screen {
         ctx.fillText(r, W - OLED_DRAW.pad, y);
       }
     });
+    // Ligne 3, une piste en cours (2026-10-01) : la barre entre la position et la duree
+    this.bar = null;
+    if (s.bar !== null) {
+      const g = OLED_BAR;
+      const x0 = OLED_DRAW.pad + ctx.measureText(s.l3).width + g.gap;
+      const x1 = W - OLED_DRAW.pad - ctx.measureText(s.r3).width - g.gap;
+      const y1 = OLED_DRAW.baselines[2] - g.lift;
+      const y0 = y1 - g.h;
+      if (x1 - x0 > g.h * 2) {
+        ctx.strokeStyle = HEX.bone;
+        ctx.lineWidth = g.stroke;
+        ctx.strokeRect(x0 + g.stroke / 2, y0 + g.stroke / 2, x1 - x0 - g.stroke, g.h - g.stroke);
+        const inner = x1 - x0 - 2 * g.inset;
+        ctx.fillStyle = HEX.bone;
+        ctx.fillRect(x0 + g.inset, y0 + g.inset, Math.max(0, Math.min(1, s.bar)) * inner, g.h - 2 * g.inset);
+        this.bar = { x0, x1, y0, y1 };
+      }
+    }
     this.texture.needsUpdate = true;
     const info = this.info;
     if (info.draws > 0) info.minGapMs = Math.min(info.minGapMs, now - info.lastDrawAt);

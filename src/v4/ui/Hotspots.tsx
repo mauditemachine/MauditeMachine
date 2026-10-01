@@ -244,6 +244,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.kind === 'clear') clearPattern();
       else if (d.kind === 'mute') muteToggle();
       else if (d.kind === 'solo') soloToggle();
+      else if (d.kind === 'seek') stage.seekAt(d.x, d.y);
       else if (d.kind === 'chip' && d.chip && d.id) activateChip(d.id, d.chip);
       else if (d.dial) tapDial(d.dial);
       else return null;

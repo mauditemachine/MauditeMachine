@@ -34,8 +34,10 @@ import {
   PerspectiveCamera,
   PCFShadowMap,
   PointLight,
+  Raycaster,
   SRGBColorSpace,
   Scene,
+  Vector2,
   Vector3,
   WebGLRenderer,
   type CanvasTexture,
@@ -44,12 +46,14 @@ import {
   type Texture,
 } from 'three';
 import { clock } from '../audio/clock';
+import { sc } from '../audio/soundcloud';
 import { context, mix } from '../audio/drums';
 import { BPM, INSTRUMENTS, pattern } from '../audio/pattern';
 import { motion } from '../state/motion';
 import { explode as explodeState } from '../state/explode';
 import { intro } from '../state/intro';
 import { playhead } from '../state/playhead';
+import { lcd } from '../state/lcd';
 import { section } from '../state/section';
 import { voices } from '../state/voices';
 import {
@@ -66,6 +70,8 @@ import {
   FRAME_DESKTOP,
   FRAME_MOBILE,
   INTRO,
+  OLED,
+  OLED_BAR,
   STEP_PRESS,
   LIGHT_BACK,
   LIGHT_HEMI,
@@ -335,6 +341,10 @@ export class Stage {
   private unsubMix: () => void;
   /** les quatre puces (allumees pendant l'ouverture et vue ouverte) */
   private chipDefs: HotspotDef[];
+  /** la barre de progression de l'ecran (ligne 3), active quand elle est affichee */
+  private seekDef!: HotspotDef;
+  private unsubSeek: () => void = () => undefined;
+  private raycaster = new Raycaster();
   /** les puces repondent (ouverture decouverte, vue ouverte) */
   private chipsOn = false;
   /** puce sous la souris, puce dont le jumeau a le focus clavier */
@@ -506,6 +516,27 @@ export class Stage {
     this.stepDefs = seqDefs.filter((d) => d.kind === 'step');
     this.hit.add(seqDefs.filter((d) => d.kind !== 'step'));
     this.hit.add(this.stepDefs);
+    // La bande de la ligne 3 de l'ecran (2026-10-01) : la barre de progression
+    // de la piste courante, cliquable seulement quand elle est affichee
+    {
+      const [, TH] = OLED.tex;
+      const z0 = OLED.z - OLED.d / 2 + (OLED_BAR.bandY0 / TH) * OLED.d;
+      const z1 = OLED.z - OLED.d / 2 + (OLED_BAR.bandY1 / TH) * OLED.d;
+      this.seekDef = {
+        id: 'seek',
+        kind: 'seek',
+        layer: plateau,
+        shape: 'box',
+        x: OLED.x,
+        z: (z0 + z1) / 2,
+        hx: OLED.w / 2,
+        hz: (z1 - z0) / 2,
+        y0: OLED.y - 0.005,
+        y1: OLED.y + 0.03,
+        enabled: false,
+      };
+      this.hit.add([this.seekDef]);
+    }
     // Les volumes pleins de la machine : ils cachent ce qui est derriere eux
     // (picking, ancre de la trace) et dessinent sa silhouette (fond ou machine)
     const pd = PANEL_D / 2;
@@ -561,6 +592,8 @@ export class Stage {
     // Section deja ouverte (remontage) : etat pose sans animation
     this.applySection(true);
     this.unsubSection = section.subscribe(this.syncSection);
+    this.unsubSeek = lcd.subscribe(this.syncSeek);
+    this.syncSeek();
     this.syncRun();
     const offRun = clock.subscribe(this.syncRun);
     // Chaque pas programme reveille la boucle (la tete de lecture l'allume a son heure)
@@ -629,6 +662,31 @@ export class Stage {
       tw.run(key, set, 1, 0, STEP_PRESS.upMs, easeOutCubic, end)
     );
     this.repaint();
+  }
+
+  /** La barre de l'ecran repond au pointeur quand elle est affichee. */
+  private syncSeek = (): void => {
+    const on = lcd.get().bar !== null;
+    if (this.seekDef.enabled === on) return;
+    this.seekDef.enabled = on;
+    this.hit.invalidate();
+  };
+
+  /**
+   * Clic sur la barre de l'ecran (2026-10-01), en px CSS de la fenetre : le
+   * point touche sur l'ecran (rayon de la camera, coordonnee de texture)
+   * donne la position dans la piste. true si la piste a avance.
+   */
+  seekAt(clientX: number, clientY: number): boolean {
+    const b = this.screen.bar;
+    if (!b) return false;
+    const rect = this.canvas.getBoundingClientRect();
+    const ndc = new Vector2(((clientX - rect.left) / rect.width) * 2 - 1, 1 - ((clientY - rect.top) / rect.height) * 2);
+    this.raycaster.setFromCamera(ndc, this.camera);
+    const hit = this.raycaster.intersectObject(this.screen.mesh, false)[0];
+    if (!hit || !hit.uv) return false;
+    const px = hit.uv.x * OLED.tex[0];
+    return sc.seek((px - b.x0) / (b.x1 - b.x0));
   }
 
   /** Alias du contrat debug (spec 14.1). */
@@ -1554,6 +1612,7 @@ export class Stage {
     this.unsubMotion();
     this.unsubPattern();
     this.unsubVoices();
+    this.unsubSeek();
     this.unsubClock();
     this.unsubMix();
     this.unsubSection();

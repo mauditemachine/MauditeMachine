@@ -55,6 +55,8 @@ export interface EngineSnapshot {
 export interface EngineHandle {
   play: (track: V2Track, queue?: V2Track[]) => void;
   toggle: () => void;
+  /** position 0 a 1 dans la piste courante */
+  seek: (ratio: number) => void;
 }
 
 const IDLE: EngineSnapshot = { current: null, playing: false, progress: 0, duration: 0, notice: null };
@@ -131,6 +133,22 @@ export const sc = {
     if (warmed || !track?.soundcloudUrl || FLAGS.v4mock !== 'off' || simEngine) return;
     warmed = true;
     scPreload(track.soundcloudUrl);
+  },
+  /** Avancement 0 a 1 de la piste courante (0 sans piste). */
+  progress: (): number => (snap.current ? snap.progress : 0),
+  /**
+   * Barre de progression (2026-10-01) : la piste courante saute a ratio
+   * (0 a 1), en lecture comme en pause. false sans piste ou sans moteur.
+   * L'avancement affiche suit tout de suite, sans attendre le widget.
+   */
+  seek(ratio: number): boolean {
+    const e = simEngine ?? engine;
+    if (!e || !snap.current || !Number.isFinite(ratio)) return false;
+    const r = ratio < 0 ? 0 : ratio > 1 ? 1 : ratio;
+    e.seek(r);
+    snap = { ...snap, progress: r };
+    listeners.forEach((fn) => fn());
+    return true;
   },
   /** Position de lecture en s (0 sans piste). */
   position: (): number => (snap.current ? snap.progress * snap.duration : 0),
@@ -255,6 +273,7 @@ export const scDebug: ScDebug = {
     simEngine = {
       play: (track) => sc.sync({ ...snap, current: track, playing: false, progress: 0 }),
       toggle: () => sc.sync({ ...snap, playing: !snap.playing }),
+      seek: (r) => sc.sync({ ...snap, progress: r }),
     };
     const title = p.title ?? snap.current?.title ?? 'Test';
     const current: V2Track | null =

@@ -8,11 +8,11 @@
  * tant qu'elle n'est pas affichee. Les liens sortants : ui/ExternalLink.tsx.
  */
 
-import React, { useEffect, useSyncExternalStore } from 'react';
+import React, { useEffect, useState, useSyncExternalStore } from 'react';
 import type { V2Track } from '../../../v2/context/AudioPlayerContext';
 import { playItem } from '../../actions';
 import { sc } from '../../audio/soundcloud';
-import type { PlayItem } from '../../data';
+import { fmtTime, type PlayItem } from '../../data';
 import { SECTION_TITLES, type SectionId } from '../../theme';
 import { ExternalLink } from '../ExternalLink';
 
@@ -110,6 +110,46 @@ function rowClick(e: React.MouseEvent<HTMLLIElement>, track: V2Track, queue: V2T
   playItem(track, queue);
 }
 
+/**
+ * Barre de position de la piste courante (2026-10-01), sous sa ligne : un
+ * curseur natif (souris, doigt, fleches du clavier) qui fait avancer la
+ * lecture (sc.seek). Il suit l'avancement 4 fois par seconde pendant la
+ * lecture ; son clic ne touche pas a la ligne (lecture, pause).
+ */
+const RowSeek: React.FC<{ title: string; tab: number }> = ({ title, tab }) => {
+  const st = useSyncExternalStore(sc.subscribe, sc.get, sc.get);
+  const [p, setP] = useState(sc.progress());
+  useEffect(() => {
+    setP(sc.progress());
+    if (st.status !== 'playing') return undefined;
+    const id = window.setInterval(() => setP(sc.progress()), 250);
+    return () => window.clearInterval(id);
+  }, [st.status, st.id]);
+  const dur = st.duration;
+  if (dur <= 0) return null;
+  const stop = (e: React.SyntheticEvent): void => e.stopPropagation();
+  return (
+    <input
+      className="v4-seek"
+      type="range"
+      min={0}
+      max={1000}
+      step={1}
+      value={Math.round(p * 1000)}
+      tabIndex={tab}
+      aria-label={`Position in ${title}`}
+      aria-valuetext={`${fmtTime(p * dur)} of ${fmtTime(dur)}`}
+      onClick={stop}
+      onPointerDown={stop}
+      onKeyDown={stop}
+      onChange={(e) => {
+        const r = Number(e.target.value) / 1000;
+        if (sc.seek(r)) setP(r);
+      }}
+    />
+  );
+};
+
 /** Lien Buy d'une piste (page Bandcamp, nouvel onglet) : son clic ne lance pas la lecture de la ligne. */
 const BuyLink: React.FC<{ href: string; title: string; tab: number }> = ({ href, title, tab }) => (
   <ExternalLink
@@ -178,6 +218,7 @@ export const PlayList: React.FC<PlayListProps> = ({ items, queue, tab, label, ac
             <span className="v4-row-meta" id={metaId}>
               {it.meta}
             </span>
+            {current && (st.status === 'playing' || st.status === 'paused') && <RowSeek title={it.title} tab={tab} />}
             {it.buy && <BuyLink href={it.buy} title={it.title} tab={tab} />}
           </li>
         );

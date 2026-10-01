@@ -7,12 +7,14 @@
  * Ligne 1 : la section ouverte (ou MM-808) a gauche, le tempo a droite.
  * Ligne 2, la premiere regle qui s'applique :
  *   piste sautee (SKIPPED titre) > chargement (LOADING)
- *   > piste en lecture (titre a gauche, m:ss a droite)
+ *   > piste en lecture (le titre, qui defile d'une colonne par quart de
+ *   seconde quand il ne tient pas dans les 20 colonnes, 2026-10-01)
  *   > sequenceur en marche (RUN et l'instrument) > piste en pause (titre,
  *   PAUSED) > READY et l'instrument.
- * Ligne 3 : le message passager (STEP 07 BD ON, CLEARED, TAP A PAD FIRST,
- * NO SIGNAL) ou la valeur de l'encodeur tourne dans les 1200 ms, sinon
- * rien (revision 2 : les messages quittent la ligne 2).
+ * Ligne 3 : le message passager (STEP 07 BD HIGH, CLEARED, TAP A PAD
+ * FIRST, NO SIGNAL) ou la valeur de l'encodeur tourne dans les 1200 ms ;
+ * sinon, une piste en lecture ou en pause : sa position, une barre de
+ * progression (bar, 0 a 1 ; cliquable sur l'ecran) et sa duree.
  * RUN passe avant une piste en pause (section 19) : la machine qui joue
  * est l'information du moment. Le minuteur ne tourne que pendant la
  * lecture d'une piste (timecode) ou un message passager ; au repos, rien.
@@ -33,8 +35,12 @@ export interface LcdState {
   /** ligne 2 : gauche, droite (droite vide sauf timecode ou PAUSED) */
   l2: string;
   r2: string;
-  /** ligne 3 : message passager ou valeur d'encodeur, '' sinon */
+  /** ligne 3 : message passager ou valeur d'encodeur ; avec bar : la position (gauche) */
   l3: string;
+  /** ligne 3 avec bar : la duree (droite) */
+  r3: string;
+  /** barre de progression de la piste courante (0 a 1), null sans piste ou sous un message */
+  bar: number | null;
   /** la ligne 3 est une valeur d'encodeur (le jumeau ne l'annonce pas) */
   param: boolean;
   /** les trois lignes telles qu'affichees (gauche, espaces, droite) */
@@ -44,6 +50,20 @@ export interface LcdState {
 }
 
 const COLS = LCD_TEXT.cols;
+/** Ecart entre la fin du titre et sa reprise, dans le defilement. */
+const MARQUEE_GAP = '   ';
+
+/** Le titre qui ne tient pas defile d'une colonne par quart de seconde depuis t0 ; sinon tel quel. */
+function marquee(text: string, now: number, t0: number): string {
+  if (text.length <= COLS) return text;
+  const loop = text + MARQUEE_GAP;
+  const k = Math.floor((now - t0) / LCD_TEXT.tickMs) % loop.length;
+  return (loop + loop).slice(k, k + COLS);
+}
+
+/** Debut du defilement : la piste courante (il repart de la premiere lettre a chaque piste). */
+let marqueeId: string | null = null;
+let marqueeT0 = 0;
 
 /** Coupe a n colonnes, un point final quand ca deborde. */
 function fit(s: string, n: number): string {
@@ -71,16 +91,30 @@ function compose(now: number): Omit<LcdState, 'updates'> {
   if (st.notice) l2 = `${LCD_TEXT.skipped} ${st.notice.toUpperCase()}`;
   else if (st.status === 'loading') l2 = LCD_TEXT.loading;
   else if (st.status === 'playing') {
-    l2 = (st.title ?? '').toUpperCase();
-    r2 = fmtTime(sc.position());
+    if (st.id !== marqueeId) {
+      marqueeId = st.id;
+      marqueeT0 = now;
+    }
+    l2 = marquee((st.title ?? '').toUpperCase(), now, marqueeT0);
   } else if (clock.running) l2 = `${LCD_TEXT.run}${inst}`;
   else if (st.status === 'paused') {
     l2 = (st.title ?? '').toUpperCase();
     r2 = LCD_TEXT.paused;
   } else l2 = `${LCD_TEXT.ready}${inst}`;
-  const line2 = row(l2, r2);
-  const l3 = msg ? fit(msg.text, COLS) : '';
-  return { l1: line1.l, r1: line1.r, l2: line2.l, r2: line2.r, l3, param: !!msg && msg.param, text: [line1.t, line2.t, l3] };
+  // Le titre qui defile occupe toute la ligne (row le couperait d'un point)
+  const line2 = st.status === 'playing' && !st.notice ? { l: l2, r: '', t: l2 } : row(l2, r2);
+  // Ligne 3 : le message, sinon la piste courante (position, barre, duree)
+  let l3 = '';
+  let r3 = '';
+  let bar: number | null = null;
+  if (msg) l3 = fit(msg.text, COLS);
+  else if ((st.status === 'playing' || st.status === 'paused') && st.duration > 0) {
+    l3 = fmtTime(sc.position());
+    r3 = fmtTime(st.duration);
+    bar = sc.progress();
+  }
+  const t3 = bar !== null ? `${l3} ${r3}` : l3;
+  return { l1: line1.l, r1: line1.r, l2: line2.l, r2: line2.r, l3, r3, bar, param: !!msg && msg.param, text: [line1.t, line2.t, t3] };
 }
 
 let current: LcdState = {
@@ -89,6 +123,8 @@ let current: LcdState = {
   l2: LCD_TEXT.ready,
   r2: '',
   l3: '',
+  r3: '',
+  bar: null,
   param: false,
   text: [LCD_TEXT.idle, LCD_TEXT.ready, ''],
   updates: 0,
@@ -108,7 +144,14 @@ function run(): void {
   const now = performance.now();
   last = now;
   const next = compose(now);
-  if (next.text[0] !== current.text[0] || next.text[1] !== current.text[1] || next.text[2] !== current.text[2]) {
+  // La barre compte au 1/200 pres : elle avance meme quand le temps affiche ne change pas
+  const barKey = (b: number | null): number => (b === null ? -1 : Math.round(b * 200));
+  if (
+    next.text[0] !== current.text[0] ||
+    next.text[1] !== current.text[1] ||
+    next.text[2] !== current.text[2] ||
+    barKey(next.bar) !== barKey(current.bar)
+  ) {
     current = { ...next, updates: current.updates + 1 };
     listeners.forEach((fn) => fn());
   }

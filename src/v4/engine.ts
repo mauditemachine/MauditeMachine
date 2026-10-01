@@ -34,10 +34,10 @@ export const useEngine: () => EngineCtx = ENGINE_IS_MOCK ? useMockEngine : useAu
 /** Recopie le moteur dans le pont ; ne rend rien. */
 export const EngineBridge: React.FC = () => {
   const e = useEngine();
-  const { current, playing, progress, duration, notice, play, toggle } = e;
+  const { current, playing, progress, duration, notice, play, toggle, seek } = e;
   useEffect(() => {
-    sc.attach({ play, toggle });
-  }, [play, toggle]);
+    sc.attach({ play, toggle, seek });
+  }, [play, toggle, seek]);
   useEffect(
     () => () => {
       sc.attach(null);

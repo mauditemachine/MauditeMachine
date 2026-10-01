@@ -331,6 +331,14 @@ export const OLED = {
  */
 export const OLED_DRAW = { font: `400 40px ${FONT_MONO}`, pad: 24, baselines: [64, 136, 208] } as const;
 
+/**
+ * Barre de progression de l'ecran (2026-10-01), ligne 3, en px de la
+ * texture : 22 de haut, posee 3 au-dessus de la ligne de base, a 14 des
+ * temps ; contour de 2, remplissage en retrait de 4. Un clic dessus (et sur
+ * toute la bande de la ligne 3) fait avancer la piste.
+ */
+export const OLED_BAR = { h: 22, lift: 3, gap: 14, stroke: 2, inset: 4, bandY0: 160, bandY1: 236 } as const;
+
 export type EncId = 'tempo' | 'tone' | 'level' | 'swing' | 'dist' | 'reverb';
 
 /**
