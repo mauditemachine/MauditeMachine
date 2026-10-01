@@ -490,7 +490,7 @@ export class Stage {
       mobile,
     });
     // Bas : touches trig, RUN/STOP, CLEAR, LED ; moitie gauche : les six encodeurs
-    this.seq = new Sequencer3D();
+    this.seq = new Sequencer3D({ mobile });
     this.encoders = new Encoders({ mobile, castShadow: !mobile });
     plateau.add(this.pads.mesh, this.pads.halos, this.seq.keys, this.seq.leds, this.encoders.mesh);
     // L'ecran (redessine 4 fois par seconde au plus, jamais par frame) ; il

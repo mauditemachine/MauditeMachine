@@ -2103,3 +2103,5 @@ R9-4. RANDOM: a square button like CLEAR, left of the voice pads (x0 - pitch, on
 R9-5. Chunk: 85.4 KB (v4) + 144.3 KB (three) + 6.1 KB (CSS) = 235.8 KB gzip.
 
 R9-6. Two encoder rows (the nine-knob row was too crowded on the left): TEMPO, TONE, STRETCH, LEVEL and SWING stay under the screen, back to r 0.27 (collar 0.32, mark 0.18) on the trig-key grid (pitch 0.74 from x -5.55, above RUN/STOP, CLEAR, MUTE and SOLO), z -0.6, labels at -0.1; DIST, REVERB, DELAY and CHORUS move under the page pads, centred on their block (x 0.87 to 3.87, pitch 1.0), at the transport height (z 0.48), labels on the transport label line (0.98). Positions come from theme.encPos(i). All nine hotspots pick their own knob, no overlap with any other hotspot.
+
+R9-7. Trig keys (and the square buttons, same geometry): really rounded corners and top edges, same radius 0.04, three segments on desktop (588 triangles), two on mobile (300); with one segment the rounding was a 45 deg chamfer.

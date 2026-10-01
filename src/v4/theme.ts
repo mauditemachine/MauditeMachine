@@ -561,9 +561,11 @@ export const PAD_HALO = { selected: 0.025, faint: 0.025, hover: 0.06, active: 0.
 /* ---------- panneau : les 16 touches trig (spec 20.3.6) ---------- */
 
 /**
- * Touches trig etroites (0.52 x 0.9, 0.1 de haut, coins de 0.04) en bas du
- * panneau, une LED au-dessus de chacune (0.22 x 0.07), numeros 1 a 16
- * dessous, un crochet serigraphie sous chaque groupe de quatre.
+ * Touches trig etroites (0.5 x 0.9, 0.1 de haut, coins de 0.04) en bas du
+ * panneau, une LED au-dessus de chacune (0.22 x 0.055), numeros 1 a 16
+ * dessous, un crochet serigraphie sous chaque groupe de quatre. Coins et
+ * aretes vraiment arrondis depuis le 2026-10-01 (trois segments, deux sur
+ * mobile) : avec un seul, c'etaient des pans coupes a 45 deg.
  */
 export const KEYS = {
   count: 16,
@@ -574,6 +576,7 @@ export const KEYS = {
   d: 0.9,
   h: 0.1,
   radius: 0.04,
+  segments: { desktop: 3, mobile: 2 },
   ledZ: 1.62,
   ledW: 0.22,
   ledD: 0.055,

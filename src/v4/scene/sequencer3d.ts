@@ -65,9 +65,9 @@ const barZ = (b: number): number => KEYS.ledZ - KEYS.velPitch * b;
 const m4 = new Matrix4();
 const col = new Color();
 
-/** Touche trig : boite a coins arrondis (un segment : 108 triangles), base a y 0. */
-function keyGeometry(): BufferGeometry {
-  const g = new RoundedBoxGeometry(KEYS.w, KEYS.h, KEYS.d, 1, KEYS.radius);
+/** Touche trig : boite a coins arrondis (trois segments : 588 triangles ; deux sur mobile : 300), base a y 0. */
+function keyGeometry(mobile: boolean): BufferGeometry {
+  const g = new RoundedBoxGeometry(KEYS.w, KEYS.h, KEYS.d, mobile ? KEYS.segments.mobile : KEYS.segments.desktop, KEYS.radius);
   g.translate(0, KEYS.h / 2, 0);
   g.deleteAttribute('uv');
   return g;
@@ -114,8 +114,8 @@ export class Sequencer3D {
   private muteOn = false;
   private soloOn = false;
 
-  constructor() {
-    const kGeo = keyGeometry();
+  constructor(opts: { mobile: boolean } = { mobile: false }) {
+    const kGeo = keyGeometry(opts.mobile);
     this.emissive = new InstancedBufferAttribute(new Float32Array(KEY_COUNT * 3), 3);
     this.emissive.setUsage(DynamicDrawUsage);
     kGeo.setAttribute('instanceEmissive', this.emissive);

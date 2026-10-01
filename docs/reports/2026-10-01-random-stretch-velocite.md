@@ -32,3 +32,4 @@
 
 - `src/v4/theme.ts` : `encPos(i)` remplace `encX` ; TEMPO, TONE, STRETCH, LEVEL, SWING sous l'ecran (grille des touches, potards de 0.27 comme en revision 5), DIST, REVERB, DELAY, CHORUS sous les pads de page, a la hauteur de RUN/STOP. `scene/encoders.ts` et `fallback/StaticMachine.tsx` suivent.
 - Pourquoi : demande de Mika, trop de potards a gauche et un grand vide sous TRACKS a CONTACT.
+- Touches : coins et aretes vraiment arrondis (meme rayon 0.04, trois segments au lieu d'un, deux sur mobile) ; avant, un pan coupe a 45 deg. `theme.ts` (KEYS.segments), `scene/sequencer3d.ts`, `scene/renderer.ts`.
