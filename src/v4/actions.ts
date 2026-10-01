@@ -8,7 +8,8 @@
 
 import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
-import { ensure, mix, resume, setDrive, setLevel, setReverb, setStretch, setSwing, setTone, trigger } from './audio/drums';
+import { ensure, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setTone, setVoiceFx, trigger } from './audio/drums';
+import { VOICE_FX_DEFAULT, voiceFx, type VoiceParam } from './audio/voicefx';
 import { BPM, VEL_NAMES, pattern, velocity } from './audio/pattern';
 import { sc } from './audio/soundcloud';
 import type { Stage } from './scene/renderer';
@@ -17,7 +18,7 @@ import { lcdMessage } from './state/lcdMessage';
 import { contactDraft, type ContactTopic } from './state/contactDraft';
 import { section } from './state/section';
 import { voices } from './state/voices';
-import { CHIPS, POT_UI, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
+import { CHIPS, POT_UI, VOICE_ENCODERS, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
 
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
 const pct = (v: number): number => Math.round(v * 100);
@@ -37,8 +38,19 @@ export function gesture(): void {
 export function padHit(inst: Inst, stage: Stage | null): void {
   gesture();
   trigger(inst);
-  pattern.select(inst);
+  selectVoice(inst);
   stage?.pads.press(inst);
+}
+
+/**
+ * La voix selectionnee : les pas et, depuis le 2026-10-01, les potards
+ * d'effets la reglent. L'ecran le dit quand la cible change : KNOBS > BD,
+ * ou KNOBS > PATTERN au retour a tout le pattern.
+ */
+function selectVoice(inst: Inst | null): void {
+  if (pattern.get().instrument === inst) return;
+  pattern.select(inst);
+  lcdMessage.show(`KNOBS > ${inst ?? 'PATTERN'}`);
 }
 
 /**
@@ -58,10 +70,10 @@ export function resetView(stage: Stage | null): void {
   stage?.orbit.reset();
 }
 
-/** Choix de l'instrument sans le jouer (rangee du Dock). */
+/** Choix de l'instrument sans le jouer (rangee du Dock) ; le meme une seconde fois : plus de selection (tout le pattern). */
 export function selectInstrument(inst: Inst): void {
   resume();
-  pattern.select(inst);
+  selectVoice(pattern.get().instrument === inst ? null : inst);
 }
 
 /**
@@ -173,25 +185,40 @@ export function setTempo(bpm: number): void {
   pattern.setBpm(bpm);
 }
 
-/** Valeur affichee en ligne 3 de l'ecran : TONE +35, STRETCH 40%, SWING 58% (rapport de doubles croches). */
-function readout(id: Exclude<EncId, 'tempo'>, v: number): string {
+/** Valeur affichee en ligne 3 de l'ecran : TONE +35, STRETCH 40%, SWING 58% ; BD DELAY 40% pour une voix. */
+function readout(id: Exclude<EncId, 'tempo'>, v: number, inst: Inst | null): string {
+  const who = inst ? `${inst} ` : '';
   if (id === 'swing') return `SWING ${swingRatio(v)}%`;
   if (id === 'tone') {
     const n = Math.round(v * 100);
-    return `TONE ${n > 0 ? '+' : ''}${n}`;
+    return `${who}TONE ${n > 0 ? '+' : ''}${n}`;
   }
-  return `${id.toUpperCase()} ${pct(v)}%`;
+  return `${who}${id.toUpperCase()} ${pct(v)}%`;
+}
+
+/** Le parametre d'une voix que regle un potard (DIST -> dist ; TEMPO, STRETCH, SWING : aucun). */
+const voiceParam = (id: EncId): VoiceParam | null => (VOICE_ENCODERS.includes(id) ? (id as VoiceParam) : null);
+
+/**
+ * La voix que reglent les potards (effets par piste, 2026-10-01) : celle
+ * du pad selectionne, pour TONE, LEVEL, DIST, REVERB, DELAY et CHORUS ;
+ * null : tout le pattern.
+ */
+export function dialTarget(id: EncId): Inst | null {
+  return voiceParam(id) ? pattern.get().instrument : null;
 }
 
 /**
  * Un encodeur (spec 20.6.2 ENC_SET) : glisser, molette, jumeau au clavier.
  * TEMPO en BPM (100 a 150, l'ecran le montre deja en ligne 1), TONE de -1
- * a 1 (accroche a 0 au centre), les autres de 0 a 1 (bornes par drums.ts et
- * le store du motif), leur valeur 1200 ms en ligne 3 de l'ecran. TONE :
- * hauteur et filtre du bus ; STRETCH : etirement granulaire ; LEVEL : gain du
- * bus, jamais le master (?mute=1 tient) ; SWING : retard des pas pairs
- * (horloge) ; DIST : saturation parallele du bus ; REVERB : envoi vers la
- * reverbe a convolution. Les trois derniers persistent avec le motif.
+ * a 1 (accroche a 0 au centre), les autres de 0 a 1, leur valeur 1200 ms
+ * en ligne 3 de l'ecran. Un pad selectionne : TONE, LEVEL, DIST, REVERB,
+ * DELAY et CHORUS reglent sa voix seule (audio/voicefx.ts) ; sans
+ * selection, tout le pattern : TONE hauteur et filtre du bus, STRETCH
+ * etirement granulaire, LEVEL gain du bus (jamais le master, ?mute=1
+ * tient), SWING retard des pas pairs, DIST saturation parallele, REVERB
+ * et DELAY envois, CHORUS insert. SWING, DIST, REVERB, DELAY et CHORUS du
+ * pattern persistent avec le motif.
  */
 export function dial(id: EncId, v: number): void {
   resume();
@@ -199,17 +226,25 @@ export function dial(id: EncId, v: number): void {
     pattern.setBpm(v);
     return;
   }
-  if (id === 'tone') setTone(v);
+  const inst = dialTarget(id);
+  const p = voiceParam(id);
+  if (inst && p) setVoiceFx(inst, p, v);
+  else if (id === 'tone') setTone(v);
   else if (id === 'stretch') setStretch(v);
   else if (id === 'level') setLevel(v);
   else if (id === 'swing') setSwing(v);
   else if (id === 'dist') setDrive(v);
-  else setReverb(v);
-  lcdMessage.show(readout(id, dialValue(id)), POT_UI.readoutMs, true);
+  else if (id === 'reverb') setReverb(v);
+  else if (id === 'delay') setDelay(v);
+  else setChorus(v);
+  lcdMessage.show(readout(id, dialValue(id), inst), POT_UI.readoutMs, true);
 }
 
-/** Valeur courante d'un encodeur : BPM, ou 0 a 1. */
+/** Valeur courante d'un encodeur (celle de la voix selectionnee s'il la regle) : BPM, ou -1 a 1, ou 0 a 1. */
 export function dialValue(id: EncId): number {
+  const inst = dialTarget(id);
+  const p = voiceParam(id);
+  if (inst && p) return voiceFx.of(inst)[p];
   switch (id) {
     case 'tempo':
       return pattern.get().bpm;
@@ -223,13 +258,19 @@ export function dialValue(id: EncId): number {
       return mix.swing;
     case 'dist':
       return mix.drive;
-    default:
+    case 'reverb':
       return mix.reverb;
+    case 'delay':
+      return mix.delay;
+    default:
+      return mix.chorus;
   }
 }
 
-/** Valeur de depart (double tape) : 130 BPM, TONE au centre, LEVEL 80 %, le reste a 0. */
+/** Valeur de depart (double tape) : 130 BPM, TONE au centre, LEVEL 80 %, le reste a 0 (pour une voix aussi). */
 export function dialReset(id: EncId): number {
+  const p = voiceParam(id);
+  if (p && dialTarget(id)) return VOICE_FX_DEFAULT[p];
   return id === 'tempo' ? BPM.initial : POT_UI.reset[id];
 }
 
@@ -292,7 +333,7 @@ export function escape(): boolean {
   }
   if (explode.get() === 'open') return explode.toggle();
   if (pattern.get().instrument !== null) {
-    pattern.select(null);
+    selectVoice(null);
     return true;
   }
   return false;

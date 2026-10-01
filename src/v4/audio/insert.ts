@@ -12,7 +12,7 @@
  *             in -> branche -> mouille (m) ----> out
  */
 
-import { glide } from './fx';
+import { glide } from './glide';
 
 /** Debranchement apres la rampe de 20 ms, avec une marge. */
 export const UNLINK_MS = 60;

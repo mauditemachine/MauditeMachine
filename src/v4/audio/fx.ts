@@ -1,59 +1,34 @@
 /**
- * Effets du bus (revision 2, spec 20.8), branches par drums.ts :
+ * DIST du bus (revision 2, spec 20.8), branche par drums.ts, et ce qui
+ * sert aux autres effets (2026-10-01 : la REVERB passe par audio/sends.ts,
+ * partagee avec les envois par voix) :
  *
- *   bus -> sec (1 - m) -----------------------------------> TONE -> LEVEL
+ *   bus -> sec (1 - m) -----------------------------------> TONE
  *   bus -> pre (D / K) -> WaveShaper -> mouille (m) -------> TONE      DIST
- *   LEVEL -> envoi (0.3 r) -> Convolver -> analyseur (avant master)    REVERB
  *
  * DIST : saturation parallele. Courbe tanh(K u) calculee une fois ; la
  * branche mouillee vaut tanh(D x) avec D = 1 + 5 d, melangee a m = d / 2.
  * A 0 : sec 1, mouille 0 et la branche debranchee : le signal d'origine,
  * la saturation ne calcule rien (0 = bypass). Avant TONE et LEVEL : LEVEL
  * reste un volume (baisser le niveau ne nettoie pas la saturation), TONE
- * adoucit les harmoniques qu'elle ajoute.
- * REVERB : un envoi apres LEVEL vers un ConvolverNode dont la reponse
- * (bruit stereo a decroissance exponentielle, 1.2 s, -60 dB a la fin, aigus
- * amortis) est generee une fois, au premier reglage au-dessus de 0 ; le
- * retour entre dans l'analyseur, avant le master (?mute=1 tient, le signal
- * reste mesurable). Mouille bas : 0.3 au maximum pour une reponse d'energie
- * unite.
+ * adoucit les harmoniques qu'elle ajoute. buildDrive : la meme saturation
+ * en insert a bypass reel, pour une voix seule.
+ * La reponse de la REVERB (bruit stereo a decroissance exponentielle,
+ * 1.2 s, -60 dB a la fin, aigus amortis) est generee ici (makeImpulse).
  * Chaque reglage rejoint sa valeur en 20 ms ; une branche revenue a 0 se
- * debranche apres sa rampe (la queue de reverbe deja partie s'eteint seule).
- * Demontage de /v4 (silence) : le contexte va dormir, et un ConvolverNode
- * gele garde sa queue ; il est donc debranche et oublie (la reponse reste
- * en memoire), sinon la queue d'avant rejouerait au premier geste de la
- * visite suivante. Le prochain reglage au-dessus de 0 en rebranche un neuf.
+ * debranche apres sa rampe.
  */
 
-/** Rampe des reglages du bus (TONE, LEVEL, DIST, REVERB) : 20 ms, section 19 item 51. */
-export const GLIDE_S = 0.02;
+import { glide } from './glide';
+import { Insert, UNLINK_MS } from './insert';
+
+export { GLIDE_S, glide } from './glide';
 
 /** DIST : D = 1 + gain x d, melange m = mix x d, courbe tanh(k u) sur `points` valeurs (nombre impair : 0 exact au centre). */
 const DRIVE = { gain: 5, mix: 0.5, k: 8, points: 2049 } as const;
 
-/**
- * REVERB : longueur de la reponse (s), pre-delai, entree en fondu, envoi a
- * r = 1, passe-bas du bruit (Hz) du debut a la fin de la queue, graines.
- */
-const REVERB = { seconds: 1.2, preDelay: 0.01, fadeIn: 0.003, send: 0.3, hiStart: 9000, hiEnd: 2500, seeds: [808, 909] } as const;
-
-/** Une branche revenue a 0 se debranche apres sa rampe (20 ms) et une marge. */
-const UNLINK_MS = 60;
-
-/**
- * Rampe lineaire de 20 ms depuis une valeur posee a l'instant present.
- * Pas setTargetAtTime : Chrome calcule cette approche pas a pas sur les
- * blocs REELLEMENT rendus, et un noeud au repos (bus muet entre deux coups)
- * n'en rend aucun ; le premier coup apres un reglage partait alors avec
- * l'ancienne valeur (mesure a l'analyseur : CH plein pot juste apres TONE
- * a 0). Une rampe se calcule depuis ses deux points, rendu ou non.
- */
-export function glide(p: AudioParam, target: number, c: BaseAudioContext): void {
-  const now = c.currentTime;
-  p.cancelScheduledValues(now);
-  p.setValueAtTime(p.value, now);
-  p.linearRampToValueAtTime(target, now + GLIDE_S);
-}
+/** REVERB : longueur de la reponse (s), pre-delai, entree en fondu, passe-bas du bruit (Hz) du debut a la fin de la queue, graines. */
+const REVERB = { seconds: 1.2, preDelay: 0.01, fadeIn: 0.003, hiStart: 9000, hiEnd: 2500, seeds: [808, 909] } as const;
 
 /** PRNG a graine (mulberry32) : la meme reponse a chaque visite. */
 function prng(seed: number): () => number {
@@ -68,7 +43,7 @@ function prng(seed: number): () => number {
 }
 
 /** tanh(k u) pour u de -1 a 1 : l'entree du WaveShaper est pre-divisee par k. */
-function driveCurve() {
+export function driveCurve(): Float32Array {
   const n = DRIVE.points;
   const c = new Float32Array(n);
   for (let i = 0; i < n; i += 1) c[i] = Math.tanh(DRIVE.k * ((i / (n - 1)) * 2 - 1));
@@ -83,7 +58,7 @@ function driveCurve() {
  * de clic). Chaque canal ramene a une energie de 1 : le niveau ne depend
  * que de l'envoi, quel que soit le taux d'echantillonnage.
  */
-function makeImpulse(c: BaseAudioContext): AudioBuffer {
+export function makeImpulse(c: BaseAudioContext): AudioBuffer {
   const sr = c.sampleRate;
   const n = Math.max(2, Math.round(REVERB.seconds * sr));
   const pre = Math.round(REVERB.preDelay * sr);
@@ -116,43 +91,29 @@ function makeImpulse(c: BaseAudioContext): AudioBuffer {
   return buf;
 }
 
-export interface FxInfo {
-  /** reglages appliques (0 a 1) */
+export interface DriveInfo {
+  /** reglage applique (0 a 1) */
   drive: number;
-  reverb: number;
   /** branche mouillee de DIST branchee sur le bus */
   driveOn: boolean;
-  /** envoi de REVERB branche apres LEVEL */
-  reverbOn: boolean;
-  /** duree de la reponse generee (s), 0 avant le premier usage */
-  irSeconds: number;
-  /** cout de la generation et du chargement de la reponse (ms), une fois */
-  irMs: number;
-  /** envois (drive, reverb) debranches depuis la creation */
+  /** branches debranchees depuis la creation */
   unlinks: number;
 }
 
 export interface FxChain {
   setDrive(d: number): void;
-  setReverb(r: number): void;
-  /** Demontage : la reverbe perd sa queue (convolueur debranche et oublie), l'etat applique revient a 0. */
-  silence(): void;
-  info(): FxInfo;
+  info(): DriveInfo;
 }
 
 export interface FxPorts {
   /** sortie des voix */
   bus: AudioNode;
-  /** passe-bas TONE : recoit le sec et le mouille de DIST */
+  /** entree de TONE : recoit le sec et le mouille de DIST */
   tone: AudioNode;
-  /** gain LEVEL : source de l'envoi de REVERB */
-  level: AudioNode;
-  /** retour de REVERB : l'analyseur (avant le master) */
-  out: AudioNode;
 }
 
-/** Branche DIST et REVERB sur le graphe de drums.ts, aux valeurs de depart (0 a 1). */
-export function buildFx(c: BaseAudioContext, io: FxPorts, drive0: number, reverb0: number): FxChain {
+/** Branche DIST (parallele) sur le graphe de drums.ts, a sa valeur de depart (0 a 1). */
+export function buildFx(c: BaseAudioContext, io: FxPorts, drive0: number): FxChain {
   const dry = c.createGain();
   dry.gain.value = 1;
   const pre = c.createGain();
@@ -172,67 +133,22 @@ export function buildFx(c: BaseAudioContext, io: FxPorts, drive0: number, reverb
   shaper.connect(wet);
   wet.connect(io.tone);
 
-  // REVERB : rien avant le premier usage ; la reponse survit a silence()
-  let ir: AudioBuffer | null = null;
-  let conv: ConvolverNode | null = null;
-  let send: GainNode | null = null;
-  let irSeconds = 0;
-  let irMs = 0;
-
   let drive = 0;
-  let reverb = 0;
   let driveOn = false;
-  let reverbOn = false;
   let driveTimer: ReturnType<typeof setTimeout> | undefined;
-  let reverbTimer: ReturnType<typeof setTimeout> | undefined;
   let unlinks = 0;
-
-  const linkDrive = (): void => {
-    clearTimeout(driveTimer);
-    driveTimer = undefined;
-    if (driveOn) return;
-    io.bus.connect(pre);
-    driveOn = true;
-  };
-
-  /**
-   * Premier usage : la reponse, le convolueur et l'envoi ; ensuite l'envoi
-   * seul se rebranche. Apres silence() : un convolueur neuf (vide) sur la
-   * reponse gardee, sans la regenerer.
-   */
-  const linkReverb = (): void => {
-    clearTimeout(reverbTimer);
-    reverbTimer = undefined;
-    let s = send;
-    if (!s) {
-      const t0 = performance.now();
-      const first = !ir;
-      const buf = ir ?? makeImpulse(c);
-      ir = buf;
-      const cv = c.createConvolver();
-      // Energie deja ramenee a 1 : pas de normalisation propre au navigateur
-      cv.normalize = false;
-      cv.buffer = buf;
-      if (first) {
-        irMs = performance.now() - t0;
-        irSeconds = buf.duration;
-      }
-      s = c.createGain();
-      s.gain.value = 0;
-      s.connect(cv);
-      cv.connect(io.out);
-      send = s;
-      conv = cv;
-    }
-    if (reverbOn) return;
-    io.level.connect(s);
-    reverbOn = true;
-  };
 
   const setDrive = (d: number): void => {
     if (d === drive) return;
     drive = d;
-    if (d > 0) linkDrive();
+    if (d > 0) {
+      clearTimeout(driveTimer);
+      driveTimer = undefined;
+      if (!driveOn) {
+        io.bus.connect(pre);
+        driveOn = true;
+      }
+    }
     const m = DRIVE.mix * d;
     glide(dry.gain, 1 - m, c);
     glide(pre.gain, (1 + DRIVE.gain * d) / DRIVE.k, c);
@@ -248,48 +164,44 @@ export function buildFx(c: BaseAudioContext, io: FxPorts, drive0: number, reverb
     }, UNLINK_MS);
   };
 
-  const setReverb = (r: number): void => {
-    if (r === reverb) return;
-    reverb = r;
-    if (r > 0) linkReverb();
-    if (send) glide(send.gain, REVERB.send * r, c);
-    if (r > 0 || !reverbOn) return;
-    clearTimeout(reverbTimer);
-    reverbTimer = setTimeout(() => {
-      reverbTimer = undefined;
-      if (reverb > 0 || !reverbOn || !send) return;
-      io.level.disconnect(send);
-      reverbOn = false;
-      unlinks += 1;
-    }, UNLINK_MS);
-  };
-
-  const silence = (): void => {
-    clearTimeout(reverbTimer);
-    reverbTimer = undefined;
-    if (send) {
-      if (reverbOn) {
-        io.level.disconnect(send);
-        unlinks += 1;
-      }
-      send.disconnect();
-      conv?.disconnect();
-    }
-    send = null;
-    conv = null;
-    reverbOn = false;
-    // Reglage applique : aucun ; le store garde la valeur, drums.ts la
-    // reapplique au prochain geste (un convolueur neuf)
-    reverb = 0;
-  };
-
   setDrive(drive0);
-  setReverb(reverb0);
 
+  return { setDrive, info: () => ({ drive, driveOn, unlinks }) };
+}
+
+/** Insert de saturation d'une voix (meme loi que DIST) : bypass reel a 0. */
+export interface DriveStage {
+  input: AudioNode;
+  set(d: number): void;
+  value(): number;
+}
+
+export function buildDrive(c: BaseAudioContext, out: AudioNode): DriveStage {
+  const input = c.createGain();
+  input.gain.value = 1;
+  const pre = c.createGain();
+  pre.gain.value = 1 / DRIVE.k;
+  const shaper = c.createWaveShaper();
+  shaper.curve = driveCurve();
+  shaper.oversample = 'none';
+  pre.connect(shaper);
+  const insert = new Insert(c, input, out);
+  insert.setBranch(pre, shaper);
+  let drive = 0;
   return {
-    setDrive,
-    setReverb,
-    silence,
-    info: () => ({ drive, reverb, driveOn, reverbOn, irSeconds, irMs: Math.round(irMs * 100) / 100, unlinks }),
+    input,
+    set(d: number) {
+      const t = Number.isFinite(d) ? Math.min(1, Math.max(0, d)) : 0;
+      if (t === drive) return;
+      drive = t;
+      if (t === 0) {
+        insert.release();
+        return;
+      }
+      glide(pre.gain, (1 + DRIVE.gain * t) / DRIVE.k, c);
+      const m = DRIVE.mix * t;
+      insert.engage(1 - m, m);
+    },
+    value: () => drive,
   };
 }

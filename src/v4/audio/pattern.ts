@@ -42,17 +42,21 @@ export interface Pattern {
 }
 
 /**
- * SWING, DIST, REVERB (revision 2, spec 20.8) : 0 a 1, 0 = neutre (le
- * son de la revision 1). Persistes avec le motif.
+ * SWING, DIST, REVERB (revision 2, spec 20.8), DELAY et CHORUS
+ * (2026-10-01) : 0 a 1, 0 = neutre (le son de la revision 1). Les effets
+ * de tout le pattern, persistes avec le motif ; un motif stocke sans
+ * DELAY ni CHORUS les recoit a 0.
  */
 export interface Fx {
   swing: number;
   drive: number;
   reverb: number;
+  delay: number;
+  chorus: number;
 }
 
-export const NEUTRAL_FX: Readonly<Fx> = { swing: 0, drive: 0, reverb: 0 };
-const FX_KEYS: readonly (keyof Fx)[] = ['swing', 'drive', 'reverb'];
+export const NEUTRAL_FX: Readonly<Fx> = { swing: 0, drive: 0, reverb: 0, delay: 0, chorus: 0 };
+const FX_KEYS: readonly (keyof Fx)[] = ['swing', 'drive', 'reverb', 'delay', 'chorus'];
 
 /**
  * Forme stockee (et celle de window.__v4.state.pattern). fx vient de la
@@ -107,7 +111,7 @@ export const VEL_NAMES: readonly string[] = ['OFF', 'HIGH', 'MID', 'LOW'];
  * doubles croches roulent, DIST et REVERB neutres. Un motif stocke garde
  * les siens.
  */
-export const DEFAULT_FX: Readonly<Fx> = { swing: 0.3, drive: 0, reverb: 0 };
+export const DEFAULT_FX: Readonly<Fx> = { swing: 0.3, drive: 0, reverb: 0, delay: 0, chorus: 0 };
 
 export const defaultPattern = (): Pattern => ({ bpm: BPM.initial, steps: { ...DEFAULT_STEPS } });
 
@@ -168,7 +172,7 @@ export function load(): Pattern {
 const r3 = (v: number): number => Math.round(v * 1000) / 1000;
 
 export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX): StoredPattern {
-  return { v: 1, bpm: p.bpm, steps: { ...p.steps }, fx: { swing: r3(f.swing), drive: r3(f.drive), reverb: r3(f.reverb) } };
+  return { v: 1, bpm: p.bpm, steps: { ...p.steps }, fx: { swing: r3(f.swing), drive: r3(f.drive), reverb: r3(f.reverb), delay: r3(f.delay), chorus: r3(f.chorus) } };
 }
 
 /** true si l'ecriture a reussi. */
@@ -301,7 +305,7 @@ export const pattern = {
   },
   serialize: (): StoredPattern => serialize(state, fxState),
   flush,
-  /** SWING, DIST, REVERB (0 a 1) : get, set(patch), subscribe. */
+  /** SWING, DIST, REVERB, DELAY, CHORUS (0 a 1) : get, set(patch), subscribe. */
   fx: fxStore,
 };
 

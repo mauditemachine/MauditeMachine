@@ -6,9 +6,16 @@
  * DIST et REVERB, audio/fx.ts ; revision 5 : TONE et STRETCH, inserts a
  * bypass reel, audio/tone.ts et audio/stretch.ts) :
  *
- *   voix -> bus -> [sec + DIST] -> TONE -> STRETCH -> gain (LEVEL)
- *        -> compresseur leger -> analyseur -> master -> destination
- *   LEVEL -> envoi REVERB -> convolueur -> analyseur
+ *   voix -> tranche de la voix -> bus -> [sec + DIST] -> TONE -> CHORUS
+ *        -> STRETCH -> gain (LEVEL) -> compresseur leger -> analyseur
+ *        -> master -> destination
+ *   tranche (2026-10-01, effets par piste) : LEVEL de la voix -> TONE
+ *        (filtre) -> DIST -> CHORUS, puis envois REVERB et DELAY
+ *   LEVEL et chaque tranche -> envois REVERB, DELAY (audio/sends.ts)
+ *        -> convolueur, ligne de retard -> analyseur
+ *
+ * Chaque insert est en bypass reel a son neutre, chaque envoi a 0 est
+ * debranche : au depart, une voix traverse quatre gains a 1, rien d'autre.
  *
  * TONE transpose aussi : chaque coup est programme avec ses frequences
  * multipliees par 2^(demi-tons / 12), exactement 1 a TONE 0.
@@ -22,24 +29,46 @@
 
 import { FLAGS } from '../state/flags';
 import type { Inst } from '../theme';
-import { buildFx, glide, type FxChain, type FxInfo } from './fx';
+import { buildChorus, type ChorusInfo, type ChorusStage } from './chorus';
+import { buildDrive, buildFx, glide, type DriveStage, type FxChain } from './fx';
 import { pattern, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
+import { buildDelayBus, buildReverbBus, type BusInfo, type DelayBus, type Send, type SendBus, type SendInfo } from './sends';
 import { buildStretch, clampStretch, type StretchInfo, type StretchStage } from './stretch';
 import { buildTone, pitchFactor, snapTone, type ToneInfo, type ToneStage } from './tone';
+import { VOICE_FX_DEFAULT, voiceFx, voiceGain, type VoiceFx, type VoiceParam } from './voicefx';
 
 type Ctor = typeof AudioContext;
+
+/** La tranche d'une voix : son niveau, ses inserts, ses envois. */
+interface Channel {
+  input: GainNode;
+  tone: ToneStage;
+  drive: DriveStage;
+  chorus: ChorusStage;
+  out: GainNode;
+  reverb: Send;
+  delay: Send;
+}
 
 interface Graph {
   ctx: BaseAudioContext;
   bus: GainNode;
   tone: ToneStage;
+  chorus: ChorusStage;
   stretch: StretchStage;
   level: GainNode;
   comp: DynamicsCompressorNode;
   analyser: AnalyserNode;
   master: GainNode;
-  /** DIST et REVERB */
+  /** DIST du bus */
   fx: FxChain;
+  /** REVERB et DELAY partages, et les envois de tout le pattern (apres LEVEL) */
+  reverb: SendBus;
+  delay: DelayBus;
+  reverbSend: Send;
+  delaySend: Send;
+  /** tranches des voix (null : reference sans effets, rendu hors ligne) */
+  ch: Record<Inst, Channel> | null;
   /** une seconde de bruit blanc, generee une fois, partagee par SD et CH */
   noise: AudioBuffer;
   /** drive du BD : tanh(2.5 x) sur 1024 points */
@@ -102,11 +131,19 @@ interface BuildOpts {
   stretch?: number;
   drive?: number;
   reverb?: number;
+  delay?: number;
+  chorus?: number;
+  bpm?: number;
+  /** effets par voix imposes (hors ligne) ; absent : ceux du store */
+  voice?: Partial<Record<Inst, Partial<VoiceFx>>>;
   /** master a 1 quel que soit ?mute=1 (rendu hors ligne : rien ne sort des enceintes) */
   master?: number;
-  /** reference : le bus rejoint LEVEL sans aucun stage TONE ni STRETCH */
+  /** reference : le bus rejoint LEVEL sans aucun stage TONE, CHORUS ni STRETCH, les voix sans tranche */
   bare?: boolean;
 }
+
+/** Duree d'un pas (s) : le DELAY reste une croche pointee. */
+const stepOf = (bpm: number): number => 60 / bpm / 4;
 
 function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   const bus = c.createGain();
@@ -132,16 +169,44 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   analyser.connect(master);
   master.connect(c.destination);
   const f = pattern.fx.get();
+  const direct = { direct: true, linked: false, dry: 1, wet: 0, unlinks: 0 };
   let toneSt: ToneStage;
+  let chorusSt: ChorusStage;
   let stretchSt: StretchStage;
   if (o.bare) {
-    toneSt = { input: lvl, set: () => undefined, reset: () => undefined, info: () => ({ value: 0, semitones: 0, hpHz: 0, lpHz: 0, insert: { direct: true, linked: false, dry: 1, wet: 0, unlinks: 0 } }) };
-    stretchSt = { input: lvl, set: () => undefined, reset: () => undefined, info: () => ({ value: 0, ratio: 1, worklet: false, created: 0, module: null, insert: { direct: true, linked: false, dry: 1, wet: 0, unlinks: 0 } }), ready: async () => false, stats: async () => null };
+    toneSt = { input: lvl, set: () => undefined, reset: () => undefined, info: () => ({ value: 0, semitones: 0, hpHz: 0, lpHz: 0, insert: direct }) };
+    chorusSt = { input: lvl, set: () => undefined, value: () => 0, reset: () => undefined, info: () => ({ value: 0, live: false, built: 0, insert: direct }) };
+    stretchSt = { input: lvl, set: () => undefined, reset: () => undefined, info: () => ({ value: 0, ratio: 1, worklet: false, created: 0, module: null, insert: direct }), ready: async () => false, stats: async () => null };
   } else {
     stretchSt = buildStretch(c, lvl, o.stretch ?? stretch);
-    toneSt = buildTone(c, stretchSt.input, o.tone ?? tone);
+    chorusSt = buildChorus(c, stretchSt.input);
+    toneSt = buildTone(c, chorusSt.input, o.tone ?? tone);
   }
-  const fx = buildFx(c, { bus, tone: toneSt.input, level: lvl, out: analyser }, o.drive ?? f.drive, o.reverb ?? f.reverb);
+  const fx = buildFx(c, { bus, tone: toneSt.input }, o.drive ?? f.drive);
+
+  // REVERB et DELAY partages ; les envois de tout le pattern partent de LEVEL
+  const reverb = buildReverbBus(c, analyser);
+  const delay = buildDelayBus(c, analyser, stepOf(o.bpm ?? pattern.get().bpm));
+  const reverbSend = reverb.attach(lvl);
+  const delaySend = delay.attach(lvl);
+
+  // Tranches des voix : LEVEL -> TONE -> DIST -> CHORUS -> bus, et leurs envois
+  let ch: Record<Inst, Channel> | null = null;
+  if (!o.bare) {
+    const out = {} as Record<Inst, Channel>;
+    for (const inst of INSTRUMENTS) {
+      const chOut = c.createGain();
+      chOut.connect(bus);
+      const chChorus = buildChorus(c, chOut);
+      const chDrive = buildDrive(c, chChorus.input);
+      const chTone = buildTone(c, chDrive.input, 0);
+      const chIn = c.createGain();
+      chIn.gain.value = 1;
+      chIn.connect(chTone.input);
+      out[inst] = { input: chIn, tone: chTone, drive: chDrive, chorus: chChorus, out: chOut, reverb: reverb.attach(chOut), delay: delay.attach(chOut) };
+    }
+    ch = out;
+  }
 
   const noise = c.createBuffer(1, Math.round(c.sampleRate), c.sampleRate);
   const d = noise.getChannelData(0);
@@ -150,8 +215,35 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   const curve = new Float32Array(1024);
   for (let i = 0; i < curve.length; i += 1) curve[i] = Math.tanh(2.5 * ((i / (curve.length - 1)) * 2 - 1));
 
-  return { ctx: c, bus, tone: toneSt, stretch: stretchSt, level: lvl, comp, analyser, master, fx, noise, curve };
+  const g: Graph = { ctx: c, bus, tone: toneSt, chorus: chorusSt, stretch: stretchSt, level: lvl, comp, analyser, master, fx, reverb, delay, reverbSend, delaySend, ch, noise, curve };
+  if (!o.bare) {
+    reverbSend.set(o.reverb ?? f.reverb);
+    delaySend.set(o.delay ?? f.delay);
+    chorusSt.set(o.chorus ?? f.chorus);
+    for (const inst of INSTRUMENTS) applyVoice(g, inst, o.voice ? { ...VOICE_FX_DEFAULT, ...(o.voice[inst] ?? {}) } : voiceFx.of(inst));
+  }
+  return g;
 }
+
+/** Les reglages d'une voix sur sa tranche (chaque setter ne fait rien si rien ne change). */
+function applyVoice(g: Graph, inst: Inst, v: Readonly<VoiceFx>): void {
+  const t = g.ch?.[inst];
+  if (!t) return;
+  const gain = voiceGain(v.level);
+  if (t.input.gain.value !== gain) glide(t.input.gain, gain, g.ctx);
+  t.tone.set(v.tone);
+  t.drive.set(v.dist);
+  t.chorus.set(v.chorus);
+  t.reverb.set(v.reverb);
+  t.delay.set(v.delay);
+}
+
+/** Entree d'une voix : sa tranche, ou le bus (reference hors ligne). */
+const voiceIn = (g: Graph, inst: Inst): AudioNode => g.ch?.[inst].input ?? g.bus;
+
+/** Facteur de hauteur d'une voix : TONE du pattern et TONE de la voix (exactement 1 a 0 et 0). */
+const voicePitch = (inst: Inst, globalTone: number, voiceTone?: number): number =>
+  pitchFactor(globalTone) * pitchFactor(voiceTone ?? voiceFx.of(inst).tone);
 
 /** ?mute=1 vu une fois = master a 0 pour toute la page, meme sur un contexte cree avant. */
 function enforceMute(g: Graph): void {
@@ -172,9 +264,10 @@ function enforceMute(g: Graph): void {
 export function ensure(): AudioContext | undefined {
   if (ctx && graph) {
     enforceMute(graph);
-    // Apres quiet() (demontage) : la reverbe du store revient, convolueur neuf ;
-    // STRETCH aussi (son worklet s'etait arrete)
-    graph.fx.setReverb(pattern.fx.get().reverb);
+    // Apres quiet() (demontage) : REVERB et DELAY reviennent sur des unites
+    // neuves (envois gardes) ; STRETCH aussi (son worklet s'etait arrete)
+    graph.reverb.revive();
+    graph.delay.revive();
     graph.stretch.set(stretch);
     return ctx;
   }
@@ -213,7 +306,8 @@ export function resume(): void {
  * parties gardent leur fin (0.47 s au plus), comme en revision 1.
  */
 export function quiet(): void {
-  graph?.fx.silence();
+  graph?.reverb.silence();
+  graph?.delay.silence();
   // Le tampon de 2 s ne rejouera pas l'ancienne visite : worklet arrete
   graph?.stretch.reset();
 }
@@ -433,16 +527,16 @@ export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], 
   enforceMute(g);
   const now = g.ctx.currentTime;
   const t = when === undefined || when < now ? now : when;
-  // Velocite (2026-10-01) : un gain de plus entre la voix et le bus, sous 1
-  let dest: AudioNode = g.bus;
+  // Velocite (2026-10-01) : un gain de plus entre la voix et sa tranche, sous 1
+  let dest: AudioNode = voiceIn(g, inst);
   let vg: GainNode | null = null;
   if (vel < 1) {
     vg = g.ctx.createGain();
     vg.gain.value = Math.max(0, vel);
-    vg.connect(g.bus);
+    vg.connect(dest);
     dest = vg;
   }
-  const v = voice(g, inst, t, open, dest, pitchFactor(tone));
+  const v = voice(g, inst, t, open, dest, voicePitch(inst, tone));
   // Le gain part avec la voix (meme liste de noeuds a debrancher)
   if (vg) v.nodes.push(vg);
   out?.push(v);
@@ -485,9 +579,22 @@ pattern.fx.subscribe(() => {
   if (graph) {
     const f = pattern.fx.get();
     graph.fx.setDrive(f.drive);
-    graph.fx.setReverb(f.reverb);
+    graph.reverbSend.set(f.reverb);
+    graph.delaySend.set(f.delay);
+    graph.chorus.set(f.chorus);
   }
   emitMix();
+});
+
+/* Effets par piste : chaque changement du store rejoint les tranches. */
+voiceFx.subscribe(() => {
+  if (graph) for (const inst of INSTRUMENTS) applyVoice(graph, inst, voiceFx.of(inst));
+  emitMix();
+});
+
+/* Tempo : le DELAY reste une croche pointee. */
+pattern.subscribe(() => {
+  graph?.delay.setStep(stepOf(pattern.get().bpm));
 });
 
 /**
@@ -535,6 +642,21 @@ export function setReverb(v: number): void {
   pattern.fx.set({ reverb: v });
 }
 
+/** DELAY : 0 a 1 (envoi vers le delay en croche pointee, 0 = rien d'envoye). */
+export function setDelay(v: number): void {
+  pattern.fx.set({ delay: v });
+}
+
+/** CHORUS : 0 a 1 (insert sur le bus, 0 = bypass reel). */
+export function setChorus(v: number): void {
+  pattern.fx.set({ chorus: v });
+}
+
+/** Un effet d'une voix (effets par piste). */
+export function setVoiceFx(inst: Inst, p: VoiceParam, v: number): void {
+  voiceFx.set(inst, p, v);
+}
+
 /** Les potards du bus, lus par la scene (angles) et les commandes (glisser). */
 export const mix = {
   get tone(): number {
@@ -554,6 +676,12 @@ export const mix = {
   },
   get reverb(): number {
     return pattern.fx.get().reverb;
+  },
+  get delay(): number {
+    return pattern.fx.get().delay;
+  },
+  get chorus(): number {
+    return pattern.fx.get().chorus;
   },
   subscribe(fn: () => void): () => void {
     mixListeners.add(fn);
@@ -578,7 +706,14 @@ export interface OfflineOpts {
   sines?: number[];
   tone?: number;
   stretch?: number;
-  /** reference : sans aucun stage TONE ni STRETCH */
+  /** effets de tout le pattern (0 par defaut hors ligne) */
+  drive?: number;
+  reverb?: number;
+  delay?: number;
+  chorus?: number;
+  /** effets par voix (neutres par defaut hors ligne) */
+  voice?: Partial<Record<Inst, Partial<VoiceFx>>>;
+  /** reference : sans aucun stage TONE, CHORUS ni STRETCH, voix sans tranche */
   bare?: boolean;
   /** reglages pendant le rendu : [instant (s), valeur], 50 ms d'ecart au moins */
   toneAt?: [number, number][];
@@ -615,7 +750,19 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
   // rendus identiques doivent donner les memes echantillons)
   const voices: Voice[] = [];
   try {
-    g = build(oc, { tone: tone0, stretch: 0, drive: 0, reverb: 0, master: 1, bare: o.bare });
+    g = build(oc, {
+      tone: tone0,
+      stretch: 0,
+      drive: o.drive ?? 0,
+      reverb: o.reverb ?? 0,
+      delay: o.delay ?? 0,
+      chorus: o.chorus ?? 0,
+      bpm: o.bpm,
+      voice: o.voice ?? {},
+      master: 1,
+      bare: o.bare,
+    });
+    const vt = (inst: Inst): number => snapTone(o.voice?.[inst]?.tone ?? 0);
     if (o.sines) {
       for (const hz of o.sines) {
         const osc = oc.createOscillator();
@@ -627,7 +774,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
         osc.start(0);
       }
     } else if (o.single) {
-      voices.push(voice(g, o.single, 0.05, false, g.bus, pitchFactor(tone0)));
+      voices.push(voice(g, o.single, 0.05, false, voiceIn(g, o.single), voicePitch(o.single, tone0, vt(o.single))));
     } else {
       const steps = o.steps ?? pattern.get().steps;
       const step = 60 / (o.bpm ?? pattern.get().bpm) / 4;
@@ -635,14 +782,14 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
         for (const inst of INSTRUMENTS) {
           const v = velocity(steps, inst, n % STEP_COUNT);
           if (v === 0) continue;
-          let dest: AudioNode = g.bus;
+          let dest: AudioNode = voiceIn(g, inst);
           if (VEL_GAIN[v] < 1) {
             const vg = oc.createGain();
             vg.gain.value = VEL_GAIN[v];
-            vg.connect(g.bus);
+            vg.connect(dest);
             dest = vg;
           }
-          voices.push(voice(g, inst, t, false, dest, pitchFactor(tone0)));
+          voices.push(voice(g, inst, t, false, dest, voicePitch(inst, tone0, vt(inst))));
         }
       }
     }
@@ -698,12 +845,16 @@ export interface AudioDebug {
   readonly tone: number;
   readonly stretch: number;
   readonly level: number;
-  /** SWING, DIST, REVERB (0 a 1), les valeurs du store du motif */
+  /** SWING, DIST, REVERB, DELAY, CHORUS (0 a 1), les valeurs du store du motif */
   readonly swing: number;
   readonly drive: number;
   readonly reverb: number;
-  /** DIST et REVERB tels qu'appliques au graphe (null avant le premier geste) */
-  readonly fx: FxInfo | null;
+  readonly delay: number;
+  readonly chorus: number;
+  /** DIST, REVERB, DELAY, CHORUS tels qu'appliques au graphe (null avant le premier geste) */
+  readonly fx: FxDebug | null;
+  /** effets par voix appliques aux tranches (null avant le premier geste) */
+  readonly voices: Record<Inst, VoiceDebug> | null;
   /** TONE et STRETCH tels qu'appliques au graphe (insert direct ou engage, worklet) */
   readonly toneInfo: ToneInfo | null;
   readonly stretchInfo: StretchInfo | null;
@@ -725,6 +876,30 @@ export interface AudioDebug {
   setSwing(v: number): void;
   setDrive(v: number): void;
   setReverb(v: number): void;
+  setDelay(v: number): void;
+  setChorus(v: number): void;
+  setVoiceFx(inst: Inst, p: VoiceParam, v: number): void;
+}
+
+/** DIST, envois et unites REVERB et DELAY, CHORUS du bus (debug). */
+export interface FxDebug {
+  drive: number;
+  driveOn: boolean;
+  reverb: SendInfo;
+  delay: SendInfo;
+  reverbBus: BusInfo;
+  delayBus: BusInfo;
+  chorus: ChorusInfo;
+}
+
+/** La tranche d'une voix (debug). */
+export interface VoiceDebug {
+  gain: number;
+  tone: ToneInfo;
+  drive: number;
+  chorus: ChorusInfo;
+  reverb: SendInfo;
+  delay: SendInfo;
 }
 
 export const audioDebug: AudioDebug = {
@@ -758,8 +933,35 @@ export const audioDebug: AudioDebug = {
   get reverb() {
     return mix.reverb;
   },
+  get delay() {
+    return mix.delay;
+  },
+  get chorus() {
+    return mix.chorus;
+  },
   get fx() {
-    return graph ? graph.fx.info() : null;
+    if (!graph) return null;
+    const d = graph.fx.info();
+    return {
+      drive: d.drive,
+      driveOn: d.driveOn,
+      reverb: graph.reverbSend.info(),
+      delay: graph.delaySend.info(),
+      reverbBus: graph.reverb.info(),
+      delayBus: graph.delay.info(),
+      chorus: graph.chorus.info(),
+    };
+  },
+  get voices() {
+    const g = graph;
+    if (!g?.ch) return null;
+    const ch = g.ch;
+    return Object.fromEntries(
+      INSTRUMENTS.map((i) => [
+        i,
+        { gain: ch[i].input.gain.value, tone: ch[i].tone.info(), drive: ch[i].drive.value(), chorus: ch[i].chorus.info(), reverb: ch[i].reverb.info(), delay: ch[i].delay.info() },
+      ])
+    ) as Record<Inst, VoiceDebug>;
   },
   get toneInfo() {
     return graph ? graph.tone.info() : null;
@@ -797,4 +999,7 @@ export const audioDebug: AudioDebug = {
   setSwing,
   setDrive,
   setReverb,
+  setDelay,
+  setChorus,
+  setVoiceFx,
 };

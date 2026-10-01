@@ -49,6 +49,7 @@ import { clock } from '../audio/clock';
 import { sc } from '../audio/soundcloud';
 import { context, mix } from '../audio/drums';
 import { BPM, INSTRUMENTS, pattern } from '../audio/pattern';
+import { voiceFx } from '../audio/voicefx';
 import { motion } from '../state/motion';
 import { explode as explodeState } from '../state/explode';
 import { intro } from '../state/intro';
@@ -1450,14 +1451,23 @@ export class Stage {
   }
 
   /** TONE, STRETCH, LEVEL, SWING, DIST, REVERB suivent le bus (glisser, molette, clavier, tests). */
+  /**
+   * Les potards suivent leur cible : la voix du pad selectionne pour TONE,
+   * LEVEL, DIST, REVERB, DELAY et CHORUS (effets par piste), tout le
+   * pattern sinon ; ils tournent aussi quand la selection change.
+   */
   private syncMix = (): void => {
+    const inst = pattern.get().instrument;
+    const v = inst ? voiceFx.of(inst) : null;
     // TONE va de -1 a 1 : sa course est centree (repere a midi a 0)
-    let changed = this.encoders.setValue('tone', potCourse('tone', mix.tone));
+    let changed = this.encoders.setValue('tone', potCourse('tone', v ? v.tone : mix.tone));
     if (this.encoders.setValue('stretch', mix.stretch)) changed = true;
-    if (this.encoders.setValue('level', mix.level)) changed = true;
+    if (this.encoders.setValue('level', v ? v.level : mix.level)) changed = true;
     if (this.encoders.setValue('swing', mix.swing)) changed = true;
-    if (this.encoders.setValue('dist', mix.drive)) changed = true;
-    if (this.encoders.setValue('reverb', mix.reverb)) changed = true;
+    if (this.encoders.setValue('dist', v ? v.dist : mix.drive)) changed = true;
+    if (this.encoders.setValue('reverb', v ? v.reverb : mix.reverb)) changed = true;
+    if (this.encoders.setValue('delay', v ? v.delay : mix.delay)) changed = true;
+    if (this.encoders.setValue('chorus', v ? v.chorus : mix.chorus)) changed = true;
     if (changed) this.encodersMoved();
   };
 
@@ -1472,6 +1482,8 @@ export class Stage {
     if (this.syncVoiceKeys()) lit = true;
     if (this.encoders.setValue('tempo', (p.bpm - BPM.min) / (BPM.max - BPM.min))) this.encodersMoved();
     else if (lit) this.repaint();
+    // Selection changee : les potards d'effets montrent la nouvelle cible
+    this.syncMix();
   };
 
   /**

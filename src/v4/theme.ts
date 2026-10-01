@@ -356,25 +356,31 @@ export const OLED_DRAW = { font: `400 40px ${FONT_MONO}`, pad: 24, baselines: [6
  */
 export const OLED_BAR = { h: 22, lift: 3, gap: 14, stroke: 2, inset: 4, bandY0: 160, bandY1: 236 } as const;
 
-export type EncId = 'tempo' | 'tone' | 'stretch' | 'level' | 'swing' | 'dist' | 'reverb';
+export type EncId = 'tempo' | 'tone' | 'stretch' | 'level' | 'swing' | 'dist' | 'reverb' | 'delay' | 'chorus';
 
 /**
- * Sept encodeurs noirs a repere blanc, sous l'ecran (spec 20.3.7 ; STRETCH
- * a cote de TONE en revision 5) : corps legerement conique (0.27 a la
- * base, 0.256 en haut, 0.42 de haut), repere bone du centre vers
- * l'arriere, collerette a la base. Pas de 0.74 : les colonnes des touches
- * trig, la rangee tient entre le bord gauche et les pads.
+ * Les potards qui reglent une voix quand un pad est selectionne (effets
+ * par piste, 2026-10-01) ; TEMPO, STRETCH et SWING restent ceux du pattern.
+ */
+export const VOICE_ENCODERS: readonly EncId[] = ['tone', 'level', 'dist', 'reverb', 'delay', 'chorus'];
+
+/**
+ * Neuf encodeurs noirs a repere blanc, sous l'ecran (spec 20.3.7 ; STRETCH
+ * a cote de TONE en revision 5, DELAY et CHORUS au bout le 2026-10-01) :
+ * corps legerement conique (0.24 a la base, 0.228 en haut, 0.42 de haut),
+ * repere bone du centre vers l'arriere, collerette a la base. Pas de
+ * 0.64 : la rangee tient entre le bord gauche et les pads.
  */
 export const ENCODER = {
-  r: 0.27,
-  rTop: 0.256,
+  r: 0.24,
+  rTop: 0.228,
   h: 0.42,
   z: -0.6,
-  x0: -5.55,
-  pitch: 0.74,
+  x0: -5.6,
+  pitch: 0.64,
   labelZ: -0.1,
-  collar: { r: 0.32, h: 0.025 },
-  mark: { w: 0.036, h: 0.012, d: 0.18 },
+  collar: { r: 0.285, h: 0.025 },
+  mark: { w: 0.032, h: 0.012, d: 0.16 },
   segments: { desktop: 32, mobile: 20 },
 } as const;
 export const encX = (i: number): number => ENCODER.x0 + ENCODER.pitch * i;
@@ -388,22 +394,25 @@ export const ENCODERS: readonly { id: EncId; label: string; aria: string }[] = [
   { id: 'swing', label: 'SWING', aria: 'Swing' },
   { id: 'dist', label: 'DIST', aria: 'Distortion' },
   { id: 'reverb', label: 'REVERB', aria: 'Reverb' },
+  { id: 'delay', label: 'DELAY', aria: 'Delay' },
+  { id: 'chorus', label: 'CHORUS', aria: 'Chorus' },
 ];
 
 /**
- * RUN/STOP, CLEAR, MUTE et SOLO (2026-10-01) : boutons carres sous les
- * quatre premiers encodeurs. MUTE coupe la voix selectionnee, SOLO ne
- * laisse jouer qu'elle (state/voices.ts).
+ * RUN/STOP, CLEAR, MUTE et SOLO (2026-10-01) : boutons carres sur les
+ * colonnes des quatre premieres touches trig (pas de 0.74 depuis x -5.55 ;
+ * les encodeurs, plus serres, ne les portent plus). MUTE coupe la voix
+ * selectionnee, SOLO ne laisse jouer qu'elle (state/voices.ts).
  */
 export const TRANSPORT = {
   size: 0.62,
   h: 0.1,
   z: 0.48,
   labelZ: 0.98,
-  run: { x: ENCODER.x0 },
-  clear: { x: ENCODER.x0 + ENCODER.pitch },
-  mute: { x: ENCODER.x0 + 2 * ENCODER.pitch },
-  solo: { x: ENCODER.x0 + 3 * ENCODER.pitch },
+  run: { x: -5.55 },
+  clear: { x: -5.55 + 0.74 },
+  mute: { x: -5.55 + 2 * 0.74 },
+  solo: { x: -5.55 + 3 * 0.74 },
 } as const;
 
 /* ---------- panneau : moitie droite, les 12 pads (spec 20.3.5) ---------- */
@@ -639,7 +648,7 @@ export const POT_UI = {
   wheelStep: 0.02,
   toneStep: 0.05,
   readoutMs: 1200,
-  reset: { tone: 0, stretch: 0, level: 0.8, swing: 0, dist: 0, reverb: 0 },
+  reset: { tone: 0, stretch: 0, level: 0.8, swing: 0, dist: 0, reverb: 0, delay: 0, chorus: 0 },
 } as const;
 
 /** Bornes d'un encodeur hors TEMPO : TONE -1 a 1, les autres 0 a 1. */
@@ -796,7 +805,7 @@ export const SILK_TEXTS: readonly SilkText[] = [
   { text: 'MM-808', x: -1.95, z: -3.5, cap: 0.13, align: 'left' },
   { text: 'V.4 / 2026', x: 4.95, z: -3.5, cap: 0.07, align: 'right', alpha: 0.45 },
   { text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - 0.72, cap: 0.06, align: 'left' },
-  ...ENCODERS.map((e, i) => ({ text: e.label, x: encX(i), z: ENCODER.labelZ, cap: 0.085, maxW: 0.7, group: 'enc' })),
+  ...ENCODERS.map((e, i) => ({ text: e.label, x: encX(i), z: ENCODER.labelZ, cap: 0.085, maxW: 0.6, group: 'enc' })),
   { text: 'RUN/STOP', x: TRANSPORT.run.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
   { text: 'CLEAR', x: TRANSPORT.clear.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
   { text: 'MUTE', x: TRANSPORT.mute.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.7, group: 'tr' },
