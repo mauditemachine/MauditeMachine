@@ -25,21 +25,6 @@ export interface SectionProps {
 
 export const tabOf = (focusable: boolean): number => (focusable ? 0 : -1);
 
-/**
- * Rangee qui defile de cote (onglets de la feuille, pages du Dock) : le
- * bouton qui prend le focus au clavier y est ramene en entier (8 px de
- * marge), son contour jaune reste visible ; la page ne bouge jamais.
- */
-export function keepInRow(e: React.FocusEvent<HTMLElement>): void {
-  const b = e.currentTarget;
-  const row = b.parentElement;
-  if (!row) return;
-  const rr = row.getBoundingClientRect();
-  const br = b.getBoundingClientRect();
-  const dx = br.left < rr.left ? br.left - rr.left - 8 : br.right > rr.right ? br.right - rr.right + 8 : 0;
-  if (dx !== 0) row.scrollLeft += dx;
-}
-
 export const SectionFrame: React.FC<{ id: SectionId; active: boolean; lang?: string; children: React.ReactNode }> = ({ id, active, lang, children }) => (
   <section
     className="v4-sec"

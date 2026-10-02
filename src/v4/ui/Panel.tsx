@@ -6,8 +6,9 @@
  *   plus, defilement interne ; entree 220 ms apres le depart de la trace,
  *   sortie en fondu 150 ms ;
  * - mobile : feuille du bas (45 % de la hauteur) qui monte en 280 ms, avec
- *   une poignee, les onglets des sept pages (les pads TRACKS a SONAA) et le
- *   bouton de fermeture ;
+ *   une poignee et le bouton de fermeture ; la section ouverte seule
+ *   (2026-10-02, Mika : plus de rangee d'onglets des autres pages, le menu
+ *   hamburger les a deja) ;
  *   glisser vers le bas (80 px ou geste vif) la ferme. La machine au-dessus
  *   reste visible et jouable.
  * Les huit sections (les cinq pages, GOODIES, MERCH et STUDIO, ouvertes par leurs
@@ -19,12 +20,10 @@
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { closeSection, openSection } from '../actions';
-import { motion } from '../state/motion';
+import { closeSection } from '../actions';
 import { section } from '../state/section';
-import { PAGES, SHEET, type SectionId } from '../theme';
+import { SHEET, type SectionId } from '../theme';
 import { Contact } from './sections/Contact';
-import { keepInRow } from './sections/common';
 import { Goodies } from './sections/Goodies';
 import { Merch } from './sections/Merch';
 import { Mixtapes } from './sections/Mixtapes';
@@ -63,7 +62,6 @@ export const Panel: React.FC<Props> = ({ mobile, panelRef }) => {
   const active = s ?? shown;
 
   const headRef = useRef<HTMLDivElement>(null);
-  const tabsRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
@@ -96,19 +94,6 @@ export const Panel: React.FC<Props> = ({ mobile, panelRef }) => {
   useEffect(() => {
     if (s !== null && bodyRef.current) bodyRef.current.scrollTop = 0;
   }, [s]);
-
-  /* ---------- onglets (mobile) : l'onglet actif toujours visible ---------- */
-  useEffect(() => {
-    const strip = tabsRef.current;
-    if (!mobile || !strip) return;
-    const b = strip.querySelector<HTMLElement>('[aria-pressed="true"]');
-    if (b) {
-      const sr = strip.getBoundingClientRect();
-      const br = b.getBoundingClientRect();
-      const dx = br.left < sr.left ? br.left - sr.left - 8 : br.right > sr.right ? br.right - sr.right + 8 : 0;
-      if (dx !== 0) strip.scrollTo({ left: strip.scrollLeft + dx, behavior: motion.reduced() ? 'auto' : 'smooth' });
-    }
-  }, [s, mobile]);
 
   /* ---------- une ouverture efface la fin d'un glisser de fermeture ---------- */
   useEffect(() => {
@@ -194,24 +179,6 @@ export const Panel: React.FC<Props> = ({ mobile, panelRef }) => {
       >
         <span className="v4-sheet-handle" aria-hidden="true" />
         <div className="v4-panel-bar">
-          {/* Pas de fondu aux bords (degrade sur du texte, brief) : l'onglet coupe suffit.
-              tabIndex -1 : Chrome rend focusable un conteneur qui defile sans
-              enfant focusable (feuille fermee) ; ses onglets portent le focus */}
-          <div ref={tabsRef} className="v4-tabs" role="group" aria-label="Choose a section" tabIndex={-1}>
-            {PAGES.map((k) => (
-              <button
-                key={k.id}
-                type="button"
-                className="v4-tab"
-                aria-pressed={s === k.id}
-                tabIndex={tabs}
-                onFocus={keepInRow}
-                onClick={() => openSection(k.id)}
-              >
-                {k.label}
-              </button>
-            ))}
-          </div>
           <button
             ref={closeRef}
             type="button"

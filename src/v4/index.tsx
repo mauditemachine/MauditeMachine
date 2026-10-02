@@ -54,6 +54,7 @@ import { section } from './state/section';
 import { view } from './state/view';
 import { BACKDROP, COARSE_QUERY, COPY, MOBILE_QUERY, PRESSKIT_ROUTE, applyAppearance } from './theme';
 import { MobileHeader } from './ui/MobileHeader';
+import { PcbClose } from './ui/PcbClose';
 import { Dock } from './ui/Dock';
 import { Header } from './ui/Header';
 import { HitLayer, Twins } from './ui/Hotspots';
@@ -386,6 +387,8 @@ const V4Shell: React.FC = () => {
           <Lcd />
           {/* Le Dock n'existe que sur la mise en page mobile : pas de rendu React par pas sur desktop */}
           {mobile && <Dock getStage={getStage} />}
+          {/* Machine ouverte au telephone : CLOSE a portee de pouce, sur l'avant de la carte */}
+          {mobile && <PcbClose getStage={getStage} />}
           {/* L'en-tete : fin sur desktop ; logo et hamburger sur mobile (2026-10-01) */}
           {mobile ? <MobileHeader getStage={getStage} /> : <Header getStage={getStage} />}
           <Trace stage={stage} panelRef={panelRef} mobile={mobile} />

@@ -831,23 +831,30 @@ export interface EncPlace {
 /**
  * Portrait : MASTER et TEMPO cote a cote a droite de l'ecran ; GLOBAL sous
  * le transport, sur les colonnes 2 a 7 des pas ; VOICE sous les pads, a
- * cheval sur les colonnes (sept potards pour huit colonnes).
+ * cheval sur les colonnes (sept potards pour huit colonnes). Plus gros au
+ * doigt (2026-10-02, Mika) : MASTER et TEMPO x1.35, GLOBAL x1.25, VOICE
+ * x1.15 (0.85 sur desktop), environ 29, 27 et 26 px de diametre a 390 px
+ * de large ; les collerettes gardent un jour entre elles (pas de 0.86) et
+ * les libelles suivent leur bord.
  */
-const ENC_PORTRAIT = { sideX: [1.25, 2.75], sideZ: -5.35, globalZ: -2.2, voiceZ: 2.3 } as const;
+const ENC_PORTRAIT = { sideX: [1.25, 2.75], sideZ: -5.35, globalZ: -2.2, voiceZ: 2.2, scale: { side: 1.35, global: 1.25, voice: 1.15 } } as const;
 
 function encPlaces(): Record<EncId, EncPlace> {
   const out = {} as Record<EncId, EncPlace>;
   if (PORTRAIT) {
     const P = ENC_PORTRAIT;
-    out.level = { x: P.sideX[0], z: P.sideZ, labelZ: P.sideZ + ENC_SIDE.labelDz, s: 1 };
-    out.tempo = { x: P.sideX[1], z: P.sideZ, labelZ: P.sideZ + ENC_SIDE.labelDz, s: 1 };
+    // Le libelle suit le bord de la collerette a l'echelle s
+    const below = (dz: number, sc: number): number => dz + ENCODER.collar.r * (sc - 1);
+    const ss = P.scale.side;
+    out.level = { x: P.sideX[0], z: P.sideZ, labelZ: P.sideZ + below(ENC_SIDE.labelDz, ss), s: ss };
+    out.tempo = { x: P.sideX[1], z: P.sideZ, labelZ: P.sideZ + below(ENC_SIDE.labelDz, ss), s: ss };
+    const gs = P.scale.global;
     ENC_GLOBAL.forEach((id, k) => {
-      out[id] = { x: keyX(k + 1), z: P.globalZ, labelZ: P.globalZ + ENC_ROW_Z.labelDz, s: 1 };
+      out[id] = { x: keyX(k + 1), z: P.globalZ, labelZ: P.globalZ + below(ENC_ROW_Z.labelDz, gs), s: gs };
     });
-    const vs = ENCODER.voiceScale;
-    const vLabel = P.voiceZ + ENC_ROW_Z.labelDz - ENCODER.collar.r * (1 - vs);
+    const vs = P.scale.voice;
     VOICE_ENCODERS.forEach((id, k) => {
-      out[id] = { x: KEYS.x0 + KEYS.pitch * (k + 0.5), z: P.voiceZ, labelZ: vLabel, s: vs };
+      out[id] = { x: KEYS.x0 + KEYS.pitch * (k + 0.5), z: P.voiceZ, labelZ: P.voiceZ + below(ENC_ROW_Z.labelDz, vs), s: vs };
     });
     return out;
   }

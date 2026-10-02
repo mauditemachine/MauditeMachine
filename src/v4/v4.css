@@ -734,6 +734,50 @@ html:has(body.v4-active) {
   display: none;
 }
 
+/* CLOSE sur la carte, machine ouverte au telephone (ui/PcbClose.tsx) :
+   l'orange plein d'OPEN, un pad en caoutchouc, a portee de pouce */
+.v4-root .v4-pcb-close {
+  position: absolute;
+  left: 50%;
+  bottom: calc(52px + env(safe-area-inset-bottom, 0px) + var(--ios-bar, 0px));
+  z-index: 21;
+  min-width: 132px;
+  height: 52px;
+  padding: 0 22px;
+  border-radius: 12px;
+  background: var(--orange);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-indent: 0.16em;
+  box-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.25),
+    0 10px 24px rgba(0, 0, 0, 0.35);
+  transform: translateX(-50%);
+  animation: v4-pcb-close-in 240ms ease-out both;
+}
+
+.v4-root .v4-pcb-close:active {
+  transform: translateX(-50%) scale(0.95);
+}
+
+.v4-root .v4-pcb-close:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 3px;
+}
+
+@keyframes v4-pcb-close-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-pcb-close {
+  animation: none;
+}
+
 .v4-root[data-v4-motion='reduced'] .v4-dock,
 .v4-root[data-v4-motion='reduced'] .v4-dock[data-open='0'],
 .v4-root[data-v4-motion='reduced'] .v4-dock-tab {
@@ -1083,10 +1127,6 @@ html:has(body.v4-active) {
 }
 
 .v4-sheet-handle,
-.v4-tabs {
-  display: none;
-}
-
 .v4-root .v4-panel-close {
   display: flex;
   align-items: center;
@@ -1160,29 +1200,13 @@ html:has(body.v4-active) {
     background: rgba(246, 241, 231, 0.4);
   }
 
+  /* La croix seule, a droite (2026-10-02 : plus d'onglets, le titre de la
+     section ouverte est en tete de son contenu) */
   .v4-panel-bar {
     display: flex;
     align-items: center;
-    gap: 4px;
+    justify-content: flex-end;
   }
-
-  .v4-tabs {
-    display: flex;
-    flex: 1 1 auto;
-    min-width: 0;
-    gap: 4px;
-    overflow-x: auto;
-    scrollbar-width: none;
-    touch-action: pan-x;
-  }
-
-  .v4-tabs::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* Pas de fondu aux bords : ce serait un degrade sur du texte (brief).
-     L'onglet coupe au bord et le defilement vers l'onglet actif disent
-     qu'il y en a d'autres. */
 
   .v4-panel-body {
     /* Safari 26 iPhone : le bas de la feuille passe aussi au-dessus de sa barre flottante */
@@ -1191,27 +1215,6 @@ html:has(body.v4-active) {
   }
 }
 
-.v4-root .v4-tab {
-  flex: 0 0 auto;
-  height: 44px;
-  padding: 0 12px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  color: var(--orange);
-}
-
-.v4-root .v4-tab[aria-pressed='true'] {
-  color: var(--yellow);
-  background: var(--graphite-hi);
-}
-
-/* La rangee d'onglets defile (overflow auto) et coupe tout ce qui depasse
-   de ses 44 px : le contour de focus passe a l'interieur de l'onglet */
-.v4-root .v4-tab:focus-visible {
-  outline-offset: -2px;
-}
 
 /* La feuille ouverte recouvre le Dock : on le retire aussi du clavier */
 .v4-root:not([data-v4-section='']) .v4-dock {
