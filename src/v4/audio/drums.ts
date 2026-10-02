@@ -145,6 +145,22 @@ interface BuildOpts {
 /** Duree d'un pas (s) : le DELAY reste une croche pointee. */
 const stepOf = (bpm: number): number => 60 / bpm / 4;
 
+/** Ecreteur doux de sortie : entrees jusqu'a +/-range, identite sous knee, arrondi tanh jusqu'a 1. */
+const CLIP = { range: 4, knee: 0.9, points: 8193 } as const;
+
+function softClipCurve(): Float32Array {
+  const n = CLIP.points;
+  const k = CLIP.knee;
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i += 1) {
+    const x = CLIP.range * ((i / (n - 1)) * 2 - 1);
+    const a = Math.abs(x);
+    const y = a < k ? a : k + (1 - k) * Math.tanh((a - k) / (1 - k));
+    out[i] = Math.sign(x) * y;
+  }
+  return out;
+}
+
 function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   const bus = c.createGain();
   bus.gain.value = 1;
@@ -159,6 +175,19 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   const analyser = c.createAnalyser();
   analyser.fftSize = 1024;
   analyser.smoothingTimeConstant = 0;
+  // Garde-fou (2026-10-02) : les effets plus marques (REVERB, DELAY, DIST)
+  // et leurs retours, qui ne passent pas par le compresseur, depassaient
+  // 0 dBFS (+8 dB tout a fond). Un ecreteur doux au bout de la chaine
+  // (softClipCurve) : identite sous 0.9, arrondi jusqu'a 1 au-dessus ; le
+  // motif sec culmine a -0.8 dBFS, il n'y touche pas. (Un compresseur en
+  // limiteur laissait passer les attaques et relevait le sec de son gain
+  // de compensation automatique.)
+  const clipPre = c.createGain();
+  clipPre.gain.value = 1 / CLIP.range;
+  const limiter = c.createWaveShaper();
+  limiter.curve = softClipCurve();
+  limiter.oversample = 'none';
+  clipPre.connect(limiter);
   const master = c.createGain();
   // Mute : 0 AVANT tout branchement, jamais d'automation sur ce gain
   master.gain.value = o.master ?? (FLAGS.mute ? 0 : 1);
@@ -166,7 +195,8 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   // Le bus rejoint TONE par DIST (sec, et mouille si DIST > 0), puis CHORUS
   lvl.connect(comp);
   comp.connect(analyser);
-  analyser.connect(master);
+  analyser.connect(clipPre);
+  limiter.connect(master);
   master.connect(c.destination);
   const f = pattern.fx.get();
   const direct = { direct: true, linked: false, dry: 1, wet: 0, unlinks: 0 };

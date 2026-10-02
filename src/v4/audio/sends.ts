@@ -10,18 +10,23 @@
  * boucle de reinjection, s'arrete tout a fait 8 s apres le dernier envoi
  * revenu a 0 (sa queue s'est eteinte) : au repos, rien ne tourne.
  *
- * REVERB : la reponse de fx.ts (bruit stereo, 1.2 s), generee une fois,
+ * REVERB : la reponse de fx.ts (bruit stereo, 2.4 s), generee une fois,
  * gardee apres silence(). DELAY : croche pointee (3 pas) calee sur le
- * tempo, reinjection 0.42 a travers un passe-bas (3.8 kHz) et un
+ * tempo, reinjection 0.58 a travers un passe-bas (4.5 kHz) et un
  * passe-haut (180 Hz) : les repetitions s'assombrissent, sans boue.
+ *
+ * Plus marques le 2026-10-02 (Mika : a 100 % c'etait trop subtil) : envoi
+ * a 1 de la REVERB 1.0 (0.3 avant, +10 dB) pour une salle deux fois plus
+ * longue, DELAY 0.9 (0.55) et reinjection 0.58 (0.42) : des repetitions
+ * qui s'entendent et durent.
  */
 
 import { glide, makeImpulse } from './fx';
 import { UNLINK_MS } from './insert';
 
-/** Envoi a 1 : REVERB 0.3 (reponse d'energie unite), DELAY 0.55. */
-const REVERB_SEND = 0.3;
-const DELAY = { send: 0.55, feedback: 0.42, lowpass: 3800, highpass: 180, steps: 3, maxS: 2, idleMs: 8000 } as const;
+/** Envoi a 1 : REVERB 1.0 (reponse d'energie unite), DELAY 0.9. */
+const REVERB_SEND = 1.0;
+const DELAY = { send: 0.9, feedback: 0.58, lowpass: 4500, highpass: 180, steps: 3, maxS: 2, idleMs: 8000 } as const;
 
 export interface SendInfo {
   value: number;

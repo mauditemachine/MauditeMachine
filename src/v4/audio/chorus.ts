@@ -1,11 +1,12 @@
 /**
  * CHORUS (2026-10-01, effets par piste) : deux lignes de retard courtes
- * (14 et 21 ms) modulees par deux LFO lents (0.53 et 0.71 Hz, +/-3.5 ms),
+ * (14 et 21 ms) modulees par deux LFO lents (0.53 et 0.71 Hz, +/-7 ms
+ * depuis le 2026-10-02, +/-3.5 avant : trop subtil a 100 % pour Mika),
  * l'une a gauche, l'autre a droite : le son s'elargit et ondule. En insert
  * a bypass reel (audio/insert.ts) : a 0 l'entree rejoint directement la
  * sortie ; la branche (retards, LFO, panoramiques) n'existe que tant que le
  * CHORUS est engage, et s'arrete au retour a 0 (LFO stoppes, noeuds
- * debranches). Melange : sec 1 - 0.35 v, chorus 0.7 v.
+ * debranches). Melange : sec 1 - 0.5 v, chorus 1.0 v (0.35 et 0.7 avant).
  */
 
 import { Insert, type InsertInfo } from './insert';
@@ -15,9 +16,9 @@ const CHORUS = {
     { delay: 0.014, rate: 0.53, pan: -0.7 },
     { delay: 0.021, rate: 0.71, pan: 0.7 },
   ],
-  depth: 0.0035,
-  dry: 0.35,
-  wet: 0.7,
+  depth: 0.007,
+  dry: 0.5,
+  wet: 1.0,
 } as const;
 
 export interface ChorusInfo {

@@ -7,14 +7,17 @@
  *   bus -> pre (D / K) -> WaveShaper -> mouille (m) -------> TONE      DIST
  *
  * DIST : saturation parallele. Courbe tanh(K u) calculee une fois ; la
- * branche mouillee vaut tanh(D x) avec D = 1 + 5 d, melangee a m = d / 2.
+ * branche mouillee vaut tanh(D x) avec D = 1 + 12 d, melangee a
+ * m = 0.85 d (2026-10-02, plus marquee : D = 1 + 5 d et m = d / 2 avant,
+ * trop subtil a 100 % pour Mika).
  * A 0 : sec 1, mouille 0 et la branche debranchee : le signal d'origine,
  * la saturation ne calcule rien (0 = bypass). Avant TONE et LEVEL : LEVEL
  * reste un volume (baisser le niveau ne nettoie pas la saturation), TONE
  * adoucit les harmoniques qu'elle ajoute. buildDrive : la meme saturation
  * en insert a bypass reel, pour une voix seule.
  * La reponse de la REVERB (bruit stereo a decroissance exponentielle,
- * 1.2 s, -60 dB a la fin, aigus amortis) est generee ici (makeImpulse).
+ * 2.4 s depuis le 2026-10-02 (1.2 avant), -60 dB a la fin, aigus amortis)
+ * est generee ici (makeImpulse).
  * Chaque reglage rejoint sa valeur en 20 ms ; une branche revenue a 0 se
  * debranche apres sa rampe.
  */
@@ -25,10 +28,10 @@ import { Insert, UNLINK_MS } from './insert';
 export { GLIDE_S, glide } from './glide';
 
 /** DIST : D = 1 + gain x d, melange m = mix x d, courbe tanh(k u) sur `points` valeurs (nombre impair : 0 exact au centre). */
-const DRIVE = { gain: 5, mix: 0.5, k: 8, points: 2049 } as const;
+const DRIVE = { gain: 12, mix: 0.85, k: 8, points: 2049 } as const;
 
 /** REVERB : longueur de la reponse (s), pre-delai, entree en fondu, passe-bas du bruit (Hz) du debut a la fin de la queue, graines. */
-const REVERB = { seconds: 1.2, preDelay: 0.01, fadeIn: 0.003, hiStart: 9000, hiEnd: 2500, seeds: [808, 909] } as const;
+const REVERB = { seconds: 2.4, preDelay: 0.02, fadeIn: 0.003, hiStart: 9000, hiEnd: 3000, seeds: [808, 909] } as const;
 
 /** PRNG a graine (mulberry32) : la meme reponse a chaque visite. */
 function prng(seed: number): () => number {
