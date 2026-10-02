@@ -24,6 +24,14 @@ const ROUTES = [
   { path: '/techrider/', changefreq: 'yearly', priority: '0.7' },
   { path: '/presskit/', changefreq: 'yearly', priority: '0.8' },
   { path: '/press/', changefreq: 'yearly', priority: '0.6' },
+  // 2026-10-02 : les sections de la machine ont leur adresse (src/v4/state/sectionRoute.ts)
+  { path: '/shows/', changefreq: 'weekly', priority: '0.9' },
+  { path: '/tracks/', changefreq: 'monthly', priority: '0.8' },
+  { path: '/mixtapes/', changefreq: 'monthly', priority: '0.7' },
+  { path: '/contact/', changefreq: 'yearly', priority: '0.7' },
+  { path: '/goodies/', changefreq: 'monthly', priority: '0.5' },
+  { path: '/merch/', changefreq: 'monthly', priority: '0.5' },
+  { path: '/studio/', changefreq: 'yearly', priority: '0.5' },
 ];
 
 const LANGS = ['en', 'fr', 'es'];
@@ -48,7 +56,7 @@ function showsLastmod() {
 
 const urls = ROUTES.map((r) => {
   const loc = r.path === '/' ? `${SITE}/` : `${SITE}${r.path}`;
-  const lastmod = r.path === '/shows' ? showsLastmod() : today;
+  const lastmod = r.path === '/shows/' ? showsLastmod() : today;
 
   return `  <url>
     <loc>${loc}</loc>

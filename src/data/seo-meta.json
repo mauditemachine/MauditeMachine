@@ -31,6 +31,18 @@
     "/presskit": {
       "title": "Press kit 2027 | Maudite Machine",
       "description": "Press kit 2027 de Maudite Machine : indie dance et psy prog, DJ et live hybride. Bio, dates choisies, mix de référence, fiche technique et contacts, avec la boîte à rythmes MM-808."
+    },
+    "/tracks": {
+      "title": "Tracks et sorties | Maudite Machine",
+      "description": "Les productions de Maudite Machine sur VRSTL Records : l'album Limbos, des EPs et des singles en indie dance et psy prog. À écouter sur SoundCloud, Spotify, Bandcamp et Beatport."
+    },
+    "/mixtapes": {
+      "title": "Mixes et mixtapes DJ | Maudite Machine",
+      "description": "Les mixtapes et DJ sets de Maudite Machine : indie dance et psy prog enregistrés en club et en festival, de Groove & Bass aux nuits montréalaises. Écoute gratuite."
+    },
+    "/studio": {
+      "title": "Studio, cours et impression | Maudite Machine",
+      "description": "Le studio de Maudite Machine : synthés et grooveboxes, cours de production Ableton Live à distance et en personne (plus de 70 élèves), et services d'impression."
     }
   },
   "en": {
@@ -65,6 +77,18 @@
     "/presskit": {
       "title": "Press Kit 2027 | Maudite Machine",
       "description": "Maudite Machine press kit 2027: indie dance and psy prog, DJ and hybrid live. Bio, selected shows, reference mix, tech rider and contacts, with the MM-808 drum machine."
+    },
+    "/tracks": {
+      "title": "Tracks & Releases | Maudite Machine",
+      "description": "Original tracks by Maudite Machine on VRSTL Records: the album Limbos, EPs and singles in indie dance and psy prog. Stream on SoundCloud, Spotify, Bandcamp and Beatport."
+    },
+    "/mixtapes": {
+      "title": "DJ Mixes & Mixtapes | Maudite Machine",
+      "description": "Maudite Machine mixtapes and DJ sets: indie dance and psy prog mixes recorded in clubs and festivals, from Groove & Bass to Montréal nights. Free streaming."
+    },
+    "/studio": {
+      "title": "Studio, Lessons & Print | Maudite Machine",
+      "description": "The Maudite Machine studio: synths and grooveboxes, Ableton Live production lessons remotely and in person (70+ students), and print services."
     }
   },
   "es": {
@@ -99,6 +123,18 @@
     "/presskit": {
       "title": "Press kit 2027 | Maudite Machine",
       "description": "Press kit 2027 de Maudite Machine: indie dance y psy prog, DJ y live híbrido. Bio, fechas destacadas, mix de referencia, rider técnico y contactos, con la caja de ritmos MM-808."
+    },
+    "/tracks": {
+      "title": "Tracks y lanzamientos | Maudite Machine",
+      "description": "Las producciones de Maudite Machine en VRSTL Records: el álbum Limbos, EPs y singles de indie dance y psy prog. En SoundCloud, Spotify, Bandcamp y Beatport."
+    },
+    "/mixtapes": {
+      "title": "Mixes y mixtapes DJ | Maudite Machine",
+      "description": "Mixtapes y DJ sets de Maudite Machine: indie dance y psy prog grabados en clubes y festivales, de Groove & Bass a las noches de Montreal. Escucha gratis."
+    },
+    "/studio": {
+      "title": "Estudio, clases e impresión | Maudite Machine",
+      "description": "El estudio de Maudite Machine: sintetizadores y grooveboxes, clases de producción con Ableton Live a distancia y en persona (más de 70 alumnos) y servicios de impresión."
     }
   }
 }

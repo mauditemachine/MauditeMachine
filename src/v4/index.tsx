@@ -51,12 +51,13 @@ import { appearance } from './state/appearance';
 import { presskit } from './state/presskit';
 import { useReducedMotion } from './state/motion';
 import { section } from './state/section';
+import { HOOD_SECTIONS, SECTION_ROUTES, sectionFromPath, sectionTitle } from './state/sectionRoute';
 import { view } from './state/view';
 import { BACKDROP, COARSE_QUERY, COPY, MOBILE_QUERY, PRESSKIT_ROUTE, applyAppearance } from './theme';
 import { MobileHeader } from './ui/MobileHeader';
 import { PcbClose } from './ui/PcbClose';
 import { Dock } from './ui/Dock';
-import { Header } from './ui/Header';
+import { Header, openHood } from './ui/Header';
 import { HitLayer, Twins } from './ui/Hotspots';
 import { Lcd } from './ui/Lcd';
 import { Panel } from './ui/Panel';
@@ -225,11 +226,63 @@ function useSectionsLifecycle(): void {
   }, []);
 }
 
+/**
+ * Adresses des sections (2026-10-02, state/sectionRoute.ts). Arrivee par
+ * /shows/ (etc.) : la section s'ouvre une fois l'intro finie (les puces du
+ * PCB ouvrent d'abord la machine). Ensuite l'adresse et le titre de l'onglet
+ * suivent la section ouverte (pushState) ; le retour arriere la change.
+ */
+function useSectionRoute(getStage: () => Stage | null): void {
+  // Arrivee sur une adresse de section
+  useEffect(() => {
+    const id = sectionFromPath(window.location.pathname);
+    if (!id) return undefined;
+    let tries = 0;
+    const t = window.setInterval(() => {
+      tries += 1;
+      const stage = getStage();
+      const ready = intro.get() === 'done';
+      if (!ready && tries < 50) return;
+      window.clearInterval(t);
+      if (HOOD_SECTIONS.includes(id)) {
+        if (stage) openHood(id as 'goodies' | 'merch' | 'studio', stage);
+        else section.set(id);
+      } else section.set(id);
+    }, 200);
+    return () => window.clearInterval(t);
+  }, [getStage]);
+
+  // La section ouverte donne l'adresse et le titre ; le retour arriere la suit
+  useEffect(() => {
+    const sync = (): void => {
+      const s = section.get();
+      const route = s ? SECTION_ROUTES[s] : undefined;
+      const path = window.location.pathname;
+      const onSectionPath = sectionFromPath(path) !== null;
+      if (route && path !== route) window.history.pushState({ v4Section: s }, '', route);
+      else if (!route && onSectionPath) window.history.pushState({ v4Section: null }, '', '/');
+      const title = s ? sectionTitle(s) : null;
+      document.title = title ?? (onPresskitRoute() ? PRESSKIT_ROUTE.title : COPY.title);
+    };
+    const onPop = (): void => {
+      const id = sectionFromPath(window.location.pathname);
+      if (id !== section.get()) section.set(id);
+    };
+    const unsub = section.subscribe(sync);
+    window.addEventListener('popstate', onPop);
+    return () => {
+      unsub();
+      window.removeEventListener('popstate', onPop);
+    };
+  }, []);
+}
+
 const V4Shell: React.FC = () => {
   const stageRef = useRef<Stage | null>(null);
   const getStage = useCallback(() => stageRef.current, []);
   const [gl, setGl] = useState<'webgl' | 'fallback'>(() => (FLAGS.nowebgl ? 'fallback' : 'webgl'));
   usePageChrome();
+  useSectionRoute(getStage);
   useAudioGestures(getStage);
   useSectionsLifecycle();
   // Sans machine (repli), les raccourcis de la machine se taisent

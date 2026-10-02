@@ -51,12 +51,18 @@ export default function App() {
           <Route path="/archives" element={<Navigate to="/" replace />} />
           <Route path="/v2/radar" element={<Navigate to="/radar" replace />} />
 
+          {/* 2026-10-02 (referencement) : chaque section de la machine a son
+              adresse ; la machine s'ouvre sur elle (src/v4/state/sectionRoute.ts) */}
+          <Route path="/tracks" element={lazyEl(<V4App />)} />
+          <Route path="/mixtapes" element={lazyEl(<V4App />)} />
+          <Route path="/shows" element={lazyEl(<V4App />)} />
+          <Route path="/contact" element={lazyEl(<V4App />)} />
+          <Route path="/goodies" element={lazyEl(<V4App />)} />
+          <Route path="/merch" element={lazyEl(<V4App />)} />
+          <Route path="/studio" element={lazyEl(<V4App />)} />
+
           {/* ============ Redirections des anciennes URLs v1 ============ */}
           <Route path="/about" element={<Navigate to="/" replace />} />
-          <Route path="/shows" element={<Navigate to="/" replace />} />
-          <Route path="/merch" element={<Navigate to="/" replace />} />
-          <Route path="/goodies" element={<Navigate to="/" replace />} />
-          <Route path="/contact" element={<Navigate to="/" replace />} />
 
           {/* ============ v1 archivee, navigable sous /v1 (noindex) ============ */}
           <Route path="/v1" element={<Layout />}>
