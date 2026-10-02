@@ -810,11 +810,13 @@ export const keyDz = (i: number): number => KEYS.rowDz * Math.floor(i / KEYS.per
  * - MASTER au-dessus de TEMPO, a droite de l'ecran, centres entre son
  *   cadre et les pads ; un pas de 1.07 (TEMPO, devant, ne cache pas le
  *   libelle de MASTER), libelles 0.45 sous leur centre ;
- * - deux rangees alignees sur la grille des touches trig (pas de 0.74) :
- *   GLOBAL au-dessus des touches 1 a 6, sous RUN/STOP ; VOICE au-dessus
- *   des touches 10 a 16, sous les pads, plus petits (ENCODER.voiceScale),
- *   libelles remontes d'autant. Un filet de groupe sous chaque rangee,
- *   coupe par son nom (ENC_GROUPS).
+ * - GLOBAL sur la grille des touches trig (pas de 0.74), au-dessus des
+ *   touches 1 a 6, sous RUN/STOP ;
+ * - VOICE sous les pads de pages (2026-10-02, Mika : REVERB depassait sous
+ *   OPEN) : VOLUME sous TRACKS, REVERB sous CONTACT, les sept repartis
+ *   regulierement entre eux (pas de 0.667), plus petits
+ *   (ENCODER.voiceScale), libelles remontes d'autant. Chaque rangee dans
+ *   sa zone nommee (ENC_GROUPS).
  */
 const ENC_SIDE = { masterZ: -2.62, tempoZ: -1.55, labelDz: 0.45 } as const;
 const ENC_GLOBAL: readonly EncId[] = ['swing', 'stretch', 'dist', 'chorus', 'delay', 'reverb'];
@@ -870,8 +872,10 @@ function encPlaces(): Record<EncId, EncPlace> {
   const s = ENCODER.voiceScale;
   // Le libelle suit le bord de la collerette : remonte de ce qu'elle perd
   const labelZ = z + ENC_ROW_Z.labelDz - ENCODER.collar.r * (1 - s);
+  // Sous les pads de pages : de TRACKS (colonne 0) a CONTACT (colonne 4)
+  const vPitch = (4 * PAD.pitch) / (VOICE_ENCODERS.length - 1);
   VOICE_ENCODERS.forEach((id, k) => {
-    out[id] = { x: keyX(KEYS.count - VOICE_ENCODERS.length + k), z, labelZ, s };
+    out[id] = { x: PAD.x0 + vPitch * k, z, labelZ, s };
   });
   return out;
 }

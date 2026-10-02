@@ -2184,3 +2184,5 @@ R14-19. Stronger effects (2026-10-02, Mika: "at 100% too subtle"). REVERB: impul
 
 R14-20. GLOBAL FX and VOICE FX zones (2026-10-02, Mika: the small GLOBAL caption was too subtle). Each knob row sits in its own silkscreen zone: a faint fill (SILK_ZONES, ink at 7 %, corners 0.12) and a frame around the knobs and their labels, open at the bottom centre for its name in bold, 0.1 cap (0.06 before): GLOBAL FX, VOICE FX. Same in the SVG fallback. Tracks and the global effects: the tracks play in the SoundCloud widget (a cross-origin iframe); the browser does not let the page touch that audio, so the global effects cannot be applied to them as long as they stream from SoundCloud.
 Decision (2026-10-02): Mika keeps SoundCloud; the global effects apply to the drum machine only, not to the tracks.
+
+R14-21. Desktop VOICE FX row under the page pads (2026-10-02, Mika: REVERB sat under OPEN). VOLUME under TRACKS, REVERB under CONTACT, the seven knobs evenly spread between them (pitch 0.667 instead of the 0.74 step grid); measured at 1440 x 900: VOLUME 748 px / TRACKS 748, REVERB 1051 / CONTACT 1046. The GLOBAL row stays on the step grid; portrait unchanged.
