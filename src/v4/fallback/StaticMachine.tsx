@@ -33,6 +33,7 @@ import {
   TRANSPORT,
   chassisTopY,
   encPos,
+  keyDz,
   keyX,
   type SilkText,
 } from '../theme';
@@ -186,7 +187,7 @@ function panelTop(): React.ReactNode {
           <rect
             key={`led-${i}`}
             x={keyX(i) - KEYS.ledW / 2}
-            y={KEYS.ledZ - KEYS.ledD / 2}
+            y={KEYS.ledZ + keyDz(i) - KEYS.ledD / 2}
             width={KEYS.ledW}
             height={KEYS.ledD}
             fill={on ? HEX.ledSet : HEX.line}
@@ -316,7 +317,7 @@ function solids(): React.ReactNode[] {
   items.push(box('random', t.random.x, t.z, h, h, t.h, HEX.graphiteHi, C.clearSide, C.clearSide));
   items.push(box('mute', t.mute.x, t.z, h, h, t.h, HEX.graphiteHi, C.clearSide, C.clearSide));
   items.push(box('solo', t.solo.x, t.z, h, h, t.h, HEX.graphiteHi, C.clearSide, C.clearSide));
-  for (let i = 0; i < KEYS.count; i += 1) items.push(box(`key-${i}`, keyX(i), KEYS.z, KEYS.w / 2, KEYS.d / 2, KEYS.h, HEX.key, C.keySide, C.keySide));
+  for (let i = 0; i < KEYS.count; i += 1) items.push(box(`key-${i}`, keyX(i), KEYS.z + keyDz(i), KEYS.w / 2, KEYS.d / 2, KEYS.h, HEX.key, C.keySide, C.keySide));
   return items.sort((a, b) => a.depth - b.depth).flatMap((it) => it.nodes);
 }
 

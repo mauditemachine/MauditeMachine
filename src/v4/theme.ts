@@ -12,6 +12,31 @@
  * dessus du panneau.
  */
 
+/* ---------- disposition portrait (essai mobile, 2026-10-01) ---------- */
+
+/**
+ * Disposition portrait (2026-10-01, essai demande par Mika) : sur
+ * telephone, la machine en hauteur plutot qu'en largeur, facon Traktor X1
+ * ou SP-404 : les memes elements, places autrement (8.2 x 14.4 au sol,
+ * l'ecran et MASTER / TEMPO en haut, le transport, la rangee GLOBAL, les
+ * pads, la rangee VOICE, puis les 16 pas en deux rangees de 8). Choisie au
+ * chargement : ?portrait=1 (retenu pour l'onglet, ?portrait=0 l'oublie) et
+ * un ecran de moins de 768 px ; toutes les cotes en decoulent, le desktop
+ * ne change pas. Changer de largeur ensuite ne la change pas : recharger.
+ */
+export const PORTRAIT: boolean = (() => {
+  if (typeof window === 'undefined') return false;
+  try {
+    const q = new URLSearchParams(window.location.search).get('portrait');
+    if (q === '1') window.sessionStorage.setItem('mm.v4.portrait', '1');
+    if (q === '0') window.sessionStorage.removeItem('mm.v4.portrait');
+    const on = q === '1' || window.sessionStorage.getItem('mm.v4.portrait') === '1';
+    return on && window.matchMedia('(max-width: 767px)').matches;
+  } catch {
+    return false;
+  }
+})();
+
 /* ---------- couleurs (spec 4.4 et 20.3) ---------- */
 
 export const HEX = {
@@ -160,7 +185,9 @@ export const PCB_TYPE = { weight: 700, tracking: 0.18 } as const;
  * s'incline de atan(0.9 / 8) = 6.42 deg vers l'utilisateur (la signature
  * Elektron). Toutes les aretes sont chanfreinees (chamfer).
  */
-export const BODY = { w: 12.6, d: 8, back: 2.2, front: 1.3, feet: 0.12, chamfer: 0.06 } as const;
+export const BODY = PORTRAIT
+  ? ({ w: 8.2, d: 14.4, back: 2.2, front: 1.3, feet: 0.12, chamfer: 0.06 } as const)
+  : ({ w: 12.6, d: 8, back: 2.2, front: 1.3, feet: 0.12, chamfer: 0.06 } as const);
 /** Inclinaison du panneau (rad) : son avant descend. */
 export const TILT = Math.atan((BODY.back - BODY.front) / BODY.d);
 
@@ -218,18 +245,32 @@ export const BACK = {
   groupY: 1.75,
   cap: 0.075,
   groupCap: 0.065,
-  ports: [
-    { id: 'phones', kind: 'jack', u: -1.9, label: 'PHONES' },
-    { id: 'outL', kind: 'jack', u: -1.0, label: 'L', group: 'MAIN OUT' },
-    { id: 'outR', kind: 'jack', u: -0.25, label: 'R', group: 'MAIN OUT' },
-    { id: 'syncIn', kind: 'mini', u: 0.65, label: 'IN', group: 'SYNC' },
-    { id: 'syncOut', kind: 'mini', u: 1.25, label: 'OUT', group: 'SYNC' },
-    { id: 'midiIn', kind: 'din', u: 2.2, label: 'IN', group: 'MIDI' },
-    { id: 'midiOut', kind: 'din', u: 2.95, label: 'OUT', group: 'MIDI' },
-    { id: 'usb', kind: 'usb', u: 3.85, label: 'USB' },
-    { id: 'dc', kind: 'dc', u: 4.65, label: 'DC 12V' },
-    { id: 'power', kind: 'power', u: 5.45, label: 'POWER' },
-  ] as readonly { id: string; kind: BackPortKind; u: number; label: string; group?: string }[],
+  /** portrait : la meme connectique resserree sur 8.2 de large */
+  ports: (PORTRAIT
+    ? [
+        { id: 'phones', kind: 'jack', u: -3.45, label: 'PHONES' },
+        { id: 'outL', kind: 'jack', u: -2.65, label: 'L', group: 'MAIN OUT' },
+        { id: 'outR', kind: 'jack', u: -2.0, label: 'R', group: 'MAIN OUT' },
+        { id: 'syncIn', kind: 'mini', u: -1.2, label: 'IN', group: 'SYNC' },
+        { id: 'syncOut', kind: 'mini', u: -0.65, label: 'OUT', group: 'SYNC' },
+        { id: 'midiIn', kind: 'din', u: 0.2, label: 'IN', group: 'MIDI' },
+        { id: 'midiOut', kind: 'din', u: 0.9, label: 'OUT', group: 'MIDI' },
+        { id: 'usb', kind: 'usb', u: 1.75, label: 'USB' },
+        { id: 'dc', kind: 'dc', u: 2.55, label: 'DC 12V' },
+        { id: 'power', kind: 'power', u: 3.35, label: 'POWER' },
+      ]
+    : [
+        { id: 'phones', kind: 'jack', u: -1.9, label: 'PHONES' },
+        { id: 'outL', kind: 'jack', u: -1.0, label: 'L', group: 'MAIN OUT' },
+        { id: 'outR', kind: 'jack', u: -0.25, label: 'R', group: 'MAIN OUT' },
+        { id: 'syncIn', kind: 'mini', u: 0.65, label: 'IN', group: 'SYNC' },
+        { id: 'syncOut', kind: 'mini', u: 1.25, label: 'OUT', group: 'SYNC' },
+        { id: 'midiIn', kind: 'din', u: 2.2, label: 'IN', group: 'MIDI' },
+        { id: 'midiOut', kind: 'din', u: 2.95, label: 'OUT', group: 'MIDI' },
+        { id: 'usb', kind: 'usb', u: 3.85, label: 'USB' },
+        { id: 'dc', kind: 'dc', u: 4.65, label: 'DC 12V' },
+        { id: 'power', kind: 'power', u: 5.45, label: 'POWER' },
+      ]) as readonly { id: string; kind: BackPortKind; u: number; label: string; group?: string }[],
   /** jack 6.35 : ecrou hexagonal, fut, trou ; mini-jack 3.5 : plus petit */
   jack: { nut: 0.2, nutH: 0.05, barrel: 0.14, barrelH: 0.08, hole: 0.065 },
   mini: { nut: 0.13, nutH: 0.04, barrel: 0.09, barrelH: 0.06, hole: 0.04 },
@@ -244,10 +285,12 @@ export const BACK = {
   /** serigraphie : plan de la face, texture (px), logo, textes, etiquette du numero de serie */
   plane: { w: BODY.w - 0.3, y0: 0.2, y1: 2.24, gap: 0.003 },
   tex: { desktop: 2048, mobile: 1024 },
-  logo: { u: -5.95, y: 1.66, w: 3.2 },
-  model: { u: -5.95, y: 1.3, text: 'MM-808 DRUM MACHINE', cap: 0.08 },
-  firmware: { u: -5.95, y: 1.08, text: 'FIRMWARE V.2.1 / 2026', cap: 0.06, alpha: 0.55 },
-  sticker: { u0: -5.95, u1: -4.45, y0: 0.42, y1: 0.78, serial: 'S/N MM808-000808' },
+  logo: PORTRAIT ? { u: -3.8, y: 0.5, w: 1.6 } : { u: -5.95, y: 1.66, w: 3.2 },
+  model: { u: PORTRAIT ? -2.05 : -5.95, y: PORTRAIT ? 0.55 : 1.3, text: 'MM-808 DRUM MACHINE', cap: PORTRAIT ? 0.06 : 0.08 },
+  firmware: { u: PORTRAIT ? -2.05 : -5.95, y: PORTRAIT ? 0.38 : 1.08, text: 'FIRMWARE V.2.1 / 2026', cap: PORTRAIT ? 0.05 : 0.06, alpha: 0.55 },
+  sticker: PORTRAIT
+    ? { u0: 2.3, u1: 3.8, y0: 0.26, y1: 0.58, serial: 'S/N MM808-000808' }
+    : { u0: -5.95, u1: -4.45, y0: 0.42, y1: 0.78, serial: 'S/N MM808-000808' },
 } as const;
 
 /**
@@ -278,8 +321,9 @@ export const MATERIAL = {
  * 2048 x 1280 (desktop) generees a la premiere apparition du PCB.
  */
 export const PCB = {
-  w: BODY.w - 1.4,
-  d: BODY.d - 1.2,
+  /** portrait : la carte d'origine (11.2 x 6.8), tournee d'un quart de tour (PCB_TURN) */
+  w: PORTRAIT ? BODY.d - 3.2 : BODY.w - 1.4,
+  d: PORTRAIT ? BODY.w - 1.4 : BODY.d - 1.2,
   h: 0.1,
   chamfer: 0.03,
   tex: { desktop: [2048, 1280], mobile: [2048, 1280] },
@@ -313,6 +357,8 @@ export const PCB = {
  * composants, les puces et la serigraphie gardent leur place relative.
  */
 export const pcbAt = (x: number, z: number): { x: number; z: number } => ({ x: (x * PCB.w) / 12.6, z: (z * PCB.d) / 7.8 });
+/** Portrait : la carte tourne d'un quart de tour dans son plan (rad, autour de y du pcbGroup). */
+export const PCB_TURN = PORTRAIT ? Math.PI / 2 : 0;
 
 /**
  * Origines des trois couches (monde, machine fermee). Le plateauGroup est
@@ -335,7 +381,7 @@ export const SILK_PLANE = {
   d: PANEL_D,
   y: 0.004,
   /** mobile en pleine definition depuis le 2026-10-01 : a 1024, la serigraphie bavait au DPR 3 */
-  tex: { desktop: [2048, 1323], mobile: [2048, 1323] },
+  tex: PORTRAIT ? { desktop: [1166, 2048], mobile: [1166, 2048] } : { desktop: [2048, 1323], mobile: [2048, 1323] },
 } as const;
 
 /**
@@ -379,8 +425,8 @@ export const BACKDROP: { transparent: boolean; readonly page: string } = { trans
 
 /** Ecran OLED en haut a gauche : verre 3.6 x 1.35, cadre fusionne au panneau. */
 export const OLED = {
-  x: -3.95,
-  z: -2.05,
+  x: PORTRAIT ? -1.82 : -3.95,
+  z: PORTRAIT ? -5.2 : -2.05,
   w: 3.6,
   d: 1.35,
   y: 0.025,
@@ -535,13 +581,13 @@ export const TRANSPORT = {
   size: 0.8,
   h: 0.1,
   radius: 0.04,
-  z: -0.56,
-  labelZ: 0.02,
-  run: { x: -5.48 },
-  clear: { x: -4.48 },
-  random: { x: -3.48 },
-  mute: { x: -2.48 },
-  solo: { x: -1.48 },
+  z: PORTRAIT ? -3.6 : -0.56,
+  labelZ: PORTRAIT ? -3.02 : 0.02,
+  run: { x: PORTRAIT ? -2.6 : -5.48 },
+  clear: { x: PORTRAIT ? -1.3 : -4.48 },
+  random: { x: PORTRAIT ? 0 : -3.48 },
+  mute: { x: PORTRAIT ? 1.3 : -2.48 },
+  solo: { x: PORTRAIT ? 2.6 : -1.48 },
 } as const;
 
 /**
@@ -581,9 +627,9 @@ export const PAD = {
   domeSegments: 6,
   /** hauteur du plan du dome, un soupcon au-dessus du dessus plat (pas de z-fight) */
   domeY: 0.222,
-  x0: 0.37,
-  pitch: 1.0,
-  rowZ: [-2.05, -0.75],
+  x0: PORTRAIT ? -2.8 : 0.37,
+  pitch: PORTRAIT ? 1.12 : 1.0,
+  rowZ: PORTRAIT ? [-0.5, 0.8] : [-2.05, -0.75],
   /** serigraphie sous chaque pad */
   labelDz: 0.58,
   press: 0.06,
@@ -726,15 +772,18 @@ export const OPEN_BREATHE = { periodMs: 3200, min: 0.45, tintMin: 0.5, frameMs: 
  */
 export const KEYS = {
   count: 16,
-  x0: -5.55,
-  pitch: 0.74,
-  z: 2.4,
+  x0: PORTRAIT ? -3.01 : -5.55,
+  pitch: PORTRAIT ? 0.86 : 0.74,
+  z: PORTRAIT ? 4.0 : 2.4,
+  /** portrait : deux rangees de 8, la seconde rowDz plus bas */
+  perRow: PORTRAIT ? 8 : 16,
+  rowDz: PORTRAIT ? 1.95 : 0,
   w: 0.5,
   d: 0.9,
   h: 0.1,
   radius: 0.04,
   segments: { desktop: 3, mobile: 2 },
-  ledZ: 1.62,
+  ledZ: PORTRAIT ? 3.22 : 1.62,
   ledW: 0.22,
   ledD: 0.055,
   ledY: 0.006,
@@ -745,11 +794,13 @@ export const KEYS = {
    */
   velBars: 3,
   velPitch: 0.09,
-  numberZ: 3.08,
-  bracketZ: 3.25,
+  numberZ: PORTRAIT ? 4.68 : 3.08,
+  bracketZ: PORTRAIT ? 4.85 : 3.25,
   bracketTick: 0.06,
 } as const;
-export const keyX = (i: number): number => KEYS.x0 + KEYS.pitch * i;
+/** x du pas i ; sa rangee le decale de keyDz en z (portrait : deux rangees de 8). */
+export const keyX = (i: number): number => KEYS.x0 + KEYS.pitch * (i % KEYS.perRow);
+export const keyDz = (i: number): number => KEYS.rowDz * Math.floor(i / KEYS.perRow);
 
 /**
  * Places des encodeurs (2026-10-01) :
@@ -774,8 +825,29 @@ export interface EncPlace {
   s: number;
 }
 
+/**
+ * Portrait : MASTER et TEMPO cote a cote a droite de l'ecran ; GLOBAL sous
+ * le transport, sur les colonnes 2 a 7 des pas ; VOICE sous les pads, a
+ * cheval sur les colonnes (sept potards pour huit colonnes).
+ */
+const ENC_PORTRAIT = { sideX: [1.25, 2.75], sideZ: -5.35, globalZ: -2.2, voiceZ: 2.3 } as const;
+
 function encPlaces(): Record<EncId, EncPlace> {
   const out = {} as Record<EncId, EncPlace>;
+  if (PORTRAIT) {
+    const P = ENC_PORTRAIT;
+    out.level = { x: P.sideX[0], z: P.sideZ, labelZ: P.sideZ + ENC_SIDE.labelDz, s: 1 };
+    out.tempo = { x: P.sideX[1], z: P.sideZ, labelZ: P.sideZ + ENC_SIDE.labelDz, s: 1 };
+    ENC_GLOBAL.forEach((id, k) => {
+      out[id] = { x: keyX(k + 1), z: P.globalZ, labelZ: P.globalZ + ENC_ROW_Z.labelDz, s: 1 };
+    });
+    const vs = ENCODER.voiceScale;
+    const vLabel = P.voiceZ + ENC_ROW_Z.labelDz - ENCODER.collar.r * (1 - vs);
+    VOICE_ENCODERS.forEach((id, k) => {
+      out[id] = { x: KEYS.x0 + KEYS.pitch * (k + 0.5), z: P.voiceZ, labelZ: vLabel, s: vs };
+    });
+    return out;
+  }
   const left = OLED.x + OLED.bezel.w / 2;
   const right = PAD.x0 - PAD.size / 2;
   const mid = (left + right) / 2;
@@ -1009,9 +1081,14 @@ export type SilkLogoId = 'wordmark' | 'mark';
  * 2026 a sa gauche. Images blanches, teintees a l'encre de la serigraphie.
  * x : bord d'alignement, z : centre ; w ou h fixe la taille (unites).
  */
+/** L'en-tete du panneau : wordmark, MM-808, firmware et logotype (portrait : plus serres, en haut). */
+const HEAD = PORTRAIT
+  ? { z: -6.6, word: { x: -3.75, w: 3.0 }, model: -0.55, firmware: 3.05, mark: { x: 3.75, h: 0.5 } }
+  : { z: -3.5, word: { x: -5.8, w: 3.5 }, model: -1.95, firmware: 4.95, mark: { x: 5.8, h: 0.52 } };
+
 export const SILK_LOGOS: readonly { id: SilkLogoId; src: string; x: number; z: number; w?: number; h?: number; align: 'left' | 'right' }[] = [
-  { id: 'wordmark', src: '/logo/mauditemachine-logo-aligned.svg', x: -5.8, z: -3.5, w: 3.5, align: 'left' },
-  { id: 'mark', src: '/logo/mauditemachine-logotype.png', x: 5.8, z: -3.5, h: 0.52, align: 'right' },
+  { id: 'wordmark', src: '/logo/mauditemachine-logo-aligned.svg', x: HEAD.word.x, z: HEAD.z, w: HEAD.word.w, align: 'left' },
+  { id: 'mark', src: '/logo/mauditemachine-logotype.png', x: HEAD.mark.x, z: HEAD.z, h: HEAD.mark.h, align: 'right' },
 ];
 
 /** Le libelle du pad OPEN (OPEN, CLOSE vue eclatee) : l'index de son texte dans SILK_TEXTS. */
@@ -1030,9 +1107,9 @@ const padLabel = (p: PadSpec): SilkText =>
     : { text: p.label, x: p.x, z: p.z + PAD.labelDz, cap: PAD_CAP, maxW: 0.94, group: 'pads', weight: 700, ink: 'orange', alpha: 1 };
 
 export const SILK_TEXTS: readonly SilkText[] = [
-  { text: 'MAUDITE MACHINE', x: -5.8, z: -3.5, cap: 0.2, align: 'left', weight: SILK.strongWeight, fallbackFor: 'wordmark' },
-  { text: 'MM-808', x: -1.95, z: -3.5, cap: 0.13, align: 'left' },
-  { text: 'FIRMWARE V.2.1 / 2026', x: 4.95, z: -3.5, cap: 0.07, align: 'right', alpha: 0.45 },
+  { text: 'MAUDITE MACHINE', x: HEAD.word.x, z: HEAD.z, cap: 0.2, align: 'left', weight: SILK.strongWeight, fallbackFor: 'wordmark' },
+  { text: 'MM-808', x: HEAD.model, z: HEAD.z, cap: 0.13, align: 'left' },
+  { text: 'FIRMWARE V.2.1 / 2026', x: HEAD.firmware, z: HEAD.z, cap: PORTRAIT ? 0.06 : 0.07, align: 'right', alpha: 0.45 },
   { text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - 0.72, cap: 0.06, align: 'left' },
   ...ENCODERS.map((e, i) => ({ text: e.label, x: encPos(i).x, z: encPos(i).labelZ, cap: 0.085, maxW: 0.66, group: 'enc' })),
   ...ENC_GROUPS.map((g) => ({ text: g.text, x: groupSpan(g.ids).mid, z: groupSpan(g.ids).z, cap: ENC_GROUP_TYPE.cap })),
@@ -1042,7 +1119,7 @@ export const SILK_TEXTS: readonly SilkText[] = [
   { text: 'MUTE', x: TRANSPORT.mute.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'tr' },
   { text: 'SOLO', x: TRANSPORT.solo.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'tr' },
   ...PADS.map(padLabel),
-  ...Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ, cap: 0.075 })),
+  ...Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ + keyDz(i), cap: 0.075 })),
 ];
 /** Index du libelle du pad OPEN dans SILK_TEXTS (redessine en CLOSE pendant la vue eclatee). */
 export const OPEN_SILK_INDEX = SILK_TEXTS.findIndex((t) => t.text === 'OPEN');
@@ -1075,7 +1152,7 @@ export const SILK_LINES: readonly (readonly number[])[] = [
   ...[0, 1, 2, 3].map((g) => {
     const a = keyX(4 * g) - KEYS.w / 2;
     const b = keyX(4 * g + 3) + KEYS.w / 2;
-    const z = KEYS.bracketZ;
+    const z = KEYS.bracketZ + keyDz(4 * g);
     const t = z - KEYS.bracketTick;
     return [a, t, a, z, b, z, b, t];
   }),
@@ -1084,7 +1161,8 @@ export const SILK_LINES: readonly (readonly number[])[] = [
 /* ---------- camera, orbite et cadrage (spec 20.2) ---------- */
 
 export const FRAME_DESKTOP = 0.78;
-export const FRAME_MOBILE = 0.92;
+/** portrait : 0.86, la face avant (plus pres de la camera) touchait les bords a 0.92 */
+export const FRAME_MOBILE = PORTRAIT ? 0.86 : 0.92;
 /** Largeur projetee de l'empreinte 14 x 9 (coins vifs) a l'azimut 45 : 0.7071 x (14 + 9). */
 export const PLATEAU_W = Math.SQRT1_2 * (BODY.w + BODY.d);
 /**
@@ -1101,7 +1179,7 @@ export const FRONT_W = BODY.w;
  * tient toujours dans 86 % du canvas a la vue par defaut ; le cadre ne suit
  * jamais l'orbite (echelle constante, spec 20.1 R2-5).
  */
-export const MACHINE_H = 10.64;
+export const MACHINE_H = PORTRAIT ? 14.2 : 10.64;
 export const FIT_H = 0.86;
 
 /**
@@ -1161,8 +1239,8 @@ export const ORBIT = {
   fovDeg: 30,
   near: 0.1,
   far: 160,
-  /** centre projete de la machine fermee a la vue d'arrivee (measure().fit.targetY : 1.216, machine compacte) */
-  targetY: 1.216,
+  /** centre projete de la machine fermee a la vue d'arrivee (measure().fit.targetY : 1.216, machine compacte ; 1.269 en portrait) */
+  targetY: PORTRAIT ? 1.269 : 1.216,
 } as const;
 
 export const MOBILE_QUERY = '(max-width: 767px)';
@@ -1289,12 +1367,18 @@ export const COPY = {
  * pile ouverte dans 86 % de la hauteur (fitHalfH) et le pivot qui monte a
  * targetY (mesures en section 20.16).
  */
+/**
+ * Portrait (2026-10-01) : le capot s'ouvre comme un couvercle a charniere
+ * arriere (60 deg : son centre monte de 7.2 sin 60 et recule de
+ * 7.2 (1 - cos 60)) ; glisse vers l'arriere comme sur desktop, il cachait
+ * la carte, plus longue que large, sauf sa bande avant.
+ */
 export const EXPLODE = {
   ms: 900,
   staggerMs: 80,
-  lift: 4.0,
-  slideZ: -2.4,
-  tiltOpenDeg: -14,
+  lift: PORTRAIT ? 6.3 : 4.0,
+  slideZ: PORTRAIT ? -3.6 : -2.4,
+  tiltOpenDeg: PORTRAIT ? -60 : -14,
   pcbRise: 0.9,
   /**
    * Ouverture du 2026-10-01 (plus grande) : la pile fait 11.30 de haut a la
@@ -1302,9 +1386,9 @@ export const EXPLODE = {
    * hauteur d'avant a l'arrivee (67 %) et tient encore l'azimut 45 entier
    * (100 % au lieu de 86 %) : la machine ouverte ne rapetisse que de 10 %.
    */
-  fitHalfH: 8.4,
-  /** son centre projete a la vue d'arrivee (measure().fit.targetY, ouverte) */
-  targetY: 5.562,
+  fitHalfH: PORTRAIT ? 11.5 : 8.4,
+  /** son centre projete a la vue d'arrivee (measure().fit.targetY, ouverte) ; portrait : la carte au milieu, le couvercle en haut */
+  targetY: PORTRAIT ? 3.9 : 5.562,
   /** echelle verticale des composants replies (jamais 0 : matrice inversible) */
   partsMin: 0.001,
   /**

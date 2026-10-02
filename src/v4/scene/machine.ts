@@ -29,21 +29,7 @@ import {
   type MeshStandardMaterial,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import {
-  BODY,
-  BACK,
-  FEET,
-  GAIN,
-  LAYERS,
-  OLED,
-  PANEL,
-  PANEL_TOP_Y,
-  TILT,
-  TRAY,
-  chassisTopY,
-  gainOf,
-  type Tone,
-} from '../theme';
+import { BACK, BODY, chassisTopY, FEET, GAIN, gainOf, LAYERS, OLED, PANEL, PANEL_TOP_Y, PCB_TURN, TILT, type Tone, TRAY } from '../theme';
 import { albedo, makeChassisMaterial, makePanelMaterial, paintFaces, paintSolid } from './materials';
 
 /** Rectangle a coins arrondis centre, une suite d'arcs (three ajoute les cotes droits). */
@@ -408,6 +394,8 @@ export class Machine {
     this.plateau.rotation.x = TILT;
     this.pcb.position.set(0, LAYERS.pcbY, 0);
     this.pcb.rotation.x = TILT;
+    // Portrait : la carte d'origine, tournee d'un quart de tour dans son plan
+    this.pcb.rotation.y = PCB_TURN;
     this.pcb.visible = false;
     this.socle.position.set(0, LAYERS.socleY, 0);
     this.root.add(this.socle, this.pcb, this.plateau);

@@ -38,7 +38,7 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { INSTRUMENTS, STEP_COUNT, VEL_BARS, velocity, type Steps } from '../audio/pattern';
-import { BTN_LED, COLOR, KEYS, LIT, MATERIAL, PRESS_TINT, STEP_PRESS, TRANSPORT, keyX, type Inst } from '../theme';
+import { BTN_LED, COLOR, KEYS, LIT, MATERIAL, PRESS_TINT, STEP_PRESS, TRANSPORT, keyDz, keyX, type Inst } from '../theme';
 import type { HotspotDef } from './hit';
 import { withInstanceEmissive } from './materials';
 
@@ -70,8 +70,8 @@ const BARS = KEYS.velBars;
 /** Teintes des traits, lues a la construction (l'apparence claire change line et ledHover). */
 let LED_HEX: Readonly<Record<Exclude<LedTone, 'none'>, number>> = { line: 0, ledSet: 0, ledHover: 0, yellowHi: 0 };
 
-/** z du trait b d'un pas (0 : la LED du bas). */
-const barZ = (b: number): number => KEYS.ledZ - KEYS.velPitch * b;
+/** z du trait b du pas i (0 : la LED du bas) ; portrait : sa rangee le decale (keyDz). */
+const barZ = (i: number, b: number): number => KEYS.ledZ + keyDz(i) - KEYS.velPitch * b;
 
 const m4 = new Matrix4();
 const col = new Color();
@@ -161,7 +161,7 @@ export class Sequencer3D {
     this.keys.name = 'keys';
     this.keys.receiveShadow = true;
     for (let i = 0; i < STEP_COUNT; i += 1) {
-      this.keys.setMatrixAt(i, m4.makeTranslation(keyX(i), 0, KEYS.z));
+      this.keys.setMatrixAt(i, m4.makeTranslation(keyX(i), 0, KEYS.z + keyDz(i)));
       this.keys.setColorAt(i, col.setRGB(LIT.key[0], LIT.key[1], LIT.key[2]));
     }
     this.keys.instanceMatrix.needsUpdate = true;
@@ -205,7 +205,7 @@ export class Sequencer3D {
       for (let b = 0; b < BARS; b += 1) {
         const k = i * BARS + b;
         // Au repos : la LED du bas eteinte, les traits du dessus caches
-        this.leds.setMatrixAt(k, b === 0 ? m4.makeTranslation(keyX(i), KEYS.ledY, barZ(b)) : m4.makeScale(0, 0, 0));
+        this.leds.setMatrixAt(k, b === 0 ? m4.makeTranslation(keyX(i), KEYS.ledY, barZ(i, b)) : m4.makeScale(0, 0, 0));
         this.leds.setColorAt(k, col.setHex(LED_HEX.line));
         this.ledTone.push(b === 0 ? 'line' : 'none');
       }
@@ -343,7 +343,7 @@ export class Sequencer3D {
         if (tone === was) continue;
         this.ledTone[k] = tone;
         if ((tone === 'none') !== (was === 'none')) {
-          this.leds.setMatrixAt(k, tone === 'none' ? m4.makeScale(0, 0, 0) : m4.makeTranslation(keyX(i), KEYS.ledY, barZ(b)));
+          this.leds.setMatrixAt(k, tone === 'none' ? m4.makeScale(0, 0, 0) : m4.makeTranslation(keyX(i), KEYS.ledY, barZ(i, b)));
           shapes = true;
         }
         if (tone !== 'none') {
@@ -403,7 +403,7 @@ export class Sequencer3D {
         layer,
         shape: 'box',
         x: keyX(i),
-        z: KEYS.z,
+        z: KEYS.z + keyDz(i),
         hx: KEYS.w / 2,
         hz: KEYS.d / 2,
         y0: 0,

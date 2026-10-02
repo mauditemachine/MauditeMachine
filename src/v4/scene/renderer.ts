@@ -92,6 +92,7 @@ import {
   PANEL,
   PANEL_D,
   PCB,
+  PORTRAIT,
   potCourse,
   PLATEAU_W,
   SECTION_FRAME,
@@ -1597,10 +1598,11 @@ export class Stage {
 
   /**
    * Les pas 3D se coupent quand le Dock HTML les remplace (mise en page
-   * mobile : 15 px entre deux touches sur un telephone, section 19).
+   * mobile : 15 px entre deux touches sur un telephone, section 19) ; en
+   * portrait (2026-10-01) ils font environ 40 px : ils repondent.
    */
   private syncSteps(): void {
-    const on = !this.layoutMobile;
+    const on = !this.layoutMobile || PORTRAIT;
     let changed = false;
     for (const d of this.stepDefs) {
       if (d.enabled === on) continue;
