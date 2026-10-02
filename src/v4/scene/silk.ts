@@ -35,7 +35,6 @@ import {
   SILK_LOGOS,
   SILK_PLANE,
   SILK_TEXTS,
-  SILK_ZONES,
   silkA,
   type SilkLogoId,
   type SilkText,
@@ -357,20 +356,6 @@ export class PanelSilk {
     const u = this.ppu;
     ctx.clearRect(0, 0, this.W, this.H);
     ctx.textBaseline = 'alphabetic';
-
-    // Zones des rangees GLOBAL FX et VOICE FX : un aplat a peine teinte, sous les filets
-    for (const zn of SILK_ZONES) {
-      ctx.fillStyle = silkA(zn.alpha);
-      const x = this.px(zn.x0);
-      const y = this.py(zn.z0);
-      const w = this.px(zn.x1) - x;
-      const h = this.py(zn.z1) - y;
-      ctx.beginPath();
-      // roundRect manque aux navigateurs anciens : un rectangle droit suffit
-      if (typeof ctx.roundRect === 'function') ctx.roundRect(x, y, w, h, zn.r * u);
-      else ctx.rect(x, y, w, h);
-      ctx.fill();
-    }
 
     // Filets : le separateur VOICES / PAGES, les crochets des touches trig
     ctx.strokeStyle = silkA(SILK.lineAlpha);

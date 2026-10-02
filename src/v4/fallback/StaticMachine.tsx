@@ -28,7 +28,6 @@ import {
   SILK,
   SILK_LINES,
   SILK_TEXTS,
-  SILK_ZONES,
   TEMPO_UI,
   TILT,
   TRANSPORT,
@@ -175,9 +174,6 @@ function panelTop(): React.ReactNode {
   return (
     <>
       <g transform={planeAt(0.004)}>
-        {SILK_ZONES.map((zn, i) => (
-          <rect key={`zone-${i}`} x={zn.x0} y={zn.z0} width={zn.x1 - zn.x0} height={zn.z1 - zn.z0} rx={zn.r} fill={`rgba(246, 241, 231, ${zn.alpha})`} />
-        ))}
         {SILK_LINES.map((l, i) => (
           <path
             key={`line-${i}`}

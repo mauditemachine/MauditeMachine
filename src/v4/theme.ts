@@ -888,17 +888,16 @@ export const encPos = (i: number): EncPlace => {
 };
 
 /**
- * Les deux rangees nommees (2026-10-01 ; zones le 2026-10-02, Mika : le
- * petit GLOBAL sous la rangee ne se remarquait pas) : chaque rangee dans
- * sa zone serigraphiee, un cadre a peine teinte (fill) autour des potards
- * et de leurs libelles, coupe en bas au centre par son nom en gras
- * (GLOBAL FX, VOICE FX), 0.1 de capitale (0.06 avant).
+ * Les deux rangees nommees (2026-10-01 ; 2026-10-02, Mika : le petit
+ * GLOBAL ne se remarquait pas, puis les cadres gris etaient grossiers) :
+ * sous chaque rangee, un crochet fin comme ceux des pas, coupe au centre
+ * par son nom en gras (GLOBAL FX, VOICE FX), 0.1 de capitale (0.06 avant).
  */
 export const ENC_GROUPS: readonly { text: string; ids: readonly EncId[] }[] = [
   { text: 'GLOBAL FX', ids: ENC_GLOBAL },
   { text: 'VOICE FX', ids: VOICE_ENCODERS },
 ];
-export const ENC_GROUP_TYPE = { cap: 0.1, weight: 700, dz: 0.18, top: 0.16, side: 0.16, gapPerChar: 0.125, pad: 0.12, fill: 0.07, radius: 0.12 } as const;
+export const ENC_GROUP_TYPE = { cap: 0.1, weight: 700, dz: 0.18, side: 0.06, gapPerChar: 0.125, pad: 0.12 } as const;
 /** Index d'un encodeur dans ENCODERS. */
 export const encIndex = (id: EncId): number => ENCODERS.findIndex((e) => e.id === id);
 
@@ -1111,24 +1110,14 @@ export const SILK_LOGOS: readonly { id: SilkLogoId; src: string; x: number; z: n
 
 /** Le libelle du pad OPEN (OPEN, CLOSE vue eclatee) : l'index de son texte dans SILK_TEXTS. */
 const PAD_CAP = 0.09;
-/**
- * Zone d'une rangee nommee : x0 / x1 (bords des collerettes plus la marge),
- * z0 (au-dessus des potards), z (le bas, ou se pose son nom), mid.
- */
-function groupSpan(ids: readonly EncId[]): { x0: number; x1: number; z0: number; mid: number; z: number } {
+/** Crochet d'une rangee nommee : x0 / x1 (bords des collerettes plus side), z (sous les libelles, ou se pose son nom), mid. */
+function groupSpan(ids: readonly EncId[]): { x0: number; x1: number; mid: number; z: number } {
   const T = ENC_GROUP_TYPE;
   const ps = ids.map((id) => encPos(encIndex(id)));
   const x0 = ps[0].x - ENCODER.collar.r * ps[0].s - T.side;
   const x1 = ps[ps.length - 1].x + ENCODER.collar.r * ps[ps.length - 1].s + T.side;
-  const z0 = Math.min(...ps.map((p) => p.z - ENCODER.collar.r * p.s)) - T.top;
-  return { x0, x1, z0, mid: (x0 + x1) / 2, z: Math.max(...ps.map((p) => p.labelZ)) + T.dz };
+  return { x0, x1, mid: (x0 + x1) / 2, z: Math.max(...ps.map((p) => p.labelZ)) + T.dz };
 }
-
-/** Les zones des rangees GLOBAL et VOICE, teintees sur la serigraphie (silk.ts, repli SVG). */
-export const SILK_ZONES: readonly { x0: number; z0: number; x1: number; z1: number; r: number; alpha: number }[] = ENC_GROUPS.map((g) => {
-  const { x0, x1, z0, z } = groupSpan(g.ids);
-  return { x0, z0, x1, z1: z, r: ENC_GROUP_TYPE.radius, alpha: ENC_GROUP_TYPE.fill };
-});
 
 const padLabel = (p: PadSpec): SilkText =>
   p.kind === 'voice'
@@ -1165,11 +1154,15 @@ export const SILK_LINES: readonly (readonly number[])[] = [
     const r = ENCODER.collar.r * s;
     return [x, z - r - 0.05, x, z - r - 0.05 - 0.12 * s];
   }),
-  // le cadre de chaque rangee nommee, ouvert en bas au centre pour son nom
-  ...ENC_GROUPS.map((g) => {
-    const { x0, x1, z0, mid, z } = groupSpan(g.ids);
+  // le crochet de chaque rangee nommee, de part et d'autre de son nom
+  ...ENC_GROUPS.flatMap((g) => {
+    const { x0, x1, mid, z } = groupSpan(g.ids);
     const half = (g.text.length * ENC_GROUP_TYPE.gapPerChar) / 2 + ENC_GROUP_TYPE.pad;
-    return [mid - half, z, x0, z, x0, z0, x1, z0, x1, z, mid + half, z];
+    const t = z - KEYS.bracketTick;
+    return [
+      [x0, t, x0, z, mid - half, z],
+      [mid + half, z, x1, z, x1, t],
+    ];
   }),
   // sous la rangee des voix (les pages dessous), puis la colonne d'OPEN a part
   [PAD.x0 - PAD.size / 2 - 0.09, PAD.rowZ[0] + 0.73, PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[0] + 0.73],
