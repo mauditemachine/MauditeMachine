@@ -387,7 +387,8 @@ export class Stage {
       // three 0.186 exige WebGL2 : sans lui le constructeur leve, on rend le repli
       renderer = new WebGLRenderer({
         canvas,
-        antialias: !opts.mobile,
+        // Lisse aussi sur mobile (2026-10-01) : sans, les aretes crenelaient
+        antialias: true,
         // Machine noire : transparent, la page porte le granite (BACKDROP)
         alpha: BACKDROP.transparent,
         powerPreference: 'high-performance',

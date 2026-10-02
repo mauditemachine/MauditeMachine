@@ -282,7 +282,7 @@ export const PCB = {
   d: BODY.d - 1.2,
   h: 0.1,
   chamfer: 0.03,
-  tex: { desktop: [2048, 1280], mobile: [1024, 640] },
+  tex: { desktop: [2048, 1280], mobile: [2048, 1280] },
   /** generateur des pistes (spec 5.7) : grille de 0.2, graine 808 (mulberry32) */
   grid: 0.2,
   seed: 808,
@@ -334,7 +334,8 @@ export const SILK_PLANE = {
   w: BODY.w,
   d: PANEL_D,
   y: 0.004,
-  tex: { desktop: [2048, 1323], mobile: [1024, 662] },
+  /** mobile en pleine definition depuis le 2026-10-01 : a 1024, la serigraphie bavait au DPR 3 */
+  tex: { desktop: [2048, 1323], mobile: [2048, 1323] },
 } as const;
 
 /**
@@ -1166,7 +1167,13 @@ export const ORBIT = {
 
 export const MOBILE_QUERY = '(max-width: 767px)';
 export const COARSE_QUERY = '(hover: none) and (pointer: coarse)';
-export const DPR_MAX = { desktop: 2, mobile: 1.5 } as const;
+/**
+ * Plafond de densite de pixels. Mobile 3 depuis le 2026-10-01 (1.5 avant) :
+ * a 1.5 et sans lissage, la machine paraissait pixellisee sur l'iPhone de
+ * Mika ; le rendu est a la demande, la pleine definition ne coute qu'aux
+ * images rendues.
+ */
+export const DPR_MAX = { desktop: 2, mobile: 3 } as const;
 
 /* ---------- lumieres (spec 4.2, 4.3 et 20.3.10) ---------- */
 
@@ -1182,7 +1189,7 @@ export const LIGHT_KEY = {
   x: 8,
   y: 14,
   z: 6,
-  mapSize: { desktop: 1024, mobile: 512 },
+  mapSize: { desktop: 1024, mobile: 1024 },
   extent: 11.5,
   near: 1,
   far: 40,

@@ -13,9 +13,15 @@
  * long (400 ms) vide un pas. Memes stores que la machine : les deux
  * changent ensemble. Monte seulement sur la mise en page mobile
  * (index.tsx), jamais dans le repli.
+ *
+ * Repliable (2026-10-01, demande de Mika) : replie par defaut, la machine a
+ * tout l'ecran ; une languette a fleche au bord du bas le deplie (et le
+ * replie, posee alors sur son bord haut). Le choix est retenu
+ * (localStorage mm.v4.dock). Replie, il sort du clavier et des lecteurs
+ * d'ecran (inert).
  */
 
-import React, { useRef, useState, useSyncExternalStore } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { clearPattern, randomPattern, muteToggle, runToggle, selectInstrument, setTempo, soloToggle, stepClear, stepToggle } from '../actions';
 import { clock } from '../audio/clock';
 import { BPM, INSTRUMENTS, STEP_COUNT, VEL_BARS, VEL_NAMES, pattern, velocity } from '../audio/pattern';
@@ -25,6 +31,17 @@ import { voices } from '../state/voices';
 import { INST_NAMES, STEP_HOLD_MS } from '../theme';
 
 const STEP_INDEXES = Array.from({ length: STEP_COUNT }, (_, i) => i);
+
+const DOCK_KEY = 'mm.v4.dock';
+
+/** Deplie a la derniere visite ? (replie par defaut ; sans stockage, replie) */
+function readDockOpen(): boolean {
+  try {
+    return window.localStorage.getItem(DOCK_KEY) === 'open';
+  } catch {
+    return false;
+  }
+}
 
 const Icon: React.FC<{ name: string }> = ({ name }) => <i className={`${name} v4-fa`} aria-hidden="true" />;
 
@@ -46,6 +63,20 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
   const v = useSyncExternalStore(voices.subscribe, voices.get, voices.get);
   // Un pas touche sans instrument : les instruments clignotent une fois
   const [nudge, setNudge] = useState(0);
+  const [shown, setShown] = useState(readDockOpen);
+  const dockRef = useRef<HTMLDivElement>(null);
+  // Replie : hors du clavier et des lecteurs d'ecran (inert n'est pas encore type par React 18)
+  useEffect(() => {
+    const el = dockRef.current;
+    if (!el) return;
+    if (shown) el.removeAttribute('inert');
+    else el.setAttribute('inert', '');
+    try {
+      window.localStorage.setItem(DOCK_KEY, shown ? 'open' : 'closed');
+    } catch {
+      /* stockage indisponible : le choix vaut pour la visite */
+    }
+  }, [shown]);
   // Appui long sur un pas : le pas et l'instant du pointerdown ; le clic qui suit est ignore
   const hold = useRef<{ i: number; t: number } | null>(null);
   const skipClick = useRef(-1);
@@ -57,139 +88,152 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
   };
 
   return (
-    <div className="v4-dock" data-mode={inst ? 'edit' : 'union'}>
-      <div key={nudge} className="v4-dock-insts" data-nudge={nudge > 0 ? '1' : '0'} role="group" aria-label="Instrument, tap one, then the steps">
-        {/* RANDOM a gauche des voix, comme sur la machine */}
-        <button type="button" className="v4-dock-inst v4-dock-random" aria-label="Random house pattern" onClick={() => randomPattern(getStage())}>
-          <Icon name="fa-solid fa-dice" />
-        </button>
-        {INSTRUMENTS.map((k) => {
-          const muted = v.muted.includes(k);
-          const solo = v.solo === k;
-          return (
-            <button
-              key={k}
-              type="button"
-              className="v4-dock-inst"
-              data-muted={muted ? '1' : '0'}
-              data-solo={solo ? '1' : '0'}
-              aria-pressed={inst === k}
-              aria-label={`Select ${INST_NAMES[k]}${muted ? ', muted' : ''}${solo ? ', solo' : ''}`}
-              onClick={() => selectInstrument(k)}
-            >
-              {k}
-            </button>
-          );
-        })}
+    <>
+      <button
+        type="button"
+        className="v4-dock-tab"
+        data-open={shown ? '1' : '0'}
+        aria-expanded={shown}
+        aria-controls="v4-dock"
+        aria-label={shown ? 'Hide the sequencer' : 'Show the sequencer'}
+        onClick={() => setShown((o) => !o)}
+      >
+        <Icon name={shown ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-up'} />
+      </button>
+      <div ref={dockRef} id="v4-dock" className="v4-dock" data-open={shown ? '1' : '0'} data-mode={inst ? 'edit' : 'union'}>
+        <div key={nudge} className="v4-dock-insts" data-nudge={nudge > 0 ? '1' : '0'} role="group" aria-label="Instrument, tap one, then the steps">
+          {/* RANDOM a gauche des voix, comme sur la machine */}
+          <button type="button" className="v4-dock-inst v4-dock-random" aria-label="Random house pattern" onClick={() => randomPattern(getStage())}>
+            <Icon name="fa-solid fa-dice" />
+          </button>
+          {INSTRUMENTS.map((k) => {
+            const muted = v.muted.includes(k);
+            const solo = v.solo === k;
+            return (
+              <button
+                key={k}
+                type="button"
+                className="v4-dock-inst"
+                data-muted={muted ? '1' : '0'}
+                data-solo={solo ? '1' : '0'}
+                aria-pressed={inst === k}
+                aria-label={`Select ${INST_NAMES[k]}${muted ? ', muted' : ''}${solo ? ', solo' : ''}`}
+                onClick={() => selectInstrument(k)}
+              >
+                {k}
+              </button>
+            );
+          })}
+        </div>
+        <div className="v4-dock-steps" role="group" aria-label="Steps">
+          {STEP_INDEXES.map((i) => {
+            // Velocite : 1 fort, 2 moyen, 3 doux ; sans selection, la plus forte des voix
+            const vel = inst
+              ? velocity(p.steps, inst, i)
+              : INSTRUMENTS.reduce((b, k) => {
+                  const v = velocity(p.steps, k, i);
+                  return v > 0 && (b === 0 || v < b) ? v : b;
+                }, 0);
+            const on = vel > 0;
+            const label = inst
+              ? `Step ${i + 1}, ${INST_NAMES[inst]} ${VEL_NAMES[vel].toLowerCase()}`
+              : `Step ${i + 1}, no instrument selected`;
+            return (
+              <button
+                key={i}
+                type="button"
+                className="v4-dock-step"
+                data-on={on ? '1' : '0'}
+                data-vel={vel}
+                data-head={head === i ? '1' : '0'}
+                aria-pressed={inst ? on : false}
+                aria-disabled={inst ? undefined : true}
+                aria-label={label}
+                onPointerDown={(e) => {
+                  hold.current = { i, t: e.timeStamp };
+                }}
+                onPointerUp={(e) => {
+                  const h = hold.current;
+                  hold.current = null;
+                  if (h && h.i === i && e.timeStamp - h.t >= STEP_HOLD_MS) {
+                    skipClick.current = i;
+                    if (!stepClear(i, getStage())) setNudge((n) => n + 1);
+                  }
+                }}
+                onPointerCancel={() => {
+                  hold.current = null;
+                }}
+                onContextMenu={(e) => e.preventDefault()}
+                onClick={() => {
+                  if (skipClick.current === i) {
+                    skipClick.current = -1;
+                    return;
+                  }
+                  onStep(i);
+                }}
+              >
+                {/* Velocite : fort trois traits, moyen deux, doux un */}
+                {on && (
+                  <span className="v4-dock-vel" aria-hidden="true">
+                    {Array.from({ length: VEL_BARS[vel] }, (_, b) => (
+                      <i key={b} />
+                    ))}
+                  </span>
+                )}
+                <span className="v4-dock-num">{i + 1}</span>
+              </button>
+            );
+          })}
+        </div>
+        {/* Transport : nom fixe, l'etat passe par aria-pressed (comme les jumeaux) */}
+        <div className="v4-dock-transport" role="group" aria-label="Transport">
+          <button type="button" className="v4-dock-key" aria-pressed={running} aria-label="Run" onClick={() => runToggle(getStage())}>
+            <Icon name={running ? 'fa-solid fa-stop' : 'fa-solid fa-play'} />
+            <span>{running ? 'STOP' : 'RUN'}</span>
+          </button>
+          <button type="button" className="v4-dock-key" aria-label="Clear pattern" onClick={() => clearPattern(getStage())}>
+            <Icon name="fa-solid fa-eraser" />
+            <span>CLEAR</span>
+          </button>
+          <button
+            type="button"
+            className="v4-dock-key v4-dock-mute"
+            aria-pressed={inst ? v.muted.includes(inst) : v.muted.length > 0}
+            aria-label="Mute the selected voice"
+            onClick={() => muteToggle(getStage())}
+          >
+            <Icon name="fa-solid fa-volume-xmark" />
+            <span>MUTE</span>
+          </button>
+          <button type="button" className="v4-dock-key" aria-pressed={v.solo !== null} aria-label="Solo the selected voice" onClick={() => soloToggle(getStage())}>
+            <Icon name="fa-solid fa-headphones" />
+            <span>SOLO</span>
+          </button>
+          <button
+            type="button"
+            className="v4-dock-key v4-dock-nudge"
+            aria-label="Tempo down"
+            disabled={bpm <= BPM.min}
+            onClick={() => setTempo(bpm - 1)}
+          >
+            <Glyph plus={false} />
+          </button>
+          <span className="v4-dock-bpm">
+            {bpm}
+            <span className="v4-dock-bpm-unit"> BPM</span>
+          </span>
+          <button
+            type="button"
+            className="v4-dock-key v4-dock-nudge"
+            aria-label="Tempo up"
+            disabled={bpm >= BPM.max}
+            onClick={() => setTempo(bpm + 1)}
+          >
+            <Glyph plus />
+          </button>
+        </div>
       </div>
-      <div className="v4-dock-steps" role="group" aria-label="Steps">
-        {STEP_INDEXES.map((i) => {
-          // Velocite : 1 fort, 2 moyen, 3 doux ; sans selection, la plus forte des voix
-          const vel = inst
-            ? velocity(p.steps, inst, i)
-            : INSTRUMENTS.reduce((b, k) => {
-                const v = velocity(p.steps, k, i);
-                return v > 0 && (b === 0 || v < b) ? v : b;
-              }, 0);
-          const on = vel > 0;
-          const label = inst
-            ? `Step ${i + 1}, ${INST_NAMES[inst]} ${VEL_NAMES[vel].toLowerCase()}`
-            : `Step ${i + 1}, no instrument selected`;
-          return (
-            <button
-              key={i}
-              type="button"
-              className="v4-dock-step"
-              data-on={on ? '1' : '0'}
-              data-vel={vel}
-              data-head={head === i ? '1' : '0'}
-              aria-pressed={inst ? on : false}
-              aria-disabled={inst ? undefined : true}
-              aria-label={label}
-              onPointerDown={(e) => {
-                hold.current = { i, t: e.timeStamp };
-              }}
-              onPointerUp={(e) => {
-                const h = hold.current;
-                hold.current = null;
-                if (h && h.i === i && e.timeStamp - h.t >= STEP_HOLD_MS) {
-                  skipClick.current = i;
-                  if (!stepClear(i, getStage())) setNudge((n) => n + 1);
-                }
-              }}
-              onPointerCancel={() => {
-                hold.current = null;
-              }}
-              onContextMenu={(e) => e.preventDefault()}
-              onClick={() => {
-                if (skipClick.current === i) {
-                  skipClick.current = -1;
-                  return;
-                }
-                onStep(i);
-              }}
-            >
-              {/* Velocite : fort trois traits, moyen deux, doux un */}
-              {on && (
-                <span className="v4-dock-vel" aria-hidden="true">
-                  {Array.from({ length: VEL_BARS[vel] }, (_, b) => (
-                    <i key={b} />
-                  ))}
-                </span>
-              )}
-              <span className="v4-dock-num">{i + 1}</span>
-            </button>
-          );
-        })}
-      </div>
-      {/* Transport : nom fixe, l'etat passe par aria-pressed (comme les jumeaux) */}
-      <div className="v4-dock-transport" role="group" aria-label="Transport">
-        <button type="button" className="v4-dock-key" aria-pressed={running} aria-label="Run" onClick={() => runToggle(getStage())}>
-          <Icon name={running ? 'fa-solid fa-stop' : 'fa-solid fa-play'} />
-          <span>{running ? 'STOP' : 'RUN'}</span>
-        </button>
-        <button type="button" className="v4-dock-key" aria-label="Clear pattern" onClick={() => clearPattern(getStage())}>
-          <Icon name="fa-solid fa-eraser" />
-          <span>CLEAR</span>
-        </button>
-        <button
-          type="button"
-          className="v4-dock-key v4-dock-mute"
-          aria-pressed={inst ? v.muted.includes(inst) : v.muted.length > 0}
-          aria-label="Mute the selected voice"
-          onClick={() => muteToggle(getStage())}
-        >
-          <Icon name="fa-solid fa-volume-xmark" />
-          <span>MUTE</span>
-        </button>
-        <button type="button" className="v4-dock-key" aria-pressed={v.solo !== null} aria-label="Solo the selected voice" onClick={() => soloToggle(getStage())}>
-          <Icon name="fa-solid fa-headphones" />
-          <span>SOLO</span>
-        </button>
-        <button
-          type="button"
-          className="v4-dock-key v4-dock-nudge"
-          aria-label="Tempo down"
-          disabled={bpm <= BPM.min}
-          onClick={() => setTempo(bpm - 1)}
-        >
-          <Glyph plus={false} />
-        </button>
-        <span className="v4-dock-bpm">
-          {bpm}
-          <span className="v4-dock-bpm-unit"> BPM</span>
-        </span>
-        <button
-          type="button"
-          className="v4-dock-key v4-dock-nudge"
-          aria-label="Tempo up"
-          disabled={bpm >= BPM.max}
-          onClick={() => setTempo(bpm + 1)}
-        >
-          <Glyph plus />
-        </button>
-      </div>
-    </div>
+    </>
   );
 };
 

@@ -248,12 +248,12 @@ html:has(body.v4-active) {
   color: var(--yellow);
 }
 
+/* Mobile : en haut a droite, sous l'en-tete (le Dock repliable occupe le bas) */
 @media (max-width: 767px) {
   .v4-root .v4-reset {
-    right: 12px;
+    right: 8px;
     bottom: auto;
-    top: calc(50vh - 56px);
-    top: calc(var(--canvas-h-mobile) - 56px);
+    top: calc(56px + env(safe-area-inset-top, 0px));
   }
 }
 
@@ -397,15 +397,17 @@ html:has(body.v4-active) {
 
 /* ---------- en-tete mobile : logo et hamburger (2026-10-01) ---------- */
 
-/* La scene prend toute la hauteur moins le Dock compact ; l'en-tete (52 px)
-   se pose par-dessus son haut, sur un degrade : la machine, plus large que
-   haute, laisse toujours de l'air au-dessus d'elle. */
+/* L'en-tete (52 px) se pose par-dessus le haut de la scene, sur un
+   degrade : la machine, plus large que haute, laisse toujours de l'air
+   au-dessus d'elle. */
+/* La scene prend toute la hauteur (le Dock, repliable depuis le
+   2026-10-01, glisse par-dessus son bas quand on le deplie). */
 @media (max-width: 767px) {
   .v4-root {
     --dock-h-mobile: 174px;
     --ios-bar: 0px;
-    --canvas-h-mobile: calc(100vh - var(--dock-h-mobile) - env(safe-area-inset-bottom, 0px) - var(--ios-bar));
-    --canvas-h-mobile: calc(100dvh - var(--dock-h-mobile) - env(safe-area-inset-bottom, 0px) - var(--ios-bar));
+    --canvas-h-mobile: 100vh;
+    --canvas-h-mobile: 100dvh;
   }
 
   /* Safari 26 sur iPhone : sa barre d'onglets flotte par-dessus le bas de la
@@ -661,8 +663,6 @@ html:has(body.v4-active) {
     position: absolute;
     left: 0;
     right: 0;
-    top: 50vh;
-    top: var(--canvas-h-mobile);
     bottom: 0;
     z-index: 20;
     display: flex;
@@ -678,10 +678,70 @@ html:has(body.v4-active) {
     -webkit-user-select: none;
     user-select: none;
     -webkit-touch-callout: none;
+    background: var(--ink);
+    border-top: 1px solid var(--line);
+    border-radius: 16px 16px 0 0;
+    transition:
+      transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
+      visibility 0s linear 0s;
+  }
+
+  /* Replie : sous le bord de l'ecran, la machine a tout l'ecran */
+  .v4-dock[data-open='0'] {
+    transform: translateY(100%);
+    visibility: hidden;
+    transition:
+      transform 220ms ease-in,
+      visibility 0s linear 220ms;
+  }
+
+  /* La languette : une fleche au bord du bas (sur le bord haut du Dock deplie) */
+  .v4-root .v4-dock-tab {
+    position: absolute;
+    left: 50%;
+    bottom: calc(6px + env(safe-area-inset-bottom, 0px) + var(--ios-bar));
+    z-index: 21;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 30px;
+    border: 1px solid var(--line);
+    border-radius: 15px;
+    background: var(--graphite);
+    color: var(--bone);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    transform: translateX(-50%);
+    transition: bottom 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .v4-root .v4-dock-tab .v4-fa {
+    font-size: 13px;
+  }
+
+  .v4-root .v4-dock-tab[data-open='1'] {
+    /* posee sur le bord haut du Dock, dans sa marge : elle ne touche pas les voix */
+    bottom: calc(var(--dock-h-mobile) + env(safe-area-inset-bottom, 0px) + var(--ios-bar) - 4px);
+  }
+
+  .v4-root .v4-dock-tab:focus-visible {
+    outline: 2px solid var(--yellow);
+    outline-offset: 2px;
   }
 }
 
-.v4-root[data-v4-gl='fallback'] .v4-dock {
+.v4-dock-tab {
+  display: none;
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-dock,
+.v4-root[data-v4-motion='reduced'] .v4-dock[data-open='0'],
+.v4-root[data-v4-motion='reduced'] .v4-dock-tab {
+  transition: none;
+}
+
+.v4-root[data-v4-gl='fallback'] .v4-dock,
+.v4-root[data-v4-gl='fallback'] .v4-dock-tab {
   display: none;
 }
 
@@ -1125,7 +1185,8 @@ html:has(body.v4-active) {
      qu'il y en a d'autres. */
 
   .v4-panel-body {
-    padding: 8px 16px calc(16px + env(safe-area-inset-bottom, 0px));
+    /* Safari 26 iPhone : le bas de la feuille passe aussi au-dessus de sa barre flottante */
+    padding: 8px 16px calc(16px + env(safe-area-inset-bottom, 0px) + var(--ios-bar));
     touch-action: pan-y;
   }
 }
@@ -2134,8 +2195,7 @@ html:has(body.v4-active) {
 
 @media (max-width: 767px) {
   .v4-kit-hint {
-    bottom: auto;
-    top: calc(var(--canvas-h-mobile) - 46px);
+    bottom: calc(48px + env(safe-area-inset-bottom, 0px) + var(--ios-bar));
     white-space: normal;
   }
 }
