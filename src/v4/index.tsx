@@ -361,6 +361,7 @@ const V4Shell: React.FC = () => {
       data-v4-exploded={exploded}
       data-v4-view={viewMoved ? 'moved' : 'default'}
       data-v4-theme={look}
+      data-v4-iosbar={IOS_FLOATING_BAR ? '1' : '0'}
     >
       {gl === 'webgl' && (
         <h1 className="v4-sr">
@@ -409,6 +410,21 @@ const V4Shell: React.FC = () => {
  * EngineBridge le consomme, le reste lit le pont (audio/soundcloud.ts) :
  * aucun re-render de la page a chaque progression du widget.
  */
+/**
+ * Safari 26 et plus sur iPhone, hors ecran d'accueil (2026-10-01) : sa
+ * barre d'onglets flotte par-dessus le bas de la page, sans zone sure
+ * annoncee ; le Dock se pose au-dessus (v4.css, --ios-bar). Les autres
+ * navigateurs iOS (CriOS, FxiOS, EdgiOS) ont leur propre barre.
+ */
+const IOS_FLOATING_BAR = ((): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  if (!/iPhone|iPod/.test(ua) || /CriOS|FxiOS|EdgiOS|OPiOS/.test(ua)) return false;
+  if ((navigator as Navigator & { standalone?: boolean }).standalone) return false;
+  const m = /Version\/(\d+)/.exec(ua);
+  return m !== null && Number(m[1]) >= 26;
+})();
+
 const V4App: React.FC = () => {
   // Drapeaux relus a chaque montage (navigation SPA comprise)
   useMemo(() => syncFlags(), []);
