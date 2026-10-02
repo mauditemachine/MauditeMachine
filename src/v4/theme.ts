@@ -20,9 +20,10 @@
  * ou SP-404 : les memes elements, places autrement (8.2 x 14.4 au sol,
  * l'ecran et MASTER / TEMPO en haut, le transport, la rangee GLOBAL, les
  * pads, la rangee VOICE, puis les 16 pas en deux rangees de 8). Choisie au
- * chargement : ?portrait=1 (retenu pour l'onglet, ?portrait=0 l'oublie) et
- * un ecran de moins de 768 px ; toutes les cotes en decoulent, le desktop
- * ne change pas. Changer de largeur ensuite ne la change pas : recharger.
+ * chargement par ?portrait=1 (retenu pour l'onglet, ?portrait=0 l'oublie),
+ * a toute largeur depuis le 2026-10-01 : Mika l'essaie aussi sur
+ * l'ordinateur. Toutes les cotes en decoulent ; sans le drapeau, rien ne
+ * change. Changer de largeur ensuite ne la change pas : recharger.
  */
 export const PORTRAIT: boolean = (() => {
   if (typeof window === 'undefined') return false;
@@ -30,8 +31,7 @@ export const PORTRAIT: boolean = (() => {
     const q = new URLSearchParams(window.location.search).get('portrait');
     if (q === '1') window.sessionStorage.setItem('mm.v4.portrait', '1');
     if (q === '0') window.sessionStorage.removeItem('mm.v4.portrait');
-    const on = q === '1' || window.sessionStorage.getItem('mm.v4.portrait') === '1';
-    return on && window.matchMedia('(max-width: 767px)').matches;
+    return q === '1' || window.sessionStorage.getItem('mm.v4.portrait') === '1';
   } catch {
     return false;
   }
@@ -990,7 +990,8 @@ export const SECTION_TITLES: Readonly<Record<SectionId, string>> = {
  * aucune orientation ne la fait passer sous le panneau a zoom <= 1.
  * Jamais plus grande qu'au repos.
  */
-export const SECTION_FRAME = { ms: 400, gap: 16, radius: { closed: 7.47, open: 8.33 } } as const;
+/** portrait : les rayons de la machine en hauteur (measure().fit.radius : 8.29 fermee, 10.26 ouverte) */
+export const SECTION_FRAME = { ms: 400, gap: 16, radius: PORTRAIT ? { closed: 8.3, open: 10.3 } : { closed: 7.47, open: 8.33 } } as const;
 
 /**
  * Boite du panneau desktop, en phase avec v4.css (.v4-panel) : 460 px au
