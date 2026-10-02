@@ -2188,3 +2188,5 @@ Decision (2026-10-02): Mika keeps SoundCloud; the global effects apply to the dr
 R14-21. Desktop VOICE FX row under the page pads (2026-10-02, Mika: REVERB sat under OPEN). VOLUME under TRACKS, REVERB under CONTACT, the seven knobs evenly spread between them (pitch 0.667 instead of the 0.74 step grid); measured at 1440 x 900: VOLUME 748 px / TRACKS 748, REVERB 1051 / CONTACT 1046. The GLOBAL row stays on the step grid; portrait unchanged.
 
 R14-22. The grey frames and tinted zones of R14-20 are removed (Mika: "grossier"). Under each knob row a thin bracket like the step brackets (ticks at both ends), broken in the middle by its name in bold, 0.1 cap: GLOBAL FX, VOICE FX. SILK_ZONES and its drawing (silk.ts, SVG fallback) are gone.
+
+R14-23. Desktop step sequencer 0.11 lower (2026-10-02, Mika: the steps touched the GLOBAL FX / VOICE FX names): KEYS.z 2.51, ledZ 1.73, numberZ 3.19, bracketZ 3.36 on the landscape machine (portrait unchanged); measured 8.2 px lower at 1440 x 900 (about 75 px per unit there, foreshortened by the 69 deg view).

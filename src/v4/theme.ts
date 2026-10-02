@@ -777,7 +777,8 @@ export const KEYS = {
   count: 16,
   x0: PORTRAIT ? -3.01 : -5.55,
   pitch: PORTRAIT ? 0.86 : 0.74,
-  z: PORTRAIT ? 4.0 : 2.4,
+  /** desktop : 0.11 plus bas le 2026-10-02 (8 px a 1440 x 900, Mika : les pas touchaient GLOBAL FX / VOICE FX) */
+  z: PORTRAIT ? 4.0 : 2.51,
   /** portrait : deux rangees de 8, la seconde rowDz plus bas */
   perRow: PORTRAIT ? 8 : 16,
   rowDz: PORTRAIT ? 1.95 : 0,
@@ -786,7 +787,7 @@ export const KEYS = {
   h: 0.1,
   radius: 0.04,
   segments: { desktop: 3, mobile: 2 },
-  ledZ: PORTRAIT ? 3.22 : 1.62,
+  ledZ: PORTRAIT ? 3.22 : 1.73,
   ledW: 0.22,
   ledD: 0.055,
   ledY: 0.006,
@@ -797,8 +798,8 @@ export const KEYS = {
    */
   velBars: 3,
   velPitch: 0.09,
-  numberZ: PORTRAIT ? 4.68 : 3.08,
-  bracketZ: PORTRAIT ? 4.85 : 3.25,
+  numberZ: PORTRAIT ? 4.68 : 3.19,
+  bracketZ: PORTRAIT ? 4.85 : 3.36,
   bracketTick: 0.06,
 } as const;
 /** x du pas i ; sa rangee le decale de keyDz en z (portrait : deux rangees de 8). */
