@@ -884,14 +884,17 @@ export const encPos = (i: number): EncPlace => {
 };
 
 /**
- * Les deux rangees nommees (2026-10-01) : un filet sous les libelles, d'un
- * bord a l'autre de la rangee, coupe au centre par GLOBAL ou VOICE.
+ * Les deux rangees nommees (2026-10-01 ; zones le 2026-10-02, Mika : le
+ * petit GLOBAL sous la rangee ne se remarquait pas) : chaque rangee dans
+ * sa zone serigraphiee, un cadre a peine teinte (fill) autour des potards
+ * et de leurs libelles, coupe en bas au centre par son nom en gras
+ * (GLOBAL FX, VOICE FX), 0.1 de capitale (0.06 avant).
  */
 export const ENC_GROUPS: readonly { text: string; ids: readonly EncId[] }[] = [
-  { text: 'GLOBAL', ids: ENC_GLOBAL },
-  { text: 'VOICE', ids: VOICE_ENCODERS },
+  { text: 'GLOBAL FX', ids: ENC_GLOBAL },
+  { text: 'VOICE FX', ids: VOICE_ENCODERS },
 ];
-export const ENC_GROUP_TYPE = { cap: 0.06, dz: 0.17, gapPerChar: 0.075, pad: 0.1 } as const;
+export const ENC_GROUP_TYPE = { cap: 0.1, weight: 700, dz: 0.18, top: 0.16, side: 0.16, gapPerChar: 0.125, pad: 0.12, fill: 0.07, radius: 0.12 } as const;
 /** Index d'un encodeur dans ENCODERS. */
 export const encIndex = (id: EncId): number => ENCODERS.findIndex((e) => e.id === id);
 
@@ -1104,13 +1107,24 @@ export const SILK_LOGOS: readonly { id: SilkLogoId; src: string; x: number; z: n
 
 /** Le libelle du pad OPEN (OPEN, CLOSE vue eclatee) : l'index de son texte dans SILK_TEXTS. */
 const PAD_CAP = 0.09;
-/** Etendue d'une rangee nommee : bords des collerettes, centre, z du filet. */
-function groupSpan(ids: readonly EncId[]): { a: number; b: number; mid: number; z: number } {
+/**
+ * Zone d'une rangee nommee : x0 / x1 (bords des collerettes plus la marge),
+ * z0 (au-dessus des potards), z (le bas, ou se pose son nom), mid.
+ */
+function groupSpan(ids: readonly EncId[]): { x0: number; x1: number; z0: number; mid: number; z: number } {
+  const T = ENC_GROUP_TYPE;
   const ps = ids.map((id) => encPos(encIndex(id)));
-  const a = ps[0].x - ENCODER.collar.r * ps[0].s;
-  const b = ps[ps.length - 1].x + ENCODER.collar.r * ps[ps.length - 1].s;
-  return { a, b, mid: (a + b) / 2, z: Math.max(...ps.map((p) => p.labelZ)) + ENC_GROUP_TYPE.dz };
+  const x0 = ps[0].x - ENCODER.collar.r * ps[0].s - T.side;
+  const x1 = ps[ps.length - 1].x + ENCODER.collar.r * ps[ps.length - 1].s + T.side;
+  const z0 = Math.min(...ps.map((p) => p.z - ENCODER.collar.r * p.s)) - T.top;
+  return { x0, x1, z0, mid: (x0 + x1) / 2, z: Math.max(...ps.map((p) => p.labelZ)) + T.dz };
 }
+
+/** Les zones des rangees GLOBAL et VOICE, teintees sur la serigraphie (silk.ts, repli SVG). */
+export const SILK_ZONES: readonly { x0: number; z0: number; x1: number; z1: number; r: number; alpha: number }[] = ENC_GROUPS.map((g) => {
+  const { x0, x1, z0, z } = groupSpan(g.ids);
+  return { x0, z0, x1, z1: z, r: ENC_GROUP_TYPE.radius, alpha: ENC_GROUP_TYPE.fill };
+});
 
 const padLabel = (p: PadSpec): SilkText =>
   p.kind === 'voice'
@@ -1123,7 +1137,7 @@ export const SILK_TEXTS: readonly SilkText[] = [
   { text: 'FIRMWARE V.2.1 / 2026', x: HEAD.firmware, z: HEAD.z, cap: PORTRAIT ? 0.06 : 0.07, align: 'right', alpha: 0.45 },
   { text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - 0.72, cap: 0.06, align: 'left' },
   ...ENCODERS.map((e, i) => ({ text: e.label, x: encPos(i).x, z: encPos(i).labelZ, cap: 0.085, maxW: 0.66, group: 'enc' })),
-  ...ENC_GROUPS.map((g) => ({ text: g.text, x: groupSpan(g.ids).mid, z: groupSpan(g.ids).z, cap: ENC_GROUP_TYPE.cap })),
+  ...ENC_GROUPS.map((g) => ({ text: g.text, x: groupSpan(g.ids).mid, z: groupSpan(g.ids).z, cap: ENC_GROUP_TYPE.cap, weight: ENC_GROUP_TYPE.weight, alpha: 1 })),
   { text: 'RUN/STOP', x: TRANSPORT.run.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'tr' },
   { text: 'CLEAR', x: TRANSPORT.clear.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'tr' },
   { text: 'RANDOM', x: TRANSPORT.random.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'tr' },
@@ -1147,15 +1161,11 @@ export const SILK_LINES: readonly (readonly number[])[] = [
     const r = ENCODER.collar.r * s;
     return [x, z - r - 0.05, x, z - r - 0.05 - 0.12 * s];
   }),
-  // le filet de chaque rangee nommee, de part et d'autre de son nom
-  ...ENC_GROUPS.flatMap((g) => {
-    const { a, b, mid, z } = groupSpan(g.ids);
+  // le cadre de chaque rangee nommee, ouvert en bas au centre pour son nom
+  ...ENC_GROUPS.map((g) => {
+    const { x0, x1, z0, mid, z } = groupSpan(g.ids);
     const half = (g.text.length * ENC_GROUP_TYPE.gapPerChar) / 2 + ENC_GROUP_TYPE.pad;
-    const t = z - KEYS.bracketTick;
-    return [
-      [a, t, a, z, mid - half, z],
-      [mid + half, z, b, z, b, t],
-    ];
+    return [mid - half, z, x0, z, x0, z0, x1, z0, x1, z, mid + half, z];
   }),
   // sous la rangee des voix (les pages dessous), puis la colonne d'OPEN a part
   [PAD.x0 - PAD.size / 2 - 0.09, PAD.rowZ[0] + 0.73, PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[0] + 0.73],
