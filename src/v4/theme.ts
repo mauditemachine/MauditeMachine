@@ -15,23 +15,26 @@
 /* ---------- disposition portrait (essai mobile, 2026-10-01) ---------- */
 
 /**
- * Disposition portrait (2026-10-01, essai demande par Mika) : sur
- * telephone, la machine en hauteur plutot qu'en largeur, facon Traktor X1
- * ou SP-404 : les memes elements, places autrement (8.2 x 14.4 au sol,
- * l'ecran et MASTER / TEMPO en haut, le transport, la rangee GLOBAL, les
- * pads, la rangee VOICE, puis les 16 pas en deux rangees de 8). Choisie au
- * chargement par ?portrait=1 (retenu pour l'onglet, ?portrait=0 l'oublie),
- * a toute largeur depuis le 2026-10-01 : Mika l'essaie aussi sur
- * l'ordinateur. Toutes les cotes en decoulent ; sans le drapeau, rien ne
- * change. Changer de largeur ensuite ne la change pas : recharger.
+ * Disposition portrait (2026-10-01, demande de Mika) : sur telephone, la
+ * machine en hauteur plutot qu'en largeur, facon Traktor X1 ou SP-404 : les
+ * memes elements, places autrement (8.2 x 14.4 au sol, l'ecran et MASTER /
+ * TEMPO en haut, le transport, la rangee GLOBAL, les pads, la rangee
+ * VOICE, puis les 16 pas en deux rangees de 8), boutons deux fois plus
+ * grands a l'ecran. Par defaut sous 768 px de large, au chargement ;
+ * ?portrait=1 ou ?portrait=0 la forcent dans un sens ou dans l'autre (a
+ * toute largeur, retenu pour l'onglet). Toutes les cotes en decoulent ; le
+ * desktop ne change pas. Changer de largeur ensuite ne la change pas :
+ * recharger.
  */
 export const PORTRAIT: boolean = (() => {
   if (typeof window === 'undefined') return false;
   try {
     const q = new URLSearchParams(window.location.search).get('portrait');
-    if (q === '1') window.sessionStorage.setItem('mm.v4.portrait', '1');
-    if (q === '0') window.sessionStorage.removeItem('mm.v4.portrait');
-    return q === '1' || window.sessionStorage.getItem('mm.v4.portrait') === '1';
+    if (q === '1' || q === '0') window.sessionStorage.setItem('mm.v4.portrait', q);
+    const forced = window.sessionStorage.getItem('mm.v4.portrait');
+    if (forced === '1') return true;
+    if (forced === '0') return false;
+    return window.matchMedia('(max-width: 767px)').matches;
   } catch {
     return false;
   }
