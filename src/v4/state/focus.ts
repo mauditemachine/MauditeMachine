@@ -7,25 +7,25 @@
  * cible (settled passe a true a l'arrivee) ; les jumeaux, la couche de
  * saisie, l'en-tete et le Dock le lisent.
  *
- * Sans le MM-VOYAGER (?voyager=0, ou tant qu'il n'est pas active par
- * defaut), la 808 seule : focus reste 'mm808'.
+ * Sans le MM-VOYAGER (?voyager=0), la 808 seule : focus reste 'mm808'.
  */
 
 export type MachineId = 'mm808' | 'voy';
 export type Focus = 'all' | MachineId;
 
 /**
- * Le MM-VOYAGER est-il sur la table ? ?voyager=1 l'active, ?voyager=0 le
- * retire (retenu pour l'onglet).
+ * Le MM-VOYAGER est-il sur la table ? Oui pour tout le monde depuis le
+ * 2026-10-03 (Mika : "active le pour tout le monde") ; ?voyager=0 le
+ * retire (retenu pour l'onglet), ?voyager=1 le remet.
  */
 export const VOYAGER: boolean = (() => {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined') return true;
   try {
     const q = new URLSearchParams(window.location.search).get('voyager');
     if (q === '1' || q === '0') window.sessionStorage.setItem('mm.v4.voyager', q);
-    return window.sessionStorage.getItem('mm.v4.voyager') === '1';
+    return window.sessionStorage.getItem('mm.v4.voyager') !== '0';
   } catch {
-    return false;
+    return true;
   }
 })();
 
