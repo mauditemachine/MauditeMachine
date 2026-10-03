@@ -54,6 +54,7 @@ import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
 import { motion } from '../state/motion';
 import { explode as explodeState, voyExplode } from '../state/explode';
 import { focus, VOYAGER, type Focus, type MachineId } from '../state/focus';
+import { view } from '../state/view';
 import { intro } from '../state/intro';
 import { playhead } from '../state/playhead';
 import { lcd } from '../state/lcd';
@@ -152,6 +153,13 @@ const FRAME_KEYS = ['cx', 'hw0', 'h', 'ty', 'explodeTy', 'rClosed', 'rOpen', 'fi
 
 /** Zoom d'une machine a l'autre (ms) ; la vue d'ensemble garde 88 % de la largeur pour les deux. */
 const FOCUS_MS = 900;
+/**
+ * Le bout qui depasse (desktop, 2026-10-03, demande de Mika) : une machine
+ * utilisee, l'autre se pousse au bord de l'ecran et en montre px pixels (a
+ * la vue par defaut) ; au survol elle en montre hoverPx de plus, en ms ;
+ * jamais plus pres que gap de la machine utilisee.
+ */
+const PEEK = { px: 36, hoverPx: 40, ms: 180, gap: 0.8 } as const;
 const OVERVIEW_FILL = { desktop: 0.88, mobile: 0.92 } as const;
 
 /* ---------------- Stage ---------------- */
@@ -417,6 +425,11 @@ export class Stage {
   private focusK = 1;
   private unsubFocus: () => void = () => undefined;
   private unsubVoyExplode: () => void = () => undefined;
+  private unsubView: () => void = () => undefined;
+  /** abscisses des machines au depart du zoom (le bout qui depasse les deplace) */
+  private nbFrom: Record<MachineId, number> = { mm808: 0, voy: VOY_X };
+  /** survol du bout de la machine voisine : 0 a 1 */
+  private peekHover = 0;
 
   static create(opts: StageOpts): Stage | null {
     let canvas: HTMLCanvasElement | null = null;
@@ -748,6 +761,10 @@ export class Stage {
       // Capot deja ouvert (reconstruction) : le cadrage de la pile ouverte
       this.updateCamera();
       this.unsubFocus = focus.subscribe(this.syncFocus);
+      // La vue tournee cache la voisine, revenue par defaut elle la remontre
+      this.unsubView = view.subscribe(() => {
+        if (focus.settled()) this.setShown(this.fTo);
+      });
       // Le capot du MM-VOYAGER change le cadrage (pile ouverte) : un recalcul
       this.unsubVoyExplode = voyExplode.subscribe(() => {
         this.hit.invalidate();
@@ -933,6 +950,66 @@ export class Stage {
       this.orbit.distance = D;
       this.orbit.place();
     }
+    this.placeNeighbors(hw);
+  }
+
+  /**
+   * Le bout qui depasse (desktop) : une machine utilisee, l'autre se place
+   * pour que son bord interieur tombe a PEEK.px du bord de l'ecran (mesure
+   * dans le plan du pivot, quelle que soit la largeur de la fenetre) ; vue
+   * d'ensemble et telephone : chacune chez elle. Pendant un zoom, les
+   * machines glissent avec lui. Le sol suit (ombres de contact).
+   */
+  private placeNeighbors(hw: number): void {
+    const voy = this.voy;
+    if (!voy) return;
+    const f = this.fTo;
+    const u = (2 * hw) / Math.max(1, this.width);
+    const peek = (PEEK.px + PEEK.hoverPx * this.peekHover) * u;
+    const cx = this.fr.cx;
+    let t808 = 0;
+    let tVoy = VOY_X;
+    if (!this.layoutMobile && f === 'mm808') {
+      tVoy = Math.max(BODY.w / 2 + PEEK.gap + VOY_BODY.w / 2, cx + hw - peek + VOY_BODY.w / 2);
+    } else if (!this.layoutMobile && f === 'voy') {
+      t808 = Math.min(VOY_X - VOY_BODY.w / 2 - PEEK.gap - BODY.w / 2, cx - hw + peek - BODY.w / 2);
+    }
+    const k = this.focusK;
+    const x808 = this.nbFrom.mm808 + (t808 - this.nbFrom.mm808) * k;
+    const xVoy = this.nbFrom.voy + (tVoy - this.nbFrom.voy) * k;
+    let moved = false;
+    if (this.machine.root.position.x !== x808) {
+      this.machine.root.position.x = x808;
+      moved = true;
+    }
+    if (voy.root.position.x !== xVoy) {
+      voy.root.position.x = xVoy;
+      moved = true;
+    }
+    if (this.floor.setCenters(x808, xVoy)) moved = true;
+    if (moved) {
+      this.shadowDirty = true;
+      this.dirty = true;
+    }
+  }
+
+  /** Survol du bout de la machine voisine : il sort un peu (180 ms). */
+  setPeekHover(on: boolean): void {
+    if (!this.voy || this.disposed) return;
+    const goal = on && focus.get() !== 'all' ? 1 : 0;
+    this.tweens.run(
+      'peek.hover',
+      (v) => {
+        this.peekHover = v;
+        this.updateCamera();
+      },
+      this.peekHover,
+      goal,
+      motion.reduced() ? 0 : PEEK.ms,
+      easeOutCubic,
+      performance.now()
+    );
+    this.kick();
   }
 
   /* ---------------- deux machines (2026-10-03) ---------------- */
@@ -1032,8 +1109,11 @@ export class Stage {
   private setShown(f: Focus): void {
     const voy = this.voy;
     if (!voy) return;
-    const a = f !== 'voy';
-    const b = f !== 'mm808';
+    // Desktop, vue par defaut : la voisine reste, au bord (le bout qui depasse) ;
+    // la vue tournee, elle se cache (elle passerait devant)
+    const peek = !this.layoutMobile && !view.get();
+    const a = f !== 'voy' || peek;
+    const b = f !== 'mm808' || peek;
     if (this.machine.root.visible === a && voy.root.visible === b) return;
     this.machine.root.visible = a;
     voy.root.visible = b;
@@ -1053,6 +1133,7 @@ export class Stage {
     const f = focus.get();
     this.fFrom = this.fTo = f;
     this.focusK = 1;
+    this.peekHover = 0;
     this.fr = this.frameOf(f);
     this.frFrom = { ...this.fr };
     this.frTo = { ...this.fr };
@@ -1080,6 +1161,9 @@ export class Stage {
     this.fTo = f;
     this.frTo = this.frameOf(f);
     this.focusK = 0;
+    this.nbFrom = { mm808: this.machine.root.position.x, voy: this.voy ? this.voy.root.position.x : VOY_X };
+    this.peekHover = 0;
+    this.tweens.cancel('peek.hover');
     this.setShown('all');
     this.syncActive();
     // Une autre machine : la vue revient de face (la vue d'ensemble aussi)
@@ -2109,6 +2193,7 @@ export class Stage {
     this.detachExplode();
     this.unsubFocus();
     this.unsubVoyExplode();
+    this.unsubView();
     this.viewListeners.length = 0;
     this.idleListeners.length = 0;
     this.dprMql?.removeEventListener('change', this.onDpr);

@@ -2,7 +2,7 @@
  * Le volet des machines (desktop, 2026-10-03, demande de Mika : "quand je
  * passe la souris sur le cote gauche de la fenetre, une marge en
  * transition smooth rapide avec la liste des machines"). La souris au bord
- * gauche (ou un clic sur la languette MACHINES) fait glisser le volet en
+ * gauche (ou un clic sur MACHINES, en bas a gauche) fait glisser le volet en
  * 200 ms : la vue d'ensemble, puis chaque machine avec sa vignette 3D
  * (rendue par la scene, scene/renderer.ts thumbnail), son nom et son role ;
  * celle qu'on utilise est marquee. Un choix zoome dessus et referme le

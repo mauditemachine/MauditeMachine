@@ -214,8 +214,15 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     let lastBg: { t: number; x: number; y: number } | null = null;
     let wheelAcc = 0;
     let wheelKind: DialId | null = null;
-    /** vue d'ensemble : la machine sous la souris (curseur doigt, un clic zoome) */
+    /** vue d'ensemble, ou le bout de la voisine : une machine sous la souris (curseur doigt, un clic zoome) */
     let hoverMachine = false;
+    /** le bout de la machine voisine est survole : il sort un peu */
+    let peeking = false;
+    const setPeek = (on: boolean): void => {
+      if (on === peeking) return;
+      peeking = on;
+      stage.setPeekHover(on);
+    };
     /** Maj tenue au dernier mouvement du pointeur (reglage fin des potards) */
     let shiftHeld = false;
     // Le rectangle ne change qu'au redimensionnement : pas de lecture de
@@ -419,8 +426,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         return;
       }
       const h = pickAt(e, false);
-      // Vue d'ensemble (deux machines) : une machine sous la souris se clique
-      hoverMachine = !h && VOYAGER && focus.get() === 'all' && stage.hit.machineAt(e.clientX - rect.left, e.clientY - rect.top) !== null;
+      // Deux machines : en vue d'ensemble, une machine sous la souris se clique ;
+      // une machine utilisee, le bout de l'autre aussi (et il sort un peu)
+      const mh = !h && VOYAGER ? stage.hit.machineAt(e.clientX - rect.left, e.clientY - rect.top) : null;
+      hoverMachine = mh !== null && mh !== focus.machine();
+      setPeek(hoverMachine && focus.get() !== 'all');
       setHover(h);
     };
 
@@ -511,6 +521,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
 
     const onLeave = (e: PointerEvent): void => {
       if (e.pointerType === 'mouse' && !stage.orbit.dragging) setHover(null);
+      setPeek(false);
     };
     // Appui long : ni menu contextuel ni loupe
     const onMenu = (e: Event): void => e.preventDefault();

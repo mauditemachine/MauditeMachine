@@ -20,7 +20,7 @@
 import { Color, Mesh, PlaneGeometry, ShadowMaterial, Vector2 } from 'three';
 import { VOYAGER } from '../state/focus';
 import { BACKDROP, COLOR, FLOOR } from '../theme';
-import { VOY_BODY, VOY_X } from '../voyager/theme';
+import { VOY_BODY } from '../voyager/theme';
 
 const glf = (v: number): string => v.toFixed(6);
 const vec3 = (c: Color): string => `vec3(${glf(c.r)}, ${glf(c.g)}, ${glf(c.b)})`;
@@ -32,9 +32,11 @@ const SHADOW_LINE = 'gl_FragColor = vec4( color, opacity * ( 1.0 - getShadowMask
  * Deux machines (2026-10-03) : une ombre de contact par machine (le
  * MM-VOYAGER a droite, ses cotes), et le brouillard mesure depuis le
  * centre de la machine visible la plus proche ; uOn (808, Voyager) les
+ * allume, uX porte leur abscisse (la machine voisine se pousse au bord de
+ * l'ecran, ui : le bout qui depasse, 2026-10-03) ;
  * allume : une machine cachee n'a plus d'ombre au sol.
  */
-function makeMaterial(on: { value: Vector2 }): ShadowMaterial {
+function makeMaterial(on: { value: Vector2 }, xs: { value: Vector2 }): ShadowMaterial {
   // Lineaires : Color convertit les hex sRGB de la palette
   const ink = new Color(COLOR.ink);
   const halo = new Color(FLOOR.haloHex).sub(ink);
@@ -48,7 +50,7 @@ function makeMaterial(on: { value: Vector2 }): ShadowMaterial {
   const voy = VOYAGER
     ? `
 float v4ContactVoy(vec2 p) {
-  vec2 q = abs(p - vec2(${glf(VOY_X)}, 0.0)) - vec2(${glf(VOY_BODY.w / 2 - c.radius)}, ${glf(VOY_BODY.d / 2 - c.radius)});
+  vec2 q = abs(p - vec2(uX.y, 0.0)) - vec2(${glf(VOY_BODY.w / 2 - c.radius)}, ${glf(VOY_BODY.d / 2 - c.radius)});
   float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - ${glf(c.radius)};
   return ${glf(c.opacity)} * (1.0 - smoothstep(0.0, ${glf(c.falloff)}, d));
 }`
@@ -56,14 +58,15 @@ float v4ContactVoy(vec2 p) {
   const fn = `
 varying vec2 vFloor;
 uniform vec2 uOn;
+uniform vec2 uX;
 float v4Contact(vec2 p) {
   vec2 q = abs(p) - vec2(${glf(c.halfW - c.radius)}, ${glf(c.halfD - c.radius)});
   float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - ${glf(c.radius)};
   return ${glf(c.opacity)} * (1.0 - smoothstep(0.0, ${glf(c.falloff)}, d));
 }${voy}`;
-  const contact = VOYAGER ? 'max(v4Contact(vFloor) * uOn.x, v4ContactVoy(vFloor) * uOn.y)' : 'v4Contact(vFloor)';
+  const contact = VOYAGER ? 'max(v4Contact(vFloor - vec2(uX.x, 0.0)) * uOn.x, v4ContactVoy(vFloor) * uOn.y)' : 'v4Contact(vFloor)';
   const radius = VOYAGER
-    ? `min(mix(1.0e4, length(vFloor), step(0.5, uOn.x)), mix(1.0e4, length(vFloor - vec2(${glf(VOY_X)}, 0.0)), step(0.5, uOn.y)))`
+    ? 'min(mix(1.0e4, length(vFloor - vec2(uX.x, 0.0)), step(0.5, uOn.x)), mix(1.0e4, length(vFloor - vec2(uX.y, 0.0)), step(0.5, uOn.y)))'
     : 'length(vFloor)';
   const out = BACKDROP.transparent
     ? `gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0 - pow(1.0 - a, 0.4545));`
@@ -71,6 +74,7 @@ float v4Contact(vec2 p) {
 	gl_FragColor = vec4(base * (1.0 - a), 1.0);`;
   m.onBeforeCompile = (shader) => {
     shader.uniforms.uOn = on;
+    shader.uniforms.uX = xs;
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec2 vFloor;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvFloor = position.xz;');
@@ -92,6 +96,16 @@ export class Floor {
   private material: ShadowMaterial;
   /** ombre de contact et brouillard : la 808, le MM-VOYAGER (1 visible, 0 cachee) */
   private on = { value: new Vector2(1, VOYAGER ? 1 : 0) };
+  /** abscisses des deux machines (la 808 a 0, le Voyager a VOY_X chez eux) */
+  private xs = { value: new Vector2(0, 0) };
+
+  /** Les machines ont bouge (le bout qui depasse) ; true si ca change. */
+  setCenters(x808: number, xVoy: number): boolean {
+    const v = this.xs.value;
+    if (v.x === x808 && v.y === xVoy) return false;
+    v.set(x808, xVoy);
+    return true;
+  }
 
   /** Les machines visibles ; true si ca change (une frame). */
   setMachines(mm808: boolean, voy: boolean): boolean {
@@ -108,7 +122,7 @@ export class Floor {
     // A plat, face vers le haut ; position.xz = le repere du socle (centre de la machine)
     g.rotateX(-Math.PI / 2);
     g.deleteAttribute('uv');
-    this.material = makeMaterial(this.on);
+    this.material = makeMaterial(this.on, this.xs);
     this.mesh = new Mesh(g, this.material);
     this.mesh.name = 'floor';
     this.mesh.position.y = FLOOR.y;
