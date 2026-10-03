@@ -7,7 +7,7 @@
  * l'arpegiateur enchaine. RUN/STOP, CLEAR, RANDOM et OPEN sur le
  * plateau ; OPEN souleve le capot (plateau et panneau d'un bloc) et montre
  * la carte : les puces GOODIES, MERCH et STUDIO de la 808, et celles des
- * pages du site (TRACKS a CONTACT, VOY_PAGE_CHIPS).
+ * pages du site (TRACKS a CONTACT, PAGE_CHIPS).
  *
  * Repere du rig : origine au centre de l'empreinte, au sol ; +x a droite,
  * +z vers l'utilisateur. Repere du capot (lid) : origine sur le dessus du
@@ -18,7 +18,7 @@
  * memes elements places en hauteur, comme la 808.
  */
 
-import { PORTRAIT, pcbAt, type ChipSpec } from '../theme';
+import { PORTRAIT } from '../theme';
 import type { VoyKnobId } from './params';
 
 export const VOY_BODY = PORTRAIT
@@ -250,7 +250,7 @@ export type VoyButtonId = 'run' | 'clear' | 'random' | 'open';
 
 /**
  * Boutons du plateau (2026-10-03 : les pages sont passees sur la carte,
- * VOY_PAGE_CHIPS) : RUN/STOP, CLEAR, RANDOM et OPEN, a droite de l'ecran
+ * PAGE_CHIPS) : RUN/STOP, CLEAR, RANDOM et OPEN, a droite de l'ecran
  * (desktop : l'arpegiateur a sa gauche) ou en rangee sous lui (portrait,
  * alignes sur les pads).
  */
@@ -341,20 +341,6 @@ export const VOY_EXPLODE = PORTRAIT
 /** La carte (celle de la 808, meme taille) dans le bac, a plat. */
 export const VOY_PCB_Y = VOY_BODY.floorY + 0.12;
 
-/**
- * Les pages sur la carte (2026-10-03, Mika : "enleve les boutons du site et
- * mets-les dans OPEN, en mode PCB") : cinq puces moyennes en rangee devant
- * les composants analogiques, derriere GOODIES, MERCH et STUDIO, decalees
- * vers la gauche de la carte (au telephone, le capot ouvert cache son bout
- * droit). Repere de la carte (pcbAt : la carte d'origine 12.6 x 7.8).
- */
-export const VOY_PAGE_CHIPS: readonly ChipSpec[] = [
-  { id: 'tracks', silk: 'TRACKS', ...pcbAt(-4.85, 0.17), aria: 'Tracks', href: null, section: 'tracks', size: 'mid' },
-  { id: 'mixtapes', silk: 'MIXTAPES', ...pcbAt(-2.85, 0.17), aria: 'Mixtapes', href: null, section: 'mixtapes', size: 'mid' },
-  { id: 'shows', silk: 'SHOWS', ...pcbAt(-0.85, 0.17), aria: 'Shows', href: null, section: 'shows', size: 'mid' },
-  { id: 'press', silk: 'PRESS', ...pcbAt(1.15, 0.17), aria: 'Press', href: null, section: 'press', size: 'mid' },
-  { id: 'contact', silk: 'CONTACT', ...pcbAt(3.15, 0.17), aria: 'Contact', href: null, section: 'contact', size: 'mid' },
-];
 
 /**
  * Cadrage (desktop : la largeur projetee a l'azimut 45 ; mobile : la

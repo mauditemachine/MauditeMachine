@@ -618,8 +618,14 @@ export const BTN_LED = { w: 0.46, d: 0.05, back: 0.13, y: 0.002, flashMs: 520, h
 
 /* ---------- panneau : moitie droite, les 12 pads (spec 20.3.5) ---------- */
 
-export type Inst = 'BD' | 'SD' | 'TOM' | 'CH' | 'OH';
-/** Les cinq pages du site, pads de navigation (touches 1 a 5). */
+/**
+ * Les dix voix (2026-10-03, Mika : "occupe l'espace pour d'autres voix
+ * parametrables, prends exemple sur une Rytm") : la rangee d'origine BD SD
+ * TOM CH OH, et sous elle CP (clap) RS (rimshot) HT (tom aigu) CY
+ * (cymbale) CB (cloche), les noms de l'Analog Rytm.
+ */
+export type Inst = 'BD' | 'SD' | 'TOM' | 'CH' | 'OH' | 'CP' | 'RS' | 'HT' | 'CY' | 'CB';
+/** Les cinq pages du site (touches 1 a 5 ; puces de la carte des deux machines). */
 export type PageId = 'tracks' | 'mixtapes' | 'press' | 'shows' | 'contact';
 /** Les sections du panneau : les cinq pages, GOODIES, MERCH et STUDIO (puces de la vue eclatee). */
 export type SectionId = PageId | 'goodies' | 'merch' | 'studio';
@@ -682,11 +688,12 @@ export type PadSpec = VoicePad | PagePad | OpenPad;
 const padAt = (col: number, row: 0 | 1): { x: number; z: number } => ({ x: PAD.x0 + PAD.pitch * col, z: PAD.rowZ[row] });
 
 /**
- * Les 11 pads (2026-10-01, LIVE fondu dans PRESS) : les cinq voix en haut
- * (BD SD TOM CH OH), les cinq pages en bas (TRACKS MIXTAPES SHOWS PRESS
- * CONTACT : PRESS a gauche de CONTACT depuis le 2026-10-01), OPEN seul dans
- * la sixieme colonne, a mi-hauteur des deux rangees. Voix : A S D F G.
- * Pages : 1 a 5. OPEN : 6 (et O).
+ * Les 11 pads (2026-10-03) : dix voix sur deux rangees, BD SD TOM CH OH en
+ * haut (touches A S D F G), CP RS HT CY CB dessous (Z X C V B), chacune
+ * sous sa voisine (BD et CP, SD et RS, TOM et HT, CH et CY, OH et CB) ;
+ * OPEN seul dans la sixieme colonne, a mi-hauteur. Les pages (TRACKS a
+ * CONTACT) sont parties sur la carte (PAGE_CHIPS, Mika : "mets-les dans
+ * OPEN") ; elles gardent les touches 1 a 5. OPEN : 6 (et O).
  */
 export const PADS: readonly PadSpec[] = [
   { id: 'BD', kind: 'voice', label: 'BD', key: 'A', ...padAt(0, 0) },
@@ -694,16 +701,22 @@ export const PADS: readonly PadSpec[] = [
   { id: 'TOM', kind: 'voice', label: 'TOM', key: 'D', ...padAt(2, 0) },
   { id: 'CH', kind: 'voice', label: 'CH', key: 'F', ...padAt(3, 0) },
   { id: 'OH', kind: 'voice', label: 'OH', key: 'G', ...padAt(4, 0) },
-  { id: 'tracks', kind: 'page', label: 'TRACKS', key: '1', ...padAt(0, 1) },
-  { id: 'mixtapes', kind: 'page', label: 'MIXTAPES', key: '2', ...padAt(1, 1) },
-  { id: 'shows', kind: 'page', label: 'SHOWS', key: '3', ...padAt(2, 1) },
-  { id: 'press', kind: 'page', label: 'PRESS', key: '4', ...padAt(3, 1) },
-  { id: 'contact', kind: 'page', label: 'CONTACT', key: '5', ...padAt(4, 1) },
+  { id: 'CP', kind: 'voice', label: 'CP', key: 'Z', ...padAt(0, 1) },
+  { id: 'RS', kind: 'voice', label: 'RS', key: 'X', ...padAt(1, 1) },
+  { id: 'HT', kind: 'voice', label: 'HT', key: 'C', ...padAt(2, 1) },
+  { id: 'CY', kind: 'voice', label: 'CY', key: 'V', ...padAt(3, 1) },
+  { id: 'CB', kind: 'voice', label: 'CB', key: 'B', ...padAt(4, 1) },
   { id: 'open', kind: 'open', label: 'OPEN', key: '6', x: PAD.x0 + 5 * PAD.pitch, z: (PAD.rowZ[0] + PAD.rowZ[1]) / 2 },
 ];
 
-/** Les cinq pages, dans l'ordre des pads (onglets de la feuille, touches 1 a 5). */
-export const PAGES: readonly PagePad[] = PADS.filter((p): p is PagePad => p.kind === 'page');
+/** Les cinq pages, dans l'ordre du site (onglets de la feuille, touches 1 a 5). */
+export const PAGES: readonly { id: PageId; label: string; key: string }[] = [
+  { id: 'tracks', label: 'TRACKS', key: '1' },
+  { id: 'mixtapes', label: 'MIXTAPES', key: '2' },
+  { id: 'shows', label: 'SHOWS', key: '3' },
+  { id: 'press', label: 'PRESS', key: '4' },
+  { id: 'contact', label: 'CONTACT', key: '5' },
+];
 export const isPage = (s: string | null): s is PageId => PAGES.some((p) => p.id === s);
 
 /**
@@ -935,7 +948,18 @@ export const HIT = {
 } as const;
 
 /** Noms parles des instruments : etiquettes aria, Dock. */
-export const INST_NAMES: Readonly<Record<Inst, string>> = { BD: 'bass drum', SD: 'snare', TOM: 'tom', CH: 'closed hi-hat', OH: 'open hi-hat' };
+export const INST_NAMES: Readonly<Record<Inst, string>> = {
+  BD: 'bass drum',
+  SD: 'snare',
+  TOM: 'tom',
+  CH: 'closed hi-hat',
+  OH: 'open hi-hat',
+  CP: 'clap',
+  RS: 'rimshot',
+  HT: 'high tom',
+  CY: 'cymbal',
+  CB: 'cowbell',
+};
 
 /**
  * Albedos LINEAIRES des touches (spec 20.3.6), cales sur la couleur
@@ -1177,8 +1201,7 @@ export const SILK_LINES: readonly (readonly number[])[] = [
       [mid + half, z, x1, z, x1, t],
     ];
   }),
-  // sous la rangee des voix (les pages dessous), puis la colonne d'OPEN a part
-  [PAD.x0 - PAD.size / 2 - 0.09, PAD.rowZ[0] + 0.73, PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[0] + 0.73],
+  // la colonne d'OPEN a part (les deux rangees sont des voix depuis le 2026-10-03)
   [PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[0] - 0.5, PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[1] + 0.72],
   ...[0, 1, 2, 3].map((g) => {
     const a = keyX(4 * g) - KEYS.w / 2;
@@ -1407,9 +1430,10 @@ export const COPY = {
 export const EXPLODE = {
   ms: 900,
   staggerMs: 80,
-  lift: PORTRAIT ? 6.3 : 4.0,
-  slideZ: PORTRAIT ? -3.6 : -2.4,
-  tiltOpenDeg: PORTRAIT ? -60 : -14,
+  /** desktop (2026-10-03) : plus haut et plus loin, la rangee des pages au milieu de la carte se voit en entier */
+  lift: PORTRAIT ? 6.3 : 5.0,
+  slideZ: PORTRAIT ? -3.6 : -3.9,
+  tiltOpenDeg: PORTRAIT ? -60 : -24,
   pcbRise: 0.9,
   /**
    * Ouverture du 2026-10-01 (plus grande) : la pile fait 11.30 de haut a la
@@ -1419,7 +1443,7 @@ export const EXPLODE = {
    */
   fitHalfH: PORTRAIT ? 11.5 : 8.4,
   /** son centre projete a la vue d'arrivee (measure().fit.targetY, ouverte) ; portrait : la carte au milieu, le couvercle en haut */
-  targetY: PORTRAIT ? 3.9 : 5.562,
+  targetY: PORTRAIT ? 3.9 : 5.9,
   /** echelle verticale des composants replies (jamais 0 : matrice inversible) */
   partsMin: 0.001,
   /**
@@ -1522,11 +1546,29 @@ export const CHIP_MID = {
   labelPx: 22,
 } as const;
 
+/**
+ * Les pages sur la carte (2026-10-03, Mika : "mets-les dans OPEN, en mode
+ * PCB", le MM-VOYAGER d'abord, puis la MM-808) : cinq puces moyennes en
+ * rangee devant les composants, derriere GOODIES, MERCH et STUDIO,
+ * decalees vers la gauche de la carte (au telephone, le capot ouvert cache
+ * son bout droit). Repere de la carte (pcbAt : la carte d'origine 12.6 x 7.8).
+ */
+export const PAGE_CHIPS: readonly ChipSpec[] = [
+  { id: 'tracks', silk: 'TRACKS', ...pcbAt(-4.85, 0.17), aria: 'Tracks', href: null, section: 'tracks', size: 'mid' },
+  { id: 'mixtapes', silk: 'MIXTAPES', ...pcbAt(-2.85, 0.17), aria: 'Mixtapes', href: null, section: 'mixtapes', size: 'mid' },
+  { id: 'shows', silk: 'SHOWS', ...pcbAt(-0.85, 0.17), aria: 'Shows', href: null, section: 'shows', size: 'mid' },
+  { id: 'press', silk: 'PRESS', ...pcbAt(1.15, 0.17), aria: 'Press', href: null, section: 'press', size: 'mid' },
+  { id: 'contact', silk: 'CONTACT', ...pcbAt(3.15, 0.17), aria: 'Contact', href: null, section: 'contact', size: 'mid' },
+];
+
 export const CHIPS: readonly ChipSpec[] = [
   { id: 'goodies', silk: 'GOODIES', ...pcbAt(-3.4, 2.45), aria: 'Goodies: wallpapers and covers', href: null, section: 'goodies' },
   { id: 'merch', silk: 'MERCH', ...pcbAt(0, 2.45), aria: 'Merch: apparel and stickers', href: null, section: 'merch' },
   { id: 'studio', silk: 'STUDIO', ...pcbAt(3.4, 2.45), aria: 'Studio: setup, lessons, print', href: null, section: 'studio' },
 ];
+
+/** Toutes les puces cliquables d'une carte (les deux machines) : GOODIES, MERCH, STUDIO et les pages. */
+export const BOARD_CHIPS: readonly ChipSpec[] = [...CHIPS, ...PAGE_CHIPS];
 
 /**
  * Composants de decor (spec 5.6), repere de la carte (x, z), replaces pour
@@ -1592,17 +1634,6 @@ export const PCB_PARTS = {
   crystal3: { r: 0.12, l: 0.5 },
 } as const;
 
-/**
- * Serigraphie du PCB (spec 5.7), bone a 90 %, px de la texture desktop,
- * texte centre en z sur sa hauteur de capitale, dans la bande visible de
- * la vue ouverte. Pas de ville (regle du site, section 19 point 103) ;
- * pour la remettre : { text: 'MONTPELLIER', x: 6.0, z: -0.3, px: 28, align: 'right' }.
- */
-export const PCB_SILK: readonly { text: string; x: number; z: number; px: number; align: 'left' | 'right' }[] = [
-  { text: 'MAUDITE MACHINE', ...pcbAt(-6.0, 0.4), px: 26, align: 'left' },
-  { text: 'MM-808  REV 4.0', ...pcbAt(6.0, 0.4), px: 18, align: 'right' },
-  { text: 'V.4 2026', ...pcbAt(6.1, 1.25), px: 14, align: 'right' },
-];
 
 /* ---------- jumeaux HTML et clavier (spec 6.1, 6.3, 13 et 20.7) ---------- */
 
@@ -1613,6 +1644,11 @@ export const PAD_ARIA: Readonly<Record<Inst, string>> = {
   TOM: 'Tom pad, key D',
   CH: 'Hi-hat pad, key F',
   OH: 'Open hi-hat pad, key G',
+  CP: 'Clap pad, key Z',
+  RS: 'Rimshot pad, key X',
+  HT: 'High tom pad, key C',
+  CY: 'Cymbal pad, key V',
+  CB: 'Cowbell pad, key B',
 };
 
 /**
@@ -1628,7 +1664,7 @@ export const RESET_VIEW = { label: 'RESET VIEW', aria: 'Reset view' } as const;
 export const TWIN_ARIA = {
   run: 'Run, Space',
   clear: 'Clear pattern',
-  mute: 'Mute the selected voice',
+  mute: 'Mute mode, then tap voices to mute them; again to bring them all back',
   solo: 'Solo the selected voice',
   random: 'Random house pattern',
   group: 'MM-808 drum machine',

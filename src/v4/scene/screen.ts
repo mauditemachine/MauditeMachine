@@ -14,7 +14,6 @@
  */
 
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
-import { INSTRUMENTS } from '../audio/pattern';
 import { lcd, type LcdState } from '../state/lcd';
 import { HEX, LCD_TEXT, OLED, OLED_BAR, OLED_DRAW, OLED_MIX } from '../theme';
 import { makeCanvasTexture } from './silk';
@@ -166,7 +165,7 @@ export class Screen {
     const ctx = this.ctx;
     const [W, H] = OLED.tex;
     const M = OLED_MIX;
-    const n = INSTRUMENTS.length;
+    const n = m.insts.length;
     const cw = W / n;
     const DEG = Math.PI / 180;
     ctx.fillStyle = HEX.bone;
@@ -176,7 +175,7 @@ export class Screen {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.lineCap = 'round';
-    INSTRUMENTS.forEach((inst, k) => {
+    m.insts.forEach((inst, k) => {
       const cx = cw * (k + 0.5);
       const v = Math.max(0, Math.min(1, m.levels[k] ?? 0));
       // Nom : la voix reglee en negatif

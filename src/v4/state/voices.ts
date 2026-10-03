@@ -1,9 +1,12 @@
 /**
  * MUTE et SOLO (2026-10-01) : les voix coupees et la voix en solo du
- * sequenceur. MUTE coupe la voix selectionnee (le dernier pad frappe),
- * SOLO ne laisse jouer qu'elle (un seul solo a la fois). Seul le
- * sequenceur est concerne : un pad frappe sonne toujours. Pas de
- * persistance : une visite commence avec toutes les voix.
+ * sequenceur. SOLO ne laisse jouer que la voix selectionnee (un seul solo
+ * a la fois). Seul le sequenceur est concerne. Pas de persistance : une
+ * visite commence avec toutes les voix.
+ *
+ * Mode MUTE (2026-10-03, Mika) : MUTE s'allume et reste allume ; chaque
+ * pad de voix touche se coupe ou revient (plusieurs a la fois) ; MUTE
+ * touche de nouveau : le mode s'eteint et toutes les voix reviennent.
  */
 
 import type { Inst } from '../theme';
@@ -11,9 +14,11 @@ import type { Inst } from '../theme';
 export interface VoicesState {
   muted: readonly Inst[];
   solo: Inst | null;
+  /** mode MUTE : les pads de voix coupent au lieu de jouer */
+  muteMode: boolean;
 }
 
-let state: VoicesState = { muted: [], solo: null };
+let state: VoicesState = { muted: [], solo: null, muteMode: false };
 const listeners = new Set<() => void>();
 
 const commit = (next: VoicesState): void => {
@@ -41,6 +46,11 @@ export const voices = {
   },
   clearMutes(): void {
     if (state.muted.length) commit({ ...state, muted: [] });
+  },
+  /** Mode MUTE : il s'allume ; eteint, toutes les voix reviennent. */
+  setMuteMode(on: boolean): void {
+    if (on === state.muteMode && (on || state.muted.length === 0)) return;
+    commit({ ...state, muteMode: on, muted: on ? state.muted : [] });
   },
   clearSolo(): void {
     if (state.solo) commit({ ...state, solo: null });

@@ -15,15 +15,12 @@ import type { Stage } from '../scene/renderer';
 import { chipsLive, voyExplode } from '../state/explode';
 import { focus } from '../state/focus';
 import { section } from '../state/section';
-import { CHIPS, DIAL_KEYS, OPEN_ARIA } from '../theme';
+import { BOARD_CHIPS, DIAL_KEYS, OPEN_ARIA } from '../theme';
 import { arp } from '../voyager/arp';
 import { CHORDS } from '../voyager/chords';
 import { VOY_KNOBS, voyParams, voyValueText, type VoyKnobId } from '../voyager/params';
-import { VOY_BUTTONS, VOY_COPY, VOY_PAGE_CHIPS } from '../voyager/theme';
+import { VOY_BUTTONS, VOY_COPY } from '../voyager/theme';
 import { registerTwin } from './Hotspots';
-
-/** Les puces de la carte du Voyager : celles de la 808 et les pages. */
-const VOY_CHIPS = [...CHIPS, ...VOY_PAGE_CHIPS];
 
 const r1 = (n: number): number => Math.round(n * 10) / 10;
 
@@ -191,7 +188,7 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         );
       })}
       {showChips &&
-        VOY_CHIPS.map((c) => {
+        BOARD_CHIPS.map((c) => {
           const id = `vchip-${c.id}`;
           return (
             <button

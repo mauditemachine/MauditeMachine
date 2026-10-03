@@ -6,7 +6,12 @@
  * accents, le tom joue une figure syncopee. Le hasard choisit les
  * variantes et les velocites : une grosse caisse en levee, un clap
  * fantome, un charley qui saute, un coup de tom en plus ou en moins.
- * Tempo, effets et voix restent ceux du moment.
+ * Tempo et voix restent ceux du moment (les effets : actions.ts).
+ *
+ * Dix voix (2026-10-03) : le clap passe a CP ; SD double parfois le clap
+ * ou glisse des fantomes ; RS, HT, CY et CB sont des couleurs, souvent
+ * absentes (un rim syncope, un roulement de tom aigu en fin de mesure, une
+ * ride ou un crash sur le 1, une cloche) : le motif reste aere.
  *
  * Velocites du motif : 0 vide, 1 fort, 2 moyen, 3 doux.
  */
@@ -127,13 +132,68 @@ function tom(r: Rand): Row {
   return t;
 }
 
+/** Caisse claire, le clap etant a CP : rien, doublee sur 2 et 4 (moyen), ou des fantomes. */
+function snare(r: Rand): Row {
+  const s = empty();
+  const x = r();
+  if (x < 0.45) return s;
+  if (x < 0.75) {
+    s[4] = 2;
+    s[12] = 2;
+  } else for (const i of pick(r, [[7, 14], [11, 15], [6, 13, 15]] as const)) s[i] = 3;
+  return s;
+}
+
+/** Rimshot : souvent rien, sinon une figure syncopee douce. */
+const RS_FIGURES: readonly string[] = ['0003000000300000', '0000003000000300', '0030000300000030', '0000030000300003'];
+function rim(r: Rand): Row {
+  if (r() < 0.55) return empty();
+  return fromString(pick(r, RS_FIGURES));
+}
+
+/** Tom aigu : un roulement de fin de mesure, une fois sur quatre. */
+function highTom(r: Rand): Row {
+  const h = empty();
+  if (r() < 0.75) return h;
+  for (const i of pick(r, [[13, 15], [14, 15], [12, 14, 15]] as const)) h[i] = r() < 0.5 ? 2 : 3;
+  return h;
+}
+
+/** Cymbale : rien, un crash sur le 1, ou une ride douce sur les temps. */
+function cymbal(r: Rand): Row {
+  const c = empty();
+  const x = r();
+  if (x < 0.55) return c;
+  if (x < 0.75) c[0] = 2;
+  else for (const b of BEATS) c[b] = 3;
+  return c;
+}
+
+/** Cloche : souvent rien, sinon une figure qui tourne autour des contretemps. */
+const CB_FIGURES: readonly string[] = ['0010000000100000', '0000001000000010', '0030003000300030', '0002000000020000'];
+function cowbell(r: Rand): Row {
+  if (r() < 0.7) return empty();
+  return fromString(pick(r, CB_FIGURES));
+}
+
 const join = (row: Row): string => row.join('');
 
 /** Un motif house complet. */
 export function houseSteps(r: Rand = Math.random): Steps {
   const oh = openHat(r);
-  const rows: Record<Inst, Row> = { BD: kick(r), SD: clap(r), TOM: tom(r), CH: closedHat(r, oh), OH: oh };
-  return { BD: join(rows.BD), SD: join(rows.SD), TOM: join(rows.TOM), CH: join(rows.CH), OH: join(rows.OH) };
+  const rows: Record<Inst, Row> = {
+    BD: kick(r),
+    SD: snare(r),
+    TOM: tom(r),
+    CH: closedHat(r, oh),
+    OH: oh,
+    CP: clap(r),
+    RS: rim(r),
+    HT: highTom(r),
+    CY: cymbal(r),
+    CB: cowbell(r),
+  };
+  return Object.fromEntries(Object.entries(rows).map(([k, v]) => [k, join(v)])) as Steps;
 }
 
 const same = (a: Steps, b: Steps): boolean => (Object.keys(a) as Inst[]).every((k) => a[k] === b[k]);

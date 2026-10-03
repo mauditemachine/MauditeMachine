@@ -1,5 +1,6 @@
 /**
- * Boite a rythmes synthetisee (spec 8) : cinq voix Web Audio, aucun
+ * Boite a rythmes synthetisee (spec 8) : dix voix Web Audio (cinq
+ * jusqu'au 2026-10-03 ; CP, RS, HT, CY et CB facon Analog Rytm), aucun
  * fichier. Un seul AudioContext pour la page, cree au premier geste de
  * l'utilisateur (jamais au montage, jamais par un timer) et repris a
  * chaque interaction s'il est suspendu (regle iOS). Graphe (revision 2 :
@@ -97,7 +98,9 @@ export interface Voice {
 }
 
 /** Enveloppes des voix, en secondes (spec 8.2). */
-const TAIL = { BD: 0.42, SD: 0.18, SDbody: 0.12, TOM: 0.3, CH: 0.045, CHopen: 0.22, OH: 0.34 } as const;
+const TAIL = { BD: 0.42, SD: 0.18, SDbody: 0.12, TOM: 0.3, CH: 0.045, CHopen: 0.22, OH: 0.34, CP: 0.22, RS: 0.07, HT: 0.24, CY: 1.1, CB: 0.38 } as const;
+/** Les six frequences metalliques de la 808 (cymbale, charleys d'origine), en Hz. */
+const METAL_HZ = [205.3, 304.4, 369.6, 522.7, 540, 800] as const;
 /** Un charley (ferme ou ouvert) coupe le charley ouvert qui sonne encore, en 8 ms (choke 808). */
 const CHOKE_S = 0.008;
 /** Les sources s'arretent 50 ms apres la fin de leur enveloppe. */
@@ -491,6 +494,190 @@ function voiceTOM(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 
   return { when, srcs: [osc], nodes };
 }
 
+/**
+ * Clap (2026-10-03) : bruit en bande (1.1 kHz) frappe quatre fois a 10 ms
+ * d'intervalle (les mains qui ne tombent pas ensemble), la derniere tient
+ * 220 ms.
+ */
+function voiceCP(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
+  const c = g.ctx;
+  const tail = TAIL.CP * ts;
+  const src = noiseSource(g);
+  const bp = c.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 1100 * pf;
+  bp.Q.value = 1.3;
+  const hp = c.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 500 * pf;
+  const env = c.createGain();
+  // Trois claquements brefs (l'attaque ne s'etire pas), puis la queue
+  for (let k = 0; k < 3; k += 1) {
+    const t = when + 0.01 * k;
+    env.gain.setValueAtTime(1, t);
+    env.gain.exponentialRampToValueAtTime(0.12, t + 0.008);
+  }
+  env.gain.setValueAtTime(1, when + 0.03);
+  env.gain.exponentialRampToValueAtTime(0.001, when + 0.03 + tail);
+  const out = c.createGain();
+  out.gain.value = 1.6;
+  src.connect(bp);
+  bp.connect(hp);
+  hp.connect(env);
+  env.connect(out);
+  out.connect(dest);
+  const nodes = [src, bp, hp, env, out];
+  startNoise(src, when, 0.03 + tail, nodes);
+  return { when, srcs: [src], nodes };
+}
+
+/**
+ * Rimshot (2026-10-03) : deux sinus inharmoniques (1.7 kHz et 455 Hz, ceux
+ * de la 808) tres courts, un clic de bruit filtre haut ; 70 ms.
+ */
+function voiceRS(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
+  const c = g.ctx;
+  const tail = TAIL.RS * ts;
+  const a = c.createOscillator();
+  a.type = 'triangle';
+  a.frequency.value = 1700 * pf;
+  const b = c.createOscillator();
+  b.type = 'triangle';
+  b.frequency.value = 455 * pf;
+  const hp = c.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = 320 * pf;
+  const env = c.createGain();
+  env.gain.setValueAtTime(0, when);
+  env.gain.linearRampToValueAtTime(1, when + 0.001);
+  env.gain.exponentialRampToValueAtTime(0.001, when + tail);
+  const out = c.createGain();
+  out.gain.value = 0.55;
+  a.connect(hp);
+  b.connect(hp);
+  hp.connect(env);
+  env.connect(out);
+  out.connect(dest);
+  const nodes: AudioNode[] = [a, b, hp, env, out];
+  b.start(when);
+  b.stop(when + tail + STOP_PAD);
+  play(a, when, tail, nodes);
+  return { when, srcs: [a, b], nodes };
+}
+
+/** Tom aigu (2026-10-03) : le TOM une quinte plus haut, plus court. */
+function voiceHT(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
+  const c = g.ctx;
+  const tail = TAIL.HT * ts;
+  const osc = c.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(330 * pf, when);
+  osc.frequency.exponentialRampToValueAtTime(175 * pf, when + 0.1 * ts);
+  const env = c.createGain();
+  env.gain.setValueAtTime(1, when);
+  env.gain.exponentialRampToValueAtTime(0.001, when + tail);
+  osc.connect(env);
+  env.connect(dest);
+  const nodes = [osc, env];
+  play(osc, when, tail, nodes);
+  return { when, srcs: [osc], nodes };
+}
+
+/**
+ * Cymbale (2026-10-03) : les six carres metalliques de la 808 (METAL_HZ x
+ * 2), filtres haut et en bande vers 8 kHz, et un voile de bruit ; 1.1 s.
+ */
+function voiceCY(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
+  const c = g.ctx;
+  const tail = TAIL.CY * ts;
+  const mix = c.createGain();
+  mix.gain.value = 0.3;
+  const srcs: AudioScheduledSourceNode[] = [];
+  const nodes: AudioNode[] = [mix];
+  for (const hz of METAL_HZ) {
+    const o = c.createOscillator();
+    o.type = 'square';
+    o.frequency.value = hz * 2 * pf;
+    o.connect(mix);
+    srcs.push(o);
+    nodes.push(o);
+  }
+  const bp = c.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = Math.min(8000 * pf, c.sampleRate * 0.45);
+  bp.Q.value = 0.7;
+  const hp = c.createBiquadFilter();
+  hp.type = 'highpass';
+  hp.frequency.value = Math.min(5200 * pf, c.sampleRate * 0.4);
+  const noise = noiseSource(g);
+  const nHp = c.createBiquadFilter();
+  nHp.type = 'highpass';
+  nHp.frequency.value = Math.min(7500 * pf, c.sampleRate * 0.45);
+  const nGain = c.createGain();
+  nGain.gain.value = 0.32;
+  const env = c.createGain();
+  env.gain.setValueAtTime(0, when);
+  env.gain.linearRampToValueAtTime(0.9, when + 0.002);
+  env.gain.exponentialRampToValueAtTime(0.25, when + 0.08 * ts);
+  env.gain.exponentialRampToValueAtTime(0.001, when + tail);
+  mix.connect(bp);
+  bp.connect(hp);
+  hp.connect(env);
+  noise.connect(nHp);
+  nHp.connect(nGain);
+  nGain.connect(env);
+  env.connect(dest);
+  nodes.push(bp, hp, nHp, nGain, env);
+  for (const o of srcs) {
+    o.start(when);
+    o.stop(when + tail + STOP_PAD);
+  }
+  // Le bruit finit en dernier : c'est lui qui debranche toute la voix
+  nodes.push(noise);
+  startNoise(noise, when, tail, nodes);
+  return { when, srcs: [...srcs, noise], nodes };
+}
+
+/**
+ * Cloche (2026-10-03) : deux carres a 540 et 800 Hz (la cowbell de la
+ * 808), en bande vers 2.6 kHz ; une chute rapide, puis 380 ms.
+ */
+function voiceCB(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
+  const c = g.ctx;
+  const tail = TAIL.CB * ts;
+  const a = c.createOscillator();
+  a.type = 'square';
+  a.frequency.value = 540 * pf;
+  const b = c.createOscillator();
+  b.type = 'square';
+  b.frequency.value = 800 * pf;
+  const bp = c.createBiquadFilter();
+  bp.type = 'bandpass';
+  bp.frequency.value = 2600 * pf;
+  bp.Q.value = 0.8;
+  const lp = c.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.frequency.value = Math.min(6000 * pf, c.sampleRate * 0.45);
+  const env = c.createGain();
+  env.gain.setValueAtTime(0, when);
+  env.gain.linearRampToValueAtTime(1, when + 0.001);
+  env.gain.exponentialRampToValueAtTime(0.35, when + 0.03 * ts);
+  env.gain.exponentialRampToValueAtTime(0.001, when + tail);
+  const out = c.createGain();
+  out.gain.value = 0.42;
+  a.connect(bp);
+  b.connect(bp);
+  bp.connect(lp);
+  lp.connect(env);
+  env.connect(out);
+  out.connect(dest);
+  const nodes: AudioNode[] = [a, b, bp, lp, env, out];
+  b.start(when);
+  b.stop(when + tail + STOP_PAD);
+  play(a, when, tail, nodes);
+  return { when, srcs: [a, b], nodes };
+}
+
 /** La porte du dernier charley ouvert et la fin de son enveloppe (choke). */
 let ohGate: GainNode | null = null;
 let ohEnd = 0;
@@ -561,15 +748,28 @@ function voiceCH(g: Graph, when: number, open: boolean, dest: AudioNode = g.bus,
 
 /** Une voix, frequences multipliees par pf (TONE), durees par ts (STRETCH) : exactement 1 a 0. */
 function voice(g: Graph, inst: Inst, t: number, open: boolean, dest: AudioNode, pf: number, ts: number): Voice {
-  return inst === 'BD'
-    ? voiceBD(g, t, dest, pf, ts)
-    : inst === 'SD'
-      ? voiceSD(g, t, dest, pf, ts)
-      : inst === 'TOM'
-        ? voiceTOM(g, t, dest, pf, ts)
-        : inst === 'OH'
-          ? voiceOH(g, t, dest, pf, ts)
-          : voiceCH(g, t, open, dest, pf, ts);
+  switch (inst) {
+    case 'BD':
+      return voiceBD(g, t, dest, pf, ts);
+    case 'SD':
+      return voiceSD(g, t, dest, pf, ts);
+    case 'TOM':
+      return voiceTOM(g, t, dest, pf, ts);
+    case 'OH':
+      return voiceOH(g, t, dest, pf, ts);
+    case 'CP':
+      return voiceCP(g, t, dest, pf, ts);
+    case 'RS':
+      return voiceRS(g, t, dest, pf, ts);
+    case 'HT':
+      return voiceHT(g, t, dest, pf, ts);
+    case 'CY':
+      return voiceCY(g, t, dest, pf, ts);
+    case 'CB':
+      return voiceCB(g, t, dest, pf, ts);
+    default:
+      return voiceCH(g, t, open, dest, pf, ts);
+  }
 }
 
 /**

@@ -357,7 +357,7 @@ export class PanelSilk {
     ctx.clearRect(0, 0, this.W, this.H);
     ctx.textBaseline = 'alphabetic';
 
-    // Filets : le separateur VOICES / PAGES, les crochets des touches trig
+    // Filets : la colonne d'OPEN, les crochets des touches trig
     ctx.strokeStyle = silkA(SILK.lineAlpha);
     ctx.lineWidth = Math.max(1, SILK.lineWidth * u);
     ctx.lineJoin = 'miter';

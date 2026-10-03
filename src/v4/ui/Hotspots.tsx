@@ -72,7 +72,7 @@ import { section } from '../state/section';
 import { voices } from '../state/voices';
 import { EXTERNAL_REL } from './ExternalLink';
 import {
-  CHIPS,
+  BOARD_CHIPS,
   COARSE_QUERY,
   MOBILE_QUERY,
   DIAL_FINE,
@@ -672,7 +672,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const p = useSyncExternalStore(pattern.subscribe, pattern.get, pattern.get);
   const running = useSyncExternalStore(clock.subscribe, () => clock.running, () => clock.running);
   const v = useSyncExternalStore(voices.subscribe, voices.get, voices.get);
-  const muteOn = p.instrument ? v.muted.includes(p.instrument) : v.muted.length > 0;
+  const muteOn = v.muteMode;
   const open = useSyncExternalStore(section.subscribe, section.get, section.get);
   const stretch = useSyncExternalStore(mix.subscribe, () => mix.stretch, () => mix.stretch);
   const level = useSyncExternalStore(mix.subscribe, () => mix.level, () => mix.level);
@@ -790,7 +790,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   // Les puces : juste apres OPEN, qui les decouvre (motif d'un bouton de divulgation)
   const chips =
     showChips &&
-    CHIPS.map((c) => {
+    BOARD_CHIPS.map((c) => {
       const id = `chip-${c.id}`;
       const tab = live ? 0 : -1;
       // Focus clavier (focus-visible) : la puce reagit comme au survol

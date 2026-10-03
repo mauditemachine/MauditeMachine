@@ -404,7 +404,9 @@ html:has(body.v4-active) {
    2026-10-01, glisse par-dessus son bas quand on le deplie). */
 @media (max-width: 767px) {
   .v4-root {
-    --dock-h-mobile: 174px;
+    /* le Dock de la 808 (dix voix sur deux rangees depuis le 2026-10-03), celui du MM-VOYAGER */
+    --dock-h-mobile: 209px;
+    --vdock-h-mobile: 185px;
     --ios-bar: 0px;
     --canvas-h-mobile: 100vh;
     --canvas-h-mobile: 100dvh;
@@ -724,6 +726,10 @@ html:has(body.v4-active) {
     bottom: calc(var(--dock-h-mobile) + env(safe-area-inset-bottom, 0px) + var(--ios-bar) - 4px);
   }
 
+  .v4-root .v4-dock-tab[data-open='1'][aria-controls='v4-vdock'] {
+    bottom: calc(var(--vdock-h-mobile) + env(safe-area-inset-bottom, 0px) + var(--ios-bar) - 4px);
+  }
+
   .v4-root .v4-dock-tab:focus-visible {
     outline: 2px solid var(--yellow);
     outline-offset: 2px;
@@ -819,8 +825,13 @@ html:has(body.v4-active) {
 }
 
 .v4-dock-insts {
-  /* RANDOM (de), puis les cinq voix */
+  /* RANDOM (de) sur deux rangees, puis les dix voix, cinq par rangee (2026-10-03) */
   grid-template-columns: 0.8fr repeat(5, 1fr);
+}
+
+.v4-root .v4-dock-insts .v4-dock-random {
+  grid-row: span 2;
+  height: auto;
 }
 
 .v4-dock-steps {
@@ -833,7 +844,7 @@ html:has(body.v4-active) {
 }
 
 .v4-root .v4-dock-inst {
-  height: 38px;
+  height: 34px;
   border-radius: 10px;
   background: var(--graphite);
   color: var(--bone-60);

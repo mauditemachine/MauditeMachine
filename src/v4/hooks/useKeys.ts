@@ -1,10 +1,11 @@
 /**
  * Clavier global (spec 7.2, 13 et 20.6.2), sur le modele de
- * src/v3/hooks/useKeys.ts. A S D F frappent BD SD TOM CH (le son part a la
- * touche), 1 a 7 ouvrent les pages des pads en ordre de lecture (TRACKS,
- * MIXTAPES, PRESS, SHOWS, CONTACT, LABEL, SONAA ; la page deja ouverte se
- * ferme), 8 et O ouvrent ou referment la machine (le pad OPEN), Espace
- * lance ou arrete le sequenceur, R ramene la vue par defaut, Echap ferme
+ * src/v3/hooks/useKeys.ts. A S D F G frappent BD SD TOM CH OH, Z X C V B
+ * frappent CP RS HT CY CB (2026-10-03 ; le son part a la touche, en mode
+ * MUTE la voix se coupe), 1 a 5 ouvrent les pages (TRACKS, MIXTAPES,
+ * SHOWS, PRESS, CONTACT ; la page deja ouverte se ferme), 6 et O ouvrent ou
+ * referment la machine (le pad OPEN), Espace lance ou arrete le
+ * sequenceur (RUN/STOP du MM-VOYAGER quand on l'utilise), R ramene la vue par defaut, Echap ferme
  * la section ouverte (sinon referme la vue eclatee, sinon deselectionne
  * l'instrument).
  * Rien ne part avec Alt, Ctrl ou Meta, dans un champ editable, ni sur une
@@ -18,7 +19,7 @@ import { useEffect, useRef } from 'react';
 import { escape, openToggle, padHit, page, resetView, runToggle, voyPad, voyRun } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { focus } from '../state/focus';
-import { PADS } from '../theme';
+import { PADS, PAGES, type PageId } from '../theme';
 
 /** MM-VOYAGER (2026-10-03) : A S D F G H J K jouent les huit accords quand on l'utilise. */
 const CHORD_KEYS = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k'];
@@ -35,10 +36,13 @@ const ownsSpace = (t: EventTarget | null): boolean => {
   return t.closest('button, a[href], [role="button"], summary, input, textarea, select, [contenteditable="true"]') !== null;
 };
 
-/** 'a' -> BD ... ; les majuscules (verrou) comptent aussi. */
+/** 'a' -> BD ... 'z' -> CP ... ; les majuscules (verrou) comptent aussi. */
 const PAD_KEYS = new Map(PADS.flatMap((p) => (p.kind === 'voice' ? [[p.key.toLowerCase(), p.id] as const] : [])));
-/** Les pads de navigation et OPEN : leur chiffre. */
-const DIGIT_PADS = PADS.filter((p) => p.kind !== 'voice');
+/** Les pages (1 a 5, sur la carte depuis le 2026-10-03) et OPEN (6) : leur chiffre. */
+const DIGIT_KEYS: readonly { key: string; page: PageId | null }[] = [
+  ...PAGES.map((p) => ({ key: p.key, page: p.id })),
+  ...PADS.filter((p) => p.kind === 'open').map((p) => ({ key: p.key, page: null })),
+];
 
 export function useKeys(getStage: () => Stage | null, machine: boolean): void {
   // Le gestionnaire ne change pas : il lit l'etat courant ici
@@ -76,10 +80,10 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         return;
       }
       // Touche physique aussi : sur un clavier AZERTY les chiffres sont en Maj
-      const pad = DIGIT_PADS.find((p) => p.key === e.key || e.code === `Digit${p.key}` || e.code === `Numpad${p.key}`);
-      if (pad) {
+      const digit = DIGIT_KEYS.find((p) => p.key === e.key || e.code === `Digit${p.key}` || e.code === `Numpad${p.key}`);
+      if (digit) {
         e.preventDefault();
-        if (pad.kind === 'page') page(pad.id, getStage());
+        if (digit.page) page(digit.page, getStage());
         else openToggle(getStage());
         return;
       }

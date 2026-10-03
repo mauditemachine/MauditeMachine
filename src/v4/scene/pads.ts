@@ -1,12 +1,13 @@
 /**
- * Les 12 pads (spec 20.3.5), la signature de l'Analog Rytm : caoutchouc
- * noir, un peu bombes, retroeclaires par-dessous, deux rangees de six sur
- * la moitie droite du panneau. UN InstancedMesh (une geometrie : boite a
+ * Les 11 pads (spec 20.3.5), la signature de l'Analog Rytm : caoutchouc
+ * noir, un peu bombes, retroeclaires par-dessous : dix voix sur deux
+ * rangees de cinq (2026-10-03, les pages sont passees sur la carte) et
+ * OPEN a part, sur la moitie droite du panneau. UN InstancedMesh (une geometrie : boite a
  * coins arrondis et dome fusionnes) et UN InstancedMesh de halos (un carre
  * additif sous chaque pad) : deux draw calls pour les douze.
  * Retroeclairage par instance (emissif du dessus, 55 % sur les flancs, et
  * halo) :
- * - voix BD SD TOM CH : eteintes ; jaune vif 120 ms a la frappe, 100 ms
+ * - voix BD a CB : eteintes ; jaune vif 120 ms a la frappe, 100 ms
  *   par coup du sequenceur ; l'instrument selectionne en blanc chaud faible ;
  * - pages TRACKS a SONAA : jaune faible en permanence (on les distingue),
  *   plus fort au survol de la souris, yellowHi pour la page ouverte, une

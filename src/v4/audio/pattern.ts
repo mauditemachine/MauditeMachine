@@ -1,5 +1,5 @@
 /**
- * Motif du sequenceur (spec 10) : 16 pas x 5 voix, l'instrument
+ * Motif du sequenceur (spec 10) : 16 pas x 10 voix (5 jusqu'au 2026-10-03), l'instrument
  * selectionne (celui du dernier pad frappe) et le tempo. Petit store
  * observable : React le lit par useSyncExternalStore, la scene par get().
  * Motif, tempo et, depuis la revision 2, les trois effets SWING, DIST et
@@ -22,7 +22,7 @@
 
 import type { Inst } from '../theme';
 
-export const INSTRUMENTS: readonly Inst[] = ['BD', 'SD', 'TOM', 'CH', 'OH'];
+export const INSTRUMENTS: readonly Inst[] = ['BD', 'SD', 'TOM', 'CH', 'OH', 'CP', 'RS', 'HT', 'CY', 'CB'];
 export const STEP_COUNT = 16;
 export const BPM = { min: 100, max: 150, initial: 130 } as const;
 /**
@@ -90,6 +90,12 @@ export const DEFAULT_STEPS: Readonly<Steps> = {
   TOM: '0000003000020010',
   CH: '2301230123012301',
   OH: '0010001000100010',
+  // Les voix du 2026-10-03 arrivent vides : le motif d'arrivee ne change pas
+  CP: '0000000000000000',
+  RS: '0000000000000000',
+  HT: '0000000000000000',
+  CY: '0000000000000000',
+  CB: '0000000000000000',
 };
 
 /** Velocite du pas i de inst : 0 (vide), 1 fort, 2 moyen, 3 doux. */
@@ -208,7 +214,7 @@ export function clearStep(p: Pattern, inst: Inst, i: number): Pattern {
 
 export function clearSteps(p: Pattern): Pattern {
   const empty = '0'.repeat(STEP_COUNT);
-  return { ...p, steps: { BD: empty, SD: empty, TOM: empty, CH: empty, OH: empty } };
+  return { ...p, steps: Object.fromEntries(INSTRUMENTS.map((k) => [k, empty])) as Steps };
 }
 
 /* ---------------- le store ---------------- */

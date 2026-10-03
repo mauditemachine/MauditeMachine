@@ -50,7 +50,7 @@ export interface LcdState {
   /** la ligne 3 est une valeur d'encodeur (le jumeau ne l'annonce pas) */
   param: boolean;
   /** page MIX : la voix reglee et les cinq volumes (0 a 1, ordre BD SD TOM CH OH) ; null : le texte */
-  mix: { sel: Inst; levels: number[] } | null;
+  mix: { sel: Inst; insts: Inst[]; levels: number[] } | null;
   /** les trois lignes telles qu'affichees (gauche, espaces, droite) */
   text: [string, string, string];
   /** compositions publiees (revue) */
@@ -89,14 +89,19 @@ function row(left: string, right: string): { l: string; r: string; t: string } {
 
 const pct = (v: number): number => Math.round(v * 100);
 
-/** Page MIX : les cinq volumes, et leur texte pour le jumeau. */
+/**
+ * Page MIX : les cinq volumes de la rangee de la voix reglee (BD a OH, ou
+ * CP a CB depuis le 2026-10-03), et leur texte pour le jumeau.
+ */
 function composeMix(sel: Inst): Omit<LcdState, 'updates'> {
-  const levels = INSTRUMENTS.map((i) => voiceFx.of(i).level);
-  const cell = (k: number): string => `${INSTRUMENTS[k]}${pct(levels[k])}`;
+  const bank = Math.floor(Math.max(0, INSTRUMENTS.indexOf(sel)) / 5);
+  const insts = INSTRUMENTS.slice(bank * 5, bank * 5 + 5);
+  const levels = insts.map((i) => voiceFx.of(i).level);
+  const cell = (k: number): string => `${insts[k]}${pct(levels[k])}`;
   const line1 = row('VOLUME', sel);
   const t2 = [0, 1, 2].map(cell).join(' ');
   const t3 = [3, 4].map(cell).join(' ');
-  return { l1: line1.l, r1: line1.r, l2: t2, r2: '', l3: t3, r3: '', bar: null, param: true, mix: { sel, levels }, text: [line1.t, t2, t3] };
+  return { l1: line1.l, r1: line1.r, l2: t2, r2: '', l3: t3, r3: '', bar: null, param: true, mix: { sel, insts, levels }, text: [line1.t, t2, t3] };
 }
 
 function compose(now: number): Omit<LcdState, 'updates'> {

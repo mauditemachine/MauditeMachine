@@ -23,12 +23,11 @@ import { contactDraft, type ContactTopic } from './state/contactDraft';
 import { presskit } from './state/presskit';
 import { section } from './state/section';
 import { voices } from './state/voices';
-import { CHIPS, MOBILE_QUERY, POT_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
+import { BOARD_CHIPS, MOBILE_QUERY, POT_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
 import { arp } from './voyager/arp';
 import { CHORDS, PROGRESSIONS } from './voyager/chords';
 import { voyMsg } from './voyager/msg';
 import { voyParams, voyReadout, type VoyKnobId } from './voyager/params';
-import { VOY_PAGE_CHIPS } from './voyager/theme';
 
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
 const pct = (v: number): number => Math.round(v * 100);
@@ -48,9 +47,21 @@ export function gesture(): void {
  */
 export function padHit(inst: Inst, stage: Stage | null): void {
   gesture();
+  // Mode MUTE : le pad coupe sa voix (ou la rend), sans jouer
+  if (voices.get().muteMode) {
+    muteVoice(inst);
+    stage?.pads.press(inst);
+    return;
+  }
   trigger(inst);
   selectVoice(inst);
   stage?.pads.press(inst);
+}
+
+/** Mode MUTE : une voix coupee ou rendue ; l'ecran le dit. */
+function muteVoice(inst: Inst): void {
+  voices.toggleMute(inst);
+  lcdMessage.show(`${inst} ${voices.isMuted(inst) ? 'MUTED' : 'ON'}`);
 }
 
 /**
@@ -97,6 +108,10 @@ export function resetView(stage: Stage | null): void {
 /** Choix de l'instrument sans le jouer (rangee du Dock) ; le meme une seconde fois : plus de selection (tout le pattern). */
 export function selectInstrument(inst: Inst): void {
   resume();
+  if (voices.get().muteMode) {
+    muteVoice(inst);
+    return;
+  }
   selectVoice(pattern.get().instrument === inst ? null : inst);
 }
 
@@ -155,25 +170,18 @@ export function runToggle(stage: Stage | null = null): boolean {
 }
 
 /**
- * MUTE (2026-10-01) : coupe ou rend la voix selectionnee au sequenceur.
- * Sans selection : rend toutes les voix coupees, sinon TAP A PAD FIRST.
+ * MUTE (2026-10-03, Mika) : le mode MUTE s'allume (son temoin reste
+ * allume) ; les pads de voix (et les voix du Dock, et A S D F G Z X C V B)
+ * coupent ou rendent chacun sa voix, autant qu'on veut. MUTE de nouveau :
+ * le mode s'eteint, toutes les voix reviennent. Renvoie l'etat du mode.
  */
 export function muteToggle(stage: Stage | null = null): boolean {
   resume();
   stage?.pressButton('mute');
-  const inst = pattern.get().instrument;
-  if (!inst) {
-    if (voices.get().muted.length) {
-      voices.clearMutes();
-      lcdMessage.show('ALL VOICES ON');
-      return true;
-    }
-    lcdMessage.show('TAP A PAD FIRST');
-    return false;
-  }
-  voices.toggleMute(inst);
-  lcdMessage.show(`${inst} ${voices.isMuted(inst) ? 'MUTED' : 'ON'}`);
-  return true;
+  const on = !voices.get().muteMode;
+  voices.setMuteMode(on);
+  lcdMessage.show(on ? 'MUTE: TAP VOICES' : 'ALL VOICES ON');
+  return on;
 }
 
 /**
@@ -389,9 +397,9 @@ export function hoodOf(m: MachineId): ExplodeStore {
  */
 export function chipAction(id: ChipId, which: MachineId = 'mm808'): void {
   if (!chipsLive(hoodOf(which).get())) return;
-  const c = (which === 'voy' ? [...CHIPS, ...VOY_PAGE_CHIPS] : CHIPS).find((k) => k.id === id);
+  const c = BOARD_CHIPS.find((k) => k.id === id);
   if (!c) return;
-  // Les pages sur la carte du Voyager : comme leurs pads sur la 808 (CONTACT, PRESS)
+  // Les pages sur la carte (les deux machines) : CONTACT propose Booking, PRESS rouvre la visionneuse
   if (c.section && isPage(c.section)) page(c.section, null);
   else if (c.section) section.toggle(c.section);
   else if (c.href) window.open(c.href, '_blank', 'noopener,noreferrer');

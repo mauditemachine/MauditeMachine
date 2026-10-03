@@ -116,8 +116,8 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
                 className="v4-dock-inst"
                 data-muted={muted ? '1' : '0'}
                 data-solo={solo ? '1' : '0'}
-                aria-pressed={inst === k}
-                aria-label={`Select ${INST_NAMES[k]}${muted ? ', muted' : ''}${solo ? ', solo' : ''}`}
+                aria-pressed={v.muteMode ? muted : inst === k}
+                aria-label={v.muteMode ? `Mute ${INST_NAMES[k]}` : `Select ${INST_NAMES[k]}${muted ? ', muted' : ''}${solo ? ', solo' : ''}`}
                 onClick={() => selectInstrument(k)}
               >
                 {k}
@@ -198,8 +198,8 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
           <button
             type="button"
             className="v4-dock-key v4-dock-mute"
-            aria-pressed={inst ? v.muted.includes(inst) : v.muted.length > 0}
-            aria-label="Mute the selected voice"
+            aria-pressed={v.muteMode}
+            aria-label="Mute mode, then tap voices to mute them"
             onClick={() => muteToggle(getStage())}
           >
             <Icon name="fa-solid fa-volume-xmark" />

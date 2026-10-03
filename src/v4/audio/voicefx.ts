@@ -1,5 +1,5 @@
 /**
- * Effets par piste (2026-10-01) : chaque voix (BD, SD, TOM, CH, OH) a son
+ * Effets par piste (2026-10-01) : chaque voix (BD a CB, dix depuis le 2026-10-03) a son
  * propre TONE (hauteur et filtre), STRETCH (duree des coups), LEVEL, DIST,
  * REVERB, DELAY et CHORUS.
  * Un pad selectionne : les potards reglent cette voix ; sans selection,
@@ -29,7 +29,7 @@ const clamp = (p: VoiceParam, v: number): number => {
   return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;
 };
 
-const INSTS: readonly Inst[] = ['BD', 'SD', 'TOM', 'CH', 'OH'];
+const INSTS: readonly Inst[] = ['BD', 'SD', 'TOM', 'CH', 'OH', 'CP', 'RS', 'HT', 'CY', 'CB'];
 
 let state: Readonly<Record<Inst, Readonly<VoiceFx>>> = Object.fromEntries(INSTS.map((i) => [i, { ...VOICE_FX_DEFAULT }])) as Record<Inst, VoiceFx>;
 const listeners = new Set<() => void>();

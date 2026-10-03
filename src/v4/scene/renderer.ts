@@ -65,7 +65,7 @@ import {
   BODY,
   BTN_LED,
   CHIP,
-  CHIPS,
+  BOARD_CHIPS,
   COARSE_QUERY,
   COLOR,
   DPR_MAX,
@@ -1822,7 +1822,7 @@ export class Stage {
   /** Soulevement (et LABEL allumee) des puces survolees ou au focus ; true si l'une a change. */
   private syncChipHot(): boolean {
     let changed = false;
-    for (const c of CHIPS) {
+    for (const c of BOARD_CHIPS) {
       const hot = c.id === this.hoverChip || c.id === this.focusChip;
       if (hot === this.hotChips.has(c.id)) continue;
       if (hot) this.hotChips.add(c.id);
@@ -2030,15 +2030,12 @@ export class Stage {
   };
 
   /**
-   * MUTE et SOLO (2026-10-01) : MUTE allume si la voix selectionnee est
-   * coupee (sans selection : si une voix l'est), SOLO si un solo est en
-   * cours. true s'il faut une frame.
+   * MUTE et SOLO : MUTE allume tant que le mode MUTE dure (2026-10-03),
+   * SOLO si un solo est en cours. true s'il faut une frame.
    */
   private syncVoiceKeys = (): boolean => {
     const v = voices.get();
-    const inst = pattern.get().instrument;
-    const muteOn = inst ? v.muted.includes(inst) : v.muted.length > 0;
-    return this.seq.setVoiceKeys(muteOn, v.solo !== null);
+    return this.seq.setVoiceKeys(v.muteMode, v.solo !== null);
   };
 
   private syncVoices = (): void => {
