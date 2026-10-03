@@ -1,4 +1,4 @@
-/** TRACKS (spec 11.1) : les 37 sorties, la plus recente d'abord ; clic = lecture SoundCloud. */
+/** TRACKS (spec 11.1) : les 37 sorties, melangees a chaque visite ; clic = lecture SoundCloud. */
 
 import React from 'react';
 import { TRACKS, TRACK_QUEUE } from '../../data';

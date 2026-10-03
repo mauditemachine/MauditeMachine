@@ -38,6 +38,10 @@ import { clock, clockDebug, type ClockDebug } from './audio/clock';
 import { audioDebug, type AudioDebug } from './audio/drums';
 import { pattern, type StoredPattern } from './audio/pattern';
 import { scDebug, type ScDebug, type ScState } from './audio/soundcloud';
+import { synthDebug } from './audio/synth';
+import { focus } from './state/focus';
+import { arp, arpDebug } from './voyager/arp';
+import { voyParams } from './voyager/params';
 import type { ExplodeInfo } from './scene/explode';
 import type { HotspotView } from './scene/hit';
 import type { EncodersInfo } from './scene/encoders';
@@ -181,6 +185,18 @@ export interface V4Debug {
   requestRender: () => void;
   invalidate: () => void;
   measure: () => StageMeasure | null;
+  /**
+   * Deux machines (2026-10-03) : la cible (focus, set), le MM-VOYAGEUR (rig,
+   * arpege, synthe et son rendu hors ligne, potards).
+   */
+  readonly voyager: {
+    focus: typeof focus;
+    rig: ReturnType<NonNullable<Stage['voy']>['info']> | null;
+    arp: typeof arp;
+    arpDebug: typeof arpDebug;
+    synth: typeof synthDebug;
+    params: typeof voyParams;
+  };
 }
 
 const NO_STATS: StageStats = {
@@ -313,6 +329,16 @@ export function installDebug(src: DebugSource): () => void {
     requestRender: () => src.stage()?.invalidate(),
     invalidate: () => src.stage()?.invalidate(),
     measure: () => src.stage()?.measure() ?? null,
+    voyager: {
+      focus,
+      get rig() {
+        return src.stage()?.voy?.info() ?? null;
+      },
+      arp,
+      arpDebug,
+      synth: synthDebug,
+      params: voyParams,
+    },
   };
   window.__v4 = api;
   return () => {

@@ -35,12 +35,15 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import {
+  anyDial,
+  anyDialReset,
+  anyDialValue,
   chipAction,
   clearPattern,
   randomPattern,
   dial,
-  dialReset,
   dialValue,
+  focusMachine,
   gesture,
   muteToggle,
   openToggle,
@@ -51,6 +54,11 @@ import {
   soloToggle,
   stepClear,
   stepToggle,
+  voyClear,
+  voyPad,
+  voyPage,
+  voyRandom,
+  type DialId,
 } from '../actions';
 import { clock } from '../audio/clock';
 import { mix } from '../audio/drums';
@@ -59,12 +67,14 @@ import { BPM, STEP_COUNT, isOn, pattern } from '../audio/pattern';
 import type { HotspotKind, HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { chipsLive, explode } from '../state/explode';
+import { focus, VOYAGER } from '../state/focus';
 import { section } from '../state/section';
 import { voices } from '../state/voices';
 import { EXTERNAL_REL } from './ExternalLink';
 import {
   CHIPS,
   COARSE_QUERY,
+  MOBILE_QUERY,
   DIAL_FINE,
   DIAL_KEYS,
   ENCODERS,
@@ -105,10 +115,13 @@ interface Down {
   index?: number;
   section?: SectionId;
   chip?: ChipId;
+  /** MM-VOYAGEUR : pad d'accord, CLEAR ou RANDOM */
+  vpad?: number;
+  vbtn?: 'clear' | 'random';
   x: number;
   y: number;
-  /** encodeur sous le pointerdown, et sa valeur de depart */
-  dial: EncId | null;
+  /** encodeur (ou potard du MM-VOYAGEUR, v:<id>) sous le pointerdown, et sa valeur de depart */
+  dial: DialId | null;
   v0: number;
   /** reglage fin (Maj) en cours, et la course a laquelle il a ete pris ou lache */
   fine: boolean;
@@ -121,7 +134,16 @@ interface Down {
   mouse: boolean;
   /** instant du pointerdown (performance.now) */
   t: number;
+  /** un autre doigt etait pose (pincement, rotation) : jamais un glisser d'une machine a l'autre */
+  multi: boolean;
 }
+
+/**
+ * Glisser d'une machine a l'autre au telephone (2026-10-03) : un doigt,
+ * horizontal (1.4 fois plus que vertical), plus de 56 px, en moins de
+ * 700 ms, parti d'ailleurs que d'un potard (un potard tourne).
+ */
+const SWIPE = { px: 56, ratio: 1.4, ms: 700 } as const;
 
 /** Jumeaux montes, par id de hotspot : la couche de saisie active ceux des puces. */
 const twinEls = new Map<string, HTMLElement>();
@@ -135,11 +157,20 @@ const twinEls = new Map<string, HTMLElement>();
 function activateChip(id: string, chip: ChipId): void {
   const el = twinEls.get(id);
   if (el) el.click();
-  else chipAction(chip);
+  else chipAction(chip, id.startsWith('vchip-') ? 'voy' : 'mm808');
 }
 
+/** Les jumeaux des puces du MM-VOYAGEUR s'inscrivent ici aussi (ui/VoyTwins.tsx). */
+export function registerTwin(id: string, el: HTMLElement | null): void {
+  if (el) twinEls.set(id, el);
+  else twinEls.delete(id);
+}
+
+const isVoy = (k: DialId): boolean => k.startsWith('v:');
+
 /** Valeur par px de glisser : TEMPO 2 px par BPM, les autres 150 px la course (TONE : 2 unites). */
-const perPx = (k: EncId): number => (k === 'tempo' ? 1 / TEMPO_UI.pxPerBpm : (1 - potMin(k)) / POT_UI.pxRange);
+const perPx = (k: DialId): number =>
+  isVoy(k) ? 1 / POT_UI.pxRange : k === 'tempo' ? 1 / TEMPO_UI.pxPerBpm : (1 - potMin(k as EncId)) / POT_UI.pxRange;
 
 /**
  * L'encodeur d'un glisser qui le tient : valeur de depart + ecart sur son
@@ -151,11 +182,11 @@ function turnDial(d: Down, dx: number, dy: number, fine: boolean): void {
   if (!d.dial) return;
   const travel = d.axis === 'y' ? -dy : dx;
   if (fine !== d.fine) {
-    d.v0 = dialValue(d.dial);
+    d.v0 = anyDialValue(d.dial);
     d.a = travel;
     d.fine = fine;
   }
-  dial(d.dial, d.v0 + (travel - d.a) * perPx(d.dial) * (fine ? DIAL_FINE.drag : 1));
+  anyDial(d.dial, d.v0 + (travel - d.a) * perPx(d.dial) * (fine ? DIAL_FINE.drag : 1));
 }
 
 interface Point {
@@ -178,11 +209,13 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     const downs = new Map<number, Down>();
     let hover: string | null = null;
     /** derniere tape par encodeur (double tape = remise a la valeur de depart) */
-    const lastTap = new Map<EncId, number>();
+    const lastTap = new Map<DialId, number>();
     /** derniere tape du fond (double tape = vue par defaut) */
     let lastBg: { t: number; x: number; y: number } | null = null;
     let wheelAcc = 0;
-    let wheelKind: EncId | null = null;
+    let wheelKind: DialId | null = null;
+    /** vue d'ensemble : la machine sous la souris (curseur doigt, un clic zoome) */
+    let hoverMachine = false;
     /** Maj tenue au dernier mouvement du pointeur (reglage fin des potards) */
     let shiftHeld = false;
     // Le rectangle ne change qu'au redimensionnement : pas de lecture de
@@ -215,14 +248,16 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           : stage.orbit.dragging
             ? 'grabbing'
             : hover === null
-              ? ''
+              ? hoverMachine
+                ? 'pointer'
+                : ''
               : hoverDial
                 ? 'ns-resize'
                 : 'pointer';
     };
     const setHover = (h: HotspotView | null): void => {
       const id = h ? h.id : null;
-      hoverDial = !!h && h.kind === 'encoder';
+      hoverDial = !!h && (h.kind === 'encoder' || h.kind === 'vknob');
       if (id !== hover) {
         hover = id;
         stage.setHover(id);
@@ -239,11 +274,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     };
 
     /** Deux tapes sur un encodeur en moins de 350 ms : sa valeur de depart. */
-    const tapDial = (k: EncId): void => {
+    const tapDial = (k: DialId): void => {
       const t = performance.now();
       if (t - (lastTap.get(k) ?? -Infinity) <= TEMPO_UI.tapMs) {
         lastTap.delete(k);
-        dial(k, dialReset(k));
+        anyDial(k, anyDialReset(k));
       } else {
         lastTap.set(k, t);
       }
@@ -253,7 +288,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     const fire = (d: Down): string | null => {
       if (d.kind === 'pad' && d.inst) padHit(d.inst, stage);
       else if (d.kind === 'page' && d.section && isPage(d.section)) page(d.section, stage);
-      else if (d.kind === 'open') openToggle(stage);
+      else if (d.kind === 'open') openToggle(stage, 'mm808');
       else if (d.kind === 'step' && d.index !== undefined) {
         // Appui long (revision 4) : le pas se vide ; sinon il change
         if (stage.orbit.lastTap.ms >= STEP_HOLD_MS) stepClear(d.index, stage);
@@ -265,7 +300,12 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.kind === 'solo') soloToggle(stage);
       else if (d.kind === 'random') randomPattern(stage);
       else if (d.kind === 'seek') stage.seekAt(d.x, d.y);
-      else if (d.kind === 'chip' && d.chip && d.id) activateChip(d.id, d.chip);
+      else if ((d.kind === 'chip' || d.kind === 'vchip') && d.chip && d.id) activateChip(d.id, d.chip);
+      else if (d.kind === 'vpad' && d.vpad !== undefined) voyPad(d.vpad, stage);
+      else if (d.kind === 'vpage' && d.section && isPage(d.section)) voyPage(d.section, stage);
+      else if (d.kind === 'vopen') openToggle(stage, 'voy');
+      else if (d.kind === 'vbtn' && d.vbtn === 'clear') voyClear(stage);
+      else if (d.kind === 'vbtn' && d.vbtn === 'random') voyRandom(stage);
       else if (d.dial) tapDial(d.dial);
       else return null;
       return d.id;
@@ -312,7 +352,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Chaque pointeur est capture : un glisser continue d'orbiter hors du canvas
       capture(e.pointerId);
       const h = pickAt(e, isCoarse(e));
-      const encoder = h && h.kind === 'encoder' && h.param ? h.param : null;
+      const encoder: DialId | null =
+        h && h.kind === 'encoder' && h.param ? h.param : h && h.kind === 'vknob' && h.vknob ? (`v:${h.vknob}` as DialId) : null;
+      // Un deuxieme doigt : ni l'un ni l'autre ne glisse d'une machine a l'autre
+      const multi = downs.size > 0;
+      if (multi) for (const o of downs.values()) o.multi = true;
       downs.set(e.pointerId, {
         id: h ? h.id : null,
         kind: h ? h.kind : null,
@@ -320,10 +364,13 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         index: h?.index,
         section: h?.section,
         chip: h?.chip,
+        vpad: h?.vpad,
+        vbtn: h?.vbtn,
+        multi,
         x: e.clientX,
         y: e.clientY,
         dial: encoder,
-        v0: encoder ? dialValue(encoder) : 0,
+        v0: encoder ? anyDialValue(encoder) : 0,
         fine: false,
         a: 0,
         turning: false,
@@ -371,7 +418,10 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         else setCursor();
         return;
       }
-      setHover(pickAt(e, false));
+      const h = pickAt(e, false);
+      // Vue d'ensemble (deux machines) : une machine sous la souris se clique
+      hoverMachine = !h && VOYAGER && focus.get() === 'all' && stage.hit.machineAt(e.clientX - rect.left, e.clientY - rect.top) !== null;
+      setHover(h);
     };
 
     const onUp = (e: PointerEvent): void => {
@@ -386,12 +436,27 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         const tap = stage.orbit.isTap(e);
         let fired: string | null = null;
         let bg = false;
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        // Une machine touchee hors de ses objets (vue d'ensemble, ou l'autre machine) : on zoome dessus
+        const other = VOYAGER && tap && d.id === null ? stage.hit.machineAt(mx, my) : null;
         if (tap && d.id !== null) {
           // Relache sur le meme objet : il part
           if (pickAt(e, isCoarse(e))?.id === d.id) fired = fire(d);
-        } else if (tap && stage.orbit.lastTap.quick && !stage.hit.onMachine(e.clientX - rect.left, e.clientY - rect.top)) {
+        } else if (other && other !== focus.machine()) {
+          fired = `focus-${other}`;
+          focusMachine(other);
+        } else if (tap && stage.orbit.lastTap.quick && !stage.hit.onMachine(mx, my)) {
           bg = true;
           tapBackground(e);
+        } else if (VOYAGER && !tap && !d.multi && e.pointerType !== 'mouse' && window.matchMedia(MOBILE_QUERY).matches) {
+          // Au telephone : un glisser horizontal passe d'une machine a l'autre
+          const dx = e.clientX - d.x;
+          const dy = e.clientY - d.y;
+          if (Math.abs(dx) > SWIPE.px && Math.abs(dx) > SWIPE.ratio * Math.abs(dy) && performance.now() - d.t < SWIPE.ms) {
+            fired = dx < 0 ? 'swipe-voy' : 'swipe-mm808';
+            focusMachine(dx < 0 ? 'voy' : 'mm808');
+          }
         }
         hitDebug.lastUp = { id: d.id, tap, fired, bg };
       }
@@ -414,14 +479,14 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Ctrl + molette (pincement d'un pave tactile) : le zoom de la vue
       if (e.ctrlKey) return;
       const h = pickAt(e, false);
-      if (!h || h.kind !== 'encoder' || !h.param) {
+      const k: DialId | null = h && h.kind === 'encoder' && h.param ? h.param : h && h.kind === 'vknob' && h.vknob ? (`v:${h.vknob}` as DialId) : null;
+      if (!k) {
         wheelAcc = 0;
         wheelKind = null;
         return;
       }
       // Au-dessus d'un encodeur : il tourne, l'orbite ne zoome pas
       e.preventDefault();
-      const k = h.param;
       if (k !== wheelKind) {
         wheelAcc = 0;
         wheelKind = k;
@@ -437,8 +502,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (steps !== 0) {
         wheelAcc -= steps * px;
         // Maj : reglage fin, 1 % le cran (TEMPO reste a 1 BPM)
-        const step = k === 'tempo' ? 1 : e.shiftKey ? DIAL_FINE.wheelStep : isBipolar(k) ? POT_UI.bipolarStep : POT_UI.wheelStep;
-        dial(k, Math.round((dialValue(k) + steps * step) * 1000) / 1000);
+        const step = k === 'tempo' ? 1 : e.shiftKey ? DIAL_FINE.wheelStep : !isVoy(k) && isBipolar(k as EncId) ? POT_UI.bipolarStep : POT_UI.wheelStep;
+        anyDial(k, Math.round((anyDialValue(k) + steps * step) * 1000) / 1000);
       }
     };
 
@@ -611,6 +676,16 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const refs = useRef(new Map<string, (el: HTMLElement | null) => void>());
   const stageRef = useRef(stage);
   stageRef.current = stage;
+  // Deux machines (2026-10-03) : les jumeaux de la 808 ne repondent que quand on l'utilise
+  const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
+  const off = VOYAGER && f !== 'mm808';
+  const groupRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = groupRef.current;
+    if (!el) return;
+    if (off) el.setAttribute('inert', '');
+    else el.removeAttribute('inert');
+  }, [off]);
   const showChips = s !== 'closed';
   const live = chipsLive(s);
   const pressed = s === 'opening' || s === 'open';
@@ -755,7 +830,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
     });
 
   return (
-    <div className="v4-twins" role="group" aria-label={TWIN_ARIA.group}>
+    <div ref={groupRef} className="v4-twins" role="group" aria-label={TWIN_ARIA.group} aria-hidden={off || undefined}>
       {PADS.map((pad) => {
         const id = `pad-${pad.id}`;
         if (pad.kind === 'voice') {
@@ -802,7 +877,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
             aria-pressed={pressed}
             aria-label={OPEN_ARIA}
             onKeyDown={noRepeat}
-            onClick={() => openToggle(stageRef.current)}
+            onClick={() => openToggle(stageRef.current, 'mm808')}
           />
         );
       })}

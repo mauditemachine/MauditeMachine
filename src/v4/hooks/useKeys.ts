@@ -15,9 +15,13 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { escape, openToggle, padHit, page, resetView, runToggle } from '../actions';
+import { escape, openToggle, padHit, page, resetView, runToggle, voyPad } from '../actions';
 import type { Stage } from '../scene/renderer';
+import { focus } from '../state/focus';
 import { PADS } from '../theme';
+
+/** MM-VOYAGEUR (2026-10-03) : A S D F G H J K jouent les huit accords quand on l'utilise. */
+const CHORD_KEYS = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k'];
 
 const isEditable = (t: EventTarget | null): boolean => {
   if (!(t instanceof HTMLElement)) return false;
@@ -50,7 +54,13 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
       }
       if (!on.current) return;
       if (e.altKey || e.ctrlKey || e.metaKey || e.repeat || isEditable(e.target)) return;
-      const inst = PAD_KEYS.get(e.key.toLowerCase());
+      const chord = focus.get() === 'voy' ? CHORD_KEYS.indexOf(e.key.toLowerCase()) : -1;
+      if (chord >= 0) {
+        e.preventDefault();
+        voyPad(chord, getStage());
+        return;
+      }
+      const inst = focus.get() === 'voy' ? undefined : PAD_KEYS.get(e.key.toLowerCase());
       if (inst) {
         e.preventDefault();
         padHit(inst, getStage());

@@ -22,7 +22,9 @@
  */
 
 import { Matrix4, Vector3, type Camera, type Object3D, type PerspectiveCamera } from 'three';
+import type { MachineId } from '../state/focus';
 import { HIT, type ChipId, type EncId, type Inst, type SectionId } from '../theme';
+import type { VoyKnobId } from '../voyager/params';
 
 /**
  * pad (voix), page (pads de navigation), open, step, run, clear, chip
@@ -31,7 +33,26 @@ import { HIT, type ChipId, type EncId, type Inst, type SectionId } from '../them
  * a REVERB, spec 20.17 FX-5), une tape double le remet a sa valeur de
  * depart.
  */
-export type HotspotKind = 'pad' | 'page' | 'open' | 'step' | 'run' | 'clear' | 'mute' | 'solo' | 'random' | 'encoder' | 'chip' | 'seek';
+export type HotspotKind =
+  | 'pad'
+  | 'page'
+  | 'open'
+  | 'step'
+  | 'run'
+  | 'clear'
+  | 'mute'
+  | 'solo'
+  | 'random'
+  | 'encoder'
+  | 'chip'
+  | 'seek'
+  // MM-VOYAGEUR (2026-10-03) : pads d'accords, pages, OPEN, CLEAR et RANDOM, potards, puces
+  | 'vpad'
+  | 'vpage'
+  | 'vopen'
+  | 'vbtn'
+  | 'vknob'
+  | 'vchip';
 
 export interface HotspotDef {
   id: string;
@@ -59,6 +80,12 @@ export interface HotspotDef {
   param?: EncId;
   /** puce du PCB (vue eclatee) */
   chip?: ChipId;
+  /** la machine qui le porte (deux machines, 2026-10-03) ; absent : toujours actif */
+  machine?: MachineId;
+  /** MM-VOYAGEUR : pad d'accord (0 a 7), bouton, potard */
+  vpad?: number;
+  vbtn?: 'clear' | 'random';
+  vknob?: VoyKnobId;
 }
 
 /**
@@ -67,9 +94,10 @@ export interface HotspotDef {
  * [a, b, c, d] : a x + b y + c z + d <= 0 a l'interieur, et ses coins pour
  * la silhouette).
  */
-export type Occluder =
+export type Occluder = (
   | { layer: Object3D; min: readonly [number, number, number]; max: readonly [number, number, number] }
-  | { layer: Object3D; planes: readonly number[]; corners: readonly number[] };
+  | { layer: Object3D; planes: readonly number[]; corners: readonly number[] }
+) & { tag?: MachineId };
 
 /** Vue projetee, donnees simples (window.__v4.hotspots). */
 export interface HotspotView {
@@ -82,6 +110,10 @@ export interface HotspotView {
   section?: SectionId;
   param?: EncId;
   chip?: ChipId;
+  machine?: MachineId;
+  vpad?: number;
+  vbtn?: 'clear' | 'random';
+  vknob?: VoyKnobId;
   /** rectangle cible : la boite projetee, elargie a 48 x 48 (tactile) ou 32 x 32 (souris) autour du centre */
   x: number;
   y: number;
@@ -104,6 +136,7 @@ interface Occ {
   layer: Object3D;
   planes: Float64Array;
   corners: Float64Array;
+  tag?: MachineId;
 }
 
 /** Une boite en six demi-espaces et huit coins. */
@@ -129,6 +162,12 @@ const d = new Vector3();
 const lo = new Vector3();
 const ld = new Vector3();
 const r1 = (n: number): number => Math.round(n * 10) / 10;
+
+/** Visible dans la scene : lui et tous ses parents (une machine cachee cache ses calques). */
+function shown(o: Object3D): boolean {
+  for (let p: Object3D | null = o; p; p = p.parent) if (!p.visible) return false;
+  return true;
+}
 
 /** Enveloppe convexe (chaine monotone d'Andrew) ; entree et sortie [x, y, ...]. */
 function hull(pts: number[]): number[] {
@@ -284,6 +323,23 @@ export class HitMap {
   private prepStale = true;
   /** avance a chaque changement de signature (voir version()) */
   private ver = 0;
+  /**
+   * Machine dont les objets repondent (2026-10-03) : 'any' (une seule
+   * machine sur la table), l'une des deux, ou null (vue d'ensemble, zoom
+   * en cours : aucun objet, un clic choisit une machine).
+   */
+  private active: MachineId | null | 'any' = 'any';
+
+  /** Les objets de cette machine seulement repondent ; null : aucun ; 'any' : tous. */
+  setActive(m: MachineId | null | 'any'): void {
+    if (m === this.active) return;
+    this.active = m;
+    this.invalidate();
+  }
+
+  private live(def: HotspotDef): boolean {
+    return def.enabled && (this.active === 'any' || (def.machine !== undefined ? def.machine === this.active : this.active !== null));
+  }
 
   /**
    * camera : celle du Stage ; size : taille CSS du canvas ; coarse : le
@@ -318,7 +374,8 @@ export class HitMap {
 
   /** Un volume de la machine qui cache ce qui est derriere lui (dalle du panneau, coin du chassis, carte). */
   addOccluder(occ: Occluder): void {
-    const o = 'min' in occ ? boxOcc(occ.layer, occ.min, occ.max) : { layer: occ.layer, planes: new Float64Array(occ.planes), corners: new Float64Array(occ.corners) };
+    const o: Occ = 'min' in occ ? boxOcc(occ.layer, occ.min, occ.max) : { layer: occ.layer, planes: new Float64Array(occ.planes), corners: new Float64Array(occ.corners) };
+    o.tag = occ.tag;
     this.occluders.push(o);
     this.occLayer.push(this.layerIndex(occ.layer));
     this.invalidate();
@@ -389,8 +446,9 @@ export class HitMap {
       const l = layers[i];
       l.updateWorldMatrix(true, false);
       this.putMatrix(l.matrixWorld.elements);
-      this.put(l.visible ? 1 : 0);
+      this.put(shown(l) ? 1 : 0);
     }
+    this.put(this.active === 'any' ? 2 : this.active === null ? 0 : this.active === 'mm808' ? 3 : 4);
     const defs = this.defs;
     for (let i = 0; i < defs.length; i += 1) this.put(defs[i].enabled ? 1 : 0);
     if (this.sig.length !== this.si) {
@@ -531,12 +589,16 @@ export class HitMap {
         id: def.id,
         kind: def.kind,
         shape: def.shape,
-        enabled: def.enabled && def.layer.visible,
+        enabled: this.live(def) && shown(def.layer),
         ...(def.inst ? { inst: def.inst } : {}),
         ...(def.index !== undefined ? { index: def.index } : {}),
         ...(def.section ? { section: def.section } : {}),
         ...(def.param ? { param: def.param } : {}),
         ...(def.chip ? { chip: def.chip } : {}),
+        ...(def.machine ? { machine: def.machine } : {}),
+        ...(def.vpad !== undefined ? { vpad: def.vpad } : {}),
+        ...(def.vbtn ? { vbtn: def.vbtn } : {}),
+        ...(def.vknob ? { vknob: def.vknob } : {}),
         x: r1(rect[0]),
         y: r1(rect[1]),
         w: r1(rect[2]),
@@ -571,7 +633,7 @@ export class HitMap {
     let best = -Infinity;
     for (let j = 0; j < this.occluders.length; j += 1) {
       const oc = this.occluders[j];
-      if (!oc.layer.visible) continue;
+      if (!shown(oc.layer)) continue;
       const c = oc.corners;
       for (let k = 0; k < c.length; k += 3) {
         this.toPx(this.occLayer[j], c[k], c[k + 1], c[k + 2]);
@@ -599,7 +661,7 @@ export class HitMap {
     else d.set(0, 0, 1).transformDirection(this.camera.matrixWorld);
     for (let j = 0; j < this.occluders.length; j += 1) {
       const oc = this.occluders[j];
-      if (!oc.layer.visible) continue;
+      if (!shown(oc.layer)) continue;
       const inv = this.inv[this.occLayer[j]];
       lo.copy(o).applyMatrix4(inv);
       ld.copy(d).transformDirection(inv);
@@ -608,7 +670,7 @@ export class HitMap {
     if (occludersOnly) return true;
     for (let i = 0; i < this.defs.length; i += 1) {
       const def = this.defs[i];
-      if (def.id === ignoreId || !def.layer.visible) continue;
+      if (def.id === ignoreId || !shown(def.layer)) continue;
       const inv = this.inv[this.defLayer[i]];
       lo.copy(o).applyMatrix4(inv);
       ld.copy(d).transformDirection(inv);
@@ -631,7 +693,7 @@ export class HitMap {
     const pts: number[] = [];
     for (let j = 0; j < this.occluders.length; j += 1) {
       const oc = this.occluders[j];
-      if (!oc.layer.visible) continue;
+      if (!shown(oc.layer)) continue;
       const c = oc.corners;
       for (let k = 0; k < c.length; k += 3) {
         this.toPx(this.occLayer[j], c[k], c[k + 1], c[k + 2]);
@@ -639,6 +701,53 @@ export class HitMap {
       }
     }
     return pts.length >= 6 && inside(hull(pts), x, y);
+  }
+
+  /**
+   * La machine sous le point (px CSS du canvas) : l'enveloppe des
+   * occulteurs visibles de chacune ; null sur le fond (2026-10-03).
+   */
+  machineAt(x: number, y: number): MachineId | null {
+    this.sync();
+    this.prepare();
+    for (const tag of ['mm808', 'voy'] as const) {
+      const pts = this.hullPoints(tag);
+      if (pts.length >= 6 && inside(hull(pts), x, y)) return tag;
+    }
+    return null;
+  }
+
+  /** Boite projetee d'une machine (px CSS du canvas), null si elle est cachee. */
+  machineBox(tag: MachineId): { x: number; y: number; w: number; h: number } | null {
+    this.sync();
+    this.prepare();
+    const pts = this.hullPoints(tag);
+    if (pts.length < 6) return null;
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (let k = 0; k < pts.length; k += 2) {
+      if (pts[k] < x0) x0 = pts[k];
+      if (pts[k] > x1) x1 = pts[k];
+      if (pts[k + 1] < y0) y0 = pts[k + 1];
+      if (pts[k + 1] > y1) y1 = pts[k + 1];
+    }
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+  }
+
+  private hullPoints(tag: MachineId): number[] {
+    const pts: number[] = [];
+    for (let j = 0; j < this.occluders.length; j += 1) {
+      const oc = this.occluders[j];
+      if ((oc.tag ?? 'mm808') !== tag || !shown(oc.layer)) continue;
+      const c = oc.corners;
+      for (let k = 0; k < c.length; k += 3) {
+        this.toPx(this.occLayer[j], c[k], c[k + 1], c[k + 2]);
+        pts.push(this.px, this.py);
+      }
+    }
+    return pts;
   }
 
   /** Rayon de vue du point ecran (x, y) : origine sur le plan proche (o), direction (d), monde. */
@@ -666,7 +775,7 @@ export class HitMap {
   private blocked(t: number): boolean {
     for (let j = 0; j < this.occluders.length; j += 1) {
       const oc = this.occluders[j];
-      if (!oc.layer.visible) continue;
+      if (!shown(oc.layer)) continue;
       const inv = this.inv[this.occLayer[j]];
       lo.copy(o).applyMatrix4(inv);
       ld.copy(d).transformDirection(inv);

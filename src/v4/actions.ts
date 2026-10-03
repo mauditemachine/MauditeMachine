@@ -14,14 +14,19 @@ import { randomHouse } from './audio/house';
 import { BPM, VEL_NAMES, pattern, velocity } from './audio/pattern';
 import { sc } from './audio/soundcloud';
 import type { Stage } from './scene/renderer';
-import { chipsLive, explode } from './state/explode';
+import { chipsLive, explode, voyExplode, type ExplodeStore } from './state/explode';
+import { focus, VOYAGER, type Focus, type MachineId } from './state/focus';
 import { lcdMessage } from './state/lcdMessage';
 import { lcdMix } from './state/lcdMix';
 import { contactDraft, type ContactTopic } from './state/contactDraft';
 import { presskit } from './state/presskit';
 import { section } from './state/section';
 import { voices } from './state/voices';
-import { CHIPS, POT_UI, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
+import { CHIPS, MOBILE_QUERY, POT_UI, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
+import { arp } from './voyager/arp';
+import { CHORDS, PROGRESSIONS } from './voyager/chords';
+import { voyMsg } from './voyager/msg';
+import { voyParams, voyReadout, type VoyKnobId } from './voyager/params';
 
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
 const pct = (v: number): number => Math.round(v * 100);
@@ -68,11 +73,17 @@ export function page(id: PageId, stage: Stage | null): void {
   if (id === 'press' && presskit.fromRoute()) {
     section.set('press');
     presskit.open('press');
-    stage?.pads.press(id);
+    pressPage(id, stage);
     return;
   }
   section.toggle(id);
-  stage?.pads.press(id);
+  pressPage(id, stage);
+}
+
+/** Le pad (808) ou le bouton (MM-VOYAGEUR) d'une page s'enfonce : celui de la machine utilisee. */
+function pressPage(id: PageId, stage: Stage | null): void {
+  if (focus.get() === 'voy' && stage?.voy) stage.voy.keys.pressButton(id);
+  else stage?.pads.press(id);
 }
 
 /** RESET VIEW, touche R, double tape du fond : retour a la vue par defaut (500 ms). */
@@ -334,11 +345,24 @@ export function closeSection(): void {
  * seulement ; la musique continue ; le pad OPEN s'enfonce. true si la
  * demande est prise.
  */
-export function openToggle(stage: Stage | null = null): boolean {
+export function openToggle(stage: Stage | null = null, which: MachineId = hoodMachine()): boolean {
   resume();
-  const ok = explode.toggle();
-  if (ok) stage?.pads.press('open');
+  const ok = hoodOf(which).toggle();
+  if (ok) {
+    if (which === 'voy') stage?.voy?.keys.pressButton('open');
+    else stage?.pads.press('open');
+  }
   return ok;
+}
+
+/** La machine dont OPEN, GOODIES, MERCH, STUDIO et CLOSE ouvrent le capot : celle qu'on utilise (vue d'ensemble : la 808). */
+export function hoodMachine(): MachineId {
+  return focus.machine() ?? 'mm808';
+}
+
+/** Le capot d'une machine. */
+export function hoodOf(m: MachineId): ExplodeStore {
+  return m === 'voy' ? voyExplode : explode;
 }
 
 /**
@@ -349,8 +373,8 @@ export function openToggle(stage: Stage | null = null): boolean {
  * opener ni referer, seulement quand son jumeau manque (sinon le jumeau,
  * un vrai lien, fait le travail).
  */
-export function chipAction(id: ChipId): void {
-  if (!chipsLive(explode.get())) return;
+export function chipAction(id: ChipId, which: MachineId = 'mm808'): void {
+  if (!chipsLive(hoodOf(which).get())) return;
   const c = CHIPS.find((k) => k.id === id);
   if (!c) return;
   if (c.section) section.toggle(c.section);
@@ -367,12 +391,102 @@ export function escape(): boolean {
     section.set(null);
     return true;
   }
-  if (explode.get() === 'open') return explode.toggle();
-  if (pattern.get().instrument !== null) {
+  const hood = hoodOf(hoodMachine());
+  if (hood.get() === 'open') return hood.toggle();
+  if (pattern.get().instrument !== null && focus.get() !== 'voy') {
     selectVoice(null);
     return true;
   }
+  // Deux machines, desktop : Echap revient a la vue d'ensemble
+  if (VOYAGER && focus.get() !== 'all' && !window.matchMedia(MOBILE_QUERY).matches) {
+    focus.set('all');
+    return true;
+  }
   return false;
+}
+
+/* ---------------- deux machines, MM-VOYAGEUR (2026-10-03) ---------------- */
+
+/** Zoom sur une machine (clic sur elle, glisser au telephone), ou la vue d'ensemble. */
+export function focusMachine(f: Focus): void {
+  focus.set(f);
+}
+
+/**
+ * Pad d'accord : l'accord entre dans la progression (ou en sort) ; le
+ * premier lance l'arpege, une piste SoundCloud qui joue passe en pause
+ * (une seule source a la fois, comme RUN).
+ */
+export function voyPad(i: number, stage: Stage | null = null): void {
+  gesture();
+  if (!arp.get().running) sc.pauseForRun();
+  arp.toggle(i);
+  stage?.voy?.keys.pressPad(i);
+  const prog = arp.get().prog;
+  voyMsg.show(prog.includes(i) ? `+ ${CHORDS[i].label}` : `- ${CHORDS[i].label}`);
+}
+
+/** CLEAR : plus d'accord, l'arpege s'arrete. */
+export function voyClear(stage: Stage | null = null): void {
+  resume();
+  arp.clear();
+  stage?.voy?.keys.pressButton('clear');
+  voyMsg.show('CLEARED');
+}
+
+/** RANDOM : une progression toute faite (jamais la meme que celle qui joue). */
+export function voyRandom(stage: Stage | null = null): void {
+  gesture();
+  if (!arp.get().running) sc.pauseForRun();
+  const cur = arp.get().prog.join(',');
+  const pool = PROGRESSIONS.filter((p) => p.join(',') !== cur);
+  const pick = pool[Math.floor(Math.random() * pool.length)] ?? PROGRESSIONS[0];
+  arp.set(pick);
+  stage?.voy?.keys.pressButton('random');
+  voyMsg.show('RANDOM');
+}
+
+/** Bouton de page du MM-VOYAGEUR : la meme section que le pad de la 808. */
+export function voyPage(id: PageId, stage: Stage | null = null): void {
+  resume();
+  if (id === 'contact' && section.get() !== 'contact') contactDraft.set('booking');
+  if (id === 'press' && presskit.fromRoute()) {
+    section.set('press');
+    presskit.open('press');
+  } else section.toggle(id);
+  stage?.voy?.keys.pressButton(id);
+}
+
+/** Un potard du MM-VOYAGEUR (0 a 1) ; l'ecran dit sa valeur. */
+export function voyDial(id: VoyKnobId, v: number): void {
+  resume();
+  voyParams.set(id, v);
+  voyMsg.show(voyReadout(id, voyParams.of(id)), POT_UI.readoutMs);
+}
+
+/**
+ * Les potards des deux machines passent par un seul identifiant (la
+ * couche de saisie, la molette) : EncId pour la 808, v:<id> pour le
+ * MM-VOYAGEUR.
+ */
+export type DialId = EncId | `v:${VoyKnobId}`;
+
+const voyId = (id: DialId): VoyKnobId | null => (id.startsWith('v:') ? (id.slice(2) as VoyKnobId) : null);
+
+export function anyDial(id: DialId, v: number): void {
+  const k = voyId(id);
+  if (k) voyDial(k, v);
+  else dial(id as EncId, v);
+}
+
+export function anyDialValue(id: DialId): number {
+  const k = voyId(id);
+  return k ? voyParams.of(k) : dialValue(id as EncId);
+}
+
+export function anyDialReset(id: DialId): number {
+  const k = voyId(id);
+  return k ? voyParams.def(k) : dialReset(id as EncId);
 }
 
 /** Ligne TRACKS ou MIXTAPES : lecture, pause ou reprise par le moteur SoundCloud. */

@@ -287,6 +287,23 @@ function entryAt(t: number): StepEvent | null {
   return null;
 }
 
+/**
+ * La grille de la lecture en cours (2026-10-03, l'arpegiateur du
+ * MM-VOYAGEUR s'y cale) : la premiere frontiere de pas a t ou apres
+ * (temps du contexte, sans le retard du swing) et son numero (0 a 15) ;
+ * un tempo en attente compte a partir de sa frontiere. null a l'arret.
+ */
+function gridAfter(t: number): { time: number; step: number; dur: number } | null {
+  if (!running) return null;
+  if (pendingDur > 0 && t > nextTime) {
+    const k = Math.ceil((t - nextTime) / pendingDur - 1e-9);
+    return { time: nextTime + k * pendingDur, step: (step + k) % STEP_COUNT, dur: pendingDur };
+  }
+  const k = Math.ceil((t - anchor) / stepDur - 1e-9);
+  const idx = (((step + (k - n)) % STEP_COUNT) + STEP_COUNT) % STEP_COUNT;
+  return { time: anchor + k * stepDur, step: idx, dur: stepDur };
+}
+
 function drift(): Drift {
   const ms = (s: number): number => s * 1000;
   return {
@@ -331,6 +348,7 @@ export const clock = {
     pattern.clear();
   },
   entryAt,
+  gridAfter,
   /** Le pas sous la tete de lecture a t (temps du contexte), -1 a l'arret ou avant le premier. */
   currentStep(t: number): number {
     return entryAt(t)?.step ?? -1;

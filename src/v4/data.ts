@@ -61,10 +61,21 @@ const item = (b: Bead, meta: string): PlayItem => ({
   track: b.track,
 });
 
-/** Les 37 pistes, la plus recente d'abord. */
-export const TRACKS: readonly PlayItem[] = BEADS.filter((b) => b.kind === 'track')
-  .reverse()
-  .map((b) => item(b, trackMeta(b)));
+/** Melange de Fisher-Yates (une nouvelle copie). */
+function shuffled<T>(list: readonly T[]): T[] {
+  const out = list.slice();
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/**
+ * Les 37 pistes, dans un ordre tire au hasard a chaque visite (2026-10-03,
+ * demande de Mika : la playlist ne part plus toujours de la meme piste).
+ */
+export const TRACKS: readonly PlayItem[] = shuffled(BEADS.filter((b) => b.kind === 'track').map((b) => item(b, trackMeta(b))));
 
 /** Les 5 mixtapes, la plus recente d'abord. */
 export const MIXTAPES: readonly PlayItem[] = BEADS.filter((b) => b.kind === 'mixtape')

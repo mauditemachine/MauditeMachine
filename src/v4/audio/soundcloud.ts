@@ -26,6 +26,7 @@ import { isPlayable, type V2Track } from '../../v2/context/AudioPlayerContext';
 import { FLAGS } from '../state/flags';
 import { lcdMessage } from '../state/lcdMessage';
 import { LCD_TEXT } from '../theme';
+import { arp } from '../voyager/arp';
 import { clock } from './clock';
 
 export type ScStatus = 'idle' | 'loading' | 'playing' | 'paused';
@@ -194,13 +195,15 @@ export const sc = {
     // Le son est la (comme /v3 : playing et une progression) : fin du chargement
     if (pending && n.playing && n.progress > 0) setPending(false);
     if (id === null && pending) setPending(false);
-    // Une piste demarre : la boite a rythmes passe en STOP, rien ne la relance
+    // Une piste demarre : la boite a rythmes passe en STOP, rien ne la relance ;
+    // l'arpege du MM-VOYAGEUR s'arrete aussi (2026-10-03)
     if (n.playing && !prev.playing) {
       counters.starts += 1;
       if (clock.running) {
         clock.stop();
         counters.autoStops += 1;
       }
+      if (arp.get().running) arp.clear();
     }
     derive();
   },

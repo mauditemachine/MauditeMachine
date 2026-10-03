@@ -97,6 +97,13 @@ export const HEX = {
   capTop: '#4A5068',
   cell: '#B9BCC4',
   resistor: '#C9B48A',
+  // MM-VOYAGEUR (2026-10-03) : peinture noire mate du capot, son chant, le bac,
+  // capuchons des potards Moog et leur jupe d'aluminium
+  voyPanel: '#131315',
+  voyPanelEdge: '#2C2D32',
+  voyBody: '#0C0C0E',
+  voyKnob: '#0F0F11',
+  voySkirt: '#A7ABB2',
 } as const;
 
 export type Tone = keyof typeof HEX;
@@ -130,6 +137,11 @@ export const GAIN: Readonly<Partial<Record<Tone, number>>> & { parts: number } =
   collar: 2.4,
   /** pieds, connectique, cadre de l'ecran */
   parts: 3,
+  voyPanel: 3.6,
+  voyPanelEdge: 2.3,
+  voyBody: 7.5,
+  voyKnob: 2.4,
+  voySkirt: 1,
 };
 /** Gain d'une teinte (GAIN, sinon celui des pieces). */
 export const gainOf = (t: Tone): number => GAIN[t] ?? GAIN.parts;
@@ -1656,8 +1668,28 @@ const LIGHT = {
     collar: '#D4D0C8',
     line: '#D7D3CB',
     ledHover: '#8E8A83',
+    voyPanel: '#F8F5EF',
+    voyPanelEdge: '#FFFFFF',
+    voyBody: '#E2DED6',
+    voyKnob: '#232326',
+    voySkirt: '#CDD0D6',
   } as Partial<Record<Tone, string>>,
-  gain: { body: 1.25, bodyEdge: 1, bodyTop: 1.1, panel: 1, panelEdge: 1, panelSide: 1.2, pad: 1.05, encoder: 2.4, collar: 1 } as Partial<Record<Tone, number>>,
+  gain: {
+    body: 1.25,
+    bodyEdge: 1,
+    bodyTop: 1.1,
+    panel: 1,
+    panelEdge: 1,
+    panelSide: 1.2,
+    pad: 1.05,
+    encoder: 2.4,
+    collar: 1,
+    voyPanel: 1,
+    voyPanelEdge: 1,
+    voyBody: 1.2,
+    voyKnob: 2.4,
+    voySkirt: 1,
+  } as Partial<Record<Tone, number>>,
   lit: { key: [0.84, 0.82, 0.78], clear: [0.82, 0.8, 0.76] } as Record<string, number[]>,
   material: { panel: { roughness: 0.5, metalness: 0 }, chassis: { roughness: 0.7, metalness: 0 }, key: { roughness: 0.55, metalness: 0 }, pad: { roughness: 0.85, metalness: 0 } },
   /** lueurs des pads en orange (le jaune palit sur le caoutchouc clair) */

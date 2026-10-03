@@ -8,19 +8,24 @@
  */
 
 import React, { useSyncExternalStore } from 'react';
-import { openToggle } from '../actions';
+import { hoodMachine, hoodOf, openToggle } from '../actions';
 import type { Stage } from '../scene/renderer';
-import { explode } from '../state/explode';
+import { explode, voyExplode } from '../state/explode';
+import { focus } from '../state/focus';
 
 interface Props {
   getStage: () => Stage | null;
 }
 
 export const PcbClose: React.FC<Props> = ({ getStage }) => {
-  const s = useSyncExternalStore(explode.subscribe, explode.get, explode.get);
-  if (s !== 'open') return null;
+  // Le capot de la machine qu'on utilise (deux machines, 2026-10-03)
+  useSyncExternalStore(explode.subscribe, explode.get, explode.get);
+  useSyncExternalStore(voyExplode.subscribe, voyExplode.get, voyExplode.get);
+  useSyncExternalStore(focus.subscribe, focus.get, focus.get);
+  const m = hoodMachine();
+  if (hoodOf(m).get() !== 'open') return null;
   return (
-    <button type="button" className="v4-pcb-close" aria-label="Close the machine" onClick={() => openToggle(getStage())}>
+    <button type="button" className="v4-pcb-close" aria-label="Close the machine" onClick={() => openToggle(getStage(), m)}>
       CLOSE
     </button>
   );

@@ -359,6 +359,25 @@ export function context(): AudioContext | undefined {
   return ctx;
 }
 
+/**
+ * Branchement du MM-VOYAGEUR (2026-10-03, audio/synth.ts) : son entree
+ * rejoint le compresseur apres LEVEL (la boite a rythmes et le synthe se
+ * collent, puis l'analyseur, l'ecreteur et le master : ?mute=1 tient), et
+ * ses envois partagent la REVERB et le DELAY de la boite. null avant le
+ * premier geste.
+ */
+export interface SynthPort {
+  ctx: AudioContext;
+  input: AudioNode;
+  reverb: SendBus;
+  delay: DelayBus;
+}
+
+export function synthPort(): SynthPort | null {
+  if (!ctx || !graph) return null;
+  return { ctx, input: graph.comp, reverb: graph.reverb, delay: graph.delay };
+}
+
 /* ---------------- voix (spec 8.2) ---------------- */
 
 /** Demarre, arrete a la fin de l'enveloppe + 50 ms, puis debranche tout (GC). */

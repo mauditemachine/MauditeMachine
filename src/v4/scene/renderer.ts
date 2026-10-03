@@ -52,7 +52,8 @@ import { context, mix } from '../audio/drums';
 import { BPM, INSTRUMENTS, pattern } from '../audio/pattern';
 import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
 import { motion } from '../state/motion';
-import { explode as explodeState } from '../state/explode';
+import { explode as explodeState, voyExplode } from '../state/explode';
+import { focus, VOYAGER, type Focus, type MachineId } from '../state/focus';
 import { intro } from '../state/intro';
 import { playhead } from '../state/playhead';
 import { lcd } from '../state/lcd';
@@ -118,11 +119,40 @@ import { BackPlate } from './backplate';
 import { BUTTON_INDEX, Sequencer3D, type TransportButton } from './sequencer3d';
 import { PanelSilk, fontsReady, makeBrushTexture, whenFonts, whenLogos } from './silk';
 import { Tweens, easeInOutCubic, easeOutCubic, linear } from './tween';
+import { VoyagerRig } from '../voyager/rig';
+import { VOY_BODY, VOY_FRAME, VOY_X } from '../voyager/theme';
 
 const DEG = Math.PI / 180;
 
 /** Eclair d'un temoin : plein sur BTN_LED.hold de sa duree, puis il s'eteint. */
 const holdThenOut = (t: number): number => (t < BTN_LED.hold ? 0 : easeOutCubic((t - BTN_LED.hold) / (1 - BTN_LED.hold)));
+
+/* ---------------- deux machines (2026-10-03) ---------------- */
+
+/**
+ * Le cadrage d'une cible (la 808, le MM-VOYAGEUR, ou les deux) : centre x
+ * du pivot, demi-largeur voulue au pivot (hw0), hauteur projetee fermee
+ * (h), pivot ferme et ouvert, rayons du cadrage de section, pile ouverte,
+ * etendue de la camera d'ombre. Le Stage interpole entre deux cadrages
+ * pendant le zoom d'une machine a l'autre.
+ */
+interface Frame {
+  cx: number;
+  hw0: number;
+  h: number;
+  ty: number;
+  explodeTy: number;
+  rClosed: number;
+  rOpen: number;
+  fitHalfH: number;
+  extent: number;
+}
+
+const FRAME_KEYS = ['cx', 'hw0', 'h', 'ty', 'explodeTy', 'rClosed', 'rOpen', 'fitHalfH', 'extent'] as const;
+
+/** Zoom d'une machine a l'autre (ms) ; la vue d'ensemble garde 88 % de la largeur pour les deux. */
+const FOCUS_MS = 900;
+const OVERVIEW_FILL = { desktop: 0.88, mobile: 0.92 } as const;
 
 /* ---------------- Stage ---------------- */
 
@@ -376,6 +406,17 @@ export class Stage {
   /** intro (spec 7.4) : en cours, et l'instant de sa premiere frame (-1 avant) */
   private introOn = false;
   private introT0 = -1;
+  /** le MM-VOYAGEUR (2026-10-03, ?voyager=1), null sans lui */
+  readonly voy: VoyagerRig | null;
+  /** cadrage de la cible : courant, depart et arrivee du zoom, cibles, avancement (courbe appliquee) */
+  private fr!: Frame;
+  private frFrom!: Frame;
+  private frTo!: Frame;
+  private fFrom: Focus = 'mm808';
+  private fTo: Focus = 'mm808';
+  private focusK = 1;
+  private unsubFocus: () => void = () => undefined;
+  private unsubVoyExplode: () => void = () => undefined;
 
   static create(opts: StageOpts): Stage | null {
     let canvas: HTMLCanvasElement | null = null;
@@ -422,6 +463,11 @@ export class Stage {
     this.layoutMql = window.matchMedia(MOBILE_QUERY);
     this.coarseMql = window.matchMedia(COARSE_QUERY);
     this.layoutMobile = this.layoutMql.matches;
+    // Cadrage de depart : la cible du store (la 808 seule sans le MM-VOYAGEUR)
+    this.fTo = this.fFrom = VOYAGER ? focus.get() : 'mm808';
+    this.fr = this.frameOf(this.fTo);
+    this.frFrom = { ...this.fr };
+    this.frTo = { ...this.fr };
 
     renderer.setPixelRatio(this.dprCap());
     renderer.setClearColor(COLOR.ink, BACKDROP.transparent ? 0 : 1);
@@ -500,7 +546,8 @@ export class Stage {
     const plateau = this.machine.plateau;
     plateau.add(this.silk.mesh);
     this.floor = new Floor();
-    this.machine.socle.add(this.floor.mesh);
+    // Le sol est a la scene (2026-10-03) : il reste quand la vue cache une machine
+    this.scene.add(this.floor.mesh);
     this.scene.add(this.machine.root);
 
     // Moitie droite : les 12 pads (ils projettent leur ombre sur mobile
@@ -542,7 +589,8 @@ export class Stage {
     this.hit.add(padDefs);
     this.chipDefs = this.pcb.hotspots(this.machine.pcb);
     this.hit.add(this.chipDefs);
-    this.hit.add(ENCODERS.map((e) => this.encoders.hotspot(e.id, plateau)));
+    const encDefs = ENCODERS.map((e) => this.encoders.hotspot(e.id, plateau));
+    this.hit.add(encDefs);
     const seqDefs = this.seq.hotspots(plateau);
     this.stepDefs = seqDefs.filter((d) => d.kind === 'step');
     this.hit.add(seqDefs.filter((d) => d.kind !== 'step'));
@@ -578,6 +626,33 @@ export class Stage {
     for (const d of padDefs) if (d.section) this.anchors.set(d.section, d);
     for (const d of this.chipDefs) if (d.section) this.anchors.set(d.section, d);
 
+    // Le MM-VOYAGEUR (2026-10-03) : a droite de la 808 sur la meme table ;
+    // ses objets et ses volumes apres ceux de la 808, chacun marque de sa machine
+    if (VOYAGER) {
+      for (const d of [...padDefs, ...this.chipDefs, ...encDefs, ...seqDefs, this.seekDef]) d.machine = 'mm808';
+      const voy = new VoyagerRig({
+        mobile,
+        anisotropy: aniso,
+        tweens: this.tweens,
+        paintTweens: this.paintTweens,
+        reduced: motion.reduced,
+        repaint: () => this.repaint(),
+        invalidate: () => this.invalidate(),
+      });
+      this.voy = voy;
+      this.scene.add(voy.root);
+      this.hit.add(voy.hotspots);
+      for (const o of voy.occluders()) this.hit.addOccluder(o);
+      void whenLogos().then(() => {
+        if (!this.disposed) {
+          voy.redrawText();
+          this.repaint();
+        }
+      });
+    } else {
+      this.voy = null;
+    }
+
     // Taille initiale ; le canvas passe a l'encre tout de suite (jamais un noir pur)
     this.width = Math.max(1, opts.host.clientWidth);
     this.height = Math.max(1, opts.host.clientHeight);
@@ -596,6 +671,18 @@ export class Stage {
       this.pollPlayhead,
       this.stepBreathe
     );
+    const voyRig = this.voy;
+    if (voyRig) {
+      this.animators.push(
+        (now) => {
+          if (!voyRig.stepExplode(now)) return false;
+          this.updateCamera();
+          return true;
+        },
+        voyRig.stepKeys,
+        voyRig.stepArp
+      );
+    }
     // Intro (2026-10-01) : mouvement complet seulement ; la machine attend
     // eclatee jusqu'a la premiere frame, puis s'assemble (stepIntro)
     if (!motion.reduced() && !opts.skipIntro) {
@@ -603,13 +690,27 @@ export class Stage {
       // L'intro montre le PCB eclate : ses textures se font maintenant
       this.pcb.prepare();
       this.explode.assemble(0);
+      // Deux machines : les deux s'ouvrent et se referment ensemble, vues d'ensemble
+      if (this.voy) {
+        this.voy.assemble(0);
+        focus.set('all');
+        this.snapFocus();
+      }
       this.introElevation();
       this.syncCasters();
       this.updateCamera();
       intro.set('pending');
     } else {
       intro.set('done');
+      if (this.voy) {
+        // Premiere arrivee sans intro (mouvement reduit) : desktop, la vue d'ensemble ;
+        // au telephone, jamais la vue d'ensemble hors de l'intro
+        if (!opts.skipIntro && !this.layoutMobile && focus.changes === 0) focus.set('all');
+        if (this.layoutMobile && focus.get() === 'all') focus.set('mm808');
+        this.snapFocus();
+      }
     }
+    this.placeLights();
 
     // Plus rien ne touche au GL d'ici la fin du constructeur : un echec plus
     // haut ne laisse donc aucun ecouteur accroche
@@ -642,6 +743,18 @@ export class Stage {
     this.applyExplode(true);
     this.unsubExplode = explodeState.subscribe(this.syncExplode);
     this.detachExplode = explodeState.attach();
+    if (this.voy) {
+      this.voy.listen();
+      // Capot deja ouvert (reconstruction) : le cadrage de la pile ouverte
+      this.updateCamera();
+      this.unsubFocus = focus.subscribe(this.syncFocus);
+      // Le capot du MM-VOYAGEUR change le cadrage (pile ouverte) : un recalcul
+      this.unsubVoyExplode = voyExplode.subscribe(() => {
+        this.hit.invalidate();
+        this.updateCamera();
+        this.invalidate();
+      });
+    }
     this.coarseMql.addEventListener('change', this.onCoarse);
     this.layoutMql.addEventListener('change', this.onLayout);
     canvas.addEventListener('webglcontextlost', this.onLost, false);
@@ -781,17 +894,16 @@ export class Stage {
   private updateCamera(): void {
     const W = this.width;
     const aspect = W / this.height;
-    const frame = this.layoutMobile ? FRAME_MOBILE : FRAME_DESKTOP;
-    // Mobile : la largeur de face (un seul doigt ne tourne plus la vue)
-    const plate = this.layoutMobile ? FRONT_W : PLATEAU_W;
-    const hwBase = Math.max(plate / 2 / frame, (MACHINE_H / FIT_H / 2) * aspect);
-    const e = this.explode.p.frame;
-    let hw = hwBase + (Math.max(hwBase, EXPLODE.fitHalfH * aspect) - hwBase) * e;
+    // La cible (2026-10-03) : la 808, le MM-VOYAGEUR ou les deux, interpolee pendant le zoom
+    const F = this.fr;
+    const hwBase = Math.max(F.hw0, (F.h / FIT_H / 2) * aspect);
+    const e = this.explodeFrame();
+    let hw = hwBase + (Math.max(hwBase, F.fitHalfH * aspect) - hwBase) * e;
     const t = this.layoutMobile ? 0 : this.secT;
     // Decalage du centre de la machine vers la gauche, en px (cadrage de section)
     let shiftPx = 0;
     if (t > 0) {
-      const R = SECTION_FRAME.radius.closed + (SECTION_FRAME.radius.open - SECTION_FRAME.radius.closed) * e;
+      const R = F.rClosed + (F.rOpen - F.rClosed) * e;
       const stageW = Math.max(W / 3, panelLeft(W) - SECTION_FRAME.gap);
       // Echelle min(celle du repos, stageW / 2R) : demi-largeur max(hw, W R / stageW)
       const hwS = Math.max(hw, (W * R) / stageW);
@@ -814,13 +926,190 @@ export class Stage {
     // Distance : la demi-hauteur hh tient dans le champ vertical, au pivot
     const D = hh / Math.tan((ORBIT.fovDeg * Math.PI) / 360);
     // Le pivot monte avec la pile eclatee : la camera suit
-    const ty = ORBIT.targetY + (EXPLODE.targetY - ORBIT.targetY) * e;
-    if (this.orbit.target.y !== ty || this.orbit.distance !== D) {
+    const ty = F.ty + (F.explodeTy - F.ty) * e;
+    if (this.orbit.target.y !== ty || this.orbit.distance !== D || this.orbit.target.x !== F.cx) {
+      this.orbit.target.x = F.cx;
       this.orbit.target.y = ty;
       this.orbit.distance = D;
       this.orbit.place();
     }
   }
+
+  /* ---------------- deux machines (2026-10-03) ---------------- */
+
+  /**
+   * Le cadrage d'une cible. La 808 : ses constantes d'origine (desktop :
+   * la largeur projetee a l'azimut 45, mobile : la largeur de face). Le
+   * MM-VOYAGEUR : les siennes (voyager/theme.ts). Les deux : de la joue
+   * gauche de la 808 a la joue droite du Voyageur, 88 % de la largeur.
+   */
+  private frameOf(f: Focus): Frame {
+    const mob = this.layoutMobile;
+    const m808: Frame = {
+      cx: 0,
+      hw0: mob ? FRONT_W / 2 / FRAME_MOBILE : PLATEAU_W / 2 / FRAME_DESKTOP,
+      h: MACHINE_H,
+      ty: ORBIT.targetY,
+      explodeTy: EXPLODE.targetY,
+      rClosed: SECTION_FRAME.radius.closed,
+      rOpen: SECTION_FRAME.radius.open,
+      fitHalfH: EXPLODE.fitHalfH,
+      extent: LIGHT_KEY.extent,
+    };
+    if (!VOYAGER || f === 'mm808') return m808;
+    const voy: Frame = {
+      cx: VOY_X,
+      hw0: mob ? VOY_BODY.w / 2 / FRAME_MOBILE : VOY_FRAME.plate / 2 / FRAME_DESKTOP,
+      h: VOY_FRAME.h,
+      ty: VOY_FRAME.targetY,
+      explodeTy: VOY_FRAME.explodeTargetY,
+      rClosed: VOY_FRAME.radius.closed,
+      rOpen: VOY_FRAME.radius.open,
+      fitHalfH: VOY_FRAME.fitHalfH,
+      extent: LIGHT_KEY.extent + 1,
+    };
+    if (f === 'voy') return voy;
+    const left = -BODY.w / 2;
+    const right = VOY_X + VOY_BODY.w / 2;
+    const half = (right - left) / 2;
+    return {
+      cx: (left + right) / 2,
+      hw0: half / (mob ? OVERVIEW_FILL.mobile : OVERVIEW_FILL.desktop),
+      h: Math.max(m808.h, voy.h),
+      ty: (m808.ty + voy.ty) / 2,
+      explodeTy: Math.max(m808.explodeTy, voy.explodeTy),
+      rClosed: half + 1,
+      rOpen: half + 1.8,
+      fitHalfH: Math.max(m808.fitHalfH, voy.fitHalfH),
+      extent: half + 5,
+    };
+  }
+
+  /** Avancement de l'ouverture de la cible (les deux : la plus ouverte), interpole pendant le zoom. */
+  private explodeOf(f: Focus): number {
+    const a = this.explode.p.frame;
+    const b = this.voy ? this.voy.explode.p.frame : 0;
+    return f === 'mm808' ? a : f === 'voy' ? b : Math.max(a, b);
+  }
+
+  private explodeFrame(): number {
+    const k = this.focusK;
+    return k >= 1 ? this.explodeOf(this.fTo) : this.explodeOf(this.fFrom) * (1 - k) + this.explodeOf(this.fTo) * k;
+  }
+
+  /**
+   * Lumieres de la cible : la cle (et sa camera d'ombre, etendue a la
+   * cible), le contre-jour et le lisere suivent le centre ; la carte
+   * d'ombre est a refaire.
+   */
+  private placeLights(): void {
+    const F = this.fr;
+    const cx = F.cx;
+    this.key.position.set(LIGHT_KEY.x + cx, LIGHT_KEY.y, LIGHT_KEY.z);
+    this.key.target.position.set(cx, 0, 0);
+    this.key.target.updateMatrixWorld();
+    const sc = this.key.shadow.camera;
+    if (sc.right !== F.extent) {
+      sc.left = -F.extent;
+      sc.right = F.extent;
+      sc.top = F.extent;
+      sc.bottom = -F.extent;
+      sc.updateProjectionMatrix();
+    }
+    this.back.position.set(LIGHT_BACK.x + cx, LIGHT_BACK.y, LIGHT_BACK.z);
+    this.back.target.position.set(cx, 0, 0);
+    this.back.target.updateMatrixWorld();
+    // Le lisere jaune reste a gauche de la machine utilisee (vue d'ensemble : la 808)
+    this.rim.position.x = LIGHT_RIM.x + (this.fTo === 'voy' ? cx : 0);
+    this.shadowDirty = true;
+  }
+
+  /**
+   * Machines montrees : les deux pendant un zoom et en vue d'ensemble ;
+   * celle qu'on utilise seulement, une fois arrivee (l'orbite ne la fait
+   * jamais passer derriere l'autre). Le sol suit (ombres de contact).
+   */
+  private setShown(f: Focus): void {
+    const voy = this.voy;
+    if (!voy) return;
+    const a = f !== 'voy';
+    const b = f !== 'mm808';
+    if (this.machine.root.visible === a && voy.root.visible === b) return;
+    this.machine.root.visible = a;
+    voy.root.visible = b;
+    this.floor.setMachines(a, b);
+    this.hit.invalidate();
+    this.invalidate();
+  }
+
+  /** Les objets de la machine utilisee repondent ; vue d'ensemble ou zoom en cours : aucun. */
+  private syncActive(): void {
+    if (!this.voy) return;
+    this.hit.setActive(focus.settled() ? focus.machine() : null);
+  }
+
+  /** Cadrage pose d'un coup sur la cible du store (construction, intro, mouvement reduit). */
+  private snapFocus(): void {
+    const f = focus.get();
+    this.fFrom = this.fTo = f;
+    this.focusK = 1;
+    this.fr = this.frameOf(f);
+    this.frFrom = { ...this.fr };
+    this.frTo = { ...this.fr };
+    this.tweens.cancel('frame.focus');
+    this.setShown(f);
+    focus.settle();
+    this.syncActive();
+    this.placeLights();
+    this.updateCamera();
+  }
+
+  private syncFocus = (): void => {
+    const f = focus.get();
+    if (f === this.fTo) {
+      this.syncActive();
+      return;
+    }
+    // Pendant l'intro : la cible est posee, l'intro la cadre elle-meme
+    if (this.introOn) {
+      this.snapFocus();
+      return;
+    }
+    this.frFrom = { ...this.fr };
+    this.fFrom = this.fTo;
+    this.fTo = f;
+    this.frTo = this.frameOf(f);
+    this.focusK = 0;
+    this.setShown('all');
+    this.syncActive();
+    // Une autre machine : la vue revient de face (la vue d'ensemble aussi)
+    this.orbit.reset();
+    const dur = motion.reduced() ? 0 : FOCUS_MS;
+    this.tweens.run(
+      'frame.focus',
+      (v) => {
+        this.focusK = v;
+        const a = this.frFrom;
+        const b = this.frTo;
+        const out = this.fr;
+        for (const k of FRAME_KEYS) out[k] = a[k] + (b[k] - a[k]) * v;
+        this.placeLights();
+        this.updateCamera();
+      },
+      0,
+      1,
+      dur,
+      easeInOutCubic,
+      performance.now(),
+      () => {
+        this.focusK = 1;
+        this.setShown(f);
+        focus.settle();
+        this.syncActive();
+      }
+    );
+    this.invalidate();
+  };
 
   private dprCap(): number {
     return Math.min(window.devicePixelRatio || 1, this.opts.mobile ? DPR_MAX.mobile : DPR_MAX.desktop);
@@ -1066,6 +1355,7 @@ export class Stage {
       return true;
     }
     this.explode.assemble(t);
+    this.voy?.assemble(t);
     this.introElevation();
     this.updateCamera();
     this.syncCasters();
@@ -1101,6 +1391,12 @@ export class Stage {
     this.syncCasters();
     this.seq.setIntroLed(-1);
     intro.set('done');
+    if (this.voy) {
+      this.voy.finishIntro();
+      this.updateCamera();
+      // Au telephone, une machine a la fois : la 808 se pose (on glisse pour le Voyageur)
+      if (this.layoutMobile && focus.get() === 'all') focus.set('mm808');
+    }
     this.invalidate();
   }
 
@@ -1180,10 +1476,19 @@ export class Stage {
    * reduit ou palier mobile : la lumiere pleine, et plus rien a faire.
    */
   private stepBreathe = (now: number): 'paint' | 'poll' | false => {
-    if (this.opts.mobile || motion.reduced() || !this.pads.breathing) return this.pads.stopBreath() ? 'paint' : false;
+    const v = this.voy;
+    const on808 = this.pads.breathing && this.machine.root.visible;
+    const onVoy = !!v && v.breathing && v.root.visible;
+    if (this.opts.mobile || motion.reduced() || (!on808 && !onVoy)) {
+      const a = this.pads.stopBreath();
+      const b = v ? v.stopBreath() : false;
+      return a || b ? 'paint' : false;
+    }
     if (now - this.breatheAt < OPEN_BREATHE.frameMs) return 'poll';
     this.breatheAt = now;
-    return this.pads.breathe(now) ? 'paint' : 'poll';
+    let changed = on808 && this.pads.breathe(now);
+    if (onVoy && v.breathe(now)) changed = true;
+    return changed ? 'paint' : 'poll';
   };
 
   /** La boucle s'arrete : les jumeaux se recalent une fois (hors de la boucle de rendu). */
@@ -1259,7 +1564,12 @@ export class Stage {
 
   /** La section s a-t-elle une ancre de trace (pad de page, puce LIVE ou STUDIO) ? */
   hasAnchor(s: SectionId | null): boolean {
-    return s !== null && this.anchors.has(s);
+    return s !== null && this.anchorsNow().has(s);
+  }
+
+  /** Les ancres de la machine utilisee (le MM-VOYAGEUR quand on l'utilise, la 808 sinon). */
+  private anchorsNow(): Map<SectionId, HotspotDef> {
+    return this.voy && this.fTo === 'voy' ? this.voy.anchors : this.anchors;
   }
 
   /**
@@ -1270,7 +1580,7 @@ export class Stage {
    * rendue tant qu'un panneau est ouvert : aucune allocation.
    */
   projectAnchor(s: SectionId, out: AnchorPoint): AnchorPoint {
-    const d = this.anchors.get(s);
+    const d = this.anchorsNow().get(s);
     if (!d) {
       out.visible = false;
       return out;
@@ -1321,6 +1631,13 @@ export class Stage {
     this.layoutMobile = m;
     // Le cadrage de section n'existe que sur desktop : coupe franche au changement
     this.retargetFraming(true);
+    if (this.voy) {
+      // Au telephone pas de vue d'ensemble (sauf l'intro)
+      if (m && focus.get() === 'all' && !this.introOn) focus.set('mm808');
+      this.snapFocus();
+    } else {
+      this.fr = this.frameOf('mm808');
+    }
     this.updateCamera();
     this.syncSteps();
     this.invalidate();
@@ -1341,6 +1658,8 @@ export class Stage {
   setHover(id: string | null): void {
     const i = id !== null && id.startsWith('step-') ? Number(id.slice(5)) - 1 : -1;
     let changed = this.seq.setHover(i);
+    // Le MM-VOYAGEUR : ses ids commencent par v (vpad, vbtn, vchip, vk)
+    if (this.voy && this.voy.setHover(id !== null && id.startsWith('v') ? id : null)) changed = true;
     const pad = id !== null && id.startsWith('pad-') ? (id.slice(4) as PadId) : null;
     if (this.pads.setHover(pad)) changed = true;
     // Puce du PCB (vue ouverte)
@@ -1733,6 +2052,8 @@ export class Stage {
     this.unsubSection();
     this.unsubExplode();
     this.detachExplode();
+    this.unsubFocus();
+    this.unsubVoyExplode();
     this.viewListeners.length = 0;
     this.idleListeners.length = 0;
     this.dprMql?.removeEventListener('change', this.onDpr);
@@ -1759,6 +2080,7 @@ export class Stage {
     this.encoders.dispose();
     this.screen.dispose();
     this.pcb.dispose();
+    this.voy?.dispose();
     this.floor.dispose();
     this.key.dispose();
     this.hemi.dispose();

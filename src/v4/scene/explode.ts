@@ -59,12 +59,38 @@ export interface ExplodeInfo extends ExplodeProgress {
   lastMs: number;
 }
 
+/**
+ * La geometrie d'une ouverture : montee, recul et cabrage du capot, sortie
+ * de la carte, et l'etat ferme (hauteurs, pente) ; la 808 par defaut, le
+ * MM-VOYAGEUR a la sienne (2026-10-03).
+ */
+export interface ExplodeCfg {
+  lift: number;
+  slideZ: number;
+  tiltOpenDeg: number;
+  pcbRise: number;
+  plateauY: number;
+  pcbY: number;
+  /** pente du capot ferme (rad) */
+  tilt: number;
+}
+
+export const EXPLODE_808: ExplodeCfg = {
+  lift: EXPLODE.lift,
+  slideZ: EXPLODE.slideZ,
+  tiltOpenDeg: EXPLODE.tiltOpenDeg,
+  pcbRise: EXPLODE.pcbRise,
+  plateauY: LAYERS.plateauY,
+  pcbY: LAYERS.pcbY,
+  tilt: TILT,
+};
+
 /** Pose des couches pour les progressions (panneau, PCB) : la meme fonction pour l'animation et les tests. */
-export function applyLayers(layers: ExplodeLayers, plateau: number, pcb: number): void {
+export function applyLayers(layers: ExplodeLayers, plateau: number, pcb: number, cfg: ExplodeCfg = EXPLODE_808): void {
   const { plateau: pg, pcb: cg, parts } = layers;
-  pg.position.set(0, LAYERS.plateauY + EXPLODE.lift * plateau, EXPLODE.slideZ * plateau);
-  pg.rotation.x = TILT + (EXPLODE.tiltOpenDeg * DEG - TILT) * plateau;
-  cg.position.y = LAYERS.pcbY + EXPLODE.pcbRise * pcb;
+  pg.position.set(pg.position.x, cfg.plateauY + cfg.lift * plateau, cfg.slideZ * plateau);
+  pg.rotation.x = cfg.tilt + (cfg.tiltOpenDeg * DEG - cfg.tilt) * plateau;
+  cg.position.y = cfg.pcbY + cfg.pcbRise * pcb;
   parts.scale.y = Math.max(EXPLODE.partsMin, pcb);
 }
 
@@ -81,7 +107,8 @@ export class Explode {
   constructor(
     private layers: ExplodeLayers,
     /** fin d'une animation : la vue est posee ouverte (true) ou fermee */
-    private onSettle: (open: boolean) => void
+    private onSettle: (open: boolean) => void,
+    private cfg: ExplodeCfg = EXPLODE_808
   ) {
     this.apply();
   }
@@ -163,7 +190,7 @@ export class Explode {
   }
 
   private apply(): void {
-    applyLayers(this.layers, this.p.plateau, this.p.pcb);
+    applyLayers(this.layers, this.p.plateau, this.p.pcb, this.cfg);
   }
 
   info(): ExplodeInfo {

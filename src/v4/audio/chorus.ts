@@ -11,7 +11,22 @@
 
 import { Insert, type InsertInfo } from './insert';
 
-const CHORUS = {
+/** Une voix du chorus : retard de base (s), vitesse du LFO (Hz), panoramique. */
+export interface ChorusVoice {
+  delay: number;
+  rate: number;
+  pan: number;
+}
+
+/** Reglage d'un chorus : ses voix, la profondeur du LFO (s), le sec et le mouille a 1. */
+export interface ChorusCfg {
+  voices: readonly ChorusVoice[];
+  depth: number;
+  dry: number;
+  wet: number;
+}
+
+const CHORUS: ChorusCfg = {
   voices: [
     { delay: 0.014, rate: 0.53, pan: -0.7 },
     { delay: 0.021, rate: 0.71, pan: 0.7 },
@@ -19,7 +34,7 @@ const CHORUS = {
   depth: 0.007,
   dry: 0.5,
   wet: 1.0,
-} as const;
+};
 
 export interface ChorusInfo {
   value: number;
@@ -37,7 +52,8 @@ export interface ChorusStage {
   info(): ChorusInfo;
 }
 
-export function buildChorus(c: BaseAudioContext, out: AudioNode): ChorusStage {
+/** cfg : le chorus de la boite a rythmes par defaut ; le MM-VOYAGEUR a le sien (audio/synth.ts). */
+export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg = CHORUS): ChorusStage {
   const input = c.createGain();
   input.gain.value = 1;
   const insert = new Insert(c, input, out);
@@ -50,13 +66,13 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode): ChorusStage {
     const bOut = c.createGain();
     const nodes: AudioNode[] = [bIn, bOut];
     const lfos: OscillatorNode[] = [];
-    for (const v of CHORUS.voices) {
+    for (const v of cfg.voices) {
       const d = c.createDelay(0.05);
       d.delayTime.value = v.delay;
       const lfo = c.createOscillator();
       lfo.frequency.value = v.rate;
       const depth = c.createGain();
-      depth.gain.value = CHORUS.depth;
+      depth.gain.value = cfg.depth;
       lfo.connect(depth);
       depth.connect(d.delayTime);
       const pan = c.createStereoPanner();
@@ -98,7 +114,7 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode): ChorusStage {
         return;
       }
       if (!branch) build();
-      insert.engage(1 - CHORUS.dry * t, CHORUS.wet * t);
+      insert.engage(1 - cfg.dry * t, cfg.wet * t);
     },
     value: () => value,
     reset() {

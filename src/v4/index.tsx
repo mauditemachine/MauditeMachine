@@ -43,7 +43,8 @@ import NoWebGL from './fallback/NoWebGL';
 import { useKeys } from './hooks/useKeys';
 import { useMedia } from './hooks/useMedia';
 import { Stage } from './scene/renderer';
-import { explode } from './state/explode';
+import { explode, voyExplode } from './state/explode';
+import { focus, VOYAGER } from './state/focus';
 import { FLAGS, syncFlags } from './state/flags';
 import { intro } from './state/intro';
 import { lcd } from './state/lcd';
@@ -59,6 +60,8 @@ import { PcbClose } from './ui/PcbClose';
 import { Dock } from './ui/Dock';
 import { Header, openHood } from './ui/Header';
 import { HitLayer, Twins } from './ui/Hotspots';
+import { MachineNav } from './ui/MachineNav';
+import { VoyTwins } from './ui/VoyTwins';
 import { Lcd } from './ui/Lcd';
 import { Panel } from './ui/Panel';
 import { ResetView } from './ui/ResetView';
@@ -222,6 +225,7 @@ function useSectionsLifecycle(): void {
       lcd.stop();
       section.set(null);
       explode.reset();
+      voyExplode.reset();
     };
   }, []);
 }
@@ -297,6 +301,8 @@ const V4Shell: React.FC = () => {
   const exploded = useSyncExternalStore(explode.subscribe, explode.get, explode.get);
   const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
   const viewMoved = useSyncExternalStore(view.subscribe, view.get, view.get);
+  // Deux machines (2026-10-03) : celle qu'on utilise
+  const machineFocus = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   // Apparence (2026-10-01) : la machine se reconstruit a chaque changement
   const look = useSyncExternalStore(appearance.subscribe, appearance.get, appearance.get);
   const builtOnce = useRef(false);
@@ -416,6 +422,7 @@ const V4Shell: React.FC = () => {
       data-v4-view={viewMoved ? 'moved' : 'default'}
       data-v4-theme={look}
       data-v4-iosbar={IOS_FLOATING_BAR ? '1' : '0'}
+      data-v4-focus={machineFocus}
     >
       {gl === 'webgl' && (
         <h1 className="v4-sr">
@@ -430,6 +437,7 @@ const V4Shell: React.FC = () => {
           <StageBoundary onError={onError}>
             <HitLayer getStage={getStage} stage={stage} />
             <Twins stage={stage} />
+            {VOYAGER && <VoyTwins stage={stage} />}
           </StageBoundary>
         )}
       </div>
@@ -438,8 +446,10 @@ const V4Shell: React.FC = () => {
           {/* Hors de .v4-stage : ses pointeurs n'atteignent jamais l'orbite */}
           <ResetView getStage={getStage} />
           <Lcd />
-          {/* Le Dock n'existe que sur la mise en page mobile : pas de rendu React par pas sur desktop */}
-          {mobile && <Dock getStage={getStage} />}
+          {/* Le Dock n'existe que sur la mise en page mobile : pas de rendu React par pas sur desktop ; il programme la 808 */}
+          {mobile && machineFocus !== 'voy' && <Dock getStage={getStage} />}
+          {/* Deux machines : leurs noms, le retour a la vue d'ensemble, le selecteur du telephone */}
+          {VOYAGER && <MachineNav stage={stage} mobile={mobile} />}
           {/* Machine ouverte au telephone : CLOSE a portee de pouce, sur l'avant de la carte */}
           {mobile && <PcbClose getStage={getStage} />}
           {/* L'en-tete : fin sur desktop ; logo et hamburger sur mobile (2026-10-01) */}

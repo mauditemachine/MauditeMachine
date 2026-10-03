@@ -9,12 +9,13 @@
  */
 
 import React, { useSyncExternalStore } from 'react';
-import { closeSection, openSection, openToggle, page, resetView } from '../actions';
+import { closeSection, hoodMachine, hoodOf, openSection, openToggle, page, resetView } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { appearance } from '../state/appearance';
-import { explode } from '../state/explode';
+import { explode, voyExplode } from '../state/explode';
+import { focus, VOYAGER } from '../state/focus';
 import { section } from '../state/section';
-import { EXPLODE, type PageId } from '../theme';
+import { EXPLODE, MOBILE_QUERY, type PageId } from '../theme';
 import { AppearanceToggle } from './AppearanceToggle';
 
 export type HoodId = 'goodies' | 'merch' | 'studio';
@@ -37,18 +38,26 @@ export const HOOD_LINKS: readonly { id: HoodId; label: string }[] = [
 /** Le capot s'ouvre : la section part quand les puces sont decouvertes. */
 const HOOD_DELAY_MS = Math.round(EXPLODE.ms * EXPLODE.chipsFrom);
 
-/** Le logo : retour a la vue d'arrivee (sections et capot fermes, vue recentree). */
+/**
+ * Le logo : retour a la vue d'arrivee (sections et capots fermes, vue
+ * recentree) ; deux machines : la vue d'ensemble sur desktop, la 808 au
+ * telephone.
+ */
 export function goHome(stage: Stage | null): void {
   closeSection();
-  if (explode.get() === 'open') openToggle(stage);
+  if (explode.get() === 'open') openToggle(stage, 'mm808');
+  if (voyExplode.get() === 'open') openToggle(stage, 'voy');
   resetView(stage);
+  if (VOYAGER) focus.set(window.matchMedia(MOBILE_QUERY).matches ? 'mm808' : 'all');
 }
 
 /** GOODIES, MERCH, STUDIO : le capot s'ouvre d'abord, puis la section de la puce. */
 export function openHood(id: HoodId, stage: Stage | null): void {
-  const s = explode.get();
+  // Le capot de la machine qu'on utilise (vue d'ensemble : la 808)
+  const m = hoodMachine();
+  const s = hoodOf(m).get();
   if (s === 'closed') {
-    if (openToggle(stage)) window.setTimeout(() => openSection(id), HOOD_DELAY_MS);
+    if (openToggle(stage, m)) window.setTimeout(() => openSection(id), HOOD_DELAY_MS);
     return;
   }
   if (section.get() === id) closeSection();

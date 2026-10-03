@@ -823,7 +823,11 @@ export class Pcb {
   private litDraws = 0;
   private segments = 0;
 
-  constructor(mobile: boolean, anisotropy: number) {
+  /** model : la ligne de modele de la serigraphie (MM-VOYAGEUR, 2026-10-03), MM-808 par defaut */
+  private model: string | null;
+
+  constructor(mobile: boolean, anisotropy: number, model: string | null = null) {
+    this.model = model;
     const [W, H] = mobile ? PCB.tex.mobile : PCB.tex.desktop;
     this.W = W;
     this.H = H;
@@ -964,7 +968,10 @@ export class Pcb {
 
   private texts(): SilkText[] {
     const out: SilkText[] = [];
-    for (const s of PCB_SILK) out.push({ text: s.text, x: s.x, z: s.z, px: s.px, align: s.align, reserve: 0 });
+    for (const s of PCB_SILK) {
+      const text = this.model && s.text.startsWith('MM-808') ? this.model : s.text;
+      out.push({ text, x: s.x, z: s.z, px: s.px, align: s.align, reserve: 0 });
+    }
     for (const c of CHIPS) {
       const reserve = c.href ? CHIP.extGapPx + PCB.chipLabelPx * SILK.capRatio : 0;
       out.push({ text: c.silk, x: c.x, z: c.z + CHIP.labelDz, px: PCB.chipLabelPx, align: 'center', reserve, nav: true });
