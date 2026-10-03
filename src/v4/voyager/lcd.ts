@@ -2,7 +2,8 @@
  * L'ecran du MM-VOYAGER (2026-10-03) : le meme verre que l'OLED de la 808
  * (texte bone sur noir profond, monospace, non eclaire), pose sur son
  * cadre a gauche du plateau. Trois lignes :
- * 1. MM-VOYAGER au repos ; l'arpege qui joue : ARP 1/16 UP 2 OCT ;
+ * 1. MM-VOYAGER au repos ; l'arpege qui joue : le triangle de lecture et
+ *    1/16 UP 2 OCT ; a droite le tempo (celui de la 808 : 123 BPM) ;
  * 2. la progression (l'accord qui joue en negatif, dans une etiquette) ;
  * 3. le message passager (le potard qu'on tourne : CUTOFF 64%) ou l'aide
  *    (TAP A CHORD PAD).
@@ -21,9 +22,12 @@ export interface VoyLcdText {
   chords: readonly string[];
   playing: number;
   line3: string;
+  /** tempo partage avec la 808, et l'arpege qui joue */
+  bpm: number;
+  running: boolean;
 }
 
-const keyOf = (t: VoyLcdText): string => `${t.line1}\n${t.chords.join(' ')}\n${t.playing}\n${t.line3}`;
+const keyOf = (t: VoyLcdText): string => `${t.line1}\n${t.chords.join(' ')}\n${t.playing}\n${t.line3}\n${t.bpm}\n${t.running}`;
 
 export class VoyLcd {
   readonly glass: Mesh;
@@ -59,7 +63,7 @@ export class VoyLcd {
     this.bezel = new Mesh(bg, this.bezelMat);
     this.bezel.name = 'voyLcdBezel';
     this.bezel.receiveShadow = true;
-    this.paint({ line1: 'MM-VOYAGER', chords: [], playing: -1, line3: 'TAP A CHORD PAD' });
+    this.paint({ line1: 'MM-VOYAGER', chords: [], playing: -1, line3: 'TAP A CHORD PAD', bpm: 0, running: false });
   }
 
   /** true si l'ecran a ete redessine (il faut une frame). */
@@ -86,7 +90,25 @@ export class VoyLcd {
     ctx.textBaseline = 'alphabetic';
     ctx.textAlign = 'left';
     ctx.fillStyle = HEX.bone;
-    ctx.fillText(t.line1, pad, rows[0]);
+    let x1 = pad;
+    if (t.running) {
+      // Le triangle de lecture
+      const h = px * 0.72;
+      const top = rows[0] - h;
+      ctx.beginPath();
+      ctx.moveTo(pad, top);
+      ctx.lineTo(pad + h * 0.85, top + h / 2);
+      ctx.lineTo(pad, top + h);
+      ctx.closePath();
+      ctx.fill();
+      x1 = pad + h * 0.85 + px * 0.45;
+    }
+    ctx.fillText(t.line1, x1, rows[0]);
+    if (t.bpm > 0) {
+      ctx.textAlign = 'right';
+      ctx.fillText(`${t.bpm} BPM`, W - pad, rows[0]);
+      ctx.textAlign = 'left';
+    }
     // Progression : chaque accord, celui qui joue en negatif
     let x = pad;
     const gap = px * 0.55;

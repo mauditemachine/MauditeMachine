@@ -4,9 +4,10 @@
  * noyer de chaque cote, panneau noir mat qui se releve vers l'arriere (les
  * potards, sections encadrees facon Moog), plateau avant ou les pads
  * remplacent le clavier : huit accords de fa diese mineur que
- * l'arpegiateur enchaine. Les liens du site (TRACKS a CONTACT) et OPEN sur
- * le plateau ; OPEN souleve le capot (plateau et panneau d'un bloc) et
- * montre la carte, avec les memes puces GOODIES, MERCH et STUDIO.
+ * l'arpegiateur enchaine. RUN/STOP, CLEAR, RANDOM et OPEN sur le
+ * plateau ; OPEN souleve le capot (plateau et panneau d'un bloc) et montre
+ * la carte : les puces GOODIES, MERCH et STUDIO de la 808, et celles des
+ * pages du site (TRACKS a CONTACT, VOY_PAGE_CHIPS).
  *
  * Repere du rig : origine au centre de l'empreinte, au sol ; +x a droite,
  * +z vers l'utilisateur. Repere du capot (lid) : origine sur le dessus du
@@ -17,11 +18,11 @@
  * memes elements places en hauteur, comme la 808.
  */
 
-import { PORTRAIT } from '../theme';
+import { PORTRAIT, pcbAt, type ChipSpec } from '../theme';
 import type { VoyKnobId } from './params';
 
 export const VOY_BODY = PORTRAIT
-  ? { w: 8.6, d: 14.4, cheek: 0.45, feet: 0.12, deckY: 1.32, bendZ: -0.4, backZ: -6.85, topY: 3.05, lidT: 0.12, wall: 0.16, floorY: 0.32 }
+  ? { w: 8.6, d: 14.4, cheek: 0.45, feet: 0.12, deckY: 1.32, bendZ: -1.2, backZ: -6.85, topY: 3.05, lidT: 0.12, wall: 0.16, floorY: 0.32 }
   : { w: 13.6, d: 8.6, cheek: 0.5, feet: 0.12, deckY: 1.32, bendZ: 0.15, backZ: -3.95, topY: 3.36, lidT: 0.12, wall: 0.16, floorY: 0.32 };
 
 /** Largeur entre les joues (le bac), et celle du capot (un jour de 0.02 de chaque cote). */
@@ -47,7 +48,7 @@ export const VOY_CHEEK = { above: 0.16, noseR: 0.62, backR: 0.4 } as const;
  */
 export const VOY_X = PORTRAIT ? 8.2 / 2 + 1.8 + VOY_BODY.w / 2 : 12.6 / 2 + 2.6 + VOY_BODY.w / 2;
 
-/* ---------- potards (repere du panneau) ---------- */
+/* ---------- potards (repere du panneau, ou du plateau) ---------- */
 
 /**
  * Potard Moog : un capuchon noir cannele (rTop en haut, r a la base,
@@ -64,11 +65,15 @@ export const VOY_KNOB = {
   mark: { w: 0.03, h: 0.01, d: 0.15 },
   segments: { desktop: 48, mobile: 32 },
   big: PORTRAIT ? 1.12 : 1.28,
-  scale: PORTRAIT ? 1.4 : 1,
+  scale: PORTRAIT ? 1.3 : 1,
 } as const;
+
+/** Ou se pose un potard : le panneau incline, ou le plateau (portrait : l'arpegiateur et VOLUME). */
+export type VoyWhere = 'panel' | 'deck';
 
 export interface VoyKnobPlace {
   id: VoyKnobId;
+  where: VoyWhere;
   x: number;
   z: number;
   /** echelle (gros potard, portrait) */
@@ -78,10 +83,6 @@ export interface VoyKnobPlace {
 
 const DESK_COLS = [-5.55, -4.75, -3.7, -2.9, -2.0, -0.95, 0.1, 0.9, 1.7, 2.5, 3.55, 4.35, 5.45];
 const DESK_ROWS = [-0.8, 0.8];
-const PORT_COLS = [-3.0, -1.8, -0.6, 0.6, 1.8, 3.0];
-const PORT_ROWS = [-1.95, -0.45, 1.05, 2.55];
-/** Portrait : le titre d'une rangee, au-dessus de ses potards. */
-const PORT_TITLE = 0.68;
 
 /** Cellule (colonne, rangee) de chaque potard ; 'mid' : entre les deux rangees (gros potards, desktop). */
 const DESK_CELLS: Record<VoyKnobId, [number, number | 'mid']> = {
@@ -111,31 +112,51 @@ const DESK_CELLS: Record<VoyKnobId, [number, number | 'mid']> = {
   volume: [12, 'mid'],
 };
 
-const PORT_CELLS: Record<VoyKnobId, [number, number]> = {
-  rate: [0, 0],
-  mode: [1, 0],
-  range: [2, 0],
-  gate: [3, 0],
-  wave: [4, 0],
-  fine: [5, 0],
-  cutoff: [0, 1],
-  res: [1, 1],
-  envAmt: [2, 1],
-  octave: [3, 1],
-  glide: [4, 1],
-  volume: [5, 1],
-  fA: [0, 2],
-  fD: [1, 2],
-  fS: [2, 2],
-  fR: [3, 2],
-  dist: [4, 2],
-  chorus: [5, 2],
-  aA: [0, 3],
-  aD: [1, 3],
-  aS: [2, 3],
-  aR: [3, 3],
-  delay: [4, 3],
-  reverb: [5, 3],
+/**
+ * Portrait (2026-10-03, Mika : "un trop gros amas de boutons, on n'arrive
+ * pas a separer les choses") : le panneau ne garde que le son, trois
+ * rangees de deux groupes, chacun souligne d'un crochet a son nom (comme
+ * les rangees de la 808) :
+ *   OSCILLATORS (WAVE FINE GLIDE)        FILTER (CUTOFF RES ENV AMT)
+ *   FILTER EG (A D S R)                  COLOR (DIST CHORUS)
+ *   AMP EG (A D S R)                     SPACE (DELAY REVERB)
+ * Le plateau prend l'ecran et VOLUME, le transport, l'arpegiateur (RATE
+ * MODE RANGE GATE OCTAVE) et les pads.
+ */
+const PORT_PANEL_ROWS = [-1.45, 0.12, 1.69];
+const PORT_PITCH = 1.15;
+const PORT_GAP = 0.5;
+/** x de la colonne k (0 a 5) d'une rangee dont le second groupe commence a split. */
+const portX = (k: number, split: number): number => -2.5 * PORT_PITCH - PORT_GAP / 2 + k * PORT_PITCH + (k >= split ? PORT_GAP : 0);
+const PORT_PANEL: Partial<Record<VoyKnobId, [number, number, number]>> = {
+  wave: [0, 0, 3],
+  fine: [1, 0, 3],
+  glide: [2, 0, 3],
+  cutoff: [3, 0, 3],
+  res: [4, 0, 3],
+  envAmt: [5, 0, 3],
+  fA: [0, 1, 4],
+  fD: [1, 1, 4],
+  fS: [2, 1, 4],
+  fR: [3, 1, 4],
+  dist: [4, 1, 4],
+  chorus: [5, 1, 4],
+  aA: [0, 2, 4],
+  aD: [1, 2, 4],
+  aS: [2, 2, 4],
+  aR: [3, 2, 4],
+  delay: [4, 2, 4],
+  reverb: [5, 2, 4],
+};
+/** Plateau, portrait : l'arpegiateur en rangee, VOLUME a droite de l'ecran. */
+const PORT_ARP_Z = 2.6;
+const PORT_DECK: Partial<Record<VoyKnobId, [number, number]>> = {
+  rate: [-2.9, PORT_ARP_Z],
+  mode: [-1.45, PORT_ARP_Z],
+  range: [0, PORT_ARP_Z],
+  gate: [1.45, PORT_ARP_Z],
+  octave: [2.9, PORT_ARP_Z],
+  volume: [2.45, -0.35],
 };
 
 /** x d'une colonne (fractionnaire : entre deux colonnes). */
@@ -153,30 +174,24 @@ export function voyKnobPlace(id: VoyKnobId): VoyKnobPlace {
   const big = BIG.has(id);
   const s = VOY_KNOB.scale * (big ? VOY_KNOB.big : 1);
   if (PORTRAIT) {
-    const [c, r] = PORT_CELLS[id];
-    const z = PORT_ROWS[r];
-    return { id, x: colX(PORT_COLS, c), z, s, labelZ: z + labelBelow(s) };
+    const d = PORT_DECK[id];
+    if (d) return { id, where: 'deck', x: d[0], z: d[1], s, labelZ: d[1] + labelBelow(s) };
+    const [k, r, split] = PORT_PANEL[id] ?? [0, 0, 3];
+    const z = PORT_PANEL_ROWS[r];
+    return { id, where: 'panel', x: portX(k, split), z, s, labelZ: z + labelBelow(s) };
   }
   const [c, r] = DESK_CELLS[id];
   const z = r === 'mid' ? (DESK_ROWS[0] + DESK_ROWS[1]) / 2 : DESK_ROWS[r];
-  return { id, x: colX(DESK_COLS, c), z, s, labelZ: z + labelBelow(s) };
+  return { id, where: 'panel', x: colX(DESK_COLS, c), z, s, labelZ: z + labelBelow(s) };
 }
 
 /**
- * Titres des sections (serigraphie du panneau) : texte, centre x, z ; et
- * les filets verticaux entre sections (x, z0, z1).
+ * Titres des sections facon Moog (desktop : au-dessus des colonnes, avec
+ * des filets verticaux entre elles). En portrait les groupes portent des
+ * crochets (VOY_GROUPS) a la place.
  */
 export const VOY_SECTIONS: readonly { text: string; x: number; z: number }[] = PORTRAIT
-  ? [
-      { text: 'ARPEGGIATOR', x: (PORT_COLS[0] + PORT_COLS[3]) / 2, z: PORT_ROWS[0] - PORT_TITLE },
-      { text: 'OSCILLATORS', x: (PORT_COLS[4] + PORT_COLS[5]) / 2, z: PORT_ROWS[0] - PORT_TITLE },
-      { text: 'FILTER', x: (PORT_COLS[0] + PORT_COLS[2]) / 2, z: PORT_ROWS[1] - PORT_TITLE },
-      { text: 'PITCH', x: (PORT_COLS[3] + PORT_COLS[4]) / 2, z: PORT_ROWS[1] - PORT_TITLE },
-      { text: 'OUTPUT', x: PORT_COLS[5], z: PORT_ROWS[1] - PORT_TITLE },
-      { text: 'FILTER EG', x: (PORT_COLS[0] + PORT_COLS[3]) / 2, z: PORT_ROWS[2] - PORT_TITLE },
-      { text: 'EFFECTS', x: (PORT_COLS[4] + PORT_COLS[5]) / 2, z: PORT_ROWS[2] - PORT_TITLE },
-      { text: 'AMP EG', x: (PORT_COLS[0] + PORT_COLS[3]) / 2, z: PORT_ROWS[3] - PORT_TITLE },
-    ]
+  ? []
   : [
       { text: 'ARPEGGIATOR', x: (DESK_COLS[0] + DESK_COLS[1]) / 2, z: -1.45 },
       { text: 'OSCILLATORS', x: (DESK_COLS[2] + DESK_COLS[3]) / 2, z: -1.45 },
@@ -187,17 +202,9 @@ export const VOY_SECTIONS: readonly { text: string; x: number; z: number }[] = P
       { text: 'OUTPUT', x: DESK_COLS[12], z: -1.45 },
     ];
 
-/** Filets verticaux entre les sections (desktop) ; filets horizontaux entre rangees (portrait). */
+/** Filets verticaux entre les sections (desktop). */
 export const VOY_RULES: readonly (readonly number[])[] = PORTRAIT
-  ? [
-      [-3.65, PORT_ROWS[1] - 0.86, 3.65, PORT_ROWS[1] - 0.86],
-      [-3.65, PORT_ROWS[2] - 0.86, 3.65, PORT_ROWS[2] - 0.86],
-      // ARP | OSC, FILTER | PITCH | OUTPUT, ENVELOPPES | EFFECTS
-      [(PORT_COLS[3] + PORT_COLS[4]) / 2, PORT_ROWS[0] - 0.8, (PORT_COLS[3] + PORT_COLS[4]) / 2, PORT_ROWS[1] - 0.86],
-      [(PORT_COLS[2] + PORT_COLS[3]) / 2, PORT_ROWS[1] - 0.86, (PORT_COLS[2] + PORT_COLS[3]) / 2, PORT_ROWS[2] - 0.86],
-      [(PORT_COLS[4] + PORT_COLS[5]) / 2, PORT_ROWS[1] - 0.86, (PORT_COLS[4] + PORT_COLS[5]) / 2, PORT_ROWS[2] - 0.86],
-      [(PORT_COLS[3] + PORT_COLS[4]) / 2, PORT_ROWS[2] - 0.86, (PORT_COLS[3] + PORT_COLS[4]) / 2, PORT_ROWS[3] + 0.72],
-    ]
+  ? []
   : [
       [(DESK_COLS[1] + DESK_COLS[2]) / 2, -1.6, (DESK_COLS[1] + DESK_COLS[2]) / 2, 1.6],
       [(DESK_COLS[3] + DESK_COLS[4]) / 2 - 0.05, -1.6, (DESK_COLS[3] + DESK_COLS[4]) / 2 - 0.05, 1.6],
@@ -206,69 +213,135 @@ export const VOY_RULES: readonly (readonly number[])[] = PORTRAIT
       [(DESK_COLS[11] + DESK_COLS[12]) / 2, -1.6, (DESK_COLS[11] + DESK_COLS[12]) / 2, 1.6],
     ];
 
-/** En-tete du panneau : wordmark a gauche, MM-VOYAGER a droite, sous-titre. */
+/**
+ * En-tete du panneau, comme celui de la 808 : le wordmark a gauche,
+ * MM-VOYAGER juste apres, le logotype (mark) a droite ; desktop : le
+ * sous-titre avant le logotype.
+ */
 export const VOY_HEAD = PORTRAIT
-  ? { z: -2.95, word: { x: -3.6, w: 2.5 }, model: { x: 3.6, cap: 0.13 }, sub: null }
-  : { z: -1.98, word: { x: -5.9, w: 3.0 }, model: { x: 5.9, cap: 0.14 }, sub: { x: 3.55, text: 'ARPEGGIATOR SYNTHESIZER' } };
+  ? { z: -2.5, word: { x: -3.6, w: 2.3 }, model: { x: -1.08, cap: 0.12 }, mark: { x: 3.6, h: 0.42 }, sub: null }
+  : { z: -1.98, word: { x: -5.9, w: 3.0 }, model: { x: -2.6, cap: 0.14 }, mark: { x: 5.9, h: 0.44 }, sub: { x: 5.2, text: 'ARPEGGIATOR SYNTHESIZER' } };
 
 /* ---------- plateau (repere du capot, y = 0 : dessus du plateau) ---------- */
 
 /** Les huit pads d'accords : caoutchouc retroeclaire, comme ceux de la 808, plus grands. */
 export const VOY_PAD = PORTRAIT
-  ? { size: 1.35, height: 0.24, radius: 0.1, dome: 0.045, xs: [-2.7, -0.9, 0.9, 2.7], zs: [3.85, 5.75], perRow: 4, labelDz: 0.84 }
-  : { size: 0.98, height: 0.22, radius: 0.08, dome: 0.04, xs: [-3.25, -2.05, -0.85, 0.35, 1.55, 2.75, 3.95, 5.15], zs: [3.0], perRow: 8, labelDz: 0.72 };
+  ? { size: 1.2, height: 0.24, radius: 0.1, dome: 0.045, xs: [-2.55, -0.85, 0.85, 2.55], zs: [4.3, 5.9], perRow: 4, labelDz: 0.78 }
+  : { size: 0.98, height: 0.22, radius: 0.08, dome: 0.04, xs: [-4.2, -3.0, -1.8, -0.6, 0.6, 1.8, 3.0, 4.2], zs: [2.75], perRow: 8, labelDz: 0.72 };
 
 export const voyPadAt = (i: number): { x: number; z: number } => ({
   x: VOY_PAD.xs[i % VOY_PAD.perRow],
   z: VOY_PAD.zs[Math.floor(i / VOY_PAD.perRow)],
 });
 
-export type VoyButtonId = 'tracks' | 'mixtapes' | 'shows' | 'press' | 'contact' | 'open' | 'clear' | 'random';
+export type VoyButtonId = 'run' | 'clear' | 'random' | 'open';
 
-/** Boutons du plateau : les cinq pages et OPEN (rectangles), CLEAR et RANDOM (carres). */
+/**
+ * Boutons du plateau (2026-10-03 : les pages sont passees sur la carte,
+ * VOY_PAGE_CHIPS) : RUN/STOP, CLEAR, RANDOM et OPEN, a cote de l'ecran
+ * (desktop) ou en rangee sous lui (portrait, alignes sur les pads).
+ */
 export const VOY_BUTTONS: readonly { id: VoyButtonId; label: string; x: number; z: number; w: number; d: number }[] = PORTRAIT
   ? [
-      { id: 'tracks', label: 'TRACKS', x: -3.05, z: 1.95, w: 1.0, d: 0.6 },
-      { id: 'mixtapes', label: 'MIXTAPES', x: -1.83, z: 1.95, w: 1.0, d: 0.6 },
-      { id: 'shows', label: 'SHOWS', x: -0.61, z: 1.95, w: 1.0, d: 0.6 },
-      { id: 'press', label: 'PRESS', x: 0.61, z: 1.95, w: 1.0, d: 0.6 },
-      { id: 'contact', label: 'CONTACT', x: 1.83, z: 1.95, w: 1.0, d: 0.6 },
-      { id: 'open', label: 'OPEN', x: 3.05, z: 1.95, w: 1.0, d: 0.6 },
-      { id: 'clear', label: 'CLEAR', x: 1.55, z: 0.5, w: 1.0, d: 0.75 },
-      { id: 'random', label: 'RANDOM', x: 2.95, z: 0.5, w: 1.0, d: 0.75 },
+      { id: 'run', label: 'RUN/STOP', x: -2.55, z: 1.05, w: 1.3, d: 0.6 },
+      { id: 'clear', label: 'CLEAR', x: -0.85, z: 1.05, w: 1.3, d: 0.6 },
+      { id: 'random', label: 'RANDOM', x: 0.85, z: 1.05, w: 1.3, d: 0.6 },
+      { id: 'open', label: 'OPEN', x: 2.55, z: 1.05, w: 1.3, d: 0.6 },
     ]
   : [
-      { id: 'tracks', label: 'TRACKS', x: -2.25, z: 0.78, w: 0.95, d: 0.5 },
-      { id: 'mixtapes', label: 'MIXTAPES', x: -1.05, z: 0.78, w: 0.95, d: 0.5 },
-      { id: 'shows', label: 'SHOWS', x: 0.15, z: 0.78, w: 0.95, d: 0.5 },
-      { id: 'press', label: 'PRESS', x: 1.35, z: 0.78, w: 0.95, d: 0.5 },
-      { id: 'contact', label: 'CONTACT', x: 2.55, z: 0.78, w: 0.95, d: 0.5 },
-      { id: 'open', label: 'OPEN', x: 4.0, z: 0.78, w: 0.95, d: 0.5 },
-      { id: 'clear', label: 'CLEAR', x: -5.55, z: 3.0, w: 0.8, d: 0.8 },
-      { id: 'random', label: 'RANDOM', x: -4.55, z: 3.0, w: 0.8, d: 0.8 },
+      { id: 'run', label: 'RUN/STOP', x: -2.3, z: 0.85, w: 0.9, d: 0.55 },
+      { id: 'clear', label: 'CLEAR', x: -1.2, z: 0.85, w: 0.9, d: 0.55 },
+      { id: 'random', label: 'RANDOM', x: -0.1, z: 0.85, w: 0.9, d: 0.55 },
+      { id: 'open', label: 'OPEN', x: 5.0, z: 0.85, w: 1.0, d: 0.55 },
     ];
 export const VOY_BUTTON = { h: 0.12, radius: 0.05, labelGap: 0.2, press: 0.04 } as const;
 
 /** L'ecran du plateau (verre, cadre fusionne au capot), et sa texture. */
 export const VOY_LCD = PORTRAIT
-  ? { x: -1.75, z: 0.5, w: 3.6, d: 1.0, bezel: { w: 3.84, d: 1.24, h: 0.02 }, tex: [720, 200] as const }
+  ? { x: -1.6, z: -0.35, w: 3.9, d: 1.0, bezel: { w: 4.14, d: 1.24, h: 0.02 }, tex: [780, 200] as const }
   : { x: -4.55, z: 0.9, w: 2.4, d: 0.9, bezel: { w: 2.62, d: 1.12, h: 0.02 }, tex: [640, 240] as const };
 
-/** Titre au-dessus des pads. */
-export const VOY_CHORDS_TITLE = PORTRAIT ? { x: -3.38, z: 2.92, text: 'CHORDS  F# MINOR' } : { x: -3.74, z: 2.2, text: 'CHORDS  F# MINOR' };
+/**
+ * Crochets nommes sous un groupe (comme les rangees de la 808) : le trait
+ * part du bord du premier element, file sous les libelles, s'interrompt
+ * pour le nom (en gras) et remonte au bord du dernier. Plan : panneau ou
+ * plateau.
+ */
+export interface VoyGroup {
+  text: string;
+  where: VoyWhere;
+  x0: number;
+  x1: number;
+  z: number;
+}
+export const VOY_GROUP_TYPE = { cap: PORTRAIT ? 0.095 : 0.075, weight: 700, dz: PORTRAIT ? 0.27 : 0.2, side: 0.06, tick: 0.08, pad: 0.1 } as const;
+
+/** Crochet d'un groupe de potards ; with : les autres groupes de la rangee (memes hauteurs). */
+function knobGroup(text: string, ids: readonly VoyKnobId[], with_: readonly VoyKnobId[] = []): VoyGroup {
+  const ps = ids.map(voyKnobPlace);
+  const a = ps[0];
+  const b = ps[ps.length - 1];
+  const S = VOY_GROUP_TYPE.side;
+  return {
+    text,
+    where: a.where,
+    x0: a.x - VOY_KNOB.skirt.r * a.s - S,
+    x1: b.x + VOY_KNOB.skirt.r * b.s + S,
+    z: Math.max(...[...ids, ...with_].map((id) => voyKnobPlace(id).labelZ)) + VOY_GROUP_TYPE.dz,
+  };
+}
+
+const CHORDS_TEXT = 'CHORDS  F# MINOR';
+const padGroup = (): VoyGroup => ({
+  text: CHORDS_TEXT,
+  where: 'deck',
+  x0: VOY_PAD.xs[0] - VOY_PAD.size / 2 - VOY_GROUP_TYPE.side,
+  x1: VOY_PAD.xs[VOY_PAD.perRow - 1] + VOY_PAD.size / 2 + VOY_GROUP_TYPE.side,
+  z: VOY_PAD.zs[VOY_PAD.zs.length - 1] + VOY_PAD.labelDz + VOY_GROUP_TYPE.dz,
+});
+
+export const VOY_GROUPS: readonly VoyGroup[] = PORTRAIT
+  ? [
+      knobGroup('OSCILLATORS', ['wave', 'fine', 'glide'], ['cutoff']),
+      knobGroup('FILTER', ['cutoff', 'res', 'envAmt']),
+      knobGroup('FILTER EG', ['fA', 'fD', 'fS', 'fR']),
+      knobGroup('COLOR', ['dist', 'chorus']),
+      knobGroup('AMP EG', ['aA', 'aD', 'aS', 'aR']),
+      knobGroup('SPACE', ['delay', 'reverb']),
+      knobGroup('ARPEGGIATOR', ['rate', 'mode', 'range', 'gate', 'octave']),
+      padGroup(),
+    ]
+  : [padGroup()];
 
 /* ---------- vue eclatee, carte ---------- */
 
 /**
  * OPEN : le capot (plateau et panneau) monte, recule et se cabre, comme
- * celui de la 808 ; la carte sort du bac. Memes durees que la 808.
+ * celui de la 808 ; la carte sort du bac. Memes durees que la 808. Desktop
+ * (2026-10-03) : plus haut et plus loin que la 808, la rangee des pages au
+ * milieu de la carte se voit en entier.
  */
 export const VOY_EXPLODE = PORTRAIT
   ? { lift: 6.3, slideZ: -3.4, tiltOpenDeg: -55, pcbRise: 1.0 }
-  : { lift: 4.4, slideZ: -2.3, tiltOpenDeg: -12, pcbRise: 1.0 };
+  : { lift: 5.0, slideZ: -3.8, tiltOpenDeg: -24, pcbRise: 1.0 };
 
 /** La carte (celle de la 808, meme taille) dans le bac, a plat. */
 export const VOY_PCB_Y = VOY_BODY.floorY + 0.12;
+
+/**
+ * Les pages sur la carte (2026-10-03, Mika : "enleve les boutons du site et
+ * mets-les dans OPEN, en mode PCB") : cinq puces moyennes en rangee devant
+ * les composants analogiques, derriere GOODIES, MERCH et STUDIO, decalees
+ * vers la gauche de la carte (au telephone, le capot ouvert cache son bout
+ * droit). Repere de la carte (pcbAt : la carte d'origine 12.6 x 7.8).
+ */
+export const VOY_PAGE_CHIPS: readonly ChipSpec[] = [
+  { id: 'tracks', silk: 'TRACKS', ...pcbAt(-4.85, 0.17), aria: 'Tracks', href: null, section: 'tracks', size: 'mid' },
+  { id: 'mixtapes', silk: 'MIXTAPES', ...pcbAt(-2.85, 0.17), aria: 'Mixtapes', href: null, section: 'mixtapes', size: 'mid' },
+  { id: 'shows', silk: 'SHOWS', ...pcbAt(-0.85, 0.17), aria: 'Shows', href: null, section: 'shows', size: 'mid' },
+  { id: 'press', silk: 'PRESS', ...pcbAt(1.15, 0.17), aria: 'Press', href: null, section: 'press', size: 'mid' },
+  { id: 'contact', silk: 'CONTACT', ...pcbAt(3.15, 0.17), aria: 'Contact', href: null, section: 'contact', size: 'mid' },
+];
 
 /**
  * Cadrage (desktop : la largeur projetee a l'azimut 45 ; mobile : la
@@ -278,7 +351,7 @@ export const VOY_PCB_Y = VOY_BODY.floorY + 0.12;
  */
 export const VOY_FRAME = PORTRAIT
   ? { plate: VOY_BODY.w, h: 14.4, targetY: 1.6, radius: { closed: 8.4, open: 10.4 }, fitHalfH: 11.5, explodeTargetY: 4.2 }
-  : { plate: Math.SQRT1_2 * (VOY_BODY.w + VOY_BODY.d), h: 9.4, targetY: 1.6, radius: { closed: 8.1, open: 9.0 }, fitHalfH: 8.6, explodeTargetY: 5.6 };
+  : { plate: Math.SQRT1_2 * (VOY_BODY.w + VOY_BODY.d), h: 9.4, targetY: 1.6, radius: { closed: 8.1, open: 9.6 }, fitHalfH: 8.6, explodeTargetY: 5.9 };
 
 
 export const VOY_COPY = { model: 'MM-VOYAGER', group: 'MM-VOYAGER synthesizer', lcdIdle: 'MM-VOYAGER' } as const;

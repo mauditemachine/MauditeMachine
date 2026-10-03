@@ -84,7 +84,7 @@ export interface HotspotDef {
   machine?: MachineId;
   /** MM-VOYAGER : pad d'accord (0 a 7), bouton, potard */
   vpad?: number;
-  vbtn?: 'clear' | 'random';
+  vbtn?: 'run' | 'clear' | 'random';
   vknob?: VoyKnobId;
 }
 
@@ -112,7 +112,7 @@ export interface HotspotView {
   chip?: ChipId;
   machine?: MachineId;
   vpad?: number;
-  vbtn?: 'clear' | 'random';
+  vbtn?: 'run' | 'clear' | 'random';
   vknob?: VoyKnobId;
   /** rectangle cible : la boite projetee, elargie a 48 x 48 (tactile) ou 32 x 32 (souris) autour du centre */
   x: number;

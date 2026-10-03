@@ -23,11 +23,12 @@ import { contactDraft, type ContactTopic } from './state/contactDraft';
 import { presskit } from './state/presskit';
 import { section } from './state/section';
 import { voices } from './state/voices';
-import { CHIPS, MOBILE_QUERY, POT_UI, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
+import { CHIPS, MOBILE_QUERY, POT_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
 import { arp } from './voyager/arp';
 import { CHORDS, PROGRESSIONS } from './voyager/chords';
 import { voyMsg } from './voyager/msg';
 import { voyParams, voyReadout, type VoyKnobId } from './voyager/params';
+import { VOY_PAGE_CHIPS } from './voyager/theme';
 
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
 const pct = (v: number): number => Math.round(v * 100);
@@ -82,10 +83,10 @@ export function page(id: PageId, stage: Stage | null): void {
   pressPage(id, stage);
 }
 
-/** Le pad (808) ou le bouton (MM-VOYAGER) d'une page s'enfonce : celui de la machine utilisee. */
+/** Le pad de page de la 808 s'enfonce (le MM-VOYAGER a ses pages sur la carte, pas de touche). */
 function pressPage(id: PageId, stage: Stage | null): void {
-  if (focus.get() === 'voy' && stage?.voy) stage.voy.keys.pressButton(id);
-  else stage?.pads.press(id);
+  if (focus.get() === 'voy') return;
+  stage?.pads.press(id);
 }
 
 /** RESET VIEW, touche R, double tape du fond : retour a la vue par defaut (500 ms). */
@@ -377,9 +378,11 @@ export function hoodOf(m: MachineId): ExplodeStore {
  */
 export function chipAction(id: ChipId, which: MachineId = 'mm808'): void {
   if (!chipsLive(hoodOf(which).get())) return;
-  const c = CHIPS.find((k) => k.id === id);
+  const c = (which === 'voy' ? [...CHIPS, ...VOY_PAGE_CHIPS] : CHIPS).find((k) => k.id === id);
   if (!c) return;
-  if (c.section) section.toggle(c.section);
+  // Les pages sur la carte du Voyager : comme leurs pads sur la 808 (CONTACT, PRESS)
+  if (c.section && isPage(c.section)) page(c.section, null);
+  else if (c.section) section.toggle(c.section);
   else if (c.href) window.open(c.href, '_blank', 'noopener,noreferrer');
 }
 
@@ -448,15 +451,19 @@ export function voyRandom(stage: Stage | null = null): void {
   voyMsg.show('RANDOM');
 }
 
-/** Bouton de page du MM-VOYAGER : la meme section que le pad de la 808. */
-export function voyPage(id: PageId, stage: Stage | null = null): void {
-  resume();
-  if (id === 'contact' && section.get() !== 'contact') contactDraft.set('booking');
-  if (id === 'press' && presskit.fromRoute()) {
-    section.set('press');
-    presskit.open('press');
-  } else section.toggle(id);
-  stage?.voy?.keys.pressButton(id);
+/**
+ * RUN/STOP du MM-VOYAGER (2026-10-03) : l'arpege s'arrete ou repart (sans
+ * progression : F#m), sur la grille de la boite a rythmes si elle joue ;
+ * sinon c'est elle qui rejoindra la sienne (clock.follow). Une piste
+ * SoundCloud passe en pause, comme RUN.
+ */
+export function voyRun(stage: Stage | null = null): boolean {
+  gesture();
+  if (!arp.get().running) sc.pauseForRun();
+  const on = arp.toggleRun();
+  stage?.voy?.keys.pressButton('run');
+  voyMsg.show(on ? 'RUN' : 'STOP');
+  return on;
 }
 
 /** Un potard du MM-VOYAGER (0 a 1) ; l'ecran dit sa valeur. */

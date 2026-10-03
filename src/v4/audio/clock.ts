@@ -101,6 +101,12 @@ let head = 0;
 const pending: Voice[] = [];
 /** repli sans WebGL affiche : plus de machine, RUN refuse (index.tsx) */
 let locked = false;
+/**
+ * Une grille a rejoindre au depart (2026-10-03) : l'arpegiateur du
+ * MM-VOYAGER qui joue deja (voyager/arp.ts). RUN part alors sur sa
+ * prochaine frontiere de pas, avec son numero : memes temps, memes mesures.
+ */
+let follow: ((t: number) => { time: number; step: number } | null) | null = null;
 
 const stats = {
   count: 0,
@@ -239,10 +245,11 @@ function start(): boolean {
   bpm = pattern.get().bpm;
   stepDur = stepDuration(bpm);
   pendingDur = 0;
-  anchor = c.currentTime + START_DELAY_S;
+  const g = follow ? follow(c.currentTime + START_DELAY_S) : null;
+  anchor = g ? g.time : c.currentTime + START_DELAY_S;
   nextTime = anchor;
   n = 0;
-  step = 0;
+  step = g ? g.step : 0;
   runFirst = seq;
   resetStats();
   running = true;
@@ -336,6 +343,10 @@ export const clock = {
   lock(on: boolean): void {
     locked = on;
     if (on) stop();
+  },
+  /** La grille qu'un RUN rejoint si elle joue deja (l'arpegiateur du MM-VOYAGER). */
+  follow(fn: (t: number) => { time: number; step: number } | null): void {
+    follow = fn;
   },
   /** RUN/STOP ; renvoie le nouvel etat. */
   toggle(): boolean {

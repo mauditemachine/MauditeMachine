@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { escape, openToggle, padHit, page, resetView, runToggle, voyPad } from '../actions';
+import { escape, openToggle, padHit, page, resetView, runToggle, voyPad, voyRun } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { focus } from '../state/focus';
 import { PADS } from '../theme';
@@ -70,7 +70,9 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         if (ownsSpace(e.target)) return;
         // Pas de defilement : la page ne defile jamais
         e.preventDefault();
-        runToggle(getStage());
+        // Sur le MM-VOYAGER, son RUN/STOP (l'arpege)
+        if (focus.get() === 'voy') voyRun(getStage());
+        else runToggle(getStage());
         return;
       }
       // Touche physique aussi : sur un clavier AZERTY les chiffres sont en Maj

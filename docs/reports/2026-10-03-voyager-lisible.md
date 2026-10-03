@@ -1,0 +1,34 @@
+# 2026-10-03 : MM-VOYAGER plus lisible, pages sur la carte, RUN/STOP synchronise
+
+## 1. Ce qui a ete fait
+
+- `src/v4/voyager/theme.ts` : nouvelle disposition. Portrait : panneau plus court (bendZ -1.2), 3 rangees de 2 groupes avec crochets nommes (VOY_GROUPS) ; plateau = ecran + VOLUME, transport, arpegiateur, pads. Desktop : ecran, RUN/STOP, CLEAR, RANDOM, OPEN a droite, pads centres sous un crochet CHORDS F# MINOR. En-tete : wordmark, MM-VOYAGER, logotype a droite. VOY_PAGE_CHIPS (5 puces de pages). Capot desktop qui s'ouvre plus haut.
+- `src/v4/scene/pcb.ts` : la carte du Voyager recoit les 5 puces de pages (taille moyenne CHIP_MID), bande degagee (resistances, ceramiques, pile), plan de masse raccourci, serigraphie deplacee. La carte de la 808 ne change pas.
+- `src/v4/theme.ts` : ChipSpec, CHIP_MID (taille des puces de pages).
+- `src/v4/voyager/knobs.ts` : les potards sont sur le capot, chacun sur son plan (panneau ou plateau).
+- `src/v4/voyager/silk.ts` : crochets des groupes, logotype, libelles par plan, graduations de VOLUME sur le plateau en portrait.
+- `src/v4/voyager/pads.ts` : boutons RUN/STOP, CLEAR, RANDOM, OPEN (plus de pages) ; RUN allume pendant la lecture.
+- `src/v4/voyager/arp.ts` : toggleRun, stop public, les pads ne relancent pas un arpege arrete, RANDOM le lance ; grille partagee avec la 808 (clock.follow).
+- `src/v4/audio/clock.ts` : RUN rejoint la grille de l'arpege s'il joue deja.
+- `src/v4/voyager/lcd.ts`, `rig.ts` : tempo a l'ecran, triangle de lecture, RUN/STOP TO PLAY.
+- `src/v4/actions.ts` : voyRun, puces de pages du Voyager = comme les pads de page de la 808 ; voyPage retire.
+- `src/v4/ui/VoyTwins.tsx`, `Hotspots.tsx`, `VoyDock.tsx`, `hooks/useKeys.ts`, `v4.css` : jumeaux et Dock (touche RUN/STOP), barre d'espace sur le Voyager.
+- `src/v4/audio/soundcloud.ts` : une piste qui part arrete l'arpege sans vider la progression.
+- `docs/v4/spec.md` : R14-34, R14-35.
+
+## 2. Decisions prises et pourquoi
+
+- Pages en puces moyennes plutot que grosses : 8 grosses puces ne tiennent pas sur la carte ; la rangee est decalee a gauche parce qu'au telephone le capot ouvert cache le bout droit de la carte.
+- Desktop : le capot du Voyager s'ouvre plus haut que celui de la 808, sinon la rangee des pages restait dessous.
+- Groupes au telephone nommes COLOR (DIST, CHORUS) et SPACE (DELAY, REVERB) pour eviter deux EFFECTS.
+- Synchro : les deux machines gardent leur propre RUN/STOP (pas de demarrage force de l'autre), mais elles partagent tempo et grille, quel que soit l'ordre de lancement.
+- La 808 n'est pas touchee : meme carte, memes puces, meme serigraphie (verifie dans le diff).
+
+## 3. Ce qui reste a faire / points en suspens
+
+- Mika : essayer RUN/STOP sur le Voyager avec la 808 qui joue, et le rendu au telephone.
+- Au telephone, le bouton CLOSE (capot ouvert) chevauche le Dock quand celui-ci est deplie (deja le cas sur la 808).
+
+## 4. Commandes utiles ajoutees
+
+- Aucune nouvelle commande. Debug : `__v4.voyager.arp.get()`, `__v4.voyager.rig.lcd`, `__v4.clock.scheduled` pour verifier la synchro (avec `?mute=1`).

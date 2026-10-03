@@ -3,24 +3,27 @@
  * (ui/Hotspots.tsx, Twins) : un element transparent par objet, pose sur sa
  * silhouette projetee dans la passe de rendu, focusable, nomme ; le clavier
  * et les lecteurs d'ecran passent par eux. Ordre : les huit pads
- * d'accords (aria-pressed : dans la progression), les pages, OPEN, CLEAR,
- * RANDOM, les puces (capot ouvert), les 23 potards (role slider : fleches,
+ * d'accords (aria-pressed : dans la progression), RUN/STOP, CLEAR, RANDOM,
+ * OPEN, les puces (capot ouvert : celles de la 808 et les pages), les 23 potards (role slider : fleches,
  * Maj ou Page pour 10 %, Debut et Fin). Inertes tant qu'on n'utilise pas
  * le Voyager.
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
-import { chipAction, openToggle, voyClear, voyDial, voyPad, voyPage, voyRandom } from '../actions';
+import { chipAction, openToggle, voyClear, voyDial, voyPad, voyRandom, voyRun } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { chipsLive, voyExplode } from '../state/explode';
 import { focus } from '../state/focus';
 import { section } from '../state/section';
-import { CHIPS, DIAL_KEYS, OPEN_ARIA, isPage } from '../theme';
+import { CHIPS, DIAL_KEYS, OPEN_ARIA } from '../theme';
 import { arp } from '../voyager/arp';
 import { CHORDS } from '../voyager/chords';
 import { VOY_KNOBS, voyParams, voyValueText, type VoyKnobId } from '../voyager/params';
-import { VOY_BUTTONS, VOY_COPY } from '../voyager/theme';
+import { VOY_BUTTONS, VOY_COPY, VOY_PAGE_CHIPS } from '../voyager/theme';
 import { registerTwin } from './Hotspots';
+
+/** Les puces de la carte du Voyager : celles de la 808 et les pages. */
+const VOY_CHIPS = [...CHIPS, ...VOY_PAGE_CHIPS];
 
 const r1 = (n: number): number => Math.round(n * 10) / 10;
 
@@ -171,42 +174,24 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
             />
           );
         }
-        if (b.id === 'clear' || b.id === 'random') {
-          return (
-            <button
-              key={id}
-              ref={refFor(id)}
-              type="button"
-              className="v4-twin"
-              data-twin="vbtn"
-              data-hotspot={id}
-              aria-label={b.id === 'clear' ? 'Clear the chords' : 'Random chord progression'}
-              onKeyDown={noRepeat}
-              onClick={() => (b.id === 'clear' ? voyClear(stageRef.current) : voyRandom(stageRef.current))}
-            />
-          );
-        }
-        const pid = b.id;
+        const label = b.id === 'run' ? (a.running ? 'Stop the arpeggiator' : 'Run the arpeggiator') : b.id === 'clear' ? 'Clear the chords' : 'Random chord progression';
         return (
           <button
             key={id}
             ref={refFor(id)}
             type="button"
             className="v4-twin"
-            data-twin="vpage"
+            data-twin="vbtn"
             data-hotspot={id}
-            aria-label={title(b.label)}
-            aria-expanded={open === pid}
-            aria-controls={`v4-section-${pid}`}
+            aria-label={label}
+            aria-pressed={b.id === 'run' ? a.running : undefined}
             onKeyDown={noRepeat}
-            onClick={() => {
-              if (isPage(pid)) voyPage(pid, stageRef.current);
-            }}
+            onClick={() => (b.id === 'run' ? voyRun(stageRef.current) : b.id === 'clear' ? voyClear(stageRef.current) : voyRandom(stageRef.current))}
           />
         );
       })}
       {showChips &&
-        CHIPS.map((c) => {
+        VOY_CHIPS.map((c) => {
           const id = `vchip-${c.id}`;
           return (
             <button

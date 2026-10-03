@@ -6,10 +6,15 @@
  * course que les encodeurs de la 808 : 270 deg centres sur le repere,
  * sens horaire quand la valeur monte ; un potard a crans tombe sur ses
  * crans (la valeur du store est deja ronde).
+ *
+ * Le mesh est sur le capot (lid) : les potards du panneau y passent par la
+ * pose fixe du panneau (VOY_PANEL), ceux du plateau (portrait :
+ * l'arpegiateur, VOLUME) s'y posent directement.
  */
 
 import {
   BoxGeometry,
+  Euler,
   CylinderGeometry,
   DynamicDrawUsage,
   InstancedMesh,
@@ -26,7 +31,7 @@ import { potAngle } from '../scene/encoders';
 import { paintLinear, paintSolid } from '../scene/materials';
 import { LIT } from '../theme';
 import { VOY_KNOBS, type VoyKnobId } from './params';
-import { VOY_KNOB, voyKnobPlace } from './theme';
+import { VOY_KNOB, VOY_PANEL, voyKnobPlace } from './theme';
 
 const AXIS_Y = new Vector3(0, 1, 0);
 const m4 = new Matrix4();
@@ -34,6 +39,8 @@ const pos = new Vector3();
 const quat = new Quaternion();
 const scl = new Vector3();
 const COUNT = VOY_KNOBS.length;
+/** Le panneau dans le repere du capot (rig.ts le pose pareil). */
+const PANEL_M = new Matrix4().compose(new Vector3(0, VOY_PANEL.cy, VOY_PANEL.cz), new Quaternion().setFromEuler(new Euler(VOY_PANEL.angle, 0, 0)), new Vector3(1, 1, 1));
 
 function buildGeometry(mobile: boolean): BufferGeometry {
   const K = VOY_KNOB;
@@ -98,7 +105,9 @@ export class VoyKnobs {
   private place(i: number): void {
     const pl = voyKnobPlace(VOY_KNOBS[i].id);
     quat.setFromAxisAngle(AXIS_Y, this.angle[i]);
-    this.mesh.setMatrixAt(i, m4.compose(pos.set(pl.x, 0, pl.z), quat, scl.setScalar(pl.s)));
+    m4.compose(pos.set(pl.x, 0, pl.z), quat, scl.setScalar(pl.s));
+    if (pl.where === 'panel') m4.premultiply(PANEL_M);
+    this.mesh.setMatrixAt(i, m4);
     this.mesh.instanceMatrix.needsUpdate = true;
   }
 
@@ -113,15 +122,15 @@ export class VoyKnobs {
     return true;
   }
 
-  /** Les potards pour le picking : un cylindre de la jupe, jusqu'au haut du capuchon. */
-  hotspots(layer: Object3D): HotspotDef[] {
+  /** Les potards pour le picking : un cylindre de la jupe, jusqu'au haut du capuchon ; repere de leur plan. */
+  hotspots(panel: Object3D, deck: Object3D): HotspotDef[] {
     return VOY_KNOBS.map((k) => {
       const pl = voyKnobPlace(k.id);
       const r = VOY_KNOB.skirt.r * pl.s;
       return {
         id: `vk-${k.id}`,
         kind: 'vknob' as const,
-        layer,
+        layer: pl.where === 'panel' ? panel : deck,
         shape: 'disc' as const,
         x: pl.x,
         z: pl.z,

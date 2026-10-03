@@ -1,17 +1,17 @@
 /**
  * Le plateau du MM-VOYAGER (2026-10-03) : les huit pads d'accords
  * (caoutchouc bombe retroeclaire, comme ceux de la 808) et les boutons
- * (TRACKS a CONTACT, OPEN, CLEAR, RANDOM : des touches rectangulaires
- * retroeclairees). Deux InstancedMesh et un de halos additifs : trois
- * draw calls.
+ * (RUN/STOP, CLEAR, RANDOM, OPEN : des touches rectangulaires
+ * retroeclairees ; les pages sont sur la carte). Deux InstancedMesh et un
+ * de halos additifs : trois draw calls.
  *
  * Lumieres :
  * - pad hors progression : jaune faible (on le voit, on a envie d'y
  *   toucher) ; dans la progression : orange ; l'accord qui joue : yellowHi ;
  *   chaque note de l'arpege le fait flasher ;
- * - pages : jaune faible, yellowHi pour la page ouverte ; OPEN : orange
- *   plein qui respire, faible machine ouverte ; CLEAR et RANDOM : eteints,
- *   un eclat a l'appui.
+ * - RUN/STOP : yellowHi tant que l'arpege joue (le temoin de RUN sur la
+ *   808) ; OPEN : orange plein qui respire, faible machine ouverte ; CLEAR
+ *   et RANDOM : eteints, un eclat a l'appui.
  * Appui : la touche s'enfonce et remonte (reduced motion : la lumiere seule).
  */
 
@@ -38,7 +38,7 @@ import type { HotspotDef } from '../scene/hit';
 import { albedo, withInstanceEmissive } from '../scene/materials';
 import { makeHaloTexture } from '../scene/silk';
 import { easeOutCubic, linear, type Tweens } from '../scene/tween';
-import { COLOR, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD_FX, PAD_GLOW, PAD_HALO, gainOf, type PageId } from '../theme';
+import { COLOR, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD_FX, PAD_GLOW, PAD_HALO, gainOf } from '../theme';
 import { CHORDS } from './chords';
 import { VOY_BUTTON, VOY_BUTTONS, VOY_PAD, voyPadAt, type VoyButtonId } from './theme';
 
@@ -163,7 +163,7 @@ export class VoyKeys {
   /** progression et accord qui joue */
   private queued = new Set<number>();
   private playing = -1;
-  private activePage = -1;
+  private running = false;
   private open = false;
   private hover = -1;
   private breath = 1;
@@ -270,9 +270,8 @@ export class VoyKeys {
   private btnRest(i: number): Glow {
     const b = VOY_BUTTONS[i];
     if (b.id === 'open') return this.open ? 'orangeDim' : 'orange';
-    if (b.id === 'clear' || b.id === 'random') return PADS + i === this.hover ? 'hover' : 'off';
-    if (i === this.activePage) return 'active';
-    return PADS + i === this.hover ? 'hover' : 'faint';
+    if (b.id === 'run' && this.running) return 'active';
+    return PADS + i === this.hover ? 'hover' : 'off';
   }
 
   private refreshPad(i: number): void {
@@ -303,13 +302,11 @@ export class VoyKeys {
     return true;
   }
 
-  setActivePage(id: PageId | null): boolean {
-    const i = id ? this.buttonIndex(id) : -1;
-    if (i === this.activePage) return false;
-    const prev = this.activePage;
-    this.activePage = i;
-    this.refreshBtn(prev);
-    this.refreshBtn(i);
+  /** RUN/STOP allume tant que l'arpege joue ; true s'il faut une frame. */
+  setRunning(on: boolean): boolean {
+    if (on === this.running) return false;
+    this.running = on;
+    this.refreshBtn(this.buttonIndex('run'));
     return true;
   }
 
@@ -444,8 +441,7 @@ export class VoyKeys {
     for (const b of VOY_BUTTONS) {
       const base = { layer, shape: 'box' as const, x: b.x, z: b.z, hx: b.w / 2, hz: b.d / 2, y0: 0, y1: VOY_BUTTON.h, enabled: true };
       if (b.id === 'open') out.push({ ...base, id: 'vbtn-open', kind: 'vopen' });
-      else if (b.id === 'clear' || b.id === 'random') out.push({ ...base, id: `vbtn-${b.id}`, kind: 'vbtn', vbtn: b.id });
-      else out.push({ ...base, id: `vbtn-${b.id}`, kind: 'vpage', section: b.id });
+      else out.push({ ...base, id: `vbtn-${b.id}`, kind: 'vbtn', vbtn: b.id });
     }
     return out;
   }

@@ -54,7 +54,8 @@ import {
   type Object3D,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { CHIP, CHIPS, EXTERNAL_MARK, FONT_DISPLAY, PCB, PCB_PARTS, PCB_SILK, PCB_TYPE, SILK, boneA, type ChipId } from '../theme';
+import { CHIP, CHIP_MID, CHIPS, EXTERNAL_MARK, FONT_DISPLAY, PCB, PCB_PARTS, PCB_SILK, PCB_TYPE, SILK, boneA, pcbAt, type ChipId, type ChipSpec } from '../theme';
+import { VOY_PAGE_CHIPS } from '../voyager/theme';
 import type { HotspotDef } from './hit';
 import { albedoRgb, litCss } from './materials';
 import { drawTracked, fontsReady, makeCanvasTexture, mulberry32, trackedWidth } from './silk';
@@ -253,18 +254,40 @@ interface Trace {
  * Pattes d'une puce QFP (2026-10-01) : rectangles (centre, largeur en x,
  * profondeur en z), devant et derriere puis a gauche et a droite.
  */
-function qfpLegs(cx: number, cz: number): { x: number; z: number; w: number; d: number }[] {
+function qfpLegs(c: ChipSpec): { x: number; z: number; w: number; d: number }[] {
+  const D = chipDims(c);
   const out: { x: number; z: number; w: number; d: number }[] = [];
   for (const side of [-1, 1]) {
-    for (let j = 0; j < CHIP.legsPerSide; j += 1) {
-      out.push({ x: cx - ((CHIP.legsPerSide - 1) * CHIP.legPitch) / 2 + j * CHIP.legPitch, z: cz + side * CHIP.legZ, w: CHIP.legW, d: CHIP.legD });
+    for (let j = 0; j < D.legsPerSide; j += 1) {
+      out.push({ x: c.x - ((D.legsPerSide - 1) * CHIP.legPitch) / 2 + j * CHIP.legPitch, z: c.z + side * D.legZ, w: CHIP.legW, d: CHIP.legD });
     }
-    for (let j = 0; j < CHIP.legsPerEnd; j += 1) {
-      out.push({ x: cx + side * CHIP.legX, z: cz - ((CHIP.legsPerEnd - 1) * CHIP.legPitch) / 2 + j * CHIP.legPitch, w: CHIP.legD, d: CHIP.legW });
+    for (let j = 0; j < D.legsPerEnd; j += 1) {
+      out.push({ x: c.x + side * D.legX, z: c.z - ((D.legsPerEnd - 1) * CHIP.legPitch) / 2 + j * CHIP.legPitch, w: CHIP.legD, d: CHIP.legW });
     }
   }
   return out;
 }
+
+/** Cotes d'une puce cliquable : la grosse (defaut) ou la moyenne (pages du Voyager). */
+function chipDims(c: ChipSpec): { w: number; d: number; legZ: number; legX: number; legsPerSide: number; legsPerEnd: number; labelDz: number; labelPx: number } {
+  if (c.size === 'mid') return CHIP_MID;
+  return { w: CHIP.w, d: CHIP.d, legZ: CHIP.legZ, legX: CHIP.legX, legsPerSide: CHIP.legsPerSide, legsPerEnd: CHIP.legsPerEnd, labelDz: CHIP.labelDz, labelPx: PCB.chipLabelPx };
+}
+
+/** Les puces cliquables d'une carte : la 808 garde les siennes ; le Voyager y ajoute ses pages. */
+function chipsOf(variant: PcbVariant): readonly ChipSpec[] {
+  return variant === 'voy' ? [...CHIPS, ...VOY_PAGE_CHIPS] : CHIPS;
+}
+
+/**
+ * Carte du Voyager : la bande des pages (z de -0.55 a 1.32) est degagee
+ * des resistances, condensateurs CMS et de la pile de la 808 ; son plan de
+ * masse s'arrete plus loin, sous MAUDITE MACHINE.
+ */
+const VOY_BAND = { z0: -0.55, z1: 1.32 } as const;
+const inVoyBand = (z: number): boolean => z > VOY_BAND.z0 && z < VOY_BAND.z1;
+const pourOf = (variant: PcbVariant): { x0: number; z0: number; x1: number; z1: number } =>
+  variant === 'voy' ? { ...PCB_PARTS.pour, z1: -1.12 } : PCB_PARTS.pour;
 
 const P = PCB_PARTS;
 const LEG_SMALL = { n: 6, pitch: 0.12, w: 0.05, h: 0.05, d: 0.1 } as const;
@@ -312,8 +335,8 @@ function extrasOf(variant: PcbVariant): Extra[] {
       ...[-0.15, 0.35, 0.85, 1.35].map((x, k) => ({ kind: 'trim' as const, x, z: -0.78, ref: `RV${k + 1}` })),
       ...[2.0, 2.55, 3.1].map((x, k) => ({ kind: 'film' as const, x, z: -0.74, ref: `C${21 + k}`, label: 'MKS2' })),
       ...[-0.1, 0.3, 0.7, 1.1, 1.5].map((x, k) => ({ kind: 'to92' as const, x, z: -1.3, ref: `Q${k + 1}` })),
-      { kind: 'dip', x: 2.35, z: -1.28, ref: 'U8', label: 'TL074' },
-      { kind: 'dip', x: 3.35, z: -1.28, ref: 'U9', label: 'LM13700' },
+      { kind: 'dip', x: 2.35, z: -1.28, ref: 'U13', label: 'TL074' },
+      { kind: 'dip', x: 3.35, z: -1.28, ref: 'U14', label: 'LM13700' },
       { kind: 'tp', x: 3.72, z: -0.72, ref: 'TP1' },
       ...fid,
     ];
@@ -340,11 +363,13 @@ const STICKER = { x: 1.15, z: -0.88, hx: 0.6, hz: 0.24 } as const;
 
 function footprints(variant: PcbVariant): Footprint[] {
   const out: Footprint[] = [];
-  const legHz = CHIP.legZ + CHIP.legD / 2;
-  const legHx = CHIP.legX + CHIP.legD / 2;
-  CHIPS.forEach((c, k) => {
+  const chips = chipsOf(variant);
+  chips.forEach((c, k) => {
+    const D = chipDims(c);
+    const legHz = D.legZ + CHIP.legD / 2;
+    const legHx = D.legX + CHIP.legD / 2;
     const pads: Footprint['pads'] = [];
-    for (const leg of qfpLegs(c.x, c.z)) pads.push({ x: leg.x, z: leg.z, w: leg.w + 0.03, d: leg.d + 0.06 });
+    for (const leg of qfpLegs(c)) pads.push({ x: leg.x, z: leg.z, w: leg.w + 0.03, d: leg.d + 0.06 });
     out.push({
       x: c.x,
       z: c.z,
@@ -360,7 +385,7 @@ function footprints(variant: PcbVariant): Footprint[] {
       axis: 'z',
       outline: true,
       pads,
-      shadow: { x: c.x, z: c.z, hx: CHIP.w / 2, hz: CHIP.d / 2, round: false },
+      shadow: { x: c.x, z: c.z, hx: D.w / 2, hz: D.d / 2, round: false },
     });
   });
   P.small.forEach((s, k) => {
@@ -372,23 +397,25 @@ function footprints(variant: PcbVariant): Footprint[] {
         pads.push({ x: lx, z: s.z + side * (P.small3.d / 2 + 0.04), w: LEG_SMALL.w + 0.03, d: LEG_SMALL.d + 0.04 });
       }
     }
-    out.push({ x: s.x, z: s.z, hx: P.small3.w / 2 + 0.05, hz, round: false, frame: false, ref: `U${k + CHIPS.length + 1}`, refX: s.x, refZ: s.z - hz - 0.16, refAlign: 'center', axis: 'x', outline: true, pads, shadow: { x: s.x, z: s.z, hx: P.small3.w / 2, hz: P.small3.d / 2, round: false } });
+    out.push({ x: s.x, z: s.z, hx: P.small3.w / 2 + 0.05, hz, round: false, frame: false, ref: `U${k + chips.length + 1}`, refX: s.x, refZ: s.z - hz - 0.16, refAlign: 'center', axis: 'x', outline: true, pads, shadow: { x: s.x, z: s.z, hx: P.small3.w / 2, hz: P.small3.d / 2, round: false } });
   });
   P.caps.forEach((c, k) => {
     const r = P.cap3.r + 0.05;
     out.push({ x: c.x, z: c.z, hx: r, hz: r, round: true, frame: false, ref: `C${k + 1}`, refX: c.x + r + 0.08, refZ: c.z, refAlign: 'left', axis: 'x', outline: true, pads: [], shadow: { x: c.x, z: c.z, hx: P.cap3.r, hz: P.cap3.r, round: true } });
   });
-  {
+  if (variant !== 'voy') {
     const r = P.cell3.r + 0.08;
     out.push({ x: P.cell.x, z: P.cell.z, hx: r, hz: r, round: true, frame: false, ref: 'BT1', refX: P.cell.x, refZ: P.cell.z - r - 0.16, refAlign: 'center', axis: 'x', outline: true, pads: [], shadow: { x: P.cell.x, z: P.cell.z, hx: r - 0.02, hz: r - 0.02, round: true } });
   }
   P.resistors.forEach((s, k) => {
+    if (variant === 'voy' && inVoyBand(s.z)) return;
     const R = P.resistor3;
     const hz = R.d / 2 + 0.04;
     const pads = [-1, 1].map((sd) => ({ x: s.x + sd * (R.w / 2 - 0.03), z: s.z, w: 0.1, d: R.d + 0.04 }));
     out.push({ x: s.x, z: s.z, hx: R.w / 2 + 0.06, hz, round: false, frame: false, ref: `R${k + 1}`, refX: s.x, refZ: s.z - hz - 0.12, refAlign: 'center', axis: 'z', outline: false, pads, shadow: { x: s.x, z: s.z, hx: R.w / 2, hz: R.d / 2, round: false } });
   });
   P.ceramics.forEach((s, k) => {
+    if (variant === 'voy' && inVoyBand(s.z)) return;
     const Cc = P.ceramic3;
     const pads = [-1, 1].map((sd) => ({ x: s.x + sd * (Cc.w / 2 - 0.03), z: s.z, w: 0.09, d: Cc.d + 0.04 }));
     out.push({ x: s.x, z: s.z, hx: Cc.w / 2 + 0.06, hz: Cc.d / 2 + 0.04, round: false, frame: false, ref: `C${k + P.caps.length + 1}`, refX: s.x, refZ: s.z + Cc.d / 2 + 0.16, refAlign: 'center', axis: 'z', outline: false, pads, shadow: { x: s.x, z: s.z, hx: Cc.w / 2, hz: Cc.d / 2, round: false } });
@@ -603,9 +630,12 @@ function buildParts(mobile: boolean, variant: PcbVariant): Built {
 
   // Les trois puces cliquables d'abord : corps et point jaune (plastique),
   // pattes (metal), reference blanche sur le dessus (marquage)
-  CHIPS.forEach((c, k) => {
-    const body = box(CHIP.w, CHIP.y1 - CHIP.y0, CHIP.d, c.x, (CHIP.y0 + CHIP.y1) / 2, c.z, RGB.chip);
-    const dot = cyl(CHIP.dotR, 0.012, 12, c.x - CHIP.w / 2 + 0.22, CHIP.y1, c.z - CHIP.d / 2 + 0.22, RGB.dot);
+  chipsOf(variant).forEach((c, k) => {
+    const D = chipDims(c);
+    const body = box(D.w, CHIP.y1 - CHIP.y0, D.d, c.x, (CHIP.y0 + CHIP.y1) / 2, c.z, RGB.chip);
+    const mid = c.size === 'mid';
+    const inset = mid ? 0.16 : 0.22;
+    const dot = cyl(CHIP.dotR * (mid ? 0.75 : 1), 0.012, 12, c.x - D.w / 2 + inset, CHIP.y1, c.z - D.d / 2 + inset, RGB.dot);
     const gp = mergeOf([body, dot], 'chip');
     const pStart = parts.add(gp);
     const pos = gp.getAttribute('position');
@@ -618,12 +648,13 @@ function buildParts(mobile: boolean, variant: PcbVariant): Built {
         t1 = q;
       }
     }
-    const legs = qfpLegs(c.x, c.z).map((l) => box(l.w, CHIP.legH, l.d, l.x, CHIP.legH / 2, l.z, METAL.leg));
+    const legs = qfpLegs(c).map((l) => box(l.w, CHIP.legH, l.d, l.x, CHIP.legH / 2, l.z, METAL.leg));
     const gm = mergeOf(legs, 'legs');
     const mStart = metal.add(gm);
     const cell = atlas.length;
-    atlas.push({ lines: [`${variant === 'voy' ? 'MM-VGR' : 'MM-808'} ${['G1', 'M2', 'S3'][k] ?? 'X'}`, 'VRSTL 2026'], weight: 600 });
-    const gl = labelQuad(cell, 1.1, 0.275, c.x + 0.1, CHIP.y1 + 0.002, c.z + 0.08);
+    atlas.push({ lines: [`${variant === 'voy' ? 'MM-VGR' : 'MM-808'} ${['G1', 'M2', 'S3', 'P1', 'P2', 'P3', 'P4', 'P5'][k] ?? 'X'}`, 'VRSTL 2026'], weight: 600 });
+    const lw = mid ? 0.8 : 1.1;
+    const gl = labelQuad(cell, lw, lw / 4, c.x + (mid ? 0.07 : 0.1), CHIP.y1 + 0.002, c.z + (mid ? 0.06 : 0.08));
     const lStart = labels.add(gl);
     ranges.push({
       id: c.id,
@@ -663,8 +694,8 @@ function buildParts(mobile: boolean, variant: PcbVariant): Built {
     metal.add(box(0.026, 0.016, C3.r * 1.3, c.x, h + 0.014 + 0.008, c.z, METAL.capCross));
   });
 
-  // Pile bouton dans son support
-  {
+  // Pile bouton dans son support (pas sur la carte du Voyager : la place des pages)
+  if (variant !== 'voy') {
     const C = P.cell3;
     parts.add(cyl(C.r + 0.06, 0.06, seg + 8, P.cell.x, 0, P.cell.z, RGB.holder));
     metal.add(cyl(C.r, C.h - 0.03, seg + 8, P.cell.x, 0.03, P.cell.z, METAL.cell));
@@ -673,6 +704,7 @@ function buildParts(mobile: boolean, variant: PcbVariant): Built {
 
   // Resistances CMS : corps noir, terminaisons argentees, code sur le dessus
   P.resistors.forEach((s, k) => {
+    if (variant === 'voy' && inVoyBand(s.z)) return;
     const R = P.resistor3;
     parts.add(box(R.w - 0.1, R.h, R.d, s.x, R.h / 2, s.z, RGB.resistor));
     for (const sd of [-1, 1]) metal.add(box(0.05, R.h + 0.006, R.d + 0.006, s.x + sd * (R.w / 2 - 0.025), (R.h + 0.006) / 2, s.z, METAL.leg));
@@ -683,6 +715,7 @@ function buildParts(mobile: boolean, variant: PcbVariant): Built {
 
   // Condensateurs ceramiques CMS : petits blocs beiges, terminaisons
   for (const s of P.ceramics) {
+    if (variant === 'voy' && inVoyBand(s.z)) continue;
     const Cc = P.ceramic3;
     parts.add(box(Cc.w - 0.08, Cc.h, Cc.d, s.x, Cc.h / 2, s.z, RGB.ceramic));
     for (const sd of [-1, 1]) metal.add(box(0.04, Cc.h + 0.006, Cc.d + 0.006, s.x + sd * (Cc.w / 2 - 0.02), (Cc.h + 0.006) / 2, s.z, METAL.leg));
@@ -989,10 +1022,15 @@ export class Pcb {
   /** model : la ligne de modele de la serigraphie (MM-VOYAGER, 2026-10-03), MM-808 par defaut ; variant : la carte */
   private model: string | null;
   private variant: PcbVariant;
+  /** puces cliquables et plan de masse de cette carte */
+  readonly chips: readonly ChipSpec[];
+  private pour: { x0: number; z0: number; x1: number; z1: number };
 
   constructor(mobile: boolean, anisotropy: number, opts: { model?: string; variant?: PcbVariant } = {}) {
     this.model = opts.model ?? null;
     this.variant = opts.variant ?? 'mm808';
+    this.chips = chipsOf(this.variant);
+    this.pour = pourOf(this.variant);
     const [W, H] = mobile ? PCB.tex.mobile : PCB.tex.desktop;
     this.W = W;
     this.H = H;
@@ -1148,17 +1186,26 @@ export class Pcb {
 
   private texts(): SilkText[] {
     const out: SilkText[] = [];
-    for (const s of PCB_SILK) {
-      const text = this.model && s.text.startsWith('MM-808') ? this.model : s.text;
-      out.push({ text, x: s.x, z: s.z, px: s.px, align: s.align, reserve: 0 });
+    if (this.variant === 'voy') {
+      // La bande des pages est prise : le nom passe derriere elle, le modele a droite des puces
+      const [name, rev] = (this.model ?? 'MM-VOYAGER R1.0').split(' ');
+      out.push({ text: 'MAUDITE MACHINE', ...pcbAt(-5.33, -0.86), px: 24, align: 'left', reserve: 0 });
+      out.push({ text: name, ...pcbAt(5.8, -0.05), px: 15, align: 'right', reserve: 0 });
+      if (rev) out.push({ text: `${rev}  2026`, ...pcbAt(5.8, 0.33), px: 12, align: 'right', reserve: 0 });
+    } else {
+      for (const s of PCB_SILK) {
+        const text = this.model && s.text.startsWith('MM-808') ? this.model : s.text;
+        out.push({ text, x: s.x, z: s.z, px: s.px, align: s.align, reserve: 0 });
+      }
     }
-    for (const c of CHIPS) {
-      const reserve = c.href ? CHIP.extGapPx + PCB.chipLabelPx * SILK.capRatio : 0;
-      out.push({ text: c.silk, x: c.x, z: c.z + CHIP.labelDz, px: PCB.chipLabelPx, align: 'center', reserve, nav: true });
+    for (const c of this.chips) {
+      const D = chipDims(c);
+      const reserve = c.href ? CHIP.extGapPx + D.labelPx * SILK.capRatio : 0;
+      out.push({ text: c.silk, x: c.x, z: c.z + D.labelDz, px: D.labelPx, align: 'center', reserve, nav: true });
     }
     for (const f of this.prints) if (f.ref) out.push({ text: f.ref, x: f.refX, z: f.refZ, px: PCB.designatorPx, align: f.refAlign, reserve: 0 });
     out.push({ text: 'PWR', x: P.led.x + 0.2, z: P.led.z + 0.12, px: 10, align: 'left', reserve: 0 });
-    out.push({ text: 'GND', x: P.pour.x0 + 0.25, z: P.pour.z1 - 0.2, px: 12, align: 'left', reserve: 0 });
+    out.push({ text: 'GND', x: this.pour.x0 + 0.25, z: this.pour.z1 - 0.2, px: 12, align: 'left', reserve: 0 });
     for (const c of P.caps) out.push({ text: '+', x: c.x - P.cap3.r - 0.1, z: c.z, px: 12, align: 'center', reserve: 0 });
     return out;
   }
@@ -1199,7 +1246,7 @@ export class Pcb {
     };
     for (const f of this.prints) block({ x0: f.x - f.hx, z0: f.z - f.hz, x1: f.x + f.hx, z1: f.z + f.hz });
     for (const t of this.texts()) block(this.textRect(t));
-    block({ x0: P.pour.x0, z0: P.pour.z0, x1: P.pour.x1, z1: P.pour.z1 }, 0.12);
+    block({ x0: this.pour.x0, z0: this.pour.z0, x1: this.pour.x1, z1: this.pour.z1 }, 0.12);
 
     const starts: { i: number; j: number; d: number; main: boolean }[] = [];
     for (const f of this.prints) {
@@ -1375,7 +1422,7 @@ export class Pcb {
       this.vias.push([gx(i), gz(j)]);
     }
     // Vias de couture du plan de masse : un reseau de 0.32, hors des composants
-    const R = P.pour;
+    const R = this.pour;
     for (let z = R.z0 + 0.2; z < R.z1 - 0.1; z += 0.32) {
       for (let x = R.x0 + 0.2; x < R.x1 - 0.1; x += 0.32) {
         const hit = this.prints.some((f) => x > f.x - f.hx - 0.12 && x < f.x + f.hx + 0.12 && z > f.z - f.hz - 0.12 && z < f.z + f.hz + 0.12);
@@ -1513,7 +1560,7 @@ export class Pcb {
   private pourMask(): HTMLCanvasElement {
     const { canvas, ctx } = canvas2d(this.W, this.H);
     this.units(ctx);
-    const R = P.pour;
+    const R = this.pour;
     const rr = (x0: number, z0: number, x1: number, z1: number, r: number): void => {
       ctx.beginPath();
       ctx.moveTo(x0 + r, z0);
@@ -1863,9 +1910,9 @@ export class Pcb {
     const k = this.k;
     const old = this.zones.slice();
     this.zones.length = 0;
-    for (const c of CHIPS) {
+    for (const c of this.chips) {
       if (!c.href) continue;
-      const g = this.labelGeom(c.silk, c.x, c.z + CHIP.labelDz);
+      const g = this.labelGeom(c.silk, c.x, c.z + chipDims(c).labelDz);
       const pad = Math.ceil(4 * k);
       const x0 = Math.max(0, Math.floor(g.x0) - pad);
       const y0 = Math.max(0, Math.floor(g.baseline - g.cap) - pad);
@@ -1925,15 +1972,15 @@ export class Pcb {
   /* ---------- puces ---------- */
 
   hotspots(layer: Object3D): HotspotDef[] {
-    return CHIPS.map((c) => ({
+    return this.chips.map((c) => ({
       id: `chip-${c.id}`,
       kind: 'chip' as const,
       layer,
       shape: 'box' as const,
       x: c.x,
       z: c.z,
-      hx: CHIP.legX + CHIP.legD / 2,
-      hz: CHIP.legZ + CHIP.legD / 2,
+      hx: chipDims(c).legX + CHIP.legD / 2,
+      hz: chipDims(c).legZ + CHIP.legD / 2,
       y0: PCB.h,
       y1: PCB.h + CHIP.y1,
       enabled: false,
@@ -1948,7 +1995,7 @@ export class Pcb {
 
   setLit(id: ChipId, on: boolean): boolean {
     const r = this.rangeOf(id);
-    if (!r || r.lit === on || !CHIPS.some((c) => c.id === id && c.href)) return false;
+    if (!r || r.lit === on || !this.chips.some((c) => c.id === id && c.href)) return false;
     r.lit = on;
     if (r.topCount > 0) {
       const col = this.parts.geometry.getAttribute('color') as BufferAttribute;
@@ -1990,8 +2037,8 @@ export class Pcb {
       const idx = g.getIndex();
       return idx ? idx.count / 3 : g.getAttribute('position').count / 3;
     };
-    const rise = Object.fromEntries(CHIPS.map((c) => [c.id, 0])) as Record<ChipId, number>;
-    const lit = Object.fromEntries(CHIPS.map((c) => [c.id, false])) as Record<ChipId, boolean>;
+    const rise = Object.fromEntries(this.chips.map((c) => [c.id, 0])) as Record<ChipId, number>;
+    const lit = Object.fromEntries(this.chips.map((c) => [c.id, false])) as Record<ChipId, boolean>;
     for (const r of this.ranges) {
       rise[r.id] = +r.rise.toFixed(4);
       lit[r.id] = r.lit;

@@ -6,13 +6,14 @@
  * - les huit accords (deux rangees de quatre) : touche = dans la
  *   progression (orange), l'accord qui joue en jaune ;
  * - CLEAR, RANDOM, OCTAVE - / valeur / + ;
- * - RATE, MODE, RANGE : un appui passe au cran suivant.
+ * - RUN/STOP (l'arpege, cale sur la 808), RATE, MODE, RANGE : un appui
+ *   passe au cran suivant.
  * Memes actions et memes stores que la machine : les deux bougent ensemble.
  * Monte seulement sur telephone, quand on utilise le Voyager (index.tsx).
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { voyClear, voyDial, voyPad, voyRandom } from '../actions';
+import { voyClear, voyDial, voyPad, voyRandom, voyRun } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { arp } from '../voyager/arp';
 import { CHORDS } from '../voyager/chords';
@@ -114,6 +115,16 @@ export const VoyDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage }
           </button>
         </div>
         <div className="v4-vdock-row v4-vdock-arp" role="group" aria-label="Arpeggiator">
+          <button
+            type="button"
+            className="v4-dock-key v4-vdock-run"
+            aria-pressed={a.running}
+            aria-label={a.running ? 'Stop the arpeggiator' : 'Run the arpeggiator'}
+            onClick={() => voyRun(getStage())}
+          >
+            <Icon name={a.running ? 'fa-solid fa-stop' : 'fa-solid fa-play'} />
+            <span>{a.running ? 'STOP' : 'RUN'}</span>
+          </button>
           <button type="button" className="v4-dock-key" aria-label={`Rate ${RATES[stepIndex('rate', p.rate)]}, tap for the next`} onClick={() => cycle('rate', RATES.length)}>
             <span>RATE</span>
             <span className="v4-vdock-val">{RATES[stepIndex('rate', p.rate)]}</span>

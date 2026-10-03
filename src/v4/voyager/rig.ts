@@ -4,27 +4,27 @@
  * son ouverture et ses animateurs. Le Stage (scene/renderer.ts) le pose a
  * droite de la 808, l'ajoute a la scene, appelle ses animateurs et lui
  * passe le survol ; le rig suit seul ses stores : potards (params), arpege
- * (arp), section ouverte, capot (voyExplode), ecran (msg).
+ * (arp), tempo (pattern), capot (voyExplode), ecran (msg).
  *
  * Groupes :
  * - root : toute la machine (la vue d'ensemble la cache ou la montre) ;
  * - socle : joues, bac ; ne bouge jamais ;
  * - pcb : la carte (celle de la 808, MM-VOYAGER en serigraphie), a plat
  *   dans le bac, cachee capot ferme ;
- * - lid : le capot (plateau, son ecran, ses pads et boutons) ; OPEN le
- *   souleve (scene/explode.ts, VOY_EXPLODE) ;
- * - panel : enfant du capot, incline : sa serigraphie et les potards.
+ * - lid : le capot (plateau, son ecran, ses pads et boutons, les potards
+ *   des deux plans) ; OPEN le souleve (scene/explode.ts, VOY_EXPLODE) ;
+ * - panel : enfant du capot, incline : sa serigraphie.
  */
 
 import { Group, type Object3D } from 'three';
 import { context } from '../audio/drums';
+import { pattern } from '../audio/pattern';
 import type { HotspotDef, Occluder } from '../scene/hit';
 import { Explode, type ExplodeCfg } from '../scene/explode';
 import { Pcb } from '../scene/pcb';
 import { easeOutCubic, type Tweens } from '../scene/tween';
 import { chipsLive, voyExplode } from '../state/explode';
-import { section } from '../state/section';
-import { CHIP, CHIPS, EXPLODE, PCB, PCB_TURN, isPage, type ChipId, type SectionId } from '../theme';
+import { CHIP, EXPLODE, PCB, PCB_TURN, type ChipId, type SectionId } from '../theme';
 import { arp } from './arp';
 import { VoyBody } from './body';
 import { CHORDS } from './chords';
@@ -92,7 +92,7 @@ export class VoyagerRig {
   readonly lcd: VoyLcd;
   readonly pcb: Pcb;
   readonly explode: Explode;
-  /** ancres de la trace : boutons de page, puces */
+  /** ancres de la trace : les puces (pages comprises) */
   readonly anchors = new Map<SectionId, HotspotDef>();
   private defs: HotspotDef[] = [];
   private chipDefs: HotspotDef[] = [];
@@ -101,6 +101,7 @@ export class VoyagerRig {
   private explodeGoal = false;
   private lastSeq = -1;
   private playing = -1;
+  private bpm = 0;
   private hoverChip: ChipId | null = null;
   private focusChip: ChipId | null = null;
   private hotChips = new Set<ChipId>();
@@ -136,7 +137,7 @@ export class VoyagerRig {
     this.keys = new VoyKeys({ tweens: opts.tweens, reduced: opts.reduced, repaint: opts.repaint, mobile: opts.mobile });
     this.lid.add(this.keys.pads, this.keys.buttons, this.keys.halos);
     this.knobs = new VoyKnobs({ mobile: opts.mobile, castShadow: !opts.mobile });
-    this.panel.add(this.knobs.mesh);
+    this.lid.add(this.knobs.mesh);
     this.lcd = new VoyLcd(opts.anisotropy);
     this.lid.add(this.lcd.bezel, this.lcd.glass);
 
@@ -157,14 +158,13 @@ export class VoyagerRig {
     // Objets interactifs, dans l'ordre de tabulation des jumeaux : pads, boutons, puces, potards
     const keyDefs = this.keys.hotspots(this.lid);
     this.chipDefs = this.pcb.hotspots(this.pcbGroup).map((d) => ({ ...d, id: `vchip-${d.chip}`, kind: 'vchip' as const }));
-    this.defs = [...keyDefs, ...this.chipDefs, ...this.knobs.hotspots(this.panel)].map((d) => ({ ...d, machine: 'voy' as const }));
+    this.defs = [...keyDefs, ...this.chipDefs, ...this.knobs.hotspots(this.panel, this.lid)].map((d) => ({ ...d, machine: 'voy' as const }));
     // Les copies portent l'etat : retrouver les puces dans la liste finale
     this.chipDefs = this.defs.filter((d) => d.kind === 'vchip');
-    for (const d of this.defs) if (d.section && (d.kind === 'vpage' || d.kind === 'vchip')) this.anchors.set(d.section, d);
+    for (const d of this.defs) if (d.section && d.kind === 'vchip') this.anchors.set(d.section, d);
 
     this.syncKnobs();
     this.syncArp();
-    this.syncSection();
   }
 
   get hotspots(): readonly HotspotDef[] {
@@ -202,8 +202,8 @@ export class VoyagerRig {
   listen(): void {
     this.unsubs.push(voyParams.subscribe(this.syncKnobs));
     this.unsubs.push(arp.subscribe(this.syncArp));
-    this.unsubs.push(section.subscribe(this.syncSection));
     this.unsubs.push(voyMsg.subscribe(this.syncLcd));
+    this.unsubs.push(pattern.subscribe(this.syncTempo));
     this.unsubs.push(voyExplode.subscribe(this.syncExplode));
     this.applyExplode(true);
     this.detach = voyExplode.attach();
@@ -226,24 +226,28 @@ export class VoyagerRig {
     const s = arp.get();
     if (!s.running) this.playing = -1;
     let changed = this.keys.setChords(s.prog, this.playing);
+    if (this.keys.setRunning(s.running)) changed = true;
     if (this.syncLcd(false)) changed = true;
     if (changed) this.opts.repaint();
   };
 
-  private syncSection = (): void => {
-    const s = section.get();
-    if (this.keys.setActivePage(isPage(s) ? s : null)) this.opts.repaint();
+
+
+  /** Le tempo (celui de la 808, partage) : l'ecran le montre. */
+  private syncTempo = (): void => {
+    if (pattern.get().bpm !== this.bpm) this.syncLcd();
   };
 
   /** Le texte de l'ecran ; true s'il a ete redessine. Appele seul, il demande la frame. */
   private syncLcd = (paint: boolean | unknown = true): boolean => {
     const p = voyParams.get();
     const s = arp.get();
-    const line1 = s.running ? `ARP ${RATES[stepIndex('rate', p.rate)]} ${MODES[stepIndex('mode', p.mode)]} ${RANGES[stepIndex('range', p.range)]}` : 'MM-VOYAGER';
+    this.bpm = pattern.get().bpm;
+    const line1 = s.running ? `${RATES[stepIndex('rate', p.rate)]} ${MODES[stepIndex('mode', p.mode)]} ${RANGES[stepIndex('range', p.range)]}` : 'MM-VOYAGER';
     const chords = s.prog.map((i) => CHORDS[i].label);
     const playing = this.playing >= 0 ? s.prog.indexOf(this.playing) : -1;
-    const line3 = voyMsg.get() ?? (s.prog.length === 0 ? 'TAP A CHORD PAD' : 'F# MINOR');
-    const changed = this.lcd.set({ line1, chords, playing, line3 });
+    const line3 = voyMsg.get() ?? (s.prog.length === 0 ? 'TAP A CHORD PAD' : s.running ? 'F# MINOR' : 'RUN/STOP TO PLAY');
+    const changed = this.lcd.set({ line1, chords, playing, line3, bpm: Math.round(this.bpm), running: s.running });
     if (changed && paint !== false) this.opts.repaint();
     return changed;
   };
@@ -383,7 +387,7 @@ export class VoyagerRig {
 
   private syncChipHot(): boolean {
     let changed = false;
-    for (const c of CHIPS) {
+    for (const c of this.pcb.chips) {
       const hot = c.id === this.hoverChip || c.id === this.focusChip;
       if (hot === this.hotChips.has(c.id)) continue;
       if (hot) this.hotChips.add(c.id);

@@ -203,7 +203,7 @@ export const sc = {
         clock.stop();
         counters.autoStops += 1;
       }
-      if (arp.get().running) arp.clear();
+      if (arp.get().running) arp.stop();
     }
     derive();
   },

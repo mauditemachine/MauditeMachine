@@ -1,12 +1,15 @@
 /**
  * Serigraphie du MM-VOYAGER (2026-10-03), la meme encre et la meme police
  * que la 808 (SF Pro Display, capitales espacees, encre de l'apparence) :
- * - le panneau : wordmark Maudite Machine, MM-VOYAGER, les titres des
- *   sections facon Moog et leurs filets, le nom de chaque potard, les
- *   graduations 0 a 10 autour des deux gros potards ;
- * - le plateau : les noms des accords sous les pads, CHORDS F# MINOR, les
- *   pages en orange (comme sur la 808), OPEN (CLOSE capot ouvert), CLEAR et
- *   RANDOM.
+ * - le panneau : wordmark Maudite Machine, MM-VOYAGER, le logotype a
+ *   droite (comme la 808), les titres des sections facon Moog et leurs
+ *   filets (desktop), le nom de chaque potard, les graduations 0 a 10
+ *   autour des gros potards ;
+ * - le plateau : les noms des accords sous les pads, RUN/STOP, CLEAR,
+ *   RANDOM, OPEN en orange (CLOSE capot ouvert) ; portrait : les potards
+ *   de l'arpegiateur et VOLUME ;
+ * - sur l'un ou l'autre : les crochets nommes sous chaque groupe
+ *   (VOY_GROUPS), le nom en gras dans le trait.
  * Deux textures canvas sur deux plans couches sur le capot ; redessinees
  * a l'arrivee des polices et des logos, et OPEN <-> CLOSE.
  */
@@ -20,8 +23,9 @@ import {
   VOY_BODY,
   VOY_BUTTONS,
   VOY_BUTTON,
-  VOY_CHORDS_TITLE,
   VOY_COPY,
+  VOY_GROUPS,
+  VOY_GROUP_TYPE,
   VOY_HEAD,
   VOY_KNOB,
   VOY_LID_W,
@@ -60,29 +64,49 @@ const PLANE = {
   deck: { w: VOY_LID_W, d: VOY_BODY.d / 2 - VOY_BODY.bendZ, cz: (VOY_BODY.d / 2 + VOY_BODY.bendZ) / 2 },
 } as const;
 
+/** Les libelles des potards d'un plan (meme corps pour tous : un seul groupe). */
+function knobTexts(where: VoySilkKind): Text[] {
+  const out: Text[] = [];
+  for (const k of VOY_KNOBS) {
+    const p = voyKnobPlace(k.id);
+    if (p.where !== where) continue;
+    out.push({ text: k.label, x: p.x, z: p.labelZ, cap: 0.068 * K, maxW: PORTRAIT ? 1.05 : 0.76, group: 'knob' });
+  }
+  return out;
+}
+
+/** Les noms des groupes d'un plan, poses dans leur crochet. */
+function groupTexts(where: VoySilkKind): Text[] {
+  return VOY_GROUPS.filter((g) => g.where === where).map((g) => ({
+    text: g.text,
+    x: (g.x0 + g.x1) / 2,
+    z: g.z,
+    cap: VOY_GROUP_TYPE.cap,
+    weight: VOY_GROUP_TYPE.weight,
+    alpha: 1,
+  }));
+}
+
 function panelTexts(): Text[] {
   const out: Text[] = [];
-  out.push({ text: VOY_COPY.model, x: VOY_HEAD.model.x, z: VOY_HEAD.z, cap: VOY_HEAD.model.cap, align: 'right', weight: SILK.strongWeight });
+  out.push({ text: VOY_COPY.model, x: VOY_HEAD.model.x, z: VOY_HEAD.z, cap: VOY_HEAD.model.cap, align: 'left', weight: SILK.strongWeight });
   if (VOY_HEAD.sub) out.push({ text: VOY_HEAD.sub.text, x: VOY_HEAD.sub.x, z: VOY_HEAD.z, cap: 0.065, align: 'right', alpha: 0.45 });
   out.push({ text: 'MAUDITE MACHINE', x: VOY_HEAD.word.x, z: VOY_HEAD.z, cap: 0.18, align: 'left', weight: SILK.strongWeight, group: 'fallback' });
   for (const s of VOY_SECTIONS) out.push({ text: s.text, x: s.x, z: s.z, cap: 0.075 * K, weight: 700, alpha: 1 });
-  for (const k of VOY_KNOBS) {
-    const p = voyKnobPlace(k.id);
-    out.push({ text: k.label, x: p.x, z: p.labelZ, cap: 0.068 * K, maxW: PORTRAIT ? 1.1 : 0.76, group: 'knob' });
-  }
+  out.push(...knobTexts('panel'), ...groupTexts('panel'));
   return out;
 }
 
 function deckTexts(open: boolean): Text[] {
   const out: Text[] = [];
-  out.push({ text: VOY_CHORDS_TITLE.text, x: VOY_CHORDS_TITLE.x, z: VOY_CHORDS_TITLE.z, cap: 0.075 * K, align: 'left', weight: 700, alpha: 1 });
   CHORDS.forEach((c, i) => {
     const p = voyPadAt(i);
     out.push({ text: c.label, x: p.x, z: p.z + VOY_PAD.labelDz, cap: 0.1 * K, weight: 600, maxW: VOY_PAD.size, group: 'pads' });
   });
+  out.push(...knobTexts('deck'), ...groupTexts('deck'));
   for (const b of VOY_BUTTONS) {
     const label = b.id === 'open' && open ? 'CLOSE' : b.label;
-    const nav = b.id !== 'clear' && b.id !== 'random';
+    const nav = b.id === 'open';
     out.push({
       text: label,
       x: b.x,
@@ -108,6 +132,8 @@ export class VoySilk {
   private plane: (typeof PLANE)[VoySilkKind];
   private open = false;
   draws = 0;
+  /** logos poses au dernier dessin (panneau) */
+  logos: string[] = [];
 
   constructor(
     private kind: VoySilkKind,
@@ -180,36 +206,40 @@ export class VoySilk {
     ctx.textBaseline = 'alphabetic';
     ctx.lineCap = 'butt';
     let items: Text[];
+    // Filets entre les sections (desktop), crochets des groupes
+    ctx.strokeStyle = silkA(SILK.lineAlpha);
+    ctx.lineWidth = Math.max(1, SILK.lineWidth * PPU);
     if (this.kind === 'panel') {
-      // Filets entre les sections
-      ctx.strokeStyle = silkA(SILK.lineAlpha);
-      ctx.lineWidth = Math.max(1, SILK.lineWidth * PPU);
       for (const l of VOY_RULES) {
         ctx.beginPath();
         ctx.moveTo(this.px(l[0]), this.py(l[1]));
         ctx.lineTo(this.px(l[2]), this.py(l[3]));
         ctx.stroke();
       }
-      // Graduations 0 a 10 autour des gros potards (CUTOFF, VOLUME), facon Moog
-      ctx.strokeStyle = silkA(0.6);
-      for (const k of VOY_KNOBS) {
-        if (!k.big) continue;
-        const p = voyKnobPlace(k.id);
-        const r0 = VOY_KNOB.skirt.r * p.s + 0.05;
-        const r1 = r0 + 0.07;
-        for (let t = 0; t <= 10; t += 1) {
-          // 270 deg, de sept heures et demie a quatre heures et demie, sens horaire vu de face
-          const a = ((225 - 27 * t) * Math.PI) / 180;
-          const ca = Math.cos(a);
-          const sa = Math.sin(a);
-          ctx.lineWidth = Math.max(1, (t % 5 === 0 ? 0.022 : 0.012) * PPU);
-          ctx.beginPath();
-          ctx.moveTo(this.px(p.x + ca * r0), this.py(p.z - sa * r0));
-          ctx.lineTo(this.px(p.x + ca * (t % 5 === 0 ? r1 + 0.03 : r1)), this.py(p.z - sa * (t % 5 === 0 ? r1 + 0.03 : r1)));
-          ctx.stroke();
-        }
+    }
+    this.brackets();
+    // Graduations 0 a 10 autour des gros potards (CUTOFF, VOLUME), facon Moog
+    ctx.strokeStyle = silkA(0.6);
+    for (const k of VOY_KNOBS) {
+      if (!k.big) continue;
+      const p = voyKnobPlace(k.id);
+      if (p.where !== this.kind) continue;
+      const r0 = VOY_KNOB.skirt.r * p.s + 0.05;
+      const r1 = r0 + 0.07;
+      for (let t = 0; t <= 10; t += 1) {
+        // 270 deg, de sept heures et demie a quatre heures et demie, sens horaire vu de face
+        const a = ((225 - 27 * t) * Math.PI) / 180;
+        const ca = Math.cos(a);
+        const sa = Math.sin(a);
+        ctx.lineWidth = Math.max(1, (t % 5 === 0 ? 0.022 : 0.012) * PPU);
+        ctx.beginPath();
+        ctx.moveTo(this.px(p.x + ca * r0), this.py(p.z - sa * r0));
+        ctx.lineTo(this.px(p.x + ca * (t % 5 === 0 ? r1 + 0.03 : r1)), this.py(p.z - sa * (t % 5 === 0 ? r1 + 0.03 : r1)));
+        ctx.stroke();
       }
-      // Wordmark
+    }
+    if (this.kind === 'panel') {
+      // Wordmark a gauche, logotype a droite (comme la 808)
       const img = logoImage('wordmark');
       items = panelTexts();
       if (img) {
@@ -219,6 +249,13 @@ export class VoySilk {
         ctx.drawImage(this.tint(img, w, h), Math.round(this.px(VOY_HEAD.word.x)), Math.round(this.py(VOY_HEAD.z) - h / 2));
         items = items.filter((t) => t.group !== 'fallback');
       }
+      const mark = logoImage('mark');
+      if (mark) {
+        const h = Math.round(VOY_HEAD.mark.h * PPU);
+        const w = Math.max(1, Math.round((h * mark.naturalWidth) / mark.naturalHeight));
+        ctx.drawImage(this.tint(mark, w, h), Math.round(this.px(VOY_HEAD.mark.x) - w), Math.round(this.py(VOY_HEAD.z) - h / 2));
+        this.logos = logoImage('wordmark') ? ['wordmark', 'mark'] : ['mark'];
+      } else this.logos = img ? ['wordmark'] : [];
     } else {
       items = deckTexts(this.open);
     }
@@ -235,6 +272,32 @@ export class VoySilk {
     });
     this.draws += 1;
     this.texture.needsUpdate = true;
+  }
+
+  /**
+   * Crochets des groupes de ce plan : un tic qui monte au bord du premier
+   * element, le trait sous les libelles, interrompu pour le nom, le tic du
+   * dernier.
+   */
+  private brackets(): void {
+    const ctx = this.ctx;
+    const T = VOY_GROUP_TYPE;
+    const fontPx = (T.cap / SILK.capRatio) * PPU;
+    for (const g of VOY_GROUPS) {
+      if (g.where !== this.kind) continue;
+      const mid = (g.x0 + g.x1) / 2;
+      const half = trackedWidth(ctx, g.text, fontPx, T.weight) / PPU / 2 + T.pad;
+      const t = g.z - T.tick;
+      for (const l of [
+        [g.x0, t, g.x0, g.z, mid - half, g.z],
+        [mid + half, g.z, g.x1, g.z, g.x1, t],
+      ]) {
+        ctx.beginPath();
+        ctx.moveTo(this.px(l[0]), this.py(l[1]));
+        for (let i = 2; i < l.length; i += 2) ctx.lineTo(this.px(l[i]), this.py(l[i + 1]));
+        ctx.stroke();
+      }
+    }
   }
 
   /** Le logo (blanc) teinte a l'encre de la serigraphie. */

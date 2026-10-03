@@ -56,8 +56,8 @@ import {
   stepToggle,
   voyClear,
   voyPad,
-  voyPage,
   voyRandom,
+  voyRun,
   type DialId,
 } from '../actions';
 import { clock } from '../audio/clock';
@@ -117,7 +117,7 @@ interface Down {
   chip?: ChipId;
   /** MM-VOYAGER : pad d'accord, CLEAR ou RANDOM */
   vpad?: number;
-  vbtn?: 'clear' | 'random';
+  vbtn?: 'run' | 'clear' | 'random';
   x: number;
   y: number;
   /** encodeur (ou potard du MM-VOYAGER, v:<id>) sous le pointerdown, et sa valeur de depart */
@@ -309,10 +309,10 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.kind === 'seek') stage.seekAt(d.x, d.y);
       else if ((d.kind === 'chip' || d.kind === 'vchip') && d.chip && d.id) activateChip(d.id, d.chip);
       else if (d.kind === 'vpad' && d.vpad !== undefined) voyPad(d.vpad, stage);
-      else if (d.kind === 'vpage' && d.section && isPage(d.section)) voyPage(d.section, stage);
       else if (d.kind === 'vopen') openToggle(stage, 'voy');
       else if (d.kind === 'vbtn' && d.vbtn === 'clear') voyClear(stage);
       else if (d.kind === 'vbtn' && d.vbtn === 'random') voyRandom(stage);
+      else if (d.kind === 'vbtn' && d.vbtn === 'run') voyRun(stage);
       else if (d.dial) tapDial(d.dial);
       else return null;
       return d.id;

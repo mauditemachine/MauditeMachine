@@ -2,21 +2,25 @@
  * L'arpegiateur du MM-VOYAGER (2026-10-03). Les pads forment une
  * progression : un pad touche s'y ajoute (dans l'ordre des tapes, huit au
  * plus), retouche il en sort ; chaque accord dure une mesure, puis le
- * suivant. Des qu'il y a un accord, l'arpege joue ; plus d'accord (CLEAR,
- * dernier pad retire) : il s'arrete.
+ * suivant. Le premier accord lance l'arpege ; plus d'accord (CLEAR, dernier
+ * pad retire) : il s'arrete. RUN/STOP (2026-10-03) l'arrete ou le relance
+ * sans toucher a la progression (vide : il part sur F#m) ; arrete, les pads
+ * composent la progression sans le relancer. RANDOM le lance.
  *
  * Calage : la meme technique que l'horloge de la boite a rythmes
  * (audio/clock.ts) : un reveil de 25 ms programme sur l'horloge AUDIO
  * chaque note des 100 ms a venir. Quand la boite a rythmes joue, chaque pas
  * est pris sur SA grille (clock.gridAfter) : l'arpege tombe exactement sur
  * ses temps, mesures comprises, et suit son tempo ; sinon il tient sa
- * propre grille au meme tempo. Le SWING de la boite s'applique aussi aux
+ * propre grille au meme tempo, et c'est la boite qui s'y cale si on la
+ * lance ensuite (clock.follow) : les deux machines tombent toujours sur
+ * les memes temps et les memes mesures. Le SWING de la boite s'applique aussi aux
  * doubles croches de l'arpege. Accents legers, facon basse de Mika (le
  * "a" de chaque temps plus fort).
  *
  * Une seule source a la fois, comme RUN : une piste SoundCloud qui part
- * arrete l'arpege (audio/soundcloud.ts) ; un accord touche pendant une
- * piste la met en pause (actions).
+ * arrete l'arpege (audio/soundcloud.ts, la progression reste) ; un accord
+ * touche pendant une piste la met en pause (actions).
  */
 
 import { clock, LOOKAHEAD_S, TICK_MS } from '../audio/clock';
@@ -209,12 +213,29 @@ function stop(): void {
   setState({ ...state, running: false });
 }
 
-/** La progression change : l'arpege part avec le premier accord, s'arrete sans accord. */
-function setProg(prog: number[]): void {
+/**
+ * La progression change : sans accord, l'arpege s'arrete ; le premier
+ * accord (ou go : RANDOM) le lance ; arrete par RUN/STOP, les pads ne le
+ * relancent pas.
+ */
+function setProg(prog: number[], go = false): void {
+  const was = state.prog.length;
   setState({ ...state, prog });
-  if (prog.length > 0) start();
-  else stop();
+  if (prog.length === 0) stop();
+  else if (go || was === 0) start();
 }
+
+/**
+ * La grille de l'arpege qui joue seul (la boite a rythmes arretee) : la
+ * premiere frontiere de pas a t ou apres, et son numero. La boite s'y cale
+ * quand on la lance (clock.follow).
+ */
+function gridAfter(t: number): { time: number; step: number } | null {
+  if (!state.running || clock.running) return null;
+  const k = Math.ceil((t - nextTime) / stepDur - 1e-9);
+  return { time: nextTime + k * stepDur, step: (((stepIdx + k) % 16) + 16) % 16 };
+}
+clock.follow(gridAfter);
 
 export const arp = {
   get: (): ArpState => state,
@@ -231,10 +252,19 @@ export const arp = {
     if (p.includes(i)) setProg(p.filter((k) => k !== i));
     else if (p.length < MAX_CHORDS) setProg([...p, i]);
   },
-  /** RANDOM : une progression toute faite. */
+  /** RANDOM : une progression toute faite, qui part. */
   set(prog: readonly number[]): void {
-    setProg(prog.filter((k) => k >= 0 && k < CHORDS.length).slice(0, MAX_CHORDS));
+    setProg(prog.filter((k) => k >= 0 && k < CHORDS.length).slice(0, MAX_CHORDS), true);
   },
+  /** RUN/STOP : arrete ou relance ; sans progression, part sur F#m. Renvoie l'etat. */
+  toggleRun(): boolean {
+    if (state.running) stop();
+    else if (state.prog.length === 0) setProg([0], true);
+    else start();
+    return state.running;
+  },
+  /** Piste SoundCloud qui part : silence, la progression reste. */
+  stop,
   /** CLEAR, piste SoundCloud qui part, demontage : plus d'accord, silence. */
   clear(): void {
     if (state.prog.length === 0 && !state.running) return;

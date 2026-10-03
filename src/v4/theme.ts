@@ -1429,7 +1429,11 @@ export const EXPLODE = {
   chipsFrom: 0.85,
 } as const;
 
-export type ChipId = 'goodies' | 'merch' | 'studio';
+/**
+ * Puce cliquable d'une carte : GOODIES, MERCH et STUDIO sur la 808 ; sur
+ * le MM-VOYAGER (2026-10-03) toutes les sections, pages comprises.
+ */
+export type ChipId = SectionId;
 
 /**
  * Grosse puce (spec 5.6) : corps 1.7 x 0.2 x 1.2 pose 0.03 au-dessus de la
@@ -1488,7 +1492,7 @@ export const EXTERNAL_MARK = { d: 'M3.5 2.5h6v6M9.5 2.5l-7 7', box: 12, stroke: 
  * sont des pads de page (et des boutons du Dock), machine fermee. Une puce
  * a href (lien sortant) reste possible : pcb.ts sait la dessiner.
  */
-export const CHIPS: readonly {
+export interface ChipSpec {
   id: ChipId;
   silk: string;
   x: number;
@@ -1498,8 +1502,27 @@ export const CHIPS: readonly {
   /** lien sortant du jumeau (nouvel onglet) ; null : la puce ouvre sa section */
   href: string | null;
   /** section ouverte par la puce */
-  section: 'goodies' | 'merch' | 'studio' | null;
-}[] = [
+  section: SectionId | null;
+  /** boitier : la grosse puce QFP (defaut), ou la moyenne (pages du Voyager) */
+  size?: 'big' | 'mid';
+}
+
+/**
+ * Puce moyenne (2026-10-03, les pages sur la carte du MM-VOYAGER) : un QFP
+ * plus petit, sa serigraphie plus petite et plus pres.
+ */
+export const CHIP_MID = {
+  w: 1.2,
+  d: 0.86,
+  legZ: 0.49,
+  legX: 0.66,
+  legsPerSide: 10,
+  legsPerEnd: 6,
+  labelDz: 0.76,
+  labelPx: 22,
+} as const;
+
+export const CHIPS: readonly ChipSpec[] = [
   { id: 'goodies', silk: 'GOODIES', ...pcbAt(-3.4, 2.45), aria: 'Goodies: wallpapers and covers', href: null, section: 'goodies' },
   { id: 'merch', silk: 'MERCH', ...pcbAt(0, 2.45), aria: 'Merch: apparel and stickers', href: null, section: 'merch' },
   { id: 'studio', silk: 'STUDIO', ...pcbAt(3.4, 2.45), aria: 'Studio: setup, lessons, print', href: null, section: 'studio' },
