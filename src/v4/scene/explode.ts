@@ -62,7 +62,7 @@ export interface ExplodeInfo extends ExplodeProgress {
 /**
  * La geometrie d'une ouverture : montee, recul et cabrage du capot, sortie
  * de la carte, et l'etat ferme (hauteurs, pente) ; la 808 par defaut, le
- * MM-VOYAGEUR a la sienne (2026-10-03).
+ * MM-VOYAGER a la sienne (2026-10-03).
  */
 export interface ExplodeCfg {
   lift: number;

@@ -196,7 +196,7 @@ export const sc = {
     if (pending && n.playing && n.progress > 0) setPending(false);
     if (id === null && pending) setPending(false);
     // Une piste demarre : la boite a rythmes passe en STOP, rien ne la relance ;
-    // l'arpege du MM-VOYAGEUR s'arrete aussi (2026-10-03)
+    // l'arpege du MM-VOYAGER s'arrete aussi (2026-10-03)
     if (n.playing && !prev.playing) {
       counters.starts += 1;
       if (clock.running) {

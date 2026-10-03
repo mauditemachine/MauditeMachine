@@ -1,5 +1,5 @@
 /**
- * Message passager de l'ecran du MM-VOYAGEUR (ligne 3) : le potard qu'on
+ * Message passager de l'ecran du MM-VOYAGER (ligne 3) : le potard qu'on
  * tourne (CUTOFF 64%), CLEARED, RANDOM F#m D A E... 1.4 s par defaut ; un
  * nouveau message remplace le precedent.
  */

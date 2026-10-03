@@ -360,7 +360,7 @@ export function context(): AudioContext | undefined {
 }
 
 /**
- * Branchement du MM-VOYAGEUR (2026-10-03, audio/synth.ts) : son entree
+ * Branchement du MM-VOYAGER (2026-10-03, audio/synth.ts) : son entree
  * rejoint le compresseur apres LEVEL (la boite a rythmes et le synthe se
  * collent, puis l'analyseur, l'ecreteur et le master : ?mute=1 tient), et
  * ses envois partagent la REVERB et le DELAY de la boite. null avant le

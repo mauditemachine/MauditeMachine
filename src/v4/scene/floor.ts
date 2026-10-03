@@ -30,7 +30,7 @@ const SHADOW_LINE = 'gl_FragColor = vec4( color, opacity * ( 1.0 - getShadowMask
 
 /**
  * Deux machines (2026-10-03) : une ombre de contact par machine (le
- * MM-VOYAGEUR a droite, ses cotes), et le brouillard mesure depuis le
+ * MM-VOYAGER a droite, ses cotes), et le brouillard mesure depuis le
  * centre de la machine visible la plus proche ; uOn (808, Voyager) les
  * allume : une machine cachee n'a plus d'ombre au sol.
  */
@@ -90,7 +90,7 @@ float v4Contact(vec2 p) {
 export class Floor {
   readonly mesh: Mesh;
   private material: ShadowMaterial;
-  /** ombre de contact et brouillard : la 808, le MM-VOYAGEUR (1 visible, 0 cachee) */
+  /** ombre de contact et brouillard : la 808, le MM-VOYAGER (1 visible, 0 cachee) */
   private on = { value: new Vector2(1, VOYAGER ? 1 : 0) };
 
   /** Les machines visibles ; true si ca change (une frame). */

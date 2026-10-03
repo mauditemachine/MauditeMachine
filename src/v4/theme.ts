@@ -85,9 +85,9 @@ export const HEX = {
   encoder: '#101012',
   collar: '#1A1B1F',
   // Le PCB de la vue eclatee (spec 5.6)
-  pcb: '#12301F',
+  pcb: '#0F3A25',
   /** piste sous le vernis (2026-10-01) : le cuivre eclaircit le vert, sans briller */
-  pcbTrace: '#22573A',
+  pcbTrace: '#2A6644',
   pcbSide: '#0E2418',
   pcbPadCore: '#0B1A11',
   copper: '#B8763A',
@@ -97,7 +97,7 @@ export const HEX = {
   capTop: '#4A5068',
   cell: '#B9BCC4',
   resistor: '#C9B48A',
-  // MM-VOYAGEUR (2026-10-03) : peinture noire mate du capot, son chant, le bac,
+  // MM-VOYAGER (2026-10-03) : peinture noire mate du capot, son chant, le bac,
   // capuchons des potards Moog et leur jupe d'aluminium
   voyPanel: '#131315',
   voyPanelEdge: '#2C2D32',
@@ -345,8 +345,8 @@ export const PCB = {
   /** generateur des pistes (spec 5.7) : grille de 0.2, graine 808 (mulberry32) */
   grid: 0.2,
   seed: 808,
-  traces: 150,
-  vias: 90,
+  traces: 230,
+  vias: 150,
   /** largeurs (unites de la carte) ; 2026-10-01 : plus fines, plus nombreuses, sous le vernis */
   signalW: 0.022,
   powerW: 0.08,

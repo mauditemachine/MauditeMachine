@@ -130,7 +130,7 @@ const holdThenOut = (t: number): number => (t < BTN_LED.hold ? 0 : easeOutCubic(
 /* ---------------- deux machines (2026-10-03) ---------------- */
 
 /**
- * Le cadrage d'une cible (la 808, le MM-VOYAGEUR, ou les deux) : centre x
+ * Le cadrage d'une cible (la 808, le MM-VOYAGER, ou les deux) : centre x
  * du pivot, demi-largeur voulue au pivot (hw0), hauteur projetee fermee
  * (h), pivot ferme et ouvert, rayons du cadrage de section, pile ouverte,
  * etendue de la camera d'ombre. Le Stage interpole entre deux cadrages
@@ -406,7 +406,7 @@ export class Stage {
   /** intro (spec 7.4) : en cours, et l'instant de sa premiere frame (-1 avant) */
   private introOn = false;
   private introT0 = -1;
-  /** le MM-VOYAGEUR (2026-10-03, ?voyager=1), null sans lui */
+  /** le MM-VOYAGER (2026-10-03, ?voyager=1), null sans lui */
   readonly voy: VoyagerRig | null;
   /** cadrage de la cible : courant, depart et arrivee du zoom, cibles, avancement (courbe appliquee) */
   private fr!: Frame;
@@ -463,7 +463,7 @@ export class Stage {
     this.layoutMql = window.matchMedia(MOBILE_QUERY);
     this.coarseMql = window.matchMedia(COARSE_QUERY);
     this.layoutMobile = this.layoutMql.matches;
-    // Cadrage de depart : la cible du store (la 808 seule sans le MM-VOYAGEUR)
+    // Cadrage de depart : la cible du store (la 808 seule sans le MM-VOYAGER)
     this.fTo = this.fFrom = VOYAGER ? focus.get() : 'mm808';
     this.fr = this.frameOf(this.fTo);
     this.frFrom = { ...this.fr };
@@ -626,7 +626,7 @@ export class Stage {
     for (const d of padDefs) if (d.section) this.anchors.set(d.section, d);
     for (const d of this.chipDefs) if (d.section) this.anchors.set(d.section, d);
 
-    // Le MM-VOYAGEUR (2026-10-03) : a droite de la 808 sur la meme table ;
+    // Le MM-VOYAGER (2026-10-03) : a droite de la 808 sur la meme table ;
     // ses objets et ses volumes apres ceux de la 808, chacun marque de sa machine
     if (VOYAGER) {
       for (const d of [...padDefs, ...this.chipDefs, ...encDefs, ...seqDefs, this.seekDef]) d.machine = 'mm808';
@@ -748,7 +748,7 @@ export class Stage {
       // Capot deja ouvert (reconstruction) : le cadrage de la pile ouverte
       this.updateCamera();
       this.unsubFocus = focus.subscribe(this.syncFocus);
-      // Le capot du MM-VOYAGEUR change le cadrage (pile ouverte) : un recalcul
+      // Le capot du MM-VOYAGER change le cadrage (pile ouverte) : un recalcul
       this.unsubVoyExplode = voyExplode.subscribe(() => {
         this.hit.invalidate();
         this.updateCamera();
@@ -894,7 +894,7 @@ export class Stage {
   private updateCamera(): void {
     const W = this.width;
     const aspect = W / this.height;
-    // La cible (2026-10-03) : la 808, le MM-VOYAGEUR ou les deux, interpolee pendant le zoom
+    // La cible (2026-10-03) : la 808, le MM-VOYAGER ou les deux, interpolee pendant le zoom
     const F = this.fr;
     const hwBase = Math.max(F.hw0, (F.h / FIT_H / 2) * aspect);
     const e = this.explodeFrame();
@@ -940,8 +940,8 @@ export class Stage {
   /**
    * Le cadrage d'une cible. La 808 : ses constantes d'origine (desktop :
    * la largeur projetee a l'azimut 45, mobile : la largeur de face). Le
-   * MM-VOYAGEUR : les siennes (voyager/theme.ts). Les deux : de la joue
-   * gauche de la 808 a la joue droite du Voyageur, 88 % de la largeur.
+   * MM-VOYAGER : les siennes (voyager/theme.ts). Les deux : de la joue
+   * gauche de la 808 a la joue droite du Voyager, 88 % de la largeur.
    */
   private frameOf(f: Focus): Frame {
     const mob = this.layoutMobile;
@@ -1394,7 +1394,7 @@ export class Stage {
     if (this.voy) {
       this.voy.finishIntro();
       this.updateCamera();
-      // Au telephone, une machine a la fois : la 808 se pose (on glisse pour le Voyageur)
+      // Au telephone, une machine a la fois : la 808 se pose (on glisse pour le Voyager)
       if (this.layoutMobile && focus.get() === 'all') focus.set('mm808');
     }
     this.invalidate();
@@ -1533,6 +1533,61 @@ export class Stage {
     }
   }
 
+  /**
+   * Vignette d'une machine (2026-10-03, le volet des machines) : elle seule,
+   * de trois quarts, sans le sol, rendue dans un coin du canevas puis copiee
+   * (meme tache : l'ecran n'en montre rien), et la vue normale rendue
+   * aussitot par-dessus. dataURL PNG, null sans le MM-VOYAGER.
+   */
+  thumbnail(m: MachineId, w = 220, h = 138): string | null {
+    const voy = this.voy;
+    if (!voy || this.disposed || this.contextLost || !this.started) return null;
+    const a = this.machine.root.visible;
+    const b = voy.root.visible;
+    const fl = this.floor.mesh.visible;
+    this.machine.root.visible = m === 'mm808';
+    voy.root.visible = m === 'voy';
+    this.floor.mesh.visible = false;
+    const cam = new PerspectiveCamera(24, w / h, 0.1, 200);
+    const cx = m === 'voy' ? VOY_X : 0;
+    const ty = m === 'voy' ? VOY_FRAME.targetY : ORBIT.targetY;
+    const R = m === 'voy' ? Math.hypot(VOY_BODY.w, VOY_BODY.d) / 2 : Math.hypot(BODY.w, BODY.d) / 2;
+    const az = (26 * Math.PI) / 180;
+    const el = (30 * Math.PI) / 180;
+    const D = (R / Math.sin((24 * Math.PI) / 360)) * 0.62;
+    cam.position.set(cx + D * Math.cos(el) * Math.sin(az), ty + D * Math.sin(el), D * Math.cos(el) * Math.cos(az));
+    cam.lookAt(cx, ty, 0);
+    const r = this.renderer;
+    let url: string | null = null;
+    try {
+      r.setScissorTest(true);
+      r.setScissor(0, 0, w, h);
+      r.setViewport(0, 0, w, h);
+      r.clear();
+      r.shadowMap.needsUpdate = false;
+      r.render(this.scene, cam);
+      const dpr = r.getPixelRatio();
+      const c = document.createElement('canvas');
+      c.width = Math.round(w * dpr);
+      c.height = Math.round(h * dpr);
+      const x = c.getContext('2d');
+      if (x) {
+        x.drawImage(this.canvas, 0, this.canvas.height - c.height, c.width, c.height, 0, 0, c.width, c.height);
+        url = c.toDataURL('image/png');
+      }
+    } finally {
+      r.setScissorTest(false);
+      r.setViewport(0, 0, this.width, this.height);
+      this.machine.root.visible = a;
+      voy.root.visible = b;
+      this.floor.mesh.visible = fl;
+      // La vue normale, tout de suite : le coin rendu ne s'affiche jamais
+      this.dirty = true;
+      this.render(performance.now());
+    }
+    return url;
+  }
+
   /** Appele dans chaque frame rendue, juste apres le rendu ; renvoie la fonction de retrait. */
   onView(fn: () => void): () => void {
     this.viewListeners.push(fn);
@@ -1567,7 +1622,7 @@ export class Stage {
     return s !== null && this.anchorsNow().has(s);
   }
 
-  /** Les ancres de la machine utilisee (le MM-VOYAGEUR quand on l'utilise, la 808 sinon). */
+  /** Les ancres de la machine utilisee (le MM-VOYAGER quand on l'utilise, la 808 sinon). */
   private anchorsNow(): Map<SectionId, HotspotDef> {
     return this.voy && this.fTo === 'voy' ? this.voy.anchors : this.anchors;
   }
@@ -1658,7 +1713,7 @@ export class Stage {
   setHover(id: string | null): void {
     const i = id !== null && id.startsWith('step-') ? Number(id.slice(5)) - 1 : -1;
     let changed = this.seq.setHover(i);
-    // Le MM-VOYAGEUR : ses ids commencent par v (vpad, vbtn, vchip, vk)
+    // Le MM-VOYAGER : ses ids commencent par v (vpad, vbtn, vchip, vk)
     if (this.voy && this.voy.setHover(id !== null && id.startsWith('v') ? id : null)) changed = true;
     const pad = id !== null && id.startsWith('pad-') ? (id.slice(4) as PadId) : null;
     if (this.pads.setHover(pad)) changed = true;

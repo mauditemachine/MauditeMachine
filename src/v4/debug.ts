@@ -186,7 +186,7 @@ export interface V4Debug {
   invalidate: () => void;
   measure: () => StageMeasure | null;
   /**
-   * Deux machines (2026-10-03) : la cible (focus, set), le MM-VOYAGEUR (rig,
+   * Deux machines (2026-10-03) : la cible (focus, set), le MM-VOYAGER (rig,
    * arpege, synthe et son rendu hors ligne, potards).
    */
   readonly voyager: {

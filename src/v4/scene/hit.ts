@@ -46,7 +46,7 @@ export type HotspotKind =
   | 'encoder'
   | 'chip'
   | 'seek'
-  // MM-VOYAGEUR (2026-10-03) : pads d'accords, pages, OPEN, CLEAR et RANDOM, potards, puces
+  // MM-VOYAGER (2026-10-03) : pads d'accords, pages, OPEN, CLEAR et RANDOM, potards, puces
   | 'vpad'
   | 'vpage'
   | 'vopen'
@@ -82,7 +82,7 @@ export interface HotspotDef {
   chip?: ChipId;
   /** la machine qui le porte (deux machines, 2026-10-03) ; absent : toujours actif */
   machine?: MachineId;
-  /** MM-VOYAGEUR : pad d'accord (0 a 7), bouton, potard */
+  /** MM-VOYAGER : pad d'accord (0 a 7), bouton, potard */
   vpad?: number;
   vbtn?: 'clear' | 'random';
   vknob?: VoyKnobId;

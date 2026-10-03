@@ -2439,51 +2439,207 @@ html:has(body.v4-active.v4-light) {
   outline-offset: 2px;
 }
 
-/* Une machine utilisee : retour a la vue d'ensemble, en bas a gauche */
-.v4-root .v4-both {
+/* Le volet des machines (desktop, ui/MachineDrawer.tsx) : la souris au bord
+   gauche le fait glisser en 200 ms ; une languette MACHINES le signale. */
+.v4-mdrawer-hot {
   position: absolute;
-  left: 20px;
-  bottom: 24px;
-  z-index: 22;
+  left: 0;
+  top: 52px;
+  bottom: 0;
+  z-index: 24;
+  width: 14px;
+}
+
+.v4-root .v4-mdrawer-tab {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  z-index: 24;
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 44px;
-  padding: 0 14px 0 10px;
+  justify-content: center;
+  width: 24px;
+  height: 132px;
+  padding: 0;
   border: 0;
-  border-radius: 10px;
-  background: transparent;
+  border-radius: 0 10px 10px 0;
+  background: rgba(20, 20, 23, 0.72);
+  box-shadow: inset -1px 0 0 var(--line);
   color: var(--bone-70);
   font-family: 'SF Pro Display', system-ui, -apple-system, sans-serif;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
   cursor: pointer;
-  opacity: 0;
-  visibility: hidden;
+  transform: translateY(-50%);
   transition:
-    opacity 150ms ease,
-    visibility 0s linear 150ms,
+    opacity 160ms ease,
     color 160ms ease;
 }
 
-.v4-root .v4-both[data-visible='1'] {
-  opacity: 1;
-  visibility: visible;
-  transition:
-    opacity 150ms ease,
-    visibility 0s linear 0s,
-    color 160ms ease;
+.v4-root .v4-mdrawer-tab span {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
 }
 
-.v4-root .v4-both:hover,
-.v4-root .v4-both:focus-visible {
+.v4-root .v4-mdrawer-tab:hover,
+.v4-root .v4-mdrawer-tab:focus-visible {
   color: var(--yellow);
 }
 
-.v4-root .v4-both:focus-visible {
+.v4-root .v4-mdrawer-tab[data-open='1'] {
+  opacity: 0;
+}
+
+.v4-root .v4-mdrawer-tab:focus-visible {
   outline: 2px solid var(--yellow);
   outline-offset: 2px;
+}
+
+.v4-root .v4-mdrawer {
+  position: absolute;
+  left: 0;
+  top: 52px;
+  bottom: 0;
+  z-index: 25;
+  width: 264px;
+  padding: 18px 16px 24px;
+  overflow-y: auto;
+  background: rgba(14, 13, 11, 0.9);
+  box-shadow:
+    inset -1px 0 0 var(--line),
+    18px 0 40px rgba(0, 0, 0, 0.35);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  transform: translateX(-102%);
+  visibility: hidden;
+  transition:
+    transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0s linear 200ms;
+}
+
+.v4-root .v4-mdrawer[data-open='1'] {
+  transform: translateX(0);
+  visibility: visible;
+  transition:
+    transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    visibility 0s linear 0s;
+}
+
+.v4-mdrawer-title {
+  margin: 0 0 12px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  color: var(--bone-60);
+}
+
+.v4-mdrawer ul {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.v4-root .v4-mdrawer-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 8px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--bone);
+  font-family: 'SF Pro Display', system-ui, -apple-system, sans-serif;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px transparent;
+  transition:
+    background 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.v4-root .v4-mdrawer-item:hover,
+.v4-root .v4-mdrawer-item:focus-visible {
+  background: rgba(246, 241, 231, 0.06);
+  outline: none;
+}
+
+.v4-root .v4-mdrawer-item[aria-current='true'] {
+  box-shadow: inset 0 0 0 1.5px var(--orange);
+}
+
+.v4-mdrawer-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  height: 138px;
+  margin-bottom: 6px;
+}
+
+.v4-mdrawer-thumb img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.v4-mdrawer-thumb[data-kind='all'] {
+  height: 78px;
+}
+
+.v4-mdrawer-thumb[data-kind='all'] img {
+  max-width: 48%;
+}
+
+.v4-mdrawer-name {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
+.v4-mdrawer-sub {
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  color: var(--bone-60);
+}
+
+.v4-root[data-v4-theme='light'] .v4-mdrawer {
+  background: rgba(246, 243, 237, 0.94);
+  box-shadow:
+    inset -1px 0 0 #e4e0d8,
+    18px 0 40px rgba(67, 67, 67, 0.12);
+}
+
+.v4-root[data-v4-theme='light'] .v4-mdrawer-tab {
+  background: rgba(250, 248, 244, 0.9);
+  box-shadow:
+    inset -1px 0 0 #e4e0d8,
+    2px 0 10px rgba(67, 67, 67, 0.08);
+}
+
+.v4-root[data-v4-theme='light'] .v4-mdrawer-item:hover,
+.v4-root[data-v4-theme='light'] .v4-mdrawer-item:focus-visible {
+  background: rgba(67, 67, 67, 0.05);
+}
+
+@media (max-width: 767px) {
+  .v4-mdrawer-hot,
+  .v4-root .v4-mdrawer-tab,
+  .v4-root .v4-mdrawer {
+    display: none;
+  }
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-mdrawer,
+.v4-root[data-v4-motion='reduced'] .v4-mdrawer[data-open='1'] {
+  transition: none;
 }
 
 /* Telephone : le selecteur de machine sous l'en-tete, la fleche au bord */
@@ -2569,13 +2725,93 @@ html:has(body.v4-active.v4-light) {
 }
 
 .v4-root[data-v4-gl='fallback'] .v4-mname,
-.v4-root[data-v4-gl='fallback'] .v4-both,
+.v4-root[data-v4-gl='fallback'] .v4-mdrawer,
+.v4-root[data-v4-gl='fallback'] .v4-mdrawer-tab,
 .v4-root[data-v4-gl='fallback'] .v4-mswitch,
 .v4-root[data-v4-gl='fallback'] .v4-medge {
   display: none;
 }
 
-.v4-root[data-v4-motion='reduced'] .v4-mname,
-.v4-root[data-v4-motion='reduced'] .v4-both {
+.v4-root[data-v4-motion='reduced'] .v4-mname {
+  transition: none;
+}
+
+/* Le Dock du MM-VOYAGER (telephone, ui/VoyDock.tsx) : la mise en page du Dock
+   de la 808, ses bandes a lui : huit accords en deux rangees, CLEAR RANDOM
+   et l'octave, RATE MODE RANGE. */
+.v4-vdock-chords,
+.v4-vdock-row {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  max-width: 400px;
+  flex: 0 0 auto;
+}
+
+.v4-vdock-chords {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.v4-vdock-row {
+  grid-template-columns: 1fr 1fr 52px 56px 52px;
+}
+
+.v4-vdock-arp {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.v4-root .v4-vdock-chord {
+  height: 38px;
+  border-radius: 10px;
+  background: var(--graphite);
+  color: var(--bone-70);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  transition: transform 90ms ease;
+}
+
+.v4-root .v4-vdock-chord:active {
+  transform: scale(0.94);
+}
+
+.v4-root .v4-vdock-chord[aria-pressed='true'] {
+  background: var(--orange);
+  color: var(--ink);
+}
+
+.v4-root .v4-vdock-chord[data-playing='1'] {
+  background: var(--yellow-hi);
+  color: var(--ink);
+}
+
+.v4-root .v4-vdock .v4-dock-key {
+  flex-direction: row;
+  gap: 6px;
+  font-size: 10px;
+}
+
+.v4-root .v4-vdock-arp .v4-dock-key {
+  flex-direction: column;
+  gap: 1px;
+}
+
+.v4-vdock-val {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--bone);
+}
+
+.v4-root[data-v4-theme='light'] .v4-vdock-chord {
+  box-shadow: inset 0 0 0 1px #e4e0d8;
+}
+
+.v4-root[data-v4-theme='light'] .v4-vdock-chord[aria-pressed='true'],
+.v4-root[data-v4-theme='light'] .v4-vdock-chord[data-playing='1'] {
+  color: #fff;
+  box-shadow: none;
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-vdock-chord {
   transition: none;
 }

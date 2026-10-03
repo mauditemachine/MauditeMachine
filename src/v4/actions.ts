@@ -13,6 +13,7 @@ import { VOICE_FX_DEFAULT, voiceFx, type VoiceParam } from './audio/voicefx';
 import { randomHouse } from './audio/house';
 import { BPM, VEL_NAMES, pattern, velocity } from './audio/pattern';
 import { sc } from './audio/soundcloud';
+import { prepareSynth } from './audio/synth';
 import type { Stage } from './scene/renderer';
 import { chipsLive, explode, voyExplode, type ExplodeStore } from './state/explode';
 import { focus, VOYAGER, type Focus, type MachineId } from './state/focus';
@@ -31,10 +32,11 @@ import { voyParams, voyReadout, type VoyKnobId } from './voyager/params';
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
 const pct = (v: number): number => Math.round(v * 100);
 
-/** Premier geste : cree le contexte audio ; ensuite, le relance s'il dort. */
+/** Premier geste : cree le contexte audio ; ensuite, le relance s'il dort. Le moteur du MM-VOYAGER se charge avec. */
 export function gesture(): void {
   ensure();
   resume();
+  if (VOYAGER) prepareSynth();
 }
 
 /**
@@ -80,7 +82,7 @@ export function page(id: PageId, stage: Stage | null): void {
   pressPage(id, stage);
 }
 
-/** Le pad (808) ou le bouton (MM-VOYAGEUR) d'une page s'enfonce : celui de la machine utilisee. */
+/** Le pad (808) ou le bouton (MM-VOYAGER) d'une page s'enfonce : celui de la machine utilisee. */
 function pressPage(id: PageId, stage: Stage | null): void {
   if (focus.get() === 'voy' && stage?.voy) stage.voy.keys.pressButton(id);
   else stage?.pads.press(id);
@@ -405,7 +407,7 @@ export function escape(): boolean {
   return false;
 }
 
-/* ---------------- deux machines, MM-VOYAGEUR (2026-10-03) ---------------- */
+/* ---------------- deux machines, MM-VOYAGER (2026-10-03) ---------------- */
 
 /** Zoom sur une machine (clic sur elle, glisser au telephone), ou la vue d'ensemble. */
 export function focusMachine(f: Focus): void {
@@ -446,7 +448,7 @@ export function voyRandom(stage: Stage | null = null): void {
   voyMsg.show('RANDOM');
 }
 
-/** Bouton de page du MM-VOYAGEUR : la meme section que le pad de la 808. */
+/** Bouton de page du MM-VOYAGER : la meme section que le pad de la 808. */
 export function voyPage(id: PageId, stage: Stage | null = null): void {
   resume();
   if (id === 'contact' && section.get() !== 'contact') contactDraft.set('booking');
@@ -457,7 +459,7 @@ export function voyPage(id: PageId, stage: Stage | null = null): void {
   stage?.voy?.keys.pressButton(id);
 }
 
-/** Un potard du MM-VOYAGEUR (0 a 1) ; l'ecran dit sa valeur. */
+/** Un potard du MM-VOYAGER (0 a 1) ; l'ecran dit sa valeur. */
 export function voyDial(id: VoyKnobId, v: number): void {
   resume();
   voyParams.set(id, v);
@@ -467,7 +469,7 @@ export function voyDial(id: VoyKnobId, v: number): void {
 /**
  * Les potards des deux machines passent par un seul identifiant (la
  * couche de saisie, la molette) : EncId pour la 808, v:<id> pour le
- * MM-VOYAGEUR.
+ * MM-VOYAGER.
  */
 export type DialId = EncId | `v:${VoyKnobId}`;
 

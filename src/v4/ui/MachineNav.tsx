@@ -1,13 +1,14 @@
 /**
  * Deux machines sur la table (2026-10-03, demande de Mika) :
  * - desktop, vue d'ensemble : sous chaque machine, son nom (MM-808 DRUM
- *   MACHINE, MM-VOYAGEUR SYNTHESIZER) ; la machine entiere se clique
+ *   MACHINE, MM-VOYAGER SYNTHESIZER) ; la machine entiere se clique
  *   (couche de saisie) et son nom aussi (un bouton, le clavier y passe) :
  *   la camera zoome dessus ;
- * - desktop, une machine utilisee : BOTH MACHINES, en bas a gauche,
- *   revient a la vue d'ensemble (Echap et le logo aussi) ;
+ * - desktop : le volet des machines au bord gauche (ui/MachineDrawer.tsx)
+ *   passe de l'une a l'autre ou a la vue d'ensemble (Echap et le logo
+ *   reviennent aussi a la vue d'ensemble) ;
  * - telephone : une machine a la fois ; un selecteur sous l'en-tete
- *   (MM-808 / VOYAGEUR) et une fleche au bord de l'ecran montrent l'autre,
+ *   (MM-808 / VOYAGER) et une fleche au bord de l'ecran montrent l'autre,
  *   un glisser horizontal y passe aussi.
  * Les noms suivent leur machine a chaque frame rendue (boite projetee de
  * ses volumes, scene/hit.ts machineBox), sans rendu React.
@@ -18,10 +19,11 @@ import { focusMachine } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { focus, type MachineId } from '../state/focus';
 import { intro } from '../state/intro';
+import { MachineDrawer } from './MachineDrawer';
 
 const NAMES: Record<MachineId, { title: string; sub: string; aria: string }> = {
   mm808: { title: 'MM-808', sub: 'DRUM MACHINE', aria: 'Play the MM-808 drum machine' },
-  voy: { title: 'MM-VOYAGEUR', sub: 'SYNTHESIZER', aria: 'Play the MM-VOYAGEUR synthesizer' },
+  voy: { title: 'MM-VOYAGER', sub: 'SYNTHESIZER', aria: 'Play the MM-VOYAGER synthesizer' },
 };
 
 const Chevron: React.FC<{ dir: 'left' | 'right' }> = ({ dir }) => (
@@ -76,7 +78,7 @@ export const MachineNav: React.FC<Props> = ({ stage, mobile }) => {
         <div className="v4-mswitch" role="group" aria-label="Machine">
           {(['mm808', 'voy'] as const).map((id) => (
             <button key={id} type="button" className="v4-mswitch-btn" aria-pressed={m === id} onClick={() => focusMachine(id)}>
-              {id === 'mm808' ? 'MM-808' : 'VOYAGEUR'}
+              {id === 'mm808' ? 'MM-808' : 'VOYAGER'}
             </button>
           ))}
         </div>
@@ -84,7 +86,7 @@ export const MachineNav: React.FC<Props> = ({ stage, mobile }) => {
           type="button"
           className="v4-medge"
           data-side={m === 'mm808' ? 'right' : 'left'}
-          aria-label={m === 'mm808' ? 'Show the MM-VOYAGEUR synthesizer' : 'Show the MM-808 drum machine'}
+          aria-label={m === 'mm808' ? 'Show the MM-VOYAGER synthesizer' : 'Show the MM-808 drum machine'}
           onClick={() => focusMachine(m === 'mm808' ? 'voy' : 'mm808')}
         >
           <Chevron dir={m === 'mm808' ? 'right' : 'left'} />
@@ -113,10 +115,7 @@ export const MachineNav: React.FC<Props> = ({ stage, mobile }) => {
           <span className="v4-mname-sub">{NAMES[id].sub}</span>
         </button>
       ))}
-      <button type="button" className="v4-both" data-visible={f !== 'all' && introState === 'done' ? '1' : '0'} onClick={() => focusMachine('all')}>
-        <Chevron dir="left" />
-        <span>BOTH MACHINES</span>
-      </button>
+      <MachineDrawer stage={stage} />
     </>
   );
 };

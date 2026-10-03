@@ -1,7 +1,7 @@
 /**
- * MM-VOYAGEUR (2026-10-03, demande de Mika) : les potards du synthe, leurs
+ * MM-VOYAGER (2026-10-03, demande de Mika) : les potards du synthe, leurs
  * valeurs (0 a 1) et leur traduction en son. Un petit store observable,
- * persiste sous mm.v4.voyageur.1 (try/catch partout : navigation privee,
+ * persiste sous mm.v4.voyager.1 (try/catch partout : navigation privee,
  * stockage plein, JSON corrompu, rien ne leve).
  *
  * Sections du panneau, facon Voyager : ARPEGGIATOR (RATE, MODE, RANGE,
@@ -22,6 +22,7 @@ export type VoyKnobId =
   | 'gate'
   | 'wave'
   | 'fine'
+  | 'octave'
   | 'glide'
   | 'cutoff'
   | 'res'
@@ -60,6 +61,7 @@ export interface VoyKnob {
 export const RATES = ['1/4', '1/8', '1/16', '1/32'] as const;
 export const MODES = ['UP', 'DOWN', 'UP/DN', 'RAND'] as const;
 export const RANGES = ['1 OCT', '2 OCT', '3 OCT'] as const;
+export const OCTAVES = ['-2', '-1', '0', '+1', '+2'] as const;
 
 /** Dans l'ordre de lecture du panneau (et de tabulation des jumeaux). */
 export const VOY_KNOBS: readonly VoyKnob[] = [
@@ -67,8 +69,9 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'mode', label: 'MODE', aria: 'Arpeggiator mode', section: 'arp', def: 0, steps: MODES },
   { id: 'range', label: 'RANGE', aria: 'Arpeggiator range', section: 'arp', def: 0.5, steps: RANGES },
   { id: 'gate', label: 'GATE', aria: 'Arpeggiator gate length', section: 'arp', def: 0.5 },
-  { id: 'wave', label: 'WAVE', aria: 'Oscillator wave, saw to square to pulse', section: 'osc', def: 0 },
+  { id: 'wave', label: 'WAVE', aria: 'Oscillator wave, triangle to saw to square to pulse', section: 'osc', def: 1 / 3 },
   { id: 'fine', label: 'FINE', aria: 'Fine tune, the two oscillators apart, always in key', section: 'osc', def: 0.35 },
+  { id: 'octave', label: 'OCTAVE', aria: 'Octave', section: 'osc', def: 0.5, steps: OCTAVES },
   { id: 'glide', label: 'GLIDE', aria: 'Glide between notes', section: 'osc', def: 0 },
   { id: 'cutoff', label: 'CUTOFF', aria: 'Filter cutoff', section: 'filter', def: 0.5, big: true },
   { id: 'res', label: 'RES', aria: 'Filter resonance', section: 'filter', def: 0.35 },
@@ -123,15 +126,59 @@ export const cutoffHz = (v: number): number => 30 * Math.pow(2, v * 9.3);
 export const envOctaves = (v: number): number => v * 6;
 /** Resonance du second etage (le Q des passe-bas Web Audio est en dB) : -3 a +20 dB. */
 export const resDb = (v: number): number => -3 + v * 23;
-/** Glissement entre deux notes (s). */
-export const glideS = (v: number): number => v * v * 0.35;
-/** Desaccord total entre les deux oscillateurs (cents), centre sur la note. */
-export const fineCents = (v: number): number => v * 28;
+/** Glissement entre deux notes (s) : jusqu'a 0.6 s, bien audible des le premier quart. */
+export const glideS = (v: number): number => (v <= 0 ? 0 : 0.015 + v * v * 0.6);
+/** Desaccord total entre les deux oscillateurs (cents), centre sur la note : jusqu'a 45, le gros son Moog. */
+export const fineCents = (v: number): number => v * 45;
 /** Duree d'une note de l'arpege, en fraction de l'intervalle entre deux notes. */
 export const gateFrac = (v: number): number => 0.08 + 0.92 * v;
 /** Pas de 16e par note : 1/4 = 4, 1/8 = 2, 1/16 = 1, 1/32 = 0.5. */
 export const stepsPerNote = (v: number): number => [4, 2, 1, 0.5][stepIndex('rate', v)];
 export const octaves = (v: number): number => stepIndex('range', v) + 1;
+/** OCTAVE : -2 a +2 octaves (le centre : l'octave d'origine). */
+export const octaveShift = (v: number): number => stepIndex('octave', v) - 2;
+
+/**
+ * Les reglages du moteur (audio/moog.worklet.js), en unites physiques :
+ * secondes, hertz, octaves. Envoyes au moteur a chaque changement.
+ */
+export interface EngineParams {
+  wave: number;
+  fine: number;
+  glide: number;
+  cutoff: number;
+  res: number;
+  envOct: number;
+  fA: number;
+  fD: number;
+  fS: number;
+  fR: number;
+  aA: number;
+  aD: number;
+  aS: number;
+  aR: number;
+  drive: number;
+}
+
+export function engineParams(v: Readonly<VoyValues>): EngineParams {
+  return {
+    wave: v.wave,
+    fine: fineCents(v.fine),
+    glide: glideS(v.glide),
+    cutoff: cutoffHz(v.cutoff),
+    res: v.res,
+    envOct: envOctaves(v.envAmt),
+    fA: attackS(v.fA),
+    fD: decayS(v.fD),
+    fS: v.fS,
+    fR: releaseS(v.fR),
+    aA: attackS(v.aA),
+    aD: decayS(v.aD),
+    aS: v.aS,
+    aR: releaseS(v.aR),
+    drive: v.dist,
+  };
+}
 
 /** Texte de l'ecran et du jumeau : CUTOFF 64%, RATE 1/16, MODE UP/DN. */
 export function voyReadout(id: VoyKnobId, v: number): string {
@@ -150,7 +197,7 @@ export function voyValueText(id: VoyKnobId, v: number): string {
 
 /* ---------------- store ---------------- */
 
-export const VOY_STORAGE_KEY = 'mm.v4.voyageur.1';
+export const VOY_STORAGE_KEY = 'mm.v4.voyager.1';
 const SAVE_DEBOUNCE_MS = 300;
 
 function load(): VoyValues {

@@ -1,5 +1,5 @@
 /**
- * MM-VOYAGEUR (2026-10-03, demande de Mika) : la seconde machine, un synthe
+ * MM-VOYAGER (2026-10-03, demande de Mika) : la seconde machine, un synthe
  * d'esprit Minimoog Voyager dessine dans la langue de la MM-808. Joues de
  * noyer de chaque cote, panneau noir mat qui se releve vers l'arriere (les
  * potards, sections encadrees facon Moog), plateau avant ou les pads
@@ -39,7 +39,7 @@ export const VOY_PANEL = (() => {
  * Joues de noyer : le profil (z, y) suit le capot de 0.16 au-dessus, arrondi
  * devant (le nez d'une joue de Moog) et derriere.
  */
-export const VOY_CHEEK = { above: 0.16, noseR: 0.42, backR: 0.3 } as const;
+export const VOY_CHEEK = { above: 0.16, noseR: 0.62, backR: 0.4 } as const;
 
 /**
  * Place de la seconde machine (vue d'ensemble) : a droite de la 808, un
@@ -91,7 +91,8 @@ const DESK_CELLS: Record<VoyKnobId, [number, number | 'mid']> = {
   gate: [1, 1],
   wave: [2, 0],
   fine: [3, 0],
-  glide: [2.5, 1],
+  octave: [2, 1],
+  glide: [3, 1],
   cutoff: [4, 'mid'],
   res: [5, 0],
   envAmt: [5, 1],
@@ -120,6 +121,7 @@ const PORT_CELLS: Record<VoyKnobId, [number, number]> = {
   cutoff: [0, 1],
   res: [1, 1],
   envAmt: [2, 1],
+  octave: [3, 1],
   glide: [4, 1],
   volume: [5, 1],
   fA: [0, 2],
@@ -169,6 +171,7 @@ export const VOY_SECTIONS: readonly { text: string; x: number; z: number }[] = P
       { text: 'ARPEGGIATOR', x: (PORT_COLS[0] + PORT_COLS[3]) / 2, z: PORT_ROWS[0] - PORT_TITLE },
       { text: 'OSCILLATORS', x: (PORT_COLS[4] + PORT_COLS[5]) / 2, z: PORT_ROWS[0] - PORT_TITLE },
       { text: 'FILTER', x: (PORT_COLS[0] + PORT_COLS[2]) / 2, z: PORT_ROWS[1] - PORT_TITLE },
+      { text: 'PITCH', x: (PORT_COLS[3] + PORT_COLS[4]) / 2, z: PORT_ROWS[1] - PORT_TITLE },
       { text: 'OUTPUT', x: PORT_COLS[5], z: PORT_ROWS[1] - PORT_TITLE },
       { text: 'FILTER EG', x: (PORT_COLS[0] + PORT_COLS[3]) / 2, z: PORT_ROWS[2] - PORT_TITLE },
       { text: 'EFFECTS', x: (PORT_COLS[4] + PORT_COLS[5]) / 2, z: PORT_ROWS[2] - PORT_TITLE },
@@ -189,7 +192,11 @@ export const VOY_RULES: readonly (readonly number[])[] = PORTRAIT
   ? [
       [-3.65, PORT_ROWS[1] - 0.86, 3.65, PORT_ROWS[1] - 0.86],
       [-3.65, PORT_ROWS[2] - 0.86, 3.65, PORT_ROWS[2] - 0.86],
-      [(PORT_COLS[3] + PORT_COLS[4]) / 2, PORT_ROWS[0] - 0.8, (PORT_COLS[3] + PORT_COLS[4]) / 2, PORT_ROWS[3] + 0.72],
+      // ARP | OSC, FILTER | PITCH | OUTPUT, ENVELOPPES | EFFECTS
+      [(PORT_COLS[3] + PORT_COLS[4]) / 2, PORT_ROWS[0] - 0.8, (PORT_COLS[3] + PORT_COLS[4]) / 2, PORT_ROWS[1] - 0.86],
+      [(PORT_COLS[2] + PORT_COLS[3]) / 2, PORT_ROWS[1] - 0.86, (PORT_COLS[2] + PORT_COLS[3]) / 2, PORT_ROWS[2] - 0.86],
+      [(PORT_COLS[4] + PORT_COLS[5]) / 2, PORT_ROWS[1] - 0.86, (PORT_COLS[4] + PORT_COLS[5]) / 2, PORT_ROWS[2] - 0.86],
+      [(PORT_COLS[3] + PORT_COLS[4]) / 2, PORT_ROWS[2] - 0.86, (PORT_COLS[3] + PORT_COLS[4]) / 2, PORT_ROWS[3] + 0.72],
     ]
   : [
       [(DESK_COLS[1] + DESK_COLS[2]) / 2, -1.6, (DESK_COLS[1] + DESK_COLS[2]) / 2, 1.6],
@@ -199,7 +206,7 @@ export const VOY_RULES: readonly (readonly number[])[] = PORTRAIT
       [(DESK_COLS[11] + DESK_COLS[12]) / 2, -1.6, (DESK_COLS[11] + DESK_COLS[12]) / 2, 1.6],
     ];
 
-/** En-tete du panneau : wordmark a gauche, MM-VOYAGEUR a droite, sous-titre. */
+/** En-tete du panneau : wordmark a gauche, MM-VOYAGER a droite, sous-titre. */
 export const VOY_HEAD = PORTRAIT
   ? { z: -2.95, word: { x: -3.6, w: 2.5 }, model: { x: 3.6, cap: 0.13 }, sub: null }
   : { z: -1.98, word: { x: -5.9, w: 3.0 }, model: { x: 5.9, cap: 0.14 }, sub: { x: 3.55, text: 'ARPEGGIATOR SYNTHESIZER' } };
@@ -273,7 +280,5 @@ export const VOY_FRAME = PORTRAIT
   ? { plate: VOY_BODY.w, h: 14.4, targetY: 1.6, radius: { closed: 8.4, open: 10.4 }, fitHalfH: 11.5, explodeTargetY: 4.2 }
   : { plate: Math.SQRT1_2 * (VOY_BODY.w + VOY_BODY.d), h: 9.4, targetY: 1.6, radius: { closed: 8.1, open: 9.0 }, fitHalfH: 8.6, explodeTargetY: 5.6 };
 
-/** Noyer des joues : la texture de fil (px), sa graine, sa repetition. */
-export const VOY_WOOD = { tex: [512, 256] as const, seed: 1974, repeat: 0.32 } as const;
 
-export const VOY_COPY = { model: 'MM-VOYAGEUR', group: 'MM-VOYAGEUR synthesizer', lcdIdle: 'MM-VOYAGEUR' } as const;
+export const VOY_COPY = { model: 'MM-VOYAGER', group: 'MM-VOYAGER synthesizer', lcdIdle: 'MM-VOYAGER' } as const;

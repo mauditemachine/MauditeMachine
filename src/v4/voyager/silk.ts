@@ -1,7 +1,7 @@
 /**
- * Serigraphie du MM-VOYAGEUR (2026-10-03), la meme encre et la meme police
+ * Serigraphie du MM-VOYAGER (2026-10-03), la meme encre et la meme police
  * que la 808 (SF Pro Display, capitales espacees, encre de l'apparence) :
- * - le panneau : wordmark Maudite Machine, MM-VOYAGEUR, les titres des
+ * - le panneau : wordmark Maudite Machine, MM-VOYAGER, les titres des
  *   sections facon Moog et leurs filets, le nom de chaque potard, les
  *   graduations 0 a 10 autour des deux gros potards ;
  * - le plateau : les noms des accords sous les pads, CHORDS F# MINOR, les

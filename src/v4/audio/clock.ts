@@ -289,7 +289,7 @@ function entryAt(t: number): StepEvent | null {
 
 /**
  * La grille de la lecture en cours (2026-10-03, l'arpegiateur du
- * MM-VOYAGEUR s'y cale) : la premiere frontiere de pas a t ou apres
+ * MM-VOYAGER s'y cale) : la premiere frontiere de pas a t ou apres
  * (temps du contexte, sans le retard du swing) et son numero (0 a 15) ;
  * un tempo en attente compte a partir de sa frontiere. null a l'arret.
  */

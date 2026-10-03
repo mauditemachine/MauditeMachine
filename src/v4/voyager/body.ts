@@ -1,5 +1,5 @@
 /**
- * Le corps du MM-VOYAGEUR (2026-10-03) : deux joues de noyer (le fil court
+ * Le corps du MM-VOYAGER (2026-10-03) : deux joues de noyer (le fil court
  * le long de la joue, texture generee une fois), le bac entre elles (fond,
  * face avant, face arriere et sa connectique, quatre pieds), et le capot :
  * une tole pliee, plateau plat devant, panneau qui se releve vers
@@ -9,25 +9,12 @@
  * Trois draw calls : les joues (bois), le bac, le capot.
  */
 
-import {
-  BoxGeometry,
-  BufferGeometry,
-  CanvasTexture,
-  CylinderGeometry,
-  ExtrudeGeometry,
-  LinearFilter,
-  LinearMipmapLinearFilter,
-  Mesh,
-  MeshStandardMaterial,
-  RepeatWrapping,
-  SRGBColorSpace,
-  Shape,
-} from 'three';
+import { BoxGeometry, BufferGeometry, CylinderGeometry, ExtrudeGeometry, Mesh, MeshStandardMaterial, Shape, type MeshPhysicalMaterial } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { APPEARANCE, GAIN, type Tone } from '../theme';
-import { mulberry32 } from '../scene/silk';
 import { paintFaces, paintSolid } from '../scene/materials';
-import { VOY_BODY, VOY_CHEEK, VOY_INNER, VOY_LID_W, VOY_PANEL, VOY_WOOD } from './theme';
+import { VOY_BODY, VOY_CHEEK, VOY_INNER, VOY_LID_W, VOY_PANEL } from './theme';
+import { makeWood, makeWoodMaterial, type WoodMaps } from './wood';
 
 type P2 = [number, number];
 
@@ -136,115 +123,62 @@ export function lidProfile(): P2[] {
 }
 
 /**
+ * Coin arrondi : la courbe (quadratique, tangente aux deux cotes) qui
+ * remplace le sommet P entre ses voisins ; rayon borne par les cotes.
+ */
+function fillet(prev: P2, p: P2, next: P2, r: number, steps: number): P2[] {
+  const d1u = p[0] - prev[0];
+  const d1v = p[1] - prev[1];
+  const d2u = next[0] - p[0];
+  const d2v = next[1] - p[1];
+  const l1 = Math.hypot(d1u, d1v) || 1;
+  const l2 = Math.hypot(d2u, d2v) || 1;
+  const cos = Math.max(-1, Math.min(1, (d1u * d2u + d1v * d2v) / (l1 * l2)));
+  const phi = Math.acos(cos);
+  if (phi < 1e-3 || r <= 0) return [p];
+  const t = Math.min(r * Math.tan(phi / 2), 0.45 * l1, 0.45 * l2);
+  const a: P2 = [p[0] - (d1u / l1) * t, p[1] - (d1v / l1) * t];
+  const b: P2 = [p[0] + (d2u / l2) * t, p[1] + (d2v / l2) * t];
+  const out: P2[] = [];
+  for (let k = 0; k <= steps; k += 1) {
+    const s = k / steps;
+    const m0 = (1 - s) * (1 - s);
+    const m1 = 2 * (1 - s) * s;
+    const m2 = s * s;
+    out.push([m0 * a[0] + m1 * p[0] + m2 * b[0], m0 * a[1] + m1 * p[1] + m2 * b[1]]);
+  }
+  return out;
+}
+
+/**
  * Profil d'une joue, repere du rig, (u = -z, v = y) : du sol (pieds) au
- * capot plus VOY_CHEEK.above, nez arrondi devant, coin arrondi derriere ;
- * rentre de b (le biseau du bois). Les arrondis par segments.
+ * capot plus VOY_CHEEK.above. Tous les coins arrondis (2026-10-03, plus
+ * dessine) : un nez genereux devant, un conge doux au pli du panneau, le
+ * haut arriere arrondi, les pieds a peine casses. Rentre de b (le biseau).
  */
 function cheekShape(b: number): Shape {
   const h = VOY_CHEEK.above;
   const uF = -B.d / 2;
   const uR = B.d / 2;
   const yF = B.deckY + h;
-  // Pli de la joue : le plat du dessus rencontre la pente, toutes deux a h au-dessus du capot
   const flat = lineThrough([0, yF], 1, 0);
   const slope = lineThrough([-B.bendZ, B.deckY + h / COS], 1, TAN);
   const top = lineThrough([0, B.topY + h], 1, 0);
-  const bend = meet(flat, slope);
-  const back = meet(slope, top);
-  const nose = VOY_CHEEK.noseR;
-  const br = VOY_CHEEK.backR;
+  const corners: [P2, number][] = [
+    [[uF, B.feet], 0.05],
+    [[uF, yF], VOY_CHEEK.noseR],
+    [meet(flat, slope), 1.1],
+    [meet(slope, top), 0.6],
+    [[uR, B.topY + h], VOY_CHEEK.backR],
+    [[uR, B.feet], 0.05],
+  ];
   const pts: P2[] = [];
-  const arc = (cu: number, cv: number, r: number, a0: number, a1: number): void => {
-    const n = 10;
-    for (let k = 0; k <= n; k += 1) {
-      const a = a0 + ((a1 - a0) * k) / n;
-      pts.push([cu + Math.cos(a) * r, cv + Math.sin(a) * r]);
-    }
-  };
-  pts.push([uF, B.feet]);
-  // Nez : quart de cercle de la face avant au plat du dessus
-  arc(uF + nose, yF - nose, nose, Math.PI, Math.PI / 2);
-  pts.push(bend);
-  pts.push(back);
-  // Coin arriere arrondi
-  arc(uR - br, B.topY + h - br, br, Math.PI / 2, 0);
-  pts.push([uR, B.feet]);
-  // Les arcs sont deja des segments : le rentrer cote par cote
-  const ins = inset(pts, b);
-  return shapeOf(ins);
-}
-
-/* ---------------- noyer ---------------- */
-
-/**
- * Fil de noyer : des cernes ondulants (bruit de valeur a deux octaves),
- * des pores sombres, trois teintes du brun au miel. Le fil court le long
- * de u (la longueur de la joue). Tuile horizontale (les bords gauche et
- * droit se raccordent), repetee.
- */
-export function makeWoodTexture(): CanvasTexture {
-  const [W, Hh] = VOY_WOOD.tex;
-  const canvas = document.createElement('canvas');
-  canvas.width = W;
-  canvas.height = Hh;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('voyager: no 2d context');
-  const rnd = mulberry32(VOY_WOOD.seed);
-  // Bruit de valeur periodique en x
-  const G = 32;
-  const grid = Array.from({ length: G * G }, () => rnd());
-  const noise = (x: number, y: number): number => {
-    const xi = Math.floor(x);
-    const yi = Math.floor(y);
-    const fx = x - xi;
-    const fy = y - yi;
-    const at = (i: number, j: number): number => grid[(((j % G) + G) % G) * G + (((i % G) + G) % G)];
-    const sx = fx * fx * (3 - 2 * fx);
-    const sy = fy * fy * (3 - 2 * fy);
-    const a = at(xi, yi) + (at(xi + 1, yi) - at(xi, yi)) * sx;
-    const c = at(xi, yi + 1) + (at(xi + 1, yi + 1) - at(xi, yi + 1)) * sx;
-    return a + (c - a) * sy;
-  };
-  const light = APPEARANCE.current === 'light';
-  // Teintes affichees visees : noyer huile (plus clair sur la machine claire)
-  const dark = light ? [92, 58, 34] : [46, 27, 15];
-  const mid = light ? [138, 90, 54] : [84, 52, 30];
-  const hi = light ? [176, 122, 76] : [120, 78, 46];
-  const img = ctx.createImageData(W, Hh);
-  for (let y = 0; y < Hh; y += 1) {
-    for (let x = 0; x < W; x += 1) {
-      const u = (x / W) * G;
-      const v = (y / Hh) * G;
-      // Cernes : surtout en v, ondules par le bruit
-      const warp = noise(u * 0.25, v * 0.5) * 2.2 + noise(u * 0.8, v * 1.6) * 0.5;
-      const ring = (v * 0.9 + warp * 1.4) % 1;
-      const band = Math.pow(Math.abs(ring * 2 - 1), 3);
-      const fleck = noise(u * 6, v * 1.5);
-      let t = 0.35 + 0.45 * band + (fleck - 0.5) * 0.25;
-      t = Math.max(0, Math.min(1, t));
-      const c0 = t < 0.5 ? dark : mid;
-      const c1 = t < 0.5 ? mid : hi;
-      const k = t < 0.5 ? t * 2 : (t - 0.5) * 2;
-      // Pores : de courts traits sombres le long du fil
-      const pore = noise(u * 18, v * 3) > 0.86 ? 0.7 : 1;
-      const o = (y * W + x) * 4;
-      img.data[o] = Math.round((c0[0] + (c1[0] - c0[0]) * k) * pore);
-      img.data[o + 1] = Math.round((c0[1] + (c1[1] - c0[1]) * k) * pore);
-      img.data[o + 2] = Math.round((c0[2] + (c1[2] - c0[2]) * k) * pore);
-      img.data[o + 3] = 255;
-    }
-  }
-  ctx.putImageData(img, 0, 0);
-  const t = new CanvasTexture(canvas);
-  t.colorSpace = SRGBColorSpace;
-  t.wrapS = RepeatWrapping;
-  t.wrapT = RepeatWrapping;
-  t.repeat.set(VOY_WOOD.repeat, VOY_WOOD.repeat);
-  t.generateMipmaps = true;
-  t.minFilter = LinearMipmapLinearFilter;
-  t.magFilter = LinearFilter;
-  t.anisotropy = 4;
-  return t;
+  corners.forEach(([p, r], i) => {
+    const prev = corners[(i + corners.length - 1) % corners.length][0];
+    const next = corners[(i + 1) % corners.length][0];
+    pts.push(...fillet(prev, p, next, r, r > 0.2 ? 12 : 3));
+  });
+  return shapeOf(inset(pts, b));
 }
 
 /* ---------------- pieces ---------------- */
@@ -323,10 +257,10 @@ function buildTray(mobile: boolean): BufferGeometry {
 
 /** Les deux joues (UV du profil en unites : le fil suit la longueur). */
 function buildCheeks(): BufferGeometry {
-  const b = 0.035;
+  const b = 0.06;
   const shape = cheekShape(b);
   const half = B.w / 2;
-  const parts = [extrudeX(shape, -half, -half + B.cheek, b, 3), extrudeX(shape, half - B.cheek, half, b, 3)].map((g) => {
+  const parts = [extrudeX(shape, -half, -half + B.cheek, b, 4), extrudeX(shape, half - B.cheek, half, b, 4)].map((g) => {
     const out = g.toNonIndexed();
     g.dispose();
     return out;
@@ -366,15 +300,19 @@ export class VoyBody {
   readonly cheeks: Mesh;
   readonly tray: Mesh;
   readonly lid: Mesh;
-  readonly woodTex: CanvasTexture;
-  private woodMat: MeshStandardMaterial;
+  private wood: WoodMaps;
+  private woodMat: MeshPhysicalMaterial;
   private trayMat: MeshStandardMaterial;
   private lidMat: MeshStandardMaterial;
 
   constructor(mobile: boolean) {
-    this.woodTex = makeWoodTexture();
-    this.woodMat = new MeshStandardMaterial({ map: this.woodTex, roughness: 0.52, metalness: 0 });
-    this.woodMat.name = 'voyWood';
+    // Une tuile de fil par joue : toute la longueur, toute la hauteur, sans raccord
+    this.wood = makeWood(mobile);
+    for (const t of [this.wood.color, this.wood.bump]) {
+      t.repeat.set(1 / (B.d + 0.3), 1 / (B.topY + 0.6));
+      t.offset.set(0.5, 0);
+    }
+    this.woodMat = makeWoodMaterial(this.wood);
     this.cheeks = new Mesh(buildCheeks(), this.woodMat);
     this.cheeks.name = 'voyCheeks';
     this.cheeks.castShadow = true;
@@ -398,6 +336,11 @@ export class VoyBody {
   dispose(): void {
     for (const m of [this.cheeks, this.tray, this.lid]) m.geometry.dispose();
     for (const m of [this.woodMat, this.trayMat, this.lidMat]) m.dispose();
-    this.woodTex.dispose();
+    for (const t of [this.wood.color, this.wood.bump, this.wood.env]) {
+      const c = t.image as HTMLCanvasElement;
+      t.dispose();
+      c.width = 0;
+      c.height = 0;
+    }
   }
 }

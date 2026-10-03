@@ -42,8 +42,10 @@ import {
   Float32BufferAttribute,
   Mesh,
   MeshBasicMaterial,
+  MeshPhysicalMaterial,
   MeshStandardMaterial,
   NoColorSpace,
+  Vector2,
   PlaneGeometry,
   SphereGeometry,
   SRGBColorSpace,
@@ -106,6 +108,16 @@ const ORM = {
   silk: 'rgb(255, 204, 0)',
   hole: 'rgb(150, 235, 0)',
   fiber: 'rgb(255, 217, 0)',
+} as const;
+
+/** Carte de hauteur (gris) : vernis, piste dessous, pastille, serigraphie, trou, etiquette. */
+const HEIGHT = {
+  board: '#808080',
+  trace: '#a2a2a2',
+  pad: '#aaaaaa',
+  silk: '#b6b6b6',
+  hole: '#262626',
+  sticker: '#c2c2c2',
 } as const;
 
 /** Albedos lineaires des composants (couleurs de sommets). */
@@ -259,7 +271,74 @@ const LEG_SMALL = { n: 6, pitch: 0.12, w: 0.05, h: 0.05, d: 0.1 } as const;
 const HEADER = { pitch: 0.13, w: 1.2, d: 0.42, h: 0.3, wall: 0.035 } as const;
 const TERM = { pitch: 0.35, d: 0.34, h: 0.36 } as const;
 
-function footprints(): Footprint[] {
+/**
+ * Les deux cartes (2026-10-03, Mika : "des PCB quasiment realistes") :
+ * la MM-808 garde ses puces numeriques et recoit des transistors CMS, des
+ * points de test, des mires de fabrication et son etiquette a code-barres ;
+ * celle du MM-VOYAGER est analogique : trimmers bleus, condensateurs film
+ * rouges, transistors TO-92, amplis-op en boitier DIP (le filtre en
+ * echelle), et ses petites puces deviennent des puces audio.
+ */
+export type PcbVariant = 'mm808' | 'voy';
+
+type ExtraKind = 'trim' | 'film' | 'to92' | 'dip' | 'sot' | 'tp' | 'fid';
+
+interface Extra {
+  kind: ExtraKind;
+  x: number;
+  z: number;
+  ref: string;
+  label?: string;
+}
+
+const EXTRA_SIZE: Record<ExtraKind, { hx: number; hz: number }> = {
+  trim: { hx: 0.18, hz: 0.18 },
+  film: { hx: 0.22, hz: 0.09 },
+  to92: { hx: 0.13, hz: 0.09 },
+  dip: { hx: 0.45, hz: 0.17 },
+  sot: { hx: 0.1, hz: 0.06 },
+  tp: { hx: 0.07, hz: 0.07 },
+  fid: { hx: 0.06, hz: 0.06 },
+};
+
+/** Les composants de plus, en unites de la carte (bande du milieu, visible capot ouvert). */
+function extrasOf(variant: PcbVariant): Extra[] {
+  const fid: Extra[] = [
+    { kind: 'fid', x: -0.35, z: -0.5, ref: '' },
+    { kind: 'fid', x: 3.95, z: -1.45, ref: '' },
+  ];
+  if (variant === 'voy') {
+    return [
+      ...[-0.15, 0.35, 0.85, 1.35].map((x, k) => ({ kind: 'trim' as const, x, z: -0.78, ref: `RV${k + 1}` })),
+      ...[2.0, 2.55, 3.1].map((x, k) => ({ kind: 'film' as const, x, z: -0.74, ref: `C${21 + k}`, label: 'MKS2' })),
+      ...[-0.1, 0.3, 0.7, 1.1, 1.5].map((x, k) => ({ kind: 'to92' as const, x, z: -1.3, ref: `Q${k + 1}` })),
+      { kind: 'dip', x: 2.35, z: -1.28, ref: 'U8', label: 'TL074' },
+      { kind: 'dip', x: 3.35, z: -1.28, ref: 'U9', label: 'LM13700' },
+      { kind: 'tp', x: 3.72, z: -0.72, ref: 'TP1' },
+      ...fid,
+    ];
+  }
+  return [
+    ...[
+      [2.35, -0.72],
+      [2.8, -0.72],
+      [2.35, -1.12],
+      [2.8, -1.12],
+    ].map(([x, z], k) => ({ kind: 'sot' as const, x, z, ref: `Q${k + 1}` })),
+    ...[
+      [3.35, -0.7],
+      [3.35, -1.05],
+      [0.05, -1.35],
+      [0.35, -1.35],
+    ].map(([x, z], k) => ({ kind: 'tp' as const, x, z, ref: `TP${k + 1}` })),
+    ...fid,
+  ];
+}
+
+/** L'etiquette a code-barres de la carte (MM-808) : centre, demi-etendues. */
+const STICKER = { x: 1.15, z: -0.88, hx: 0.6, hz: 0.24 } as const;
+
+function footprints(variant: PcbVariant): Footprint[] {
   const out: Footprint[] = [];
   const legHz = CHIP.legZ + CHIP.legD / 2;
   const legHx = CHIP.legX + CHIP.legD / 2;
@@ -344,6 +423,36 @@ function footprints(): Footprint[] {
   }
   for (const h of P.holes) {
     out.push({ x: h.x, z: h.z, hx: 0.24, hz: 0.24, round: true, frame: false, ref: '', refX: 0, refZ: 0, refAlign: 'center', axis: null, outline: false, pads: [], shadow: { x: h.x, z: h.z, hx: 0.15, hz: 0.15, round: true } });
+  }
+  for (const e of extrasOf(variant)) {
+    const S = EXTRA_SIZE[e.kind];
+    const pads: Footprint['pads'] = [];
+    if (e.kind === 'tp') pads.push({ x: e.x, z: e.z, w: 0.13, d: 0.13, round: true });
+    else if (e.kind === 'fid') pads.push({ x: e.x, z: e.z, w: 0.09, d: 0.09, round: true });
+    else if (e.kind === 'trim' || e.kind === 'to92') for (const k of [-1, 0, 1]) pads.push({ x: e.x + k * 0.1, z: e.z + S.hz + 0.02, w: 0.07, d: 0.07, round: true });
+    else if (e.kind === 'film') for (const k of [-1, 1]) pads.push({ x: e.x + k * 0.15, z: e.z, w: 0.08, d: 0.08, round: true });
+    else if (e.kind === 'dip') for (const sd of [-1, 1]) for (let j = 0; j < 7; j += 1) pads.push({ x: e.x - 0.36 + j * 0.12, z: e.z + sd * (S.hz + 0.04), w: 0.06, d: 0.06, round: true });
+    else for (const k of [-1, 1]) pads.push({ x: e.x + k * 0.07, z: e.z + S.hz + 0.03, w: 0.05, d: 0.05 });
+    const flat = e.kind === 'tp' || e.kind === 'fid';
+    out.push({
+      x: e.x,
+      z: e.z,
+      hx: S.hx + 0.04,
+      hz: S.hz + 0.04,
+      round: flat || e.kind === 'trim',
+      frame: false,
+      ref: e.ref,
+      refX: e.x,
+      refZ: e.z - S.hz - 0.14,
+      refAlign: 'center',
+      axis: flat ? null : e.kind === 'film' ? 'x' : 'z',
+      outline: !flat,
+      pads,
+      shadow: flat ? null : { x: e.x, z: e.z, hx: S.hx, hz: S.hz, round: e.kind === 'to92' },
+    });
+  }
+  if (variant === 'mm808') {
+    out.push({ x: STICKER.x, z: STICKER.z, hx: STICKER.hx + 0.05, hz: STICKER.hz + 0.05, round: false, frame: false, ref: '', refX: 0, refZ: 0, refAlign: 'center', axis: null, outline: false, pads: [], shadow: null });
   }
   return out;
 }
@@ -434,7 +543,7 @@ interface ChipRange {
 }
 
 /** Atlas des marquages : cellules de 4 x 1, texte blanc. */
-const ATLAS = { cols: 4, rows: 8 } as const;
+const ATLAS = { cols: 4, rows: 16 } as const;
 
 interface AtlasEntry {
   lines: string[];
@@ -462,7 +571,16 @@ interface Built {
   atlas: AtlasEntry[];
 }
 
-function buildParts(mobile: boolean): Built {
+/** Teintes des composants analogiques (carte du MM-VOYAGER). */
+const RGB_EXTRA = {
+  trim: lin(0x1d5fb8, 2.2),
+  film: lin(0xb3122a, 2.4),
+  to92: lin(0x111113, 3),
+} as const;
+
+const SMALL_REFS_VOY = ['TL072', 'CA3046', 'LM13700', 'LM324'] as const;
+
+function buildParts(mobile: boolean, variant: PcbVariant): Built {
   const seg = mobile ? 12 : 16;
   const parts = new Bucket();
   const metal = new Bucket();
@@ -504,7 +622,7 @@ function buildParts(mobile: boolean): Built {
     const gm = mergeOf(legs, 'legs');
     const mStart = metal.add(gm);
     const cell = atlas.length;
-    atlas.push({ lines: [`MM-808 ${['G1', 'M2', 'S3'][k] ?? 'X'}`, 'VRSTL 2026'], weight: 600 });
+    atlas.push({ lines: [`${variant === 'voy' ? 'MM-VGR' : 'MM-808'} ${['G1', 'M2', 'S3'][k] ?? 'X'}`, 'VRSTL 2026'], weight: 600 });
     const gl = labelQuad(cell, 1.1, 0.275, c.x + 0.1, CHIP.y1 + 0.002, c.z + 0.08);
     const lStart = labels.add(gl);
     ranges.push({
@@ -529,7 +647,7 @@ function buildParts(mobile: boolean): Built {
       }
     }
     const cell = atlas.length;
-    atlas.push({ lines: [P.smallRefs[k] ?? 'IC'], weight: 600 });
+    atlas.push({ lines: [(variant === 'voy' ? SMALL_REFS_VOY[k] : P.smallRefs[k]) ?? 'IC'], weight: 600 });
     labels.add(labelQuad(cell, 0.56, 0.14, s.x + 0.04, 0.03 + S.h + 0.002, s.z + 0.05));
   });
 
@@ -633,6 +751,48 @@ function buildParts(mobile: boolean): Built {
     glow.translate(l.x, 0.004, l.z);
     paint(glow, LED_RGB.glow);
     led.add(glow);
+  }
+
+  // Les composants de plus (2026-10-03)
+  for (const e of extrasOf(variant)) {
+    const S = EXTRA_SIZE[e.kind];
+    if (e.kind === 'trim') {
+      // Trimmer : boitier carre bleu, rotor blanc et sa fente en croix
+      parts.add(box(S.hx * 2, 0.2, S.hz * 2, e.x, 0.1, e.z, RGB_EXTRA.trim));
+      parts.add(cyl(0.12, 0.03, seg, e.x, 0.2, e.z, RGB.capBand));
+      metal.add(box(0.17, 0.012, 0.03, e.x, 0.235, e.z, METAL.recess));
+      metal.add(box(0.03, 0.012, 0.17, e.x, 0.235, e.z, METAL.recess));
+      for (const k of [-1, 0, 1]) metal.add(box(0.03, 0.05, 0.03, e.x + k * 0.1, 0.025, e.z + S.hz + 0.02, METAL.leg));
+    } else if (e.kind === 'film') {
+      // Condensateur film : bloc rouge, deux pattes, marquage
+      parts.add(box(S.hx * 2, 0.34, S.hz * 2, e.x, 0.17, e.z, RGB_EXTRA.film));
+      const cell = atlas.length;
+      atlas.push({ lines: [e.label ?? 'MKS2', '.1 63V'], weight: 600 });
+      labels.add(labelQuad(cell, 0.4, 0.13, e.x, 0.342, e.z));
+    } else if (e.kind === 'to92') {
+      // Transistor TO-92 : demi-cylindre noir sur trois pattes
+      parts.add(cyl(0.12, 0.24, seg, e.x, 0.08, e.z, RGB_EXTRA.to92, { thetaStart: Math.PI / 2, thetaLength: Math.PI }));
+      parts.add(box(0.24, 0.24, 0.012, e.x, 0.2, e.z, RGB_EXTRA.to92));
+      for (const k of [-1, 0, 1]) metal.add(box(0.025, 0.08, 0.025, e.x + k * 0.08, 0.04, e.z + 0.03, METAL.leg));
+    } else if (e.kind === 'dip') {
+      // Ampli-op DIP-14 : corps noir sur ses pattes, encoche, marquage
+      parts.add(box(S.hx * 2, 0.15, S.hz * 2, e.x, 0.05 + 0.075, e.z, RGB.chip));
+      parts.add(cyl(0.05, 0.004, 10, e.x - S.hx + 0.02, 0.2, e.z, RGB.dimple, { thetaStart: 0, thetaLength: Math.PI }));
+      for (const sd of [-1, 1]) {
+        for (let j = 0; j < 7; j += 1) {
+          metal.add(box(0.05, 0.03, 0.08, e.x - 0.36 + j * 0.12, 0.11, e.z + sd * (S.hz + 0.01), METAL.leg));
+          metal.add(box(0.03, 0.1, 0.03, e.x - 0.36 + j * 0.12, 0.05, e.z + sd * (S.hz + 0.04), METAL.leg));
+        }
+      }
+      const cell = atlas.length;
+      atlas.push({ lines: [e.label ?? 'IC', 'VRSTL 2026'], weight: 600 });
+      labels.add(labelQuad(cell, 0.7, 0.2, e.x + 0.04, 0.203, e.z));
+    } else if (e.kind === 'sot') {
+      // SOT-23 : petit corps noir, trois pattes
+      parts.add(box(S.hx * 2, 0.07, S.hz * 2, e.x, 0.045, e.z, RGB.chip));
+      for (const k of [-1, 1]) metal.add(box(0.03, 0.03, 0.06, e.x + k * 0.07, 0.015, e.z + S.hz + 0.02, METAL.leg));
+      metal.add(box(0.03, 0.03, 0.06, e.x, 0.015, e.z - S.hz - 0.02, METAL.leg));
+    }
   }
 
   return { parts: parts.build('parts'), metal: metal.build('metal'), labels: labels.build('labels'), led: led.build('led'), ranges, atlas };
@@ -805,7 +965,10 @@ export class Pcb {
   private H: number;
   private aW: number;
   private aH: number;
-  private boardMat: MeshStandardMaterial;
+  private boardMat: MeshPhysicalMaterial;
+  /** relief de la carte (2026-10-03) : pistes, pastilles et serigraphie en bosse sous le vernis brillant */
+  private normalTex: CanvasTexture;
+  private normalCanvas: HTMLCanvasElement;
   private partsMat: MeshStandardMaterial;
   private metalMat: MeshStandardMaterial;
   private labelMat: MeshStandardMaterial;
@@ -823,16 +986,18 @@ export class Pcb {
   private litDraws = 0;
   private segments = 0;
 
-  /** model : la ligne de modele de la serigraphie (MM-VOYAGEUR, 2026-10-03), MM-808 par defaut */
+  /** model : la ligne de modele de la serigraphie (MM-VOYAGER, 2026-10-03), MM-808 par defaut ; variant : la carte */
   private model: string | null;
+  private variant: PcbVariant;
 
-  constructor(mobile: boolean, anisotropy: number, model: string | null = null) {
-    this.model = model;
+  constructor(mobile: boolean, anisotropy: number, opts: { model?: string; variant?: PcbVariant } = {}) {
+    this.model = opts.model ?? null;
+    this.variant = opts.variant ?? 'mm808';
     const [W, H] = mobile ? PCB.tex.mobile : PCB.tex.desktop;
     this.W = W;
     this.H = H;
     this.aW = mobile ? 512 : 1024;
-    this.aH = this.aW / 2;
+    this.aH = this.aW;
     // Petits aplats tant que le PCB n'est pas apparu : les materiaux ont
     // leurs cartes des le depart (programmes compiles une fois), les vraies
     // tailles viennent a prepare()
@@ -864,9 +1029,18 @@ export class Pcb {
     this.envTex.mapping = EquirectangularReflectionMapping;
     this.envTex.colorSpace = SRGBColorSpace;
 
-    this.prints = footprints();
+    this.prints = footprints(this.variant);
 
-    this.boardMat = new MeshStandardMaterial({
+    // Relief plat tant que la carte n'est pas dessinee
+    const nrm = canvas2d(4, 4);
+    nrm.ctx.fillStyle = 'rgb(128, 128, 255)';
+    nrm.ctx.fillRect(0, 0, 4, 4);
+    this.normalCanvas = nrm.canvas;
+    this.normalTex = makeCanvasTexture(this.normalCanvas, anisotropy);
+    this.normalTex.colorSpace = NoColorSpace;
+    // Vernis epargne brillant (2026-10-03) : la couche de vernis (clearcoat) reflete
+    // le studio et suit les bosses des pistes, comme une vraie carte
+    this.boardMat = new MeshPhysicalMaterial({
       map: this.texture,
       roughnessMap: this.orm,
       metalnessMap: this.orm,
@@ -876,12 +1050,18 @@ export class Pcb {
       metalness: 1,
       envMap: this.envTex,
       envMapIntensity: 1,
+      normalMap: this.normalTex,
+      normalScale: new Vector2(0.9, 0.9),
+      clearcoat: 0.9,
+      clearcoatRoughness: 0.16,
+      clearcoatNormalMap: this.normalTex,
+      clearcoatNormalScale: new Vector2(0.45, 0.45),
     });
     this.boardMat.name = 'pcb';
     this.board = new Mesh(buildBoard(W, H), this.boardMat);
     this.board.name = 'pcbBoard';
 
-    const built = buildParts(mobile);
+    const built = buildParts(mobile, this.variant);
     this.ranges = built.ranges;
     this.atlas = built.atlas;
     for (const g of [built.parts, built.metal, built.labels]) {
@@ -1454,6 +1634,12 @@ export class Pcb {
       c.imageSmoothingEnabled = true;
     }
 
+    // Relief (2026-10-03) : une carte de hauteur dessinee comme la couleur
+    const hgt = canvas2d(W, H);
+    const hc = hgt.ctx;
+    hc.fillStyle = HEIGHT.board;
+    hc.fillRect(0, 0, W, H);
+
     // Vernis : un vert sombre jamais uni (taches tres douces), rugosite qui varie
     ctx.fillStyle = TEX.board;
     ctx.fillRect(0, 0, W, H);
@@ -1485,19 +1671,23 @@ export class Pcb {
     const tint = canvas2d(W, H);
     this.stamp(ctx, mask, TEX.trace, tint);
     this.stamp(orm, mask, ORM.trace, tint);
+    this.stamp(hc, mask, HEIGHT.trace, tint);
     mask.width = 0;
     mask.height = 0;
     tint.canvas.width = 0;
     tint.canvas.height = 0;
     this.copper(ctx, TEX.trace, TEX.gold);
     this.copper(orm, ORM.trace, ORM.copper);
+    this.copper(hc, HEIGHT.trace, HEIGHT.pad);
     this.holes(ctx, TEX.hole);
     this.holes(orm, ORM.hole);
+    this.holes(hc, HEIGHT.hole);
 
     // Serigraphie : contours (blancs, les puces cliquables aussi depuis le 2026-10-01), textes
     for (const [c, ink, frame] of [
       [ctx, TEX.silk, TEX.silk],
       [orm, ORM.silk, ORM.silk],
+      [hc, HEIGHT.silk, HEIGHT.silk],
     ] as const) {
       c.setTransform(1, 0, 0, 1, 0, 0);
       for (const f of this.prints) {
@@ -1511,7 +1701,7 @@ export class Pcb {
       }
       c.textBaseline = 'alphabetic';
       for (const t of this.texts()) {
-        c.fillStyle = c === ctx ? (t.nav ? TEX.nav : TEX.silk) : ORM.silk;
+        c.fillStyle = c === ctx ? (t.nav ? TEX.nav : TEX.silk) : c === hc ? HEIGHT.silk : ORM.silk;
         const px = t.px * k;
         const w = trackedWidth(c, t.text, px, PCB_TYPE.weight, PCB_TYPE.tracking);
         const x = this.px(t.x);
@@ -1519,6 +1709,9 @@ export class Pcb {
         drawTracked(c, t.text, x0, this.py(t.z) + (px * SILK.capRatio) / 2, px, PCB_TYPE.weight, PCB_TYPE.tracking);
       }
     }
+
+    // L'etiquette a code-barres de la MM-808 (papier blanc mat, en leger relief)
+    if (this.variant === 'mm808') this.sticker(ctx, orm, hc);
 
     // Ombres de contact : la couleur s'assombrit, l'occlusion (rouge) aussi
     this.shadows(ctx, 'rgba(0, 0, 0, 0.62)', 'source-over');
@@ -1541,12 +1734,99 @@ export class Pcb {
     orm.fillStyle = ORM.fiber;
     orm.fillRect(W - 4, 0, 4, 4);
 
+    this.normals(hgt.canvas);
+    hgt.canvas.width = 0;
+    hgt.canvas.height = 0;
+
     this.captureZones();
     for (const z of this.zones) if (this.rangeOf(z.id)?.lit) this.paintZone(z, true);
     this.drawAtlas();
     this.draws += 1;
     this.texture.needsUpdate = true;
     this.orm.needsUpdate = true;
+  }
+
+  /** L'etiquette a code-barres : papier blanc, barres noires, numero de serie. */
+  private sticker(ctx: Ctx, orm: Ctx, hc: Ctx): void {
+    const S = STICKER;
+    const x0 = this.px(S.x - S.hx);
+    const y0 = this.py(S.z - S.hz);
+    const w = 2 * S.hx * this.ux;
+    const h = 2 * S.hz * this.uz;
+    const r = 0.03 * this.ux;
+    const rr = (c: Ctx): void => {
+      c.beginPath();
+      c.moveTo(x0 + r, y0);
+      c.arcTo(x0 + w, y0, x0 + w, y0 + h, r);
+      c.arcTo(x0 + w, y0 + h, x0, y0 + h, r);
+      c.arcTo(x0, y0 + h, x0, y0, r);
+      c.arcTo(x0, y0, x0 + w, y0, r);
+      c.closePath();
+    };
+    for (const [c, fill] of [
+      [ctx, '#e9e6dc'],
+      [orm, 'rgb(255, 232, 0)'],
+      [hc, HEIGHT.sticker],
+    ] as const) {
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.fillStyle = fill;
+      rr(c);
+      c.fill();
+    }
+    // Barres : largeurs tirees (graine fixe), sur 70 % de la largeur
+    const rnd = mulberry32(PCB.seed + 7);
+    ctx.fillStyle = '#16171a';
+    let x = x0 + w * 0.08;
+    const end = x0 + w * 0.92;
+    const bt = y0 + h * 0.14;
+    const bh = h * 0.5;
+    while (x < end) {
+      const bw = (0.004 + rnd() * 0.012) * this.ux;
+      if (rnd() > 0.35) ctx.fillRect(x, bt, bw, bh);
+      x += bw + (0.004 + rnd() * 0.008) * this.ux;
+    }
+    ctx.textBaseline = 'alphabetic';
+    const px = h * 0.2;
+    drawTracked(ctx, 'SN MM808-000808  REV 4.0', x0 + w * 0.08, y0 + h * 0.88, px, 600, 0.08);
+  }
+
+  /**
+   * Carte de normales du relief : la hauteur ramenee a demi-definition
+   * (moyenne 2 x 2), derivees centrees ; le vert suit v (rangee 0 du canevas
+   * en haut de la texture).
+   */
+  private normals(height: HTMLCanvasElement): void {
+    const W = Math.floor(this.W / 2);
+    const H = Math.floor(this.H / 2);
+    const c = this.normalCanvas;
+    c.width = W;
+    c.height = H;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(height, 0, 0, W, H);
+    const img = ctx.getImageData(0, 0, W, H);
+    const d = img.data;
+    const h = new Float32Array(W * H);
+    for (let i = 0; i < W * H; i += 1) h[i] = d[i * 4] / 255;
+    const k = 5.5;
+    for (let y = 0; y < H; y += 1) {
+      const ym = y > 0 ? y - 1 : y;
+      const yp = y < H - 1 ? y + 1 : y;
+      for (let x = 0; x < W; x += 1) {
+        const xm = x > 0 ? x - 1 : x;
+        const xp = x < W - 1 ? x + 1 : x;
+        const nx = -(h[y * W + xp] - h[y * W + xm]) * k;
+        const ny = (h[yp * W + x] - h[ym * W + x]) * k;
+        const l = Math.hypot(nx, ny, 1);
+        const o = (y * W + x) * 4;
+        d[o] = Math.round(((nx / l) * 0.5 + 0.5) * 255);
+        d[o + 1] = Math.round(((ny / l) * 0.5 + 0.5) * 255);
+        d[o + 2] = Math.round(((1 / l) * 0.5 + 0.5) * 255);
+        d[o + 3] = 255;
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    this.normalTex.needsUpdate = true;
   }
 
   /** Atlas des marquages : references des puces et codes des resistances, en blanc. */
@@ -1741,14 +2021,14 @@ export class Pcb {
   dispose(): void {
     for (const m of [this.board, this.parts, this.metal, this.labels, this.led]) m.geometry.dispose();
     for (const m of [this.boardMat, this.partsMat, this.metalMat, this.labelMat, this.ledMat]) m.dispose();
-    for (const t of [this.texture, this.orm, this.atlasTex, this.radialTex, this.envTex]) t.dispose();
+    for (const t of [this.texture, this.orm, this.atlasTex, this.radialTex, this.envTex, this.normalTex]) t.dispose();
     for (const z of this.zones) {
       if (!z.base) continue;
       z.base.width = 0;
       z.base.height = 0;
     }
     this.zones.length = 0;
-    for (const c of [this.canvas, this.ormCanvas, this.atlasCanvas, this.envCanvas]) {
+    for (const c of [this.canvas, this.ormCanvas, this.atlasCanvas, this.envCanvas, this.normalCanvas]) {
       c.width = 0;
       c.height = 0;
     }

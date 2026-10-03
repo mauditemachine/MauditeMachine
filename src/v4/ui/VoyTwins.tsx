@@ -1,12 +1,12 @@
 /**
- * Jumeaux HTML du MM-VOYAGEUR (2026-10-03), comme ceux de la 808
+ * Jumeaux HTML du MM-VOYAGER (2026-10-03), comme ceux de la 808
  * (ui/Hotspots.tsx, Twins) : un element transparent par objet, pose sur sa
  * silhouette projetee dans la passe de rendu, focusable, nomme ; le clavier
  * et les lecteurs d'ecran passent par eux. Ordre : les huit pads
  * d'accords (aria-pressed : dans la progression), les pages, OPEN, CLEAR,
  * RANDOM, les puces (capot ouvert), les 23 potards (role slider : fleches,
  * Maj ou Page pour 10 %, Debut et Fin). Inertes tant qu'on n'utilise pas
- * le Voyageur.
+ * le Voyager.
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';

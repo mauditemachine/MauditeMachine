@@ -20,7 +20,7 @@ import type { Stage } from '../scene/renderer';
 import { focus } from '../state/focus';
 import { PADS } from '../theme';
 
-/** MM-VOYAGEUR (2026-10-03) : A S D F G H J K jouent les huit accords quand on l'utilise. */
+/** MM-VOYAGER (2026-10-03) : A S D F G H J K jouent les huit accords quand on l'utilise. */
 const CHORD_KEYS = ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k'];
 
 const isEditable = (t: EventTarget | null): boolean => {

@@ -1,5 +1,5 @@
 /**
- * L'arpegiateur du MM-VOYAGEUR (2026-10-03). Les pads forment une
+ * L'arpegiateur du MM-VOYAGER (2026-10-03). Les pads forment une
  * progression : un pad touche s'y ajoute (dans l'ordre des tapes, huit au
  * plus), retouche il en sort ; chaque accord dure une mesure, puis le
  * suivant. Des qu'il y a un accord, l'arpege joue ; plus d'accord (CLEAR,
@@ -22,10 +22,10 @@
 import { clock, LOOKAHEAD_S, TICK_MS } from '../audio/clock';
 import { context } from '../audio/drums';
 import { pattern } from '../audio/pattern';
-import { cancelNote, noteOn, type SynthVoice } from '../audio/synth';
+import { noteOn, synthStop } from '../audio/synth';
 import { SWING } from '../theme';
 import { arpSequence, CHORDS, type ArpMode } from './chords';
-import { gateFrac, octaves, stepIndex, stepsPerNote, voyParams } from './params';
+import { gateFrac, octaveShift, octaves, stepIndex, stepsPerNote, voyParams } from './params';
 
 const START_DELAY_S = 0.05;
 const MAX_CHORDS = 8;
@@ -67,7 +67,6 @@ let seq = 0;
 let first = true;
 const ring: ArpNote[] = [];
 let head = 0;
-const pending: SynthVoice[] = [];
 
 function setState(next: ArpState): void {
   state = next;
@@ -109,7 +108,8 @@ function scheduleStep(now: number): void {
   const interval = spn * stepDur;
   const per = spn < 1 ? 2 : 1;
   const mode = stepIndex('mode', p.mode) as ArpMode;
-  const seqNotes = arpSequence(chord, octaves(p.range), mode);
+  const shift = 12 * octaveShift(p.octave);
+  const seqNotes = arpSequence(chord, octaves(p.range), mode).map((m) => m + shift);
   if (seqNotes.length === 0) return;
   for (let k = 0; k < per; k += 1) {
     const when = nextTime + swing + k * interval;
@@ -125,9 +125,8 @@ function scheduleStep(now: number): void {
     noteIdx += 1;
     const accent = ACCENT[stepIdx % 4] * (k === 1 ? 0.85 : 1);
     const gate = Math.max(0.02, gateFrac(p.gate) * interval);
-    const v = noteOn(midi, when, gate, lastMidi, accent);
+    noteOn(midi, when, gate, lastMidi, accent);
     lastMidi = midi;
-    if (v) pending.push(v);
     push({ seq, when, chord, midi });
     seq += 1;
   }
@@ -160,19 +159,11 @@ function advance(): void {
   stepIdx = (stepIdx + 1) % 16;
 }
 
-/** Oublie les notes deja parties (compactage sur place). */
-function prune(now: number): void {
-  let k = 0;
-  for (let i = 0; i < pending.length; i += 1) if (pending[i].when >= now) pending[k++] = pending[i];
-  pending.length = k;
-}
-
 function tick(): void {
   if (!state.running) return;
   const c = context();
   if (!c) return;
   const now = c.currentTime;
-  prune(now);
   const horizon = now + LOOKAHEAD_S;
   for (let guard = 0; nextTime < horizon && guard < 64; guard += 1) {
     // Un pas rate de plus de 50 ms (onglet gele) est saute, pas rattrape
@@ -213,9 +204,7 @@ function stop(): void {
   if (!state.running) return;
   window.clearInterval(timer);
   timer = 0;
-  const c = context();
-  if (c) for (const v of pending) cancelNote(v, c);
-  pending.length = 0;
+  synthStop();
   chord = -1;
   setState({ ...state, running: false });
 }
@@ -274,8 +263,5 @@ export const arpDebug = {
   },
   get bar(): number {
     return bar;
-  },
-  get pending(): number {
-    return pending.length;
   },
 };

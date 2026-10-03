@@ -115,12 +115,12 @@ interface Down {
   index?: number;
   section?: SectionId;
   chip?: ChipId;
-  /** MM-VOYAGEUR : pad d'accord, CLEAR ou RANDOM */
+  /** MM-VOYAGER : pad d'accord, CLEAR ou RANDOM */
   vpad?: number;
   vbtn?: 'clear' | 'random';
   x: number;
   y: number;
-  /** encodeur (ou potard du MM-VOYAGEUR, v:<id>) sous le pointerdown, et sa valeur de depart */
+  /** encodeur (ou potard du MM-VOYAGER, v:<id>) sous le pointerdown, et sa valeur de depart */
   dial: DialId | null;
   v0: number;
   /** reglage fin (Maj) en cours, et la course a laquelle il a ete pris ou lache */
@@ -160,7 +160,7 @@ function activateChip(id: string, chip: ChipId): void {
   else chipAction(chip, id.startsWith('vchip-') ? 'voy' : 'mm808');
 }
 
-/** Les jumeaux des puces du MM-VOYAGEUR s'inscrivent ici aussi (ui/VoyTwins.tsx). */
+/** Les jumeaux des puces du MM-VOYAGER s'inscrivent ici aussi (ui/VoyTwins.tsx). */
 export function registerTwin(id: string, el: HTMLElement | null): void {
   if (el) twinEls.set(id, el);
   else twinEls.delete(id);

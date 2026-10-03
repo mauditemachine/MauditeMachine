@@ -1,5 +1,5 @@
 /**
- * Le MM-VOYAGEUR assemble (2026-10-03) : ses groupes, ses objets
+ * Le MM-VOYAGER assemble (2026-10-03) : ses groupes, ses objets
  * interactifs (pour le picking du Stage, scene/hit.ts), ses occulteurs,
  * son ouverture et ses animateurs. Le Stage (scene/renderer.ts) le pose a
  * droite de la 808, l'ajoute a la scene, appelle ses animateurs et lui
@@ -9,7 +9,7 @@
  * Groupes :
  * - root : toute la machine (la vue d'ensemble la cache ou la montre) ;
  * - socle : joues, bac ; ne bouge jamais ;
- * - pcb : la carte (celle de la 808, MM-VOYAGEUR en serigraphie), a plat
+ * - pcb : la carte (celle de la 808, MM-VOYAGER en serigraphie), a plat
  *   dans le bac, cachee capot ferme ;
  * - lid : le capot (plateau, son ecran, ses pads et boutons) ; OPEN le
  *   souleve (scene/explode.ts, VOY_EXPLODE) ;
@@ -140,7 +140,7 @@ export class VoyagerRig {
     this.lcd = new VoyLcd(opts.anisotropy);
     this.lid.add(this.lcd.bezel, this.lcd.glass);
 
-    this.pcb = new Pcb(opts.mobile, opts.anisotropy, 'MM-VOYAGEUR  REV 1.0');
+    this.pcb = new Pcb(opts.mobile, opts.anisotropy, { model: 'MM-VOYAGER R1.0', variant: 'voy' });
     this.pcbGroup.add(this.pcb.board, this.pcb.parts);
 
     this.cfg = {
@@ -239,7 +239,7 @@ export class VoyagerRig {
   private syncLcd = (paint: boolean | unknown = true): boolean => {
     const p = voyParams.get();
     const s = arp.get();
-    const line1 = s.running ? `ARP ${RATES[stepIndex('rate', p.rate)]} ${MODES[stepIndex('mode', p.mode)]} ${RANGES[stepIndex('range', p.range)]}` : 'MM-VOYAGEUR';
+    const line1 = s.running ? `ARP ${RATES[stepIndex('rate', p.rate)]} ${MODES[stepIndex('mode', p.mode)]} ${RANGES[stepIndex('range', p.range)]}` : 'MM-VOYAGER';
     const chords = s.prog.map((i) => CHORDS[i].label);
     const playing = this.playing >= 0 ? s.prog.indexOf(this.playing) : -1;
     const line3 = voyMsg.get() ?? (s.prog.length === 0 ? 'TAP A CHORD PAD' : 'F# MINOR');

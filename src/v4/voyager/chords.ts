@@ -1,5 +1,5 @@
 /**
- * Les huit pads du MM-VOYAGEUR : huit accords de fa diese mineur, la
+ * Les huit pads du MM-VOYAGER : huit accords de fa diese mineur, la
  * tonalite de Mika (sa reference de production : F# mineur, 123 BPM). Un
  * pad touche entre dans la progression (un accord par mesure, dans l'ordre
  * des tapes), retouche il en sort ; l'arpegiateur joue la progression.

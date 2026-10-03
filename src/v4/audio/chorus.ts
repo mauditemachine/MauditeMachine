@@ -52,7 +52,7 @@ export interface ChorusStage {
   info(): ChorusInfo;
 }
 
-/** cfg : le chorus de la boite a rythmes par defaut ; le MM-VOYAGEUR a le sien (audio/synth.ts). */
+/** cfg : le chorus de la boite a rythmes par defaut ; le MM-VOYAGER a le sien (audio/synth.ts). */
 export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg = CHORUS): ChorusStage {
   const input = c.createGain();
   input.gain.value = 1;
@@ -115,6 +115,127 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
       }
       if (!branch) build();
       insert.engage(1 - cfg.dry * t, cfg.wet * t);
+    },
+    value: () => value,
+    reset() {
+      value = 0;
+      insert.reset();
+    },
+    info: () => ({ value, live: branch !== null, built, insert: insert.info() }),
+  };
+}
+
+/**
+ * Le chorus du MM-VOYAGER (2026-10-03, Mika : "comme un Juno-106") : deux
+ * lignes BBD, une par cote, autour de 3.5 ms, modulees par UN triangle lent
+ * en opposition de phase (le son s'ouvre en stereo et ondule large), un
+ * passe-bas a 8 kHz sur le mouille (la couleur des BBD), sec et mouille a
+ * parts egales des que le chorus est engage : il s'entend tout de suite.
+ * Le potard va du mode I (0.5 Hz) au mode II (0.85 Hz) ; au-dela des trois
+ * quarts, le I+II : un second triangle rapide et peu profond (8 Hz) ajoute
+ * son frisson. Insert a bypass reel a 0.
+ */
+const JUNO = {
+  base: 0.0035,
+  depth: { min: 0.0016, max: 0.0021 },
+  rate: { min: 0.5, max: 0.85 },
+  fast: { rate: 8, depth: 0.00022, from: 0.75 },
+  lowpass: 8000,
+  /** mouille plein des 30 % du potard ; sec et mouille a parts egales (un peu plus de mouille au bout) */
+  full: 0.3,
+  dry: 0.62,
+  wet: 0.78,
+} as const;
+
+export function buildJunoChorus(c: BaseAudioContext, out: AudioNode): ChorusStage {
+  const input = c.createGain();
+  input.gain.value = 1;
+  const insert = new Insert(c, input, out);
+  let value = 0;
+  let built = 0;
+  let branch: {
+    nodes: AudioNode[];
+    lfos: OscillatorNode[];
+    slow: OscillatorNode;
+    depth: GainNode;
+    fastDepth: GainNode;
+  } | null = null;
+
+  const build = (): void => {
+    const bIn = c.createGain();
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = JUNO.lowpass;
+    lp.Q.value = 0.5;
+    bIn.connect(lp);
+    const dl = c.createDelay(0.02);
+    const dr = c.createDelay(0.02);
+    dl.delayTime.value = JUNO.base;
+    dr.delayTime.value = JUNO.base;
+    lp.connect(dl);
+    lp.connect(dr);
+    const slow = c.createOscillator();
+    slow.type = 'triangle';
+    slow.frequency.value = JUNO.rate.min;
+    const depth = c.createGain();
+    depth.gain.value = JUNO.depth.min;
+    const inv = c.createGain();
+    inv.gain.value = -1;
+    slow.connect(depth);
+    depth.connect(dl.delayTime);
+    depth.connect(inv);
+    inv.connect(dr.delayTime);
+    const fast = c.createOscillator();
+    fast.type = 'triangle';
+    fast.frequency.value = JUNO.fast.rate;
+    const fastDepth = c.createGain();
+    fastDepth.gain.value = 0;
+    fast.connect(fastDepth);
+    fastDepth.connect(dl.delayTime);
+    fastDepth.connect(dr.delayTime);
+    const merge = c.createChannelMerger(2);
+    dl.connect(merge, 0, 0);
+    dr.connect(merge, 0, 1);
+    slow.start();
+    fast.start();
+    branch = { nodes: [bIn, lp, dl, dr, depth, inv, fastDepth, merge, slow, fast], lfos: [slow, fast], slow, depth, fastDepth };
+    built += 1;
+    insert.setBranch(bIn, merge);
+  };
+
+  insert.onIdle = () => {
+    if (!branch) return;
+    for (const l of branch.lfos) {
+      try {
+        l.stop();
+      } catch {
+        /* deja arrete */
+      }
+    }
+    for (const n of branch.nodes) n.disconnect();
+    branch = null;
+  };
+
+  return {
+    input,
+    set(v: number) {
+      const t = Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;
+      if (t === value) return;
+      value = t;
+      if (t === 0) {
+        insert.release();
+        return;
+      }
+      if (!branch) build();
+      const b = branch;
+      if (b) {
+        b.slow.frequency.value = JUNO.rate.min + (JUNO.rate.max - JUNO.rate.min) * t;
+        b.depth.gain.value = JUNO.depth.min + (JUNO.depth.max - JUNO.depth.min) * t;
+        const f = t > JUNO.fast.from ? (t - JUNO.fast.from) / (1 - JUNO.fast.from) : 0;
+        b.fastDepth.gain.value = JUNO.fast.depth * f;
+      }
+      const m = Math.min(1, t / JUNO.full);
+      insert.engage(1 - (1 - JUNO.dry) * m, JUNO.wet * m * (0.85 + 0.15 * t));
     },
     value: () => value,
     reset() {

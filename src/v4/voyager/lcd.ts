@@ -1,8 +1,8 @@
 /**
- * L'ecran du MM-VOYAGEUR (2026-10-03) : le meme verre que l'OLED de la 808
+ * L'ecran du MM-VOYAGER (2026-10-03) : le meme verre que l'OLED de la 808
  * (texte bone sur noir profond, monospace, non eclaire), pose sur son
  * cadre a gauche du plateau. Trois lignes :
- * 1. MM-VOYAGEUR au repos ; l'arpege qui joue : ARP 1/16 UP 2 OCT ;
+ * 1. MM-VOYAGER au repos ; l'arpege qui joue : ARP 1/16 UP 2 OCT ;
  * 2. la progression (l'accord qui joue en negatif, dans une etiquette) ;
  * 3. le message passager (le potard qu'on tourne : CUTOFF 64%) ou l'aide
  *    (TAP A CHORD PAD).
@@ -59,7 +59,7 @@ export class VoyLcd {
     this.bezel = new Mesh(bg, this.bezelMat);
     this.bezel.name = 'voyLcdBezel';
     this.bezel.receiveShadow = true;
-    this.paint({ line1: 'MM-VOYAGEUR', chords: [], playing: -1, line3: 'TAP A CHORD PAD' });
+    this.paint({ line1: 'MM-VOYAGER', chords: [], playing: -1, line3: 'TAP A CHORD PAD' });
   }
 
   /** true si l'ecran a ete redessine (il faut une frame). */

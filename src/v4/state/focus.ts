@@ -1,13 +1,13 @@
 /**
  * Deux machines (2026-10-03, demande de Mika) : la MM-808 et le
- * MM-VOYAGEUR, cote a cote sur la meme table. focus dit laquelle on
+ * MM-VOYAGER, cote a cote sur la meme table. focus dit laquelle on
  * utilise : 'all' (vue d'ensemble, desktop : un clic sur une machine zoome
  * dessus), 'mm808' ou 'voy'. Au telephone, une machine a la fois : on
  * glisse pour passer de l'une a l'autre. Le Stage anime le cadrage vers la
  * cible (settled passe a true a l'arrivee) ; les jumeaux, la couche de
  * saisie, l'en-tete et le Dock le lisent.
  *
- * Sans le MM-VOYAGEUR (?voyager=0, ou tant qu'il n'est pas active par
+ * Sans le MM-VOYAGER (?voyager=0, ou tant qu'il n'est pas active par
  * defaut), la 808 seule : focus reste 'mm808'.
  */
 
@@ -15,7 +15,7 @@ export type MachineId = 'mm808' | 'voy';
 export type Focus = 'all' | MachineId;
 
 /**
- * Le MM-VOYAGEUR est-il sur la table ? ?voyager=1 l'active, ?voyager=0 le
+ * Le MM-VOYAGER est-il sur la table ? ?voyager=1 l'active, ?voyager=0 le
  * retire (retenu pour l'onglet).
  */
 export const VOYAGER: boolean = (() => {
@@ -39,7 +39,7 @@ const emit = (): void => listeners.forEach((fn) => fn());
 export const focus = {
   get: (): Focus => current,
   settled: (): boolean => settled,
-  /** Nouvelle cible ; sans le MM-VOYAGEUR, toujours la 808. */
+  /** Nouvelle cible ; sans le MM-VOYAGER, toujours la 808. */
   set(f: Focus): void {
     const next: Focus = VOYAGER ? f : 'mm808';
     if (next === current) return;

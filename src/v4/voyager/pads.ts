@@ -1,5 +1,5 @@
 /**
- * Le plateau du MM-VOYAGEUR (2026-10-03) : les huit pads d'accords
+ * Le plateau du MM-VOYAGER (2026-10-03) : les huit pads d'accords
  * (caoutchouc bombe retroeclaire, comme ceux de la 808) et les boutons
  * (TRACKS a CONTACT, OPEN, CLEAR, RANDOM : des touches rectangulaires
  * retroeclairees). Deux InstancedMesh et un de halos additifs : trois

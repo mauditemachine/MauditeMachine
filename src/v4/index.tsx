@@ -54,13 +54,14 @@ import { useReducedMotion } from './state/motion';
 import { section } from './state/section';
 import { HOOD_SECTIONS, SECTION_ROUTES, sectionFromPath, sectionTitle } from './state/sectionRoute';
 import { view } from './state/view';
-import { BACKDROP, COARSE_QUERY, COPY, MOBILE_QUERY, PRESSKIT_ROUTE, applyAppearance } from './theme';
+import { BACKDROP, COARSE_QUERY, COPY, MOBILE_QUERY, PORTRAIT, PRESSKIT_ROUTE, applyAppearance } from './theme';
 import { MobileHeader } from './ui/MobileHeader';
 import { PcbClose } from './ui/PcbClose';
 import { Dock } from './ui/Dock';
 import { Header, openHood } from './ui/Header';
 import { HitLayer, Twins } from './ui/Hotspots';
 import { MachineNav } from './ui/MachineNav';
+import { VoyDock } from './ui/VoyDock';
 import { VoyTwins } from './ui/VoyTwins';
 import { Lcd } from './ui/Lcd';
 import { Panel } from './ui/Panel';
@@ -281,11 +282,44 @@ function useSectionRoute(getStage: () => Stage | null): void {
   }, []);
 }
 
+/**
+ * La machine en hauteur (PORTRAIT) se choisit au chargement. Sur un
+ * ordinateur (pointeur fin), une fenetre qui passe sous 768 px (ou
+ * repasse au-dessus) et y reste 600 ms recharge la page : les machines
+ * prennent la forme de la largeur (2026-10-03). Jamais au telephone (une
+ * rotation ne recharge rien), ni si ?portrait force la forme.
+ */
+function useShapeReload(): void {
+  useEffect(() => {
+    let forced = false;
+    try {
+      forced = window.sessionStorage.getItem('mm.v4.portrait') !== null;
+    } catch {
+      forced = true;
+    }
+    if (forced || window.matchMedia(COARSE_QUERY).matches) return undefined;
+    const mql = window.matchMedia(MOBILE_QUERY);
+    let t = 0;
+    const onChange = (): void => {
+      window.clearTimeout(t);
+      t = window.setTimeout(() => {
+        if (mql.matches !== PORTRAIT) window.location.reload();
+      }, 600);
+    };
+    mql.addEventListener('change', onChange);
+    return () => {
+      window.clearTimeout(t);
+      mql.removeEventListener('change', onChange);
+    };
+  }, []);
+}
+
 const V4Shell: React.FC = () => {
   const stageRef = useRef<Stage | null>(null);
   const getStage = useCallback(() => stageRef.current, []);
   const [gl, setGl] = useState<'webgl' | 'fallback'>(() => (FLAGS.nowebgl ? 'fallback' : 'webgl'));
   usePageChrome();
+  useShapeReload();
   useSectionRoute(getStage);
   useAudioGestures(getStage);
   useSectionsLifecycle();
@@ -448,6 +482,8 @@ const V4Shell: React.FC = () => {
           <Lcd />
           {/* Le Dock n'existe que sur la mise en page mobile : pas de rendu React par pas sur desktop ; il programme la 808 */}
           {mobile && machineFocus !== 'voy' && <Dock getStage={getStage} />}
+          {/* Le Voyager a le sien au telephone : accords, octave, arpege en gros boutons */}
+          {mobile && VOYAGER && machineFocus === 'voy' && <VoyDock getStage={getStage} />}
           {/* Deux machines : leurs noms, le retour a la vue d'ensemble, le selecteur du telephone */}
           {VOYAGER && <MachineNav stage={stage} mobile={mobile} />}
           {/* Machine ouverte au telephone : CLOSE a portee de pouce, sur l'avant de la carte */}
