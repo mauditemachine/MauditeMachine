@@ -32,7 +32,7 @@ import { VoyKnobs } from './knobs';
 import { VoyLcd } from './lcd';
 import { voyMsg } from './msg';
 import { VoyKeys } from './pads';
-import { MODES, RANGES, RATES, VOY_KNOBS, stepIndex, voyParams } from './params';
+import { MODES, NOTES, RANGES, RATES, VOY_KNOBS, notesCount, stepIndex, voyParams } from './params';
 import { VoySilk } from './silk';
 import { VOY_BODY, VOY_EXPLODE, VOY_LID_W, VOY_PANEL, VOY_PCB_Y, VOY_X } from './theme';
 
@@ -243,7 +243,8 @@ export class VoyagerRig {
     const p = voyParams.get();
     const s = arp.get();
     this.bpm = pattern.get().bpm;
-    const line1 = s.running ? `${RATES[stepIndex('rate', p.rate)]} ${MODES[stepIndex('mode', p.mode)]} ${RANGES[stepIndex('range', p.range)]}` : 'MM-VOYAGER';
+    const notes = notesCount(p.notes) > 0 ? ` ${NOTES[stepIndex('notes', p.notes)]}N` : '';
+    const line1 = s.running ? `${RATES[stepIndex('rate', p.rate)]} ${MODES[stepIndex('mode', p.mode)]} ${RANGES[stepIndex('range', p.range)]}${notes}` : 'MM-VOYAGER';
     const chords = s.prog.map((i) => CHORDS[i].label);
     const playing = this.playing >= 0 ? s.prog.indexOf(this.playing) : -1;
     const line3 = voyMsg.get() ?? (s.prog.length === 0 ? 'TAP A CHORD PAD' : s.running ? 'F# MINOR' : 'RUN/STOP TO PLAY');

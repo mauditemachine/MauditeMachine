@@ -215,8 +215,19 @@ export function clearPattern(stage: Stage | null = null): void {
 export function randomPattern(stage: Stage | null = null): void {
   resume();
   pattern.replace(randomHouse(pattern.get().steps));
+  // Et les effets du bus (2026-10-03, Mika) : dosages au hasard, souvent sobres
+  pattern.fx.set({ drive: fxDose(0.55, 0.05, 0.35), chorus: fxDose(0.5, 0.1, 0.5), delay: fxDose(0.4, 0.1, 0.4), reverb: fxDose(0, 0.05, 0.4) });
   stage?.pressButton('random');
-  lcdMessage.show('RANDOM HOUSE');
+  lcdMessage.show('RANDOM HOUSE + FX');
+}
+
+/**
+ * Un dosage d'effet pour RANDOM (2026-10-03, Mika : "que RANDOM fasse du
+ * random sur les FX") : coupe une fois sur `off`, sinon entre lo et hi ;
+ * rien d'extreme, le motif reste devant.
+ */
+function fxDose(off: number, lo: number, hi: number): number {
+  return Math.random() < off ? 0 : Math.round((lo + Math.random() * (hi - lo)) * 100) / 100;
 }
 
 /** TEMPO : borne et arrondi a 100..150 ; l'horloge le prend au prochain pas. */
@@ -439,16 +450,20 @@ export function voyClear(stage: Stage | null = null): void {
   voyMsg.show('CLEARED');
 }
 
-/** RANDOM : une progression toute faite (jamais la meme que celle qui joue). */
+/** RANDOM : une progression toute faite (jamais la meme que celle qui joue), et les effets au hasard. */
 export function voyRandom(stage: Stage | null = null): void {
   gesture();
   if (!arp.get().running) sc.pauseForRun();
   const cur = arp.get().prog.join(',');
   const pool = PROGRESSIONS.filter((p) => p.join(',') !== cur);
   const pick = pool[Math.floor(Math.random() * pool.length)] ?? PROGRESSIONS[0];
+  voyParams.set('dist', fxDose(0.5, 0.08, 0.4));
+  voyParams.set('chorus', fxDose(0, 0.25, 0.85));
+  voyParams.set('delay', fxDose(0.35, 0.15, 0.55));
+  voyParams.set('reverb', fxDose(0, 0.1, 0.5));
   arp.set(pick);
   stage?.voy?.keys.pressButton('random');
-  voyMsg.show('RANDOM');
+  voyMsg.show('RANDOM + FX');
 }
 
 /**

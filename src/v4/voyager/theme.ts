@@ -81,35 +81,46 @@ export interface VoyKnobPlace {
   labelZ: number;
 }
 
-const DESK_COLS = [-5.55, -4.75, -3.7, -2.9, -2.0, -0.95, 0.1, 0.9, 1.7, 2.5, 3.55, 4.35, 5.45];
+/**
+ * Desktop (2026-10-03, NOTES ajoute) : le panneau garde le son, en
+ * colonnes facon Moog (OSCILLATORS, FILTER, FILTER EG / AMP EG, EFFECTS,
+ * OUTPUT) ; l'arpegiateur (RATE MODE RANGE NOTES GATE) passe sur le
+ * plateau, a gauche de l'ecran, comme au telephone.
+ */
+const DESK_COLS = [-5.15, -4.3, -3.1, -2.0, -0.85, 0.0, 0.85, 1.7, 2.9, 3.75, 5.15];
 const DESK_ROWS = [-0.8, 0.8];
 
-/** Cellule (colonne, rangee) de chaque potard ; 'mid' : entre les deux rangees (gros potards, desktop). */
-const DESK_CELLS: Record<VoyKnobId, [number, number | 'mid']> = {
-  rate: [0, 0],
-  mode: [1, 0],
-  range: [0, 1],
-  gate: [1, 1],
-  wave: [2, 0],
-  fine: [3, 0],
-  octave: [2, 1],
-  glide: [3, 1],
-  cutoff: [4, 'mid'],
-  res: [5, 0],
-  envAmt: [5, 1],
-  fA: [6, 0],
-  fD: [7, 0],
-  fS: [8, 0],
-  fR: [9, 0],
-  aA: [6, 1],
-  aD: [7, 1],
-  aS: [8, 1],
-  aR: [9, 1],
-  dist: [10, 0],
-  chorus: [11, 0],
-  delay: [10, 1],
-  reverb: [11, 1],
-  volume: [12, 'mid'],
+/** Cellule (colonne, rangee) de chaque potard du panneau ; 'mid' : entre les deux rangees (gros potards). */
+const DESK_CELLS: Partial<Record<VoyKnobId, [number, number | 'mid']>> = {
+  wave: [0, 0],
+  fine: [1, 0],
+  octave: [0, 1],
+  glide: [1, 1],
+  cutoff: [2, 'mid'],
+  res: [3, 0],
+  envAmt: [3, 1],
+  fA: [4, 0],
+  fD: [5, 0],
+  fS: [6, 0],
+  fR: [7, 0],
+  aA: [4, 1],
+  aD: [5, 1],
+  aS: [6, 1],
+  aR: [7, 1],
+  dist: [8, 0],
+  chorus: [9, 0],
+  delay: [8, 1],
+  reverb: [9, 1],
+  volume: [10, 'mid'],
+};
+/** Plateau, desktop : l'arpegiateur en rangee a gauche de l'ecran. */
+const DESK_ARP_Z = 0.85;
+const DESK_DECK: Partial<Record<VoyKnobId, [number, number]>> = {
+  rate: [-5.55, DESK_ARP_Z],
+  mode: [-4.75, DESK_ARP_Z],
+  range: [-3.95, DESK_ARP_Z],
+  notes: [-3.15, DESK_ARP_Z],
+  gate: [-2.35, DESK_ARP_Z],
 };
 
 /**
@@ -121,7 +132,7 @@ const DESK_CELLS: Record<VoyKnobId, [number, number | 'mid']> = {
  *   FILTER EG (A D S R)                  COLOR (DIST CHORUS)
  *   AMP EG (A D S R)                     SPACE (DELAY REVERB)
  * Le plateau prend l'ecran et VOLUME, le transport, l'arpegiateur (RATE
- * MODE RANGE GATE OCTAVE) et les pads.
+ * MODE RANGE NOTES GATE OCTAVE) et les pads.
  */
 const PORT_PANEL_ROWS = [-1.45, 0.12, 1.69];
 const PORT_PITCH = 1.15;
@@ -152,9 +163,10 @@ const PORT_PANEL: Partial<Record<VoyKnobId, [number, number, number]>> = {
 const PORT_ARP_Z = 2.6;
 const PORT_DECK: Partial<Record<VoyKnobId, [number, number]>> = {
   rate: [-2.9, PORT_ARP_Z],
-  mode: [-1.45, PORT_ARP_Z],
-  range: [0, PORT_ARP_Z],
-  gate: [1.45, PORT_ARP_Z],
+  mode: [-1.74, PORT_ARP_Z],
+  range: [-0.58, PORT_ARP_Z],
+  notes: [0.58, PORT_ARP_Z],
+  gate: [1.74, PORT_ARP_Z],
   octave: [2.9, PORT_ARP_Z],
   volume: [2.45, -0.35],
 };
@@ -180,7 +192,9 @@ export function voyKnobPlace(id: VoyKnobId): VoyKnobPlace {
     const z = PORT_PANEL_ROWS[r];
     return { id, where: 'panel', x: portX(k, split), z, s, labelZ: z + labelBelow(s) };
   }
-  const [c, r] = DESK_CELLS[id];
+  const d = DESK_DECK[id];
+  if (d) return { id, where: 'deck', x: d[0], z: d[1], s, labelZ: d[1] + labelBelow(s) };
+  const [c, r] = DESK_CELLS[id] ?? [0, 0];
   const z = r === 'mid' ? (DESK_ROWS[0] + DESK_ROWS[1]) / 2 : DESK_ROWS[r];
   return { id, where: 'panel', x: colX(DESK_COLS, c), z, s, labelZ: z + labelBelow(s) };
 }
@@ -193,13 +207,12 @@ export function voyKnobPlace(id: VoyKnobId): VoyKnobPlace {
 export const VOY_SECTIONS: readonly { text: string; x: number; z: number }[] = PORTRAIT
   ? []
   : [
-      { text: 'ARPEGGIATOR', x: (DESK_COLS[0] + DESK_COLS[1]) / 2, z: -1.45 },
-      { text: 'OSCILLATORS', x: (DESK_COLS[2] + DESK_COLS[3]) / 2, z: -1.45 },
-      { text: 'FILTER', x: (DESK_COLS[4] + DESK_COLS[5]) / 2, z: -1.45 },
-      { text: 'FILTER EG', x: (DESK_COLS[6] + DESK_COLS[9]) / 2, z: -1.45 },
-      { text: 'AMP EG', x: (DESK_COLS[6] + DESK_COLS[9]) / 2, z: 0.02 },
-      { text: 'EFFECTS', x: (DESK_COLS[10] + DESK_COLS[11]) / 2, z: -1.45 },
-      { text: 'OUTPUT', x: DESK_COLS[12], z: -1.45 },
+      { text: 'OSCILLATORS', x: (DESK_COLS[0] + DESK_COLS[1]) / 2, z: -1.45 },
+      { text: 'FILTER', x: (DESK_COLS[2] + DESK_COLS[3]) / 2, z: -1.45 },
+      { text: 'FILTER EG', x: (DESK_COLS[4] + DESK_COLS[7]) / 2, z: -1.45 },
+      { text: 'AMP EG', x: (DESK_COLS[4] + DESK_COLS[7]) / 2, z: 0.02 },
+      { text: 'EFFECTS', x: (DESK_COLS[8] + DESK_COLS[9]) / 2, z: -1.45 },
+      { text: 'OUTPUT', x: DESK_COLS[10], z: -1.45 },
     ];
 
 /** Filets verticaux entre les sections (desktop). */
@@ -207,10 +220,9 @@ export const VOY_RULES: readonly (readonly number[])[] = PORTRAIT
   ? []
   : [
       [(DESK_COLS[1] + DESK_COLS[2]) / 2, -1.6, (DESK_COLS[1] + DESK_COLS[2]) / 2, 1.6],
-      [(DESK_COLS[3] + DESK_COLS[4]) / 2 - 0.05, -1.6, (DESK_COLS[3] + DESK_COLS[4]) / 2 - 0.05, 1.6],
-      [(DESK_COLS[5] + DESK_COLS[6]) / 2, -1.6, (DESK_COLS[5] + DESK_COLS[6]) / 2, 1.6],
+      [(DESK_COLS[3] + DESK_COLS[4]) / 2, -1.6, (DESK_COLS[3] + DESK_COLS[4]) / 2, 1.6],
+      [(DESK_COLS[7] + DESK_COLS[8]) / 2, -1.6, (DESK_COLS[7] + DESK_COLS[8]) / 2, 1.6],
       [(DESK_COLS[9] + DESK_COLS[10]) / 2, -1.6, (DESK_COLS[9] + DESK_COLS[10]) / 2, 1.6],
-      [(DESK_COLS[11] + DESK_COLS[12]) / 2, -1.6, (DESK_COLS[11] + DESK_COLS[12]) / 2, 1.6],
     ];
 
 /**
@@ -238,8 +250,9 @@ export type VoyButtonId = 'run' | 'clear' | 'random' | 'open';
 
 /**
  * Boutons du plateau (2026-10-03 : les pages sont passees sur la carte,
- * VOY_PAGE_CHIPS) : RUN/STOP, CLEAR, RANDOM et OPEN, a cote de l'ecran
- * (desktop) ou en rangee sous lui (portrait, alignes sur les pads).
+ * VOY_PAGE_CHIPS) : RUN/STOP, CLEAR, RANDOM et OPEN, a droite de l'ecran
+ * (desktop : l'arpegiateur a sa gauche) ou en rangee sous lui (portrait,
+ * alignes sur les pads).
  */
 export const VOY_BUTTONS: readonly { id: VoyButtonId; label: string; x: number; z: number; w: number; d: number }[] = PORTRAIT
   ? [
@@ -249,17 +262,17 @@ export const VOY_BUTTONS: readonly { id: VoyButtonId; label: string; x: number; 
       { id: 'open', label: 'OPEN', x: 2.55, z: 1.05, w: 1.3, d: 0.6 },
     ]
   : [
-      { id: 'run', label: 'RUN/STOP', x: -2.3, z: 0.85, w: 0.9, d: 0.55 },
-      { id: 'clear', label: 'CLEAR', x: -1.2, z: 0.85, w: 0.9, d: 0.55 },
-      { id: 'random', label: 'RANDOM', x: -0.1, z: 0.85, w: 0.9, d: 0.55 },
-      { id: 'open', label: 'OPEN', x: 5.0, z: 0.85, w: 1.0, d: 0.55 },
+      { id: 'run', label: 'RUN/STOP', x: 1.7, z: 0.85, w: 0.8, d: 0.55 },
+      { id: 'clear', label: 'CLEAR', x: 2.62, z: 0.85, w: 0.8, d: 0.55 },
+      { id: 'random', label: 'RANDOM', x: 3.54, z: 0.85, w: 0.8, d: 0.55 },
+      { id: 'open', label: 'OPEN', x: 5.05, z: 0.85, w: 1.0, d: 0.55 },
     ];
 export const VOY_BUTTON = { h: 0.12, radius: 0.05, labelGap: 0.2, press: 0.04 } as const;
 
 /** L'ecran du plateau (verre, cadre fusionne au capot), et sa texture. */
 export const VOY_LCD = PORTRAIT
   ? { x: -1.6, z: -0.35, w: 3.9, d: 1.0, bezel: { w: 4.14, d: 1.24, h: 0.02 }, tex: [780, 200] as const }
-  : { x: -4.55, z: 0.9, w: 2.4, d: 0.9, bezel: { w: 2.62, d: 1.12, h: 0.02 }, tex: [640, 240] as const };
+  : { x: -0.3, z: 0.9, w: 2.4, d: 0.9, bezel: { w: 2.62, d: 1.12, h: 0.02 }, tex: [640, 240] as const };
 
 /**
  * Crochets nommes sous un groupe (comme les rangees de la 808) : le trait
@@ -308,10 +321,10 @@ export const VOY_GROUPS: readonly VoyGroup[] = PORTRAIT
       knobGroup('COLOR', ['dist', 'chorus']),
       knobGroup('AMP EG', ['aA', 'aD', 'aS', 'aR']),
       knobGroup('SPACE', ['delay', 'reverb']),
-      knobGroup('ARPEGGIATOR', ['rate', 'mode', 'range', 'gate', 'octave']),
+      knobGroup('ARPEGGIATOR', ['rate', 'mode', 'range', 'notes', 'gate', 'octave']),
       padGroup(),
     ]
-  : [padGroup()];
+  : [knobGroup('ARPEGGIATOR', ['rate', 'mode', 'range', 'notes', 'gate']), padGroup()];
 
 /* ---------- vue eclatee, carte ---------- */
 

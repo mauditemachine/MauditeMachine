@@ -4,11 +4,17 @@
  * persiste sous mm.v4.voyager.1 (try/catch partout : navigation privee,
  * stockage plein, JSON corrompu, rien ne leve).
  *
- * Sections du panneau, facon Voyager : ARPEGGIATOR (RATE, MODE, RANGE,
- * GATE), OSCILLATORS (WAVE, FINE, GLIDE), FILTER (CUTOFF, RES, ENV AMT),
+ * Sections, facon Voyager : ARPEGGIATOR (RATE, MODE, RANGE, NOTES, GATE,
+ * sur le plateau ; OCTAVE avec lui au telephone), OSCILLATORS (WAVE, FINE, GLIDE), FILTER (CUTOFF, RES, ENV AMT),
  * deux enveloppes ADSR (FILTER EG et AMP EG), EFFECTS (DIST, CHORUS, DELAY,
- * REVERB) et OUTPUT (VOLUME). Les potards a crans (RATE, MODE, RANGE)
- * gardent une valeur ronde : idx / (n - 1).
+ * REVERB) et OUTPUT (VOLUME). Les potards a crans (RATE, MODE, RANGE,
+ * NOTES, OCTAVE) gardent une valeur ronde : idx / (n - 1).
+ *
+ * NOTES (2026-10-03, Mika : "le choix du nombre de notes dans l'arp") : la
+ * longueur du motif. ALL : toutes les notes de l'accord sur RANGE octaves,
+ * dans l'ordre du MODE ; 1 a 8 : les N premieres de cette suite, puis le
+ * motif reprend (au-dela de la suite, elle reboucle) ; 3 notes sur des
+ * doubles croches tournent contre la mesure.
  *
  * FINE desaccorde les deux oscillateurs l'un contre l'autre, de part et
  * d'autre de la note : le centre reste juste, le son grossit sans jamais
@@ -19,6 +25,7 @@ export type VoyKnobId =
   | 'rate'
   | 'mode'
   | 'range'
+  | 'notes'
   | 'gate'
   | 'wave'
   | 'fine'
@@ -62,12 +69,14 @@ export const RATES = ['1/4', '1/8', '1/16', '1/32'] as const;
 export const MODES = ['UP', 'DOWN', 'UP/DN', 'RAND'] as const;
 export const RANGES = ['1 OCT', '2 OCT', '3 OCT'] as const;
 export const OCTAVES = ['-2', '-1', '0', '+1', '+2'] as const;
+export const NOTES = ['ALL', '1', '2', '3', '4', '5', '6', '7', '8'] as const;
 
 /** Dans l'ordre de lecture du panneau (et de tabulation des jumeaux). */
 export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'rate', label: 'RATE', aria: 'Arpeggiator rate', section: 'arp', def: 2 / 3, steps: RATES },
   { id: 'mode', label: 'MODE', aria: 'Arpeggiator mode', section: 'arp', def: 0, steps: MODES },
   { id: 'range', label: 'RANGE', aria: 'Arpeggiator range', section: 'arp', def: 0.5, steps: RANGES },
+  { id: 'notes', label: 'NOTES', aria: 'Arpeggiator notes, how many before the pattern starts again', section: 'arp', def: 0, steps: NOTES },
   { id: 'gate', label: 'GATE', aria: 'Arpeggiator gate length', section: 'arp', def: 0.5 },
   { id: 'wave', label: 'WAVE', aria: 'Oscillator wave, triangle to saw to square to pulse', section: 'osc', def: 1 / 3 },
   { id: 'fine', label: 'FINE', aria: 'Fine tune, the two oscillators apart, always in key', section: 'osc', def: 0.35 },
@@ -135,6 +144,8 @@ export const gateFrac = (v: number): number => 0.08 + 0.92 * v;
 /** Pas de 16e par note : 1/4 = 4, 1/8 = 2, 1/16 = 1, 1/32 = 0.5. */
 export const stepsPerNote = (v: number): number => [4, 2, 1, 0.5][stepIndex('rate', v)];
 export const octaves = (v: number): number => stepIndex('range', v) + 1;
+/** NOTES : longueur du motif (0 : ALL, toute la suite). */
+export const notesCount = (v: number): number => stepIndex('notes', v);
 /** OCTAVE : -2 a +2 octaves (le centre : l'octave d'origine). */
 export const octaveShift = (v: number): number => stepIndex('octave', v) - 2;
 

@@ -103,10 +103,18 @@ export class VoyLcd {
       ctx.fill();
       x1 = pad + h * 0.85 + px * 0.45;
     }
-    ctx.fillText(t.line1, x1, rows[0]);
-    if (t.bpm > 0) {
+    // Le tempo a droite ; la ligne 1 se resserre si elle le toucherait
+    const bpm = t.bpm > 0 ? `${t.bpm} BPM` : '';
+    const room = W - pad - x1 - (bpm ? ctx.measureText(bpm).width + px * 0.6 : 0);
+    const w1 = ctx.measureText(t.line1).width;
+    if (w1 > room) {
+      ctx.font = `400 ${Math.floor((px * room) / w1)}px ${FONT_MONO}`;
+      ctx.fillText(t.line1, x1, rows[0]);
+      ctx.font = `400 ${px}px ${FONT_MONO}`;
+    } else ctx.fillText(t.line1, x1, rows[0]);
+    if (bpm) {
       ctx.textAlign = 'right';
-      ctx.fillText(`${t.bpm} BPM`, W - pad, rows[0]);
+      ctx.fillText(bpm, W - pad, rows[0]);
       ctx.textAlign = 'left';
     }
     // Progression : chaque accord, celui qui joue en negatif

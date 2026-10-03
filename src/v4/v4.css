@@ -2752,7 +2752,7 @@ html:has(body.v4-active.v4-light) {
 }
 
 .v4-vdock-arp {
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
 }
 
 .v4-root .v4-vdock-chord {

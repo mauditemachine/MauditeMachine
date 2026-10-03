@@ -15,13 +15,18 @@
 - `src/v4/ui/VoyTwins.tsx`, `Hotspots.tsx`, `VoyDock.tsx`, `hooks/useKeys.ts`, `v4.css` : jumeaux et Dock (touche RUN/STOP), barre d'espace sur le Voyager.
 - `src/v4/audio/soundcloud.ts` : une piste qui part arrete l'arpege sans vider la progression.
 - `src/v4/ui/PcbClose.tsx`, `v4.css` : au telephone, CLOSE (capot ouvert) monte au-dessus du Dock deplie (808 et Voyager), redescend quand on le replie.
-- `docs/v4/spec.md` : R14-34, R14-35, R14-36.
+- RANDOM tire aussi les effets : `actions.ts` (randomPattern pour la 808 : DIST, CHORUS, DELAY, REVERB du bus ; voyRandom pour le Voyager : DIST, CHORUS, DELAY, REVERB), dosages souvent sobres, parfois coupes.
+- Potard NOTES (ALL, 1 a 8) : `voyager/params.ts`, `arp.ts` (longueur du motif), ecran (5N), Dock (touche NOTES). Desktop : l'arpegiateur passe sur le plateau a gauche de l'ecran (`voyager/theme.ts`), le panneau garde le son en colonnes plus larges.
+- `docs/v4/spec.md` : R14-34 a R14-37.
 
 ## 2. Decisions prises et pourquoi
 
 - Pages en puces moyennes plutot que grosses : 8 grosses puces ne tiennent pas sur la carte ; la rangee est decalee a gauche parce qu'au telephone le capot ouvert cache le bout droit de la carte.
 - Desktop : le capot du Voyager s'ouvre plus haut que celui de la 808, sinon la rangee des pages restait dessous.
 - Groupes au telephone nommes COLOR (DIST, CHORUS) et SPACE (DELAY, REVERB) pour eviter deux EFFECTS.
+- NOTES = longueur du motif (les N premieres notes de la suite, en boucle) plutot qu'un empilement d'accord : RANGE et MODE gardent leur sens, et 3 ou 5 notes tournent contre la mesure.
+- Desktop : NOTES ne tenait pas dans le panneau sans tout serrer ; l'arpegiateur a rejoint le plateau, comme au telephone (le jeu devant, le son derriere).
+- RANDOM de la 808 ne touche que les 4 effets du bus (pas SWING, STRETCH, MASTER ni les effets par voix) : le motif reste reconnaissable.
 - Synchro : les deux machines gardent leur propre RUN/STOP (pas de demarrage force de l'autre), mais elles partagent tempo et grille, quel que soit l'ordre de lancement.
 - La 808 n'est pas touchee : meme carte, memes puces, meme serigraphie (verifie dans le diff).
 

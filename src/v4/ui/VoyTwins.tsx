@@ -4,7 +4,7 @@
  * silhouette projetee dans la passe de rendu, focusable, nomme ; le clavier
  * et les lecteurs d'ecran passent par eux. Ordre : les huit pads
  * d'accords (aria-pressed : dans la progression), RUN/STOP, CLEAR, RANDOM,
- * OPEN, les puces (capot ouvert : celles de la 808 et les pages), les 23 potards (role slider : fleches,
+ * OPEN, les puces (capot ouvert : celles de la 808 et les pages), les 25 potards (role slider : fleches,
  * Maj ou Page pour 10 %, Debut et Fin). Inertes tant qu'on n'utilise pas
  * le Voyager.
  */

@@ -1,5 +1,5 @@
 /**
- * Les 23 potards du MM-VOYAGER (2026-10-03), facon Moog : jupe
+ * Les 25 potards du MM-VOYAGER (2026-10-03), facon Moog : jupe
  * d'aluminium large et fine a la base, capuchon noir cannele (24
  * cannelures, le haut un peu plus etroit), repere blanc du centre vers
  * l'arriere. UN InstancedMesh, une geometrie a couleurs de sommets. Meme

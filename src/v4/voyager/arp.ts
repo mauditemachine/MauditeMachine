@@ -29,7 +29,7 @@ import { pattern } from '../audio/pattern';
 import { noteOn, synthStop } from '../audio/synth';
 import { SWING } from '../theme';
 import { arpSequence, CHORDS, type ArpMode } from './chords';
-import { gateFrac, octaveShift, octaves, stepIndex, stepsPerNote, voyParams } from './params';
+import { gateFrac, notesCount, octaveShift, octaves, stepIndex, stepsPerNote, voyParams } from './params';
 
 const START_DELAY_S = 0.05;
 const MAX_CHORDS = 8;
@@ -113,8 +113,11 @@ function scheduleStep(now: number): void {
   const per = spn < 1 ? 2 : 1;
   const mode = stepIndex('mode', p.mode) as ArpMode;
   const shift = 12 * octaveShift(p.octave);
-  const seqNotes = arpSequence(chord, octaves(p.range), mode).map((m) => m + shift);
-  if (seqNotes.length === 0) return;
+  const full = arpSequence(chord, octaves(p.range), mode).map((m) => m + shift);
+  if (full.length === 0) return;
+  // NOTES : les N premieres de la suite, en boucle (ALL : toute la suite)
+  const k = notesCount(p.notes);
+  const seqNotes = k > 0 ? Array.from({ length: k }, (_, j) => full[j % full.length]) : full;
   for (let k = 0; k < per; k += 1) {
     const when = nextTime + swing + k * interval;
     let midi: number;
