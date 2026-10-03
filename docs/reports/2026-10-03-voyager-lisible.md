@@ -14,7 +14,8 @@
 - `src/v4/actions.ts` : voyRun, puces de pages du Voyager = comme les pads de page de la 808 ; voyPage retire.
 - `src/v4/ui/VoyTwins.tsx`, `Hotspots.tsx`, `VoyDock.tsx`, `hooks/useKeys.ts`, `v4.css` : jumeaux et Dock (touche RUN/STOP), barre d'espace sur le Voyager.
 - `src/v4/audio/soundcloud.ts` : une piste qui part arrete l'arpege sans vider la progression.
-- `docs/v4/spec.md` : R14-34, R14-35.
+- `src/v4/ui/PcbClose.tsx`, `v4.css` : au telephone, CLOSE (capot ouvert) monte au-dessus du Dock deplie (808 et Voyager), redescend quand on le replie.
+- `docs/v4/spec.md` : R14-34, R14-35, R14-36.
 
 ## 2. Decisions prises et pourquoi
 
@@ -27,7 +28,6 @@
 ## 3. Ce qui reste a faire / points en suspens
 
 - Mika : essayer RUN/STOP sur le Voyager avec la 808 qui joue, et le rendu au telephone.
-- Au telephone, le bouton CLOSE (capot ouvert) chevauche le Dock quand celui-ci est deplie (deja le cas sur la 808).
 
 ## 4. Commandes utiles ajoutees
 
