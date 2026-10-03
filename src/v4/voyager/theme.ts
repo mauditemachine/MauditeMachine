@@ -61,7 +61,8 @@ export const VOY_KNOB = {
   h: 0.34,
   flutes: 24,
   fluteDepth: 0.012,
-  skirt: { r: 0.35, h: 0.05, rTop: 0.33 },
+  /** 2026-10-03 (Mika) : plus etroite, un anneau fin autour du capuchon */
+  skirt: { r: 0.31, h: 0.05, rTop: 0.295 },
   mark: { w: 0.03, h: 0.01, d: 0.15 },
   segments: { desktop: 48, mobile: 32 },
   big: PORTRAIT ? 1.12 : 1.28,

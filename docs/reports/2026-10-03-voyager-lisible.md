@@ -20,7 +20,8 @@
 - MM-808, mode MUTE a verrou : `state/voices.ts` (muteMode), `actions.ts` (muteToggle, padHit, selectInstrument), temoin MUTE allume pendant le mode, Dock et jumeaux.
 - MM-808, pages dans OPEN : puces de pages sur sa carte aussi (`theme.ts` PAGE_CHIPS, BOARD_CHIPS ; `scene/pcb.ts`), capot desktop plus haut ; touches 1 a 5 gardees.
 - MM-808, dix voix facon Rytm : CP, RS, HT, CY, CB (`audio/drums.ts` synthese, `pattern.ts`, `voicefx.ts`, `house.ts` RANDOM, `theme.ts` pads et touches Z X C V B, page MIX par rangee, Dock a deux rangees).
-- `docs/v4/spec.md` : R14-34 a R14-38.
+- Jupes des potards : Voyager plus fine et plus sombre en noir (`voyager/theme.ts`, `theme.ts` voySkirt) ; la 808 recoit la meme jupe d'alu sous ses encodeurs (`scene/encoders.ts`, `renderer.ts`).
+- `docs/v4/spec.md` : R14-34 a R14-39.
 
 ## 2. Decisions prises et pourquoi
 

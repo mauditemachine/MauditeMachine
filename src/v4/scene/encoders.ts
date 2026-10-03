@@ -7,6 +7,11 @@
  * normale du panneau (y du repere panneau) : 270 deg de course centres sur
  * le repere a midi, sens horaire quand la valeur monte (section 19). Les
  * animations n'existent pas : l'angle suit la valeur.
+ *
+ * Jupe (2026-10-03, Mika : "ce genre de stroke dans la 808") : a la place
+ * de la collerette sombre, l'anneau d'aluminium biseaute des potards du
+ * MM-VOYAGER (meme teinte, meme matiere un peu metallique), un second
+ * InstancedMesh immobile (la jupe ne tourne pas).
  */
 
 import {
@@ -51,9 +56,7 @@ function buildGeometry(mobile: boolean): BufferGeometry {
   const mark = new BoxGeometry(E.mark.w, E.mark.h, E.mark.d);
   // Du centre vers l'arriere (-z), pose sur le dessus
   mark.translate(0, E.h + E.mark.h / 2 - 0.002, -E.mark.d / 2);
-  const collar = new CylinderGeometry(E.collar.r, E.collar.r, E.collar.h, seg);
-  collar.translate(0, E.collar.h / 2, 0);
-  const parts = [body, mark, collar].map((g) => {
+  const parts = [body, mark].map((g) => {
     const out = g.toNonIndexed();
     g.dispose();
     out.deleteAttribute('uv');
@@ -61,11 +64,22 @@ function buildGeometry(mobile: boolean): BufferGeometry {
   });
   paintSolid(parts[0], 'encoder');
   paintLinear(parts[1], LIT.mark);
-  paintSolid(parts[2], 'collar');
   const g = mergeGeometries(parts, false);
   for (const p of parts) p.dispose();
   if (!g) throw new Error('encoders: merge failed');
   return g;
+}
+
+/** La jupe d'aluminium : un disque biseaute a la base de l'encodeur. */
+function skirtGeometry(mobile: boolean): BufferGeometry {
+  const C = ENCODER.collar;
+  const g = new CylinderGeometry(C.rTop, C.r, C.h, mobile ? ENCODER.segments.mobile + 12 : ENCODER.segments.desktop + 16);
+  g.translate(0, C.h / 2, 0);
+  const out = g.toNonIndexed();
+  g.dispose();
+  out.deleteAttribute('uv');
+  paintSolid(out, 'voySkirt');
+  return out;
 }
 
 export interface EncodersInfo {
@@ -78,7 +92,10 @@ export interface EncodersInfo {
 
 export class Encoders {
   readonly mesh: InstancedMesh;
+  /** les jupes d'aluminium (immobiles) */
+  readonly skirts: InstancedMesh;
   private material: MeshStandardMaterial;
+  private skirtMat: MeshStandardMaterial;
   private angle = new Float32Array(ENCODERS.length);
   private value = new Float32Array(ENCODERS.length);
 
@@ -90,7 +107,18 @@ export class Encoders {
     this.mesh.castShadow = opts.castShadow;
     this.mesh.receiveShadow = true;
     this.mesh.instanceMatrix.setUsage(DynamicDrawUsage);
-    for (let i = 0; i < ENCODERS.length; i += 1) this.place(i);
+    // La jupe : la matiere de celle du MM-VOYAGER (voyager/knobs.ts)
+    this.skirtMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.28 });
+    this.skirtMat.name = 'encoderSkirt';
+    this.skirts = new InstancedMesh(skirtGeometry(opts.mobile), this.skirtMat, ENCODERS.length);
+    this.skirts.name = 'encoderSkirts';
+    this.skirts.receiveShadow = true;
+    for (let i = 0; i < ENCODERS.length; i += 1) {
+      const p = encPos(i);
+      this.skirts.setMatrixAt(i, m4.compose(pos.set(p.x, 0, p.z), quat.identity(), scl.setScalar(p.s)));
+      this.place(i);
+    }
+    this.skirts.instanceMatrix.needsUpdate = true;
   }
 
   private index(id: EncId): number {
@@ -152,5 +180,8 @@ export class Encoders {
     this.mesh.geometry.dispose();
     this.material.dispose();
     this.mesh.dispose();
+    this.skirts.geometry.dispose();
+    this.skirtMat.dispose();
+    this.skirts.dispose();
   }
 }
