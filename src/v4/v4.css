@@ -4252,6 +4252,101 @@ html:has(body.v4-active.v4-light) {
   outline-offset: 2px;
 }
 
+/* Le Dock du MM-SMPL (smpl/Dock.tsx) : ses touches en deux rangees, une ligne d'etat, seize pads */
+.v4-root .v4-sdock-keys {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 5px;
+  width: 100%;
+}
+
+.v4-root .v4-sdock-key {
+  min-height: 36px;
+  padding: 0 2px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--graphite);
+  color: var(--bone);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.v4-root .v4-sdock-key[data-on='1'] {
+  border-color: var(--orange);
+  color: var(--orange);
+}
+
+.v4-root .v4-sdock-play[data-on='1'] {
+  border-color: var(--yellow);
+  color: var(--yellow);
+}
+
+.v4-root .v4-sdock-line {
+  width: 100%;
+  margin: 2px 0;
+  overflow: hidden;
+  color: rgba(246, 241, 231, 0.6);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.v4-root .v4-sdock-pads {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 1fr;
+  gap: 6px;
+  width: 100%;
+  min-height: 0;
+}
+
+.v4-root .v4-sdock-pad {
+  position: relative;
+  min-height: 52px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #1c1b1a;
+  color: var(--bone);
+  font: inherit;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.v4-root .v4-sdock-pad[data-slice='1'] {
+  border-color: rgba(255, 106, 19, 0.55);
+  background: #2a1a10;
+}
+
+.v4-root .v4-sdock-pad[data-on='1'] {
+  border-color: var(--yellow);
+  background: #4a3d12;
+}
+
+.v4-root .v4-sdock-num {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.6;
+}
+
+.v4-root .v4-sdock-pad:focus-visible,
+.v4-root .v4-sdock-key:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
 /* KNOBS : une hauteur fixe (la plus haute section, VOICE FX), la languette posee sur son bord */
 @media (max-width: 767px) {
   .v4-root {

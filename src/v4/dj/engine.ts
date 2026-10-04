@@ -500,6 +500,21 @@ export class DjPlayer {
     return this.buffer?.sampleRate ?? this.ctx.sampleRate;
   }
 
+  /**
+   * Une copie de [a, b] (secondes) de la piste posee, ses canaux et sa
+   * frequence ; null sans piste. Le MM-SMPL y prend ses samples (2026-10-04).
+   */
+  excerpt(a: number, b: number): { channels: Float32Array[]; rate: number } | null {
+    const buf = this.buffer;
+    if (!buf) return null;
+    const r = buf.sampleRate;
+    const i0 = Math.max(0, Math.floor(Math.min(a, b) * r));
+    const i1 = Math.min(buf.length, Math.ceil(Math.max(a, b) * r));
+    if (i1 - i0 < 2) return null;
+    const channels = Array.from({ length: Math.min(2, buf.numberOfChannels) }, (_, c) => buf.getChannelData(c).slice(i0, i1));
+    return { channels, rate: r };
+  }
+
   /** Decode des octets (un fichier, ou un telechargement) et les pose sur la platine. */
   async load(bytes: ArrayBuffer): Promise<void> {
     this.pause();

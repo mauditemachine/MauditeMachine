@@ -5,7 +5,8 @@
  * c'est lock sur la vue la plus adaptee pour utiliser la machine").
  *
  * - Une machine joue : le MM-RYTM quand son horloge tourne, le MM-ARP quand
- *   son arpege joue, le MM-DECKS quand une platine tourne.
+ *   son arpege joue, le MM-DECKS quand une platine tourne, le MM-SMPL quand
+ *   une voix ou un nuage sonne.
  * - Elle demarre : la vue passe a elle, de face (le Stage, scene/renderer.ts).
  * - Tant qu'elle joue, un geste parti sur elle ne bouge plus la vue
  *   (glisser, molette, deux doigts : ui/Hotspots.tsx) ; ses commandes
@@ -16,6 +17,7 @@
 import { clock } from '../audio/clock';
 import { arp } from '../voyager/arp';
 import { djLoad } from './djload';
+import { smplLoad } from './smplload';
 import type { MachineId } from './focus';
 
 /** Une platine du MM-DECKS tourne (rien tant que son code n'est pas arrive). */
@@ -24,9 +26,16 @@ function djPlaying(): boolean {
   return s ? Object.values(s.deck).some((d) => d.playing) : false;
 }
 
+/** Le MM-SMPL : une voix ou un nuage sonne (rien tant que son code n'est pas arrive). */
+function smplPlaying(): boolean {
+  const live = smplLoad.get()?.smplEngine.live();
+  return live ? live.voices.size + live.clouds.size > 0 : false;
+}
+
 export function machinePlaying(m: MachineId): boolean {
   if (m === 'mm808') return clock.running;
   if (m === 'voy') return arp.get().running;
+  if (m === 'smpl') return smplPlaying();
   return djPlaying();
 }
 
@@ -35,7 +44,7 @@ export function machinePlaying(m: MachineId): boolean {
  * de quoi se desabonner.
  */
 export function onPlayStart(fn: (m: MachineId) => void): () => void {
-  const was: Record<MachineId, boolean> = { mm808: clock.running, voy: arp.get().running, dj: djPlaying() };
+  const was: Record<MachineId, boolean> = { mm808: clock.running, voy: arp.get().running, dj: djPlaying(), smpl: smplPlaying() };
   const check = (m: MachineId): void => {
     const now = machinePlaying(m);
     if (now && !was[m]) fn(m);
@@ -51,8 +60,18 @@ export function onPlayStart(fn: (m: MachineId) => void): () => void {
   };
   hookDj();
   offs.push(djLoad.subscribe(hookDj));
+  // Le MM-SMPL aussi : ses voix, des que son code est la
+  let offSmpl: (() => void) | null = null;
+  const hookSmpl = (): void => {
+    const e = smplLoad.get()?.smplEngine;
+    if (!e || offSmpl) return;
+    offSmpl = e.subscribeLive(() => check('smpl'));
+  };
+  hookSmpl();
+  offs.push(smplLoad.subscribe(hookSmpl));
   return () => {
     for (const off of offs) off();
     offDj?.();
+    offSmpl?.();
   };
 }

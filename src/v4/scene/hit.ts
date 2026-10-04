@@ -67,7 +67,12 @@ export type HotspotKind =
   | 'djfader'
   | 'djkey'
   | 'djjog'
-  | 'djscreen';
+  | 'djscreen'
+  // MM-SMPL (2026-10-04) : potards, touches, pads, l'ecran
+  | 'smplknob'
+  | 'smplkey'
+  | 'smplpad'
+  | 'smplscreen';
 
 export interface HotspotDef {
   id: string;
@@ -107,6 +112,8 @@ export interface HotspotDef {
   rknob?: KitId;
   /** MM-DECKS : l'id de la commande (dj/layout.ts) */
   dj?: string;
+  /** MM-SMPL : l'id de la commande (smpl/rig.ts) */
+  smpl?: string;
 }
 
 /**

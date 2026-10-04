@@ -72,6 +72,7 @@ import { BPM, STEP_COUNT, isOn, pattern } from '../audio/pattern';
 import type { HotspotKind, HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { djLoad, type DjModules } from '../state/djload';
+import { smplLoad, type SmplModules } from '../state/smplload';
 import { djView } from '../dj/view';
 import { editor } from '../state/editor';
 import { PRESET_KEY_ARIA, PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode, type PresetKey } from '../state/presetMode';
@@ -272,6 +273,20 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     };
     // Tout type de zone du MM-DECKS (djknob, djfader, djkey, djjog, djscreen...)
     const isDj = (k: HotspotKind): boolean => k.startsWith('dj');
+    // Le MM-SMPL (2026-10-04) : le meme contrat (smpl/gestures.ts), son code arrive a part aussi (state/smplload.ts)
+    let smg: InstanceType<SmplModules['SmplGestures']> | null = null;
+    const smplGestures = (): typeof smg => {
+      if (!smg && stage.smpl) {
+        const m = smplLoad.get();
+        if (m) smg = new m.SmplGestures(stage);
+      }
+      return smg;
+    };
+    const isSmpl = (k: HotspotKind): boolean => k.startsWith('smpl');
+    /** Les gestes de la machine d'une zone (MM-DECKS, MM-SMPL), ou null. */
+    const gesturesOf = (h: HotspotView | null): typeof djg | typeof smg => (!h ? null : isDj(h.kind) ? djGestures() : isSmpl(h.kind) ? smplGestures() : null);
+    /** Celui qui tient ce pointeur. */
+    const holder = (id: number): typeof djg | typeof smg => (djg?.holds(id) ? djg : smg?.holds(id) ? smg : null);
 
     const isCoarse = (e: PointerEvent): boolean =>
       e.pointerType === 'touch' || e.pointerType === 'pen' || coarseMql.matches;
@@ -394,8 +409,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Chaque pointeur est capture : un glisser continue d'orbiter hors du canvas
       capture(e.pointerId);
       const h = pickAt(e, isCoarse(e));
-      // Une commande du MM-DECKS : elle seule voit ce pointeur (ni orbite ni pincement)
-      const g = h && isDj(h.kind) ? djGestures() : null;
+      // Une commande du MM-DECKS ou du MM-SMPL : elle seule voit ce pointeur (ni orbite ni pincement)
+      const g = gesturesOf(h);
       if (h && g) {
         g.down(e.pointerId, h, e.clientX - rect.left, e.clientY - rect.top);
         e.stopPropagation();
@@ -455,8 +470,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     const onMove = (e: PointerEvent): void => {
       // Lu ici, avant l'orbite (sur le parent) dont la garde prend l'encodeur
       shiftHeld = e.shiftKey;
-      if (djg?.holds(e.pointerId)) {
-        djg.move(e.pointerId, e.clientX - rect.left, e.clientY - rect.top, e.shiftKey);
+      const mg = holder(e.pointerId);
+      if (mg) {
+        mg.move(e.pointerId, e.clientX - rect.left, e.clientY - rect.top, e.shiftKey);
         e.stopPropagation();
         return;
       }
@@ -484,9 +500,10 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     };
 
     const onUp = (e: PointerEvent): void => {
-      if (djg?.holds(e.pointerId)) {
+      const mg = holder(e.pointerId);
+      if (mg) {
         const over = e.type === 'pointerup' ? pickAt(e, isCoarse(e)) : null;
-        djg.up(e.pointerId, over ? over.id : null);
+        mg.up(e.pointerId, over ? over.id : null);
         if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
         e.stopPropagation();
         return;
@@ -558,8 +575,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Ctrl + molette (pincement d'un pave tactile) : le zoom de la vue
       if (e.ctrlKey) return;
       const h = pickAt(e, false);
-      // Au-dessus d'une commande du MM-DECKS : elle prend la molette si elle en veut (sinon la vue zoome)
-      const g = h && isDj(h.kind) ? djGestures() : null;
+      // Au-dessus d'une commande du MM-DECKS ou du MM-SMPL : elle prend la molette si elle en veut (sinon la vue zoome)
+      const g = gesturesOf(h);
       if (h && g) {
         const delta = e.shiftKey && e.deltaY === 0 ? e.deltaX : e.deltaY;
         if (g.wheel(h, delta * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1), e.shiftKey)) {
@@ -599,7 +616,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     };
 
     const onLost = (e: PointerEvent): void => {
-      if (djg?.holds(e.pointerId)) djg.up(e.pointerId, null);
+      holder(e.pointerId)?.up(e.pointerId, null);
       forget(e.pointerId);
     };
 
@@ -623,6 +640,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       ro.disconnect();
       downs.clear();
       djg?.release();
+      smg?.release();
       stage.orbit.gate = () => true;
       el.removeEventListener('pointerdown', onDown);
       el.removeEventListener('pointermove', onMove);

@@ -14,7 +14,7 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { focusMachine } from '../actions';
 import type { Stage } from '../scene/renderer';
-import { DJ, MACHINES, focus, type Focus, type MachineId } from '../state/focus';
+import { DJ, MACHINES, SMPL, focus, type Focus, type MachineId } from '../state/focus';
 import { intro } from '../state/intro';
 
 const ITEMS: readonly { id: Focus; title: string; sub: string }[] = [
@@ -22,6 +22,7 @@ const ITEMS: readonly { id: Focus; title: string; sub: string }[] = [
   { id: 'mm808', title: 'MM-RYTM', sub: 'DRUM MACHINE' },
   { id: 'voy', title: 'MM-ARP', sub: 'ARPEGGIATOR SYNTHESIZER' },
   ...(DJ ? [{ id: 'dj' as const, title: 'MM-DECKS', sub: 'DJ DECKS AND MIXER' }] : []),
+  ...(SMPL ? [{ id: 'smpl' as const, title: 'MM-SMPL', sub: 'SAMPLER, SLICER, GRANULAR' }] : []),
 ];
 
 /** Fermeture apres que la souris est sortie (ms) : un aller-retour rapide ne le ferme pas. */

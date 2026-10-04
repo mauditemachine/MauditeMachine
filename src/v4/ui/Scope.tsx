@@ -401,7 +401,7 @@ export const Scope: React.FC<Props> = ({ mobile }) => {
   useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   const s = useSyncExternalStore(scopeSettings.subscribe, scopeSettings.get, scopeSettings.get);
   const m = hoodMachine();
-  const open = m !== 'dj' && hoodOf(m).get() === 'open';
+  const open = m !== 'dj' && m !== 'smpl' && hoodOf(m).get() === 'open';
   const source: ScopeSource = s.source ?? (m === 'voy' ? 'arp' : 'rytm');
   // Au telephone, replie au depart : la carte et ses TWEAKS d'abord
   const [unfolded, setUnfolded] = useState(!mobile && s.shown);

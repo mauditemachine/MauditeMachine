@@ -21,7 +21,7 @@ import { DECK, DJ_CHANNELS, DJ_KNOB, DJ_UNIT, MIX, UNIT_X, unitW, type DjDeck, t
 
 type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
 
-interface Text {
+export interface Text {
   text: string;
   /** repere du bloc */
   x: number;
@@ -35,7 +35,7 @@ interface Text {
   group?: string;
 }
 
-type Line = readonly number[];
+export type Line = readonly number[];
 
 const COPY: Readonly<Record<DjUnit, { name: string; sub: string }>> = {
   a: { name: 'DECK A', sub: 'DIGITAL DECK' },
@@ -50,7 +50,7 @@ const COPY: Readonly<Record<DjUnit, { name: string; sub: string }>> = {
 };
 
 /** Crochet sous un groupe : tics aux bords, trait interrompu pour le nom. */
-interface Bracket {
+export interface Bracket {
   text: string;
   x0: number;
   x1: number;
@@ -61,16 +61,21 @@ const BRACKET = { cap: 0.075, weight: 700, tick: 0.08, pad: 0.1 } as const;
 /** Ce qui entre sur chaque voie de la table. */
 const CH_NAMES = ['RYTM', 'ARP', 'A', 'B', 'C', 'D'] as const;
 
+/** L'en-tete d'une plaque large de w : le nom en gras a gauche, le role en petit a subX de lui (le logotype est a droite, draw). */
+export function headTexts(name: string, sub: string, w: number, z: number, subX: number): Text[] {
+  const hw = w / 2 - 0.45;
+  const out: Text[] = [{ text: name, x: -hw, z, cap: 0.2, align: 'left', weight: 700, alpha: 1 }];
+  if (sub) out.push({ text: sub, x: -hw + subX, z: z + 0.035, cap: 0.065, align: 'left', alpha: 0.45 });
+  return out;
+}
+
 function head(u: DjUnit): Text[] {
-  const hw = unitW(u) / 2 - 0.45;
   const c = COPY[u];
   const z = u === 'mix' ? MIX.head.z : DECK.head.z;
   // La platine qu'on peut retirer : REMOVE DECK prend la place du sous-titre
   const removable = DJ_KEYS.some((k) => k.target.kind === 'removedeck' && k.target.deck === u);
   const sub = u === 'mix' ? `${DJ_CHANNELS} CHANNEL ${c.sub}` : removable ? '' : c.sub;
-  const out: Text[] = [{ text: c.name, x: -hw, z, cap: 0.2, align: 'left', weight: 700, alpha: 1 }];
-  if (sub) out.push({ text: sub, x: -hw + (u === 'mix' ? 1.55 : 1.85), z: z + 0.035, cap: 0.065, align: 'left', alpha: 0.45 });
-  return out;
+  return headTexts(c.name, sub, unitW(u), z, u === 'mix' ? 1.55 : 1.85);
 }
 
 /** Textes, filets et crochets d'une platine (repere du bloc). */
@@ -158,6 +163,28 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   return { texts, lines, brackets };
 }
 
+/**
+ * Une plaque serigraphiee (2026-10-04, le MM-SMPL s'en sert aussi) : sa
+ * largeur, sa place (x, repere du rig), ce qu'elle porte, son logotype a
+ * droite de l'en-tete.
+ */
+export interface SilkSpec {
+  name: string;
+  w: number;
+  x: number;
+  items(): { texts: Text[]; lines: Line[]; brackets: Bracket[] };
+  logo: { h: number; z: number };
+}
+
+const specOf = (u: DjUnit): SilkSpec => ({
+  name: `djSilk-${u}`,
+  w: unitW(u),
+  x: UNIT_X[u],
+  items: () => (u === 'a' || u === 'b' || u === 'c' || u === 'd' ? deckItems(u) : mixItems()),
+  // Platine : plus petit et plus haut, au-dessus du cadre de l'ecran
+  logo: u === 'mix' ? { h: 0.42, z: MIX.head.z } : { h: DECK.logo.h, z: DECK.logo.z },
+});
+
 export class DjSilk {
   readonly mesh: Mesh;
   readonly texture: CanvasTexture;
@@ -167,15 +194,14 @@ export class DjSilk {
   private H: number;
   private w: number;
   private ppu: number;
+  private spec: SilkSpec;
   draws = 0;
 
-  constructor(
-    private unit: DjUnit,
-    anisotropy: number,
-    mobile: boolean
-  ) {
+  /** Un bloc du MM-DECKS, ou une plaque decrite (le MM-SMPL). */
+  constructor(unit: DjUnit | SilkSpec, anisotropy: number, mobile: boolean) {
+    this.spec = typeof unit === 'string' ? specOf(unit) : unit;
     this.ppu = mobile ? 130 : 150;
-    this.w = unitW(unit);
+    this.w = this.spec.w;
     this.W = Math.round(this.w * this.ppu);
     this.H = Math.round(DJ_UNIT.d * this.ppu);
     this.canvas = document.createElement('canvas');
@@ -206,8 +232,8 @@ export class DjSilk {
     };
     mat.customProgramCacheKey = () => 'silkOrange';
     this.mesh = new Mesh(geo, mat);
-    this.mesh.name = `djSilk-${unit}`;
-    this.mesh.position.set(UNIT_X[unit], 0.004, 0);
+    this.mesh.name = this.spec.name;
+    this.mesh.position.set(this.spec.x, 0.004, 0);
     this.mesh.receiveShadow = true;
     this.draw();
   }
@@ -239,8 +265,7 @@ export class DjSilk {
     ctx.clearRect(0, 0, this.W, this.H);
     ctx.textBaseline = 'alphabetic';
     ctx.lineCap = 'butt';
-    const u = this.unit;
-    const { texts, lines, brackets } = u === 'a' || u === 'b' || u === 'c' || u === 'd' ? deckItems(u) : mixItems();
+    const { texts, lines, brackets } = this.spec.items();
     ctx.lineWidth = Math.max(1, 0.014 * P);
     ctx.strokeStyle = silkA(0.55);
     for (const l of lines) {
@@ -253,10 +278,9 @@ export class DjSilk {
     // Le logotype a droite de l'en-tete
     const mark = logoImage('mark');
     if (mark) {
-      // Platine : plus petit et plus haut, au-dessus du cadre de l'ecran
-      const h = Math.round((this.unit === 'mix' ? 0.42 : DECK.logo.h) * P);
+      const h = Math.round(this.spec.logo.h * P);
       const w = Math.max(1, Math.round((h * mark.naturalWidth) / mark.naturalHeight));
-      const z = this.unit === 'mix' ? MIX.head.z : DECK.logo.z;
+      const z = this.spec.logo.z;
       ctx.drawImage(this.tint(mark, w, h), Math.round(this.px(this.w / 2 - 0.45) - w), Math.round(this.py(z) - h / 2));
     }
     const scales = this.scales(texts);

@@ -131,6 +131,8 @@ export const KnobView: React.FC<{ spec: KnobSpec }> = ({ spec }) => {
   const value = useSyncExternalStore(spec.subscribe, spec.get, spec.get);
   const [lo, hi] = spec.range;
   const steps = spec.steps;
+  // Un selecteur (16 crans au plus) : ses crans marques, une tape passe au suivant ; au-dela (PITCH, 49) : un potard fin
+  const detents = steps > 1 && steps <= 16;
   const k = hi > lo ? Math.min(1, Math.max(0, (value - lo) / (hi - lo))) : 0;
   const bipolar = spec.bipolar;
   const drag = useRef<{ y: number; x: number; k0: number; moved: boolean } | null>(null);
@@ -169,7 +171,7 @@ export const KnobView: React.FC<{ spec: KnobSpec }> = ({ spec }) => {
     drag.current = null;
     if (!d || d.moved) return;
     // Une tape : un selecteur passe au cran suivant (et reboucle) ; deux tapes : la valeur de depart
-    if (steps > 1) {
+    if (detents) {
       const i = Math.round(k * (steps - 1));
       setAt(((i + 1) % steps) / (steps - 1));
       return;
@@ -206,7 +208,7 @@ export const KnobView: React.FC<{ spec: KnobSpec }> = ({ spec }) => {
       aria-valuemax={100}
       aria-valuenow={Math.round(k * 100)}
       aria-valuetext={spec.readout()}
-      data-steps={steps > 1 ? '1' : '0'}
+      data-steps={detents ? '1' : '0'}
       onPointerDown={onDown}
       onPointerMove={onMove}
       onPointerUp={onUp}
@@ -219,7 +221,7 @@ export const KnobView: React.FC<{ spec: KnobSpec }> = ({ spec }) => {
       <svg className="v4-knob-dial" viewBox={`0 0 ${SIZE} ${SIZE}`} width={SIZE} height={SIZE} aria-hidden="true">
         <path className="v4-knob-track" d={arc(A0, A0 + SWEEP, R_ARC)} />
         {Math.abs(at - from) > 0.5 && <path className="v4-knob-arc" d={from < at ? arc(from, at, R_ARC) : arc(at, from, R_ARC)} />}
-        {steps > 1 &&
+        {detents &&
           Array.from({ length: steps }, (_, i) => {
             const [x0, y0] = pt(A0 + (i / (steps - 1)) * SWEEP, R_ARC + 3.5);
             const [x1, y1] = pt(A0 + (i / (steps - 1)) * SWEEP, R_ARC + 6.5);

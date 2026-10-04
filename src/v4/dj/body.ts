@@ -107,7 +107,7 @@ function inset(pts: P2[], d: number): P2[] {
  * Un bloc : le profil (u = -z, v = y) du coin, rentre du biseau, extrude
  * le long de x de x0 a x1 ; la piece finie a les cotes du theme.
  */
-function wedge(x0: number, x1: number): BufferGeometry {
+export function wedge(x0: number, x1: number): BufferGeometry {
   const B = DJ_BODY;
   const d = DJ_UNIT.d;
   const b = B.bevel;
@@ -140,7 +140,7 @@ function wedge(x0: number, x1: number): BufferGeometry {
 
 /* ---------------- pieces du dessus (repere top) ---------------- */
 
-function topBox(w: number, h: number, d: number, x: number, z: number, t: DjTone, y0 = 0): BufferGeometry {
+export function topBox(w: number, h: number, d: number, x: number, z: number, t: DjTone, y0 = 0): BufferGeometry {
   const g = new BoxGeometry(w, h, d);
   g.translate(x, y0 + h / 2, z);
   g.applyMatrix4(TOP_M);
@@ -148,7 +148,7 @@ function topBox(w: number, h: number, d: number, x: number, z: number, t: DjTone
 }
 
 /** Cadre d'un ecran : une dalle noire a peine plus haute que le dessus. */
-function bezel(x: number, z: number, w: number, d: number): BufferGeometry {
+export function bezel(x: number, z: number, w: number, d: number): BufferGeometry {
   const m = DJ_BEZEL.margin;
   return topBox(w + 2 * m, DJ_BEZEL.h, d + 2 * m, x, z, 'bezel');
 }
@@ -180,7 +180,7 @@ function feet(u: DjUnit, seg: number): BufferGeometry[] {
 }
 
 /** Une vis cruciforme a tete plate (repere top) : la tete d'aluminium, la croix en creux. */
-function screw(x: number, z: number, seg: number): BufferGeometry[] {
+export function screw(x: number, z: number, seg: number): BufferGeometry[] {
   const head = new CylinderGeometry(0.058, 0.062, 0.014, seg);
   head.translate(x, 0.007, z);
   head.applyMatrix4(TOP_M);
@@ -199,21 +199,21 @@ function screws(u: DjUnit, seg: number): BufferGeometry[] {
 /* ---------------- la face arriere ---------------- */
 
 /** Un disque pose sur la face arriere (z = -d/2), qui en sort de h. */
-function backDisc(r: number, h: number, x: number, y: number, t: DjTone, seg: number, out = 0): BufferGeometry {
+export function backDisc(r: number, h: number, x: number, y: number, t: DjTone, seg: number, out = 0): BufferGeometry {
   const g = new CylinderGeometry(r, r, h, seg);
   g.rotateX(Math.PI / 2);
   g.translate(x, y, -DJ_UNIT.d / 2 - h / 2 - out);
   return partDj(g, t);
 }
 
-function backBox(w: number, hgt: number, h: number, x: number, y: number, t: DjTone, out = 0): BufferGeometry {
+export function backBox(w: number, hgt: number, h: number, x: number, y: number, t: DjTone, out = 0): BufferGeometry {
   const g = new BoxGeometry(w, hgt, h);
   g.translate(x, y, -DJ_UNIT.d / 2 - h / 2 - out);
   return partDj(g, t);
 }
 
 /** Prise RCA : la bague d'aluminium, l'isolant, le trou. */
-const rca = (x: number, y: number, seg: number): BufferGeometry[] => [
+export const rca = (x: number, y: number, seg: number): BufferGeometry[] => [
   backDisc(0.085, 0.07, x, y, 'skirt', seg),
   backDisc(0.05, 0.075, x, y, 'rubber', seg),
   backDisc(0.018, 0.004, x, y, 'slit', 8, 0.075),
@@ -224,10 +224,10 @@ const xlr = (x: number, y: number, seg: number): BufferGeometry[] => [
   backDisc(0.12, 0.004, x, y, 'slit', seg, 0.04),
   ...[0, 1, 2].map((k) => backDisc(0.018, 0.004, x + Math.cos(k * 2.1 + 0.5) * 0.06, y + Math.sin(k * 2.1 + 0.5) * 0.06, 'skirt', 8, 0.044)),
 ];
-const usb = (x: number, y: number): BufferGeometry[] => [backBox(0.2, 0.08, 0.04, x, y, 'skirt'), backBox(0.16, 0.05, 0.004, x, y, 'slit', 0.04)];
-const rj45 = (x: number, y: number): BufferGeometry[] => [backBox(0.24, 0.2, 0.05, x, y, 'slot'), backBox(0.18, 0.13, 0.004, x, y, 'slit', 0.05)];
-const dc = (x: number, y: number, seg: number): BufferGeometry[] => [backBox(0.24, 0.24, 0.05, x, y, 'slot'), backDisc(0.06, 0.004, x, y, 'slit', seg, 0.05)];
-const power = (x: number, y: number): BufferGeometry[] => [backBox(0.24, 0.36, 0.04, x, y, 'slot'), backBox(0.17, 0.28, 0.05, x, y, 'rubber', 0.02)];
+export const usb = (x: number, y: number): BufferGeometry[] => [backBox(0.2, 0.08, 0.04, x, y, 'skirt'), backBox(0.16, 0.05, 0.004, x, y, 'slit', 0.04)];
+export const rj45 = (x: number, y: number): BufferGeometry[] => [backBox(0.24, 0.2, 0.05, x, y, 'slot'), backBox(0.18, 0.13, 0.004, x, y, 'slit', 0.05)];
+export const dc = (x: number, y: number, seg: number): BufferGeometry[] => [backBox(0.24, 0.24, 0.05, x, y, 'slot'), backDisc(0.06, 0.004, x, y, 'slit', seg, 0.05)];
+export const power = (x: number, y: number): BufferGeometry[] => [backBox(0.24, 0.36, 0.04, x, y, 'slot'), backBox(0.17, 0.28, 0.05, x, y, 'rubber', 0.02)];
 
 /**
  * La connectique, vue de derriere : la platine a ses sorties audio (RCA),

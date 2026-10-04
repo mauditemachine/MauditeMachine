@@ -44,6 +44,7 @@ import { arp, arpDebug } from './voyager/arp';
 import { voyParams } from './voyager/params';
 import { djView } from './dj/view';
 import { djLoad, type DjModules } from './state/djload';
+import { smplLoad, type SmplModules } from './state/smplload';
 import type { ExplodeInfo } from './scene/explode';
 import type { HotspotView } from './scene/hit';
 import type { EncodersInfo } from './scene/encoders';
@@ -211,6 +212,12 @@ export interface V4Debug {
     view: typeof djView;
     readonly engine: DjModules['djEngineIfAny'] | null;
   };
+  /** Le MM-SMPL (2026-10-04 ; absent avec ?smpl=0) : le rig, son etat, son moteur (null tant que son code n'est pas arrive) */
+  readonly smpl: {
+    rig: ReturnType<NonNullable<Stage['smpl']>['info']> | null;
+    readonly state: SmplModules['smplState'] | null;
+    readonly engine: SmplModules['smplEngine'] | null;
+  };
 }
 
 const NO_STATS: StageStats = {
@@ -363,6 +370,17 @@ export function installDebug(src: DebugSource): () => void {
       view: djView,
       get engine() {
         return djLoad.get()?.djEngineIfAny ?? null;
+      },
+    },
+    smpl: {
+      get rig() {
+        return src.stage()?.smpl?.info() ?? null;
+      },
+      get state() {
+        return smplLoad.get()?.smplState ?? null;
+      },
+      get engine() {
+        return smplLoad.get()?.smplEngine ?? null;
       },
     },
   };

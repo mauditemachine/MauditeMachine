@@ -78,7 +78,7 @@ function setMask(g: BufferGeometry, fn: (i: number) => number): void {
 /* ---------------- potards ---------------- */
 
 /** Potard ; capTone : la teinte du capuchon (FILTER : l'orange du pad OPEN du MM-RYTM). */
-function knobGeometry(mobile: boolean, capTone: DjTone = 'knob'): BufferGeometry {
+export function knobGeometry(mobile: boolean, capTone: DjTone = 'knob'): BufferGeometry {
   const K = DJ_KNOB;
   const seg = mobile ? K.segments.mobile : K.segments.desktop;
   const skirt = new CylinderGeometry(K.skirt.rTop, K.skirt.r, K.skirt.h, seg);
@@ -118,7 +118,7 @@ function capGeometry(): BufferGeometry {
 /* ---------------- touches ---------------- */
 
 /** Touche unite (1 x h x 1), mise a l'echelle par instance ; le dessus s'allume, les flancs moins. */
-function keyGeometry(mobile: boolean): BufferGeometry {
+export function keyGeometry(mobile: boolean): BufferGeometry {
   const g = new RoundedBoxGeometry(1, DJ_KEY.h, 1, mobile ? 2 : 3, DJ_KEY.radius);
   g.translate(0, DJ_KEY.h / 2, 0);
   const out = partDj(g, 'rubber');
@@ -135,7 +135,7 @@ function keyGeometry(mobile: boolean): BufferGeometry {
  * et CUE de la couleur des knobs FILTER") : CUE orange, PLAY / PAUSE en
  * aluminium (celui de la bague du jog).
  */
-function roundGeometry(mobile: boolean, capTone: DjTone): BufferGeometry {
+export function roundGeometry(mobile: boolean, capTone: DjTone): BufferGeometry {
   const seg = mobile ? 32 : 48;
   const R = DJ_ROUND;
   const ring = new LatheGeometry(
@@ -156,7 +156,7 @@ function roundGeometry(mobile: boolean, capTone: DjTone): BufferGeometry {
  * sombres pour l'orange), le triangle et les deux barres de PLAY / PAUSE a
  * droite (encre sombre, lisible sur l'aluminium en clair comme en sombre).
  */
-function labelTexture(anisotropy: number): CanvasTexture {
+export function labelTexture(anisotropy: number): CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 512;
   c.height = 256;
@@ -184,7 +184,7 @@ function labelTexture(anisotropy: number): CanvasTexture {
 }
 
 /** Le disque d'un nom grave, pose sur le dessus plat du capuchon ; half : 0 CUE, 1 PLAY. */
-function labelGeometry(mobile: boolean, half: 0 | 1): BufferGeometry {
+export function labelGeometry(mobile: boolean, half: 0 | 1): BufferGeometry {
   const g = new CircleGeometry(0.66, mobile ? 32 : 48);
   const uv = g.getAttribute('uv');
   for (let i = 0; i < uv.count; i += 1) uv.setX(i, (uv.getX(i) + half) / 2);

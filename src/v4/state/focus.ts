@@ -10,7 +10,7 @@
  * Sans le MM-VOYAGER (?voyager=0), la 808 seule : focus reste 'mm808'.
  */
 
-export type MachineId = 'mm808' | 'voy' | 'dj';
+export type MachineId = 'mm808' | 'voy' | 'dj' | 'smpl';
 export type Focus = 'all' | MachineId;
 
 /**
@@ -46,8 +46,25 @@ export const DJ: boolean = (() => {
   }
 })();
 
+/**
+ * Le MM-SMPL (2026-10-04, Mika : "une machine de travail du sample avec une
+ * partie granulaire, rajoute-la dans la liste des machines") : a droite du
+ * MM-DECKS. Pour tout le monde ; ?smpl=0 le retire (retenu pour l'onglet),
+ * ?smpl=1 le remet. Il suppose le MM-VOYAGER sur la table.
+ */
+export const SMPL: boolean = (() => {
+  if (typeof window === 'undefined' || !VOYAGER) return false;
+  try {
+    const q = new URLSearchParams(window.location.search).get('smpl');
+    if (q === '1' || q === '0') window.sessionStorage.setItem('mm.v4.smpl', q);
+    return window.sessionStorage.getItem('mm.v4.smpl') !== '0';
+  } catch {
+    return true;
+  }
+})();
+
 /** Les machines sur la table, de gauche a droite. */
-export const MACHINES: readonly MachineId[] = VOYAGER ? (DJ ? ['mm808', 'voy', 'dj'] : ['mm808', 'voy']) : ['mm808'];
+export const MACHINES: readonly MachineId[] = VOYAGER ? ['mm808', 'voy', ...(DJ ? (['dj'] as const) : []), ...(SMPL ? (['smpl'] as const) : [])] : ['mm808'];
 
 /**
  * La machine d'arrivee (2026-10-04, Mika : "oui, ajoute ?m=dj") : ?m=dj
@@ -68,6 +85,10 @@ const START_ALIASES: Readonly<Record<string, MachineId>> = {
   '808': 'mm808',
   mm808: 'mm808',
   'mm-rytm': 'mm808',
+  smpl: 'smpl',
+  sampler: 'smpl',
+  'mm-smpl': 'smpl',
+  grain: 'smpl',
 };
 let start: MachineId | null = (() => {
   if (typeof window === 'undefined') return null;

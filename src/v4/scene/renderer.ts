@@ -57,7 +57,7 @@ import { motion } from '../state/motion';
 import { editor } from '../state/editor';
 import { presetMode, type PresetKey } from '../state/presetMode';
 import { explode as explodeState, voyExplode } from '../state/explode';
-import { DJ, focus, startMachine, VOYAGER, type Focus, type MachineId } from '../state/focus';
+import { DJ, SMPL, focus, startMachine, VOYAGER, type Focus, type MachineId } from '../state/focus';
 import { view } from '../state/view';
 import { intro } from '../state/intro';
 import { playhead } from '../state/playhead';
@@ -131,6 +131,9 @@ import type { DjRig } from '../dj/rig';
 import { djLoad } from '../state/djload';
 import { DJ_FRAME, DJ_W, DJ_X, UNIT_X, unitW } from '../dj/theme';
 import { djView } from '../dj/view';
+import type { SmplRig } from '../smpl/rig';
+import { smplLoad } from '../state/smplload';
+import { SMPL_FRAME, SMPL_W, smplX } from '../smpl/theme';
 
 const DEG = Math.PI / 180;
 
@@ -444,6 +447,8 @@ export class Stage {
   readonly voy: VoyagerRig | null;
   /** le MM-DECKS (2026-10-04), accroche une fois son code arrive (attachDj) ; null avant, et sans lui (?dj=0) */
   dj: DjRig | null = null;
+  /** Le MM-SMPL (2026-10-04) : son code arrive a part (state/smplload.ts) */
+  smpl: SmplRig | null = null;
   /** l'anisotropie des textures, gardee pour le MM-DECKS qui arrive apres le constructeur */
   private aniso = 1;
   /** cadrage de la cible : courant, depart et arrivee du zoom, cibles, avancement (courbe appliquee) */
@@ -459,7 +464,7 @@ export class Stage {
   private unsubView: () => void = () => undefined;
   private unsubDjUnit: () => void = () => undefined;
   /** abscisses des machines au depart du zoom (le bout qui depasse les deplace) */
-  private nbFrom: Record<MachineId, number> = { mm808: 0, voy: VOY_X, dj: DJ_X };
+  private nbFrom: Record<MachineId, number> = { mm808: 0, voy: VOY_X, dj: DJ_X, smpl: smplX(DJ) };
   /** survol du bout de la machine voisine : 0 a 1 */
   private peekHover = 0;
   /**
@@ -471,6 +476,7 @@ export class Stage {
     mm808: { cur: 0, goal: 0, top: 0 },
     voy: { cur: 0, goal: 0, top: 0 },
     dj: { cur: 0, goal: 0, top: 0 },
+    smpl: { cur: 0, goal: 0, top: 0 },
   };
 
   static create(opts: StageOpts): Stage | null {
@@ -748,6 +754,8 @@ export class Stage {
     // le chargement principal ; le rig s'accroche ensuite (attachDj). Avec ?dj=0, rien
     this.aniso = aniso;
     if (VOYAGER && DJ) void djLoad.load()?.then((m) => this.attachDj(m.DjRig));
+    // Le MM-SMPL (2026-10-04) : de meme, a droite du MM-DECKS (state/smplload.ts) ; avec ?smpl=0, rien
+    if (VOYAGER && SMPL) void smplLoad.load()?.then((m) => this.attachSmpl(m.SmplRig));
 
     // Taille initiale ; le canvas passe a l'encre tout de suite (jamais un noir pur)
     this.width = Math.max(1, opts.host.clientWidth);
@@ -1046,6 +1054,34 @@ export class Stage {
   }
 
   /**
+   * Le MM-SMPL arrive (son code charge a part) : a droite du MM-DECKS, ses
+   * objets apres les siens ; ses animations (tetes de lecture, REC), son
+   * ecoute ; puis la scene se recadre.
+   */
+  private attachSmpl(Rig: typeof SmplRig): void {
+    if (this.disposed || this.smpl) return;
+    const sm = new Rig({
+      mobile: this.opts.mobile,
+      anisotropy: this.aniso,
+      withDj: DJ,
+      repaint: () => this.repaint(),
+      invalidate: () => this.invalidate(),
+    });
+    this.smpl = sm;
+    this.scene.add(sm.root);
+    this.hit.add(sm.hotspots);
+    for (const o of sm.occluders()) this.hit.addOccluder(o);
+    void whenLogos().then(() => {
+      if (!this.disposed) sm.redrawText();
+    });
+    this.animators.push(sm.step);
+    sm.listen();
+    this.setShown(this.fTo);
+    this.updateCamera();
+    this.invalidate();
+  }
+
+  /**
    * Cadrage (spec 20.2.5), fixe par mise en page et proportions, jamais
    * par orientation : tourner ne fait pas "respirer" la machine.
    * 1. Base : 78 % desktop, 92 % mobile de l'empreinte a la vue par defaut,
@@ -1075,7 +1111,7 @@ export class Stage {
     const k = this.focusK;
     let insetPx = 0;
     let headPx = 0;
-    for (const id of ['mm808', 'voy', 'dj'] as const) {
+    for (const id of ['mm808', 'voy', 'dj', 'smpl'] as const) {
       const w = (this.fFrom === id ? 1 - k : 0) + (this.fTo === id ? k : 0);
       insetPx += this.insets[id].cur * w;
       headPx += this.insets[id].top * w;
@@ -1143,18 +1179,29 @@ export class Stage {
     let t808 = 0;
     let tVoy = VOY_X;
     let tDj = DJ_X;
+    const homeSmpl = smplX(DJ);
+    let tSmpl = homeSmpl;
     if (!this.layoutMobile && f === 'mm808') {
       tVoy = Math.max(BODY.w / 2 + PEEK.gap + VOY_BODY.w / 2, cx + hw - peek + VOY_BODY.w / 2);
     } else if (!this.layoutMobile && f === 'voy') {
       t808 = Math.min(VOY_X - VOY_BODY.w / 2 - PEEK.gap - BODY.w / 2, cx - hw + peek - BODY.w / 2);
       tDj = Math.max(VOY_X + VOY_BODY.w / 2 + PEEK.gap + DJ_W / 2, cx + hw - peek + DJ_W / 2);
+      if (!DJ) tSmpl = Math.max(VOY_X + VOY_BODY.w / 2 + PEEK.gap + SMPL_W / 2, cx + hw - peek + SMPL_W / 2);
     } else if (!this.layoutMobile && f === 'dj') {
       tVoy = Math.min(DJ_X - DJ_W / 2 - PEEK.gap - VOY_BODY.w / 2, cx - hw + peek - VOY_BODY.w / 2);
+      // Le MM-SMPL depasse a droite de la table
+      tSmpl = Math.max(DJ_X + DJ_W / 2 + PEEK.gap + SMPL_W / 2, cx + hw - peek + SMPL_W / 2);
+    } else if (!this.layoutMobile && f === 'smpl') {
+      // Sa voisine de gauche depasse : le MM-DECKS (ou le MM-ARP sans lui)
+      if (DJ) tDj = Math.min(homeSmpl - SMPL_W / 2 - PEEK.gap - DJ_W / 2, cx - hw + peek - DJ_W / 2);
+      else tVoy = Math.min(homeSmpl - SMPL_W / 2 - PEEK.gap - VOY_BODY.w / 2, cx - hw + peek - VOY_BODY.w / 2);
     }
     const k = this.focusK;
     const x808 = this.nbFrom.mm808 + (t808 - this.nbFrom.mm808) * k;
     const xVoy = this.nbFrom.voy + (tVoy - this.nbFrom.voy) * k;
     const xDj = this.nbFrom.dj + (tDj - this.nbFrom.dj) * k;
+    const xSmpl = this.nbFrom.smpl + (tSmpl - this.nbFrom.smpl) * k;
+    const sm = this.smpl;
     let moved = false;
     if (this.machine.root.position.x !== x808) {
       this.machine.root.position.x = x808;
@@ -1168,7 +1215,11 @@ export class Stage {
       dj.root.position.x = xDj;
       moved = true;
     }
-    if (this.floor.setCenters(x808, xVoy, xDj)) moved = true;
+    if (sm && sm.root.position.x !== xSmpl) {
+      sm.root.position.x = xSmpl;
+      moved = true;
+    }
+    if (this.floor.setCenters(x808, xVoy, xDj, xSmpl)) moved = true;
     if (moved) {
       this.shadowDirty = true;
       this.dirty = true;
@@ -1279,13 +1330,26 @@ export class Stage {
       extent: mob ? unitW(u) / 2 + 3 : DJ_FRAME.extent,
     };
     if (f === 'dj') return dj;
+    // Le MM-SMPL (2026-10-04) : le bloc entier de face, comme une platine du MM-DECKS
+    const smpl: Frame = {
+      cx: smplX(DJ),
+      hw0: SMPL_W / 2 / (mob ? FRAME_MOBILE : DJ_FRAME.fill),
+      h: SMPL_FRAME.h,
+      ty: SMPL_FRAME.targetY,
+      explodeTy: SMPL_FRAME.targetY,
+      rClosed: SMPL_W / 2 + 0.6,
+      rOpen: SMPL_W / 2 + 0.6,
+      fitHalfH: SMPL_FRAME.h / 2,
+      extent: SMPL_W / 2 + (mob ? 3 : 2),
+    };
+    if (f === 'smpl') return smpl;
     const left = -BODY.w / 2;
-    const right = DJ ? DJ_X + DJ_W / 2 : VOY_X + VOY_BODY.w / 2;
+    const right = SMPL ? smplX(DJ) + SMPL_W / 2 : DJ ? DJ_X + DJ_W / 2 : VOY_X + VOY_BODY.w / 2;
     const half = (right - left) / 2;
     return {
       cx: (left + right) / 2,
       hw0: half / (mob ? OVERVIEW_FILL.mobile : OVERVIEW_FILL.desktop),
-      h: Math.max(m808.h, voy.h, DJ ? dj.h : 0),
+      h: Math.max(m808.h, voy.h, DJ ? dj.h : 0, SMPL ? smpl.h : 0),
       ty: (m808.ty + voy.ty) / 2,
       explodeTy: Math.max(m808.explodeTy, voy.explodeTy),
       rClosed: half + 1,
@@ -1299,7 +1363,7 @@ export class Stage {
   private explodeOf(f: Focus): number {
     const a = this.explode.p.frame;
     const b = this.voy ? this.voy.explode.p.frame : 0;
-    return f === 'mm808' ? a : f === 'voy' ? b : f === 'dj' ? 0 : Math.max(a, b);
+    return f === 'mm808' ? a : f === 'voy' ? b : f === 'dj' || f === 'smpl' ? 0 : Math.max(a, b);
   }
 
   private explodeFrame(): number {
@@ -1330,7 +1394,7 @@ export class Stage {
     this.back.target.position.set(cx, 0, 0);
     this.back.target.updateMatrixWorld();
     // Le lisere jaune reste a gauche de la machine utilisee (vue d'ensemble : la 808)
-    this.rim.position.x = LIGHT_RIM.x + (this.fTo === 'voy' || this.fTo === 'dj' ? cx : 0);
+    this.rim.position.x = LIGHT_RIM.x + (this.fTo === 'voy' || this.fTo === 'dj' || this.fTo === 'smpl' ? cx : 0);
     this.shadowDirty = true;
   }
 
@@ -1346,15 +1410,19 @@ export class Stage {
     // la vue tournee, elle se cache (elle passerait devant)
     const peek = !this.layoutMobile && !view.get();
     const dj = this.dj;
+    const sm = this.smpl;
     // Les voisines immediates seulement : la 808 et le MM-DECKS ne se voient pas l'une l'autre
     const a = f === 'all' || f === 'mm808' || (f === 'voy' && peek);
-    const b = f === 'all' || f === 'voy' || peek;
-    const c = !!dj && (f === 'all' || f === 'dj' || (f === 'voy' && peek));
-    if (this.machine.root.visible === a && voy.root.visible === b && (!dj || dj.root.visible === c)) return;
+    // Le MM-ARP : voisin de tous, sauf du MM-SMPL quand le MM-DECKS est entre eux
+    const b = f === 'all' || f === 'voy' || (peek && (f !== 'smpl' || !dj));
+    const c = !!dj && (f === 'all' || f === 'dj' || (f === 'voy' && peek) || (f === 'smpl' && peek));
+    const d = !!sm && (f === 'all' || f === 'smpl' || (peek && (f === 'dj' || (f === 'voy' && !dj))));
+    if (this.machine.root.visible === a && voy.root.visible === b && (!dj || dj.root.visible === c) && (!sm || sm.root.visible === d)) return;
     this.machine.root.visible = a;
     voy.root.visible = b;
     if (dj) dj.root.visible = c;
-    this.floor.setMachines(a, b, c);
+    if (sm) sm.root.visible = d;
+    this.floor.setMachines(a, b, c, d);
     this.hit.invalidate();
     this.invalidate();
   }
@@ -1398,7 +1466,7 @@ export class Stage {
     this.fTo = f;
     this.frTo = this.frameOf(f);
     this.focusK = 0;
-    this.nbFrom = { mm808: this.machine.root.position.x, voy: this.voy ? this.voy.root.position.x : VOY_X, dj: this.dj ? this.dj.root.position.x : DJ_X };
+    this.nbFrom = { mm808: this.machine.root.position.x, voy: this.voy ? this.voy.root.position.x : VOY_X, dj: this.dj ? this.dj.root.position.x : DJ_X, smpl: this.smpl ? this.smpl.root.position.x : smplX(DJ) };
     this.peekHover = 0;
     this.tweens.cancel('peek.hover');
     this.setShown('all');
@@ -1890,19 +1958,23 @@ export class Stage {
     const voy = this.voy;
     if (!voy || this.disposed || this.contextLost || !this.started) return null;
     const dj = this.dj;
+    const sm = this.smpl;
     if (m === 'dj' && !dj) return null;
+    if (m === 'smpl' && !sm) return null;
     const a = this.machine.root.visible;
     const b = voy.root.visible;
     const c = dj ? dj.root.visible : false;
+    const dv = sm ? sm.root.visible : false;
     const fl = this.floor.mesh.visible;
     this.machine.root.visible = m === 'mm808';
     voy.root.visible = m === 'voy';
     if (dj) dj.root.visible = m === 'dj';
+    if (sm) sm.root.visible = m === 'smpl';
     this.floor.mesh.visible = false;
     const cam = new PerspectiveCamera(24, w / h, 0.1, 200);
-    const cx = m === 'voy' ? VOY_X : m === 'dj' && dj ? dj.root.position.x : 0;
-    const ty = m === 'voy' ? VOY_FRAME.targetY : m === 'dj' ? DJ_FRAME.targetY : ORBIT.targetY;
-    const R = m === 'voy' ? Math.hypot(VOY_BODY.w, VOY_BODY.d) / 2 : m === 'dj' ? (DJ_W / 2) * 0.82 : Math.hypot(BODY.w, BODY.d) / 2;
+    const cx = m === 'voy' ? VOY_X : m === 'dj' && dj ? dj.root.position.x : m === 'smpl' && sm ? sm.root.position.x : 0;
+    const ty = m === 'voy' ? VOY_FRAME.targetY : m === 'dj' ? DJ_FRAME.targetY : m === 'smpl' ? SMPL_FRAME.targetY : ORBIT.targetY;
+    const R = m === 'voy' ? Math.hypot(VOY_BODY.w, VOY_BODY.d) / 2 : m === 'dj' ? (DJ_W / 2) * 0.82 : m === 'smpl' ? Math.hypot(SMPL_W, 11) / 2 : Math.hypot(BODY.w, BODY.d) / 2;
     const az = (26 * Math.PI) / 180;
     const el = (30 * Math.PI) / 180;
     const D = (R / Math.sin((24 * Math.PI) / 360)) * 0.62;
@@ -1932,6 +2004,7 @@ export class Stage {
       this.machine.root.visible = a;
       voy.root.visible = b;
       if (dj) dj.root.visible = c;
+      if (sm) sm.root.visible = dv;
       this.floor.mesh.visible = fl;
       // La vue normale, tout de suite : le coin rendu ne s'affiche jamais
       this.dirty = true;
@@ -2068,6 +2141,7 @@ export class Stage {
     // Le MM-VOYAGER : ses ids commencent par v (vpad, vbtn, vchip, vk)
     if (this.voy && this.voy.setHover(id !== null && id.startsWith('v') ? id : null)) changed = true;
     if (this.dj && this.dj.setHover(id !== null && id.startsWith('dj-') ? id : null)) changed = true;
+    if (this.smpl && this.smpl.setHover(id !== null && id.startsWith('smpl-') ? id : null)) changed = true;
     const pad = id !== null && id.startsWith('pad-') ? (id.slice(4) as PadId) : null;
     if (this.pads.setHover(pad)) changed = true;
     // Puce du PCB (vue ouverte)
@@ -2495,6 +2569,7 @@ export class Stage {
     this.voy?.dispose();
     this.unsubDjUnit();
     this.dj?.dispose();
+    this.smpl?.dispose();
     this.floor.dispose();
     this.key.dispose();
     this.hemi.dispose();

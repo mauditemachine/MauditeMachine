@@ -61,7 +61,7 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
   const hood = hoodOf(hoodMachine()).get();
   const machineOpen = hood === 'opening' || hood === 'open';
   // Le MM-DECKS n'a pas de capot (2026-10-04) : pas de OPEN THE MACHINE quand on l'utilise
-  const hasHood = hoodMachine() !== 'dj';
+  const hasHood = hoodMachine() !== 'dj' && hoodMachine() !== 'smpl';
   const ref = useRef<HTMLElement>(null);
 
   // Ouvert : le focus sur la premiere page, Echap le ferme

@@ -46,7 +46,7 @@ import { useMedia } from './hooks/useMedia';
 import { Stage } from './scene/renderer';
 import { editor } from './state/editor';
 import { explode, voyExplode } from './state/explode';
-import { DJ, focus, VOYAGER } from './state/focus';
+import { DJ, SMPL, focus, VOYAGER } from './state/focus';
 import { FLAGS, syncFlags } from './state/flags';
 import { intro } from './state/intro';
 import { lcd } from './state/lcd';
@@ -336,6 +336,9 @@ const DjBrowser = lazy(() =>
 const DjTwins = lazy(() => import('./dj/Twins'));
 /** Le Dock du MM-DECKS au telephone : tous les reglages de la table en gros (2026-10-04) */
 const DjMixDock = lazy(() => import('./dj/MixDock'));
+/** Le MM-SMPL (2026-10-04) : ses jumeaux (et son clavier), son Dock au telephone */
+const SmplTwins = lazy(() => import('./smpl/Twins'));
+const SmplDock = lazy(() => import('./smpl/Dock'));
 
 const V4Shell: React.FC = () => {
   const stageRef = useRef<Stage | null>(null);
@@ -507,6 +510,11 @@ const V4Shell: React.FC = () => {
                 <DjTwins stage={stage} />
               </Suspense>
             )}
+            {SMPL && (
+              <Suspense fallback={null}>
+                <SmplTwins stage={stage} />
+              </Suspense>
+            )}
           </StageBoundary>
         )}
       </div>
@@ -519,13 +527,19 @@ const V4Shell: React.FC = () => {
           <Scope mobile={mobile} />
           {/* Le Dock n'existe que sur la mise en page mobile : pas de rendu React par pas sur desktop ; il programme la 808 */}
           {/* EDIT ouvert (2026-10-04) : l'editeur prend la place du Dock de sa machine */}
-          {mobile && machineFocus !== 'voy' && machineFocus !== 'dj' && editorOpen !== 'mm808' && <Dock getStage={getStage} />}
+          {mobile && machineFocus !== 'voy' && machineFocus !== 'dj' && machineFocus !== 'smpl' && editorOpen !== 'mm808' && <Dock getStage={getStage} />}
           {/* Le Voyager a le sien au telephone : accords, octave, arpege en gros boutons */}
           {mobile && VOYAGER && machineFocus === 'voy' && editorOpen !== 'voy' && <VoyDock getStage={getStage} />}
           {/* Le MM-DECKS aussi : la languette MIXER, tous les potards de la table en gros */}
           {mobile && DJ && machineFocus === 'dj' && (
             <Suspense fallback={null}>
               <DjMixDock getStage={getStage} />
+            </Suspense>
+          )}
+          {/* Le MM-SMPL : ses seize pads et ses potards en gros */}
+          {mobile && SMPL && machineFocus === 'smpl' && (
+            <Suspense fallback={null}>
+              <SmplDock getStage={getStage} />
             </Suspense>
           )}
           {/* Les editeurs (EDIT sur la machine) : la suite de l'arpege, le motif du MM-RYTM et ses velocites */}
