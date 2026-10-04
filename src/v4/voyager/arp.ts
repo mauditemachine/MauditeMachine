@@ -272,6 +272,11 @@ clock.follow(gridAfter);
 
 export const arp = {
   get: (): ArpState => state,
+  /** La grille de l'arpege qui joue seul (l'oscilloscope s'y cale, ui/Scope.tsx) : premiere frontiere de pas a t ou apres, son numero, sa duree. */
+  grid(t: number): { time: number; step: number; dur: number } | null {
+    const g = gridAfter(t);
+    return g ? { ...g, dur: stepDur } : null;
+  },
   subscribe(fn: () => void): () => void {
     listeners.add(fn);
     return () => {

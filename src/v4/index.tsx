@@ -61,6 +61,7 @@ import { BACKDROP, COARSE_QUERY, COPY, MOBILE_QUERY, PORTRAIT, PRESSKIT_ROUTE, a
 import { BeatPanel } from './ui/BeatEditor';
 import { MobileHeader } from './ui/MobileHeader';
 import { PcbClose } from './ui/PcbClose';
+import { Scope } from './ui/Scope';
 import { Dock } from './ui/Dock';
 import { Header, openHood } from './ui/Header';
 import { HitLayer, Twins } from './ui/Hotspots';
@@ -511,6 +512,8 @@ const V4Shell: React.FC = () => {
           {/* Hors de .v4-stage : ses pointeurs n'atteignent jamais l'orbite */}
           <ResetView getStage={getStage} />
           <Lcd />
+          {/* Capot ouvert : l'oscilloscope (2026-10-04, ui/Scope.tsx) */}
+          <Scope mobile={mobile} />
           {/* Le Dock n'existe que sur la mise en page mobile : pas de rendu React par pas sur desktop ; il programme la 808 */}
           {/* EDIT ouvert (2026-10-04) : l'editeur prend la place du Dock de sa machine */}
           {mobile && machineFocus !== 'voy' && machineFocus !== 'dj' && editorOpen !== 'mm808' && <Dock getStage={getStage} />}

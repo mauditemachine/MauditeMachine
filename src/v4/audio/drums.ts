@@ -459,6 +459,9 @@ export function machineOuts(): { rytm: AudioNode; arp: AudioNode } | null {
   return graph ? { rytm: graph.rytmOut, arp: graph.arpOut } : null;
 }
 
+/** Ou vont les deux machines : le mixer du MM-DECKS, ou null (le master). */
+let routed: { rytm: AudioNode; arp: AudioNode } | null = null;
+
 /**
  * Le mixer du MM-DECKS prend les deux machines sur ses canaux 1 (MM-RYTM)
  * et 2 (MM-ARP) : leurs prises quittent le master pour ses entrees ; null
@@ -466,13 +469,32 @@ export function machineOuts(): { rytm: AudioNode; arp: AudioNode } | null {
  */
 export function routeMachines(to: { rytm: AudioNode; arp: AudioNode } | null): void {
   if (!graph) return;
-  for (const [out, dest] of [
-    [graph.rytmOut, to?.rytm],
-    [graph.arpOut, to?.arp],
+  const g = graph;
+  // Seule l'ancienne destination est debranchee : les prises de l'oscilloscope (scopeTaps) restent
+  const was = routed ?? { rytm: g.analyser, arp: g.analyser };
+  for (const [out, from, dest] of [
+    [g.rytmOut, was.rytm, to?.rytm],
+    [g.arpOut, was.arp, to?.arp],
   ] as const) {
-    out.disconnect();
-    out.connect(dest ?? graph.analyser);
+    try {
+      out.disconnect(from);
+    } catch {
+      /* deja debranchee */
+    }
+    out.connect(dest ?? g.analyser);
   }
+  routed = to;
+}
+
+/**
+ * Les points de mesure de l'oscilloscope (2026-10-04, ui/Scope.tsx) : la
+ * sortie de chaque machine (seche et effets), le kick seul (la sortie de sa
+ * tranche, avant le bus), et ce qui sort du site (apres le limiteur, avant
+ * MASTER). null avant le premier geste.
+ */
+export function scopeTaps(): { ctx: AudioContext; rytm: AudioNode; arp: AudioNode; kick: AudioNode | null; master: AudioNode } | null {
+  if (!ctx || !graph) return null;
+  return { ctx, rytm: graph.rytmOut, arp: graph.arpOut, kick: graph.ch?.BD.out ?? null, master: graph.post };
 }
 
 /* ---------------- voix (spec 8.2) ---------------- */
