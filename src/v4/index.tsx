@@ -327,6 +327,8 @@ function useShapeReload(): void {
 const DjBrowser = lazy(() =>
   import('./dj/TrackBrowser').then((m) => ({ default: m.DjBrowser as React.ComponentType<{ getStage: () => Stage | null }> }))
 );
+/** Les jumeaux HTML du MM-DECKS (clavier, lecteurs d'ecran), charges a part eux aussi. */
+const DjTwins = lazy(() => import('./dj/Twins'));
 
 const V4Shell: React.FC = () => {
   const stageRef = useRef<Stage | null>(null);
@@ -490,6 +492,11 @@ const V4Shell: React.FC = () => {
             <HitLayer getStage={getStage} stage={stage} />
             <Twins stage={stage} />
             {VOYAGER && <VoyTwins stage={stage} />}
+            {DJ && (
+              <Suspense fallback={null}>
+                <DjTwins stage={stage} />
+              </Suspense>
+            )}
           </StageBoundary>
         )}
       </div>

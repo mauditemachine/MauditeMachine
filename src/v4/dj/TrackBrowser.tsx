@@ -5,9 +5,12 @@
  * - AUDIUS : des morceaux entiers en MP3 que la page a le droit de traiter
  *   (CORS ouvert), avec leur BPM et leur tonalite ; les tendances
  *   electroniques au depart, une recherche ensuite.
- * - MY FILES : les fichiers de l'appareil (bouton, dossier, ou glisses sur
- *   la liste). Ils restent sur l'appareil : la platine les lit sur place,
- *   rien n'est envoye (Mika, 2026-10-03 : "ca va pas les uploader ?").
+ * - MY FILES : la caisse (dj/crate.ts), les fichiers de l'appareil gardes
+ *   d'une visite a l'autre, ranges par dossier (bouton, dossier, ou glisses
+ *   sur la liste). Ils restent sur l'appareil : rien n'est envoye (Mika,
+ *   2026-10-03 : "ca va pas les uploader ?"). Un gros import demande : copier
+ *   dans le navigateur (s'il y a la place), ou relier pour la visite ; sur
+ *   Chrome et Edge, un dossier se relie sans rien copier.
  * Chaque ligne a deux touches, A et B : le morceau part sur la platine
  * choisie. Desktop : une bande en bas, sous les trois blocs ; telephone :
  * sous la platine cadree. Le cadrage de la scene remonte au-dessus d'elle
@@ -23,16 +26,16 @@ import { focus } from '../state/focus';
 import { intro } from '../state/intro';
 import { AUDIUS_APP, audiusHostUrl, djLoad } from './actions';
 import { djBrowser } from './browser';
+import { DJ_KEY_LEGEND, listenDjKeys } from './keys';
+import { addFiles, analyzeAll, canLink, crateEvents, crateTracks, folderOfPath, isSound, linkFolder, pickAndLink, readDrop, removeFolder, storageLeft, type ImportMode, type PlacedFile } from './crate';
 import { camelot } from './math';
 import { djState, type DjTrack } from './state';
-import { tagsOfFile, titleFromName } from './tags';
 import type { DjDeck } from './theme';
 import './dj.css';
 
 /** Un morceau, pas un set : une minute au moins, douze au plus (tout est decode en memoire). */
 const MAX_S = 12 * 60;
 const ROWS = 200;
-const SOUND = /\.(mp3|m4a|aac|wav|aiff?|flac|ogg|opus)$/i;
 
 interface Raw {
   id?: string;
@@ -69,44 +72,65 @@ async function audius(path: string, signal: AbortSignal): Promise<DjTrack[]> {
   return (d.data ?? []).map(fromAudius).filter((t): t is DjTrack => t !== null);
 }
 
-/** Les fichiers ajoutes pendant la visite (en memoire seulement). */
-let files: DjTrack[] = [];
-let fileSeq = 0;
-const fileListeners = new Set<() => void>();
-const fileStore = {
-  get: (): DjTrack[] => files,
-  subscribe(fn: () => void): () => void {
-    fileListeners.add(fn);
+/** La caisse, relue a chaque changement ; null tant qu'elle n'est pas lue. */
+function useCrate(on: boolean): DjTrack[] | null {
+  const [tracks, setTracks] = useState<DjTrack[] | null>(null);
+  const v = useSyncExternalStore(crateEvents.subscribe, crateEvents.version, crateEvents.version);
+  useEffect(() => {
+    if (!on) return undefined;
+    let live = true;
+    void crateTracks().then((t) => {
+      if (live) setTracks(t);
+    });
     return () => {
-      fileListeners.delete(fn);
+      live = false;
     };
-  },
+  }, [on, v]);
+  // Les analyses reprennent ou elles en etaient, a chaque visite
+  useEffect(() => {
+    if (on) void analyzeAll();
+  }, [on]);
+  return tracks;
+}
+
+/** Les dossiers de la caisse, en ordre alphabetique ; '' (en vrac) a la fin. */
+const foldersOf = (t: readonly DjTrack[]): string[] => {
+  const set = new Set(t.map((x) => x.folder ?? ''));
+  return [...set].sort((x, y) => (x === '' ? 1 : y === '' ? -1 : x.localeCompare(y)));
 };
 
-async function addFiles(list: readonly File[]): Promise<number> {
-  const added: DjTrack[] = [];
-  for (const f of list) {
-    if (!(f.type.startsWith('audio/') || SOUND.test(f.name))) continue;
-    const tags = await tagsOfFile(f);
-    const named = titleFromName(f.name);
-    fileSeq += 1;
-    added.push({
-      id: `file-${fileSeq}-${f.name}`,
-      source: 'file',
-      title: tags.title || named.title,
-      artist: tags.artist || named.artist,
-      bpm: tags.bpm ?? null,
-      key: camelot(tags.key),
-      duration: 0,
-      file: f,
-    });
+/** L'onglet retenu (MY FILES pour qui a sa caisse). */
+const TAB_KEY = 'mm.v4.dj.tab';
+const readTab = (): Tab => {
+  try {
+    return window.localStorage.getItem(TAB_KEY) === 'files' ? 'files' : 'audius';
+  } catch {
+    return 'audius';
   }
-  if (added.length > 0) {
-    files = [...files, ...added];
-    fileListeners.forEach((fn) => fn());
+};
+
+/** Tous les dossiers a la fois. */
+const ALL = '*';
+const FOLDER_KEY = 'mm.v4.dj.folder';
+const readFolder = (): string => {
+  try {
+    return window.localStorage.getItem(FOLDER_KEY) ?? ALL;
+  } catch {
+    return ALL;
   }
-  return added.length;
+};
+
+/** Un import en attente de choix : ses fichiers, leur poids, le dossier propose, la place restante. */
+interface Plan {
+  files: PlacedFile[];
+  bytes: number;
+  folder: string;
+  left: number | null;
 }
+
+const human = (b: number): string => (b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB` : `${Math.max(1, Math.round(b / 1e6))} MB`);
+/** Au-dela, on demande avant de copier. */
+const ASK = { files: 1, bytes: 300 * 1e6 } as const;
 
 type Tab = 'audius' | 'files';
 const fmtTime = (s: number): string => (s > 0 ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '');
@@ -123,12 +147,41 @@ interface Props {
 export const DjBrowser: React.FC<Props> = ({ getStage }) => {
   const b = useSyncExternalStore(djBrowser.subscribe, djBrowser.get, djBrowser.get);
   const dj = useSyncExternalStore(djState.subscribe, djState.get, djState.get);
-  const mine = useSyncExternalStore(fileStore.subscribe, fileStore.get, fileStore.get);
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
   const shown = f === 'dj' && introState === 'done';
   const big = shown && b.open;
-  const [tab, setTab] = useState<Tab>('audius');
+  const [tab, setTabState] = useState<Tab>(readTab);
+  const setTab = (t: Tab): void => {
+    setTabState(t);
+    try {
+      window.localStorage.setItem(TAB_KEY, t);
+    } catch {
+      /* rien a retenir */
+    }
+  };
+  const mine = useCrate(shown) ?? [];
+  const [folder, setFolderState] = useState<string>(readFolder);
+  const [plan, setPlan] = useState<Plan | null>(null);
+  const [work, setWork] = useState<string | null>(null);
+  const [sure, setSure] = useState(false);
+  const [legend, setLegend] = useState(false);
+  // Le clavier des platines : actif seulement quand on utilise le MM-DECKS
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+  useEffect(() => listenDjKeys(() => getStage?.() ?? null, () => shownRef.current), [getStage]);
+  const folders = useMemo(() => foldersOf(mine), [mine]);
+  // Un dossier retenu qui n'existe plus : tout montrer
+  const shownFolder = folder === ALL || folders.includes(folder) ? folder : ALL;
+  const setFolder = (f: string): void => {
+    setFolderState(f);
+    setSure(false);
+    try {
+      window.localStorage.setItem(FOLDER_KEY, f);
+    } catch {
+      /* rien a retenir */
+    }
+  };
   const [query, setQuery] = useState('');
   const [list, setList] = useState<DjTrack[] | null>(null);
   const [drop, setDrop] = useState(false);
@@ -206,11 +259,11 @@ export const DjBrowser: React.FC<Props> = ({ getStage }) => {
   }, [big]);
 
   const rows = useMemo(() => {
-    const src = tab === 'audius' ? (list ?? []) : mine;
+    const src = tab === 'audius' ? (list ?? []) : mine.filter((t) => shownFolder === ALL || (t.folder ?? '') === shownFolder);
     const q = query.trim().toLowerCase();
-    const out = tab === 'files' && q ? src.filter((t) => `${t.title} ${t.artist}`.toLowerCase().includes(q)) : src;
+    const out = tab === 'files' && q ? src.filter((t) => `${t.title} ${t.artist} ${t.folder ?? ''}`.toLowerCase().includes(q)) : src;
     return out.slice(0, ROWS);
-  }, [tab, list, mine, query]);
+  }, [tab, list, mine, query, shownFolder]);
 
   const load = (t: DjTrack, d: DjDeck): void => {
     gesture();
@@ -218,11 +271,85 @@ export const DjBrowser: React.FC<Props> = ({ getStage }) => {
     djBrowser.close();
   };
 
+  const progress = (done: number, total: number): void => setWork(`ADDING ${done} / ${total}`);
+
+  /** Range des fichiers : un seul petit fichier entre tout de suite (copie) ; sinon on demande. */
+  const offer = async (files: PlacedFile[]): Promise<void> => {
+    const sounds = files.filter((x) => isSound(x.file));
+    if (sounds.length === 0) return;
+    setTab('files');
+    const bytes = sounds.reduce((n, x) => n + x.file.size, 0);
+    const named = sounds.find((x) => x.folder)?.folder ?? (shownFolder !== ALL ? shownFolder : '');
+    if (sounds.length <= ASK.files && bytes < ASK.bytes) {
+      await run(sounds.map((x) => ({ ...x, folder: x.folder || named })), 'copy');
+      return;
+    }
+    setPlan({ files: sounds, bytes, folder: named, left: await storageLeft() });
+    // Le choix prend de la place : la playlist s'agrandit
+    if (!djBrowser.get().open) djBrowser.open(djBrowser.get().deck);
+  };
+
+  const run = async (files: PlacedFile[], mode: ImportMode): Promise<void> => {
+    setPlan(null);
+    try {
+      const n = await addFiles(files, mode, progress);
+      const f = files[0]?.folder ?? '';
+      if (n > 0) setFolder(files.every((x) => x.folder === f) ? f : ALL);
+    } finally {
+      setWork(null);
+    }
+  };
+
+  const confirm = (mode: ImportMode): void => {
+    if (!plan) return;
+    void run(
+      plan.files.map((x) => ({ ...x, folder: plan.folder.trim() })),
+      mode
+    );
+  };
+
   const onFiles = (fl: FileList | null): void => {
     if (!fl) return;
-    void addFiles(Array.from(fl)).then((n) => {
-      if (n > 0) setTab('files');
-    });
+    void offer(Array.from(fl).map((file) => ({ file, folder: folderOfPath(file) })));
+  };
+
+  /** + FOLDER : relie sur Chrome et Edge, le selecteur de dossiers ailleurs. */
+  const addFolder = (): void => {
+    if (!canLink()) {
+      pickDir.current?.click();
+      return;
+    }
+    void pickAndLink(progress)
+      .then((r) => {
+        if (r) {
+          setTab('files');
+          setFolder(r.name);
+        }
+      })
+      .finally(() => setWork(null));
+  };
+
+  const onDrop = (items: DataTransferItemList): void => {
+    const { dirs, files } = readDrop(items, shownFolder !== ALL ? shownFolder : '');
+    void (async () => {
+      const ds = await dirs;
+      for (const d of ds) {
+        const r = await linkFolder(d, progress);
+        setTab('files');
+        setFolder(r.name);
+      }
+      setWork(null);
+      await offer(await files);
+    })();
+  };
+
+  const forget = (): void => {
+    if (!sure) {
+      setSure(true);
+      return;
+    }
+    setSure(false);
+    void removeFolder(shownFolder === ALL ? '' : shownFolder).then(() => setFolder(ALL));
   };
 
   const loadedId = (d: DjDeck): string | null => dj.deck[d].track?.id ?? null;
@@ -246,7 +373,7 @@ export const DjBrowser: React.FC<Props> = ({ getStage }) => {
       onDrop={(e) => {
         e.preventDefault();
         setDrop(false);
-        onFiles(e.dataTransfer.files);
+        onDrop(e.dataTransfer.items);
       }}
     >
       <div className="dj-list-head">
@@ -271,11 +398,14 @@ export const DjBrowser: React.FC<Props> = ({ getStage }) => {
             <button type="button" className="dj-list-add" onClick={() => pick.current?.click()}>
               + FILES
             </button>
-            <button type="button" className="dj-list-add" onClick={() => pickDir.current?.click()}>
+            <button type="button" className="dj-list-add" onClick={addFolder}>
               + FOLDER
             </button>
           </>
         )}
+        <button type="button" className="dj-list-keys" aria-pressed={legend} onClick={() => setLegend(!legend)}>
+          KEYS
+        </button>
         {big && (
           <span className="dj-list-target">
             TO DECK <b>{target.toUpperCase()}</b>
@@ -304,18 +434,78 @@ export const DjBrowser: React.FC<Props> = ({ getStage }) => {
           onChange={(e) => onFiles(e.target.files)}
         />
       </div>
+      {tab === 'files' && (folders.length > 1 || (folders.length === 1 && folders[0] !== '')) && (
+        <div className="dj-list-folders" role="group" aria-label="Folders">
+          {[ALL, ...folders].map((f) => (
+            <button key={f || 'loose'} type="button" className="dj-list-folder" aria-pressed={shownFolder === f} onClick={() => setFolder(f)}>
+              {f === ALL ? `ALL ${mine.length}` : f === '' ? 'LOOSE' : f}
+            </button>
+          ))}
+          {shownFolder !== ALL && (
+            <button type="button" className="dj-list-forget" data-sure={sure ? '1' : '0'} onClick={forget} onBlur={() => setSure(false)}>
+              {sure ? 'REMOVE? YES' : 'REMOVE FOLDER'}
+            </button>
+          )}
+        </div>
+      )}
+      {work && <p className="dj-list-work">{work}</p>}
+      {legend && (
+        <dl className="dj-list-legend" aria-label="Keyboard">
+          {DJ_KEY_LEGEND.map((l) => (
+            <div key={l.keys}>
+              <dt>{l.keys}</dt>
+              <dd>{l.what}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {plan && (
+        <div className="dj-list-plan" role="dialog" aria-label="Add files">
+          <p>
+            {plan.files.length} tracks, {human(plan.bytes)}.{' '}
+            {canLink() ? 'Tip: + FOLDER links a folder without copying it.' : 'They stay on this device: nothing is uploaded.'}
+          </p>
+          <label className="dj-list-plan-folder">
+            <span>FOLDER</span>
+            <input type="text" value={plan.folder} placeholder="No folder" onChange={(e) => setPlan({ ...plan, folder: e.target.value })} />
+          </label>
+          <div className="dj-list-plan-actions">
+            {(plan.left === null || plan.left > plan.bytes * 1.1) && (
+              <button type="button" onClick={() => confirm('copy')}>
+                KEEP ON THIS DEVICE
+              </button>
+            )}
+            <button type="button" onClick={() => confirm('visit')}>
+              THIS VISIT ONLY
+            </button>
+            <button type="button" className="dj-list-plan-cancel" onClick={() => setPlan(null)}>
+              CANCEL
+            </button>
+          </div>
+          {plan.left !== null && plan.left <= plan.bytes * 1.1 && (
+            <p className="dj-list-plan-note">Not enough room to keep them: {human(Math.max(0, plan.left))} left. This visit only keeps their names, BPM and cues; next time, add the folder again.</p>
+          )}
+        </div>
+      )}
       <ul className="dj-list-rows">
         {tab === 'audius' && list === null && <li className="dj-list-empty">Loading...</li>}
         {rows.length === 0 && (tab === 'files' || list !== null) && (
           <li className="dj-list-empty">
-            {tab === 'files' ? 'Drop audio files here, or add files or a folder. They stay on this device: nothing is uploaded.' : 'No track found.'}
+            {tab === 'files'
+              ? 'Drop audio files or a folder here, or add them. They stay on this device and are remembered for your next visit: nothing is uploaded.'
+              : 'No track found.'}
           </li>
         )}
         {rows.map((t) => (
-          <li key={t.id} className="dj-list-row" aria-current={t.id === loadedId('a') || t.id === loadedId('b') ? 'true' : undefined}>
+          <li
+            key={t.id}
+            className="dj-list-row"
+            data-off={t.relink || t.unreadable ? '1' : '0'}
+            aria-current={t.id === loadedId('a') || t.id === loadedId('b') ? 'true' : undefined}
+          >
             <span className="dj-list-names">
               <span className="dj-list-name">{t.title}</span>
-              <span className="dj-list-artist">{t.artist}</span>
+              <span className="dj-list-artist">{t.unreadable ? 'Unreadable file' : t.relink ? 'Add its folder again to play it' : t.artist}</span>
             </span>
             <span className="dj-list-meta">
               <span>{t.bpm ? t.bpm.toFixed(0) : '--'}</span>
@@ -330,6 +520,7 @@ export const DjBrowser: React.FC<Props> = ({ getStage }) => {
                   aria-label={`Load ${t.title} on deck ${d.toUpperCase()}`}
                   aria-pressed={loadedId(d) === t.id}
                   data-target={big && target === d ? '1' : '0'}
+                  disabled={t.relink || t.unreadable}
                   onClick={() => load(t, d)}
                 >
                   {d.toUpperCase()}

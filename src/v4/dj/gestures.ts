@@ -81,7 +81,10 @@ const holdTimers = new Map<string, number>();
 export function keyDown(k: DjKeySpec, stage: Stage | null): void {
   stage?.dj?.pressKey(k.id, true);
   const t = k.target;
-  if (t.kind === 'cue') djCue(t.deck, true);
+  if (t.kind === 'cue') {
+    cueDown[t.deck] = true;
+    djCue(t.deck, true);
+  }
   else if (t.kind === 'play') {
     if (cueHeld(t.deck)) djKeepPreview(t.deck);
     else djPlay(t.deck);
@@ -107,8 +110,10 @@ export function keyUp(k: DjKeySpec, stage: Stage | null, tap: boolean): void {
     window.clearTimeout(timer);
     holdTimers.delete(k.id);
   }
-  if (t.kind === 'cue') djCue(t.deck, false);
-  else if (t.kind === 'bend') djBend(t.deck, 0);
+  if (t.kind === 'cue') {
+    cueDown[t.deck] = false;
+    djCue(t.deck, false);
+  } else if (t.kind === 'bend') djBend(t.deck, 0);
   else if (t.kind === 'load' && tap) djBrowser.open(t.deck);
 }
 
@@ -263,7 +268,6 @@ export class DjGestures {
     } else {
       const k = keyById.get(id);
       if (!k) return;
-      if (k.target.kind === 'cue') cueDown[k.target.deck] = true;
       keyDown(k, this.stage);
     }
     this.grips.set(pointerId, g);
@@ -335,7 +339,6 @@ export class DjGestures {
     if (g.kind === 'key') {
       const k = keyById.get(g.id);
       if (!k) return;
-      if (k.target.kind === 'cue') cueDown[k.target.deck] = false;
       keyUp(k, this.stage, tap);
     } else if (g.kind === 'jog') {
       djJogRelease(g.id === 'dj-a-jog' ? 'a' : 'b');

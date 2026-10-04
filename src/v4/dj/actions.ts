@@ -13,6 +13,7 @@ import { clock } from '../audio/clock';
 import { sc } from '../audio/soundcloud';
 import { arp } from '../voyager/arp';
 import { djEngine, djEngineIfAny, type DjEngine } from './engine';
+import { crateFile, crateLearn, setCrateBusy } from './crate';
 import { estimateBpm } from './math';
 import { DJ_ZOOMS, djState, type DjTrack } from './state';
 import { DJ_FX, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
@@ -66,6 +67,8 @@ function engine(): DjEngine | null {
   for (const d of ['a', 'b'] as const) {
     e.decks[d].onEnd = () => djState.setDeck(d, { playing: false });
   }
+  // Les analyses de la caisse attendent que les platines s'arretent
+  setCrateBusy(() => e.decks.a.playing || e.decks.b.playing);
   // Une autre source part (RUN de la 808, l'arpege, une piste du site) : les platines se taisent
   clock.subscribe(() => {
     if (clock.running) djPauseAll();
@@ -172,8 +175,12 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
   djState.setDeck(d, { playing: false, loaded: false, track, loading: 0, error: null });
   try {
     let bytes: ArrayBuffer;
-    if (track.source === 'file' && track.file) bytes = await track.file.arrayBuffer();
-    else {
+    if (track.source === 'file') {
+      // Un fichier de la caisse : copie, en memoire, ou relie (l'acces au dossier se redemande pendant ce clic)
+      const blob = track.file ?? (await crateFile(track.id));
+      if (!blob) throw new Error(track.relink ? 'drop the folder again' : 'folder access needed');
+      bytes = await blob.arrayBuffer();
+    } else {
       const host = await audiusHostUrl();
       bytes = await download(`${host}/v1/tracks/${encodeURIComponent(track.id)}/stream?app_name=${AUDIUS_APP}`, (p) => djState.setDeck(d, { loading: p }), ctl.signal);
     }
@@ -186,6 +193,8 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
     if (!bpm && ch0) bpm = estimateBpm(ch0, p.sampleRate);
     const { cue, cues } = savedCues(track.id);
     djState.setDeck(d, { loaded: true, loading: null, track: { ...track, bpm, duration: p.duration }, cue, cues });
+    // La caisse apprend la duree et le BPM : le morceau n'a plus a etre analyse en fond
+    if (track.source === 'file') void crateLearn(track.id, p.duration, bpm);
     p.seek(cue);
   } catch (err) {
     if (ctl.signal.aborted) return;

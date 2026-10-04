@@ -1,0 +1,133 @@
+/**
+ * Le clavier du MM-DECKS (2026-10-04, Mika : "continue avec le clavier") :
+ * les touches physiques (e.code, donc au meme endroit en QWERTY et en
+ * AZERTY), la main gauche pour DECK A, la main droite pour DECK B, comme sur
+ * un controleur. Actives seulement quand on utilise le MM-DECKS, jamais
+ * pendant qu'on ecrit dans un champ. Les memes actions que les touches 3D
+ * (dj/gestures.ts keyDown, keyUp) : CUE et BEND agissent tant qu'on les
+ * tient, un hot cue tenu 0.6 s s'efface.
+ *
+ *   DECK A            DECK B
+ *   1 2 3 4  hot cues  7 8 9 0
+ *   Q W  bend - +      O P
+ *   A  cue  S  play    K  cue  L  play
+ *   E  load            I  load
+ *   Espace : PLAY de la derniere platine touchee
+ *   fleches gauche / droite : crossfader (Maj : tout d'un cote), bas : au centre
+ *   - et = : zoom des formes d'onde
+ */
+
+import type { Stage } from '../scene/renderer';
+import { djSetXfader, djZoomStep } from './actions';
+import { keyDown, keyUp } from './gestures';
+import { DJ_KEYS, type DjKeySpec } from './layout';
+import { djState } from './state';
+import type { DjDeck } from './theme';
+
+const key = (id: string): DjKeySpec | undefined => DJ_KEYS.find((k) => k.id === id);
+
+/** Touche physique -> touche du MM-DECKS. */
+const MAP: Readonly<Record<string, string>> = {
+  Digit1: 'dj-a-hotcue1',
+  Digit2: 'dj-a-hotcue2',
+  Digit3: 'dj-a-hotcue3',
+  Digit4: 'dj-a-hotcue4',
+  KeyQ: 'dj-a-bendm',
+  KeyW: 'dj-a-bendp',
+  KeyA: 'dj-a-cue',
+  KeyS: 'dj-a-play',
+  KeyE: 'dj-a-load',
+  Digit7: 'dj-b-hotcue1',
+  Digit8: 'dj-b-hotcue2',
+  Digit9: 'dj-b-hotcue3',
+  Digit0: 'dj-b-hotcue4',
+  KeyO: 'dj-b-bendm',
+  KeyP: 'dj-b-bendp',
+  KeyK: 'dj-b-cue',
+  KeyL: 'dj-b-play',
+  KeyI: 'dj-b-load',
+};
+
+/** La legende, pour l'aide a l'ecran (touches lues en QWERTY). */
+export const DJ_KEY_LEGEND: readonly { keys: string; what: string }[] = [
+  { keys: '1 2 3 4  /  7 8 9 0', what: 'Hot cues A / B (hold: clear)' },
+  { keys: 'A  /  K', what: 'Cue A / B (hold: preview)' },
+  { keys: 'S  /  L', what: 'Play A / B' },
+  { keys: 'Q W  /  O P', what: 'Bend - + A / B (hold)' },
+  { keys: 'E  /  I', what: 'Load A / B' },
+  { keys: 'Space', what: 'Play the last deck used' },
+  { keys: 'Left  Right  Down', what: 'Crossfader (Shift: all the way), center' },
+  { keys: '-  =', what: 'Waveform zoom' },
+];
+
+const editable = (t: EventTarget | null): boolean =>
+  t instanceof HTMLElement && (t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
+
+/**
+ * Pose l'ecoute du clavier (phase de capture : avant les raccourcis des
+ * autres machines, qui ignorent un evenement deja pris) ; rend de quoi
+ * l'oter. Une touche tenue se relache si la fenetre perd le focus.
+ */
+export function listenDjKeys(getStage: () => Stage | null, active: () => boolean): () => void {
+  const held = new Map<string, DjKeySpec>();
+  let last: DjDeck = 'a';
+
+  const deckOf = (k: DjKeySpec): DjDeck | null => ('deck' in k.target ? k.target.deck : null);
+
+  const onDown = (e: KeyboardEvent): void => {
+    if (!active() || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || editable(e.target)) return;
+    // Un jumeau qui a le focus garde ses fleches, Espace et Entree (dj/Twins.tsx)
+    const twin = e.target instanceof HTMLElement && e.target.classList.contains('v4-twin');
+    if (twin && /^(Arrow|Page|Home|End|Space|Enter|Delete|Backspace)/.test(e.code)) return;
+    const s = djState.get();
+    // Crossfader et zoom : la repetition du clavier est permise
+    if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
+      e.preventDefault();
+      const dir = e.code === 'ArrowLeft' ? -1 : 1;
+      djSetXfader(e.shiftKey ? dir : Math.round((s.xfader + dir * 0.1) * 10) / 10);
+      return;
+    }
+    if (e.code === 'ArrowDown') {
+      e.preventDefault();
+      djSetXfader(0);
+      return;
+    }
+    if (e.code === 'Minus' || e.code === 'Equal') {
+      e.preventDefault();
+      for (const d of ['a', 'b'] as const) djZoomStep(d, e.code === 'Minus' ? 1 : -1);
+      return;
+    }
+    const id = e.code === 'Space' ? `dj-${last}-play` : MAP[e.code];
+    const k = id ? key(id) : undefined;
+    if (!k) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.repeat || held.has(e.code)) return;
+    held.set(e.code, k);
+    last = deckOf(k) ?? last;
+    keyDown(k, getStage());
+  };
+
+  const onUp = (e: KeyboardEvent): void => {
+    const k = held.get(e.code);
+    if (!k) return;
+    held.delete(e.code);
+    e.preventDefault();
+    keyUp(k, getStage(), true);
+  };
+
+  const releaseAll = (): void => {
+    for (const k of held.values()) keyUp(k, getStage(), false);
+    held.clear();
+  };
+
+  window.addEventListener('keydown', onDown, true);
+  window.addEventListener('keyup', onUp, true);
+  window.addEventListener('blur', releaseAll);
+  return () => {
+    releaseAll();
+    window.removeEventListener('keydown', onDown, true);
+    window.removeEventListener('keyup', onUp, true);
+    window.removeEventListener('blur', releaseAll);
+  };
+}

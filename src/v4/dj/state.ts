@@ -35,6 +35,12 @@ export interface DjTrack {
   link?: string;
   /** le fichier, pour une piste de l'appareil (jamais envoye nulle part) */
   file?: File;
+  /** MY FILES : le dossier du morceau dans la caisse ('' : en vrac) */
+  folder?: string;
+  /** relie pour une visite passee : il faut glisser ou choisir le dossier de nouveau */
+  relink?: boolean;
+  /** le decodage a echoue : il ne se lit pas */
+  unreadable?: boolean;
 }
 
 export interface DjDeckState {
