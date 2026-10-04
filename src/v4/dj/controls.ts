@@ -419,7 +419,8 @@ export class DjControls {
 
     let nc = 0;
     let np = 0;
-    this.roundSlot = DJ_ROUND_KEYS.map((k) => (k.target.kind === 'play' ? { play: true, j: np++ } : { play: false, j: nc++ }));
+    // PLAY des platines et PLAY/STOP des machines (mixer) : l'aluminium et son triangle
+    this.roundSlot = DJ_ROUND_KEYS.map((k) => (k.target.kind === 'play' || k.target.kind === 'machines' ? { play: true, j: np++ } : { play: false, j: nc++ }));
     // CUE : l'orange des potards FILTER, le grain de leur capuchon ; PLAY : l'aluminium de la bague du jog
     const cg = roundGeometry(opts.mobile, 'hot');
     this.cueEm = new InstancedBufferAttribute(new Float32Array(Math.max(1, nc) * 3), 3);

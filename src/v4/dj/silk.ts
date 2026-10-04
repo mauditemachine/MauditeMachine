@@ -153,6 +153,8 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
     }
   });
   texts.push({ text: 'M', x: MIX.masterX, z: MIX.numZ, cap: 0.17, weight: 700, alpha: 1 });
+  // PLAY/STOP des machines : ce qu'il lance, en orange comme les noms des voies 1 et 2
+  texts.push({ text: 'RYTM + ARP', x: MIX.masterX, z: MIX.play.labelZ, cap: 0.075, weight: 700, ink: 'orange', alpha: 1, maxW: 1.1 });
   return { texts, lines, brackets };
 }
 

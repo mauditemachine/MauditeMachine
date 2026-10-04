@@ -21,6 +21,7 @@
  *   playlist sur cette platine (il n'y a plus de touche LOAD).
  */
 
+import { machinesToggle } from '../actions';
 import type { HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { djBrowser } from './browser';
@@ -111,6 +112,7 @@ export function keyDown(k: DjKeySpec, stage: Stage | null, coarse = false): void
   else if (t.kind === 'time') djSetTime(t.d);
   else if (t.kind === 'sync') djSync(t.deck);
   else if (t.kind === 'loop') djLoop(t.deck, t.beats);
+  else if (t.kind === 'machines') machinesToggle();
   else if (t.kind === 'tempo') {
     const step = coarse ? 1 : 0.1;
     djTempoStep(t.deck, t.dir, step);

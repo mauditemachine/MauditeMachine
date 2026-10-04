@@ -14,6 +14,7 @@
 
 import { Group } from 'three';
 import { clock } from '../audio/clock';
+import { arp } from '../voyager/arp';
 import type { HotspotDef, Occluder } from '../scene/hit';
 import { whenFonts } from '../scene/silk';
 import { DjBody } from './body';
@@ -130,7 +131,12 @@ export class DjRig {
     }));
     // RUN et STOP des machines : SYNC peut s'y caler (l'ecran rond du jog le montre)
     this.unsubs.push(clock.subscribe(() => {
-      if (this.syncScreens()) this.opts.repaint();
+      const screens = this.syncScreens();
+      if (this.syncLights() || screens) this.opts.repaint();
+    }));
+    // L'arpege qui part ou s'arrete : PLAY/STOP des machines s'allume ou s'eteint
+    this.unsubs.push(arp.subscribe(() => {
+      if (this.syncLights()) this.opts.repaint();
     }));
     // Les trois bandes d'un morceau arrivent apres lui : l'animateur les pose
     this.unsubs.push(djWaveBands.subscribe(() => this.opts.repaint()));
@@ -165,7 +171,8 @@ export class DjRig {
 
   /**
    * Les touches allumees : PLAY en jaune quand la platine joue (fixe, Mika
-   * n'aimait pas le clignotement), pale chargee en pause ; CUE en orange en
+   * n'aimait pas le clignotement), pale chargee en pause ; PLAY/STOP du
+   * mixer en jaune quand une machine joue ; CUE en orange en
    * pause ; les hot cues poses, le temps choisi, LOAD dont la liste est
    * ouverte, une touche tenue : orange ; les autres a peine.
    */
@@ -184,6 +191,11 @@ export class DjRig {
     });
     DJ_ROUND_KEYS.forEach((k, i) => {
       const t = k.target;
+      // PLAY/STOP des machines : jaune quand le MM-RYTM ou le MM-ARP joue, pale sinon (il est toujours pret)
+      if (t.kind === 'machines') {
+        if (this.controls.setKeyGlow(i, clock.running || arp.get().running ? DJ_GLOW.yellow : paleYellow, true)) changed = true;
+        return;
+      }
       if (t.kind !== 'cue' && t.kind !== 'play') return;
       const ds = s.deck[t.deck];
       const glow =

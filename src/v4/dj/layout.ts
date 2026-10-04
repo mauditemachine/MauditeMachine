@@ -54,7 +54,9 @@ export type DjKeyTarget =
   /** LOOP : une boucle de n temps, au temps pres */
   | { kind: 'loop'; deck: DjDeck; beats: number }
   /** REMOVE, sur la derniere platine ajoutee (ajouter : le + au bord droit, dj/AddDeck.tsx) */
-  | { kind: 'removedeck'; deck: DjDeck };
+  | { kind: 'removedeck'; deck: DjDeck }
+  /** PLAY/STOP du mixer : le MM-RYTM et le MM-ARP (voies 1 et 2) ensemble */
+  | { kind: 'machines' };
 
 export interface DjKeySpec {
   id: string;
@@ -196,6 +198,9 @@ function buildKeys(): DjKeySpec[] {
       target: { kind: 'time', d: t },
     });
   });
+  // PLAY/STOP des machines, sous le VU du master
+  const P = MIX.play;
+  keys.push({ id: 'dj-machines', label: 'PLAY', x: UNIT_X.mix + MIX.masterX, z: P.z, w: 2 * P.r, d: 2 * P.r, round: true, target: { kind: 'machines' } });
   // PLAYLIST est parti : la liste des morceaux est dans l'ecran de chaque platine
   return keys;
 }

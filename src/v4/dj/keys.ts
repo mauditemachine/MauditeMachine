@@ -15,6 +15,7 @@
  *   Z X  tempo - + 0.1 BPM (Maj : 1 BPM)   N M
  *   D  sync            J  sync
  *   F  loop 4 temps    H  loop 4 temps
+ *   G  PLAY/STOP des machines (le MM-RYTM et le MM-ARP, voies 1 et 2)
  *   Espace : PLAY de la derniere platine touchee
  *   - et = : zoom des formes d'onde
  *   V : l'affichage des formes d'onde (3BAND, RGB, MONO)
@@ -59,6 +60,8 @@ const MAP: Readonly<Record<string, string>> = {
   // LOOP de quatre temps (les autres longueurs : les touches de la platine)
   KeyF: 'dj-a-loop4',
   KeyH: 'dj-b-loop4',
+  // Entre les deux mains : PLAY/STOP des machines (le mixer)
+  KeyG: 'dj-machines',
 };
 
 /** La legende, pour l'aide a l'ecran (touches lues en QWERTY). */
@@ -72,6 +75,7 @@ export const DJ_KEY_LEGEND: readonly { keys: string; what: string }[] = [
   { keys: 'D  /  J', what: 'Sync A / B to the tempo you hear' },
   { keys: 'F  /  H', what: 'Loop 4 beats on A / B (again: exit)' },
   { keys: 'Space', what: 'Play the last deck used' },
+  { keys: 'G', what: 'Play / stop the MM-RYTM and the MM-ARP' },
   { keys: '-  =', what: 'Waveform zoom' },
   { keys: 'V', what: 'Waveform view: 3BAND, RGB, MONO' },
 ];

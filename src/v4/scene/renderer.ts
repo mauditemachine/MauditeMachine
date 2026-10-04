@@ -878,7 +878,9 @@ export class Stage {
     };
     this.unsubPlay = onPlayStart((m) => {
       if (this.disposed || this.introOn) return;
-      if (VOYAGER && focus.get() !== m) focus.set(m);
+      // PLAY du mixer du MM-DECKS (les machines de ses voies 1 et 2) : on reste a la table
+      const at = focus.get() === 'dj' ? 'dj' : m;
+      if (VOYAGER && focus.get() !== at) focus.set(at);
       else this.orbit.reset();
     });
     if (this.voy) {

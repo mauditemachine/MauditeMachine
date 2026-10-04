@@ -551,6 +551,27 @@ export function voyRun(stage: Stage | null = null): boolean {
   return on;
 }
 
+/**
+ * PLAY/STOP du mixer du MM-DECKS (2026-10-04, Mika : "un bouton playstop
+ * dans le mixer, bien place, pas trop imposant, et que ca se voie au
+ * telephone") : les deux machines de ses voies 1 et 2 ensemble. L'une
+ * joue : les deux s'arretent. Rien ne joue : le MM-RYTM part, l'arpege le
+ * rejoint sur sa grille (sans progression, F#m). Les platines continuent :
+ * c'est fait pour mixer par-dessus. Renvoie l'etat.
+ */
+export function machinesToggle(): boolean {
+  gesture();
+  if (clock.running || arp.get().running) {
+    if (clock.running) clock.stop();
+    if (arp.get().running) arp.stop();
+    return false;
+  }
+  sc.pauseForRun();
+  clock.toggle();
+  arp.toggleRun();
+  return clock.running || arp.get().running;
+}
+
 /** Un potard du MM-VOYAGER (0 a 1) ; l'ecran dit sa valeur. */
 export function voyDial(id: VoyKnobId, v: number): void {
   resume();

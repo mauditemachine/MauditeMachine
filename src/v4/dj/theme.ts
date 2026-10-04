@@ -333,8 +333,14 @@ export const MIX = {
   /** faders de voie : fente de z0 a z1 (plus longue depuis que le crossfader est parti) ; VU a cote */
   fader: { z0: 2.62, z1: 5.0 },
   vu: { dx: 0.5, z0: -1.45, z1: 1.95, n: 15, w: 0.14, d: 0.16 },
-  /** VU du master (deux colonnes) */
-  masterVu: { z0: -0.6, z1: 4.3, dx: 0.17 },
+  /** VU du master (deux colonnes) ; raccourci pour PLAY dessous */
+  masterVu: { z0: -0.6, z1: 3.55, dx: 0.17 },
+  /**
+   * PLAY/STOP des machines (2026-10-04, Mika : "un bouton playstop dans le
+   * mixer, bien place, pas trop imposant") : sous le VU du master, plus
+   * petit que le PLAY d'une platine, son nom (RYTM + ARP) au-dessus
+   */
+  play: { z: 4.62, r: 0.36, labelZ: 3.98 },
   head: { z: -5.05 },
 };
 

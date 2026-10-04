@@ -59,6 +59,8 @@ function keyName(k: DjKeySpec): string {
       return `Deck ${t.deck.toUpperCase()} loop ${t.beats} beat${t.beats === 1 ? '' : 's'} (press again to exit)`;
     case 'removedeck':
       return `Remove deck ${t.deck.toUpperCase()} (while it plays: press twice)`;
+    case 'machines':
+      return 'Play or stop the MM-RYTM and the MM-ARP together, key G';
   }
 }
 
