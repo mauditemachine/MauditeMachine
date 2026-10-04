@@ -400,6 +400,111 @@
   color: var(--orange);
 }
 
+/* FILES : un dossier relie dont l'acces s'est perdu, un clic le redonne */
+.dj-scr-locked {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.6em;
+  margin-top: 0.4em;
+  padding: 0.35em 0.5em;
+  border: 1px solid var(--orange);
+  border-radius: 0.5em;
+  color: var(--bone);
+  font-size: 0.74em;
+}
+
+.dj-scr-locked span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dj-scr-locked .dj-scr-add {
+  background: var(--orange);
+  color: #111;
+}
+
+/* FILES : le chemin du dossier ouvert, pour remonter */
+.dj-scr-crumbs {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.25em;
+  margin-top: 0.4em;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.dj-scr-crumbs::-webkit-scrollbar {
+  display: none;
+}
+
+.dj-scr-crumb {
+  flex: 0 0 auto;
+  padding: 0.2em 0.35em;
+  border: 0;
+  border-radius: 0.35em;
+  background: transparent;
+  color: var(--dim);
+  font-size: 0.74em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.dj-scr-crumb[aria-current='true'] {
+  color: var(--bone);
+}
+
+.dj-scr-sep {
+  color: var(--faint);
+  font-size: 0.74em;
+}
+
+.dj-scr-crumbs .dj-scr-forget {
+  margin-left: auto;
+}
+
+/* Un sous-dossier : il s'ouvre au toucher */
+.dj-scr-dir .dj-scr-name {
+  font-weight: 600;
+}
+
+.dj-scr-icon {
+  display: flex;
+  flex: 0 0 auto;
+  color: var(--orange);
+  font-size: 1.1em;
+}
+
+/* Les actions d'une ligne : ranger dans une playlist, monter, descendre, retirer */
+.dj-scr-act {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 2.2em;
+  border: 0;
+  background: transparent;
+  color: var(--dim);
+  font-size: 0.9em;
+}
+
+.dj-scr-act:hover {
+  color: var(--orange);
+}
+
+.dj-scr-act:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.dj-scr .dj-scr-quiet {
+  border-color: var(--faint);
+  background: transparent;
+  color: var(--dim);
+}
+
 /* Au doigt, des cibles plus grandes */
 @media (hover: none) {
   .dj-scr-load {

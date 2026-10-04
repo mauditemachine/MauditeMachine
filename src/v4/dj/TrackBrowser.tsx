@@ -30,7 +30,34 @@ import { focus } from '../state/focus';
 import { intro } from '../state/intro';
 import { djLoad } from './actions';
 import { djBrowser } from './browser';
-import { addFiles, analyzeAll, canLink, crateEvents, crateTracks, folderOfPath, isSound, linkFolder, pickAndLink, readDrop, removeFolder, storageLeft, type ImportMode, type PlacedFile } from './crate';
+import {
+  addFiles,
+  addToList,
+  analyzeAll,
+  canLink,
+  crateEvents,
+  crateLists,
+  crateRoots,
+  crateTracks,
+  createList,
+  deleteList,
+  folderOfPath,
+  isSound,
+  linkFolder,
+  listEvents,
+  moveInList,
+  pickAndLink,
+  readDrop,
+  reconnectRoot,
+  removeFolder,
+  removeFromList,
+  renameList,
+  rescanRoots,
+  storageLeft,
+  type DjList,
+  type ImportMode,
+  type PlacedFile,
+} from './crate';
 import { DJ_KEY_LEGEND, listenDjKeys } from './keys';
 import { LICENSE_LABEL, connectSoundcloud, disconnectSoundcloud, mauditeTracks, myTracks, scAccount, searchSoundcloud } from './soundcloud';
 import { djState, type DjTrack } from './state';
@@ -56,20 +83,68 @@ function useCrate(on: boolean): DjTrack[] | null {
   return tracks;
 }
 
-/** Les dossiers de la caisse, en ordre alphabetique ; '' (en vrac) a la fin. */
-const foldersOf = (t: readonly DjTrack[]): string[] => {
-  const set = new Set(t.map((x) => x.folder ?? ''));
-  return [...set].sort((x, y) => (x === '' ? 1 : y === '' ? -1 : x.localeCompare(y)));
-};
+/** Les playlists, relues a chaque changement. */
+function useLists(): DjList[] {
+  const [lists, setLists] = useState<DjList[]>([]);
+  const v = useSyncExternalStore(listEvents.subscribe, listEvents.version, listEvents.version);
+  useEffect(() => {
+    let live = true;
+    void crateLists().then((l) => {
+      if (live) setLists(l);
+    });
+    return () => {
+      live = false;
+    };
+  }, [v]);
+  return lists;
+}
 
-type Tab = 'maudite' | 'soundcloud' | 'mysc' | 'files';
-const TABS: readonly Tab[] = ['maudite', 'soundcloud', 'mysc', 'files'];
-const TAB_LABEL: Readonly<Record<Tab, string>> = { maudite: 'MAUDITE', soundcloud: 'SOUNDCLOUD', mysc: 'MY SC', files: 'FILES' };
+/**
+ * Les dossiers sous un chemin (FILES, Mika : "faut vraiment faire
+ * fonctionner les dossiers") : les sous-dossiers directs, chacun avec le
+ * nombre de morceaux qu'il contient, sous-dossiers compris.
+ */
+function childFolders(tracks: readonly DjTrack[], path: string): { name: string; path: string; n: number }[] {
+  const prefix = path ? `${path}/` : '';
+  const out = new Map<string, number>();
+  for (const t of tracks) {
+    const f = t.folder ?? '';
+    if (!f || (path && !f.startsWith(prefix))) continue;
+    const rest = f.slice(prefix.length);
+    if (!rest) continue;
+    const name = rest.split('/')[0];
+    out.set(name, (out.get(name) ?? 0) + 1);
+  }
+  return [...out.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([name, n]) => ({ name, path: prefix + name, n }));
+}
+
+type Tab = 'maudite' | 'soundcloud' | 'mysc' | 'files' | 'lists';
+const TABS: readonly Tab[] = ['maudite', 'soundcloud', 'mysc', 'files', 'lists'];
+const TAB_LABEL: Readonly<Record<Tab, string>> = { maudite: 'MAUDITE', soundcloud: 'SOUNDCLOUD', mysc: 'MY SC', files: 'FILES', lists: 'PLAYLISTS' };
 const PLACEHOLDER: Readonly<Record<Tab, string>> = {
   maudite: 'Search Maudite Machine',
   soundcloud: 'Search SoundCloud (CC)',
   mysc: 'Search my SoundCloud',
-  files: 'Search my files',
+  files: 'Search all my files',
+  lists: 'Search this playlist',
+};
+/** La playlist ouverte, retenue. */
+const LIST_KEY = 'mm.v4.dj.list';
+/** Le dossier ouvert dans FILES, retenu. */
+const PATH_KEY = 'mm.v4.dj.path';
+const readKey = (k: string): string => {
+  try {
+    return window.localStorage.getItem(k) ?? '';
+  } catch {
+    return '';
+  }
+};
+const saveKey = (k: string, v: string): void => {
+  try {
+    window.localStorage.setItem(k, v);
+  } catch {
+    /* rien a retenir */
+  }
 };
 
 /** L'onglet retenu (FILES pour qui a sa caisse). */
@@ -77,7 +152,7 @@ const TAB_KEY = 'mm.v4.dj.tab';
 const readTab = (): Tab => {
   try {
     const t = window.localStorage.getItem(TAB_KEY);
-    return t === 'files' || t === 'soundcloud' || t === 'mysc' ? t : 'maudite';
+    return t === 'files' || t === 'soundcloud' || t === 'mysc' || t === 'lists' ? t : 'maudite';
   } catch {
     return 'maudite';
   }
@@ -89,9 +164,6 @@ const saveTab = (t: Tab): void => {
     /* rien a retenir */
   }
 };
-
-/** Tous les dossiers a la fois. */
-const ALL = '*';
 
 /** Un import en attente de choix : ses fichiers, leur poids, le dossier propose, la place restante. */
 interface Plan {
@@ -148,6 +220,18 @@ interface DeckProps {
   setRoot: (d: DjDeck, el: HTMLDivElement | null) => void;
 }
 
+/** Petites icones (le code reste en ASCII) : monter, descendre, retirer, ajouter a une playlist. */
+const Icon: React.FC<{ d: string }> = ({ d }) => (
+  <svg viewBox="0 0 12 12" width="1em" height="1em" aria-hidden="true">
+    <path d={d} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const UP = 'M2.5 7.5 L6 4 L9.5 7.5';
+const DOWN = 'M2.5 4.5 L6 8 L9.5 4.5';
+const MINUS = 'M2.5 6 H9.5';
+const PLUS = 'M2.5 6 H9.5 M6 2.5 V9.5';
+const FOLDER_ICON = 'M1.5 3 H4.5 L5.5 4 H10.5 V9.5 H1.5 Z';
+
 const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
   const dj = useSyncExternalStore(djState.subscribe, djState.get, djState.get);
   const sc = useSyncExternalStore(scAccount.subscribe, scAccount.get, scAccount.get);
@@ -156,30 +240,63 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
   const setTab = (t: Tab): void => {
     setTabState(t);
     saveTab(t);
+    setAdding(null);
   };
   const mine = useCrate(true) ?? [];
-  const [folder, setFolderState] = useState<string>(ALL);
+  const lists = useLists();
+  const [path, setPathState] = useState<string>(() => readKey(PATH_KEY));
+  const [listId, setListIdState] = useState<string>(() => readKey(LIST_KEY));
   const [plan, setPlan] = useState<Plan | null>(null);
   const [work, setWork] = useState<string | null>(null);
-  const [sure, setSure] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [sure, setSure] = useState<string | null>(null);
   const [legend, setLegend] = useState(false);
   const [drop, setDrop] = useState(false);
   const [query, setQuery] = useState('');
   const [list, setList] = useState<DjTrack[] | null>(null);
   const [scDown, setScDown] = useState<'off' | 'down' | null>(null);
   const [scOff, setScOff] = useState(scProbeOff);
+  /** le morceau qu'on range dans une playlist (le choix s'ouvre sur l'ecran) */
+  const [adding, setAdding] = useState<DjTrack | null>(null);
+  /** le nom d'une playlist en cours d'ecriture (nouvelle, ou renommee) */
+  const [naming, setNaming] = useState<{ id: string | null; name: string } | null>(null);
+  const [roots, setRoots] = useState<{ name: string; granted: boolean }[]>([]);
   const pick = useRef<HTMLInputElement>(null);
   const pickDir = useRef<HTMLInputElement>(null);
-  const folders = useMemo(() => foldersOf(mine), [mine]);
-  const shownFolder = folder === ALL || folders.includes(folder) ? folder : ALL;
-  const setFolder = (f: string): void => {
-    setFolderState(f);
-    setSure(false);
+  const setPath = (p: string): void => {
+    setPathState(p);
+    saveKey(PATH_KEY, p);
+    setSure(null);
+  };
+  const setListId = (id: string): void => {
+    setListIdState(id);
+    saveKey(LIST_KEY, id);
+    setSure(null);
+  };
+  const flash = (t: string): void => {
+    setNote(t);
+    window.setTimeout(() => setNote((n) => (n === t ? null : n)), 1800);
   };
 
-  // Les analyses de la caisse reprennent ou elles en etaient
+  // Les analyses de la caisse reprennent ; les dossiers relies se relisent (une fois par visite) ; leur acces
   useEffect(() => {
     void analyzeAll();
+    let live = true;
+    const refresh = (): void => {
+      void crateRoots().then((r) => {
+        if (live) setRoots(r);
+      });
+    };
+    refresh();
+    void rescanRoots((d, n) => {
+      if (live) setWork(`UPDATING FOLDERS ${d} / ${n}`);
+    }).finally(() => {
+      if (live) setWork(null);
+      refresh();
+    });
+    return () => {
+      live = false;
+    };
   }, []);
 
   // SoundCloud branche ? Une recherche vide le dit (gardee au Worker) ; sinon ses onglets s'effacent
@@ -192,7 +309,7 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
     void scProbe.then((off) => {
       if (!live || !off) return;
       setScOff(true);
-      setTabState((t) => (t === 'files' ? t : 'files'));
+      setTabState((t) => (t === 'files' || t === 'lists' ? t : 'files'));
     });
     return () => {
       live = false;
@@ -201,7 +318,7 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
 
   // SOUNDCLOUD cherche chez SoundCloud (300 ms apres la frappe) ; MAUDITE et MY SC se lisent une fois
   useEffect(() => {
-    if (tab === 'files') return undefined;
+    if (tab === 'files' || tab === 'lists') return undefined;
     if (tab === 'mysc' && !me) {
       setList([]);
       return undefined;
@@ -247,13 +364,31 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
     };
   }, [tab, tab === 'soundcloud' ? query : '', me]);
 
+  /* ----- FILES : le dossier ouvert, ses sous-dossiers ----- */
+  const folderPaths = useMemo(() => new Set(mine.map((t) => t.folder ?? '')), [mine]);
+  // Un dossier retenu qui n'existe plus : on remonte en haut
+  const here = path && ![...folderPaths].some((f) => f === path || f.startsWith(`${path}/`)) ? '' : path;
+  const subfolders = useMemo(() => childFolders(mine, here), [mine, here]);
+  const crumbs = here ? here.split('/') : [];
+
+  /* ----- PLAYLISTS : la playlist ouverte, ses morceaux relus dans la caisse ----- */
+  const current = lists.find((l) => l.id === listId) ?? lists[0] ?? null;
+  const byId = useMemo(() => new Map(mine.map((t) => [t.id, t])), [mine]);
+  const listItems = useMemo((): DjTrack[] => {
+    if (!current) return [];
+    // Un fichier : son etat d'aujourd'hui dans la caisse (relie, illisible, ou parti)
+    return current.items.map((t) => (t.source === 'file' ? (byId.get(t.id) ?? { ...t, unreadable: true, artist: 'No longer in FILES' }) : t));
+  }, [current, byId]);
+
   const rows = useMemo(() => {
-    const src = tab !== 'files' ? (list ?? []) : mine.filter((t) => shownFolder === ALL || (t.folder ?? '') === shownFolder);
     const q = query.trim().toLowerCase();
-    // SOUNDCLOUD cherche chez SoundCloud ; les autres filtrent sur place
-    const out = tab !== 'soundcloud' && q ? src.filter((t) => `${t.title} ${t.artist} ${t.folder ?? ''}`.toLowerCase().includes(q)) : src;
-    return out.slice(0, ROWS);
-  }, [tab, list, mine, query, shownFolder]);
+    const match = (t: DjTrack): boolean => `${t.title} ${t.artist} ${t.folder ?? ''}`.toLowerCase().includes(q);
+    let src: DjTrack[];
+    if (tab === 'files') src = q ? mine.filter(match) : mine.filter((t) => (t.folder ?? '') === here);
+    else if (tab === 'lists') src = q ? listItems.filter(match) : listItems;
+    else src = tab !== 'soundcloud' && q ? (list ?? []).filter(match) : (list ?? []);
+    return src.slice(0, ROWS);
+  }, [tab, list, mine, query, here, listItems]);
 
   /** Un morceau choisi : il part sur cette platine, l'ecran revient au morceau. */
   const load = (t: DjTrack): void => {
@@ -270,7 +405,7 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
     if (sounds.length === 0) return;
     setTab('files');
     const bytes = sounds.reduce((n, x) => n + x.file.size, 0);
-    const named = sounds.find((x) => x.folder)?.folder ?? (shownFolder !== ALL ? shownFolder : '');
+    const named = sounds.find((x) => x.folder)?.folder ?? here;
     if (sounds.length <= ASK.files && bytes < ASK.bytes) {
       await run(sounds.map((x) => ({ ...x, folder: x.folder || named })), 'copy');
       return;
@@ -282,8 +417,9 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
     setPlan(null);
     try {
       const n = await addFiles(files, mode, progress);
-      const f = files[0]?.folder ?? '';
-      if (n > 0) setFolder(files.every((x) => x.folder === f) ? f : ALL);
+      // Le dossier du haut de ce qui vient d'entrer s'ouvre
+      const top = (files[0]?.folder ?? '').split('/')[0];
+      if (n > 0) setPath(files.every((x) => x.folder.split('/')[0] === top) ? top : '');
     } finally {
       setWork(null);
     }
@@ -291,8 +427,11 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
 
   const confirm = (mode: ImportMode): void => {
     if (!plan) return;
+    // Le nom choisi remplace le dossier du haut ; les sous-dossiers suivent
+    const base = plan.folder.trim();
+    const top = plan.files.find((x) => x.folder)?.folder.split('/')[0] ?? '';
     void run(
-      plan.files.map((x) => ({ ...x, folder: plan.folder.trim() })),
+      plan.files.map((x) => ({ ...x, folder: top && x.folder.startsWith(top) ? base + x.folder.slice(top.length) : base || x.folder })),
       mode
     );
   };
@@ -302,7 +441,7 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
     void offer(Array.from(fl).map((file) => ({ file, folder: folderOfPath(file) })));
   };
 
-  /** + FOLDER : relie sur Chrome et Edge, le selecteur de dossiers ailleurs. */
+  /** + FOLDER : relie sur Chrome et Edge (une fois pour toutes), le selecteur de dossiers ailleurs. */
   const addFolder = (): void => {
     if (!canLink()) {
       pickDir.current?.click();
@@ -312,38 +451,80 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
       .then((r) => {
         if (r) {
           setTab('files');
-          setFolder(r.name);
+          setPath(r.name);
         }
       })
-      .finally(() => setWork(null));
+      .finally(() => {
+        setWork(null);
+        void crateRoots().then(setRoots);
+      });
+  };
+
+  /** Un dossier relie dont l'acces s'est perdu : un clic le redonne (et il se relit). */
+  const reconnect = (name: string): void => {
+    void reconnectRoot(name, (d, n) => setWork(`UPDATING ${d} / ${n}`))
+      .then((ok) => {
+        if (!ok) flash('ACCESS REFUSED');
+      })
+      .finally(() => {
+        setWork(null);
+        void crateRoots().then(setRoots);
+      });
   };
 
   const onDrop = (items: DataTransferItemList): void => {
-    const { dirs, files } = readDrop(items, shownFolder !== ALL ? shownFolder : '');
+    const { dirs, files } = readDrop(items, here);
     void (async () => {
       const ds = await dirs;
       for (const d of ds) {
         const r = await linkFolder(d, progress);
         setTab('files');
-        setFolder(r.name);
+        setPath(r.name);
       }
       setWork(null);
+      void crateRoots().then(setRoots);
       await offer(await files);
     })();
   };
 
-  const forget = (): void => {
-    if (!sure) {
-      setSure(true);
+  /** Une action qui demande confirmation : le premier clic arme, le second agit. */
+  const twice = (key: string, act: () => void): void => {
+    if (sure !== key) {
+      setSure(key);
       return;
     }
-    setSure(false);
-    void removeFolder(shownFolder === ALL ? '' : shownFolder).then(() => setFolder(ALL));
+    setSure(null);
+    act();
+  };
+
+  /** Ranger un morceau dans une playlist (la premiere se cree au besoin). */
+  const putIn = (l: DjList | null, t: DjTrack): void => {
+    setAdding(null);
+    void (async () => {
+      const target = l ?? (await createList(`Playlist ${lists.length + 1}`));
+      await addToList(target.id, t);
+      flash(`ADDED TO ${target.name.toUpperCase()}`);
+    })();
+  };
+
+  const saveName = (): void => {
+    if (!naming) return;
+    const name = naming.name.trim();
+    setNaming(null);
+    if (!name) return;
+    if (naming.id) void renameList(naming.id, name);
+    else
+      void createList(name).then((l) => {
+        setTab('lists');
+        setListId(l.id);
+      });
   };
 
   const loadedId = dj.deck[deck].track?.id ?? null;
   /** MY SC sans connexion : le bouton prend la place de la liste */
   const gate = tab === 'mysc' && !me;
+  const locked = roots.filter((r) => !r.granted);
+  const inList = tab === 'lists' && current !== null;
 
   return (
     <div
@@ -366,9 +547,9 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
       <div className="dj-scr-head">
         <span className="dj-scr-deck">{deck.toUpperCase()}</span>
         <div className="dj-scr-tabs" role="tablist">
-          {TABS.filter((t) => t === 'files' || !scOff).map((t) => (
+          {TABS.filter((t) => t === 'files' || t === 'lists' || !scOff).map((t) => (
             <button key={t} type="button" role="tab" aria-selected={tab === t} className="dj-scr-tab" onClick={() => setTab(t)}>
-              {t === 'files' && mine.length ? `${TAB_LABEL.files} ${mine.length}` : TAB_LABEL[t]}
+              {t === 'files' && mine.length ? `${TAB_LABEL.files} ${mine.length}` : t === 'lists' && lists.length ? `${TAB_LABEL.lists} ${lists.length}` : TAB_LABEL[t]}
             </button>
           ))}
         </div>
@@ -380,36 +561,63 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
         </button>
       </div>
       <div className="dj-scr-tools">
-        <input
-          className="dj-scr-search"
-          type="search"
-          placeholder={PLACEHOLDER[tab]}
-          aria-label="Search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        {tab === 'files' && (
+        {naming ? (
           <>
-            <button type="button" className="dj-scr-add" onClick={() => pick.current?.click()}>
-              + FILES
+            <input
+              className="dj-scr-search"
+              type="text"
+              autoFocus
+              placeholder="Playlist name"
+              aria-label="Playlist name"
+              value={naming.name}
+              onChange={(e) => setNaming({ ...naming, name: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') saveName();
+                if (e.key === 'Escape') {
+                  e.stopPropagation();
+                  setNaming(null);
+                }
+              }}
+            />
+            <button type="button" className="dj-scr-add" onClick={saveName}>
+              SAVE
             </button>
-            <button type="button" className="dj-scr-add" onClick={addFolder}>
-              + FOLDER
+            <button type="button" className="dj-scr-add dj-scr-quiet" onClick={() => setNaming(null)}>
+              CANCEL
             </button>
           </>
-        )}
-        {tab === 'mysc' && me && (
-          <button
-            type="button"
-            className="dj-scr-add"
-            title={me.name ? `Connected as ${me.name}` : undefined}
-            onClick={() => {
-              myCache = null;
-              disconnectSoundcloud();
-            }}
-          >
-            DISCONNECT
-          </button>
+        ) : (
+          <>
+            <input className="dj-scr-search" type="search" placeholder={PLACEHOLDER[tab]} aria-label="Search" value={query} onChange={(e) => setQuery(e.target.value)} />
+            {tab === 'files' && (
+              <>
+                <button type="button" className="dj-scr-add" onClick={() => pick.current?.click()}>
+                  + FILES
+                </button>
+                <button type="button" className="dj-scr-add" onClick={addFolder}>
+                  + FOLDER
+                </button>
+              </>
+            )}
+            {tab === 'lists' && (
+              <button type="button" className="dj-scr-add" onClick={() => setNaming({ id: null, name: '' })}>
+                + NEW
+              </button>
+            )}
+            {tab === 'mysc' && me && (
+              <button
+                type="button"
+                className="dj-scr-add"
+                title={me.name ? `Connected as ${me.name}` : undefined}
+                onClick={() => {
+                  myCache = null;
+                  disconnectSoundcloud();
+                }}
+              >
+                DISCONNECT
+              </button>
+            )}
+          </>
         )}
         <input ref={pick} type="file" accept="audio/*" multiple hidden onChange={(e) => onFiles(e.target.files)} />
         <input
@@ -423,21 +631,64 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
           onChange={(e) => onFiles(e.target.files)}
         />
       </div>
-      {tab === 'files' && (folders.length > 1 || (folders.length === 1 && folders[0] !== '')) && (
-        <div className="dj-scr-folders" role="group" aria-label="Folders">
-          {[ALL, ...folders].map((f) => (
-            <button key={f || 'loose'} type="button" className="dj-scr-folder" aria-pressed={shownFolder === f} onClick={() => setFolder(f)}>
-              {f === ALL ? `ALL ${mine.length}` : f === '' ? 'LOOSE' : f}
-            </button>
-          ))}
-          {shownFolder !== ALL && (
-            <button type="button" className="dj-scr-forget" data-sure={sure ? '1' : '0'} onClick={forget} onBlur={() => setSure(false)}>
-              {sure ? 'REMOVE? YES' : 'REMOVE FOLDER'}
+      {/* FILES : un dossier relie dont l'acces s'est perdu (Chrome redemande a chaque visite, sauf "Autoriser a chaque visite") */}
+      {tab === 'files' && locked.length > 0 && (
+        <div className="dj-scr-locked">
+          <span>
+            {locked.length === 1 ? `"${locked[0].name}" needs access again.` : `${locked.length} linked folders need access again.`} Pick "Allow on every visit" and it will stay.
+          </span>
+          <button type="button" className="dj-scr-add" onClick={() => reconnect(locked[0].name)}>
+            RECONNECT{locked.length > 1 ? ` ${locked[0].name.toUpperCase()}` : ''}
+          </button>
+        </div>
+      )}
+      {/* FILES : ou l'on est, et le chemin pour remonter */}
+      {tab === 'files' && !query.trim() && (here || subfolders.length > 0) && (
+        <div className="dj-scr-crumbs" role="navigation" aria-label="Folders">
+          <button type="button" className="dj-scr-crumb" aria-current={here === '' ? 'true' : undefined} onClick={() => setPath('')}>
+            ALL FOLDERS
+          </button>
+          {crumbs.map((c, i) => {
+            const p = crumbs.slice(0, i + 1).join('/');
+            return (
+              <React.Fragment key={p}>
+                <span className="dj-scr-sep" aria-hidden="true">
+                  /
+                </span>
+                <button type="button" className="dj-scr-crumb" aria-current={p === here ? 'true' : undefined} onClick={() => setPath(p)}>
+                  {c}
+                </button>
+              </React.Fragment>
+            );
+          })}
+          {here && (
+            <button type="button" className="dj-scr-forget" data-sure={sure === `f:${here}` ? '1' : '0'} onClick={() => twice(`f:${here}`, () => void removeFolder(here).then(() => setPath(here.split('/').slice(0, -1).join('/'))))} onBlur={() => setSure(null)}>
+              {sure === `f:${here}` ? 'REMOVE? YES' : 'REMOVE'}
             </button>
           )}
         </div>
       )}
-      {work && <p className="dj-scr-work">{work}</p>}
+      {/* PLAYLISTS : les playlists, celle qu'on ouvre, la renommer ou la supprimer */}
+      {tab === 'lists' && lists.length > 0 && (
+        <div className="dj-scr-folders" role="group" aria-label="Playlists">
+          {lists.map((l) => (
+            <button key={l.id} type="button" className="dj-scr-folder" aria-pressed={current?.id === l.id} onClick={() => setListId(l.id)}>
+              {l.name} {l.items.length}
+            </button>
+          ))}
+          {current && (
+            <>
+              <button type="button" className="dj-scr-forget" onClick={() => setNaming({ id: current.id, name: current.name })}>
+                RENAME
+              </button>
+              <button type="button" className="dj-scr-forget" data-sure={sure === `l:${current.id}` ? '1' : '0'} onClick={() => twice(`l:${current.id}`, () => void deleteList(current.id))} onBlur={() => setSure(null)}>
+                {sure === `l:${current.id}` ? 'DELETE? YES' : 'DELETE'}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+      {(work || note) && <p className="dj-scr-work">{work ?? note}</p>}
       {legend && (
         <dl className="dj-scr-legend" aria-label="Keyboard">
           {DJ_KEY_LEGEND.map((l) => (
@@ -451,7 +702,8 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
       {plan && (
         <div className="dj-scr-plan" role="dialog" aria-label="Add files">
           <p>
-            {plan.files.length} tracks, {human(plan.bytes)}. {canLink() ? 'Tip: + FOLDER links a folder without copying it.' : 'They stay on this device: nothing is uploaded.'}
+            {plan.files.length} tracks, {human(plan.bytes)}.{' '}
+            {canLink() ? 'Tip: + FOLDER links a folder once, without copying it, and keeps it up to date.' : 'KEEP ON THIS DEVICE copies them once: they stay, nothing is uploaded.'}
           </p>
           <label className="dj-scr-plan-folder">
             <span>FOLDER</span>
@@ -463,7 +715,7 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
                 KEEP ON THIS DEVICE
               </button>
             )}
-            <button type="button" onClick={() => confirm('visit')}>
+            <button type="button" className="dj-scr-quiet" onClick={() => confirm('visit')}>
               THIS VISIT ONLY
             </button>
             <button type="button" className="dj-scr-plan-cancel" onClick={() => setPlan(null)}>
@@ -473,6 +725,27 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
           {plan.left !== null && plan.left <= plan.bytes * 1.1 && (
             <p className="dj-scr-plan-note">Not enough room to keep them: {human(Math.max(0, plan.left))} left. This visit only keeps their names, BPM and cues.</p>
           )}
+        </div>
+      )}
+      {/* Ranger un morceau : les playlists, ou une nouvelle */}
+      {adding && (
+        <div className="dj-scr-plan" role="dialog" aria-label="Add to a playlist">
+          <p>
+            Add <b>{adding.title}</b> to:
+          </p>
+          <div className="dj-scr-plan-actions">
+            {lists.map((l) => (
+              <button key={l.id} type="button" onClick={() => putIn(l, adding)}>
+                {l.name}
+              </button>
+            ))}
+            <button type="button" onClick={() => putIn(null, adding)}>
+              + NEW PLAYLIST
+            </button>
+            <button type="button" className="dj-scr-plan-cancel" onClick={() => setAdding(null)}>
+              CANCEL
+            </button>
+          </div>
         </div>
       )}
       <ul className="dj-scr-rows">
@@ -485,28 +758,57 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
             {sc.failed && <p className="dj-scr-connect-note">SoundCloud did not connect. Try again.</p>}
           </li>
         )}
-        {!gate && tab !== 'files' && list === null && <li className="dj-scr-empty">Loading...</li>}
-        {!gate && rows.length === 0 && (tab === 'files' || list !== null) && (
+        {/* FILES : les sous-dossiers d'abord, comme sur un CDJ */}
+        {tab === 'files' &&
+          !query.trim() &&
+          subfolders.map((f) => (
+            <li key={f.path} className="dj-scr-row dj-scr-dir">
+              <button type="button" className="dj-scr-load" onClick={() => setPath(f.path)}>
+                <span className="dj-scr-icon">
+                  <Icon d={FOLDER_ICON} />
+                </span>
+                <span className="dj-scr-names">
+                  <span className="dj-scr-name">{f.name}</span>
+                </span>
+                <span className="dj-scr-meta">
+                  <span className="dj-scr-key">{f.n}</span>
+                </span>
+              </button>
+            </li>
+          ))}
+        {!gate && (tab === 'maudite' || tab === 'soundcloud' || tab === 'mysc') && list === null && <li className="dj-scr-empty">Loading...</li>}
+        {!gate && rows.length === 0 && !(tab === 'files' && subfolders.length > 0 && !query.trim()) && (tab === 'files' || tab === 'lists' || list !== null) && (
           <li className="dj-scr-empty">
             {tab === 'files'
-              ? 'Drop audio files or a folder here, or add them. They stay on this device: nothing is uploaded.'
-              : scDown === 'down'
-                ? 'SoundCloud does not answer right now.'
-                : tab === 'soundcloud'
-                  ? 'No remixable track found: only Creative Commons licenses that allow remixes are shown.'
-                  : tab === 'mysc' && !query.trim()
-                    ? 'No public track on this SoundCloud account.'
-                    : 'No track found.'}
+              ? query.trim()
+                ? 'No track found.'
+                : 'Drop audio files or a folder here, or add them. Linked folders stay up to date; copies stay on this device. Nothing is uploaded.'
+              : tab === 'lists'
+                ? current
+                  ? query.trim()
+                    ? 'No track found.'
+                    : 'This playlist is empty: tap + on any track to add it here.'
+                  : 'No playlist yet. Tap + on any track to start one, or + NEW.'
+                : scDown === 'down'
+                  ? 'SoundCloud does not answer right now.'
+                  : tab === 'soundcloud'
+                    ? 'No remixable track found: only Creative Commons licenses that allow remixes are shown.'
+                    : tab === 'mysc' && !query.trim()
+                      ? 'No public track on this SoundCloud account.'
+                      : 'No track found.'}
           </li>
         )}
-        {rows.map((t) => {
+        {rows.map((t, i) => {
           const off = t.relink || t.unreadable;
           return (
             <li key={t.id} className="dj-scr-row" aria-current={t.id === loadedId ? 'true' : undefined}>
               <button type="button" className="dj-scr-load" disabled={off} aria-label={`Load ${t.title} on deck ${deck.toUpperCase()}`} onClick={() => load(t)}>
                 <span className="dj-scr-names">
                   <span className="dj-scr-name">{t.title}</span>
-                  <span className="dj-scr-artist">{t.unreadable ? 'Unreadable file' : t.relink ? 'Add its folder again to play it' : t.artist}</span>
+                  <span className="dj-scr-artist">
+                    {t.unreadable ? (t.artist === 'No longer in FILES' ? t.artist : 'Unreadable file') : t.relink ? 'Drop its folder again to play it' : t.artist}
+                    {tab === 'files' && query.trim() && t.folder ? `  /  ${t.folder}` : ''}
+                  </span>
                 </span>
                 <span className="dj-scr-meta">
                   <span className="dj-scr-bpm">{t.bpm ? t.bpm.toFixed(0) : '--'}</span>
@@ -514,6 +816,23 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
                   {t.source === 'soundcloud' && LICENSE_LABEL[t.license ?? ''] ? <span className="dj-scr-lic">{LICENSE_LABEL[t.license ?? '']}</span> : null}
                 </span>
               </button>
+              {inList && current ? (
+                <>
+                  <button type="button" className="dj-scr-act" aria-label={`Move ${t.title} up`} disabled={i === 0} onClick={() => void moveInList(current.id, t.id, -1)}>
+                    <Icon d={UP} />
+                  </button>
+                  <button type="button" className="dj-scr-act" aria-label={`Move ${t.title} down`} disabled={i === rows.length - 1} onClick={() => void moveInList(current.id, t.id, 1)}>
+                    <Icon d={DOWN} />
+                  </button>
+                  <button type="button" className="dj-scr-act" aria-label={`Remove ${t.title} from ${current.name}`} onClick={() => void removeFromList(current.id, t.id)}>
+                    <Icon d={MINUS} />
+                  </button>
+                </>
+              ) : (
+                <button type="button" className="dj-scr-act" aria-label={`Add ${t.title} to a playlist`} title="Add to a playlist" onClick={() => setAdding(t)}>
+                  <Icon d={PLUS} />
+                </button>
+              )}
               {t.source === 'soundcloud' && t.link && (
                 <a className="dj-scr-link" href={t.link} target="_blank" rel="noopener noreferrer" title="Open on SoundCloud" aria-label={`Open ${t.title} on SoundCloud`}>
                   SC

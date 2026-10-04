@@ -31,6 +31,8 @@ import { tagsOfFile, titleFromName } from './tags';
 const DB = 'mm-dj-crate';
 const TRACKS = 'tracks';
 const ROOTS = 'roots';
+/** Les playlists (2026-10-04, Mika : "faut vraiment faire fonctionner les playlists et les dossiers") */
+const LISTS = 'lists';
 /** Decode en entier, un fichier de plus de 200 Mo (un mix de deux heures) pese trop lourd sur un telephone. */
 const MAX_BYTES = 200 * 1024 * 1024;
 const SOUND = /\.(mp3|wav|aiff?|flac|m4a|aac|ogg|opus)$/i;
@@ -44,6 +46,7 @@ interface Entry {
   bpm: number | null;
   key: string | null;
   duration: number;
+  /** le chemin du dossier, depuis le dossier relie ou glisse : "Musique/Techno/Peak" ('' : en vrac) */
   folder: string;
   added: number;
   /** copie dans le navigateur */
@@ -61,10 +64,11 @@ interface Entry {
 let db: Promise<IDBDatabase> | null = null;
 function open(): Promise<IDBDatabase> {
   db ??= new Promise((ok, ko) => {
-    const r = indexedDB.open(DB, 1);
+    const r = indexedDB.open(DB, 2);
     r.onupgradeneeded = () => {
       if (!r.result.objectStoreNames.contains(TRACKS)) r.result.createObjectStore(TRACKS, { keyPath: 'id' });
       if (!r.result.objectStoreNames.contains(ROOTS)) r.result.createObjectStore(ROOTS, { keyPath: 'name' });
+      if (!r.result.objectStoreNames.contains(LISTS)) r.result.createObjectStore(LISTS, { keyPath: 'id' });
     };
     r.onsuccess = () => ok(r.result);
     r.onerror = () => ko(r.error ?? new Error('IndexedDB'));
@@ -243,11 +247,12 @@ interface Picker {
 export const canLink = (): boolean => typeof window !== 'undefined' && typeof (window as unknown as Picker).showDirectoryPicker === 'function';
 
 type Children = AsyncIterable<FileSystemHandle>;
-async function soundsIn(d: FileSystemDirectoryHandle): Promise<FileSystemFileHandle[]> {
-  const out: FileSystemFileHandle[] = [];
+/** Les sons d'un dossier relie et de ses sous-dossiers, chacun avec le chemin de son dossier ("Musique/Techno"). */
+async function soundsIn(d: FileSystemDirectoryHandle, path: string): Promise<{ h: FileSystemFileHandle; folder: string }[]> {
+  const out: { h: FileSystemFileHandle; folder: string }[] = [];
   for await (const h of (d as unknown as { values(): Children }).values()) {
-    if (h.kind === 'directory') out.push(...(await soundsIn(h as FileSystemDirectoryHandle)));
-    else if (SOUND.test(h.name)) out.push(h as FileSystemFileHandle);
+    if (h.kind === 'directory') out.push(...(await soundsIn(h as FileSystemDirectoryHandle, `${path}/${h.name}`)));
+    else if (SOUND.test(h.name)) out.push({ h: h as FileSystemFileHandle, folder: path });
   }
   return out;
 }
@@ -265,30 +270,94 @@ export async function pickAndLink(progress: (done: number, total: number) => voi
   return linkFolder(dir, progress);
 }
 
-/** Relie un dossier deja choisi (selecteur, ou lache sur la playlist) : rien n'est copie. */
+/**
+ * Relie un dossier deja choisi (selecteur, ou lache sur un ecran) : rien
+ * n'est copie. Ses sous-dossiers gardent leur chemin ("Musique/Techno").
+ * Relu a chaque visite (rescanRoots) : les morceaux ajoutes sur le disque
+ * entrent, ceux qui en sont partis sortent ; une seule fois relie, le
+ * dossier reste a jour (Mika : "ca me saoule de refaire le mapping a
+ * chaque fois").
+ */
 export async function linkFolder(dir: FileSystemDirectoryHandle, progress: (done: number, total: number) => void): Promise<{ name: string; n: number }> {
   await req('readwrite', (s) => s.put({ name: dir.name, handle: dir }), ROOTS);
-  const sounds = await soundsIn(dir);
+  const sounds = await soundsIn(dir, dir.name);
+  const seen = new Set<string>();
   let n = 0;
   for (let i = 0; i < sounds.length; i += 1) {
-    const h = sounds[i];
+    const { h, folder } = sounds[i];
     progress(i + 1, sounds.length);
     try {
       const f = await h.getFile();
       if (f.size > MAX_BYTES) continue;
       const id = fingerprint(f);
+      seen.add(id);
       const old = await req<Entry | undefined>('readonly', (s) => s.get(id));
-      const e: Entry = old ? { ...old, folder: dir.name, handle: h, root: dir.name, visit: undefined } : await entryOf(f, id, dir.name, { handle: h, root: dir.name });
-      await req('readwrite', (s) => s.put(e));
+      if (old && old.handle && old.root === dir.name && old.folder === folder && !old.visit) {
+        // Deja connu a la meme place : la poignee seulement (elle peut avoir change)
+        await req('readwrite', (s) => s.put({ ...old, handle: h }));
+      } else {
+        const e: Entry = old ? { ...old, folder, handle: h, root: dir.name, visit: undefined } : await entryOf(f, id, folder, { handle: h, root: dir.name });
+        await req('readwrite', (s) => s.put(e));
+      }
       n += 1;
       if (n % 50 === 0) changed();
     } catch {
       /* un fichier illisible ou disparu : le suivant */
     }
   }
+  // Ce qui etait relie a ce dossier et n'y est plus s'en va (ses cues restent retenues)
+  const all = await req<Entry[]>('readonly', (s) => s.getAll());
+  for (const e of all) {
+    if (e.root === dir.name && e.handle && !seen.has(e.id)) await req('readwrite', (s) => s.delete(e.id));
+  }
   changed();
   void analyzeAll();
   return { name: dir.name, n };
+}
+
+/** Les dossiers relies (Chrome, Edge) et leur acces : accorde, ou a redemander d'un clic. */
+export async function crateRoots(): Promise<{ name: string; granted: boolean }[]> {
+  try {
+    const roots = await req<{ name: string; handle: FileSystemDirectoryHandle }[]>('readonly', (s) => s.getAll(), ROOTS);
+    return Promise.all(roots.map(async (r) => ({ name: r.name, granted: await granted(r.handle, false).catch(() => false) })));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Redonne l'acces a un dossier relie, pendant un clic (le navigateur le
+ * demande ; "Autoriser a chaque visite" sur Chrome : plus jamais), puis le
+ * relit. false si l'acces est refuse.
+ */
+export async function reconnectRoot(name: string, progress: (done: number, total: number) => void): Promise<boolean> {
+  const r = await req<{ name: string; handle: FileSystemDirectoryHandle } | undefined>('readonly', (s) => s.get(name), ROOTS);
+  if (!r || !(await granted(r.handle, true).catch(() => false))) return false;
+  waiting.clear();
+  await linkFolder(r.handle, progress);
+  return true;
+}
+
+/**
+ * Une fois par visite : relit les dossiers relies dont l'acces est deja
+ * accorde (ajouts et departs sur le disque). Un second appel attend la
+ * meme relecture ; chacun recoit l'avancement.
+ */
+let rescan: Promise<void> | null = null;
+const rescanWatchers = new Set<(done: number, total: number) => void>();
+export function rescanRoots(progress: (done: number, total: number) => void): Promise<void> {
+  rescanWatchers.add(progress);
+  rescan ??= (async () => {
+    try {
+      const roots = await req<{ name: string; handle: FileSystemDirectoryHandle }[]>('readonly', (s) => s.getAll(), ROOTS);
+      for (const r of roots) {
+        if (await granted(r.handle, false).catch(() => false)) await linkFolder(r.handle, (d, n) => rescanWatchers.forEach((fn) => fn(d, n)));
+      }
+    } catch {
+      /* base ou disque indisponible : la caisse telle quelle */
+    }
+  })();
+  return rescan.finally(() => rescanWatchers.delete(progress));
 }
 
 /** Ce qu'une platine a appris en chargeant le morceau (duree, BPM). */
@@ -311,11 +380,11 @@ export async function removeTrack(id: string): Promise<void> {
   changed();
 }
 
-/** Retire tous les morceaux d'un dossier (et l'acces relie a ce dossier). */
+/** Retire tous les morceaux d'un dossier et de ses sous-dossiers (et l'acces relie, pour un dossier du haut). */
 export async function removeFolder(folder: string): Promise<void> {
   const all = await req<Entry[]>('readonly', (s) => s.getAll());
   for (const e of all) {
-    if (e.folder !== folder) continue;
+    if (e.folder !== folder && !(folder && e.folder.startsWith(`${folder}/`))) continue;
     await req('readwrite', (s) => s.delete(e.id));
     inMemory.delete(e.id);
   }
@@ -397,8 +466,8 @@ export async function storageLeft(): Promise<number | null> {
 
 /* ---------------- depots et selecteurs ---------------- */
 
-/** Le dossier d'un fichier choisi avec le selecteur de dossiers. */
-export const folderOfPath = (f: File): string => (f.webkitRelativePath.split('/')[0] ?? '').trim();
+/** Le chemin du dossier d'un fichier choisi avec le selecteur de dossiers ("Musique/Techno"). */
+export const folderOfPath = (f: File): string => f.webkitRelativePath.split('/').slice(0, -1).join('/').trim();
 
 interface HandleItem {
   getAsFileSystemHandle?: () => Promise<FileSystemHandle | null>;
@@ -425,7 +494,7 @@ export function readDrop(items: DataTransferItemList, folder: string): { dirs: P
     }
     const lists = await Promise.all(
       all.map(async (e): Promise<PlacedFile[]> => {
-        if (e.isDirectory) return readDir(e as FileSystemDirectoryEntry, name);
+        if (e.isDirectory) return readDir(e as FileSystemDirectoryEntry, `${name}/${e.name}`);
         const f = await new Promise<File>((ok, ko) => (e as FileSystemFileEntry).file(ok, ko));
         return [{ file: f, folder: name }];
       })
@@ -443,3 +512,97 @@ export function readDrop(items: DataTransferItemList, folder: string): { dirs: P
   );
   return { dirs, files };
 }
+
+/* ---------------- playlists ---------------- */
+
+/**
+ * Les playlists (2026-10-04, Mika : "faut vraiment faire fonctionner les
+ * playlists") : gardees dans la meme base, sur cet appareil. Un morceau y
+ * entre d'ou qu'il vienne (MAUDITE, SOUNDCLOUD, MY SC, FILES) : on garde
+ * ce qu'il faut pour le retrouver et l'afficher (son id, sa source, ses
+ * tags), jamais son son.
+ */
+export interface DjList {
+  id: string;
+  name: string;
+  items: DjTrack[];
+  created: number;
+}
+
+const listListeners = new Set<() => void>();
+let listVersion = 0;
+const listsChanged = (): void => {
+  listVersion += 1;
+  listListeners.forEach((fn) => fn());
+};
+
+export const listEvents = {
+  version: (): number => listVersion,
+  subscribe(fn: () => void): () => void {
+    listListeners.add(fn);
+    return () => {
+      listListeners.delete(fn);
+    };
+  },
+};
+
+/** Les playlists, la plus recente d'abord. */
+export async function crateLists(): Promise<DjList[]> {
+  try {
+    const all = await req<DjList[]>('readonly', (s) => s.getAll(), LISTS);
+    return all.sort((a, b) => b.created - a.created);
+  } catch {
+    return [];
+  }
+}
+
+export async function createList(name: string): Promise<DjList> {
+  const l: DjList = { id: `l${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, name: name.trim() || 'Playlist', items: [], created: Date.now() };
+  await req('readwrite', (s) => s.put(l), LISTS);
+  listsChanged();
+  return l;
+}
+
+async function editList(id: string, fn: (l: DjList) => DjList): Promise<void> {
+  const l = await req<DjList | undefined>('readonly', (s) => s.get(id), LISTS);
+  if (!l) return;
+  await req('readwrite', (s) => s.put(fn(l)), LISTS);
+  listsChanged();
+}
+
+export const renameList = (id: string, name: string): Promise<void> => editList(id, (l) => ({ ...l, name: name.trim() || l.name }));
+
+export async function deleteList(id: string): Promise<void> {
+  await req('readwrite', (s) => s.delete(id), LISTS);
+  listsChanged();
+}
+
+/** Un morceau entre dans une playlist (une seule fois) : ce qui le retrouve, sans fichier. */
+export function addToList(id: string, t: DjTrack): Promise<void> {
+  const item: DjTrack = {
+    id: t.id,
+    source: t.source,
+    title: t.title,
+    artist: t.artist,
+    bpm: t.bpm,
+    key: t.key,
+    duration: t.duration,
+    ...(t.link ? { link: t.link } : {}),
+    ...(t.license ? { license: t.license } : {}),
+    ...(t.folder ? { folder: t.folder } : {}),
+  };
+  return editList(id, (l) => (l.items.some((x) => x.id === t.id) ? l : { ...l, items: [...l.items, item] }));
+}
+
+export const removeFromList = (id: string, trackId: string): Promise<void> => editList(id, (l) => ({ ...l, items: l.items.filter((x) => x.id !== trackId) }));
+
+/** Deplace un morceau d'une place (dir -1 : plus haut). */
+export const moveInList = (id: string, trackId: string, dir: -1 | 1): Promise<void> =>
+  editList(id, (l) => {
+    const i = l.items.findIndex((x) => x.id === trackId);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= l.items.length) return l;
+    const items = l.items.slice();
+    [items[i], items[j]] = [items[j], items[i]];
+    return { ...l, items };
+  });
