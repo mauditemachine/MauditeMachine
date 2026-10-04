@@ -362,6 +362,97 @@ export const VOY_GROUPS: readonly VoyGroup[] = PORTRAIT
     ]
   : [knobGroup('ARPEGGIATOR', ['rate', 'mode', 'range', 'notes', 'gate', 'octave']), padGroup()];
 
+/* ---------- face arriere (2026-10-03, Mika : "aussi evoluee que la MM-808") ---------- */
+
+export type VoyPortKind = 'jack' | 'mini' | 'din' | 'usb' | 'dc' | 'power';
+export interface VoyPort {
+  kind: VoyPortKind;
+  /** position vue de derriere (x monde = -u), hauteur du centre */
+  u: number;
+  y: number;
+  label: string;
+  group?: string;
+}
+
+/**
+ * La face arriere du bac, facon Voyager : en haut les entrees de
+ * modulation (CV IN : PITCH, CUTOFF, RES, VOLUME, WAVE ; GATE IN et OUT ;
+ * PEDALS : EXP et SUS ; EXT IN), en bas l'audio et le reste (PHONES, MAIN
+ * OUT L et R, SYNC IN et OUT, MIDI IN, OUT et THRU, USB, DC 12V, POWER).
+ * Les memes prises que la MM-808 (BACK : jacks 6.35, mini-jacks, DIN,
+ * USB-C, alimentation, interrupteur) ; le nom de chaque prise au-dessus
+ * d'elle, chaque groupe coiffe d'un crochet et de son titre ; le logo, le
+ * modele, le firmware et l'etiquette du numero de serie ; des vis aux
+ * coins et des fentes d'aeration.
+ */
+export const VOY_BACK = PORTRAIT
+  ? {
+      rows: { a: 1.95, b: 0.95 },
+      label: { dy: 0.35, bracket: 0.5, group: 0.63, cap: 0.06, groupCap: 0.052 },
+      ports: [
+        { kind: 'mini', u: -3.3, y: 1.95, label: 'PITCH', group: 'CV IN' },
+        { kind: 'mini', u: -2.8, y: 1.95, label: 'CUTOFF', group: 'CV IN' },
+        { kind: 'mini', u: -2.3, y: 1.95, label: 'RES', group: 'CV IN' },
+        { kind: 'mini', u: -1.8, y: 1.95, label: 'VOL', group: 'CV IN' },
+        { kind: 'mini', u: -1.3, y: 1.95, label: 'WAVE', group: 'CV IN' },
+        { kind: 'mini', u: -0.55, y: 1.95, label: 'IN', group: 'GATE' },
+        { kind: 'mini', u: -0.05, y: 1.95, label: 'OUT', group: 'GATE' },
+        { kind: 'jack', u: 0.75, y: 1.95, label: 'EXP', group: 'PEDALS' },
+        { kind: 'jack', u: 1.45, y: 1.95, label: 'SUS', group: 'PEDALS' },
+        { kind: 'jack', u: 2.3, y: 1.95, label: 'EXT IN' },
+        { kind: 'jack', u: -3.3, y: 0.95, label: 'PHONES' },
+        { kind: 'jack', u: -2.65, y: 0.95, label: 'L', group: 'MAIN OUT' },
+        { kind: 'jack', u: -2.05, y: 0.95, label: 'R', group: 'MAIN OUT' },
+        { kind: 'mini', u: -1.4, y: 0.95, label: 'IN', group: 'SYNC' },
+        { kind: 'mini', u: -0.95, y: 0.95, label: 'OUT', group: 'SYNC' },
+        { kind: 'din', u: -0.2, y: 0.95, label: 'IN', group: 'MIDI' },
+        { kind: 'din', u: 0.45, y: 0.95, label: 'OUT', group: 'MIDI' },
+        { kind: 'din', u: 1.1, y: 0.95, label: 'THRU', group: 'MIDI' },
+        { kind: 'usb', u: 1.85, y: 0.95, label: 'USB' },
+        { kind: 'dc', u: 2.55, y: 0.95, label: 'DC 12V' },
+        { kind: 'power', u: 3.25, y: 0.95, label: 'POWER' },
+      ] as readonly VoyPort[],
+      vents: { u0: 2.85, u1: 3.6, y0: 1.75, y1: 2.6, n: 5 },
+      screws: [[-3.62, 2.72], [3.62, 2.72]] as readonly (readonly [number, number])[],
+      logo: { u: -3.6, y: 0.45, w: 1.4 },
+      model: { u: -2.05, y: 0.5, cap: 0.06 },
+      firmware: { u: -2.05, y: 0.33, cap: 0.045 },
+      sticker: { u0: 2.2, u1: 3.6, y0: 0.2, y1: 0.5 },
+    }
+  : {
+      rows: { a: 2.3, b: 1.0 },
+      label: { dy: 0.43, bracket: 0.6, group: 0.75, cap: 0.075, groupCap: 0.065 },
+      ports: [
+        { kind: 'mini', u: -2.4, y: 2.3, label: 'PITCH', group: 'CV IN' },
+        { kind: 'mini', u: -1.8, y: 2.3, label: 'CUTOFF', group: 'CV IN' },
+        { kind: 'mini', u: -1.2, y: 2.3, label: 'RES', group: 'CV IN' },
+        { kind: 'mini', u: -0.6, y: 2.3, label: 'VOLUME', group: 'CV IN' },
+        { kind: 'mini', u: 0.0, y: 2.3, label: 'WAVE', group: 'CV IN' },
+        { kind: 'mini', u: 0.9, y: 2.3, label: 'IN', group: 'GATE' },
+        { kind: 'mini', u: 1.5, y: 2.3, label: 'OUT', group: 'GATE' },
+        { kind: 'jack', u: 2.45, y: 2.3, label: 'EXP', group: 'PEDALS' },
+        { kind: 'jack', u: 3.25, y: 2.3, label: 'SUS', group: 'PEDALS' },
+        { kind: 'jack', u: 4.2, y: 2.3, label: 'EXT IN' },
+        { kind: 'jack', u: -2.4, y: 1.0, label: 'PHONES' },
+        { kind: 'jack', u: -1.55, y: 1.0, label: 'L', group: 'MAIN OUT' },
+        { kind: 'jack', u: -0.8, y: 1.0, label: 'R', group: 'MAIN OUT' },
+        { kind: 'mini', u: 0.05, y: 1.0, label: 'IN', group: 'SYNC' },
+        { kind: 'mini', u: 0.6, y: 1.0, label: 'OUT', group: 'SYNC' },
+        { kind: 'din', u: 1.5, y: 1.0, label: 'IN', group: 'MIDI' },
+        { kind: 'din', u: 2.2, y: 1.0, label: 'OUT', group: 'MIDI' },
+        { kind: 'din', u: 2.9, y: 1.0, label: 'THRU', group: 'MIDI' },
+        { kind: 'usb', u: 3.75, y: 1.0, label: 'USB' },
+        { kind: 'dc', u: 4.55, y: 1.0, label: 'DC 12V' },
+        { kind: 'power', u: 5.4, y: 1.0, label: 'POWER' },
+      ] as readonly VoyPort[],
+      vents: { u0: 4.95, u1: 6.0, y0: 1.95, y1: 2.95, n: 6 },
+      screws: [[-6.05, 0.35], [6.05, 0.35], [-6.05, 3.0], [6.05, 3.0]] as readonly (readonly [number, number])[],
+      logo: { u: -5.75, y: 2.65, w: 2.8 },
+      model: { u: -5.75, y: 2.2, cap: 0.08 },
+      firmware: { u: -5.75, y: 1.98, cap: 0.058 },
+      sticker: { u0: -5.75, u1: -4.25, y0: 0.42, y1: 0.78 },
+    };
+
 /* ---------- vue eclatee, carte ---------- */
 
 /**

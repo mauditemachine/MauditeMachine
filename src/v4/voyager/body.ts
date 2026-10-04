@@ -11,9 +11,9 @@
 
 import { BoxGeometry, BufferGeometry, CylinderGeometry, ExtrudeGeometry, Mesh, MeshStandardMaterial, Shape, type MeshPhysicalMaterial } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { APPEARANCE, GAIN, type Tone } from '../theme';
+import { APPEARANCE, BACK, GAIN, type Tone } from '../theme';
 import { paintFaces, paintSolid } from '../scene/materials';
-import { VOY_BODY, VOY_CHEEK, VOY_INNER, VOY_LID_W, VOY_PANEL } from './theme';
+import { VOY_BACK, VOY_BODY, VOY_CHEEK, VOY_INNER, VOY_LID_W, VOY_PANEL } from './theme';
 import { makeWood, makeWoodMaterial, type WoodMaps } from './wood';
 
 type P2 = [number, number];
@@ -221,24 +221,8 @@ function buildTray(mobile: boolean): BufferGeometry {
   parts.push(box(w, frontH, t, 0, B.feet + frontH / 2, B.d / 2 - t / 2, 'voyBody'));
   const backH = B.topY - B.lidT - B.feet;
   parts.push(box(w, backH, t, 0, B.feet + backH / 2, -B.d / 2 + t / 2, 'voyBody'));
-  // Connectique arriere : deux sorties, casque, MIDI, alimentation
-  const zb = -B.d / 2;
-  const y = B.feet + 0.75;
-  const xs = mobile ? [-2.6, -1.9, -1.2, 0.2, 1.1, 2.6] : [-4.2, -3.4, -2.6, -0.6, 0.4, 3.6];
-  xs.forEach((x, k) => {
-    if (k < 3) {
-      parts.push(disc(0.19, 0.05, 6, x, y, zb, 'leg'));
-      parts.push(disc(0.13, 0.08, seg, x, y, zb, 'line'));
-      parts.push(disc(0.06, 0.004, 12, x, y, zb - 0.08, 'ink'));
-    } else if (k < 5) {
-      parts.push(disc(0.27, 0.02, seg + 8, x, y, zb, 'leg'));
-      parts.push(disc(0.22, 0.06, seg + 8, x, y, zb, 'leg'));
-      parts.push(disc(0.18, 0.004, seg + 8, x, y, zb - 0.06, 'line'));
-    } else {
-      parts.push(box(0.36, 0.36, 0.05, x, y, zb - 0.025, 'line'));
-      parts.push(disc(0.11, 0.004, seg, x, y, zb - 0.05, 'ink'));
-    }
-  });
+  // Face arriere (2026-10-03) : la connectique facon Voyager, vis, aerations
+  parts.push(...buildBack(mobile, seg));
   // Pieds en caoutchouc sous les joues
   const fx = B.w / 2 - B.cheek / 2;
   const fz = B.d / 2 - 0.55;
@@ -253,6 +237,76 @@ function buildTray(mobile: boolean): BufferGeometry {
   for (const p of parts) p.dispose();
   if (!merged) throw new Error('voyager: tray merge failed');
   return merged;
+}
+
+/**
+ * La face arriere (VOY_BACK) : chaque prise a la facon de la MM-808 (BACK :
+ * jacks 6.35 et mini-jacks a ecrou hexagonal, DIN 5 broches avec ergot,
+ * USB-C en stade, jack d'alimentation, interrupteur a bascule), quatre vis
+ * cruciformes aux coins (deux au telephone), des fentes d'aeration.
+ */
+function buildBack(mobile: boolean, seg: number): BufferGeometry[] {
+  const out: BufferGeometry[] = [];
+  const zb = -B.d / 2;
+  const K = BACK;
+  const stadium = (w: number, h: number, d: number, x: number, y: number, zFace: number, tone: Tone): void => {
+    out.push(box(w - h, h, d, x, y, zFace - d / 2, tone, GAIN.parts));
+    for (const sd of [-1, 1]) out.push(disc(h / 2, d, 12, x + (sd * (w - h)) / 2, y, zFace, tone));
+  };
+  for (const p of VOY_BACK.ports) {
+    const x = -p.u;
+    const y = p.y;
+    if (p.kind === 'jack' || p.kind === 'mini') {
+      const J = K[p.kind];
+      out.push(disc(J.nut, J.nutH, 6, x, y, zb, 'leg'));
+      out.push(disc(J.barrel, J.barrelH, seg, x, y, zb, 'line'));
+      out.push(disc(J.hole, 0.004, 12, x, y, zb - J.barrelH, 'ink'));
+    } else if (p.kind === 'din') {
+      const D = K.din;
+      out.push(disc(D.flange, D.flangeH, seg + 8, x, y, zb, 'leg'));
+      out.push(disc(D.shell, D.shellH, seg + 8, x, y, zb, 'leg'));
+      const zf = zb - D.shellH;
+      out.push(disc(D.inner, 0.004, seg + 8, x, y, zf, 'line'));
+      for (let k = 0; k < 5; k += 1) {
+        const a = Math.PI + (Math.PI * k) / 4;
+        out.push(disc(D.pinR, 0.004, 8, x + Math.cos(a) * D.pinRing, y + Math.sin(a) * D.pinRing, zf - 0.004, 'ink'));
+      }
+      out.push(box(D.key, D.key * 0.9, 0.004, x, y + D.inner - D.key * 0.45, zf - 0.006, 'ink', GAIN.parts));
+    } else if (p.kind === 'usb') {
+      const U = K.usb;
+      stadium(U.w, U.h, U.d, x, y, zb, 'leg');
+      stadium(U.inner.w, U.inner.h, 0.004, x, y, zb - U.d, 'ink');
+      out.push(box(U.tongue.w, U.tongue.h, 0.004, x, y, zb - U.d - 0.006, 'line', GAIN.parts));
+    } else if (p.kind === 'dc') {
+      const D = K.dc;
+      out.push(box(D.w, D.w, D.d, x, y, zb - D.d / 2, 'line', GAIN.parts));
+      out.push(disc(D.hole, 0.004, seg, x, y, zb - D.d, 'ink'));
+      out.push(disc(D.pin, 0.03, 10, x, y, zb - D.d + 0.02, 'leg'));
+    } else {
+      const P = K.power;
+      out.push(box(P.w, P.h, P.d, x, y, zb - P.d / 2, 'line', GAIN.parts));
+      const r = P.rocker;
+      const g = new BoxGeometry(r.w, r.h, r.d);
+      g.rotateX((r.tiltDeg * Math.PI) / 180);
+      g.translate(x, y, zb - P.d - r.d / 2 + 0.03);
+      out.push(part(g, 'ink', GAIN.parts));
+    }
+  }
+  // Vis cruciformes : une tete bombee, une croix en creux
+  for (const [u, y] of VOY_BACK.screws) {
+    const x = -u;
+    out.push(disc(0.09, 0.025, mobile ? 12 : 16, x, y, zb, 'leg'));
+    out.push(box(0.11, 0.022, 0.004, x, y, zb - 0.027, 'ink', GAIN.parts));
+    out.push(box(0.022, 0.11, 0.004, x, y, zb - 0.027, 'ink', GAIN.parts));
+  }
+  // Fentes d'aeration : des rainures sombres, a peine en creux
+  const V = VOY_BACK.vents;
+  const pitch = (V.y1 - V.y0) / (V.n - 1);
+  for (let k = 0; k < V.n; k += 1) {
+    // Sombres dans les deux apparences (l'encre s'inverse sur la machine claire)
+    out.push(box(V.u1 - V.u0, 0.055, 0.004, -(V.u0 + V.u1) / 2, V.y0 + k * pitch, zb - 0.002, 'voyKnob', GAIN.parts));
+  }
+  return out;
 }
 
 /** Les deux joues (UV du profil en unites : le fil suit la longueur). */

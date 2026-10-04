@@ -26,6 +26,7 @@ import { easeOutCubic, type Tweens } from '../scene/tween';
 import { chipsLive, voyExplode } from '../state/explode';
 import { CHIP, EXPLODE, PCB, PCB_TURN, type ChipId, type SectionId } from '../theme';
 import { arp } from './arp';
+import { VoyBackPlate } from './backplate';
 import { VoyBody } from './body';
 import { CHORDS } from './chords';
 import { VoyKnobs } from './knobs';
@@ -83,6 +84,8 @@ export class VoyagerRig {
   readonly panel = new Group();
   readonly pcbGroup = new Group();
   readonly body: VoyBody;
+  /** la serigraphie de la face arriere */
+  readonly back: VoyBackPlate;
   readonly keys: VoyKeys;
   readonly knobs: VoyKnobs;
   readonly deckSilk: VoySilk;
@@ -124,7 +127,8 @@ export class VoyagerRig {
     this.lid.add(this.panel);
 
     this.body = new VoyBody(opts.mobile);
-    this.socle.add(this.body.cheeks, this.body.tray);
+    this.back = new VoyBackPlate(opts.mobile, opts.anisotropy);
+    this.socle.add(this.body.cheeks, this.body.tray, this.back.mesh);
     this.lid.add(this.body.lid);
 
     this.deckSilk = new VoySilk('deck', opts.anisotropy);
@@ -133,7 +137,7 @@ export class VoyagerRig {
     this.panel.add(this.panelSilk.mesh);
 
     this.keys = new VoyKeys({ tweens: opts.tweens, reduced: opts.reduced, repaint: opts.repaint, mobile: opts.mobile });
-    this.lid.add(this.keys.pads, this.keys.buttons, this.keys.halos);
+    this.lid.add(this.keys.pads, this.keys.buttons, this.keys.halos, this.keys.runLed);
     this.knobs = new VoyKnobs({ mobile: opts.mobile, castShadow: !opts.mobile });
     this.lid.add(this.knobs.mesh);
     this.lcd = new VoyLcd(opts.anisotropy);
@@ -413,6 +417,7 @@ export class VoyagerRig {
   redrawText(): void {
     this.deckSilk.draw();
     this.panelSilk.draw();
+    this.back.draw();
     this.pcb.redraw();
   }
 
@@ -439,6 +444,7 @@ export class VoyagerRig {
     this.unsubs.length = 0;
     this.detach();
     this.body.dispose();
+    this.back.dispose();
     this.keys.dispose();
     this.knobs.dispose();
     this.deckSilk.dispose();

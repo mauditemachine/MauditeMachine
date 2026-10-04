@@ -32,7 +32,8 @@
 - PC plus grave : peau a 200 Hz (330 avant), claquement a 1.6 kHz (`drums.ts`).
 - Formes d'onde en clair : encre de la serigraphie, cran choisi en orange (`voyager/silk.ts`, `v4.css`).
 - RS plus grave (980 et 290 Hz) ; le RANDOM de la 808 ne touche plus aux effets GLOBAL FX ni VOICE FX (`drums.ts`, `actions.ts`).
-- `docs/v4/spec.md` : R14-34 a R14-48.
+- MM-ARP : RUN/STOP rouge comme la 808 avec son temoin (`voyager/pads.ts`, `rig.ts`) ; face arriere complete facon Voyager (`voyager/theme.ts` VOY_BACK, `voyager/body.ts`, nouveau `voyager/backplate.ts`).
+- `docs/v4/spec.md` : R14-34 a R14-49.
 
 ## 2. Decisions prises et pourquoi
 

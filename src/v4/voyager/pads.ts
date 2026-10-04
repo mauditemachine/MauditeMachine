@@ -9,15 +9,18 @@
  * - pad hors progression : jaune faible (on le voit, on a envie d'y
  *   toucher) ; dans la progression : orange ; l'accord qui joue : yellowHi ;
  *   chaque note de l'arpege le fait flasher ;
- * - RUN/STOP : yellowHi tant que l'arpege joue (le temoin de RUN sur la
- *   808) ; OPEN : orange plein qui respire, faible machine ouverte ; CLEAR
- *   et RANDOM : eteints, un eclat a l'appui.
+ * - RUN/STOP (2026-10-03, Mika : "la meme couleur que RUN/STOP de la
+ *   808") : la touche rouge de la 808 (son albedo LIT.run) et son temoin,
+ *   une barre en haut de la touche, jaune tant que l'arpege joue ; OPEN :
+ *   orange plein qui respire, faible machine ouverte ; CLEAR et RANDOM :
+ *   eteints, un eclat a l'appui.
  * Appui : la touche s'enfonce et remonte (reduced motion : la lumiere seule).
  */
 
 import {
   AdditiveBlending,
   Color,
+  Mesh,
   DynamicDrawUsage,
   Float32BufferAttribute,
   InstancedBufferAttribute,
@@ -38,13 +41,14 @@ import type { HotspotDef } from '../scene/hit';
 import { albedo, withInstanceEmissive } from '../scene/materials';
 import { makeHaloTexture } from '../scene/silk';
 import { easeOutCubic, linear, type Tweens } from '../scene/tween';
-import { COLOR, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD_FX, PAD_GLOW, PAD_HALO, gainOf } from '../theme';
+import { BTN_LED, COLOR, LIT, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD_FX, PAD_GLOW, PAD_HALO, gainOf } from '../theme';
 import { CHORDS } from './chords';
 import { VOY_BUTTON, VOY_BUTTONS, VOY_PAD, voyPadAt, type VoyButtonId } from './theme';
 
 const PADS = CHORDS.length;
 const BTNS = VOY_BUTTONS.length;
 const OPEN_I = VOY_BUTTONS.findIndex((b) => b.id === 'open');
+const RUN_I = VOY_BUTTONS.findIndex((b) => b.id === 'run');
 
 type Glow = 'off' | 'faint' | 'hover' | 'queued' | 'active' | 'flash' | 'orange' | 'orangeDim';
 const RGB: Record<Glow, readonly number[]> = {
@@ -148,6 +152,11 @@ export class VoyKeys {
   readonly pads: InstancedMesh;
   readonly buttons: InstancedMesh;
   readonly halos: InstancedMesh;
+  /** le temoin de RUN/STOP (une barre sur la touche, comme sur la 808) */
+  readonly runLed: Mesh;
+  private ledMat: MeshBasicMaterial;
+  private ledOff = new Color(COLOR.line);
+  private ledOn = new Color(COLOR.yellowHi);
   private padMat: MeshStandardMaterial;
   private btnMat: MeshStandardMaterial;
   private haloMat: MeshBasicMaterial;
@@ -195,7 +204,17 @@ export class VoyKeys {
     this.buttons.instanceMatrix.setUsage(DynamicDrawUsage);
     for (let i = 0; i < BTNS; i += 1) this.buttons.setColorAt(i, col.setRGB(1, 1, 1));
     this.buttons.setColorAt(OPEN_I, col.setRGB(OPEN_TINT[0], OPEN_TINT[1], OPEN_TINT[2]));
+    // RUN/STOP : l'albedo de la touche RUN de la 808, divise par celui du caoutchouc
+    const rubber = albedo('pad', new Color(), gainOf('pad'));
+    this.buttons.setColorAt(RUN_I, col.setRGB(LIT.run[0] / rubber.r, LIT.run[1] / rubber.g, LIT.run[2] / rubber.b));
     this.buttons.instanceColor?.setUsage(DynamicDrawUsage);
+    // Son temoin : eteint, une fente (line) ; allume, jaune
+    const lg = new PlaneGeometry(Math.min(BTN_LED.w, VOY_BUTTONS[RUN_I].w * 0.6), BTN_LED.d);
+    lg.rotateX(-Math.PI / 2);
+    this.ledMat = new MeshBasicMaterial({ color: this.ledOff, toneMapped: false });
+    this.ledMat.name = 'voyRunLed';
+    this.runLed = new Mesh(lg, this.ledMat);
+    this.runLed.name = 'voyRunLed';
 
     this.haloTex = makeHaloTexture();
     this.haloMat = new MeshBasicMaterial({ map: this.haloTex, transparent: true, blending: AdditiveBlending, depthWrite: false, toneMapped: false });
@@ -230,6 +249,8 @@ export class VoyKeys {
     const b = VOY_BUTTONS[i];
     this.buttons.setMatrixAt(i, m4.compose(v3.set(b.x, this.btnY[i], b.z), q0, s3.set(b.w, 1, b.d)));
     this.buttons.instanceMatrix.needsUpdate = true;
+    // Le temoin suit sa touche quand elle s'enfonce
+    if (i === RUN_I && this.runLed) this.runLed.position.set(b.x, this.btnY[i] + VOY_BUTTON.h + BTN_LED.y, b.z - b.d / 2 + BTN_LED.back);
   }
 
   private haloColor(i: number, g: Glow, k = 1): void {
@@ -270,7 +291,6 @@ export class VoyKeys {
   private btnRest(i: number): Glow {
     const b = VOY_BUTTONS[i];
     if (b.id === 'open') return this.open ? 'orangeDim' : 'orange';
-    if (b.id === 'run' && this.running) return 'active';
     return PADS + i === this.hover ? 'hover' : 'off';
   }
 
@@ -306,7 +326,7 @@ export class VoyKeys {
   setRunning(on: boolean): boolean {
     if (on === this.running) return false;
     this.running = on;
-    this.refreshBtn(this.buttonIndex('run'));
+    this.ledMat.color.copy(on ? this.ledOn : this.ledOff);
     return true;
   }
 
@@ -455,6 +475,8 @@ export class VoyKeys {
       m.geometry.dispose();
       m.dispose();
     }
+    this.runLed.geometry.dispose();
+    this.ledMat.dispose();
     this.padMat.dispose();
     this.btnMat.dispose();
     this.haloMat.dispose();
