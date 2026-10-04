@@ -59,6 +59,19 @@ export class DjChannel {
   private high: GainNode;
   private lp: BiquadFilterNode;
   private hp: BiquadFilterNode;
+  /**
+   * Au centre, l'isolateur et le filtre sont court-circuites (2026-10-04) :
+   * meme plat en module, la recombinaison des trois bandes tourne la phase et
+   * change la forme d'un kick (sa crete baissait de 3.5 dB, mesure par la
+   * session Maudite Machine). Le son d'une voie au repos est donc exactement
+   * celui qui entre : celui des machines du site ne change pas. Tourne, le
+   * chemin bascule en 20 ms.
+   */
+  private eqPath: GainNode;
+  private eqDirect: GainNode;
+  private filterPath: GainNode;
+  private filterDirect: GainNode;
+  private bands = { hi: 0, mid: 0, low: 0 };
   private fader: GainNode;
   private meter: AnalyserNode;
   private buf: Float32Array;
@@ -73,18 +86,29 @@ export class DjChannel {
     this.high = new GainNode(ctx);
     const f = (type: BiquadFilterType, frequency: number): BiquadFilterNode =>
       new BiquadFilterNode(ctx, { type, frequency, Q: type === 'allpass' ? BUTTERWORTH : BUTTERWORTH_DB });
+    // L'isolateur (chemin eqPath) ou tout droit (eqDirect), vers eqOut
+    this.eqPath = new GainNode(ctx, { gain: 0 });
+    this.eqDirect = new GainNode(ctx, { gain: 1 });
+    const eqOut = new GainNode(ctx);
     const sum = new GainNode(ctx);
-    this.input.connect(f('lowpass', CROSSOVER.low)).connect(f('lowpass', CROSSOVER.low)).connect(f('allpass', CROSSOVER.high)).connect(this.low).connect(sum);
-    const above = this.input.connect(f('highpass', CROSSOVER.low)).connect(f('highpass', CROSSOVER.low));
+    this.input.connect(this.eqPath);
+    this.input.connect(this.eqDirect).connect(eqOut);
+    this.eqPath.connect(f('lowpass', CROSSOVER.low)).connect(f('lowpass', CROSSOVER.low)).connect(f('allpass', CROSSOVER.high)).connect(this.low).connect(sum);
+    const above = this.eqPath.connect(f('highpass', CROSSOVER.low)).connect(f('highpass', CROSSOVER.low));
     above.connect(f('lowpass', CROSSOVER.high)).connect(f('lowpass', CROSSOVER.high)).connect(this.mid).connect(sum);
     above.connect(f('highpass', CROSSOVER.high)).connect(f('highpass', CROSSOVER.high)).connect(this.high).connect(sum);
+    sum.connect(eqOut);
+    // Le filtre (filterPath) ou tout droit (filterDirect), vers le fader
     this.lp = new BiquadFilterNode(ctx, { type: 'lowpass', frequency: 20000, Q: BUTTERWORTH_DB });
     this.hp = new BiquadFilterNode(ctx, { type: 'highpass', frequency: 10, Q: BUTTERWORTH_DB });
+    this.filterPath = new GainNode(ctx, { gain: 0 });
+    this.filterDirect = new GainNode(ctx, { gain: 1 });
     this.fader = new GainNode(ctx, { gain: faderGain(0.8) });
+    eqOut.connect(this.filterPath).connect(this.lp).connect(this.hp).connect(this.fader);
+    eqOut.connect(this.filterDirect).connect(this.fader);
     this.xf = new GainNode(ctx, { gain: Math.SQRT1_2 });
     this.meter = new AnalyserNode(ctx, { fftSize: 1024 });
     this.buf = new Float32Array(this.meter.fftSize);
-    sum.connect(this.lp).connect(this.hp).connect(this.fader);
     this.fader.connect(this.meter);
     this.fader.connect(this.xf).connect(out);
   }
@@ -95,15 +119,22 @@ export class DjChannel {
 
   setBand(band: 'hi' | 'mid' | 'low', v: number): void {
     glide((band === 'hi' ? this.high : band === 'mid' ? this.mid : this.low).gain, bandGain(v), this.ctx);
+    this.bands[band] = v;
+    // Les trois au centre : tout droit ; une seule tournee : par l'isolateur
+    const flat = Math.abs(this.bands.hi) < 0.005 && Math.abs(this.bands.mid) < 0.005 && Math.abs(this.bands.low) < 0.005;
+    glide(this.eqPath.gain, flat ? 0 : 1, this.ctx);
+    glide(this.eqDirect.gain, flat ? 1 : 0, this.ctx);
   }
 
-  /** Plat au repos ; la resonance (4) seulement quand on le tourne. */
+  /** Plat au repos (et court-circuite) ; la resonance (4) seulement quand on le tourne. */
   setFilter(v: number): void {
     const f = filterOf(v);
     glide(this.lp.frequency, f.type === 'low' ? f.freq : 20000, this.ctx);
     glide(this.hp.frequency, f.type === 'high' ? f.freq : 10, this.ctx);
     glide(this.lp.Q, f.type === 'low' ? RESONANCE : BUTTERWORTH_DB, this.ctx);
     glide(this.hp.Q, f.type === 'high' ? RESONANCE : BUTTERWORTH_DB, this.ctx);
+    glide(this.filterPath.gain, f.type === 'none' ? 0 : 1, this.ctx);
+    glide(this.filterDirect.gain, f.type === 'none' ? 1 : 0, this.ctx);
   }
 
   setFader(x: number): void {
