@@ -46,7 +46,8 @@ export const SHOT_PEAK: Readonly<Record<ShotId, number>> = {
   CH: -2,
   CHopen: -3,
   OH: -3,
-  CP: 3.5,
+  // CP : 3.5 jusqu'au 2026-10-04 (Mika : "le clap est vraiment trop intense"), 5.5 dB plus bas
+  CP: -2,
   RS: -0.5,
   HT: 1,
   CY: -5,
@@ -413,15 +414,16 @@ function sd(sr: number, ts: number, r: () => number): Shot {
 /**
  * CP : quatre mains qui ne tombent pas ensemble (0, 9.5, 19, 31 ms, a
  * 1.5 ms pres d'une variante a l'autre, un rien decalees entre gauche et
- * droite), du bruit en bande vers 1.25 kHz, une bosse a 2.6 kHz ; la
- * derniere tient 75 ms. Une petite piece (RT60 0.45 s) a -13 dB.
+ * droite), du bruit en bande vers 1.25 kHz, une bosse douce a 2.6 kHz ; la
+ * derniere tient 75 ms. Une petite piece (RT60 0.45 s) a -16 dB. Adouci le
+ * 2026-10-04 (moins sature, moins de bosse, moins de piece, 5.5 dB plus bas).
  */
 function cp(sr: number, ts: number, r: () => number): Shot {
   const fs = sr * OS;
   const offs = [0, 0.0095, 0.019, 0.031].map((o, k) => (k === 0 ? 0 : o + (r() - 0.5) * 0.003));
   const lastT = offs[3];
   const len = Math.round(fs * (lastT + Math.max(0.1, 0.3 * ts)));
-  const mk = (): { bp: Bq; hp: Bq; pkF: Bq } => ({ bp: new Bq('bp', 1250, 1.6, fs), hp: new Bq('hp', 600, 0.7, fs), pkF: new Bq('peak', 2600, 1, fs, 3) });
+  const mk = (): { bp: Bq; hp: Bq; pkF: Bq } => ({ bp: new Bq('bp', 1250, 1.6, fs), hp: new Bq('hp', 600, 0.7, fs), pkF: new Bq('peak', 2600, 1, fs, 1.5) });
   const fl = mk();
   const fr = mk();
   const xl = new Float64Array(len);
@@ -441,8 +443,8 @@ function cp(sr: number, ts: number, r: () => number): Shot {
     const t = i / fs;
     const nl = fl.pkF.run(fl.hp.run(fl.bp.run(r() * 2 - 1)));
     const nr = fr.pkF.run(fr.hp.run(fr.bp.run(r() * 2 - 1)));
-    xl[i] = sat(nl * env(t) * 3, 1.2);
-    xr[i] = sat(nr * env(t - skew) * 3, 1.2);
+    xl[i] = sat(nl * env(t) * 2, 1.2);
+    xr[i] = sat(nr * env(t - skew) * 2, 1.2);
   }
   fadeOut(xl, fs, 0.03);
   fadeOut(xr, fs, 0.03);
@@ -456,8 +458,8 @@ function cp(sr: number, ts: number, r: () => number): Shot {
   const R = new Float32Array(total);
   for (let i = 0; i < total; i += 1) {
     const fade = i > total - 0.08 * sr ? 0.5 + 0.5 * Math.cos((Math.PI * (i - (total - 0.08 * sr))) / (0.08 * sr)) : 1;
-    L[i] = (i < dl.length ? dl[i] : 0) + 0.22 * wl[i] * fade;
-    R[i] = (i < dr.length ? dr[i] : 0) + 0.22 * wr[i] * fade;
+    L[i] = (i < dl.length ? dl[i] : 0) + 0.16 * wl[i] * fade;
+    R[i] = (i < dr.length ? dr[i] : 0) + 0.16 * wr[i] * fade;
   }
   return { L, R };
 }

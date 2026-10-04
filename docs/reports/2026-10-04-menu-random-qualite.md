@@ -7,7 +7,8 @@
 - Curseur : la main de lien sur les potards, survoles ou tournes, plus de doubles fleches (`ui/Hotspots.tsx`).
 - Qualite : le MM-ARP sort du compresseur de la batterie (plus de pompage a chaque kick), volume recale (`audio/drums.ts`, `audio/synth.ts`) ; TONE recalcule les one-shots a leur hauteur au lieu de les reechantillonner (`audio/shots.ts`) ; chorus en AudioWorklet a interpolation sinc 16 points (`audio/chorus.worklet.js`, `audio/chorus.ts`).
 - Menu desktop : le bouton MENU ouvre le meme menu plein ecran que le telephone, mis a l'echelle (titres a gauche jusqu'a 96 px, capot, reseaux et pied a droite) ; un seul composant pour les deux (`ui/MenuSheet.tsx`, `ui/Header.tsx`, `ui/MobileHeader.tsx`, `v4.css`).
-- `docs/v4/spec.md` : R14-59 a R14-63.
+- MM-RYTM : clap adouci (5.5 dB plus bas, moins sature) ; RANDOM tire un style 4x4 (house, tech house, techno, minimal, indie dance, prog, electro) et le TONE et le VOLUME de chaque voix (`audio/beats.ts`, `audio/shotsdsp.ts`, `actions.ts`).
+- `docs/v4/spec.md` : R14-59 a R14-65.
 
 ## 2. Decisions prises et pourquoi
 

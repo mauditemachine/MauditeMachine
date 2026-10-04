@@ -10,8 +10,8 @@ import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
 import { ensure, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, trigger } from './audio/drums';
 import { VOICE_FX_DEFAULT, voiceFx, type VoiceParam } from './audio/voicefx';
-import { randomHouse } from './audio/house';
-import { BPM, VEL_NAMES, pattern, velocity } from './audio/pattern';
+import { randomBeat, randomColors, type BeatStyle } from './audio/beats';
+import { BPM, INSTRUMENTS, VEL_NAMES, pattern, velocity } from './audio/pattern';
 import { sc } from './audio/soundcloud';
 import { prepareSynth } from './audio/synth';
 import type { Stage } from './scene/renderer';
@@ -216,18 +216,28 @@ export function clearPattern(stage: Stage | null = null): void {
   lcdMessage.show('CLEARED');
 }
 
+/** Le dernier style tire par RANDOM : le suivant en change. */
+let lastStyle: BeatStyle | null = null;
+
 /**
- * RANDOM (2026-10-01) : un motif house tire au hasard (audio/house.ts),
- * pour toutes les voix ; la lecture continue, tempo et effets restent. Le
- * bouton s'enfonce.
+ * RANDOM (2026-10-01 ; tous les 4x4 depuis le 2026-10-04, audio/beats.ts) :
+ * un style et son motif, pour toutes les voix, plus le TONE et le VOLUME de
+ * chaque voix (Mika : "le tone, le volume") ; la lecture continue, tempo,
+ * GLOBAL FX et les autres VOICE FX restent ceux de l'utilisateur. Le bouton
+ * s'enfonce, l'ecran dit le style.
  */
 export function randomPattern(stage: Stage | null = null): void {
   resume();
-  // Le motif seulement : GLOBAL FX et VOICE FX restent ceux de l'utilisateur
-  // (2026-10-03, Mika, apres un essai ou RANDOM tirait aussi les effets du bus)
-  pattern.replace(randomHouse(pattern.get().steps));
+  const { style, steps } = randomBeat(pattern.get().steps, lastStyle);
+  lastStyle = style;
+  pattern.replace(steps);
+  const colors = randomColors();
+  for (const inst of INSTRUMENTS) {
+    voiceFx.set(inst, 'tone', colors[inst].tone);
+    voiceFx.set(inst, 'level', colors[inst].level);
+  }
   stage?.pressButton('random');
-  lcdMessage.show('RANDOM HOUSE');
+  lcdMessage.show(`RANDOM ${style}`);
 }
 
 /** TEMPO : borne et arrondi a 100..150 ; l'horloge le prend au prochain pas. */
