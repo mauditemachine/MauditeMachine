@@ -49,7 +49,8 @@
     back = sessionStorage.getItem('mm.v4.dj.sc.back');
     sessionStorage.removeItem('mm.v4.dj.sc.back');
   } catch (e) {}
-  if (back && back.charAt(0) === '/' && back.charAt(1) !== '/') {
+  // Un chemin du site seulement : ni //hote ni /\hote (lus comme une autre adresse)
+  if (back && /^\/(?![\/\\])/.test(back)) {
     location.replace(back);
     return;
   }
