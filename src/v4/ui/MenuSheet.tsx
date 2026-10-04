@@ -3,7 +3,10 @@
  * menu desktop aussi plus beau comme le mobile"). Plein ecran sous
  * l'en-tete, dans la couleur de la page : les cinq pages en grands titres
  * numerotes, separes d'un filet, chacun sa fleche ; GOODIES, MERCH et
- * STUDIO en pastilles sous "Under the hood" ; six reseaux sous "Follow" ;
+ * STUDIO en pastilles sous "Under the hood" ; six reseaux sous "Follow",
+ * chacun son icone et son nom (2026-10-04, Mika : "je veux les noms des
+ * liens et aussi leurs icones"), puis sonaa.ca et massivemedias.com avec
+ * leurs logos ;
  * au pied, ouvrir ou fermer la machine (le grand bouton orange ; aucun sur
  * le MM-DECKS, sans capot), recentrer la vue et Dark / Light. Desktop (variant 'desk') : les pages a gauche en
  * tres grand, le reste en colonne a droite. Les lignes arrivent l'une apres
@@ -32,6 +35,12 @@ const ICONS: Readonly<Record<string, string>> = {
 
 /** Les reseaux du menu (les quinze sont dans CONTACT). */
 const MENU_SOCIALS: readonly SocialId[] = ['instagram', 'soundcloud', 'spotify', 'applemusic', 'youtube', 'bandcamp'];
+
+/** Les sites amis (2026-10-04, Mika) : leur nom tel quel, leur logo. */
+const SITES: readonly { id: string; label: string; href: string; icon: string; color: string }[] = [
+  { id: 'sonaa', label: 'sonaa.ca', href: 'https://sonaa.ca', icon: '/logo/sonaa-icon.png', color: '#ff6a13' },
+  { id: 'massive', label: 'massivemedias.com', href: 'https://massivemedias.com', icon: '/logo/massive-icon.png', color: '#ff9b3d' },
+];
 
 const Icon: React.FC<{ name: string }> = ({ name }) => <i className={`${name} v4-fa`} aria-hidden="true" />;
 
@@ -125,12 +134,21 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
             const SoIcon = SOCIAL_ICONS[id];
             return (
               <li key={id}>
-                <ExternalLink className="v4-mm-social" href={so.href} aria-label={so.label} mark={false} style={{ '--brand': so.color } as React.CSSProperties}>
+                <ExternalLink className="v4-mm-social" href={so.href} mark={false} style={{ '--brand': so.color } as React.CSSProperties}>
                   <SoIcon />
+                  <span className="v4-mm-social-name">{so.label}</span>
                 </ExternalLink>
               </li>
             );
           })}
+          {SITES.map((site) => (
+            <li key={site.id} className="v4-mm-site-row">
+              <ExternalLink className="v4-mm-social v4-mm-site" href={site.href} mark={false} style={{ '--brand': site.color } as React.CSSProperties}>
+                <img className="v4-mm-site-icon" src={site.icon} alt="" width={22} height={22} loading="lazy" decoding="async" />
+                <span className="v4-mm-social-name">{site.label}</span>
+              </ExternalLink>
+            </li>
+          ))}
         </ul>
       </div>
       <div className="v4-mm-foot" style={{ '--i': PAGE_LINKS.length + 2 } as React.CSSProperties}>

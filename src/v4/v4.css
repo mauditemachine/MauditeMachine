@@ -662,9 +662,12 @@ html:has(body.v4-active) {
   color: var(--orange);
 }
 
+/* Les reseaux et les sites amis (2026-10-04, Mika : "les noms des liens et
+   leurs icones", sonaa.ca, massivemedias.com) : deux colonnes de pastilles,
+   l'icone puis le nom. */
 .v4-mm-socials {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin: 0;
   padding: 0;
@@ -674,18 +677,43 @@ html:has(body.v4-active) {
 .v4-root .v4-mm-social {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
+  gap: 10px;
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
   box-shadow: inset 0 0 0 1px var(--line);
   color: var(--mm-ink);
+  text-decoration: none;
   transition: color 160ms ease, box-shadow 160ms ease;
 }
 
 .v4-root .v4-mm-social svg {
-  width: 20px;
-  height: 20px;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+}
+
+.v4-mm-social-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Les sites amis : chacun sur toute la largeur, leur nom en entier */
+.v4-mm-site-row {
+  grid-column: 1 / -1;
+}
+
+.v4-mm-site-icon {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
 }
 
 /* Au doigt ou au survol : la couleur du reseau */
