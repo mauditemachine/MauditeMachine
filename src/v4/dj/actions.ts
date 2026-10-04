@@ -15,6 +15,7 @@ import { arp } from '../voyager/arp';
 import { djEngine, djEngineIfAny, type DjEngine } from './engine';
 import { crateFile, crateLearn, setCrateBusy } from './crate';
 import { estimateBpm } from './math';
+import { soundcloudBytes } from './soundcloud';
 import { DJ_ZOOMS, djState, type DjTrack } from './state';
 import { DJ_FX, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
@@ -180,6 +181,9 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
       const blob = track.file ?? (await crateFile(track.id));
       if (!blob) throw new Error(track.relink ? 'drop the folder again' : 'folder access needed');
       bytes = await blob.arrayBuffer();
+    } else if (track.source === 'soundcloud') {
+      // Le Worker de Sonaa ouvre le flux ; le son passe sans etre garde
+      bytes = await soundcloudBytes(track.id, (p) => djState.setDeck(d, { loading: p }), ctl.signal);
     } else {
       const host = await audiusHostUrl();
       bytes = await download(`${host}/v1/tracks/${encodeURIComponent(track.id)}/stream?app_name=${AUDIUS_APP}`, (p) => djState.setDeck(d, { loading: p }), ctl.signal);

@@ -2,6 +2,10 @@
  * La playlist du MM-DECKS (2026-10-04), posee sous les platines comme dans
  * les Decks de sonaa.ca (Mika : "c'est surtout la playlist que je peux
  * scroller, et je peux envoyer une track a A ou B"). Deux sources :
+ * - SOUNDCLOUD (2026-10-04, Mika : "Audius c'est vraiment pourri") : par le
+ *   Worker de Sonaa, seulement les licences Creative Commons qui autorisent
+ *   le remix ; chaque ligne credite l'auteur et renvoie a sa page
+ *   (dj/soundcloud.ts).
  * - AUDIUS : des morceaux entiers en MP3 que la page a le droit de traiter
  *   (CORS ouvert), avec leur BPM et leur tonalite ; les tendances
  *   electroniques au depart, une recherche ensuite.
@@ -29,6 +33,7 @@ import { djBrowser } from './browser';
 import { DJ_KEY_LEGEND, listenDjKeys } from './keys';
 import { addFiles, analyzeAll, canLink, crateEvents, crateTracks, folderOfPath, isSound, linkFolder, pickAndLink, readDrop, removeFolder, storageLeft, type ImportMode, type PlacedFile } from './crate';
 import { camelot } from './math';
+import { LICENSE_LABEL, searchSoundcloud } from './soundcloud';
 import { djState, type DjTrack } from './state';
 import type { DjDeck } from './theme';
 import './dj.css';
@@ -103,9 +108,10 @@ const foldersOf = (t: readonly DjTrack[]): string[] => {
 const TAB_KEY = 'mm.v4.dj.tab';
 const readTab = (): Tab => {
   try {
-    return window.localStorage.getItem(TAB_KEY) === 'files' ? 'files' : 'audius';
+    const t = window.localStorage.getItem(TAB_KEY);
+    return t === 'files' || t === 'audius' ? t : 'soundcloud';
   } catch {
-    return 'audius';
+    return 'soundcloud';
   }
 };
 
@@ -132,7 +138,8 @@ const human = (b: number): string => (b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB` : 
 /** Au-dela, on demande avant de copier. */
 const ASK = { files: 1, bytes: 300 * 1e6 } as const;
 
-type Tab = 'audius' | 'files';
+type Tab = 'soundcloud' | 'audius' | 'files';
+const TABS: readonly Tab[] = ['soundcloud', 'audius', 'files'];
 const fmtTime = (s: number): string => (s > 0 ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '');
 /** Marge entre la playlist et le bas de la machine (px). */
 const GAP = 12;
@@ -189,20 +196,42 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
   };
   const [query, setQuery] = useState('');
   const [list, setList] = useState<DjTrack[] | null>(null);
+  /** SoundCloud : sa cle n'est pas encore posee dans le Worker, ou il ne repond pas */
+  const [scDown, setScDown] = useState<'off' | 'down' | null>(null);
+  const [scOff, setScOff] = useState(false);
   const [drop, setDrop] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const pick = useRef<HTMLInputElement>(null);
   const pickDir = useRef<HTMLInputElement>(null);
 
-  // Audius : les tendances electroniques, ou la recherche (300 ms apres la frappe)
+  // SoundCloud et Audius : des styles de club au depart, ou la recherche (300 ms apres la frappe)
   useEffect(() => {
-    if (!shown || tab !== 'audius') return undefined;
+    if (!shown || tab === 'files') return undefined;
     const ctl = new AbortController();
     const q = query.trim();
     const t = window.setTimeout(
       () => {
         setList(null);
+        setScDown(null);
+        if (tab === 'soundcloud') {
+          searchSoundcloud(q, ctl.signal)
+            .then((r) => {
+              if (r.ok) setList(r.tracks);
+              else if (r.reason === 'off') {
+                // Pas encore branche (la cle n'est pas posee dans le Worker) : l'onglet s'efface, Audius le remplace
+                setScOff(true);
+                setTab('audius');
+              } else {
+                setScDown(r.reason);
+                setList([]);
+              }
+            })
+            .catch(() => {
+              if (!ctl.signal.aborted) setList([]);
+            });
+          return;
+        }
         audius(q ? `/v1/tracks/search?query=${encodeURIComponent(q)}` : '/v1/tracks/trending?genre=Electronic&time=week', ctl.signal)
           .then(setList)
           .catch(() => {
@@ -264,7 +293,7 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
   }, [big]);
 
   const rows = useMemo(() => {
-    const src = tab === 'audius' ? (list ?? []) : mine.filter((t) => shownFolder === ALL || (t.folder ?? '') === shownFolder);
+    const src = tab !== 'files' ? (list ?? []) : mine.filter((t) => shownFolder === ALL || (t.folder ?? '') === shownFolder);
     const q = query.trim().toLowerCase();
     const out = tab === 'files' && q ? src.filter((t) => `${t.title} ${t.artist} ${t.folder ?? ''}`.toLowerCase().includes(q)) : src;
     return out.slice(0, ROWS);
@@ -383,9 +412,9 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
     >
       <div className="dj-list-head">
         <div className="dj-list-tabs" role="tablist">
-          {(['audius', 'files'] as const).map((t) => (
+          {TABS.filter((t) => t !== 'soundcloud' || !scOff).map((t) => (
             <button key={t} type="button" role="tab" aria-selected={tab === t} className="dj-list-tab" onClick={() => setTab(t)}>
-              {t === 'audius' ? 'AUDIUS' : `MY FILES${mine.length ? ` ${mine.length}` : ''}`}
+              {t === 'soundcloud' ? 'SOUNDCLOUD' : t === 'audius' ? 'AUDIUS' : `MY FILES${mine.length ? ` ${mine.length}` : ''}`}
             </button>
           ))}
         </div>
@@ -393,7 +422,7 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
           ref={search}
           className="dj-list-search"
           type="search"
-          placeholder={tab === 'audius' ? 'Search Audius' : 'Search my files'}
+          placeholder={tab === 'soundcloud' ? 'Search SoundCloud (Creative Commons)' : tab === 'audius' ? 'Search Audius' : 'Search my files'}
           aria-label="Search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -493,12 +522,18 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
         </div>
       )}
       <ul className="dj-list-rows">
-        {tab === 'audius' && list === null && <li className="dj-list-empty">Loading...</li>}
+        {tab !== 'files' && list === null && <li className="dj-list-empty">Loading...</li>}
         {rows.length === 0 && (tab === 'files' || list !== null) && (
           <li className="dj-list-empty">
             {tab === 'files'
               ? 'Drop audio files or a folder here, or add them. They stay on this device and are remembered for your next visit: nothing is uploaded.'
-              : 'No track found.'}
+              : tab === 'soundcloud' && scDown === 'off'
+                ? 'SoundCloud is not connected yet.'
+                : tab === 'soundcloud' && scDown === 'down'
+                  ? 'SoundCloud does not answer right now.'
+                  : tab === 'soundcloud'
+                    ? 'No remixable track found: only Creative Commons licenses that allow remixes are shown.'
+                    : 'No track found.'}
           </li>
         )}
         {rows.map((t) => (
@@ -509,13 +544,19 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
             aria-current={t.id === loadedId('a') || t.id === loadedId('b') ? 'true' : undefined}
           >
             <span className="dj-list-names">
-              <span className="dj-list-name">{t.title}</span>
+              {t.source === 'soundcloud' && t.link ? (
+                <a className="dj-list-name" href={t.link} target="_blank" rel="noopener noreferrer" title="Open on SoundCloud">
+                  {t.title}
+                </a>
+              ) : (
+                <span className="dj-list-name">{t.title}</span>
+              )}
               <span className="dj-list-artist">{t.unreadable ? 'Unreadable file' : t.relink ? 'Add its folder again to play it' : t.artist}</span>
             </span>
             <span className="dj-list-meta">
               <span>{t.bpm ? t.bpm.toFixed(0) : '--'}</span>
               <span>{t.key ?? ''}</span>
-              <span>{fmtTime(t.duration)}</span>
+              <span>{t.source === 'soundcloud' ? (LICENSE_LABEL[t.license ?? ''] ?? '') : fmtTime(t.duration)}</span>
             </span>
             <span className="dj-list-decks">
               {(['a', 'b'] as const).map((d) => (
@@ -534,6 +575,15 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
             </span>
           </li>
         ))}
+        {tab === 'soundcloud' && rows.length > 0 && (
+          <li className="dj-list-credit">
+            Tracks from{' '}
+            <a href="https://soundcloud.com" target="_blank" rel="noopener noreferrer">
+              SoundCloud
+            </a>
+            , shared by their artists under Creative Commons licenses that allow remixes. Each title opens its SoundCloud page.
+          </li>
+        )}
         {tab === 'audius' && rows.length > 0 && (
           <li className="dj-list-credit">
             Tracks from{' '}

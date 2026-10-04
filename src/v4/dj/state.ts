@@ -21,18 +21,20 @@ export interface DjChannelState {
   fader: number;
 }
 
-/** Un morceau qu'on peut poser sur une platine : chez Audius, ou un fichier de l'appareil. */
+/** Un morceau qu'on peut poser sur une platine : chez SoundCloud ou Audius, ou un fichier de l'appareil. */
 export interface DjTrack {
   id: string;
-  source: 'audius' | 'file';
+  source: 'audius' | 'file' | 'soundcloud';
   title: string;
   artist: string;
   bpm: number | null;
   /** tonalite en Camelot (9A), ou null */
   key: string | null;
   duration: number;
-  /** la page de l'artiste (Audius) */
+  /** la page du morceau (Audius, SoundCloud) */
   link?: string;
+  /** SoundCloud : la licence Creative Commons (cc-by...) */
+  license?: string;
   /** le fichier, pour une piste de l'appareil (jamais envoye nulle part) */
   file?: File;
   /** MY FILES : le dossier du morceau dans la caisse ('' : en vrac) */

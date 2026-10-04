@@ -529,3 +529,20 @@
 .v4-root[data-v4-theme='light'] .dj-list-keys {
   color: #2a2a2e;
 }
+
+/* SoundCloud : le titre est un lien vers la page du morceau (credit exige) */
+a.dj-list-name {
+  color: inherit;
+  text-decoration: none;
+}
+
+a.dj-list-name:hover {
+  text-decoration: underline;
+}
+
+/* Trois onglets : au telephone ils defilent plutot que de deborder */
+.dj-list-tabs {
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}

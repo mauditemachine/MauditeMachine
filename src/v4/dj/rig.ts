@@ -25,7 +25,8 @@ import { vuLeds } from './math';
 import { DjScreens } from './screens';
 import { DjWaves } from './waveform';
 import { DjSilk } from './silk';
-import { djState, type DjState } from './state';
+import { LICENSE_LABEL } from './soundcloud';
+import { djState, type DjState, type DjTrack } from './state';
 import { DECK, DJ_BEZEL, DJ_BODY, DJ_FX, DJ_FX_LABEL, DJ_TILT, DJ_TOP_Y, DJ_UNIT, DJ_W, DJ_X, UNIT_X, timeLabel, unitW, type DjFxId } from './theme';
 
 export interface DjRigOpts {
@@ -35,6 +36,9 @@ export interface DjRigOpts {
   repaint: () => void;
   invalidate: () => void;
 }
+
+/** L'artiste, et pour SoundCloud la source et la licence (credit exige par l'API et par la licence). */
+const credit = (t: DjTrack): string => (t.source === 'soundcloud' ? `${t.artist} / SOUNDCLOUD ${LICENSE_LABEL[t.license ?? ''] ?? ''}`.trim() : t.artist);
 
 export class DjRig {
   readonly root = new Group();
@@ -270,7 +274,7 @@ export class DjRig {
       const screen = {
         loaded: ds.loaded || loading || ds.error !== null,
         title: t ? t.title : '',
-        artist: ds.error ? `ERROR: ${ds.error}` : loading ? `LOADING ${Math.round((ds.loading ?? 0) * 100)}%` : t ? t.artist : '',
+        artist: ds.error ? `ERROR: ${ds.error}` : loading ? `LOADING ${Math.round((ds.loading ?? 0) * 100)}%` : t ? credit(t) : '',
         bpm: t?.bpm ?? null,
         key: t?.key ?? '',
         position: pos,
