@@ -567,21 +567,22 @@ function voiceCP(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1
 }
 
 /**
- * Rimshot (2026-10-03) : deux sinus inharmoniques (1.7 kHz et 455 Hz, ceux
- * de la 808) tres courts, un clic de bruit filtre haut ; 70 ms.
+ * Rimshot (2026-10-03) : deux triangles inharmoniques tres courts (980 Hz
+ * et 290 Hz, plus bas que ceux de la 808 a la demande de Mika) ; 70 ms.
  */
 function voiceRS(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
   const c = g.ctx;
   const tail = TAIL.RS * ts;
   const a = c.createOscillator();
   a.type = 'triangle';
-  a.frequency.value = 1700 * pf;
+  // Plus bas (2026-10-03, Mika : 1.7 kHz et 455 Hz sonnaient trop aigus) : le bois du cercle
+  a.frequency.value = 980 * pf;
   const b = c.createOscillator();
   b.type = 'triangle';
-  b.frequency.value = 455 * pf;
+  b.frequency.value = 290 * pf;
   const hp = c.createBiquadFilter();
   hp.type = 'highpass';
-  hp.frequency.value = 320 * pf;
+  hp.frequency.value = 180 * pf;
   const env = c.createGain();
   env.gain.setValueAtTime(0, when);
   env.gain.linearRampToValueAtTime(1, when + 0.001);

@@ -222,17 +222,16 @@ export function clearPattern(stage: Stage | null = null): void {
  */
 export function randomPattern(stage: Stage | null = null): void {
   resume();
+  // Le motif seulement : GLOBAL FX et VOICE FX restent ceux de l'utilisateur
+  // (2026-10-03, Mika, apres un essai ou RANDOM tirait aussi les effets du bus)
   pattern.replace(randomHouse(pattern.get().steps));
-  // Et les effets du bus (2026-10-03, Mika) : dosages au hasard, souvent sobres
-  pattern.fx.set({ drive: fxDose(0.55, 0.05, 0.35), chorus: fxDose(0.5, 0.1, 0.5), delay: fxDose(0.4, 0.1, 0.4), reverb: fxDose(0, 0.05, 0.4) });
   stage?.pressButton('random');
-  lcdMessage.show('RANDOM HOUSE + FX');
+  lcdMessage.show('RANDOM HOUSE');
 }
 
 /**
- * Un dosage d'effet pour RANDOM (2026-10-03, Mika : "que RANDOM fasse du
- * random sur les FX") : coupe une fois sur `off`, sinon entre lo et hi ;
- * rien d'extreme, le motif reste devant.
+ * Un dosage d'effet pour le RANDOM du MM-ARP (2026-10-03) : coupe une fois
+ * sur `off`, sinon entre lo et hi ; rien d'extreme, l'arpege reste devant.
  */
 function fxDose(off: number, lo: number, hi: number): number {
   return Math.random() < off ? 0 : Math.round((lo + Math.random() * (hi - lo)) * 100) / 100;
