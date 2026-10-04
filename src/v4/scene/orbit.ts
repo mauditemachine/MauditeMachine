@@ -19,6 +19,9 @@
  * au telephone) : un seul doigt ne tourne jamais la vue, il reste aux
  * potards, aux pads et aux pas ; deux doigts tournent la vue (leur milieu
  * qui glisse) et la pincent. Souris et stylet : inchanges.
+ *
+ * En lecture (2026-10-04, lock) : un geste parti sur une machine qui joue
+ * ne tourne ni ne zoome plus la vue ; parti du fond, il la bouge.
  */
 
 import { Vector3, type PerspectiveCamera } from 'three';
@@ -67,6 +70,8 @@ interface Ptr {
   multi: boolean;
   /** doigt : seul, il ne tourne pas la vue */
   touch: boolean;
+  /** parti sur une machine qui joue (lock) : ses commandes repondent, la vue ne bouge pas */
+  locked: boolean;
 }
 
 export class Orbit {
@@ -84,6 +89,12 @@ export class Orbit {
   readonly target = new Vector3(0, ORBIT.targetY, 0);
   /** appele une fois par pointeur au seuil de 6 px ; false = la couche de saisie le garde */
   gate: (pointerId: number, dx: number, dy: number) => boolean = () => true;
+  /**
+   * La vue verrouillee (2026-10-04, state/playLock.ts) : un geste parti de
+   * ce point (px de la fenetre) ne tourne ni ne zoome la vue (une machine
+   * qui joue) ; le Stage le pose.
+   */
+  lock: (x: number, y: number) => boolean = () => false;
   /** derniere tape jugee (debug) ; quick : moins de 400 ms (double tape du fond) */
   readonly lastTap = { dist: 0, ms: 0, fired: false, quick: false };
   private ptrs = new Map<number, Ptr>();
@@ -363,10 +374,10 @@ export class Orbit {
     this.h = Math.max(1, this.opts.input.clientHeight);
     const x = e.clientX;
     const y = e.clientY;
-    const p: Ptr = { x0: x, y0: y, t0: e.timeStamp || performance.now(), x, y, max: 0, orbiting: false, foreign: false, multi: false, touch: e.pointerType === 'touch' };
-    // Un deuxieme pointeur libre : pincement, plus de tape ni de rotation
+    const p: Ptr = { x0: x, y0: y, t0: e.timeStamp || performance.now(), x, y, max: 0, orbiting: false, foreign: false, multi: false, touch: e.pointerType === 'touch', locked: this.lock(x, y) };
+    // Un deuxieme pointeur libre : pincement, plus de tape ni de rotation (pas sur une machine qui joue)
     for (const q of this.ptrs.values()) {
-      if (q.foreign) continue;
+      if (q.foreign || q.locked || p.locked) continue;
       q.multi = p.multi = true;
       q.orbiting = false;
     }
@@ -409,6 +420,8 @@ export class Orbit {
         p.foreign = true;
         return;
       }
+      // Une machine qui joue : ses potards ont eu le geste (gate), la vue reste
+      if (p.locked) return;
       // Un seul doigt ne tourne pas la vue : il faut le deuxieme
       if (p.touch) return;
       p.orbiting = true;
@@ -440,6 +453,8 @@ export class Orbit {
     // Au-dessus d'un potard, la couche de saisie l'a deja pris
     if (e.defaultPrevented) return;
     e.preventDefault();
+    // Au-dessus d'une machine qui joue : le zoom reste
+    if (this.lock(e.clientX, e.clientY)) return;
     this.tw = false;
     const unit = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1;
     this.pZ -= e.deltaY * unit * ORBIT.wheel * (e.ctrlKey ? ORBIT.wheelCtrl : 1);

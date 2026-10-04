@@ -51,6 +51,7 @@ import { sc } from '../audio/soundcloud';
 import { context, mix } from '../audio/drums';
 import { BPM, INSTRUMENTS, pattern } from '../audio/pattern';
 import { kit } from '../audio/kit';
+import { machinePlaying, onPlayStart } from '../state/playLock';
 import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
 import { motion } from '../state/motion';
 import { editor } from '../state/editor';
@@ -410,6 +411,7 @@ export class Stage {
   readonly rytmTweaks: RytmTweaks;
   private tweakDefs: HotspotDef[];
   private unsubKit: () => void = () => undefined;
+  private unsubPlay: () => void = () => undefined;
   /** la barre de progression de l'ecran (ligne 3), active quand elle est affichee */
   private seekDef!: HotspotDef;
   /** les touches de l'ecran (mode presets, 2026-10-04) */
@@ -860,6 +862,18 @@ export class Stage {
     };
     syncPresets();
     this.unsubPresets = presetMode.subscribe(syncPresets);
+    // La vue verrouillee en lecture (2026-10-04, state/playLock.ts) : un geste parti sur une machine
+    // qui joue ne bouge pas la vue ; une machine qui part passe devant, de face (un capot ouvert reste ouvert)
+    this.orbit.lock = (x, y) => {
+      const r = this.canvas.getBoundingClientRect();
+      const m = this.hit.machineAt(x - r.left, y - r.top);
+      return m !== null && machinePlaying(m);
+    };
+    this.unsubPlay = onPlayStart((m) => {
+      if (this.disposed || this.introOn) return;
+      if (VOYAGER && focus.get() !== m) focus.set(m);
+      else this.orbit.reset();
+    });
     if (this.voy) {
       this.voy.listen();
       // Capot deja ouvert (reconstruction) : le cadrage de la pile ouverte
@@ -2438,6 +2452,8 @@ export class Stage {
     this.unsubFocus();
     this.unsubEditor();
     this.unsubPresets();
+    this.unsubPlay();
+    this.orbit.lock = () => false;
     this.unsubVoyExplode();
     this.unsubView();
     this.viewListeners.length = 0;
