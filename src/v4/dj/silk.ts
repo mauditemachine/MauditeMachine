@@ -65,7 +65,9 @@ function head(u: DjUnit): Text[] {
   const hw = unitW(u) / 2 - 0.45;
   const c = COPY[u];
   const z = u === 'mix' ? MIX.head.z : DECK.head.z;
-  const sub = u === 'mix' ? `${DJ_CHANNELS} CHANNEL ${c.sub}` : c.sub;
+  // La platine qu'on peut retirer : REMOVE DECK prend la place du sous-titre
+  const removable = DJ_KEYS.some((k) => k.target.kind === 'removedeck' && k.target.deck === u);
+  const sub = u === 'mix' ? `${DJ_CHANNELS} CHANNEL ${c.sub}` : removable ? '' : c.sub;
   const out: Text[] = [{ text: c.name, x: -hw, z, cap: 0.2, align: 'left', weight: 700, alpha: 1 }];
   if (sub) out.push({ text: sub, x: -hw + (u === 'mix' ? 1.55 : 1.85), z: z + 0.035, cap: 0.065, align: 'left', alpha: 0.45 });
   return out;
@@ -84,7 +86,7 @@ function deckItems(u: DjDeck): { texts: Text[]; lines: Line[]; brackets: Bracket
     else if (k.target.kind === 'bend') texts.push({ text: k.label, x, z: k.z + k.d / 2 + 0.2, cap: 0.12, weight: 600 });
     else if (k.target.kind === 'loop') texts.push({ text: k.label, x, z: k.z - k.d / 2 - 0.16, cap: 0.075, weight: 600, group: 'loops' });
     // CUE et PLAY / PAUSE : leur nom est grave sur le bouton (dj/controls.ts)
-    else if (k.target.kind === 'removedeck') texts.push({ text: 'REMOVE', x: x - k.w / 2 - 0.12, z: k.z, cap: 0.065, weight: 700, ink: 'orange', alpha: 1, align: 'right' });
+    else if (k.target.kind === 'removedeck') texts.push({ text: 'REMOVE DECK', x: x - k.w / 2 - 0.14, z: k.z, cap: 0.11, weight: 700, ink: 'orange', alpha: 1, align: 'right' });
   }
   // SYNC : l'ecran rond du jog se touche ; son nom sous la bague
   const J = DECK.jog;

@@ -58,7 +58,7 @@ function keyName(k: DjKeySpec): string {
     case 'loop':
       return `Deck ${t.deck.toUpperCase()} loop ${t.beats} beat${t.beats === 1 ? '' : 's'} (press again to exit)`;
     case 'removedeck':
-      return `Remove deck ${t.deck.toUpperCase()}`;
+      return `Remove deck ${t.deck.toUpperCase()} (while it plays: press twice)`;
   }
 }
 

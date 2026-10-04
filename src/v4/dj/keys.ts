@@ -17,10 +17,11 @@
  *   F  loop 4 temps    H  loop 4 temps
  *   Espace : PLAY de la derniere platine touchee
  *   - et = : zoom des formes d'onde
+ *   V : l'affichage des formes d'onde (3BAND, RGB, MONO)
  */
 
 import type { Stage } from '../scene/renderer';
-import { djZoomStep } from './actions';
+import { djWaveNext, djZoomStep } from './actions';
 import { djBrowser } from './browser';
 import { keyDown, keyUp } from './gestures';
 import { DJ_KEYS, type DjKeySpec } from './layout';
@@ -72,6 +73,7 @@ export const DJ_KEY_LEGEND: readonly { keys: string; what: string }[] = [
   { keys: 'F  /  H', what: 'Loop 4 beats on A / B (again: exit)' },
   { keys: 'Space', what: 'Play the last deck used' },
   { keys: '-  =', what: 'Waveform zoom' },
+  { keys: 'V', what: 'Waveform view: 3BAND, RGB, MONO' },
 ];
 
 const editable = (t: EventTarget | null): boolean =>
@@ -98,6 +100,12 @@ export function listenDjKeys(getStage: () => Stage | null, active: () => boolean
     if (e.code === 'Minus' || e.code === 'Equal') {
       e.preventDefault();
       for (const d of ['a', 'b'] as const) djZoomStep(d, e.code === 'Minus' ? 1 : -1);
+      return;
+    }
+    // V : l'affichage des formes d'onde, pour toutes les platines
+    if (e.code === 'KeyV' && !e.repeat) {
+      e.preventDefault();
+      djWaveNext();
       return;
     }
     // E et I : la liste des morceaux dans l'ecran de A ou de B

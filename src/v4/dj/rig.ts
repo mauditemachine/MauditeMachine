@@ -20,14 +20,14 @@ import { DjBody } from './body';
 import { DJ_GLOW, DjControls } from './controls';
 import { djBrowser } from './browser';
 import { djSynced, heardBpm, syncBpm } from './actions';
-import { djEngineIfAny } from './engine';
+import { djEngineIfAny, djWaveBands } from './engine';
 import { DJ_FADERS, DJ_KNOBS, DJ_RECT_KEYS, DJ_ROUND_KEYS } from './layout';
 import { toDbfs, vuLit, VU_DB } from './math';
 import { DjScreens } from './screens';
 import { DjWaves } from './waveform';
 import { DjSilk } from './silk';
 import { LICENSE_LABEL } from './soundcloud';
-import { djState, type DjState, type DjTrack } from './state';
+import { DJ_WAVE_LABEL, djState, type DjState, type DjTrack } from './state';
 import { DECK, DJ_BEZEL, DJ_BODY, DJ_CHANNELS, DJ_CHANNELS_MAX, DJ_DECKS, DJ_FX, DJ_FX_LABEL, DJ_TILT, DJ_TOP_Y, DJ_UNIT, DJ_UNITS_ON, DJ_W, DJ_X, UNIT_X, timeLabel, unitW, type DjFxId } from './theme';
 import type { DjSyncLight } from './screens';
 
@@ -132,6 +132,8 @@ export class DjRig {
     this.unsubs.push(clock.subscribe(() => {
       if (this.syncScreens()) this.opts.repaint();
     }));
+    // Les trois bandes d'un morceau arrivent apres lui : l'animateur les pose
+    this.unsubs.push(djWaveBands.subscribe(() => this.opts.repaint()));
     void whenFonts().then(() => this.redrawText());
   }
 
@@ -177,6 +179,7 @@ export class DjRig {
       if (t.kind === 'hotcue') on = on || s.deck[t.deck].cues[t.n] !== null;
       else if (t.kind === 'loop') on = on || s.deck[t.deck].loop === t.beats;
       else if (t.kind === 'time') on = on || s.time === t.d;
+      else if (t.kind === 'removedeck') on = on || s.deck[t.deck].remove;
       if (this.controls.setKeyGlow(i, on ? DJ_GLOW.orange : DJ_GLOW.dim)) changed = true;
     });
     DJ_ROUND_KEYS.forEach((k, i) => {
@@ -230,12 +233,13 @@ export class DjRig {
     let busy = false;
     let changed = false;
     const st = djState.get();
+    if (this.waves.setMode(st.wave)) changed = true;
     for (const d of DJ_DECKS) {
       const p = e.decks[d];
       if (p.playing) busy = true;
       const pos = p.position();
       const ds = st.deck[d];
-      if (this.waves.setPeaks(d, p.loadId, p.overview, p.detail)) changed = true;
+      if (this.waves.setPeaks(d, p.loadId, p.overview, p.detail, p.bands)) changed = true;
       const spb = ds.track?.bpm ? 60 / ds.track.bpm : 0;
       if (this.waves.update(d, { loaded: p.loaded && ds.loaded, position: pos, duration: p.duration, window: ds.zoom, cue: ds.cue, cues: ds.cues, beat: ds.beat, spb, loop: p.loop })) changed = true;
       // 33 tours un tiers : 0.5556 tour par seconde de musique
@@ -301,6 +305,8 @@ export class DjRig {
         playing: ds.playing,
         pitch: (ds.pitch * ds.range) / 100,
         zoom: ds.zoom,
+        wave: DJ_WAVE_LABEL[s.wave],
+        note: ds.remove ? 'PLAYING: PRESS REMOVE DECK AGAIN' : '',
       };
       if (this.screens.setDeck(d, screen)) changed = true;
       const angle = pos * 2 * Math.PI * (100 / 3 / 60);

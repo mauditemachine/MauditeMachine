@@ -24,7 +24,7 @@
 import type { HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { djBrowser } from './browser';
-import { djLoop, djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djHotcue, djHotcueClear, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetMaster, djSetPitch, djSetTime } from './actions';
+import { djLoop, djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djHotcue, djHotcueClear, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetMaster, djSetPitch, djSetTime, djWaveNext } from './actions';
 import { djFader, djKey, djKnob, type DjFaderSpec, type DjKeySpec, type DjKnobSpec } from './layout';
 import { djState } from './state';
 import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_DECKS_ALL, DJ_FADER, UNIT_X, type DjDeck } from './theme';
@@ -191,13 +191,14 @@ function quadToUnit(q: readonly number[], x: number, y: number): { u: number; v:
   return { u: (A * x + B * y + C) / w, v: (D * x + E * y + F) / w };
 }
 
-type ScreenZone = 'text' | 'detail' | 'whole' | 'zoom';
+type ScreenZone = 'text' | 'detail' | 'whole' | 'wave' | 'zoom';
 
 function zoneOf(u: number, v: number): ScreenZone {
   const S = DECK_SCREEN;
   if (v < S.detail.v0 - 0.01) return 'text';
   if (v <= S.detail.v1 + 0.02) return 'detail';
-  if (u >= S.zoom.u0 - 0.01) return 'zoom';
+  if (u >= S.zoom.u0 - 0.0075) return 'zoom';
+  if (u >= S.wave.u0 - 0.01) return 'wave';
   return 'whole';
 }
 
@@ -481,7 +482,8 @@ export class DjGestures {
       if (k < 0.4) djZoomStep(g.deck, 1);
       else if (k > 0.6) djZoomStep(g.deck, -1);
       else djZoom(g.deck, 8);
-    } else if (g.zone === 'whole') this.seekWhole(g, uv.u);
+    } else if (g.zone === 'wave') djWaveNext();
+    else if (g.zone === 'whole') this.seekWhole(g, uv.u);
     return true;
   }
 

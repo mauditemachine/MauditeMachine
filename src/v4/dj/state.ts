@@ -70,10 +70,25 @@ export interface DjDeckState {
   sync: boolean;
   /** LOOP : la longueur de la boucle en temps (1, 2, 4, 8), ou null (ses bornes sont dans le lecteur) */
   loop: number | null;
+  /** REMOVE arme : la platine joue, un deuxieme appui la retire (dj/actions.ts djRemoveDeck) */
+  remove: boolean;
 }
 
 /** Les crans du zoom de la forme d'onde fine (secondes a l'ecran), du plus pres au plus loin. */
 export const DJ_ZOOMS = [2, 4, 8, 16, 32] as const;
+
+/**
+ * L'affichage des formes d'onde (2026-10-04, Mika : "on a du mal a voir les
+ * choses, ya pas un autre affichage ?"), pour toutes les platines, comme le
+ * reglage d'une CDJ :
+ * - 3BAND : basses en bleu, mediums en ambre, aigus en blanc, superposes ;
+ * - RGB : la silhouette des trois bandes, teintee par leur melange (rouge
+ *   les basses, vert les mediums, bleu les aigus) ;
+ * - MONO : l'energie seule, en os (l'affichage d'avant).
+ */
+export const DJ_WAVES = ['3band', 'rgb', 'mono'] as const;
+export type DjWaveMode = (typeof DJ_WAVES)[number];
+export const DJ_WAVE_LABEL: Readonly<Record<DjWaveMode, string>> = { '3band': '3BAND', rgb: 'RGB', mono: 'MONO' };
 
 export interface DjState {
   /** six voies : 1 MM-RYTM, 2 MM-ARP, 3 a 6 les platines A a D (C et D seulement si posees) */
@@ -81,6 +96,8 @@ export interface DjState {
   fx: Record<DjFxId, number>;
   time: number;
   master: number;
+  /** l'affichage des formes d'onde, retenu */
+  wave: DjWaveMode;
   deck: Record<DjDeck, DjDeckState>;
 }
 
@@ -93,7 +110,7 @@ const KEY = 'mm.v4.dj.2';
 const OLD_KEY = 'mm.v4.dj.1';
 /** Les machines : fader en haut, le son du site ne change pas ; les platines : 0.8, comme une table. */
 const channel = (fader = 0.8): DjChannelState => ({ gain: 0, hi: 0, mid: 0, low: 0, filter: 0, fader });
-const deck = (): DjDeckState => ({ pitch: 0, range: 8, playing: false, loaded: false, track: null, loading: null, error: null, cue: 0, cues: [null, null, null, null], zoom: 8, beat: null, sync: false, loop: null });
+const deck = (): DjDeckState => ({ pitch: 0, range: 8, playing: false, loaded: false, track: null, loading: null, error: null, cue: 0, cues: [null, null, null, null], zoom: 8, beat: null, sync: false, loop: null, remove: false });
 
 function fresh(): DjState {
   return {
@@ -101,6 +118,7 @@ function fresh(): DjState {
     fx: Object.fromEntries(DJ_FX.map((f) => [f, 0])) as Record<DjFxId, number>,
     time: 1,
     master: 0.88,
+    wave: '3band',
     deck: { a: deck(), b: deck(), c: deck(), d: deck() },
   };
 }
@@ -133,6 +151,7 @@ function load(): DjState {
     if (typeof old === 'number' && o.fx && o.fx.overdrive === undefined) s.fx.overdrive = clamp(old, 0, 1);
     if (typeof o.time === 'number' && (DJ_TIMES as readonly number[]).includes(o.time)) s.time = o.time;
     if (typeof o.master === 'number') s.master = clamp(o.master, 0, 1);
+    if (typeof o.wave === 'string' && (DJ_WAVES as readonly string[]).includes(o.wave)) s.wave = o.wave;
   } catch {
     /* rien de retenu : l'etat neuf */
   }
@@ -148,8 +167,8 @@ function save(): void {
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     try {
-      const { ch, fx, time, master } = state;
-      window.localStorage.setItem(KEY, JSON.stringify({ ch, fx, time, master }));
+      const { ch, fx, time, master, wave } = state;
+      window.localStorage.setItem(KEY, JSON.stringify({ ch, fx, time, master, wave }));
     } catch {
       /* stockage plein ou refuse : l'etat vit pour la visite */
     }
@@ -188,6 +207,11 @@ export const djState = {
     const next = clamp(v, 0, 1);
     if (state.master === next) return;
     state = { ...state, master: next };
+    emit();
+  },
+  setWave(w: DjWaveMode): void {
+    if (state.wave === w) return;
+    state = { ...state, wave: w };
     emit();
   },
   setDeck(d: DjDeck, patch: Partial<DjDeckState>): void {

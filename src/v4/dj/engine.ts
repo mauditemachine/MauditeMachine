@@ -18,7 +18,7 @@
 import { glide } from '../audio/glide';
 import { synthPort } from '../audio/drums';
 import { decodeAudio } from './decode';
-import { CROSSOVER, bandGain, beatsToSeconds, dbToGain, eqDb, energy, faderGain, filterOf, fxMix, speedOf } from './math';
+import { CROSSOVER, bandEnergy, bandGain, bandOverview, beatsToSeconds, dbToGain, eqDb, energy, faderGain, filterOf, fxMix, speedOf } from './math';
 import { DJ_CHANNELS_MAX, DJ_FX, deckChannel, type DjDeck, type DjFxId } from './theme';
 
 /** Q de Butterworth : en dB pour passe-bas et passe-haut (piege de Web Audio), lineaire pour le passe-tout. */
@@ -33,6 +33,23 @@ export const OVERVIEW_SLICES = 1024;
  * caisse (les Decks de Sonaa, DETAIL_PAR_SECONDE).
  */
 export const DETAIL_RATE = 400;
+
+/**
+ * Les trois bandes d'un morceau arrivent apres lui (quelques centaines de
+ * millisecondes de calcul, par morceaux) : la scene s'abonne ici pour
+ * reposer ses textures (dj/rig.ts).
+ */
+const waveListeners = new Set<() => void>();
+export const djWaveBands = {
+  subscribe(fn: () => void): () => void {
+    waveListeners.add(fn);
+    return () => {
+      waveListeners.delete(fn);
+    };
+  },
+};
+/** Le temps de calcul des bandes avant de rendre la main (ms). */
+const BAND_SLICE_MS = 10;
 
 function peakOf(a: AnalyserNode, buf: Float32Array): number {
   a.getFloatTimeDomainData(buf);
@@ -450,6 +467,12 @@ export class DjPlayer {
   overview: Float32Array = new Float32Array(0);
   /** la forme d'onde fine (DETAIL_RATE tranches par seconde) */
   detail: Float32Array = new Float32Array(0);
+  /**
+   * les trois bandes (basses, mediums, aigus, entrelacees : math.ts
+   * bandEnergy) de la piste entiere et de la forme d'onde fine ; null tant
+   * qu'elles se calculent
+   */
+  bands: { overview: Float32Array; detail: Float32Array } | null = null;
   /** change a chaque morceau pose (la scene recharge ses textures) */
   loadId = 0;
   playing = false;
@@ -488,8 +511,25 @@ export class DjPlayer {
     const chans = Array.from({ length: buffer.numberOfChannels }, (_, c) => buffer.getChannelData(c));
     this.overview = energy(chans, OVERVIEW_SLICES);
     this.detail = energy(chans, Math.max(1, Math.floor(buffer.duration * DETAIL_RATE)));
+    this.bands = null;
     this.buffer = buffer;
     this.loadId += 1;
+    void this.measureBands(chans, buffer.sampleRate, this.detail.length, this.loadId);
+  }
+
+  /** Les trois bandes, par morceaux de BAND_SLICE_MS : abandonnees si un autre morceau arrive. */
+  private async measureBands(chans: Float32Array[], rate: number, slices: number, id: number): Promise<void> {
+    const it = bandEnergy(chans, rate, slices);
+    let r = it.next();
+    while (!r.done) {
+      await new Promise<void>((done) => window.setTimeout(done, 0));
+      if (this.loadId !== id) return;
+      const t0 = performance.now();
+      while (!r.done && performance.now() - t0 < BAND_SLICE_MS) r = it.next();
+    }
+    if (this.loadId !== id) return;
+    this.bands = { detail: r.value, overview: bandOverview(r.value, OVERVIEW_SLICES) };
+    waveListeners.forEach((fn) => fn());
   }
 
   unload(): void {
@@ -499,6 +539,7 @@ export class DjPlayer {
     this.startPos = 0;
     this.overview = new Float32Array(0);
     this.detail = new Float32Array(0);
+    this.bands = null;
     this.loadId += 1;
   }
 

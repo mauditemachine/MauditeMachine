@@ -44,12 +44,15 @@ const T = DECK_SCREEN;
 const textH = Math.round(T.text * DECK.screen.d * PX);
 const zoomW = Math.round((T.zoom.u1 - T.zoom.u0) * DECK.screen.w * PX);
 const zoomH = Math.round((T.zoom.v1 - T.zoom.v0) * DECK.screen.d * PX);
+const waveW = Math.round((T.wave.u1 - T.wave.u0) * DECK.screen.w * PX);
+const waveH = Math.round((T.wave.v1 - T.wave.v0) * DECK.screen.d * PX);
 const fxW = 640;
 const fxH = Math.round((fxW * MIX.screen.d) / MIX.screen.w);
 const JOG = 200;
 const zoomY = 4 * (textH + 4);
 const fxY = zoomY + zoomH + 4;
 const jogY = fxY + fxH + 4;
+const waveY = jogY + JOG + 4;
 /** La bande de texte de chaque platine, et ses touches de zoom. */
 const REGION: Record<DjDeck | 'fx', Region> = {
   a: { x: 0, y: 0, w: W, h: textH },
@@ -63,6 +66,13 @@ const ZOOM_REGION: Record<DjDeck, Region> = {
   b: { x: zoomW + 4, y: zoomY, w: zoomW, h: zoomH },
   c: { x: 2 * (zoomW + 4), y: zoomY, w: zoomW, h: zoomH },
   d: { x: 3 * (zoomW + 4), y: zoomY, w: zoomW, h: zoomH },
+};
+/** La touche WAVE de chaque platine (l'affichage des formes d'onde), sous les cadrans des jogs. */
+const WAVE_REGION: Record<DjDeck, Region> = {
+  a: { x: 0, y: waveY, w: waveW, h: waveH },
+  b: { x: waveW + 4, y: waveY, w: waveW, h: waveH },
+  c: { x: 2 * (waveW + 4), y: waveY, w: waveW, h: waveH },
+  d: { x: 3 * (waveW + 4), y: waveY, w: waveW, h: waveH },
 };
 /** Un coin jamais dessine (le canvas part noir) : le verre de l'ecran, sous la bande de texte et les formes d'onde. */
 const GLASS: Region = { x: W - 12, y: H - 12, w: 8, h: 8 };
@@ -116,6 +126,10 @@ export interface DjDeckScreen {
   pitch: number;
   /** la fenetre de la forme d'onde fine (secondes) */
   zoom: number;
+  /** l'affichage des formes d'onde (3BAND, RGB, MONO) */
+  wave: string;
+  /** un avis en orange a la place de l'artiste (REMOVE arme), ou '' */
+  note: string;
 }
 
 export interface DjFxScreen {
@@ -125,7 +139,7 @@ export interface DjFxScreen {
 }
 
 const deckKey = (s: DjDeckScreen): string =>
-  `${s.loaded}|${s.title}|${s.artist}|${s.bpm}|${s.key}|${Math.floor(s.position * 4)}|${Math.round(s.duration)}|${s.playing}|${s.pitch.toFixed(2)}|${s.zoom}`;
+  `${s.loaded}|${s.title}|${s.artist}|${s.bpm}|${s.key}|${Math.floor(s.position * 4)}|${Math.round(s.duration)}|${s.playing}|${s.pitch.toFixed(2)}|${s.zoom}|${s.wave}|${s.note}`;
 
 const clock = (s: number): string => {
   const t = Math.max(0, Math.floor(s));
@@ -163,6 +177,9 @@ export class DjScreens {
       const zw = (T.zoom.u1 - T.zoom.u0) * S.w;
       const zd = (T.zoom.v1 - T.zoom.v0) * S.d;
       parts.push(flat(zw, zd, x0 + T.zoom.u0 * S.w + zw / 2, y, z0 + T.zoom.v0 * S.d + zd / 2, ZOOM_REGION[d]));
+      const ww = (T.wave.u1 - T.wave.u0) * S.w;
+      const wd = (T.wave.v1 - T.wave.v0) * S.d;
+      parts.push(flat(ww, wd, x0 + T.wave.u0 * S.w + ww / 2, y, z0 + T.wave.v0 * S.d + wd / 2, WAVE_REGION[d]));
       parts.push(disc(DECK.jog.center, UNIT_X[d] + DECK.jog.x, DECK.jog.platterH + 0.004, DECK.jog.z, JOG_REGION[d], mobile ? 40 : 64));
     }
     parts.push(flat(MIX.screen.w, MIX.screen.d, UNIT_X.mix + MIX.screen.x, y, MIX.screen.z, REGION.fx));
@@ -182,12 +199,12 @@ export class DjScreens {
     const k = deckKey(s);
     if (this.shown[d] === k) return false;
     this.shown[d] = k;
-    this.drawDeck(REGION[d], ZOOM_REGION[d], d, s);
+    this.drawDeck(REGION[d], ZOOM_REGION[d], WAVE_REGION[d], d, s);
     this.done();
     return true;
   }
 
-  private drawDeck(r: Region, z: Region, d: DjDeck, s: DjDeckScreen): void {
+  private drawDeck(r: Region, z: Region, wv: Region, d: DjDeck, s: DjDeckScreen): void {
     const c = this.ctx;
     c.save();
     c.beginPath();
@@ -217,9 +234,9 @@ export class DjScreens {
       c.fillStyle = BONE;
       c.font = `700 52px ${FONT_DISPLAY}`;
       c.fillText(this.fit(s.title, colX - x0 - 20), x0, l1);
-      c.fillStyle = DIM;
-      c.font = `500 36px ${FONT_DISPLAY}`;
-      c.fillText(this.fit(s.artist, colX - x0 - 20), x0, l2);
+      c.fillStyle = s.note ? DJ_LIGHT.orange : DIM;
+      c.font = `${s.note ? 700 : 500} 36px ${FONT_DISPLAY}`;
+      c.fillText(this.fit(s.note || s.artist, colX - x0 - 20), x0, l2);
       // BPM (avec le pitch), le pitch au centieme de pour cent, la tonalite, le temps restant
       c.textAlign = 'right';
       c.fillStyle = BONE;
@@ -256,6 +273,26 @@ export class DjScreens {
     c.strokeStyle = FAINT;
     c.lineWidth = 2;
     c.strokeRect(z.x + 1, z.y + 1, z.w - 2, z.h - 2);
+    c.textBaseline = 'alphabetic';
+    c.restore();
+    // WAVE : son nom en petit, l'affichage du moment dessous ; toucher passe au suivant
+    c.save();
+    c.beginPath();
+    c.rect(wv.x, wv.y, wv.w, wv.h);
+    c.clip();
+    c.fillStyle = '#000';
+    c.fillRect(wv.x, wv.y, wv.w, wv.h);
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillStyle = DIM;
+    c.font = `600 20px ${FONT_DISPLAY}`;
+    c.fillText('WAVE', wv.x + wv.w / 2, wv.y + wv.h * 0.3);
+    c.fillStyle = s.loaded ? DJ_LIGHT.orange : DIM;
+    c.font = `700 ${s.wave.length > 4 ? 25 : 30}px ${FONT_DISPLAY}`;
+    c.fillText(s.wave, wv.x + wv.w / 2, wv.y + wv.h * 0.64);
+    c.strokeStyle = FAINT;
+    c.lineWidth = 2;
+    c.strokeRect(wv.x + 1, wv.y + 1, wv.w - 2, wv.h - 2);
     c.textBaseline = 'alphabetic';
     c.restore();
   }

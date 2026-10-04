@@ -10,9 +10,15 @@
  * (position, zoom, cues). Rien a redessiner ni a renvoyer au GPU pendant
  * la lecture : le defilement est fluide sur un telephone aussi.
  *
- * Couleurs : os (la partie a venir), os pale (la partie jouee), la tete de
- * lecture blanche, les hot cues en orange, le CUE en jaune. Un mesh, un
- * draw call, quatre bandes (attribut aSlot).
+ * Chaque texel : l'energie (r) et les trois bandes (g basses, b mediums,
+ * a aigus : math.ts bandEnergy, arrivees un peu apres le morceau). Trois
+ * affichages (dj/state.ts DJ_WAVES, Mika : "on a du mal a voir les
+ * choses") : 3BAND (basses bleues, mediums ambre, aigus blancs, l'une sur
+ * l'autre), RGB (leur silhouette teintee par leur melange) et MONO (l'os
+ * d'avant ; aussi tant que les bandes se calculent). La partie jouee est
+ * plus sombre, la tete de lecture blanche, les hot cues en orange, le CUE
+ * en jaune, chacun cerne de noir pour se lire sur toutes les couleurs. Un
+ * mesh, un draw call, quatre bandes (attribut aSlot).
  */
 
 import {
@@ -22,7 +28,7 @@ import {
   Mesh,
   NearestFilter,
   PlaneGeometry,
-  RedFormat,
+  RGBAFormat,
   ShaderMaterial,
   UnsignedByteType,
   Vector2,
@@ -30,6 +36,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { DETAIL_RATE } from './engine';
+import { DJ_WAVES, type DjWaveMode } from './state';
 import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_DECKS, DJ_DECKS_ALL, UNIT_X, type DjDeck } from './theme';
 
 const TEX_W = 4096;
@@ -61,6 +68,8 @@ uniform float uLoaded[4];
 uniform float uBeat[4];
 uniform float uSpb[4];
 uniform vec2 uLoop[4];
+uniform float uBands[4];
+uniform float uMode;
 varying vec2 vUv;
 varying float vSlot;
 
@@ -71,25 +80,60 @@ const vec3 ORANGE = vec3(1.0, 0.416, 0.075);
 const vec3 YELLOW = vec3(1.0, 0.843, 0.369);
 const vec3 HEAD = vec3(1.0);
 const vec3 LOOP = vec3(1.0, 0.416, 0.075);
+const vec3 INK = vec3(0.0);
+// 3BAND : les basses en bleu, les mediums en ambre (plus jaune que l'orange des cues), les aigus en blanc
+const vec3 LOW = vec3(0.13, 0.40, 1.0);
+const vec3 MID = vec3(0.93, 0.66, 0.30);
+const vec3 HIGH = vec3(0.98, 0.97, 0.94);
+// La hauteur de chaque bande a son maximum : les aigus restent fins, au coeur des autres
+const vec3 BAND_H = vec3(0.92, 0.72, 0.48);
+// La partie deja jouee
+const float PLAYED = 0.42;
 
-float fetchPeak(int deck, ivec2 p) {
-  if (deck == 0) return texelFetch(uPeaks0, p, 0).r;
-  if (deck == 1) return texelFetch(uPeaks1, p, 0).r;
-  if (deck == 2) return texelFetch(uPeaks2, p, 0).r;
-  return texelFetch(uPeaks3, p, 0).r;
+vec4 fetchPeak(int deck, ivec2 p) {
+  if (deck == 0) return texelFetch(uPeaks0, p, 0);
+  if (deck == 1) return texelFetch(uPeaks1, p, 0);
+  if (deck == 2) return texelFetch(uPeaks2, p, 0);
+  return texelFetch(uPeaks3, p, 0);
 }
 
-float peak(int deck, int row0, int i) {
+vec4 peak(int deck, int row0, int i) {
   return fetchPeak(deck, ivec2(i % ${TEX_W}, row0 + i / ${TEX_W}));
 }
 
-float ovPeak(int deck, int i) {
+vec4 ovPeak(int deck, int i) {
   return fetchPeak(deck, ivec2(i, 0));
 }
 
 /** Un trait vertical a x0 (en fraction), large de w pixels. */
 float line(float x, float x0, float px, float w) {
   return 1.0 - smoothstep(px * w * 0.5, px * (w * 0.5 + 1.0), abs(x - x0));
+}
+
+/** Un repere (cue, tete de lecture) cerne de noir : il se lit sur toutes les couleurs de l'onde. */
+vec3 mark(vec3 col, vec3 ink, float x, float x0, float px, float w) {
+  col = mix(col, INK, line(x, x0, px, w + 2.5) * 0.85);
+  return mix(col, ink, line(x, x0, px, w));
+}
+
+/** La colonne de forme d'onde : e (r l'energie, g b a les bandes), y de 0 (centre) a 1 (bord). */
+vec3 wave(vec3 col, vec4 e, float y, float aa, bool bands, bool played) {
+  if (!bands || uMode > 1.5) {
+    float on = 1.0 - smoothstep(e.r, e.r + aa, y);
+    return mix(col, played ? BONE_DIM : BONE, on);
+  }
+  float dim = played ? PLAYED : 1.0;
+  vec3 h = e.gba * BAND_H;
+  if (uMode < 0.5) {
+    col = mix(col, LOW * dim, 1.0 - smoothstep(h.x, h.x + aa, y));
+    col = mix(col, MID * dim, 1.0 - smoothstep(h.y, h.y + aa, y));
+    return mix(col, HIGH * dim, 1.0 - smoothstep(h.z, h.z + aa, y));
+  }
+  // RGB : rouge les basses, vert les mediums, bleu les aigus ; plus clair au coeur
+  float top = max(h.x, max(h.y, h.z));
+  vec3 tint = e.gba / max(max(e.g, max(e.b, e.a)), 0.004);
+  vec3 c = mix(tint, vec3(1.0), 0.16) * (0.78 + 0.22 * (1.0 - y / max(top, 0.004)));
+  return mix(col, c * dim, 1.0 - smoothstep(top, top + aa, y));
 }
 
 void main() {
@@ -103,6 +147,7 @@ void main() {
   float loaded = uLoaded[deck];
   float dur = max(uDur[deck], 0.001);
   float pos = uPos[deck];
+  bool bands = uBands[deck] > 0.5;
   if (loaded < 0.5) {
     // Une ligne au repos
     col = FAINT * (1.0 - smoothstep(pxY, pxY * 2.0, abs(vUv.y - 0.5)));
@@ -112,45 +157,44 @@ void main() {
   if (whole) {
     // La piste entiere : quelques cretes par pixel, la partie jouee plus pale
     float n = uOvLen[deck];
-    float a = 0.0;
+    vec4 a = vec4(0.0);
     for (int k = 0; k < 4; k++) {
       float u = vUv.x + (float(k) / 4.0 - 0.375) * pxX;
       int i = int(clamp(u, 0.0, 0.9999) * n);
       a = max(a, ovPeak(deck, i));
     }
-    float on = 1.0 - smoothstep(a, a + pxY * 2.0, y);
     float head = pos / dur;
     // LOOP : la boucle en orange pale sous la piste
     vec2 lp = uLoop[deck];
     if (lp.y > lp.x && vUv.x >= lp.x / dur && vUv.x <= lp.y / dur) col = mix(col, LOOP, 0.35);
-    col = mix(col, vUv.x < head ? BONE_DIM : BONE, on * 0.9);
+    col = wave(col, a, y, pxY * 2.0, bands, vUv.x < head);
     for (int c = 0; c < 4; c++) {
       float t = uHot[deck][c];
-      if (t >= 0.0) col = mix(col, ORANGE, line(vUv.x, t / dur, pxX, 1.5));
+      if (t >= 0.0) col = mark(col, ORANGE, vUv.x, t / dur, pxX, 1.5);
     }
-    col = mix(col, YELLOW, line(vUv.x, uCue[deck] / dur, pxX, 1.5));
-    col = mix(col, HEAD, line(vUv.x, head, pxX, 2.0));
+    col = mark(col, YELLOW, vUv.x, uCue[deck] / dur, pxX, 1.5);
+    col = mark(col, HEAD, vUv.x, head, pxX, 2.0);
   } else {
     // La forme d'onde fine : uWin secondes, la tete au centre
     float win = uWin[deck];
     float t = pos + (vUv.x - 0.5) * win;
     float secPx = pxX * win;
     float len = uDetLen[deck];
-    float a = 0.0;
+    vec4 a = vec4(0.0);
     float span = max(1.0, secPx * ${DETAIL_RATE.toFixed(1)});
     float i0 = (t - secPx * 0.5) * ${DETAIL_RATE.toFixed(1)};
     for (int k = 0; k < 12; k++) {
       float fi = i0 + span * float(k) / 12.0;
       if (fi >= 0.0 && fi < len) a = max(a, peak(deck, 1, int(fi)));
     }
-    float on = 1.0 - smoothstep(a, a + pxY * 2.0, y);
     // LOOP : le fond de la boucle en orange sombre, ses bornes en trait orange
     vec2 lp = uLoop[deck];
+    if (lp.y > lp.x && t >= lp.x && t < lp.y) col = LOOP * 0.22;
+    col = wave(col, a, y, pxY * 2.0, bands, t < pos);
     if (lp.y > lp.x) {
-      if (t >= lp.x && t < lp.y) col = LOOP * 0.22;
-      col = mix(col, LOOP, max(line(vUv.x, 0.5 + (lp.x - pos) / win, pxX, 2.0), line(vUv.x, 0.5 + (lp.y - pos) / win, pxX, 2.0)));
+      col = mark(col, LOOP, vUv.x, 0.5 + (lp.x - pos) / win, pxX, 2.0);
+      col = mark(col, LOOP, vUv.x, 0.5 + (lp.y - pos) / win, pxX, 2.0);
     }
-    col = mix(col, t < pos ? BONE_DIM : BONE, on);
     // La grille des temps (SYNC) : un tic court en haut et en bas a chaque temps
     float spb = uSpb[deck];
     if (uBeat[deck] >= 0.0 && spb > 0.0) {
@@ -165,12 +209,14 @@ void main() {
       float h = uHot[deck][c];
       if (h < 0.0) continue;
       float x0 = 0.5 + (h - pos) / win;
-      col = mix(col, ORANGE, max(line(vUv.x, x0, pxX, 1.5), flag * line(vUv.x, x0 + 3.0 * pxX, pxX, 7.0)));
+      col = mark(col, ORANGE, vUv.x, x0, pxX, 1.5);
+      col = mix(col, ORANGE, flag * line(vUv.x, x0 + 3.0 * pxX, pxX, 7.0));
     }
     float xc = 0.5 + (uCue[deck] - pos) / win;
-    col = mix(col, YELLOW, max(line(vUv.x, xc, pxX, 1.5), flag * line(vUv.x, xc + 3.0 * pxX, pxX, 7.0)));
+    col = mark(col, YELLOW, vUv.x, xc, pxX, 1.5);
+    col = mix(col, YELLOW, flag * line(vUv.x, xc + 3.0 * pxX, pxX, 7.0));
     // La tete de lecture, au centre
-    col = mix(col, HEAD, line(vUv.x, 0.5, pxX, 2.0));
+    col = mark(col, HEAD, vUv.x, 0.5, pxX, 2.0);
   }
   gl_FragColor = vec4(col, 1.0);
 }
@@ -192,7 +238,7 @@ function band(d: DjDeck, b: { u0: number; u1: number; v0: number; v1: number }, 
 }
 
 function emptyTexture(): DataTexture {
-  const t = new DataTexture(new Uint8Array(TEX_W * 2), TEX_W, 2, RedFormat, UnsignedByteType);
+  const t = new DataTexture(new Uint8Array(TEX_W * 2 * 4), TEX_W, 2, RGBAFormat, UnsignedByteType);
   t.minFilter = NearestFilter;
   t.magFilter = NearestFilter;
   t.generateMipmaps = false;
@@ -218,7 +264,8 @@ export class DjWaves {
   readonly mesh: Mesh;
   private material: ShaderMaterial;
   private tex: Record<DjDeck, DataTexture> = { a: emptyTexture(), b: emptyTexture(), c: emptyTexture(), d: emptyTexture() };
-  private loadIds: Record<DjDeck, number> = { a: -1, b: -1, c: -1, d: -1 };
+  /** le morceau pose dans chaque texture, et s'il a ses bandes */
+  private shown: Record<DjDeck, string> = { a: '', b: '', c: '', d: '' };
   private hot = DJ_DECKS_ALL.map(() => new Vector4(-1, -1, -1, -1));
 
   constructor() {
@@ -250,6 +297,8 @@ export class DjWaves {
         uBeat: { value: [-1, -1, -1, -1] },
         uSpb: { value: [0, 0, 0, 0] },
         uLoop: { value: [new Vector2(), new Vector2(), new Vector2(), new Vector2()] },
+        uBands: { value: [0, 0, 0, 0] },
+        uMode: { value: 0 },
       },
     });
     this.material.name = 'djWaves';
@@ -258,18 +307,31 @@ export class DjWaves {
     this.mesh.frustumCulled = false;
   }
 
-  /** Les cretes d'un morceau (une fois par morceau pose) ; true si la texture change. */
-  setPeaks(d: DjDeck, loadId: number, overview: Float32Array, detail: Float32Array): boolean {
-    if (this.loadIds[d] === loadId) return false;
-    this.loadIds[d] = loadId;
+  /**
+   * L'energie d'un morceau (une fois par morceau pose), puis ses trois
+   * bandes quand elles arrivent ; true si la texture change.
+   */
+  setPeaks(d: DjDeck, loadId: number, overview: Float32Array, detail: Float32Array, bands: { overview: Float32Array; detail: Float32Array } | null): boolean {
+    const key = `${loadId}|${bands ? 1 : 0}`;
+    if (this.shown[d] === key) return false;
+    this.shown[d] = key;
     const rows = 1 + Math.max(1, Math.ceil(detail.length / TEX_W));
-    const data = new Uint8Array(TEX_W * rows);
+    const data = new Uint8Array(TEX_W * rows * 4);
     // L'energie deja normalisee (math.ts energy), un peu de marge au bord de la bande
     const enc = (v: number): number => Math.round(Math.min(1, Math.max(0, v)) * 0.92 * 255);
-    for (let i = 0; i < Math.min(TEX_W, overview.length); i += 1) data[i] = enc(overview[i]);
-    for (let i = 0; i < detail.length; i += 1) data[TEX_W + i] = enc(detail[i]);
+    // Les bandes : leur hauteur se regle dans le shader (BAND_H)
+    const encB = (v: number): number => Math.round(Math.min(1, Math.max(0, v)) * 255);
+    const ov = Math.min(TEX_W, overview.length);
+    for (let i = 0; i < ov; i += 1) data[i * 4] = enc(overview[i]);
+    for (let i = 0; i < detail.length; i += 1) data[(TEX_W + i) * 4] = enc(detail[i]);
+    if (bands) {
+      const ob = Math.min(TEX_W, Math.floor(bands.overview.length / 3));
+      for (let i = 0; i < ob; i += 1) for (let c = 0; c < 3; c += 1) data[i * 4 + 1 + c] = encB(bands.overview[i * 3 + c]);
+      const db = Math.min(detail.length, Math.floor(bands.detail.length / 3));
+      for (let i = 0; i < db; i += 1) for (let c = 0; c < 3; c += 1) data[(TEX_W + i) * 4 + 1 + c] = encB(bands.detail[i * 3 + c]);
+    }
     this.tex[d].dispose();
-    const t = new DataTexture(data, TEX_W, rows, RedFormat, UnsignedByteType);
+    const t = new DataTexture(data, TEX_W, rows, RGBAFormat, UnsignedByteType);
     t.minFilter = NearestFilter;
     t.magFilter = NearestFilter;
     t.generateMipmaps = false;
@@ -280,6 +342,16 @@ export class DjWaves {
     u[`uPeaks${i}`].value = t;
     (u.uOvLen.value as number[])[i] = Math.max(1, Math.min(TEX_W, overview.length));
     (u.uDetLen.value as number[])[i] = detail.length;
+    (u.uBands.value as number[])[i] = bands ? 1 : 0;
+    return true;
+  }
+
+  /** L'affichage (3BAND, RGB, MONO) ; true s'il change. */
+  setMode(m: DjWaveMode): boolean {
+    const u = this.material.uniforms.uMode;
+    const v = Math.max(0, DJ_WAVES.indexOf(m));
+    if (u.value === v) return false;
+    u.value = v;
     return true;
   }
 

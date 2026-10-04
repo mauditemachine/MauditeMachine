@@ -396,8 +396,12 @@ export const DECK = {
    * de BPM par appui, en continu tenues (Maj : un BPM).
    */
   tempo: { xs: [1.9, 2.5] as readonly number[], z: 4.88, w: 0.52, d: 0.38 },
-  /** REMOVE : sur la derniere platine ajoutee (C ou D), dans l'en-tete, avant le logo */
-  remove: { x: 1.45, z: -5.05, w: 0.6, d: 0.28 },
+  /**
+   * REMOVE DECK : sur la derniere platine ajoutee (C ou D), dans l'en-tete,
+   * avant le logo ; son nom en orange a gauche, assez grand pour se lire
+   * (Mika, 2026-10-04 : il ne le voyait pas), a la place de DIGITAL DECK
+   */
+  remove: { x: 1.42, z: -5.1, w: 0.72, d: 0.28 },
 } as const;
 
 /**
@@ -405,14 +409,17 @@ export const DECK = {
  * et de sa hauteur (v, depuis le haut) : le morceau en haut (titre,
  * artiste, BPM, Camelot, temps), la forme d'onde fine au milieu, haute
  * (elle defile, la tete de lecture au centre), la piste entiere en bas, et
- * a sa droite les deux touches du zoom. Seuls le texte et le zoom passent
- * par la texture des ecrans (dj/screens.ts) ; les formes d'onde ont leur
- * shader ; la liste des morceaux est une page HTML posee sur l'ecran.
+ * a sa droite la touche WAVE (l'affichage des formes d'onde : 3BAND, RGB,
+ * MONO, dj/state.ts DJ_WAVES) et les deux touches du zoom. Seuls le texte,
+ * WAVE et le zoom passent par la texture des ecrans (dj/screens.ts) ; les
+ * formes d'onde ont leur shader ; la liste des morceaux est une page HTML
+ * posee sur l'ecran.
  */
 export const DECK_SCREEN = {
   text: 0.22,
   detail: { u0: 0.02, u1: 0.98, v0: 0.25, v1: 0.76 },
-  overview: { u0: 0.02, u1: 0.84, v0: 0.8, v1: 0.95 },
+  overview: { u0: 0.02, u1: 0.71, v0: 0.8, v1: 0.95 },
+  wave: { u0: 0.73, u1: 0.845, v0: 0.79, v1: 0.96 },
   zoom: { u0: 0.86, u1: 0.98, v0: 0.79, v1: 0.96 },
 } as const;
 

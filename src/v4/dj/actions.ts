@@ -16,7 +16,7 @@ import { djEngine, djEngineIfAny, type DjEngine } from './engine';
 import { crateFile, crateLearn, setCrateBusy } from './crate';
 import { beatGrid, estimateBpm, phaseShift } from './math';
 import { soundcloudBytes } from './soundcloud';
-import { DJ_ZOOMS, djState, type DjTrack } from './state';
+import { DJ_WAVES, DJ_ZOOMS, djState, type DjTrack } from './state';
 import { DJ_DECKS, DJ_DECKS_ALL, DJ_FX, deckChannel, djDecks, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
 /* ---------------- le moteur suit le store ---------------- */
@@ -539,13 +539,28 @@ export function djAddDeck(): void {
   djDecks.set(djDecks.get() + 1);
 }
 
-/** REMOVE : la derniere platine ajoutee s'arrete, se vide et s'en va. */
+/**
+ * REMOVE : la derniere platine ajoutee s'arrete, se vide et s'en va. Une
+ * platine qui joue ne part pas d'un seul geste (Mika, 2026-10-04 : "quand
+ * on a add un deck par erreur, comment on l'enleve ?") : le premier appui
+ * arme REMOVE (la touche s'allume, l'ecran dit d'appuyer encore), le
+ * second, dans les REMOVE_ARM_MS, la retire.
+ */
+const REMOVE_ARM_MS = 3000;
+let removeTimer = 0;
+
 export function djRemoveDeck(d: DjDeck): void {
   if (DJ_DECKS[DJ_DECKS.length - 1] !== d || DJ_DECKS.length <= 2) return;
   const p = djEngineIfAny()?.decks[d];
+  window.clearTimeout(removeTimer);
+  if (p?.playing && !djState.get().deck[d].remove) {
+    djState.setDeck(d, { remove: true });
+    removeTimer = window.setTimeout(() => djState.setDeck(d, { remove: false }), REMOVE_ARM_MS);
+    return;
+  }
   if (p?.playing) p.pause();
   loads[d]?.abort();
-  djState.setDeck(d, { playing: false, loaded: false, track: null, loading: null, error: null, cue: 0, cues: [null, null, null, null], pitch: 0, range: 8 });
+  djState.setDeck(d, { playing: false, loaded: false, track: null, loading: null, error: null, cue: 0, cues: [null, null, null, null], pitch: 0, range: 8, remove: false });
   djDecks.set(djDecks.get() - 1);
 }
 
@@ -576,6 +591,12 @@ export function djPosition(d: DjDeck): number {
 export function djZoom(d: DjDeck, seconds: number): void {
   const z = Math.max(1, Math.min(64, seconds));
   djState.setDeck(d, { zoom: Math.round(z * 100) / 100 });
+}
+
+/** WAVE : l'affichage suivant des formes d'onde (3BAND, RGB, MONO), pour toutes les platines. */
+export function djWaveNext(): void {
+  const w = djState.get().wave;
+  djState.setWave(DJ_WAVES[(DJ_WAVES.indexOf(w) + 1) % DJ_WAVES.length]);
 }
 
 /** Un cran de zoom (DJ_ZOOMS) : -1 plus pres, +1 plus loin. */

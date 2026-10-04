@@ -174,6 +174,198 @@ export function energy(channels: readonly Float32Array[], slices: number): Float
   return out;
 }
 
+/* ---------- forme d'onde en trois bandes ---------- */
+
+/**
+ * Les trois bandes de la forme d'onde (2026-10-04, Mika : "la waveform est
+ * correcte mais on a du mal a voir les choses, ya pas un autre affichage ?") :
+ * les basses (grosse caisse, basse) sous 180 Hz, les aigus (charleston,
+ * cymbales) au-dessus de 2.5 kHz, les mediums entre (voix, nappes, snare).
+ * Comme le 3BAND et le RGB des CDJ : on voit ou tape la grosse caisse,
+ * ou elle s'arrete (un break), ou reviennent les charlestons.
+ */
+export const WAVE_SPLIT = { low: 180, high: 2500 } as const;
+
+/** Un biquad de Butterworth (RBJ) : b0, b1, b2, a1, a2. */
+function butterworth(kind: 'lp' | 'hp', f: number, rate: number): readonly number[] {
+  const w = (2 * Math.PI * Math.min(f, rate * 0.45)) / rate;
+  const c = Math.cos(w);
+  const al = Math.sin(w) / (2 * Math.SQRT1_2);
+  const a0 = 1 + al;
+  const k = kind === 'lp' ? (1 - c) / 2 : (1 + c) / 2;
+  return [k / a0, ((kind === 'lp' ? 2 : -2) * k) / a0, k / a0, (-2 * c) / a0, (1 - al) / a0];
+}
+
+/** Sous ce niveau, l'etat d'un filtre repart de zero (les denormaux ralentissent tout). */
+const TINY = 1e-20;
+const flush = (v: number): number => (v > -TINY && v < TINY ? 0 : v);
+
+/**
+ * La moyenne quadratique par tranche de chaque bande, entrelacee (basses,
+ * mediums, aigus), normalisee bande par bande (wavePeaks3), sur la somme
+ * des canaux. Basses : deux passe-bas en cascade (24 dB par octave) ; aigus :
+ * deux passe-haut ; mediums : deux passe-haut a la coupure des basses puis
+ * un passe-bas a celle des aigus (le reste du signal, x moins basses et
+ * aigus, garde un residu de phase qui suivait la grosse caisse). Un
+ * generateur : il rend la main toutes les 256 tranches (dj/engine.ts le
+ * fait tourner par morceaux de quelques millisecondes, l'ecran ne fige pas).
+ */
+export function* bandEnergy(channels: readonly Float32Array[], rate: number, slices: number): Generator<number, Float32Array, void> {
+  const n = Math.max(0, slices);
+  const sq = new Float32Array(n * 3);
+  const A = channels[0];
+  const len = A?.length ?? 0;
+  if (!A || len === 0 || n === 0) return sq;
+  const B = channels[1] ?? A;
+  const [lb0, lb1, lb2, la1, la2] = butterworth('lp', WAVE_SPLIT.low, rate);
+  const [hb0, hb1, hb2, ha1, ha2] = butterworth('hp', WAVE_SPLIT.high, rate);
+  const [mb0, mb1, mb2, ma1, ma2] = butterworth('hp', WAVE_SPLIT.low, rate);
+  const [nb0, nb1, nb2, na1, na2] = butterworth('lp', WAVE_SPLIT.high, rate);
+  // Etats : x l'entree, puis la sortie de chaque etage (son entree est la sortie du precedent)
+  let x1 = 0, x2 = 0;
+  let ly1 = 0, ly2 = 0, lz1 = 0, lz2 = 0;
+  let hy1 = 0, hy2 = 0, hz1 = 0, hz2 = 0;
+  let my1 = 0, my2 = 0, mz1 = 0, mz2 = 0, mw1 = 0, mw2 = 0;
+  const step = len / n;
+  for (let i = 0; i < n; i += 1) {
+    const a = Math.floor(i * step);
+    const b = Math.min(len, Math.floor((i + 1) * step));
+    let sl = 0;
+    let sm = 0;
+    let sh = 0;
+    for (let j = a; j < b; j += 1) {
+      const x = (A[j] + B[j]) * 0.5;
+      const ly = lb0 * x + lb1 * x1 + lb2 * x2 - la1 * ly1 - la2 * ly2;
+      const lz = lb0 * ly + lb1 * ly1 + lb2 * ly2 - la1 * lz1 - la2 * lz2;
+      const hy = hb0 * x + hb1 * x1 + hb2 * x2 - ha1 * hy1 - ha2 * hy2;
+      const hz = hb0 * hy + hb1 * hy1 + hb2 * hy2 - ha1 * hz1 - ha2 * hz2;
+      const my = mb0 * x + mb1 * x1 + mb2 * x2 - ma1 * my1 - ma2 * my2;
+      const mz = mb0 * my + mb1 * my1 + mb2 * my2 - ma1 * mz1 - ma2 * mz2;
+      const mw = nb0 * mz + nb1 * mz1 + nb2 * mz2 - na1 * mw1 - na2 * mw2;
+      x2 = x1;
+      x1 = x;
+      ly2 = ly1;
+      ly1 = ly;
+      lz2 = lz1;
+      lz1 = lz;
+      hy2 = hy1;
+      hy1 = hy;
+      hz2 = hz1;
+      hz1 = hz;
+      my2 = my1;
+      my1 = my;
+      mz2 = mz1;
+      mz1 = mz;
+      mw2 = mw1;
+      mw1 = mw;
+      sl += lz * lz;
+      sm += mw * mw;
+      sh += hz * hz;
+    }
+    const k = b > a ? 1 / (b - a) : 0;
+    sq[i * 3] = sl * k;
+    sq[i * 3 + 1] = sm * k;
+    sq[i * 3 + 2] = sh * k;
+    ly1 = flush(ly1);
+    ly2 = flush(ly2);
+    lz1 = flush(lz1);
+    lz2 = flush(lz2);
+    hy1 = flush(hy1);
+    hy2 = flush(hy2);
+    hz1 = flush(hz1);
+    hz2 = flush(hz2);
+    my1 = flush(my1);
+    my2 = flush(my2);
+    mz1 = flush(mz1);
+    mz2 = flush(mz2);
+    mw1 = flush(mw1);
+    mw2 = flush(mw2);
+    if (i % 256 === 255) yield i / n;
+  }
+  return wavePeaks3(sq, true);
+}
+
+/**
+ * Des carres moyens par tranche (entrelaces par trois) aux hauteurs de la
+ * forme d'onde : la racine sur une petite fenetre (les basses sur quatre
+ * tranches, les mediums sur deux : sans quoi chaque periode de la basse
+ * dessine une dent), puis chaque bande ramenee a 1 sur sa tranche du
+ * centile 99.5 (un morceau masterise ne plafonne pas partout), au moins un
+ * cinquieme de la bande la plus forte (des aigus presque absents restent
+ * petits). fine : les fenetres de la forme d'onde fine ; la piste entiere
+ * (bandOverview) n'en a pas besoin.
+ */
+export function wavePeaks3(sq: Float32Array, fine: boolean): Float32Array {
+  const n = Math.floor(sq.length / 3);
+  const out = new Float32Array(n * 3);
+  const win = fine ? [4, 2, 1] : [1, 1, 1];
+  for (let c = 0; c < 3; c += 1) {
+    const w = win[c];
+    const lo = -Math.floor((w - 1) / 2);
+    let sum = 0;
+    let cnt = 0;
+    // Fenetre glissante [i + lo, i + lo + w)
+    for (let j = lo; j < lo + w; j += 1) {
+      if (j >= 0 && j < n) {
+        sum += sq[j * 3 + c];
+        cnt += 1;
+      }
+    }
+    for (let i = 0; i < n; i += 1) {
+      out[i * 3 + c] = cnt > 0 ? Math.sqrt(Math.max(0, sum) / cnt) : 0;
+      const drop = i + lo;
+      const add = i + lo + w;
+      if (drop >= 0 && drop < n) {
+        sum -= sq[drop * 3 + c];
+        cnt -= 1;
+      }
+      if (add >= 0 && add < n) {
+        sum += sq[add * 3 + c];
+        cnt += 1;
+      }
+    }
+  }
+  // Le centile 99.5 de chaque bande, sur au plus 16384 tranches prises a pas regulier
+  const take = Math.min(n, 16384);
+  const tops = [0, 0, 0];
+  if (take > 0) {
+    const pick = new Float32Array(take);
+    for (let c = 0; c < 3; c += 1) {
+      for (let k = 0; k < take; k += 1) pick[k] = out[Math.floor((k * n) / take) * 3 + c];
+      pick.sort();
+      tops[c] = pick[Math.min(take - 1, Math.floor(take * 0.995))];
+    }
+  }
+  const floor = Math.max(...tops) * 0.2;
+  for (let c = 0; c < 3; c += 1) {
+    const top = Math.max(tops[c], floor);
+    const k = top > 0 ? 1 / top : 0;
+    for (let i = 0; i < n; i += 1) out[i * 3 + c] = Math.min(1, out[i * 3 + c] * k);
+  }
+  return out;
+}
+
+/** Les trois bandes de la piste entiere, d'apres celles de la forme d'onde fine (moyenne quadratique par tranche). */
+export function bandOverview(detail: Float32Array, slices: number): Float32Array {
+  const n = Math.floor(detail.length / 3);
+  const sq = new Float32Array(Math.max(0, slices) * 3);
+  if (n === 0 || slices <= 0) return sq;
+  const step = n / slices;
+  for (let i = 0; i < slices; i += 1) {
+    const a = Math.floor(i * step);
+    const b = Math.max(a + 1, Math.min(n, Math.floor((i + 1) * step)));
+    for (let c = 0; c < 3; c += 1) {
+      let s = 0;
+      for (let j = a; j < b; j += 1) {
+        const v = detail[j * 3 + c] ?? 0;
+        s += v * v;
+      }
+      sq[i * 3 + c] = s / (b - a);
+    }
+  }
+  return wavePeaks3(sq, false);
+}
+
 /* ---------- VU ---------- */
 
 /**
