@@ -34,6 +34,7 @@ import Cursor from '../components/Cursor';
 import StickyPlayer from '../components/StickyPlayer';
 import useReveals from '../hooks/useReveals';
 import useV2Chrome from '../hooks/useV2Chrome';
+import seoMeta from '../../data/seo-meta.json';
 
 const NEWS_WINDOW_DAYS = 60;
 
@@ -68,7 +69,9 @@ const fmtDate = (iso: string) => {
 const coverSrc = (r: Release) => (r.cover ? `/${r.cover.replace(/^\//, '')}` : null);
 
 const RadarShell: React.FC = () => {
-  useV2Chrome('Maudite Machine - Radar');
+  // 2026-10-04 (referencement, Mika : "Je veux que tu augmentes le referencement aussi, c'est important.") :
+  // le titre de sa page statique (scripts/prerender-seo.mjs), celui que Google lit apres le JavaScript
+  useV2Chrome(seoMeta.en['/radar'].title);
   const rootRef = useRef<HTMLDivElement>(null);
   useReveals(rootRef);
   const { current, playing, play } = useAudioPlayer();

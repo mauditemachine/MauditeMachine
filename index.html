@@ -7,7 +7,9 @@
          vue par les crawlers sociaux). useSEO() bascule en FR/ES au mount
          selon navigator.language. Source : src/data/seo-meta.json -->
     <title>Maudite Machine | DJ &amp; Producer · Indie Dance · Psy Prog</title>
-    <meta name="description" content="DJ and producer based between Canada, France and Spain, from the Montreal underground. Indie dance and psy prog, DJ sets and hybrid live. Founder of VRSTL Records, member of the 8day collective. Available for club and festival dates across France, Spain and the rest of Europe, and still playing Canada." />
+    <!-- 2026-10-04 (referencement, Mika : "Je veux que tu augmentes le referencement aussi, c'est important.") :
+         description ramenee sous 160 signes (Google coupait la precedente a la moitie), la meme que src/data/seo-meta.json -->
+    <meta name="description" content="DJ and producer from the Montréal underground, now between Canada, France and Spain. Indie dance and psy prog, DJ and hybrid live. Founder of VRSTL Records." />
     <meta name="keywords" content="DJ Montréal, DJ Québec, booker un DJ Montréal, DJ indie dance, DJ psy prog, indie dance Montréal, psy prog Montréal, DJ indie dance France, DJ psy prog Espagne, indie dance France, psy prog France, DJ événement privé Montréal, DJ mariage Montréal, DJ festival Québec, VRSTL Records, collectif 8day, Maudite Machine, DJ Canada, live hybride" />
     <meta name="author" content="Maudite Machine" />
     <meta name="robots" content="index, follow" />
@@ -15,9 +17,11 @@
     <link rel="canonical" href="https://mauditemachine.com/" />
     <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
 
-    <!-- Resource hints pour les services externes -->
-    <link rel="preconnect" href="https://www.googletagmanager.com" crossorigin />
-    <link rel="preconnect" href="https://connect.facebook.net" crossorigin />
+    <!-- Resource hints pour les services externes
+         2026-10-04 (referencement) : sans crossorigin pour gtag et le pixel, charges en script
+         simple (une connexion ouverte en mode CORS ne leur servait pas) -->
+    <link rel="preconnect" href="https://www.googletagmanager.com" />
+    <link rel="preconnect" href="https://connect.facebook.net" />
     <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
     <link rel="dns-prefetch" href="https://w.soundcloud.com" />
     <link rel="dns-prefetch" href="https://cdn.lightwidget.com" />
@@ -41,7 +45,10 @@
     <meta name="format-detection" content="telephone=no" />
     <meta name="geo.placename" content="Canada · France · Spain" />
 
-    <!-- Données structurées JSON-LD pour le SEO -->
+    <!-- Données structurées JSON-LD pour le SEO
+         2026-10-04 (referencement, Mika : "Je veux que tu augmentes le referencement aussi, c'est important.") :
+         sameAs = les profils de src/v4/data/socials.ts (le label sort de la liste : ce n'est pas l'artiste),
+         Person et VRSTL Records relies par @id, contacts de booking du press kit (docs/presskit-2027/content.mjs) -->
     <script type="application/ld+json">
     [{
       "@context": "https://schema.org",
@@ -56,10 +63,13 @@
       "genre": ["Indie Dance", "Psy Prog", "Electronic"],
       "album": {
         "@type": "MusicAlbum",
+        "@id": "https://mauditemachine.com/tracks/#limbos-album",
         "name": "Limbos",
         "url": "https://mauditemachine.bandcamp.com/album/limbos",
-        "datePublished": "2025-10",
+        "datePublished": "2025-10-16",
         "numTracks": 9,
+        "albumReleaseType": "https://schema.org/AlbumRelease",
+        "image": "https://mauditemachine.com/images/goodies/full/cover-limbos.webp",
         "byArtist": { "@id": "https://mauditemachine.com/#artist" }
       },
       "subjectOf": {
@@ -70,24 +80,43 @@
       "sameAs": [
         "https://www.facebook.com/MauditeMachine",
         "https://www.instagram.com/mauditemachine/",
-        "https://www.soundcloud.com/mauditemachine/",
+        "https://soundcloud.com/mauditemachine",
         "https://mauditemachine.bandcamp.com/",
         "https://open.spotify.com/artist/2FHPGWPEBQbCsgkLP9uuI4",
         "https://www.youtube.com/@mauditemachine-official",
         "https://music.apple.com/us/artist/maudite-machine/1028417516",
-        "https://vrstlrecords.com",
         "https://www.deezer.com/fr/artist/8651600",
         "https://www.mixcloud.com/mauditemachine/",
         "https://www.tiktok.com/@mauditemachine",
+        "https://x.com/mauditemachine",
         "https://linktr.ee/mauditemachine",
         "https://www.songkick.com/artists/10363218-maudite-machine",
         "https://www.gigmit.com/maudite-machine",
         "https://www.beatport.com/artist/maudite-machine/500537"
       ],
+      "contactPoint": [
+        {
+          "@type": "ContactPoint",
+          "contactType": "booking",
+          "name": "Booking, international",
+          "email": "vrstlrecords@gmail.com",
+          "availableLanguage": ["fr", "en", "es"]
+        },
+        {
+          "@type": "ContactPoint",
+          "contactType": "booking",
+          "name": "Booking, Canada and USA",
+          "email": "mauditemachine@gmail.com",
+          "telephone": "+1-514-653-1423",
+          "areaServed": ["CA", "US"],
+          "availableLanguage": ["fr", "en", "es"]
+        }
+      ],
       "member": {
         "@type": "Person",
+        "@id": "https://mauditemachine.com/#person",
         "name": "Maudite Machine",
-        "alternateName": "Maudite Machine",
+        "alternateName": "Mika",
         "jobTitle": "DJ & Producer",
         "nationality": "Canadian",
         "birthPlace": "Montreal, Canada",
@@ -96,13 +125,14 @@
           { "@type": "Country", "name": "France" },
           { "@type": "Country", "name": "Spain" }
         ],
-        "worksFor": { "@type": "Organization", "name": "VRSTL Records" },
+        "worksFor": { "@id": "https://vrstlrecords.com/#organization" },
         "memberOf": { "@type": "Organization", "name": "8day", "url": "https://www.8day.ca" },
         "knowsAbout": ["Electronic Music", "DJ", "Music Production", "Indie Dance", "Psy Prog", "Synths and grooveboxes"]
       },
       "foundingLocation": {
         "@type": "Place",
-        "name": "Montreal, Canada"
+        "name": "Montreal, Canada",
+        "address": { "@type": "PostalAddress", "addressLocality": "Montréal", "addressRegion": "QC", "addressCountry": "CA" }
       },
       "location": [
         { "@type": "Country", "name": "Canada" },
@@ -128,7 +158,7 @@
           "@type": "Service",
           "name": "DJ set / live performance",
           "serviceType": "DJ for clubs, festivals and private events",
-          "provider": { "@type": "MusicGroup", "name": "Maudite Machine" },
+          "provider": { "@id": "https://mauditemachine.com/#artist" },
           "areaServed": [
             { "@type": "City", "name": "Montréal" },
             { "@type": "AdministrativeArea", "name": "Québec" },
@@ -149,7 +179,8 @@
       "name": "VRSTL Records",
       "url": "https://vrstlrecords.com",
       "description": "Independent electronic music label with 21 EPs and 2 albums from artists in Québec, Brazil, Argentina and Europe.",
-      "founder": { "@type": "Person", "name": "Maudite Machine" },
+      "founder": { "@id": "https://mauditemachine.com/#person" },
+      "sameAs": ["https://vrstlrecords.bandcamp.com"],
       "email": "vrstlrecords@gmail.com",
       "address": {
         "@type": "PostalAddress",
@@ -420,21 +451,14 @@
     <meta property="og:image:alt" content="Maudite Machine - DJ & Producer" />
     <meta property="og:locale" content="en_US" />
 
-    <!-- Twitter Card (bonus) -->
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://mauditemachine.com" />
-    <meta
-      property="twitter:title"
-      content="Maudite Machine | DJ &amp; Producer · Indie Dance · Psy Prog"
-    />
-    <meta
-      property="twitter:description"
-      content="DJ and producer for 15 years. Indie dance and psy prog. Founder of VRSTL Records. Canada · France · Spain."
-    />
-    <meta
-      property="twitter:image"
-      content="https://mauditemachine.com/images/og-image.jpg?v=2027"
-    />
+    <!-- Twitter Card : en name= (2026-10-04, referencement), l'attribut que X documente ;
+         scripts/prerender-seo.mjs les remplace page par page -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://mauditemachine.com/" />
+    <meta name="twitter:title" content="Maudite Machine | DJ &amp; Producer · Indie Dance · Psy Prog" />
+    <meta name="twitter:description" content="DJ and producer for 15 years. Indie dance and psy prog. Founder of VRSTL Records. Canada · France · Spain." />
+    <meta name="twitter:image" content="https://mauditemachine.com/images/og-image.jpg?v=2027" />
+    <meta name="twitter:image:alt" content="Maudite Machine - DJ &amp; Producer" />
     <!-- Feuilles externes NON bloquantes (2026-10-03, referencement : 2 s de
          premier affichage perdues sur mobile) : chargees en media=print, puis
          appliquees ; la page s'affiche sans les attendre. Font Awesome (icones),

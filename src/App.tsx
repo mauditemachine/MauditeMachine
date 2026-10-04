@@ -1,5 +1,5 @@
-import React, { Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { Suspense, useEffect, useRef } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
 import AdminGate from './components/ui/AdminGate';
@@ -30,10 +30,29 @@ const Admin = React.lazy(() => import('./components/Admin'));
 
 const lazyEl = (node: React.ReactNode) => <Suspense fallback={null}>{node}</Suspense>;
 
+/**
+ * 2026-10-04 (referencement, Mika : "Je veux que tu augmentes le referencement
+ * aussi, c'est important.") : le texte statique de la page d'arrivee
+ * (#seo-static, pose a cote de #root par scripts/prerender-seo.mjs) reste
+ * apres le montage, pour Google qui indexe la page rendue. Une navigation
+ * du routeur vers une autre page le retire : un lecteur d'ecran ne lit pas
+ * le texte d'une page quittee. Les sections de la machine (pushState hors
+ * routeur) ne le touchent pas.
+ */
+function StaticContentGuard() {
+  const { pathname } = useLocation();
+  const landing = useRef(pathname);
+  useEffect(() => {
+    if (pathname !== landing.current) document.getElementById('seo-static')?.remove();
+  }, [pathname]);
+  return null;
+}
+
 export default function App() {
   return (
     <Router>
       <AppProvider>
+        <StaticContentGuard />
         <Routes>
           {/* ============ Site principal : la machine MM-808 (v4) ============ */}
           <Route path="/" element={lazyEl(<V4App />)} />

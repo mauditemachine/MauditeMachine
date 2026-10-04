@@ -15,6 +15,8 @@ The website is an interactive drum machine (MM-RYTM), arpeggiator synthesizer (M
 - [Press kit 2027](https://mauditemachine.com/presskit/) and [PDF](https://mauditemachine.com/Presskit_Maudite_Machine_2027_generic.pdf)
 - [Tech rider](https://mauditemachine.com/techrider/)
 - [Contact and booking](https://mauditemachine.com/contact/)
+- [Radar](https://mauditemachine.com/radar/): new releases picked by Maudite Machine
+- [Press assets](https://mauditemachine.com/press/): photos, logo, artwork
 
 ## Facts
 

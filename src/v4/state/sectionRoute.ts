@@ -41,8 +41,29 @@ export function sectionFromPath(path: string): SectionId | null {
   return null;
 }
 
+/**
+ * La page statique d'arrivee (2026-10-04, referencement, Mika : "Je veux que
+ * tu augmentes le referencement aussi, c'est important.") : son titre peut
+ * etre plus precis que celui de seo-meta.json (/shows/ porte l'annee des
+ * prochaines dates, scripts/prerender-seo.mjs). Lu au chargement du module,
+ * avant le montage de la machine ; son adresse est celle de son canonical
+ * (en dev, sans pages statiques, le canonical est l'accueil : rien ne change).
+ */
+const LANDING = ((): { path: string; title: string } | null => {
+  if (typeof document === 'undefined') return null;
+  try {
+    const href = document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href;
+    return href ? { path: new URL(href).pathname, title: document.title } : null;
+  } catch {
+    return null;
+  }
+})();
+
 /** Titre de l'onglet d'une section (celui de son HTML statique), ou null. */
 export function sectionTitle(s: SectionId): string | null {
   const route = SECTION_ROUTES[s];
-  return route ? META[route.replace(/\/$/, '')]?.title ?? null : null;
+  if (!route) return null;
+  // La section de la page d'arrivee garde le titre de cette page
+  if (LANDING && LANDING.path === route && LANDING.title) return LANDING.title;
+  return META[route.replace(/\/$/, '')]?.title ?? null;
 }
