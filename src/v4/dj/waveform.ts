@@ -19,6 +19,13 @@
  * plus sombre, la tete de lecture blanche, les hot cues en orange, le CUE
  * en jaune, chacun cerne de noir pour se lire sur toutes les couleurs. Un
  * mesh, un draw call, quatre bandes (attribut aSlot).
+ *
+ * En barres fines (2026-10-04, Mika : "c'est pas beau, peut-etre juste
+ * mettre des barres fines") : 150 par fenetre, calees sur le temps (elles
+ * defilent avec la musique, sans scintiller), 200 sur la piste entiere ;
+ * chaque barre prend la crete de son pas, ce qui lisse le grain d'une
+ * tranche a l'autre. Trop loin pour des barres (moins d'un pixel), le
+ * trait continu revient.
  */
 
 import {
@@ -89,6 +96,13 @@ const vec3 HIGH = vec3(0.98, 0.97, 0.94);
 const vec3 BAND_H = vec3(0.92, 0.72, 0.48);
 // La partie deja jouee
 const float PLAYED = 0.42;
+// Les barres fines (2026-10-04, Mika : "c'est pas beau, peut-etre juste mettre des barres fines") :
+// combien par fenetre (la forme d'onde fine) et sur la piste entiere, la part pleine de chaque pas,
+// et sous quelle taille (en pas par pixel) on revient a un trait continu
+const float BARS = 150.0;
+const float BARS_OV = 200.0;
+const float BAR_FILL = 0.6;
+const float BAR_MIN = 0.55;
 
 vec4 fetchPeak(int deck, ivec2 p) {
   if (deck == 0) return texelFetch(uPeaks0, p, 0);
@@ -116,24 +130,52 @@ vec3 mark(vec3 col, vec3 ink, float x, float x0, float px, float w) {
   return mix(col, ink, line(x, x0, px, w));
 }
 
-/** La colonne de forme d'onde : e (r l'energie, g b a les bandes), y de 0 (centre) a 1 (bord). */
-vec3 wave(vec3 col, vec4 e, float y, float aa, bool bands, bool played) {
+/**
+ * La colonne de forme d'onde : e (r l'energie, g b a les bandes), y de 0
+ * (centre) a 1 (bord) ; cov : la part du pixel couverte par la barre.
+ */
+vec3 wave(vec3 col, vec4 e, float y, float aa, bool bands, bool played, float cov) {
   if (!bands || uMode > 1.5) {
     float on = 1.0 - smoothstep(e.r, e.r + aa, y);
-    return mix(col, played ? BONE_DIM : BONE, on);
+    return mix(col, played ? BONE_DIM : BONE, on * cov);
   }
   float dim = played ? PLAYED : 1.0;
   vec3 h = e.gba * BAND_H;
   if (uMode < 0.5) {
-    col = mix(col, LOW * dim, 1.0 - smoothstep(h.x, h.x + aa, y));
-    col = mix(col, MID * dim, 1.0 - smoothstep(h.y, h.y + aa, y));
-    return mix(col, HIGH * dim, 1.0 - smoothstep(h.z, h.z + aa, y));
+    col = mix(col, LOW * dim, (1.0 - smoothstep(h.x, h.x + aa, y)) * cov);
+    col = mix(col, MID * dim, (1.0 - smoothstep(h.y, h.y + aa, y)) * cov);
+    return mix(col, HIGH * dim, (1.0 - smoothstep(h.z, h.z + aa, y)) * cov);
   }
   // RGB : rouge les basses, vert les mediums, bleu les aigus ; plus clair au coeur
   float top = max(h.x, max(h.y, h.z));
   vec3 tint = e.gba / max(max(e.g, max(e.b, e.a)), 0.004);
   vec3 c = mix(tint, vec3(1.0), 0.16) * (0.78 + 0.22 * (1.0 - y / max(top, 0.004)));
-  return mix(col, c * dim, 1.0 - smoothstep(top, top + aa, y));
+  return mix(col, c * dim, (1.0 - smoothstep(top, top + aa, y)) * cov);
+}
+
+/** La part d'un pixel (centre f, large w, en pas de barre) que couvre le corps de la barre qui part de b. */
+float cover(float f, float w, float b) {
+  return clamp((min(f + w * 0.5, b + BAR_FILL) - max(f - w * 0.5, b)) / max(w, 1e-6), 0.0, 1.0);
+}
+
+/** La crete d'une barre de la forme d'onde fine : les tranches de [i0, i0 + span). */
+vec4 detailBar(int deck, float i0, float span, float len) {
+  vec4 a = vec4(0.0);
+  for (int k = 0; k < 16; k++) {
+    float fi = i0 + span * (float(k) + 0.5) / 16.0;
+    if (fi >= 0.0 && fi < len) a = max(a, peak(deck, 1, int(fi)));
+  }
+  return a;
+}
+
+/** La crete d'une barre de la piste entiere : les cretes de [i0, i0 + span). */
+vec4 overviewBar(int deck, float i0, float span, float n) {
+  vec4 a = vec4(0.0);
+  for (int k = 0; k < 16; k++) {
+    float fi = i0 + span * (float(k) + 0.5) / 16.0;
+    if (fi >= 0.0 && fi < n) a = max(a, ovPeak(deck, int(fi)));
+  }
+  return a;
 }
 
 void main() {
@@ -155,19 +197,25 @@ void main() {
     return;
   }
   if (whole) {
-    // La piste entiere : quelques cretes par pixel, la partie jouee plus pale
+    // La piste entiere en BARS_OV barres fines, la partie jouee plus pale
     float n = uOvLen[deck];
-    vec4 a = vec4(0.0);
-    for (int k = 0; k < 4; k++) {
-      float u = vUv.x + (float(k) / 4.0 - 0.375) * pxX;
-      int i = int(clamp(u, 0.0, 0.9999) * n);
-      a = max(a, ovPeak(deck, i));
-    }
     float head = pos / dur;
     // LOOP : la boucle en orange pale sous la piste
     vec2 lp = uLoop[deck];
     if (lp.y > lp.x && vUv.x >= lp.x / dur && vUv.x <= lp.y / dur) col = mix(col, LOOP, 0.35);
-    col = wave(col, a, y, pxY * 2.0, bands, vUv.x < head);
+    float f = vUv.x * BARS_OV;
+    float w = pxX * BARS_OV;
+    float span = n / BARS_OV;
+    bool played = vUv.x < head;
+    if (w > BAR_MIN) {
+      // Trop loin pour des barres : la crete sous le pixel
+      col = wave(col, overviewBar(deck, (vUv.x - pxX * 0.5) * n, max(1.0, pxX * n), n), y, pxY * 2.0, bands, played, 1.0);
+    } else {
+      float bi = floor(f);
+      float fr = f - bi;
+      col = wave(col, overviewBar(deck, bi * span, span, n), y, pxY * 2.0, bands, played, cover(fr, w, 0.0));
+      if (fr + w * 0.5 > 1.0) col = wave(col, overviewBar(deck, (bi + 1.0) * span, span, n), y, pxY * 2.0, bands, played, cover(fr, w, 1.0));
+    }
     for (int c = 0; c < 4; c++) {
       float t = uHot[deck][c];
       if (t >= 0.0) col = mark(col, ORANGE, vUv.x, t / dur, pxX, 1.5);
@@ -180,17 +228,23 @@ void main() {
     float t = pos + (vUv.x - 0.5) * win;
     float secPx = pxX * win;
     float len = uDetLen[deck];
-    vec4 a = vec4(0.0);
-    float span = max(1.0, secPx * ${DETAIL_RATE.toFixed(1)});
-    float i0 = (t - secPx * 0.5) * ${DETAIL_RATE.toFixed(1)};
-    for (int k = 0; k < 12; k++) {
-      float fi = i0 + span * float(k) / 12.0;
-      if (fi >= 0.0 && fi < len) a = max(a, peak(deck, 1, int(fi)));
-    }
     // LOOP : le fond de la boucle en orange sombre, ses bornes en trait orange
     vec2 lp = uLoop[deck];
     if (lp.y > lp.x && t >= lp.x && t < lp.y) col = LOOP * 0.22;
-    col = wave(col, a, y, pxY * 2.0, bands, t < pos);
+    // BARS barres fines par fenetre, calees sur le temps : elles defilent avec la musique
+    float barDur = win / BARS;
+    float f = t / barDur;
+    float w = secPx / barDur;
+    float span = barDur * ${DETAIL_RATE.toFixed(1)};
+    bool played = t < pos;
+    if (w > BAR_MIN) {
+      col = wave(col, detailBar(deck, (t - secPx * 0.5) * ${DETAIL_RATE.toFixed(1)}, max(1.0, secPx * ${DETAIL_RATE.toFixed(1)}), len), y, pxY * 2.0, bands, played, 1.0);
+    } else {
+      float bi = floor(f);
+      float fr = f - bi;
+      col = wave(col, detailBar(deck, bi * span, span, len), y, pxY * 2.0, bands, played, cover(fr, w, 0.0));
+      if (fr + w * 0.5 > 1.0) col = wave(col, detailBar(deck, (bi + 1.0) * span, span, len), y, pxY * 2.0, bands, played, cover(fr, w, 1.0));
+    }
     if (lp.y > lp.x) {
       col = mark(col, LOOP, vUv.x, 0.5 + (lp.x - pos) / win, pxX, 2.0);
       col = mark(col, LOOP, vUv.x, 0.5 + (lp.y - pos) / win, pxX, 2.0);
