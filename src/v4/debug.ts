@@ -42,6 +42,9 @@ import { synthDebug } from './audio/synth';
 import { focus } from './state/focus';
 import { arp, arpDebug } from './voyager/arp';
 import { voyParams } from './voyager/params';
+import { djEngineIfAny } from './dj/engine';
+import { djState } from './dj/state';
+import { djView } from './dj/view';
 import type { ExplodeInfo } from './scene/explode';
 import type { HotspotView } from './scene/hit';
 import type { EncodersInfo } from './scene/encoders';
@@ -197,6 +200,17 @@ export interface V4Debug {
     synth: typeof synthDebug;
     params: typeof voyParams;
   };
+  /**
+   * Le MM-DECKS (2026-10-04, ?dj=1) : le rig, le store des commandes, le
+   * bloc cadre au telephone, le moteur (null avant le premier geste). Tests
+   * sans son : ?mute=1, les cretes se lisent avant le master.
+   */
+  readonly dj: {
+    rig: ReturnType<NonNullable<Stage['dj']>['info']> | null;
+    state: typeof djState;
+    view: typeof djView;
+    engine: typeof djEngineIfAny;
+  };
 }
 
 const NO_STATS: StageStats = {
@@ -338,6 +352,14 @@ export function installDebug(src: DebugSource): () => void {
       arpDebug,
       synth: synthDebug,
       params: voyParams,
+    },
+    dj: {
+      get rig() {
+        return src.stage()?.dj?.info() ?? null;
+      },
+      state: djState,
+      view: djView,
+      engine: djEngineIfAny,
     },
   };
   window.__v4 = api;

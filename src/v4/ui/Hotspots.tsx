@@ -67,6 +67,7 @@ import { BPM, STEP_COUNT, isOn, pattern } from '../audio/pattern';
 import type { HotspotKind, HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { DjGestures } from '../dj/gestures';
+import { djView } from '../dj/view';
 import { chipsLive, explode } from '../state/explode';
 import { MACHINES, focus, VOYAGER } from '../state/focus';
 import { section } from '../state/section';
@@ -488,11 +489,19 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           const dx = e.clientX - d.x;
           const dy = e.clientY - d.y;
           if (Math.abs(dx) > SWIPE.px && Math.abs(dx) > SWIPE.ratio * Math.abs(dy) && performance.now() - d.t < SWIPE.ms) {
-            // Vers la gauche : la machine suivante ; vers la droite : la precedente
-            const cur = MACHINES.indexOf(focus.machine() ?? 'mm808');
-            const to = MACHINES[Math.max(0, Math.min(MACHINES.length - 1, cur + (dx < 0 ? 1 : -1)))];
-            fired = `swipe-${to}`;
-            focusMachine(to);
+            // Vers la gauche : la machine suivante ; vers la droite : la precedente.
+            // Le MM-DECKS passe d'abord d'un bloc a l'autre (A, MIXER, B)
+            const dir = dx < 0 ? 1 : -1;
+            const unit = focus.machine() === 'dj' ? djView.next(dir) : null;
+            if (unit) {
+              fired = `swipe-dj-${unit}`;
+              djView.set(unit);
+            } else {
+              const cur = MACHINES.indexOf(focus.machine() ?? 'mm808');
+              const to = MACHINES[Math.max(0, Math.min(MACHINES.length - 1, cur + dir))];
+              fired = `swipe-${to}`;
+              focusMachine(to);
+            }
           }
         }
         hitDebug.lastUp = { id: d.id, tap, fired, bg };

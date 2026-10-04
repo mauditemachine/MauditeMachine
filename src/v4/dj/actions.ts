@@ -66,6 +66,16 @@ function engine(): DjEngine | null {
   for (const d of ['a', 'b'] as const) {
     e.decks[d].onEnd = () => djState.setDeck(d, { playing: false });
   }
+  // Une autre source part (RUN de la 808, l'arpege, une piste du site) : les platines se taisent
+  clock.subscribe(() => {
+    if (clock.running) djPauseAll();
+  });
+  arp.subscribe(() => {
+    if (arp.get().running) djPauseAll();
+  });
+  sc.subscribe(() => {
+    if (sc.get().status === 'playing') djPauseAll();
+  });
   return e;
 }
 

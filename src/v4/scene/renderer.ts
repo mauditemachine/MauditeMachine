@@ -123,7 +123,8 @@ import { Tweens, easeInOutCubic, easeOutCubic, linear } from './tween';
 import { VoyagerRig } from '../voyager/rig';
 import { VOY_BODY, VOY_FRAME, VOY_X } from '../voyager/theme';
 import { DjRig } from '../dj/rig';
-import { DJ_FRAME, DJ_W, DJ_X } from '../dj/theme';
+import { DJ_FRAME, DJ_W, DJ_X, UNIT_X, unitW } from '../dj/theme';
+import { djView } from '../dj/view';
 
 const DEG = Math.PI / 180;
 
@@ -163,6 +164,8 @@ const FOCUS_MS = 900;
  */
 const PEEK = { px: 36, hoverPx: 40, ms: 180, gap: 0.8 } as const;
 const OVERVIEW_FILL = { desktop: 0.88, mobile: 0.92 } as const;
+/** Au telephone, d'un bloc du MM-DECKS a l'autre (ms). */
+const DJ_UNIT_MS = 420;
 
 /* ---------------- Stage ---------------- */
 
@@ -430,6 +433,7 @@ export class Stage {
   private unsubFocus: () => void = () => undefined;
   private unsubVoyExplode: () => void = () => undefined;
   private unsubView: () => void = () => undefined;
+  private unsubDjUnit: () => void = () => undefined;
   /** abscisses des machines au depart du zoom (le bout qui depasse les deplace) */
   private nbFrom: Record<MachineId, number> = { mm808: 0, voy: VOY_X, dj: DJ_X };
   /** survol du bout de la machine voisine : 0 a 1 */
@@ -782,6 +786,7 @@ export class Stage {
     this.unsubExplode = explodeState.subscribe(this.syncExplode);
     this.detachExplode = explodeState.attach();
     this.dj?.listen();
+    if (this.dj) this.unsubDjUnit = djView.subscribe(this.syncDjUnit);
     if (this.voy) {
       this.voy.listen();
       // Capot deja ouvert (reconstruction) : le cadrage de la pile ouverte
@@ -1083,17 +1088,18 @@ export class Stage {
       extent: LIGHT_KEY.extent + 1,
     };
     if (f === 'voy') return voy;
-    // Le MM-DECKS : l'ensemble de face (deux platines, la table)
+    // Le MM-DECKS : l'ensemble de face (deux platines, la table) ; au telephone, un bloc a la fois
+    const u = djView.get();
     const dj: Frame = {
-      cx: DJ_X,
-      hw0: DJ_W / 2 / DJ_FRAME.fill,
+      cx: mob ? DJ_X + UNIT_X[u] : DJ_X,
+      hw0: mob ? unitW(u) / 2 / FRAME_MOBILE : DJ_W / 2 / DJ_FRAME.fill,
       h: DJ_FRAME.h,
       ty: DJ_FRAME.targetY,
       explodeTy: DJ_FRAME.targetY,
       rClosed: DJ_FRAME.radius.closed,
       rOpen: DJ_FRAME.radius.open,
       fitHalfH: DJ_FRAME.h / 2,
-      extent: DJ_FRAME.extent,
+      extent: mob ? unitW(u) / 2 + 3 : DJ_FRAME.extent,
     };
     if (f === 'dj') return dj;
     const left = -BODY.w / 2;
@@ -1245,6 +1251,29 @@ export class Stage {
         focus.settle();
         this.syncActive();
       }
+    );
+    this.invalidate();
+  };
+
+  /** Au telephone, le bloc du MM-DECKS change (un glisser) : le cadrage y glisse. */
+  private syncDjUnit = (): void => {
+    if (this.fTo !== 'dj' || !this.layoutMobile || this.disposed) return;
+    this.frFrom = { ...this.fr };
+    this.frTo = this.frameOf('dj');
+    this.tweens.run(
+      'frame.djunit',
+      (v) => {
+        const a = this.frFrom;
+        const b = this.frTo;
+        for (const k of FRAME_KEYS) this.fr[k] = a[k] + (b[k] - a[k]) * v;
+        this.placeLights();
+        this.updateCamera();
+      },
+      0,
+      1,
+      motion.reduced() ? 0 : DJ_UNIT_MS,
+      easeInOutCubic,
+      performance.now()
     );
     this.invalidate();
   };
@@ -1691,8 +1720,7 @@ export class Stage {
     if (dj) dj.root.visible = m === 'dj';
     this.floor.mesh.visible = false;
     const cam = new PerspectiveCamera(24, w / h, 0.1, 200);
-    const home = m === 'voy' ? voy.root.position.x : m === 'dj' && dj ? dj.root.position.x : this.machine.root.position.x;
-    const cx = home;
+    const cx = m === 'voy' ? VOY_X : m === 'dj' && dj ? dj.root.position.x : 0;
     const ty = m === 'voy' ? VOY_FRAME.targetY : m === 'dj' ? DJ_FRAME.targetY : ORBIT.targetY;
     const R = m === 'voy' ? Math.hypot(VOY_BODY.w, VOY_BODY.d) / 2 : m === 'dj' ? (DJ_W / 2) * 0.82 : Math.hypot(BODY.w, BODY.d) / 2;
     const az = (26 * Math.PI) / 180;
@@ -2279,6 +2307,7 @@ export class Stage {
     this.screen.dispose();
     this.pcb.dispose();
     this.voy?.dispose();
+    this.unsubDjUnit();
     this.dj?.dispose();
     this.floor.dispose();
     this.key.dispose();

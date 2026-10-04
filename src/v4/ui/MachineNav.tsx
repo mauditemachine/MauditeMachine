@@ -94,7 +94,7 @@ export const MachineNav: React.FC<Props> = ({ stage, mobile }) => {
           type="button"
           className="v4-medge"
           data-side={back ? 'left' : 'right'}
-          aria-label={`Show the ${NAMES[next].title}`}
+          aria-label={`Show the ${NAMES[next].title} ${NAMES[next].sub.toLowerCase()}`}
           onClick={() => focusMachine(next)}
         >
           <Chevron dir={back ? 'left' : 'right'} />

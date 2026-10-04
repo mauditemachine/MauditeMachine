@@ -64,13 +64,13 @@ export function camelot(key: string | null | undefined): string | null {
   let minor = false;
   const long = /^\s*([a-g](?:\s+(?:flat|sharp))?)\s+(major|minor)\s*$/i.exec(s);
   const cam = /^\s*(1[0-2]|[1-9])\s*([ab])\s*$/i.exec(s);
-  const short = /^\s*([a-g])\s*([#b♯♭])?\s*(m|min|minor|maj|major)?\s*$/i.exec(s);
+  const short = /^\s*([a-g])\s*([#b\u266f\u266d])?\s*(m|min|minor|maj|major)?\s*$/i.exec(s);
   if (cam) return `${cam[1]}${(cam[2] ?? '').toUpperCase()}`;
   if (long) {
     note = NOTES[(long[1] ?? '').toLowerCase().replace(/\s+/g, ' ')] ?? '';
     minor = (long[2] ?? '').toLowerCase() === 'minor';
   } else if (short) {
-    const acc = short[2] === '♯' ? '#' : short[2] === '♭' ? 'b' : (short[2] ?? '');
+    const acc = short[2] === '\u266f' ? '#' : short[2] === '\u266d' ? 'b' : (short[2] ?? '');
     note = `${(short[1] ?? '').toUpperCase()}${acc}`;
     const mode = short[3] ?? '';
     minor = mode === 'm' || /^min/i.test(mode);

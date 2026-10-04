@@ -27,7 +27,7 @@ function text(o: Uint8Array, enc: number): string {
   else if (enc === 2) t = new TextDecoder('utf-16be').decode(o);
   else if (enc === 3) t = new TextDecoder('utf-8').decode(o);
   else t = new TextDecoder('latin1').decode(o);
-  return (t.replace(/^﻿/, '').split('\u0000')[0] ?? '').trim();
+  return (t.replace(/^\ufeff/, '').split('\u0000')[0] ?? '').trim();
 }
 
 const FIELDS: Readonly<Record<string, keyof DjTags>> = {
