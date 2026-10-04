@@ -72,7 +72,7 @@ function buildGeometry(mobile: boolean): BufferGeometry {
 
 /** La jupe d'aluminium : un disque biseaute a la base de l'encodeur. */
 function skirtGeometry(mobile: boolean): BufferGeometry {
-  const C = ENCODER.collar;
+  const C = ENCODER.skirt;
   const g = new CylinderGeometry(C.rTop, C.r, C.h, mobile ? ENCODER.segments.mobile + 12 : ENCODER.segments.desktop + 16);
   g.translate(0, C.h / 2, 0);
   const out = g.toNonIndexed();

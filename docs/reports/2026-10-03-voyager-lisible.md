@@ -21,7 +21,8 @@
 - MM-808, pages dans OPEN : puces de pages sur sa carte aussi (`theme.ts` PAGE_CHIPS, BOARD_CHIPS ; `scene/pcb.ts`), capot desktop plus haut ; touches 1 a 5 gardees.
 - MM-808, dix voix facon Rytm : CP, RS, HT, CY, CB (`audio/drums.ts` synthese, `pattern.ts`, `voicefx.ts`, `house.ts` RANDOM, `theme.ts` pads et touches Z X C V B, page MIX par rangee, Dock a deux rangees).
 - Jupes des potards : Voyager plus fine et plus sombre en noir (`voyager/theme.ts`, `theme.ts` voySkirt) ; la 808 recoit la meme jupe d'alu sous ses encodeurs (`scene/encoders.ts`, `renderer.ts`).
-- `docs/v4/spec.md` : R14-34 a R14-39.
+- Jupes, second passage : filet encore plus fin (Voyager r 0.284, 808 ENCODER.skirt r 0.298), plus sombre en noir (#5D6167), plus clair en blanc (#E6E8EC), les deux machines.
+- `docs/v4/spec.md` : R14-34 a R14-40.
 
 ## 2. Decisions prises et pourquoi
 

@@ -105,7 +105,7 @@ export const HEX = {
   voyPanelEdge: '#2C2D32',
   voyBody: '#0C0C0E',
   voyKnob: '#0F0F11',
-  voySkirt: '#80848B',
+  voySkirt: '#5D6167',
 } as const;
 
 export type Tone = keyof typeof HEX;
@@ -550,8 +550,10 @@ export const ENCODER = {
   r: 0.27,
   rTop: 0.256,
   h: 0.42,
-  /** jupe d'aluminium a la base (2026-10-03, celle des potards du MM-VOYAGER) : biseautee, rTop en haut */
-  collar: { r: 0.32, rTop: 0.302, h: 0.05 },
+  /** rayon de mise en page a la base (libelles, crochets) */
+  collar: { r: 0.32, h: 0.025 },
+  /** jupe d'aluminium (2026-10-03, celle des potards du MM-VOYAGER) : un filet fin, biseaute */
+  skirt: { r: 0.298, rTop: 0.287, h: 0.04 },
   mark: { w: 0.036, h: 0.012, d: 0.18 },
   segments: { desktop: 32, mobile: 20 },
   voiceScale: 0.85,
@@ -1734,7 +1736,7 @@ const LIGHT = {
     voyPanelEdge: '#FFFFFF',
     voyBody: '#E2DED6',
     voyKnob: '#232326',
-    voySkirt: '#CDD0D6',
+    voySkirt: '#E6E8EC',
   } as Partial<Record<Tone, string>>,
   gain: {
     body: 1.25,
