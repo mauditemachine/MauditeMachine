@@ -7,7 +7,7 @@
  * Sections, facon Voyager : ARPEGGIATOR (RATE, MODE, RANGE, NOTES, GATE,
  * OCTAVE, sur le plateau), OSCILLATORS (WAVE 1, WAVE 2, TUNE 2, MIX, FINE,
  * GLIDE ; deux oscillateurs facon Typhon depuis le 2026-10-03), FILTER (CUTOFF, RES, ENV AMT),
- * deux enveloppes ADSR (FILTER EG et AMP EG), EFFECTS (DIST, CHORUS, DELAY,
+ * deux enveloppes ADSR (FILTER EG et AMP EG), EFFECTS (OVERDRIVE, CHORUS, DELAY,
  * REVERB) et OUTPUT (VOLUME). Les potards a crans (RATE, MODE, RANGE,
  * NOTES, OCTAVE, RANGE, SEMI, ON...) gardent une valeur ronde : idx / (n - 1).
  *
@@ -187,7 +187,8 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'lfoShape', label: 'SHAPE', aria: 'Modulation shape: triangle, saw, square, sample and hold', section: 'mod', def: 0, steps: LFO_SHAPES },
   { id: 'lfoDest', label: 'TARGET', aria: 'Modulation target: wave, cutoff, FM, pitch, or wave and cutoff', section: 'mod', def: 0, steps: LFO_DESTS },
   { id: 'lfoAmt', label: 'DEPTH', aria: 'Modulation depth', section: 'mod', def: 0 },
-  { id: 'dist', label: 'DIST', aria: 'Distortion', section: 'fx', def: 0 },
+  // OVERDRIVE (2026-10-04, Mika : "c'est pas DIST qu'on veut c'est OVERDRIVE") : l'id reste 'dist' (reglages et presets retenus)
+  { id: 'dist', label: 'OVERDRIVE', aria: 'Overdrive', section: 'fx', def: 0 },
   { id: 'chorus', label: 'CHORUS', aria: 'Chorus', section: 'fx', def: 0.4 },
   { id: 'delay', label: 'DELAY', aria: 'Delay', section: 'fx', def: 0.25 },
   { id: 'reverb', label: 'REVERB', aria: 'Reverb', section: 'fx', def: 0.25 },

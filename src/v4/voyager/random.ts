@@ -136,7 +136,7 @@ export function randomVoyPatch(rnd: Rnd = Math.random): Partial<Record<VoyKnobId
  *   suite (EDIT) : roulante (l'octave sur le "a", comme les basses de Mika),
  *   contretemps, galop, rebond, marche, octaves ; un ou deux accords ;
  * - ACID : scie, resonance haute, enveloppe de filtre forte, glissando, une
- *   ligne tiree au hasard (octaves, notes de passage, silences), DIST ;
+ *   ligne tiree au hasard (octaves, notes de passage, silences), OVERDRIVE ;
  * - PLUCK : court et brillant, chorus, delay, reverbe ;
  * - LEAD : FM, deux octaves, glissando, vibrato discret, delay ;
  * - DARK : carre, passe-bande, S&H sur la coupure, peu de notes ;

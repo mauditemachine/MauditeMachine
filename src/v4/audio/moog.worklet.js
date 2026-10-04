@@ -22,8 +22,9 @@
  *   sa tangente hyperbolique au point de l'echantillon precedent, puis
  *   l'echelle se resout lineairement, sans retard) : les forts signaux
  *   arrondissent, la resonance s'auto-limite en chantant ; les graves
- *   fondent moins quand elle monte (BASS_KEEP) ; DIST pousse son entree
- *   puis sature la sortie ;
+ *   fondent moins quand elle monte (BASS_KEEP) ; OVERDRIVE (DIST avant
+ *   le 2026-10-04) pousse un peu son entree, puis chauffe la sortie
+ *   (OD_GAIN, une Tube Screamer) ;
  * - deux enveloppes ADSR a courbes de condensateur (attaque vers 1.3,
  *   decroissance et relachement exponentiels), redeclenchees depuis leur
  *   niveau : jamais de clic ;
@@ -55,7 +56,7 @@
  * Qualite (2026-10-03, Mika : "le son sortant de la meilleure qualite") :
  * tout le moteur tourne a OS fois la frequence du contexte (4 sur
  * ordinateur, 2 au telephone : processorOptions.os) ; les saturations
- * (entree du filtre, DIST, sortie) ne replient presque plus leurs
+ * (entree du filtre, OVERDRIVE, sortie) ne replient presque plus leurs
  * harmoniques dans l'audible. Le retour a la frequence du contexte passe
  * par des filtres demi-bande en cascade (fenetre de Kaiser : 4x -> 2x en
  * 31 coefficients, 2x -> 1x en 63, environ -80 dB au-dessus de la bande
@@ -256,6 +257,27 @@ const BASS_KEEP = 0.45;
 const PHASE_QUIET = 0.02;
 /** Gain de sortie (1.5 avant le filtre a etages satures : recale au meme niveau, mesure hors ligne). */
 const OUT_GAIN = 1.25;
+/**
+ * OVERDRIVE (2026-10-04, Mika : "pour ARP c'est pas DIST qu'on veut c'est
+ * OVERDRIVE") : le montage d'une Tube Screamer plutot qu'un ecretage. Le
+ * signal propre passe entier ; une copie privee de ses graves (passe-haut
+ * OD_HP_HZ) est amplifiee (jusqu'a OD_GAIN fois), arrondie par une courbe
+ * douce un peu asymetrique (OD_BIAS : des harmoniques paires, chaudes),
+ * adoucie (passe-bas OD_TONE_HZ) et ajoutee. La basse reste ronde et
+ * tendue, le grain vient dans les mediums ; le niveau est compense
+ * (OD_TRIM). L'entree du filtre est poussee un peu (1 + 2.5 x), la
+ * saturation de sortie des voix a peine (1 + 1.5 x) : avant (DIST), 1 + 5 x
+ * et 1 + 7 x, un ecretage dur.
+ */
+const OD_HP_HZ = 720;
+const OD_TONE_HZ = 4200;
+const OD_GAIN = 40;
+const OD_BIAS = 0.22;
+const OD_TANH_BIAS = Math.tanh(OD_BIAS);
+const OD_MIX = 0.42;
+const OD_TRIM = 0.85;
+/** La courbe de l'overdrive : douce, asymetrique, nulle a zero. */
+const odCurve = (u) => Math.tanh(u + OD_BIAS) - OD_TANH_BIAS;
 
 const midiHz = (m) => 440 * Math.pow(2, (m - 69) / 12);
 const coef = (seconds, sr) => 1 - Math.exp(-1 / Math.max(1, seconds * sr));
@@ -322,6 +344,10 @@ class MMVoyager extends AudioWorkletProcessor {
     this.d2 = os >= 2 ? new Decimator(63, 8) : null;
     this.d4R = os === 4 ? new Decimator(31, 7) : null;
     this.d2R = os >= 2 ? new Decimator(63, 8) : null;
+    // OVERDRIVE : etats des filtres de la branche saturee (gauche, droite) et coefficients a la frequence du calcul
+    this.od = { hpL: 0, xL: 0, lpL: 0, hpR: 0, xR: 0, lpR: 0 };
+    this.odHp = Math.exp((-2 * Math.PI * OD_HP_HZ) / this.sr2);
+    this.odLp = 1 - Math.exp((-2 * Math.PI * OD_TONE_HZ) / this.sr2);
     // Une note a gauche, la suivante a droite
     this.flip = false;
     // MODE du filtre : le poids de chaque sortie (LP 24, LP 12, BP, HP), en fondu
@@ -578,8 +604,12 @@ class MMVoyager extends AudioWorkletProcessor {
       sm.envOct += (p.envOct - sm.envOct) * K;
       sm.drive += (p.drive - sm.drive) * K;
       const k = sm.res * 4.1;
-      const driveIn = 1 + 5 * sm.drive;
-      const driveOut = 1 + 7 * sm.drive;
+      const driveIn = 1 + 2.5 * sm.drive;
+      const driveOut = 1 + 1.5 * sm.drive;
+      // OVERDRIVE : le gain de la branche saturee (progressif : les premiers crans chauffent a peine)
+      const odGain = 1 + OD_GAIN * sm.drive * sm.drive;
+      const odMix = OD_MIX * Math.min(1, sm.drive * 4);
+      const odTrim = 1 / (1 + OD_TRIM * sm.drive);
       const drift = p.drift;
       const sync = p.sync === 1;
       let sum = 0;
@@ -711,11 +741,25 @@ class MMVoyager extends AudioWorkletProcessor {
         if (wm[2] > 1e-4) out += (wm[2] * 2 * (y1 - y2) * BP_GAIN) / (1 + k * BP_RES);
         if (wm[3] > 1e-4) out += (wm[3] * (u - 2 * y1 + y2) * HP_GAIN) / (1 + k * HP_RES);
         y = out;
-        // VCA, saturation de sortie (DIST la pousse), puis la place de la note dans l'image
+        // VCA, saturation de sortie (OVERDRIVE la pousse a peine), puis la place de la note dans l'image
         let a = y * v.aV * v.accent;
         a = Math.tanh(a * driveOut) / Math.pow(driveOut, 0.82);
         sum += a * v.gL;
         sumR += a * v.gR;
+      }
+      // OVERDRIVE : le propre + la branche sans graves, amplifiee, arrondie, adoucie
+      if (odMix > 1e-4) {
+        const od = this.od;
+        const hpA = this.odHp;
+        const lpA = this.odLp;
+        od.hpL = hpA * (od.hpL + sum - od.xL);
+        od.xL = sum;
+        od.lpL += (odCurve(od.hpL * odGain) - od.lpL) * lpA;
+        sum = (sum + od.lpL * odMix) * odTrim;
+        od.hpR = hpA * (od.hpR + sumR - od.xR);
+        od.xR = sumR;
+        od.lpR += (odCurve(od.hpR * odGain) - od.lpR) * lpA;
+        sumR = (sumR + od.lpR * odMix) * odTrim;
       }
       raw[i2] = sum * OUT_GAIN;
       rawR[i2] = sumR * OUT_GAIN;
