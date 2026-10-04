@@ -43,6 +43,7 @@ import { withInstanceEmissive } from '../scene/materials';
 import { makeCanvasTexture } from '../scene/silk';
 import { APPEARANCE, FONT_DISPLAY } from '../theme';
 import { partDj } from './body';
+import { VU_DB, vuZone } from './math';
 import { DJ_FADERS, DJ_KEYS, DJ_KNOBS, DJ_RECT_KEYS, DJ_ROUND_KEYS, faderPos, jogCenter, type DjFaderSpec, type DjKeySpec } from './layout';
 import { DECK, DJ_DECKS, DJ_DECKS_ALL, DJ_FADER, DJ_KEY, DJ_KNOB, DJ_LIGHT, DJ_ROUND, MIX, UNIT_X, type DjDeck, type DjTone } from './theme';
 
@@ -309,7 +310,11 @@ function ledSpecs(light: boolean): { leds: DjLedSpec[]; vu: number[][]; master: 
   const leds: DjLedSpec[] = [];
   const V = MIX.vu;
   const [lo, mid, top] = light ? DJ_LIGHT.vuLight : [DJ_LIGHT.yellow, DJ_LIGHT.orange, DJ_LIGHT.red];
-  const tone = (k: number): string => (k >= V.n - 1 ? top : k >= V.n - 4 ? mid : lo);
+  // La couleur suit la loi en dBFS (dj/math.ts VU_DB) : rouge a -1, orange de -6 a -2, jaune dessous
+  const tone = (k: number): string => {
+    const z = vuZone(VU_DB[Math.min(k, VU_DB.length - 1)]);
+    return z === 'red' ? top : z === 'orange' ? mid : lo;
+  };
   const column = (x: number, z0: number, z1: number): number[] => {
     const pitch = (z1 - z0) / V.n;
     const out: number[] = [];

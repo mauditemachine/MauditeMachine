@@ -22,7 +22,7 @@ import { djBrowser } from './browser';
 import { djSynced, heardBpm, syncBpm } from './actions';
 import { djEngineIfAny } from './engine';
 import { DJ_FADERS, DJ_KNOBS, DJ_RECT_KEYS, DJ_ROUND_KEYS } from './layout';
-import { vuLeds } from './math';
+import { toDbfs, vuLit, VU_DB } from './math';
 import { DjScreens } from './screens';
 import { DjWaves } from './waveform';
 import { DjSilk } from './silk';
@@ -57,8 +57,13 @@ export class DjRig {
   private prevFx: DjState['fx'] | null = null;
   /** touches tenues (pointeur, clavier) */
   private held = new Set<string>();
-  /** VU affiches (decroissance douce) : les voies, puis master gauche et droite */
-  private vu = new Float32Array(DJ_CHANNELS_MAX + 2);
+  /**
+   * Les vumetres (2026-10-04, Mika : "precis par rapport au volume de
+   * chacun") : le niveau affiche (dBFS), la crete maintenue et son instant ;
+   * les voies, puis master gauche et droite.
+   */
+  private vu = Array.from({ length: DJ_CHANNELS_MAX + 2 }, () => ({ db: -Infinity, hold: -Infinity, at: 0 }));
+  private vuAt = 0;
   private screenAt = 0;
 
   constructor(private opts: DjRigOpts) {
@@ -236,18 +241,34 @@ export class DjRig {
       const angle = pos * 2 * Math.PI * (100 / 3 / 60);
       if (this.controls.setJog(d, angle)) changed = true;
     }
-    // VU : la crete, puis une decroissance douce
+    /*
+     * VU, la balistique d'un crete-metre : attaque instantanee (la crete
+     * mesuree s'affiche telle quelle), retour de 20 dB par seconde, et la
+     * crete la plus haute maintenue une seconde sur son segment avant de
+     * redescendre au meme pas. Aucune compensation : ils disent ce qui sort
+     * de chaque voie apres son fader, et du master.
+     */
+    const dt = this.vuAt > 0 ? Math.min(0.1, (now - this.vuAt) / 1000) : 0;
+    this.vuAt = now;
+    const floor = VU_DB[0] - 6;
     const levels = [...e.mixer.ch.slice(0, DJ_CHANNELS).map((c) => c.level()), ...e.mixer.masterLevels()];
-    levels.forEach((lv, i) => {
-      const v = Math.max(lv, this.vu[i] * 0.86);
-      this.vu[i] = v < 0.002 ? 0 : v;
-      if (this.vu[i] > 0) busy = true;
-    });
-    const cols = [...this.controls.ledMap.vu, ...this.controls.ledMap.master];
-    cols.forEach((col, i) => {
-      const lit = vuLeds(this.vu[i], col.length);
+    const meters = [...this.controls.ledMap.vu.map((col, i) => ({ col, m: this.vu[i] })), ...this.controls.ledMap.master.map((col, i) => ({ col, m: this.vu[DJ_CHANNELS_MAX + i] }))];
+    meters.forEach(({ col, m }, i) => {
+      const peak = toDbfs(levels[i] ?? 0);
+      m.db = Math.max(peak, m.db - 20 * dt);
+      if (m.db < floor) m.db = -Infinity;
+      if (peak >= m.hold) {
+        m.hold = peak;
+        m.at = now;
+      } else if (now - m.at > 1000) {
+        m.hold = Math.max(m.db, m.hold - 20 * dt);
+      }
+      if (m.hold < floor) m.hold = -Infinity;
+      if (m.db > -Infinity || m.hold > -Infinity) busy = true;
+      const lit = vuLit(m.db);
+      const held = vuLit(m.hold) - 1;
       col.forEach((led, k) => {
-        if (this.controls.setLed(led, k < lit ? 1 : 0)) changed = true;
+        if (this.controls.setLed(led, k < lit || k === held ? 1 : 0)) changed = true;
       });
     });
     if (now - this.screenAt >= 100 || !busy) {

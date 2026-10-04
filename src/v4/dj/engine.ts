@@ -44,6 +44,48 @@ function peakOf(a: AnalyserNode, buf: Float32Array): number {
   return max;
 }
 
+/**
+ * La crete exacte d'un point du graphe, gauche et droite (2026-10-04, les
+ * vumetres : "precis par rapport au volume de chacun") : un analyseur rend
+ * un melange mono (L + R) / 2 qui sous-estime un son large ; on separe donc
+ * les deux canaux. 2048 echantillons, plus qu'une image a 30 i/s : aucune
+ * crete ne passe entre deux lectures.
+ */
+class StereoPeak {
+  /** un son mono sort des deux enceintes : il se lit a gauche et a droite */
+  private up: GainNode;
+  private split: ChannelSplitterNode;
+  private a: [AnalyserNode, AnalyserNode];
+  private buf: [Float32Array, Float32Array];
+  private src: AudioNode | null = null;
+
+  constructor(
+    private ctx: BaseAudioContext,
+    src: AudioNode
+  ) {
+    this.up = new GainNode(ctx, { channelCount: 2, channelCountMode: 'explicit', channelInterpretation: 'speakers' });
+    this.split = new ChannelSplitterNode(ctx, { numberOfOutputs: 2 });
+    this.up.connect(this.split);
+    this.a = [new AnalyserNode(ctx, { fftSize: 2048 }), new AnalyserNode(ctx, { fftSize: 2048 })];
+    this.buf = [new Float32Array(2048), new Float32Array(2048)];
+    this.split.connect(this.a[0], 0);
+    this.split.connect(this.a[1], 1);
+    this.tap(src);
+  }
+
+  /** Mesurer ailleurs (le master du site apres son limiteur). */
+  tap(src: AudioNode): void {
+    if (this.src) this.src.disconnect(this.up);
+    this.src = src;
+    src.connect(this.up);
+  }
+
+  /** Cretes gauche et droite (lineaires, 1 = 0 dBFS). */
+  peaks(): [number, number] {
+    return [peakOf(this.a[0], this.buf[0]), peakOf(this.a[1], this.buf[1])];
+  }
+}
+
 /* ---------------- une voie de la table ---------------- */
 
 /**
@@ -73,8 +115,7 @@ export class DjChannel {
   private filterDirect: GainNode;
   private bands = { hi: 0, mid: 0, low: 0 };
   private fader: GainNode;
-  private meter: AnalyserNode;
-  private buf: Float32Array;
+  private meter: StereoPeak;
 
   constructor(
     private ctx: AudioContext,
@@ -107,9 +148,8 @@ export class DjChannel {
     eqOut.connect(this.filterPath).connect(this.lp).connect(this.hp).connect(this.fader);
     eqOut.connect(this.filterDirect).connect(this.fader);
     this.xf = new GainNode(ctx, { gain: Math.SQRT1_2 });
-    this.meter = new AnalyserNode(ctx, { fftSize: 1024 });
-    this.buf = new Float32Array(this.meter.fftSize);
-    this.fader.connect(this.meter);
+    // Le VU mesure apres le fader : exactement ce que la voie envoie au master
+    this.meter = new StereoPeak(ctx, this.fader);
     this.fader.connect(this.xf).connect(out);
   }
 
@@ -141,9 +181,10 @@ export class DjChannel {
     glide(this.fader.gain, faderGain(x), this.ctx);
   }
 
-  /** Crete de 0 a 1 (apres le fader), pour le VU. */
+  /** Crete lineaire apres le fader (le plus fort des deux canaux), pour le VU. */
   level(): number {
-    return peakOf(this.meter, this.buf);
+    const [l, r] = this.meter.peaks();
+    return Math.max(l, r);
   }
 }
 
@@ -353,8 +394,7 @@ export class DjMixer {
   readonly ch: readonly DjChannel[];
   readonly fx: DjFx;
   private master: GainNode;
-  private meters: [AnalyserNode, AnalyserNode];
-  private bufs: [Float32Array, Float32Array];
+  private meters: StereoPeak;
 
   constructor(
     readonly ctx: AudioContext,
@@ -363,15 +403,11 @@ export class DjMixer {
     const sum = new GainNode(ctx);
     this.fx = new DjFx(ctx);
     this.master = new GainNode(ctx, { gain: 1 });
-    const split = new ChannelSplitterNode(ctx, { numberOfOutputs: 2 });
-    this.meters = [new AnalyserNode(ctx, { fftSize: 1024 }), new AnalyserNode(ctx, { fftSize: 1024 })];
-    this.bufs = [new Float32Array(1024), new Float32Array(1024)];
     sum.connect(this.fx.input);
     this.fx.output.connect(this.master);
     this.master.connect(out);
-    this.master.connect(split);
-    split.connect(this.meters[0], 0);
-    split.connect(this.meters[1], 1);
+    // Le master : ici, juste avant le limiteur du site, tant qu'on ne voit pas sa sortie (meterAfter)
+    this.meters = new StereoPeak(ctx, this.master);
     // Plus de crossfader (Mika, 2026-10-04) : chaque voie passe entiere, son fader seul compte
     this.ch = Array.from({ length: DJ_CHANNELS_MAX }, () => new DjChannel(ctx, sum));
     for (const c of this.ch) c.xf.gain.value = 1;
@@ -383,9 +419,14 @@ export class DjMixer {
     glide(this.master.gain, faderGain(x) / faderGain(MASTER_DEFAULT), this.ctx);
   }
 
-  /** Cretes gauche et droite du master (0 a 1). */
+  /** Cretes gauche et droite du master (lineaires, 1 = 0 dBFS). */
   masterLevels(): [number, number] {
-    return [peakOf(this.meters[0], this.bufs[0]), peakOf(this.meters[1], this.bufs[1])];
+    return this.meters.peaks();
+  }
+
+  /** Le VU du master mesure la sortie du limiteur du site : jamais plus que ce qui sort vraiment. */
+  meterAfter(node: AudioNode): void {
+    this.meters.tap(node);
   }
 }
 
@@ -569,6 +610,9 @@ export function djEngine(): DjEngine | null {
   const port = synthPort();
   if (!port) return null;
   const mixer = new DjMixer(port.ctx, port.input);
+  // La sortie du limiteur du site, si le port la donne (audio/drums.ts synthPort().out)
+  const post = (port as { out?: AudioNode }).out;
+  if (post) mixer.meterAfter(post);
   // Les platines sur les voies 3 a 6 ; 1 et 2 recoivent le MM-RYTM et le MM-ARP (dj/actions.ts).
   // Les quatre existent toujours : poser C ou D ne touche pas au son en cours
   const p = (d: DjDeck): DjPlayer => new DjPlayer(port.ctx, mixer.ch[deckChannel(d)]);

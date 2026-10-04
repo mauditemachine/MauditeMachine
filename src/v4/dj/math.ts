@@ -176,11 +176,25 @@ export function energy(channels: readonly Float32Array[], slices: number): Float
 
 /* ---------- VU ---------- */
 
-/** Segments allumes pour une crete lineaire : -36 dB pour le premier, 0 dB pour le dernier. */
-export function vuLeds(peak: number, segments = 15): number {
-  if (!(peak > 0)) return 0;
-  const part = (20 * Math.log10(peak) + 36) / 36;
-  return Math.max(0, Math.min(segments, Math.ceil(part * segments)));
+/**
+ * La loi des vumetres, en dBFS (2026-10-04, Mika : "je veux que ce soit
+ * precis par rapport au volume de chacun ; le rouge, c'est la
+ * saturation") : le seuil de chaque segment, du bas vers le haut. Un
+ * segment s'allume quand la crete atteint son seuil. Quinze segments :
+ * - jaune de -36 a -7.5 dBFS (dix segments, plus serres en montant) ;
+ * - orange de -6 a -2 dBFS (quatre segments) ;
+ * - rouge seulement a -1 dBFS et au-dessus : le vrai risque d'ecretage.
+ */
+export const VU_DB: readonly number[] = [-36, -30, -26, -22, -19, -16, -13, -11, -9, -7.5, -6, -4.5, -3, -2, -1];
+/** La couleur d'un segment selon son seuil. */
+export const vuZone = (db: number): 'yellow' | 'orange' | 'red' => (db >= -1 ? 'red' : db >= -6 ? 'orange' : 'yellow');
+/** Une crete lineaire (0 a 1 et plus) en dBFS ; -Infinity pour le silence. */
+export const toDbfs = (peak: number): number => (peak > 0 ? 20 * Math.log10(peak) : -Infinity);
+/** Combien de segments s'allument pour un niveau en dBFS. */
+export function vuLit(db: number): number {
+  let n = 0;
+  while (n < VU_DB.length && db >= VU_DB[n]) n += 1;
+  return n;
 }
 
 /* ---------- BPM d'un fichier ---------- */
