@@ -14,7 +14,7 @@ import { routeMachines } from '../audio/drums';
 import { sc } from '../audio/soundcloud';
 import { djEngine, djEngineIfAny, type DjEngine } from './engine';
 import { crateFile, crateLearn, setCrateBusy } from './crate';
-import { estimateBpm } from './math';
+import { beatGrid, estimateBpm, phaseShift } from './math';
 import { soundcloudBytes } from './soundcloud';
 import { DJ_ZOOMS, djState, type DjTrack } from './state';
 import { DJ_DECKS, DJ_DECKS_ALL, DJ_FX, deckChannel, djDecks, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
@@ -156,7 +156,7 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
   loads[d]?.abort();
   const ctl = new AbortController();
   loads[d] = ctl;
-  djState.setDeck(d, { playing: false, loaded: false, track, loading: 0, error: null });
+  djState.setDeck(d, { playing: false, loaded: false, track, loading: 0, error: null, beat: null, sync: false });
   try {
     let bytes: ArrayBuffer;
     if (track.source === 'file') {
@@ -175,8 +175,11 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
     let bpm = track.bpm;
     const ch0 = p.channel0;
     if (!bpm && ch0) bpm = estimateBpm(ch0, p.sampleRate);
+    // La grille des temps (SYNC cale aussi les temps) : le premier temps, et le BPM affine au centieme
+    const grid = ch0 ? beatGrid(ch0, p.sampleRate, bpm) : null;
+    if (grid) bpm = grid.bpm;
     const { cue, cues } = savedCues(track.id);
-    djState.setDeck(d, { loaded: true, loading: null, track: { ...track, bpm, duration: p.duration }, cue, cues });
+    djState.setDeck(d, { loaded: true, loading: null, track: { ...track, bpm, duration: p.duration }, cue, cues, beat: grid?.offset ?? null, sync: false });
     // La caisse apprend la duree et le BPM : le morceau n'a plus a etre analyse en fond
     if (track.source === 'file') void crateLearn(track.id, p.duration, bpm);
     p.seek(cue);
@@ -199,7 +202,7 @@ export function djPlay(d: DjDeck): void {
     return;
   }
   silenceOthers();
-  p.play();
+  p.play(syncedStart(d, e));
   djState.setDeck(d, { playing: p.playing });
 }
 
@@ -263,12 +266,16 @@ export function djHotcue(d: DjDeck, n: number): void {
     saveCues(d);
     return;
   }
-  p.seek(at);
-  if (!p.playing) {
-    silenceOthers();
-    p.play();
-    djState.setDeck(d, { playing: p.playing });
+  if (p.playing) {
+    p.seek(at);
+    // SYNC arme : le saut garde la phase (au plus un demi-temps de decalage)
+    if (ds.sync) alignNow(d, e);
+    return;
   }
+  p.seek(at);
+  silenceOthers();
+  p.play(syncedStart(d, e));
+  djState.setDeck(d, { playing: p.playing });
 }
 
 /** Un hot cue tenu longtemps s'efface. */
@@ -345,9 +352,10 @@ export function djSetTime(beats: number): void {
   djState.setTime(beats);
 }
 
+/** Le pitch a la main (fader, molette, PITCH - et +) : SYNC se desarme. */
 export function djSetPitch(d: DjDeck, v: number): void {
   engine();
-  djState.setDeck(d, { pitch: v });
+  djState.setDeck(d, { pitch: v, sync: false });
 }
 
 /**
@@ -369,12 +377,8 @@ export function djTempoStep(d: DjDeck, dir: -1 | 1, step = 0.1): void {
 
 /* ---------------- SYNC ---------------- */
 
-/**
- * Le tempo de reference pour SYNC : la platine qu'on entend le plus parmi
- * les autres, sinon le MM-RYTM et le MM-ARP s'ils tournent ; null s'il n'y a
- * rien sur quoi se caler.
- */
-export function syncBpm(d: DjDeck, s = djState.get()): number | null {
+/** La platine qu'on entend le plus parmi les autres (celle sur laquelle on se cale), ou null. */
+function syncDeck(d: DjDeck, s = djState.get()): DjDeck | null {
   let best: DjDeck | null = null;
   let w = 0;
   for (const o of DJ_DECKS_ALL) {
@@ -385,16 +389,84 @@ export function syncBpm(d: DjDeck, s = djState.get()): number | null {
       best = o;
     }
   }
-  if (best) return deckBpm(s, best);
+  return best;
+}
+
+/**
+ * Le tempo de reference pour SYNC : la platine qu'on entend le plus parmi
+ * les autres, sinon le MM-RYTM et le MM-ARP s'ils tournent ; null s'il n'y a
+ * rien sur quoi se caler.
+ */
+export function syncBpm(d: DjDeck, s = djState.get()): number | null {
+  const r = syncDeck(d, s);
+  if (r) return deckBpm(s, r);
   return clock.running ? clock.bpm : null;
 }
 
 /**
+ * Le prochain temps d'une platine, en temps reel : dans combien de
+ * secondes il tombe (si elle part maintenant, quand elle est en pause) et
+ * la periode. null sans grille.
+ */
+function deckBeat(d: DjDeck, e: DjEngine, s = djState.get()): { in: number; period: number } | null {
+  const ds = s.deck[d];
+  const p = e.decks[d];
+  if (ds.beat === null || !ds.track?.bpm || !p.loaded) return null;
+  const spb = 60 / ds.track.bpm;
+  const speed = p.speed;
+  const beats = (p.position() - ds.beat) / spb;
+  return { in: ((1 - (beats - Math.floor(beats))) * spb) / speed, period: spb / speed };
+}
+
+/** Le prochain temps de la reference (une platine, ou les machines du site), en temps reel. */
+function refBeat(d: DjDeck, e: DjEngine, s = djState.get()): { in: number; period: number } | null {
+  const r = syncDeck(d, s);
+  if (r) return deckBeat(r, e, s);
+  if (!clock.running) return null;
+  // Les machines : seize pas par mesure, un temps tous les quatre
+  const now = e.ctx.currentTime;
+  const g = clock.gridAfter(now);
+  if (!g) return null;
+  const k = (4 - (g.step % 4)) % 4;
+  return { in: g.time + k * g.dur - now, period: 4 * g.dur };
+}
+
+/** En lecture : la platine saute d'au plus un demi-temps, ses temps tombent sur ceux de la reference. */
+function alignNow(d: DjDeck, e: DjEngine): void {
+  const own = deckBeat(d, e);
+  const ref = refBeat(d, e);
+  const p = e.decks[d];
+  if (!own || !ref || !p.playing) return;
+  const shift = phaseShift(own.in, own.period, ref.in, ref.period);
+  if (Math.abs(shift) < 0.002) return;
+  p.seek(p.position() + shift * p.speed);
+}
+
+/**
+ * En pause, SYNC arme : l'instant ou partir pour que le prochain temps de
+ * la platine tombe sur un temps de la reference (au plus une periode
+ * d'attente) ; 0 (tout de suite) sans SYNC ou sans reference.
+ */
+function syncedStart(d: DjDeck, e: DjEngine): number {
+  if (!djState.get().deck[d].sync) return 0;
+  const own = deckBeat(d, e);
+  const ref = refBeat(d, e);
+  if (!own || !ref) return 0;
+  const now = e.ctx.currentTime;
+  let at = now + ref.in - own.in;
+  while (at < now + 0.01) at += ref.period;
+  return at;
+}
+
+/**
  * SYNC, le centre du jog (Mika, 2026-10-04 : le jog "pas super utile",
- * "trouve-lui une utilite") : le tempo de la platine se cale sur celui
- * qu'on entend (une autre platine, ou les machines), au double ou a la
- * moitie si c'est plus pres ; la plage du pitch s'ouvre a 16 % au besoin.
- * Le calage du temps (la phase) reste a l'oreille : BEND, ou le jog.
+ * "trouve-lui une utilite", puis "continue avec le calage des temps") : le
+ * tempo de la platine se cale sur celui qu'on entend (une autre platine, ou
+ * les machines), au double ou a la moitie si c'est plus pres ; la plage du
+ * pitch s'ouvre a 16 % au besoin. Puis les temps : en lecture, la platine
+ * saute d'au plus un demi-temps pour tomber sur ceux de la reference ; en
+ * pause, PLAY (et un hot cue) partira sur un de ses temps. SYNC reste arme
+ * tant qu'on ne touche pas au pitch.
  */
 export function djSync(d: DjDeck): void {
   const s = djState.get();
@@ -406,16 +478,28 @@ export function djSync(d: DjDeck): void {
   const pct = (ratio - 1) * 100;
   const range = Math.abs(pct) <= 8 ? ds.range : Math.abs(pct) <= 16 ? 16 : 0;
   if (range === 0) return;
-  engine();
-  djState.setDeck(d, { range, pitch: Math.max(-1, Math.min(1, pct / range)) });
+  const e = engine();
+  djState.setDeck(d, { range, pitch: Math.max(-1, Math.min(1, pct / range)), sync: true });
+  if (e && e.decks[d].playing) alignNow(d, e);
 }
 
-/** La platine est-elle calee sur ce qu'on entend (au centieme de BPM) ? */
+/**
+ * La platine est-elle calee sur ce qu'on entend ? Le tempo au centieme de
+ * BPM, et en lecture ses temps a 20 ms au plus de ceux de la reference
+ * (l'ecran rond s'allume en orange ; un nudge au jog ou a BEND l'eteint
+ * puis le rallume).
+ */
 export function djSynced(d: DjDeck, s = djState.get()): boolean {
   const ref = syncBpm(d, s);
   const own = deckBpm(s, d);
   if (!ref || !own) return false;
-  return [ref, ref * 2, ref / 2].some((r) => Math.abs(own - r) < 0.05);
+  if (![ref, ref * 2, ref / 2].some((r) => Math.abs(own - r) < 0.05)) return false;
+  const e = djEngineIfAny();
+  if (!e || !e.decks[d].playing) return true;
+  const a = deckBeat(d, e, s);
+  const b = refBeat(d, e, s);
+  if (!a || !b) return true;
+  return Math.abs(phaseShift(a.in, a.period, b.in, b.period)) < 0.02;
 }
 
 /* ---------------- des platines en plus ---------------- */

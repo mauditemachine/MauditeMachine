@@ -57,6 +57,8 @@ uniform float uWin[4];
 uniform float uCue[4];
 uniform vec4 uHot[4];
 uniform float uLoaded[4];
+uniform float uBeat[4];
+uniform float uSpb[4];
 varying vec2 vUv;
 varying float vSlot;
 
@@ -137,6 +139,14 @@ void main() {
     }
     float on = 1.0 - smoothstep(a, a + pxY * 2.0, y);
     col = mix(col, t < pos ? BONE_DIM : BONE, on);
+    // La grille des temps (SYNC) : un tic court en haut et en bas a chaque temps
+    float spb = uSpb[deck];
+    if (uBeat[deck] >= 0.0 && spb > 0.0) {
+      float k = (t - uBeat[deck]) / spb;
+      float dist = abs(k - floor(k + 0.5)) * spb / max(secPx, 1e-6);
+      float tick = (1.0 - smoothstep(0.5, 1.5, dist)) * step(0.8, y);
+      col = mix(col, BONE_DIM, tick * 0.9);
+    }
     // Les cues : un trait et un petit drapeau en haut
     float flag = step(0.82, vUv.y);
     for (int c = 0; c < 4; c++) {
@@ -185,6 +195,9 @@ export interface DjWaveState {
   window: number;
   cue: number;
   cues: readonly (number | null)[];
+  /** le premier temps (secondes) et la duree d'un temps dans la piste, ou null sans grille */
+  beat: number | null;
+  spb: number;
 }
 
 export class DjWaves {
@@ -220,6 +233,8 @@ export class DjWaves {
         uCue: { value: [-1, -1, -1, -1] },
         uHot: { value: this.hot },
         uLoaded: { value: [0, 0, 0, 0] },
+        uBeat: { value: [-1, -1, -1, -1] },
+        uSpb: { value: [0, 0, 0, 0] },
       },
     });
     this.material.name = 'djWaves';
@@ -262,6 +277,14 @@ export class DjWaves {
     const win = u.uWin.value as number[];
     const cue = u.uCue.value as number[];
     const loaded = u.uLoaded.value as number[];
+    const beat = u.uBeat.value as number[];
+    const spb = u.uSpb.value as number[];
+    const b = s.beat ?? -1;
+    if (beat[i] !== b || spb[i] !== s.spb) {
+      beat[i] = b;
+      spb[i] = s.spb;
+      return this.update(d, s) || true;
+    }
     const h = this.hot[i];
     const hv = [0, 1, 2, 3].map((k) => s.cues[k] ?? -1);
     const next = [s.loaded ? 1 : 0, Math.fround(s.position), Math.max(0.001, s.duration), s.window, s.cue];

@@ -61,6 +61,13 @@ export interface DjDeckState {
   cues: (number | null)[];
   /** la fenetre de la forme d'onde fine, en secondes (le zoom) */
   zoom: number;
+  /** le premier temps du morceau (secondes, dj/math.ts beatGrid), ou null sans grille */
+  beat: number | null;
+  /**
+   * SYNC arme : le tempo est cale ; tant que personne ne touche au pitch,
+   * PLAY part sur un temps de la reference et un hot cue garde la phase
+   */
+  sync: boolean;
 }
 
 /** Les crans du zoom de la forme d'onde fine (secondes a l'ecran), du plus pres au plus loin. */
@@ -85,7 +92,7 @@ const KEY = 'mm.v4.dj.2';
 const OLD_KEY = 'mm.v4.dj.1';
 /** Les machines : fader en haut, le son du site ne change pas ; les platines : 0.8, comme une table. */
 const channel = (fader = 0.8): DjChannelState => ({ gain: 0, hi: 0, mid: 0, low: 0, filter: 0, fader });
-const deck = (): DjDeckState => ({ pitch: 0, range: 8, playing: false, loaded: false, track: null, loading: null, error: null, cue: 0, cues: [null, null, null, null], zoom: 8 });
+const deck = (): DjDeckState => ({ pitch: 0, range: 8, playing: false, loaded: false, track: null, loading: null, error: null, cue: 0, cues: [null, null, null, null], zoom: 8, beat: null, sync: false });
 
 function fresh(): DjState {
   return {

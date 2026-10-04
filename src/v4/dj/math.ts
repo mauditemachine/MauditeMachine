@@ -230,3 +230,107 @@ export function estimateBpm(signal: Float32Array, rate: number): number | null {
   const round = Math.round(bpm);
   return Math.abs(bpm - round) < 0.3 ? round : Math.round(bpm * 10) / 10;
 }
+
+/**
+ * La grille des temps d'un morceau (2026-10-04, Mika : "continue avec le
+ * calage des temps au SYNC") : le premier temps (secondes, de 0 a une
+ * periode) et le BPM affine au centieme autour de celui qu'on connait.
+ *
+ * L'enveloppe des basses (un passe-bas a un pole vers 150 Hz : les grosses
+ * caisses), 400 trames par seconde, compressee (log), puis ses montees
+ * (onset). Pour chaque tempo essaye (le BPM connu, a plus ou moins 0.6, par
+ * pas de 0.02 : estimateBpm arrondit a l'entier a 0.3 pres), chaque trame est rangee selon sa phase dans le temps : au
+ * bon tempo, les montees s'empilent dans une meme case tout le long du
+ * morceau ; a cote, elles s'etalent. Le tempo garde est celui dont la case
+ * la plus pleine pese le plus ; a 0.06 d'un entier, l'entier (la plupart
+ * des morceaux de club). Le premier temps est le milieu de cette case.
+ * null : morceau trop court, ou pas de BPM de depart.
+ */
+export function beatGrid(signal: Float32Array, rate: number, guess: number | null): { bpm: number; offset: number } | null {
+  if (!guess || !(guess > 0)) return null;
+  const fps = 400;
+  const hop = rate / fps;
+  const frames = Math.floor(signal.length / hop);
+  if (frames < fps * 8) return null;
+  const a = 1 - Math.exp((-2 * Math.PI * 150) / rate);
+  const env = new Float32Array(frames);
+  let y = 0;
+  let i = 0;
+  for (let f = 0; f < frames; f += 1) {
+    const end = Math.floor((f + 1) * hop);
+    let e = 0;
+    let n = 0;
+    for (; i < end; i += 1) {
+      y += a * ((signal[i] ?? 0) - y);
+      e += y * y;
+      n += 1;
+    }
+    env[f] = Math.log1p((1000 * e) / Math.max(1, n));
+  }
+  const onset = new Float32Array(frames);
+  for (let f = 1; f < frames; f += 1) onset[f] = Math.max(0, env[f] - env[f - 1]);
+
+  /** La phase la plus chargee pour un tempo : son poids (part du total) et sa place (trames, depuis 0). */
+  const fold = (bpm: number): { score: number; at: number } => {
+    const period = (fps * 60) / bpm;
+    const bins = Math.max(8, Math.floor(period));
+    const k = bins / period;
+    const hist = new Float32Array(bins);
+    let total = 0;
+    for (let f = 0; f < frames; f += 1) {
+      const o = onset[f];
+      if (o === 0) continue;
+      hist[Math.min(bins - 1, Math.floor((f % period) * k))] += o;
+      total += o;
+    }
+    if (total <= 0) return { score: 0, at: 0 };
+    // Lissage circulaire (+-2 trames), puis la case la plus pleine, affinee entre ses voisines
+    const sm = new Float32Array(bins);
+    let best = 0;
+    for (let b = 0; b < bins; b += 1) {
+      let s = 0;
+      for (let d = -2; d <= 2; d += 1) s += hist[(b + d + bins) % bins] * (3 - Math.abs(d));
+      sm[b] = s;
+      if (s > sm[best]) best = b;
+    }
+    const l = sm[(best - 1 + bins) % bins];
+    const c = sm[best];
+    const r = sm[(best + 1) % bins];
+    const curve = l - 2 * c + r;
+    const shift = curve !== 0 ? Math.max(-0.5, Math.min(0.5, (0.5 * (l - r)) / curve)) : 0;
+    return { score: c / (total * 9), at: (best + 0.5 + shift) / k };
+  };
+
+  let bpm = guess;
+  let top = -1;
+  for (let s = -30; s <= 30; s += 1) {
+    const b = guess + s * 0.02;
+    const r = fold(b);
+    if (r.score > top) {
+      top = r.score;
+      bpm = b;
+    }
+  }
+  const round = Math.round(bpm);
+  bpm = Math.abs(bpm - round) <= 0.06 ? round : Math.round(bpm * 100) / 100;
+  const g = fold(bpm);
+  if (g.score <= 0) return null;
+  const spb = 60 / bpm;
+  const offset = ((g.at / fps) % spb + spb) % spb;
+  return { bpm, offset };
+}
+
+/**
+ * L'ecart de phase entre deux grilles de temps (secondes, du temps reel) :
+ * dans combien de temps tombe le prochain temps de chacune, et leurs
+ * periodes. Rend le decalage a donner a la seconde (positif : elle est en
+ * retard, il faut l'avancer), ramene dans une demi-periode de la plus
+ * courte (un morceau au double ou a la moitie du tempo se cale aussi).
+ */
+export function phaseShift(ownIn: number, ownPeriod: number, refIn: number, refPeriod: number): number {
+  const p = Math.min(ownPeriod, refPeriod);
+  if (!(p > 0)) return 0;
+  let d = (((ownIn - refIn) % p) + p) % p;
+  if (d > p / 2) d -= p;
+  return d;
+}

@@ -474,15 +474,22 @@ export class DjPlayer {
 
   position(): number {
     if (!this.playing) return this.startPos;
-    return Math.min(this.duration, this.startPos + (this.ctx.currentTime - this.startAt) * this.rate());
+    // Un depart programme (SYNC) : rien n'a encore joue avant startAt
+    return Math.min(this.duration, this.startPos + Math.max(0, this.ctx.currentTime - this.startAt) * this.rate());
   }
 
   private reanchor(): void {
+    const now = this.ctx.currentTime;
+    if (this.playing && now < this.startAt) return;
     this.startPos = this.position();
-    this.startAt = this.ctx.currentTime;
+    this.startAt = now;
   }
 
-  play(): void {
+  /**
+   * Lecture depuis startPos ; at : un instant du contexte ou partir (SYNC
+   * part sur un temps de la reference), maintenant par defaut.
+   */
+  play(at = 0): void {
     if (!this.buffer || this.playing) return;
     if (this.startPos >= this.duration - 0.05) return;
     const s = new AudioBufferSourceNode(this.ctx, { buffer: this.buffer, playbackRate: this.rate() });
@@ -495,8 +502,9 @@ export class DjPlayer {
       this.source = null;
       this.onEnd?.();
     };
-    this.startAt = this.ctx.currentTime;
-    s.start(0, this.startPos);
+    const when = Math.max(this.ctx.currentTime, at);
+    this.startAt = when;
+    s.start(when, this.startPos);
     this.source = s;
     this.playing = true;
   }

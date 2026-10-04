@@ -232,7 +232,8 @@ export class DjRig {
       const pos = p.position();
       const ds = st.deck[d];
       if (this.waves.setPeaks(d, p.loadId, p.overview, p.detail)) changed = true;
-      if (this.waves.update(d, { loaded: p.loaded && ds.loaded, position: pos, duration: p.duration, window: ds.zoom, cue: ds.cue, cues: ds.cues })) changed = true;
+      const spb = ds.track?.bpm ? 60 / ds.track.bpm : 0;
+      if (this.waves.update(d, { loaded: p.loaded && ds.loaded, position: pos, duration: p.duration, window: ds.zoom, cue: ds.cue, cues: ds.cues, beat: ds.beat, spb })) changed = true;
       // 33 tours un tiers : 0.5556 tour par seconde de musique
       const angle = pos * 2 * Math.PI * (100 / 3 / 60);
       if (this.controls.setJog(d, angle)) changed = true;
