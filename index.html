@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- Title/description statiques en EN (langue de fallback du site + celle
          vue par les crawlers sociaux). useSEO() bascule en FR/ES au mount
          selon navigator.language. Source : src/data/seo-meta.json -->
@@ -25,10 +25,16 @@
     <!-- Favicon optimisé -->
     <link rel="icon" href="%BASE_URL%logo/favicon.ico" type="image/x-icon" />
     <link rel="shortcut icon" href="%BASE_URL%logo/favicon.ico" type="image/x-icon" />
-    <link rel="apple-touch-icon" sizes="180x180" href="%BASE_URL%logo/mauditemachine-logo.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="%BASE_URL%icons/apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="%BASE_URL%logo/mauditemachine-logo.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="%BASE_URL%logo/mauditemachine-logo.png" />
     <link rel="manifest" href="/manifest.json" />
+    <!-- Sur l'ecran d'accueil de l'iPhone (2026-10-04, Mika : "comme une app qu'on ouvre en plein ecran") :
+         ouvert sans la barre de Safari, la page passe sous la barre d'etat (l'en-tete garde sa zone sure) -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Maudite" />
     <meta name="theme-color" content="#f6f1e7" />
     <meta name="format-detection" content="telephone=no" />
     <meta name="geo.placename" content="Canada · France · Spain" />

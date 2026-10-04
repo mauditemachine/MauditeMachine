@@ -73,6 +73,7 @@ import { editor } from '../state/editor';
 import { chipsLive, explode } from '../state/explode';
 import { MACHINES, focus, VOYAGER } from '../state/focus';
 import { section } from '../state/section';
+import { view } from '../state/view';
 import { voices } from '../state/voices';
 import { voyKnob, type VoyKnobId } from '../voyager/params';
 import { isSwitch } from '../voyager/theme';
@@ -514,6 +515,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
               const cur = MACHINES.indexOf(focus.machine() ?? 'mm808');
               const to = MACHINES[Math.max(0, Math.min(MACHINES.length - 1, cur + dir))];
               fired = `swipe-${to}`;
+              // Vue tournee (2026-10-04) : le glisser l'a fait tourner aussi ; la machine suivante arrive de face
+              if (view.get()) stage.orbit.reset();
               focusMachine(to);
             }
           }

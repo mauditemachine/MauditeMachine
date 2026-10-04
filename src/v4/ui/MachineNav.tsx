@@ -10,6 +10,11 @@
  * - telephone : une machine a la fois ; un selecteur sous l'en-tete
  *   (MM-808 / VOYAGER) et une fleche au bord de l'ecran montrent l'autre,
  *   un glisser horizontal y passe aussi.
+ * - desktop, vue tournee (2026-10-04, Mika : "meme quand on bouge en 3D une
+ *   machine, on devrait pouvoir aller sur les autres a gauche ou a droite") :
+ *   les voisines ne depassent plus du bord (elles passeraient devant) ; une
+ *   fleche a chaque bord les remplace : la vue revient de face et la
+ *   voisine arrive.
  * Les noms suivent leur machine a chaque frame rendue (boite projetee de
  * ses volumes, scene/hit.ts machineBox), sans rendu React.
  */
@@ -19,6 +24,7 @@ import { focusMachine } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { MACHINES, focus, type MachineId } from '../state/focus';
 import { intro } from '../state/intro';
+import { view } from '../state/view';
 import { MachineDrawer } from './MachineDrawer';
 
 const NAMES: Record<MachineId, { title: string; sub: string; aria: string }> = {
@@ -42,6 +48,7 @@ export const MachineNav: React.FC<Props> = ({ stage, mobile }) => {
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   const settled = useSyncExternalStore(focus.subscribe, focus.settled, focus.settled);
   const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
+  const moved = useSyncExternalStore(view.subscribe, view.get, view.get);
   const refs = useRef(new Map<MachineId, HTMLButtonElement>());
   const overview = !mobile && f === 'all' && settled && introState === 'done';
 
@@ -103,8 +110,28 @@ export const MachineNav: React.FC<Props> = ({ stage, mobile }) => {
     );
   }
 
+  // Desktop, vue tournee : une fleche vers chaque voisine
+  const cur = f === 'all' ? -1 : MACHINES.indexOf(f);
+  const edges = cur >= 0 && settled && introState === 'done' && moved;
+  const prev = edges && cur > 0 ? MACHINES[cur - 1] : null;
+  const next = edges && cur < MACHINES.length - 1 ? MACHINES[cur + 1] : null;
+  const go = (id: MachineId): void => {
+    stage?.orbit.reset();
+    focusMachine(id);
+  };
+
   return (
     <>
+      {prev && (
+        <button type="button" className="v4-medge" data-side="left" data-desk="1" aria-label={`Show the ${NAMES[prev].title} ${NAMES[prev].sub.toLowerCase()}`} onClick={() => go(prev)}>
+          <Chevron dir="left" />
+        </button>
+      )}
+      {next && (
+        <button type="button" className="v4-medge" data-side="right" data-desk="1" aria-label={`Show the ${NAMES[next].title} ${NAMES[next].sub.toLowerCase()}`} onClick={() => go(next)}>
+          <Chevron dir="right" />
+        </button>
+      )}
       {MACHINES.map((id) => (
         <button
           key={id}

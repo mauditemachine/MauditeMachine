@@ -20,7 +20,8 @@
 - MM-DECKS lit l'AIFF (et les WAV que le navigateur refuse) : `dj/decode.ts`, branche dans `dj/engine.ts` (chargement) et `dj/crate.ts` (analyse) ; message clair pour l'ALAC et les fichiers iTunes proteges.
 - Boutons EDIT sur les machines : la suite du MM-ARP cachee par defaut, ouverte par EDIT (bouton du plateau, touche E) ; MM-RYTM : pad EDIT au-dessus d'OPEN, editeur du motif avec velocites sur neuf niveaux (`state/editor.ts`, `ui/editorPanel.ts`, `ui/BeatEditor.tsx`, `audio/pattern.ts`, `audio/beats.ts`, `audio/house.ts`, `theme.ts`, `scene/pads.ts`, `voyager/theme.ts`, `voyager/pads.ts`, `ui/Hotspots.tsx`, `ui/VoyTwins.tsx`, `hooks/useKeys.ts`) ; le Dock du telephone reprend sa forme d'avant.
 - MM-RYTM : SOLO en mode (comme MUTE), MASTER qui coupe aussi les envois des voix, DECAY par voix (a la place du STRETCH de voix), STRETCH global en etirement granulaire facon Impulse (`audio/stretch.ts`), charleys plus forts ; sorties par machine et `routeMachines` pour la table a quatre voies du MM-DECKS (`audio/drums.ts`, `audio/synth.ts`, `audio/voicefx.ts`, `audio/shotsdsp.ts`, `audio/time.ts`, `state/voices.ts`, `actions.ts`, `theme.ts`, `scene/renderer.ts`, `scene/sequencer3d.ts`, `ui/Dock.tsx`, `ui/Hotspots.tsx`).
-- `docs/v4/spec.md` : R14-59 a R14-80.
+- PRESETS du MM-ARP et du MM-RYTM, noms au hasard facon Reddit (`state/presets.ts`, `ui/Presets.tsx`, `voyager/seq.ts` restore, `voyager/arp.ts` load) ; fleches de bord sur desktop quand la vue est tournee, vue remise de face apres un glisser au telephone (`ui/MachineNav.tsx`, `ui/Hotspots.tsx`) ; installation sur l'ecran d'accueil de l'iPhone (`public/manifest.json`, `public/icons/`, `index.html`).
+- `docs/v4/spec.md` : R14-59 a R14-83.
 
 ## 2. Decisions prises et pourquoi
 
@@ -40,6 +41,7 @@
 - Mika : essayer RANDOM sur les deux machines (styles 4x4, MOD, MODE du filtre), juger le clap.
 - Mika : ecouter aux IE900 (chorus a fond sur l'arpege, charleys transposes avec TONE, arpege et kick ensemble), juger le nouveau menu sur son iPhone, essayer RANDOM.
 - Mika : essayer EDIT sur les deux machines (suite de l'arpege, motif et velocites du RYTM), le filtre MOOG, et dire si les arcs manquent nulle part.
+- Mika : ajouter le site a l'ecran d'accueil (Safari, Partager, Sur l'ecran d'accueil) ; essayer PRESETS, SOLO, DECAY, STRETCH.
 - Sonaa (brief envoye) : jog sans le A et plus dans le style MM, potards plus gros, FILTER orange, DISTO devient OVERDRIVE (nom et son), pitch fin (123.4 atteignable).
 - Sonaa : la playlist du MM-DECKS perd le cadrage remonte apres un changement Dark / Light (la scene est recreee) ; signale.
 - Pour l'ecoute : sortie du Mac a 48 kHz (Configuration audio et MIDI) ; un DAC externe pour les IE900 plutot que la prise du Mac.

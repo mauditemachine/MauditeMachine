@@ -288,6 +288,12 @@ export const arp = {
   set(prog: readonly number[]): void {
     setProg(prog.filter((k) => k >= 0 && k < CHORDS.length).slice(0, MAX_CHORDS), true);
   },
+  /** Un preset (state/presets.ts) : la progression, sans lancer ni arreter l'arpege (vide : il s'arrete). */
+  load(prog: readonly number[]): void {
+    const p = prog.filter((k) => Number.isInteger(k) && k >= 0 && k < CHORDS.length).slice(0, MAX_CHORDS);
+    setState({ ...state, prog: p });
+    if (p.length === 0) stop();
+  },
   /** RUN/STOP : arrete ou relance ; sans progression, part sur F#m. Renvoie l'etat. */
   toggleRun(): boolean {
     if (state.running) stop();

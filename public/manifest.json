@@ -1,21 +1,18 @@
 {
+  "id": "/",
   "name": "Maudite Machine",
-  "short_name": "MM",
-  "description": "Maudite Machine, DJ et producteur | Indie dance et psy prog",
+  "short_name": "Maudite",
+  "description": "Maudite Machine, DJ et producteur | Indie dance et psy prog. Trois machines a jouer : MM-RYTM, MM-ARP, MM-DECKS.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0a0a0a",
-  "theme_color": "#0a0a0a",
+  "orientation": "any",
+  "background_color": "#141417",
+  "theme_color": "#141417",
   "icons": [
-    {
-      "src": "/logo/mauditemachine-logo.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    },
-    {
-      "src": "/logo/favicon.ico",
-      "sizes": "64x64",
-      "type": "image/x-icon"
-    }
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icons/apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
   ]
 }

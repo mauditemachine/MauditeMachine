@@ -140,6 +140,12 @@ export const seq = {
     if (state.edit && len === base.len) return;
     setState({ ...base, len });
   },
+  /** Un preset (state/presets.ts) : la suite telle qu'elle etait gardee. */
+  restore(st: Partial<SeqState>): void {
+    const buf = Array.isArray(st.buf) && st.buf.length === SEQ_MAX && st.buf.every(okStep) ? st.buf : state.buf;
+    const len = Number.isInteger(st.len) && (st.len as number) >= 1 && (st.len as number) <= SEQ_MAX ? (st.len as number) : state.len;
+    setState({ edit: st.edit === true, buf, len, has: st.has === true || st.edit === true });
+  },
   /** Tests : la suite de depart. */
   reset(): void {
     live.length = 0;
