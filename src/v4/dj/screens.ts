@@ -269,7 +269,8 @@ export class DjScreens {
     c.fillText('+', z.x + z.w * 0.83, zy);
     c.fillStyle = DIM;
     c.font = `500 24px ${FONT_MONO}`;
-    c.fillText(`${s.zoom}s`, z.x + z.w * 0.5, zy + 1);
+    // La fenetre : au dixieme sous 10 s (2.5S), en entier au-dela ; 2.49S debordait sur - et +
+    c.fillText(`${s.zoom >= 10 ? Math.round(s.zoom) : Math.round(s.zoom * 10) / 10}s`, z.x + z.w * 0.5, zy + 1);
     c.strokeStyle = FAINT;
     c.lineWidth = 2;
     c.strokeRect(z.x + 1, z.y + 1, z.w - 2, z.h - 2);

@@ -343,7 +343,8 @@ export const MIX = {
    * petit que le PLAY d'une platine, son nom (RYTM + ARP) au-dessus
    */
   play: { z: 4.62, r: 0.36, labelZ: 3.98 },
-  head: { z: -5.05 },
+  /** l'en-tete (MIXER), a la hauteur de celui des platines */
+  head: { z: -5.19 },
 };
 
 /** Les colonnes de la table pour n voies (repere du bloc). */
@@ -362,13 +363,19 @@ function placeMix(n: number): void {
 /* ---------- la platine (repere du bloc) ---------- */
 
 export const DECK = {
-  head: { z: -5.05 },
+  /**
+   * L'en-tete (DECK A...) : remonte de 0.14 (2026-10-04, Mika : "remonte un
+   * peu le titre DECK A de 10px, c'est trop colle a l'ecran" ; il touchait
+   * presque le cadre de l'ecran, a z -4.92) ; la table suit, les titres
+   * restent alignes.
+   */
+  head: { z: -5.19 },
   /**
    * Le logotype de l'en-tete (2026-10-04, Mika : "on ne voit plus le logo
    * type") : l'ecran agrandi montait sous lui (son cadre a z -4.92) ; plus
    * petit que celui de la table et remonte, il reste entier au-dessus.
    */
-  logo: { h: 0.32, z: -5.13 },
+  logo: { h: 0.32, z: -5.19 },
   /**
    * L'ecran, la moitie haute de la platine (Mika, 2026-10-04 : "trop
    * miniature, on ne voit rien ; je veux un plus grand ecran et voir la
@@ -409,7 +416,7 @@ export const DECK = {
    * avant le logo ; son nom en orange a gauche, assez grand pour se lire
    * (Mika, 2026-10-04 : il ne le voyait pas), a la place de DIGITAL DECK
    */
-  remove: { x: 1.42, z: -5.1, w: 0.72, d: 0.28 },
+  remove: { x: 1.42, z: -5.19, w: 0.72, d: 0.28 },
 } as const;
 
 /**
