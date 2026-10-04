@@ -137,10 +137,12 @@ const TAU = Math.PI * 2;
 const FM_INDEX = 1.6;
 /**
  * Potard FM (2026-10-03, Mika : "de la synthese FM, comme le Typhon") :
- * OSC 2 module la phase d'OSC 1, quelle que soit sa forme ; l'indice monte
- * avec le carre du potard jusqu'a FM_MAX radians et suit l'enveloppe du
- * filtre (35 % fixe, 65 % par elle) : l'attaque brille, la tenue s'adoucit.
- * TUNE 2 donne le rapport (x0.5, x1, x1.5, x2, x4).
+ * un operateur sinus module la phase d'OSC 1, quelle que soit sa forme ;
+ * l'indice monte avec le carre du potard jusqu'a FM_MAX radians et suit
+ * l'enveloppe du filtre (35 % fixe, 65 % par elle) : l'attaque brille, la
+ * tenue s'adoucit. RATIO (meme jour) : la frequence de l'operateur, en
+ * multiple d'OSC 1 (1/2 a 7) ; l'indice est borne pour que les bandes
+ * laterales restent sous 0.4 x la frequence d'echantillonnage interne.
  */
 const FM_MAX = 6;
 
@@ -184,7 +186,7 @@ class Voice {
     this.midi = 60;
     this.logf = Math.log(261.6);
     this.logT = this.logf;
-    this.ph = [Math.random(), Math.random()];
+    this.ph = [Math.random(), Math.random(), Math.random()];
     this.drift = [0, 0];
     this.aStage = 0;
     this.aV = 0;
@@ -223,6 +225,7 @@ class MMVoyager extends AudioWorkletProcessor {
       tune2: -12,
       mix: 0.5,
       fm: 0,
+      ratio: 1,
       fine: 15,
       glide: 0,
       cutoff: 800,
@@ -426,9 +429,10 @@ class MMVoyager extends AudioWorkletProcessor {
         // OSC 2 d'abord : il module OSC 1 en FM
         let o2 = wave(ph[1], d2, w2.cur);
         if (w2.x < 1) o2 = o2 * w2.x + wave(ph[1], d2, w2.prev) * (1 - w2.x);
-        // FM : la phase d'OSC 1 decalee par OSC 2 (indice en radians, suivi de l'enveloppe du filtre)
-        const idx = fmDepth > 0 ? fmDepth * (0.35 + 0.65 * Math.min(1, v.fV)) : 0;
-        const pm = (idx * o2) / TAU;
+        // FM : la phase d'OSC 1 decalee par l'operateur (indice en radians, suivi de l'enveloppe du filtre)
+        const dm = d1 * p.ratio;
+        const idx = fmDepth > 0 ? Math.min(fmDepth * (0.35 + 0.65 * Math.min(1, v.fV)), Math.max(0, 0.4 / dm - 1)) : 0;
+        const pm = idx > 0 ? (idx * Math.sin(TAU * ph[2])) / TAU : 0;
         let p1 = ph[0] + pm;
         p1 -= Math.floor(p1);
         const one = (w) => (w === 5 ? Math.sin(TAU * (ph[0] + FM_INDEX * o2 * 0.16 + pm)) : wave(p1, d1, w));
@@ -439,6 +443,8 @@ class MMVoyager extends AudioWorkletProcessor {
         if (ph[0] >= 1) ph[0] -= 1;
         ph[1] += d2;
         if (ph[1] >= 1) ph[1] -= 1;
+        ph[2] += dm;
+        ph[2] -= Math.floor(ph[2]);
         // Filtre en echelle : coupure (enveloppe, accent, suivi du clavier), retroaction resolue
         let fc = sm.cutoff * Math.pow(2, sm.envOct * v.fV * (0.8 + 0.2 * v.accent) + (KEY_TRACK * (v.midi - TRACK_ROOT)) / 12);
         if (fc > nyq) fc = nyq;

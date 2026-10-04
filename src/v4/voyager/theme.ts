@@ -108,8 +108,9 @@ export interface VoyKnobPlace {
 /**
  * Desktop : le panneau garde le son, en colonnes facon Moog. OSCILLATORS
  * (2026-10-03, deux oscillateurs facon Typhon) sur trois colonnes : WAVE 1,
- * WAVE 2 (les selecteurs dessines) et TUNE 2 en haut, FINE, MIX et FM
- * dessous ; puis FILTER, FILTER EG / AMP EG, EFFECTS, OUTPUT.
+ * WAVE 2 (les selecteurs dessines) et TUNE 2 en haut, FINE, MIX, FM et
+ * RATIO dessous (quatre au pas des enveloppes, 0.8) ; puis FILTER,
+ * FILTER EG / AMP EG, EFFECTS, OUTPUT.
  * L'arpegiateur (RATE MODE RANGE NOTES GATE OCTAVE GLIDE) est sur le
  * plateau, a gauche de l'ecran.
  */
@@ -123,9 +124,6 @@ const DESK_CELLS: Partial<Record<VoyKnobId, [number, number | 'mid']>> = {
   wave1: [0, 0],
   wave2: [1, 0],
   tune2: [2, 0],
-  fine: [0, 1],
-  mix: [1, 1],
-  fm: [2, 1],
   cutoff: [3, 'mid'],
   res: [4, 0],
   envAmt: [4, 1],
@@ -143,6 +141,8 @@ const DESK_CELLS: Partial<Record<VoyKnobId, [number, number | 'mid']>> = {
   reverb: [10, 1],
   volume: [11, 'mid'],
 };
+/** Seconde rangee des oscillateurs : quatre potards au pas 0.8, de la colonne 0 a la colonne 2. */
+const DESK_OSC_LOW: Partial<Record<VoyKnobId, number>> = { fine: -5.35, mix: -4.55, fm: -3.75, ratio: -2.95 };
 /** Plateau, desktop : l'arpegiateur en rangee a gauche de l'ecran. */
 const DESK_ARP_Z = 0.85;
 /** GLIDE rejoint l'arpegiateur (2026-10-03 : sa place au panneau va a FM) */
@@ -159,7 +159,7 @@ const DESK_DECK: Partial<Record<VoyKnobId, [number, number]>> = {
 /**
  * Portrait : le panneau ne garde que le son, quatre rangees (2026-10-03,
  * deux oscillateurs), chaque groupe souligne d'un crochet a son nom :
- *   OSCILLATORS (WAVE 1, WAVE 2, TUNE 2, MIX, FM)
+ *   OSCILLATORS (WAVE 1, WAVE 2, TUNE 2, MIX, FM, RATIO)
  *   FILTER (CUTOFF RES ENV AMT)          COLOR (DIST CHORUS)
  *   FILTER EG (A D S R)                  SPACE (DELAY REVERB)
  *   AMP EG (A D S R)                     PITCH (FINE GLIDE)
@@ -171,8 +171,11 @@ const PORT_PITCH = 1.15;
 const PORT_GAP = 0.5;
 /** x de la colonne k (0 a 5) d'une rangee dont le second groupe commence a split. */
 const portX = (k: number, split: number): number => -2.5 * PORT_PITCH - PORT_GAP / 2 + k * PORT_PITCH + (k >= split ? PORT_GAP : 0);
-/** Rangee des oscillateurs : les deux selecteurs (leur couronne de formes), puis TUNE 2 et MIX. */
-const PORT_OSC_X: Partial<Record<VoyKnobId, number>> = { wave1: -2.55, wave2: -0.6, tune2: 0.85, mix: 1.95, fm: 3.05 };
+/**
+ * Rangee des oscillateurs : les deux selecteurs (leur couronne de formes),
+ * puis TUNE 2, MIX, FM et RATIO au pas 0.85, RATIO sur la colonne de droite.
+ */
+const PORT_OSC_X: Partial<Record<VoyKnobId, number>> = { wave1: -2.55, wave2: -0.7, tune2: 0.575, mix: 1.425, fm: 2.275, ratio: 3.125 };
 const PORT_PANEL: Partial<Record<VoyKnobId, [number, number, number]>> = {
   cutoff: [0, 1, 3],
   res: [1, 1, 3],
@@ -237,6 +240,8 @@ export function voyKnobPlace(id: VoyKnobId): VoyKnobPlace {
   const s = VOY_KNOB.scale * k;
   const d = DESK_DECK[id];
   if (d) return { id, where: 'deck', x: d[0], z: d[1], s, labelZ: d[1] + labelBelow(id, s) };
+  const low = DESK_OSC_LOW[id];
+  if (low !== undefined) return { id, where: 'panel', x: low, z: DESK_ROWS[1], s, labelZ: DESK_ROWS[1] + labelBelow(id, s) };
   const [c, r] = DESK_CELLS[id] ?? [0, 0];
   const z = r === 'mid' ? (DESK_ROWS[0] + DESK_ROWS[1]) / 2 : DESK_ROWS[r];
   return { id, where: 'panel', x: colX(DESK_COLS, c), z, s, labelZ: z + labelBelow(id, s) };
@@ -353,7 +358,7 @@ const padGroup = (): VoyGroup => ({
 
 export const VOY_GROUPS: readonly VoyGroup[] = PORTRAIT
   ? [
-      knobGroup('OSCILLATORS', ['wave1', 'wave2', 'tune2', 'mix', 'fm']),
+      knobGroup('OSCILLATORS', ['wave1', 'wave2', 'tune2', 'mix', 'fm', 'ratio']),
       knobGroup('FILTER', ['cutoff', 'res', 'envAmt'], ['dist']),
       knobGroup('COLOR', ['dist', 'chorus'], ['cutoff']),
       knobGroup('FILTER EG', ['fA', 'fD', 'fS', 'fR']),

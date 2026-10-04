@@ -2775,13 +2775,13 @@ html:has(body.v4-active.v4-light) {
 
 /* WAVE 1 et WAVE 2 (2026-10-03) : nom, dessin de la forme en jaune Typhon, sa valeur */
 .v4-vdock-waves {
-  grid-template-columns: 1fr 1fr 0.62fr;
+  grid-template-columns: 1.25fr 1.25fr 1fr 1fr;
 }
 
-.v4-root .v4-vdock-waves .v4-dock-key {
-  flex-direction: row;
-  justify-content: center;
-  gap: 10px;
+.v4-root .v4-vdock-wv {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .v4-root .v4-vdock-wave,
@@ -2832,7 +2832,8 @@ html:has(body.v4-active.v4-light) {
   font-size: 10px;
 }
 
-.v4-root .v4-vdock-arp .v4-dock-key {
+.v4-root .v4-vdock-arp .v4-dock-key,
+.v4-root .v4-vdock-waves .v4-dock-key {
   flex-direction: column;
   gap: 1px;
 }

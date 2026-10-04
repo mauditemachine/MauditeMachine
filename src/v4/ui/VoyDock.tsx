@@ -10,7 +10,8 @@
  *   appui passe au cran suivant ;
  * - WAVE 1 et WAVE 2 (2026-10-03) : la forme de chaque oscillateur, dessinee
  *   comme sur la machine ; un appui passe a la suivante. FM a cote (la
- *   quantite de modulation, OFF 25 50 75 100 %).
+ *   quantite de modulation, OFF 25 50 75 100 %) et RATIO (le rapport de
+ *   l'operateur, 1/2 a 7).
  * Memes actions et memes stores que la machine : les deux bougent ensemble.
  * Monte seulement sur telephone, quand on utilise le Voyager (index.tsx).
  */
@@ -21,7 +22,7 @@ import type { Stage } from '../scene/renderer';
 import { arp } from '../voyager/arp';
 import { CHORDS } from '../voyager/chords';
 import { wavePoints } from '../voyager/glyphs';
-import { MODES, NOTES, OCTAVES, RANGES, RATES, WAVES1, WAVES2, stepIndex, voyParams, type VoyKnobId } from '../voyager/params';
+import { MODES, NOTES, OCTAVES, RANGES, RATES, RATIOS, WAVES1, WAVES2, stepIndex, voyParams, type VoyKnobId } from '../voyager/params';
 
 const DOCK_KEY = 'mm.v4.vdock';
 
@@ -88,6 +89,7 @@ export const VoyDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage }
   const w2 = WAVES2[stepIndex('wave2', p.wave2)];
   const fm = fmStep(p.fm);
   const fmText = fm === 0 ? 'OFF' : `${fm * 25}%`;
+  const ratio = RATIOS[stepIndex('ratio', p.ratio)];
 
   return (
     <>
@@ -141,13 +143,17 @@ export const VoyDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage }
         <div className="v4-vdock-row v4-vdock-waves" role="group" aria-label="Oscillator waves">
           <button type="button" className="v4-dock-key" aria-label={`Wave 1 ${w1.toLowerCase()}, tap for the next`} onClick={() => cycle('wave1', WAVES1.length)}>
             <span>WAVE 1</span>
-            <WaveGlyph name={w1} />
-            <span className="v4-vdock-val">{w1}</span>
+            <span className="v4-vdock-wv">
+              <WaveGlyph name={w1} />
+              <span className="v4-vdock-val">{w1}</span>
+            </span>
           </button>
           <button type="button" className="v4-dock-key" aria-label={`Wave 2 ${w2.toLowerCase()}, tap for the next`} onClick={() => cycle('wave2', WAVES2.length)}>
             <span>WAVE 2</span>
-            <WaveGlyph name={w2} />
-            <span className="v4-vdock-val">{w2}</span>
+            <span className="v4-vdock-wv">
+              <WaveGlyph name={w2} />
+              <span className="v4-vdock-val">{w2}</span>
+            </span>
           </button>
           <button
             type="button"
@@ -157,6 +163,10 @@ export const VoyDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage }
           >
             <span>FM</span>
             <span className="v4-vdock-val">{fmText}</span>
+          </button>
+          <button type="button" className="v4-dock-key" aria-label={`FM ratio ${ratio}, tap for the next`} onClick={() => cycle('ratio', RATIOS.length)}>
+            <span>RATIO</span>
+            <span className="v4-vdock-val">{ratio}</span>
           </button>
         </div>
         <div className="v4-vdock-row v4-vdock-arp" role="group" aria-label="Arpeggiator">

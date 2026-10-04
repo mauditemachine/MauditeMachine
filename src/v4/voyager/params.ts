@@ -33,6 +33,7 @@ export type VoyKnobId =
   | 'tune2'
   | 'mix'
   | 'fm'
+  | 'ratio'
   | 'fine'
   | 'octave'
   | 'glide'
@@ -84,6 +85,9 @@ export const WAVES2 = ['SINE', 'TRI', 'SAW', 'SQUARE', 'PULSE'] as const;
 /** TUNE 2 : OSC 2 par crans musicaux, toujours dans la tonalite (octave dessous, unisson, quinte, une et deux octaves). */
 export const TUNES2 = ['-1 OCT', '0', '5TH', '+1 OCT', '+2 OCT'] as const;
 const TUNE2_SEMI = [-12, 0, 7, 12, 24] as const;
+/** RATIO : frequence de l'operateur FM / OSC 1, des rapports harmoniques (le son reste dans la tonalite). */
+export const RATIOS = ['1/2', '1', '3/2', '2', '3', '7/2', '4', '5', '7'] as const;
+const RATIO_X = [0.5, 1, 1.5, 2, 3, 3.5, 4, 5, 7] as const;
 export const NOTES = ['ALL', '1', '2', '3', '4', '5', '6', '7', '8'] as const;
 
 /** Dans l'ordre de lecture du panneau (et de tabulation des jumeaux). */
@@ -97,7 +101,8 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'wave2', label: 'WAVE 2', aria: 'Oscillator 2 wave: sine, triangle, saw, square, pulse', section: 'osc', def: 2 / 4, steps: WAVES2 },
   { id: 'tune2', label: 'TUNE 2', aria: 'Oscillator 2 tuning: octave down, unison, fifth, one or two octaves up', section: 'osc', def: 0, steps: TUNES2 },
   { id: 'mix', label: 'MIX', aria: 'Oscillator mix, 1 to 2', section: 'osc', def: 0.5 },
-  { id: 'fm', label: 'FM', aria: 'FM amount, oscillator 2 modulates oscillator 1, shaped by the filter envelope', section: 'osc', def: 0 },
+  { id: 'fm', label: 'FM', aria: 'FM amount, a sine operator modulates oscillator 1, shaped by the filter envelope', section: 'osc', def: 0 },
+  { id: 'ratio', label: 'RATIO', aria: 'FM ratio, the operator frequency against oscillator 1', section: 'osc', def: 1 / 8, steps: RATIOS },
   { id: 'fine', label: 'FINE', aria: 'Fine tune, the two oscillators apart, always in key', section: 'osc', def: 0.35 },
   { id: 'octave', label: 'OCTAVE', aria: 'Octave', section: 'osc', def: 0.5, steps: OCTAVES },
   { id: 'glide', label: 'GLIDE', aria: 'Glide between notes', section: 'osc', def: 0 },
@@ -169,6 +174,8 @@ export const notesCount = (v: number): number => stepIndex('notes', v);
 export const octaveShift = (v: number): number => stepIndex('octave', v) - 2;
 /** TUNE 2 en demi-tons. */
 export const tune2Semi = (v: number): number => TUNE2_SEMI[stepIndex('tune2', v)];
+/** RATIO en multiple de la frequence d'OSC 1. */
+export const fmRatio = (v: number): number => RATIO_X[stepIndex('ratio', v)];
 
 /**
  * Les reglages du moteur (audio/moog.worklet.js), en unites physiques :
@@ -181,8 +188,9 @@ export interface EngineParams {
   /** OSC 2 en demi-tons ; MIX 0 (OSC 1) a 1 (OSC 2) */
   tune2: number;
   mix: number;
-  /** FM : 0 a 1 (l'indice suit l'enveloppe du filtre) */
+  /** FM : 0 a 1 (l'indice suit l'enveloppe du filtre) ; RATIO : operateur / OSC 1 */
   fm: number;
+  ratio: number;
   fine: number;
   glide: number;
   cutoff: number;
@@ -206,6 +214,7 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
     tune2: tune2Semi(v.tune2),
     mix: v.mix,
     fm: v.fm,
+    ratio: fmRatio(v.ratio),
     fine: fineCents(v.fine),
     glide: glideS(v.glide),
     cutoff: cutoffHz(v.cutoff),
