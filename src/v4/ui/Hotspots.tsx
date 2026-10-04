@@ -43,6 +43,7 @@ import {
   randomPattern,
   dial,
   dialValue,
+  editToggle,
   focusMachine,
   gesture,
   muteToggle,
@@ -68,6 +69,7 @@ import type { HotspotKind, HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { djLoad, type DjModules } from '../state/djload';
 import { djView } from '../dj/view';
+import { editor } from '../state/editor';
 import { chipsLive, explode } from '../state/explode';
 import { MACHINES, focus, VOYAGER } from '../state/focus';
 import { section } from '../state/section';
@@ -121,7 +123,7 @@ interface Down {
   chip?: ChipId;
   /** MM-VOYAGER : pad d'accord, CLEAR ou RANDOM */
   vpad?: number;
-  vbtn?: 'run' | 'clear' | 'random';
+  vbtn?: 'run' | 'clear' | 'random' | 'edit';
   x: number;
   y: number;
   /** encodeur (ou potard du MM-VOYAGER, v:<id>) sous le pointerdown, et sa valeur de depart */
@@ -328,6 +330,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.kind === 'vbtn' && d.vbtn === 'clear') voyClear(stage);
       else if (d.kind === 'vbtn' && d.vbtn === 'random') voyRandom(stage);
       else if (d.kind === 'vbtn' && d.vbtn === 'run') voyRun(stage);
+      else if (d.kind === 'vbtn' && d.vbtn === 'edit') editToggle('voy', stage);
+      else if (d.kind === 'edit') editToggle('mm808', stage);
       else if (d.dial) tapDial(d.dial);
       else return null;
       return d.id;
@@ -751,6 +755,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   stageRef.current = stage;
   // Deux machines (2026-10-03) : les jumeaux de la 808 ne repondent que quand on l'utilise
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
+  const edOpen = useSyncExternalStore(editor.subscribe, editor.get, editor.get);
   const off = VOYAGER && f !== 'mm808';
   const groupRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -936,6 +941,22 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
               aria-controls={`v4-section-${pad.id}`}
               onKeyDown={noRepeat}
               onClick={() => page(pad.id, stageRef.current)}
+            />
+          );
+        }
+        if (pad.kind === 'edit') {
+          return (
+            <button
+              key={id}
+              ref={refFor(id)}
+              type="button"
+              className="v4-twin"
+              data-twin="edit"
+              data-hotspot={id}
+              aria-label="Edit the pattern and its velocities, key E"
+              aria-pressed={edOpen === 'mm808'}
+              onKeyDown={noRepeat}
+              onClick={() => editToggle('mm808', stageRef.current)}
             />
           );
         }

@@ -52,6 +52,7 @@ import { context, mix } from '../audio/drums';
 import { BPM, INSTRUMENTS, pattern } from '../audio/pattern';
 import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
 import { motion } from '../state/motion';
+import { editor } from '../state/editor';
 import { explode as explodeState, voyExplode } from '../state/explode';
 import { DJ, focus, VOYAGER, type Focus, type MachineId } from '../state/focus';
 import { view } from '../state/view';
@@ -434,6 +435,7 @@ export class Stage {
   private fTo: Focus = 'mm808';
   private focusK = 1;
   private unsubFocus: () => void = () => undefined;
+  private unsubEditor: () => void = () => undefined;
   private unsubVoyExplode: () => void = () => undefined;
   private unsubView: () => void = () => undefined;
   private unsubDjUnit: () => void = () => undefined;
@@ -446,7 +448,8 @@ export class Stage {
    * suite du MM-ARP) : sa hauteur (px CSS), courante et visee, et celle de
    * l'en-tete au-dessus ; le cadrage de la machine tient entre les deux.
    */
-  private insets: Record<'voy' | 'dj', { cur: number; goal: number; top: number }> = {
+  private insets: Record<MachineId, { cur: number; goal: number; top: number }> = {
+    mm808: { cur: 0, goal: 0, top: 0 },
     voy: { cur: 0, goal: 0, top: 0 },
     dj: { cur: 0, goal: 0, top: 0 },
   };
@@ -780,6 +783,12 @@ export class Stage {
     this.applyExplode(true);
     this.unsubExplode = explodeState.subscribe(this.syncExplode);
     this.detachExplode = explodeState.attach();
+    // EDIT du MM-RYTM (2026-10-04) : allume tant que l'editeur du motif est ouvert
+    const syncEditor = (): void => {
+      if (this.pads.setEditing(editor.get() === 'mm808')) this.invalidate();
+    };
+    syncEditor();
+    this.unsubEditor = editor.subscribe(syncEditor);
     if (this.voy) {
       this.voy.listen();
       // Capot deja ouvert (reconstruction) : le cadrage de la pile ouverte
@@ -972,7 +981,7 @@ export class Stage {
     const k = this.focusK;
     let insetPx = 0;
     let headPx = 0;
-    for (const id of ['voy', 'dj'] as const) {
+    for (const id of ['mm808', 'voy', 'dj'] as const) {
       const w = (this.fFrom === id ? 1 - k : 0) + (this.fTo === id ? k : 0);
       insetPx += this.insets[id].cur * w;
       headPx += this.insets[id].top * w;
@@ -1074,10 +1083,10 @@ export class Stage {
 
   /**
    * La hauteur (px CSS) du panneau pose sous une machine en bas de l'ecran
-   * (la playlist du MM-DECKS, la suite du MM-ARP), et celle de l'en-tete en
+   * (la playlist du MM-DECKS, la suite du MM-ARP, l'editeur du MM-RYTM), et celle de l'en-tete en
    * haut : son cadrage tient entre les deux (200 ms). 0 : pas de panneau.
    */
-  setInset(id: 'voy' | 'dj', px: number, top = 0): void {
+  setInset(id: MachineId, px: number, top = 0): void {
     if (this.disposed) return;
     const st = this.insets[id];
     const goal = Math.max(0, Math.round(px));
@@ -2352,6 +2361,7 @@ export class Stage {
     this.unsubExplode();
     this.detachExplode();
     this.unsubFocus();
+    this.unsubEditor();
     this.unsubVoyExplode();
     this.unsubView();
     this.viewListeners.length = 0;

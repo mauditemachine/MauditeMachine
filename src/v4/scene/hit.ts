@@ -37,6 +37,8 @@ export type HotspotKind =
   | 'pad'
   | 'page'
   | 'open'
+  // EDIT du MM-RYTM (2026-10-04) : l'editeur du motif
+  | 'edit'
   | 'step'
   | 'run'
   | 'clear'
@@ -90,7 +92,7 @@ export interface HotspotDef {
   machine?: MachineId;
   /** MM-VOYAGER : pad d'accord (0 a 7), bouton, potard */
   vpad?: number;
-  vbtn?: 'run' | 'clear' | 'random';
+  vbtn?: 'run' | 'clear' | 'random' | 'edit';
   vknob?: VoyKnobId;
   /** MM-DECKS : l'id de la commande (dj/layout.ts) */
   dj?: string;
@@ -120,7 +122,7 @@ export interface HotspotView {
   chip?: ChipId;
   machine?: MachineId;
   vpad?: number;
-  vbtn?: 'run' | 'clear' | 'random';
+  vbtn?: 'run' | 'clear' | 'random' | 'edit';
   vknob?: VoyKnobId;
   /** rectangle cible : la boite projetee, elargie a 48 x 48 (tactile) ou 32 x 32 (souris) autour du centre */
   x: number;

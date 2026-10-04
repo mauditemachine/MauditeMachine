@@ -20,6 +20,7 @@ import { focus, VOYAGER, type Focus, type MachineId } from './state/focus';
 import { lcdMessage } from './state/lcdMessage';
 import { lcdMix } from './state/lcdMix';
 import { contactDraft, type ContactTopic } from './state/contactDraft';
+import { editor, type EditorId } from './state/editor';
 import { presskit } from './state/presskit';
 import { section } from './state/section';
 import { voices } from './state/voices';
@@ -420,6 +421,11 @@ export function escape(): boolean {
     section.set(null);
     return true;
   }
+  // Un editeur ouvert (EDIT) se ferme d'abord
+  if (editor.get() !== null) {
+    editor.close();
+    return true;
+  }
   const hood = hoodOf(hoodMachine());
   if (hood.get() === 'open') return hood.toggle();
   if (pattern.get().instrument !== null && focus.get() !== 'voy' && focus.get() !== 'dj') {
@@ -481,6 +487,25 @@ export function voyRandom(stage: Stage | null = null): void {
   arp.set(pick);
   stage?.voy?.keys.pressButton('random');
   voyMsg.show('RANDOM PATCH');
+}
+
+/**
+ * EDIT (2026-10-04, Mika : "un bouton EDIT sur la machine") : l'editeur de
+ * la machine s'ouvre ou se ferme (la suite de l'arpege du MM-ARP, le motif
+ * et ses velocites du MM-RYTM, state/editor.ts) ; le bouton s'enfonce,
+ * l'ecran le dit.
+ */
+export function editToggle(which: EditorId, stage: Stage | null = null): void {
+  gesture();
+  editor.toggle(which);
+  const on = editor.get() === which;
+  if (which === 'voy') {
+    stage?.voy?.keys.pressButton('edit');
+    voyMsg.show(on ? 'EDIT SEQUENCE' : 'EDIT CLOSED');
+  } else {
+    stage?.pads.press('edit');
+    lcdMessage.show(on ? 'EDIT PATTERN' : 'EDIT CLOSED');
+  }
 }
 
 /**

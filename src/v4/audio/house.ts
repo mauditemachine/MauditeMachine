@@ -17,7 +17,7 @@
  */
 
 import type { Inst } from '../theme';
-import { STEP_COUNT, type Steps } from './pattern';
+import { STEP_COUNT, fromLevels3, type Steps } from './pattern';
 
 export type Rand = () => number;
 type Row = number[];
@@ -176,7 +176,8 @@ function perc(r: Rand): Row {
   return fromString(pick(r, PC_FIGURES));
 }
 
-const join = (row: Row): string => row.join('');
+/** Les crans 1 2 3 (fort, moyen, doux) en niveaux du motif : 9 6 3 (audio/pattern.ts). */
+const join = (row: Row): string => fromLevels3(row.join(''));
 
 /** Un motif house complet. */
 export function houseSteps(r: Rand = Math.random): Steps {

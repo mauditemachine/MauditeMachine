@@ -175,6 +175,8 @@ export class Pads {
   private selected = -1;
   private activePage = -1;
   private open = false;
+  /** l'editeur du motif ouvert (EDIT allume) */
+  private editing = false;
   private hover = -1;
   /** respiration d'OPEN : facteur de sa lumiere orange (1 : pleine) */
   private breath = 1;
@@ -271,6 +273,7 @@ export class Pads {
     const k = PADS[i].kind;
     if (k === 'voice') return i === this.selected ? SELECTED : OFF;
     if (k === 'open') return this.open ? ORANGE_DIM : ORANGE;
+    if (k === 'edit') return this.editing ? ACTIVE : i === this.hover ? HOVER : FAINT;
     const on = i === this.activePage;
     if (on) return ACTIVE;
     return i === this.hover ? HOVER : FAINT;
@@ -417,6 +420,14 @@ export class Pads {
     return true;
   }
 
+  /** EDIT allume (yellowHi) tant que l'editeur du motif est ouvert ; true s'il faut une frame. */
+  setEditing(on: boolean): boolean {
+    if (on === this.editing) return false;
+    this.editing = on;
+    this.refresh(this.index('edit'));
+    return true;
+  }
+
   /** OPEN allume (yellowHi) pendant l'ouverture et vue ouverte. */
   setOpen(on: boolean): boolean {
     if (on === this.open) return false;
@@ -458,6 +469,7 @@ export class Pads {
       };
       if (p.kind === 'voice') return { ...base, kind: 'pad' as const, inst: p.id };
       if (p.kind === 'page') return { ...base, kind: 'page' as const, section: p.id };
+      if (p.kind === 'edit') return { ...base, kind: 'edit' as const };
       return { ...base, kind: 'open' as const };
     });
   }

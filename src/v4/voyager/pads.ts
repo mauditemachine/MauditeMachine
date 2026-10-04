@@ -49,6 +49,7 @@ const PADS = CHORDS.length;
 const BTNS = VOY_BUTTONS.length;
 const OPEN_I = VOY_BUTTONS.findIndex((b) => b.id === 'open');
 const RUN_I = VOY_BUTTONS.findIndex((b) => b.id === 'run');
+const EDIT_I = VOY_BUTTONS.findIndex((b) => b.id === 'edit');
 
 type Glow = 'off' | 'faint' | 'hover' | 'queued' | 'active' | 'flash' | 'orange' | 'orangeDim';
 const RGB: Record<Glow, readonly number[]> = {
@@ -173,6 +174,8 @@ export class VoyKeys {
   private queued = new Set<number>();
   private playing = -1;
   private running = false;
+  /** la suite de l'arpege ouverte (EDIT allume) */
+  private editing = false;
   private open = false;
   private hover = -1;
   private breath = 1;
@@ -291,6 +294,7 @@ export class VoyKeys {
   private btnRest(i: number): Glow {
     const b = VOY_BUTTONS[i];
     if (b.id === 'open') return this.open ? 'orangeDim' : 'orange';
+    if (b.id === 'edit' && this.editing) return 'active';
     return PADS + i === this.hover ? 'hover' : 'off';
   }
 
@@ -327,6 +331,14 @@ export class VoyKeys {
     if (on === this.running) return false;
     this.running = on;
     this.ledMat.color.copy(on ? this.ledOn : this.ledOff);
+    return true;
+  }
+
+  /** EDIT allume tant que la suite est ouverte (state/editor.ts) ; true s'il faut une frame. */
+  setEditing(on: boolean): boolean {
+    if (on === this.editing) return false;
+    this.editing = on;
+    this.refreshBtn(EDIT_I);
     return true;
   }
 

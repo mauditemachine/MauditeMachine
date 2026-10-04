@@ -18,7 +18,8 @@
 - MM-ARP : plus d'arcs imprimes autour des potards, les couronnes jaunes de WAVE 1 et WAVE 2 restent (`voyager/silk.ts`, `voyager/theme.ts`).
 - MM-ARP : la suite de l'arpege modifiable note par note, AUTO ou EDIT, 1 a 16 pas, silences ; panneau sous la machine sur desktop, page SEQUENCE du Dock au telephone (`voyager/seq.ts`, `voyager/chords.ts`, `voyager/arp.ts`, `ui/SeqLane.tsx`, `ui/VoyDock.tsx`, `voyager/rig.ts`, `actions.ts`, `index.tsx`, `v4.css`) ; `scene/renderer.ts` : setInset par machine (la playlist du MM-DECKS y passe aussi).
 - MM-DECKS lit l'AIFF (et les WAV que le navigateur refuse) : `dj/decode.ts`, branche dans `dj/engine.ts` (chargement) et `dj/crate.ts` (analyse) ; message clair pour l'ALAC et les fichiers iTunes proteges.
-- `docs/v4/spec.md` : R14-59 a R14-74.
+- Boutons EDIT sur les machines : la suite du MM-ARP cachee par defaut, ouverte par EDIT (bouton du plateau, touche E) ; MM-RYTM : pad EDIT au-dessus d'OPEN, editeur du motif avec velocites sur neuf niveaux (`state/editor.ts`, `ui/editorPanel.ts`, `ui/BeatEditor.tsx`, `audio/pattern.ts`, `audio/beats.ts`, `audio/house.ts`, `theme.ts`, `scene/pads.ts`, `voyager/theme.ts`, `voyager/pads.ts`, `ui/Hotspots.tsx`, `ui/VoyTwins.tsx`, `hooks/useKeys.ts`) ; le Dock du telephone reprend sa forme d'avant.
+- `docs/v4/spec.md` : R14-59 a R14-76.
 
 ## 2. Decisions prises et pourquoi
 
@@ -29,6 +30,7 @@
 - Menu desktop : la barre de liens disparait au profit du bouton MENU (comme au telephone, demande de Mika) ; Dark / Light passe dans le menu.
 - MM-ARP : un LFO plutot qu'une simple option de plus, parce que c'est lui qui fait bouger le son d'une note a l'autre (le S&H surtout, sur un arpege) ; le filtre multimode prend la place du commutateur de pente (LP 24 et LP 12 y restent) ; la troisieme rangee du panneau desktop existait deja (le bas du panneau etait vide).
 - Interpolation sinc plutot qu'Hermite : mesure faite, Hermite perd encore pres de 3 dB a 16 kHz dans le pire cas.
+- Velocites du RYTM sur neuf niveaux plutot que trois : les crans d'avant (9, 6, 3) gardent leurs gains, un motif enregistre sonne pareil ; l'appui sur la machine garde son cycle fort, moyen, doux.
 - Suite de l'arpege en degres de fa diese mineur au-dessus de la racine de l'accord, plutot qu'en notes fixes : la meme suite suit la progression et ne sort jamais de la tonalite ; AUTO joue exactement les notes d'avant (verifie sur les 8 accords). Barres a dessiner plutot qu'une grille de 21 notes : tient dans le Dock du telephone (20 px par pas a 16 pas). MODE, RANGE et NOTES repassent en AUTO (ce sont eux qui fabriquent la suite) ; la suite EDIT reste en memoire, EDIT la rappelle.
 
 ## 3. Ce qui reste a faire / points en suspens
@@ -36,7 +38,7 @@
 - MM-DECKS : fait (code a part, menu, volet, onglets verifies). Vue d'ensemble a 55 appels de dessin, c'est la somme des trois machines (desktop seulement) : laisse tel quel. Publie sans drapeau le 2026-10-04 (?dj=0 le retire). Cote Sonaa restent : jumeaux HTML et clavier des platines, IndexedDB.
 - Mika : essayer RANDOM sur les deux machines (styles 4x4, MOD, MODE du filtre), juger le clap.
 - Mika : ecouter aux IE900 (chorus a fond sur l'arpege, charleys transposes avec TONE, arpege et kick ensemble), juger le nouveau menu sur son iPhone, essayer RANDOM.
-- Mika : essayer la suite (desktop sous le MM-ARP, telephone : Dock, page SEQUENCE), le filtre MOOG, et dire si les arcs manquent nulle part.
+- Mika : essayer EDIT sur les deux machines (suite de l'arpege, motif et velocites du RYTM), le filtre MOOG, et dire si les arcs manquent nulle part.
 - Sonaa (brief envoye) : jog sans le A et plus dans le style MM, potards plus gros, FILTER orange, DISTO devient OVERDRIVE (nom et son), pitch fin (123.4 atteignable).
 - Sonaa : la playlist du MM-DECKS perd le cadrage remonte apres un changement Dark / Light (la scene est recreee) ; signale.
 - Pour l'ecoute : sortie du Mac a 48 kHz (Configuration audio et MIDI) ; un DAC externe pour les IE900 plutot que la prise du Mac.

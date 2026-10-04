@@ -44,6 +44,7 @@ import NoWebGL from './fallback/NoWebGL';
 import { useKeys } from './hooks/useKeys';
 import { useMedia } from './hooks/useMedia';
 import { Stage } from './scene/renderer';
+import { editor } from './state/editor';
 import { explode, voyExplode } from './state/explode';
 import { DJ, focus, VOYAGER } from './state/focus';
 import { FLAGS, syncFlags } from './state/flags';
@@ -56,6 +57,7 @@ import { section } from './state/section';
 import { HOOD_SECTIONS, SECTION_ROUTES, sectionFromPath, sectionTitle } from './state/sectionRoute';
 import { view } from './state/view';
 import { BACKDROP, COARSE_QUERY, COPY, MOBILE_QUERY, PORTRAIT, PRESSKIT_ROUTE, applyAppearance } from './theme';
+import { BeatPanel } from './ui/BeatEditor';
 import { MobileHeader } from './ui/MobileHeader';
 import { PcbClose } from './ui/PcbClose';
 import { Dock } from './ui/Dock';
@@ -357,6 +359,7 @@ const V4Shell: React.FC = () => {
   const viewMoved = useSyncExternalStore(view.subscribe, view.get, view.get);
   // Deux machines (2026-10-03) : celle qu'on utilise
   const machineFocus = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
+  const editorOpen = useSyncExternalStore(editor.subscribe, editor.get, editor.get);
   // Apparence (2026-10-01) : la machine se reconstruit a chaque changement
   const look = useSyncExternalStore(appearance.subscribe, appearance.get, appearance.get);
   const builtOnce = useRef(false);
@@ -506,11 +509,13 @@ const V4Shell: React.FC = () => {
           <ResetView getStage={getStage} />
           <Lcd />
           {/* Le Dock n'existe que sur la mise en page mobile : pas de rendu React par pas sur desktop ; il programme la 808 */}
-          {mobile && machineFocus !== 'voy' && machineFocus !== 'dj' && <Dock getStage={getStage} />}
+          {/* EDIT ouvert (2026-10-04) : l'editeur prend la place du Dock de sa machine */}
+          {mobile && machineFocus !== 'voy' && machineFocus !== 'dj' && editorOpen !== 'mm808' && <Dock getStage={getStage} />}
           {/* Le Voyager a le sien au telephone : accords, octave, arpege en gros boutons */}
-          {mobile && VOYAGER && machineFocus === 'voy' && <VoyDock getStage={getStage} />}
-          {/* Desktop : la suite de l'arpege sous le MM-ARP (au telephone, la page SEQUENCE du Dock) */}
-          {!mobile && VOYAGER && <SeqPanel stage={stage} />}
+          {mobile && VOYAGER && machineFocus === 'voy' && editorOpen !== 'voy' && <VoyDock getStage={getStage} />}
+          {/* Les editeurs (EDIT sur la machine) : la suite de l'arpege, le motif du MM-RYTM et ses velocites */}
+          {VOYAGER && <SeqPanel stage={stage} mobile={mobile} />}
+          <BeatPanel stage={stage} mobile={mobile} />
           {/* Le MM-DECKS : la liste des morceaux, ouverte par LOAD */}
           {DJ && (
             <Suspense fallback={null}>

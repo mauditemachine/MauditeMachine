@@ -27,7 +27,7 @@
 
 import type { Inst } from '../theme';
 import { houseSteps, type Rand } from './house';
-import { STEP_COUNT, type Steps } from './pattern';
+import { STEP_COUNT, fromLevels3, type Steps } from './pattern';
 
 export type BeatStyle = 'HOUSE' | 'TECH HOUSE' | 'TECHNO' | 'MINIMAL' | 'INDIE DANCE' | 'PROG' | 'ELECTRO';
 
@@ -39,7 +39,8 @@ const OFFBEATS = [2, 6, 10, 14] as const;
 const empty = (): Row => new Array<number>(STEP_COUNT).fill(0);
 const pick = <T>(r: Rand, xs: readonly T[]): T => xs[Math.min(xs.length - 1, Math.floor(r() * xs.length))];
 const fromString = (s: string): Row => [...s].map((c) => Number(c));
-const join = (row: Row): string => row.join('');
+/** Les crans 1 2 3 (fort, moyen, doux) en niveaux du motif : 9 6 3 (audio/pattern.ts). */
+const join = (row: Row): string => fromLevels3(row.join(''));
 
 /** Grosse caisse : les quatre temps ; une levee douce une fois sur `up`. */
 function kick(r: Rand, up: number, spots: readonly number[]): Row {

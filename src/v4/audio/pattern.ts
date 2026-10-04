@@ -18,6 +18,14 @@
  * ou 3 (doux). Un appui sur un pas vide le pose fort ; chaque appui
  * suivant baisse d'un cran, puis le vide (0 1 2 3 0). L'ancien '1' (pose)
  * reste donc un pas fort.
+ *
+ * Neuf niveaux (2026-10-04, Mika : "des editions de pattern rythmique,
+ * avec velocite") : chaque pas vaut 0 (vide) a 9 (le plus fort), dessines
+ * dans l'editeur (ui/BeatEditor.tsx). Les trois crans d'avant deviennent
+ * 9, 6 et 3, aux memes gains (le son d'un motif ne change pas) ; un appui
+ * sur un pas fait toujours vide, fort, moyen, doux, vide. Un motif de la
+ * cle '.2' est converti a la lecture (fromLevels3) ; les generateurs de
+ * RANDOM pensent toujours en 1 2 3 et convertissent a la sortie.
  */
 
 import type { Inst } from '../theme';
@@ -30,9 +38,15 @@ export const BPM = { min: 100, max: 150, initial: 130 } as const;
  * enregistres avant sont laisses de cote une fois, pour que chacun recoive
  * le motif d'arrivee.
  */
-export const STORAGE_KEY = 'mm.v4.pattern.2';
+export const STORAGE_KEY = 'mm.v4.pattern.3';
+/** La cle d'avant les neuf niveaux (velocites 1 2 3), relue une fois et convertie. */
+const LEGACY_KEY = 'mm.v4.pattern.2';
 const SAVE_DEBOUNCE_MS = 300;
-const STEPS_RE = /^[0-3]{16}$/;
+const STEPS_RE = /^[0-9]{16}$/;
+const LEGACY_RE = /^[0-3]{16}$/;
+
+/** Les trois crans d'avant (1 fort, 2 moyen, 3 doux) en niveaux : 9, 6, 3. */
+export const fromLevels3 = (s: string): string => s.replace(/[12]/g, (c) => (c === '1' ? '9' : '6'));
 
 export type Steps = Record<Inst, string>;
 
@@ -81,15 +95,15 @@ export interface PatternState extends Pattern {
  * velocites (moyen sur le temps, doux sur le "e", fort juste avant le
  * temps suivant : le roulement), charley ouvert fort sur les contretemps
  * (le ferme suivant le coupe, comme une 808), tom syncope qui monte (doux
- * sur 7, moyen sur 12, fort sur 15). Index 0 = pas 1 ; 1 fort, 2 moyen,
+ * sur 7, moyen sur 12, fort sur 15). Index 0 = pas 1 ; 9 fort, 6 moyen,
  * 3 doux.
  */
 export const DEFAULT_STEPS: Readonly<Steps> = {
-  BD: '1000100010001000',
-  SD: '0000100000001000',
-  TOM: '0000003000020010',
-  CH: '2301230123012301',
-  OH: '0010001000100010',
+  BD: '9000900090009000',
+  SD: '0000900000009000',
+  TOM: '0000003000060090',
+  CH: '6309630963096309',
+  OH: '0090009000900090',
   // Les voix du 2026-10-03 arrivent vides : le motif d'arrivee ne change pas
   CP: '0000000000000000',
   RS: '0000000000000000',
@@ -98,21 +112,24 @@ export const DEFAULT_STEPS: Readonly<Steps> = {
   PC: '0000000000000000',
 };
 
-/** Velocite du pas i de inst : 0 (vide), 1 fort, 2 moyen, 3 doux. */
+/** Velocite du pas i de inst : 0 (vide) a 9 (le plus fort). */
 export const velocity = (steps: Steps, inst: Inst, i: number): number => {
   const c = steps[inst].charCodeAt(i) - 48;
-  return c >= 0 && c <= 3 ? c : 0;
+  return c >= 0 && c <= 9 ? c : 0;
 };
+
+/** Le niveau le plus fort. */
+export const VEL_MAX = 9;
 
 /** Pas i joue par inst. */
 export const isOn = (steps: Steps, inst: Inst, i: number): boolean => velocity(steps, inst, i) > 0;
 
-/** Gain de chaque velocite (index 1 fort, 2 moyen, 3 doux ; 0 : rien). */
-export const VEL_GAIN: readonly number[] = [0, 1, 0.6, 0.32];
-/** Noms de l'ecran : STEP 05 CH MID. */
-export const VEL_NAMES: readonly string[] = ['OFF', 'HIGH', 'MID', 'LOW'];
-/** Traits de velocite au-dessus d'un pas (2026-10-01) : vide 0, fort 3, moyen 2, doux 1. */
-export const VEL_BARS: readonly number[] = [0, 3, 2, 1];
+/** Gain de chaque niveau (0 : rien) ; 9, 6 et 3 gardent ceux des crans d'avant (1, 0.6, 0.32). */
+export const VEL_GAIN: readonly number[] = [0, 0.1, 0.2, 0.32, 0.4, 0.5, 0.6, 0.72, 0.86, 1];
+/** Noms de l'ecran : STEP 05 CH MID, STEP 06 CH VEL 7. */
+export const VEL_NAMES: readonly string[] = ['OFF', 'VEL 1', 'VEL 2', 'LOW', 'VEL 4', 'VEL 5', 'MID', 'VEL 7', 'VEL 8', 'HIGH'];
+/** Traits de velocite au-dessus d'un pas (2026-10-01) : vide 0, doux 1 (1 a 3), moyen 2 (4 a 6), fort 3 (7 a 9). */
+export const VEL_BARS: readonly number[] = [0, 1, 1, 1, 2, 2, 2, 3, 3, 3];
 
 /**
  * Les effets de l'arrivee : un soupcon de SWING (55 %) pour que les
@@ -128,8 +145,8 @@ export const defaultPattern = (): Pattern => ({ bpm: BPM.initial, steps: { ...DE
 export const clampBpm = (bpm: number): number =>
   Math.min(BPM.max, Math.max(BPM.min, Math.round(Number.isFinite(bpm) ? bpm : BPM.initial)));
 
-/** Valide champ par champ ; tout ce qui manque ou cloche reprend la valeur par defaut. */
-export function validate(raw: unknown): Pattern {
+/** Valide champ par champ ; tout ce qui manque ou cloche reprend la valeur par defaut. legacy : un motif de la cle '.2' (1 2 3). */
+export function validate(raw: unknown, legacy = false): Pattern {
   const out = defaultPattern();
   if (!raw || typeof raw !== 'object') return out;
   const o = raw as { v?: unknown; bpm?: unknown; steps?: unknown };
@@ -139,7 +156,10 @@ export function validate(raw: unknown): Pattern {
     const steps = o.steps as Record<string, unknown>;
     for (const inst of INSTRUMENTS) {
       const s = steps[inst];
-      if (typeof s === 'string' && STEPS_RE.test(s)) out.steps[inst] = s;
+      if (typeof s !== 'string') continue;
+      if (legacy) {
+        if (LEGACY_RE.test(s)) out.steps[inst] = fromLevels3(s);
+      } else if (STEPS_RE.test(s)) out.steps[inst] = s;
     }
   }
   return out;
@@ -163,17 +183,21 @@ export function validateFx(raw: unknown): Fx {
   return out;
 }
 
-function readStored(): unknown {
+/** Le motif stocke ; legacy : celui de la cle '.2' (avant les neuf niveaux), a convertir. */
+function readStored(): { raw: unknown; legacy: boolean } {
   try {
     const text = window.localStorage.getItem(STORAGE_KEY);
-    return text ? JSON.parse(text) : null;
+    if (text) return { raw: JSON.parse(text), legacy: false };
+    const old = window.localStorage.getItem(LEGACY_KEY);
+    return { raw: old ? JSON.parse(old) : null, legacy: old !== null };
   } catch {
-    return null;
+    return { raw: null, legacy: false };
   }
 }
 
 export function load(): Pattern {
-  return validate(readStored());
+  const st = readStored();
+  return validate(st.raw, st.legacy);
 }
 
 /** Au millieme : le JSON reste court, un glisser donne des valeurs continues. */
@@ -195,13 +219,24 @@ export function save(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX): boolean {
 
 /**
  * Nouveau motif avec le pas i de inst au cran suivant (mise a jour
- * immuable) : vide, fort, moyen, doux, vide.
+ * immuable) : vide, fort (9), moyen (6), doux (3), vide ; un niveau
+ * dessine passe au cran en dessous.
  */
 export function toggleStep(p: Pattern, inst: Inst, i: number): Pattern {
   if (!Number.isInteger(i) || i < 0 || i >= STEP_COUNT) return p;
   const s = p.steps[inst];
-  const next = String((velocity(p.steps, inst, i) + 1) % 4);
+  const v = velocity(p.steps, inst, i);
+  const next = String(v === 0 ? 9 : v > 6 ? 6 : v > 3 ? 3 : 0);
   return { ...p, steps: { ...p.steps, [inst]: s.slice(0, i) + next + s.slice(i + 1) } };
+}
+
+/** Le pas i de inst a un niveau (0 a 9 ; 0 : vide). */
+export function setStep(p: Pattern, inst: Inst, i: number, v: number): Pattern {
+  if (!Number.isInteger(i) || i < 0 || i >= STEP_COUNT) return p;
+  const c = String(Math.max(0, Math.min(VEL_MAX, Math.round(v))));
+  const s = p.steps[inst];
+  if (s[i] === c) return p;
+  return { ...p, steps: { ...p.steps, [inst]: s.slice(0, i) + c + s.slice(i + 1) } };
 }
 
 /** Le pas i de inst vide (appui long) ; le meme motif s'il l'etait deja. */
@@ -219,9 +254,9 @@ export function clearSteps(p: Pattern): Pattern {
 
 /* ---------------- le store ---------------- */
 
-const stored = typeof window === 'undefined' ? null : readStored();
-let state: PatternState = { ...validate(stored), instrument: null };
-let fxState: Readonly<Fx> = validateFx(stored);
+const stored = typeof window === 'undefined' ? { raw: null, legacy: false } : readStored();
+let state: PatternState = { ...validate(stored.raw, stored.legacy), instrument: null };
+let fxState: Readonly<Fx> = validateFx(stored.raw);
 const listeners = new Set<() => void>();
 const fxListeners = new Set<() => void>();
 let saveTimer = 0;
@@ -297,6 +332,11 @@ export const pattern = {
   },
   toggle(inst: Inst, i: number): void {
     const next = toggleStep(state, inst, i);
+    if (next !== state) commit({ ...next, instrument: state.instrument }, true);
+  },
+  /** L'editeur (ui/BeatEditor.tsx) : un pas a un niveau, 0 a 9. */
+  set(inst: Inst, i: number, v: number): void {
+    const next = setStep(state, inst, i, v);
     if (next !== state) commit({ ...next, instrument: state.instrument }, true);
   },
   /** Appui long : le pas vide. */

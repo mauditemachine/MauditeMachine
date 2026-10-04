@@ -9,23 +9,23 @@
  * : 1 a 16 pas. Au clavier : chaque barre est un curseur (fleches haut et
  * bas, Page pour l'octave, Suppr pour un silence ; gauche et droite d'une
  * barre a l'autre). La tete de lecture suit l'arpege a l'heure audio.
- * - SeqPanel (desktop) : un panneau sous le MM-ARP quand on l'utilise ; le
- *   cadrage de la machine remonte au-dessus (Stage.setInset('voy')).
- * - variant 'dock' : la page SEQUENCE du Dock du telephone (ui/VoyDock.tsx).
+ * SeqPanel : un panneau sous le MM-ARP, cache tant que son bouton EDIT ne
+ * l'a pas ouvert (2026-10-04, Mika : "cachee, et qui s'ouvre en cliquant
+ * sur un bouton EDIT sur la machine, en desktop et en mobile") ; le
+ * cadrage de la machine remonte au-dessus (ui/editorPanel.ts). DONE, EDIT,
+ * E ou Echap le referment.
  */
 
-import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { gesture } from '../actions';
 import { context } from '../audio/drums';
 import type { Stage } from '../scene/renderer';
-import { voyExplode } from '../state/explode';
-import { focus } from '../state/focus';
-import { intro } from '../state/intro';
-import { section } from '../state/section';
+import { editor } from '../state/editor';
 import { arp } from '../voyager/arp';
 import { CHORDS, chordDegrees, degreeName } from '../voyager/chords';
 import { stepIndex, voyParams } from '../voyager/params';
 import { SEQ_MAX, SEQ_TOP, seq, type SeqStep } from '../voyager/seq';
+import { useEditorPanel } from './editorPanel';
 
 /** Tete de lecture : relue toutes les 40 ms (et les notes tirees en RAND). */
 const POLL_MS = 40;
@@ -51,7 +51,7 @@ function usePlayhead(): { pos: number; chord: number } {
 const yToDegree = (r: DOMRect, y: number): number => Math.max(0, Math.min(SEQ_TOP, Math.floor(((r.bottom - y) / r.height) * LEVELS)));
 
 interface LaneProps {
-  variant: 'desk' | 'dock';
+  variant: 'desk' | 'mobile';
 }
 
 export const SeqLane: React.FC<LaneProps> = ({ variant }) => {
@@ -149,7 +149,7 @@ export const SeqLane: React.FC<LaneProps> = ({ variant }) => {
   return (
     <div className="v4-seq-body" data-variant={variant} data-edit={s.edit ? '1' : '0'}>
       <div className="v4-seq-head">
-        {variant === 'desk' && <span className="v4-seq-title">SEQUENCE</span>}
+        <span className="v4-seq-title">SEQUENCE</span>
         <span className="v4-seq-chord" aria-live="polite" aria-label={`Notes shown on ${CHORDS[chord]?.aria ?? ''}`}>
           {label}
         </span>
@@ -175,6 +175,9 @@ export const SeqLane: React.FC<LaneProps> = ({ variant }) => {
           </button>
         </span>
         {variant === 'desk' && <span className="v4-seq-hint">Drag to draw the notes. Tap a note name for a rest.</span>}
+        <button type="button" className="v4-seq-done" aria-label="Close the sequence editor" onClick={() => editor.close()}>
+          DONE
+        </button>
       </div>
       <div
         ref={lane}
@@ -249,52 +252,15 @@ export const SeqLane: React.FC<LaneProps> = ({ variant }) => {
   );
 };
 
-const GAP = 12;
-const HEAD_PX = 56;
-
 /**
- * Le panneau du desktop, sous le MM-ARP quand on l'utilise (machine fermee,
- * aucune page ouverte). stage : la scene courante (elle est recreee au
- * changement d'apparence ; la nouvelle recoit la hauteur du panneau).
+ * Le panneau, sous le MM-ARP quand son EDIT l'a ouvert. stage : la scene
+ * courante (recreee au changement d'apparence).
  */
-export const SeqPanel: React.FC<{ stage: Stage | null }> = ({ stage }) => {
-  const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
-  const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
-  const opened = useSyncExternalStore(section.subscribe, section.get, section.get);
-  const hood = useSyncExternalStore(voyExplode.subscribe, voyExplode.get, voyExplode.get);
-  const shown = f === 'voy' && introState === 'done' && opened === null && hood === 'closed';
-  const panel = useRef<HTMLElement>(null);
-
-  // Cachee : hors du clavier et des lecteurs d'ecran (inert n'est pas type par React 18)
-  useEffect(() => {
-    const el = panel.current;
-    if (!el) return;
-    if (shown) el.removeAttribute('inert');
-    else el.setAttribute('inert', '');
-  }, [shown]);
-
-  // Sa hauteur remonte le cadrage du MM-ARP
-  useLayoutEffect(() => {
-    const el = panel.current;
-    if (!el || !stage) return undefined;
-    if (!shown) {
-      stage.setInset('voy', 0);
-      return undefined;
-    }
-    const apply = (): void => {
-      const r = el.getBoundingClientRect();
-      const host = el.offsetParent instanceof HTMLElement ? el.offsetParent.getBoundingClientRect() : { bottom: window.innerHeight };
-      stage.setInset('voy', host.bottom - r.top + GAP, HEAD_PX);
-    };
-    apply();
-    const ro = new ResizeObserver(apply);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [shown, stage]);
-
+export const SeqPanel: React.FC<{ stage: Stage | null; mobile: boolean }> = ({ stage, mobile }) => {
+  const { shown, ref } = useEditorPanel('voy', stage);
   return (
-    <section ref={panel} className="v4-seq" data-shown={shown ? '1' : '0'} aria-label="Arpeggiator sequence" aria-hidden={!shown}>
-      <SeqLane variant="desk" />
+    <section ref={ref} className="v4-seq" data-shown={shown ? '1' : '0'} aria-label="Arpeggiator sequence" aria-hidden={!shown}>
+      <SeqLane variant={mobile ? 'mobile' : 'desk'} />
     </section>
   );
 };

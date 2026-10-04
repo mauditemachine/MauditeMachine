@@ -7,7 +7,8 @@
  * referment la machine (le pad OPEN), Espace lance ou arrete le
  * sequenceur (RUN/STOP du MM-VOYAGER quand on l'utilise), R ramene la vue par defaut, Echap ferme
  * la section ouverte (sinon referme la vue eclatee, sinon deselectionne
- * l'instrument).
+ * l'instrument). E ouvre ou ferme l'editeur (EDIT) du MM-ARP ou du
+ * MM-RYTM (2026-10-04).
  * Rien ne part avec Alt, Ctrl ou Meta, dans un champ editable, ni sur une
  * repetition de touche. Espace est laisse au controle qui l'utilise deja
  * (bouton, lien, jumeau bouton ou lien) : il l'active, comme partout. Un
@@ -16,7 +17,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { escape, openToggle, padHit, page, resetView, runToggle, voyPad, voyRun } from '../actions';
+import { editToggle, escape, openToggle, padHit, page, resetView, runToggle, voyPad, voyRun } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { focus } from '../state/focus';
 import { PADS, PAGES, type PageId } from '../theme';
@@ -90,6 +91,12 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
       if ((e.key === 'o' || e.key === 'O') && focus.get() !== 'dj') {
         e.preventDefault();
         openToggle(getStage());
+        return;
+      }
+      // E (2026-10-04) : EDIT de la machine qu'on utilise (la suite du MM-ARP, le motif du MM-RYTM)
+      if ((e.key === 'e' || e.key === 'E') && (focus.get() === 'voy' || focus.get() === 'mm808')) {
+        e.preventDefault();
+        editToggle(focus.get() === 'voy' ? 'voy' : 'mm808', getStage());
         return;
       }
       if (e.key === 'r' || e.key === 'R') {

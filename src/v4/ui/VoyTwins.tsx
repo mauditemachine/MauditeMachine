@@ -10,8 +10,9 @@
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
-import { chipAction, openToggle, voyClear, voyDial, voyPad, voyRandom, voyRun } from '../actions';
+import { chipAction, editToggle, openToggle, voyClear, voyDial, voyPad, voyRandom, voyRun } from '../actions';
 import type { Stage } from '../scene/renderer';
+import { editor } from '../state/editor';
 import { chipsLive, voyExplode } from '../state/explode';
 import { focus } from '../state/focus';
 import { section } from '../state/section';
@@ -70,6 +71,7 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   const s = useSyncExternalStore(voyExplode.subscribe, voyExplode.get, voyExplode.get);
   const a = useSyncExternalStore(arp.subscribe, arp.get, arp.get);
+  const ed = useSyncExternalStore(editor.subscribe, editor.get, editor.get);
   const params = useSyncExternalStore(voyParams.subscribe, voyParams.get, voyParams.get);
   const open = useSyncExternalStore(section.subscribe, section.get, section.get);
   const els = useRef(new Map<string, HTMLElement>());
@@ -171,7 +173,24 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
             />
           );
         }
-        const label = b.id === 'run' ? (a.running ? 'Stop the arpeggiator' : 'Run the arpeggiator') : b.id === 'clear' ? 'Clear the chords' : 'Random chord progression';
+        const label =
+          b.id === 'run'
+            ? a.running
+              ? 'Stop the arpeggiator'
+              : 'Run the arpeggiator'
+            : b.id === 'clear'
+              ? 'Clear the chords'
+              : b.id === 'edit'
+                ? 'Edit the arpeggio sequence'
+                : 'Random chord progression';
+        const act = (): void =>
+          b.id === 'run'
+            ? void voyRun(stageRef.current)
+            : b.id === 'clear'
+              ? voyClear(stageRef.current)
+              : b.id === 'edit'
+                ? editToggle('voy', stageRef.current)
+                : voyRandom(stageRef.current);
         return (
           <button
             key={id}
@@ -181,9 +200,9 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
             data-twin="vbtn"
             data-hotspot={id}
             aria-label={label}
-            aria-pressed={b.id === 'run' ? a.running : undefined}
+            aria-pressed={b.id === 'run' ? a.running : b.id === 'edit' ? ed === 'voy' : undefined}
             onKeyDown={noRepeat}
-            onClick={() => (b.id === 'run' ? voyRun(stageRef.current) : b.id === 'clear' ? voyClear(stageRef.current) : voyRandom(stageRef.current))}
+            onClick={act}
           />
         );
       })}

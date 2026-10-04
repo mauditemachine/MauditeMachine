@@ -34,6 +34,7 @@ import { VoyLcd } from './lcd';
 import { voyMsg } from './msg';
 import { VoyKeys } from './pads';
 import { MODES, NOTES, RANGES, RATES, VOY_KNOBS, morphPos, notesCount, stepIndex, voyParams } from './params';
+import { editor } from '../state/editor';
 import { seq } from './seq';
 import { VoySilk } from './silk';
 import { VOY_BODY, VOY_COPY, VOY_EXPLODE, VOY_LID_W, VOY_PANEL, VOY_PCB_Y, VOY_X } from './theme';
@@ -168,6 +169,7 @@ export class VoyagerRig {
 
     this.syncKnobs();
     this.syncArp();
+    this.keys.setEditing(editor.get() === 'voy');
   }
 
   get hotspots(): readonly HotspotDef[] {
@@ -207,6 +209,7 @@ export class VoyagerRig {
     this.unsubs.push(arp.subscribe(this.syncArp));
     this.unsubs.push(voyMsg.subscribe(this.syncLcd));
     this.unsubs.push(seq.subscribe(this.syncLcd));
+    this.unsubs.push(editor.subscribe(this.syncEditor));
     this.unsubs.push(pattern.subscribe(this.syncTempo));
     this.unsubs.push(voyExplode.subscribe(this.syncExplode));
     this.applyExplode(true);
@@ -229,6 +232,11 @@ export class VoyagerRig {
       if (this.knobs.mesh.castShadow) this.opts.invalidate();
       else this.opts.repaint();
     }
+  };
+
+  /** EDIT allume tant que la suite de l'arpege est ouverte. */
+  private syncEditor = (): void => {
+    if (this.keys.setEditing(editor.get() === 'voy')) this.opts.repaint();
   };
 
   private syncArp = (): void => {

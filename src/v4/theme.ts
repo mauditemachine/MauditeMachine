@@ -636,7 +636,7 @@ export type Inst = 'BD' | 'SD' | 'TOM' | 'CH' | 'OH' | 'CP' | 'RS' | 'HT' | 'CY'
 export type PageId = 'tracks' | 'mixtapes' | 'press' | 'shows' | 'contact';
 /** Les sections du panneau : les cinq pages, GOODIES, MERCH et STUDIO (puces de la vue eclatee). */
 export type SectionId = PageId | 'goodies' | 'merch' | 'studio';
-export type PadId = Inst | PageId | 'open';
+export type PadId = Inst | PageId | 'open' | 'edit';
 
 /**
  * Pad en caoutchouc : 0.86 x 0.22 x 0.86 a coins arrondis (0.08), dome de
@@ -689,7 +689,16 @@ export interface OpenPad {
   x: number;
   z: number;
 }
-export type PadSpec = VoicePad | PagePad | OpenPad;
+/** EDIT (2026-10-04) : ouvre l'editeur du motif et de ses velocites (ui/BeatEditor.tsx). */
+export interface EditPad {
+  id: 'edit';
+  kind: 'edit';
+  label: string;
+  key: string;
+  x: number;
+  z: number;
+}
+export type PadSpec = VoicePad | PagePad | OpenPad | EditPad;
 
 /** Un pad de la grille : colonne 0 a 4, rangee 0 (voix) ou 1 (pages). */
 const padAt = (col: number, row: 0 | 1): { x: number; z: number } => ({ x: PAD.x0 + PAD.pitch * col, z: PAD.rowZ[row] });
@@ -698,7 +707,8 @@ const padAt = (col: number, row: 0 | 1): { x: number; z: number } => ({ x: PAD.x
  * Les 11 pads (2026-10-03) : dix voix sur deux rangees, BD SD TOM CH OH en
  * haut (touches A S D F G), CP RS HT CY PC dessous (Z X C V B), chacune
  * sous sa voisine (BD et CP, SD et RS, TOM et HT, CH et CY, OH et PC) ;
- * OPEN seul dans la sixieme colonne, a mi-hauteur. Les pages (TRACKS a
+ * la sixieme colonne : EDIT en haut (2026-10-04, l'editeur du motif), OPEN
+ * dessous (seul, a mi-hauteur, jusque-la). Les pages (TRACKS a
  * CONTACT) sont parties sur la carte (PAGE_CHIPS, Mika : "mets-les dans
  * OPEN") ; elles gardent les touches 1 a 5. OPEN : 6 (et O).
  */
@@ -713,7 +723,9 @@ export const PADS: readonly PadSpec[] = [
   { id: 'HT', kind: 'voice', label: 'HT', key: 'C', ...padAt(2, 1) },
   { id: 'CY', kind: 'voice', label: 'CY', key: 'V', ...padAt(3, 1) },
   { id: 'PC', kind: 'voice', label: 'PC', key: 'B', ...padAt(4, 1) },
-  { id: 'open', kind: 'open', label: 'OPEN', key: '6', x: PAD.x0 + 5 * PAD.pitch, z: (PAD.rowZ[0] + PAD.rowZ[1]) / 2 },
+  // La sixieme colonne (2026-10-04) : EDIT en haut (l'editeur du motif), OPEN dessous
+  { id: 'edit', kind: 'edit', label: 'EDIT', key: 'E', ...padAt(5, 0) },
+  { id: 'open', kind: 'open', label: 'OPEN', key: '6', ...padAt(5, 1) },
 ];
 
 /** Les cinq pages, dans l'ordre du site (onglets de la feuille, touches 1 a 5). */
@@ -1166,7 +1178,9 @@ function groupSpan(ids: readonly EncId[]): { x0: number; x1: number; mid: number
 const padLabel = (p: PadSpec): SilkText =>
   p.kind === 'voice'
     ? { text: p.label, x: p.x, z: p.z + PAD.labelDz, cap: PAD_CAP, maxW: 0.94, group: 'pads' }
-    : { text: p.label, x: p.x, z: p.z + PAD.labelDz, cap: PAD_CAP, maxW: 0.94, group: 'pads', weight: 700, ink: 'orange', alpha: 1 };
+    : p.kind === 'edit'
+      ? { text: p.label, x: p.x, z: p.z + PAD.labelDz, cap: PAD_CAP, maxW: 0.94, group: 'pads', weight: 700 }
+      : { text: p.label, x: p.x, z: p.z + PAD.labelDz, cap: PAD_CAP, maxW: 0.94, group: 'pads', weight: 700, ink: 'orange', alpha: 1 };
 
 export const SILK_TEXTS: readonly SilkText[] = [
   { text: 'MAUDITE MACHINE', x: HEAD.word.x, z: HEAD.z, cap: 0.2, align: 'left', weight: SILK.strongWeight, fallbackFor: 'wordmark' },

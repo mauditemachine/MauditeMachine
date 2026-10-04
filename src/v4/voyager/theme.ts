@@ -320,26 +320,28 @@ export const voyPadAt = (i: number): { x: number; z: number } => ({
   z: VOY_PAD.zs[Math.floor(i / VOY_PAD.perRow)],
 });
 
-export type VoyButtonId = 'run' | 'clear' | 'random' | 'open';
+export type VoyButtonId = 'run' | 'clear' | 'random' | 'edit' | 'open';
 
 /**
  * Boutons du plateau (2026-10-03 : les pages sont passees sur la carte,
- * PAGE_CHIPS) : RUN/STOP, CLEAR, RANDOM et OPEN, a droite de l'ecran
- * (desktop : l'arpegiateur a sa gauche) ou en rangee sous lui (portrait,
- * alignes sur les pads).
+ * PAGE_CHIPS) : RUN/STOP, CLEAR, RANDOM, EDIT (2026-10-04 : ouvre la suite
+ * de l'arpege, state/editor.ts) et OPEN, a droite de l'ecran (desktop :
+ * l'arpegiateur a sa gauche) ou en rangee sous lui (portrait).
  */
 export const VOY_BUTTONS: readonly { id: VoyButtonId; label: string; x: number; z: number; w: number; d: number }[] = PORTRAIT
   ? [
-      { id: 'run', label: 'RUN/STOP', x: -2.55, z: 1.6, w: 1.3, d: 0.6 },
-      { id: 'clear', label: 'CLEAR', x: -0.85, z: 1.6, w: 1.3, d: 0.6 },
-      { id: 'random', label: 'RANDOM', x: 0.85, z: 1.6, w: 1.3, d: 0.6 },
-      { id: 'open', label: 'OPEN', x: 2.55, z: 1.6, w: 1.3, d: 0.6 },
+      { id: 'run', label: 'RUN/STOP', x: -2.6, z: 1.6, w: 1.15, d: 0.6 },
+      { id: 'clear', label: 'CLEAR', x: -1.3, z: 1.6, w: 1.15, d: 0.6 },
+      { id: 'random', label: 'RANDOM', x: 0, z: 1.6, w: 1.15, d: 0.6 },
+      { id: 'edit', label: 'EDIT', x: 1.3, z: 1.6, w: 1.15, d: 0.6 },
+      { id: 'open', label: 'OPEN', x: 2.6, z: 1.6, w: 1.15, d: 0.6 },
     ]
   : [
-      { id: 'run', label: 'RUN/STOP', x: 2.65, z: 0.85, w: 0.8, d: 0.55 },
-      { id: 'clear', label: 'CLEAR', x: 3.5, z: 0.85, w: 0.8, d: 0.55 },
-      { id: 'random', label: 'RANDOM', x: 4.35, z: 0.85, w: 0.8, d: 0.55 },
-      { id: 'open', label: 'OPEN', x: 5.55, z: 0.85, w: 0.9, d: 0.55 },
+      { id: 'run', label: 'RUN/STOP', x: 2.5, z: 0.85, w: 0.7, d: 0.55 },
+      { id: 'clear', label: 'CLEAR', x: 3.25, z: 0.85, w: 0.7, d: 0.55 },
+      { id: 'random', label: 'RANDOM', x: 4.0, z: 0.85, w: 0.7, d: 0.55 },
+      { id: 'edit', label: 'EDIT', x: 4.75, z: 0.85, w: 0.7, d: 0.55 },
+      { id: 'open', label: 'OPEN', x: 5.65, z: 0.85, w: 0.9, d: 0.55 },
     ];
 export const VOY_BUTTON = { h: 0.12, radius: 0.05, labelGap: 0.2, press: 0.04 } as const;
 
