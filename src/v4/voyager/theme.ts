@@ -283,8 +283,8 @@ export const switchThrowDeg = (n: number): number => (n <= 2 ? 90 : 150);
  * Les echelles des rangees d'oscillateurs (2026-10-04, facon Mini V) :
  * RANGE, un selecteur a six crans (LO a 2') sur 180 deg, chaque cran ecrit ;
  * SEMI, quinze crans sur la course entiere, les impairs ecrits ; FINE,
- * -50 0 +50. SEMI et FINE portent le capuchon chrome du Mini V. ON : un
- * commutateur, son nom dessous, sa LED rouge au-dessus.
+ * -50 0 +50 (le capuchon noir des autres potards). ON : un commutateur,
+ * son nom dessous, sa LED rouge au-dessus.
  */
 export type VoyScale = 'range' | 'semi' | 'fine';
 export function voyScale(id: VoyKnobId): VoyScale | null {
@@ -293,7 +293,6 @@ export function voyScale(id: VoyKnobId): VoyScale | null {
   if (id === 'fine1' || id === 'fine2') return 'fine';
   return null;
 }
-export const isChromeCap = (id: VoyKnobId): boolean => voyScale(id) === 'semi' || voyScale(id) === 'fine';
 export const isOscOn = (id: VoyKnobId): boolean => id === 'on1' || id === 'on2';
 export const RANGE_THROW_DEG = 180;
 /** Course d'un potard de n crans (deg) : commutateur, RANGE, ou la course entiere. */

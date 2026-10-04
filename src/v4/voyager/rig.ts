@@ -144,7 +144,7 @@ export class VoyagerRig {
     this.keys = new VoyKeys({ tweens: opts.tweens, reduced: opts.reduced, repaint: opts.repaint, mobile: opts.mobile });
     this.lid.add(this.keys.pads, this.keys.buttons, this.keys.halos, this.keys.runLed);
     this.knobs = new VoyKnobs({ mobile: opts.mobile, castShadow: !opts.mobile });
-    this.lid.add(this.knobs.mesh, this.knobs.chrome);
+    this.lid.add(this.knobs.mesh);
     this.lcd = new VoyLcd(opts.anisotropy);
     this.lid.add(this.lcd.bezel, this.lcd.glass);
 
