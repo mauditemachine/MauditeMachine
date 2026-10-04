@@ -150,7 +150,7 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
   loads[d]?.abort();
   const ctl = new AbortController();
   loads[d] = ctl;
-  djState.setDeck(d, { playing: false, loaded: false, track, loading: 0, error: null, beat: null, sync: false });
+  djState.setDeck(d, { playing: false, loaded: false, track, loading: 0, error: null, beat: null, sync: false, loop: null });
   try {
     let bytes: ArrayBuffer;
     if (track.source === 'file') {
@@ -218,6 +218,7 @@ export function djCue(d: DjDeck, down: boolean): void {
     if (p.playing) {
       p.pause();
       p.seek(ds.cue);
+      loopFollows(d, e);
       djState.setDeck(d, { playing: false });
       return;
     }
@@ -262,11 +263,13 @@ export function djHotcue(d: DjDeck, n: number): void {
   }
   if (p.playing) {
     p.seek(at);
+    loopFollows(d, e);
     // SYNC arme : le saut garde la phase (au plus un demi-temps de decalage)
     if (ds.sync) alignNow(d, e);
     return;
   }
   p.seek(at);
+  loopFollows(d, e);
   silenceOthers();
   p.play(syncedStart(d, e));
   djState.setDeck(d, { playing: p.playing });
@@ -429,6 +432,7 @@ function alignNow(d: DjDeck, e: DjEngine): void {
   const shift = phaseShift(own.in, own.period, ref.in, ref.period);
   if (Math.abs(shift) < 0.002) return;
   p.seek(p.position() + shift * p.speed);
+  loopFollows(d, e);
 }
 
 /**
@@ -491,6 +495,43 @@ export function djSynced(d: DjDeck, s = djState.get()): boolean {
   return Math.abs(phaseShift(a.in, a.period, b.in, b.period)) < 0.02;
 }
 
+/* ---------------- LOOP ---------------- */
+
+/** Un saut hors de la boucle la quitte (dj/engine.ts seek) : le store suit. */
+function loopFollows(d: DjDeck, e: DjEngine): void {
+  if (djState.get().deck[d].loop !== null && !e.decks[d].loop) djState.setDeck(d, { loop: null });
+}
+
+/**
+ * LOOP (Mika, 2026-10-04 : "continue avec les boucles LOOP") : une boucle
+ * de n temps au temps pres. Elle part du temps ou l'on est, sur la grille
+ * des temps du morceau (celle de SYNC) ; sans grille, d'ici. Une autre
+ * longueur pendant la boucle la redimensionne depuis le meme depart ; la
+ * meme touche la quitte, et la lecture continue tout droit. La source boucle
+ * d'elle-meme, a l'echantillon pres (dj/engine.ts setLoop).
+ */
+export function djLoop(d: DjDeck, beats: number): void {
+  const e = engine();
+  const p = e?.decks[d];
+  if (!e || !p || !p.loaded) return;
+  const ds = djState.get().deck[d];
+  if (p.loop && ds.loop === beats) {
+    p.setLoop(null);
+    djState.setDeck(d, { loop: null });
+    return;
+  }
+  const spb = 60 / (ds.track?.bpm || 120);
+  let a: number;
+  if (p.loop) a = p.loop.a;
+  else {
+    const pos = p.position();
+    a = ds.beat !== null ? ds.beat + Math.floor((pos - ds.beat) / spb + 1e-6) * spb : pos;
+    if (a < 0) a = Math.max(0, a + spb);
+  }
+  p.setLoop({ a, b: Math.min(p.duration, a + beats * spb) });
+  djState.setDeck(d, { loop: p.loop ? beats : null });
+}
+
 /* ---------------- des platines en plus ---------------- */
 
 /** ADD DECK : une platine de plus a droite (C, puis D), avec sa voie au MIXER. */
@@ -512,9 +553,11 @@ export function djRemoveDeck(d: DjDeck): void {
 
 /** Aller a un instant de la piste (en lecture, elle continue de la). */
 export function djSeek(d: DjDeck, seconds: number): void {
-  const p = engine()?.decks[d];
-  if (!p || !p.loaded) return;
+  const e = engine();
+  const p = e?.decks[d];
+  if (!e || !p || !p.loaded) return;
   p.seek(seconds);
+  loopFollows(d, e);
 }
 
 /** Le doigt sur la forme d'onde, en pause : le point suit et on entend un grain (poser un cue a l'oreille). */

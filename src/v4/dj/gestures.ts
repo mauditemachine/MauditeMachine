@@ -24,7 +24,7 @@
 import type { HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { djBrowser } from './browser';
-import { djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djHotcue, djHotcueClear, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetMaster, djSetPitch, djSetTime } from './actions';
+import { djLoop, djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djHotcue, djHotcueClear, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetMaster, djSetPitch, djSetTime } from './actions';
 import { djFader, djKey, djKnob, type DjFaderSpec, type DjKeySpec, type DjKnobSpec } from './layout';
 import { djState } from './state';
 import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_DECKS_ALL, DJ_FADER, UNIT_X, type DjDeck } from './theme';
@@ -110,6 +110,7 @@ export function keyDown(k: DjKeySpec, stage: Stage | null, coarse = false): void
   } else if (t.kind === 'bend') djBend(t.deck, t.dir);
   else if (t.kind === 'time') djSetTime(t.d);
   else if (t.kind === 'sync') djSync(t.deck);
+  else if (t.kind === 'loop') djLoop(t.deck, t.beats);
   else if (t.kind === 'tempo') {
     const step = coarse ? 1 : 0.1;
     djTempoStep(t.deck, t.dir, step);

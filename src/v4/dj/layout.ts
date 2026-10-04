@@ -51,6 +51,8 @@ export type DjKeyTarget =
   | { kind: 'play'; deck: DjDeck }
   /** le centre du jog : le tempo se cale sur celui qu'on entend */
   | { kind: 'sync'; deck: DjDeck }
+  /** LOOP : une boucle de n temps, au temps pres */
+  | { kind: 'loop'; deck: DjDeck; beats: number }
   /** REMOVE, sur la derniere platine ajoutee (ajouter : le + au bord droit, dj/AddDeck.tsx) */
   | { kind: 'removedeck'; deck: DjDeck };
 
@@ -158,6 +160,10 @@ function buildKeys(): DjKeySpec[] {
       keys.push({ id: `dj-${d}-hotcue${n + 1}`, label: String(n + 1), x: ux + x, z: DECK.cues.z, w: DECK.cues.w, d: DECK.cues.d, round: false, target: { kind: 'hotcue', deck: d, n } });
     });
     // LOAD n'est plus une touche (Mika, 2026-10-04) : toucher l'ecran ouvre la playlist
+    DECK.loops.xs.forEach((x, n) => {
+      const beats = DECK.loops.beats[n];
+      keys.push({ id: `dj-${d}-loop${beats}`, label: String(beats), x: ux + x, z: DECK.loops.z, w: DECK.loops.w, d: DECK.loops.d, round: false, target: { kind: 'loop', deck: d, beats } });
+    });
     DECK.bend.xs.forEach((x, k) => {
       const dir = k === 0 ? -1 : 1;
       keys.push({ id: `dj-${d}-bend${dir < 0 ? 'm' : 'p'}`, label: dir < 0 ? '-' : '+', x: ux + x, z: DECK.bend.z, w: DECK.bend.w, d: DECK.bend.d, round: false, target: { kind: 'bend', deck: d, dir } });

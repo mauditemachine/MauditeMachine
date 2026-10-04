@@ -368,27 +368,34 @@ export const DECK = {
    * ses formes d'onde, ou la liste des morceaux (dj/TrackBrowser.tsx) ;
    * toucher l'ecran passe de l'un a l'autre.
    */
-  screen: { x: 0, z: -2.35, w: 5.6, d: 4.9 },
+  screen: { x: 0, z: -2.55, w: 5.6, d: 4.5 },
   /** hot cues : une rangee de quatre sous l'ecran, une seule couleur (Mika, 2026-10-03) */
-  cues: { xs: [-1.95, -0.65, 0.65, 1.95] as readonly number[], z: 0.72, w: 1.1, d: 0.42 },
+  cues: { xs: [-1.95, -0.65, 0.65, 1.95] as readonly number[], z: 0.3, w: 1.1, d: 0.38 },
+  /**
+   * LOOP (Mika, 2026-10-04 : "continue avec les boucles LOOP") : 1, 2, 4 et
+   * 8 temps, sous les hot cues ; la boucle part du temps ou l'on est (la
+   * grille de SYNC), une autre longueur la redimensionne, la meme touche la
+   * quitte.
+   */
+  loops: { xs: [-1.95, -0.65, 0.65, 1.95] as readonly number[], beats: [1, 2, 4, 8] as readonly number[], z: 1.2, w: 1.1, d: 0.38 },
   /**
    * le jog, sobre (Mika, 2026-10-04 : "les jogs sont moches") : un grand
    * potard des machines MM, capuchon noir cannele, jupe d'aluminium, un
    * trait os qui tourne ; au centre, l'ecran rond est la touche SYNC
    */
-  jog: { x: -0.1, z: 3.4, ring: 1.22, platter: 1.08, platterH: 0.26, center: 0.46 },
+  jog: { x: -0.1, z: 3.55, ring: 1.22, platter: 1.08, platterH: 0.26, center: 0.46 },
   /** colonne de gauche : BEND, puis CUE et PLAY, boutons ronds en metal */
-  bend: { xs: [-2.5, -1.9] as readonly number[], z: 1.78, w: 0.5, d: 0.4 },
-  cue: { x: -2.2, z: 2.95, r: 0.5 },
-  play: { x: -2.2, z: 4.4, r: 0.5 },
+  bend: { xs: [-2.5, -1.9] as readonly number[], z: 2.05, w: 0.5, d: 0.4 },
+  cue: { x: -2.2, z: 3.2, r: 0.5 },
+  play: { x: -2.2, z: 4.6, r: 0.5 },
   /** le fader de pitch, a droite du jog ; zero au milieu, LED */
-  pitch: { x: 2.2, z0: 1.65, z1: 4.05 },
+  pitch: { x: 2.2, z0: 2.0, z1: 4.2 },
   /**
    * PITCH - et + (Mika, 2026-10-04 : "je voudrais pouvoir changer le pitch
    * avec des + et des -") : deux touches nommees sous le fader, un dixieme
    * de BPM par appui, en continu tenues (Maj : un BPM).
    */
-  tempo: { xs: [1.9, 2.5] as readonly number[], z: 4.85, w: 0.52, d: 0.42 },
+  tempo: { xs: [1.9, 2.5] as readonly number[], z: 4.88, w: 0.52, d: 0.38 },
   /** REMOVE : sur la derniere platine ajoutee (C ou D), dans l'en-tete, avant le logo */
   remove: { x: 1.45, z: -5.05, w: 0.6, d: 0.28 },
 } as const;

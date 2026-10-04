@@ -175,6 +175,7 @@ export class DjRig {
       const t = k.target;
       let on = this.held.has(k.id);
       if (t.kind === 'hotcue') on = on || s.deck[t.deck].cues[t.n] !== null;
+      else if (t.kind === 'loop') on = on || s.deck[t.deck].loop === t.beats;
       else if (t.kind === 'time') on = on || s.time === t.d;
       if (this.controls.setKeyGlow(i, on ? DJ_GLOW.orange : DJ_GLOW.dim)) changed = true;
     });
@@ -236,7 +237,7 @@ export class DjRig {
       const ds = st.deck[d];
       if (this.waves.setPeaks(d, p.loadId, p.overview, p.detail)) changed = true;
       const spb = ds.track?.bpm ? 60 / ds.track.bpm : 0;
-      if (this.waves.update(d, { loaded: p.loaded && ds.loaded, position: pos, duration: p.duration, window: ds.zoom, cue: ds.cue, cues: ds.cues, beat: ds.beat, spb })) changed = true;
+      if (this.waves.update(d, { loaded: p.loaded && ds.loaded, position: pos, duration: p.duration, window: ds.zoom, cue: ds.cue, cues: ds.cues, beat: ds.beat, spb, loop: p.loop })) changed = true;
       // 33 tours un tiers : 0.5556 tour par seconde de musique
       const angle = pos * 2 * Math.PI * (100 / 3 / 60);
       if (this.controls.setJog(d, angle)) changed = true;

@@ -82,6 +82,7 @@ function deckItems(u: DjDeck): { texts: Text[]; lines: Line[]; brackets: Bracket
     const x = k.x - ux;
     if (k.target.kind === 'hotcue') texts.push({ text: k.label, x, z: k.z - k.d / 2 - 0.16, cap: 0.075, weight: 600, group: 'cues' });
     else if (k.target.kind === 'bend') texts.push({ text: k.label, x, z: k.z + k.d / 2 + 0.2, cap: 0.12, weight: 600 });
+    else if (k.target.kind === 'loop') texts.push({ text: k.label, x, z: k.z - k.d / 2 - 0.16, cap: 0.075, weight: 600, group: 'loops' });
     // CUE et PLAY / PAUSE : leur nom est grave sur le bouton (dj/controls.ts)
     else if (k.target.kind === 'removedeck') texts.push({ text: 'REMOVE', x: x - k.w / 2 - 0.12, z: k.z, cap: 0.065, weight: 700, ink: 'orange', alpha: 1, align: 'right' });
   }
@@ -90,8 +91,12 @@ function deckItems(u: DjDeck): { texts: Text[]; lines: Line[]; brackets: Bracket
   texts.push({ text: 'TOUCH CENTER TO SYNC', x: J.x, z: J.z + J.ring + 0.24, cap: 0.058, weight: 600, alpha: 0.5 });
   const C = DECK.cues;
   brackets.push({ text: 'HOT CUE', x0: C.xs[0] - C.w / 2, x1: C.xs[C.xs.length - 1] + C.w / 2, z: C.z + C.d / 2 + 0.22 });
+  // LOOP : son crochet sous la rangee, comme HOT CUE
+  const Lp = DECK.loops;
+  brackets.push({ text: 'LOOP', x0: Lp.xs[0] - Lp.w / 2, x1: Lp.xs[Lp.xs.length - 1] + Lp.w / 2, z: Lp.z + Lp.d / 2 + 0.22 });
+  // BEND : son nom entre ses deux signes, sous les touches (le crochet LOOP est au-dessus)
   const B = DECK.bend;
-  texts.push({ text: 'BEND', x: (B.xs[0] + B.xs[1]) / 2, z: B.z - B.d / 2 - 0.16, cap: 0.075, weight: 600 });
+  texts.push({ text: 'BEND', x: (B.xs[0] + B.xs[1]) / 2, z: B.z + B.d / 2 + 0.2, cap: 0.058, weight: 700 });
   // Le pitch : graduation a droite de la fente, le zero plus long ; son nom est sur ses touches
   const P = DECK.pitch;
   const n = 16;

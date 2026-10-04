@@ -55,6 +55,8 @@ function keyName(k: DjKeySpec): string {
       return `Deck ${t.deck.toUpperCase()} pitch ${t.dir < 0 ? 'down' : 'up'} 0.1 BPM (hold to repeat)`;
     case 'sync':
       return `Deck ${t.deck.toUpperCase()} sync: match the tempo you hear`;
+    case 'loop':
+      return `Deck ${t.deck.toUpperCase()} loop ${t.beats} beat${t.beats === 1 ? '' : 's'} (press again to exit)`;
     case 'removedeck':
       return `Remove deck ${t.deck.toUpperCase()}`;
   }

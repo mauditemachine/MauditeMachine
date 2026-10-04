@@ -25,6 +25,7 @@ import {
   RedFormat,
   ShaderMaterial,
   UnsignedByteType,
+  Vector2,
   Vector4,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -59,6 +60,7 @@ uniform vec4 uHot[4];
 uniform float uLoaded[4];
 uniform float uBeat[4];
 uniform float uSpb[4];
+uniform vec2 uLoop[4];
 varying vec2 vUv;
 varying float vSlot;
 
@@ -68,6 +70,7 @@ const vec3 FAINT = vec3(0.10, 0.10, 0.10);
 const vec3 ORANGE = vec3(1.0, 0.416, 0.075);
 const vec3 YELLOW = vec3(1.0, 0.843, 0.369);
 const vec3 HEAD = vec3(1.0);
+const vec3 LOOP = vec3(1.0, 0.416, 0.075);
 
 float fetchPeak(int deck, ivec2 p) {
   if (deck == 0) return texelFetch(uPeaks0, p, 0).r;
@@ -117,6 +120,9 @@ void main() {
     }
     float on = 1.0 - smoothstep(a, a + pxY * 2.0, y);
     float head = pos / dur;
+    // LOOP : la boucle en orange pale sous la piste
+    vec2 lp = uLoop[deck];
+    if (lp.y > lp.x && vUv.x >= lp.x / dur && vUv.x <= lp.y / dur) col = mix(col, LOOP, 0.35);
     col = mix(col, vUv.x < head ? BONE_DIM : BONE, on * 0.9);
     for (int c = 0; c < 4; c++) {
       float t = uHot[deck][c];
@@ -138,6 +144,12 @@ void main() {
       if (fi >= 0.0 && fi < len) a = max(a, peak(deck, 1, int(fi)));
     }
     float on = 1.0 - smoothstep(a, a + pxY * 2.0, y);
+    // LOOP : le fond de la boucle en orange sombre, ses bornes en trait orange
+    vec2 lp = uLoop[deck];
+    if (lp.y > lp.x) {
+      if (t >= lp.x && t < lp.y) col = LOOP * 0.22;
+      col = mix(col, LOOP, max(line(vUv.x, 0.5 + (lp.x - pos) / win, pxX, 2.0), line(vUv.x, 0.5 + (lp.y - pos) / win, pxX, 2.0)));
+    }
     col = mix(col, t < pos ? BONE_DIM : BONE, on);
     // La grille des temps (SYNC) : un tic court en haut et en bas a chaque temps
     float spb = uSpb[deck];
@@ -198,6 +210,8 @@ export interface DjWaveState {
   /** le premier temps (secondes) et la duree d'un temps dans la piste, ou null sans grille */
   beat: number | null;
   spb: number;
+  /** la boucle (secondes de la piste), ou null */
+  loop: { a: number; b: number } | null;
 }
 
 export class DjWaves {
@@ -235,6 +249,7 @@ export class DjWaves {
         uLoaded: { value: [0, 0, 0, 0] },
         uBeat: { value: [-1, -1, -1, -1] },
         uSpb: { value: [0, 0, 0, 0] },
+        uLoop: { value: [new Vector2(), new Vector2(), new Vector2(), new Vector2()] },
       },
     });
     this.material.name = 'djWaves';
@@ -279,6 +294,14 @@ export class DjWaves {
     const loaded = u.uLoaded.value as number[];
     const beat = u.uBeat.value as number[];
     const spb = u.uSpb.value as number[];
+    const lp = (u.uLoop.value as Vector2[])[i];
+    const la = s.loop ? s.loop.a : 0;
+    const lb = s.loop ? s.loop.b : 0;
+    if (lp.x !== la || lp.y !== lb) {
+      lp.set(la, lb);
+      this.update(d, { ...s });
+      return true;
+    }
     const b = s.beat ?? -1;
     if (beat[i] !== b || spb[i] !== s.spb) {
       beat[i] = b;

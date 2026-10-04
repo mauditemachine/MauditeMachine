@@ -14,6 +14,7 @@
  *   E  browse A        I  browse B
  *   Z X  tempo - + 0.1 BPM (Maj : 1 BPM)   N M
  *   D  sync            J  sync
+ *   F  loop 4 temps    H  loop 4 temps
  *   Espace : PLAY de la derniere platine touchee
  *   - et = : zoom des formes d'onde
  */
@@ -54,6 +55,9 @@ const MAP: Readonly<Record<string, string>> = {
   // SYNC : le centre du jog
   KeyD: 'dj-a-sync',
   KeyJ: 'dj-b-sync',
+  // LOOP de quatre temps (les autres longueurs : les touches de la platine)
+  KeyF: 'dj-a-loop4',
+  KeyH: 'dj-b-loop4',
 };
 
 /** La legende, pour l'aide a l'ecran (touches lues en QWERTY). */
@@ -65,6 +69,7 @@ export const DJ_KEY_LEGEND: readonly { keys: string; what: string }[] = [
   { keys: 'E  /  I', what: 'Browse on deck A / B' },
   { keys: 'Z X  /  N M', what: 'Pitch - + 0.1 BPM A / B (Shift: 1 BPM)' },
   { keys: 'D  /  J', what: 'Sync A / B to the tempo you hear' },
+  { keys: 'F  /  H', what: 'Loop 4 beats on A / B (again: exit)' },
   { keys: 'Space', what: 'Play the last deck used' },
   { keys: '-  =', what: 'Waveform zoom' },
 ];

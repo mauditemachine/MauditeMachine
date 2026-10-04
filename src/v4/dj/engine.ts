@@ -440,6 +440,12 @@ export class DjPlayer {
   private startAt = 0;
   private pitch = 0;
   private bendF = 0;
+  /**
+   * La boucle (2026-10-04, Mika : "continue avec les boucles LOOP") : de a
+   * a b, en secondes de la piste ; la source boucle d'elle-meme, a
+   * l'echantillon pres (loopStart, loopEnd). null : pas de boucle.
+   */
+  private loopAB: { a: number; b: number } | null = null;
   /** la forme d'onde de toute la piste (energie, math.ts energy) */
   overview: Float32Array = new Float32Array(0);
   /** la forme d'onde fine (DETAIL_RATE tranches par seconde) */
@@ -474,6 +480,7 @@ export class DjPlayer {
   /** Decode des octets (un fichier, ou un telechargement) et les pose sur la platine. */
   async load(bytes: ArrayBuffer): Promise<void> {
     this.pause();
+    this.loopAB = null;
     this.buffer = null;
     this.startPos = 0;
     // Le navigateur, puis notre decodeur (AIFF, WAV atypiques) : dj/decode.ts
@@ -487,6 +494,7 @@ export class DjPlayer {
 
   unload(): void {
     this.pause();
+    this.loopAB = null;
     this.buffer = null;
     this.startPos = 0;
     this.overview = new Float32Array(0);
@@ -506,7 +514,37 @@ export class DjPlayer {
   position(): number {
     if (!this.playing) return this.startPos;
     // Un depart programme (SYNC) : rien n'a encore joue avant startAt
-    return Math.min(this.duration, this.startPos + Math.max(0, this.ctx.currentTime - this.startAt) * this.rate());
+    const p = this.startPos + Math.max(0, this.ctx.currentTime - this.startAt) * this.rate();
+    // Dans une boucle, la tete revient a a chaque fois qu'elle atteint b
+    const L = this.loopAB;
+    if (L && this.startPos < L.b && p >= L.b) return L.a + ((p - L.a) % (L.b - L.a));
+    return Math.min(this.duration, p);
+  }
+
+  /** La boucle du moment, ou null. */
+  get loop(): { a: number; b: number } | null {
+    return this.loopAB;
+  }
+
+  /**
+   * Pose une boucle de a a b (secondes de la piste), ou la retire (null) ;
+   * en lecture, la source la prend tout de suite. Une boucle qui raccourcit
+   * sous la tete la ramene dedans.
+   */
+  setLoop(L: { a: number; b: number } | null): void {
+    if (L && (!(L.b > L.a) || L.a < 0 || L.b > this.duration)) L = null;
+    const here = this.position();
+    this.reanchor();
+    this.loopAB = L;
+    const s = this.source;
+    if (s) {
+      if (L) {
+        s.loopStart = L.a;
+        s.loopEnd = L.b;
+        s.loop = true;
+      } else s.loop = false;
+    }
+    if (L && (here >= L.b || here < L.a)) this.seek(here >= L.b ? L.a + ((here - L.a) % (L.b - L.a)) : L.a);
   }
 
   private reanchor(): void {
@@ -524,6 +562,12 @@ export class DjPlayer {
     if (!this.buffer || this.playing) return;
     if (this.startPos >= this.duration - 0.05) return;
     const s = new AudioBufferSourceNode(this.ctx, { buffer: this.buffer, playbackRate: this.rate() });
+    // Une boucle posee : la nouvelle source boucle aussi
+    if (this.loopAB) {
+      s.loopStart = this.loopAB.a;
+      s.loopEnd = this.loopAB.b;
+      s.loop = true;
+    }
     s.connect(this.ch.input);
     const token = ++this.token;
     s.onended = () => {
@@ -552,6 +596,8 @@ export class DjPlayer {
 
   seek(seconds: number): void {
     const t = Math.max(0, Math.min(this.duration, seconds));
+    // Aller hors de la boucle la quitte (un hot cue, la piste touchee, un recalage)
+    if (this.loopAB && (t < this.loopAB.a || t >= this.loopAB.b)) this.loopAB = null;
     if (this.playing) {
       this.pause();
       this.startPos = t;
