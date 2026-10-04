@@ -9,7 +9,9 @@
 - Menu desktop : le bouton MENU ouvre le meme menu plein ecran que le telephone, mis a l'echelle (titres a gauche jusqu'a 96 px, capot, reseaux et pied a droite) ; un seul composant pour les deux (`ui/MenuSheet.tsx`, `ui/Header.tsx`, `ui/MobileHeader.tsx`, `v4.css`).
 - MM-RYTM : clap adouci (5.5 dB plus bas, moins sature) ; RANDOM tire un style 4x4 (house, tech house, techno, minimal, indie dance, prog, electro) et le TONE et le VOLUME de chaque voix (`audio/beats.ts`, `audio/shotsdsp.ts`, `actions.ts`).
 - MM-ARP : volumes OSC 1 et OSC 2 (a la place de MIX), filtre multimode LP 24 / LP 12 / BP / HP (a la place de SLOPE), section MOD (LFO cale sur le tempo : SPEED, SHAPE avec S&H, TARGET, DEPTH), RANDOM les tire aussi ; panneau desktop sur trois rangees, telephone a huit potards par rangee, GLIDE dans l'arpegiateur (`audio/moog.worklet.js`, `audio/synth.ts`, `voyager/params.ts`, `voyager/theme.ts`, `voyager/silk.ts`, `voyager/knobs.ts`, `voyager/random.ts`, `ui/Hotspots.tsx`).
-- `docs/v4/spec.md` : R14-59 a R14-66.
+- MM-ARP : hierarchie des potards (cinq tailles, CUTOFF en heros, arcs imprimes facon Typhon autour des moyens et petits), compositions desktop et telephone refaites (`voyager/theme.ts`, `voyager/silk.ts`, `voyager/params.ts`).
+- Deck (troisieme machine, session Sonaa) : partage convenu ; la session Sonaa generalise 2 -> N machines dans sa branche, je fusionnerai et soignerai l'accueil (onglets, volet, vue d'ensemble, menu, Dock).
+- `docs/v4/spec.md` : R14-59 a R14-67.
 
 ## 2. Decisions prises et pourquoi
 

@@ -40,8 +40,10 @@ import {
   VOY_SEL,
   VOY_SWITCH,
   isSelector,
+  VOY_ARC,
   isBigKnob,
   isSwitch,
+  knobSize,
   switchThrowDeg,
   voyKnobPlace,
   voyPadAt,
@@ -284,6 +286,22 @@ export class VoySilk {
         ctx.stroke();
       });
     }
+    // Les arcs imprimes des potards moyens et petits (2026-10-04, comme les anneaux du Typhon)
+    const lightArc = APPEARANCE.current === 'light';
+    ctx.lineCap = 'round';
+    for (const k of VOY_KNOBS) {
+      if (isSelector(k.id) || isSwitch(k.id) || isBigKnob(k.id)) continue;
+      const p = voyKnobPlace(k.id);
+      if (p.where !== this.kind) continue;
+      const r = (VOY_KNOB.skirt.r * p.s + VOY_ARC.gap) * PPU;
+      ctx.strokeStyle = lightArc ? silkA(VOY_ARC.lightAlpha) : VOY_ARC.dark;
+      ctx.lineWidth = Math.max(1, VOY_ARC.width[knobSize(k.id) === 'm' ? 'm' : 's'] * PPU);
+      ctx.beginPath();
+      // 270 deg par le haut, de sept heures et demie a quatre heures et demie (angles du canvas : y vers le bas)
+      ctx.arc(this.px(p.x), this.py(p.z), r, (-225 * Math.PI) / 180, (45 * Math.PI) / 180);
+      ctx.stroke();
+    }
+    ctx.lineCap = 'butt';
     this.selectors();
     if (this.kind === 'panel') {
       // Wordmark a gauche, logotype a droite (comme la 808)

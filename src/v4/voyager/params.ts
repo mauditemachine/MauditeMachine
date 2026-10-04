@@ -84,8 +84,6 @@ export interface VoyKnob {
   steps?: readonly string[];
   /** morphing (WAVE 1 et 2, 2026-10-03, facon Typhon) : continu, ses crans ne sont que des reperes */
   morph?: boolean;
-  /** le gros potard du filtre */
-  big?: boolean;
 }
 
 export const RATES = ['1/4', '1/8', '1/16', '1/32'] as const;
@@ -132,7 +130,7 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'fine', label: 'FINE', aria: 'Fine tune, the two oscillators apart, always in key', section: 'osc', def: 0.35 },
   { id: 'octave', label: 'OCTAVE', aria: 'Octave', section: 'osc', def: 0.5, steps: OCTAVES },
   { id: 'glide', label: 'GLIDE', aria: 'Glide between notes', section: 'osc', def: 0 },
-  { id: 'cutoff', label: 'CUTOFF', aria: 'Filter cutoff', section: 'filter', def: 0.5, big: true },
+  { id: 'cutoff', label: 'CUTOFF', aria: 'Filter cutoff', section: 'filter', def: 0.5 },
   { id: 'res', label: 'RES', aria: 'Filter resonance', section: 'filter', def: 0.35 },
   { id: 'envAmt', label: 'ENV AMT', aria: 'Filter envelope amount', section: 'filter', def: 0.5 },
   { id: 'noise', label: 'NOISE', aria: 'Noise level into the filter', section: 'filter', def: 0 },
@@ -153,7 +151,7 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'chorus', label: 'CHORUS', aria: 'Chorus', section: 'fx', def: 0.4 },
   { id: 'delay', label: 'DELAY', aria: 'Delay', section: 'fx', def: 0.25 },
   { id: 'reverb', label: 'REVERB', aria: 'Reverb', section: 'fx', def: 0.25 },
-  { id: 'volume', label: 'VOLUME', aria: 'Synth volume', section: 'out', def: 0.75, big: true },
+  { id: 'volume', label: 'VOLUME', aria: 'Synth volume', section: 'out', def: 0.75 },
 ];
 
 export const VOY_KNOB_IDS: readonly VoyKnobId[] = VOY_KNOBS.map((k) => k.id);

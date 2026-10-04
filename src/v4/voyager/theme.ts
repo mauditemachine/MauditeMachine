@@ -65,10 +65,7 @@ export const VOY_KNOB = {
   skirt: { r: 0.284, h: 0.04, rTop: 0.272 },
   mark: { w: 0.03, h: 0.01, d: 0.15 },
   segments: { desktop: 48, mobile: 32 },
-  big: PORTRAIT ? 1.12 : 1.28,
-  /** commutateur (SLOPE) : un petit potard a deux positions */
-  small: 0.62,
-  /** portrait : le plateau garde 1.3 (au doigt), le panneau 1.0 (huit potards par rangee depuis le 2026-10-04 ; 1.15 avant) */
+  /** les tailles (xl, l, m, s, sw) : SIZE_SCALE, plus bas ; portrait : le plateau garde 1.3 (au doigt), le panneau 1.0 (huit potards par rangee depuis le 2026-10-04 ; 1.15 avant) */
   scale: PORTRAIT ? 1.3 : 1,
   panelScale: 1,
 } as const;
@@ -108,177 +105,183 @@ export interface VoyKnobPlace {
 }
 
 /**
- * Desktop : le panneau garde le son, en colonnes facon Moog, sur trois
- * rangees depuis le 2026-10-04 (le bas du panneau etait libre) :
- *   OSCILLATORS : WAVE 1, WAVE 2 (les selecteurs dessines), TUNE 2 ; le
- *     melangeur OSC 1, OSC 2, NOISE ; FM, RATIO, FINE ;
- *   FILTER : CUTOFF en grand au milieu ; RES, ENV AMT et le commutateur
- *     MODE (LP 24, LP 12, BP, HP) en colonne a cote ;
- *   FILTER EG, AMP EG, puis MOD (SPEED, SHAPE, TARGET, DEPTH) ;
- *   EFFECTS (DIST, CHORUS, DELAY, REVERB), OUTPUT (VOLUME).
- * L'arpegiateur (RATE MODE RANGE NOTES GATE OCTAVE GLIDE) est sur le
- * plateau, a gauche de l'ecran.
+ * La hierarchie des potards (2026-10-04, Mika, une photo du Typhon a
+ * l'appui : "un effort de design de placement de knobs, avec des plus gros
+ * et des moins gros") : cinq tailles. xl : CUTOFF, le heros ; l : les deux
+ * selecteurs de forme et VOLUME ; m : ce qui sculpte le son (niveaux
+ * d'oscillateurs, FM, RES, ENV AMT, DEPTH, RATE et GATE de l'arpege) ; s :
+ * les reglages fins (enveloppes, effets, MOD, accords d'OSC 2, bruit) ;
+ * sw : le commutateur MODE. Les gros portent leurs graduations, les autres
+ * un arc imprime (silk.ts).
+ */
+export type KnobSize = 'xl' | 'l' | 'm' | 's' | 'sw';
+const SIZE_SCALE: Readonly<Record<KnobSize, number>> = PORTRAIT
+  ? { xl: 1.6, l: 1.15, m: 0.95, s: 0.8, sw: 0.62 }
+  : { xl: 1.5, l: 1.18, m: 1, s: 0.8, sw: 0.62 };
+
+/** Une place : x, z, taille ; plateau (deck) ou panneau. */
+type Spot = readonly [number, number, KnobSize];
+
+/**
+ * Desktop : le panneau en sections facon Moog, separees de filets ; dans
+ * chaque section une composition, plus une grille :
+ *   OSCILLATORS : WAVE 1 et WAVE 2 en grand ; dessous le melangeur
+ *     (OSC 1, NOISE, OSC 2), chaque niveau sous sa forme ; en bas FM et
+ *     RATIO sous OSC 1, TUNE 2 et FINE sous OSC 2 ;
+ *   FILTER : CUTOFF en tres grand, RES et ENV AMT dessous, MODE en bas ;
+ *   FILTER EG, AMP EG, MOD (DEPTH plus gros) : trois rangees de petits ;
+ *   EFFECTS : quatre petits ; OUTPUT : VOLUME en grand.
+ * L'arpegiateur est sur le plateau, a gauche de l'ecran (RATE et GATE plus
+ * gros).
  */
 const DESK_COLS = [-5.35, -4.0, -2.95, -1.95, -0.9, 0.15, 0.95, 1.75, 2.55, 3.6, 4.4, 5.55];
-const DESK_ROWS = [-0.74, 0.46, 1.64];
+const DESK_ROWS = [-0.72, 0.66, 1.72];
 /** titres des sections, et le haut des filets */
 const DESK_TITLE_Z = -1.6;
-
-/** Cellule (colonne, rangee) de chaque potard du panneau ; une rangee fractionnaire : entre deux. */
-const DESK_CELLS: Partial<Record<VoyKnobId, [number, number]>> = {
-  wave1: [0, 0],
-  wave2: [1, 0],
-  tune2: [2, 0],
-  osc1: [0, 1],
-  osc2: [1, 1],
-  noise: [2, 1],
-  fm: [0, 2],
-  ratio: [1, 2],
-  fine: [2, 2],
-  cutoff: [3, 1],
-  res: [4, 0],
-  envAmt: [4, 1],
-  fmode: [4, 2],
-  fA: [5, 0],
-  fD: [6, 0],
-  fS: [7, 0],
-  fR: [8, 0],
-  aA: [5, 1],
-  aD: [6, 1],
-  aS: [7, 1],
-  aR: [8, 1],
-  lfoRate: [5, 2],
-  lfoShape: [6, 2],
-  lfoDest: [7, 2],
-  lfoAmt: [8, 2],
-  dist: [9, 0],
-  chorus: [10, 0],
-  delay: [9, 1],
-  reverb: [10, 1],
-  volume: [11, 0.5],
+const [RA, RB, RC] = DESK_ROWS;
+const DESK_PANEL: Partial<Record<VoyKnobId, Spot>> = {
+  wave1: [-5.3, RA, 'l'],
+  wave2: [-3.6, RA, 'l'],
+  osc1: [-5.3, RB, 'm'],
+  noise: [-4.45, RB, 's'],
+  osc2: [-3.6, RB, 'm'],
+  fm: [-5.65, RC, 'm'],
+  ratio: [-4.95, RC, 's'],
+  tune2: [-3.95, RC, 's'],
+  fine: [-3.25, RC, 's'],
+  cutoff: [-1.42, -0.5, 'xl'],
+  res: [-1.95, RB, 'm'],
+  envAmt: [-0.9, RB, 'm'],
+  fmode: [-1.42, RC, 'sw'],
+  fA: [0.15, RA, 's'],
+  fD: [0.95, RA, 's'],
+  fS: [1.75, RA, 's'],
+  fR: [2.55, RA, 's'],
+  aA: [0.15, RB, 's'],
+  aD: [0.95, RB, 's'],
+  aS: [1.75, RB, 's'],
+  aR: [2.55, RB, 's'],
+  lfoRate: [0.15, RC, 's'],
+  lfoShape: [0.95, RC, 's'],
+  lfoDest: [1.75, RC, 's'],
+  lfoAmt: [2.55, RC, 'm'],
+  dist: [3.6, RA, 's'],
+  chorus: [4.4, RA, 's'],
+  delay: [3.6, RB, 's'],
+  reverb: [4.4, RB, 's'],
+  volume: [5.55, (RA + RB) / 2, 'l'],
 };
-/** Plateau, desktop : l'arpegiateur en rangee a gauche de l'ecran. */
+/** Plateau, desktop : l'arpegiateur en rangee a gauche de l'ecran (GLIDE au bout, 2026-10-03). */
 const DESK_ARP_Z = 0.85;
-/** GLIDE rejoint l'arpegiateur (2026-10-03) */
-const DESK_DECK: Partial<Record<VoyKnobId, [number, number]>> = {
-  rate: [-5.55, DESK_ARP_Z],
-  mode: [-4.8, DESK_ARP_Z],
-  range: [-4.05, DESK_ARP_Z],
-  notes: [-3.3, DESK_ARP_Z],
-  gate: [-2.55, DESK_ARP_Z],
-  octave: [-1.8, DESK_ARP_Z],
-  glide: [-1.05, DESK_ARP_Z],
+const DESK_DECK: Partial<Record<VoyKnobId, Spot>> = {
+  rate: [-5.55, DESK_ARP_Z, 'm'],
+  mode: [-4.8, DESK_ARP_Z, 's'],
+  range: [-4.05, DESK_ARP_Z, 's'],
+  notes: [-3.3, DESK_ARP_Z, 's'],
+  gate: [-2.55, DESK_ARP_Z, 'm'],
+  octave: [-1.8, DESK_ARP_Z, 's'],
+  glide: [-1.05, DESK_ARP_Z, 's'],
 };
 
 /**
- * Portrait : le panneau ne garde que le son, quatre rangees, chaque groupe
- * souligne d'un crochet a son nom (2026-10-04 : potards un peu plus petits,
- * huit par rangee) :
- *   OSCILLATORS (WAVE 1, WAVE 2, TUNE 2, FM, RATIO, FINE)
- *   FILTER (CUTOFF RES ENV AMT NOISE MODE)           COLOR (DIST CHORUS)
- *   FILTER EG (A D S R)         MOD (SPEED SHAPE TARGET DEPTH)
- *   AMP EG (A D S R)            MIXER (OSC 1 OSC 2)  SPACE (DELAY REVERB)
+ * Portrait : trois zones, chacune soulignee d'un crochet a son nom :
+ *   OSCILLATORS : WAVE 1 et WAVE 2 en grand, puis deux colonnes (TUNE 2 et
+ *     FINE, FM et RATIO) ;
+ *   FILTER : CUTOFF en tres grand, RES, ENV AMT, MODE ; MIXER : OSC 1,
+ *     OSC 2, NOISE ;
+ *   FILTER EG et MOD, puis AMP EG et EFFECTS : des rangees de petits.
  * Le plateau prend l'ecran et VOLUME, le transport, l'arpegiateur (RATE
  * MODE RANGE NOTES GATE OCTAVE GLIDE) et les pads.
  */
-const PORT_PANEL_ROWS = [-1.85, -0.2, 1.1, 2.4];
-/** pas entre deux potards, jour entre deux groupes, x du premier */
-const PORT_PITCH = 0.843;
-const PORT_GAP = 0.3;
-const PORT_X0 = -3.25;
-/** Rangee des oscillateurs : les deux selecteurs (leur couronne de formes), puis TUNE 2, FM, RATIO et FINE au pas 0.85. */
-const PORT_OSC_X: Partial<Record<VoyKnobId, number>> = { wave1: -2.55, wave2: -0.7, tune2: 0.575, fm: 1.425, ratio: 2.275, fine: 3.125 };
-/** Les trois autres rangees : (rangee, colonne 0 a 7, jours de groupe avant elle). */
-const PORT_PANEL: Partial<Record<VoyKnobId, [number, number, number]>> = {
-  cutoff: [1, 0, 0],
-  res: [1, 1, 0],
-  envAmt: [1, 2, 0],
-  noise: [1, 3, 0],
-  fmode: [1, 4, 0],
-  dist: [1, 6, 2],
-  chorus: [1, 7, 2],
-  fA: [2, 0, 0],
-  fD: [2, 1, 0],
-  fS: [2, 2, 0],
-  fR: [2, 3, 0],
-  lfoRate: [2, 4, 1],
-  lfoShape: [2, 5, 1],
-  lfoDest: [2, 6, 1],
-  lfoAmt: [2, 7, 1],
-  aA: [3, 0, 0],
-  aD: [3, 1, 0],
-  aS: [3, 2, 0],
-  aR: [3, 3, 0],
-  osc1: [3, 4, 1],
-  osc2: [3, 5, 1],
-  delay: [3, 6, 2],
-  reverb: [3, 7, 2],
+const PORT_E1 = 1.42;
+const PORT_E2 = 2.52;
+const PORT_PANEL: Partial<Record<VoyKnobId, Spot>> = {
+  wave1: [-2.72, -1.9, 'l'],
+  wave2: [-1.05, -1.9, 'l'],
+  tune2: [0.86, -2.25, 's'],
+  fine: [0.86, -1.3, 's'],
+  fm: [2.36, -2.25, 'm'],
+  ratio: [2.36, -1.3, 's'],
+  cutoff: [-2.6, 0.15, 'xl'],
+  res: [-1.35, 0, 'm'],
+  envAmt: [-0.45, 0, 'm'],
+  fmode: [0.35, 0, 'sw'],
+  osc1: [1.45, 0, 'm'],
+  osc2: [2.35, 0, 'm'],
+  noise: [3.2, 0, 's'],
+  fA: [-3.15, PORT_E1, 's'],
+  fD: [-2.35, PORT_E1, 's'],
+  fS: [-1.55, PORT_E1, 's'],
+  fR: [-0.75, PORT_E1, 's'],
+  lfoRate: [0.4, PORT_E1, 's'],
+  lfoShape: [1.15, PORT_E1, 's'],
+  lfoDest: [1.9, PORT_E1, 's'],
+  lfoAmt: [2.8, PORT_E1, 'm'],
+  aA: [-3.15, PORT_E2, 's'],
+  aD: [-2.35, PORT_E2, 's'],
+  aS: [-1.55, PORT_E2, 's'],
+  aR: [-0.75, PORT_E2, 's'],
+  dist: [0.4, PORT_E2, 's'],
+  chorus: [1.15, PORT_E2, 's'],
+  delay: [1.9, PORT_E2, 's'],
+  reverb: [2.8, PORT_E2, 's'],
 };
 /** Plateau, portrait : l'arpegiateur en rangee (GLIDE au bout), VOLUME a droite de l'ecran. */
 const PORT_ARP_Z = 3.0;
-const PORT_DECK: Partial<Record<VoyKnobId, [number, number]>> = {
-  rate: [-2.9, PORT_ARP_Z],
-  mode: [-1.933, PORT_ARP_Z],
-  range: [-0.967, PORT_ARP_Z],
-  notes: [0, PORT_ARP_Z],
-  gate: [0.967, PORT_ARP_Z],
-  octave: [1.933, PORT_ARP_Z],
-  glide: [2.9, PORT_ARP_Z],
-  volume: [2.45, 0.3],
+const PORT_DECK: Partial<Record<VoyKnobId, Spot>> = {
+  rate: [-2.9, PORT_ARP_Z, 'm'],
+  mode: [-1.933, PORT_ARP_Z, 's'],
+  range: [-0.967, PORT_ARP_Z, 's'],
+  notes: [0, PORT_ARP_Z, 's'],
+  gate: [0.967, PORT_ARP_Z, 'm'],
+  octave: [1.933, PORT_ARP_Z, 's'],
+  glide: [2.9, PORT_ARP_Z, 's'],
+  volume: [2.45, 0.3, 'l'],
 };
 
-/** x d'une colonne (fractionnaire : entre deux colonnes). */
-const colX = (cols: readonly number[], c: number): number => {
-  const i = Math.floor(c);
-  const f = c - i;
-  return f === 0 ? cols[i] : cols[i] + (cols[i + 1] - cols[i]) * f;
-};
-/** z d'une rangee (fractionnaire : entre deux rangees). */
-const rowZ = (r: number): number => colX(DESK_ROWS, r);
-
-/** Les gros potards (graduations 0 a 10) : CUTOFF et VOLUME ; au telephone VOLUME seul (huit potards par rangee). */
-const BIG = new Set<VoyKnobId>(PORTRAIT ? ['volume'] : ['cutoff', 'volume']);
-export const isBigKnob = (id: VoyKnobId): boolean => BIG.has(id);
+/** La taille d'un potard (m par defaut). */
+export function knobSize(id: VoyKnobId): KnobSize {
+  const d = PORTRAIT ? PORT_DECK[id] ?? PORT_PANEL[id] : DESK_DECK[id] ?? DESK_PANEL[id];
+  return d ? d[2] : 'm';
+}
+/** Les gros potards (xl et l, hors selecteurs) portent des graduations 0 a 10. */
+export const isBigKnob = (id: VoyKnobId): boolean => !isSelector(id) && (knobSize(id) === 'xl' || knobSize(id) === 'l');
 /** Commutateurs : un petit potard a quelques positions (MODE du filtre : quatre). */
-const SMALL = new Set<VoyKnobId>(['fmode']);
+export const isSwitch = (id: VoyKnobId): boolean => knobSize(id) === 'sw';
 export const VOY_SWITCH = { tick: { r0: 0.03, len: 0.05 }, markR: 0.18, cap: 0.052 } as const;
-export const isSwitch = (id: VoyKnobId): boolean => SMALL.has(id);
 /** Course d'un commutateur de n positions (deg) : un quart de tour a deux, 150 au-dela. */
 export const switchThrowDeg = (n: number): number => (n <= 2 ? 90 : 150);
-/** Libelle sous la jupe : 0.13 sous son bord ; sous la couronne d'un selecteur. */
-const labelBelow = (id: VoyKnobId, s: number): number => (isSelector(id) ? VOY_SEL.labelR * s : VOY_KNOB.skirt.r * s + 0.13);
+/**
+ * L'arc imprime des potards m et s (2026-10-04, comme les anneaux du
+ * Typhon) : 270 deg, de sept heures et demie a quatre heures et demie, un
+ * peu au-dela de la jupe. Machine noire : le bleu-vert du Typhon ; claire :
+ * l'encre de la serigraphie.
+ */
+export const VOY_ARC = { gap: 0.055, width: { m: 0.03, s: 0.024 }, dark: 'rgba(78, 196, 205, 0.62)', lightAlpha: 0.3 } as const;
+/** Libelle sous la jupe : 0.13 sous son bord ; sous la couronne d'un selecteur ; plus bas sous des graduations. */
+const labelBelow = (id: VoyKnobId, s: number): number => {
+  if (isSelector(id)) return VOY_SEL.labelR * s;
+  const big = !isSelector(id) && (knobSize(id) === 'xl' || knobSize(id) === 'l');
+  return VOY_KNOB.skirt.r * s + (big ? 0.15 : 0.13);
+};
 
 export function voyKnobPlace(id: VoyKnobId): VoyKnobPlace {
-  const big = BIG.has(id);
-  const k = big ? VOY_KNOB.big : SMALL.has(id) ? VOY_KNOB.small : 1;
-  if (PORTRAIT) {
-    const d = PORT_DECK[id];
-    if (d) {
-      const s = VOY_KNOB.scale * k;
-      return { id, where: 'deck', x: d[0], z: d[1], s, labelZ: d[1] + labelBelow(id, s) };
-    }
-    const s = VOY_KNOB.panelScale * k;
-    const ox = PORT_OSC_X[id];
-    if (ox !== undefined) {
-      const z = PORT_PANEL_ROWS[0];
-      return { id, where: 'panel', x: ox, z, s, labelZ: z + labelBelow(id, s) };
-    }
-    const [r, c, gaps] = PORT_PANEL[id] ?? [1, 0, 0];
-    // Un commutateur pose plus bas : son libelle s'aligne sur ceux de la rangee
-    const z = PORT_PANEL_ROWS[r] + (SMALL.has(id) ? VOY_KNOB.skirt.r * VOY_KNOB.panelScale * (1 - VOY_KNOB.small) : 0);
-    return { id, where: 'panel', x: PORT_X0 + c * PORT_PITCH + gaps * PORT_GAP, z, s, labelZ: z + labelBelow(id, s) };
-  }
-  const s = VOY_KNOB.scale * k;
-  const d = DESK_DECK[id];
-  if (d) return { id, where: 'deck', x: d[0], z: d[1], s, labelZ: d[1] + labelBelow(id, s) };
-  const [c, r] = DESK_CELLS[id] ?? [0, 0];
-  // Un commutateur pose plus bas : son libelle s'aligne sur ceux de la rangee
-  const z = rowZ(r) + (SMALL.has(id) ? VOY_KNOB.skirt.r * (1 - VOY_KNOB.small) : 0);
-  return { id, where: 'panel', x: colX(DESK_COLS, c), z, s, labelZ: z + labelBelow(id, s) };
+  const deck = PORTRAIT ? PORT_DECK[id] : DESK_DECK[id];
+  const panel = PORTRAIT ? PORT_PANEL[id] : DESK_PANEL[id];
+  const spot = deck ?? panel ?? ([0, 0, 'm'] as Spot);
+  const where: VoyWhere = deck ? 'deck' : 'panel';
+  const base = where === 'deck' ? VOY_KNOB.scale : VOY_KNOB.panelScale;
+  const s = base * SIZE_SCALE[spot[2]];
+  // Un commutateur pose plus bas : son libelle s'aligne sur ceux de la rangee (taille m)
+  const z = spot[1] + (spot[2] === 'sw' ? VOY_KNOB.skirt.r * base * (SIZE_SCALE.m - SIZE_SCALE.sw) : 0);
+  return { id, where, x: spot[0], z, s, labelZ: z + labelBelow(id, s) };
 }
 
-/** Titres entre deux rangees (AMP EG, MOD) : au milieu du jour entre les libelles du dessus et les potards du dessous. */
-const betweenRows = (r: number): number => (DESK_ROWS[r] + VOY_KNOB.skirt.r + 0.13 + DESK_ROWS[r + 1] - VOY_KNOB.skirt.r) / 2;
+/** Titres entre deux rangees (AMP EG, MOD) : au milieu du jour entre les libelles du dessus et les petits potards du dessous. */
+const betweenRows = (r: number): number => {
+  const sr = VOY_KNOB.skirt.r * SIZE_SCALE.s;
+  return (DESK_ROWS[r] + sr + 0.13 + DESK_ROWS[r + 1] - sr) / 2;
+};
 
 /**
  * Titres des sections facon Moog (desktop : au-dessus des colonnes, avec
@@ -288,8 +291,8 @@ const betweenRows = (r: number): number => (DESK_ROWS[r] + VOY_KNOB.skirt.r + 0.
 export const VOY_SECTIONS: readonly { text: string; x: number; z: number }[] = PORTRAIT
   ? []
   : [
-      { text: 'OSCILLATORS', x: (DESK_COLS[0] + DESK_COLS[2]) / 2, z: DESK_TITLE_Z },
-      { text: 'FILTER', x: (DESK_COLS[3] + DESK_COLS[4]) / 2, z: DESK_TITLE_Z },
+      { text: 'OSCILLATORS', x: -4.45, z: DESK_TITLE_Z },
+      { text: 'FILTER', x: -1.42, z: DESK_TITLE_Z },
       { text: 'FILTER EG', x: (DESK_COLS[5] + DESK_COLS[8]) / 2, z: DESK_TITLE_Z },
       { text: 'AMP EG', x: (DESK_COLS[5] + DESK_COLS[8]) / 2, z: betweenRows(0) },
       { text: 'MOD', x: (DESK_COLS[5] + DESK_COLS[8]) / 2, z: betweenRows(1) },
@@ -298,7 +301,7 @@ export const VOY_SECTIONS: readonly { text: string; x: number; z: number }[] = P
     ];
 
 /** Filets verticaux entre les sections (desktop), jusqu'au bas de la troisieme rangee. */
-const RULE_END = DESK_ROWS[2] + 0.5;
+const RULE_END = RC + 0.5;
 const rule = (a: number, b: number): readonly number[] => [(DESK_COLS[a] + DESK_COLS[b]) / 2, DESK_TITLE_Z - 0.15, (DESK_COLS[a] + DESK_COLS[b]) / 2, RULE_END];
 export const VOY_RULES: readonly (readonly number[])[] = PORTRAIT ? [] : [rule(2, 3), rule(4, 5), rule(8, 9), rule(10, 11)];
 
@@ -370,14 +373,14 @@ export const VOY_GROUP_TYPE = { cap: PORTRAIT ? 0.095 : 0.075, weight: 700, dz: 
 /** Crochet d'un groupe de potards ; with : les autres groupes de la rangee (memes hauteurs). */
 function knobGroup(text: string, ids: readonly VoyKnobId[], with_: readonly VoyKnobId[] = []): VoyGroup {
   const ps = ids.map(voyKnobPlace);
-  const a = ps[0];
-  const b = ps[ps.length - 1];
   const S = VOY_GROUP_TYPE.side;
+  // Les bords du groupe : le plus a gauche et le plus a droite (une composition, plus une rangee ; couronne des selecteurs comprise)
+  const half = (p: VoyKnobPlace): number => (isSelector(p.id) ? (VOY_SEL.glyphR + VOY_SEL.glyph.w / 2) * p.s : VOY_KNOB.skirt.r * p.s);
   return {
     text,
-    where: a.where,
-    x0: a.x - VOY_KNOB.skirt.r * a.s - S,
-    x1: b.x + VOY_KNOB.skirt.r * b.s + S,
+    where: ps[0].where,
+    x0: Math.min(...ps.map((p) => p.x - half(p))) - S,
+    x1: Math.max(...ps.map((p) => p.x + half(p))) + S,
     z: Math.max(...[...ids, ...with_].map((id) => voyKnobPlace(id).labelZ)) + VOY_GROUP_TYPE.dz,
   };
 }
@@ -393,14 +396,13 @@ const padGroup = (): VoyGroup => ({
 
 export const VOY_GROUPS: readonly VoyGroup[] = PORTRAIT
   ? [
-      knobGroup('OSCILLATORS', ['wave1', 'wave2', 'tune2', 'fm', 'ratio', 'fine']),
-      knobGroup('FILTER', ['cutoff', 'res', 'envAmt', 'noise', 'fmode'], ['dist']),
-      knobGroup('COLOR', ['dist', 'chorus'], ['cutoff']),
-      knobGroup('FILTER EG', ['fA', 'fD', 'fS', 'fR'], ['lfoRate']),
+      knobGroup('OSCILLATORS', ['wave1', 'wave2', 'tune2', 'fine', 'fm', 'ratio']),
+      knobGroup('FILTER', ['cutoff', 'res', 'envAmt', 'fmode'], ['osc1']),
+      knobGroup('MIXER', ['osc1', 'osc2', 'noise'], ['cutoff']),
+      knobGroup('FILTER EG', ['fA', 'fD', 'fS', 'fR'], ['lfoAmt']),
       knobGroup('MOD', ['lfoRate', 'lfoShape', 'lfoDest', 'lfoAmt'], ['fA']),
-      knobGroup('AMP EG', ['aA', 'aD', 'aS', 'aR'], ['osc1']),
-      knobGroup('MIXER', ['osc1', 'osc2'], ['aA']),
-      knobGroup('SPACE', ['delay', 'reverb'], ['aA']),
+      knobGroup('AMP EG', ['aA', 'aD', 'aS', 'aR'], ['dist']),
+      knobGroup('EFFECTS', ['dist', 'chorus', 'delay', 'reverb'], ['aA']),
       knobGroup('ARPEGGIATOR', ['rate', 'mode', 'range', 'notes', 'gate', 'octave', 'glide']),
       padGroup(),
     ]
