@@ -9,7 +9,8 @@
  * - RUN/STOP (l'arpege, cale sur la 808), RATE, MODE, RANGE, NOTES : un
  *   appui passe au cran suivant ;
  * - WAVE 1 et WAVE 2 (2026-10-03) : la forme de chaque oscillateur, dessinee
- *   comme sur la machine ; un appui passe a la suivante.
+ *   comme sur la machine ; un appui passe a la suivante. FM a cote (la
+ *   quantite de modulation, OFF 25 50 75 100 %).
  * Memes actions et memes stores que la machine : les deux bougent ensemble.
  * Monte seulement sur telephone, quand on utilise le Voyager (index.tsx).
  */
@@ -52,6 +53,10 @@ function cycle(id: VoyKnobId, n: number): void {
   voyDial(id, i / (n - 1));
 }
 
+/** FM au Dock : cinq crans (0, 25, 50, 75, 100 %), un appui passe au suivant. */
+const FM_STEPS = 4;
+const fmStep = (v: number): number => Math.round(v * FM_STEPS);
+
 export const VoyDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage }) => {
   const a = useSyncExternalStore(arp.subscribe, arp.get, arp.get);
   const p = useSyncExternalStore(voyParams.subscribe, voyParams.get, voyParams.get);
@@ -81,6 +86,8 @@ export const VoyDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage }
   const oct = stepIndex('octave', p.octave);
   const w1 = WAVES1[stepIndex('wave1', p.wave1)];
   const w2 = WAVES2[stepIndex('wave2', p.wave2)];
+  const fm = fmStep(p.fm);
+  const fmText = fm === 0 ? 'OFF' : `${fm * 25}%`;
 
   return (
     <>
@@ -141,6 +148,15 @@ export const VoyDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage }
             <span>WAVE 2</span>
             <WaveGlyph name={w2} />
             <span className="v4-vdock-val">{w2}</span>
+          </button>
+          <button
+            type="button"
+            className="v4-dock-key v4-vdock-fmkey"
+            aria-label={`FM amount ${fm === 0 ? 'off' : fmText}, tap for more`}
+            onClick={() => voyDial('fm', ((fmStep(voyParams.of('fm')) + 1) % (FM_STEPS + 1)) / FM_STEPS)}
+          >
+            <span>FM</span>
+            <span className="v4-vdock-val">{fmText}</span>
           </button>
         </div>
         <div className="v4-vdock-row v4-vdock-arp" role="group" aria-label="Arpeggiator">

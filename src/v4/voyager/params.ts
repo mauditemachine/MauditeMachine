@@ -32,6 +32,7 @@ export type VoyKnobId =
   | 'wave2'
   | 'tune2'
   | 'mix'
+  | 'fm'
   | 'fine'
   | 'octave'
   | 'glide'
@@ -96,6 +97,7 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'wave2', label: 'WAVE 2', aria: 'Oscillator 2 wave: sine, triangle, saw, square, pulse', section: 'osc', def: 2 / 4, steps: WAVES2 },
   { id: 'tune2', label: 'TUNE 2', aria: 'Oscillator 2 tuning: octave down, unison, fifth, one or two octaves up', section: 'osc', def: 0, steps: TUNES2 },
   { id: 'mix', label: 'MIX', aria: 'Oscillator mix, 1 to 2', section: 'osc', def: 0.5 },
+  { id: 'fm', label: 'FM', aria: 'FM amount, oscillator 2 modulates oscillator 1, shaped by the filter envelope', section: 'osc', def: 0 },
   { id: 'fine', label: 'FINE', aria: 'Fine tune, the two oscillators apart, always in key', section: 'osc', def: 0.35 },
   { id: 'octave', label: 'OCTAVE', aria: 'Octave', section: 'osc', def: 0.5, steps: OCTAVES },
   { id: 'glide', label: 'GLIDE', aria: 'Glide between notes', section: 'osc', def: 0 },
@@ -179,6 +181,8 @@ export interface EngineParams {
   /** OSC 2 en demi-tons ; MIX 0 (OSC 1) a 1 (OSC 2) */
   tune2: number;
   mix: number;
+  /** FM : 0 a 1 (l'indice suit l'enveloppe du filtre) */
+  fm: number;
   fine: number;
   glide: number;
   cutoff: number;
@@ -201,6 +205,7 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
     wave2: stepIndex('wave2', v.wave2),
     tune2: tune2Semi(v.tune2),
     mix: v.mix,
+    fm: v.fm,
     fine: fineCents(v.fine),
     glide: glideS(v.glide),
     cutoff: cutoffHz(v.cutoff),

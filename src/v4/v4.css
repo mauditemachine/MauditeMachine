@@ -2775,7 +2775,7 @@ html:has(body.v4-active.v4-light) {
 
 /* WAVE 1 et WAVE 2 (2026-10-03) : nom, dessin de la forme en jaune Typhon, sa valeur */
 .v4-vdock-waves {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 0.62fr;
 }
 
 .v4-root .v4-vdock-waves .v4-dock-key {

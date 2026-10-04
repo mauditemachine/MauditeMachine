@@ -108,10 +108,10 @@ export interface VoyKnobPlace {
 /**
  * Desktop : le panneau garde le son, en colonnes facon Moog. OSCILLATORS
  * (2026-10-03, deux oscillateurs facon Typhon) sur trois colonnes : WAVE 1,
- * WAVE 2 (les selecteurs dessines) et TUNE 2 en haut, FINE, MIX et GLIDE
+ * WAVE 2 (les selecteurs dessines) et TUNE 2 en haut, FINE, MIX et FM
  * dessous ; puis FILTER, FILTER EG / AMP EG, EFFECTS, OUTPUT.
- * L'arpegiateur (RATE MODE RANGE NOTES GATE OCTAVE) est sur le plateau, a
- * gauche de l'ecran, comme au telephone.
+ * L'arpegiateur (RATE MODE RANGE NOTES GATE OCTAVE GLIDE) est sur le
+ * plateau, a gauche de l'ecran.
  */
 const DESK_COLS = [-5.35, -4.0, -2.95, -1.95, -0.9, 0.15, 0.95, 1.75, 2.55, 3.6, 4.4, 5.55];
 const DESK_ROWS = [-0.72, 0.85];
@@ -125,7 +125,7 @@ const DESK_CELLS: Partial<Record<VoyKnobId, [number, number | 'mid']>> = {
   tune2: [2, 0],
   fine: [0, 1],
   mix: [1, 1],
-  glide: [2, 1],
+  fm: [2, 1],
   cutoff: [3, 'mid'],
   res: [4, 0],
   envAmt: [4, 1],
@@ -145,19 +145,21 @@ const DESK_CELLS: Partial<Record<VoyKnobId, [number, number | 'mid']>> = {
 };
 /** Plateau, desktop : l'arpegiateur en rangee a gauche de l'ecran. */
 const DESK_ARP_Z = 0.85;
+/** GLIDE rejoint l'arpegiateur (2026-10-03 : sa place au panneau va a FM) */
 const DESK_DECK: Partial<Record<VoyKnobId, [number, number]>> = {
   rate: [-5.55, DESK_ARP_Z],
-  mode: [-4.77, DESK_ARP_Z],
-  range: [-3.99, DESK_ARP_Z],
-  notes: [-3.21, DESK_ARP_Z],
-  gate: [-2.43, DESK_ARP_Z],
-  octave: [-1.65, DESK_ARP_Z],
+  mode: [-4.8, DESK_ARP_Z],
+  range: [-4.05, DESK_ARP_Z],
+  notes: [-3.3, DESK_ARP_Z],
+  gate: [-2.55, DESK_ARP_Z],
+  octave: [-1.8, DESK_ARP_Z],
+  glide: [-1.05, DESK_ARP_Z],
 };
 
 /**
  * Portrait : le panneau ne garde que le son, quatre rangees (2026-10-03,
  * deux oscillateurs), chaque groupe souligne d'un crochet a son nom :
- *   OSCILLATORS (WAVE 1, WAVE 2, TUNE 2, MIX)
+ *   OSCILLATORS (WAVE 1, WAVE 2, TUNE 2, MIX, FM)
  *   FILTER (CUTOFF RES ENV AMT)          COLOR (DIST CHORUS)
  *   FILTER EG (A D S R)                  SPACE (DELAY REVERB)
  *   AMP EG (A D S R)                     PITCH (FINE GLIDE)
@@ -170,7 +172,7 @@ const PORT_GAP = 0.5;
 /** x de la colonne k (0 a 5) d'une rangee dont le second groupe commence a split. */
 const portX = (k: number, split: number): number => -2.5 * PORT_PITCH - PORT_GAP / 2 + k * PORT_PITCH + (k >= split ? PORT_GAP : 0);
 /** Rangee des oscillateurs : les deux selecteurs (leur couronne de formes), puis TUNE 2 et MIX. */
-const PORT_OSC_X: Partial<Record<VoyKnobId, number>> = { wave1: -2.55, wave2: -0.6, tune2: 1.15, mix: 2.65 };
+const PORT_OSC_X: Partial<Record<VoyKnobId, number>> = { wave1: -2.55, wave2: -0.6, tune2: 0.85, mix: 1.95, fm: 3.05 };
 const PORT_PANEL: Partial<Record<VoyKnobId, [number, number, number]>> = {
   cutoff: [0, 1, 3],
   res: [1, 1, 3],
@@ -298,17 +300,17 @@ export const VOY_BUTTONS: readonly { id: VoyButtonId; label: string; x: number; 
       { id: 'open', label: 'OPEN', x: 2.55, z: 1.6, w: 1.3, d: 0.6 },
     ]
   : [
-      { id: 'run', label: 'RUN/STOP', x: 2.2, z: 0.85, w: 0.8, d: 0.55 },
-      { id: 'clear', label: 'CLEAR', x: 3.1, z: 0.85, w: 0.8, d: 0.55 },
-      { id: 'random', label: 'RANDOM', x: 4.0, z: 0.85, w: 0.8, d: 0.55 },
-      { id: 'open', label: 'OPEN', x: 5.3, z: 0.85, w: 0.9, d: 0.55 },
+      { id: 'run', label: 'RUN/STOP', x: 2.65, z: 0.85, w: 0.8, d: 0.55 },
+      { id: 'clear', label: 'CLEAR', x: 3.5, z: 0.85, w: 0.8, d: 0.55 },
+      { id: 'random', label: 'RANDOM', x: 4.35, z: 0.85, w: 0.8, d: 0.55 },
+      { id: 'open', label: 'OPEN', x: 5.55, z: 0.85, w: 0.9, d: 0.55 },
     ];
 export const VOY_BUTTON = { h: 0.12, radius: 0.05, labelGap: 0.2, press: 0.04 } as const;
 
 /** L'ecran du plateau (verre, cadre fusionne au capot), et sa texture. */
 export const VOY_LCD = PORTRAIT
   ? { x: -1.6, z: 0.3, w: 3.9, d: 1.0, bezel: { w: 4.14, d: 1.24, h: 0.02 }, tex: [780, 200] as const }
-  : { x: 0.2, z: 0.9, w: 2.4, d: 0.9, bezel: { w: 2.62, d: 1.12, h: 0.02 }, tex: [640, 240] as const };
+  : { x: 0.75, z: 0.9, w: 2.4, d: 0.9, bezel: { w: 2.62, d: 1.12, h: 0.02 }, tex: [640, 240] as const };
 
 /**
  * Crochets nommes sous un groupe (comme les rangees de la 808) : le trait
@@ -351,7 +353,7 @@ const padGroup = (): VoyGroup => ({
 
 export const VOY_GROUPS: readonly VoyGroup[] = PORTRAIT
   ? [
-      knobGroup('OSCILLATORS', ['wave1', 'wave2', 'tune2', 'mix']),
+      knobGroup('OSCILLATORS', ['wave1', 'wave2', 'tune2', 'mix', 'fm']),
       knobGroup('FILTER', ['cutoff', 'res', 'envAmt'], ['dist']),
       knobGroup('COLOR', ['dist', 'chorus'], ['cutoff']),
       knobGroup('FILTER EG', ['fA', 'fD', 'fS', 'fR']),
@@ -361,7 +363,7 @@ export const VOY_GROUPS: readonly VoyGroup[] = PORTRAIT
       knobGroup('ARPEGGIATOR', ['rate', 'mode', 'range', 'notes', 'gate', 'octave']),
       padGroup(),
     ]
-  : [knobGroup('ARPEGGIATOR', ['rate', 'mode', 'range', 'notes', 'gate', 'octave']), padGroup()];
+  : [knobGroup('ARPEGGIATOR', ['rate', 'mode', 'range', 'notes', 'gate', 'octave', 'glide']), padGroup()];
 
 /* ---------- face arriere (2026-10-03, Mika : "aussi evoluee que la MM-808") ---------- */
 

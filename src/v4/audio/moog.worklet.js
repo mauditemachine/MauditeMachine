@@ -133,8 +133,16 @@ function pulse(ph, dt, d) {
 }
 
 const TAU = Math.PI * 2;
-/** FM : OSC 2 decale la phase d'OSC 1 de FM_INDEX x 0.16 cycle au plus (environ 1.6 rad). */
+/** Cran FM de WAVE 1 : OSC 2 decale la phase d'OSC 1 de FM_INDEX x 0.16 cycle au plus (environ 1.6 rad). */
 const FM_INDEX = 1.6;
+/**
+ * Potard FM (2026-10-03, Mika : "de la synthese FM, comme le Typhon") :
+ * OSC 2 module la phase d'OSC 1, quelle que soit sa forme ; l'indice monte
+ * avec le carre du potard jusqu'a FM_MAX radians et suit l'enveloppe du
+ * filtre (35 % fixe, 65 % par elle) : l'attaque brille, la tenue s'adoucit.
+ * TUNE 2 donne le rapport (x0.5, x1, x1.5, x2, x4).
+ */
+const FM_MAX = 6;
 
 /** Une forme : 0 sinus, 1 triangle, 2 dent de scie, 3 carre, 4 impulsion de 14 % (5 : FM, calculee a part). */
 function wave(ph, dt, w) {
@@ -214,6 +222,7 @@ class MMVoyager extends AudioWorkletProcessor {
       wave2: 2,
       tune2: -12,
       mix: 0.5,
+      fm: 0,
       fine: 15,
       glide: 0,
       cutoff: 800,
@@ -230,11 +239,11 @@ class MMVoyager extends AudioWorkletProcessor {
       drive: 0,
     };
     // Valeurs lissees (un pole, environ 15 ms) : pas de craquement quand un potard tourne
-    this.sm = { mix: 0.5, fine: 15, cutoff: 800, res: 0.3, envOct: 3, drive: 0 };
+    this.sm = { mix: 0.5, fm: 0, fine: 15, cutoff: 800, res: 0.3, envOct: 3, drive: 0 };
     this.smK = coef(0.015, this.sr2);
     this.c = {};
     if (o.params) Object.assign(this.p, o.params);
-    Object.assign(this.sm, { mix: this.p.mix, fine: this.p.fine, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive });
+    Object.assign(this.sm, { mix: this.p.mix, fm: this.p.fm, fine: this.p.fine, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive });
     this.w1 = new Selector(this.p.wave1);
     this.w2 = new Selector(this.p.wave2);
     this.fadeStep = 1 / (0.01 * this.sr2);
@@ -356,6 +365,8 @@ class MMVoyager extends AudioWorkletProcessor {
       const fr = t0 + i;
       if (i2 % OS === 0) while (q.length > 0 && q[0].frame <= fr) this.noteOn(q.shift(), fr);
       sm.mix += (p.mix - sm.mix) * K;
+      sm.fm += (p.fm - sm.fm) * K;
+      const fmDepth = sm.fm * sm.fm * FM_MAX;
       const w1 = this.w1;
       const w2 = this.w2;
       if (w1.x < 1) w1.x = Math.min(1, w1.x + this.fadeStep);
@@ -415,7 +426,12 @@ class MMVoyager extends AudioWorkletProcessor {
         // OSC 2 d'abord : il module OSC 1 en FM
         let o2 = wave(ph[1], d2, w2.cur);
         if (w2.x < 1) o2 = o2 * w2.x + wave(ph[1], d2, w2.prev) * (1 - w2.x);
-        const one = (w) => (w === 5 ? Math.sin(TAU * (ph[0] + FM_INDEX * o2 * 0.16)) : wave(ph[0], d1, w));
+        // FM : la phase d'OSC 1 decalee par OSC 2 (indice en radians, suivi de l'enveloppe du filtre)
+        const idx = fmDepth > 0 ? fmDepth * (0.35 + 0.65 * Math.min(1, v.fV)) : 0;
+        const pm = (idx * o2) / TAU;
+        let p1 = ph[0] + pm;
+        p1 -= Math.floor(p1);
+        const one = (w) => (w === 5 ? Math.sin(TAU * (ph[0] + FM_INDEX * o2 * 0.16 + pm)) : wave(p1, d1, w));
         let o1 = one(w1.cur);
         if (w1.x < 1) o1 = o1 * w1.x + one(w1.prev) * (1 - w1.x);
         const o = g1 * o1 + g2 * o2;
