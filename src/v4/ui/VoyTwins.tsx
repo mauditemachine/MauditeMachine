@@ -4,25 +4,24 @@
  * silhouette projetee dans la passe de rendu, focusable, nomme ; le clavier
  * et les lecteurs d'ecran passent par eux. Ordre : les huit pads
  * d'accords (aria-pressed : dans la progression), RUN/STOP, CLEAR, RANDOM,
- * OPEN, les puces (capot ouvert : celles de la 808 et les pages), les 25 potards (role slider : fleches,
- * Maj ou Page pour 10 %, Debut et Fin). Inertes tant qu'on n'utilise pas
- * le Voyager.
+ * OPEN, les potards de la face (role slider : fleches, Maj ou Page pour
+ * 10 %, Debut et Fin), puis, capot ouvert, les TWEAKS (2026-10-04 : a la
+ * place des puces des pages). Inertes tant qu'on n'utilise pas le
+ * Voyager.
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
-import { chipAction, editToggle, openToggle, presetKey, voyClear, voyDial, voyPad, voyRandom, voyRun } from '../actions';
+import { editToggle, openToggle, presetKey, voyClear, voyDial, voyPad, voyRandom, voyRun } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
 import { PRESET_KEY_ARIA, PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode } from '../state/presetMode';
 import { chipsLive, voyExplode } from '../state/explode';
 import { focus } from '../state/focus';
-import { section } from '../state/section';
-import { BOARD_CHIPS, DIAL_KEYS, OPEN_ARIA } from '../theme';
+import { DIAL_KEYS, OPEN_ARIA } from '../theme';
 import { arp } from '../voyager/arp';
 import { CHORDS } from '../voyager/chords';
-import { VOY_KNOBS, voyParams, voyValueText, type VoyKnobId } from '../voyager/params';
+import { VOY_FACE_KNOBS, VOY_TWEAKS, voyParams, voyValueText, type VoyKnob, type VoyKnobId } from '../voyager/params';
 import { VOY_BUTTONS, VOY_COPY } from '../voyager/theme';
-import { registerTwin } from './Hotspots';
 
 const r1 = (n: number): number => Math.round(n * 10) / 10;
 
@@ -75,13 +74,13 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const ed = useSyncExternalStore(editor.subscribe, editor.get, editor.get);
   const pmVoy = useSyncExternalStore(presetMode.subscribe, () => presetMode.on('voy'), () => false);
   const params = useSyncExternalStore(voyParams.subscribe, voyParams.get, voyParams.get);
-  const open = useSyncExternalStore(section.subscribe, section.get, section.get);
   const els = useRef(new Map<string, HTMLElement>());
   const refs = useRef(new Map<string, (el: HTMLElement | null) => void>());
   const stageRef = useRef(stage);
   stageRef.current = stage;
   const groupRef = useRef<HTMLDivElement>(null);
   const off = f !== 'voy';
+  // Capot ouvert (ou en train de s'ouvrir) : les TWEAKS ; ils repondent une fois decouverts
   const showChips = s !== 'closed';
   const live = chipsLive(s);
 
@@ -98,7 +97,6 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       fn = (el) => {
         if (el) els.current.set(id, el);
         else els.current.delete(id);
-        if (id.startsWith('vchip-')) registerTwin(id, el);
       };
       refs.current.set(id, fn);
     }
@@ -221,36 +219,12 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
           onClick={() => presetKey('voy', k)}
         />
       ))}
-      {showChips &&
-        BOARD_CHIPS.map((c) => {
-          const id = `vchip-${c.id}`;
-          return (
-            <button
-              key={id}
-              ref={refFor(id)}
-              type="button"
-              className="v4-twin"
-              data-twin="vchip"
-              data-hotspot={id}
-              aria-label={c.aria}
-              aria-expanded={c.section !== null && open === c.section}
-              aria-controls={c.section ? `v4-section-${c.section}` : undefined}
-              tabIndex={live ? 0 : -1}
-              onKeyDown={noRepeat}
-              onFocus={(e) => {
-                if (e.currentTarget.matches(':focus-visible') && stageRef.current?.voy?.setChipFocus(c.id)) stageRef.current.repaint();
-              }}
-              onBlur={() => {
-                if (stageRef.current?.voy?.setChipFocus(null)) stageRef.current.repaint();
-              }}
-              onClick={() => chipAction(c.id, 'voy')}
-            />
-          );
-        })}
-      {VOY_KNOBS.map((k) => {
+      {[...VOY_FACE_KNOBS, ...(showChips ? VOY_TWEAKS : [])].map((k: VoyKnob) => {
         const id = `vk-${k.id}`;
         const v = params[k.id];
         const steps = k.steps ? k.steps.length - 1 : 0;
+        // Les TWEAKS : sous le capot, au clavier une fois decouverts
+        const under = k.section === 'tweak';
         return (
           <div
             key={id}
@@ -259,7 +233,7 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
             data-twin="vknob"
             data-hotspot={id}
             role="slider"
-            tabIndex={0}
+            tabIndex={under && !live ? -1 : 0}
             aria-label={k.aria}
             aria-orientation="vertical"
             aria-valuemin={0}

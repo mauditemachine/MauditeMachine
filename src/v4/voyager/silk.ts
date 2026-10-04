@@ -22,7 +22,7 @@ import { drawTracked, fontsReady, logoImage, makeCanvasTexture, trackedWidth } f
 import { APPEARANCE, HEX, PORTRAIT, SILK, silkA } from '../theme';
 import { CHORDS } from './chords';
 import { wavePoints } from './glyphs';
-import { VOY_KNOBS, WAVES1, WAVES2, morphPos, voyParams } from './params';
+import { VOY_FACE_KNOBS, WAVES1, WAVES2, morphPos, voyParams } from './params';
 import {
   VOY_BODY,
   VOY_BUTTONS,
@@ -81,7 +81,7 @@ const PLANE = {
 /** Les libelles des potards d'un plan (meme corps pour tous : un seul groupe). */
 function knobTexts(where: VoySilkKind): Text[] {
   const out: Text[] = [];
-  for (const k of VOY_KNOBS) {
+  for (const k of VOY_FACE_KNOBS) {
     const p = voyKnobPlace(k.id);
     if (p.where !== where) continue;
     out.push({ text: k.label, x: p.x, z: p.labelZ, cap: 0.068 * K, maxW: PORTRAIT ? 0.8 : 0.76, group: 'knob' });
@@ -249,7 +249,7 @@ export class VoySilk {
     this.brackets();
     // Graduations 0 a 10 autour des gros potards (CUTOFF, VOLUME), facon Moog
     ctx.strokeStyle = silkA(0.6);
-    for (const k of VOY_KNOBS) {
+    for (const k of VOY_FACE_KNOBS) {
       if (!isBigKnob(k.id)) continue;
       const p = voyKnobPlace(k.id);
       if (p.where !== this.kind) continue;
@@ -270,7 +270,7 @@ export class VoySilk {
     // Commutateurs : un repere par position
     ctx.strokeStyle = silkA(0.75);
     ctx.lineWidth = Math.max(1, 0.016 * PPU);
-    for (const k of VOY_KNOBS) {
+    for (const k of VOY_FACE_KNOBS) {
       const steps = k.steps;
       if (!isSwitch(k.id) || !steps) continue;
       const p = voyKnobPlace(k.id);
@@ -363,7 +363,7 @@ export class VoySilk {
     const light = APPEARANCE.current === 'light';
     const color = (a: number, on: boolean): string => (light ? (on ? HEX.orange : silkA(a)) : `rgba(242, 194, 48, ${a})`);
     const dim = light ? S.dim.light : S.dim.dark;
-    for (const k of VOY_KNOBS) {
+    for (const k of VOY_FACE_KNOBS) {
       if (!isSelector(k.id)) continue;
       const p = voyKnobPlace(k.id);
       if (p.where !== this.kind) continue;
@@ -429,7 +429,7 @@ export class VoySilk {
   setSelectors(wave1: number, wave2: number): boolean {
     if (wave1 === this.sel.wave1 && wave2 === this.sel.wave2) return false;
     this.sel = { wave1, wave2 };
-    if (!VOY_KNOBS.some((k) => isSelector(k.id) && voyKnobPlace(k.id).where === this.kind)) return false;
+    if (!VOY_FACE_KNOBS.some((k) => isSelector(k.id) && voyKnobPlace(k.id).where === this.kind)) return false;
     this.draw();
     return true;
   }

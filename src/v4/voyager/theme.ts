@@ -509,6 +509,73 @@ export const VOY_EXPLODE = PORTRAIT
 /** La carte (celle de la 808, meme taille) dans le bac, a plat. */
 export const VOY_PCB_Y = VOY_BODY.floorY + 0.12;
 
+/* ---------- TWEAKS : la plaque sous le capot (2026-10-04) ---------- */
+
+/**
+ * TWEAKS (2026-10-04, Mika, une photo du panneau d'oscillateurs du Mini V
+ * a l'appui : "dans OPEN, d'autres boutons a l'interieur pour changer
+ * certaines choses ; enleve les liens du site et mets des tweaks a la
+ * place ; je veux un super synth") : une plaque a la couleur du capot,
+ * vissee sur quatre entretoises au-dessus de la carte, la ou etaient les
+ * puces des pages (au-dessus des condensateurs bas, a cote des hauts).
+ * Les noms au-dessus des potards, les graduations 0 a 10 autour, les bouts
+ * de course ecrits dessous (FREE, OFF...), comme sur le Mini V.
+ * cx, cz : son centre dans le repere de la carte (avant PCB_TURN) ; la
+ * plaque, elle, se lit droite (en portrait, elle tourne a l'inverse de la
+ * carte) : x a droite, z vers soi. y : le dessous de la plaque au-dessus de
+ * la carte. Huit cases : sept potards et le titre.
+ */
+export const VOY_TWEAK_PLATE = PORTRAIT
+  ? { cx: 0, cz: 1.45, w: 3.7, d: 8.2, y: 0.5, t: 0.08, r: 0.12, screwIn: 0.22, knob: 1.3, label: 0.08, end: 0.056, title: 0.2 }
+  : { cx: 0, cz: 1.4, w: 8.2, d: 3.7, y: 0.5, t: 0.08, r: 0.12, screwIn: 0.22, knob: 1.3, label: 0.08, end: 0.054, title: 0.2 };
+
+export type VoyTweakCell = VoyKnobId | 'title';
+
+/** Les cases de la plaque (repere de la plaque, son centre) : desktop deux rangees de quatre, portrait quatre rangees de deux. */
+export const VOY_TWEAK_CELLS: readonly { id: VoyTweakCell; x: number; z: number }[] = (PORTRAIT
+  ? ([
+      ['phase', -0.9, -2.85],
+      ['drift', 0.9, -2.85],
+      ['width', -0.9, -0.95],
+      ['monoLow', 0.9, -0.95],
+      ['keyTrack', -0.9, 0.95],
+      ['accent', 0.9, 0.95],
+      ['sync', -0.9, 2.85],
+      ['title', 0.9, 2.85],
+    ] as const)
+  : ([
+      ['phase', -2.85, -0.75],
+      ['drift', -0.95, -0.75],
+      ['width', 0.95, -0.75],
+      ['monoLow', 2.85, -0.75],
+      ['keyTrack', -2.85, 0.85],
+      ['accent', -0.95, 0.85],
+      ['sync', 0.95, 0.85],
+      ['title', 2.85, 0.85],
+    ] as const)
+).map(([id, x, z]) => ({ id, x, z }));
+
+/**
+ * Les bouts de course ecrits sous chaque potard (gauche : 0, droite : 10) ;
+ * SYNC, un commutateur, porte OFF et ON a ses reperes.
+ */
+export const VOY_TWEAK_ENDS: Partial<Record<VoyKnobId, readonly [string, string]>> = {
+  phase: ['FREE', '360'],
+  drift: ['STABLE', 'LOOSE'],
+  width: ['MONO', 'WIDE'],
+  monoLow: ['OFF', '300 HZ'],
+  keyTrack: ['0', 'FULL'],
+  accent: ['FLAT', 'HARD'],
+};
+
+/** La place d'un TWEAK sur sa plaque (null : pas un TWEAK) ; SYNC en commutateur. */
+export function voyTweakPlace(id: VoyKnobId): { x: number; z: number; s: number; sw: boolean } | null {
+  const c = VOY_TWEAK_CELLS.find((k) => k.id === id);
+  if (!c) return null;
+  const sw = id === 'sync';
+  return { x: c.x, z: c.z, s: VOY_TWEAK_PLATE.knob * (sw ? 0.8 : 1), sw };
+}
+
 
 /**
  * Cadrage (desktop : la largeur projetee a l'azimut 45 ; mobile : la

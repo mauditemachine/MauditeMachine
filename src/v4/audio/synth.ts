@@ -14,11 +14,17 @@
  *   VOLUME -> DELAY : le sien, ping-pong stereo en croche pointee calee sur
  *   le tempo, reinjection qui monte avec le potard (0.35 a 0.68)
  *   VOLUME -> REVERB : la reverbe de la boite, envoi renforce.
+ * BASS MONO (TWEAKS, 2026-10-04) : un filtre de separation Linkwitz-Riley
+ * (24 dB/oct, les deux moities se recomposent sans creux) coupe le son du
+ * moteur en deux ; le haut suit la chaine ci-dessus, le bas passe en mono
+ * et va droit a la sortie, sans chorus, sans delay ni reverbe : plus de
+ * phase qui tourne dans les graves. OFF : la separation descend a 10 Hz,
+ * tout passe par le haut, comme avant.
  * Le contexte audio est celui de la page, jamais cree ici.
  */
 
 import workletUrl from './moog.worklet.js?url';
-import { engineParams, voyParams, type VoyValues } from '../voyager/params';
+import { engineParams, monoLowHz, voyParams, type VoyValues } from '../voyager/params';
 import { buildJunoChorus, loadChorus, type ChorusStage } from './chorus';
 import { synthPort } from './drums';
 import { glide } from './glide';
@@ -43,6 +49,10 @@ const MAKEUP = { delay: 0.35, reverb: 0.5 } as const;
 const REVERB_BOOST = 1.25;
 /** DELAY ping-pong : croche pointee, reinjection 0.35 a 0.68, filtre dans la boucle. */
 const PINGPONG = { steps: 3, fbMin: 0.35, fbMax: 0.68, wet: 1.1, lowpass: 4800, highpass: 260, maxS: 2 } as const;
+/** BASS MONO coupe : la separation descend ici (rien d'audible dessous). */
+const MONO_OFF_HZ = 10;
+/** Butterworth (Q en dB pour les passe-bas et passe-haut du Web Audio) : deux en cascade font un Linkwitz-Riley. */
+const BUTTER_Q_DB = -3.0103;
 
 interface SynthGraph {
   ctx: BaseAudioContext;
@@ -54,6 +64,9 @@ interface SynthGraph {
   delayL: DelayNode;
   delayR: DelayNode;
   reverb: Send;
+  /** BASS MONO : les quatre filtres de la separation, le gain du bas (le VOLUME) */
+  split: BiquadFilterNode[];
+  low: GainNode;
 }
 
 let sg: SynthGraph | null = null;
@@ -106,34 +119,70 @@ function buildPingPong(c: BaseAudioContext, out: AudioNode): { send: GainNode; f
   return { send, fb: [fbL, fbR], l, r };
 }
 
+const butter = (c: BaseAudioContext, type: BiquadFilterType): BiquadFilterNode => {
+  const f = c.createBiquadFilter();
+  f.type = type;
+  f.frequency.value = MONO_OFF_HZ;
+  f.Q.value = BUTTER_Q_DB;
+  return f;
+};
+
 function build(c: BaseAudioContext, out: AudioNode, reverb: { attach(src: AudioNode): Send }, node: AudioWorkletNode): SynthGraph {
   const vol = c.createGain();
   vol.gain.value = 0;
   vol.connect(out);
   const chorus = buildJunoChorus(c, vol);
-  node.connect(chorus.input);
+  // BASS MONO : le haut vers le chorus, le bas en mono droit a la sortie
+  const hp1 = butter(c, 'highpass');
+  const hp2 = butter(c, 'highpass');
+  node.connect(hp1);
+  hp1.connect(hp2);
+  hp2.connect(chorus.input);
+  const mono = c.createGain();
+  mono.channelCount = 1;
+  mono.channelCountMode = 'explicit';
+  mono.channelInterpretation = 'speakers';
+  const lp1 = butter(c, 'lowpass');
+  const lp2 = butter(c, 'lowpass');
+  const low = c.createGain();
+  low.gain.value = 0;
+  node.connect(mono);
+  mono.connect(lp1);
+  lp1.connect(lp2);
+  lp2.connect(low);
+  low.connect(out);
   const pp = buildPingPong(c, out);
   vol.connect(pp.send);
   const boost = c.createGain();
   boost.gain.value = REVERB_BOOST;
   vol.connect(boost);
-  const g: SynthGraph = { ctx: c, node, chorus, vol, delaySend: pp.send, delayFb: pp.fb, delayL: pp.l, delayR: pp.r, reverb: reverb.attach(boost) };
+  const g: SynthGraph = { ctx: c, node, chorus, vol, delaySend: pp.send, delayFb: pp.fb, delayL: pp.l, delayR: pp.r, reverb: reverb.attach(boost), split: [hp1, hp2, lp1, lp2], low };
   applyFx(g, voyParams.get(), true);
   return g;
 }
 
-/** CHORUS, DELAY, REVERB et VOLUME sur la chaine. */
+/** CHORUS, DELAY, REVERB, VOLUME et BASS MONO sur la chaine. */
 function applyFx(g: SynthGraph, p: Readonly<VoyValues>, now = false): void {
   g.chorus.set(p.chorus);
   g.reverb.set(p.reverb);
   const fb = PINGPONG.fbMin + (PINGPONG.fbMax - PINGPONG.fbMin) * p.delay;
   const v = (p.volume * p.volume * VOLUME_K) / (1 + MAKEUP.delay * p.delay + MAKEUP.reverb * p.reverb);
+  // Le bas : le meme VOLUME, au niveau du synthe sec (mesure hors ligne : le plus proche du son
+  // d'avant ; le chorus creusait les graves vers 100 Hz, BASS MONO les rend)
+  const hz = monoLowHz(p.monoLow) || MONO_OFF_HZ;
+  const low = v;
+  for (const f of g.split) {
+    if (now) f.frequency.value = hz;
+    else glide(f.frequency, hz, g.ctx);
+  }
   if (now) {
+    g.low.gain.value = low;
     g.vol.gain.value = v;
     g.delaySend.gain.value = p.delay;
     g.delayFb[0].gain.value = fb;
     g.delayFb[1].gain.value = fb;
   } else {
+    glide(g.low.gain, low, g.ctx);
     glide(g.vol.gain, v, g.ctx);
     glide(g.delaySend.gain, p.delay, g.ctx);
     glide(g.delayFb[0].gain, fb, g.ctx);

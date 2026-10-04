@@ -8,9 +8,13 @@
  * attaques le plus souvent courtes, FM et bruit de temps en temps, une
  * modulation (MOD) une fois sur deux, effets doses comme avant. VOLUME ne
  * bouge pas : RANDOM ne doit jamais faire sauter le niveau.
+ * TWEAKS (2026-10-04) : la phase libre, un peu d'analogique, les graves
+ * souvent au centre ; les basses et l'acid recalent leur phase, derivent
+ * peu et gardent leurs graves en mono (BASS MONO 105 a 170 Hz) : elles
+ * frappent pareil a chaque note.
  */
 
-import { NOTES, RATIOS, type VoyKnobId } from './params';
+import { NOTES, PHASE_FREE, RATIOS, type VoyKnobId } from './params';
 
 type Rnd = () => number;
 
@@ -89,6 +93,14 @@ export function randomVoyPatch(rnd: Rnd = Math.random): Partial<Record<VoyKnobId
     chorus: between(rnd, 0.25, 0.85),
     delay: sometimes(rnd, 0.35, 0.15, 0.55),
     reverb: between(rnd, 0.1, 0.5),
+    // TWEAKS : phase libre, analogique modere, BASS MONO 80 a 120 Hz six fois sur dix
+    phase: 0,
+    drift: between(rnd, 0.3, 0.6),
+    width: between(rnd, 0.35, 0.75),
+    monoLow: sometimes(rnd, 0.4, 0.37, 0.56),
+    keyTrack: between(rnd, 0.4, 0.65),
+    accent: between(rnd, 0.4, 0.65),
+    sync: 0,
   };
 }
 
@@ -211,6 +223,14 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         chorus: between(rnd, 0, 0.15),
         delay: sometimes(rnd, 0.85, 0.1, 0.2),
         reverb: between(rnd, 0, 0.1),
+        // TWEAKS : la phase recalee a 0 deg, peu de derive, serre, les graves en mono (135 a 170 Hz)
+        phase: PHASE_FREE,
+        drift: between(rnd, 0.1, 0.3),
+        width: between(rnd, 0.1, 0.3),
+        monoLow: between(rnd, 0.6, 0.72),
+        keyTrack: between(rnd, 0.5, 0.7),
+        accent: between(rnd, 0.5, 0.85),
+        sync: 0,
       },
       seq: [...pickOf(rnd, BASSLINES)],
       prog: pickOf(rnd, SHORT_PROGS),
@@ -252,6 +272,14 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         chorus: between(rnd, 0, 0.2),
         delay: sometimes(rnd, 0.5, 0.15, 0.35),
         reverb: between(rnd, 0.05, 0.2),
+        // TWEAKS : phase recalee, accents marques, la coupure suit la note (105 a 150 Hz en mono)
+        phase: PHASE_FREE,
+        drift: between(rnd, 0.15, 0.35),
+        width: between(rnd, 0.2, 0.4),
+        monoLow: between(rnd, 0.5, 0.65),
+        keyTrack: between(rnd, 0.6, 0.85),
+        accent: between(rnd, 0.7, 1),
+        sync: 0,
       },
       seq: acidLine(rnd),
       prog: pickOf(rnd, SHORT_PROGS),
@@ -293,6 +321,10 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         chorus: between(rnd, 0.35, 0.75),
         delay: between(rnd, 0.25, 0.5),
         reverb: between(rnd, 0.2, 0.45),
+        // TWEAKS : large et vivant
+        drift: between(rnd, 0.4, 0.7),
+        width: between(rnd, 0.6, 0.9),
+        accent: between(rnd, 0.4, 0.7),
       },
       seq: null,
       prog: null,
@@ -334,6 +366,10 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         chorus: between(rnd, 0.2, 0.5),
         delay: between(rnd, 0.3, 0.55),
         reverb: between(rnd, 0.25, 0.45),
+        // TWEAKS : SYNC une fois sur trois (OSC 2 a la quinte ou a l'octave : il crie)
+        drift: between(rnd, 0.4, 0.8),
+        width: between(rnd, 0.4, 0.7),
+        sync: chance(rnd, 0.35) ? 1 : 0,
       },
       seq: null,
       prog: null,
@@ -370,6 +406,10 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         chorus: between(rnd, 0, 0.2),
         delay: between(rnd, 0.25, 0.45),
         reverb: between(rnd, 0.15, 0.3),
+        // TWEAKS : plus analogique, parfois synchronise
+        drift: between(rnd, 0.5, 0.9),
+        width: between(rnd, 0.5, 0.8),
+        sync: chance(rnd, 0.25) ? 1 : 0,
       },
       seq: null,
       prog: pickOf(rnd, SHORT_PROGS),

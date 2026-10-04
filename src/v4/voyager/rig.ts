@@ -10,7 +10,8 @@
  * - root : toute la machine (la vue d'ensemble la cache ou la montre) ;
  * - socle : joues, bac ; ne bouge jamais ;
  * - pcb : la carte (celle de la 808, MM-VOYAGER en serigraphie), a plat
- *   dans le bac, cachee capot ferme ;
+ *   dans le bac, cachee capot ferme ; sans les puces des pages depuis le
+ *   2026-10-04 : la plaque des TWEAKS a leur place (tweaks.ts) ;
  * - lid : le capot (plateau, son ecran, ses pads et boutons, les potards
  *   des deux plans) ; OPEN le souleve (scene/explode.ts, VOY_EXPLODE) ;
  * - panel : enfant du capot, incline : sa serigraphie.
@@ -22,9 +23,9 @@ import { pattern } from '../audio/pattern';
 import type { HotspotDef, Occluder } from '../scene/hit';
 import { Explode, type ExplodeCfg } from '../scene/explode';
 import { Pcb } from '../scene/pcb';
-import { easeOutCubic, type Tweens } from '../scene/tween';
-import { chipsLive, voyExplode } from '../state/explode';
-import { CHIP, EXPLODE, PCB, PCB_TURN, type ChipId, type SectionId } from '../theme';
+import type { Tweens } from '../scene/tween';
+import { voyExplode } from '../state/explode';
+import { EXPLODE, PCB, PCB_TURN, type SectionId } from '../theme';
 import { arp } from './arp';
 import { VoyBackPlate } from './backplate';
 import { VoyBody } from './body';
@@ -33,12 +34,13 @@ import { VoyKnobs } from './knobs';
 import { VoyLcd } from './lcd';
 import { voyMsg } from './msg';
 import { VoyKeys } from './pads';
-import { MODES, NOTES, RANGES, RATES, VOY_KNOBS, morphPos, notesCount, stepIndex, voyParams } from './params';
+import { MODES, NOTES, RANGES, RATES, VOY_FACE_KNOBS, VOY_TWEAKS, morphPos, notesCount, stepIndex, voyParams } from './params';
 import { editor } from '../state/editor';
 import { presetMode, type PresetKey } from '../state/presetMode';
 import { presets } from '../state/presets';
 import { seq } from './seq';
 import { VoySilk } from './silk';
+import { VoyTweaks } from './tweaks';
 import { VOY_BODY, VOY_COPY, VOY_EXPLODE, VOY_LCD, VOY_LID_W, VOY_PANEL, VOY_PCB_Y, VOY_X } from './theme';
 
 export interface VoyRigOpts {
@@ -96,21 +98,20 @@ export class VoyagerRig {
   readonly panelSilk: VoySilk;
   readonly lcd: VoyLcd;
   readonly pcb: Pcb;
+  /** sous le capot, sur la carte : les TWEAKS (2026-10-04) */
+  readonly tweaks: VoyTweaks;
   readonly explode: Explode;
-  /** ancres de la trace : les puces (pages comprises) */
+  /** ancres de la trace : plus de puces sur la carte du MM-ARP (2026-10-04), les sections s'ouvrent sans trace depuis elle */
   readonly anchors = new Map<SectionId, HotspotDef>();
   private defs: HotspotDef[] = [];
-  private chipDefs: HotspotDef[] = [];
+  /** les TWEAKS ne repondent que capot ouvert */
+  private tweakDefs: HotspotDef[] = [];
   private unsubs: (() => void)[] = [];
   private detach: () => void = () => undefined;
   private explodeGoal = false;
   private lastSeq = -1;
   private playing = -1;
   private bpm = 0;
-  private hoverChip: ChipId | null = null;
-  private focusChip: ChipId | null = null;
-  private hotChips = new Set<ChipId>();
-  private chipsOn = false;
   readonly cfg: ExplodeCfg;
 
   constructor(private opts: VoyRigOpts) {
@@ -147,8 +148,11 @@ export class VoyagerRig {
     this.lcd = new VoyLcd(opts.anisotropy);
     this.lid.add(this.lcd.bezel, this.lcd.glass);
 
-    this.pcb = new Pcb(opts.mobile, opts.anisotropy, { model: `${VOY_COPY.model} R1.0`, variant: 'voy' });
+    this.pcb = new Pcb(opts.mobile, opts.anisotropy, { model: `${VOY_COPY.model} R1.0`, variant: 'voy', chips: false });
     this.pcbGroup.add(this.pcb.board, this.pcb.parts);
+    // La plaque des TWEAKS pousse avec les composants de la carte (pcb.parts) a l'ouverture
+    this.tweaks = new VoyTweaks({ mobile: opts.mobile, anisotropy: opts.anisotropy });
+    this.pcb.parts.add(this.tweaks.group);
 
     this.cfg = {
       lift: VOY_EXPLODE.lift,
@@ -161,9 +165,8 @@ export class VoyagerRig {
     };
     this.explode = new Explode({ plateau: this.lid, pcb: this.pcbGroup, parts: this.pcb.parts }, (open) => voyExplode.settle(open), this.cfg);
 
-    // Objets interactifs, dans l'ordre de tabulation des jumeaux : pads, boutons, puces, potards
+    // Objets interactifs, dans l'ordre de tabulation des jumeaux : pads, boutons, potards, TWEAKS
     const keyDefs = this.keys.hotspots(this.lid);
-    this.chipDefs = this.pcb.hotspots(this.pcbGroup).map((d) => ({ ...d, id: `vchip-${d.chip}`, kind: 'vchip' as const }));
     // Les presets sur l'ecran (2026-10-04) : le haut l'ouvre ; en mode presets, gauche et droite, et quatre touches en bas
     const L = VOY_LCD;
     const lcdBox = (key: PresetKey, u0: number, u1: number, v0: number, v1: number): HotspotDef => ({
@@ -187,10 +190,9 @@ export class VoyagerRig {
       lcdBox('next', 0.5, 1, 0, band),
       ...(['save', 'name', 'del', 'exit'] as const).map((k, i) => lcdBox(k, i / 4, (i + 1) / 4, band, 1)),
     ];
-    this.defs = [...keyDefs, ...lcdDefs, ...this.chipDefs, ...this.knobs.hotspots(this.panel, this.lid)].map((d) => ({ ...d, machine: 'voy' as const }));
-    // Les copies portent l'etat : retrouver les puces dans la liste finale
-    this.chipDefs = this.defs.filter((d) => d.kind === 'vchip');
-    for (const d of this.defs) if (d.section && d.kind === 'vchip') this.anchors.set(d.section, d);
+    this.defs = [...keyDefs, ...lcdDefs, ...this.knobs.hotspots(this.panel, this.lid), ...this.tweaks.hotspots()].map((d) => ({ ...d, machine: 'voy' as const }));
+    // Les copies portent l'etat : retrouver les TWEAKS dans la liste finale
+    this.tweakDefs = this.defs.filter((d) => d.layer === this.tweaks.top);
 
     this.syncKnobs();
     this.syncArp();
@@ -248,7 +250,11 @@ export class VoyagerRig {
   private syncKnobs = (): void => {
     const v = voyParams.get();
     let changed = false;
-    for (const k of VOY_KNOBS) if (this.knobs.setValue(k.id, v[k.id])) changed = true;
+    for (const k of VOY_FACE_KNOBS) if (this.knobs.setValue(k.id, v[k.id])) changed = true;
+    // Les TWEAKS : sous le capot, pas d'ombre a refaire
+    let under = false;
+    for (const k of VOY_TWEAKS) if (this.tweaks.setValue(k.id, v[k.id])) under = true;
+    if (under && !changed) this.opts.repaint();
     // Les couronnes des selecteurs de forme : la forme (ou les deux du morphing) s'allume ; un dessin par vingtieme de cran
     const w1 = Math.round(morphPos('wave1', v.wave1) * 20) / 20;
     const w2 = Math.round(morphPos('wave2', v.wave2) * 20) / 20;
@@ -323,25 +329,19 @@ export class VoyagerRig {
     }
     if (this.keys.setOpen(goal)) changed = true;
     if (this.deckSilk.setOpen(goal)) changed = true;
-    if (this.syncChips()) changed = true;
+    if (this.syncTweaks()) changed = true;
     if (changed) this.opts.invalidate();
   }
 
-  /** Les puces repondent capot ouvert (et pendant l'ouverture, une fois decouvertes). */
-  syncChips(): boolean {
+  /** Les TWEAKS repondent capot ouvert (et pendant l'ouverture, une fois decouverts, comme les puces avant eux). */
+  syncTweaks(): boolean {
     const s = voyExplode.get();
     const live = s === 'open' || (s === 'opening' && this.explode.p.plateau >= EXPLODE.chipsFrom);
-    this.chipsOn = live;
     let changed = false;
-    for (const d of this.chipDefs) {
+    for (const d of this.tweakDefs) {
       if (d.enabled === live) continue;
       d.enabled = live;
       changed = true;
-    }
-    if (!live) {
-      this.hoverChip = null;
-      this.focusChip = null;
-      if (this.syncChipHot()) changed = true;
     }
     return changed;
   }
@@ -351,7 +351,7 @@ export class VoyagerRig {
   /** Le capot qui s'ouvre ou se ferme ; true tant qu'il bouge. */
   stepExplode = (now: number): boolean => {
     if (!this.explode.update(now)) return false;
-    this.syncChips();
+    this.syncTweaks();
     return true;
   };
 
@@ -419,38 +419,7 @@ export class VoyagerRig {
       const i = this.keys.buttonIndex(id.slice(5) as never);
       slot = i >= 0 ? CHORDS.length + i : -1;
     }
-    let changed = this.keys.setHover(slot);
-    this.hoverChip = id?.startsWith('vchip-') ? (id.slice(6) as ChipId) : null;
-    if (this.syncChipHot()) changed = true;
-    return changed;
-  }
-
-  setChipFocus(id: ChipId | null): boolean {
-    const next = this.chipsOn ? id : null;
-    if (next === this.focusChip) return false;
-    this.focusChip = next;
-    return this.syncChipHot();
-  }
-
-  private syncChipHot(): boolean {
-    let changed = false;
-    for (const c of this.pcb.chips) {
-      const hot = c.id === this.hoverChip || c.id === this.focusChip;
-      if (hot === this.hotChips.has(c.id)) continue;
-      if (hot) this.hotChips.add(c.id);
-      else this.hotChips.delete(c.id);
-      this.opts.paintTweens.run(
-        `vchip.rise.${c.id}`,
-        (v) => this.pcb.setRise(c.id, v),
-        this.pcb.riseOf(c.id),
-        hot ? CHIP.rise : 0,
-        this.opts.reduced() ? 0 : CHIP.riseMs,
-        easeOutCubic,
-        performance.now()
-      );
-      changed = true;
-    }
-    return changed;
+    return this.keys.setHover(slot);
   }
 
   /** Polices ou logos arrives : la serigraphie se redessine. */
@@ -459,11 +428,7 @@ export class VoyagerRig {
     this.panelSilk.draw();
     this.back.draw();
     this.pcb.redraw();
-  }
-
-  /** Les puces repondent-elles (jumeaux) ? */
-  get chipsLive(): boolean {
-    return chipsLive(voyExplode.get());
+    this.tweaks.draw();
   }
 
   info() {
@@ -473,6 +438,8 @@ export class VoyagerRig {
       explode: this.explode.info(),
       keys: this.keys.info(),
       knobs: this.knobs.info(),
+      tweaks: this.tweaks.info(),
+      tweaksLive: this.tweakDefs.filter((d) => d.enabled).length,
       lcd: this.lcd.text,
       silkDraws: [this.deckSilk.draws, this.panelSilk.draws],
       pcb: { prepared: this.pcb.info().prepared },
@@ -490,6 +457,7 @@ export class VoyagerRig {
     this.deckSilk.dispose();
     this.panelSilk.dispose();
     this.lcd.dispose();
+    this.tweaks.dispose();
     this.pcb.dispose();
   }
 }

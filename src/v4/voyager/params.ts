@@ -67,9 +67,17 @@ export type VoyKnobId =
   | 'chorus'
   | 'delay'
   | 'reverb'
-  | 'volume';
+  | 'volume'
+  // TWEAKS (2026-10-04) : sous le capot, sur la carte (voyager/tweaks.ts)
+  | 'phase'
+  | 'drift'
+  | 'width'
+  | 'monoLow'
+  | 'keyTrack'
+  | 'accent'
+  | 'sync';
 
-export type VoySection = 'arp' | 'osc' | 'filter' | 'feg' | 'aeg' | 'mod' | 'fx' | 'out';
+export type VoySection = 'arp' | 'osc' | 'filter' | 'feg' | 'aeg' | 'mod' | 'fx' | 'out' | 'tweak';
 
 export interface VoyKnob {
   id: VoyKnobId;
@@ -156,7 +164,45 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'delay', label: 'DELAY', aria: 'Delay', section: 'fx', def: 0.25 },
   { id: 'reverb', label: 'REVERB', aria: 'Reverb', section: 'fx', def: 0.25 },
   { id: 'volume', label: 'VOLUME', aria: 'Synth volume', section: 'out', def: 0.75 },
+  /*
+   * TWEAKS (2026-10-04, Mika : "un bouton pour qu'on n'ait pas de probleme de
+   * phase dans les low ; ca dephase pour l'impression d'analog, mais c'est un
+   * peu trop intense ; dans OPEN, d'autres boutons pour changer certaines
+   * choses ; je veux un super synth"). Sous le capot (OPEN), sur une plaque
+   * vissee a la carte (voyager/tweaks.ts). Leurs valeurs de depart donnent le
+   * son d'avant, au plus pres :
+   * - PHASE : FREE (les oscillateurs tournent librement, chaque note part
+   *   d'une phase au hasard) ou, au-dela, chaque note repart de la meme phase
+   *   (0 a 360 deg) : des basses qui frappent pareil a chaque note ;
+   * - DRIFT : la part d'analogique (derive lente, petits ecarts par note) ;
+   *   0 : parfaitement stable, 5 : celle d'avant, 10 : le double ;
+   * - WIDTH : l'ecart gauche / droite des notes (5 : celui d'avant) ;
+   * - BASS MONO : sous cette frequence, le son reste au centre et ne passe ni
+   *   par le chorus ni par les effets (OFF, ou 40 a 300 Hz) : plus de phase
+   *   qui se balade dans les graves ;
+   * - KEY TRACK : la coupure suit la note (5 : la moitie, celle d'avant) ;
+   * - ACCENT : la force des accents de l'arpege (le "a" de chaque temps) ;
+   * - SYNC : OSC 2 synchronise sur OSC 1 (hard sync), le son acide qui crie
+   *   quand TUNE 2 monte.
+   */
+  { id: 'phase', label: 'PHASE', aria: 'Oscillator phase at each note: free, or the same start phase every note', section: 'tweak', def: 0 },
+  { id: 'drift', label: 'DRIFT', aria: 'Analog drift and the small differences between notes', section: 'tweak', def: 0.5 },
+  { id: 'width', label: 'WIDTH', aria: 'Stereo width of the notes', section: 'tweak', def: 0.5 },
+  { id: 'monoLow', label: 'BASS MONO', aria: 'Bass mono: below this frequency the sound stays centred and dry', section: 'tweak', def: 0 },
+  { id: 'keyTrack', label: 'KEY TRACK', aria: 'Filter key tracking, the cutoff follows the note', section: 'tweak', def: 0.5 },
+  { id: 'accent', label: 'ACCENT', aria: 'Arpeggio accent depth', section: 'tweak', def: 0.5 },
+  { id: 'sync', label: 'SYNC', aria: 'Oscillator 2 hard synced to oscillator 1', section: 'tweak', def: 0, steps: ['OFF', 'ON'] },
 ];
+
+/** Les potards de la face (capot) et les TWEAKS (sous le capot, sur la carte : voyager/tweaks.ts). */
+export const VOY_FACE_KNOBS: readonly VoyKnob[] = VOY_KNOBS.filter((k) => k.section !== 'tweak');
+export const VOY_TWEAKS: readonly VoyKnob[] = VOY_KNOBS.filter((k) => k.section === 'tweak');
+
+/** PHASE : sous ce seuil, FREE ; au-dessus, la phase de depart (0 a 1 cycle). */
+export const PHASE_FREE = 0.04;
+export const phaseStart = (v: number): number => (v < PHASE_FREE ? -1 : (v - PHASE_FREE) / (1 - PHASE_FREE));
+/** BASS MONO : OFF sous 0.04, puis 40 a 300 Hz (exponentiel). */
+export const monoLowHz = (v: number): number => (v < 0.04 ? 0 : 40 * Math.pow(7.5, (v - 0.04) / 0.96));
 
 export const VOY_KNOB_IDS: readonly VoyKnobId[] = VOY_KNOBS.map((k) => k.id);
 export const voyKnob = (id: VoyKnobId): VoyKnob => VOY_KNOBS.find((k) => k.id === id) as VoyKnob;
@@ -261,6 +307,12 @@ export interface EngineParams {
   lfoShape: number;
   lfoDest: number;
   lfoAmt: number;
+  /** TWEAKS : phase de depart (-1 : libre), derive (0 a 2, 1 : celle d'avant), ecart stereo, suivi du clavier, hard sync (0 ou 1) */
+  phase: number;
+  drift: number;
+  width: number;
+  keyTrack: number;
+  sync: number;
 }
 
 export function engineParams(v: Readonly<VoyValues>): EngineParams {
@@ -292,12 +344,18 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
     lfoShape: stepIndex('lfoShape', v.lfoShape),
     lfoDest: stepIndex('lfoDest', v.lfoDest),
     lfoAmt: v.lfoAmt,
+    phase: phaseStart(v.phase),
+    drift: 2 * v.drift,
+    width: 0.44 * v.width,
+    keyTrack: v.keyTrack,
+    sync: stepIndex('sync', v.sync),
   };
 }
 
 /** Texte de l'ecran et du jumeau : CUTOFF 64%, RATE 1/16, MODE UP/DN. */
 export function voyReadout(id: VoyKnobId, v: number): string {
   const k = voyKnob(id);
+  if (id === 'phase' || id === 'monoLow') return `${k.label} ${voyValueText(id, v)}`;
   if (k.morph) return `${k.label} ${morphText(id, v)}`;
   if (k.steps) return `${k.label} ${k.steps[stepIndex(id, v)]}`;
   const sec = k.section === 'feg' ? 'F ' : k.section === 'aeg' ? 'A ' : '';
@@ -307,6 +365,8 @@ export function voyReadout(id: VoyKnobId, v: number): string {
 /** Valeur lue d'un potard (jumeau) : "1/16", "64 %". */
 export function voyValueText(id: VoyKnobId, v: number): string {
   const k = voyKnob(id);
+  if (id === 'phase') return v < PHASE_FREE ? 'FREE' : `${Math.round(phaseStart(v) * 360)} DEG`;
+  if (id === 'monoLow') return v < 0.04 ? 'OFF' : `${Math.round(monoLowHz(v))} HZ`;
   if (k.morph) return morphText(id, v);
   if (k.steps) return k.steps[stepIndex(id, v)];
   return `${Math.round(v * 100)} %`;

@@ -159,7 +159,8 @@ function scheduleStep(now: number): void {
     // Un silence de la suite : rien ne part, le glissement repartira de la derniere note
     if (d === null) continue;
     const midi = degreeMidi(chord, d) + shift;
-    const accent = ACCENT[stepIdx % 4] * (k === 1 ? 0.85 : 1);
+    // ACCENT (TWEAKS) : la profondeur des accents, 0.5 celle d'avant, 0 tout a plat, 1 le double
+    const accent = Math.max(0.3, 1 + (ACCENT[stepIdx % 4] * (k === 1 ? 0.85 : 1) - 1) * 2 * p.accent);
     const gate = Math.max(0.02, gateFrac(p.gate) * interval);
     noteOn(midi, when, gate, lastMidi, accent);
     lastMidi = midi;

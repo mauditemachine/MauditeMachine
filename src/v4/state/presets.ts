@@ -18,7 +18,7 @@ import { mix, setStretch } from '../audio/drums';
 import { voiceFx, VOICE_PARAMS, type VoiceFx } from '../audio/voicefx';
 import type { Inst } from '../theme';
 import { arp } from '../voyager/arp';
-import { VOY_KNOB_IDS, voyParams, type VoyValues } from '../voyager/params';
+import { VOY_KNOB_IDS, voyKnob, voyParams, type VoyValues } from '../voyager/params';
 import { seq, type SeqState } from '../voyager/seq';
 
 export type PresetMachine = 'voy' | 'mm808';
@@ -126,9 +126,10 @@ function capture(m: PresetMachine): VoyData | RytmData {
 function apply(m: PresetMachine, d: VoyData | RytmData): void {
   if (m === 'voy') {
     const v = d as VoyData;
+    // Un preset d'avant un potard (les TWEAKS, 2026-10-04) : ce potard a sa valeur de depart, le son d'alors
     for (const id of VOY_KNOB_IDS) {
       const x = v.knobs[id];
-      if (typeof x === 'number') voyParams.set(id, x);
+      voyParams.set(id, typeof x === 'number' ? x : voyKnob(id).def);
     }
     seq.restore(v.seq);
     arp.load(v.prog);

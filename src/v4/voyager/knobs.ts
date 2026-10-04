@@ -1,5 +1,5 @@
 /**
- * Les 25 potards du MM-VOYAGER (2026-10-03), facon Moog : jupe
+ * Les potards de la face du MM-VOYAGER (2026-10-03 ; les TWEAKS, sous le capot : tweaks.ts), facon Moog : jupe
  * d'aluminium large et fine a la base, capuchon noir cannele (24
  * cannelures, le haut un peu plus etroit), repere blanc du centre vers
  * l'arriere. UN InstancedMesh, une geometrie a couleurs de sommets. Meme
@@ -32,7 +32,7 @@ import type { HotspotDef } from '../scene/hit';
 import { potAngle } from '../scene/encoders';
 import { paintLinear, paintSolid } from '../scene/materials';
 import { LIT, TEMPO_UI } from '../theme';
-import { VOY_KNOBS, type VoyKnobId } from './params';
+import { VOY_FACE_KNOBS, type VoyKnobId } from './params';
 import { VOY_KNOB, VOY_PANEL, VOY_SWITCH, isSwitch, switchThrowDeg, voyKnobPlace } from './theme';
 
 const AXIS_Y = new Vector3(0, 1, 0);
@@ -40,11 +40,11 @@ const m4 = new Matrix4();
 const pos = new Vector3();
 const quat = new Quaternion();
 const scl = new Vector3();
-const COUNT = VOY_KNOBS.length;
+const COUNT = VOY_FACE_KNOBS.length;
 /** Le panneau dans le repere du capot (rig.ts le pose pareil). */
 const PANEL_M = new Matrix4().compose(new Vector3(0, VOY_PANEL.cy, VOY_PANEL.cz), new Quaternion().setFromEuler(new Euler(VOY_PANEL.angle, 0, 0)), new Vector3(1, 1, 1));
 
-function buildGeometry(mobile: boolean): BufferGeometry {
+export function buildKnobGeometry(mobile: boolean): BufferGeometry {
   const K = VOY_KNOB;
   const seg = mobile ? K.segments.mobile : K.segments.desktop;
   // Jupe : un disque fin, son bord biseaute (rTop < r)
@@ -91,7 +91,7 @@ export class VoyKnobs {
     // Un peu de metal : la jupe d'aluminium accroche la lumiere, le capuchon reste mat
     this.material = new MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.28 });
     this.material.name = 'voyKnob';
-    this.mesh = new InstancedMesh(buildGeometry(opts.mobile), this.material, COUNT);
+    this.mesh = new InstancedMesh(buildKnobGeometry(opts.mobile), this.material, COUNT);
     this.mesh.name = 'voyKnobs';
     this.mesh.castShadow = opts.castShadow;
     this.mesh.receiveShadow = true;
@@ -100,12 +100,12 @@ export class VoyKnobs {
   }
 
   private index(id: VoyKnobId): number {
-    for (let i = 0; i < COUNT; i += 1) if (VOY_KNOBS[i].id === id) return i;
+    for (let i = 0; i < COUNT; i += 1) if (VOY_FACE_KNOBS[i].id === id) return i;
     return -1;
   }
 
   private place(i: number): void {
-    const pl = voyKnobPlace(VOY_KNOBS[i].id);
+    const pl = voyKnobPlace(VOY_FACE_KNOBS[i].id);
     quat.setFromAxisAngle(AXIS_Y, this.angle[i]);
     m4.compose(pos.set(pl.x, 0, pl.z), quat, scl.setScalar(pl.s));
     if (pl.where === 'panel') m4.premultiply(PANEL_M);
@@ -117,7 +117,7 @@ export class VoyKnobs {
   setValue(id: VoyKnobId, v: number): boolean {
     const i = this.index(id);
     if (i < 0) return false;
-    const n = VOY_KNOBS[i].steps?.length ?? 2;
+    const n = VOY_FACE_KNOBS[i].steps?.length ?? 2;
     const a = Math.fround(potAngle(v) * (isSwitch(id) ? switchThrowDeg(n) / TEMPO_UI.sweepDeg : 1));
     if (this.angle[i] === a) return false;
     this.angle[i] = a;
@@ -127,7 +127,7 @@ export class VoyKnobs {
 
   /** Les potards pour le picking : un cylindre de la jupe, jusqu'au haut du capuchon ; repere de leur plan. */
   hotspots(panel: Object3D, deck: Object3D): HotspotDef[] {
-    return VOY_KNOBS.map((k) => {
+    return VOY_FACE_KNOBS.map((k) => {
       const pl = voyKnobPlace(k.id);
       // Un commutateur se prend aussi par ses reperes (12, 24) : sa cible deborde
       const r = VOY_KNOB.skirt.r * pl.s + (isSwitch(k.id) ? VOY_SWITCH.markR * 0.6 : 0);
@@ -149,7 +149,7 @@ export class VoyKnobs {
   }
 
   info(): { ids: VoyKnobId[]; angleDeg: number[] } {
-    return { ids: VOY_KNOBS.map((k) => k.id), angleDeg: Array.from(this.angle, (a) => +((a * 180) / Math.PI).toFixed(2)) };
+    return { ids: VOY_FACE_KNOBS.map((k) => k.id), angleDeg: Array.from(this.angle, (a) => +((a * 180) / Math.PI).toFixed(2)) };
   }
 
   dispose(): void {

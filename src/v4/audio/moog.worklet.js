@@ -15,7 +15,7 @@
  *   note a ses petits ecarts, comme les voix d'un vrai polyphonique (la
  *   coupure a +/- 2.8 %, les enveloppes a +/- 5 %, l'accord a +/- 1.5
  *   cent), et sa place dans l'image stereo (une note a gauche, la suivante
- *   a droite, de peu : SPREAD) ;
+ *   a droite, de peu : WIDTH) ;
  * - le filtre en echelle 24 dB (quatre poles, retroaction resolue sans
  *   retard) a saturation DANS chaque etage, comme les transistors d'un
  *   Moog (la methode "cheap" de Mystran : chaque etage prend la pente de
@@ -28,6 +28,20 @@
  *   decroissance et relachement exponentiels), redeclenchees depuis leur
  *   niveau : jamais de clic ;
  * - GLIDE glisse depuis la note precedente en hauteur logarithmique.
+ * TWEAKS (2026-10-04, sous le capot, Mika : "pas de probleme de phase dans
+ * les low ; l'impression d'analog, mais un peu trop intense") :
+ * - phase : -1, les oscillateurs tournent librement (chaque voix neuve part
+ *   d'une phase au hasard, comme avant) ; 0 a 1, chaque note repart de
+ *   cette phase, les trois oscillateurs ensemble : l'attaque est la meme a
+ *   chaque note, la basse frappe toujours pareil. Seulement si la voix est
+ *   (presque) muette : pas de clic sur une voix reprise en plein son ;
+ * - drift : la part d'analogique (1 : celle d'avant) : derive lente des
+ *   oscillateurs et petits ecarts par note (coupure, enveloppes, accord) ;
+ *   0 : tout est stable et juste ;
+ * - width : l'ecart stereo des notes (0.22 avant, SPREAD) ;
+ * - keyTrack : la coupure suit la note (0.5 avant, KEY_TRACK) ;
+ * - sync : OSC 2 repart a chaque cycle d'OSC 1 (hard sync) : il ne bat
+ *   plus contre lui, son accord devient un timbre.
  * Jusqu'a 12 notes en meme temps (les queues de RELEASE se chevauchent) ;
  * au-dela, la plus ancienne repart de son niveau.
  * Notes recues avec leur instant (temps du contexte), jouees a
@@ -119,7 +133,6 @@ class Decimator {
   }
 }
 const TRACK_ROOT = 54;
-const KEY_TRACK = 0.5;
 
 function polyblep(t, dt) {
   if (t < dt) {
@@ -235,8 +248,8 @@ function tq(a, b, fa, fb) {
 }
 /** Les graves gardes quand la resonance monte (0.3 avant le 2026-10-03). */
 const BASS_KEEP = 0.45;
-/** Ecart stereo des notes (0 : au centre, 1 : tout a gauche ou a droite). */
-const SPREAD = 0.22;
+/** Sous ce niveau d'enveloppe, une voix reprise peut repartir de la phase de PHASE sans clic. */
+const PHASE_QUIET = 0.02;
 /** Gain de sortie (1.5 avant le filtre a etages satures : recale au meme niveau, mesure hors ligne). */
 const OUT_GAIN = 1.25;
 
@@ -344,6 +357,11 @@ class MMVoyager extends AudioWorkletProcessor {
       aS: 0.6,
       aR: 0.3,
       drive: 0,
+      phase: -1,
+      drift: 1,
+      width: 0.22,
+      keyTrack: 0.5,
+      sync: 0,
     };
     // Valeurs lissees (un pole, environ 15 ms) : pas de craquement quand un potard tourne
     this.sm = { w1: 2, w2: 2, o1: 0.62, o2: 0.62, fm: 0, noise: 0, lfoAmt: 0, fine: 15, cutoff: 800, res: 0.3, envOct: 3, drive: 0 };
@@ -425,12 +443,20 @@ class MMVoyager extends AudioWorkletProcessor {
     v.fStage = 1;
     v.off = frame + Math.max(64, Math.round(n.gate * sampleRate));
     v.accent = n.accent;
-    // Presque analogique : chaque note a ses petits ecarts, et sa place dans l'image
-    v.vCut = Math.pow(2, (Math.random() - 0.5) * 0.08);
-    v.vEnv = 1 + (Math.random() - 0.5) * 0.1;
-    v.vTune = (Math.random() - 0.5) * 3;
+    // PHASE : la note repart de la meme phase (voix muette ou presque : pas de clic)
+    const p = this.p;
+    if (p.phase >= 0 && v.aV < PHASE_QUIET) {
+      v.ph[0] = p.phase;
+      v.ph[1] = p.phase;
+      v.ph[2] = p.phase;
+    }
+    // Presque analogique (DRIFT) : chaque note a ses petits ecarts, et sa place dans l'image (WIDTH)
+    const dr = p.drift;
+    v.vCut = Math.pow(2, (Math.random() - 0.5) * 0.08 * dr);
+    v.vEnv = 1 + (Math.random() - 0.5) * 0.1 * dr;
+    v.vTune = (Math.random() - 0.5) * 3 * dr;
     this.flip = !this.flip;
-    const pan = (this.flip ? 1 : -1) * SPREAD * (0.7 + 0.3 * Math.random());
+    const pan = (this.flip ? 1 : -1) * p.width * (0.7 + 0.3 * Math.random());
     v.gL = Math.cos(((pan + 1) * Math.PI) / 4) * Math.SQRT2;
     v.gR = Math.sin(((pan + 1) * Math.PI) / 4) * Math.SQRT2;
     if (this.lfoRestart) {
@@ -541,6 +567,8 @@ class MMVoyager extends AudioWorkletProcessor {
       const driveIn = 1 + 5 * sm.drive;
       const driveOut = 1 + 7 * sm.drive;
       const half = sm.fine / 2;
+      const drift = p.drift;
+      const sync = p.sync === 1;
       let sum = 0;
       let sumR = 0;
       for (let vi = 0; vi < MAX_VOICES; vi += 1) {
@@ -579,8 +607,8 @@ class MMVoyager extends AudioWorkletProcessor {
         const ph = v.ph;
         if (newNoise || v.d1 === 0) {
           const f = Math.exp(v.logf);
-          v.d1 = (f * Math.pow(2, (v.drift[0] - half + v.vTune + pitchMod) / 1200)) / sr;
-          v.d2 = (f * ratio2 * Math.pow(2, (v.drift[1] + half + v.vTune + pitchMod) / 1200)) / sr;
+          v.d1 = (f * Math.pow(2, (v.drift[0] * drift - half + v.vTune + pitchMod) / 1200)) / sr;
+          v.d2 = (f * ratio2 * Math.pow(2, (v.drift[1] * drift + half + v.vTune + pitchMod) / 1200)) / sr;
         }
         const d1 = v.d1;
         const d2 = v.d2;
@@ -610,15 +638,19 @@ class MMVoyager extends AudioWorkletProcessor {
           o += nGain * v.nz;
         }
         ph[0] += d1;
-        if (ph[0] >= 1) ph[0] -= 1;
         ph[1] += d2;
-        if (ph[1] >= 1) ph[1] -= 1;
+        if (ph[0] >= 1) {
+          ph[0] -= 1;
+          // SYNC : OSC 2 repart avec OSC 1, a la fraction d'echantillon pres
+          if (sync) ph[1] = (ph[0] / d1) * d2;
+        }
+        if (ph[1] >= 1) ph[1] -= Math.floor(ph[1]);
         ph[2] += dm;
         ph[2] -= Math.floor(ph[2]);
         // Filtre en echelle : coupure (enveloppe, accent, suivi du clavier), retroaction resolue
         // Coupure et pentes des etages : une fois par echantillon du contexte (elles bougent lentement a cette echelle)
         if (newNoise || v.Ga === 0) {
-          let fc = sm.cutoff * v.vCut * Math.pow(2, cutMod + sm.envOct * v.fV * (0.8 + 0.2 * v.accent) + (KEY_TRACK * (v.midi - TRACK_ROOT)) / 12);
+          let fc = sm.cutoff * v.vCut * Math.pow(2, cutMod + sm.envOct * v.fV * (0.8 + 0.2 * v.accent) + (p.keyTrack * (v.midi - TRACK_ROOT)) / 12);
           if (fc > nyq) fc = nyq;
           else if (fc < 20) fc = 20;
           const g = Math.tan((Math.PI * fc) / sr);

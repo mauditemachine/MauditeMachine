@@ -354,9 +354,8 @@ function extrasOf(variant: PcbVariant): Extra[] {
 /** L'etiquette a code-barres de la carte (MM-808) : centre, demi-etendues. */
 const STICKER = { x: 1.15, z: -0.88, hx: 0.6, hz: 0.24 } as const;
 
-function footprints(variant: PcbVariant): Footprint[] {
+function footprints(variant: PcbVariant, chips: readonly ChipSpec[]): Footprint[] {
   const out: Footprint[] = [];
-  const chips = BOARD_CHIPS;
   chips.forEach((c, k) => {
     const D = chipDims(c);
     const legHz = D.legZ + CHIP.legD / 2;
@@ -597,7 +596,7 @@ const RGB_EXTRA = {
 
 const SMALL_REFS_VOY = ['TL072', 'CA3046', 'LM13700', 'LM324'] as const;
 
-function buildParts(mobile: boolean, variant: PcbVariant): Built {
+function buildParts(mobile: boolean, variant: PcbVariant, chips: readonly ChipSpec[]): Built {
   const seg = mobile ? 12 : 16;
   const parts = new Bucket();
   const metal = new Bucket();
@@ -620,7 +619,7 @@ function buildParts(mobile: boolean, variant: PcbVariant): Built {
 
   // Les trois puces cliquables d'abord : corps et point jaune (plastique),
   // pattes (metal), reference blanche sur le dessus (marquage)
-  BOARD_CHIPS.forEach((c, k) => {
+  chips.forEach((c, k) => {
     const D = chipDims(c);
     const body = box(D.w, CHIP.y1 - CHIP.y0, D.d, c.x, (CHIP.y0 + CHIP.y1) / 2, c.z, RGB.chip);
     const mid = c.size === 'mid';
@@ -1001,17 +1000,20 @@ export class Pcb {
   private litDraws = 0;
   private segments = 0;
 
-  /** model : la ligne de modele de la serigraphie (MM-VOYAGER, 2026-10-03), MM-808 par defaut ; variant : la carte */
+  /**
+   * model : la ligne de modele de la serigraphie (MM-VOYAGER, 2026-10-03), MM-808 par defaut ; variant : la carte ;
+   * chips false : une carte sans les puces des pages (le MM-ARP depuis le 2026-10-04 : ses TWEAKS a leur place)
+   */
   private model: string | null;
   private variant: PcbVariant;
   /** puces cliquables et plan de masse de cette carte */
   readonly chips: readonly ChipSpec[];
   private pour: { x0: number; z0: number; x1: number; z1: number };
 
-  constructor(mobile: boolean, anisotropy: number, opts: { model?: string; variant?: PcbVariant } = {}) {
+  constructor(mobile: boolean, anisotropy: number, opts: { model?: string; variant?: PcbVariant; chips?: boolean } = {}) {
     this.model = opts.model ?? null;
     this.variant = opts.variant ?? 'mm808';
-    this.chips = BOARD_CHIPS;
+    this.chips = opts.chips === false ? [] : BOARD_CHIPS;
     this.pour = POUR;
     const [W, H] = mobile ? PCB.tex.mobile : PCB.tex.desktop;
     this.W = W;
@@ -1049,7 +1051,7 @@ export class Pcb {
     this.envTex.mapping = EquirectangularReflectionMapping;
     this.envTex.colorSpace = SRGBColorSpace;
 
-    this.prints = footprints(this.variant);
+    this.prints = footprints(this.variant, this.chips);
 
     // Relief plat tant que la carte n'est pas dessinee
     const nrm = canvas2d(4, 4);
@@ -1081,7 +1083,7 @@ export class Pcb {
     this.board = new Mesh(buildBoard(W, H), this.boardMat);
     this.board.name = 'pcbBoard';
 
-    const built = buildParts(mobile, this.variant);
+    const built = buildParts(mobile, this.variant, this.chips);
     this.ranges = built.ranges;
     this.atlas = built.atlas;
     for (const g of [built.parts, built.metal, built.labels]) {
