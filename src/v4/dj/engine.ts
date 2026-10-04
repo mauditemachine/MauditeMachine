@@ -27,7 +27,7 @@ const RESONANCE = 4;
 /** Tranches de la forme d'onde de toute la piste (l'ecran de la platine). */
 export const OVERVIEW_SLICES = 900;
 
-function peakOf(a: AnalyserNode, buf: Float32Array<ArrayBuffer>): number {
+function peakOf(a: AnalyserNode, buf: Float32Array): number {
   a.getFloatTimeDomainData(buf);
   let max = 0;
   for (let i = 0; i < buf.length; i += 1) {
@@ -54,7 +54,7 @@ export class DjChannel {
   private hp: BiquadFilterNode;
   private fader: GainNode;
   private meter: AnalyserNode;
-  private buf: Float32Array<ArrayBuffer>;
+  private buf: Float32Array;
 
   constructor(
     private ctx: AudioContext,
@@ -122,7 +122,7 @@ interface Stage {
   off: number;
 }
 
-const curve = (fn: (x: number) => number): Float32Array<ArrayBuffer> => {
+const curve = (fn: (x: number) => number): Float32Array => {
   const n = 2048;
   const c = new Float32Array(n);
   for (let i = 0; i < n; i += 1) c[i] = fn((i / (n - 1)) * 2 - 1);
@@ -273,7 +273,7 @@ export class DjMixer {
   readonly fx: DjFx;
   private master: GainNode;
   private meters: [AnalyserNode, AnalyserNode];
-  private bufs: [Float32Array<ArrayBuffer>, Float32Array<ArrayBuffer>];
+  private bufs: [Float32Array, Float32Array];
 
   constructor(
     readonly ctx: AudioContext,

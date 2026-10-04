@@ -11,7 +11,8 @@
 - MM-ARP : volumes OSC 1 et OSC 2 (a la place de MIX), filtre multimode LP 24 / LP 12 / BP / HP (a la place de SLOPE), section MOD (LFO cale sur le tempo : SPEED, SHAPE avec S&H, TARGET, DEPTH), RANDOM les tire aussi ; panneau desktop sur trois rangees, telephone a huit potards par rangee, GLIDE dans l'arpegiateur (`audio/moog.worklet.js`, `audio/synth.ts`, `voyager/params.ts`, `voyager/theme.ts`, `voyager/silk.ts`, `voyager/knobs.ts`, `voyager/random.ts`, `ui/Hotspots.tsx`).
 - MM-ARP : hierarchie des potards (cinq tailles, CUTOFF en heros, arcs imprimes facon Typhon autour des moyens et petits), compositions desktop et telephone refaites (`voyager/theme.ts`, `voyager/silk.ts`, `voyager/params.ts`).
 - Deck (troisieme machine, session Sonaa) : partage convenu ; la session Sonaa generalise 2 -> N machines dans sa branche, je fusionnerai et soignerai l'accueil (onglets, volet, vue d'ensemble, menu, Dock).
-- `docs/v4/spec.md` : R14-59 a R14-67.
+- MM-DECKS fusionne sur main (branche decks-3d de la session Sonaa, f5b3ef0), cache derriere ?dj=1 ; correction de typage a la fusion (`dj/engine.ts`).
+- `docs/v4/spec.md` : R14-59 a R14-68.
 
 ## 2. Decisions prises et pourquoi
 
@@ -25,6 +26,7 @@
 
 ## 3. Ce qui reste a faire / points en suspens
 
+- Accueil de MM-DECKS (avant de le montrer sans drapeau) : vue d'ensemble a trois (55 appels de dessin pour un budget de 20), noms et cadrage, onglets au telephone, menu, Dock ; code DJ a charger a part (il entre aujourd'hui dans le bundle meme sans le drapeau). Mika : essayer avec ?dj=1, valider avant publication.
 - Mika : essayer RANDOM sur les deux machines (styles 4x4, MOD, MODE du filtre), juger le clap.
 - Mika : ecouter aux IE900 (chorus a fond sur l'arpege, charleys transposes avec TONE, arpege et kick ensemble), juger le nouveau menu sur son iPhone, essayer RANDOM.
 - Pour l'ecoute : sortie du Mac a 48 kHz (Configuration audio et MIDI) ; un DAC externe pour les IE900 plutot que la prise du Mac.
