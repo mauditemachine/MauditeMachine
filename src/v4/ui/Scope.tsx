@@ -14,6 +14,12 @@
  *   laissees en fantomes (GHOSTS) ; un groove qui revient a sa place ne
  *   bouge pas, une phase qui glisse se voit. Rien ne joue (ou TRIG AUTO) :
  *   un front montant, et les fenetres d'avant.
+ * - POS (2026-10-04, Mika : "on a du mal a voir, ca bouge vraiment vite") :
+ *   la fenetre plus courte qu'une mesure reste a sa place dans la mesure
+ *   (POS 1, le temps fort, par defaut) et ne change qu'une fois par mesure ;
+ *   POS ALL : elle suit la lecture, comme avant. En AUTO, une nouvelle prise
+ *   au plus quatre fois par seconde, les fantomes sont les prises d'avant.
+ *   Les traits ont un pixel de plus (Mika : "pour mieux voir les choses").
  * - VIEW : L/R (gauche vert, droite bleu), MID, SIDE, XY (le goniometre :
  *   vertical en phase, horizontal en opposition).
  * - GAIN x1 a x16, lignes a -3, -6 et -12 dBFS ; FREEZE fige l'ecran.
@@ -39,7 +45,9 @@ import {
   SCOPE_VIEW_LABEL,
   SCOPE_WINDOWS,
   SCOPE_WINDOW_LABEL,
+  SCOPE_AUTO_MS,
   scopeEngine,
+  scopePlaces,
   scopeSettings,
   RING,
   type ScopeSettings,
@@ -82,8 +90,18 @@ function windowOf(s: ScopeSettings, sig: (f: number) => number): { start: number
     const atOrBefore = g.time <= t + 1e-9;
     const b0 = atOrBefore ? g.time : g.time - g.dur;
     const s0 = atOrBefore ? g.step : (g.step + 15) % 16;
-    const start = b0 - (s0 % s.window) * g.dur;
-    return { start: Math.round(start * sr), len: Math.max(16, Math.round(s.window * g.dur * sr)), period: Math.round(16 * g.dur * sr), filling: true, mode: 'beat' };
+    const len = Math.max(16, Math.round(s.window * g.dur * sr));
+    const period = Math.round(16 * g.dur * sr);
+    const places = scopePlaces(s.window);
+    if (s.at < 0 || places <= 1) {
+      // Elle suit la lecture (POS ALL), ou la mesure entiere
+      const start = Math.round((b0 - (s0 % s.window) * g.dur) * sr);
+      return { start, len, period, filling: end < start + len, mode: 'beat' };
+    }
+    // Sa place dans la mesure : elle se remplit a son tour, puis tient jusqu'a la mesure suivante
+    let start = Math.round((b0 - s0 * g.dur + (s.at % places) * s.window * g.dur) * sr);
+    if (start > end) start -= period;
+    return { start, len, period, filling: end < start + len, mode: 'beat' };
   }
   // AUTO : le dernier front montant qui laisse une fenetre entiere derriere lui
   const len = Math.max(16, Math.round(((s.window * 60) / (clock.bpm || pattern.get().bpm || 120) / 4) * sr));
@@ -137,7 +155,15 @@ function driftOf(sig: (f: number) => number, a: number, b: number, n: number, ma
 }
 
 /** Peint l'ecran ; renvoie les mesures (ou null s'il n'y a rien a peindre). */
-function paint(cv: HTMLCanvasElement, s: ScopeSettings, source: ScopeSource, last: { drift: number | null; at: number }): Measure | null {
+/** Ce qui tient d'une image a l'autre : DRIFT (cinq fois par seconde), les prises AUTO (la plus recente d'abord). */
+interface Memory {
+  drift: number | null;
+  at: number;
+  autoAt: number;
+  autoStarts: number[];
+}
+
+function paint(cv: HTMLCanvasElement, s: ScopeSettings, source: ScopeSource, last: Memory): Measure | null {
   const dpr = Math.min(2, window.devicePixelRatio || 1);
   const W = Math.max(1, Math.round(cv.clientWidth * dpr));
   const H = Math.max(1, Math.round(cv.clientHeight * dpr));
@@ -171,7 +197,21 @@ function paint(cv: HTMLCanvasElement, s: ScopeSettings, source: ScopeSource, las
   const x1 = W - pad;
   const cy = H / 2;
   const hh = H / 2 - pad;
-  const win = windowOf(s, main);
+  const found = windowOf(s, main);
+  // AUTO : une nouvelle prise au plus toutes les SCOPE_AUTO_MS, l'image tient entre deux ; les fantomes sont les prises d'avant
+  const now = performance.now();
+  let win = found;
+  if (found && found.mode === 'auto') {
+    const kept = last.autoStarts.filter((f) => f >= first);
+    if (kept.length > 0 && now - last.autoAt < SCOPE_AUTO_MS) win = { ...found, start: kept[0] };
+    else {
+      kept.unshift(found.start);
+      last.autoAt = now;
+    }
+    last.autoStarts = kept.slice(0, 8);
+  } else last.autoStarts = [];
+  // Un trait plus epais d'un pixel (2026-10-04, Mika : "que les lignes soient grossies de 1px pour mieux voir")
+  const T = dpr;
 
   // La grille : une ligne par pas de seize (les temps plus marques), le zero, -3 -6 -12 dBFS
   c.lineWidth = 1;
@@ -239,7 +279,7 @@ function paint(cv: HTMLCanvasElement, s: ScopeSettings, source: ScopeSource, las
     for (let f = startXY; f < startXY + n; f += stride) {
       const l = L(f);
       const rr = R(f);
-      c.fillRect(cx + (l - rr) * k, cy - (l + rr) * k, dpr, dpr);
+      c.fillRect(cx + (l - rr) * k - T / 2, cy - (l + rr) * k - T / 2, dpr + T, dpr + T);
     }
     c.globalAlpha = 1;
   } else {
@@ -252,7 +292,7 @@ function paint(cv: HTMLCanvasElement, s: ScopeSettings, source: ScopeSource, las
       c.fillStyle = color;
       c.strokeStyle = color;
       if (spp <= 1.5) {
-        c.lineWidth = 1.25 * dpr;
+        c.lineWidth = 1.25 * dpr + T;
         c.beginPath();
         let moved = false;
         for (let i = 0; i < n && start + i < upto; i += 1) {
@@ -280,7 +320,8 @@ function paint(cv: HTMLCanvasElement, s: ScopeSettings, source: ScopeSource, las
           if (lo === Infinity) continue;
           const ya = yOf(hi);
           const yb = yOf(lo);
-          c.fillRect(x0 + col, ya, 1, Math.max(dpr, yb - ya));
+          // Une touche de 1 + T pixels de large, T de plus en hauteur : les colonnes se recouvrent, le trait epaissit partout
+          c.fillRect(x0 + col - T / 2, ya - T / 2, 1 + T, Math.max(dpr, yb - ya) + T);
         }
       }
       c.globalAlpha = 1;
@@ -297,10 +338,11 @@ function paint(cv: HTMLCanvasElement, s: ScopeSettings, source: ScopeSource, las
           ]
         : [{ sig: main, color: GREEN }];
     // Les fantomes : la meme place dans les mesures precedentes (en AUTO, les fenetres d'avant), de la plus ancienne a la plus recente
-    const ghosts = win.filling ? s.hold : Math.min(s.hold, 3);
+    const auto = win.mode === 'auto';
+    const ghosts = auto ? Math.min(s.hold, last.autoStarts.length - 1) : s.hold;
     for (let k = ghosts; k >= 1; k -= 1) {
-      const st = win.start - k * win.period;
-      if (st < first) continue;
+      const st = auto ? last.autoStarts[k] : win.start - k * win.period;
+      if (st === undefined || st < first) continue;
       for (const t of traces) trace(t.sig, st, st + win.len, t.color, ghostAlpha(k) * (traces.length > 1 ? 0.8 : 1));
     }
     const upto = win.filling ? Math.min(end, win.start + win.len) : win.start + win.len;
@@ -314,7 +356,7 @@ function paint(cv: HTMLCanvasElement, s: ScopeSettings, source: ScopeSource, las
   }
 
   // Les mesures : sur la derniere fenetre entiere (en se remplissant, la meme place une mesure plus tot)
-  const full = win.filling ? win.start - win.period : win.start;
+  const full = win.filling && win.mode === 'beat' ? win.start - win.period : win.start;
   let peak = 0;
   let sab = 0;
   let saa = 0;
@@ -332,7 +374,6 @@ function paint(cv: HTMLCanvasElement, s: ScopeSettings, source: ScopeSource, las
   }
   const corr = saa > 1e-9 && sbb > 1e-9 ? sab / Math.sqrt(saa * sbb) : null;
   // DRIFT : cinq fois par seconde, la fenetre entiere contre celle d'avant
-  const now = performance.now();
   if (now - last.at > 200) {
     last.at = now;
     const n = Math.min(4096, win.len);
@@ -396,7 +437,7 @@ export const Scope: React.FC<Props> = ({ mobile }) => {
     if (!live) return undefined;
     let raf = 0;
     let shownAt = 0;
-    const last = { drift: null as number | null, at: 0 };
+    const last: Memory = { drift: null, at: 0, autoAt: 0, autoStarts: [] };
     // Telephone : 30 images par seconde suffisent a l'oeil, la batterie dit merci ;
     // desktop : 60 au plus (un ecran a 120 Hz en peignait deux fois plus)
     const minMs = mobile ? 30 : 12;
@@ -421,6 +462,8 @@ export const Scope: React.FC<Props> = ({ mobile }) => {
   if (!open) return null;
 
   const set = (patch: Partial<ScopeSettings>): void => scopeSettings.set(patch);
+  /** POS : combien de places pour la fenetre dans une mesure */
+  const places = scopePlaces(s.window);
   const stop = (e: React.SyntheticEvent): void => e.stopPropagation();
 
   /** Desktop : la barre du haut deplace le panneau (hors de ses touches), dans la fenetre ; double clic : sa place d'origine. */
@@ -521,6 +564,16 @@ export const Scope: React.FC<Props> = ({ mobile }) => {
         <button type="button" className="v4-scope-btn" aria-pressed={s.trig === 'beat'} aria-label="Trigger on the beat grid" onClick={() => set({ trig: s.trig === 'beat' ? 'auto' : 'beat' })}>
           {s.trig === 'beat' ? 'BEAT' : 'AUTO'}
         </button>
+        {s.trig === 'beat' && places > 1 && (
+          <button
+            type="button"
+            className="v4-scope-btn"
+            aria-label={s.at < 0 ? 'Window position: follows the playhead' : `Window position ${(s.at % places) + 1} of ${places} in the bar`}
+            onClick={() => set({ at: s.at < 0 ? 0 : (s.at % places) + 1 >= places ? -1 : (s.at % places) + 1 })}
+          >
+            POS {s.at < 0 ? 'ALL' : (s.at % places) + 1}
+          </button>
+        )}
         <div className="v4-scope-group" role="radiogroup" aria-label="View">
           {SCOPE_VIEWS.map((v) => (
             <button key={v} type="button" role="radio" aria-checked={s.view === v} className="v4-scope-btn" onClick={() => set({ view: v })}>

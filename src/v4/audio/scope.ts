@@ -35,6 +35,10 @@ export const SCOPE_VIEW_LABEL: Readonly<Record<ScopeView, string>> = { lr: 'L/R'
 /** La fenetre, en pas de seize : 1/16, 1/8, 1/4 (un temps), 1/2, une mesure. */
 export const SCOPE_WINDOWS = [1, 2, 4, 8, 16] as const;
 export const SCOPE_WINDOW_LABEL: Readonly<Record<number, string>> = { 1: '1/16', 2: '1/8', 4: '1/4', 8: '1/2', 16: '1 BAR' };
+/** Combien de places dans une mesure pour une fenetre de w pas (POS). */
+export const scopePlaces = (w: number): number => Math.max(1, Math.floor(16 / w));
+/** AUTO : une nouvelle prise au plus toutes les AUTO_MS (l'image tient entre deux). */
+export const SCOPE_AUTO_MS = 250;
 /** Le gain de l'affichage (x1 : 0 dBFS au bord). */
 export const SCOPE_GAINS = [1, 2, 4, 8, 16] as const;
 /** Les fenetres passees laissees en fantome (la persistance du phosphore). */
@@ -49,6 +53,13 @@ export interface ScopeSettings {
   hold: number;
   /** BEAT : cale sur la grille des temps ; AUTO : sur un front montant (rien ne joue) */
   trig: 'beat' | 'auto';
+  /**
+   * BEAT, fenetre plus courte qu'une mesure : sa place dans la mesure (0 :
+   * la premiere, sur le temps fort), ou -1 : elle suit la lecture (2026-10-04,
+   * Mika : "ca bouge vraiment vite" ; a 1/16 elle changeait neuf fois par
+   * seconde, elle ne change plus qu'une fois par mesure)
+   */
+  at: number;
   freeze: boolean;
   /** l'ecran ouvert (capot ouvert) ou replie en pastille */
   shown: boolean;
@@ -56,7 +67,7 @@ export interface ScopeSettings {
   pos: { x: number; y: number } | null;
 }
 
-const DEFAULTS: ScopeSettings = { source: null, view: 'mid', window: 4, gain: 1, hold: 3, trig: 'beat', freeze: false, shown: true, pos: null };
+const DEFAULTS: ScopeSettings = { source: null, view: 'mid', window: 4, gain: 1, hold: 3, trig: 'beat', at: 0, freeze: false, shown: true, pos: null };
 const KEY = 'mm.v4.scope.1';
 
 function load(): ScopeSettings {
@@ -71,6 +82,7 @@ function load(): ScopeSettings {
     if (typeof o.gain === 'number' && (SCOPE_GAINS as readonly number[]).includes(o.gain)) s.gain = o.gain;
     if (typeof o.hold === 'number' && (SCOPE_HOLDS as readonly number[]).includes(o.hold)) s.hold = o.hold;
     if (o.trig === 'beat' || o.trig === 'auto') s.trig = o.trig;
+    if (typeof o.at === 'number' && Number.isInteger(o.at) && o.at >= -1 && o.at < 16) s.at = o.at;
     if (typeof o.shown === 'boolean') s.shown = o.shown;
     if (o.pos && Number.isFinite(o.pos.x) && Number.isFinite(o.pos.y)) s.pos = { x: o.pos.x, y: o.pos.y };
   } catch {
