@@ -14,6 +14,10 @@
  * changent ensemble. Monte seulement sur la mise en page mobile
  * (index.tsx), jamais dans le repli.
  *
+ * KNOBS (2026-10-04) : une seconde page, tous les potards du MM-RYTM en gros
+ * (effets, voix, MASTER et TEMPO, kick et sons du kit : ui/KnobPanel.tsx) ;
+ * le choix de page est retenu (mm.v4.dock.page).
+ *
  * Repliable (2026-10-01, demande de Mika) : replie par defaut, la machine a
  * tout l'ecran ; une languette a fleche au bord du bas le deplie (et le
  * replie, posee alors sur son bord haut). Le choix est retenu
@@ -29,10 +33,13 @@ import type { Stage } from '../scene/renderer';
 import { playhead } from '../state/playhead';
 import { voices } from '../state/voices';
 import { INST_NAMES, STEP_HOLD_MS } from '../theme';
+import { DockPages, KnobPanel, useDockInset, useDockPage } from './KnobPanel';
 
 const STEP_INDEXES = Array.from({ length: STEP_COUNT }, (_, i) => i);
 
 const DOCK_KEY = 'mm.v4.dock';
+/** La page du Dock (2026-10-04) : le sequenceur, ou les potards en gros (ui/KnobPanel.tsx). */
+const PAGE_KEY = 'mm.v4.dock.page';
 
 /** Deplie a la derniere visite ? (replie par defaut ; sans stockage, replie) */
 function readDockOpen(): boolean {
@@ -64,7 +71,9 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
   // Un pas touche sans instrument : les instruments clignotent une fois
   const [nudge, setNudge] = useState(0);
   const [shown, setShown] = useState(readDockOpen);
+  const [page, setPage] = useDockPage(PAGE_KEY);
   const dockRef = useRef<HTMLDivElement>(null);
+  useDockInset(getStage(), 'mm808', shown && page === 'knobs', dockRef);
   // Replie : hors du clavier et des lecteurs d'ecran (inert n'est pas encore type par React 18)
   useEffect(() => {
     const el = dockRef.current;
@@ -93,6 +102,7 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
         type="button"
         className="v4-dock-tab"
         data-open={shown ? '1' : '0'}
+        data-page={page}
         aria-expanded={shown}
         aria-controls="v4-dock"
         aria-label={shown ? 'Hide the sequencer' : 'Show the sequencer'}
@@ -100,7 +110,12 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
       >
         <Icon name={shown ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-up'} />
       </button>
-      <div ref={dockRef} id="v4-dock" className="v4-dock" data-open={shown ? '1' : '0'} data-mode={inst ? 'edit' : 'union'}>
+      <div ref={dockRef} id="v4-dock" className="v4-dock" data-open={shown ? '1' : '0'} data-mode={inst ? 'edit' : 'union'} data-page={page}>
+        <DockPages page={page} onPage={setPage} first="SEQUENCER" />
+        {page === 'knobs' ? (
+          <KnobPanel machine="mm808" />
+        ) : (
+          <>
         <div key={nudge} className="v4-dock-insts" data-nudge={nudge > 0 ? '1' : '0'} role="group" aria-label="Instrument, tap one, then the steps">
           {/* RANDOM a gauche des voix, comme sur la machine */}
           <button type="button" className="v4-dock-inst v4-dock-random" aria-label="Random house pattern" onClick={() => randomPattern(getStage())}>
@@ -232,6 +247,8 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
             <Glyph plus />
           </button>
         </div>
+          </>
+        )}
       </div>
     </>
   );

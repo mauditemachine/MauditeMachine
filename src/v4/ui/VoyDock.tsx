@@ -12,6 +12,8 @@
  *   comme sur la machine ; un appui passe a la suivante. FM a cote (la
  *   quantite de modulation, OFF 25 50 75 100 %) et RATIO (le rapport de
  *   l'operateur, 1/2 a 7).
+ * - KNOBS (2026-10-04) : une seconde page, tous les potards en gros, par
+ *   section (ui/KnobPanel.tsx) ; le choix de page est retenu.
  * Memes actions et memes stores que la machine : les deux bougent ensemble.
  * Monte seulement sur telephone, quand on utilise le Voyager (index.tsx).
  */
@@ -23,8 +25,11 @@ import { arp } from '../voyager/arp';
 import { CHORDS } from '../voyager/chords';
 import { wavePoints } from '../voyager/glyphs';
 import { MODES, NOTES, OCTAVES, RANGES, RATES, RATIOS, WAVES1, WAVES2, morphText, stepIndex, voyParams, type VoyKnobId } from '../voyager/params';
+import { DockPages, KnobPanel, useDockInset, useDockPage } from './KnobPanel';
 
 const DOCK_KEY = 'mm.v4.vdock';
+/** La page du Dock (2026-10-04) : les accords et l'arpege, ou tous les potards en gros (ui/KnobPanel.tsx). */
+const PAGE_KEY = 'mm.v4.vdock.page';
 
 function readOpen(): boolean {
   try {
@@ -62,7 +67,9 @@ export const VoyDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage }
   const a = useSyncExternalStore(arp.subscribe, arp.get, arp.get);
   const p = useSyncExternalStore(voyParams.subscribe, voyParams.get, voyParams.get);
   const [shown, setShown] = useState(readOpen);
+  const [page, setPage] = useDockPage(PAGE_KEY);
   const ref = useRef<HTMLDivElement>(null);
+  useDockInset(getStage(), 'voy', shown && page === 'knobs', ref);
   // L'accord qui joue : lu sur la machine (l'ecran le montre aussi)
   const [playing, setPlaying] = useState(-1);
   useEffect(() => {
@@ -100,6 +107,7 @@ export const VoyDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage }
         type="button"
         className="v4-dock-tab"
         data-open={shown ? '1' : '0'}
+        data-page={page}
         aria-expanded={shown}
         aria-controls="v4-vdock"
         aria-label={shown ? 'Hide the synth controls' : 'Show the synth controls'}
@@ -107,7 +115,12 @@ export const VoyDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage }
       >
         <Icon name={shown ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-up'} />
       </button>
-      <div ref={ref} id="v4-vdock" className="v4-dock v4-vdock" data-open={shown ? '1' : '0'}>
+      <div ref={ref} id="v4-vdock" className="v4-dock v4-vdock" data-open={shown ? '1' : '0'} data-page={page}>
+        <DockPages page={page} onPage={setPage} first="PLAY" />
+        {page === 'knobs' ? (
+          <KnobPanel machine="voy" />
+        ) : (
+          <>
         <div className="v4-vdock-chords" role="group" aria-label="Chords, tap to add or remove">
           {CHORDS.map((c, i) => (
             <button
@@ -200,6 +213,8 @@ export const VoyDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage }
             <span className="v4-vdock-val">{NOTES[stepIndex('notes', p.notes)]}</span>
           </button>
         </div>
+          </>
+        )}
       </div>
     </>
   );

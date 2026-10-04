@@ -10,7 +10,7 @@ import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
 import { ensure, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, trigger } from './audio/drums';
 import { VOICE_FX_DEFAULT, voiceFx, type VoiceParam } from './audio/voicefx';
-import { kit, type KitId } from './audio/kit';
+import { KIT_MODELS, isFamily, kit, type KitId } from './audio/kit';
 import { randomBeat, randomColors, type BeatStyle } from './audio/beats';
 import { BPM, INSTRUMENTS, VEL_NAMES, pattern, velocity } from './audio/pattern';
 import { sc } from './audio/soundcloud';
@@ -27,11 +27,11 @@ import type { PresetMachine } from './state/presets';
 import { presskit } from './state/presskit';
 import { section } from './state/section';
 import { voices } from './state/voices';
-import { BOARD_CHIPS, MOBILE_QUERY, POT_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
+import { BOARD_CHIPS, MOBILE_QUERY, POT_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potMin, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
 import { arp } from './voyager/arp';
 import { CHORDS, PROGRESSIONS } from './voyager/chords';
 import { voyMsg } from './voyager/msg';
-import { voyParams, voyReadout, type VoyKnobId } from './voyager/params';
+import { voyKnob, voyParams, voyReadout, voyValueText, type VoyKnobId } from './voyager/params';
 import { randomVoyStyle, type VoyStyle } from './voyager/random';
 import { SEQ_MAX, seq } from './voyager/seq';
 
@@ -599,6 +599,69 @@ export function anyDialReset(id: DialId): number {
   if (r) return kit.def(r);
   const k = voyId(id);
   return k ? voyParams.def(k) : dialReset(id as EncId);
+}
+
+/**
+ * Les potards a l'ecran du telephone (2026-10-04, ui/KnobPanel.tsx, Mika :
+ * "tous les boutons, beau et accessible, pas tout petit") : la meme saisie
+ * que la machine, lue d'un seul identifiant (DialId).
+ */
+
+/** La course d'un potard : TEMPO en BPM, TONE et STRETCH de -1 a 1, les autres de 0 a 1. */
+export function dialRange(id: DialId): [number, number] {
+  if (kitIdOf(id) || voyId(id)) return [0, 1];
+  if (id === 'tempo') return [BPM.min, BPM.max];
+  return [potMin(id as EncId), 1];
+}
+
+/** Ses crans (0 : continu) : les selecteurs du MM-ARP (pas le morphing de WAVE), les choix de son du kit. */
+export function dialSteps(id: DialId): number {
+  const r = kitIdOf(id);
+  if (r) return isFamily(r) ? KIT_MODELS.length : 0;
+  const k = voyId(id);
+  if (k) {
+    const vk = voyKnob(k);
+    return vk.morph ? 0 : (vk.steps?.length ?? 0);
+  }
+  return 0;
+}
+
+/** Sa valeur lisible (celle des ecrans des machines) ; une voix a choisir d'abord pour la rangee VOICE. */
+export function dialReadout(id: DialId): string {
+  const r = kitIdOf(id);
+  if (r) return kit.readout(r);
+  const k = voyId(id);
+  if (k) return voyReadout(k, voyParams.of(k));
+  if (id === 'tempo') return `${pattern.get().bpm} BPM`;
+  const e = id as Exclude<EncId, 'tempo'>;
+  if (isVoiceEnc(e) && !pattern.get().instrument) return 'TAP A VOICE';
+  return readout(e, dialValue(e), dialTarget(e));
+}
+
+/** Sa valeur seule (sous un potard du telephone) : 130, 58%, +35, SAW, 909, 52 HZ. */
+export function dialValueText(id: DialId): string {
+  const r = kitIdOf(id);
+  if (r) return kit.valueText(r);
+  const k = voyId(id);
+  if (k) return voyValueText(k, voyParams.of(k));
+  if (id === 'tempo') return `${pattern.get().bpm}`;
+  const e = id as Exclude<EncId, 'tempo'>;
+  if (isVoiceEnc(e) && !pattern.get().instrument) return '--';
+  const v = dialValue(e);
+  if (e === 'swing') return `${swingRatio(v)}%`;
+  if (isBipolar(e)) {
+    const n = Math.round(v * 100);
+    return `${n > 0 ? '+' : ''}${n}${e === 'tone' ? '' : '%'}`;
+  }
+  return `${pct(v)}%`;
+}
+
+/** Un seul abonnement pour toutes les valeurs des potards (les deux machines, le kit). */
+export function subscribeDials(fn: () => void): () => void {
+  const offs = [voyParams.subscribe(fn), mix.subscribe(fn), voiceFx.subscribe(fn), kit.subscribe(() => fn()), pattern.subscribe(fn), pattern.fx.subscribe(fn)];
+  return () => {
+    for (const off of offs) off();
+  };
 }
 
 /** Ligne TRACKS ou MIXTAPES : lecture, pause ou reprise par le moteur SoundCloud. */

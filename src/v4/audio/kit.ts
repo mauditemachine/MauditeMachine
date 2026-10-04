@@ -179,6 +179,14 @@ export const kit = {
     if (f === 'sd') return `${m}~${k.snappy}`;
     return m;
   },
+  /** La valeur seule d'un TWEAK (sous un potard du telephone) : 909, 52 HZ, 216 MS, 50. */
+  valueText(id: KitId): string {
+    if (isFamily(id)) return KIT_MODEL_LABEL[state.model[id]];
+    const v = state.knob[id];
+    if (id === 'tune') return `${Math.round(kickHz(state.model.bd, v))} HZ`;
+    if (id === 'decay') return `${Math.round(kickDecayS(state.model.bd, v) * 1000)} MS`;
+    return `${Math.round(v * 100)}`;
+  },
   /** La valeur lisible d'un TWEAK (l'ecran du MM-RYTM). */
   readout(id: KitId): string {
     if (isFamily(id)) return `${KIT_LABEL[id]} ${KIT_MODEL_LABEL[state.model[id]]}`;

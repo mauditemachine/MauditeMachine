@@ -4086,3 +4086,205 @@ html:has(body.v4-active.v4-light) {
 .v4-root[data-v4-theme='light'] .v4-install-icon {
   box-shadow: none;
 }
+
+/* ---------- les pages des Docks et les potards en gros (2026-10-04, ui/KnobPanel.tsx) ---------- */
+
+/* Mika : "tous les boutons, beau et design, accessible et pas tout petit".
+   En haut de chaque Dock : sa page (SEQUENCER, PLAY) et KNOBS. KNOBS : des
+   onglets par section, puis quatre potards de 64 px par rangee, leur nom
+   au-dessus, leur valeur dessous, l'arc orange. */
+.v4-dock-pages {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  max-width: 420px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--graphite);
+  border: 1px solid var(--line);
+}
+
+.v4-root .v4-dock-page {
+  flex: 1;
+  height: 32px;
+  margin: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--bone-60);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  cursor: pointer;
+}
+
+.v4-root .v4-dock-page[aria-selected='true'] {
+  background: var(--bone);
+  color: var(--ink);
+}
+
+.v4-knobs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.v4-knobs-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 1px 4px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.v4-knobs-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.v4-root .v4-knobs-tab,
+.v4-root .v4-knobs-voice {
+  flex: none;
+  height: 36px;
+  padding: 0 13px;
+  margin: 0;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--graphite);
+  color: var(--bone-70);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.v4-root .v4-knobs-tab[aria-selected='true'],
+.v4-root .v4-knobs-voice[aria-pressed='true'] {
+  border-color: var(--orange);
+  color: var(--orange);
+  background: rgba(255, 106, 19, 0.1);
+}
+
+.v4-knobs-voices {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 3px;
+}
+
+.v4-root .v4-knobs-voice {
+  padding: 0;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+/* KNOBS : une hauteur fixe (la plus haute section, VOICE FX), la languette posee sur son bord */
+@media (max-width: 767px) {
+  .v4-root {
+    --knobs-h-mobile: 392px;
+  }
+
+  .v4-dock[data-page='knobs'] {
+    height: calc(var(--knobs-h-mobile) + env(safe-area-inset-bottom, 0px) + var(--ios-bar));
+  }
+
+  .v4-root .v4-dock-tab[data-open='1'][data-page='knobs'] {
+    bottom: calc(var(--knobs-h-mobile) + env(safe-area-inset-bottom, 0px) + var(--ios-bar) - 4px);
+  }
+}
+
+.v4-knobs-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px 4px;
+}
+
+.v4-knob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 2px 4px;
+  border-radius: 12px;
+  background: rgba(246, 241, 231, 0.03);
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: ns-resize;
+  outline: none;
+}
+
+.v4-knob:focus-visible {
+  box-shadow: 0 0 0 2px var(--yellow);
+}
+
+.v4-knob[data-steps='1'] {
+  cursor: pointer;
+}
+
+.v4-knob-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--bone-70);
+}
+
+.v4-knob-dial {
+  display: block;
+  width: 64px;
+  height: 64px;
+}
+
+.v4-knob-track {
+  fill: none;
+  stroke: rgba(246, 241, 231, 0.12);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.v4-knob-arc {
+  fill: none;
+  stroke: var(--orange);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.v4-knob-tick {
+  stroke: rgba(246, 241, 231, 0.4);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+.v4-knob-cap {
+  fill: #1d1e22;
+  stroke: rgba(246, 241, 231, 0.1);
+  stroke-width: 1;
+}
+
+.v4-knob-mark {
+  stroke: var(--bone);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.v4-knob-value {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 11px;
+  color: var(--bone);
+}
+
+.v4-root[data-v4-theme='light'] .v4-knob-cap {
+  fill: #2a2b30;
+}
