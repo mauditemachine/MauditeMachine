@@ -172,6 +172,13 @@ const PEEK = { px: 36, hoverPx: 40, ms: 180, gap: 0.8 } as const;
 const OVERVIEW_FILL = { desktop: 0.88, mobile: 0.92 } as const;
 /** Au telephone, d'un bloc du MM-DECKS a l'autre (ms). */
 const DJ_UNIT_MS = 420;
+/**
+ * 60 images par seconde au plus (2026-10-04, Mika : "le son gresille, le
+ * CPU chauffe") : un ecran a 120 Hz (MacBook Pro, iPad) rendait deux fois
+ * plus d'images pour rien pendant qu'une machine joue. Sous 16.7 ms : a
+ * 60 Hz chaque rAF passe, a 120 Hz un sur deux.
+ */
+const FRAME_MIN_MS = 12;
 
 /* ---------------- Stage ---------------- */
 
@@ -1761,7 +1768,7 @@ export class Stage {
   private frame = (now: number): void => {
     this.raf = 0;
     if (this.disposed) return;
-    if (this.capMs > 0 && now - this.lastFrameAt < this.capMs) {
+    if (now - this.lastFrameAt < Math.max(this.capMs, FRAME_MIN_MS)) {
       this.raf = requestAnimationFrame(this.frame);
       return;
     }

@@ -6,10 +6,13 @@
  * la somme de ses canaux) par blocs de CHUNK echantillons, avec le numero
  * du premier (currentFrame : la meme horloge que le contexte, a
  * l'echantillon pres), et les envoie au fil principal (audio/scope.ts).
- * port : { on: false } le met en veille (plus aucun envoi).
+ * port : { on: false } le met en veille (plus aucun envoi) ; { back } lui
+ * rend un jeu de tampons lu, qu'il reprend au lieu d'en allouer un.
  */
 
 const CHUNK = 1024;
+/** Les jeux de tampons gardes pour resservir (le fil principal les rend apres lecture). */
+const POOL = 8;
 
 class MMScope extends AudioWorkletProcessor {
   constructor() {
@@ -17,16 +20,29 @@ class MMScope extends AudioWorkletProcessor {
     this.on = true;
     this.n = 0;
     this.at = 0;
+    this.pool = [];
     this.fresh();
     this.port.onmessage = (e) => {
-      if (e.data && typeof e.data.on === 'boolean') {
-        this.on = e.data.on;
+      const d = e.data;
+      if (!d) return;
+      if (typeof d.on === 'boolean') {
+        this.on = d.on;
         this.n = 0;
       }
+      // Les tampons lus nous reviennent : plus aucune allocation en regime
+      // (le ramasse-miettes du fil audio le faisait craquer)
+      if (d.back && this.pool.length < POOL) this.pool.push(d.back);
     };
   }
 
   fresh() {
+    const p = this.pool.pop();
+    if (p && p.aL.length === CHUNK) {
+      this.aL = p.aL;
+      this.aR = p.aR;
+      this.b = p.b;
+      return;
+    }
     this.aL = new Float32Array(CHUNK);
     this.aR = new Float32Array(CHUNK);
     this.b = new Float32Array(CHUNK);

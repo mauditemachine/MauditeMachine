@@ -397,8 +397,9 @@ export const Scope: React.FC<Props> = ({ mobile }) => {
     let raf = 0;
     let shownAt = 0;
     const last = { drift: null as number | null, at: 0 };
-    // Telephone : 30 images par seconde suffisent a l'oeil, la batterie dit merci
-    const minMs = mobile ? 30 : 0;
+    // Telephone : 30 images par seconde suffisent a l'oeil, la batterie dit merci ;
+    // desktop : 60 au plus (un ecran a 120 Hz en peignait deux fois plus)
+    const minMs = mobile ? 30 : 12;
     let prev = 0;
     const frame = (now: number): void => {
       raf = requestAnimationFrame(frame);

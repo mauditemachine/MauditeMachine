@@ -133,6 +133,8 @@ function onChunk(e: MessageEvent<{ at: number; aL: Float32Array; aR: Float32Arra
   }
   if (end === 0 || d.at > end + RING) first = d.at;
   end = d.at + n;
+  // Les tampons repartent au processeur, qui les reprend (aucune allocation sur le fil audio)
+  node?.port.postMessage({ back: { aL: d.aL, aR: d.aR, b: d.b } }, [d.aL.buffer, d.aR.buffer, d.b.buffer]);
 }
 
 async function ensureNode(): Promise<boolean> {

@@ -337,7 +337,16 @@ export function ensure(): AudioContext | undefined {
   const C = getCtor();
   if (!C) return undefined;
   try {
-    ctx = new C({ latencyHint: 'interactive' });
+    /*
+     * 'balanced' et non plus 'interactive' (2026-10-04, Mika : "le son
+     * gresille, comme Ableton quand le CPU sature") : 'interactive' prend le
+     * plus petit tampon de la carte son (128 echantillons, 2.7 ms sur un
+     * Mac), et le moindre pic de calcul (le synthe surechantillonne, les
+     * reverbes, la 3D qui chauffe le processeur) craquait. 'balanced' :
+     * environ 10 ms, quatre fois plus de marge, a peine plus de latence au
+     * toucher.
+     */
+    ctx = new C({ latencyHint: 'balanced' });
   } catch {
     try {
       ctx = new C();
