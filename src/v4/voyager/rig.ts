@@ -34,7 +34,7 @@ import { voyMsg } from './msg';
 import { VoyKeys } from './pads';
 import { MODES, NOTES, RANGES, RATES, VOY_KNOBS, notesCount, stepIndex, voyParams } from './params';
 import { VoySilk } from './silk';
-import { VOY_BODY, VOY_EXPLODE, VOY_LID_W, VOY_PANEL, VOY_PCB_Y, VOY_X } from './theme';
+import { VOY_BODY, VOY_COPY, VOY_EXPLODE, VOY_LID_W, VOY_PANEL, VOY_PCB_Y, VOY_X } from './theme';
 
 export interface VoyRigOpts {
   mobile: boolean;
@@ -48,8 +48,6 @@ export interface VoyRigOpts {
   invalidate: () => void;
 }
 
-/** Duree du flash d'un pad a chaque note de l'arpege (ms). */
-const NOTE_FLASH_MS = 90;
 
 /** Prisme convexe : un polygone (z, y) etire sur x0..x1, en demi-espaces et coins. */
 function prism(layer: Object3D, poly: [number, number][], x0: number, x1: number): Occluder {
@@ -141,7 +139,7 @@ export class VoyagerRig {
     this.lcd = new VoyLcd(opts.anisotropy);
     this.lid.add(this.lcd.bezel, this.lcd.glass);
 
-    this.pcb = new Pcb(opts.mobile, opts.anisotropy, { model: 'MM-VOYAGER R1.0', variant: 'voy' });
+    this.pcb = new Pcb(opts.mobile, opts.anisotropy, { model: `${VOY_COPY.model} R1.0`, variant: 'voy' });
     this.pcbGroup.add(this.pcb.board, this.pcb.parts);
 
     this.cfg = {
@@ -244,7 +242,7 @@ export class VoyagerRig {
     const s = arp.get();
     this.bpm = pattern.get().bpm;
     const notes = notesCount(p.notes) > 0 ? ` ${NOTES[stepIndex('notes', p.notes)]}N` : '';
-    const line1 = s.running ? `${RATES[stepIndex('rate', p.rate)]} ${MODES[stepIndex('mode', p.mode)]} ${RANGES[stepIndex('range', p.range)]}${notes}` : 'MM-VOYAGER';
+    const line1 = s.running ? `${RATES[stepIndex('rate', p.rate)]} ${MODES[stepIndex('mode', p.mode)]} ${RANGES[stepIndex('range', p.range)]}${notes}` : VOY_COPY.lcdIdle;
     const chords = s.prog.map((i) => CHORDS[i].label);
     const playing = this.playing >= 0 ? s.prog.indexOf(this.playing) : -1;
     const line3 = voyMsg.get() ?? (s.prog.length === 0 ? 'TAP A CHORD PAD' : s.running ? 'F# MINOR' : 'RUN/STOP TO PLAY');
@@ -312,11 +310,11 @@ export class VoyagerRig {
   stepKeys = (now: number): 'paint' | 'poll' | false => this.keys.update(now);
 
   /**
-   * L'arpege a l'heure audio : chaque note qui sonne fait flasher le pad de
-   * son accord, l'accord qui joue passe en yellowHi (et en negatif a
-   * l'ecran). 'poll' pendant la lecture.
+   * L'arpege a l'heure audio : l'accord qui joue passe en yellowHi, fixe
+   * (2026-10-03, Mika : le flash a chaque note faisait clignoter le pad), et
+   * en negatif a l'ecran. 'poll' pendant la lecture.
    */
-  stepArp = (now: number): 'paint' | 'poll' | false => {
+  stepArp = (_now: number): 'paint' | 'poll' | false => {
     const s = arp.get();
     if (!s.running) {
       if (this.playing === -1) return false;
@@ -329,7 +327,6 @@ export class VoyagerRig {
     const n = c ? arp.noteAt(c.currentTime) : null;
     if (!n || n.seq === this.lastSeq) return 'poll';
     this.lastSeq = n.seq;
-    this.keys.flashPad(n.chord, NOTE_FLASH_MS, now);
     if (n.chord !== this.playing) {
       this.playing = n.chord;
       this.keys.setChords(s.prog, this.playing);

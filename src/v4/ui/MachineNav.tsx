@@ -23,7 +23,7 @@ import { MachineDrawer } from './MachineDrawer';
 
 const NAMES: Record<MachineId, { title: string; sub: string; aria: string }> = {
   mm808: { title: 'MM-808', sub: 'DRUM MACHINE', aria: 'Play the MM-808 drum machine' },
-  voy: { title: 'MM-VOYAGER', sub: 'SYNTHESIZER', aria: 'Play the MM-VOYAGER synthesizer' },
+  voy: { title: 'MM-ARP', sub: 'SYNTHESIZER', aria: 'Play the MM-ARP synthesizer' },
 };
 
 const Chevron: React.FC<{ dir: 'left' | 'right' }> = ({ dir }) => (
@@ -78,7 +78,7 @@ export const MachineNav: React.FC<Props> = ({ stage, mobile }) => {
         <div className="v4-mswitch" role="group" aria-label="Machine">
           {(['mm808', 'voy'] as const).map((id) => (
             <button key={id} type="button" className="v4-mswitch-btn" aria-pressed={m === id} onClick={() => focusMachine(id)}>
-              {id === 'mm808' ? 'MM-808' : 'VOYAGER'}
+              {id === 'mm808' ? 'MM-808' : 'MM-ARP'}
             </button>
           ))}
         </div>
@@ -86,7 +86,7 @@ export const MachineNav: React.FC<Props> = ({ stage, mobile }) => {
           type="button"
           className="v4-medge"
           data-side={m === 'mm808' ? 'right' : 'left'}
-          aria-label={m === 'mm808' ? 'Show the MM-VOYAGER synthesizer' : 'Show the MM-808 drum machine'}
+          aria-label={m === 'mm808' ? 'Show the MM-ARP synthesizer' : 'Show the MM-808 drum machine'}
           onClick={() => focusMachine(m === 'mm808' ? 'voy' : 'mm808')}
         >
           <Chevron dir={m === 'mm808' ? 'right' : 'left'} />

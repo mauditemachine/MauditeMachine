@@ -354,4 +354,9 @@ export const VOY_FRAME = PORTRAIT
   : { plate: Math.SQRT1_2 * (VOY_BODY.w + VOY_BODY.d), h: 9.4, targetY: 1.6, radius: { closed: 8.1, open: 9.6 }, fitHalfH: 8.6, explodeTargetY: 5.9 };
 
 
-export const VOY_COPY = { model: 'MM-VOYAGER', group: 'MM-VOYAGER synthesizer', lcdIdle: 'MM-VOYAGER' } as const;
+/**
+ * Le nom de la machine (2026-10-03, Mika : "le titre c'est MM-808 et
+ * l'autre c'est MM-ARP") : serigraphie, ecran, carte, navigation. Le code
+ * garde ses noms internes (voy, voyager, VOYAGER, ?voyager=0).
+ */
+export const VOY_COPY = { model: 'MM-ARP', group: 'MM-ARP arpeggiator synthesizer', lcdIdle: 'MM-ARP' } as const;

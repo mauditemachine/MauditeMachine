@@ -20,7 +20,7 @@ import { intro } from '../state/intro';
 const ITEMS: readonly { id: Focus; title: string; sub: string }[] = [
   { id: 'all', title: 'BOTH MACHINES', sub: 'OVERVIEW' },
   { id: 'mm808', title: 'MM-808', sub: 'DRUM MACHINE' },
-  { id: 'voy', title: 'MM-VOYAGER', sub: 'ARPEGGIATOR SYNTHESIZER' },
+  { id: 'voy', title: 'MM-ARP', sub: 'ARPEGGIATOR SYNTHESIZER' },
 ];
 
 /** Fermeture apres que la souris est sortie (ms) : un aller-retour rapide ne le ferme pas. */

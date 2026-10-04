@@ -14,7 +14,7 @@ import { BoxGeometry, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeomet
 import { makeCanvasTexture } from '../scene/silk';
 import { albedo } from '../scene/materials';
 import { FONT_MONO, GAIN, HEX } from '../theme';
-import { VOY_LCD } from './theme';
+import { VOY_COPY, VOY_LCD } from './theme';
 
 export interface VoyLcdText {
   line1: string;
@@ -63,7 +63,7 @@ export class VoyLcd {
     this.bezel = new Mesh(bg, this.bezelMat);
     this.bezel.name = 'voyLcdBezel';
     this.bezel.receiveShadow = true;
-    this.paint({ line1: 'MM-VOYAGER', chords: [], playing: -1, line3: 'TAP A CHORD PAD', bpm: 0, running: false });
+    this.paint({ line1: VOY_COPY.lcdIdle, chords: [], playing: -1, line3: 'TAP A CHORD PAD', bpm: 0, running: false });
   }
 
   /** true si l'ecran a ete redessine (il faut une frame). */

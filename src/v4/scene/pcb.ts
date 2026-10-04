@@ -642,7 +642,7 @@ function buildParts(mobile: boolean, variant: PcbVariant): Built {
     const gm = mergeOf(legs, 'legs');
     const mStart = metal.add(gm);
     const cell = atlas.length;
-    atlas.push({ lines: [`${variant === 'voy' ? 'MM-VGR' : 'MM-808'} ${['G1', 'M2', 'S3', 'P1', 'P2', 'P3', 'P4', 'P5'][k] ?? 'X'}`, 'VRSTL 2026'], weight: 600 });
+    atlas.push({ lines: [`${variant === 'voy' ? 'MM-ARP' : 'MM-808'} ${['G1', 'M2', 'S3', 'P1', 'P2', 'P3', 'P4', 'P5'][k] ?? 'X'}`, 'VRSTL 2026'], weight: 600 });
     const lw = mid ? 0.8 : 1.1;
     const gl = labelQuad(cell, lw, lw / 4, c.x + (mid ? 0.07 : 0.1), CHIP.y1 + 0.002, c.z + (mid ? 0.06 : 0.08));
     const lStart = labels.add(gl);
