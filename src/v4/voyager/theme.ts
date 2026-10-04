@@ -86,8 +86,8 @@ export const VOY_SEL = {
   glyphR: 0.55,
   glyph: { w: 0.2, h: 0.1, stroke: 0.018 },
   labelR: 0.79,
-  /** encre : jaune Typhon sur la machine noire, ambre fonce sur la claire ; les crans non choisis a dim (noire, claire) */
-  dim: { dark: 0.42, light: 0.58 },
+  /** encre : jaune Typhon sur la machine noire ; sur la claire l'encre de la serigraphie, le cran choisi en orange ; les autres crans a dim */
+  dim: { dark: 0.42, light: 0.5 },
 } as const;
 const SELECTORS = new Set<VoyKnobId>(['wave1', 'wave2']);
 export const isSelector = (id: VoyKnobId): boolean => SELECTORS.has(id);

@@ -30,7 +30,8 @@
 - PC (conga) remplace CB (cloche) : `drums.ts`, `house.ts`, `theme.ts`, `pattern.ts`, `voicefx.ts`.
 - Croix du panneau (desktop) : la poignee du telephone la poussait sur la premiere ligne et son lien BUY ; masquee hors telephone (`v4.css`).
 - PC plus grave : peau a 200 Hz (330 avant), claquement a 1.6 kHz (`drums.ts`).
-- `docs/v4/spec.md` : R14-34 a R14-46.
+- Formes d'onde en clair : encre de la serigraphie, cran choisi en orange (`voyager/silk.ts`, `v4.css`).
+- `docs/v4/spec.md` : R14-34 a R14-47.
 
 ## 2. Decisions prises et pourquoi
 

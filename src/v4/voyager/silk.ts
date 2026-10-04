@@ -316,8 +316,10 @@ export class VoySilk {
   private selectors(): void {
     const ctx = this.ctx;
     const S = VOY_SEL;
-    const ink = APPEARANCE.current === 'light' ? [168, 116, 0] : [242, 194, 48];
-    const color = (a: number): string => `rgba(${ink[0]}, ${ink[1]}, ${ink[2]}, ${a})`;
+    // Machine noire : jaune Typhon, le cran choisi plein. Machine claire (2026-10-03,
+    // Mika n'aimait pas l'ambre) : l'encre de la serigraphie, le cran choisi en orange
+    const light = APPEARANCE.current === 'light';
+    const color = (a: number, on: boolean): string => (light ? (on ? HEX.orange : silkA(a)) : `rgba(242, 194, 48, ${a})`);
     for (const k of VOY_KNOBS) {
       if (!isSelector(k.id)) continue;
       const p = voyKnobPlace(k.id);
@@ -333,16 +335,16 @@ export class VoySilk {
       ctx.lineCap = 'butt';
       waves.forEach((w, i) => {
         const a = 225 - step * i;
-        const alpha = i === on ? 1 : APPEARANCE.current === 'light' ? S.dim.light : S.dim.dark;
+        const alpha = i === on ? 1 : light ? S.dim.light : S.dim.dark;
         // Arc : angles du canvas (y vers le bas), le sens inverse de ceux du panneau
-        ctx.strokeStyle = color(alpha);
+        ctx.strokeStyle = color(alpha, i === on);
         ctx.lineWidth = Math.max(1, S.arcW * p.s * PPU);
         ctx.beginPath();
         ctx.arc(cx, cy, rArc, (-(a + half) * Math.PI) / 180, (-(a - half) * Math.PI) / 180);
         ctx.stroke();
         const gx = p.x + Math.cos((a * Math.PI) / 180) * S.glyphR * p.s;
         const gz = p.z - Math.sin((a * Math.PI) / 180) * S.glyphR * p.s;
-        this.glyph(w, this.px(gx), this.py(gz), S.glyph.w * p.s * PPU, S.glyph.h * p.s * PPU, Math.max(1, S.glyph.stroke * p.s * PPU), color(alpha));
+        this.glyph(w, this.px(gx), this.py(gz), S.glyph.w * p.s * PPU, S.glyph.h * p.s * PPU, Math.max(1, S.glyph.stroke * p.s * PPU), color(alpha, i === on));
       });
     }
   }

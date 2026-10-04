@@ -2250,3 +2250,5 @@ R14-45. Sound quality, the percussion, the panel cross (2026-10-03, Mika: "je ve
 6. The AudioWorklet modules are never inlined as data: URLs by the build (vite.config.ts assetsInlineLimit): the 4 KB limiter would have been, and Safari may refuse a data: module in addModule.
 
 R14-46. PC lower (2026-10-03, Mika: "le son de la PC est trop aigu"). The conga skin goes from 330 Hz to 200 Hz (measured offline: 200 Hz), the hand slap band from 2.2 kHz to 1.6 kHz, output trimmed by 1.2 dB to keep its peak with the other voices (about -4 dBFS).
+
+R14-47. Waveform rings on the light machine (2026-10-03, Mika did not like the amber): the arcs and wave drawings use the silkscreen ink (dimmed to 50 % for the steps not chosen) and the chosen step is orange (#FF6A13), the site accent; the dark machine keeps the Typhon yellow. The phone Dock draws its wave in orange (#D9560E) on the light machine.
