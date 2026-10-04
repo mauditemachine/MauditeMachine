@@ -9,9 +9,8 @@
  * SoundCloud du site, la boite a rythmes et l'arpege, comme RUN.
  */
 
-import { clock } from '../audio/clock';
+import { routeMachines } from '../audio/drums';
 import { sc } from '../audio/soundcloud';
-import { arp } from '../voyager/arp';
 import { djEngine, djEngineIfAny, type DjEngine } from './engine';
 import { crateFile, crateLearn, setCrateBusy } from './crate';
 import { estimateBpm } from './math';
@@ -26,7 +25,7 @@ let synced: DjEngine | null = null;
 /** Pose tout le store sur le moteur (a sa creation), puis chaque changement. */
 function apply(e: DjEngine): void {
   const s = djState.get();
-  for (const i of [0, 1] as const) {
+  for (const i of [0, 1, 2, 3] as const) {
     const c = s.ch[i];
     const ch = e.mixer.ch[i];
     ch.setGain(c.gain);
@@ -45,14 +44,15 @@ function apply(e: DjEngine): void {
 
 /** Le tempo de la platine qu'on entend le plus (crossfader, faders, lecture). */
 export function heardBpm(s = djState.get()): number {
-  const w = (d: DjDeck, i: 0 | 1): number => {
+  // DECK A sur la voie 3, DECK B sur la voie 4
+  const w = (d: DjDeck, i: 2 | 3): number => {
     const ds = s.deck[d];
     if (!ds.playing || !ds.track?.bpm) return 0;
     const x = (s.xfader + 1) / 2;
-    return s.ch[i].fader * (i === 0 ? 1 - x : x);
+    return s.ch[i].fader * (i === 2 ? 1 - x : x);
   };
-  const a = w('a', 0);
-  const b = w('b', 1);
+  const a = w('a', 2);
+  const b = w('b', 3);
   const d: DjDeck = b > a ? 'b' : 'a';
   const ds = s.deck[d];
   return ds.track?.bpm ? ds.track.bpm * (1 + (ds.pitch * ds.range) / 100) : 120;
@@ -70,24 +70,23 @@ function engine(): DjEngine | null {
   }
   // Les analyses de la caisse attendent que les platines s'arretent
   setCrateBusy(() => e.decks.a.playing || e.decks.b.playing);
-  // Une autre source part (RUN de la 808, l'arpege, une piste du site) : les platines se taisent
-  clock.subscribe(() => {
-    if (clock.running) djPauseAll();
-  });
-  arp.subscribe(() => {
-    if (arp.get().running) djPauseAll();
-  });
+  /*
+   * Les machines du site entrent sur la table (2026-10-04, Mika : "1 et 2
+   * doivent etre RYTM et ARP") : le MM-RYTM sur la voie 1, le MM-ARP sur la
+   * voie 2, effets compris ; on mixe donc les platines avec elles, elles ne
+   * se taisent plus l'une l'autre. Seule la piste SoundCloud du site, qui
+   * ne passe pas par la table, reste une source a part.
+   */
+  routeMachines({ rytm: e.mixer.ch[0].input, arp: e.mixer.ch[1].input });
   sc.subscribe(() => {
     if (sc.get().status === 'playing') djPauseAll();
   });
   return e;
 }
 
-/** Une platine part : les autres sources du site se taisent. */
+/** Une platine part : la piste SoundCloud du site se tait (elle ne passe pas par la table). */
 function silenceOthers(): void {
   sc.pauseForRun();
-  if (clock.running) clock.stop();
-  if (arp.get().running) arp.stop();
 }
 
 /** Une autre source part (RUN, une piste SoundCloud) : les platines se taisent. */

@@ -31,3 +31,10 @@
 - Onglet MAUDITE MACHINE a cote de MY FILES, ouvert par defaut : les morceaux du compte SoundCloud `mauditemachine`, quelle que soit leur licence (Mika en est l'auteur et y consent) ; route `GET /api/soundcloud/maudite` du Worker de Sonaa, une heure de cache ; `flux` les accepte aussi.
 - Tant que la cle SoundCloud n'est pas posee dans le Worker, SOUNDCLOUD et MAUDITE MACHINE s'effacent : il ne reste que MY FILES.
 - Bandcamp : pas d'API de lecture ni de connexion pour les fans ; un morceau achete se telecharge et passe par MY FILES.
+
+## Suite : la table a quatre voies, la touche PLAYLIST, la finition
+
+- Table : voie 1 le MM-RYTM, voie 2 le MM-ARP (audio/drums.ts routeMachines, au premier geste sur le MM-DECKS), voies 3 et 4 les platines ; le crossfader ne touche que 3 et 4 ; faders 1 et 2 a 1.0 par defaut, MASTER recale a 1 a sa place par defaut, plus de compresseur de sortie (le limiteur du site suffit) ; table mesuree neutre a 0.00 dB. Les platines et les machines jouent ensemble (plus de silence mutuel), seule la piste SoundCloud du site reste a part (`dj/engine.ts`, `dj/actions.ts`, `dj/state.ts` cle mm.v4.dj.2 avec reprise de l'ancienne).
+- Playlist cachee par defaut : touche PLAYLIST en 3D en bas a droite du MIXER, DONE et Echap la ferment, LOAD l'ouvre en visant la platine ; la marge du cadrage n'existe que playlist ouverte (`dj/browser.ts`, `dj/TrackBrowser.tsx`, `dj/layout.ts`, `dj/silk.ts`).
+- Finition : aluminium brosse sur les dessus (la texture de la 808), quatre vis par bloc, connectique a l'arriere (RCA, XLR, USB-C, LINK, alimentation, interrupteur), butees et cran du milieu autour des potards, noms des voies RYTM, ARP, A, B (`dj/body.ts`, `dj/silk.ts`).
+- A regler cote MM-RYTM : routee, la batterie arrive 1.4 dB plus bas (crete 1.13 contre 0.75) ; signale a la session Maudite Machine (sortie prise avant son compresseur).

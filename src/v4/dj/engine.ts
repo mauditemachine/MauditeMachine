@@ -306,8 +306,19 @@ export class DjFx {
 
 /* ---------------- la table ---------------- */
 
+/**
+ * La table a quatre voies (2026-10-04, Mika : "1 et 2 doivent etre RYTM et
+ * ARP, 3 DECK A et 4 DECK B") : les deux machines du site entrent sur les
+ * voies 1 et 2 (audio/drums.ts routeMachines), les platines sur 3 et 4. Le
+ * crossfader ne touche que les platines (3 a gauche, 4 a droite) : la
+ * batterie et l'arpege ne disparaissent jamais. Plus de limiteur ici : celui
+ * du site (apres l'analyseur) suffit, et par defaut (faders 1 et 2 en haut,
+ * EQ a plat, MASTER a sa place) le son des machines ne change pas.
+ */
+export const MASTER_DEFAULT = 0.88;
+
 export class DjMixer {
-  readonly ch: readonly [DjChannel, DjChannel];
+  readonly ch: readonly [DjChannel, DjChannel, DjChannel, DjChannel];
   readonly fx: DjFx;
   private master: GainNode;
   private meters: [AnalyserNode, AnalyserNode];
@@ -319,30 +330,32 @@ export class DjMixer {
   ) {
     const sum = new GainNode(ctx);
     this.fx = new DjFx(ctx);
-    this.master = new GainNode(ctx, { gain: faderGain(0.88) * 1.1 });
-    // Le limiteur des Decks (au-dessus de -2 dBFS), puis celui du site
-    const limiter = new DynamicsCompressorNode(ctx, { threshold: -2, knee: 0, ratio: 20, attack: 0.002, release: 0.12 });
+    this.master = new GainNode(ctx, { gain: 1 });
     const split = new ChannelSplitterNode(ctx, { numberOfOutputs: 2 });
     this.meters = [new AnalyserNode(ctx, { fftSize: 1024 }), new AnalyserNode(ctx, { fftSize: 1024 })];
     this.bufs = [new Float32Array(1024), new Float32Array(1024)];
     sum.connect(this.fx.input);
-    this.fx.output.connect(this.master).connect(limiter);
-    limiter.connect(out);
-    limiter.connect(split);
+    this.fx.output.connect(this.master);
+    this.master.connect(out);
+    this.master.connect(split);
     split.connect(this.meters[0], 0);
     split.connect(this.meters[1], 1);
-    this.ch = [new DjChannel(ctx, sum), new DjChannel(ctx, sum)];
+    this.ch = [new DjChannel(ctx, sum), new DjChannel(ctx, sum), new DjChannel(ctx, sum), new DjChannel(ctx, sum)];
     this.setXfader(0);
   }
 
+  /** Crossfader : DECK A (voie 3) a gauche, DECK B (voie 4) a droite ; les machines passent a cote. */
   setXfader(x: number): void {
     const g = xfaderGains(x);
-    glide(this.ch[0].xf.gain, g.a, this.ctx);
-    glide(this.ch[1].xf.gain, g.b, this.ctx);
+    glide(this.ch[2].xf.gain, g.a, this.ctx);
+    glide(this.ch[3].xf.gain, g.b, this.ctx);
+    this.ch[0].xf.gain.value = 1;
+    this.ch[1].xf.gain.value = 1;
   }
 
+  /** MASTER : 1 a sa place par defaut (le son du site ne change pas), +2 dB tout en haut. */
   setMaster(x: number): void {
-    glide(this.master.gain, faderGain(x) * 1.1, this.ctx);
+    glide(this.master.gain, faderGain(x) / faderGain(MASTER_DEFAULT), this.ctx);
   }
 
   /** Cretes gauche et droite du master (0 a 1). */
@@ -523,7 +536,8 @@ export function djEngine(): DjEngine | null {
   const port = synthPort();
   if (!port) return null;
   const mixer = new DjMixer(port.ctx, port.input);
-  engine = { ctx: port.ctx, mixer, decks: { a: new DjPlayer(port.ctx, mixer.ch[0]), b: new DjPlayer(port.ctx, mixer.ch[1]) } };
+  // Les platines sur les voies 3 et 4 ; 1 et 2 recoivent le MM-RYTM et le MM-ARP (dj/actions.ts)
+  engine = { ctx: port.ctx, mixer, decks: { a: new DjPlayer(port.ctx, mixer.ch[2]), b: new DjPlayer(port.ctx, mixer.ch[3]) } };
   return engine;
 }
 

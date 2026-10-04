@@ -21,18 +21,21 @@ import { DJ_FX_LABEL } from './theme';
 const r1 = (n: number): number => Math.round(n * 10) / 10;
 const pct = (v: number): number => Math.round(v * 100);
 
+/** Ce qui entre sur chaque voie de la table. */
+const CH = ['MM-RYTM', 'MM-ARP', 'deck A', 'deck B'] as const;
+
 function knobName(k: DjKnobSpec): string {
   const t = k.target;
-  if (t.kind === 'eq') return `Channel ${t.ch + 1} ${k.label === 'HI' || k.label === 'MID' || k.label === 'LOW' ? `EQ ${k.label}` : k.label}`;
+  if (t.kind === 'eq') return `Channel ${t.ch + 1} (${CH[t.ch]}) ${k.label === 'HI' || k.label === 'MID' || k.label === 'LOW' ? `EQ ${k.label}` : k.label}`;
   if (t.kind === 'fx') return `Effect ${DJ_FX_LABEL[t.fx]}`;
   return 'Master volume';
 }
 
 function faderName(f: DjFaderSpec): string {
   const t = f.target;
-  if (t.kind === 'channel') return `Channel ${t.ch + 1} fader`;
+  if (t.kind === 'channel') return `Channel ${t.ch + 1} (${CH[t.ch]}) fader`;
   if (t.kind === 'pitch') return `Deck ${t.deck.toUpperCase()} tempo`;
-  return 'Crossfader, A to B';
+  return 'Crossfader, deck A to deck B';
 }
 
 function keyName(k: DjKeySpec): string {
@@ -50,6 +53,8 @@ function keyName(k: DjKeySpec): string {
       return `Deck ${t.deck.toUpperCase()} play or pause`;
     case 'time':
       return `Effects time ${k.label} beat${t.d === 1 ? '' : 's'}`;
+    case 'playlist':
+      return 'Show or hide the playlist';
     case 'tempo':
       return `Deck ${t.deck.toUpperCase()} tempo ${t.dir < 0 ? 'down' : 'up'} 0.1 BPM (hold to repeat)`;
   }

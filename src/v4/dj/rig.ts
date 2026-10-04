@@ -56,7 +56,7 @@ export class DjRig {
   /** touches tenues (pointeur, clavier) */
   private held = new Set<string>();
   /** VU affiches (decroissance douce) : 4 voies (2 jouent), master gauche et droite */
-  private vu = new Float32Array(4);
+  private vu = new Float32Array(6);
   private screenAt = 0;
 
   constructor(private opts: DjRigOpts) {
@@ -166,7 +166,8 @@ export class DjRig {
       let on = this.held.has(k.id);
       if (t.kind === 'hotcue') on = on || s.deck[t.deck].cues[t.n] !== null;
       else if (t.kind === 'time') on = on || s.time === t.d;
-      else if (t.kind === 'load') on = on || (b.open && b.deck === t.deck) || s.deck[t.deck].loading !== null;
+      else if (t.kind === 'load') on = on || s.deck[t.deck].loading !== null;
+      else if (t.kind === 'playlist') on = on || b.open;
       if (this.controls.setKeyGlow(i, on ? DJ_GLOW.orange : DJ_GLOW.dim)) changed = true;
     });
     DJ_ROUND_KEYS.forEach((k, i) => {
@@ -215,7 +216,8 @@ export class DjRig {
    */
   step = (now: number): 'paint' | false => {
     const e = djEngineIfAny();
-    if (!e) return false;
+    // Cache (une autre machine utilisee) : rien a dessiner, meme si la batterie passe par la table
+    if (!e || !this.root.visible) return false;
     let busy = false;
     let changed = false;
     const st = djState.get();
@@ -240,13 +242,13 @@ export class DjRig {
       }
     }
     // VU : la crete, puis une decroissance douce
-    const levels = [e.mixer.ch[0].level(), e.mixer.ch[1].level(), ...e.mixer.masterLevels()];
+    const levels = [...e.mixer.ch.map((c) => c.level()), ...e.mixer.masterLevels()];
     levels.forEach((lv, i) => {
       const v = Math.max(lv, this.vu[i] * 0.86);
       this.vu[i] = v < 0.002 ? 0 : v;
       if (this.vu[i] > 0) busy = true;
     });
-    const cols = [this.controls.ledMap.vu[0], this.controls.ledMap.vu[1], this.controls.ledMap.master[0], this.controls.ledMap.master[1]];
+    const cols = [...this.controls.ledMap.vu, ...this.controls.ledMap.master];
     cols.forEach((col, i) => {
       const lit = vuLeds(this.vu[i], col.length);
       col.forEach((led, k) => {

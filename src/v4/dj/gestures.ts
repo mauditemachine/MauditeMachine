@@ -136,6 +136,7 @@ export function keyUp(k: DjKeySpec, stage: Stage | null, tap: boolean): void {
     djCue(t.deck, false);
   } else if (t.kind === 'bend') djBend(t.deck, 0);
   else if (t.kind === 'load' && tap) djBrowser.open(t.deck);
+  else if (t.kind === 'playlist' && tap) djBrowser.toggle();
 }
 
 const cueDown: Record<DjDeck, boolean> = { a: false, b: false };

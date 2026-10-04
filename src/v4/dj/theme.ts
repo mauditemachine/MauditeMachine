@@ -194,6 +194,8 @@ export const MIX = {
   masterVu: { z0: -0.6, z1: 4.3, dx: 0.17 },
   /** crossfader */
   xfader: { z: 5.0, x0: -1.7, x1: 1.7 },
+  /** la touche PLAYLIST, en bas a droite (Mika, 2026-10-04 : comme les EDIT du MM-RYTM et du MM-ARP) */
+  playlist: { x: 3.05, z: 5.0, w: 1.15, d: 0.42 },
   head: { z: -5.05 },
 } as const;
 

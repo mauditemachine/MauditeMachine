@@ -7,7 +7,8 @@
  * sommets (dj/theme.ts DJ_TONE), dans le repere du rig.
  */
 
-import { BoxGeometry, BufferGeometry, Color, CylinderGeometry, Euler, ExtrudeGeometry, Float32BufferAttribute, Matrix4, Mesh, MeshStandardMaterial, Quaternion, Shape, Vector3 } from 'three';
+import { BoxGeometry, BufferGeometry, Color, CylinderGeometry, Euler, ExtrudeGeometry, Float32BufferAttribute, Matrix4, Mesh, MeshStandardMaterial, Quaternion, Shape, Vector3, type Texture } from 'three';
+import { makeBrushTexture } from '../scene/silk';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { APPEARANCE } from '../theme';
 import { DECK, DJ_BEZEL, DJ_BODY, DJ_FADER, DJ_TILT, DJ_TOP_Y, DJ_UNIT, MIX, UNIT_X, djTone, unitW, type DjTone, type DjUnit } from './theme';
@@ -178,13 +179,87 @@ function feet(u: DjUnit, seg: number): BufferGeometry[] {
   return out;
 }
 
+/** Une vis cruciforme a tete plate (repere top) : la tete d'aluminium, la croix en creux. */
+function screw(x: number, z: number, seg: number): BufferGeometry[] {
+  const head = new CylinderGeometry(0.058, 0.062, 0.014, seg);
+  head.translate(x, 0.007, z);
+  head.applyMatrix4(TOP_M);
+  return [partDj(head, 'skirt'), topBox(0.075, 0.004, 0.012, x, z, 'slit', 0.012), topBox(0.012, 0.004, 0.075, x, z, 'slit', 0.012)];
+}
+
+/** Les quatre vis du dessus d'un bloc, a ses coins (Mika, 2026-10-04 : "le design parfait"). */
+function screws(u: DjUnit, seg: number): BufferGeometry[] {
+  const hw = unitW(u) / 2 - 0.26;
+  const hd = DJ_UNIT.d / 2 - 0.26;
+  const out: BufferGeometry[] = [];
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) out.push(...screw(UNIT_X[u] + sx * hw, sz * hd, seg));
+  return out;
+}
+
+/* ---------------- la face arriere ---------------- */
+
+/** Un disque pose sur la face arriere (z = -d/2), qui en sort de h. */
+function backDisc(r: number, h: number, x: number, y: number, t: DjTone, seg: number, out = 0): BufferGeometry {
+  const g = new CylinderGeometry(r, r, h, seg);
+  g.rotateX(Math.PI / 2);
+  g.translate(x, y, -DJ_UNIT.d / 2 - h / 2 - out);
+  return partDj(g, t);
+}
+
+function backBox(w: number, hgt: number, h: number, x: number, y: number, t: DjTone, out = 0): BufferGeometry {
+  const g = new BoxGeometry(w, hgt, h);
+  g.translate(x, y, -DJ_UNIT.d / 2 - h / 2 - out);
+  return partDj(g, t);
+}
+
+/** Prise RCA : la bague d'aluminium, l'isolant, le trou. */
+const rca = (x: number, y: number, seg: number): BufferGeometry[] => [
+  backDisc(0.085, 0.07, x, y, 'skirt', seg),
+  backDisc(0.05, 0.075, x, y, 'rubber', seg),
+  backDisc(0.018, 0.004, x, y, 'slit', 8, 0.075),
+];
+/** Prise XLR : le boitier, trois trous. */
+const xlr = (x: number, y: number, seg: number): BufferGeometry[] => [
+  backDisc(0.15, 0.04, x, y, 'slot', seg),
+  backDisc(0.12, 0.004, x, y, 'slit', seg, 0.04),
+  ...[0, 1, 2].map((k) => backDisc(0.018, 0.004, x + Math.cos(k * 2.1 + 0.5) * 0.06, y + Math.sin(k * 2.1 + 0.5) * 0.06, 'skirt', 8, 0.044)),
+];
+const usb = (x: number, y: number): BufferGeometry[] => [backBox(0.2, 0.08, 0.04, x, y, 'skirt'), backBox(0.16, 0.05, 0.004, x, y, 'slit', 0.04)];
+const rj45 = (x: number, y: number): BufferGeometry[] => [backBox(0.24, 0.2, 0.05, x, y, 'slot'), backBox(0.18, 0.13, 0.004, x, y, 'slit', 0.05)];
+const dc = (x: number, y: number, seg: number): BufferGeometry[] => [backBox(0.24, 0.24, 0.05, x, y, 'slot'), backDisc(0.06, 0.004, x, y, 'slit', seg, 0.05)];
+const power = (x: number, y: number): BufferGeometry[] => [backBox(0.24, 0.36, 0.04, x, y, 'slot'), backBox(0.17, 0.28, 0.05, x, y, 'rubber', 0.02)];
+
+/**
+ * La connectique, vue de derriere : la platine a ses sorties audio (RCA),
+ * USB-C, LINK (reseau), alimentation et interrupteur ; la table ses quatre
+ * entrees (RCA), MASTER en XLR, USB-C, alimentation et interrupteur. Les
+ * memes prises que la 808 et le MM-ARP, sans serigraphie.
+ */
+function backPanel(u: DjUnit, seg: number): BufferGeometry[] {
+  const out: BufferGeometry[] = [];
+  const cx = UNIT_X[u];
+  // Vu de derriere, la gauche est a +x
+  const at = (k: number): number => cx - k;
+  const y = 0.78;
+  if (u === 'mix') {
+    for (let ch = 0; ch < 4; ch += 1) {
+      out.push(...rca(at(-3.2 + ch * 0.8), y + 0.18, seg), ...rca(at(-3.2 + ch * 0.8), y - 0.18, seg));
+    }
+    out.push(...xlr(at(0.4), y, seg + 8), ...xlr(at(0.85), y, seg + 8), ...usb(at(1.6), y), ...dc(at(2.4), y, seg), ...power(at(3.1), y));
+  } else {
+    out.push(...rca(at(-3.2), y, seg), ...rca(at(-2.75), y, seg), ...rca(at(-2.1), y, seg));
+    out.push(...usb(at(-1.2), y), ...rj45(at(-0.4), y), ...dc(at(2.5), y, seg), ...power(at(3.3), y));
+  }
+  return out;
+}
+
 function buildBody(mobile: boolean): BufferGeometry {
   const parts: BufferGeometry[] = [];
   const seg = mobile ? 12 : 16;
   for (const u of ['a', 'mix', 'b'] as const) {
     const x = UNIT_X[u];
     const w = unitW(u);
-    parts.push(wedge(x - w / 2, x + w / 2), ...feet(u, seg));
+    parts.push(wedge(x - w / 2, x + w / 2), ...feet(u, seg), ...screws(u, seg), ...backPanel(u, seg));
   }
   // Ecrans : les deux platines, les effets de la table
   for (const d of ['a', 'b'] as const) {
@@ -198,16 +273,33 @@ function buildBody(mobile: boolean): BufferGeometry {
   const g = mergeGeometries(parts, false);
   for (const p of parts) p.dispose();
   if (!g) throw new Error('dj: body merge failed');
+  // Le brossage du dessus, comme le panneau de la 808 : UV en unites, a plat (x, z)
+  const pos = g.getAttribute('position');
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i += 1) {
+    uv[i * 2] = pos.getX(i);
+    uv[i * 2 + 1] = pos.getZ(i);
+  }
+  g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
   return g;
 }
 
 export class DjBody {
   readonly mesh: Mesh;
   private material: MeshStandardMaterial;
+  private brush: Texture;
 
   constructor(mobile: boolean) {
     const light = APPEARANCE.current === 'light';
-    this.material = new MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: light ? 0.55 : 0.68, metalness: light ? 0 : 0.18 });
+    // Aluminium anodise brosse, la texture de la 808 (fines lignes, invisibles de loin)
+    this.brush = makeBrushTexture();
+    this.material = new MeshStandardMaterial({
+      vertexColors: true,
+      flatShading: true,
+      roughnessMap: this.brush,
+      roughness: light ? 0.55 : 0.68,
+      metalness: light ? 0 : 0.22,
+    });
     this.material.name = 'djBody';
     this.mesh = new Mesh(buildBody(mobile), this.material);
     this.mesh.name = 'djBody';
@@ -218,5 +310,6 @@ export class DjBody {
   dispose(): void {
     this.mesh.geometry.dispose();
     this.material.dispose();
+    this.brush.dispose();
   }
 }

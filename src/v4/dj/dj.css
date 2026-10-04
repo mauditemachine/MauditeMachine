@@ -546,3 +546,19 @@ a.dj-list-name:hover {
   overflow-x: auto;
   scrollbar-width: none;
 }
+
+/* DONE ferme la playlist, comme celui des editeurs EDIT des machines */
+.dj-list-done {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--orange);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--orange);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}

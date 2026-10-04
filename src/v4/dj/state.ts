@@ -75,13 +75,20 @@ export interface DjState {
   deck: Record<DjDeck, DjDeckState>;
 }
 
-const KEY = 'mm.v4.dj.1';
-const channel = (): DjChannelState => ({ gain: 0, hi: 0, mid: 0, low: 0, filter: 0, fader: 0.8 });
+/**
+ * La table a quatre voies depuis le 2026-10-04 : 1 MM-RYTM, 2 MM-ARP, 3 et 4
+ * les platines. Nouvelle cle : l'ancienne (deux voies de platines) est lue
+ * une fois et ses voies passent en 3 et 4.
+ */
+const KEY = 'mm.v4.dj.2';
+const OLD_KEY = 'mm.v4.dj.1';
+/** Les machines : fader en haut, le son du site ne change pas ; les platines : 0.8, comme une table. */
+const channel = (fader = 0.8): DjChannelState => ({ gain: 0, hi: 0, mid: 0, low: 0, filter: 0, fader });
 const deck = (): DjDeckState => ({ pitch: 0, range: 8, playing: false, loaded: false, track: null, loading: null, error: null, cue: 0, cues: [null, null, null, null], zoom: 8 });
 
 function fresh(): DjState {
   return {
-    ch: [channel(), channel(), channel(), channel()],
+    ch: [channel(1), channel(1), channel(), channel()],
     fx: Object.fromEntries(DJ_FX.map((f) => [f, 0])) as Record<DjFxId, number>,
     time: 1,
     master: 0.88,
@@ -97,11 +104,14 @@ function load(): DjState {
   const s = fresh();
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (!raw) return s;
-    const o = JSON.parse(raw) as Partial<DjState>;
+    const legacy = raw ? null : window.localStorage.getItem(OLD_KEY);
+    if (!raw && !legacy) return s;
+    const o = JSON.parse((raw ?? legacy) as string) as Partial<DjState>;
+    // L'ancienne table : ses voies 1 et 2 etaient les platines, elles passent en 3 et 4
+    const slot = (i: number): number => (legacy ? i + 2 : i);
     o.ch?.forEach((c, i) => {
-      if (i > 3 || !c) return;
-      const t = s.ch[i];
+      if (slot(i) > 3 || !c) return;
+      const t = s.ch[slot(i)];
       t.gain = clamp(c.gain, -1, 1);
       t.hi = clamp(c.hi, -1, 1);
       t.mid = clamp(c.mid, -1, 1);

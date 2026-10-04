@@ -52,6 +52,8 @@ interface Bracket {
 }
 
 const BRACKET = { cap: 0.075, weight: 700, tick: 0.08, pad: 0.1 } as const;
+/** Ce qui entre sur chaque voie de la table. */
+const CH_NAMES = ['RYTM', 'ARP', 'A', 'B'] as const;
 
 function head(u: DjUnit): Text[] {
   const hw = unitW(u) / 2 - 0.45;
@@ -108,6 +110,14 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   const lines: Line[] = [];
   const brackets: Bracket[] = [];
   for (const k of DJ_KNOBS) {
+    // Les butees et, pour les potards a zero au centre, le cran du milieu : de petits traits autour de la jupe
+    const r0 = DJ_KNOB.skirt.r * k.s + 0.035;
+    const r1 = r0 + 0.055;
+    const kx = k.x - ux;
+    for (const deg of k.bipolar ? [225, 90, -45] : [225, -45]) {
+      const a = (deg * Math.PI) / 180;
+      lines.push([kx + Math.cos(a) * r0, k.z - Math.sin(a) * r0, kx + Math.cos(a) * r1, k.z - Math.sin(a) * r1]);
+    }
     const pale = k.idle ? 0.4 : SILK.alpha;
     texts.push({ text: k.label, x: k.x - ux, z: knobLabelZ(k), cap: 0.062, alpha: pale, maxW: 0.9, group: k.target.kind === 'fx' ? 'fx' : 'knob' });
   }
@@ -121,9 +131,9 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   texts.push({ text: 'TIME', x: T.x0 + ((times.length - 1) * T.pitch) / 2, z: T.z - T.d / 2 - 0.17, cap: 0.07, weight: 700 });
   // Voies : le numero, et la platine qui y joue
   MIX.cols.forEach((cx, i) => {
-    const on = i < 2;
-    texts.push({ text: String(i + 1), x: on ? cx - 0.12 : cx, z: MIX.numZ, cap: 0.17, weight: 700, alpha: on ? 1 : 0.35, align: on ? 'right' : 'center' });
-    if (on) texts.push({ text: i === 0 ? 'A' : 'B', x: cx + 0.02, z: MIX.numZ, cap: 0.1, weight: 700, ink: 'orange', alpha: 1, align: 'left' });
+    // Les quatre voies jouent : 1 le MM-RYTM, 2 le MM-ARP, 3 et 4 les platines (Mika, 2026-10-04)
+    texts.push({ text: String(i + 1), x: cx - 0.1, z: MIX.numZ, cap: 0.17, weight: 700, alpha: 1, align: 'right' });
+    texts.push({ text: CH_NAMES[i], x: cx + 0.02, z: MIX.numZ, cap: 0.09, weight: 700, ink: 'orange', alpha: 1, align: 'left', maxW: 0.62, group: 'chname' });
     // Graduation du fader de voie : 11 tics, 10 en haut
     const F = MIX.fader;
     for (let t = 0; t <= 10; t += 1) {
@@ -137,6 +147,9 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   texts.push({ text: 'A', x: X.x0 - 0.5, z: X.z, cap: 0.13, weight: 700, ink: 'orange', alpha: 1 });
   texts.push({ text: 'B', x: X.x1 + 0.5, z: X.z, cap: 0.13, weight: 700, ink: 'orange', alpha: 1 });
   texts.push({ text: 'CROSSFADER', x: (X.x0 + X.x1) / 2, z: X.z + 0.42, cap: 0.062, weight: 600 });
+  // PLAYLIST : en orange, comme les touches de navigation des machines (LOAD, OPEN, EDIT)
+  const Pl = MIX.playlist;
+  texts.push({ text: 'PLAYLIST', x: Pl.x, z: Pl.z - Pl.d / 2 - 0.17, cap: 0.07, weight: 700, ink: 'orange', alpha: 1 });
   const xf = DJ_FADERS.find((f) => f.target.kind === 'xfader');
   if (xf) {
     for (let t = 0; t <= 8; t += 1) {

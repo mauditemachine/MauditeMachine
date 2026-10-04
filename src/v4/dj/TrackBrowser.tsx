@@ -134,8 +134,9 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
   const dj = useSyncExternalStore(djState.subscribe, djState.get, djState.get);
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
-  const shown = f === 'dj' && introState === 'done';
-  const big = shown && b.open;
+  // Cachee par defaut : la touche PLAYLIST du MIXER (ou LOAD) l'ouvre
+  const shown = f === 'dj' && introState === 'done' && b.open;
+  const big = shown && b.big;
   const [tab, setTabState] = useState<Tab>(readTab);
   const setTab = (t: Tab): void => {
     setTabState(t);
@@ -263,10 +264,10 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
     return () => ro.disconnect();
   }, [shown, getStage, current]);
 
-  // LOAD : la recherche prend le clavier ; Echap replie (avant les raccourcis des machines)
+  // Ouverte : Echap la ferme (avant les raccourcis des machines). La recherche ne prend pas le
+  // clavier d'elle-meme : les raccourcis des platines doivent rester actifs
   useEffect(() => {
-    if (!big) return undefined;
-    if (window.matchMedia('(hover: hover)').matches) search.current?.focus({ preventScroll: true });
+    if (!shown) return undefined;
     const onKey = (e: KeyboardEvent): void => {
       if (e.key !== 'Escape') return;
       e.preventDefault();
@@ -275,7 +276,7 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
-  }, [big]);
+  }, [shown]);
 
   const rows = useMemo(() => {
     const src = tab !== 'files' ? (list ?? []) : mine.filter((t) => shownFolder === ALL || (t.folder ?? '') === shownFolder);
@@ -288,7 +289,7 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
   const load = (t: DjTrack, d: DjDeck): void => {
     gesture();
     void djLoad(d, t);
-    djBrowser.close();
+    djBrowser.grow(false);
   };
 
   const progress = (done: number, total: number): void => setWork(`ADDING ${done} / ${total}`);
@@ -306,7 +307,7 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
     }
     setPlan({ files: sounds, bytes, folder: named, left: await storageLeft() });
     // Le choix prend de la place : la playlist s'agrandit
-    if (!djBrowser.get().open) djBrowser.open(djBrowser.get().deck);
+    djBrowser.grow(true);
   };
 
   const run = async (files: PlacedFile[], mode: ImportMode): Promise<void> => {
@@ -436,11 +437,14 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
           className="dj-list-grow"
           aria-expanded={big}
           aria-label={big ? 'Shrink the playlist' : 'Expand the playlist'}
-          onClick={() => (big ? djBrowser.close() : djBrowser.open(target))}
+          onClick={() => djBrowser.grow(!big)}
         >
           <svg viewBox="0 0 12 8" width="12" height="8" aria-hidden="true">
             <path d="M1 7 L6 2 L11 7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
+        </button>
+        <button type="button" className="dj-list-done" onClick={() => djBrowser.close()}>
+          DONE
         </button>
         <input ref={pick} type="file" accept="audio/*" multiple hidden onChange={(e) => onFiles(e.target.files)} />
         <input

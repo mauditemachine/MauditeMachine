@@ -47,6 +47,7 @@ export type DjKeyTarget =
   | { kind: 'bend'; deck: DjDeck; dir: -1 | 1 }
   | { kind: 'tempo'; deck: DjDeck; dir: -1 | 1 }
   | { kind: 'time'; d: number }
+  | { kind: 'playlist' }
   | { kind: 'cue'; deck: DjDeck }
   | { kind: 'play'; deck: DjDeck };
 
@@ -79,7 +80,7 @@ MIX.cols.forEach((cx, i) => {
       s: big ? MIX.sEq : MIX.sGain,
       bipolar: true,
       target: { kind: 'eq', ch, eq: e.id },
-      idle: i > 1,
+      idle: false,
     });
   });
 });
@@ -182,6 +183,8 @@ DJ_TIMES.forEach((t, i) => {
     target: { kind: 'time', d: t },
   });
 });
+const P = MIX.playlist;
+keys.push({ id: 'dj-playlist', label: 'PLAYLIST', x: UNIT_X.mix + P.x, z: P.z, w: P.w, d: P.d, round: false, target: { kind: 'playlist' } });
 export const DJ_KEYS: readonly DjKeySpec[] = keys;
 export const DJ_RECT_KEYS: readonly DjKeySpec[] = keys.filter((k) => !k.round);
 export const DJ_ROUND_KEYS: readonly DjKeySpec[] = keys.filter((k) => k.round);
