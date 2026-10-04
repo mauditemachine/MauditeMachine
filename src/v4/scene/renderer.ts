@@ -54,7 +54,7 @@ import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
 import { motion } from '../state/motion';
 import { editor } from '../state/editor';
 import { explode as explodeState, voyExplode } from '../state/explode';
-import { DJ, focus, VOYAGER, type Focus, type MachineId } from '../state/focus';
+import { DJ, focus, startMachine, VOYAGER, type Focus, type MachineId } from '../state/focus';
 import { view } from '../state/view';
 import { intro } from '../state/intro';
 import { playhead } from '../state/playhead';
@@ -743,9 +743,12 @@ export class Stage {
     } else {
       intro.set('done');
       if (this.voy) {
-        // Premiere arrivee sans intro (mouvement reduit) : desktop, la vue d'ensemble ;
-        // au telephone, jamais la vue d'ensemble hors de l'intro
-        if (!opts.skipIntro && !this.layoutMobile && focus.changes === 0) focus.set('all');
+        // Premiere arrivee sans intro (mouvement reduit) : la machine de ?m= (2026-10-04),
+        // sinon desktop, la vue d'ensemble ; au telephone, jamais la vue d'ensemble hors de l'intro
+        // (pris une seule fois : une reconstruction avant la fin de l'intro, React en dev, l'arrivee encore)
+        const st = startMachine.take();
+        if (st) focus.set(st);
+        else if (!opts.skipIntro && !this.layoutMobile && focus.changes === 0) focus.set('all');
         if (this.layoutMobile && focus.get() === 'all') focus.set('mm808');
         this.snapFocus();
       }
@@ -1644,8 +1647,10 @@ export class Stage {
     if (this.voy) {
       this.voy.finishIntro();
       this.updateCamera();
-      // Au telephone, une machine a la fois : la 808 se pose (on glisse pour le Voyager)
-      if (this.layoutMobile && focus.get() === 'all') focus.set('mm808');
+      // La machine de ?m= (2026-10-04) ; sinon, au telephone, une machine a la fois : la 808 se pose
+      const st = startMachine.take();
+      if (st) focus.set(st);
+      else if (this.layoutMobile && focus.get() === 'all') focus.set('mm808');
     }
     this.invalidate();
   }

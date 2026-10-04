@@ -22,7 +22,8 @@
 - MM-RYTM : SOLO en mode (comme MUTE), MASTER qui coupe aussi les envois des voix, DECAY par voix (a la place du STRETCH de voix), STRETCH global en etirement granulaire facon Impulse (`audio/stretch.ts`), charleys plus forts ; sorties par machine et `routeMachines` pour la table a quatre voies du MM-DECKS (`audio/drums.ts`, `audio/synth.ts`, `audio/voicefx.ts`, `audio/shotsdsp.ts`, `audio/time.ts`, `state/voices.ts`, `actions.ts`, `theme.ts`, `scene/renderer.ts`, `scene/sequencer3d.ts`, `ui/Dock.tsx`, `ui/Hotspots.tsx`).
 - PRESETS du MM-ARP et du MM-RYTM, noms au hasard facon Reddit (`state/presets.ts`, `ui/Presets.tsx`, `voyager/seq.ts` restore, `voyager/arp.ts` load) ; fleches de bord sur desktop quand la vue est tournee, vue remise de face apres un glisser au telephone (`ui/MachineNav.tsx`, `ui/Hotspots.tsx`) ; installation sur l'ecran d'accueil de l'iPhone (`public/manifest.json`, `public/icons/`, `index.html`).
 - Menu : reseaux avec icone et nom, liens sonaa.ca et massivemedias.com avec leurs logos (`ui/MenuSheet.tsx`, `v4.css`, `public/logo/sonaa-icon.png`, `public/logo/massive-icon.png`) ; vumetres du mixer en theme clair : demande transmise a Sonaa.
-- `docs/v4/spec.md` : R14-59 a R14-84.
+- Liens directs vers une machine : ?m=dj, ?m=arp, ?m=rytm (`state/focus.ts` startMachine, `scene/renderer.ts`) ; redirection des anciens liens sonaa.ca vers ?m=dj demandee a Sonaa.
+- `docs/v4/spec.md` : R14-59 a R14-85.
 
 ## 2. Decisions prises et pourquoi
 

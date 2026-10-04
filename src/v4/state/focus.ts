@@ -49,6 +49,41 @@ export const DJ: boolean = (() => {
 /** Les machines sur la table, de gauche a droite. */
 export const MACHINES: readonly MachineId[] = VOYAGER ? (DJ ? ['mm808', 'voy', 'dj'] : ['mm808', 'voy']) : ['mm808'];
 
+/**
+ * La machine d'arrivee (2026-10-04, Mika : "oui, ajoute ?m=dj") : ?m=dj
+ * (ou decks), ?m=arp, ?m=rytm ouvrent le site sur cette machine, apres
+ * l'intro (les anciens liens de sonaa.ca vers les Decks y menent). Sans
+ * parametre : la vue d'ensemble sur desktop, le MM-RYTM au telephone. Pris
+ * une seule fois, au premier Stage (une reconstruction, Dark / Light ou
+ * une platine ajoutee, garde la machine en cours).
+ */
+const START_ALIASES: Readonly<Record<string, MachineId>> = {
+  dj: 'dj',
+  decks: 'dj',
+  'mm-decks': 'dj',
+  arp: 'voy',
+  voy: 'voy',
+  'mm-arp': 'voy',
+  rytm: 'mm808',
+  '808': 'mm808',
+  mm808: 'mm808',
+  'mm-rytm': 'mm808',
+};
+let start: MachineId | null = (() => {
+  if (typeof window === 'undefined') return null;
+  const q = new URLSearchParams(window.location.search).get('m');
+  const id = q ? START_ALIASES[q.trim().toLowerCase()] : undefined;
+  return id && MACHINES.includes(id) ? id : null;
+})();
+export const startMachine = {
+  /** La machine demandee par ?m=, une fois ; null ensuite (ou sans parametre). */
+  take(): MachineId | null {
+    const s = start;
+    start = null;
+    return s;
+  },
+};
+
 let current: Focus = 'mm808';
 /** le cadrage est arrive (false pendant le zoom d'une machine a l'autre) */
 let settled = true;
