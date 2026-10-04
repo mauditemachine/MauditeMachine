@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+        xmlns:xhtml="http://www.w3.org/1999/xhtml"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://mauditemachine.com/</loc>
     <lastmod>2026-10-04</lastmod>
@@ -10,9 +11,12 @@
     <xhtml:link rel="alternate" hreflang="fr" href="https://mauditemachine.com/fr/" />
     <xhtml:link rel="alternate" hreflang="es" href="https://mauditemachine.com/es/" />
     <xhtml:link rel="alternate" hreflang="x-default" href="https://mauditemachine.com/" />
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/og-image.jpg</image:loc>
+    </image:image>
   </url>
   <url>
-    <loc>https://mauditemachine.com/radar</loc>
+    <loc>https://mauditemachine.com/radar/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
@@ -34,6 +38,36 @@
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-2027-booth-blue.jpg</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-2027-cover-dj.jpg</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-2027-crowd.jpg</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-2027-portrait-bw.jpg</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-logo.png</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-press-01-bw.jpg</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-press-02-bw-wide.jpg</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-press-03-color.jpg</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-press-04-color.jpg</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/press/maudite-machine-press-05-color.jpg</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/shows/</loc>
@@ -46,6 +80,48 @@
     <lastmod>2026-10-04</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-voodoo.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-taticardi2.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-kouklikou.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-syncbutton.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-anarchic.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-autopsynth.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-backontrack.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-nocturne.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-coagule.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-richie.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-taticardi.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-dramaqueen.webp</image:loc>
+    </image:image>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-discowriders.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/mixtapes/</loc>
@@ -102,132 +178,198 @@
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-voodoo.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/abyss/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/cephal/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/limbos/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/reaper/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/nortkele/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/muld/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/simetra/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/zenith/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/chimie-electrique-emotional-remix/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-limbos.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/tati-cardi-ep/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-taticardi2.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/kouklikou/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-kouklikou.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/where-is-the-sync-button/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-syncbutton.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/anarchic/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-anarchic.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/autopsynth/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-autopsynth.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/back-on-track/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-backontrack.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/nocturne/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-nocturne.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/coagule/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-coagule.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/richie/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-richie.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/crush-on-you/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-taticardi.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/drama-queen/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-dramaqueen.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/discowriders/</loc>
     <lastmod>2026-10-04</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
+    <image:image>
+      <image:loc>https://mauditemachine.com/images/goodies/full/cover-discowriders.webp</image:loc>
+    </image:image>
   </url>
   <url>
     <loc>https://mauditemachine.com/tracks/alan-parsons-remix/</loc>

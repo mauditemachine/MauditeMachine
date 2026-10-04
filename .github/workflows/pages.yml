@@ -13,7 +13,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # 2026-10-04 (referencement, Mika : "Je veux que tu augmentes le referencement aussi, c'est important.") :
+      # tout l'historique des commits, sans le contenu des anciens fichiers (filter blob:none, leger),
+      # pour que sitemap.xml date chaque page de son dernier vrai changement (scripts/generate-sitemap.mjs)
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          filter: blob:none
       - uses: actions/setup-node@v4
         with:
           node-version: 20
