@@ -30,9 +30,10 @@ import { VOY_BODY, VOY_X } from '../voyager/theme';
  * quatre platines, DECK C puis DECK D a droite de DECK B, chacune avec sa
  * voie au MIXER (5 et 6). Rien ne se voit au repos (Mika : "quand on survole
  * la partie droite, un + s'affiche, sinon rien") : un + apparait au survol
- * du bord droit (dj/AddDeck.tsx) ; au telephone, un + fin en bout de
- * defilement des blocs ('add', sans corps). REMOVE, sur la derniere
- * ajoutee, la retire. Les places
+ * du bord droit (dj/Twins.tsx) ; au telephone, un + fin en bout de
+ * defilement des blocs ('add', sans corps). REMOVE DECK, juste sous ADD
+ * DECK au meme endroit, et la touche REMOVE de la derniere ajoutee la
+ * retirent. Les places
  * (UNIT_X, DJ_W, DJ_X, MIX, DJ_FRAME) se recalculent alors et le Stage est
  * reconstruit (index.tsx), comme au changement Dark / Light ; le son
  * continue. Le bord gauche de l'ensemble ne bouge pas : il grandit a
@@ -71,7 +72,7 @@ export const deckChannel = (d: DjDeck): DjChannel => (2 + DJ_DECKS_ALL.indexOf(d
 export let DJ_DECKS: readonly DjDeck[] = ['a', 'b'];
 /** Les blocs poses (avec un corps), de gauche a droite. */
 export let DJ_UNITS_ON: readonly DjUnit[] = ['a', 'mix', 'b'];
-/** Les blocs qu'on fait defiler au telephone : les blocs poses, puis le + s'il reste une place. */
+/** Les blocs qu'on fait defiler au telephone : les blocs poses, puis le bloc de fin (ADD DECK, REMOVE DECK). */
 export let DJ_VIEW_UNITS: readonly DjUnit[] = ['a', 'mix', 'b', 'add'];
 /** Le nombre de voies de la table : le MM-RYTM, le MM-ARP, puis une par platine. */
 export let DJ_CHANNELS = 4;
@@ -122,7 +123,8 @@ function place(n: number): void {
   // Au telephone, la table se voit en deux ou trois vues, de gauche a droite
   mixViews = Math.min(MIX_VIEWS.length, Math.max(2, Math.ceil(mixWidth(DJ_CHANNELS) / MIX_VIEW)));
   const views: DjUnit[] = [...MIX_VIEWS.slice(0, mixViews)];
-  DJ_VIEW_UNITS = [...DJ_UNITS_ON.flatMap((u): DjUnit[] => (u === 'mix' ? views : [u])), ...(n < DJ_DECKS_MAX ? (['add'] as const) : [])];
+  // Le bloc de fin : ADD DECK tant qu'il reste une place, REMOVE DECK des qu'une platine a ete ajoutee
+  DJ_VIEW_UNITS = [...DJ_UNITS_ON.flatMap((u): DjUnit[] => (u === 'mix' ? views : [u])), ...(n < DJ_DECKS_MAX || n > DJ_DECKS_MIN ? (['add'] as const) : [])];
   const widths = DJ_UNITS_ON.map(unitW);
   DJ_W = widths.reduce((a, w) => a + w, 0) + (widths.length - 1) * DJ_UNIT.gap;
   for (const u of Object.keys(UNIT_X) as DjUnit[]) UNIT_X[u] = 0;

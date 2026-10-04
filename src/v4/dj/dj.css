@@ -537,30 +537,50 @@
  * survol ou au focus clavier. Au telephone, sans survol, il reste visible,
  * discret, en bout de defilement des blocs.
  */
-.v4-root .dj-add {
+/* La zone du bord droit (posee par dj/Twins.tsx) : ADD DECK, et REMOVE DECK dessous */
+.v4-root .dj-edge {
   position: absolute;
   left: 0;
   top: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: center;
-  gap: 12px;
-  padding: 0 0 0 6px;
+  gap: 28px;
   width: 0;
   height: 0;
+  pointer-events: auto;
+}
+
+.v4-root .dj-edge[data-off='1'] {
+  display: none;
+}
+
+/* Desktop : contre le bord droit de la zone, loin de la platine (en perspective, son ecran deborde sur la gauche de la zone) */
+.v4-root .dj-add {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px 6px 10px 0;
+  text-align: right;
   margin: 0;
   border: 0;
   background: transparent;
   color: var(--bone);
   font: inherit;
   cursor: pointer;
-  pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
 }
 
-.v4-root .dj-add[data-off='1'] {
+/* REMOVE DECK : un - seul (pas de barre verticale) ; arme (la platine joue), en orange */
+.dj-remove-minus::after {
   display: none;
+}
+
+.v4-root .dj-remove[data-armed='1'] {
+  color: var(--orange, #ff6a13);
 }
 
 .dj-add-plus {
@@ -592,20 +612,28 @@
 }
 
 .dj-add-label {
-  display: none;
+  display: block;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.18em;
+  line-height: 1.5;
   opacity: 0;
   transition: opacity 160ms ease;
   white-space: nowrap;
 }
 
-.v4-root .dj-add:hover .dj-add-plus,
-.v4-root .dj-add:hover .dj-add-label,
+.v4-root .dj-edge:hover .dj-add-plus,
+.v4-root .dj-edge:hover .dj-add-label,
 .v4-root .dj-add:focus-visible .dj-add-plus,
-.v4-root .dj-add:focus-visible .dj-add-label {
+.v4-root .dj-add:focus-visible .dj-add-label,
+.v4-root .dj-remove[data-armed='1'] .dj-add-plus,
+.v4-root .dj-remove[data-armed='1'] .dj-add-label {
   opacity: 0.85;
+}
+
+.v4-root .dj-edge .dj-add:hover .dj-add-plus,
+.v4-root .dj-edge .dj-add:hover .dj-add-label {
+  opacity: 1;
 }
 
 .v4-root .dj-add:focus-visible {
@@ -619,6 +647,7 @@
   .v4-root .dj-add {
     align-items: center;
     padding: 0;
+    text-align: center;
   }
 
   .dj-add-plus {

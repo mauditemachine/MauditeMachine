@@ -14,9 +14,9 @@ import type { Stage } from '../scene/renderer';
 import { focus } from '../state/focus';
 import { faderMin, faderNeutral, faderValue, keyDown, keyUp, knobMin, knobNeutral, knobValue, setFader, setKnob } from './gestures';
 import { DJ_FADERS, DJ_KEYS, DJ_KNOBS, type DjFaderSpec, type DjKeySpec, type DjKnobSpec } from './layout';
-import { djAddDeck, djTempoStep } from './actions';
+import { djAddDeck, djRemoveDeck, djTempoStep } from './actions';
 import { djState } from './state';
-import { DJ_DECKS_MAX, DJ_FX_LABEL, DJ_UNIT, DJ_W, UNIT_X, djDecks } from './theme';
+import { DJ_DECKS, DJ_DECKS_MAX, DJ_DECKS_MIN, DJ_FX_LABEL, DJ_UNIT, DJ_W, UNIT_X, djDecks } from './theme';
 import './dj.css';
 
 const r1 = (n: number): number => Math.round(n * 10) / 10;
@@ -100,7 +100,7 @@ export const DjTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const stageRef = useRef(stage);
   stageRef.current = stage;
   const groupRef = useRef<HTMLDivElement>(null);
-  const addRef = useRef<HTMLButtonElement>(null);
+  const addRef = useRef<HTMLDivElement>(null);
   const decks = useSyncExternalStore(djDecks.subscribe, djDecks.get, djDecks.get);
   const off = f !== 'dj';
   // Le rig arrive apres la scene (chargement a part) : on attend qu'il soit accroche
@@ -171,7 +171,10 @@ export const DjTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
      * droite, un + s'affiche, sinon rien") : une zone juste a droite de la
      * derniere platine, toute la profondeur ; le + n'y parait qu'au survol.
      * Au telephone (sans survol), toute la place du bloc 'add', en bout de
-     * defilement, et un + fin toujours visible.
+     * defilement, et un + fin toujours visible. Le - de REMOVE DECK juste
+     * dessous, des qu'une platine a ete ajoutee (Mika, le meme jour : "je
+     * ne sais toujours pas comment on fait pour supprimer un deck qu'on a
+     * rajoute").
      */
     const touch = window.matchMedia('(hover: none)').matches;
     const out = { x: 0, y: 0 };
@@ -200,6 +203,8 @@ export const DjTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         maxX = Math.max(maxX, p.x);
         maxY = Math.max(maxY, p.y);
       }
+      // Jamais au-dela du bord de la fenetre (quatre platines : le cadrage serre)
+      if (!touch) maxX = Math.min(maxX, window.innerWidth - 8);
       const k = `${r1(minX)}|${r1(minY)}|${r1(maxX)}|${r1(maxY)}`;
       if (k === lastAdd) return;
       lastAdd = k;
@@ -226,25 +231,40 @@ export const DjTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   if (!ready) return null;
 
   const held = (k: DjKeySpec): boolean => k.target.kind === 'cue' || k.target.kind === 'bend' || k.target.kind === 'tempo';
+  // La derniere platine posee : celle que REMOVE DECK retire
+  const lastDeck = DJ_DECKS[DJ_DECKS.length - 1];
 
   return (
     <div ref={groupRef} className="v4-twins" role="group" aria-label="MM-DECKS DJ decks and mixer" aria-hidden={off || undefined}>
-      {decks < DJ_DECKS_MAX && (
-        <button
-          ref={addRef}
-          type="button"
-          className="dj-add"
-          data-off={off ? '1' : '0'}
-          aria-label="Add a deck, with its channel on the mixer"
-          title="Add a deck"
-          onClick={() => djAddDeck()}
-        >
-          <span className="dj-add-plus" aria-hidden="true" />
-          <span className="dj-add-label" aria-hidden="true">
-            ADD DECK
-          </span>
-        </button>
-      )}
+      <div ref={addRef} className="dj-edge" data-off={off ? '1' : '0'}>
+        {decks < DJ_DECKS_MAX && (
+          <button type="button" className="dj-add" aria-label="Add a deck, with its channel on the mixer" title="Add a deck" onClick={() => djAddDeck()}>
+            <span className="dj-add-plus" aria-hidden="true" />
+            <span className="dj-add-label" aria-hidden="true">
+              ADD
+              <br />
+              DECK
+            </span>
+          </button>
+        )}
+        {decks > DJ_DECKS_MIN && (
+          <button
+            type="button"
+            className="dj-add dj-remove"
+            data-armed={s.deck[lastDeck].remove ? '1' : '0'}
+            aria-label={`Remove deck ${lastDeck.toUpperCase()}${s.deck[lastDeck].playing ? ' (it plays: press twice)' : ''}`}
+            title={`Remove deck ${lastDeck.toUpperCase()}`}
+            onClick={() => djRemoveDeck(lastDeck)}
+          >
+            <span className="dj-add-plus dj-remove-minus" aria-hidden="true" />
+            <span className="dj-add-label" aria-hidden="true">
+              {s.deck[lastDeck].remove ? 'PRESS' : 'REMOVE'}
+              <br />
+              {s.deck[lastDeck].remove ? 'AGAIN' : `DECK ${lastDeck.toUpperCase()}`}
+            </span>
+          </button>
+        )}
+      </div>
       {DJ_KEYS.map((k) => {
         const t = k.target;
         const pressed =
