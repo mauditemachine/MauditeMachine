@@ -2,11 +2,13 @@
  * MM-VOYAGER : le moteur (AudioWorklet, 2026-10-03). Le plus pres possible
  * d'un Minimoog Voyager dans un navigateur, calcule echantillon par
  * echantillon :
- * - trois oscillateurs par note : OSC 1 et OSC 2 ecartes par FINE de part
- *   et d'autre de la note (le centre reste juste), OSC 3 une octave
- *   dessous ; forme continue comme le Voyager (triangle, dent de scie,
- *   carre, impulsion fine), sans repliement (PolyBLEP) ; chaque
- *   oscillateur derive lentement (quelques cents, comme un VCO) ;
+ * - deux oscillateurs par note, facon Dreadbox Typhon (2026-10-03) : une
+ *   forme par cran (sinus, triangle, dent de scie, carre, impulsion ; OSC 1
+ *   a aussi la FM, sa sinusoide modulee par OSC 2), un fondu de 10 ms quand
+ *   le cran change ; OSC 2 accorde par TUNE 2 (crans musicaux), les deux
+ *   ecartes par FINE de part et d'autre (le centre reste juste), doses par
+ *   MIX ; sans repliement (PolyBLEP) ; chaque oscillateur derive lentement
+ *   (quelques cents, comme un VCO) ;
  * - le filtre en echelle 24 dB (quatre poles, retroaction resolue sans
  *   retard, saturation a l'entree) : la resonance chante puis siffle,
  *   les graves fondent quand elle monte, comme sur un Moog ; DIST pousse
@@ -48,21 +50,39 @@ function pulse(ph, dt, d) {
   return y - (2 * d - 1);
 }
 
-/** Forme continue : 0 triangle, 1/3 dent de scie, 2/3 carre, 1 impulsion de 12 %. */
-function shape(ph, dt, m) {
-  if (m < 1 / 3) {
-    const k = m * 3;
-    const tri = 1 - 4 * Math.abs(ph - 0.5);
-    const saw = 2 * ph - 1 - polyblep(ph, dt);
-    return tri * (1 - k) + saw * k;
+const TAU = Math.PI * 2;
+/** FM : OSC 2 decale la phase d'OSC 1 de FM_INDEX x 0.16 cycle au plus (environ 1.6 rad). */
+const FM_INDEX = 1.6;
+
+/** Une forme : 0 sinus, 1 triangle, 2 dent de scie, 3 carre, 4 impulsion de 14 % (5 : FM, calculee a part). */
+function wave(ph, dt, w) {
+  switch (w) {
+    case 0:
+      return Math.sin(TAU * ph);
+    case 1:
+      return 1 - 4 * Math.abs(ph - 0.5);
+    case 2:
+      return 2 * ph - 1 - polyblep(ph, dt);
+    case 3:
+      return pulse(ph, dt, 0.5);
+    default:
+      return pulse(ph, dt, 0.14);
   }
-  if (m < 2 / 3) {
-    const k = (m - 1 / 3) * 3;
-    const saw = 2 * ph - 1 - polyblep(ph, dt);
-    return saw * (1 - k) + pulse(ph, dt, 0.5) * k;
+}
+
+/** Le selecteur d'une forme : le cran voulu et le precedent, fondus en 10 ms. */
+class Selector {
+  constructor(w) {
+    this.cur = w;
+    this.prev = w;
+    this.x = 1;
   }
-  const k = (m - 2 / 3) * 3;
-  return pulse(ph, dt, 0.5 - 0.38 * k);
+  set(w) {
+    if (w === this.cur) return;
+    this.prev = this.cur;
+    this.cur = w;
+    this.x = 0;
+  }
 }
 
 const midiHz = (m) => 440 * Math.pow(2, (m - 69) / 12);
@@ -74,8 +94,8 @@ class Voice {
     this.midi = 60;
     this.logf = Math.log(261.6);
     this.logT = this.logf;
-    this.ph = [Math.random(), Math.random(), Math.random()];
-    this.drift = [0, 0, 0];
+    this.ph = [Math.random(), Math.random()];
+    this.drift = [0, 0];
     this.aStage = 0;
     this.aV = 0;
     this.fStage = 0;
@@ -100,7 +120,10 @@ class MMVoyager extends AudioWorkletProcessor {
     this.queue = [];
     this.age = 0;
     this.p = {
-      wave: 0.33,
+      wave1: 2,
+      wave2: 2,
+      tune2: -12,
+      mix: 0.5,
       fine: 15,
       glide: 0,
       cutoff: 800,
@@ -117,11 +140,14 @@ class MMVoyager extends AudioWorkletProcessor {
       drive: 0,
     };
     // Valeurs lissees (un pole, environ 15 ms) : pas de craquement quand un potard tourne
-    this.sm = { wave: 0.33, fine: 15, cutoff: 800, res: 0.3, envOct: 3, drive: 0 };
+    this.sm = { mix: 0.5, fine: 15, cutoff: 800, res: 0.3, envOct: 3, drive: 0 };
     this.smK = coef(0.015, sampleRate);
     this.c = {};
     if (o.params) Object.assign(this.p, o.params);
-    Object.assign(this.sm, { wave: this.p.wave, fine: this.p.fine, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive });
+    Object.assign(this.sm, { mix: this.p.mix, fine: this.p.fine, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive });
+    this.w1 = new Selector(this.p.wave1);
+    this.w2 = new Selector(this.p.wave2);
+    this.fadeStep = 1 / (0.01 * sampleRate);
     this.coefs();
     if (o.notes) for (const n of o.notes) this.add(n);
     this.port.onmessage = (e) => this.onMsg(e.data);
@@ -154,6 +180,8 @@ class MMVoyager extends AudioWorkletProcessor {
     if (m.type === 'note') this.add(m);
     else if (m.type === 'params') {
       Object.assign(this.p, m.params);
+      this.w1.set(this.p.wave1);
+      this.w2.set(this.p.wave2);
       this.coefs();
     } else if (m.type === 'stop') {
       // STOP : plus rien d'attendu, ce qui sonne s'eteint en 12 ms
@@ -212,7 +240,7 @@ class MMVoyager extends AudioWorkletProcessor {
     // Derive lente des oscillateurs : une marche au hasard bornee, une fois par bloc
     for (const v of this.voices) {
       if (!v.on) continue;
-      for (let k = 0; k < 3; k += 1) {
+      for (let k = 0; k < 2; k += 1) {
         let d = v.drift[k] * 0.995 + (Math.random() - 0.5) * 0.35;
         if (d > 3) d = 3;
         else if (d < -3) d = -3;
@@ -227,7 +255,15 @@ class MMVoyager extends AudioWorkletProcessor {
     for (let i = 0; i < N; i += 1) {
       const fr = t0 + i;
       while (q.length > 0 && q[0].frame <= fr) this.noteOn(q.shift(), fr);
-      sm.wave += (p.wave - sm.wave) * K;
+      sm.mix += (p.mix - sm.mix) * K;
+      const w1 = this.w1;
+      const w2 = this.w2;
+      if (w1.x < 1) w1.x = Math.min(1, w1.x + this.fadeStep);
+      if (w2.x < 1) w2.x = Math.min(1, w2.x + this.fadeStep);
+      // MIX a puissance constante : 0.62 chacun au milieu, 0.88 seul a un bout
+      const g1 = 0.88 * Math.cos((sm.mix * Math.PI) / 2);
+      const g2 = 0.88 * Math.sin((sm.mix * Math.PI) / 2);
+      const ratio2 = Math.pow(2, p.tune2 / 12);
       sm.fine += (p.fine - sm.fine) * K;
       sm.cutoff += (p.cutoff - sm.cutoff) * K;
       sm.res += (p.res - sm.res) * K;
@@ -273,18 +309,20 @@ class MMVoyager extends AudioWorkletProcessor {
         const f = Math.exp(v.logf);
         const ph = v.ph;
         const f1 = f * Math.pow(2, (v.drift[0] - half) / 1200);
-        const f2 = f * Math.pow(2, (v.drift[1] + half) / 1200);
-        const f3 = f * 0.5 * Math.pow(2, v.drift[2] / 1200);
+        const f2 = f * ratio2 * Math.pow(2, (v.drift[1] + half) / 1200);
         const d1 = f1 / sr;
         const d2 = f2 / sr;
-        const d3 = f3 / sr;
-        const o = 0.42 * shape(ph[0], d1, sm.wave) + 0.42 * shape(ph[1], d2, sm.wave) + 0.36 * shape(ph[2], d3, sm.wave);
+        // OSC 2 d'abord : il module OSC 1 en FM
+        let o2 = wave(ph[1], d2, w2.cur);
+        if (w2.x < 1) o2 = o2 * w2.x + wave(ph[1], d2, w2.prev) * (1 - w2.x);
+        const one = (w) => (w === 5 ? Math.sin(TAU * (ph[0] + FM_INDEX * o2 * 0.16)) : wave(ph[0], d1, w));
+        let o1 = one(w1.cur);
+        if (w1.x < 1) o1 = o1 * w1.x + one(w1.prev) * (1 - w1.x);
+        const o = g1 * o1 + g2 * o2;
         ph[0] += d1;
         if (ph[0] >= 1) ph[0] -= 1;
         ph[1] += d2;
         if (ph[1] >= 1) ph[1] -= 1;
-        ph[2] += d3;
-        if (ph[2] >= 1) ph[2] -= 1;
         // Filtre en echelle : coupure (enveloppe, accent, suivi du clavier), retroaction resolue
         let fc = sm.cutoff * Math.pow(2, sm.envOct * v.fV * (0.8 + 0.2 * v.accent) + (KEY_TRACK * (v.midi - TRACK_ROOT)) / 12);
         if (fc > nyq) fc = nyq;

@@ -9,16 +9,19 @@
  *   RANDOM, OPEN en orange (CLOSE capot ouvert) ; portrait : les potards
  *   de l'arpegiateur et VOLUME ;
  * - sur l'un ou l'autre : les crochets nommes sous chaque groupe
- *   (VOY_GROUPS), le nom en gras dans le trait.
+ *   (VOY_GROUPS), le nom en gras dans le trait ;
+ * - autour de WAVE 1 et WAVE 2 (2026-10-03, facon Typhon) : un arc jaune
+ *   par cran et le dessin de sa forme ; le cran choisi en plein, les autres
+ *   pales (redessine quand le cran change).
  * Deux textures canvas sur deux plans couches sur le capot ; redessinees
  * a l'arrivee des polices et des logos, et OPEN <-> CLOSE.
  */
 
 import { Mesh, MeshStandardMaterial, PlaneGeometry, type CanvasTexture } from 'three';
 import { drawTracked, fontsReady, logoImage, makeCanvasTexture, trackedWidth } from '../scene/silk';
-import { HEX, PORTRAIT, SILK, silkA } from '../theme';
+import { APPEARANCE, HEX, PORTRAIT, SILK, silkA } from '../theme';
 import { CHORDS } from './chords';
-import { VOY_KNOBS } from './params';
+import { VOY_KNOBS, WAVES1, WAVES2, stepIndex, voyParams } from './params';
 import {
   VOY_BODY,
   VOY_BUTTONS,
@@ -33,6 +36,8 @@ import {
   VOY_PANEL,
   VOY_RULES,
   VOY_SECTIONS,
+  VOY_SEL,
+  isSelector,
   voyKnobPlace,
   voyPadAt,
 } from './theme';
@@ -134,6 +139,8 @@ export class VoySilk {
   draws = 0;
   /** logos poses au dernier dessin (panneau) */
   logos: string[] = [];
+  /** crans choisis des deux selecteurs de forme */
+  private sel = { wave1: stepIndex('wave1', voyParams.of('wave1')), wave2: stepIndex('wave2', voyParams.of('wave2')) };
 
   constructor(
     private kind: VoySilkKind,
@@ -238,6 +245,7 @@ export class VoySilk {
         ctx.stroke();
       }
     }
+    this.selectors();
     if (this.kind === 'panel') {
       // Wordmark a gauche, logotype a droite (comme la 808)
       const img = logoImage('wordmark');
@@ -298,6 +306,85 @@ export class VoySilk {
         ctx.stroke();
       }
     }
+  }
+
+  /**
+   * Les couronnes des selecteurs de forme de ce plan : pour chaque cran, un
+   * arc (un jour entre deux) et le dessin de la forme dehors, droit.
+   */
+  private selectors(): void {
+    const ctx = this.ctx;
+    const S = VOY_SEL;
+    const ink = APPEARANCE.current === 'light' ? [168, 116, 0] : [242, 194, 48];
+    const color = (a: number): string => `rgba(${ink[0]}, ${ink[1]}, ${ink[2]}, ${a})`;
+    for (const k of VOY_KNOBS) {
+      if (!isSelector(k.id)) continue;
+      const p = voyKnobPlace(k.id);
+      if (p.where !== this.kind) continue;
+      const waves = k.id === 'wave1' ? WAVES1 : WAVES2;
+      const n = waves.length;
+      const on = this.sel[k.id as 'wave1' | 'wave2'];
+      const step = 270 / (n - 1);
+      const half = step / 2 - S.gapDeg / 2;
+      const cx = this.px(p.x);
+      const cy = this.py(p.z);
+      const rArc = S.arcR * p.s * PPU;
+      ctx.lineCap = 'butt';
+      waves.forEach((w, i) => {
+        const a = 225 - step * i;
+        const alpha = i === on ? 1 : APPEARANCE.current === 'light' ? S.dim.light : S.dim.dark;
+        // Arc : angles du canvas (y vers le bas), le sens inverse de ceux du panneau
+        ctx.strokeStyle = color(alpha);
+        ctx.lineWidth = Math.max(1, S.arcW * p.s * PPU);
+        ctx.beginPath();
+        ctx.arc(cx, cy, rArc, (-(a + half) * Math.PI) / 180, (-(a - half) * Math.PI) / 180);
+        ctx.stroke();
+        const gx = p.x + Math.cos((a * Math.PI) / 180) * S.glyphR * p.s;
+        const gz = p.z - Math.sin((a * Math.PI) / 180) * S.glyphR * p.s;
+        this.glyph(w, this.px(gx), this.py(gz), S.glyph.w * p.s * PPU, S.glyph.h * p.s * PPU, Math.max(1, S.glyph.stroke * p.s * PPU), color(alpha));
+      });
+    }
+  }
+
+  /** Le dessin d'une forme dans une boite w x h centree (px) ; FM ecrit. */
+  private glyph(w: string, cx: number, cy: number, bw: number, bh: number, lw: number, color: string): void {
+    const ctx = this.ctx;
+    const X = (u: number): number => cx + (u * bw) / 2;
+    const Y = (v: number): number => cy + (v * bh) / 2;
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = lw;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    if (w === 'FM') {
+      const fontPx = bh * 1.5;
+      ctx.font = `700 ${fontPx}px 'SF Pro Display', system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('FM', cx, cy);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      return;
+    }
+    const pts: [number, number][] = [];
+    if (w === 'SINE') for (let i = 0; i <= 24; i += 1) pts.push([-1 + i / 12, -Math.sin(Math.PI * (-1 + i / 12))]);
+    else if (w === 'TRI') pts.push([-1, 1], [-0.5, -1], [0, 1], [0.5, -1], [1, 1]);
+    else if (w === 'SAW') pts.push([-1, 1], [0, -1], [0, 1], [1, -1], [1, 1]);
+    else if (w === 'SQUARE') pts.push([-1, 1], [-1, -1], [0, -1], [0, 1], [1, 1], [1, -1]);
+    else pts.push([-1, 1], [-0.6, 1], [-0.6, -1], [-0.35, -1], [-0.35, 1], [0.4, 1], [0.4, -1], [0.65, -1], [0.65, 1], [1, 1]);
+    ctx.beginPath();
+    pts.forEach(([u, v], i) => (i === 0 ? ctx.moveTo(X(u), Y(v)) : ctx.lineTo(X(u), Y(v))));
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+  }
+
+  /** Les crans des selecteurs de forme ; true si le panneau a ete redessine. */
+  setSelectors(wave1: number, wave2: number): boolean {
+    if (wave1 === this.sel.wave1 && wave2 === this.sel.wave2) return false;
+    this.sel = { wave1, wave2 };
+    if (!VOY_KNOBS.some((k) => isSelector(k.id) && voyKnobPlace(k.id).where === this.kind)) return false;
+    this.draw();
+    return true;
   }
 
   /** Le logo (blanc) teinte a l'encre de la serigraphie. */

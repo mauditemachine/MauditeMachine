@@ -213,6 +213,11 @@ export class VoyagerRig {
     const v = voyParams.get();
     let changed = false;
     for (const k of VOY_KNOBS) if (this.knobs.setValue(k.id, v[k.id])) changed = true;
+    // Les couronnes des selecteurs de forme : le cran choisi s'allume
+    const w1 = stepIndex('wave1', v.wave1);
+    const w2 = stepIndex('wave2', v.wave2);
+    if (this.panelSilk.setSelectors(w1, w2)) changed = true;
+    if (this.deckSilk.setSelectors(w1, w2)) changed = true;
     if (this.syncLcd(false)) changed = true;
     if (changed) {
       if (this.knobs.mesh.castShadow) this.opts.invalidate();

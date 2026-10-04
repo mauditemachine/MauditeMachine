@@ -5,10 +5,11 @@
  * stockage plein, JSON corrompu, rien ne leve).
  *
  * Sections, facon Voyager : ARPEGGIATOR (RATE, MODE, RANGE, NOTES, GATE,
- * sur le plateau ; OCTAVE avec lui au telephone), OSCILLATORS (WAVE, FINE, GLIDE), FILTER (CUTOFF, RES, ENV AMT),
+ * OCTAVE, sur le plateau), OSCILLATORS (WAVE 1, WAVE 2, TUNE 2, MIX, FINE,
+ * GLIDE ; deux oscillateurs facon Typhon depuis le 2026-10-03), FILTER (CUTOFF, RES, ENV AMT),
  * deux enveloppes ADSR (FILTER EG et AMP EG), EFFECTS (DIST, CHORUS, DELAY,
  * REVERB) et OUTPUT (VOLUME). Les potards a crans (RATE, MODE, RANGE,
- * NOTES, OCTAVE) gardent une valeur ronde : idx / (n - 1).
+ * NOTES, OCTAVE, WAVE 1, WAVE 2, TUNE 2) gardent une valeur ronde : idx / (n - 1).
  *
  * NOTES (2026-10-03, Mika : "le choix du nombre de notes dans l'arp") : la
  * longueur du motif. ALL : toutes les notes de l'accord sur RANGE octaves,
@@ -27,7 +28,10 @@ export type VoyKnobId =
   | 'range'
   | 'notes'
   | 'gate'
-  | 'wave'
+  | 'wave1'
+  | 'wave2'
+  | 'tune2'
+  | 'mix'
   | 'fine'
   | 'octave'
   | 'glide'
@@ -69,6 +73,16 @@ export const RATES = ['1/4', '1/8', '1/16', '1/32'] as const;
 export const MODES = ['UP', 'DOWN', 'UP/DN', 'RAND'] as const;
 export const RANGES = ['1 OCT', '2 OCT', '3 OCT'] as const;
 export const OCTAVES = ['-2', '-1', '0', '+1', '+2'] as const;
+/**
+ * Deux oscillateurs facon Dreadbox Typhon (2026-10-03, Mika) : une forme
+ * par cran, dessinee autour du selecteur. OSC 1 a la FM en dernier cran (sa
+ * sinusoide modulee par OSC 2).
+ */
+export const WAVES1 = ['SINE', 'TRI', 'SAW', 'SQUARE', 'PULSE', 'FM'] as const;
+export const WAVES2 = ['SINE', 'TRI', 'SAW', 'SQUARE', 'PULSE'] as const;
+/** TUNE 2 : OSC 2 par crans musicaux, toujours dans la tonalite (octave dessous, unisson, quinte, une et deux octaves). */
+export const TUNES2 = ['-1 OCT', '0', '5TH', '+1 OCT', '+2 OCT'] as const;
+const TUNE2_SEMI = [-12, 0, 7, 12, 24] as const;
 export const NOTES = ['ALL', '1', '2', '3', '4', '5', '6', '7', '8'] as const;
 
 /** Dans l'ordre de lecture du panneau (et de tabulation des jumeaux). */
@@ -78,7 +92,10 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'range', label: 'RANGE', aria: 'Arpeggiator range', section: 'arp', def: 0.5, steps: RANGES },
   { id: 'notes', label: 'NOTES', aria: 'Arpeggiator notes, how many before the pattern starts again', section: 'arp', def: 0, steps: NOTES },
   { id: 'gate', label: 'GATE', aria: 'Arpeggiator gate length', section: 'arp', def: 0.5 },
-  { id: 'wave', label: 'WAVE', aria: 'Oscillator wave, triangle to saw to square to pulse', section: 'osc', def: 1 / 3 },
+  { id: 'wave1', label: 'WAVE 1', aria: 'Oscillator 1 wave: sine, triangle, saw, square, pulse, FM', section: 'osc', def: 2 / 5, steps: WAVES1 },
+  { id: 'wave2', label: 'WAVE 2', aria: 'Oscillator 2 wave: sine, triangle, saw, square, pulse', section: 'osc', def: 2 / 4, steps: WAVES2 },
+  { id: 'tune2', label: 'TUNE 2', aria: 'Oscillator 2 tuning: octave down, unison, fifth, one or two octaves up', section: 'osc', def: 0, steps: TUNES2 },
+  { id: 'mix', label: 'MIX', aria: 'Oscillator mix, 1 to 2', section: 'osc', def: 0.5 },
   { id: 'fine', label: 'FINE', aria: 'Fine tune, the two oscillators apart, always in key', section: 'osc', def: 0.35 },
   { id: 'octave', label: 'OCTAVE', aria: 'Octave', section: 'osc', def: 0.5, steps: OCTAVES },
   { id: 'glide', label: 'GLIDE', aria: 'Glide between notes', section: 'osc', def: 0 },
@@ -148,13 +165,20 @@ export const octaves = (v: number): number => stepIndex('range', v) + 1;
 export const notesCount = (v: number): number => stepIndex('notes', v);
 /** OCTAVE : -2 a +2 octaves (le centre : l'octave d'origine). */
 export const octaveShift = (v: number): number => stepIndex('octave', v) - 2;
+/** TUNE 2 en demi-tons. */
+export const tune2Semi = (v: number): number => TUNE2_SEMI[stepIndex('tune2', v)];
 
 /**
  * Les reglages du moteur (audio/moog.worklet.js), en unites physiques :
  * secondes, hertz, octaves. Envoyes au moteur a chaque changement.
  */
 export interface EngineParams {
-  wave: number;
+  /** formes : index de WAVES1 et WAVES2 */
+  wave1: number;
+  wave2: number;
+  /** OSC 2 en demi-tons ; MIX 0 (OSC 1) a 1 (OSC 2) */
+  tune2: number;
+  mix: number;
   fine: number;
   glide: number;
   cutoff: number;
@@ -173,7 +197,10 @@ export interface EngineParams {
 
 export function engineParams(v: Readonly<VoyValues>): EngineParams {
   return {
-    wave: v.wave,
+    wave1: stepIndex('wave1', v.wave1),
+    wave2: stepIndex('wave2', v.wave2),
+    tune2: tune2Semi(v.tune2),
+    mix: v.mix,
     fine: fineCents(v.fine),
     glide: glideS(v.glide),
     cutoff: cutoffHz(v.cutoff),

@@ -24,7 +24,8 @@
 - Jupes, second passage : filet encore plus fin (Voyager r 0.284, 808 ENCODER.skirt r 0.298), plus sombre en noir (#5D6167), plus clair en blanc (#E6E8EC), les deux machines.
 - La seconde machine s'appelle MM-ARP (serigraphie, ecran, carte, selecteur, volet, nom sous la machine) ; noms internes inchanges.
 - Le pad de l'accord qui joue ne clignote plus a chaque note : jaune fixe (`voyager/rig.ts`).
-- `docs/v4/spec.md` : R14-34 a R14-41.
+- MM-ARP a deux oscillateurs facon Typhon : `audio/moog.worklet.js` (formes par cran, FM, TUNE 2, MIX), `voyager/params.ts` (WAVE 1, WAVE 2, TUNE 2, MIX), `voyager/silk.ts` (arcs jaunes et dessins des formes autour des selecteurs, cran choisi allume), `voyager/theme.ts` (OSC sur trois colonnes en desktop, quatre rangees au telephone, OCTAVE avec l'arpegiateur), `voyager/rig.ts`.
+- `docs/v4/spec.md` : R14-34 a R14-43.
 
 ## 2. Decisions prises et pourquoi
 
@@ -36,6 +37,7 @@
 - RANDOM de la 808 ne touche que les 4 effets du bus (pas SWING, STRETCH, MASTER ni les effets par voix) : le motif reste reconnaissable.
 - Voix ajoutees : CP, RS, HT, CY, CB (noms de l'Analog Rytm), chacune sous sa voisine (BD/CP, SD/RS, TOM/HT, CH/CY, OH/CB) ; le motif d'arrivee ne change pas (rangees vides).
 - Mode MUTE : en mode, un pad coupe sans jouer (comme sur une Elektron) ; sortir du mode rend toutes les voix, comme Mika l'a decrit.
+- Deux oscillateurs : le troisieme (sous-octave) disparait, mais TUNE 2 part sur -1 octave par defaut pour garder le poids du son d'avant ; TUNE 2 par crans musicaux (octaves et quinte) pour rester dans la tonalite.
 - Synchro : les deux machines gardent leur propre RUN/STOP (pas de demarrage force de l'autre), mais elles partagent tempo et grille, quel que soit l'ordre de lancement.
 - La 808 n'est pas touchee : meme carte, memes puces, meme serigraphie (verifie dans le diff).
 
