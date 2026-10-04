@@ -77,6 +77,18 @@ interface Graph {
   delaySend: Send;
   /** tranches des voix (null : reference sans effets, rendu hors ligne) */
   ch: Record<Inst, Channel> | null;
+  /**
+   * La sortie de chaque machine (2026-10-04), sec et effets compris : le
+   * MM-RYTM (apres son compresseur, avec sa REVERB et son DELAY) et le
+   * MM-ARP (son moteur, son delay, sa REVERB a lui). Branchees sur le master
+   * par defaut ; le mixer du MM-DECKS les prend sur ses canaux 1 et 2
+   * (routeMachines).
+   */
+  rytmOut: GainNode;
+  arpOut: GainNode;
+  arpReverb: SendBus;
+  /** les envois REVERB et DELAY des voix partent apres MASTER (LEVEL) : MASTER baisse aussi leurs queues */
+  taps: GainNode[];
 }
 
 export interface TriggerInfo {
@@ -196,7 +208,12 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
 
   // Le bus rejoint TONE par DIST (sec, et mouille si DIST > 0), puis CHORUS
   lvl.connect(comp);
-  comp.connect(analyser);
+  // Chaque machine sort par sa propre prise (le mixer du MM-DECKS peut la prendre)
+  const rytmOut = c.createGain();
+  const arpOut = c.createGain();
+  rytmOut.connect(analyser);
+  arpOut.connect(analyser);
+  comp.connect(rytmOut);
   analyser.connect(clipPre);
   clipper.connect(master);
   master.connect(c.destination);
@@ -213,14 +230,16 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   }
   const fx = buildFx(c, { bus, tone: toneSt.input }, o.drive ?? f.drive);
 
-  // REVERB et DELAY partages ; les envois de tout le pattern partent de LEVEL
-  const reverb = buildReverbBus(c, analyser);
-  const delay = buildDelayBus(c, analyser, stepOf(o.bpm ?? pattern.get().bpm));
+  // REVERB et DELAY de la boite ; les envois de tout le pattern partent de LEVEL. Le MM-ARP a sa REVERB a lui
+  const reverb = buildReverbBus(c, rytmOut);
+  const delay = buildDelayBus(c, rytmOut, stepOf(o.bpm ?? pattern.get().bpm));
+  const arpReverb = buildReverbBus(c, arpOut);
   const reverbSend = reverb.attach(lvl);
   const delaySend = delay.attach(lvl);
 
   // Tranches des voix : LEVEL -> TONE -> DIST -> CHORUS -> bus, et leurs envois
   let ch: Record<Inst, Channel> | null = null;
+  const taps: GainNode[] = [];
   if (!o.bare) {
     const out = {} as Record<Inst, Channel>;
     for (const inst of INSTRUMENTS) {
@@ -232,12 +251,17 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
       const chIn = c.createGain();
       chIn.gain.value = 1;
       chIn.connect(chTone.input);
-      out[inst] = { input: chIn, tone: chTone, drive: chDrive, chorus: chChorus, out: chOut, reverb: reverb.attach(chOut), delay: delay.attach(chOut) };
+      // Ses envois apres MASTER (2026-10-04, Mika : "meme quand je baisse le master on entend le CP")
+      const tap = c.createGain();
+      tap.gain.value = level * level;
+      chOut.connect(tap);
+      taps.push(tap);
+      out[inst] = { input: chIn, tone: chTone, drive: chDrive, chorus: chChorus, out: chOut, reverb: reverb.attach(tap), delay: delay.attach(tap) };
     }
     ch = out;
   }
 
-  const g: Graph = { ctx: c, bus, tone: toneSt, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, fx, reverb, delay, reverbSend, delaySend, ch };
+  const g: Graph = { ctx: c, bus, tone: toneSt, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, fx, reverb, delay, reverbSend, delaySend, ch, rytmOut, arpOut, arpReverb, taps };
   if (!o.bare) {
     reverbSend.set(o.reverb ?? f.reverb);
     delaySend.set(o.delay ?? f.delay);
@@ -294,6 +318,7 @@ export function ensure(): AudioContext | undefined {
     // neuves (envois gardes)
     graph.reverb.revive();
     graph.delay.revive();
+    graph.arpReverb.revive();
     return ctx;
   }
   const C = getCtor();
@@ -366,6 +391,7 @@ export function resume(): void {
 export function quiet(): void {
   graph?.reverb.silence();
   graph?.delay.silence();
+  graph?.arpReverb.silence();
 }
 
 /** Onglet cache, canvas hors ecran, demontage : le contexte dort, on le garde. */
@@ -392,19 +418,44 @@ export function context(): AudioContext | undefined {
  * rejoint l'analyseur, APRES le compresseur de la batterie (2026-10-04 :
  * avant, chaque kick y faisait baisser l'arpege de plusieurs dB, un
  * pompage net dans des intra-auriculaires), puis le limiteur et le master
- * (?mute=1 tient) ; ses envois partagent la REVERB et le DELAY de la boite.
- * null avant le premier geste.
+ * (?mute=1 tient). null avant le premier geste.
+ * - input : l'entree du master (la sortie du mixer du MM-DECKS y va) ;
+ * - arp : la prise du MM-ARP (2026-10-04) ; le synthe y sort, et sa REVERB
+ *   (reverb, a lui depuis le 2026-10-04 : le canal 2 du mixer la coupe
+ *   avec lui) ; delay : celui de la boite (inutilise par le synthe).
  */
 export interface SynthPort {
   ctx: AudioContext;
   input: AudioNode;
+  arp: AudioNode;
   reverb: SendBus;
   delay: DelayBus;
 }
 
 export function synthPort(): SynthPort | null {
   if (!ctx || !graph) return null;
-  return { ctx, input: graph.analyser, reverb: graph.reverb, delay: graph.delay };
+  return { ctx, input: graph.analyser, arp: graph.arpOut, reverb: graph.arpReverb, delay: graph.delay };
+}
+
+/** La sortie complete de chaque machine (sec et effets) ; null avant le premier geste. */
+export function machineOuts(): { rytm: AudioNode; arp: AudioNode } | null {
+  return graph ? { rytm: graph.rytmOut, arp: graph.arpOut } : null;
+}
+
+/**
+ * Le mixer du MM-DECKS prend les deux machines sur ses canaux 1 (MM-RYTM)
+ * et 2 (MM-ARP) : leurs prises quittent le master pour ses entrees ; null
+ * les rend au master.
+ */
+export function routeMachines(to: { rytm: AudioNode; arp: AudioNode } | null): void {
+  if (!graph) return;
+  for (const [out, dest] of [
+    [graph.rytmOut, to?.rytm],
+    [graph.arpOut, to?.arp],
+  ] as const) {
+    out.disconnect();
+    out.connect(dest ?? graph.analyser);
+  }
 }
 
 /* ---------------- voix (spec 8.2) ---------------- */
@@ -566,7 +617,10 @@ export function setLevel(v: number): void {
   const l = clamp01(v);
   if (l === level) return;
   level = l;
-  if (graph) glide(graph.level.gain, level * level, graph.ctx);
+  if (graph) {
+    glide(graph.level.gain, level * level, graph.ctx);
+    for (const t of graph.taps) glide(t.gain, level * level, graph.ctx);
+  }
   emitMix();
 }
 

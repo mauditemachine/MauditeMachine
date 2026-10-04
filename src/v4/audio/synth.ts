@@ -182,7 +182,8 @@ export function prepareSynth(): void {
         outputChannelCount: [2],
         processorOptions: { params: engineMsg(voyParams.get()), os: engineOs() },
       });
-      sg = build(c, port.input, port.reverb, node);
+      // La prise du MM-ARP (le canal 2 du mixer du MM-DECKS peut la prendre), sa REVERB a lui
+      sg = build(c, port.arp, port.reverb, node);
       // Les notes arrivees avant le moteur : celles encore a venir partent
       const now = c.currentTime;
       for (const n of early) if (n.time > now - 0.05) node.port.postMessage({ type: 'note', ...n, time: Math.max(n.time, now) });
