@@ -206,6 +206,20 @@ export const DECK = {
   pitch: { x: 3.75, z0: -0.45, z1: 4.25 },
 } as const;
 
+/**
+ * L'ecran de la platine, en fractions de sa largeur (u, depuis la gauche)
+ * et de sa hauteur (v, depuis le haut) : le texte en haut (titre, artiste,
+ * BPM, Camelot, temps), la forme d'onde fine au milieu (elle defile, la
+ * tete de lecture au centre), la piste entiere en bas, et a sa droite les
+ * deux touches du zoom.
+ */
+export const DECK_SCREEN = {
+  text: 0.4,
+  detail: { u0: 0.02, u1: 0.98, v0: 0.42, v1: 0.78 },
+  overview: { u0: 0.02, u1: 0.84, v0: 0.83, v1: 0.95 },
+  zoom: { u0: 0.86, u1: 0.98, v0: 0.81, v1: 0.97 },
+} as const;
+
 /* ---------- faders, touches ---------- */
 
 export const DJ_FADER = {

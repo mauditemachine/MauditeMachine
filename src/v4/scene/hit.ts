@@ -57,7 +57,8 @@ export type HotspotKind =
   | 'djknob'
   | 'djfader'
   | 'djkey'
-  | 'djjog';
+  | 'djjog'
+  | 'djscreen';
 
 export interface HotspotDef {
   id: string;

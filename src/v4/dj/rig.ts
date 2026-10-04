@@ -23,9 +23,10 @@ import { djEngineIfAny } from './engine';
 import { DJ_FADERS, DJ_KNOBS, DJ_RECT_KEYS, DJ_ROUND_KEYS } from './layout';
 import { vuLeds } from './math';
 import { DjScreens } from './screens';
+import { DjWaves } from './waveform';
 import { DjSilk } from './silk';
 import { djState, type DjState } from './state';
-import { DJ_BODY, DJ_FX, DJ_FX_LABEL, DJ_TILT, DJ_TOP_Y, DJ_UNIT, DJ_W, DJ_X, UNIT_X, timeLabel, unitW, type DjFxId } from './theme';
+import { DECK, DJ_BEZEL, DJ_BODY, DJ_FX, DJ_FX_LABEL, DJ_TILT, DJ_TOP_Y, DJ_UNIT, DJ_W, DJ_X, UNIT_X, timeLabel, unitW, type DjFxId } from './theme';
 
 export interface DjRigOpts {
   mobile: boolean;
@@ -42,6 +43,7 @@ export class DjRig {
   readonly body: DjBody;
   readonly controls: DjControls;
   readonly screens: DjScreens;
+  readonly waves: DjWaves;
   readonly silks: DjSilk[];
   private defs: HotspotDef[];
   private unsubs: (() => void)[] = [];
@@ -68,10 +70,27 @@ export class DjRig {
     this.top.add(...this.controls.objects);
     this.screens = new DjScreens(opts.anisotropy, opts.mobile);
     this.top.add(this.screens.mesh);
+    this.waves = new DjWaves();
+    this.top.add(this.waves.mesh);
     this.silks = (['a', 'mix', 'b'] as const).map((u) => new DjSilk(u, opts.anisotropy, opts.mobile));
     for (const s of this.silks) this.top.add(s.mesh);
 
-    this.defs = this.controls.hotspots(this.top).map((d) => ({ ...d, machine: 'dj' as const }));
+    // Les ecrans des platines se touchent aussi : zoom, recherche dans la piste, scrub (dj/gestures.ts)
+    const screenDefs: HotspotDef[] = (['a', 'b'] as const).map((d) => ({
+      id: `dj-${d}-screen`,
+      kind: 'djscreen' as const,
+      layer: this.top,
+      shape: 'box' as const,
+      x: UNIT_X[d] + DECK.screen.x,
+      z: DECK.screen.z,
+      hx: DECK.screen.w / 2,
+      hz: DECK.screen.d / 2,
+      y0: 0,
+      y1: DJ_BEZEL.h + 0.01,
+      enabled: true,
+      dj: `dj-${d}-screen`,
+    }));
+    this.defs = [...this.controls.hotspots(this.top), ...screenDefs].map((d) => ({ ...d, machine: 'dj' as const }));
     this.syncState(false);
     this.syncScreens();
   }
@@ -123,7 +142,8 @@ export class DjRig {
     const lights = this.syncLights();
     if (!paint) return;
     if (moved && this.controls.knobs.castShadow) this.opts.invalidate();
-    else if (moved || screens || lights) this.opts.repaint();
+    // Le moteur la : une image, l'animateur y pose position, zoom et cues des formes d'onde
+    else if (moved || screens || lights || djEngineIfAny()) this.opts.repaint();
   }
 
   /**
@@ -194,10 +214,14 @@ export class DjRig {
     if (!e) return false;
     let busy = false;
     let changed = false;
+    const st = djState.get();
     for (const d of ['a', 'b'] as const) {
       const p = e.decks[d];
       if (p.playing) busy = true;
       const pos = p.position();
+      const ds = st.deck[d];
+      if (this.waves.setPeaks(d, p.loadId, p.overview, p.detail)) changed = true;
+      if (this.waves.update(d, { loaded: p.loaded && ds.loaded, position: pos, duration: p.duration, window: ds.zoom, cue: ds.cue, cues: ds.cues })) changed = true;
       // 33 tours un tiers : 0.5556 tour par seconde de musique
       const angle = pos * 2 * Math.PI * (100 / 3 / 60);
       if (this.controls.setJog(d, angle)) changed = true;
@@ -253,7 +277,7 @@ export class DjRig {
         duration: dur,
         playing: ds.playing,
         pitch: (ds.pitch * ds.range) / 100,
-        peaks: ds.loaded && p ? p.overview : null,
+        zoom: ds.zoom,
       };
       if (this.screens.setDeck(d, screen)) changed = true;
       const angle = pos * 2 * Math.PI * (100 / 3 / 60);
@@ -295,6 +319,7 @@ export class DjRig {
     this.body.dispose();
     this.controls.dispose();
     this.screens.dispose();
+    this.waves.dispose();
     for (const s of this.silks) s.dispose();
   }
 }

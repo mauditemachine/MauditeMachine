@@ -1,86 +1,72 @@
 /*
- * MM-DECKS (2026-10-04) : la liste des morceaux (dj/TrackBrowser.tsx). Le verre
- * sombre du panneau des sections (.v4-panel), l'os, l'orange des touches de
- * navigation. Desktop : a droite ; telephone : une feuille en bas.
+ * MM-DECKS (2026-10-04) : la playlist sous les platines (dj/TrackBrowser.tsx).
+ * Le verre sombre du panneau des sections (.v4-panel), l'os, l'orange de la
+ * platine visee. Desktop : une bande en bas, au centre ; telephone : toute
+ * la largeur sous la platine cadree. Agrandie (LOAD), elle monte par-dessus
+ * la machine.
  */
 
-.dj-browser {
+.dj-list {
+  --dj-list-h: 228px;
+  --dj-list-big: min(62vh, 640px);
   position: absolute;
-  z-index: 31;
-  right: 32px;
-  top: 50%;
-  width: min(440px, calc(100vw - 64px));
-  height: min(640px, 76vh);
+  z-index: 25;
+  left: 50%;
+  bottom: 16px;
+  width: min(1080px, calc(100vw - 240px));
+  height: var(--dj-list-h);
   display: flex;
   flex-direction: column;
-  background: rgba(20, 20, 23, 0.94);
+  background: rgba(20, 20, 23, 0.9);
   border-radius: 16px;
   color: var(--bone);
   overflow: hidden;
   opacity: 0;
-  transform: translate(16px, -50%);
+  transform: translate(-50%, 16px);
   pointer-events: none;
-  transition: opacity 150ms ease, transform 150ms ease;
-}
-
-.dj-browser[data-open='1'] {
-  opacity: 1;
-  transform: translate(0, -50%);
-  pointer-events: auto;
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease,
+    height 220ms cubic-bezier(0.16, 1, 0.3, 1);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
-  transition: opacity 220ms ease-out, transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.dj-browser[data-drop='1'] {
+.dj-list[data-shown='1'] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+  transition:
+    opacity 220ms ease-out 120ms,
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1) 120ms,
+    height 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dj-list[data-big='1'] {
+  height: var(--dj-list-big);
+}
+
+.dj-list[data-drop='1'] {
   box-shadow: inset 0 0 0 2px var(--orange);
 }
 
-.dj-browser-head {
+.dj-list-head {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
-  justify-content: space-between;
-  padding: 14px 12px 6px 20px;
+  gap: 8px;
+  padding: 10px 10px 8px 14px;
 }
 
-.dj-browser-title {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.2em;
-}
-
-.dj-browser-title span {
-  color: var(--orange);
-  margin-left: 6px;
-}
-
-.dj-browser-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--bone);
-  cursor: pointer;
-}
-
-.dj-browser-close:hover {
-  background: rgba(246, 241, 231, 0.08);
-}
-
-.dj-browser-tabs {
+.dj-list-tabs {
   display: flex;
-  gap: 6px;
-  padding: 0 20px;
+  flex: 0 0 auto;
+  gap: 4px;
 }
 
-.dj-browser-tab {
+.dj-list-tab {
   min-height: 36px;
-  padding: 0 14px;
+  padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: transparent;
@@ -89,25 +75,20 @@
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.16em;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.dj-browser-tab[aria-selected='true'] {
+.dj-list-tab[aria-selected='true'] {
   border-color: var(--bone);
   color: var(--bone);
 }
 
-.dj-browser-tools {
-  display: flex;
-  gap: 6px;
-  padding: 12px 20px 8px;
-}
-
-.dj-browser-search {
+.dj-list-search {
   flex: 1 1 auto;
   min-width: 0;
-  min-height: 40px;
-  padding: 0 14px;
+  min-height: 36px;
+  padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.35);
@@ -116,15 +97,15 @@
   font-size: 14px;
 }
 
-.dj-browser-search:focus-visible {
+.dj-list-search:focus-visible {
   outline: 2px solid var(--yellow-hi);
   outline-offset: 1px;
 }
 
-.dj-browser-add {
+.dj-list-add {
   flex: 0 0 auto;
-  min-height: 40px;
-  padding: 0 12px;
+  min-height: 36px;
+  padding: 0 10px;
   border: 0;
   border-radius: 10px;
   background: rgba(246, 241, 231, 0.08);
@@ -133,104 +114,138 @@
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.dj-browser-note,
-.dj-browser-credit {
-  margin: 0;
-  padding: 0 20px 8px;
+.dj-list-target {
+  flex: 0 0 auto;
   font-size: 11px;
-  color: var(--bone-60);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--bone-70);
+  white-space: nowrap;
 }
 
-.dj-browser-credit {
-  padding: 8px 20px 12px;
+.dj-list-target b {
+  color: var(--orange);
 }
 
-.dj-browser-credit a {
+.dj-list-grow {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: -4px 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
   color: var(--bone);
+  cursor: pointer;
 }
 
-.dj-browser-list {
+.dj-list-grow:hover {
+  background: rgba(246, 241, 231, 0.08);
+}
+
+.dj-list-grow svg {
+  transition: transform 200ms ease;
+}
+
+.dj-list[data-big='1'] .dj-list-grow svg {
+  transform: rotate(180deg);
+}
+
+.dj-list-rows {
   flex: 1 1 auto;
   min-height: 0;
   margin: 0;
-  padding: 0 8px;
+  padding: 0 6px 6px;
   list-style: none;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
-.dj-browser-empty {
-  padding: 18px 12px;
+.dj-list-empty,
+.dj-list-credit {
+  padding: 12px 10px;
   color: var(--bone-60);
-  font-size: 13px;
+  font-size: 12px;
 }
 
-.dj-browser-row {
+.dj-list-credit a {
+  color: var(--bone);
+}
+
+.dj-list-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
+  gap: 12px;
+  min-height: 44px;
+  padding: 2px 8px;
   border-radius: 10px;
 }
 
-.dj-browser-row:hover {
+.dj-list-row:hover {
   background: rgba(246, 241, 231, 0.05);
 }
 
-.dj-browser-row[aria-current='true'] .dj-browser-name {
+.dj-list-row[aria-current='true'] .dj-list-name {
   color: var(--yellow-hi);
 }
 
-.dj-browser-names {
+.dj-list-names {
   display: flex;
   flex: 1 1 auto;
-  flex-direction: column;
+  align-items: baseline;
+  gap: 10px;
   min-width: 0;
 }
 
-.dj-browser-name,
-.dj-browser-artist {
+.dj-list-name,
+.dj-list-artist {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.dj-browser-name {
+.dj-list-name {
+  flex: 0 1 auto;
   font-size: 14px;
   font-weight: 600;
 }
 
-.dj-browser-artist {
+.dj-list-artist {
+  flex: 1 1 auto;
   font-size: 12px;
   color: var(--bone-60);
 }
 
-.dj-browser-meta {
+.dj-list-meta {
   display: flex;
   flex: 0 0 auto;
-  gap: 8px;
+  gap: 10px;
   font-family: ui-monospace, Menlo, Consolas, monospace;
   font-size: 12px;
   color: var(--bone-70);
 }
 
-.dj-browser-meta span {
-  min-width: 26px;
+.dj-list-meta span {
+  min-width: 28px;
   text-align: right;
 }
 
-.dj-browser-decks {
+.dj-list-decks {
   display: flex;
   flex: 0 0 auto;
   gap: 4px;
 }
 
-.dj-browser-decks button {
+.dj-list-decks button {
   width: 44px;
-  height: 36px;
+  height: 34px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: transparent;
@@ -241,57 +256,86 @@
   cursor: pointer;
 }
 
-.dj-browser-decks button[data-target='1'] {
+.dj-list-decks button[aria-pressed='true'] {
+  border-color: var(--yellow-hi);
+  color: var(--yellow-hi);
+}
+
+.dj-list-decks button[data-target='1'] {
   border-color: var(--orange);
   color: var(--orange);
 }
 
-.dj-browser-decks button:hover {
+.dj-list-decks button:hover {
   background: rgba(246, 241, 231, 0.08);
 }
 
-.dj-browser button:focus-visible {
+.dj-list button:focus-visible {
   outline: 2px solid var(--yellow-hi);
   outline-offset: 2px;
 }
 
-/* Telephone : une feuille en bas, toute la largeur */
+/* Fenetre etroite (desktop) : la bande prend presque toute la largeur */
+@media (min-width: 768px) and (max-width: 1099px) {
+  .dj-list {
+    width: calc(100vw - 32px);
+  }
+}
+
+/* Telephone : toute la largeur, sous la platine cadree ; agrandie, elle couvre le jog */
 @media (max-width: 767px) {
-  .dj-browser {
+  .dj-list {
+    --dj-list-h: 34dvh;
+    --dj-list-big: 78dvh;
     left: 0;
     right: 0;
-    top: auto;
     bottom: 0;
     width: 100%;
-    height: 72dvh;
     border-radius: 16px 16px 0 0;
-    transform: translateY(24px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    transform: translateY(16px);
   }
 
-  .dj-browser[data-open='1'] {
+  .dj-list[data-shown='1'] {
     transform: translateY(0);
   }
 
-  .dj-browser-meta span:last-child {
+  .dj-list-head {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .dj-list-search {
+    order: 5;
+    flex-basis: 100%;
+  }
+
+  .dj-list-names {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .dj-list-meta span:nth-child(n + 2) {
     display: none;
   }
 }
 
 /* La machine claire : le meme panneau, en verre clair */
-.v4-root[data-v4-theme='light'] .dj-browser {
-  background: rgba(250, 248, 244, 0.95);
+.v4-root[data-v4-theme='light'] .dj-list {
+  background: rgba(250, 248, 244, 0.94);
   color: #2a2a2e;
 }
 
-.v4-root[data-v4-theme='light'] .dj-browser-close,
-.v4-root[data-v4-theme='light'] .dj-browser-tab[aria-selected='true'],
-.v4-root[data-v4-theme='light'] .dj-browser-search,
-.v4-root[data-v4-theme='light'] .dj-browser-add,
-.v4-root[data-v4-theme='light'] .dj-browser-decks button,
-.v4-root[data-v4-theme='light'] .dj-browser-credit a {
+.v4-root[data-v4-theme='light'] .dj-list-grow,
+.v4-root[data-v4-theme='light'] .dj-list-tab[aria-selected='true'],
+.v4-root[data-v4-theme='light'] .dj-list-search,
+.v4-root[data-v4-theme='light'] .dj-list-add,
+.v4-root[data-v4-theme='light'] .dj-list-decks button,
+.v4-root[data-v4-theme='light'] .dj-list-credit a {
   color: #2a2a2e;
 }
 
-.v4-root[data-v4-theme='light'] .dj-browser-search {
+.v4-root[data-v4-theme='light'] .dj-list-search {
   background: rgba(255, 255, 255, 0.7);
 }

@@ -14,15 +14,20 @@
  * - Touches : CUE et BEND agissent tant qu'on les tient ; PLAY, les hot
  *   cues et TIME a l'appui ; LOAD au relachement ; un hot cue tenu 0.6 s
  *   s'efface.
+ * - Ecran d'une platine (2026-10-04) : glisser sur la forme d'onde fine la
+ *   fait defiler (en pause on entend un grain : poser un cue a l'oreille ;
+ *   en lecture, la piste saute au lacher) ; toucher la piste entiere y
+ *   va ; - et + changent le zoom, comme la molette et le pincement a deux
+ *   doigts ; toucher le texte ouvre la liste des morceaux.
  */
 
 import type { HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { djBrowser } from './browser';
-import { djBend, djCue, djHotcue, djHotcueClear, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetMaster, djSetPitch, djSetTime, djSetXfader } from './actions';
+import { djBend, djCue, djPosition, djScrub, djSeek, djZoom, djZoomStep, djHotcue, djHotcueClear, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetMaster, djSetPitch, djSetTime, djSetXfader } from './actions';
 import { DJ_FADERS, DJ_KEYS, DJ_KNOBS, type DjFaderSpec, type DjKeySpec, type DjKnobSpec } from './layout';
 import { djState } from './state';
-import { DJ_FADER, type DjDeck } from './theme';
+import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_FADER, UNIT_X, type DjDeck } from './theme';
 
 const KNOB_PX = 150;
 const FINE = 0.1;
@@ -112,9 +117,58 @@ const cueHeld = (d: DjDeck): boolean => cueDown[d];
 
 /* ---------------- pointeurs ---------------- */
 
+/**
+ * Homographie du carre unite vers le quadrilatere projete d'un ecran
+ * (p0 haut gauche, p1 haut droite, p2 bas droite, p3 bas gauche), et son
+ * inverse : un point de l'ecran du canvas -> (u, v) dans l'ecran 3D, exact
+ * en perspective (l'ecran est plan).
+ */
+function quadToUnit(q: readonly number[], x: number, y: number): { u: number; v: number } | null {
+  const [x0, y0, x1, y1, x2, y2, x3, y3] = q;
+  const dx1 = x1 - x2;
+  const dx2 = x3 - x2;
+  const dx3 = x0 - x1 + x2 - x3;
+  const dy1 = y1 - y2;
+  const dy2 = y3 - y2;
+  const dy3 = y0 - y1 + y2 - y3;
+  const det = dx1 * dy2 - dx2 * dy1;
+  if (Math.abs(det) < 1e-9) return null;
+  const g = (dx3 * dy2 - dx2 * dy3) / det;
+  const h = (dx1 * dy3 - dx3 * dy1) / det;
+  const a = x1 - x0 + g * x1;
+  const b = x3 - x0 + h * x3;
+  const c = x0;
+  const d = y1 - y0 + g * y1;
+  const e = y3 - y0 + h * y3;
+  const f = y0;
+  // Inverse de [[a b c] [d e f] [g h 1]]
+  const A = e - f * h;
+  const B = c * h - b;
+  const C = b * f - c * e;
+  const D = f * g - d;
+  const E = a - c * g;
+  const F = c * d - a * f;
+  const G = d * h - e * g;
+  const H = b * g - a * h;
+  const I = a * e - b * d;
+  const w = G * x + H * y + I;
+  if (Math.abs(w) < 1e-12) return null;
+  return { u: (A * x + B * y + C) / w, v: (D * x + E * y + F) / w };
+}
+
+type ScreenZone = 'text' | 'detail' | 'whole' | 'zoom';
+
+function zoneOf(u: number, v: number): ScreenZone {
+  const S = DECK_SCREEN;
+  if (v < S.detail.v0 - 0.01) return 'text';
+  if (v <= S.detail.v1 + 0.02) return 'detail';
+  if (u >= S.zoom.u0 - 0.01) return 'zoom';
+  return 'whole';
+}
+
 interface Grip {
   id: string;
-  kind: 'knob' | 'fader' | 'key' | 'jog';
+  kind: 'knob' | 'fader' | 'key' | 'jog' | 'screen';
   x0: number;
   y0: number;
   v0: number;
@@ -130,6 +184,17 @@ interface Grip {
   ang: number;
   t: number;
   moved: boolean;
+  /** ecran : la platine, la zone touchee, le quadrilatere projete, u au depart, la position visee */
+  deck: DjDeck;
+  zone: ScreenZone;
+  quad: number[];
+  u0: number;
+  target: number;
+  /** pincement : l'ecart des deux doigts et le zoom au depart */
+  pinch: number;
+  zoom0: number;
+  x: number;
+  y: number;
 }
 
 export class DjGestures {
@@ -148,8 +213,35 @@ export class DjGestures {
   /** Pointerdown sur une commande (x, y : px du canvas). */
   down(pointerId: number, h: HotspotView, x: number, y: number): void {
     const id = h.id;
-    const g: Grip = { id, kind: 'key', x0: x, y0: y, v0: 0, axis: null, fine: false, a: 0, ax: 0, ay: 0, cx: h.cx, cy: h.cy, ang: 0, t: performance.now(), moved: false };
-    if (h.kind === 'djknob') {
+    const g: Grip = {
+      id,
+      kind: 'key',
+      x0: x,
+      y0: y,
+      v0: 0,
+      axis: null,
+      fine: false,
+      a: 0,
+      ax: 0,
+      ay: 0,
+      cx: h.cx,
+      cy: h.cy,
+      ang: 0,
+      t: performance.now(),
+      moved: false,
+      deck: 'a',
+      zone: 'text',
+      quad: [],
+      u0: 0,
+      target: 0,
+      pinch: 0,
+      zoom0: 0,
+      x,
+      y,
+    };
+    if (h.kind === 'djscreen') {
+      if (!this.screenDown(g, x, y)) return;
+    } else if (h.kind === 'djknob') {
       const k = knobById.get(id);
       if (!k) return;
       g.kind = 'knob';
@@ -183,6 +275,12 @@ export class DjGestures {
     const dx = x - g.x0;
     const dy = y - g.y0;
     if (Math.hypot(dx, dy) > AXIS_PX) g.moved = true;
+    g.x = x;
+    g.y = y;
+    if (g.kind === 'screen') {
+      this.screenMove(g);
+      return;
+    }
     if (g.kind === 'knob') {
       const k = knobById.get(g.id);
       if (!k) return;
@@ -227,6 +325,13 @@ export class DjGestures {
     if (!g) return;
     this.grips.delete(pointerId);
     const tap = overId === g.id && !g.moved;
+    if (g.kind === 'screen') {
+      // En lecture, la forme d'onde glissee : la piste saute au lacher
+      if (g.zone === 'detail' && g.moved && g.pinch === 0) djSeek(g.deck, g.target);
+      if (g.zone === 'text' && tap) djBrowser.open(g.deck);
+      this.stage.repaint();
+      return;
+    }
     if (g.kind === 'key') {
       const k = keyById.get(g.id);
       if (!k) return;
@@ -249,6 +354,12 @@ export class DjGestures {
 
   /** Molette au-dessus d'un potard ou d'un fader ; true si elle est prise. */
   wheel(h: HotspotView, deltaY: number, shift: boolean): boolean {
+    if (h.kind === 'djscreen') {
+      const d: DjDeck = h.id === 'dj-b-screen' ? 'b' : 'a';
+      // Molette vers le haut : plus pres (moins de secondes a l'ecran)
+      djZoom(d, djState.get().deck[d].zoom * Math.exp(deltaY * (shift ? 0.0005 : 0.002)));
+      return true;
+    }
     const k = knobById.get(h.id);
     const f = faderById.get(h.id);
     if (!k && !f) return false;
@@ -256,6 +367,96 @@ export class DjGestures {
     if (k) setKnob(k, Math.max(knobMin(k), Math.min(1, knobValue(k) + step * (1 - knobMin(k)))));
     else if (f) setFader(f, Math.max(faderMin(f), Math.min(1, faderValue(f) + step * (1 - faderMin(f)))));
     return true;
+  }
+
+  /** Le quadrilatere projete de l'ecran d'une platine (px du canvas). */
+  private screenQuad(d: DjDeck): number[] {
+    const layer = this.stage.dj?.top;
+    if (!layer) return [];
+    const S = DECK.screen;
+    const x0 = UNIT_X[d] + S.x - S.w / 2;
+    const x1 = x0 + S.w;
+    const z0 = S.z - S.d / 2;
+    const z1 = S.z + S.d / 2;
+    const y = DJ_BEZEL.h;
+    const out: number[] = [];
+    for (const [px, pz] of [
+      [x0, z0],
+      [x1, z0],
+      [x1, z1],
+      [x0, z1],
+    ]) {
+      const p = this.stage.hit.project(layer, px, y, pz, this.out);
+      out.push(p.x, p.y);
+    }
+    return out;
+  }
+
+  /** Un doigt pose sur l'ecran ; false s'il ne tombe sur rien. */
+  private screenDown(g: Grip, x: number, y: number): boolean {
+    g.kind = 'screen';
+    g.deck = g.id === 'dj-b-screen' ? 'b' : 'a';
+    g.quad = this.screenQuad(g.deck);
+    const uv = g.quad.length === 8 ? quadToUnit(g.quad, x, y) : null;
+    if (!uv) return false;
+    // Un deuxieme doigt sur le meme ecran : les deux pincent (le zoom)
+    for (const o of this.grips.values()) {
+      if (o.kind !== 'screen' || o.deck !== g.deck) continue;
+      const dist = Math.hypot(o.x - x, o.y - y);
+      if (dist < 8) continue;
+      o.pinch = dist;
+      g.pinch = dist;
+      o.zoom0 = g.zoom0 = djState.get().deck[g.deck].zoom;
+      g.zone = o.zone = 'detail';
+      return true;
+    }
+    g.zone = zoneOf(uv.u, uv.v);
+    g.u0 = uv.u;
+    g.target = djPosition(g.deck);
+    g.v0 = g.target;
+    if (g.zone === 'zoom') {
+      const Z = DECK_SCREEN.zoom;
+      const k = (uv.u - Z.u0) / (Z.u1 - Z.u0);
+      if (k < 0.4) djZoomStep(g.deck, 1);
+      else if (k > 0.6) djZoomStep(g.deck, -1);
+      else djZoom(g.deck, 8);
+    } else if (g.zone === 'whole') this.seekWhole(g, uv.u);
+    return true;
+  }
+
+  private seekWhole(g: Grip, u: number): void {
+    const p = this.stage.dj ? djState.get().deck[g.deck] : null;
+    const dur = p?.track?.duration ?? 0;
+    if (dur <= 0) return;
+    const O = DECK_SCREEN.overview;
+    djSeek(g.deck, Math.max(0, Math.min(1, (u - O.u0) / (O.u1 - O.u0))) * dur);
+    this.stage.repaint();
+  }
+
+  private screenMove(g: Grip): void {
+    // Pincement : l'ecart des deux doigts change la fenetre
+    if (g.pinch > 0) {
+      for (const o of this.grips.values()) {
+        if (o === g || o.kind !== 'screen' || o.deck !== g.deck || o.pinch === 0) continue;
+        const dist = Math.hypot(o.x - g.x, o.y - g.y);
+        if (dist > 4) djZoom(g.deck, g.zoom0 * (g.pinch / dist));
+      }
+      return;
+    }
+    const uv = quadToUnit(g.quad, g.x, g.y);
+    if (!uv) return;
+    if (g.zone === 'whole') {
+      this.seekWhole(g, uv.u);
+      return;
+    }
+    if (g.zone !== 'detail') return;
+    // La forme d'onde suit le doigt : vers la gauche, la piste avance
+    const D = DECK_SCREEN.detail;
+    const win = djState.get().deck[g.deck].zoom;
+    const dur = djState.get().deck[g.deck].track?.duration ?? 0;
+    g.target = Math.max(0, Math.min(dur, g.v0 - ((uv.u - g.u0) / (D.u1 - D.u0)) * win));
+    djScrub(g.deck, g.target);
+    this.stage.repaint();
   }
 
   /** Tous les pointeurs lachent (demontage, perte). */

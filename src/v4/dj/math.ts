@@ -137,26 +137,37 @@ export function fxMix(id: string, dose: number): { dry: number; wet: number } {
 
 /* ---------- forme d'onde ---------- */
 
-/** Le maximum absolu par tranche, sur tous les canaux. */
-export function peaks(channels: readonly Float32Array[], slices: number): Float32Array {
+/**
+ * L'energie par tranche (2026-10-04) pour les ecrans des platines : la
+ * moyenne quadratique, pas la crete. Un morceau masterise touche le
+ * plafond presque partout : en cretes, l'onde est un bloc ; en energie, les
+ * grosses caisses et les breaks se lisent comme sur une CDJ. Normalisee :
+ * la tranche la plus forte vaut 1.
+ */
+export function energy(channels: readonly Float32Array[], slices: number): Float32Array {
   const len = channels[0]?.length ?? 0;
   const out = new Float32Array(Math.max(0, slices));
   if (len === 0 || slices <= 0) return out;
   const step = len / slices;
+  let top = 0;
   for (let i = 0; i < slices; i += 1) {
     const a = Math.floor(i * step);
     const b = Math.min(len, Math.floor((i + 1) * step));
-    let max = 0;
-    // Un echantillon sur plusieurs dans les longues tranches : juste a l'oeil, rapide au telephone
-    const skip = Math.max(1, Math.floor((b - a) / 256));
+    const skip = Math.max(1, Math.floor((b - a) / 128));
+    let sum = 0;
+    let n = 0;
     for (const c of channels) {
       for (let j = a; j < b; j += skip) {
-        const v = Math.abs(c[j] ?? 0);
-        if (v > max) max = v;
+        const v = c[j] ?? 0;
+        sum += v * v;
+        n += 1;
       }
     }
-    out[i] = max;
+    const e = n > 0 ? Math.sqrt(sum / n) : 0;
+    out[i] = e;
+    if (e > top) top = e;
   }
+  if (top > 0) for (let i = 0; i < slices; i += 1) out[i] /= top;
   return out;
 }
 

@@ -51,7 +51,12 @@ export interface DjDeckState {
   cue: number;
   /** hot cues poses (secondes, ou null) */
   cues: (number | null)[];
+  /** la fenetre de la forme d'onde fine, en secondes (le zoom) */
+  zoom: number;
 }
+
+/** Les crans du zoom de la forme d'onde fine (secondes a l'ecran), du plus pres au plus loin. */
+export const DJ_ZOOMS = [2, 4, 8, 16, 32] as const;
 
 export interface DjState {
   ch: [DjChannelState, DjChannelState, DjChannelState, DjChannelState];
@@ -64,7 +69,7 @@ export interface DjState {
 
 const KEY = 'mm.v4.dj.1';
 const channel = (): DjChannelState => ({ gain: 0, hi: 0, mid: 0, low: 0, filter: 0, fader: 0.8 });
-const deck = (): DjDeckState => ({ pitch: 0, range: 8, playing: false, loaded: false, track: null, loading: null, error: null, cue: 0, cues: [null, null, null, null] });
+const deck = (): DjDeckState => ({ pitch: 0, range: 8, playing: false, loaded: false, track: null, loading: null, error: null, cue: 0, cues: [null, null, null, null], zoom: 8 });
 
 function fresh(): DjState {
   return {

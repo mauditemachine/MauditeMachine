@@ -14,7 +14,7 @@ import { sc } from '../audio/soundcloud';
 import { arp } from '../voyager/arp';
 import { djEngine, djEngineIfAny, type DjEngine } from './engine';
 import { estimateBpm } from './math';
-import { djState, type DjTrack } from './state';
+import { DJ_ZOOMS, djState, type DjTrack } from './state';
 import { DJ_FX, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
 /* ---------------- le moteur suit le store ---------------- */
@@ -355,4 +355,38 @@ export function djSetTime(beats: number): void {
 export function djSetPitch(d: DjDeck, v: number): void {
   engine();
   djState.setDeck(d, { pitch: v });
+}
+
+/* ---------------- l'ecran : recherche, scrub, zoom ---------------- */
+
+/** Aller a un instant de la piste (en lecture, elle continue de la). */
+export function djSeek(d: DjDeck, seconds: number): void {
+  const p = engine()?.decks[d];
+  if (!p || !p.loaded) return;
+  p.seek(seconds);
+}
+
+/** Le doigt sur la forme d'onde, en pause : le point suit et on entend un grain (poser un cue a l'oreille). */
+export function djScrub(d: DjDeck, seconds: number): void {
+  const p = engine()?.decks[d];
+  if (!p || !p.loaded || p.playing) return;
+  p.grain(seconds);
+}
+
+/** Position du moment (0 sans morceau). */
+export function djPosition(d: DjDeck): number {
+  return djEngineIfAny()?.decks[d].position() ?? 0;
+}
+
+/** La fenetre de la forme d'onde fine, bornee de 1 a 64 secondes. */
+export function djZoom(d: DjDeck, seconds: number): void {
+  const z = Math.max(1, Math.min(64, seconds));
+  djState.setDeck(d, { zoom: Math.round(z * 100) / 100 });
+}
+
+/** Un cran de zoom (DJ_ZOOMS) : -1 plus pres, +1 plus loin. */
+export function djZoomStep(d: DjDeck, dir: -1 | 1): void {
+  const z = djState.get().deck[d].zoom;
+  const next = dir > 0 ? DJ_ZOOMS.find((v) => v > z + 1e-6) : [...DJ_ZOOMS].reverse().find((v) => v < z - 1e-6);
+  if (next !== undefined) djZoom(d, next);
 }

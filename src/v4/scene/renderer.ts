@@ -442,6 +442,11 @@ export class Stage {
   private nbFrom: Record<MachineId, number> = { mm808: 0, voy: VOY_X, dj: DJ_X };
   /** survol du bout de la machine voisine : 0 a 1 */
   private peekHover = 0;
+  /** hauteur de la playlist du MM-DECKS (px CSS), courante et visee */
+  private djInset = 0;
+  private djInsetGoal = 0;
+  /** hauteur de l'en-tete au-dessus du MM-DECKS (px CSS) */
+  private djTop = 0;
 
   static create(opts: StageOpts): Stage | null {
     let canvas: HTMLCanvasElement | null = null;
@@ -959,7 +964,14 @@ export class Stage {
     const aspect = W / this.height;
     // La cible (2026-10-03) : la 808, le MM-VOYAGER ou les deux, interpolee pendant le zoom
     const F = this.fr;
-    const hwBase = Math.max(F.hw0, (F.h / FIT_H / 2) * aspect);
+    // Le MM-DECKS (2026-10-04) : sa playlist occupe le bas ; la machine tient au-dessus, centree
+    // dans la hauteur libre (interpolee pendant le zoom d'une machine a l'autre)
+    const k = this.focusK;
+    const djK = (this.fFrom === 'dj' ? 1 - k : 0) + (this.fTo === 'dj' ? k : 0);
+    const inset = Math.min(this.height * 0.7, this.djInset * djK);
+    const head = Math.min(this.height * 0.2, this.djTop * djK);
+    const free = Math.max(1, this.height - inset - head);
+    const hwBase = Math.max(F.hw0, (F.h / FIT_H / 2) * (W / free));
     const e = this.explodeFrame();
     let hw = hwBase + (Math.max(hwBase, F.fitHalfH * aspect) - hwBase) * e;
     const t = this.layoutMobile ? 0 : this.secT;
@@ -979,8 +991,9 @@ export class Stage {
     const c = this.camera;
     const z = c.zoom;
     c.aspect = aspect;
-    // La machine glisse a gauche du panneau : la fenetre de rendu se decale, en px
-    if (shiftPx > 0) c.setViewOffset(W, this.height, shiftPx, 0, W, this.height);
+    // La machine glisse a gauche du panneau, et au-dessus de la playlist du MM-DECKS : la fenetre de rendu se decale, en px
+    const shiftY = (inset - head) / 2;
+    if (shiftPx > 0 || shiftY !== 0) c.setViewOffset(W, this.height, shiftPx, shiftY, W, this.height);
     else c.clearViewOffset();
     c.updateProjectionMatrix();
     this.hw = hw;
@@ -1048,6 +1061,37 @@ export class Stage {
       this.shadowDirty = true;
       this.dirty = true;
     }
+  }
+
+  /**
+   * La hauteur (px CSS) de la playlist du MM-DECKS en bas de l'ecran, et
+   * celle de l'en-tete en haut : son cadrage tient entre les deux (200 ms).
+   * 0 : la playlist est fermee.
+   */
+  setDjInset(px: number, top = 0): void {
+    if (this.disposed) return;
+    const goal = Math.max(0, Math.round(px));
+    const t = Math.max(0, Math.round(top));
+    if (t !== this.djTop) {
+      this.djTop = t;
+      this.updateCamera();
+      this.invalidate();
+    }
+    if (goal === this.djInsetGoal) return;
+    this.djInsetGoal = goal;
+    this.tweens.run(
+      'dj.inset',
+      (v) => {
+        this.djInset = v;
+        this.updateCamera();
+      },
+      this.djInset,
+      goal,
+      motion.reduced() ? 0 : 200,
+      easeOutCubic,
+      performance.now()
+    );
+    this.invalidate();
   }
 
   /** Survol du bout de la machine voisine : il sort un peu (180 ms). */

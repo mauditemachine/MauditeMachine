@@ -17,15 +17,21 @@
 
 import { glide } from '../audio/glide';
 import { synthPort } from '../audio/drums';
-import { CROSSOVER, bandGain, beatsToSeconds, dbToGain, eqDb, faderGain, filterOf, fxMix, peaks, speedOf, xfaderGains } from './math';
+import { CROSSOVER, bandGain, beatsToSeconds, dbToGain, eqDb, energy, faderGain, filterOf, fxMix, speedOf, xfaderGains } from './math';
 import { DJ_FX, type DjDeck, type DjFxId } from './theme';
 
 /** Q de Butterworth : en dB pour passe-bas et passe-haut (piege de Web Audio), lineaire pour le passe-tout. */
 const BUTTERWORTH_DB = 20 * Math.log10(Math.SQRT1_2);
 const BUTTERWORTH = Math.SQRT1_2;
 const RESONANCE = 4;
-/** Tranches de la forme d'onde de toute la piste (l'ecran de la platine). */
-export const OVERVIEW_SLICES = 900;
+/** Tranches de la forme d'onde de toute la piste (le bas de l'ecran de la platine). */
+export const OVERVIEW_SLICES = 1024;
+/**
+ * La forme d'onde fine : 400 cretes par seconde, une par pixel quand l'ecran
+ * montre une seconde ; de quoi poser un cue sur l'attaque d'une grosse
+ * caisse (les Decks de Sonaa, DETAIL_PAR_SECONDE).
+ */
+export const DETAIL_RATE = 400;
 
 function peakOf(a: AnalyserNode, buf: Float32Array): number {
   a.getFloatTimeDomainData(buf);
@@ -323,8 +329,12 @@ export class DjPlayer {
   private startAt = 0;
   private pitch = 0;
   private bendF = 0;
-  /** la forme d'onde de toute la piste */
+  /** la forme d'onde de toute la piste (energie, math.ts energy) */
   overview: Float32Array = new Float32Array(0);
+  /** la forme d'onde fine (DETAIL_RATE tranches par seconde) */
+  detail: Float32Array = new Float32Array(0);
+  /** change a chaque morceau pose (la scene recharge ses textures) */
+  loadId = 0;
   playing = false;
   onEnd: (() => void) | null = null;
 
@@ -357,8 +367,10 @@ export class DjPlayer {
     this.startPos = 0;
     const buffer = await this.ctx.decodeAudioData(bytes);
     const chans = Array.from({ length: buffer.numberOfChannels }, (_, c) => buffer.getChannelData(c));
-    this.overview = peaks(chans, OVERVIEW_SLICES);
+    this.overview = energy(chans, OVERVIEW_SLICES);
+    this.detail = energy(chans, Math.max(1, Math.floor(buffer.duration * DETAIL_RATE)));
     this.buffer = buffer;
+    this.loadId += 1;
   }
 
   unload(): void {
@@ -366,6 +378,8 @@ export class DjPlayer {
     this.buffer = null;
     this.startPos = 0;
     this.overview = new Float32Array(0);
+    this.detail = new Float32Array(0);
+    this.loadId += 1;
   }
 
   private rate(): number {

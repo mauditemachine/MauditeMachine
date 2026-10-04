@@ -7,8 +7,8 @@
  * change.
  *
  * Platine : le titre et l'artiste (SF Pro Display), a droite le BPM, la
- * tonalite en Camelot (Mika : "je prefere 9A") et le temps restant ; en bas
- * la forme d'onde de toute la piste et la tete de lecture. Table : l'effet
+ * tonalite en Camelot (Mika : "je prefere 9A") et le temps restant, et les
+ * touches du zoom ; les formes d'onde sont dessinees par dj/waveform.ts. Table : l'effet
  * qu'on tourne, le temps, le tempo. Jog : la position dans la piste, un
  * repere qui tourne comme la platine.
  */
@@ -17,7 +17,7 @@ import { BufferGeometry, CircleGeometry, Mesh, MeshBasicMaterial, PlaneGeometry,
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { makeCanvasTexture } from '../scene/silk';
 import { FONT_DISPLAY, FONT_MONO } from '../theme';
-import { DECK, DJ_BEZEL, DJ_LIGHT, MIX, UNIT_X, type DjDeck } from './theme';
+import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_LIGHT, MIX, UNIT_X, type DjDeck } from './theme';
 
 const W = 1024;
 const H = 1024;
@@ -82,8 +82,8 @@ export interface DjDeckScreen {
   duration: number;
   playing: boolean;
   pitch: number;
-  /** la forme d'onde de toute la piste (0 a 1), ou null */
-  peaks: Float32Array | null;
+  /** la fenetre de la forme d'onde fine (secondes) */
+  zoom: number;
 }
 
 export interface DjFxScreen {
@@ -93,12 +93,23 @@ export interface DjFxScreen {
 }
 
 const deckKey = (s: DjDeckScreen): string =>
-  `${s.loaded}|${s.title}|${s.artist}|${s.bpm}|${s.key}|${Math.floor(s.position * 4)}|${Math.round(s.duration)}|${s.playing}|${s.pitch.toFixed(2)}|${s.peaks ? s.peaks.length : 0}`;
+  `${s.loaded}|${s.title}|${s.artist}|${s.bpm}|${s.key}|${Math.floor(s.position * 4)}|${Math.round(s.duration)}|${s.playing}|${s.pitch.toFixed(2)}|${s.zoom}`;
 
 const clock = (s: number): string => {
   const t = Math.max(0, Math.floor(s));
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
 };
+
+/** Ou tombe un point de l'atlas (UV du mesh) : l'ecran d'une platine, et la place dedans (u, v de 0 a 1). */
+export function deckScreenAt(uvX: number, uvY: number): { deck: DjDeck; u: number; v: number } | null {
+  const px = uvX * W;
+  const py = (1 - uvY) * H;
+  for (const d of ['a', 'b'] as const) {
+    const r = REGION[d];
+    if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return { deck: d, u: (px - r.x) / r.w, v: (py - r.y) / r.h };
+  }
+  return null;
+}
 
 export class DjScreens {
   readonly mesh: Mesh;
@@ -158,59 +169,58 @@ export class DjScreens {
     const pad = 22;
     const x0 = r.x + pad;
     const x1 = r.x + r.w - pad;
+    // Le haut : le texte ; les bandes des formes d'onde (dj/waveform.ts) restent noires
+    const textH = r.h * DECK_SCREEN.text;
     c.textBaseline = 'alphabetic';
     if (!s.loaded) {
-      c.fillStyle = DIM;
-      c.font = `600 30px ${FONT_DISPLAY}`;
       c.textAlign = 'left';
-      c.fillText(`DECK ${d.toUpperCase()}`, x0, r.y + 52);
       c.fillStyle = BONE;
-      c.font = `600 40px ${FONT_DISPLAY}`;
-      c.fillText('NO TRACK', x0, r.y + 128);
+      c.font = `600 36px ${FONT_DISPLAY}`;
+      c.fillText('NO TRACK', x0, r.y + textH * 0.5);
       c.fillStyle = DJ_LIGHT.orange;
-      c.font = `600 28px ${FONT_DISPLAY}`;
-      c.fillText('PRESS LOAD', x0, r.y + 176);
+      c.font = `600 24px ${FONT_DISPLAY}`;
+      c.fillText(`PRESS LOAD  DECK ${d.toUpperCase()}`, x0, r.y + textH * 0.9);
     } else {
       // Titre et artiste a gauche, coupes avant la colonne des chiffres
       const colX = x1 - 300;
       c.textAlign = 'left';
       c.fillStyle = BONE;
-      c.font = `600 38px ${FONT_DISPLAY}`;
-      c.fillText(this.fit(s.title, colX - x0 - 20), x0, r.y + 56);
+      c.font = `600 34px ${FONT_DISPLAY}`;
+      c.fillText(this.fit(s.title, colX - x0 - 20), x0, r.y + textH * 0.48);
       c.fillStyle = DIM;
-      c.font = `500 28px ${FONT_DISPLAY}`;
-      c.fillText(this.fit(s.artist, colX - x0 - 20), x0, r.y + 96);
+      c.font = `500 25px ${FONT_DISPLAY}`;
+      c.fillText(this.fit(s.artist, colX - x0 - 20), x0, r.y + textH * 0.88);
       // BPM (avec le pitch), tonalite, temps restant
       c.textAlign = 'right';
       c.fillStyle = BONE;
-      c.font = `500 46px ${FONT_MONO}`;
+      c.font = `500 42px ${FONT_MONO}`;
       const bpm = s.bpm ? (s.bpm * (1 + s.pitch)).toFixed(1) : '--.-';
-      c.fillText(bpm, x1, r.y + 58);
+      c.fillText(bpm, x1, r.y + textH * 0.5);
       c.fillStyle = DIM;
-      c.font = `500 24px ${FONT_MONO}`;
-      c.fillText(`BPM  ${s.key || '--'}`, x1, r.y + 94);
+      c.font = `500 22px ${FONT_MONO}`;
+      c.fillText(`BPM  ${s.key || '--'}`, x1, r.y + textH * 0.88);
       c.fillStyle = s.playing ? DJ_LIGHT.yellow : BONE;
-      c.font = `500 30px ${FONT_MONO}`;
-      c.fillText(`-${clock(s.duration - s.position)}`, x1 - 160, r.y + 94);
+      c.font = `500 28px ${FONT_MONO}`;
+      c.fillText(`-${clock(s.duration - s.position)}`, x1 - 150, r.y + textH * 0.88);
     }
-    // La forme d'onde de toute la piste, la tete de lecture
-    const wy0 = r.y + r.h - 82;
-    const wh = 56;
-    c.fillStyle = FAINT;
-    c.fillRect(x0, wy0 + wh / 2 - 1, x1 - x0, 2);
-    if (s.loaded && s.peaks && s.peaks.length > 0) {
-      const n = s.peaks.length;
-      const w = x1 - x0;
-      const head = s.duration > 0 ? s.position / s.duration : 0;
-      for (let px = 0; px < w; px += 2) {
-        const v = s.peaks[Math.min(n - 1, Math.floor((px / w) * n))];
-        const h = Math.max(1, v * wh);
-        c.fillStyle = px / w < head ? DIM : BONE;
-        c.fillRect(x0 + px, wy0 + (wh - h) / 2, 1.5, h);
-      }
-      c.fillStyle = DJ_LIGHT.orange;
-      c.fillRect(x0 + head * w - 1, wy0 - 6, 3, wh + 12);
-    }
+    // Les touches du zoom, a droite de la piste entiere : - , la fenetre, +
+    const Z = DECK_SCREEN.zoom;
+    const zx0 = r.x + Z.u0 * r.w;
+    const zw = (Z.u1 - Z.u0) * r.w;
+    const zy = r.y + ((Z.v0 + Z.v1) / 2) * r.h;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillStyle = s.loaded ? BONE : DIM;
+    c.font = `600 30px ${FONT_MONO}`;
+    c.fillText('-', zx0 + zw * 0.15, zy);
+    c.fillText('+', zx0 + zw * 0.85, zy);
+    c.fillStyle = DIM;
+    c.font = `500 18px ${FONT_MONO}`;
+    c.fillText(`${s.zoom}s`, zx0 + zw * 0.5, zy + 1);
+    c.strokeStyle = FAINT;
+    c.lineWidth = 2;
+    c.strokeRect(zx0 + 1, r.y + Z.v0 * r.h + 1, zw - 2, (Z.v1 - Z.v0) * r.h - 2);
+    c.textBaseline = 'alphabetic';
     c.restore();
   }
 
