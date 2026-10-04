@@ -26,7 +26,10 @@
 - Le pad de l'accord qui joue ne clignote plus a chaque note : jaune fixe (`voyager/rig.ts`).
 - MM-ARP a deux oscillateurs facon Typhon : `audio/moog.worklet.js` (formes par cran, FM, TUNE 2, MIX), `voyager/params.ts` (WAVE 1, WAVE 2, TUNE 2, MIX), `voyager/silk.ts` (arcs jaunes et dessins des formes autour des selecteurs, cran choisi allume), `voyager/theme.ts` (OSC sur trois colonnes en desktop, quatre rangees au telephone, OCTAVE avec l'arpegiateur), `voyager/rig.ts`.
 - Dock du MM-ARP au telephone : rangee WAVE 1 / WAVE 2 avec le dessin de la forme (`ui/VoyDock.tsx`, `voyager/glyphs.ts` partage avec la serigraphie, `v4.css`).
-- `docs/v4/spec.md` : R14-34 a R14-44.
+- Qualite du son : limiteur de sortie a anticipation (`audio/limiter.worklet.js`, `drums.ts`), moteur du MM-ARP surechantillonne x4 (ordinateur) ou x2 (telephone) avec decimation demi-bande (`moog.worklet.js`, `synth.ts`), saturation du BD en x4.
+- PC (conga) remplace CB (cloche) : `drums.ts`, `house.ts`, `theme.ts`, `pattern.ts`, `voicefx.ts`.
+- Croix du panneau (desktop) : la poignee du telephone la poussait sur la premiere ligne et son lien BUY ; masquee hors telephone (`v4.css`).
+- `docs/v4/spec.md` : R14-34 a R14-45.
 
 ## 2. Decisions prises et pourquoi
 
@@ -39,6 +42,7 @@
 - Voix ajoutees : CP, RS, HT, CY, CB (noms de l'Analog Rytm), chacune sous sa voisine (BD/CP, SD/RS, TOM/HT, CH/CY, OH/CB) ; le motif d'arrivee ne change pas (rangees vides).
 - Mode MUTE : en mode, un pad coupe sans jouer (comme sur une Elektron) ; sortir du mode rend toutes les voix, comme Mika l'a decrit.
 - Deux oscillateurs : le troisieme (sous-octave) disparait, mais TUNE 2 part sur -1 octave par defaut pour garder le poids du son d'avant ; TUNE 2 par crans musicaux (octaves et quinte) pour rester dans la tonalite.
+- Qualite : un vrai limiteur plutot que l'ecreteur (il deformait les cretes) ; le surechantillonnage x4 seulement sur ordinateur (au telephone x2, le calcul compte) ; les DIST paralleles restent sans surechantillonnage (leur retard creuserait un filtre en peigne avec le son sec).
 - Synchro : les deux machines gardent leur propre RUN/STOP (pas de demarrage force de l'autre), mais elles partagent tempo et grille, quel que soit l'ordre de lancement.
 - La 808 n'est pas touchee : meme carte, memes puces, meme serigraphie (verifie dans le diff).
 

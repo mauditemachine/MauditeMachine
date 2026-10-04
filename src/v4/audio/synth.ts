@@ -25,6 +25,12 @@ import { glide } from './glide';
 import { pattern } from './pattern';
 import type { Send } from './sends';
 
+/**
+ * Surechantillonnage du moteur (2026-10-03, qualite) : 4 sur ordinateur,
+ * 2 au telephone (pointeur grossier : le calcul compte plus).
+ */
+const engineOs = (): number => (typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches ? 2 : 4);
+
 /** VOLUME a 1 (gain au carre), et reprise de niveau : DELAY et REVERB s'ajoutent au son sec. */
 const VOLUME_K = 1.15;
 const MAKEUP = { delay: 0.35, reverb: 0.5 } as const;
@@ -160,7 +166,7 @@ export function prepareSynth(): void {
         numberOfInputs: 0,
         numberOfOutputs: 1,
         outputChannelCount: [2],
-        processorOptions: { params: engineParams(voyParams.get()) },
+        processorOptions: { params: engineParams(voyParams.get()), os: engineOs() },
       });
       sg = build(c, port.input, port.reverb, node);
       // Les notes arrivees avant le moteur : celles encore a venir partent
@@ -210,6 +216,8 @@ export interface SynthOfflineOpts {
   params?: Partial<VoyValues>;
   /** envois REVERB et DELAY (true par defaut) */
   sends?: boolean;
+  /** surechantillonnage du moteur (4 par defaut) */
+  os?: 1 | 2 | 4;
 }
 
 /** Rendu stereo hors ligne de la chaine complete ; renvoie [gauche, droite]. */
@@ -232,7 +240,7 @@ export async function renderSynthOffline(o: SynthOfflineOpts): Promise<[Float32A
     numberOfInputs: 0,
     numberOfOutputs: 1,
     outputChannelCount: [2],
-    processorOptions: { params: engineParams(p), notes: list },
+    processorOptions: { params: engineParams(p), notes: list, os: o.os ?? 4 },
   });
   const noSend = { attach: () => ({ set: () => undefined, info: () => ({ value: 0, linked: false }) }) };
   const g = build(oc, out, o.sends === false ? noSend : reverb, node);

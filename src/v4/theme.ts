@@ -627,9 +627,11 @@ export const BTN_LED = { w: 0.46, d: 0.05, back: 0.13, y: 0.002, flashMs: 520, h
  * Les dix voix (2026-10-03, Mika : "occupe l'espace pour d'autres voix
  * parametrables, prends exemple sur une Rytm") : la rangee d'origine BD SD
  * TOM CH OH, et sous elle CP (clap) RS (rimshot) HT (tom aigu) CY
- * (cymbale) CB (cloche), les noms de l'Analog Rytm.
+ * (cymbale), les noms de l'Analog Rytm, et PC (percussion facon conga, les
+ * PC de Mika ; elle remplace la cloche CB le jour meme, Mika n'aimait pas
+ * son son).
  */
-export type Inst = 'BD' | 'SD' | 'TOM' | 'CH' | 'OH' | 'CP' | 'RS' | 'HT' | 'CY' | 'CB';
+export type Inst = 'BD' | 'SD' | 'TOM' | 'CH' | 'OH' | 'CP' | 'RS' | 'HT' | 'CY' | 'PC';
 /** Les cinq pages du site (touches 1 a 5 ; puces de la carte des deux machines). */
 export type PageId = 'tracks' | 'mixtapes' | 'press' | 'shows' | 'contact';
 /** Les sections du panneau : les cinq pages, GOODIES, MERCH et STUDIO (puces de la vue eclatee). */
@@ -694,8 +696,8 @@ const padAt = (col: number, row: 0 | 1): { x: number; z: number } => ({ x: PAD.x
 
 /**
  * Les 11 pads (2026-10-03) : dix voix sur deux rangees, BD SD TOM CH OH en
- * haut (touches A S D F G), CP RS HT CY CB dessous (Z X C V B), chacune
- * sous sa voisine (BD et CP, SD et RS, TOM et HT, CH et CY, OH et CB) ;
+ * haut (touches A S D F G), CP RS HT CY PC dessous (Z X C V B), chacune
+ * sous sa voisine (BD et CP, SD et RS, TOM et HT, CH et CY, OH et PC) ;
  * OPEN seul dans la sixieme colonne, a mi-hauteur. Les pages (TRACKS a
  * CONTACT) sont parties sur la carte (PAGE_CHIPS, Mika : "mets-les dans
  * OPEN") ; elles gardent les touches 1 a 5. OPEN : 6 (et O).
@@ -710,7 +712,7 @@ export const PADS: readonly PadSpec[] = [
   { id: 'RS', kind: 'voice', label: 'RS', key: 'X', ...padAt(1, 1) },
   { id: 'HT', kind: 'voice', label: 'HT', key: 'C', ...padAt(2, 1) },
   { id: 'CY', kind: 'voice', label: 'CY', key: 'V', ...padAt(3, 1) },
-  { id: 'CB', kind: 'voice', label: 'CB', key: 'B', ...padAt(4, 1) },
+  { id: 'PC', kind: 'voice', label: 'PC', key: 'B', ...padAt(4, 1) },
   { id: 'open', kind: 'open', label: 'OPEN', key: '6', x: PAD.x0 + 5 * PAD.pitch, z: (PAD.rowZ[0] + PAD.rowZ[1]) / 2 },
 ];
 
@@ -963,7 +965,7 @@ export const INST_NAMES: Readonly<Record<Inst, string>> = {
   RS: 'rimshot',
   HT: 'high tom',
   CY: 'cymbal',
-  CB: 'cowbell',
+  PC: 'percussion',
 };
 
 /**
@@ -1653,7 +1655,7 @@ export const PAD_ARIA: Readonly<Record<Inst, string>> = {
   RS: 'Rimshot pad, key X',
   HT: 'High tom pad, key C',
   CY: 'Cymbal pad, key V',
-  CB: 'Cowbell pad, key B',
+  PC: 'Percussion pad, key B',
 };
 
 /**

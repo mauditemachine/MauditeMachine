@@ -91,7 +91,7 @@ const pct = (v: number): number => Math.round(v * 100);
 
 /**
  * Page MIX : les cinq volumes de la rangee de la voix reglee (BD a OH, ou
- * CP a CB depuis le 2026-10-03), et leur texte pour le jumeau.
+ * CP a PC depuis le 2026-10-03), et leur texte pour le jumeau.
  */
 function composeMix(sel: Inst): Omit<LcdState, 'updates'> {
   const bank = Math.floor(Math.max(0, INSTRUMENTS.indexOf(sel)) / 5);

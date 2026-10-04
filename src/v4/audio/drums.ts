@@ -1,6 +1,6 @@
 /**
  * Boite a rythmes synthetisee (spec 8) : dix voix Web Audio (cinq
- * jusqu'au 2026-10-03 ; CP, RS, HT, CY et CB facon Analog Rytm), aucun
+ * jusqu'au 2026-10-03 ; CP, RS, HT et CY facon Analog Rytm, PC une conga), aucun
  * fichier. Un seul AudioContext pour la page, cree au premier geste de
  * l'utilisateur (jamais au montage, jamais par un timer) et repris a
  * chaque interaction s'il est suspendu (regle iOS). Graphe (revision 2 :
@@ -30,6 +30,7 @@
  * module les applique au graphe, l'horloge lit SWING a chaque pas.
  */
 
+import limiterUrl from './limiter.worklet.js?url';
 import { FLAGS } from '../state/flags';
 import type { Inst } from '../theme';
 import { buildChorus, type ChorusInfo, type ChorusStage } from './chorus';
@@ -62,6 +63,10 @@ interface Graph {
   comp: DynamicsCompressorNode;
   analyser: AnalyserNode;
   master: GainNode;
+  /** l'ecreteur doux de secours (avant que le limiteur soit charge, ou sans AudioWorklet) */
+  clipPre: GainNode;
+  /** le limiteur a anticipation (audio/limiter.worklet.js), une fois charge */
+  limiter: AudioWorkletNode | null;
   /** DIST du bus */
   fx: FxChain;
   /** REVERB et DELAY partages, et les envois de tout le pattern (apres LEVEL) */
@@ -98,7 +103,7 @@ export interface Voice {
 }
 
 /** Enveloppes des voix, en secondes (spec 8.2). */
-const TAIL = { BD: 0.42, SD: 0.18, SDbody: 0.12, TOM: 0.3, CH: 0.045, CHopen: 0.22, OH: 0.34, CP: 0.22, RS: 0.07, HT: 0.24, CY: 1.1, CB: 0.38 } as const;
+const TAIL = { BD: 0.42, SD: 0.18, SDbody: 0.12, TOM: 0.3, CH: 0.045, CHopen: 0.22, OH: 0.34, CP: 0.22, RS: 0.07, HT: 0.24, CY: 1.1, PC: 0.2 } as const;
 /** Les six frequences metalliques de la 808 (cymbale, charleys d'origine), en Hz. */
 const METAL_HZ = [205.3, 304.4, 369.6, 522.7, 540, 800] as const;
 /** Un charley (ferme ou ouvert) coupe le charley ouvert qui sonne encore, en 8 ms (choke 808). */
@@ -187,10 +192,11 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   // de compensation automatique.)
   const clipPre = c.createGain();
   clipPre.gain.value = 1 / CLIP.range;
-  const limiter = c.createWaveShaper();
-  limiter.curve = softClipCurve();
-  limiter.oversample = 'none';
-  clipPre.connect(limiter);
+  const clipper = c.createWaveShaper();
+  clipper.curve = softClipCurve();
+  // Secours seulement (le limiteur le remplace des qu'il est charge) : surechantillonne x4, sans repliement
+  clipper.oversample = '4x';
+  clipPre.connect(clipper);
   const master = c.createGain();
   // Mute : 0 AVANT tout branchement, jamais d'automation sur ce gain
   master.gain.value = o.master ?? (FLAGS.mute ? 0 : 1);
@@ -199,7 +205,7 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   lvl.connect(comp);
   comp.connect(analyser);
   analyser.connect(clipPre);
-  limiter.connect(master);
+  clipper.connect(master);
   master.connect(c.destination);
   const f = pattern.fx.get();
   const direct = { direct: true, linked: false, dry: 1, wet: 0, unlinks: 0 };
@@ -245,7 +251,7 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   const curve = new Float32Array(1024);
   for (let i = 0; i < curve.length; i += 1) curve[i] = Math.tanh(2.5 * ((i / (curve.length - 1)) * 2 - 1));
 
-  const g: Graph = { ctx: c, bus, tone: toneSt, chorus: chorusSt, level: lvl, comp, analyser, master, fx, reverb, delay, reverbSend, delaySend, ch, noise, curve };
+  const g: Graph = { ctx: c, bus, tone: toneSt, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, fx, reverb, delay, reverbSend, delaySend, ch, noise, curve };
   if (!o.bare) {
     reverbSend.set(o.reverb ?? f.reverb);
     delaySend.set(o.delay ?? f.delay);
@@ -317,7 +323,36 @@ export function ensure(): AudioContext | undefined {
   }
   created += 1;
   graph = build(ctx);
+  attachLimiter(ctx, graph);
   return ctx;
+}
+
+/**
+ * Le limiteur de sortie (2026-10-03, qualite) : charge en fond, il prend la
+ * place de l'ecreteur doux des qu'il est pret (analyseur -> limiteur ->
+ * master). Sans AudioWorklet, l'ecreteur reste.
+ */
+function attachLimiter(c: BaseAudioContext, g: Graph): Promise<void> {
+  if (!c.audioWorklet) return Promise.resolve();
+  return c.audioWorklet
+    .addModule(limiterUrl)
+    .then(() => {
+      const node = new AudioWorkletNode(c, 'mm-limiter', {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        outputChannelCount: [2],
+        channelCount: 2,
+        channelCountMode: 'explicit',
+        channelInterpretation: 'speakers',
+      });
+      g.analyser.disconnect(g.clipPre);
+      g.analyser.connect(node);
+      node.connect(g.master);
+      g.limiter = node;
+    })
+    .catch(() => {
+      /* l'ecreteur doux reste en service */
+    });
 }
 
 /**
@@ -429,7 +464,7 @@ function voiceBD(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1
   drive.gain.value = 1.4;
   const shaper = c.createWaveShaper();
   shaper.curve = g.curve;
-  shaper.oversample = '2x';
+  shaper.oversample = '4x';
   const post = c.createGain();
   post.gain.value = 0.8;
   osc.connect(env);
@@ -639,43 +674,56 @@ function voiceCY(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1
 }
 
 /**
- * Cloche (2026-10-03) : deux carres a 540 et 800 Hz (la cowbell de la
- * 808), en bande vers 2.6 kHz ; une chute rapide, puis 380 ms.
+ * Percussion (2026-10-03, a la place de la cloche) : une conga. Une peau
+ * accordee (sinus, la hauteur tombe d'un quart en 25 ms puis tient), une
+ * pointe de deuxieme mode (x1.5, tres courte) et le claquement de la main
+ * (bruit en bande vers 2.2 kHz, 12 ms) ; 200 ms.
  */
-function voiceCB(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
+function voicePC(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
   const c = g.ctx;
-  const tail = TAIL.CB * ts;
-  const a = c.createOscillator();
-  a.type = 'square';
-  a.frequency.value = 540 * pf;
-  const b = c.createOscillator();
-  b.type = 'square';
-  b.frequency.value = 800 * pf;
+  const tail = TAIL.PC * ts;
+  const f0 = 330 * pf;
+  const skin = c.createOscillator();
+  skin.type = 'sine';
+  skin.frequency.setValueAtTime(f0 * 1.25, when);
+  skin.frequency.exponentialRampToValueAtTime(f0, when + 0.025 * ts);
+  const sEnv = c.createGain();
+  sEnv.gain.setValueAtTime(0, when);
+  sEnv.gain.linearRampToValueAtTime(0.9, when + 0.002);
+  sEnv.gain.exponentialRampToValueAtTime(0.001, when + tail);
+  const mode = c.createOscillator();
+  mode.type = 'sine';
+  mode.frequency.value = f0 * 1.5;
+  const mEnv = c.createGain();
+  mEnv.gain.setValueAtTime(0.3, when);
+  mEnv.gain.exponentialRampToValueAtTime(0.001, when + 0.06 * ts);
+  const slap = noiseSource(g);
   const bp = c.createBiquadFilter();
   bp.type = 'bandpass';
-  bp.frequency.value = 2600 * pf;
-  bp.Q.value = 0.8;
-  const lp = c.createBiquadFilter();
-  lp.type = 'lowpass';
-  lp.frequency.value = Math.min(6000 * pf, c.sampleRate * 0.45);
-  const env = c.createGain();
-  env.gain.setValueAtTime(0, when);
-  env.gain.linearRampToValueAtTime(1, when + 0.001);
-  env.gain.exponentialRampToValueAtTime(0.35, when + 0.03 * ts);
-  env.gain.exponentialRampToValueAtTime(0.001, when + tail);
+  bp.frequency.value = Math.min(2200 * pf, c.sampleRate * 0.45);
+  bp.Q.value = 1.1;
+  const nEnv = c.createGain();
+  nEnv.gain.setValueAtTime(0.5, when);
+  nEnv.gain.exponentialRampToValueAtTime(0.001, when + 0.012 * ts);
   const out = c.createGain();
-  out.gain.value = 0.42;
-  a.connect(bp);
-  b.connect(bp);
-  bp.connect(lp);
-  lp.connect(env);
-  env.connect(out);
+  out.gain.value = 0.95;
+  skin.connect(sEnv);
+  sEnv.connect(out);
+  mode.connect(mEnv);
+  mEnv.connect(out);
+  slap.connect(bp);
+  bp.connect(nEnv);
+  nEnv.connect(out);
   out.connect(dest);
-  const nodes: AudioNode[] = [a, b, bp, lp, env, out];
-  b.start(when);
-  b.stop(when + tail + STOP_PAD);
-  play(a, when, tail, nodes);
-  return { when, srcs: [a, b], nodes };
+  mode.start(when);
+  mode.stop(when + 0.06 * ts + STOP_PAD);
+  const nodes: AudioNode[] = [skin, sEnv, mode, mEnv, slap, bp, nEnv, out];
+  // Le bruit s'arrete tot : la peau, la plus longue, debranche la voix
+  slap.loop = true;
+  slap.start(when, Math.random() * 0.5);
+  slap.stop(when + 0.012 * ts + STOP_PAD);
+  play(skin, when, tail, nodes);
+  return { when, srcs: [skin, mode, slap], nodes };
 }
 
 /** La porte du dernier charley ouvert et la fin de son enveloppe (choke). */
@@ -765,8 +813,8 @@ function voice(g: Graph, inst: Inst, t: number, open: boolean, dest: AudioNode, 
       return voiceHT(g, t, dest, pf, ts);
     case 'CY':
       return voiceCY(g, t, dest, pf, ts);
-    case 'CB':
-      return voiceCB(g, t, dest, pf, ts);
+    case 'PC':
+      return voicePC(g, t, dest, pf, ts);
     default:
       return voiceCH(g, t, open, dest, pf, ts);
   }
@@ -962,6 +1010,8 @@ export interface OfflineOpts {
   steps?: Record<Inst, string>;
   /** un seul coup de cette voix a 50 ms, au lieu du motif */
   single?: Inst;
+  /** sans le limiteur de sortie (mesure du signal avant lui) */
+  limiter?: boolean;
   /** sinus continus (Hz) dans le bus, au lieu de la batterie */
   sines?: number[];
   tone?: number;
@@ -1060,6 +1110,8 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
     ohGate = gate;
     ohEnd = end;
   }
+  // La sortie comme en direct : le limiteur (rendu sans lui si l'AudioWorklet manque)
+  if (!o.bare && o.limiter !== false) await attachLimiter(oc, g);
   // Chaque reglage : pose a son instant, puis une pause de 80 ms (temps reel)
   // 30 ms plus loin, rampe finie : le debranchement differe (setTimeout) y tombe
   const q = 128 / sr;
@@ -1096,6 +1148,8 @@ export interface AudioDebug {
   readonly analyser: AnalyserNode | undefined;
   readonly master: GainNode | undefined;
   readonly muted: boolean;
+  /** le limiteur de sortie est en service (sinon l'ecreteur doux de secours) */
+  readonly limiterOn: boolean;
   /** TONE (-1 a 1, revision 5) et STRETCH (-1 a 1, 2026-10-01) */
   readonly tone: number;
   readonly stretch: number;
@@ -1157,6 +1211,9 @@ export interface VoiceDebug {
 }
 
 export const audioDebug: AudioDebug = {
+  get limiterOn() {
+    return graph?.limiter != null;
+  },
   get ctx() {
     return ctx;
   },

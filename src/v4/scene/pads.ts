@@ -7,7 +7,7 @@
  * additif sous chaque pad) : deux draw calls pour les douze.
  * Retroeclairage par instance (emissif du dessus, 55 % sur les flancs, et
  * halo) :
- * - voix BD a CB : eteintes ; jaune vif 120 ms a la frappe, 100 ms
+ * - voix BD a PC : eteintes ; jaune vif 120 ms a la frappe, 100 ms
  *   par coup du sequenceur ; l'instrument selectionne en blanc chaud faible ;
  * - pages TRACKS a SONAA : jaune faible en permanence (on les distingue),
  *   plus fort au survol de la souris, yellowHi pour la page ouverte, une

@@ -22,7 +22,7 @@
 
 import type { Inst } from '../theme';
 
-export const INSTRUMENTS: readonly Inst[] = ['BD', 'SD', 'TOM', 'CH', 'OH', 'CP', 'RS', 'HT', 'CY', 'CB'];
+export const INSTRUMENTS: readonly Inst[] = ['BD', 'SD', 'TOM', 'CH', 'OH', 'CP', 'RS', 'HT', 'CY', 'PC'];
 export const STEP_COUNT = 16;
 export const BPM = { min: 100, max: 150, initial: 130 } as const;
 /**
@@ -95,7 +95,7 @@ export const DEFAULT_STEPS: Readonly<Steps> = {
   RS: '0000000000000000',
   HT: '0000000000000000',
   CY: '0000000000000000',
-  CB: '0000000000000000',
+  PC: '0000000000000000',
 };
 
 /** Velocite du pas i de inst : 0 (vide), 1 fort, 2 moyen, 3 doux. */

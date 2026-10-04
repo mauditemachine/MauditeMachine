@@ -9,9 +9,9 @@
  * Tempo et voix restent ceux du moment (les effets : actions.ts).
  *
  * Dix voix (2026-10-03) : le clap passe a CP ; SD double parfois le clap
- * ou glisse des fantomes ; RS, HT, CY et CB sont des couleurs, souvent
+ * ou glisse des fantomes ; RS, HT, CY et PC sont des couleurs, souvent
  * absentes (un rim syncope, un roulement de tom aigu en fin de mesure, une
- * ride ou un crash sur le 1, une cloche) : le motif reste aere.
+ * ride ou un crash sur le 1, une conga) : le motif reste aere.
  *
  * Velocites du motif : 0 vide, 1 fort, 2 moyen, 3 doux.
  */
@@ -169,11 +169,11 @@ function cymbal(r: Rand): Row {
   return c;
 }
 
-/** Cloche : souvent rien, sinon une figure qui tourne autour des contretemps. */
-const CB_FIGURES: readonly string[] = ['0010000000100000', '0000001000000010', '0030003000300030', '0002000000020000'];
-function cowbell(r: Rand): Row {
-  if (r() < 0.7) return empty();
-  return fromString(pick(r, CB_FIGURES));
+/** Percussion (conga) : souvent rien, sinon une figure syncopee douce qui tourne autour du temps. */
+const PC_FIGURES: readonly string[] = ['0030030000300300', '0003003000030030', '0020300200203003', '0300003003000030'];
+function perc(r: Rand): Row {
+  if (r() < 0.6) return empty();
+  return fromString(pick(r, PC_FIGURES));
 }
 
 const join = (row: Row): string => row.join('');
@@ -191,7 +191,7 @@ export function houseSteps(r: Rand = Math.random): Steps {
     RS: rim(r),
     HT: highTom(r),
     CY: cymbal(r),
-    CB: cowbell(r),
+    PC: perc(r),
   };
   return Object.fromEntries(Object.entries(rows).map(([k, v]) => [k, join(v)])) as Steps;
 }

@@ -1132,15 +1132,22 @@ html:has(body.v4-active) {
   }
 }
 
-/* Desktop : la tete ne garde que le bouton x, en haut a droite */
+/* Desktop : la tete ne garde que le bouton x, en haut a droite ; au-dessus
+   des liens des lignes (BUY, barre de position : z-index 2), sinon un clic
+   sur x ouvrait le lien de la premiere piste (2026-10-03) */
 .v4-panel-head {
   position: absolute;
   top: 10px;
   right: 10px;
-  z-index: 1;
+  z-index: 5;
 }
 
-.v4-sheet-handle,
+/* La poignee de la feuille n'existe qu'au telephone (plus bas) : sur desktop
+   elle prenait 44 px dans la tete et poussait x sur la premiere ligne (2026-10-03) */
+.v4-sheet-handle {
+  display: none;
+}
+
 .v4-root .v4-panel-close {
   display: flex;
   align-items: center;

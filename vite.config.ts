@@ -42,6 +42,11 @@ export default defineConfig(({ command }) => ({
     }
   ],
   base: command === 'build' ? '/' : '/',
+  // Les AudioWorklets restent de vrais fichiers (2026-10-03) : un petit
+  // module serait inline en data: URL, que Safari peut refuser a addModule
+  build: {
+    assetsInlineLimit: (filePath: string) => (filePath.endsWith('.worklet.js') ? false : undefined),
+  },
   server: { port: Number(process.env.PORT) || 5173, open: !process.env.PORT },
   publicDir: 'public'
 }))

@@ -1,7 +1,7 @@
 /**
  * Clavier global (spec 7.2, 13 et 20.6.2), sur le modele de
  * src/v3/hooks/useKeys.ts. A S D F G frappent BD SD TOM CH OH, Z X C V B
- * frappent CP RS HT CY CB (2026-10-03 ; le son part a la touche, en mode
+ * frappent CP RS HT CY PC (2026-10-03 ; le son part a la touche, en mode
  * MUTE la voix se coupe), 1 a 5 ouvrent les pages (TRACKS, MIXTAPES,
  * SHOWS, PRESS, CONTACT ; la page deja ouverte se ferme), 6 et O ouvrent ou
  * referment la machine (le pad OPEN), Espace lance ou arrete le

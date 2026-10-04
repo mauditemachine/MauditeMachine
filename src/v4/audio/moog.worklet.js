@@ -22,9 +22,91 @@
  * Notes recues avec leur instant (temps du contexte), jouees a
  * l'echantillon pres ; reglages lisses, sans craquement. Sortie stereo
  * (le meme signal), les effets suivent dans le graphe.
+ *
+ * Qualite (2026-10-03, Mika : "le son sortant de la meilleure qualite") :
+ * tout le moteur tourne a OS fois la frequence du contexte (4 sur
+ * ordinateur, 2 au telephone : processorOptions.os) ; les saturations
+ * (entree du filtre, DIST, sortie) ne replient presque plus leurs
+ * harmoniques dans l'audible. Le retour a la frequence du contexte passe
+ * par des filtres demi-bande en cascade (fenetre de Kaiser : 4x -> 2x en
+ * 31 coefficients, 2x -> 1x en 63, environ -80 dB au-dessus de la bande
+ * utile), calcules au demarrage.
  */
 
 const MAX_VOICES = 12;
+/** Surechantillonnage par defaut (sans processorOptions.os). */
+const OS_DEFAULT = 4;
+
+/** Bessel I0 (serie), pour la fenetre de Kaiser. */
+function besselI0(x) {
+  let sum = 1;
+  let term = 1;
+  for (let k = 1; k < 40; k += 1) {
+    term *= (x / (2 * k)) * (x / (2 * k));
+    sum += term;
+    if (term < 1e-12 * sum) break;
+  }
+  return sum;
+}
+
+/** Le filtre demi-bande (coupure au quart de sa frequence d'entree), gain 1 en continu. */
+function halfband(taps, beta) {
+  const c = (taps - 1) / 2;
+  const h = new Float64Array(taps);
+  const i0b = besselI0(beta);
+  let sum = 0;
+  for (let k = 0; k < taps; k += 1) {
+    const n = k - c;
+    const ideal = n === 0 ? 0.5 : Math.sin((Math.PI * n) / 2) / (Math.PI * n);
+    const r = n / c;
+    const w = besselI0(beta * Math.sqrt(Math.max(0, 1 - r * r))) / i0b;
+    h[k] = ideal * w;
+    sum += h[k];
+  }
+  for (let k = 0; k < taps; k += 1) h[k] /= sum;
+  // Seuls le centre et les rangs impairs comptent (les autres sont nuls)
+  const idx = [];
+  for (let k = 0; k < taps; k += 1) if (Math.abs(h[k]) > 1e-12) idx.push(k);
+  return { h, idx: Int32Array.from(idx) };
+}
+
+/** Un etage de decimation par 2 : le demi-bande, puis un echantillon sur deux ; garde son historique. */
+class Decimator {
+  constructor(taps, beta) {
+    const hb = halfband(taps, beta);
+    this.h = hb.h;
+    this.idx = hb.idx;
+    this.T = taps - 1;
+    this.buf = new Float32Array(this.T + 1024);
+  }
+  /** n2 echantillons de input -> n2 / 2 dans out. */
+  run(input, n2, out) {
+    const T = this.T;
+    if (this.buf.length < T + n2) {
+      const grown = new Float32Array(T + n2);
+      grown.set(this.buf.subarray(0, T));
+      this.buf = grown;
+    }
+    const b = this.buf;
+    b.set(input.subarray(0, n2), T);
+    const h = this.h;
+    const idx = this.idx;
+    const n = n2 >> 1;
+    for (let i = 0; i < n; i += 1) {
+      const base = T + 2 * i + 1;
+      let y = 0;
+      for (let j = 0; j < idx.length; j += 1) {
+        const k = idx[j];
+        y += h[k] * b[base - k];
+      }
+      out[i] = y;
+    }
+    b.copyWithin(0, n2, n2 + T);
+  }
+  clear() {
+    this.buf.fill(0, 0, this.T);
+  }
+}
 const TRACK_ROOT = 54;
 const KEY_TRACK = 0.5;
 
@@ -119,6 +201,14 @@ class MMVoyager extends AudioWorkletProcessor {
     for (let i = 0; i < MAX_VOICES; i += 1) this.voices.push(new Voice());
     this.queue = [];
     this.age = 0;
+    const os = o.os === 1 || o.os === 2 || o.os === 4 ? o.os : OS_DEFAULT;
+    this.os = os;
+    this.sr2 = sampleRate * os;
+    // Le bloc surechantillonne, l'etage intermediaire, et les decimateurs (4x -> 2x, 2x -> 1x)
+    this.raw = new Float32Array(os * 128);
+    this.mid = new Float32Array(256);
+    this.d4 = os === 4 ? new Decimator(31, 7) : null;
+    this.d2 = os >= 2 ? new Decimator(63, 8) : null;
     this.p = {
       wave1: 2,
       wave2: 2,
@@ -141,20 +231,21 @@ class MMVoyager extends AudioWorkletProcessor {
     };
     // Valeurs lissees (un pole, environ 15 ms) : pas de craquement quand un potard tourne
     this.sm = { mix: 0.5, fine: 15, cutoff: 800, res: 0.3, envOct: 3, drive: 0 };
-    this.smK = coef(0.015, sampleRate);
+    this.smK = coef(0.015, this.sr2);
     this.c = {};
     if (o.params) Object.assign(this.p, o.params);
     Object.assign(this.sm, { mix: this.p.mix, fine: this.p.fine, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive });
     this.w1 = new Selector(this.p.wave1);
     this.w2 = new Selector(this.p.wave2);
-    this.fadeStep = 1 / (0.01 * sampleRate);
+    this.fadeStep = 1 / (0.01 * this.sr2);
     this.coefs();
     if (o.notes) for (const n of o.notes) this.add(n);
     this.port.onmessage = (e) => this.onMsg(e.data);
   }
 
   coefs() {
-    const sr = sampleRate;
+    // Les enveloppes et GLIDE avancent a la frequence surechantillonnee
+    const sr = this.sr2;
     const p = this.p;
     // Attaque vers 1.3 : elle atteint 1 en A (courbe de condensateur)
     this.c.aAtk = coef(p.aA / 1.466, sr);
@@ -227,7 +318,7 @@ class MMVoyager extends AudioWorkletProcessor {
     const L = out[0];
     const R = out.length > 1 ? out[1] : null;
     const N = L.length;
-    const sr = sampleRate;
+    const sr = this.sr2;
     const t0 = currentFrame;
     const q = this.queue;
     let active = false;
@@ -235,6 +326,9 @@ class MMVoyager extends AudioWorkletProcessor {
     if (!active && (q.length === 0 || q[0].frame >= t0 + N)) {
       L.fill(0);
       if (R) R.fill(0);
+      // Silence : l'historique des demi-bandes repart a zero
+      if (this.d4) this.d4.clear();
+      if (this.d2) this.d2.clear();
       return true;
     }
     // Derive lente des oscillateurs : une marche au hasard bornee, une fois par bloc
@@ -251,10 +345,16 @@ class MMVoyager extends AudioWorkletProcessor {
     const sm = this.sm;
     const c = this.c;
     const K = this.smK;
-    const nyq = sr * 0.42;
-    for (let i = 0; i < N; i += 1) {
+    // La coupure du filtre reste sous la bande utile du contexte
+    const nyq = sampleRate * 0.45;
+    const OS = this.os;
+    if (this.raw.length < OS * N) this.raw = new Float32Array(OS * N);
+    if (this.mid.length < 2 * N) this.mid = new Float32Array(2 * N);
+    const raw = this.raw;
+    for (let i2 = 0; i2 < OS * N; i2 += 1) {
+      const i = (i2 / OS) | 0;
       const fr = t0 + i;
-      while (q.length > 0 && q[0].frame <= fr) this.noteOn(q.shift(), fr);
+      if (i2 % OS === 0) while (q.length > 0 && q[0].frame <= fr) this.noteOn(q.shift(), fr);
       sm.mix += (p.mix - sm.mix) * K;
       const w1 = this.w1;
       const w2 = this.w2;
@@ -353,10 +453,15 @@ class MMVoyager extends AudioWorkletProcessor {
         a = Math.tanh(a * driveOut) / Math.pow(driveOut, 0.82);
         sum += a;
       }
-      const s = sum * 1.5;
-      L[i] = s;
-      if (R) R[i] = s;
+      raw[i2] = sum * 1.5;
     }
+    // Retour a la frequence du contexte : les demi-bandes en cascade
+    if (OS === 4) {
+      this.d4.run(raw, 4 * N, this.mid);
+      this.d2.run(this.mid, 2 * N, L);
+    } else if (OS === 2) this.d2.run(raw, 2 * N, L);
+    else L.set(raw.subarray(0, N));
+    if (R) R.set(L);
     return true;
   }
 }
