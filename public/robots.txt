@@ -7,13 +7,29 @@ Disallow: /v1
 Disallow: /mm-admin
 
 # Bots IA autorisés : visibilité de l'artiste dans les réponses des assistants
+# (2026-10-03 : les robots de recherche des assistants aussi ; resume : /llms.txt)
 User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
 Allow: /
 
 User-agent: ClaudeBot
 Allow: /
 
+User-agent: Claude-SearchBot
+Allow: /
+
 User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
 Allow: /
 
 # Crawlers SEO commerciaux agressifs : bloqués pour économiser la bande passante

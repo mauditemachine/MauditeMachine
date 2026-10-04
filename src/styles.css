@@ -1,7 +1,4 @@
-@import url('https://fonts.cdnfonts.com/css/robot-radicals');
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap');
+/* Polices externes : chargees sans bloquer par index.html (2026-10-03, referencement) */
 
 /* ================================================================
    Tailwind CSS - co-existe avec le CSS custom ci-dessous.

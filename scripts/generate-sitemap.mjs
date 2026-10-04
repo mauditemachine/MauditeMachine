@@ -32,7 +32,32 @@ const ROUTES = [
   { path: '/goodies/', changefreq: 'monthly', priority: '0.5' },
   { path: '/merch/', changefreq: 'monthly', priority: '0.5' },
   { path: '/studio/', changefreq: 'yearly', priority: '0.5' },
+  // 2026-10-03 : l'accueil en francais et en espagnol (scripts/prerender-seo.mjs)
+  { path: '/fr/', changefreq: 'weekly', priority: '0.9' },
+  { path: '/es/', changefreq: 'weekly', priority: '0.8' },
 ];
+
+/** L'accueil et ses deux versions : chacune annonce les trois (hreflang), x-default l'anglais. */
+const HOME_ALTERNATES = { en: `${SITE}/`, fr: `${SITE}/fr/`, es: `${SITE}/es/` };
+const ALT_PATHS = new Set(['/', '/fr/', '/es/']);
+const alternates = () =>
+  [
+    ...Object.entries(HOME_ALTERNATES).map(([l, href]) => `    <xhtml:link rel="alternate" hreflang="${l}" href="${href}" />`),
+    `    <xhtml:link rel="alternate" hreflang="x-default" href="${HOME_ALTERNATES.en}" />`,
+  ].join('\n');
+
+/** Une page par morceau (2026-10-03), la meme liste que le prerender. */
+function trackRoutes() {
+  try {
+    const tracks = JSON.parse(readFileSync(join(ROOT, 'src', 'v2', 'data', 'discography.json'), 'utf8')).tracks ?? [];
+    return tracks
+      .filter((t) => /^[a-z0-9-]+$/.test(t.id))
+      .map((t) => ({ path: `/tracks/${t.id}/`, changefreq: 'yearly', priority: t.category === 'remixes' ? '0.4' : '0.6' }));
+  } catch {
+    return [];
+  }
+}
+ROUTES.push(...trackRoutes());
 
 const LANGS = ['en', 'fr', 'es'];
 const today = new Date().toISOString().slice(0, 10);
@@ -58,11 +83,12 @@ const urls = ROUTES.map((r) => {
   const loc = r.path === '/' ? `${SITE}/` : `${SITE}${r.path}`;
   const lastmod = r.path === '/shows/' ? showsLastmod() : today;
 
+  const alt = ALT_PATHS.has(r.path) ? `\n${alternates()}` : '';
   return `  <url>
     <loc>${loc}</loc>
     <lastmod>${lastmod}</lastmod>
     <changefreq>${r.changefreq}</changefreq>
-    <priority>${r.priority}</priority>
+    <priority>${r.priority}</priority>${alt}
   </url>`;
 }).join('\n');
 

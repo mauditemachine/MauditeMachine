@@ -30,10 +30,14 @@ export const HOOD_SECTIONS: readonly SectionId[] = ['goodies', 'merch', 'studio'
 
 const META = (seoMeta as Record<string, Record<string, { title: string }>>).en;
 
-/** La section d'une adresse (avec ou sans barre finale), ou null. */
+/**
+ * La section d'une adresse (avec ou sans barre finale), ou null. Les pages
+ * des morceaux (/tracks/<morceau>/, 2026-10-03) ouvrent TRACKS.
+ */
 export function sectionFromPath(path: string): SectionId | null {
   const p = path.endsWith('/') ? path : `${path}/`;
   for (const [id, route] of Object.entries(SECTION_ROUTES)) if (route === p) return id as SectionId;
+  if (/^\/tracks\/[a-z0-9-]+\/$/.test(p)) return 'tracks';
   return null;
 }
 

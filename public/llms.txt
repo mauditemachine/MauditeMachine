@@ -1,0 +1,39 @@
+# Maudite Machine
+
+> Maudite Machine is a DJ and producer based between Canada, France and Spain, after fifteen years in the Montréal underground. He plays indie dance and psy prog, as a DJ (CDJ) and as a hybrid live act (synths and grooveboxes). He founded VRSTL Records, an independent label with 21 EPs and 2 albums, and is a member of the 8day collective in Montréal. Available for club and festival dates across France, Spain and the rest of Europe, and still playing Canada.
+
+The website is an interactive drum machine (MM-808) and arpeggiator synthesizer (MM-ARP) in 3D; every section also has a plain HTML page.
+
+## Main pages
+
+- [Home](https://mauditemachine.com/): bio, upcoming shows, listening links, booking
+- [Accueil en français](https://mauditemachine.com/fr/)
+- [Inicio en español](https://mauditemachine.com/es/)
+- [Tracks and releases](https://mauditemachine.com/tracks/): every original track and remix, one page each
+- [Mixtapes and DJ sets](https://mauditemachine.com/mixtapes/)
+- [Shows and tour dates](https://mauditemachine.com/shows/)
+- [Press kit 2027](https://mauditemachine.com/presskit/) and [PDF](https://mauditemachine.com/Presskit_Maudite_Machine_2027_generic.pdf)
+- [Tech rider](https://mauditemachine.com/techrider/)
+- [Contact and booking](https://mauditemachine.com/contact/)
+
+## Facts
+
+- Genre: indie dance and psy prog
+- Formats: DJ set (90 minutes to 4 hours) and hybrid live (60 to 75 minutes)
+- Label: VRSTL Records (founder and A&R)
+- Latest album: Limbos, VRSTL Records, October 2025 (9 tracks)
+- Latest single: Voodoo, VRSTL Records, February 2026
+- Played: Techno Parade Paris, OKAMI Festival, Piknic Électronik, SAT, Igloofest afters, Groove and Bass
+- Shared bills: Carl Craig, Popof, Christian Smith, Perc, Agoria, Nick Curly, Damon Jee
+
+## Booking
+
+- International: vrstlrecords@gmail.com
+- Canada and USA: mauditemachine@gmail.com
+
+## Listen
+
+- [Spotify](https://open.spotify.com/artist/2FHPGWPEBQbCsgkLP9uuI4)
+- [Bandcamp](https://mauditemachine.bandcamp.com/)
+- [Beatport](https://www.beatport.com/artist/maudite-machine/500537)
+- [SoundCloud](https://soundcloud.com/mauditemachine)

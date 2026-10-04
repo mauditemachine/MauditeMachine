@@ -194,7 +194,8 @@ function usePageChrome(): void {
   useLayoutEffect(() => {
     document.body.classList.add('v4-active');
     const prevTitle = document.title;
-    document.title = onPresskitRoute() ? PRESSKIT_ROUTE.title : COPY.title;
+    // Une adresse de section ou de morceau garde le titre de sa page statique (referencement)
+    if (!sectionFromPath(window.location.pathname)) document.title = onPresskitRoute() ? PRESSKIT_ROUTE.title : COPY.title;
     const theme = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
     const prevTheme = theme?.getAttribute('content') ?? null;
     let madeTheme: HTMLMetaElement | null = null;
@@ -264,6 +265,8 @@ function useSectionRoute(getStage: () => Stage | null): void {
       const route = s ? SECTION_ROUTES[s] : undefined;
       const path = window.location.pathname;
       const onSectionPath = sectionFromPath(path) !== null;
+      // Une page de morceau (/tracks/<morceau>/) garde son adresse et son titre
+      if (s && sectionFromPath(path) === s && path !== route) return;
       if (route && path !== route) window.history.pushState({ v4Section: s }, '', route);
       else if (!route && onSectionPath) window.history.pushState({ v4Section: null }, '', '/');
       const title = s ? sectionTitle(s) : null;

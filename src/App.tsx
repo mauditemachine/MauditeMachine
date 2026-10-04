@@ -54,6 +54,8 @@ export default function App() {
           {/* 2026-10-02 (referencement) : chaque section de la machine a son
               adresse ; la machine s'ouvre sur elle (src/v4/state/sectionRoute.ts) */}
           <Route path="/tracks" element={lazyEl(<V4App />)} />
+          {/* 2026-10-03 : une page par morceau (scripts/prerender-seo.mjs) ; la machine ouvre TRACKS */}
+          <Route path="/tracks/:track" element={lazyEl(<V4App />)} />
           <Route path="/mixtapes" element={lazyEl(<V4App />)} />
           <Route path="/shows" element={lazyEl(<V4App />)} />
           <Route path="/contact" element={lazyEl(<V4App />)} />
