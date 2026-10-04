@@ -24,3 +24,10 @@
 ## 4. Commandes utiles ajoutees
 
 - Worker : `GET /api/soundcloud/chercher?q=`, `/api/soundcloud/flux?urn=`, `/api/soundcloud/piece?u=`.
+
+## Suite : MAUDITE MACHINE, Audius retire
+
+- Audius retire de la playlist et du chargement (Mika : "cache Audius, serieux c'est nul").
+- Onglet MAUDITE MACHINE a cote de MY FILES, ouvert par defaut : les morceaux du compte SoundCloud `mauditemachine`, quelle que soit leur licence (Mika en est l'auteur et y consent) ; route `GET /api/soundcloud/maudite` du Worker de Sonaa, une heure de cache ; `flux` les accepte aussi.
+- Tant que la cle SoundCloud n'est pas posee dans le Worker, SOUNDCLOUD et MAUDITE MACHINE s'effacent : il ne reste que MY FILES.
+- Bandcamp : pas d'API de lecture ni de connexion pour les fans ; un morceau achete se telecharge et passe par MY FILES.

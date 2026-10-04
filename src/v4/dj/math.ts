@@ -57,7 +57,7 @@ const CAMELOT_MAJOR: Readonly<Record<string, string>> = {
   E: '12B',
 };
 
-/** Audius ecrit "D flat minor", les fichiers "Am", "F#m", "C maj" ou deja "8A" : la reponse en Camelot. */
+/** On lit "D flat minor", "Am", "F#m", "C maj" ou deja "8A" (SoundCloud, tags des fichiers) : la reponse en Camelot. */
 export function camelot(key: string | null | undefined): string | null {
   const s = key ?? '';
   let note = '';

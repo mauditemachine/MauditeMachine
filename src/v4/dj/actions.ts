@@ -103,42 +103,6 @@ export function djPauseAll(): void {
 
 /* ---------------- charger ---------------- */
 
-const AUDIUS = 'https://api.audius.co';
-let audiusHost: Promise<string> | null = null;
-/** Audius annonce le serveur a interroger ; demande une fois. */
-export function audiusHostUrl(): Promise<string> {
-  audiusHost ??= fetch(AUDIUS)
-    .then((r) => (r.ok ? (r.json() as Promise<{ data?: string[] }>) : null))
-    .then((d) => d?.data?.[0] ?? AUDIUS)
-    .catch(() => AUDIUS);
-  return audiusHost;
-}
-export const AUDIUS_APP = 'mauditemachine';
-
-/** Telecharge avec la progression (0 a 1). */
-async function download(url: string, progress: (p: number) => void, signal: AbortSignal): Promise<ArrayBuffer> {
-  const r = await fetch(url, { signal });
-  if (!r.ok || !r.body) throw new Error(`HTTP ${r.status}`);
-  const total = Number(r.headers.get('content-length') ?? 0);
-  const reader = r.body.getReader();
-  const parts: Uint8Array[] = [];
-  let got = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    parts.push(value);
-    got += value.length;
-    if (total > 0) progress(Math.min(1, got / total));
-  }
-  const out = new Uint8Array(got);
-  let i = 0;
-  for (const p of parts) {
-    out.set(p, i);
-    i += p.length;
-  }
-  return out.buffer;
-}
-
 const loads: Partial<Record<DjDeck, AbortController>> = {};
 const CUES_KEY = (id: string): string => `mm.v4.dj.cues.${id}`;
 
@@ -166,7 +130,11 @@ function saveCues(d: DjDeck): void {
   }
 }
 
-/** Pose un morceau sur une platine : telecharge (Audius) ou lit (fichier), decode, BPM si absent. */
+/**
+ * Pose un morceau sur une platine : lit (fichier de la caisse) ou ouvre le
+ * flux (SoundCloud), decode, BPM si absent. Audius est parti le 2026-10-04
+ * (Mika : "cache Audius, serieux c'est nul").
+ */
 export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
   const e = engine();
   if (!e) return;
@@ -181,12 +149,9 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
       const blob = track.file ?? (await crateFile(track.id));
       if (!blob) throw new Error(track.relink ? 'drop the folder again' : 'folder access needed');
       bytes = await blob.arrayBuffer();
-    } else if (track.source === 'soundcloud') {
-      // Le Worker de Sonaa ouvre le flux ; le son passe sans etre garde
-      bytes = await soundcloudBytes(track.id, (p) => djState.setDeck(d, { loading: p }), ctl.signal);
     } else {
-      const host = await audiusHostUrl();
-      bytes = await download(`${host}/v1/tracks/${encodeURIComponent(track.id)}/stream?app_name=${AUDIUS_APP}`, (p) => djState.setDeck(d, { loading: p }), ctl.signal);
+      // SoundCloud : le Worker de Sonaa ouvre le flux ; le son passe sans etre garde
+      bytes = await soundcloudBytes(track.id, (p) => djState.setDeck(d, { loading: p }), ctl.signal);
     }
     if (ctl.signal.aborted) return;
     await e.decks[d].load(bytes);

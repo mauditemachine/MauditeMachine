@@ -29,6 +29,8 @@ export const LICENSE_LABEL: Readonly<Record<string, string>> = {
   'cc-by-nc': 'CC BY-NC',
   'cc-by-nc-sa': 'CC BY-NC-SA',
   'no-rights-reserved': 'CC0',
+  /** les morceaux de Maudite Machine : pas de licence a afficher, c'est la maison */
+  mauditemachine: '',
 };
 
 interface Raw {
@@ -44,6 +46,37 @@ interface Raw {
 
 export type ScSearch = { ok: true; tracks: DjTrack[] } | { ok: false; reason: 'off' | 'down' };
 
+const toTrack = (t: Raw): DjTrack => ({
+  id: t.id,
+  source: 'soundcloud' as const,
+  title: t.title,
+  artist: t.artist,
+  bpm: t.bpm,
+  key: camelot(t.key),
+  duration: t.duration,
+  link: t.link,
+  license: t.license,
+});
+
+/**
+ * Les morceaux de Maudite Machine (Mika, 2026-10-04 : "les gens pourront
+ * mixer mes tracks") : son compte SoundCloud, quelle que soit la licence,
+ * puisque l'auteur y consent ; une heure de cache au Worker.
+ */
+export async function mauditeTracks(signal: AbortSignal): Promise<ScSearch> {
+  let r: Response;
+  try {
+    r = await fetch(`${PASSERELLE}/maudite`, { signal });
+  } catch {
+    if (signal.aborted) throw new DOMException('aborted', 'AbortError');
+    return { ok: false, reason: 'down' };
+  }
+  if (r.status === 503) return { ok: false, reason: 'off' };
+  if (!r.ok) return { ok: false, reason: 'down' };
+  const d = (await r.json()) as { tracks?: Raw[] };
+  return { ok: true, tracks: (d.tracks ?? []).map(toTrack) };
+}
+
 /** Cherche (vide : des styles de club) ; 'off' tant que la cle n'est pas posee dans le Worker. */
 export async function searchSoundcloud(q: string, signal: AbortSignal): Promise<ScSearch> {
   let r: Response;
@@ -56,20 +89,7 @@ export async function searchSoundcloud(q: string, signal: AbortSignal): Promise<
   if (r.status === 503) return { ok: false, reason: 'off' };
   if (!r.ok) return { ok: false, reason: 'down' };
   const d = (await r.json()) as { tracks?: Raw[] };
-  return {
-    ok: true,
-    tracks: (d.tracks ?? []).map((t) => ({
-      id: t.id,
-      source: 'soundcloud' as const,
-      title: t.title,
-      artist: t.artist,
-      bpm: t.bpm,
-      key: camelot(t.key),
-      duration: t.duration,
-      link: t.link,
-      license: t.license,
-    })),
-  };
+  return { ok: true, tracks: (d.tracks ?? []).map(toTrack) };
 }
 
 /** Les octets d'un morceau : ses morceaux de fichier, quatre a la fois, mis bout a bout. */

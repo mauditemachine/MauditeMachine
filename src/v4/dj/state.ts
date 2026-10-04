@@ -21,17 +21,17 @@ export interface DjChannelState {
   fader: number;
 }
 
-/** Un morceau qu'on peut poser sur une platine : chez SoundCloud ou Audius, ou un fichier de l'appareil. */
+/** Un morceau qu'on peut poser sur une platine : chez SoundCloud (ceux de Maudite Machine compris), ou un fichier de l'appareil. */
 export interface DjTrack {
   id: string;
-  source: 'audius' | 'file' | 'soundcloud';
+  source: 'file' | 'soundcloud';
   title: string;
   artist: string;
   bpm: number | null;
   /** tonalite en Camelot (9A), ou null */
   key: string | null;
   duration: number;
-  /** la page du morceau (Audius, SoundCloud) */
+  /** la page du morceau (SoundCloud) */
   link?: string;
   /** SoundCloud : la licence Creative Commons (cc-by...) */
   license?: string;
