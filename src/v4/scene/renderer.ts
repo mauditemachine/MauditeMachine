@@ -50,6 +50,7 @@ import { clock } from '../audio/clock';
 import { sc } from '../audio/soundcloud';
 import { context, mix } from '../audio/drums';
 import { BPM, INSTRUMENTS, pattern } from '../audio/pattern';
+import { kit } from '../audio/kit';
 import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
 import { motion } from '../state/motion';
 import { editor } from '../state/editor';
@@ -117,6 +118,7 @@ import { Machine } from './machine';
 import { Orbit } from './orbit';
 import { Pads } from './pads';
 import { Pcb } from './pcb';
+import { RytmTweaks, rytmTweakClear } from './rytmTweaks';
 import { Screen } from './screen';
 import { BackPlate } from './backplate';
 import { BUTTON_INDEX, Sequencer3D, type TransportButton } from './sequencer3d';
@@ -404,6 +406,10 @@ export class Stage {
   private unsubMix: () => void;
   /** les quatre puces (allumees pendant l'ouverture et vue ouverte) */
   private chipDefs: HotspotDef[];
+  /** les TWEAKS du MM-RYTM sous le capot (2026-10-04, audio/kit.ts) */
+  readonly rytmTweaks: RytmTweaks;
+  private tweakDefs: HotspotDef[];
+  private unsubKit: () => void = () => undefined;
   /** la barre de progression de l'ecran (ligne 3), active quand elle est affichee */
   private seekDef!: HotspotDef;
   /** les touches de l'ecran (mode presets, 2026-10-04) */
@@ -607,9 +613,13 @@ export class Stage {
     // ne s'abonne a state/lcd.ts qu'avec les autres ecouteurs
     this.screen = new Screen(aniso, () => this.repaint());
     plateau.add(this.screen.mesh);
-    // PCB : la carte et ses composants, dans le chassis
-    this.pcb = new Pcb(mobile, aniso);
+    // PCB : la carte et ses composants, dans le chassis. Plus de puces de pages
+    // (2026-10-04, Mika : "a la place des liens de mauditemachine qui sont deja dans
+    // le header") : la plaque des TWEAKS du kit, qui pousse avec les composants
+    this.pcb = new Pcb(mobile, aniso, { chips: false, clear: rytmTweakClear() });
     this.machine.pcb.add(this.pcb.board, this.pcb.parts);
+    this.rytmTweaks = new RytmTweaks({ mobile, anisotropy: aniso });
+    this.pcb.parts.add(this.rytmTweaks.group);
     this.explode = new Explode({ plateau, pcb: this.machine.pcb, parts: this.pcb.parts }, (open) => explodeState.settle(open));
     // Une seule boite relue a chaque frame par le picking (aucune allocation)
     const sizeBox = { w: 1, h: 1 };
@@ -629,6 +639,9 @@ export class Stage {
     this.hit.add(padDefs);
     this.chipDefs = this.pcb.hotspots(this.machine.pcb);
     this.hit.add(this.chipDefs);
+    // Les TWEAKS juste apres OPEN qui les decouvre
+    this.tweakDefs = this.rytmTweaks.hotspots();
+    this.hit.add(this.tweakDefs);
     const encDefs = ENCODERS.map((e) => this.encoders.hotspot(e.id, plateau));
     this.hit.add(encDefs);
     const seqDefs = this.seq.hotspots(plateau);
@@ -699,7 +712,7 @@ export class Stage {
     // Le MM-VOYAGER (2026-10-03) : a droite de la 808 sur la meme table ;
     // ses objets et ses volumes apres ceux de la 808, chacun marque de sa machine
     if (VOYAGER) {
-      for (const d of [...padDefs, ...this.chipDefs, ...encDefs, ...seqDefs, this.seekDef, ...this.lcdDefs]) d.machine = 'mm808';
+      for (const d of [...padDefs, ...this.chipDefs, ...this.tweakDefs, ...encDefs, ...seqDefs, this.seekDef, ...this.lcdDefs]) d.machine = 'mm808';
       const voy = new VoyagerRig({
         mobile,
         anisotropy: aniso,
@@ -797,6 +810,10 @@ export class Stage {
     this.unsubMotion = motion.subscribe(this.syncMotion);
     this.syncPattern();
     this.unsubPattern = pattern.subscribe(this.syncPattern);
+    // Les TWEAKS suivent le kit (un glisser, la molette, un preset) : sous le capot, pas d'ombre a refaire
+    this.unsubKit = kit.subscribe(() => {
+      if (this.rytmTweaks.sync()) this.repaint();
+    });
     this.syncVoices();
     this.unsubVoices = voices.subscribe(this.syncVoices);
     this.syncMix();
@@ -1623,6 +1640,7 @@ export class Stage {
       this.silk.draw();
       this.backPlate.draw();
       this.pcb.redraw();
+      this.rytmTweaks.draw();
       this.start();
       this.invalidate();
     });
@@ -2110,7 +2128,7 @@ export class Stage {
     const live = s === 'open' || (s === 'opening' && this.explode.p.plateau >= EXPLODE.chipsFrom);
     this.chipsOn = live;
     let changed = false;
-    for (const d of this.chipDefs) {
+    for (const d of [...this.chipDefs, ...this.tweakDefs]) {
       if (d.enabled === live) continue;
       d.enabled = live;
       changed = true;
@@ -2409,6 +2427,7 @@ export class Stage {
     this.io?.disconnect();
     this.unsubMotion();
     this.unsubPattern();
+    this.unsubKit();
     this.unsubVoices();
     this.unsubSeek();
     this.unsubClock();
@@ -2447,6 +2466,7 @@ export class Stage {
     this.encoders.dispose();
     this.screen.dispose();
     this.pcb.dispose();
+    this.rytmTweaks.dispose();
     this.voy?.dispose();
     this.unsubDjUnit();
     this.dj?.dispose();

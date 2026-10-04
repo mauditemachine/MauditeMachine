@@ -25,7 +25,8 @@
  *   le plus proche, relu a la vitesse qu'il faut.
  */
 
-import { renderShot, VARIANTS, type ShotId } from './shotsdsp';
+import { kit, shotsOf } from './kit';
+import { renderShot, VARIANTS, type ShotId, type ShotTweak } from './shotsdsp';
 
 export type { ShotId } from './shotsdsp';
 
@@ -52,6 +53,9 @@ interface Job {
   v: number;
   /** hauteur (milliemes de demi-ton) : le calcul se fait a sr / pf */
   pk: number;
+  /** le kit du moment pour ce son (audio/kit.ts), et sa signature dans la cle */
+  tw: ShotTweak;
+  sig: string;
 }
 
 /** Un coup pret a partir : l'echantillon, et sa vitesse de lecture (1 : exact). */
@@ -70,7 +74,8 @@ const stats = { rendered: 0, ms: 0, sync: 0, nearest: 0, inWorker: 0 };
 /** La derniere variante jouee de chaque son. */
 const lastVar = new Map<ShotId, number>();
 
-const cacheKey = (id: ShotId, k: number, v: number, sr: number, pk = 0): string => `${id}|${k}|${v}|${sr}|${pk}`;
+/** La cle d'un echantillon : son, STRETCH, variante, frequence, hauteur, et la signature du kit (audio/kit.ts, 2026-10-04). */
+const cacheKey = (id: ShotId, k: number, v: number, sr: number, pk = 0, sig = kit.sig(id)): string => `${id}|${k}|${v}|${sr}|${pk}|${sig}`;
 
 function toBuffer(L: Float32Array, R: Float32Array | null, sr: number): AudioBuffer {
   const b = new AudioBuffer({ length: L.length, numberOfChannels: 2, sampleRate: sr });
@@ -92,7 +97,7 @@ function put(key: string, b: AudioBuffer): void {
 /** Calcul sur le fil principal (sans worker, ou un coup qui ne peut pas attendre). */
 function makeNow(j: Job): AudioBuffer {
   const t0 = performance.now();
-  const s = renderShot(j.id, j.sr / keyPf(j.pk), j.ts, j.v);
+  const s = renderShot(j.id, j.sr / keyPf(j.pk), j.ts, j.v, j.tw);
   const b = toBuffer(s.L, s.L === s.R ? null : s.R, j.sr);
   stats.ms += performance.now() - t0;
   stats.rendered += 1;
@@ -143,7 +148,7 @@ function pump(): void {
   busy = j;
   if (w) {
     // Le worker calcule a la frequence de rendu (sr / pf) ; le buffer gardera sr
-    w.postMessage({ key: j.key, id: j.id, sr: j.sr / keyPf(j.pk), ts: j.ts, v: j.v });
+    w.postMessage({ key: j.key, id: j.id, sr: j.sr / keyPf(j.pk), ts: j.ts, v: j.v, tw: j.tw });
     return;
   }
   setTimeout(() => {
@@ -155,15 +160,39 @@ function pump(): void {
 }
 
 function enqueue(id: ShotId, k: number, v: number, sr: number, pk = 0): void {
-  const key = cacheKey(id, k, v, sr, pk);
+  const sig = kit.sig(id);
+  const key = cacheKey(id, k, v, sr, pk, sig);
   if (cache.has(key) || busy?.key === key || queue.some((j) => j.key === key)) return;
-  queue.push({ key, id, sr, ts: keyTs(k), v, pk });
+  // Un reglage du kit tourne : les calculs en attente d'un reglage depasse de ce son ne servent plus
+  for (let i = queue.length - 1; i >= 0; i -= 1) if (queue[i].id === id && queue[i].sig !== sig) queue.splice(i, 1);
+  queue.push({ key, id, sr, ts: keyTs(k), v, pk, tw: kit.tweak(id), sig });
   pump();
 }
+
+/** La frequence des derniers sons prepares (celle du contexte), pour recalculer ceux qu'un TWEAK change. */
+let warmSr = 0;
+let rewarmTimer = 0;
+const rewarmIds = new Set<ShotId>();
+
+/**
+ * Un TWEAK du kit tourne (audio/kit.ts) : ses sons se recalculent en fond,
+ * a STRETCH 0 et hauteur d'origine (le cas courant), une fois le geste
+ * pose (120 ms) ; un coup qui arrive avant joue le plus proche deja pret.
+ */
+kit.subscribe((changed) => {
+  for (const f of changed) for (const id of shotsOf(f)) rewarmIds.add(id);
+  if (typeof window === 'undefined' || warmSr === 0) return;
+  window.clearTimeout(rewarmTimer);
+  rewarmTimer = window.setTimeout(() => {
+    for (const id of rewarmIds) for (let v = 0; v < VARIANTS[id]; v += 1) enqueue(id, 0, v, warmSr);
+    rewarmIds.clear();
+  }, 120);
+});
 
 export const shots = {
   /** Prepare tous les sons a STRETCH 0 (le contexte vient d'etre cree). */
   warm(sr: number): void {
+    warmSr = sr;
     const most = Math.max(...IDS.map((id) => VARIANTS[id]));
     for (let v = 0; v < most; v += 1) for (const id of IDS) if (v < VARIANTS[id]) enqueue(id, 0, v, sr);
   },
@@ -189,19 +218,20 @@ export const shots = {
     lastVar.set(id, v);
     const k = shotKey(ts);
     const pk = pitchKey(pf);
-    const key = cacheKey(id, k, v, sr, pk);
+    const sig = kit.sig(id);
+    const key = cacheKey(id, k, v, sr, pk, sig);
     const hit = cache.get(key);
     if (hit) return { buf: hit, rate: 1 };
     if (!sync) {
-      // Le plus proche : STRETCH voisin (1 par cran), hauteur (2 par demi-ton), autre frequence (+30), autre variante (+60)
+      // Le plus proche : STRETCH voisin (1 par cran), hauteur (2 par demi-ton), autre reglage du kit (+20), autre frequence (+30), autre variante (+60)
       let best: AudioBuffer | null = null;
       let bestPk = 0;
       let score = Infinity;
       const pre = `${id}|`;
       for (const [ck, b] of cache) {
         if (!ck.startsWith(pre)) continue;
-        const [, kk, vv, ss, pp] = ck.split('|');
-        const sc = Math.abs(Number(kk) - k) + Math.abs(Number(pp) - pk) / 500 + (Number(ss) === sr ? 0 : 30) + (Number(vv) === v ? 0 : 60);
+        const [, kk, vv, ss, pp, sg] = ck.split('|');
+        const sc = Math.abs(Number(kk) - k) + Math.abs(Number(pp) - pk) / 500 + (sg === sig ? 0 : 20) + (Number(ss) === sr ? 0 : 30) + (Number(vv) === v ? 0 : 60);
         if (sc < score) {
           best = b;
           bestPk = Number(pp);
@@ -215,7 +245,7 @@ export const shots = {
       }
     }
     stats.sync += 1;
-    return { buf: makeNow({ key, id, sr, ts: keyTs(k), v, pk }), rate: 1 };
+    return { buf: makeNow({ key, id, sr, ts: keyTs(k), v, pk, tw: kit.tweak(id), sig }), rate: 1 };
   },
   /** La rotation des variantes repart du debut (rendus hors ligne reproductibles). */
   resetRotation(): void {

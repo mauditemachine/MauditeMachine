@@ -354,7 +354,17 @@ function extrasOf(variant: PcbVariant): Extra[] {
 /** L'etiquette a code-barres de la carte (MM-808) : centre, demi-etendues. */
 const STICKER = { x: 1.15, z: -0.88, hx: 0.6, hz: 0.24 } as const;
 
-function footprints(variant: PcbVariant, chips: readonly ChipSpec[]): Footprint[] {
+/** Une zone de la carte sans composant de decor (repere de la carte). */
+export interface PcbClear {
+  x0: number;
+  x1: number;
+  z0: number;
+  z1: number;
+}
+
+function footprints(variant: PcbVariant, chips: readonly ChipSpec[], clear: PcbClear | null = null): Footprint[] {
+  // La zone degagee (buildParts) : pas d'empreinte vide sous la plaque des TWEAKS
+  const off = (x: number, z: number): boolean => clear !== null && x > clear.x0 && x < clear.x1 && z > clear.z0 && z < clear.z1;
   const out: Footprint[] = [];
   chips.forEach((c, k) => {
     const D = chipDims(c);
@@ -381,6 +391,7 @@ function footprints(variant: PcbVariant, chips: readonly ChipSpec[]): Footprint[
     });
   });
   P.small.forEach((s, k) => {
+    if (off(s.x, s.z)) return;
     const hz = P.small3.d / 2 + 0.1;
     const pads: Footprint['pads'] = [];
     for (const side of [-1, 1]) {
@@ -392,34 +403,36 @@ function footprints(variant: PcbVariant, chips: readonly ChipSpec[]): Footprint[
     out.push({ x: s.x, z: s.z, hx: P.small3.w / 2 + 0.05, hz, round: false, frame: false, ref: `U${k + chips.length + 1}`, refX: s.x, refZ: s.z - hz - 0.16, refAlign: 'center', axis: 'x', outline: true, pads, shadow: { x: s.x, z: s.z, hx: P.small3.w / 2, hz: P.small3.d / 2, round: false } });
   });
   P.caps.forEach((c, k) => {
+    if (off(c.x, c.z)) return;
     const r = P.cap3.r + 0.05;
     out.push({ x: c.x, z: c.z, hx: r, hz: r, round: true, frame: false, ref: `C${k + 1}`, refX: c.x + r + 0.08, refZ: c.z, refAlign: 'left', axis: 'x', outline: true, pads: [], shadow: { x: c.x, z: c.z, hx: P.cap3.r, hz: P.cap3.r, round: true } });
   });
   // Plus de pile bouton (2026-10-03) : sa place est dans la bande des pages
   P.resistors.forEach((s, k) => {
-    if (inBand(s.z)) return;
+    if (inBand(s.z) || off(s.x, s.z)) return;
     const R = P.resistor3;
     const hz = R.d / 2 + 0.04;
     const pads = [-1, 1].map((sd) => ({ x: s.x + sd * (R.w / 2 - 0.03), z: s.z, w: 0.1, d: R.d + 0.04 }));
     out.push({ x: s.x, z: s.z, hx: R.w / 2 + 0.06, hz, round: false, frame: false, ref: `R${k + 1}`, refX: s.x, refZ: s.z - hz - 0.12, refAlign: 'center', axis: 'z', outline: false, pads, shadow: { x: s.x, z: s.z, hx: R.w / 2, hz: R.d / 2, round: false } });
   });
   P.ceramics.forEach((s, k) => {
-    if (inBand(s.z)) return;
+    if (inBand(s.z) || off(s.x, s.z)) return;
     const Cc = P.ceramic3;
     const pads = [-1, 1].map((sd) => ({ x: s.x + sd * (Cc.w / 2 - 0.03), z: s.z, w: 0.09, d: Cc.d + 0.04 }));
     out.push({ x: s.x, z: s.z, hx: Cc.w / 2 + 0.06, hz: Cc.d / 2 + 0.04, round: false, frame: false, ref: `C${k + P.caps.length + 1}`, refX: s.x, refZ: s.z + Cc.d / 2 + 0.16, refAlign: 'center', axis: 'z', outline: false, pads, shadow: { x: s.x, z: s.z, hx: Cc.w / 2, hz: Cc.d / 2, round: false } });
   });
   P.crystals.forEach((s, k) => {
+    if (off(s.x, s.z)) return;
     const hz = P.crystal3.r + 0.05;
     const pads = [-1, 1].map((sd) => ({ x: s.x + sd * (P.crystal3.l / 2 + 0.05), z: s.z, w: 0.08, d: 0.1 }));
     out.push({ x: s.x, z: s.z, hx: P.crystal3.l / 2 + 0.1, hz, round: false, frame: false, ref: `X${k + 1}`, refX: s.x, refZ: s.z - hz - 0.16, refAlign: 'center', axis: 'x', outline: true, pads, shadow: { x: s.x, z: s.z, hx: P.crystal3.l / 2, hz: P.crystal3.r * 0.9, round: false } });
   });
-  {
+  if (!off(P.regulator.x, P.regulator.z)) {
     const r = P.regulator;
     const pads = [-1, 0, 1].map((k) => ({ x: r.x + k * 0.1, z: r.z + 0.05, w: 0.07, d: 0.1, round: true }));
     out.push({ x: r.x, z: r.z - 0.15, hx: 0.42, hz: 0.33, round: false, frame: false, ref: 'VR1', refX: r.x + 0.48, refZ: r.z + 0.05, refAlign: 'left', axis: null, outline: true, pads, shadow: { x: r.x, z: r.z - 0.17, hx: 0.38, hz: 0.27, round: false } });
   }
-  {
+  if (!off(P.header.x, P.header.z)) {
     const h = P.header;
     const pads: Footprint['pads'] = [];
     for (let c = 0; c < h.cols; c += 1) {
@@ -427,7 +440,7 @@ function footprints(variant: PcbVariant, chips: readonly ChipSpec[]): Footprint[
     }
     out.push({ x: h.x, z: h.z, hx: HEADER.w / 2 + 0.05, hz: HEADER.d / 2 + 0.05, round: false, frame: false, ref: 'J1', refX: h.x - HEADER.w / 2, refZ: h.z + HEADER.d / 2 + 0.16, refAlign: 'left', axis: 'z', outline: true, pads, shadow: { x: h.x, z: h.z, hx: HEADER.w / 2, hz: HEADER.d / 2, round: false } });
   }
-  {
+  if (!off(P.terminal.x, P.terminal.z)) {
     const t = P.terminal;
     const w = t.n * TERM.pitch;
     out.push({ x: t.x, z: t.z, hx: w / 2 + 0.05, hz: TERM.d / 2 + 0.05, round: false, frame: false, ref: 'J2', refX: t.x + w / 2, refZ: t.z + TERM.d / 2 + 0.16, refAlign: 'right', axis: 'z', outline: true, pads: [], shadow: { x: t.x, z: t.z, hx: w / 2, hz: TERM.d / 2, round: false } });
@@ -441,6 +454,7 @@ function footprints(variant: PcbVariant, chips: readonly ChipSpec[]): Footprint[
     out.push({ x: h.x, z: h.z, hx: 0.24, hz: 0.24, round: true, frame: false, ref: '', refX: 0, refZ: 0, refAlign: 'center', axis: null, outline: false, pads: [], shadow: { x: h.x, z: h.z, hx: 0.15, hz: 0.15, round: true } });
   }
   for (const e of extrasOf(variant)) {
+    if (off(e.x, e.z)) continue;
     const S = EXTRA_SIZE[e.kind];
     const pads: Footprint['pads'] = [];
     if (e.kind === 'tp') pads.push({ x: e.x, z: e.z, w: 0.13, d: 0.13, round: true });
@@ -534,6 +548,12 @@ class Bucket {
     return start;
   }
   build(what: string): BufferGeometry {
+    // Rien a fusionner (au telephone, la plaque des TWEAKS du MM-RYTM couvre presque toute la carte) : une geometrie vide
+    if (this.pieces.length === 0) {
+      const empty = new BufferGeometry();
+      empty.setAttribute('position', new Float32BufferAttribute([], 3));
+      return empty;
+    }
     const g = mergeGeometries(this.pieces, false);
     for (const p of this.pieces) p.dispose();
     this.pieces = [];
@@ -596,8 +616,10 @@ const RGB_EXTRA = {
 
 const SMALL_REFS_VOY = ['TL072', 'CA3046', 'LM13700', 'LM324'] as const;
 
-function buildParts(mobile: boolean, variant: PcbVariant, chips: readonly ChipSpec[]): Built {
+function buildParts(mobile: boolean, variant: PcbVariant, chips: readonly ChipSpec[], clear: PcbClear | null = null): Built {
   const seg = mobile ? 12 : 16;
+  // La zone degagee (2026-10-04) : sous la plaque des TWEAKS, aucun composant ne la traverse
+  const off = (x: number, z: number): boolean => clear !== null && x > clear.x0 && x < clear.x1 && z > clear.z0 && z < clear.z1;
   const parts = new Bucket();
   const metal = new Bucket();
   const labels = new Bucket();
@@ -657,6 +679,7 @@ function buildParts(mobile: boolean, variant: PcbVariant, chips: readonly ChipSp
 
   // Petites puces : corps, creux de la broche 1, pattes sur les flancs, reference
   P.small.forEach((s, k) => {
+    if (off(s.x, s.z)) return;
     const S = P.small3;
     parts.add(box(S.w, S.h, S.d, s.x, 0.03 + S.h / 2, s.z, RGB.chip));
     parts.add(cyl(0.035, 0.004, 10, s.x - S.w / 2 + 0.1, 0.03 + S.h, s.z - S.d / 2 + 0.1, RGB.dimple));
@@ -674,6 +697,7 @@ function buildParts(mobile: boolean, variant: PcbVariant, chips: readonly ChipSp
   // Condensateurs electrolytiques, deux hauteurs : gaine, bande de polarite,
   // dessus en aluminium et sa croix en relief
   P.caps.forEach((c, k) => {
+    if (off(c.x, c.z)) return;
     const C3 = P.cap3;
     const h = P.capTall[k] ? C3.h : C3.hShort;
     parts.add(cyl(C3.r, h, seg, c.x, 0, c.z, RGB.capBody));
@@ -685,7 +709,7 @@ function buildParts(mobile: boolean, variant: PcbVariant, chips: readonly ChipSp
 
   // Resistances CMS : corps noir, terminaisons argentees, code sur le dessus
   P.resistors.forEach((s, k) => {
-    if (inBand(s.z)) return;
+    if (inBand(s.z) || off(s.x, s.z)) return;
     const R = P.resistor3;
     parts.add(box(R.w - 0.1, R.h, R.d, s.x, R.h / 2, s.z, RGB.resistor));
     for (const sd of [-1, 1]) metal.add(box(0.05, R.h + 0.006, R.d + 0.006, s.x + sd * (R.w / 2 - 0.025), (R.h + 0.006) / 2, s.z, METAL.leg));
@@ -696,17 +720,17 @@ function buildParts(mobile: boolean, variant: PcbVariant, chips: readonly ChipSp
 
   // Condensateurs ceramiques CMS : petits blocs beiges, terminaisons
   for (const s of P.ceramics) {
-    if (inBand(s.z)) continue;
+    if (inBand(s.z) || off(s.x, s.z)) continue;
     const Cc = P.ceramic3;
     parts.add(box(Cc.w - 0.08, Cc.h, Cc.d, s.x, Cc.h / 2, s.z, RGB.ceramic));
     for (const sd of [-1, 1]) metal.add(box(0.04, Cc.h + 0.006, Cc.d + 0.006, s.x + sd * (Cc.w / 2 - 0.02), (Cc.h + 0.006) / 2, s.z, METAL.leg));
   }
 
   // Quartz : boitier metallique ovale, couche
-  for (const s of P.crystals) metal.add(cyl(P.crystal3.r, P.crystal3.l, seg, s.x, 0, s.z, METAL.can, { alongX: true, squash: 0.62 }));
+  for (const s of P.crystals) if (!off(s.x, s.z)) metal.add(cyl(P.crystal3.r, P.crystal3.l, seg, s.x, 0, s.z, METAL.can, { alongX: true, squash: 0.62 }));
 
   // Regulateur TO-220 debout, sa languette, son dissipateur vertical a ailettes
-  {
+  if (!off(P.regulator.x, P.regulator.z)) {
     const r = P.regulator;
     for (const k of [-1, 0, 1]) metal.add(box(0.035, 0.1, 0.035, r.x + k * 0.1, 0.05, r.z + 0.05, METAL.leg));
     parts.add(box(0.4, 0.3, 0.16, r.x, 0.1 + 0.15, r.z + 0.05, RGB.chip));
@@ -716,7 +740,7 @@ function buildParts(mobile: boolean, variant: PcbVariant, chips: readonly ChipSp
   }
 
   // Connecteur de nappe 2 x 8 : boitier noir, broches dorees
-  {
+  if (!off(P.header.x, P.header.z)) {
     const h = P.header;
     const H = HEADER;
     parts.add(box(H.w, 0.04, H.d, h.x, 0.02, h.z, RGB.shroud));
@@ -728,7 +752,7 @@ function buildParts(mobile: boolean, variant: PcbVariant, chips: readonly ChipSp
   }
 
   // Bornier a vis 3 points : bloc bleu, entrees des fils, vis et leur fente
-  {
+  if (!off(P.terminal.x, P.terminal.z)) {
     const t = P.terminal;
     const w = t.n * TERM.pitch;
     parts.add(box(w, TERM.h, TERM.d, t.x, TERM.h / 2, t.z, RGB.block));
@@ -769,6 +793,7 @@ function buildParts(mobile: boolean, variant: PcbVariant, chips: readonly ChipSp
 
   // Les composants de plus (2026-10-03)
   for (const e of extrasOf(variant)) {
+    if (off(e.x, e.z)) continue;
     const S = EXTRA_SIZE[e.kind];
     if (e.kind === 'trim') {
       // Trimmer : boitier carre bleu, rotor blanc et sa fente en croix
@@ -1002,7 +1027,8 @@ export class Pcb {
 
   /**
    * model : la ligne de modele de la serigraphie (MM-VOYAGER, 2026-10-03), MM-808 par defaut ; variant : la carte ;
-   * chips false : une carte sans les puces des pages (le MM-ARP depuis le 2026-10-04 : ses TWEAKS a leur place)
+   * chips false : une carte sans les puces des pages (le MM-ARP depuis le 2026-10-04 : ses TWEAKS a leur place) ;
+   * clear : une zone sans composant de decor (la plaque des TWEAKS du MM-RYTM, qu'ils traversaient)
    */
   private model: string | null;
   private variant: PcbVariant;
@@ -1010,7 +1036,10 @@ export class Pcb {
   readonly chips: readonly ChipSpec[];
   private pour: { x0: number; z0: number; x1: number; z1: number };
 
-  constructor(mobile: boolean, anisotropy: number, opts: { model?: string; variant?: PcbVariant; chips?: boolean } = {}) {
+  private clear: PcbClear | null;
+
+  constructor(mobile: boolean, anisotropy: number, opts: { model?: string; variant?: PcbVariant; chips?: boolean; clear?: PcbClear } = {}) {
+    this.clear = opts.clear ?? null;
     this.model = opts.model ?? null;
     this.variant = opts.variant ?? 'mm808';
     this.chips = opts.chips === false ? [] : BOARD_CHIPS;
@@ -1051,7 +1080,7 @@ export class Pcb {
     this.envTex.mapping = EquirectangularReflectionMapping;
     this.envTex.colorSpace = SRGBColorSpace;
 
-    this.prints = footprints(this.variant, this.chips);
+    this.prints = footprints(this.variant, this.chips, this.clear);
 
     // Relief plat tant que la carte n'est pas dessinee
     const nrm = canvas2d(4, 4);
@@ -1083,7 +1112,7 @@ export class Pcb {
     this.board = new Mesh(buildBoard(W, H), this.boardMat);
     this.board.name = 'pcbBoard';
 
-    const built = buildParts(mobile, this.variant, this.chips);
+    const built = buildParts(mobile, this.variant, this.chips, this.clear);
     this.ranges = built.ranges;
     this.atlas = built.atlas;
     for (const g of [built.parts, built.metal, built.labels]) {

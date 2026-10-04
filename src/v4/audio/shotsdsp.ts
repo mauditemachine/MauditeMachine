@@ -30,6 +30,43 @@ import { timeStretch } from './stretch';
 
 export type ShotId = Inst | 'CHopen';
 
+/** Le son d'une famille de voix (audio/kit.ts) : a la facon d'une 909, d'une 808, ou celui du MM-RYTM d'avant. */
+export type KitModel = '909' | '808' | 'mm';
+
+/**
+ * Ce que le calcul d'un son sait du kit (audio/kit.ts, passe au worker) :
+ * son modele, et les reglages de 0 a 1 (TUNE, ATTACK, DECAY, DRIVE : le
+ * kick ; SNAPPY : la caisse claire). Sans lui : MM et les reglages de
+ * depart, le son d'avant.
+ */
+export interface ShotTweak {
+  model: KitModel;
+  tune: number;
+  attack: number;
+  decay: number;
+  drive: number;
+  snappy: number;
+}
+
+const TWEAK_MM: ShotTweak = { model: 'mm', tune: 0.5, attack: 0.5, decay: 0.45, drive: 0.25, snappy: 0.5 };
+
+/**
+ * La hauteur du kick (Hz, le bas du balayage) pour TUNE : une octave de
+ * course, centree sur la note de chaque machine (909 et MM : 52 Hz, 808 :
+ * 49 Hz).
+ */
+export function kickHz(m: KitModel, tune: number): number {
+  const base = m === '808' ? 49 : 52;
+  return base * Math.pow(2, tune - 0.5);
+}
+
+/** La constante de temps de la queue du kick (s) pour DECAY : la 808 tient bien plus longtemps que la 909. */
+export function kickDecayS(m: KitModel, decay: number): number {
+  if (m === '808') return 0.16 * Math.pow(8, decay);
+  if (m === '909') return 0.09 * Math.pow(7, decay);
+  return 0.06 * Math.pow(4, decay);
+}
+
 /** Surechantillonnage du calcul. */
 const OS = 4;
 const TAU = Math.PI * 2;
@@ -337,22 +374,26 @@ export interface Shot {
  * 1.6 kHz, 2 ms) ; queue de 120 ms. Avant : la balle de tennis (attaque a
  * 380 Hz, saturation 3.2, "pok" a 1.15 kHz et souffle a 2.2 kHz).
  */
-function bd(sr: number, ts: number, r: () => number): Shot {
+function bd(sr: number, ts: number, r: () => number, tw: ShotTweak = TWEAK_MM): Shot {
   const fs = sr * OS;
-  const len = Math.round(fs * Math.max(0.16, 0.42 * ts));
+  // Le kit (2026-10-04) : TUNE deplace tout le balayage, DECAY la queue, ATTACK le clic, DRIVE la saturation (1.5 au depart)
+  const kf = kickHz('mm', tw.tune) / 52;
+  const tauA = kickDecayS('mm', tw.decay) * ts;
+  const len = Math.round(fs * Math.max(0.16, Math.min(2, 3.5 * tauA)));
   const x = new Float64Array(len);
   const bp = new Bq('bp', 1600, 0.8, fs);
-  const tauA = 0.12 * ts;
-  const drive = Math.tanh(1.5);
+  const k = 1.5 * (0.4 + 2.4 * tw.drive);
+  const drive = Math.tanh(k);
+  const clickAmt = 0.36 * tw.attack;
   let ph = 0;
   for (let i = 0; i < len; i += 1) {
     const t = i / fs;
-    const f = 52 + 125 * Math.exp(-t / 0.009) + 22 * Math.exp(-t / 0.045);
+    const f = (52 + 125 * Math.exp(-t / 0.009) + 22 * Math.exp(-t / 0.045)) * kf;
     ph += f / fs;
     const amp = (1 - Math.exp(-t / 0.0008)) * Math.exp(-t / tauA) * (1 + 0.2 * Math.exp(-t / 0.02));
     const b = Math.sin(TAU * ph) * amp;
-    const body = Math.tanh(1.5 * b) / drive;
-    const click = 0.18 * bp.run(r() * 2 - 1) * Math.exp(-t / 0.002);
+    const body = Math.tanh(k * b) / drive;
+    const click = clickAmt * bp.run(r() * 2 - 1) * Math.exp(-t / 0.002);
     x[i] = body + click;
   }
   fadeOut(x, fs, Math.min(0.04, len / fs / 4));
@@ -370,8 +411,10 @@ function bd(sr: number, ts: number, r: () => number): Shot {
  * porte : une piece claire (RT60 1.1 s, en stereo) a -10 dB, ouverte 130 ms
  * et fermee en 40 ms.
  */
-function sd(sr: number, ts: number, r: () => number): Shot {
+function sd(sr: number, ts: number, r: () => number, tw: ShotTweak = TWEAK_MM): Shot {
   const fs = sr * OS;
+  // SNAPPY (2026-10-04) : le timbre, 1 au depart (0.5), de rien a deux fois plus
+  const wiresK = 2 * tw.snappy;
   const dryS = Math.max(0.12, 0.3 * ts);
   const len = Math.round(fs * dryS);
   const x = new Float64Array(len);
@@ -393,7 +436,7 @@ function sd(sr: number, ts: number, r: () => number): Shot {
     const wiresEnv = (1 - Math.exp(-t / 0.0005)) * (0.85 * Math.exp(-t / (0.05 * ts)) + 0.15 * Math.exp(-t / (0.13 * ts)));
     const wires = top.run(air.run(pkF.run(hp1.run(n)))) * wiresEnv;
     const crack = crackBp.run(r() * 2 - 1) * Math.exp(-t / 0.002);
-    x[i] = sat(0.8 * body + 1.5 * wires + 2 * crack, 1.3);
+    x[i] = sat(0.8 * body + 1.5 * wiresK * wires + 2 * crack, 1.3);
   }
   fadeOut(x, fs, 0.03);
   const dry = decimate(x);
@@ -607,40 +650,331 @@ function pc(sr: number, ts: number, r: () => number): Shot {
   return { L: y, R: y };
 }
 
+/* ---------------- les sons a la facon de la 909 et de la 808 (2026-10-04, audio/kit.ts) ---------------- */
+
+/** Un front de 1.5 ms filtre en bande : le clic d'un declencheur (la frappe d'une 909, le tic d'une 808). */
+function trigClick(bp: Bq, t: number): number {
+  return bp.run(t < 0.0015 ? 1 : 0);
+}
+
+/**
+ * KICK 909 (Mika : "le kick sonne flat.. met un kick de 909") : la frappe
+ * d'abord. Le balayage descend tres vite (de 4.4 fois la note a la note,
+ * 4.5 ms, puis un reste de 30 ms), l'oscillateur est un sinus un peu
+ * pince (un quart de triangle : le grain de l'original), la queue
+ * exponentielle (DECAY : 90 ms a 630 ms) ; ATTACK : le clic du
+ * declencheur (un front filtre vers 3.2 kHz) et un souffle tres bref
+ * (bruit sous 5 kHz, 3 ms) ; DRIVE : la saturation (tanh 1.2 a 5.2).
+ */
+function bd909(sr: number, ts: number, r: () => number, tw: ShotTweak): Shot {
+  const fs = sr * OS;
+  const f0 = kickHz('909', tw.tune);
+  const tau = kickDecayS('909', tw.decay) * ts;
+  const len = Math.round(fs * Math.max(0.25, Math.min(2.5, 6 * tau + 0.05)));
+  const x = new Float64Array(len);
+  const clickBp = new Bq('bp', 3200, 0.7, fs);
+  const noiseLp = new Bq('lp', 5000, 0.7, fs);
+  const k = 1.2 + 4 * tw.drive;
+  const amt = 2 * tw.attack;
+  let ph = 0;
+  for (let i = 0; i < len; i += 1) {
+    const t = i / fs;
+    const f = f0 * (1 + 3.4 * Math.exp(-t / 0.0045) + 0.45 * Math.exp(-t / 0.03));
+    ph += f / fs;
+    const osc = 0.85 * Math.sin(TAU * ph) + 0.15 * tri(ph + 0.25);
+    const amp = (1 - Math.exp(-t / 0.0004)) * Math.exp(-t / tau);
+    const click = amt * (0.9 * trigClick(clickBp, t) + 0.3 * noiseLp.run(r() * 2 - 1) * Math.exp(-t / 0.003));
+    x[i] = sat(osc * amp + click, k);
+  }
+  fadeOut(x, fs, Math.min(0.05, len / fs / 4));
+  const y = decimate(x);
+  dcBlock(y, sr, 18);
+  return { L: y, R: y };
+}
+
+/**
+ * KICK 808 : le resonateur en T ponte, un sinus presque pur qui ne
+ * descend que d'un quart (10 ms), la longue queue du boom (DECAY : 160 ms
+ * a 1.3 s) ; ATTACK : le petit tic du declencheur (vers 1.1 kHz) ; DRIVE :
+ * de la rondeur a la saturation (tanh 0.6 a 3.6).
+ */
+function bd808(sr: number, ts: number, r: () => number, tw: ShotTweak): Shot {
+  const fs = sr * OS;
+  const f0 = kickHz('808', tw.tune);
+  const tau = kickDecayS('808', tw.decay) * ts;
+  const len = Math.round(fs * Math.max(0.3, Math.min(3, 5.5 * tau + 0.05)));
+  const x = new Float64Array(len);
+  const clickBp = new Bq('bp', 1100, 0.9, fs);
+  const k = 0.6 + 3 * tw.drive;
+  const amt = 0.7 * tw.attack;
+  let ph = 0;
+  for (let i = 0; i < len; i += 1) {
+    const t = i / fs;
+    ph += (f0 * (1 + 0.3 * Math.exp(-t / 0.01))) / fs;
+    const amp = (1 - Math.exp(-t / 0.0005)) * Math.exp(-t / tau);
+    x[i] = sat(Math.sin(TAU * ph) * amp + amt * trigClick(clickBp, t) + 0.05 * amt * (r() * 2 - 1) * Math.exp(-t / 0.001), k);
+  }
+  fadeOut(x, fs, Math.min(0.08, len / fs / 4));
+  const y = decimate(x);
+  dcBlock(y, sr, 16);
+  return { L: y, R: y };
+}
+
+/**
+ * SNARE 909 : deux oscillateurs (175 et 330 Hz, qui se posent en 6 a 8 ms)
+ * sous un bruit large (sous 7 kHz, au-dessus de 600 Hz, 110 ms) ; SNAPPY :
+ * la part du bruit (0.3 a 2.1). Sec, sans piece : la 909.
+ */
+function sd909(sr: number, ts: number, r: () => number, tw: ShotTweak): Shot {
+  const fs = sr * OS;
+  const len = Math.round(fs * Math.max(0.15, 0.36 * ts));
+  const x = new Float64Array(len);
+  const lp = new Bq('lp', 7000, 0.7, fs);
+  const hp = new Bq('hp', 600, 0.7, fs);
+  const snap = 0.3 + 3.6 * tw.snappy * 0.5;
+  let p1 = 0;
+  let p2 = 0;
+  for (let i = 0; i < len; i += 1) {
+    const t = i / fs;
+    p1 += (175 * (1 + 0.6 * Math.exp(-t / 0.008))) / fs;
+    p2 += (330 * (1 + 0.3 * Math.exp(-t / 0.006))) / fs;
+    const tone = Math.sin(TAU * p1) * Math.exp(-t / (0.06 * ts)) + 0.6 * Math.sin(TAU * p2) * Math.exp(-t / (0.04 * ts));
+    const nEnv = (1 - Math.exp(-t / 0.0004)) * Math.exp(-t / (0.11 * ts));
+    x[i] = sat(0.9 * tone + snap * hp.run(lp.run(r() * 2 - 1)) * nEnv, 1.4);
+  }
+  fadeOut(x, fs, 0.03);
+  const y = decimate(x);
+  dcBlock(y, sr, 50);
+  return { L: y, R: y };
+}
+
+/**
+ * SNARE 808 : deux resonateurs (238 et 476 Hz, brefs) et le timbre, du
+ * bruit au-dessus de 1.8 kHz (100 ms) ; SNAPPY : sa part (0.2 a 1.6).
+ */
+function sd808(sr: number, ts: number, r: () => number, tw: ShotTweak): Shot {
+  const fs = sr * OS;
+  const len = Math.round(fs * Math.max(0.12, 0.3 * ts));
+  const x = new Float64Array(len);
+  const hp = new Bq('hp', 1800, 0.7, fs);
+  const snap = 0.2 + 2.8 * tw.snappy * 0.5;
+  let p1 = 0;
+  let p2 = 0;
+  for (let i = 0; i < len; i += 1) {
+    const t = i / fs;
+    p1 += (238 * (1 + 0.08 * Math.exp(-t / 0.004))) / fs;
+    p2 += 476 / fs;
+    const tone = Math.sin(TAU * p1) * Math.exp(-t / (0.05 * ts)) + 0.65 * Math.sin(TAU * p2) * Math.exp(-t / (0.035 * ts));
+    const nEnv = (1 - Math.exp(-t / 0.0005)) * Math.exp(-t / (0.1 * ts));
+    x[i] = sat(0.85 * tone + snap * hp.run(r() * 2 - 1) * nEnv, 1.2);
+  }
+  fadeOut(x, fs, 0.03);
+  const y = decimate(x);
+  dcBlock(y, sr, 60);
+  return { L: y, R: y };
+}
+
+/** Les tenues des charleys : ferme, ferme tenu (pad CH tenu), ouvert. */
+const HAT_KIND = { CH: 0, CHopen: 1, OH: 2 } as const;
+
+/**
+ * HATS 909 : plus de souffle que de metal (la 909 jouait des echantillons
+ * de vraies cymbales, en 6 bits) : six carres plus aigus que ceux de la 808
+ * (x1.47) en bande vers 11 kHz, autant de bruit au-dessus de 9 kHz, et le
+ * grain des 6 bits (le signal arrondi au soixante-quatrieme) adouci
+ * au-dessus de 15 kHz. Tenues : 35 ms, 120 ms, 320 ms.
+ */
+function hat909(sr: number, ts: number, r: () => number, id: 'CH' | 'CHopen' | 'OH'): Shot {
+  const fs = sr * OS;
+  const kind = HAT_KIND[id];
+  const d = [0.035, 0.12, 0.32][kind] * ts * (0.95 + 0.1 * r());
+  const len = Math.round(fs * Math.max(0.05, Math.min(1.5, 5 * d + 0.02)));
+  const x = new Float64Array(len);
+  const ph = METAL_HZ.map(() => r());
+  const bp = new Bq('bp', 11000, 0.8, fs);
+  const hp1 = new Bq('hp', 8000, 0.7, fs);
+  const hp2 = new Bq('hp', 8000, 0.7, fs);
+  const nhp = new Bq('hp', 9000, 0.7, fs);
+  const top = new Bq('lp', 15000, 0.7, fs);
+  for (let i = 0; i < len; i += 1) {
+    const t = i / fs;
+    let m = 0;
+    for (let k = 0; k < 6; k += 1) m += sq(ph[k] + METAL_HZ[k] * 1.47 * t);
+    m /= 6;
+    const env = (1 - Math.exp(-t / 0.0002)) * Math.exp(-t / d);
+    const v = (0.8 * hp2.run(hp1.run(bp.run(m))) + 0.7 * nhp.run(r() * 2 - 1)) * env;
+    x[i] = top.run(Math.round(v * 64) / 64);
+  }
+  fadeOut(x, fs, Math.min(0.03, len / fs / 3));
+  const y = decimate(x);
+  return { L: y, R: y };
+}
+
+/**
+ * HATS 808 : le metal seul, les six carres de la 808 en deux bandes
+ * etroites (3.44 et 7.1 kHz) puis au-dessus de 6.6 kHz, un soupcon de
+ * bruit. Tenues : 45 ms, 180 ms, 400 ms.
+ */
+function hat808(sr: number, ts: number, r: () => number, id: 'CH' | 'CHopen' | 'OH'): Shot {
+  const fs = sr * OS;
+  const kind = HAT_KIND[id];
+  const d = [0.045, 0.18, 0.4][kind] * ts * (0.95 + 0.1 * r());
+  const len = Math.round(fs * Math.max(0.05, Math.min(1.8, 5 * d + 0.02)));
+  const x = new Float64Array(len);
+  const ph = METAL_HZ.map(() => r());
+  const bp1 = new Bq('bp', 3440, 3, fs);
+  const bp2 = new Bq('bp', 7100, 3, fs);
+  const hp1 = new Bq('hp', 6600, 0.7, fs);
+  const hp2 = new Bq('hp', 6600, 0.7, fs);
+  for (let i = 0; i < len; i += 1) {
+    const t = i / fs;
+    let m = 0;
+    for (let k = 0; k < 6; k += 1) m += sq(ph[k] + METAL_HZ[k] * t);
+    m /= 6;
+    const env = (1 - Math.exp(-t / 0.0002)) * Math.exp(-t / d);
+    x[i] = hp2.run(hp1.run(bp1.run(m) + 1.2 * bp2.run(m) + 0.05 * (r() * 2 - 1))) * env * 2.2;
+  }
+  fadeOut(x, fs, Math.min(0.03, len / fs / 3));
+  const y = decimate(x);
+  return { L: y, R: y };
+}
+
+/**
+ * CLAP 909 et 808 : des rafales de bruit en bande (909 : trois, 8 ms
+ * d'ecart, vers 1.15 kHz, une queue de 110 ms et une petite piece ; 808 :
+ * quatre, 11 ms d'ecart, vers 1 kHz, une queue de 180 ms qui fait la piece).
+ */
+function cpModel(sr: number, ts: number, r: () => number, m: '909' | '808'): Shot {
+  const fs = sr * OS;
+  const is909 = m === '909';
+  const n = is909 ? 3 : 4;
+  const gap = is909 ? 0.008 : 0.011;
+  const offs = Array.from({ length: n }, (_, k) => (k === 0 ? 0 : k * gap + (r() - 0.5) * 0.0015));
+  const tailT = offs[n - 1];
+  const tailTau = (is909 ? 0.11 : 0.18) * ts;
+  const len = Math.round(fs * (tailT + Math.max(0.12, 5 * tailTau)));
+  const bp = new Bq('bp', is909 ? 1150 : 1000, is909 ? 2.2 : 1.8, fs);
+  const hp = new Bq('hp', is909 ? 700 : 500, 0.7, fs);
+  const x = new Float64Array(len);
+  for (let i = 0; i < len; i += 1) {
+    const t = i / fs;
+    let e = 0;
+    for (let k = 0; k < n; k += 1) {
+      const u = t - offs[k];
+      if (u < 0) continue;
+      const a = 1 - Math.exp(-u / 0.0003);
+      e += k < n - 1 ? a * Math.exp(-u / 0.004) : a * Math.exp(-u / tailTau);
+    }
+    x[i] = sat(hp.run(bp.run(r() * 2 - 1)) * e * 2.2, 1.3);
+  }
+  fadeOut(x, fs, 0.03);
+  const dry = decimate(x);
+  if (!is909) return { L: dry, R: dry };
+  const total = dry.length + Math.round(0.1 * sr);
+  const [wl, wr] = fdn(dry, sr, total, 0.35, 6500, 3, 0.5);
+  const L = new Float32Array(total);
+  const R = new Float32Array(total);
+  for (let i = 0; i < total; i += 1) {
+    const fade = i > total - 0.06 * sr ? 0.5 + 0.5 * Math.cos((Math.PI * (i - (total - 0.06 * sr))) / (0.06 * sr)) : 1;
+    const d = i < dry.length ? dry[i] : 0;
+    L[i] = d + 0.12 * wl[i] * fade;
+    R[i] = d + 0.12 * wr[i] * fade;
+  }
+  return { L, R };
+}
+
+/**
+ * TOMS 909 et 808 (TOM le grave, HT l'aigu) : la 909, un sinus un peu
+ * pince qui se pose (de 1.5 fois la note, 50 ms) et du bruit a l'attaque ;
+ * la 808, un sinus pur, a peine glisse, plus long.
+ */
+function tomModel(sr: number, ts: number, r: () => number, m: '909' | '808', high: boolean): Shot {
+  const fs = sr * OS;
+  const is909 = m === '909';
+  const to = is909 ? (high ? 175 : 105) : high ? 160 : 90;
+  const from = to * (is909 ? 1.5 : 1.2);
+  const tau = (is909 ? (high ? 0.17 : 0.22) : high ? 0.25 : 0.35) * ts;
+  const len = Math.round(fs * Math.max(0.12, Math.min(2, 5 * tau)));
+  const x = new Float64Array(len);
+  const bp = new Bq('bp', 1500, 0.9, fs);
+  let ph = 0;
+  for (let i = 0; i < len; i += 1) {
+    const t = i / fs;
+    ph += (to + (from - to) * Math.exp(-t / (is909 ? 0.05 : 0.02))) / fs;
+    const osc = is909 ? 0.85 * Math.sin(TAU * ph) + 0.15 * tri(ph + 0.25) : Math.sin(TAU * ph);
+    const a = (1 - Math.exp(-t / 0.0004)) * Math.exp(-t / tau);
+    const noise = (is909 ? 0.35 : 0.08) * bp.run(r() * 2 - 1) * Math.exp(-t / (is909 ? 0.02 : 0.004));
+    x[i] = sat(osc * a + noise, is909 ? 1.6 : 1.1);
+  }
+  fadeOut(x, fs, 0.03);
+  const y = decimate(x);
+  dcBlock(y, sr, 30);
+  return { L: y, R: y };
+}
+
+/**
+ * RIM 909 et 808 : la 909, trois oscillateurs (500 Hz, 1.7 kHz et un carre
+ * a 820 Hz) tres brefs et un claquement, satures fort : le "tac" sec ; la
+ * 808, ses deux resonateurs (1667 et 455 Hz).
+ */
+function rsModel(sr: number, ts: number, r: () => number, m: '909' | '808'): Shot {
+  const fs = sr * OS;
+  const is909 = m === '909';
+  const len = Math.round(fs * Math.max(0.05, 0.09 * ts));
+  const x = new Float64Array(len);
+  const bp = new Bq('bp', 5000, 1.2, fs);
+  const hp = new Bq('hp', is909 ? 300 : 200, 0.7, fs);
+  for (let i = 0; i < len; i += 1) {
+    const t = i / fs;
+    const a = 1 - Math.exp(-t / 0.0002);
+    const v = is909
+      ? (Math.sin(TAU * 500 * t) * Math.exp(-t / (0.012 * ts)) + 0.7 * Math.sin(TAU * 1700 * t) * Math.exp(-t / (0.006 * ts)) + 0.4 * sq(820 * t) * Math.exp(-t / 0.004)) * a +
+        0.6 * bp.run(r() * 2 - 1) * Math.exp(-t / 0.0015)
+      : (Math.sin(TAU * 1667 * t) * Math.exp(-t / (0.006 * ts)) + 0.8 * Math.sin(TAU * 455 * t) * Math.exp(-t / (0.018 * ts))) * a +
+        0.2 * bp.run(r() * 2 - 1) * Math.exp(-t / 0.001);
+    x[i] = sat(hp.run(v), is909 ? 2.6 : 1.4);
+  }
+  fadeOut(x, fs, 0.015);
+  const y = decimate(x);
+  return { L: y, R: y };
+}
+
 /** Calcule un son, normalise a sa crete (SHOT_PEAK). Deterministe : (son, variante, STRETCH, frequence). */
-export function renderShot(id: ShotId, sr: number, stretch: number, variant: number): Shot {
+export function renderShot(id: ShotId, sr: number, stretch: number, variant: number, tw: ShotTweak = TWEAK_MM): Shot {
   // STRETCH (2026-10-04) : le son a sa duree naturelle, puis etire en grains facon Impulse (audio/stretch.ts)
   const ts = 1;
   const seed = 0x9e3779b1 ^ (id.charCodeAt(0) * 7919 + id.charCodeAt(1) * 104729 + id.length * 131 + variant * 2654435761);
   const r = rng(seed);
+  // Le kit (audio/kit.ts) : le son de la famille, a la facon d'une 909 ou d'une 808 ; MM : ceux d'avant
+  const m = tw.model;
   let s: Shot;
   switch (id) {
     case 'BD':
-      s = bd(sr, ts, r);
+      s = m === '909' ? bd909(sr, ts, r, tw) : m === '808' ? bd808(sr, ts, r, tw) : bd(sr, ts, r, tw);
       break;
     case 'SD':
-      s = sd(sr, ts, r);
+      s = m === '909' ? sd909(sr, ts, r, tw) : m === '808' ? sd808(sr, ts, r, tw) : sd(sr, ts, r, tw);
       break;
     case 'TOM':
-      s = tom(sr, ts, r, 98, 168, 0.17);
+      s = m === 'mm' ? tom(sr, ts, r, 98, 168, 0.17) : tomModel(sr, ts, r, m, false);
       break;
     case 'HT':
-      s = tom(sr, ts, r, 165, 260, 0.13);
+      s = m === 'mm' ? tom(sr, ts, r, 165, 260, 0.13) : tomModel(sr, ts, r, m, true);
       break;
     case 'CH':
-      s = hat(sr, ts, r, 0.016, [0.08, 0.05], 0.09, 9500);
+      s = m === '909' ? hat909(sr, ts, r, id) : m === '808' ? hat808(sr, ts, r, id) : hat(sr, ts, r, 0.016, [0.08, 0.05], 0.09, 9500);
       break;
     case 'CHopen':
-      s = hat(sr, ts, r, 0.06, [0.25, 0.16], 0.32, 9200);
+      s = m === '909' ? hat909(sr, ts, r, id) : m === '808' ? hat808(sr, ts, r, id) : hat(sr, ts, r, 0.06, [0.25, 0.16], 0.32, 9200);
       break;
     case 'OH':
-      s = hat(sr, ts, r, 0.09, [0.3, 0.28], 0.6, 8500);
+      s = m === '909' ? hat909(sr, ts, r, id) : m === '808' ? hat808(sr, ts, r, id) : hat(sr, ts, r, 0.09, [0.3, 0.28], 0.6, 8500);
       break;
     case 'CP':
-      s = cp(sr, ts, r);
+      s = m === 'mm' ? cp(sr, ts, r) : cpModel(sr, ts, r, m);
       break;
     case 'RS':
-      s = rs(sr, ts, r);
+      s = m === 'mm' ? rs(sr, ts, r) : rsModel(sr, ts, r, m);
       break;
     case 'CY':
       s = cy(sr, ts, r);
@@ -655,7 +989,9 @@ export function renderShot(id: ShotId, sr: number, stretch: number, variant: num
     } else s = { L: timeStretch(s.L, stretch, sr), R: timeStretch(s.R, stretch, sr) };
   }
   const p = peakOf(s.L === s.R ? [s.L] : [s.L, s.R]);
-  const k = p > 0 ? Math.pow(10, SHOT_PEAK[id] / 20) / p : 1;
+  // Le kick 909 et le 808 tiennent plus longtemps que celui d'avant : 1.5 et 2 dB plus bas, le 909 frappe encore un peu plus fort
+  const trim = id === 'BD' ? (m === '909' ? -1.5 : m === '808' ? -2 : 0) : 0;
+  const k = p > 0 ? Math.pow(10, (SHOT_PEAK[id] + trim) / 20) / p : 1;
   for (let i = 0; i < s.L.length; i += 1) s.L[i] *= k;
   if (s.R !== s.L) for (let i = 0; i < s.R.length; i += 1) s.R[i] *= k;
   return s;

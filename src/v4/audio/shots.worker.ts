@@ -5,7 +5,7 @@
  * (transferes, sans copie) ; audio/shots.ts en fait des AudioBuffer.
  */
 
-import { renderShot, type ShotId } from './shotsdsp';
+import { renderShot, type ShotId, type ShotTweak } from './shotsdsp';
 
 interface Job {
   key: string;
@@ -13,6 +13,8 @@ interface Job {
   sr: number;
   ts: number;
   v: number;
+  /** le kit du MM-RYTM pour ce son (audio/kit.ts) */
+  tw?: ShotTweak;
 }
 
 const scope = self as unknown as {
@@ -23,7 +25,7 @@ const scope = self as unknown as {
 scope.onmessage = (e) => {
   const j = e.data;
   const t0 = performance.now();
-  const s = renderShot(j.id, j.sr, j.ts, j.v);
+  const s = renderShot(j.id, j.sr, j.ts, j.v, j.tw);
   const mono = s.L === s.R;
   const ms = performance.now() - t0;
   scope.postMessage({ key: j.key, L: s.L, R: mono ? null : s.R, ms }, mono ? [s.L.buffer] : [s.L.buffer, s.R.buffer]);

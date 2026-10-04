@@ -26,6 +26,7 @@ import { MACHINES, type MachineId } from '../state/focus';
 import type { PresetKey } from '../state/presetMode';
 import { HIT, type ChipId, type EncId, type Inst, type SectionId } from '../theme';
 import type { VoyKnobId } from '../voyager/params';
+import type { KitId } from '../audio/kit';
 
 /**
  * pad (voix), page (pads de navigation), open, step, run, clear, chip
@@ -59,6 +60,8 @@ export type HotspotKind =
   | 'vbtn'
   | 'vknob'
   | 'vchip'
+  // MM-RYTM (2026-10-04) : les TWEAKS sous le capot (audio/kit.ts)
+  | 'rknob'
   // MM-DECKS (2026-10-04) : potards, faders, touches, jogs
   | 'djknob'
   | 'djfader'
@@ -100,6 +103,8 @@ export interface HotspotDef {
   /** une touche de l'ecran (mode presets) */
   lcd?: PresetKey;
   vknob?: VoyKnobId;
+  /** MM-RYTM : un TWEAK du kit (audio/kit.ts) */
+  rknob?: KitId;
   /** MM-DECKS : l'id de la commande (dj/layout.ts) */
   dj?: string;
 }
@@ -132,6 +137,7 @@ export interface HotspotView {
   /** une touche de l'ecran (mode presets) */
   lcd?: PresetKey;
   vknob?: VoyKnobId;
+  rknob?: KitId;
   /** rectangle cible : la boite projetee, elargie a 48 x 48 (tactile) ou 32 x 32 (souris) autour du centre */
   x: number;
   y: number;
@@ -618,6 +624,7 @@ export class HitMap {
         ...(def.vbtn ? { vbtn: def.vbtn } : {}),
         ...(def.lcd ? { lcd: def.lcd } : {}),
         ...(def.vknob ? { vknob: def.vknob } : {}),
+        ...(def.rknob ? { rknob: def.rknob } : {}),
         x: r1(rect[0]),
         y: r1(rect[1]),
         w: r1(rect[2]),

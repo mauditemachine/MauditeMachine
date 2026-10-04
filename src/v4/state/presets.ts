@@ -8,14 +8,16 @@
  * - MM-ARP : tous les potards, la suite de l'arpege (AUTO ou EDIT) et la
  *   progression d'accords ; recharger ne lance ni n'arrete l'arpege.
  * - MM-RYTM : le motif et ses velocites, le tempo, SWING STRETCH DIST
- *   CHORUS DELAY REVERB, et les effets de chaque voix (MASTER reste : un
- *   preset ne fait jamais sauter le niveau).
+ *   CHORUS DELAY REVERB, les effets de chaque voix (MASTER reste : un
+ *   preset ne fait jamais sauter le niveau), et le kit des TWEAKS (les sons
+ *   et le kick, audio/kit.ts, 2026-10-04 ; un preset d'avant ne le touche pas).
  * Gardes dans ce navigateur (localStorage), 60 par machine au plus.
  */
 
 import { pattern, type Fx, type Steps } from '../audio/pattern';
 import { mix, setStretch } from '../audio/drums';
 import { voiceFx, VOICE_PARAMS, type VoiceFx } from '../audio/voicefx';
+import { KIT_IDS, kit, type KitId } from '../audio/kit';
 import type { Inst } from '../theme';
 import { arp } from '../voyager/arp';
 import { VOY_KNOB_IDS, migrateKnobs, voyKnob, voyParams, type VoyValues } from '../voyager/params';
@@ -35,6 +37,8 @@ interface RytmData {
   fx: Fx;
   stretch: number;
   voices: Record<Inst, VoiceFx>;
+  /** les TWEAKS du kit (absent d'un preset d'avant le 2026-10-04) */
+  kit?: Record<KitId, number>;
 }
 
 export interface Preset {
@@ -120,6 +124,7 @@ function capture(m: PresetMachine): VoyData | RytmData {
     fx: { ...pattern.fx.get() },
     stretch: mix.stretch,
     voices: Object.fromEntries(Object.entries(v).map(([k, fx]) => [k, { ...fx }])) as Record<Inst, VoiceFx>,
+    kit: Object.fromEntries(KIT_IDS.map((id) => [id, kit.value(id)])) as Record<KitId, number>,
   };
 }
 
@@ -145,6 +150,7 @@ function apply(m: PresetMachine, d: VoyData | RytmData): void {
   for (const [inst, fx] of Object.entries(r.voices) as [Inst, VoiceFx][]) {
     for (const p of VOICE_PARAMS) if (typeof fx[p] === 'number') voiceFx.set(inst, p, fx[p]);
   }
+  if (r.kit) for (const id of KIT_IDS) if (typeof r.kit[id] === 'number') kit.set(id, r.kit[id]);
 }
 
 export const presets = {

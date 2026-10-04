@@ -10,6 +10,7 @@ import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
 import { ensure, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, trigger } from './audio/drums';
 import { VOICE_FX_DEFAULT, voiceFx, type VoiceParam } from './audio/voicefx';
+import { kit, type KitId } from './audio/kit';
 import { randomBeat, randomColors, type BeatStyle } from './audio/beats';
 import { BPM, INSTRUMENTS, VEL_NAMES, pattern, velocity } from './audio/pattern';
 import { sc } from './audio/soundcloud';
@@ -559,26 +560,43 @@ export function voyDial(id: VoyKnobId, v: number): void {
 }
 
 /**
- * Les potards des deux machines passent par un seul identifiant (la
- * couche de saisie, la molette) : EncId pour la 808, v:<id> pour le
- * MM-VOYAGER.
+ * Un TWEAK du MM-RYTM (2026-10-04, sous le capot, audio/kit.ts) : le son
+ * se recalcule en fond, l'ecran dit le reglage.
  */
-export type DialId = EncId | `v:${VoyKnobId}`;
+export function kitDial(id: KitId, v: number): void {
+  resume();
+  kit.set(id, v);
+  lcdMessage.show(kit.readout(id), POT_UI.readoutMs, true);
+}
+
+/**
+ * Les potards des machines passent par un seul identifiant (la couche de
+ * saisie, la molette) : EncId pour la 808, v:<id> pour le MM-VOYAGER,
+ * r:<id> pour les TWEAKS du MM-RYTM.
+ */
+export type DialId = EncId | `v:${VoyKnobId}` | `r:${KitId}`;
 
 const voyId = (id: DialId): VoyKnobId | null => (id.startsWith('v:') ? (id.slice(2) as VoyKnobId) : null);
+export const kitIdOf = (id: DialId): KitId | null => (id.startsWith('r:') ? (id.slice(2) as KitId) : null);
 
 export function anyDial(id: DialId, v: number): void {
+  const r = kitIdOf(id);
+  if (r) return kitDial(r, v);
   const k = voyId(id);
   if (k) voyDial(k, v);
   else dial(id as EncId, v);
 }
 
 export function anyDialValue(id: DialId): number {
+  const r = kitIdOf(id);
+  if (r) return kit.value(r);
   const k = voyId(id);
   return k ? voyParams.of(k) : dialValue(id as EncId);
 }
 
 export function anyDialReset(id: DialId): number {
+  const r = kitIdOf(id);
+  if (r) return kit.def(r);
   const k = voyId(id);
   return k ? voyParams.def(k) : dialReset(id as EncId);
 }

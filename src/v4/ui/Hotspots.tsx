@@ -60,9 +60,12 @@ import {
   voyPad,
   voyRandom,
   voyRun,
+  kitDial,
+  kitIdOf,
   type DialId,
 } from '../actions';
 import { clock } from '../audio/clock';
+import { KIT_ARIA, KIT_IDS, KIT_MODELS, isFamily, kit, type KitId } from '../audio/kit';
 import { mix } from '../audio/drums';
 import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
 import { BPM, STEP_COUNT, isOn, pattern } from '../audio/pattern';
@@ -177,16 +180,24 @@ export function registerTwin(id: string, el: HTMLElement | null): void {
 }
 
 const isVoy = (k: DialId): boolean => k.startsWith('v:');
-/** Crans d'un potard du MM-ARP (0 : continu, le morphing de WAVE aussi). */
+/** Un TWEAK du MM-RYTM (audio/kit.ts, 2026-10-04) : ses potards de 0 a 1, ses choix de son a trois crans. */
+const isKit = (k: DialId): boolean => k.startsWith('r:');
+/** Crans d'un potard du MM-ARP (0 : continu, le morphing de WAVE aussi) ou d'un TWEAK du MM-RYTM. */
 const voySteps = (k: DialId): number => {
+  const r = kitIdOf(k);
+  if (r) return isFamily(r) ? KIT_MODELS.length : 0;
   if (!isVoy(k)) return 0;
   const vk = voyKnob(k.slice(2) as VoyKnobId);
   return vk.morph ? 0 : (vk.steps?.length ?? 0);
 };
 
+/** Le potard d'une cible : un encodeur de la 808, un potard du MM-ARP, un TWEAK du MM-RYTM. */
+const dialOf = (h: HotspotView | null | undefined): DialId | null =>
+  !h ? null : h.kind === 'encoder' && h.param ? h.param : h.kind === 'vknob' && h.vknob ? (`v:${h.vknob}` as DialId) : h.kind === 'rknob' && h.rknob ? (`r:${h.rknob}` as DialId) : null;
+
 /** Valeur par px de glisser : TEMPO 2 px par BPM, les autres 150 px la course (TONE : 2 unites). */
 const perPx = (k: DialId): number =>
-  isVoy(k) ? 1 / POT_UI.pxRange : k === 'tempo' ? 1 / TEMPO_UI.pxPerBpm : (1 - potMin(k as EncId)) / POT_UI.pxRange;
+  isVoy(k) || isKit(k) ? 1 / POT_UI.pxRange : k === 'tempo' ? 1 / TEMPO_UI.pxPerBpm : (1 - potMin(k as EncId)) / POT_UI.pxRange;
 
 /**
  * L'encodeur d'un glisser qui le tient : valeur de depart + ecart sur son
@@ -297,7 +308,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     /** Deux tapes sur un encodeur en moins de 350 ms : sa valeur de depart. */
     const tapDial = (k: DialId): void => {
       // Un commutateur (MODE du filtre) passe au cran suivant a chaque tape, et reboucle
-      if (isVoy(k) && isSwitch(k.slice(2) as VoyKnobId)) {
+      if ((isVoy(k) && isSwitch(k.slice(2) as VoyKnobId)) || (isKit(k) && voySteps(k) > 1)) {
         const n = voySteps(k);
         const i = Math.round(anyDialValue(k) * (n - 1));
         anyDial(k, ((i + 1) % n) / (n - 1));
@@ -392,7 +403,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         return;
       }
       const encoder: DialId | null =
-        h && h.kind === 'encoder' && h.param ? h.param : h && h.kind === 'vknob' && h.vknob ? (`v:${h.vknob}` as DialId) : null;
+        dialOf(h);
       // Un deuxieme doigt : ni l'un ni l'autre ne glisse d'une machine a l'autre
       const multi = downs.size > 0;
       if (multi) for (const o of downs.values()) o.multi = true;
@@ -556,7 +567,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           return;
         }
       }
-      const k: DialId | null = h && h.kind === 'encoder' && h.param ? h.param : h && h.kind === 'vknob' && h.vknob ? (`v:${h.vknob}` as DialId) : null;
+      const k: DialId | null = dialOf(h);
       if (!k) {
         wheelAcc = 0;
         wheelKind = null;
@@ -582,7 +593,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         // Un potard a crans du MM-ARP : un cran par cran de molette (2 % ne le faisaient jamais bouger)
         const n = voySteps(k);
         const step =
-          k === 'tempo' ? 1 : n > 1 ? 1 / (n - 1) : e.shiftKey ? DIAL_FINE.wheelStep : !isVoy(k) && isBipolar(k as EncId) ? POT_UI.bipolarStep : POT_UI.wheelStep;
+          k === 'tempo' ? 1 : n > 1 ? 1 / (n - 1) : e.shiftKey ? DIAL_FINE.wheelStep : !isVoy(k) && !isKit(k) && isBipolar(k as EncId) ? POT_UI.bipolarStep : POT_UI.wheelStep;
         anyDial(k, Math.round((anyDialValue(k) + steps * step) * 1000) / 1000);
       }
     };
@@ -696,6 +707,35 @@ const onDialKey =
     dial(k, k === 'tempo' ? v : Math.round(v * 100) / 100);
   };
 
+/** Les fleches sur un TWEAK du kit : un centieme (Maj : un dixieme), un cran pour un choix de son. */
+const onKitKey =
+  (k: KitId) =>
+  (e: React.KeyboardEvent<HTMLElement>): void => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    const step = isFamily(k) ? 0.5 : e.shiftKey ? DIAL_KEYS.pot.big : DIAL_KEYS.pot.step;
+    let v = kit.value(k);
+    switch (e.key) {
+      case 'ArrowUp':
+      case 'ArrowRight':
+        v += step;
+        break;
+      case 'ArrowDown':
+      case 'ArrowLeft':
+        v -= step;
+        break;
+      case 'Home':
+        v = 0;
+        break;
+      case 'End':
+        v = 1;
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    kitDial(k, Math.min(1, Math.max(0, Math.round(v * 100) / 100)));
+  };
+
 const pct = (v: number): number => Math.round(v * 100);
 
 /** "TRACKS" -> "Tracks" */
@@ -775,6 +815,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   }, [off]);
   const showChips = s !== 'closed';
   const live = chipsLive(s);
+  const kitNow = useSyncExternalStore(kit.subscribe, kit.get, kit.get);
   const pressed = s === 'opening' || s === 'open';
   const inst = p.instrument;
   const sel = p.instrument ? vfx[p.instrument] : VOICE_FX_DEFAULT;
@@ -998,6 +1039,31 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
         />
       ))}
       {chips}
+      {showChips &&
+        KIT_IDS.map((k) => {
+          // Les TWEAKS du kit (2026-10-04) : juste apres OPEN qui les decouvre, au clavier comme a la souris
+          const id = `rk-${k}`;
+          const sw = isFamily(k);
+          const v = sw ? KIT_MODELS.indexOf(kitNow.model[k]) / 2 : kitNow.knob[k];
+          return (
+            <div
+              key={id}
+              ref={refFor(id)}
+              className="v4-twin"
+              data-twin="rknob"
+              data-hotspot={id}
+              role="slider"
+              tabIndex={live ? 0 : -1}
+              aria-label={KIT_ARIA[k]}
+              aria-orientation="vertical"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(v * 100)}
+              aria-valuetext={kit.readout(k)}
+              onKeyDown={onKitKey(k)}
+            />
+          );
+        })}
       {ENCODERS.map((enc) => {
         const id = `enc-${enc.id}`;
         const v = values[enc.id];

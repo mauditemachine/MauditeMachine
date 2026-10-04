@@ -5,19 +5,19 @@
  * aussi plus beau comme le mobile") : il ouvre le menu plein ecran,
  * ui/MenuSheet.tsx, le meme qu'au telephone, a l'echelle d'un ecran. Chaque
  * page actionne le bouton de la machine (actions.page, comme le pad, avec
- * la trace) ; GOODIES, MERCH et STUDIO ouvrent d'abord le capot, puis la
- * section de leur puce. 52 px, transparent sur un degrade : la machine
+ * la trace) ; GOODIES, MERCH et STUDIO ouvrent leur section (le capot,
+ * avant le 2026-10-04). 52 px, transparent sur un degrade : la machine
  * reste le sujet.
  */
 
 import React, { useCallback, useRef, useState, useSyncExternalStore } from 'react';
-import { closeSection, hoodOf, openSection, openToggle, resetView } from '../actions';
+import { closeSection, openSection, openToggle, resetView } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { appearance } from '../state/appearance';
 import { explode, voyExplode } from '../state/explode';
 import { focus, VOYAGER } from '../state/focus';
 import { section } from '../state/section';
-import { EXPLODE, MOBILE_QUERY, type PageId } from '../theme';
+import { MOBILE_QUERY, type PageId } from '../theme';
 import { MenuSheet } from './MenuSheet';
 
 export type HoodId = 'goodies' | 'merch' | 'studio';
@@ -37,9 +37,6 @@ export const HOOD_LINKS: readonly { id: HoodId; label: string }[] = [
   { id: 'studio', label: 'Studio' },
 ];
 
-/** Le capot s'ouvre : la section part quand les puces sont decouvertes. */
-const HOOD_DELAY_MS = Math.round(EXPLODE.ms * EXPLODE.chipsFrom);
-
 /**
  * Le logo : retour a la vue d'arrivee (sections et capots fermes, vue
  * recentree) ; deux machines : la vue d'ensemble sur desktop, la 808 au
@@ -53,17 +50,13 @@ export function goHome(stage: Stage | null): void {
   if (VOYAGER) focus.set(window.matchMedia(MOBILE_QUERY).matches ? 'mm808' : 'all');
 }
 
-/** GOODIES, MERCH, STUDIO : le capot s'ouvre d'abord, puis la section de la puce. */
-export function openHood(id: HoodId, stage: Stage | null): void {
-  // Les puces sont sur la carte de la 808 (vue d'ensemble : la 808) ; le MM-DECKS n'a
-  // pas de capot, et celui du MM-ARP cache ses TWEAKS depuis le 2026-10-04 : on passe a la 808
-  if (focus.get() === 'dj' || focus.get() === 'voy') focus.set('mm808');
-  const m = 'mm808' as const;
-  const s = hoodOf(m).get();
-  if (s === 'closed') {
-    if (openToggle(stage, m)) window.setTimeout(() => openSection(id), HOOD_DELAY_MS);
-    return;
-  }
+/**
+ * GOODIES, MERCH, STUDIO : leur section, comme les autres pages. Leurs puces
+ * ont quitte les cartes le 2026-10-04 (Mika : "a la place des liens de
+ * mauditemachine qui sont deja dans le header, un systeme de Tweaks") :
+ * plus de capot a ouvrir d'abord.
+ */
+export function openHood(id: HoodId, _stage: Stage | null): void {
   if (section.get() === id) closeSection();
   else openSection(id);
 }
