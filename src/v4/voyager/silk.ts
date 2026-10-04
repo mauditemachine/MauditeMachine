@@ -262,7 +262,7 @@ export class VoySilk {
       if (mark) {
         const h = Math.round(VOY_HEAD.mark.h * PPU);
         const w = Math.max(1, Math.round((h * mark.naturalWidth) / mark.naturalHeight));
-        ctx.drawImage(this.tint(mark, w, h), Math.round(this.px(VOY_HEAD.mark.x) - w), Math.round(this.py(VOY_HEAD.z) - h / 2));
+        ctx.drawImage(this.tint(mark, w, h), Math.round(this.px(VOY_HEAD.mark.x) - w), Math.round(this.py(VOY_HEAD.mark.z) - h / 2));
         this.logos = logoImage('wordmark') ? ['wordmark', 'mark'] : ['mark'];
       } else this.logos = img ? ['wordmark'] : [];
     } else {
