@@ -234,16 +234,19 @@ export interface DjLedSpec {
 }
 
 /** Les segments : VU des voies (15 chacun), du master (deux colonnes), anneaux des jogs, zero des pitchs. */
-function ledSpecs(): { leds: DjLedSpec[]; vu: number[][]; master: number[][]; jog: Record<DjDeck, number[]>; zero: Record<DjDeck, number> } {
+function ledSpecs(light: boolean): { leds: DjLedSpec[]; vu: number[][]; master: number[][]; jog: Record<DjDeck, number[]>; zero: Record<DjDeck, number> } {
   const leds: DjLedSpec[] = [];
   const V = MIX.vu;
-  const tone = (k: number): string => (k >= V.n - 1 ? DJ_LIGHT.red : k >= V.n - 4 ? DJ_LIGHT.orange : DJ_LIGHT.yellow);
+  const [lo, mid, top] = light ? DJ_LIGHT.vuLight : [DJ_LIGHT.yellow, DJ_LIGHT.orange, DJ_LIGHT.red];
+  const tone = (k: number): string => (k >= V.n - 1 ? top : k >= V.n - 4 ? mid : lo);
   const column = (x: number, z0: number, z1: number): number[] => {
     const pitch = (z1 - z0) / V.n;
     const out: number[] = [];
+    // Theme clair : une fente sombre continue sous la colonne (jamais allumee)
+    if (light) leds.push({ x, y: 0.003, z: (z0 + z1) / 2, w: V.w + 0.08, d: z1 - z0 + 0.06, rot: 0, hex: DJ_LIGHT.offLight });
     for (let k = 0; k < V.n; k += 1) {
       out.push(leds.length);
-      leds.push({ x, y: 0.004, z: z1 - pitch * (k + 0.5), w: V.w, d: pitch * 0.68, rot: 0, hex: tone(k) });
+      leds.push({ x, y: light ? 0.007 : 0.004, z: z1 - pitch * (k + 0.5), w: V.w, d: pitch * 0.68, rot: 0, hex: tone(k) });
     }
     return out;
   };
@@ -345,7 +348,7 @@ export class DjControls {
     this.rings = new Mesh(ringGeometry(opts.mobile), std('djRing', { roughness: 0.3, metalness: light ? 0.2 : 0.55 }));
     this.rings.name = 'djRings';
 
-    this.ledMap = ledSpecs();
+    this.ledMap = ledSpecs(light);
     const lg = new PlaneGeometry(1, 1);
     lg.rotateX(-Math.PI / 2);
     const ledMat = new MeshBasicMaterial({ toneMapped: false });

@@ -119,7 +119,14 @@ export const DJ_LIGHT = {
   red: '#E0402A',
   /** LED eteinte : un gris a peine visible */
   off: '#26272B',
-  offLight: '#C9C5BD',
+  /**
+   * Theme clair (Mika, 2026-10-04 : "les vumetres, on a du mal a les voir en
+   * light mode") : la LED eteinte est une fente sombre, comme les temoins du
+   * MM-RYTM, et les VU allumes sont satures (orange, puis rouge en haut),
+   * lisibles au soleil sur le panneau creme.
+   */
+  offLight: '#34312C',
+  vuLight: ['#FF5A00', '#E3340B', '#BE1A12'],
 } as const;
 
 /* ---------- commandes : potards (repere du bloc) ---------- */
