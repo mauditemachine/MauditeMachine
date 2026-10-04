@@ -8,9 +8,9 @@
  * son instant (temps du contexte).
  *
  * Apres lui, dans le graphe :
- *   moteur -> CHORUS (facon Juno-106, chorus.ts) -> VOLUME -> compresseur
- *   de la boite a rythmes (drums.synthPort : analyseur, ecreteur, master,
- *   ?mute=1 tient)
+ *   moteur -> CHORUS (facon Juno-106, chorus.ts) -> VOLUME -> analyseur
+ *   de la boite a rythmes, apres son compresseur (drums.synthPort :
+ *   analyseur, limiteur, master, ?mute=1 tient)
  *   VOLUME -> DELAY : le sien, ping-pong stereo en croche pointee calee sur
  *   le tempo, reinjection qui monte avec le potard (0.35 a 0.68)
  *   VOLUME -> REVERB : la reverbe de la boite, envoi renforce.
@@ -19,7 +19,7 @@
 
 import workletUrl from './moog.worklet.js?url';
 import { engineParams, voyParams, type VoyValues } from '../voyager/params';
-import { buildJunoChorus, type ChorusStage } from './chorus';
+import { buildJunoChorus, loadChorus, type ChorusStage } from './chorus';
 import { synthPort } from './drums';
 import { glide } from './glide';
 import { pattern } from './pattern';
@@ -33,10 +33,11 @@ const engineOs = (): number => (typeof window !== 'undefined' && window.matchMed
 
 /**
  * VOLUME a 1 (gain au carre), et reprise de niveau : DELAY et REVERB
- * s'ajoutent au son sec. 0.75 (1.15 avant le 2026-10-03) : le MM-RYTM et
- * le MM-ARP au meme niveau dans les mediums, apres le compresseur commun.
+ * s'ajoutent au son sec. 1.03 : le MM-RYTM et le MM-ARP au meme niveau dans
+ * les mediums (0.75 le 2026-10-03, quand le synthe passait encore par le
+ * compresseur de la batterie et son gain de compensation automatique).
  */
-const VOLUME_K = 0.75;
+const VOLUME_K = 1.03;
 const MAKEUP = { delay: 0.35, reverb: 0.5 } as const;
 /** REVERB : envoi renforce vers la reverbe partagee. */
 const REVERB_BOOST = 1.25;
@@ -229,6 +230,7 @@ export async function renderSynthOffline(o: SynthOfflineOpts): Promise<[Float32A
   const sr = o.sampleRate ?? 48000;
   const oc = new OfflineAudioContext(2, Math.round(o.seconds * sr), sr);
   await oc.audioWorklet.addModule(workletUrl);
+  await loadChorus(oc);
   const { buildReverbBus } = await import('./sends');
   const out = oc.createGain();
   out.connect(oc.destination);

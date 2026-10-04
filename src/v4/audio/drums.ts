@@ -33,7 +33,7 @@
 import limiterUrl from './limiter.worklet.js?url';
 import { FLAGS } from '../state/flags';
 import type { Inst } from '../theme';
-import { buildChorus, type ChorusInfo, type ChorusStage } from './chorus';
+import { buildChorus, loadChorus, type ChorusInfo, type ChorusStage } from './chorus';
 import { buildDrive, buildFx, glide, type DriveStage, type FxChain } from './fx';
 import { pattern, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
 import { buildDelayBus, buildReverbBus, type BusInfo, type DelayBus, type Send, type SendBus, type SendInfo } from './sends';
@@ -311,6 +311,8 @@ export function ensure(): AudioContext | undefined {
   graph = build(ctx);
   // Les one-shots a STRETCH 0, un par tache (audio/shots.ts)
   shots.warm(ctx.sampleRate);
+  // Le chorus sans interpolation lineaire (audio/chorus.worklet.js) : pret pour la premiere branche
+  void loadChorus(ctx);
   attachLimiter(ctx, graph);
   return ctx;
 }
@@ -387,10 +389,11 @@ export function context(): AudioContext | undefined {
 
 /**
  * Branchement du MM-VOYAGER (2026-10-03, audio/synth.ts) : son entree
- * rejoint le compresseur apres LEVEL (la boite a rythmes et le synthe se
- * collent, puis l'analyseur, l'ecreteur et le master : ?mute=1 tient), et
- * ses envois partagent la REVERB et le DELAY de la boite. null avant le
- * premier geste.
+ * rejoint l'analyseur, APRES le compresseur de la batterie (2026-10-04 :
+ * avant, chaque kick y faisait baisser l'arpege de plusieurs dB, un
+ * pompage net dans des intra-auriculaires), puis le limiteur et le master
+ * (?mute=1 tient) ; ses envois partagent la REVERB et le DELAY de la boite.
+ * null avant le premier geste.
  */
 export interface SynthPort {
   ctx: AudioContext;
@@ -401,7 +404,7 @@ export interface SynthPort {
 
 export function synthPort(): SynthPort | null {
   if (!ctx || !graph) return null;
-  return { ctx, input: graph.comp, reverb: graph.reverb, delay: graph.delay };
+  return { ctx, input: graph.analyser, reverb: graph.reverb, delay: graph.delay };
 }
 
 /* ---------------- voix (spec 8.2) ---------------- */
@@ -420,8 +423,9 @@ function chokeOH(when: number): void {
 
 /**
  * Un coup (2026-10-03, les one-shots, audio/shots.ts) : l'echantillon de
- * la voix (sa variante, son STRETCH), lu a la vitesse pf (TONE : la hauteur,
- * comme un sampler). Un charley, ferme ou ouvert, coupe le charley ouvert
+ * la voix (sa variante, son STRETCH, sa hauteur TONE : calcule a la bonne
+ * hauteur et lu a vitesse 1 depuis le 2026-10-04, comme un sampler sans
+ * interpolation). Un charley, ferme ou ouvert, coupe le charley ouvert
  * qui sonne encore (choke) ; le charley ouvert passe par sa porte. `open` :
  * le pad CH tenu (CHopen).
  */
@@ -430,8 +434,10 @@ function voice(g: Graph, inst: Inst, when: number, open: boolean, dest: AudioNod
   const id: ShotId = inst === 'CH' && open ? 'CHopen' : inst;
   if (inst === 'CH' || inst === 'OH') chokeOH(when);
   const src = c.createBufferSource();
-  src.buffer = shots.get(id, ts, c.sampleRate, sync);
-  src.playbackRate.value = pf;
+  const shot = shots.get(id, ts, pf, c.sampleRate, sync);
+  src.buffer = shot.buf;
+  // 1 : l'echantillon est deja a sa hauteur (aucune interpolation) ; sinon, en attendant, le plus proche relu
+  src.playbackRate.value = shot.rate;
   const nodes: AudioNode[] = [src];
   if (inst === 'OH') {
     const gate = c.createGain();
@@ -440,7 +446,7 @@ function voice(g: Graph, inst: Inst, when: number, open: boolean, dest: AudioNod
     gate.connect(dest);
     nodes.push(gate);
     ohGate = gate;
-    ohEnd = when + src.buffer.duration / pf;
+    ohEnd = when + shot.buf.duration / shot.rate;
   } else src.connect(dest);
   src.onended = () => {
     for (const n of nodes) n.disconnect();
@@ -676,6 +682,8 @@ function seeded(seed: number): () => number {
 async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
   const sr = o.sampleRate ?? 48000;
   const oc = new OfflineAudioContext(1, Math.round(o.seconds * sr), sr);
+  // Le chorus a interpolation sinc, comme en direct
+  await loadChorus(oc);
   const tone0 = snapTone(o.tone ?? 0);
   const stretch0 = snapTime(o.stretch ?? 0);
   const rnd = Math.random;

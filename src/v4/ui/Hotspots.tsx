@@ -245,33 +245,18 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     const pickAt = (e: Point, coarse: boolean): HotspotView | null =>
       stage.hit.pick(e.clientX - rect.left, e.clientY - rect.top, coarse);
 
-    let hoverDial = false;
     /** axe de l'encodeur que la souris tourne, null sinon */
     let turnAxis: 'x' | 'y' | null = null;
     /**
      * Curseur : main ouverte par defaut (CSS), fermee pendant l'orbite,
-     * doigt sur un objet, fleches sur un encodeur (celles de son axe pendant
-     * qu'on le tourne).
+     * doigt sur un objet, encodeurs compris, survoles ou tournes (2026-10-03,
+     * Mika : "comme quand on hover un lien, je veux pas les deux fleches").
      */
     const setCursor = (): void => {
-      el.style.cursor =
-        turnAxis !== null
-          ? turnAxis === 'y'
-            ? 'ns-resize'
-            : 'ew-resize'
-          : stage.orbit.dragging
-            ? 'grabbing'
-            : hover === null
-              ? hoverMachine
-                ? 'pointer'
-                : ''
-              : hoverDial
-                ? 'ns-resize'
-                : 'pointer';
+      el.style.cursor = turnAxis !== null ? 'pointer' : stage.orbit.dragging ? 'grabbing' : hover === null ? (hoverMachine ? 'pointer' : '') : 'pointer';
     };
     const setHover = (h: HotspotView | null): void => {
       const id = h ? h.id : null;
-      hoverDial = !!h && (h.kind === 'encoder' || h.kind === 'vknob');
       if (id !== hover) {
         hover = id;
         stage.setHover(id);

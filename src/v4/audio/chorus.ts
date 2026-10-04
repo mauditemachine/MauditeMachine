@@ -9,7 +9,66 @@
  * debranches). Melange : sec 1 - 0.5 v, chorus 1.0 v (0.35 et 0.7 avant).
  */
 
-import { Insert, type InsertInfo } from './insert';
+import chorusUrl from './chorus.worklet.js?url';
+import { Insert, UNLINK_MS, type InsertInfo } from './insert';
+
+/**
+ * Le chorus sans interpolation lineaire (2026-10-04, audio/chorus.worklet.js,
+ * interpolation sinc a 16 points) :
+ * son module se charge une fois par contexte (drums.ensure, les rendus hors
+ * ligne) ; une branche construite avant (ou sans AudioWorklet) garde les
+ * DelayNode d'avant.
+ */
+const chorusReady = new WeakSet<BaseAudioContext>();
+const chorusLoading = new WeakMap<BaseAudioContext, Promise<void>>();
+/** Les branches construites avant le module, a passer au worklet des qu'il est la. */
+const upgrades = new WeakMap<BaseAudioContext, Set<() => void>>();
+
+function whenChorusReady(c: BaseAudioContext, fn: () => void): void {
+  if (chorusReady.has(c) || !chorusLoading.has(c)) return;
+  let set = upgrades.get(c);
+  if (!set) {
+    set = new Set();
+    upgrades.set(c, set);
+  }
+  set.add(fn);
+}
+
+export function loadChorus(c: BaseAudioContext): Promise<void> {
+  if (chorusReady.has(c)) return Promise.resolve();
+  const busy = chorusLoading.get(c);
+  if (busy) return busy;
+  if (!c.audioWorklet) return Promise.resolve();
+  const p = c.audioWorklet
+    .addModule(chorusUrl)
+    .then(() => {
+      chorusReady.add(c);
+      const set = upgrades.get(c);
+      if (set) for (const fn of set) fn();
+      set?.clear();
+    })
+    .catch(() => undefined);
+  chorusLoading.set(c, p);
+  return p;
+}
+
+/** Le noeud du chorus (mouille seul), ou null tant que son module n'est pas charge. */
+function chorusNode(c: BaseAudioContext, opts: Record<string, unknown>): AudioWorkletNode | null {
+  if (!chorusReady.has(c)) return null;
+  try {
+    return new AudioWorkletNode(c, 'mm-chorus', {
+      numberOfInputs: 1,
+      numberOfOutputs: 1,
+      outputChannelCount: [2],
+      channelCount: 2,
+      // 'max' : une entree mono reste mono (le panoramique mono du StereoPannerNode)
+      channelCountMode: 'max',
+      processorOptions: opts,
+    });
+  } catch {
+    return null;
+  }
+}
 
 /** Une voix du chorus : retard de base (s), vitesse du LFO (Hz), panoramique. */
 export interface ChorusVoice {
@@ -66,6 +125,17 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
     const bOut = c.createGain();
     const nodes: AudioNode[] = [bIn, bOut];
     const lfos: OscillatorNode[] = [];
+    // Le worklet (interpolation sinc) si son module est la ; sinon les DelayNode
+    const w = chorusNode(c, { kind: 'bus', voices: cfg.voices, depth: cfg.depth });
+    if (w) {
+      bIn.connect(w);
+      w.connect(bOut);
+      nodes.push(w);
+      branch = { nodes, lfos };
+      built += 1;
+      insert.setBranch(bIn, bOut);
+      return;
+    }
     for (const v of cfg.voices) {
       const d = c.createDelay(0.05);
       d.delayTime.value = v.delay;
@@ -87,10 +157,11 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
     branch = { nodes, lfos };
     built += 1;
     insert.setBranch(bIn, bOut);
+    whenChorusReady(c, upgrade);
   };
 
   // Repos atteint : la branche s'arrete et sort du graphe
-  insert.onIdle = () => {
+  const teardown = (): void => {
     if (!branch) return;
     for (const l of branch.lfos) {
       try {
@@ -102,6 +173,21 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
     for (const n of branch.nodes) n.disconnect();
     branch = null;
   };
+  insert.onIdle = teardown;
+
+  const apply = (t: number): void => insert.engage(1 - cfg.dry * t, cfg.wet * t);
+
+  // Le module arrive : la branche des DelayNode s'efface (mouille a 0 en 20 ms), le worklet la remplace
+  function upgrade(): void {
+    if (!branch || value === 0 || branch.lfos.length === 0) return;
+    insert.engage(1 - cfg.dry * value, 0);
+    setTimeout(() => {
+      if (value === 0 || !branch || branch.lfos.length === 0) return;
+      teardown();
+      build();
+      apply(value);
+    }, UNLINK_MS);
+  }
 
   return {
     input,
@@ -114,7 +200,7 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
         return;
       }
       if (!branch) build();
-      insert.engage(1 - cfg.dry * t, cfg.wet * t);
+      apply(t);
     },
     value: () => value,
     reset() {
@@ -156,12 +242,24 @@ export function buildJunoChorus(c: BaseAudioContext, out: AudioNode): ChorusStag
   let branch: {
     nodes: AudioNode[];
     lfos: OscillatorNode[];
-    slow: OscillatorNode;
-    depth: GainNode;
-    fastDepth: GainNode;
+    /** les DelayNode d'avant (sans worklet) */
+    slow?: OscillatorNode;
+    depth?: GainNode;
+    fastDepth?: GainNode;
+    /** le worklet (interpolation sinc) */
+    node?: AudioWorkletNode;
   } | null = null;
 
   const build = (): void => {
+    const w = chorusNode(c, { kind: 'juno', base: JUNO.base, depth: JUNO.depth.min, lowpass: JUNO.lowpass });
+    if (w) {
+      const wIn = c.createGain();
+      wIn.connect(w);
+      branch = { nodes: [wIn, w], lfos: [], node: w };
+      built += 1;
+      insert.setBranch(wIn, w);
+      return;
+    }
     const bIn = c.createGain();
     const lp = c.createBiquadFilter();
     lp.type = 'lowpass';
@@ -201,9 +299,10 @@ export function buildJunoChorus(c: BaseAudioContext, out: AudioNode): ChorusStag
     branch = { nodes: [bIn, lp, dl, dr, depth, inv, fastDepth, merge, slow, fast], lfos: [slow, fast], slow, depth, fastDepth };
     built += 1;
     insert.setBranch(bIn, merge);
+    whenChorusReady(c, upgrade);
   };
 
-  insert.onIdle = () => {
+  const teardown = (): void => {
     if (!branch) return;
     for (const l of branch.lfos) {
       try {
@@ -215,6 +314,36 @@ export function buildJunoChorus(c: BaseAudioContext, out: AudioNode): ChorusStag
     for (const n of branch.nodes) n.disconnect();
     branch = null;
   };
+  insert.onIdle = teardown;
+
+  // Le module arrive : les DelayNode s'effacent en 20 ms, le worklet prend la suite
+  function upgrade(): void {
+    if (!branch || value === 0 || branch.node) return;
+    const m = Math.min(1, value / JUNO.full);
+    insert.engage(1 - (1 - JUNO.dry) * m, 0);
+    setTimeout(() => {
+      if (value === 0 || !branch || branch.node) return;
+      teardown();
+      build();
+      apply(value);
+    }, UNLINK_MS);
+  }
+
+  function apply(t: number): void {
+    const b = branch;
+    if (b) {
+      const rate = JUNO.rate.min + (JUNO.rate.max - JUNO.rate.min) * t;
+      const depth = JUNO.depth.min + (JUNO.depth.max - JUNO.depth.min) * t;
+      const f = t > JUNO.fast.from ? (t - JUNO.fast.from) / (1 - JUNO.fast.from) : 0;
+      const fastDepth = JUNO.fast.depth * f;
+      if (b.node) b.node.port.postMessage({ rate, depth, fastDepth });
+      if (b.slow) b.slow.frequency.value = rate;
+      if (b.depth) b.depth.gain.value = depth;
+      if (b.fastDepth) b.fastDepth.gain.value = fastDepth;
+    }
+    const m = Math.min(1, t / JUNO.full);
+    insert.engage(1 - (1 - JUNO.dry) * m, JUNO.wet * m * (0.85 + 0.15 * t));
+  }
 
   return {
     input,
@@ -227,15 +356,7 @@ export function buildJunoChorus(c: BaseAudioContext, out: AudioNode): ChorusStag
         return;
       }
       if (!branch) build();
-      const b = branch;
-      if (b) {
-        b.slow.frequency.value = JUNO.rate.min + (JUNO.rate.max - JUNO.rate.min) * t;
-        b.depth.gain.value = JUNO.depth.min + (JUNO.depth.max - JUNO.depth.min) * t;
-        const f = t > JUNO.fast.from ? (t - JUNO.fast.from) / (1 - JUNO.fast.from) : 0;
-        b.fastDepth.gain.value = JUNO.fast.depth * f;
-      }
-      const m = Math.min(1, t / JUNO.full);
-      insert.engage(1 - (1 - JUNO.dry) * m, JUNO.wet * m * (0.85 + 0.15 * t));
+      apply(t);
     },
     value: () => value,
     reset() {

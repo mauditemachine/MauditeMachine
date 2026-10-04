@@ -28,6 +28,7 @@ import { arp } from './voyager/arp';
 import { CHORDS, PROGRESSIONS } from './voyager/chords';
 import { voyMsg } from './voyager/msg';
 import { voyParams, voyReadout, type VoyKnobId } from './voyager/params';
+import { randomVoyPatch } from './voyager/random';
 
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
 const pct = (v: number): number => Math.round(v * 100);
@@ -227,14 +228,6 @@ export function randomPattern(stage: Stage | null = null): void {
   pattern.replace(randomHouse(pattern.get().steps));
   stage?.pressButton('random');
   lcdMessage.show('RANDOM HOUSE');
-}
-
-/**
- * Un dosage d'effet pour le RANDOM du MM-ARP (2026-10-03) : coupe une fois
- * sur `off`, sinon entre lo et hi ; rien d'extreme, l'arpege reste devant.
- */
-function fxDose(off: number, lo: number, hi: number): number {
-  return Math.random() < off ? 0 : Math.round((lo + Math.random() * (hi - lo)) * 100) / 100;
 }
 
 /** TEMPO : borne et arrondi a 100..150 ; l'horloge le prend au prochain pas. */
@@ -457,20 +450,22 @@ export function voyClear(stage: Stage | null = null): void {
   voyMsg.show('CLEARED');
 }
 
-/** RANDOM : une progression toute faite (jamais la meme que celle qui joue), et les effets au hasard. */
+/**
+ * RANDOM : une progression toute faite (jamais la meme que celle qui joue)
+ * et tout le patch au hasard (2026-10-03 : arpegiateur, oscillateurs,
+ * filtre, enveloppes, effets ; VOLUME garde), voyager/random.ts.
+ */
 export function voyRandom(stage: Stage | null = null): void {
   gesture();
   if (!arp.get().running) sc.pauseForRun();
   const cur = arp.get().prog.join(',');
   const pool = PROGRESSIONS.filter((p) => p.join(',') !== cur);
   const pick = pool[Math.floor(Math.random() * pool.length)] ?? PROGRESSIONS[0];
-  voyParams.set('dist', fxDose(0.5, 0.08, 0.4));
-  voyParams.set('chorus', fxDose(0, 0.25, 0.85));
-  voyParams.set('delay', fxDose(0.35, 0.15, 0.55));
-  voyParams.set('reverb', fxDose(0, 0.1, 0.5));
+  const patch = randomVoyPatch();
+  for (const [id, v] of Object.entries(patch) as [VoyKnobId, number][]) voyParams.set(id, v);
   arp.set(pick);
   stage?.voy?.keys.pressButton('random');
-  voyMsg.show('RANDOM + FX');
+  voyMsg.show('RANDOM PATCH');
 }
 
 /**

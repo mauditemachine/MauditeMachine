@@ -17,6 +17,12 @@
  *   toujours par la, sync).
  * - Les sons bruites ont plusieurs variantes, tirees au hasard, jamais deux
  *   fois la meme de suite.
+ * - TONE (2026-10-04, pour l'ecoute aux intra-auriculaires) : un coup
+ *   transpose n'est plus relu plus vite ou plus lentement (le navigateur
+ *   interpole lineairement : aigus ternis et flottants) ; il est calcule a
+ *   sa hauteur, au millieme de demi-ton (pitchKey) : rendu a sr / pf puis
+ *   lu a sr, vitesse 1, l'echantillon exact. En attendant qu'il soit pret,
+ *   le plus proche, relu a la vitesse qu'il faut.
  */
 
 import { renderShot, VARIANTS, type ShotId } from './shotsdsp';
@@ -26,8 +32,11 @@ export type { ShotId } from './shotsdsp';
 /** STRETCH arrondi au huitieme de facteur 4 : la cle d'un echantillon. */
 export const shotKey = (ts: number): number => Math.max(-11, Math.min(10, Math.round((Math.log(ts) / Math.log(4)) * 8)));
 const keyTs = (k: number): number => Math.pow(4, k / 8);
+/** TONE en milliemes de demi-ton : la hauteur d'un echantillon. */
+export const pitchKey = (pf: number): number => Math.round(Math.log2(pf) * 12000);
+const keyPf = (pk: number): number => Math.pow(2, pk / 12000);
 
-const MAX_ENTRIES = 96;
+const MAX_ENTRIES = 160;
 /** Ordre du prechauffage : les voix du motif d'arrivee d'abord. */
 const IDS: readonly ShotId[] = ['BD', 'CH', 'CP', 'SD', 'TOM', 'CY', 'OH', 'RS', 'HT', 'PC', 'CHopen'];
 /** Frequence du prechauffage, avant tout contexte (la plus courante). */
@@ -37,9 +46,18 @@ let prewarmed = false;
 interface Job {
   key: string;
   id: ShotId;
+  /** frequence du contexte (celle de l'AudioBuffer) */
   sr: number;
   ts: number;
   v: number;
+  /** hauteur (milliemes de demi-ton) : le calcul se fait a sr / pf */
+  pk: number;
+}
+
+/** Un coup pret a partir : l'echantillon, et sa vitesse de lecture (1 : exact). */
+export interface ShotPlay {
+  buf: AudioBuffer;
+  rate: number;
 }
 
 const cache = new Map<string, AudioBuffer>();
@@ -52,7 +70,7 @@ const stats = { rendered: 0, ms: 0, sync: 0, nearest: 0, inWorker: 0 };
 /** La derniere variante jouee de chaque son. */
 const lastVar = new Map<ShotId, number>();
 
-const cacheKey = (id: ShotId, k: number, v: number, sr: number): string => `${id}|${k}|${v}|${sr}`;
+const cacheKey = (id: ShotId, k: number, v: number, sr: number, pk = 0): string => `${id}|${k}|${v}|${sr}|${pk}`;
 
 function toBuffer(L: Float32Array, R: Float32Array | null, sr: number): AudioBuffer {
   const b = new AudioBuffer({ length: L.length, numberOfChannels: 2, sampleRate: sr });
@@ -74,7 +92,7 @@ function put(key: string, b: AudioBuffer): void {
 /** Calcul sur le fil principal (sans worker, ou un coup qui ne peut pas attendre). */
 function makeNow(j: Job): AudioBuffer {
   const t0 = performance.now();
-  const s = renderShot(j.id, j.sr, j.ts, j.v);
+  const s = renderShot(j.id, j.sr / keyPf(j.pk), j.ts, j.v);
   const b = toBuffer(s.L, s.L === s.R ? null : s.R, j.sr);
   stats.ms += performance.now() - t0;
   stats.rendered += 1;
@@ -124,7 +142,8 @@ function pump(): void {
   const w = getWorker();
   busy = j;
   if (w) {
-    w.postMessage(j);
+    // Le worker calcule a la frequence de rendu (sr / pf) ; le buffer gardera sr
+    w.postMessage({ key: j.key, id: j.id, sr: j.sr / keyPf(j.pk), ts: j.ts, v: j.v });
     return;
   }
   setTimeout(() => {
@@ -135,10 +154,10 @@ function pump(): void {
   }, 0);
 }
 
-function enqueue(id: ShotId, k: number, v: number, sr: number): void {
-  const key = cacheKey(id, k, v, sr);
+function enqueue(id: ShotId, k: number, v: number, sr: number, pk = 0): void {
+  const key = cacheKey(id, k, v, sr, pk);
   if (cache.has(key) || busy?.key === key || queue.some((j) => j.key === key)) return;
-  queue.push({ key, id, sr, ts: keyTs(k), v });
+  queue.push({ key, id, sr, ts: keyTs(k), v, pk });
   pump();
 }
 
@@ -159,40 +178,44 @@ export const shots = {
   },
   /**
    * L'echantillon d'un coup : sa variante (au hasard, jamais la derniere),
-   * son STRETCH. sync : jamais d'approximation (rendu hors ligne).
+   * son STRETCH, sa hauteur (pf, TONE). sync : jamais d'approximation
+   * (rendu hors ligne).
    */
-  get(id: ShotId, ts: number, sr: number, sync = false): AudioBuffer {
+  get(id: ShotId, ts: number, pf: number, sr: number, sync = false): ShotPlay {
     const n = VARIANTS[id];
     let v = n > 1 ? Math.floor(Math.random() * (n - 1)) : 0;
     if (n > 1 && v >= (lastVar.get(id) ?? -1)) v += 1;
     v = Math.min(n - 1, v);
     lastVar.set(id, v);
     const k = shotKey(ts);
-    const key = cacheKey(id, k, v, sr);
+    const pk = pitchKey(pf);
+    const key = cacheKey(id, k, v, sr, pk);
     const hit = cache.get(key);
-    if (hit) return hit;
+    if (hit) return { buf: hit, rate: 1 };
     if (!sync) {
-      // Le plus proche : STRETCH voisin (1 par cran), autre frequence (+30), autre variante (+60)
+      // Le plus proche : STRETCH voisin (1 par cran), hauteur (2 par demi-ton), autre frequence (+30), autre variante (+60)
       let best: AudioBuffer | null = null;
+      let bestPk = 0;
       let score = Infinity;
       const pre = `${id}|`;
       for (const [ck, b] of cache) {
         if (!ck.startsWith(pre)) continue;
-        const [, kk, vv, ss] = ck.split('|');
-        const sc = Math.abs(Number(kk) - k) + (Number(ss) === sr ? 0 : 30) + (Number(vv) === v ? 0 : 60);
+        const [, kk, vv, ss, pp] = ck.split('|');
+        const sc = Math.abs(Number(kk) - k) + Math.abs(Number(pp) - pk) / 500 + (Number(ss) === sr ? 0 : 30) + (Number(vv) === v ? 0 : 60);
         if (sc < score) {
           best = b;
+          bestPk = Number(pp);
           score = sc;
         }
       }
       if (best) {
         stats.nearest += 1;
-        enqueue(id, k, v, sr);
-        return best;
+        enqueue(id, k, v, sr, pk);
+        return { buf: best, rate: pf / keyPf(bestPk) };
       }
     }
     stats.sync += 1;
-    return makeNow({ key, id, sr, ts: keyTs(k), v });
+    return { buf: makeNow({ key, id, sr, ts: keyTs(k), v, pk }), rate: 1 };
   },
   /** La rotation des variantes repart du debut (rendus hors ligne reproductibles). */
   resetRotation(): void {
