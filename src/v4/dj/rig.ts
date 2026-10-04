@@ -172,7 +172,6 @@ export class DjRig {
       let on = this.held.has(k.id);
       if (t.kind === 'hotcue') on = on || s.deck[t.deck].cues[t.n] !== null;
       else if (t.kind === 'time') on = on || s.time === t.d;
-      else if (t.kind === 'load') on = on || s.deck[t.deck].loading !== null;
       else if (t.kind === 'playlist') on = on || b.open;
       if (this.controls.setKeyGlow(i, on ? DJ_GLOW.orange : DJ_GLOW.dim)) changed = true;
     });

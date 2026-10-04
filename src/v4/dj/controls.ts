@@ -124,23 +124,37 @@ function keyGeometry(mobile: boolean): BufferGeometry {
 }
 
 /**
- * Bouton rond unite (rayon 1, mis a l'echelle en x et z) : une bague
- * lumineuse a la base (masque 1) et le capuchon de caoutchouc au bord
- * arrondi (masque faible : la lumiere ne traverse pas le noir).
+ * Bouton rond unite (rayon 1, mis a l'echelle en x et z), CUE et PLAY en
+ * metal (Mika, 2026-10-04 : "en dark mode je vois mal le CUE ou le PLAY,
+ * fais un bouton style metallique") : une collerette sombre qui s'allume
+ * (masque 1), lisible sur le panneau noir comme sur le creme, et un
+ * capuchon d'aluminium (celui de la bague du jog), bombe, deux cercles
+ * tournes sur le dessus.
  */
 function roundGeometry(mobile: boolean): BufferGeometry {
   const seg = mobile ? 32 : 48;
   const R = DJ_ROUND;
   const ring = new LatheGeometry(
-    [new Vector2(0.84, 0), new Vector2(1.0, 0), new Vector2(1.0, R.ringH * 0.7), new Vector2(0.96, R.ringH), new Vector2(0.84, R.ringH)],
+    [new Vector2(0.8, 0), new Vector2(1.0, 0), new Vector2(1.0, R.ringH * 0.7), new Vector2(0.96, R.ringH), new Vector2(0.8, R.ringH)],
     seg
   );
-  const capPts = [new Vector2(0.82, 0), new Vector2(0.82, R.h - 0.05), new Vector2(0.78, R.h - 0.01), new Vector2(0.7, R.h), new Vector2(0, R.h)];
+  const capPts = [
+    new Vector2(0.78, 0),
+    new Vector2(0.78, R.h - 0.045),
+    new Vector2(0.75, R.h - 0.012),
+    new Vector2(0.68, R.h - 0.002),
+    new Vector2(0.5, R.h + 0.006),
+    new Vector2(0.49, R.h + 0.002),
+    new Vector2(0.3, R.h + 0.012),
+    new Vector2(0.29, R.h + 0.008),
+    new Vector2(0, R.h + 0.016),
+  ];
   const cap = new LatheGeometry(capPts, seg);
-  const r = partDj(ring, 'rubber');
+  const r = partDj(ring, 'slot');
   setMask(r, () => 1);
-  const c = partDj(cap, 'rubber');
-  setMask(c, () => 0.06);
+  // L'aluminium clair de la bague du jog : il se lit sur le panneau noir
+  const c = partDj(cap, 'ring');
+  setMask(c, () => 0);
   return merge([r, c], 'round keys');
 }
 
@@ -232,6 +246,8 @@ export interface DjLedSpec {
   rot: number;
   /** couleur allumee */
   hex: string;
+  /** couleur eteinte, si elle n'est pas celle de l'apparence (anneau du jog en clair) */
+  off?: string;
 }
 
 /** Les segments : VU des voies (15 chacun), du master (deux colonnes), anneaux des jogs, zero des pitchs. */
@@ -263,7 +279,8 @@ function ledSpecs(light: boolean): { leds: DjLedSpec[]; vu: number[][]; master: 
       const a = (k / J.leds) * Math.PI * 2;
       jog[d].push(leds.length);
       // Le segment 0 en haut (vers l'arriere), dans le sens des aiguilles d'une montre vu de dessus
-      leds.push({ x: c.x + Math.sin(a) * J.ledR, y: J.ringH + 0.003, z: c.z - Math.cos(a) * J.ledR, w: ((Math.PI * 2 * J.ledR) / J.leds) * 0.62, d: 0.07, rot: -a, hex: DJ_LIGHT.orange });
+      // En clair, l'anneau eteint reste argent (la fente sombre est pour les VU)
+      leds.push({ x: c.x + Math.sin(a) * J.ledR, y: J.ringH + 0.003, z: c.z - Math.cos(a) * J.ledR, w: ((Math.PI * 2 * J.ledR) / J.leds) * 0.62, d: 0.07, rot: -a, hex: DJ_LIGHT.orange, off: light ? '#B9BDC4' : undefined });
     }
     zero[d] = leds.length;
     leds.push({ x: UNIT_X[d] + DECK.pitch.x - 0.34, y: 0.004, z: (DECK.pitch.z0 + DECK.pitch.z1) / 2, w: 0.12, d: 0.07, rot: 0, hex: DJ_LIGHT.yellow });
@@ -310,6 +327,8 @@ export class DjControls {
   private roundEm: InstancedBufferAttribute;
   private ledOn: Float32Array;
   private ledOff = new Color();
+  /** la couleur eteinte de chaque LED */
+  private ledOffs: Color[] = [];
   private materials: (MeshStandardMaterial | MeshBasicMaterial)[] = [];
 
   constructor(opts: DjControlsOpts) {
@@ -342,7 +361,8 @@ export class DjControls {
     this.roundEm = new InstancedBufferAttribute(new Float32Array(DJ_ROUND_KEYS.length * 3), 3);
     this.roundEm.setUsage(DynamicDrawUsage);
     rg.setAttribute('instanceEmissive', this.roundEm);
-    this.rounds = new InstancedMesh(rg, std('djRound', { roughness: 0.9, metalness: 0 }, true), DJ_ROUND_KEYS.length);
+    // CUE et PLAY en metal : l'aluminium des jupes, un peu plus brillant
+    this.rounds = new InstancedMesh(rg, std('djRound', { roughness: 0.3, metalness: light ? 0.2 : 0.55 }, true), DJ_ROUND_KEYS.length);
     this.rounds.name = 'djRounds';
 
     this.platters = new InstancedMesh(platterGeometry(opts.mobile), std('djPlatter', { roughness: 0.72, metalness: 0 }), DJ_DECKS.length);
@@ -359,6 +379,7 @@ export class DjControls {
     this.leds = new InstancedMesh(lg, ledMat, this.ledMap.leds.length);
     this.leds.name = 'djLeds';
     this.ledOff.set(light ? DJ_LIGHT.offLight : DJ_LIGHT.off);
+    this.ledOffs = this.ledMap.leds.map((l) => (l.off ? new Color(l.off) : this.ledOff));
     this.ledOn = new Float32Array(this.ledMap.leds.length);
 
     for (const m of [this.knobs, this.knobsHot, this.caps, this.keys, this.rounds, this.platters]) {
@@ -385,7 +406,7 @@ export class DjControls {
     this.ledMap.leds.forEach((l, i) => {
       m4.compose(v3.set(l.x, l.y, l.z), q.setFromAxisAngle(AXIS_Y, l.rot), s3.set(l.w, 1, l.d));
       this.leds.setMatrixAt(i, m4);
-      this.leds.setColorAt(i, this.ledOff);
+      this.leds.setColorAt(i, this.ledOffs[i]);
     });
     this.leds.instanceMatrix.needsUpdate = true;
     if (this.leds.instanceColor) this.leds.instanceColor.setUsage(DynamicDrawUsage);
@@ -494,8 +515,8 @@ export class DjControls {
     const k = Math.fround(Math.max(0, Math.min(1, v)));
     if (this.ledOn[i] === k) return false;
     this.ledOn[i] = k;
-    col.set(this.ledMap.leds[i].hex).lerp(this.ledOff, 1 - k);
-    if (k === 0) col.copy(this.ledOff);
+    col.set(this.ledMap.leds[i].hex).lerp(this.ledOffs[i], 1 - k);
+    if (k === 0) col.copy(this.ledOffs[i]);
     this.leds.setColorAt(i, col);
     if (this.leds.instanceColor) this.leds.instanceColor.needsUpdate = true;
     return true;

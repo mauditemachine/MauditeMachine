@@ -17,7 +17,7 @@ import { Mesh, MeshStandardMaterial, PlaneGeometry, type CanvasTexture } from 't
 import { drawTracked, logoImage, makeCanvasTexture, trackedWidth } from '../scene/silk';
 import { HEX, SILK, silkA } from '../theme';
 import { DJ_FADERS, DJ_KNOBS, DJ_KEYS, knobLabelZ } from './layout';
-import { ADD, DECK, DJ_CHANNELS, DJ_DECKS_MAX, DJ_KNOB, DJ_UNIT, MIX, UNIT_X, unitW, type DjDeck, type DjUnit } from './theme';
+import { DECK, DJ_CHANNELS, DJ_KNOB, DJ_UNIT, MIX, UNIT_X, unitW, type DjDeck, type DjUnit } from './theme';
 
 type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
 
@@ -78,7 +78,6 @@ function deckItems(u: DjDeck): { texts: Text[]; lines: Line[]; brackets: Bracket
     if (k.target.kind === 'time' || !('deck' in k.target) || k.target.deck !== u) continue;
     const x = k.x - ux;
     if (k.target.kind === 'hotcue') texts.push({ text: k.label, x, z: k.z - k.d / 2 - 0.16, cap: 0.075, weight: 600, group: 'cues' });
-    else if (k.target.kind === 'load') texts.push({ text: 'LOAD', x, z: k.z - k.d / 2 - 0.16, cap: 0.075, weight: 700, ink: 'orange', alpha: 1 });
     else if (k.target.kind === 'bend') texts.push({ text: k.label, x, z: k.z + k.d / 2 + 0.2, cap: 0.12, weight: 600 });
     else if (k.target.kind === 'cue') texts.push({ text: 'CUE', x, z: k.z - k.d / 2 - 0.2, cap: 0.085, weight: 600 });
     else if (k.target.kind === 'play') texts.push({ text: 'PLAY / PAUSE', x, z: k.z - k.d / 2 - 0.2, cap: 0.075, weight: 600 });
@@ -91,39 +90,20 @@ function deckItems(u: DjDeck): { texts: Text[]; lines: Line[]; brackets: Bracket
   brackets.push({ text: 'HOT CUE', x0: C.xs[0] - C.w / 2, x1: C.xs[C.xs.length - 1] + C.w / 2, z: C.z + C.d / 2 + 0.22 });
   const B = DECK.bend;
   texts.push({ text: 'BEND', x: (B.xs[0] + B.xs[1]) / 2, z: B.z - B.d / 2 - 0.16, cap: 0.075, weight: 600 });
-  // Le pitch : TEMPO au-dessus, graduation a droite de la fente, zero marque, la plage dessous
+  // Le pitch : PITCH au-dessus, graduation a droite de la fente, le zero plus long
   const P = DECK.pitch;
-  texts.push({ text: 'TEMPO', x: P.x, z: P.z0 - 0.42, cap: 0.075, weight: 600 });
-  texts.push({ text: 'RANGE 8%', x: P.x, z: P.z1 + 0.45, cap: 0.06, alpha: 0.5 });
-  // Les touches du tempo fin : leur signe dessous
-  const Tm = DECK.tempo;
-  Tm.xs.forEach((x, k) => texts.push({ text: k === 0 ? '- 0.1' : '+ 0.1', x, z: Tm.z + Tm.d / 2 + 0.16, cap: 0.055, weight: 600 }));
+  texts.push({ text: 'PITCH', x: P.x, z: P.z0 - 0.42, cap: 0.08, weight: 700 });
   const n = 16;
   for (let i = 0; i <= n; i += 1) {
     const z = P.z0 + ((P.z1 - P.z0) * i) / n;
     const big = i % 4 === 0;
-    lines.push([P.x + 0.22, z, P.x + (big ? 0.42 : 0.32), z]);
+    lines.push([P.x + 0.22, z, P.x + (i === n / 2 ? 0.5 : big ? 0.42 : 0.32), z]);
   }
-  texts.push({ text: '-', x: P.x + 0.62, z: P.z0, cap: 0.1, weight: 600 });
-  texts.push({ text: '0', x: P.x + 0.62, z: (P.z0 + P.z1) / 2, cap: 0.075, weight: 600 });
-  texts.push({ text: '+', x: P.x + 0.62, z: P.z1, cap: 0.1, weight: 600 });
+  // PITCH - et + (Mika, 2026-10-04) : le nom au-dessus des touches, un grand signe dessous
+  const Tm = DECK.tempo;
+  texts.push({ text: 'PITCH', x: (Tm.xs[0] + Tm.xs[1]) / 2, z: Tm.z - Tm.d / 2 - 0.17, cap: 0.075, weight: 700, ink: 'orange', alpha: 1 });
+  Tm.xs.forEach((x, k) => texts.push({ text: k === 0 ? '-' : '+', x, z: Tm.z + Tm.d / 2 + 0.24, cap: 0.17, weight: 700, alpha: 1 }));
   return { texts, lines, brackets };
-}
-
-/**
- * ADD DECK (repere du bloc) : un grand plus, la touche, et ce qu'elle fait
- * (une platine de plus a droite, sa voie au MIXER).
- */
-function addItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
-  const texts = head('add');
-  const lines: Line[] = [];
-  const K = ADD.key;
-  const p = 0.55;
-  lines.push([-p, ADD.plusZ, p, ADD.plusZ], [0, ADD.plusZ - p, 0, ADD.plusZ + p]);
-  texts.push({ text: 'ADD DECK', x: K.x, z: K.z - K.d / 2 - 0.2, cap: 0.085, weight: 700, ink: 'orange', alpha: 1 });
-  texts.push({ text: 'NEW CHANNEL ON THE MIXER', x: K.x, z: K.z + K.d / 2 + 0.25, cap: 0.055, weight: 600, alpha: 0.5, maxW: 2.6 });
-  texts.push({ text: `UP TO ${DJ_DECKS_MAX} DECKS`, x: K.x, z: K.z + K.d / 2 + 0.52, cap: 0.055, weight: 600, alpha: 0.5 });
-  return { texts, lines, brackets: [] };
 }
 
 /** Textes, filets et crochets de la table (repere du bloc). */
@@ -269,9 +249,8 @@ export class DjSilk {
     ctx.clearRect(0, 0, this.W, this.H);
     ctx.textBaseline = 'alphabetic';
     ctx.lineCap = 'butt';
-    const { texts, lines, brackets } = this.unit === 'mix' ? mixItems() : this.unit === 'add' ? addItems() : deckItems(this.unit);
-    // Le grand plus d'ADD DECK : un trait plus epais que les filets
-    ctx.lineWidth = Math.max(1, (this.unit === 'add' ? 0.07 : 0.014) * P);
+    const { texts, lines, brackets } = this.unit === 'mix' || this.unit === 'add' ? mixItems() : deckItems(this.unit);
+    ctx.lineWidth = Math.max(1, 0.014 * P);
     ctx.strokeStyle = silkA(0.55);
     for (const l of lines) {
       ctx.beginPath();

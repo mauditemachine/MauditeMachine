@@ -28,18 +28,23 @@ import { VOY_BODY, VOY_X } from '../voyager/theme';
  * Des platines en plus (Mika, 2026-10-04 : "j'aimerais pouvoir en rajouter
  * a droite, ce qui cree directement une piste dans MIXER") : de deux a
  * quatre platines, DECK C puis DECK D a droite de DECK B, chacune avec sa
- * voie au MIXER (5 et 6). Un petit bloc ADD DECK les ajoute, a droite de la
- * derniere ; REMOVE, sur la derniere ajoutee, la retire. Les places
+ * voie au MIXER (5 et 6). Rien ne se voit au repos (Mika : "quand on survole
+ * la partie droite, un + s'affiche, sinon rien") : un + apparait au survol
+ * du bord droit (dj/AddDeck.tsx) ; au telephone, un + fin en bout de
+ * defilement des blocs ('add', sans corps). REMOVE, sur la derniere
+ * ajoutee, la retire. Les places
  * (UNIT_X, DJ_W, DJ_X, MIX, DJ_FRAME) se recalculent alors et le Stage est
  * reconstruit (index.tsx), comme au changement Dark / Light ; le son
  * continue. Le bord gauche de l'ensemble ne bouge pas : il grandit a
  * droite.
  *
  * La platine est plus etroite depuis le meme jour (Mika : "le jog n'est
- * pas super utile, diminue sa taille et donc reduis le DECK en largeur") :
- * 7 au lieu de 9, le jog de 2.55 a 1.7 de rayon.
+ * pas super utile, diminue sa taille et donc reduis le DECK en largeur",
+ * puis "les decks sont trop gros, on ne voit pas les choses ; moins de jog
+ * et plus d'ecran pour voir la waveform") : 6 au lieu de 9, le jog de 2.55
+ * a 1.35 de rayon, l'ecran de 2.0 a 3.2 de profondeur.
  */
-export const DJ_UNIT = { deckW: 7, mixW: 8.4, addW: 3.2, d: 11, gap: 0.25 } as const;
+export const DJ_UNIT = { deckW: 6, mixW: 8.4, addW: 3.2, d: 11, gap: 0.25 } as const;
 /** Coin commun aux blocs (hauteurs au-dessus des pieds), biseau des aretes. */
 export const DJ_BODY = { feet: 0.12, front: 1.0, back: 1.5, bevel: 0.06 } as const;
 /** Pente du dessus (rad) : l'avant descend. */
@@ -50,7 +55,7 @@ export const DJ_TOP_Y = DJ_BODY.feet + (DJ_BODY.front + DJ_BODY.back) / 2;
 /** Les quatre platines possibles, de gauche a droite apres la table : A, puis B, C, D. */
 export type DjDeck = 'a' | 'b' | 'c' | 'd';
 export const DJ_DECKS_ALL: readonly DjDeck[] = ['a', 'b', 'c', 'd'];
-/** Un bloc : une platine, la table, ou ADD DECK (a droite, tant qu'on peut en ajouter). */
+/** Un bloc : une platine, la table, ou 'add' (le + au telephone, sans corps, tant qu'on peut en ajouter). */
 export type DjUnit = DjDeck | 'mix' | 'add';
 export const DJ_DECKS_MIN = 2;
 export const DJ_DECKS_MAX = 4;
@@ -59,8 +64,10 @@ export const deckChannel = (d: DjDeck): DjChannel => (2 + DJ_DECKS_ALL.indexOf(d
 
 /** Les platines posees, de gauche a droite (A, B, puis C et D si ajoutees). */
 export let DJ_DECKS: readonly DjDeck[] = ['a', 'b'];
-/** Les blocs poses, de gauche a droite. */
-export let DJ_UNITS_ON: readonly DjUnit[] = ['a', 'mix', 'b', 'add'];
+/** Les blocs poses (avec un corps), de gauche a droite. */
+export let DJ_UNITS_ON: readonly DjUnit[] = ['a', 'mix', 'b'];
+/** Les blocs qu'on fait defiler au telephone : les blocs poses, puis le + s'il reste une place. */
+export let DJ_VIEW_UNITS: readonly DjUnit[] = ['a', 'mix', 'b', 'add'];
 /** Le nombre de voies de la table : le MM-RYTM, le MM-ARP, puis une par platine. */
 export let DJ_CHANNELS = 4;
 /** La table s'elargit d'une colonne par voie en plus. */
@@ -100,7 +107,8 @@ const readDecks = (): number => {
 function place(n: number): void {
   DJ_DECKS = DJ_DECKS_ALL.slice(0, n);
   DJ_CHANNELS = 2 + n;
-  DJ_UNITS_ON = ['a', 'mix', ...DJ_DECKS.slice(1), ...(n < DJ_DECKS_MAX ? (['add'] as const) : [])];
+  DJ_UNITS_ON = ['a', 'mix', ...DJ_DECKS.slice(1)];
+  DJ_VIEW_UNITS = [...DJ_UNITS_ON, ...(n < DJ_DECKS_MAX ? (['add'] as const) : [])];
   const widths = DJ_UNITS_ON.map(unitW);
   DJ_W = widths.reduce((a, w) => a + w, 0) + (widths.length - 1) * DJ_UNIT.gap;
   for (const u of Object.keys(UNIT_X) as DjUnit[]) UNIT_X[u] = 0;
@@ -109,6 +117,8 @@ function place(n: number): void {
     UNIT_X[u] = x + widths[i] / 2;
     x += widths[i] + DJ_UNIT.gap;
   });
+  // Le + : juste a droite de l'ensemble, hors de son cadrage (desktop)
+  UNIT_X.add = DJ_W / 2 + DJ_UNIT.gap + DJ_UNIT.addW / 2;
   DJ_X = DJ_LEFT + DJ_W / 2;
   DJ_FRAME.radius.closed = DJ_W / 2 + 0.6;
   DJ_FRAME.radius.open = DJ_W / 2 + 0.6;
@@ -331,47 +341,46 @@ function placeMix(n: number): void {
 
 export const DECK = {
   head: { z: -5.05 },
-  screen: { x: 0, z: -3.55, w: 6.3, d: 2.0 },
+  /** l'ecran, grand (Mika : "plus d'ecran pour voir la waveform") */
+  screen: { x: 0, z: -3.05, w: 5.5, d: 3.2 },
   /** hot cues : une rangee de quatre sous l'ecran, une seule couleur (Mika, 2026-10-03) */
-  cues: { xs: [-2.25, -0.75, 0.75, 2.25] as readonly number[], z: -1.95, w: 1.2, d: 0.5 },
+  cues: { xs: [-1.95, -0.65, 0.65, 1.95] as readonly number[], z: -0.8, w: 1.1, d: 0.45 },
   /**
-   * le jog : platine noire, bague d'aluminium, anneau de LED ; au centre,
-   * l'ecran rond est la touche SYNC (Mika, 2026-10-04 : "trouve-lui une
-   * utilite") : le tempo se cale sur celui qu'on entend
+   * le jog, petit (Mika : "moins de jog") : platine noire, bague
+   * d'aluminium, anneau de LED ; au centre, l'ecran rond est la touche SYNC
+   * (Mika : "trouve-lui une utilite") : le tempo se cale sur celui qu'on
+   * entend
    */
-  jog: { x: 0.2, z: 2.0, ring: 1.7, ringIn: 1.5, ringH: 0.14, platter: 1.46, platterH: 0.26, center: 0.62, ledR: 1.6, leds: 40 },
-  /** colonne de gauche : LOAD, les deux touches de bend, CUE et PLAY */
-  load: { x: -2.6, z: -0.75, w: 1.2, d: 0.5 },
-  bend: { xs: [-2.92, -2.28] as readonly number[], z: 0.42, w: 0.55, d: 0.5 },
-  cue: { x: -2.6, z: 2.25, r: 0.5 },
-  play: { x: -2.6, z: 3.85, r: 0.5 },
+  jog: { x: -0.1, z: 2.55, ring: 1.35, ringIn: 1.18, ringH: 0.13, platter: 1.15, platterH: 0.24, center: 0.5, ledR: 1.265, leds: 36 },
+  /** colonne de gauche : BEND, puis CUE et PLAY, boutons ronds en metal (LOAD : toucher l'ecran) */
+  bend: { xs: [-2.5, -1.9] as readonly number[], z: 0.5, w: 0.5, d: 0.45 },
+  cue: { x: -2.2, z: 1.95, r: 0.55 },
+  play: { x: -2.2, z: 3.6, r: 0.55 },
   /** le fader de pitch, a droite du jog ; zero au milieu, LED */
-  pitch: { x: 2.75, z0: -0.45, z1: 4.25 },
+  pitch: { x: 2.2, z0: 0.5, z1: 3.9 },
   /**
-   * Le tempo au dixieme de BPM (Mika, 2026-10-04 : "j'ai du mal a arriver
-   * vers 123.4, ca saute toujours") : deux petites touches sous le fader,
-   * un dixieme par appui, en continu tenues.
+   * PITCH - et + (Mika, 2026-10-04 : "je voudrais pouvoir changer le pitch
+   * avec des + et des -") : deux touches nommees sous le fader, un dixieme
+   * de BPM par appui, en continu tenues (Maj : un BPM).
    */
-  tempo: { xs: [2.47, 3.03] as readonly number[], z: 4.98, w: 0.46, d: 0.34 },
+  tempo: { xs: [1.9, 2.5] as readonly number[], z: 4.7, w: 0.52, d: 0.45 },
   /** REMOVE : sur la derniere platine ajoutee (C ou D), dans l'en-tete, avant le logo */
-  remove: { x: 1.75, z: -5.05, w: 0.7, d: 0.3 },
+  remove: { x: 1.45, z: -5.05, w: 0.6, d: 0.28 },
 } as const;
-
-/** Le bloc ADD DECK : une grande touche au milieu. */
-export const ADD = { key: { x: 0, z: 0.4, w: 2.0, d: 0.7 }, plusZ: -1.4 } as const;
 
 /**
  * L'ecran de la platine, en fractions de sa largeur (u, depuis la gauche)
  * et de sa hauteur (v, depuis le haut) : le texte en haut (titre, artiste,
  * BPM, Camelot, temps), la forme d'onde fine au milieu (elle defile, la
  * tete de lecture au centre), la piste entiere en bas, et a sa droite les
- * deux touches du zoom.
+ * deux touches du zoom. Seuls le texte et le zoom passent par la texture
+ * des ecrans (dj/screens.ts) ; les formes d'onde ont leur shader.
  */
 export const DECK_SCREEN = {
-  text: 0.4,
-  detail: { u0: 0.02, u1: 0.98, v0: 0.42, v1: 0.78 },
-  overview: { u0: 0.02, u1: 0.84, v0: 0.83, v1: 0.95 },
-  zoom: { u0: 0.86, u1: 0.98, v0: 0.81, v1: 0.97 },
+  text: 0.3,
+  detail: { u0: 0.02, u1: 0.98, v0: 0.34, v1: 0.82 },
+  overview: { u0: 0.02, u1: 0.84, v0: 0.86, v1: 0.96 },
+  zoom: { u0: 0.86, u1: 0.98, v0: 0.84, v1: 0.98 },
 } as const;
 
 /* ---------- faders, touches ---------- */

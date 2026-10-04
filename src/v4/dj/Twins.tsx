@@ -14,9 +14,10 @@ import type { Stage } from '../scene/renderer';
 import { focus } from '../state/focus';
 import { faderMin, faderNeutral, faderValue, keyDown, keyUp, knobMin, knobNeutral, knobValue, setFader, setKnob } from './gestures';
 import { DJ_FADERS, DJ_KEYS, DJ_KNOBS, type DjFaderSpec, type DjKeySpec, type DjKnobSpec } from './layout';
-import { djTempoStep } from './actions';
+import { djAddDeck, djTempoStep } from './actions';
 import { djState } from './state';
-import { DJ_FX_LABEL } from './theme';
+import { DJ_DECKS_MAX, DJ_FX_LABEL, DJ_UNIT, DJ_W, UNIT_X, djDecks } from './theme';
+import './dj.css';
 
 const r1 = (n: number): number => Math.round(n * 10) / 10;
 const pct = (v: number): number => Math.round(v * 100);
@@ -43,8 +44,6 @@ function keyName(k: DjKeySpec): string {
   switch (t.kind) {
     case 'hotcue':
       return `Deck ${t.deck.toUpperCase()} hot cue ${t.n + 1}`;
-    case 'load':
-      return `Load a track on deck ${t.deck.toUpperCase()}`;
     case 'bend':
       return `Deck ${t.deck.toUpperCase()} bend ${t.dir < 0 ? 'slower' : 'faster'} (hold)`;
     case 'cue':
@@ -56,11 +55,9 @@ function keyName(k: DjKeySpec): string {
     case 'playlist':
       return 'Show or hide the playlist';
     case 'tempo':
-      return `Deck ${t.deck.toUpperCase()} tempo ${t.dir < 0 ? 'down' : 'up'} 0.1 BPM (hold to repeat)`;
+      return `Deck ${t.deck.toUpperCase()} pitch ${t.dir < 0 ? 'down' : 'up'} 0.1 BPM (hold to repeat)`;
     case 'sync':
       return `Deck ${t.deck.toUpperCase()} sync: match the tempo you hear`;
-    case 'adddeck':
-      return 'Add a deck, with its channel on the mixer';
     case 'removedeck':
       return `Remove deck ${t.deck.toUpperCase()}`;
   }
@@ -102,6 +99,8 @@ export const DjTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const stageRef = useRef(stage);
   stageRef.current = stage;
   const groupRef = useRef<HTMLDivElement>(null);
+  const addRef = useRef<HTMLButtonElement>(null);
+  const decks = useSyncExternalStore(djDecks.subscribe, djDecks.get, djDecks.get);
   const off = f !== 'dj';
   // Le rig arrive apres la scene (chargement a part) : on attend qu'il soit accroche
   const [ready, setReady] = useState(!!stage?.dj);
@@ -166,9 +165,57 @@ export const DjTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         }
       }
     };
+    /*
+     * Le + d'ADD DECK (Mika, 2026-10-04 : "quand on survole la partie
+     * droite, un + s'affiche, sinon rien") : une zone juste a droite de la
+     * derniere platine, toute la profondeur ; le + n'y parait qu'au survol.
+     * Au telephone (sans survol), toute la place du bloc 'add', en bout de
+     * defilement, et un + fin toujours visible.
+     */
+    const touch = window.matchMedia('(hover: none)').matches;
+    const out = { x: 0, y: 0 };
+    let lastAdd = '';
+    const placeAdd = (): void => {
+      const el = addRef.current;
+      const layer = stage.dj?.top;
+      if (!el || !layer) return;
+      // Desktop : la marge du cadrage est etroite, le + se tient contre la derniere platine
+      const x0 = touch ? UNIT_X.add - DJ_UNIT.addW / 2 : DJ_W / 2 + 0.04;
+      const x1 = touch ? UNIT_X.add + DJ_UNIT.addW / 2 : DJ_W / 2 + 1.2;
+      const hd = DJ_UNIT.d / 2;
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+      for (const [x, z] of [
+        [x0, -hd],
+        [x1, -hd],
+        [x1, hd],
+        [x0, hd],
+      ]) {
+        const p = stage.hit.project(layer, x, 0, z, out);
+        minX = Math.min(minX, p.x);
+        minY = Math.min(minY, p.y);
+        maxX = Math.max(maxX, p.x);
+        maxY = Math.max(maxY, p.y);
+      }
+      const k = `${r1(minX)}|${r1(minY)}|${r1(maxX)}|${r1(maxY)}`;
+      if (k === lastAdd) return;
+      lastAdd = k;
+      el.style.transform = `translate(${r1(minX)}px, ${r1(minY)}px)`;
+      el.style.width = `${r1(maxX - minX)}px`;
+      el.style.height = `${r1(maxY - minY)}px`;
+    };
     place(true);
-    const offView = stage.onView(() => place(false));
-    const offIdle = stage.onIdle(() => place(false));
+    placeAdd();
+    const offView = stage.onView(() => {
+      place(false);
+      placeAdd();
+    });
+    const offIdle = stage.onIdle(() => {
+      place(false);
+      placeAdd();
+    });
     return () => {
       offView();
       offIdle();
@@ -181,6 +228,22 @@ export const DjTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
 
   return (
     <div ref={groupRef} className="v4-twins" role="group" aria-label="MM-DECKS DJ decks and mixer" aria-hidden={off || undefined}>
+      {decks < DJ_DECKS_MAX && (
+        <button
+          ref={addRef}
+          type="button"
+          className="dj-add"
+          data-off={off ? '1' : '0'}
+          aria-label="Add a deck, with its channel on the mixer"
+          title="Add a deck"
+          onClick={() => djAddDeck()}
+        >
+          <span className="dj-add-plus" aria-hidden="true" />
+          <span className="dj-add-label" aria-hidden="true">
+            ADD DECK
+          </span>
+        </button>
+      )}
       {DJ_KEYS.map((k) => {
         const t = k.target;
         const pressed =

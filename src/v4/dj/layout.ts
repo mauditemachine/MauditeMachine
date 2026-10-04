@@ -9,7 +9,7 @@
  * envoie ceux-la au MM-ARP).
  */
 
-import { ADD, DECK, DJ_DECKS, DJ_DECKS_MAX, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_KNOB, DJ_TIMES, MIX, UNIT_X, djDecks, timeLabel, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
+import { DECK, DJ_DECKS, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_KNOB, DJ_TIMES, MIX, UNIT_X, djDecks, timeLabel, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
 export type DjKnobTarget = { kind: 'eq'; ch: DjChannel; eq: DjEqId } | { kind: 'fx'; fx: DjFxId } | { kind: 'master' };
 
@@ -43,7 +43,6 @@ export interface DjFaderSpec {
 
 export type DjKeyTarget =
   | { kind: 'hotcue'; deck: DjDeck; n: number }
-  | { kind: 'load'; deck: DjDeck }
   | { kind: 'bend'; deck: DjDeck; dir: -1 | 1 }
   | { kind: 'tempo'; deck: DjDeck; dir: -1 | 1 }
   | { kind: 'time'; d: number }
@@ -52,8 +51,7 @@ export type DjKeyTarget =
   | { kind: 'play'; deck: DjDeck }
   /** le centre du jog : le tempo se cale sur celui qu'on entend */
   | { kind: 'sync'; deck: DjDeck }
-  /** ADD DECK, et REMOVE sur la derniere platine ajoutee */
-  | { kind: 'adddeck' }
+  /** REMOVE, sur la derniere platine ajoutee (ajouter : le + au bord droit, dj/AddDeck.tsx) */
   | { kind: 'removedeck'; deck: DjDeck };
 
 export interface DjKeySpec {
@@ -169,7 +167,7 @@ function buildKeys(): DjKeySpec[] {
     DECK.cues.xs.forEach((x, n) => {
       keys.push({ id: `dj-${d}-hotcue${n + 1}`, label: String(n + 1), x: ux + x, z: DECK.cues.z, w: DECK.cues.w, d: DECK.cues.d, round: false, target: { kind: 'hotcue', deck: d, n } });
     });
-    keys.push({ id: `dj-${d}-load`, label: 'LOAD', x: ux + DECK.load.x, z: DECK.load.z, w: DECK.load.w, d: DECK.load.d, round: false, target: { kind: 'load', deck: d } });
+    // LOAD n'est plus une touche (Mika, 2026-10-04) : toucher l'ecran ouvre la playlist
     DECK.bend.xs.forEach((x, k) => {
       const dir = k === 0 ? -1 : 1;
       keys.push({ id: `dj-${d}-bend${dir < 0 ? 'm' : 'p'}`, label: dir < 0 ? '-' : '+', x: ux + x, z: DECK.bend.z, w: DECK.bend.w, d: DECK.bend.d, round: false, target: { kind: 'bend', deck: d, dir } });
@@ -204,10 +202,6 @@ function buildKeys(): DjKeySpec[] {
   });
   const P = MIX.playlist;
   keys.push({ id: 'dj-playlist', label: 'PLAYLIST', x: UNIT_X.mix + P.x, z: P.z, w: P.w, d: P.d, round: false, target: { kind: 'playlist' } });
-  if (DJ_DECKS.length < DJ_DECKS_MAX) {
-    const K = ADD.key;
-    keys.push({ id: 'dj-adddeck', label: 'ADD DECK', x: UNIT_X.add + K.x, z: K.z, w: K.w, d: K.d, round: false, target: { kind: 'adddeck' } });
-  }
   return keys;
 }
 

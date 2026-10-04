@@ -252,8 +252,8 @@ function backPanel(u: DjUnit, seg: number): BufferGeometry[] {
   } else if (u === 'add') {
     out.push(...rj45(at(0), y));
   } else {
-    out.push(...rca(at(-2.5), y, seg), ...rca(at(-2.15), y, seg), ...rca(at(-1.65), y, seg));
-    out.push(...usb(at(-0.95), y), ...rj45(at(-0.3), y), ...dc(at(1.95), y, seg), ...power(at(2.55), y));
+    out.push(...rca(at(-2.15), y, seg), ...rca(at(-1.85), y, seg), ...rca(at(-1.4), y, seg));
+    out.push(...usb(at(-0.8), y), ...rj45(at(-0.25), y), ...dc(at(1.65), y, seg), ...power(at(2.2), y));
   }
   return out;
 }

@@ -12,19 +12,19 @@
  *   l'ecran (relatif : il ne saute pas sous le doigt) ; molette.
  * - Jog : l'angle du pointeur autour du centre projete du plateau.
  * - Touches : CUE et BEND agissent tant qu'on les tient ; PLAY, les hot
- *   cues et TIME a l'appui ; LOAD au relachement ; un hot cue tenu 0.6 s
- *   s'efface.
+ *   cues et TIME a l'appui ; un hot cue tenu 0.6 s s'efface.
  * - Ecran d'une platine (2026-10-04) : glisser sur la forme d'onde fine la
  *   fait defiler (en pause on entend un grain : poser un cue a l'oreille ;
  *   en lecture, la piste saute au lacher) ; toucher la piste entiere y
  *   va ; - et + changent le zoom, comme la molette et le pincement a deux
- *   doigts ; toucher le texte ouvre la liste des morceaux.
+ *   doigts ; toucher le texte ou la forme d'onde sans glisser ouvre la
+ *   playlist sur cette platine (il n'y a plus de touche LOAD).
  */
 
 import type { HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { djBrowser } from './browser';
-import { djAddDeck, djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djHotcue, djHotcueClear, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetMaster, djSetPitch, djSetTime, djSetXfader } from './actions';
+import { djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djHotcue, djHotcueClear, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetMaster, djSetPitch, djSetTime, djSetXfader } from './actions';
 import { djFader, djKey, djKnob, type DjFaderSpec, type DjKeySpec, type DjKnobSpec } from './layout';
 import { djState } from './state';
 import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_DECKS_ALL, DJ_FADER, UNIT_X, type DjDeck } from './theme';
@@ -143,10 +143,8 @@ export function keyUp(k: DjKeySpec, stage: Stage | null, tap: boolean): void {
     cueDown[t.deck] = false;
     djCue(t.deck, false);
   } else if (t.kind === 'bend') djBend(t.deck, 0);
-  else if (t.kind === 'load' && tap) djBrowser.open(t.deck);
   else if (t.kind === 'playlist' && tap) djBrowser.toggle();
-  // Ajouter ou retirer une platine reconstruit la scene : au relachement, sur la touche
-  else if (t.kind === 'adddeck' && tap) djAddDeck();
+  // Retirer une platine reconstruit la scene : au relachement, sur la touche
   else if (t.kind === 'removedeck' && tap) djRemoveDeck(t.deck);
 }
 
@@ -387,7 +385,8 @@ export class DjGestures {
     if (g.kind === 'screen') {
       // En lecture, la forme d'onde glissee : la piste saute au lacher
       if (g.zone === 'detail' && g.moved && g.pinch === 0) djSeek(g.deck, g.target);
-      if (g.zone === 'text' && tap) djBrowser.open(g.deck);
+      // Toucher l'ecran (sans glisser) ouvre la playlist sur cette platine (Mika, 2026-10-04 : "pas besoin de bouton")
+      if ((g.zone === 'text' || g.zone === 'detail') && tap && g.pinch === 0) djBrowser.open(g.deck);
       this.stage.repaint();
       return;
     }

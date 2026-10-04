@@ -11,7 +11,7 @@
  *   1 2 3 4  hot cues  7 8 9 0
  *   Q W  bend - +      O P
  *   A  cue  S  play    K  cue  L  play
- *   E  load            I  load
+ *   E  playlist A      I  playlist B
  *   Z X  tempo - + 0.1 BPM (Maj : 1 BPM)   N M
  *   D  sync            J  sync
  *   Espace : PLAY de la derniere platine touchee
@@ -21,6 +21,7 @@
 
 import type { Stage } from '../scene/renderer';
 import { djSetXfader, djZoomStep } from './actions';
+import { djBrowser } from './browser';
 import { keyDown, keyUp } from './gestures';
 import { DJ_KEYS, type DjKeySpec } from './layout';
 import { djState } from './state';
@@ -38,7 +39,6 @@ const MAP: Readonly<Record<string, string>> = {
   KeyW: 'dj-a-bendp',
   KeyA: 'dj-a-cue',
   KeyS: 'dj-a-play',
-  KeyE: 'dj-a-load',
   Digit7: 'dj-b-hotcue1',
   Digit8: 'dj-b-hotcue2',
   Digit9: 'dj-b-hotcue3',
@@ -47,7 +47,6 @@ const MAP: Readonly<Record<string, string>> = {
   KeyP: 'dj-b-bendp',
   KeyK: 'dj-b-cue',
   KeyL: 'dj-b-play',
-  KeyI: 'dj-b-load',
   // Le tempo au dixieme de BPM (Maj : au BPM entier), tenu en continu
   KeyZ: 'dj-a-tempom',
   KeyX: 'dj-a-tempop',
@@ -64,8 +63,8 @@ export const DJ_KEY_LEGEND: readonly { keys: string; what: string }[] = [
   { keys: 'A  /  K', what: 'Cue A / B (hold: preview)' },
   { keys: 'S  /  L', what: 'Play A / B' },
   { keys: 'Q W  /  O P', what: 'Bend - + A / B (hold)' },
-  { keys: 'E  /  I', what: 'Load A / B' },
-  { keys: 'Z X  /  N M', what: 'Tempo - + 0.1 BPM A / B (Shift: 1 BPM)' },
+  { keys: 'E  /  I', what: 'Playlist to deck A / B' },
+  { keys: 'Z X  /  N M', what: 'Pitch - + 0.1 BPM A / B (Shift: 1 BPM)' },
   { keys: 'D  /  J', what: 'Sync A / B to the tempo you hear' },
   { keys: 'Space', what: 'Play the last deck used' },
   { keys: 'Left  Right  Down', what: 'Crossfader (Shift: all the way), center' },
@@ -107,6 +106,12 @@ export function listenDjKeys(getStage: () => Stage | null, active: () => boolean
     if (e.code === 'Minus' || e.code === 'Equal') {
       e.preventDefault();
       for (const d of ['a', 'b'] as const) djZoomStep(d, e.code === 'Minus' ? 1 : -1);
+      return;
+    }
+    // E et I : la playlist, visant A ou B (il n'y a plus de touche LOAD)
+    if ((e.code === 'KeyE' || e.code === 'KeyI') && !e.repeat) {
+      e.preventDefault();
+      djBrowser.open(e.code === 'KeyE' ? 'a' : 'b');
       return;
     }
     const id = e.code === 'Space' ? `dj-${last}-play` : MAP[e.code];
