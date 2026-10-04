@@ -64,7 +64,7 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         voyPad(chord, getStage());
         return;
       }
-      const inst = focus.get() === 'voy' ? undefined : PAD_KEYS.get(e.key.toLowerCase());
+      const inst = focus.get() === 'voy' || focus.get() === 'dj' ? undefined : PAD_KEYS.get(e.key.toLowerCase());
       if (inst) {
         e.preventDefault();
         padHit(inst, getStage());
@@ -74,9 +74,9 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         if (ownsSpace(e.target)) return;
         // Pas de defilement : la page ne defile jamais
         e.preventDefault();
-        // Sur le MM-VOYAGER, son RUN/STOP (l'arpege)
+        // Sur le MM-VOYAGER, son RUN/STOP (l'arpege) ; sur le MM-DECKS, rien encore
         if (focus.get() === 'voy') voyRun(getStage());
-        else runToggle(getStage());
+        else if (focus.get() !== 'dj') runToggle(getStage());
         return;
       }
       // Touche physique aussi : sur un clavier AZERTY les chiffres sont en Maj
@@ -84,10 +84,10 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
       if (digit) {
         e.preventDefault();
         if (digit.page) page(digit.page, getStage());
-        else openToggle(getStage());
+        else if (focus.get() !== 'dj') openToggle(getStage());
         return;
       }
-      if (e.key === 'o' || e.key === 'O') {
+      if ((e.key === 'o' || e.key === 'O') && focus.get() !== 'dj') {
         e.preventDefault();
         openToggle(getStage());
         return;

@@ -97,7 +97,7 @@ export function page(id: PageId, stage: Stage | null): void {
 
 /** Le pad de page de la 808 s'enfonce (le MM-VOYAGER a ses pages sur la carte, pas de touche). */
 function pressPage(id: PageId, stage: Stage | null): void {
-  if (focus.get() === 'voy') return;
+  if (focus.get() === 'voy' || focus.get() === 'dj') return;
   stage?.pads.press(id);
 }
 
@@ -370,6 +370,8 @@ export function closeSection(): void {
  * demande est prise.
  */
 export function openToggle(stage: Stage | null = null, which: MachineId = hoodMachine()): boolean {
+  // Le MM-DECKS n'a pas de capot
+  if (which === 'dj') return false;
   resume();
   const ok = hoodOf(which).toggle();
   if (ok) {
@@ -384,7 +386,7 @@ export function hoodMachine(): MachineId {
   return focus.machine() ?? 'mm808';
 }
 
-/** Le capot d'une machine. */
+/** Le capot d'une machine (le MM-DECKS n'en a pas : celui de la 808). */
 export function hoodOf(m: MachineId): ExplodeStore {
   return m === 'voy' ? voyExplode : explode;
 }
@@ -419,7 +421,7 @@ export function escape(): boolean {
   }
   const hood = hoodOf(hoodMachine());
   if (hood.get() === 'open') return hood.toggle();
-  if (pattern.get().instrument !== null && focus.get() !== 'voy') {
+  if (pattern.get().instrument !== null && focus.get() !== 'voy' && focus.get() !== 'dj') {
     selectVoice(null);
     return true;
   }

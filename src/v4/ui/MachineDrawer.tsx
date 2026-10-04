@@ -14,13 +14,14 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { focusMachine } from '../actions';
 import type { Stage } from '../scene/renderer';
-import { focus, type Focus, type MachineId } from '../state/focus';
+import { DJ, MACHINES, focus, type Focus, type MachineId } from '../state/focus';
 import { intro } from '../state/intro';
 
 const ITEMS: readonly { id: Focus; title: string; sub: string }[] = [
-  { id: 'all', title: 'BOTH MACHINES', sub: 'OVERVIEW' },
+  { id: 'all', title: DJ ? 'ALL MACHINES' : 'BOTH MACHINES', sub: 'OVERVIEW' },
   { id: 'mm808', title: 'MM-RYTM', sub: 'DRUM MACHINE' },
   { id: 'voy', title: 'MM-ARP', sub: 'ARPEGGIATOR SYNTHESIZER' },
+  ...(DJ ? [{ id: 'dj' as const, title: 'MM-DECKS', sub: 'DJ DECKS AND MIXER' }] : []),
 ];
 
 /** Fermeture apres que la souris est sortie (ms) : un aller-retour rapide ne le ferme pas. */
@@ -40,7 +41,7 @@ export const MachineDrawer: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     if (!open || !stage || thumbsFor.current === stage) return;
     thumbsFor.current = stage;
     const next: Partial<Record<MachineId, string>> = {};
-    for (const id of ['mm808', 'voy'] as const) {
+    for (const id of MACHINES) {
       const url = stage.thumbnail(id);
       if (url) next[id] = url;
     }
@@ -116,8 +117,7 @@ export const MachineDrawer: React.FC<{ stage: Stage | null }> = ({ stage }) => {
                 <span className="v4-mdrawer-thumb" data-kind={it.id}>
                   {it.id === 'all' ? (
                     <>
-                      {thumbs.mm808 && <img src={thumbs.mm808} alt="" />}
-                      {thumbs.voy && <img src={thumbs.voy} alt="" />}
+                      {MACHINES.map((id) => thumbs[id] && <img key={id} src={thumbs[id]} alt="" />)}
                     </>
                   ) : (
                     thumbs[it.id] && <img src={thumbs[it.id]} alt="" />

@@ -55,8 +55,10 @@ export function goHome(stage: Stage | null): void {
 
 /** GOODIES, MERCH, STUDIO : le capot s'ouvre d'abord, puis la section de la puce. */
 export function openHood(id: HoodId, stage: Stage | null): void {
-  // Le capot de la machine qu'on utilise (vue d'ensemble : la 808)
-  const m = hoodMachine();
+  // Le capot de la machine qu'on utilise (vue d'ensemble : la 808) ; le MM-DECKS
+  // n'en a pas : on passe a la 808
+  if (focus.get() === 'dj') focus.set('mm808');
+  const m = hoodMachine() === 'dj' ? 'mm808' : hoodMachine();
   const s = hoodOf(m).get();
   if (s === 'closed') {
     if (openToggle(stage, m)) window.setTimeout(() => openSection(id), HOOD_DELAY_MS);

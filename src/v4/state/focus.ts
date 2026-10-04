@@ -10,7 +10,7 @@
  * Sans le MM-VOYAGER (?voyager=0), la 808 seule : focus reste 'mm808'.
  */
 
-export type MachineId = 'mm808' | 'voy';
+export type MachineId = 'mm808' | 'voy' | 'dj';
 export type Focus = 'all' | MachineId;
 
 /**
@@ -29,6 +29,25 @@ export const VOYAGER: boolean = (() => {
   }
 })();
 
+/**
+ * Le MM-DECKS (2026-10-04, les Decks de sonaa.ca) : a droite du MM-ARP.
+ * Cache tant que Mika ne l'a pas valide : ?dj=1 le pose (retenu pour
+ * l'onglet), ?dj=0 le retire. Il suppose le MM-VOYAGER sur la table.
+ */
+export const DJ: boolean = (() => {
+  if (typeof window === 'undefined' || !VOYAGER) return false;
+  try {
+    const q = new URLSearchParams(window.location.search).get('dj');
+    if (q === '1' || q === '0') window.sessionStorage.setItem('mm.v4.dj', q);
+    return window.sessionStorage.getItem('mm.v4.dj') === '1';
+  } catch {
+    return false;
+  }
+})();
+
+/** Les machines sur la table, de gauche a droite. */
+export const MACHINES: readonly MachineId[] = VOYAGER ? (DJ ? ['mm808', 'voy', 'dj'] : ['mm808', 'voy']) : ['mm808'];
+
 let current: Focus = 'mm808';
 /** le cadrage est arrive (false pendant le zoom d'une machine a l'autre) */
 let settled = true;
@@ -39,9 +58,9 @@ const emit = (): void => listeners.forEach((fn) => fn());
 export const focus = {
   get: (): Focus => current,
   settled: (): boolean => settled,
-  /** Nouvelle cible ; sans le MM-VOYAGER, toujours la 808. */
+  /** Nouvelle cible ; une machine absente de la table : la 808. */
   set(f: Focus): void {
-    const next: Focus = VOYAGER ? f : 'mm808';
+    const next: Focus = f === 'all' || MACHINES.includes(f) ? (VOYAGER ? f : 'mm808') : 'mm808';
     if (next === current) return;
     current = next;
     settled = false;

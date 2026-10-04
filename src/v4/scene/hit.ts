@@ -22,7 +22,7 @@
  */
 
 import { Matrix4, Vector3, type Camera, type Object3D, type PerspectiveCamera } from 'three';
-import type { MachineId } from '../state/focus';
+import { MACHINES, type MachineId } from '../state/focus';
 import { HIT, type ChipId, type EncId, type Inst, type SectionId } from '../theme';
 import type { VoyKnobId } from '../voyager/params';
 
@@ -52,7 +52,12 @@ export type HotspotKind =
   | 'vopen'
   | 'vbtn'
   | 'vknob'
-  | 'vchip';
+  | 'vchip'
+  // MM-DECKS (2026-10-04) : potards, faders, touches, jogs
+  | 'djknob'
+  | 'djfader'
+  | 'djkey'
+  | 'djjog';
 
 export interface HotspotDef {
   id: string;
@@ -86,6 +91,8 @@ export interface HotspotDef {
   vpad?: number;
   vbtn?: 'run' | 'clear' | 'random';
   vknob?: VoyKnobId;
+  /** MM-DECKS : l'id de la commande (dj/layout.ts) */
+  dj?: string;
 }
 
 /**
@@ -448,7 +455,7 @@ export class HitMap {
       this.putMatrix(l.matrixWorld.elements);
       this.put(shown(l) ? 1 : 0);
     }
-    this.put(this.active === 'any' ? 2 : this.active === null ? 0 : this.active === 'mm808' ? 3 : 4);
+    this.put(this.active === 'any' ? 2 : this.active === null ? 0 : this.active === 'mm808' ? 3 : this.active === 'voy' ? 4 : 5);
     const defs = this.defs;
     for (let i = 0; i < defs.length; i += 1) this.put(defs[i].enabled ? 1 : 0);
     if (this.sig.length !== this.si) {
@@ -710,7 +717,7 @@ export class HitMap {
   machineAt(x: number, y: number): MachineId | null {
     this.sync();
     this.prepare();
-    for (const tag of ['mm808', 'voy'] as const) {
+    for (const tag of MACHINES) {
       const pts = this.hullPoints(tag);
       if (pts.length >= 6 && inside(hull(pts), x, y)) return tag;
     }

@@ -45,7 +45,8 @@ import { useKeys } from './hooks/useKeys';
 import { useMedia } from './hooks/useMedia';
 import { Stage } from './scene/renderer';
 import { explode, voyExplode } from './state/explode';
-import { focus, VOYAGER } from './state/focus';
+import { DJ, focus, VOYAGER } from './state/focus';
+import { DjBrowser } from './dj/TrackBrowser';
 import { FLAGS, syncFlags } from './state/flags';
 import { intro } from './state/intro';
 import { lcd } from './state/lcd';
@@ -489,9 +490,11 @@ const V4Shell: React.FC = () => {
           <ResetView getStage={getStage} />
           <Lcd />
           {/* Le Dock n'existe que sur la mise en page mobile : pas de rendu React par pas sur desktop ; il programme la 808 */}
-          {mobile && machineFocus !== 'voy' && <Dock getStage={getStage} />}
+          {mobile && machineFocus !== 'voy' && machineFocus !== 'dj' && <Dock getStage={getStage} />}
           {/* Le Voyager a le sien au telephone : accords, octave, arpege en gros boutons */}
           {mobile && VOYAGER && machineFocus === 'voy' && <VoyDock getStage={getStage} />}
+          {/* Le MM-DECKS : la liste des morceaux, ouverte par LOAD */}
+          {DJ && <DjBrowser />}
           {/* Deux machines : leurs noms, le retour a la vue d'ensemble, le selecteur du telephone */}
           {VOYAGER && <MachineNav stage={stage} mobile={mobile} />}
           {/* Machine ouverte au telephone : CLOSE a portee de pouce, sur l'avant de la carte */}

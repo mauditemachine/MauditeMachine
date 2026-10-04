@@ -66,8 +66,9 @@ import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
 import { BPM, STEP_COUNT, isOn, pattern } from '../audio/pattern';
 import type { HotspotKind, HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
+import { DjGestures } from '../dj/gestures';
 import { chipsLive, explode } from '../state/explode';
-import { focus, VOYAGER } from '../state/focus';
+import { MACHINES, focus, VOYAGER } from '../state/focus';
 import { section } from '../state/section';
 import { voices } from '../state/voices';
 import { voyKnob, type VoyKnobId } from '../voyager/params';
@@ -241,6 +242,10 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     });
     ro.observe(el);
 
+    // Le MM-DECKS : ses commandes prennent le pointeur des le pointerdown (dj/gestures.ts)
+    const djg = stage.dj ? new DjGestures(stage) : null;
+    const isDj = (k: HotspotKind): boolean => k === 'djknob' || k === 'djfader' || k === 'djkey' || k === 'djjog';
+
     const isCoarse = (e: PointerEvent): boolean =>
       e.pointerType === 'touch' || e.pointerType === 'pen' || coarseMql.matches;
     const pickAt = (e: Point, coarse: boolean): HotspotView | null =>
@@ -359,6 +364,13 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Chaque pointeur est capture : un glisser continue d'orbiter hors du canvas
       capture(e.pointerId);
       const h = pickAt(e, isCoarse(e));
+      // Une commande du MM-DECKS : elle seule voit ce pointeur (ni orbite ni pincement)
+      if (h && djg && isDj(h.kind)) {
+        djg.down(e.pointerId, h, e.clientX - rect.left, e.clientY - rect.top);
+        e.stopPropagation();
+        e.preventDefault();
+        return;
+      }
       const encoder: DialId | null =
         h && h.kind === 'encoder' && h.param ? h.param : h && h.kind === 'vknob' && h.vknob ? (`v:${h.vknob}` as DialId) : null;
       // Un deuxieme doigt : ni l'un ni l'autre ne glisse d'une machine a l'autre
@@ -411,6 +423,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     const onMove = (e: PointerEvent): void => {
       // Lu ici, avant l'orbite (sur le parent) dont la garde prend l'encodeur
       shiftHeld = e.shiftKey;
+      if (djg?.holds(e.pointerId)) {
+        djg.move(e.pointerId, e.clientX - rect.left, e.clientY - rect.top, e.shiftKey);
+        e.stopPropagation();
+        return;
+      }
       const d = downs.get(e.pointerId);
       // Souris sans bouton mais encore tenue ici : son pointerup s'est perdu
       if (d && d.mouse && (e.buttons & 1) === 0) forget(e.pointerId);
@@ -435,6 +452,13 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     };
 
     const onUp = (e: PointerEvent): void => {
+      if (djg?.holds(e.pointerId)) {
+        const over = e.type === 'pointerup' ? pickAt(e, isCoarse(e)) : null;
+        djg.up(e.pointerId, over ? over.id : null);
+        if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+        e.stopPropagation();
+        return;
+      }
       const d = downs.get(e.pointerId);
       downs.delete(e.pointerId);
       if (d && d.turning && d.mouse) {
@@ -464,8 +488,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
           const dx = e.clientX - d.x;
           const dy = e.clientY - d.y;
           if (Math.abs(dx) > SWIPE.px && Math.abs(dx) > SWIPE.ratio * Math.abs(dy) && performance.now() - d.t < SWIPE.ms) {
-            fired = dx < 0 ? 'swipe-voy' : 'swipe-mm808';
-            focusMachine(dx < 0 ? 'voy' : 'mm808');
+            // Vers la gauche : la machine suivante ; vers la droite : la precedente
+            const cur = MACHINES.indexOf(focus.machine() ?? 'mm808');
+            const to = MACHINES[Math.max(0, Math.min(MACHINES.length - 1, cur + (dx < 0 ? 1 : -1)))];
+            fired = `swipe-${to}`;
+            focusMachine(to);
           }
         }
         hitDebug.lastUp = { id: d.id, tap, fired, bg };
@@ -489,6 +516,12 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Ctrl + molette (pincement d'un pave tactile) : le zoom de la vue
       if (e.ctrlKey) return;
       const h = pickAt(e, false);
+      // Au-dessus d'un potard ou d'un fader du MM-DECKS : il bouge, la vue ne zoome pas
+      if (h && djg && (h.kind === 'djknob' || h.kind === 'djfader')) {
+        const delta = e.shiftKey && e.deltaY === 0 ? e.deltaX : e.deltaY;
+        if (djg.wheel(h, delta * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1), e.shiftKey)) e.preventDefault();
+        return;
+      }
       const k: DialId | null = h && h.kind === 'encoder' && h.param ? h.param : h && h.kind === 'vknob' && h.vknob ? (`v:${h.vknob}` as DialId) : null;
       if (!k) {
         wheelAcc = 0;
@@ -520,7 +553,10 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
     };
 
-    const onLost = (e: PointerEvent): void => forget(e.pointerId);
+    const onLost = (e: PointerEvent): void => {
+      if (djg?.holds(e.pointerId)) djg.up(e.pointerId, null);
+      forget(e.pointerId);
+    };
 
     const onLeave = (e: PointerEvent): void => {
       if (e.pointerType === 'mouse' && !stage.orbit.dragging) setHover(null);
@@ -541,6 +577,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       disposed = true;
       ro.disconnect();
       downs.clear();
+      djg?.release();
       stage.orbit.gate = () => true;
       el.removeEventListener('pointerdown', onDown);
       el.removeEventListener('pointermove', onMove);

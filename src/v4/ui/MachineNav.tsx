@@ -17,13 +17,14 @@
 import React, { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { focusMachine } from '../actions';
 import type { Stage } from '../scene/renderer';
-import { focus, type MachineId } from '../state/focus';
+import { MACHINES, focus, type MachineId } from '../state/focus';
 import { intro } from '../state/intro';
 import { MachineDrawer } from './MachineDrawer';
 
 const NAMES: Record<MachineId, { title: string; sub: string; aria: string }> = {
   mm808: { title: 'MM-RYTM', sub: 'DRUM MACHINE', aria: 'Play the MM-RYTM drum machine' },
   voy: { title: 'MM-ARP', sub: 'SYNTHESIZER', aria: 'Play the MM-ARP synthesizer' },
+  dj: { title: 'MM-DECKS', sub: 'DJ DECKS AND MIXER', aria: 'Play the MM-DECKS DJ decks and mixer' },
 };
 
 const Chevron: React.FC<{ dir: 'left' | 'right' }> = ({ dir }) => (
@@ -49,10 +50,13 @@ export const MachineNav: React.FC<Props> = ({ stage, mobile }) => {
     if (!stage || !overview) return undefined;
     const last = new Map<MachineId, string>();
     const place = (): void => {
-      // Les deux noms sur une meme ligne, sous la plus basse des deux machines
-      const boxes = { mm808: stage.hit.machineBox('mm808'), voy: stage.hit.machineBox('voy') };
-      const bottom = Math.max(...(['mm808', 'voy'] as const).map((id) => (boxes[id] ? boxes[id].y + boxes[id].h : -Infinity)));
-      for (const id of ['mm808', 'voy'] as const) {
+      // Les noms sur une meme ligne, sous la plus basse des machines
+      const boxes = Object.fromEntries(MACHINES.map((id) => [id, stage.hit.machineBox(id)])) as Partial<Record<MachineId, ReturnType<typeof stage.hit.machineBox>>>;
+      const bottom = Math.max(...MACHINES.map((id) => {
+        const b = boxes[id];
+        return b ? b.y + b.h : -Infinity;
+      }));
+      for (const id of MACHINES) {
         const el = refs.current.get(id);
         const b = boxes[id];
         if (!el || !b) continue;
@@ -72,24 +76,28 @@ export const MachineNav: React.FC<Props> = ({ stage, mobile }) => {
   }, [stage, overview]);
 
   if (mobile) {
-    const m = f === 'voy' ? 'voy' : 'mm808';
+    const m: MachineId = f === 'all' ? 'mm808' : f;
+    const i = MACHINES.indexOf(m);
+    // La fleche montre la machine suivante (la derniere : la premiere)
+    const next = MACHINES[(i + 1) % MACHINES.length];
+    const back = next === MACHINES[0] && MACHINES.length > 1;
     return (
       <>
         <div className="v4-mswitch" role="group" aria-label="Machine">
-          {(['mm808', 'voy'] as const).map((id) => (
+          {MACHINES.map((id) => (
             <button key={id} type="button" className="v4-mswitch-btn" aria-pressed={m === id} onClick={() => focusMachine(id)}>
-              {id === 'mm808' ? 'MM-RYTM' : 'MM-ARP'}
+              {NAMES[id].title}
             </button>
           ))}
         </div>
         <button
           type="button"
           className="v4-medge"
-          data-side={m === 'mm808' ? 'right' : 'left'}
-          aria-label={m === 'mm808' ? 'Show the MM-ARP synthesizer' : 'Show the MM-RYTM drum machine'}
-          onClick={() => focusMachine(m === 'mm808' ? 'voy' : 'mm808')}
+          data-side={back ? 'left' : 'right'}
+          aria-label={`Show the ${NAMES[next].title}`}
+          onClick={() => focusMachine(next)}
         >
-          <Chevron dir={m === 'mm808' ? 'right' : 'left'} />
+          <Chevron dir={back ? 'left' : 'right'} />
         </button>
       </>
     );
@@ -97,7 +105,7 @@ export const MachineNav: React.FC<Props> = ({ stage, mobile }) => {
 
   return (
     <>
-      {(['mm808', 'voy'] as const).map((id) => (
+      {MACHINES.map((id) => (
         <button
           key={id}
           ref={(el) => {
