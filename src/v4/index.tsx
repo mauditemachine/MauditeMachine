@@ -59,6 +59,7 @@ import { HOOD_SECTIONS, SECTION_ROUTES, sectionFromPath, sectionTitle } from './
 import { view } from './state/view';
 import { BACKDROP, COARSE_QUERY, COPY, MOBILE_QUERY, PORTRAIT, PRESSKIT_ROUTE, applyAppearance } from './theme';
 import { BeatPanel } from './ui/BeatEditor';
+import { InstallPrompt } from './ui/InstallPrompt';
 import { MobileHeader } from './ui/MobileHeader';
 import { PcbClose } from './ui/PcbClose';
 import { Scope } from './ui/Scope';
@@ -539,6 +540,8 @@ const V4Shell: React.FC = () => {
         </StageBoundary>
       )}
       <PresskitHost getStage={getStage} />
+      {/* L'ecran d'accueil (2026-10-04, Mika : "Il est important de proposer d'avoir mauditemachine.com en icone sur iPhone.. par defaut") : repli compris */}
+      <InstallPrompt stage={gl === 'webgl' ? stage : null} mobile={mobile} />
       {gl === 'fallback' && <NoWebGL />}
       {IS_DEV && devErrors.length > 0 && (
         <ul className="v4-devlog" aria-hidden="true">
