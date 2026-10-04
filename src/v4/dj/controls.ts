@@ -40,8 +40,8 @@ import { potAngle } from '../scene/encoders';
 import { withInstanceEmissive } from '../scene/materials';
 import { APPEARANCE } from '../theme';
 import { partDj } from './body';
-import { DJ_FADERS, DJ_KNOBS, DJ_RECT_KEYS, DJ_ROUND_KEYS, faderPos, jogCenter, type DjFaderSpec, type DjKeySpec } from './layout';
-import { DECK, DJ_FADER, DJ_KEY, DJ_KNOB, DJ_LIGHT, DJ_ROUND, MIX, UNIT_X, type DjDeck, type DjTone } from './theme';
+import { DJ_FADERS, DJ_KEYS, DJ_KNOBS, DJ_RECT_KEYS, DJ_ROUND_KEYS, faderPos, jogCenter, type DjFaderSpec, type DjKeySpec } from './layout';
+import { DECK, DJ_DECKS, DJ_DECKS_ALL, DJ_FADER, DJ_KEY, DJ_KNOB, DJ_LIGHT, DJ_ROUND, MIX, UNIT_X, type DjDeck, type DjTone } from './theme';
 
 const AXIS_Y = new Vector3(0, 1, 0);
 const m4 = new Matrix4();
@@ -176,24 +176,25 @@ function platterGeometry(mobile: boolean): BufferGeometry {
   }
   side.computeVertexNormals();
   const parts: BufferGeometry[] = [partDj(side, 'platter')];
-  // Le dessus : des anneaux (stries), du bord vers le centre
-  const rings = 14;
-  for (let k = 0; k < rings; k += 1) {
-    const r1 = R - 0.06 - k * 0.09;
-    const r0 = r1 - 0.09;
-    if (r0 < 0.95) break;
+  // Le dessus : des anneaux (stries), du bord vers la bague du centre
+  const C = J.center;
+  const inner = C + 0.08;
+  const band = 0.07;
+  for (let k = 0; k < 24; k += 1) {
+    const r1 = R - 0.06 - k * band;
+    const r0 = r1 - band;
+    if (r0 < inner) break;
     const g = new LatheGeometry([new Vector2(r0, H), new Vector2(r1, H)].reverse(), seg);
     parts.push(partDj(g, k % 2 === 0 ? 'groove' : 'platter'));
   }
-  const top = new CylinderGeometry(0.95, 0.95, 0.002, seg);
+  const top = new CylinderGeometry(inner, inner, 0.002, seg);
   top.translate(0, H - 0.001, 0);
   parts.push(partDj(top, 'platter'));
-  // Une bague d'aluminium autour de l'ecran du centre, la jupe des potards en grand
-  const C = J.center;
-  const bezel = new LatheGeometry([new Vector2(C + 0.075, H), new Vector2(C + 0.06, H + 0.016), new Vector2(C + 0.005, H + 0.016), new Vector2(C, H + 0.006)], seg);
+  // Une bague d'aluminium autour de l'ecran du centre (SYNC), la jupe des potards en grand
+  const bezel = new LatheGeometry([new Vector2(C + 0.07, H), new Vector2(C + 0.055, H + 0.016), new Vector2(C + 0.005, H + 0.016), new Vector2(C, H + 0.006)], seg);
   parts.push(partDj(bezel, 'skirt'));
-  const mark = new BoxGeometry(0.05, 0.006, 0.5);
-  mark.translate(0, H + 0.003, -(R - 0.38));
+  const mark = new BoxGeometry(0.045, 0.006, 0.34);
+  mark.translate(0, H + 0.003, -(R - 0.26));
   parts.push(partDj(mark, 'mark'));
   return merge(parts, 'platters');
 }
@@ -208,7 +209,7 @@ function ringGeometry(mobile: boolean): BufferGeometry {
     seg
   );
   const parts: BufferGeometry[] = [];
-  for (const d of ['a', 'b'] as const) {
+  for (const d of DJ_DECKS) {
     const c = jogCenter(d);
     const g = lathe.clone();
     g.translate(c.x, 0, c.z);
@@ -253,9 +254,9 @@ function ledSpecs(light: boolean): { leds: DjLedSpec[]; vu: number[][]; master: 
   const vu = MIX.cols.map((cx) => column(UNIT_X.mix + cx + V.dx, V.z0, V.z1));
   const M = MIX.masterVu;
   const master = [-1, 1].map((s) => column(UNIT_X.mix + MIX.masterX + s * M.dx, M.z0, M.z1));
-  const jog = { a: [] as number[], b: [] as number[] };
-  const zero = { a: 0, b: 0 };
-  for (const d of ['a', 'b'] as const) {
+  const jog: Record<DjDeck, number[]> = { a: [], b: [], c: [], d: [] };
+  const zero: Record<DjDeck, number> = { a: -1, b: -1, c: -1, d: -1 };
+  for (const d of DJ_DECKS) {
     const c = jogCenter(d);
     const J = DECK.jog;
     for (let k = 0; k < J.leds; k += 1) {
@@ -265,7 +266,7 @@ function ledSpecs(light: boolean): { leds: DjLedSpec[]; vu: number[][]; master: 
       leds.push({ x: c.x + Math.sin(a) * J.ledR, y: J.ringH + 0.003, z: c.z - Math.cos(a) * J.ledR, w: ((Math.PI * 2 * J.ledR) / J.leds) * 0.62, d: 0.07, rot: -a, hex: DJ_LIGHT.orange });
     }
     zero[d] = leds.length;
-    leds.push({ x: UNIT_X[d] + DECK.pitch.x - 0.36, y: 0.004, z: (DECK.pitch.z0 + DECK.pitch.z1) / 2, w: 0.12, d: 0.07, rot: 0, hex: DJ_LIGHT.yellow });
+    leds.push({ x: UNIT_X[d] + DECK.pitch.x - 0.34, y: 0.004, z: (DECK.pitch.z0 + DECK.pitch.z1) / 2, w: 0.12, d: 0.07, rot: 0, hex: DJ_LIGHT.yellow });
   }
   return { leds, vu, master, jog, zero };
 }
@@ -282,13 +283,12 @@ const isHot = (i: number): boolean => {
   const t = DJ_KNOBS[i].target;
   return t.kind === 'eq' && t.eq === 'filter';
 };
-/** Chaque potard : son mesh (normal ou orange) et sa place dedans. */
-const KNOB_SLOT: readonly { hot: boolean; j: number }[] = (() => {
+/** Chaque potard : son mesh (normal ou orange) et sa place dedans (pour les listes du moment). */
+function knobSlots(): { hot: boolean; j: number }[] {
   let n = 0;
   let h = 0;
   return DJ_KNOBS.map((_, i) => (isHot(i) ? { hot: true, j: h++ } : { hot: false, j: n++ }));
-})();
-const HOT_COUNT = KNOB_SLOT.filter((k) => k.hot).length;
+}
 
 export class DjControls {
   readonly knobs: InstancedMesh;
@@ -304,7 +304,8 @@ export class DjControls {
   private faderAt = new Float32Array(DJ_FADERS.length);
   private keyY = new Float32Array(DJ_RECT_KEYS.length);
   private roundY = new Float32Array(DJ_ROUND_KEYS.length);
-  private jogAngle = { a: 0, b: 0 };
+  private jogAngle: Record<DjDeck, number> = { a: 0, b: 0, c: 0, d: 0 };
+  private knobSlot = knobSlots();
   private keyEm: InstancedBufferAttribute;
   private roundEm: InstancedBufferAttribute;
   private ledOn: Float32Array;
@@ -321,9 +322,10 @@ export class DjControls {
     };
 
     const knobMat = std('djKnob', { roughness: 0.42, metalness: 0.28 });
-    this.knobs = new InstancedMesh(knobGeometry(opts.mobile), knobMat, DJ_KNOBS.length - HOT_COUNT);
+    const hotCount = this.knobSlot.filter((k) => k.hot).length;
+    this.knobs = new InstancedMesh(knobGeometry(opts.mobile), knobMat, DJ_KNOBS.length - hotCount);
     this.knobs.name = 'djKnobs';
-    this.knobsHot = new InstancedMesh(knobGeometry(opts.mobile, 'hot'), knobMat, HOT_COUNT);
+    this.knobsHot = new InstancedMesh(knobGeometry(opts.mobile, 'hot'), knobMat, hotCount);
     this.knobsHot.name = 'djKnobsHot';
 
     this.caps = new InstancedMesh(capGeometry(), std('djCap', { roughness: 0.75, metalness: 0 }), DJ_FADERS.length);
@@ -343,7 +345,7 @@ export class DjControls {
     this.rounds = new InstancedMesh(rg, std('djRound', { roughness: 0.9, metalness: 0 }, true), DJ_ROUND_KEYS.length);
     this.rounds.name = 'djRounds';
 
-    this.platters = new InstancedMesh(platterGeometry(opts.mobile), std('djPlatter', { roughness: 0.72, metalness: 0 }), 2);
+    this.platters = new InstancedMesh(platterGeometry(opts.mobile), std('djPlatter', { roughness: 0.72, metalness: 0 }), DJ_DECKS.length);
     this.platters.name = 'djPlatters';
     this.rings = new Mesh(ringGeometry(opts.mobile), std('djRing', { roughness: 0.3, metalness: light ? 0.2 : 0.55 }));
     this.rings.name = 'djRings';
@@ -379,8 +381,7 @@ export class DjControls {
     });
     DJ_RECT_KEYS.forEach((_, i) => this.placeKey(i));
     DJ_ROUND_KEYS.forEach((_, i) => this.placeRound(i));
-    this.placePlatter('a');
-    this.placePlatter('b');
+    for (const d of DJ_DECKS) this.placePlatter(d);
     this.ledMap.leds.forEach((l, i) => {
       m4.compose(v3.set(l.x, l.y, l.z), q.setFromAxisAngle(AXIS_Y, l.rot), s3.set(l.w, 1, l.d));
       this.leds.setMatrixAt(i, m4);
@@ -400,7 +401,7 @@ export class DjControls {
   private placeKnob(i: number): void {
     const k = DJ_KNOBS[i];
     m4.compose(v3.set(k.x, 0, k.z), q.setFromAxisAngle(AXIS_Y, this.knobAngle[i]), s3.setScalar(k.s));
-    const slot = KNOB_SLOT[i];
+    const slot = this.knobSlot[i];
     const mesh = slot.hot ? this.knobsHot : this.knobs;
     mesh.setMatrixAt(slot.j, m4);
     mesh.instanceMatrix.needsUpdate = true;
@@ -429,7 +430,7 @@ export class DjControls {
 
   private placePlatter(d: DjDeck): void {
     const c = jogCenter(d);
-    this.platters.setMatrixAt(d === 'a' ? 0 : 1, m4.compose(v3.set(c.x, 0, c.z), q.setFromAxisAngle(AXIS_Y, this.jogAngle[d]), s3.set(1, 1, 1)));
+    this.platters.setMatrixAt(DJ_DECKS.indexOf(d), m4.compose(v3.set(c.x, 0, c.z), q.setFromAxisAngle(AXIS_Y, this.jogAngle[d]), s3.set(1, 1, 1)));
     this.platters.instanceMatrix.needsUpdate = true;
   }
 
@@ -456,6 +457,7 @@ export class DjControls {
 
   /** Angle de la platine d'un jog (rad, sens horaire vu de dessus quand il monte) ; true s'il change. */
   setJog(d: DjDeck, angle: number): boolean {
+    if (!DJ_DECKS.includes(d)) return false;
     const a = Math.fround(-angle);
     if (this.jogAngle[d] === a) return false;
     this.jogAngle[d] = a;
@@ -488,6 +490,7 @@ export class DjControls {
 
   /** Allume une LED (0 a 1, sa couleur au prorata) ; true si elle change. */
   setLed(i: number, v: number): boolean {
+    if (i < 0) return false;
     const k = Math.fround(Math.max(0, Math.min(1, v)));
     if (this.ledOn[i] === k) return false;
     this.ledOn[i] = k;
@@ -509,7 +512,9 @@ export class DjControls {
     }
     for (const f of DJ_FADERS) out.push(faderHotspot(f, top));
     for (const k of [...DJ_RECT_KEYS, ...DJ_ROUND_KEYS]) out.push(keyHotspot(k, top));
-    for (const d of ['a', 'b'] as const) {
+    // SYNC, l'ecran rond au centre du jog : au-dessus de la platine, il passe avant le jog au picking
+    for (const k of DJ_KEYS) if (k.screen) out.push({ ...keyHotspot(k, top), y1: DECK.jog.platterH + 0.06 });
+    for (const d of DJ_DECKS) {
       const c = jogCenter(d);
       const r = DECK.jog.ring;
       out.push({ id: `dj-${d}-jog`, kind: 'djjog', layer: top, shape: 'disc', x: c.x, z: c.z, hx: r, hz: r, y0: 0, y1: DECK.jog.platterH, enabled: true, dj: `dj-${d}-jog` });
@@ -524,7 +529,7 @@ export class DjControls {
       keys: DJ_RECT_KEYS.length,
       rounds: DJ_ROUND_KEYS.length,
       leds: this.ledMap.leds.length,
-      jog: { a: +this.jogAngle.a.toFixed(3), b: +this.jogAngle.b.toFixed(3) },
+      jog: Object.fromEntries(DJ_DECKS_ALL.map((d) => [d, +this.jogAngle[d].toFixed(3)])),
     };
   }
 

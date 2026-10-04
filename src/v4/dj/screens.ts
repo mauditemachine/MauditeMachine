@@ -17,10 +17,11 @@ import { BufferGeometry, CircleGeometry, Mesh, MeshBasicMaterial, PlaneGeometry,
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { makeCanvasTexture } from '../scene/silk';
 import { FONT_DISPLAY, FONT_MONO } from '../theme';
-import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_LIGHT, MIX, UNIT_X, type DjDeck } from './theme';
+import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_DECKS, DJ_DECKS_ALL, DJ_LIGHT, MIX, UNIT_X, type DjDeck } from './theme';
 
 const W = 1024;
-const H = 1024;
+/** Quatre ecrans de platine, celui des effets et quatre cadrans de jog. */
+const H = 2048;
 const BONE = '#F6F1E7';
 const DIM = 'rgba(246, 241, 231, 0.45)';
 const FAINT = 'rgba(246, 241, 231, 0.16)';
@@ -35,14 +36,25 @@ interface Region {
 const deckH = Math.round((W * DECK.screen.d) / DECK.screen.w);
 const fxW = 640;
 const fxH = Math.round((fxW * MIX.screen.d) / MIX.screen.w);
-const JOG = 256;
-const REGION = {
+const JOG = 200;
+const fxY = 4 * (deckH + 4);
+const jogY = fxY + fxH + 4;
+const REGION: Record<DjDeck | 'fx', Region> = {
   a: { x: 0, y: 0, w: W, h: deckH },
   b: { x: 0, y: deckH + 4, w: W, h: deckH },
-  fx: { x: 0, y: 2 * deckH + 8, w: fxW, h: fxH },
-  jogA: { x: 0, y: 2 * deckH + fxH + 12, w: JOG, h: JOG },
-  jogB: { x: JOG + 4, y: 2 * deckH + fxH + 12, w: JOG, h: JOG },
-} as const;
+  c: { x: 0, y: 2 * (deckH + 4), w: W, h: deckH },
+  d: { x: 0, y: 3 * (deckH + 4), w: W, h: deckH },
+  fx: { x: 0, y: fxY, w: fxW, h: fxH },
+};
+const JOG_REGION: Record<DjDeck, Region> = {
+  a: { x: 0, y: jogY, w: JOG, h: JOG },
+  b: { x: JOG + 4, y: jogY, w: JOG, h: JOG },
+  c: { x: 2 * (JOG + 4), y: jogY, w: JOG, h: JOG },
+  d: { x: 3 * (JOG + 4), y: jogY, w: JOG, h: JOG },
+};
+
+/** L'ecran rond du jog, la touche SYNC : rien a suivre, calable, cale. */
+export type DjSyncLight = 'off' | 'ready' | 'on';
 
 /** Plaque la zone r de l'atlas sur une geometrie dont les UV vont de 0 a 1. */
 function mapUv(g: BufferGeometry, r: Region): BufferGeometry {
@@ -104,7 +116,7 @@ const clock = (s: number): string => {
 export function deckScreenAt(uvX: number, uvY: number): { deck: DjDeck; u: number; v: number } | null {
   const px = uvX * W;
   const py = (1 - uvY) * H;
-  for (const d of ['a', 'b'] as const) {
+  for (const d of DJ_DECKS_ALL) {
     const r = REGION[d];
     if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return { deck: d, u: (px - r.x) / r.w, v: (py - r.y) / r.h };
   }
@@ -116,7 +128,7 @@ export class DjScreens {
   readonly texture: CanvasTexture;
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private shown = { a: '', b: '', fx: '', jogA: '', jogB: '' };
+  private shown: Record<string, string> = {};
   draws = 0;
 
   constructor(anisotropy: number, mobile: boolean) {
@@ -131,10 +143,9 @@ export class DjScreens {
     this.texture = makeCanvasTexture(this.canvas, anisotropy, false);
     const y = DJ_BEZEL.h + 0.003;
     const parts: BufferGeometry[] = [];
-    for (const d of ['a', 'b'] as const) {
+    for (const d of DJ_DECKS) {
       parts.push(flat(DECK.screen.w, DECK.screen.d, UNIT_X[d] + DECK.screen.x, y, DECK.screen.z, REGION[d]));
-      const r = d === 'a' ? REGION.jogA : REGION.jogB;
-      parts.push(disc(DECK.jog.center, UNIT_X[d] + DECK.jog.x, DECK.jog.platterH + 0.004, DECK.jog.z, r, mobile ? 40 : 64));
+      parts.push(disc(DECK.jog.center, UNIT_X[d] + DECK.jog.x, DECK.jog.platterH + 0.004, DECK.jog.z, JOG_REGION[d], mobile ? 40 : 64));
     }
     parts.push(flat(MIX.screen.w, MIX.screen.d, UNIT_X.mix + MIX.screen.x, y, MIX.screen.z, REGION.fx));
     const g = mergeGeometries(parts, false);
@@ -265,62 +276,70 @@ export class DjScreens {
 
   /* ---------- jogs ---------- */
 
-  /** L'ecran rond d'un jog : la position (0 a 1) en arc, le repere qui tourne (rad). */
-  setJog(d: DjDeck, progress: number, angle: number, loaded: boolean): boolean {
-    const id = d === 'a' ? 'jogA' : 'jogB';
-    const k = `${loaded}|${Math.round(progress * 200)}|${Math.round(angle * 40)}`;
+  /**
+   * L'ecran rond d'un jog, la touche SYNC (2026-10-04) : la position (0 a 1)
+   * en arc orange, le repere de la platine qui tourne (rad), et SYNC au
+   * milieu : pale sans rien a suivre, en os quand on peut se caler, en
+   * orange une fois cale.
+   */
+  setJog(d: DjDeck, progress: number, angle: number, loaded: boolean, sync: DjSyncLight): boolean {
+    const id = `jog-${d}`;
+    const k = `${loaded}|${Math.round(progress * 200)}|${Math.round(angle * 40)}|${sync}`;
     if (this.shown[id] === k) return false;
     this.shown[id] = k;
-    const r = REGION[id];
+    const r = JOG_REGION[d];
     const c = this.ctx;
     const cx = r.x + r.w / 2;
     const cy = r.y + r.h / 2;
     const R = r.w / 2;
     c.fillStyle = '#000';
     c.fillRect(r.x, r.y, r.w, r.h);
-    /*
-     * Un cadran, sans lettre (Mika, 2026-10-04 : "je n'aime pas le A, c'est
-     * moche") : soixante graduations comme une montre, plus marquees au
-     * quart ; la piste jouee en arc orange ; le repere de la platine en os,
-     * le trait des potards des machines ; un point au centre.
-     */
-    const ring = R - 16;
+    // Un cadran sans lettre (Mika, 2026-10-04 : "je n'aime pas le A") : soixante graduations, plus marquees au quart
+    const ring = R - 12;
     for (let i = 0; i < 60; i += 1) {
       const a = (i / 60) * Math.PI * 2;
       const major = i % 15 === 0;
-      const r0 = ring - (major ? 26 : 14);
+      const r0 = ring - (major ? 18 : 10);
       c.strokeStyle = major ? DIM : FAINT;
-      c.lineWidth = major ? 4 : 2;
+      c.lineWidth = major ? 3 : 1.5;
       c.beginPath();
       c.moveTo(cx + Math.sin(a) * r0, cy - Math.cos(a) * r0);
-      c.lineTo(cx + Math.sin(a) * (ring - 4), cy - Math.cos(a) * (ring - 4));
+      c.lineTo(cx + Math.sin(a) * (ring - 3), cy - Math.cos(a) * (ring - 3));
       c.stroke();
     }
-    c.lineWidth = 6;
+    c.lineWidth = 5;
     c.strokeStyle = FAINT;
     c.beginPath();
-    c.arc(cx, cy, ring + 6, 0, Math.PI * 2);
+    c.arc(cx, cy, ring + 5, 0, Math.PI * 2);
     c.stroke();
     if (loaded) {
       c.strokeStyle = DJ_LIGHT.orange;
-      c.lineWidth = 6;
       c.lineCap = 'round';
       c.beginPath();
-      c.arc(cx, cy, ring + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.002, Math.min(1, progress)));
+      c.arc(cx, cy, ring + 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.002, Math.min(1, progress)));
       c.stroke();
-      // Le repere de la platine : du bord vers le centre, comme le trait d'un potard
+      // Le repere de la platine, au bord : le milieu est a SYNC
       c.strokeStyle = BONE;
-      c.lineWidth = 7;
+      c.lineWidth = 6;
       c.beginPath();
-      c.moveTo(cx + Math.sin(angle) * (ring - 8), cy - Math.cos(angle) * (ring - 8));
-      c.lineTo(cx + Math.sin(angle) * (R * 0.42), cy - Math.cos(angle) * (R * 0.42));
+      c.moveTo(cx + Math.sin(angle) * (ring - 6), cy - Math.cos(angle) * (ring - 6));
+      c.lineTo(cx + Math.sin(angle) * (R * 0.6), cy - Math.cos(angle) * (R * 0.6));
       c.stroke();
       c.lineCap = 'butt';
     }
-    c.fillStyle = loaded ? BONE : DIM;
-    c.beginPath();
-    c.arc(cx, cy, 6, 0, Math.PI * 2);
-    c.fill();
+    // SYNC : un disque plein en orange une fois cale, le mot en os sinon
+    if (sync === 'on') {
+      c.fillStyle = DJ_LIGHT.orange;
+      c.beginPath();
+      c.arc(cx, cy, R * 0.44, 0, Math.PI * 2);
+      c.fill();
+    }
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.font = `700 30px ${FONT_DISPLAY}`;
+    c.fillStyle = sync === 'on' ? '#000' : sync === 'ready' ? BONE : FAINT;
+    c.fillText('SYNC', cx, cy + 1);
+    c.textBaseline = 'alphabetic';
     this.done();
     return true;
   }

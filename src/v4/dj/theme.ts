@@ -24,27 +24,57 @@ import { VOY_BODY, VOY_X } from '../voyager/theme';
 
 /* ---------- blocs ---------- */
 
-export const DJ_UNIT = { deckW: 9, mixW: 8.4, d: 11, gap: 0.25 } as const;
-/** Largeur de l'ensemble : deux platines, la table, deux jours. */
-export const DJ_W = 2 * DJ_UNIT.deckW + DJ_UNIT.mixW + 2 * DJ_UNIT.gap;
-/** Coin commun aux trois blocs (hauteurs au-dessus des pieds), biseau des aretes. */
+/*
+ * Des platines en plus (Mika, 2026-10-04 : "j'aimerais pouvoir en rajouter
+ * a droite, ce qui cree directement une piste dans MIXER") : de deux a
+ * quatre platines, DECK C puis DECK D a droite de DECK B, chacune avec sa
+ * voie au MIXER (5 et 6). Un petit bloc ADD DECK les ajoute, a droite de la
+ * derniere ; REMOVE, sur la derniere ajoutee, la retire. Les places
+ * (UNIT_X, DJ_W, DJ_X, MIX, DJ_FRAME) se recalculent alors et le Stage est
+ * reconstruit (index.tsx), comme au changement Dark / Light ; le son
+ * continue. Le bord gauche de l'ensemble ne bouge pas : il grandit a
+ * droite.
+ *
+ * La platine est plus etroite depuis le meme jour (Mika : "le jog n'est
+ * pas super utile, diminue sa taille et donc reduis le DECK en largeur") :
+ * 7 au lieu de 9, le jog de 2.55 a 1.7 de rayon.
+ */
+export const DJ_UNIT = { deckW: 7, mixW: 8.4, addW: 3.2, d: 11, gap: 0.25 } as const;
+/** Coin commun aux blocs (hauteurs au-dessus des pieds), biseau des aretes. */
 export const DJ_BODY = { feet: 0.12, front: 1.0, back: 1.5, bevel: 0.06 } as const;
 /** Pente du dessus (rad) : l'avant descend. */
 export const DJ_TILT = Math.atan((DJ_BODY.back - DJ_BODY.front) / DJ_UNIT.d);
 /** Centre du dessus, repere du rig. */
 export const DJ_TOP_Y = DJ_BODY.feet + (DJ_BODY.front + DJ_BODY.back) / 2;
 
-export type DjUnit = 'a' | 'mix' | 'b';
-export type DjDeck = 'a' | 'b';
-export const UNIT_X: Readonly<Record<DjUnit, number>> = {
-  a: -(DJ_UNIT.mixW / 2 + DJ_UNIT.gap + DJ_UNIT.deckW / 2),
-  mix: 0,
-  b: DJ_UNIT.mixW / 2 + DJ_UNIT.gap + DJ_UNIT.deckW / 2,
-};
-export const unitW = (u: DjUnit): number => (u === 'mix' ? DJ_UNIT.mixW : DJ_UNIT.deckW);
+/** Les quatre platines possibles, de gauche a droite apres la table : A, puis B, C, D. */
+export type DjDeck = 'a' | 'b' | 'c' | 'd';
+export const DJ_DECKS_ALL: readonly DjDeck[] = ['a', 'b', 'c', 'd'];
+/** Un bloc : une platine, la table, ou ADD DECK (a droite, tant qu'on peut en ajouter). */
+export type DjUnit = DjDeck | 'mix' | 'add';
+export const DJ_DECKS_MIN = 2;
+export const DJ_DECKS_MAX = 4;
+/** La voie de la table d'une platine : A 3, B 4, C 5, D 6 (index 2 a 5). */
+export const deckChannel = (d: DjDeck): DjChannel => (2 + DJ_DECKS_ALL.indexOf(d)) as DjChannel;
 
-/** Place de la troisieme machine : a droite du MM-ARP, le meme jour qu'entre la 808 et lui. */
-export const DJ_X = VOY_X + VOY_BODY.w / 2 + (PORTRAIT ? 1.8 : 2.6) + DJ_W / 2;
+/** Les platines posees, de gauche a droite (A, B, puis C et D si ajoutees). */
+export let DJ_DECKS: readonly DjDeck[] = ['a', 'b'];
+/** Les blocs poses, de gauche a droite. */
+export let DJ_UNITS_ON: readonly DjUnit[] = ['a', 'mix', 'b', 'add'];
+/** Le nombre de voies de la table : le MM-RYTM, le MM-ARP, puis une par platine. */
+export let DJ_CHANNELS = 4;
+/** La table s'elargit d'une colonne par voie en plus. */
+export const MIX_COL = 1.45;
+export const mixWidth = (channels: number): number => DJ_UNIT.mixW + (channels - 4) * MIX_COL;
+
+/** Centre de chaque bloc pose (repere du rig : 0 au milieu de l'ensemble). */
+export const UNIT_X: Record<DjUnit, number> = { a: 0, b: 0, c: 0, d: 0, mix: 0, add: 0 };
+export const unitW = (u: DjUnit): number => (u === 'mix' ? mixWidth(DJ_CHANNELS) : u === 'add' ? DJ_UNIT.addW : DJ_UNIT.deckW);
+/** Largeur de l'ensemble pose. */
+export let DJ_W = 0;
+/** Place de la troisieme machine : a droite du MM-ARP, le meme jour qu'entre la 808 et lui ; son bord gauche ne bouge pas. */
+const DJ_LEFT = VOY_X + VOY_BODY.w / 2 + (PORTRAIT ? 1.8 : 2.6);
+export let DJ_X = 0;
 
 /**
  * Cadrage : l'ensemble de face (largeur reelle : a l'azimut 45 la
@@ -52,7 +82,76 @@ export const DJ_X = VOY_X + VOY_BODY.w / 2 + (PORTRAIT ? 1.8 : 2.6) + DJ_W / 2;
  * (elevation 69), pivot, rayons du cadrage de section, etendue de la
  * camera d'ombre.
  */
-export const DJ_FRAME = { fill: 0.92, h: 11.2, targetY: 1.3, radius: { closed: DJ_W / 2 + 0.6, open: DJ_W / 2 + 0.6 }, extent: DJ_W / 2 + 2 } as const;
+export const DJ_FRAME = { fill: 0.92, h: 11.2, targetY: 1.3, radius: { closed: 0, open: 0 }, extent: 0 };
+
+/* ---------- combien de platines ---------- */
+
+const DECKS_KEY = 'mm.v4.dj.decks';
+const readDecks = (): number => {
+  try {
+    const n = Number(window.localStorage.getItem(DECKS_KEY));
+    return Number.isInteger(n) && n >= DJ_DECKS_MIN && n <= DJ_DECKS_MAX ? n : DJ_DECKS_MIN;
+  } catch {
+    return DJ_DECKS_MIN;
+  }
+};
+
+/** Les places (blocs, table, cadrage) pour n platines. */
+function place(n: number): void {
+  DJ_DECKS = DJ_DECKS_ALL.slice(0, n);
+  DJ_CHANNELS = 2 + n;
+  DJ_UNITS_ON = ['a', 'mix', ...DJ_DECKS.slice(1), ...(n < DJ_DECKS_MAX ? (['add'] as const) : [])];
+  const widths = DJ_UNITS_ON.map(unitW);
+  DJ_W = widths.reduce((a, w) => a + w, 0) + (widths.length - 1) * DJ_UNIT.gap;
+  for (const u of Object.keys(UNIT_X) as DjUnit[]) UNIT_X[u] = 0;
+  let x = -DJ_W / 2;
+  DJ_UNITS_ON.forEach((u, i) => {
+    UNIT_X[u] = x + widths[i] / 2;
+    x += widths[i] + DJ_UNIT.gap;
+  });
+  DJ_X = DJ_LEFT + DJ_W / 2;
+  DJ_FRAME.radius.closed = DJ_W / 2 + 0.6;
+  DJ_FRAME.radius.open = DJ_W / 2 + 0.6;
+  DJ_FRAME.extent = DJ_W / 2 + 2;
+  placeMix(DJ_CHANNELS);
+}
+
+let decks = typeof window === 'undefined' ? DJ_DECKS_MIN : readDecks();
+/** Les modules qui recalculent leurs listes (dj/layout.ts), avant tout le monde. */
+const relayout = new Set<() => void>();
+const deckListeners = new Set<() => void>();
+
+/**
+ * Le nombre de platines posees (2 a 4), retenu dans le navigateur. Le
+ * changer recalcule les places, puis previent : index.tsx reconstruit le
+ * Stage.
+ */
+export const djDecks = {
+  get: (): number => decks,
+  set(n: number): void {
+    const next = Math.max(DJ_DECKS_MIN, Math.min(DJ_DECKS_MAX, Math.round(n)));
+    if (next === decks) return;
+    decks = next;
+    try {
+      window.localStorage.setItem(DECKS_KEY, String(next));
+    } catch {
+      /* le nombre vit pour la visite */
+    }
+    place(next);
+    relayout.forEach((fn) => fn());
+    deckListeners.forEach((fn) => fn());
+  },
+  subscribe(fn: () => void): () => void {
+    deckListeners.add(fn);
+    return () => {
+      deckListeners.delete(fn);
+    };
+  },
+  /** dj/layout.ts : ses listes se refont a chaque changement, avant la reconstruction. */
+  onRelayout(fn: () => void): void {
+    relayout.add(fn);
+  },
+};
 
 /* ---------- couleurs ---------- */
 
@@ -143,7 +242,9 @@ export const DJ_KNOB = {
   segments: { desktop: 40, mobile: 28 },
 } as const;
 
-export type DjChannel = 0 | 1 | 2 | 3;
+/** Les voies de la table : 1 le MM-RYTM, 2 le MM-ARP, 3 a 6 les platines A a D. */
+export type DjChannel = 0 | 1 | 2 | 3 | 4 | 5;
+export const DJ_CHANNELS_MAX = 6;
 export type DjEqId = 'gain' | 'hi' | 'mid' | 'low' | 'filter';
 export const DJ_EQ: readonly { id: DjEqId; label: string }[] = [
   { id: 'gain', label: 'GAIN' },
@@ -169,13 +270,17 @@ export const DJ_TIMES = [0.25, 0.5, 0.75, 1, 2, 4] as const;
 export const timeLabel = (d: number): string => (d === 0.25 ? '1/4' : d === 0.5 ? '1/2' : d === 0.75 ? '3/4' : String(d));
 
 /**
- * La table, colonnes : quatre voies (1 et 2 jouent A et B, 3 et 4 libres),
- * puis MASTER. Rangees des potards de voie, du haut vers le bas, libelles
- * au-dessus (Mika, 2026-10-03 : "les titres au-dessus des boutons").
+ * La table, colonnes : une voie par machine et par platine (1 MM-RYTM, 2
+ * MM-ARP, 3 a 6 les platines), puis MASTER. Rangees des potards de voie, du
+ * haut vers le bas, libelles au-dessus (Mika, 2026-10-03 : "les titres
+ * au-dessus des boutons"). Repere du bloc ; a quatre voies, la table fait
+ * 8.4 de large, chaque voie en plus l'elargit de MIX_COL a droite : la
+ * rangee des effets s'etale, l'ecran et TIME restent au milieu.
  */
 export const MIX = {
-  cols: [-3.1, -1.65, -0.2, 1.25] as readonly number[],
-  masterX: 2.95,
+  /** colonnes des voies et MASTER : recalcules par placeMix */
+  cols: [] as number[],
+  masterX: 0,
   numZ: -2.2,
   rows: [-1.5, -0.64, 0.24, 1.12, 1.98] as readonly number[],
   /**
@@ -187,48 +292,73 @@ export const MIX = {
   sEq: 1.15,
   /** effets : rangee sous l'ecran */
   fxZ: -3.0,
-  fxX0: -3.3,
+  fxX0: 0,
   fxPitch: 1.1,
   sFx: 0.95,
   master: { z: -1.45, s: 1.25 },
   /** ecran des effets et touches de temps */
-  screen: { x: -1.75, z: -4.25, w: 3.9, d: 0.95 },
-  times: { x0: 0.62, pitch: 0.6, z: -4.1, w: 0.5, d: 0.34 },
+  screen: { x: 0, z: -4.25, w: 3.9, d: 0.95 },
+  times: { x0: 0, pitch: 0.6, z: -4.1, w: 0.5, d: 0.34 },
   /** faders de voie : fente de z0 a z1 ; VU a cote */
   fader: { z0: 2.62, z1: 4.4 },
   vu: { dx: 0.5, z0: -1.45, z1: 1.95, n: 15, w: 0.14, d: 0.16 },
   /** VU du master (deux colonnes) */
   masterVu: { z0: -0.6, z1: 4.3, dx: 0.17 },
-  /** crossfader */
-  xfader: { z: 5.0, x0: -1.7, x1: 1.7 },
+  /** crossfader : DECK A a gauche, DECK B a droite */
+  xfader: { z: 5.0, x0: 0, x1: 0 },
   /** la touche PLAYLIST, en bas a droite (Mika, 2026-10-04 : comme les EDIT du MM-RYTM et du MM-ARP) */
-  playlist: { x: 3.05, z: 5.0, w: 1.15, d: 0.42 },
+  playlist: { x: 0, z: 5.0, w: 1.15, d: 0.42 },
   head: { z: -5.05 },
-} as const;
+};
+
+/** Les colonnes de la table pour n voies (repere du bloc). */
+function placeMix(n: number): void {
+  const w = mixWidth(n);
+  const L = -w / 2;
+  const mid = (w - DJ_UNIT.mixW) / 2;
+  MIX.cols = Array.from({ length: n }, (_, i) => L + 1.1 + i * MIX_COL);
+  MIX.masterX = MIX.cols[n - 1] + 1.7;
+  MIX.fxX0 = L + 0.9;
+  MIX.fxPitch = (w - 1.8) / (DJ_FX.length - 1);
+  MIX.screen.x = L + mid + 2.45;
+  MIX.times.x0 = L + mid + 4.82;
+  MIX.xfader.x0 = L + 2.5;
+  MIX.xfader.x1 = L + 5.9;
+  MIX.playlist.x = -L - 1.15;
+}
 
 /* ---------- la platine (repere du bloc) ---------- */
 
 export const DECK = {
   head: { z: -5.05 },
-  screen: { x: 0, z: -3.55, w: 8.1, d: 2.0 },
+  screen: { x: 0, z: -3.55, w: 6.3, d: 2.0 },
   /** hot cues : une rangee de quatre sous l'ecran, une seule couleur (Mika, 2026-10-03) */
-  cues: { xs: [-2.4, -0.8, 0.8, 2.4] as readonly number[], z: -1.95, w: 1.32, d: 0.5 },
-  /** le jog : platine noire, bague d'aluminium, ecran rond au centre, anneau de LED */
-  jog: { x: 0.15, z: 1.85, ring: 2.55, ringIn: 2.24, ringH: 0.16, platter: 2.2, platterH: 0.3, center: 0.92, ledR: 2.4, leds: 48 },
+  cues: { xs: [-2.25, -0.75, 0.75, 2.25] as readonly number[], z: -1.95, w: 1.2, d: 0.5 },
+  /**
+   * le jog : platine noire, bague d'aluminium, anneau de LED ; au centre,
+   * l'ecran rond est la touche SYNC (Mika, 2026-10-04 : "trouve-lui une
+   * utilite") : le tempo se cale sur celui qu'on entend
+   */
+  jog: { x: 0.2, z: 2.0, ring: 1.7, ringIn: 1.5, ringH: 0.14, platter: 1.46, platterH: 0.26, center: 0.62, ledR: 1.6, leds: 40 },
   /** colonne de gauche : LOAD, les deux touches de bend, CUE et PLAY */
-  load: { x: -3.6, z: -0.75, w: 1.45, d: 0.5 },
-  bend: { xs: [-3.98, -3.22] as readonly number[], z: 0.42, w: 0.62, d: 0.5 },
-  cue: { x: -3.6, z: 2.25, r: 0.56 },
-  play: { x: -3.6, z: 3.85, r: 0.56 },
+  load: { x: -2.6, z: -0.75, w: 1.2, d: 0.5 },
+  bend: { xs: [-2.92, -2.28] as readonly number[], z: 0.42, w: 0.55, d: 0.5 },
+  cue: { x: -2.6, z: 2.25, r: 0.5 },
+  play: { x: -2.6, z: 3.85, r: 0.5 },
   /** le fader de pitch, a droite du jog ; zero au milieu, LED */
-  pitch: { x: 3.75, z0: -0.45, z1: 4.25 },
+  pitch: { x: 2.75, z0: -0.45, z1: 4.25 },
   /**
    * Le tempo au dixieme de BPM (Mika, 2026-10-04 : "j'ai du mal a arriver
    * vers 123.4, ca saute toujours") : deux petites touches sous le fader,
    * un dixieme par appui, en continu tenues.
    */
-  tempo: { xs: [3.45, 4.05] as readonly number[], z: 4.98, w: 0.5, d: 0.34 },
+  tempo: { xs: [2.47, 3.03] as readonly number[], z: 4.98, w: 0.46, d: 0.34 },
+  /** REMOVE : sur la derniere platine ajoutee (C ou D), dans l'en-tete, avant le logo */
+  remove: { x: 1.75, z: -5.05, w: 0.7, d: 0.3 },
 } as const;
+
+/** Le bloc ADD DECK : une grande touche au milieu. */
+export const ADD = { key: { x: 0, z: 0.4, w: 2.0, d: 0.7 }, plusZ: -1.4 } as const;
 
 /**
  * L'ecran de la platine, en fractions de sa largeur (u, depuis la gauche)
@@ -255,3 +385,6 @@ export const DJ_FADER = {
 export const DJ_KEY = { h: 0.12, radius: 0.05, press: 0.04 } as const;
 export const DJ_ROUND = { h: 0.16, ring: 0.07, ringH: 0.07 } as const;
 export const DJ_BEZEL = { margin: 0.12, h: 0.02 } as const;
+
+/* Les places au chargement (le nombre retenu), une fois MIX et DJ_FX definis. */
+place(decks);

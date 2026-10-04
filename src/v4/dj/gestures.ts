@@ -24,10 +24,10 @@
 import type { HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { djBrowser } from './browser';
-import { djBend, djCue, djPosition, djScrub, djSeek, djTempoStep, djZoom, djZoomStep, djHotcue, djHotcueClear, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetMaster, djSetPitch, djSetTime, djSetXfader } from './actions';
-import { DJ_FADERS, DJ_KEYS, DJ_KNOBS, type DjFaderSpec, type DjKeySpec, type DjKnobSpec } from './layout';
+import { djAddDeck, djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djHotcue, djHotcueClear, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetMaster, djSetPitch, djSetTime, djSetXfader } from './actions';
+import { djFader, djKey, djKnob, type DjFaderSpec, type DjKeySpec, type DjKnobSpec } from './layout';
 import { djState } from './state';
-import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_FADER, UNIT_X, type DjDeck } from './theme';
+import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_DECKS_ALL, DJ_FADER, UNIT_X, type DjDeck } from './theme';
 
 const KNOB_PX = 150;
 const FINE = 0.1;
@@ -35,9 +35,16 @@ const AXIS_PX = 4;
 const DOUBLE_TAP_MS = 350;
 const HOLD_CLEAR_MS = 600;
 
-const knobById = new Map(DJ_KNOBS.map((k) => [k.id, k]));
-const faderById = new Map(DJ_FADERS.map((f) => [f.id, f]));
-const keyById = new Map(DJ_KEYS.map((k) => [k.id, k]));
+/** Les listes changent avec le nombre de platines : on les lit par id a chaque geste. */
+const knobById = { get: djKnob };
+const faderById = { get: djFader };
+const keyById = { get: djKey };
+
+/** La platine d'un id "dj-a-jog", "dj-c-screen"... */
+const deckOf = (id: string): DjDeck => {
+  const d = id.charAt(3) as DjDeck;
+  return DJ_DECKS_ALL.includes(d) ? d : 'a';
+};
 
 /* ---------------- valeurs ---------------- */
 
@@ -103,6 +110,7 @@ export function keyDown(k: DjKeySpec, stage: Stage | null, coarse = false): void
     );
   } else if (t.kind === 'bend') djBend(t.deck, t.dir);
   else if (t.kind === 'time') djSetTime(t.d);
+  else if (t.kind === 'sync') djSync(t.deck);
   else if (t.kind === 'tempo') {
     const step = coarse ? 1 : 0.1;
     djTempoStep(t.deck, t.dir, step);
@@ -137,9 +145,12 @@ export function keyUp(k: DjKeySpec, stage: Stage | null, tap: boolean): void {
   } else if (t.kind === 'bend') djBend(t.deck, 0);
   else if (t.kind === 'load' && tap) djBrowser.open(t.deck);
   else if (t.kind === 'playlist' && tap) djBrowser.toggle();
+  // Ajouter ou retirer une platine reconstruit la scene : au relachement, sur la touche
+  else if (t.kind === 'adddeck' && tap) djAddDeck();
+  else if (t.kind === 'removedeck' && tap) djRemoveDeck(t.deck);
 }
 
-const cueDown: Record<DjDeck, boolean> = { a: false, b: false };
+const cueDown: Record<DjDeck, boolean> = { a: false, b: false, c: false, d: false };
 const cueHeld = (d: DjDeck): boolean => cueDown[d];
 
 /* ---------------- pointeurs ---------------- */
@@ -354,7 +365,7 @@ export class DjGestures {
       const dv = f.target.kind === 'channel' ? -dt : 2 * dt;
       setFader(f, Math.max(faderMin(f), Math.min(1, g.v0 + dv)));
     } else if (g.kind === 'jog') {
-      const d = g.id === 'dj-a-jog' ? 'a' : 'b';
+      const d = deckOf(g.id);
       const ang = Math.atan2(y - g.cy, x - g.cx);
       let da = ang - g.ang;
       if (da > Math.PI) da -= 2 * Math.PI;
@@ -385,7 +396,7 @@ export class DjGestures {
       if (!k) return;
       keyUp(k, this.stage, tap);
     } else if (g.kind === 'jog') {
-      djJogRelease(g.id === 'dj-a-jog' ? 'a' : 'b');
+      djJogRelease(deckOf(g.id));
     } else if (tap) {
       // Double tape : la valeur neutre
       const t = performance.now();
@@ -402,7 +413,7 @@ export class DjGestures {
   /** Molette au-dessus d'un potard ou d'un fader ; true si elle est prise. */
   wheel(h: HotspotView, deltaY: number, shift: boolean): boolean {
     if (h.kind === 'djscreen') {
-      const d: DjDeck = h.id === 'dj-b-screen' ? 'b' : 'a';
+      const d = deckOf(h.id);
       // Molette vers le haut : plus pres (moins de secondes a l'ecran)
       djZoom(d, djState.get().deck[d].zoom * Math.exp(deltaY * (shift ? 0.0005 : 0.002)));
       return true;
@@ -447,7 +458,7 @@ export class DjGestures {
   /** Un doigt pose sur l'ecran ; false s'il ne tombe sur rien. */
   private screenDown(g: Grip, x: number, y: number): boolean {
     g.kind = 'screen';
-    g.deck = g.id === 'dj-b-screen' ? 'b' : 'a';
+    g.deck = deckOf(g.id);
     g.quad = this.screenQuad(g.deck);
     const uv = g.quad.length === 8 ? quadToUnit(g.quad, x, y) : null;
     if (!uv) return false;

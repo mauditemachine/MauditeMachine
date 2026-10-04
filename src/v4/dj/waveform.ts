@@ -29,7 +29,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { DETAIL_RATE } from './engine';
-import { DECK, DECK_SCREEN, DJ_BEZEL, UNIT_X, type DjDeck } from './theme';
+import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_DECKS, DJ_DECKS_ALL, UNIT_X, type DjDeck } from './theme';
 
 const TEX_W = 4096;
 
@@ -45,16 +45,18 @@ void main() {
 `;
 
 const FRAG = /* glsl */ `
-uniform sampler2D uPeaksA;
-uniform sampler2D uPeaksB;
-uniform float uOvLen[2];
-uniform float uDetLen[2];
-uniform float uPos[2];
-uniform float uDur[2];
-uniform float uWin[2];
-uniform float uCue[2];
-uniform vec4 uHot[2];
-uniform float uLoaded[2];
+uniform sampler2D uPeaks0;
+uniform sampler2D uPeaks1;
+uniform sampler2D uPeaks2;
+uniform sampler2D uPeaks3;
+uniform float uOvLen[4];
+uniform float uDetLen[4];
+uniform float uPos[4];
+uniform float uDur[4];
+uniform float uWin[4];
+uniform float uCue[4];
+uniform vec4 uHot[4];
+uniform float uLoaded[4];
 varying vec2 vUv;
 varying float vSlot;
 
@@ -65,14 +67,19 @@ const vec3 ORANGE = vec3(1.0, 0.416, 0.075);
 const vec3 YELLOW = vec3(1.0, 0.843, 0.369);
 const vec3 HEAD = vec3(1.0);
 
+float fetchPeak(int deck, ivec2 p) {
+  if (deck == 0) return texelFetch(uPeaks0, p, 0).r;
+  if (deck == 1) return texelFetch(uPeaks1, p, 0).r;
+  if (deck == 2) return texelFetch(uPeaks2, p, 0).r;
+  return texelFetch(uPeaks3, p, 0).r;
+}
+
 float peak(int deck, int row0, int i) {
-  ivec2 p = ivec2(i % ${TEX_W}, row0 + i / ${TEX_W});
-  return deck == 0 ? texelFetch(uPeaksA, p, 0).r : texelFetch(uPeaksB, p, 0).r;
+  return fetchPeak(deck, ivec2(i % ${TEX_W}, row0 + i / ${TEX_W}));
 }
 
 float ovPeak(int deck, int i) {
-  ivec2 p = ivec2(i, 0);
-  return deck == 0 ? texelFetch(uPeaksA, p, 0).r : texelFetch(uPeaksB, p, 0).r;
+  return fetchPeak(deck, ivec2(i, 0));
 }
 
 /** Un trait vertical a x0 (en fraction), large de w pixels. */
@@ -183,15 +190,17 @@ export interface DjWaveState {
 export class DjWaves {
   readonly mesh: Mesh;
   private material: ShaderMaterial;
-  private tex: Record<DjDeck, DataTexture> = { a: emptyTexture(), b: emptyTexture() };
-  private loadIds: Record<DjDeck, number> = { a: -1, b: -1 };
-  private hot = [new Vector4(-1, -1, -1, -1), new Vector4(-1, -1, -1, -1)];
+  private tex: Record<DjDeck, DataTexture> = { a: emptyTexture(), b: emptyTexture(), c: emptyTexture(), d: emptyTexture() };
+  private loadIds: Record<DjDeck, number> = { a: -1, b: -1, c: -1, d: -1 };
+  private hot = DJ_DECKS_ALL.map(() => new Vector4(-1, -1, -1, -1));
 
   constructor() {
     const parts: BufferGeometry[] = [];
-    (['a', 'b'] as const).forEach((d, i) => {
+    // Les bandes des platines posees ; le shader en connait quatre (slot / 2 : l'index de la platine)
+    for (const d of DJ_DECKS) {
+      const i = DJ_DECKS_ALL.indexOf(d);
       parts.push(band(d, DECK_SCREEN.detail, i * 2), band(d, DECK_SCREEN.overview, i * 2 + 1));
-    });
+    }
     const g = mergeGeometries(parts, false);
     for (const p of parts) p.dispose();
     if (!g) throw new Error('dj: waves merge failed');
@@ -199,16 +208,18 @@ export class DjWaves {
       vertexShader: VERT,
       fragmentShader: FRAG,
       uniforms: {
-        uPeaksA: { value: this.tex.a },
-        uPeaksB: { value: this.tex.b },
-        uOvLen: { value: [1, 1] },
-        uDetLen: { value: [0, 0] },
-        uPos: { value: [0, 0] },
-        uDur: { value: [1, 1] },
-        uWin: { value: [8, 8] },
-        uCue: { value: [-1, -1] },
+        uPeaks0: { value: this.tex.a },
+        uPeaks1: { value: this.tex.b },
+        uPeaks2: { value: this.tex.c },
+        uPeaks3: { value: this.tex.d },
+        uOvLen: { value: [1, 1, 1, 1] },
+        uDetLen: { value: [0, 0, 0, 0] },
+        uPos: { value: [0, 0, 0, 0] },
+        uDur: { value: [1, 1, 1, 1] },
+        uWin: { value: [8, 8, 8, 8] },
+        uCue: { value: [-1, -1, -1, -1] },
         uHot: { value: this.hot },
-        uLoaded: { value: [0, 0] },
+        uLoaded: { value: [0, 0, 0, 0] },
       },
     });
     this.material.name = 'djWaves';
@@ -235,8 +246,8 @@ export class DjWaves {
     t.needsUpdate = true;
     this.tex[d] = t;
     const u = this.material.uniforms;
-    u[d === 'a' ? 'uPeaksA' : 'uPeaksB'].value = t;
-    const i = d === 'a' ? 0 : 1;
+    const i = DJ_DECKS_ALL.indexOf(d);
+    u[`uPeaks${i}`].value = t;
     (u.uOvLen.value as number[])[i] = Math.max(1, Math.min(TEX_W, overview.length));
     (u.uDetLen.value as number[])[i] = detail.length;
     return true;
@@ -245,7 +256,7 @@ export class DjWaves {
   /** Position, zoom et cues d'une platine ; true si quelque chose change a l'ecran. */
   update(d: DjDeck, s: DjWaveState): boolean {
     const u = this.material.uniforms;
-    const i = d === 'a' ? 0 : 1;
+    const i = DJ_DECKS_ALL.indexOf(d);
     const pos = u.uPos.value as number[];
     const dur = u.uDur.value as number[];
     const win = u.uWin.value as number[];
@@ -267,7 +278,6 @@ export class DjWaves {
   dispose(): void {
     this.mesh.geometry.dispose();
     this.material.dispose();
-    this.tex.a.dispose();
-    this.tex.b.dispose();
+    for (const d of DJ_DECKS_ALL) this.tex[d].dispose();
   }
 }

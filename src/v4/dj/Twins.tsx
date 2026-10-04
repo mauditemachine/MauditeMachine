@@ -22,7 +22,7 @@ const r1 = (n: number): number => Math.round(n * 10) / 10;
 const pct = (v: number): number => Math.round(v * 100);
 
 /** Ce qui entre sur chaque voie de la table. */
-const CH = ['MM-RYTM', 'MM-ARP', 'deck A', 'deck B'] as const;
+const CH = ['MM-RYTM', 'MM-ARP', 'deck A', 'deck B', 'deck C', 'deck D'] as const;
 
 function knobName(k: DjKnobSpec): string {
   const t = k.target;
@@ -57,6 +57,12 @@ function keyName(k: DjKeySpec): string {
       return 'Show or hide the playlist';
     case 'tempo':
       return `Deck ${t.deck.toUpperCase()} tempo ${t.dir < 0 ? 'down' : 'up'} 0.1 BPM (hold to repeat)`;
+    case 'sync':
+      return `Deck ${t.deck.toUpperCase()} sync: match the tempo you hear`;
+    case 'adddeck':
+      return 'Add a deck, with its channel on the mixer';
+    case 'removedeck':
+      return `Remove deck ${t.deck.toUpperCase()}`;
   }
 }
 

@@ -11,7 +11,7 @@ import { BoxGeometry, BufferGeometry, Color, CylinderGeometry, Euler, ExtrudeGeo
 import { makeBrushTexture } from '../scene/silk';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { APPEARANCE } from '../theme';
-import { DECK, DJ_BEZEL, DJ_BODY, DJ_FADER, DJ_TILT, DJ_TOP_Y, DJ_UNIT, MIX, UNIT_X, djTone, unitW, type DjTone, type DjUnit } from './theme';
+import { DECK, DJ_BEZEL, DJ_BODY, DJ_CHANNELS, DJ_DECKS, DJ_FADER, DJ_TILT, DJ_TOP_Y, DJ_UNIT, DJ_UNITS_ON, MIX, UNIT_X, djTone, unitW, type DjTone, type DjUnit } from './theme';
 
 type P2 = [number, number];
 
@@ -231,24 +231,29 @@ const power = (x: number, y: number): BufferGeometry[] => [backBox(0.24, 0.36, 0
 
 /**
  * La connectique, vue de derriere : la platine a ses sorties audio (RCA),
- * USB-C, LINK (reseau), alimentation et interrupteur ; la table ses quatre
- * entrees (RCA), MASTER en XLR, USB-C, alimentation et interrupteur. Les
- * memes prises que la 808 et le MM-ARP, sans serigraphie.
+ * USB-C, LINK (reseau), alimentation et interrupteur ; la table une entree
+ * (RCA) par voie, MASTER en XLR, USB-C, alimentation et interrupteur ; ADD
+ * DECK une prise LINK. Les memes prises que la 808 et le MM-ARP, sans
+ * serigraphie.
  */
 function backPanel(u: DjUnit, seg: number): BufferGeometry[] {
   const out: BufferGeometry[] = [];
   const cx = UNIT_X[u];
+  const hw = unitW(u) / 2;
   // Vu de derriere, la gauche est a +x
   const at = (k: number): number => cx - k;
   const y = 0.78;
   if (u === 'mix') {
-    for (let ch = 0; ch < 4; ch += 1) {
-      out.push(...rca(at(-3.2 + ch * 0.8), y + 0.18, seg), ...rca(at(-3.2 + ch * 0.8), y - 0.18, seg));
+    for (let ch = 0; ch < DJ_CHANNELS; ch += 1) {
+      const k = -hw + 1.0 + ch * 0.8;
+      out.push(...rca(at(k), y + 0.18, seg), ...rca(at(k), y - 0.18, seg));
     }
-    out.push(...xlr(at(0.4), y, seg + 8), ...xlr(at(0.85), y, seg + 8), ...usb(at(1.6), y), ...dc(at(2.4), y, seg), ...power(at(3.1), y));
+    out.push(...xlr(at(hw - 3.8), y, seg + 8), ...xlr(at(hw - 3.35), y, seg + 8), ...usb(at(hw - 2.6), y), ...dc(at(hw - 1.8), y, seg), ...power(at(hw - 1.1), y));
+  } else if (u === 'add') {
+    out.push(...rj45(at(0), y));
   } else {
-    out.push(...rca(at(-3.2), y, seg), ...rca(at(-2.75), y, seg), ...rca(at(-2.1), y, seg));
-    out.push(...usb(at(-1.2), y), ...rj45(at(-0.4), y), ...dc(at(2.5), y, seg), ...power(at(3.3), y));
+    out.push(...rca(at(-2.5), y, seg), ...rca(at(-2.15), y, seg), ...rca(at(-1.65), y, seg));
+    out.push(...usb(at(-0.95), y), ...rj45(at(-0.3), y), ...dc(at(1.95), y, seg), ...power(at(2.55), y));
   }
   return out;
 }
@@ -256,20 +261,21 @@ function backPanel(u: DjUnit, seg: number): BufferGeometry[] {
 function buildBody(mobile: boolean): BufferGeometry {
   const parts: BufferGeometry[] = [];
   const seg = mobile ? 12 : 16;
-  for (const u of ['a', 'mix', 'b'] as const) {
+  for (const u of DJ_UNITS_ON) {
     const x = UNIT_X[u];
     const w = unitW(u);
     parts.push(wedge(x - w / 2, x + w / 2), ...feet(u, seg), ...screws(u, seg), ...backPanel(u, seg));
   }
-  // Ecrans : les deux platines, les effets de la table
-  for (const d of ['a', 'b'] as const) {
+  // Ecrans : les platines posees, les effets de la table
+  for (const d of DJ_DECKS) {
     const x = UNIT_X[d];
     parts.push(bezel(x + DECK.screen.x, DECK.screen.z, DECK.screen.w, DECK.screen.d));
     parts.push(...slot(x + DECK.pitch.x, DECK.pitch.z0, DECK.pitch.z1));
   }
-  parts.push(bezel(MIX.screen.x, MIX.screen.z, MIX.screen.w, MIX.screen.d));
-  for (const cx of MIX.cols) parts.push(...slot(cx, MIX.fader.z0, MIX.fader.z1));
-  parts.push(...slot(MIX.xfader.z, MIX.xfader.x0, MIX.xfader.x1, true));
+  const mx = UNIT_X.mix;
+  parts.push(bezel(mx + MIX.screen.x, MIX.screen.z, MIX.screen.w, MIX.screen.d));
+  for (const cx of MIX.cols) parts.push(...slot(mx + cx, MIX.fader.z0, MIX.fader.z1));
+  parts.push(...slot(MIX.xfader.z, mx + MIX.xfader.x0, mx + MIX.xfader.x1, true));
   const g = mergeGeometries(parts, false);
   for (const p of parts) p.dispose();
   if (!g) throw new Error('dj: body merge failed');

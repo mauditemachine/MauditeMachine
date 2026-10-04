@@ -37,7 +37,7 @@ import { DJ_KEY_LEGEND, listenDjKeys } from './keys';
 import { addFiles, analyzeAll, canLink, crateEvents, crateTracks, folderOfPath, isSound, linkFolder, pickAndLink, readDrop, removeFolder, storageLeft, type ImportMode, type PlacedFile } from './crate';
 import { LICENSE_LABEL, connectSoundcloud, disconnectSoundcloud, mauditeTracks, myTracks, scAccount, searchSoundcloud } from './soundcloud';
 import { djState, type DjTrack } from './state';
-import type { DjDeck } from './theme';
+import { DJ_DECKS, djDecks, type DjDeck } from './theme';
 import './dj.css';
 
 const ROWS = 200;
@@ -146,6 +146,8 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
   const sc = useSyncExternalStore(scAccount.subscribe, scAccount.get, scAccount.get);
+  // Une touche par platine posee (A et B, puis C et D si ajoutees)
+  useSyncExternalStore(djDecks.subscribe, djDecks.get, djDecks.get);
   const me = sc.account;
   // Cachee par defaut : la touche PLAYLIST du MIXER (ou LOAD) l'ouvre
   const shown = f === 'dj' && introState === 'done' && b.open;
@@ -606,7 +608,7 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
               <span>{t.source === 'soundcloud' ? (LICENSE_LABEL[t.license ?? ''] ?? '') : fmtTime(t.duration)}</span>
             </span>
             <span className="dj-list-decks">
-              {(['a', 'b'] as const).map((d) => (
+              {DJ_DECKS.map((d) => (
                 <button
                   key={d}
                   type="button"

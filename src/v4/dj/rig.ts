@@ -13,12 +13,13 @@
  */
 
 import { Group } from 'three';
+import { clock } from '../audio/clock';
 import type { HotspotDef, Occluder } from '../scene/hit';
 import { whenFonts } from '../scene/silk';
 import { DjBody } from './body';
 import { DJ_GLOW, DjControls } from './controls';
 import { djBrowser } from './browser';
-import { heardBpm } from './actions';
+import { djSynced, heardBpm, syncBpm } from './actions';
 import { djEngineIfAny } from './engine';
 import { DJ_FADERS, DJ_KNOBS, DJ_RECT_KEYS, DJ_ROUND_KEYS } from './layout';
 import { vuLeds } from './math';
@@ -27,7 +28,8 @@ import { DjWaves } from './waveform';
 import { DjSilk } from './silk';
 import { LICENSE_LABEL } from './soundcloud';
 import { djState, type DjState, type DjTrack } from './state';
-import { DECK, DJ_BEZEL, DJ_BODY, DJ_FX, DJ_FX_LABEL, DJ_TILT, DJ_TOP_Y, DJ_UNIT, DJ_W, DJ_X, UNIT_X, timeLabel, unitW, type DjFxId } from './theme';
+import { DECK, DJ_BEZEL, DJ_BODY, DJ_CHANNELS, DJ_CHANNELS_MAX, DJ_DECKS, DJ_FX, DJ_FX_LABEL, DJ_TILT, DJ_TOP_Y, DJ_UNIT, DJ_UNITS_ON, DJ_W, DJ_X, UNIT_X, timeLabel, unitW, type DjFxId } from './theme';
+import type { DjSyncLight } from './screens';
 
 export interface DjRigOpts {
   mobile: boolean;
@@ -55,8 +57,8 @@ export class DjRig {
   private prevFx: DjState['fx'] | null = null;
   /** touches tenues (pointeur, clavier) */
   private held = new Set<string>();
-  /** VU affiches (decroissance douce) : 4 voies (2 jouent), master gauche et droite */
-  private vu = new Float32Array(6);
+  /** VU affiches (decroissance douce) : les voies, puis master gauche et droite */
+  private vu = new Float32Array(DJ_CHANNELS_MAX + 2);
   private screenAt = 0;
 
   constructor(private opts: DjRigOpts) {
@@ -76,11 +78,11 @@ export class DjRig {
     this.top.add(this.screens.mesh);
     this.waves = new DjWaves();
     this.top.add(this.waves.mesh);
-    this.silks = (['a', 'mix', 'b'] as const).map((u) => new DjSilk(u, opts.anisotropy, opts.mobile));
+    this.silks = DJ_UNITS_ON.map((u) => new DjSilk(u, opts.anisotropy, opts.mobile));
     for (const s of this.silks) this.top.add(s.mesh);
 
     // Les ecrans des platines se touchent aussi : zoom, recherche dans la piste, scrub (dj/gestures.ts)
-    const screenDefs: HotspotDef[] = (['a', 'b'] as const).map((d) => ({
+    const screenDefs: HotspotDef[] = DJ_DECKS.map((d) => ({
       id: `dj-${d}-screen`,
       kind: 'djscreen' as const,
       layer: this.top,
@@ -108,7 +110,7 @@ export class DjRig {
     const out: Occluder[] = [];
     const hd = DJ_UNIT.d / 2;
     const depth = DJ_BODY.front + DJ_BODY.feet;
-    for (const u of ['a', 'mix', 'b'] as const) {
+    for (const u of DJ_UNITS_ON) {
       const hw = unitW(u) / 2;
       out.push({ layer: this.top, min: [UNIT_X[u] - hw, -depth, -hd], max: [UNIT_X[u] + hw, 0, hd], tag: 'dj' });
     }
@@ -120,6 +122,10 @@ export class DjRig {
     this.unsubs.push(djState.subscribe(() => this.syncState(true)));
     this.unsubs.push(djBrowser.subscribe(() => {
       if (this.syncLights()) this.opts.repaint();
+    }));
+    // RUN et STOP des machines : SYNC peut s'y caler (l'ecran rond du jog le montre)
+    this.unsubs.push(clock.subscribe(() => {
+      if (this.syncScreens()) this.opts.repaint();
     }));
     void whenFonts().then(() => this.redrawText());
   }
@@ -189,7 +195,7 @@ export class DjRig {
       if (this.controls.setKeyGlow(i, glow, true)) changed = true;
     });
     // Le zero des pitchs
-    for (const d of ['a', 'b'] as const) {
+    for (const d of DJ_DECKS) {
       if (this.controls.setLed(this.controls.ledMap.zero[d], s.deck[d].pitch === 0 ? 1 : 0.0)) changed = true;
     }
     return changed;
@@ -221,7 +227,7 @@ export class DjRig {
     let busy = false;
     let changed = false;
     const st = djState.get();
-    for (const d of ['a', 'b'] as const) {
+    for (const d of DJ_DECKS) {
       const p = e.decks[d];
       if (p.playing) busy = true;
       const pos = p.position();
@@ -242,7 +248,7 @@ export class DjRig {
       }
     }
     // VU : la crete, puis une decroissance douce
-    const levels = [...e.mixer.ch.map((c) => c.level()), ...e.mixer.masterLevels()];
+    const levels = [...e.mixer.ch.slice(0, DJ_CHANNELS).map((c) => c.level()), ...e.mixer.masterLevels()];
     levels.forEach((lv, i) => {
       const v = Math.max(lv, this.vu[i] * 0.86);
       this.vu[i] = v < 0.002 ? 0 : v;
@@ -266,7 +272,7 @@ export class DjRig {
     const s = djState.get();
     const e = djEngineIfAny();
     let changed = false;
-    for (const d of ['a', 'b'] as const) {
+    for (const d of DJ_DECKS) {
       const ds = s.deck[d];
       const p = e?.decks[d];
       const t = ds.track;
@@ -287,7 +293,9 @@ export class DjRig {
       };
       if (this.screens.setDeck(d, screen)) changed = true;
       const angle = pos * 2 * Math.PI * (100 / 3 / 60);
-      if (this.screens.setJog(d, dur > 0 ? pos / dur : 0, angle, ds.loaded)) changed = true;
+      // SYNC : cale (orange), calable (os), ou rien a suivre (pale)
+      const sync: DjSyncLight = !ds.loaded || !t?.bpm || syncBpm(d, s) === null ? 'off' : djSynced(d, s) ? 'on' : 'ready';
+      if (this.screens.setJog(d, dur > 0 ? pos / dur : 0, angle, ds.loaded, sync)) changed = true;
     }
     const fx = this.lastFx;
     const label = fx ? `${DJ_FX_LABEL[fx]} ${Math.round(s.fx[fx] * 100)}%` : 'EFFECTS';

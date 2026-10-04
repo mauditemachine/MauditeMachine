@@ -17,7 +17,7 @@ import { Mesh, MeshStandardMaterial, PlaneGeometry, type CanvasTexture } from 't
 import { drawTracked, logoImage, makeCanvasTexture, trackedWidth } from '../scene/silk';
 import { HEX, SILK, silkA } from '../theme';
 import { DJ_FADERS, DJ_KNOBS, DJ_KEYS, knobLabelZ } from './layout';
-import { DECK, DJ_KNOB, DJ_UNIT, MIX, UNIT_X, unitW, type DjUnit } from './theme';
+import { ADD, DECK, DJ_CHANNELS, DJ_DECKS_MAX, DJ_KNOB, DJ_UNIT, MIX, UNIT_X, unitW, type DjDeck, type DjUnit } from './theme';
 
 type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
 
@@ -40,7 +40,10 @@ type Line = readonly number[];
 const COPY: Readonly<Record<DjUnit, { name: string; sub: string }>> = {
   a: { name: 'DECK A', sub: 'DIGITAL DECK' },
   b: { name: 'DECK B', sub: 'DIGITAL DECK' },
-  mix: { name: 'MIXER', sub: '4 CHANNEL DJ MIXER' },
+  c: { name: 'DECK C', sub: 'DIGITAL DECK' },
+  d: { name: 'DECK D', sub: 'DIGITAL DECK' },
+  mix: { name: 'MIXER', sub: 'DJ MIXER' },
+  add: { name: 'ADD', sub: '' },
 };
 
 /** Crochet sous un groupe : tics aux bords, trait interrompu pour le nom. */
@@ -53,20 +56,20 @@ interface Bracket {
 
 const BRACKET = { cap: 0.075, weight: 700, tick: 0.08, pad: 0.1 } as const;
 /** Ce qui entre sur chaque voie de la table. */
-const CH_NAMES = ['RYTM', 'ARP', 'A', 'B'] as const;
+const CH_NAMES = ['RYTM', 'ARP', 'A', 'B', 'C', 'D'] as const;
 
 function head(u: DjUnit): Text[] {
   const hw = unitW(u) / 2 - 0.45;
   const c = COPY[u];
   const z = u === 'mix' ? MIX.head.z : DECK.head.z;
-  return [
-    { text: c.name, x: -hw, z, cap: 0.2, align: 'left', weight: 700, alpha: 1 },
-    { text: c.sub, x: -hw + (u === 'mix' ? 1.55 : 1.85), z: z + 0.035, cap: 0.065, align: 'left', alpha: 0.45 },
-  ];
+  const sub = u === 'mix' ? `${DJ_CHANNELS} CHANNEL ${c.sub}` : c.sub;
+  const out: Text[] = [{ text: c.name, x: -hw, z, cap: 0.2, align: 'left', weight: 700, alpha: 1 }];
+  if (sub) out.push({ text: sub, x: -hw + (u === 'mix' ? 1.55 : 1.85), z: z + 0.035, cap: 0.065, align: 'left', alpha: 0.45 });
+  return out;
 }
 
 /** Textes, filets et crochets d'une platine (repere du bloc). */
-function deckItems(u: 'a' | 'b'): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
+function deckItems(u: DjDeck): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   const ux = UNIT_X[u];
   const texts = head(u);
   const lines: Line[] = [];
@@ -79,7 +82,11 @@ function deckItems(u: 'a' | 'b'): { texts: Text[]; lines: Line[]; brackets: Brac
     else if (k.target.kind === 'bend') texts.push({ text: k.label, x, z: k.z + k.d / 2 + 0.2, cap: 0.12, weight: 600 });
     else if (k.target.kind === 'cue') texts.push({ text: 'CUE', x, z: k.z - k.d / 2 - 0.2, cap: 0.085, weight: 600 });
     else if (k.target.kind === 'play') texts.push({ text: 'PLAY / PAUSE', x, z: k.z - k.d / 2 - 0.2, cap: 0.075, weight: 600 });
+    else if (k.target.kind === 'removedeck') texts.push({ text: 'REMOVE', x: x - k.w / 2 - 0.12, z: k.z, cap: 0.065, weight: 700, ink: 'orange', alpha: 1, align: 'right' });
   }
+  // SYNC : l'ecran rond du jog se touche ; son nom sous la bague
+  const J = DECK.jog;
+  texts.push({ text: 'TOUCH CENTER TO SYNC', x: J.x, z: J.z + J.ring + 0.24, cap: 0.058, weight: 600, alpha: 0.5 });
   const C = DECK.cues;
   brackets.push({ text: 'HOT CUE', x0: C.xs[0] - C.w / 2, x1: C.xs[C.xs.length - 1] + C.w / 2, z: C.z + C.d / 2 + 0.22 });
   const B = DECK.bend;
@@ -101,6 +108,22 @@ function deckItems(u: 'a' | 'b'): { texts: Text[]; lines: Line[]; brackets: Brac
   texts.push({ text: '0', x: P.x + 0.62, z: (P.z0 + P.z1) / 2, cap: 0.075, weight: 600 });
   texts.push({ text: '+', x: P.x + 0.62, z: P.z1, cap: 0.1, weight: 600 });
   return { texts, lines, brackets };
+}
+
+/**
+ * ADD DECK (repere du bloc) : un grand plus, la touche, et ce qu'elle fait
+ * (une platine de plus a droite, sa voie au MIXER).
+ */
+function addItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
+  const texts = head('add');
+  const lines: Line[] = [];
+  const K = ADD.key;
+  const p = 0.55;
+  lines.push([-p, ADD.plusZ, p, ADD.plusZ], [0, ADD.plusZ - p, 0, ADD.plusZ + p]);
+  texts.push({ text: 'ADD DECK', x: K.x, z: K.z - K.d / 2 - 0.2, cap: 0.085, weight: 700, ink: 'orange', alpha: 1 });
+  texts.push({ text: 'NEW CHANNEL ON THE MIXER', x: K.x, z: K.z + K.d / 2 + 0.25, cap: 0.055, weight: 600, alpha: 0.5, maxW: 2.6 });
+  texts.push({ text: `UP TO ${DJ_DECKS_MAX} DECKS`, x: K.x, z: K.z + K.d / 2 + 0.52, cap: 0.055, weight: 600, alpha: 0.5 });
+  return { texts, lines, brackets: [] };
 }
 
 /** Textes, filets et crochets de la table (repere du bloc). */
@@ -142,6 +165,11 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
     }
   });
   texts.push({ text: 'M', x: MIX.masterX, z: MIX.numZ, cap: 0.17, weight: 700, alpha: 1 });
+  // C et D passent a cote du crossfader : leur fader seul compte
+  if (MIX.cols.length > 4) {
+    const thru = CH_NAMES.slice(4, MIX.cols.length).join(' ');
+    texts.push({ text: `${thru}  THRU`, x: (MIX.cols[4] + MIX.cols[MIX.cols.length - 1]) / 2, z: MIX.xfader.z, cap: 0.062, weight: 600, alpha: 0.5 });
+  }
   // Crossfader : A a gauche, B a droite, le nom dessous
   const X = MIX.xfader;
   texts.push({ text: 'A', x: X.x0 - 0.5, z: X.z, cap: 0.13, weight: 700, ink: 'orange', alpha: 1 });
@@ -241,9 +269,10 @@ export class DjSilk {
     ctx.clearRect(0, 0, this.W, this.H);
     ctx.textBaseline = 'alphabetic';
     ctx.lineCap = 'butt';
-    const { texts, lines, brackets } = this.unit === 'mix' ? mixItems() : deckItems(this.unit);
+    const { texts, lines, brackets } = this.unit === 'mix' ? mixItems() : this.unit === 'add' ? addItems() : deckItems(this.unit);
+    // Le grand plus d'ADD DECK : un trait plus epais que les filets
+    ctx.lineWidth = Math.max(1, (this.unit === 'add' ? 0.07 : 0.014) * P);
     ctx.strokeStyle = silkA(0.55);
-    ctx.lineWidth = Math.max(1, 0.014 * P);
     for (const l of lines) {
       ctx.beginPath();
       ctx.moveTo(this.px(l[0]), this.py(l[1]));

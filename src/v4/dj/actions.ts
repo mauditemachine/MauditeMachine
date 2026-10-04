@@ -9,6 +9,7 @@
  * SoundCloud du site, la boite a rythmes et l'arpege, comme RUN.
  */
 
+import { clock } from '../audio/clock';
 import { routeMachines } from '../audio/drums';
 import { sc } from '../audio/soundcloud';
 import { djEngine, djEngineIfAny, type DjEngine } from './engine';
@@ -16,7 +17,7 @@ import { crateFile, crateLearn, setCrateBusy } from './crate';
 import { estimateBpm } from './math';
 import { soundcloudBytes } from './soundcloud';
 import { DJ_ZOOMS, djState, type DjTrack } from './state';
-import { DJ_FX, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
+import { DJ_DECKS, DJ_DECKS_ALL, DJ_FX, deckChannel, djDecks, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
 /* ---------------- le moteur suit le store ---------------- */
 
@@ -25,8 +26,7 @@ let synced: DjEngine | null = null;
 /** Pose tout le store sur le moteur (a sa creation), puis chaque changement. */
 function apply(e: DjEngine): void {
   const s = djState.get();
-  for (const i of [0, 1, 2, 3] as const) {
-    const c = s.ch[i];
+  s.ch.forEach((c, i) => {
     const ch = e.mixer.ch[i];
     ch.setGain(c.gain);
     ch.setBand('hi', c.hi);
@@ -34,28 +34,44 @@ function apply(e: DjEngine): void {
     ch.setBand('low', c.low);
     ch.setFilter(c.filter);
     ch.setFader(c.fader);
-  }
+  });
   e.mixer.setXfader(s.xfader);
   e.mixer.setMaster(s.master);
   for (const f of DJ_FX) e.mixer.fx.dose(f, s.fx[f]);
-  for (const d of ['a', 'b'] as const) e.decks[d].setPitch(s.deck[d].pitch * s.deck[d].range);
+  for (const d of DJ_DECKS_ALL) e.decks[d].setPitch(s.deck[d].pitch * s.deck[d].range);
   e.mixer.fx.tempo({ bpm: heardBpm(s), beats: s.time });
+}
+
+/** Le BPM joue d'une platine (au pitch), ou null sans BPM connu. */
+const deckBpm = (s: ReturnType<typeof djState.get>, d: DjDeck): number | null => {
+  const ds = s.deck[d];
+  return ds.track?.bpm ? ds.track.bpm * (1 + (ds.pitch * ds.range) / 100) : null;
+};
+
+/**
+ * Ce qu'on entend d'une platine qui joue : son fader, et pour A et B le
+ * crossfader (C et D passent a cote) ; 0 a l'arret ou sans BPM.
+ */
+function heardWeight(s: ReturnType<typeof djState.get>, d: DjDeck): number {
+  const ds = s.deck[d];
+  if (!ds.playing || !ds.track?.bpm) return 0;
+  const i = deckChannel(d);
+  const x = (s.xfader + 1) / 2;
+  return s.ch[i].fader * (d === 'a' ? 1 - x : d === 'b' ? x : 1);
 }
 
 /** Le tempo de la platine qu'on entend le plus (crossfader, faders, lecture). */
 export function heardBpm(s = djState.get()): number {
-  // DECK A sur la voie 3, DECK B sur la voie 4
-  const w = (d: DjDeck, i: 2 | 3): number => {
-    const ds = s.deck[d];
-    if (!ds.playing || !ds.track?.bpm) return 0;
-    const x = (s.xfader + 1) / 2;
-    return s.ch[i].fader * (i === 2 ? 1 - x : x);
-  };
-  const a = w('a', 2);
-  const b = w('b', 3);
-  const d: DjDeck = b > a ? 'b' : 'a';
-  const ds = s.deck[d];
-  return ds.track?.bpm ? ds.track.bpm * (1 + (ds.pitch * ds.range) / 100) : 120;
+  let best: DjDeck = 'a';
+  let w = -1;
+  for (const d of DJ_DECKS_ALL) {
+    const k = heardWeight(s, d);
+    if (k > w) {
+      w = k;
+      best = d;
+    }
+  }
+  return deckBpm(s, best) ?? 120;
 }
 
 /** Le moteur (cree au besoin, apres le premier geste), branche sur le store une fois. */
@@ -65,11 +81,11 @@ function engine(): DjEngine | null {
   synced = e;
   apply(e);
   djState.subscribe(() => apply(e));
-  for (const d of ['a', 'b'] as const) {
+  for (const d of DJ_DECKS_ALL) {
     e.decks[d].onEnd = () => djState.setDeck(d, { playing: false });
   }
   // Les analyses de la caisse attendent que les platines s'arretent
-  setCrateBusy(() => e.decks.a.playing || e.decks.b.playing);
+  setCrateBusy(() => DJ_DECKS_ALL.some((d) => e.decks[d].playing));
   /*
    * Les machines du site entrent sur la table (2026-10-04, Mika : "1 et 2
    * doivent etre RYTM et ARP") : le MM-RYTM sur la voie 1, le MM-ARP sur la
@@ -93,7 +109,7 @@ function silenceOthers(): void {
 export function djPauseAll(): void {
   const e = djEngineIfAny();
   if (!e) return;
-  for (const d of ['a', 'b'] as const) {
+  for (const d of DJ_DECKS_ALL) {
     if (!e.decks[d].playing) continue;
     e.decks[d].pause();
     djState.setDeck(d, { playing: false });
@@ -188,7 +204,7 @@ export function djPlay(d: DjDeck): void {
 }
 
 /** CUE tenu en pause : la platine joue depuis le cue tant qu'on tient (preview). */
-const previewing: Record<DjDeck, boolean> = { a: false, b: false };
+const previewing: Record<DjDeck, boolean> = { a: false, b: false, c: false, d: false };
 
 /**
  * CUE, facon CDJ : en lecture, retour au cue et pause ; en pause, le cue se
@@ -349,6 +365,74 @@ export function djTempoStep(d: DjDeck, dir: -1 | 1, step = 0.1): void {
     next = ((target / bpm - 1) * 100) / ds.range;
   } else next = ds.pitch + (dir * 0.02) / ds.range;
   djSetPitch(d, Math.max(-1, Math.min(1, next)));
+}
+
+/* ---------------- SYNC ---------------- */
+
+/**
+ * Le tempo de reference pour SYNC : la platine qu'on entend le plus parmi
+ * les autres, sinon le MM-RYTM et le MM-ARP s'ils tournent ; null s'il n'y a
+ * rien sur quoi se caler.
+ */
+export function syncBpm(d: DjDeck, s = djState.get()): number | null {
+  let best: DjDeck | null = null;
+  let w = 0;
+  for (const o of DJ_DECKS_ALL) {
+    if (o === d) continue;
+    const k = heardWeight(s, o);
+    if (k > w) {
+      w = k;
+      best = o;
+    }
+  }
+  if (best) return deckBpm(s, best);
+  return clock.running ? clock.bpm : null;
+}
+
+/**
+ * SYNC, le centre du jog (Mika, 2026-10-04 : le jog "pas super utile",
+ * "trouve-lui une utilite") : le tempo de la platine se cale sur celui
+ * qu'on entend (une autre platine, ou les machines), au double ou a la
+ * moitie si c'est plus pres ; la plage du pitch s'ouvre a 16 % au besoin.
+ * Le calage du temps (la phase) reste a l'oreille : BEND, ou le jog.
+ */
+export function djSync(d: DjDeck): void {
+  const s = djState.get();
+  const ds = s.deck[d];
+  const ref = syncBpm(d, s);
+  const own = ds.track?.bpm;
+  if (!ref || !own) return;
+  const ratio = [ref, ref * 2, ref / 2].map((r) => r / own).reduce((a, b) => (Math.abs(b - 1) < Math.abs(a - 1) ? b : a));
+  const pct = (ratio - 1) * 100;
+  const range = Math.abs(pct) <= 8 ? ds.range : Math.abs(pct) <= 16 ? 16 : 0;
+  if (range === 0) return;
+  engine();
+  djState.setDeck(d, { range, pitch: Math.max(-1, Math.min(1, pct / range)) });
+}
+
+/** La platine est-elle calee sur ce qu'on entend (au centieme de BPM) ? */
+export function djSynced(d: DjDeck, s = djState.get()): boolean {
+  const ref = syncBpm(d, s);
+  const own = deckBpm(s, d);
+  if (!ref || !own) return false;
+  return [ref, ref * 2, ref / 2].some((r) => Math.abs(own - r) < 0.05);
+}
+
+/* ---------------- des platines en plus ---------------- */
+
+/** ADD DECK : une platine de plus a droite (C, puis D), avec sa voie au MIXER. */
+export function djAddDeck(): void {
+  djDecks.set(djDecks.get() + 1);
+}
+
+/** REMOVE : la derniere platine ajoutee s'arrete, se vide et s'en va. */
+export function djRemoveDeck(d: DjDeck): void {
+  if (DJ_DECKS[DJ_DECKS.length - 1] !== d || DJ_DECKS.length <= 2) return;
+  const p = djEngineIfAny()?.decks[d];
+  if (p?.playing) p.pause();
+  loads[d]?.abort();
+  djState.setDeck(d, { playing: false, loaded: false, track: null, loading: null, error: null, cue: 0, cues: [null, null, null, null], pitch: 0, range: 8 });
+  djDecks.set(djDecks.get() - 1);
 }
 
 /* ---------------- l'ecran : recherche, scrub, zoom ---------------- */

@@ -13,6 +13,7 @@
  *   A  cue  S  play    K  cue  L  play
  *   E  load            I  load
  *   Z X  tempo - + 0.1 BPM (Maj : 1 BPM)   N M
+ *   D  sync            J  sync
  *   Espace : PLAY de la derniere platine touchee
  *   fleches gauche / droite : crossfader (Maj : tout d'un cote), bas : au centre
  *   - et = : zoom des formes d'onde
@@ -52,6 +53,9 @@ const MAP: Readonly<Record<string, string>> = {
   KeyX: 'dj-a-tempop',
   KeyN: 'dj-b-tempom',
   KeyM: 'dj-b-tempop',
+  // SYNC : le centre du jog
+  KeyD: 'dj-a-sync',
+  KeyJ: 'dj-b-sync',
 };
 
 /** La legende, pour l'aide a l'ecran (touches lues en QWERTY). */
@@ -62,6 +66,7 @@ export const DJ_KEY_LEGEND: readonly { keys: string; what: string }[] = [
   { keys: 'Q W  /  O P', what: 'Bend - + A / B (hold)' },
   { keys: 'E  /  I', what: 'Load A / B' },
   { keys: 'Z X  /  N M', what: 'Tempo - + 0.1 BPM A / B (Shift: 1 BPM)' },
+  { keys: 'D  /  J', what: 'Sync A / B to the tempo you hear' },
   { keys: 'Space', what: 'Play the last deck used' },
   { keys: 'Left  Right  Down', what: 'Crossfader (Shift: all the way), center' },
   { keys: '-  =', what: 'Waveform zoom' },

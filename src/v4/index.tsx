@@ -51,6 +51,7 @@ import { FLAGS, syncFlags } from './state/flags';
 import { intro } from './state/intro';
 import { lcd } from './state/lcd';
 import { appearance } from './state/appearance';
+import { djDecks } from './dj/theme';
 import { presskit } from './state/presskit';
 import { useReducedMotion } from './state/motion';
 import { section } from './state/section';
@@ -363,6 +364,8 @@ const V4Shell: React.FC = () => {
   const editorOpen = useSyncExternalStore(editor.subscribe, editor.get, editor.get);
   // Apparence (2026-10-01) : la machine se reconstruit a chaque changement
   const look = useSyncExternalStore(appearance.subscribe, appearance.get, appearance.get);
+  // Le nombre de platines du MM-DECKS (2026-10-04) : en ajouter ou en retirer reconstruit la scene, comme Dark / Light
+  const djCount = useSyncExternalStore(djDecks.subscribe, djDecks.get, djDecks.get);
   const builtOnce = useRef(false);
 
   const hostRef = useRef<HTMLDivElement>(null);
@@ -428,7 +431,7 @@ const V4Shell: React.FC = () => {
       setStage(null);
       stage.dispose();
     };
-  }, [onError, glFailed, look]);
+  }, [onError, glFailed, look, djCount]);
 
   /* Fond de la page et theme-color du navigateur selon l'apparence */
   useEffect(() => {

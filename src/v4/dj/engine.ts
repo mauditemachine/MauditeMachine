@@ -19,7 +19,7 @@ import { glide } from '../audio/glide';
 import { synthPort } from '../audio/drums';
 import { decodeAudio } from './decode';
 import { CROSSOVER, bandGain, beatsToSeconds, dbToGain, eqDb, energy, faderGain, filterOf, fxMix, speedOf, xfaderGains } from './math';
-import { DJ_FX, type DjDeck, type DjFxId } from './theme';
+import { DJ_CHANNELS_MAX, DJ_FX, deckChannel, type DjDeck, type DjFxId } from './theme';
 
 /** Q de Butterworth : en dB pour passe-bas et passe-haut (piege de Web Audio), lineaire pour le passe-tout. */
 const BUTTERWORTH_DB = 20 * Math.log10(Math.SQRT1_2);
@@ -349,7 +349,8 @@ export class DjFx {
 export const MASTER_DEFAULT = 0.88;
 
 export class DjMixer {
-  readonly ch: readonly [DjChannel, DjChannel, DjChannel, DjChannel];
+  /** six voies : 1 et 2 les machines, 3 a 6 les platines A a D */
+  readonly ch: readonly DjChannel[];
   readonly fx: DjFx;
   private master: GainNode;
   private meters: [AnalyserNode, AnalyserNode];
@@ -371,17 +372,20 @@ export class DjMixer {
     this.master.connect(split);
     split.connect(this.meters[0], 0);
     split.connect(this.meters[1], 1);
-    this.ch = [new DjChannel(ctx, sum), new DjChannel(ctx, sum), new DjChannel(ctx, sum), new DjChannel(ctx, sum)];
+    this.ch = Array.from({ length: DJ_CHANNELS_MAX }, () => new DjChannel(ctx, sum));
     this.setXfader(0);
   }
 
-  /** Crossfader : DECK A (voie 3) a gauche, DECK B (voie 4) a droite ; les machines passent a cote. */
+  /**
+   * Crossfader : DECK A (voie 3) a gauche, DECK B (voie 4) a droite ; les
+   * machines et les platines ajoutees (C et D, voies 5 et 6) passent a
+   * cote, leur fader seul compte.
+   */
   setXfader(x: number): void {
     const g = xfaderGains(x);
     glide(this.ch[2].xf.gain, g.a, this.ctx);
     glide(this.ch[3].xf.gain, g.b, this.ctx);
-    this.ch[0].xf.gain.value = 1;
-    this.ch[1].xf.gain.value = 1;
+    for (const i of [0, 1, 4, 5]) this.ch[i].xf.gain.value = 1;
   }
 
   /** MASTER : 1 a sa place par defaut (le son du site ne change pas), +2 dB tout en haut. */
@@ -567,8 +571,10 @@ export function djEngine(): DjEngine | null {
   const port = synthPort();
   if (!port) return null;
   const mixer = new DjMixer(port.ctx, port.input);
-  // Les platines sur les voies 3 et 4 ; 1 et 2 recoivent le MM-RYTM et le MM-ARP (dj/actions.ts)
-  engine = { ctx: port.ctx, mixer, decks: { a: new DjPlayer(port.ctx, mixer.ch[2]), b: new DjPlayer(port.ctx, mixer.ch[3]) } };
+  // Les platines sur les voies 3 a 6 ; 1 et 2 recoivent le MM-RYTM et le MM-ARP (dj/actions.ts).
+  // Les quatre existent toujours : poser C ou D ne touche pas au son en cours
+  const p = (d: DjDeck): DjPlayer => new DjPlayer(port.ctx, mixer.ch[deckChannel(d)]);
+  engine = { ctx: port.ctx, mixer, decks: { a: p('a'), b: p('b'), c: p('c'), d: p('d') } };
   return engine;
 }
 

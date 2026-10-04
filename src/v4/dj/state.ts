@@ -67,7 +67,8 @@ export interface DjDeckState {
 export const DJ_ZOOMS = [2, 4, 8, 16, 32] as const;
 
 export interface DjState {
-  ch: [DjChannelState, DjChannelState, DjChannelState, DjChannelState];
+  /** six voies : 1 MM-RYTM, 2 MM-ARP, 3 a 6 les platines A a D (C et D seulement si posees) */
+  ch: DjChannelState[];
   fx: Record<DjFxId, number>;
   time: number;
   master: number;
@@ -88,12 +89,12 @@ const deck = (): DjDeckState => ({ pitch: 0, range: 8, playing: false, loaded: f
 
 function fresh(): DjState {
   return {
-    ch: [channel(1), channel(1), channel(), channel()],
+    ch: [channel(1), channel(1), channel(), channel(), channel(), channel()],
     fx: Object.fromEntries(DJ_FX.map((f) => [f, 0])) as Record<DjFxId, number>,
     time: 1,
     master: 0.88,
     xfader: 0,
-    deck: { a: deck(), b: deck() },
+    deck: { a: deck(), b: deck(), c: deck(), d: deck() },
   };
 }
 
@@ -110,7 +111,7 @@ function load(): DjState {
     // L'ancienne table : ses voies 1 et 2 etaient les platines, elles passent en 3 et 4
     const slot = (i: number): number => (legacy ? i + 2 : i);
     o.ch?.forEach((c, i) => {
-      if (slot(i) > 3 || !c) return;
+      if (slot(i) > 5 || !c) return;
       const t = s.ch[slot(i)];
       t.gain = clamp(c.gain, -1, 1);
       t.hi = clamp(c.hi, -1, 1);
@@ -161,7 +162,7 @@ export const djState = {
     const lo = id === 'fader' ? 0 : -1;
     const next = clamp(v, lo, 1);
     if (state.ch[i][id] === next) return;
-    const ch = state.ch.slice() as DjState['ch'];
+    const ch = state.ch.slice();
     ch[i] = { ...ch[i], [id]: next };
     state = { ...state, ch };
     emit();
