@@ -15,7 +15,7 @@
  * un Dock deplie : elle s'efface et revient ensuite. Au telephone, tant
  * qu'elle est la, la machine remonte au-dessus d'elle (Stage.setInset, le
  * cadrage des editeurs) : rien n'est cache, et tout revient a la
- * fermeture. La croix (ou Echap) la ferme pour 30 jours. Position fixe en
+ * fermeture. La croix (ou Echap) la ferme pour la visite. Position fixe en
  * style en ligne (piege connu : .page > * ecrase le fixed des classes).
  * Styles : v4.css, "ecran d'accueil".
  */
@@ -136,7 +136,7 @@ export const InstallPrompt: React.FC<Props> = ({ stage, mobile }) => {
   const machine = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   const reduced = useReducedMotion();
 
-  // Deja installee : jamais ; fermee il y a moins de 30 jours : rien non plus
+  // Deja installee : jamais ; fermee pendant cette visite : rien non plus
   const [closed, setClosed] = useState(() => isStandalone() || install.snoozed());
   const [ready, setReady] = useState(false);
   const [leaving, setLeaving] = useState(false);

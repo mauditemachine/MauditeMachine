@@ -6,7 +6,9 @@
  * - iPhone / iPad : quel geste decrire (iOS n'a pas d'API d'installation) ;
  * - Chrome, Edge, Samsung Internet : l'evenement beforeinstallprompt, garde
  *   pour le bouton INSTALL (la mini-barre du navigateur est empechee) ;
- * - fermee : plus rien pendant 30 jours (localStorage mm.v4.install).
+ * - fermee : plus rien pour cette visite (sessionStorage mm.v4.install) ;
+ *   elle revient a la visite suivante (Mika, 2026-10-04 : "il faut le
+ *   proposer aux visiteurs a chaque fois" ; avant : 30 jours de repos).
  * Importe des main.tsx : l'evenement peut partir avant le chunk de la v4.
  */
 
@@ -32,7 +34,6 @@ export interface IosInfo {
 }
 
 const SNOOZE_KEY = 'mm.v4.install';
-const SNOOZE_MS = 30 * 24 * 60 * 60 * 1000;
 
 let deferred: InstallPromptEvent | null = null;
 let installed = false;
@@ -79,6 +80,12 @@ export const IOS: IosInfo | null = (() => {
 })();
 
 if (typeof window !== 'undefined') {
+  // L'ancien repos de 30 jours (localStorage) ne bloque plus personne
+  try {
+    window.localStorage.removeItem(SNOOZE_KEY);
+  } catch {
+    /* stockage indisponible */
+  }
   window.addEventListener('beforeinstallprompt', (e) => {
     // Pas de mini-barre du navigateur : l'invitation du site propose INSTALL
     e.preventDefault();
@@ -96,23 +103,22 @@ export const install = {
   /** Chromium a donne son evenement : INSTALL peut ouvrir la fenetre d'installation */
   canPrompt: (): boolean => deferred !== null,
   installed: (): boolean => installed,
-  /** Fermee il y a moins de 30 jours ? */
+  /** Fermee pendant cette visite (cet onglet, rechargements compris) ? */
   snoozed(): boolean {
     if (snoozedNow) return true;
     try {
-      const t = Number(window.localStorage.getItem(SNOOZE_KEY));
-      return Number.isFinite(t) && t > 0 && Date.now() - t < SNOOZE_MS;
+      return window.sessionStorage.getItem(SNOOZE_KEY) === '1';
     } catch {
       return false;
     }
   },
-  /** La croix (ou un refus dans la fenetre du navigateur) : plus rien pendant 30 jours. */
+  /** La croix (ou un refus dans la fenetre du navigateur) : plus rien jusqu'a la prochaine visite. */
   snooze(): void {
     snoozedNow = true;
     try {
-      window.localStorage.setItem(SNOOZE_KEY, String(Date.now()));
+      window.sessionStorage.setItem(SNOOZE_KEY, '1');
     } catch {
-      /* stockage indisponible : fermee pour cette visite seulement */
+      /* stockage indisponible : fermee jusqu'au rechargement */
     }
   },
   /** INSTALL : la fenetre du navigateur (un seul appel par evenement). */
