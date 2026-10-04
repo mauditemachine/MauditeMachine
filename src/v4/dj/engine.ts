@@ -136,6 +136,14 @@ const curve = (fn: (x: number) => number): Float32Array => {
   return c;
 };
 
+/**
+ * La saturation de l'overdrive : douce (tanh), asymetrique (un biais de 0.2,
+ * retire pour que le silence reste le silence), ramenee a [-1, 1].
+ */
+const BIAS = 0.2;
+const warmPeak = Math.max(Math.tanh(2 + BIAS) - Math.tanh(BIAS), Math.tanh(BIAS) - Math.tanh(-2 + BIAS));
+const warm = (x: number): number => (Math.tanh(2 * x + BIAS) - Math.tanh(BIAS)) / warmPeak;
+
 /** Une salle synthetique : du bruit qui decroit. */
 function room(ctx: AudioContext, seconds: number): AudioBuffer {
   const n = Math.floor(ctx.sampleRate * seconds);
@@ -162,6 +170,8 @@ export class DjFx {
   private chop: OscillatorNode;
   private bpm = 120;
   private beats = 1;
+  /** l'overdrive : sa poussee, sa tonalite, son niveau (regles par la dose) */
+  private drive: { pre: GainNode; tone: BiquadFilterNode; post: GainNode } | null = null;
 
   constructor(private ctx: AudioContext) {
     this.input = new GainNode(ctx);
@@ -189,12 +199,24 @@ export class DjFx {
   private build(id: DjFxId): { input: AudioNode; output: AudioNode } {
     const ctx = this.ctx;
     switch (id) {
-      case 'disto': {
-        const push = new GainNode(ctx, { gain: 6 });
-        const shape = new WaveShaperNode(ctx, { curve: curve((x) => Math.tanh(x)), oversample: '4x' });
-        const out = new GainNode(ctx, { gain: 0.35 });
-        push.connect(shape).connect(out);
-        return { input: push, output: out };
+      case 'overdrive': {
+        /*
+         * Un overdrive de pedale (2026-10-04, Mika : "au lieu de disto je veux
+         * Overdrive") : on pousse le signal dans une saturation douce et
+         * asymetrique (le biais donne des harmoniques paires, la chaleur d'un
+         * tube), suivie d'une tonalite qui ferme le haut a mesure qu'on pousse
+         * (pas de gresillement), puis le niveau est rattrape. La dose regle
+         * la poussee : de +0 a +24 dB (drive.set).
+         */
+        const pre = new GainNode(ctx, { gain: 1 });
+        const shape = new WaveShaperNode(ctx, { curve: curve(warm), oversample: '4x' });
+        // La saturation asymetrique laisse un decalage continu : un passe-haut a 15 Hz l'ote
+        const dc = new BiquadFilterNode(ctx, { type: 'highpass', frequency: 15, Q: BUTTERWORTH_DB });
+        const tone = new BiquadFilterNode(ctx, { type: 'lowpass', frequency: 12000, Q: BUTTERWORTH_DB });
+        const post = new GainNode(ctx, { gain: 1 });
+        pre.connect(shape).connect(dc).connect(tone).connect(post);
+        this.drive = { pre, tone, post };
+        return { input: pre, output: post };
       }
       case 'crush': {
         const steps = 2 ** 5;
@@ -238,6 +260,15 @@ export class DjFx {
   dose(id: DjFxId, v: number): void {
     const s = this.stages.find((x) => x.id === id);
     if (!s) return;
+    if (id === 'overdrive' && this.drive) {
+      // La poussee (0 a +24 dB), la tonalite qui se ferme, le niveau rattrape
+      const d = Math.max(0, Math.min(1, v));
+      const push = 10 ** ((d * 24) / 20);
+      glide(this.drive.pre.gain, push, this.ctx);
+      glide(this.drive.tone.frequency, 12000 - d * 6500, this.ctx);
+      // Mesure hors ligne (sinus a -6 dBFS) : 0.77 garde le niveau a la plus petite poussee, 0.42 une fois sature
+      glide(this.drive.post.gain, 0.42 + 0.35 * Math.exp(-(push - 1) * 1.5), this.ctx);
+    }
     const m = fxMix(id, v);
     if (m.wet > 0 && !s.on) {
       window.clearTimeout(s.off);

@@ -370,6 +370,23 @@ export function djSetPitch(d: DjDeck, v: number): void {
   djState.setDeck(d, { pitch: v });
 }
 
+/**
+ * Le tempo au dixieme de BPM (2026-10-04) : le BPM affiche (au pitch) va au
+ * dixieme le plus proche dans la direction voulue, et le pitch s'y cale ;
+ * sans BPM connu, un pas de 0.02 %. step : en BPM (0.1, ou 1 avec Maj).
+ */
+export function djTempoStep(d: DjDeck, dir: -1 | 1, step = 0.1): void {
+  const ds = djState.get().deck[d];
+  const bpm = ds.track?.bpm ?? null;
+  let next: number;
+  if (bpm) {
+    const now = bpm * (1 + (ds.pitch * ds.range) / 100);
+    const target = Math.round((now + dir * step) / 0.1) * 0.1;
+    next = ((target / bpm - 1) * 100) / ds.range;
+  } else next = ds.pitch + (dir * 0.02) / ds.range;
+  djSetPitch(d, Math.max(-1, Math.min(1, next)));
+}
+
 /* ---------------- l'ecran : recherche, scrub, zoom ---------------- */
 
 /** Aller a un instant de la piste (en lecture, elle continue de la). */

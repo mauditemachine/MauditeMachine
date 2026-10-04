@@ -123,8 +123,10 @@ export function xfaderGains(x: number): { a: number; b: number } {
 export const beatsToSeconds = (bpm: number, beats: number): number => (60 / (bpm > 0 ? bpm : 120)) * beats;
 
 /**
- * La dose d'un effet : la disto, le crush et le trans remplacent le son sec
- * a mesure qu'on monte ; le chorus et le flanger s'y melangent ; le delay et
+ * La dose d'un effet : le crush et le trans remplacent le son sec a mesure
+ * qu'on monte ; l'overdrive prend tout le son des qu'il est ouvert, sa dose
+ * dit combien il sature (engine.ts) : le surechantillonnage du navigateur le
+ * retarde de quelques millisecondes, et melange au son sec il le creuserait ; le chorus et le flanger s'y melangent ; le delay et
  * la reverb s'y ajoutent, le son sec reste entier.
  */
 export function fxMix(id: string, dose: number): { dry: number; wet: number } {
@@ -132,6 +134,7 @@ export function fxMix(id: string, dose: number): { dry: number; wet: number } {
   if (id === 'delay') return { dry: 1, wet: d * 0.8 };
   if (id === 'reverb') return { dry: 1, wet: d * 0.9 };
   if (id === 'chorus' || id === 'flanger') return { dry: 1 - d * 0.5, wet: d * 0.8 };
+  if (id === 'overdrive') return d > 0 ? { dry: 0, wet: 1 } : { dry: 1, wet: 0 };
   return { dry: 1 - d, wet: d };
 }
 

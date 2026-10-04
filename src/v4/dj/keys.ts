@@ -12,6 +12,7 @@
  *   Q W  bend - +      O P
  *   A  cue  S  play    K  cue  L  play
  *   E  load            I  load
+ *   Z X  tempo - + 0.1 BPM (Maj : 1 BPM)   N M
  *   Espace : PLAY de la derniere platine touchee
  *   fleches gauche / droite : crossfader (Maj : tout d'un cote), bas : au centre
  *   - et = : zoom des formes d'onde
@@ -46,6 +47,11 @@ const MAP: Readonly<Record<string, string>> = {
   KeyK: 'dj-b-cue',
   KeyL: 'dj-b-play',
   KeyI: 'dj-b-load',
+  // Le tempo au dixieme de BPM (Maj : au BPM entier), tenu en continu
+  KeyZ: 'dj-a-tempom',
+  KeyX: 'dj-a-tempop',
+  KeyN: 'dj-b-tempom',
+  KeyM: 'dj-b-tempop',
 };
 
 /** La legende, pour l'aide a l'ecran (touches lues en QWERTY). */
@@ -55,6 +61,7 @@ export const DJ_KEY_LEGEND: readonly { keys: string; what: string }[] = [
   { keys: 'S  /  L', what: 'Play A / B' },
   { keys: 'Q W  /  O P', what: 'Bend - + A / B (hold)' },
   { keys: 'E  /  I', what: 'Load A / B' },
+  { keys: 'Z X  /  N M', what: 'Tempo - + 0.1 BPM A / B (Shift: 1 BPM)' },
   { keys: 'Space', what: 'Play the last deck used' },
   { keys: 'Left  Right  Down', what: 'Crossfader (Shift: all the way), center' },
   { keys: '-  =', what: 'Waveform zoom' },
@@ -105,7 +112,7 @@ export function listenDjKeys(getStage: () => Stage | null, active: () => boolean
     if (e.repeat || held.has(e.code)) return;
     held.set(e.code, k);
     last = deckOf(k) ?? last;
-    keyDown(k, getStage());
+    keyDown(k, getStage(), e.shiftKey);
   };
 
   const onUp = (e: KeyboardEvent): void => {

@@ -45,6 +45,7 @@ export type DjKeyTarget =
   | { kind: 'hotcue'; deck: DjDeck; n: number }
   | { kind: 'load'; deck: DjDeck }
   | { kind: 'bend'; deck: DjDeck; dir: -1 | 1 }
+  | { kind: 'tempo'; deck: DjDeck; dir: -1 | 1 }
   | { kind: 'time'; d: number }
   | { kind: 'cue'; deck: DjDeck }
   | { kind: 'play'; deck: DjDeck };
@@ -98,7 +99,7 @@ knobs.push({ id: 'dj-master', label: 'MASTER', x: UNIT_X.mix + MIX.masterX, z: M
 export const DJ_KNOBS: readonly DjKnobSpec[] = knobs;
 
 /** Le libelle d'un potard se pose au-dessus de sa jupe. */
-export const knobLabelZ = (k: DjKnobSpec): number => k.z - DJ_KNOB.skirt.r * k.s - 0.13;
+export const knobLabelZ = (k: DjKnobSpec): number => k.z - DJ_KNOB.skirt.r * k.s - 0.12;
 
 /* ---------------- faders ---------------- */
 
@@ -164,6 +165,10 @@ for (const d of DECKS) {
   });
   keys.push({ id: `dj-${d}-cue`, label: 'CUE', x: ux + DECK.cue.x, z: DECK.cue.z, w: 2 * DECK.cue.r, d: 2 * DECK.cue.r, round: true, target: { kind: 'cue', deck: d } });
   keys.push({ id: `dj-${d}-play`, label: 'PLAY', x: ux + DECK.play.x, z: DECK.play.z, w: 2 * DECK.play.r, d: 2 * DECK.play.r, round: true, target: { kind: 'play', deck: d } });
+  DECK.tempo.xs.forEach((x, k) => {
+    const dir = k === 0 ? -1 : 1;
+    keys.push({ id: `dj-${d}-tempo${dir < 0 ? 'm' : 'p'}`, label: dir < 0 ? '-' : '+', x: ux + x, z: DECK.tempo.z, w: DECK.tempo.w, d: DECK.tempo.d, round: false, target: { kind: 'tempo', deck: d, dir } });
+  });
 }
 DJ_TIMES.forEach((t, i) => {
   keys.push({

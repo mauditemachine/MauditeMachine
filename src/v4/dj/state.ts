@@ -110,6 +110,9 @@ function load(): DjState {
       t.fader = clamp(c.fader, 0, 1);
     });
     if (o.fx) for (const f of DJ_FX) s.fx[f] = clamp(o.fx[f] ?? 0, 0, 1);
+    // DISTO est devenu OVERDRIVE (2026-10-04) : sa dose retenue suit
+    const old = (o.fx as Record<string, number> | undefined)?.disto;
+    if (typeof old === 'number' && o.fx && o.fx.overdrive === undefined) s.fx.overdrive = clamp(old, 0, 1);
     if (typeof o.time === 'number' && (DJ_TIMES as readonly number[]).includes(o.time)) s.time = o.time;
     if (typeof o.master === 'number') s.master = clamp(o.master, 0, 1);
     if (typeof o.xfader === 'number') s.xfader = clamp(o.xfader, -1, 1);

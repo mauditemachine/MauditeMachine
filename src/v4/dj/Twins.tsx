@@ -14,6 +14,7 @@ import type { Stage } from '../scene/renderer';
 import { focus } from '../state/focus';
 import { faderMin, faderNeutral, faderValue, keyDown, keyUp, knobMin, knobNeutral, knobValue, setFader, setKnob } from './gestures';
 import { DJ_FADERS, DJ_KEYS, DJ_KNOBS, type DjFaderSpec, type DjKeySpec, type DjKnobSpec } from './layout';
+import { djTempoStep } from './actions';
 import { djState } from './state';
 import { DJ_FX_LABEL } from './theme';
 
@@ -49,6 +50,8 @@ function keyName(k: DjKeySpec): string {
       return `Deck ${t.deck.toUpperCase()} play or pause`;
     case 'time':
       return `Effects time ${k.label} beat${t.d === 1 ? '' : 's'}`;
+    case 'tempo':
+      return `Deck ${t.deck.toUpperCase()} tempo ${t.dir < 0 ? 'down' : 'up'} 0.1 BPM (hold to repeat)`;
   }
 }
 
@@ -163,7 +166,7 @@ export const DjTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
 
   if (!ready) return null;
 
-  const held = (k: DjKeySpec): boolean => k.target.kind === 'cue' || k.target.kind === 'bend';
+  const held = (k: DjKeySpec): boolean => k.target.kind === 'cue' || k.target.kind === 'bend' || k.target.kind === 'tempo';
 
   return (
     <div ref={groupRef} className="v4-twins" role="group" aria-label="MM-DECKS DJ decks and mixer" aria-hidden={off || undefined}>
@@ -252,6 +255,14 @@ export const DjTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
             aria-valuetext={`${pct(v)}%`}
             onKeyDown={(e) => {
               if (e.altKey || e.ctrlKey || e.metaKey) return;
+              // Le pitch aux fleches : un dixieme de BPM (Maj : un BPM)
+              const tg = fd.target;
+              if (tg.kind === 'pitch' && /^Arrow/.test(e.key)) {
+                e.preventDefault();
+                e.stopPropagation();
+                djTempoStep(tg.deck, e.key === 'ArrowUp' || e.key === 'ArrowRight' ? 1 : -1, e.shiftKey ? 1 : 0.1);
+                return;
+              }
               const next = stepValue(e, faderValue(fd), lo, faderNeutral(fd));
               if (next === null) return;
               e.preventDefault();

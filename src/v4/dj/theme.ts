@@ -70,7 +70,8 @@ export type DjTone =
   | 'cap'
   | 'platter'
   | 'groove'
-  | 'ring';
+  | 'ring'
+  | 'hot';
 
 /** [teinte affichee visee, gain] par tone ; la machine claire a les siennes. */
 const DARK_TONES: Record<DjTone, readonly [string, number]> = {
@@ -88,6 +89,8 @@ const DARK_TONES: Record<DjTone, readonly [string, number]> = {
   platter: ['#0E0E10', 2.6],
   groove: ['#1A1B1F', 2.6],
   ring: ['#9AA0A8', 0.9],
+  /** le capuchon de FILTER : l'orange du pad OPEN du MM-RYTM (Mika, 2026-10-04) */
+  hot: ['#FF6A13', 0.95],
 };
 const LIGHT_TONES: Record<DjTone, readonly [string, number]> = {
   body: ['#E2DED6', 1.2],
@@ -104,6 +107,7 @@ const LIGHT_TONES: Record<DjTone, readonly [string, number]> = {
   platter: ['#26262A', 2.2],
   groove: ['#34343A', 2.2],
   ring: ['#D9DCE1', 0.9],
+  hot: ['#FF6A13', 0.95],
 };
 /** La teinte et le gain d'un tone dans l'apparence posee (le Stage est reconstruit a chaque changement). */
 export const djTone = (t: DjTone): readonly [string, number] => (APPEARANCE.current === 'light' ? LIGHT_TONES : DARK_TONES)[t];
@@ -141,10 +145,11 @@ export const DJ_EQ: readonly { id: DjEqId; label: string }[] = [
   { id: 'low', label: 'LOW' },
   { id: 'filter', label: 'FILTER' },
 ];
-export const DJ_FX = ['disto', 'crush', 'chorus', 'flanger', 'trans', 'delay', 'reverb'] as const;
+/** OVERDRIVE remplace DISTO le 2026-10-04 (Mika : "au lieu de disto je veux Overdrive"). */
+export const DJ_FX = ['overdrive', 'crush', 'chorus', 'flanger', 'trans', 'delay', 'reverb'] as const;
 export type DjFxId = (typeof DJ_FX)[number];
 export const DJ_FX_LABEL: Readonly<Record<DjFxId, string>> = {
-  disto: 'DISTO',
+  overdrive: 'OVERDRIVE',
   crush: 'CRUSH',
   chorus: 'CHORUS',
   flanger: 'FLANGER',
@@ -165,21 +170,25 @@ export const MIX = {
   cols: [-3.1, -1.65, -0.2, 1.25] as readonly number[],
   masterX: 2.95,
   numZ: -2.2,
-  rows: [-1.45, -0.62, 0.21, 1.04, 1.87] as readonly number[],
-  /** echelle des potards : GAIN et FILTER, les trois EQ un peu plus gros (Mika : "pas trop non plus") */
-  sGain: 0.86,
-  sEq: 1.0,
+  rows: [-1.5, -0.64, 0.24, 1.12, 1.98] as readonly number[],
+  /**
+   * echelle des potards : GAIN et FILTER, les trois EQ un peu plus gros
+   * (Mika, 2026-10-03 : "pas trop non plus" ; 2026-10-04 : "les knobs je les
+   * veux plus gros")
+   */
+  sGain: 1.0,
+  sEq: 1.15,
   /** effets : rangee sous l'ecran */
   fxZ: -3.0,
   fxX0: -3.3,
   fxPitch: 1.1,
-  sFx: 0.82,
-  master: { z: -1.45, s: 1.12 },
+  sFx: 0.95,
+  master: { z: -1.45, s: 1.25 },
   /** ecran des effets et touches de temps */
   screen: { x: -1.75, z: -4.25, w: 3.9, d: 0.95 },
   times: { x0: 0.62, pitch: 0.6, z: -4.1, w: 0.5, d: 0.34 },
   /** faders de voie : fente de z0 a z1 ; VU a cote */
-  fader: { z0: 2.55, z1: 4.35 },
+  fader: { z0: 2.62, z1: 4.4 },
   vu: { dx: 0.5, z0: -1.45, z1: 1.95, n: 15, w: 0.14, d: 0.16 },
   /** VU du master (deux colonnes) */
   masterVu: { z0: -0.6, z1: 4.3, dx: 0.17 },
@@ -204,6 +213,12 @@ export const DECK = {
   play: { x: -3.6, z: 3.85, r: 0.56 },
   /** le fader de pitch, a droite du jog ; zero au milieu, LED */
   pitch: { x: 3.75, z0: -0.45, z1: 4.25 },
+  /**
+   * Le tempo au dixieme de BPM (Mika, 2026-10-04 : "j'ai du mal a arriver
+   * vers 123.4, ca saute toujours") : deux petites touches sous le fader,
+   * un dixieme par appui, en continu tenues.
+   */
+  tempo: { xs: [3.45, 4.05] as readonly number[], z: 4.98, w: 0.5, d: 0.34 },
 } as const;
 
 /**

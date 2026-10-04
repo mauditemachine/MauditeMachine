@@ -139,6 +139,9 @@ const human = (b: number): string => (b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB` : 
 const ASK = { files: 1, bytes: 300 * 1e6 } as const;
 
 type Tab = 'soundcloud' | 'audius' | 'files';
+/** La reponse du Worker sur SoundCloud, une fois par visite. */
+let scProbe: Promise<boolean> | null = null;
+let scProbeOff = false;
 const TABS: readonly Tab[] = ['soundcloud', 'audius', 'files'];
 const fmtTime = (s: number): string => (s > 0 ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '');
 /** Marge entre la playlist et le bas de la machine (px). */
@@ -198,7 +201,20 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
   const [list, setList] = useState<DjTrack[] | null>(null);
   /** SoundCloud : sa cle n'est pas encore posee dans le Worker, ou il ne repond pas */
   const [scDown, setScDown] = useState<'off' | 'down' | null>(null);
-  const [scOff, setScOff] = useState(false);
+  const [scOff, setScOff] = useState(scProbeOff);
+  // SoundCloud branche ? Une recherche vide le dit (gardee au Worker) ; sinon l'onglet s'efface
+  useEffect(() => {
+    if (!shown) return;
+    scProbe ??= searchSoundcloud('', new AbortController().signal).then((r) => {
+      scProbeOff = !r.ok && r.reason === 'off';
+      return scProbeOff;
+    });
+    void scProbe.then((off) => {
+      if (!off) return;
+      setScOff(true);
+      if (tab === 'soundcloud') setTab('audius');
+    });
+  }, [shown]);
   const [drop, setDrop] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   const search = useRef<HTMLInputElement>(null);

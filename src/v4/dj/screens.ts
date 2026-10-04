@@ -198,10 +198,13 @@ export class DjScreens {
       c.fillText(bpm, x1, r.y + textH * 0.5);
       c.fillStyle = DIM;
       c.font = `500 22px ${FONT_MONO}`;
-      c.fillText(`BPM  ${s.key || '--'}`, x1, r.y + textH * 0.88);
+      // Le pitch au centieme de pour cent, a cote du BPM et de la tonalite
+      const pct = s.pitch * 100;
+      const pitch = Math.abs(pct) < 0.005 ? '0.00%' : `${pct > 0 ? '+' : '-'}${Math.abs(pct).toFixed(2)}%`;
+      c.fillText(`${pitch}   ${s.key || '--'}`, x1, r.y + textH * 0.88);
       c.fillStyle = s.playing ? DJ_LIGHT.yellow : BONE;
       c.font = `500 28px ${FONT_MONO}`;
-      c.fillText(`-${clock(s.duration - s.position)}`, x1 - 150, r.y + textH * 0.88);
+      c.fillText(`-${clock(s.duration - s.position)}`, x1 - 175, r.y + textH * 0.88);
     }
     // Les touches du zoom, a droite de la piste entiere : - , la fenetre, +
     const Z = DECK_SCREEN.zoom;
@@ -275,33 +278,49 @@ export class DjScreens {
     const R = r.w / 2;
     c.fillStyle = '#000';
     c.fillRect(r.x, r.y, r.w, r.h);
-    // Anneau de la piste : jouee en os, restante en faible
-    c.lineWidth = 10;
+    /*
+     * Un cadran, sans lettre (Mika, 2026-10-04 : "je n'aime pas le A, c'est
+     * moche") : soixante graduations comme une montre, plus marquees au
+     * quart ; la piste jouee en arc orange ; le repere de la platine en os,
+     * le trait des potards des machines ; un point au centre.
+     */
+    const ring = R - 16;
+    for (let i = 0; i < 60; i += 1) {
+      const a = (i / 60) * Math.PI * 2;
+      const major = i % 15 === 0;
+      const r0 = ring - (major ? 26 : 14);
+      c.strokeStyle = major ? DIM : FAINT;
+      c.lineWidth = major ? 4 : 2;
+      c.beginPath();
+      c.moveTo(cx + Math.sin(a) * r0, cy - Math.cos(a) * r0);
+      c.lineTo(cx + Math.sin(a) * (ring - 4), cy - Math.cos(a) * (ring - 4));
+      c.stroke();
+    }
+    c.lineWidth = 6;
     c.strokeStyle = FAINT;
     c.beginPath();
-    c.arc(cx, cy, R - 18, 0, Math.PI * 2);
+    c.arc(cx, cy, ring + 6, 0, Math.PI * 2);
     c.stroke();
     if (loaded) {
       c.strokeStyle = DJ_LIGHT.orange;
-      c.beginPath();
-      c.arc(cx, cy, R - 18, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0, Math.min(1, progress)));
-      c.stroke();
-      // Le repere de la platine
-      c.strokeStyle = BONE;
-      c.lineWidth = 8;
+      c.lineWidth = 6;
       c.lineCap = 'round';
       c.beginPath();
-      c.moveTo(cx + Math.sin(angle) * (R - 50), cy - Math.cos(angle) * (R - 50));
-      c.lineTo(cx + Math.sin(angle) * (R - 82), cy - Math.cos(angle) * (R - 82));
+      c.arc(cx, cy, ring + 6, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.002, Math.min(1, progress)));
+      c.stroke();
+      // Le repere de la platine : du bord vers le centre, comme le trait d'un potard
+      c.strokeStyle = BONE;
+      c.lineWidth = 7;
+      c.beginPath();
+      c.moveTo(cx + Math.sin(angle) * (ring - 8), cy - Math.cos(angle) * (ring - 8));
+      c.lineTo(cx + Math.sin(angle) * (R * 0.42), cy - Math.cos(angle) * (R * 0.42));
       c.stroke();
       c.lineCap = 'butt';
     }
     c.fillStyle = loaded ? BONE : DIM;
-    c.font = `700 56px ${FONT_DISPLAY}`;
-    c.textAlign = 'center';
-    c.textBaseline = 'middle';
-    c.fillText(d.toUpperCase(), cx, cy + 2);
-    c.textBaseline = 'alphabetic';
+    c.beginPath();
+    c.arc(cx, cy, 6, 0, Math.PI * 2);
+    c.fill();
     this.done();
     return true;
   }

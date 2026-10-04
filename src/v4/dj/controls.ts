@@ -41,7 +41,7 @@ import { withInstanceEmissive } from '../scene/materials';
 import { APPEARANCE } from '../theme';
 import { partDj } from './body';
 import { DJ_FADERS, DJ_KNOBS, DJ_RECT_KEYS, DJ_ROUND_KEYS, faderPos, jogCenter, type DjFaderSpec, type DjKeySpec } from './layout';
-import { DECK, DJ_FADER, DJ_KEY, DJ_KNOB, DJ_LIGHT, DJ_ROUND, MIX, UNIT_X, type DjDeck } from './theme';
+import { DECK, DJ_FADER, DJ_KEY, DJ_KNOB, DJ_LIGHT, DJ_ROUND, MIX, UNIT_X, type DjDeck, type DjTone } from './theme';
 
 const AXIS_Y = new Vector3(0, 1, 0);
 const m4 = new Matrix4();
@@ -73,7 +73,8 @@ function setMask(g: BufferGeometry, fn: (i: number) => number): void {
 
 /* ---------------- potards ---------------- */
 
-function knobGeometry(mobile: boolean): BufferGeometry {
+/** Potard ; capTone : la teinte du capuchon (FILTER : l'orange du pad OPEN du MM-RYTM). */
+function knobGeometry(mobile: boolean, capTone: DjTone = 'knob'): BufferGeometry {
   const K = DJ_KNOB;
   const seg = mobile ? K.segments.mobile : K.segments.desktop;
   const skirt = new CylinderGeometry(K.skirt.rTop, K.skirt.r, K.skirt.h, seg);
@@ -93,7 +94,7 @@ function knobGeometry(mobile: boolean): BufferGeometry {
   cap.translate(0, K.skirt.h + K.h / 2, 0);
   const mark = new BoxGeometry(K.mark.w, K.mark.h, K.mark.d);
   mark.translate(0, K.skirt.h + K.h + K.mark.h / 2 - 0.002, -K.mark.d / 2 - 0.02);
-  return merge([partDj(skirt, 'skirt'), partDj(cap, 'knob'), partDj(mark, 'mark')], 'knobs');
+  return merge([partDj(skirt, 'skirt'), partDj(cap, capTone), partDj(mark, 'mark')], 'knobs');
 }
 
 /* ---------------- faders ---------------- */
@@ -155,7 +156,25 @@ function platterGeometry(mobile: boolean): BufferGeometry {
   const seg = mobile ? 48 : 72;
   const R = J.platter;
   const H = J.platterH;
-  const side = new LatheGeometry([new Vector2(R - 0.06, 0), new Vector2(R, 0.02), new Vector2(R, H - 0.06), new Vector2(R - 0.06, H)], seg);
+  /*
+   * Le flanc cannele comme les capuchons des potards Moog des machines MM
+   * (2026-10-04, Mika : "un jog plus design, toujours dans le design des
+   * autres machines") : la meme modulation du rayon, plus fine et plus
+   * nombreuse a l'echelle d'une platine.
+   */
+  const flutes = mobile ? 48 : 72;
+  const side = new LatheGeometry([new Vector2(R - 0.06, 0), new Vector2(R, 0.02), new Vector2(R, H - 0.06), new Vector2(R - 0.06, H)], flutes * 4);
+  const sp = side.getAttribute('position');
+  for (let i = 0; i < sp.count; i += 1) {
+    const x = sp.getX(i);
+    const z = sp.getZ(i);
+    const r = Math.hypot(x, z);
+    if (r < R - 0.001) continue;
+    const k = 1 - (0.022 / r) * Math.max(0, Math.cos(Math.atan2(z, x) * flutes)) ** 2;
+    sp.setX(i, x * k);
+    sp.setZ(i, z * k);
+  }
+  side.computeVertexNormals();
   const parts: BufferGeometry[] = [partDj(side, 'platter')];
   // Le dessus : des anneaux (stries), du bord vers le centre
   const rings = 14;
@@ -169,6 +188,10 @@ function platterGeometry(mobile: boolean): BufferGeometry {
   const top = new CylinderGeometry(0.95, 0.95, 0.002, seg);
   top.translate(0, H - 0.001, 0);
   parts.push(partDj(top, 'platter'));
+  // Une bague d'aluminium autour de l'ecran du centre, la jupe des potards en grand
+  const C = J.center;
+  const bezel = new LatheGeometry([new Vector2(C + 0.075, H), new Vector2(C + 0.06, H + 0.016), new Vector2(C + 0.005, H + 0.016), new Vector2(C, H + 0.006)], seg);
+  parts.push(partDj(bezel, 'skirt'));
   const mark = new BoxGeometry(0.05, 0.006, 0.5);
   mark.translate(0, H + 0.003, -(R - 0.38));
   parts.push(partDj(mark, 'mark'));
@@ -251,8 +274,22 @@ export interface DjControlsOpts {
   castShadow: boolean;
 }
 
+/** FILTER porte le capuchon orange : un second InstancedMesh, un draw call de plus. */
+const isHot = (i: number): boolean => {
+  const t = DJ_KNOBS[i].target;
+  return t.kind === 'eq' && t.eq === 'filter';
+};
+/** Chaque potard : son mesh (normal ou orange) et sa place dedans. */
+const KNOB_SLOT: readonly { hot: boolean; j: number }[] = (() => {
+  let n = 0;
+  let h = 0;
+  return DJ_KNOBS.map((_, i) => (isHot(i) ? { hot: true, j: h++ } : { hot: false, j: n++ }));
+})();
+const HOT_COUNT = KNOB_SLOT.filter((k) => k.hot).length;
+
 export class DjControls {
   readonly knobs: InstancedMesh;
+  readonly knobsHot: InstancedMesh;
   readonly caps: InstancedMesh;
   readonly keys: InstancedMesh;
   readonly rounds: InstancedMesh;
@@ -280,8 +317,11 @@ export class DjControls {
       return emissive ? withInstanceEmissive(m, true) : m;
     };
 
-    this.knobs = new InstancedMesh(knobGeometry(opts.mobile), std('djKnob', { roughness: 0.42, metalness: 0.28 }), DJ_KNOBS.length);
+    const knobMat = std('djKnob', { roughness: 0.42, metalness: 0.28 });
+    this.knobs = new InstancedMesh(knobGeometry(opts.mobile), knobMat, DJ_KNOBS.length - HOT_COUNT);
     this.knobs.name = 'djKnobs';
+    this.knobsHot = new InstancedMesh(knobGeometry(opts.mobile, 'hot'), knobMat, HOT_COUNT);
+    this.knobsHot.name = 'djKnobsHot';
 
     this.caps = new InstancedMesh(capGeometry(), std('djCap', { roughness: 0.75, metalness: 0 }), DJ_FADERS.length);
     this.caps.name = 'djCaps';
@@ -300,7 +340,7 @@ export class DjControls {
     this.rounds = new InstancedMesh(rg, std('djRound', { roughness: 0.9, metalness: 0 }, true), DJ_ROUND_KEYS.length);
     this.rounds.name = 'djRounds';
 
-    this.platters = new InstancedMesh(platterGeometry(opts.mobile), std('djPlatter', { roughness: 0.5, metalness: 0.1 }), 2);
+    this.platters = new InstancedMesh(platterGeometry(opts.mobile), std('djPlatter', { roughness: 0.72, metalness: 0 }), 2);
     this.platters.name = 'djPlatters';
     this.rings = new Mesh(ringGeometry(opts.mobile), std('djRing', { roughness: 0.3, metalness: light ? 0.2 : 0.55 }));
     this.rings.name = 'djRings';
@@ -316,7 +356,7 @@ export class DjControls {
     this.ledOff.set(light ? DJ_LIGHT.offLight : DJ_LIGHT.off);
     this.ledOn = new Float32Array(this.ledMap.leds.length);
 
-    for (const m of [this.knobs, this.caps, this.keys, this.rounds, this.platters]) {
+    for (const m of [this.knobs, this.knobsHot, this.caps, this.keys, this.rounds, this.platters]) {
       m.instanceMatrix.setUsage(DynamicDrawUsage);
       m.castShadow = opts.castShadow;
       m.receiveShadow = true;
@@ -349,7 +389,7 @@ export class DjControls {
 
   /** Les objets a poser dans le repere top. */
   get objects(): Object3D[] {
-    return [this.knobs, this.caps, this.keys, this.rounds, this.platters, this.rings, this.leds];
+    return [this.knobs, this.knobsHot, this.caps, this.keys, this.rounds, this.platters, this.rings, this.leds];
   }
 
   /* ---------- placement ---------- */
@@ -357,8 +397,10 @@ export class DjControls {
   private placeKnob(i: number): void {
     const k = DJ_KNOBS[i];
     m4.compose(v3.set(k.x, 0, k.z), q.setFromAxisAngle(AXIS_Y, this.knobAngle[i]), s3.setScalar(k.s));
-    this.knobs.setMatrixAt(i, m4);
-    this.knobs.instanceMatrix.needsUpdate = true;
+    const slot = KNOB_SLOT[i];
+    const mesh = slot.hot ? this.knobsHot : this.knobs;
+    mesh.setMatrixAt(slot.j, m4);
+    mesh.instanceMatrix.needsUpdate = true;
   }
 
   private placeCap(i: number): void {
@@ -484,7 +526,7 @@ export class DjControls {
   }
 
   dispose(): void {
-    for (const m of [this.knobs, this.caps, this.keys, this.rounds, this.platters, this.leds]) {
+    for (const m of [this.knobs, this.knobsHot, this.caps, this.keys, this.rounds, this.platters, this.leds]) {
       m.geometry.dispose();
       m.dispose();
     }

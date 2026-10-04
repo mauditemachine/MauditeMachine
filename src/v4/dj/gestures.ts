@@ -24,7 +24,7 @@
 import type { HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { djBrowser } from './browser';
-import { djBend, djCue, djPosition, djScrub, djSeek, djZoom, djZoomStep, djHotcue, djHotcueClear, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetMaster, djSetPitch, djSetTime, djSetXfader } from './actions';
+import { djBend, djCue, djPosition, djScrub, djSeek, djTempoStep, djZoom, djZoomStep, djHotcue, djHotcueClear, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetMaster, djSetPitch, djSetTime, djSetXfader } from './actions';
 import { DJ_FADERS, DJ_KEYS, DJ_KNOBS, type DjFaderSpec, type DjKeySpec, type DjKnobSpec } from './layout';
 import { djState } from './state';
 import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_FADER, UNIT_X, type DjDeck } from './theme';
@@ -77,8 +77,12 @@ export const faderNeutral = (f: DjFaderSpec): number => (f.target.kind === 'chan
 
 const holdTimers = new Map<string, number>();
 
-/** Une touche enfoncee (pointeur, jumeau, clavier). */
-export function keyDown(k: DjKeySpec, stage: Stage | null): void {
+/** Les touches TEMPO tenues : un dixieme, puis en continu apres 0.4 s. */
+const repeats = new Map<string, number>();
+const REPEAT = { delay: 400, every: 90 } as const;
+
+/** Une touche enfoncee (pointeur, jumeau, clavier) ; coarse : Maj tenue (TEMPO au BPM entier). */
+export function keyDown(k: DjKeySpec, stage: Stage | null, coarse = false): void {
   stage?.dj?.pressKey(k.id, true);
   const t = k.target;
   if (t.kind === 'cue') {
@@ -99,6 +103,18 @@ export function keyDown(k: DjKeySpec, stage: Stage | null): void {
     );
   } else if (t.kind === 'bend') djBend(t.deck, t.dir);
   else if (t.kind === 'time') djSetTime(t.d);
+  else if (t.kind === 'tempo') {
+    const step = coarse ? 1 : 0.1;
+    djTempoStep(t.deck, t.dir, step);
+    window.clearTimeout(repeats.get(k.id));
+    repeats.set(
+      k.id,
+      window.setTimeout(function again() {
+        djTempoStep(t.deck, t.dir, step);
+        repeats.set(k.id, window.setTimeout(again, REPEAT.every));
+      }, REPEAT.delay)
+    );
+  }
 }
 
 /** La touche relachee ; tap : relachee sur elle (LOAD ouvre la liste). */
@@ -109,6 +125,11 @@ export function keyUp(k: DjKeySpec, stage: Stage | null, tap: boolean): void {
   if (timer !== undefined) {
     window.clearTimeout(timer);
     holdTimers.delete(k.id);
+  }
+  const again = repeats.get(k.id);
+  if (again !== undefined) {
+    window.clearTimeout(again);
+    repeats.delete(k.id);
   }
   if (t.kind === 'cue') {
     cueDown[t.deck] = false;
@@ -256,6 +277,9 @@ export class DjGestures {
       if (!f) return;
       g.kind = 'fader';
       g.v0 = faderValue(f);
+      // Le pitch suit le mouvement depuis le point precedent (move)
+      g.cx = x;
+      g.cy = y;
       const layer = this.stage.dj?.top;
       if (!layer) return;
       const y3 = DJ_FADER.cap.h;
@@ -304,6 +328,25 @@ export class DjGestures {
       const f = faderById.get(g.id);
       const L2 = g.ax * g.ax + g.ay * g.ay;
       if (!f || L2 < 1) return;
+      if (f.target.kind === 'pitch') {
+        /*
+         * Le pitch (2026-10-04, Mika : "ca saute toujours") : il suit le
+         * mouvement depuis le point precedent, et un glisser lent est cinq
+         * fois plus fin qu'un glisser vif (Maj : dix fois) ; on arrive au
+         * dixieme de BPM sans les touches TEMPO.
+         */
+        const now = performance.now();
+        const ddx = x - g.cx;
+        const ddy = y - g.cy;
+        const speed = Math.hypot(ddx, ddy) / Math.max(1, now - g.t);
+        const k = shift ? FINE : Math.max(0.2, Math.min(1, speed / 0.8));
+        g.v0 = Math.max(-1, Math.min(1, g.v0 + ((2 * (ddx * g.ax + ddy * g.ay)) / L2) * k));
+        g.cx = x;
+        g.cy = y;
+        g.t = now;
+        setFader(f, g.v0);
+        return;
+      }
       // Avancement le long de la fente (0 en a, 1 en b), puis la valeur
       let dt = (dx * g.ax + dy * g.ay) / L2;
       if (shift) dt *= FINE;
@@ -366,6 +409,11 @@ export class DjGestures {
     const k = knobById.get(h.id);
     const f = faderById.get(h.id);
     if (!k && !f) return false;
+    // Le pitch a la molette : un dixieme de BPM par cran (vers le haut : plus vite)
+    if (f && f.target.kind === 'pitch') {
+      djTempoStep(f.target.deck, deltaY < 0 ? 1 : -1, shift ? 1 : 0.1);
+      return true;
+    }
     const step = (shift ? 0.01 : 0.02) * Math.sign(-deltaY) * Math.max(1, Math.round(Math.abs(deltaY) / 100));
     if (k) setKnob(k, Math.max(knobMin(k), Math.min(1, knobValue(k) + step * (1 - knobMin(k)))));
     else if (f) setFader(f, Math.max(faderMin(f), Math.min(1, faderValue(f) + step * (1 - faderMin(f)))));

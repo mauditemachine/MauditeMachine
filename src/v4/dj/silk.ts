@@ -86,6 +86,9 @@ function deckItems(u: 'a' | 'b'): { texts: Text[]; lines: Line[]; brackets: Brac
   const P = DECK.pitch;
   texts.push({ text: 'TEMPO', x: P.x, z: P.z0 - 0.42, cap: 0.075, weight: 600 });
   texts.push({ text: 'RANGE 8%', x: P.x, z: P.z1 + 0.45, cap: 0.06, alpha: 0.5 });
+  // Les touches du tempo fin : leur signe dessous
+  const Tm = DECK.tempo;
+  Tm.xs.forEach((x, k) => texts.push({ text: k === 0 ? '- 0.1' : '+ 0.1', x, z: Tm.z + Tm.d / 2 + 0.16, cap: 0.055, weight: 600 }));
   const n = 16;
   for (let i = 0; i <= n; i += 1) {
     const z = P.z0 + ((P.z1 - P.z0) * i) / n;
