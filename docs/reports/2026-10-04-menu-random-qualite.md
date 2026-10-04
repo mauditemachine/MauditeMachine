@@ -17,7 +17,8 @@
 - MM-ARP, filtre : la position MOOG nommee sur le commutateur MODE (le passe-bas 24 dB d'origine, par defaut), RANDOM la tire deux fois sur trois (`voyager/params.ts`, `voyager/random.ts`, `voyager/theme.ts`).
 - MM-ARP : plus d'arcs imprimes autour des potards, les couronnes jaunes de WAVE 1 et WAVE 2 restent (`voyager/silk.ts`, `voyager/theme.ts`).
 - MM-ARP : la suite de l'arpege modifiable note par note, AUTO ou EDIT, 1 a 16 pas, silences ; panneau sous la machine sur desktop, page SEQUENCE du Dock au telephone (`voyager/seq.ts`, `voyager/chords.ts`, `voyager/arp.ts`, `ui/SeqLane.tsx`, `ui/VoyDock.tsx`, `voyager/rig.ts`, `actions.ts`, `index.tsx`, `v4.css`) ; `scene/renderer.ts` : setInset par machine (la playlist du MM-DECKS y passe aussi).
-- `docs/v4/spec.md` : R14-59 a R14-73.
+- MM-DECKS lit l'AIFF (et les WAV que le navigateur refuse) : `dj/decode.ts`, branche dans `dj/engine.ts` (chargement) et `dj/crate.ts` (analyse) ; message clair pour l'ALAC et les fichiers iTunes proteges.
+- `docs/v4/spec.md` : R14-59 a R14-74.
 
 ## 2. Decisions prises et pourquoi
 
@@ -36,6 +37,7 @@
 - Mika : essayer RANDOM sur les deux machines (styles 4x4, MOD, MODE du filtre), juger le clap.
 - Mika : ecouter aux IE900 (chorus a fond sur l'arpege, charleys transposes avec TONE, arpege et kick ensemble), juger le nouveau menu sur son iPhone, essayer RANDOM.
 - Mika : essayer la suite (desktop sous le MM-ARP, telephone : Dock, page SEQUENCE), le filtre MOOG, et dire si les arcs manquent nulle part.
+- Sonaa (brief envoye) : jog sans le A et plus dans le style MM, potards plus gros, FILTER orange, DISTO devient OVERDRIVE (nom et son), pitch fin (123.4 atteignable).
 - Sonaa : la playlist du MM-DECKS perd le cadrage remonte apres un changement Dark / Light (la scene est recreee) ; signale.
 - Pour l'ecoute : sortie du Mac a 48 kHz (Configuration audio et MIDI) ; un DAC externe pour les IE900 plutot que la prise du Mac.
 

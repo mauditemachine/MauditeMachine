@@ -23,6 +23,7 @@
  * est le meme morceau (son empreinte : nom, taille, date), avec ses cues.
  */
 
+import { decodeAudio } from './decode';
 import { camelot, estimateBpm } from './math';
 import type { DjTrack } from './state';
 import { tagsOfFile, titleFromName } from './tags';
@@ -339,7 +340,8 @@ async function analyze(e: Entry, ask = false): Promise<Entry> {
   let out: Entry;
   try {
     // A 22 050 Hz : assez pour entendre les coups, deux fois moins lourd
-    const snd = await new OfflineAudioContext(1, 1, 22050).decodeAudioData(await raw.arrayBuffer());
+    // AIFF et WAV atypiques : notre decodeur prend le relais (un canal suffit au BPM)
+    const snd = await decodeAudio(new OfflineAudioContext(1, 1, 22050), await raw.arrayBuffer(), true);
     out = { ...e, duration: snd.duration, bpm: e.bpm ?? estimateBpm(snd.getChannelData(0), snd.sampleRate) };
   } catch {
     out = { ...e, unreadable: true };

@@ -17,6 +17,7 @@
 
 import { glide } from '../audio/glide';
 import { synthPort } from '../audio/drums';
+import { decodeAudio } from './decode';
 import { CROSSOVER, bandGain, beatsToSeconds, dbToGain, eqDb, energy, faderGain, filterOf, fxMix, speedOf, xfaderGains } from './math';
 import { DJ_FX, type DjDeck, type DjFxId } from './theme';
 
@@ -365,7 +366,8 @@ export class DjPlayer {
     this.pause();
     this.buffer = null;
     this.startPos = 0;
-    const buffer = await this.ctx.decodeAudioData(bytes);
+    // Le navigateur, puis notre decodeur (AIFF, WAV atypiques) : dj/decode.ts
+    const buffer = await decodeAudio(this.ctx, bytes);
     const chans = Array.from({ length: buffer.numberOfChannels }, (_, c) => buffer.getChannelData(c));
     this.overview = energy(chans, OVERVIEW_SLICES);
     this.detail = energy(chans, Math.max(1, Math.floor(buffer.duration * DETAIL_RATE)));
