@@ -166,7 +166,7 @@ function panelTop(): React.ReactNode {
   const O = OLED;
   const b = O.bezel;
   const lines = [
-    ['MM-808', `${BPM.initial} BPM`],
+    ['MM-RYTM', `${BPM.initial} BPM`],
     ['READY', ''],
   ];
   const fz = (O.d * 40) / O.tex[1];
@@ -365,7 +365,7 @@ const DRAWING = (
 
 export const StaticMachine: React.FC = () => (
   <svg className="v4-fallback-machine" viewBox={`0 0 ${VB_W} ${VB_H}`} role="img" aria-labelledby="v4-machine-title v4-machine-desc">
-    <title id="v4-machine-title">MM-808 drum machine</title>
+    <title id="v4-machine-title">MM-RYTM drum machine</title>
     <desc id="v4-machine-desc">A black drum machine: a screen and six encoders, twelve pads, sixteen trig keys with a red RUN button.</desc>
     {DRAWING}
   </svg>

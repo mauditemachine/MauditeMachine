@@ -19,7 +19,7 @@ import { intro } from '../state/intro';
 
 const ITEMS: readonly { id: Focus; title: string; sub: string }[] = [
   { id: 'all', title: 'BOTH MACHINES', sub: 'OVERVIEW' },
-  { id: 'mm808', title: 'MM-808', sub: 'DRUM MACHINE' },
+  { id: 'mm808', title: 'MM-RYTM', sub: 'DRUM MACHINE' },
   { id: 'voy', title: 'MM-ARP', sub: 'ARPEGGIATOR SYNTHESIZER' },
 ];
 

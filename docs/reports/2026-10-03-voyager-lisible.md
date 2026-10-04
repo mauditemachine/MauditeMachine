@@ -37,7 +37,8 @@
 - MM-ARP : synthese FM facon Typhon, potard FM (OSC 2 module OSC 1, l'indice suit l'enveloppe du filtre) ; GLIDE passe dans l'arpegiateur sur desktop ; touche FM au Dock (`audio/moog.worklet.js`, `voyager/params.ts`, `voyager/theme.ts`, `ui/VoyDock.tsx`, `v4.css`).
 - MM-ARP : RATIO FM reglable (1/2 a 7), un operateur sinus dedie module OSC 1 ; FINE MIX FM RATIO sur la 2e rangee desktop, RATIO au bout de la rangee OSC au telephone, touche RATIO au Dock (`audio/moog.worklet.js`, `voyager/params.ts`, `voyager/theme.ts`, `ui/VoyDock.tsx`, `v4.css`).
 - MM-ARP : NOISE (bruit blanc par voix dans le filtre) et commutateur SLOPE 12/24 dB dans FILTER ; une tape bascule le commutateur, la molette fait enfin tourner les potards a crans (`audio/moog.worklet.js`, `voyager/params.ts`, `voyager/theme.ts`, `voyager/knobs.ts`, `voyager/silk.ts`, `ui/Hotspots.tsx`).
-- `docs/v4/spec.md` : R14-34 a R14-53.
+- La boite a rythmes s'appelle MM-RYTM (onglets, volet, panneau, ecran, face arriere, carte, aria, repli statique, llms.txt) ; shows : Cirque de Boudoir en minuscules (`public/events.json`, `public/past-events.json`).
+- `docs/v4/spec.md` : R14-34 a R14-54.
 
 ## 2. Decisions prises et pourquoi
 

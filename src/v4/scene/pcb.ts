@@ -642,7 +642,7 @@ function buildParts(mobile: boolean, variant: PcbVariant): Built {
     const gm = mergeOf(legs, 'legs');
     const mStart = metal.add(gm);
     const cell = atlas.length;
-    atlas.push({ lines: [`${variant === 'voy' ? 'MM-ARP' : 'MM-808'} ${['G1', 'M2', 'S3', 'P1', 'P2', 'P3', 'P4', 'P5'][k] ?? 'X'}`, 'VRSTL 2026'], weight: 600 });
+    atlas.push({ lines: [`${variant === 'voy' ? 'MM-ARP' : 'MM-RYTM'} ${['G1', 'M2', 'S3', 'P1', 'P2', 'P3', 'P4', 'P5'][k] ?? 'X'}`, 'VRSTL 2026'], weight: 600 });
     const lw = mid ? 0.8 : 1.1;
     const gl = labelQuad(cell, lw, lw / 4, c.x + (mid ? 0.07 : 0.1), CHIP.y1 + 0.002, c.z + (mid ? 0.06 : 0.08));
     const lStart = labels.add(gl);
@@ -1170,7 +1170,7 @@ export class Pcb {
     const out: SilkText[] = [];
     // La bande des pages est prise : le nom passe derriere elle, le modele a droite des puces.
     // Pas de ville (regle du site, section 19 point 103).
-    const model = this.model ?? 'MM-808 REV 4.0';
+    const model = this.model ?? 'MM-RYTM REV 4.0';
     const cut = model.indexOf(' ');
     const name = cut < 0 ? model : model.slice(0, cut);
     const rev = cut < 0 ? '' : model.slice(cut + 1);
@@ -1813,7 +1813,7 @@ export class Pcb {
     }
     ctx.textBaseline = 'alphabetic';
     const px = h * 0.2;
-    drawTracked(ctx, 'SN MM808-000808  REV 4.0', x0 + w * 0.08, y0 + h * 0.88, px, 600, 0.08);
+    drawTracked(ctx, 'SN MMRYTM-000808  REV 4.0', x0 + w * 0.08, y0 + h * 0.88, px, 600, 0.08);
   }
 
   /**
