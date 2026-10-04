@@ -40,13 +40,15 @@ import {
   VOY_SEL,
   VOY_SWITCH,
   isSelector,
+  isBigKnob,
   isSwitch,
+  switchThrowDeg,
   voyKnobPlace,
   voyPadAt,
 } from './theme';
 
 /** Angle (deg, 90 : en haut) de la position i d'un commutateur : 12 a gauche, 24 a droite. */
-const switchDeg = (i: number): number => 90 + VOY_SWITCH.throwDeg / 2 - VOY_SWITCH.throwDeg * i;
+const switchDeg = (i: number, n: number): number => 90 + switchThrowDeg(n) / 2 - (switchThrowDeg(n) * i) / Math.max(1, n - 1);
 
 type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
 
@@ -81,15 +83,17 @@ function knobTexts(where: VoySilkKind): Text[] {
   for (const k of VOY_KNOBS) {
     const p = voyKnobPlace(k.id);
     if (p.where !== where) continue;
-    out.push({ text: k.label, x: p.x, z: p.labelZ, cap: 0.068 * K, maxW: PORTRAIT ? 1.05 : 0.76, group: 'knob' });
-    // Commutateur : ses deux positions ecrites au bout de leur repere (12, 24)
-    if (isSwitch(k.id) && k.steps) {
-      k.steps.forEach((step, i) => {
-        const a = switchDeg(i);
+    out.push({ text: k.label, x: p.x, z: p.labelZ, cap: 0.068 * K, maxW: PORTRAIT ? 0.8 : 0.76, group: 'knob' });
+    // Commutateur : ses positions ecrites au bout de leur repere (24, 12, BP, HP)
+    const steps = k.steps;
+    if (isSwitch(k.id) && steps) {
+      steps.forEach((step, i) => {
+        const a = switchDeg(i, steps.length);
         const r = VOY_KNOB.skirt.r * p.s + VOY_SWITCH.markR;
         const x = p.x + Math.cos((a * Math.PI) / 180) * r;
         const z = p.z - Math.sin((a * Math.PI) / 180) * r;
-        out.push({ text: step.replace(' dB', ''), x, z, cap: VOY_SWITCH.cap * K, weight: 600 });
+        // Les reperes : 24, 12, BP, HP (MODE du filtre)
+        out.push({ text: step.replace('LP', ''), x, z, cap: VOY_SWITCH.cap * K, weight: 600 });
       });
     }
   }
@@ -245,7 +249,7 @@ export class VoySilk {
     // Graduations 0 a 10 autour des gros potards (CUTOFF, VOLUME), facon Moog
     ctx.strokeStyle = silkA(0.6);
     for (const k of VOY_KNOBS) {
-      if (!k.big) continue;
+      if (!isBigKnob(k.id)) continue;
       const p = voyKnobPlace(k.id);
       if (p.where !== this.kind) continue;
       const r0 = VOY_KNOB.skirt.r * p.s + 0.05;
@@ -266,13 +270,14 @@ export class VoySilk {
     ctx.strokeStyle = silkA(0.75);
     ctx.lineWidth = Math.max(1, 0.016 * PPU);
     for (const k of VOY_KNOBS) {
-      if (!isSwitch(k.id) || !k.steps) continue;
+      const steps = k.steps;
+      if (!isSwitch(k.id) || !steps) continue;
       const p = voyKnobPlace(k.id);
       if (p.where !== this.kind) continue;
       const r0 = VOY_KNOB.skirt.r * p.s + VOY_SWITCH.tick.r0;
       const r1 = r0 + VOY_SWITCH.tick.len;
-      k.steps.forEach((_, i) => {
-        const a = (switchDeg(i) * Math.PI) / 180;
+      steps.forEach((_, i) => {
+        const a = (switchDeg(i, steps.length) * Math.PI) / 180;
         ctx.beginPath();
         ctx.moveTo(this.px(p.x + Math.cos(a) * r0), this.py(p.z - Math.sin(a) * r0));
         ctx.lineTo(this.px(p.x + Math.cos(a) * r1), this.py(p.z - Math.sin(a) * r1));

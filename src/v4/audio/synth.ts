@@ -141,18 +141,27 @@ function applyFx(g: SynthGraph, p: Readonly<VoyValues>, now = false): void {
   }
 }
 
+/** Les reglages du moteur, et le tempo (le LFO de MOD est cale dessus, 2026-10-04). */
+const engineMsg = (v: Readonly<VoyValues>, bpm: number = pattern.get().bpm): Record<string, number> => ({ ...engineParams(v), bpm });
+
 voyParams.subscribe(() => {
   if (!sg) return;
   applyFx(sg, voyParams.get());
-  sg.node.port.postMessage({ type: 'params', params: engineParams(voyParams.get()) });
+  sg.node.port.postMessage({ type: 'params', params: engineMsg(voyParams.get()) });
 });
 
-/* Tempo : le delay reste une croche pointee. */
+/* Tempo : le delay reste une croche pointee, le LFO suit. */
+let lastBpm = pattern.get().bpm;
 pattern.subscribe(() => {
   if (!sg) return;
   const t = Math.min(PINGPONG.maxS, PINGPONG.steps * stepOf());
   glide(sg.delayL.delayTime, t, sg.ctx);
   glide(sg.delayR.delayTime, t, sg.ctx);
+  const bpm = pattern.get().bpm;
+  if (bpm !== lastBpm) {
+    lastBpm = bpm;
+    sg.node.port.postMessage({ type: 'params', params: { bpm } });
+  }
 });
 
 /**
@@ -171,7 +180,7 @@ export function prepareSynth(): void {
         numberOfInputs: 0,
         numberOfOutputs: 1,
         outputChannelCount: [2],
-        processorOptions: { params: engineParams(voyParams.get()), os: engineOs() },
+        processorOptions: { params: engineMsg(voyParams.get()), os: engineOs() },
       });
       sg = build(c, port.input, port.reverb, node);
       // Les notes arrivees avant le moteur : celles encore a venir partent
@@ -223,6 +232,8 @@ export interface SynthOfflineOpts {
   sends?: boolean;
   /** surechantillonnage du moteur (4 par defaut) */
   os?: 1 | 2 | 4;
+  /** tempo du LFO de MOD (celui du motif par defaut) */
+  bpm?: number;
 }
 
 /** Rendu stereo hors ligne de la chaine complete ; renvoie [gauche, droite]. */
@@ -246,7 +257,7 @@ export async function renderSynthOffline(o: SynthOfflineOpts): Promise<[Float32A
     numberOfInputs: 0,
     numberOfOutputs: 1,
     outputChannelCount: [2],
-    processorOptions: { params: engineParams(p), notes: list, os: o.os ?? 4 },
+    processorOptions: { params: engineMsg(p, o.bpm), notes: list, os: o.os ?? 4 },
   });
   const noSend = { attach: () => ({ set: () => undefined, info: () => ({ value: 0, linked: false }) }) };
   const g = build(oc, out, o.sends === false ? noSend : reverb, node);

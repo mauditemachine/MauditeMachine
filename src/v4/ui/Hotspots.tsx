@@ -71,6 +71,7 @@ import { focus, VOYAGER } from '../state/focus';
 import { section } from '../state/section';
 import { voices } from '../state/voices';
 import { voyKnob, type VoyKnobId } from '../voyager/params';
+import { isSwitch } from '../voyager/theme';
 import { EXTERNAL_REL } from './ExternalLink';
 import {
   BOARD_CHIPS,
@@ -274,9 +275,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
 
     /** Deux tapes sur un encodeur en moins de 350 ms : sa valeur de depart. */
     const tapDial = (k: DialId): void => {
-      // Un commutateur (deux crans, SLOPE) bascule a chaque tape
-      if (voySteps(k) === 2) {
-        anyDial(k, anyDialValue(k) > 0.5 ? 0 : 1);
+      // Un commutateur (MODE du filtre) passe au cran suivant a chaque tape, et reboucle
+      if (isVoy(k) && isSwitch(k.slice(2) as VoyKnobId)) {
+        const n = voySteps(k);
+        const i = Math.round(anyDialValue(k) * (n - 1));
+        anyDial(k, ((i + 1) % n) / (n - 1));
         return;
       }
       const t = performance.now();

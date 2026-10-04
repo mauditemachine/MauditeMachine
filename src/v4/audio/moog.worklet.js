@@ -157,16 +157,36 @@ const FM_INDEX = 1.6;
  */
 const FM_MAX = 6;
 /**
- * NOISE et SLOPE (2026-10-03, Mika) : un bruit blanc par voix entre dans le
- * filtre avec les oscillateurs (niveau au carre du potard, un nouveau tirage
- * par echantillon du contexte, tenu pendant le surechantillonnage : le meme
- * niveau a x2 et x4). SLOPE prend la sortie apres deux etages de l'echelle
- * (12 dB par octave, la retroaction reste celle des quatre) ou apres quatre
- * (24 dB), en fondu de 15 ms ; a 12 dB la bosse de resonance, deux fois plus
- * haute a cet etage, est ramenee par SLOPE12_RES.
+ * NOISE (2026-10-03, Mika) : un bruit blanc par voix entre dans le filtre
+ * avec les oscillateurs (niveau au carre du potard, un nouveau tirage par
+ * echantillon du contexte, tenu pendant le surechantillonnage : le meme
+ * niveau a x2 et x4).
+ * MODE du filtre (2026-10-04, apres SLOPE) : les sorties de l'echelle
+ * melangees comme sur un Oberheim Xpander, la retroaction restant celle des
+ * quatre etages : LP 24 (le quatrieme etage), LP 12 (le deuxieme, sa bosse
+ * de resonance ramenee par SLOPE12_RES), BP (2 x (premier - deuxieme)),
+ * HP (entree - 2 x premier + deuxieme) ; en fondu de 15 ms d'un mode a
+ * l'autre. Les graves gardes (BASS_KEEP) seulement en passe-bas.
+ * OSC 1 et OSC 2 (2026-10-04, a la place de MIX) : le gain de chaque
+ * oscillateur, lisse.
+ * MOD (2026-10-04) : un LFO commun aux notes, cale sur le tempo (un cycle
+ * = lfoBeats temps a bpm), repart a zero a la premiere note apres un STOP ;
+ * triangle, dent de scie, carre ou echantillonne-bloque (un tirage par
+ * cycle), adouci en 2 ms (pas de clic) ; il pousse les formes d'onde (+/-2
+ * crans), la coupure (+/-3 octaves), la FM (+/-0.6), la hauteur (+/-1
+ * demi-ton) ou formes et coupure a moitie chacune, selon DEPTH.
  */
 const NOISE_MAX = 1;
 const SLOPE12_RES = 0.12;
+/**
+ * Gains des modes passe-bande et passe-haut, ramenes au niveau du passe-bas
+ * (mesure hors ligne, arpege par defaut) ; un peu moins quand la resonance
+ * monte (leur bosse grandit plus vite que celle du passe-bas).
+ */
+const BP_GAIN = 1.25;
+const BP_RES = 0.12;
+const HP_GAIN = 1.7;
+const HP_RES = 0.1;
 
 /**
  * Une forme : 0 sinus, 1 triangle, 2 dent de scie, 3 carre, 4 impulsion
@@ -287,17 +307,31 @@ class MMVoyager extends AudioWorkletProcessor {
     this.d2R = os >= 2 ? new Decimator(63, 8) : null;
     // Une note a gauche, la suivante a droite
     this.flip = false;
+    // MODE du filtre : le poids de chaque sortie (LP 24, LP 12, BP, HP), en fondu
+    this.wm = [1, 0, 0, 0];
+    // MOD : la phase du LFO, sa valeur tenue (S&H), sa sortie adoucie ; il repart a la premiere note
+    this.lfoPh = 0;
+    this.lfoHold = 0;
+    this.lfoOut = 0;
+    this.lfoRestart = true;
+    this.lfoK = coef(0.002, this.sr2);
     this.p = {
       wave1: 2,
       wave2: 2,
       tune2: -12,
-      mix: 0.5,
+      osc1: 0.62,
+      osc2: 0.62,
       fm: 0,
       ratio: 1,
       fine: 15,
       glide: 0,
       noise: 0,
-      slope: 1,
+      fmode: 0,
+      lfoBeats: 4,
+      lfoShape: 0,
+      lfoDest: 0,
+      lfoAmt: 0,
+      bpm: 130,
       cutoff: 800,
       res: 0.3,
       envOct: 3,
@@ -312,11 +346,11 @@ class MMVoyager extends AudioWorkletProcessor {
       drive: 0,
     };
     // Valeurs lissees (un pole, environ 15 ms) : pas de craquement quand un potard tourne
-    this.sm = { w1: 2, w2: 2, mix: 0.5, fm: 0, noise: 0, slope: 1, fine: 15, cutoff: 800, res: 0.3, envOct: 3, drive: 0 };
+    this.sm = { w1: 2, w2: 2, o1: 0.62, o2: 0.62, fm: 0, noise: 0, lfoAmt: 0, fine: 15, cutoff: 800, res: 0.3, envOct: 3, drive: 0 };
     this.smK = coef(0.015, this.sr2);
     this.c = {};
     if (o.params) Object.assign(this.p, o.params);
-    Object.assign(this.sm, { w1: this.p.wave1, w2: this.p.wave2, mix: this.p.mix, fm: this.p.fm, noise: this.p.noise, slope: this.p.slope, fine: this.p.fine, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive });
+    Object.assign(this.sm, { w1: this.p.wave1, w2: this.p.wave2, o1: this.p.osc1, o2: this.p.osc2, fm: this.p.fm, noise: this.p.noise, lfoAmt: this.p.lfoAmt, fine: this.p.fine, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive });
     this.coefs();
     if (o.notes) for (const n of o.notes) this.add(n);
     this.port.onmessage = (e) => this.onMsg(e.data);
@@ -352,7 +386,8 @@ class MMVoyager extends AudioWorkletProcessor {
       Object.assign(this.p, m.params);
       this.coefs();
     } else if (m.type === 'stop') {
-      // STOP : plus rien d'attendu, ce qui sonne s'eteint en 12 ms
+      // STOP : plus rien d'attendu, ce qui sonne s'eteint en 12 ms ; le LFO repartira avec la musique
+      this.lfoRestart = true;
       const f = Math.round((m.time || 0) * sampleRate);
       this.queue = this.queue.filter((n) => n.frame < f);
       for (const v of this.voices) {
@@ -398,6 +433,11 @@ class MMVoyager extends AudioWorkletProcessor {
     const pan = (this.flip ? 1 : -1) * SPREAD * (0.7 + 0.3 * Math.random());
     v.gL = Math.cos(((pan + 1) * Math.PI) / 4) * Math.SQRT2;
     v.gR = Math.sin(((pan + 1) * Math.PI) / 4) * Math.SQRT2;
+    if (this.lfoRestart) {
+      this.lfoRestart = false;
+      this.lfoPh = 0;
+      this.lfoHold = Math.random() * 2 - 1;
+    }
     this.age += 1;
     v.age = this.age;
   }
@@ -453,23 +493,44 @@ class MMVoyager extends AudioWorkletProcessor {
       const i = (i2 / OS) | 0;
       const fr = t0 + i;
       if (i2 % OS === 0) while (q.length > 0 && q[0].frame <= fr) this.noteOn(q.shift(), fr);
-      sm.mix += (p.mix - sm.mix) * K;
+      // MOD : le LFO avance (cycle cale sur le tempo), sa forme, adoucie
+      this.lfoPh += p.bpm / 60 / Math.max(0.0625, p.lfoBeats) / sr;
+      if (this.lfoPh >= 1) {
+        this.lfoPh -= Math.floor(this.lfoPh);
+        this.lfoHold = Math.random() * 2 - 1;
+      }
+      const lp = this.lfoPh;
+      const lraw = p.lfoShape === 1 ? 1 - 2 * lp : p.lfoShape === 2 ? (lp < 0.5 ? 1 : -1) : p.lfoShape === 3 ? this.lfoHold : 1 - 4 * Math.abs(lp - 0.5);
+      this.lfoOut += (lraw - this.lfoOut) * this.lfoK;
+      sm.lfoAmt += (p.lfoAmt - sm.lfoAmt) * K;
+      const lfo = this.lfoOut * sm.lfoAmt;
+      const dest = p.lfoDest;
+      const waveMod = dest === 0 ? 2 * lfo : dest === 4 ? lfo : 0;
+      const cutMod = dest === 1 ? 3 * lfo : dest === 4 ? 1.5 * lfo : 0;
+      const pitchMod = dest === 3 ? 100 * lfo : 0;
       sm.fm += (p.fm - sm.fm) * K;
-      const fmDepth = sm.fm * sm.fm * FM_MAX;
+      const fmEff = dest === 2 ? Math.min(1, Math.max(0, sm.fm + 0.6 * lfo)) : sm.fm;
+      const fmDepth = fmEff * fmEff * FM_MAX;
       sm.noise += (p.noise - sm.noise) * K;
-      sm.slope += (p.slope - sm.slope) * K;
       const nGain = sm.noise * sm.noise * NOISE_MAX;
       const newNoise = i2 % OS === 0;
-      // WAVE : la position de chaque morphing (lissee), la forme de depart et la part de la suivante
+      // MODE du filtre : chaque sortie glisse vers son poids (1 pour le mode choisi)
+      const wm = this.wm;
+      for (let m = 0; m < 4; m += 1) wm[m] += ((m === p.fmode ? 1 : 0) - wm[m]) * K;
+      // WAVE : la position de chaque morphing (lissee, poussee par MOD), la forme de depart et la part de la suivante
       sm.w1 += (p.wave1 - sm.w1) * K;
       sm.w2 += (p.wave2 - sm.w2) * K;
-      const i1 = Math.min(4, Math.max(0, Math.floor(sm.w1)));
-      const f1m = sm.w1 - i1;
-      const i2w = Math.min(3, Math.max(0, Math.floor(sm.w2)));
-      const f2m = sm.w2 - i2w;
-      // MIX a puissance constante : 0.62 chacun au milieu, 0.88 seul a un bout
-      const g1 = 0.88 * Math.cos((sm.mix * Math.PI) / 2);
-      const g2 = 0.88 * Math.sin((sm.mix * Math.PI) / 2);
+      const pw1 = Math.min(5, Math.max(0, sm.w1 + waveMod));
+      const pw2 = Math.min(4, Math.max(0, sm.w2 + 0.8 * waveMod));
+      const i1 = Math.min(4, Math.floor(pw1));
+      const f1m = pw1 - i1;
+      const i2w = Math.min(3, Math.floor(pw2));
+      const f2m = pw2 - i2w;
+      // OSC 1 et OSC 2 : le gain de chaque oscillateur (0.62 chacun au depart, le MIX au centre d'avant)
+      sm.o1 += (p.osc1 - sm.o1) * K;
+      sm.o2 += (p.osc2 - sm.o2) * K;
+      const g1 = sm.o1;
+      const g2 = sm.o2;
       const ratio2 = Math.pow(2, p.tune2 / 12);
       sm.fine += (p.fine - sm.fine) * K;
       sm.cutoff += (p.cutoff - sm.cutoff) * K;
@@ -518,8 +579,8 @@ class MMVoyager extends AudioWorkletProcessor {
         const ph = v.ph;
         if (newNoise || v.d1 === 0) {
           const f = Math.exp(v.logf);
-          v.d1 = (f * Math.pow(2, (v.drift[0] - half + v.vTune) / 1200)) / sr;
-          v.d2 = (f * ratio2 * Math.pow(2, (v.drift[1] + half + v.vTune) / 1200)) / sr;
+          v.d1 = (f * Math.pow(2, (v.drift[0] - half + v.vTune + pitchMod) / 1200)) / sr;
+          v.d2 = (f * ratio2 * Math.pow(2, (v.drift[1] + half + v.vTune + pitchMod) / 1200)) / sr;
         }
         const d1 = v.d1;
         const d2 = v.d2;
@@ -557,7 +618,7 @@ class MMVoyager extends AudioWorkletProcessor {
         // Filtre en echelle : coupure (enveloppe, accent, suivi du clavier), retroaction resolue
         // Coupure et pentes des etages : une fois par echantillon du contexte (elles bougent lentement a cette echelle)
         if (newNoise || v.Ga === 0) {
-          let fc = sm.cutoff * v.vCut * Math.pow(2, sm.envOct * v.fV * (0.8 + 0.2 * v.accent) + (KEY_TRACK * (v.midi - TRACK_ROOT)) / 12);
+          let fc = sm.cutoff * v.vCut * Math.pow(2, cutMod + sm.envOct * v.fV * (0.8 + 0.2 * v.accent) + (KEY_TRACK * (v.midi - TRACK_ROOT)) / 12);
           if (fc > nyq) fc = nyq;
           else if (fc < 20) fc = 20;
           const g = Math.tan((Math.PI * fc) / sr);
@@ -586,6 +647,7 @@ class MMVoyager extends AudioWorkletProcessor {
         let w = (u - v.s1) * Ga;
         let y = w + v.s1;
         v.s1 = y + w;
+        const y1 = y;
         w = (y - v.s2) * Gb;
         y = w + v.s2;
         v.s2 = y + w;
@@ -596,10 +658,14 @@ class MMVoyager extends AudioWorkletProcessor {
         w = (y - v.s4) * Gd;
         y = w + v.s4;
         v.s4 = y + w;
-        // SLOPE : 12 dB (deux etages) ou 24 dB (quatre), en fondu
-        if (sm.slope < 0.9999) y = y * sm.slope + (y2 / (1 + k * SLOPE12_RES)) * (1 - sm.slope);
-        // Les graves fondent avec la resonance : une bonne partie reprise
-        y *= 1 + k * BASS_KEEP;
+        // MODE : les sorties de l'echelle melangees (Xpander) ; les graves gardes en passe-bas (BASS_KEEP)
+        const keep = 1 + k * BASS_KEEP;
+        let out = 0;
+        if (wm[0] > 1e-4) out += wm[0] * y * keep;
+        if (wm[1] > 1e-4) out += (wm[1] * y2 * keep) / (1 + k * SLOPE12_RES);
+        if (wm[2] > 1e-4) out += (wm[2] * 2 * (y1 - y2) * BP_GAIN) / (1 + k * BP_RES);
+        if (wm[3] > 1e-4) out += (wm[3] * (u - 2 * y1 + y2) * HP_GAIN) / (1 + k * HP_RES);
+        y = out;
         // VCA, saturation de sortie (DIST la pousse), puis la place de la note dans l'image
         let a = y * v.aV * v.accent;
         a = Math.tanh(a * driveOut) / Math.pow(driveOut, 0.82);

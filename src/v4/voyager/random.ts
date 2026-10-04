@@ -3,9 +3,10 @@
  * changer tous les parametres de l'arp, des oscillators, filtre, adsr,
  * vraiment tout"). Chaque reglage est tire dans une plage qui sonne (un
  * hasard de musicien, pas un tirage aveugle) : arpege surtout en doubles et
- * en croches, filtre ni ferme ni grand ouvert, attaques le plus souvent
- * courtes, FM et bruit de temps en temps, effets doses comme avant. VOLUME
- * ne bouge pas : RANDOM ne doit jamais faire sauter le niveau.
+ * en croches, filtre ni ferme ni grand ouvert (sa plage suit son MODE),
+ * attaques le plus souvent courtes, FM et bruit de temps en temps, une
+ * modulation (MOD) une fois sur deux, effets doses comme avant. VOLUME ne
+ * bouge pas : RANDOM ne doit jamais faire sauter le niveau.
  */
 
 import { NOTES, RATIOS, type VoyKnobId } from './params';
@@ -34,6 +35,15 @@ const morph = (rnd: Rnd, shapes: number): number => (rnd() < 0.5 ? Math.floor(rn
 export function randomVoyPatch(rnd: Rnd = Math.random): Partial<Record<VoyKnobId, number>> {
   const fm = sometimes(rnd, 0.55, 0.1, 0.7);
   const notes = rnd() < 0.5 ? 0 : (3 + Math.floor(rnd() * 6)) / (NOTES.length - 1);
+  // MODE du filtre : LP 24 le plus souvent ; BP et HP veulent leur propre plage de coupure (sinon tout disparait)
+  const fmode = weighted(rnd, [0.45, 0.2, 0.18, 0.17]);
+  const fIdx = Math.round(fmode * 3);
+  const cutoff = fIdx === 3 ? between(rnd, 0.15, 0.45) : fIdx === 2 ? between(rnd, 0.35, 0.7) : between(rnd, 0.25, 0.75);
+  // Melangeur : OSC 1 toujours la ; OSC 2 seul en renfort, parfois absent (OSC 1 seul, ou la FM d'OSC 2 sans l'entendre)
+  const osc1 = between(rnd, 0.6, 0.95);
+  const osc2 = rnd() < 0.15 ? 0 : between(rnd, 0.35, 0.95);
+  // MOD : une fois sur deux ; une vitesse, une forme, une cible
+  const lfoAmt = sometimes(rnd, 0.5, 0.15, 0.7);
   return {
     // Arpegiateur : 1/4 1/8 1/16 1/32, UP DOWN UP/DN RAND, 1 a 3 octaves
     rate: weighted(rnd, [0.08, 0.25, 0.55, 0.12]),
@@ -48,16 +58,17 @@ export function randomVoyPatch(rnd: Rnd = Math.random): Partial<Record<VoyKnobId
     wave1: morph(rnd, 6),
     wave2: morph(rnd, 5),
     tune2: weighted(rnd, [0.3, 0.25, 0.15, 0.25, 0.05]),
-    mix: between(rnd, 0.15, 0.85),
+    osc1,
+    osc2,
     fm,
     ratio: fm > 0 ? weighted(rnd, [0.06, 0.24, 0.1, 0.22, 0.16, 0.06, 0.08, 0.04, 0.04]) : 1 / (RATIOS.length - 1),
     fine: between(rnd, 0.1, 0.6),
     // Filtre
-    cutoff: between(rnd, 0.25, 0.75),
+    cutoff,
     res: between(rnd, 0.05, 0.75),
     envAmt: between(rnd, 0.2, 0.85),
     noise: sometimes(rnd, 0.8, 0.05, 0.3),
-    slope: weighted(rnd, [0.3, 0.7]),
+    fmode,
     // Enveloppes : attaques surtout courtes
     fA: mostlyShort(rnd, 0.3),
     fD: between(rnd, 0.15, 0.6),
@@ -67,6 +78,11 @@ export function randomVoyPatch(rnd: Rnd = Math.random): Partial<Record<VoyKnobId
     aD: between(rnd, 0.2, 0.7),
     aS: between(rnd, 0.3, 0.9),
     aR: between(rnd, 0.15, 0.55),
+    // MOD : 1/16 1/8 1/4 1/2 1 BAR 2 BAR 4 BAR ; TRI SAW SQR S&H ; WAVE CUTOFF FM PITCH W+CUT
+    lfoRate: weighted(rnd, [0.12, 0.18, 0.2, 0.18, 0.16, 0.1, 0.06]),
+    lfoShape: weighted(rnd, [0.35, 0.2, 0.2, 0.25]),
+    lfoDest: weighted(rnd, [0.3, 0.3, 0.12, 0.08, 0.2]),
+    lfoAmt,
     // Effets (doses d'avant)
     dist: sometimes(rnd, 0.5, 0.08, 0.4),
     chorus: between(rnd, 0.25, 0.85),

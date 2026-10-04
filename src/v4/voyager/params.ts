@@ -20,6 +20,14 @@
  * FINE desaccorde les deux oscillateurs l'un contre l'autre, de part et
  * d'autre de la note : le centre reste juste, le son grossit sans jamais
  * sortir de la tonalite (la demande de Mika).
+ *
+ * 2026-10-04 (Mika : "il me faut les volumes des oscillators" et "trouve
+ * quelque chose a rajouter dans la synthese pour avoir quelque chose de
+ * different") : OSC 1 et OSC 2, le volume de chaque oscillateur (a la place
+ * de MIX) ; MODE, le filtre multimode (LP 24, LP 12, BP, HP, a la place de
+ * SLOPE) ; MOD, un LFO cale sur le tempo : SPEED (1/16 a 4 mesures), SHAPE
+ * (triangle, dent de scie, carre, echantillonne-bloque), TARGET (les formes
+ * d'onde, la coupure, la FM, la hauteur, ou formes et coupure) et DEPTH.
  */
 
 export type VoyKnobId =
@@ -31,7 +39,8 @@ export type VoyKnobId =
   | 'wave1'
   | 'wave2'
   | 'tune2'
-  | 'mix'
+  | 'osc1'
+  | 'osc2'
   | 'fm'
   | 'ratio'
   | 'fine'
@@ -41,7 +50,7 @@ export type VoyKnobId =
   | 'res'
   | 'envAmt'
   | 'noise'
-  | 'slope'
+  | 'fmode'
   | 'fA'
   | 'fD'
   | 'fS'
@@ -50,13 +59,17 @@ export type VoyKnobId =
   | 'aD'
   | 'aS'
   | 'aR'
+  | 'lfoRate'
+  | 'lfoShape'
+  | 'lfoDest'
+  | 'lfoAmt'
   | 'dist'
   | 'chorus'
   | 'delay'
   | 'reverb'
   | 'volume';
 
-export type VoySection = 'arp' | 'osc' | 'filter' | 'feg' | 'aeg' | 'fx' | 'out';
+export type VoySection = 'arp' | 'osc' | 'filter' | 'feg' | 'aeg' | 'mod' | 'fx' | 'out';
 
 export interface VoyKnob {
   id: VoyKnobId;
@@ -89,8 +102,13 @@ export const WAVES2 = ['SINE', 'TRI', 'SAW', 'SQUARE', 'PULSE'] as const;
 /** TUNE 2 : OSC 2 par crans musicaux, toujours dans la tonalite (octave dessous, unisson, quinte, une et deux octaves). */
 export const TUNES2 = ['-1 OCT', '0', '5TH', '+1 OCT', '+2 OCT'] as const;
 const TUNE2_SEMI = [-12, 0, 7, 12, 24] as const;
-/** SLOPE : la pente du filtre (2026-10-03), 2 ou 4 poles. */
-export const SLOPES = ['12 dB', '24 dB'] as const;
+/** MODE du filtre (2026-10-04) : passe-bas 24 et 12 dB, passe-bande, passe-haut. */
+export const FMODES = ['LP24', 'LP12', 'BP', 'HP'] as const;
+/** MOD : la vitesse du LFO en duree d'un cycle, calee sur le tempo (en temps). */
+export const LFO_RATES = ['1/16', '1/8', '1/4', '1/2', '1 BAR', '2 BAR', '4 BAR'] as const;
+const LFO_BEATS = [0.25, 0.5, 1, 2, 4, 8, 16] as const;
+export const LFO_SHAPES = ['TRI', 'SAW', 'SQR', 'S&H'] as const;
+export const LFO_DESTS = ['WAVE', 'CUTOFF', 'FM', 'PITCH', 'W+CUT'] as const;
 /** RATIO : frequence de l'operateur FM / OSC 1, des rapports harmoniques (le son reste dans la tonalite). */
 export const RATIOS = ['1/2', '1', '3/2', '2', '3', '7/2', '4', '5', '7'] as const;
 const RATIO_X = [0.5, 1, 1.5, 2, 3, 3.5, 4, 5, 7] as const;
@@ -106,7 +124,9 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'wave1', label: 'WAVE 1', aria: 'Oscillator 1 wave, morphs from sine to triangle, saw, square, pulse and FM', section: 'osc', def: 2 / 5, steps: WAVES1, morph: true },
   { id: 'wave2', label: 'WAVE 2', aria: 'Oscillator 2 wave, morphs from sine to triangle, saw, square and pulse', section: 'osc', def: 2 / 4, steps: WAVES2, morph: true },
   { id: 'tune2', label: 'TUNE 2', aria: 'Oscillator 2 tuning: octave down, unison, fifth, one or two octaves up', section: 'osc', def: 0, steps: TUNES2 },
-  { id: 'mix', label: 'MIX', aria: 'Oscillator mix, 1 to 2', section: 'osc', def: 0.5 },
+  // 0.84 : 0.62 de gain chacun, le MIX au centre d'avant
+  { id: 'osc1', label: 'OSC 1', aria: 'Oscillator 1 level', section: 'osc', def: 0.84 },
+  { id: 'osc2', label: 'OSC 2', aria: 'Oscillator 2 level', section: 'osc', def: 0.84 },
   { id: 'fm', label: 'FM', aria: 'FM amount, a sine operator modulates oscillator 1, shaped by the filter envelope', section: 'osc', def: 0 },
   { id: 'ratio', label: 'RATIO', aria: 'FM ratio, the operator frequency against oscillator 1', section: 'osc', def: 1 / 8, steps: RATIOS },
   { id: 'fine', label: 'FINE', aria: 'Fine tune, the two oscillators apart, always in key', section: 'osc', def: 0.35 },
@@ -116,7 +136,7 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'res', label: 'RES', aria: 'Filter resonance', section: 'filter', def: 0.35 },
   { id: 'envAmt', label: 'ENV AMT', aria: 'Filter envelope amount', section: 'filter', def: 0.5 },
   { id: 'noise', label: 'NOISE', aria: 'Noise level into the filter', section: 'filter', def: 0 },
-  { id: 'slope', label: 'SLOPE', aria: 'Filter slope, 12 or 24 dB per octave, tap to switch', section: 'filter', def: 1, steps: SLOPES },
+  { id: 'fmode', label: 'MODE', aria: 'Filter mode: low pass 24 or 12 dB, band pass, high pass; tap for the next', section: 'filter', def: 0, steps: FMODES },
   { id: 'fA', label: 'ATTACK', aria: 'Filter envelope attack', section: 'feg', def: 0 },
   { id: 'fD', label: 'DECAY', aria: 'Filter envelope decay', section: 'feg', def: 0.3 },
   { id: 'fS', label: 'SUSTAIN', aria: 'Filter envelope sustain', section: 'feg', def: 0.2 },
@@ -125,6 +145,10 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'aD', label: 'DECAY', aria: 'Amp envelope decay', section: 'aeg', def: 0.35 },
   { id: 'aS', label: 'SUSTAIN', aria: 'Amp envelope sustain', section: 'aeg', def: 0.6 },
   { id: 'aR', label: 'RELEASE', aria: 'Amp envelope release', section: 'aeg', def: 0.3 },
+  { id: 'lfoRate', label: 'SPEED', aria: 'Modulation speed, in time with the tempo', section: 'mod', def: 4 / 6, steps: LFO_RATES },
+  { id: 'lfoShape', label: 'SHAPE', aria: 'Modulation shape: triangle, saw, square, sample and hold', section: 'mod', def: 0, steps: LFO_SHAPES },
+  { id: 'lfoDest', label: 'TARGET', aria: 'Modulation target: wave, cutoff, FM, pitch, or wave and cutoff', section: 'mod', def: 0, steps: LFO_DESTS },
+  { id: 'lfoAmt', label: 'DEPTH', aria: 'Modulation depth', section: 'mod', def: 0 },
   { id: 'dist', label: 'DIST', aria: 'Distortion', section: 'fx', def: 0 },
   { id: 'chorus', label: 'CHORUS', aria: 'Chorus', section: 'fx', def: 0.4 },
   { id: 'delay', label: 'DELAY', aria: 'Delay', section: 'fx', def: 0.25 },
@@ -206,9 +230,10 @@ export interface EngineParams {
   /** formes : position du morphing dans WAVES1 (0 a 5) et WAVES2 (0 a 4), fractionnaire */
   wave1: number;
   wave2: number;
-  /** OSC 2 en demi-tons ; MIX 0 (OSC 1) a 1 (OSC 2) */
+  /** OSC 2 en demi-tons ; OSC 1 et OSC 2 : le gain de chaque oscillateur (0.88 x potard au carre) */
   tune2: number;
-  mix: number;
+  osc1: number;
+  osc2: number;
   /** FM : 0 a 1 (l'indice suit l'enveloppe du filtre) ; RATIO : operateur / OSC 1 */
   fm: number;
   ratio: number;
@@ -217,9 +242,9 @@ export interface EngineParams {
   cutoff: number;
   res: number;
   envOct: number;
-  /** NOISE : 0 a 1 ; SLOPE : 0 = 12 dB, 1 = 24 dB */
+  /** NOISE : 0 a 1 ; MODE : 0 LP 24, 1 LP 12, 2 BP, 3 HP */
   noise: number;
-  slope: number;
+  fmode: number;
   fA: number;
   fD: number;
   fS: number;
@@ -229,6 +254,11 @@ export interface EngineParams {
   aS: number;
   aR: number;
   drive: number;
+  /** MOD : un cycle du LFO en temps, sa forme et sa cible (index), sa profondeur (0 a 1) */
+  lfoBeats: number;
+  lfoShape: number;
+  lfoDest: number;
+  lfoAmt: number;
 }
 
 export function engineParams(v: Readonly<VoyValues>): EngineParams {
@@ -236,7 +266,8 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
     wave1: morphPos('wave1', v.wave1),
     wave2: morphPos('wave2', v.wave2),
     tune2: tune2Semi(v.tune2),
-    mix: v.mix,
+    osc1: 0.88 * v.osc1 * v.osc1,
+    osc2: 0.88 * v.osc2 * v.osc2,
     fm: v.fm,
     ratio: fmRatio(v.ratio),
     fine: fineCents(v.fine),
@@ -245,7 +276,7 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
     res: v.res,
     envOct: envOctaves(v.envAmt),
     noise: v.noise,
-    slope: stepIndex('slope', v.slope),
+    fmode: stepIndex('fmode', v.fmode),
     fA: attackS(v.fA),
     fD: decayS(v.fD),
     fS: v.fS,
@@ -255,6 +286,10 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
     aS: v.aS,
     aR: releaseS(v.aR),
     drive: v.dist,
+    lfoBeats: LFO_BEATS[stepIndex('lfoRate', v.lfoRate)],
+    lfoShape: stepIndex('lfoShape', v.lfoShape),
+    lfoDest: stepIndex('lfoDest', v.lfoDest),
+    lfoAmt: v.lfoAmt,
   };
 }
 

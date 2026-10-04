@@ -5,8 +5,9 @@
  * l'arriere. UN InstancedMesh, une geometrie a couleurs de sommets. Meme
  * course que les encodeurs de la 808 : 270 deg centres sur le repere,
  * sens horaire quand la valeur monte ; un potard a crans tombe sur ses
- * crans (la valeur du store est deja ronde). Un commutateur (SLOPE,
- * 2026-10-03) : un petit potard, un quart de tour entre ses deux positions.
+ * crans (la valeur du store est deja ronde). Un commutateur (MODE du
+ * filtre, 2026-10-04) : un petit potard, 150 deg pour ses quatre positions
+ * (switchThrowDeg).
  *
  * Le mesh est sur le capot (lid) : les potards du panneau y passent par la
  * pose fixe du panneau (VOY_PANEL), ceux du plateau (portrait :
@@ -32,7 +33,7 @@ import { potAngle } from '../scene/encoders';
 import { paintLinear, paintSolid } from '../scene/materials';
 import { LIT, TEMPO_UI } from '../theme';
 import { VOY_KNOBS, type VoyKnobId } from './params';
-import { VOY_KNOB, VOY_PANEL, VOY_SWITCH, isSwitch, voyKnobPlace } from './theme';
+import { VOY_KNOB, VOY_PANEL, VOY_SWITCH, isSwitch, switchThrowDeg, voyKnobPlace } from './theme';
 
 const AXIS_Y = new Vector3(0, 1, 0);
 const m4 = new Matrix4();
@@ -116,7 +117,8 @@ export class VoyKnobs {
   setValue(id: VoyKnobId, v: number): boolean {
     const i = this.index(id);
     if (i < 0) return false;
-    const a = Math.fround(potAngle(v) * (isSwitch(id) ? VOY_SWITCH.throwDeg / TEMPO_UI.sweepDeg : 1));
+    const n = VOY_KNOBS[i].steps?.length ?? 2;
+    const a = Math.fround(potAngle(v) * (isSwitch(id) ? switchThrowDeg(n) / TEMPO_UI.sweepDeg : 1));
     if (this.angle[i] === a) return false;
     this.angle[i] = a;
     this.place(i);
