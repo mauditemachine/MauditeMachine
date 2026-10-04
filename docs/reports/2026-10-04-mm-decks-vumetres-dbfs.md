@@ -36,3 +36,12 @@ temps dans le rouge. Et le rouge, c'est la saturation. »
 - À l'arrêt : 6 segments à 0.5 s, 3 à 1 s, 1 à 1.5 s (20 dB/s). La crête
   reste sur son segment 1 s, puis descend au même pas.
 - tsc (dj sans erreur nouvelle) et vite build.
+
+## Reprise : le rouge au-dessus du plafond du limiteur
+
+La session Maudite Machine a ajouté synthPort().out, la sortie du
+limiteur. Le master s'y mesure désormais ; son plafond est à -1.0 dBFS.
+Pour que le rouge ne s'allume pas sur chaque crête limitée, la loi devient
+-36, -30, -26, -22, -19, -16, -13, -11, -9 (jaune), -6, -4.5, -3, -2, -1
+(orange), -0.5 (rouge). Le master limité n'atteint jamais le rouge ; une
+voie seulement si elle approche vraiment 0 dBFS.

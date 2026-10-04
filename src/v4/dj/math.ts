@@ -181,13 +181,15 @@ export function energy(channels: readonly Float32Array[], slices: number): Float
  * precis par rapport au volume de chacun ; le rouge, c'est la
  * saturation") : le seuil de chaque segment, du bas vers le haut. Un
  * segment s'allume quand la crete atteint son seuil. Quinze segments :
- * - jaune de -36 a -7.5 dBFS (dix segments, plus serres en montant) ;
- * - orange de -6 a -2 dBFS (quatre segments) ;
- * - rouge seulement a -1 dBFS et au-dessus : le vrai risque d'ecretage.
+ * - jaune de -36 a -9 dBFS (neuf segments, plus serres en montant) ;
+ * - orange de -6 a -1 dBFS (cinq segments) : -1 est le plafond du limiteur
+ *   du site, une crete limitee y monte sans saturer ;
+ * - rouge seulement a -0.5 dBFS et au-dessus : le vrai risque d'ecretage.
+ *   Le master, mesure apres le limiteur, ne l'atteint donc jamais.
  */
-export const VU_DB: readonly number[] = [-36, -30, -26, -22, -19, -16, -13, -11, -9, -7.5, -6, -4.5, -3, -2, -1];
+export const VU_DB: readonly number[] = [-36, -30, -26, -22, -19, -16, -13, -11, -9, -6, -4.5, -3, -2, -1, -0.5];
 /** La couleur d'un segment selon son seuil. */
-export const vuZone = (db: number): 'yellow' | 'orange' | 'red' => (db >= -1 ? 'red' : db >= -6 ? 'orange' : 'yellow');
+export const vuZone = (db: number): 'yellow' | 'orange' | 'red' => (db >= -0.5 ? 'red' : db >= -6 ? 'orange' : 'yellow');
 /** Une crete lineaire (0 a 1 et plus) en dBFS ; -Infinity pour le silence. */
 export const toDbfs = (peak: number): number => (peak > 0 ? 20 * Math.log10(peak) : -Infinity);
 /** Combien de segments s'allument pour un niveau en dBFS. */
