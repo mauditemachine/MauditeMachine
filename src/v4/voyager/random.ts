@@ -37,6 +37,23 @@ const mostlyShort = (rnd: Rnd, hi: number): number => Math.round(rnd() * rnd() *
 /** Un morphing : une forme pure une fois sur deux, sinon entre deux formes. */
 const morph = (rnd: Rnd, shapes: number): number => (rnd() < 0.5 ? Math.floor(rnd() * shapes) / (shapes - 1) : between(rnd, 0, 1));
 
+/**
+ * Les rangees d'oscillateurs (2026-10-04, facon Mini V) : OSC 1 en 8' (la
+ * note), OSC 2 par crans musicaux comme l'ancien TUNE 2 : 0 octave dessous,
+ * 1 unisson, 2 quinte, 3 octave, 4 deux octaves (RANGE et SEMI) ; les deux
+ * allumes.
+ */
+function oscTune(i: number): Partial<Record<VoyKnobId, number>> {
+  const k = Math.max(0, Math.min(4, Math.round(i)));
+  return { range1: 3 / 5, semi1: 0.5, on1: 1, range2: [2, 3, 3, 4, 5][k] / 5, semi2: (k === 2 ? 14 : 7) / 14, on2: 1 };
+}
+
+/** Le desaccord des deux oscillateurs, de part et d'autre de la note (lo..hi : l'ancien FINE, 0 a 45 cents d'ecart). */
+function detune(rnd: Rnd, lo: number, hi: number): Partial<Record<VoyKnobId, number>> {
+  const half = (between(rnd, lo, hi) * 45) / 2;
+  return { fine1: Math.round((0.5 - half / 100) * 1000) / 1000, fine2: Math.round((0.5 + half / 100) * 1000) / 1000 };
+}
+
 export function randomVoyPatch(rnd: Rnd = Math.random): Partial<Record<VoyKnobId, number>> {
   const fm = sometimes(rnd, 0.55, 0.1, 0.7);
   const notes = rnd() < 0.5 ? 0 : (3 + Math.floor(rnd() * 6)) / (NOTES.length - 1);
@@ -62,12 +79,12 @@ export function randomVoyPatch(rnd: Rnd = Math.random): Partial<Record<VoyKnobId
     // Oscillateurs
     wave1: morph(rnd, 6),
     wave2: morph(rnd, 5),
-    tune2: weighted(rnd, [0.3, 0.25, 0.15, 0.25, 0.05]),
+    ...oscTune(weighted(rnd, [0.3, 0.25, 0.15, 0.25, 0.05]) * 4),
     osc1,
     osc2,
     fm,
     ratio: fm > 0 ? weighted(rnd, [0.06, 0.24, 0.1, 0.22, 0.16, 0.06, 0.08, 0.04, 0.04]) : 1 / (RATIOS.length - 1),
-    fine: between(rnd, 0.1, 0.6),
+    ...detune(rnd, 0.1, 0.6),
     // Filtre
     cutoff,
     res: between(rnd, 0.05, 0.75),
@@ -200,11 +217,11 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         wave1: pickOf(rnd, [at(2, 6), at(3, 6), at(4, 6), between(rnd, 0.4, 0.6)]),
         wave2: pickOf(rnd, [at(2, 5), at(3, 5)]),
         // Le sous-oscillateur une octave dessous, sauf deja tout en bas
-        tune2: !low && chance(rnd, 0.5) ? at(0, 5) : at(1, 5),
+        ...oscTune(!low && chance(rnd, 0.5) ? 0 : 1),
         osc1: between(rnd, 0.75, 0.95),
         osc2: between(rnd, 0.45, 0.8),
         fm: sometimes(rnd, 0.8, 0.05, 0.2),
-        fine: between(rnd, 0.1, 0.35),
+        ...detune(rnd, 0.1, 0.35),
         cutoff: between(rnd, 0.28, 0.48),
         res: between(rnd, 0.15, 0.55),
         envAmt: between(rnd, 0.35, 0.7),
@@ -250,7 +267,7 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         glide: sometimes(rnd, 0.3, 0.12, 0.3),
         wave1: chance(rnd, 0.7) ? at(2, 6) : at(3, 6),
         wave2: at(2, 5),
-        tune2: at(1, 5),
+        ...oscTune(1),
         osc1: between(rnd, 0.85, 0.95),
         osc2: between(rnd, 0, 0.4),
         fm: 0,
@@ -299,7 +316,7 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         glide: 0,
         wave1: pickOf(rnd, [at(2, 6), at(4, 6), at(1, 6), 1]),
         wave2: pickOf(rnd, [at(3, 5), at(2, 5)]),
-        tune2: pickOf(rnd, [at(1, 5), at(2, 5), at(3, 5)]),
+        ...oscTune(pickOf(rnd, [1, 2, 3])),
         fm: sometimes(rnd, 0.6, 0.1, 0.4),
         cutoff: between(rnd, 0.45, 0.7),
         res: between(rnd, 0.2, 0.5),
@@ -349,7 +366,7 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         fm: between(rnd, 0.3, 0.7),
         ratio: at(pickOf(rnd, [1, 3, 4, 6]), 9),
         wave2: pickOf(rnd, [at(2, 5), at(3, 5)]),
-        tune2: pickOf(rnd, [at(2, 5), at(3, 5)]),
+        ...oscTune(pickOf(rnd, [2, 3])),
         cutoff: between(rnd, 0.5, 0.8),
         res: between(rnd, 0.2, 0.45),
         envAmt: between(rnd, 0.3, 0.6),
@@ -390,7 +407,7 @@ function styled(style: VoyStyle, rnd: Rnd): VoyRandom {
         glide: sometimes(rnd, 0.7, 0.05, 0.15),
         wave1: pickOf(rnd, [at(3, 6), at(4, 6)]),
         wave2: pickOf(rnd, [at(3, 5), at(4, 5)]),
-        tune2: chance(rnd, 0.5) ? at(1, 5) : at(0, 5),
+        ...oscTune(chance(rnd, 0.5) ? 1 : 0),
         fmode: bp ? at(2, 4) : at(1, 4),
         cutoff: bp ? between(rnd, 0.35, 0.6) : between(rnd, 0.3, 0.5),
         res: between(rnd, 0.4, 0.7),

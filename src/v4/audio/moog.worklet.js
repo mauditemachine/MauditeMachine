@@ -6,9 +6,9 @@
  *   fait MORPHER chaque oscillateur d'une forme a la suivante (sinus,
  *   triangle, dent de scie, carre, impulsion ; OSC 1 finit sur la FM, sa
  *   sinusoide modulee par OSC 2) ; les formes ont toutes leur fondamentale
- *   en phase, le fondu de l'une a l'autre ne creuse jamais le son. OSC 2
- *   accorde par TUNE 2 (crans musicaux), les deux ecartes par FINE de part
- *   et d'autre (le centre reste juste), doses par MIX ; sans repliement
+ *   en phase, le fondu de l'une a l'autre ne creuse jamais le son. Chaque
+ *   oscillateur accorde par RANGE et SEMI, FINE a part (2026-10-04, facon
+ *   Mini V ; TUNE 2 et l'ecart FINE avant), dose par son volume ; sans repliement
  *   (PolyBLEP) ; chaque oscillateur derive lentement (quelques cents, comme
  *   un VCO) ; l'operateur FM module les DEUX oscillateurs ;
  * - presque analogique (2026-10-03, Mika : "presque du analog") : chaque
@@ -42,6 +42,10 @@
  * - keyTrack : la coupure suit la note (0.5 avant, KEY_TRACK) ;
  * - sync : OSC 2 repart a chaque cycle d'OSC 1 (hard sync) : il ne bat
  *   plus contre lui, son accord devient un timbre.
+ * Les rangees d'oscillateurs facon Mini V (2026-10-04) : chaque oscillateur
+ * a son accord (tune1, tune2 : RANGE et SEMI, en demi-tons), son FINE
+ * (fine1, fine2, en cents) et son ON (on1, on2, multiplie son gain, lisse) ;
+ * ils remplacent TUNE 2 et l'ecart FINE de part et d'autre de la note.
  * Jusqu'a 12 notes en meme temps (les queues de RELEASE se chevauchent) ;
  * au-dela, la plus ancienne repart de son niveau.
  * Notes recues avec leur instant (temps du contexte), jouees a
@@ -331,12 +335,16 @@ class MMVoyager extends AudioWorkletProcessor {
     this.p = {
       wave1: 2,
       wave2: 2,
+      tune1: 0,
       tune2: -12,
+      fine1: -8,
+      fine2: 8,
+      on1: 1,
+      on2: 1,
       osc1: 0.62,
       osc2: 0.62,
       fm: 0,
       ratio: 1,
-      fine: 15,
       glide: 0,
       noise: 0,
       fmode: 0,
@@ -364,11 +372,11 @@ class MMVoyager extends AudioWorkletProcessor {
       sync: 0,
     };
     // Valeurs lissees (un pole, environ 15 ms) : pas de craquement quand un potard tourne
-    this.sm = { w1: 2, w2: 2, o1: 0.62, o2: 0.62, fm: 0, noise: 0, lfoAmt: 0, fine: 15, cutoff: 800, res: 0.3, envOct: 3, drive: 0 };
+    this.sm = { w1: 2, w2: 2, o1: 0.62, o2: 0.62, fm: 0, noise: 0, lfoAmt: 0, f1: -8, f2: 8, cutoff: 800, res: 0.3, envOct: 3, drive: 0 };
     this.smK = coef(0.015, this.sr2);
     this.c = {};
     if (o.params) Object.assign(this.p, o.params);
-    Object.assign(this.sm, { w1: this.p.wave1, w2: this.p.wave2, o1: this.p.osc1, o2: this.p.osc2, fm: this.p.fm, noise: this.p.noise, lfoAmt: this.p.lfoAmt, fine: this.p.fine, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive });
+    Object.assign(this.sm, { w1: this.p.wave1, w2: this.p.wave2, o1: this.p.osc1 * this.p.on1, o2: this.p.osc2 * this.p.on2, fm: this.p.fm, noise: this.p.noise, lfoAmt: this.p.lfoAmt, f1: this.p.fine1, f2: this.p.fine2, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive });
     this.coefs();
     if (o.notes) for (const n of o.notes) this.add(n);
     this.port.onmessage = (e) => this.onMsg(e.data);
@@ -553,12 +561,18 @@ class MMVoyager extends AudioWorkletProcessor {
       const i2w = Math.min(3, Math.floor(pw2));
       const f2m = pw2 - i2w;
       // OSC 1 et OSC 2 : le gain de chaque oscillateur (0.62 chacun au depart, le MIX au centre d'avant)
-      sm.o1 += (p.osc1 - sm.o1) * K;
-      sm.o2 += (p.osc2 - sm.o2) * K;
+      // ON : coupe l'oscillateur (lisse, pas de clic), son volume reste
+      sm.o1 += (p.osc1 * p.on1 - sm.o1) * K;
+      sm.o2 += (p.osc2 * p.on2 - sm.o2) * K;
       const g1 = sm.o1;
       const g2 = sm.o2;
+      // RANGE et SEMI de chaque oscillateur ; FINE en cents, lisse
+      const ratio1 = Math.pow(2, p.tune1 / 12);
       const ratio2 = Math.pow(2, p.tune2 / 12);
-      sm.fine += (p.fine - sm.fine) * K;
+      sm.f1 += (p.fine1 - sm.f1) * K;
+      sm.f2 += (p.fine2 - sm.f2) * K;
+      const fine1 = sm.f1;
+      const fine2 = sm.f2;
       sm.cutoff += (p.cutoff - sm.cutoff) * K;
       sm.res += (p.res - sm.res) * K;
       sm.envOct += (p.envOct - sm.envOct) * K;
@@ -566,7 +580,6 @@ class MMVoyager extends AudioWorkletProcessor {
       const k = sm.res * 4.1;
       const driveIn = 1 + 5 * sm.drive;
       const driveOut = 1 + 7 * sm.drive;
-      const half = sm.fine / 2;
       const drift = p.drift;
       const sync = p.sync === 1;
       let sum = 0;
@@ -607,8 +620,8 @@ class MMVoyager extends AudioWorkletProcessor {
         const ph = v.ph;
         if (newNoise || v.d1 === 0) {
           const f = Math.exp(v.logf);
-          v.d1 = (f * Math.pow(2, (v.drift[0] * drift - half + v.vTune + pitchMod) / 1200)) / sr;
-          v.d2 = (f * ratio2 * Math.pow(2, (v.drift[1] * drift + half + v.vTune + pitchMod) / 1200)) / sr;
+          v.d1 = (f * ratio1 * Math.pow(2, (v.drift[0] * drift + fine1 + v.vTune + pitchMod) / 1200)) / sr;
+          v.d2 = (f * ratio2 * Math.pow(2, (v.drift[1] * drift + fine2 + v.vTune + pitchMod) / 1200)) / sr;
         }
         const d1 = v.d1;
         const d2 = v.d2;

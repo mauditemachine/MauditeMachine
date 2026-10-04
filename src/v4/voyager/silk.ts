@@ -13,6 +13,10 @@
  * - autour de WAVE 1 et WAVE 2 (2026-10-03, facon Typhon) : un arc jaune
  *   par cran et le dessin de sa forme ; le cran choisi en plein, les autres
  *   pales (redessine quand le cran change).
+ * - les rangees d'oscillateurs facon Mini V (2026-10-04) : le numero de
+ *   chaque rangee en onglet, les crans de RANGE ecrits (LO a 2'), l'echelle
+ *   de SEMI (-7 a +7, les impairs ecrits), celle de FINE (-50 0 +50), la
+ *   LED rouge de ON (redessinee quand ON change).
  * Deux textures canvas sur deux plans couches sur le capot ; redessinees
  * a l'arrivee des polices et des logos, et OPEN <-> CLOSE.
  */
@@ -31,8 +35,11 @@ import {
   VOY_GROUPS,
   VOY_GROUP_TYPE,
   VOY_HEAD,
+  VOY_BADGE,
   VOY_KNOB,
+  VOY_LED,
   VOY_LID_W,
+  VOY_OSC_BADGES,
   VOY_PAD,
   VOY_PANEL,
   VOY_RULES,
@@ -41,7 +48,11 @@ import {
   VOY_SWITCH,
   isSelector,
   isBigKnob,
+  isOscOn,
   isSwitch,
+  knobThrowDeg,
+  stepDeg,
+  voyScale,
   knobSize,
   switchThrowDeg,
   voyKnobPlace,
@@ -84,10 +95,12 @@ function knobTexts(where: VoySilkKind): Text[] {
   for (const k of VOY_FACE_KNOBS) {
     const p = voyKnobPlace(k.id);
     if (p.where !== where) continue;
-    out.push({ text: k.label, x: p.x, z: p.labelZ, cap: 0.068 * K, maxW: PORTRAIT ? 0.8 : 0.76, group: 'knob' });
-    // Commutateur : ses positions ecrites au bout de leur repere (MOOG, 12, BP, HP)
+    // Le nom sur la machine (les rangees d'oscillateurs : WAVEFORM, RANGE, SEMI, FINE ; ON : son nom sous le commutateur)
+    const name = isOscOn(k.id) ? 'ON' : k.face ?? k.label;
+    if (name) out.push({ text: name, x: p.x, z: p.labelZ, cap: 0.068 * K, maxW: PORTRAIT ? 0.8 : 0.76, group: 'knob' });
+    // Commutateur : ses positions ecrites au bout de leur repere (MOOG, 12, BP, HP) ; ON : sa LED les dit
     const steps = k.steps;
-    if (isSwitch(k.id) && steps) {
+    if (isSwitch(k.id) && steps && !isOscOn(k.id)) {
       steps.forEach((step, i) => {
         const a = switchDeg(i, steps.length);
         const r = VOY_KNOB.skirt.r * p.s + VOY_SWITCH.markR;
@@ -163,6 +176,8 @@ export class VoySilk {
   /** crans choisis des deux selecteurs de forme */
   /** positions des morphings (rig.ts les arrondit au vingtieme de cran : un dessin par vingtieme) */
   private sel = { wave1: morphPos('wave1', voyParams.of('wave1')), wave2: morphPos('wave2', voyParams.of('wave2')) };
+  /** ON des deux oscillateurs (leurs LED) */
+  private on = { on1: voyParams.of('on1') >= 0.5, on2: voyParams.of('on2') >= 0.5 };
 
   constructor(
     private kind: VoySilkKind,
@@ -287,6 +302,10 @@ export class VoySilk {
     }
     // Plus d'arcs imprimes autour des potards (2026-10-04, Mika : "les contours des knobs, enleve ca") : seules les couronnes de WAVE 1 et WAVE 2 restent
     this.selectors();
+    // Les rangees d'oscillateurs facon Mini V : echelles, numeros, LED
+    this.oscScales();
+    this.badges();
+    this.leds();
     if (this.kind === 'panel') {
       // Wordmark a gauche, logotype a droite (comme la 808)
       const img = logoImage('wordmark');
@@ -396,6 +415,144 @@ export class VoySilk {
         ctx.globalAlpha = 1;
       });
     }
+  }
+
+  /** Un texte centre sur (x, z), au corps cap (unites), a l'encre (alpha). */
+  private mini(text: string, x: number, z: number, cap: number, alpha: number, weight = 600): void {
+    const ctx = this.ctx;
+    const fontPx = (cap / SILK.capRatio) * PPU;
+    const w = trackedWidth(ctx, text, fontPx, weight);
+    ctx.fillStyle = silkA(alpha);
+    drawTracked(ctx, text, this.px(x) - w / 2, this.py(z) + (cap * PPU) / 2, fontPx, weight);
+  }
+
+  /** Un trait de graduation, de r0 a r1 autour de (x, z), a l'angle a (deg). */
+  private tick(x: number, z: number, a: number, r0: number, r1: number): void {
+    const ctx = this.ctx;
+    const c = Math.cos((a * Math.PI) / 180);
+    const sn = Math.sin((a * Math.PI) / 180);
+    ctx.beginPath();
+    ctx.moveTo(this.px(x + c * r0), this.py(z - sn * r0));
+    ctx.lineTo(this.px(x + c * r1), this.py(z - sn * r1));
+    ctx.stroke();
+  }
+
+  /**
+   * Les echelles des rangees d'oscillateurs (Mini V) : RANGE, un repere et
+   * son nom par cran (LO a 2') ; SEMI, un repere par demi-ton, le 0 plus
+   * long, les impairs ecrits ; FINE, onze reperes, -50 0 +50 ecrits.
+   */
+  private oscScales(): void {
+    const ctx = this.ctx;
+    const cap = 0.05 * K;
+    for (const k of VOY_FACE_KNOBS) {
+      const sc = voyScale(k.id);
+      if (!sc) continue;
+      const p = voyKnobPlace(k.id);
+      if (p.where !== this.kind) continue;
+      const r0 = VOY_KNOB.skirt.r * p.s + 0.04;
+      const r1 = r0 + 0.06;
+      ctx.strokeStyle = silkA(0.7);
+      if (sc === 'range' || sc === 'semi') {
+        const steps = k.steps ?? [];
+        const n = steps.length;
+        const throwDeg = knobThrowDeg(k.id, n);
+        steps.forEach((label, i) => {
+          const a = stepDeg(i, n, throwDeg);
+          const zero = sc === 'semi' && i === 7;
+          ctx.lineWidth = Math.max(1, (zero ? 0.02 : 0.013) * PPU);
+          this.tick(p.x, p.z, a, r0, zero ? r1 + 0.03 : r1);
+          // RANGE : chaque cran ; SEMI : les impairs (-7 -5 ... +7)
+          if (sc === 'semi' && i % 2 === 1) return;
+          if (sc === 'semi' && i === 7) return;
+          const rt = r1 + (sc === 'range' ? 0.11 : 0.09);
+          this.mini(label, p.x + Math.cos((a * Math.PI) / 180) * rt, p.z - Math.sin((a * Math.PI) / 180) * rt, cap, 0.85);
+        });
+      } else {
+        for (let t = 0; t <= 10; t += 1) {
+          const a = 225 - 27 * t;
+          const major = t % 5 === 0;
+          ctx.lineWidth = Math.max(1, (major ? 0.02 : 0.012) * PPU);
+          this.tick(p.x, p.z, a, r0, major ? r1 + 0.03 : r1);
+        }
+        const rt = r1 + 0.1;
+        for (const [t, label] of [
+          [0, '-50'],
+          [5, '0'],
+          [10, '+50'],
+        ] as const) {
+          const a = ((225 - 27 * t) * Math.PI) / 180;
+          this.mini(label, p.x + Math.cos(a) * rt, p.z - Math.sin(a) * rt, cap, 0.85);
+        }
+      }
+    }
+  }
+
+  /** Le numero de chaque rangee d'oscillateur : un onglet a l'encre, le chiffre en creux. */
+  private badges(): void {
+    if (this.kind !== 'panel') return;
+    const ctx = this.ctx;
+    const B = VOY_BADGE;
+    for (const b of VOY_OSC_BADGES) {
+      const x0 = this.px(b.x - B.w / 2);
+      const y0 = this.py(b.z - B.h / 2);
+      const w = B.w * PPU;
+      const h = B.h * PPU;
+      const r = B.r * PPU;
+      ctx.fillStyle = silkA(0.85);
+      ctx.beginPath();
+      ctx.moveTo(x0 + r, y0);
+      ctx.lineTo(x0 + w - r, y0);
+      ctx.quadraticCurveTo(x0 + w, y0, x0 + w, y0 + r);
+      ctx.lineTo(x0 + w, y0 + h - r);
+      ctx.quadraticCurveTo(x0 + w, y0 + h, x0 + w - r, y0 + h);
+      ctx.lineTo(x0 + r, y0 + h);
+      ctx.quadraticCurveTo(x0, y0 + h, x0, y0 + h - r);
+      ctx.lineTo(x0, y0 + r);
+      ctx.quadraticCurveTo(x0, y0, x0 + r, y0);
+      ctx.fill();
+      // Le chiffre en creux : la couleur du panneau passe au travers
+      ctx.globalCompositeOperation = 'destination-out';
+      const fontPx = (B.cap / SILK.capRatio) * PPU;
+      const tw = trackedWidth(ctx, b.text, fontPx, 700, 0);
+      drawTracked(ctx, b.text, this.px(b.x) - tw / 2, this.py(b.z) + (B.cap * PPU) / 2, fontPx, 700, 0);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+  }
+
+  /** La LED de ON au-dessus de chaque commutateur : rouge allumee (elle luit), sombre eteinte. */
+  private leds(): void {
+    const ctx = this.ctx;
+    for (const id of ['on1', 'on2'] as const) {
+      const p = voyKnobPlace(id);
+      if (p.where !== this.kind) continue;
+      const x = this.px(p.x);
+      const y = this.py(p.z - VOY_KNOB.skirt.r * p.s - VOY_LED.dz);
+      const r = VOY_LED.r * PPU;
+      const lit = this.on[id];
+      if (lit) {
+        const g = ctx.createRadialGradient(x, y, 0, x, y, r * 2.4);
+        g.addColorStop(0, 'rgba(255, 70, 50, 0.55)');
+        g.addColorStop(1, 'rgba(255, 70, 50, 0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, r * 2.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = lit ? VOY_LED.on : VOY_LED.off;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  /** ON des oscillateurs (leurs LED) ; true si redessine. */
+  setLeds(on1: boolean, on2: boolean): boolean {
+    if (on1 === this.on.on1 && on2 === this.on.on2) return false;
+    this.on = { on1, on2 };
+    if (voyKnobPlace('on1').where !== this.kind && voyKnobPlace('on2').where !== this.kind) return false;
+    this.draw();
+    return true;
   }
 
   /** Le dessin d'une forme dans une boite w x h centree (px) ; FM ecrit. */

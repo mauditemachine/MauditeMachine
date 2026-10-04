@@ -9,7 +9,7 @@
  * GLIDE ; deux oscillateurs facon Typhon depuis le 2026-10-03), FILTER (CUTOFF, RES, ENV AMT),
  * deux enveloppes ADSR (FILTER EG et AMP EG), EFFECTS (DIST, CHORUS, DELAY,
  * REVERB) et OUTPUT (VOLUME). Les potards a crans (RATE, MODE, RANGE,
- * NOTES, OCTAVE, WAVE 1, WAVE 2, TUNE 2) gardent une valeur ronde : idx / (n - 1).
+ * NOTES, OCTAVE, RANGE, SEMI, ON...) gardent une valeur ronde : idx / (n - 1).
  *
  * NOTES (2026-10-03, Mika : "le choix du nombre de notes dans l'arp") : la
  * longueur du motif. ALL : toutes les notes de l'accord sur RANGE octaves,
@@ -28,6 +28,16 @@
  * SLOPE) ; MOD, un LFO cale sur le tempo : SPEED (1/16 a 4 mesures), SHAPE
  * (triangle, dent de scie, carre, echantillonne-bloque), TARGET (les formes
  * d'onde, la coupure, la FM, la hauteur, ou formes et coupure) et DEPTH.
+ *
+ * Les oscillateurs facon Mini V (2026-10-04, Mika, une photo du panneau
+ * d'oscillateurs du Mini V : "tu pourrais avoir les oscillateurs de cette
+ * maniere") : une rangee par oscillateur, WAVEFORM, RANGE (LO, 32', 16',
+ * 8', 4', 2' : de trois octaves dessous a deux dessus), SEMI (-7 a +7
+ * demi-tons), FINE (-50 a +50 cents) et ON (le couper sans toucher a son
+ * volume). Ils remplacent TUNE 2 et FINE (un desaccord de part et d'autre
+ * de la note) : au depart OSC 1 en 8' et OSC 2 en 16', FINE a -8 et +8
+ * cents, le son d'avant ; un reglage ou un preset d'avant se convertit
+ * (migrateKnobs).
  */
 
 export type VoyKnobId =
@@ -37,13 +47,19 @@ export type VoyKnobId =
   | 'notes'
   | 'gate'
   | 'wave1'
+  | 'range1'
+  | 'semi1'
+  | 'fine1'
+  | 'on1'
   | 'wave2'
-  | 'tune2'
+  | 'range2'
+  | 'semi2'
+  | 'fine2'
+  | 'on2'
   | 'osc1'
   | 'osc2'
   | 'fm'
   | 'ratio'
-  | 'fine'
   | 'octave'
   | 'glide'
   | 'cutoff'
@@ -81,8 +97,10 @@ export type VoySection = 'arp' | 'osc' | 'filter' | 'feg' | 'aeg' | 'mod' | 'fx'
 
 export interface VoyKnob {
   id: VoyKnobId;
-  /** serigraphie */
+  /** nom a l'ecran (WAVE 1, RANGE 2...) ; aussi la serigraphie, sauf face */
   label: string;
+  /** serigraphie quand elle differe (les rangees d'oscillateurs : WAVEFORM, RANGE, SEMI, FINE ; '' : rien) */
+  face?: string;
   /** nom lu (jumeau, role slider) */
   aria: string;
   section: VoySection;
@@ -105,9 +123,12 @@ export const OCTAVES = ['-2', '-1', '0', '+1', '+2'] as const;
  */
 export const WAVES1 = ['SINE', 'TRI', 'SAW', 'SQUARE', 'PULSE', 'FM'] as const;
 export const WAVES2 = ['SINE', 'TRI', 'SAW', 'SQUARE', 'PULSE'] as const;
-/** TUNE 2 : OSC 2 par crans musicaux, toujours dans la tonalite (octave dessous, unisson, quinte, une et deux octaves). */
-export const TUNES2 = ['-1 OCT', '0', '5TH', '+1 OCT', '+2 OCT'] as const;
-const TUNE2_SEMI = [-12, 0, 7, 12, 24] as const;
+/** RANGE d'un oscillateur (pieds d'orgue, comme le Minimoog) et son decalage en demi-tons ; 8' : la note jouee. */
+export const OSC_RANGES = ['LO', "32'", "16'", "8'", "4'", "2'"] as const;
+const OSC_RANGE_SEMI = [-36, -24, -12, 0, 12, 24] as const;
+/** SEMI : -7 a +7 demi-tons. */
+export const SEMIS = ['-7', '-6', '-5', '-4', '-3', '-2', '-1', '0', '+1', '+2', '+3', '+4', '+5', '+6', '+7'] as const;
+export const ON_OFF = ['OFF', 'ON'] as const;
 /**
  * MODE du filtre (2026-10-04) : le passe-bas 24 dB du Moog (le filtre
  * d'origine, la position de depart ; nomme MOOG depuis que Mika ne le
@@ -131,15 +152,22 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'range', label: 'RANGE', aria: 'Arpeggiator range', section: 'arp', def: 0.5, steps: RANGES },
   { id: 'notes', label: 'NOTES', aria: 'Arpeggiator notes, how many before the pattern starts again', section: 'arp', def: 0, steps: NOTES },
   { id: 'gate', label: 'GATE', aria: 'Arpeggiator gate length', section: 'arp', def: 0.5 },
-  { id: 'wave1', label: 'WAVE 1', aria: 'Oscillator 1 wave, morphs from sine to triangle, saw, square, pulse and FM', section: 'osc', def: 2 / 5, steps: WAVES1, morph: true },
-  { id: 'wave2', label: 'WAVE 2', aria: 'Oscillator 2 wave, morphs from sine to triangle, saw, square and pulse', section: 'osc', def: 2 / 4, steps: WAVES2, morph: true },
-  { id: 'tune2', label: 'TUNE 2', aria: 'Oscillator 2 tuning: octave down, unison, fifth, one or two octaves up', section: 'osc', def: 0, steps: TUNES2 },
+  // Les deux rangees d'oscillateurs (facon Mini V, 2026-10-04)
+  { id: 'wave1', label: 'WAVE 1', face: 'WAVEFORM', aria: 'Oscillator 1 wave, morphs from sine to triangle, saw, square, pulse and FM', section: 'osc', def: 2 / 5, steps: WAVES1, morph: true },
+  { id: 'range1', label: 'RANGE 1', face: 'RANGE', aria: "Oscillator 1 range: LO, 32, 16, 8, 4 or 2 feet; 8 feet plays the note", section: 'osc', def: 3 / 5, steps: OSC_RANGES },
+  { id: 'semi1', label: 'SEMI 1', face: 'SEMI', aria: 'Oscillator 1 semitones, -7 to +7', section: 'osc', def: 0.5, steps: SEMIS },
+  { id: 'fine1', label: 'FINE 1', face: 'FINE', aria: 'Oscillator 1 fine tune, -50 to +50 cents', section: 'osc', def: 0.42 },
+  { id: 'on1', label: 'OSC 1', face: '', aria: 'Oscillator 1 on or off', section: 'osc', def: 1, steps: ON_OFF },
+  { id: 'wave2', label: 'WAVE 2', face: 'WAVEFORM', aria: 'Oscillator 2 wave, morphs from sine to triangle, saw, square and pulse', section: 'osc', def: 2 / 4, steps: WAVES2, morph: true },
+  { id: 'range2', label: 'RANGE 2', face: 'RANGE', aria: "Oscillator 2 range: LO, 32, 16, 8, 4 or 2 feet; 8 feet plays the note", section: 'osc', def: 2 / 5, steps: OSC_RANGES },
+  { id: 'semi2', label: 'SEMI 2', face: 'SEMI', aria: 'Oscillator 2 semitones, -7 to +7', section: 'osc', def: 0.5, steps: SEMIS },
+  { id: 'fine2', label: 'FINE 2', face: 'FINE', aria: 'Oscillator 2 fine tune, -50 to +50 cents', section: 'osc', def: 0.58 },
+  { id: 'on2', label: 'OSC 2', face: '', aria: 'Oscillator 2 on or off', section: 'osc', def: 1, steps: ON_OFF },
   // 0.84 : 0.62 de gain chacun, le MIX au centre d'avant
   { id: 'osc1', label: 'OSC 1', aria: 'Oscillator 1 level', section: 'osc', def: 0.84 },
   { id: 'osc2', label: 'OSC 2', aria: 'Oscillator 2 level', section: 'osc', def: 0.84 },
   { id: 'fm', label: 'FM', aria: 'FM amount, a sine operator modulates oscillator 1, shaped by the filter envelope', section: 'osc', def: 0 },
   { id: 'ratio', label: 'RATIO', aria: 'FM ratio, the operator frequency against oscillator 1', section: 'osc', def: 1 / 8, steps: RATIOS },
-  { id: 'fine', label: 'FINE', aria: 'Fine tune, the two oscillators apart, always in key', section: 'osc', def: 0.35 },
   { id: 'octave', label: 'OCTAVE', aria: 'Octave', section: 'osc', def: 0.5, steps: OCTAVES },
   { id: 'glide', label: 'GLIDE', aria: 'Glide between notes', section: 'osc', def: 0 },
   { id: 'cutoff', label: 'CUTOFF', aria: 'Filter cutoff', section: 'filter', def: 0.5 },
@@ -183,7 +211,7 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
    * - KEY TRACK : la coupure suit la note (5 : la moitie, celle d'avant) ;
    * - ACCENT : la force des accents de l'arpege (le "a" de chaque temps) ;
    * - SYNC : OSC 2 synchronise sur OSC 1 (hard sync), le son acide qui crie
-   *   quand TUNE 2 monte.
+   *   quand OSC 2 monte (RANGE, SEMI).
    */
   { id: 'phase', label: 'PHASE', aria: 'Oscillator phase at each note: free, or the same start phase every note', section: 'tweak', def: 0 },
   { id: 'drift', label: 'DRIFT', aria: 'Analog drift and the small differences between notes', section: 'tweak', def: 0.5 },
@@ -254,8 +282,8 @@ export const envOctaves = (v: number): number => v * 6;
 export const resDb = (v: number): number => -3 + v * 23;
 /** Glissement entre deux notes (s) : jusqu'a 0.6 s, bien audible des le premier quart. */
 export const glideS = (v: number): number => (v <= 0 ? 0 : 0.015 + v * v * 0.6);
-/** Desaccord total entre les deux oscillateurs (cents), centre sur la note : jusqu'a 45, le gros son Moog. */
-export const fineCents = (v: number): number => v * 45;
+/** FINE d'un oscillateur : -50 a +50 cents. */
+export const fineCents = (v: number): number => (v - 0.5) * 100;
 /** Duree d'une note de l'arpege, en fraction de l'intervalle entre deux notes. */
 export const gateFrac = (v: number): number => 0.08 + 0.92 * v;
 /** Pas de 16e par note : 1/4 = 4, 1/8 = 2, 1/16 = 1, 1/32 = 0.5. */
@@ -265,8 +293,31 @@ export const octaves = (v: number): number => stepIndex('range', v) + 1;
 export const notesCount = (v: number): number => stepIndex('notes', v);
 /** OCTAVE : -2 a +2 octaves (le centre : l'octave d'origine). */
 export const octaveShift = (v: number): number => stepIndex('octave', v) - 2;
-/** TUNE 2 en demi-tons. */
-export const tune2Semi = (v: number): number => TUNE2_SEMI[stepIndex('tune2', v)];
+/** Accord d'un oscillateur en demi-tons : RANGE (pieds) et SEMI. */
+export const oscSemis = (range: number, semi: number): number => OSC_RANGE_SEMI[stepIndex('range1', range)] + stepIndex('semi1', semi) - 7;
+
+/**
+ * Un reglage d'avant les rangees d'oscillateurs (TUNE 2, FINE) : sa
+ * traduction (RANGE 2 et SEMI 2, FINE 1 et 2), pour ce qui ne la porte
+ * pas deja. TUNE 2 : -1 OCT, 0, 5TH, +1 OCT, +2 OCT ; FINE : 0 a 45 cents
+ * d'ecart, de part et d'autre de la note.
+ */
+export function migrateKnobs(raw: Readonly<Record<string, unknown>>): Partial<Record<VoyKnobId, number>> {
+  const out: Partial<Record<VoyKnobId, number>> = {};
+  const t = raw.tune2;
+  if (typeof t === 'number' && Number.isFinite(t) && raw.range2 === undefined && raw.semi2 === undefined) {
+    const i = Math.max(0, Math.min(4, Math.round(t * 4)));
+    out.range2 = [2, 3, 3, 4, 5][i] / 5;
+    out.semi2 = (i === 2 ? 14 : 7) / 14;
+  }
+  const f = raw.fine;
+  if (typeof f === 'number' && Number.isFinite(f) && raw.fine1 === undefined && raw.fine2 === undefined) {
+    const half = (Math.max(0, Math.min(1, f)) * 45) / 2;
+    out.fine1 = Math.round((0.5 - half / 100) * 1000) / 1000;
+    out.fine2 = Math.round((0.5 + half / 100) * 1000) / 1000;
+  }
+  return out;
+}
 /** RATIO en multiple de la frequence d'OSC 1. */
 export const fmRatio = (v: number): number => RATIO_X[stepIndex('ratio', v)];
 
@@ -278,14 +329,18 @@ export interface EngineParams {
   /** formes : position du morphing dans WAVES1 (0 a 5) et WAVES2 (0 a 4), fractionnaire */
   wave1: number;
   wave2: number;
-  /** OSC 2 en demi-tons ; OSC 1 et OSC 2 : le gain de chaque oscillateur (0.88 x potard au carre) */
+  /** chaque oscillateur : accord en demi-tons (RANGE et SEMI), FINE en cents, ON (0 ou 1) ; OSC 1 et OSC 2 : son gain (0.88 x potard au carre) */
+  tune1: number;
   tune2: number;
+  fine1: number;
+  fine2: number;
+  on1: number;
+  on2: number;
   osc1: number;
   osc2: number;
   /** FM : 0 a 1 (l'indice suit l'enveloppe du filtre) ; RATIO : operateur / OSC 1 */
   fm: number;
   ratio: number;
-  fine: number;
   glide: number;
   cutoff: number;
   res: number;
@@ -319,12 +374,16 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
   return {
     wave1: morphPos('wave1', v.wave1),
     wave2: morphPos('wave2', v.wave2),
-    tune2: tune2Semi(v.tune2),
+    tune1: oscSemis(v.range1, v.semi1),
+    tune2: oscSemis(v.range2, v.semi2),
+    fine1: fineCents(v.fine1),
+    fine2: fineCents(v.fine2),
+    on1: stepIndex('on1', v.on1),
+    on2: stepIndex('on2', v.on2),
     osc1: 0.88 * v.osc1 * v.osc1,
     osc2: 0.88 * v.osc2 * v.osc2,
     fm: v.fm,
     ratio: fmRatio(v.ratio),
-    fine: fineCents(v.fine),
     glide: glideS(v.glide),
     cutoff: cutoffHz(v.cutoff),
     res: v.res,
@@ -355,7 +414,7 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
 /** Texte de l'ecran et du jumeau : CUTOFF 64%, RATE 1/16, MODE UP/DN. */
 export function voyReadout(id: VoyKnobId, v: number): string {
   const k = voyKnob(id);
-  if (id === 'phase' || id === 'monoLow') return `${k.label} ${voyValueText(id, v)}`;
+  if (id === 'phase' || id === 'monoLow' || id === 'fine1' || id === 'fine2') return `${k.label} ${voyValueText(id, v)}`;
   if (k.morph) return `${k.label} ${morphText(id, v)}`;
   if (k.steps) return `${k.label} ${k.steps[stepIndex(id, v)]}`;
   const sec = k.section === 'feg' ? 'F ' : k.section === 'aeg' ? 'A ' : '';
@@ -367,6 +426,10 @@ export function voyValueText(id: VoyKnobId, v: number): string {
   const k = voyKnob(id);
   if (id === 'phase') return v < PHASE_FREE ? 'FREE' : `${Math.round(phaseStart(v) * 360)} DEG`;
   if (id === 'monoLow') return v < 0.04 ? 'OFF' : `${Math.round(monoLowHz(v))} HZ`;
+  if (id === 'fine1' || id === 'fine2') {
+    const c = Math.round(fineCents(v));
+    return `${c > 0 ? '+' : ''}${c} CT`;
+  }
   if (k.morph) return morphText(id, v);
   if (k.steps) return k.steps[stepIndex(id, v)];
   return `${Math.round(v * 100)} %`;
@@ -384,8 +447,10 @@ function load(): VoyValues {
     if (!text) return out;
     const raw = JSON.parse(text) as { v?: unknown; knobs?: Record<string, unknown> };
     if (raw.v !== 1 || !raw.knobs || typeof raw.knobs !== 'object') return out;
+    // TUNE 2 et FINE d'avant les rangees d'oscillateurs : traduits
+    const knobs: Record<string, unknown> = { ...raw.knobs, ...migrateKnobs(raw.knobs) };
     for (const id of VOY_KNOB_IDS) {
-      const v = raw.knobs[id];
+      const v = knobs[id];
       if (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1) out[id] = clean(id, v);
     }
   } catch {

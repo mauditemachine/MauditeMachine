@@ -18,7 +18,7 @@
  * memes elements places en hauteur, comme la 808.
  */
 
-import { PORTRAIT } from '../theme';
+import { PORTRAIT, TEMPO_UI } from '../theme';
 import type { VoyKnobId } from './params';
 
 export const VOY_BODY = PORTRAIT
@@ -113,11 +113,13 @@ export interface VoyKnobPlace {
  * les reglages fins (enveloppes, effets, MOD, accords d'OSC 2, bruit) ;
  * sw : le commutateur MODE. Les gros portent leurs graduations (les arcs
  * imprimes des autres sont partis le 2026-10-04, Mika ne les aimait pas).
+ * sel (2026-10-04) : les selecteurs de forme dans les rangees
+ * d'oscillateurs facon Mini V, plus petits que l pour tenir a deux rangees.
  */
-export type KnobSize = 'xl' | 'l' | 'm' | 's' | 'sw';
+export type KnobSize = 'xl' | 'l' | 'm' | 's' | 'sw' | 'sel';
 const SIZE_SCALE: Readonly<Record<KnobSize, number>> = PORTRAIT
-  ? { xl: 1.6, l: 1.15, m: 0.95, s: 0.8, sw: 0.62 }
-  : { xl: 1.5, l: 1.18, m: 1, s: 0.8, sw: 0.62 };
+  ? { xl: 1.6, l: 1.15, m: 0.95, s: 0.8, sw: 0.62, sel: 0.8 }
+  : { xl: 1.5, l: 1.18, m: 1, s: 0.8, sw: 0.62, sel: 0.85 };
 
 /** Une place : x, z, taille ; plateau (deck) ou panneau. */
 type Spot = readonly [number, number, KnobSize];
@@ -125,51 +127,64 @@ type Spot = readonly [number, number, KnobSize];
 /**
  * Desktop : le panneau en sections facon Moog, separees de filets ; dans
  * chaque section une composition, plus une grille :
- *   OSCILLATORS : WAVE 1 et WAVE 2 en grand ; dessous le melangeur
- *     (OSC 1, NOISE, OSC 2), chaque niveau sous sa forme ; en bas FM et
- *     RATIO sous OSC 1, TUNE 2 et FINE sous OSC 2 ;
+ *   OSCILLATORS (2026-10-04, facon Mini V, Mika : "tu pourrais avoir les
+ *     oscillateurs de cette maniere") : une rangee par oscillateur, son
+ *     numero a gauche, WAVEFORM, RANGE, SEMI, FINE, ON et sa LED ; dessous
+ *     le melangeur et la FM : OSC 1, OSC 2, NOISE, FM, RATIO ;
  *   FILTER : CUTOFF en tres grand, RES et ENV AMT dessous, MODE en bas ;
  *   FILTER EG, AMP EG, MOD (DEPTH plus gros) : trois rangees de petits ;
  *   EFFECTS : quatre petits ; OUTPUT : VOLUME en grand.
  * L'arpegiateur est sur le plateau, a gauche de l'ecran (RATE et GATE plus
  * gros).
  */
-const DESK_COLS = [-5.35, -4.0, -2.95, -1.95, -0.9, 0.15, 0.95, 1.75, 2.55, 3.6, 4.4, 5.55];
 const DESK_ROWS = [-0.72, 0.66, 1.72];
 /** titres des sections, et le haut des filets */
 const DESK_TITLE_Z = -1.6;
 const [RA, RB, RC] = DESK_ROWS;
+/** les colonnes des rangees d'oscillateurs, du melangeur, des enveloppes et des effets ; les filets entre les sections */
+const DESK_OSC = { badge: -6.1, wave: -5.38, range: -4.28, semi: -3.17, fine: -2.17, on: -1.42 } as const;
+const DESK_EG = [1.12, 1.84, 2.56, 3.28] as const;
+const DESK_FX = [4.02, 4.72] as const;
+const DESK_FILTER_X = -0.15;
+const DESK_OUT_X = 5.66;
+const DESK_RULES_X = [-1.05, 0.75, 3.65, 5.07] as const;
 const DESK_PANEL: Partial<Record<VoyKnobId, Spot>> = {
-  wave1: [-5.3, RA, 'l'],
-  wave2: [-3.6, RA, 'l'],
-  osc1: [-5.3, RB, 'm'],
-  noise: [-4.45, RB, 's'],
-  osc2: [-3.6, RB, 'm'],
-  fm: [-5.65, RC, 'm'],
-  ratio: [-4.95, RC, 's'],
-  tune2: [-3.95, RC, 's'],
-  fine: [-3.25, RC, 's'],
-  cutoff: [-1.42, -0.5, 'xl'],
-  res: [-1.95, RB, 'm'],
-  envAmt: [-0.9, RB, 'm'],
-  fmode: [-1.42, RC, 'sw'],
-  fA: [0.15, RA, 's'],
-  fD: [0.95, RA, 's'],
-  fS: [1.75, RA, 's'],
-  fR: [2.55, RA, 's'],
-  aA: [0.15, RB, 's'],
-  aD: [0.95, RB, 's'],
-  aS: [1.75, RB, 's'],
-  aR: [2.55, RB, 's'],
-  lfoRate: [0.15, RC, 's'],
-  lfoShape: [0.95, RC, 's'],
-  lfoDest: [1.75, RC, 's'],
-  lfoAmt: [2.55, RC, 'm'],
-  dist: [3.6, RA, 's'],
-  chorus: [4.4, RA, 's'],
-  delay: [3.6, RB, 's'],
-  reverb: [4.4, RB, 's'],
-  volume: [5.55, (RA + RB) / 2, 'l'],
+  wave1: [DESK_OSC.wave, RA, 'sel'],
+  range1: [DESK_OSC.range, RA, 's'],
+  semi1: [DESK_OSC.semi, RA, 'm'],
+  fine1: [DESK_OSC.fine, RA, 's'],
+  on1: [DESK_OSC.on, RA, 'sw'],
+  wave2: [DESK_OSC.wave, RB, 'sel'],
+  range2: [DESK_OSC.range, RB, 's'],
+  semi2: [DESK_OSC.semi, RB, 'm'],
+  fine2: [DESK_OSC.fine, RB, 's'],
+  on2: [DESK_OSC.on, RB, 'sw'],
+  osc1: [-5.55, RC, 's'],
+  osc2: [-4.75, RC, 's'],
+  noise: [-3.95, RC, 's'],
+  fm: [-2.95, RC, 'm'],
+  ratio: [-2.05, RC, 's'],
+  cutoff: [DESK_FILTER_X, -0.5, 'xl'],
+  res: [DESK_FILTER_X - 0.5, RB, 'm'],
+  envAmt: [DESK_FILTER_X + 0.5, RB, 'm'],
+  fmode: [DESK_FILTER_X, RC, 'sw'],
+  fA: [DESK_EG[0], RA, 's'],
+  fD: [DESK_EG[1], RA, 's'],
+  fS: [DESK_EG[2], RA, 's'],
+  fR: [DESK_EG[3], RA, 's'],
+  aA: [DESK_EG[0], RB, 's'],
+  aD: [DESK_EG[1], RB, 's'],
+  aS: [DESK_EG[2], RB, 's'],
+  aR: [DESK_EG[3], RB, 's'],
+  lfoRate: [DESK_EG[0], RC, 's'],
+  lfoShape: [DESK_EG[1], RC, 's'],
+  lfoDest: [DESK_EG[2], RC, 's'],
+  lfoAmt: [DESK_EG[3], RC, 'm'],
+  dist: [DESK_FX[0], RA, 's'],
+  chorus: [DESK_FX[1], RA, 's'],
+  delay: [DESK_FX[0], RB, 's'],
+  reverb: [DESK_FX[1], RB, 's'],
+  volume: [DESK_OUT_X, (RA + RB) / 2, 'l'],
 };
 /** Plateau, desktop : l'arpegiateur en rangee a gauche de l'ecran (GLIDE au bout, 2026-10-03). */
 const DESK_ARP_Z = 0.85;
@@ -184,31 +199,43 @@ const DESK_DECK: Partial<Record<VoyKnobId, Spot>> = {
 };
 
 /**
- * Portrait : trois zones, chacune soulignee d'un crochet a son nom :
- *   OSCILLATORS : WAVE 1 et WAVE 2 en grand, puis deux colonnes (TUNE 2 et
- *     FINE, FM et RATIO) ;
+ * Portrait : trois zones :
+ *   OSCILLATORS (2026-10-04, facon Mini V) : une rangee par oscillateur,
+ *     son numero a gauche, WAVEFORM, RANGE, SEMI, FINE, ON et sa LED, puis
+ *     FM (rangee 1) et RATIO (rangee 2) ; pas de crochet, les numeros
+ *     disent les rangees ;
  *   FILTER : CUTOFF en tres grand, RES, ENV AMT, MODE ; MIXER : OSC 1,
  *     OSC 2, NOISE ;
  *   FILTER EG et MOD, puis AMP EG et EFFECTS : des rangees de petits.
  * Le plateau prend l'ecran et VOLUME, le transport, l'arpegiateur (RATE
  * MODE RANGE NOTES GATE OCTAVE GLIDE) et les pads.
  */
-const PORT_E1 = 1.42;
-const PORT_E2 = 2.52;
+const PORT_O1 = -2.25;
+const PORT_O2 = -1.0;
+const PORT_F = 0.2;
+const PORT_E1 = 1.58;
+const PORT_E2 = 2.56;
+const PORT_OSC = { badge: -3.62, wave: -2.95, range: -1.8, semi: -0.6, fine: 0.5, on: 1.5, fm: 2.8 } as const;
 const PORT_PANEL: Partial<Record<VoyKnobId, Spot>> = {
-  wave1: [-2.72, -1.9, 'l'],
-  wave2: [-1.05, -1.9, 'l'],
-  tune2: [0.86, -2.25, 's'],
-  fine: [0.86, -1.3, 's'],
-  fm: [2.36, -2.25, 'm'],
-  ratio: [2.36, -1.3, 's'],
-  cutoff: [-2.6, 0.15, 'xl'],
-  res: [-1.35, 0, 'm'],
-  envAmt: [-0.45, 0, 'm'],
-  fmode: [0.55, 0, 'sw'],
-  osc1: [1.45, 0, 'm'],
-  osc2: [2.35, 0, 'm'],
-  noise: [3.2, 0, 's'],
+  wave1: [PORT_OSC.wave, PORT_O1, 'sel'],
+  range1: [PORT_OSC.range, PORT_O1, 's'],
+  semi1: [PORT_OSC.semi, PORT_O1, 'm'],
+  fine1: [PORT_OSC.fine, PORT_O1, 's'],
+  on1: [PORT_OSC.on, PORT_O1, 'sw'],
+  fm: [PORT_OSC.fm, PORT_O1, 'm'],
+  wave2: [PORT_OSC.wave, PORT_O2, 'sel'],
+  range2: [PORT_OSC.range, PORT_O2, 's'],
+  semi2: [PORT_OSC.semi, PORT_O2, 'm'],
+  fine2: [PORT_OSC.fine, PORT_O2, 's'],
+  on2: [PORT_OSC.on, PORT_O2, 'sw'],
+  ratio: [PORT_OSC.fm, PORT_O2, 's'],
+  cutoff: [-2.6, PORT_F + 0.15, 'xl'],
+  res: [-1.35, PORT_F, 'm'],
+  envAmt: [-0.45, PORT_F, 'm'],
+  fmode: [0.55, PORT_F, 'sw'],
+  osc1: [1.45, PORT_F, 'm'],
+  osc2: [2.35, PORT_F, 'm'],
+  noise: [3.2, PORT_F, 's'],
   fA: [-3.15, PORT_E1, 's'],
   fD: [-2.35, PORT_E1, 's'],
   fS: [-1.55, PORT_E1, 's'],
@@ -251,9 +278,46 @@ export const isSwitch = (id: VoyKnobId): boolean => knobSize(id) === 'sw';
 export const VOY_SWITCH = { tick: { r0: 0.03, len: 0.05 }, markR: 0.18, cap: 0.052 } as const;
 /** Course d'un commutateur de n positions (deg) : un quart de tour a deux, 150 au-dela. */
 export const switchThrowDeg = (n: number): number => (n <= 2 ? 90 : 150);
+
+/**
+ * Les echelles des rangees d'oscillateurs (2026-10-04, facon Mini V) :
+ * RANGE, un selecteur a six crans (LO a 2') sur 180 deg, chaque cran ecrit ;
+ * SEMI, quinze crans sur la course entiere, les impairs ecrits ; FINE,
+ * -50 0 +50. SEMI et FINE portent le capuchon chrome du Mini V. ON : un
+ * commutateur, son nom dessous, sa LED rouge au-dessus.
+ */
+export type VoyScale = 'range' | 'semi' | 'fine';
+export function voyScale(id: VoyKnobId): VoyScale | null {
+  if (id === 'range1' || id === 'range2') return 'range';
+  if (id === 'semi1' || id === 'semi2') return 'semi';
+  if (id === 'fine1' || id === 'fine2') return 'fine';
+  return null;
+}
+export const isChromeCap = (id: VoyKnobId): boolean => voyScale(id) === 'semi' || voyScale(id) === 'fine';
+export const isOscOn = (id: VoyKnobId): boolean => id === 'on1' || id === 'on2';
+export const RANGE_THROW_DEG = 180;
+/** Course d'un potard de n crans (deg) : commutateur, RANGE, ou la course entiere. */
+export const knobThrowDeg = (id: VoyKnobId, n: number): number => (isSwitch(id) ? switchThrowDeg(n) : voyScale(id) === 'range' ? RANGE_THROW_DEG : TEMPO_UI.sweepDeg);
+/** Angle (deg, 90 : en haut, sens trigonometrique) du cran i sur n, pour une course de throw deg. */
+export const stepDeg = (i: number, n: number, throwDeg: number): number => 90 + throwDeg / 2 - (throwDeg * i) / Math.max(1, n - 1);
+/** Le numero de chaque rangee d'oscillateur : un onglet a l'encre, le chiffre en creux (Mini V). */
+export const VOY_BADGE = { w: 0.22, h: 0.3, r: 0.045, cap: 0.15 } as const;
+export const VOY_OSC_BADGES: readonly { text: string; x: number; z: number }[] = PORTRAIT
+  ? [
+      { text: '1', x: PORT_OSC.badge, z: PORT_O1 },
+      { text: '2', x: PORT_OSC.badge, z: PORT_O2 },
+    ]
+  : [
+      { text: '1', x: DESK_OSC.badge, z: RA },
+      { text: '2', x: DESK_OSC.badge, z: RB },
+    ];
+/** La LED de ON : rouge allumee, au-dessus du commutateur (dz sous le haut de sa jupe). */
+export const VOY_LED = { r: 0.055, dz: 0.15, on: '#ff3b2f', off: 'rgba(110, 24, 18, 0.55)' } as const;
 /** Libelle sous la jupe : 0.13 sous son bord ; sous la couronne d'un selecteur ; plus bas sous des graduations. */
 const labelBelow = (id: VoyKnobId, s: number): number => {
   if (isSelector(id)) return VOY_SEL.labelR * s;
+  // FINE : son nom passe entre -50 et +50, un peu plus bas
+  if (voyScale(id) === 'fine') return VOY_KNOB.skirt.r * s + 0.15;
   const big = !isSelector(id) && (knobSize(id) === 'xl' || knobSize(id) === 'l');
   return VOY_KNOB.skirt.r * s + (big ? 0.15 : 0.13);
 };
@@ -284,19 +348,18 @@ const betweenRows = (r: number): number => {
 export const VOY_SECTIONS: readonly { text: string; x: number; z: number }[] = PORTRAIT
   ? []
   : [
-      { text: 'OSCILLATORS', x: -4.45, z: DESK_TITLE_Z },
-      { text: 'FILTER', x: -1.42, z: DESK_TITLE_Z },
-      { text: 'FILTER EG', x: (DESK_COLS[5] + DESK_COLS[8]) / 2, z: DESK_TITLE_Z },
-      { text: 'AMP EG', x: (DESK_COLS[5] + DESK_COLS[8]) / 2, z: betweenRows(0) },
-      { text: 'MOD', x: (DESK_COLS[5] + DESK_COLS[8]) / 2, z: betweenRows(1) },
-      { text: 'EFFECTS', x: (DESK_COLS[9] + DESK_COLS[10]) / 2, z: DESK_TITLE_Z },
-      { text: 'OUTPUT', x: DESK_COLS[11], z: DESK_TITLE_Z },
+      { text: 'OSCILLATORS', x: (-6.25 + DESK_RULES_X[0]) / 2, z: DESK_TITLE_Z },
+      { text: 'FILTER', x: DESK_FILTER_X, z: DESK_TITLE_Z },
+      { text: 'FILTER EG', x: (DESK_EG[0] + DESK_EG[3]) / 2, z: DESK_TITLE_Z },
+      { text: 'AMP EG', x: (DESK_EG[0] + DESK_EG[3]) / 2, z: betweenRows(0) },
+      { text: 'MOD', x: (DESK_EG[0] + DESK_EG[3]) / 2, z: betweenRows(1) },
+      { text: 'EFFECTS', x: (DESK_FX[0] + DESK_FX[1]) / 2, z: DESK_TITLE_Z },
+      { text: 'OUTPUT', x: DESK_OUT_X, z: DESK_TITLE_Z },
     ];
 
 /** Filets verticaux entre les sections (desktop), jusqu'au bas de la troisieme rangee. */
 const RULE_END = RC + 0.5;
-const rule = (a: number, b: number): readonly number[] => [(DESK_COLS[a] + DESK_COLS[b]) / 2, DESK_TITLE_Z - 0.15, (DESK_COLS[a] + DESK_COLS[b]) / 2, RULE_END];
-export const VOY_RULES: readonly (readonly number[])[] = PORTRAIT ? [] : [rule(2, 3), rule(4, 5), rule(8, 9), rule(10, 11)];
+export const VOY_RULES: readonly (readonly number[])[] = PORTRAIT ? [] : DESK_RULES_X.map((x) => [x, DESK_TITLE_Z - 0.15, x, RULE_END]);
 
 /**
  * En-tete du panneau, comme celui de la 808 : le wordmark a gauche,
@@ -391,7 +454,6 @@ const padGroup = (): VoyGroup => ({
 
 export const VOY_GROUPS: readonly VoyGroup[] = PORTRAIT
   ? [
-      knobGroup('OSCILLATORS', ['wave1', 'wave2', 'tune2', 'fine', 'fm', 'ratio']),
       knobGroup('FILTER', ['cutoff', 'res', 'envAmt', 'fmode'], ['osc1']),
       knobGroup('MIXER', ['osc1', 'osc2', 'noise'], ['cutoff']),
       knobGroup('FILTER EG', ['fA', 'fD', 'fS', 'fR'], ['lfoAmt']),
