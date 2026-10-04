@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>SoundCloud | Maudite Machine</title>
+<!--
+  Le retour de "Connect with SoundCloud" (MM-DECKS, 2026-10-04). Le Worker de
+  Sonaa revient ici avec le numero de seance dans le fragment (#s=...&n=...),
+  que le navigateur n'envoie a aucun serveur. La page le range dans
+  localStorage (la page des Decks l'apprend par l'evenement storage), l'efface
+  de l'adresse et ferme la fenetre. Voir src/v4/dj/soundcloud.ts.
+-->
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #0b0b0c; color: #f6f1e7; font: 14px/1.5 Inter, system-ui, sans-serif; }
+  main { display: grid; place-items: center; height: 100%; padding: 0 16px; text-align: center; }
+  a { color: #ff6a13; }
+  [hidden] { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <div>
+    <p id="m">Connecting...</p>
+    <p id="back" hidden><a href="/">Back to the decks</a></p>
+  </div>
+</main>
+<script>
+(function () {
+  var h = new URLSearchParams(location.hash.slice(1));
+  // Le numero ne reste pas dans l'adresse ni dans l'historique
+  history.replaceState(null, '', location.pathname);
+  var s = h.get('s');
+  var n = h.get('n') || '';
+  try {
+    if (s) localStorage.setItem('mm.v4.dj.sc', JSON.stringify({ s: s, name: n }));
+    else localStorage.setItem('mm.v4.dj.sc.fail', String(Date.now()));
+  } catch (e) {
+    /* stockage refuse : la page des Decks garde son bouton */
+  }
+  document.getElementById('m').textContent = s
+    ? 'Connected' + (n ? ' as ' + n : '') + '. You can close this window.'
+    : 'SoundCloud did not connect. You can close this window.';
+  // Connexion en pleine page (ecran d'accueil de l'iPhone, fenetre bloquee) : retour a la page de depart
+  var back = null;
+  try {
+    back = sessionStorage.getItem('mm.v4.dj.sc.back');
+    sessionStorage.removeItem('mm.v4.dj.sc.back');
+  } catch (e) {}
+  if (back && back.charAt(0) === '/' && back.charAt(1) !== '/') {
+    location.replace(back);
+    return;
+  }
+  setTimeout(function () {
+    window.close();
+    // Pas une fenetre ouverte par la page : un lien pour revenir
+    setTimeout(function () { document.getElementById('back').hidden = false; }, 300);
+  }, 500);
+})();
+</script>
+</body>
+</html>

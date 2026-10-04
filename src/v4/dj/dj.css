@@ -562,3 +562,46 @@ a.dj-list-name:hover {
   letter-spacing: 0.12em;
   cursor: pointer;
 }
+
+/* MY SOUNDCLOUD sans connexion : le bouton prend la place de la liste */
+.dj-list-connect {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 10px;
+  color: var(--bone-60);
+  font-size: 12px;
+}
+
+.dj-list-connect p {
+  margin: 0;
+  max-width: 52ch;
+}
+
+.dj-list-sc {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--orange);
+  border-radius: 10px;
+  background: var(--orange);
+  color: #111;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+}
+
+.dj-list-sc:focus-visible {
+  outline: 2px solid var(--yellow-hi);
+  outline-offset: 2px;
+}
+
+.dj-list-connect-note {
+  color: var(--orange);
+}
+
+.v4-root[data-v4-theme='light'] .dj-list-connect {
+  color: rgba(42, 42, 46, 0.7);
+}

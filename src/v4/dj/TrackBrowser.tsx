@@ -6,6 +6,9 @@
  *   Worker de Sonaa, seulement les licences Creative Commons qui autorisent
  *   le remix ; chaque ligne credite l'auteur et renvoie a sa page
  *   (dj/soundcloud.ts).
+ * - MY SOUNDCLOUD (2026-10-04, Mika : "je veux que les gens puissent
+ *   connecter leur soundcloud") : on se connecte avec SoundCloud (pas de
+ *   compte sur le site) et on mixe ses propres morceaux publics.
  * - MAUDITE MACHINE : les morceaux du compte SoundCloud de Mika, que tout le
  *   monde peut mixer (il y consent). Audius est parti (Mika, 2026-10-04 :
  *   "c'est nul").
@@ -32,7 +35,7 @@ import { djLoad } from './actions';
 import { djBrowser } from './browser';
 import { DJ_KEY_LEGEND, listenDjKeys } from './keys';
 import { addFiles, analyzeAll, canLink, crateEvents, crateTracks, folderOfPath, isSound, linkFolder, pickAndLink, readDrop, removeFolder, storageLeft, type ImportMode, type PlacedFile } from './crate';
-import { LICENSE_LABEL, mauditeTracks, searchSoundcloud } from './soundcloud';
+import { LICENSE_LABEL, connectSoundcloud, disconnectSoundcloud, mauditeTracks, myTracks, scAccount, searchSoundcloud } from './soundcloud';
 import { djState, type DjTrack } from './state';
 import type { DjDeck } from './theme';
 import './dj.css';
@@ -71,7 +74,7 @@ const TAB_KEY = 'mm.v4.dj.tab';
 const readTab = (): Tab => {
   try {
     const t = window.localStorage.getItem(TAB_KEY);
-    return t === 'files' || t === 'soundcloud' ? t : 'maudite';
+    return t === 'files' || t === 'soundcloud' || t === 'mysc' ? t : 'maudite';
   } catch {
     return 'maudite';
   }
@@ -105,14 +108,22 @@ const ASK = { files: 1, bytes: 300 * 1e6 } as const;
  * et mets un dossier a cote de My Files qui s'appelle Maudite Machine, les
  * gens pourront mixer mes tracks"). MAUDITE MACHINE s'ouvre par defaut.
  */
-type Tab = 'soundcloud' | 'files' | 'maudite';
+type Tab = 'soundcloud' | 'mysc' | 'files' | 'maudite';
 /** Les morceaux de Maudite Machine, lus une fois par visite. */
 let mauditeCache: DjTrack[] | null = null;
+/** Les morceaux du compte connecte, lus une fois par visite et par seance. */
+let myCache: { s: string; tracks: DjTrack[] } | null = null;
 /** La reponse du Worker sur SoundCloud, une fois par visite. */
 let scProbe: Promise<boolean> | null = null;
 let scProbeOff = false;
-const TABS: readonly Tab[] = ['soundcloud', 'files', 'maudite'];
-const TAB_LABEL: Readonly<Record<Tab, string>> = { soundcloud: 'SOUNDCLOUD', files: 'MY FILES', maudite: 'MAUDITE MACHINE' };
+const TABS: readonly Tab[] = ['soundcloud', 'mysc', 'files', 'maudite'];
+const TAB_LABEL: Readonly<Record<Tab, string>> = { soundcloud: 'SOUNDCLOUD', mysc: 'MY SOUNDCLOUD', files: 'MY FILES', maudite: 'MAUDITE MACHINE' };
+const PLACEHOLDER: Readonly<Record<Tab, string>> = {
+  soundcloud: 'Search SoundCloud (Creative Commons)',
+  mysc: 'Search my SoundCloud tracks',
+  files: 'Search my files',
+  maudite: 'Search Maudite Machine tracks',
+};
 const fmtTime = (s: number): string => (s > 0 ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '');
 /** Marge entre la playlist et le bas de la machine (px). */
 const GAP = 12;
@@ -134,6 +145,8 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
   const dj = useSyncExternalStore(djState.subscribe, djState.get, djState.get);
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
+  const sc = useSyncExternalStore(scAccount.subscribe, scAccount.get, scAccount.get);
+  const me = sc.account;
   // Cachee par defaut : la touche PLAYLIST du MIXER (ou LOAD) l'ouvre
   const shown = f === 'dj' && introState === 'done' && b.open;
   const big = shown && b.big;
@@ -193,9 +206,14 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
   const pick = useRef<HTMLInputElement>(null);
   const pickDir = useRef<HTMLInputElement>(null);
 
-  // SoundCloud et Audius : des styles de club au depart, ou la recherche (300 ms apres la frappe)
+  // SoundCloud : des styles de club au depart, ou la recherche (300 ms apres la frappe) ; les
+  // listes MAUDITE MACHINE et MY SOUNDCLOUD, une fois par visite
   useEffect(() => {
     if (!shown || tab === 'files') return undefined;
+    if (tab === 'mysc' && !me) {
+      setList([]);
+      return undefined;
+    }
     const ctl = new AbortController();
     const q = query.trim();
     const t = window.setTimeout(
@@ -206,11 +224,19 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
           setList(mauditeCache);
           return;
         }
-        (tab === 'maudite' ? mauditeTracks(ctl.signal) : searchSoundcloud(q, ctl.signal))
+        if (tab === 'mysc' && me && myCache?.s === me.s) {
+          setList(myCache.tracks);
+          return;
+        }
+        (tab === 'maudite' ? mauditeTracks(ctl.signal) : tab === 'mysc' ? myTracks(ctl.signal) : searchSoundcloud(q, ctl.signal))
           .then((r) => {
             if (r.ok) {
               if (tab === 'maudite') mauditeCache = r.tracks;
+              if (tab === 'mysc' && me) myCache = { s: me.s, tracks: r.tracks };
               setList(r.tracks);
+            } else if (r.reason === 'out') {
+              // Seance perimee : le bouton de connexion revient
+              setList([]);
             } else if (r.reason === 'off') {
               // Pas encore branche (la cle n'est pas posee dans le Worker) : les onglets SoundCloud s'effacent
               setScOff(true);
@@ -230,7 +256,14 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
       window.clearTimeout(t);
       ctl.abort();
     };
-  }, [shown, tab, query]);
+    // MY SOUNDCLOUD se relit a la connexion (me)
+  }, [shown, tab, query, me]);
+
+  // Au telephone les onglets defilent : l'onglet choisi reste en vue
+  useEffect(() => {
+    if (!shown) return;
+    panel.current?.querySelector('.dj-list-tab[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [shown, tab]);
 
   // Cachee : hors du clavier et des lecteurs d'ecran (inert n'est pas type par React 18)
   useEffect(() => {
@@ -374,6 +407,8 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
   };
 
   const loadedId = (d: DjDeck): string | null => dj.deck[d].track?.id ?? null;
+  /** MY SOUNDCLOUD sans connexion : le bouton prend la place de la liste */
+  const gate = tab === 'mysc' && !me;
   const target = b.deck;
 
   return (
@@ -409,7 +444,7 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
           ref={search}
           className="dj-list-search"
           type="search"
-          placeholder={tab === 'soundcloud' ? 'Search SoundCloud (Creative Commons)' : tab === 'maudite' ? 'Search Maudite Machine tracks' : 'Search my files'}
+          placeholder={PLACEHOLDER[tab]}
           aria-label="Search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -423,6 +458,19 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
               + FOLDER
             </button>
           </>
+        )}
+        {tab === 'mysc' && me && (
+          <button
+            type="button"
+            className="dj-list-add"
+            title={me.name ? `Connected as ${me.name}` : undefined}
+            onClick={() => {
+              myCache = null;
+              disconnectSoundcloud();
+            }}
+          >
+            DISCONNECT
+          </button>
         )}
         <button type="button" className="dj-list-keys" aria-pressed={legend} onClick={() => setLegend(!legend)}>
           KEYS
@@ -512,8 +560,17 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
         </div>
       )}
       <ul className="dj-list-rows">
-        {tab !== 'files' && list === null && <li className="dj-list-empty">Loading...</li>}
-        {rows.length === 0 && (tab === 'files' || list !== null) && (
+        {gate && (
+          <li className="dj-list-connect">
+            <p>Mix your own tracks: connect with SoundCloud. No account on this site, and nothing is kept: your tracks play from SoundCloud.</p>
+            <button type="button" className="dj-list-sc" onClick={connectSoundcloud}>
+              {sc.pending ? 'WAITING FOR SOUNDCLOUD...' : 'CONNECT WITH SOUNDCLOUD'}
+            </button>
+            {sc.failed && <p className="dj-list-connect-note">SoundCloud did not connect. Try again.</p>}
+          </li>
+        )}
+        {!gate && tab !== 'files' && list === null && <li className="dj-list-empty">Loading...</li>}
+        {!gate && rows.length === 0 && (tab === 'files' || list !== null) && (
           <li className="dj-list-empty">
             {tab === 'files'
               ? 'Drop audio files or a folder here, or add them. They stay on this device and are remembered for your next visit: nothing is uploaded.'
@@ -521,7 +578,9 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
                 ? 'SoundCloud does not answer right now.'
                 : tab === 'soundcloud'
                   ? 'No remixable track found: only Creative Commons licenses that allow remixes are shown.'
-                  : 'No track found.'}
+                  : tab === 'mysc' && !query.trim()
+                    ? 'No public track on this SoundCloud account.'
+                    : 'No track found.'}
           </li>
         )}
         {rows.map((t) => (
@@ -570,6 +629,15 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
               SoundCloud
             </a>
             , shared by their artists under Creative Commons licenses that allow remixes. Each title opens its SoundCloud page.
+          </li>
+        )}
+        {tab === 'mysc' && me && rows.length > 0 && (
+          <li className="dj-list-credit">
+            Your public tracks on{' '}
+            <a href="https://soundcloud.com" target="_blank" rel="noopener noreferrer">
+              SoundCloud
+            </a>
+            {me.name ? `, connected as ${me.name}` : ''}. Only you see them here.
           </li>
         )}
         {tab === 'maudite' && rows.length > 0 && (
