@@ -29,7 +29,8 @@
 - Qualite du son : limiteur de sortie a anticipation (`audio/limiter.worklet.js`, `drums.ts`), moteur du MM-ARP surechantillonne x4 (ordinateur) ou x2 (telephone) avec decimation demi-bande (`moog.worklet.js`, `synth.ts`), saturation du BD en x4.
 - PC (conga) remplace CB (cloche) : `drums.ts`, `house.ts`, `theme.ts`, `pattern.ts`, `voicefx.ts`.
 - Croix du panneau (desktop) : la poignee du telephone la poussait sur la premiere ligne et son lien BUY ; masquee hors telephone (`v4.css`).
-- `docs/v4/spec.md` : R14-34 a R14-45.
+- PC plus grave : peau a 200 Hz (330 avant), claquement a 1.6 kHz (`drums.ts`).
+- `docs/v4/spec.md` : R14-34 a R14-46.
 
 ## 2. Decisions prises et pourquoi
 

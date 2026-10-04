@@ -674,15 +674,16 @@ function voiceCY(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1
 }
 
 /**
- * Percussion (2026-10-03, a la place de la cloche) : une conga. Une peau
- * accordee (sinus, la hauteur tombe d'un quart en 25 ms puis tient), une
- * pointe de deuxieme mode (x1.5, tres courte) et le claquement de la main
- * (bruit en bande vers 2.2 kHz, 12 ms) ; 200 ms.
+ * Percussion (2026-10-03, a la place de la cloche) : une conga grave. Une
+ * peau accordee a 200 Hz (sinus, la hauteur tombe d'un quart en 25 ms puis
+ * tient), une pointe de deuxieme mode (x1.5, tres courte) et le claquement
+ * de la main (bruit en bande vers 1.6 kHz, 12 ms) ; 200 ms.
  */
 function voicePC(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
   const c = g.ctx;
   const tail = TAIL.PC * ts;
-  const f0 = 330 * pf;
+  // 200 Hz (2026-10-03, Mika : 330 Hz trop aigu) : une tumba plutot qu'un quinto
+  const f0 = 200 * pf;
   const skin = c.createOscillator();
   skin.type = 'sine';
   skin.frequency.setValueAtTime(f0 * 1.25, when);
@@ -700,13 +701,13 @@ function voicePC(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1
   const slap = noiseSource(g);
   const bp = c.createBiquadFilter();
   bp.type = 'bandpass';
-  bp.frequency.value = Math.min(2200 * pf, c.sampleRate * 0.45);
+  bp.frequency.value = Math.min(1600 * pf, c.sampleRate * 0.45);
   bp.Q.value = 1.1;
   const nEnv = c.createGain();
   nEnv.gain.setValueAtTime(0.5, when);
   nEnv.gain.exponentialRampToValueAtTime(0.001, when + 0.012 * ts);
   const out = c.createGain();
-  out.gain.value = 0.95;
+  out.gain.value = 0.83;
   skin.connect(sEnv);
   sEnv.connect(out);
   mode.connect(mEnv);
