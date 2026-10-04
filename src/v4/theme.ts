@@ -496,8 +496,10 @@ export const OLED_MIX = {
  * Deux jeux de potards depuis le 2026-10-01 (demande de Mika) : GLOBAL a
  * gauche, sous RUN/STOP (SWING, STRETCH, DIST, CHORUS, DELAY, REVERB : tout
  * le pattern), VOICE a droite, sous les pads (VOLUME, TONE et les effets de
- * la voix selectionnee). Les potards de voix ont leurs ids (vstretch...) :
- * deux STRETCH, deux DIST... coexistent sur le panneau.
+ * la voix selectionnee). Les potards de voix ont leurs ids (vdecay...) :
+ * deux DIST, deux CHORUS... coexistent sur le panneau. DECAY (2026-10-04)
+ * remplace le STRETCH de la voix ; STRETCH reste dans GLOBAL, en
+ * etirement facon Impulse (audio/stretch.ts).
  */
 export type EncId =
   | 'tempo'
@@ -510,7 +512,7 @@ export type EncId =
   | 'reverb'
   | 'vol'
   | 'tone'
-  | 'vstretch'
+  | 'vdecay'
   | 'vdist'
   | 'vchorus'
   | 'vdelay'
@@ -524,7 +526,7 @@ export type EncId =
 export const VOICE_PARAM = {
   vol: 'level',
   tone: 'tone',
-  vstretch: 'stretch',
+  vdecay: 'decay',
   vdist: 'dist',
   vchorus: 'chorus',
   vdelay: 'delay',
@@ -534,8 +536,8 @@ export type VoiceEncId = keyof typeof VOICE_PARAM;
 export const VOICE_ENCODERS = Object.keys(VOICE_PARAM) as readonly VoiceEncId[];
 export const isVoiceEnc = (id: EncId): id is VoiceEncId => id in VOICE_PARAM;
 
-/** Potards a zero au centre (-1 a 1) : TONE et les deux STRETCH. */
-export const BIPOLAR: readonly EncId[] = ['tone', 'stretch', 'vstretch'];
+/** Potards a zero au centre (-1 a 1) : TONE et STRETCH. */
+export const BIPOLAR: readonly EncId[] = ['tone', 'stretch'];
 export const isBipolar = (id: EncId): boolean => BIPOLAR.includes(id);
 
 /**
@@ -571,14 +573,14 @@ export const ENCODERS: readonly { id: EncId; label: string; aria: string }[] = [
   { id: 'level', label: 'MASTER', aria: 'Master volume' },
   { id: 'tempo', label: 'TEMPO', aria: 'Tempo' },
   { id: 'swing', label: 'SWING', aria: 'Global swing' },
-  { id: 'stretch', label: 'STRETCH', aria: 'Global stretch, shorter or longer hits' },
+  { id: 'stretch', label: 'STRETCH', aria: 'Global time stretch, shorter or longer hits at the same pitch' },
   { id: 'dist', label: 'DIST', aria: 'Global distortion' },
   { id: 'chorus', label: 'CHORUS', aria: 'Global chorus' },
   { id: 'delay', label: 'DELAY', aria: 'Global delay' },
   { id: 'reverb', label: 'REVERB', aria: 'Global reverb' },
   { id: 'vol', label: 'VOLUME', aria: 'Voice volume' },
   { id: 'tone', label: 'TONE', aria: 'Voice tone, pitch and filter' },
-  { id: 'vstretch', label: 'STRETCH', aria: 'Voice stretch, shorter or longer hits' },
+  { id: 'vdecay', label: 'DECAY', aria: 'Voice decay, a shorter tail' },
   { id: 'vdist', label: 'DIST', aria: 'Voice distortion' },
   { id: 'vchorus', label: 'CHORUS', aria: 'Voice chorus' },
   { id: 'vdelay', label: 'DELAY', aria: 'Voice delay' },
@@ -1022,7 +1024,7 @@ export const POT_UI = {
   wheelStep: 0.02,
   bipolarStep: 0.05,
   readoutMs: 1200,
-  reset: { level: 0.8, swing: 0, stretch: 0, dist: 0, chorus: 0, delay: 0, reverb: 0, vol: 0.8, tone: 0, vstretch: 0, vdist: 0, vchorus: 0, vdelay: 0, vreverb: 0 },
+  reset: { level: 0.8, swing: 0, stretch: 0, dist: 0, chorus: 0, delay: 0, reverb: 0, vol: 0.8, tone: 0, vdecay: 1, vdist: 0, vchorus: 0, vdelay: 0, vreverb: 0 },
 } as const;
 
 /** Bornes d'un encodeur hors TEMPO : TONE et STRETCH -1 a 1, les autres 0 a 1. */
@@ -1686,7 +1688,7 @@ export const TWIN_ARIA = {
   run: 'Run, Space',
   clear: 'Clear pattern',
   mute: 'Mute mode, then tap voices to mute them; again to bring them all back',
-  solo: 'Solo the selected voice',
+  solo: 'Solo mode, then tap a voice to solo it',
   random: 'Random house pattern',
   group: 'MM-RYTM drum machine',
 } as const;

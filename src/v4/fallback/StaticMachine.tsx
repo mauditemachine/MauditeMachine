@@ -300,7 +300,7 @@ function encoder(i: number, angleDeg: number): Solid {
 }
 
 const potDeg = (t: number): number => TEMPO_UI.sweepDeg / 2 - TEMPO_UI.sweepDeg * t;
-const START: Record<string, number> = { tempo: (BPM.initial - BPM.min) / (BPM.max - BPM.min), tone: 0.5, stretch: 0.5, vstretch: 0.5, level: 0.8, vol: 0.8 };
+const START: Record<string, number> = { tempo: (BPM.initial - BPM.min) / (BPM.max - BPM.min), tone: 0.5, stretch: 0.5, vdecay: 1, level: 0.8, vol: 0.8 };
 
 function solids(): React.ReactNode[] {
   const items: Solid[] = [];

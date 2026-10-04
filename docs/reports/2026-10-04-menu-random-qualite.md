@@ -19,7 +19,8 @@
 - MM-ARP : la suite de l'arpege modifiable note par note, AUTO ou EDIT, 1 a 16 pas, silences ; panneau sous la machine sur desktop, page SEQUENCE du Dock au telephone (`voyager/seq.ts`, `voyager/chords.ts`, `voyager/arp.ts`, `ui/SeqLane.tsx`, `ui/VoyDock.tsx`, `voyager/rig.ts`, `actions.ts`, `index.tsx`, `v4.css`) ; `scene/renderer.ts` : setInset par machine (la playlist du MM-DECKS y passe aussi).
 - MM-DECKS lit l'AIFF (et les WAV que le navigateur refuse) : `dj/decode.ts`, branche dans `dj/engine.ts` (chargement) et `dj/crate.ts` (analyse) ; message clair pour l'ALAC et les fichiers iTunes proteges.
 - Boutons EDIT sur les machines : la suite du MM-ARP cachee par defaut, ouverte par EDIT (bouton du plateau, touche E) ; MM-RYTM : pad EDIT au-dessus d'OPEN, editeur du motif avec velocites sur neuf niveaux (`state/editor.ts`, `ui/editorPanel.ts`, `ui/BeatEditor.tsx`, `audio/pattern.ts`, `audio/beats.ts`, `audio/house.ts`, `theme.ts`, `scene/pads.ts`, `voyager/theme.ts`, `voyager/pads.ts`, `ui/Hotspots.tsx`, `ui/VoyTwins.tsx`, `hooks/useKeys.ts`) ; le Dock du telephone reprend sa forme d'avant.
-- `docs/v4/spec.md` : R14-59 a R14-76.
+- MM-RYTM : SOLO en mode (comme MUTE), MASTER qui coupe aussi les envois des voix, DECAY par voix (a la place du STRETCH de voix), STRETCH global en etirement granulaire facon Impulse (`audio/stretch.ts`), charleys plus forts ; sorties par machine et `routeMachines` pour la table a quatre voies du MM-DECKS (`audio/drums.ts`, `audio/synth.ts`, `audio/voicefx.ts`, `audio/shotsdsp.ts`, `audio/time.ts`, `state/voices.ts`, `actions.ts`, `theme.ts`, `scene/renderer.ts`, `scene/sequencer3d.ts`, `ui/Dock.tsx`, `ui/Hotspots.tsx`).
+- `docs/v4/spec.md` : R14-59 a R14-80.
 
 ## 2. Decisions prises et pourquoi
 

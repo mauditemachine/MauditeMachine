@@ -701,7 +701,7 @@ function dialText(k: EncId, v: number): string {
     const n = pct(v);
     return n === 0 ? '0, centre, bypass' : `${n > 0 ? '+' : ''}${n}`;
   }
-  if (k === 'stretch' || k === 'vstretch') {
+  if (k === 'stretch') {
     const n = pct(v);
     return n === 0 ? '0, centre, original length' : `${n > 0 ? '+' : ''}${n} %, ${n > 0 ? 'longer' : 'shorter'}`;
   }
@@ -780,7 +780,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
     reverb,
     vol: sel.level,
     tone: sel.tone,
-    vstretch: sel.stretch,
+    vdecay: sel.decay,
     vdist: sel.dist,
     vchorus: sel.chorus,
     vdelay: sel.delay,
@@ -1048,7 +1048,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
         data-twin="solo"
         data-hotspot="solo"
         aria-label={TWIN_ARIA.solo}
-        aria-pressed={v.solo !== null}
+        aria-pressed={v.soloMode}
         onKeyDown={noRepeat}
         onClick={() => soloToggle(stageRef.current)}
       />

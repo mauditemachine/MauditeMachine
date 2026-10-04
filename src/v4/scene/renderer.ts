@@ -2158,7 +2158,7 @@ export class Stage {
    * Les potards suivent leur cible : la rangee GLOBAL et MASTER, le
    * pattern ; la rangee VOICE, la voix du pad selectionne (ses valeurs de
    * depart sans selection) ; elle tourne aussi quand la selection change.
-   * TONE et les STRETCH vont de -1 a 1 : course centree (repere a midi a 0).
+   * TONE et STRETCH vont de -1 a 1 : course centree (repere a midi a 0).
    */
   private syncMix = (): void => {
     const inst = pattern.get().instrument;
@@ -2175,7 +2175,7 @@ export class Stage {
       ['reverb', mix.reverb],
       ['vol', v.level],
       ['tone', potCourse('tone', v.tone)],
-      ['vstretch', potCourse('vstretch', v.stretch)],
+      ['vdecay', v.decay],
       ['vdist', v.dist],
       ['vchorus', v.chorus],
       ['vdelay', v.delay],
@@ -2207,7 +2207,7 @@ export class Stage {
    */
   private syncVoiceKeys = (): boolean => {
     const v = voices.get();
-    return this.seq.setVoiceKeys(v.muteMode, v.solo !== null);
+    return this.seq.setVoiceKeys(v.muteMode, v.soloMode || v.solo !== null);
   };
 
   private syncVoices = (): void => {

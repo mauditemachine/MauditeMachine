@@ -40,7 +40,7 @@ import { buildDelayBus, buildReverbBus, type BusInfo, type DelayBus, type Send, 
 import { hitTime, snapTime } from './time';
 import { buildTone, pitchFactor, snapTone, type ToneInfo, type ToneStage } from './tone';
 import { shots, type ShotId } from './shots';
-import { VOICE_FX_DEFAULT, voiceFx, voiceGain, type VoiceFx, type VoiceParam } from './voicefx';
+import { DECAY_HOLD_S, VOICE_FX_DEFAULT, decayTau, voiceFx, voiceGain, type VoiceFx, type VoiceParam } from './voicefx';
 
 type Ctor = typeof AudioContext;
 
@@ -291,9 +291,8 @@ const voiceIn = (g: Graph, inst: Inst): AudioNode => g.ch?.[inst].input ?? g.bus
 const voicePitch = (inst: Inst, globalTone: number, voiceTone?: number): number =>
   pitchFactor(globalTone) * pitchFactor(voiceTone ?? voiceFx.of(inst).tone);
 
-/** Facteur des durees d'une voix : STRETCH du pattern et STRETCH de la voix (exactement 1 a 0 et 0). */
-const voiceTime = (inst: Inst, globalStretch: number, voiceStretch?: number): number =>
-  hitTime(globalStretch, voiceStretch ?? voiceFx.of(inst).stretch);
+/** Facteur d'etirement des coups : STRETCH du pattern (exactement 1 a 0) ; la voix a DECAY depuis le 2026-10-04. */
+const voiceTime = (globalStretch: number): number => hitTime(globalStretch, 0);
 
 /** ?mute=1 vu une fois = master a 0 pour toute la page, meme sur un contexte cree avant. */
 function enforceMute(g: Graph): void {
@@ -480,7 +479,7 @@ function chokeOH(when: number): void {
  * qui sonne encore (choke) ; le charley ouvert passe par sa porte. `open` :
  * le pad CH tenu (CHopen).
  */
-function voice(g: Graph, inst: Inst, when: number, open: boolean, dest: AudioNode, pf: number, ts: number, sync = false): Voice {
+function voice(g: Graph, inst: Inst, when: number, open: boolean, dest: AudioNode, pf: number, ts: number, sync = false, decay = 1): Voice {
   const c = g.ctx;
   const id: ShotId = inst === 'CH' && open ? 'CHopen' : inst;
   if (inst === 'CH' || inst === 'OH') chokeOH(when);
@@ -490,6 +489,19 @@ function voice(g: Graph, inst: Inst, when: number, open: boolean, dest: AudioNod
   // 1 : l'echantillon est deja a sa hauteur (aucune interpolation) ; sinon, en attendant, le plus proche relu
   src.playbackRate.value = shot.rate;
   const nodes: AudioNode[] = [src];
+  // DECAY (2026-10-04) : l'attaque garde, puis la queue s'eteint plus tot ; la source s'arrete quand il n'y a plus rien
+  const tau = decayTau(decay);
+  let stopAt = 0;
+  if (tau !== null) {
+    const env = c.createGain();
+    env.gain.setValueAtTime(1, when);
+    env.gain.setTargetAtTime(0, when + DECAY_HOLD_S, tau);
+    env.connect(dest);
+    nodes.push(env);
+    dest = env;
+    const end = when + DECAY_HOLD_S + 7 * tau;
+    if (end < when + shot.buf.duration / shot.rate) stopAt = end;
+  }
   if (inst === 'OH') {
     const gate = c.createGain();
     gate.gain.value = 1;
@@ -503,6 +515,7 @@ function voice(g: Graph, inst: Inst, when: number, open: boolean, dest: AudioNod
     for (const n of nodes) n.disconnect();
   };
   src.start(when);
+  if (stopAt > 0) src.stop(stopAt);
   return { when, srcs: [src], nodes };
 }
 
@@ -528,7 +541,7 @@ export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], 
     vg.connect(dest);
     dest = vg;
   }
-  const v = voice(g, inst, t, open, dest, voicePitch(inst, tone), voiceTime(inst, stretch));
+  const v = voice(g, inst, t, open, dest, voicePitch(inst, tone), voiceTime(stretch), false, voiceFx.of(inst).decay);
   // Le gain part avec la voix (meme liste de noeuds a debrancher)
   if (vg) v.nodes.push(vg);
   out?.push(v);
@@ -766,7 +779,8 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
       bare: o.bare,
     });
     const vt = (inst: Inst): number => snapTone(o.voice?.[inst]?.tone ?? 0);
-    const vs = (inst: Inst): number => voiceTime(inst, stretch0, snapTime(o.voice?.[inst]?.stretch ?? 0));
+    const ts0 = voiceTime(stretch0);
+    const vd = (inst: Inst): number => o.voice?.[inst]?.decay ?? 1;
     if (o.sines) {
       for (const hz of o.sines) {
         const osc = oc.createOscillator();
@@ -778,7 +792,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
         osc.start(0);
       }
     } else if (o.single) {
-      voices.push(voice(g, o.single, 0.05, false, voiceIn(g, o.single), voicePitch(o.single, tone0, vt(o.single)), vs(o.single), true));
+      voices.push(voice(g, o.single, 0.05, false, voiceIn(g, o.single), voicePitch(o.single, tone0, vt(o.single)), ts0, true, vd(o.single)));
     } else {
       const steps = o.steps ?? pattern.get().steps;
       const step = 60 / (o.bpm ?? pattern.get().bpm) / 4;
@@ -793,7 +807,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
             vg.connect(dest);
             dest = vg;
           }
-          voices.push(voice(g, inst, t, false, dest, voicePitch(inst, tone0, vt(inst)), vs(inst), true));
+          voices.push(voice(g, inst, t, false, dest, voicePitch(inst, tone0, vt(inst)), ts0, true, vd(inst)));
         }
       }
     }
@@ -1000,7 +1014,7 @@ export const audioDebug: AudioDebug = {
   },
   setTone,
   setStretch,
-  timeOf: (inst: Inst) => voiceTime(inst, stretch),
+  timeOf: () => voiceTime(stretch),
   renderOffline,
   setLevel,
   setSwing,

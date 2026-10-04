@@ -116,8 +116,8 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
                 className="v4-dock-inst"
                 data-muted={muted ? '1' : '0'}
                 data-solo={solo ? '1' : '0'}
-                aria-pressed={v.muteMode ? muted : inst === k}
-                aria-label={v.muteMode ? `Mute ${INST_NAMES[k]}` : `Select ${INST_NAMES[k]}${muted ? ', muted' : ''}${solo ? ', solo' : ''}`}
+                aria-pressed={v.soloMode ? solo : v.muteMode ? muted : inst === k}
+                aria-label={v.soloMode ? `Solo ${INST_NAMES[k]}` : v.muteMode ? `Mute ${INST_NAMES[k]}` : `Select ${INST_NAMES[k]}${muted ? ', muted' : ''}${solo ? ', solo' : ''}`}
                 onClick={() => selectInstrument(k)}
               >
                 {k}
@@ -205,7 +205,7 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
             <Icon name="fa-solid fa-volume-xmark" />
             <span>MUTE</span>
           </button>
-          <button type="button" className="v4-dock-key" aria-pressed={v.solo !== null} aria-label="Solo the selected voice" onClick={() => soloToggle(getStage())}>
+          <button type="button" className="v4-dock-key" aria-pressed={v.soloMode} aria-label="Solo mode, then tap a voice to solo it" onClick={() => soloToggle(getStage())}>
             <Icon name="fa-solid fa-headphones" />
             <span>SOLO</span>
           </button>

@@ -18,13 +18,15 @@
  *   coupee net apres 130 ms) ; le clap une petite piece ;
  * - les sons bruites ont plusieurs variantes (VARIANTS), jouees en
  *   alternance : deux coups ne sont jamais le meme echantillon.
- * Un echantillon depend de son STRETCH (la duree des enveloppes) :
+ * Un echantillon depend de son STRETCH (2026-10-04 : un etirement en grains
+ * facon Impulse, audio/stretch.ts ; avant, la duree des enveloppes) :
  * arrondi au huitieme de facteur 4 (shotKey), calcule a la demande et
  * garde (cache, LRU). shots.warm() prepare ceux de STRETCH 0, dans un
  * worker, des que le contexte existe.
  */
 
 import type { Inst } from '../theme';
+import { timeStretch } from './stretch';
 
 export type ShotId = Inst | 'CHopen';
 
@@ -43,9 +45,10 @@ export const SHOT_PEAK: Readonly<Record<ShotId, number>> = {
   BD: -0.5,
   SD: 3,
   TOM: 1.5,
-  CH: -2,
-  CHopen: -3,
-  OH: -3,
+  // CH +4 dB et OH +2 dB le 2026-10-04 (Mika : "on entend pas trop le HH")
+  CH: 2,
+  CHopen: 1,
+  OH: -1,
   // CP : 3.5 jusqu'au 2026-10-04 (Mika : "le clap est vraiment trop intense"), 5.5 dB plus bas
   CP: -2,
   RS: -0.5,
@@ -603,7 +606,9 @@ function pc(sr: number, ts: number, r: () => number): Shot {
 }
 
 /** Calcule un son, normalise a sa crete (SHOT_PEAK). Deterministe : (son, variante, STRETCH, frequence). */
-export function renderShot(id: ShotId, sr: number, ts: number, variant: number): Shot {
+export function renderShot(id: ShotId, sr: number, stretch: number, variant: number): Shot {
+  // STRETCH (2026-10-04) : le son a sa duree naturelle, puis etire en grains facon Impulse (audio/stretch.ts)
+  const ts = 1;
   const seed = 0x9e3779b1 ^ (id.charCodeAt(0) * 7919 + id.charCodeAt(1) * 104729 + id.length * 131 + variant * 2654435761);
   const r = rng(seed);
   let s: Shot;
@@ -640,6 +645,12 @@ export function renderShot(id: ShotId, sr: number, ts: number, variant: number):
       break;
     default:
       s = pc(sr, ts, r);
+  }
+  if (Math.abs(stretch - 1) > 1e-3) {
+    if (s.L === s.R) {
+      const one = timeStretch(s.L, stretch, sr);
+      s = { L: one, R: one };
+    } else s = { L: timeStretch(s.L, stretch, sr), R: timeStretch(s.R, stretch, sr) };
   }
   const p = peakOf(s.L === s.R ? [s.L] : [s.L, s.R]);
   const k = p > 0 ? Math.pow(10, SHOT_PEAK[id] / 20) / p : 1;

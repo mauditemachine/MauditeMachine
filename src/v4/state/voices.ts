@@ -7,6 +7,12 @@
  * Mode MUTE (2026-10-03, Mika) : MUTE s'allume et reste allume ; chaque
  * pad de voix touche se coupe ou revient (plusieurs a la fois) ; MUTE
  * touche de nouveau : le mode s'eteint et toutes les voix reviennent.
+ *
+ * Mode SOLO (2026-10-04, Mika : "je voulais choisir BD et c'est CP qui se
+ * met en SOLO") : comme MUTE. SOLO s'allume ; le pad de voix touche passe
+ * en solo (le meme une seconde fois : plus de solo) ; SOLO touche de
+ * nouveau : le mode s'eteint et toutes les voix reviennent. Avant, SOLO
+ * prenait tout de suite la derniere voix touchee.
  */
 
 import type { Inst } from '../theme';
@@ -16,9 +22,11 @@ export interface VoicesState {
   solo: Inst | null;
   /** mode MUTE : les pads de voix coupent au lieu de jouer */
   muteMode: boolean;
+  /** mode SOLO : le pad de voix touche passe en solo au lieu de jouer */
+  soloMode: boolean;
 }
 
-let state: VoicesState = { muted: [], solo: null, muteMode: false };
+let state: VoicesState = { muted: [], solo: null, muteMode: false, soloMode: false };
 const listeners = new Set<() => void>();
 
 const commit = (next: VoicesState): void => {
@@ -51,6 +59,11 @@ export const voices = {
   setMuteMode(on: boolean): void {
     if (on === state.muteMode && (on || state.muted.length === 0)) return;
     commit({ ...state, muteMode: on, muted: on ? state.muted : [] });
+  },
+  /** Mode SOLO : il s'allume ; eteint, plus de solo. */
+  setSoloMode(on: boolean): void {
+    if (on === state.soloMode && (on || state.solo === null)) return;
+    commit({ ...state, soloMode: on, solo: on ? state.solo : null });
   },
   clearSolo(): void {
     if (state.solo) commit({ ...state, solo: null });

@@ -272,7 +272,7 @@ export class Sequencer3D {
     return a || b;
   }
 
-  /** Velocite du pas i (0 vide, 1 fort, 2 moyen, 3 doux) ; sans selection, la plus forte des voix. */
+  /** Velocite du pas i (0 vide a 9 fort, 2026-10-04) ; sans selection, la plus forte des voix. */
   private programmed(i: number): number {
     const s = this.steps;
     if (!s) return 0;
@@ -280,7 +280,7 @@ export class Sequencer3D {
     let best = 0;
     for (const k of INSTRUMENTS) {
       const v = velocity(s, k, i);
-      if (v > 0 && (best === 0 || v < best)) best = v;
+      if (v > best) best = v;
     }
     return best;
   }

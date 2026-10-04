@@ -50,6 +50,12 @@ export function gesture(): void {
  */
 export function padHit(inst: Inst, stage: Stage | null): void {
   gesture();
+  // Mode SOLO : le pad passe en solo (ou en sort), sans jouer
+  if (voices.get().soloMode) {
+    soloVoice(inst);
+    stage?.pads.press(inst);
+    return;
+  }
   // Mode MUTE : le pad coupe sa voix (ou la rend), sans jouer
   if (voices.get().muteMode) {
     muteVoice(inst);
@@ -59,6 +65,12 @@ export function padHit(inst: Inst, stage: Stage | null): void {
   trigger(inst);
   selectVoice(inst);
   stage?.pads.press(inst);
+}
+
+/** Mode SOLO : la voix passe en solo, ou en sort ; l'ecran le dit. */
+function soloVoice(inst: Inst): void {
+  voices.toggleSolo(inst);
+  lcdMessage.show(voices.get().solo ? `SOLO ${inst}` : 'SOLO: TAP A VOICE');
 }
 
 /** Mode MUTE : une voix coupee ou rendue ; l'ecran le dit. */
@@ -111,6 +123,10 @@ export function resetView(stage: Stage | null): void {
 /** Choix de l'instrument sans le jouer (rangee du Dock) ; le meme une seconde fois : plus de selection (tout le pattern). */
 export function selectInstrument(inst: Inst): void {
   resume();
+  if (voices.get().soloMode) {
+    soloVoice(inst);
+    return;
+  }
   if (voices.get().muteMode) {
     muteVoice(inst);
     return;
@@ -188,26 +204,17 @@ export function muteToggle(stage: Stage | null = null): boolean {
 }
 
 /**
- * SOLO (2026-10-01) : ne laisse jouer que la voix selectionnee, ou rend
- * toutes les voix. Sans selection : coupe un solo en cours, sinon TAP A
- * PAD FIRST.
+ * SOLO (2026-10-04, comme MUTE) : le mode s'allume, puis le pad de voix
+ * touche passe en solo ; SOLO de nouveau : le mode s'eteint et toutes les
+ * voix reviennent. Renvoie l'etat du mode.
  */
 export function soloToggle(stage: Stage | null = null): boolean {
   resume();
   stage?.pressButton('solo');
-  const inst = pattern.get().instrument;
-  if (!inst) {
-    if (voices.get().solo) {
-      voices.clearSolo();
-      lcdMessage.show('SOLO OFF');
-      return true;
-    }
-    lcdMessage.show('TAP A PAD FIRST');
-    return false;
-  }
-  voices.toggleSolo(inst);
-  lcdMessage.show(voices.get().solo ? `SOLO ${inst}` : 'SOLO OFF');
-  return true;
+  const on = !voices.get().soloMode;
+  voices.setSoloMode(on);
+  lcdMessage.show(on ? 'SOLO: TAP A VOICE' : 'ALL VOICES ON');
+  return on;
 }
 
 /** CLEAR : les quatre rangees a zero, la lecture continue. */
