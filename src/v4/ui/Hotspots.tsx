@@ -168,8 +168,12 @@ export function registerTwin(id: string, el: HTMLElement | null): void {
 }
 
 const isVoy = (k: DialId): boolean => k.startsWith('v:');
-/** Crans d'un potard du MM-ARP (0 : continu). */
-const voySteps = (k: DialId): number => (isVoy(k) ? (voyKnob(k.slice(2) as VoyKnobId).steps?.length ?? 0) : 0);
+/** Crans d'un potard du MM-ARP (0 : continu, le morphing de WAVE aussi). */
+const voySteps = (k: DialId): number => {
+  if (!isVoy(k)) return 0;
+  const vk = voyKnob(k.slice(2) as VoyKnobId);
+  return vk.morph ? 0 : (vk.steps?.length ?? 0);
+};
 
 /** Valeur par px de glisser : TEMPO 2 px par BPM, les autres 150 px la course (TONE : 2 unites). */
 const perPx = (k: DialId): number =>

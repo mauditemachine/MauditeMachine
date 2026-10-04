@@ -40,7 +40,9 @@
 - La boite a rythmes s'appelle MM-RYTM (onglets, volet, panneau, ecran, face arriere, carte, aria, repli statique, llms.txt) ; shows : Cirque de Boudoir en minuscules (`public/events.json`, `public/past-events.json`).
 - MM-RYTM : les dix voix deviennent des one-shots calcules au chargement, en qualite studio (calcul a 4 x, decimation Kaiser, couches, saturation, variantes) : kick balle de tennis, caisse claire brillante avec petite reverbe a porte ; calcul dans un Web Worker, prechauffe apres l'intro (`audio/shotsdsp.ts`, `audio/shots.ts`, `audio/shots.worker.ts`, `audio/drums.ts`, `index.tsx`).
 - Equilibre des deux machines : la batterie remontee dans les mediums, l'arpege baisse de 3.7 dB (`audio/shotsdsp.ts`, `audio/synth.ts`).
-- `docs/v4/spec.md` : R14-34 a R14-56.
+- MM-ARP facon Typhon : WAVE 1 et WAVE 2 morphent en continu d'une forme a l'autre (formes alignees en phase), la couronne allume les deux voisines ; la FM module les deux oscillateurs (`audio/moog.worklet.js`, `voyager/params.ts`, `voyager/silk.ts`, `voyager/rig.ts`, `ui/VoyDock.tsx`, `ui/Hotspots.tsx`).
+- MM-ARP plus analogique : filtre a saturation dans chaque etage, petits ecarts par note, notes un peu a gauche et a droite, graves mieux gardes, moteur plus leger (`audio/moog.worklet.js`).
+- `docs/v4/spec.md` : R14-34 a R14-58.
 
 ## 2. Decisions prises et pourquoi
 
@@ -59,12 +61,14 @@
 - SLOPE : "16 dB" lu comme 12 dB (la pente 2 poles classique) ; sortie au 2e etage de l'echelle, la meme retroaction, plutot qu'un second filtre ; un petit commutateur a deux positions plutot qu'un bouton lumineux, faute de place dans FILTER, qui bascule a la tape comme un bouton. NOISE par voix plutot que global : il suit l'enveloppe de chaque note, comme le mixer d'un Moog.
 - One-shots calcules plutot que des fichiers d'echantillons : aucune licence a verifier, aucun telechargement, et chaque son suit STRETCH sans etre etire (recalcule). Les echantillons personnels de Mika (User Library) n'ont pas ete utilises : publies sur le site, ils seraient telechargeables, ce que les licences des banques de sons interdisent souvent.
 - Niveau : mesure dans les mediums (au-dessus de 500 Hz) apres le compresseur commun, pas en LUFS seuls : le sub du kick gonflait les LUFS de la batterie alors qu'a l'oreille elle sonnait plus faible.
+- Morphing : un fondu des deux formes voisines plutot qu'une table d'ondes, avec les formes recalees en phase : sans repliement (chaque forme garde son PolyBLEP) et sans trou de fondamentale. Filtre : la methode de Mystran plutot qu'un modele explicite (Huovilainen) : la resonance garde l'accord exact du filtre sans retard actuel.
 - Synchro : les deux machines gardent leur propre RUN/STOP (pas de demarrage force de l'autre), mais elles partagent tempo et grille, quel que soit l'ordre de lancement.
 - La 808 n'est pas touchee : meme carte, memes puces, meme serigraphie (verifie dans le diff).
 
 ## 3. Ce qui reste a faire / points en suspens
 
 - Mika : essayer RUN/STOP sur le Voyager avec la 808 qui joue, et le rendu au telephone.
+- Mika : tourner WAVE 1 et WAVE 2 lentement (le morphing), FM avec MIX au centre (les deux oscillateurs), et juger le grain du filtre.
 - Mika : ecouter le nouveau kit du MM-RYTM (kick, caisse claire et sa reverbe a porte) et l'equilibre avec le MM-ARP ; dire quel son retravailler.
 - Mika : ecouter NOISE et SLOPE ; dire s'il les veut aussi dans le Dock du telephone.
 - Mika : ecouter le FM (WAVE 1 SINE, FM a fond, RATIO 1 pour une scie, 2 ou 3 pour du brillant, 7/2 pour du cloche, 1/2 pour du grave).

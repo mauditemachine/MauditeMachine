@@ -69,6 +69,8 @@ export interface VoyKnob {
   def: number;
   /** crans nommes (RATE, MODE, RANGE) */
   steps?: readonly string[];
+  /** morphing (WAVE 1 et 2, 2026-10-03, facon Typhon) : continu, ses crans ne sont que des reperes */
+  morph?: boolean;
   /** le gros potard du filtre */
   big?: boolean;
 }
@@ -101,8 +103,8 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'range', label: 'RANGE', aria: 'Arpeggiator range', section: 'arp', def: 0.5, steps: RANGES },
   { id: 'notes', label: 'NOTES', aria: 'Arpeggiator notes, how many before the pattern starts again', section: 'arp', def: 0, steps: NOTES },
   { id: 'gate', label: 'GATE', aria: 'Arpeggiator gate length', section: 'arp', def: 0.5 },
-  { id: 'wave1', label: 'WAVE 1', aria: 'Oscillator 1 wave: sine, triangle, saw, square, pulse, FM', section: 'osc', def: 2 / 5, steps: WAVES1 },
-  { id: 'wave2', label: 'WAVE 2', aria: 'Oscillator 2 wave: sine, triangle, saw, square, pulse', section: 'osc', def: 2 / 4, steps: WAVES2 },
+  { id: 'wave1', label: 'WAVE 1', aria: 'Oscillator 1 wave, morphs from sine to triangle, saw, square, pulse and FM', section: 'osc', def: 2 / 5, steps: WAVES1, morph: true },
+  { id: 'wave2', label: 'WAVE 2', aria: 'Oscillator 2 wave, morphs from sine to triangle, saw, square and pulse', section: 'osc', def: 2 / 4, steps: WAVES2, morph: true },
   { id: 'tune2', label: 'TUNE 2', aria: 'Oscillator 2 tuning: octave down, unison, fifth, one or two octaves up', section: 'osc', def: 0, steps: TUNES2 },
   { id: 'mix', label: 'MIX', aria: 'Oscillator mix, 1 to 2', section: 'osc', def: 0.5 },
   { id: 'fm', label: 'FM', aria: 'FM amount, a sine operator modulates oscillator 1, shaped by the filter envelope', section: 'osc', def: 0 },
@@ -144,11 +146,24 @@ export const stepIndex = (id: VoyKnobId, v: number): number => {
   return Math.max(0, Math.min(s.length - 1, Math.round(v * (s.length - 1))));
 };
 
-/** Valeur posee : bornee, et ronde sur un potard a crans. */
+/** Valeur posee : bornee, et ronde sur un potard a crans (pas sur un morphing). */
 function clean(id: VoyKnobId, v: number): number {
   const t = Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : DEFAULTS[id];
-  const s = voyKnob(id).steps;
-  return s ? stepIndex(id, t) / (s.length - 1) : Math.round(t * 1000) / 1000;
+  const k = voyKnob(id);
+  return k.steps && !k.morph ? stepIndex(id, t) / (k.steps.length - 1) : Math.round(t * 1000) / 1000;
+}
+
+/** Position d'un morphing : 0 a (crans - 1), fractionnaire. */
+export const morphPos = (id: VoyKnobId, v: number): number => v * ((voyKnob(id).steps?.length ?? 1) - 1);
+
+/** Un morphing en mots : "SAW" sur un cran, "SAW>SQUARE 40%" entre deux. */
+export function morphText(id: VoyKnobId, v: number): string {
+  const s = voyKnob(id).steps ?? [];
+  const pos = morphPos(id, v);
+  const i = Math.round(pos);
+  if (Math.abs(pos - i) < 0.04) return s[i] ?? '';
+  const a = Math.floor(pos);
+  return `${s[a]}>${s[a + 1]} ${Math.round((pos - a) * 100)}%`;
 }
 
 /* ---------------- traduction en son ---------------- */
@@ -188,7 +203,7 @@ export const fmRatio = (v: number): number => RATIO_X[stepIndex('ratio', v)];
  * secondes, hertz, octaves. Envoyes au moteur a chaque changement.
  */
 export interface EngineParams {
-  /** formes : index de WAVES1 et WAVES2 */
+  /** formes : position du morphing dans WAVES1 (0 a 5) et WAVES2 (0 a 4), fractionnaire */
   wave1: number;
   wave2: number;
   /** OSC 2 en demi-tons ; MIX 0 (OSC 1) a 1 (OSC 2) */
@@ -218,8 +233,8 @@ export interface EngineParams {
 
 export function engineParams(v: Readonly<VoyValues>): EngineParams {
   return {
-    wave1: stepIndex('wave1', v.wave1),
-    wave2: stepIndex('wave2', v.wave2),
+    wave1: morphPos('wave1', v.wave1),
+    wave2: morphPos('wave2', v.wave2),
     tune2: tune2Semi(v.tune2),
     mix: v.mix,
     fm: v.fm,
@@ -246,6 +261,7 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
 /** Texte de l'ecran et du jumeau : CUTOFF 64%, RATE 1/16, MODE UP/DN. */
 export function voyReadout(id: VoyKnobId, v: number): string {
   const k = voyKnob(id);
+  if (k.morph) return `${k.label} ${morphText(id, v)}`;
   if (k.steps) return `${k.label} ${k.steps[stepIndex(id, v)]}`;
   const sec = k.section === 'feg' ? 'F ' : k.section === 'aeg' ? 'A ' : '';
   return `${sec}${k.label} ${Math.round(v * 100)}%`;
@@ -254,6 +270,7 @@ export function voyReadout(id: VoyKnobId, v: number): string {
 /** Valeur lue d'un potard (jumeau) : "1/16", "64 %". */
 export function voyValueText(id: VoyKnobId, v: number): string {
   const k = voyKnob(id);
+  if (k.morph) return morphText(id, v);
   if (k.steps) return k.steps[stepIndex(id, v)];
   return `${Math.round(v * 100)} %`;
 }

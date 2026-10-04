@@ -22,7 +22,7 @@ import { drawTracked, fontsReady, logoImage, makeCanvasTexture, trackedWidth } f
 import { APPEARANCE, HEX, PORTRAIT, SILK, silkA } from '../theme';
 import { CHORDS } from './chords';
 import { wavePoints } from './glyphs';
-import { VOY_KNOBS, WAVES1, WAVES2, stepIndex, voyParams } from './params';
+import { VOY_KNOBS, WAVES1, WAVES2, morphPos, voyParams } from './params';
 import {
   VOY_BODY,
   VOY_BUTTONS,
@@ -156,7 +156,8 @@ export class VoySilk {
   /** logos poses au dernier dessin (panneau) */
   logos: string[] = [];
   /** crans choisis des deux selecteurs de forme */
-  private sel = { wave1: stepIndex('wave1', voyParams.of('wave1')), wave2: stepIndex('wave2', voyParams.of('wave2')) };
+  /** positions des morphings (rig.ts les arrondit au vingtieme de cran : un dessin par vingtieme) */
+  private sel = { wave1: morphPos('wave1', voyParams.of('wave1')), wave2: morphPos('wave2', voyParams.of('wave2')) };
 
   constructor(
     private kind: VoySilkKind,
@@ -343,7 +344,9 @@ export class VoySilk {
 
   /**
    * Les couronnes des selecteurs de forme de ce plan : pour chaque cran, un
-   * arc (un jour entre deux) et le dessin de la forme dehors, droit.
+   * arc (un jour entre deux) et le dessin de la forme dehors, droit. Le
+   * morphing (2026-10-03) : entre deux formes, les deux s'allument, chacune
+   * en proportion de sa part.
    */
   private selectors(): void {
     const ctx = this.ctx;
@@ -352,13 +355,14 @@ export class VoySilk {
     // Mika n'aimait pas l'ambre) : l'encre de la serigraphie, le cran choisi en orange
     const light = APPEARANCE.current === 'light';
     const color = (a: number, on: boolean): string => (light ? (on ? HEX.orange : silkA(a)) : `rgba(242, 194, 48, ${a})`);
+    const dim = light ? S.dim.light : S.dim.dark;
     for (const k of VOY_KNOBS) {
       if (!isSelector(k.id)) continue;
       const p = voyKnobPlace(k.id);
       if (p.where !== this.kind) continue;
       const waves = k.id === 'wave1' ? WAVES1 : WAVES2;
       const n = waves.length;
-      const on = this.sel[k.id as 'wave1' | 'wave2'];
+      const pos = this.sel[k.id as 'wave1' | 'wave2'];
       const step = 270 / (n - 1);
       const half = step / 2 - S.gapDeg / 2;
       const cx = this.px(p.x);
@@ -367,16 +371,22 @@ export class VoySilk {
       ctx.lineCap = 'butt';
       waves.forEach((w, i) => {
         const a = 225 - step * i;
-        const alpha = i === on ? 1 : light ? S.dim.light : S.dim.dark;
+        // La part de cette forme dans le morphing : 1 sur son cran, 0 a un cran et plus
+        const part = Math.max(0, 1 - Math.abs(pos - i));
+        const on = part >= 0.5;
+        // Clair : l'orange porte la forme dominante, plus ou moins fort ; les autres a l'encre
+        const alpha = light && on ? 0.35 + 0.65 * part : dim + (1 - dim) * part;
+        ctx.globalAlpha = light && on ? alpha : 1;
         // Arc : angles du canvas (y vers le bas), le sens inverse de ceux du panneau
-        ctx.strokeStyle = color(alpha, i === on);
+        ctx.strokeStyle = color(alpha, on);
         ctx.lineWidth = Math.max(1, S.arcW * p.s * PPU);
         ctx.beginPath();
         ctx.arc(cx, cy, rArc, (-(a + half) * Math.PI) / 180, (-(a - half) * Math.PI) / 180);
         ctx.stroke();
         const gx = p.x + Math.cos((a * Math.PI) / 180) * S.glyphR * p.s;
         const gz = p.z - Math.sin((a * Math.PI) / 180) * S.glyphR * p.s;
-        this.glyph(w, this.px(gx), this.py(gz), S.glyph.w * p.s * PPU, S.glyph.h * p.s * PPU, Math.max(1, S.glyph.stroke * p.s * PPU), color(alpha, i === on));
+        this.glyph(w, this.px(gx), this.py(gz), S.glyph.w * p.s * PPU, S.glyph.h * p.s * PPU, Math.max(1, S.glyph.stroke * p.s * PPU), color(alpha, on));
+        ctx.globalAlpha = 1;
       });
     }
   }
@@ -408,7 +418,7 @@ export class VoySilk {
     ctx.lineCap = 'butt';
   }
 
-  /** Les crans des selecteurs de forme ; true si le panneau a ete redessine. */
+  /** Les positions des selecteurs de forme ; true si le panneau a ete redessine. */
   setSelectors(wave1: number, wave2: number): boolean {
     if (wave1 === this.sel.wave1 && wave2 === this.sel.wave2) return false;
     this.sel = { wave1, wave2 };

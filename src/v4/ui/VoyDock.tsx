@@ -22,7 +22,7 @@ import type { Stage } from '../scene/renderer';
 import { arp } from '../voyager/arp';
 import { CHORDS } from '../voyager/chords';
 import { wavePoints } from '../voyager/glyphs';
-import { MODES, NOTES, OCTAVES, RANGES, RATES, RATIOS, WAVES1, WAVES2, stepIndex, voyParams, type VoyKnobId } from '../voyager/params';
+import { MODES, NOTES, OCTAVES, RANGES, RATES, RATIOS, WAVES1, WAVES2, morphText, stepIndex, voyParams, type VoyKnobId } from '../voyager/params';
 
 const DOCK_KEY = 'mm.v4.vdock';
 
@@ -85,8 +85,11 @@ export const VoyDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage }
     }
   }, [shown]);
   const oct = stepIndex('octave', p.octave);
+  // Le dessin et le nom : la forme la plus proche ; le nom lu : le morphing en cours
   const w1 = WAVES1[stepIndex('wave1', p.wave1)];
   const w2 = WAVES2[stepIndex('wave2', p.wave2)];
+  const w1Text = morphText('wave1', p.wave1);
+  const w2Text = morphText('wave2', p.wave2);
   const fm = fmStep(p.fm);
   const fmText = fm === 0 ? 'OFF' : `${fm * 25}%`;
   const ratio = RATIOS[stepIndex('ratio', p.ratio)];
@@ -141,14 +144,14 @@ export const VoyDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage }
           </button>
         </div>
         <div className="v4-vdock-row v4-vdock-waves" role="group" aria-label="Oscillator waves">
-          <button type="button" className="v4-dock-key" aria-label={`Wave 1 ${w1.toLowerCase()}, tap for the next`} onClick={() => cycle('wave1', WAVES1.length)}>
+          <button type="button" className="v4-dock-key" aria-label={`Wave 1 ${w1Text.toLowerCase()}, tap for the next shape`} onClick={() => cycle('wave1', WAVES1.length)}>
             <span>WAVE 1</span>
             <span className="v4-vdock-wv">
               <WaveGlyph name={w1} />
               <span className="v4-vdock-val">{w1}</span>
             </span>
           </button>
-          <button type="button" className="v4-dock-key" aria-label={`Wave 2 ${w2.toLowerCase()}, tap for the next`} onClick={() => cycle('wave2', WAVES2.length)}>
+          <button type="button" className="v4-dock-key" aria-label={`Wave 2 ${w2Text.toLowerCase()}, tap for the next shape`} onClick={() => cycle('wave2', WAVES2.length)}>
             <span>WAVE 2</span>
             <span className="v4-vdock-wv">
               <WaveGlyph name={w2} />

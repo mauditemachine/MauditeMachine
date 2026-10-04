@@ -33,7 +33,7 @@ import { VoyKnobs } from './knobs';
 import { VoyLcd } from './lcd';
 import { voyMsg } from './msg';
 import { VoyKeys } from './pads';
-import { MODES, NOTES, RANGES, RATES, VOY_KNOBS, notesCount, stepIndex, voyParams } from './params';
+import { MODES, NOTES, RANGES, RATES, VOY_KNOBS, morphPos, notesCount, stepIndex, voyParams } from './params';
 import { VoySilk } from './silk';
 import { VOY_BODY, VOY_COPY, VOY_EXPLODE, VOY_LID_W, VOY_PANEL, VOY_PCB_Y, VOY_X } from './theme';
 
@@ -217,9 +217,9 @@ export class VoyagerRig {
     const v = voyParams.get();
     let changed = false;
     for (const k of VOY_KNOBS) if (this.knobs.setValue(k.id, v[k.id])) changed = true;
-    // Les couronnes des selecteurs de forme : le cran choisi s'allume
-    const w1 = stepIndex('wave1', v.wave1);
-    const w2 = stepIndex('wave2', v.wave2);
+    // Les couronnes des selecteurs de forme : la forme (ou les deux du morphing) s'allume ; un dessin par vingtieme de cran
+    const w1 = Math.round(morphPos('wave1', v.wave1) * 20) / 20;
+    const w2 = Math.round(morphPos('wave2', v.wave2) * 20) / 20;
     if (this.panelSilk.setSelectors(w1, w2)) changed = true;
     if (this.deckSilk.setSelectors(w1, w2)) changed = true;
     if (this.syncLcd(false)) changed = true;
