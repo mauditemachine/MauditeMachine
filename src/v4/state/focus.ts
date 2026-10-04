@@ -31,17 +31,18 @@ export const VOYAGER: boolean = (() => {
 
 /**
  * Le MM-DECKS (2026-10-04, les Decks de sonaa.ca) : a droite du MM-ARP.
- * Cache tant que Mika ne l'a pas valide : ?dj=1 le pose (retenu pour
- * l'onglet), ?dj=0 le retire. Il suppose le MM-VOYAGER sur la table.
+ * Sur la table pour tout le monde depuis le 2026-10-04 (Mika : "publie Deck
+ * sans le drapeau") ; ?dj=0 le retire (retenu pour l'onglet), ?dj=1 le
+ * remet. Il suppose le MM-VOYAGER sur la table.
  */
 export const DJ: boolean = (() => {
   if (typeof window === 'undefined' || !VOYAGER) return false;
   try {
     const q = new URLSearchParams(window.location.search).get('dj');
     if (q === '1' || q === '0') window.sessionStorage.setItem('mm.v4.dj', q);
-    return window.sessionStorage.getItem('mm.v4.dj') === '1';
+    return window.sessionStorage.getItem('mm.v4.dj') !== '0';
   } catch {
-    return false;
+    return true;
   }
 })();
 

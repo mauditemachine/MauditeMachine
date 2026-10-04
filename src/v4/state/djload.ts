@@ -1,8 +1,8 @@
 /**
- * Le code du MM-DECKS, charge a part (2026-10-04, l'accueil de Deck) : tant
- * que ?dj=1 n'est pas pose, rien du MM-DECKS (rig, gestes, liste, moteur)
- * n'entre dans la page ; avec lui, un seul chargement, partage par la scene
- * (scene/renderer.ts), la couche de saisie (ui/Hotspots.tsx) et le debug.
+ * Le code du MM-DECKS, charge a part (2026-10-04, l'accueil de Deck) : il
+ * arrive apres le chargement principal (la page s'affiche sans l'attendre),
+ * en un seul chargement, partage par la scene (scene/renderer.ts), la
+ * couche de saisie (ui/Hotspots.tsx) et le debug ; avec ?dj=0, jamais.
  * Les petits modules (dj/theme, dj/view : places, cadrage, bloc au
  * telephone) restent dans le chargement principal.
  */
@@ -21,9 +21,9 @@ let pending: Promise<DjModules> | null = null;
 const listeners = new Set<() => void>();
 
 export const djLoad = {
-  /** Les modules, une fois arrives (null avant, et toujours sans ?dj=1). */
+  /** Les modules, une fois arrives (null avant, et toujours avec ?dj=0). */
   get: (): DjModules | null => mods,
-  /** Le chargement (une fois) ; null sans ?dj=1. */
+  /** Le chargement (une fois) ; null avec ?dj=0. */
   load(): Promise<DjModules> | null {
     if (!DJ) return null;
     pending ??= Promise.all([import('../dj/rig'), import('../dj/gestures'), import('../dj/state'), import('../dj/engine')]).then(([rig, gestures, state, engine]) => {

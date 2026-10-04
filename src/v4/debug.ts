@@ -200,7 +200,7 @@ export interface V4Debug {
     params: typeof voyParams;
   };
   /**
-   * Le MM-DECKS (2026-10-04, ?dj=1) : le rig, le store des commandes, le
+   * Le MM-DECKS (2026-10-04 ; absent avec ?dj=0) : le rig, le store des commandes, le
    * bloc cadre au telephone, le moteur (null avant le premier geste). Tests
    * sans son : ?mute=1, les cretes se lisent avant le master.
    */

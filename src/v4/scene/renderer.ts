@@ -422,8 +422,7 @@ export class Stage {
   private introT0 = -1;
   /** le MM-VOYAGER (2026-10-03, ?voyager=1), null sans lui */
   readonly voy: VoyagerRig | null;
-  /** le MM-DECKS (2026-10-04, ?dj=1), null sans lui */
-  /** le MM-DECKS (?dj=1), accroche une fois son code arrive (attachDj) ; null avant, et sans lui */
+  /** le MM-DECKS (2026-10-04), accroche une fois son code arrive (attachDj) ; null avant, et sans lui (?dj=0) */
   dj: DjRig | null = null;
   /** l'anisotropie des textures, gardee pour le MM-DECKS qui arrive apres le constructeur */
   private aniso = 1;
@@ -682,8 +681,8 @@ export class Stage {
     } else {
       this.voy = null;
     }
-    // Le MM-DECKS (2026-10-04, ?dj=1) : son code arrive a part (state/djload.ts),
-    // le rig s'accroche ensuite (attachDj) ; sans le drapeau, rien n'est charge
+    // Le MM-DECKS (2026-10-04) : son code arrive a part (state/djload.ts), apres
+    // le chargement principal ; le rig s'accroche ensuite (attachDj). Avec ?dj=0, rien
     this.aniso = aniso;
     if (VOYAGER && DJ) void djLoad.load()?.then((m) => this.attachDj(m.DjRig));
 

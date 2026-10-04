@@ -319,9 +319,9 @@ function useShapeReload(): void {
 }
 
 /**
- * La liste des morceaux du MM-DECKS (la playlist), chargee a part : avec
- * ?dj=1 seulement (2026-10-04, l'accueil de Deck). getStage : le cadrage
- * remonte au-dessus d'elle.
+ * La liste des morceaux du MM-DECKS (la playlist), chargee a part, apres le
+ * chargement principal (2026-10-04, l'accueil de Deck ; jamais avec ?dj=0).
+ * getStage : le cadrage remonte au-dessus d'elle.
  */
 const DjBrowser = lazy(() =>
   import('./dj/TrackBrowser').then((m) => ({ default: m.DjBrowser as React.ComponentType<{ getStage: () => Stage | null }> }))
