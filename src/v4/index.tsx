@@ -325,7 +325,7 @@ function useShapeReload(): void {
  * getStage : le cadrage remonte au-dessus d'elle.
  */
 const DjBrowser = lazy(() =>
-  import('./dj/TrackBrowser').then((m) => ({ default: m.DjBrowser as React.ComponentType<{ getStage: () => Stage | null }> }))
+  import('./dj/TrackBrowser').then((m) => ({ default: m.DjBrowser as React.ComponentType<{ getStage: () => Stage | null; stage: Stage | null }> }))
 );
 /** Les jumeaux HTML du MM-DECKS (clavier, lecteurs d'ecran), charges a part eux aussi. */
 const DjTwins = lazy(() => import('./dj/Twins'));
@@ -514,7 +514,7 @@ const V4Shell: React.FC = () => {
           {/* Le MM-DECKS : la liste des morceaux, ouverte par LOAD */}
           {DJ && (
             <Suspense fallback={null}>
-              <DjBrowser getStage={getStage} />
+              <DjBrowser getStage={getStage} stage={stage} />
             </Suspense>
           )}
           {/* Deux machines : leurs noms, le retour a la vue d'ensemble, le selecteur du telephone */}

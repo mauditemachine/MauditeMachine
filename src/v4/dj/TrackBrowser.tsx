@@ -142,9 +142,14 @@ const HEAD_PX = 56;
 interface Props {
   /** le Stage : la playlist lui donne sa hauteur (le cadrage remonte au-dessus) */
   getStage?: () => Stage | null;
+  /**
+   * La scene courante : elle est recreee au changement Dark / Light, et la
+   * nouvelle part sans marge ; l'effet qui la lui donne doit la suivre.
+   */
+  stage?: Stage | null;
 }
 
-export const DjBrowser: React.FC<Props> = ({ getStage }) => {
+export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
   const b = useSyncExternalStore(djBrowser.subscribe, djBrowser.get, djBrowser.get);
   const dj = useSyncExternalStore(djState.subscribe, djState.get, djState.get);
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
@@ -223,7 +228,7 @@ export const DjBrowser: React.FC<Props> = ({ getStage }) => {
   // La hauteur repliee de la playlist remonte le cadrage de la scene (agrandie, elle passe par-dessus)
   useLayoutEffect(() => {
     const el = panel.current;
-    const stage = getStage?.();
+    const stage = current ?? getStage?.();
     if (!el || !stage) return undefined;
     if (!shown) {
       stage.setDjInset(0);
@@ -242,7 +247,7 @@ export const DjBrowser: React.FC<Props> = ({ getStage }) => {
     const ro = new ResizeObserver(apply);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [shown, getStage]);
+  }, [shown, getStage, current]);
 
   // LOAD : la recherche prend le clavier ; Echap replie (avant les raccourcis des machines)
   useEffect(() => {
