@@ -20,6 +20,11 @@
  * - FILES : la caisse (dj/crate.ts), les fichiers de l'appareil gardes
  *   d'une visite a l'autre, ranges par dossier ; rien n'est envoye. Un gros
  *   import demande : copier dans le navigateur, ou relier pour la visite.
+ *   Un morceau d'une visite passee (2026-10-04, Mika : "quand je clique sur
+ *   une track d'un dossier que j'avais rajoute avant, ca ne fait rien") se
+ *   touche : on choisit son dossier de nouveau, il part sur la platine, et
+ *   le dossier est garde sur l'appareil (relie sur Chrome et Edge, copie
+ *   ailleurs s'il y a la place) : on ne le redemande plus.
  * Le nom DjBrowser et ses props ne changent pas (index.tsx, state/djload.ts).
  */
 
@@ -41,6 +46,8 @@ import {
   crateTracks,
   createList,
   deleteList,
+  crateFile,
+  fingerprint,
   folderOfPath,
   isSound,
   linkFolder,
@@ -399,12 +406,50 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
 
   const progress = (done: number, total: number): void => setWork(`ADDING ${done} / ${total}`);
 
+  /** Le morceau d'une visite passee qu'on a touche : il part des que son dossier revient. */
+  const waitingFor = useRef<DjTrack | null>(null);
+
+  /** Un morceau d'une visite passee : on choisit son dossier de nouveau (relie sur Chrome et Edge, sinon le selecteur de dossiers). */
+  const findFolder = (t: DjTrack): void => {
+    gesture();
+    waitingFor.current = t;
+    if (!canLink()) {
+      setWork(`PICK THE FOLDER ${(t.folder || 'OF THIS TRACK').split('/')[0].toUpperCase()}`);
+      pickDir.current?.click();
+      return;
+    }
+    void pickAndLink(progress)
+      .then(async (r) => {
+        const p = waitingFor.current;
+        waitingFor.current = null;
+        if (!r || !p) return;
+        if (await crateFile(p.id).catch(() => null)) load({ ...p, relink: undefined });
+        else flash('THIS TRACK IS NOT IN THAT FOLDER');
+      })
+      .finally(() => {
+        setWork(null);
+        void crateRoots().then(setRoots);
+      });
+  };
+
   /** Range des fichiers : un seul petit fichier entre tout de suite (copie) ; sinon on demande. */
   const offer = async (files: PlacedFile[]): Promise<void> => {
     const sounds = files.filter((x) => isSound(x.file));
     if (sounds.length === 0) return;
     setTab('files');
     const bytes = sounds.reduce((n, x) => n + x.file.size, 0);
+    // Le dossier d'un morceau touche revient : le morceau part tout de suite, puis le dossier se
+    // garde sur l'appareil s'il y a la place (sinon pour la visite), sans rien demander de plus
+    const p = waitingFor.current;
+    if (p) {
+      waitingFor.current = null;
+      const hit = sounds.find((x) => fingerprint(x.file) === p.id);
+      if (hit) load({ ...p, file: hit.file, relink: undefined });
+      else flash('THIS TRACK IS NOT IN THAT FOLDER');
+      const left = await storageLeft();
+      await run(sounds, left === null || left > bytes * 1.1 ? 'copy' : 'visit');
+      return;
+    }
     const named = sounds.find((x) => x.folder)?.folder ?? here;
     if (sounds.length <= ASK.files && bytes < ASK.bytes) {
       await run(sounds.map((x) => ({ ...x, folder: x.folder || named })), 'copy');
@@ -480,6 +525,12 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
         const r = await linkFolder(d, progress);
         setTab('files');
         setPath(r.name);
+      }
+      // Le dossier d'un morceau touche, lache et relie (Chrome) : le morceau part
+      const p = waitingFor.current;
+      if (ds.length > 0 && p && (await crateFile(p.id).catch(() => null))) {
+        waitingFor.current = null;
+        load({ ...p, relink: undefined });
       }
       setWork(null);
       void crateRoots().then(setRoots);
@@ -799,14 +850,21 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
           </li>
         )}
         {rows.map((t, i) => {
-          const off = t.relink || t.unreadable;
+          // Un morceau d'une visite passee se touche aussi : on retrouve son dossier
+          const off = t.unreadable;
           return (
-            <li key={t.id} className="dj-scr-row" aria-current={t.id === loadedId ? 'true' : undefined}>
-              <button type="button" className="dj-scr-load" disabled={off} aria-label={`Load ${t.title} on deck ${deck.toUpperCase()}`} onClick={() => load(t)}>
+            <li key={t.id} className="dj-scr-row" data-relink={t.relink ? '1' : undefined} aria-current={t.id === loadedId ? 'true' : undefined}>
+              <button
+                type="button"
+                className="dj-scr-load"
+                disabled={off}
+                aria-label={t.relink ? `Find the folder of ${t.title}, then load it on deck ${deck.toUpperCase()}` : `Load ${t.title} on deck ${deck.toUpperCase()}`}
+                onClick={() => (t.relink ? findFolder(t) : load(t))}
+              >
                 <span className="dj-scr-names">
                   <span className="dj-scr-name">{t.title}</span>
                   <span className="dj-scr-artist">
-                    {t.unreadable ? (t.artist === 'No longer in FILES' ? t.artist : 'Unreadable file') : t.relink ? 'Drop its folder again to play it' : t.artist}
+                    {t.unreadable ? (t.artist === 'No longer in FILES' ? t.artist : 'Unreadable file') : t.relink ? 'Tap, then pick its folder again' : t.artist}
                     {tab === 'files' && query.trim() && t.folder ? `  /  ${t.folder}` : ''}
                   </span>
                 </span>

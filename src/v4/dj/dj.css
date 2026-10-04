@@ -297,6 +297,11 @@
   cursor: default;
 }
 
+/* Un morceau d'une visite passee : pale, mais il se touche (son dossier se choisit de nouveau) */
+.dj-scr-row[data-relink='1'] .dj-scr-names {
+  opacity: 0.6;
+}
+
 .dj-scr-names {
   display: flex;
   flex: 1 1 auto;
