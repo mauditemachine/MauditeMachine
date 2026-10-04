@@ -4208,6 +4208,50 @@ html:has(body.v4-active.v4-light) {
   letter-spacing: 0.04em;
 }
 
+/* Le Dock du MM-DECKS (dj/MixDock.tsx) : sa languette porte son nom, MIXER ; PLAY/STOP des machines sous MASTER */
+@media (max-width: 767px) {
+  .v4-root .v4-djdock-tab {
+    width: auto;
+    gap: 8px;
+    padding: 0 16px;
+    height: 34px;
+    border-radius: 17px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+  }
+}
+
+.v4-root .v4-djdock-play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 52px;
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--graphite);
+  color: var(--bone);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.v4-root .v4-djdock-play[data-on='1'] {
+  border-color: var(--yellow);
+  color: var(--yellow);
+}
+
+.v4-root .v4-djdock-play:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
 /* KNOBS : une hauteur fixe (la plus haute section, VOICE FX), la languette posee sur son bord */
 @media (max-width: 767px) {
   .v4-root {

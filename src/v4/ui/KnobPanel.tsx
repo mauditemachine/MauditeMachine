@@ -23,10 +23,11 @@
  * machine 3D tourne avec. Au clavier : role slider, fleches, Debut, Fin.
  */
 
-import React, { useLayoutEffect, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
+import React, { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
 import { anyDial, anyDialReset, anyDialValue, dialRange, dialReadout, dialSteps, dialValueText, selectInstrument, subscribeDials, type DialId } from '../actions';
 import { INSTRUMENTS, pattern } from '../audio/pattern';
 import type { Stage } from '../scene/renderer';
+import type { MachineId } from '../state/focus';
 import { POT_UI, TEMPO_UI } from '../theme';
 
 interface Dial {
@@ -102,13 +103,36 @@ const arc = (from: number, to: number, rad: number): string => {
   return `M${x0.toFixed(2)} ${y0.toFixed(2)}A${rad} ${rad} 0 ${large} ${sweep} ${x1.toFixed(2)} ${y1.toFixed(2)}`;
 };
 
+/**
+ * Ce qu'un gros potard sait de son reglage (2026-10-04) : sa valeur et ses
+ * bornes, ses crans, sa valeur de depart, ce qu'il affiche. Les potards
+ * des machines (DialId, plus bas) et ceux de la table du MM-DECKS
+ * (dj/MixDock.tsx) passent par la.
+ */
+export interface KnobSpec {
+  label: string;
+  get(): number;
+  set(v: number): void;
+  reset(): number;
+  range: readonly [number, number];
+  /** 0 : continu */
+  steps: number;
+  /** zero au milieu : l'arc part du centre */
+  bipolar: boolean;
+  readout(): string;
+  valueText(): string;
+  subscribe(fn: () => void): () => void;
+  /** TEMPO : au BPM entier */
+  whole?: boolean;
+}
+
 /** Un potard : glisser, taper (cran suivant), deux tapes (valeur de depart), clavier. */
-const BigKnob: React.FC<Dial> = ({ id, label }) => {
-  const value = useSyncExternalStore(subscribeDials, () => anyDialValue(id), () => anyDialValue(id));
-  const [lo, hi] = dialRange(id);
-  const steps = dialSteps(id);
+export const KnobView: React.FC<{ spec: KnobSpec }> = ({ spec }) => {
+  const value = useSyncExternalStore(spec.subscribe, spec.get, spec.get);
+  const [lo, hi] = spec.range;
+  const steps = spec.steps;
   const k = hi > lo ? Math.min(1, Math.max(0, (value - lo) / (hi - lo))) : 0;
-  const bipolar = lo < 0;
+  const bipolar = spec.bipolar;
   const drag = useRef<{ y: number; x: number; k0: number; moved: boolean } | null>(null);
   const lastTap = useRef(0);
 
@@ -117,9 +141,9 @@ const BigKnob: React.FC<Dial> = ({ id, label }) => {
     let p = Math.min(1, Math.max(0, pos));
     if (steps > 1) p = Math.round(p * (steps - 1)) / (steps - 1);
     let val = lo + p * (hi - lo);
-    if (id === 'tempo') val = Math.round(val);
+    if (spec.whole) val = Math.round(val);
     else val = Math.round(val * 1000) / 1000;
-    anyDial(id, val);
+    spec.set(val);
   };
 
   const onDown = (ev: React.PointerEvent<HTMLDivElement>): void => {
@@ -153,11 +177,11 @@ const BigKnob: React.FC<Dial> = ({ id, label }) => {
     const t = performance.now();
     if (t - lastTap.current <= TEMPO_UI.tapMs) {
       lastTap.current = 0;
-      anyDial(id, anyDialReset(id));
+      spec.set(spec.reset());
     } else lastTap.current = t;
   };
   const onKey = (ev: React.KeyboardEvent<HTMLDivElement>): void => {
-    const step = steps > 1 ? 1 / (steps - 1) : ev.shiftKey ? 0.1 : id === 'tempo' ? 1 / (hi - lo) : 0.01;
+    const step = steps > 1 ? 1 / (steps - 1) : ev.shiftKey ? 0.1 : spec.whole ? 1 / (hi - lo) : 0.01;
     let p = k;
     if (ev.key === 'ArrowUp' || ev.key === 'ArrowRight') p += step;
     else if (ev.key === 'ArrowDown' || ev.key === 'ArrowLeft') p -= step;
@@ -177,11 +201,11 @@ const BigKnob: React.FC<Dial> = ({ id, label }) => {
       className="v4-knob"
       role="slider"
       tabIndex={0}
-      aria-label={label}
+      aria-label={spec.label}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(k * 100)}
-      aria-valuetext={dialReadout(id)}
+      aria-valuetext={spec.readout()}
       data-steps={steps > 1 ? '1' : '0'}
       onPointerDown={onDown}
       onPointerMove={onMove}
@@ -191,7 +215,7 @@ const BigKnob: React.FC<Dial> = ({ id, label }) => {
       }}
       onKeyDown={onKey}
     >
-      <span className="v4-knob-label">{label}</span>
+      <span className="v4-knob-label">{spec.label}</span>
       <svg className="v4-knob-dial" viewBox={`0 0 ${SIZE} ${SIZE}`} width={SIZE} height={SIZE} aria-hidden="true">
         <path className="v4-knob-track" d={arc(A0, A0 + SWEEP, R_ARC)} />
         {Math.abs(at - from) > 0.5 && <path className="v4-knob-arc" d={from < at ? arc(from, at, R_ARC) : arc(at, from, R_ARC)} />}
@@ -204,9 +228,30 @@ const BigKnob: React.FC<Dial> = ({ id, label }) => {
         <circle className="v4-knob-cap" cx={C} cy={C} r={19} />
         <line className="v4-knob-mark" x1={qx} y1={qy} x2={px} y2={py} />
       </svg>
-      <span className="v4-knob-value">{dialValueText(id)}</span>
+      <span className="v4-knob-value">{spec.valueText()}</span>
     </div>
   );
+};
+
+/** Un potard d'une machine (DialId) : les memes actions et stores que la machine. */
+const BigKnob: React.FC<Dial> = ({ id, label }) => {
+  const spec = useMemo<KnobSpec>(() => {
+    const range = dialRange(id);
+    return {
+      label,
+      get: () => anyDialValue(id),
+      set: (v) => anyDial(id, v),
+      reset: () => anyDialReset(id),
+      range,
+      steps: dialSteps(id),
+      bipolar: range[0] < 0,
+      readout: () => dialReadout(id),
+      valueText: () => dialValueText(id),
+      subscribe: subscribeDials,
+      whole: id === 'tempo',
+    };
+  }, [id, label]);
+  return <KnobView spec={spec} />;
 };
 
 interface Props {
@@ -258,7 +303,7 @@ export const KnobPanel: React.FC<Props> = ({ machine }) => {
  * cadrage des editeurs), on voit ses potards tourner ; replie ou sur
  * l'autre page, elle reprend tout l'ecran.
  */
-export function useDockInset(stage: Stage | null, machine: 'mm808' | 'voy', active: boolean, ref: RefObject<HTMLElement | null>): void {
+export function useDockInset(stage: Stage | null, machine: MachineId, active: boolean, ref: RefObject<HTMLElement | null>): void {
   useLayoutEffect(() => {
     const el = ref.current;
     if (!stage || !el || !active) return undefined;
