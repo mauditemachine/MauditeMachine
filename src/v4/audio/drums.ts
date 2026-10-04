@@ -68,6 +68,12 @@ interface Graph {
   clipPre: GainNode;
   /** le limiteur a anticipation (audio/limiter.worklet.js), une fois charge */
   limiter: AudioWorkletNode | null;
+  /**
+   * La sortie finale avant MASTER (2026-10-04) : apres le limiteur (ou
+   * l'ecreteur de secours tant qu'il n'est pas charge), un point fixe ou le
+   * vumetre master du MM-DECKS mesure ce qui sort vraiment (synthPort().out).
+   */
+  post: GainNode;
   /** DIST du bus */
   fx: FxChain;
   /** REVERB et DELAY partages, et les envois de tout le pattern (apres LEVEL) */
@@ -215,7 +221,9 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   arpOut.connect(analyser);
   comp.connect(rytmOut);
   analyser.connect(clipPre);
-  clipper.connect(master);
+  const post = c.createGain();
+  clipper.connect(post);
+  post.connect(master);
   master.connect(c.destination);
   const f = pattern.fx.get();
   const direct = { direct: true, linked: false, dry: 1, wet: 0, unlinks: 0 };
@@ -261,7 +269,7 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
     ch = out;
   }
 
-  const g: Graph = { ctx: c, bus, tone: toneSt, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, fx, reverb, delay, reverbSend, delaySend, ch, rytmOut, arpOut, arpReverb, taps };
+  const g: Graph = { ctx: c, bus, tone: toneSt, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, post, fx, reverb, delay, reverbSend, delaySend, ch, rytmOut, arpOut, arpReverb, taps };
   if (!o.bare) {
     reverbSend.set(o.reverb ?? f.reverb);
     delaySend.set(o.delay ?? f.delay);
@@ -361,7 +369,7 @@ function attachLimiter(c: BaseAudioContext, g: Graph): Promise<void> {
       });
       g.analyser.disconnect(g.clipPre);
       g.analyser.connect(node);
-      node.connect(g.master);
+      node.connect(g.post);
       g.limiter = node;
     })
     .catch(() => {
@@ -419,6 +427,8 @@ export function context(): AudioContext | undefined {
  * pompage net dans des intra-auriculaires), puis le limiteur et le master
  * (?mute=1 tient). null avant le premier geste.
  * - input : l'entree du master (la sortie du mixer du MM-DECKS y va) ;
+ * - out : la sortie apres le limiteur, avant MASTER (le vumetre master du
+ *   MM-DECKS la mesure ; ?mute=1 n'y change rien, MASTER est apres) ;
  * - arp : la prise du MM-ARP (2026-10-04) ; le synthe y sort, et sa REVERB
  *   (reverb, a lui depuis le 2026-10-04 : le canal 2 du mixer la coupe
  *   avec lui) ; delay : celui de la boite (inutilise par le synthe).
@@ -427,13 +437,15 @@ export interface SynthPort {
   ctx: AudioContext;
   input: AudioNode;
   arp: AudioNode;
+  /** la sortie apres le limiteur, avant MASTER (vumetre master du MM-DECKS) */
+  out: AudioNode;
   reverb: SendBus;
   delay: DelayBus;
 }
 
 export function synthPort(): SynthPort | null {
   if (!ctx || !graph) return null;
-  return { ctx, input: graph.analyser, arp: graph.arpOut, reverb: graph.arpReverb, delay: graph.delay };
+  return { ctx, input: graph.analyser, arp: graph.arpOut, out: graph.post, reverb: graph.arpReverb, delay: graph.delay };
 }
 
 /** La sortie complete de chaque machine (sec et effets) ; null avant le premier geste. */
