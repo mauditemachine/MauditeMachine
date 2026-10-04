@@ -31,8 +31,12 @@ import type { Send } from './sends';
  */
 const engineOs = (): number => (typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches ? 2 : 4);
 
-/** VOLUME a 1 (gain au carre), et reprise de niveau : DELAY et REVERB s'ajoutent au son sec. */
-const VOLUME_K = 1.15;
+/**
+ * VOLUME a 1 (gain au carre), et reprise de niveau : DELAY et REVERB
+ * s'ajoutent au son sec. 0.75 (1.15 avant le 2026-10-03) : le MM-RYTM et
+ * le MM-ARP au meme niveau dans les mediums, apres le compresseur commun.
+ */
+const VOLUME_K = 0.75;
 const MAKEUP = { delay: 0.35, reverb: 0.5 } as const;
 /** REVERB : envoi renforce vers la reverbe partagee. */
 const REVERB_BOOST = 1.25;

@@ -39,6 +39,7 @@ import { pattern, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern'
 import { buildDelayBus, buildReverbBus, type BusInfo, type DelayBus, type Send, type SendBus, type SendInfo } from './sends';
 import { hitTime, snapTime } from './time';
 import { buildTone, pitchFactor, snapTone, type ToneInfo, type ToneStage } from './tone';
+import { shots, type ShotId } from './shots';
 import { VOICE_FX_DEFAULT, voiceFx, voiceGain, type VoiceFx, type VoiceParam } from './voicefx';
 
 type Ctor = typeof AudioContext;
@@ -76,10 +77,6 @@ interface Graph {
   delaySend: Send;
   /** tranches des voix (null : reference sans effets, rendu hors ligne) */
   ch: Record<Inst, Channel> | null;
-  /** une seconde de bruit blanc, generee une fois, partagee par SD et CH */
-  noise: AudioBuffer;
-  /** drive du BD : tanh(2.5 x) sur 1024 points */
-  curve: Float32Array;
 }
 
 export interface TriggerInfo {
@@ -102,14 +99,10 @@ export interface Voice {
   nodes: AudioNode[];
 }
 
-/** Enveloppes des voix, en secondes (spec 8.2). */
-const TAIL = { BD: 0.42, SD: 0.18, SDbody: 0.12, TOM: 0.3, CH: 0.045, CHopen: 0.22, OH: 0.34, CP: 0.22, RS: 0.07, HT: 0.24, CY: 1.1, PC: 0.2 } as const;
-/** Les six frequences metalliques de la 808 (cymbale, charleys d'origine), en Hz. */
-const METAL_HZ = [205.3, 304.4, 369.6, 522.7, 540, 800] as const;
+/** Le compresseur commun (la batterie et le MM-ARP), reglable par les tests (__v4.audio.comp). */
+const COMP = { threshold: -14, knee: 10, ratio: 3, attack: 0.004, release: 0.15 };
 /** Un charley (ferme ou ouvert) coupe le charley ouvert qui sonne encore, en 8 ms (choke 808). */
 const CHOKE_S = 0.008;
-/** Les sources s'arretent 50 ms apres la fin de leur enveloppe. */
-const STOP_PAD = 0.05;
 
 let ctx: AudioContext | undefined;
 let graph: Graph | undefined;
@@ -175,11 +168,11 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   const lvl = c.createGain();
   lvl.gain.value = level * level;
   const comp = c.createDynamicsCompressor();
-  comp.threshold.value = -14;
-  comp.knee.value = 10;
-  comp.ratio.value = 3;
-  comp.attack.value = 0.004;
-  comp.release.value = 0.15;
+  comp.threshold.value = COMP.threshold;
+  comp.knee.value = COMP.knee;
+  comp.ratio.value = COMP.ratio;
+  comp.attack.value = COMP.attack;
+  comp.release.value = COMP.release;
   const analyser = c.createAnalyser();
   analyser.fftSize = 1024;
   analyser.smoothingTimeConstant = 0;
@@ -244,14 +237,7 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
     ch = out;
   }
 
-  const noise = c.createBuffer(1, Math.round(c.sampleRate), c.sampleRate);
-  const d = noise.getChannelData(0);
-  for (let i = 0; i < d.length; i += 1) d[i] = Math.random() * 2 - 1;
-
-  const curve = new Float32Array(1024);
-  for (let i = 0; i < curve.length; i += 1) curve[i] = Math.tanh(2.5 * ((i / (curve.length - 1)) * 2 - 1));
-
-  const g: Graph = { ctx: c, bus, tone: toneSt, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, fx, reverb, delay, reverbSend, delaySend, ch, noise, curve };
+  const g: Graph = { ctx: c, bus, tone: toneSt, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, fx, reverb, delay, reverbSend, delaySend, ch };
   if (!o.bare) {
     reverbSend.set(o.reverb ?? f.reverb);
     delaySend.set(o.delay ?? f.delay);
@@ -323,6 +309,8 @@ export function ensure(): AudioContext | undefined {
   }
   created += 1;
   graph = build(ctx);
+  // Les one-shots a STRETCH 0, un par tache (audio/shots.ts)
+  shots.warm(ctx.sampleRate);
   attachLimiter(ctx, graph);
   return ctx;
 }
@@ -418,316 +406,6 @@ export function synthPort(): SynthPort | null {
 
 /* ---------------- voix (spec 8.2) ---------------- */
 
-/** Demarre, arrete a la fin de l'enveloppe + 50 ms, puis debranche tout (GC). */
-function play(src: AudioScheduledSourceNode, when: number, tail: number, nodes: AudioNode[]): void {
-  src.onended = () => {
-    for (const n of nodes) n.disconnect();
-  };
-  src.start(when);
-  src.stop(when + tail + STOP_PAD);
-}
-
-function noiseSource(g: Graph): AudioBufferSourceNode {
-  const src = g.ctx.createBufferSource();
-  src.buffer = g.noise;
-  return src;
-}
-
-/**
- * Depart au hasard dans la seconde de bruit : deux coups ne sont jamais
- * identiques. En boucle : une queue etiree (STRETCH) peut durer plus d'une
- * seconde.
- */
-function startNoise(src: AudioBufferSourceNode, when: number, tail: number, nodes: AudioNode[]): void {
-  src.onended = () => {
-    for (const n of nodes) n.disconnect();
-  };
-  src.loop = true;
-  const span = (src.buffer?.duration ?? 1) - tail - STOP_PAD - 0.01;
-  src.start(when, Math.random() * Math.max(0, span));
-  src.stop(when + tail + STOP_PAD);
-}
-
-function voiceBD(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
-  const c = g.ctx;
-  const tail = TAIL.BD * ts;
-  const osc = c.createOscillator();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(150 * pf, when);
-  osc.frequency.exponentialRampToValueAtTime(48 * pf, when + 0.06 * ts);
-  const env = c.createGain();
-  env.gain.setValueAtTime(0, when);
-  // L'attaque (2 ms) ne s'etire pas : le coup garde son claquement
-  env.gain.linearRampToValueAtTime(1, when + 0.002);
-  env.gain.exponentialRampToValueAtTime(0.001, when + tail);
-  const drive = c.createGain();
-  drive.gain.value = 1.4;
-  const shaper = c.createWaveShaper();
-  shaper.curve = g.curve;
-  shaper.oversample = '4x';
-  const post = c.createGain();
-  post.gain.value = 0.8;
-  osc.connect(env);
-  env.connect(drive);
-  drive.connect(shaper);
-  shaper.connect(post);
-  post.connect(dest);
-  const nodes = [osc, env, drive, shaper, post];
-  play(osc, when, tail, nodes);
-  return { when, srcs: [osc], nodes };
-}
-
-function voiceSD(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
-  const c = g.ctx;
-  const tail = TAIL.SD * ts;
-  const bodyTail = TAIL.SDbody * ts;
-  const src = noiseSource(g);
-  const bp = c.createBiquadFilter();
-  bp.type = 'bandpass';
-  bp.frequency.value = 1800 * pf;
-  bp.Q.value = 1.2;
-  const nEnv = c.createGain();
-  nEnv.gain.setValueAtTime(1, when);
-  nEnv.gain.exponentialRampToValueAtTime(0.001, when + tail);
-  const body = c.createOscillator();
-  body.type = 'triangle';
-  body.frequency.setValueAtTime(180 * pf, when);
-  body.frequency.exponentialRampToValueAtTime(140 * pf, when + 0.06 * ts);
-  const bEnv = c.createGain();
-  bEnv.gain.setValueAtTime(0.6, when);
-  bEnv.gain.exponentialRampToValueAtTime(0.001, when + bodyTail);
-  const out = c.createGain();
-  out.gain.value = 0.9;
-  src.connect(bp);
-  bp.connect(nEnv);
-  nEnv.connect(out);
-  body.connect(bEnv);
-  bEnv.connect(out);
-  out.connect(dest);
-  body.start(when);
-  body.stop(when + bodyTail + STOP_PAD);
-  // Le bruit finit en dernier : c'est lui qui debranche toute la voix
-  const nodes = [src, bp, nEnv, body, bEnv, out];
-  startNoise(src, when, tail, nodes);
-  return { when, srcs: [src, body], nodes };
-}
-
-function voiceTOM(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
-  const c = g.ctx;
-  const tail = TAIL.TOM * ts;
-  const osc = c.createOscillator();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(220 * pf, when);
-  osc.frequency.exponentialRampToValueAtTime(110 * pf, when + 0.12 * ts);
-  const env = c.createGain();
-  env.gain.setValueAtTime(1, when);
-  env.gain.exponentialRampToValueAtTime(0.001, when + tail);
-  osc.connect(env);
-  env.connect(dest);
-  const nodes = [osc, env];
-  play(osc, when, tail, nodes);
-  return { when, srcs: [osc], nodes };
-}
-
-/**
- * Clap (2026-10-03) : bruit en bande (1.1 kHz) frappe quatre fois a 10 ms
- * d'intervalle (les mains qui ne tombent pas ensemble), la derniere tient
- * 220 ms.
- */
-function voiceCP(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
-  const c = g.ctx;
-  const tail = TAIL.CP * ts;
-  const src = noiseSource(g);
-  const bp = c.createBiquadFilter();
-  bp.type = 'bandpass';
-  bp.frequency.value = 1100 * pf;
-  bp.Q.value = 1.3;
-  const hp = c.createBiquadFilter();
-  hp.type = 'highpass';
-  hp.frequency.value = 500 * pf;
-  const env = c.createGain();
-  // Trois claquements brefs (l'attaque ne s'etire pas), puis la queue
-  for (let k = 0; k < 3; k += 1) {
-    const t = when + 0.01 * k;
-    env.gain.setValueAtTime(1, t);
-    env.gain.exponentialRampToValueAtTime(0.12, t + 0.008);
-  }
-  env.gain.setValueAtTime(1, when + 0.03);
-  env.gain.exponentialRampToValueAtTime(0.001, when + 0.03 + tail);
-  const out = c.createGain();
-  out.gain.value = 1.6;
-  src.connect(bp);
-  bp.connect(hp);
-  hp.connect(env);
-  env.connect(out);
-  out.connect(dest);
-  const nodes = [src, bp, hp, env, out];
-  startNoise(src, when, 0.03 + tail, nodes);
-  return { when, srcs: [src], nodes };
-}
-
-/**
- * Rimshot (2026-10-03) : deux triangles inharmoniques tres courts (980 Hz
- * et 290 Hz, plus bas que ceux de la 808 a la demande de Mika) ; 70 ms.
- */
-function voiceRS(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
-  const c = g.ctx;
-  const tail = TAIL.RS * ts;
-  const a = c.createOscillator();
-  a.type = 'triangle';
-  // Plus bas (2026-10-03, Mika : 1.7 kHz et 455 Hz sonnaient trop aigus) : le bois du cercle
-  a.frequency.value = 980 * pf;
-  const b = c.createOscillator();
-  b.type = 'triangle';
-  b.frequency.value = 290 * pf;
-  const hp = c.createBiquadFilter();
-  hp.type = 'highpass';
-  hp.frequency.value = 180 * pf;
-  const env = c.createGain();
-  env.gain.setValueAtTime(0, when);
-  env.gain.linearRampToValueAtTime(1, when + 0.001);
-  env.gain.exponentialRampToValueAtTime(0.001, when + tail);
-  const out = c.createGain();
-  out.gain.value = 0.55;
-  a.connect(hp);
-  b.connect(hp);
-  hp.connect(env);
-  env.connect(out);
-  out.connect(dest);
-  const nodes: AudioNode[] = [a, b, hp, env, out];
-  b.start(when);
-  b.stop(when + tail + STOP_PAD);
-  play(a, when, tail, nodes);
-  return { when, srcs: [a, b], nodes };
-}
-
-/** Tom aigu (2026-10-03) : le TOM une quinte plus haut, plus court. */
-function voiceHT(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
-  const c = g.ctx;
-  const tail = TAIL.HT * ts;
-  const osc = c.createOscillator();
-  osc.type = 'sine';
-  osc.frequency.setValueAtTime(330 * pf, when);
-  osc.frequency.exponentialRampToValueAtTime(175 * pf, when + 0.1 * ts);
-  const env = c.createGain();
-  env.gain.setValueAtTime(1, when);
-  env.gain.exponentialRampToValueAtTime(0.001, when + tail);
-  osc.connect(env);
-  env.connect(dest);
-  const nodes = [osc, env];
-  play(osc, when, tail, nodes);
-  return { when, srcs: [osc], nodes };
-}
-
-/**
- * Cymbale (2026-10-03) : les six carres metalliques de la 808 (METAL_HZ x
- * 2), filtres haut et en bande vers 8 kHz, et un voile de bruit ; 1.1 s.
- */
-function voiceCY(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
-  const c = g.ctx;
-  const tail = TAIL.CY * ts;
-  const mix = c.createGain();
-  mix.gain.value = 0.3;
-  const srcs: AudioScheduledSourceNode[] = [];
-  const nodes: AudioNode[] = [mix];
-  for (const hz of METAL_HZ) {
-    const o = c.createOscillator();
-    o.type = 'square';
-    o.frequency.value = hz * 2 * pf;
-    o.connect(mix);
-    srcs.push(o);
-    nodes.push(o);
-  }
-  const bp = c.createBiquadFilter();
-  bp.type = 'bandpass';
-  bp.frequency.value = Math.min(8000 * pf, c.sampleRate * 0.45);
-  bp.Q.value = 0.7;
-  const hp = c.createBiquadFilter();
-  hp.type = 'highpass';
-  hp.frequency.value = Math.min(5200 * pf, c.sampleRate * 0.4);
-  const noise = noiseSource(g);
-  const nHp = c.createBiquadFilter();
-  nHp.type = 'highpass';
-  nHp.frequency.value = Math.min(7500 * pf, c.sampleRate * 0.45);
-  const nGain = c.createGain();
-  nGain.gain.value = 0.32;
-  const env = c.createGain();
-  env.gain.setValueAtTime(0, when);
-  env.gain.linearRampToValueAtTime(0.9, when + 0.002);
-  env.gain.exponentialRampToValueAtTime(0.25, when + 0.08 * ts);
-  env.gain.exponentialRampToValueAtTime(0.001, when + tail);
-  mix.connect(bp);
-  bp.connect(hp);
-  hp.connect(env);
-  noise.connect(nHp);
-  nHp.connect(nGain);
-  nGain.connect(env);
-  env.connect(dest);
-  nodes.push(bp, hp, nHp, nGain, env);
-  for (const o of srcs) {
-    o.start(when);
-    o.stop(when + tail + STOP_PAD);
-  }
-  // Le bruit finit en dernier : c'est lui qui debranche toute la voix
-  nodes.push(noise);
-  startNoise(noise, when, tail, nodes);
-  return { when, srcs: [...srcs, noise], nodes };
-}
-
-/**
- * Percussion (2026-10-03, a la place de la cloche) : une conga grave. Une
- * peau accordee a 200 Hz (sinus, la hauteur tombe d'un quart en 25 ms puis
- * tient), une pointe de deuxieme mode (x1.5, tres courte) et le claquement
- * de la main (bruit en bande vers 1.6 kHz, 12 ms) ; 200 ms.
- */
-function voicePC(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
-  const c = g.ctx;
-  const tail = TAIL.PC * ts;
-  // 200 Hz (2026-10-03, Mika : 330 Hz trop aigu) : une tumba plutot qu'un quinto
-  const f0 = 200 * pf;
-  const skin = c.createOscillator();
-  skin.type = 'sine';
-  skin.frequency.setValueAtTime(f0 * 1.25, when);
-  skin.frequency.exponentialRampToValueAtTime(f0, when + 0.025 * ts);
-  const sEnv = c.createGain();
-  sEnv.gain.setValueAtTime(0, when);
-  sEnv.gain.linearRampToValueAtTime(0.9, when + 0.002);
-  sEnv.gain.exponentialRampToValueAtTime(0.001, when + tail);
-  const mode = c.createOscillator();
-  mode.type = 'sine';
-  mode.frequency.value = f0 * 1.5;
-  const mEnv = c.createGain();
-  mEnv.gain.setValueAtTime(0.3, when);
-  mEnv.gain.exponentialRampToValueAtTime(0.001, when + 0.06 * ts);
-  const slap = noiseSource(g);
-  const bp = c.createBiquadFilter();
-  bp.type = 'bandpass';
-  bp.frequency.value = Math.min(1600 * pf, c.sampleRate * 0.45);
-  bp.Q.value = 1.1;
-  const nEnv = c.createGain();
-  nEnv.gain.setValueAtTime(0.5, when);
-  nEnv.gain.exponentialRampToValueAtTime(0.001, when + 0.012 * ts);
-  const out = c.createGain();
-  out.gain.value = 0.83;
-  skin.connect(sEnv);
-  sEnv.connect(out);
-  mode.connect(mEnv);
-  mEnv.connect(out);
-  slap.connect(bp);
-  bp.connect(nEnv);
-  nEnv.connect(out);
-  out.connect(dest);
-  mode.start(when);
-  mode.stop(when + 0.06 * ts + STOP_PAD);
-  const nodes: AudioNode[] = [skin, sEnv, mode, mEnv, slap, bp, nEnv, out];
-  // Le bruit s'arrete tot : la peau, la plus longue, debranche la voix
-  slap.loop = true;
-  slap.start(when, Math.random() * 0.5);
-  slap.stop(when + 0.012 * ts + STOP_PAD);
-  play(skin, when, tail, nodes);
-  return { when, srcs: [skin, mode, slap], nodes };
-}
-
 /** La porte du dernier charley ouvert et la fin de son enveloppe (choke). */
 let ohGate: GainNode | null = null;
 let ohEnd = 0;
@@ -741,85 +419,34 @@ function chokeOH(when: number): void {
 }
 
 /**
- * Charley ouvert (2026-10-01) : bruit filtre haut (6.8 kHz) et un peu de
- * brillance (crete a 10 kHz), 340 ms. Un charley ferme ou ouvert suivant le
- * coupe (chokeOH) : sur le motif d'arrivee, le "tss" court des contretemps.
+ * Un coup (2026-10-03, les one-shots, audio/shots.ts) : l'echantillon de
+ * la voix (sa variante, son STRETCH), lu a la vitesse pf (TONE : la hauteur,
+ * comme un sampler). Un charley, ferme ou ouvert, coupe le charley ouvert
+ * qui sonne encore (choke) ; le charley ouvert passe par sa porte. `open` :
+ * le pad CH tenu (CHopen).
  */
-function voiceOH(g: Graph, when: number, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
+function voice(g: Graph, inst: Inst, when: number, open: boolean, dest: AudioNode, pf: number, ts: number, sync = false): Voice {
   const c = g.ctx;
-  const tail = TAIL.OH * ts;
-  chokeOH(when);
-  const src = noiseSource(g);
-  const hp = c.createBiquadFilter();
-  hp.type = 'highpass';
-  hp.frequency.value = 6800 * pf;
-  hp.Q.value = 0.7;
-  const shine = c.createBiquadFilter();
-  shine.type = 'peaking';
-  shine.frequency.value = Math.min(10000 * pf, c.sampleRate * 0.45);
-  shine.Q.value = 1.2;
-  shine.gain.value = 4;
-  const env = c.createGain();
-  env.gain.setValueAtTime(0.55, when);
-  env.gain.exponentialRampToValueAtTime(0.001, when + tail);
-  const gate = c.createGain();
-  gate.gain.value = 1;
-  src.connect(hp);
-  hp.connect(shine);
-  shine.connect(env);
-  env.connect(gate);
-  gate.connect(dest);
-  ohGate = gate;
-  ohEnd = when + tail;
-  const nodes = [src, hp, shine, env, gate];
-  startNoise(src, when, tail, nodes);
+  const id: ShotId = inst === 'CH' && open ? 'CHopen' : inst;
+  if (inst === 'CH' || inst === 'OH') chokeOH(when);
+  const src = c.createBufferSource();
+  src.buffer = shots.get(id, ts, c.sampleRate, sync);
+  src.playbackRate.value = pf;
+  const nodes: AudioNode[] = [src];
+  if (inst === 'OH') {
+    const gate = c.createGain();
+    gate.gain.value = 1;
+    src.connect(gate);
+    gate.connect(dest);
+    nodes.push(gate);
+    ohGate = gate;
+    ohEnd = when + src.buffer.duration / pf;
+  } else src.connect(dest);
+  src.onended = () => {
+    for (const n of nodes) n.disconnect();
+  };
+  src.start(when);
   return { when, srcs: [src], nodes };
-}
-
-function voiceCH(g: Graph, when: number, open: boolean, dest: AudioNode = g.bus, pf = 1, ts = 1): Voice {
-  const c = g.ctx;
-  chokeOH(when);
-  const tail = (open ? TAIL.CHopen : TAIL.CH) * ts;
-  const src = noiseSource(g);
-  const hp = c.createBiquadFilter();
-  hp.type = 'highpass';
-  hp.frequency.value = 7000 * pf;
-  hp.Q.value = 0.7;
-  const env = c.createGain();
-  env.gain.setValueAtTime(0.7, when);
-  env.gain.exponentialRampToValueAtTime(0.001, when + tail);
-  src.connect(hp);
-  hp.connect(env);
-  env.connect(dest);
-  const nodes = [src, hp, env];
-  startNoise(src, when, tail, nodes);
-  return { when, srcs: [src], nodes };
-}
-
-/** Une voix, frequences multipliees par pf (TONE), durees par ts (STRETCH) : exactement 1 a 0. */
-function voice(g: Graph, inst: Inst, t: number, open: boolean, dest: AudioNode, pf: number, ts: number): Voice {
-  switch (inst) {
-    case 'BD':
-      return voiceBD(g, t, dest, pf, ts);
-    case 'SD':
-      return voiceSD(g, t, dest, pf, ts);
-    case 'TOM':
-      return voiceTOM(g, t, dest, pf, ts);
-    case 'OH':
-      return voiceOH(g, t, dest, pf, ts);
-    case 'CP':
-      return voiceCP(g, t, dest, pf, ts);
-    case 'RS':
-      return voiceRS(g, t, dest, pf, ts);
-    case 'HT':
-      return voiceHT(g, t, dest, pf, ts);
-    case 'CY':
-      return voiceCY(g, t, dest, pf, ts);
-    case 'PC':
-      return voicePC(g, t, dest, pf, ts);
-    default:
-      return voiceCH(g, t, open, dest, pf, ts);
-  }
 }
 
 /**
@@ -1055,6 +682,8 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
   const gate = ohGate;
   const end = ohEnd;
   Math.random = seeded(o.seed ?? 808);
+  // Deux rendus identiques : la rotation des variantes repart du debut
+  shots.resetRotation();
   ohGate = null;
   ohEnd = 0;
   let g: Graph;
@@ -1087,7 +716,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
         osc.start(0);
       }
     } else if (o.single) {
-      voices.push(voice(g, o.single, 0.05, false, voiceIn(g, o.single), voicePitch(o.single, tone0, vt(o.single)), vs(o.single)));
+      voices.push(voice(g, o.single, 0.05, false, voiceIn(g, o.single), voicePitch(o.single, tone0, vt(o.single)), vs(o.single), true));
     } else {
       const steps = o.steps ?? pattern.get().steps;
       const step = 60 / (o.bpm ?? pattern.get().bpm) / 4;
@@ -1102,7 +731,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
             vg.connect(dest);
             dest = vg;
           }
-          voices.push(voice(g, inst, t, false, dest, voicePitch(inst, tone0, vt(inst)), vs(inst)));
+          voices.push(voice(g, inst, t, false, dest, voicePitch(inst, tone0, vt(inst)), vs(inst), true));
         }
       }
     }
@@ -1152,6 +781,10 @@ export interface AudioDebug {
   readonly muted: boolean;
   /** le limiteur de sortie est en service (sinon l'ecreteur doux de secours) */
   readonly limiterOn: boolean;
+  /** les reglages du compresseur commun (mutables : tests de niveau, pris au prochain graphe) */
+  readonly comp: typeof COMP;
+  /** les one-shots : rendus, temps de calcul, cache */
+  shots(): ReturnType<typeof shots.info>;
   /** TONE (-1 a 1, revision 5) et STRETCH (-1 a 1, 2026-10-01) */
   readonly tone: number;
   readonly stretch: number;
@@ -1216,6 +849,8 @@ export const audioDebug: AudioDebug = {
   get limiterOn() {
     return graph?.limiter != null;
   },
+  comp: COMP,
+  shots: () => shots.info(),
   get ctx() {
     return ctx;
   },

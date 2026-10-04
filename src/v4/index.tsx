@@ -36,6 +36,7 @@ import { gesture } from './actions';
 import { clock } from './audio/clock';
 import { quiet, resume, suspend } from './audio/drums';
 import { pattern } from './audio/pattern';
+import { shots } from './audio/shots';
 import { sc } from './audio/soundcloud';
 import { installDebug, type DebugState } from './debug';
 import { EngineBridge, EngineProvider } from './engine';
@@ -337,6 +338,10 @@ const V4Shell: React.FC = () => {
   const scStatus = useSyncExternalStore(sc.subscribe, () => sc.get().status);
   const exploded = useSyncExternalStore(explode.subscribe, explode.get, explode.get);
   const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
+  // Les one-shots du MM-RYTM se calculent (worker) des que l'intro est finie : prets avant RUN
+  useEffect(() => {
+    if (introState === 'done') shots.prewarm();
+  }, [introState]);
   const viewMoved = useSyncExternalStore(view.subscribe, view.get, view.get);
   // Deux machines (2026-10-03) : celle qu'on utilise
   const machineFocus = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
