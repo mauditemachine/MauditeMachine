@@ -36,7 +36,8 @@
 - Logotype du MM-ARP (desktop) remonte et un peu plus petit : il ne touche plus OUTPUT (`voyager/theme.ts`, `silk.ts`).
 - MM-ARP : synthese FM facon Typhon, potard FM (OSC 2 module OSC 1, l'indice suit l'enveloppe du filtre) ; GLIDE passe dans l'arpegiateur sur desktop ; touche FM au Dock (`audio/moog.worklet.js`, `voyager/params.ts`, `voyager/theme.ts`, `ui/VoyDock.tsx`, `v4.css`).
 - MM-ARP : RATIO FM reglable (1/2 a 7), un operateur sinus dedie module OSC 1 ; FINE MIX FM RATIO sur la 2e rangee desktop, RATIO au bout de la rangee OSC au telephone, touche RATIO au Dock (`audio/moog.worklet.js`, `voyager/params.ts`, `voyager/theme.ts`, `ui/VoyDock.tsx`, `v4.css`).
-- `docs/v4/spec.md` : R14-34 a R14-52.
+- MM-ARP : NOISE (bruit blanc par voix dans le filtre) et commutateur SLOPE 12/24 dB dans FILTER ; une tape bascule le commutateur, la molette fait enfin tourner les potards a crans (`audio/moog.worklet.js`, `voyager/params.ts`, `voyager/theme.ts`, `voyager/knobs.ts`, `voyager/silk.ts`, `ui/Hotspots.tsx`).
+- `docs/v4/spec.md` : R14-34 a R14-53.
 
 ## 2. Decisions prises et pourquoi
 
@@ -52,12 +53,14 @@
 - Qualite : un vrai limiteur plutot que l'ecreteur (il deformait les cretes) ; le surechantillonnage x4 seulement sur ordinateur (au telephone x2, le calcul compte) ; les DIST paralleles restent sans surechantillonnage (leur retard creuserait un filtre en peigne avec le son sec).
 - FM : modulation de phase (pas de frequence) pour que le ton reste juste ; l'indice suit l'enveloppe du filtre pour une attaque brillante qui se pose, comme un FM classique ; TUNE 2 fait le rapport (quinte, octaves), donc les sons restent dans la tonalite. GLIDE a cede sa place au panneau desktop, c'est un reglage de jeu, il va bien avec l'arpegiateur.
 - RATIO : un operateur sinus a part plutot qu'OSC 2, sinon le rapport FM et l'accord d'OSC 2 (TUNE 2) seraient lies ; rapports harmoniques seulement (1/2 a 7) pour rester dans la tonalite ; indice borne aux aigus pour ne pas replier.
+- SLOPE : "16 dB" lu comme 12 dB (la pente 2 poles classique) ; sortie au 2e etage de l'echelle, la meme retroaction, plutot qu'un second filtre ; un petit commutateur a deux positions plutot qu'un bouton lumineux, faute de place dans FILTER, qui bascule a la tape comme un bouton. NOISE par voix plutot que global : il suit l'enveloppe de chaque note, comme le mixer d'un Moog.
 - Synchro : les deux machines gardent leur propre RUN/STOP (pas de demarrage force de l'autre), mais elles partagent tempo et grille, quel que soit l'ordre de lancement.
 - La 808 n'est pas touchee : meme carte, memes puces, meme serigraphie (verifie dans le diff).
 
 ## 3. Ce qui reste a faire / points en suspens
 
 - Mika : essayer RUN/STOP sur le Voyager avec la 808 qui joue, et le rendu au telephone.
+- Mika : ecouter NOISE et SLOPE ; dire s'il les veut aussi dans le Dock du telephone.
 - Mika : ecouter le FM (WAVE 1 SINE, FM a fond, RATIO 1 pour une scie, 2 ou 3 pour du brillant, 7/2 pour du cloche, 1/2 pour du grave).
 
 ## 4. Commandes utiles ajoutees

@@ -70,6 +70,7 @@ import { chipsLive, explode } from '../state/explode';
 import { focus, VOYAGER } from '../state/focus';
 import { section } from '../state/section';
 import { voices } from '../state/voices';
+import { voyKnob, type VoyKnobId } from '../voyager/params';
 import { EXTERNAL_REL } from './ExternalLink';
 import {
   BOARD_CHIPS,
@@ -167,6 +168,8 @@ export function registerTwin(id: string, el: HTMLElement | null): void {
 }
 
 const isVoy = (k: DialId): boolean => k.startsWith('v:');
+/** Crans d'un potard du MM-ARP (0 : continu). */
+const voySteps = (k: DialId): number => (isVoy(k) ? (voyKnob(k.slice(2) as VoyKnobId).steps?.length ?? 0) : 0);
 
 /** Valeur par px de glisser : TEMPO 2 px par BPM, les autres 150 px la course (TONE : 2 unites). */
 const perPx = (k: DialId): number =>
@@ -282,6 +285,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
 
     /** Deux tapes sur un encodeur en moins de 350 ms : sa valeur de depart. */
     const tapDial = (k: DialId): void => {
+      // Un commutateur (deux crans, SLOPE) bascule a chaque tape
+      if (voySteps(k) === 2) {
+        anyDial(k, anyDialValue(k) > 0.5 ? 0 : 1);
+        return;
+      }
       const t = performance.now();
       if (t - (lastTap.get(k) ?? -Infinity) <= TEMPO_UI.tapMs) {
         lastTap.delete(k);
@@ -512,7 +520,10 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (steps !== 0) {
         wheelAcc -= steps * px;
         // Maj : reglage fin, 1 % le cran (TEMPO reste a 1 BPM)
-        const step = k === 'tempo' ? 1 : e.shiftKey ? DIAL_FINE.wheelStep : !isVoy(k) && isBipolar(k as EncId) ? POT_UI.bipolarStep : POT_UI.wheelStep;
+        // Un potard a crans du MM-ARP : un cran par cran de molette (2 % ne le faisaient jamais bouger)
+        const n = voySteps(k);
+        const step =
+          k === 'tempo' ? 1 : n > 1 ? 1 / (n - 1) : e.shiftKey ? DIAL_FINE.wheelStep : !isVoy(k) && isBipolar(k as EncId) ? POT_UI.bipolarStep : POT_UI.wheelStep;
         anyDial(k, Math.round((anyDialValue(k) + steps * step) * 1000) / 1000);
       }
     };

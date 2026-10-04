@@ -66,6 +66,8 @@ export const VOY_KNOB = {
   mark: { w: 0.03, h: 0.01, d: 0.15 },
   segments: { desktop: 48, mobile: 32 },
   big: PORTRAIT ? 1.12 : 1.28,
+  /** commutateur (SLOPE) : un petit potard a deux positions */
+  small: 0.62,
   /** portrait : le plateau garde 1.3 (au doigt), le panneau 1.15 (quatre rangees depuis le 2026-10-03) */
   scale: PORTRAIT ? 1.3 : 1,
   panelScale: PORTRAIT ? 1.15 : 1,
@@ -109,8 +111,9 @@ export interface VoyKnobPlace {
  * Desktop : le panneau garde le son, en colonnes facon Moog. OSCILLATORS
  * (2026-10-03, deux oscillateurs facon Typhon) sur trois colonnes : WAVE 1,
  * WAVE 2 (les selecteurs dessines) et TUNE 2 en haut, FINE, MIX, FM et
- * RATIO dessous (quatre au pas des enveloppes, 0.8) ; puis FILTER,
- * FILTER EG / AMP EG, EFFECTS, OUTPUT.
+ * RATIO dessous (quatre au pas des enveloppes, 0.8) ; puis FILTER (le
+ * commutateur SLOPE en haut, CUTOFF, NOISE sur la seconde rangee ; RES et
+ * ENV AMT a cote), FILTER EG / AMP EG, EFFECTS, OUTPUT.
  * L'arpegiateur (RATE MODE RANGE NOTES GATE OCTAVE GLIDE) est sur le
  * plateau, a gauche de l'ecran.
  */
@@ -124,7 +127,6 @@ const DESK_CELLS: Partial<Record<VoyKnobId, [number, number | 'mid']>> = {
   wave1: [0, 0],
   wave2: [1, 0],
   tune2: [2, 0],
-  cutoff: [3, 'mid'],
   res: [4, 0],
   envAmt: [4, 1],
   fA: [5, 0],
@@ -141,8 +143,21 @@ const DESK_CELLS: Partial<Record<VoyKnobId, [number, number | 'mid']>> = {
   reverb: [10, 1],
   volume: [11, 'mid'],
 };
-/** Seconde rangee des oscillateurs : quatre potards au pas 0.8, de la colonne 0 a la colonne 2. */
-const DESK_OSC_LOW: Partial<Record<VoyKnobId, number>> = { fine: -5.35, mix: -4.55, fm: -3.75, ratio: -2.95 };
+/**
+ * Places libres du panneau (x, z) : la seconde rangee des oscillateurs
+ * (quatre potards au pas 0.8, de la colonne 0 a la colonne 2) et la
+ * colonne gauche du filtre (SLOPE sous le titre, CUTOFF remonte, NOISE sur
+ * la seconde rangee, 2026-10-03).
+ */
+const DESK_XZ: Partial<Record<VoyKnobId, [number, number]>> = {
+  fine: [-5.35, 0.85],
+  mix: [-4.55, 0.85],
+  fm: [-3.75, 0.85],
+  ratio: [-2.95, 0.85],
+  slope: [-1.95, -1.05],
+  cutoff: [-1.95, -0.05],
+  noise: [-1.95, 0.85],
+};
 /** Plateau, desktop : l'arpegiateur en rangee a gauche de l'ecran. */
 const DESK_ARP_Z = 0.85;
 /** GLIDE rejoint l'arpegiateur (2026-10-03 : sa place au panneau va a FM) */
@@ -160,7 +175,7 @@ const DESK_DECK: Partial<Record<VoyKnobId, [number, number]>> = {
  * Portrait : le panneau ne garde que le son, quatre rangees (2026-10-03,
  * deux oscillateurs), chaque groupe souligne d'un crochet a son nom :
  *   OSCILLATORS (WAVE 1, WAVE 2, TUNE 2, MIX, FM, RATIO)
- *   FILTER (CUTOFF RES ENV AMT)          COLOR (DIST CHORUS)
+ *   FILTER (CUTOFF RES ENV AMT NOISE SLOPE)   COLOR (DIST CHORUS)
  *   FILTER EG (A D S R)                  SPACE (DELAY REVERB)
  *   AMP EG (A D S R)                     PITCH (FINE GLIDE)
  * Le plateau prend l'ecran et VOLUME, le transport, l'arpegiateur (RATE
@@ -177,11 +192,12 @@ const portX = (k: number, split: number): number => -2.5 * PORT_PITCH - PORT_GAP
  */
 const PORT_OSC_X: Partial<Record<VoyKnobId, number>> = { wave1: -2.55, wave2: -0.7, tune2: 0.575, mix: 1.425, fm: 2.275, ratio: 3.125 };
 const PORT_PANEL: Partial<Record<VoyKnobId, [number, number, number]>> = {
-  cutoff: [0, 1, 3],
-  res: [1, 1, 3],
-  envAmt: [2, 1, 3],
-  dist: [4, 1, 3],
-  chorus: [5, 1, 3],
+  cutoff: [0, 1, 4],
+  res: [1, 1, 4],
+  envAmt: [2, 1, 4],
+  noise: [3, 1, 4],
+  dist: [4, 1, 4],
+  chorus: [5, 1, 4],
   fA: [0, 2, 4],
   fD: [1, 2, 4],
   fS: [2, 2, 4],
@@ -195,6 +211,8 @@ const PORT_PANEL: Partial<Record<VoyKnobId, [number, number, number]>> = {
   fine: [4, 3, 4],
   glide: [5, 3, 4],
 };
+/** SLOPE, portrait : entre NOISE et le groupe COLOR, son libelle aligne sur ceux de la rangee. */
+const PORT_SLOPE: [number, number] = [1.08, PORT_PANEL_ROWS[1] + VOY_KNOB.skirt.r * VOY_KNOB.panelScale * (1 - VOY_KNOB.small)];
 /** Plateau, portrait : l'arpegiateur en rangee, VOLUME a droite de l'ecran. */
 const PORT_ARP_Z = 3.0;
 const PORT_DECK: Partial<Record<VoyKnobId, [number, number]>> = {
@@ -215,12 +233,16 @@ const colX = (cols: readonly number[], c: number): number => {
 };
 
 const BIG = new Set<VoyKnobId>(['cutoff', 'volume']);
+/** Commutateurs : deux positions, un quart de tour (VOY_SWITCH). */
+const SMALL = new Set<VoyKnobId>(['slope']);
+export const VOY_SWITCH = { throwDeg: 90, tick: { r0: 0.03, len: 0.05 }, markR: 0.18, cap: 0.052 } as const;
+export const isSwitch = (id: VoyKnobId): boolean => SMALL.has(id);
 /** Libelle sous la jupe : 0.13 sous son bord ; sous la couronne d'un selecteur. */
 const labelBelow = (id: VoyKnobId, s: number): number => (isSelector(id) ? VOY_SEL.labelR * s : VOY_KNOB.skirt.r * s + 0.13);
 
 export function voyKnobPlace(id: VoyKnobId): VoyKnobPlace {
   const big = BIG.has(id);
-  const k = big ? VOY_KNOB.big : 1;
+  const k = big ? VOY_KNOB.big : SMALL.has(id) ? VOY_KNOB.small : 1;
   if (PORTRAIT) {
     const d = PORT_DECK[id];
     if (d) {
@@ -228,6 +250,10 @@ export function voyKnobPlace(id: VoyKnobId): VoyKnobPlace {
       return { id, where: 'deck', x: d[0], z: d[1], s, labelZ: d[1] + labelBelow(id, s) };
     }
     const s = VOY_KNOB.panelScale * k;
+    if (id === 'slope') {
+      const [x, z] = PORT_SLOPE;
+      return { id, where: 'panel', x, z, s, labelZ: z + labelBelow(id, s) };
+    }
     const ox = PORT_OSC_X[id];
     if (ox !== undefined) {
       const z = PORT_PANEL_ROWS[0];
@@ -240,8 +266,8 @@ export function voyKnobPlace(id: VoyKnobId): VoyKnobPlace {
   const s = VOY_KNOB.scale * k;
   const d = DESK_DECK[id];
   if (d) return { id, where: 'deck', x: d[0], z: d[1], s, labelZ: d[1] + labelBelow(id, s) };
-  const low = DESK_OSC_LOW[id];
-  if (low !== undefined) return { id, where: 'panel', x: low, z: DESK_ROWS[1], s, labelZ: DESK_ROWS[1] + labelBelow(id, s) };
+  const xz = DESK_XZ[id];
+  if (xz) return { id, where: 'panel', x: xz[0], z: xz[1], s, labelZ: xz[1] + labelBelow(id, s) };
   const [c, r] = DESK_CELLS[id] ?? [0, 0];
   const z = r === 'mid' ? (DESK_ROWS[0] + DESK_ROWS[1]) / 2 : DESK_ROWS[r];
   return { id, where: 'panel', x: colX(DESK_COLS, c), z, s, labelZ: z + labelBelow(id, s) };
@@ -359,7 +385,7 @@ const padGroup = (): VoyGroup => ({
 export const VOY_GROUPS: readonly VoyGroup[] = PORTRAIT
   ? [
       knobGroup('OSCILLATORS', ['wave1', 'wave2', 'tune2', 'mix', 'fm', 'ratio']),
-      knobGroup('FILTER', ['cutoff', 'res', 'envAmt'], ['dist']),
+      knobGroup('FILTER', ['cutoff', 'res', 'envAmt', 'noise', 'slope'], ['dist']),
       knobGroup('COLOR', ['dist', 'chorus'], ['cutoff']),
       knobGroup('FILTER EG', ['fA', 'fD', 'fS', 'fR']),
       knobGroup('SPACE', ['delay', 'reverb']),

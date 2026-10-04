@@ -40,6 +40,8 @@ export type VoyKnobId =
   | 'cutoff'
   | 'res'
   | 'envAmt'
+  | 'noise'
+  | 'slope'
   | 'fA'
   | 'fD'
   | 'fS'
@@ -85,6 +87,8 @@ export const WAVES2 = ['SINE', 'TRI', 'SAW', 'SQUARE', 'PULSE'] as const;
 /** TUNE 2 : OSC 2 par crans musicaux, toujours dans la tonalite (octave dessous, unisson, quinte, une et deux octaves). */
 export const TUNES2 = ['-1 OCT', '0', '5TH', '+1 OCT', '+2 OCT'] as const;
 const TUNE2_SEMI = [-12, 0, 7, 12, 24] as const;
+/** SLOPE : la pente du filtre (2026-10-03), 2 ou 4 poles. */
+export const SLOPES = ['12 dB', '24 dB'] as const;
 /** RATIO : frequence de l'operateur FM / OSC 1, des rapports harmoniques (le son reste dans la tonalite). */
 export const RATIOS = ['1/2', '1', '3/2', '2', '3', '7/2', '4', '5', '7'] as const;
 const RATIO_X = [0.5, 1, 1.5, 2, 3, 3.5, 4, 5, 7] as const;
@@ -109,6 +113,8 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'cutoff', label: 'CUTOFF', aria: 'Filter cutoff', section: 'filter', def: 0.5, big: true },
   { id: 'res', label: 'RES', aria: 'Filter resonance', section: 'filter', def: 0.35 },
   { id: 'envAmt', label: 'ENV AMT', aria: 'Filter envelope amount', section: 'filter', def: 0.5 },
+  { id: 'noise', label: 'NOISE', aria: 'Noise level into the filter', section: 'filter', def: 0 },
+  { id: 'slope', label: 'SLOPE', aria: 'Filter slope, 12 or 24 dB per octave, tap to switch', section: 'filter', def: 1, steps: SLOPES },
   { id: 'fA', label: 'ATTACK', aria: 'Filter envelope attack', section: 'feg', def: 0 },
   { id: 'fD', label: 'DECAY', aria: 'Filter envelope decay', section: 'feg', def: 0.3 },
   { id: 'fS', label: 'SUSTAIN', aria: 'Filter envelope sustain', section: 'feg', def: 0.2 },
@@ -196,6 +202,9 @@ export interface EngineParams {
   cutoff: number;
   res: number;
   envOct: number;
+  /** NOISE : 0 a 1 ; SLOPE : 0 = 12 dB, 1 = 24 dB */
+  noise: number;
+  slope: number;
   fA: number;
   fD: number;
   fS: number;
@@ -220,6 +229,8 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
     cutoff: cutoffHz(v.cutoff),
     res: v.res,
     envOct: envOctaves(v.envAmt),
+    noise: v.noise,
+    slope: stepIndex('slope', v.slope),
     fA: attackS(v.fA),
     fD: decayS(v.fD),
     fS: v.fS,

@@ -145,6 +145,17 @@ const FM_INDEX = 1.6;
  * laterales restent sous 0.4 x la frequence d'echantillonnage interne.
  */
 const FM_MAX = 6;
+/**
+ * NOISE et SLOPE (2026-10-03, Mika) : un bruit blanc par voix entre dans le
+ * filtre avec les oscillateurs (niveau au carre du potard, un nouveau tirage
+ * par echantillon du contexte, tenu pendant le surechantillonnage : le meme
+ * niveau a x2 et x4). SLOPE prend la sortie apres deux etages de l'echelle
+ * (12 dB par octave, la retroaction reste celle des quatre) ou apres quatre
+ * (24 dB), en fondu de 15 ms ; a 12 dB la bosse de resonance, deux fois plus
+ * haute a cet etage, est ramenee par SLOPE12_RES.
+ */
+const NOISE_MAX = 1;
+const SLOPE12_RES = 0.12;
 
 /** Une forme : 0 sinus, 1 triangle, 2 dent de scie, 3 carre, 4 impulsion de 14 % (5 : FM, calculee a part). */
 function wave(ph, dt, w) {
@@ -187,6 +198,9 @@ class Voice {
     this.logf = Math.log(261.6);
     this.logT = this.logf;
     this.ph = [Math.random(), Math.random(), Math.random()];
+    // Bruit : xorshift 32 bits, une graine par voix (jamais 0)
+    this.seed = ((Math.random() * 0x7fffffff) | 0) | 1;
+    this.nz = 0;
     this.drift = [0, 0];
     this.aStage = 0;
     this.aV = 0;
@@ -228,6 +242,8 @@ class MMVoyager extends AudioWorkletProcessor {
       ratio: 1,
       fine: 15,
       glide: 0,
+      noise: 0,
+      slope: 1,
       cutoff: 800,
       res: 0.3,
       envOct: 3,
@@ -242,11 +258,11 @@ class MMVoyager extends AudioWorkletProcessor {
       drive: 0,
     };
     // Valeurs lissees (un pole, environ 15 ms) : pas de craquement quand un potard tourne
-    this.sm = { mix: 0.5, fm: 0, fine: 15, cutoff: 800, res: 0.3, envOct: 3, drive: 0 };
+    this.sm = { mix: 0.5, fm: 0, noise: 0, slope: 1, fine: 15, cutoff: 800, res: 0.3, envOct: 3, drive: 0 };
     this.smK = coef(0.015, this.sr2);
     this.c = {};
     if (o.params) Object.assign(this.p, o.params);
-    Object.assign(this.sm, { mix: this.p.mix, fm: this.p.fm, fine: this.p.fine, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive });
+    Object.assign(this.sm, { mix: this.p.mix, fm: this.p.fm, noise: this.p.noise, slope: this.p.slope, fine: this.p.fine, cutoff: this.p.cutoff, res: this.p.res, envOct: this.p.envOct, drive: this.p.drive });
     this.w1 = new Selector(this.p.wave1);
     this.w2 = new Selector(this.p.wave2);
     this.fadeStep = 1 / (0.01 * this.sr2);
@@ -370,6 +386,10 @@ class MMVoyager extends AudioWorkletProcessor {
       sm.mix += (p.mix - sm.mix) * K;
       sm.fm += (p.fm - sm.fm) * K;
       const fmDepth = sm.fm * sm.fm * FM_MAX;
+      sm.noise += (p.noise - sm.noise) * K;
+      sm.slope += (p.slope - sm.slope) * K;
+      const nGain = sm.noise * sm.noise * NOISE_MAX;
+      const newNoise = i2 % OS === 0;
       const w1 = this.w1;
       const w2 = this.w2;
       if (w1.x < 1) w1.x = Math.min(1, w1.x + this.fadeStep);
@@ -438,7 +458,18 @@ class MMVoyager extends AudioWorkletProcessor {
         const one = (w) => (w === 5 ? Math.sin(TAU * (ph[0] + FM_INDEX * o2 * 0.16 + pm)) : wave(p1, d1, w));
         let o1 = one(w1.cur);
         if (w1.x < 1) o1 = o1 * w1.x + one(w1.prev) * (1 - w1.x);
-        const o = g1 * o1 + g2 * o2;
+        let o = g1 * o1 + g2 * o2;
+        if (nGain > 1e-6) {
+          if (newNoise) {
+            let x = v.seed;
+            x ^= x << 13;
+            x ^= x >>> 17;
+            x ^= x << 5;
+            v.seed = x;
+            v.nz = x / 2147483648;
+          }
+          o += nGain * v.nz;
+        }
         ph[0] += d1;
         if (ph[0] >= 1) ph[0] -= 1;
         ph[1] += d2;
@@ -462,12 +493,15 @@ class MMVoyager extends AudioWorkletProcessor {
         w = (y - v.s2) * G;
         y = w + v.s2;
         v.s2 = y + w;
+        const y2 = y;
         w = (y - v.s3) * G;
         y = w + v.s3;
         v.s3 = y + w;
         w = (y - v.s4) * G;
         y = w + v.s4;
         v.s4 = y + w;
+        // SLOPE : 12 dB (deux etages) ou 24 dB (quatre), en fondu
+        if (sm.slope < 0.9999) y = y * sm.slope + (y2 / (1 + k * SLOPE12_RES)) * (1 - sm.slope);
         // Les graves fondent avec la resonance : une partie seulement reprise
         y *= 1 + k * 0.3;
         // VCA, saturation de sortie (DIST la pousse)

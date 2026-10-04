@@ -5,7 +5,8 @@
  * l'arriere. UN InstancedMesh, une geometrie a couleurs de sommets. Meme
  * course que les encodeurs de la 808 : 270 deg centres sur le repere,
  * sens horaire quand la valeur monte ; un potard a crans tombe sur ses
- * crans (la valeur du store est deja ronde).
+ * crans (la valeur du store est deja ronde). Un commutateur (SLOPE,
+ * 2026-10-03) : un petit potard, un quart de tour entre ses deux positions.
  *
  * Le mesh est sur le capot (lid) : les potards du panneau y passent par la
  * pose fixe du panneau (VOY_PANEL), ceux du plateau (portrait :
@@ -29,9 +30,9 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { HotspotDef } from '../scene/hit';
 import { potAngle } from '../scene/encoders';
 import { paintLinear, paintSolid } from '../scene/materials';
-import { LIT } from '../theme';
+import { LIT, TEMPO_UI } from '../theme';
 import { VOY_KNOBS, type VoyKnobId } from './params';
-import { VOY_KNOB, VOY_PANEL, voyKnobPlace } from './theme';
+import { VOY_KNOB, VOY_PANEL, VOY_SWITCH, isSwitch, voyKnobPlace } from './theme';
 
 const AXIS_Y = new Vector3(0, 1, 0);
 const m4 = new Matrix4();
@@ -115,7 +116,7 @@ export class VoyKnobs {
   setValue(id: VoyKnobId, v: number): boolean {
     const i = this.index(id);
     if (i < 0) return false;
-    const a = Math.fround(potAngle(v));
+    const a = Math.fround(potAngle(v) * (isSwitch(id) ? VOY_SWITCH.throwDeg / TEMPO_UI.sweepDeg : 1));
     if (this.angle[i] === a) return false;
     this.angle[i] = a;
     this.place(i);
@@ -126,7 +127,8 @@ export class VoyKnobs {
   hotspots(panel: Object3D, deck: Object3D): HotspotDef[] {
     return VOY_KNOBS.map((k) => {
       const pl = voyKnobPlace(k.id);
-      const r = VOY_KNOB.skirt.r * pl.s;
+      // Un commutateur se prend aussi par ses reperes (12, 24) : sa cible deborde
+      const r = VOY_KNOB.skirt.r * pl.s + (isSwitch(k.id) ? VOY_SWITCH.markR * 0.6 : 0);
       return {
         id: `vk-${k.id}`,
         kind: 'vknob' as const,
