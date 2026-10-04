@@ -10,9 +10,10 @@
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
-import { chipAction, editToggle, openToggle, voyClear, voyDial, voyPad, voyRandom, voyRun } from '../actions';
+import { chipAction, editToggle, openToggle, presetKey, voyClear, voyDial, voyPad, voyRandom, voyRun } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
+import { PRESET_KEY_ARIA, PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode } from '../state/presetMode';
 import { chipsLive, voyExplode } from '../state/explode';
 import { focus } from '../state/focus';
 import { section } from '../state/section';
@@ -72,6 +73,7 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const s = useSyncExternalStore(voyExplode.subscribe, voyExplode.get, voyExplode.get);
   const a = useSyncExternalStore(arp.subscribe, arp.get, arp.get);
   const ed = useSyncExternalStore(editor.subscribe, editor.get, editor.get);
+  const pmVoy = useSyncExternalStore(presetMode.subscribe, () => presetMode.on('voy'), () => false);
   const params = useSyncExternalStore(voyParams.subscribe, voyParams.get, voyParams.get);
   const open = useSyncExternalStore(section.subscribe, section.get, section.get);
   const els = useRef(new Map<string, HTMLElement>());
@@ -206,6 +208,19 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
           />
         );
       })}
+      {(pmVoy ? PRESET_KEYS_ON : PRESET_KEYS_OFF).map((k) => (
+        <button
+          key={`vlcd-${k}`}
+          ref={refFor(`vlcd-${k}`)}
+          type="button"
+          className="v4-twin"
+          data-twin="vlcd"
+          data-hotspot={`vlcd-${k}`}
+          aria-label={PRESET_KEY_ARIA[k]}
+          onKeyDown={noRepeat}
+          onClick={() => presetKey('voy', k)}
+        />
+      ))}
       {showChips &&
         BOARD_CHIPS.map((c) => {
           const id = `vchip-${c.id}`;

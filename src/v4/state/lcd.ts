@@ -32,6 +32,8 @@ import { fmtTime } from '../data';
 import { LCD_TEXT, SECTION_TITLES, type Inst } from '../theme';
 import { lcdMessage } from './lcdMessage';
 import { lcdMix } from './lcdMix';
+import { presetMode, type PresetView } from './presetMode';
+import { presets } from './presets';
 import { section } from './section';
 
 export interface LcdState {
@@ -53,6 +55,10 @@ export interface LcdState {
   mix: { sel: Inst; insts: Inst[]; levels: number[] } | null;
   /** les trois lignes telles qu'affichees (gauche, espaces, droite) */
   text: [string, string, string];
+  /** mode presets (2026-10-04) : les quatre touches de la ligne 3, dessinees en negatif ; null : le texte */
+  keys: readonly string[] | null;
+  /** l'etiquette PRESETS en negatif a droite de la ligne 2 (toucher l'ecran ouvre les presets) */
+  tag: boolean;
   /** compositions publiees (revue) */
   updates: number;
 }
@@ -101,10 +107,31 @@ function composeMix(sel: Inst): Omit<LcdState, 'updates'> {
   const line1 = row('VOLUME', sel);
   const t2 = [0, 1, 2].map(cell).join(' ');
   const t3 = [3, 4].map(cell).join(' ');
-  return { l1: line1.l, r1: line1.r, l2: t2, r2: '', l3: t3, r3: '', bar: null, param: true, mix: { sel, insts, levels }, text: [line1.t, t2, t3] };
+  return { l1: line1.l, r1: line1.r, l2: t2, r2: '', l3: t3, r3: '', bar: null, param: true, mix: { sel, insts, levels }, text: [line1.t, t2, t3], keys: null, tag: false };
+}
+
+/** Centre s sur n colonnes. */
+function center(s: string, n: number): string {
+  const t = fit(s, n);
+  const left = Math.floor((n - t.length) / 2);
+  return `${' '.repeat(left)}${t}${' '.repeat(n - t.length - left)}`;
+}
+
+/**
+ * Mode presets (2026-10-04, state/presetMode.ts) : le titre et le rang, le
+ * nom entre ses fleches (le haut de l'ecran : precedent a gauche, suivant a
+ * droite), les quatre touches en bas.
+ */
+function composePresets(v: PresetView): Omit<LcdState, 'updates'> {
+  const line1 = row(v.title, v.count);
+  const l2 = v.empty ? center(v.name, COLS) : `<${center(v.name, COLS - 2)}>`;
+  const l3 = v.keys.map((k) => k.padEnd(5)).join('').trimEnd();
+  return { l1: line1.l, r1: line1.r, l2, r2: '', l3, r3: '', bar: null, param: false, mix: null, text: [line1.t, l2, l3], keys: v.keys, tag: false };
 }
 
 function compose(now: number): Omit<LcdState, 'updates'> {
+  const pv = presetMode.view('mm808');
+  if (pv) return composePresets(pv);
   const mixPage = lcdMix.get(now);
   if (mixPage) return composeMix(mixPage.sel);
   const s = section.get();
@@ -141,7 +168,9 @@ function compose(now: number): Omit<LcdState, 'updates'> {
     bar = sc.progress();
   }
   const t3 = bar !== null ? `${l3} ${r3}` : l3;
-  return { l1: line1.l, r1: line1.r, l2: line2.l, r2: line2.r, l3, r3, bar, param: !!msg && msg.param, mix: null, text: [line1.t, line2.t, t3] };
+  // L'etiquette PRESETS : la ligne 2 a de la place (pas de titre qui defile, rien a droite)
+  const tag = st.status !== 'playing' && !st.notice && !line2.r && line2.l.length <= COLS - 9;
+  return { l1: line1.l, r1: line1.r, l2: line2.l, r2: line2.r, l3, r3, bar, param: !!msg && msg.param, mix: null, text: [line1.t, line2.t, t3], keys: null, tag };
 }
 
 let current: LcdState = {
@@ -155,6 +184,8 @@ let current: LcdState = {
   param: false,
   mix: null,
   text: [LCD_TEXT.idle, LCD_TEXT.ready, ''],
+  keys: null,
+  tag: true,
   updates: 0,
 };
 const listeners = new Set<() => void>();
@@ -175,6 +206,8 @@ function run(): void {
   // La barre compte au 1/200 pres : elle avance meme quand le temps affiche ne change pas
   const barKey = (b: number | null): number => (b === null ? -1 : Math.round(b * 200));
   if (
+    next.tag !== current.tag ||
+    (next.keys ?? []).join() !== (current.keys ?? []).join() ||
     next.text[0] !== current.text[0] ||
     next.text[1] !== current.text[1] ||
     next.text[2] !== current.text[2] ||
@@ -218,6 +251,8 @@ export const lcd = {
       lcdMessage.subscribe(request),
       lcdMix.subscribe(request),
       voiceFx.subscribe(request),
+      presetMode.subscribe(request),
+      presets.subscribe(request),
     ];
     last = -Infinity;
     request();

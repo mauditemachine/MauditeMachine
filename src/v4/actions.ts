@@ -21,6 +21,8 @@ import { lcdMessage } from './state/lcdMessage';
 import { lcdMix } from './state/lcdMix';
 import { contactDraft, type ContactTopic } from './state/contactDraft';
 import { editor, type EditorId } from './state/editor';
+import { presetMode, type PresetKey } from './state/presetMode';
+import type { PresetMachine } from './state/presets';
 import { presskit } from './state/presskit';
 import { section } from './state/section';
 import { voices } from './state/voices';
@@ -428,7 +430,11 @@ export function escape(): boolean {
     section.set(null);
     return true;
   }
-  // Un editeur ouvert (EDIT) se ferme d'abord
+  // Le mode presets d'abord, puis un editeur ouvert (EDIT)
+  if (presetMode.get().machine) {
+    presetMode.close();
+    return true;
+  }
   if (editor.get() !== null) {
     editor.close();
     return true;
@@ -494,6 +500,12 @@ export function voyRandom(stage: Stage | null = null): void {
   arp.set(pick);
   stage?.voy?.keys.pressButton('random');
   voyMsg.show('RANDOM PATCH');
+}
+
+/** Une touche de l'ecran en mode presets (state/presetMode.ts), ou l'ecran touche au repos (open). */
+export function presetKey(m: PresetMachine, k: PresetKey): void {
+  gesture();
+  presetMode.key(m, k);
 }
 
 /**

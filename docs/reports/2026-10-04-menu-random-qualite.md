@@ -23,7 +23,8 @@
 - PRESETS du MM-ARP et du MM-RYTM, noms au hasard facon Reddit (`state/presets.ts`, `ui/Presets.tsx`, `voyager/seq.ts` restore, `voyager/arp.ts` load) ; fleches de bord sur desktop quand la vue est tournee, vue remise de face apres un glisser au telephone (`ui/MachineNav.tsx`, `ui/Hotspots.tsx`) ; installation sur l'ecran d'accueil de l'iPhone (`public/manifest.json`, `public/icons/`, `index.html`).
 - Menu : reseaux avec icone et nom, liens sonaa.ca et massivemedias.com avec leurs logos (`ui/MenuSheet.tsx`, `v4.css`, `public/logo/sonaa-icon.png`, `public/logo/massive-icon.png`) ; vumetres du mixer en theme clair : demande transmise a Sonaa.
 - Liens directs vers une machine : ?m=dj, ?m=arp, ?m=rytm (`state/focus.ts` startMachine, `scene/renderer.ts`) ; redirection des anciens liens sonaa.ca vers ?m=dj demandee a Sonaa.
-- `docs/v4/spec.md` : R14-59 a R14-85.
+- PRESETS sur l'ecran des machines (etiquette PRESETS, toucher l'ecran, SAVE NAME DEL EXIT, gauche et droite) ; la pastille flottante retiree (`state/presetMode.ts`, `state/lcd.ts`, `scene/screen.ts`, `scene/renderer.ts`, `scene/hit.ts`, `voyager/lcd.ts`, `voyager/rig.ts`, `ui/Hotspots.tsx`, `ui/VoyTwins.tsx`, `hooks/useKeys.ts`, `actions.ts`).
+- `docs/v4/spec.md` : R14-59 a R14-86.
 
 ## 2. Decisions prises et pourquoi
 
@@ -43,7 +44,7 @@
 - Mika : essayer RANDOM sur les deux machines (styles 4x4, MOD, MODE du filtre), juger le clap.
 - Mika : ecouter aux IE900 (chorus a fond sur l'arpege, charleys transposes avec TONE, arpege et kick ensemble), juger le nouveau menu sur son iPhone, essayer RANDOM.
 - Mika : essayer EDIT sur les deux machines (suite de l'arpege, motif et velocites du RYTM), le filtre MOOG, et dire si les arcs manquent nulle part.
-- Mika : ajouter le site a l'ecran d'accueil (Safari, Partager, Sur l'ecran d'accueil) ; essayer PRESETS, SOLO, DECAY, STRETCH.
+- Mika : ajouter le site a l'ecran d'accueil (Safari, Partager, Sur l'ecran d'accueil) ; essayer les presets (toucher l'ecran d'une machine), SOLO, DECAY, STRETCH.
 - Sonaa (brief envoye) : jog sans le A et plus dans le style MM, potards plus gros, FILTER orange, DISTO devient OVERDRIVE (nom et son), pitch fin (123.4 atteignable).
 - Sonaa : la playlist du MM-DECKS perd le cadrage remonte apres un changement Dark / Light (la scene est recreee) ; signale.
 - Pour l'ecoute : sortie du Mac a 48 kHz (Configuration audio et MIDI) ; un DAC externe pour les IE900 plutot que la prise du Mac.

@@ -35,9 +35,11 @@ import { voyMsg } from './msg';
 import { VoyKeys } from './pads';
 import { MODES, NOTES, RANGES, RATES, VOY_KNOBS, morphPos, notesCount, stepIndex, voyParams } from './params';
 import { editor } from '../state/editor';
+import { presetMode, type PresetKey } from '../state/presetMode';
+import { presets } from '../state/presets';
 import { seq } from './seq';
 import { VoySilk } from './silk';
-import { VOY_BODY, VOY_COPY, VOY_EXPLODE, VOY_LID_W, VOY_PANEL, VOY_PCB_Y, VOY_X } from './theme';
+import { VOY_BODY, VOY_COPY, VOY_EXPLODE, VOY_LCD, VOY_LID_W, VOY_PANEL, VOY_PCB_Y, VOY_X } from './theme';
 
 export interface VoyRigOpts {
   mobile: boolean;
@@ -162,7 +164,30 @@ export class VoyagerRig {
     // Objets interactifs, dans l'ordre de tabulation des jumeaux : pads, boutons, puces, potards
     const keyDefs = this.keys.hotspots(this.lid);
     this.chipDefs = this.pcb.hotspots(this.pcbGroup).map((d) => ({ ...d, id: `vchip-${d.chip}`, kind: 'vchip' as const }));
-    this.defs = [...keyDefs, ...this.chipDefs, ...this.knobs.hotspots(this.panel, this.lid)].map((d) => ({ ...d, machine: 'voy' as const }));
+    // Les presets sur l'ecran (2026-10-04) : le haut l'ouvre ; en mode presets, gauche et droite, et quatre touches en bas
+    const L = VOY_LCD;
+    const lcdBox = (key: PresetKey, u0: number, u1: number, v0: number, v1: number): HotspotDef => ({
+      id: `vlcd-${key}`,
+      kind: 'vlcd',
+      lcd: key,
+      layer: this.lid,
+      shape: 'box',
+      x: L.x - L.w / 2 + ((u0 + u1) / 2) * L.w,
+      z: L.z - L.d / 2 + ((v0 + v1) / 2) * L.d,
+      hx: ((u1 - u0) / 2) * L.w,
+      hz: ((v1 - v0) / 2) * L.d,
+      y0: L.bezel.h - 0.005,
+      y1: L.bezel.h + 0.03,
+      enabled: key === 'open',
+    });
+    const band = 0.72;
+    const lcdDefs = [
+      lcdBox('open', 0, 1, 0, 1),
+      lcdBox('prev', 0, 0.5, 0, band),
+      lcdBox('next', 0.5, 1, 0, band),
+      ...(['save', 'name', 'del', 'exit'] as const).map((k, i) => lcdBox(k, i / 4, (i + 1) / 4, band, 1)),
+    ];
+    this.defs = [...keyDefs, ...lcdDefs, ...this.chipDefs, ...this.knobs.hotspots(this.panel, this.lid)].map((d) => ({ ...d, machine: 'voy' as const }));
     // Les copies portent l'etat : retrouver les puces dans la liste finale
     this.chipDefs = this.defs.filter((d) => d.kind === 'vchip');
     for (const d of this.defs) if (d.section && d.kind === 'vchip') this.anchors.set(d.section, d);
@@ -210,6 +235,8 @@ export class VoyagerRig {
     this.unsubs.push(voyMsg.subscribe(this.syncLcd));
     this.unsubs.push(seq.subscribe(this.syncLcd));
     this.unsubs.push(editor.subscribe(this.syncEditor));
+    this.unsubs.push(presetMode.subscribe(this.syncLcd));
+    this.unsubs.push(presets.subscribe(this.syncLcd));
     this.unsubs.push(pattern.subscribe(this.syncTempo));
     this.unsubs.push(voyExplode.subscribe(this.syncExplode));
     this.applyExplode(true);
@@ -268,7 +295,7 @@ export class VoyagerRig {
     const chords = s.prog.map((i) => CHORDS[i].label);
     const playing = this.playing >= 0 ? s.prog.indexOf(this.playing) : -1;
     const line3 = voyMsg.get() ?? (s.prog.length === 0 ? 'TAP A CHORD PAD' : s.running ? 'F# MINOR' : 'RUN/STOP TO PLAY');
-    const changed = this.lcd.set({ line1, chords, playing, line3, bpm: Math.round(this.bpm), running: s.running });
+    const changed = this.lcd.set({ line1, chords, playing, line3, bpm: Math.round(this.bpm), running: s.running, preset: presetMode.view('voy'), tag: true });
     if (changed && paint !== false) this.opts.repaint();
     return changed;
   };

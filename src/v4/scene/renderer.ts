@@ -53,6 +53,7 @@ import { BPM, INSTRUMENTS, pattern } from '../audio/pattern';
 import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
 import { motion } from '../state/motion';
 import { editor } from '../state/editor';
+import { presetMode, type PresetKey } from '../state/presetMode';
 import { explode as explodeState, voyExplode } from '../state/explode';
 import { DJ, focus, startMachine, VOYAGER, type Focus, type MachineId } from '../state/focus';
 import { view } from '../state/view';
@@ -405,6 +406,9 @@ export class Stage {
   private chipDefs: HotspotDef[];
   /** la barre de progression de l'ecran (ligne 3), active quand elle est affichee */
   private seekDef!: HotspotDef;
+  /** les touches de l'ecran (mode presets, 2026-10-04) */
+  private lcdDefs: HotspotDef[] = [];
+  private unsubPresets: () => void = () => undefined;
   private unsubSeek: () => void = () => undefined;
   private raycaster = new Raycaster();
   /** les puces repondent (ouverture decouverte, vue ouverte) */
@@ -652,6 +656,36 @@ export class Stage {
       };
       this.hit.add([this.seekDef]);
     }
+    // Les presets sur l'ecran (2026-10-04, state/presetMode.ts) : le haut de l'ecran (lignes 1 et 2)
+    // ouvre le mode presets ; en mode presets, le haut a gauche et a droite (precedent, suivant), la
+    // bande du bas en quatre touches (SAVE NAME DEL EXIT). La barre de la piste garde sa bande hors du mode
+    {
+      const [, TH] = OLED.tex;
+      const zAt = (y: number): number => OLED.z - OLED.d / 2 + (y / TH) * OLED.d;
+      const xAt = (u: number): number => OLED.x - OLED.w / 2 + u * OLED.w;
+      const box = (key: PresetKey, u0: number, u1: number, ya: number, yb: number, enabled: boolean): HotspotDef => ({
+        id: `lcd-${key}`,
+        kind: 'lcd',
+        lcd: key,
+        layer: plateau,
+        shape: 'box',
+        x: (xAt(u0) + xAt(u1)) / 2,
+        z: (zAt(ya) + zAt(yb)) / 2,
+        hx: (xAt(u1) - xAt(u0)) / 2,
+        hz: (zAt(yb) - zAt(ya)) / 2,
+        y0: OLED.y - 0.005,
+        y1: OLED.y + 0.03,
+        enabled,
+      });
+      const band = OLED_BAR.bandY0;
+      this.lcdDefs = [
+        box('open', 0, 1, 0, band, true),
+        box('prev', 0, 0.5, 0, band, false),
+        box('next', 0.5, 1, 0, band, false),
+        ...(['save', 'name', 'del', 'exit'] as const).map((k, i) => box(k, i / 4, (i + 1) / 4, band, TH, false)),
+      ];
+      this.hit.add(this.lcdDefs);
+    }
     // Les volumes pleins de la machine : ils cachent ce qui est derriere eux
     // (picking, ancre de la trace) et dessinent sa silhouette (fond ou machine)
     const pd = PANEL_D / 2;
@@ -665,7 +699,7 @@ export class Stage {
     // Le MM-VOYAGER (2026-10-03) : a droite de la 808 sur la meme table ;
     // ses objets et ses volumes apres ceux de la 808, chacun marque de sa machine
     if (VOYAGER) {
-      for (const d of [...padDefs, ...this.chipDefs, ...encDefs, ...seqDefs, this.seekDef]) d.machine = 'mm808';
+      for (const d of [...padDefs, ...this.chipDefs, ...encDefs, ...seqDefs, this.seekDef, ...this.lcdDefs]) d.machine = 'mm808';
       const voy = new VoyagerRig({
         mobile,
         anisotropy: aniso,
@@ -792,6 +826,23 @@ export class Stage {
     };
     syncEditor();
     this.unsubEditor = editor.subscribe(syncEditor);
+    // Le mode presets : les touches des ecrans suivent
+    const syncPresets = (): void => {
+      let changed = false;
+      // Les deux ecrans : celui du MM-RYTM (lcd) et celui du MM-ARP (vlcd)
+      const defs = [...this.lcdDefs, ...(this.voy ? this.voy.hotspots.filter((d) => d.kind === 'vlcd') : [])];
+      for (const d of defs) {
+        const on = presetMode.on(d.kind === 'lcd' ? 'mm808' : 'voy');
+        const want = d.lcd === 'open' ? !on : on;
+        if (d.enabled !== want) {
+          d.enabled = want;
+          changed = true;
+        }
+      }
+      if (changed) this.hit.invalidate();
+    };
+    syncPresets();
+    this.unsubPresets = presetMode.subscribe(syncPresets);
     if (this.voy) {
       this.voy.listen();
       // Capot deja ouvert (reconstruction) : le cadrage de la pile ouverte
@@ -2367,6 +2418,7 @@ export class Stage {
     this.detachExplode();
     this.unsubFocus();
     this.unsubEditor();
+    this.unsubPresets();
     this.unsubVoyExplode();
     this.unsubView();
     this.viewListeners.length = 0;

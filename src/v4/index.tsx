@@ -61,7 +61,6 @@ import { BACKDROP, COARSE_QUERY, COPY, MOBILE_QUERY, PORTRAIT, PRESSKIT_ROUTE, a
 import { BeatPanel } from './ui/BeatEditor';
 import { MobileHeader } from './ui/MobileHeader';
 import { PcbClose } from './ui/PcbClose';
-import { Presets } from './ui/Presets';
 import { Dock } from './ui/Dock';
 import { Header, openHood } from './ui/Header';
 import { HitLayer, Twins } from './ui/Hotspots';
@@ -528,8 +527,6 @@ const V4Shell: React.FC = () => {
           )}
           {/* Deux machines : leurs noms, le retour a la vue d'ensemble, le selecteur du telephone */}
           {VOYAGER && <MachineNav stage={stage} mobile={mobile} />}
-          {/* PRESETS du MM-ARP et du MM-RYTM (2026-10-04) : la pastille au coin bas droit */}
-          <Presets mobile={mobile} />
           {/* Machine ouverte au telephone : CLOSE a portee de pouce, sur l'avant de la carte */}
           {mobile && <PcbClose getStage={getStage} />}
           {/* L'en-tete : fin sur desktop ; logo et hamburger sur mobile (2026-10-01) */}

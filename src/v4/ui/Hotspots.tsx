@@ -44,6 +44,7 @@ import {
   dial,
   dialValue,
   editToggle,
+  presetKey,
   focusMachine,
   gesture,
   muteToggle,
@@ -70,6 +71,7 @@ import type { Stage } from '../scene/renderer';
 import { djLoad, type DjModules } from '../state/djload';
 import { djView } from '../dj/view';
 import { editor } from '../state/editor';
+import { PRESET_KEY_ARIA, PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode, type PresetKey } from '../state/presetMode';
 import { chipsLive, explode } from '../state/explode';
 import { MACHINES, focus, VOYAGER } from '../state/focus';
 import { section } from '../state/section';
@@ -125,6 +127,7 @@ interface Down {
   /** MM-VOYAGER : pad d'accord, CLEAR ou RANDOM */
   vpad?: number;
   vbtn?: 'run' | 'clear' | 'random' | 'edit';
+  lcd?: PresetKey;
   x: number;
   y: number;
   /** encodeur (ou potard du MM-VOYAGER, v:<id>) sous le pointerdown, et sa valeur de depart */
@@ -333,6 +336,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.kind === 'vbtn' && d.vbtn === 'run') voyRun(stage);
       else if (d.kind === 'vbtn' && d.vbtn === 'edit') editToggle('voy', stage);
       else if (d.kind === 'edit') editToggle('mm808', stage);
+      else if ((d.kind === 'lcd' || d.kind === 'vlcd') && d.lcd) presetKey(d.kind === 'lcd' ? 'mm808' : 'voy', d.lcd);
       else if (d.dial) tapDial(d.dial);
       else return null;
       return d.id;
@@ -401,6 +405,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         chip: h?.chip,
         vpad: h?.vpad,
         vbtn: h?.vbtn,
+        lcd: h?.lcd,
         multi,
         x: e.clientX,
         y: e.clientY,
@@ -759,6 +764,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   // Deux machines (2026-10-03) : les jumeaux de la 808 ne repondent que quand on l'utilise
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   const edOpen = useSyncExternalStore(editor.subscribe, editor.get, editor.get);
+  const pm808 = useSyncExternalStore(presetMode.subscribe, () => presetMode.on('mm808'), () => false);
   const off = VOYAGER && f !== 'mm808';
   const groupRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -978,6 +984,19 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
           />
         );
       })}
+      {(pm808 ? PRESET_KEYS_ON : PRESET_KEYS_OFF).map((k) => (
+        <button
+          key={`lcd-${k}`}
+          ref={refFor(`lcd-${k}`)}
+          type="button"
+          className="v4-twin"
+          data-twin="lcd"
+          data-hotspot={`lcd-${k}`}
+          aria-label={PRESET_KEY_ARIA[k]}
+          onKeyDown={noRepeat}
+          onClick={() => presetKey('mm808', k)}
+        />
+      ))}
       {chips}
       {ENCODERS.map((enc) => {
         const id = `enc-${enc.id}`;

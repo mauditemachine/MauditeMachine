@@ -131,6 +131,8 @@ export class Screen {
       [s.l3, s.r3],
     ];
     rows.forEach(([l, r], i) => {
+      // Mode presets : la ligne 3 devient quatre touches (plus bas)
+      if (i === 2 && s.keys) return;
       const y = OLED_DRAW.baselines[i];
       ctx.textAlign = 'left';
       if (l) ctx.fillText(l, OLED_DRAW.pad, y);
@@ -139,6 +141,14 @@ export class Screen {
         ctx.fillText(r, W - OLED_DRAW.pad, y);
       }
     });
+    // Les presets (2026-10-04, state/presetMode.ts) : une etiquette en negatif au repos, quatre touches en mode presets
+    if (s.tag) this.softKey('PRESETS', W - OLED_DRAW.pad, OLED_DRAW.baselines[1], 'right');
+    if (s.keys) {
+      const cw = (W - 2 * OLED_DRAW.pad) / 4;
+      s.keys.forEach((k, i) => {
+        if (k) this.softKey(k, OLED_DRAW.pad + cw * (i + 0.5), OLED_DRAW.baselines[2], 'center');
+      });
+    }
     // Ligne 3, une piste en cours (2026-10-01) : la barre entre la position et la duree
     this.bar = null;
     if (s.bar !== null) {
@@ -158,6 +168,25 @@ export class Screen {
       }
     }
     this.done(s, now);
+  }
+
+  /** Une touche dessinee : le texte en negatif dans une etiquette arrondie, sur la ligne de base y. */
+  private softKey(text: string, x: number, y: number, align: 'right' | 'center'): void {
+    const ctx = this.ctx;
+    const w = ctx.measureText(text).width + 16;
+    const h = 44;
+    const x0 = align === 'right' ? x - w + 8 : x - w / 2;
+    const y0 = y - 34;
+    ctx.fillStyle = HEX.bone;
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') ctx.roundRect(x0, y0, w, h, 6);
+    else ctx.rect(x0, y0, w, h);
+    ctx.fill();
+    ctx.fillStyle = HEX.oled;
+    ctx.textAlign = 'center';
+    ctx.fillText(text, x0 + w / 2, y);
+    ctx.fillStyle = HEX.bone;
+    ctx.textAlign = 'left';
   }
 
   /** Page MIX : une cellule par voix, son nom, un potard dessine, sa valeur. */

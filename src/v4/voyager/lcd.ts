@@ -14,6 +14,7 @@ import { BoxGeometry, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeomet
 import { makeCanvasTexture } from '../scene/silk';
 import { albedo } from '../scene/materials';
 import { FONT_MONO, GAIN, HEX } from '../theme';
+import type { PresetView } from '../state/presetMode';
 import { VOY_COPY, VOY_LCD } from './theme';
 
 export interface VoyLcdText {
@@ -25,9 +26,14 @@ export interface VoyLcdText {
   /** tempo partage avec la 808, et l'arpege qui joue */
   bpm: number;
   running: boolean;
+  /** mode presets (2026-10-04, state/presetMode.ts) : l'ecran entier lui appartient */
+  preset?: PresetView | null;
+  /** l'etiquette PRESETS en negatif, a droite de la ligne 3 (toucher l'ecran ouvre les presets) */
+  tag?: boolean;
 }
 
-const keyOf = (t: VoyLcdText): string => `${t.line1}\n${t.chords.join(' ')}\n${t.playing}\n${t.line3}\n${t.bpm}\n${t.running}`;
+const keyOf = (t: VoyLcdText): string =>
+  `${t.line1}\n${t.chords.join(' ')}\n${t.playing}\n${t.line3}\n${t.bpm}\n${t.running}\n${t.tag ? 1 : 0}\n${t.preset ? JSON.stringify(t.preset) : ''}`;
 
 export class VoyLcd {
   readonly glass: Mesh;
@@ -90,6 +96,13 @@ export class VoyLcd {
     ctx.textBaseline = 'alphabetic';
     ctx.textAlign = 'left';
     ctx.fillStyle = HEX.bone;
+    if (t.preset) {
+      this.paintPreset(t.preset, pad, rows, px);
+      this.shown = keyOf(t);
+      this.draws += 1;
+      this.texture.needsUpdate = true;
+      return;
+    }
     let x1 = pad;
     if (t.running) {
       // Le triangle de lecture
@@ -150,9 +163,64 @@ export class VoyLcd {
     ctx.globalAlpha = 0.75;
     ctx.fillText(t.line3, pad, rows[2]);
     ctx.globalAlpha = 1;
+    if (t.tag) {
+      ctx.font = `400 ${Math.round(px * 0.8)}px ${FONT_MONO}`;
+      this.softKey('PRESETS', W - pad, rows[2], 'right', px);
+      ctx.font = `400 ${px}px ${FONT_MONO}`;
+    }
     this.shown = keyOf(t);
     this.draws += 1;
     this.texture.needsUpdate = true;
+  }
+
+  /**
+   * Mode presets : le titre et le rang, le nom entre ses fleches (le haut :
+   * precedent a gauche, suivant a droite), les quatre touches en bas.
+   */
+  private paintPreset(v: PresetView, pad: number, rows: number[], px: number): void {
+    const ctx = this.ctx;
+    const [W] = VOY_LCD.tex;
+    ctx.fillText(v.title, pad, rows[0]);
+    if (v.count) {
+      ctx.textAlign = 'right';
+      ctx.fillText(v.count, W - pad, rows[0]);
+    }
+    ctx.textAlign = 'center';
+    let name = v.name;
+    const room = W - 2 * pad - (v.empty ? 0 : px * 2.4);
+    while (name.length > 1 && ctx.measureText(name).width > room) name = name.slice(0, -1);
+    if (name !== v.name) name = `${name.slice(0, -1)}.`;
+    ctx.fillText(name, W / 2, rows[1]);
+    if (!v.empty) {
+      ctx.textAlign = 'left';
+      ctx.fillText('<', pad, rows[1]);
+      ctx.textAlign = 'right';
+      ctx.fillText('>', W - pad, rows[1]);
+    }
+    const cw = (W - 2 * pad) / 4;
+    v.keys.forEach((k, i) => {
+      if (k) this.softKey(k, pad + cw * (i + 0.5), rows[2], 'center', px);
+    });
+    ctx.textAlign = 'left';
+  }
+
+  /** Une touche dessinee : le texte en negatif dans une etiquette arrondie. */
+  private softKey(text: string, x: number, y: number, align: 'right' | 'center', px: number): void {
+    const ctx = this.ctx;
+    const w = ctx.measureText(text).width + px * 0.5;
+    const h = px * 1.1;
+    const x0 = align === 'right' ? x - w + px * 0.2 : x - w / 2;
+    const y0 = y - px * 0.85;
+    ctx.fillStyle = HEX.bone;
+    ctx.beginPath();
+    if (typeof ctx.roundRect === 'function') ctx.roundRect(x0, y0, w, h, 6);
+    else ctx.rect(x0, y0, w, h);
+    ctx.fill();
+    ctx.fillStyle = HEX.oled;
+    ctx.textAlign = 'center';
+    ctx.fillText(text, x0 + w / 2, y);
+    ctx.fillStyle = HEX.bone;
+    ctx.textAlign = 'left';
   }
 
   dispose(): void {

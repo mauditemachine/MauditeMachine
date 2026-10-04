@@ -17,7 +17,8 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { editToggle, escape, openToggle, padHit, page, resetView, runToggle, voyPad, voyRun } from '../actions';
+import { editToggle, escape, openToggle, padHit, page, presetKey, resetView, runToggle, voyPad, voyRun } from '../actions';
+import { presetMode } from '../state/presetMode';
 import type { Stage } from '../scene/renderer';
 import { focus } from '../state/focus';
 import { PADS, PAGES, type PageId } from '../theme';
@@ -59,6 +60,13 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
       }
       if (!on.current) return;
       if (e.altKey || e.ctrlKey || e.metaKey || e.repeat || isEditable(e.target)) return;
+      // Mode presets (2026-10-04) : gauche et droite passent d'un preset a l'autre
+      const pm = presetMode.get().machine;
+      if (pm && pm === focus.get() && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        e.preventDefault();
+        presetKey(pm, e.key === 'ArrowLeft' ? 'prev' : 'next');
+        return;
+      }
       const chord = focus.get() === 'voy' ? CHORD_KEYS.indexOf(e.key.toLowerCase()) : -1;
       if (chord >= 0) {
         e.preventDefault();

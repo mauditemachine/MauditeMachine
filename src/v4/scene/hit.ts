@@ -23,6 +23,7 @@
 
 import { Matrix4, Vector3, type Camera, type Object3D, type PerspectiveCamera } from 'three';
 import { MACHINES, type MachineId } from '../state/focus';
+import type { PresetKey } from '../state/presetMode';
 import { HIT, type ChipId, type EncId, type Inst, type SectionId } from '../theme';
 import type { VoyKnobId } from '../voyager/params';
 
@@ -48,6 +49,9 @@ export type HotspotKind =
   | 'encoder'
   | 'chip'
   | 'seek'
+  // Les presets sur l'ecran (2026-10-04, state/presetMode.ts) : MM-RYTM (lcd), MM-ARP (vlcd)
+  | 'lcd'
+  | 'vlcd'
   // MM-VOYAGER (2026-10-03) : pads d'accords, pages, OPEN, CLEAR et RANDOM, potards, puces
   | 'vpad'
   | 'vpage'
@@ -93,6 +97,8 @@ export interface HotspotDef {
   /** MM-VOYAGER : pad d'accord (0 a 7), bouton, potard */
   vpad?: number;
   vbtn?: 'run' | 'clear' | 'random' | 'edit';
+  /** une touche de l'ecran (mode presets) */
+  lcd?: PresetKey;
   vknob?: VoyKnobId;
   /** MM-DECKS : l'id de la commande (dj/layout.ts) */
   dj?: string;
@@ -123,6 +129,8 @@ export interface HotspotView {
   machine?: MachineId;
   vpad?: number;
   vbtn?: 'run' | 'clear' | 'random' | 'edit';
+  /** une touche de l'ecran (mode presets) */
+  lcd?: PresetKey;
   vknob?: VoyKnobId;
   /** rectangle cible : la boite projetee, elargie a 48 x 48 (tactile) ou 32 x 32 (souris) autour du centre */
   x: number;
@@ -608,6 +616,7 @@ export class HitMap {
         ...(def.machine ? { machine: def.machine } : {}),
         ...(def.vpad !== undefined ? { vpad: def.vpad } : {}),
         ...(def.vbtn ? { vbtn: def.vbtn } : {}),
+        ...(def.lcd ? { lcd: def.lcd } : {}),
         ...(def.vknob ? { vknob: def.vknob } : {}),
         x: r1(rect[0]),
         y: r1(rect[1]),
