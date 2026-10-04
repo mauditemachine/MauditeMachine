@@ -31,8 +31,8 @@ import { arp } from './voyager/arp';
 import { CHORDS, PROGRESSIONS } from './voyager/chords';
 import { voyMsg } from './voyager/msg';
 import { voyParams, voyReadout, type VoyKnobId } from './voyager/params';
-import { randomVoyPatch } from './voyager/random';
-import { seq } from './voyager/seq';
+import { randomVoyStyle, type VoyStyle } from './voyager/random';
+import { SEQ_MAX, seq } from './voyager/seq';
 
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
 const pct = (v: number): number => Math.round(v * 100);
@@ -483,23 +483,31 @@ export function voyClear(stage: Stage | null = null): void {
 }
 
 /**
- * RANDOM : une progression toute faite (jamais la meme que celle qui joue)
- * et tout le patch au hasard (2026-10-03 : arpegiateur, oscillateurs,
- * filtre, enveloppes, effets ; VOLUME garde), voyager/random.ts.
+ * RANDOM : un style (2026-10-04 : BASSLINE, ACID, PLUCK, LEAD, DARK, ARP ;
+ * jamais le meme deux fois de suite) et tout le patch qui lui ressemble
+ * (VOLUME garde), voyager/random.ts. Les basses et l'acid ecrivent leur
+ * ligne dans la suite (EDIT) et prennent une progression courte ; les
+ * autres repassent en AUTO, sur une progression toute faite (jamais celle
+ * qui joue). L'ecran dit le style.
  */
+let lastVoyStyle: VoyStyle | null = null;
+
 export function voyRandom(stage: Stage | null = null): void {
   gesture();
   if (!arp.get().running) sc.pauseForRun();
+  const r = randomVoyStyle(lastVoyStyle);
+  lastVoyStyle = r.style;
+  for (const [id, v] of Object.entries(r.patch) as [VoyKnobId, number][]) voyParams.set(id, v);
+  if (r.seq) {
+    const buf = Array.from({ length: SEQ_MAX }, (_, i) => r.seq?.[i % (r.seq?.length || 1)] ?? null);
+    seq.restore({ edit: true, buf, len: Math.min(SEQ_MAX, r.seq.length), has: true });
+  } else seq.auto();
   const cur = arp.get().prog.join(',');
   const pool = PROGRESSIONS.filter((p) => p.join(',') !== cur);
-  const pick = pool[Math.floor(Math.random() * pool.length)] ?? PROGRESSIONS[0];
-  const patch = randomVoyPatch();
-  for (const [id, v] of Object.entries(patch) as [VoyKnobId, number][]) voyParams.set(id, v);
-  // La suite repasse en AUTO : celle que RANDOM vient de fabriquer (la suite EDIT reste en memoire)
-  seq.auto();
-  arp.set(pick);
+  const pick = r.prog ?? pool[Math.floor(Math.random() * pool.length)] ?? PROGRESSIONS[0];
+  arp.set([...pick]);
   stage?.voy?.keys.pressButton('random');
-  voyMsg.show('RANDOM PATCH');
+  voyMsg.show(`RANDOM ${r.style}`);
 }
 
 /** Une touche de l'ecran en mode presets (state/presetMode.ts), ou l'ecran touche au repos (open). */

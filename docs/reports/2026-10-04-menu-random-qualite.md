@@ -24,7 +24,8 @@
 - Menu : reseaux avec icone et nom, liens sonaa.ca et massivemedias.com avec leurs logos (`ui/MenuSheet.tsx`, `v4.css`, `public/logo/sonaa-icon.png`, `public/logo/massive-icon.png`) ; vumetres du mixer en theme clair : demande transmise a Sonaa.
 - Liens directs vers une machine : ?m=dj, ?m=arp, ?m=rytm (`state/focus.ts` startMachine, `scene/renderer.ts`) ; redirection des anciens liens sonaa.ca vers ?m=dj demandee a Sonaa.
 - PRESETS sur l'ecran des machines (etiquette PRESETS, toucher l'ecran, SAVE NAME DEL EXIT, gauche et droite) ; la pastille flottante retiree (`state/presetMode.ts`, `state/lcd.ts`, `scene/screen.ts`, `scene/renderer.ts`, `scene/hit.ts`, `voyager/lcd.ts`, `voyager/rig.ts`, `ui/Hotspots.tsx`, `ui/VoyTwins.tsx`, `hooks/useKeys.ts`, `actions.ts`).
-- `docs/v4/spec.md` : R14-59 a R14-86.
+- Kick d'indie dance (rond, moins intense) ; RANDOM du MM-ARP par styles (BASSLINE avec vraies lignes de basse en EDIT, ACID, PLUCK, LEAD, DARK, ARP), niveaux tenus a 3 dB pres (`audio/shotsdsp.ts`, `voyager/random.ts`, `actions.ts`) ; vumetres du mixer : calibration demandee a Sonaa.
+- `docs/v4/spec.md` : R14-59 a R14-88.
 
 ## 2. Decisions prises et pourquoi
 

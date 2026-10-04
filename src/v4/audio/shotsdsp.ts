@@ -42,7 +42,8 @@ const TAU = Math.PI * 2;
  * batterie etait 6 dB sous l'arpege ; ces cretes la ramenent a sa hauteur.
  */
 export const SHOT_PEAK: Readonly<Record<ShotId, number>> = {
-  BD: -0.5,
+  // BD -0.5 jusqu'au 2026-10-04 : le kick d'indie dance, moins intense, 2 dB plus bas
+  BD: -2.5,
   SD: 3,
   TOM: 1.5,
   // CH +4 dB et OH +2 dB le 2026-10-04 (Mika : "on entend pas trop le HH")
@@ -328,34 +329,35 @@ export interface Shot {
 /* ---------------- les sons ---------------- */
 
 /**
- * BD, la balle de tennis : un sinus qui tombe de 380 a 50 Hz (deux
- * vitesses : 11 ms puis 55 ms), sature (tanh, un soupcon de pair pour la
- * chaleur) : ses harmoniques le font entendre meme sur un telephone ; et le
- * "pok" de la balle, un sinus a 1.15 kHz de 7 ms et un souffle en bande vers
- * 2.2 kHz de 3 ms. Corps court (130 ms) : il frappe, il ne traine pas.
+ * BD, le kick d'indie dance (2026-10-04, Mika : "pour le kick, quelque
+ * chose de moins intense, un kick d'indie dance") : rond et chaud plutot
+ * que claquant. Un sinus qui descend de 200 a 52 Hz (balayage court, 9 ms,
+ * puis un reste lent de 45 ms), une saturation douce (tanh 1.5, normalisee),
+ * une bosse d'attaque discrete, et un petit clic feutre (bruit en bande vers
+ * 1.6 kHz, 2 ms) ; queue de 120 ms. Avant : la balle de tennis (attaque a
+ * 380 Hz, saturation 3.2, "pok" a 1.15 kHz et souffle a 2.2 kHz).
  */
 function bd(sr: number, ts: number, r: () => number): Shot {
   const fs = sr * OS;
-  const len = Math.round(fs * Math.max(0.16, 0.46 * ts));
+  const len = Math.round(fs * Math.max(0.16, 0.42 * ts));
   const x = new Float64Array(len);
-  const bp = new Bq('bp', 2200, 0.9, fs);
-  const tauA = 0.13 * ts;
+  const bp = new Bq('bp', 1600, 0.8, fs);
+  const tauA = 0.12 * ts;
+  const drive = Math.tanh(1.5);
   let ph = 0;
-  let pk = 0;
   for (let i = 0; i < len; i += 1) {
     const t = i / fs;
-    const f = 50 + 290 * Math.exp(-t / 0.011) + 40 * Math.exp(-t / 0.055);
+    const f = 52 + 125 * Math.exp(-t / 0.009) + 22 * Math.exp(-t / 0.045);
     ph += f / fs;
-    const amp = (1 - Math.exp(-t / 0.0004)) * Math.exp(-t / tauA) * (1 + 0.55 * Math.exp(-t / 0.016));
+    const amp = (1 - Math.exp(-t / 0.0008)) * Math.exp(-t / tauA) * (1 + 0.2 * Math.exp(-t / 0.02));
     const b = Math.sin(TAU * ph) * amp;
-    const body = Math.tanh(3.2 * b + 0.15 * b * b);
-    pk += 1150 / fs;
-    const knock = 0.35 * Math.sin(TAU * pk) * Math.exp(-t / 0.007) + 0.7 * bp.run(r() * 2 - 1) * Math.exp(-t / 0.003);
-    x[i] = body + knock;
+    const body = Math.tanh(1.5 * b) / drive;
+    const click = 0.18 * bp.run(r() * 2 - 1) * Math.exp(-t / 0.002);
+    x[i] = body + click;
   }
   fadeOut(x, fs, Math.min(0.04, len / fs / 4));
   const y = decimate(x);
-  dcBlock(y, sr, 24);
+  dcBlock(y, sr, 20);
   return { L: y, R: y };
 }
 
