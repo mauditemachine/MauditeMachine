@@ -244,9 +244,10 @@ export class DjSilk {
     // Le logotype a droite de l'en-tete
     const mark = logoImage('mark');
     if (mark) {
-      const h = Math.round(0.42 * P);
+      // Platine : plus petit et plus haut, au-dessus du cadre de l'ecran
+      const h = Math.round((this.unit === 'mix' ? 0.42 : DECK.logo.h) * P);
       const w = Math.max(1, Math.round((h * mark.naturalWidth) / mark.naturalHeight));
-      const z = this.unit === 'mix' ? MIX.head.z : DECK.head.z;
+      const z = this.unit === 'mix' ? MIX.head.z : DECK.logo.z;
       ctx.drawImage(this.tint(mark, w, h), Math.round(this.px(this.w / 2 - 0.45) - w), Math.round(this.py(z) - h / 2));
     }
     const scales = this.scales(texts);

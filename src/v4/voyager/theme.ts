@@ -525,33 +525,35 @@ export const VOY_PCB_Y = VOY_BODY.floorY + 0.12;
  * carte) : x a droite, z vers soi. y : le dessous de la plaque au-dessus de
  * la carte. Huit cases : sept potards et le titre.
  */
+// 2026-10-04 (Mika : "on voit rien ; les boutons un peu plus gros et surtout les titres, sans trop exagerer") :
+// potards 1.3 -> 1.5 (1.45 au telephone), noms 0.08 -> 0.11, bouts de course 0.055 -> 0.068, titre 0.2 -> 0.24
 export const VOY_TWEAK_PLATE = PORTRAIT
-  ? { cx: 0, cz: 1.45, w: 3.7, d: 8.2, y: 0.5, t: 0.08, r: 0.12, screwIn: 0.22, knob: 1.3, label: 0.08, end: 0.056, title: 0.2 }
-  : { cx: 0, cz: 1.4, w: 8.2, d: 3.7, y: 0.5, t: 0.08, r: 0.12, screwIn: 0.22, knob: 1.3, label: 0.08, end: 0.054, title: 0.2 };
+  ? { cx: 0, cz: 1.4, w: 4.0, d: 8.2, y: 0.5, t: 0.08, r: 0.12, screwIn: 0.17, frame: 0.28, knob: 1.45, label: 0.11, end: 0.068, title: 0.24 }
+  : { cx: 0, cz: 1.4, w: 8.2, d: 3.9, y: 0.5, t: 0.08, r: 0.12, screwIn: 0.22, frame: 0.36, knob: 1.5, label: 0.11, end: 0.068, title: 0.24 };
 
 export type VoyTweakCell = VoyKnobId | 'title';
 
 /** Les cases de la plaque (repere de la plaque, son centre) : desktop deux rangees de quatre, portrait quatre rangees de deux. */
 export const VOY_TWEAK_CELLS: readonly { id: VoyTweakCell; x: number; z: number }[] = (PORTRAIT
   ? ([
-      ['phase', -0.9, -2.85],
-      ['drift', 0.9, -2.85],
-      ['width', -0.9, -0.95],
-      ['monoLow', 0.9, -0.95],
-      ['keyTrack', -0.9, 0.95],
-      ['accent', 0.9, 0.95],
-      ['sync', -0.9, 2.85],
-      ['title', 0.9, 2.85],
+      ['phase', -0.95, -2.85],
+      ['drift', 0.95, -2.85],
+      ['width', -0.95, -0.95],
+      ['monoLow', 0.95, -0.95],
+      ['keyTrack', -0.95, 0.95],
+      ['accent', 0.95, 0.95],
+      ['sync', -0.95, 2.85],
+      ['title', 0.95, 2.85],
     ] as const)
   : ([
-      ['phase', -2.85, -0.75],
-      ['drift', -0.95, -0.75],
-      ['width', 0.95, -0.75],
-      ['monoLow', 2.85, -0.75],
-      ['keyTrack', -2.85, 0.85],
-      ['accent', -0.95, 0.85],
-      ['sync', 0.95, 0.85],
-      ['title', 2.85, 0.85],
+      ['phase', -2.85, -0.72],
+      ['drift', -0.95, -0.72],
+      ['width', 0.95, -0.72],
+      ['monoLow', 2.85, -0.72],
+      ['keyTrack', -2.85, 0.86],
+      ['accent', -0.95, 0.86],
+      ['sync', 0.95, 0.86],
+      ['title', 2.85, 0.86],
     ] as const)
 ).map(([id, x, z]) => ({ id, x, z }));
 

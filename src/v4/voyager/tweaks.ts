@@ -64,7 +64,7 @@ function radii(s: number): { skirt: number; r0: number; r1: number; label: numbe
   const skirt = VOY_KNOB.skirt.r * s;
   const r0 = skirt + 0.05;
   const r1 = r0 + 0.07;
-  return { skirt, r0, r1, label: r1 + 0.03 + 0.13, end: r1 + 0.17 };
+  return { skirt, r0, r1, label: r1 + 0.03 + 0.13, end: r1 + 0.14 };
 }
 
 /** La plaque : un rectangle aux coins arrondis, chanfreine, le dessus a y 0. */
@@ -296,7 +296,7 @@ export class VoyTweaks {
     // Un filet a l'interieur du bord, interrompu nulle part (le cadre d'un panneau)
     ctx.strokeStyle = silkA(SILK.lineAlpha);
     ctx.lineWidth = Math.max(1, SILK.lineWidth * PPU);
-    const inset = P.screwIn + 0.14;
+    const inset = P.frame;
     ctx.strokeRect(this.px(-P.w / 2 + inset), this.py(-P.d / 2 + inset), (P.w - 2 * inset) * PPU, (P.d - 2 * inset) * PPU);
     // La largeur d'une case : quatre colonnes a plat (desktop), deux debout (portrait)
     const cellW = (P.w > P.d ? P.w / 4 : P.w / 2) - 0.12;
@@ -336,8 +336,10 @@ export class VoyTweaks {
         const a0 = (tickDeg(0) * Math.PI) / 180;
         const a1 = (tickDeg(10) * Math.PI) / 180;
         // PHASE : FREE en orange (le reglage d'origine, la phase libre)
-        this.text(ends[0], pl.x + Math.cos(a0) * R.end, pl.z - Math.sin(a0) * R.end + 0.04, P.end, { align: 'right', weight: 600, alpha: 0.7, orange: k.id === 'phase' });
-        this.text(ends[1], pl.x + Math.cos(a1) * R.end, pl.z - Math.sin(a1) * R.end + 0.04, P.end, { align: 'left', weight: 600, alpha: 0.7 });
+        // Centres sous les graduations 0 et 10 (ils debordent moins vers les voisins)
+        const dz = P.end * 0.9;
+        this.text(ends[0], pl.x + Math.cos(a0) * R.end, pl.z - Math.sin(a0) * R.end + dz, P.end, { weight: 600, alpha: 0.75, orange: k.id === 'phase' });
+        this.text(ends[1], pl.x + Math.cos(a1) * R.end, pl.z - Math.sin(a1) * R.end + dz, P.end, { weight: 600, alpha: 0.75 });
       }
     }
     // Le titre : TWEAKS, un filet, la machine

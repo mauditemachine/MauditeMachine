@@ -356,6 +356,12 @@ function placeMix(n: number): void {
 export const DECK = {
   head: { z: -5.05 },
   /**
+   * Le logotype de l'en-tete (2026-10-04, Mika : "on ne voit plus le logo
+   * type") : l'ecran agrandi montait sous lui (son cadre a z -4.92) ; plus
+   * petit que celui de la table et remonte, il reste entier au-dessus.
+   */
+  logo: { h: 0.32, z: -5.13 },
+  /**
    * L'ecran, la moitie haute de la platine (Mika, 2026-10-04 : "trop
    * miniature, on ne voit rien ; je veux un plus grand ecran et voir la
    * playlist a l'interieur de chaque deck, comme un CDJ") : le morceau et
