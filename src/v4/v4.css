@@ -347,46 +347,62 @@ html:has(body.v4-active) {
   width: auto;
 }
 
-.v4-nav ul {
+/* MENU (2026-10-04) : le mot et les trois traits, en pastille ; ouvert, CLOSE et la croix */
+.v4-root .v4-menu-btn {
   display: flex;
   align-items: center;
-  gap: 2px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
+  gap: 12px;
+  height: 40px;
+  padding: 0 16px 0 18px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--bone);
+  transition: box-shadow 160ms ease, color 160ms ease;
 }
 
-.v4-root .v4-nav-link {
-  height: 36px;
-  padding: 0 11px;
-  border-radius: 8px;
-  color: var(--bone-70);
+.v4-root .v4-menu-btn:hover,
+.v4-root .v4-menu-btn[data-open='1'] {
+  box-shadow: inset 0 0 0 1.5px var(--orange);
+}
+
+.v4-root .v4-menu-btn:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.v4-menu-word {
+  min-width: 42px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  transition: color 160ms ease, background-color 160ms ease;
 }
 
-.v4-root .v4-nav-link:hover,
-.v4-root .v4-nav-link:focus-visible {
-  color: var(--bone);
-  background: rgba(246, 241, 231, 0.06);
+.v4-menu-btn .v4-burger-bars {
+  width: 18px;
 }
 
-.v4-root .v4-nav-link[aria-expanded='true'] {
-  color: var(--orange);
+.v4-menu-btn .v4-burger-bars > i {
+  width: 18px;
 }
 
-.v4-nav-sep {
-  width: 1px;
-  height: 16px;
-  margin: 0 8px;
-  background: rgba(246, 241, 231, 0.2);
+.v4-menu-btn[data-open='1'] .v4-burger-bars > i:nth-child(1) {
+  top: 6px;
+  transform: rotate(45deg);
 }
 
-.v4-root[data-v4-motion='reduced'] .v4-nav-link {
-  transition: none;
+.v4-menu-btn[data-open='1'] .v4-burger-bars > i:nth-child(2) {
+  opacity: 0;
+}
+
+.v4-menu-btn[data-open='1'] .v4-burger-bars > i:nth-child(3) {
+  top: 6px;
+  transform: rotate(-45deg);
+}
+
+/* Menu ouvert : l'en-tete prend le fond du menu */
+.v4-header[data-menu='1'] {
+  background: var(--ink);
 }
 
 @media (max-width: 767px) {
@@ -525,7 +541,8 @@ html:has(body.v4-active) {
   animation: v4-mmenu-in 200ms ease-out both;
 }
 
-.v4-mmenu[hidden] {
+/* Ferme : rien, quelle que soit la mise en page (la variante desktop pose sa grille plus loin) */
+.v4-root .v4-mmenu[hidden] {
   display: none;
 }
 
@@ -741,6 +758,107 @@ html:has(body.v4-active) {
 .v4-mmenu .v4-look-btn {
   height: 36px;
   padding: 0 14px;
+}
+
+/* Desktop (2026-10-04) : les pages a gauche en tres grand, le capot, les
+   reseaux et le pied en colonne a droite ; centre, 1320 px au plus. */
+.v4-mmenu[data-variant='desk'] {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr);
+  /* Les deux colonnes centrees ensemble : un vide egal au-dessus et au-dessous */
+  grid-template-rows: 1fr auto auto auto 1fr;
+  grid-template-areas:
+    '. .'
+    'pages hood'
+    'pages follow'
+    'pages foot'
+    '. .';
+  column-gap: clamp(48px, 7vw, 120px);
+  row-gap: 32px;
+  padding: clamp(24px, 5vh, 64px) max(clamp(28px, 6vw, 96px), calc((100% - 1320px) / 2)) clamp(28px, 6vh, 72px);
+}
+
+.v4-mmenu[data-variant='desk'] .v4-mm-pages {
+  grid-area: pages;
+  align-self: center;
+}
+
+.v4-mmenu[data-variant='desk'] .v4-mm-hood {
+  grid-area: hood;
+}
+
+.v4-mmenu[data-variant='desk'] .v4-mm-follow {
+  grid-area: follow;
+}
+
+.v4-mmenu[data-variant='desk'] .v4-mm-foot {
+  grid-area: foot;
+  align-self: end;
+  margin-top: 0;
+}
+
+.v4-root .v4-mmenu[data-variant='desk'] .v4-mm-page {
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  min-height: 0;
+  padding: clamp(10px, 1.8vh, 18px) 4px;
+}
+
+.v4-mmenu[data-variant='desk'] .v4-mm-num {
+  margin-top: 0.9em;
+  font-size: 12px;
+}
+
+.v4-mmenu[data-variant='desk'] .v4-mm-label {
+  font-size: clamp(40px, min(6.2vw, 10.5vh), 96px);
+  letter-spacing: -0.02em;
+  transition: transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1), color 160ms ease;
+}
+
+.v4-root .v4-mmenu[data-variant='desk'] .v4-mm-go {
+  font-size: clamp(18px, 2vw, 28px);
+  opacity: 0;
+  transform: translateX(-12px);
+  transition: opacity 180ms ease, transform 220ms cubic-bezier(0.2, 0.7, 0.2, 1), color 160ms ease;
+}
+
+/* Survol : le titre glisse et s'allume, la fleche arrive */
+.v4-root .v4-mmenu[data-variant='desk'] .v4-mm-page:hover .v4-mm-label,
+.v4-root .v4-mmenu[data-variant='desk'] .v4-mm-page:focus-visible .v4-mm-label {
+  color: var(--orange);
+  transform: translateX(14px);
+}
+
+.v4-root .v4-mmenu[data-variant='desk'] .v4-mm-page:hover .v4-mm-num,
+.v4-root .v4-mmenu[data-variant='desk'] .v4-mm-page:focus-visible .v4-mm-num {
+  color: var(--orange);
+}
+
+.v4-root .v4-mmenu[data-variant='desk'] .v4-mm-page:hover .v4-mm-go,
+.v4-root .v4-mmenu[data-variant='desk'] .v4-mm-page:focus-visible .v4-mm-go,
+.v4-root .v4-mmenu[data-variant='desk'] .v4-mm-page[data-active='1'] .v4-mm-go {
+  color: var(--orange);
+  opacity: 1;
+  transform: none;
+}
+
+.v4-root .v4-mmenu[data-variant='desk'] .v4-mm-pill {
+  height: 48px;
+}
+
+.v4-root .v4-mmenu[data-variant='desk'] .v4-mm-pill:hover {
+  box-shadow: inset 0 0 0 1.5px var(--orange);
+}
+
+.v4-root .v4-mmenu[data-variant='desk'] .v4-mmenu-open {
+  height: 60px;
+}
+
+.v4-root .v4-mmenu[data-variant='desk'] .v4-mmenu-open:hover {
+  filter: brightness(1.06);
+}
+
+.v4-root .v4-mmenu[data-variant='desk'] .v4-mmenu-reset:hover {
+  color: var(--orange);
 }
 
 @keyframes v4-mmenu-in {
@@ -2362,10 +2480,6 @@ html:has(body.v4-active) {
 
 /* Le bouton : deux segments, l'apparence en cours pleine. Desktop : au bout
    du menu ; mobile : en haut a droite de la zone de la machine. */
-.v4-header .v4-nav {
-  margin-left: auto;
-}
-
 .v4-look {
   display: flex;
   flex: 0 0 auto;
@@ -2435,17 +2549,12 @@ html:has(body.v4-active.v4-light) {
 
 /* Le menu clair : le papier creme du site, l'encre noire pour les titres */
 .v4-root[data-v4-theme='light'] .v4-mmenu,
-.v4-root[data-v4-theme='light'] .v4-mhead[data-menu='1'] {
+.v4-root[data-v4-theme='light'] .v4-mhead[data-menu='1'],
+.v4-root[data-v4-theme='light'] .v4-header[data-menu='1'] {
   --mm-ink: #191919;
   background: #f6f1e7;
 }
 
-.v4-root[data-v4-theme='light'] .v4-nav-sep {
-  background: rgba(67, 67, 67, 0.2);
-}
-
-.v4-root[data-v4-theme='light'] .v4-nav-link:hover,
-.v4-root[data-v4-theme='light'] .v4-nav-link:focus-visible,
 .v4-root[data-v4-theme='light'] .v4-panel-close:hover,
 .v4-root[data-v4-theme='light'] a.v4-show:hover {
   background: rgba(67, 67, 67, 0.06);

@@ -1,22 +1,24 @@
 /**
  * En-tete fin (2026-10-01, desktop seulement) : le logo Maudite Machine a
  * gauche (retour a la vue d'arrivee : sections et capot fermes, vue
- * recentree), le menu a droite. Chaque lien actionne le bouton de la
- * machine : une page enfonce son pad et ouvre sa section (actions.page,
- * comme le pad, avec la trace) ; GOODIES, MERCH et STUDIO ouvrent d'abord
- * le capot, puis la section de leur puce. 52 px, transparent sur un
- * degrade : la machine reste le sujet.
+ * recentree), le bouton MENU a droite (2026-10-04, Mika : "le menu desktop
+ * aussi plus beau comme le mobile") : il ouvre le menu plein ecran,
+ * ui/MenuSheet.tsx, le meme qu'au telephone, a l'echelle d'un ecran. Chaque
+ * page actionne le bouton de la machine (actions.page, comme le pad, avec
+ * la trace) ; GOODIES, MERCH et STUDIO ouvrent d'abord le capot, puis la
+ * section de leur puce. 52 px, transparent sur un degrade : la machine
+ * reste le sujet.
  */
 
-import React, { useSyncExternalStore } from 'react';
-import { closeSection, hoodMachine, hoodOf, openSection, openToggle, page, resetView } from '../actions';
+import React, { useCallback, useRef, useState, useSyncExternalStore } from 'react';
+import { closeSection, hoodMachine, hoodOf, openSection, openToggle, resetView } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { appearance } from '../state/appearance';
 import { explode, voyExplode } from '../state/explode';
 import { focus, VOYAGER } from '../state/focus';
 import { section } from '../state/section';
 import { EXPLODE, MOBILE_QUERY, type PageId } from '../theme';
-import { AppearanceToggle } from './AppearanceToggle';
+import { MenuSheet } from './MenuSheet';
 
 export type HoodId = 'goodies' | 'merch' | 'studio';
 
@@ -69,55 +71,50 @@ interface Props {
 }
 
 export const Header: React.FC<Props> = ({ getStage }) => {
-  const open = useSyncExternalStore(section.subscribe, section.get, section.get);
+  const [menu, setMenu] = useState(false);
   const look = useSyncExternalStore(appearance.subscribe, appearance.get, appearance.get);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  const close = useCallback((refocus: boolean): void => {
+    setMenu(false);
+    if (refocus) btnRef.current?.focus({ preventScroll: true });
+  }, []);
 
   const onHome = (e: React.MouseEvent): void => {
     e.preventDefault();
+    setMenu(false);
     goHome(getStage());
   };
 
-  const onHood = (id: HoodId): void => openHood(id, getStage());
-
   return (
-    <header className="v4-header">
-      <a className="v4-logo" href="/" aria-label="Maudite Machine, back to the machine" onClick={onHome}>
-        <img src={look === 'light' ? '/logo/mauditemachine-logo-ink.svg' : '/logo/mauditemachine-logo-gold.svg'} alt="Maudite Machine" width={118} height={26} />
-      </a>
-      <nav className="v4-nav" aria-label="Main">
-        <ul>
-          {PAGE_LINKS.map((l) => (
-            <li key={l.id}>
-              <button
-                type="button"
-                className="v4-nav-link"
-                aria-expanded={open === l.id}
-                aria-controls={`v4-section-${l.id}`}
-                data-press-button={l.id === 'press' ? '' : undefined}
-                onClick={() => page(l.id, getStage())}
-              >
-                {l.label}
-              </button>
-            </li>
-          ))}
-          <li className="v4-nav-sep" aria-hidden="true" />
-          {HOOD_LINKS.map((l) => (
-            <li key={l.id}>
-              <button
-                type="button"
-                className="v4-nav-link"
-                aria-expanded={open === l.id}
-                aria-controls={`v4-section-${l.id}`}
-                onClick={() => onHood(l.id)}
-              >
-                {l.label}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </nav>
-      <AppearanceToggle />
-    </header>
+    <>
+      <header className="v4-header" data-menu={menu ? '1' : '0'}>
+        <a className="v4-logo" href="/" aria-label="Maudite Machine, back to the machine" onClick={onHome}>
+          <img src={look === 'light' ? '/logo/mauditemachine-logo-ink.svg' : '/logo/mauditemachine-logo-gold.svg'} alt="Maudite Machine" width={118} height={26} />
+        </a>
+        <button
+          ref={btnRef}
+          type="button"
+          className="v4-menu-btn"
+          data-open={menu ? '1' : '0'}
+          aria-expanded={menu}
+          aria-controls="v4-mmenu"
+          aria-label={menu ? 'Close the menu' : 'Open the menu'}
+          data-press-button=""
+          onClick={() => setMenu((m) => !m)}
+        >
+          <span className="v4-menu-word" aria-hidden="true">
+            {menu ? 'Close' : 'Menu'}
+          </span>
+          <span className="v4-burger-bars" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
+        </button>
+      </header>
+      <MenuSheet getStage={getStage} open={menu} onClose={close} variant="desk" />
+    </>
   );
 };
 
