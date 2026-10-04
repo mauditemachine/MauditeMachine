@@ -25,7 +25,8 @@
 - La seconde machine s'appelle MM-ARP (serigraphie, ecran, carte, selecteur, volet, nom sous la machine) ; noms internes inchanges.
 - Le pad de l'accord qui joue ne clignote plus a chaque note : jaune fixe (`voyager/rig.ts`).
 - MM-ARP a deux oscillateurs facon Typhon : `audio/moog.worklet.js` (formes par cran, FM, TUNE 2, MIX), `voyager/params.ts` (WAVE 1, WAVE 2, TUNE 2, MIX), `voyager/silk.ts` (arcs jaunes et dessins des formes autour des selecteurs, cran choisi allume), `voyager/theme.ts` (OSC sur trois colonnes en desktop, quatre rangees au telephone, OCTAVE avec l'arpegiateur), `voyager/rig.ts`.
-- `docs/v4/spec.md` : R14-34 a R14-43.
+- Dock du MM-ARP au telephone : rangee WAVE 1 / WAVE 2 avec le dessin de la forme (`ui/VoyDock.tsx`, `voyager/glyphs.ts` partage avec la serigraphie, `v4.css`).
+- `docs/v4/spec.md` : R14-34 a R14-44.
 
 ## 2. Decisions prises et pourquoi
 

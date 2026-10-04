@@ -406,7 +406,7 @@ html:has(body.v4-active) {
   .v4-root {
     /* le Dock de la 808 (dix voix sur deux rangees depuis le 2026-10-03), celui du MM-VOYAGER */
     --dock-h-mobile: 209px;
-    --vdock-h-mobile: 185px;
+    --vdock-h-mobile: 230px;
     --ios-bar: 0px;
     --canvas-h-mobile: 100vh;
     --canvas-h-mobile: 100dvh;
@@ -2764,6 +2764,34 @@ html:has(body.v4-active.v4-light) {
 
 .v4-vdock-arp {
   grid-template-columns: repeat(5, 1fr);
+}
+
+/* WAVE 1 et WAVE 2 (2026-10-03) : nom, dessin de la forme en jaune Typhon, sa valeur */
+.v4-vdock-waves {
+  grid-template-columns: 1fr 1fr;
+}
+
+.v4-root .v4-vdock-waves .v4-dock-key {
+  flex-direction: row;
+  justify-content: center;
+  gap: 10px;
+}
+
+.v4-root .v4-vdock-wave,
+.v4-root .v4-vdock-fm {
+  color: #f2c230;
+  flex: 0 0 auto;
+}
+
+.v4-root .v4-vdock-fm {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.v4-root[data-v4-theme='light'] .v4-vdock-wave,
+.v4-root[data-v4-theme='light'] .v4-vdock-fm {
+  color: #a87400;
 }
 
 .v4-root .v4-vdock-chord {

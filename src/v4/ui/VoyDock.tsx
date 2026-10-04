@@ -7,7 +7,9 @@
  *   progression (orange), l'accord qui joue en jaune ;
  * - CLEAR, RANDOM, OCTAVE - / valeur / + ;
  * - RUN/STOP (l'arpege, cale sur la 808), RATE, MODE, RANGE, NOTES : un
- *   appui passe au cran suivant.
+ *   appui passe au cran suivant ;
+ * - WAVE 1 et WAVE 2 (2026-10-03) : la forme de chaque oscillateur, dessinee
+ *   comme sur la machine ; un appui passe a la suivante.
  * Memes actions et memes stores que la machine : les deux bougent ensemble.
  * Monte seulement sur telephone, quand on utilise le Voyager (index.tsx).
  */
@@ -17,7 +19,8 @@ import { voyClear, voyDial, voyPad, voyRandom, voyRun } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { arp } from '../voyager/arp';
 import { CHORDS } from '../voyager/chords';
-import { MODES, NOTES, OCTAVES, RANGES, RATES, stepIndex, voyParams, type VoyKnobId } from '../voyager/params';
+import { wavePoints } from '../voyager/glyphs';
+import { MODES, NOTES, OCTAVES, RANGES, RATES, WAVES1, WAVES2, stepIndex, voyParams, type VoyKnobId } from '../voyager/params';
 
 const DOCK_KEY = 'mm.v4.vdock';
 
@@ -30,6 +33,18 @@ function readOpen(): boolean {
 }
 
 const Icon: React.FC<{ name: string }> = ({ name }) => <i className={`${name} v4-fa`} aria-hidden="true" />;
+
+/** Le dessin d'une forme d'onde (celui de la machine), ou FM ecrit. */
+const WaveGlyph: React.FC<{ name: string }> = ({ name }) => {
+  const pts = wavePoints(name);
+  if (!pts) return <span className="v4-vdock-fm" aria-hidden="true">FM</span>;
+  const d = pts.map(([u, v], i) => `${i === 0 ? 'M' : 'L'}${(u * 13 + 14).toFixed(2)} ${(v * 6 + 8).toFixed(2)}`).join(' ');
+  return (
+    <svg className="v4-vdock-wave" viewBox="0 0 28 16" width="28" height="16" aria-hidden="true">
+      <path d={d} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+};
 
 /** Le cran suivant d'un potard a crans (on reboucle). */
 function cycle(id: VoyKnobId, n: number): void {
@@ -64,6 +79,8 @@ export const VoyDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage }
     }
   }, [shown]);
   const oct = stepIndex('octave', p.octave);
+  const w1 = WAVES1[stepIndex('wave1', p.wave1)];
+  const w2 = WAVES2[stepIndex('wave2', p.wave2)];
 
   return (
     <>
@@ -112,6 +129,18 @@ export const VoyDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage }
           </span>
           <button type="button" className="v4-dock-key v4-dock-nudge" aria-label="Octave up" disabled={oct >= 4} onClick={() => voyDial('octave', (oct + 1) / 4)}>
             <span>OCT +</span>
+          </button>
+        </div>
+        <div className="v4-vdock-row v4-vdock-waves" role="group" aria-label="Oscillator waves">
+          <button type="button" className="v4-dock-key" aria-label={`Wave 1 ${w1.toLowerCase()}, tap for the next`} onClick={() => cycle('wave1', WAVES1.length)}>
+            <span>WAVE 1</span>
+            <WaveGlyph name={w1} />
+            <span className="v4-vdock-val">{w1}</span>
+          </button>
+          <button type="button" className="v4-dock-key" aria-label={`Wave 2 ${w2.toLowerCase()}, tap for the next`} onClick={() => cycle('wave2', WAVES2.length)}>
+            <span>WAVE 2</span>
+            <WaveGlyph name={w2} />
+            <span className="v4-vdock-val">{w2}</span>
           </button>
         </div>
         <div className="v4-vdock-row v4-vdock-arp" role="group" aria-label="Arpeggiator">

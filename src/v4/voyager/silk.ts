@@ -21,6 +21,7 @@ import { Mesh, MeshStandardMaterial, PlaneGeometry, type CanvasTexture } from 't
 import { drawTracked, fontsReady, logoImage, makeCanvasTexture, trackedWidth } from '../scene/silk';
 import { APPEARANCE, HEX, PORTRAIT, SILK, silkA } from '../theme';
 import { CHORDS } from './chords';
+import { wavePoints } from './glyphs';
 import { VOY_KNOBS, WAVES1, WAVES2, stepIndex, voyParams } from './params';
 import {
   VOY_BODY,
@@ -366,12 +367,7 @@ export class VoySilk {
       ctx.textBaseline = 'alphabetic';
       return;
     }
-    const pts: [number, number][] = [];
-    if (w === 'SINE') for (let i = 0; i <= 24; i += 1) pts.push([-1 + i / 12, -Math.sin(Math.PI * (-1 + i / 12))]);
-    else if (w === 'TRI') pts.push([-1, 1], [-0.5, -1], [0, 1], [0.5, -1], [1, 1]);
-    else if (w === 'SAW') pts.push([-1, 1], [0, -1], [0, 1], [1, -1], [1, 1]);
-    else if (w === 'SQUARE') pts.push([-1, 1], [-1, -1], [0, -1], [0, 1], [1, 1], [1, -1]);
-    else pts.push([-1, 1], [-0.6, 1], [-0.6, -1], [-0.35, -1], [-0.35, 1], [0.4, 1], [0.4, -1], [0.65, -1], [0.65, 1], [1, 1]);
+    const pts = wavePoints(w) ?? [];
     ctx.beginPath();
     pts.forEach(([u, v], i) => (i === 0 ? ctx.moveTo(X(u), Y(v)) : ctx.lineTo(X(u), Y(v))));
     ctx.stroke();
