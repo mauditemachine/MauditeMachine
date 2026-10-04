@@ -122,7 +122,8 @@ import { PanelSilk, fontsReady, makeBrushTexture, whenFonts, whenLogos } from '.
 import { Tweens, easeInOutCubic, easeOutCubic, linear } from './tween';
 import { VoyagerRig } from '../voyager/rig';
 import { VOY_BODY, VOY_FRAME, VOY_X } from '../voyager/theme';
-import { DjRig } from '../dj/rig';
+import type { DjRig } from '../dj/rig';
+import { djLoad } from '../state/djload';
 import { DJ_FRAME, DJ_W, DJ_X, UNIT_X, unitW } from '../dj/theme';
 import { djView } from '../dj/view';
 
@@ -422,7 +423,10 @@ export class Stage {
   /** le MM-VOYAGER (2026-10-03, ?voyager=1), null sans lui */
   readonly voy: VoyagerRig | null;
   /** le MM-DECKS (2026-10-04, ?dj=1), null sans lui */
-  readonly dj: DjRig | null;
+  /** le MM-DECKS (?dj=1), accroche une fois son code arrive (attachDj) ; null avant, et sans lui */
+  dj: DjRig | null = null;
+  /** l'anisotropie des textures, gardee pour le MM-DECKS qui arrive apres le constructeur */
+  private aniso = 1;
   /** cadrage de la cible : courant, depart et arrivee du zoom, cibles, avancement (courbe appliquee) */
   private fr!: Frame;
   private frFrom!: Frame;
@@ -673,25 +677,10 @@ export class Stage {
     } else {
       this.voy = null;
     }
-    // Le MM-DECKS (2026-10-04) : a droite du MM-ARP, ses objets apres les siens
-    if (VOYAGER && DJ) {
-      const dj = new DjRig({
-        mobile,
-        anisotropy: aniso,
-        reduced: motion.reduced,
-        repaint: () => this.repaint(),
-        invalidate: () => this.invalidate(),
-      });
-      this.dj = dj;
-      this.scene.add(dj.root);
-      this.hit.add(dj.hotspots);
-      for (const o of dj.occluders()) this.hit.addOccluder(o);
-      void whenLogos().then(() => {
-        if (!this.disposed) dj.redrawText();
-      });
-    } else {
-      this.dj = null;
-    }
+    // Le MM-DECKS (2026-10-04, ?dj=1) : son code arrive a part (state/djload.ts),
+    // le rig s'accroche ensuite (attachDj) ; sans le drapeau, rien n'est charge
+    this.aniso = aniso;
+    if (VOYAGER && DJ) void djLoad.load()?.then((m) => this.attachDj(m.DjRig));
 
     // Taille initiale ; le canvas passe a l'encre tout de suite (jamais un noir pur)
     this.width = Math.max(1, opts.host.clientWidth);
@@ -723,8 +712,6 @@ export class Stage {
         voyRig.stepArp
       );
     }
-    // Le MM-DECKS : platines, VU, anneaux des jogs, ecrans
-    if (this.dj) this.animators.push(this.dj.step);
     // Intro (2026-10-01) : mouvement complet seulement ; la machine attend
     // eclatee jusqu'a la premiere frame, puis s'assemble (stepIntro)
     if (!motion.reduced() && !opts.skipIntro) {
@@ -785,8 +772,6 @@ export class Stage {
     this.applyExplode(true);
     this.unsubExplode = explodeState.subscribe(this.syncExplode);
     this.detachExplode = explodeState.attach();
-    this.dj?.listen();
-    if (this.dj) this.unsubDjUnit = djView.subscribe(this.syncDjUnit);
     if (this.voy) {
       this.voy.listen();
       // Capot deja ouvert (reconstruction) : le cadrage de la pile ouverte
@@ -917,6 +902,36 @@ export class Stage {
 
   get pxPerUnit(): number {
     return this.ppu;
+  }
+
+  /**
+   * Le MM-DECKS arrive (son code charge a part) : a droite du MM-ARP, ses
+   * objets apres les siens, comme s'il avait ete construit avec la scene ;
+   * ses animations (platines, VU, anneaux des jogs, ecrans), son ecoute,
+   * le bloc du telephone ; puis la scene se recadre.
+   */
+  private attachDj(Rig: typeof DjRig): void {
+    if (this.disposed || this.dj) return;
+    const dj = new Rig({
+      mobile: this.opts.mobile,
+      anisotropy: this.aniso,
+      reduced: motion.reduced,
+      repaint: () => this.repaint(),
+      invalidate: () => this.invalidate(),
+    });
+    this.dj = dj;
+    this.scene.add(dj.root);
+    this.hit.add(dj.hotspots);
+    for (const o of dj.occluders()) this.hit.addOccluder(o);
+    void whenLogos().then(() => {
+      if (!this.disposed) dj.redrawText();
+    });
+    this.animators.push(dj.step);
+    dj.listen();
+    this.unsubDjUnit = djView.subscribe(this.syncDjUnit);
+    this.setShown(this.fTo);
+    this.updateCamera();
+    this.invalidate();
   }
 
   /**

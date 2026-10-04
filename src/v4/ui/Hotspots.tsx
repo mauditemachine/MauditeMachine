@@ -66,7 +66,7 @@ import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
 import { BPM, STEP_COUNT, isOn, pattern } from '../audio/pattern';
 import type { HotspotKind, HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
-import { DjGestures } from '../dj/gestures';
+import { djLoad, type DjModules } from '../state/djload';
 import { djView } from '../dj/view';
 import { chipsLive, explode } from '../state/explode';
 import { MACHINES, focus, VOYAGER } from '../state/focus';
@@ -243,9 +243,18 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     });
     ro.observe(el);
 
-    // Le MM-DECKS : ses commandes prennent le pointeur des le pointerdown (dj/gestures.ts)
-    const djg = stage.dj ? new DjGestures(stage) : null;
-    const isDj = (k: HotspotKind): boolean => k === 'djknob' || k === 'djfader' || k === 'djkey' || k === 'djjog';
+    // Le MM-DECKS : ses commandes prennent le pointeur des le pointerdown (dj/gestures.ts) ;
+    // son code arrive a part (state/djload.ts) : les gestes naissent quand le rig est la
+    let djg: InstanceType<DjModules['DjGestures']> | null = null;
+    const djGestures = (): typeof djg => {
+      if (!djg && stage.dj) {
+        const m = djLoad.get();
+        if (m) djg = new m.DjGestures(stage);
+      }
+      return djg;
+    };
+    // Tout type de zone du MM-DECKS (djknob, djfader, djkey, djjog, djscreen...)
+    const isDj = (k: HotspotKind): boolean => k.startsWith('dj');
 
     const isCoarse = (e: PointerEvent): boolean =>
       e.pointerType === 'touch' || e.pointerType === 'pen' || coarseMql.matches;
@@ -366,8 +375,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       capture(e.pointerId);
       const h = pickAt(e, isCoarse(e));
       // Une commande du MM-DECKS : elle seule voit ce pointeur (ni orbite ni pincement)
-      if (h && djg && isDj(h.kind)) {
-        djg.down(e.pointerId, h, e.clientX - rect.left, e.clientY - rect.top);
+      const g = h && isDj(h.kind) ? djGestures() : null;
+      if (h && g) {
+        g.down(e.pointerId, h, e.clientX - rect.left, e.clientY - rect.top);
         e.stopPropagation();
         e.preventDefault();
         return;
@@ -525,11 +535,14 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Ctrl + molette (pincement d'un pave tactile) : le zoom de la vue
       if (e.ctrlKey) return;
       const h = pickAt(e, false);
-      // Au-dessus d'un potard ou d'un fader du MM-DECKS : il bouge, la vue ne zoome pas
-      if (h && djg && (h.kind === 'djknob' || h.kind === 'djfader')) {
+      // Au-dessus d'une commande du MM-DECKS : elle prend la molette si elle en veut (sinon la vue zoome)
+      const g = h && isDj(h.kind) ? djGestures() : null;
+      if (h && g) {
         const delta = e.shiftKey && e.deltaY === 0 ? e.deltaX : e.deltaY;
-        if (djg.wheel(h, delta * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1), e.shiftKey)) e.preventDefault();
-        return;
+        if (g.wheel(h, delta * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1), e.shiftKey)) {
+          e.preventDefault();
+          return;
+        }
       }
       const k: DialId | null = h && h.kind === 'encoder' && h.param ? h.param : h && h.kind === 'vknob' && h.vknob ? (`v:${h.vknob}` as DialId) : null;
       if (!k) {

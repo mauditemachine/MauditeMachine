@@ -46,7 +46,6 @@ import { useMedia } from './hooks/useMedia';
 import { Stage } from './scene/renderer';
 import { explode, voyExplode } from './state/explode';
 import { DJ, focus, VOYAGER } from './state/focus';
-import { DjBrowser } from './dj/TrackBrowser';
 import { FLAGS, syncFlags } from './state/flags';
 import { intro } from './state/intro';
 import { lcd } from './state/lcd';
@@ -319,6 +318,15 @@ function useShapeReload(): void {
   }, []);
 }
 
+/**
+ * La liste des morceaux du MM-DECKS (la playlist), chargee a part : avec
+ * ?dj=1 seulement (2026-10-04, l'accueil de Deck). getStage : le cadrage
+ * remonte au-dessus d'elle.
+ */
+const DjBrowser = lazy(() =>
+  import('./dj/TrackBrowser').then((m) => ({ default: m.DjBrowser as React.ComponentType<{ getStage: () => Stage | null }> }))
+);
+
 const V4Shell: React.FC = () => {
   const stageRef = useRef<Stage | null>(null);
   const getStage = useCallback(() => stageRef.current, []);
@@ -494,7 +502,11 @@ const V4Shell: React.FC = () => {
           {/* Le Voyager a le sien au telephone : accords, octave, arpege en gros boutons */}
           {mobile && VOYAGER && machineFocus === 'voy' && <VoyDock getStage={getStage} />}
           {/* Le MM-DECKS : la liste des morceaux, ouverte par LOAD */}
-          {DJ && <DjBrowser />}
+          {DJ && (
+            <Suspense fallback={null}>
+              <DjBrowser getStage={getStage} />
+            </Suspense>
+          )}
           {/* Deux machines : leurs noms, le retour a la vue d'ensemble, le selecteur du telephone */}
           {VOYAGER && <MachineNav stage={stage} mobile={mobile} />}
           {/* Machine ouverte au telephone : CLOSE a portee de pouce, sur l'avant de la carte */}

@@ -42,9 +42,8 @@ import { synthDebug } from './audio/synth';
 import { focus } from './state/focus';
 import { arp, arpDebug } from './voyager/arp';
 import { voyParams } from './voyager/params';
-import { djEngineIfAny } from './dj/engine';
-import { djState } from './dj/state';
 import { djView } from './dj/view';
+import { djLoad, type DjModules } from './state/djload';
 import type { ExplodeInfo } from './scene/explode';
 import type { HotspotView } from './scene/hit';
 import type { EncodersInfo } from './scene/encoders';
@@ -207,9 +206,10 @@ export interface V4Debug {
    */
   readonly dj: {
     rig: ReturnType<NonNullable<Stage['dj']>['info']> | null;
-    state: typeof djState;
+    /** charges a part (state/djload.ts) : null tant que le code du MM-DECKS n'est pas arrive */
+    readonly state: DjModules['djState'] | null;
     view: typeof djView;
-    engine: typeof djEngineIfAny;
+    readonly engine: DjModules['djEngineIfAny'] | null;
   };
 }
 
@@ -357,9 +357,13 @@ export function installDebug(src: DebugSource): () => void {
       get rig() {
         return src.stage()?.dj?.info() ?? null;
       },
-      state: djState,
+      get state() {
+        return djLoad.get()?.djState ?? null;
+      },
       view: djView,
-      engine: djEngineIfAny,
+      get engine() {
+        return djLoad.get()?.djEngineIfAny ?? null;
+      },
     },
   };
   window.__v4 = api;

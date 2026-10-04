@@ -12,7 +12,8 @@
 - MM-ARP : hierarchie des potards (cinq tailles, CUTOFF en heros, arcs imprimes facon Typhon autour des moyens et petits), compositions desktop et telephone refaites (`voyager/theme.ts`, `voyager/silk.ts`, `voyager/params.ts`).
 - Deck (troisieme machine, session Sonaa) : partage convenu ; la session Sonaa generalise 2 -> N machines dans sa branche, je fusionnerai et soignerai l'accueil (onglets, volet, vue d'ensemble, menu, Dock).
 - MM-DECKS fusionne sur main (branche decks-3d de la session Sonaa, f5b3ef0), cache derriere ?dj=1 ; correction de typage a la fusion (`dj/engine.ts`).
-- `docs/v4/spec.md` : R14-59 a R14-68.
+- Accueil de MM-DECKS : code charge a part avec ?dj=1 seulement (chargement principal 20.7 kB gzip plus leger), rig accroche apres coup, gestes et molette pour tout le MM-DECKS, menu sans OPEN sur les platines, vignettes du volet a trois (`state/djload.ts`, `scene/renderer.ts`, `ui/Hotspots.tsx`, `index.tsx`, `debug.ts`, `ui/MenuSheet.tsx`, `v4.css`).
+- `docs/v4/spec.md` : R14-59 a R14-69.
 
 ## 2. Decisions prises et pourquoi
 
@@ -26,7 +27,7 @@
 
 ## 3. Ce qui reste a faire / points en suspens
 
-- Accueil de MM-DECKS (avant de le montrer sans drapeau) : vue d'ensemble a trois (55 appels de dessin pour un budget de 20), noms et cadrage, onglets au telephone, menu, Dock ; code DJ a charger a part (il entre aujourd'hui dans le bundle meme sans le drapeau). Mika : essayer avec ?dj=1, valider avant publication.
+- MM-DECKS : fait (code a part, menu, volet, onglets verifies). Vue d'ensemble a 55 appels de dessin, c'est la somme des trois machines (desktop seulement) : laisse tel quel. Cote Sonaa : playlist, forme d'onde, jumeaux, IndexedDB. Mika : essayer avec ?dj=1, valider avant publication sans drapeau.
 - Mika : essayer RANDOM sur les deux machines (styles 4x4, MOD, MODE du filtre), juger le clap.
 - Mika : ecouter aux IE900 (chorus a fond sur l'arpege, charleys transposes avec TONE, arpege et kick ensemble), juger le nouveau menu sur son iPhone, essayer RANDOM.
 - Pour l'ecoute : sortie du Mac a 48 kHz (Configuration audio et MIDI) ; un DAC externe pour les IE900 plutot que la prise du Mac.

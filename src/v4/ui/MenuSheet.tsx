@@ -4,8 +4,8 @@
  * l'en-tete, dans la couleur de la page : les cinq pages en grands titres
  * numerotes, separes d'un filet, chacun sa fleche ; GOODIES, MERCH et
  * STUDIO en pastilles sous "Under the hood" ; six reseaux sous "Follow" ;
- * au pied, ouvrir ou fermer la machine (le grand bouton orange), recentrer
- * la vue et Dark / Light. Desktop (variant 'desk') : les pages a gauche en
+ * au pied, ouvrir ou fermer la machine (le grand bouton orange ; aucun sur
+ * le MM-DECKS, sans capot), recentrer la vue et Dark / Light. Desktop (variant 'desk') : les pages a gauche en
  * tres grand, le reste en colonne a droite. Les lignes arrivent l'une apres
  * l'autre. Un choix ferme le menu puis agit ; Echap le ferme (le focus
  * revient au bouton qui l'a ouvert). Ouvert depuis ui/MobileHeader.tsx et
@@ -51,6 +51,8 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
   useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   const hood = hoodOf(hoodMachine()).get();
   const machineOpen = hood === 'opening' || hood === 'open';
+  // Le MM-DECKS n'a pas de capot (2026-10-04) : pas de OPEN THE MACHINE quand on l'utilise
+  const hasHood = hoodMachine() !== 'dj';
   const ref = useRef<HTMLElement>(null);
 
   // Ouvert : le focus sur la premiere page, Echap le ferme
@@ -132,10 +134,12 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
         </ul>
       </div>
       <div className="v4-mm-foot" style={{ '--i': PAGE_LINKS.length + 2 } as React.CSSProperties}>
-        <button type="button" className="v4-mmenu-open" data-open={machineOpen ? '1' : '0'} aria-pressed={machineOpen} onClick={pick(() => openToggle(getStage(), hoodMachine()))}>
-          <span>{machineOpen ? 'Close the machine' : 'Open the machine'}</span>
-          <i className={`fa-solid ${machineOpen ? 'fa-xmark' : 'fa-screwdriver-wrench'} v4-fa`} aria-hidden="true" />
-        </button>
+        {hasHood && (
+          <button type="button" className="v4-mmenu-open" data-open={machineOpen ? '1' : '0'} aria-pressed={machineOpen} onClick={pick(() => openToggle(getStage(), hoodMachine()))}>
+            <span>{machineOpen ? 'Close the machine' : 'Open the machine'}</span>
+            <i className={`fa-solid ${machineOpen ? 'fa-xmark' : 'fa-screwdriver-wrench'} v4-fa`} aria-hidden="true" />
+          </button>
+        )}
         <div className="v4-mm-tools">
           <button type="button" className="v4-mmenu-reset" onClick={pick(() => resetView(getStage()))}>
             <Icon name="fa-solid fa-arrows-rotate" />
