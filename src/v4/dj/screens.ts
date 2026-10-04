@@ -26,7 +26,7 @@ import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_DECKS, DJ_LIGHT, MIX, UNIT_X, type DjDe
 
 const W = 1024;
 /** Quatre bandes de texte de platine, leurs zooms, l'ecran des effets et quatre cadrans de jog. */
-const H = 1280;
+const H = 1536;
 const BONE = '#F6F1E7';
 const DIM = 'rgba(246, 241, 231, 0.45)';
 const FAINT = 'rgba(246, 241, 231, 0.16)';
@@ -199,40 +199,41 @@ export class DjScreens {
     const x0 = r.x + pad;
     const x1 = r.x + r.w - pad;
     // Le texte : deux lignes, le titre et l'artiste a gauche, les chiffres a droite
-    const l1 = r.y + r.h * 0.46;
+    // Des textes nettement plus gros (Mika, 2026-10-04 : "on ne voit rien dans l'ecran")
+    const l1 = r.y + r.h * 0.44;
     const l2 = r.y + r.h * 0.86;
     c.textBaseline = 'alphabetic';
     if (!s.loaded) {
       c.textAlign = 'left';
       c.fillStyle = BONE;
-      c.font = `600 40px ${FONT_DISPLAY}`;
+      c.font = `700 54px ${FONT_DISPLAY}`;
       c.fillText('NO TRACK', x0, l1);
       c.fillStyle = DJ_LIGHT.orange;
-      c.font = `600 27px ${FONT_DISPLAY}`;
-      c.fillText(`TOUCH THE SCREEN TO LOAD DECK ${d.toUpperCase()}`, x0, l2);
+      c.font = `600 34px ${FONT_DISPLAY}`;
+      c.fillText(`TOUCH THE SCREEN TO BROWSE  DECK ${d.toUpperCase()}`, x0, l2);
     } else {
-      const colX = x1 - 320;
+      const colX = x1 - 360;
       c.textAlign = 'left';
       c.fillStyle = BONE;
-      c.font = `600 38px ${FONT_DISPLAY}`;
+      c.font = `700 52px ${FONT_DISPLAY}`;
       c.fillText(this.fit(s.title, colX - x0 - 20), x0, l1);
       c.fillStyle = DIM;
-      c.font = `500 28px ${FONT_DISPLAY}`;
+      c.font = `500 36px ${FONT_DISPLAY}`;
       c.fillText(this.fit(s.artist, colX - x0 - 20), x0, l2);
       // BPM (avec le pitch), le pitch au centieme de pour cent, la tonalite, le temps restant
       c.textAlign = 'right';
       c.fillStyle = BONE;
-      c.font = `500 48px ${FONT_MONO}`;
+      c.font = `600 64px ${FONT_MONO}`;
       const bpm = s.bpm ? (s.bpm * (1 + s.pitch)).toFixed(1) : '--.-';
       c.fillText(bpm, x1, l1);
       c.fillStyle = DIM;
-      c.font = `500 24px ${FONT_MONO}`;
+      c.font = `500 30px ${FONT_MONO}`;
       const pct = s.pitch * 100;
       const pitch = Math.abs(pct) < 0.005 ? '0.00%' : `${pct > 0 ? '+' : '-'}${Math.abs(pct).toFixed(2)}%`;
       c.fillText(`${pitch}   ${s.key || '--'}`, x1, l2);
       c.fillStyle = s.playing ? DJ_LIGHT.yellow : BONE;
-      c.font = `500 30px ${FONT_MONO}`;
-      c.fillText(`-${clock(s.duration - s.position)}`, x1 - 190, l2);
+      c.font = `600 38px ${FONT_MONO}`;
+      c.fillText(`-${clock(s.duration - s.position)}`, x1 - 230, l2);
     }
     c.restore();
     // Les touches du zoom : - , la fenetre, +
@@ -246,11 +247,11 @@ export class DjScreens {
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.fillStyle = s.loaded ? BONE : DIM;
-    c.font = `600 32px ${FONT_MONO}`;
+    c.font = `600 40px ${FONT_MONO}`;
     c.fillText('-', z.x + z.w * 0.17, zy);
     c.fillText('+', z.x + z.w * 0.83, zy);
     c.fillStyle = DIM;
-    c.font = `500 19px ${FONT_MONO}`;
+    c.font = `500 24px ${FONT_MONO}`;
     c.fillText(`${s.zoom}s`, z.x + z.w * 0.5, zy + 1);
     c.strokeStyle = FAINT;
     c.lineWidth = 2;

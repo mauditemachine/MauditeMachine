@@ -15,6 +15,7 @@
 
 import {
   BoxGeometry,
+  CircleGeometry,
   Color,
   CylinderGeometry,
   DynamicDrawUsage,
@@ -30,7 +31,8 @@ import {
   Quaternion,
   Vector2,
   Vector3,
-  type BufferGeometry,
+  BufferGeometry,
+  type CanvasTexture,
   type Object3D,
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
@@ -38,7 +40,8 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { HotspotDef } from '../scene/hit';
 import { potAngle } from '../scene/encoders';
 import { withInstanceEmissive } from '../scene/materials';
-import { APPEARANCE } from '../theme';
+import { makeCanvasTexture } from '../scene/silk';
+import { APPEARANCE, FONT_DISPLAY } from '../theme';
 import { partDj } from './body';
 import { DJ_FADERS, DJ_KEYS, DJ_KNOBS, DJ_RECT_KEYS, DJ_ROUND_KEYS, faderPos, jogCenter, type DjFaderSpec, type DjKeySpec } from './layout';
 import { DECK, DJ_DECKS, DJ_DECKS_ALL, DJ_FADER, DJ_KEY, DJ_KNOB, DJ_LIGHT, DJ_ROUND, MIX, UNIT_X, type DjDeck, type DjTone } from './theme';
@@ -124,102 +127,153 @@ function keyGeometry(mobile: boolean): BufferGeometry {
 }
 
 /**
- * Bouton rond unite (rayon 1, mis a l'echelle en x et z), CUE et PLAY en
- * metal (Mika, 2026-10-04 : "en dark mode je vois mal le CUE ou le PLAY,
- * fais un bouton style metallique") : une collerette sombre qui s'allume
- * (masque 1), lisible sur le panneau noir comme sur le creme, et un
- * capuchon d'aluminium (celui de la bague du jog), bombe, deux cercles
- * tournes sur le dessus.
+ * Bouton rond unite (rayon 1, mis a l'echelle en x et z) : une collerette
+ * sombre qui s'allume (masque 1), lisible sur le panneau noir comme sur le
+ * creme, et un capuchon au dessus plat, ou son nom est grave (Mika,
+ * 2026-10-04 : "CUE et PLAY/PAUSE devraient etre ecrits sur les boutons,
+ * et CUE de la couleur des knobs FILTER") : CUE orange, PLAY / PAUSE en
+ * aluminium (celui de la bague du jog).
  */
-function roundGeometry(mobile: boolean): BufferGeometry {
+function roundGeometry(mobile: boolean, capTone: DjTone): BufferGeometry {
   const seg = mobile ? 32 : 48;
   const R = DJ_ROUND;
   const ring = new LatheGeometry(
     [new Vector2(0.8, 0), new Vector2(1.0, 0), new Vector2(1.0, R.ringH * 0.7), new Vector2(0.96, R.ringH), new Vector2(0.8, R.ringH)],
     seg
   );
-  const capPts = [
-    new Vector2(0.78, 0),
-    new Vector2(0.78, R.h - 0.045),
-    new Vector2(0.75, R.h - 0.012),
-    new Vector2(0.68, R.h - 0.002),
-    new Vector2(0.5, R.h + 0.006),
-    new Vector2(0.49, R.h + 0.002),
-    new Vector2(0.3, R.h + 0.012),
-    new Vector2(0.29, R.h + 0.008),
-    new Vector2(0, R.h + 0.016),
-  ];
+  const capPts = [new Vector2(0.78, 0), new Vector2(0.78, R.h - 0.045), new Vector2(0.75, R.h - 0.012), new Vector2(0.68, R.h), new Vector2(0, R.h)];
   const cap = new LatheGeometry(capPts, seg);
   const r = partDj(ring, 'slot');
   setMask(r, () => 1);
-  // L'aluminium clair de la bague du jog : il se lit sur le panneau noir
-  const c = partDj(cap, 'ring');
+  const c = partDj(cap, capTone);
   setMask(c, () => 0);
   return merge([r, c], 'round keys');
+}
+
+/**
+ * Les noms graves sur les boutons ronds : une texture, CUE a gauche (lettres
+ * sombres pour l'orange), le triangle et les deux barres de PLAY / PAUSE a
+ * droite (encre sombre, lisible sur l'aluminium en clair comme en sombre).
+ */
+function labelTexture(anisotropy: number): CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 256;
+  const x = c.getContext('2d');
+  if (x) {
+    x.clearRect(0, 0, 512, 256);
+    x.fillStyle = '#17120E';
+    x.textAlign = 'center';
+    x.textBaseline = 'middle';
+    x.font = `800 84px ${FONT_DISPLAY}`;
+    x.fillText('CUE', 128, 134);
+    // PLAY / PAUSE : le triangle, puis deux barres
+    x.fillStyle = '#1B1C20';
+    const cy = 128;
+    x.beginPath();
+    x.moveTo(312, cy - 44);
+    x.lineTo(312, cy + 44);
+    x.lineTo(372, cy);
+    x.closePath();
+    x.fill();
+    x.fillRect(392, cy - 42, 16, 84);
+    x.fillRect(420, cy - 42, 16, 84);
+  }
+  return makeCanvasTexture(c, anisotropy);
+}
+
+/** Le disque d'un nom grave, pose sur le dessus plat du capuchon ; half : 0 CUE, 1 PLAY. */
+function labelGeometry(mobile: boolean, half: 0 | 1): BufferGeometry {
+  const g = new CircleGeometry(0.66, mobile ? 32 : 48);
+  const uv = g.getAttribute('uv');
+  for (let i = 0; i < uv.count; i += 1) uv.setX(i, (uv.getX(i) + half) / 2);
+  g.rotateX(-Math.PI / 2);
+  g.translate(0, DJ_ROUND.h + 0.002, 0);
+  return g;
 }
 
 /* ---------------- jogs ---------------- */
 
 /**
- * La platine du jog (rayon DECK.jog.platter, sommet a platterH) : un dessus
- * a cercles concentriques (des anneaux de deux teintes) et un repere os au
- * bord, qui montre qu'elle tourne.
+ * La roue du jog (Mika, 2026-10-04 : "refais encore les jogs, les tirets
+ * sont moches ; je veux quelque chose de sombre, tu vois les ronds enfonces
+ * dans la couronne ?") : une couronne sombre percee d'une rangee de 18
+ * alveoles rondes en creux (des coupelles : la lumiere y tombe en
+ * degrade), un plateau lisse un cran plus bas, la bague d'aluminium de
+ * l'ecran SYNC au centre, un trait os qui tourne avec elle. Pas de logo.
  */
-function platterGeometry(mobile: boolean): BufferGeometry {
+function wheelGeometry(mobile: boolean): BufferGeometry {
   const J = DECK.jog;
   const seg = mobile ? 48 : 72;
   const R = J.platter;
   const H = J.platterH;
-  /*
-   * Le flanc cannele comme les capuchons des potards Moog des machines MM
-   * (2026-10-04, Mika : "un jog plus design, toujours dans le design des
-   * autres machines") : la meme modulation du rayon, plus fine et plus
-   * nombreuse a l'echelle d'une platine.
-   */
-  const flutes = mobile ? 48 : 72;
-  const side = new LatheGeometry([new Vector2(R - 0.06, 0), new Vector2(R, 0.02), new Vector2(R, H - 0.06), new Vector2(R - 0.06, H)], flutes * 4);
-  const sp = side.getAttribute('position');
-  for (let i = 0; i < sp.count; i += 1) {
-    const x = sp.getX(i);
-    const z = sp.getZ(i);
-    const r = Math.hypot(x, z);
-    if (r < R - 0.001) continue;
-    const k = 1 - (0.022 / r) * Math.max(0, Math.cos(Math.atan2(z, x) * flutes)) ** 2;
-    sp.setX(i, x * k);
-    sp.setZ(i, z * k);
-  }
-  side.computeVertexNormals();
-  const parts: BufferGeometry[] = [partDj(side, 'platter')];
-  // Le dessus : des anneaux (stries), du bord vers la bague du centre
   const C = J.center;
-  const inner = C + 0.08;
-  const band = 0.07;
-  for (let k = 0; k < 24; k += 1) {
-    const r1 = R - 0.06 - k * band;
-    const r0 = r1 - band;
-    if (r0 < inner) break;
-    const g = new LatheGeometry([new Vector2(r0, H), new Vector2(r1, H)].reverse(), seg);
-    parts.push(partDj(g, k % 2 === 0 ? 'groove' : 'platter'));
+  const edge = 0.035;
+  const r0 = R * 0.52;
+  const r1 = R - edge;
+  // Dix-huit alveoles : a l'echelle d'un petit jog, assez grandes pour se lire de loin
+  const N = 18;
+  const rc = (r0 + r1) / 2;
+  const rd = Math.min((r1 - r0) * 0.4, ((Math.PI * rc) / N) * 0.8);
+  const depth = rd * 0.8;
+  // La couronne : une grille polaire dont les sommets s'enfoncent dans chaque coupelle
+  const aSeg = N * (mobile ? 8 : 12);
+  const rSeg = mobile ? 10 : 16;
+  const pos: number[] = [];
+  const idx: number[] = [];
+  for (let j = 0; j <= rSeg; j += 1) {
+    const r = r0 + ((r1 - r0) * j) / rSeg;
+    for (let i = 0; i <= aSeg; i += 1) {
+      const a = (i / aSeg) * Math.PI * 2;
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      const ac = Math.round(a / ((Math.PI * 2) / N)) * ((Math.PI * 2) / N);
+      const d = Math.hypot(x - Math.cos(ac) * rc, z - Math.sin(ac) * rc);
+      const y = d < rd ? H - depth * Math.sqrt(1 - (d / rd) ** 2) : H;
+      pos.push(x, y, z);
+    }
   }
-  const top = new CylinderGeometry(inner, inner, 0.002, seg);
-  top.translate(0, H - 0.001, 0);
-  parts.push(partDj(top, 'platter'));
-  // Une bague d'aluminium autour de l'ecran du centre (SYNC), la jupe des potards en grand
-  const bezel = new LatheGeometry([new Vector2(C + 0.07, H), new Vector2(C + 0.055, H + 0.016), new Vector2(C + 0.005, H + 0.016), new Vector2(C, H + 0.006)], seg);
-  parts.push(partDj(bezel, 'skirt'));
-  const mark = new BoxGeometry(0.045, 0.006, 0.34);
-  mark.translate(0, H + 0.003, -(R - 0.26));
-  parts.push(partDj(mark, 'mark'));
-  return merge(parts, 'platters');
+  const row = aSeg + 1;
+  for (let j = 0; j < rSeg; j += 1) {
+    for (let i = 0; i < aSeg; i += 1) {
+      const p = j * row + i;
+      // Vers le haut : l'angle croit de x vers z, l'ordre des sommets fait face au ciel
+      idx.push(p, p + 1, p + row, p + 1, p + row + 1, p + row);
+    }
+  }
+  const crown = new BufferGeometry();
+  crown.setAttribute('position', new Float32BufferAttribute(pos, 3));
+  crown.setIndex(idx);
+  crown.computeVertexNormals();
+  // Le bord : un biseau, puis le flanc lisse jusqu'au dessus de la platine
+  const side = new LatheGeometry([new Vector2(R - 0.04, 0), new Vector2(R, 0.03), new Vector2(R, H - edge), new Vector2(r1, H)], seg);
+  // Le plateau, un cran plus bas que la couronne, et la marche entre eux
+  const step = 0.016;
+  const plate = new LatheGeometry([new Vector2(C + 0.06, H - step), new Vector2(r0, H - step), new Vector2(r0, H)], seg);
+  // La bague d'aluminium autour de l'ecran du centre (SYNC)
+  const bezel = new LatheGeometry([new Vector2(C + 0.06, H - step), new Vector2(C + 0.05, H + 0.014), new Vector2(C + 0.005, H + 0.014), new Vector2(C, H + 0.006)], seg);
+  // Le repere : un trait os sur le plateau, qui tourne avec la roue
+  const mark = new BoxGeometry(0.04, 0.006, r0 - C - 0.12);
+  mark.translate(0, H - step + 0.003, -(C + 0.06 + (r0 - C - 0.12) / 2));
+  // Le fond des alveoles plus sombre que la couronne : elles se lisent meme vues de haut
+  const ring = partDj(crown, 'cap');
+  const cp = ring.getAttribute('position');
+  const cc = ring.getAttribute('color');
+  for (let i = 0; i < cp.count; i += 1) {
+    const k = Math.min(1, ((H - cp.getY(i)) / depth) * 1.6);
+    if (k <= 0) continue;
+    const f = 1 - 0.78 * k;
+    cc.setXYZ(i, cc.getX(i) * f, cc.getY(i) * f, cc.getZ(i) * f);
+  }
+  return merge([ring, partDj(side, 'cap'), partDj(plate, 'platter'), partDj(bezel, 'skirt'), partDj(mark, 'mark')], 'jog wheels');
 }
 
-/** La bague d'aluminium fixe, autour de la platine. */
+/** Le socle fixe sous chaque roue : une jupe d'aluminium sombre, fine, comme celle des potards. */
 function ringGeometry(mobile: boolean): BufferGeometry {
   const J = DECK.jog;
   const seg = mobile ? 48 : 72;
-  const h = J.ringH;
   const lathe = new LatheGeometry(
-    [new Vector2(J.ringIn, 0), new Vector2(J.ringIn, h), new Vector2(J.ring - 0.06, h), new Vector2(J.ring, h - 0.05), new Vector2(J.ring, 0)].reverse(),
+    [new Vector2(J.platter - 0.02, 0.05), new Vector2(J.ring - 0.03, 0.05), new Vector2(J.ring, 0.03), new Vector2(J.ring, 0)].reverse(),
     seg
   );
   const parts: BufferGeometry[] = [];
@@ -227,7 +281,7 @@ function ringGeometry(mobile: boolean): BufferGeometry {
     const c = jogCenter(d);
     const g = lathe.clone();
     g.translate(c.x, 0, c.z);
-    parts.push(partDj(g, 'ring'));
+    parts.push(partDj(g, 'skirt'));
   }
   lathe.dispose();
   return merge(parts, 'jog rings');
@@ -273,15 +327,7 @@ function ledSpecs(light: boolean): { leds: DjLedSpec[]; vu: number[][]; master: 
   const jog: Record<DjDeck, number[]> = { a: [], b: [], c: [], d: [] };
   const zero: Record<DjDeck, number> = { a: -1, b: -1, c: -1, d: -1 };
   for (const d of DJ_DECKS) {
-    const c = jogCenter(d);
-    const J = DECK.jog;
-    for (let k = 0; k < J.leds; k += 1) {
-      const a = (k / J.leds) * Math.PI * 2;
-      jog[d].push(leds.length);
-      // Le segment 0 en haut (vers l'arriere), dans le sens des aiguilles d'une montre vu de dessus
-      // En clair, l'anneau eteint reste argent (la fente sombre est pour les VU)
-      leds.push({ x: c.x + Math.sin(a) * J.ledR, y: J.ringH + 0.003, z: c.z - Math.cos(a) * J.ledR, w: ((Math.PI * 2 * J.ledR) / J.leds) * 0.62, d: 0.07, rot: -a, hex: DJ_LIGHT.orange, off: light ? '#B9BDC4' : undefined });
-    }
+    // Plus d'anneau de LED autour du jog (Mika : "les tirets sont moches") ; la position est sur l'ecran SYNC
     zero[d] = leds.length;
     leds.push({ x: UNIT_X[d] + DECK.pitch.x - 0.34, y: 0.004, z: (DECK.pitch.z0 + DECK.pitch.z1) / 2, w: 0.12, d: 0.07, rot: 0, hex: DJ_LIGHT.yellow });
   }
@@ -293,6 +339,7 @@ function ledSpecs(light: boolean): { leds: DjLedSpec[]; vu: number[][]; master: 
 export interface DjControlsOpts {
   mobile: boolean;
   castShadow: boolean;
+  anisotropy: number;
 }
 
 /** FILTER porte le capuchon orange : un second InstancedMesh, un draw call de plus. */
@@ -312,7 +359,14 @@ export class DjControls {
   readonly knobsHot: InstancedMesh;
   readonly caps: InstancedMesh;
   readonly keys: InstancedMesh;
-  readonly rounds: InstancedMesh;
+  /** CUE (orange) et PLAY / PAUSE (aluminium), et leurs noms graves */
+  readonly roundsCue: InstancedMesh;
+  readonly roundsPlay: InstancedMesh;
+  readonly labelsCue: InstancedMesh;
+  readonly labelsPlay: InstancedMesh;
+  private labelTex: CanvasTexture;
+  /** chaque bouton rond : son mesh (CUE ou PLAY) et sa place dedans */
+  private roundSlot: { play: boolean; j: number }[] = [];
   readonly platters: InstancedMesh;
   readonly rings: Mesh;
   readonly leds: InstancedMesh;
@@ -324,7 +378,8 @@ export class DjControls {
   private jogAngle: Record<DjDeck, number> = { a: 0, b: 0, c: 0, d: 0 };
   private knobSlot = knobSlots();
   private keyEm: InstancedBufferAttribute;
-  private roundEm: InstancedBufferAttribute;
+  private cueEm: InstancedBufferAttribute;
+  private playEm: InstancedBufferAttribute;
   private ledOn: Float32Array;
   private ledOff = new Color();
   /** la couleur eteinte de chaque LED */
@@ -357,17 +412,45 @@ export class DjControls {
     this.keys = new InstancedMesh(kg, std('djKey', { roughness: 0.9, metalness: 0 }, true), DJ_RECT_KEYS.length);
     this.keys.name = 'djKeys';
 
-    const rg = roundGeometry(opts.mobile);
-    this.roundEm = new InstancedBufferAttribute(new Float32Array(DJ_ROUND_KEYS.length * 3), 3);
-    this.roundEm.setUsage(DynamicDrawUsage);
-    rg.setAttribute('instanceEmissive', this.roundEm);
-    // CUE et PLAY en metal : l'aluminium des jupes, un peu plus brillant
-    this.rounds = new InstancedMesh(rg, std('djRound', { roughness: 0.3, metalness: light ? 0.2 : 0.55 }, true), DJ_ROUND_KEYS.length);
-    this.rounds.name = 'djRounds';
+    let nc = 0;
+    let np = 0;
+    this.roundSlot = DJ_ROUND_KEYS.map((k) => (k.target.kind === 'play' ? { play: true, j: np++ } : { play: false, j: nc++ }));
+    // CUE : l'orange des potards FILTER, le grain de leur capuchon ; PLAY : l'aluminium de la bague du jog
+    const cg = roundGeometry(opts.mobile, 'hot');
+    this.cueEm = new InstancedBufferAttribute(new Float32Array(Math.max(1, nc) * 3), 3);
+    this.cueEm.setUsage(DynamicDrawUsage);
+    cg.setAttribute('instanceEmissive', this.cueEm);
+    this.roundsCue = new InstancedMesh(cg, std('djRoundCue', { roughness: 0.42, metalness: 0.25 }, true), nc);
+    this.roundsCue.name = 'djRoundsCue';
+    const pg = roundGeometry(opts.mobile, 'ring');
+    this.playEm = new InstancedBufferAttribute(new Float32Array(Math.max(1, np) * 3), 3);
+    this.playEm.setUsage(DynamicDrawUsage);
+    pg.setAttribute('instanceEmissive', this.playEm);
+    this.roundsPlay = new InstancedMesh(pg, std('djRoundPlay', { roughness: 0.3, metalness: light ? 0.2 : 0.55 }, true), np);
+    this.roundsPlay.name = 'djRoundsPlay';
+    // Les noms graves : une encre mate posee sur le dessus plat
+    this.labelTex = labelTexture(opts.anisotropy);
+    const labelMat = new MeshStandardMaterial({
+      map: this.labelTex,
+      transparent: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+      roughness: 0.6,
+      metalness: 0,
+    });
+    labelMat.name = 'djRoundLabels';
+    this.materials.push(labelMat);
+    this.labelsCue = new InstancedMesh(labelGeometry(opts.mobile, 0), labelMat, nc);
+    this.labelsCue.name = 'djLabelsCue';
+    this.labelsPlay = new InstancedMesh(labelGeometry(opts.mobile, 1), labelMat, np);
+    this.labelsPlay.name = 'djLabelsPlay';
 
-    this.platters = new InstancedMesh(platterGeometry(opts.mobile), std('djPlatter', { roughness: 0.72, metalness: 0 }), DJ_DECKS.length);
+    // Un peu de brillant : la lumiere coule dans les alveoles
+    this.platters = new InstancedMesh(wheelGeometry(opts.mobile), std('djPlatter', { roughness: 0.5, metalness: 0.15 }), DJ_DECKS.length);
     this.platters.name = 'djPlatters';
-    this.rings = new Mesh(ringGeometry(opts.mobile), std('djRing', { roughness: 0.3, metalness: light ? 0.2 : 0.55 }));
+    this.rings = new Mesh(ringGeometry(opts.mobile), std('djRing', { roughness: 0.35, metalness: light ? 0.2 : 0.5 }));
     this.rings.name = 'djRings';
 
     this.ledMap = ledSpecs(light);
@@ -382,7 +465,7 @@ export class DjControls {
     this.ledOffs = this.ledMap.leds.map((l) => (l.off ? new Color(l.off) : this.ledOff));
     this.ledOn = new Float32Array(this.ledMap.leds.length);
 
-    for (const m of [this.knobs, this.knobsHot, this.caps, this.keys, this.rounds, this.platters]) {
+    for (const m of [this.knobs, this.knobsHot, this.caps, this.keys, this.roundsCue, this.roundsPlay, this.labelsCue, this.labelsPlay, this.platters]) {
       m.instanceMatrix.setUsage(DynamicDrawUsage);
       m.castShadow = opts.castShadow;
       m.receiveShadow = true;
@@ -414,7 +497,7 @@ export class DjControls {
 
   /** Les objets a poser dans le repere top. */
   get objects(): Object3D[] {
-    return [this.knobs, this.knobsHot, this.caps, this.keys, this.rounds, this.platters, this.rings, this.leds];
+    return [this.knobs, this.knobsHot, this.caps, this.keys, this.roundsCue, this.roundsPlay, this.labelsCue, this.labelsPlay, this.platters, this.rings, this.leds];
   }
 
   /* ---------- placement ---------- */
@@ -445,8 +528,14 @@ export class DjControls {
 
   private placeRound(i: number): void {
     const k = DJ_ROUND_KEYS[i];
-    this.rounds.setMatrixAt(i, m4.compose(v3.set(k.x, this.roundY[i], k.z), q0, s3.set(k.w / 2, 1, k.d / 2)));
-    this.rounds.instanceMatrix.needsUpdate = true;
+    const slot = this.roundSlot[i];
+    m4.compose(v3.set(k.x, this.roundY[i], k.z), q0, s3.set(k.w / 2, 1, k.d / 2));
+    const mesh = slot.play ? this.roundsPlay : this.roundsCue;
+    const label = slot.play ? this.labelsPlay : this.labelsCue;
+    mesh.setMatrixAt(slot.j, m4);
+    label.setMatrixAt(slot.j, m4);
+    mesh.instanceMatrix.needsUpdate = true;
+    label.instanceMatrix.needsUpdate = true;
   }
 
   private placePlatter(d: DjDeck): void {
@@ -488,7 +577,12 @@ export class DjControls {
 
   /** Lumiere d'une touche (lineaire) ; true si elle change. */
   setKeyGlow(i: number, rgb: readonly number[], round = false): boolean {
-    const attr = round ? this.roundEm : this.keyEm;
+    let attr = this.keyEm;
+    if (round) {
+      const slot = this.roundSlot[i];
+      attr = slot.play ? this.playEm : this.cueEm;
+      i = slot.j;
+    }
     const a = attr.array as Float32Array;
     if (a[i * 3] === rgb[0] && a[i * 3 + 1] === rgb[1] && a[i * 3 + 2] === rgb[2]) return false;
     a[i * 3] = rgb[0];
@@ -555,10 +649,11 @@ export class DjControls {
   }
 
   dispose(): void {
-    for (const m of [this.knobs, this.knobsHot, this.caps, this.keys, this.rounds, this.platters, this.leds]) {
+    for (const m of [this.knobs, this.knobsHot, this.caps, this.keys, this.roundsCue, this.roundsPlay, this.labelsCue, this.labelsPlay, this.platters, this.leds]) {
       m.geometry.dispose();
       m.dispose();
     }
+    this.labelTex.dispose();
     this.rings.geometry.dispose();
     for (const m of this.materials) m.dispose();
   }

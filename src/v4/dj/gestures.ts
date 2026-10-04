@@ -24,7 +24,7 @@
 import type { HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { djBrowser } from './browser';
-import { djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djHotcue, djHotcueClear, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetMaster, djSetPitch, djSetTime, djSetXfader } from './actions';
+import { djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djHotcue, djHotcueClear, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetMaster, djSetPitch, djSetTime } from './actions';
 import { djFader, djKey, djKnob, type DjFaderSpec, type DjKeySpec, type DjKnobSpec } from './layout';
 import { djState } from './state';
 import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_DECKS_ALL, DJ_FADER, UNIT_X, type DjDeck } from './theme';
@@ -67,14 +67,13 @@ export const knobMin = (k: DjKnobSpec): number => (k.bipolar ? -1 : 0);
 export function faderValue(f: DjFaderSpec): number {
   const s = djState.get();
   const t = f.target;
-  return t.kind === 'channel' ? s.ch[t.ch].fader : t.kind === 'pitch' ? s.deck[t.deck].pitch : s.xfader;
+  return t.kind === 'channel' ? s.ch[t.ch].fader : s.deck[t.deck].pitch;
 }
 
 export function setFader(f: DjFaderSpec, v: number): void {
   const t = f.target;
   if (t.kind === 'channel') djSetFader(t.ch, v);
-  else if (t.kind === 'pitch') djSetPitch(t.deck, v);
-  else djSetXfader(v);
+  else djSetPitch(t.deck, v);
 }
 
 export const faderMin = (f: DjFaderSpec): number => (f.target.kind === 'channel' ? 0 : -1);
@@ -143,7 +142,6 @@ export function keyUp(k: DjKeySpec, stage: Stage | null, tap: boolean): void {
     cueDown[t.deck] = false;
     djCue(t.deck, false);
   } else if (t.kind === 'bend') djBend(t.deck, 0);
-  else if (t.kind === 'playlist' && tap) djBrowser.toggle();
   // Retirer une platine reconstruit la scene : au relachement, sur la touche
   else if (t.kind === 'removedeck' && tap) djRemoveDeck(t.deck);
 }

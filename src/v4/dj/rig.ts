@@ -72,7 +72,7 @@ export class DjRig {
 
     this.body = new DjBody(opts.mobile);
     this.socle.add(this.body.mesh);
-    this.controls = new DjControls({ mobile: opts.mobile, castShadow: !opts.mobile });
+    this.controls = new DjControls({ mobile: opts.mobile, castShadow: !opts.mobile, anisotropy: opts.anisotropy });
     this.top.add(...this.controls.objects);
     this.screens = new DjScreens(opts.anisotropy, opts.mobile);
     this.top.add(this.screens.mesh);
@@ -145,7 +145,7 @@ export class DjRig {
     });
     DJ_FADERS.forEach((f, i) => {
       const t = f.target;
-      const v = t.kind === 'channel' ? s.ch[t.ch].fader : t.kind === 'pitch' ? s.deck[t.deck].pitch : s.xfader;
+      const v = t.kind === 'channel' ? s.ch[t.ch].fader : s.deck[t.deck].pitch;
       if (this.controls.setFader(i, v)) moved = true;
     });
     const screens = this.syncScreens();
@@ -164,7 +164,6 @@ export class DjRig {
    */
   private syncLights(): boolean {
     const s = djState.get();
-    const b = djBrowser.get();
     let changed = false;
     const paleYellow = [DJ_GLOW.yellow[0] * 0.18, DJ_GLOW.yellow[1] * 0.18, DJ_GLOW.yellow[2] * 0.18];
     DJ_RECT_KEYS.forEach((k, i) => {
@@ -172,7 +171,6 @@ export class DjRig {
       let on = this.held.has(k.id);
       if (t.kind === 'hotcue') on = on || s.deck[t.deck].cues[t.n] !== null;
       else if (t.kind === 'time') on = on || s.time === t.d;
-      else if (t.kind === 'playlist') on = on || b.open;
       if (this.controls.setKeyGlow(i, on ? DJ_GLOW.orange : DJ_GLOW.dim)) changed = true;
     });
     DJ_ROUND_KEYS.forEach((k, i) => {
@@ -237,15 +235,6 @@ export class DjRig {
       // 33 tours un tiers : 0.5556 tour par seconde de musique
       const angle = pos * 2 * Math.PI * (100 / 3 / 60);
       if (this.controls.setJog(d, angle)) changed = true;
-      // L'anneau : le segment du repere, et une trainee
-      const ring = this.controls.ledMap.jog[d];
-      const n = ring.length;
-      const head = p.loaded ? (((Math.floor((angle / (2 * Math.PI)) * n) % n) + n) % n) : -1;
-      for (let k = 0; k < n; k += 1) {
-        const back = head < 0 ? n : (head - k + n) % n;
-        const v = back === 0 ? 1 : back < 4 ? 0.45 - back * 0.1 : 0;
-        if (this.controls.setLed(ring[k], v)) changed = true;
-      }
     }
     // VU : la crete, puis une decroissance douce
     const levels = [...e.mixer.ch.slice(0, DJ_CHANNELS).map((c) => c.level()), ...e.mixer.masterLevels()];

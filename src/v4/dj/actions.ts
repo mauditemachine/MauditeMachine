@@ -35,7 +35,6 @@ function apply(e: DjEngine): void {
     ch.setFilter(c.filter);
     ch.setFader(c.fader);
   });
-  e.mixer.setXfader(s.xfader);
   e.mixer.setMaster(s.master);
   for (const f of DJ_FX) e.mixer.fx.dose(f, s.fx[f]);
   for (const d of DJ_DECKS_ALL) e.decks[d].setPitch(s.deck[d].pitch * s.deck[d].range);
@@ -48,16 +47,11 @@ const deckBpm = (s: ReturnType<typeof djState.get>, d: DjDeck): number | null =>
   return ds.track?.bpm ? ds.track.bpm * (1 + (ds.pitch * ds.range) / 100) : null;
 };
 
-/**
- * Ce qu'on entend d'une platine qui joue : son fader, et pour A et B le
- * crossfader (C et D passent a cote) ; 0 a l'arret ou sans BPM.
- */
+/** Ce qu'on entend d'une platine qui joue : le fader de sa voie ; 0 a l'arret ou sans BPM. */
 function heardWeight(s: ReturnType<typeof djState.get>, d: DjDeck): number {
   const ds = s.deck[d];
   if (!ds.playing || !ds.track?.bpm) return 0;
-  const i = deckChannel(d);
-  const x = (s.xfader + 1) / 2;
-  return s.ch[i].fader * (d === 'a' ? 1 - x : d === 'b' ? x : 1);
+  return s.ch[deckChannel(d)].fader;
 }
 
 /** Le tempo de la platine qu'on entend le plus (crossfader, faders, lecture). */
@@ -340,11 +334,6 @@ export function djSetFx(id: DjFxId, v: number): void {
 export function djSetMaster(v: number): void {
   engine();
   djState.setMaster(v);
-}
-
-export function djSetXfader(v: number): void {
-  engine();
-  djState.setXfader(v);
 }
 
 export function djSetTime(beats: number): void {

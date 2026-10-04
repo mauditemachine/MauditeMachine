@@ -11,16 +11,15 @@
  *   1 2 3 4  hot cues  7 8 9 0
  *   Q W  bend - +      O P
  *   A  cue  S  play    K  cue  L  play
- *   E  playlist A      I  playlist B
+ *   E  browse A        I  browse B
  *   Z X  tempo - + 0.1 BPM (Maj : 1 BPM)   N M
  *   D  sync            J  sync
  *   Espace : PLAY de la derniere platine touchee
- *   fleches gauche / droite : crossfader (Maj : tout d'un cote), bas : au centre
  *   - et = : zoom des formes d'onde
  */
 
 import type { Stage } from '../scene/renderer';
-import { djSetXfader, djZoomStep } from './actions';
+import { djZoomStep } from './actions';
 import { djBrowser } from './browser';
 import { keyDown, keyUp } from './gestures';
 import { DJ_KEYS, type DjKeySpec } from './layout';
@@ -63,11 +62,10 @@ export const DJ_KEY_LEGEND: readonly { keys: string; what: string }[] = [
   { keys: 'A  /  K', what: 'Cue A / B (hold: preview)' },
   { keys: 'S  /  L', what: 'Play A / B' },
   { keys: 'Q W  /  O P', what: 'Bend - + A / B (hold)' },
-  { keys: 'E  /  I', what: 'Playlist to deck A / B' },
+  { keys: 'E  /  I', what: 'Browse on deck A / B' },
   { keys: 'Z X  /  N M', what: 'Pitch - + 0.1 BPM A / B (Shift: 1 BPM)' },
   { keys: 'D  /  J', what: 'Sync A / B to the tempo you hear' },
   { keys: 'Space', what: 'Play the last deck used' },
-  { keys: 'Left  Right  Down', what: 'Crossfader (Shift: all the way), center' },
   { keys: '-  =', what: 'Waveform zoom' },
 ];
 
@@ -91,24 +89,13 @@ export function listenDjKeys(getStage: () => Stage | null, active: () => boolean
     const twin = e.target instanceof HTMLElement && e.target.classList.contains('v4-twin');
     if (twin && /^(Arrow|Page|Home|End|Space|Enter|Delete|Backspace)/.test(e.code)) return;
     const s = djState.get();
-    // Crossfader et zoom : la repetition du clavier est permise
-    if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
-      e.preventDefault();
-      const dir = e.code === 'ArrowLeft' ? -1 : 1;
-      djSetXfader(e.shiftKey ? dir : Math.round((s.xfader + dir * 0.1) * 10) / 10);
-      return;
-    }
-    if (e.code === 'ArrowDown') {
-      e.preventDefault();
-      djSetXfader(0);
-      return;
-    }
+    // Le zoom : la repetition du clavier est permise
     if (e.code === 'Minus' || e.code === 'Equal') {
       e.preventDefault();
       for (const d of ['a', 'b'] as const) djZoomStep(d, e.code === 'Minus' ? 1 : -1);
       return;
     }
-    // E et I : la playlist, visant A ou B (il n'y a plus de touche LOAD)
+    // E et I : la liste des morceaux dans l'ecran de A ou de B
     if ((e.code === 'KeyE' || e.code === 'KeyI') && !e.repeat) {
       e.preventDefault();
       djBrowser.open(e.code === 'KeyE' ? 'a' : 'b');

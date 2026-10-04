@@ -35,8 +35,7 @@ function knobName(k: DjKnobSpec): string {
 function faderName(f: DjFaderSpec): string {
   const t = f.target;
   if (t.kind === 'channel') return `Channel ${t.ch + 1} (${CH[t.ch]}) fader`;
-  if (t.kind === 'pitch') return `Deck ${t.deck.toUpperCase()} tempo`;
-  return 'Crossfader, deck A to deck B';
+  return `Deck ${t.deck.toUpperCase()} pitch`;
 }
 
 function keyName(k: DjKeySpec): string {
@@ -52,8 +51,6 @@ function keyName(k: DjKeySpec): string {
       return `Deck ${t.deck.toUpperCase()} play or pause`;
     case 'time':
       return `Effects time ${k.label} beat${t.d === 1 ? '' : 's'}`;
-    case 'playlist':
-      return 'Show or hide the playlist';
     case 'tempo':
       return `Deck ${t.deck.toUpperCase()} pitch ${t.dir < 0 ? 'down' : 'up'} 0.1 BPM (hold to repeat)`;
     case 'sync':

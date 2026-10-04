@@ -1,48 +1,39 @@
 /**
- * La playlist du MM-DECKS (2026-10-04) : cachee par defaut, comme les
- * editeurs EDIT du MM-RYTM et du MM-ARP (Mika : "il faut cliquer sur un
- * bouton PLAYLIST sur le MIXER pour voir la playlist s'afficher en bas").
- * La touche PLAYLIST l'ouvre et la ferme ; LOAD sur une platine l'ouvre en
- * visant cette platine ; Echap ou DONE la ferment. Agrandie (big), elle
- * passe par-dessus la machine. Un store fait main (get, subscribe), lu par
- * dj/TrackBrowser.tsx et par le rig (la touche s'allume).
+ * L'ecran de chaque platine montre le morceau ou la liste des morceaux
+ * (2026-10-04, Mika : "pouvoir voir la playlist a l'interieur de chaque
+ * deck ; pas besoin d'assigner a A ou B, on a directement les tracks a
+ * l'interieur des decks, et on les load sur le deck qu'on veut, comme un
+ * CDJ"). Une platine vide montre la liste ; choisir un morceau le pose sur
+ * elle et l'ecran revient au morceau ; toucher l'ecran (ou E et I au
+ * clavier) rouvre la liste ; DONE la ferme. Un store fait main (get,
+ * subscribe), lu par dj/TrackBrowser.tsx et par le geste de l'ecran.
  */
 
 import type { DjDeck } from './theme';
 
-export interface DjBrowserState {
-  open: boolean;
-  /** agrandie par-dessus la machine */
-  big: boolean;
-  /** la platine visee par LOAD */
-  deck: DjDeck;
-}
+/** true : l'ecran de la platine montre la liste ; absente : la liste si elle est vide. */
+type Browse = Partial<Record<DjDeck, boolean>>;
 
-let state: DjBrowserState = { open: false, big: false, deck: 'a' };
+let state: Browse = {};
 const listeners = new Set<() => void>();
-const set = (next: DjBrowserState): void => {
-  if (next.open === state.open && next.big === state.big && next.deck === state.deck) return;
-  state = next;
+const set = (d: DjDeck, on: boolean): void => {
+  if (state[d] === on) return;
+  state = { ...state, [d]: on };
   listeners.forEach((fn) => fn());
 };
 
 export const djBrowser = {
-  get: (): DjBrowserState => state,
-  /** Ouvre, en visant une platine (LOAD) ; big : agrandie. */
-  open(deck: DjDeck = state.deck, big = state.big): void {
-    set({ open: true, big, deck });
+  get: (): Browse => state,
+  /** La liste dans l'ecran de cette platine. */
+  open(d: DjDeck): void {
+    set(d, true);
   },
-  close(): void {
-    set({ ...state, open: false, big: false });
+  /** L'ecran revient au morceau. */
+  close(d: DjDeck): void {
+    set(d, false);
   },
-  /** La touche PLAYLIST du MIXER. */
-  toggle(): void {
-    if (state.open) this.close();
-    else this.open();
-  },
-  /** Agrandie ou repliee (la playlist reste ouverte). */
-  grow(big: boolean): void {
-    set({ ...state, open: true, big });
+  toggle(d: DjDeck): void {
+    set(d, !state[d]);
   },
   subscribe(fn: () => void): () => void {
     listeners.add(fn);

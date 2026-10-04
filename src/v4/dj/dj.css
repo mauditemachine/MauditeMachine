@@ -1,609 +1,423 @@
 /*
- * MM-DECKS (2026-10-04) : la playlist sous les platines (dj/TrackBrowser.tsx).
- * Le verre sombre du panneau des sections (.v4-panel), l'os, l'orange de la
- * platine visee. Desktop : une bande en bas, au centre ; telephone : toute
- * la largeur sous la platine cadree. Agrandie (LOAD), elle monte par-dessus
- * la machine.
+ * MM-DECKS (2026-10-04) : la liste des morceaux dans l'ecran de chaque
+ * platine (dj/TrackBrowser.tsx), facon CDJ. La page est posee sur l'ecran
+ * 3D par une homographie (matrix3d) et prend sa taille a l'ecran ; toutes
+ * les tailles sont en em, la taille du texte suit la largeur de l'ecran.
+ * Le verre de l'ecran : noir dans les deux apparences, l'os, l'orange.
  */
 
-.dj-list {
-  --dj-list-h: 228px;
-  --dj-list-big: min(62vh, 640px);
-  position: absolute;
+/* La couche : le cadre du canvas, rien ne deborde (fixe, posee par le code) */
+.dj-scr-clip {
+  position: fixed;
+  left: 0;
+  top: 0;
   z-index: 25;
-  left: 50%;
-  bottom: 16px;
-  width: min(1080px, calc(100vw - 240px));
-  height: var(--dj-list-h);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.dj-scr-clip[data-on='0'] {
+  display: none;
+}
+
+.dj-scr {
+  --bone: #f6f1e7;
+  --dim: rgba(246, 241, 231, 0.55);
+  --faint: rgba(246, 241, 231, 0.14);
+  --orange: #ff6a13;
+  position: absolute;
+  left: 0;
+  top: 0;
   display: flex;
   flex-direction: column;
-  background: rgba(20, 20, 23, 0.9);
-  border-radius: 16px;
+  box-sizing: border-box;
+  padding: 0.5em 0.55em 0;
+  background: #000;
   color: var(--bone);
+  font-family: inherit;
+  line-height: 1.25;
   overflow: hidden;
-  opacity: 0;
-  transform: translate(-50%, 16px);
-  pointer-events: none;
-  transition:
-    opacity 150ms ease,
-    transform 150ms ease,
-    height 220ms cubic-bezier(0.16, 1, 0.3, 1);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-}
-
-.dj-list[data-shown='1'] {
-  opacity: 1;
-  transform: translate(-50%, 0);
   pointer-events: auto;
-  transition:
-    opacity 220ms ease-out 120ms,
-    transform 220ms cubic-bezier(0.16, 1, 0.3, 1) 120ms,
-    height 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform-origin: 0 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.dj-list[data-big='1'] {
-  height: var(--dj-list-big);
-}
-
-.dj-list[data-drop='1'] {
+.dj-scr[data-drop='1'] {
   box-shadow: inset 0 0 0 2px var(--orange);
 }
 
-.dj-list-head {
+.dj-scr button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* L'en-tete : la platine, les sources, KEYS, DONE */
+.dj-scr-head {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 8px;
-  padding: 10px 10px 8px 14px;
-}
-
-.dj-list-tabs {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 4px;
-}
-
-.dj-list-tab {
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--bone-70);
-  font: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.dj-list-tab[aria-selected='true'] {
-  border-color: var(--bone);
-  color: var(--bone);
-}
-
-.dj-list-search {
-  flex: 1 1 auto;
+  gap: 0.4em;
   min-width: 0;
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.35);
-  color: var(--bone);
-  font: inherit;
-  font-size: 14px;
 }
 
-.dj-list-search:focus-visible {
-  outline: 2px solid var(--yellow-hi);
-  outline-offset: 1px;
-}
-
-.dj-list-add {
+.dj-scr-deck {
   flex: 0 0 auto;
-  min-height: 36px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 10px;
-  background: rgba(246, 241, 231, 0.08);
-  color: var(--bone);
-  font: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.dj-list-target {
-  flex: 0 0 auto;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  color: var(--bone-70);
-  white-space: nowrap;
-}
-
-.dj-list-target b {
+  font-size: 1.15em;
+  font-weight: 800;
   color: var(--orange);
 }
 
-.dj-list-grow {
-  display: inline-flex;
+.dj-scr-tabs {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 0.3em;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.dj-scr-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.dj-scr-tab,
+.dj-scr-keys,
+.dj-scr-done,
+.dj-scr-add,
+.dj-scr-folder,
+.dj-scr-forget {
   flex: 0 0 auto;
+  min-height: 2em;
+  padding: 0 0.7em;
+  border: 1px solid var(--faint);
+  border-radius: 999px;
+  background: transparent;
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+}
+
+.dj-scr-tab[aria-selected='true'],
+.dj-scr-folder[aria-pressed='true'],
+.dj-scr-keys[aria-pressed='true'] {
+  border-color: var(--bone);
+  background: rgba(246, 241, 231, 0.1);
+}
+
+.dj-scr-done {
+  border-color: var(--orange);
+  color: var(--orange);
+}
+
+.dj-scr-add {
+  border-radius: 0.5em;
+  background: rgba(246, 241, 231, 0.08);
+  border-color: transparent;
+}
+
+/* La recherche et les ajouts */
+.dj-scr-tools {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.4em;
+  margin-top: 0.45em;
+}
+
+.dj-scr-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 2.1em;
+  padding: 0 0.7em;
+  border: 1px solid var(--faint);
+  border-radius: 0.5em;
+  background: rgba(246, 241, 231, 0.06);
+  color: var(--bone);
+  font: inherit;
+  font-size: 0.85em;
+}
+
+.dj-scr-search:focus-visible,
+.dj-scr button:focus-visible,
+.dj-scr a:focus-visible {
+  outline: 2px solid #ffd75e;
+  outline-offset: 1px;
+}
+
+.dj-scr-folders {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.3em;
+  margin-top: 0.4em;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.dj-scr-forget {
+  border-color: transparent;
+  color: var(--dim);
+}
+
+.dj-scr-forget[data-sure='1'] {
+  color: var(--orange);
+  border-color: var(--orange);
+}
+
+.dj-scr-work,
+.dj-scr-plan-note {
+  margin: 0.4em 0 0;
+  color: var(--orange);
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.dj-scr-legend {
+  margin: 0.4em 0 0;
+  font-size: 0.7em;
+  color: var(--dim);
+}
+
+.dj-scr-legend div {
+  display: flex;
+  gap: 0.8em;
+}
+
+.dj-scr-legend dt {
+  flex: 0 0 9em;
+  color: var(--bone);
+  font-weight: 700;
+}
+
+.dj-scr-legend dd {
+  margin: 0;
+}
+
+/* Un gros import : copier, ou pour la visite */
+.dj-scr-plan {
+  margin-top: 0.45em;
+  padding: 0.5em 0.6em;
+  border: 1px solid var(--faint);
+  border-radius: 0.6em;
+  font-size: 0.78em;
+}
+
+.dj-scr-plan p {
+  margin: 0;
+}
+
+.dj-scr-plan-folder {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  margin: -4px 0;
-  border: 0;
-  border-radius: 50%;
+  gap: 0.6em;
+  margin-top: 0.45em;
+}
+
+.dj-scr-plan-folder span {
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.dj-scr-plan-folder input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.3em 0.5em;
+  border: 1px solid var(--faint);
+  border-radius: 0.4em;
   background: transparent;
   color: var(--bone);
-  cursor: pointer;
+  font: inherit;
 }
 
-.dj-list-grow:hover {
-  background: rgba(246, 241, 231, 0.08);
+.dj-scr-plan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+  margin-top: 0.5em;
 }
 
-.dj-list-grow svg {
-  transition: transform 200ms ease;
+.dj-scr-plan-actions button {
+  padding: 0.35em 0.7em;
+  border: 1px solid var(--bone);
+  border-radius: 0.5em;
+  background: transparent;
+  font-weight: 700;
+  letter-spacing: 0.08em;
 }
 
-.dj-list[data-big='1'] .dj-list-grow svg {
-  transform: rotate(180deg);
+.dj-scr-plan-actions .dj-scr-plan-cancel {
+  border-color: var(--faint);
+  color: var(--dim);
 }
 
-.dj-list-rows {
+/* La liste : une ligne par morceau ; la toucher le pose sur cette platine */
+.dj-scr-rows {
   flex: 1 1 auto;
   min-height: 0;
-  margin: 0;
-  padding: 0 6px 6px;
+  margin: 0.45em -0.55em 0;
+  padding: 0 0 0.5em;
   list-style: none;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--faint) transparent;
 }
 
-.dj-list-empty,
-.dj-list-credit {
-  padding: 12px 10px;
-  color: var(--bone-60);
-  font-size: 12px;
-}
-
-.dj-list-credit a {
-  color: var(--bone);
-}
-
-.dj-list-row {
+.dj-scr-row {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 44px;
-  padding: 2px 8px;
-  border-radius: 10px;
+  align-items: stretch;
+  border-top: 1px solid var(--faint);
 }
 
-.dj-list-row:hover {
-  background: rgba(246, 241, 231, 0.05);
+.dj-scr-row[aria-current='true'] {
+  background: rgba(255, 106, 19, 0.16);
+  box-shadow: inset 3px 0 0 var(--orange);
 }
 
-.dj-list-row[aria-current='true'] .dj-list-name {
-  color: var(--yellow-hi);
-}
-
-.dj-list-names {
+.dj-scr-load {
   display: flex;
   flex: 1 1 auto;
-  align-items: baseline;
-  gap: 10px;
+  align-items: center;
+  gap: 0.6em;
+  min-width: 0;
+  min-height: 2.6em;
+  padding: 0.25em 0.55em;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.dj-scr-load:hover {
+  background: rgba(246, 241, 231, 0.06);
+}
+
+.dj-scr-load:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.dj-scr-names {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
   min-width: 0;
 }
 
-.dj-list-name,
-.dj-list-artist {
+.dj-scr-name,
+.dj-scr-artist {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.dj-list-name {
-  flex: 0 1 auto;
-  font-size: 14px;
-  font-weight: 600;
+.dj-scr-name {
+  font-size: 0.95em;
+  font-weight: 700;
 }
 
-.dj-list-artist {
-  flex: 1 1 auto;
-  font-size: 12px;
-  color: var(--bone-60);
+.dj-scr-artist {
+  font-size: 0.78em;
+  color: var(--dim);
 }
 
-.dj-list-meta {
+.dj-scr-meta {
   display: flex;
   flex: 0 0 auto;
-  gap: 10px;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: 12px;
-  color: var(--bone-70);
+  align-items: baseline;
+  gap: 0.6em;
+  font-variant-numeric: tabular-nums;
 }
 
-.dj-list-meta span {
-  min-width: 28px;
+.dj-scr-bpm {
+  min-width: 2em;
+  font-size: 0.95em;
+  font-weight: 700;
   text-align: right;
 }
 
-.dj-list-decks {
+.dj-scr-key,
+.dj-scr-lic {
+  min-width: 2.2em;
+  font-size: 0.75em;
+  color: var(--dim);
+}
+
+.dj-scr-link {
   display: flex;
   flex: 0 0 auto;
-  gap: 4px;
-}
-
-.dj-list-decks button {
-  width: 44px;
-  height: 34px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--bone);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.dj-list-decks button[aria-pressed='true'] {
-  border-color: var(--yellow-hi);
-  color: var(--yellow-hi);
-}
-
-.dj-list-decks button[data-target='1'] {
-  border-color: var(--orange);
-  color: var(--orange);
-}
-
-.dj-list-decks button:hover {
-  background: rgba(246, 241, 231, 0.08);
-}
-
-.dj-list button:focus-visible {
-  outline: 2px solid var(--yellow-hi);
-  outline-offset: 2px;
-}
-
-/* Fenetre etroite (desktop) : la bande prend presque toute la largeur */
-@media (min-width: 768px) and (max-width: 1099px) {
-  .dj-list {
-    width: calc(100vw - 32px);
-  }
-}
-
-/* Telephone : toute la largeur, sous la platine cadree ; agrandie, elle couvre le jog */
-@media (max-width: 767px) {
-  .dj-list {
-    --dj-list-h: 34dvh;
-    --dj-list-big: 78dvh;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100%;
-    border-radius: 16px 16px 0 0;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    transform: translateY(16px);
-  }
-
-  .dj-list[data-shown='1'] {
-    transform: translateY(0);
-  }
-
-  .dj-list-head {
-    flex-wrap: wrap;
-    row-gap: 6px;
-  }
-
-  .dj-list-search {
-    order: 5;
-    flex-basis: 100%;
-  }
-
-  .dj-list-names {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0;
-  }
-
-  .dj-list-meta span:nth-child(n + 2) {
-    display: none;
-  }
-}
-
-/* La machine claire : le meme panneau, en verre clair */
-.v4-root[data-v4-theme='light'] .dj-list {
-  background: rgba(250, 248, 244, 0.94);
-  color: #2a2a2e;
-}
-
-.v4-root[data-v4-theme='light'] .dj-list-grow,
-.v4-root[data-v4-theme='light'] .dj-list-tab[aria-selected='true'],
-.v4-root[data-v4-theme='light'] .dj-list-search,
-.v4-root[data-v4-theme='light'] .dj-list-add,
-.v4-root[data-v4-theme='light'] .dj-list-decks button,
-.v4-root[data-v4-theme='light'] .dj-list-credit a {
-  color: #2a2a2e;
-}
-
-.v4-root[data-v4-theme='light'] .dj-list-search {
-  background: rgba(255, 255, 255, 0.7);
-}
-
-/* MY FILES : les dossiers de la caisse, l'import en cours, le choix avant un gros import */
-.dj-list-folders {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 4px;
-  padding: 0 14px 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.dj-list-folder,
-.dj-list-forget {
-  flex: 0 0 auto;
-  min-height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--bone-70);
-  font: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.dj-list-folder[aria-pressed='true'] {
-  border-color: var(--yellow-hi);
-  color: var(--yellow-hi);
-}
-
-.dj-list-forget {
-  margin-left: auto;
-  border-style: dashed;
-}
-
-.dj-list-forget[data-sure='1'] {
-  border-color: var(--orange);
-  border-style: solid;
-  color: var(--orange);
-}
-
-.dj-list-work {
-  margin: 0;
-  padding: 0 14px 6px;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: 11px;
-  color: var(--yellow-hi);
-}
-
-.dj-list-plan {
-  flex: 0 0 auto;
-  margin: 0 10px 8px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: rgba(246, 241, 231, 0.06);
-  font-size: 13px;
-}
-
-.dj-list-plan p {
-  margin: 0 0 8px;
-}
-
-.dj-list-plan-note {
-  color: var(--bone-60);
-  font-size: 12px;
-}
-
-.dj-list-plan-folder {
-  display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  font-size: 11px;
-  font-weight: 600;
+  padding: 0 0.6em;
+  color: var(--dim);
+  font-size: 0.68em;
+  font-weight: 800;
   letter-spacing: 0.12em;
-  color: var(--bone-70);
-}
-
-.dj-list-plan-folder input {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 34px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.35);
-  color: var(--bone);
-  font: inherit;
-  font-size: 14px;
-  letter-spacing: 0;
-}
-
-.dj-list-plan-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.dj-list-plan-actions button {
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--orange);
-  border-radius: 10px;
-  background: transparent;
-  color: var(--orange);
-  font: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  cursor: pointer;
-}
-
-.dj-list-plan-actions .dj-list-plan-cancel {
-  border-color: var(--line);
-  color: var(--bone-70);
-}
-
-.dj-list-row[data-off='1'] .dj-list-name,
-.dj-list-row[data-off='1'] .dj-list-meta {
-  opacity: 0.45;
-}
-
-.dj-list-decks button:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-
-.v4-root[data-v4-theme='light'] .dj-list-plan-folder input {
-  background: rgba(255, 255, 255, 0.7);
-  color: #2a2a2e;
-}
-
-/* Le clavier : la touche KEYS (souris seulement) et sa legende */
-.dj-list-keys {
-  flex: 0 0 auto;
-  min-height: 36px;
-  padding: 0 10px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: transparent;
-  color: var(--bone-70);
-  font: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  cursor: pointer;
-}
-
-.dj-list-keys[aria-pressed='true'] {
-  border-color: var(--yellow-hi);
-  color: var(--yellow-hi);
-}
-
-@media (hover: none) {
-  .dj-list-keys {
-    display: none;
-  }
-}
-
-.dj-list-legend {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 4px 16px;
-  margin: 0 14px 8px;
-  font-size: 12px;
-}
-
-.dj-list-legend div {
-  display: flex;
-  gap: 10px;
-}
-
-.dj-list-legend dt {
-  flex: 0 0 auto;
-  min-width: 128px;
-  font-family: ui-monospace, Menlo, Consolas, monospace;
-  color: var(--yellow-hi);
-}
-
-.dj-list-legend dd {
-  margin: 0;
-  color: var(--bone-70);
-}
-
-.v4-root[data-v4-theme='light'] .dj-list-keys {
-  color: #2a2a2e;
-}
-
-/* SoundCloud : le titre est un lien vers la page du morceau (credit exige) */
-a.dj-list-name {
-  color: inherit;
   text-decoration: none;
 }
 
-a.dj-list-name:hover {
-  text-decoration: underline;
-}
-
-/* Trois onglets : au telephone ils defilent plutot que de deborder */
-.dj-list-tabs {
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-/* DONE ferme la playlist, comme celui des editeurs EDIT des machines */
-.dj-list-done {
-  flex: 0 0 auto;
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--orange);
-  border-radius: 10px;
-  background: transparent;
+.dj-scr-link:hover {
   color: var(--orange);
-  font: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  cursor: pointer;
 }
 
-/* MY SOUNDCLOUD sans connexion : le bouton prend la place de la liste */
-.dj-list-connect {
+.dj-scr-empty,
+.dj-scr-credit {
+  padding: 0.7em 0.55em;
+  color: var(--dim);
+  font-size: 0.78em;
+}
+
+.dj-scr-credit a {
+  color: var(--bone);
+}
+
+/* MY SC sans connexion : le bouton prend la place de la liste */
+.dj-scr-connect {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 10px;
-  padding: 14px 10px;
-  color: var(--bone-60);
-  font-size: 12px;
+  gap: 0.6em;
+  padding: 0.8em 0.55em;
+  color: var(--dim);
+  font-size: 0.8em;
 }
 
-.dj-list-connect p {
+.dj-scr-connect p {
   margin: 0;
-  max-width: 52ch;
 }
 
-.dj-list-sc {
-  min-height: 40px;
-  padding: 0 16px;
-  border: 1px solid var(--orange);
-  border-radius: 10px;
+.dj-scr-sc {
+  min-height: 2.4em;
+  padding: 0 1em;
+  border: 0;
+  border-radius: 0.6em;
   background: var(--orange);
-  color: #111;
-  font: inherit;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  cursor: pointer;
+  color: #111 !important;
+  font-weight: 800;
+  letter-spacing: 0.12em;
 }
 
-.dj-list-sc:focus-visible {
-  outline: 2px solid var(--yellow-hi);
-  outline-offset: 2px;
-}
-
-.dj-list-connect-note {
+.dj-scr-connect-note {
   color: var(--orange);
 }
 
-.v4-root[data-v4-theme='light'] .dj-list-connect {
-  color: rgba(42, 42, 46, 0.7);
+/* Au doigt, des cibles plus grandes */
+@media (hover: none) {
+  .dj-scr-load {
+    min-height: 3em;
+  }
+
+  .dj-scr-tab,
+  .dj-scr-keys,
+  .dj-scr-done,
+  .dj-scr-add,
+  .dj-scr-folder,
+  .dj-scr-forget {
+    min-height: 2.4em;
+  }
+
+  .dj-scr-keys {
+    display: none;
+  }
 }
 
 /*

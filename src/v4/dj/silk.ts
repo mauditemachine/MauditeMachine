@@ -43,6 +43,9 @@ const COPY: Readonly<Record<DjUnit, { name: string; sub: string }>> = {
   c: { name: 'DECK C', sub: 'DIGITAL DECK' },
   d: { name: 'DECK D', sub: 'DIGITAL DECK' },
   mix: { name: 'MIXER', sub: 'DJ MIXER' },
+  mix1: { name: 'MIXER', sub: '' },
+  mix2: { name: 'MIXER', sub: '' },
+  mix3: { name: 'MIXER', sub: '' },
   add: { name: 'ADD', sub: '' },
 };
 
@@ -79,8 +82,7 @@ function deckItems(u: DjDeck): { texts: Text[]; lines: Line[]; brackets: Bracket
     const x = k.x - ux;
     if (k.target.kind === 'hotcue') texts.push({ text: k.label, x, z: k.z - k.d / 2 - 0.16, cap: 0.075, weight: 600, group: 'cues' });
     else if (k.target.kind === 'bend') texts.push({ text: k.label, x, z: k.z + k.d / 2 + 0.2, cap: 0.12, weight: 600 });
-    else if (k.target.kind === 'cue') texts.push({ text: 'CUE', x, z: k.z - k.d / 2 - 0.2, cap: 0.085, weight: 600 });
-    else if (k.target.kind === 'play') texts.push({ text: 'PLAY / PAUSE', x, z: k.z - k.d / 2 - 0.2, cap: 0.075, weight: 600 });
+    // CUE et PLAY / PAUSE : leur nom est grave sur le bouton (dj/controls.ts)
     else if (k.target.kind === 'removedeck') texts.push({ text: 'REMOVE', x: x - k.w / 2 - 0.12, z: k.z, cap: 0.065, weight: 700, ink: 'orange', alpha: 1, align: 'right' });
   }
   // SYNC : l'ecran rond du jog se touche ; son nom sous la bague
@@ -90,9 +92,8 @@ function deckItems(u: DjDeck): { texts: Text[]; lines: Line[]; brackets: Bracket
   brackets.push({ text: 'HOT CUE', x0: C.xs[0] - C.w / 2, x1: C.xs[C.xs.length - 1] + C.w / 2, z: C.z + C.d / 2 + 0.22 });
   const B = DECK.bend;
   texts.push({ text: 'BEND', x: (B.xs[0] + B.xs[1]) / 2, z: B.z - B.d / 2 - 0.16, cap: 0.075, weight: 600 });
-  // Le pitch : PITCH au-dessus, graduation a droite de la fente, le zero plus long
+  // Le pitch : graduation a droite de la fente, le zero plus long ; son nom est sur ses touches
   const P = DECK.pitch;
-  texts.push({ text: 'PITCH', x: P.x, z: P.z0 - 0.42, cap: 0.08, weight: 700 });
   const n = 16;
   for (let i = 0; i <= n; i += 1) {
     const z = P.z0 + ((P.z1 - P.z0) * i) / n;
@@ -145,26 +146,6 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
     }
   });
   texts.push({ text: 'M', x: MIX.masterX, z: MIX.numZ, cap: 0.17, weight: 700, alpha: 1 });
-  // C et D passent a cote du crossfader : leur fader seul compte
-  if (MIX.cols.length > 4) {
-    const thru = CH_NAMES.slice(4, MIX.cols.length).join(' ');
-    texts.push({ text: `${thru}  THRU`, x: (MIX.cols[4] + MIX.cols[MIX.cols.length - 1]) / 2, z: MIX.xfader.z, cap: 0.062, weight: 600, alpha: 0.5 });
-  }
-  // Crossfader : A a gauche, B a droite, le nom dessous
-  const X = MIX.xfader;
-  texts.push({ text: 'A', x: X.x0 - 0.5, z: X.z, cap: 0.13, weight: 700, ink: 'orange', alpha: 1 });
-  texts.push({ text: 'B', x: X.x1 + 0.5, z: X.z, cap: 0.13, weight: 700, ink: 'orange', alpha: 1 });
-  texts.push({ text: 'CROSSFADER', x: (X.x0 + X.x1) / 2, z: X.z + 0.42, cap: 0.062, weight: 600 });
-  // PLAYLIST : en orange, comme les touches de navigation des machines (LOAD, OPEN, EDIT)
-  const Pl = MIX.playlist;
-  texts.push({ text: 'PLAYLIST', x: Pl.x, z: Pl.z - Pl.d / 2 - 0.17, cap: 0.07, weight: 700, ink: 'orange', alpha: 1 });
-  const xf = DJ_FADERS.find((f) => f.target.kind === 'xfader');
-  if (xf) {
-    for (let t = 0; t <= 8; t += 1) {
-      const x = X.x0 + ((X.x1 - X.x0) * t) / 8;
-      lines.push([x, X.z - 0.17, x, X.z - (t % 4 === 0 ? 0.34 : 0.26)]);
-    }
-  }
   return { texts, lines, brackets };
 }
 
@@ -249,7 +230,8 @@ export class DjSilk {
     ctx.clearRect(0, 0, this.W, this.H);
     ctx.textBaseline = 'alphabetic';
     ctx.lineCap = 'butt';
-    const { texts, lines, brackets } = this.unit === 'mix' || this.unit === 'add' ? mixItems() : deckItems(this.unit);
+    const u = this.unit;
+    const { texts, lines, brackets } = u === 'a' || u === 'b' || u === 'c' || u === 'd' ? deckItems(u) : mixItems();
     ctx.lineWidth = Math.max(1, 0.014 * P);
     ctx.strokeStyle = silkA(0.55);
     for (const l of lines) {

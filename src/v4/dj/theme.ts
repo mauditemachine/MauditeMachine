@@ -55,8 +55,13 @@ export const DJ_TOP_Y = DJ_BODY.feet + (DJ_BODY.front + DJ_BODY.back) / 2;
 /** Les quatre platines possibles, de gauche a droite apres la table : A, puis B, C, D. */
 export type DjDeck = 'a' | 'b' | 'c' | 'd';
 export const DJ_DECKS_ALL: readonly DjDeck[] = ['a', 'b', 'c', 'd'];
-/** Un bloc : une platine, la table, ou 'add' (le + au telephone, sans corps, tant qu'on peut en ajouter). */
-export type DjUnit = DjDeck | 'mix' | 'add';
+/**
+ * Un bloc : une platine, la table, ou 'add' (le + au telephone, sans corps,
+ * tant qu'on peut en ajouter). 'mix1' et 'mix2' : les deux moities de la
+ * table, cadrees l'une apres l'autre au telephone (Mika, 2026-10-04 : "en
+ * mobile, toutes les fonctionnalites, avec de plus gros boutons").
+ */
+export type DjUnit = DjDeck | 'mix' | 'mix1' | 'mix2' | 'mix3' | 'add';
 export const DJ_DECKS_MIN = 2;
 export const DJ_DECKS_MAX = 4;
 /** La voie de la table d'une platine : A 3, B 4, C 5, D 6 (index 2 a 5). */
@@ -75,8 +80,14 @@ export const MIX_COL = 1.45;
 export const mixWidth = (channels: number): number => DJ_UNIT.mixW + (channels - 4) * MIX_COL;
 
 /** Centre de chaque bloc pose (repere du rig : 0 au milieu de l'ensemble). */
-export const UNIT_X: Record<DjUnit, number> = { a: 0, b: 0, c: 0, d: 0, mix: 0, add: 0 };
-export const unitW = (u: DjUnit): number => (u === 'mix' ? mixWidth(DJ_CHANNELS) : u === 'add' ? DJ_UNIT.addW : DJ_UNIT.deckW);
+export const UNIT_X: Record<DjUnit, number> = { a: 0, b: 0, c: 0, d: 0, mix: 0, mix1: 0, mix2: 0, mix3: 0, add: 0 };
+/** La largeur d'une vue de la table au telephone : celle d'une platine, a peu pres. */
+const MIX_VIEW = 5.6;
+const MIX_VIEWS = ['mix1', 'mix2', 'mix3'] as const;
+export const unitW = (u: DjUnit): number =>
+  u === 'mix' ? mixWidth(DJ_CHANNELS) : u === 'mix1' || u === 'mix2' || u === 'mix3' ? MIX_VIEW : u === 'add' ? DJ_UNIT.addW : DJ_UNIT.deckW;
+/** Combien de vues pour la table au telephone : deux a quatre voies, trois au-dela. */
+let mixViews = 2;
 /** Largeur de l'ensemble pose. */
 export let DJ_W = 0;
 /** Place de la troisieme machine : a droite du MM-ARP, le meme jour qu'entre la 808 et lui ; son bord gauche ne bouge pas. */
@@ -108,7 +119,10 @@ function place(n: number): void {
   DJ_DECKS = DJ_DECKS_ALL.slice(0, n);
   DJ_CHANNELS = 2 + n;
   DJ_UNITS_ON = ['a', 'mix', ...DJ_DECKS.slice(1)];
-  DJ_VIEW_UNITS = [...DJ_UNITS_ON, ...(n < DJ_DECKS_MAX ? (['add'] as const) : [])];
+  // Au telephone, la table se voit en deux ou trois vues, de gauche a droite
+  mixViews = Math.min(MIX_VIEWS.length, Math.max(2, Math.ceil(mixWidth(DJ_CHANNELS) / MIX_VIEW)));
+  const views: DjUnit[] = [...MIX_VIEWS.slice(0, mixViews)];
+  DJ_VIEW_UNITS = [...DJ_UNITS_ON.flatMap((u): DjUnit[] => (u === 'mix' ? views : [u])), ...(n < DJ_DECKS_MAX ? (['add'] as const) : [])];
   const widths = DJ_UNITS_ON.map(unitW);
   DJ_W = widths.reduce((a, w) => a + w, 0) + (widths.length - 1) * DJ_UNIT.gap;
   for (const u of Object.keys(UNIT_X) as DjUnit[]) UNIT_X[u] = 0;
@@ -119,6 +133,13 @@ function place(n: number): void {
   });
   // Le + : juste a droite de l'ensemble, hors de son cadrage (desktop)
   UNIT_X.add = DJ_W / 2 + DJ_UNIT.gap + DJ_UNIT.addW / 2;
+  // Les vues de la table : la premiere contre son bord gauche, la derniere contre son bord droit
+  const mw = mixWidth(DJ_CHANNELS);
+  const c0 = -mw / 2 + MIX_VIEW / 2;
+  const c1 = mw / 2 - MIX_VIEW / 2;
+  MIX_VIEWS.forEach((u, i) => {
+    UNIT_X[u] = UNIT_X.mix + (mixViews > 1 ? c0 + ((c1 - c0) * Math.min(i, mixViews - 1)) / (mixViews - 1) : 0);
+  });
   DJ_X = DJ_LEFT + DJ_W / 2;
   DJ_FRAME.radius.closed = DJ_W / 2 + 0.6;
   DJ_FRAME.radius.open = DJ_W / 2 + 0.6;
@@ -309,15 +330,11 @@ export const MIX = {
   /** ecran des effets et touches de temps */
   screen: { x: 0, z: -4.25, w: 3.9, d: 0.95 },
   times: { x0: 0, pitch: 0.6, z: -4.1, w: 0.5, d: 0.34 },
-  /** faders de voie : fente de z0 a z1 ; VU a cote */
-  fader: { z0: 2.62, z1: 4.4 },
+  /** faders de voie : fente de z0 a z1 (plus longue depuis que le crossfader est parti) ; VU a cote */
+  fader: { z0: 2.62, z1: 5.0 },
   vu: { dx: 0.5, z0: -1.45, z1: 1.95, n: 15, w: 0.14, d: 0.16 },
   /** VU du master (deux colonnes) */
   masterVu: { z0: -0.6, z1: 4.3, dx: 0.17 },
-  /** crossfader : DECK A a gauche, DECK B a droite */
-  xfader: { z: 5.0, x0: 0, x1: 0 },
-  /** la touche PLAYLIST, en bas a droite (Mika, 2026-10-04 : comme les EDIT du MM-RYTM et du MM-ARP) */
-  playlist: { x: 0, z: 5.0, w: 1.15, d: 0.42 },
   head: { z: -5.05 },
 };
 
@@ -332,55 +349,58 @@ function placeMix(n: number): void {
   MIX.fxPitch = (w - 1.8) / (DJ_FX.length - 1);
   MIX.screen.x = L + mid + 2.45;
   MIX.times.x0 = L + mid + 4.82;
-  MIX.xfader.x0 = L + 2.5;
-  MIX.xfader.x1 = L + 5.9;
-  MIX.playlist.x = -L - 1.15;
 }
 
 /* ---------- la platine (repere du bloc) ---------- */
 
 export const DECK = {
   head: { z: -5.05 },
-  /** l'ecran, grand (Mika : "plus d'ecran pour voir la waveform") */
-  screen: { x: 0, z: -3.05, w: 5.5, d: 3.2 },
-  /** hot cues : une rangee de quatre sous l'ecran, une seule couleur (Mika, 2026-10-03) */
-  cues: { xs: [-1.95, -0.65, 0.65, 1.95] as readonly number[], z: -0.8, w: 1.1, d: 0.45 },
   /**
-   * le jog, petit (Mika : "moins de jog") : platine noire, bague
-   * d'aluminium, anneau de LED ; au centre, l'ecran rond est la touche SYNC
-   * (Mika : "trouve-lui une utilite") : le tempo se cale sur celui qu'on
-   * entend
+   * L'ecran, la moitie haute de la platine (Mika, 2026-10-04 : "trop
+   * miniature, on ne voit rien ; je veux un plus grand ecran et voir la
+   * playlist a l'interieur de chaque deck, comme un CDJ") : le morceau et
+   * ses formes d'onde, ou la liste des morceaux (dj/TrackBrowser.tsx) ;
+   * toucher l'ecran passe de l'un a l'autre.
    */
-  jog: { x: -0.1, z: 2.55, ring: 1.35, ringIn: 1.18, ringH: 0.13, platter: 1.15, platterH: 0.24, center: 0.5, ledR: 1.265, leds: 36 },
-  /** colonne de gauche : BEND, puis CUE et PLAY, boutons ronds en metal (LOAD : toucher l'ecran) */
-  bend: { xs: [-2.5, -1.9] as readonly number[], z: 0.5, w: 0.5, d: 0.45 },
-  cue: { x: -2.2, z: 1.95, r: 0.55 },
-  play: { x: -2.2, z: 3.6, r: 0.55 },
+  screen: { x: 0, z: -2.35, w: 5.6, d: 4.9 },
+  /** hot cues : une rangee de quatre sous l'ecran, une seule couleur (Mika, 2026-10-03) */
+  cues: { xs: [-1.95, -0.65, 0.65, 1.95] as readonly number[], z: 0.72, w: 1.1, d: 0.42 },
+  /**
+   * le jog, sobre (Mika, 2026-10-04 : "les jogs sont moches") : un grand
+   * potard des machines MM, capuchon noir cannele, jupe d'aluminium, un
+   * trait os qui tourne ; au centre, l'ecran rond est la touche SYNC
+   */
+  jog: { x: -0.1, z: 3.4, ring: 1.22, platter: 1.08, platterH: 0.26, center: 0.46 },
+  /** colonne de gauche : BEND, puis CUE et PLAY, boutons ronds en metal */
+  bend: { xs: [-2.5, -1.9] as readonly number[], z: 1.78, w: 0.5, d: 0.4 },
+  cue: { x: -2.2, z: 2.95, r: 0.5 },
+  play: { x: -2.2, z: 4.4, r: 0.5 },
   /** le fader de pitch, a droite du jog ; zero au milieu, LED */
-  pitch: { x: 2.2, z0: 0.5, z1: 3.9 },
+  pitch: { x: 2.2, z0: 1.65, z1: 4.05 },
   /**
    * PITCH - et + (Mika, 2026-10-04 : "je voudrais pouvoir changer le pitch
    * avec des + et des -") : deux touches nommees sous le fader, un dixieme
    * de BPM par appui, en continu tenues (Maj : un BPM).
    */
-  tempo: { xs: [1.9, 2.5] as readonly number[], z: 4.7, w: 0.52, d: 0.45 },
+  tempo: { xs: [1.9, 2.5] as readonly number[], z: 4.85, w: 0.52, d: 0.42 },
   /** REMOVE : sur la derniere platine ajoutee (C ou D), dans l'en-tete, avant le logo */
   remove: { x: 1.45, z: -5.05, w: 0.6, d: 0.28 },
 } as const;
 
 /**
  * L'ecran de la platine, en fractions de sa largeur (u, depuis la gauche)
- * et de sa hauteur (v, depuis le haut) : le texte en haut (titre, artiste,
- * BPM, Camelot, temps), la forme d'onde fine au milieu (elle defile, la
- * tete de lecture au centre), la piste entiere en bas, et a sa droite les
- * deux touches du zoom. Seuls le texte et le zoom passent par la texture
- * des ecrans (dj/screens.ts) ; les formes d'onde ont leur shader.
+ * et de sa hauteur (v, depuis le haut) : le morceau en haut (titre,
+ * artiste, BPM, Camelot, temps), la forme d'onde fine au milieu, haute
+ * (elle defile, la tete de lecture au centre), la piste entiere en bas, et
+ * a sa droite les deux touches du zoom. Seuls le texte et le zoom passent
+ * par la texture des ecrans (dj/screens.ts) ; les formes d'onde ont leur
+ * shader ; la liste des morceaux est une page HTML posee sur l'ecran.
  */
 export const DECK_SCREEN = {
-  text: 0.3,
-  detail: { u0: 0.02, u1: 0.98, v0: 0.34, v1: 0.82 },
-  overview: { u0: 0.02, u1: 0.84, v0: 0.86, v1: 0.96 },
-  zoom: { u0: 0.86, u1: 0.98, v0: 0.84, v1: 0.98 },
+  text: 0.22,
+  detail: { u0: 0.02, u1: 0.98, v0: 0.25, v1: 0.76 },
+  overview: { u0: 0.02, u1: 0.84, v0: 0.8, v1: 0.95 },
+  zoom: { u0: 0.86, u1: 0.98, v0: 0.79, v1: 0.96 },
 } as const;
 
 /* ---------- faders, touches ---------- */

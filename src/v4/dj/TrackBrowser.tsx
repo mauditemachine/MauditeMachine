@@ -1,29 +1,26 @@
 /**
- * La playlist du MM-DECKS (2026-10-04), posee sous les platines comme dans
- * les Decks de sonaa.ca (Mika : "c'est surtout la playlist que je peux
- * scroller, et je peux envoyer une track a A ou B"). Deux sources :
- * - SOUNDCLOUD (2026-10-04, Mika : "Audius c'est vraiment pourri") : par le
- *   Worker de Sonaa, seulement les licences Creative Commons qui autorisent
- *   le remix ; chaque ligne credite l'auteur et renvoie a sa page
- *   (dj/soundcloud.ts).
- * - MY SOUNDCLOUD (2026-10-04, Mika : "je veux que les gens puissent
- *   connecter leur soundcloud") : on se connecte avec SoundCloud (pas de
- *   compte sur le site) et on mixe ses propres morceaux publics.
- * - MAUDITE MACHINE : les morceaux du compte SoundCloud de Mika, que tout le
- *   monde peut mixer (il y consent). Audius est parti (Mika, 2026-10-04 :
- *   "c'est nul").
- * - MY FILES : la caisse (dj/crate.ts), les fichiers de l'appareil gardes
- *   d'une visite a l'autre, ranges par dossier (bouton, dossier, ou glisses
- *   sur la liste). Ils restent sur l'appareil : rien n'est envoye (Mika,
- *   2026-10-03 : "ca va pas les uploader ?"). Un gros import demande : copier
- *   dans le navigateur (s'il y a la place), ou relier pour la visite ; sur
- *   Chrome et Edge, un dossier se relie sans rien copier.
- * Chaque ligne a deux touches, A et B : le morceau part sur la platine
- * choisie. Desktop : une bande en bas, sous les trois blocs ; telephone :
- * sous la platine cadree. Le cadrage de la scene remonte au-dessus d'elle
- * (Stage.setDjInset). LOAD sur une platine l'agrandit (par-dessus le jog au
- * telephone) et la vise ; un choix, Echap ou la touche d'en-tete la
- * replient.
+ * La liste des morceaux, dans l'ecran de chaque platine (2026-10-04, Mika :
+ * "je veux un plus grand ecran et voir la playlist a l'interieur de chaque
+ * deck ; pas besoin d'assigner a A ou B, on a directement les tracks a
+ * l'interieur des decks et on les load sur le deck qu'on veut, comme un
+ * CDJ"). Plus de liste commune en bas ni de touches A et B : chaque
+ * platine a son navigateur, pose exactement sur son ecran 3D (une page
+ * HTML deformee par une homographie, matrix3d, recalculee a chaque vue).
+ * Choisir un morceau le pose sur cette platine et l'ecran revient au
+ * morceau ; toucher l'ecran le rouvre (dj/browser.ts) ; une platine vide
+ * montre sa liste.
+ *
+ * Les sources, comme avant :
+ * - MAUDITE : les morceaux du compte SoundCloud de Mika, que tout le monde
+ *   peut mixer (il y consent) ; ouverte par defaut.
+ * - SOUNDCLOUD : par le Worker de Sonaa, seulement les licences Creative
+ *   Commons qui autorisent le remix ; chaque titre renvoie a sa page.
+ * - MY SC : on se connecte avec SoundCloud (pas de compte sur le site) et
+ *   on mixe ses propres morceaux publics.
+ * - FILES : la caisse (dj/crate.ts), les fichiers de l'appareil gardes
+ *   d'une visite a l'autre, ranges par dossier ; rien n'est envoye. Un gros
+ *   import demande : copier dans le navigateur, ou relier pour la visite.
+ * Le nom DjBrowser et ses props ne changent pas (index.tsx, state/djload.ts).
  */
 
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
@@ -33,11 +30,11 @@ import { focus } from '../state/focus';
 import { intro } from '../state/intro';
 import { djLoad } from './actions';
 import { djBrowser } from './browser';
-import { DJ_KEY_LEGEND, listenDjKeys } from './keys';
 import { addFiles, analyzeAll, canLink, crateEvents, crateTracks, folderOfPath, isSound, linkFolder, pickAndLink, readDrop, removeFolder, storageLeft, type ImportMode, type PlacedFile } from './crate';
+import { DJ_KEY_LEGEND, listenDjKeys } from './keys';
 import { LICENSE_LABEL, connectSoundcloud, disconnectSoundcloud, mauditeTracks, myTracks, scAccount, searchSoundcloud } from './soundcloud';
 import { djState, type DjTrack } from './state';
-import { DJ_DECKS, djDecks, type DjDeck } from './theme';
+import { DECK, DJ_BEZEL, DJ_DECKS, UNIT_X, djDecks, type DjDeck } from './theme';
 import './dj.css';
 
 const ROWS = 200;
@@ -56,10 +53,6 @@ function useCrate(on: boolean): DjTrack[] | null {
       live = false;
     };
   }, [on, v]);
-  // Les analyses reprennent ou elles en etaient, a chaque visite
-  useEffect(() => {
-    if (on) void analyzeAll();
-  }, [on]);
   return tracks;
 }
 
@@ -69,7 +62,17 @@ const foldersOf = (t: readonly DjTrack[]): string[] => {
   return [...set].sort((x, y) => (x === '' ? 1 : y === '' ? -1 : x.localeCompare(y)));
 };
 
-/** L'onglet retenu (MY FILES pour qui a sa caisse). */
+type Tab = 'maudite' | 'soundcloud' | 'mysc' | 'files';
+const TABS: readonly Tab[] = ['maudite', 'soundcloud', 'mysc', 'files'];
+const TAB_LABEL: Readonly<Record<Tab, string>> = { maudite: 'MAUDITE', soundcloud: 'SOUNDCLOUD', mysc: 'MY SC', files: 'FILES' };
+const PLACEHOLDER: Readonly<Record<Tab, string>> = {
+  maudite: 'Search Maudite Machine',
+  soundcloud: 'Search SoundCloud (CC)',
+  mysc: 'Search my SoundCloud',
+  files: 'Search my files',
+};
+
+/** L'onglet retenu (FILES pour qui a sa caisse). */
 const TAB_KEY = 'mm.v4.dj.tab';
 const readTab = (): Tab => {
   try {
@@ -79,17 +82,16 @@ const readTab = (): Tab => {
     return 'maudite';
   }
 };
+const saveTab = (t: Tab): void => {
+  try {
+    window.localStorage.setItem(TAB_KEY, t);
+  } catch {
+    /* rien a retenir */
+  }
+};
 
 /** Tous les dossiers a la fois. */
 const ALL = '*';
-const FOLDER_KEY = 'mm.v4.dj.folder';
-const readFolder = (): string => {
-  try {
-    return window.localStorage.getItem(FOLDER_KEY) ?? ALL;
-  } catch {
-    return ALL;
-  }
-};
 
 /** Un import en attente de choix : ses fichiers, leur poids, le dossier propose, la place restante. */
 interface Plan {
@@ -103,12 +105,6 @@ const human = (b: number): string => (b >= 1e9 ? `${(b / 1e9).toFixed(1)} GB` : 
 /** Au-dela, on demande avant de copier. */
 const ASK = { files: 1, bytes: 300 * 1e6 } as const;
 
-/**
- * SOUNDCLOUD, MY FILES et MAUDITE MACHINE (Mika, 2026-10-04 : "cache Audius,
- * et mets un dossier a cote de My Files qui s'appelle Maudite Machine, les
- * gens pourront mixer mes tracks"). MAUDITE MACHINE s'ouvre par defaut.
- */
-type Tab = 'soundcloud' | 'mysc' | 'files' | 'maudite';
 /** Les morceaux de Maudite Machine, lus une fois par visite. */
 let mauditeCache: DjTrack[] | null = null;
 /** Les morceaux du compte connecte, lus une fois par visite et par seance. */
@@ -116,102 +112,96 @@ let myCache: { s: string; tracks: DjTrack[] } | null = null;
 /** La reponse du Worker sur SoundCloud, une fois par visite. */
 let scProbe: Promise<boolean> | null = null;
 let scProbeOff = false;
-const TABS: readonly Tab[] = ['soundcloud', 'mysc', 'files', 'maudite'];
-const TAB_LABEL: Readonly<Record<Tab, string>> = { soundcloud: 'SOUNDCLOUD', mysc: 'MY SOUNDCLOUD', files: 'MY FILES', maudite: 'MAUDITE MACHINE' };
-const PLACEHOLDER: Readonly<Record<Tab, string>> = {
-  soundcloud: 'Search SoundCloud (Creative Commons)',
-  mysc: 'Search my SoundCloud tracks',
-  files: 'Search my files',
-  maudite: 'Search Maudite Machine tracks',
-};
-const fmtTime = (s: number): string => (s > 0 ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '');
-/** Marge entre la playlist et le bas de la machine (px). */
-const GAP = 12;
-/** Desktop : la hauteur de l'en-tete (logo, MENU), que la machine laisse libre. */
-const HEAD_PX = 56;
 
-interface Props {
-  /** le Stage : la playlist lui donne sa hauteur (le cadrage remonte au-dessus) */
-  getStage?: () => Stage | null;
-  /**
-   * La scene courante : elle est recreee au changement Dark / Light, et la
-   * nouvelle part sans marge ; l'effet qui la lui donne doit la suivre.
-   */
-  stage?: Stage | null;
+/* ---------------- la pose sur l'ecran 3D ---------------- */
+
+/**
+ * L'homographie du rectangle (0, 0)-(w, h) vers le quadrilatere projete
+ * (haut gauche, haut droite, bas droite, bas gauche), en matrix3d CSS
+ * (colonnes) : la page se pose exactement sur l'ecran, en perspective.
+ */
+function matrix3d(q: readonly number[], w: number, h: number): string | null {
+  const [x0, y0, x1, y1, x2, y2, x3, y3] = q;
+  const dx1 = x1 - x2;
+  const dx2 = x3 - x2;
+  const dx3 = x0 - x1 + x2 - x3;
+  const dy1 = y1 - y2;
+  const dy2 = y3 - y2;
+  const dy3 = y0 - y1 + y2 - y3;
+  const det = dx1 * dy2 - dx2 * dy1;
+  if (Math.abs(det) < 1e-9) return null;
+  const g = (dx3 * dy2 - dx2 * dy3) / det;
+  const hh = (dx1 * dy3 - dx3 * dy1) / det;
+  const a = x1 - x0 + g * x1;
+  const b = x3 - x0 + hh * x3;
+  const d = y1 - y0 + g * y1;
+  const e = y3 - y0 + hh * y3;
+  const m = [a / w, d / w, 0, g / w, b / h, e / h, 0, hh / h, 0, 0, 1, 0, x0, y0, 0, 1];
+  return `matrix3d(${m.map((v) => +v.toFixed(8)).join(',')})`;
 }
 
-export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
-  const b = useSyncExternalStore(djBrowser.subscribe, djBrowser.get, djBrowser.get);
+/* ---------------- le navigateur d'une platine ---------------- */
+
+interface DeckProps {
+  deck: DjDeck;
+  /** l'element pose sur l'ecran, pour son placement */
+  setRoot: (d: DjDeck, el: HTMLDivElement | null) => void;
+}
+
+const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
   const dj = useSyncExternalStore(djState.subscribe, djState.get, djState.get);
-  const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
-  const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
   const sc = useSyncExternalStore(scAccount.subscribe, scAccount.get, scAccount.get);
-  // Une touche par platine posee (A et B, puis C et D si ajoutees)
-  useSyncExternalStore(djDecks.subscribe, djDecks.get, djDecks.get);
   const me = sc.account;
-  // Cachee par defaut : la touche PLAYLIST du MIXER (ou LOAD) l'ouvre
-  const shown = f === 'dj' && introState === 'done' && b.open;
-  const big = shown && b.big;
   const [tab, setTabState] = useState<Tab>(readTab);
   const setTab = (t: Tab): void => {
     setTabState(t);
-    try {
-      window.localStorage.setItem(TAB_KEY, t);
-    } catch {
-      /* rien a retenir */
-    }
+    saveTab(t);
   };
-  const mine = useCrate(shown) ?? [];
-  const [folder, setFolderState] = useState<string>(readFolder);
+  const mine = useCrate(true) ?? [];
+  const [folder, setFolderState] = useState<string>(ALL);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [work, setWork] = useState<string | null>(null);
   const [sure, setSure] = useState(false);
   const [legend, setLegend] = useState(false);
-  // Le clavier des platines : actif seulement quand on utilise le MM-DECKS
-  const shownRef = useRef(shown);
-  shownRef.current = shown;
-  useEffect(() => listenDjKeys(() => getStage?.() ?? null, () => shownRef.current), [getStage]);
+  const [drop, setDrop] = useState(false);
+  const [query, setQuery] = useState('');
+  const [list, setList] = useState<DjTrack[] | null>(null);
+  const [scDown, setScDown] = useState<'off' | 'down' | null>(null);
+  const [scOff, setScOff] = useState(scProbeOff);
+  const pick = useRef<HTMLInputElement>(null);
+  const pickDir = useRef<HTMLInputElement>(null);
   const folders = useMemo(() => foldersOf(mine), [mine]);
-  // Un dossier retenu qui n'existe plus : tout montrer
   const shownFolder = folder === ALL || folders.includes(folder) ? folder : ALL;
   const setFolder = (f: string): void => {
     setFolderState(f);
     setSure(false);
-    try {
-      window.localStorage.setItem(FOLDER_KEY, f);
-    } catch {
-      /* rien a retenir */
-    }
   };
-  const [query, setQuery] = useState('');
-  const [list, setList] = useState<DjTrack[] | null>(null);
-  /** SoundCloud : sa cle n'est pas encore posee dans le Worker, ou il ne repond pas */
-  const [scDown, setScDown] = useState<'off' | 'down' | null>(null);
-  const [scOff, setScOff] = useState(scProbeOff);
-  // SoundCloud branche ? Une recherche vide le dit (gardee au Worker) ; sinon l'onglet s'efface
+
+  // Les analyses de la caisse reprennent ou elles en etaient
   useEffect(() => {
-    if (!shown) return;
+    void analyzeAll();
+  }, []);
+
+  // SoundCloud branche ? Une recherche vide le dit (gardee au Worker) ; sinon ses onglets s'effacent
+  useEffect(() => {
     scProbe ??= searchSoundcloud('', new AbortController().signal).then((r) => {
       scProbeOff = !r.ok && r.reason === 'off';
       return scProbeOff;
     });
+    let live = true;
     void scProbe.then((off) => {
-      if (!off) return;
-      // Pas encore branche : SOUNDCLOUD et MAUDITE MACHINE s'effacent, MY FILES reste
+      if (!live || !off) return;
       setScOff(true);
-      if (tab !== 'files') setTab('files');
+      setTabState((t) => (t === 'files' ? t : 'files'));
     });
-  }, [shown]);
-  const [drop, setDrop] = useState(false);
-  const panel = useRef<HTMLDivElement>(null);
-  const search = useRef<HTMLInputElement>(null);
-  const pick = useRef<HTMLInputElement>(null);
-  const pickDir = useRef<HTMLInputElement>(null);
+    return () => {
+      live = false;
+    };
+  }, []);
 
-  // SoundCloud : des styles de club au depart, ou la recherche (300 ms apres la frappe) ; les
-  // listes MAUDITE MACHINE et MY SOUNDCLOUD, une fois par visite
+  // SOUNDCLOUD cherche chez SoundCloud (300 ms apres la frappe) ; MAUDITE et MY SC se lisent une fois
   useEffect(() => {
-    if (!shown || tab === 'files') return undefined;
+    if (tab === 'files') return undefined;
     if (tab === 'mysc' && !me) {
       setList([]);
       return undefined;
@@ -220,7 +210,6 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
     const q = query.trim();
     const t = window.setTimeout(
       () => {
-        setList(null);
         setScDown(null);
         if (tab === 'maudite' && mauditeCache) {
           setList(mauditeCache);
@@ -230,17 +219,15 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
           setList(myCache.tracks);
           return;
         }
+        setList(null);
         (tab === 'maudite' ? mauditeTracks(ctl.signal) : tab === 'mysc' ? myTracks(ctl.signal) : searchSoundcloud(q, ctl.signal))
           .then((r) => {
             if (r.ok) {
               if (tab === 'maudite') mauditeCache = r.tracks;
               if (tab === 'mysc' && me) myCache = { s: me.s, tracks: r.tracks };
               setList(r.tracks);
-            } else if (r.reason === 'out') {
-              // Seance perimee : le bouton de connexion revient
-              setList([]);
-            } else if (r.reason === 'off') {
-              // Pas encore branche (la cle n'est pas posee dans le Worker) : les onglets SoundCloud s'effacent
+            } else if (r.reason === 'out') setList([]);
+            else if (r.reason === 'off') {
               setScOff(true);
               setTab('files');
             } else {
@@ -258,73 +245,21 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
       window.clearTimeout(t);
       ctl.abort();
     };
-    // MY SOUNDCLOUD se relit a la connexion (me)
-  }, [shown, tab, query, me]);
-
-  // Au telephone les onglets defilent : l'onglet choisi reste en vue
-  useEffect(() => {
-    if (!shown) return;
-    panel.current?.querySelector('.dj-list-tab[aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  }, [shown, tab]);
-
-  // Cachee : hors du clavier et des lecteurs d'ecran (inert n'est pas type par React 18)
-  useEffect(() => {
-    const el = panel.current;
-    if (!el) return;
-    if (shown) el.removeAttribute('inert');
-    else el.setAttribute('inert', '');
-  }, [shown]);
-
-  // La hauteur repliee de la playlist remonte le cadrage de la scene (agrandie, elle passe par-dessus)
-  useLayoutEffect(() => {
-    const el = panel.current;
-    const stage = current ?? getStage?.();
-    if (!el || !stage) return undefined;
-    if (!shown) {
-      stage.setDjInset(0);
-      return undefined;
-    }
-    const apply = (): void => {
-      if (el.dataset.big === '1') return;
-      const r = el.getBoundingClientRect();
-      const host = el.offsetParent instanceof HTMLElement ? el.offsetParent.getBoundingClientRect() : { top: 0, bottom: window.innerHeight };
-      // En haut : le selecteur des machines au telephone, l'en-tete sur desktop
-      const sw = document.querySelector('.v4-mswitch');
-      const top = sw ? sw.getBoundingClientRect().bottom - host.top + GAP / 2 : HEAD_PX;
-      stage.setDjInset(host.bottom - r.top + GAP, top);
-    };
-    apply();
-    const ro = new ResizeObserver(apply);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [shown, getStage, current]);
-
-  // Ouverte : Echap la ferme (avant les raccourcis des machines). La recherche ne prend pas le
-  // clavier d'elle-meme : les raccourcis des platines doivent rester actifs
-  useEffect(() => {
-    if (!shown) return undefined;
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key !== 'Escape') return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      djBrowser.close();
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [shown]);
+  }, [tab, tab === 'soundcloud' ? query : '', me]);
 
   const rows = useMemo(() => {
     const src = tab !== 'files' ? (list ?? []) : mine.filter((t) => shownFolder === ALL || (t.folder ?? '') === shownFolder);
     const q = query.trim().toLowerCase();
-    // SOUNDCLOUD cherche chez SoundCloud ; MY FILES et MAUDITE MACHINE filtrent sur place
+    // SOUNDCLOUD cherche chez SoundCloud ; les autres filtrent sur place
     const out = tab !== 'soundcloud' && q ? src.filter((t) => `${t.title} ${t.artist} ${t.folder ?? ''}`.toLowerCase().includes(q)) : src;
     return out.slice(0, ROWS);
   }, [tab, list, mine, query, shownFolder]);
 
-  const load = (t: DjTrack, d: DjDeck): void => {
+  /** Un morceau choisi : il part sur cette platine, l'ecran revient au morceau. */
+  const load = (t: DjTrack): void => {
     gesture();
-    void djLoad(d, t);
-    djBrowser.grow(false);
+    void djLoad(deck, t);
+    djBrowser.close(deck);
   };
 
   const progress = (done: number, total: number): void => setWork(`ADDING ${done} / ${total}`);
@@ -341,8 +276,6 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
       return;
     }
     setPlan({ files: sounds, bytes, folder: named, left: await storageLeft() });
-    // Le choix prend de la place : la playlist s'agrandit
-    djBrowser.grow(true);
   };
 
   const run = async (files: PlacedFile[], mode: ImportMode): Promise<void> => {
@@ -408,21 +341,17 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
     void removeFolder(shownFolder === ALL ? '' : shownFolder).then(() => setFolder(ALL));
   };
 
-  const loadedId = (d: DjDeck): string | null => dj.deck[d].track?.id ?? null;
-  /** MY SOUNDCLOUD sans connexion : le bouton prend la place de la liste */
+  const loadedId = dj.deck[deck].track?.id ?? null;
+  /** MY SC sans connexion : le bouton prend la place de la liste */
   const gate = tab === 'mysc' && !me;
-  const target = b.deck;
 
   return (
     <div
-      ref={panel}
-      className="dj-list"
-      data-shown={shown ? '1' : '0'}
-      data-big={big ? '1' : '0'}
+      ref={(el) => setRoot(deck, el)}
+      className="dj-scr"
       data-drop={drop ? '1' : '0'}
       role="region"
-      aria-label="Playlist"
-      aria-hidden={!shown}
+      aria-label={`Deck ${deck.toUpperCase()} track browser`}
       onDragOver={(e) => {
         e.preventDefault();
         setDrop(true);
@@ -434,17 +363,25 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
         onDrop(e.dataTransfer.items);
       }}
     >
-      <div className="dj-list-head">
-        <div className="dj-list-tabs" role="tablist">
+      <div className="dj-scr-head">
+        <span className="dj-scr-deck">{deck.toUpperCase()}</span>
+        <div className="dj-scr-tabs" role="tablist">
           {TABS.filter((t) => t === 'files' || !scOff).map((t) => (
-            <button key={t} type="button" role="tab" aria-selected={tab === t} className="dj-list-tab" onClick={() => setTab(t)}>
+            <button key={t} type="button" role="tab" aria-selected={tab === t} className="dj-scr-tab" onClick={() => setTab(t)}>
               {t === 'files' && mine.length ? `${TAB_LABEL.files} ${mine.length}` : TAB_LABEL[t]}
             </button>
           ))}
         </div>
+        <button type="button" className="dj-scr-keys" aria-pressed={legend} onClick={() => setLegend(!legend)}>
+          KEYS
+        </button>
+        <button type="button" className="dj-scr-done" onClick={() => djBrowser.close(deck)}>
+          DONE
+        </button>
+      </div>
+      <div className="dj-scr-tools">
         <input
-          ref={search}
-          className="dj-list-search"
+          className="dj-scr-search"
           type="search"
           placeholder={PLACEHOLDER[tab]}
           aria-label="Search"
@@ -453,10 +390,10 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
         />
         {tab === 'files' && (
           <>
-            <button type="button" className="dj-list-add" onClick={() => pick.current?.click()}>
+            <button type="button" className="dj-scr-add" onClick={() => pick.current?.click()}>
               + FILES
             </button>
-            <button type="button" className="dj-list-add" onClick={addFolder}>
+            <button type="button" className="dj-scr-add" onClick={addFolder}>
               + FOLDER
             </button>
           </>
@@ -464,7 +401,7 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
         {tab === 'mysc' && me && (
           <button
             type="button"
-            className="dj-list-add"
+            className="dj-scr-add"
             title={me.name ? `Connected as ${me.name}` : undefined}
             onClick={() => {
               myCache = null;
@@ -474,28 +411,6 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
             DISCONNECT
           </button>
         )}
-        <button type="button" className="dj-list-keys" aria-pressed={legend} onClick={() => setLegend(!legend)}>
-          KEYS
-        </button>
-        {big && (
-          <span className="dj-list-target">
-            TO DECK <b>{target.toUpperCase()}</b>
-          </span>
-        )}
-        <button
-          type="button"
-          className="dj-list-grow"
-          aria-expanded={big}
-          aria-label={big ? 'Shrink the playlist' : 'Expand the playlist'}
-          onClick={() => djBrowser.grow(!big)}
-        >
-          <svg viewBox="0 0 12 8" width="12" height="8" aria-hidden="true">
-            <path d="M1 7 L6 2 L11 7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-        <button type="button" className="dj-list-done" onClick={() => djBrowser.close()}>
-          DONE
-        </button>
         <input ref={pick} type="file" accept="audio/*" multiple hidden onChange={(e) => onFiles(e.target.files)} />
         <input
           ref={(el) => {
@@ -509,22 +424,22 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
         />
       </div>
       {tab === 'files' && (folders.length > 1 || (folders.length === 1 && folders[0] !== '')) && (
-        <div className="dj-list-folders" role="group" aria-label="Folders">
+        <div className="dj-scr-folders" role="group" aria-label="Folders">
           {[ALL, ...folders].map((f) => (
-            <button key={f || 'loose'} type="button" className="dj-list-folder" aria-pressed={shownFolder === f} onClick={() => setFolder(f)}>
+            <button key={f || 'loose'} type="button" className="dj-scr-folder" aria-pressed={shownFolder === f} onClick={() => setFolder(f)}>
               {f === ALL ? `ALL ${mine.length}` : f === '' ? 'LOOSE' : f}
             </button>
           ))}
           {shownFolder !== ALL && (
-            <button type="button" className="dj-list-forget" data-sure={sure ? '1' : '0'} onClick={forget} onBlur={() => setSure(false)}>
+            <button type="button" className="dj-scr-forget" data-sure={sure ? '1' : '0'} onClick={forget} onBlur={() => setSure(false)}>
               {sure ? 'REMOVE? YES' : 'REMOVE FOLDER'}
             </button>
           )}
         </div>
       )}
-      {work && <p className="dj-list-work">{work}</p>}
+      {work && <p className="dj-scr-work">{work}</p>}
       {legend && (
-        <dl className="dj-list-legend" aria-label="Keyboard">
+        <dl className="dj-scr-legend" aria-label="Keyboard">
           {DJ_KEY_LEGEND.map((l) => (
             <div key={l.keys}>
               <dt>{l.keys}</dt>
@@ -534,16 +449,15 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
         </dl>
       )}
       {plan && (
-        <div className="dj-list-plan" role="dialog" aria-label="Add files">
+        <div className="dj-scr-plan" role="dialog" aria-label="Add files">
           <p>
-            {plan.files.length} tracks, {human(plan.bytes)}.{' '}
-            {canLink() ? 'Tip: + FOLDER links a folder without copying it.' : 'They stay on this device: nothing is uploaded.'}
+            {plan.files.length} tracks, {human(plan.bytes)}. {canLink() ? 'Tip: + FOLDER links a folder without copying it.' : 'They stay on this device: nothing is uploaded.'}
           </p>
-          <label className="dj-list-plan-folder">
+          <label className="dj-scr-plan-folder">
             <span>FOLDER</span>
             <input type="text" value={plan.folder} placeholder="No folder" onChange={(e) => setPlan({ ...plan, folder: e.target.value })} />
           </label>
-          <div className="dj-list-plan-actions">
+          <div className="dj-scr-plan-actions">
             {(plan.left === null || plan.left > plan.bytes * 1.1) && (
               <button type="button" onClick={() => confirm('copy')}>
                 KEEP ON THIS DEVICE
@@ -552,30 +466,30 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
             <button type="button" onClick={() => confirm('visit')}>
               THIS VISIT ONLY
             </button>
-            <button type="button" className="dj-list-plan-cancel" onClick={() => setPlan(null)}>
+            <button type="button" className="dj-scr-plan-cancel" onClick={() => setPlan(null)}>
               CANCEL
             </button>
           </div>
           {plan.left !== null && plan.left <= plan.bytes * 1.1 && (
-            <p className="dj-list-plan-note">Not enough room to keep them: {human(Math.max(0, plan.left))} left. This visit only keeps their names, BPM and cues; next time, add the folder again.</p>
+            <p className="dj-scr-plan-note">Not enough room to keep them: {human(Math.max(0, plan.left))} left. This visit only keeps their names, BPM and cues.</p>
           )}
         </div>
       )}
-      <ul className="dj-list-rows">
+      <ul className="dj-scr-rows">
         {gate && (
-          <li className="dj-list-connect">
-            <p>Mix your own tracks: connect with SoundCloud. No account on this site, and nothing is kept: your tracks play from SoundCloud.</p>
-            <button type="button" className="dj-list-sc" onClick={connectSoundcloud}>
+          <li className="dj-scr-connect">
+            <p>Mix your own tracks: connect with SoundCloud. No account on this site, and nothing is kept.</p>
+            <button type="button" className="dj-scr-sc" onClick={connectSoundcloud}>
               {sc.pending ? 'WAITING FOR SOUNDCLOUD...' : 'CONNECT WITH SOUNDCLOUD'}
             </button>
-            {sc.failed && <p className="dj-list-connect-note">SoundCloud did not connect. Try again.</p>}
+            {sc.failed && <p className="dj-scr-connect-note">SoundCloud did not connect. Try again.</p>}
           </li>
         )}
-        {!gate && tab !== 'files' && list === null && <li className="dj-list-empty">Loading...</li>}
+        {!gate && tab !== 'files' && list === null && <li className="dj-scr-empty">Loading...</li>}
         {!gate && rows.length === 0 && (tab === 'files' || list !== null) && (
-          <li className="dj-list-empty">
+          <li className="dj-scr-empty">
             {tab === 'files'
-              ? 'Drop audio files or a folder here, or add them. They stay on this device and are remembered for your next visit: nothing is uploaded.'
+              ? 'Drop audio files or a folder here, or add them. They stay on this device: nothing is uploaded.'
               : scDown === 'down'
                 ? 'SoundCloud does not answer right now.'
                 : tab === 'soundcloud'
@@ -585,56 +499,40 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
                     : 'No track found.'}
           </li>
         )}
-        {rows.map((t) => (
-          <li
-            key={t.id}
-            className="dj-list-row"
-            data-off={t.relink || t.unreadable ? '1' : '0'}
-            aria-current={t.id === loadedId('a') || t.id === loadedId('b') ? 'true' : undefined}
-          >
-            <span className="dj-list-names">
-              {t.source === 'soundcloud' && t.link ? (
-                <a className="dj-list-name" href={t.link} target="_blank" rel="noopener noreferrer" title="Open on SoundCloud">
-                  {t.title}
+        {rows.map((t) => {
+          const off = t.relink || t.unreadable;
+          return (
+            <li key={t.id} className="dj-scr-row" aria-current={t.id === loadedId ? 'true' : undefined}>
+              <button type="button" className="dj-scr-load" disabled={off} aria-label={`Load ${t.title} on deck ${deck.toUpperCase()}`} onClick={() => load(t)}>
+                <span className="dj-scr-names">
+                  <span className="dj-scr-name">{t.title}</span>
+                  <span className="dj-scr-artist">{t.unreadable ? 'Unreadable file' : t.relink ? 'Add its folder again to play it' : t.artist}</span>
+                </span>
+                <span className="dj-scr-meta">
+                  <span className="dj-scr-bpm">{t.bpm ? t.bpm.toFixed(0) : '--'}</span>
+                  <span className="dj-scr-key">{t.key ?? ''}</span>
+                  {t.source === 'soundcloud' && LICENSE_LABEL[t.license ?? ''] ? <span className="dj-scr-lic">{LICENSE_LABEL[t.license ?? '']}</span> : null}
+                </span>
+              </button>
+              {t.source === 'soundcloud' && t.link && (
+                <a className="dj-scr-link" href={t.link} target="_blank" rel="noopener noreferrer" title="Open on SoundCloud" aria-label={`Open ${t.title} on SoundCloud`}>
+                  SC
                 </a>
-              ) : (
-                <span className="dj-list-name">{t.title}</span>
               )}
-              <span className="dj-list-artist">{t.unreadable ? 'Unreadable file' : t.relink ? 'Add its folder again to play it' : t.artist}</span>
-            </span>
-            <span className="dj-list-meta">
-              <span>{t.bpm ? t.bpm.toFixed(0) : '--'}</span>
-              <span>{t.key ?? ''}</span>
-              <span>{t.source === 'soundcloud' ? (LICENSE_LABEL[t.license ?? ''] ?? '') : fmtTime(t.duration)}</span>
-            </span>
-            <span className="dj-list-decks">
-              {DJ_DECKS.map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  aria-label={`Load ${t.title} on deck ${d.toUpperCase()}`}
-                  aria-pressed={loadedId(d) === t.id}
-                  data-target={big && target === d ? '1' : '0'}
-                  disabled={t.relink || t.unreadable}
-                  onClick={() => load(t, d)}
-                >
-                  {d.toUpperCase()}
-                </button>
-              ))}
-            </span>
-          </li>
-        ))}
+            </li>
+          );
+        })}
         {tab === 'soundcloud' && rows.length > 0 && (
-          <li className="dj-list-credit">
+          <li className="dj-scr-credit">
             Tracks from{' '}
             <a href="https://soundcloud.com" target="_blank" rel="noopener noreferrer">
               SoundCloud
             </a>
-            , shared by their artists under Creative Commons licenses that allow remixes. Each title opens its SoundCloud page.
+            , shared by their artists under Creative Commons licenses that allow remixes. SC opens a track on SoundCloud.
           </li>
         )}
         {tab === 'mysc' && me && rows.length > 0 && (
-          <li className="dj-list-credit">
+          <li className="dj-scr-credit">
             Your public tracks on{' '}
             <a href="https://soundcloud.com" target="_blank" rel="noopener noreferrer">
               SoundCloud
@@ -643,7 +541,7 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
           </li>
         )}
         {tab === 'maudite' && rows.length > 0 && (
-          <li className="dj-list-credit">
+          <li className="dj-scr-credit">
             Tracks by{' '}
             <a href="https://soundcloud.com/mauditemachine" target="_blank" rel="noopener noreferrer">
               Maudite Machine
@@ -652,6 +550,130 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
           </li>
         )}
       </ul>
+    </div>
+  );
+};
+
+/* ---------------- les navigateurs des platines ---------------- */
+
+interface Props {
+  /** le Stage : la pose des navigateurs sur les ecrans */
+  getStage?: () => Stage | null;
+  /** la scene courante : elle est recreee au changement Dark / Light ou du nombre de platines */
+  stage?: Stage | null;
+}
+
+export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
+  const b = useSyncExternalStore(djBrowser.subscribe, djBrowser.get, djBrowser.get);
+  const dj = useSyncExternalStore(djState.subscribe, djState.get, djState.get);
+  const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
+  const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
+  useSyncExternalStore(djDecks.subscribe, djDecks.get, djDecks.get);
+  const on = f === 'dj' && introState === 'done';
+  // Une platine vide montre sa liste ; une platine chargee, son morceau (toucher l'ecran rouvre la liste)
+  const browsing = (d: DjDeck): boolean => on && (b[d] ?? dj.deck[d].track === null);
+  const clip = useRef<HTMLDivElement>(null);
+  const roots = useRef(new Map<DjDeck, HTMLDivElement>());
+  const placeRef = useRef<() => void>(() => undefined);
+
+  // Le clavier des platines : actif seulement quand on utilise le MM-DECKS
+  const onRef = useRef(on);
+  onRef.current = on;
+  useEffect(() => listenDjKeys(() => getStage?.() ?? null, () => onRef.current), [getStage]);
+
+  // Echap : les listes ouvertes se ferment (avant les raccourcis des machines)
+  useEffect(() => {
+    if (!on) return undefined;
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape') return;
+      const open = DJ_DECKS.filter((d) => browsing(d));
+      if (open.length === 0) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      for (const d of open) djBrowser.close(d);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  });
+
+  const setRoot = (d: DjDeck, el: HTMLDivElement | null): void => {
+    if (el) roots.current.set(d, el);
+    else roots.current.delete(d);
+    placeRef.current();
+  };
+
+  // Plus de liste en bas : la scene garde toute la hauteur
+  useLayoutEffect(() => {
+    const st = current ?? getStage?.();
+    st?.setDjInset(0);
+  }, [current, getStage]);
+
+  /*
+   * La pose : a chaque vue, les quatre coins de l'ecran de chaque platine,
+   * projetes ; la page de la liste prend la taille de l'ecran a l'ecran
+   * (le texte reste net) et une homographie la plaque dessus. La couche
+   * entiere est decoupee au cadre du canvas.
+   */
+  useLayoutEffect(() => {
+    const st = current ?? getStage?.();
+    if (!st) return undefined;
+    const out = { x: 0, y: 0 };
+    const place = (): void => {
+      const layer = st.dj?.top;
+      const box = clip.current;
+      const canvas = document.querySelector('.v4-canvas-host canvas');
+      if (!layer || !box || !(canvas instanceof HTMLCanvasElement)) return;
+      const r = canvas.getBoundingClientRect();
+      box.style.transform = `translate(${r.left}px, ${r.top}px)`;
+      box.style.width = `${r.width}px`;
+      box.style.height = `${r.height}px`;
+      const S = DECK.screen;
+      const y = DJ_BEZEL.h + 0.008;
+      for (const [d, el] of roots.current) {
+        const x0 = UNIT_X[d] + S.x - S.w / 2;
+        const x1 = x0 + S.w;
+        const z0 = S.z - S.d / 2;
+        const z1 = S.z + S.d / 2;
+        const q: number[] = [];
+        for (const [px, pz] of [
+          [x0, z0],
+          [x1, z0],
+          [x1, z1],
+          [x0, z1],
+        ]) {
+          const p = st.hit.project(layer, px, y, pz, out);
+          q.push(p.x, p.y);
+        }
+        const w = Math.max(1, Math.hypot(q[2] - q[0], q[3] - q[1]));
+        const h = Math.max(1, Math.hypot(q[6] - q[0], q[7] - q[1]));
+        const m = matrix3d(q, w, h);
+        if (!m) continue;
+        el.style.width = `${w.toFixed(1)}px`;
+        el.style.height = `${h.toFixed(1)}px`;
+        el.style.transform = m;
+        // La taille du texte suit la largeur de l'ecran a l'ecran
+        el.style.fontSize = `${Math.max(7, Math.min(18, w * 0.036)).toFixed(2)}px`;
+      }
+    };
+    placeRef.current = place;
+    place();
+    const a = st.onView(place);
+    const c = st.onIdle(place);
+    window.addEventListener('resize', place);
+    return () => {
+      a();
+      c();
+      window.removeEventListener('resize', place);
+      placeRef.current = () => undefined;
+    };
+  }, [current, getStage]);
+
+  const open = DJ_DECKS.filter((d) => browsing(d));
+  return (
+    <div ref={clip} className="dj-scr-clip" data-on={open.length > 0 ? '1' : '0'}>
+      {open.map((d) => (
+        <DeckBrowser key={d} deck={d} setRoot={setRoot} />
+      ))}
     </div>
   );
 };

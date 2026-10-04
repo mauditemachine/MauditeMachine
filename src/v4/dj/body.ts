@@ -275,7 +275,6 @@ function buildBody(mobile: boolean): BufferGeometry {
   const mx = UNIT_X.mix;
   parts.push(bezel(mx + MIX.screen.x, MIX.screen.z, MIX.screen.w, MIX.screen.d));
   for (const cx of MIX.cols) parts.push(...slot(mx + cx, MIX.fader.z0, MIX.fader.z1));
-  parts.push(...slot(MIX.xfader.z, mx + MIX.xfader.x0, mx + MIX.xfader.x1, true));
   const g = mergeGeometries(parts, false);
   for (const p of parts) p.dispose();
   if (!g) throw new Error('dj: body merge failed');

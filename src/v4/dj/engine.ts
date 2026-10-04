@@ -18,7 +18,7 @@
 import { glide } from '../audio/glide';
 import { synthPort } from '../audio/drums';
 import { decodeAudio } from './decode';
-import { CROSSOVER, bandGain, beatsToSeconds, dbToGain, eqDb, energy, faderGain, filterOf, fxMix, speedOf, xfaderGains } from './math';
+import { CROSSOVER, bandGain, beatsToSeconds, dbToGain, eqDb, energy, faderGain, filterOf, fxMix, speedOf } from './math';
 import { DJ_CHANNELS_MAX, DJ_FX, deckChannel, type DjDeck, type DjFxId } from './theme';
 
 /** Q de Butterworth : en dB pour passe-bas et passe-haut (piege de Web Audio), lineaire pour le passe-tout. */
@@ -372,21 +372,11 @@ export class DjMixer {
     this.master.connect(split);
     split.connect(this.meters[0], 0);
     split.connect(this.meters[1], 1);
+    // Plus de crossfader (Mika, 2026-10-04) : chaque voie passe entiere, son fader seul compte
     this.ch = Array.from({ length: DJ_CHANNELS_MAX }, () => new DjChannel(ctx, sum));
-    this.setXfader(0);
+    for (const c of this.ch) c.xf.gain.value = 1;
   }
 
-  /**
-   * Crossfader : DECK A (voie 3) a gauche, DECK B (voie 4) a droite ; les
-   * machines et les platines ajoutees (C et D, voies 5 et 6) passent a
-   * cote, leur fader seul compte.
-   */
-  setXfader(x: number): void {
-    const g = xfaderGains(x);
-    glide(this.ch[2].xf.gain, g.a, this.ctx);
-    glide(this.ch[3].xf.gain, g.b, this.ctx);
-    for (const i of [0, 1, 4, 5]) this.ch[i].xf.gain.value = 1;
-  }
 
   /** MASTER : 1 a sa place par defaut (le son du site ne change pas), +2 dB tout en haut. */
   setMaster(x: number): void {

@@ -26,7 +26,8 @@ export interface DjKnobSpec {
   idle: boolean;
 }
 
-export type DjFaderTarget = { kind: 'channel'; ch: DjChannel } | { kind: 'pitch'; deck: DjDeck } | { kind: 'xfader' };
+/** Plus de crossfader (Mika, 2026-10-04 : "enleve le crossfader, ca ne sert a rien") : chaque voie a son fader. */
+export type DjFaderTarget = { kind: 'channel'; ch: DjChannel } | { kind: 'pitch'; deck: DjDeck };
 
 export interface DjFaderSpec {
   id: string;
@@ -46,7 +47,6 @@ export type DjKeyTarget =
   | { kind: 'bend'; deck: DjDeck; dir: -1 | 1 }
   | { kind: 'tempo'; deck: DjDeck; dir: -1 | 1 }
   | { kind: 'time'; d: number }
-  | { kind: 'playlist' }
   | { kind: 'cue'; deck: DjDeck }
   | { kind: 'play'; deck: DjDeck }
   /** le centre du jog : le tempo se cale sur celui qu'on entend */
@@ -146,16 +146,6 @@ function buildFaders(): DjFaderSpec[] {
       target: { kind: 'pitch', deck: d },
     });
   }
-  faders.push({
-    id: 'dj-xfader',
-    label: 'CROSSFADER',
-    x: UNIT_X.mix + (MIX.xfader.x0 + MIX.xfader.x1) / 2,
-    z: MIX.xfader.z,
-    a: UNIT_X.mix + MIX.xfader.x0,
-    b: UNIT_X.mix + MIX.xfader.x1,
-    across: true,
-    target: { kind: 'xfader' },
-  });
   return faders;
 }
 
@@ -200,8 +190,7 @@ function buildKeys(): DjKeySpec[] {
       target: { kind: 'time', d: t },
     });
   });
-  const P = MIX.playlist;
-  keys.push({ id: 'dj-playlist', label: 'PLAYLIST', x: UNIT_X.mix + P.x, z: P.z, w: P.w, d: P.d, round: false, target: { kind: 'playlist' } });
+  // PLAYLIST est parti : la liste des morceaux est dans l'ecran de chaque platine
   return keys;
 }
 
@@ -223,7 +212,7 @@ function build(): void {
 /**
  * Place du capuchon le long de la fente pour une valeur : voie 0 en bas
  * (vers soi) et 1 en haut ; pitch -1 en haut (plus lent, comme une CDJ)
- * et +1 en bas ; crossfader -1 a gauche (A).
+ * et +1 en bas.
  */
 export function faderPos(f: DjFaderSpec, v: number): number {
   if (f.target.kind === 'channel') return f.b + (f.a - f.b) * v;
