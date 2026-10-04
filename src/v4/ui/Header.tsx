@@ -86,6 +86,7 @@ export const Header: React.FC<Props> = ({ getStage }) => {
       <header className="v4-header" data-menu={menu ? '1' : '0'}>
         <a className="v4-logo" href="/" aria-label="Maudite Machine, back to the machine" onClick={onHome}>
           <img src={look === 'light' ? '/logo/mauditemachine-logo-ink.svg' : '/logo/mauditemachine-logo-gold.svg'} alt="Maudite Machine" width={118} height={26} />
+          <span className="v4-logotype" aria-hidden="true" />
         </a>
         <button
           ref={btnRef}

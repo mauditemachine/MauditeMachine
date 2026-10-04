@@ -347,6 +347,27 @@ html:has(body.v4-active) {
   width: auto;
 }
 
+/*
+ * Le logotype a droite du mot (2026-10-04, Mika : "le logotype en haut dans
+ * le header, a droite du logo Maudite Machine, dans la couleur jaune, de la
+ * meme taille que le logo") : le dessin blanc sert de masque, la couleur
+ * est celle du mot (l'or, l'encre en clair).
+ */
+.v4-logo .v4-logotype {
+  display: block;
+  flex: none;
+  height: 26px;
+  aspect-ratio: 112 / 156;
+  margin-left: 12px;
+  background: #ffa600;
+  -webkit-mask: url('/logo/mauditemachine-logotype-mark.png') center / contain no-repeat;
+  mask: url('/logo/mauditemachine-logotype-mark.png') center / contain no-repeat;
+}
+
+.v4-root[data-v4-theme='light'] .v4-logo .v4-logotype {
+  background: #434343;
+}
+
 /* MENU (2026-10-04) : le mot et les trois traits, en pastille ; ouvert, CLOSE et la croix */
 .v4-root .v4-menu-btn {
   display: flex;
@@ -459,6 +480,11 @@ html:has(body.v4-active) {
   display: block;
   width: 104px;
   height: auto;
+}
+
+.v4-mhead .v4-logo .v4-logotype {
+  height: 23px;
+  margin-left: 10px;
 }
 
 .v4-root .v4-burger {

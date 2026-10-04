@@ -41,6 +41,7 @@ export const MobileHeader: React.FC<Props> = ({ getStage }) => {
           }}
         >
           <img src={look === 'light' ? '/logo/mauditemachine-logo-ink.svg' : '/logo/mauditemachine-logo-gold.svg'} alt="Maudite Machine" width={104} height={23} />
+          <span className="v4-logotype" aria-hidden="true" />
         </a>
         <button
           ref={burgerRef}
