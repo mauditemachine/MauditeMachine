@@ -14,7 +14,10 @@
 - MM-DECKS fusionne sur main (branche decks-3d de la session Sonaa, f5b3ef0), cache derriere ?dj=1 ; correction de typage a la fusion (`dj/engine.ts`).
 - Accueil de MM-DECKS : code charge a part avec ?dj=1 seulement (chargement principal 20.7 kB gzip plus leger), rig accroche apres coup, gestes et molette pour tout le MM-DECKS, menu sans OPEN sur les platines, vignettes du volet a trois (`state/djload.ts`, `scene/renderer.ts`, `ui/Hotspots.tsx`, `index.tsx`, `debug.ts`, `ui/MenuSheet.tsx`, `v4.css`).
 - MM-DECKS publie pour tout le monde (Mika : "publie Deck sans le drapeau") : `state/focus.ts` l'affiche par defaut, ?dj=0 le retire ; forme d'onde et playlist de la session Sonaa fusionnees (e7fed35) ; `public/llms.txt` le nomme.
-- `docs/v4/spec.md` : R14-59 a R14-70.
+- MM-ARP, filtre : la position MOOG nommee sur le commutateur MODE (le passe-bas 24 dB d'origine, par defaut), RANDOM la tire deux fois sur trois (`voyager/params.ts`, `voyager/random.ts`, `voyager/theme.ts`).
+- MM-ARP : plus d'arcs imprimes autour des potards, les couronnes jaunes de WAVE 1 et WAVE 2 restent (`voyager/silk.ts`, `voyager/theme.ts`).
+- MM-ARP : la suite de l'arpege modifiable note par note, AUTO ou EDIT, 1 a 16 pas, silences ; panneau sous la machine sur desktop, page SEQUENCE du Dock au telephone (`voyager/seq.ts`, `voyager/chords.ts`, `voyager/arp.ts`, `ui/SeqLane.tsx`, `ui/VoyDock.tsx`, `voyager/rig.ts`, `actions.ts`, `index.tsx`, `v4.css`) ; `scene/renderer.ts` : setInset par machine (la playlist du MM-DECKS y passe aussi).
+- `docs/v4/spec.md` : R14-59 a R14-73.
 
 ## 2. Decisions prises et pourquoi
 
@@ -25,12 +28,15 @@
 - Menu desktop : la barre de liens disparait au profit du bouton MENU (comme au telephone, demande de Mika) ; Dark / Light passe dans le menu.
 - MM-ARP : un LFO plutot qu'une simple option de plus, parce que c'est lui qui fait bouger le son d'une note a l'autre (le S&H surtout, sur un arpege) ; le filtre multimode prend la place du commutateur de pente (LP 24 et LP 12 y restent) ; la troisieme rangee du panneau desktop existait deja (le bas du panneau etait vide).
 - Interpolation sinc plutot qu'Hermite : mesure faite, Hermite perd encore pres de 3 dB a 16 kHz dans le pire cas.
+- Suite de l'arpege en degres de fa diese mineur au-dessus de la racine de l'accord, plutot qu'en notes fixes : la meme suite suit la progression et ne sort jamais de la tonalite ; AUTO joue exactement les notes d'avant (verifie sur les 8 accords). Barres a dessiner plutot qu'une grille de 21 notes : tient dans le Dock du telephone (20 px par pas a 16 pas). MODE, RANGE et NOTES repassent en AUTO (ce sont eux qui fabriquent la suite) ; la suite EDIT reste en memoire, EDIT la rappelle.
 
 ## 3. Ce qui reste a faire / points en suspens
 
 - MM-DECKS : fait (code a part, menu, volet, onglets verifies). Vue d'ensemble a 55 appels de dessin, c'est la somme des trois machines (desktop seulement) : laisse tel quel. Publie sans drapeau le 2026-10-04 (?dj=0 le retire). Cote Sonaa restent : jumeaux HTML et clavier des platines, IndexedDB.
 - Mika : essayer RANDOM sur les deux machines (styles 4x4, MOD, MODE du filtre), juger le clap.
 - Mika : ecouter aux IE900 (chorus a fond sur l'arpege, charleys transposes avec TONE, arpege et kick ensemble), juger le nouveau menu sur son iPhone, essayer RANDOM.
+- Mika : essayer la suite (desktop sous le MM-ARP, telephone : Dock, page SEQUENCE), le filtre MOOG, et dire si les arcs manquent nulle part.
+- Sonaa : la playlist du MM-DECKS perd le cadrage remonte apres un changement Dark / Light (la scene est recreee) ; signale.
 - Pour l'ecoute : sortie du Mac a 48 kHz (Configuration audio et MIDI) ; un DAC externe pour les IE900 plutot que la prise du Mac.
 
 ## 4. Commandes utiles ajoutees

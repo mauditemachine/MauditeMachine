@@ -29,6 +29,7 @@ import { CHORDS, PROGRESSIONS } from './voyager/chords';
 import { voyMsg } from './voyager/msg';
 import { voyParams, voyReadout, type VoyKnobId } from './voyager/params';
 import { randomVoyPatch } from './voyager/random';
+import { seq } from './voyager/seq';
 
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
 const pct = (v: number): number => Math.round(v * 100);
@@ -475,6 +476,8 @@ export function voyRandom(stage: Stage | null = null): void {
   const pick = pool[Math.floor(Math.random() * pool.length)] ?? PROGRESSIONS[0];
   const patch = randomVoyPatch();
   for (const [id, v] of Object.entries(patch) as [VoyKnobId, number][]) voyParams.set(id, v);
+  // La suite repasse en AUTO : celle que RANDOM vient de fabriquer (la suite EDIT reste en memoire)
+  seq.auto();
   arp.set(pick);
   stage?.voy?.keys.pressButton('random');
   voyMsg.show('RANDOM PATCH');
@@ -498,7 +501,8 @@ export function voyRun(stage: Stage | null = null): boolean {
 /** Un potard du MM-VOYAGER (0 a 1) ; l'ecran dit sa valeur. */
 export function voyDial(id: VoyKnobId, v: number): void {
   resume();
-  voyParams.set(id, v);
+  // MODE, RANGE et NOTES fabriquent la suite : la tourner repasse en AUTO (voyager/seq.ts)
+  if (voyParams.set(id, v) && (id === 'mode' || id === 'range' || id === 'notes')) seq.auto();
   voyMsg.show(voyReadout(id, voyParams.of(id)), POT_UI.readoutMs);
 }
 

@@ -111,8 +111,8 @@ export interface VoyKnobPlace {
  * selecteurs de forme et VOLUME ; m : ce qui sculpte le son (niveaux
  * d'oscillateurs, FM, RES, ENV AMT, DEPTH, RATE et GATE de l'arpege) ; s :
  * les reglages fins (enveloppes, effets, MOD, accords d'OSC 2, bruit) ;
- * sw : le commutateur MODE. Les gros portent leurs graduations, les autres
- * un arc imprime (silk.ts).
+ * sw : le commutateur MODE. Les gros portent leurs graduations (les arcs
+ * imprimes des autres sont partis le 2026-10-04, Mika ne les aimait pas).
  */
 export type KnobSize = 'xl' | 'l' | 'm' | 's' | 'sw';
 const SIZE_SCALE: Readonly<Record<KnobSize, number>> = PORTRAIT
@@ -205,7 +205,7 @@ const PORT_PANEL: Partial<Record<VoyKnobId, Spot>> = {
   cutoff: [-2.6, 0.15, 'xl'],
   res: [-1.35, 0, 'm'],
   envAmt: [-0.45, 0, 'm'],
-  fmode: [0.35, 0, 'sw'],
+  fmode: [0.55, 0, 'sw'],
   osc1: [1.45, 0, 'm'],
   osc2: [2.35, 0, 'm'],
   noise: [3.2, 0, 's'],
@@ -251,13 +251,6 @@ export const isSwitch = (id: VoyKnobId): boolean => knobSize(id) === 'sw';
 export const VOY_SWITCH = { tick: { r0: 0.03, len: 0.05 }, markR: 0.18, cap: 0.052 } as const;
 /** Course d'un commutateur de n positions (deg) : un quart de tour a deux, 150 au-dela. */
 export const switchThrowDeg = (n: number): number => (n <= 2 ? 90 : 150);
-/**
- * L'arc imprime des potards m et s (2026-10-04, comme les anneaux du
- * Typhon) : 270 deg, de sept heures et demie a quatre heures et demie, un
- * peu au-dela de la jupe. Machine noire : le bleu-vert du Typhon ; claire :
- * l'encre de la serigraphie.
- */
-export const VOY_ARC = { gap: 0.055, width: { m: 0.03, s: 0.024 }, dark: 'rgba(78, 196, 205, 0.62)', lightAlpha: 0.3 } as const;
 /** Libelle sous la jupe : 0.13 sous son bord ; sous la couronne d'un selecteur ; plus bas sous des graduations. */
 const labelBelow = (id: VoyKnobId, s: number): number => {
   if (isSelector(id)) return VOY_SEL.labelR * s;

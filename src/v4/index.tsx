@@ -62,6 +62,7 @@ import { Dock } from './ui/Dock';
 import { Header, openHood } from './ui/Header';
 import { HitLayer, Twins } from './ui/Hotspots';
 import { MachineNav } from './ui/MachineNav';
+import { SeqPanel } from './ui/SeqLane';
 import { VoyDock } from './ui/VoyDock';
 import { VoyTwins } from './ui/VoyTwins';
 import { Lcd } from './ui/Lcd';
@@ -501,6 +502,8 @@ const V4Shell: React.FC = () => {
           {mobile && machineFocus !== 'voy' && machineFocus !== 'dj' && <Dock getStage={getStage} />}
           {/* Le Voyager a le sien au telephone : accords, octave, arpege en gros boutons */}
           {mobile && VOYAGER && machineFocus === 'voy' && <VoyDock getStage={getStage} />}
+          {/* Desktop : la suite de l'arpege sous le MM-ARP (au telephone, la page SEQUENCE du Dock) */}
+          {!mobile && VOYAGER && <SeqPanel stage={stage} />}
           {/* Le MM-DECKS : la liste des morceaux, ouverte par LOAD */}
           {DJ && (
             <Suspense fallback={null}>

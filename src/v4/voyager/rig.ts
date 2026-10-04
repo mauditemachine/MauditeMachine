@@ -34,6 +34,7 @@ import { VoyLcd } from './lcd';
 import { voyMsg } from './msg';
 import { VoyKeys } from './pads';
 import { MODES, NOTES, RANGES, RATES, VOY_KNOBS, morphPos, notesCount, stepIndex, voyParams } from './params';
+import { seq } from './seq';
 import { VoySilk } from './silk';
 import { VOY_BODY, VOY_COPY, VOY_EXPLODE, VOY_LID_W, VOY_PANEL, VOY_PCB_Y, VOY_X } from './theme';
 
@@ -205,6 +206,7 @@ export class VoyagerRig {
     this.unsubs.push(voyParams.subscribe(this.syncKnobs));
     this.unsubs.push(arp.subscribe(this.syncArp));
     this.unsubs.push(voyMsg.subscribe(this.syncLcd));
+    this.unsubs.push(seq.subscribe(this.syncLcd));
     this.unsubs.push(pattern.subscribe(this.syncTempo));
     this.unsubs.push(voyExplode.subscribe(this.syncExplode));
     this.applyExplode(true);
@@ -251,7 +253,10 @@ export class VoyagerRig {
     const s = arp.get();
     this.bpm = pattern.get().bpm;
     const notes = notesCount(p.notes) > 0 ? ` ${NOTES[stepIndex('notes', p.notes)]}N` : '';
-    const line1 = s.running ? `${RATES[stepIndex('rate', p.rate)]} ${MODES[stepIndex('mode', p.mode)]} ${RANGES[stepIndex('range', p.range)]}${notes}` : VOY_COPY.lcdIdle;
+    // La suite modifiee a la main (voyager/seq.ts) : SEQ et son nombre de pas, a la place de MODE et RANGE
+    const sq = seq.get();
+    const how = sq.edit ? `SEQ ${sq.len} STEPS` : `${MODES[stepIndex('mode', p.mode)]} ${RANGES[stepIndex('range', p.range)]}${notes}`;
+    const line1 = s.running ? `${RATES[stepIndex('rate', p.rate)]} ${how}` : VOY_COPY.lcdIdle;
     const chords = s.prog.map((i) => CHORDS[i].label);
     const playing = this.playing >= 0 ? s.prog.indexOf(this.playing) : -1;
     const line3 = voyMsg.get() ?? (s.prog.length === 0 ? 'TAP A CHORD PAD' : s.running ? 'F# MINOR' : 'RUN/STOP TO PLAY');

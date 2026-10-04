@@ -72,4 +72,46 @@ export function arpSequence(i: number, oct: number, mode: ArpMode): number[] {
   return up;
 }
 
+/**
+ * La suite en degres (2026-10-04, la suite modifiable, voyager/seq.ts) :
+ * une note est un degre de fa diese mineur naturel au-dessus de la racine
+ * de l'accord (0 la racine, 2 la tierce, 4 la quinte, 6 la septieme, 7
+ * l'octave). Les huit accords sont tous dans la gamme : leurs notes sont
+ * les degres pairs, et la meme suite suit la progression sans sortir de la
+ * tonalite.
+ */
+const SCALE = [0, 2, 3, 5, 7, 8, 10] as const;
+const SCALE_NAMES = ['F#', 'G#', 'A', 'B', 'C#', 'D', 'E'] as const;
+
+/** Le degre de la gamme sur lequel tombe la racine de l'accord i (F#m : 0, D : 5). */
+function rootDegree(i: number): number {
+  const r = CHORDS[i]?.root ?? 0;
+  return Math.max(0, SCALE.findIndex((x) => x === r));
+}
+
+/** La note MIDI du degre d au-dessus de la racine de l'accord i (celle de chordNotes pour ses degres pairs). */
+export function degreeMidi(i: number, d: number): number {
+  const k = rootDegree(i) + d;
+  return FS3 + 12 * Math.floor(k / 7) + SCALE[((k % 7) + 7) % 7];
+}
+
+/** Le nom de cette note (sans octave) : F#, G#, A, B, C#, D, E. */
+export function degreeName(i: number, d: number): string {
+  const k = rootDegree(i) + d;
+  return SCALE_NAMES[((k % 7) + 7) % 7];
+}
+
+/** Les degres des notes de l'accord dans une octave : 0 2 4 (et 6 pour une septieme). */
+export const chordDegrees = (i: number): number[] => (CHORDS[i]?.tones ?? []).map((_, j) => 2 * j);
+
+/** La suite de l'arpege en degres : arpSequence, note pour note. */
+export function arpDegrees(i: number, oct: number, mode: ArpMode): number[] {
+  const n = CHORDS[i]?.tones.length ?? 0;
+  const up: number[] = [];
+  for (let o = 0; o < oct; o += 1) for (let j = 0; j < n; j += 1) up.push(7 * o + 2 * j);
+  if (mode === 1) return up.slice().reverse();
+  if (mode === 2) return up.length > 2 ? up.concat(up.slice(1, -1).reverse()) : up;
+  return up;
+}
+
 export const midiHz = (m: number): number => 440 * Math.pow(2, (m - 69) / 12);

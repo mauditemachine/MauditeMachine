@@ -18,6 +18,12 @@
  * doubles croches de l'arpege. Accents legers, facon basse de Mika (le
  * "a" de chaque temps plus fort).
  *
+ * Les notes (2026-10-04) : la suite de voyager/seq.ts, en degres de la
+ * gamme au-dessus de la racine de l'accord : AUTO (MODE, RANGE, NOTES, les
+ * memes notes qu'avant) ou EDIT (la suite modifiee a la main, silences
+ * compris). Chaque pas, note ou silence, est note (posAt) : la suite
+ * montre ce qui joue.
+ *
  * Une seule source a la fois, comme RUN : une piste SoundCloud qui part
  * arrete l'arpege (audio/soundcloud.ts, la progression reste) ; un accord
  * touche pendant une piste la met en pause (actions).
@@ -28,8 +34,9 @@ import { context } from '../audio/drums';
 import { pattern } from '../audio/pattern';
 import { noteOn, synthStop } from '../audio/synth';
 import { SWING } from '../theme';
-import { arpSequence, CHORDS, type ArpMode } from './chords';
-import { gateFrac, notesCount, octaveShift, octaves, stepIndex, stepsPerNote, voyParams } from './params';
+import { CHORDS, degreeMidi } from './chords';
+import { gateFrac, octaveShift, stepsPerNote, voyParams } from './params';
+import { poolSteps, seq, type SeqStep } from './seq';
 
 const START_DELAY_S = 0.05;
 const MAX_CHORDS = 8;
@@ -51,6 +58,15 @@ export interface ArpNote {
   midi: number;
 }
 
+/** Un pas de la suite programme, note ou silence (la tete de lecture de la suite le suit). */
+export interface ArpPos {
+  when: number;
+  /** position dans la suite, et sa longueur */
+  pos: number;
+  len: number;
+  chord: number;
+}
+
 let state: ArpState = { prog: [], running: false };
 const listeners = new Set<() => void>();
 const emit = (): void => listeners.forEach((fn) => fn());
@@ -66,11 +82,13 @@ let bar = -1;
 let chord = -1;
 let noteIdx = 0;
 let lastMidi: number | null = null;
-let seq = 0;
+let serial = 0;
 /** le pas suivant est le premier : il ouvre la mesure, quel que soit son numero */
 let first = true;
 const ring: ArpNote[] = [];
 let head = 0;
+const posRing: ArpPos[] = [];
+let posHead = 0;
 
 function setState(next: ArpState): void {
   state = next;
@@ -81,6 +99,12 @@ function push(e: ArpNote): void {
   if (ring.length < RING) ring.push(e);
   else ring[head] = e;
   head = (head + 1) % RING;
+}
+
+function pushPos(e: ArpPos): void {
+  if (posRing.length < RING) posRing.push(e);
+  else posRing[posHead] = e;
+  posHead = (posHead + 1) % RING;
 }
 
 /** L'accord de la mesure en cours : celui de la progression, ou le suivant si on l'a retire. */
@@ -111,31 +135,36 @@ function scheduleStep(now: number): void {
   const swing = (stepIdx & 1) === 1 ? pattern.fx.get().swing * SWING.maxDelay * stepDur : 0;
   const interval = spn * stepDur;
   const per = spn < 1 ? 2 : 1;
-  const mode = stepIndex('mode', p.mode) as ArpMode;
   const shift = 12 * octaveShift(p.octave);
-  const full = arpSequence(chord, octaves(p.range), mode).map((m) => m + shift);
-  if (full.length === 0) return;
-  // NOTES : les N premieres de la suite, en boucle (ALL : toute la suite)
-  const k = notesCount(p.notes);
-  const seqNotes = k > 0 ? Array.from({ length: k }, (_, j) => full[j % full.length]) : full;
+  // La suite (voyager/seq.ts) : EDIT, ou AUTO (MODE, RANGE, NOTES) ; null : RAND, une note tiree a chaque pas
+  const steps = seq.steps(chord);
+  const pool = steps ? [] : poolSteps(chord, p, 0);
+  const len = steps ? steps.length : pool.length;
+  if (len === 0) return;
   for (let k = 0; k < per; k += 1) {
     const when = nextTime + swing + k * interval;
-    let midi: number;
-    if (mode === 3) {
-      // Au hasard, jamais deux fois la meme note de suite
-      let pick = Math.floor(Math.random() * seqNotes.length);
-      if (seqNotes.length > 1 && seqNotes[pick] === lastMidi) pick = (pick + 1) % seqNotes.length;
-      midi = seqNotes[pick];
-    } else {
-      midi = seqNotes[noteIdx % seqNotes.length];
-    }
+    const pos = noteIdx % len;
     noteIdx += 1;
+    let d: SeqStep;
+    if (steps) {
+      d = steps[pos];
+    } else {
+      // Au hasard, jamais deux fois la meme note de suite
+      let pick = Math.floor(Math.random() * pool.length);
+      if (pool.length > 1 && degreeMidi(chord, pool[pick]) + shift === lastMidi) pick = (pick + 1) % pool.length;
+      d = pool[pick];
+      seq.noteLive(pos, d);
+    }
+    pushPos({ when, pos, len, chord });
+    // Un silence de la suite : rien ne part, le glissement repartira de la derniere note
+    if (d === null) continue;
+    const midi = degreeMidi(chord, d) + shift;
     const accent = ACCENT[stepIdx % 4] * (k === 1 ? 0.85 : 1);
     const gate = Math.max(0.02, gateFrac(p.gate) * interval);
     noteOn(midi, when, gate, lastMidi, accent);
     lastMidi = midi;
-    push({ seq, when, chord, midi });
-    seq += 1;
+    push({ seq: serial, when, chord, midi });
+    serial += 1;
   }
   void now;
 }
@@ -272,6 +301,13 @@ export const arp = {
   clear(): void {
     if (state.prog.length === 0 && !state.running) return;
     setProg([]);
+  },
+  /** Le pas de la suite qui joue a t (temps du contexte) ; null a l'arret. */
+  posAt(t: number): ArpPos | null {
+    if (!state.running) return null;
+    let best: ArpPos | null = null;
+    for (const e of posRing) if (e.when <= t && (!best || e.when > best.when)) best = e;
+    return best;
   },
   /** L'accord qui sonne a t (temps du contexte), et sa note ; null a l'arret. */
   noteAt(t: number): ArpNote | null {

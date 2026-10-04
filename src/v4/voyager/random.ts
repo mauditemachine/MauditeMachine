@@ -3,7 +3,8 @@
  * changer tous les parametres de l'arp, des oscillators, filtre, adsr,
  * vraiment tout"). Chaque reglage est tire dans une plage qui sonne (un
  * hasard de musicien, pas un tirage aveugle) : arpege surtout en doubles et
- * en croches, filtre ni ferme ni grand ouvert (sa plage suit son MODE),
+ * en croches, filtre ni ferme ni grand ouvert (sa plage suit son MODE, le
+ * MOOG deux fois sur trois),
  * attaques le plus souvent courtes, FM et bruit de temps en temps, une
  * modulation (MOD) une fois sur deux, effets doses comme avant. VOLUME ne
  * bouge pas : RANDOM ne doit jamais faire sauter le niveau.
@@ -35,8 +36,8 @@ const morph = (rnd: Rnd, shapes: number): number => (rnd() < 0.5 ? Math.floor(rn
 export function randomVoyPatch(rnd: Rnd = Math.random): Partial<Record<VoyKnobId, number>> {
   const fm = sometimes(rnd, 0.55, 0.1, 0.7);
   const notes = rnd() < 0.5 ? 0 : (3 + Math.floor(rnd() * 6)) / (NOTES.length - 1);
-  // MODE du filtre : LP 24 le plus souvent ; BP et HP veulent leur propre plage de coupure (sinon tout disparait)
-  const fmode = weighted(rnd, [0.45, 0.2, 0.18, 0.17]);
+  // MODE du filtre : le MOOG deux fois sur trois (Mika l'aime) ; BP et HP veulent leur propre plage de coupure (sinon tout disparait)
+  const fmode = weighted(rnd, [0.66, 0.12, 0.11, 0.11]);
   const fIdx = Math.round(fmode * 3);
   const cutoff = fIdx === 3 ? between(rnd, 0.15, 0.45) : fIdx === 2 ? between(rnd, 0.35, 0.7) : between(rnd, 0.25, 0.75);
   // Melangeur : OSC 1 toujours la ; OSC 2 seul en renfort, parfois absent (OSC 1 seul, ou la FM d'OSC 2 sans l'entendre)

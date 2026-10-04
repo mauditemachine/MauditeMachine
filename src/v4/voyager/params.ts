@@ -100,8 +100,12 @@ export const WAVES2 = ['SINE', 'TRI', 'SAW', 'SQUARE', 'PULSE'] as const;
 /** TUNE 2 : OSC 2 par crans musicaux, toujours dans la tonalite (octave dessous, unisson, quinte, une et deux octaves). */
 export const TUNES2 = ['-1 OCT', '0', '5TH', '+1 OCT', '+2 OCT'] as const;
 const TUNE2_SEMI = [-12, 0, 7, 12, 24] as const;
-/** MODE du filtre (2026-10-04) : passe-bas 24 et 12 dB, passe-bande, passe-haut. */
-export const FMODES = ['LP24', 'LP12', 'BP', 'HP'] as const;
+/**
+ * MODE du filtre (2026-10-04) : le passe-bas 24 dB du Moog (le filtre
+ * d'origine, la position de depart ; nomme MOOG depuis que Mika ne le
+ * retrouvait plus), passe-bas 12 dB, passe-bande, passe-haut.
+ */
+export const FMODES = ['MOOG', 'LP12', 'BP', 'HP'] as const;
 /** MOD : la vitesse du LFO en duree d'un cycle, calee sur le tempo (en temps). */
 export const LFO_RATES = ['1/16', '1/8', '1/4', '1/2', '1 BAR', '2 BAR', '4 BAR'] as const;
 const LFO_BEATS = [0.25, 0.5, 1, 2, 4, 8, 16] as const;
@@ -134,7 +138,7 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'res', label: 'RES', aria: 'Filter resonance', section: 'filter', def: 0.35 },
   { id: 'envAmt', label: 'ENV AMT', aria: 'Filter envelope amount', section: 'filter', def: 0.5 },
   { id: 'noise', label: 'NOISE', aria: 'Noise level into the filter', section: 'filter', def: 0 },
-  { id: 'fmode', label: 'MODE', aria: 'Filter mode: low pass 24 or 12 dB, band pass, high pass; tap for the next', section: 'filter', def: 0, steps: FMODES },
+  { id: 'fmode', label: 'MODE', aria: 'Filter mode: Moog 24 dB low pass, 12 dB low pass, band pass, high pass; tap for the next', section: 'filter', def: 0, steps: FMODES },
   { id: 'fA', label: 'ATTACK', aria: 'Filter envelope attack', section: 'feg', def: 0 },
   { id: 'fD', label: 'DECAY', aria: 'Filter envelope decay', section: 'feg', def: 0.3 },
   { id: 'fS', label: 'SUSTAIN', aria: 'Filter envelope sustain', section: 'feg', def: 0.2 },

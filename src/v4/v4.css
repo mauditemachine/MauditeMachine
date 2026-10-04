@@ -3085,3 +3085,325 @@ html:has(body.v4-active.v4-light) {
 .v4-root[data-v4-motion='reduced'] .v4-vdock-chord {
   transition: none;
 }
+
+/* La suite de l'arpege (ui/SeqLane.tsx, 2026-10-04, Mika : "pouvoir
+   modifier les notes qui sont generees") : desktop, un panneau sous le
+   MM-ARP, le verre sombre de la playlist du MM-DECKS ; telephone, la page
+   SEQUENCE du Dock. Une barre par pas, sa hauteur est sa note ; jaune
+   Typhon en EDIT, l'encre en AUTO, la tete de lecture en orange. */
+.v4-seq {
+  position: absolute;
+  z-index: 25;
+  left: 50%;
+  bottom: 16px;
+  width: min(860px, calc(100vw - 240px));
+  padding: 10px 14px 8px;
+  border-radius: 16px;
+  background: rgba(20, 20, 23, 0.9);
+  color: var(--bone);
+  opacity: 0;
+  transform: translate(-50%, 16px);
+  pointer-events: none;
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.v4-seq[data-shown='1'] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+  transition:
+    opacity 220ms ease-out 120ms,
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1) 120ms;
+}
+
+.v4-seq-body {
+  --seq-note: #f2c230;
+  --seq-auto: rgba(246, 241, 231, 0.6);
+  --seq-on: #ff6a13;
+  --seq-cell: rgba(246, 241, 231, 0.05);
+  --seq-cell-on: rgba(246, 241, 231, 0.14);
+  --seq-guide: rgba(246, 241, 231, 0.1);
+  --seq-root: rgba(246, 241, 231, 0.24);
+  --seq-dim: rgba(246, 241, 231, 0.55);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.v4-seq-body[data-variant='dock'] {
+  flex: 0 0 auto;
+  max-width: 400px;
+  gap: 5px;
+}
+
+.v4-seq-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.v4-seq-title {
+  color: var(--seq-dim);
+}
+
+.v4-seq-chord {
+  min-width: 44px;
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  color: var(--seq-note);
+}
+
+.v4-root .v4-seq-modes {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--seq-cell);
+  box-shadow: inset 0 0 0 1px var(--seq-guide);
+}
+
+.v4-root .v4-seq-mode {
+  min-width: 52px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: var(--seq-dim);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.v4-root .v4-seq-mode[aria-pressed='true'] {
+  background: var(--seq-note);
+  color: #141417;
+}
+
+.v4-seq-tag {
+  padding: 3px 7px;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px var(--seq-root);
+  color: var(--seq-dim);
+  font-size: 9px;
+}
+
+.v4-seq-len {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.v4-root .v4-seq-nudge {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--seq-cell);
+  box-shadow: inset 0 0 0 1px var(--seq-guide);
+  color: var(--bone);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.v4-root .v4-seq-nudge:disabled {
+  opacity: 0.35;
+}
+
+.v4-seq-n {
+  min-width: 70px;
+  text-align: center;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.v4-seq-unit {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--seq-dim);
+}
+
+.v4-seq-hint {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--seq-dim);
+}
+
+.v4-seq-lane,
+.v4-seq-names {
+  display: grid;
+  grid-template-columns: repeat(var(--n, 8), minmax(0, 1fr));
+  gap: 3px;
+}
+
+.v4-seq-lane {
+  position: relative;
+  height: 104px;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.v4-seq-body[data-variant='dock'] .v4-seq-lane {
+  height: 136px;
+}
+
+.v4-seq-guides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.v4-seq-guide {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--seq-guide);
+}
+
+.v4-seq-guide[data-root='1'] {
+  background: var(--seq-root);
+}
+
+.v4-seq-col {
+  position: relative;
+  border-radius: 4px;
+  background: var(--seq-cell);
+  outline: none;
+}
+
+.v4-seq-col[data-on='1'] {
+  background: var(--seq-cell-on);
+}
+
+.v4-seq-col:focus-visible {
+  box-shadow: 0 0 0 2px var(--seq-note);
+}
+
+.v4-seq-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 3px;
+  --seq-bar: var(--seq-auto);
+  background: linear-gradient(to bottom, var(--seq-bar) 0 4px, color-mix(in srgb, var(--seq-bar) 30%, transparent) 4px);
+}
+
+.v4-seq-body[data-edit='1'] .v4-seq-bar {
+  --seq-bar: var(--seq-note);
+}
+
+.v4-seq-col[data-tone='0'] .v4-seq-bar {
+  opacity: 0.62;
+}
+
+.v4-seq-col[data-on='1'] .v4-seq-bar {
+  --seq-bar: var(--seq-on);
+  opacity: 1;
+}
+
+.v4-seq-col[data-rest='1']::after {
+  content: '';
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  bottom: 6px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--seq-dim);
+}
+
+.v4-root .v4-seq-name {
+  height: 24px;
+  min-width: 0;
+  padding: 0;
+  border-radius: 6px;
+  color: var(--seq-dim);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+}
+
+.v4-root .v4-seq-name[data-rest='1'] {
+  opacity: 0.6;
+}
+
+.v4-root .v4-seq-name[data-on='1'] {
+  color: var(--seq-on);
+}
+
+@media (hover: hover) {
+  .v4-root .v4-seq-name:hover,
+  .v4-root .v4-seq-nudge:hover:not(:disabled),
+  .v4-root .v4-seq-mode:hover {
+    color: var(--bone);
+  }
+}
+
+/* Le Dock du telephone : ses deux pages */
+.v4-vdock-pages {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  width: 100%;
+  max-width: 400px;
+  flex: 0 0 auto;
+}
+
+.v4-root .v4-vdock-page {
+  height: 28px;
+  border-radius: 999px;
+  color: var(--bone-60);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.v4-root .v4-vdock-page[aria-pressed='true'] {
+  background: var(--graphite-hi);
+  color: var(--bone);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+/* La machine claire : le verre clair, l'orange pour les notes */
+.v4-root[data-v4-theme='light'] .v4-seq {
+  background: rgba(250, 248, 244, 0.94);
+  color: #2a2a2e;
+  box-shadow: 0 8px 28px rgba(67, 67, 67, 0.12);
+}
+
+.v4-root[data-v4-theme='light'] .v4-seq-body {
+  --seq-note: #ff6a13;
+  --seq-auto: rgba(67, 67, 67, 0.5);
+  --seq-on: #191919;
+  --seq-cell: rgba(67, 67, 67, 0.05);
+  --seq-cell-on: rgba(67, 67, 67, 0.13);
+  --seq-guide: rgba(67, 67, 67, 0.12);
+  --seq-root: rgba(67, 67, 67, 0.28);
+  --seq-dim: rgba(67, 67, 67, 0.7);
+}
+
+.v4-root[data-v4-theme='light'] .v4-seq-mode[aria-pressed='true'] {
+  color: #fff;
+}
+
+.v4-root[data-v4-theme='light'] .v4-seq-nudge {
+  color: #2a2a2e;
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-seq {
+  transition: none;
+}
