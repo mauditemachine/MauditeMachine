@@ -12,7 +12,7 @@ import { ensure, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb
 import { VOICE_FX_DEFAULT, voiceFx, type VoiceParam } from './audio/voicefx';
 import { kit, kitSteps, type KitId } from './audio/kit';
 import { randomBeat, randomColors, type BeatStyle } from './audio/beats';
-import { BPM, INSTRUMENTS, VEL_NAMES, pattern, velocity } from './audio/pattern';
+import { BPM, INSTRUMENTS, VEL_MAX, VEL_NAMES, pattern, velocity } from './audio/pattern';
 import { sc } from './audio/soundcloud';
 import { prepareSynth } from './audio/synth';
 import type { Stage } from './scene/renderer';
@@ -200,6 +200,41 @@ export function stepClear(i: number, stage: Stage | null = null): boolean {
   pattern.clearStep(inst, i);
   lcdMessage.show(stepLine(inst, i));
   return true;
+}
+
+/**
+ * La velocite d'un pas, appui tenu puis glisse (2026-10-05, Mika : "sur les
+ * steps, quand je clique et que je reste appuye, je peux changer la
+ * velocite") : de 1 a 9 ; un pas vide se remplit ; l'ecran la dit. false
+ * sans voix choisie.
+ */
+export function stepVelocity(i: number, v: number): boolean {
+  resume();
+  const inst = pattern.get().instrument;
+  if (!inst) {
+    lcdMessage.show('TAP A PAD FIRST');
+    return false;
+  }
+  const n = Math.max(1, Math.min(VEL_MAX, Math.round(v)));
+  if (velocity(pattern.get().steps, inst, i) !== n) pattern.set(inst, i, n);
+  lcdMessage.show(stepLine(inst, i), POT_UI.readoutMs, true);
+  return true;
+}
+
+/** La velocite du pas i de la voix choisie (0 : vide, ou pas de voix). */
+export function stepVelocityOf(i: number): number {
+  const inst = pattern.get().instrument;
+  return inst ? velocity(pattern.get().steps, inst, i) : 0;
+}
+
+/** L'appui tenu sur un pas, sans glisser encore : l'ecran dit sa velocite et comment la changer. */
+export function stepHoldHint(i: number): void {
+  const inst = pattern.get().instrument;
+  if (!inst) {
+    lcdMessage.show('TAP A PAD FIRST');
+    return;
+  }
+  lcdMessage.show(`${stepLine(inst, i)}: DRAG`, POT_UI.readoutMs * 2, true);
 }
 
 /**

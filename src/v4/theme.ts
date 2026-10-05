@@ -824,15 +824,22 @@ export const KEYS = {
   x0: PORTRAIT ? -3.01 : -5.55,
   pitch: PORTRAIT ? 0.86 : 0.74,
   /** desktop : 0.11 plus bas le 2026-10-02 (8 px a 1440 x 900, Mika : les pas touchaient GLOBAL FX / VOICE FX) */
-  z: PORTRAIT ? 4.0 : 2.51,
+  z: PORTRAIT ? 4.0 : 2.42,
   /** portrait : deux rangees de 8, la seconde rowDz plus bas */
   perRow: PORTRAIT ? 8 : 16,
   rowDz: PORTRAIT ? 1.95 : 0,
-  w: 0.5,
-  d: 0.9,
+  /**
+   * Carrees depuis le 2026-10-05 (Mika : "je voudrais que les steps soient
+   * carres finalement") : 0.5 x 0.9 avant ; le centre remonte un peu, les
+   * numeros et les crochets suivent
+   */
+  w: PORTRAIT ? 0.7 : 0.6,
+  d: PORTRAIT ? 0.7 : 0.6,
   h: 0.1,
-  radius: 0.04,
+  radius: 0.05,
   segments: { desktop: 3, mobile: 2 },
+  /** le cadre des temps (1, 5, 9, 13), imprime sur le dessus de la touche, facon Elektron : sa marge, son trait */
+  frame: { inset: 0.065, line: 0.022 },
   ledZ: PORTRAIT ? 3.22 : 1.73,
   ledW: 0.22,
   ledD: 0.055,
@@ -844,8 +851,8 @@ export const KEYS = {
    */
   velBars: 3,
   velPitch: 0.09,
-  numberZ: PORTRAIT ? 4.68 : 3.19,
-  bracketZ: PORTRAIT ? 4.85 : 3.36,
+  numberZ: PORTRAIT ? 4.58 : 2.95,
+  bracketZ: PORTRAIT ? 4.75 : 3.12,
   bracketTick: 0.06,
 } as const;
 /** x du pas i ; sa rangee le decale de keyDz en z (portrait : deux rangees de 8). */

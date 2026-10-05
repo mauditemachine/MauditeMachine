@@ -26,7 +26,11 @@
 
 import {
   Color,
+  DoubleSide,
   DynamicDrawUsage,
+  Path,
+  Shape,
+  ShapeGeometry,
   InstancedBufferAttribute,
   InstancedMesh,
   Matrix4,
@@ -38,7 +42,7 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { INSTRUMENTS, STEP_COUNT, VEL_BARS, velocity, type Steps } from '../audio/pattern';
-import { BTN_LED, COLOR, KEYS, LIT, MATERIAL, PRESS_TINT, STEP_PRESS, TRANSPORT, keyDz, keyX, type Inst } from '../theme';
+import { BTN_LED, COLOR, INK, KEYS, LIT, MATERIAL, PRESS_TINT, STEP_PRESS, TRANSPORT, keyDz, keyX, type Inst } from '../theme';
 import type { HotspotDef } from './hit';
 import { withInstanceEmissive } from './materials';
 
@@ -93,6 +97,41 @@ function buttonGeometry(mobile: boolean): BufferGeometry {
   return g;
 }
 
+/**
+ * Le cadre des temps (2026-10-05, Mika, une photo de la Digitakt II : "on
+ * remarque que les steps ont des strokes, 1 5 9 13") : un filet carre a
+ * coins arrondis, imprime sur le dessus des touches 1, 5, 9 et 13.
+ */
+function frameGeometry(): BufferGeometry {
+  const F = KEYS.frame;
+  const rr = (p: Shape | Path, hw: number, hd: number, r: number): void => {
+    p.moveTo(-hw + r, -hd);
+    p.lineTo(hw - r, -hd);
+    p.quadraticCurveTo(hw, -hd, hw, -hd + r);
+    p.lineTo(hw, hd - r);
+    p.quadraticCurveTo(hw, hd, hw - r, hd);
+    p.lineTo(-hw + r, hd);
+    p.quadraticCurveTo(-hw, hd, -hw, hd - r);
+    p.lineTo(-hw, -hd + r);
+    p.quadraticCurveTo(-hw, -hd, -hw + r, -hd);
+  };
+  const ow = KEYS.w / 2 - F.inset;
+  const od = KEYS.d / 2 - F.inset;
+  const outer = new Shape();
+  rr(outer, ow, od, 0.04);
+  const hole = new Path();
+  rr(hole, ow - F.line, od - F.line, 0.03);
+  outer.holes.push(hole);
+  const g = new ShapeGeometry(outer, 6);
+  g.rotateX(-Math.PI / 2);
+  g.translate(0, KEYS.h + 0.003, 0);
+  g.deleteAttribute('uv');
+  return g;
+}
+
+/** Les touches qui portent le cadre des temps. */
+const FRAMED = [0, 4, 8, 12] as const;
+
 function ledGeometry(w: number = KEYS.ledW, d: number = KEYS.ledD): BufferGeometry {
   const g = new PlaneGeometry(w, d);
   // Rectangle couche, face vers le haut
@@ -122,6 +161,9 @@ export class Sequencer3D {
   readonly keys: InstancedMesh;
   readonly buttons: InstancedMesh;
   readonly leds: InstancedMesh;
+  /** le cadre des temps sur les touches 1, 5, 9, 13 */
+  readonly frames: InstancedMesh;
+  private frameMat: MeshBasicMaterial;
   /** les temoins du transport, un trait par bouton */
   readonly btnLeds: InstancedMesh;
   private keyMat: MeshStandardMaterial;
@@ -166,6 +208,15 @@ export class Sequencer3D {
     }
     this.keys.instanceMatrix.needsUpdate = true;
     this.keys.instanceColor?.setUsage(DynamicDrawUsage);
+
+    // Le cadre des temps : la serigraphie, a peine moins vive que les numeros
+    this.frameMat = new MeshBasicMaterial({ color: new Color(`rgb(${INK.silk.join(', ')})`), transparent: true, opacity: 0.62, side: DoubleSide, depthWrite: false });
+    this.frameMat.name = 'keyFrames';
+    this.frames = new InstancedMesh(frameGeometry(), this.frameMat, FRAMED.length);
+    this.frames.name = 'keyFrames';
+    FRAMED.forEach((i, j) => this.frames.setMatrixAt(j, m4.makeTranslation(keyX(i), 0, KEYS.z + keyDz(i))));
+    this.frames.instanceMatrix.setUsage(DynamicDrawUsage);
+    this.frames.instanceMatrix.needsUpdate = true;
 
     // Transport : RUN, CLEAR, MUTE, SOLO, RANDOM (meme materiau, sa geometrie)
     const bGeo = buttonGeometry(opts.mobile);
@@ -299,6 +350,12 @@ export class Sequencer3D {
     const dy = move ? -STEP_PRESS.depth * v : 0;
     mesh.instanceMatrix.array[j * 16 + 13] = dy;
     mesh.instanceMatrix.needsUpdate = true;
+    // Le cadre des temps descend avec sa touche
+    const f = btn ? -1 : FRAMED.indexOf(j as (typeof FRAMED)[number]);
+    if (f >= 0) {
+      this.frames.instanceMatrix.array[f * 16 + 13] = dy;
+      this.frames.instanceMatrix.needsUpdate = true;
+    }
     if (btn) {
       // Le temoin descend avec son bouton
       this.btnLeds.instanceMatrix.array[j * 16 + 13] = TRANSPORT.h + BTN_LED.y + dy;
@@ -458,5 +515,8 @@ export class Sequencer3D {
     this.ledMat.dispose();
     this.leds.dispose();
     this.btnLeds.dispose();
+    this.frames.geometry.dispose();
+    this.frameMat.dispose();
+    this.frames.dispose();
   }
 }

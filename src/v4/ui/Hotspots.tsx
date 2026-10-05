@@ -55,6 +55,9 @@ import {
   runToggle,
   soloToggle,
   stepClear,
+  stepHoldHint,
+  stepVelocity,
+  stepVelocityOf,
   stepToggle,
   voyClear,
   voyPad,
@@ -155,7 +158,15 @@ interface Down {
   t: number;
   /** un autre doigt etait pose (pincement, rotation) : jamais un glisser d'une machine a l'autre */
   multi: boolean;
+  /** un pas : sa velocite au pointerdown (0 vide) ; le glisser la change (velDrag) */
+  vel0: number;
+  velDrag: boolean;
 }
+
+/** La velocite d'un pas au glisser : un cran tous les 12 px (souris), 16 px (doigt) ; vers le haut, plus fort. */
+const VEL_PX = { mouse: 12, touch: 16 } as const;
+/** Un pas vide qu'on glisse part de MID. */
+const VEL_FROM_EMPTY = 6;
 
 /**
  * Glisser d'une machine a l'autre au telephone (2026-10-03) : un doigt,
@@ -351,9 +362,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.kind === 'page' && d.section && isPage(d.section)) page(d.section, stage);
       else if (d.kind === 'open') openToggle(stage, 'mm808');
       else if (d.kind === 'step' && d.index !== undefined) {
-        // Appui long (revision 4) : le pas se vide ; sinon il change
-        if (stage.orbit.lastTap.ms >= STEP_HOLD_MS) stepClear(d.index, stage);
-        else stepToggle(d.index, stage);
+        // Appui long : il montrait la velocite (2026-10-05 ; il vidait le pas avant) ; une tape change le pas
+        if (stage.orbit.lastTap.ms < STEP_HOLD_MS) stepToggle(d.index, stage);
       }
       else if (d.kind === 'run') runToggle(stage);
       else if (d.kind === 'clear') clearPattern(stage);
@@ -373,6 +383,14 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.dial) tapDial(d.dial);
       else return null;
       return d.id;
+    };
+
+    /** Un pas glisse : sa velocite suit le doigt (vers le haut, plus fort). */
+    const dragVelocity = (d: Down, dy: number): void => {
+      if (d.index === undefined) return;
+      const base = d.vel0 > 0 ? d.vel0 : VEL_FROM_EMPTY;
+      const px = d.mouse ? VEL_PX.mouse : VEL_PX.touch;
+      stepVelocity(d.index, base + Math.round(-dy / px));
     };
 
     /** Tape sur le fond : la deuxieme en moins de 300 ms et 30 px ramene la vue par defaut. */
@@ -395,6 +413,12 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     // 2026-10-01) ; tout le reste fait tourner la machine
     stage.orbit.gate = (pointerId, dx, dy) => {
       const d = downs.get(pointerId);
+      // Un glisser parti d'un pas : sa velocite (2026-10-05), jamais l'orbite
+      if (d && d.kind === 'step' && d.index !== undefined) {
+        d.velDrag = true;
+        dragVelocity(d, dy);
+        return false;
+      }
       if (!d || !d.dial) return true;
       d.turning = true;
       d.axis = Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
@@ -463,7 +487,18 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         axis: 'y',
         mouse: e.pointerType === 'mouse',
         t: performance.now(),
+        vel0: h?.kind === 'step' && h.index !== undefined ? stepVelocityOf(h.index) : 0,
+        velDrag: false,
       });
+      // Un pas tenu (2026-10-05) : l'ecran dit sa velocite et qu'un glisser la change
+      if (h?.kind === 'step' && h.index !== undefined) {
+        const idx = h.index;
+        const pid = e.pointerId;
+        window.setTimeout(() => {
+          const d = downs.get(pid);
+          if (d && !d.velDrag && d.index === idx && !disposed) stepHoldHint(idx);
+        }, STEP_HOLD_MS);
+      }
       // Rien ne part ici : un objet attend la tape (relachement)
       if (h) e.preventDefault();
     };
@@ -501,6 +536,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (d && d.mouse && (e.buttons & 1) === 0) forget(e.pointerId);
       else if (d && d.turning) {
         turnDial(d, e.clientX - d.x, e.clientY - d.y, e.shiftKey);
+        return;
+      } else if (d && d.velDrag) {
+        dragVelocity(d, e.clientY - d.y);
         return;
       }
       if (e.pointerType !== 'mouse') return;
@@ -1206,6 +1244,11 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
               if (e.key === 'Delete' || e.key === 'Backspace') {
                 e.preventDefault();
                 stepClear(i, stage);
+              } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                // Haut et bas : sa velocite (2026-10-05), un cran
+                e.preventDefault();
+                const v = stepVelocityOf(i);
+                stepVelocity(i, (v > 0 ? v : 6) + (e.key === 'ArrowUp' ? 1 : -1));
               } else noRepeat(e);
             }}
             onClick={() => stepToggle(i, stage)}

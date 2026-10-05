@@ -636,7 +636,7 @@ export class Stage {
     // Bas : touches trig, RUN/STOP, CLEAR, LED ; moitie gauche : les six encodeurs
     this.seq = new Sequencer3D({ mobile });
     this.encoders = new Encoders({ mobile, castShadow: !mobile });
-    plateau.add(this.pads.mesh, this.pads.halos, this.seq.keys, this.seq.buttons, this.seq.leds, this.seq.btnLeds, this.encoders.mesh, this.encoders.skirts);
+    plateau.add(this.pads.mesh, this.pads.halos, this.seq.keys, this.seq.frames, this.seq.buttons, this.seq.leds, this.seq.btnLeds, this.encoders.mesh, this.encoders.skirts);
     // L'ecran (redessine 4 fois par seconde au plus, jamais par frame) ; il
     // ne s'abonne a state/lcd.ts qu'avec les autres ecouteurs
     this.screen = new Screen(aniso, () => this.repaint());
