@@ -73,6 +73,7 @@ import {
   COARSE_QUERY,
   COLOR,
   DPR_MAX,
+  DPR_MIN_DESKTOP,
   ENCODERS,
   EXPLODE,
   EXPOSURE,
@@ -1558,7 +1559,9 @@ export class Stage {
   };
 
   private dprCap(): number {
-    return Math.min(window.devicePixelRatio || 1, this.opts.mobile ? DPR_MAX.mobile : DPR_MAX.desktop);
+    const dpr = window.devicePixelRatio || 1;
+    if (this.opts.mobile) return Math.min(dpr, DPR_MAX.mobile);
+    return Math.min(Math.max(dpr, DPR_MIN_DESKTOP), DPR_MAX.desktop);
   }
 
   /** Taille du canvas ; rendu synchrone pour ne jamais montrer un tampon vide. */

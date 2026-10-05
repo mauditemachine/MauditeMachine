@@ -337,7 +337,7 @@ html:has(body.v4-active) {
 .v4-root .v4-logo {
   display: flex;
   align-items: center;
-  height: 44px;
+  height: 48px;
   border-radius: 8px;
 }
 
@@ -355,10 +355,11 @@ html:has(body.v4-active) {
  * (2026-10-05, Mika : "le logotype devrait etre a gauche du logo Maudite
  * Machine, et en jaune" ; il etait a droite, dans l'or du mot).
  */
+/* 2026-10-05 (Mika : "fais le logotype plus gros de 20 px, en light et en dark") : 26 -> 46 px, le mot ne change pas */
 .v4-logo .v4-logotype {
   display: block;
   flex: none;
-  height: 26px;
+  height: 46px;
   aspect-ratio: 1891 / 1612;
   margin-right: 12px;
   background: #f2c230;
@@ -367,8 +368,8 @@ html:has(body.v4-active) {
 }
 
 .v4-root[data-v4-theme='light'] .v4-logo .v4-logotype {
-  /* le meme jaune, un ton plus soutenu pour se lire sur le creme */
-  background: #e0a800;
+  /* 2026-10-05 (Mika : "en light mode, gris, un peu plus clair que le logo normal") : le mot est #434343 */
+  background: #737373;
 }
 
 /* Les machines en haut a droite (2026-10-05), a gauche de MENU : une pastille comme le selecteur du telephone */
@@ -425,6 +426,84 @@ html:has(body.v4-active) {
 
 .v4-root[data-v4-theme='light'] .v4-hmachines {
   background: rgba(241, 237, 229, 0.7);
+}
+
+/* Le mode d'emploi en vue d'ensemble (2026-10-05, ui/OverviewHelp.tsx) : une carte sous la machine survolee */
+.v4-root .v4-ovhelp {
+  position: absolute;
+  z-index: 16;
+  padding: 14px 16px 12px;
+  border-radius: 14px;
+  background: rgba(16, 16, 19, 0.97);
+  box-shadow:
+    inset 0 0 0 1px var(--line),
+    0 14px 40px rgba(0, 0, 0, 0.4);
+  color: var(--bone);
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: left;
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  animation: v4-ovhelp-in 160ms ease-out;
+}
+
+@keyframes v4-ovhelp-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.v4-root[data-v4-theme='light'] .v4-ovhelp {
+  background: rgba(250, 247, 241, 0.95);
+  color: var(--ink);
+}
+
+.v4-root .v4-ovhelp-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.v4-root .v4-ovhelp-name {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.v4-root .v4-ovhelp-kind {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.v4-root .v4-ovhelp p {
+  margin: 0 0 6px;
+  opacity: 0.85;
+}
+
+.v4-root .v4-ovhelp-cta {
+  display: inline-block;
+  margin-top: 2px;
+  color: var(--yellow);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.v4-root[data-v4-theme='light'] .v4-ovhelp-cta {
+  color: #b07d00;
+}
+
+@media (hover: none) {
+  .v4-root .v4-ovhelp {
+    display: none;
+  }
 }
 
 /* MIDI (2026-10-05) : le bouton de l'en-tete, son panneau, les marques du LEARN sur la machine */
@@ -852,7 +931,7 @@ html:has(body.v4-active) {
 }
 
 .v4-mhead .v4-logo .v4-logotype {
-  height: 23px;
+  height: 43px;
   margin-right: 10px;
 }
 

@@ -81,6 +81,8 @@ import { PRESET_KEY_ARIA, PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode, type Pres
 import { chipsLive, explode } from '../state/explode';
 import { MACHINES, focus, VOYAGER } from '../state/focus';
 import { MidiLearnLayer } from './MidiPanel';
+import { OverviewHelp } from './OverviewHelp';
+import { overviewHover } from '../state/overviewHover';
 import { section } from '../state/section';
 import { view } from '../state/view';
 import { voices } from '../state/voices';
@@ -513,6 +515,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // une machine utilisee, le bout de l'autre aussi (et il sort un peu)
       const mh = !h && VOYAGER ? stage.hit.machineAt(e.clientX - rect.left, e.clientY - rect.top) : null;
       hoverMachine = mh !== null && mh !== focus.machine();
+      // Vue d'ensemble (2026-10-05) : la machine survolee montre son mode d'emploi (ui/OverviewHelp.tsx)
+      overviewHover.set(focus.get() === 'all' ? mh : null);
       overLocked = !h && !hoverMachine && stage.orbit.lock(e.clientX, e.clientY, true);
       setPeek(hoverMachine && focus.get() !== 'all');
       setHover(h);
@@ -642,6 +646,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     const onLeave = (e: PointerEvent): void => {
       if (e.pointerType === 'mouse' && !stage.orbit.dragging) setHover(null);
       setPeek(false);
+      overviewHover.set(null);
     };
     // Appui long : ni menu contextuel ni loupe
     const onMenu = (e: Event): void => e.preventDefault();
@@ -678,6 +683,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     <>
       <div ref={ref} className="v4-hit" aria-hidden="true" />
       <MidiLearnLayer stage={stage} />
+      <OverviewHelp stage={stage} />
     </>
   );
 };

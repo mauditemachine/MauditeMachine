@@ -1314,7 +1314,13 @@ export const ORBIT = {
    * cadrage de photo produit : la perspective se voit sans deformer.
    */
   fovDeg: 30,
-  near: 0.1,
+  /**
+   * near 0.1 jusqu'au 2026-10-05 : de loin (l'intro, la vue d'ensemble), la
+   * profondeur n'etait plus assez fine pour les serigraphies et les LED
+   * posees a quelques millimetres de leur surface, qui scintillaient ; la
+   * camera ne vient jamais a moins de 8 de la machine
+   */
+  near: 1,
   far: 160,
   /** centre projete de la machine fermee a la vue d'arrivee (measure().fit.targetY : 1.216, machine compacte ; 1.269 en portrait) */
   targetY: PORTRAIT ? 1.269 : 1.216,
@@ -1329,6 +1335,14 @@ export const COARSE_QUERY = '(hover: none) and (pointer: coarse)';
  * images rendues.
  */
 export const DPR_MAX = { desktop: 2, mobile: 3 } as const;
+/**
+ * Plancher desktop (2026-10-05, Mika : "des petits glitchs graphiques,
+ * genre aliasing, quand on start et que ca fait la jolie 3D") : sur un
+ * ecran a 1 dppx, le rendu se fait a 1.5 (sur-echantillonne, puis reduit
+ * par le navigateur) : les cannelures des potards, les filets et les
+ * aretes ne crenelent plus pendant que la camera tourne.
+ */
+export const DPR_MIN_DESKTOP = 1.5;
 
 /* ---------- lumieres (spec 4.2, 4.3 et 20.3.10) ---------- */
 

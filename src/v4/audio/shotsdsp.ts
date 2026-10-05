@@ -13,7 +13,8 @@
  *   metalliques, saturations sans repliement), puis ramene par un filtre
  *   RIF de 127 coefficients (fenetre de Kaiser, plus de 80 dB de rejet) ;
  * - chaque son est fait de couches (corps, frappe, bruit), sature en
- *   douceur, puis normalise a sa crete (SHOT_PEAK) ;
+ *   douceur, puis cale sur sa sonie (SHOT_LOUD, 2026-10-05 ; sa crete
+ *   avant) ;
  * - la caisse claire a sa reverbe a porte (un FDN a 8 lignes, stereo,
  *   coupee net apres 130 ms) ; le clap une petite piece ;
  * - les sons bruites ont plusieurs variantes (VARIANTS), jouees en
@@ -77,28 +78,91 @@ const OS = 4;
 const TAU = Math.PI * 2;
 
 /**
- * Crete de chaque son apres normalisation (dB, au-dessus de 0 permis : le
- * signal reste en flottant jusqu'au limiteur). L'equilibre du kit et son
- * niveau face au MM-ARP (2026-10-03, Mika : "le MM-RYTM sonne moins fort") :
- * dans les mediums (au-dessus de 500 Hz), apres le compresseur commun, la
- * batterie etait 6 dB sous l'arpege ; ces cretes la ramenent a sa hauteur.
+ * La sonie de chaque voix (2026-10-05, Mika : "il y a des voix vraiment plus
+ * fortes que d'autres alors que le knob VOLUME est pareil"). Caler les cretes
+ * (SHOT_PEAK, jusqu'au 2026-10-05) laissait 11 dB d'ecart entre les voix : les toms et le perc
+ * sortaient 6 a 7 dB au-dessus du kick, le clap 5 dB dessous. Chaque coup est
+ * maintenant cale sur sa sonie : la crete de l'energie ponderee K (celle des
+ * LUFS, ITU-R BS.1770 : le grave compte moins, l'oreille aussi) sur 100 ms.
+ * Les cibles gardent un equilibre de batterie (les charleys et la cymbale un
+ * peu dessous) ; un meme VOLUME sonne pareil d'un son a l'autre, 909, 808,
+ * MM ou un echantillon. Une crete qui depasserait +6 dB reste a +6 (le
+ * limiteur est plus loin).
  */
-export const SHOT_PEAK: Readonly<Record<ShotId, number>> = {
-  // BD -0.5 jusqu'au 2026-10-04 : le kick d'indie dance, moins intense, 2 dB plus bas
-  BD: -2.5,
-  SD: 3,
-  TOM: 1.5,
-  // CH +4 dB et OH +2 dB le 2026-10-04 (Mika : "on entend pas trop le HH")
-  CH: 2,
-  CHopen: 1,
-  OH: -1,
-  // CP : 3.5 jusqu'au 2026-10-04 (Mika : "le clap est vraiment trop intense"), 5.5 dB plus bas
-  CP: -2,
-  RS: -0.5,
-  HT: 1,
-  CY: -5,
-  PC: 0.5,
+export const SHOT_LOUD: Readonly<Record<ShotId, number>> = {
+  BD: -7.5,
+  SD: -7.5,
+  TOM: -9,
+  HT: -9.5,
+  CH: -12,
+  CHopen: -11.5,
+  OH: -11.5,
+  CP: -9.5,
+  RS: -10.5,
+  CY: -12.5,
+  PC: -10,
 };
+const LOUD_WIN_S = 0.1;
+const LOUD_MAX_PEAK_DB = 6;
+
+/** Un biquad applique en place (forme directe I). */
+function biquad(x: Float32Array, b0: number, b1: number, b2: number, a1: number, a2: number): Float32Array {
+  const y = new Float32Array(x.length);
+  let x1 = 0;
+  let x2 = 0;
+  let y1 = 0;
+  let y2 = 0;
+  for (let i = 0; i < x.length; i += 1) {
+    const v = b0 * x[i] + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+    x2 = x1;
+    x1 = x[i];
+    y2 = y1;
+    y1 = v;
+    y[i] = v;
+  }
+  return y;
+}
+
+/** La ponderation K (BS.1770) a sr : le plateau haut (+4 dB au-dessus de 1.7 kHz), puis le passe-haut RLB (38 Hz). */
+function kWeight(x: Float32Array, sr: number): Float32Array {
+  let K = Math.tan((Math.PI * 1681.974450955533) / sr);
+  const Q = 0.7071752369554196;
+  const Vh = Math.pow(10, 3.999843853973347 / 20);
+  const Vb = Math.pow(Vh, 0.4996667741545416);
+  let a0 = 1 + K / Q + K * K;
+  const pre = biquad(x, (Vh + (Vb * K) / Q + K * K) / a0, (2 * (K * K - Vh)) / a0, (Vh - (Vb * K) / Q + K * K) / a0, (2 * (K * K - 1)) / a0, (1 - K / Q + K * K) / a0);
+  K = Math.tan((Math.PI * 38.13547087602444) / sr);
+  const Q2 = 0.5003270373238773;
+  a0 = 1 + K / Q2 + K * K;
+  return biquad(pre, 1, -2, 1, (2 * (K * K - 1)) / a0, (1 - K / Q2 + K * K) / a0);
+}
+
+/** La sonie d'un coup (dB, ponderee K, la plus forte fenetre de 100 ms). */
+export function shotLoudness(s: Shot, sr: number): number {
+  const kl = kWeight(s.L, sr);
+  const kr = s.R === s.L ? kl : kWeight(s.R, sr);
+  const n = kl.length;
+  const w = Math.max(1, Math.round(LOUD_WIN_S * sr));
+  let acc = 0;
+  let best = 0;
+  for (let i = 0; i < n + w; i += 1) {
+    if (i < n) acc += (kl[i] * kl[i] + kr[i] * kr[i]) / 2;
+    if (i >= w && i - w < n) acc -= (kl[i - w] * kl[i - w] + kr[i - w] * kr[i - w]) / 2;
+    if (acc / w > best) best = acc / w;
+  }
+  return 10 * Math.log10(best + 1e-12) + 2.32;
+}
+
+/** Le coup a la sonie de sa voix (SHOT_LOUD), sa crete sous +6 dB. */
+function setLoudness(id: ShotId, s: Shot, sr: number): void {
+  const l = shotLoudness(s, sr);
+  let k = Math.pow(10, (SHOT_LOUD[id] - l) / 20);
+  const p = peakOf(s.L === s.R ? [s.L] : [s.L, s.R]);
+  if (p * k > Math.pow(10, LOUD_MAX_PEAK_DB / 20)) k = Math.pow(10, LOUD_MAX_PEAK_DB / 20) / p;
+  if (!Number.isFinite(k) || k <= 0) return;
+  for (let i = 0; i < s.L.length; i += 1) s.L[i] *= k;
+  if (s.R !== s.L) for (let i = 0; i < s.R.length; i += 1) s.R[i] *= k;
+}
 
 /** Variantes jouees en alternance (sons bruites). */
 export const VARIANTS: Readonly<Record<ShotId, number>> = {
@@ -948,7 +1012,7 @@ function rsModel(sr: number, ts: number, r: () => number, m: '909' | '808'): Sho
   return { L: y, R: y };
 }
 
-/** Calcule un son, normalise a sa crete (SHOT_PEAK). Deterministe : (son, variante, STRETCH, frequence). */
+/** Calcule un son, cale sur sa sonie (SHOT_LOUD). Deterministe : (son, variante, STRETCH, frequence). */
 export function renderShot(id: ShotId, sr: number, stretch: number, variant: number, tw: ShotTweak = TWEAK_MM): Shot {
   // STRETCH (2026-10-04) : le son a sa duree naturelle, puis etire en grains facon Impulse (audio/stretch.ts)
   const ts = 1;
@@ -997,12 +1061,8 @@ export function renderShot(id: ShotId, sr: number, stretch: number, variant: num
       s = { L: one, R: one };
     } else s = { L: timeStretch(s.L, stretch, sr), R: timeStretch(s.R, stretch, sr) };
   }
-  const p = peakOf(s.L === s.R ? [s.L] : [s.L, s.R]);
-  // Le kick 909 et le 808 tiennent plus longtemps que celui d'avant : 1.5 et 2 dB plus bas, le 909 frappe encore un peu plus fort
-  const trim = id === 'BD' ? (m === '909' ? -1.5 : m === '808' ? -2 : 0) : 0;
-  const k = p > 0 ? Math.pow(10, (SHOT_PEAK[id] + trim) / 20) / p : 1;
-  for (let i = 0; i < s.L.length; i += 1) s.L[i] *= k;
-  if (s.R !== s.L) for (let i = 0; i < s.R.length; i += 1) s.R[i] *= k;
+  // La sonie de la voix (2026-10-05), a la place de sa crete : SHOT_PEAK, et un kick 909 1.5 dB et 808 2 dB plus bas
+  setLoudness(id, s, sr);
   return s;
 }
 
@@ -1021,10 +1081,6 @@ export function renderSampleShot(id: ShotId, sr: number, stretch: number, pcm: S
       s = { L: one, R: one };
     } else s = { L: timeStretch(s.L, stretch, sr), R: timeStretch(s.R, stretch, sr) };
   }
-  const p = peakOf(s.L === s.R ? [s.L] : [s.L, s.R]);
-  const trim = id === 'BD' ? -1.5 : 0;
-  const k = p > 0 ? Math.pow(10, (SHOT_PEAK[id] + trim) / 20) / p : 1;
-  for (let i = 0; i < s.L.length; i += 1) s.L[i] *= k;
-  if (s.R !== s.L) for (let i = 0; i < s.R.length; i += 1) s.R[i] *= k;
+  setLoudness(id, s, sr);
   return s;
 }
