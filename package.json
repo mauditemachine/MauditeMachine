@@ -13,7 +13,8 @@
     "sitemap": "node scripts/generate-sitemap.mjs",
     "preview": "vite preview --open",
     "stats": "node scripts/fetch-stats.mjs",
-    "manual:smpl": "node scripts/smpl-manual/make.mjs"
+    "manual:smpl": "node scripts/smpl-manual/make.mjs",
+    "samples:import": "node scripts/import-rytm-samples.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

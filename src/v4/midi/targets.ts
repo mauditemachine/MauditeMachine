@@ -126,7 +126,7 @@ function coreTargets(): MidiTarget[] {
     },
   });
   for (const k of KIT_IDS) {
-    // Ses crans suivent tes samples (audio/usersamples.ts) : lus a chaque fois
+    // Ses crans suivent les echantillons du site (audio/samples.ts) : lus a chaque fois
     out.push({
       id: `rytm:kit:${k}`,
       scope: 'mm808',

@@ -104,7 +104,7 @@ function items(): TweakItem[] {
       x,
       z,
       s: sw ? KNOB_S * SWITCH_S : KNOB_S,
-      // Un choix de son : 909, 808, MM, puis le numero de chaque echantillon de Mika (audio/samples.ts)
+      // Un choix de son : 909, 808, MM, puis le nom de chaque echantillon de Mika (audio/samples.ts)
       ...(sw ? { steps: isFamily(id) ? kitStepLabels(id) : GATE_LABELS } : {}),
       ...(ENDS[id] ? { ends: ENDS[id] } : {}),
     };
@@ -128,7 +128,7 @@ export class RytmTweaks extends TweakPlate {
 
   /**
    * Les potards et commutateurs suivent le kit ; un choix de son suit aussi
-   * ses crans (tes samples ajoutes ou retires : leurs numeros a la plaque).
+   * ses crans (echantillons du dossier du site : leurs noms a la plaque).
    * true s'il faut une frame.
    */
   sync(): boolean {

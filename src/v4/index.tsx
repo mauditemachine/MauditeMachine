@@ -71,7 +71,6 @@ import { Header, openHood } from './ui/Header';
 import { HitLayer, Twins } from './ui/Hotspots';
 import { MachineNav } from './ui/MachineNav';
 import { SeqPanel } from './ui/SeqLane';
-import { RytmSamples } from './ui/RytmSamples';
 import { SmplInfo } from './ui/SmplInfo';
 import { VoyDock } from './ui/VoyDock';
 import { VoyTwins } from './ui/VoyTwins';
@@ -539,8 +538,6 @@ const V4Shell: React.FC = () => {
           <Lcd />
           {/* MM-ARP ouvert : sa touche SCOPE et l'oscilloscope (2026-10-04, ui/Scope.tsx) */}
           <Scope mobile={mobile} getStage={getStage} />
-          {/* Capot du MM-RYTM ouvert : tes samples (2026-10-05, ui/RytmSamples.tsx) */}
-          <RytmSamples mobile={mobile} getStage={getStage} />
           {/* Le MM-SMPL : sa touche INFO, le mode d'emploi en PDF (2026-10-05, ui/SmplInfo.tsx) */}
           {SMPL && <SmplInfo getStage={getStage} />}
           {/* Le Dock n'existe que sur la mise en page mobile : pas de rendu React par pas sur desktop ; il programme la 808 */}

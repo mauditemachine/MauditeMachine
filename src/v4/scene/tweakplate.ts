@@ -309,6 +309,32 @@ export class TweakPlate {
     drawTracked(ctx, t, x0, this.py(z) + capPx / 2, fontPx, weight);
   }
 
+  /**
+   * Un nom qui part du cran dans le sens du rayon (2026-10-05, Mika : "les
+   * noms de mes samples dans le knob") : a droite il se lit du cran vers
+   * l'exterieur, a gauche il finit sur le cran (jamais a l'envers). len : la
+   * place (unites) ; le corps rapetisse pour y tenir. Rend sa longueur.
+   */
+  private radialText(t: string, x: number, z: number, cap: number, a: number, len: number, alpha: number, draw = true): number {
+    const ctx = this.ctx;
+    const weight = 600;
+    let fontPx = (cap / SILK.capRatio) * PPU;
+    let w = trackedWidth(ctx, t, fontPx, weight);
+    if (w > len * PPU) {
+      fontPx *= (len * PPU) / w;
+      w = trackedWidth(ctx, t, fontPx, weight);
+    }
+    if (!draw) return w / PPU;
+    const flip = Math.cos(a) < -1e-6;
+    ctx.save();
+    ctx.translate(this.px(x), this.py(z));
+    ctx.rotate(flip ? Math.PI - a : -a);
+    ctx.fillStyle = silkA(alpha);
+    drawTracked(ctx, t, flip ? -w : 0, (fontPx * SILK.capRatio) / 2, fontPx, weight);
+    ctx.restore();
+    return w / PPU;
+  }
+
   private line(x0: number, z0: number, x1: number, z1: number): void {
     const ctx = this.ctx;
     ctx.beginPath();
@@ -333,7 +359,27 @@ export class TweakPlate {
     for (const it of this.spec.items) {
       const R = radii(it.s);
       // Le nom au-dessus, comme sur le Mini V ; un commutateur a trois crans ecrit le cran du milieu en haut : son nom monte au-dessus
-      const up = it.steps && it.steps.length > 2 ? R.skirt + VOY_SWITCH.markR + 0.08 + P.end + 0.12 : R.label;
+      let up = it.steps && it.steps.length > 2 ? R.skirt + VOY_SWITCH.markR + 0.08 + P.end + 0.12 : R.label;
+      // Un choix aux noms longs (les echantillons) : ils partent des crans dans le sens du rayon, le nom monte au-dessus d'eux
+      const radial = !!it.steps && it.steps.length > 5 && it.steps.some((x) => x.length > 3);
+      const names: { a: number; len: number }[] = [];
+      if (radial && it.steps) {
+        const n = it.steps.length;
+        const r0t = R.skirt + VOY_SWITCH.tick.r0 + VOY_SWITCH.tick.len + 0.05;
+        const hLim = cellW / 2 + 0.09;
+        const vLim = cellW * 0.75;
+        let top = 0;
+        it.steps.forEach((step, i) => {
+          const a = (switchDeg(i, n) * Math.PI) / 180;
+          const c = Math.abs(Math.cos(a));
+          const sn = Math.abs(Math.sin(a));
+          const len = Math.max(0.12, Math.min(0.95, c > 0.05 ? hLim / c - r0t : 9, sn > 0.05 ? vLim / sn - r0t : 9));
+          names.push({ a, len });
+          const w = this.radialText(step, 0, 0, P.end, a, len, 0.85, false);
+          if (Math.sin(a) > 0.3) top = Math.max(top, (r0t + w) * Math.sin(a));
+        });
+        up = Math.max(up, top + 0.06 + P.label / 2);
+      }
       this.text(it.label, it.x, it.z - up, P.label, { weight: 600, alpha: 1, maxW: cellW * 0.9 });
       if (it.steps) {
         // Commutateur : un repere par position, son nom au bout (le cran d'origine en orange)
@@ -345,6 +391,11 @@ export class TweakPlate {
           const r0 = R.skirt + VOY_SWITCH.tick.r0;
           const r1 = r0 + VOY_SWITCH.tick.len;
           this.line(it.x + Math.cos(a) * r0, it.z - Math.sin(a) * r0, it.x + Math.cos(a) * r1, it.z - Math.sin(a) * r1);
+          if (radial) {
+            const rt = R.skirt + VOY_SWITCH.tick.r0 + VOY_SWITCH.tick.len + 0.05;
+            this.radialText(step, it.x + Math.cos(a) * rt, it.z - Math.sin(a) * rt, P.end, a, names[i].len, 0.85);
+            return;
+          }
           const rt = R.skirt + VOY_SWITCH.markR + 0.04 + (n > 2 ? 0.04 : 0);
           this.text(step, it.x + Math.cos(a) * rt, it.z - Math.sin(a) * rt, P.end, { weight: 600, orange: i === it.stepOrange, alpha: 0.85 });
         });

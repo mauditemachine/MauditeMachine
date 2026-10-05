@@ -11,13 +11,15 @@
  * famille (01 AT BluePrint - Kick F.wav : BLUEPRINT F ; Psy_Snares02.wav :
  * PSY 02). Ce qu'on publie se telecharge : un echantillon sous licence d'un
  * pack doit permettre d'etre diffuse ainsi.
- * Les tiens ensuite (2026-10-05, audio/usersamples.ts) : les fichiers
- * choisis sur l'appareil, gardes dans ce navigateur, cle my:<famille>/<id>.
+ * Les noms (2026-10-05, Mika : "je les veux dans le knob avec les noms,
+ * genre Engelhardt, Carassi, Stein ; enleve la fenetre Samples on this
+ * device") : la plaque ecrit le nom de chaque echantillon a son cran. Plus
+ * de fichiers de l'appareil : seul le dossier du site fait foi
+ * (scripts/import-rytm-samples.mjs y range les fichiers de Mika).
  */
 
 import FOUND from 'virtual:rytm-samples';
 import type { SamplePcm } from './sampledsp';
-import { userSamples, type UserSampleEntry } from './usersamples';
 
 /** Les familles de voix qui peuvent jouer un echantillon (celles de audio/kit.ts). */
 const FAMILY_DIRS = ['bd', 'sd', 'hh', 'cp', 'tom', 'rs'] as const;
@@ -30,15 +32,9 @@ export interface KitSample {
   file: string;
   /** le nom court, en capitales (l'ecran, les jumeaux) */
   label: string;
-  /** l'adresse du fichier du site ; vide pour un des tiens */
+  /** l'adresse du fichier du site */
   url: string;
-  /** un des tiens (audio/usersamples.ts) : son id */
-  user?: string;
 }
-
-/** La cle d'un des tiens. */
-export const USER_PREFIX = 'my:';
-const userKey = (e: UserSampleEntry): string => `${USER_PREFIX}${e.family}/${e.id}`;
 
 /** Le nom court d'un fichier : sans extension, numero, "AT", ni le nom de la famille. */
 export function sampleLabel(file: string): string {
@@ -71,25 +67,9 @@ for (const s of SAMPLES) {
   byFamily.set(s.family, list);
 }
 
-/** Les tiens, refaits quand leur liste change. */
-let mineFrom: readonly UserSampleEntry[] | null = null;
-let mine: KitSample[] = [];
-function mineNow(): readonly KitSample[] {
-  const list = userSamples.list();
-  if (list !== mineFrom) {
-    mineFrom = list;
-    mine = list.map((e): KitSample => ({ key: userKey(e), family: e.family, file: e.file, label: sampleLabel(e.file), url: '', user: e.id }));
-  }
-  return mine;
-}
-
-/** Les echantillons d'une famille, dans l'ordre des crans : ceux du site, puis les tiens. */
-export const samplesOf = (f: string): readonly KitSample[] => {
-  const site = byFamily.get(f) ?? [];
-  const own = mineNow().filter((s) => s.family === f);
-  return own.length > 0 ? [...site, ...own] : site;
-};
-export const sampleByKey = (key: string): KitSample | undefined => (key.startsWith(USER_PREFIX) ? mineNow().find((s) => s.key === key) : SAMPLES.find((s) => s.key === key));
+/** Les echantillons d'une famille, dans l'ordre des crans. */
+export const samplesOf = (f: string): readonly KitSample[] => byFamily.get(f) ?? [];
+export const sampleByKey = (key: string): KitSample | undefined => SAMPLES.find((s) => s.key === key);
 
 /* ---------------- chargement ---------------- */
 
@@ -113,16 +93,9 @@ export function loadSample(key: string): Promise<SamplePcm | null> {
   if (!s || failed.has(key) || typeof window === 'undefined') return Promise.resolve(null);
   const job = (async (): Promise<SamplePcm | null> => {
     try {
-      let data: ArrayBuffer;
-      if (s.user) {
-        const own = await userSamples.data(s.user);
-        if (!own) throw new Error('missing');
-        data = own;
-      } else {
-        const res = await fetch(s.url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        data = await res.arrayBuffer();
-      }
+      const res = await fetch(s.url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.arrayBuffer();
       const ctx = new OfflineAudioContext(1, 1, DECODE_SR);
       const buf = await ctx.decodeAudioData(data);
       const L = Float32Array.from(buf.getChannelData(0));
@@ -151,12 +124,12 @@ export function onSampleLoaded(fn: (key: string) => void): () => void {
   };
 }
 
-// Un des tiens retire : son son decode part avec lui
-userSamples.subscribe(() => {
-  for (const key of [...pcm.keys(), ...failed]) {
-    if (key.startsWith(USER_PREFIX) && !sampleByKey(key)) {
-      pcm.delete(key);
-      failed.delete(key);
-    }
+// L'ancien panneau "samples de l'appareil" est retire (2026-10-05) : ce qu'il gardait dans ce navigateur part
+if (typeof window !== 'undefined') {
+  try {
+    window.localStorage.removeItem('mm.v4.usersamples.1');
+    window.indexedDB?.deleteDatabase('mm-v4-rytm-samples');
+  } catch {
+    /* stockage refuse : rien a retirer */
   }
-});
+}
