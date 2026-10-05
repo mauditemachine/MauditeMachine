@@ -355,13 +355,14 @@ html:has(body.v4-active) {
  * (2026-10-05, Mika : "le logotype devrait etre a gauche du logo Maudite
  * Machine, et en jaune" ; il etait a droite, dans l'or du mot).
  */
-/* 2026-10-05 (Mika : "fais le logotype plus gros de 20 px, en light et en dark") : 26 -> 46 px, le mot ne change pas */
+/* 2026-10-05 (Mika : "fais le logotype plus gros de 20 px") : 26 -> 46 px ; puis (Mika : "le logotype est trop
+   gros, remets-le a la meme taille que le logo") : la hauteur du mot, 26 px (23 au telephone) */
 .v4-logo .v4-logotype {
   display: block;
   flex: none;
-  height: 46px;
+  height: 26px;
   aspect-ratio: 1891 / 1612;
-  margin-right: 12px;
+  margin-right: 10px;
   background: #f2c230;
   -webkit-mask: url('/logo/mauditemachine-logotype.svg') center / contain no-repeat;
   mask: url('/logo/mauditemachine-logotype.svg') center / contain no-repeat;
@@ -783,6 +784,30 @@ html:has(body.v4-active) {
   cursor: pointer;
 }
 
+/* La carte du Roto-Control (2026-10-05, midi/roto.ts) : un filet au-dessus, les cinq setups, la marche a suivre */
+.v4-root .v4-midi-roto {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.v4-root .v4-midi-roto-files .v4-midi-key {
+  flex: 1;
+  min-width: 0;
+  padding: 0 4px;
+}
+
+.v4-root .v4-midi-roto-how {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  opacity: 0.75;
+  font-size: 11px;
+}
+
+.v4-root .v4-midi-roto-how li + li {
+  margin-top: 4px;
+}
+
 .v4-root .v4-midi-layer {
   position: absolute;
   inset: 0;
@@ -931,8 +956,8 @@ html:has(body.v4-active) {
 }
 
 .v4-mhead .v4-logo .v4-logotype {
-  height: 43px;
-  margin-right: 10px;
+  height: 23px;
+  margin-right: 8px;
 }
 
 .v4-root .v4-burger {
@@ -3685,6 +3710,19 @@ html:has(body.v4-active.v4-light) {
   color: #141417;
 }
 
+/* D'ou viennent les notes de la suite (2026-10-05, a la place des touches AUTO / EDIT) : un mot */
+.v4-root .v4-seq-source {
+  color: var(--seq-dim);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+}
+
+.v4-root .v4-seq-source[data-edit='1'] {
+  color: var(--seq-note);
+}
+
 .v4-seq-tag {
   padding: 3px 7px;
   border-radius: 6px;
@@ -4701,7 +4739,7 @@ html:has(body.v4-active.v4-light) {
   letter-spacing: 0.04em;
 }
 
-/* Le Dock du MM-DECKS (dj/MixDock.tsx) : sa languette porte son nom, MIXER ; PLAY/STOP des machines sous MASTER */
+/* La languette d'un Dock qui porte son nom (le MM-SMPL) ; la languette MIXER du MM-DECKS est partie le 2026-10-05 */
 @media (max-width: 767px) {
   .v4-root .v4-djdock-tab {
     width: auto;
@@ -4713,56 +4751,6 @@ html:has(body.v4-active.v4-light) {
     font-weight: 700;
     letter-spacing: 0.16em;
   }
-}
-
-.v4-root .v4-djdock-play {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 52px;
-  margin-top: 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--graphite);
-  color: var(--bone);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.v4-root .v4-djdock-play[data-on='1'] {
-  border-color: var(--yellow);
-  color: var(--yellow);
-}
-
-/* LOOP > SMPL (2026-10-05) : sous PLAY, en orange des qu'une platine boucle */
-.v4-root .v4-djdock-export {
-  margin-top: 8px;
-}
-
-.v4-root .v4-djdock-export[data-on='1'] {
-  border-color: var(--orange, #ff6a13);
-  color: var(--orange, #ff6a13);
-}
-
-/* ADD DECK et REMOVE DECK (2026-10-05) : sous LOOP > SMPL ; REMOVE arme (la platine joue) en orange */
-.v4-root .v4-djdock-deck {
-  margin-top: 8px;
-}
-
-.v4-root .v4-djdock-deck[data-on='1'] {
-  border-color: var(--orange, #ff6a13);
-  color: var(--orange, #ff6a13);
-}
-
-.v4-root .v4-djdock-play:focus-visible {
-  outline: 2px solid var(--yellow);
-  outline-offset: 2px;
 }
 
 /* Le Dock du MM-SMPL (smpl/Dock.tsx) : ses touches en deux rangees, la forme d'onde, une ligne d'etat, seize pads */

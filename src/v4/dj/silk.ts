@@ -15,8 +15,8 @@
 
 import { Mesh, MeshStandardMaterial, PlaneGeometry, type CanvasTexture } from 'three';
 import { drawTracked, logoImage, makeCanvasTexture, trackedWidth } from '../scene/silk';
-import { HEX, SILK, silkA } from '../theme';
-import { DJ_FADERS, DJ_KNOBS, DJ_KEYS, knobLabelZ } from './layout';
+import { HEX, PORTRAIT, SILK, silkA } from '../theme';
+import { DJ_FADERS, DJ_KNOBS, DJ_KEYS, knobLabelZ, type DjKeySpec } from './layout';
 import { DECK, DJ_CHANNELS, DJ_KNOB, DJ_UNIT, MIX, UNIT_X, unitW, type DjDeck, type DjUnit } from './theme';
 
 type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
@@ -84,7 +84,7 @@ function head(u: DjUnit): Text[] {
   // La platine qu'on peut retirer : REMOVE DECK prend la place du sous-titre ; sur la table, ADD DECK (2026-10-05)
   const removable = DJ_KEYS.some((k) => k.target.kind === 'removedeck' && k.target.deck === u);
   const addable = DJ_KEYS.some((k) => k.target.kind === 'adddeck');
-  const sub = u === 'mix' ? (addable ? '' : `${DJ_CHANNELS} CHANNEL ${c.sub}`) : removable ? '' : c.sub;
+  const sub = u === 'mix' ? (addable && !MIX.keysInMaster ? '' : `${DJ_CHANNELS} CHANNEL ${c.sub}`) : removable ? '' : c.sub;
   return headTexts(c.name, sub, unitW(u), z, u === 'mix' ? 1.55 : 1.85);
 }
 
@@ -145,7 +145,9 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
       lines.push([kx + Math.cos(a) * r0, k.z - Math.sin(a) * r0, kx + Math.cos(a) * r1, k.z - Math.sin(a) * r1]);
     }
     const pale = k.idle ? 0.4 : SILK.alpha;
-    texts.push({ text: k.label, x: k.x - ux, z: knobLabelZ(k), cap: 0.062, alpha: pale, maxW: 0.9, group: k.target.kind === 'fx' || k.target.kind === 'fxto' ? 'fx' : 'knob' });
+    // Tenu droit, des noms plus gros (ils se lisent au telephone) ; ceux des effets ont la place d'une colonne
+    const isFx = k.target.kind === 'fx' || k.target.kind === 'fxto';
+    texts.push({ text: k.label, x: k.x - ux, z: knobLabelZ(k), cap: PORTRAIT ? 0.085 : 0.062, alpha: pale, maxW: PORTRAIT ? (isFx ? 1.3 : 0.95) : 0.9, group: isFx ? 'fx' : 'knob' });
     // FX TO : un cran par position (ALL puis chaque voie), ALL ecrit au premier
     if (k.target.kind === 'fxto') {
       const n = DJ_CHANNELS;
@@ -161,21 +163,23 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   // FX TO vise une voie : son numero passe en orange
   const fxTo = silkFxTo;
   // Effets : crochet sous la rangee ; TIME au-dessus de ses touches, chaque valeur dessous
-  const fx = DJ_KNOBS.filter((k) => k.target.kind === 'fx');
+  const fx = DJ_KNOBS.filter((k) => k.target.kind === 'fx' || (PORTRAIT && k.target.kind === 'fxto'));
   const r = DJ_KNOB.skirt.r * MIX.sFx;
-  brackets.push({ text: 'EFFECTS', x0: fx[0].x - ux - r, x1: fx[fx.length - 1].x - ux + r, z: MIX.fxZ + r + 0.2 });
+  // Tenu droit : deux rangees de quatre, le crochet sous la seconde, d'un bord a l'autre
+  const fxLow = Math.max(...fx.map((k) => k.z));
+  brackets.push({ text: 'EFFECTS', x0: Math.min(...fx.map((k) => k.x)) - ux - r, x1: Math.max(...fx.map((k) => k.x)) - ux + r, z: fxLow + r + 0.2 });
   const T = MIX.times;
   const times = DJ_KEYS.filter((k) => k.target.kind === 'time');
-  for (const k of times) texts.push({ text: k.label, x: k.x - ux, z: k.z + k.d / 2 + 0.15, cap: 0.058, weight: 600, group: 'time' });
-  texts.push({ text: 'TIME', x: T.x0 + ((times.length - 1) * T.pitch) / 2, z: T.z - T.d / 2 - 0.17, cap: 0.07, weight: 700 });
+  for (const k of times) texts.push({ text: k.label, x: k.x - ux, z: k.z + k.d / 2 + 0.15, cap: PORTRAIT ? 0.075 : 0.058, weight: 600, group: 'time' });
+  texts.push({ text: 'TIME', x: T.x0 + ((times.length - 1) * T.pitch) / 2, z: T.z - T.d / 2 - 0.17, cap: PORTRAIT ? 0.08 : 0.07, weight: 700 });
   // Voies : le numero, et la platine qui y joue
   MIX.cols.forEach((cx, i) => {
     // Les quatre voies jouent : 1 le MM-RYTM, 2 le MM-ARP, 3 et 4 les platines (Mika, 2026-10-04)
     texts.push({ text: String(i + 1), x: cx - 0.1, z: MIX.numZ, cap: 0.17, weight: 700, alpha: 1, align: 'right', ...(fxTo === i ? { ink: 'orange' as const } : {}) });
     texts.push({ text: CH_NAMES[i], x: cx + 0.02, z: MIX.numZ, cap: 0.09, weight: 700, ink: 'orange', alpha: 1, align: 'left', maxW: 0.62, group: 'chname' });
-    // Graduation du fader de voie : 11 tics, 10 en haut
+    // Graduation du fader de voie : 11 tics, 10 en haut (tenu droit, pas de fader)
     const F = MIX.fader;
-    for (let t = 0; t <= 10; t += 1) {
+    if (!PORTRAIT) for (let t = 0; t <= 10; t += 1) {
       const z = F.z0 + ((F.z1 - F.z0) * t) / 10;
       lines.push([cx - 0.17, z, cx - (t % 5 === 0 ? 0.36 : 0.28), z]);
     }
@@ -185,10 +189,15 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   texts.push({ text: 'RYTM + ARP', x: MIX.masterX, z: MIX.play.labelZ, cap: 0.075, weight: 700, ink: 'orange', alpha: 1, maxW: 1.1 });
   // LOOP > SMPL : son nom a gauche de la touche, en orange comme REMOVE DECK
   const ex = DJ_KEYS.find((k) => k.target.kind === 'export');
-  if (ex) texts.push({ text: 'LOOP > SMPL', x: ex.x - ux - ex.w / 2 - 0.14, z: ex.z, cap: 0.11, weight: 700, ink: 'orange', alpha: 1, align: 'right' });
+  // Tenu droit, les deux touches sont dans la colonne du MASTER : leur nom au-dessus
+  const keyName = (k: DjKeySpec, text: string): Text =>
+    MIX.keysInMaster
+      ? { text, x: k.x - ux, z: k.z - k.d / 2 - 0.15, cap: 0.075, weight: 700, ink: 'orange', alpha: 1, maxW: 1.1 }
+      : { text, x: k.x - ux - k.w / 2 - 0.14, z: k.z, cap: 0.11, weight: 700, ink: 'orange', alpha: 1, align: 'right' };
+  if (ex) texts.push(keyName(ex, 'LOOP > SMPL'));
   // ADD DECK : de meme, a gauche de sa touche
   const ad = DJ_KEYS.find((k) => k.target.kind === 'adddeck');
-  if (ad) texts.push({ text: 'ADD DECK', x: ad.x - ux - ad.w / 2 - 0.14, z: ad.z, cap: 0.11, weight: 700, ink: 'orange', alpha: 1, align: 'right' });
+  if (ad) texts.push(keyName(ad, 'ADD DECK'));
   return { texts, lines, brackets };
 }
 
@@ -203,6 +212,8 @@ export interface SilkSpec {
   x: number;
   items(): { texts: Text[]; lines: Line[]; brackets: Bracket[] };
   logo: { h: number; z: number };
+  /** sa profondeur (par defaut celle d'un bloc du MM-DECKS ; le MM-SMPL en hauteur au telephone est plus profond) */
+  d?: number;
 }
 
 const specOf = (u: DjUnit): SilkSpec => ({
@@ -211,7 +222,7 @@ const specOf = (u: DjUnit): SilkSpec => ({
   x: UNIT_X[u],
   items: () => (u === 'a' || u === 'b' || u === 'c' || u === 'd' ? deckItems(u) : mixItems()),
   // Platine : plus petit et plus haut, au-dessus du cadre de l'ecran
-  logo: u === 'mix' ? { h: 0.42, z: MIX.head.z } : { h: DECK.logo.h, z: DECK.logo.z },
+  logo: u === 'mix' && !PORTRAIT ? { h: 0.42, z: MIX.head.z } : { h: DECK.logo.h, z: DECK.logo.z },
 });
 
 export class DjSilk {
@@ -222,6 +233,7 @@ export class DjSilk {
   private W: number;
   private H: number;
   private w: number;
+  private d: number;
   private ppu: number;
   private spec: SilkSpec;
   draws = 0;
@@ -231,8 +243,9 @@ export class DjSilk {
     this.spec = typeof unit === 'string' ? specOf(unit) : unit;
     this.ppu = mobile ? 130 : 150;
     this.w = this.spec.w;
+    this.d = this.spec.d ?? DJ_UNIT.d;
     this.W = Math.round(this.w * this.ppu);
-    this.H = Math.round(DJ_UNIT.d * this.ppu);
+    this.H = Math.round(this.d * this.ppu);
     this.canvas = document.createElement('canvas');
     this.canvas.width = this.W;
     this.canvas.height = this.H;
@@ -240,7 +253,7 @@ export class DjSilk {
     if (!ctx) throw new Error('dj: no 2d context');
     this.ctx = ctx as Ctx;
     this.texture = makeCanvasTexture(this.canvas, anisotropy);
-    const geo = new PlaneGeometry(this.w, DJ_UNIT.d);
+    const geo = new PlaneGeometry(this.w, this.d);
     geo.rotateX(-Math.PI / 2);
     const mat = new MeshStandardMaterial({
       map: this.texture,
@@ -272,7 +285,7 @@ export class DjSilk {
   }
 
   private py(z: number): number {
-    return (z + DJ_UNIT.d / 2) * this.ppu;
+    return (z + this.d / 2) * this.ppu;
   }
 
   private scales(items: readonly Text[]): number[] {

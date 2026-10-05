@@ -161,13 +161,9 @@ export const SeqLane: React.FC<LaneProps> = ({ variant }) => {
         <span className="v4-seq-chord" aria-live="polite" aria-label={`Notes shown on ${CHORDS[chord]?.aria ?? ''}`}>
           {label}
         </span>
-        <span className="v4-seq-modes" role="group" aria-label="Sequence source">
-          <button type="button" className="v4-seq-mode" aria-pressed={!s.edit} onClick={() => seq.auto()}>
-            AUTO
-          </button>
-          <button type="button" className="v4-seq-mode" aria-pressed={s.edit} onClick={() => seq.edit(chord)}>
-            EDIT
-          </button>
+        {/* D'ou viennent les notes (2026-10-05 : plus de touches AUTO / EDIT ; dessiner les fait siennes, CLEAR sur la machine rend celles des potards) */}
+        <span className="v4-seq-source" data-edit={s.edit ? '1' : '0'} aria-live="polite">
+          {s.edit ? 'YOUR NOTES' : 'FROM THE KNOBS'}
         </span>
         {rand && <span className="v4-seq-tag">RAND</span>}
         <span className="v4-seq-len" role="group" aria-label="Steps">
@@ -182,7 +178,7 @@ export const SeqLane: React.FC<LaneProps> = ({ variant }) => {
             +
           </button>
         </span>
-        {variant === 'desk' && <span className="v4-seq-hint">Drag to draw the notes. Tap a note name for a rest.</span>}
+        {variant === 'desk' && <span className="v4-seq-hint">Drag to draw the notes. Tap a note name for a rest. CLEAR on the machine: back to the knobs.</span>}
         <button type="button" className="v4-seq-done" aria-label="Close the sequence editor" onClick={() => editor.close()}>
           DONE
         </button>

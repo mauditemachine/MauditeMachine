@@ -66,7 +66,9 @@ export function padHit(inst: Inst, stage: Stage | null): void {
     stage?.pads.press(inst);
     return;
   }
-  trigger(inst);
+  // En lecture (2026-10-05, Mika : "quand RYTM est sur RUN, cliquer sur une voix ne doit pas la jouer, juste la
+  // selectionner") : la voix est choisie, sans coup ; a l'arret, elle sonne comme avant
+  if (!clock.running) trigger(inst);
   selectVoice(inst);
   touchedVoice(inst);
   stage?.pads.press(inst);
@@ -613,8 +615,14 @@ export function voyPad(i: number, stage: Stage | null = null): void {
 /** CLEAR : plus d'accord, l'arpege s'arrete. */
 export function voyClear(stage: Stage | null = null): void {
   resume();
-  arp.clear();
   stage?.voy?.keys.pressButton('clear');
+  // EDIT ouvert (2026-10-05, plus de touches AUTO / EDIT dans la page) : CLEAR rend la suite des potards
+  if (editor.get() === 'voy') {
+    seq.auto();
+    voyMsg.show('NOTES FROM THE KNOBS');
+    return;
+  }
+  arp.clear();
   voyMsg.show('CLEARED');
 }
 

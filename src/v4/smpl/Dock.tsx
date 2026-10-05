@@ -41,11 +41,12 @@ const PAGES: readonly { id: Page; label: string }[] = [
   { id: 'grain', label: SMPL_ROW_NAMES[1] },
 ];
 
+/** Replie par defaut, comme les Docks du MM-RYTM et du MM-ARP (2026-10-05 : la machine en hauteur se joue elle-meme). */
 function readOpen(): boolean {
   try {
-    return window.localStorage.getItem(OPEN_KEY) !== 'closed';
+    return window.localStorage.getItem(OPEN_KEY) === 'open';
   } catch {
-    return true;
+    return false;
   }
 }
 

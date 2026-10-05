@@ -335,8 +335,6 @@ const DjBrowser = lazy(() =>
 );
 /** Les jumeaux HTML du MM-DECKS (clavier, lecteurs d'ecran), charges a part eux aussi. */
 const DjTwins = lazy(() => import('./dj/Twins'));
-/** Le Dock du MM-DECKS au telephone : tous les reglages de la table en gros (2026-10-04) */
-const DjMixDock = lazy(() => import('./dj/MixDock'));
 /** Le MM-SMPL (2026-10-04) : ses jumeaux (et son clavier), son Dock au telephone */
 const SmplTwins = lazy(() => import('./smpl/Twins'));
 const SmplDock = lazy(() => import('./smpl/Dock'));
@@ -533,12 +531,7 @@ const V4Shell: React.FC = () => {
           {mobile && machineFocus !== 'voy' && machineFocus !== 'dj' && machineFocus !== 'smpl' && editorOpen !== 'mm808' && <Dock getStage={getStage} />}
           {/* Le Voyager a le sien au telephone : accords, octave, arpege en gros boutons */}
           {mobile && VOYAGER && machineFocus === 'voy' && editorOpen !== 'voy' && <VoyDock getStage={getStage} />}
-          {/* Le MM-DECKS aussi : la languette MIXER, tous les potards de la table en gros */}
-          {mobile && DJ && machineFocus === 'dj' && (
-            <Suspense fallback={null}>
-              <DjMixDock getStage={getStage} />
-            </Suspense>
-          )}
+          {/* Le MM-DECKS n'en a plus (2026-10-05, Mika : "le bouton MIXER ne sert a rien") : la table tient dans l'ecran */}
           {/* Le MM-SMPL : ses seize pads et ses potards en gros */}
           {mobile && SMPL && machineFocus === 'smpl' && (
             <Suspense fallback={null}>

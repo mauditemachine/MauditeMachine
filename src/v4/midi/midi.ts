@@ -27,11 +27,16 @@
  *   pendant qu'on tourne le potard (300 ms).
  * Retenu dans le navigateur (mm.v4.midi.1) ; le panneau exporte et importe
  * les assignations en JSON.
+ * - La carte du Roto-Control (2026-10-05, midi/roto.ts) : cinq setups tout
+ *   faits (RYTM, ARP, DECK, MIXER, SMPL, chacun son canal) ; allumee, un
+ *   message sans assignation apprise va a la cible de la carte, et les
+ *   potards motorises de toute sortie dont le nom contient "roto" suivent.
  */
 
 import { djLoad } from '../state/djload';
 import { focus } from '../state/focus';
 import { smplLoad } from '../state/smplload';
+import { rotoFeedbackKeys, rotoTarget } from './roto';
 import { prefixOf, targetOf, type MidiTarget, type TargetScope } from './targets';
 
 export type MidiKind = 'cc' | 'note' | 'pb';
@@ -66,6 +71,8 @@ export interface MidiView {
   maps: MidiMaps;
   /** renvoyer les valeurs vers le controleur */
   feedback: boolean;
+  /** la carte du Roto-Control (midi/roto.ts) */
+  roto: boolean;
 }
 
 const STORE_KEY = 'mm.v4.midi.1';
@@ -94,10 +101,11 @@ interface Saved {
   maps: MidiMaps;
   devices: string[];
   feedback: boolean;
+  roto: boolean;
 }
 
 function readSaved(): Saved {
-  const empty: Saved = { on: false, maps: {}, devices: [], feedback: true };
+  const empty: Saved = { on: false, maps: {}, devices: [], feedback: true, roto: true };
   try {
     const raw = JSON.parse(window.localStorage.getItem(STORE_KEY) ?? 'null') as Partial<Saved> | null;
     if (!raw || typeof raw !== 'object') return empty;
@@ -106,6 +114,7 @@ function readSaved(): Saved {
       maps: cleanMaps(raw.maps),
       devices: Array.isArray(raw.devices) ? raw.devices.filter((d): d is string => typeof d === 'string').slice(0, 16) : [],
       feedback: raw.feedback !== false,
+      roto: raw.roto !== false,
     };
   } catch {
     return empty;
@@ -125,8 +134,8 @@ function cleanMaps(raw: unknown): MidiMaps {
   return out;
 }
 
-const saved = typeof window === 'undefined' ? { on: false, maps: {}, devices: [], feedback: true } : readSaved();
-let view: MidiView = { status: 'off', inputs: [], devices: saved.devices, learn: false, pick: null, last: null, maps: saved.maps, feedback: saved.feedback };
+const saved: Saved = typeof window === 'undefined' ? { on: false, maps: {}, devices: [], feedback: true, roto: true } : readSaved();
+let view: MidiView = { status: 'off', inputs: [], devices: saved.devices, learn: false, pick: null, last: null, maps: saved.maps, feedback: saved.feedback, roto: saved.roto };
 const listeners = new Set<() => void>();
 let wantOn = saved.on;
 
@@ -137,7 +146,7 @@ function set(next: Partial<MidiView>): void {
 
 function save(): void {
   try {
-    window.localStorage.setItem(STORE_KEY, JSON.stringify({ on: wantOn, maps: view.maps, devices: [...view.devices], feedback: view.feedback } satisfies Saved));
+    window.localStorage.setItem(STORE_KEY, JSON.stringify({ on: wantOn, maps: view.maps, devices: [...view.devices], feedback: view.feedback, roto: view.roto } satisfies Saved));
   } catch {
     /* stockage plein ou refuse : les assignations valent pour la visite */
   }
@@ -229,7 +238,8 @@ function resolve(key: string): string | null {
     const t = maps[s]?.[key];
     if (t) return t;
   }
-  return null;
+  // La carte du Roto-Control : apres ce qu'on a appris
+  return view.roto ? rotoTarget(key) : null;
 }
 
 /** Une cible d'une machine chargee a part : son code arrive, puis le message repart. */
@@ -345,7 +355,8 @@ function outputsForFeedback(): MIDIOutput[] {
   const want = new Set(view.devices.map(normName));
   const out: MIDIOutput[] = [];
   access.outputs.forEach((o) => {
-    if (o.name && want.has(normName(o.name))) out.push(o);
+    // Les appareils qui ont appris ; avec la carte, le Roto-Control (son nom contient "roto")
+    if (o.name && (want.has(normName(o.name)) || (view.roto && /roto/i.test(o.name)))) out.push(o);
   });
   return out;
 }
@@ -372,6 +383,7 @@ function feedbackTick(): void {
   const now = performance.now();
   const keys = new Set<string>();
   for (const s of SCOPES) for (const k of Object.keys(view.maps[s] ?? {})) keys.add(k);
+  if (view.roto) for (const k of rotoFeedbackKeys()) keys.add(k);
   for (const key of keys) {
     if (key.startsWith('note:')) continue;
     if (now - (touchedAt.get(key) ?? -Infinity) < TOUCH_HOLD_MS) continue;
@@ -398,6 +410,13 @@ function startFeedback(): void {
 function stopFeedback(): void {
   window.clearInterval(timer);
   timer = 0;
+}
+
+/** La carte du Roto-Control, allumee ou eteinte. */
+export function rotoToggle(on = !view.roto): void {
+  set({ roto: on });
+  save();
+  resendAll();
 }
 
 export function feedbackToggle(on = !view.feedback): void {

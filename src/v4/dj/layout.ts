@@ -9,10 +9,15 @@
  * envoie ceux-la au MM-ARP).
  */
 
+import { PORTRAIT } from '../theme';
 import { DECK, DJ_CHANNELS, DJ_DECKS, DJ_DECKS_MAX, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_KNOB, DJ_TIMES, MIX, UNIT_X, djDecks, mixWidth, timeLabel, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
-/** fxto : FX TO, la voie qui recoit les effets (ou toutes), un selecteur a crans */
-export type DjKnobTarget = { kind: 'eq'; ch: DjChannel; eq: DjEqId } | { kind: 'fx'; fx: DjFxId } | { kind: 'fxto' } | { kind: 'master' };
+/**
+ * fxto : FX TO, la voie qui recoit les effets (ou toutes), un selecteur a
+ * crans ; vol : le volume d'une voie en potard (au telephone tenu droit, a
+ * la place de son fader)
+ */
+export type DjKnobTarget = { kind: 'eq'; ch: DjChannel; eq: DjEqId } | { kind: 'vol'; ch: DjChannel } | { kind: 'fx'; fx: DjFxId } | { kind: 'fxto' } | { kind: 'master' };
 
 export interface DjKnobSpec {
   id: string;
@@ -92,8 +97,14 @@ export const djKnob = (id: string): DjKnobSpec | undefined => knobMap.get(id);
 export const djFader = (id: string): DjFaderSpec | undefined => faderMap.get(id);
 export const djKey = (id: string): DjKeySpec | undefined => keyMap.get(id);
 
-/** Le libelle d'un potard se pose au-dessus de sa jupe. */
-export const knobLabelZ = (k: DjKnobSpec): number => k.z - DJ_KNOB.skirt.r * k.s - 0.12;
+/** Le libelle d'un potard se pose au-dessus de sa jupe (tenu droit, un peu plus haut : la vue plonge moins, le capuchon le cachait). */
+export const knobLabelZ = (k: DjKnobSpec): number => k.z - DJ_KNOB.skirt.r * k.s - (PORTRAIT ? 0.2 : 0.12);
+
+/** La place du i-eme potard de la rangee des effets (FX TO le dernier) : une rangee, ou deux de quatre tenu droit. */
+function fxAt(i: number): { x: number; z: number } {
+  if (PORTRAIT) return { x: MIX.fxX0 + (i % 4) * MIX.fxPitch, z: MIX.fxZ + Math.floor(i / 4) * MIX.fxRowDz };
+  return { x: MIX.fxX0 + i * MIX.fxPitch, z: MIX.fxZ };
+}
 
 function buildKnobs(): DjKnobSpec[] {
   const knobs: DjKnobSpec[] = [];
@@ -112,13 +123,16 @@ function buildKnobs(): DjKnobSpec[] {
         idle: false,
       });
     });
+    // Au telephone tenu droit, le volume de la voie en potard, sous FILTER ; l'id du fader (MIDI, Roto-Control)
+    if (PORTRAIT) knobs.push({ id: `dj-ch${i + 1}-fader`, label: 'VOLUME', x: UNIT_X.mix + cx, z: MIX.vol.z, s: MIX.vol.s, bipolar: false, target: { kind: 'vol', ch }, idle: false });
   });
   DJ_FX.forEach((f, i) => {
+    const at = fxAt(i);
     knobs.push({
       id: `dj-fx-${f}`,
       label: DJ_FX_LABEL[f],
-      x: UNIT_X.mix + MIX.fxX0 + i * MIX.fxPitch,
-      z: MIX.fxZ,
+      x: UNIT_X.mix + at.x,
+      z: at.z,
       s: MIX.sFx,
       bipolar: false,
       target: { kind: 'fx', fx: f },
@@ -126,14 +140,16 @@ function buildKnobs(): DjKnobSpec[] {
     });
   });
   // FX TO (2026-10-04, Mika : "un knob qui selectionne la piste de destination, ou alors toutes les pistes")
-  knobs.push({ id: 'dj-fxto', label: 'FX TO', x: UNIT_X.mix + MIX.fxX0 + DJ_FX.length * MIX.fxPitch, z: MIX.fxZ, s: MIX.sFx, bipolar: false, target: { kind: 'fxto' }, idle: false });
+  const to = fxAt(DJ_FX.length);
+  knobs.push({ id: 'dj-fxto', label: 'FX TO', x: UNIT_X.mix + to.x, z: to.z, s: MIX.sFx, bipolar: false, target: { kind: 'fxto' }, idle: false });
   knobs.push({ id: 'dj-master', label: 'MASTER', x: UNIT_X.mix + MIX.masterX, z: MIX.master.z, s: MIX.master.s, bipolar: false, target: { kind: 'master' }, idle: false });
   return knobs;
 }
 
 function buildFaders(): DjFaderSpec[] {
   const faders: DjFaderSpec[] = [];
-  MIX.cols.forEach((cx, i) => {
+  // Tenu droit, les voies n'ont plus de fader (leur volume est un potard)
+  if (!PORTRAIT) MIX.cols.forEach((cx, i) => {
     faders.push({
       id: `dj-ch${i + 1}-fader`,
       label: `CH ${i + 1}`,
@@ -208,12 +224,13 @@ function buildKeys(): DjKeySpec[] {
   // PLAY/STOP des machines, sous le VU du master
   const P = MIX.play;
   keys.push({ id: 'dj-machines', label: 'PLAY', x: UNIT_X.mix + MIX.masterX, z: P.z, w: 2 * P.r, d: 2 * P.r, round: true, target: { kind: 'machines' } });
-  // LOOP > SMPL, dans l'en-tete de la table
+  // LOOP > SMPL, dans l'en-tete de la table (tenu droit : la colonne du MASTER)
+  const rightX = (dx: number): number => UNIT_X.mix + (MIX.keysInMaster ? MIX.masterX : mixWidth(DJ_CHANNELS) / 2 - dx);
   const X = MIX.export;
-  keys.push({ id: 'dj-export', label: 'EXPORT', x: UNIT_X.mix + mixWidth(DJ_CHANNELS) / 2 - X.dx, z: X.z, w: X.w, d: X.d, round: false, target: { kind: 'export' } });
-  // ADD DECK, a sa gauche, tant qu'il reste une place
+  keys.push({ id: 'dj-export', label: 'EXPORT', x: rightX(X.dx), z: X.z, w: X.w, d: X.d, round: false, target: { kind: 'export' } });
+  // ADD DECK, a sa gauche (tenu droit : au-dessus), tant qu'il reste une place
   const A = MIX.add;
-  if (DJ_DECKS.length < DJ_DECKS_MAX) keys.push({ id: 'dj-adddeck', label: 'ADD', x: UNIT_X.mix + mixWidth(DJ_CHANNELS) / 2 - A.dx, z: A.z, w: A.w, d: A.d, round: false, target: { kind: 'adddeck' } });
+  if (DJ_DECKS.length < DJ_DECKS_MAX) keys.push({ id: 'dj-adddeck', label: 'ADD', x: rightX(A.dx), z: A.z, w: A.w, d: A.d, round: false, target: { kind: 'adddeck' } });
   // PLAYLIST est parti : la liste des morceaux est dans l'ecran de chaque platine
   return keys;
 }

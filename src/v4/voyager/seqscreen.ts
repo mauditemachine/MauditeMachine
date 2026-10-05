@@ -7,8 +7,10 @@
  * cadre noir, son verre), toute la largeur des pads :
  * - en haut, les huit accords (celui qu'on regarde en negatif ; celui qui
  *   joue souligne en jaune ; ceux de la progression marques d'un point
- *   orange : les toucher choisit l'accord dont on lit les notes), AUTO et
- *   EDIT (la suite des potards, ou la sienne), STEPS - n + ;
+ *   orange : les toucher choisit l'accord dont on lit les notes), d'ou
+ *   viennent les notes (FROM THE KNOBS, ou YOUR NOTES des qu'on dessine ;
+ *   2026-10-05, Mika : plus de touches AUTO / EDIT dans la page, CLEAR sur la
+ *   machine rend la suite des potards), STEPS - n + ;
  * - au milieu, une colonne par pas : une barre, sa hauteur sa note (une
  *   octave sous la racine a trois au-dessus) ; les notes de l'accord en or,
  *   les autres en os ; des filets aux notes de l'accord (plus forts a ses
@@ -56,7 +58,7 @@ const YELLOW = '#FFD60A';
 const ORANGE = '#FF6A13';
 
 /** Ce qu'un toucher vise sur l'ecran. */
-type Hit = { kind: 'chord'; i: number } | { kind: 'auto' } | { kind: 'edit' } | { kind: 'minus' } | { kind: 'plus' } | { kind: 'lane' } | { kind: 'name'; i: number } | null;
+type Hit = { kind: 'chord'; i: number } | { kind: 'minus' } | { kind: 'plus' } | { kind: 'lane' } | { kind: 'name'; i: number } | null;
 
 export class VoySeqScreen {
   readonly group = new Group();
@@ -69,7 +71,7 @@ export class VoySeqScreen {
   private W: number;
   private H: number;
   /** la boite du haut, les colonnes, les noms (px de la texture) */
-  private L: { top: number; lane0: number; lane1: number; names0: number; x0: number; x1: number; tabs: { x: number; w: number }[]; auto: { x: number; w: number }; edit: { x: number; w: number }; minus: { x: number; w: number }; plus: { x: number; w: number } };
+  private L: { top: number; lane0: number; lane1: number; names0: number; x0: number; x1: number; tabs: { x: number; w: number }[]; source: { x: number; w: number }; minus: { x: number; w: number }; plus: { x: number; w: number } };
   private shown = false;
   private riseFrom = 0;
   private rise = 0;
@@ -129,8 +131,7 @@ export class VoySeqScreen {
       x0: pad,
       x1: W - pad,
       tabs,
-      auto: { x: after, w: modeW },
-      edit: { x: after + modeW + 6, w: modeW },
+      source: { x: after, w: 2 * modeW + 6 },
       minus: { x: after + 2 * modeW + 40, w: nudgeW },
       plus: { x: after + 2 * modeW + 40 + nudgeW + Math.round(W * 0.07), w: nudgeW },
     };
@@ -248,9 +249,12 @@ export class VoySeqScreen {
       c.textAlign = 'center';
       c.fillText(text, box.x + box.w / 2, ty + 2);
     };
+    // D'ou viennent les notes : un mot, pas une touche
+    c.font = `800 ${Math.round(L.top * 0.28)}px ${FONT_DISPLAY}`;
+    c.textAlign = 'center';
+    c.fillStyle = s.edit ? YELLOW : DIM;
+    c.fillText(s.edit ? 'YOUR NOTES' : 'FROM THE KNOBS', L.source.x + L.source.w / 2, ty + 2);
     c.font = `800 ${Math.round(L.top * 0.32)}px ${FONT_DISPLAY}`;
-    chip(L.auto, 'AUTO', !s.edit, true);
-    chip(L.edit, 'EDIT', s.edit, true);
     chip(L.minus, '-', false);
     chip(L.plus, '+', false);
     c.fillStyle = BONE;
@@ -263,7 +267,7 @@ export class VoySeqScreen {
     c.fillText('STEPS', mid + 40, ty + 2);
     c.textAlign = 'right';
     c.font = `600 ${Math.round(L.top * 0.24)}px ${FONT_MONO}`;
-    c.fillText(s.edit ? 'DRAG TO DRAW  /  TAP A NOTE: REST' : 'DRAW TO MAKE IT YOURS', L.x1, ty + 2);
+    c.fillText(s.edit ? 'TAP A NOTE: REST  /  CLEAR: THE KNOBS' : 'DRAG TO DRAW YOUR NOTES', L.x1, ty + 2);
     // Les colonnes
     const n = Math.max(1, steps.length);
     const cw = (L.x1 - L.x0) / SEQ_MAX;
@@ -332,8 +336,6 @@ export class VoySeqScreen {
     const inside = (b: { x: number; w: number }): boolean => x >= b.x - 6 && x <= b.x + b.w + 6;
     if (y < L.top) {
       for (let i = 0; i < L.tabs.length; i += 1) if (inside(L.tabs[i])) return { kind: 'chord', i };
-      if (inside(L.auto)) return { kind: 'auto' };
-      if (inside(L.edit)) return { kind: 'edit' };
       if (inside(L.minus)) return { kind: 'minus' };
       if (inside(L.plus)) return { kind: 'plus' };
       return null;
@@ -369,9 +371,7 @@ export class VoySeqScreen {
     if (h.kind === 'chord') {
       this.view = this.view === h.i ? null : h.i;
       this.key = '';
-    } else if (h.kind === 'auto') seq.auto();
-    else if (h.kind === 'edit') seq.edit(chord);
-    else if (h.kind === 'minus' || h.kind === 'plus') {
+    } else if (h.kind === 'minus' || h.kind === 'plus') {
       gesture();
       seq.setLen(chord, Math.min(seq.shown(chord).length, SEQ_MAX) + (h.kind === 'plus' ? 1 : -1));
     } else if (h.kind === 'name') {

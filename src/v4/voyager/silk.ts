@@ -97,7 +97,8 @@ function knobTexts(where: VoySilkKind): Text[] {
     if (p.where !== where) continue;
     // Le nom sur la machine (les rangees d'oscillateurs : WAVEFORM, RANGE, SEMI, FINE ; ON : son nom sous le commutateur)
     const name = isOscOn(k.id) ? 'ON' : k.face ?? k.label;
-    if (name) out.push({ text: name, x: p.x, z: p.labelZ, cap: 0.068 * K, maxW: PORTRAIT ? 0.8 : 0.76, group: 'knob' });
+    // Au telephone tenu droit (2026-10-05, Mika : "trop difficile a lire") : des noms plus gros, un corps par rangee
+    if (name) out.push({ text: name, x: p.x, z: p.labelZ, cap: PORTRAIT ? 0.1 : 0.068, maxW: PORTRAIT ? 0.84 : 0.76, group: PORTRAIT ? `knob${Math.round(p.labelZ * 4)}` : 'knob' });
     // Commutateur : ses positions ecrites au bout de leur repere (MOOG, 12, BP, HP) ; ON : sa LED les dit
     const steps = k.steps;
     if (isSwitch(k.id) && steps && !isOscOn(k.id)) {
@@ -150,7 +151,7 @@ function deckTexts(open: boolean): Text[] {
       text: label,
       x: b.x,
       z: b.z + b.d / 2 + VOY_BUTTON.labelGap,
-      cap: 0.08 * K,
+      cap: PORTRAIT ? 0.12 : 0.08,
       weight: nav ? 700 : SILK.weight,
       ink: nav ? 'orange' : 'bone',
       alpha: nav ? 1 : SILK.alpha,

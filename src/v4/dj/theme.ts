@@ -83,9 +83,15 @@ export let DJ_UNITS_ON: readonly DjUnit[] = ['a', 'mix', 'b'];
 export let DJ_VIEW_UNITS: readonly DjUnit[] = ['a', 'mix', 'b'];
 /** Le nombre de voies de la table : le MM-RYTM, le MM-ARP, puis une par platine. */
 export let DJ_CHANNELS = 4;
-/** La table s'elargit d'une colonne par voie en plus. */
-export const MIX_COL = 1.45;
-export const mixWidth = (channels: number): number => DJ_UNIT.mixW + (channels - 4) * MIX_COL;
+/**
+ * La table s'elargit d'une colonne par voie en plus. Au telephone tenu
+ * droit (2026-10-05, Mika : "redesign le MIXER en mobile, ca doit rentrer
+ * dans la fenetre") : a quatre voies, la largeur d'une platine, en une
+ * seule vue ; des colonnes plus serrees.
+ */
+export const MIX_COL = PORTRAIT ? 1.08 : 1.45;
+const MIX_W4 = PORTRAIT ? DJ_UNIT.deckW : DJ_UNIT.mixW;
+export const mixWidth = (channels: number): number => MIX_W4 + (channels - 4) * MIX_COL;
 
 /** Centre de chaque bloc pose (repere du rig : 0 au milieu de l'ensemble). */
 export const UNIT_X: Record<DjUnit, number> = { a: 0, b: 0, c: 0, d: 0, mix: 0, mix1: 0, mix2: 0, mix3: 0, add: 0 };
@@ -131,9 +137,9 @@ function place(n: number): void {
   DJ_DECKS = DJ_DECKS_ALL.slice(0, n);
   DJ_CHANNELS = 2 + n;
   DJ_UNITS_ON = ['a', 'mix', ...DJ_DECKS.slice(1)];
-  // Au telephone, la table se voit en deux ou trois vues, de gauche a droite
+  // Au telephone couche, la table se voit en deux ou trois vues, de gauche a droite ; tenu droit, en une
   mixViews = Math.min(MIX_VIEWS.length, Math.max(2, Math.ceil(mixWidth(DJ_CHANNELS) / MIX_VIEW)));
-  const views: DjUnit[] = [...MIX_VIEWS.slice(0, mixViews)];
+  const views: DjUnit[] = PORTRAIT ? ['mix'] : [...MIX_VIEWS.slice(0, mixViews)];
   DJ_VIEW_UNITS = DJ_UNITS_ON.flatMap((u): DjUnit[] => (u === 'mix' ? views : [u]));
   const widths = DJ_UNITS_ON.map(unitW);
   DJ_W = widths.reduce((a, w) => a + w, 0) + (widths.length - 1) * DJ_UNIT.gap;
@@ -324,35 +330,46 @@ export const MIX = {
   /** colonnes des voies et MASTER : recalcules par placeMix */
   cols: [] as number[],
   masterX: 0,
-  numZ: -2.2,
-  rows: [-1.5, -0.64, 0.24, 1.12, 1.98] as readonly number[],
+  numZ: PORTRAIT ? -0.42 : -2.2,
+  rows: (PORTRAIT ? [0.45, 1.33, 2.21, 3.09, 3.97] : [-1.5, -0.64, 0.24, 1.12, 1.98]) as readonly number[],
+  /**
+   * Au telephone tenu droit, le volume de la voie est un potard sous FILTER
+   * (Mika, 2026-10-05 : "au pire mets des rotary au lieu des faders, qui
+   * sont d'ailleurs longs") ; il garde l'id du fader (MIDI, Roto-Control).
+   */
+  vol: { z: 4.85, s: 1.15 },
   /**
    * echelle des potards : GAIN et FILTER, les trois EQ un peu plus gros
    * (Mika, 2026-10-03 : "pas trop non plus" ; 2026-10-04 : "les knobs je les
    * veux plus gros")
    */
   sGain: 1.0,
-  sEq: 1.15,
-  /** effets : rangee sous l'ecran */
-  fxZ: -3.0,
+  sEq: PORTRAIT ? 1.1 : 1.15,
+  /**
+   * effets : rangee sous l'ecran ; au telephone tenu droit, deux rangees de
+   * quatre (FX TO la derniere), plus gros (Mika, 2026-10-05 : "les knobs FX
+   * sont trop petits") ; fxRowDz : l'ecart des deux rangees
+   */
+  fxZ: PORTRAIT ? -2.55 : -3.0,
+  fxRowDz: 1.1,
   fxX0: 0,
   fxPitch: 1.1,
-  sFx: 0.95,
-  master: { z: -1.45, s: 1.25 },
+  sFx: PORTRAIT ? 1.25 : 0.95,
+  master: PORTRAIT ? { z: 0.6, s: 1.15 } : { z: -1.45, s: 1.25 },
   /** ecran des effets et touches de temps */
-  screen: { x: 0, z: -4.25, w: 3.9, d: 0.95 },
-  times: { x0: 0, pitch: 0.6, z: -4.1, w: 0.5, d: 0.34 },
+  screen: PORTRAIT ? { x: 0, z: -4.42, w: 5.5, d: 0.66 } : { x: 0, z: -4.25, w: 3.9, d: 0.95 },
+  times: PORTRAIT ? { x0: 0, pitch: 0.9, z: -3.55, w: 0.7, d: 0.32 } : { x0: 0, pitch: 0.6, z: -4.1, w: 0.5, d: 0.34 },
   /** faders de voie : fente de z0 a z1 (plus longue depuis que le crossfader est parti) ; VU a cote */
   fader: { z0: 2.62, z1: 5.0 },
-  vu: { dx: 0.5, z0: -1.45, z1: 1.95, n: 15, w: 0.14, d: 0.16 },
+  vu: PORTRAIT ? { dx: 0.42, z0: 0.25, z1: 3.65, n: 15, w: 0.14, d: 0.16 } : { dx: 0.5, z0: -1.45, z1: 1.95, n: 15, w: 0.14, d: 0.16 },
   /** VU du master (deux colonnes) ; raccourci pour PLAY dessous */
-  masterVu: { z0: -0.6, z1: 3.55, dx: 0.17 },
+  masterVu: PORTRAIT ? { z0: 1.15, z1: 2.5, dx: 0.17 } : { z0: -0.6, z1: 3.55, dx: 0.17 },
   /**
    * PLAY/STOP des machines (2026-10-04, Mika : "un bouton playstop dans le
    * mixer, bien place, pas trop imposant") : sous le VU du master, plus
    * petit que le PLAY d'une platine, son nom (RYTM + ARP) au-dessus
    */
-  play: { z: 4.62, r: 0.36, labelZ: 3.98 },
+  play: PORTRAIT ? { z: 3.25, r: 0.34, labelZ: 2.8 } : { z: 4.62, r: 0.36, labelZ: 3.98 },
   /** l'en-tete (MIXER), a la hauteur de celui des platines */
   head: { z: -5.19 },
   /**
@@ -361,7 +378,7 @@ export const MIX = {
    * sample") : dans l'en-tete, a gauche du logotype, comme REMOVE DECK sur
    * une platine ; dx : son centre depuis le bord droit de la table
    */
-  export: { dx: 1.62, z: -5.19, w: 0.72, d: 0.28 },
+  export: PORTRAIT ? { dx: 0, z: 4.82, w: 0.72, d: 0.3 } : { dx: 1.62, z: -5.19, w: 0.72, d: 0.28 },
   /**
    * ADD DECK (2026-10-05, Mika : "quand on pose la souris sur le bord du
    * deck B pour voir ce qu'il y a a droite, c'est trop fragile, on clique
@@ -370,13 +387,28 @@ export const MIX = {
    * son nom prend la place du sous-titre. dx : son centre depuis le bord
    * droit de la table
    */
-  add: { dx: 4.2, z: -5.19, w: 0.72, d: 0.28 },
+  add: PORTRAIT ? { dx: 0, z: 4.12, w: 0.72, d: 0.3 } : { dx: 4.2, z: -5.19, w: 0.72, d: 0.28 },
+  /**
+   * Au telephone tenu droit, l'en-tete n'a plus la place : ADD DECK et LOOP >
+   * SMPL descendent dans la colonne du MASTER, sous PLAY, leur nom au-dessus.
+   */
+  keysInMaster: PORTRAIT,
 };
 
 /** Les colonnes de la table pour n voies (repere du bloc). */
 function placeMix(n: number): void {
   const w = mixWidth(n);
   const L = -w / 2;
+  if (PORTRAIT) {
+    // Tenu droit : les voies a gauche, le MASTER a droite ; les effets en deux rangees de quatre sur toute la largeur
+    MIX.cols = Array.from({ length: n }, (_, i) => L + 0.55 + i * MIX_COL);
+    MIX.masterX = MIX.cols[n - 1] + 1.41;
+    MIX.fxPitch = w / 4;
+    MIX.fxX0 = L + w / 8;
+    MIX.screen.x = 0;
+    MIX.times.x0 = (-(DJ_TIMES.length - 1) * MIX.times.pitch) / 2;
+    return;
+  }
   const mid = (w - DJ_UNIT.mixW) / 2;
   MIX.cols = Array.from({ length: n }, (_, i) => L + 1.1 + i * MIX_COL);
   MIX.masterX = MIX.cols[n - 1] + 1.7;

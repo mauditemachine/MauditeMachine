@@ -28,8 +28,15 @@ import { PORTRAIT } from '../theme';
 import { VOY_BODY, VOY_X } from '../voyager/theme';
 import type { SmplKnobId } from './params';
 
-export const SMPL_W = 12.4;
-export const SMPL_D = 7.6;
+/**
+ * Au telephone (2026-10-05, Mika : "la vue mobile du SMPL ne fonctionne pas,
+ * je veux la meme forme que les deux autres") : un bloc en hauteur comme le
+ * MM-RYTM et le MM-ARP (PORTRAIT) : l'ecran sur toute la largeur, les douze
+ * potards en trois rangees de quatre, les touches en deux rangees de six,
+ * les seize trigs dessous en deux rangees de huit.
+ */
+export const SMPL_W = PORTRAIT ? 8.6 : 12.4;
+export const SMPL_D = PORTRAIT ? 12.4 : 7.6;
 /** Le jour avec la machine de gauche : celui du MM-DECKS avec le MM-ARP. */
 const GAP = PORTRAIT ? 1.8 : 2.6;
 
@@ -50,27 +57,36 @@ export const SMPL_FRAME = { h: SMPL_D + 0.5, targetY: 1.3 } as const;
  * plus larges qu'en ligne, a la souris comme au doigt. Pas d'une colonne,
  * jour en plus au milieu, les deux rangees.
  */
-const TRIG = { pitch: 1.34, group: 0.12, zs: [1.3, 2.46] as readonly number[], w: 1.08, d: 0.8, h: 1.15 } as const;
+const TRIG = PORTRAIT
+  ? ({ pitch: 0.97, group: 0.1, zs: [3.95, 5.05] as readonly number[], w: 0.86, d: 0.8, h: 1.15 } as const)
+  : ({ pitch: 1.34, group: 0.12, zs: [1.3, 2.46] as readonly number[], w: 1.08, d: 0.8, h: 1.15 } as const);
 
 export const SMPL = {
-  head: { z: -3.42 },
-  logo: { h: 0.3, z: -3.42 },
+  head: { z: PORTRAIT ? -5.82 : -3.42 },
+  logo: { h: 0.3, z: PORTRAIT ? -5.82 : -3.42 },
   /** l'ecran, et dedans : la bande de texte en haut, la forme d'onde dessous (fractions de sa hauteur) */
-  screen: { x: -1.62, z: -1.86, w: 5.0, d: 2.2, text: 0.24, wave: { v0: 0.3, v1: 0.95, u0: 0.02, u1: 0.98 } },
+  screen: PORTRAIT
+    ? { x: 0, z: -3.98, w: 7.6, d: 2.6, text: 0.24, wave: { v0: 0.3, v1: 0.95, u0: 0.02, u1: 0.98 } }
+    : { x: -1.62, z: -1.86, w: 5.0, d: 2.2, text: 0.24, wave: { v0: 0.3, v1: 0.95, u0: 0.02, u1: 0.98 } },
   /** la bande des pas sous la forme d'onde quand une sequence existe (EDIT) : la forme d'onde finit a wave1 */
   steps: { wave1: 0.7, v0: 0.76, v1: 0.96 },
   /** les touches de fonction : x de la premiere, pas, jours en plus entre les groupes */
-  keys: { z: 0.1, x0: -5.03, pitch: 0.86, gap: 0.3, w: 0.66, d: 0.4 },
+  keys: PORTRAIT ? { z: 1.95, x0: -3.25, pitch: 1.3, gap: 0, w: 1.0, d: 0.44, rowDz: 0.86 } : { z: 0.1, x0: -5.03, pitch: 0.86, gap: 0.3, w: 0.66, d: 0.4, rowDz: 0 },
   /**
    * les potards : a gauche de l'ecran LEVEL et PITCH (ceux qu'on tient en
    * jouant, un peu plus gros) ; a sa droite une grille de deux rangees de
    * cinq, la meme taille pour tous (2026-10-05, Mika : "les trois boutons
    * sont vraiment trop gros et les autres trop petits")
    */
-  knobs: {
-    perf: { x: -5.26, zs: [-2.32, -1.12] as readonly number[], s: 1.1 },
-    grid: { xs: [1.66, 2.6, 3.54, 4.48, 5.42] as readonly number[], zs: [-2.32, -1.12] as readonly number[], s: 0.92 },
-  },
+  knobs: PORTRAIT
+    ? {
+        perf: { x: 0, zs: [] as readonly number[], s: 1.05 },
+        grid: { xs: [-2.85, -0.95, 0.95, 2.85] as readonly number[], zs: [-1.7, -0.4, 0.9] as readonly number[], s: 1.05 },
+      }
+    : {
+        perf: { x: -5.26, zs: [-2.32, -1.12] as readonly number[], s: 1.1 },
+        grid: { xs: [1.66, 2.6, 3.54, 4.48, 5.42] as readonly number[], zs: [-2.32, -1.12] as readonly number[], s: 0.92 },
+      },
   trigs: TRIG,
 } as const;
 
@@ -106,12 +122,25 @@ export const SMPL_KNOB_ROWS: readonly (readonly SmplKnobId[])[] = [
 ];
 export const SMPL_ROW_NAMES = ['SAMPLE', 'GRAIN'] as const;
 
-/** La machine : LEVEL et PITCH a gauche de l'ecran, la grille a sa droite (une rangee par page). */
+/**
+ * La machine : LEVEL et PITCH a gauche de l'ecran, la grille a sa droite
+ * (une rangee par page) ; au telephone, trois rangees de quatre sous
+ * l'ecran (LEVEL et PITCH en tete, toujours en aluminium).
+ */
 export const SMPL_PERF: readonly SmplKnobId[] = ['level', 'pitch'];
-export const SMPL_GRID: readonly (readonly SmplKnobId[])[] = [
-  ['start', 'end', 'attack', 'release', 'filter'],
-  ['position', 'size', 'density', 'spray', 'spread'],
-];
+const PERF_HERO = new Set<SmplKnobId>(SMPL_PERF);
+export const SMPL_GRID: readonly (readonly SmplKnobId[])[] = PORTRAIT
+  ? [
+      ['level', 'pitch', 'start', 'end'],
+      ['attack', 'release', 'filter', 'spread'],
+      ['position', 'size', 'density', 'spray'],
+    ]
+  : [
+      ['start', 'end', 'attack', 'release', 'filter'],
+      ['position', 'size', 'density', 'spray', 'spread'],
+    ];
+/** Les potards dessines a part, a gauche de l'ecran (desktop) ; aucun au telephone (ils sont dans la grille). */
+export const SMPL_PERF_PLACED: readonly SmplKnobId[] = PORTRAIT ? [] : SMPL_PERF;
 
 /** Le capuchon d'un potard : LEVEL et PITCH en aluminium (le repere noir), FILTER en orange, les autres noirs. */
 export type SmplKnobTone = 'knob' | 'ring' | 'hot';
@@ -120,11 +149,11 @@ export const smplKnobTone = (id: SmplKnobId): SmplKnobTone => (id === 'filter' ?
 /** La place d'un potard (repere top du bloc), son echelle (s : le diametre, sy : la hauteur), gros ou non. */
 export function smplKnobAt(id: SmplKnobId): { x: number; z: number; s: number; sy: number; hero: boolean } {
   const K = SMPL.knobs;
-  const p = SMPL_PERF.indexOf(id);
+  const p = SMPL_PERF_PLACED.indexOf(id);
   if (p >= 0) return { x: K.perf.x, z: K.perf.zs[p], s: K.perf.s, sy: K.perf.s * 0.9, hero: true };
   for (let r = 0; r < SMPL_GRID.length; r += 1) {
     const c = SMPL_GRID[r].indexOf(id);
-    if (c >= 0) return { x: K.grid.xs[c], z: K.grid.zs[r], s: K.grid.s, sy: K.grid.s, hero: false };
+    if (c >= 0) return { x: K.grid.xs[c], z: K.grid.zs[r], s: K.grid.s, sy: K.grid.s, hero: PERF_HERO.has(id) };
   }
   return { x: 0, z: 0, s: 1, sy: 1, hero: false };
 }
@@ -135,8 +164,11 @@ export function smplPadAt(i: number): { x: number; z: number } {
   return { x: (c - 3.5) * TRIG.pitch + (c >= 4 ? TRIG.group : -TRIG.group), z: TRIG.zs[i < 8 ? 0 : 1] };
 }
 
-/** La place d'une touche de fonction (un jour de plus apres chaque groupe). */
-export const smplKeyAt = (i: number): { x: number; z: number } => ({
-  x: SMPL.keys.x0 + i * SMPL.keys.pitch + SMPL_KEY_GROUPS.filter((g) => i >= g).length * SMPL.keys.gap,
-  z: SMPL.keys.z,
-});
+/** La place d'une touche de fonction (un jour de plus apres chaque groupe ; au telephone, deux rangees de six). */
+export const smplKeyAt = (i: number): { x: number; z: number } =>
+  PORTRAIT
+    ? { x: SMPL.keys.x0 + (i % 6) * SMPL.keys.pitch, z: SMPL.keys.z + (i < 6 ? 0 : SMPL.keys.rowDz) }
+    : {
+        x: SMPL.keys.x0 + i * SMPL.keys.pitch + SMPL_KEY_GROUPS.filter((g) => i >= g).length * SMPL.keys.gap,
+        z: SMPL.keys.z,
+      };

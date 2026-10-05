@@ -162,6 +162,8 @@ export class DjRig {
         const p = this.prevCh?.[i];
         if (!p || p === c) return;
         for (const e of DJ_EQ) if (c[e.id] !== p[e.id]) this.lastFx = DJ_KNOBS.find((k) => k.target.kind === 'eq' && k.target.ch === i && k.target.eq === e.id) ?? this.lastFx;
+        // Tenu droit, le volume est un potard : l'ecran dit aussi sa valeur
+        if (c.fader !== p.fader) this.lastFx = DJ_KNOBS.find((k) => k.target.kind === 'vol' && k.target.ch === i) ?? this.lastFx;
       });
     }
     this.prevCh = s.ch;
@@ -174,7 +176,7 @@ export class DjRig {
     this.prevFxTo = to;
     DJ_KNOBS.forEach((k, i) => {
       const t = k.target;
-      const v = t.kind === 'eq' ? s.ch[t.ch][t.eq] : t.kind === 'fx' ? s.fx[t.fx] : t.kind === 'fxto' ? fxToValue(to) : s.master;
+      const v = t.kind === 'eq' ? s.ch[t.ch][t.eq] : t.kind === 'vol' ? s.ch[t.ch].fader : t.kind === 'fx' ? s.fx[t.fx] : t.kind === 'fxto' ? fxToValue(to) : s.master;
       if (this.controls.setKnob(i, v)) moved = true;
     });
     DJ_FADERS.forEach((f, i) => {
@@ -357,7 +359,7 @@ export class DjRig {
     const label =
       fx === 'fxto'
         ? `FX TO ${fxToText(to)}`
-        : typeof fx === 'object' && fx && fx.target.kind === 'eq'
+        : typeof fx === 'object' && fx && (fx.target.kind === 'eq' || fx.target.kind === 'vol')
           ? `${fx.target.ch + 1} ${fx.label} ${knobText(fx)}`
           : typeof fx === 'string'
             ? `${DJ_FX_LABEL[fx]} ${Math.round(s.fx[fx] * 100)}%`

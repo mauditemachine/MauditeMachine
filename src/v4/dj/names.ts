@@ -12,6 +12,7 @@ const CH = ['MM-RYTM', 'MM-ARP', 'deck A', 'deck B', 'deck C', 'deck D'] as cons
 export function knobName(k: DjKnobSpec): string {
   const t = k.target;
   if (t.kind === 'eq') return `Channel ${t.ch + 1} (${CH[t.ch]}) ${k.label === 'HI' || k.label === 'MID' || k.label === 'LOW' ? `EQ ${k.label}` : k.label}`;
+  if (t.kind === 'vol') return `Channel ${t.ch + 1} (${CH[t.ch]}) volume`;
   if (t.kind === 'fx') return `Effect ${DJ_FX_LABEL[t.fx]}`;
   if (t.kind === 'fxto') return 'Effects to: all channels, or one channel';
   return 'Master volume';

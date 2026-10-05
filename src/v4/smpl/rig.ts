@@ -27,7 +27,7 @@ import type { HotspotDef, Occluder } from '../scene/hit';
 import { potAngle } from '../scene/encoders';
 import { withRubberLed } from '../scene/materials';
 import { makeBrushTexture, whenFonts } from '../scene/silk';
-import { APPEARANCE } from '../theme';
+import { APPEARANCE, PORTRAIT } from '../theme';
 import { bezel, dc, partDj, power, rca, screw, usb, wedge } from '../dj/body';
 import { DJ_GLOW, keyGeometry, knobGeometry } from '../dj/controls';
 import { DjSilk, headTexts, type Bracket, type Line, type Text } from '../dj/silk';
@@ -38,7 +38,7 @@ import { SmplScreen } from './screen';
 import { SMPL_PADS } from './slices';
 import { smplSeq } from './seq';
 import { padCount, smplState } from './state';
-import { SMPL, SMPL_D, SMPL_GRID, SMPL_KEY_GROUPS, SMPL_KEYS, SMPL_PERF, SMPL_ROW_NAMES, SMPL_W, smplKeyAt, smplKnobAt, smplKnobTone, smplPadAt, smplX, type SmplKeyKind, type SmplKnobTone } from './theme';
+import { SMPL, SMPL_D, SMPL_GRID, SMPL_KEY_GROUPS, SMPL_KEYS, SMPL_PERF_PLACED, SMPL_ROW_NAMES, SMPL_W, smplKeyAt, smplKnobAt, smplKnobTone, smplPadAt, smplX, type SmplKeyKind, type SmplKnobTone } from './theme';
 
 const AXIS_Y = new Vector3(0, 1, 0);
 const m4 = new Matrix4();
@@ -82,7 +82,9 @@ function buildBody(mobile: boolean): BufferGeometry {
   // Derriere : sorties RCA, USB-C, alimentation et interrupteur (vu de derriere, la gauche est a +x),
   // poses par dj/body.ts sur la face arriere d'un bloc du MM-DECKS : ramenes sur la notre, moins profonde
   const y = 0.78;
-  const back = [...rca(4.2, y, seg), ...rca(3.85, y, seg), ...usb(2.8, y), ...dc(-4.0, y, seg), ...power(-4.6, y)];
+  // Au telephone, le bloc est plus etroit (8.6) : la connectique se resserre
+  const C = PORTRAIT ? { rca: [3.2, 2.85], usb: 1.9, dc: -2.9, power: -3.5 } : { rca: [4.2, 3.85], usb: 2.8, dc: -4.0, power: -4.6 };
+  const back = [...rca(C.rca[0], y, seg), ...rca(C.rca[1], y, seg), ...usb(C.usb, y), ...dc(C.dc, y, seg), ...power(C.power, y)];
   for (const b of back) b.translate(0, 0, (DJ_UNIT.d - SMPL_D) / 2);
   parts.push(...back);
   const g = mergeGeometries(parts, false);
@@ -106,6 +108,9 @@ function buildBody(mobile: boolean): BufferGeometry {
  */
 const knobLabelZ = (z: number, s: number, sy: number): number => z - DJ_KNOB.skirt.r * s - 0.23 * sy;
 
+/** Au telephone, les inscriptions un tiers plus grandes (le bloc se voit plus petit). */
+const INK_K = PORTRAIT ? 1.32 : 1;
+
 function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   const texts: Text[] = headTexts('MM-SMPL', 'SAMPLER / SLICER / GRANULAR', SMPL_W, SMPL.head.z, 1.95);
   const lines: Line[] = [];
@@ -114,40 +119,46 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   const K = SMPL.keys;
   SMPL_KEYS.forEach((k, i) => {
     const p = smplKeyAt(i);
-    texts.push({ text: k.label, x: p.x, z: p.z - K.d / 2 - 0.15, cap: 0.058, weight: 700, group: 'keys', maxW: 0.78, ...(k.kind === 'play' ? { ink: 'orange' as const, alpha: 1 } : {}) });
+    texts.push({ text: k.label, x: p.x, z: p.z - K.d / 2 - 0.15, cap: 0.058 * INK_K, weight: 700, group: 'keys', maxW: K.w + 0.12, ...(k.kind === 'play' ? { ink: 'orange' as const, alpha: 1 } : {}) });
   });
-  for (const g of SMPL_KEY_GROUPS) {
-    const sep = (smplKeyAt(g - 1).x + smplKeyAt(g).x) / 2;
-    lines.push([sep, K.z - 0.32, sep, K.z + 0.2]);
+  // Les filets entre les groupes (une seule rangee : desktop)
+  if (!PORTRAIT) {
+    for (const g of SMPL_KEY_GROUPS) {
+      const sep = (smplKeyAt(g - 1).x + smplKeyAt(g).x) / 2;
+      lines.push([sep, K.z - 0.32, sep, K.z + 0.2]);
+    }
   }
   // Les potards : le nom au-dessus ; LEVEL et PITCH gradues de 0 a 10 (0, 5 et 10 plus longs), les autres leurs butees
   const tick = (x: number, z: number, deg: number, r0: number, r1: number): void => {
     const a = (deg * Math.PI) / 180;
     lines.push([x + Math.cos(a) * r0, z - Math.sin(a) * r0, x + Math.cos(a) * r1, z - Math.sin(a) * r1]);
   };
-  for (const id of [...SMPL_PERF, ...SMPL_GRID.flat()]) {
+  for (const id of [...SMPL_PERF_PLACED, ...SMPL_GRID.flat()]) {
     const p = smplKnobAt(id);
     const def = SMPL_KNOBS.find((k) => k.id === id);
     const r = DJ_KNOB.skirt.r * p.s;
-    texts.push({ text: def?.label ?? id, x: p.x, z: knobLabelZ(p.z, p.s, p.sy), cap: p.hero ? 0.066 : 0.056, weight: 700, maxW: 0.86, group: p.hero ? 'hero' : 'knob' });
+    texts.push({ text: def?.label ?? id, x: p.x, z: knobLabelZ(p.z, p.s, p.sy), cap: (p.hero ? 0.066 : 0.056) * INK_K, weight: 700, maxW: PORTRAIT ? 1.6 : 0.86, group: p.hero ? 'hero' : 'knob' });
     if (p.hero) {
       for (let t = 0; t <= 10; t += 1) tick(p.x, p.z, 225 - t * 27, r + 0.04, r + (t % 5 === 0 ? 0.12 : 0.075));
     } else {
       for (const deg of def?.bipolar ? [225, 90, -45] : [225, -45]) tick(p.x, p.z, deg, r + 0.03, r + 0.08);
     }
   }
-  // Les pages de la grille, en orange : SAMPLE au-dessus de sa rangee, GRAIN sous la sienne
+  // Les pages de la grille, en orange : SAMPLE au-dessus de sa rangee, GRAIN sous la sienne (desktop ; au
+  // telephone la grille est en trois rangees serrees sous l'ecran)
   const G = SMPL.knobs.grid;
   const gr = DJ_KNOB.skirt.r * G.s;
   const gx0 = G.xs[0] - gr - 0.06;
   const gx1 = G.xs[G.xs.length - 1] + gr + 0.06;
-  brackets.push({ text: SMPL_ROW_NAMES[0], x0: gx0, x1: gx1, z: knobLabelZ(G.zs[0], G.s, G.s) - 0.24, down: true, ink: 'orange' });
-  brackets.push({ text: SMPL_ROW_NAMES[1], x0: gx0, x1: gx1, z: G.zs[1] + gr + 0.2, ink: 'orange' });
+  if (!PORTRAIT) {
+    brackets.push({ text: SMPL_ROW_NAMES[0], x0: gx0, x1: gx1, z: knobLabelZ(G.zs[0], G.s, G.s) - 0.24, down: true, ink: 'orange' });
+    brackets.push({ text: SMPL_ROW_NAMES[1], x0: gx0, x1: gx1, z: G.zs[1] + gr + 0.2, ink: 'orange' });
+  }
   // Les trigs : leur numero dessous (1, 5, 9, 13 plus marques), le crochet sous le bloc
   const T = SMPL.trigs;
   for (let i = 0; i < SMPL_PADS; i += 1) {
     const p = smplPadAt(i);
-    texts.push({ text: String(i + 1), x: p.x, z: p.z + T.d / 2 + 0.13, cap: 0.058, weight: 700, alpha: i % 4 === 0 ? 1 : 0.5, group: 'trigs' });
+    texts.push({ text: String(i + 1), x: p.x, z: p.z + T.d / 2 + 0.13, cap: 0.058 * INK_K, weight: 700, alpha: i % 4 === 0 ? 1 : 0.5, group: 'trigs' });
   }
   const t0 = smplPadAt(0).x - T.w / 2;
   const t1 = smplPadAt(7).x + T.w / 2;
@@ -242,7 +253,7 @@ export class SmplRig {
 
     this.screen = new SmplScreen(opts.anisotropy, opts.mobile);
     this.top.add(this.screen.mesh, this.screen.heads);
-    this.silk = new DjSilk({ name: 'smplSilk', w: SMPL_W, x: 0, items: silkItems, logo: SMPL.logo }, opts.anisotropy, opts.mobile);
+    this.silk = new DjSilk({ name: 'smplSilk', w: SMPL_W, x: 0, items: silkItems, logo: SMPL.logo, d: Math.max(SMPL_D, DJ_UNIT.d) }, opts.anisotropy, opts.mobile);
     this.top.add(this.silk.mesh);
 
     SMPL_KNOBS.forEach((k, i) => {

@@ -12,6 +12,7 @@ import { makeBrushTexture } from '../scene/silk';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { APPEARANCE } from '../theme';
 import { DECK, DJ_BEZEL, DJ_BODY, DJ_CHANNELS, DJ_DECKS, DJ_FADER, DJ_TILT, DJ_TOP_Y, DJ_UNIT, DJ_UNITS_ON, MIX, UNIT_X, djTone, unitW, type DjTone, type DjUnit } from './theme';
+import { DJ_FADERS } from './layout';
 
 type P2 = [number, number];
 
@@ -276,7 +277,8 @@ function buildBody(mobile: boolean): BufferGeometry {
   }
   const mx = UNIT_X.mix;
   parts.push(bezel(mx + MIX.screen.x, MIX.screen.z, MIX.screen.w, MIX.screen.d));
-  for (const cx of MIX.cols) parts.push(...slot(mx + cx, MIX.fader.z0, MIX.fader.z1));
+  // Les fentes des faders de voie (tenu droit, le volume est un potard : pas de fente)
+  for (const f of DJ_FADERS) if (f.target.kind === 'channel') parts.push(...slot(f.x, f.a, f.b));
   const g = mergeGeometries(parts, false);
   for (const p of parts) p.dispose();
   if (!g) throw new Error('dj: body merge failed');

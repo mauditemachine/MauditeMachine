@@ -9,7 +9,11 @@
  *   reviennent aussi a la vue d'ensemble) ;
  * - telephone : une machine a la fois ; un selecteur sous l'en-tete
  *   (MM-808 / VOYAGER) et une fleche au bord de l'ecran montrent l'autre,
- *   un glisser horizontal y passe aussi.
+ *   un glisser horizontal y passe aussi. 2026-10-05 (Mika : "on devrait
+ *   toujours voir des fleches en mobile, gauche droite" ; "une fois sur
+ *   deux, pour voir le deck B, on accroche un bouton") : deux fleches,
+ *   toujours ; sur le MM-DECKS elles passent d'abord d'un bloc a l'autre
+ *   (DECK A, MIXER, DECK B...), puis a la machine voisine.
  * - desktop, vue tournee (2026-10-04, Mika : "meme quand on bouge en 3D une
  *   machine, on devrait pouvoir aller sur les autres a gauche ou a droite") :
  *   les voisines ne depassent plus du bord (elles passeraient devant) ; une
@@ -22,6 +26,8 @@
 import React, { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { focusMachine } from '../actions';
 import type { Stage } from '../scene/renderer';
+import { djView } from '../dj/view';
+import { DJ_VIEW_UNITS, type DjUnit } from '../dj/theme';
 import { MACHINES, focus, type MachineId } from '../state/focus';
 import { intro } from '../state/intro';
 import { view } from '../state/view';
@@ -33,6 +39,9 @@ const NAMES: Record<MachineId, { title: string; sub: string; aria: string }> = {
   dj: { title: 'MM-DECKS', sub: 'DJ DECKS AND MIXER', aria: 'Play the MM-DECKS DJ decks and mixer' },
   smpl: { title: 'MM-SMPL', sub: 'SAMPLER AND GRANULAR', aria: 'Play the MM-SMPL sampler, slicer and granular machine' },
 };
+
+/** Le nom d'un bloc du MM-DECKS (les fleches le disent). */
+const unitName = (u: DjUnit): string => (u === 'a' || u === 'b' || u === 'c' || u === 'd' ? `deck ${u.toUpperCase()}` : u === 'add' ? 'add deck' : 'mixer');
 
 const Chevron: React.FC<{ dir: 'left' | 'right' }> = ({ dir }) => (
   <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
@@ -50,6 +59,7 @@ export const MachineNav: React.FC<Props> = ({ stage, mobile }) => {
   const settled = useSyncExternalStore(focus.subscribe, focus.settled, focus.settled);
   const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
   const moved = useSyncExternalStore(view.subscribe, view.get, view.get);
+  const unit = useSyncExternalStore(djView.subscribe, djView.get, djView.get);
   const refs = useRef(new Map<MachineId, HTMLButtonElement>());
   const overview = !mobile && f === 'all' && settled && introState === 'done';
 
@@ -86,9 +96,30 @@ export const MachineNav: React.FC<Props> = ({ stage, mobile }) => {
   if (mobile) {
     const m: MachineId = f === 'all' ? 'mm808' : f;
     const i = MACHINES.indexOf(m);
-    // La fleche montre la machine suivante (la derniere : la premiere)
-    const next = MACHINES[(i + 1) % MACHINES.length];
-    const back = next === MACHINES[0] && MACHINES.length > 1;
+    const n = MACHINES.length;
+    // Deux fleches : la machine d'avant, la suivante (en boucle) ; le MM-DECKS passe d'abord ses blocs
+    const prevM = MACHINES[(i - 1 + n) % n];
+    const nextM = MACHINES[(i + 1) % n];
+    const inDj = m === 'dj' && DJ_VIEW_UNITS.length > 1;
+    const prevU = inDj ? djView.next(-1) : null;
+    const nextU = inDj ? djView.next(1) : null;
+    void unit;
+    const go = (dir: 1 | -1): void => {
+      const u = dir > 0 ? nextU : prevU;
+      if (u) djView.set(u);
+      else {
+        // Le MM-DECKS qu'on rejoint : par son bloc le plus proche (DECK A en venant de la gauche)
+        const to = dir > 0 ? nextM : prevM;
+        if (to === 'dj') djView.set(dir > 0 ? DJ_VIEW_UNITS[0] : DJ_VIEW_UNITS[DJ_VIEW_UNITS.length - 1]);
+        focusMachine(to);
+      }
+    };
+    const label = (dir: 1 | -1): string => {
+      const u = dir > 0 ? nextU : prevU;
+      if (u) return `Show the ${unitName(u)}`;
+      const to = dir > 0 ? nextM : prevM;
+      return `Show the ${NAMES[to].title} ${NAMES[to].sub.toLowerCase()}`;
+    };
     return (
       <>
         <div className="v4-mswitch" role="group" aria-label="Machine">
@@ -98,14 +129,11 @@ export const MachineNav: React.FC<Props> = ({ stage, mobile }) => {
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          className="v4-medge"
-          data-side={back ? 'left' : 'right'}
-          aria-label={`Show the ${NAMES[next].title} ${NAMES[next].sub.toLowerCase()}`}
-          onClick={() => focusMachine(next)}
-        >
-          <Chevron dir={back ? 'left' : 'right'} />
+        <button type="button" className="v4-medge" data-side="left" aria-label={label(-1)} onClick={() => go(-1)}>
+          <Chevron dir="left" />
+        </button>
+        <button type="button" className="v4-medge" data-side="right" aria-label={label(1)} onClick={() => go(1)}>
+          <Chevron dir="right" />
         </button>
       </>
     );

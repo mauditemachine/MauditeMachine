@@ -65,9 +65,15 @@ export const VOY_KNOB = {
   skirt: { r: 0.284, h: 0.04, rTop: 0.272 },
   mark: { w: 0.03, h: 0.01, d: 0.15 },
   segments: { desktop: 48, mobile: 32 },
-  /** les tailles (xl, l, m, s, sw) : SIZE_SCALE, plus bas ; portrait : le plateau garde 1.3 (au doigt), le panneau 1.0 (huit potards par rangee depuis le 2026-10-04 ; 1.15 avant) */
+  /**
+   * les tailles (xl, l, m, s, sw) : SIZE_SCALE, plus bas ; portrait : le
+   * plateau garde 1.3 (au doigt), le panneau 1.12 depuis le 2026-10-05 (Mika :
+   * "en mobile, les boutons plus gros, c'est trop difficile a attraper et a
+   * lire" : AMP EG et EFFECTS sont descendus sur le plateau, le panneau n'a
+   * plus que quatre rangees ; 1.0 avant)
+   */
   scale: PORTRAIT ? 1.3 : 1,
-  panelScale: 1,
+  panelScale: PORTRAIT ? 1.12 : 1,
 } as const;
 
 /**
@@ -208,16 +214,19 @@ const DESK_DECK: Partial<Record<VoyKnobId, Spot>> = {
  *     disent les rangees ;
  *   FILTER : CUTOFF en tres grand, RES, ENV AMT, MODE ; MIXER : OSC 1,
  *     OSC 2, NOISE ;
- *   FILTER EG et MOD, puis AMP EG et EFFECTS : des rangees de petits.
+ *   FILTER EG et MOD : une rangee de huit, sur toute la largeur.
  * Le plateau prend l'ecran et VOLUME, le transport, l'arpegiateur (RATE
- * MODE RANGE NOTES GATE OCTAVE GLIDE) et les pads.
+ * MODE RANGE NOTES GATE OCTAVE GLIDE), AMP EG et EFFECTS (descendus du
+ * panneau le 2026-10-05, la place des pads, plus petits, en une rangee de
+ * huit) et les pads.
  */
-const PORT_O1 = -2.25;
-const PORT_O2 = -1.0;
-const PORT_F = 0.2;
-const PORT_E1 = 1.58;
-const PORT_E2 = 2.56;
-const PORT_OSC = { badge: -3.62, wave: -2.95, range: -1.8, semi: -0.6, fine: 0.5, on: 1.5, fm: 2.8 } as const;
+const PORT_O1 = -2.15;
+const PORT_O2 = -0.72;
+const PORT_F = 0.78;
+const PORT_E1 = 2.32;
+const PORT_OSC = { badge: -3.66, wave: -2.95, range: -1.8, semi: -0.6, fine: 0.5, on: 1.5, fm: 2.8 } as const;
+/** Les huit colonnes des rangees de petits (deux groupes de quatre), panneau et plateau. */
+const PORT_EIGHT = [-3.3, -2.42, -1.54, -0.66, 0.56, 1.44, 2.32, 3.2] as const;
 const PORT_PANEL: Partial<Record<VoyKnobId, Spot>> = {
   wave1: [PORT_OSC.wave, PORT_O1, 'sel'],
   range1: [PORT_OSC.range, PORT_O1, 's'],
@@ -231,32 +240,25 @@ const PORT_PANEL: Partial<Record<VoyKnobId, Spot>> = {
   fine2: [PORT_OSC.fine, PORT_O2, 's'],
   on2: [PORT_OSC.on, PORT_O2, 'sw'],
   ratio: [PORT_OSC.fm, PORT_O2, 's'],
-  cutoff: [-2.6, PORT_F + 0.15, 'xl'],
-  res: [-1.35, PORT_F, 'm'],
-  envAmt: [-0.45, PORT_F, 'm'],
+  cutoff: [-2.65, PORT_F + 0.15, 'xl'],
+  res: [-1.3, PORT_F, 'm'],
+  envAmt: [-0.35, PORT_F, 'm'],
   fmode: [0.55, PORT_F, 'sw'],
-  osc1: [1.45, PORT_F, 'm'],
-  osc2: [2.35, PORT_F, 'm'],
-  noise: [3.2, PORT_F, 's'],
-  fA: [-3.15, PORT_E1, 's'],
-  fD: [-2.35, PORT_E1, 's'],
-  fS: [-1.55, PORT_E1, 's'],
-  fR: [-0.75, PORT_E1, 's'],
-  lfoRate: [0.4, PORT_E1, 's'],
-  lfoShape: [1.15, PORT_E1, 's'],
-  lfoDest: [1.9, PORT_E1, 's'],
-  lfoAmt: [2.8, PORT_E1, 'm'],
-  aA: [-3.15, PORT_E2, 's'],
-  aD: [-2.35, PORT_E2, 's'],
-  aS: [-1.55, PORT_E2, 's'],
-  aR: [-0.75, PORT_E2, 's'],
-  dist: [0.4, PORT_E2, 's'],
-  chorus: [1.15, PORT_E2, 's'],
-  delay: [1.9, PORT_E2, 's'],
-  reverb: [2.8, PORT_E2, 's'],
+  osc1: [1.5, PORT_F, 'm'],
+  osc2: [2.4, PORT_F, 'm'],
+  noise: [3.25, PORT_F, 's'],
+  fA: [PORT_EIGHT[0], PORT_E1, 's'],
+  fD: [PORT_EIGHT[1], PORT_E1, 's'],
+  fS: [PORT_EIGHT[2], PORT_E1, 's'],
+  fR: [PORT_EIGHT[3], PORT_E1, 's'],
+  lfoRate: [PORT_EIGHT[4], PORT_E1, 's'],
+  lfoShape: [PORT_EIGHT[5], PORT_E1, 's'],
+  lfoDest: [PORT_EIGHT[6], PORT_E1, 's'],
+  lfoAmt: [PORT_EIGHT[7], PORT_E1, 'm'],
 };
-/** Plateau, portrait : l'arpegiateur en rangee (GLIDE au bout), VOLUME a droite de l'ecran. */
-const PORT_ARP_Z = 3.0;
+/** Plateau, portrait : l'arpegiateur en rangee (GLIDE au bout), VOLUME a droite de l'ecran, AMP EG et EFFECTS dessous. */
+const PORT_ARP_Z = 2.95;
+const PORT_E2 = 4.35;
 const PORT_DECK: Partial<Record<VoyKnobId, Spot>> = {
   rate: [-2.9, PORT_ARP_Z, 'm'],
   mode: [-1.933, PORT_ARP_Z, 's'],
@@ -266,6 +268,14 @@ const PORT_DECK: Partial<Record<VoyKnobId, Spot>> = {
   octave: [1.933, PORT_ARP_Z, 's'],
   glide: [2.9, PORT_ARP_Z, 's'],
   volume: [2.45, 0.3, 'l'],
+  aA: [PORT_EIGHT[0], PORT_E2, 's'],
+  aD: [PORT_EIGHT[1], PORT_E2, 's'],
+  aS: [PORT_EIGHT[2], PORT_E2, 's'],
+  aR: [PORT_EIGHT[3], PORT_E2, 's'],
+  dist: [PORT_EIGHT[4], PORT_E2, 's'],
+  chorus: [PORT_EIGHT[5], PORT_E2, 's'],
+  delay: [PORT_EIGHT[6], PORT_E2, 's'],
+  reverb: [PORT_EIGHT[7], PORT_E2, 's'],
 };
 
 /** La taille d'un potard (m par defaut). */
@@ -375,9 +385,14 @@ export const VOY_HEAD = PORTRAIT
 
 /* ---------- plateau (repere du capot, y = 0 : dessus du plateau) ---------- */
 
-/** Les huit pads d'accords : caoutchouc retroeclaire, comme ceux de la 808, plus grands. */
+/**
+ * Les huit pads d'accords : caoutchouc retroeclaire, comme ceux de la 808,
+ * plus grands ; au telephone tenu droit, une rangee de huit (2026-10-05,
+ * Mika : "reduis les pads en bas, qui sont enormes, pour faire plus de place
+ * aux knobs" ; deux rangees de quatre de 1.1 avant).
+ */
 export const VOY_PAD = PORTRAIT
-  ? { size: 1.1, height: 0.24, radius: 0.1, dome: 0.045, xs: [-2.55, -0.85, 0.85, 2.55], zs: [4.5, 6.0], perRow: 4, labelDz: 0.74 }
+  ? { size: 0.8, height: 0.2, radius: 0.08, dome: 0.035, xs: [-3.29, -2.35, -1.41, -0.47, 0.47, 1.41, 2.35, 3.29], zs: [5.85], perRow: 8, labelDz: 0.6 }
   : { size: 0.98, height: 0.22, radius: 0.08, dome: 0.04, xs: [-4.2, -3.0, -1.8, -0.6, 0.6, 1.8, 3.0, 4.2], zs: [2.75], perRow: 8, labelDz: 0.72 };
 
 export const voyPadAt = (i: number): { x: number; z: number } => ({
@@ -394,12 +409,13 @@ export type VoyButtonId = 'run' | 'clear' | 'random' | 'edit' | 'open';
  * l'arpegiateur a sa gauche) ou en rangee sous lui (portrait).
  */
 export const VOY_BUTTONS: readonly { id: VoyButtonId; label: string; x: number; z: number; w: number; d: number }[] = PORTRAIT
-  ? [
-      { id: 'run', label: 'RUN/STOP', x: -2.6, z: 1.6, w: 1.15, d: 0.6 },
-      { id: 'clear', label: 'CLEAR', x: -1.3, z: 1.6, w: 1.15, d: 0.6 },
-      { id: 'random', label: 'RANDOM', x: 0, z: 1.6, w: 1.15, d: 0.6 },
-      { id: 'edit', label: 'EDIT', x: 1.3, z: 1.6, w: 1.15, d: 0.6 },
-      { id: 'open', label: 'OPEN', x: 2.6, z: 1.6, w: 1.15, d: 0.6 },
+  ? // Plus gros au telephone (2026-10-05, Mika : "trop difficile a attraper") : 1.15 x 0.6 avant
+    [
+      { id: 'run', label: 'RUN/STOP', x: -2.9, z: 1.58, w: 1.3, d: 0.68 },
+      { id: 'clear', label: 'CLEAR', x: -1.45, z: 1.58, w: 1.3, d: 0.68 },
+      { id: 'random', label: 'RANDOM', x: 0, z: 1.58, w: 1.3, d: 0.68 },
+      { id: 'edit', label: 'EDIT', x: 1.45, z: 1.58, w: 1.3, d: 0.68 },
+      { id: 'open', label: 'OPEN', x: 2.9, z: 1.58, w: 1.3, d: 0.68 },
     ]
   : [
       { id: 'run', label: 'RUN/STOP', x: 2.5, z: 0.85, w: 0.7, d: 0.55 },

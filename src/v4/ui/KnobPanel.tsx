@@ -109,8 +109,7 @@ const arc = (from: number, to: number, rad: number): string => {
 /**
  * Ce qu'un gros potard sait de son reglage (2026-10-04) : sa valeur et ses
  * bornes, ses crans, sa valeur de depart, ce qu'il affiche. Les potards
- * des machines (DialId, plus bas) et ceux de la table du MM-DECKS
- * (dj/MixDock.tsx) passent par la.
+ * des machines (DialId, plus bas) passent par la.
  */
 export interface KnobSpec {
   label: string;

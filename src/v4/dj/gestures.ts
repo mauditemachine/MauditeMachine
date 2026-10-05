@@ -63,7 +63,7 @@ let wheelAcc = 0;
 export function knobValue(k: DjKnobSpec): number {
   const s = djState.get();
   const t = k.target;
-  return t.kind === 'eq' ? s.ch[t.ch][t.eq] : t.kind === 'fx' ? s.fx[t.fx] : t.kind === 'fxto' ? fxToValue(fxTarget(s)) : s.master;
+  return t.kind === 'eq' ? s.ch[t.ch][t.eq] : t.kind === 'vol' ? s.ch[t.ch].fader : t.kind === 'fx' ? s.fx[t.fx] : t.kind === 'fxto' ? fxToValue(fxTarget(s)) : s.master;
 }
 
 /**
@@ -81,6 +81,8 @@ export function knobText(k: DjKnobSpec, v = knobValue(k)): string {
     return db(eqDb(v));
   }
   if (t.kind === 'fx') return `${Math.round(v * 100)}%`;
+  // Le volume d'une voie (son fader en potard) : 0 DB tout en haut
+  if (t.kind === 'vol') return faderGain(v) <= 0 ? '-INF DB' : db(20 * Math.log10(faderGain(v)));
   if (t.kind === 'fxto') return fxToText(fxToOfValue(v));
   const g = faderGain(v) / faderGain(MASTER_DEFAULT);
   return g <= 0 ? '-INF DB' : db(20 * Math.log10(g));
@@ -91,6 +93,7 @@ export function setKnob(k: DjKnobSpec, v: number): void {
   // Zero au centre : le reste d'une somme de pas (molette, fleches) tombe pile sur 0
   if (k.bipolar && Math.abs(v) < 0.005) v = 0;
   if (t.kind === 'eq') djSetEq(t.ch, t.eq, v);
+  else if (t.kind === 'vol') djSetFader(t.ch, v);
   else if (t.kind === 'fx') djSetFx(t.fx, v);
   else if (t.kind === 'fxto') djSetFxTo(fxToOfValue(v));
   else djSetMaster(v);
@@ -99,7 +102,7 @@ export function setKnob(k: DjKnobSpec, v: number): void {
 /** Les crans d'un potard : FX TO, ALL puis chaque voie posee ; 0 : continu. */
 export const knobSteps = (k: DjKnobSpec): number => (k.target.kind === 'fxto' ? DJ_CHANNELS + 1 : 0);
 
-export const knobNeutral = (k: DjKnobSpec): number => (k.bipolar ? 0 : k.target.kind === 'master' ? 0.88 : 0);
+export const knobNeutral = (k: DjKnobSpec): number => (k.bipolar ? 0 : k.target.kind === 'master' ? 0.88 : k.target.kind === 'vol' ? 0.8 : 0);
 export const knobMin = (k: DjKnobSpec): number => (k.bipolar ? -1 : 0);
 
 export function faderValue(f: DjFaderSpec): number {
