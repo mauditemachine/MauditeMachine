@@ -32,6 +32,7 @@ import React, {
   type ErrorInfo,
 } from 'react';
 import './v4.css';
+import { attachStage } from './midi/targets';
 import { gesture } from './actions';
 import { clock } from './audio/clock';
 import { quiet, resume, suspend } from './audio/drums';
@@ -351,6 +352,8 @@ const V4Shell: React.FC = () => {
   useSectionsLifecycle();
   // Sans machine (repli), les raccourcis de la machine se taisent
   useKeys(getStage, gl === 'webgl');
+  // Le MIDI (2026-10-05) : ses actions animent les touches de la scene
+  useEffect(() => attachStage(getStage), [getStage]);
   const reduced = useReducedMotion();
   const mobile = useMedia(MOBILE_QUERY);
   const instrument = useSyncExternalStore(pattern.subscribe, () => pattern.get().instrument);

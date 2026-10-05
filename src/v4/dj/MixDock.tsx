@@ -5,8 +5,9 @@
  * potard fait une trentaine de pixels a l'ecran d'un telephone : la
  * languette MIXER, en bas, ouvre tous ses reglages en gros (les potards de
  * ui/KnobPanel.tsx), un onglet par voie (GAIN, HI, MID, LOW, FILTER et le
- * FADER), FX (les sept effets et TIME), MASTER (le volume et le
- * PLAY/STOP des machines). Ouvert, la table remonte au-dessus (setInset) :
+ * FADER), FX (les sept effets et TIME), MASTER (le volume, le PLAY/STOP
+ * des machines, LOOP > SMPL, ADD DECK et REMOVE DECK depuis le 2026-10-05,
+ * a la place du bloc de fin des platines). Ouvert, la table remonte au-dessus (setInset) :
  * on voit ses potards tourner. Memes actions et memes stores que la table
  * (dj/gestures.ts). Retenus : ouvert ou replie (mm.v4.djdock), l'onglet
  * (mm.v4.knobtab.dj).
@@ -18,11 +19,11 @@ import { clock } from '../audio/clock';
 import type { Stage } from '../scene/renderer';
 import { KnobView, useDockInset, type KnobSpec } from '../ui/KnobPanel';
 import { arp } from '../voyager/arp';
-import { djExportToSmpl, djSetFxTo, djSetTime, fxTarget, fxToText } from './actions';
+import { djAddDeck, djExportToSmpl, djRemoveDeck, djSetFxTo, djSetTime, fxTarget, fxToText } from './actions';
 import { faderMin, faderNeutral, faderValue, knobMin, knobNeutral, knobText, knobValue, setFader, setKnob } from './gestures';
 import { DJ_FADERS, DJ_KNOBS, type DjFaderSpec, type DjKnobSpec } from './layout';
 import { djState } from './state';
-import { DJ_CHANNELS, DJ_DECKS, DJ_TIMES, DJ_VIEW_UNITS, djDecks, timeLabel, type DjUnit } from './theme';
+import { DJ_CHANNELS, DJ_DECKS, DJ_DECKS_MAX, DJ_DECKS_MIN, DJ_TIMES, DJ_VIEW_UNITS, djDecks, timeLabel, type DjUnit } from './theme';
 import { djView } from './view';
 import './dj.css';
 
@@ -172,6 +173,9 @@ export const DjMixDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage
   const playing = useSyncExternalStore(subscribeMachines, machinesOn, machinesOn);
   // LOOP > SMPL allume des qu'une platine boucle
   const looping = useSyncExternalStore(djState.subscribe, anyLoop, anyLoop);
+  const s = useSyncExternalStore(djState.subscribe, djState.get, djState.get);
+  // La derniere platine posee : celle que REMOVE DECK retire
+  const last = DJ_DECKS[DJ_DECKS.length - 1];
   const ref = useRef<HTMLDivElement>(null);
   useDockInset(getStage(), 'dj', shown, ref);
   const g = groups.find((x) => x.id === tab) ?? groups[0];
@@ -236,6 +240,24 @@ export const DjMixDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage
             <button type="button" className="v4-djdock-play v4-djdock-export" data-on={looping ? '1' : '0'} aria-label="Export the loop to the MM-SMPL and edit it there" onClick={() => void djExportToSmpl()}>
               <i className="fa-solid fa-arrow-right-to-bracket v4-fa" aria-hidden="true" />
               <span>LOOP &gt; SMPL</span>
+            </button>
+          )}
+          {g.transport && decks < DJ_DECKS_MAX && (
+            <button type="button" className="v4-djdock-play v4-djdock-deck" aria-label="Add a deck, with its channel on the mixer" onClick={() => djAddDeck()}>
+              <i className="fa-solid fa-plus v4-fa" aria-hidden="true" />
+              <span>ADD DECK</span>
+            </button>
+          )}
+          {g.transport && decks > DJ_DECKS_MIN && (
+            <button
+              type="button"
+              className="v4-djdock-play v4-djdock-deck"
+              data-on={last && s.deck[last].remove ? '1' : '0'}
+              aria-label={`Remove deck ${last.toUpperCase()}${last && s.deck[last].playing ? ' (it plays: press twice)' : ''}`}
+              onClick={() => djRemoveDeck(last)}
+            >
+              <i className="fa-solid fa-minus v4-fa" aria-hidden="true" />
+              <span>{s.deck[last].remove ? 'PRESS AGAIN' : `REMOVE DECK ${last.toUpperCase()}`}</span>
             </button>
           )}
         </div>

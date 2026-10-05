@@ -117,9 +117,11 @@ export interface VoyKnobPlace {
  * d'oscillateurs facon Mini V, plus petits que l pour tenir a deux rangees.
  */
 export type KnobSize = 'xl' | 'l' | 'm' | 's' | 'sw' | 'sel';
+// Desktop un peu plus gros le 2026-10-05 (Mika : "MM-ARP, j'aimerais que les knobs soient un peu plus gros en desktop") :
+// xl 1.5, l 1.18, m 1, s 0.8, sw 0.62, sel 0.85 avant
 const SIZE_SCALE: Readonly<Record<KnobSize, number>> = PORTRAIT
   ? { xl: 1.6, l: 1.15, m: 0.95, s: 0.8, sw: 0.62, sel: 0.8 }
-  : { xl: 1.5, l: 1.18, m: 1, s: 0.8, sw: 0.62, sel: 0.85 };
+  : { xl: 1.6, l: 1.28, m: 1.1, s: 0.9, sw: 0.68, sel: 0.92 };
 
 /** Une place : x, z, taille ; plateau (deck) ou panneau. */
 type Spot = readonly [number, number, KnobSize];
@@ -277,7 +279,8 @@ export const isBigKnob = (id: VoyKnobId): boolean => !isSelector(id) && (knobSiz
 export const isSwitch = (id: VoyKnobId): boolean => knobSize(id) === 'sw';
 export const VOY_SWITCH = { tick: { r0: 0.03, len: 0.05 }, markR: 0.18, cap: 0.052 } as const;
 /** Course d'un commutateur de n positions (deg) : un quart de tour a deux, 150 au-dela. */
-export const switchThrowDeg = (n: number): number => (n <= 2 ? 90 : 150);
+// Cinq crans et plus (2026-10-05 : CHORD, les choix de son du MM-RYTM avec les echantillons) : 240 deg, leurs noms respirent
+export const switchThrowDeg = (n: number): number => (n <= 2 ? 90 : n <= 4 ? 150 : 240);
 
 /**
  * Les echelles des rangees d'oscillateurs (2026-10-04, facon Mini V) :

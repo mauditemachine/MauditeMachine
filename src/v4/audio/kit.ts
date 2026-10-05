@@ -6,8 +6,10 @@
  * (scene/rytmTweaks.ts) reglent ce store :
  * - le son de chaque famille de voix : 909, 808 ou MM (celui d'avant), une
  *   synthese a la facon de chaque machine (audio/shotsdsp.ts), jamais un
- *   echantillon d'une autre : aucun fichier, aucune licence. KICK en 909
- *   par defaut, les autres en MM ;
+ *   echantillon d'une autre. KICK en 909 par defaut, les autres en MM.
+ *   Depuis le 2026-10-05 (Mika : "mets ces samples dans le selecteur de
+ *   samples, pour BD et SD"), les echantillons de Mika poses dans
+ *   audio/samples/<famille>/ suivent, un cran chacun (audio/samples.ts) ;
  * - le KICK : TUNE (sa hauteur), ATTACK (la frappe), DECAY (sa longueur),
  *   DRIVE (sa saturation), pour les trois sons ;
  * - SNAPPY : le timbre de la caisse claire (les trois sons) ;
@@ -15,13 +17,16 @@
  *   je veux pouvoir l'activer ou pas dans OPEN") : la reverbe a porte de
  *   la caisse claire MM et la petite piece des claps MM et 909, OFF par
  *   defaut, ON pour les retrouver. Un commutateur a deux crans.
- * Les potards vont de 0 a 1, les choix de son aussi (0 : 909, 0.5 : 808,
- * 1 : MM, un commutateur a trois crans). Chaque coup est calcule avec le
+ * Les potards vont de 0 a 1, les choix de son aussi (un commutateur a
+ * crans : 909, 808, MM, puis les echantillons de la famille ; sans
+ * echantillon 0 : 909, 0.5 : 808, 1 : MM). Chaque coup est calcule avec le
  * kit du moment (audio/shots.ts : sa signature fait partie de la cle de
  * l'echantillon) ; un reglage tourne recalcule le son en fond. Retenu
  * dans le navigateur.
  */
 
+import { sampleDecayPart, sampleTuneSt } from './sampledsp';
+import { sampleByKey, samplesOf } from './samples';
 import { kickDecayS, kickHz, type KitModel, type ShotId, type ShotTweak } from './shotsdsp';
 
 export type { KitModel, ShotTweak } from './shotsdsp';
@@ -40,18 +45,23 @@ export const KIT_KNOBS: readonly KitKnob[] = ['tune', 'attack', 'decay', 'drive'
 export const KIT_IDS: readonly KitId[] = ['bd', 'tune', 'attack', 'decay', 'drive', 'sd', 'snappy', 'cp', 'gate', 'hh', 'tom', 'rs'];
 
 export const isFamily = (id: KitId): id is KitFamily => (KIT_FAMILIES as readonly string[]).includes(id);
-/** Les crans d'un TWEAK : 3 pour un choix de son, 2 pour GATE, 0 pour un potard. */
-export const kitSteps = (id: KitId): number => (isFamily(id) ? KIT_MODELS.length : id === 'gate' ? 2 : 0);
+/** Les crans d'un TWEAK : 3 pour un choix de son (plus un par echantillon de la famille), 2 pour GATE, 0 pour un potard. */
+export const kitSteps = (id: KitId): number => (isFamily(id) ? KIT_MODELS.length + samplesOf(id).length : id === 'gate' ? 2 : 0);
+/** Les noms des crans d'un choix de son : 909, 808, MM, puis le numero de chaque echantillon (la plaque). */
+export const kitStepLabels = (f: KitFamily): string[] => [...KIT_MODELS.map((m) => KIT_MODEL_LABEL[m]), ...samplesOf(f).map((_, i) => String(i + 1))];
 export const GATE_LABELS = ['OFF', 'ON'] as const;
 
 export interface Kit {
   model: Record<KitFamily, KitModel>;
   knob: Record<KitKnob, number>;
+  /** l'echantillon joue par une famille (audio/samples.ts : sa cle), a la place de son modele */
+  sample: Partial<Record<KitFamily, string>>;
 }
 
 export const KIT_DEFAULT: Readonly<Kit> = {
   model: { bd: '909', sd: 'mm', hh: 'mm', cp: 'mm', tom: 'mm', rs: 'mm' },
   knob: { tune: 0.5, attack: 0.5, decay: 0.45, drive: 0.25, snappy: 0.5, gate: 0 },
+  sample: {},
 };
 
 /** Noms sur la plaque, a l'ecran et pour les lecteurs d'ecran. */
@@ -102,14 +112,27 @@ export const shotsOf = (f: KitFamily): readonly ShotId[] =>
 /** Un potard au cinquantieme : la cle d'un echantillon ne change pas a chaque pixel de glisser ; GATE 0 ou 1. */
 const q = (v: number, id?: KitKnob): number => (id === 'gate' ? (v >= 0.5 ? 1 : 0) : Math.round(Math.min(1, Math.max(0, v)) * 50) / 50);
 
-/** Le choix de son d'une valeur de commutateur (0, 0.5, 1). */
+/** Le choix de son d'une valeur de commutateur a trois crans (0, 0.5, 1 : un preset d'avant les echantillons). */
 export const modelAt = (v: number): KitModel => KIT_MODELS[Math.max(0, Math.min(2, Math.round(v * 2)))];
 export const modelValue = (m: KitModel): number => KIT_MODELS.indexOf(m) / 2;
+
+/** Le cran du son d'une famille : 0 a 2 les modeles, puis ses echantillons. */
+function soundIndex(k: Kit, f: KitFamily): number {
+  const key = k.sample[f];
+  const j = key ? samplesOf(f).findIndex((x) => x.key === key) : -1;
+  return j >= 0 ? KIT_MODELS.length + j : KIT_MODELS.indexOf(k.model[f]);
+}
+const soundValue = (k: Kit, f: KitFamily): number => {
+  const n = kitSteps(f);
+  return n > 1 ? soundIndex(k, f) / (n - 1) : 0;
+};
+/** Le son choisi d'une famille : 909, 808, mm, ou la cle d'un echantillon. */
+export type KitSound = KitModel | string;
 
 const KEY = 'mm.v4.kit.1';
 
 function load(): Kit {
-  const k: Kit = { model: { ...KIT_DEFAULT.model }, knob: { ...KIT_DEFAULT.knob } };
+  const k: Kit = { model: { ...KIT_DEFAULT.model }, knob: { ...KIT_DEFAULT.knob }, sample: {} };
   try {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return k;
@@ -122,13 +145,18 @@ function load(): Kit {
       const v = o.knob?.[n];
       if (typeof v === 'number' && Number.isFinite(v)) k.knob[n] = q(v, n);
     }
+    // Un echantillon retenu qui n'est plus dans le dossier : la famille garde son modele
+    for (const f of KIT_FAMILIES) {
+      const key = o.sample?.[f];
+      if (typeof key === 'string' && sampleByKey(key)?.family === f) k.sample[f] = key;
+    }
   } catch {
     /* rien de retenu : le kit de depart */
   }
   return k;
 }
 
-let state: Kit = typeof window === 'undefined' ? { model: { ...KIT_DEFAULT.model }, knob: { ...KIT_DEFAULT.knob } } : load();
+let state: Kit = typeof window === 'undefined' ? { model: { ...KIT_DEFAULT.model }, knob: { ...KIT_DEFAULT.knob }, sample: {} } : load();
 const listeners = new Set<(changed: readonly KitFamily[]) => void>();
 let saveTimer = 0;
 
@@ -147,21 +175,45 @@ function save(): void {
 /** Les familles touchees par un reglage (les potards du KICK : le kick ; SNAPPY : la caisse claire ; GATE : elle et le clap). */
 const familiesOf = (id: KitId): readonly KitFamily[] => (isFamily(id) ? [id] : id === 'snappy' ? ['sd'] : id === 'gate' ? ['sd', 'cp'] : ['bd']);
 
+const stText = (st: number): string => (st === 0 ? '0 ST' : `${st > 0 ? '+' : ''}${st} ST`);
+/** Le nom du son d'une famille : 909, 808, MM, ou celui de son echantillon (BLUEPRINT F). */
+function soundLabel(f: KitFamily): string {
+  const key = state.sample[f];
+  const smp = key ? sampleByKey(key) : undefined;
+  return smp ? smp.label : KIT_MODEL_LABEL[state.model[f]];
+}
+
 export const kit = {
   get: (): Readonly<Kit> => state,
-  /** Un TWEAK de 0 a 1 (un choix de son : 0, 0.5 ou 1). */
+  /** Un TWEAK de 0 a 1 (un choix de son : son cran sur la course). */
   value(id: KitId): number {
-    return isFamily(id) ? modelValue(state.model[id]) : state.knob[id];
+    return isFamily(id) ? soundValue(state, id) : state.knob[id];
   },
   def(id: KitId): number {
-    return isFamily(id) ? modelValue(KIT_DEFAULT.model[id]) : KIT_DEFAULT.knob[id];
+    return isFamily(id) ? soundValue(KIT_DEFAULT, id) : KIT_DEFAULT.knob[id];
+  },
+  /** Le son d'une famille : son modele, ou la cle de son echantillon. */
+  sound(f: KitFamily): KitSound {
+    return state.sample[f] ?? state.model[f];
+  },
+  /** Choisit le son d'une famille (un modele ou la cle d'un echantillon) ; true s'il change. */
+  setSound(f: KitFamily, snd: KitSound): boolean {
+    const n = kitSteps(f);
+    const i = (KIT_MODELS as readonly string[]).includes(snd) ? KIT_MODELS.indexOf(snd as KitModel) : KIT_MODELS.length + samplesOf(f).findIndex((x) => x.key === snd);
+    if (i < 0 || i >= n) return false;
+    return kit.set(f, n > 1 ? i / (n - 1) : 0);
   },
   /** Regle un TWEAK ; true s'il change. */
   set(id: KitId, v: number): boolean {
     if (isFamily(id)) {
-      const m = modelAt(v);
-      if (state.model[id] === m) return false;
-      state = { ...state, model: { ...state.model, [id]: m } };
+      const n = kitSteps(id);
+      const i = Math.max(0, Math.min(n - 1, Math.round(Math.min(1, Math.max(0, v)) * (n - 1))));
+      if (i === soundIndex(state, id)) return false;
+      if (i < KIT_MODELS.length) {
+        const sample = { ...state.sample };
+        delete sample[id];
+        state = { ...state, model: { ...state.model, [id]: KIT_MODELS[i] }, sample };
+      } else state = { ...state, sample: { ...state.sample, [id]: samplesOf(id)[i - KIT_MODELS.length].key } };
     } else {
       const n = q(v, id);
       if (state.knob[id] === n) return false;
@@ -176,13 +228,14 @@ export const kit = {
   tweak(id: ShotId): ShotTweak {
     const f = familyOf(id);
     const k = state.knob;
-    return { model: f ? state.model[f] : 'mm', tune: k.tune, attack: k.attack, decay: k.decay, drive: k.drive, snappy: k.snappy, gate: k.gate >= 0.5 };
+    const sample = f ? state.sample[f] : undefined;
+    return { model: f ? state.model[f] : 'mm', tune: k.tune, attack: k.attack, decay: k.decay, drive: k.drive, snappy: k.snappy, gate: k.gate >= 0.5, ...(sample ? { sample } : {}) };
   },
   /** La signature d'un son dans la cle de son echantillon : seulement ce qui le change. */
   sig(id: ShotId): string {
     const f = familyOf(id);
     if (!f) return 'mm';
-    const m = state.model[f];
+    const m = state.sample[f] ?? state.model[f];
     const k = state.knob;
     if (f === 'bd') return `${m}~${k.tune}~${k.attack}~${k.decay}~${k.drive}`;
     if (f === 'sd') return `${m}~${k.snappy}~${k.gate}`;
@@ -191,20 +244,21 @@ export const kit = {
   },
   /** La valeur seule d'un TWEAK (sous un potard du telephone) : 909, 52 HZ, 216 MS, 50. */
   valueText(id: KitId): string {
-    if (isFamily(id)) return KIT_MODEL_LABEL[state.model[id]];
+    if (isFamily(id)) return soundLabel(id);
     const v = state.knob[id];
     if (id === 'gate') return GATE_LABELS[v >= 0.5 ? 1 : 0];
-    if (id === 'tune') return `${Math.round(kickHz(state.model.bd, v))} HZ`;
-    if (id === 'decay') return `${Math.round(kickDecayS(state.model.bd, v) * 1000)} MS`;
+    // Un echantillon au kick : TUNE en demi-tons, DECAY en part de sa longueur
+    if (id === 'tune') return state.sample.bd ? stText(sampleTuneSt(v)) : `${Math.round(kickHz(state.model.bd, v))} HZ`;
+    if (id === 'decay') return state.sample.bd ? `${Math.round(sampleDecayPart(v) * 100)}%` : `${Math.round(kickDecayS(state.model.bd, v) * 1000)} MS`;
     return `${Math.round(v * 100)}`;
   },
   /** La valeur lisible d'un TWEAK (l'ecran du MM-RYTM). */
   readout(id: KitId): string {
-    if (isFamily(id)) return `${KIT_LABEL[id]} ${KIT_MODEL_LABEL[state.model[id]]}`;
+    if (isFamily(id)) return `${KIT_LABEL[id]} ${soundLabel(id)}`;
     const v = state.knob[id];
     if (id === 'gate') return `SNARE + CLAP GATE ${GATE_LABELS[v >= 0.5 ? 1 : 0]}`;
-    if (id === 'tune') return `KICK TUNE ${Math.round(kickHz(state.model.bd, v))} HZ`;
-    if (id === 'decay') return `KICK DECAY ${Math.round(kickDecayS(state.model.bd, v) * 1000)} MS`;
+    if (id === 'tune') return `KICK TUNE ${kit.valueText('tune')}`;
+    if (id === 'decay') return `KICK DECAY ${kit.valueText('decay')}`;
     const label = id === 'snappy' ? 'SNARE SNAPPY' : `KICK ${KIT_LABEL[id]}`;
     return `${label} ${Math.round(v * 100)}`;
   },

@@ -26,7 +26,8 @@ export const djLoad = {
   /** Le chargement (une fois) ; null avec ?dj=0. */
   load(): Promise<DjModules> | null {
     if (!DJ) return null;
-    pending ??= Promise.all([import('../dj/rig'), import('../dj/gestures'), import('../dj/state'), import('../dj/engine')]).then(([rig, gestures, state, engine]) => {
+    // dj/midi : ses cibles MIDI s'inscrivent (midi/targets.ts, 2026-10-05)
+    pending ??= Promise.all([import('../dj/rig'), import('../dj/gestures'), import('../dj/state'), import('../dj/engine'), import('../dj/midi')]).then(([rig, gestures, state, engine]) => {
       mods = { DjRig: rig.DjRig, DjGestures: gestures.DjGestures, djState: state.djState, djEngineIfAny: engine.djEngineIfAny };
       listeners.forEach((fn) => fn());
       return mods;

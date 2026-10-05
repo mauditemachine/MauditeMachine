@@ -81,9 +81,10 @@ export function headTexts(name: string, sub: string, w: number, z: number, subX:
 function head(u: DjUnit): Text[] {
   const c = COPY[u];
   const z = u === 'mix' ? MIX.head.z : DECK.head.z;
-  // La platine qu'on peut retirer : REMOVE DECK prend la place du sous-titre
+  // La platine qu'on peut retirer : REMOVE DECK prend la place du sous-titre ; sur la table, ADD DECK (2026-10-05)
   const removable = DJ_KEYS.some((k) => k.target.kind === 'removedeck' && k.target.deck === u);
-  const sub = u === 'mix' ? `${DJ_CHANNELS} CHANNEL ${c.sub}` : removable ? '' : c.sub;
+  const addable = DJ_KEYS.some((k) => k.target.kind === 'adddeck');
+  const sub = u === 'mix' ? (addable ? '' : `${DJ_CHANNELS} CHANNEL ${c.sub}`) : removable ? '' : c.sub;
   return headTexts(c.name, sub, unitW(u), z, u === 'mix' ? 1.55 : 1.85);
 }
 
@@ -185,6 +186,9 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   // LOOP > SMPL : son nom a gauche de la touche, en orange comme REMOVE DECK
   const ex = DJ_KEYS.find((k) => k.target.kind === 'export');
   if (ex) texts.push({ text: 'LOOP > SMPL', x: ex.x - ux - ex.w / 2 - 0.14, z: ex.z, cap: 0.11, weight: 700, ink: 'orange', alpha: 1, align: 'right' });
+  // ADD DECK : de meme, a gauche de sa touche
+  const ad = DJ_KEYS.find((k) => k.target.kind === 'adddeck');
+  if (ad) texts.push({ text: 'ADD DECK', x: ad.x - ux - ad.w / 2 - 0.14, z: ad.z, cap: 0.11, weight: 700, ink: 'orange', alpha: 1, align: 'right' });
   return { texts, lines, brackets };
 }
 

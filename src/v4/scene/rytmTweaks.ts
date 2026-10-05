@@ -19,7 +19,7 @@
 
 import type { HotspotDef } from './hit';
 import { TweakPlate, type TweakItem, type TweakPlateDims } from './tweakplate';
-import { GATE_LABELS, KIT_IDS, KIT_LABEL, KIT_MODEL_LABEL, KIT_MODELS, isFamily, kit, kitSteps, type KitId } from '../audio/kit';
+import { GATE_LABELS, KIT_IDS, KIT_LABEL, isFamily, kit, kitStepLabels, kitSteps, type KitId } from '../audio/kit';
 import { PORTRAIT } from '../theme';
 
 /** La plaque (repere de la carte : son centre ; puis le sien, x a droite, z vers soi). */
@@ -104,7 +104,8 @@ function items(): TweakItem[] {
       x,
       z,
       s: sw ? KNOB_S * SWITCH_S : KNOB_S,
-      ...(sw ? { steps: isFamily(id) ? KIT_MODELS.map((m) => KIT_MODEL_LABEL[m]) : GATE_LABELS } : {}),
+      // Un choix de son : 909, 808, MM, puis le numero de chaque echantillon de Mika (audio/samples.ts)
+      ...(sw ? { steps: isFamily(id) ? kitStepLabels(id) : GATE_LABELS } : {}),
       ...(ENDS[id] ? { ends: ENDS[id] } : {}),
     };
   });

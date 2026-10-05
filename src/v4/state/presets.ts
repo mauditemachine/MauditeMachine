@@ -17,7 +17,7 @@
 import { pattern, type Fx, type Steps } from '../audio/pattern';
 import { mix, setStretch } from '../audio/drums';
 import { voiceFx, VOICE_PARAMS, type VoiceFx } from '../audio/voicefx';
-import { KIT_IDS, kit, type KitId } from '../audio/kit';
+import { KIT_FAMILIES, KIT_IDS, isFamily, kit, modelAt, type KitFamily, type KitId } from '../audio/kit';
 import type { Inst } from '../theme';
 import { arp } from '../voyager/arp';
 import { VOY_KNOB_IDS, migrateKnobs, voyKnob, voyParams, type VoyValues } from '../voyager/params';
@@ -39,6 +39,12 @@ interface RytmData {
   voices: Record<Inst, VoiceFx>;
   /** les TWEAKS du kit (absent d'un preset d'avant le 2026-10-04) */
   kit?: Record<KitId, number>;
+  /**
+   * le son de chaque famille, par son nom (909, 808, mm, ou la cle d'un
+   * echantillon : 2026-10-05) ; absent d'un preset d'avant : sa valeur dans
+   * kit se lit sur trois crans (909, 808, MM)
+   */
+  sounds?: Partial<Record<KitFamily, string>>;
 }
 
 export interface Preset {
@@ -125,6 +131,7 @@ function capture(m: PresetMachine): VoyData | RytmData {
     stretch: mix.stretch,
     voices: Object.fromEntries(Object.entries(v).map(([k, fx]) => [k, { ...fx }])) as Record<Inst, VoiceFx>,
     kit: Object.fromEntries(KIT_IDS.map((id) => [id, kit.value(id)])) as Record<KitId, number>,
+    sounds: Object.fromEntries(KIT_FAMILIES.map((f) => [f, kit.sound(f)])) as Record<KitFamily, string>,
   };
 }
 
@@ -150,7 +157,20 @@ function apply(m: PresetMachine, d: VoyData | RytmData): void {
   for (const [inst, fx] of Object.entries(r.voices) as [Inst, VoiceFx][]) {
     for (const p of VOICE_PARAMS) if (typeof fx[p] === 'number') voiceFx.set(inst, p, fx[p]);
   }
-  if (r.kit) for (const id of KIT_IDS) if (typeof r.kit[id] === 'number') kit.set(id, r.kit[id]);
+  if (r.kit) {
+    for (const id of KIT_IDS) {
+      const v = r.kit[id];
+      if (typeof v !== 'number' || isFamily(id)) continue;
+      kit.set(id, v);
+    }
+    // Les sons : par leur nom ; un preset d'avant les echantillons, sur trois crans ; un echantillon parti du dossier : rien ne change
+    for (const f of KIT_FAMILIES) {
+      const snd = r.sounds?.[f];
+      const v = r.kit[f];
+      if (typeof snd === 'string') kit.setSound(f, snd);
+      else if (typeof v === 'number') kit.setSound(f, modelAt(v));
+    }
+  }
 }
 
 export const presets = {

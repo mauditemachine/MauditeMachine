@@ -23,10 +23,15 @@
  *   sa hauteur, au millieme de demi-ton (pitchKey) : rendu a sr / pf puis
  *   lu a sr, vitesse 1, l'echantillon exact. En attendant qu'il soit pret,
  *   le plus proche, relu a la vitesse qu'il faut.
+ * - Un echantillon de Mika (2026-10-05, audio/samples.ts) se calcule sur le
+ *   fil principal (relire un fichier ne coute presque rien, le worker n'a
+ *   pas le fichier) une fois telecharge ; en attendant, la voix joue le son
+ *   calcule le plus proche, puis le bon des qu'il est la.
  */
 
-import { kit, shotsOf } from './kit';
-import { renderShot, VARIANTS, type ShotId, type ShotTweak } from './shotsdsp';
+import { KIT_FAMILIES, familyOf, kit, shotsOf } from './kit';
+import { loadSample, onSampleLoaded, samplePcm } from './samples';
+import { renderSampleShot, renderShot, VARIANTS, type ShotId, type ShotTweak } from './shotsdsp';
 
 export type { ShotId } from './shotsdsp';
 
@@ -74,6 +79,12 @@ const stats = { rendered: 0, ms: 0, sync: 0, nearest: 0, inWorker: 0 };
 /** La derniere variante jouee de chaque son. */
 const lastVar = new Map<ShotId, number>();
 
+/** Les variantes d'un son : une seule quand sa famille joue un echantillon (toutes seraient le meme). */
+const variantsOf = (id: ShotId): number => {
+  const f = familyOf(id);
+  return f && kit.get().sample[f] ? 1 : VARIANTS[id];
+};
+
 /** La cle d'un echantillon : son, STRETCH, variante, frequence, hauteur, et la signature du kit (audio/kit.ts, 2026-10-04). */
 const cacheKey = (id: ShotId, k: number, v: number, sr: number, pk = 0, sig = kit.sig(id)): string => `${id}|${k}|${v}|${sr}|${pk}|${sig}`;
 
@@ -94,14 +105,20 @@ function put(key: string, b: AudioBuffer): void {
   }
 }
 
-/** Calcul sur le fil principal (sans worker, ou un coup qui ne peut pas attendre). */
+/**
+ * Calcul sur le fil principal (sans worker, un echantillon, ou un coup qui
+ * ne peut pas attendre). Un echantillon pas encore telecharge : le son
+ * calcule de la voix, non garde (le bon le remplacera).
+ */
 function makeNow(j: Job): AudioBuffer {
   const t0 = performance.now();
-  const s = renderShot(j.id, j.sr / keyPf(j.pk), j.ts, j.v, j.tw);
+  const pcm = j.tw.sample ? samplePcm(j.tw.sample) : undefined;
+  const s = pcm ? renderSampleShot(j.id, j.sr / keyPf(j.pk), j.ts, pcm, j.tw) : renderShot(j.id, j.sr / keyPf(j.pk), j.ts, j.v, { ...j.tw, sample: undefined });
   const b = toBuffer(s.L, s.L === s.R ? null : s.R, j.sr);
   stats.ms += performance.now() - t0;
   stats.rendered += 1;
-  put(j.key, b);
+  if (pcm || !j.tw.sample) put(j.key, b);
+  else void loadSample(j.tw.sample);
   return b;
 }
 
@@ -144,7 +161,13 @@ function pump(): void {
   let j = queue.shift();
   while (j && cache.has(j.key)) j = queue.shift();
   if (!j) return;
-  const w = getWorker();
+  // Un echantillon : sur le fil principal, une fois telecharge (son arrivee relance le calcul)
+  if (j.tw.sample && !samplePcm(j.tw.sample)) {
+    void loadSample(j.tw.sample);
+    pump();
+    return;
+  }
+  const w = j.tw.sample ? null : getWorker();
   busy = j;
   if (w) {
     // Le worker calcule a la frequence de rendu (sr / pf) ; le buffer gardera sr
@@ -184,17 +207,28 @@ kit.subscribe((changed) => {
   if (typeof window === 'undefined' || warmSr === 0) return;
   window.clearTimeout(rewarmTimer);
   rewarmTimer = window.setTimeout(() => {
-    for (const id of rewarmIds) for (let v = 0; v < VARIANTS[id]; v += 1) enqueue(id, 0, v, warmSr);
+    for (const id of rewarmIds) for (let v = 0; v < variantsOf(id); v += 1) enqueue(id, 0, v, warmSr);
     rewarmIds.clear();
   }, 120);
+});
+
+/** Un echantillon telecharge : les voix qui le jouent se recalculent (a STRETCH 0, la variante 0). */
+onSampleLoaded((key) => {
+  if (warmSr === 0) return;
+  for (const f of KIT_FAMILIES) if (kit.get().sample[f] === key) for (const id of shotsOf(f)) enqueue(id, 0, 0, warmSr);
 });
 
 export const shots = {
   /** Prepare tous les sons a STRETCH 0 (le contexte vient d'etre cree). */
   warm(sr: number): void {
     warmSr = sr;
-    const most = Math.max(...IDS.map((id) => VARIANTS[id]));
-    for (let v = 0; v < most; v += 1) for (const id of IDS) if (v < VARIANTS[id]) enqueue(id, 0, v, sr);
+    // Les echantillons choisis : telecharges tout de suite
+    for (const f of KIT_FAMILIES) {
+      const key = kit.get().sample[f];
+      if (key) void loadSample(key);
+    }
+    const most = Math.max(...IDS.map((id) => variantsOf(id)));
+    for (let v = 0; v < most; v += 1) for (const id of IDS) if (v < variantsOf(id)) enqueue(id, 0, v, sr);
   },
   /** Le prechauffage a 48 kHz, une fois, quand la page est calme (aucun AudioContext). */
   prewarm(): void {
@@ -211,7 +245,7 @@ export const shots = {
    * (rendu hors ligne).
    */
   get(id: ShotId, ts: number, pf: number, sr: number, sync = false): ShotPlay {
-    const n = VARIANTS[id];
+    const n = variantsOf(id);
     let v = n > 1 ? Math.floor(Math.random() * (n - 1)) : 0;
     if (n > 1 && v >= (lastVar.get(id) ?? -1)) v += 1;
     v = Math.min(n - 1, v);

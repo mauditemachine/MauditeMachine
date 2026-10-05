@@ -9,7 +9,7 @@
  * envoie ceux-la au MM-ARP).
  */
 
-import { DECK, DJ_CHANNELS, DJ_DECKS, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_KNOB, DJ_TIMES, MIX, UNIT_X, djDecks, mixWidth, timeLabel, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
+import { DECK, DJ_CHANNELS, DJ_DECKS, DJ_DECKS_MAX, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_KNOB, DJ_TIMES, MIX, UNIT_X, djDecks, mixWidth, timeLabel, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
 /** fxto : FX TO, la voie qui recoit les effets (ou toutes), un selecteur a crans */
 export type DjKnobTarget = { kind: 'eq'; ch: DjChannel; eq: DjEqId } | { kind: 'fx'; fx: DjFxId } | { kind: 'fxto' } | { kind: 'master' };
@@ -54,8 +54,10 @@ export type DjKeyTarget =
   | { kind: 'sync'; deck: DjDeck }
   /** LOOP : une boucle de n temps, au temps pres */
   | { kind: 'loop'; deck: DjDeck; beats: number }
-  /** REMOVE, sur la derniere platine ajoutee (ajouter : le + au bord droit, dj/AddDeck.tsx) */
+  /** REMOVE, sur la derniere platine ajoutee (ajouter : ADD DECK, sur la table) */
   | { kind: 'removedeck'; deck: DjDeck }
+  /** ADD DECK, dans l'en-tete de la table : une platine de plus (tant qu'il reste une place) */
+  | { kind: 'adddeck' }
   /** PLAY/STOP du mixer : le MM-RYTM et le MM-ARP (voies 1 et 2) ensemble */
   | { kind: 'machines' }
   /** LOOP > SMPL : la boucle d'une platine part dans le MM-SMPL */
@@ -209,6 +211,9 @@ function buildKeys(): DjKeySpec[] {
   // LOOP > SMPL, dans l'en-tete de la table
   const X = MIX.export;
   keys.push({ id: 'dj-export', label: 'EXPORT', x: UNIT_X.mix + mixWidth(DJ_CHANNELS) / 2 - X.dx, z: X.z, w: X.w, d: X.d, round: false, target: { kind: 'export' } });
+  // ADD DECK, a sa gauche, tant qu'il reste une place
+  const A = MIX.add;
+  if (DJ_DECKS.length < DJ_DECKS_MAX) keys.push({ id: 'dj-adddeck', label: 'ADD', x: UNIT_X.mix + mixWidth(DJ_CHANNELS) / 2 - A.dx, z: A.z, w: A.w, d: A.d, round: false, target: { kind: 'adddeck' } });
   // PLAYLIST est parti : la liste des morceaux est dans l'ecran de chaque platine
   return keys;
 }

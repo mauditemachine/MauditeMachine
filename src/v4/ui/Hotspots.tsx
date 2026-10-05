@@ -65,7 +65,9 @@ import {
   type DialId,
 } from '../actions';
 import { clock } from '../audio/clock';
-import { KIT_ARIA, KIT_IDS, KIT_MODELS, isFamily, kit, kitSteps, type KitId } from '../audio/kit';
+import { learnPick, midi } from '../midi/midi';
+import { targetIdOfHotspot } from '../midi/targets';
+import { KIT_ARIA, KIT_IDS, isFamily, kit, kitSteps, type KitId } from '../audio/kit';
 import { mix } from '../audio/drums';
 import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
 import { BPM, STEP_COUNT, isOn, pattern } from '../audio/pattern';
@@ -78,6 +80,7 @@ import { editor } from '../state/editor';
 import { PRESET_KEY_ARIA, PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode, type PresetKey } from '../state/presetMode';
 import { chipsLive, explode } from '../state/explode';
 import { MACHINES, focus, VOYAGER } from '../state/focus';
+import { MidiLearnLayer } from './MidiPanel';
 import { section } from '../state/section';
 import { view } from '../state/view';
 import { voices } from '../state/voices';
@@ -411,6 +414,19 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Chaque pointeur est capture : un glisser continue d'orbiter hors du canvas
       capture(e.pointerId);
       const h = pickAt(e, isCoarse(e));
+      // MIDI LEARN (2026-10-05) : la commande touchee attend le message du controleur ; elle ne joue pas
+      const learnId = h && midi.get().learn ? targetIdOfHotspot(h) : null;
+      if (learnId) {
+        learnPick(learnId);
+        try {
+          if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+        } catch {
+          /* pointeur deja inactif */
+        }
+        e.stopPropagation();
+        e.preventDefault();
+        return;
+      }
       // Une commande du MM-DECKS ou du MM-SMPL : elle seule voit ce pointeur (ni orbite ni pincement)
       const g = gesturesOf(h);
       if (h && g) {
@@ -658,7 +674,12 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     };
   }, [getStage, stage]);
 
-  return <div ref={ref} className="v4-hit" aria-hidden="true" />;
+  return (
+    <>
+      <div ref={ref} className="v4-hit" aria-hidden="true" />
+      <MidiLearnLayer stage={stage} />
+    </>
+  );
 };
 
 interface TwinsProps {
@@ -1066,7 +1087,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
           // Les TWEAKS du kit (2026-10-04) : juste apres OPEN qui les decouvre, au clavier comme a la souris
           const id = `rk-${k}`;
           const sw = isFamily(k);
-          const v = sw ? KIT_MODELS.indexOf(kitNow.model[k]) / 2 : kitNow.knob[k];
+          const v = sw ? kit.value(k) : kitNow.knob[k];
           return (
             <div
               key={id}

@@ -19,6 +19,7 @@ import { MACHINES, focus, VOYAGER, type Focus, type MachineId } from '../state/f
 import { section } from '../state/section';
 import { MOBILE_QUERY, type PageId } from '../theme';
 import { MenuSheet } from './MenuSheet';
+import { MidiButton } from './MidiPanel';
 
 export type HoodId = 'goodies' | 'merch' | 'studio';
 
@@ -116,6 +117,7 @@ export const Header: React.FC<Props> = ({ getStage }) => {
           <img src={look === 'light' ? '/logo/mauditemachine-logo-ink.svg' : '/logo/mauditemachine-logo-gold.svg'} alt="Maudite Machine" width={118} height={26} />
         </a>
         <div className="v4-header-end">
+        <MidiButton />
         {VOYAGER && <HeaderMachines />}
         <button
           ref={btnRef}

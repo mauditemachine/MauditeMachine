@@ -128,21 +128,22 @@ export function keyGeometry(mobile: boolean): BufferGeometry {
 }
 
 /**
- * Bouton rond unite (rayon 1, mis a l'echelle en x et z) : une collerette
- * sombre qui s'allume (masque 1), lisible sur le panneau noir comme sur le
- * creme, et un capuchon au dessus plat, ou son nom est grave (Mika,
- * 2026-10-04 : "CUE et PLAY/PAUSE devraient etre ecrits sur les boutons,
- * et CUE de la couleur des knobs FILTER") : CUE orange, PLAY / PAUSE en
- * aluminium (celui de la bague du jog).
+ * Bouton rond unite (rayon 1, mis a l'echelle en x et z). 2026-10-05 (Mika :
+ * "je trouve que les boutons CUE et PLAY font un peu trop jouets") : plus
+ * le gros disque orange et le disque d'aluminium bombes, mais la facon d'un
+ * lecteur de club : un capuchon de caoutchouc sombre, plat et bas, son nom
+ * imprime petit, et autour, separe par une fente, un anneau fin qui
+ * s'allume (masque 1 : orange pour CUE, jaune pour PLAY). capTone : la
+ * teinte du capuchon.
  */
-export function roundGeometry(mobile: boolean, capTone: DjTone): BufferGeometry {
+export function roundGeometry(mobile: boolean, capTone: DjTone = 'cap'): BufferGeometry {
   const seg = mobile ? 32 : 48;
   const R = DJ_ROUND;
   const ring = new LatheGeometry(
-    [new Vector2(0.8, 0), new Vector2(1.0, 0), new Vector2(1.0, R.ringH * 0.7), new Vector2(0.96, R.ringH), new Vector2(0.8, R.ringH)],
+    [new Vector2(R.ringIn, 0), new Vector2(1.0, 0), new Vector2(1.0, R.ringH * 0.6), new Vector2(0.975, R.ringH), new Vector2(R.ringIn, R.ringH)],
     seg
   );
-  const capPts = [new Vector2(0.78, 0), new Vector2(0.78, R.h - 0.045), new Vector2(0.75, R.h - 0.012), new Vector2(0.68, R.h), new Vector2(0, R.h)];
+  const capPts = [new Vector2(R.cap, 0), new Vector2(R.cap, R.h - 0.03), new Vector2(R.cap - 0.02, R.h - 0.008), new Vector2(R.cap - 0.07, R.h), new Vector2(0, R.h)];
   const cap = new LatheGeometry(capPts, seg);
   const r = partDj(ring, 'slot');
   setMask(r, () => 1);
@@ -152,9 +153,10 @@ export function roundGeometry(mobile: boolean, capTone: DjTone): BufferGeometry 
 }
 
 /**
- * Les noms graves sur les boutons ronds : une texture, CUE a gauche (lettres
- * sombres pour l'orange), le triangle et les deux barres de PLAY / PAUSE a
- * droite (encre sombre, lisible sur l'aluminium en clair comme en sombre).
+ * Les noms imprimes sur les boutons ronds : une texture, CUE a gauche (en
+ * orange, petit et espace), le triangle et les deux barres de PLAY / PAUSE
+ * a droite (en os) ; lisibles sur le caoutchouc sombre, en clair comme en
+ * sombre.
  */
 export function labelTexture(anisotropy: number): CanvasTexture {
   const c = document.createElement('canvas');
@@ -163,22 +165,31 @@ export function labelTexture(anisotropy: number): CanvasTexture {
   const x = c.getContext('2d');
   if (x) {
     x.clearRect(0, 0, 512, 256);
-    x.fillStyle = '#17120E';
+    x.fillStyle = DJ_LIGHT.orange;
     x.textAlign = 'center';
     x.textBaseline = 'middle';
-    x.font = `800 84px ${FONT_DISPLAY}`;
-    x.fillText('CUE', 128, 134);
+    x.font = `700 50px ${FONT_DISPLAY}`;
+    // Espace entre les lettres (letterSpacing n'existe pas partout)
+    const word = 'CUE';
+    const track = 7;
+    const widths = [...word].map((ch) => x.measureText(ch).width);
+    let cx = 128 - (widths.reduce((a, w) => a + w, 0) + track * (word.length - 1)) / 2;
+    x.textAlign = 'left';
+    [...word].forEach((ch, i) => {
+      x.fillText(ch, cx, 131);
+      cx += widths[i] + track;
+    });
     // PLAY / PAUSE : le triangle, puis deux barres
-    x.fillStyle = '#1B1C20';
+    x.fillStyle = '#ECE6DA';
     const cy = 128;
     x.beginPath();
-    x.moveTo(312, cy - 44);
-    x.lineTo(312, cy + 44);
-    x.lineTo(372, cy);
+    x.moveTo(338, cy - 26);
+    x.lineTo(338, cy + 26);
+    x.lineTo(374, cy);
     x.closePath();
     x.fill();
-    x.fillRect(392, cy - 42, 16, 84);
-    x.fillRect(420, cy - 42, 16, 84);
+    x.fillRect(388, cy - 25, 9, 50);
+    x.fillRect(405, cy - 25, 9, 50);
   }
   return makeCanvasTexture(c, anisotropy);
 }
@@ -421,18 +432,18 @@ export class DjControls {
     let np = 0;
     // PLAY des platines et PLAY/STOP des machines (mixer) : l'aluminium et son triangle
     this.roundSlot = DJ_ROUND_KEYS.map((k) => (k.target.kind === 'play' || k.target.kind === 'machines' ? { play: true, j: np++ } : { play: false, j: nc++ }));
-    // CUE : l'orange des potards FILTER, le grain de leur capuchon ; PLAY : l'aluminium de la bague du jog
-    const cg = roundGeometry(opts.mobile, 'hot');
+    // CUE et PLAY (2026-10-05) : le meme caoutchouc sombre, leur anneau dit ce qu'ils sont (orange, jaune)
+    const cg = roundGeometry(opts.mobile);
     this.cueEm = new InstancedBufferAttribute(new Float32Array(Math.max(1, nc) * 3), 3);
     this.cueEm.setUsage(DynamicDrawUsage);
     cg.setAttribute('instanceEmissive', this.cueEm);
-    this.roundsCue = new InstancedMesh(cg, std('djRoundCue', { roughness: 0.42, metalness: 0.25 }, true), nc);
+    this.roundsCue = new InstancedMesh(cg, std('djRoundCue', { roughness: 0.78, metalness: 0 }, true), nc);
     this.roundsCue.name = 'djRoundsCue';
-    const pg = roundGeometry(opts.mobile, 'ring');
+    const pg = roundGeometry(opts.mobile);
     this.playEm = new InstancedBufferAttribute(new Float32Array(Math.max(1, np) * 3), 3);
     this.playEm.setUsage(DynamicDrawUsage);
     pg.setAttribute('instanceEmissive', this.playEm);
-    this.roundsPlay = new InstancedMesh(pg, std('djRoundPlay', { roughness: 0.3, metalness: light ? 0.2 : 0.55 }, true), np);
+    this.roundsPlay = new InstancedMesh(pg, std('djRoundPlay', { roughness: 0.78, metalness: 0 }, true), np);
     this.roundsPlay.name = 'djRoundsPlay';
     // Les noms graves : une encre mate posee sur le dessus plat
     this.labelTex = labelTexture(opts.anisotropy);
@@ -584,16 +595,21 @@ export class DjControls {
   /** Lumiere d'une touche (lineaire) ; true si elle change. */
   setKeyGlow(i: number, rgb: readonly number[], round = false): boolean {
     let attr = this.keyEm;
+    // L'anneau fin d'un bouton rond : une LED, plus vive qu'un dessus de touche
+    const g = round ? DJ_ROUND.glow : 1;
     if (round) {
       const slot = this.roundSlot[i];
       attr = slot.play ? this.playEm : this.cueEm;
       i = slot.j;
     }
     const a = attr.array as Float32Array;
-    if (a[i * 3] === rgb[0] && a[i * 3 + 1] === rgb[1] && a[i * 3 + 2] === rgb[2]) return false;
-    a[i * 3] = rgb[0];
-    a[i * 3 + 1] = rgb[1];
-    a[i * 3 + 2] = rgb[2];
+    const r = Math.fround(rgb[0] * g);
+    const gg = Math.fround(rgb[1] * g);
+    const b = Math.fround(rgb[2] * g);
+    if (a[i * 3] === r && a[i * 3 + 1] === gg && a[i * 3 + 2] === b) return false;
+    a[i * 3] = r;
+    a[i * 3 + 1] = gg;
+    a[i * 3 + 2] = b;
     attr.needsUpdate = true;
     return true;
   }

@@ -26,6 +26,7 @@
  */
 
 import type { Inst } from '../theme';
+import { playSample, type SamplePcm } from './sampledsp';
 import { timeStretch } from './stretch';
 
 export type ShotId = Inst | 'CHopen';
@@ -48,6 +49,8 @@ export interface ShotTweak {
   snappy: number;
   /** GATE (2026-10-04) : la reverbe a porte de la caisse claire MM, la piece des claps MM et 909 */
   gate?: boolean;
+  /** un echantillon de Mika (2026-10-05, audio/samples.ts) : sa cle ; le calcul passe alors par renderSampleShot */
+  sample?: string;
 }
 
 const TWEAK_MM: ShotTweak = { model: 'mm', tune: 0.5, attack: 0.5, decay: 0.45, drive: 0.25, snappy: 0.5 };
@@ -1003,3 +1006,25 @@ export function renderShot(id: ShotId, sr: number, stretch: number, variant: num
   return s;
 }
 
+/**
+ * Un coup joue par un echantillon de Mika (2026-10-05, audio/sampledsp.ts) :
+ * relu a sr avec les TWEAKS de sa famille, etire par STRETCH comme les
+ * autres, et sa crete calee comme celle du son calcule de sa voix (le kick
+ * comme le 909, 1.5 dB sous BD) : changer de son ne change pas le niveau.
+ */
+export function renderSampleShot(id: ShotId, sr: number, stretch: number, pcm: SamplePcm, tw: ShotTweak): Shot {
+  const family = id === 'BD' ? 'bd' : id === 'SD' ? 'sd' : id === 'CP' ? 'cp' : id === 'RS' ? 'rs' : id === 'TOM' || id === 'HT' ? 'tom' : 'hh';
+  let s: Shot = playSample(pcm, sr, { family, tune: tw.tune, attack: tw.attack, decay: tw.decay, drive: tw.drive, snappy: tw.snappy });
+  if (Math.abs(stretch - 1) > 1e-3) {
+    if (s.L === s.R) {
+      const one = timeStretch(s.L, stretch, sr);
+      s = { L: one, R: one };
+    } else s = { L: timeStretch(s.L, stretch, sr), R: timeStretch(s.R, stretch, sr) };
+  }
+  const p = peakOf(s.L === s.R ? [s.L] : [s.L, s.R]);
+  const trim = id === 'BD' ? -1.5 : 0;
+  const k = p > 0 ? Math.pow(10, (SHOT_PEAK[id] + trim) / 20) / p : 1;
+  for (let i = 0; i < s.L.length; i += 1) s.L[i] *= k;
+  if (s.R !== s.L) for (let i = 0; i < s.R.length; i += 1) s.R[i] *= k;
+  return s;
+}

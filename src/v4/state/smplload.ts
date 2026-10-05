@@ -28,7 +28,8 @@ export const smplLoad = {
   /** Le chargement (une fois) ; null avec ?smpl=0. */
   load(): Promise<SmplModules> | null {
     if (!SMPL) return null;
-    pending ??= Promise.all([import('../smpl/rig'), import('../smpl/gestures'), import('../smpl/state'), import('../smpl/engine'), import('../smpl/actions')]).then(([rig, gestures, state, engine, actions]) => {
+    // smpl/midi : ses cibles MIDI s'inscrivent (midi/targets.ts, 2026-10-05)
+    pending ??= Promise.all([import('../smpl/rig'), import('../smpl/gestures'), import('../smpl/state'), import('../smpl/engine'), import('../smpl/actions'), import('../smpl/midi')]).then(([rig, gestures, state, engine, actions]) => {
       mods = { SmplRig: rig.SmplRig, SmplGestures: gestures.SmplGestures, smplState: state.smplState, smplEngine: engine.smplEngine, smplGrab: actions.smplGrab };
       listeners.forEach((fn) => fn());
       return mods;

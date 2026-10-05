@@ -74,8 +74,13 @@ export const deckChannel = (d: DjDeck): DjChannel => (2 + DJ_DECKS_ALL.indexOf(d
 export let DJ_DECKS: readonly DjDeck[] = ['a', 'b'];
 /** Les blocs poses (avec un corps), de gauche a droite. */
 export let DJ_UNITS_ON: readonly DjUnit[] = ['a', 'mix', 'b'];
-/** Les blocs qu'on fait defiler au telephone : les blocs poses, puis le bloc de fin (ADD DECK, REMOVE DECK). */
-export let DJ_VIEW_UNITS: readonly DjUnit[] = ['a', 'mix', 'b', 'add'];
+/**
+ * Les blocs qu'on fait defiler au telephone : les blocs poses (la table en
+ * deux ou trois vues). Le bloc de fin (ADD DECK, REMOVE DECK) est parti le
+ * 2026-10-05 : ADD DECK est une touche de la table, REMOVE DECK celle de la
+ * derniere platine.
+ */
+export let DJ_VIEW_UNITS: readonly DjUnit[] = ['a', 'mix', 'b'];
 /** Le nombre de voies de la table : le MM-RYTM, le MM-ARP, puis une par platine. */
 export let DJ_CHANNELS = 4;
 /** La table s'elargit d'une colonne par voie en plus. */
@@ -129,8 +134,7 @@ function place(n: number): void {
   // Au telephone, la table se voit en deux ou trois vues, de gauche a droite
   mixViews = Math.min(MIX_VIEWS.length, Math.max(2, Math.ceil(mixWidth(DJ_CHANNELS) / MIX_VIEW)));
   const views: DjUnit[] = [...MIX_VIEWS.slice(0, mixViews)];
-  // Le bloc de fin : ADD DECK tant qu'il reste une place, REMOVE DECK des qu'une platine a ete ajoutee
-  DJ_VIEW_UNITS = [...DJ_UNITS_ON.flatMap((u): DjUnit[] => (u === 'mix' ? views : [u])), ...(n < DJ_DECKS_MAX || n > DJ_DECKS_MIN ? (['add'] as const) : [])];
+  DJ_VIEW_UNITS = DJ_UNITS_ON.flatMap((u): DjUnit[] => (u === 'mix' ? views : [u]));
   const widths = DJ_UNITS_ON.map(unitW);
   DJ_W = widths.reduce((a, w) => a + w, 0) + (widths.length - 1) * DJ_UNIT.gap;
   for (const u of Object.keys(UNIT_X) as DjUnit[]) UNIT_X[u] = 0;
@@ -358,6 +362,15 @@ export const MIX = {
    * une platine ; dx : son centre depuis le bord droit de la table
    */
   export: { dx: 1.62, z: -5.19, w: 0.72, d: 0.28 },
+  /**
+   * ADD DECK (2026-10-05, Mika : "quand on pose la souris sur le bord du
+   * deck B pour voir ce qu'il y a a droite, c'est trop fragile, on clique
+   * sans faire expres pour ajouter un deck ; juste pouvoir rajouter un deck
+   * a partir du mixer") : dans l'en-tete aussi, a gauche de LOOP > SMPL ;
+   * son nom prend la place du sous-titre. dx : son centre depuis le bord
+   * droit de la table
+   */
+  add: { dx: 4.2, z: -5.19, w: 0.72, d: 0.28 },
 };
 
 /** Les colonnes de la table pour n voies (repere du bloc). */
@@ -461,7 +474,12 @@ export const DJ_FADER = {
   xcap: { w: 0.3, d: 0.56 },
 } as const;
 export const DJ_KEY = { h: 0.12, radius: 0.05, press: 0.04 } as const;
-export const DJ_ROUND = { h: 0.16, ring: 0.07, ringH: 0.07 } as const;
+/**
+ * Les boutons ronds (CUE, PLAY, PLAY/STOP du mixer), rayon 1 mis a
+ * l'echelle : le capuchon (rayon cap, hauteur h), la fente, l'anneau de
+ * LED (de ringIn a 1, hauteur ringH) et le gain de sa lumiere.
+ */
+export const DJ_ROUND = { h: 0.1, cap: 0.8, ringIn: 0.86, ringH: 0.045, glow: 2.2 } as const;
 export const DJ_BEZEL = { margin: 0.12, h: 0.02 } as const;
 
 /* Les places au chargement (le nombre retenu), une fois MIX et DJ_FX definis. */

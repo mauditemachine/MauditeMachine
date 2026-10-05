@@ -8,7 +8,8 @@
  * sequenceur (RUN/STOP du MM-VOYAGER quand on l'utilise), R ramene la vue par defaut, Echap ferme
  * la section ouverte (sinon referme la vue eclatee, sinon deselectionne
  * l'instrument). E ouvre ou ferme l'editeur (EDIT) du MM-ARP ou du
- * MM-RYTM (2026-10-04).
+ * MM-RYTM (2026-10-04). Gauche et droite passent d'une machine a l'autre
+ * (2026-10-05), sauf sur un controle qui s'en sert (encodeur, onglets).
  * Rien ne part avec Alt, Ctrl ou Meta, dans un champ editable, ni sur une
  * repetition de touche. Espace est laisse au controle qui l'utilise deja
  * (bouton, lien, jumeau bouton ou lien) : il l'active, comme partout. Un
@@ -17,10 +18,11 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { editToggle, escape, openToggle, padHit, page, presetKey, resetView, runToggle, voyPad, voyRun } from '../actions';
+import { editToggle, escape, openToggle, padHit, page, presetKey, resetView, runToggle, stepMachine, voyPad, voyRun } from '../actions';
 import { presetMode } from '../state/presetMode';
 import type { Stage } from '../scene/renderer';
 import { focus } from '../state/focus';
+import { section } from '../state/section';
 import { PADS, PAGES, type PageId } from '../theme';
 
 /** MM-VOYAGER (2026-10-03) : A S D F G H J K jouent les huit accords quand on l'utilise. */
@@ -36,6 +38,12 @@ const isEditable = (t: EventTarget | null): boolean => {
 const ownsSpace = (t: EventTarget | null): boolean => {
   if (!(t instanceof Element)) return false;
   return t.closest('button, a[href], [role="button"], summary, input, textarea, select, [contenteditable="true"]') !== null;
+};
+
+/** Un controle qui se sert des fleches (encodeur, onglets, liste, champ) : elles lui restent. */
+const ownsArrows = (t: EventTarget | null): boolean => {
+  if (!(t instanceof Element)) return false;
+  return t.closest('[role="slider"], [role="tab"], [role="tablist"], [role="radio"], [role="menuitem"], [role="option"], [role="listbox"], input, textarea, select') !== null;
 };
 
 /** 'a' -> BD ... 'z' -> CP ... ; les majuscules (verrou) comptent aussi. */
@@ -65,6 +73,12 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
       if (pm && pm === focus.get() && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         e.preventDefault();
         presetKey(pm, e.key === 'ArrowLeft' ? 'prev' : 'next');
+        return;
+      }
+      // Gauche et droite (2026-10-05) : la machine d'a cote (pas avec une page ouverte par-dessus)
+      if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !ownsArrows(e.target) && section.get() === null) {
+        e.preventDefault();
+        stepMachine(e.key === 'ArrowLeft' ? -1 : 1);
         return;
       }
       const chord = focus.get() === 'voy' ? CHORD_KEYS.indexOf(e.key.toLowerCase()) : -1;

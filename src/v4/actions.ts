@@ -17,7 +17,7 @@ import { sc } from './audio/soundcloud';
 import { prepareSynth } from './audio/synth';
 import type { Stage } from './scene/renderer';
 import { chipsLive, explode, voyExplode, type ExplodeStore } from './state/explode';
-import { focus, VOYAGER, type Focus, type MachineId } from './state/focus';
+import { focus, MACHINES, VOYAGER, type Focus, type MachineId } from './state/focus';
 import { lcdMessage } from './state/lcdMessage';
 import { lcdMix } from './state/lcdMix';
 import { contactDraft, type ContactTopic } from './state/contactDraft';
@@ -500,6 +500,22 @@ export function escape(): boolean {
 /** Zoom sur une machine (clic sur elle, glisser au telephone), ou la vue d'ensemble. */
 export function focusMachine(f: Focus): void {
   focus.set(f);
+}
+
+/**
+ * Fleches gauche et droite (2026-10-05, Mika : "naviguer entre les machines
+ * avec les fleches gauche droite") : la machine d'a cote, dans l'ordre de la
+ * scene et du selecteur de l'en-tete (ALL, RYTM, ARP, SMPL, DECKS ; ALL
+ * seulement sur desktop) ; aux bouts, rien. true si la vue a change.
+ */
+export function stepMachine(dir: -1 | 1): boolean {
+  if (!VOYAGER) return false;
+  const order: readonly Focus[] = window.matchMedia(MOBILE_QUERY).matches ? MACHINES : ['all', ...MACHINES];
+  const i = order.indexOf(focus.get());
+  const next = order[Math.max(0, Math.min(order.length - 1, (i < 0 ? 0 : i) + dir))];
+  if (next === undefined || next === focus.get()) return false;
+  focus.set(next);
+  return true;
 }
 
 /**
