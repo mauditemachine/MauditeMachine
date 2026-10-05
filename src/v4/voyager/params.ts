@@ -91,7 +91,8 @@ export type VoyKnobId =
   | 'monoLow'
   | 'keyTrack'
   | 'accent'
-  | 'sync';
+  | 'sync'
+  | 'duck';
 
 export type VoySection = 'arp' | 'osc' | 'filter' | 'feg' | 'aeg' | 'mod' | 'fx' | 'out' | 'tweak';
 
@@ -212,7 +213,12 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
    * - KEY TRACK : la coupure suit la note (5 : la moitie, celle d'avant) ;
    * - ACCENT : la force des accents de l'arpege (le "a" de chaque temps) ;
    * - SYNC : OSC 2 synchronise sur OSC 1 (hard sync), le son acide qui crie
-   *   quand OSC 2 monte (RANGE, SEMI).
+   *   quand OSC 2 monte (RANGE, SEMI) ;
+   * - SIDECHAIN (2026-10-04, Mika : "un knob sidechain automatique, qui
+   *   s'adapte parfaitement au kick et a sa longueur dans MM-RYTM") : la
+   *   sortie du MM-ARP (effets compris) s'efface a chaque kick et revient
+   *   avec lui, selon l'enveloppe mesuree du kick joue (son, TUNE, DECAY,
+   *   STRETCH, velocite) : audio/duck.ts. OFF a 0, jusqu'a -24 dB au coup.
    */
   { id: 'phase', label: 'PHASE', aria: 'Oscillator phase at each note: free, or the same start phase every note', section: 'tweak', def: 0 },
   { id: 'drift', label: 'DRIFT', aria: 'Analog drift and the small differences between notes', section: 'tweak', def: 0.5 },
@@ -221,6 +227,7 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'keyTrack', label: 'KEY TRACK', aria: 'Filter key tracking, the cutoff follows the note', section: 'tweak', def: 0.5 },
   { id: 'accent', label: 'ACCENT', aria: 'Arpeggio accent depth', section: 'tweak', def: 0.5 },
   { id: 'sync', label: 'SYNC', aria: 'Oscillator 2 hard synced to oscillator 1', section: 'tweak', def: 0, steps: ['OFF', 'ON'] },
+  { id: 'duck', label: 'SIDECHAIN', aria: 'Sidechain: the synth ducks under every MM-RYTM kick, for as long as the kick lasts', section: 'tweak', def: 0 },
 ];
 
 /** Les potards de la face (capot) et les TWEAKS (sous le capot, sur la carte : voyager/tweaks.ts). */
@@ -230,6 +237,10 @@ export const VOY_TWEAKS: readonly VoyKnob[] = VOY_KNOBS.filter((k) => k.section 
 /** PHASE : sous ce seuil, FREE ; au-dessus, la phase de depart (0 a 1 cycle). */
 export const PHASE_FREE = 0.04;
 export const phaseStart = (v: number): number => (v < PHASE_FREE ? -1 : (v - PHASE_FREE) / (1 - PHASE_FREE));
+/** SIDECHAIN : OFF sous 0.02, puis la baisse au coup du kick, jusqu'a 24 dB. */
+export const DUCK_OFF = 0.02;
+export const duckDepthDb = (v: number): number => (v < DUCK_OFF ? 0 : 24 * v);
+
 /** BASS MONO : OFF sous 0.04, puis 40 a 300 Hz (exponentiel). */
 export const monoLowHz = (v: number): number => (v < 0.04 ? 0 : 40 * Math.pow(7.5, (v - 0.04) / 0.96));
 
@@ -415,7 +426,7 @@ export function engineParams(v: Readonly<VoyValues>): EngineParams {
 /** Texte de l'ecran et du jumeau : CUTOFF 64%, RATE 1/16, MODE UP/DN. */
 export function voyReadout(id: VoyKnobId, v: number): string {
   const k = voyKnob(id);
-  if (id === 'phase' || id === 'monoLow' || id === 'fine1' || id === 'fine2') return `${k.label} ${voyValueText(id, v)}`;
+  if (id === 'phase' || id === 'monoLow' || id === 'fine1' || id === 'fine2' || id === 'duck') return `${k.label} ${voyValueText(id, v)}`;
   if (k.morph) return `${k.label} ${morphText(id, v)}`;
   if (k.steps) return `${k.label} ${k.steps[stepIndex(id, v)]}`;
   const sec = k.section === 'feg' ? 'F ' : k.section === 'aeg' ? 'A ' : '';
@@ -427,6 +438,7 @@ export function voyValueText(id: VoyKnobId, v: number): string {
   const k = voyKnob(id);
   if (id === 'phase') return v < PHASE_FREE ? 'FREE' : `${Math.round(phaseStart(v) * 360)} DEG`;
   if (id === 'monoLow') return v < 0.04 ? 'OFF' : `${Math.round(monoLowHz(v))} HZ`;
+  if (id === 'duck') return v < DUCK_OFF ? 'OFF' : `-${Math.round(duckDepthDb(v))} DB`;
   if (id === 'fine1' || id === 'fine2') {
     const c = Math.round(fineCents(v));
     return `${c > 0 ? '+' : ''}${c} CT`;

@@ -1163,7 +1163,7 @@ const HEAD = PORTRAIT
 
 export const SILK_LOGOS: readonly { id: SilkLogoId; src: string; x: number; z: number; w?: number; h?: number; align: 'left' | 'right' }[] = [
   { id: 'wordmark', src: '/logo/mauditemachine-logo-aligned.svg', x: HEAD.word.x, z: HEAD.z, w: HEAD.word.w, align: 'left' },
-  { id: 'mark', src: '/logo/mauditemachine-logotype.png', x: HEAD.mark.x, z: HEAD.z, h: HEAD.mark.h, align: 'right' },
+  { id: 'mark', src: '/logo/mauditemachine-logotype.svg', x: HEAD.mark.x, z: HEAD.z, h: HEAD.mark.h, align: 'right' },
 ];
 
 /** Le libelle du pad OPEN (OPEN, CLOSE vue eclatee) : l'index de son texte dans SILK_TEXTS. */

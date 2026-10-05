@@ -26,10 +26,10 @@ import type { HotspotView } from '../scene/hit';
 import { quadToUnit } from '../scene/quad';
 import type { Stage } from '../scene/renderer';
 import { djBrowser } from './browser';
-import { djLoop, djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djHotcue, djHotcueClear, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetMaster, djSetPitch, djSetTime, djWaveNext } from './actions';
+import { djLoop, djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djHotcue, djHotcueClear, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetFxTo, djSetMaster, djSetPitch, djSetTime, djWaveNext, fxTarget, fxToOfValue, fxToValue } from './actions';
 import { djFader, djKey, djKnob, type DjFaderSpec, type DjKeySpec, type DjKnobSpec } from './layout';
 import { djState } from './state';
-import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_DECKS_ALL, DJ_FADER, UNIT_X, type DjDeck } from './theme';
+import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_CHANNELS, DJ_DECKS_ALL, DJ_FADER, UNIT_X, type DjDeck } from './theme';
 
 const KNOB_PX = 150;
 const FINE = 0.1;
@@ -50,18 +50,26 @@ const deckOf = (id: string): DjDeck => {
 
 /* ---------------- valeurs ---------------- */
 
+/** La molette sur un selecteur : un cran tous les 60 px de defilement. */
+const WHEEL_NOTCH = 60;
+let wheelAcc = 0;
+
 export function knobValue(k: DjKnobSpec): number {
   const s = djState.get();
   const t = k.target;
-  return t.kind === 'eq' ? s.ch[t.ch][t.eq] : t.kind === 'fx' ? s.fx[t.fx] : s.master;
+  return t.kind === 'eq' ? s.ch[t.ch][t.eq] : t.kind === 'fx' ? s.fx[t.fx] : t.kind === 'fxto' ? fxToValue(fxTarget(s)) : s.master;
 }
 
 export function setKnob(k: DjKnobSpec, v: number): void {
   const t = k.target;
   if (t.kind === 'eq') djSetEq(t.ch, t.eq, v);
   else if (t.kind === 'fx') djSetFx(t.fx, v);
+  else if (t.kind === 'fxto') djSetFxTo(fxToOfValue(v));
   else djSetMaster(v);
 }
+
+/** Les crans d'un potard : FX TO, ALL puis chaque voie posee ; 0 : continu. */
+export const knobSteps = (k: DjKnobSpec): number => (k.target.kind === 'fxto' ? DJ_CHANNELS + 1 : 0);
 
 export const knobNeutral = (k: DjKnobSpec): number => (k.bipolar ? 0 : k.target.kind === 'master' ? 0.88 : 0);
 export const knobMin = (k: DjKnobSpec): number => (k.bipolar ? -1 : 0);
@@ -387,6 +395,16 @@ export class DjGestures {
     // Le pitch a la molette : un dixieme de BPM par cran (vers le haut : plus vite)
     if (f && f.target.kind === 'pitch') {
       djTempoStep(f.target.deck, deltaY < 0 ? 1 : -1, shift ? 1 : 0.1);
+      return true;
+    }
+    // Un selecteur (FX TO) : un cran par cran de molette (un pave tactile en envoie beaucoup de petits)
+    const n = k ? knobSteps(k) : 0;
+    if (k && n > 1) {
+      wheelAcc += deltaY;
+      if (Math.abs(wheelAcc) < WHEEL_NOTCH) return true;
+      const dir = Math.sign(-wheelAcc);
+      wheelAcc = 0;
+      setKnob(k, Math.max(0, Math.min(1, knobValue(k) + dir / (n - 1))));
       return true;
     }
     const step = (shift ? 0.01 : 0.02) * Math.sign(-deltaY) * Math.max(1, Math.round(Math.abs(deltaY) / 100));

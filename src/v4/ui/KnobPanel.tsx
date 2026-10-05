@@ -24,7 +24,7 @@
  */
 
 import React, { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
-import { anyDial, anyDialReset, anyDialValue, dialRange, dialReadout, dialSteps, dialValueText, selectInstrument, subscribeDials, type DialId } from '../actions';
+import { anyDial, anyDialReset, anyDialValue, dialRange, dialReadout, dialSteps, dialValueText, subscribeDials, tuneVoice, type DialId } from '../actions';
 import { INSTRUMENTS, pattern } from '../audio/pattern';
 import type { Stage } from '../scene/renderer';
 import type { MachineId } from '../state/focus';
@@ -57,7 +57,7 @@ const ARP_GROUPS: readonly Group[] = [
   { id: 'mod', label: 'MOD', dials: [v('lfoRate', 'SPEED'), v('lfoShape', 'SHAPE'), v('lfoDest', 'TARGET'), v('lfoAmt', 'DEPTH')] },
   { id: 'fx', label: 'FX', dials: [v('dist', 'OVERDRIVE'), v('chorus', 'CHORUS'), v('delay', 'DELAY'), v('reverb', 'REVERB')] },
   { id: 'arp', label: 'ARP', dials: [v('rate', 'RATE'), v('mode', 'MODE'), v('range', 'RANGE'), v('notes', 'NOTES'), v('gate', 'GATE'), v('octave', 'OCTAVE'), v('glide', 'GLIDE')] },
-  { id: 'tweaks', label: 'TWEAKS', dials: [v('phase', 'PHASE'), v('drift', 'DRIFT'), v('width', 'WIDTH'), v('monoLow', 'BASS MONO'), v('keyTrack', 'KEY TRACK'), v('accent', 'ACCENT'), v('sync', 'SYNC')] },
+  { id: 'tweaks', label: 'TWEAKS', dials: [v('phase', 'PHASE'), v('drift', 'DRIFT'), v('width', 'WIDTH'), v('monoLow', 'BASS MONO'), v('keyTrack', 'KEY TRACK'), v('accent', 'ACCENT'), v('sync', 'SYNC'), v('duck', 'SIDECHAIN')] },
 ];
 
 const RYTM_GROUPS: readonly Group[] = [
@@ -70,7 +70,7 @@ const RYTM_GROUPS: readonly Group[] = [
   },
   { id: 'main', label: 'MASTER', dials: [e('level', 'MASTER'), e('tempo', 'TEMPO')] },
   { id: 'kick', label: 'KICK', dials: [r('bd', 'SOUND'), r('tune', 'TUNE'), r('attack', 'ATTACK'), r('decay', 'DECAY'), r('drive', 'DRIVE')] },
-  { id: 'kit', label: 'VOICES', dials: [r('sd', 'SNARE'), r('snappy', 'SNAPPY'), r('hh', 'HATS'), r('cp', 'CLAP'), r('tom', 'TOMS'), r('rs', 'RIM')] },
+  { id: 'kit', label: 'VOICES', dials: [r('sd', 'SNARE'), r('snappy', 'SNAPPY'), r('cp', 'CLAP'), r('gate', 'GATE'), r('hh', 'HATS'), r('tom', 'TOMS'), r('rs', 'RIM')] },
 ];
 
 const TAB_KEY = 'mm.v4.knobtab.';
@@ -285,7 +285,7 @@ export const KnobPanel: React.FC<Props> = ({ machine }) => {
       {g.voices && (
         <div className="v4-knobs-voices" role="group" aria-label="Voice to tune">
           {INSTRUMENTS.map((inst) => (
-            <button key={inst} type="button" className="v4-knobs-voice" aria-pressed={p.instrument === inst} onClick={() => selectInstrument(inst)}>
+            <button key={inst} type="button" className="v4-knobs-voice" aria-pressed={p.instrument === inst} onClick={() => tuneVoice(inst)}>
               {inst}
             </button>
           ))}

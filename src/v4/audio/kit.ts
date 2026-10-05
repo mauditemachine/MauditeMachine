@@ -10,7 +10,11 @@
  *   par defaut, les autres en MM ;
  * - le KICK : TUNE (sa hauteur), ATTACK (la frappe), DECAY (sa longueur),
  *   DRIVE (sa saturation), pour les trois sons ;
- * - SNAPPY : le timbre de la caisse claire (les trois sons).
+ * - SNAPPY : le timbre de la caisse claire (les trois sons) ;
+ * - GATE (2026-10-04, Mika : "trop de gate reverb sur le snare et le clap,
+ *   je veux pouvoir l'activer ou pas dans OPEN") : la reverbe a porte de
+ *   la caisse claire MM et la petite piece des claps MM et 909, OFF par
+ *   defaut, ON pour les retrouver. Un commutateur a deux crans.
  * Les potards vont de 0 a 1, les choix de son aussi (0 : 909, 0.5 : 808,
  * 1 : MM, un commutateur a trois crans). Chaque coup est calcule avec le
  * kit du moment (audio/shots.ts : sa signature fait partie de la cle de
@@ -26,16 +30,19 @@ export const KIT_MODEL_LABEL: Readonly<Record<KitModel, string>> = { '909': '909
 
 /** Les familles de voix qui changent de son. */
 export type KitFamily = 'bd' | 'sd' | 'hh' | 'cp' | 'tom' | 'rs';
-/** Les reglages continus. */
-export type KitKnob = 'tune' | 'attack' | 'decay' | 'drive' | 'snappy';
+/** Les reglages continus, et GATE (0 ou 1, un commutateur a deux crans). */
+export type KitKnob = 'tune' | 'attack' | 'decay' | 'drive' | 'snappy' | 'gate';
 /** Un TWEAK du MM-RYTM : un choix de son ou un potard. */
 export type KitId = KitFamily | KitKnob;
 
 export const KIT_FAMILIES: readonly KitFamily[] = ['bd', 'sd', 'hh', 'cp', 'tom', 'rs'];
-export const KIT_KNOBS: readonly KitKnob[] = ['tune', 'attack', 'decay', 'drive', 'snappy'];
-export const KIT_IDS: readonly KitId[] = ['bd', 'tune', 'attack', 'decay', 'drive', 'sd', 'snappy', 'hh', 'cp', 'tom', 'rs'];
+export const KIT_KNOBS: readonly KitKnob[] = ['tune', 'attack', 'decay', 'drive', 'snappy', 'gate'];
+export const KIT_IDS: readonly KitId[] = ['bd', 'tune', 'attack', 'decay', 'drive', 'sd', 'snappy', 'cp', 'gate', 'hh', 'tom', 'rs'];
 
 export const isFamily = (id: KitId): id is KitFamily => (KIT_FAMILIES as readonly string[]).includes(id);
+/** Les crans d'un TWEAK : 3 pour un choix de son, 2 pour GATE, 0 pour un potard. */
+export const kitSteps = (id: KitId): number => (isFamily(id) ? KIT_MODELS.length : id === 'gate' ? 2 : 0);
+export const GATE_LABELS = ['OFF', 'ON'] as const;
 
 export interface Kit {
   model: Record<KitFamily, KitModel>;
@@ -44,7 +51,7 @@ export interface Kit {
 
 export const KIT_DEFAULT: Readonly<Kit> = {
   model: { bd: '909', sd: 'mm', hh: 'mm', cp: 'mm', tom: 'mm', rs: 'mm' },
-  knob: { tune: 0.5, attack: 0.5, decay: 0.45, drive: 0.25, snappy: 0.5 },
+  knob: { tune: 0.5, attack: 0.5, decay: 0.45, drive: 0.25, snappy: 0.5, gate: 0 },
 };
 
 /** Noms sur la plaque, a l'ecran et pour les lecteurs d'ecran. */
@@ -56,6 +63,7 @@ export const KIT_LABEL: Readonly<Record<KitId, string>> = {
   drive: 'DRIVE',
   sd: 'SNARE',
   snappy: 'SNAPPY',
+  gate: 'GATE',
   hh: 'HATS',
   cp: 'CLAP',
   tom: 'TOMS',
@@ -69,6 +77,7 @@ export const KIT_ARIA: Readonly<Record<KitId, string>> = {
   drive: 'Kick drive',
   sd: 'Snare sound',
   snappy: 'Snare snappy',
+  gate: 'Gated reverb on the snare and the clap',
   hh: 'Hi-hats sound',
   cp: 'Clap sound',
   tom: 'Toms sound',
@@ -90,8 +99,8 @@ export const familyOf = (id: ShotId): KitFamily | null => {
 export const shotsOf = (f: KitFamily): readonly ShotId[] =>
   f === 'bd' ? ['BD'] : f === 'sd' ? ['SD'] : f === 'hh' ? ['CH', 'CHopen', 'OH'] : f === 'cp' ? ['CP'] : f === 'tom' ? ['TOM', 'HT'] : ['RS'];
 
-/** Un potard au cinquantieme : la cle d'un echantillon ne change pas a chaque pixel de glisser. */
-const q = (v: number): number => Math.round(Math.min(1, Math.max(0, v)) * 50) / 50;
+/** Un potard au cinquantieme : la cle d'un echantillon ne change pas a chaque pixel de glisser ; GATE 0 ou 1. */
+const q = (v: number, id?: KitKnob): number => (id === 'gate' ? (v >= 0.5 ? 1 : 0) : Math.round(Math.min(1, Math.max(0, v)) * 50) / 50);
 
 /** Le choix de son d'une valeur de commutateur (0, 0.5, 1). */
 export const modelAt = (v: number): KitModel => KIT_MODELS[Math.max(0, Math.min(2, Math.round(v * 2)))];
@@ -111,7 +120,7 @@ function load(): Kit {
     }
     for (const n of KIT_KNOBS) {
       const v = o.knob?.[n];
-      if (typeof v === 'number' && Number.isFinite(v)) k.knob[n] = q(v);
+      if (typeof v === 'number' && Number.isFinite(v)) k.knob[n] = q(v, n);
     }
   } catch {
     /* rien de retenu : le kit de depart */
@@ -135,8 +144,8 @@ function save(): void {
   }, 300);
 }
 
-/** Les familles touchees par un reglage (les potards du KICK : le kick ; SNAPPY : la caisse claire). */
-const familiesOf = (id: KitId): readonly KitFamily[] => (isFamily(id) ? [id] : id === 'snappy' ? ['sd'] : ['bd']);
+/** Les familles touchees par un reglage (les potards du KICK : le kick ; SNAPPY : la caisse claire ; GATE : elle et le clap). */
+const familiesOf = (id: KitId): readonly KitFamily[] => (isFamily(id) ? [id] : id === 'snappy' ? ['sd'] : id === 'gate' ? ['sd', 'cp'] : ['bd']);
 
 export const kit = {
   get: (): Readonly<Kit> => state,
@@ -154,7 +163,7 @@ export const kit = {
       if (state.model[id] === m) return false;
       state = { ...state, model: { ...state.model, [id]: m } };
     } else {
-      const n = q(v);
+      const n = q(v, id);
       if (state.knob[id] === n) return false;
       state = { ...state, knob: { ...state.knob, [id]: n } };
     }
@@ -167,7 +176,7 @@ export const kit = {
   tweak(id: ShotId): ShotTweak {
     const f = familyOf(id);
     const k = state.knob;
-    return { model: f ? state.model[f] : 'mm', tune: k.tune, attack: k.attack, decay: k.decay, drive: k.drive, snappy: k.snappy };
+    return { model: f ? state.model[f] : 'mm', tune: k.tune, attack: k.attack, decay: k.decay, drive: k.drive, snappy: k.snappy, gate: k.gate >= 0.5 };
   },
   /** La signature d'un son dans la cle de son echantillon : seulement ce qui le change. */
   sig(id: ShotId): string {
@@ -176,13 +185,15 @@ export const kit = {
     const m = state.model[f];
     const k = state.knob;
     if (f === 'bd') return `${m}~${k.tune}~${k.attack}~${k.decay}~${k.drive}`;
-    if (f === 'sd') return `${m}~${k.snappy}`;
+    if (f === 'sd') return `${m}~${k.snappy}~${k.gate}`;
+    if (f === 'cp') return `${m}~${k.gate}`;
     return m;
   },
   /** La valeur seule d'un TWEAK (sous un potard du telephone) : 909, 52 HZ, 216 MS, 50. */
   valueText(id: KitId): string {
     if (isFamily(id)) return KIT_MODEL_LABEL[state.model[id]];
     const v = state.knob[id];
+    if (id === 'gate') return GATE_LABELS[v >= 0.5 ? 1 : 0];
     if (id === 'tune') return `${Math.round(kickHz(state.model.bd, v))} HZ`;
     if (id === 'decay') return `${Math.round(kickDecayS(state.model.bd, v) * 1000)} MS`;
     return `${Math.round(v * 100)}`;
@@ -191,6 +202,7 @@ export const kit = {
   readout(id: KitId): string {
     if (isFamily(id)) return `${KIT_LABEL[id]} ${KIT_MODEL_LABEL[state.model[id]]}`;
     const v = state.knob[id];
+    if (id === 'gate') return `SNARE + CLAP GATE ${GATE_LABELS[v >= 0.5 ? 1 : 0]}`;
     if (id === 'tune') return `KICK TUNE ${Math.round(kickHz(state.model.bd, v))} HZ`;
     if (id === 'decay') return `KICK DECAY ${Math.round(kickDecayS(state.model.bd, v) * 1000)} MS`;
     const label = id === 'snappy' ? 'SNARE SNAPPY' : `KICK ${KIT_LABEL[id]}`;

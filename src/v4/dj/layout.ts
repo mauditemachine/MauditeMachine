@@ -11,7 +11,8 @@
 
 import { DECK, DJ_DECKS, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_KNOB, DJ_TIMES, MIX, UNIT_X, djDecks, timeLabel, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
-export type DjKnobTarget = { kind: 'eq'; ch: DjChannel; eq: DjEqId } | { kind: 'fx'; fx: DjFxId } | { kind: 'master' };
+/** fxto : FX TO, la voie qui recoit les effets (ou toutes), un selecteur a crans */
+export type DjKnobTarget = { kind: 'eq'; ch: DjChannel; eq: DjEqId } | { kind: 'fx'; fx: DjFxId } | { kind: 'fxto' } | { kind: 'master' };
 
 export interface DjKnobSpec {
   id: string;
@@ -120,6 +121,8 @@ function buildKnobs(): DjKnobSpec[] {
       idle: false,
     });
   });
+  // FX TO (2026-10-04, Mika : "un knob qui selectionne la piste de destination, ou alors toutes les pistes")
+  knobs.push({ id: 'dj-fxto', label: 'FX TO', x: UNIT_X.mix + MIX.fxX0 + DJ_FX.length * MIX.fxPitch, z: MIX.fxZ, s: MIX.sFx, bipolar: false, target: { kind: 'fxto' }, idle: false });
   knobs.push({ id: 'dj-master', label: 'MASTER', x: UNIT_X.mix + MIX.masterX, z: MIX.master.z, s: MIX.master.s, bipolar: false, target: { kind: 'master' }, idle: false });
   return knobs;
 }

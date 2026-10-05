@@ -24,9 +24,9 @@
  */
 
 import workletUrl from './moog.worklet.js?url';
-import { engineParams, monoLowHz, voyParams, type VoyValues } from '../voyager/params';
+import { duckDepthDb, engineParams, monoLowHz, voyParams, type VoyValues } from '../voyager/params';
 import { buildJunoChorus, loadChorus, type ChorusStage } from './chorus';
-import { synthPort } from './drums';
+import { setArpDuck, synthPort } from './drums';
 import { glide } from './glide';
 import { pattern } from './pattern';
 import type { Send } from './sends';
@@ -198,6 +198,11 @@ voyParams.subscribe(() => {
   applyFx(sg, voyParams.get());
   sg.node.port.postMessage({ type: 'params', params: engineMsg(voyParams.get()) });
 });
+
+/* SIDECHAIN (2026-10-04) : la prise du MM-ARP baisse a chaque kick du MM-RYTM (audio/duck.ts) */
+const applyDuck = (): void => setArpDuck(duckDepthDb(voyParams.of('duck')) / 24);
+voyParams.subscribe(applyDuck);
+applyDuck();
 
 /* Tempo : le delay reste une croche pointee, le LFO suit. */
 let lastBpm = pattern.get().bpm;

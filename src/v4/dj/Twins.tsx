@@ -12,9 +12,9 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Stage } from '../scene/renderer';
 import { focus } from '../state/focus';
-import { faderMin, faderNeutral, faderValue, keyDown, keyUp, knobMin, knobNeutral, knobValue, setFader, setKnob } from './gestures';
+import { faderMin, faderNeutral, faderValue, keyDown, keyUp, knobMin, knobNeutral, knobSteps, knobValue, setFader, setKnob } from './gestures';
 import { DJ_FADERS, DJ_KEYS, DJ_KNOBS, type DjFaderSpec, type DjKeySpec, type DjKnobSpec } from './layout';
-import { djAddDeck, djRemoveDeck, djTempoStep } from './actions';
+import { djAddDeck, djRemoveDeck, djTempoStep, fxToText } from './actions';
 import { djState } from './state';
 import { DJ_DECKS, DJ_DECKS_MAX, DJ_DECKS_MIN, DJ_FX_LABEL, DJ_UNIT, DJ_W, UNIT_X, djDecks } from './theme';
 import './dj.css';
@@ -29,6 +29,7 @@ function knobName(k: DjKnobSpec): string {
   const t = k.target;
   if (t.kind === 'eq') return `Channel ${t.ch + 1} (${CH[t.ch]}) ${k.label === 'HI' || k.label === 'MID' || k.label === 'LOW' ? `EQ ${k.label}` : k.label}`;
   if (t.kind === 'fx') return `Effect ${DJ_FX_LABEL[t.fx]}`;
+  if (t.kind === 'fxto') return 'Effects to: all channels, or one channel';
   return 'Master volume';
 }
 
@@ -65,10 +66,10 @@ function keyName(k: DjKeySpec): string {
 }
 
 /** Une valeur au clavier : fleches, Maj ou Page, Debut, Fin, Suppr. Null : la touche ne la change pas. */
-function stepValue(e: React.KeyboardEvent, v: number, lo: number, neutral: number): number | null {
+function stepValue(e: React.KeyboardEvent, v: number, lo: number, neutral: number, notch = 0): number | null {
   const range = 1 - lo;
-  const unit = 0.02 * range;
-  const big = 0.1 * range;
+  const unit = notch || 0.02 * range;
+  const big = notch || 0.1 * range;
   switch (e.key) {
     case 'ArrowUp':
     case 'ArrowRight':
@@ -317,15 +318,16 @@ export const DjTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
             aria-valuemin={pct(lo)}
             aria-valuemax={100}
             aria-valuenow={pct(v)}
-            aria-valuetext={k.bipolar ? `${pct(v) > 0 ? '+' : ''}${pct(v)}%` : `${pct(v)}%`}
+            aria-valuetext={k.target.kind === 'fxto' ? fxToText() : k.bipolar ? `${pct(v) > 0 ? '+' : ''}${pct(v)}%` : `${pct(v)}%`}
             onKeyDown={(e) => {
               if (e.altKey || e.ctrlKey || e.metaKey) return;
-              // La valeur du moment, pas celle du dernier rendu (deux touches rapides)
-              const next = stepValue(e, knobValue(k), lo, knobNeutral(k));
+              // La valeur du moment, pas celle du dernier rendu (deux touches rapides) ; FX TO : un cran par fleche
+              const n = knobSteps(k);
+              const next = stepValue(e, knobValue(k), lo, knobNeutral(k), n > 1 ? 1 / (n - 1) : 0);
               if (next === null) return;
               e.preventDefault();
               e.stopPropagation();
-              setKnob(k, Math.max(lo, Math.min(1, Math.round(next * 100) / 100)));
+              setKnob(k, Math.max(lo, Math.min(1, n > 1 ? next : Math.round(next * 100) / 100)));
             }}
           />
         );

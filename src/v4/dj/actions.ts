@@ -17,7 +17,7 @@ import { crateFile, crateLearn, setCrateBusy } from './crate';
 import { beatGrid, estimateBpm, phaseShift } from './math';
 import { soundcloudBytes } from './soundcloud';
 import { DJ_WAVES, DJ_ZOOMS, djState, type DjTrack } from './state';
-import { DJ_DECKS, DJ_DECKS_ALL, DJ_FX, deckChannel, djDecks, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
+import { DJ_CHANNELS, DJ_DECKS, DJ_DECKS_ALL, DJ_FX, deckChannel, djDecks, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
 /* ---------------- le moteur suit le store ---------------- */
 
@@ -36,6 +36,7 @@ function apply(e: DjEngine): void {
     ch.setFader(c.fader);
   });
   e.mixer.setMaster(s.master);
+  e.mixer.setFxTo(fxTarget(s));
   for (const f of DJ_FX) e.mixer.fx.dose(f, s.fx[f]);
   for (const d of DJ_DECKS_ALL) e.decks[d].setPitch(s.deck[d].pitch * s.deck[d].range);
   e.mixer.fx.tempo({ bpm: heardBpm(s), beats: s.time });
@@ -92,6 +93,17 @@ function engine(): DjEngine | null {
     if (sc.get().status === 'playing') djPauseAll();
   });
   return e;
+}
+
+/**
+ * La table en vue (2026-10-04, Mika : "quand on joue sur les machines MM et
+ * qu'on arrive sur le mixer, on ne voit pas les pistes jouer sur 1 et 2") :
+ * le moteur se cree des que le son existe, sans attendre un geste sur la
+ * table ; le MM-RYTM et le MM-ARP passent alors par les voies 1 et 2 et
+ * leurs VU les montrent. null avant le premier geste du site.
+ */
+export function djWake(): DjEngine | null {
+  return engine();
 }
 
 /** Une platine part : la piste SoundCloud du site se tait (elle ne passe pas par la table). */
@@ -334,6 +346,25 @@ export function djSetFx(id: DjFxId, v: number): void {
   djState.setFx(id, v);
 }
 
+/** La voie des effets (FX TO) parmi celles posees : -1 toutes. */
+export const fxTarget = (s = djState.get()): number => (s.fxTo >= DJ_CHANNELS ? -1 : s.fxTo);
+
+/** Les noms des voies, comme sur la table : 1 RYTM, 2 ARP, 3 A... */
+const FX_TO_NAMES = ['RYTM', 'ARP', 'A', 'B', 'C', 'D'] as const;
+
+/** FX TO en mots : ALL, ou le numero et le nom de la voie (2 ARP). */
+export const fxToText = (t = fxTarget()): string => (t < 0 ? 'ALL' : `${t + 1} ${FX_TO_NAMES[t]}`);
+
+/** FX TO en position de potard (0 a 1, DJ_CHANNELS + 1 crans : ALL puis les voies). */
+export const fxToValue = (t = fxTarget()): number => (t + 1) / DJ_CHANNELS;
+export const fxToOfValue = (v: number): number => Math.round(Math.max(0, Math.min(1, v)) * DJ_CHANNELS) - 1;
+
+/** FX TO : -1 toutes les voies, sinon une voie (0 a 5) ; au-dela des voies posees : toutes. */
+export function djSetFxTo(t: number): void {
+  engine();
+  djState.setFxTo(t >= DJ_CHANNELS ? -1 : t);
+}
+
 export function djSetMaster(v: number): void {
   engine();
   djState.setMaster(v);
@@ -562,6 +593,8 @@ export function djRemoveDeck(d: DjDeck): void {
   loads[d]?.abort();
   djState.setDeck(d, { playing: false, loaded: false, track: null, loading: null, error: null, cue: 0, cues: [null, null, null, null], pitch: 0, range: 8, remove: false });
   djDecks.set(djDecks.get() - 1);
+  // FX TO visait la voie retiree : les effets reviennent sur toutes
+  if (djState.get().fxTo >= DJ_CHANNELS) djState.setFxTo(-1);
 }
 
 /* ---------------- l'ecran : recherche, scrub, zoom ---------------- */

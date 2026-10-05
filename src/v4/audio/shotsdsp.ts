@@ -46,6 +46,8 @@ export interface ShotTweak {
   decay: number;
   drive: number;
   snappy: number;
+  /** GATE (2026-10-04) : la reverbe a porte de la caisse claire MM, la piece des claps MM et 909 */
+  gate?: boolean;
 }
 
 const TWEAK_MM: ShotTweak = { model: 'mm', tune: 0.5, attack: 0.5, decay: 0.45, drive: 0.25, snappy: 0.5 };
@@ -409,7 +411,7 @@ function bd(sr: number, ts: number, r: () => number, tw: ShotTweak = TWEAK_MM): 
  * brillance sans le sifflement), le claquement (bruit vers 2.5 kHz, 2 ms),
  * le tout sature en douceur. Puis la petite reverbe a
  * porte : une piece claire (RT60 1.1 s, en stereo) a -10 dB, ouverte 130 ms
- * et fermee en 40 ms.
+ * et fermee en 40 ms ; seulement GATE ON (2026-10-04), sec sinon.
  */
 function sd(sr: number, ts: number, r: () => number, tw: ShotTweak = TWEAK_MM): Shot {
   const fs = sr * OS;
@@ -441,6 +443,7 @@ function sd(sr: number, ts: number, r: () => number, tw: ShotTweak = TWEAK_MM): 
   fadeOut(x, fs, 0.03);
   const dry = decimate(x);
   dcBlock(dry, sr, 60);
+  if (!tw.gate) return { L: dry, R: dry };
   // La reverbe a porte : ouverte `hold`, fermee en 40 ms
   const hold = 0.13 * Math.min(1.6, Math.max(0.7, ts));
   const close = 0.04;
@@ -465,8 +468,9 @@ function sd(sr: number, ts: number, r: () => number, tw: ShotTweak = TWEAK_MM): 
  * droite), du bruit en bande vers 1.25 kHz, une bosse douce a 2.6 kHz ; la
  * derniere tient 75 ms. Une petite piece (RT60 0.45 s) a -16 dB. Adouci le
  * 2026-10-04 (moins sature, moins de bosse, moins de piece, 5.5 dB plus bas).
+ * La piece seulement GATE ON (2026-10-04), les mains seules sinon.
  */
-function cp(sr: number, ts: number, r: () => number): Shot {
+function cp(sr: number, ts: number, r: () => number, gate = false): Shot {
   const fs = sr * OS;
   const offs = [0, 0.0095, 0.019, 0.031].map((o, k) => (k === 0 ? 0 : o + (r() - 0.5) * 0.003));
   const lastT = offs[3];
@@ -498,6 +502,7 @@ function cp(sr: number, ts: number, r: () => number): Shot {
   fadeOut(xr, fs, 0.03);
   const dl = decimate(xl);
   const dr = decimate(xr);
+  if (!gate) return { L: dl, R: dr };
   const mono = new Float32Array(dl.length);
   for (let i = 0; i < mono.length; i += 1) mono[i] = 0.5 * (dl[i] + dr[i]);
   const total = dl.length + Math.round(0.12 * sr);
@@ -843,8 +848,9 @@ function hat808(sr: number, ts: number, r: () => number, id: 'CH' | 'CHopen' | '
  * CLAP 909 et 808 : des rafales de bruit en bande (909 : trois, 8 ms
  * d'ecart, vers 1.15 kHz, une queue de 110 ms et une petite piece ; 808 :
  * quatre, 11 ms d'ecart, vers 1 kHz, une queue de 180 ms qui fait la piece).
+ * La piece de la 909 seulement GATE ON (2026-10-04).
  */
-function cpModel(sr: number, ts: number, r: () => number, m: '909' | '808'): Shot {
+function cpModel(sr: number, ts: number, r: () => number, m: '909' | '808', gate = false): Shot {
   const fs = sr * OS;
   const is909 = m === '909';
   const n = is909 ? 3 : 4;
@@ -869,7 +875,7 @@ function cpModel(sr: number, ts: number, r: () => number, m: '909' | '808'): Sho
   }
   fadeOut(x, fs, 0.03);
   const dry = decimate(x);
-  if (!is909) return { L: dry, R: dry };
+  if (!is909 || !gate) return { L: dry, R: dry };
   const total = dry.length + Math.round(0.1 * sr);
   const [wl, wr] = fdn(dry, sr, total, 0.35, 6500, 3, 0.5);
   const L = new Float32Array(total);
@@ -971,7 +977,7 @@ export function renderShot(id: ShotId, sr: number, stretch: number, variant: num
       s = m === '909' ? hat909(sr, ts, r, id) : m === '808' ? hat808(sr, ts, r, id) : hat(sr, ts, r, 0.09, [0.3, 0.28], 0.6, 8500);
       break;
     case 'CP':
-      s = m === 'mm' ? cp(sr, ts, r) : cpModel(sr, ts, r, m);
+      s = m === 'mm' ? cp(sr, ts, r, !!tw.gate) : cpModel(sr, ts, r, m, !!tw.gate);
       break;
     case 'RS':
       s = m === 'mm' ? rs(sr, ts, r) : rsModel(sr, ts, r, m);

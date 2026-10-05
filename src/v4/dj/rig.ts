@@ -20,13 +20,13 @@ import { whenFonts } from '../scene/silk';
 import { DjBody } from './body';
 import { DJ_GLOW, DjControls } from './controls';
 import { djBrowser } from './browser';
-import { djSynced, heardBpm, syncBpm } from './actions';
+import { djSynced, djWake, fxTarget, fxToText, fxToValue, heardBpm, syncBpm } from './actions';
 import { djEngineIfAny, djWaveBands } from './engine';
 import { DJ_FADERS, DJ_KNOBS, DJ_RECT_KEYS, DJ_ROUND_KEYS } from './layout';
 import { toDbfs, vuLit, VU_DB } from './math';
 import { DjScreens } from './screens';
 import { DjWaves } from './waveform';
-import { DjSilk } from './silk';
+import { DjSilk, setSilkFxTo } from './silk';
 import { LICENSE_LABEL } from './soundcloud';
 import { DJ_WAVE_LABEL, djState, type DjState, type DjTrack } from './state';
 import { DECK, DJ_BEZEL, DJ_BODY, DJ_CHANNELS, DJ_CHANNELS_MAX, DJ_DECKS, DJ_FX, DJ_FX_LABEL, DJ_TILT, DJ_TOP_Y, DJ_UNIT, DJ_UNITS_ON, DJ_W, DJ_X, UNIT_X, timeLabel, unitW, type DjFxId } from './theme';
@@ -54,7 +54,9 @@ export class DjRig {
   readonly silks: DjSilk[];
   private defs: HotspotDef[];
   private unsubs: (() => void)[] = [];
-  private lastFx: DjFxId | null = null;
+  private lastFx: DjFxId | 'fxto' | null = null;
+  /** FX TO au dernier etat lu : un changement redessine la serigraphie de la table (le numero vise en orange) */
+  private prevFxTo: number | null = null;
   private prevFx: DjState['fx'] | null = null;
   /** touches tenues (pointeur, clavier) */
   private held = new Set<string>();
@@ -84,6 +86,7 @@ export class DjRig {
     this.top.add(this.screens.mesh);
     this.waves = new DjWaves();
     this.top.add(this.waves.mesh);
+    setSilkFxTo(fxTarget());
     this.silks = DJ_UNITS_ON.map((u) => new DjSilk(u, opts.anisotropy, opts.mobile));
     for (const s of this.silks) this.top.add(s.mesh);
 
@@ -151,9 +154,16 @@ export class DjRig {
     // L'effet qu'on vient de tourner s'affiche a l'ecran de la table
     if (this.prevFx) for (const f of DJ_FX) if (s.fx[f] !== this.prevFx[f]) this.lastFx = f;
     this.prevFx = s.fx;
+    const to = fxTarget(s);
+    if (this.prevFxTo !== null && to !== this.prevFxTo) {
+      this.lastFx = 'fxto';
+      setSilkFxTo(to);
+      this.silks[DJ_UNITS_ON.indexOf('mix')]?.draw();
+    }
+    this.prevFxTo = to;
     DJ_KNOBS.forEach((k, i) => {
       const t = k.target;
-      const v = t.kind === 'eq' ? s.ch[t.ch][t.eq] : t.kind === 'fx' ? s.fx[t.fx] : s.master;
+      const v = t.kind === 'eq' ? s.ch[t.ch][t.eq] : t.kind === 'fx' ? s.fx[t.fx] : t.kind === 'fxto' ? fxToValue(to) : s.master;
       if (this.controls.setKnob(i, v)) moved = true;
     });
     DJ_FADERS.forEach((f, i) => {
@@ -239,9 +249,11 @@ export class DjRig {
    * chose bouge (les platines ne projettent pas d'ombre), false au repos.
    */
   step = (now: number): 'paint' | false => {
-    const e = djEngineIfAny();
     // Cache (une autre machine utilisee) : rien a dessiner, meme si la batterie passe par la table
-    if (!e || !this.root.visible) return false;
+    if (!this.root.visible) return false;
+    // En vue : le moteur se cree des que le son existe (les machines sur 1 et 2)
+    const e = djEngineIfAny() ?? djWake();
+    if (!e) return false;
     let busy = false;
     let changed = false;
     const st = djState.get();
@@ -327,7 +339,9 @@ export class DjRig {
       if (this.screens.setJog(d, dur > 0 ? pos / dur : 0, angle, ds.loaded, sync)) changed = true;
     }
     const fx = this.lastFx;
-    const label = fx ? `${DJ_FX_LABEL[fx]} ${Math.round(s.fx[fx] * 100)}%` : 'EFFECTS';
+    // FX TO tourne : la voie visee ; sinon l'effet tourne, et au repos la voie visee si ce n'est pas toutes
+    const to = fxTarget(s);
+    const label = fx === 'fxto' ? `FX TO ${fxToText(to)}` : fx ? `${DJ_FX_LABEL[fx]} ${Math.round(s.fx[fx] * 100)}%` : to < 0 ? 'EFFECTS' : `EFFECTS ${fxToText(to)}`;
     if (this.screens.setFx({ label, time: timeLabel(s.time), bpm: heardBpm(s) })) changed = true;
     return changed;
   }

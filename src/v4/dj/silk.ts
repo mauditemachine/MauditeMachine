@@ -61,6 +61,12 @@ const BRACKET = { cap: 0.075, weight: 700, tick: 0.08, pad: 0.1 } as const;
 /** Ce qui entre sur chaque voie de la table. */
 const CH_NAMES = ['RYTM', 'ARP', 'A', 'B', 'C', 'D'] as const;
 
+/** FX TO (2026-10-04) : la voie visee (-1 toutes), posee par le rig avant de redessiner la table. */
+let silkFxTo = -1;
+export const setSilkFxTo = (t: number): void => {
+  silkFxTo = t;
+};
+
 /** L'en-tete d'une plaque large de w : le nom en gras a gauche, le role en petit a subX de lui (le logotype est a droite, draw). */
 export function headTexts(name: string, sub: string, w: number, z: number, subX: number): Text[] {
   const hw = w / 2 - 0.45;
@@ -135,8 +141,21 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
       lines.push([kx + Math.cos(a) * r0, k.z - Math.sin(a) * r0, kx + Math.cos(a) * r1, k.z - Math.sin(a) * r1]);
     }
     const pale = k.idle ? 0.4 : SILK.alpha;
-    texts.push({ text: k.label, x: k.x - ux, z: knobLabelZ(k), cap: 0.062, alpha: pale, maxW: 0.9, group: k.target.kind === 'fx' ? 'fx' : 'knob' });
+    texts.push({ text: k.label, x: k.x - ux, z: knobLabelZ(k), cap: 0.062, alpha: pale, maxW: 0.9, group: k.target.kind === 'fx' || k.target.kind === 'fxto' ? 'fx' : 'knob' });
+    // FX TO : un cran par position (ALL puis chaque voie), ALL ecrit au premier
+    if (k.target.kind === 'fxto') {
+      const n = DJ_CHANNELS;
+      for (let j = 1; j < n; j += 1) {
+        const a = ((225 - (270 * j) / n) * Math.PI) / 180;
+        lines.push([kx + Math.cos(a) * r0, k.z - Math.sin(a) * r0, kx + Math.cos(a) * r1, k.z - Math.sin(a) * r1]);
+      }
+      const a0 = (225 * Math.PI) / 180;
+      const rt = r1 + 0.1;
+      texts.push({ text: 'ALL', x: kx + Math.cos(a0) * rt - 0.02, z: k.z - Math.sin(a0) * rt + 0.04, cap: 0.05, weight: 600, align: 'right' });
+    }
   }
+  // FX TO vise une voie : son numero passe en orange
+  const fxTo = silkFxTo;
   // Effets : crochet sous la rangee ; TIME au-dessus de ses touches, chaque valeur dessous
   const fx = DJ_KNOBS.filter((k) => k.target.kind === 'fx');
   const r = DJ_KNOB.skirt.r * MIX.sFx;
@@ -148,7 +167,7 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   // Voies : le numero, et la platine qui y joue
   MIX.cols.forEach((cx, i) => {
     // Les quatre voies jouent : 1 le MM-RYTM, 2 le MM-ARP, 3 et 4 les platines (Mika, 2026-10-04)
-    texts.push({ text: String(i + 1), x: cx - 0.1, z: MIX.numZ, cap: 0.17, weight: 700, alpha: 1, align: 'right' });
+    texts.push({ text: String(i + 1), x: cx - 0.1, z: MIX.numZ, cap: 0.17, weight: 700, alpha: 1, align: 'right', ...(fxTo === i ? { ink: 'orange' as const } : {}) });
     texts.push({ text: CH_NAMES[i], x: cx + 0.02, z: MIX.numZ, cap: 0.09, weight: 700, ink: 'orange', alpha: 1, align: 'left', maxW: 0.62, group: 'chname' });
     // Graduation du fader de voie : 11 tics, 10 en haut
     const F = MIX.fader;

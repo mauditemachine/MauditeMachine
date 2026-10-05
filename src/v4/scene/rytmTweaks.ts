@@ -6,17 +6,20 @@
  * plaque (scene/tweakplate.ts, la meme que celle du MM-ARP) remplace les
  * puces des pages sur la carte, et regle le kit (audio/kit.ts) :
  * - KICK (son son : 909, 808, MM), puis ses TUNE, ATTACK, DECAY, DRIVE ;
- * - le son de la caisse claire (SNARE, et son SNAPPY), des charleys (HATS),
- *   du clap, des toms et du rim (909, 808, MM : des commutateurs a trois
- *   crans).
- * Desktop : deux rangees de six, devant les composants (la ou etaient les
- * puces) ; portrait : quatre rangees de trois, debout. Cibles rk-<id>,
- * vivantes capot ouvert seulement (scene/renderer.ts, comme les puces).
+ * - le son de la caisse claire (SNARE, et son SNAPPY), du clap, des
+ *   charleys (HATS), des toms et du rim (909, 808, MM : des commutateurs a
+ *   trois crans) ;
+ * - GATE (2026-10-04) : la reverbe a porte de la caisse claire et du clap,
+ *   OFF ou ON (un commutateur a deux crans, entre CLAP et HATS).
+ * Desktop : deux rangees de sept, devant les composants (la ou etaient les
+ * puces), le titre sur les deux dernieres cases du haut ; portrait : quatre
+ * rangees de trois, debout, le titre en tete. Cibles rk-<id>, vivantes
+ * capot ouvert seulement (scene/renderer.ts, comme les puces).
  */
 
 import type { HotspotDef } from './hit';
 import { TweakPlate, type TweakItem, type TweakPlateDims } from './tweakplate';
-import { KIT_IDS, KIT_LABEL, KIT_MODEL_LABEL, KIT_MODELS, isFamily, kit, type KitId } from '../audio/kit';
+import { GATE_LABELS, KIT_IDS, KIT_LABEL, KIT_MODEL_LABEL, KIT_MODELS, isFamily, kit, kitSteps, type KitId } from '../audio/kit';
 import { PORTRAIT } from '../theme';
 
 /** La plaque (repere de la carte : son centre ; puis le sien, x a droite, z vers soi). */
@@ -37,24 +40,26 @@ export function rytmTweakClear(): { x0: number; x1: number; z0: number; z1: numb
   return { x0: P.cx - hx, x1: P.cx + hx, z0: P.cz - hz, z1: P.cz + hz };
 }
 
-const COLS = PORTRAIT ? [-2.0, 0, 2.0] : [-4.05, -2.43, -0.81, 0.81, 2.43, 4.05];
-const ROWS = PORTRAIT ? [-3.4, -1.0, 1.4, 3.8] : [-0.5, 1.2];
-/** L'echelle des potards (le meme que ceux du MM-ARP) ; les commutateurs un peu plus petits. */
-const KNOB_S = PORTRAIT ? 1.55 : 1.4;
-const SWITCH_S = 0.82;
+const COLS = PORTRAIT ? [-2.0, 0, 2.0] : [-4.05, -2.7, -1.35, 0, 1.35, 2.7, 4.05];
+const ROWS = PORTRAIT ? [-2.55, -0.38, 1.79, 3.96] : [-0.5, 1.2];
+/** Le titre : desktop sur les deux dernieres cases du haut, portrait en tete de plaque. */
+const TITLE = PORTRAIT ? { x: 0, z: -4.1, w: 4 } : { x: (COLS[5] + COLS[6]) / 2, z: ROWS[0] - 0.1, w: 2.4 };
+/** L'echelle des potards (desktop un peu plus petits depuis la septieme colonne, 2026-10-04) ; les commutateurs plus petits. */
+const KNOB_S = PORTRAIT ? 1.55 : 1.25;
+const SWITCH_S = PORTRAIT ? 0.82 : 0.8;
 
-/** Les cases : desktop KICK puis VOICES en deux rangees de six ; portrait quatre rangees de trois. */
-const CELLS: readonly [KitId | 'title', number, number][] = PORTRAIT
+/** Les cases : desktop KICK puis VOICES en deux rangees de sept ; portrait quatre rangees de trois. */
+const CELLS: readonly [KitId, number, number][] = PORTRAIT
   ? [
       ['bd', 0, 0],
       ['tune', 1, 0],
       ['attack', 2, 0],
       ['decay', 0, 1],
       ['drive', 1, 1],
-      ['title', 2, 1],
+      ['hh', 2, 1],
       ['sd', 0, 2],
       ['snappy', 1, 2],
-      ['hh', 2, 2],
+      ['gate', 2, 2],
       ['cp', 0, 3],
       ['tom', 1, 3],
       ['rs', 2, 3],
@@ -65,13 +70,13 @@ const CELLS: readonly [KitId | 'title', number, number][] = PORTRAIT
       ['attack', 2, 0],
       ['decay', 3, 0],
       ['drive', 4, 0],
-      ['title', 5, 0],
       ['sd', 0, 1],
       ['snappy', 1, 1],
-      ['hh', 2, 1],
-      ['cp', 3, 1],
-      ['tom', 4, 1],
-      ['rs', 5, 1],
+      ['cp', 2, 1],
+      ['gate', 3, 1],
+      ['hh', 4, 1],
+      ['tom', 5, 1],
+      ['rs', 6, 1],
     ];
 
 /** Les bouts de course des potards (0, 10). */
@@ -83,23 +88,23 @@ const ENDS: Partial<Record<KitId, readonly [string, string]>> = {
   snappy: ['TONE', 'SNAP'],
 };
 
-const cellOf = (id: KitId | 'title'): { x: number; z: number } => {
+const cellOf = (id: KitId): { x: number; z: number } => {
   const c = CELLS.find((k) => k[0] === id);
-  const [, col, row] = c ?? ['title', 0, 0];
+  const [, col, row] = c ?? [id, 0, 0];
   return { x: COLS[col], z: ROWS[row] };
 };
 
 function items(): TweakItem[] {
   return KIT_IDS.map((id) => {
     const { x, z } = cellOf(id);
-    const sw = isFamily(id);
+    const sw = kitSteps(id) > 1;
     return {
       hotspot: `rk-${id}`,
       label: KIT_LABEL[id],
       x,
       z,
       s: sw ? KNOB_S * SWITCH_S : KNOB_S,
-      ...(sw ? { steps: KIT_MODELS.map((m) => KIT_MODEL_LABEL[m]) } : {}),
+      ...(sw ? { steps: isFamily(id) ? KIT_MODELS.map((m) => KIT_MODEL_LABEL[m]) : GATE_LABELS } : {}),
       ...(ENDS[id] ? { ends: ENDS[id] } : {}),
     };
   });
@@ -107,14 +112,13 @@ function items(): TweakItem[] {
 
 export class RytmTweaks extends TweakPlate {
   constructor(opts: { mobile: boolean; anisotropy: number }) {
-    const t = cellOf('title');
     super(
       {
         name: 'rytmTweaks',
         dims: RYTM_TWEAK_PLATE,
         items: items(),
-        title: { x: t.x, z: t.z - 0.1, sub: 'DRUM VOICES', model: 'MM-RYTM R1.0' },
-        cellW: (PORTRAIT ? 2.0 : 1.62) - 0.12,
+        title: { x: TITLE.x, z: TITLE.z, w: TITLE.w, sub: 'DRUM VOICES', model: 'MM-RYTM R1.0' },
+        cellW: (PORTRAIT ? 2.0 : 1.35) - 0.12,
       },
       opts
     );

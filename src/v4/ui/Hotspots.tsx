@@ -65,7 +65,7 @@ import {
   type DialId,
 } from '../actions';
 import { clock } from '../audio/clock';
-import { KIT_ARIA, KIT_IDS, KIT_MODELS, isFamily, kit, type KitId } from '../audio/kit';
+import { KIT_ARIA, KIT_IDS, KIT_MODELS, isFamily, kit, kitSteps, type KitId } from '../audio/kit';
 import { mix } from '../audio/drums';
 import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
 import { BPM, STEP_COUNT, isOn, pattern } from '../audio/pattern';
@@ -186,7 +186,7 @@ const isKit = (k: DialId): boolean => k.startsWith('r:');
 /** Crans d'un potard du MM-ARP (0 : continu, le morphing de WAVE aussi) ou d'un TWEAK du MM-RYTM. */
 const voySteps = (k: DialId): number => {
   const r = kitIdOf(k);
-  if (r) return isFamily(r) ? KIT_MODELS.length : 0;
+  if (r) return kitSteps(r);
   if (!isVoy(k)) return 0;
   const vk = voyKnob(k.slice(2) as VoyKnobId);
   return vk.morph ? 0 : (vk.steps?.length ?? 0);
@@ -730,7 +730,8 @@ const onKitKey =
   (k: KitId) =>
   (e: React.KeyboardEvent<HTMLElement>): void => {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
-    const step = isFamily(k) ? 0.5 : e.shiftKey ? DIAL_KEYS.pot.big : DIAL_KEYS.pot.step;
+    const n = kitSteps(k);
+    const step = n > 1 ? 1 / (n - 1) : e.shiftKey ? DIAL_KEYS.pot.big : DIAL_KEYS.pot.step;
     let v = kit.value(k);
     switch (e.key) {
       case 'ArrowUp':

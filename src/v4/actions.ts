@@ -10,7 +10,7 @@ import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
 import { ensure, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, trigger } from './audio/drums';
 import { VOICE_FX_DEFAULT, voiceFx, type VoiceParam } from './audio/voicefx';
-import { KIT_MODELS, isFamily, kit, type KitId } from './audio/kit';
+import { kit, kitSteps, type KitId } from './audio/kit';
 import { randomBeat, randomColors, type BeatStyle } from './audio/beats';
 import { BPM, INSTRUMENTS, VEL_NAMES, pattern, velocity } from './audio/pattern';
 import { sc } from './audio/soundcloud';
@@ -67,7 +67,20 @@ export function padHit(inst: Inst, stage: Stage | null): void {
   }
   trigger(inst);
   selectVoice(inst);
+  touchedVoice(inst);
   stage?.pads.press(inst);
+}
+
+/**
+ * La voix qu'on vient de toucher (pad, Dock), hors modes : MUTE juste
+ * apres la prend aussi (2026-10-04, muteToggle).
+ */
+let lastVoice: { inst: Inst; at: number } | null = null;
+/** "Une voix, puis MUTE" : au plus 1.5 s entre les deux. */
+const VOICE_THEN_MUTE_MS = 1500;
+
+function touchedVoice(inst: Inst): void {
+  lastVoice = { inst, at: performance.now() };
 }
 
 /** Mode SOLO : la voix passe en solo, ou en sort ; l'ecran le dit. */
@@ -135,6 +148,16 @@ export function selectInstrument(inst: Inst): void {
     return;
   }
   selectVoice(pattern.get().instrument === inst ? null : inst);
+  touchedVoice(inst);
+}
+
+/**
+ * La voix a regler (KNOBS du telephone, rangee VOICES) : la choisir, hors
+ * des modes MUTE et SOLO (elle ne se coupe pas en passant).
+ */
+export function tuneVoice(inst: Inst): void {
+  resume();
+  selectVoice(pattern.get().instrument === inst ? null : inst);
 }
 
 /**
@@ -196,13 +219,28 @@ export function runToggle(stage: Stage | null = null): boolean {
  * allume) ; les pads de voix (et les voix du Dock, et A S D F G Z X C V B)
  * coupent ou rendent chacun sa voix, autant qu'on veut. MUTE de nouveau :
  * le mode s'eteint, toutes les voix reviennent. Renvoie l'etat du mode.
+ *
+ * 2026-10-04, Mika : "on clique sur une voix et ensuite sur MUTE, ca mute
+ * la voix, mais quand on reclique sur une autre voix ca ne la mute pas".
+ * Les deux ordres marchent : une voix touchee juste avant (1.5 s) se coupe
+ * avec MUTE, et le mode reste allume pour les suivantes. Le mode SOLO
+ * s'eteint en passant : il prenait les pads avant MUTE (MUTE allume, une
+ * voix touchee passait en solo).
  */
 export function muteToggle(stage: Stage | null = null): boolean {
   resume();
   stage?.pressButton('mute');
   const on = !voices.get().muteMode;
+  if (on && voices.get().soloMode) voices.setSoloMode(false);
   voices.setMuteMode(on);
-  lcdMessage.show(on ? 'MUTE: TAP VOICES' : 'ALL VOICES ON');
+  const just = on && lastVoice && performance.now() - lastVoice.at <= VOICE_THEN_MUTE_MS ? lastVoice.inst : null;
+  lastVoice = null;
+  if (just && !voices.isMuted(just)) {
+    voices.toggleMute(just);
+    lcdMessage.show(`${just} MUTED: TAP VOICES`);
+  } else {
+    lcdMessage.show(on ? 'MUTE: TAP VOICES' : 'ALL VOICES ON');
+  }
   return on;
 }
 
@@ -215,6 +253,9 @@ export function soloToggle(stage: Stage | null = null): boolean {
   resume();
   stage?.pressButton('solo');
   const on = !voices.get().soloMode;
+  // Un seul mode a la fois : MUTE s'eteint (ses voix reviennent)
+  if (on && voices.get().muteMode) voices.setMuteMode(false);
+  lastVoice = null;
   voices.setSoloMode(on);
   lcdMessage.show(on ? 'SOLO: TAP A VOICE' : 'ALL VOICES ON');
   return on;
@@ -638,7 +679,7 @@ export function dialRange(id: DialId): [number, number] {
 /** Ses crans (0 : continu) : les selecteurs du MM-ARP (pas le morphing de WAVE), les choix de son du kit. */
 export function dialSteps(id: DialId): number {
   const r = kitIdOf(id);
-  if (r) return isFamily(r) ? KIT_MODELS.length : 0;
+  if (r) return kitSteps(r);
   const k = voyId(id);
   if (k) {
     const vk = voyKnob(k);

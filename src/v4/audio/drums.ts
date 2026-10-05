@@ -40,6 +40,7 @@ import { buildDelayBus, buildReverbBus, type BusInfo, type DelayBus, type Send, 
 import { hitTime, snapTime } from './time';
 import { buildTone, pitchFactor, snapTone, type ToneInfo, type ToneStage } from './tone';
 import { shots, type ShotId } from './shots';
+import { Ducker, duckCurve, kickEnvelope, type KickPlay } from './duck';
 import { DECAY_HOLD_S, VOICE_FX_DEFAULT, decayTau, voiceFx, voiceGain, type VoiceFx, type VoiceParam } from './voicefx';
 
 type Ctor = typeof AudioContext;
@@ -95,6 +96,8 @@ interface Graph {
   arpReverb: SendBus;
   /** les envois REVERB et DELAY des voix partent apres MASTER (LEVEL) : MASTER baisse aussi leurs queues */
   taps: GainNode[];
+  /** SIDECHAIN du MM-ARP (2026-10-04, audio/duck.ts) : le gain de arpOut baisse a chaque kick */
+  duck: Ducker;
 }
 
 export interface TriggerInfo {
@@ -115,6 +118,8 @@ export interface Voice {
   when: number;
   srcs: AudioScheduledSourceNode[];
   nodes: AudioNode[];
+  /** un kick : ce qu'il joue (le SIDECHAIN du MM-ARP s'y cale) */
+  kick?: KickPlay;
 }
 
 /** Le compresseur commun (la batterie et le MM-ARP), reglable par les tests (__v4.audio.comp). */
@@ -275,7 +280,8 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
     ch = out;
   }
 
-  const g: Graph = { ctx: c, bus, tone: toneSt, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, post, fx, reverb, delay, reverbSend, delaySend, ch, rytmOut, arpOut, arpReverb, taps };
+  const duck = new Ducker(c, arpOut.gain);
+  const g: Graph = { ctx: c, bus, tone: toneSt, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, post, fx, reverb, delay, reverbSend, delaySend, ch, rytmOut, arpOut, arpReverb, taps, duck };
   if (!o.bare) {
     reverbSend.set(o.reverb ?? f.reverb);
     delaySend.set(o.delay ?? f.delay);
@@ -565,7 +571,9 @@ function voice(g: Graph, inst: Inst, when: number, open: boolean, dest: AudioNod
   };
   src.start(when);
   if (stopAt > 0) src.stop(stopAt);
-  return { when, srcs: [src], nodes };
+  // Un kick : son enveloppe, a sa vitesse, avec son DECAY (le SIDECHAIN du MM-ARP)
+  const kick = inst === 'BD' ? { env: kickEnvelope(shot.buf), rate: shot.rate, hold: DECAY_HOLD_S, tau, vel: 1 } : undefined;
+  return { when, srcs: [src], nodes, kick };
 }
 
 /**
@@ -593,6 +601,11 @@ export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], 
   const v = voice(g, inst, t, open, dest, voicePitch(inst, tone), voiceTime(stretch), false, voiceFx.of(inst).decay);
   // Le gain part avec la voix (meme liste de noeuds a debrancher)
   if (vg) v.nodes.push(vg);
+  // Un kick : le MM-ARP s'efface avec lui (SIDECHAIN), a sa velocite et a son VOLUME
+  if (v.kick && arpDuck > 0) {
+    v.kick.vel = Math.max(0, vel) * Math.min(1, voiceGain(voiceFx.of(inst).level));
+    g.duck.add(duckCurve(t, v.kick, arpDuck), v);
+  }
   out?.push(v);
   triggers += 1;
   last = { inst, open: inst === 'CH' && open, when: t, at: performance.now(), state: g.ctx.state as AudioContextState };
@@ -606,6 +619,7 @@ export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], 
  * qui leverait au second stop() laisse ainsi une voix muette, pas un coup).
  */
 export function cancelVoice(v: Voice): void {
+  if (v.kick) graph?.duck.cancel(v);
   for (const s of v.srcs) {
     s.onended = null;
     try {
@@ -615,6 +629,25 @@ export function cancelVoice(v: Voice): void {
     }
   }
   for (const n of v.nodes) n.disconnect();
+}
+
+/* ---------------- SIDECHAIN du MM-ARP (2026-10-04, audio/duck.ts) ---------------- */
+
+/** SIDECHAIN de 0 (OFF) a 1 (-24 dB au coup) ; pose par audio/synth.ts depuis le potard. */
+let arpDuck = 0;
+
+export function setArpDuck(depth: number): void {
+  const d = Math.max(0, Math.min(1, depth));
+  if (d === arpDuck) return;
+  arpDuck = d;
+  if (d === 0) graph?.duck.clear();
+}
+
+/** Revue (__v4.audio.duck) : la profondeur, les kicks suivis, le gain de la prise a cet instant. */
+export function duckInfo(): { depth: number; kicks: number; added: number; gain: number; at: number } | null {
+  if (!graph) return null;
+  const now = graph.ctx.currentTime;
+  return { depth: arpDuck, kicks: graph.duck.size, added: graph.duck.added, gain: graph.arpOut.gain.value, at: graph.duck.at(now) };
 }
 
 /* ---------------- TONE, LEVEL (spec 7.2), SWING, DIST, REVERB (spec 20.8) ---------------- */
@@ -910,6 +943,8 @@ export interface AudioDebug {
   readonly comp: typeof COMP;
   /** les one-shots : rendus, temps de calcul, cache */
   shots(): ReturnType<typeof shots.info>;
+  /** le SIDECHAIN du MM-ARP (2026-10-04) */
+  duck(): ReturnType<typeof duckInfo>;
   /** TONE (-1 a 1, revision 5) et STRETCH (-1 a 1, 2026-10-01) */
   readonly tone: number;
   readonly stretch: number;
@@ -976,6 +1011,7 @@ export const audioDebug: AudioDebug = {
   },
   comp: COMP,
   shots: () => shots.info(),
+  duck: () => duckInfo(),
   get ctx() {
     return ctx;
   },

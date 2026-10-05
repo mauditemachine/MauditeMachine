@@ -96,6 +96,13 @@ export interface DjState {
   fx: Record<DjFxId, number>;
   time: number;
   master: number;
+  /**
+   * FX TO (2026-10-04, Mika : "assigner avec un knob les FX vers une piste,
+   * un knob qui selectionne la piste de destination ou alors toutes les
+   * pistes") : -1 toutes les voies, sinon la voie (0 : 1 MM-RYTM, 1 : 2
+   * MM-ARP, 2 a 5 : les platines A a D). Retenu.
+   */
+  fxTo: number;
   /** l'affichage des formes d'onde, retenu */
   wave: DjWaveMode;
   deck: Record<DjDeck, DjDeckState>;
@@ -118,6 +125,7 @@ function fresh(): DjState {
     fx: Object.fromEntries(DJ_FX.map((f) => [f, 0])) as Record<DjFxId, number>,
     time: 1,
     master: 0.88,
+    fxTo: -1,
     wave: '3band',
     deck: { a: deck(), b: deck(), c: deck(), d: deck() },
   };
@@ -151,6 +159,7 @@ function load(): DjState {
     if (typeof old === 'number' && o.fx && o.fx.overdrive === undefined) s.fx.overdrive = clamp(old, 0, 1);
     if (typeof o.time === 'number' && (DJ_TIMES as readonly number[]).includes(o.time)) s.time = o.time;
     if (typeof o.master === 'number') s.master = clamp(o.master, 0, 1);
+    if (typeof o.fxTo === 'number' && Number.isInteger(o.fxTo)) s.fxTo = clamp(o.fxTo, -1, 5);
     if (typeof o.wave === 'string' && (DJ_WAVES as readonly string[]).includes(o.wave)) s.wave = o.wave;
   } catch {
     /* rien de retenu : l'etat neuf */
@@ -167,8 +176,8 @@ function save(): void {
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     try {
-      const { ch, fx, time, master, wave } = state;
-      window.localStorage.setItem(KEY, JSON.stringify({ ch, fx, time, master, wave }));
+      const { ch, fx, time, master, fxTo, wave } = state;
+      window.localStorage.setItem(KEY, JSON.stringify({ ch, fx, time, master, fxTo, wave }));
     } catch {
       /* stockage plein ou refuse : l'etat vit pour la visite */
     }
@@ -207,6 +216,13 @@ export const djState = {
     const next = clamp(v, 0, 1);
     if (state.master === next) return;
     state = { ...state, master: next };
+    emit();
+  },
+  /** FX TO : -1 toutes les voies, sinon une voie (0 a 5). */
+  setFxTo(t: number): void {
+    const next = Math.round(clamp(t, -1, 5));
+    if (state.fxTo === next) return;
+    state = { ...state, fxTo: next };
     emit();
   },
   setWave(w: DjWaveMode): void {

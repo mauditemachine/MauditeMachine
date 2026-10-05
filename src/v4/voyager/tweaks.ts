@@ -4,9 +4,9 @@
  * Mini V ; enleve les liens du site et mets des tweaks a la place ; je veux
  * un super synth"). Sous le capot, la ou etaient les puces des pages : une
  * plaque a la couleur du capot, vissee sur quatre entretoises d'aluminium
- * au-dessus de la carte, et ses sept potards (les memes que ceux de la
- * face) : PHASE, DRIFT, WIDTH, BASS MONO, KEY TRACK, ACCENT et le
- * commutateur SYNC (voyager/params.ts dit ce qu'ils font).
+ * au-dessus de la carte, et ses huit potards (les memes que ceux de la
+ * face) : PHASE, DRIFT, WIDTH, BASS MONO, KEY TRACK, ACCENT, le
+ * commutateur SYNC et SIDECHAIN (voyager/params.ts dit ce qu'ils font).
  *
  * La plaque elle-meme (geometrie, serigraphie) est commune avec celle du
  * MM-RYTM depuis le meme jour : scene/tweakplate.ts. Les cibles du picking
@@ -16,7 +16,7 @@
 
 import type { HotspotDef } from '../scene/hit';
 import { TweakPlate, type TweakItem } from '../scene/tweakplate';
-import { VOY_COPY, VOY_TWEAK_CELLS, VOY_TWEAK_ENDS, VOY_TWEAK_PLATE, voyTweakPlace } from './theme';
+import { VOY_COPY, VOY_TWEAK_CELLS, VOY_TWEAK_ENDS, VOY_TWEAK_PLATE, VOY_TWEAK_TITLE_W, voyTweakPlace } from './theme';
 import { VOY_TWEAKS, type VoyKnobId } from './params';
 
 const P = VOY_TWEAK_PLATE;
@@ -46,9 +46,9 @@ export class VoyTweaks extends TweakPlate {
         name: 'voyTweaks',
         dims: P,
         items: items(),
-        title: title ? { x: title.x, z: title.z, sub: 'ANALOG CONTROL', model: `${VOY_COPY.model} R1.0` } : null,
-        // La largeur d'une case : quatre colonnes a plat (desktop), deux debout (portrait)
-        cellW: (P.w > P.d ? P.w / 4 : P.w / 2) - 0.12,
+        title: title ? { x: title.x, z: title.z, w: VOY_TWEAK_TITLE_W, sub: 'ANALOG CONTROL', model: `${VOY_COPY.model} R1.0` } : null,
+        // La largeur d'une case : cinq colonnes a plat (desktop), deux debout (portrait)
+        cellW: (P.w > P.d ? P.w / 5 : P.w / 2) - 0.12,
       },
       opts
     );

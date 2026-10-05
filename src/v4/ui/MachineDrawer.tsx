@@ -8,13 +8,17 @@
  * celle qu'on utilise est marquee. Un choix zoome dessus et referme le
  * volet ; la souris qui sort le referme aussi. Echap le referme. Les
  * vignettes se font a la premiere ouverture, et de nouveau quand la scene
- * est reconstruite (apparence).
+ * est reconstruite (apparence) ou qu'un capot a change (2026-10-04, Mika :
+ * "j'ai ouvert et ensuite ferme une machine mais dans la colonne de gauche
+ * ca affiche comme si c'etait ouvert") : elles montrent l'etat pose, et
+ * une animation en cours se refait a sa fin.
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { focusMachine } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { DJ, MACHINES, SMPL, focus, type Focus, type MachineId } from '../state/focus';
+import { explode, voyExplode, type ExplodeState } from '../state/explode';
 import { intro } from '../state/intro';
 
 const ITEMS: readonly { id: Focus; title: string; sub: string }[] = [
@@ -31,23 +35,30 @@ const CLOSE_MS = 260;
 export const MachineDrawer: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
+  const hood808 = useSyncExternalStore(explode.subscribe, explode.get, explode.get);
+  const hoodVoy = useSyncExternalStore(voyExplode.subscribe, voyExplode.get, voyExplode.get);
   const [open, setOpen] = useState(false);
   const [thumbs, setThumbs] = useState<Partial<Record<MachineId, string>>>({});
-  const thumbsFor = useRef<Stage | null>(null);
+  const thumbsFor = useRef<{ stage: Stage; hoods: string } | null>(null);
   const closeTimer = useRef(0);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Vignettes : a la premiere ouverture pour cette scene
+  // Vignettes : a la premiere ouverture pour cette scene et ces capots
   useEffect(() => {
-    if (!open || !stage || thumbsFor.current === stage) return;
-    thumbsFor.current = stage;
+    if (!open || !stage) return;
+    const moving = (h: ExplodeState): boolean => h === 'opening' || h === 'closing';
+    if (moving(hood808) || moving(hoodVoy)) return;
+    const hoods = `${hood808}/${hoodVoy}`;
+    const was = thumbsFor.current;
+    if (was && was.stage === stage && was.hoods === hoods) return;
+    thumbsFor.current = { stage, hoods };
     const next: Partial<Record<MachineId, string>> = {};
     for (const id of MACHINES) {
       const url = stage.thumbnail(id);
       if (url) next[id] = url;
     }
     setThumbs(next);
-  }, [open, stage]);
+  }, [open, stage, hood808, hoodVoy]);
 
   // Echap ferme le volet (avant tout le reste)
   useEffect(() => {

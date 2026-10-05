@@ -18,7 +18,7 @@ import { clock } from '../audio/clock';
 import type { Stage } from '../scene/renderer';
 import { KnobView, useDockInset, type KnobSpec } from '../ui/KnobPanel';
 import { arp } from '../voyager/arp';
-import { djSetTime } from './actions';
+import { djSetFxTo, djSetTime, fxTarget, fxToText } from './actions';
 import { faderMin, faderNeutral, faderValue, knobMin, knobNeutral, knobValue, setFader, setKnob } from './gestures';
 import { DJ_FADERS, DJ_KNOBS, type DjFaderSpec, type DjKnobSpec } from './layout';
 import { djState } from './state';
@@ -82,6 +82,23 @@ const TIME_SPEC: KnobSpec = {
   whole: true,
 };
 
+/** FX TO (2026-10-04) : ALL puis chaque voie posee, cran par cran. */
+function fxToSpec(): KnobSpec {
+  return {
+    label: 'FX TO',
+    get: () => fxTarget() + 1,
+    set: (v) => djSetFxTo(Math.round(v) - 1),
+    reset: () => 0,
+    range: [0, DJ_CHANNELS],
+    steps: DJ_CHANNELS + 1,
+    bipolar: false,
+    readout: () => `Effects on ${fxTarget() < 0 ? 'all channels' : `channel ${fxToText()}`}`,
+    valueText: () => fxToText(),
+    subscribe: djState.subscribe,
+    whole: true,
+  };
+}
+
 interface Group {
   id: string;
   label: string;
@@ -99,7 +116,7 @@ function buildGroups(): Group[] {
     const fader = DJ_FADERS.find((f) => f.target.kind === 'channel' && f.target.ch === ch);
     groups.push({ id: `ch${ch + 1}`, label: `${ch + 1} ${CH_NAMES[ch]}`, specs: fader ? [...knobs, faderSpec(fader, where)] : knobs });
   }
-  groups.push({ id: 'fx', label: 'FX', specs: [...DJ_KNOBS.filter((k) => k.target.kind === 'fx').map((k) => knobSpec(k, 'Effect')), TIME_SPEC] });
+  groups.push({ id: 'fx', label: 'FX', specs: [...DJ_KNOBS.filter((k) => k.target.kind === 'fx').map((k) => knobSpec(k, 'Effect')), TIME_SPEC, fxToSpec()] });
   const master = DJ_KNOBS.find((k) => k.target.kind === 'master');
   groups.push({ id: 'master', label: 'MASTER', specs: master ? [knobSpec(master, 'Master')] : [], transport: true });
   return groups;

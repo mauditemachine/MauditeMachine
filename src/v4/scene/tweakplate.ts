@@ -85,8 +85,8 @@ export interface TweakPlateSpec {
   name: string;
   dims: TweakPlateDims;
   items: readonly TweakItem[];
-  /** le bloc de titre : TWEAKS, un filet orange, deux lignes */
-  title: { x: number; z: number; sub: string; model: string } | null;
+  /** le bloc de titre : TWEAKS, un filet orange, deux lignes ; w : sa largeur (une case sinon) */
+  title: { x: number; z: number; w?: number; sub: string; model: string } | null;
   /** la largeur d'une case (les noms s'y tiennent) */
   cellW: number;
 }
@@ -371,13 +371,14 @@ export class TweakPlate {
     // Le titre : TWEAKS, un filet orange, deux lignes
     const title = this.spec.title;
     if (title) {
-      this.text('TWEAKS', title.x, title.z - 0.2, P.title, { weight: 700, alpha: 1, maxW: cellW * 0.9 });
+      const tw = title.w ?? cellW;
+      this.text('TWEAKS', title.x, title.z - 0.2, P.title, { weight: 700, alpha: 1, maxW: tw * 0.9 });
       ctx.strokeStyle = HEX.orange;
       ctx.lineWidth = Math.max(1, 0.02 * PPU);
-      const half = Math.min(cellW * 0.45, 0.7);
+      const half = Math.min(tw * 0.45, 0.7);
       this.line(title.x - half, title.z + 0.04, title.x + half, title.z + 0.04);
-      this.text(title.sub, title.x, title.z + 0.24, P.end, { weight: 600, alpha: 0.7, maxW: cellW * 0.9 });
-      this.text(title.model, title.x, title.z + 0.44, P.end, { alpha: 0.45, maxW: cellW * 0.9 });
+      this.text(title.sub, title.x, title.z + 0.24, P.end, { weight: 600, alpha: 0.7, maxW: tw * 0.9 });
+      this.text(title.model, title.x, title.z + 0.44, P.end, { alpha: 0.45, maxW: tw * 0.9 });
     }
     this.draws += 1;
     this.texture.needsUpdate = true;

@@ -588,35 +588,44 @@ export const VOY_PCB_Y = VOY_BODY.floorY + 0.12;
  */
 // 2026-10-04 (Mika : "on voit rien ; les boutons un peu plus gros et surtout les titres, sans trop exagerer") :
 // potards 1.3 -> 1.5 (1.45 au telephone), noms 0.08 -> 0.11, bouts de course 0.055 -> 0.068, titre 0.2 -> 0.24
+/** Potards un peu plus petits depuis SIDECHAIN (2026-10-04) : cinq colonnes a plat, cinq rangees debout. */
 export const VOY_TWEAK_PLATE = PORTRAIT
-  ? { cx: 0, cz: 1.4, w: 4.0, d: 8.2, y: 0.5, t: 0.08, r: 0.12, screwIn: 0.17, frame: 0.28, knob: 1.45, label: 0.11, end: 0.068, title: 0.24 }
-  : { cx: 0, cz: 1.4, w: 8.2, d: 3.9, y: 0.5, t: 0.08, r: 0.12, screwIn: 0.22, frame: 0.36, knob: 1.5, label: 0.11, end: 0.068, title: 0.24 };
+  ? { cx: 0, cz: 1.4, w: 4.0, d: 8.2, y: 0.5, t: 0.08, r: 0.12, screwIn: 0.17, frame: 0.28, knob: 1.3, label: 0.11, end: 0.068, title: 0.24 }
+  : { cx: 0, cz: 1.4, w: 8.2, d: 3.9, y: 0.5, t: 0.08, r: 0.12, screwIn: 0.22, frame: 0.36, knob: 1.3, label: 0.11, end: 0.068, title: 0.24 };
 
 export type VoyTweakCell = VoyKnobId | 'title';
 
-/** Les cases de la plaque (repere de la plaque, son centre) : desktop deux rangees de quatre, portrait quatre rangees de deux. */
+/**
+ * Les cases de la plaque (repere de la plaque, son centre) : desktop deux
+ * rangees de cinq (le titre sur les deux dernieres cases du bas), portrait
+ * cinq rangees de deux (le titre sur toute la derniere).
+ */
 export const VOY_TWEAK_CELLS: readonly { id: VoyTweakCell; x: number; z: number }[] = (PORTRAIT
   ? ([
-      ['phase', -0.95, -2.85],
-      ['drift', 0.95, -2.85],
-      ['width', -0.95, -0.95],
-      ['monoLow', 0.95, -0.95],
-      ['keyTrack', -0.95, 0.95],
-      ['accent', 0.95, 0.95],
-      ['sync', -0.95, 2.85],
-      ['title', 0.95, 2.85],
+      ['phase', -0.95, -3.1],
+      ['drift', 0.95, -3.1],
+      ['width', -0.95, -1.55],
+      ['monoLow', 0.95, -1.55],
+      ['keyTrack', -0.95, 0],
+      ['accent', 0.95, 0],
+      ['sync', -0.95, 1.55],
+      ['duck', 0.95, 1.55],
+      ['title', 0, 3.1],
     ] as const)
   : ([
-      ['phase', -2.85, -0.72],
-      ['drift', -0.95, -0.72],
-      ['width', 0.95, -0.72],
-      ['monoLow', 2.85, -0.72],
-      ['keyTrack', -2.85, 0.86],
-      ['accent', -0.95, 0.86],
-      ['sync', 0.95, 0.86],
-      ['title', 2.85, 0.86],
+      ['phase', -3.0, -0.72],
+      ['drift', -1.5, -0.72],
+      ['width', 0, -0.72],
+      ['monoLow', 1.5, -0.72],
+      ['keyTrack', 3.0, -0.72],
+      ['accent', -3.0, 0.86],
+      ['sync', -1.5, 0.86],
+      ['duck', 0, 0.86],
+      ['title', 2.25, 0.86],
     ] as const)
 ).map(([id, x, z]) => ({ id, x, z }));
+/** La largeur du titre (deux cases). */
+export const VOY_TWEAK_TITLE_W = PORTRAIT ? 3.4 : 2.8;
 
 /**
  * Les bouts de course ecrits sous chaque potard (gauche : 0, droite : 10) ;
@@ -624,6 +633,7 @@ export const VOY_TWEAK_CELLS: readonly { id: VoyTweakCell; x: number; z: number 
  */
 export const VOY_TWEAK_ENDS: Partial<Record<VoyKnobId, readonly [string, string]>> = {
   phase: ['FREE', '360'],
+  duck: ['OFF', '-24 DB'],
   drift: ['STABLE', 'LOOSE'],
   width: ['MONO', 'WIDE'],
   monoLow: ['OFF', '300 HZ'],

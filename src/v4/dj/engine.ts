@@ -133,10 +133,14 @@ export class DjChannel {
   private bands = { hi: 0, mid: 0, low: 0 };
   private fader: GainNode;
   private meter: StereoPeak;
+  /** FX TO (2026-10-04) : la voie passe par les effets, ou tout droit au master */
+  private toFx: GainNode;
+  private toDry: GainNode;
 
   constructor(
     private ctx: AudioContext,
-    out: AudioNode
+    out: AudioNode,
+    dry: AudioNode = out
   ) {
     this.input = new GainNode(ctx);
     this.low = new GainNode(ctx);
@@ -167,7 +171,17 @@ export class DjChannel {
     this.xf = new GainNode(ctx, { gain: Math.SQRT1_2 });
     // Le VU mesure apres le fader : exactement ce que la voie envoie au master
     this.meter = new StereoPeak(ctx, this.fader);
-    this.fader.connect(this.xf).connect(out);
+    this.toFx = new GainNode(ctx, { gain: 1 });
+    this.toDry = new GainNode(ctx, { gain: 0 });
+    this.fader.connect(this.xf);
+    this.xf.connect(this.toFx).connect(out);
+    this.xf.connect(this.toDry).connect(dry);
+  }
+
+  /** FX TO : par les effets (true) ou tout droit (false), en 20 ms. */
+  sendFx(on: boolean): void {
+    glide(this.toFx.gain, on ? 1 : 0, this.ctx);
+    glide(this.toDry.gain, on ? 0 : 1, this.ctx);
   }
 
   setGain(v: number): void {
@@ -425,9 +439,21 @@ export class DjMixer {
     this.master.connect(out);
     // Le master : ici, juste avant le limiteur du site, tant qu'on ne voit pas sa sortie (meterAfter)
     this.meters = new StereoPeak(ctx, this.master);
+    // FX TO : les voies qui ne passent pas par les effets vont tout droit au master
+    const dry = new GainNode(ctx);
+    dry.connect(this.master);
     // Plus de crossfader (Mika, 2026-10-04) : chaque voie passe entiere, son fader seul compte
-    this.ch = Array.from({ length: DJ_CHANNELS_MAX }, () => new DjChannel(ctx, sum));
+    this.ch = Array.from({ length: DJ_CHANNELS_MAX }, () => new DjChannel(ctx, sum, dry));
     for (const c of this.ch) c.xf.gain.value = 1;
+  }
+
+  /**
+   * FX TO (2026-10-04) : les effets sur toutes les voies (-1), ou sur une
+   * seule ; les autres passent tout droit. Les queues deja dans le delay et
+   * la reverbe finissent de sonner.
+   */
+  setFxTo(t: number): void {
+    this.ch.forEach((c, i) => c.sendFx(t < 0 || t === i));
   }
 
 

@@ -355,7 +355,8 @@ function placeMix(n: number): void {
   MIX.cols = Array.from({ length: n }, (_, i) => L + 1.1 + i * MIX_COL);
   MIX.masterX = MIX.cols[n - 1] + 1.7;
   MIX.fxX0 = L + 0.9;
-  MIX.fxPitch = (w - 1.8) / (DJ_FX.length - 1);
+  // Les effets, puis FX TO au bout de la rangee (2026-10-04) : huit places
+  MIX.fxPitch = (w - 1.8) / DJ_FX.length;
   MIX.screen.x = L + mid + 2.45;
   MIX.times.x0 = L + mid + 4.82;
 }
