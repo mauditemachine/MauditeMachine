@@ -8,10 +8,12 @@
  * appui et relachement, CUE, un pad du MM-SMPL). Son id est stable (les
  * assignations retenues s'y referent) :
  * - MM-RYTM : rytm:enc:<encodeur>, rytm:voice:<voix>:<parametre> (le
- *   parametre d'une voix sans la choisir), rytm:kit:<tweak>, rytm:pad:<voix>,
- *   rytm:step:<0-15>, rytm:run, clear, random, mute, solo, edit, open ;
+ *   parametre d'une voix sans la choisir ; :mute, la voix coupee, 0 ou 1),
+ *   rytm:kit:<tweak>, rytm:pad:<voix>, rytm:step:<0-15>, rytm:run, clear,
+ *   random, mute, solo, edit, open ; rytm:running (en marche, 0 ou 1 : un
+ *   bouton a bascule dont la LED suit) ;
  * - MM-ARP : voy:knob:<potard>, voy:pad:<0-7>, voy:run, clear, random,
- *   edit, open ;
+ *   edit, open ; voy:running ;
  * - partout : nav:<all|mm808|voy|smpl|dj|prev|next>, nav:machines (PLAY/STOP
  *   du MM-RYTM et du MM-ARP ensemble) ;
  * - MM-DECKS (dj:<commande>) et MM-SMPL (smpl:...) : leur code arrive a
@@ -19,7 +21,10 @@
  *   (dj/midi.ts, smpl/midi.ts) ; une assignation qui les vise les charge.
  */
 
-import { anyDial, anyDialValue, clearPattern, dialRange, dialSteps, editToggle, focusMachine, kitDial, machinesToggle, muteToggle, openToggle, padHit, patternTap, randomPattern, runToggle, soloToggle, stepMachine, stepToggle, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
+import { anyDial, anyDialValue, clearPattern, dialRange, dialSteps, editToggle, focusMachine, kitDial, machinesToggle, muteToggle, openToggle, padHit, patternTap, randomPattern, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
+import { clock } from '../audio/clock';
+import { voices as voiceState } from '../state/voices';
+import { arp } from '../voyager/arp';
 import { KIT_IDS, KIT_LABEL, kit, kitSteps } from '../audio/kit';
 import { setVoiceFx } from '../audio/drums';
 import { VOICE_PARAMS, voiceFx, type VoiceParam } from '../audio/voicefx';
@@ -96,8 +101,43 @@ function coreTargets(): MidiTarget[] {
       });
     }
   }
+  // Les mutes directs (2026-10-05, le Roto en live) : 1 la voix se tait, 0 elle revient, sans le mode MUTE
+  for (const inst of voices) {
+    out.push({
+      id: `rytm:voice:${inst}:mute`,
+      scope: 'mm808',
+      label: `MUTE ${inst}`,
+      kind: 'value',
+      steps: 2,
+      get: () => (voiceState.isMuted(inst) ? 1 : 0),
+      set: (v) => voiceMute(inst, v >= 0.5),
+    });
+  }
+  // En marche ou a l'arret (un bouton a bascule : sa LED dit si la machine joue)
+  out.push({
+    id: 'rytm:running',
+    scope: 'mm808',
+    label: 'RUN (ON / OFF)',
+    kind: 'value',
+    steps: 2,
+    get: () => (clock.running ? 1 : 0),
+    set: (v) => {
+      if (v >= 0.5 !== clock.running) void runToggle(getStage());
+    },
+  });
   for (const k of KIT_IDS) {
-    out.push({ id: `rytm:kit:${k}`, scope: 'mm808', label: `TWEAK ${KIT_LABEL[k]}`, kind: 'value', steps: kitSteps(k), get: () => kit.value(k), set: (v) => kitDial(k, v) });
+    // Ses crans suivent tes samples (audio/usersamples.ts) : lus a chaque fois
+    out.push({
+      id: `rytm:kit:${k}`,
+      scope: 'mm808',
+      label: `TWEAK ${KIT_LABEL[k]}`,
+      kind: 'value',
+      get steps() {
+        return kitSteps(k);
+      },
+      get: () => kit.value(k),
+      set: (v) => kitDial(k, v),
+    });
   }
   for (const inst of voices) out.push(press(`rytm:pad:${inst}`, 'mm808', `PAD ${inst}`, () => padHit(inst, getStage())));
   for (let i = 0; i < STEP_COUNT; i += 1) out.push(press(`rytm:step:${i}`, 'mm808', `STEP ${i + 1}`, () => void stepToggle(i, getStage())));
@@ -126,6 +166,17 @@ function coreTargets(): MidiTarget[] {
     }
     CHORDS.forEach((c, i) => out.push(press(`voy:pad:${i}`, 'voy', `CHORD ${c.label}`, () => voyPad(i, getStage()))));
     out.push(press('voy:run', 'voy', 'RUN/STOP', () => void voyRun(getStage())));
+    out.push({
+      id: 'voy:running',
+      scope: 'voy',
+      label: 'RUN (ON / OFF)',
+      kind: 'value',
+      steps: 2,
+      get: () => (arp.get().running ? 1 : 0),
+      set: (v) => {
+        if (v >= 0.5 !== arp.get().running) void voyRun(getStage());
+      },
+    });
     out.push(press('voy:clear', 'voy', 'CLEAR', () => voyClear(getStage())));
     out.push(press('voy:random', 'voy', 'RANDOM', () => voyRandom(getStage())));
     out.push(press('voy:edit', 'voy', 'EDIT', () => editToggle('voy', getStage())));

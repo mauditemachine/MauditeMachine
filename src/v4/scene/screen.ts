@@ -1,28 +1,33 @@
 /**
  * L'ecran OLED en haut a gauche du panneau (spec 20.3.8) : un plan de
- * 3.6 x 1.35 pose sur son cadre, texture canvas 640 x 240 (les proportions
- * du verre). Redessine le 2026-10-05 (Mika : "l'ecran de RYTM dans le
- * design de pixel comme la Digitakt 2, mais bien plus simple ; des fois de
- * petites animations ; l'ecran est important, on devrait avoir plus
- * d'informations ; le meilleur de toutes les machines : Digitakt 2, Analog
- * Rytm, EMX1, Impulse") : 160 x 60 points (scene/pixels.ts), bone sur noir,
- * deux polices bitmap. De haut en bas :
+ * 3.6 x 1.35 pose sur son cadre, texture canvas (les proportions du verre).
+ * Redessine le 2026-10-05 (Mika : "l'ecran de RYTM dans le design de pixel
+ * comme la Digitakt 2, mais bien plus simple ; des fois de petites
+ * animations ; l'ecran est important, on devrait avoir plus d'informations ;
+ * le meilleur de toutes les machines : Digitakt 2, Analog Rytm, EMX1,
+ * Impulse"), puis affine (Mika : "fais les choses plus fines, meilleur
+ * graphisme et occupe tout l'ecran, la il y a de l'espace en dessous") :
+ * 320 x 120 points, mise en page en unites de 160 x 60 (scene/pixels.ts),
+ * bone sur noir, traits d'un point, marges de deux unites. De haut en bas :
  * - l'en-tete : la section ouverte (ou MM-RYTM), le pattern (A01, en
- *   negatif ; il clignote quand il change), quatre points pour les temps de
- *   la mesure (allumes un a un en lecture), le tempo ;
+ *   negatif ; il clignote quand il change), la lecture (un triangle, un
+ *   carre a l'arret), quatre cases pour les temps de la mesure (allumees
+ *   une a une en lecture), le tempo ;
  * - au milieu, a gauche, la voix choisie en grand (BD, SD...) et son son
- *   (909, 808, MM, ou son sample ; MUTE si elle se tait) ; a droite ses
- *   seize pas, la hauteur de chaque coup sa velocite, la tete de lecture
- *   soulignee ; dessous dix vumetres, un par voix, qui sautent a chaque
- *   coup et retombent (facon Impulse) ;
+ *   (909, 808, MM, ou son sample ; MUTE ou SOLO) ; a droite ses seize pas
+ *   (la hauteur de chaque coup sa velocite, le temps fort marque, la tete
+ *   de lecture soulignee), dessous dix vumetres en segments, un par voix,
+ *   qui sautent a chaque coup et retombent (facon Impulse) ;
  * - en EDIT (state/patterns.ts) : le pattern en grand et les seize
  *   emplacements (le courant en negatif, la chaine encadree, celui qui
  *   attend la mesure qui clignote), la chaine sur la ligne du dessous ;
  * - page MIX : les cinq volumes en barres, la voix reglee en negatif ;
  * - mode presets : le nom entre ses fleches, quatre touches en bas ;
  * - les deux lignes du bas : l'etat (READY, RUN, le titre qui defile,
- *   l'etiquette PRESETS) et le message passager, la valeur d'un potard, ou
- *   la piste en cours et sa barre (cliquable, bar).
+ *   l'etiquette PRESETS) ; puis le message passager, la valeur d'un potard,
+ *   la piste en cours et sa barre (cliquable, bar), sinon trois jauges : la
+ *   voix choisie (VOLUME, TONE, DECAY) ou la machine (SWING, STRETCH,
+ *   MASTER). L'ecran est plein a toute heure.
  * Au repos (desktop, la machine regardee), de temps en temps, une vague
  * lente passe sur les vumetres. Le texte vient de state/lcd.ts ; l'image se
  * refait quand un store change, au plus tous les 60 ms, et ne demande une
@@ -31,18 +36,20 @@
 
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
 import { clock } from '../audio/clock';
+import { mix } from '../audio/drums';
 import { familyOf, kit } from '../audio/kit';
 import { INSTRUMENTS, STEP_COUNT, VEL_BARS, pattern, velocity } from '../audio/pattern';
 import type { ShotId } from '../audio/shotsdsp';
 import { sc } from '../audio/soundcloud';
+import { voiceFx } from '../audio/voicefx';
 import { editor } from '../state/editor';
 import { focus } from '../state/focus';
 import { lcd, type LcdState } from '../state/lcd';
 import { PATTERN_SLOTS, patterns, slotName } from '../state/patterns';
 import { playhead } from '../state/playhead';
 import { voices } from '../state/voices';
-import { HEX, OLED, OLED_BAR, type Inst } from '../theme';
-import { PIX_H, PIX_SCALE, PIX_W, PixelBuffer, fitChars, textWidth } from './pixels';
+import { HEX, OLED, OLED_BAR, swingRatio, type Inst } from '../theme';
+import { PIX_CANVAS, PIX_TEX, PIX_W, PixelBuffer, fitChars, fontHeight, textWidth } from './pixels';
 import { makeCanvasTexture } from './silk';
 
 export interface ScreenInfo {
@@ -85,14 +92,22 @@ function soundOf(inst: Inst): string {
   return f ? kit.valueText(f) : 'MM';
 }
 
-/* La grille des pas : seize cases de 6 points, un jour de 1, deux de plus entre les groupes de quatre */
-const GRID = { x: 41, y: 11, w: 6, h: 10, gap: 1, group: 2 } as const;
+/* Deux unites de marge de chaque cote */
+const X0 = 2;
+const X1 = PIX_W - 2;
+/* La grille des pas : seize cases de 6, un jour de 1, deux de plus entre les groupes de quatre (41 a 158) */
+const GRID = { x: 41, y: 12, w: 6, h: 12, gap: 1, group: 2 } as const;
 const cellX = (i: number): number => GRID.x + i * (GRID.w + GRID.gap) + Math.floor(i / 4) * GRID.group;
-/* Les dix vumetres sous la grille */
-const METERS = { x: 41, y: 25, h: 7, label: 33, pitch: 11.8 } as const;
+/* Les dix vumetres sous la grille : six segments d'un point (un point de jour), leur nom dessous */
+const METERS = { x: 41, bottom: 33.5, w: 7, segs: 6, label: 35, pitch: 12.2 } as const;
+/* Les filets, sous l'en-tete et au-dessus des deux lignes du bas (OLED_BAR.bandY0 : 40 unites) */
+const RULE_TOP = 10;
+const RULE_BOTTOM = 40;
 /* Les deux lignes du bas */
 const LINE_A = 42;
 const LINE_B = 51;
+/* Les trois jauges de la ligne du bas (au repos) */
+const GAUGE = { gap: 5, h: 5 } as const;
 
 export class Screen {
   readonly mesh: Mesh;
@@ -123,15 +138,15 @@ export class Screen {
     /** telephone : pas de vague au repos (aucune image pour rien) */
     private mobile = false
   ) {
-    const [W, H] = OLED.tex;
-    this.info = { draws: 0, text: ['', '', ''], lastDrawAt: -Infinity, minGapMs: Infinity, font: 'pixel 5x7', size: [W, H] };
+    const [W, H] = PIX_CANVAS;
+    this.info = { draws: 0, text: ['', '', ''], lastDrawAt: -Infinity, minGapMs: Infinity, font: 'pixel 5x7 thin', size: [W, H] };
     this.canvas = document.createElement('canvas');
     this.canvas.width = W;
     this.canvas.height = H;
     const ctx = this.canvas.getContext('2d');
     if (!ctx) throw new Error('screen: no 2d context');
     this.ctx = ctx;
-    this.img = ctx.createImageData(PIX_W * PIX_SCALE, PIX_H * PIX_SCALE);
+    this.img = ctx.createImageData(W, H);
     // Mipmaps et anisotropie : l'ecran est vu de biais et reduit (sur un
     // telephone il fait 80 px de large), un simple filtre lineaire scintillerait
     this.texture = makeCanvasTexture(this.canvas, anisotropy);
@@ -166,6 +181,8 @@ export class Screen {
       patterns.subscribe(active),
       editor.subscribe(active),
       voices.subscribe(active),
+      voiceFx.subscribe(active),
+      mix.subscribe(active),
       clock.subscribe(active),
       playhead.subscribe(() => this.request()),
       focus.subscribe(() => this.request()),
@@ -238,7 +255,7 @@ export class Screen {
       if (s.mix) this.paintMix(s.mix);
       else if (rytmEdit) next = Math.max(next, this.paintPatterns(now));
       else next = Math.max(next, this.paintVoice(p.instrument, p.steps, now));
-      this.paintLines(s, rytmEdit);
+      this.paintLines(s, rytmEdit, p.instrument);
     }
     if (this.blinkUntil > now || (rytmEdit && ptn.next >= 0) || this.slideFrom + SLIDE_MS > now || this.waveFrom > 0) next = ANIM_MS;
     // Les vumetres retombent entre deux pas (au telephone, l'ecran est trop petit : au pas seulement)
@@ -265,33 +282,40 @@ export class Screen {
     this.lastStep = st;
   }
 
-  /** L'en-tete : la section, le pattern, les temps, le tempo ; le filet dessous. */
+  /** L'en-tete : la section, le pattern, la lecture, les temps, le tempo ; le filet dessous. */
   private paintHead(s: LcdState, cur: number, now: number): void {
     const b = this.pix;
     const right = s.r1;
     const rw = textWidth(right);
-    b.text(right, PIX_W - rw, 0);
+    b.text(right, X1 - rw, 1.5);
     // Les quatre temps de la mesure : le temps en cours allume (en lecture)
-    const dotsX = PIX_W - rw - 6 - 19;
-    const beat = clock.running && playhead.get() >= 0 ? Math.floor(playhead.get() / 4) : -1;
+    const box = 3;
+    const pitch = 4.5;
+    const boxesX = X1 - rw - 5 - (3 * pitch + box);
+    const running = clock.running && playhead.get() >= 0;
+    const beat = running ? Math.floor(playhead.get() / 4) : -1;
     for (let k = 0; k < 4; k += 1) {
-      const x = dotsX + k * 5;
-      if (k === beat) b.rect(x, 2, 3, 3, 2);
-      else b.frame(x, 2, 3, 3, 1);
+      const x = boxesX + k * pitch;
+      if (k === beat) b.rect(x, 3.25, box, box, 2);
+      else b.frame(x, 3.25, box, box, 1);
     }
+    // La lecture : un triangle ; a l'arret, un carre
+    const iconX = boxesX - 8;
+    if (clock.running) b.play(iconX, 2, 5, 2);
+    else b.rect(iconX + 0.5, 3, 4, 4, 2);
     // La section (ou MM-RYTM), puis le pattern en negatif (il clignote quand il change)
     const name = slotName(cur);
     const tagW = textWidth(name) + 2;
-    const room = fitChars(dotsX - 6 - tagW - 4);
+    const room = fitChars(iconX - 4 - tagW - 3 - X0);
     const left = fit(s.l1, room);
-    const lw = b.text(left, 0, 0);
-    const tx = Math.max(lw + 4, 0);
+    const lw = b.text(left, X0, 1.5);
+    const tx = X0 + lw + 3;
     const blinkOff = this.blinkUntil > now && Math.floor((this.blinkUntil - now) / 100) % 2 === 1;
     if (blinkOff) {
-      b.frame(tx, -1, tagW, 9, 2);
-      b.text(name, tx + 1, 0, 2);
-    } else b.tag(name, tx, 0);
-    b.dots(0, 9, PIX_W, 1);
+      b.frame(tx, 0.5, tagW, fontHeight() + 2, 2);
+      b.text(name, tx + 1, 1.5, 2);
+    } else b.tag(name, tx, 1.5);
+    b.dots(0, RULE_TOP, PIX_W, 1);
   }
 
   /** La voix choisie, ses seize pas, les dix vumetres ; rend 0 (les animations sont comptees par paint). */
@@ -301,41 +325,56 @@ export class Screen {
     const t = Math.min(1, (now - this.slideFrom) / SLIDE_MS);
     const dx = Math.round((1 - t) * (1 - t) * 14);
     if (inst) {
-      b.text(inst, dx, 12, 2, 'big');
-      const muted = !voices.plays(inst);
-      if (muted) b.tag('MUTE', 0, 30, 'std');
-      else b.text(fit(soundOf(inst), 6), 0, 30, 1);
+      b.text(inst, X0 + dx, 12.5, 2, 'big');
+      if (voices.get().solo === inst) b.tag('SOLO', X0, 30);
+      else if (!voices.plays(inst)) b.tag('MUTE', X0, 30);
+      else {
+        const snd = soundOf(inst);
+        if (textWidth(snd) <= 36) b.text(snd, X0, 30, 1);
+        else b.text(fit(snd, fitChars(36, 'mini')), X0, 31, 1, 'mini');
+      }
     } else {
-      b.text('--', 0, 12, 1, 'big');
-      b.text('PICK', 0, 30, 1);
+      b.text('--', X0, 12.5, 1, 'big');
+      b.text('PICK', X0, 30, 1);
     }
-    // Les seize pas : la hauteur de chaque coup sa velocite ; vide, un point (plus fort sur les temps)
+    // Les seize pas : la hauteur de chaque coup sa velocite ; vide, un trait (plus fort sur les temps)
     const head = clock.running ? playhead.get() : -1;
+    const bottom = GRID.y + GRID.h;
     for (let i = 0; i < STEP_COUNT; i += 1) {
       const x = cellX(i);
       const v = inst ? velocity(steps, inst, i) : this.maxVel(steps, i);
       const bars = VEL_BARS[v];
       if (bars > 0) {
-        const h = [0, 4, 7, 10][bars];
-        b.rect(x, GRID.y + GRID.h - h, GRID.w, h, inst ? 2 : 1);
-      } else b.rect(x + 2, GRID.y + GRID.h - 1, 2, 1, i % 4 === 0 ? 2 : 1);
-      if (i === head) b.rect(x, GRID.y + GRID.h + 2, GRID.w, 2, 2);
+        // Trois segments (doux, moyen, fort) separes d'un point ; sans voix choisie, en demi-teinte
+        const seg = GRID.h / 3;
+        for (let k = 0; k < bars; k += 1) b.rect(x, bottom - (k + 1) * seg + 0.5, GRID.w, seg - 0.5, inst ? 2 : 1);
+      } else b.rect(x + 1.5, bottom - 0.5, 3, 0.5, i % 4 === 0 ? 2 : 1);
+      if (i === head) b.rect(x, bottom + 1, GRID.w, 1, 2);
     }
-    // Les vumetres : une barre par voix, son nom dessous ; la vague du repos les fait onduler
+    // Le temps fort de chaque groupe de quatre : un point au-dessus
+    for (let g = 0; g < 4; g += 1) b.rect(cellX(g * 4), GRID.y - 1.5, 0.5, 0.5, 1);
+    // Les vumetres : six segments par voix, son nom dessous ; la vague du repos les fait onduler
     const wave = this.waveFrom > 0 ? (now - this.waveFrom) / 1000 : -1;
     INSTRUMENTS.forEach((name, i) => {
-      const cx = Math.round(METERS.x + i * METERS.pitch);
+      const cx = METERS.x + i * METERS.pitch;
       let v = this.meters[i];
       if (wave >= 0) {
         const env = Math.min(1, wave / 1.2, (WAVE_MS / 1000 - wave) / 1.2);
         v = Math.max(v, env * (0.5 + 0.5 * Math.sin(wave * 3.2 - i * 0.7)) * 0.9);
       }
-      const h = Math.round(v * METERS.h);
-      b.rect(cx, METERS.y + METERS.h - 1, 7, 1, 1);
-      if (h > 0) b.rect(cx, METERS.y + METERS.h - h, 7, h, 2);
+      const lit = Math.round(v * METERS.segs);
+      for (let k = 0; k < METERS.segs; k += 1) {
+        const y = METERS.bottom - 0.5 - k;
+        if (k < lit) b.rect(cx, y, METERS.w, 0.5, 2);
+        else if (k === 0) b.rect(cx, y, METERS.w, 0.5, 1);
+      }
       const plays = voices.plays(name);
-      b.text(name.slice(0, 2), cx, METERS.label, name === inst ? 2 : plays ? 1 : 1, 'mini');
-      if (!plays) b.rect(cx, METERS.label + 2, 7, 1, 0);
+      const label = name.slice(0, 2);
+      const lx = cx + (METERS.w - textWidth(label, 'mini')) / 2;
+      if (name === inst) b.tag(label, lx - 0.5, METERS.label, 'mini', 0.5);
+      else b.text(label, lx, METERS.label, plays ? 2 : 1, 'mini');
+      // Une voix qui se tait : son nom barre
+      if (!plays) b.rect(lx - 0.5, METERS.label + 2, textWidth(label, 'mini') + 1, 0.5, name === inst ? 0 : 2);
     });
     return 0;
   }
@@ -351,17 +390,17 @@ export class Screen {
   private paintPatterns(now: number): number {
     const b = this.pix;
     const p = patterns.get();
-    b.text(slotName(p.cur), 0, 12, 2, 'big');
-    b.tag('EDIT', 0, 30);
-    const cw = 13;
+    b.text(slotName(p.cur), X0, 12.5, 2, 'big');
+    b.tag('EDIT', X0, 30);
+    const cw = 12.5;
     const ch = 11;
     const blinkOn = Math.floor(now / 160) % 2 === 0;
     for (let i = 0; i < PATTERN_SLOTS; i += 1) {
       const x = 41 + (i % 8) * (cw + 2);
-      const y = i < 8 ? 11 : 24;
+      const y = i < 8 ? 12 : 25;
       const label = String(i + 1).padStart(2, '0');
-      const lx = x + Math.floor((cw - textWidth(label, 'mini')) / 2);
-      const ly = y + 3;
+      const lx = x + (cw - textWidth(label, 'mini')) / 2;
+      const ly = y + 3.5;
       const inChain = p.chain.length > 1 && p.chain.includes(i);
       if (i === p.cur) {
         b.rect(x, y, cw, ch, 2);
@@ -370,10 +409,11 @@ export class Screen {
         if (i === p.next && blinkOn) b.rect(x, y, cw, ch, 1);
         if (inChain || i === p.next) b.frame(x, y, cw, ch, 2);
         else if (patterns.filled(i)) b.frame(x, y, cw, ch, 1);
+        else b.rect(x + cw / 2 - 1, y + ch - 1.5, 2, 0.5, 1);
         b.text(label, lx, ly, patterns.filled(i) || inChain ? 2 : 1, 'mini');
       }
       // La position de la chaine qui joue : un trait sous l'emplacement
-      if (inChain && p.chain[p.pos] === i) b.rect(x + 2, y + ch, cw - 4, 1, 2);
+      if (inChain && p.chain[p.pos] === i) b.rect(x + 2, y + ch + 0.5, cw - 4, 0.5, 2);
     }
     return 0;
   }
@@ -382,94 +422,141 @@ export class Screen {
   private paintMix(m: NonNullable<LcdState['mix']>): void {
     const b = this.pix;
     const n = m.insts.length;
-    const cw = Math.floor(PIX_W / n);
+    const cw = PIX_W / n;
     m.insts.forEach((inst, k) => {
       const x0 = k * cw;
-      const cx = x0 + Math.floor(cw / 2);
+      const cx = x0 + cw / 2;
       const v = Math.max(0, Math.min(1, m.levels[k] ?? 0));
       const nw = textWidth(inst);
-      if (inst === m.sel) b.tag(inst, cx - Math.floor(nw / 2) - 1, 12);
-      else b.text(inst, cx - Math.floor(nw / 2), 12);
+      if (inst === m.sel) b.tag(inst, cx - nw / 2 - 1, 12.5);
+      else b.text(inst, cx - nw / 2, 12.5);
       // La barre : son cadre, son remplissage, la valeur dessous
       const bx = cx - 6;
-      b.frame(bx, 20, 12, 10, 1);
-      const h = Math.round(v * 8);
-      if (h > 0) b.rect(bx + 1, 29 - h, 10, h, 2);
+      b.frame(bx, 21, 12, 10, 1);
+      const h = v * 9;
+      if (h > 0) b.rect(bx + 0.5, 30.5 - h, 11, h, 2);
       const val = String(Math.round(v * 100));
-      b.text(val, cx - Math.floor(textWidth(val) / 2), 31, inst === m.sel ? 2 : 1);
-      if (k > 0) for (let y = 11; y < 38; y += 2) b.set(x0, y, 1);
+      b.text(val, cx - textWidth(val) / 2, 32.5, inst === m.sel ? 2 : 1);
+      if (k > 0) b.vdots(x0, 12, 27, 1);
     });
   }
 
   /** Mode presets : le titre et le rang, le nom entre ses fleches, les quatre touches. */
   private paintPresets(s: LcdState): void {
     const b = this.pix;
-    b.text(fit(s.l1, 18), 0, 0);
-    b.textRight(s.r1, PIX_W, 0);
-    b.dots(0, 9, PIX_W, 1);
+    b.text(fit(s.l1, 18), X0, 1.5);
+    b.textRight(s.r1, X1, 1.5);
+    b.dots(0, RULE_TOP, PIX_W, 1);
     const name = s.l2.replace(/^<\s*|\s*>$/g, '').trim();
-    const nw = textWidth(fit(name, 22));
-    b.text(fit(name, 22), Math.floor((PIX_W - nw) / 2), 20);
+    const shown = fit(name, 22);
+    b.text(shown, (PIX_W - textWidth(shown)) / 2, 21);
     if (s.l2.startsWith('<')) {
-      b.text('<', 0, 20);
-      b.text('>', PIX_W - 5, 20);
+      b.text('<', X0, 21);
+      b.textRight('>', X1, 21);
     }
-    b.dots(0, 40, PIX_W, 1);
+    b.dots(0, RULE_BOTTOM, PIX_W, 1);
     const keys = s.keys ?? [];
     const cw = PIX_W / 4;
     keys.forEach((k, i) => {
       if (!k) return;
       const w = textWidth(k) + 2;
-      b.tag(k, Math.round(cw * (i + 0.5) - w / 2), LINE_B);
+      b.tag(k, cw * (i + 0.5) - w / 2, LINE_B);
     });
     this.bar = null;
   }
 
-  /** Les deux lignes du bas : l'etat ; le message, la valeur d'un potard ou la piste et sa barre. */
-  private paintLines(s: LcdState, rytmEdit: boolean): void {
+  /** Les deux lignes du bas : l'etat ; le message, la valeur d'un potard, la piste et sa barre, sinon les jauges. */
+  private paintLines(s: LcdState, rytmEdit: boolean, inst: Inst | null): void {
     const b = this.pix;
-    b.dots(0, 39, PIX_W, 1);
+    b.dots(0, RULE_BOTTOM, PIX_W, 1);
     const p = patterns.get();
+    const W = X1 - X0;
     // Ligne A : l'etat (EDIT : la chaine), PRESETS en negatif a droite ; MIX : la voix reglee et son volume
     if (s.mix) {
       const k = s.mix.insts.indexOf(s.mix.sel);
       const v = Math.round((s.mix.levels[k] ?? 0) * 100);
-      b.text(`VOLUME ${s.mix.sel} ${v}`, 0, LINE_A);
-      b.text('THE FIVE VOICES OF ITS ROW', 0, LINE_B, 1);
+      b.text(`VOLUME ${s.mix.sel} ${v}`, X0, LINE_A);
+      b.text('THE FIVE VOICES OF ITS ROW', X0, LINE_B, 1);
       this.bar = null;
       return;
     }
     if (rytmEdit) {
-      const chain = p.chain.length > 1 ? `CHAIN ${p.chain.map((k) => String(k + 1).padStart(2, '0')).join('>')}` : 'TAP: PLAY  QUICK TAPS: CHAIN';
+      const chain = p.chain.length > 1 ? `CHAIN ${p.chain.map((k) => String(k + 1).padStart(2, '0')).join('>')}` : 'TAP: PLAY  TAP TAP: CHAIN';
       const right = p.next >= 0 ? `NEXT ${slotName(p.next)}` : '';
-      const rw = right ? textWidth(right) + 6 : 0;
-      b.text(fit(chain, fitChars(PIX_W - rw)), 0, LINE_A);
-      if (right) b.textRight(right, PIX_W, LINE_A);
+      const rw = right ? textWidth(right) + 4 : 0;
+      b.text(fit(chain, fitChars(W - rw)), X0, LINE_A);
+      if (right) b.textRight(right, X1, LINE_A);
     } else {
       const tagW = s.tag ? textWidth('PRESETS') + 2 : 0;
       const r = s.r2;
-      const rw = r ? textWidth(r) + 6 : tagW ? tagW + 4 : 0;
-      b.text(fit(s.l2, fitChars(PIX_W - rw)), 0, LINE_A);
-      if (r) b.textRight(r, PIX_W, LINE_A);
-      else if (s.tag) b.tag('PRESETS', PIX_W - tagW, LINE_A);
+      const rw = r ? textWidth(r) + 4 : tagW ? tagW + 3 : 0;
+      b.text(fit(s.l2, fitChars(W - rw)), X0, LINE_A);
+      if (r) b.textRight(r, X1, LINE_A);
+      else if (s.tag) b.tag('PRESETS', X1 - tagW, LINE_A);
     }
-    // Ligne B : le message ; sinon la piste (position, barre, duree) ; en EDIT, l'aide
+    // Ligne B : le message ; sinon la piste (position, barre, duree) ; en EDIT, l'aide ; sinon les jauges
     this.bar = null;
     if (s.bar !== null) {
-      const lw = b.text(s.l3, 0, LINE_B);
+      const lw = b.text(s.l3, X0, LINE_B);
       const rw = textWidth(s.r3);
-      b.text(s.r3, PIX_W - rw, LINE_B);
-      const x0 = lw + 3;
-      const x1 = PIX_W - rw - 4;
+      b.text(s.r3, X1 - rw, LINE_B);
+      const x0 = X0 + lw + 3;
+      const x1 = X1 - rw - 3;
       if (x1 - x0 > 8) {
-        b.frame(x0, LINE_B, x1 - x0, 7, 2);
-        const fill = Math.round(Math.max(0, Math.min(1, s.bar)) * (x1 - x0 - 4));
-        if (fill > 0) b.rect(x0 + 2, LINE_B + 2, fill, 3, 2);
-        const S = PIX_SCALE;
+        b.frame(x0, LINE_B, x1 - x0, 6.5, 2);
+        const fill = Math.max(0, Math.min(1, s.bar)) * (x1 - x0 - 3);
+        if (fill > 0) b.rect(x0 + 1.5, LINE_B + 1.5, fill, 3.5, 2);
+        const S = PIX_TEX;
         this.bar = { x0: x0 * S, x1: x1 * S, y0: LINE_B * S - OLED_BAR.lift, y1: (LINE_B + 7) * S };
       }
-    } else if (s.l3) b.text(fit(s.l3, fitChars(PIX_W)), 0, LINE_B);
-    else if (rytmEdit) b.text('HOLD AN EMPTY ONE: COPY', 0, LINE_B, 1);
+    } else if (s.l3) b.text(fit(s.l3, fitChars(W)), X0, LINE_B);
+    else if (rytmEdit) b.text('HOLD AN EMPTY ONE: COPY', X0, LINE_B, 1);
+    else this.paintGauges(inst);
+  }
+
+  /** Au repos, la ligne du bas : trois jauges, la voix choisie (VOLUME, TONE, DECAY) ou la machine (SWING, STRETCH, MASTER). */
+  private paintGauges(inst: Inst | null): void {
+    const fx = inst ? voiceFx.of(inst) : null;
+    const gauges: { label: string; v: number; bip?: boolean; text: string }[] = fx
+      ? [
+          { label: 'VOL', v: fx.level, text: String(Math.round(fx.level * 100)) },
+          { label: 'TONE', v: fx.tone, bip: true, text: `${fx.tone > 0.005 ? '+' : ''}${Math.round(fx.tone * 100)}` },
+          { label: 'DECAY', v: fx.decay, text: String(Math.round(fx.decay * 100)) },
+        ]
+      : [
+          { label: 'SWING', v: mix.swing, text: `${swingRatio(mix.swing)}` },
+          { label: 'STRETCH', v: mix.stretch, bip: true, text: `${mix.stretch > 0.005 ? '+' : ''}${Math.round(mix.stretch * 100)}` },
+          { label: 'MASTER', v: mix.level, text: String(Math.round(mix.level * 100)) },
+        ];
+    const b = this.pix;
+    // Chaque jauge : son nom, sa valeur (trois chiffres), sa barre ; les barres se partagent le reste de la ligne
+    const valW = textWidth('+00', 'mini');
+    const fixed = gauges.map((g) => textWidth(g.label, 'mini') + 1.5 + valW + 2);
+    const barW = (X1 - X0 - 2 * GAUGE.gap - fixed.reduce((a, w) => a + w, 0)) / gauges.length;
+    let x = X0;
+    gauges.forEach((g, i) => {
+      const slot = fixed[i] + barW;
+      const y = LINE_B + 0.75;
+      const lw = b.text(g.label, x, y + 0.25, 1, 'mini');
+      const vx = x + lw + 1.5;
+      b.text(g.text, vx, y + 0.25, 2, 'mini');
+      const bx = vx + valW + 2;
+      x += slot + GAUGE.gap;
+      const bw = barW;
+      if (bw < 6) return;
+      b.frame(bx, y, bw, GAUGE.h, 1);
+      const inner = bw - 2;
+      if (g.bip) {
+        const mid = bx + 1 + inner / 2;
+        b.rect(mid - 0.25, y - 0.75, 0.5, GAUGE.h + 1.5, 1);
+        const w = Math.max(-1, Math.min(1, g.v)) * (inner / 2);
+        if (w > 0) b.rect(mid, y + 1, w, GAUGE.h - 2, 2);
+        else if (w < 0) b.rect(mid + w, y + 1, -w, GAUGE.h - 2, 2);
+      } else {
+        const w = Math.max(0, Math.min(1, g.v)) * inner;
+        if (w > 0) b.rect(bx + 1, y + 1, w, GAUGE.h - 2, 2);
+      }
+    });
   }
 
   /** Fin d'un redessin : la texture part, les compteurs suivent. */

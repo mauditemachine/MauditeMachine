@@ -21,8 +21,8 @@
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { clearScope, exportMaps, feedbackToggle, importMaps, keyOfTarget, keyText, learnPick, learnToggle, midi, midiDisable, midiEnable, rotoToggle, unbind, type MidiView } from '../midi/midi';
-import { ROTO_SETUPS, rotoFileName, rotoSetupJson, zipFiles, type RotoSetup } from '../midi/roto';
+import { clearScope, exportMaps, feedbackToggle, followToggle, importMaps, keyOfTarget, keyText, learnPick, learnToggle, midi, midiDisable, midiEnable, rotoToggle, unbind, type MidiView } from '../midi/midi';
+import { ROTO_SETUPS, rotoFileName, rotoSetupJson, rotoSetups, zipFiles, type RotoSetup } from '../midi/roto';
 import { MACHINE_NAME, onTargetsRegistered, targetIdOfHotspot, targetOf, targetsOf, type TargetScope } from '../midi/targets';
 import type { Stage } from '../scene/renderer';
 import { focus, type Focus } from '../state/focus';
@@ -74,33 +74,39 @@ function download(blob: Blob, name: string): void {
   window.setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 
-const rotoFile = (r: RotoSetup): void => download(new Blob([rotoSetupJson(r)], { type: 'application/json' }), rotoFileName(r));
-const rotoZip = (): void => download(zipFiles(ROTO_SETUPS.map((r) => ({ name: rotoFileName(r), text: rotoSetupJson(r) }))), 'Maudite Machine ROTO-CONTROL.zip');
+/** Un setup tel qu'a l'instant (le choix de son du kit compte tes samples). */
+const fresh = (r: RotoSetup): RotoSetup => rotoSetups().find((x) => x.name === r.name) ?? r;
+const rotoFile = (r: RotoSetup): void => download(new Blob([rotoSetupJson(fresh(r))], { type: 'application/json' }), rotoFileName(r));
+const rotoZip = (): void => download(zipFiles(rotoSetups().map((r) => ({ name: rotoFileName(r), text: rotoSetupJson(r) }))), 'Maudite Machine ROTO-CONTROL.zip');
 
-/** La carte du Roto-Control : allumee ou non, ses cinq setups a telecharger, comment les importer. */
-const RotoSection: React.FC<{ on: boolean }> = ({ on }) => (
+/** La carte du Roto-Control : allumee ou non, ses six setups a telecharger, comment les importer, FOLLOW. */
+const RotoSection: React.FC<{ on: boolean; follow: boolean }> = ({ on, follow }) => (
   <section className="v4-midi-roto" aria-label="Roto-Control">
     <label className="v4-midi-check">
       <input type="checkbox" checked={on} onChange={(e) => rotoToggle(e.target.checked)} />
-      <span>ROTO-CONTROL map: five ready setups, no MIDI LEARN needed</span>
+      <span>ROTO-CONTROL map: six ready setups, no MIDI LEARN needed</span>
+    </label>
+    <label className="v4-midi-check">
+      <input type="checkbox" checked={follow} disabled={!on} onChange={(e) => followToggle(e.target.checked)} />
+      <span>FOLLOW: the site shows the machine of the setup you play (not LIVE)</span>
     </label>
     <div className="v4-midi-row">
       <button type="button" className="v4-midi-key v4-midi-key-main" onClick={rotoZip}>
-        DOWNLOAD THE 5 SETUPS
+        DOWNLOAD THE 6 SETUPS
       </button>
     </div>
     <div className="v4-midi-row v4-midi-roto-files" role="group" aria-label="One setup file">
       {ROTO_SETUPS.map((r) => (
         <button key={r.name} type="button" className="v4-midi-key" aria-label={`Download the ${r.name} setup (setup ${r.slot})`} onClick={() => rotoFile(r)}>
-          {r.name}
+          {r.name} <span className="v4-midi-slot">{r.slot}</span>
         </button>
       ))}
     </div>
     <ol className="v4-midi-roto-how">
-      <li>Update ROTO-SETUP to its latest version, and back up with File &gt; Export All.</li>
-      <li>On the Roto, press SEL and pick SETUP 11; in ROTO-SETUP, File &gt; Import, MM RYTM (SETUP 11).json.</li>
-      <li>Same for ARP on 12, DECK on 13, MIXER on 14, SMPL on 15 (your setups 1 to 10 stay as they are).</li>
-      <li>Close ROTO-SETUP, then CONNECT here: each knob goes from 0 to 127 and follows the site.</li>
+      <li>In ROTO-SETUP 3.3.0, accept the firmware update it asks for, then back up with File &gt; Export All.</li>
+      <li>Put the Roto in MIDI mode. Press SEL and pick SETUP 11, then File &gt; Import (Cmd+I): MM RYTM (SETUP 11).json.</li>
+      <li>Same for ARP on 12, DECK on 13, MIXER on 14, SMPL on 15, LIVE on 16 (your setups 1 to 10 stay as they are).</li>
+      <li>Here: CONNECT. Every knob goes from 0 to 127, the motor knobs and the LEDs follow the site. LIVE plays all the machines without changing setup.</li>
     </ol>
   </section>
 );
@@ -222,7 +228,7 @@ const MidiPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         <input type="checkbox" checked={m.feedback} onChange={(e) => feedbackToggle(e.target.checked)} />
         <span>Send values back (motorised knobs follow the machine)</span>
       </label>
-      <RotoSection on={m.roto} />
+      <RotoSection on={m.roto} follow={m.follow} />
       <div className="v4-midi-row">
         <button type="button" className="v4-midi-key" onClick={doExport}>
           EXPORT

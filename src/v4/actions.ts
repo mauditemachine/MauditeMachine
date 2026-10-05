@@ -99,6 +99,15 @@ function muteVoice(inst: Inst): void {
 }
 
 /**
+ * Une voix coupee ou rendue d'un coup, sans le mode MUTE (2026-10-05, le
+ * Roto-Control en live : un bouton a bascule par voix, sa LED suit l'etat).
+ */
+export function voiceMute(inst: Inst, on: boolean): void {
+  if (voices.isMuted(inst) === on) return;
+  muteVoice(inst);
+}
+
+/**
  * La voix selectionnee : les pas et, depuis le 2026-10-01, les potards
  * d'effets la reglent. L'ecran le dit quand la cible change : KNOBS > BD,
  * ou KNOBS > PATTERN au retour a tout le pattern.

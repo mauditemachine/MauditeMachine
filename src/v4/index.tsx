@@ -69,6 +69,7 @@ import { Header, openHood } from './ui/Header';
 import { HitLayer, Twins } from './ui/Hotspots';
 import { MachineNav } from './ui/MachineNav';
 import { SeqPanel } from './ui/SeqLane';
+import { RytmSamples } from './ui/RytmSamples';
 import { VoyDock } from './ui/VoyDock';
 import { VoyTwins } from './ui/VoyTwins';
 import { Lcd } from './ui/Lcd';
@@ -526,6 +527,8 @@ const V4Shell: React.FC = () => {
           <Lcd />
           {/* Capot ouvert : l'oscilloscope (2026-10-04, ui/Scope.tsx) */}
           <Scope mobile={mobile} />
+          {/* Capot du MM-RYTM ouvert : tes samples (2026-10-05, ui/RytmSamples.tsx) */}
+          <RytmSamples mobile={mobile} getStage={getStage} />
           {/* Le Dock n'existe que sur la mise en page mobile : pas de rendu React par pas sur desktop ; il programme la 808 */}
           {/* EDIT ouvert (2026-10-04) : l'editeur prend la place du Dock de sa machine */}
           {mobile && machineFocus !== 'voy' && machineFocus !== 'dj' && machineFocus !== 'smpl' && editorOpen !== 'mm808' && <Dock getStage={getStage} />}

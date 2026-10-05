@@ -27,6 +27,7 @@
 
 import { sampleDecayPart, sampleTuneSt } from './sampledsp';
 import { sampleByKey, samplesOf } from './samples';
+import { userSamples } from './usersamples';
 import { kickDecayS, kickHz, type KitModel, type ShotId, type ShotTweak } from './shotsdsp';
 
 export type { KitModel, ShotTweak } from './shotsdsp';
@@ -48,7 +49,12 @@ export const isFamily = (id: KitId): id is KitFamily => (KIT_FAMILIES as readonl
 /** Les crans d'un TWEAK : 3 pour un choix de son (plus un par echantillon de la famille), 2 pour GATE, 0 pour un potard. */
 export const kitSteps = (id: KitId): number => (isFamily(id) ? KIT_MODELS.length + samplesOf(id).length : id === 'gate' ? 2 : 0);
 /** Les noms des crans d'un choix de son : 909, 808, MM, puis le numero de chaque echantillon (la plaque). */
-export const kitStepLabels = (f: KitFamily): string[] => [...KIT_MODELS.map((m) => KIT_MODEL_LABEL[m]), ...samplesOf(f).map((_, i) => String(i + 1))];
+export const kitStepLabels = (f: KitFamily): string[] => {
+  const list = samplesOf(f);
+  // Beaucoup d'echantillons : le premier, le dernier et un sur cinq ecrits (les autres crans restent marques)
+  const named = (i: number): boolean => list.length <= 9 || i === 0 || i === list.length - 1 || (i + 1) % 5 === 0;
+  return [...KIT_MODELS.map((m) => KIT_MODEL_LABEL[m]), ...list.map((_, i) => (named(i) ? String(i + 1) : ''))];
+};
 export const GATE_LABELS = ['OFF', 'ON'] as const;
 
 export interface Kit {
@@ -182,6 +188,27 @@ function soundLabel(f: KitFamily): string {
   const smp = key ? sampleByKey(key) : undefined;
   return smp ? smp.label : KIT_MODEL_LABEL[state.model[f]];
 }
+
+/**
+ * Tes samples changent (audio/usersamples.ts) : les crans des choix de son
+ * avec eux ; une voix qui jouait un sample retire revient a son son calcule.
+ */
+userSamples.subscribe(() => {
+  const sample = { ...state.sample };
+  let gone = false;
+  for (const f of KIT_FAMILIES) {
+    const key = sample[f];
+    if (key && !sampleByKey(key)) {
+      delete sample[f];
+      gone = true;
+    }
+  }
+  if (gone) {
+    state = { ...state, sample };
+    save();
+  }
+  listeners.forEach((fn) => fn(KIT_FAMILIES));
+});
 
 export const kit = {
   get: (): Readonly<Kit> => state,

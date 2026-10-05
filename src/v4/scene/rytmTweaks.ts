@@ -126,12 +126,29 @@ export class RytmTweaks extends TweakPlate {
     this.sync();
   }
 
-  /** Les potards et commutateurs suivent le kit ; true s'il faut une frame. */
+  /**
+   * Les potards et commutateurs suivent le kit ; un choix de son suit aussi
+   * ses crans (tes samples ajoutes ou retires : leurs numeros a la plaque).
+   * true s'il faut une frame.
+   */
   sync(): boolean {
     let changed = false;
+    let relabel = false;
     KIT_IDS.forEach((id, i) => {
+      const it = this.spec.items[i];
+      if (isFamily(id) && it) {
+        const labels = kitStepLabels(id);
+        if (!it.steps || it.steps.length !== labels.length || it.steps.some((l, k) => l !== labels[k])) {
+          it.steps = labels;
+          relabel = true;
+        }
+      }
       if (this.setAt(i, kit.value(id))) changed = true;
     });
+    if (relabel) {
+      this.draw();
+      changed = true;
+    }
     return changed;
   }
 

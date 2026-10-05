@@ -34,9 +34,9 @@
  */
 
 import { djLoad } from '../state/djload';
-import { focus } from '../state/focus';
+import { MACHINES, focus, type MachineId } from '../state/focus';
 import { smplLoad } from '../state/smplload';
-import { rotoFeedbackKeys, rotoTarget } from './roto';
+import { rotoFeedbackKeys, rotoSetupOfChannel, rotoTarget, type RotoSetupName } from './roto';
 import { prefixOf, targetOf, type MidiTarget, type TargetScope } from './targets';
 
 export type MidiKind = 'cc' | 'note' | 'pb';
@@ -73,6 +73,8 @@ export interface MidiView {
   feedback: boolean;
   /** la carte du Roto-Control (midi/roto.ts) */
   roto: boolean;
+  /** le site montre la machine du setup du Roto qu'on touche (pas LIVE) */
+  follow: boolean;
 }
 
 const STORE_KEY = 'mm.v4.midi.1';
@@ -102,10 +104,11 @@ interface Saved {
   devices: string[];
   feedback: boolean;
   roto: boolean;
+  follow: boolean;
 }
 
 function readSaved(): Saved {
-  const empty: Saved = { on: false, maps: {}, devices: [], feedback: true, roto: true };
+  const empty: Saved = { on: false, maps: {}, devices: [], feedback: true, roto: true, follow: true };
   try {
     const raw = JSON.parse(window.localStorage.getItem(STORE_KEY) ?? 'null') as Partial<Saved> | null;
     if (!raw || typeof raw !== 'object') return empty;
@@ -115,6 +118,7 @@ function readSaved(): Saved {
       devices: Array.isArray(raw.devices) ? raw.devices.filter((d): d is string => typeof d === 'string').slice(0, 16) : [],
       feedback: raw.feedback !== false,
       roto: raw.roto !== false,
+      follow: raw.follow !== false,
     };
   } catch {
     return empty;
@@ -134,8 +138,8 @@ function cleanMaps(raw: unknown): MidiMaps {
   return out;
 }
 
-const saved: Saved = typeof window === 'undefined' ? { on: false, maps: {}, devices: [], feedback: true, roto: true } : readSaved();
-let view: MidiView = { status: 'off', inputs: [], devices: saved.devices, learn: false, pick: null, last: null, maps: saved.maps, feedback: saved.feedback, roto: saved.roto };
+const saved: Saved = typeof window === 'undefined' ? { on: false, maps: {}, devices: [], feedback: true, roto: true, follow: true } : readSaved();
+let view: MidiView = { status: 'off', inputs: [], devices: saved.devices, learn: false, pick: null, last: null, maps: saved.maps, feedback: saved.feedback, roto: saved.roto, follow: saved.follow };
 const listeners = new Set<() => void>();
 let wantOn = saved.on;
 
@@ -146,7 +150,7 @@ function set(next: Partial<MidiView>): void {
 
 function save(): void {
   try {
-    window.localStorage.setItem(STORE_KEY, JSON.stringify({ on: wantOn, maps: view.maps, devices: [...view.devices], feedback: view.feedback, roto: view.roto } satisfies Saved));
+    window.localStorage.setItem(STORE_KEY, JSON.stringify({ on: wantOn, maps: view.maps, devices: [...view.devices], feedback: view.feedback, roto: view.roto, follow: view.follow } satisfies Saved));
   } catch {
     /* stockage plein ou refuse : les assignations valent pour la visite */
   }
@@ -223,8 +227,8 @@ export function midiDisable(): void {
 
 const SCOPES: readonly TargetScope[] = ['mm808', 'voy', 'smpl', 'dj', 'global'];
 
-/** La cible d'un message, pour la vue du moment : la machine regardee, partout, puis une autre machine. */
-function resolve(key: string): string | null {
+/** Ce qu'on a appris pour un message, pour la vue du moment : la machine regardee, partout, puis une autre machine. */
+function resolveLearned(key: string): string | null {
   const f = focus.get();
   const maps = view.maps;
   if (f !== 'all') {
@@ -238,8 +242,29 @@ function resolve(key: string): string | null {
     const t = maps[s]?.[key];
     if (t) return t;
   }
-  // La carte du Roto-Control : apres ce qu'on a appris
-  return view.roto ? rotoTarget(key) : null;
+  return null;
+}
+
+/** La cible d'un message : ce qu'on a appris, puis la carte du Roto-Control. */
+function resolve(key: string): string | null {
+  return resolveLearned(key) ?? (view.roto ? rotoTarget(key) : null);
+}
+
+/** La machine que montre un setup du Roto (LIVE les pilote toutes : aucune). */
+const SETUP_MACHINE: Readonly<Record<RotoSetupName, MachineId | null>> = { RYTM: 'mm808', ARP: 'voy', DECK: 'dj', MIXER: 'dj', SMPL: 'smpl', LIVE: null };
+
+/**
+ * FOLLOW (2026-10-05) : un controle d'un setup du Roto (sa carte, rien
+ * d'appris) montre sa machine ; le Roto ne dit rien quand on change de
+ * setup, le premier geste suffit.
+ */
+function follow(key: string): void {
+  if (!view.roto || !view.follow || resolveLearned(key)) return;
+  const ch = Number(key.split(':')[1]);
+  const s = rotoSetupOfChannel(ch);
+  const m = s ? SETUP_MACHINE[s.name] : null;
+  if (!m || focus.get() === m || !MACHINES.includes(m)) return;
+  targetOf(`nav:${m}`)?.down?.();
 }
 
 /** Une cible d'une machine chargee a part : son code arrive, puis le message repart. */
@@ -262,17 +287,22 @@ const pressed = new Map<string, boolean>();
 /** Dernier message recu par cle (le retour attend que le potard se pose) et derniere valeur envoyee. */
 const touchedAt = new Map<string, number>();
 const sent = new Map<string, number>();
+/** Quand une valeur est partie vers le controleur (un echo qui revient aussitot est ignore). */
+const echoAt = new Map<string, number>();
+const ECHO_MS = 250;
 
 function apply(t: MidiTarget, m: MidiMsg, key: string): void {
   const isOn = m.kind === 'note' ? m.on === true : m.value > 0.5;
   if (t.kind === 'value') {
+    // 64, le cran du milieu du Roto : le neutre exact (0 dB d'un EQ, un filtre ouvert)
+    const val = m.kind === 'cc' && Math.round(m.value * 127) === 64 ? 0.5 : m.value;
     if (m.kind === 'note') {
       // Une note fait basculer un parametre (le bas ou le haut de sa course)
       if (!isOn) return;
       t.set?.((t.get?.() ?? 0) < 0.5 ? 1 : 0);
-    } else t.set?.(m.value);
+    } else t.set?.(val);
     touchedAt.set(key, performance.now());
-    sent.set(key, Math.round(m.value * 127));
+    sent.set(key, Math.round(val * 127));
     return;
   }
   const was = pressed.get(key) === true;
@@ -291,8 +321,11 @@ export function handle(m: MidiMsg): void {
     bind(view.pick, key, m.device);
     return;
   }
+  // Un echo de ce qu'on vient d'envoyer aux potards motorises : ni joue, ni suivi
+  if (m.kind === 'cc' && sent.get(key) === Math.round(m.value * 127) && performance.now() - (echoAt.get(key) ?? -Infinity) < ECHO_MS) return;
   const id = resolve(key);
   if (!id) return;
+  follow(key);
   withTarget(id, (t) => apply(t, m, key));
 }
 
@@ -393,6 +426,7 @@ function feedbackTick(): void {
     const v7 = Math.max(0, Math.min(127, Math.round(t.get() * 127)));
     if (sent.get(key) === v7) continue;
     sent.set(key, v7);
+    echoAt.set(key, now);
     sendValue(outs, key, v7);
   }
 }
@@ -410,6 +444,12 @@ function startFeedback(): void {
 function stopFeedback(): void {
   window.clearInterval(timer);
   timer = 0;
+}
+
+/** FOLLOW : le site montre la machine du setup du Roto qu'on touche. */
+export function followToggle(on = !view.follow): void {
+  set({ follow: on });
+  save();
 }
 
 /** La carte du Roto-Control, allumee ou eteinte. */
