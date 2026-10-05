@@ -101,14 +101,92 @@ export function degreeName(i: number, d: number): string {
   return SCALE_NAMES[((k % 7) + 7) % 7];
 }
 
-/** Les degres des notes de l'accord dans une octave : 0 2 4 (et 6 pour une septieme). */
-export const chordDegrees = (i: number): number[] => (CHORDS[i]?.tones ?? []).map((_, j) => 2 * j);
+/**
+ * CHORD (2026-10-05, Mika : "je trouve les arpeges un peu grossiers, y a
+ * pas plus de notes qu'on peut mettre ?"). L'arpege d'avant (BASIC, type 0)
+ * part de la racine de chaque accord : D et E sautent d'une sixte au-dessus
+ * de F#m, l'arpege monte et descend d'un accord a l'autre, toujours trois
+ * notes. TRIAD, 7TH, 9TH, 11TH (types 1 a 4) posent chaque accord dans la
+ * meme octave, de fa diese 3 a fa 4 : les notes communes restent, les
+ * autres bougent d'un ton au plus (l'enchainement d'un clavieriste) ; 7TH
+ * ajoute la septieme de la gamme (F#m7, Dmaj7, E7, C#m7, Bm7, Amaj7) ;
+ * 9TH et 11TH ajoutent leurs notes au-dessus, une octave plus haut (une
+ * grappe au grave sonnerait sale). Les notes qui frottent sont evitees :
+ * la neuvieme mineure de C#m devient sa onzieme, la onzieme juste des
+ * accords majeurs (A, E) leur treizieme. Les degres sont comptes depuis la
+ * racine (degreeMidi) : ceux sous la racine sont negatifs.
+ */
+export const CHORD_TYPE = { basic: 0, triad: 1, seventh: 2, ninth: 3, eleventh: 4 } as const;
 
-/** La suite de l'arpege en degres : arpSequence, note pour note. */
-export function arpDegrees(i: number, oct: number, mode: ArpMode): number[] {
-  const n = CHORDS[i]?.tones.length ?? 0;
-  const up: number[] = [];
-  for (let o = 0; o < oct; o += 1) for (let j = 0; j < n; j += 1) up.push(7 * o + 2 * j);
+const mod7 = (k: number): number => ((k % 7) + 7) % 7;
+
+/** L'ecart en demi-tons (0 a 11) entre la racine de l'accord i et son degre c. */
+function interval(i: number, c: number): number {
+  const r = rootDegree(i);
+  return (SCALE[mod7(r + c)] - SCALE[r] + 12) % 12;
+}
+
+/** Les degres (0 a 6) de l'accord, extensions comprises, pour CHORD. */
+function chordClasses(i: number, type: number): { base: number[]; ext: number[] } {
+  const n = CHORDS[i]?.tones.length ?? 3;
+  if (type <= CHORD_TYPE.basic) return { base: Array.from({ length: n }, (_, j) => 2 * j), ext: [] };
+  const base = type === CHORD_TYPE.triad && n < 4 ? [0, 2, 4] : [0, 2, 4, 6];
+  const ext: number[] = [];
+  if (type >= CHORD_TYPE.ninth) {
+    const major = (CHORDS[i]?.tones ?? []).includes(4);
+    const nine = interval(i, 1) !== 1;
+    // La onzieme juste d'un accord majeur frotte contre sa tierce : la treizieme a sa place
+    const eleven = major && interval(i, 3) === 5 ? (interval(i, 5) !== 8 ? 5 : -1) : 3;
+    if (nine) ext.push(1);
+    if (type >= CHORD_TYPE.eleventh || !nine) {
+      if (eleven >= 0) ext.push(eleven);
+    }
+  }
+  return { base, ext };
+}
+
+/** Les degres (0 a 6) des notes de l'accord selon CHORD : les filets de la suite (ui/SeqLane.tsx). */
+export const chordTones = (i: number, type: number): number[] => {
+  const c = chordClasses(i, type);
+  return c.base.concat(c.ext);
+};
+
+/** Le degre de la classe c dans l'octave o de la fenetre (o = 0 : fa diese 3 a fa 4). */
+const inWindow = (i: number, c: number, o: number): number => {
+  const r = rootDegree(i);
+  return mod7(r + c) - r + 7 * o;
+};
+
+/**
+ * Les notes de l'accord i, montantes, sur `oct` octaves, pour CHORD :
+ * BASIC depuis la racine (l'arpege d'avant), sinon l'accord pose dans la
+ * fenetre de fa diese 3, repete a chaque octave ; les extensions au sommet,
+ * chacune juste au-dessus de la precedente (dans l'octave du haut, une
+ * gamme de secondes sonnerait comme un exercice, pas comme un arpege).
+ */
+export function voicedDegrees(i: number, oct: number, type: number): number[] {
+  const { base, ext } = chordClasses(i, type);
+  const out: number[] = [];
+  if (type <= CHORD_TYPE.basic) {
+    for (let o = 0; o < oct; o += 1) for (const b of base) out.push(7 * o + b);
+    return out;
+  }
+  const low = base.map((b) => inWindow(i, b, 0)).sort((a, b) => a - b);
+  for (let o = 0; o < oct; o += 1) for (const d of low) out.push(d + 7 * o);
+  let top = out[out.length - 1] ?? 0;
+  for (const e of ext) {
+    let d = inWindow(i, e, 0);
+    while (d <= top) d += 7;
+    out.push(d);
+    top = d;
+  }
+  return out;
+}
+
+/** La suite de l'arpege en degres : les notes de CHORD dans l'ordre du mode (BASIC : arpSequence, note pour note). */
+export function arpDegrees(i: number, oct: number, mode: ArpMode, type: number = CHORD_TYPE.basic): number[] {
+  if (!CHORDS[i]) return [];
+  const up = voicedDegrees(i, oct, type);
   if (mode === 1) return up.slice().reverse();
   if (mode === 2) return up.length > 2 ? up.concat(up.slice(1, -1).reverse()) : up;
   return up;

@@ -371,6 +371,62 @@ html:has(body.v4-active) {
   background: #e0a800;
 }
 
+/* Les machines en haut a droite (2026-10-05), a gauche de MENU : une pastille comme le selecteur du telephone */
+.v4-root .v4-header-end {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.v4-root .v4-hmachines {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(20, 20, 23, 0.6);
+  box-shadow: inset 0 0 0 1px var(--line);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.v4-root .v4-hmachines-btn {
+  height: 32px;
+  padding: 0 14px;
+  white-space: nowrap;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--bone-70);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.v4-root .v4-hmachines-btn[data-all='1'] {
+  color: var(--bone-50, rgba(246, 241, 231, 0.5));
+}
+
+.v4-root .v4-hmachines-btn:hover {
+  color: var(--bone);
+}
+
+.v4-root .v4-hmachines-btn[aria-pressed='true'] {
+  background: var(--bone);
+  color: var(--ink);
+}
+
+.v4-root .v4-hmachines-btn:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.v4-root[data-v4-theme='light'] .v4-hmachines {
+  background: rgba(241, 237, 229, 0.7);
+}
+
 /* MENU (2026-10-04) : le mot et les trois traits, en pastille ; ouvert, CLOSE et la croix */
 .v4-root .v4-menu-btn {
   display: flex;

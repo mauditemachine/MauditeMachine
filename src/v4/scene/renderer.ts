@@ -57,7 +57,7 @@ import { motion } from '../state/motion';
 import { editor } from '../state/editor';
 import { presetMode, type PresetKey } from '../state/presetMode';
 import { explode as explodeState, voyExplode } from '../state/explode';
-import { DJ, SMPL, focus, startMachine, VOYAGER, type Focus, type MachineId } from '../state/focus';
+import { DJ, MACHINES, SMPL, focus, startMachine, VOYAGER, type Focus, type MachineId } from '../state/focus';
 import { view } from '../state/view';
 import { intro } from '../state/intro';
 import { playhead } from '../state/playhead';
@@ -163,8 +163,13 @@ interface Frame {
 
 const FRAME_KEYS = ['cx', 'hw0', 'h', 'ty', 'explodeTy', 'rClosed', 'rOpen', 'fitHalfH', 'extent'] as const;
 
-/** Zoom d'une machine a l'autre (ms) ; la vue d'ensemble garde 88 % de la largeur pour les deux. */
-const FOCUS_MS = 900;
+/**
+ * Zoom d'une machine a l'autre (ms) ; la vue d'ensemble garde 88 % de la
+ * largeur pour les deux. 450 ms depuis le 2026-10-05 (Mika : "le voyage vers
+ * les machines doit etre rapide" ; 900 avant), en ease-out : le depart est
+ * immediat, l'arrivee douce.
+ */
+const FOCUS_MS = 450;
 /**
  * Le bout qui depasse (desktop, 2026-10-03, demande de Mika) : une machine
  * utilisee, l'autre se pousse au bord de l'ecran et en montre px pixels (a
@@ -471,7 +476,7 @@ export class Stage {
   private unsubView: () => void = () => undefined;
   private unsubDjUnit: () => void = () => undefined;
   /** abscisses des machines au depart du zoom (le bout qui depasse les deplace) */
-  private nbFrom: Record<MachineId, number> = { mm808: 0, voy: VOY_X, dj: DJ_X, smpl: smplX(DJ) };
+  private nbFrom: Record<MachineId, number> = { mm808: 0, voy: VOY_X, dj: DJ_X, smpl: smplX() };
   /** survol du bout de la machine voisine : 0 a 1 */
   private peekHover = 0;
   /**
@@ -1088,7 +1093,6 @@ export class Stage {
     const sm = new Rig({
       mobile: this.opts.mobile,
       anisotropy: this.aniso,
-      withDj: DJ,
       repaint: () => this.repaint(),
       invalidate: () => this.invalidate(),
     });
@@ -1204,22 +1208,25 @@ export class Stage {
     let t808 = 0;
     let tVoy = VOY_X;
     let tDj = DJ_X;
-    const homeSmpl = smplX(DJ);
+    const homeSmpl = smplX();
     let tSmpl = homeSmpl;
+    // L'ordre (2026-10-05) : MM-RYTM, MM-ARP, MM-SMPL, MM-DECKS ; les voisines de la machine utilisee depassent
+    const voyR = VOY_X + VOY_BODY.w / 2;
     if (!this.layoutMobile && f === 'mm808') {
       tVoy = Math.max(BODY.w / 2 + PEEK.gap + VOY_BODY.w / 2, cx + hw - peek + VOY_BODY.w / 2);
     } else if (!this.layoutMobile && f === 'voy') {
       t808 = Math.min(VOY_X - VOY_BODY.w / 2 - PEEK.gap - BODY.w / 2, cx - hw + peek - BODY.w / 2);
-      tDj = Math.max(VOY_X + VOY_BODY.w / 2 + PEEK.gap + DJ_W / 2, cx + hw - peek + DJ_W / 2);
-      if (!DJ) tSmpl = Math.max(VOY_X + VOY_BODY.w / 2 + PEEK.gap + SMPL_W / 2, cx + hw - peek + SMPL_W / 2);
-    } else if (!this.layoutMobile && f === 'dj') {
-      tVoy = Math.min(DJ_X - DJ_W / 2 - PEEK.gap - VOY_BODY.w / 2, cx - hw + peek - VOY_BODY.w / 2);
-      // Le MM-SMPL depasse a droite de la table
-      tSmpl = Math.max(DJ_X + DJ_W / 2 + PEEK.gap + SMPL_W / 2, cx + hw - peek + SMPL_W / 2);
+      // A droite : le MM-SMPL (le MM-DECKS sans lui)
+      if (SMPL) tSmpl = Math.max(voyR + PEEK.gap + SMPL_W / 2, cx + hw - peek + SMPL_W / 2);
+      else tDj = Math.max(voyR + PEEK.gap + DJ_W / 2, cx + hw - peek + DJ_W / 2);
     } else if (!this.layoutMobile && f === 'smpl') {
-      // Sa voisine de gauche depasse : le MM-DECKS (ou le MM-ARP sans lui)
-      if (DJ) tDj = Math.min(homeSmpl - SMPL_W / 2 - PEEK.gap - DJ_W / 2, cx - hw + peek - DJ_W / 2);
-      else tVoy = Math.min(homeSmpl - SMPL_W / 2 - PEEK.gap - VOY_BODY.w / 2, cx - hw + peek - VOY_BODY.w / 2);
+      // Le MM-ARP depasse a gauche, le MM-DECKS a droite
+      tVoy = Math.min(homeSmpl - SMPL_W / 2 - PEEK.gap - VOY_BODY.w / 2, cx - hw + peek - VOY_BODY.w / 2);
+      if (DJ) tDj = Math.max(homeSmpl + SMPL_W / 2 + PEEK.gap + DJ_W / 2, cx + hw - peek + DJ_W / 2);
+    } else if (!this.layoutMobile && f === 'dj') {
+      // Sa voisine de gauche depasse : le MM-SMPL (ou le MM-ARP sans lui)
+      if (SMPL) tSmpl = Math.min(DJ_X - DJ_W / 2 - PEEK.gap - SMPL_W / 2, cx - hw + peek - SMPL_W / 2);
+      else tVoy = Math.min(DJ_X - DJ_W / 2 - PEEK.gap - VOY_BODY.w / 2, cx - hw + peek - VOY_BODY.w / 2);
     }
     const k = this.focusK;
     const x808 = this.nbFrom.mm808 + (t808 - this.nbFrom.mm808) * k;
@@ -1357,7 +1364,7 @@ export class Stage {
     if (f === 'dj') return dj;
     // Le MM-SMPL (2026-10-04) : le bloc entier de face, comme une platine du MM-DECKS
     const smpl: Frame = {
-      cx: smplX(DJ),
+      cx: smplX(),
       hw0: SMPL_W / 2 / (mob ? FRAME_MOBILE : DJ_FRAME.fill),
       h: SMPL_FRAME.h,
       ty: SMPL_FRAME.targetY,
@@ -1369,7 +1376,7 @@ export class Stage {
     };
     if (f === 'smpl') return smpl;
     const left = -BODY.w / 2;
-    const right = SMPL ? smplX(DJ) + SMPL_W / 2 : DJ ? DJ_X + DJ_W / 2 : VOY_X + VOY_BODY.w / 2;
+    const right = DJ ? DJ_X + DJ_W / 2 : SMPL ? smplX() + SMPL_W / 2 : VOY_X + VOY_BODY.w / 2;
     const half = (right - left) / 2;
     return {
       cx: (left + right) / 2,
@@ -1436,12 +1443,14 @@ export class Stage {
     const peek = !this.layoutMobile && !view.get();
     const dj = this.dj;
     const sm = this.smpl;
-    // Les voisines immediates seulement : la 808 et le MM-DECKS ne se voient pas l'une l'autre
-    const a = f === 'all' || f === 'mm808' || (f === 'voy' && peek);
-    // Le MM-ARP : voisin de tous, sauf du MM-SMPL quand le MM-DECKS est entre eux
-    const b = f === 'all' || f === 'voy' || (peek && (f !== 'smpl' || !dj));
-    const c = !!dj && (f === 'all' || f === 'dj' || (f === 'voy' && peek) || (f === 'smpl' && peek));
-    const d = !!sm && (f === 'all' || f === 'smpl' || (peek && (f === 'dj' || (f === 'voy' && !dj))));
+    // Les voisines immediates seulement, dans l'ordre de la scene (state/focus.ts MACHINES :
+    // MM-RYTM, MM-ARP, MM-SMPL, MM-DECKS depuis le 2026-10-05)
+    const at = f === 'all' ? -1 : MACHINES.indexOf(f);
+    const shown = (id: MachineId): boolean => f === 'all' || id === f || (peek && at >= 0 && Math.abs(MACHINES.indexOf(id) - at) === 1);
+    const a = shown('mm808');
+    const b = shown('voy');
+    const c = !!dj && shown('dj');
+    const d = !!sm && shown('smpl');
     if (this.machine.root.visible === a && voy.root.visible === b && (!dj || dj.root.visible === c) && (!sm || sm.root.visible === d)) return;
     this.machine.root.visible = a;
     voy.root.visible = b;
@@ -1491,7 +1500,7 @@ export class Stage {
     this.fTo = f;
     this.frTo = this.frameOf(f);
     this.focusK = 0;
-    this.nbFrom = { mm808: this.machine.root.position.x, voy: this.voy ? this.voy.root.position.x : VOY_X, dj: this.dj ? this.dj.root.position.x : DJ_X, smpl: this.smpl ? this.smpl.root.position.x : smplX(DJ) };
+    this.nbFrom = { mm808: this.machine.root.position.x, voy: this.voy ? this.voy.root.position.x : VOY_X, dj: this.dj ? this.dj.root.position.x : DJ_X, smpl: this.smpl ? this.smpl.root.position.x : smplX() };
     this.peekHover = 0;
     this.tweens.cancel('peek.hover');
     this.setShown('all');
@@ -1513,7 +1522,7 @@ export class Stage {
       0,
       1,
       dur,
-      easeInOutCubic,
+      easeOutCubic,
       performance.now(),
       () => {
         this.focusK = 1;

@@ -64,7 +64,8 @@ export const SMPL: boolean = (() => {
 })();
 
 /** Les machines sur la table, de gauche a droite. */
-export const MACHINES: readonly MachineId[] = VOYAGER ? ['mm808', 'voy', ...(DJ ? (['dj'] as const) : []), ...(SMPL ? (['smpl'] as const) : [])] : ['mm808'];
+/** L'ordre de la scene, de gauche a droite (2026-10-05 : le MM-SMPL a droite du MM-ARP, le MM-DECKS au bout). */
+export const MACHINES: readonly MachineId[] = VOYAGER ? ['mm808', 'voy', ...(SMPL ? (['smpl'] as const) : []), ...(DJ ? (['dj'] as const) : [])] : ['mm808'];
 
 /**
  * La machine d'arrivee (2026-10-04, Mika : "oui, ajoute ?m=dj") : ?m=dj

@@ -584,7 +584,8 @@ export const VOY_PCB_Y = VOY_BODY.floorY + 0.12;
  * cx, cz : son centre dans le repere de la carte (avant PCB_TURN) ; la
  * plaque, elle, se lit droite (en portrait, elle tourne a l'inverse de la
  * carte) : x a droite, z vers soi. y : le dessous de la plaque au-dessus de
- * la carte. Huit cases : sept potards et le titre.
+ * la carte. Dix cases : sept potards, les selecteurs SYNC et CHORD (depuis
+ * le 2026-10-05) et le titre.
  */
 // 2026-10-04 (Mika : "on voit rien ; les boutons un peu plus gros et surtout les titres, sans trop exagerer") :
 // potards 1.3 -> 1.5 (1.45 au telephone), noms 0.08 -> 0.11, bouts de course 0.055 -> 0.068, titre 0.2 -> 0.24
@@ -597,8 +598,9 @@ export type VoyTweakCell = VoyKnobId | 'title';
 
 /**
  * Les cases de la plaque (repere de la plaque, son centre) : desktop deux
- * rangees de cinq (le titre sur les deux dernieres cases du bas), portrait
- * cinq rangees de deux (le titre sur toute la derniere).
+ * rangees de cinq (le titre sur la derniere case du bas), portrait cinq
+ * rangees de deux (le titre sur la derniere case). CHORD (2026-10-05) a
+ * pris la place de la moitie du titre.
  */
 export const VOY_TWEAK_CELLS: readonly { id: VoyTweakCell; x: number; z: number }[] = (PORTRAIT
   ? ([
@@ -610,7 +612,8 @@ export const VOY_TWEAK_CELLS: readonly { id: VoyTweakCell; x: number; z: number 
       ['accent', 0.95, 0],
       ['sync', -0.95, 1.55],
       ['duck', 0.95, 1.55],
-      ['title', 0, 3.1],
+      ['chord', -0.95, 3.1],
+      ['title', 0.95, 3.1],
     ] as const)
   : ([
       ['phase', -3.0, -0.72],
@@ -621,11 +624,12 @@ export const VOY_TWEAK_CELLS: readonly { id: VoyTweakCell; x: number; z: number 
       ['accent', -3.0, 0.86],
       ['sync', -1.5, 0.86],
       ['duck', 0, 0.86],
-      ['title', 2.25, 0.86],
+      ['chord', 1.5, 0.86],
+      ['title', 3.0, 0.86],
     ] as const)
 ).map(([id, x, z]) => ({ id, x, z }));
-/** La largeur du titre (deux cases). */
-export const VOY_TWEAK_TITLE_W = PORTRAIT ? 3.4 : 2.8;
+/** La largeur du titre (une case). */
+export const VOY_TWEAK_TITLE_W = PORTRAIT ? 1.75 : 1.4;
 
 /**
  * Les bouts de course ecrits sous chaque potard (gauche : 0, droite : 10) ;
@@ -641,11 +645,11 @@ export const VOY_TWEAK_ENDS: Partial<Record<VoyKnobId, readonly [string, string]
   accent: ['FLAT', 'HARD'],
 };
 
-/** La place d'un TWEAK sur sa plaque (null : pas un TWEAK) ; SYNC en commutateur. */
+/** La place d'un TWEAK sur sa plaque (null : pas un TWEAK) ; SYNC et CHORD en commutateurs. */
 export function voyTweakPlace(id: VoyKnobId): { x: number; z: number; s: number; sw: boolean } | null {
   const c = VOY_TWEAK_CELLS.find((k) => k.id === id);
   if (!c) return null;
-  const sw = id === 'sync';
+  const sw = id === 'sync' || id === 'chord';
   return { x: c.x, z: c.z, s: VOY_TWEAK_PLATE.knob * (sw ? 0.8 : 1), sw };
 }
 

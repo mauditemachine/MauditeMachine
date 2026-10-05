@@ -4,9 +4,10 @@
  * Mini V ; enleve les liens du site et mets des tweaks a la place ; je veux
  * un super synth"). Sous le capot, la ou etaient les puces des pages : une
  * plaque a la couleur du capot, vissee sur quatre entretoises d'aluminium
- * au-dessus de la carte, et ses huit potards (les memes que ceux de la
+ * au-dessus de la carte, et ses neuf potards (les memes que ceux de la
  * face) : PHASE, DRIFT, WIDTH, BASS MONO, KEY TRACK, ACCENT, le
- * commutateur SYNC et SIDECHAIN (voyager/params.ts dit ce qu'ils font).
+ * commutateur SYNC, SIDECHAIN et le selecteur CHORD (2026-10-05)
+ * (voyager/params.ts dit ce qu'ils font).
  *
  * La plaque elle-meme (geometrie, serigraphie) est commune avec celle du
  * MM-RYTM depuis le meme jour : scene/tweakplate.ts. Les cibles du picking
@@ -30,8 +31,8 @@ function items(): TweakItem[] {
       x: pl.x,
       z: pl.z,
       s: pl.s,
-      // SYNC : un commutateur, OFF et ON a ses reperes (ON en orange)
-      ...(pl.sw ? { steps: k.steps ?? ['OFF', 'ON'], stepOrange: 1 } : {}),
+      // SYNC : un commutateur, OFF et ON a ses reperes (ON en orange) ; CHORD : cinq crans, 7TH (celui de depart) en orange
+      ...(pl.sw ? { steps: k.steps ?? ['OFF', 'ON'], stepOrange: k.id === 'chord' ? 2 : 1 } : {}),
       // PHASE : FREE en orange (le reglage d'origine, la phase libre)
       ...(VOY_TWEAK_ENDS[k.id] ? { ends: VOY_TWEAK_ENDS[k.id], endOrange: k.id === 'phase' } : {}),
     };

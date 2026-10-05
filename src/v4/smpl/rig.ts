@@ -30,7 +30,7 @@ import { SMPL_KNOBS, smplParams, type SmplKnobId } from './params';
 import { SmplScreen } from './screen';
 import { SMPL_PADS } from './slices';
 import { padCount, smplState } from './state';
-import { SMPL, SMPL_D, SMPL_KEY_GROUPS, SMPL_KEYS, SMPL_KNOB_ROWS, SMPL_ROW_NAMES, SMPL_W, smplKeyAt, smplKnobAt, smplPadAt, smplX, type SmplKeyKind } from './theme';
+import { SMPL, SMPL_D, SMPL_KEY_GROUPS, SMPL_KEYS, SMPL_PAGES, SMPL_ROW_NAMES, SMPL_W, smplKeyAt, smplKnobAt, smplKnobTone, smplPadAt, smplX, type SmplKeyKind, type SmplKnobTone } from './theme';
 
 const AXIS_Y = new Vector3(0, 1, 0);
 const m4 = new Matrix4();
@@ -42,8 +42,6 @@ const s3 = new Vector3();
 export interface SmplRigOpts {
   mobile: boolean;
   anisotropy: number;
-  /** a droite du MM-DECKS (sinon du MM-ARP) */
-  withDj: boolean;
   repaint: () => void;
   invalidate: () => void;
 }
@@ -94,8 +92,11 @@ function buildBody(mobile: boolean): BufferGeometry {
 
 /* ---------------- la serigraphie ---------------- */
 
-/** Le nom d'un encodeur, au-dessus de lui : assez loin pour que son capuchon ne le cache pas, vu de face. */
-const knobLabelZ = (z: number): number => z - DJ_KNOB.skirt.r * SMPL.knobs.s - 0.2;
+/**
+ * Le nom d'un potard, au-dessus de lui : assez loin pour que son capuchon ne
+ * le cache pas, vu de face (plus haut est le potard, plus loin).
+ */
+const knobLabelZ = (z: number, s: number, sy: number): number => z - DJ_KNOB.skirt.r * s - 0.23 * sy;
 
 function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   const texts: Text[] = headTexts('MM-SMPL', 'SAMPLER / SLICER / GRANULAR', SMPL_W, SMPL.head.z, 1.95);
@@ -111,21 +112,30 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
     const sep = (smplKeyAt(g - 1).x + smplKeyAt(g).x) / 2;
     lines.push([sep, K.z - 0.32, sep, K.z + 0.2]);
   }
-  // Les encodeurs : le nom au-dessus, les butees ; le nom de la rangee a gauche, en orange (les pages d'une Elektron)
-  const r = DJ_KNOB.skirt.r * SMPL.knobs.s;
-  SMPL_KNOB_ROWS.forEach((row, ri) => {
-    for (const id of row) {
+  // Les potards : le nom au-dessus ; les gros gradues de 0 a 10 (0, 5 et 10 plus longs), les petits leurs butees ;
+  // chaque page dans son crochet, son nom en orange (les pages d'une Elektron)
+  const tick = (x: number, z: number, deg: number, r0: number, r1: number): void => {
+    const a = (deg * Math.PI) / 180;
+    lines.push([x + Math.cos(a) * r0, z - Math.sin(a) * r0, x + Math.cos(a) * r1, z - Math.sin(a) * r1]);
+  };
+  const N = SMPL.knobs;
+  SMPL_PAGES.forEach((pg, c) => {
+    for (const id of [pg.hero, ...pg.small]) {
       const p = smplKnobAt(id);
       const def = SMPL_KNOBS.find((k) => k.id === id);
-      texts.push({ text: def?.label ?? id, x: p.x, z: knobLabelZ(p.z), cap: 0.06, maxW: 0.8, group: 'knob' });
-      const r0 = r + 0.035;
-      const r1 = r0 + 0.055;
-      for (const deg of def?.bipolar ? [225, 90, -45] : [225, -45]) {
-        const a = (deg * Math.PI) / 180;
-        lines.push([p.x + Math.cos(a) * r0, p.z - Math.sin(a) * r0, p.x + Math.cos(a) * r1, p.z - Math.sin(a) * r1]);
+      const r = DJ_KNOB.skirt.r * p.s;
+      texts.push({ text: def?.label ?? id, x: p.x, z: knobLabelZ(p.z, p.s, p.sy), cap: p.hero ? 0.074 : 0.052, weight: p.hero ? 700 : undefined, maxW: p.hero ? 1.2 : 0.5, group: p.hero ? 'hero' : 'knob' });
+      if (p.hero) {
+        for (let t = 0; t <= 10; t += 1) {
+          const major = t % 5 === 0;
+          tick(p.x, p.z, 225 - t * 27, r + 0.04, r + (major ? 0.13 : 0.08));
+        }
+      } else {
+        for (const deg of def?.bipolar ? [225, 90, -45] : [225, -45]) tick(p.x, p.z, deg, r + 0.03, r + 0.08);
       }
     }
-    texts.push({ text: SMPL_ROW_NAMES[ri], x: SMPL.knobs.xs[0] - r - 0.16, z: SMPL.knobs.zs[ri], cap: 0.064, weight: 700, ink: 'orange', alpha: 1, align: 'right', group: 'rows' });
+    const half = N.small.dx + DJ_KNOB.skirt.r * N.small.s + 0.06;
+    brackets.push({ text: SMPL_ROW_NAMES[c], x0: N.cols[c] - half, x1: N.cols[c] + half, z: N.head, down: true, ink: 'orange' });
   });
   // Les trigs : leur numero dessous, un repere au-dessus de chaque groupe de quatre (1, 5, 9, 13), le crochet
   const T = SMPL.trigs;
@@ -153,7 +163,9 @@ export class SmplRig {
   private body: Mesh;
   private bodyMat: MeshStandardMaterial;
   private brush: Texture;
-  private knobs: InstancedMesh;
+  /** les potards, par capuchon (noirs, aluminium, orange) : trois draw calls */
+  private knobs: InstancedMesh[];
+  private knobSlot: { m: number; j: number }[];
   private keys: InstancedMesh;
   private pads: InstancedMesh;
   private silk: DjSilk;
@@ -171,7 +183,7 @@ export class SmplRig {
 
   constructor(private opts: SmplRigOpts) {
     this.root.name = 'smplRoot';
-    this.root.position.x = smplX(opts.withDj);
+    this.root.position.x = smplX();
     this.socle.name = 'smplSocle';
     this.top.name = 'smplTop';
     this.top.position.set(0, DJ_TOP_Y, 0);
@@ -194,8 +206,19 @@ export class SmplRig {
       this.materials.push(m);
       return emissive ? withInstanceEmissive(m, true) : m;
     };
-    this.knobs = new InstancedMesh(knobGeometry(opts.mobile), std('smplKnob', { roughness: 0.42, metalness: 0.28 }), SMPL_KNOBS.length);
-    this.knobs.name = 'smplKnobs';
+    const tones: readonly SmplKnobTone[] = ['knob', 'ring', 'hot'];
+    const knobMat = std('smplKnob', { roughness: 0.42, metalness: 0.28 });
+    const count = [0, 0, 0];
+    this.knobSlot = SMPL_KNOBS.map((k) => {
+      const m = tones.indexOf(smplKnobTone(k.id));
+      return { m, j: count[m]++ };
+    });
+    this.knobs = tones.map((t, i) => {
+      const mesh = new InstancedMesh(knobGeometry(opts.mobile, t, t === 'ring' ? 'slit' : 'mark'), knobMat, Math.max(1, count[i]));
+      mesh.name = `smplKnobs-${t}`;
+      mesh.count = count[i];
+      return mesh;
+    });
     const kg = keyGeometry(opts.mobile);
     this.keyEm = new InstancedBufferAttribute(new Float32Array(SMPL_KEYS.length * 3), 3);
     this.keyEm.setUsage(DynamicDrawUsage);
@@ -208,12 +231,12 @@ export class SmplRig {
     pg.setAttribute('instanceEmissive', this.padEm);
     this.pads = new InstancedMesh(pg, std('smplPad', { roughness: 0.85, metalness: 0 }, true), SMPL_PADS);
     this.pads.name = 'smplPads';
-    for (const m of [this.knobs, this.keys, this.pads]) {
+    for (const m of [...this.knobs, this.keys, this.pads]) {
       m.instanceMatrix.setUsage(DynamicDrawUsage);
       m.castShadow = !opts.mobile;
       m.receiveShadow = true;
     }
-    this.top.add(this.knobs, this.keys, this.pads);
+    this.top.add(...this.knobs, this.keys, this.pads);
 
     this.screen = new SmplScreen(opts.anisotropy, opts.mobile);
     this.top.add(this.screen.mesh, this.screen.heads);
@@ -235,8 +258,10 @@ export class SmplRig {
 
   private placeKnob(i: number): void {
     const p = smplKnobAt(SMPL_KNOBS[i].id);
-    this.knobs.setMatrixAt(i, m4.compose(v3.set(p.x, 0, p.z), q.setFromAxisAngle(AXIS_Y, this.knobAngle[i]), s3.setScalar(SMPL.knobs.s)));
-    this.knobs.instanceMatrix.needsUpdate = true;
+    const { m, j } = this.knobSlot[i];
+    const mesh = this.knobs[m];
+    mesh.setMatrixAt(j, m4.compose(v3.set(p.x, 0, p.z), q.setFromAxisAngle(AXIS_Y, this.knobAngle[i]), s3.set(p.s, p.sy, p.s)));
+    mesh.instanceMatrix.needsUpdate = true;
   }
 
   private placeKey(i: number): void {
@@ -257,10 +282,11 @@ export class SmplRig {
   private buildHotspots(): HotspotDef[] {
     const top = this.top;
     const out: HotspotDef[] = [];
-    const r = DJ_KNOB.skirt.r * SMPL.knobs.s + 0.04;
     for (const k of SMPL_KNOBS) {
       const p = smplKnobAt(k.id);
-      out.push({ id: smplKnobId(k.id), kind: 'smplknob', layer: top, shape: 'disc', x: p.x, z: p.z, hx: r, hz: r, y0: 0, y1: (DJ_KNOB.skirt.h + DJ_KNOB.h) * SMPL.knobs.s, enabled: true, smpl: k.id });
+      // Les petits : une cible un peu plus large que le capuchon (8 px de plus a l'arrivee)
+      const r = DJ_KNOB.skirt.r * p.s + (p.hero ? 0.04 : 0.07);
+      out.push({ id: smplKnobId(k.id), kind: 'smplknob', layer: top, shape: 'disc', x: p.x, z: p.z, hx: r, hz: r, y0: 0, y1: (DJ_KNOB.skirt.h + DJ_KNOB.h) * p.sy, enabled: true, smpl: k.id });
     }
     SMPL_KEYS.forEach((k, i) => {
       const p = smplKeyAt(i);
@@ -411,7 +437,7 @@ export class SmplRig {
       smplParams.subscribe(() => {
         const moved = this.syncKnobs();
         const drawn = this.drawScreen(performance.now());
-        if (moved && this.knobs.castShadow) this.opts.invalidate();
+        if (moved && this.knobs[0].castShadow) this.opts.invalidate();
         else if (moved || drawn) this.opts.repaint();
       }),
       smplEngine.subscribeLive(() => this.opts.repaint())
@@ -441,7 +467,7 @@ export class SmplRig {
     this.body.geometry.dispose();
     this.bodyMat.dispose();
     this.brush.dispose();
-    for (const m of [this.knobs, this.keys, this.pads]) {
+    for (const m of [...this.knobs, this.keys, this.pads]) {
       m.geometry.dispose();
       m.dispose();
     }

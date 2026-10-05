@@ -132,11 +132,11 @@ function apply(m: PresetMachine, d: VoyData | RytmData): void {
   if (m === 'voy') {
     const v = d as VoyData;
     // Un preset d'avant un potard (les TWEAKS, 2026-10-04) : ce potard a sa valeur de depart, le son d'alors ;
-    // TUNE 2 et FINE d'avant les rangees d'oscillateurs : traduits
+    // TUNE 2 et FINE d'avant les rangees d'oscillateurs : traduits ; un preset d'avant CHORD (2026-10-05) : BASIC, ses arpeges d'alors
     const knobs: Record<string, unknown> = { ...v.knobs, ...migrateKnobs(v.knobs) };
     for (const id of VOY_KNOB_IDS) {
       const x = knobs[id];
-      voyParams.set(id, typeof x === 'number' ? x : voyKnob(id).def);
+      voyParams.set(id, typeof x === 'number' ? x : id === 'chord' ? 0 : voyKnob(id).def);
     }
     seq.restore(v.seq);
     arp.load(v.prog);

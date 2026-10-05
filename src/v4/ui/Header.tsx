@@ -11,11 +11,11 @@
  */
 
 import React, { useCallback, useRef, useState, useSyncExternalStore } from 'react';
-import { closeSection, openSection, openToggle, resetView } from '../actions';
+import { closeSection, focusMachine, openSection, openToggle, resetView } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { appearance } from '../state/appearance';
 import { explode, voyExplode } from '../state/explode';
-import { focus, VOYAGER } from '../state/focus';
+import { MACHINES, focus, VOYAGER, type Focus, type MachineId } from '../state/focus';
 import { section } from '../state/section';
 import { MOBILE_QUERY, type PageId } from '../theme';
 import { MenuSheet } from './MenuSheet';
@@ -65,6 +65,33 @@ interface Props {
   getStage: () => Stage | null;
 }
 
+/**
+ * Les machines en haut a droite (2026-10-05, Mika : "voir les machines en
+ * haut a droite pour les selectionner rapidement") : ALL (la vue d'ensemble)
+ * puis chaque machine, dans l'ordre de la scene ; celle qu'on utilise est
+ * allumee. Un clic y va (le voyage dure 450 ms).
+ */
+const SHORT: Record<MachineId, { label: string; aria: string }> = {
+  mm808: { label: 'RYTM', aria: 'MM-RYTM drum machine' },
+  voy: { label: 'ARP', aria: 'MM-ARP synthesizer' },
+  smpl: { label: 'SMPL', aria: 'MM-SMPL sampler' },
+  dj: { label: 'DECKS', aria: 'MM-DECKS DJ decks and mixer' },
+};
+
+const HeaderMachines: React.FC = () => {
+  const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
+  const items: readonly { id: Focus; label: string; aria: string }[] = [{ id: 'all', label: 'ALL', aria: 'All the machines' }, ...MACHINES.map((id) => ({ id, ...SHORT[id] }))];
+  return (
+    <nav className="v4-hmachines" aria-label="Machines">
+      {items.map((it) => (
+        <button key={it.id} type="button" className="v4-hmachines-btn" data-all={it.id === 'all' ? '1' : '0'} aria-pressed={f === it.id} aria-label={it.aria} onClick={() => focusMachine(it.id)}>
+          {it.label}
+        </button>
+      ))}
+    </nav>
+  );
+};
+
 export const Header: React.FC<Props> = ({ getStage }) => {
   const [menu, setMenu] = useState(false);
   const look = useSyncExternalStore(appearance.subscribe, appearance.get, appearance.get);
@@ -88,6 +115,8 @@ export const Header: React.FC<Props> = ({ getStage }) => {
           <span className="v4-logotype" aria-hidden="true" />
           <img src={look === 'light' ? '/logo/mauditemachine-logo-ink.svg' : '/logo/mauditemachine-logo-gold.svg'} alt="Maudite Machine" width={118} height={26} />
         </a>
+        <div className="v4-header-end">
+        {VOYAGER && <HeaderMachines />}
         <button
           ref={btnRef}
           type="button"
@@ -108,6 +137,7 @@ export const Header: React.FC<Props> = ({ getStage }) => {
             <i />
           </span>
         </button>
+        </div>
       </header>
       <MenuSheet getStage={getStage} open={menu} onClose={close} variant="desk" />
     </>

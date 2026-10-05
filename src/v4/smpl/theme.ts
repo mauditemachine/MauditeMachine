@@ -9,8 +9,13 @@
  * a 6.2, z de -3.8 a 3.8) :
  * - l'en-tete : MM-SMPL, SAMPLER / SLICER / GRANULAR, le logotype ;
  * - en haut a gauche l'ecran (le sample, la region, les slices, ce qui
- *   joue) ; a sa droite douze encodeurs en trois rangees, comme les pages
- *   d'une Elektron (SAMPLE, SHAPE, GRAIN : leur nom a gauche, en orange) ;
+ *   joue) ; a sa droite douze potards en trois colonnes, les pages d'une
+ *   Elektron (SAMPLE, SHAPE, GRAIN : leur nom en orange dans un crochet).
+ *   2026-10-05 (Mika : "plus design, surement des knobs plus gros que
+ *   d'autres") : en tete de chaque colonne un gros potard, celui qu'on
+ *   tourne le plus (PITCH et POSITION en aluminium, FILTER a capuchon
+ *   orange comme les FILTER du mixer), gradue de 0 a 10 ; dessous trois
+ *   petits, noirs ;
  * - une rangee de touches de fonction : PLAY, STOP | GRAB A, GRAB B, FILE,
  *   REC | SLICES, MODE, REV, LOOP, SAVE ;
  * - seize touches de trig en ligne, de 1 a 16 de gauche a droite, par
@@ -20,7 +25,6 @@
  * cadrer) ; le reste du MM-SMPL arrive a part (state/smplload.ts).
  */
 
-import { DJ_W, DJ_X } from '../dj/theme';
 import { PORTRAIT } from '../theme';
 import { VOY_BODY, VOY_X } from '../voyager/theme';
 import type { SmplKnobId } from './params';
@@ -30,10 +34,12 @@ export const SMPL_D = 7.6;
 /** Le jour avec la machine de gauche : celui du MM-DECKS avec le MM-ARP. */
 const GAP = PORTRAIT ? 1.8 : 2.6;
 
-/** Le centre du MM-SMPL : a droite du MM-DECKS (ou du MM-ARP sans lui) ; suit le nombre de platines. */
-export function smplX(withDj: boolean): number {
-  const left = withDj ? DJ_X + DJ_W / 2 : VOY_X + VOY_BODY.w / 2;
-  return left + GAP + SMPL_W / 2;
+/**
+ * Le centre du MM-SMPL : a droite du MM-ARP (2026-10-05, Mika : "j'aimerais
+ * que MM-SMPL soit place a droite de MM-ARP"), le MM-DECKS apres lui.
+ */
+export function smplX(): number {
+  return VOY_X + VOY_BODY.w / 2 + GAP + SMPL_W / 2;
 }
 
 /** Le cadrage : de face, sa hauteur projetee (moins profond que le MM-DECKS). */
@@ -49,7 +55,12 @@ export const SMPL = {
   screen: { x: -2.68, z: -1.7, w: 6.1, d: 2.62, text: 0.24, wave: { v0: 0.3, v1: 0.95, u0: 0.02, u1: 0.98 } },
   /** les touches de fonction : x de la premiere, pas, jours en plus avant GRAB A et SLICES */
   keys: { z: 0.96, x0: -5.12, pitch: 0.98, gap: 0.22, w: 0.8, d: 0.36 },
-  knobs: { xs: [1.42, 2.7, 3.98, 5.26] as readonly number[], zs: [-2.62, -1.52, -0.42] as readonly number[], s: 0.86, nameX: 0.86 },
+  /**
+   * les potards : le centre des trois colonnes, le crochet de leur page, le
+   * gros en tete (echelle du potard du MM-DECKS), les trois petits dessous
+   * (ecart entre eux)
+   */
+  knobs: { cols: [1.5, 3.25, 5.0] as readonly number[], head: -2.95, hero: { z: -1.8, s: 1.45, sy: 1.12 }, small: { z: -0.22, s: 0.62, dx: 0.54 } },
   trigs: TRIG,
 } as const;
 
@@ -71,7 +82,7 @@ export const SMPL_KEYS: readonly { kind: SmplKeyKind; label: string; aria: strin
 /** Les groupes de touches (un filet et un jour entre eux) : transport, sources, le reste. */
 export const SMPL_KEY_GROUPS: readonly number[] = [2, 6];
 
-/** Les potards, rangee par rangee (SAMPLE, SHAPE, GRAIN). */
+/** Les potards, page par page (SAMPLE, SHAPE, GRAIN) : l'ordre des onglets du telephone (smpl/Dock.tsx). */
 export const SMPL_KNOB_ROWS: readonly (readonly SmplKnobId[])[] = [
   ['start', 'end', 'pitch', 'level'],
   ['attack', 'release', 'filter', 'spread'],
@@ -79,13 +90,31 @@ export const SMPL_KNOB_ROWS: readonly (readonly SmplKnobId[])[] = [
 ];
 export const SMPL_ROW_NAMES = ['SAMPLE', 'SHAPE', 'GRAIN'] as const;
 
-/** La place d'un potard (repere top du bloc). */
-export function smplKnobAt(id: SmplKnobId): { x: number; z: number } {
-  for (let r = 0; r < SMPL_KNOB_ROWS.length; r += 1) {
-    const c = SMPL_KNOB_ROWS[r].indexOf(id);
-    if (c >= 0) return { x: SMPL.knobs.xs[c], z: SMPL.knobs.zs[r] };
+/** Les colonnes de la machine : le gros potard de chaque page, ses trois petits. */
+export const SMPL_PAGES: readonly { hero: SmplKnobId; small: readonly SmplKnobId[] }[] = [
+  { hero: 'pitch', small: ['start', 'end', 'level'] },
+  { hero: 'filter', small: ['attack', 'release', 'spread'] },
+  { hero: 'position', small: ['size', 'density', 'spray'] },
+];
+
+/** Le capuchon d'un potard : les gros en aluminium (le repere noir), FILTER en orange, les petits noirs. */
+export type SmplKnobTone = 'knob' | 'ring' | 'hot';
+export const smplKnobTone = (id: SmplKnobId): SmplKnobTone => (id === 'filter' ? 'hot' : id === 'pitch' || id === 'position' ? 'ring' : 'knob');
+
+/**
+ * La place d'un potard (repere top du bloc), son echelle (s : le diametre,
+ * sy : la hauteur), gros ou petit. Les gros, larges et plus bas qu'a
+ * l'echelle : un gros bouton de reglage, pas une tour.
+ */
+export function smplKnobAt(id: SmplKnobId): { x: number; z: number; s: number; sy: number; hero: boolean } {
+  const K = SMPL.knobs;
+  for (let c = 0; c < SMPL_PAGES.length; c += 1) {
+    const pg = SMPL_PAGES[c];
+    if (pg.hero === id) return { x: K.cols[c], z: K.hero.z, s: K.hero.s, sy: K.hero.sy, hero: true };
+    const j = pg.small.indexOf(id);
+    if (j >= 0) return { x: K.cols[c] + (j - 1) * K.small.dx, z: K.small.z, s: K.small.s, sy: K.small.s, hero: false };
   }
-  return { x: 0, z: 0 };
+  return { x: 0, z: 0, s: 1, sy: 1, hero: false };
 }
 
 /** La place d'une touche de trig (0 a 15 : de 1 a 16, de gauche a droite). */

@@ -92,7 +92,8 @@ export type VoyKnobId =
   | 'keyTrack'
   | 'accent'
   | 'sync'
-  | 'duck';
+  | 'duck'
+  | 'chord';
 
 export type VoySection = 'arp' | 'osc' | 'filter' | 'feg' | 'aeg' | 'mod' | 'fx' | 'out' | 'tweak';
 
@@ -145,6 +146,8 @@ export const LFO_DESTS = ['WAVE', 'CUTOFF', 'FM', 'PITCH', 'W+CUT'] as const;
 export const RATIOS = ['1/2', '1', '3/2', '2', '3', '7/2', '4', '5', '7'] as const;
 const RATIO_X = [0.5, 1, 1.5, 2, 3, 3.5, 4, 5, 7] as const;
 export const NOTES = ['ALL', '1', '2', '3', '4', '5', '6', '7', '8'] as const;
+/** CHORD : l'arpege d'avant (BASIC), puis les accords enchaines au plus pres, de la triade a la onzieme. */
+export const CHORD_TYPES = ['BASIC', 'TRIAD', '7TH', '9TH', '11TH'] as const;
 
 /** Dans l'ordre de lecture du panneau (et de tabulation des jumeaux). */
 export const VOY_KNOBS: readonly VoyKnob[] = [
@@ -219,6 +222,14 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
    *   sortie du MM-ARP (effets compris) s'efface a chaque kick et revient
    *   avec lui, selon l'enveloppe mesuree du kick joue (son, TUNE, DECAY,
    *   STRETCH, velocite) : audio/duck.ts. OFF a 0, jusqu'a -24 dB au coup.
+   * - CHORD (2026-10-05, Mika : "je trouve les arpeges un peu grossiers, y
+   *   a pas plus de notes qu'on peut mettre ?") : les notes de chaque
+   *   accord (voyager/chords.ts voicedDegrees). BASIC, l'arpege d'avant (la
+   *   triade depuis sa racine : D et E sautaient d'une sixte au-dessus de
+   *   F#m) ; TRIAD, 7TH, 9TH, 11TH : les accords poses dans la meme octave
+   *   (fa diese 3 a fa 4), chacun au plus pres du precedent, la septieme
+   *   en plus, puis la neuvieme et la onzieme au-dessus. 7TH au depart ; un
+   *   preset d'avant garde BASIC (state/presets.ts).
    */
   { id: 'phase', label: 'PHASE', aria: 'Oscillator phase at each note: free, or the same start phase every note', section: 'tweak', def: 0 },
   { id: 'drift', label: 'DRIFT', aria: 'Analog drift and the small differences between notes', section: 'tweak', def: 0.5 },
@@ -228,6 +239,14 @@ export const VOY_KNOBS: readonly VoyKnob[] = [
   { id: 'accent', label: 'ACCENT', aria: 'Arpeggio accent depth', section: 'tweak', def: 0.5 },
   { id: 'sync', label: 'SYNC', aria: 'Oscillator 2 hard synced to oscillator 1', section: 'tweak', def: 0, steps: ['OFF', 'ON'] },
   { id: 'duck', label: 'SIDECHAIN', aria: 'Sidechain: the synth ducks under every MM-RYTM kick, for as long as the kick lasts', section: 'tweak', def: 0 },
+  {
+    id: 'chord',
+    label: 'CHORD',
+    aria: 'Chord notes: basic root position triads, or voice-led triads, sevenths, ninths and elevenths',
+    section: 'tweak',
+    def: 0.5,
+    steps: CHORD_TYPES,
+  },
 ];
 
 /** Les potards de la face (capot) et les TWEAKS (sous le capot, sur la carte : voyager/tweaks.ts). */
@@ -303,6 +322,8 @@ export const stepsPerNote = (v: number): number => [4, 2, 1, 0.5][stepIndex('rat
 export const octaves = (v: number): number => stepIndex('range', v) + 1;
 /** NOTES : longueur du motif (0 : ALL, toute la suite). */
 export const notesCount = (v: number): number => stepIndex('notes', v);
+/** CHORD : 0 BASIC, 1 TRIAD, 2 7TH, 3 9TH, 4 11TH. */
+export const chordType = (v: number): number => stepIndex('chord', v);
 /** OCTAVE : -2 a +2 octaves (le centre : l'octave d'origine). */
 export const octaveShift = (v: number): number => stepIndex('octave', v) - 2;
 /** Accord d'un oscillateur en demi-tons : RANGE (pieds) et SEMI. */

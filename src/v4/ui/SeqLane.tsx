@@ -22,14 +22,16 @@ import { context } from '../audio/drums';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
 import { arp } from '../voyager/arp';
-import { CHORDS, chordDegrees, degreeName } from '../voyager/chords';
-import { stepIndex, voyParams } from '../voyager/params';
-import { SEQ_MAX, SEQ_TOP, seq, type SeqStep } from '../voyager/seq';
+import { CHORDS, chordTones, degreeName } from '../voyager/chords';
+import { chordType, stepIndex, voyParams } from '../voyager/params';
+import { SEQ_MAX, SEQ_MIN, SEQ_TOP, seq, type SeqStep } from '../voyager/seq';
 import { useEditorPanel } from './editorPanel';
 
 /** Tete de lecture : relue toutes les 40 ms (et les notes tirees en RAND). */
 const POLL_MS = 40;
-const LEVELS = SEQ_TOP + 1;
+/** Les hauteurs de la suite : une octave sous la racine (CHORD, 2026-10-05) a trois au-dessus. */
+const LEVELS = SEQ_TOP - SEQ_MIN + 1;
+const mod7 = (d: number): number => ((d % 7) + 7) % 7;
 
 /** Le pas qui joue et son accord, a l'heure audio. */
 function usePlayhead(): { pos: number; chord: number } {
@@ -48,7 +50,7 @@ function usePlayhead(): { pos: number; chord: number } {
   return ph;
 }
 
-const yToDegree = (r: DOMRect, y: number): number => Math.max(0, Math.min(SEQ_TOP, Math.floor(((r.bottom - y) / r.height) * LEVELS)));
+const yToDegree = (r: DOMRect, y: number): number => Math.max(SEQ_MIN, Math.min(SEQ_TOP, SEQ_MIN + Math.floor(((r.bottom - y) / r.height) * LEVELS)));
 
 interface LaneProps {
   variant: 'desk' | 'mobile';
@@ -70,10 +72,11 @@ export const SeqLane: React.FC<LaneProps> = ({ variant }) => {
   const steps = seq.shown(chord);
   const n = steps.length;
   const rand = !s.edit && stepIndex('mode', p.mode) === 3;
-  const tones = chordDegrees(chord);
+  // Les filets : les notes de l'accord selon CHORD (extensions comprises), a toutes les octaves
+  const tones = chordTones(chord, chordType(p.chord));
   const guides: number[] = [];
-  for (let o = 0; o * 7 <= SEQ_TOP; o += 1) for (const t of tones) if (o * 7 + t <= SEQ_TOP) guides.push(o * 7 + t);
-  const isTone = (d: number): boolean => tones.includes(d % 7);
+  for (let o = -1; o * 7 <= SEQ_TOP; o += 1) for (const t of tones) if (o * 7 + t >= SEQ_MIN && o * 7 + t <= SEQ_TOP) guides.push(o * 7 + t);
+  const isTone = (d: number): boolean => tones.includes(mod7(d));
 
   const set = (i: number, d: SeqStep): void => {
     gesture();
@@ -120,10 +123,10 @@ export const SeqLane: React.FC<LaneProps> = ({ variant }) => {
     const v = cur ?? before.current[i] ?? 0;
     let next: SeqStep | undefined;
     if (e.key === 'ArrowUp') next = Math.min(SEQ_TOP, v + 1);
-    else if (e.key === 'ArrowDown') next = Math.max(0, v - 1);
+    else if (e.key === 'ArrowDown') next = Math.max(SEQ_MIN, v - 1);
     else if (e.key === 'PageUp') next = Math.min(SEQ_TOP, v + 7);
-    else if (e.key === 'PageDown') next = Math.max(0, v - 7);
-    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'PageDown') next = Math.max(SEQ_MIN, v - 7);
+    else if (e.key === 'Home') next = SEQ_MIN;
     else if (e.key === 'End') next = SEQ_TOP;
     else if (e.key === 'Delete' || e.key === 'Backspace') next = null;
     else if (e.key === 'Enter' || e.key === ' ') {
@@ -206,7 +209,7 @@ export const SeqLane: React.FC<LaneProps> = ({ variant }) => {
       >
         <div className="v4-seq-guides" aria-hidden="true">
           {guides.map((d) => (
-            <span key={d} className="v4-seq-guide" data-root={d % 7 === 0 ? '1' : '0'} style={{ bottom: `${((d + 0.5) / LEVELS) * 100}%` }} />
+            <span key={d} className="v4-seq-guide" data-root={mod7(d) === 0 ? '1' : '0'} style={{ bottom: `${((d - SEQ_MIN + 0.5) / LEVELS) * 100}%` }} />
           ))}
         </div>
         {steps.map((d, i) => {
@@ -218,17 +221,17 @@ export const SeqLane: React.FC<LaneProps> = ({ variant }) => {
               role="slider"
               tabIndex={i === fi ? 0 : -1}
               aria-label={`Step ${i + 1}`}
-              aria-valuemin={0}
+              aria-valuemin={SEQ_MIN}
               aria-valuemax={SEQ_TOP}
               aria-valuenow={d ?? 0}
-              aria-valuetext={d === null ? 'rest' : `${name}, ${d} scale steps above the root`}
+              aria-valuetext={d === null ? 'rest' : d < 0 ? `${name}, ${-d} scale steps below the root` : `${name}, ${d} scale steps above the root`}
               data-on={ph.pos === i && a.running ? '1' : '0'}
               data-rest={d === null ? '1' : '0'}
               data-tone={d !== null && isTone(d) ? '1' : '0'}
               onFocus={() => setFocusIdx(i)}
               onKeyDown={(e) => onKey(e, i)}
             >
-              {d !== null && <span className="v4-seq-bar" style={{ height: `${((d + 1) / LEVELS) * 100}%` }} />}
+              {d !== null && <span className="v4-seq-bar" style={{ height: `${((d - SEQ_MIN + 1) / LEVELS) * 100}%` }} />}
             </div>
           );
         })}

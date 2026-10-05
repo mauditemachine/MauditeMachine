@@ -55,6 +55,9 @@ export interface Bracket {
   x0: number;
   x1: number;
   z: number;
+  /** au-dessus d'un groupe : les tics vers lui (vers soi) ; le nom en orange (les pages du MM-SMPL) */
+  down?: boolean;
+  ink?: 'bone' | 'orange';
 }
 
 const BRACKET = { cap: 0.075, weight: 700, tick: 0.08, pad: 0.1 } as const;
@@ -331,7 +334,7 @@ export class DjSilk {
     for (const g of list) {
       const mid = (g.x0 + g.x1) / 2;
       const half = trackedWidth(ctx, g.text, fontPx, B.weight) / this.ppu / 2 + B.pad;
-      const t = g.z - B.tick;
+      const t = g.down ? g.z + B.tick : g.z - B.tick;
       for (const l of [
         [g.x0, t, g.x0, g.z, mid - half, g.z],
         [mid + half, g.z, g.x1, g.z, g.x1, t],
@@ -341,7 +344,7 @@ export class DjSilk {
         for (let i = 2; i < l.length; i += 2) ctx.lineTo(this.px(l[i]), this.py(l[i + 1]));
         ctx.stroke();
       }
-      ctx.fillStyle = silkA(1);
+      ctx.fillStyle = g.ink === 'orange' ? HEX.orange : silkA(1);
       const w = trackedWidth(ctx, g.text, fontPx, B.weight);
       drawTracked(ctx, g.text, this.px(mid) - w / 2, this.py(g.z) + (B.cap * this.ppu) / 2, fontPx, B.weight);
     }

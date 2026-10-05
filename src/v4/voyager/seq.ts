@@ -10,18 +10,22 @@
  *   potards qui fabriquent la suite) repassent en AUTO.
  * Une note est un degre de fa diese mineur au-dessus de la racine de
  * l'accord qui joue (chords.ts degreeMidi : 0 la racine, 2 la tierce, 4 la
- * quinte, 7 l'octave, jusqu'a SEQ_TOP, trois octaves), ou un silence
- * (null) : la meme suite suit les accords de la progression et reste dans
- * la tonalite. Gardee dans le navigateur, comme les potards.
+ * quinte, 7 l'octave, jusqu'a SEQ_TOP, trois octaves et demie ; depuis
+ * CHORD, 2026-10-05, jusqu'a une octave sous la racine, SEQ_MIN : les
+ * accords enchaines au plus pres passent sous la racine des accords hauts), ou un
+ * silence (null) : la meme suite suit les accords de la progression et
+ * reste dans la tonalite. Gardee dans le navigateur, comme les potards.
  */
 
 import { arpDegrees, type ArpMode } from './chords';
-import { notesCount, octaves, stepIndex, voyParams, type VoyValues } from './params';
+import { chordType, notesCount, octaves, stepIndex, voyParams, type VoyValues } from './params';
 
 /** Pas d'une suite EDIT : une mesure de doubles croches. */
 export const SEQ_MAX = 16;
-/** Degre le plus haut : trois octaves au-dessus de la racine (et la septieme). */
-export const SEQ_TOP = 20;
+/** Degre le plus haut : trois octaves au-dessus de la racine et la septieme ; depuis CHORD (2026-10-05), la onzieme au sommet des trois octaves. */
+export const SEQ_TOP = 24;
+/** Degre le plus bas : une octave sous la racine (CHORD pose E et D sous leur racine). */
+export const SEQ_MIN = -7;
 
 export type SeqStep = number | null;
 
@@ -38,7 +42,7 @@ export interface SeqState {
 const KEY = 'mm.v4.voyager.seq.1';
 const EMPTY: SeqState = { edit: false, buf: Array.from({ length: SEQ_MAX }, () => 0), len: 8, has: false };
 
-const okStep = (x: unknown): x is SeqStep => x === null || (typeof x === 'number' && Number.isInteger(x) && x >= 0 && x <= SEQ_TOP);
+const okStep = (x: unknown): x is SeqStep => x === null || (typeof x === 'number' && Number.isInteger(x) && x >= SEQ_MIN && x <= SEQ_TOP);
 
 function load(): SeqState {
   try {
@@ -65,9 +69,10 @@ function setState(next: SeqState): void {
   listeners.forEach((fn) => fn());
 }
 
-/** Les notes de l'arpege AUTO dans l'ordre du mode ; NOTES : les N premieres, en boucle. */
+/** Les notes de l'arpege AUTO (celles de CHORD) dans l'ordre du mode ; NOTES : les N premieres, en boucle. */
 export function poolSteps(chord: number, p: Readonly<VoyValues>, mode: ArpMode): number[] {
-  const full = arpDegrees(chord, octaves(p.range), mode);
+  // Les extensions au sommet de trois octaves (A, Bm) passent SEQ_TOP : elles se taisent
+  const full = arpDegrees(chord, octaves(p.range), mode, chordType(p.chord)).filter((d) => d <= SEQ_TOP);
   const k = notesCount(p.notes);
   return k > 0 && full.length > 0 ? Array.from({ length: k }, (_, j) => full[j % full.length]) : full;
 }
@@ -123,11 +128,11 @@ export const seq = {
   auto(): void {
     if (state.edit) setState({ ...state, edit: false });
   },
-  /** Un pas : un degre (0 a SEQ_TOP) ou un silence ; en AUTO, la suite est d'abord copiee en EDIT. */
+  /** Un pas : un degre (SEQ_MIN a SEQ_TOP) ou un silence ; en AUTO, la suite est d'abord copiee en EDIT. */
   setStep(chord: number, i: number, d: SeqStep): void {
     const base = state.edit ? state : fromAuto(chord);
     if (i < 0 || i >= base.len) return;
-    const v = d === null ? null : Math.max(0, Math.min(SEQ_TOP, Math.round(d)));
+    const v = d === null ? null : Math.max(SEQ_MIN, Math.min(SEQ_TOP, Math.round(d)));
     if (state.edit && base.buf[i] === v) return;
     const buf = base.buf.slice();
     buf[i] = v;

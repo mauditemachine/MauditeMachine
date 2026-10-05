@@ -77,8 +77,8 @@ function setMask(g: BufferGeometry, fn: (i: number) => number): void {
 
 /* ---------------- potards ---------------- */
 
-/** Potard ; capTone : la teinte du capuchon (FILTER : l'orange du pad OPEN du MM-RYTM). */
-export function knobGeometry(mobile: boolean, capTone: DjTone = 'knob'): BufferGeometry {
+/** Potard ; capTone : la teinte du capuchon (FILTER : l'orange du pad OPEN du MM-RYTM) ; markTone : son repere (noir sur l'aluminium). */
+export function knobGeometry(mobile: boolean, capTone: DjTone = 'knob', markTone: DjTone = 'mark'): BufferGeometry {
   const K = DJ_KNOB;
   const seg = mobile ? K.segments.mobile : K.segments.desktop;
   const skirt = new CylinderGeometry(K.skirt.rTop, K.skirt.r, K.skirt.h, seg);
@@ -98,7 +98,7 @@ export function knobGeometry(mobile: boolean, capTone: DjTone = 'knob'): BufferG
   cap.translate(0, K.skirt.h + K.h / 2, 0);
   const mark = new BoxGeometry(K.mark.w, K.mark.h, K.mark.d);
   mark.translate(0, K.skirt.h + K.h + K.mark.h / 2 - 0.002, -K.mark.d / 2 - 0.02);
-  return merge([partDj(skirt, 'skirt'), partDj(cap, capTone), partDj(mark, 'mark')], 'knobs');
+  return merge([partDj(skirt, 'skirt'), partDj(cap, capTone), partDj(mark, markTone)], 'knobs');
 }
 
 /* ---------------- faders ---------------- */
