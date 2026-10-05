@@ -4,7 +4,7 @@
  * observable : React le lit par useSyncExternalStore, la scene par get().
  * Motif, tempo et, depuis la revision 2, les trois effets SWING, DIST et
  * REVERB (pattern.fx) persistent sous mm.v4.pattern ; l'instrument non (une
- * visite commence sans selection), TONE et LEVEL non plus (une visite qui
+ * visite commence avec le BD), TONE et LEVEL non plus (une visite qui
  * commencerait muette serait un piege). Chaque lecture et chaque ecriture
  * du localStorage passent par try/catch : navigation privee, stockage
  * bloque ou plein, JSON corrompu, rien ne leve jamais.
@@ -255,7 +255,8 @@ export function clearSteps(p: Pattern): Pattern {
 /* ---------------- le store ---------------- */
 
 const stored = typeof window === 'undefined' ? { raw: null, legacy: false } : readStored();
-let state: PatternState = { ...validate(stored.raw, stored.legacy), instrument: null };
+// Depuis le 2026-10-05 (Mika : "par defaut je veux toujours que le BD soit selectionne pour les FX Voices") : la grosse caisse
+let state: PatternState = { ...validate(stored.raw, stored.legacy), instrument: 'BD' };
 let fxState: Readonly<Fx> = validateFx(stored.raw);
 const listeners = new Set<() => void>();
 const fxListeners = new Set<() => void>();

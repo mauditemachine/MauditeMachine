@@ -57,6 +57,9 @@ export const kitStepLabels = (f: KitFamily): string[] => {
 };
 export const GATE_LABELS = ['OFF', 'ON'] as const;
 
+/** Les sons d'une famille, un par cran (909, 808, MM, puis ses echantillons) : la liste de l'ecran (state/lcdSamples.ts). */
+export const kitSoundNames = (f: KitFamily): string[] => [...KIT_MODELS.map((m) => KIT_MODEL_LABEL[m]), ...samplesOf(f).map((s) => s.label)];
+
 export interface Kit {
   model: Record<KitFamily, KitModel>;
   knob: Record<KitKnob, number>;
@@ -128,6 +131,8 @@ function soundIndex(k: Kit, f: KitFamily): number {
   const j = key ? samplesOf(f).findIndex((x) => x.key === key) : -1;
   return j >= 0 ? KIT_MODELS.length + j : KIT_MODELS.indexOf(k.model[f]);
 }
+/** Le cran du son d'une famille, pour l'ecran (le choix du moment). */
+export const kitSoundIndex = (f: KitFamily): number => soundIndex(state, f);
 const soundValue = (k: Kit, f: KitFamily): number => {
   const n = kitSteps(f);
   return n > 1 ? soundIndex(k, f) / (n - 1) : 0;

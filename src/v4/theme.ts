@@ -511,6 +511,7 @@ export type EncId =
   | 'delay'
   | 'reverb'
   | 'vol'
+  | 'vsound'
   | 'tone'
   | 'vdecay'
   | 'vdist'
@@ -532,9 +533,19 @@ export const VOICE_PARAM = {
   vdelay: 'delay',
   vreverb: 'reverb',
 } as const;
-export type VoiceEncId = keyof typeof VOICE_PARAM;
-export const VOICE_ENCODERS = Object.keys(VOICE_PARAM) as readonly VoiceEncId[];
-export const isVoiceEnc = (id: EncId): id is VoiceEncId => id in VOICE_PARAM;
+/** Les potards de la rangee VOICE qui reglent un parametre de voix (VOLUME, TONE, DECAY, les effets). */
+export type VoiceFxEncId = keyof typeof VOICE_PARAM;
+/**
+ * SAMPLE (2026-10-05, Mika : "dans les parametres des voices, a droite de
+ * Volume, un knob samples selection ; quand on commence a le tourner on voit
+ * sur l'ecran la liste des echantillons ; on a appuye sur un voice et la on
+ * choisit le sample") : le huitieme potard de la rangee VOICE, a droite de
+ * VOLUME, regle le SON de la voix selectionnee (audio/kit.ts : 909, 808, MM,
+ * puis ses echantillons) ; l'ecran en montre la liste (state/lcdSamples.ts).
+ */
+export type VoiceEncId = VoiceFxEncId | 'vsound';
+export const VOICE_ENCODERS: readonly VoiceEncId[] = ['vol', 'vsound', 'tone', 'vdecay', 'vdist', 'vchorus', 'vdelay', 'vreverb'];
+export const isVoiceEnc = (id: EncId): id is VoiceEncId => (VOICE_ENCODERS as readonly string[]).includes(id);
 
 /** Potards a zero au centre (-1 a 1) : TONE et STRETCH. */
 export const BIPOLAR: readonly EncId[] = ['tone', 'stretch'];
@@ -579,6 +590,7 @@ export const ENCODERS: readonly { id: EncId; label: string; aria: string }[] = [
   { id: 'delay', label: 'DELAY', aria: 'Global delay' },
   { id: 'reverb', label: 'REVERB', aria: 'Global reverb' },
   { id: 'vol', label: 'VOLUME', aria: 'Voice volume' },
+  { id: 'vsound', label: 'SAMPLE', aria: 'Voice sample, the sound of the selected voice' },
   { id: 'tone', label: 'TONE', aria: 'Voice tone, pitch and filter' },
   { id: 'vdecay', label: 'DECAY', aria: 'Voice decay, a shorter tail' },
   { id: 'vdist', label: 'DIST', aria: 'Voice distortion' },
@@ -926,8 +938,8 @@ function encPlaces(): Record<EncId, EncPlace> {
   const s = ENCODER.voiceScale;
   // Le libelle suit le bord de la collerette : remonte de ce qu'elle perd
   const labelZ = z + ENC_ROW_Z.labelDz - ENCODER.collar.r * (1 - s);
-  // Sous les pads de pages : de TRACKS (colonne 0) a CONTACT (colonne 4)
-  const vPitch = (4 * PAD.pitch) / (VOICE_ENCODERS.length - 1);
+  // Sous les pads de pages : de la colonne 0 (BD) a la colonne d'OPEN (5, depuis le 2026-10-05 : huit potards avec SAMPLE, leurs noms se touchaient)
+  const vPitch = (5 * PAD.pitch) / (VOICE_ENCODERS.length - 1);
   VOICE_ENCODERS.forEach((id, k) => {
     out[id] = { x: PAD.x0 + vPitch * k, z, labelZ, s };
   });
@@ -1031,7 +1043,7 @@ export const POT_UI = {
   wheelStep: 0.02,
   bipolarStep: 0.05,
   readoutMs: 1200,
-  reset: { level: 0.8, swing: 0, stretch: 0, dist: 0, chorus: 0, delay: 0, reverb: 0, vol: 0.8, tone: 0, vdecay: 1, vdist: 0, vchorus: 0, vdelay: 0, vreverb: 0 },
+  reset: { level: 0.8, swing: 0, stretch: 0, dist: 0, chorus: 0, delay: 0, reverb: 0, vol: 0.8, vsound: 0, tone: 0, vdecay: 1, vdist: 0, vchorus: 0, vdelay: 0, vreverb: 0 },
 } as const;
 
 /** Bornes d'un encodeur hors TEMPO : TONE et STRETCH -1 a 1, les autres 0 a 1. */
@@ -1505,6 +1517,23 @@ export const EXPLODE = {
    * 85 % de sa course)
    */
   chipsFrom: 0.85,
+} as const;
+
+/**
+ * OPEN (2026-10-05, Mika : "quand on OPEN une machine j'aimerais que ca
+ * puisse zoom vers le contenu de l'interieur ; quand on ferme on revient
+ * dans la vue reset view") : desktop, la camera ne cadre plus la pile
+ * entiere (le capot et la carte) mais l'interieur : la plaque des TWEAKS et sa
+ * carte, a la vue par defaut. fill : la part de la largeur que prend la
+ * plaque (largeur de la plaque + marge, divisee par fill) ; h : la hauteur
+ * que le cadrage garde (la plaque et un peu de sa carte). Le pivot va au
+ * centre de la plaque ouverte (y, z du monde) : tourner la vue tourne
+ * autour d'elle. Telephone : le cadrage d'avant (la plaque debout y tient deja).
+ */
+export const OPEN_VIEW = {
+  fill: 0.82,
+  margin: 0.6,
+  h: 6.4,
 } as const;
 
 /**

@@ -10,7 +10,7 @@ import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
 import { ensure, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, trigger } from './audio/drums';
 import { VOICE_FX_DEFAULT, voiceFx, type VoiceParam } from './audio/voicefx';
-import { kit, kitSteps, type KitId } from './audio/kit';
+import { familyOf, kit, kitSteps, type KitFamily, type KitId } from './audio/kit';
 import { randomBeat, randomColors, type BeatStyle } from './audio/beats';
 import { BPM, INSTRUMENTS, VEL_MAX, VEL_NAMES, pattern, velocity } from './audio/pattern';
 import { sc } from './audio/soundcloud';
@@ -20,6 +20,8 @@ import { chipsLive, explode, voyExplode, type ExplodeStore } from './state/explo
 import { focus, MACHINES, VOYAGER, type Focus, type MachineId } from './state/focus';
 import { lcdMessage } from './state/lcdMessage';
 import { lcdMix } from './state/lcdMix';
+import { lcdSamples } from './state/lcdSamples';
+import type { ShotId } from './audio/shotsdsp';
 import { contactDraft, type ContactTopic } from './state/contactDraft';
 import { editor, type EditorId } from './state/editor';
 import { patterns, slotName } from './state/patterns';
@@ -115,7 +117,9 @@ export function voiceMute(inst: Inst, on: boolean): void {
 function selectVoice(inst: Inst | null): void {
   if (pattern.get().instrument === inst) return;
   pattern.select(inst);
-  lcdMessage.show(`KNOBS > ${inst ?? 'PATTERN'}`);
+  // La liste des sons est ouverte : elle passe a la voix touchee (et reste un peu)
+  if (lcdSamples.get()) lcdSamples.show();
+  else lcdMessage.show(`KNOBS > ${inst ?? 'PATTERN'}`);
 }
 
 /**
@@ -401,7 +405,29 @@ function readout(id: Exclude<EncId, 'tempo'>, v: number, inst: Inst | null): str
 }
 
 /** Le parametre de voix que regle un potard de la rangee VOICE (VOLUME -> level, DIST -> dist) ; null hors de cette rangee. */
-const voiceParam = (id: EncId): VoiceParam | null => (isVoiceEnc(id) ? VOICE_PARAM[id] : null);
+const voiceParam = (id: EncId): VoiceParam | null => (isVoiceEnc(id) && id !== 'vsound' ? VOICE_PARAM[id] : null);
+
+/** La famille de sons de la voix selectionnee (le potard SAMPLE) ; null sans voix, ou CY et PC (un seul son). */
+export function soundFamily(): KitFamily | null {
+  const inst = pattern.get().instrument;
+  return inst ? familyOf(inst as ShotId) : null;
+}
+
+/** SAMPLE : le son de la voix selectionnee ; l'ecran montre la liste de ses sons (state/lcdSamples.ts). */
+function soundDial(v: number): void {
+  const inst = pattern.get().instrument;
+  if (!inst) {
+    lcdMessage.show('TAP A PAD FIRST');
+    return;
+  }
+  const f = soundFamily();
+  if (!f) {
+    lcdMessage.show(`${inst} HAS ONE SOUND`);
+    return;
+  }
+  kit.set(f, v);
+  lcdSamples.show();
+}
 
 /**
  * La voix que regle un potard : celle du pad selectionne pour la rangee
@@ -409,7 +435,7 @@ const voiceParam = (id: EncId): VoiceParam | null => (isVoiceEnc(id) ? VOICE_PAR
  * TEMPO, MASTER et la rangee GLOBAL, qui reglent tout le pattern.
  */
 export function dialTarget(id: EncId): Inst | null {
-  return voiceParam(id) ? pattern.get().instrument : null;
+  return isVoiceEnc(id) ? pattern.get().instrument : null;
 }
 
 /**
@@ -428,6 +454,10 @@ export function dial(id: EncId, v: number): void {
   resume();
   if (id === 'tempo') {
     pattern.setBpm(v);
+    return;
+  }
+  if (id === 'vsound') {
+    soundDial(v);
     return;
   }
   const p = voiceParam(id);
@@ -455,6 +485,10 @@ export function dial(id: EncId, v: number): void {
 
 /** Valeur courante d'un encodeur (rangee VOICE : la voix selectionnee, sinon son depart) : BPM, ou -1 a 1, ou 0 a 1. */
 export function dialValue(id: EncId): number {
+  if (id === 'vsound') {
+    const f = soundFamily();
+    return f ? kit.value(f) : 0;
+  }
   const p = voiceParam(id);
   if (p) {
     const inst = pattern.get().instrument;
@@ -482,6 +516,10 @@ export function dialValue(id: EncId): number {
 
 /** Valeur de depart (double tape) : 130 BPM, TONE et STRETCH au centre, MASTER et VOLUME 80 %, le reste a 0. */
 export function dialReset(id: EncId): number {
+  if (id === 'vsound') {
+    const f = soundFamily();
+    return f ? kit.def(f) : 0;
+  }
   const p = voiceParam(id);
   if (p) return VOICE_FX_DEFAULT[p];
   return id === 'tempo' ? BPM.initial : POT_UI.reset[id];
@@ -790,6 +828,10 @@ export function dialRange(id: DialId): [number, number] {
 
 /** Ses crans (0 : continu) : les selecteurs du MM-ARP (pas le morphing de WAVE), les choix de son du kit. */
 export function dialSteps(id: DialId): number {
+  if (id === 'vsound') {
+    const f = soundFamily();
+    return f ? kitSteps(f) : 0;
+  }
   const r = kitIdOf(id);
   if (r) return kitSteps(r);
   const k = voyId(id);
@@ -809,6 +851,10 @@ export function dialReadout(id: DialId): string {
   if (id === 'tempo') return `${pattern.get().bpm} BPM`;
   const e = id as Exclude<EncId, 'tempo'>;
   if (isVoiceEnc(e) && !pattern.get().instrument) return 'TAP A VOICE';
+  if (e === 'vsound') {
+    const f = soundFamily();
+    return f ? kit.readout(f) : `${pattern.get().instrument} HAS ONE SOUND`;
+  }
   return readout(e, dialValue(e), dialTarget(e));
 }
 
@@ -821,6 +867,10 @@ export function dialValueText(id: DialId): string {
   if (id === 'tempo') return `${pattern.get().bpm}`;
   const e = id as Exclude<EncId, 'tempo'>;
   if (isVoiceEnc(e) && !pattern.get().instrument) return '--';
+  if (e === 'vsound') {
+    const f = soundFamily();
+    return f ? kit.valueText(f) : '--';
+  }
   const v = dialValue(e);
   if (e === 'swing') return `${swingRatio(v)}%`;
   if (isBipolar(e)) {

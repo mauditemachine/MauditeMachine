@@ -9,6 +9,7 @@
  */
 
 import { lcdMix } from './lcdMix';
+import { lcdSamples } from './lcdSamples';
 
 export interface LcdMessage {
   text: string;
@@ -30,8 +31,9 @@ export const lcdMessage = {
     return current && now < current.until ? current : null;
   },
   show(text: string, ms: number = LCD_MESSAGE_MS, param = false): void {
-    // Un message ferme la page MIX : le dernier geste a l'ecran
+    // Un message ferme la page MIX et la liste des sons : le dernier geste a l'ecran
     lcdMix.hide();
+    lcdSamples.hide();
     current = { text, until: performance.now() + ms, param };
     listeners.forEach((fn) => fn());
   },

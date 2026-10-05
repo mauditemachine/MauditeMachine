@@ -155,21 +155,22 @@ function buildSetups(): RotoSetup[] {
       k('rytm:enc:chorus', 'CHORUS', C.purple),
       k('rytm:enc:delay', 'DELAY', C.purple),
       k('rytm:enc:reverb', 'REVERB', C.purple),
-      // 2 : la voix choisie (ses boutons la choisissent)
+      // 2 : la voix choisie (ses boutons la choisissent) : la rangee VOICE FX de la machine, dans son ordre
+      // (2026-10-05 : SAMPLE a droite de VOLUME ; ses crans suivent la voix, il est continu sur le Roto)
       k('rytm:enc:vol', 'VOLUME', C.yellow),
+      k('rytm:enc:vsound', 'SAMPLE', C.gold),
       mid(k('rytm:enc:tone', 'TONE', C.yellow)),
       k('rytm:enc:vdecay', 'DECAY', C.yellow),
       k('rytm:enc:vdist', 'V DIST', C.peach),
       k('rytm:enc:vchorus', 'V CHORUS', C.peach),
       k('rytm:enc:vdelay', 'V DELAY', C.peach),
       k('rytm:enc:vreverb', 'V REVERB', C.peach),
-      mid(k('rytm:kit:tune', 'KICK TUNE', C.gold)),
       // 3 : les volumes des voix (leurs boutons : leurs mutes)
       ...VOICES8.map((i) => k(`rytm:voice:${i}:level`, `${i} VOL`, C.cream)),
       // 4 : CY et PC, le kit
       k('rytm:voice:CY:level', 'CY VOL', C.cream),
       k('rytm:voice:PC:level', 'PC VOL', C.cream),
-      kitSound('bd', 'KICK SOUND'),
+      mid(k('rytm:kit:tune', 'KICK TUNE', C.gold)),
       k('rytm:kit:attack', 'KICK ATTACK', C.gold),
       k('rytm:kit:decay', 'KICK DECAY', C.gold),
       k('rytm:kit:drive', 'KICK DRIVE', C.gold),

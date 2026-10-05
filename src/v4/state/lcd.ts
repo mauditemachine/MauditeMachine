@@ -27,11 +27,14 @@
 import { clock } from '../audio/clock';
 import { INSTRUMENTS, pattern } from '../audio/pattern';
 import { voiceFx } from '../audio/voicefx';
+import { familyOf, kit, kitSoundIndex, kitSoundNames, KIT_LABEL, type KitFamily } from '../audio/kit';
+import type { ShotId } from '../audio/shotsdsp';
 import { sc } from '../audio/soundcloud';
 import { fmtTime } from '../data';
 import { LCD_TEXT, SECTION_TITLES, type Inst } from '../theme';
 import { lcdMessage } from './lcdMessage';
 import { lcdMix } from './lcdMix';
+import { lcdSamples } from './lcdSamples';
 import { presetMode, type PresetView } from './presetMode';
 import { presets } from './presets';
 import { section } from './section';
@@ -53,6 +56,8 @@ export interface LcdState {
   param: boolean;
   /** page MIX : la voix reglee et les cinq volumes (0 a 1, ordre BD SD TOM CH OH) ; null : le texte */
   mix: { sel: Inst; insts: Inst[]; levels: number[] } | null;
+  /** page SAMPLES (2026-10-05) : la voix choisie, sa famille de sons, leurs noms et le cran du moment ; null : le texte */
+  samples: { inst: Inst; fam: KitFamily; title: string; names: string[]; cur: number } | null;
   /** les trois lignes telles qu'affichees (gauche, espaces, droite) */
   text: [string, string, string];
   /** mode presets (2026-10-04) : les quatre touches de la ligne 3, dessinees en negatif ; null : le texte */
@@ -107,7 +112,24 @@ function composeMix(sel: Inst): Omit<LcdState, 'updates'> {
   const line1 = row('VOLUME', sel);
   const t2 = [0, 1, 2].map(cell).join(' ');
   const t3 = [3, 4].map(cell).join(' ');
-  return { l1: line1.l, r1: line1.r, l2: t2, r2: '', l3: t3, r3: '', bar: null, param: true, mix: { sel, insts, levels }, text: [line1.t, t2, t3], keys: null, tag: false };
+  return { l1: line1.l, r1: line1.r, l2: t2, r2: '', l3: t3, r3: '', bar: null, param: true, mix: { sel, insts, levels }, samples: null, text: [line1.t, t2, t3], keys: null, tag: false };
+}
+
+/**
+ * Page SAMPLES : les sons de la famille de la voix choisie (909, 808, MM,
+ * puis ses echantillons), le son du moment en surbrillance ; le texte pour le
+ * jumeau : la voix, le son, son rang. null : la voix n'a qu'un son (CY, PC).
+ */
+function composeSamples(inst: Inst): Omit<LcdState, 'updates'> | null {
+  const fam = familyOf(inst as ShotId);
+  if (!fam) return null;
+  const names = kitSoundNames(fam);
+  const cur = Math.max(0, Math.min(names.length - 1, kitSoundIndex(fam)));
+  const title = KIT_LABEL[fam];
+  const line1 = row('SAMPLE', inst);
+  const l2 = fit(names[cur], COLS);
+  const l3 = fit(`${title} ${cur + 1} OF ${names.length}`, COLS);
+  return { l1: line1.l, r1: line1.r, l2, r2: '', l3, r3: '', bar: null, param: true, mix: null, samples: { inst, fam, title, names, cur }, text: [line1.t, l2, l3], keys: null, tag: false };
 }
 
 /** Centre s sur n colonnes. */
@@ -126,7 +148,7 @@ function composePresets(v: PresetView): Omit<LcdState, 'updates'> {
   const line1 = row(v.title, v.count);
   const l2 = v.empty ? center(v.name, COLS) : `<${center(v.name, COLS - 2)}>`;
   const l3 = v.keys.map((k) => k.padEnd(5)).join('').trimEnd();
-  return { l1: line1.l, r1: line1.r, l2, r2: '', l3, r3: '', bar: null, param: false, mix: null, text: [line1.t, l2, l3], keys: v.keys, tag: false };
+  return { l1: line1.l, r1: line1.r, l2, r2: '', l3, r3: '', bar: null, param: false, mix: null, samples: null, text: [line1.t, l2, l3], keys: v.keys, tag: false };
 }
 
 function compose(now: number): Omit<LcdState, 'updates'> {
@@ -134,6 +156,11 @@ function compose(now: number): Omit<LcdState, 'updates'> {
   if (pv) return composePresets(pv);
   const mixPage = lcdMix.get(now);
   if (mixPage) return composeMix(mixPage.sel);
+  const inst0 = pattern.get().instrument;
+  if (inst0 && lcdSamples.get(now)) {
+    const page = composeSamples(inst0);
+    if (page) return page;
+  }
   const s = section.get();
   const p = pattern.get();
   const line1 = row(s ? SECTION_TITLES[s] : LCD_TEXT.idle, `${p.bpm} BPM`);
@@ -170,7 +197,7 @@ function compose(now: number): Omit<LcdState, 'updates'> {
   const t3 = bar !== null ? `${l3} ${r3}` : l3;
   // L'etiquette PRESETS : la ligne 2 a de la place (pas de titre qui defile, rien a droite)
   const tag = st.status !== 'playing' && !st.notice && !line2.r && line2.l.length <= COLS - 9;
-  return { l1: line1.l, r1: line1.r, l2: line2.l, r2: line2.r, l3, r3, bar, param: !!msg && msg.param, mix: null, text: [line1.t, line2.t, t3], keys: null, tag };
+  return { l1: line1.l, r1: line1.r, l2: line2.l, r2: line2.r, l3, r3, bar, param: !!msg && msg.param, mix: null, samples: null, text: [line1.t, line2.t, t3], keys: null, tag };
 }
 
 let current: LcdState = {
@@ -183,6 +210,7 @@ let current: LcdState = {
   bar: null,
   param: false,
   mix: null,
+  samples: null,
   text: [LCD_TEXT.idle, LCD_TEXT.ready, ''],
   keys: null,
   tag: true,
@@ -195,7 +223,7 @@ let running = false;
 let unsubs: (() => void)[] = [];
 
 /** Encore quelque chose qui bouge sans evenement : un timecode, un message a eteindre. */
-const live = (now: number): boolean => sc.get().status === 'playing' || lcdMessage.get(now) !== null || lcdMix.get(now) !== null;
+const live = (now: number): boolean => sc.get().status === 'playing' || lcdMessage.get(now) !== null || lcdMix.get(now) !== null || lcdSamples.get(now);
 
 function run(): void {
   timer = 0;
@@ -250,6 +278,8 @@ export const lcd = {
       sc.subscribe(request),
       lcdMessage.subscribe(request),
       lcdMix.subscribe(request),
+      lcdSamples.subscribe(request),
+      kit.subscribe(() => request()),
       voiceFx.subscribe(request),
       presetMode.subscribe(request),
       presets.subscribe(request),

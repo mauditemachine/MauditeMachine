@@ -8,6 +8,9 @@
  *   docs/midi/MIDI-roto-reference.md   les regles, les formats, les six setups, tout le catalogue
  *   docs/midi/MIDI-roto-setups.csv     un controle du Roto par ligne (canal, CC, nom, cible)
  *   docs/midi/MIDI-targets.csv         une cible du site par ligne (id, machine, type, crans)
+ *   docs/midi/roto/MM <SETUP> (SETUP n).json   les six setups pour ROTO-SETUP (2026-10-05, Mika :
+ *                                      "donne-moi un json parfait pour mon Roto-Control"), les memes
+ *                                      que DOWNLOAD THE 6 SETUPS du panneau MIDI
  *
  *   npm run docs:midi
  *
@@ -57,10 +60,15 @@ async function readSite(chromium, url) {
     await page.goto(`${url}/?m=rytm&debug=1&mute=1`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(6000);
     return await page.evaluate(async () => {
-      const T = await import('/src/v4/midi/targets.ts');
-      const R = await import('/src/v4/midi/roto.ts');
-      const DL = await import('/src/v4/state/djload.ts');
-      const SL = await import('/src/v4/state/smplload.ts');
+      // Les memes modules que ceux de la page (Vite les date apres une modification a chaud : une autre adresse serait une autre copie)
+      const imp = (p) => {
+        const e = performance.getEntriesByType('resource').map((r) => r.name).filter((n) => n.includes(p));
+        return import(e.length ? e[e.length - 1] : p);
+      };
+      const T = await imp('/src/v4/midi/targets.ts');
+      const R = await imp('/src/v4/midi/roto.ts');
+      const DL = await imp('/src/v4/state/djload.ts');
+      const SL = await imp('/src/v4/state/smplload.ts');
       await DL.djLoad.load();
       await SL.smplLoad.load();
       await new Promise((r) => setTimeout(r, 1500));
@@ -151,6 +159,7 @@ function build(data, date) {
   L.push('**Les valeurs.**', '');
   L.push('- Un potard va de 0 a 127 sur toute sa course. 64 est le neutre exact d\'un potard bipolaire (EQ a 0 dB, filtre ouvert, PITCH, TONE, STRETCH, TUNE, GAIN) : le Roto y met un cran.');
   L.push('- Un selecteur a crans du site est un potard a crans du Roto (hapticMode 1, jusqu\'a 16 crans, noms courts) : le cran i de n correspond a la valeur i/(n-1). Le choix de son du kit compte les echantillons du site : KICK SOUND a 9 crans (909, 808, MM, puis les 6 samples), SNARE SOUND a 7.');
+  L.push('- **SAMPLE** (`rytm:enc:vsound`, a droite de VOLUME) choisit le son de la voix selectionnee : son nombre de crans suit la voix (BD 9, SD 7, les autres 3 ; CY et PC n\'ont qu\'un son). Il est donc continu sur le Roto : le site prend le cran le plus proche. La colonne Crans du catalogue donne son nombre pour la voix selectionnee a la generation (BD par defaut).');
   L.push('- Une **action** (RANDOM, CLEAR, OPEN, PLAY d\'une platine...) part au front montant : un CC qui passe au-dessus de 63, ou une note enfoncee. Une action **maintenue** (CUE, HOT CUE, boucles, pads TRIG du MM-SMPL, bends) dure jusqu\'au relachement.');
   L.push('- Un **etat** (RUN, un mute, OSC ON) est une valeur 0 ou 1 : sur le Roto un bouton **bascule** (TOGGLE) dont la LED suit le site. Une note fait basculer un parametre.', '');
   L.push('**Le retour vers le Roto.** Les potards motorises et les LEDs recoivent la valeur du site (meme canal, meme CC) toutes les 50 ms quand elle change (souris, preset, RANDOM, changement de machine), jamais pendant 300 ms apres un geste sur le potard, et un echo qui revient aussitot est ignore. Seulement vers une sortie dont le nom contient « roto », ou un appareil sur lequel tu as appris. Pas de retour pour les boutons d\'action.', '');
@@ -158,7 +167,7 @@ function build(data, date) {
   L.push('**Retenu** dans le navigateur (`mm.v4.midi.1`) : assignations apprises, appareils, ROTO (la carte), FEEDBACK, FOLLOW.', '');
 
   L.push('## 2. Le fichier ROTO-SETUP (JSON)', '');
-  L.push('Format des exports de ROTO-SETUP (version 1), un fichier par setup, a importer (File > Import) sur le setup choisi avec SEL. Le panneau MIDI du site les telecharge tout faits (DOWNLOAD THE 6 SETUPS). Nom des fichiers : `MM RYTM (SETUP 11).json`.', '');
+  L.push('Format des exports de ROTO-SETUP (version 1), un fichier par setup, a importer (File > Import) sur le setup choisi avec SEL. Le panneau MIDI du site les telecharge tout faits (DOWNLOAD THE 6 SETUPS), et ils sont aussi dans ce dossier : `docs/midi/roto/` (`MM RYTM (SETUP 11).json`...).', '');
   const ex = data.setups[1];
   const exK = ex.json.knobs[0];
   const exB = ex.json.buttons[0];
@@ -270,6 +279,9 @@ async function main() {
   await writeFile(path.join(OUT, 'MIDI-roto-reference.md'), out.md);
   await writeFile(path.join(OUT, 'MIDI-roto-setups.csv'), out.setupsCsv);
   await writeFile(path.join(OUT, 'MIDI-targets.csv'), out.targetsCsv);
+  // Les fichiers a importer dans ROTO-SETUP (File > Import, sur le setup choisi avec SEL)
+  await mkdir(path.join(OUT, 'roto'), { recursive: true });
+  for (const st of data.setups) await writeFile(path.join(OUT, 'roto', st.file), `${JSON.stringify(st.json, null, 2)}\n`);
   console.log(`docs/midi : ${data.targets.length} cibles, ${data.setups.length} setups`);
 }
 

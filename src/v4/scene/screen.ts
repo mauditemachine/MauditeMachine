@@ -238,7 +238,7 @@ export class Screen {
     }
     this.stepMeters(now);
     // La vague du repos (desktop, la machine regardee, rien ne joue ni ne s'affiche)
-    const quiet = !clock.running && sc.get().status !== 'playing' && !s.l3 && !s.mix && !s.keys;
+    const quiet = !clock.running && sc.get().status !== 'playing' && !s.l3 && !s.mix && !s.samples && !s.keys;
     if (!this.mobile && quiet && focus.get() === 'mm808' && now - this.activeAt > IDLE_MS) {
       if (this.waveFrom === 0) this.waveFrom = now;
       if (now - this.waveFrom > WAVE_MS) {
@@ -251,6 +251,7 @@ export class Screen {
     else {
       this.paintHead(s, ptn.cur, now);
       if (s.mix) this.paintMix(s.mix);
+      else if (s.samples) this.paintSamples(s.samples);
       else if (rytmEdit) next = Math.max(next, this.paintPatterns(now));
       else next = Math.max(next, this.paintVoice(p.instrument, p.steps, now));
       this.paintLines(s, rytmEdit, p.instrument);
@@ -439,6 +440,36 @@ export class Screen {
     });
   }
 
+  /**
+   * Page SAMPLES (2026-10-05) : la liste des sons de la voix choisie, trois
+   * lignes (le precedent, le son du moment en negatif, le suivant), son rang
+   * a droite et, tout a droite, un rail d'un point par son.
+   */
+  private paintSamples(m: NonNullable<LcdState['samples']>): void {
+    const b = this.pix;
+    const n = m.names.length;
+    const ROW = 9;
+    const top = 12.5;
+    for (let k = -1; k <= 1; k += 1) {
+      const i = m.cur + k;
+      if (i < 0 || i >= n) continue;
+      const y = top + (k + 1) * ROW;
+      const name = fit(m.names[i], 17);
+      if (k === 0) {
+        b.tag(name, 14, y);
+        b.textRight(`${i + 1}/${n}`, 140, y, 2);
+      } else b.text(name, 15, y, 1);
+    }
+    // Le rail : un point par son, celui du moment en barre
+    const pitch = Math.min(3, 24 / Math.max(1, n));
+    const y1 = top + 2 + (24 - pitch * n) / 2;
+    for (let i = 0; i < n; i += 1) {
+      const y = y1 + i * pitch;
+      if (i === m.cur) b.rect(147, y - 0.5, 6, 1.5, 2);
+      else b.rect(149, y, 2, 0.5, 1);
+    }
+  }
+
   /** Mode presets : le titre et le rang, le nom entre ses fleches, les quatre touches. */
   private paintPresets(s: LcdState): void {
     const b = this.pix;
@@ -475,6 +506,13 @@ export class Screen {
       const v = Math.round((s.mix.levels[k] ?? 0) * 100);
       b.text(`VOLUME ${s.mix.sel} ${v}`, X0, LINE_A);
       b.text('THE FIVE VOICES OF ITS ROW', X0, LINE_B, 1);
+      this.bar = null;
+      return;
+    }
+    if (s.samples) {
+      b.text(fit(`${s.samples.title} SOUND`, 14), X0, LINE_A);
+      b.tag(s.samples.inst, X1 - textWidth(s.samples.inst) - 2, LINE_A);
+      b.text('PRESS A VOICE: ITS SOUNDS', X0, LINE_B, 1);
       this.bar = null;
       return;
     }

@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 5 octobre 2026 depuis le code du site (`npm run docs:midi`) : 345 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 5 octobre 2026 depuis le code du site (`npm run docs:midi`) : 346 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -22,6 +22,7 @@ Genere le 5 octobre 2026 depuis le code du site (`npm run docs:midi`) : 345 cibl
 
 - Un potard va de 0 a 127 sur toute sa course. 64 est le neutre exact d'un potard bipolaire (EQ a 0 dB, filtre ouvert, PITCH, TONE, STRETCH, TUNE, GAIN) : le Roto y met un cran.
 - Un selecteur a crans du site est un potard a crans du Roto (hapticMode 1, jusqu'a 16 crans, noms courts) : le cran i de n correspond a la valeur i/(n-1). Le choix de son du kit compte les echantillons du site : KICK SOUND a 9 crans (909, 808, MM, puis les 6 samples), SNARE SOUND a 7.
+- **SAMPLE** (`rytm:enc:vsound`, a droite de VOLUME) choisit le son de la voix selectionnee : son nombre de crans suit la voix (BD 9, SD 7, les autres 3 ; CY et PC n'ont qu'un son). Il est donc continu sur le Roto : le site prend le cran le plus proche. La colonne Crans du catalogue donne son nombre pour la voix selectionnee a la generation (BD par defaut).
 - Une **action** (RANDOM, CLEAR, OPEN, PLAY d'une platine...) part au front montant : un CC qui passe au-dessus de 63, ou une note enfoncee. Une action **maintenue** (CUE, HOT CUE, boucles, pads TRIG du MM-SMPL, bends) dure jusqu'au relachement.
 - Un **etat** (RUN, un mute, OSC ON) est une valeur 0 ou 1 : sur le Roto un bouton **bascule** (TOGGLE) dont la LED suit le site. Une note fait basculer un parametre.
 
@@ -33,7 +34,7 @@ Genere le 5 octobre 2026 depuis le code du site (`npm run docs:midi`) : 345 cibl
 
 ## 2. Le fichier ROTO-SETUP (JSON)
 
-Format des exports de ROTO-SETUP (version 1), un fichier par setup, a importer (File > Import) sur le setup choisi avec SEL. Le panneau MIDI du site les telecharge tout faits (DOWNLOAD THE 6 SETUPS). Nom des fichiers : `MM RYTM (SETUP 11).json`.
+Format des exports de ROTO-SETUP (version 1), un fichier par setup, a importer (File > Import) sur le setup choisi avec SEL. Le panneau MIDI du site les telecharge tout faits (DOWNLOAD THE 6 SETUPS), et ils sont aussi dans ce dossier : `docs/midi/roto/` (`MM RYTM (SETUP 11).json`...).
 
 ```json
 {
@@ -178,13 +179,13 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 6 | 1.7 | 1 | 20 | DELAY | violet | rytm:enc:delay | DELAY | continu |
 | 7 | 1.8 | 1 | 21 | REVERB | violet | rytm:enc:reverb | REVERB | continu |
 | 8 | 2.1 | 1 | 22 | VOLUME | jaune | rytm:enc:vol | VOLUME (SELECTED VOICE) | continu |
-| 9 | 2.2 | 1 | 23 | TONE | jaune | rytm:enc:tone | TONE (SELECTED VOICE) | bipolaire, cran au milieu (64) |
-| 10 | 2.3 | 1 | 24 | DECAY | jaune | rytm:enc:vdecay | DECAY (SELECTED VOICE) | continu |
-| 11 | 2.4 | 1 | 25 | V DIST | peche | rytm:enc:vdist | DIST (SELECTED VOICE) | continu |
-| 12 | 2.5 | 1 | 26 | V CHORUS | peche | rytm:enc:vchorus | CHORUS (SELECTED VOICE) | continu |
-| 13 | 2.6 | 1 | 27 | V DELAY | peche | rytm:enc:vdelay | DELAY (SELECTED VOICE) | continu |
-| 14 | 2.7 | 1 | 28 | V REVERB | peche | rytm:enc:vreverb | REVERB (SELECTED VOICE) | continu |
-| 15 | 2.8 | 1 | 29 | KICK TUNE | or | rytm:kit:tune | TWEAK TUNE | bipolaire, cran au milieu (64) |
+| 9 | 2.2 | 1 | 23 | SAMPLE | or | rytm:enc:vsound | SAMPLE (SELECTED VOICE) | continu |
+| 10 | 2.3 | 1 | 24 | TONE | jaune | rytm:enc:tone | TONE (SELECTED VOICE) | bipolaire, cran au milieu (64) |
+| 11 | 2.4 | 1 | 25 | DECAY | jaune | rytm:enc:vdecay | DECAY (SELECTED VOICE) | continu |
+| 12 | 2.5 | 1 | 26 | V DIST | peche | rytm:enc:vdist | DIST (SELECTED VOICE) | continu |
+| 13 | 2.6 | 1 | 27 | V CHORUS | peche | rytm:enc:vchorus | CHORUS (SELECTED VOICE) | continu |
+| 14 | 2.7 | 1 | 28 | V DELAY | peche | rytm:enc:vdelay | DELAY (SELECTED VOICE) | continu |
+| 15 | 2.8 | 1 | 29 | V REVERB | peche | rytm:enc:vreverb | REVERB (SELECTED VOICE) | continu |
 | 16 | 3.1 | 1 | 30 | BD VOL | creme | rytm:voice:BD:level | BD VOLUME | continu |
 | 17 | 3.2 | 1 | 31 | SD VOL | creme | rytm:voice:SD:level | SD VOLUME | continu |
 | 18 | 3.3 | 1 | 102 | TOM VOL | creme | rytm:voice:TOM:level | TOM VOLUME | continu |
@@ -195,7 +196,7 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 23 | 3.8 | 1 | 107 | HT VOL | creme | rytm:voice:HT:level | HT VOLUME | continu |
 | 24 | 4.1 | 1 | 108 | CY VOL | creme | rytm:voice:CY:level | CY VOLUME | continu |
 | 25 | 4.2 | 1 | 109 | PC VOL | creme | rytm:voice:PC:level | PC VOLUME | continu |
-| 26 | 4.3 | 1 | 110 | KICK SOUND | or | rytm:kit:bd | TWEAK KICK | potard a 9 crans : 909 / 808 / MM / BLUEPRINT / VNTM / ENGELHARDT / CARASSI / STEIN / AFFKT |
+| 26 | 4.3 | 1 | 110 | KICK TUNE | or | rytm:kit:tune | TWEAK TUNE | bipolaire, cran au milieu (64) |
 | 27 | 4.4 | 1 | 111 | KICK ATTACK | or | rytm:kit:attack | TWEAK ATTACK | continu |
 | 28 | 4.5 | 1 | 112 | KICK DECAY | or | rytm:kit:decay | TWEAK DECAY | continu |
 | 29 | 4.6 | 1 | 113 | KICK DRIVE | or | rytm:kit:drive | TWEAK DRIVE | continu |
@@ -585,7 +586,7 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 
 Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI LEARN, ou le fichier d'assignations du chapitre 5). La colonne « Dans » dit dans quels setups du Roto elle est deja placee. La cible d'un id est dans la machine de son prefixe : `rytm:` MM-RYTM (scope `mm808`), `voy:` MM-ARP (`voy`), `smpl:` MM-SMPL (`smpl`), `dj:` MM-DECKS (`dj`), `nav:` navigation (`global`).
 
-### MM-RYTM (scope `mm808`, 157 cibles)
+### MM-RYTM (scope `mm808`, 158 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -598,6 +599,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:enc:delay` | DELAY | valeur 0 a 127 |  | RYTM, LIVE |
 | `rytm:enc:reverb` | REVERB | valeur 0 a 127 |  | RYTM, LIVE |
 | `rytm:enc:vol` | VOLUME (SELECTED VOICE) | valeur 0 a 127 |  | RYTM |
+| `rytm:enc:vsound` | SAMPLE (SELECTED VOICE) | valeur 0 a 127 | 9 | RYTM |
 | `rytm:enc:tone` | TONE (SELECTED VOICE) | valeur 0 a 127 |  | RYTM |
 | `rytm:enc:vdecay` | DECAY (SELECTED VOICE) | valeur 0 a 127 |  | RYTM |
 | `rytm:enc:vdist` | DIST (SELECTED VOICE) | valeur 0 a 127 |  | RYTM |
@@ -685,7 +687,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:CY:mute` | MUTE CY | valeur 0 a 127 | 2 | RYTM |
 | `rytm:voice:PC:mute` | MUTE PC | valeur 0 a 127 | 2 | RYTM |
 | `rytm:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
-| `rytm:kit:bd` | TWEAK KICK | valeur 0 a 127 | 9 | RYTM |
+| `rytm:kit:bd` | TWEAK KICK | valeur 0 a 127 | 9 |  |
 | `rytm:kit:tune` | TWEAK TUNE | valeur 0 a 127 |  | RYTM, LIVE |
 | `rytm:kit:attack` | TWEAK ATTACK | valeur 0 a 127 |  | RYTM |
 | `rytm:kit:decay` | TWEAK DECAY | valeur 0 a 127 |  | RYTM, LIVE |

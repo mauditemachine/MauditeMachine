@@ -66,7 +66,7 @@ const RYTM_GROUPS: readonly Group[] = [
     id: 'voice',
     label: 'VOICE FX',
     voices: true,
-    dials: [e('vol', 'VOLUME'), e('tone', 'TONE'), e('vdecay', 'DECAY'), e('vdist', 'DIST'), e('vchorus', 'CHORUS'), e('vdelay', 'DELAY'), e('vreverb', 'REVERB')],
+    dials: [e('vol', 'VOLUME'), e('vsound', 'SAMPLE'), e('tone', 'TONE'), e('vdecay', 'DECAY'), e('vdist', 'DIST'), e('vchorus', 'CHORUS'), e('vdelay', 'DELAY'), e('vreverb', 'REVERB')],
   },
   { id: 'main', label: 'MASTER', dials: [e('level', 'MASTER'), e('tempo', 'TEMPO')] },
   { id: 'kick', label: 'KICK', dials: [r('bd', 'SOUND'), r('tune', 'TUNE'), r('attack', 'ATTACK'), r('decay', 'DECAY'), r('drive', 'DRIVE')] },

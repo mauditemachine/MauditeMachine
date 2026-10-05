@@ -72,7 +72,10 @@ function dialTarget(id: string, scope: TargetScope, label: string, dial: DialId)
     scope,
     label,
     kind: 'value',
-    steps: dialSteps(dial),
+    // SAMPLE : ses crans suivent la voix selectionnee (un son par cran), lus a chaque fois
+    get steps() {
+      return dialSteps(dial);
+    },
     get: () => (span > 0 ? (anyDialValue(dial) - lo) / span : 0),
     set: (v) => anyDial(dial, dial === 'tempo' ? Math.round(lo + v * span) : lo + v * span),
   };

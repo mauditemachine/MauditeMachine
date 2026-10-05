@@ -8,6 +8,7 @@ rytm:enc:chorus,mm808,MM-RYTM,CHORUS,value,,RYTM
 rytm:enc:delay,mm808,MM-RYTM,DELAY,value,,RYTM LIVE
 rytm:enc:reverb,mm808,MM-RYTM,REVERB,value,,RYTM LIVE
 rytm:enc:vol,mm808,MM-RYTM,VOLUME (SELECTED VOICE),value,,RYTM
+rytm:enc:vsound,mm808,MM-RYTM,SAMPLE (SELECTED VOICE),value,9,RYTM
 rytm:enc:tone,mm808,MM-RYTM,TONE (SELECTED VOICE),value,,RYTM
 rytm:enc:vdecay,mm808,MM-RYTM,DECAY (SELECTED VOICE),value,,RYTM
 rytm:enc:vdist,mm808,MM-RYTM,DIST (SELECTED VOICE),value,,RYTM
@@ -95,7 +96,7 @@ rytm:voice:HT:mute,mm808,MM-RYTM,MUTE HT,value,2,RYTM MIXER LIVE
 rytm:voice:CY:mute,mm808,MM-RYTM,MUTE CY,value,2,RYTM
 rytm:voice:PC:mute,mm808,MM-RYTM,MUTE PC,value,2,RYTM
 rytm:running,mm808,MM-RYTM,RUN (ON / OFF),value,2,RYTM MIXER LIVE
-rytm:kit:bd,mm808,MM-RYTM,TWEAK KICK,value,9,RYTM
+rytm:kit:bd,mm808,MM-RYTM,TWEAK KICK,value,9,
 rytm:kit:tune,mm808,MM-RYTM,TWEAK TUNE,value,,RYTM LIVE
 rytm:kit:attack,mm808,MM-RYTM,TWEAK ATTACK,value,,RYTM
 rytm:kit:decay,mm808,MM-RYTM,TWEAK DECAY,value,,RYTM LIVE

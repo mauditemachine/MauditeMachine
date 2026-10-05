@@ -42,7 +42,9 @@ import {
   clearPattern,
   randomPattern,
   dial,
+  dialSteps,
   dialValue,
+  soundFamily,
   editToggle,
   presetKey,
   focusMachine,
@@ -203,6 +205,8 @@ const isVoy = (k: DialId): boolean => k.startsWith('v:');
 const isKit = (k: DialId): boolean => k.startsWith('r:');
 /** Crans d'un potard du MM-ARP (0 : continu, le morphing de WAVE aussi) ou d'un TWEAK du MM-RYTM. */
 const voySteps = (k: DialId): number => {
+  // SAMPLE (2026-10-05) : un cran par son de la voix selectionnee
+  if (k === 'vsound') return dialSteps(k);
   const r = kitIdOf(k);
   if (r) return kitSteps(r);
   if (!isVoy(k)) return 0;
@@ -798,8 +802,9 @@ const onDialKey =
     const cfg = k === 'tempo' ? DIAL_KEYS.tempo : DIAL_KEYS.pot;
     const min = k === 'tempo' ? BPM.min : potMin(k);
     const max = k === 'tempo' ? BPM.max : 1;
-    // TONE et STRETCH : un pas de 0.05 sort du cran du centre (+/-0.04)
-    const step = e.shiftKey ? cfg.big : isBipolar(k) ? POT_UI.bipolarStep : cfg.step;
+    // SAMPLE : un cran par son ; TONE et STRETCH : un pas de 0.05 sort du cran du centre (+/-0.04)
+    const stops = k === 'vsound' ? dialSteps(k) : 0;
+    const step = stops > 1 ? 1 / (stops - 1) : e.shiftKey ? cfg.big : isBipolar(k) ? POT_UI.bipolarStep : cfg.step;
     let v = dialValue(k);
     switch (e.key) {
       case 'ArrowUp':
@@ -868,6 +873,10 @@ const title = (label: string): string => label.charAt(0) + label.slice(1).toLowe
 /** Texte lu d'un encodeur : "130 BPM", "80 %", "54 % swing", TONE "+35", STRETCH "-40 %, shorter". */
 function dialText(k: EncId, v: number): string {
   if (k === 'tempo') return `${v} BPM`;
+  if (k === 'vsound') {
+    const f = soundFamily();
+    return f ? kit.valueText(f) : 'one sound';
+  }
   if (k === 'swing') return `${swingRatio(v)} % swing`;
   if (k === 'tone') {
     const n = pct(v);
@@ -956,6 +965,10 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
     delay,
     reverb,
     vol: sel.level,
+    vsound: ((): number => {
+      const f = soundFamily();
+      return f ? kit.value(f) : 0;
+    })(),
     tone: sel.tone,
     vdecay: sel.decay,
     vdist: sel.dist,

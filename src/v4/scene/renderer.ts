@@ -50,7 +50,8 @@ import { clock } from '../audio/clock';
 import { sc } from '../audio/soundcloud';
 import { context, mix } from '../audio/drums';
 import { BPM, INSTRUMENTS, pattern } from '../audio/pattern';
-import { kit } from '../audio/kit';
+import { familyOf, kit } from '../audio/kit';
+import type { ShotId } from '../audio/shotsdsp';
 import { machinePlaying, onPlayStart } from '../state/playLock';
 import { reserve } from '../audio/sched';
 import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
@@ -78,6 +79,7 @@ import {
   DPR_MIN_DESKTOP,
   ENCODERS,
   EXPLODE,
+  OPEN_VIEW,
   EXPOSURE,
   APPEARANCE,
   FIRST_FRAME_WAIT_MS,
@@ -122,14 +124,14 @@ import { Machine } from './machine';
 import { Orbit } from './orbit';
 import { Pads } from './pads';
 import { Pcb } from './pcb';
-import { RytmTweaks, rytmTweakClear } from './rytmTweaks';
+import { RYTM_TWEAK_PLATE, RytmTweaks, rytmTweakClear } from './rytmTweaks';
 import { Screen } from './screen';
 import { BackPlate } from './backplate';
 import { BUTTON_INDEX, Sequencer3D, type TransportButton } from './sequencer3d';
 import { PanelSilk, fontsReady, makeBrushTexture, whenFonts, whenLogos } from './silk';
 import { Tweens, easeInOutCubic, easeOutCubic, linear } from './tween';
 import { VoyagerRig } from '../voyager/rig';
-import { VOY_BODY, VOY_FRAME, VOY_X } from '../voyager/theme';
+import { VOY_BODY, VOY_FRAME, VOY_TWEAK_PLATE, VOY_X } from '../voyager/theme';
 import type { DjRig } from '../dj/rig';
 import { djLoad } from '../state/djload';
 import { DJ_FRAME, DJ_W, DJ_X, UNIT_X, unitW } from '../dj/theme';
@@ -162,9 +164,13 @@ interface Frame {
   rOpen: number;
   fitHalfH: number;
   extent: number;
+  /** ouvert (OPEN, desktop) : la largeur de la plaque a cadrer (0 : la pile entiere, fitHalfH) et son centre dans le monde */
+  openW: number;
+  openY: number;
+  openZ: number;
 }
 
-const FRAME_KEYS = ['cx', 'hw0', 'h', 'ty', 'explodeTy', 'rClosed', 'rOpen', 'fitHalfH', 'extent'] as const;
+const FRAME_KEYS = ['cx', 'hw0', 'h', 'ty', 'explodeTy', 'rClosed', 'rOpen', 'fitHalfH', 'extent', 'openW', 'openY', 'openZ'] as const;
 
 /**
  * Zoom d'une machine a l'autre (ms) ; la vue d'ensemble garde 88 % de la
@@ -448,6 +454,8 @@ export class Stage {
   private hotChips = new Set<ChipId>();
   /** vue eclatee visee : true pendant l'ouverture et vue ouverte */
   private explodeGoal = false;
+  /** le capot du MM-ARP : ouvert (ou s'ouvrant) a la derniere notification */
+  private voyGoal = false;
   private unsubExplode: () => void;
   private detachExplode: () => void;
   /** intro (spec 7.4) : en cours ; son horloge (ms, chaque image avance de maxStepMs au plus), la derniere image */
@@ -858,6 +866,8 @@ export class Stage {
     // Les TWEAKS suivent le kit (un glisser, la molette, un preset) : sous le capot, pas d'ombre a refaire
     this.unsubKit = kit.subscribe(() => {
       if (this.rytmTweaks.sync()) this.repaint();
+      // Le potard SAMPLE (la rangee VOICE) suit le son de la voix selectionnee
+      this.syncMix();
     });
     this.syncVoices();
     this.unsubVoices = voices.subscribe(this.syncVoices);
@@ -942,6 +952,12 @@ export class Stage {
       });
       // Le capot du MM-VOYAGER change le cadrage (pile ouverte) : un recalcul
       this.unsubVoyExplode = voyExplode.subscribe(() => {
+        const s = voyExplode.get();
+        const goal = s === 'opening' || s === 'open';
+        if (goal !== this.voyGoal) {
+          this.voyGoal = goal;
+          this.openView('voy');
+        }
         this.hit.invalidate();
         this.updateCamera();
         this.invalidate();
@@ -1184,7 +1200,10 @@ export class Stage {
     const free = Math.max(1, this.height - inset - head);
     const hwBase = Math.max(F.hw0, (F.h / FIT_H / 2) * (W / free));
     const e = this.explodeFrame();
-    let hw = hwBase + (Math.max(hwBase, F.fitHalfH * aspect) - hwBase) * e;
+    // Ouvert (desktop, 2026-10-05) : l'interieur (la plaque et sa carte) remplit la vue ; sinon la pile entiere
+    const inner = F.openW > 0;
+    const hwOpen = inner ? Math.max(F.openW / 2 / OPEN_VIEW.fill, (OPEN_VIEW.h / FIT_H / 2) * (W / free)) : Math.max(hwBase, F.fitHalfH * aspect);
+    let hw = hwBase + (hwOpen - hwBase) * e;
     const t = this.layoutMobile ? 0 : this.secT;
     // Decalage du centre de la machine vers la gauche, en px (cadrage de section)
     let shiftPx = 0;
@@ -1213,10 +1232,12 @@ export class Stage {
     // Distance : la demi-hauteur hh tient dans le champ vertical, au pivot
     const D = hh / Math.tan((ORBIT.fovDeg * Math.PI) / 360);
     // Le pivot monte avec la pile eclatee : la camera suit
-    const ty = F.ty + (F.explodeTy - F.ty) * e;
-    if (this.orbit.target.y !== ty || this.orbit.distance !== D || this.orbit.target.x !== F.cx) {
+    const ty = F.ty + ((inner ? F.openY : F.explodeTy) - F.ty) * e;
+    const tz = inner ? F.openZ * e : 0;
+    if (this.orbit.target.y !== ty || this.orbit.target.z !== tz || this.orbit.distance !== D || this.orbit.target.x !== F.cx) {
       this.orbit.target.x = F.cx;
       this.orbit.target.y = ty;
+      this.orbit.target.z = tz;
       this.orbit.distance = D;
       this.orbit.place();
     }
@@ -1368,6 +1389,10 @@ export class Stage {
       rOpen: SECTION_FRAME.radius.open,
       fitHalfH: EXPLODE.fitHalfH,
       extent: LIGHT_KEY.extent,
+      // La plaque des TWEAKS et sa carte (OPEN_VIEW) ; au telephone, le cadrage de la pile
+      openW: mob || PORTRAIT ? 0 : RYTM_TWEAK_PLATE.w + OPEN_VIEW.margin,
+      openY: 2.39,
+      openZ: RYTM_TWEAK_PLATE.cz,
     };
     if (!VOYAGER || f === 'mm808') return m808;
     const voy: Frame = {
@@ -1380,6 +1405,9 @@ export class Stage {
       rOpen: VOY_FRAME.radius.open,
       fitHalfH: VOY_FRAME.fitHalfH,
       extent: LIGHT_KEY.extent + 1,
+      openW: mob || PORTRAIT ? 0 : VOY_TWEAK_PLATE.w + OPEN_VIEW.margin,
+      openY: 1.54,
+      openZ: 1.4,
     };
     if (f === 'voy') return voy;
     // Le MM-DECKS : l'ensemble de face (deux platines, la table) ; au telephone, un bloc a la fois
@@ -1394,6 +1422,9 @@ export class Stage {
       rOpen: DJ_FRAME.radius.open,
       fitHalfH: DJ_FRAME.h / 2,
       extent: mob ? unitW(u) / 2 + 3 : DJ_FRAME.extent,
+      openW: 0,
+      openY: DJ_FRAME.targetY,
+      openZ: 0,
     };
     if (f === 'dj') return dj;
     // Le MM-SMPL (2026-10-04) : le bloc entier de face, comme une platine du MM-DECKS
@@ -1407,6 +1438,9 @@ export class Stage {
       rOpen: SMPL_W / 2 + 0.6,
       fitHalfH: SMPL_FRAME.h / 2,
       extent: SMPL_W / 2 + (mob ? 3 : 2),
+      openW: 0,
+      openY: SMPL_FRAME.targetY,
+      openZ: 0,
     };
     if (f === 'smpl') return smpl;
     const left = -BODY.w / 2;
@@ -1422,6 +1456,9 @@ export class Stage {
       rOpen: half + 1.8,
       fitHalfH: Math.max(m808.fitHalfH, voy.fitHalfH),
       extent: half + 5,
+      openW: 0,
+      openY: Math.max(m808.explodeTy, voy.explodeTy),
+      openZ: 0,
     };
   }
 
@@ -2371,6 +2408,19 @@ export class Stage {
   }
 
   /**
+   * OPEN et CLOSE d'une machine qu'on regarde (2026-10-05, Mika : "quand on
+   * OPEN une machine j'aimerais que ca puisse zoom vers le contenu de
+   * l'interieur ; quand on ferme on revient dans la vue reset view") : la vue
+   * repart de la vue par defaut (500 ms) ; ouverte, le cadrage (updateCamera)
+   * rejoint l'interieur de la machine, fermee il revient a la machine. Pas
+   * pendant l'intro, qui conduit sa propre camera.
+   */
+  private openView(id: 'mm808' | 'voy'): void {
+    if (this.introOn || this.fTo !== id) return;
+    this.orbit.reset();
+  }
+
+  /**
    * OPEN (store state/explode.ts) : opening ou closing lance l'animation
    * (coupe franche a la frame suivante en reduced motion) ; le pad OPEN
    * s'allume (yellowHi) et sa serigraphie passe a CLOSE des le depart ; les
@@ -2401,6 +2451,7 @@ export class Stage {
       if (goal) this.pcb.prepare();
       if (s === 'opening' || s === 'closing') this.explode.start(goal, performance.now(), motion.reduced());
       else this.explode.snap(goal);
+      this.openView('mm808');
       changed = true;
     }
     if (this.pads.setOpen(goal)) changed = true;
@@ -2466,6 +2517,7 @@ export class Stage {
   private syncMix = (): void => {
     const inst = pattern.get().instrument;
     const v = inst ? voiceFx.of(inst) : VOICE_FX_DEFAULT;
+    const fam = inst ? familyOf(inst as ShotId) : null;
     const e = this.encoders;
     let changed = false;
     for (const [id, t] of [
@@ -2477,6 +2529,7 @@ export class Stage {
       ['delay', mix.delay],
       ['reverb', mix.reverb],
       ['vol', v.level],
+      ['vsound', fam ? kit.value(fam) : 0],
       ['tone', potCourse('tone', v.tone)],
       ['vdecay', v.decay],
       ['vdist', v.dist],
