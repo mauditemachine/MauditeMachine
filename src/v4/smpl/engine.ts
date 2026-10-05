@@ -242,11 +242,19 @@ export const smplEngine = {
     );
     return true;
   },
-  play(id: number, a: number, b: number, loop: boolean): void {
-    void ensure().then((g) => g?.node.port.postMessage({ type: 'play', id, a, b, loop }));
+  /** Une voix de a a b (s) ; at : l'heure du contexte ou elle part (un pas de la sequence), 0 tout de suite. */
+  play(id: number, a: number, b: number, loop: boolean, at = 0): void {
+    if (graph) graph.node.port.postMessage({ type: 'play', id, a, b, loop, at });
+    else void ensure().then((g) => g?.node.port.postMessage({ type: 'play', id, a, b, loop, at }));
   },
-  cloud(id: number, pos: number, a: number, b: number): void {
-    void ensure().then((g) => g?.node.port.postMessage({ type: 'cloud', id, pos, a, b }));
+  /** Un nuage a pos (s) dans [a, b] ; at et dur : un nuage de la sequence (son heure, sa duree). */
+  cloud(id: number, pos: number, a: number, b: number, at = 0, dur = 0): void {
+    if (graph) graph.node.port.postMessage({ type: 'cloud', id, pos, a, b, at, dur });
+    else void ensure().then((g) => g?.node.port.postMessage({ type: 'cloud', id, pos, a, b, at, dur }));
+  },
+  /** Le contexte du son, s'il existe (la sequence s'y cale). */
+  get ctx(): AudioContext | null {
+    return graph?.ctx ?? null;
   },
   move(id: number, pos: number): void {
     graph?.node.port.postMessage({ type: 'move', id, pos });

@@ -43,6 +43,42 @@ export function withInstanceEmissive<M extends MeshStandardMaterial>(m: M, maske
   return m;
 }
 
+/**
+ * Touche de caoutchouc a LED dedans (2026-10-05, Mika : "les boutons
+ * poussoirs genre caoutchouc avec une LED interieure, la diffusion doit
+ * etre de cette maniere") : l'emissif par instance, mais diffuse comme par
+ * une LED sous le caoutchouc : plus fort au centre du dessus, qui s'etale
+ * vers les bords, les flancs a peine (la matiere laisse passer un peu de
+ * lumiere). Pour une geometrie unite (x et z de -0.5 a 0.5, dj/controls.ts
+ * keyGeometry), mise a l'echelle par instance : la tache suit la forme de
+ * la touche.
+ */
+export function withRubberLed<M extends MeshStandardMaterial>(m: M): M {
+  m.onBeforeCompile = (shader) => {
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec3 instanceEmissive;\nvarying vec3 vInstanceEmissive;\nvarying vec2 vLedUv;\nvarying float vLedTop;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvInstanceEmissive = instanceEmissive;\n\tvLedUv = position.xz * 2.0;\n\tvLedTop = normal.y;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vInstanceEmissive;\nvarying vec2 vLedUv;\nvarying float vLedTop;')
+      .replace(
+        '#include <color_fragment>',
+        [
+          '#include <color_fragment>',
+          '\tfloat ledR = length(vLedUv);',
+          '\tfloat ledCore = 1.0 - smoothstep(0.0, 1.3, ledR);',
+          '\tfloat ledTop = smoothstep(0.2, 0.95, vLedTop);',
+          '\tfloat ledGlow = mix(0.3, 1.0, ledTop) * (0.4 + 0.95 * ledCore * ledCore);',
+          // La ou la LED eclaire, la matiere prend sa couleur (sur un caoutchouc clair, la lumiere ne se perd pas dans le blanc)
+          '\tfloat ledOn = clamp(max(vInstanceEmissive.r, max(vInstanceEmissive.g, vInstanceEmissive.b)) * ledGlow * 2.5, 0.0, 1.0);',
+          '\tdiffuseColor.rgb *= 1.0 - 0.6 * ledOn;',
+        ].join('\n')
+      )
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += vInstanceEmissive * ledGlow;');
+  };
+  m.customProgramCacheKey = () => 'rubberLed';
+  return m;
+}
+
 /** Chassis (coin, pieds, connectique) : couleurs de sommets, facettes franches, mat. */
 export function makeChassisMaterial(): MeshStandardMaterial {
   const m = new MeshStandardMaterial({ vertexColors: true, flatShading: true, ...MATERIAL.chassis });

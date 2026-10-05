@@ -5,17 +5,19 @@
  * - Potards : role slider ; fleches 2 %, Maj ou Page 10 %, Debut et Fin aux
  *   butees, Suppr : la valeur de depart.
  * - Touches, PLAY : Entree ou Espace ; pads : tenus tant que la touche
- *   l'est (GRAIN, LOOP).
+ *   l'est (GRAIN, LOOP) ; en EDIT (2026-10-05), un pas : Entree le pose ou
+ *   l'enleve, haut et bas changent sa slice.
  * Inertes tant qu'on n'utilise pas le MM-SMPL.
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Stage } from '../scene/renderer';
 import { focus } from '../state/focus';
-import { smplDial, smplLoadFile, smplPad } from './actions';
+import { smplDial, smplLoadFile, smplPad, smplStepSlice, smplStepTap } from './actions';
 import { listenSmplKeys } from './keys';
 import { keyAction } from './gestures';
 import { SMPL_KNOBS, smplParams, smplValueText } from './params';
+import { smplSeq } from './seq';
 import { smplKeyId, smplKnobId, smplPadId } from './rig';
 import { SMPL_PADS } from './slices';
 import { padSlice, smplState } from './state';
@@ -52,6 +54,7 @@ export const SmplTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   const s = useSyncExternalStore(smplState.subscribe, smplState.get, smplState.get);
   const v = useSyncExternalStore(smplParams.subscribe, smplParams.get, smplParams.get);
+  const q = useSyncExternalStore(smplSeq.subscribe, smplSeq.get, smplSeq.get);
   const els = useRef(new Map<string, HTMLElement>());
   const refs = useRef(new Map<string, (el: HTMLElement | null) => void>());
   const groupRef = useRef<HTMLDivElement>(null);
@@ -153,7 +156,8 @@ export const SmplTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     <div ref={groupRef} className="v4-twins" role="group" aria-label="MM-SMPL sampler, slicer and granular" aria-hidden={off || undefined}>
       {SMPL_KEYS.map((k) => {
         const id = smplKeyId(k.kind);
-        const pressed = k.kind === 'play' ? s.preview : k.kind === 'rev' ? s.reverse : k.kind === 'loop' ? s.loop : k.kind === 'rec' ? s.recording : k.kind === 'mode' ? s.mode === 'grain' : undefined;
+        const pressed =
+          k.kind === 'play' ? s.preview || q.running : k.kind === 'rev' ? s.reverse : k.kind === 'loop' ? s.loop : k.kind === 'rec' ? s.recording : k.kind === 'mode' ? s.mode === 'grain' : k.kind === 'edit' ? q.edit : undefined;
         return (
           <button
             key={id}
@@ -174,6 +178,39 @@ export const SmplTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       })}
       {Array.from({ length: SMPL_PADS }, (_, i) => {
         const id = smplPadId(i);
+        if (q.edit) {
+          const st = q.steps[i];
+          const k = smplSeq.sliceOf(st);
+          return (
+            <button
+              key={id}
+              ref={refFor(id)}
+              type="button"
+              className="v4-twin"
+              data-twin="smplpad"
+              data-hotspot={id}
+              aria-label={st === null ? `Step ${i + 1}: empty. Enter places it, up and down choose its slice` : `Step ${i + 1}: slice ${(k ?? st) + 1}. Enter clears it, up and down change its slice`}
+              aria-pressed={st !== null}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  smplStepSlice(i, (st ?? i - (e.key === 'ArrowUp' ? 1 : -1)) + (e.key === 'ArrowUp' ? 1 : -1));
+                  return;
+                }
+                if ((e.key !== 'Enter' && e.key !== ' ') || e.repeat) return;
+                e.preventDefault();
+                press(id, true);
+                smplStepTap(i);
+                window.setTimeout(() => press(id, false), 120);
+              }}
+              onClick={(e) => {
+                if (e.detail !== 0) return;
+                smplStepTap(i);
+              }}
+            />
+          );
+        }
         const sl = padSlice(i);
         return (
           <button

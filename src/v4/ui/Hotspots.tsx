@@ -456,7 +456,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Une commande du MM-DECKS ou du MM-SMPL : elle seule voit ce pointeur (ni orbite ni pincement)
       const g = gesturesOf(h);
       if (h && g) {
-        g.down(e.pointerId, h, e.clientX - rect.left, e.clientY - rect.top);
+        g.down(e.pointerId, h, e.clientX - rect.left, e.clientY - rect.top, isCoarse(e));
         e.stopPropagation();
         e.preventDefault();
         return;

@@ -249,7 +249,7 @@ export class DjGestures {
   }
 
   /** Pointerdown sur une commande (x, y : px du canvas). */
-  down(pointerId: number, h: HotspotView, x: number, y: number): void {
+  down(pointerId: number, h: HotspotView, x: number, y: number, _touch = false): void {
     const id = h.id;
     const g: Grip = {
       id,

@@ -2,15 +2,22 @@
  * Le MM-SMPL en 3D (2026-10-04 ; facon Elektron Tonverk depuis le
  * 2026-10-05) : un bloc large et peu profond de la famille du MM-DECKS (le
  * coin, le dessus brosse, les vis, les pieds, la connectique derriere),
- * fait de ses pieces (dj/body.ts, dj/controls.ts, dj/silk.ts) :
- * - l'ecran en haut a gauche (smpl/screen.ts) et ses tetes de lecture ;
- * - douze encodeurs a sa droite, en trois rangees nommees en orange ;
- * - onze touches de fonction en caoutchouc (PLAY en or quand il joue ; REC,
- *   MODE, REV, LOOP en orange quand ils sont pris) ;
- * - seize touches de trig en ligne : orange pale quand elles ont une
- *   slice, or quand elles sonnent ;
+ * fait de ses pieces (dj/body.ts, dj/controls.ts, dj/silk.ts). Refait le
+ * 2026-10-05 (Mika : "fais un gros effort, c'est bof le design, les trois
+ * boutons trop gros et les autres trop petits") :
+ * - l'ecran au milieu du haut (smpl/screen.ts) et ses tetes de lecture ;
+ * - a sa gauche LEVEL et PITCH, en aluminium, gradues (ceux qu'on tient en
+ *   jouant) ; a sa droite dix encodeurs de meme taille, deux rangees :
+ *   SAMPLE en haut, GRAIN dessous (leur nom en orange) ;
+ * - douze touches de fonction en caoutchouc a LED dedans
+ *   (scene/materials.ts withRubberLed) : REC, PLAY, STOP | FILE, SLICES,
+ *   MODE, REV, LOOP | RANDOM, CLEAR, EDIT, SAVE (PLAY en or quand il joue ;
+ *   les modes pris en orange) ;
+ * - seize trigs en deux rangees de huit, du meme caoutchouc : orange pale
+ *   quand ils ont une slice, or quand ils sonnent ; en EDIT, les pas de la
+ *   sequence (orange : un pas plein, or : la tete de lecture) ;
  * - la serigraphie : l'en-tete, les noms, les filets entre les groupes, le
- *   numero de chaque trig, les reperes 1, 5, 9, 13.
+ *   numero de chaque trig (1, 5, 9, 13 plus marques).
  * Tout dans le repere top (le dessus incline), x = 0 au centre du bloc.
  */
 
@@ -18,7 +25,7 @@ import { BufferGeometry, CylinderGeometry, DynamicDrawUsage, Float32BufferAttrib
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { HotspotDef, Occluder } from '../scene/hit';
 import { potAngle } from '../scene/encoders';
-import { withInstanceEmissive } from '../scene/materials';
+import { withRubberLed } from '../scene/materials';
 import { makeBrushTexture, whenFonts } from '../scene/silk';
 import { APPEARANCE } from '../theme';
 import { bezel, dc, partDj, power, rca, screw, usb, wedge } from '../dj/body';
@@ -29,8 +36,9 @@ import { smplEngine } from './engine';
 import { SMPL_KNOBS, smplParams, type SmplKnobId } from './params';
 import { SmplScreen } from './screen';
 import { SMPL_PADS } from './slices';
+import { smplSeq } from './seq';
 import { padCount, smplState } from './state';
-import { SMPL, SMPL_D, SMPL_KEY_GROUPS, SMPL_KEYS, SMPL_PAGES, SMPL_ROW_NAMES, SMPL_W, smplKeyAt, smplKnobAt, smplKnobTone, smplPadAt, smplX, type SmplKeyKind, type SmplKnobTone } from './theme';
+import { SMPL, SMPL_D, SMPL_GRID, SMPL_KEY_GROUPS, SMPL_KEYS, SMPL_PERF, SMPL_ROW_NAMES, SMPL_W, smplKeyAt, smplKnobAt, smplKnobTone, smplPadAt, smplX, type SmplKeyKind, type SmplKnobTone } from './theme';
 
 const AXIS_Y = new Vector3(0, 1, 0);
 const m4 = new Matrix4();
@@ -102,54 +110,48 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   const texts: Text[] = headTexts('MM-SMPL', 'SAMPLER / SLICER / GRANULAR', SMPL_W, SMPL.head.z, 1.95);
   const lines: Line[] = [];
   const brackets: Bracket[] = [];
-  // Les touches de fonction : leur nom au-dessus ; un filet entre les groupes (transport, sources, le reste)
+  // Les touches de fonction : leur nom au-dessus ; un filet entre les groupes (transport, son, sequence)
   const K = SMPL.keys;
   SMPL_KEYS.forEach((k, i) => {
     const p = smplKeyAt(i);
-    texts.push({ text: k.label, x: p.x, z: p.z - K.d / 2 - 0.15, cap: 0.058, weight: 700, group: 'keys', maxW: 0.8, ...(k.kind === 'play' ? { ink: 'orange' as const, alpha: 1 } : {}) });
+    texts.push({ text: k.label, x: p.x, z: p.z - K.d / 2 - 0.15, cap: 0.058, weight: 700, group: 'keys', maxW: 0.78, ...(k.kind === 'play' ? { ink: 'orange' as const, alpha: 1 } : {}) });
   });
   for (const g of SMPL_KEY_GROUPS) {
     const sep = (smplKeyAt(g - 1).x + smplKeyAt(g).x) / 2;
     lines.push([sep, K.z - 0.32, sep, K.z + 0.2]);
   }
-  // Les potards : le nom au-dessus ; les gros gradues de 0 a 10 (0, 5 et 10 plus longs), les petits leurs butees ;
-  // chaque page dans son crochet, son nom en orange (les pages d'une Elektron)
+  // Les potards : le nom au-dessus ; LEVEL et PITCH gradues de 0 a 10 (0, 5 et 10 plus longs), les autres leurs butees
   const tick = (x: number, z: number, deg: number, r0: number, r1: number): void => {
     const a = (deg * Math.PI) / 180;
     lines.push([x + Math.cos(a) * r0, z - Math.sin(a) * r0, x + Math.cos(a) * r1, z - Math.sin(a) * r1]);
   };
-  const N = SMPL.knobs;
-  SMPL_PAGES.forEach((pg, c) => {
-    for (const id of [pg.hero, ...pg.small]) {
-      const p = smplKnobAt(id);
-      const def = SMPL_KNOBS.find((k) => k.id === id);
-      const r = DJ_KNOB.skirt.r * p.s;
-      texts.push({ text: def?.label ?? id, x: p.x, z: knobLabelZ(p.z, p.s, p.sy), cap: p.hero ? 0.074 : 0.052, weight: p.hero ? 700 : undefined, maxW: p.hero ? 1.2 : 0.5, group: p.hero ? 'hero' : 'knob' });
-      if (p.hero) {
-        for (let t = 0; t <= 10; t += 1) {
-          const major = t % 5 === 0;
-          tick(p.x, p.z, 225 - t * 27, r + 0.04, r + (major ? 0.13 : 0.08));
-        }
-      } else {
-        for (const deg of def?.bipolar ? [225, 90, -45] : [225, -45]) tick(p.x, p.z, deg, r + 0.03, r + 0.08);
-      }
+  for (const id of [...SMPL_PERF, ...SMPL_GRID.flat()]) {
+    const p = smplKnobAt(id);
+    const def = SMPL_KNOBS.find((k) => k.id === id);
+    const r = DJ_KNOB.skirt.r * p.s;
+    texts.push({ text: def?.label ?? id, x: p.x, z: knobLabelZ(p.z, p.s, p.sy), cap: p.hero ? 0.066 : 0.056, weight: 700, maxW: 0.86, group: p.hero ? 'hero' : 'knob' });
+    if (p.hero) {
+      for (let t = 0; t <= 10; t += 1) tick(p.x, p.z, 225 - t * 27, r + 0.04, r + (t % 5 === 0 ? 0.12 : 0.075));
+    } else {
+      for (const deg of def?.bipolar ? [225, 90, -45] : [225, -45]) tick(p.x, p.z, deg, r + 0.03, r + 0.08);
     }
-    const half = N.small.dx + DJ_KNOB.skirt.r * N.small.s + 0.06;
-    brackets.push({ text: SMPL_ROW_NAMES[c], x0: N.cols[c] - half, x1: N.cols[c] + half, z: N.head, down: true, ink: 'orange' });
-  });
-  // Les trigs : leur numero dessous, un repere au-dessus de chaque groupe de quatre (1, 5, 9, 13), le crochet
+  }
+  // Les pages de la grille, en orange : SAMPLE au-dessus de sa rangee, GRAIN sous la sienne
+  const G = SMPL.knobs.grid;
+  const gr = DJ_KNOB.skirt.r * G.s;
+  const gx0 = G.xs[0] - gr - 0.06;
+  const gx1 = G.xs[G.xs.length - 1] + gr + 0.06;
+  brackets.push({ text: SMPL_ROW_NAMES[0], x0: gx0, x1: gx1, z: knobLabelZ(G.zs[0], G.s, G.s) - 0.24, down: true, ink: 'orange' });
+  brackets.push({ text: SMPL_ROW_NAMES[1], x0: gx0, x1: gx1, z: G.zs[1] + gr + 0.2, ink: 'orange' });
+  // Les trigs : leur numero dessous (1, 5, 9, 13 plus marques), le crochet sous le bloc
   const T = SMPL.trigs;
   for (let i = 0; i < SMPL_PADS; i += 1) {
     const p = smplPadAt(i);
-    texts.push({ text: String(i + 1), x: p.x, z: p.z + T.d / 2 + 0.13, cap: 0.058, weight: 700, alpha: i % 4 === 0 ? 1 : 0.55, group: 'trigs' });
+    texts.push({ text: String(i + 1), x: p.x, z: p.z + T.d / 2 + 0.13, cap: 0.058, weight: 700, alpha: i % 4 === 0 ? 1 : 0.5, group: 'trigs' });
   }
-  for (let g = 0; g < SMPL_PADS / 4; g += 1) {
-    const a = smplPadAt(g * 4);
-    const b = smplPadAt(g * 4 + 3);
-    const z = T.z - T.d / 2 - 0.13;
-    lines.push([a.x - T.w / 2, z, b.x + T.w / 2, z]);
-  }
-  brackets.push({ text: 'SLICES', x0: smplPadAt(0).x - T.w / 2, x1: smplPadAt(SMPL_PADS - 1).x + T.w / 2, z: T.z + T.d / 2 + 0.42 });
+  const t0 = smplPadAt(0).x - T.w / 2;
+  const t1 = smplPadAt(7).x + T.w / 2;
+  brackets.push({ text: 'SLICES  /  EDIT: STEPS', x0: t0, x1: t1, z: T.zs[1] + T.d / 2 + 0.42 });
   return { texts, lines, brackets };
 }
 
@@ -200,11 +202,11 @@ export class SmplRig {
     this.body.receiveShadow = true;
     this.socle.add(this.body);
 
-    const std = (name: string, p: { roughness: number; metalness: number }, emissive = false): MeshStandardMaterial => {
+    const std = (name: string, p: { roughness: number; metalness: number }, led = false): MeshStandardMaterial => {
       const m = new MeshStandardMaterial({ vertexColors: true, ...p });
       m.name = name;
       this.materials.push(m);
-      return emissive ? withInstanceEmissive(m, true) : m;
+      return led ? withRubberLed(m) : m;
     };
     const tones: readonly SmplKnobTone[] = ['knob', 'ring', 'hot'];
     const knobMat = std('smplKnob', { roughness: 0.42, metalness: 0.28 });
@@ -328,32 +330,51 @@ export class SmplRig {
   /** Les touches et les pads allumes ; true si ca change. */
   private syncLights(): boolean {
     const s = smplState.get();
+    const q = smplSeq.get();
     let changed = false;
-    const set = (attr: InstancedBufferAttribute, i: number, rgb: readonly number[]): void => {
+    // Sur le caoutchouc clair (Light), la LED pousse plus fort pour se lire autant
+    const g = this.glow;
+    const set = (attr: InstancedBufferAttribute, i: number, c: readonly number[]): void => {
       const a = attr.array as Float32Array;
-      if (a[i * 3] === rgb[0] && a[i * 3 + 1] === rgb[1] && a[i * 3 + 2] === rgb[2]) return;
-      a[i * 3] = rgb[0];
-      a[i * 3 + 1] = rgb[1];
-      a[i * 3 + 2] = rgb[2];
+      const r = Math.fround(c[0] * g);
+      const gr = Math.fround(c[1] * g);
+      const b = Math.fround(c[2] * g);
+      if (a[i * 3] === r && a[i * 3 + 1] === gr && a[i * 3 + 2] === b) return;
+      a[i * 3] = r;
+      a[i * 3 + 1] = gr;
+      a[i * 3 + 2] = b;
       attr.needsUpdate = true;
       changed = true;
     };
-    const paleYellow = [DJ_GLOW.yellow[0] * 0.18, DJ_GLOW.yellow[1] * 0.18, DJ_GLOW.yellow[2] * 0.18];
+    const scale = (rgb: readonly number[], k: number): number[] => [rgb[0] * k, rgb[1] * k, rgb[2] * k];
+    const paleYellow = scale(DJ_GLOW.yellow, 0.18);
     SMPL_KEYS.forEach((k, i) => {
       const held = this.held.has(smplKeyId(k.kind));
-      // PLAY : or quand il joue, pale quand il y a un sample ; les modes pris en orange
+      // PLAY : or quand il joue (la sequence ou la region), pale quand il y a un sample ; les modes pris en orange
       if (k.kind === 'play') {
-        set(this.keyEm, i, s.preview || held ? DJ_GLOW.yellow : s.sample ? paleYellow : DJ_GLOW.dim);
+        set(this.keyEm, i, s.preview || q.running || held ? DJ_GLOW.yellow : s.sample ? paleYellow : DJ_GLOW.dim);
         return;
       }
-      const on = held || (k.kind === 'rev' && s.reverse) || (k.kind === 'loop' && s.loop) || (k.kind === 'rec' && s.recording) || (k.kind === 'mode' && s.mode === 'grain');
+      const on = held || (k.kind === 'rev' && s.reverse) || (k.kind === 'loop' && s.loop) || (k.kind === 'rec' && s.recording) || (k.kind === 'mode' && s.mode === 'grain') || (k.kind === 'edit' && q.edit);
       set(this.keyEm, i, on ? DJ_GLOW.orange : DJ_GLOW.dim);
     });
     const n = padCount();
-    const pale = [DJ_GLOW.orange[0] * 0.22, DJ_GLOW.orange[1] * 0.22, DJ_GLOW.orange[2] * 0.22];
-    for (let i = 0; i < SMPL_PADS; i += 1) {
-      const sounds = s.pads.includes(i) || this.held.has(smplPadId(i));
-      set(this.padEm, i, sounds ? DJ_GLOW.yellow : i < n ? pale : DJ_GLOW.off);
+    const pale = scale(DJ_GLOW.orange, 0.22);
+    const at = this.seqAt;
+    if (q.edit) {
+      // EDIT : les pas ; plein en orange, la tete de lecture en or (pale sur un pas vide)
+      for (let i = 0; i < SMPL_PADS; i += 1) {
+        const full = q.steps[i] !== null;
+        const held = this.held.has(smplPadId(i));
+        set(this.padEm, i, held || (i === at && full) ? DJ_GLOW.yellow : i === at ? paleYellow : full ? DJ_GLOW.orange : DJ_GLOW.dim);
+      }
+    } else {
+      // Les slices ; celle que la sequence joue s'allume comme un pad frappe
+      const playing = at >= 0 ? smplSeq.sliceOf(q.steps[at]) : null;
+      for (let i = 0; i < SMPL_PADS; i += 1) {
+        const sounds = s.pads.includes(i) || this.held.has(smplPadId(i)) || playing === i;
+        set(this.padEm, i, sounds ? DJ_GLOW.yellow : i < n ? pale : DJ_GLOW.off);
+      }
     }
     return changed;
   }
@@ -373,11 +394,15 @@ export class SmplRig {
   private drawScreen(now: number): boolean {
     const s = smplState.get();
     const rec = s.recording ? (now - this.recFrom) / 1000 : 0;
-    return this.screen.draw(s, smplParams.get(), smplEngine.data()?.mono ?? null, rec);
+    return this.screen.draw(s, smplParams.get(), smplEngine.data()?.mono ?? null, rec, smplSeq.get());
   }
 
   private recFrom = 0;
   private wasRec = false;
+  /** le pas de la sequence sous la tete de lecture (-1 a l'arret) */
+  private seqAt = -1;
+  /** le gain des LED (Light : plus fort, le caoutchouc est clair) */
+  private glow = APPEARANCE.current === 'light' ? 1.6 : 1;
 
   /** Une touche, un pad ou PLAY s'enfonce ou remonte (pointeur, jumeau, clavier). */
   pressKey(id: string, down: boolean): void {
@@ -423,7 +448,15 @@ export class SmplRig {
       this.screenAt = now;
       if (this.drawScreen(now)) changed = true;
     }
-    return playing || s.recording || changed ? 'paint' : false;
+    // La sequence : la tete de lecture sur les trigs et sur la bande des pas de l'ecran
+    const q = smplSeq.get();
+    const at = q.running ? smplSeq.stepAt(smplSeq.now()) : -1;
+    if (at !== this.seqAt) {
+      this.seqAt = at;
+      if (this.syncLights()) changed = true;
+      if (this.screen.setStep(at)) changed = true;
+    }
+    return playing || s.recording || q.running || changed ? 'paint' : false;
   };
 
   /** Abonnements, poses par le Stage une fois tout le GL construit. */
@@ -440,7 +473,13 @@ export class SmplRig {
         if (moved && this.knobs[0].castShadow) this.opts.invalidate();
         else if (moved || drawn) this.opts.repaint();
       }),
-      smplEngine.subscribeLive(() => this.opts.repaint())
+      smplEngine.subscribeLive(() => this.opts.repaint()),
+      smplSeq.subscribe(() => {
+        const lit = this.syncLights();
+        const drawn = this.drawScreen(performance.now());
+        // La sequence part : l'animateur doit tourner (la tete de lecture), meme si rien n'a change a l'image
+        if (lit || drawn || smplSeq.get().running) this.opts.repaint();
+      })
     );
     void whenFonts().then(() => this.redrawText());
   }

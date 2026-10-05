@@ -9,10 +9,11 @@
  *   A S D F   pads  5 a  8
  *   Z X C V   pads  1 a  4
  *   Espace : PLAY ; M : MODE (SLICE, GRAIN) ; L : LOOP ; B : REV (a l'envers)
+ * En EDIT (2026-10-05), les memes touches posent ou enlevent les pas.
  */
 
 import type { Stage } from '../scene/renderer';
-import { smplLoopToggle, smplModeToggle, smplPad, smplPlayToggle, smplReverse } from './actions';
+import { smplLoopToggle, smplModeToggle, smplPlayToggle, smplReverse, smplTrig } from './actions';
 import { SMPL_PLAY_ID, smplPadId } from './rig';
 
 const ROWS = [
@@ -24,8 +25,8 @@ const ROWS = [
 const PAD_OF = new Map<string, number>(ROWS.flatMap((row, r) => row.map((code, c) => [code, r * 4 + c] as [string, number])));
 
 export const SMPL_KEY_LEGEND: readonly { keys: string; what: string }[] = [
-  { keys: 'Z X C V  /  A S D F  /  Q W E R  /  1 2 3 4', what: 'Trigs 1 to 16 (Z = 1, 4 = 16)' },
-  { keys: 'Space', what: 'Play the region, or the grain cloud' },
+  { keys: 'Z X C V  /  A S D F  /  Q W E R  /  1 2 3 4', what: 'Trigs 1 to 16 (Z = 1, 4 = 16); in EDIT, the steps' },
+  { keys: 'Space', what: 'Play the sequence, or the region, or the grain cloud' },
   { keys: 'M', what: 'Mode: slice or grain' },
   { keys: 'L', what: 'Loop while a pad is held' },
   { keys: 'B', what: 'Reverse' },
@@ -51,7 +52,7 @@ export function listenSmplKeys(getStage: () => Stage | null, active: () => boole
       if (e.repeat || held.has(e.code)) return;
       held.set(e.code, pad);
       press(smplPadId(pad), true);
-      smplPad(pad, true);
+      smplTrig(pad, true);
       return;
     }
     if (e.repeat) return;
@@ -82,13 +83,13 @@ export function listenSmplKeys(getStage: () => Stage | null, active: () => boole
     held.delete(e.code);
     e.preventDefault();
     press(smplPadId(pad), false);
-    smplPad(pad, false);
+    smplTrig(pad, false);
   };
 
   const releaseAll = (): void => {
     for (const pad of held.values()) {
       press(smplPadId(pad), false);
-      smplPad(pad, false);
+      smplTrig(pad, false);
     }
     held.clear();
   };

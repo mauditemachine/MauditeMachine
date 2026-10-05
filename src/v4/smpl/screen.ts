@@ -10,6 +10,10 @@
  * - Dessous : le sample entier en barres fines (les barres fines du
  *   MM-DECKS), la region en or, le reste en or eteint (2026-10-05) ; les slices en traits
  *   orange numerotes (le numero de leur pad) ; en GRAIN, POSITION en cyan.
+ * - La sequence (2026-10-05) : des qu'elle a un pas, ou en EDIT, une bande
+ *   de seize cases sous la forme d'onde (le numero de la slice de chaque
+ *   pas, en orange) ; un trait or sous la case qui joue (une piece posee
+ *   par-dessus, comme les tetes : rien a redessiner a chaque pas).
  * - Vide : comment poser un sample.
  */
 
@@ -19,6 +23,7 @@ import { FONT_DISPLAY, FONT_MONO } from '../theme';
 import { DJ_BEZEL, DJ_LIGHT } from '../dj/theme';
 import { pitchSemis, type SmplValues } from './params';
 import { peaksOf } from './slices';
+import type { SmplSeqState } from './seq';
 import type { SmplState } from './state';
 import { SMPL } from './theme';
 
@@ -36,6 +41,7 @@ const BAR = { w: 3, gap: 1.5 };
 const HEADS = 20;
 
 const S = SMPL.screen;
+const ST = SMPL.steps;
 const MAT = new Matrix4();
 const YELLOW = new Color(DJ_LIGHT.yellow);
 const CYAN_C = new Color(CYAN);
@@ -48,6 +54,8 @@ export interface SmplLive {
 export class SmplScreen {
   readonly mesh: Mesh;
   readonly heads: InstancedMesh;
+  /** le trait sous le pas qui joue (enfant de l'ecran) */
+  private mark: Mesh;
   readonly texture: CanvasTexture;
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -56,6 +64,10 @@ export class SmplScreen {
   private key = '';
   private peaks: { id: number; w: number; data: Float32Array } | null = null;
   private duration = 0;
+  /** le bas de la forme d'onde (la bande des pas la remonte) et la bande montree */
+  private waveV1: number = S.wave.v1;
+  private stepsShown = false;
+  private stepAt = -1;
   draws = 0;
 
   constructor(anisotropy: number, mobile: boolean) {
@@ -86,6 +98,36 @@ export class SmplScreen {
     this.heads.count = 0;
     this.heads.renderOrder = 2;
     this.heads.frustumCulled = false;
+    const mg = new PlaneGeometry(1, 1);
+    mg.rotateX(-Math.PI / 2);
+    const mm = new MeshBasicMaterial({ color: DJ_LIGHT.yellow, toneMapped: false, transparent: true, opacity: 0.95, depthWrite: false });
+    mm.name = 'smplStepMark';
+    this.mark = new Mesh(mg, mm);
+    this.mark.name = 'smplStepMark';
+    this.mark.renderOrder = 2;
+    this.mark.visible = false;
+    this.mesh.add(this.mark);
+  }
+
+  /** La case d'un pas dans la bande (u de son centre, sa largeur ; fractions de la largeur). */
+  private cellOf(i: number): { u: number; w: number } {
+    const w = (S.wave.u1 - S.wave.u0) / 16;
+    return { u: S.wave.u0 + (i + 0.5) * w, w };
+  }
+
+  /** Le trait sous le pas qui joue (-1 : aucun) ; true s'il bouge. */
+  setStep(i: number): boolean {
+    const show = this.stepsShown && i >= 0;
+    const was = this.mark.visible;
+    const moved = i !== this.stepAt;
+    this.stepAt = i;
+    this.mark.visible = show;
+    if (show) {
+      const c = this.cellOf(i);
+      this.mark.scale.set(c.w * S.w * 0.84, 1, 0.022 * S.d);
+      this.mark.position.set((c.u - 0.5) * S.w, 0.003, (ST.v1 + 0.017 - 0.5) * S.d);
+    }
+    return show !== was || (show && moved);
   }
 
   /** u (0 a 1 dans la largeur de l'ecran) d'un instant du sample. */
@@ -106,11 +148,15 @@ export class SmplScreen {
   }
 
   /** Redessine si l'etat a change ; true si redessine. */
-  draw(s: SmplState, v: SmplValues, mono: Float32Array | null, recSeconds: number): boolean {
-    const key = JSON.stringify([s.sample?.id ?? 0, s.slices, s.mode, s.slicing, s.reverse, s.loop, s.message, s.recording, s.busy, v.start, v.end, v.pitch, v.position, s.recording ? Math.floor(recSeconds * 4) : 0]);
+  draw(s: SmplState, v: SmplValues, mono: Float32Array | null, recSeconds: number, q: SmplSeqState | null = null): boolean {
+    const showSteps = !!q && (q.edit || q.steps.some((x) => x !== null));
+    const key = JSON.stringify([s.sample?.id ?? 0, s.slices, s.mode, s.slicing, s.reverse, s.loop, s.message, s.recording, s.busy, v.start, v.end, v.pitch, v.position, s.recording ? Math.floor(recSeconds * 4) : 0, showSteps ? q?.steps : 0, q?.edit]);
     if (key === this.key) return false;
     this.key = key;
     this.duration = s.sample?.duration ?? 0;
+    this.stepsShown = showSteps;
+    this.waveV1 = showSteps ? ST.wave1 : S.wave.v1;
+    this.setStep(this.stepAt);
     const c = this.ctx;
     const W = this.W;
     const H = this.H;
@@ -159,6 +205,7 @@ export class SmplScreen {
         { t: `PITCH ${semis > 0 ? '+' : ''}${semis}`, on: semis !== 0 },
         { t: 'REV', on: s.reverse, hot: true },
         { t: 'LOOP', on: s.loop, hot: true },
+        { t: 'EDIT', on: !!q?.edit, hot: true },
       ];
       let x = pad;
       for (const ch of chips) {
@@ -171,7 +218,7 @@ export class SmplScreen {
     const x0 = S.wave.u0 * W;
     const x1 = S.wave.u1 * W;
     const y0 = S.wave.v0 * H;
-    const y1 = S.wave.v1 * H;
+    const y1 = this.waveV1 * H;
     const cy = (y0 + y1) / 2;
     const half = (y1 - y0) / 2;
     c.strokeStyle = FAINT;
@@ -184,10 +231,11 @@ export class SmplScreen {
       c.textAlign = 'center';
       c.fillStyle = s.busy ? DJ_LIGHT.yellow : DIM;
       c.font = `600 ${Math.round(textH * 0.26)}px ${FONT_MONO}`;
-      c.fillText(s.busy ? 'LOADING...' : 'GRAB A DECK, PICK A FILE OR REC THE SITE', W / 2, cy - textH * 0.32);
+      c.fillText(s.busy ? 'LOADING...' : 'PICK A FILE, OR REC THE SITE', W / 2, cy - textH * 0.32);
       c.fillStyle = FAINT;
       c.font = `500 ${Math.round(textH * 0.2)}px ${FONT_MONO}`;
-      c.fillText("GRAB TAKES THE DECK'S ZOOMED WINDOW, OR ITS LOOP", W / 2, cy + textH * 0.3);
+      c.fillText('OR SEND A LOOP FROM THE MIXER: LOOP > SMPL', W / 2, cy + textH * 0.3);
+      if (showSteps && q) this.drawSteps(q, 0);
       this.texture.needsUpdate = true;
       this.draws += 1;
       return true;
@@ -241,9 +289,42 @@ export class SmplScreen {
       c.stroke();
       c.setLineDash([]);
     }
+    if (showSteps && q) this.drawSteps(q, n);
     this.texture.needsUpdate = true;
     this.draws += 1;
     return true;
+  }
+
+  /** La bande des pas : seize cases, le numero de la slice de chaque pas plein (ramene a la decoupe : n slices). */
+  private drawSteps(q: SmplSeqState, n: number): void {
+    const c = this.ctx;
+    const W = this.W;
+    const H = this.H;
+    const y0 = ST.v0 * H;
+    const y1 = ST.v1 * H;
+    const h = y1 - y0;
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.font = `700 ${Math.round(h * 0.5)}px ${FONT_MONO}`;
+    for (let i = 0; i < 16; i += 1) {
+      const cell = this.cellOf(i);
+      const cw = cell.w * W;
+      const x = cell.u * W - cw / 2 + cw * 0.06;
+      const w = cw * 0.88;
+      const v = q.steps[i];
+      if (v === null) {
+        // Vide : un cadre fin, plus marque sur les temps (1, 5, 9, 13)
+        c.strokeStyle = i % 4 === 0 ? 'rgba(246, 241, 231, 0.5)' : 'rgba(246, 241, 231, 0.24)';
+        c.lineWidth = 2;
+        c.strokeRect(x + 1, y0 + 1, w - 2, h - 2);
+        continue;
+      }
+      c.fillStyle = DJ_LIGHT.orange;
+      c.fillRect(x, y0, w, h);
+      c.fillStyle = '#000';
+      const k = n > 0 ? v % n : v;
+      c.fillText(String(k + 1), x + w / 2, y0 + h * 0.54);
+    }
   }
 
   /** Les tetes de lecture : une par voix (jaune) et par nuage (cyan) ; true si elles bougent. */
@@ -255,7 +336,7 @@ export class SmplScreen {
       const u = this.uOf(t);
       const x = S.x - S.w / 2 + u * S.w;
       const z0 = S.z - S.d / 2 + S.wave.v0 * S.d;
-      const z1 = S.z - S.d / 2 + S.wave.v1 * S.d;
+      const z1 = S.z - S.d / 2 + this.waveV1 * S.d;
       MAT.makeScale(w, 1, z1 - z0);
       MAT.setPosition(x, DJ_BEZEL.h + 0.006, (z0 + z1) / 2);
       m.setMatrixAt(i, MAT);
@@ -276,6 +357,8 @@ export class SmplScreen {
   }
 
   dispose(): void {
+    this.mark.geometry.dispose();
+    (this.mark.material as MeshBasicMaterial).dispose();
     this.mesh.geometry.dispose();
     (this.mesh.material as MeshBasicMaterial).dispose();
     this.heads.geometry.dispose();

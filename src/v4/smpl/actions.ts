@@ -1,17 +1,21 @@
 /**
  * Ce que font les commandes du MM-SMPL (2026-10-04), pour la machine 3D,
  * ses jumeaux, son Dock au telephone et le clavier :
- * - GRAB A / GRAB B : la loupe d'une platine du MM-DECKS (sa boucle si
- *   elle en a une, sinon la fenetre de sa forme d'onde fine, centree sur
- *   la tete de lecture : ce qu'on voit a l'ecran, au zoom pres) ;
+ * - smplGrab : la loupe d'une platine du MM-DECKS (sa boucle si elle en a
+ *   une, sinon la fenetre de sa forme d'onde fine, centree sur la tete de
+ *   lecture). Depuis le 2026-10-05, seul le mixer l'envoie (LOOP > SMPL) :
+ *   les touches GRAB A et GRAB B sont retirees de la machine (Mika : "c'est
+ *   moi qui envoie quelque chose a la machine") ;
  * - FILE : un fichier audio ; REC : la sortie du site (le MM-RYTM, le
  *   MM-ARP, les platines), jusqu'au second appui ;
  * - SLICES : 4, 8, 16 parts egales de la region, ou AUTO (les attaques) ;
  *   MODE : SLICE ou GRAIN ; REV ; LOOP ; SAVE : la region en WAV, au PITCH
  *   (a l'envers avec REV) ;
  * - les pads : SLICE, la slice du pad ; GRAIN, un nuage de grains au debut
- *   de sa slice, tant qu'on le tient ; PLAY : la region entiere, ou le
- *   nuage a POSITION ;
+ *   de sa slice, tant qu'on le tient ; PLAY : la sequence s'il y en a une
+ *   (smpl/seq.ts), sinon la region entiere, ou le nuage a POSITION ;
+ * - RANDOM, CLEAR, EDIT (2026-10-05) : la sequence (une au hasard, qui part ;
+ *   vide ; EDIT fait des trigs ses seize pas) ;
  * - les potards : smplParams ; START, END et SLICES refont la decoupe.
  */
 
@@ -20,11 +24,14 @@ import { djLoad } from '../state/djload';
 import type { DjDeck } from '../dj/theme';
 import { SMPL_MAX_S, smplEngine } from './engine';
 import { pitchSemis, smplParams, smplReadout, type SmplKnobId } from './params';
+import { randomSteps, smplSeq } from './seq';
 import { SMPL_PADS, SMPL_SLICINGS, equalSlices, onsetSlices, wavOf } from './slices';
-import { padSlice, regionOf, smplState } from './state';
+import { padCount, padSlice, regionOf, smplState } from './state';
 
-/** L'identifiant de PLAY pour le moteur (les pads : 0 a 15). */
+/** L'identifiant de PLAY pour le moteur (les pads : 0 a 15) ; celui de l'ecoute d'une slice en EDIT. */
 const PREVIEW = 100;
+const AUDITION = 150;
+const NO_SAMPLE = 'PICK A FILE, REC, OR SEND A LOOP FROM THE MIXER';
 
 /* ---------------- la decoupe ---------------- */
 
@@ -158,7 +165,9 @@ export function smplSlicingNext(): void {
 
 export function smplModeToggle(): void {
   const s = smplState.get();
-  smplStopAll();
+  // Les voix se taisent ; la sequence continue (elle jouera dans le nouveau mode)
+  smplEngine.stop();
+  smplState.set({ pads: [], preview: false });
   smplState.set({ mode: s.mode === 'slice' ? 'grain' : 'slice' });
   smplState.say(smplState.get().mode === 'grain' ? 'GRAIN: PADS PLAY A GRAIN CLOUD' : 'SLICE: PADS PLAY THEIR SLICE');
 }
@@ -205,7 +214,7 @@ export function smplPad(i: number, down: boolean): void {
     gesture();
     const sl = padSlice(i);
     if (!sl) {
-      if (!s.sample) smplState.say('GRAB A DECK, PICK A FILE OR REC FIRST');
+      if (!s.sample) smplState.say(NO_SAMPLE);
       return;
     }
     const v = smplParams.get();
@@ -220,12 +229,24 @@ export function smplPad(i: number, down: boolean): void {
   if (s.mode === 'grain' || s.loop) setPad(i, false);
 }
 
-/** PLAY : la region entiere (SLICE) ou le nuage a POSITION (GRAIN), un appui pour lancer, un pour arreter. */
+/**
+ * PLAY : la sequence s'il y a des pas (un appui la lance, un autre
+ * l'arrete) ; sinon la region entiere (SLICE) ou le nuage a POSITION (GRAIN).
+ */
 export function smplPlayToggle(): void {
   gesture();
   const s = smplState.get();
+  if (smplSeq.get().running) {
+    smplSeq.stop();
+    return;
+  }
   if (!s.sample) {
-    smplState.say('GRAB A DECK, PICK A FILE OR REC FIRST');
+    smplState.say(NO_SAMPLE);
+    return;
+  }
+  if (smplSeq.any() && !s.preview) {
+    void smplEngine.ensure();
+    if (smplSeq.start()) smplState.say('SEQUENCE PLAYING', 1400);
     return;
   }
   if (s.preview) {
@@ -241,10 +262,88 @@ export function smplPlayToggle(): void {
   smplState.set({ preview: true });
 }
 
-/** Tout se tait (changement de mode, Echap). */
+/** STOP, Echap : tout se tait, la sequence s'arrete. */
 export function smplStopAll(): void {
+  smplSeq.stop();
   smplEngine.stop();
   smplState.set({ pads: [], preview: false });
+}
+
+/* ---------------- la sequence ---------------- */
+
+/** RANDOM : une sequence au hasard sur les slices du moment ; elle part (s'il y a un sample). */
+export function smplRandom(): void {
+  gesture();
+  const n = padCount();
+  smplSeq.setAll(randomSteps(n || 8));
+  if (!smplState.get().sample) {
+    smplState.say(`RANDOM SEQUENCE: ${NO_SAMPLE}`);
+    return;
+  }
+  if (smplState.get().preview) {
+    smplEngine.release(PREVIEW);
+    smplState.set({ preview: false });
+  }
+  void smplEngine.ensure();
+  smplSeq.start();
+  smplState.say('RANDOM SEQUENCE', 1400);
+}
+
+/** CLEAR : la sequence se vide (elle tourne encore si elle tournait : on peut la redessiner en EDIT). */
+export function smplClear(): void {
+  if (!smplSeq.any()) {
+    smplState.say('THE SEQUENCE IS EMPTY', 1400);
+    return;
+  }
+  smplSeq.clear();
+  smplState.say('SEQUENCE CLEARED', 1400);
+}
+
+/** EDIT : les trigs deviennent les seize pas de la sequence, ou redeviennent les slices. */
+export function smplEditToggle(): void {
+  const on = !smplSeq.get().edit;
+  smplSeq.setEdit(on);
+  smplState.say(on ? 'EDIT: TAP A TRIG FOR A STEP, DRAG IT UP OR DOWN FOR ITS SLICE' : 'EDIT CLOSED', on ? 3200 : 1400);
+}
+
+/** EDIT : on ecoute la slice d'un pas qu'on regle (seulement a l'arret : la sequence joue deja). */
+function audition(k: number | null): void {
+  if (k === null || smplSeq.get().running) return;
+  const sl = padSlice(k);
+  if (sl) smplEngine.play(AUDITION, sl.a, sl.b, false);
+}
+
+/** EDIT : taper un pas (plein : il se vide ; vide : la slice de son rang). */
+export function smplStepTap(i: number): void {
+  gesture();
+  // Un pas vide prend la slice de son rang dans la decoupe du moment (8 slices : le pas 9 joue la 1)
+  const n = padCount();
+  smplSeq.toggle(i, n > 0 ? i % n : i);
+  const v = smplSeq.get().steps[i];
+  smplState.say(v === null ? `STEP ${i + 1} OFF` : `STEP ${i + 1}  SLICE ${(smplSeq.sliceOf(v) ?? v) + 1}`, 1400);
+}
+
+/**
+ * Un trig du clavier, du MIDI, d'un jumeau ou du Dock : en EDIT, l'appui
+ * pose ou enleve son pas (le lacher ne fait rien) ; sinon, son pad.
+ */
+export function smplTrig(i: number, down: boolean): void {
+  if (smplSeq.get().edit) {
+    if (down) smplStepTap(i);
+    return;
+  }
+  smplPad(i, down);
+}
+
+/** EDIT : la slice d'un pas (glisser sur son trig, les fleches de son jumeau) ; on l'entend a l'arret. */
+export function smplStepSlice(i: number, v: number): void {
+  gesture();
+  const max = Math.max(1, padCount() || SMPL_PADS);
+  const k = Math.max(0, Math.min(max - 1, Math.round(v)));
+  if (smplSeq.get().steps[i] === k) return;
+  smplSeq.set(i, k);
+  smplState.say(`STEP ${i + 1}  SLICE ${k + 1}`, 1400);
+  audition(k);
 }
 
 // Une voix simple finie : sa lumiere s'eteint (les positions ne la donnent plus)

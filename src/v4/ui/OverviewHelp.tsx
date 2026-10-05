@@ -33,7 +33,7 @@ export const MACHINE_HELP: Readonly<Record<MachineId, { name: string; kind: stri
     kind: 'Sampler, slicer, granular',
     text: [
       'Send a loop from the MM-DECKS mixer (LOOP > SMPL), load an audio file or record the site: the sample is cut into slices that the 16 trigs play. MODE turns them into grain clouds.',
-      'The knobs set the region, pitch, filter, envelope and the grains (position, size, density). RANDOM and CLEAR reshape the slices, SAVE exports a WAV.',
+      'EDIT turns the trigs into a 16 step sequence: tap a step, drag it up or down to pick its slice; RANDOM writes one, CLEAR empties it, PLAY runs it in time with the other machines. SAVE exports a WAV.',
     ],
   },
   dj: {

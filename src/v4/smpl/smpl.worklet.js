@@ -15,8 +15,11 @@
  * port, du fil principal :
  *   { type: 'sample', L, R, rate }  le sample (transfere)
  *   { type: 'params', p }           ATTACK, RELEASE (s), SIZE (s), DENSITY (Hz), SPRAY, SPREAD, PITCH (demi-tons), reverse
- *   { type: 'play', id, a, b, loop } une voix de a a b (s) ; loop : bouclee jusqu'a 'release'
- *   { type: 'cloud', id, pos, a, b } un nuage a pos (s), dans la region [a, b]
+ *   { type: 'play', id, a, b, loop, at } une voix de a a b (s) ; loop : bouclee jusqu'a 'release' ;
+ *                                   at : l'heure du contexte ou elle part (la sequence, 2026-10-05),
+ *                                   la voix d'avant du meme id se coupe a cette heure-la (0 : tout de suite)
+ *   { type: 'cloud', id, pos, a, b, at, dur } un nuage a pos (s), dans la region [a, b] ; at et dur
+ *                                   (s) : un nuage de la sequence, qui part a at et s'eteint apres dur
  *   { type: 'move', id, pos }       le nuage se deplace
  *   { type: 'release', id }         la voix ou le nuage s'eteint (RELEASE)
  *   { type: 'stop' }                tout s'eteint en 10 ms
@@ -53,7 +56,7 @@ class MMSmpl extends AudioWorkletProcessor {
     this.n = 0;
     this.rate = sampleRate;
     this.voices = [];
-    for (let i = 0; i < MAX_VOICES; i += 1) this.voices.push({ on: false, id: -1, pos: 0, a: 0, b: 0, dir: 1, loop: false, held: false, env: 0, att: 0, rel: 0, releasing: false, quick: false, age: 0 });
+    for (let i = 0; i < MAX_VOICES; i += 1) this.voices.push({ on: false, id: -1, pos: 0, a: 0, b: 0, dir: 1, loop: false, held: false, env: 0, att: 0, rel: 0, releasing: false, quick: false, age: 0, wait: 0, choke: false, cut: -1 });
     this.clouds = [];
     this.grains = [];
     for (let i = 0; i < MAX_GRAINS; i += 1) this.grains.push({ on: false, cloud: null, pos: 0, step: 0, len: 0, age: 0, gl: 1, gr: 1 });
@@ -78,13 +81,16 @@ class MMSmpl extends AudioWorkletProcessor {
     } else if (m.type === 'params') Object.assign(this.p, m.p);
     else if (m.type === 'play') this.play(m);
     else if (m.type === 'cloud') {
-      const old = this.clouds.find((c) => c.id === m.id);
+      const wait = m.at > 0 ? Math.max(0, Math.round((m.at - currentTime) * sampleRate)) : 0;
+      const life = m.dur > 0 ? Math.max(1, Math.round(m.dur * sampleRate)) : 0;
+      // Un nuage tenu (pad) qui revient se deplace ; un nuage de la sequence est toujours neuf
+      const old = life > 0 ? null : this.clouds.find((c) => c.id === m.id && !c.life);
       if (old) {
         old.pos = m.pos * this.rate;
         old.releasing = false;
         return;
       }
-      this.clouds.push({ id: m.id, pos: m.pos * this.rate, a: m.a * this.rate, b: m.b * this.rate, env: 0, releasing: false, next: 0 });
+      this.clouds.push({ id: m.id, pos: m.pos * this.rate, a: m.a * this.rate, b: m.b * this.rate, env: 0, releasing: false, next: 0, wait, life });
     } else if (m.type === 'move') {
       const c = this.clouds.find((x) => x.id === m.id);
       if (c) c.pos = m.pos * this.rate;
@@ -96,10 +102,18 @@ class MMSmpl extends AudioWorkletProcessor {
     } else if (m.type === 'stop') {
       for (const v of this.voices) {
         if (!v.on) continue;
+        // Une voix de la sequence pas encore partie : elle ne partira pas
+        if (v.wait > 0) {
+          v.on = false;
+          continue;
+        }
         v.releasing = true;
         v.quick = true;
       }
-      for (const c of this.clouds) c.releasing = true;
+      for (const c of this.clouds) {
+        c.releasing = true;
+        c.wait = 0;
+      }
     } else if (m.type === 'rec') {
       if (m.on) {
         const max = Math.max(1, Math.round((m.max || 30) * sampleRate));
@@ -119,12 +133,16 @@ class MMSmpl extends AudioWorkletProcessor {
 
   play(m) {
     if (!this.L || this.n < 2) return;
-    // Le meme pad repart : sa voix d'avant s'efface vite (pas d'empilement)
-    for (const v of this.voices) {
-      if (v.on && v.id === m.id) {
-        v.releasing = true;
-        v.quick = true;
-        v.id = -1;
+    const wait = m.at > 0 ? Math.max(0, Math.round((m.at - currentTime) * sampleRate)) : 0;
+    // Le meme pad repart : sa voix d'avant s'efface vite (pas d'empilement) ; un pas de la sequence
+    // la coupe a son heure (process)
+    if (wait === 0) {
+      for (const v of this.voices) {
+        if (v.on && v.id === m.id && v.wait === 0) {
+          v.releasing = true;
+          v.quick = true;
+          v.id = -1;
+        }
       }
     }
     let v = this.voices.find((x) => !x.on);
@@ -146,6 +164,9 @@ class MMSmpl extends AudioWorkletProcessor {
     v.env = 0;
     v.releasing = false;
     v.quick = false;
+    v.wait = wait;
+    v.choke = wait > 0;
+    v.cut = -1;
     this.age += 1;
     v.age = this.age;
   }
@@ -206,12 +227,31 @@ class MMSmpl extends AudioWorkletProcessor {
       const rel = Math.max(1, p.release * sampleRate);
       const quick = QUICK_S * sampleRate;
       const fade = END_FADE_S * this.rate;
+      // Les pas de la sequence qui partent dans ce bloc : la voix d'avant du meme id se coupe a leur heure
+      for (const v of this.voices) {
+        if (!v.on || !v.choke || v.wait >= N) continue;
+        for (const u of this.voices) if (u !== v && u.on && u.id === v.id && u.wait === 0 && (u.cut < 0 || u.cut > v.wait)) u.cut = v.wait;
+        v.choke = false;
+      }
       // Les voix
       for (const v of this.voices) {
         if (!v.on) continue;
         active = true;
+        // Pas encore son heure : elle attend (une voix de la sequence)
+        if (v.wait >= N) {
+          v.wait -= N;
+          continue;
+        }
+        const from = v.wait;
+        v.wait = 0;
         const step = rate * v.dir;
-        for (let i = 0; i < N; i += 1) {
+        for (let i = from; i < N; i += 1) {
+          if (i === v.cut) {
+            v.releasing = true;
+            v.quick = true;
+            v.cut = -1;
+            v.id = -1;
+          }
           if (v.releasing) {
             v.env -= 1 / (v.quick ? quick : rel);
             if (v.env <= 0) {
@@ -251,13 +291,23 @@ class MMSmpl extends AudioWorkletProcessor {
         active = true;
         const every = sampleRate / Math.max(0.5, p.density);
         for (const c of this.clouds) {
-          for (let i = 0; i < N; i += 1) {
+          // Un nuage de la sequence : il attend son heure, puis vit sa duree
+          if (c.wait >= N) {
+            c.wait -= N;
+            continue;
+          }
+          for (let i = c.wait; i < N; i += 1) {
+            if (c.life > 0) {
+              c.life -= 1;
+              if (c.life === 0) c.releasing = true;
+            }
             c.next -= 1;
             if (c.next <= 0 && !c.releasing) {
               this.spawn(c, rate);
               c.next += every * (0.85 + 0.3 * Math.random());
             }
           }
+          c.wait = 0;
           if (c.releasing) c.env = Math.max(0, c.env - N / rel);
           else c.env = Math.min(1, c.env + N / att);
         }
@@ -291,8 +341,8 @@ class MMSmpl extends AudioWorkletProcessor {
     if ((active || !this.reported) && this.sinceReport >= REPORT_EVERY) {
       this.sinceReport = 0;
       const voices = [];
-      for (const v of this.voices) if (v.on && v.id >= 0) voices.push([v.id, v.pos / this.rate]);
-      const clouds = this.clouds.map((c) => [c.id, c.pos / this.rate]);
+      for (const v of this.voices) if (v.on && v.id >= 0 && v.wait === 0) voices.push([v.id, v.pos / this.rate]);
+      const clouds = this.clouds.filter((c) => c.wait === 0).map((c) => [c.id, c.pos / this.rate]);
       this.port.postMessage({ type: 'pos', voices, clouds });
       this.reported = !active;
     }

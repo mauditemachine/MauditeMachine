@@ -3,7 +3,10 @@
  * - un potard : glisser vers le haut ou la droite (150 px la course
  *   entiere ; Maj, dix fois plus fin), la molette, deux tapes : sa valeur
  *   de depart ;
- * - un pad : il sonne a l'appui, se tait au lacher (GRAIN, LOOP) ;
+ * - un pad : il sonne a l'appui, se tait au lacher (GRAIN, LOOP) ; en EDIT
+ *   (2026-10-05) c'est un pas de la sequence : le taper le pose ou l'enleve,
+ *   glisser vers le haut ou le bas change sa slice (12 px par slice a la
+ *   souris, 16 au doigt, comme la velocite d'un step du MM-RYTM) ;
  * - une touche : a l'appui (FILE et SAVE au lacher : le navigateur exige
  *   un geste fini pour ouvrir un fichier) ;
  * - l'ecran : pres d'une borne de la region (START, END), on la deplace ;
@@ -17,10 +20,11 @@ import type { HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { quadToUnit } from '../scene/quad';
 import { DJ_BEZEL } from '../dj/theme';
-import { smplDial, smplGrab, smplLoopToggle, smplModeToggle, smplPad, smplPickFile, smplPlayToggle, smplRec, smplReverse, smplSave, smplSlicingNext, smplStopAll } from './actions';
+import { smplClear, smplDial, smplEditToggle, smplLoopToggle, smplModeToggle, smplPad, smplPickFile, smplPlayToggle, smplRandom, smplRec, smplReverse, smplSave, smplSlicingNext, smplStepSlice, smplStepTap, smplStopAll } from './actions';
 import { smplParams, type SmplKnobId } from './params';
 import { smplKeyId, smplPadId } from './rig';
-import { smplState } from './state';
+import { smplSeq } from './seq';
+import { padCount, smplState } from './state';
 import { SMPL, type SmplKeyKind } from './theme';
 
 const KNOB_PX = 150;
@@ -29,9 +33,12 @@ const AXIS_PX = 4;
 const TAP_MS = 320;
 /** Une borne de la region se prend a moins de EDGE (part de la largeur de l'ecran) */
 const EDGE = 0.03;
+/** EDIT : les pixels par slice en glissant sur un pas (souris, doigt), et le seuil du glisser */
+const SLICE_PX = { mouse: 12, touch: 16 } as const;
+const STEP_DRAG_PX = 6;
 
 interface Grip {
-  kind: 'knob' | 'key' | 'pad' | 'screen';
+  kind: 'knob' | 'key' | 'pad' | 'step' | 'screen';
   id: string;
   x0: number;
   y0: number;
@@ -51,6 +58,10 @@ interface Grip {
   u0: number;
   /** ecran, toucher : le pad joue */
   tapPad: number;
+  /** EDIT, un pas : sa slice au depart (null : vide), les pixels par slice, glisse */
+  slice0: number | null;
+  px: number;
+  dragged: boolean;
 }
 
 export class SmplGestures {
@@ -68,8 +79,8 @@ export class SmplGestures {
     this.stage.smpl?.pressKey(id, down);
   }
 
-  down(pointerId: number, h: HotspotView, x: number, y: number): void {
-    const g: Grip = { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, key: null, pad: -1, quad: [], hold: null, u0: 0, tapPad: -1 };
+  down(pointerId: number, h: HotspotView, x: number, y: number, touch = false): void {
+    const g: Grip = { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, key: null, pad: -1, quad: [], hold: null, u0: 0, tapPad: -1, slice0: null, px: touch ? SLICE_PX.touch : SLICE_PX.mouse, dragged: false };
     if (h.kind === 'smplknob') {
       g.kind = 'knob';
       g.knob = h.id.slice('smpl-knob-'.length) as SmplKnobId;
@@ -80,6 +91,12 @@ export class SmplGestures {
         smplDial(g.knob, smplParams.def(g.knob));
         this.lastTap.delete(h.id);
       } else this.lastTap.set(h.id, now);
+    } else if (h.kind === 'smplpad' && smplSeq.get().edit) {
+      // EDIT : un pas ; taper (au lacher) le pose ou l'enleve, glisser change sa slice
+      g.kind = 'step';
+      g.pad = Number(h.id.slice('smpl-pad-'.length)) - 1;
+      g.slice0 = smplSeq.get().steps[g.pad] ?? null;
+      this.press(h.id, true);
     } else if (h.kind === 'smplpad') {
       g.kind = 'pad';
       g.pad = Number(h.id.slice('smpl-pad-'.length)) - 1;
@@ -115,6 +132,13 @@ export class SmplGestures {
         g.fine = shift;
       }
       smplDial(g.knob, g.v0 + ((travel - g.a) / KNOB_PX) * (shift ? FINE : 1));
+    } else if (g.kind === 'step') {
+      if (!g.dragged && Math.abs(dy) < STEP_DRAG_PX) return;
+      g.dragged = true;
+      // Vers le haut : la slice suivante ; un pas vide part de la slice de son rang
+      const n = padCount();
+      const base = g.slice0 ?? (n > 0 ? g.pad % n : g.pad);
+      smplStepSlice(g.pad, base + Math.round(-dy / g.px));
     } else if (g.kind === 'screen') this.screenMove(g, x, y);
   }
 
@@ -126,6 +150,9 @@ export class SmplGestures {
     if (g.kind === 'pad') {
       this.press(g.id, false);
       smplPad(g.pad, false);
+    } else if (g.kind === 'step') {
+      this.press(g.id, false);
+      if (!g.dragged && overId === g.id) smplStepTap(g.pad);
     } else if (g.kind === 'key' && g.key) {
       this.press(g.id, false);
       if ((g.key === 'file' || g.key === 'save') && tap) keyAction(g.key);
@@ -181,8 +208,10 @@ export class SmplGestures {
     g.u0 = uv.u;
     const v = smplParams.get();
     const W = SMPL.screen.wave;
-    // La bande du haut : rien (le nom du sample)
+    // La bande du haut : rien (le nom du sample) ; la bande des pas non plus (les trigs les reglent)
     if (uv.v < W.v0 - 0.02) return false;
+    const q = smplSeq.get();
+    if ((q.edit || smplSeq.any()) && uv.v > SMPL.steps.wave1 + 0.02) return false;
     const ua = W.u0 + (W.u1 - W.u0) * v.start;
     const ub = W.u0 + (W.u1 - W.u0) * v.end;
     if (Math.abs(uv.u - ua) < EDGE && Math.abs(uv.u - ua) <= Math.abs(uv.u - ub)) g.hold = 'start';
@@ -248,8 +277,9 @@ export class SmplGestures {
 export function keyAction(k: SmplKeyKind): void {
   if (k === 'play') smplPlayToggle();
   else if (k === 'stop') smplStopAll();
-  else if (k === 'grabA') smplGrab('a');
-  else if (k === 'grabB') smplGrab('b');
+  else if (k === 'random') smplRandom();
+  else if (k === 'clear') smplClear();
+  else if (k === 'edit') smplEditToggle();
   else if (k === 'file') smplPickFile();
   else if (k === 'rec') smplRec();
   else if (k === 'slices') smplSlicingNext();
