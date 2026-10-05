@@ -14,7 +14,8 @@
     "preview": "vite preview --open",
     "stats": "node scripts/fetch-stats.mjs",
     "manual:smpl": "node scripts/smpl-manual/make.mjs",
-    "samples:import": "node scripts/import-rytm-samples.mjs"
+    "samples:import": "node scripts/import-rytm-samples.mjs",
+    "docs:midi": "node scripts/midi-reference.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

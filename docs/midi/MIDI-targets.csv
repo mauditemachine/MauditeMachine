@@ -1,0 +1,346 @@
+id,scope,machine,nom,type,crans,dans_les_setups
+rytm:enc:level,mm808,MM-RYTM,MASTER,value,,RYTM
+rytm:enc:tempo,mm808,MM-RYTM,TEMPO,value,,RYTM
+rytm:enc:swing,mm808,MM-RYTM,SWING,value,,RYTM LIVE
+rytm:enc:stretch,mm808,MM-RYTM,STRETCH,value,,RYTM LIVE
+rytm:enc:dist,mm808,MM-RYTM,DIST,value,,RYTM LIVE
+rytm:enc:chorus,mm808,MM-RYTM,CHORUS,value,,RYTM
+rytm:enc:delay,mm808,MM-RYTM,DELAY,value,,RYTM LIVE
+rytm:enc:reverb,mm808,MM-RYTM,REVERB,value,,RYTM LIVE
+rytm:enc:vol,mm808,MM-RYTM,VOLUME (SELECTED VOICE),value,,RYTM
+rytm:enc:tone,mm808,MM-RYTM,TONE (SELECTED VOICE),value,,RYTM
+rytm:enc:vdecay,mm808,MM-RYTM,DECAY (SELECTED VOICE),value,,RYTM
+rytm:enc:vdist,mm808,MM-RYTM,DIST (SELECTED VOICE),value,,RYTM
+rytm:enc:vchorus,mm808,MM-RYTM,CHORUS (SELECTED VOICE),value,,RYTM
+rytm:enc:vdelay,mm808,MM-RYTM,DELAY (SELECTED VOICE),value,,RYTM
+rytm:enc:vreverb,mm808,MM-RYTM,REVERB (SELECTED VOICE),value,,RYTM
+rytm:voice:BD:tone,mm808,MM-RYTM,BD TONE,value,,
+rytm:voice:BD:decay,mm808,MM-RYTM,BD DECAY,value,,
+rytm:voice:BD:level,mm808,MM-RYTM,BD VOLUME,value,,RYTM
+rytm:voice:BD:dist,mm808,MM-RYTM,BD DIST,value,,
+rytm:voice:BD:reverb,mm808,MM-RYTM,BD REVERB,value,,
+rytm:voice:BD:delay,mm808,MM-RYTM,BD DELAY,value,,
+rytm:voice:BD:chorus,mm808,MM-RYTM,BD CHORUS,value,,
+rytm:voice:SD:tone,mm808,MM-RYTM,SD TONE,value,,
+rytm:voice:SD:decay,mm808,MM-RYTM,SD DECAY,value,,
+rytm:voice:SD:level,mm808,MM-RYTM,SD VOLUME,value,,RYTM
+rytm:voice:SD:dist,mm808,MM-RYTM,SD DIST,value,,
+rytm:voice:SD:reverb,mm808,MM-RYTM,SD REVERB,value,,
+rytm:voice:SD:delay,mm808,MM-RYTM,SD DELAY,value,,
+rytm:voice:SD:chorus,mm808,MM-RYTM,SD CHORUS,value,,
+rytm:voice:TOM:tone,mm808,MM-RYTM,TOM TONE,value,,
+rytm:voice:TOM:decay,mm808,MM-RYTM,TOM DECAY,value,,
+rytm:voice:TOM:level,mm808,MM-RYTM,TOM VOLUME,value,,RYTM
+rytm:voice:TOM:dist,mm808,MM-RYTM,TOM DIST,value,,
+rytm:voice:TOM:reverb,mm808,MM-RYTM,TOM REVERB,value,,
+rytm:voice:TOM:delay,mm808,MM-RYTM,TOM DELAY,value,,
+rytm:voice:TOM:chorus,mm808,MM-RYTM,TOM CHORUS,value,,
+rytm:voice:CH:tone,mm808,MM-RYTM,CH TONE,value,,
+rytm:voice:CH:decay,mm808,MM-RYTM,CH DECAY,value,,
+rytm:voice:CH:level,mm808,MM-RYTM,CH VOLUME,value,,RYTM
+rytm:voice:CH:dist,mm808,MM-RYTM,CH DIST,value,,
+rytm:voice:CH:reverb,mm808,MM-RYTM,CH REVERB,value,,
+rytm:voice:CH:delay,mm808,MM-RYTM,CH DELAY,value,,
+rytm:voice:CH:chorus,mm808,MM-RYTM,CH CHORUS,value,,
+rytm:voice:OH:tone,mm808,MM-RYTM,OH TONE,value,,
+rytm:voice:OH:decay,mm808,MM-RYTM,OH DECAY,value,,
+rytm:voice:OH:level,mm808,MM-RYTM,OH VOLUME,value,,RYTM
+rytm:voice:OH:dist,mm808,MM-RYTM,OH DIST,value,,
+rytm:voice:OH:reverb,mm808,MM-RYTM,OH REVERB,value,,
+rytm:voice:OH:delay,mm808,MM-RYTM,OH DELAY,value,,
+rytm:voice:OH:chorus,mm808,MM-RYTM,OH CHORUS,value,,
+rytm:voice:CP:tone,mm808,MM-RYTM,CP TONE,value,,
+rytm:voice:CP:decay,mm808,MM-RYTM,CP DECAY,value,,
+rytm:voice:CP:level,mm808,MM-RYTM,CP VOLUME,value,,RYTM
+rytm:voice:CP:dist,mm808,MM-RYTM,CP DIST,value,,
+rytm:voice:CP:reverb,mm808,MM-RYTM,CP REVERB,value,,
+rytm:voice:CP:delay,mm808,MM-RYTM,CP DELAY,value,,
+rytm:voice:CP:chorus,mm808,MM-RYTM,CP CHORUS,value,,
+rytm:voice:RS:tone,mm808,MM-RYTM,RS TONE,value,,
+rytm:voice:RS:decay,mm808,MM-RYTM,RS DECAY,value,,
+rytm:voice:RS:level,mm808,MM-RYTM,RS VOLUME,value,,RYTM
+rytm:voice:RS:dist,mm808,MM-RYTM,RS DIST,value,,
+rytm:voice:RS:reverb,mm808,MM-RYTM,RS REVERB,value,,
+rytm:voice:RS:delay,mm808,MM-RYTM,RS DELAY,value,,
+rytm:voice:RS:chorus,mm808,MM-RYTM,RS CHORUS,value,,
+rytm:voice:HT:tone,mm808,MM-RYTM,HT TONE,value,,
+rytm:voice:HT:decay,mm808,MM-RYTM,HT DECAY,value,,
+rytm:voice:HT:level,mm808,MM-RYTM,HT VOLUME,value,,RYTM
+rytm:voice:HT:dist,mm808,MM-RYTM,HT DIST,value,,
+rytm:voice:HT:reverb,mm808,MM-RYTM,HT REVERB,value,,
+rytm:voice:HT:delay,mm808,MM-RYTM,HT DELAY,value,,
+rytm:voice:HT:chorus,mm808,MM-RYTM,HT CHORUS,value,,
+rytm:voice:CY:tone,mm808,MM-RYTM,CY TONE,value,,
+rytm:voice:CY:decay,mm808,MM-RYTM,CY DECAY,value,,
+rytm:voice:CY:level,mm808,MM-RYTM,CY VOLUME,value,,RYTM
+rytm:voice:CY:dist,mm808,MM-RYTM,CY DIST,value,,
+rytm:voice:CY:reverb,mm808,MM-RYTM,CY REVERB,value,,
+rytm:voice:CY:delay,mm808,MM-RYTM,CY DELAY,value,,
+rytm:voice:CY:chorus,mm808,MM-RYTM,CY CHORUS,value,,
+rytm:voice:PC:tone,mm808,MM-RYTM,PC TONE,value,,
+rytm:voice:PC:decay,mm808,MM-RYTM,PC DECAY,value,,
+rytm:voice:PC:level,mm808,MM-RYTM,PC VOLUME,value,,RYTM
+rytm:voice:PC:dist,mm808,MM-RYTM,PC DIST,value,,
+rytm:voice:PC:reverb,mm808,MM-RYTM,PC REVERB,value,,
+rytm:voice:PC:delay,mm808,MM-RYTM,PC DELAY,value,,
+rytm:voice:PC:chorus,mm808,MM-RYTM,PC CHORUS,value,,
+rytm:voice:BD:mute,mm808,MM-RYTM,MUTE BD,value,2,RYTM MIXER LIVE
+rytm:voice:SD:mute,mm808,MM-RYTM,MUTE SD,value,2,RYTM MIXER LIVE
+rytm:voice:TOM:mute,mm808,MM-RYTM,MUTE TOM,value,2,RYTM MIXER LIVE
+rytm:voice:CH:mute,mm808,MM-RYTM,MUTE CH,value,2,RYTM MIXER LIVE
+rytm:voice:OH:mute,mm808,MM-RYTM,MUTE OH,value,2,RYTM MIXER LIVE
+rytm:voice:CP:mute,mm808,MM-RYTM,MUTE CP,value,2,RYTM MIXER LIVE
+rytm:voice:RS:mute,mm808,MM-RYTM,MUTE RS,value,2,RYTM MIXER LIVE
+rytm:voice:HT:mute,mm808,MM-RYTM,MUTE HT,value,2,RYTM MIXER LIVE
+rytm:voice:CY:mute,mm808,MM-RYTM,MUTE CY,value,2,RYTM
+rytm:voice:PC:mute,mm808,MM-RYTM,MUTE PC,value,2,RYTM
+rytm:running,mm808,MM-RYTM,RUN (ON / OFF),value,2,RYTM MIXER LIVE
+rytm:kit:bd,mm808,MM-RYTM,TWEAK KICK,value,9,RYTM
+rytm:kit:tune,mm808,MM-RYTM,TWEAK TUNE,value,,RYTM LIVE
+rytm:kit:attack,mm808,MM-RYTM,TWEAK ATTACK,value,,RYTM
+rytm:kit:decay,mm808,MM-RYTM,TWEAK DECAY,value,,RYTM LIVE
+rytm:kit:drive,mm808,MM-RYTM,TWEAK DRIVE,value,,RYTM LIVE
+rytm:kit:sd,mm808,MM-RYTM,TWEAK SNARE,value,7,RYTM
+rytm:kit:snappy,mm808,MM-RYTM,TWEAK SNAPPY,value,,RYTM
+rytm:kit:cp,mm808,MM-RYTM,TWEAK CLAP,value,3,
+rytm:kit:gate,mm808,MM-RYTM,TWEAK GATE,value,2,
+rytm:kit:hh,mm808,MM-RYTM,TWEAK HATS,value,3,
+rytm:kit:tom,mm808,MM-RYTM,TWEAK TOMS,value,3,
+rytm:kit:rs,mm808,MM-RYTM,TWEAK RIM,value,3,
+rytm:pad:BD,mm808,MM-RYTM,PAD BD,press,,RYTM
+rytm:pad:SD,mm808,MM-RYTM,PAD SD,press,,RYTM
+rytm:pad:TOM,mm808,MM-RYTM,PAD TOM,press,,RYTM
+rytm:pad:CH,mm808,MM-RYTM,PAD CH,press,,RYTM
+rytm:pad:OH,mm808,MM-RYTM,PAD OH,press,,RYTM
+rytm:pad:CP,mm808,MM-RYTM,PAD CP,press,,RYTM
+rytm:pad:RS,mm808,MM-RYTM,PAD RS,press,,RYTM
+rytm:pad:HT,mm808,MM-RYTM,PAD HT,press,,RYTM
+rytm:pad:CY,mm808,MM-RYTM,PAD CY,press,,RYTM
+rytm:pad:PC,mm808,MM-RYTM,PAD PC,press,,RYTM
+rytm:step:0,mm808,MM-RYTM,STEP 1,press,,
+rytm:step:1,mm808,MM-RYTM,STEP 2,press,,
+rytm:step:2,mm808,MM-RYTM,STEP 3,press,,
+rytm:step:3,mm808,MM-RYTM,STEP 4,press,,
+rytm:step:4,mm808,MM-RYTM,STEP 5,press,,
+rytm:step:5,mm808,MM-RYTM,STEP 6,press,,
+rytm:step:6,mm808,MM-RYTM,STEP 7,press,,
+rytm:step:7,mm808,MM-RYTM,STEP 8,press,,
+rytm:step:8,mm808,MM-RYTM,STEP 9,press,,
+rytm:step:9,mm808,MM-RYTM,STEP 10,press,,
+rytm:step:10,mm808,MM-RYTM,STEP 11,press,,
+rytm:step:11,mm808,MM-RYTM,STEP 12,press,,
+rytm:step:12,mm808,MM-RYTM,STEP 13,press,,
+rytm:step:13,mm808,MM-RYTM,STEP 14,press,,
+rytm:step:14,mm808,MM-RYTM,STEP 15,press,,
+rytm:step:15,mm808,MM-RYTM,STEP 16,press,,
+rytm:run,mm808,MM-RYTM,RUN/STOP,press,,
+rytm:clear,mm808,MM-RYTM,CLEAR,press,,RYTM
+rytm:random,mm808,MM-RYTM,RANDOM,press,,RYTM
+rytm:mute,mm808,MM-RYTM,MUTE,press,,
+rytm:solo,mm808,MM-RYTM,SOLO,press,,
+rytm:edit,mm808,MM-RYTM,EDIT,press,,RYTM
+rytm:open,mm808,MM-RYTM,OPEN,press,,RYTM
+rytm:ptn:0,mm808,MM-RYTM,PATTERN A01,press,,RYTM
+rytm:ptn:1,mm808,MM-RYTM,PATTERN A02,press,,RYTM
+rytm:ptn:2,mm808,MM-RYTM,PATTERN A03,press,,RYTM
+rytm:ptn:3,mm808,MM-RYTM,PATTERN A04,press,,RYTM
+rytm:ptn:4,mm808,MM-RYTM,PATTERN A05,press,,
+rytm:ptn:5,mm808,MM-RYTM,PATTERN A06,press,,
+rytm:ptn:6,mm808,MM-RYTM,PATTERN A07,press,,
+rytm:ptn:7,mm808,MM-RYTM,PATTERN A08,press,,
+rytm:ptn:8,mm808,MM-RYTM,PATTERN A09,press,,
+rytm:ptn:9,mm808,MM-RYTM,PATTERN A10,press,,
+rytm:ptn:10,mm808,MM-RYTM,PATTERN A11,press,,
+rytm:ptn:11,mm808,MM-RYTM,PATTERN A12,press,,
+rytm:ptn:12,mm808,MM-RYTM,PATTERN A13,press,,
+rytm:ptn:13,mm808,MM-RYTM,PATTERN A14,press,,
+rytm:ptn:14,mm808,MM-RYTM,PATTERN A15,press,,
+rytm:ptn:15,mm808,MM-RYTM,PATTERN A16,press,,
+voy:knob:rate,voy,MM-ARP,RATE,value,4,ARP LIVE
+voy:knob:mode,voy,MM-ARP,MODE,value,4,ARP
+voy:knob:range,voy,MM-ARP,RANGE,value,3,ARP
+voy:knob:notes,voy,MM-ARP,NOTES,value,9,ARP
+voy:knob:gate,voy,MM-ARP,GATE,value,,ARP LIVE
+voy:knob:wave1,voy,MM-ARP,WAVE 1,value,,
+voy:knob:range1,voy,MM-ARP,RANGE 1,value,6,
+voy:knob:semi1,voy,MM-ARP,SEMI 1,value,15,
+voy:knob:fine1,voy,MM-ARP,FINE 1,value,,
+voy:knob:on1,voy,MM-ARP,OSC 1,value,2,ARP
+voy:knob:wave2,voy,MM-ARP,WAVE 2,value,,
+voy:knob:range2,voy,MM-ARP,RANGE 2,value,6,
+voy:knob:semi2,voy,MM-ARP,SEMI 2,value,15,
+voy:knob:fine2,voy,MM-ARP,FINE 2,value,,
+voy:knob:on2,voy,MM-ARP,OSC 2,value,2,ARP
+voy:knob:osc1,voy,MM-ARP,OSC 1,value,,ARP
+voy:knob:osc2,voy,MM-ARP,OSC 2,value,,ARP
+voy:knob:fm,voy,MM-ARP,FM,value,,ARP
+voy:knob:ratio,voy,MM-ARP,RATIO,value,9,
+voy:knob:octave,voy,MM-ARP,OCTAVE,value,5,ARP
+voy:knob:glide,voy,MM-ARP,GLIDE,value,,ARP
+voy:knob:cutoff,voy,MM-ARP,CUTOFF,value,,ARP LIVE
+voy:knob:res,voy,MM-ARP,RES,value,,ARP LIVE
+voy:knob:envAmt,voy,MM-ARP,ENV AMT,value,,ARP LIVE
+voy:knob:noise,voy,MM-ARP,NOISE,value,,ARP
+voy:knob:fmode,voy,MM-ARP,MODE,value,4,ARP
+voy:knob:fA,voy,MM-ARP,ATTACK,value,,ARP
+voy:knob:fD,voy,MM-ARP,DECAY,value,,ARP LIVE
+voy:knob:fS,voy,MM-ARP,SUSTAIN,value,,ARP
+voy:knob:fR,voy,MM-ARP,RELEASE,value,,ARP
+voy:knob:aA,voy,MM-ARP,ATTACK,value,,ARP
+voy:knob:aD,voy,MM-ARP,DECAY,value,,ARP
+voy:knob:aS,voy,MM-ARP,SUSTAIN,value,,ARP
+voy:knob:aR,voy,MM-ARP,RELEASE,value,,ARP
+voy:knob:lfoRate,voy,MM-ARP,SPEED,value,7,ARP
+voy:knob:lfoShape,voy,MM-ARP,SHAPE,value,4,ARP
+voy:knob:lfoDest,voy,MM-ARP,TARGET,value,5,ARP
+voy:knob:lfoAmt,voy,MM-ARP,DEPTH,value,,ARP
+voy:knob:dist,voy,MM-ARP,OVERDRIVE,value,,ARP
+voy:knob:chorus,voy,MM-ARP,CHORUS,value,,ARP
+voy:knob:delay,voy,MM-ARP,DELAY,value,,ARP LIVE
+voy:knob:reverb,voy,MM-ARP,REVERB,value,,ARP LIVE
+voy:knob:volume,voy,MM-ARP,VOLUME,value,,ARP
+voy:knob:phase,voy,MM-ARP,TWEAK PHASE,value,,
+voy:knob:drift,voy,MM-ARP,TWEAK DRIFT,value,,
+voy:knob:width,voy,MM-ARP,TWEAK WIDTH,value,,
+voy:knob:monoLow,voy,MM-ARP,TWEAK BASS MONO,value,,
+voy:knob:keyTrack,voy,MM-ARP,TWEAK KEY TRACK,value,,
+voy:knob:accent,voy,MM-ARP,TWEAK ACCENT,value,,
+voy:knob:sync,voy,MM-ARP,TWEAK SYNC,value,2,
+voy:knob:duck,voy,MM-ARP,TWEAK SIDECHAIN,value,,
+voy:knob:chord,voy,MM-ARP,TWEAK CHORD,value,5,
+voy:pad:0,voy,MM-ARP,CHORD F#m,press,,ARP LIVE
+voy:pad:1,voy,MM-ARP,CHORD D,press,,ARP LIVE
+voy:pad:2,voy,MM-ARP,CHORD E,press,,ARP LIVE
+voy:pad:3,voy,MM-ARP,CHORD C#m,press,,ARP LIVE
+voy:pad:4,voy,MM-ARP,CHORD Bm,press,,ARP LIVE
+voy:pad:5,voy,MM-ARP,CHORD A,press,,ARP LIVE
+voy:pad:6,voy,MM-ARP,CHORD F#m7,press,,ARP LIVE
+voy:pad:7,voy,MM-ARP,CHORD Dmaj7,press,,ARP LIVE
+voy:run,voy,MM-ARP,RUN/STOP,press,,
+voy:running,voy,MM-ARP,RUN (ON / OFF),value,2,ARP MIXER LIVE
+voy:clear,voy,MM-ARP,CLEAR,press,,ARP
+voy:random,voy,MM-ARP,RANDOM,press,,ARP
+voy:edit,voy,MM-ARP,EDIT,press,,ARP
+voy:open,voy,MM-ARP,OPEN,press,,ARP
+smpl:knob:start,smpl,MM-SMPL,START,value,,SMPL
+smpl:knob:end,smpl,MM-SMPL,END,value,,SMPL
+smpl:knob:pitch,smpl,MM-SMPL,PITCH,value,49,SMPL
+smpl:knob:level,smpl,MM-SMPL,LEVEL,value,,SMPL
+smpl:knob:attack,smpl,MM-SMPL,ATTACK,value,,SMPL
+smpl:knob:release,smpl,MM-SMPL,RELEASE,value,,SMPL
+smpl:knob:filter,smpl,MM-SMPL,FILTER,value,,SMPL
+smpl:knob:position,smpl,MM-SMPL,POSITION,value,,SMPL
+smpl:knob:scan,smpl,MM-SMPL,SCAN,value,,SMPL
+smpl:knob:size,smpl,MM-SMPL,SIZE,value,,SMPL
+smpl:knob:density,smpl,MM-SMPL,DENSITY,value,,SMPL
+smpl:knob:spray,smpl,MM-SMPL,SPRAY,value,,SMPL
+smpl:key:rec,smpl,MM-SMPL,REC,press,,SMPL
+smpl:key:play,smpl,MM-SMPL,PLAY,press,,SMPL LIVE
+smpl:key:stop,smpl,MM-SMPL,STOP,press,,SMPL LIVE
+smpl:key:file,smpl,MM-SMPL,FILE,press,,SMPL
+smpl:key:slices,smpl,MM-SMPL,SLICES,press,,SMPL
+smpl:key:mode,smpl,MM-SMPL,MODE,press,,SMPL
+smpl:key:rev,smpl,MM-SMPL,REV,press,,SMPL
+smpl:key:loop,smpl,MM-SMPL,LOOP,press,,SMPL
+smpl:key:random,smpl,MM-SMPL,RANDOM,press,,SMPL
+smpl:key:clear,smpl,MM-SMPL,CLEAR,press,,SMPL
+smpl:key:edit,smpl,MM-SMPL,EDIT,press,,SMPL
+smpl:key:save,smpl,MM-SMPL,SAVE,press,,SMPL
+smpl:pad:0,smpl,MM-SMPL,TRIG 1,hold,,SMPL
+smpl:pad:1,smpl,MM-SMPL,TRIG 2,hold,,SMPL
+smpl:pad:2,smpl,MM-SMPL,TRIG 3,hold,,SMPL
+smpl:pad:3,smpl,MM-SMPL,TRIG 4,hold,,SMPL
+smpl:pad:4,smpl,MM-SMPL,TRIG 5,hold,,SMPL
+smpl:pad:5,smpl,MM-SMPL,TRIG 6,hold,,SMPL
+smpl:pad:6,smpl,MM-SMPL,TRIG 7,hold,,SMPL
+smpl:pad:7,smpl,MM-SMPL,TRIG 8,hold,,SMPL
+smpl:pad:8,smpl,MM-SMPL,TRIG 9,hold,,SMPL
+smpl:pad:9,smpl,MM-SMPL,TRIG 10,hold,,SMPL
+smpl:pad:10,smpl,MM-SMPL,TRIG 11,hold,,SMPL
+smpl:pad:11,smpl,MM-SMPL,TRIG 12,hold,,SMPL
+smpl:pad:12,smpl,MM-SMPL,TRIG 13,hold,,SMPL
+smpl:pad:13,smpl,MM-SMPL,TRIG 14,hold,,SMPL
+smpl:pad:14,smpl,MM-SMPL,TRIG 15,hold,,SMPL
+smpl:pad:15,smpl,MM-SMPL,TRIG 16,hold,,SMPL
+dj:dj-ch1-gain,dj,"MM-DECKS (table, platines, effets)",CHANNEL 1 (MM-RYTM) GAIN,value,,MIXER
+dj:dj-ch1-hi,dj,"MM-DECKS (table, platines, effets)",CHANNEL 1 (MM-RYTM) EQ HI,value,,DECK MIXER
+dj:dj-ch1-mid,dj,"MM-DECKS (table, platines, effets)",CHANNEL 1 (MM-RYTM) EQ MID,value,,MIXER
+dj:dj-ch1-low,dj,"MM-DECKS (table, platines, effets)",CHANNEL 1 (MM-RYTM) EQ LOW,value,,DECK MIXER
+dj:dj-ch1-filter,dj,"MM-DECKS (table, platines, effets)",CHANNEL 1 (MM-RYTM) FILTER,value,,DECK MIXER LIVE
+dj:dj-ch2-gain,dj,"MM-DECKS (table, platines, effets)",CHANNEL 2 (MM-ARP) GAIN,value,,MIXER
+dj:dj-ch2-hi,dj,"MM-DECKS (table, platines, effets)",CHANNEL 2 (MM-ARP) EQ HI,value,,DECK MIXER
+dj:dj-ch2-mid,dj,"MM-DECKS (table, platines, effets)",CHANNEL 2 (MM-ARP) EQ MID,value,,MIXER
+dj:dj-ch2-low,dj,"MM-DECKS (table, platines, effets)",CHANNEL 2 (MM-ARP) EQ LOW,value,,DECK MIXER
+dj:dj-ch2-filter,dj,"MM-DECKS (table, platines, effets)",CHANNEL 2 (MM-ARP) FILTER,value,,DECK MIXER LIVE
+dj:dj-ch3-gain,dj,"MM-DECKS (table, platines, effets)",CHANNEL 3 (DECK A) GAIN,value,,DECK MIXER
+dj:dj-ch3-hi,dj,"MM-DECKS (table, platines, effets)",CHANNEL 3 (DECK A) EQ HI,value,,DECK MIXER
+dj:dj-ch3-mid,dj,"MM-DECKS (table, platines, effets)",CHANNEL 3 (DECK A) EQ MID,value,,DECK MIXER
+dj:dj-ch3-low,dj,"MM-DECKS (table, platines, effets)",CHANNEL 3 (DECK A) EQ LOW,value,,DECK MIXER
+dj:dj-ch3-filter,dj,"MM-DECKS (table, platines, effets)",CHANNEL 3 (DECK A) FILTER,value,,DECK MIXER LIVE
+dj:dj-ch4-gain,dj,"MM-DECKS (table, platines, effets)",CHANNEL 4 (DECK B) GAIN,value,,DECK MIXER
+dj:dj-ch4-hi,dj,"MM-DECKS (table, platines, effets)",CHANNEL 4 (DECK B) EQ HI,value,,DECK MIXER
+dj:dj-ch4-mid,dj,"MM-DECKS (table, platines, effets)",CHANNEL 4 (DECK B) EQ MID,value,,DECK MIXER
+dj:dj-ch4-low,dj,"MM-DECKS (table, platines, effets)",CHANNEL 4 (DECK B) EQ LOW,value,,DECK MIXER
+dj:dj-ch4-filter,dj,"MM-DECKS (table, platines, effets)",CHANNEL 4 (DECK B) FILTER,value,,DECK MIXER LIVE
+dj:dj-fx-overdrive,dj,"MM-DECKS (table, platines, effets)",EFFECT OVERDRIVE,value,,DECK MIXER LIVE
+dj:dj-fx-crush,dj,"MM-DECKS (table, platines, effets)",EFFECT CRUSH,value,,DECK MIXER LIVE
+dj:dj-fx-chorus,dj,"MM-DECKS (table, platines, effets)",EFFECT CHORUS,value,,DECK MIXER LIVE
+dj:dj-fx-flanger,dj,"MM-DECKS (table, platines, effets)",EFFECT FLANGER,value,,DECK MIXER LIVE
+dj:dj-fx-trans,dj,"MM-DECKS (table, platines, effets)",EFFECT TRANS,value,,DECK MIXER LIVE
+dj:dj-fx-delay,dj,"MM-DECKS (table, platines, effets)",EFFECT DELAY,value,,DECK MIXER LIVE
+dj:dj-fx-reverb,dj,"MM-DECKS (table, platines, effets)",EFFECT REVERB,value,,DECK MIXER LIVE
+dj:dj-fxto,dj,"MM-DECKS (table, platines, effets)","EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL",value,5,DECK MIXER LIVE
+dj:dj-master,dj,"MM-DECKS (table, platines, effets)",MASTER VOLUME,value,,DECK
+dj:dj-ch1-fader,dj,"MM-DECKS (table, platines, effets)",CHANNEL 1 (MM-RYTM) FADER,value,,DECK MIXER LIVE
+dj:dj-ch2-fader,dj,"MM-DECKS (table, platines, effets)",CHANNEL 2 (MM-ARP) FADER,value,,DECK MIXER LIVE
+dj:dj-ch3-fader,dj,"MM-DECKS (table, platines, effets)",CHANNEL 3 (DECK A) FADER,value,,DECK MIXER LIVE
+dj:dj-ch4-fader,dj,"MM-DECKS (table, platines, effets)",CHANNEL 4 (DECK B) FADER,value,,DECK MIXER LIVE
+dj:dj-a-pitch,dj,"MM-DECKS (table, platines, effets)",DECK A PITCH,value,,DECK
+dj:dj-b-pitch,dj,"MM-DECKS (table, platines, effets)",DECK B PITCH,value,,DECK
+dj:dj-a-hotcue1,dj,"MM-DECKS (table, platines, effets)",DECK A HOT CUE 1,hold,,DECK
+dj:dj-a-hotcue2,dj,"MM-DECKS (table, platines, effets)",DECK A HOT CUE 2,hold,,DECK
+dj:dj-a-hotcue3,dj,"MM-DECKS (table, platines, effets)",DECK A HOT CUE 3,hold,,DECK
+dj:dj-a-hotcue4,dj,"MM-DECKS (table, platines, effets)",DECK A HOT CUE 4,hold,,DECK
+dj:dj-a-loop1,dj,"MM-DECKS (table, platines, effets)",DECK A LOOP 1 BEAT (PRESS AGAIN TO EXIT),hold,,DECK
+dj:dj-a-loop2,dj,"MM-DECKS (table, platines, effets)",DECK A LOOP 2 BEATS (PRESS AGAIN TO EXIT),hold,,DECK
+dj:dj-a-loop4,dj,"MM-DECKS (table, platines, effets)",DECK A LOOP 4 BEATS (PRESS AGAIN TO EXIT),hold,,DECK MIXER
+dj:dj-a-loop8,dj,"MM-DECKS (table, platines, effets)",DECK A LOOP 8 BEATS (PRESS AGAIN TO EXIT),hold,,DECK
+dj:dj-a-bendm,dj,"MM-DECKS (table, platines, effets)",DECK A BEND SLOWER (HOLD),hold,,DECK
+dj:dj-a-bendp,dj,"MM-DECKS (table, platines, effets)",DECK A BEND FASTER (HOLD),hold,,DECK
+dj:dj-a-cue,dj,"MM-DECKS (table, platines, effets)",DECK A CUE (HOLD TO PREVIEW),hold,,DECK MIXER LIVE
+dj:dj-a-play,dj,"MM-DECKS (table, platines, effets)",DECK A PLAY OR PAUSE,hold,,DECK MIXER LIVE
+dj:dj-a-tempom,dj,"MM-DECKS (table, platines, effets)",DECK A PITCH DOWN 0.1 BPM (HOLD TO REPEAT),hold,,DECK
+dj:dj-a-tempop,dj,"MM-DECKS (table, platines, effets)",DECK A PITCH UP 0.1 BPM (HOLD TO REPEAT),hold,,DECK
+dj:dj-a-sync,dj,"MM-DECKS (table, platines, effets)",DECK A SYNC: MATCH THE TEMPO YOU HEAR,hold,,DECK MIXER
+dj:dj-b-hotcue1,dj,"MM-DECKS (table, platines, effets)",DECK B HOT CUE 1,hold,,DECK
+dj:dj-b-hotcue2,dj,"MM-DECKS (table, platines, effets)",DECK B HOT CUE 2,hold,,DECK
+dj:dj-b-hotcue3,dj,"MM-DECKS (table, platines, effets)",DECK B HOT CUE 3,hold,,DECK
+dj:dj-b-hotcue4,dj,"MM-DECKS (table, platines, effets)",DECK B HOT CUE 4,hold,,DECK
+dj:dj-b-loop1,dj,"MM-DECKS (table, platines, effets)",DECK B LOOP 1 BEAT (PRESS AGAIN TO EXIT),hold,,DECK
+dj:dj-b-loop2,dj,"MM-DECKS (table, platines, effets)",DECK B LOOP 2 BEATS (PRESS AGAIN TO EXIT),hold,,DECK
+dj:dj-b-loop4,dj,"MM-DECKS (table, platines, effets)",DECK B LOOP 4 BEATS (PRESS AGAIN TO EXIT),hold,,DECK MIXER
+dj:dj-b-loop8,dj,"MM-DECKS (table, platines, effets)",DECK B LOOP 8 BEATS (PRESS AGAIN TO EXIT),hold,,DECK
+dj:dj-b-bendm,dj,"MM-DECKS (table, platines, effets)",DECK B BEND SLOWER (HOLD),hold,,DECK
+dj:dj-b-bendp,dj,"MM-DECKS (table, platines, effets)",DECK B BEND FASTER (HOLD),hold,,DECK
+dj:dj-b-cue,dj,"MM-DECKS (table, platines, effets)",DECK B CUE (HOLD TO PREVIEW),hold,,DECK MIXER LIVE
+dj:dj-b-play,dj,"MM-DECKS (table, platines, effets)",DECK B PLAY OR PAUSE,hold,,DECK MIXER LIVE
+dj:dj-b-tempom,dj,"MM-DECKS (table, platines, effets)",DECK B PITCH DOWN 0.1 BPM (HOLD TO REPEAT),hold,,DECK
+dj:dj-b-tempop,dj,"MM-DECKS (table, platines, effets)",DECK B PITCH UP 0.1 BPM (HOLD TO REPEAT),hold,,DECK
+dj:dj-b-sync,dj,"MM-DECKS (table, platines, effets)",DECK B SYNC: MATCH THE TEMPO YOU HEAR,hold,,DECK MIXER
+dj:dj-time1,dj,"MM-DECKS (table, platines, effets)",EFFECTS TIME 1/4 BEATS,hold,,MIXER LIVE
+dj:dj-time2,dj,"MM-DECKS (table, platines, effets)",EFFECTS TIME 1/2 BEATS,hold,,MIXER LIVE
+dj:dj-time3,dj,"MM-DECKS (table, platines, effets)",EFFECTS TIME 3/4 BEATS,hold,,MIXER
+dj:dj-time4,dj,"MM-DECKS (table, platines, effets)",EFFECTS TIME 1 BEAT,hold,,MIXER LIVE
+dj:dj-time5,dj,"MM-DECKS (table, platines, effets)",EFFECTS TIME 2 BEATS,hold,,MIXER LIVE
+dj:dj-time6,dj,"MM-DECKS (table, platines, effets)",EFFECTS TIME 4 BEATS,hold,,MIXER
+dj:dj-machines,dj,"MM-DECKS (table, platines, effets)","PLAY OR STOP THE MM-RYTM AND THE MM-ARP TOGETHER, KEY G",hold,,
+dj:dj-export,dj,"MM-DECKS (table, platines, effets)","EXPORT THE LOOP TO THE MM-SMPL AND EDIT IT THERE, KEY T",hold,,DECK MIXER LIVE
+dj:dj-adddeck,dj,"MM-DECKS (table, platines, effets)","ADD A DECK, WITH ITS CHANNEL ON THE MIXER",hold,,MIXER
+nav:all,global,Partout (navigation),MM-STUDIO (ALL THE MACHINES),press,,MIXER
+nav:mm808,global,Partout (navigation),GO TO MM-RYTM,press,,
+nav:voy,global,Partout (navigation),GO TO MM-ARP,press,,
+nav:smpl,global,Partout (navigation),GO TO MM-SMPL,press,,
+nav:dj,global,Partout (navigation),GO TO MM-DECKS,press,,
+nav:prev,global,Partout (navigation),PREVIOUS MACHINE,press,,RYTM ARP MIXER SMPL LIVE
+nav:next,global,Partout (navigation),NEXT MACHINE,press,,RYTM ARP MIXER SMPL LIVE
+nav:machines,global,Partout (navigation),PLAY/STOP RYTM + ARP,press,,RYTM ARP MIXER LIVE
