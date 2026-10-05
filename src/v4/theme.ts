@@ -1401,6 +1401,16 @@ export const FIRST_FRAME_WAIT_MS = 1500;
 export const INTRO = {
   /** l'intro part plus bas (les couches se voient) et rejoint ORBIT.elDeg en s'assemblant */
   elFromDeg: 40,
+  /**
+   * L'arrivee en 3D (2026-10-05, Mika : "qu'une seule machine s'ouvre et se
+   * ferme et arrive en 3D zoom pour se mettre dans la vue par defaut") : la
+   * camera part tournee de azFromDeg (d'un cote ou de l'autre, au hasard) et
+   * plus loin (zoomFrom), et rejoint la vue par defaut avec l'assemblage
+   */
+  azFromDeg: 38,
+  zoomFrom: 0.62,
+  /** une image lente n'avance pas l'intro de plus de maxStepMs (pas de saut : elle ralentit) */
+  maxStepMs: 50,
   ms: 3100,
   hold: 300,
   pcb: { from: 300, ms: 1500 },

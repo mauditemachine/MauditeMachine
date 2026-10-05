@@ -348,25 +348,27 @@ html:has(body.v4-active) {
 }
 
 /*
- * Le logotype a droite du mot (2026-10-04, Mika : "le logotype en haut dans
- * le header, a droite du logo Maudite Machine, dans la couleur jaune, de la
- * meme taille que le logo") : le dessin blanc sert de masque, la couleur
- * est celle du mot (l'or, l'encre en clair). Le vectoriel fourni par Mika
- * (2026-10-04, Logotype.svg), net a toutes les tailles.
+ * Le logotype (2026-10-04, Mika : "le logotype en haut dans le header, dans
+ * la couleur jaune, de la meme taille que le logo") : le dessin blanc sert
+ * de masque. Le vectoriel fourni par Mika (2026-10-04, Logotype.svg), net a
+ * toutes les tailles. A gauche du mot et en jaune, en sombre comme en clair
+ * (2026-10-05, Mika : "le logotype devrait etre a gauche du logo Maudite
+ * Machine, et en jaune" ; il etait a droite, dans l'or du mot).
  */
 .v4-logo .v4-logotype {
   display: block;
   flex: none;
   height: 26px;
   aspect-ratio: 1891 / 1612;
-  margin-left: 12px;
-  background: #ffa600;
+  margin-right: 12px;
+  background: #f2c230;
   -webkit-mask: url('/logo/mauditemachine-logotype.svg') center / contain no-repeat;
   mask: url('/logo/mauditemachine-logotype.svg') center / contain no-repeat;
 }
 
 .v4-root[data-v4-theme='light'] .v4-logo .v4-logotype {
-  background: #434343;
+  /* le meme jaune, un ton plus soutenu pour se lire sur le creme */
+  background: #e0a800;
 }
 
 /* MENU (2026-10-04) : le mot et les trois traits, en pastille ; ouvert, CLOSE et la croix */
@@ -485,7 +487,7 @@ html:has(body.v4-active) {
 
 .v4-mhead .v4-logo .v4-logotype {
   height: 23px;
-  margin-left: 10px;
+  margin-right: 10px;
 }
 
 .v4-root .v4-burger {

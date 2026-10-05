@@ -440,9 +440,16 @@ export class Stage {
   private explodeGoal = false;
   private unsubExplode: () => void;
   private detachExplode: () => void;
-  /** intro (spec 7.4) : en cours, et l'instant de sa premiere frame (-1 avant) */
+  /** intro (spec 7.4) : en cours ; son horloge (ms, chaque image avance de maxStepMs au plus), la derniere image */
   private introOn = false;
-  private introT0 = -1;
+  private introClock = 0;
+  private introLast = -1;
+  /** l'intro d'une machine (2026-10-05) : celle qui s'ouvre et se ferme, le cote d'ou arrive la camera */
+  private introPick: MachineId = 'mm808';
+  private introSign = 1;
+  /** le MM-DECKS et le MM-SMPL arrives pendant l'intro : poses a sa fin (pas de saccade, pas de saut de cadrage) */
+  private pendingDj: typeof DjRig | null = null;
+  private pendingSmpl: typeof SmplRig | null = null;
   /** le MM-VOYAGER (2026-10-03, ?voyager=1), null sans lui */
   readonly voy: VoyagerRig | null;
   /** le MM-DECKS (2026-10-04), accroche une fois son code arrive (attachDj) ; null avant, et sans lui (?dj=0) */
@@ -788,19 +795,27 @@ export class Stage {
       );
     }
     // Intro (2026-10-01) : mouvement complet seulement ; la machine attend
-    // eclatee jusqu'a la premiere frame, puis s'assemble (stepIntro)
-    if (!motion.reduced() && !opts.skipIntro) {
+    // eclatee jusqu'a la premiere frame, puis s'assemble (stepIntro).
+    // Une seule machine depuis le 2026-10-05 (Mika : "aleatoirement qu'une
+    // seule machine s'ouvre et se ferme et arrive en 3D zoom pour se mettre
+    // dans la vue par defaut") : celle de ?m= (MM-RYTM ou MM-ARP), sinon l'une
+    // des deux au hasard ; une machine sans capot demandee (?m=dj, ?m=smpl) :
+    // pas d'intro, on y arrive directement.
+    const st = startMachine.take();
+    const hood: readonly MachineId[] = this.voy ? ['mm808', 'voy'] : ['mm808'];
+    if (!motion.reduced() && !opts.skipIntro && (st === null || hood.includes(st))) {
       this.introOn = true;
+      this.introPick = st ?? hood[Math.floor(Math.random() * hood.length)];
+      this.introSign = Math.random() < 0.5 ? -1 : 1;
       // L'intro montre le PCB eclate : ses textures se font maintenant
       this.pcb.prepare();
-      this.explode.assemble(0);
-      // Deux machines : les deux s'ouvrent et se referment ensemble, vues d'ensemble
+      if (this.introPick === 'mm808') this.explode.assemble(0);
       if (this.voy) {
-        this.voy.assemble(0);
-        focus.set('all');
+        if (this.introPick === 'voy') this.voy.assemble(0);
+        focus.set(this.introPick);
         this.snapFocus();
       }
-      this.introElevation();
+      this.introCamera(0);
       this.syncCasters();
       this.updateCamera();
       intro.set('pending');
@@ -810,7 +825,6 @@ export class Stage {
         // Premiere arrivee sans intro (mouvement reduit) : la machine de ?m= (2026-10-04),
         // sinon desktop, la vue d'ensemble ; au telephone, jamais la vue d'ensemble hors de l'intro
         // (pris une seule fois : une reconstruction avant la fin de l'intro, React en dev, l'arrivee encore)
-        const st = startMachine.take();
         if (st) focus.set(st);
         else if (!opts.skipIntro && !this.layoutMobile && focus.changes === 0) focus.set('all');
         if (this.layoutMobile && focus.get() === 'all') focus.set('mm808');
@@ -1033,6 +1047,11 @@ export class Stage {
    */
   private attachDj(Rig: typeof DjRig): void {
     if (this.disposed || this.dj) return;
+    // Pendant l'intro : a sa fin (sa construction et ses shaders ne saccadent pas l'arrivee)
+    if (this.introOn) {
+      this.pendingDj = Rig;
+      return;
+    }
     const dj = new Rig({
       mobile: this.opts.mobile,
       anisotropy: this.aniso,
@@ -1062,6 +1081,10 @@ export class Stage {
    */
   private attachSmpl(Rig: typeof SmplRig): void {
     if (this.disposed || this.smpl) return;
+    if (this.introOn) {
+      this.pendingSmpl = Rig;
+      return;
+    }
     const sm = new Rig({
       mobile: this.opts.mobile,
       anisotropy: this.aniso,
@@ -1759,49 +1782,64 @@ export class Stage {
    * Animateur de l'intro (2026-10-01) : la machine eclatee s'assemble en
    * 3 s (Explode.assemble, le cadrage la suit), puis les LED des pas font
    * leur test (aller et retour en 400 ms). Le temps part de la premiere
-   * frame rendue.
+   * frame rendue ; depuis le 2026-10-05 (Mika : "a l'intro l'image flick
+   * un peu"), chaque image l'avance de INTRO.maxStepMs au plus : une image
+   * lente (les shaders qui se compilent) ralentit l'intro au lieu de la
+   * faire sauter. Seule la machine choisie s'assemble.
    */
   private stepIntro = (now: number): boolean => {
     if (!this.introOn) return false;
-    if (this.introT0 < 0) this.introT0 = now;
-    const t = now - this.introT0;
+    this.introClock += this.introLast < 0 ? 0 : Math.min(INTRO.maxStepMs, Math.max(0, now - this.introLast));
+    this.introLast = now;
+    const t = this.introClock;
     if (t >= INTRO.ms) {
       this.finishIntro();
       return true;
     }
-    this.explode.assemble(t);
-    this.voy?.assemble(t);
-    this.introElevation();
+    if (this.introPick === 'mm808') this.explode.assemble(t);
+    else if (this.introPick === 'voy') this.voy?.assemble(t);
+    this.introCamera(t);
     this.updateCamera();
     this.syncCasters();
-    const u = (t - INTRO.ledFromMs) / INTRO.ledMs;
-    const n = STEP_LEDS;
-    // 0 -> 15 puis 15 -> 0 : une LED a la fois
-    const led = u < 0 || u >= 1 ? -1 : u < 0.5 ? Math.floor(u * 2 * n) : n - 1 - Math.floor((u - 0.5) * 2 * n);
-    this.seq.setIntroLed(led);
+    if (this.introPick === 'mm808') {
+      const u = (t - INTRO.ledFromMs) / INTRO.ledMs;
+      const n = STEP_LEDS;
+      // 0 -> 15 puis 15 -> 0 : une LED a la fois
+      const led = u < 0 || u >= 1 ? -1 : u < 0.5 ? Math.floor(u * 2 * n) : n - 1 - Math.floor((u - 0.5) * 2 * n);
+      this.seq.setIntroLed(led);
+    }
     return true;
   };
 
   /**
-   * Pendant l'intro, la camera descend de INTRO.elFromDeg (les couches
-   * eclatees se voient) a ORBIT.elDeg au rythme de l'assemblage. L'elevation
-   * est posee directement (pas de commit de l'orbite) : la vue n'est pas
-   * "deplacee", RESET VIEW reste cache.
+   * Pendant l'intro, la camera arrive en 3D (2026-10-05) : elle descend de
+   * INTRO.elFromDeg (les couches eclatees se voient) a ORBIT.elDeg, revient
+   * de INTRO.azFromDeg (d'un cote ou de l'autre) a l'azimut par defaut et
+   * s'approche de INTRO.zoomFrom a 1, le tout en douceur sur la duree de
+   * l'intro. Posee directement (pas de commit de l'orbite) : la vue n'est
+   * pas "deplacee", RESET VIEW reste cache.
    */
-  private introElevation(): void {
-    const el = ORBIT.elDeg + (INTRO.elFromDeg - ORBIT.elDeg) * this.explode.p.frame;
-    this.orbit.elevation = (el * Math.PI) / 180;
-    this.orbit.place();
+  private introCamera(t: number): void {
+    const u = easeInOutCubic(Math.min(1, Math.max(0, t / INTRO.ms)));
+    const deg = Math.PI / 180;
+    const el = INTRO.elFromDeg + (ORBIT.elDeg - INTRO.elFromDeg) * u;
+    const az = (ORBIT.azDeg + this.introSign * INTRO.azFromDeg * (1 - u)) * deg;
+    this.orbit.elevation = el * deg;
+    this.orbit.azimuth = ((az % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    this.orbit.zoom = ORBIT.zoom * Math.exp(Math.log(INTRO.zoomFrom) * (1 - u));
+    this.orbit.apply();
   }
 
   /** Fin de l'intro, tout de suite (premier geste, fin du temps, reduced motion, demontage). */
   finishIntro(): void {
     if (!this.introOn) return;
     this.introOn = false;
-    // Assemblee d'un coup (premier geste, fin du temps, demontage), a l'angle par defaut
+    // Assemblee d'un coup (premier geste, fin du temps, demontage), a la vue par defaut
     this.explode.snap(explodeState.get() === 'open');
     this.orbit.elevation = (ORBIT.elDeg * Math.PI) / 180;
-    this.orbit.place();
+    this.orbit.azimuth = (ORBIT.azDeg * Math.PI) / 180;
+    this.orbit.zoom = ORBIT.zoom;
+    this.orbit.apply();
     this.updateCamera();
     this.syncCasters();
     this.seq.setIntroLed(-1);
@@ -1809,11 +1847,16 @@ export class Stage {
     if (this.voy) {
       this.voy.finishIntro();
       this.updateCamera();
-      // La machine de ?m= (2026-10-04) ; sinon, au telephone, une machine a la fois : la 808 se pose
-      const st = startMachine.take();
-      if (st) focus.set(st);
-      else if (this.layoutMobile && focus.get() === 'all') focus.set('mm808');
+      // Au telephone, une machine a la fois (l'intro en montre deja une, celle de ?m= ou au hasard)
+      if (this.layoutMobile && focus.get() === 'all') focus.set('mm808');
     }
+    // Le MM-DECKS et le MM-SMPL arrives pendant l'intro se posent maintenant
+    const dj = this.pendingDj;
+    const sm = this.pendingSmpl;
+    this.pendingDj = null;
+    this.pendingSmpl = null;
+    if (dj) this.attachDj(dj);
+    if (sm) this.attachSmpl(sm);
     this.invalidate();
   }
 
