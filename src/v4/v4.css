@@ -4411,6 +4411,46 @@ html:has(body.v4-active.v4-light) {
   box-shadow: 0 0 6px #62f28c;
 }
 
+/* CLOSE dans la machine ouverte (2026-10-05, ui/HoodClose.tsx) : orange, allume
+   comme le pad OPEN, sa LED blanche ; l'encre sombre sur l'orange (6.4:1). */
+.v4-root .v4-close-key {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: linear-gradient(#ff7a2e, var(--orange));
+  color: #141414;
+  box-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.55),
+    0 0 14px rgba(255, 106, 34, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  animation: v4-close-key-in 220ms ease-out both;
+}
+
+.v4-root .v4-close-key:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.55),
+    0 0 20px rgba(255, 106, 34, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.v4-close-led {
+  width: 0.55em;
+  height: 0.55em;
+  flex: none;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px #fff;
+}
+
+@keyframes v4-close-key-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-close-key {
+  animation: none;
+}
+
 /* INFO du MM-SMPL : un lien, son i dans un rond */
 .v4-root .v4-info-key {
   text-decoration: none;

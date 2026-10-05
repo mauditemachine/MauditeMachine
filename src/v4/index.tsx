@@ -65,6 +65,7 @@ import { BeatPanel } from './ui/BeatEditor';
 import { InstallPrompt } from './ui/InstallPrompt';
 import { MobileHeader } from './ui/MobileHeader';
 import { PcbClose } from './ui/PcbClose';
+import { HoodClose } from './ui/HoodClose';
 import { Scope } from './ui/Scope';
 import { Dock } from './ui/Dock';
 import { Header, openHood } from './ui/Header';
@@ -565,6 +566,8 @@ const V4Shell: React.FC = () => {
           {VOYAGER && <MachineNav stage={stage} mobile={mobile} />}
           {/* Machine ouverte au telephone : CLOSE a portee de pouce, sur l'avant de la carte */}
           {mobile && <PcbClose getStage={getStage} />}
+          {/* Desktop : CLOSE sur la plaque de la machine ouverte (2026-10-05, ui/HoodClose.tsx) */}
+          {!mobile && <HoodClose getStage={getStage} />}
           {/* L'en-tete : fin sur desktop ; logo et hamburger sur mobile (2026-10-01) */}
           {mobile ? <MobileHeader getStage={getStage} /> : <Header getStage={getStage} />}
           <Trace stage={stage} panelRef={panelRef} mobile={mobile} />

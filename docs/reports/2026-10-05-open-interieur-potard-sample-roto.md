@@ -4,6 +4,7 @@ Demandes de Mika :
 - « Quand on OPEN une machine, j'aimerais que ça zoome vers le contenu de l'intérieur ; quand on ferme, on revient dans la vue RESET VIEW. »
 - « Dans les paramètres des voices, à droite de VOLUME, je veux un knob de sélection des samples. Quand on commence à le tourner, on voit sur l'écran la liste des échantillons ; on a appuyé sur une voice et là on choisit le sample. Par défaut, je veux toujours que le BD soit sélectionné pour les FX voices. »
 - « Donne-moi un JSON parfait pour mon Roto-Control, parfaitement fait pour mon Roto et mes machines. »
+- « Quand on clique sur OPEN, on devrait voir un CLOSE à l'intérieur de la machine quand même, voyant. »
 
 ## 1. Ce qui a été fait
 
@@ -18,7 +19,8 @@ Demandes de Mika :
 - **Roto-Control** (`src/v4/midi/roto.ts`, `scripts/midi-reference.mjs`) :
   - setup RYTM, page 2 = la rangée VOICE FX de la machine, dans son ordre (VOLUME, SAMPLE, TONE, DECAY, V DIST, V CHORUS, V DELAY, V REVERB) ; KICK TUNE passe en page 4 à la place de KICK SOUND ;
   - les six fichiers ROTO-SETUP dans `docs/midi/roto/` (refaits par `npm run docs:midi`) ; la référence `docs/midi/` refaite (346 cibles).
-- `docs/v4/spec.md` : R14-180 à R14-182.
+- **CLOSE dans la machine ouverte** (`src/v4/ui/HoodClose.tsx` nouveau, `scene/rytmTweaks.ts`, `voyager/theme.ts`, `index.tsx`, `v4.css`) : desktop, une touche CLOSE orange et allumée (LED blanche, halo) sur la plaque des TWEAKS : sous le titre du MM-RYTM, à droite de SCOPE sur le MM-ARP. Elle suit la caméra et ferme la machine. Au téléphone, le CLOSE du bas de l'écran reste.
+- `docs/v4/spec.md` : R14-180 à R14-183.
 
 ## 2. Décisions prises et pourquoi
 
@@ -27,6 +29,7 @@ Demandes de Mika :
 - **La liste sur trois lignes** plutôt que tous les noms en petit : à la taille de l'écran, la police normale reste lisible ; le rail et le rang disent où on en est.
 - **SAMPLE continu sur le Roto** : son nombre de crans change avec la voix (9, 7 ou 3), un potard à crans fixes tomberait faux ; le site prend le cran le plus proche, le moteur suit.
 - **KICK SOUND retiré du Roto** : SAMPLE le fait déjà avec le BD (sélectionné par défaut) ; KICK TUNE, plus utile en live, prend sa place.
+- **CLOSE sur la plaque plutôt qu'un bouton flottant** : tu voulais le voir « à l'intérieur de la machine » ; posé comme SCOPE, il reste sur la machine quand on tourne la vue. Orange et allumé comme le pad OPEN, encre sombre pour la lisibilité.
 - **Toucher deux fois une voix la désélectionne encore** (tout le pattern) : le BD est sélectionné à chaque visite, pas imposé.
 - **Vérifié** (son coupé) : la vue ouverte du RYTM et de l'ARP, ouvrir depuis une vue tournée et fermer reviennent à la vue par défaut ; le potard tourné à la souris (60 px : BLUEPRINT), la liste à l'écran, le passage au SD ; la rangée desktop et téléphone, le panneau KNOBS ; le smoke desktop et téléphone sans erreur ; tsc inchangé (15) ; build OK.
 

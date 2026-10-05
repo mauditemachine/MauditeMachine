@@ -44,6 +44,14 @@ const COLS = PORTRAIT ? [-2.0, 0, 2.0] : [-4.05, -2.7, -1.35, 0, 1.35, 2.7, 4.05
 const ROWS = PORTRAIT ? [-2.55, -0.38, 1.79, 3.96] : [-0.5, 1.2];
 /** Le titre : desktop sur les deux dernieres cases du haut, portrait en tete de plaque. */
 const TITLE = PORTRAIT ? { x: 0, z: -4.1, w: 4 } : { x: (COLS[5] + COLS[6]) / 2, z: ROWS[0] - 0.1, w: 2.4 };
+/**
+ * CLOSE sur la plaque du MM-RYTM ouvert (2026-10-05, Mika : "quand on clique
+ * sur OPEN on devrait voir un CLOSE a l'interieur de la machine, voyant") :
+ * desktop, sous le bloc du titre (le capot et son pad sortent du cadre ouvert ;
+ * au telephone, ui/PcbClose.tsx). Repere de la plaque (ui/HoodClose.tsx).
+ */
+export const RYTM_CLOSE_KEY = { x: TITLE.x, z: TITLE.z + 0.74, w: 1.2, d: 0.32, y: 0.02 } as const;
+
 /** L'echelle des potards (desktop un peu plus petits depuis la septieme colonne, 2026-10-04) ; les commutateurs plus petits. */
 const KNOB_S = PORTRAIT ? 1.55 : 1.25;
 const SWITCH_S = PORTRAIT ? 0.82 : 0.8;

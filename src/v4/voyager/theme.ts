@@ -658,7 +658,19 @@ export const VOY_TWEAK_TITLE_W = PORTRAIT ? 1.75 : 1.4;
  */
 export const VOY_SCOPE_KEY = (() => {
   const t = VOY_TWEAK_CELLS.find((c) => c.id === 'title') ?? { x: 0, z: 0 };
-  return PORTRAIT ? { x: t.x, z: t.z + 0.5, w: 1.3, d: 0.34, y: 0.02 } : { x: t.x, z: t.z + 0.5, w: 1.12, d: 0.3, y: 0.02 };
+  // Desktop (2026-10-05) : SCOPE a gauche, CLOSE a cote (VOY_CLOSE_KEY)
+  return PORTRAIT ? { x: t.x, z: t.z + 0.5, w: 1.3, d: 0.34, y: 0.02 } : { x: t.x - 0.37, z: t.z + 0.5, w: 0.68, d: 0.3, y: 0.02 };
+})();
+
+/**
+ * CLOSE sur la plaque du MM-ARP ouvert (2026-10-05, Mika : "quand on clique
+ * sur OPEN on devrait voir un CLOSE a l'interieur de la machine, voyant") :
+ * desktop, a droite de SCOPE (le capot et son pad sortent du cadre ouvert ;
+ * au telephone, ui/PcbClose.tsx).
+ */
+export const VOY_CLOSE_KEY = (() => {
+  const t = VOY_TWEAK_CELLS.find((c) => c.id === 'title') ?? { x: 0, z: 0 };
+  return { x: t.x + 0.37, z: t.z + 0.5, w: 0.68, d: 0.3, y: 0.02 };
 })();
 
 /**
