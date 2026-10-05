@@ -110,7 +110,8 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         else if (focus.get() !== 'dj' && focus.get() !== 'smpl') openToggle(getStage());
         return;
       }
-      if ((e.key === 'o' || e.key === 'O') && focus.get() !== 'dj' && focus.get() !== 'smpl') {
+      // O : OPEN de la machine qu'on utilise (le MM-SMPL a son capot depuis le 2026-10-05 ; le MM-DECKS n'en a pas)
+      if ((e.key === 'o' || e.key === 'O') && focus.get() !== 'dj') {
         e.preventDefault();
         openToggle(getStage());
         return;

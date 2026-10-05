@@ -1,12 +1,13 @@
 /**
  * Les cibles MIDI du MM-SMPL (2026-10-05, midi/targets.ts) : ses douze
  * potards, ses douze touches (REC, PLAY, STOP, FILE, SLICES, MODE, REV,
- * LOOP, RANDOM, CLEAR, EDIT, SAVE) et ses seize trigs (tenus : un nuage de
+ * LOOP, RANDOM, CLEAR, EDIT, SAVE), OPEN (son capot, 2026-10-05) et ses seize trigs (tenus : un nuage de
  * grains ou une slice bouclee jouent tant qu'on tient ; en EDIT, l'appui
  * pose ou enleve le pas). Inscrites au chargement de son code
  * (state/smplload.ts).
  */
 
+import { openToggle } from '../actions';
 import { registerTargets, type MidiTarget } from '../midi/targets';
 import { smplDial, smplTrig } from './actions';
 import { keyAction } from './gestures';
@@ -20,6 +21,7 @@ function all(): MidiTarget[] {
     out.push({ id: `smpl:knob:${k.id}`, scope: 'smpl', label: k.label, kind: 'value', steps: k.steps ?? 0, get: () => smplParams.of(k.id), set: (v) => smplDial(k.id, v) });
   }
   for (const k of SMPL_KEYS) out.push({ id: `smpl:key:${k.kind}`, scope: 'smpl', label: k.label, kind: 'press', down: () => keyAction(k.kind) });
+  out.push({ id: 'smpl:open', scope: 'smpl', label: 'OPEN', kind: 'press', down: () => void openToggle(null, 'smpl') });
   for (let i = 0; i < SMPL_PADS; i += 1) out.push({ id: `smpl:pad:${i}`, scope: 'smpl', label: `TRIG ${i + 1}`, kind: 'hold', down: () => smplTrig(i, true), up: () => smplTrig(i, false) });
   return out;
 }

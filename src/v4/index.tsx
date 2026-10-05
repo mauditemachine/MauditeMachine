@@ -48,7 +48,7 @@ import { useKeys } from './hooks/useKeys';
 import { useMedia } from './hooks/useMedia';
 import { Stage } from './scene/renderer';
 import { editor } from './state/editor';
-import { explode, voyExplode } from './state/explode';
+import { explode, smplExplode, voyExplode } from './state/explode';
 import { DJ, SMPL, focus, VOYAGER } from './state/focus';
 import { FLAGS, syncFlags } from './state/flags';
 import { intro } from './state/intro';
@@ -240,6 +240,7 @@ function useSectionsLifecycle(): void {
       section.set(null);
       explode.reset();
       voyExplode.reset();
+      smplExplode.reset();
     };
   }, []);
 }
@@ -539,8 +540,8 @@ const V4Shell: React.FC = () => {
           <Lcd />
           {/* MM-ARP ouvert : sa touche SCOPE et l'oscilloscope (2026-10-04, ui/Scope.tsx) */}
           <Scope mobile={mobile} getStage={getStage} />
-          {/* Le MM-SMPL : sa touche INFO, le mode d'emploi en PDF (2026-10-05, ui/SmplInfo.tsx) */}
-          {SMPL && <SmplInfo getStage={getStage} />}
+          {/* Le MM-SMPL : sa touche OPEN, et dans la machine ouverte INFO, le mode d'emploi en PDF (2026-10-05, ui/SmplInfo.tsx) */}
+          {SMPL && <SmplInfo getStage={getStage} mobile={mobile} />}
           {/* Le Dock n'existe que sur la mise en page mobile : pas de rendu React par pas sur desktop ; il programme la 808 */}
           {/* EDIT ouvert (2026-10-04) : l'editeur prend la place du Dock de sa machine */}
           {mobile && machineFocus !== 'voy' && machineFocus !== 'dj' && machineFocus !== 'smpl' && editorOpen !== 'mm808' && <Dock getStage={getStage} />}

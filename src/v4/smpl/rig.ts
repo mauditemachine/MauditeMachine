@@ -19,16 +19,29 @@
  * - la serigraphie : l'en-tete, les noms, les filets entre les groupes, le
  *   numero de chaque trig (1, 5, 9, 13 plus marques).
  * Tout dans le repere top (le dessus incline), x = 0 au centre du bloc.
+ *
+ * OPEN (2026-10-05, Mika : "le bouton INFO doit etre a l'interieur OPEN de
+ * la machine SMPL") : le dessus est un capot (top : la dalle, l'ecran et
+ * son cadre, les vis, toutes les commandes) pose sur le coin descendu de
+ * son epaisseur. OPEN le souleve comme celui du MM-ARP (scene/explode.ts,
+ * smplExplode) ; dans le bac (inner, le repere du fond), la carte du
+ * MM-RYTM sort et sa plaque (scene/tweakplate.ts, sans reglage) porte INFO
+ * et CLOSE (ui/SmplInfo.tsx, ui/HoodClose.tsx : des touches du DOM).
  */
 
 import { BufferGeometry, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, Group, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Quaternion, Vector3, type Texture } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { reserve } from '../audio/sched';
 import type { HotspotDef, Occluder } from '../scene/hit';
 import { potAngle } from '../scene/encoders';
+import { Explode, type ExplodeCfg, type ExplodeInfo } from '../scene/explode';
 import { withRubberLed } from '../scene/materials';
+import { Pcb } from '../scene/pcb';
 import { makeBrushTexture, whenFonts } from '../scene/silk';
-import { APPEARANCE, PORTRAIT } from '../theme';
-import { bezel, dc, partDj, power, rca, screw, usb, wedge } from '../dj/body';
+import { TweakPlate } from '../scene/tweakplate';
+import { smplExplode } from '../state/explode';
+import { APPEARANCE, PCB_TURN, PORTRAIT } from '../theme';
+import { TOP_M, bezel, dc, lidSlab, partDj, power, rca, screw, usb, wedge } from '../dj/body';
 import { DJ_GLOW, keyGeometry, knobGeometry } from '../dj/controls';
 import { DjSilk, headTexts, type Bracket, type Line, type Text } from '../dj/silk';
 import { DJ_BODY, DJ_KEY, DJ_KNOB, DJ_TILT, DJ_TOP_Y, DJ_UNIT } from '../dj/theme';
@@ -38,7 +51,28 @@ import { SmplScreen } from './screen';
 import { SMPL_PADS } from './slices';
 import { smplSeq } from './seq';
 import { padCount, smplState } from './state';
-import { SMPL, SMPL_D, SMPL_GRID, SMPL_KEY_GROUPS, SMPL_KEYS, SMPL_PERF_PLACED, SMPL_ROW_NAMES, SMPL_W, smplKeyAt, smplKnobAt, smplKnobTone, smplPadAt, smplX, type SmplKeyKind, type SmplKnobTone } from './theme';
+import {
+  SMPL,
+  SMPL_D,
+  SMPL_EXPLODE,
+  SMPL_GRID,
+  SMPL_KEY_GROUPS,
+  SMPL_KEYS,
+  SMPL_LID,
+  SMPL_PCB_Y,
+  SMPL_PERF_PLACED,
+  SMPL_PLATE,
+  SMPL_PLATE_TITLE,
+  SMPL_ROW_NAMES,
+  SMPL_W,
+  smplKeyAt,
+  smplKnobAt,
+  smplKnobTone,
+  smplPadAt,
+  smplX,
+  type SmplKeyKind,
+  type SmplKnobTone,
+} from './theme';
 
 const AXIS_Y = new Vector3(0, 1, 0);
 const m4 = new Matrix4();
@@ -50,6 +84,8 @@ const s3 = new Vector3();
 export interface SmplRigOpts {
   mobile: boolean;
   anisotropy: number;
+  /** mouvement reduit : OPEN pose son etat final sans animation */
+  reduced: () => boolean;
   repaint: () => void;
   invalidate: () => void;
 }
@@ -64,21 +100,31 @@ export const SMPL_SCREEN_ID = 'smpl-screen';
 
 /* ---------------- le corps ---------------- */
 
+/** Les coordonnees de la brosse (roughnessMap) : x et z, comme le dessus du MM-DECKS. */
+function brushUv(g: BufferGeometry): void {
+  const pos = g.getAttribute('position');
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i += 1) {
+    uv[i * 2] = pos.getX(i);
+    uv[i * 2 + 1] = pos.getZ(i);
+  }
+  g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
+}
+
+/** Le bac : le coin descendu de l'epaisseur du capot (son fond sombre), les pieds, la connectique derriere. */
 function buildBody(mobile: boolean): BufferGeometry {
   const seg = mobile ? 12 : 16;
   const hw = SMPL_W / 2;
   const hd = SMPL_D / 2;
-  const parts: BufferGeometry[] = [wedge(-hw, hw, SMPL_D)];
-  // Quatre pieds, quatre vis
+  const parts: BufferGeometry[] = [wedge(-hw, hw, SMPL_D, SMPL_LID.t, 'body')];
+  // Quatre pieds
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
       const f = new CylinderGeometry(0.3, 0.3, DJ_BODY.feet, seg);
       f.translate(sx * (hw - 0.6), DJ_BODY.feet / 2, sz * (hd - 0.6));
       parts.push(partDj(f, 'rubber'));
-      parts.push(...screw(sx * (hw - 0.26), sz * (hd - 0.26), seg));
     }
   }
-  parts.push(bezel(SMPL.screen.x, SMPL.screen.z, SMPL.screen.w, SMPL.screen.d));
   // Derriere : sorties RCA, USB-C, alimentation et interrupteur (vu de derriere, la gauche est a +x),
   // poses par dj/body.ts sur la face arriere d'un bloc du MM-DECKS : ramenes sur la notre, moins profonde
   const y = 0.78;
@@ -90,14 +136,37 @@ function buildBody(mobile: boolean): BufferGeometry {
   const g = mergeGeometries(parts, false);
   for (const p of parts) p.dispose();
   if (!g) throw new Error('smpl: body merge failed');
-  const pos = g.getAttribute('position');
-  const uv = new Float32Array(pos.count * 2);
-  for (let i = 0; i < pos.count; i += 1) {
-    uv[i * 2] = pos.getX(i);
-    uv[i * 2 + 1] = pos.getZ(i);
-  }
-  g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
+  brushUv(g);
   return g;
+}
+
+/**
+ * Le capot (repere top) : la dalle du dessus, le cadre de l'ecran et les
+ * quatre vis des coins, poses par dj/body.ts dans le repere du bloc et
+ * ramenes dans celui du capot.
+ */
+function buildLid(mobile: boolean): BufferGeometry {
+  const seg = mobile ? 12 : 16;
+  const hw = SMPL_W / 2;
+  const hd = SMPL_D / 2;
+  const onTop: BufferGeometry[] = [bezel(SMPL.screen.x, SMPL.screen.z, SMPL.screen.w, SMPL.screen.d)];
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) onTop.push(...screw(sx * (hw - 0.26), sz * (hd - 0.26), seg));
+  const inv = TOP_M.clone().invert();
+  for (const p of onTop) p.applyMatrix4(inv);
+  const parts = [lidSlab(SMPL_W, SMPL_D / Math.cos(DJ_TILT), SMPL_LID.t), ...onTop];
+  const g = mergeGeometries(parts, false);
+  for (const p of parts) p.dispose();
+  if (!g) throw new Error('smpl: lid merge failed');
+  brushUv(g);
+  return g;
+}
+
+/** La zone de la carte degagee sous la plaque (repere de la carte, tournee en portrait). */
+function plateClear(): { x0: number; x1: number; z0: number; z1: number } {
+  const P = SMPL_PLATE;
+  const hx = (PORTRAIT ? P.d : P.w) / 2 + 0.3;
+  const hz = (PORTRAIT ? P.w : P.d) / 2 + 0.3;
+  return { x0: P.cx - hx, x1: P.cx + hx, z0: P.cz - hz, z1: P.cz + hz };
 }
 
 /* ---------------- la serigraphie ---------------- */
@@ -171,9 +240,20 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
 export class SmplRig {
   readonly root = new Group();
   readonly socle = new Group();
+  /** le capot : la dalle et tout ce qui est dessus ; OPEN le souleve */
   readonly top = new Group();
+  /** le fond du bac (le repere top ferme, il ne bouge pas) : la carte y sort */
+  readonly inner = new Group();
+  readonly pcbGroup = new Group();
+  readonly pcb: Pcb;
+  /** la plaque de l'interieur : INFO et CLOSE s'y posent (son repere top) */
+  readonly plate: TweakPlate;
+  readonly explode: Explode;
   readonly screen: SmplScreen;
   private body: Mesh;
+  private lid: Mesh;
+  private explodeGoal = false;
+  private detach: () => void = () => undefined;
   private bodyMat: MeshStandardMaterial;
   private brush: Texture;
   /** les potards, par capuchon (noirs, aluminium, orange) : trois draw calls */
@@ -201,7 +281,15 @@ export class SmplRig {
     this.top.name = 'smplTop';
     this.top.position.set(0, DJ_TOP_Y, 0);
     this.top.rotation.x = DJ_TILT;
-    this.root.add(this.socle, this.top);
+    this.inner.name = 'smplInner';
+    this.inner.position.set(0, DJ_TOP_Y, 0);
+    this.inner.rotation.x = DJ_TILT;
+    this.pcbGroup.name = 'smplPcbGroup';
+    this.pcbGroup.position.y = SMPL_PCB_Y;
+    this.pcbGroup.rotation.y = PCB_TURN;
+    this.pcbGroup.visible = false;
+    this.inner.add(this.pcbGroup);
+    this.root.add(this.socle, this.inner, this.top);
 
     const light = APPEARANCE.current === 'light';
     this.brush = makeBrushTexture();
@@ -212,6 +300,29 @@ export class SmplRig {
     this.body.castShadow = true;
     this.body.receiveShadow = true;
     this.socle.add(this.body);
+    this.lid = new Mesh(buildLid(opts.mobile), this.bodyMat);
+    this.lid.name = 'smplLid';
+    this.lid.castShadow = true;
+    this.lid.receiveShadow = true;
+    this.top.add(this.lid);
+
+    // L'interieur : la carte (celle du MM-RYTM, degagee sous la plaque) et sa plaque, sans reglage
+    this.pcb = new Pcb(opts.mobile, opts.anisotropy, { model: 'MM-SMPL R1.0', variant: 'voy', chips: false, clear: plateClear() });
+    this.pcbGroup.add(this.pcb.board, this.pcb.parts);
+    const T = SMPL_PLATE_TITLE;
+    this.plate = new TweakPlate(
+      {
+        name: 'smplPlate',
+        dims: SMPL_PLATE,
+        items: [],
+        title: { x: T.x, z: T.z, w: T.w, head: 'MM-SMPL', sub: 'SAMPLER / SLICER / GRANULAR', model: 'R1.0  VRSTL 2026' },
+        cellW: SMPL_PLATE.w - 0.4,
+      },
+      { mobile: opts.mobile, anisotropy: opts.anisotropy }
+    );
+    this.pcb.parts.add(this.plate.group);
+    const cfg: ExplodeCfg = { ...SMPL_EXPLODE, plateauY: DJ_TOP_Y, pcbY: SMPL_PCB_Y, tilt: DJ_TILT };
+    this.explode = new Explode({ plateau: this.top, pcb: this.pcbGroup, parts: this.pcb.parts }, (open) => smplExplode.settle(open), cfg);
 
     const std = (name: string, p: { roughness: number; metalness: number }, led = false): MeshStandardMaterial => {
       const m = new MeshStandardMaterial({ vertexColors: true, ...p });
@@ -319,10 +430,14 @@ export class SmplRig {
     return this.defs;
   }
 
-  /** Le volume plein du bloc, sous le dessus incline (repere top). */
+  /** Les volumes pleins : le bac sous son fond (repere du fond), le capot (le sien, il se souleve). */
   occluders(): Occluder[] {
     const depth = DJ_BODY.front + DJ_BODY.feet;
-    return [{ layer: this.top, min: [-SMPL_W / 2, -depth, -SMPL_D / 2], max: [SMPL_W / 2, 0, SMPL_D / 2], tag: 'smpl' }];
+    const t = SMPL_LID.t;
+    return [
+      { layer: this.inner, min: [-SMPL_W / 2, -depth, -SMPL_D / 2], max: [SMPL_W / 2, -t, SMPL_D / 2], tag: 'smpl' },
+      { layer: this.top, min: [-SMPL_W / 2, -t, -SMPL_D / 2], max: [SMPL_W / 2, 0, SMPL_D / 2], tag: 'smpl' },
+    ];
   }
 
   /** Le point (u, v : 0 a 1 sur l'ecran) d'un point du repere top, pour les gestes. */
@@ -470,8 +585,49 @@ export class SmplRig {
     return playing || s.recording || q.running || changed ? 'paint' : false;
   };
 
+  /* ---------- OPEN ---------- */
+
+  private syncExplode = (): void => {
+    this.applyExplode(false);
+  };
+
+  /**
+   * Le capot (store smplExplode) : opening ou closing lance l'animation
+   * (l'etat final a la frame suivante en mouvement reduit), open et closed
+   * sont poses par l'animation (settle) ; instant : l'etat pose tout de
+   * suite (le rig arrive).
+   */
+  private applyExplode(instant: boolean): void {
+    const s = smplExplode.get();
+    const goal = s === 'opening' || s === 'open';
+    if (instant) {
+      this.explodeGoal = goal;
+      if (goal) this.pcb.prepare();
+      this.explode.snap(goal);
+      if (s === 'opening' || s === 'closing') smplExplode.settle(goal);
+      this.opts.invalidate();
+      return;
+    }
+    if (goal === this.explodeGoal) return;
+    this.explodeGoal = goal;
+    // Le capot s'ouvre : la musique est programmee d'avance, la carte prend ses textures (premiere fois)
+    if (goal) {
+      reserve(1.2);
+      this.pcb.prepare();
+    }
+    if (s === 'opening' || s === 'closing') this.explode.start(goal, performance.now(), this.opts.reduced());
+    else this.explode.snap(goal);
+    this.opts.invalidate();
+  }
+
+  /** Le capot qui s'ouvre ou se ferme ; true tant qu'il bouge. */
+  stepExplode = (now: number): boolean => this.explode.update(now);
+
   /** Abonnements, poses par le Stage une fois tout le GL construit. */
   listen(): void {
+    this.unsubs.push(smplExplode.subscribe(this.syncExplode));
+    this.applyExplode(true);
+    this.detach = smplExplode.attach();
     this.unsubs.push(
       smplState.subscribe(() => {
         const lit = this.syncLights();
@@ -498,6 +654,8 @@ export class SmplRig {
   /** Polices ou logos arrives : la serigraphie et l'ecran se redessinent. */
   redrawText(): void {
     this.silk.draw();
+    this.pcb.redraw();
+    this.plate.draw();
     this.screen.invalidate();
     this.drawScreen(performance.now());
     this.opts.repaint();
@@ -507,14 +665,18 @@ export class SmplRig {
     return false;
   }
 
-  info(): { knobs: number; keys: number; pads: number; screenDraws: number; silkDraws: number; heads: number } {
-    return { knobs: SMPL_KNOBS.length, keys: SMPL_KEYS.length, pads: SMPL_PADS, screenDraws: this.screen.draws, silkDraws: this.silk.draws, heads: this.screen.heads.count };
+  info(): { knobs: number; keys: number; pads: number; screenDraws: number; silkDraws: number; heads: number; explode: ExplodeInfo } {
+    return { knobs: SMPL_KNOBS.length, keys: SMPL_KEYS.length, pads: SMPL_PADS, screenDraws: this.screen.draws, silkDraws: this.silk.draws, heads: this.screen.heads.count, explode: this.explode.info() };
   }
 
   dispose(): void {
     for (const off of this.unsubs) off();
     this.unsubs = [];
+    this.detach();
     this.body.geometry.dispose();
+    this.lid.geometry.dispose();
+    this.pcb.dispose();
+    this.plate.dispose();
     this.bodyMat.dispose();
     this.brush.dispose();
     for (const m of [...this.knobs, this.keys, this.pads]) {

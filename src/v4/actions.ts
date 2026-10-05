@@ -16,7 +16,7 @@ import { BPM, INSTRUMENTS, VEL_MAX, VEL_NAMES, pattern, velocity } from './audio
 import { sc } from './audio/soundcloud';
 import { prepareSynth } from './audio/synth';
 import type { Stage } from './scene/renderer';
-import { chipsLive, explode, voyExplode, type ExplodeStore } from './state/explode';
+import { chipsLive, explode, smplExplode, voyExplode, type ExplodeStore } from './state/explode';
 import { focus, MACHINES, VOYAGER, type Focus, type MachineId } from './state/focus';
 import { lcdMessage } from './state/lcdMessage';
 import { lcdMix } from './state/lcdMix';
@@ -550,13 +550,13 @@ export function closeSection(): void {
  * demande est prise.
  */
 export function openToggle(stage: Stage | null = null, which: MachineId = hoodMachine()): boolean {
-  // Le MM-DECKS et le MM-SMPL n'ont pas de capot
-  if (which === 'dj' || which === 'smpl') return false;
+  // Le MM-DECKS n'a pas de capot ; le MM-SMPL a le sien depuis le 2026-10-05 (sa touche OPEN est dans le DOM)
+  if (which === 'dj') return false;
   resume();
   const ok = hoodOf(which).toggle();
   if (ok) {
     if (which === 'voy') stage?.voy?.keys.pressButton('open');
-    else stage?.pads.press('open');
+    else if (which === 'mm808') stage?.pads.press('open');
   }
   return ok;
 }
@@ -568,7 +568,7 @@ export function hoodMachine(): MachineId {
 
 /** Le capot d'une machine (le MM-DECKS n'en a pas : celui de la 808). */
 export function hoodOf(m: MachineId): ExplodeStore {
-  return m === 'voy' ? voyExplode : explode;
+  return m === 'voy' ? voyExplode : m === 'smpl' ? smplExplode : explode;
 }
 
 /**

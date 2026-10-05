@@ -10,7 +10,8 @@
  *    pour un serveur deja lance) ;
  * 2. les captures (shots.mjs) : Chromium sans tete, son coupe, rien ne joue ;
  * 3. la page A4 (content.mjs), imprimee en PDF dans
- *    public/docs/MM-SMPL-mode-emploi.pdf (la touche INFO de la machine y mene).
+ *    public/docs/MM-SMPL-mode-emploi.pdf (la touche INFO de la machine
+ *    ouverte y mene : OPEN, puis INFO sur la plaque de la carte).
  *
  * Playwright n'est pas une dependance du site : npm i --no-save playwright,
  * puis npx playwright install chromium (ou PLAYWRIGHT_MODULE et

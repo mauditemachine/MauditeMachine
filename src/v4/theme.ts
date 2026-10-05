@@ -1726,9 +1726,9 @@ export const PCB_PARTS = {
 export const PAD_ARIA: Readonly<Record<Inst, string>> = {
   BD: 'Bass drum pad, key A',
   SD: 'Snare pad, key S',
-  TOM: 'Tom pad, key D',
-  CH: 'Hi-hat pad, key F',
-  OH: 'Open hi-hat pad, key G',
+  TOM: 'Tom pad, key X',
+  CH: 'Hi-hat pad, key D',
+  OH: 'Open hi-hat pad, key F',
   CP: 'Clap pad, key Z',
   HT: 'High tom pad, key C',
   CY: 'Cymbal pad, key V',

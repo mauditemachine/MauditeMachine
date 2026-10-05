@@ -174,3 +174,56 @@ export const smplKeyAt = (i: number): { x: number; z: number } =>
         x: SMPL.keys.x0 + i * SMPL.keys.pitch + SMPL_KEY_GROUPS.filter((g) => i >= g).length * SMPL.keys.gap,
         z: SMPL.keys.z,
       };
+
+/**
+ * OPEN (2026-10-05, Mika : "le bouton INFO doit etre a l'interieur OPEN de
+ * la machine SMPL") : le dessus du bloc devient un capot, une dalle de t
+ * d'epaisseur (le coin descend d'autant, dj/body.ts wedge et lidSlab) qui
+ * porte l'ecran, les potards, les touches et les trigs. OPEN le souleve, le
+ * recule et le cabre comme celui du MM-ARP (scene/explode.ts) ; la carte
+ * sort du fond du bac, ses composants poussent, et sa plaque porte INFO (le
+ * mode d'emploi) et CLOSE. La touche OPEN prend la place d'INFO dans le
+ * bandeau du haut.
+ */
+export const SMPL_LID = { t: 0.16 } as const;
+export const SMPL_EXPLODE = PORTRAIT ? { lift: 6.2, slideZ: -4.6, tiltOpenDeg: -58, pcbRise: 0.45 } : { lift: 4.4, slideZ: -3.6, tiltOpenDeg: -26, pcbRise: 0.45 };
+/** La carte (celle du MM-RYTM, meme taille) au fond du bac, repere du fond : sortie, son dessous a 0.03 du fond. */
+export const SMPL_PCB_Y = -SMPL_LID.t + 0.03 - SMPL_EXPLODE.pcbRise;
+
+/**
+ * La plaque de l'interieur : sa place sur le fond (x, z du repere top), ses
+ * cotes (scene/tweakplate.ts). Desktop : dans le bas de la carte, sous la
+ * serigraphie MAUDITE MACHINE (la carte degagee sous elle) ; portrait : entre
+ * les deux inscriptions, debout.
+ */
+const PLATE_AT = { x: 0, z: PORTRAIT ? -0.6 : 1.5 };
+export const SMPL_PLATE = {
+  // Repere de la carte (tournee d'un quart de tour en portrait, PCB_TURN) : (x, z) du fond -> (-z, x) de la carte
+  cx: PORTRAIT ? -PLATE_AT.z : PLATE_AT.x,
+  cz: PORTRAIT ? PLATE_AT.x : PLATE_AT.z,
+  w: 3.4,
+  d: 2.2,
+  y: 0.5,
+  t: 0.08,
+  r: 0.12,
+  screwIn: 0.17,
+  frame: 0.22,
+  knob: 1.3,
+  label: 0.11,
+  end: 0.068,
+  title: 0.24,
+} as const;
+/** Le titre de la plaque (repere du dessus de la plaque) ; INFO et CLOSE dessous, cote a cote (au telephone, INFO seule). */
+export const SMPL_PLATE_TITLE = { x: 0, z: -0.5, w: 3.0 } as const;
+export const SMPL_INFO_KEY = { x: -0.6, z: 0.55, w: 0.95, d: 0.36, y: 0.02 } as const;
+export const SMPL_INFO_KEY_SOLO = { x: 0, z: 0.55, w: 1.5, d: 0.4, y: 0.02 } as const;
+export const SMPL_CLOSE_KEY = { x: 0.6, z: 0.55, w: 0.95, d: 0.36, y: 0.02 } as const;
+/** La touche OPEN : dans le bandeau du haut, a gauche du logo (la place de l'INFO d'avant), repere du capot. */
+export const SMPL_OPEN_KEY = PORTRAIT ? { x: SMPL_W / 2 - 1.85, y: 0.02, z: SMPL.head.z, w: 1.15, d: 0.42 } : { x: SMPL_W / 2 - 1.9, y: 0.02, z: SMPL.head.z, w: 0.9, d: 0.28 };
+/**
+ * Le cadrage ouvert : la hauteur du dessus de la plaque au-dessus du dessus
+ * ferme (le fond, la carte sortie, son epaisseur 0.1, puis y + t), le point
+ * vise en z (desktop : la carte entiere, la plaque dans son bas ; portrait :
+ * la plaque) et la largeur a tenir (renderer, OPEN_VIEW).
+ */
+export const SMPL_OPEN_FRAME = { y: -SMPL_LID.t + 0.03 + 0.1 + SMPL_PLATE.y + SMPL_PLATE.t, z: PORTRAIT ? PLATE_AT.z : 0.2, w: SMPL_PLATE.w } as const;

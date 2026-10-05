@@ -10,6 +10,7 @@
 import { BoxGeometry, BufferGeometry, Color, CylinderGeometry, Euler, ExtrudeGeometry, Float32BufferAttribute, Matrix4, Mesh, MeshStandardMaterial, Quaternion, Shape, Vector3, type Texture } from 'three';
 import { makeBrushTexture } from '../scene/silk';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { APPEARANCE } from '../theme';
 import { DECK, DJ_BEZEL, DJ_BODY, DJ_CHANNELS, DJ_DECKS, DJ_FADER, DJ_TILT, DJ_TOP_Y, DJ_UNIT, DJ_UNITS_ON, MIX, UNIT_X, djTone, unitW, type DjTone, type DjUnit } from './theme';
 import { DJ_FADERS } from './layout';
@@ -106,19 +107,23 @@ function inset(pts: P2[], d: number): P2[] {
 
 /**
  * Un bloc : le profil (u = -z, v = y) du coin, rentre du biseau, extrude
- * le long de x de x0 a x1 ; la piece finie a les cotes du theme.
+ * le long de x de x0 a x1 ; la piece finie a les cotes du theme. drop (le
+ * MM-SMPL ouvrable, 2026-10-05) : le dessus descend de drop (mesure
+ * perpendiculaire a la pente), un capot a part (lidSlab) prend sa place ;
+ * top : la teinte de ce dessus (le fond du bac).
  */
-export function wedge(x0: number, x1: number, d: number = DJ_UNIT.d): BufferGeometry {
+export function wedge(x0: number, x1: number, d: number = DJ_UNIT.d, drop = 0, top: DjTone = 'panel'): BufferGeometry {
   const B = DJ_BODY;
   const b = B.bevel;
   // Moins profond (le MM-SMPL, 2026-10-05) : la meme pente et la meme hauteur au milieu (TOP_M reste vrai)
   const mid = (B.front + B.back) / 2;
   const half = (d * Math.tan(DJ_TILT)) / 2;
+  const dy = drop / Math.cos(DJ_TILT);
   const pts: P2[] = [
     [-d / 2, B.feet],
     [d / 2, B.feet],
-    [d / 2, B.feet + mid + half],
-    [-d / 2, B.feet + mid - half],
+    [d / 2, B.feet + mid + half - dy],
+    [-d / 2, B.feet + mid - half - dy],
   ];
   const ins = inset(pts, b);
   const s = new Shape();
@@ -134,10 +139,27 @@ export function wedge(x0: number, x1: number, d: number = DJ_UNIT.d): BufferGeom
   const ny = Math.cos(DJ_TILT);
   paintFaces(out, (nx, y) => {
     if (Math.abs(nx) > 0.6) return 'body';
-    if (Math.abs(y - ny) < 0.004) return 'panel';
+    if (Math.abs(y - ny) < 0.004) return top;
     if (y > 0.25) return 'edge';
     return 'body';
   });
+  return out;
+}
+
+/**
+ * Un capot (le MM-SMPL, 2026-10-05) : la dalle du dessus, w sur d (le long
+ * de la pente), t d'epaisseur, dans le repere top (son dessus a y 0, comme
+ * celui du bloc) ; aretes arrondies du biseau du coin : fermee sur un coin
+ * descendu de t (wedge, drop), elle refait le bloc, un joint le long de ses
+ * cotes.
+ */
+export function lidSlab(w: number, d: number, t: number): BufferGeometry {
+  const g = new RoundedBoxGeometry(w, t, d, 2, Math.min(DJ_BODY.bevel, t / 2 - 0.005));
+  g.translate(0, -t / 2, 0);
+  const out = g.index ? g.toNonIndexed() : g;
+  if (out !== g) g.dispose();
+  out.deleteAttribute('uv');
+  paintFaces(out, (_nx, ny) => (ny > 0.98 ? 'panel' : ny > 0.25 ? 'edge' : 'body'));
   return out;
 }
 

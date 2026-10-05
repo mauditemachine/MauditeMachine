@@ -57,10 +57,13 @@ export async function captureShots({ chromium, launchOptions, url, dir, log = ()
     await view(page, -16, 46, 1.02);
     out.cover = await shot(page, dir, 'cover', DESK, await machineBox(page, 26), 1800);
 
-    // Le tour de la machine : la vue de face, avec INFO
+    // Le tour de la machine : la vue de face, avec OPEN (la touche du bandeau, depuis le 2026-10-05 ; INFO est dedans)
     await style.evaluate((n) => n.remove());
     style = await page.addStyleTag({ content: hideOverlay(['.v4-info-key']) });
     await view(page, 0, 69, 1);
+    // La touche OPEN (le DOM) doit etre posee : sa pastille en depend
+    await page.waitForFunction(() => document.querySelector('.v4-smpl-open-key')?.style.visibility === 'visible', null, { timeout: 90000 });
+    await wait(800);
     out.overview = await shot(page, dir, 'overview', DESK, await machineBox(page, 18), 1800, true);
 
     // De pres, a la meme vue (ses reperes sont justes ; un zoom les decalait) : l'ecran, les touches, les potards
@@ -91,6 +94,25 @@ export async function captureShots({ chromium, launchOptions, url, dir, log = ()
     out.edit = await shot(page, dir, 'edit', DESK, await machineBox(page, 18), 1800, true);
     out.screenEdit = await shot(page, dir, 'screen-edit', DESK, await screenBox(), 1500, true);
     await setup(page, { edit: false, steps: Array(16).fill(null) });
+
+    // OPEN (2026-10-05) : la machine ouverte, la plaque de la carte, INFO et CLOSE (des touches du DOM, gardees visibles)
+    await style.evaluate((n) => n.remove());
+    style = await page.addStyleTag({ content: hideOverlay(['.v4-mkey']) });
+    const hood = (open) => page.waitForFunction((o) => { const e = window.__v4.stage.smpl.info().explode; return e.open === o && !e.animating; }, open, { timeout: 90000 });
+    await page.locator('.v4-smpl-open-key').click();
+    await hood(true);
+    // INFO et CLOSE posees sur la plaque (le DOM suit la scene image par image), puis leur fondu
+    await page.waitForFunction(() => { const k = [...document.querySelectorAll('.v4-mkey')]; return k.length >= 2 && k.every((e) => e.style.visibility === 'visible'); }, null, { timeout: 90000 });
+    await wait(2500);
+    const inside = await page.evaluate(() => [...document.querySelectorAll('.v4-mkey')].map((e) => e.getBoundingClientRect()).map((r) => ({ x: r.x, y: r.y, w: r.width, h: r.height })));
+    if (inside.length >= 2) {
+      const x0 = Math.min(...inside.map((r) => r.x));
+      const x1 = Math.max(...inside.map((r) => r.x + r.w));
+      const y = Math.min(...inside.map((r) => r.y));
+      out.inside = await shot(page, dir, 'inside', DESK, { x: (x0 + x1) / 2 - 500, y: y - 330, w: 1000, h: 460 }, 1500);
+    }
+    await page.locator('.v4-close-key').click();
+    await hood(false);
 
     // Le mixer du MM-DECKS : LOOP > SMPL
     await page.goto(`${url}/?m=dj&mute=1&debug=1`, { waitUntil: 'domcontentloaded' });
@@ -255,7 +277,7 @@ async function rectOf(page, id) {
   return r;
 }
 
-/** Les rectangles des commandes du MM-SMPL, et la touche INFO (le DOM). */
+/** Les rectangles des commandes du MM-SMPL, et la touche du bandeau (le DOM : OPEN, machine fermee). */
 async function marksOf(page) {
   return page.evaluate(() => {
     const st = window.__v4.stage;

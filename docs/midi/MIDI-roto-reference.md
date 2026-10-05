@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 5 octobre 2026 depuis le code du site (`npm run docs:midi`) : 327 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 5 octobre 2026 depuis le code du site (`npm run docs:midi`) : 328 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -801,7 +801,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:edit` | EDIT | appui |  | ARP |
 | `voy:open` | OPEN | appui |  | ARP |
 
-### MM-SMPL (scope `smpl`, 40 cibles)
+### MM-SMPL (scope `smpl`, 41 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -829,6 +829,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `smpl:key:clear` | CLEAR | appui |  | SMPL |
 | `smpl:key:edit` | EDIT | appui |  | SMPL |
 | `smpl:key:save` | SAVE | appui |  | SMPL |
+| `smpl:open` | OPEN | appui |  |  |
 | `smpl:pad:0` | TRIG 1 | maintenu (appui puis relachement) |  | SMPL |
 | `smpl:pad:1` | TRIG 2 | maintenu (appui puis relachement) |  | SMPL |
 | `smpl:pad:2` | TRIG 3 | maintenu (appui puis relachement) |  | SMPL |

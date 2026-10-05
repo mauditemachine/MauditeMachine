@@ -14,7 +14,7 @@
 import React, { useLayoutEffect, useState, useSyncExternalStore } from 'react';
 import { hoodMachine, hoodOf, openToggle } from '../actions';
 import type { Stage } from '../scene/renderer';
-import { explode, voyExplode } from '../state/explode';
+import { explode, smplExplode, voyExplode } from '../state/explode';
 import { focus } from '../state/focus';
 
 interface Props {
@@ -37,6 +37,7 @@ export const PcbClose: React.FC<Props> = ({ getStage }) => {
   // Le capot de la machine qu'on utilise (deux machines, 2026-10-03)
   useSyncExternalStore(explode.subscribe, explode.get, explode.get);
   useSyncExternalStore(voyExplode.subscribe, voyExplode.get, voyExplode.get);
+  useSyncExternalStore(smplExplode.subscribe, smplExplode.get, smplExplode.get);
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   const m = hoodMachine();
   const open = hoodOf(m).get() === 'open';

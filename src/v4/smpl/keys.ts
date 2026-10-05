@@ -9,6 +9,7 @@
  *   A S D F   pads  5 a  8
  *   Z X C V   pads  1 a  4
  *   Espace : PLAY ; M : MODE (SLICE, GRAIN) ; L : LOOP ; B : REV (a l'envers)
+ *   O : OPEN (hooks/useKeys.ts, 2026-10-05 : INFO et CLOSE sont dedans)
  * En EDIT (2026-10-05), les memes touches posent ou enlevent les pas.
  */
 
@@ -30,6 +31,7 @@ export const SMPL_KEY_LEGEND: readonly { keys: string; what: string }[] = [
   { keys: 'M', what: 'Mode: slice or grain' },
   { keys: 'L', what: 'Loop while a pad is held' },
   { keys: 'B', what: 'Reverse' },
+  { keys: 'O', what: 'Open the machine: INFO (the user guide) and CLOSE are inside' },
 ];
 
 const editable = (t: EventTarget | null): boolean =>

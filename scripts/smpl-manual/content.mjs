@@ -156,7 +156,7 @@ ${figure(O, {
   <li><b>6</b><span>${fr(`Le son : ${k('FILE')}, ${k('SLICES')}, ${k('MODE')}, ${k('REV')} (à l'envers), ${k('LOOP')} (en boucle tant qu'on tient).`)}</span></li>
   <li><b>7</b><span>${fr(`La séquence : ${k('RANDOM')}, ${k('CLEAR')}, ${k('EDIT')}, puis ${k('SAVE')}.`)}</span></li>
   <li><b>8</b><span>${fr(`Les seize trigs, 1 à 8 en haut, 9 à 16 dessous : chacun joue sa slice. Orange pâle : il a une slice ; or : il sonne. En EDIT, ce sont les pas de la séquence.`)}</span></li>
-  <li><b>9</b><span>${fr(`${k('INFO')} : ce mode d'emploi.`)}</span></li>
+  <li><b>9</b><span>${fr(`${k('OPEN')} : ouvre la machine. Le capot se lève, la carte sort ; sur sa plaque, ${k('INFO')} (ce mode d'emploi) et ${k('CLOSE')}, qui la referme.`)}</span></li>
 </ol>
 <div class="note">${fr(`<b>Tourner un potard :</b> glisse vers le haut ou vers la droite (avec Maj, dix fois plus fin), ou la molette au-dessus de lui. Deux tapes rapides le remettent à sa valeur de départ. L'écran dit toujours sa valeur.`)}</div>`,
       n
@@ -456,12 +456,13 @@ ${figure(I.keys, { caption: 'Les douze touches : le transport, le son, la séque
       <tr><th>M</th><td>MODE (SLICE, GRAIN)</td></tr>
       <tr><th>L</th><td>LOOP</td></tr>
       <tr><th>B</th><td>${fr(`REV (à l'envers)`)}</td></tr>
+      <tr><th>O</th><td>${fr(`OPEN : la machine ouverte, INFO et CLOSE dedans`)}</td></tr>
     </table>
     <p class="tip">${fr(`En EDIT, les mêmes touches posent ou enlèvent les pas.`)}</p>
   </div>
   <div>
     <h3>MIDI</h3>
-    <p>${fr(`Dans Chrome ou Edge, ${k('MIDI')} en haut de la page, puis CONNECT. Toutes les commandes du MM-SMPL s'assignent : les douze potards, les douze touches, les seize trigs (tenus : un nuage ou une boucle jouent tant que tu tiens).`)}</p>
+    <p>${fr(`Dans Chrome ou Edge, ${k('MIDI')} en haut de la page, puis CONNECT. Toutes les commandes du MM-SMPL s'assignent : les douze potards, les douze touches, ${k('OPEN')}, les seize trigs (tenus : un nuage ou une boucle jouent tant que tu tiens).`)}</p>
     <h3>Roto-Control</h3>
     <p>${fr(`Le panneau MIDI propose les six setups du Roto-Control. Celui du MM-SMPL (« MM SMPL (SETUP 15) ») s'importe dans ROTO-SETUP sur le setup 15 :`)}</p>
     <ul class="dots">
@@ -490,8 +491,10 @@ ${figure(I.keys, { caption: 'Les douze touches : le transport, le son, la séque
   <tr><th>THIS FILE DOES NOT DECODE</th><td>${fr(`Ton navigateur ne lit pas ce format. Convertis-le en WAV ou en AIFF (16 ou 24 bits). Les fichiers Apple Lossless et les fichiers protégés ne se lisent pas.`)}</td></tr>
   <tr><th>KEPT THE FIRST 60 S</th><td>${fr(`Le son dépassait 60 s : seul son début est gardé. Coupe ton fichier avant, ou utilise ${p('START')} et ${p('END')}.`)}</td></tr>
   <tr><th>${fr(`Le nuage est trop haché.`)}</th><td>${fr(`Monte ${p('DENSITY')} ou ${p('SIZE')} : les grains se chevauchent et le nuage devient continu.`)}</td></tr>
+  <tr><th>${fr(`Où retrouver ce mode d'emploi ?`)}</th><td>${fr(`${k('OPEN')} en haut de la machine, à gauche du logo, puis ${k('INFO')} sur la plaque de la carte. ${k('CLOSE')} referme la machine.`)}</td></tr>
   <tr><th>${fr(`Mon son a disparu.`)}</th><td>${fr(`Il vit dans le navigateur de cet appareil : un autre navigateur, la navigation privée ou un nettoyage des données du site repartent à vide.`)}</td></tr>
 </table>
+${figure(I.inside, { cls: 'narrow', caption: `${k('OPEN')} : le capot levé, la carte et sa plaque, avec ${k('INFO')} (ce mode d'emploi) et ${k('CLOSE')}.` })}
 <div class="end">
   <div class="sig">MAUDITE MACHINE</div>
   <p>${fr(`Le MM-SMPL fait partie du MM-STUDIO, avec le MM-RYTM (la boîte à rythmes), le MM-ARP (le synthé arpégé) et le MM-DECKS (les platines et le MIXER). Tout joue ensemble, au même tempo.`)}</p>

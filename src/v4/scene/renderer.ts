@@ -59,7 +59,7 @@ import { motion } from '../state/motion';
 import { editor } from '../state/editor';
 import { PATTERN_SLOTS, patterns } from '../state/patterns';
 import { presetMode, type PresetKey } from '../state/presetMode';
-import { explode as explodeState, voyExplode } from '../state/explode';
+import { explode as explodeState, smplExplode, voyExplode } from '../state/explode';
 import { DJ, MACHINES, SMPL, focus, startMachine, VOYAGER, type Focus, type MachineId } from '../state/focus';
 import { view } from '../state/view';
 import { intro } from '../state/intro';
@@ -134,11 +134,11 @@ import { VoyagerRig } from '../voyager/rig';
 import { VOY_BODY, VOY_FRAME, VOY_TWEAK_PLATE, VOY_X } from '../voyager/theme';
 import type { DjRig } from '../dj/rig';
 import { djLoad } from '../state/djload';
-import { DJ_FRAME, DJ_W, DJ_X, UNIT_X, unitW } from '../dj/theme';
+import { DJ_FRAME, DJ_TOP_Y, DJ_W, DJ_X, UNIT_X, unitW } from '../dj/theme';
 import { djView } from '../dj/view';
 import type { SmplRig } from '../smpl/rig';
 import { smplLoad } from '../state/smplload';
-import { SMPL_D, SMPL_FRAME, SMPL_W, smplX } from '../smpl/theme';
+import { SMPL_D, SMPL_FRAME, SMPL_OPEN_FRAME, SMPL_W, smplX } from '../smpl/theme';
 
 const DEG = Math.PI / 180;
 
@@ -487,6 +487,8 @@ export class Stage {
   private unsubEditor: () => void = () => undefined;
   private unsubPatterns: () => void = () => undefined;
   private unsubVoyExplode: () => void = () => undefined;
+  private unsubSmplExplode: () => void = () => undefined;
+  private smplGoal = false;
   private unsubView: () => void = () => undefined;
   private unsubDjUnit: () => void = () => undefined;
   /** abscisses des machines au depart du zoom (le bout qui depasse les deplace) */
@@ -1142,6 +1144,7 @@ export class Stage {
     const sm = new Rig({
       mobile: this.opts.mobile,
       anisotropy: this.aniso,
+      reduced: motion.reduced,
       repaint: () => this.repaint(),
       invalidate: () => this.invalidate(),
     });
@@ -1152,8 +1155,26 @@ export class Stage {
     void whenLogos().then(() => {
       if (!this.disposed) sm.redrawText();
     });
-    this.animators.push(sm.step);
+    // Son capot (2026-10-05) : les couches, puis le cadrage qui les suit
+    this.animators.push(sm.step, (now) => {
+      if (!sm.stepExplode(now)) return false;
+      this.updateCamera();
+      return true;
+    });
     sm.listen();
+    this.smplGoal = smplExplode.get() === 'opening' || smplExplode.get() === 'open';
+    // OPEN et CLOSE : la vue repart de la vue par defaut, le cadrage rejoint l'interieur (ou revient)
+    this.unsubSmplExplode = smplExplode.subscribe(() => {
+      const st = smplExplode.get();
+      const goal = st === 'opening' || st === 'open';
+      if (goal !== this.smplGoal) {
+        this.smplGoal = goal;
+        this.openView('smpl');
+      }
+      this.hit.invalidate();
+      this.updateCamera();
+      this.invalidate();
+    });
     this.setShown(this.fTo);
     this.updateCamera();
     this.precompile();
@@ -1427,20 +1448,21 @@ export class Stage {
       openZ: 0,
     };
     if (f === 'dj') return dj;
-    // Le MM-SMPL (2026-10-04) : le bloc entier de face, comme une platine du MM-DECKS
+    // Le MM-SMPL (2026-10-04) : le bloc entier de face, comme une platine du MM-DECKS ; ouvert (2026-10-05),
+    // sa plaque et sa carte (OPEN_VIEW), au telephone aussi (rien a toucher sur le capot leve)
     const smpl: Frame = {
       cx: smplX(),
       hw0: SMPL_W / 2 / (mob ? FRAME_MOBILE : DJ_FRAME.fill),
       h: SMPL_FRAME.h,
       ty: SMPL_FRAME.targetY,
-      explodeTy: SMPL_FRAME.targetY,
+      explodeTy: DJ_TOP_Y + SMPL_OPEN_FRAME.y,
       rClosed: SMPL_W / 2 + 0.6,
       rOpen: SMPL_W / 2 + 0.6,
       fitHalfH: SMPL_FRAME.h / 2,
       extent: SMPL_W / 2 + (mob ? 3 : 2),
-      openW: 0,
-      openY: SMPL_FRAME.targetY,
-      openZ: 0,
+      openW: SMPL_OPEN_FRAME.w + OPEN_VIEW.margin,
+      openY: DJ_TOP_Y + SMPL_OPEN_FRAME.y,
+      openZ: SMPL_OPEN_FRAME.z,
     };
     if (f === 'smpl') return smpl;
     const left = -BODY.w / 2;
@@ -1466,7 +1488,8 @@ export class Stage {
   private explodeOf(f: Focus): number {
     const a = this.explode.p.frame;
     const b = this.voy ? this.voy.explode.p.frame : 0;
-    return f === 'mm808' ? a : f === 'voy' ? b : f === 'dj' || f === 'smpl' ? 0 : Math.max(a, b);
+    if (f === 'smpl') return this.smpl ? this.smpl.explode.p.frame : 0;
+    return f === 'mm808' ? a : f === 'voy' ? b : f === 'dj' ? 0 : Math.max(a, b);
   }
 
   private explodeFrame(): number {
@@ -2415,7 +2438,7 @@ export class Stage {
    * rejoint l'interieur de la machine, fermee il revient a la machine. Pas
    * pendant l'intro, qui conduit sa propre camera.
    */
-  private openView(id: 'mm808' | 'voy'): void {
+  private openView(id: 'mm808' | 'voy' | 'smpl'): void {
     if (this.introOn || this.fTo !== id) return;
     this.orbit.reset();
   }
@@ -2724,6 +2747,7 @@ export class Stage {
     this.unsubPlay();
     this.orbit.lock = () => false;
     this.unsubVoyExplode();
+    this.unsubSmplExplode();
     this.unsubView();
     this.viewListeners.length = 0;
     this.idleListeners.length = 0;

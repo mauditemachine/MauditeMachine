@@ -85,8 +85,8 @@ export interface TweakPlateSpec {
   name: string;
   dims: TweakPlateDims;
   items: readonly TweakItem[];
-  /** le bloc de titre : TWEAKS, un filet orange, deux lignes ; w : sa largeur (une case sinon) */
-  title: { x: number; z: number; w?: number; sub: string; model: string } | null;
+  /** le bloc de titre : TWEAKS (ou head), un filet orange, deux lignes ; w : sa largeur (une case sinon) */
+  title: { x: number; z: number; w?: number; head?: string; sub: string; model: string } | null;
   /** la largeur d'une case (les noms s'y tiennent) */
   cellW: number;
 }
@@ -218,7 +218,9 @@ export class TweakPlate {
 
     this.knobMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.28 });
     this.knobMat.name = `${spec.name}Knob`;
-    this.knobs = new InstancedMesh(buildKnobGeometry(opts.mobile), this.knobMat, spec.items.length);
+    // Une plaque sans reglage (celle du MM-SMPL, 2026-10-05) : un tampon d'une instance, aucune dessinee
+    this.knobs = new InstancedMesh(buildKnobGeometry(opts.mobile), this.knobMat, Math.max(1, spec.items.length));
+    this.knobs.count = spec.items.length;
     this.knobs.name = `${spec.name}Knobs`;
     this.knobs.receiveShadow = true;
     this.knobs.instanceMatrix.setUsage(DynamicDrawUsage);
@@ -423,7 +425,7 @@ export class TweakPlate {
     const title = this.spec.title;
     if (title) {
       const tw = title.w ?? cellW;
-      this.text('TWEAKS', title.x, title.z - 0.2, P.title, { weight: 700, alpha: 1, maxW: tw * 0.9 });
+      this.text(title.head ?? 'TWEAKS', title.x, title.z - 0.2, P.title, { weight: 700, alpha: 1, maxW: tw * 0.9 });
       ctx.strokeStyle = HEX.orange;
       ctx.lineWidth = Math.max(1, 0.02 * PPU);
       const half = Math.min(tw * 0.45, 0.7);

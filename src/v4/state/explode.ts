@@ -27,7 +27,7 @@ export interface ExplodeStore {
   readonly toggles: number;
 }
 
-/** Un capot : la 808 (explode) et le MM-VOYAGER (voyExplode, 2026-10-03) ont chacun le sien. */
+/** Un capot : la 808 (explode), le MM-VOYAGER (voyExplode, 2026-10-03) et le MM-SMPL (smplExplode, 2026-10-05) ont chacun le sien. */
 function makeExplode(): ExplodeStore {
   let current: ExplodeState = 'closed';
   /** Stages branches (StrictMode monte deux fois en DEV) */
@@ -85,3 +85,4 @@ function makeExplode(): ExplodeStore {
 
 export const explode = makeExplode();
 export const voyExplode = makeExplode();
+export const smplExplode = makeExplode();

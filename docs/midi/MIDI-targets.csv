@@ -228,6 +228,7 @@ smpl:key:random,smpl,MM-SMPL,RANDOM,press,,SMPL
 smpl:key:clear,smpl,MM-SMPL,CLEAR,press,,SMPL
 smpl:key:edit,smpl,MM-SMPL,EDIT,press,,SMPL
 smpl:key:save,smpl,MM-SMPL,SAVE,press,,SMPL
+smpl:open,smpl,MM-SMPL,OPEN,press,,
 smpl:pad:0,smpl,MM-SMPL,TRIG 1,hold,,SMPL
 smpl:pad:1,smpl,MM-SMPL,TRIG 2,hold,,SMPL
 smpl:pad:2,smpl,MM-SMPL,TRIG 3,hold,,SMPL
