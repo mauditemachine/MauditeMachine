@@ -85,6 +85,9 @@ function readTab(m: string, groups: readonly Group[]): string {
   return groups[0].id;
 }
 
+/** Le cran du milieu d'un potard a zero au centre : la demi-largeur, en part de la course. */
+const CENTER_DETENT = 0.02;
+
 /** La geometrie du potard dessine : 270 deg, de sept heures et demie a quatre heures et demie. */
 const SIZE = 64;
 const C = SIZE / 2;
@@ -139,9 +142,11 @@ export const KnobView: React.FC<{ spec: KnobSpec }> = ({ spec }) => {
   const lastTap = useRef(0);
 
   /** Une position 0 a 1 -> la valeur du potard (au cran pres pour un selecteur, au BPM pres pour TEMPO). */
-  const setAt = (pos: number): void => {
+  const setAt = (pos: number, detent = false): void => {
     let p = Math.min(1, Math.max(0, pos));
     if (steps > 1) p = Math.round(p * (steps - 1)) / (steps - 1);
+    // Un potard a zero au centre : un cran au milieu pendant le glisser (2026-10-05, les EQ du mixer : 0 dB au milieu)
+    else if (detent && bipolar && Math.abs(p - 0.5) < CENTER_DETENT) p = 0.5;
     let val = lo + p * (hi - lo);
     if (spec.whole) val = Math.round(val);
     else val = Math.round(val * 1000) / 1000;
@@ -164,7 +169,7 @@ export const KnobView: React.FC<{ spec: KnobSpec }> = ({ spec }) => {
     const travel = d.y - ev.clientY + (ev.clientX - d.x);
     if (!d.moved && Math.abs(travel) < 4) return;
     d.moved = true;
-    setAt(d.k0 + travel / POT_UI.pxRange);
+    setAt(d.k0 + travel / POT_UI.pxRange, true);
   };
   const onUp = (): void => {
     const d = drag.current;

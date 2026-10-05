@@ -84,11 +84,15 @@ export const DJ_ZOOMS = [2, 4, 8, 16, 32] as const;
  * - 3BAND : basses en bleu, mediums en ambre, aigus en blanc, superposes ;
  * - RGB : la silhouette des trois bandes, teintee par leur melange (rouge
  *   les basses, vert les mediums, bleu les aigus) ;
- * - MONO : l'energie seule, en os (l'affichage d'avant).
+ * - MONO : l'energie seule, en os (l'affichage d'avant) ;
+ * - WARM (2026-10-05, Mika : "des couleurs plus chaudes, genre jaune et
+ *   orange ; les autres modes j'aime ca, mais avoir un truc mieux") : les
+ *   trois bandes aux couleurs de la marque, basses orange profond, mediums
+ *   or, aigus jaune pale, le coeur plus lumineux ; l'affichage de depart.
  */
-export const DJ_WAVES = ['3band', 'rgb', 'mono'] as const;
+export const DJ_WAVES = ['warm', '3band', 'rgb', 'mono'] as const;
 export type DjWaveMode = (typeof DJ_WAVES)[number];
-export const DJ_WAVE_LABEL: Readonly<Record<DjWaveMode, string>> = { '3band': '3BAND', rgb: 'RGB', mono: 'MONO' };
+export const DJ_WAVE_LABEL: Readonly<Record<DjWaveMode, string>> = { warm: 'WARM', '3band': '3BAND', rgb: 'RGB', mono: 'MONO' };
 
 export interface DjState {
   /** six voies : 1 MM-RYTM, 2 MM-ARP, 3 a 6 les platines A a D (C et D seulement si posees) */
@@ -126,7 +130,7 @@ function fresh(): DjState {
     time: 1,
     master: 0.88,
     fxTo: -1,
-    wave: '3band',
+    wave: 'warm',
     deck: { a: deck(), b: deck(), c: deck(), d: deck() },
   };
 }
@@ -160,7 +164,9 @@ function load(): DjState {
     if (typeof o.time === 'number' && (DJ_TIMES as readonly number[]).includes(o.time)) s.time = o.time;
     if (typeof o.master === 'number') s.master = clamp(o.master, 0, 1);
     if (typeof o.fxTo === 'number' && Number.isInteger(o.fxTo)) s.fxTo = clamp(o.fxTo, -1, 5);
-    if (typeof o.wave === 'string' && (DJ_WAVES as readonly string[]).includes(o.wave)) s.wave = o.wave;
+    // WARM arrive (2026-10-05) : le 3BAND retenu etait l'affichage de depart, il passe a WARM ; RGB ou MONO choisis restent
+    const w = (o as { waveMode?: unknown }).waveMode ?? (o.wave === 'rgb' || o.wave === 'mono' ? o.wave : undefined);
+    if (typeof w === 'string' && (DJ_WAVES as readonly string[]).includes(w)) s.wave = w as DjWaveMode;
   } catch {
     /* rien de retenu : l'etat neuf */
   }
@@ -177,7 +183,7 @@ function save(): void {
   saveTimer = window.setTimeout(() => {
     try {
       const { ch, fx, time, master, fxTo, wave } = state;
-      window.localStorage.setItem(KEY, JSON.stringify({ ch, fx, time, master, fxTo, wave }));
+      window.localStorage.setItem(KEY, JSON.stringify({ ch, fx, time, master, fxTo, waveMode: wave }));
     } catch {
       /* stockage plein ou refuse : l'etat vit pour la visite */
     }

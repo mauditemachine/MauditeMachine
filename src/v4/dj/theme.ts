@@ -345,6 +345,13 @@ export const MIX = {
   play: { z: 4.62, r: 0.36, labelZ: 3.98 },
   /** l'en-tete (MIXER), a la hauteur de celui des platines */
   head: { z: -5.19 },
+  /**
+   * LOOP > SMPL (2026-10-05, Mika : "quand je fais une loop dans un DECK, un
+   * bouton Exporter sur le MIXER vers SMPL, et la je peux editer mon
+   * sample") : dans l'en-tete, a gauche du logotype, comme REMOVE DECK sur
+   * une platine ; dx : son centre depuis le bord droit de la table
+   */
+  export: { dx: 1.62, z: -5.19, w: 0.72, d: 0.28 },
 };
 
 /** Les colonnes de la table pour n voies (repere du bloc). */

@@ -244,6 +244,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     let wheelKind: DialId | null = null;
     /** vue d'ensemble, ou le bout de la voisine : une machine sous la souris (curseur doigt, un clic zoome) */
     let hoverMachine = false;
+    /** sous la souris, la machine qu'on utilise (ou une qui joue) : la vue n'en part pas, curseur normal (2026-10-05) */
+    let overLocked = false;
     /** le bout de la machine voisine est survole : il sort un peu */
     let peeking = false;
     const setPeek = (on: boolean): void => {
@@ -301,7 +303,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
      * Mika : "comme quand on hover un lien, je veux pas les deux fleches").
      */
     const setCursor = (): void => {
-      el.style.cursor = turnAxis !== null ? 'pointer' : stage.orbit.dragging ? 'grabbing' : hover === null ? (hoverMachine ? 'pointer' : '') : 'pointer';
+      el.style.cursor = turnAxis !== null ? 'pointer' : stage.orbit.dragging ? 'grabbing' : hover === null ? (hoverMachine ? 'pointer' : overLocked ? 'default' : '') : 'pointer';
     };
     const setHover = (h: HotspotView | null): void => {
       const id = h ? h.id : null;
@@ -495,6 +497,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // une machine utilisee, le bout de l'autre aussi (et il sort un peu)
       const mh = !h && VOYAGER ? stage.hit.machineAt(e.clientX - rect.left, e.clientY - rect.top) : null;
       hoverMachine = mh !== null && mh !== focus.machine();
+      overLocked = !h && !hoverMachine && stage.orbit.lock(e.clientX, e.clientY, true);
       setPeek(hoverMachine && focus.get() !== 'all');
       setHover(h);
     };

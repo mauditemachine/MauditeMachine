@@ -22,6 +22,10 @@
  *
  * En lecture (2026-10-04, lock) : un geste parti sur une machine qui joue
  * ne tourne ni ne zoome plus la vue ; parti du fond, il la bouge.
+ * A la souris (2026-10-05, Mika : "dans la vue par defaut je ne veux pas
+ * bouger la machine en 3D, je veux le curseur normal ; je veux toujours
+ * pouvoir bouger en 3D en dehors de la machine") : la machine qu'on utilise
+ * ne tourne la vue que depuis le fond, meme quand elle ne joue pas.
  */
 
 import { Vector3, type PerspectiveCamera } from 'three';
@@ -94,7 +98,7 @@ export class Orbit {
    * ce point (px de la fenetre) ne tourne ni ne zoome la vue (une machine
    * qui joue) ; le Stage le pose.
    */
-  lock: (x: number, y: number) => boolean = () => false;
+  lock: (x: number, y: number, mouse: boolean) => boolean = () => false;
   /** derniere tape jugee (debug) ; quick : moins de 400 ms (double tape du fond) */
   readonly lastTap = { dist: 0, ms: 0, fired: false, quick: false };
   private ptrs = new Map<number, Ptr>();
@@ -374,7 +378,7 @@ export class Orbit {
     this.h = Math.max(1, this.opts.input.clientHeight);
     const x = e.clientX;
     const y = e.clientY;
-    const p: Ptr = { x0: x, y0: y, t0: e.timeStamp || performance.now(), x, y, max: 0, orbiting: false, foreign: false, multi: false, touch: e.pointerType === 'touch', locked: this.lock(x, y) };
+    const p: Ptr = { x0: x, y0: y, t0: e.timeStamp || performance.now(), x, y, max: 0, orbiting: false, foreign: false, multi: false, touch: e.pointerType === 'touch', locked: this.lock(x, y, e.pointerType === 'mouse') };
     // Un deuxieme pointeur libre : pincement, plus de tape ni de rotation (pas sur une machine qui joue)
     for (const q of this.ptrs.values()) {
       if (q.foreign || q.locked || p.locked) continue;
@@ -454,7 +458,7 @@ export class Orbit {
     if (e.defaultPrevented) return;
     e.preventDefault();
     // Au-dessus d'une machine qui joue : le zoom reste
-    if (this.lock(e.clientX, e.clientY)) return;
+    if (this.lock(e.clientX, e.clientY, true)) return;
     this.tw = false;
     const unit = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? 800 : 1;
     this.pZ -= e.deltaY * unit * ORBIT.wheel * (e.ctrlKey ? ORBIT.wheelCtrl : 1);

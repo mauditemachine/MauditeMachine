@@ -17,6 +17,7 @@
 
 import { gesture } from '../actions';
 import { djLoad } from '../state/djload';
+import type { DjDeck } from '../dj/theme';
 import { SMPL_MAX_S, smplEngine } from './engine';
 import { pitchSemis, smplParams, smplReadout, type SmplKnobId } from './params';
 import { SMPL_PADS, SMPL_SLICINGS, equalSlices, onsetSlices, wavOf } from './slices';
@@ -68,7 +69,7 @@ function placed(channels: Float32Array[], rate: number, name: string, source: 'd
 }
 
 /** GRAB : la loupe d'une platine (sa boucle, sinon la fenetre a l'ecran). */
-export function smplGrab(deck: 'a' | 'b'): void {
+export function smplGrab(deck: DjDeck): void {
   gesture();
   const m = djLoad.get();
   const e = m?.djEngineIfAny();

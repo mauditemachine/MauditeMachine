@@ -12,14 +12,16 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Stage } from '../scene/renderer';
 import { focus } from '../state/focus';
-import { faderMin, faderNeutral, faderValue, keyDown, keyUp, knobMin, knobNeutral, knobSteps, knobValue, setFader, setKnob } from './gestures';
+import { faderMin, faderNeutral, faderValue, keyDown, keyUp, knobMin, knobNeutral, knobSteps, knobText, knobValue, setFader, setKnob } from './gestures';
 import { DJ_FADERS, DJ_KEYS, DJ_KNOBS, type DjFaderSpec, type DjKeySpec, type DjKnobSpec } from './layout';
-import { djAddDeck, djRemoveDeck, djTempoStep, fxToText } from './actions';
+import { djAddDeck, djRemoveDeck, djTempoStep } from './actions';
 import { djState } from './state';
 import { DJ_DECKS, DJ_DECKS_MAX, DJ_DECKS_MIN, DJ_FX_LABEL, DJ_UNIT, DJ_W, UNIT_X, djDecks } from './theme';
 import './dj.css';
 
 const r1 = (n: number): number => Math.round(n * 10) / 10;
+/** La zone ADD / REMOVE DECK au bord droit (desktop) : sa largeur minimale. */
+const EDGE_MIN_PX = 64;
 const pct = (v: number): number => Math.round(v * 100);
 
 /** Ce qui entre sur chaque voie de la table. */
@@ -62,6 +64,8 @@ function keyName(k: DjKeySpec): string {
       return `Remove deck ${t.deck.toUpperCase()} (while it plays: press twice)`;
     case 'machines':
       return 'Play or stop the MM-RYTM and the MM-ARP together, key G';
+    case 'export':
+      return 'Export the loop to the MM-SMPL and edit it there, key T';
   }
 }
 
@@ -192,6 +196,10 @@ export const DjTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       let minY = Infinity;
       let maxX = -Infinity;
       let maxY = -Infinity;
+      // Le bord gauche de la zone : le plus a droite des deux coins de x0 (2026-10-05, Mika : "le
+      // PITCH ne fonctionne pas sur DECK B et C") ; la boite de la projection debordait sur la
+      // derniere platine et cachait son fader de pitch
+      let edgeX = -Infinity;
       for (const [x, z] of [
         [x0, -hd],
         [x1, -hd],
@@ -203,15 +211,21 @@ export const DjTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         minY = Math.min(minY, p.y);
         maxX = Math.max(maxX, p.x);
         maxY = Math.max(maxY, p.y);
+        if (x === x0) edgeX = Math.max(edgeX, p.x);
       }
-      // Jamais au-dela du bord de la fenetre (quatre platines : le cadrage serre)
-      if (!touch) maxX = Math.min(maxX, window.innerWidth - 8);
+      if (!touch) {
+        // Jamais au-dela du bord de la fenetre (quatre platines : le cadrage serre) ; 64 px au moins
+        maxX = Math.min(maxX, window.innerWidth - 8);
+        minX = Math.min(edgeX, maxX - EDGE_MIN_PX);
+      }
       const k = `${r1(minX)}|${r1(minY)}|${r1(maxX)}|${r1(maxY)}`;
       if (k === lastAdd) return;
       lastAdd = k;
       el.style.transform = `translate(${r1(minX)}px, ${r1(minY)}px)`;
       el.style.width = `${r1(maxX - minX)}px`;
       el.style.height = `${r1(maxY - minY)}px`;
+      // Desktop : les touches a hauteur de l'ecran de la platine, loin de son fader de pitch
+      if (!touch) el.style.paddingTop = `${r1((maxY - minY) * 0.16)}px`;
     };
     place(true);
     placeAdd();
@@ -318,7 +332,7 @@ export const DjTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
             aria-valuemin={pct(lo)}
             aria-valuemax={100}
             aria-valuenow={pct(v)}
-            aria-valuetext={k.target.kind === 'fxto' ? fxToText() : k.bipolar ? `${pct(v) > 0 ? '+' : ''}${pct(v)}%` : `${pct(v)}%`}
+            aria-valuetext={knobText(k, v)}
             onKeyDown={(e) => {
               if (e.altKey || e.ctrlKey || e.metaKey) return;
               // La valeur du moment, pas celle du dernier rendu (deux touches rapides) ; FX TO : un cran par fleche

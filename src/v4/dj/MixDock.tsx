@@ -18,11 +18,11 @@ import { clock } from '../audio/clock';
 import type { Stage } from '../scene/renderer';
 import { KnobView, useDockInset, type KnobSpec } from '../ui/KnobPanel';
 import { arp } from '../voyager/arp';
-import { djSetFxTo, djSetTime, fxTarget, fxToText } from './actions';
-import { faderMin, faderNeutral, faderValue, knobMin, knobNeutral, knobValue, setFader, setKnob } from './gestures';
+import { djExportToSmpl, djSetFxTo, djSetTime, fxTarget, fxToText } from './actions';
+import { faderMin, faderNeutral, faderValue, knobMin, knobNeutral, knobText, knobValue, setFader, setKnob } from './gestures';
 import { DJ_FADERS, DJ_KNOBS, type DjFaderSpec, type DjKnobSpec } from './layout';
 import { djState } from './state';
-import { DJ_CHANNELS, DJ_TIMES, DJ_VIEW_UNITS, djDecks, timeLabel, type DjUnit } from './theme';
+import { DJ_CHANNELS, DJ_DECKS, DJ_TIMES, DJ_VIEW_UNITS, djDecks, timeLabel, type DjUnit } from './theme';
 import { djView } from './view';
 import './dj.css';
 
@@ -45,8 +45,8 @@ function knobSpec(k: DjKnobSpec, where: string): KnobSpec {
     range: [knobMin(k), 1],
     steps: 0,
     bipolar: k.bipolar,
-    readout: () => `${where} ${k.label} ${pct(knobValue(k), k.bipolar)}%`,
-    valueText: () => `${pct(knobValue(k), k.bipolar)}${k.bipolar ? '' : '%'}`,
+    readout: () => `${where} ${k.label} ${knobText(k)}`,
+    valueText: () => knobText(k),
     subscribe: djState.subscribe,
   };
 }
@@ -98,6 +98,8 @@ function fxToSpec(): KnobSpec {
     whole: true,
   };
 }
+
+const anyLoop = (): boolean => DJ_DECKS.some((d) => djState.get().deck[d].loop !== null);
 
 interface Group {
   id: string;
@@ -168,6 +170,8 @@ export const DjMixDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage
   const groups = useMemo(() => buildGroups(), [decks]);
   const [tab, setTab] = useState(readTab);
   const playing = useSyncExternalStore(subscribeMachines, machinesOn, machinesOn);
+  // LOOP > SMPL allume des qu'une platine boucle
+  const looping = useSyncExternalStore(djState.subscribe, anyLoop, anyLoop);
   const ref = useRef<HTMLDivElement>(null);
   useDockInset(getStage(), 'dj', shown, ref);
   const g = groups.find((x) => x.id === tab) ?? groups[0];
@@ -226,6 +230,12 @@ export const DjMixDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage
             <button type="button" className="v4-djdock-play" data-on={playing ? '1' : '0'} aria-pressed={playing} aria-label="Play or stop the MM-RYTM and the MM-ARP together" onClick={() => machinesToggle()}>
               <i className={`fa-solid ${playing ? 'fa-stop' : 'fa-play'} v4-fa`} aria-hidden="true" />
               <span>{playing ? 'STOP' : 'PLAY'} RYTM + ARP</span>
+            </button>
+          )}
+          {g.transport && (
+            <button type="button" className="v4-djdock-play v4-djdock-export" data-on={looping ? '1' : '0'} aria-label="Export the loop to the MM-SMPL and edit it there" onClick={() => void djExportToSmpl()}>
+              <i className="fa-solid fa-arrow-right-to-bracket v4-fa" aria-hidden="true" />
+              <span>LOOP &gt; SMPL</span>
             </button>
           )}
         </div>

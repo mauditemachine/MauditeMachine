@@ -22,14 +22,15 @@ import { DJ_GLOW, DjControls } from './controls';
 import { djBrowser } from './browser';
 import { djSynced, djWake, fxTarget, fxToText, fxToValue, heardBpm, syncBpm } from './actions';
 import { djEngineIfAny, djWaveBands } from './engine';
-import { DJ_FADERS, DJ_KNOBS, DJ_RECT_KEYS, DJ_ROUND_KEYS } from './layout';
+import { DJ_FADERS, DJ_KNOBS, DJ_RECT_KEYS, DJ_ROUND_KEYS, type DjKnobSpec } from './layout';
+import { knobText } from './gestures';
 import { toDbfs, vuLit, VU_DB } from './math';
 import { DjScreens } from './screens';
 import { DjWaves } from './waveform';
 import { DjSilk, setSilkFxTo } from './silk';
 import { LICENSE_LABEL } from './soundcloud';
 import { DJ_WAVE_LABEL, djState, type DjState, type DjTrack } from './state';
-import { DECK, DJ_BEZEL, DJ_BODY, DJ_CHANNELS, DJ_CHANNELS_MAX, DJ_DECKS, DJ_FX, DJ_FX_LABEL, DJ_TILT, DJ_TOP_Y, DJ_UNIT, DJ_UNITS_ON, DJ_W, DJ_X, UNIT_X, timeLabel, unitW, type DjFxId } from './theme';
+import { DECK, DJ_BEZEL, DJ_BODY, DJ_CHANNELS, DJ_CHANNELS_MAX, DJ_DECKS, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_TILT, DJ_TOP_Y, DJ_UNIT, DJ_UNITS_ON, DJ_W, DJ_X, UNIT_X, timeLabel, unitW, type DjFxId } from './theme';
 import type { DjSyncLight } from './screens';
 
 export interface DjRigOpts {
@@ -54,7 +55,8 @@ export class DjRig {
   readonly silks: DjSilk[];
   private defs: HotspotDef[];
   private unsubs: (() => void)[] = [];
-  private lastFx: DjFxId | 'fxto' | null = null;
+  private lastFx: DjFxId | 'fxto' | DjKnobSpec | null = null;
+  private prevCh: DjState['ch'] | null = null;
   /** FX TO au dernier etat lu : un changement redessine la serigraphie de la table (le numero vise en orange) */
   private prevFxTo: number | null = null;
   private prevFx: DjState['fx'] | null = null;
@@ -154,6 +156,15 @@ export class DjRig {
     // L'effet qu'on vient de tourner s'affiche a l'ecran de la table
     if (this.prevFx) for (const f of DJ_FX) if (s.fx[f] !== this.prevFx[f]) this.lastFx = f;
     this.prevFx = s.fx;
+    // Un GAIN, un EQ ou un FILTER tourne : l'ecran de la table dit sa valeur (0 DB au milieu)
+    if (this.prevCh && this.prevCh !== s.ch) {
+      s.ch.forEach((c, i) => {
+        const p = this.prevCh?.[i];
+        if (!p || p === c) return;
+        for (const e of DJ_EQ) if (c[e.id] !== p[e.id]) this.lastFx = DJ_KNOBS.find((k) => k.target.kind === 'eq' && k.target.ch === i && k.target.eq === e.id) ?? this.lastFx;
+      });
+    }
+    this.prevCh = s.ch;
     const to = fxTarget(s);
     if (this.prevFxTo !== null && to !== this.prevFxTo) {
       this.lastFx = 'fxto';
@@ -197,6 +208,8 @@ export class DjRig {
       else if (t.kind === 'loop') on = on || s.deck[t.deck].loop === t.beats;
       else if (t.kind === 'time') on = on || s.time === t.d;
       else if (t.kind === 'removedeck') on = on || s.deck[t.deck].remove;
+      // LOOP > SMPL : allume des qu'une platine boucle (il y a quelque chose a exporter)
+      else if (t.kind === 'export') on = on || DJ_DECKS.some((d) => s.deck[d].loop !== null);
       if (this.controls.setKeyGlow(i, on ? DJ_GLOW.orange : DJ_GLOW.dim)) changed = true;
     });
     DJ_ROUND_KEYS.forEach((k, i) => {
@@ -341,7 +354,16 @@ export class DjRig {
     const fx = this.lastFx;
     // FX TO tourne : la voie visee ; sinon l'effet tourne, et au repos la voie visee si ce n'est pas toutes
     const to = fxTarget(s);
-    const label = fx === 'fxto' ? `FX TO ${fxToText(to)}` : fx ? `${DJ_FX_LABEL[fx]} ${Math.round(s.fx[fx] * 100)}%` : to < 0 ? 'EFFECTS' : `EFFECTS ${fxToText(to)}`;
+    const label =
+      fx === 'fxto'
+        ? `FX TO ${fxToText(to)}`
+        : typeof fx === 'object' && fx && fx.target.kind === 'eq'
+          ? `${fx.target.ch + 1} ${fx.label} ${knobText(fx)}`
+          : typeof fx === 'string'
+            ? `${DJ_FX_LABEL[fx]} ${Math.round(s.fx[fx] * 100)}%`
+            : to < 0
+              ? 'EFFECTS'
+              : `EFFECTS ${fxToText(to)}`;
     if (this.screens.setFx({ label, time: timeLabel(s.time), bpm: heardBpm(s) })) changed = true;
     return changed;
   }

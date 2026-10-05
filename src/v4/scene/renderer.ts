@@ -879,10 +879,12 @@ export class Stage {
     this.unsubPresets = presetMode.subscribe(syncPresets);
     // La vue verrouillee en lecture (2026-10-04, state/playLock.ts) : un geste parti sur une machine
     // qui joue ne bouge pas la vue ; une machine qui part passe devant, de face (un capot ouvert reste ouvert)
-    this.orbit.lock = (x, y) => {
+    this.orbit.lock = (x, y, mouse) => {
       const r = this.canvas.getBoundingClientRect();
       const m = this.hit.machineAt(x - r.left, y - r.top);
-      return m !== null && machinePlaying(m);
+      if (m === null) return false;
+      // Une machine qui joue ; a la souris, celle qu'on utilise (la vue tourne depuis le fond)
+      return machinePlaying(m) || (mouse && focus.get() === m);
     };
     this.unsubPlay = onPlayStart((m) => {
       if (this.disposed || this.introOn) return;

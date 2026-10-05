@@ -9,7 +9,9 @@
  * SoundCloud du site, la boite a rythmes et l'arpege, comme RUN.
  */
 
+import { focusMachine } from '../actions';
 import { clock } from '../audio/clock';
+import { smplLoad } from '../state/smplload';
 import { routeMachines } from '../audio/drums';
 import { sc } from '../audio/soundcloud';
 import { djEngine, djEngineIfAny, type DjEngine } from './engine';
@@ -378,7 +380,9 @@ export function djSetTime(beats: number): void {
 /** Le pitch a la main (fader, molette, PITCH - et +) : SYNC se desarme. */
 export function djSetPitch(d: DjDeck, v: number): void {
   engine();
-  djState.setDeck(d, { pitch: v, sync: false });
+  // Au centieme de pour cent (2026-10-05) : la valeur lue a l'ecran est celle qui joue
+  const r = djState.get().deck[d].range || 8;
+  djState.setDeck(d, { pitch: Math.round(v * r * 100) / (r * 100), sync: false });
 }
 
 /**
@@ -541,10 +545,14 @@ function loopFollows(d: DjDeck, e: DjEngine): void {
  * meme touche la quitte, et la lecture continue tout droit. La source boucle
  * d'elle-meme, a l'echantillon pres (dj/engine.ts setLoop).
  */
+/** La derniere platine ou une boucle a ete posee (LOOP > SMPL la prend d'abord). */
+let lastLoopDeck: DjDeck | null = null;
+
 export function djLoop(d: DjDeck, beats: number): void {
   const e = engine();
   const p = e?.decks[d];
   if (!e || !p || !p.loaded) return;
+  lastLoopDeck = d;
   const ds = djState.get().deck[d];
   if (p.loop && ds.loop === beats) {
     p.setLoop(null);
@@ -561,6 +569,40 @@ export function djLoop(d: DjDeck, beats: number): void {
   }
   p.setLoop({ a, b: Math.min(p.duration, a + beats * spb) });
   djState.setDeck(d, { loop: p.loop ? beats : null });
+}
+
+/**
+ * LOOP > SMPL (2026-10-05, Mika : "quand je fais une loop dans un DECK, un
+ * bouton Exporter situe sur le MIXER vers SMPL, et la je peux editer mon
+ * sample") : la boucle de la derniere platine bouclee (sinon d'une autre qui
+ * boucle, sinon la fenetre de celle qu'on entend, sinon de la premiere
+ * chargee) part dans le MM-SMPL, qui vient devant pour l'editer (son
+ * ecran dit ce qu'il a pris, ou qu'il n'y a rien a prendre).
+ */
+export function djExportDeck(): DjDeck {
+  const e = djEngineIfAny();
+  const s = djState.get();
+  const looping = (d: DjDeck): boolean => !!e?.decks[d].loop;
+  if (lastLoopDeck && DJ_DECKS.includes(lastLoopDeck) && looping(lastLoopDeck)) return lastLoopDeck;
+  const loop = DJ_DECKS.find(looping);
+  if (loop) return loop;
+  let best: DjDeck | null = null;
+  let w = 0;
+  for (const d of DJ_DECKS) {
+    const k = heardWeight(s, d) || (s.deck[d].playing ? 0.01 : 0);
+    if (k > w) {
+      w = k;
+      best = d;
+    }
+  }
+  return best ?? DJ_DECKS.find((d) => s.deck[d].loaded) ?? 'a';
+}
+
+export async function djExportToSmpl(): Promise<void> {
+  const d = djExportDeck();
+  focusMachine('smpl');
+  const m = await smplLoad.load();
+  m?.smplGrab(d);
 }
 
 /* ---------------- des platines en plus ---------------- */

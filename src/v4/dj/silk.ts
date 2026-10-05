@@ -179,6 +179,9 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   texts.push({ text: 'M', x: MIX.masterX, z: MIX.numZ, cap: 0.17, weight: 700, alpha: 1 });
   // PLAY/STOP des machines : ce qu'il lance, en orange comme les noms des voies 1 et 2
   texts.push({ text: 'RYTM + ARP', x: MIX.masterX, z: MIX.play.labelZ, cap: 0.075, weight: 700, ink: 'orange', alpha: 1, maxW: 1.1 });
+  // LOOP > SMPL : son nom a gauche de la touche, en orange comme REMOVE DECK
+  const ex = DJ_KEYS.find((k) => k.target.kind === 'export');
+  if (ex) texts.push({ text: 'LOOP > SMPL', x: ex.x - ux - ex.w / 2 - 0.14, z: ex.z, cap: 0.11, weight: 700, ink: 'orange', alpha: 1, align: 'right' });
   return { texts, lines, brackets };
 }
 

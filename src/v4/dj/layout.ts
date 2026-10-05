@@ -9,7 +9,7 @@
  * envoie ceux-la au MM-ARP).
  */
 
-import { DECK, DJ_DECKS, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_KNOB, DJ_TIMES, MIX, UNIT_X, djDecks, timeLabel, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
+import { DECK, DJ_CHANNELS, DJ_DECKS, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_KNOB, DJ_TIMES, MIX, UNIT_X, djDecks, mixWidth, timeLabel, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
 /** fxto : FX TO, la voie qui recoit les effets (ou toutes), un selecteur a crans */
 export type DjKnobTarget = { kind: 'eq'; ch: DjChannel; eq: DjEqId } | { kind: 'fx'; fx: DjFxId } | { kind: 'fxto' } | { kind: 'master' };
@@ -57,7 +57,9 @@ export type DjKeyTarget =
   /** REMOVE, sur la derniere platine ajoutee (ajouter : le + au bord droit, dj/AddDeck.tsx) */
   | { kind: 'removedeck'; deck: DjDeck }
   /** PLAY/STOP du mixer : le MM-RYTM et le MM-ARP (voies 1 et 2) ensemble */
-  | { kind: 'machines' };
+  | { kind: 'machines' }
+  /** LOOP > SMPL : la boucle d'une platine part dans le MM-SMPL */
+  | { kind: 'export' };
 
 export interface DjKeySpec {
   id: string;
@@ -204,6 +206,9 @@ function buildKeys(): DjKeySpec[] {
   // PLAY/STOP des machines, sous le VU du master
   const P = MIX.play;
   keys.push({ id: 'dj-machines', label: 'PLAY', x: UNIT_X.mix + MIX.masterX, z: P.z, w: 2 * P.r, d: 2 * P.r, round: true, target: { kind: 'machines' } });
+  // LOOP > SMPL, dans l'en-tete de la table
+  const X = MIX.export;
+  keys.push({ id: 'dj-export', label: 'EXPORT', x: UNIT_X.mix + mixWidth(DJ_CHANNELS) / 2 - X.dx, z: X.z, w: X.w, d: X.d, round: false, target: { kind: 'export' } });
   // PLAYLIST est parti : la liste des morceaux est dans l'ecran de chaque platine
   return keys;
 }

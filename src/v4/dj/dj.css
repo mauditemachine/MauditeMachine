@@ -549,7 +549,20 @@
   gap: 28px;
   width: 0;
   height: 0;
+  /* Seules ses touches prennent le pointeur (2026-10-05) : le reste laisse passer vers la platine */
+  pointer-events: none;
+}
+
+.v4-root .dj-edge .dj-add {
   pointer-events: auto;
+}
+
+/* Desktop : les touches dans le haut de la zone, loin du fader de pitch (en bas a droite de la platine) */
+@media (hover: hover) {
+  .v4-root .dj-edge {
+    justify-content: flex-start;
+    box-sizing: border-box;
+  }
 }
 
 .v4-root .dj-edge[data-off='1'] {

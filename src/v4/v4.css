@@ -4248,6 +4248,16 @@ html:has(body.v4-active.v4-light) {
   color: var(--yellow);
 }
 
+/* LOOP > SMPL (2026-10-05) : sous PLAY, en orange des qu'une platine boucle */
+.v4-root .v4-djdock-export {
+  margin-top: 8px;
+}
+
+.v4-root .v4-djdock-export[data-on='1'] {
+  border-color: var(--orange, #ff6a13);
+  color: var(--orange, #ff6a13);
+}
+
 .v4-root .v4-djdock-play:focus-visible {
   outline: 2px solid var(--yellow);
   outline-offset: 2px;

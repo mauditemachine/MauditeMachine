@@ -15,7 +15,8 @@
  * affichages (dj/state.ts DJ_WAVES, Mika : "on a du mal a voir les
  * choses") : 3BAND (basses bleues, mediums ambre, aigus blancs, l'une sur
  * l'autre), RGB (leur silhouette teintee par leur melange) et MONO (l'os
- * d'avant ; aussi tant que les bandes se calculent). La partie jouee est
+ * d'avant ; aussi tant que les bandes se calculent) ; WARM depuis le
+ * 2026-10-05 (orange, or, jaune pale : l'affichage de depart). La partie jouee est
  * plus sombre, la tete de lecture blanche, les hot cues en orange, le CUE
  * en jaune, chacun cerne de noir pour se lire sur toutes les couleurs. Un
  * mesh, un draw call, quatre bandes (attribut aSlot).
@@ -92,6 +93,11 @@ const vec3 INK = vec3(0.0);
 const vec3 LOW = vec3(0.13, 0.40, 1.0);
 const vec3 MID = vec3(0.93, 0.66, 0.30);
 const vec3 HIGH = vec3(0.98, 0.97, 0.94);
+// WARM (2026-10-05) : basses orange profond, mediums or (#FFA600), aigus jaune pale ; deja joue : brun
+const vec3 LOW_W = vec3(1.0, 0.33, 0.04);
+const vec3 MID_W = vec3(1.0, 0.651, 0.0);
+const vec3 HIGH_W = vec3(1.0, 0.93, 0.62);
+const vec3 PLAYED_W = vec3(0.30, 0.19, 0.10);
 // La hauteur de chaque bande a son maximum : les aigus restent fins, au coeur des autres
 const vec3 BAND_H = vec3(0.92, 0.72, 0.48);
 // La partie deja jouee
@@ -135,13 +141,24 @@ vec3 mark(vec3 col, vec3 ink, float x, float x0, float px, float w) {
  * (centre) a 1 (bord) ; cov : la part du pixel couverte par la barre.
  */
 vec3 wave(vec3 col, vec4 e, float y, float aa, bool bands, bool played, float cov) {
-  if (!bands || uMode > 1.5) {
+  bool warm = uMode < 0.5;
+  if (!bands || uMode > 2.5) {
+    // MONO (et toute vue tant que les bandes se calculent ; WARM en or)
     float on = 1.0 - smoothstep(e.r, e.r + aa, y);
-    return mix(col, played ? BONE_DIM : BONE, on * cov);
+    vec3 m = warm ? (played ? mix(MID_W, PLAYED_W, 0.6) : MID_W) : (played ? BONE_DIM : BONE);
+    return mix(col, m, on * cov);
   }
   float dim = played ? PLAYED : 1.0;
   vec3 h = e.gba * BAND_H;
-  if (uMode < 0.5) {
+  if (warm) {
+    // Le coeur plus lumineux que les bords ; la partie jouee tire vers le brun
+    float core = 0.8 + 0.2 * (1.0 - y);
+    float p = played ? 0.62 : 0.0;
+    col = mix(col, mix(LOW_W, PLAYED_W, p) * core, (1.0 - smoothstep(h.x, h.x + aa, y)) * cov);
+    col = mix(col, mix(MID_W, PLAYED_W, p) * core, (1.0 - smoothstep(h.y, h.y + aa, y)) * cov);
+    return mix(col, mix(HIGH_W, PLAYED_W, p * 0.8) * core, (1.0 - smoothstep(h.z, h.z + aa, y)) * cov);
+  }
+  if (uMode < 1.5) {
     col = mix(col, LOW * dim, (1.0 - smoothstep(h.x, h.x + aa, y)) * cov);
     col = mix(col, MID * dim, (1.0 - smoothstep(h.y, h.y + aa, y)) * cov);
     return mix(col, HIGH * dim, (1.0 - smoothstep(h.z, h.z + aa, y)) * cov);
@@ -400,7 +417,7 @@ export class DjWaves {
     return true;
   }
 
-  /** L'affichage (3BAND, RGB, MONO) ; true s'il change. */
+  /** L'affichage (WARM, 3BAND, RGB, MONO) ; true s'il change. */
   setMode(m: DjWaveMode): boolean {
     const u = this.material.uniforms.uMode;
     const v = Math.max(0, DJ_WAVES.indexOf(m));

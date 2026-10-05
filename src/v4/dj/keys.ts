@@ -18,7 +18,8 @@
  *   G  PLAY/STOP des machines (le MM-RYTM et le MM-ARP, voies 1 et 2)
  *   Espace : PLAY de la derniere platine touchee
  *   - et = : zoom des formes d'onde
- *   V : l'affichage des formes d'onde (3BAND, RGB, MONO)
+ *   V : l'affichage des formes d'onde (WARM, 3BAND, RGB, MONO)
+ *   T : LOOP > SMPL (la boucle part dans le MM-SMPL)
  */
 
 import type { Stage } from '../scene/renderer';
@@ -62,6 +63,8 @@ const MAP: Readonly<Record<string, string>> = {
   KeyH: 'dj-b-loop4',
   // Entre les deux mains : PLAY/STOP des machines (le mixer)
   KeyG: 'dj-machines',
+  // LOOP > SMPL : la boucle part dans le MM-SMPL
+  KeyT: 'dj-export',
 };
 
 /** La legende, pour l'aide a l'ecran (touches lues en QWERTY). */
@@ -77,7 +80,8 @@ export const DJ_KEY_LEGEND: readonly { keys: string; what: string }[] = [
   { keys: 'Space', what: 'Play the last deck used' },
   { keys: 'G', what: 'Play / stop the MM-RYTM and the MM-ARP' },
   { keys: '-  =', what: 'Waveform zoom' },
-  { keys: 'V', what: 'Waveform view: 3BAND, RGB, MONO' },
+  { keys: 'V', what: 'Waveform view: WARM, 3BAND, RGB, MONO' },
+  { keys: 'T', what: 'Export the loop to the MM-SMPL' },
 ];
 
 const editable = (t: EventTarget | null): boolean =>

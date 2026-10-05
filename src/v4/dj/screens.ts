@@ -139,7 +139,7 @@ export interface DjFxScreen {
 }
 
 const deckKey = (s: DjDeckScreen): string =>
-  `${s.loaded}|${s.title}|${s.artist}|${s.bpm}|${s.key}|${Math.floor(s.position * 4)}|${Math.round(s.duration)}|${s.playing}|${s.pitch.toFixed(2)}|${s.zoom}|${s.wave}|${s.note}`;
+  `${s.loaded}|${s.title}|${s.artist}|${s.bpm}|${s.key}|${Math.floor(s.position * 4)}|${Math.round(s.duration)}|${s.playing}|${s.pitch.toFixed(6)}|${s.zoom}|${s.wave}|${s.note}`;
 
 const clock = (s: number): string => {
   const t = Math.max(0, Math.floor(s));
@@ -237,11 +237,11 @@ export class DjScreens {
       c.fillStyle = s.note ? DJ_LIGHT.orange : DIM;
       c.font = `${s.note ? 700 : 500} 36px ${FONT_DISPLAY}`;
       c.fillText(this.fit(s.note || s.artist, colX - x0 - 20), x0, l2);
-      // BPM (avec le pitch), le pitch au centieme de pour cent, la tonalite, le temps restant
+      // BPM au centieme (2026-10-05 : caler un tempo exact), le pitch au centieme de pour cent, la tonalite, le temps restant
       c.textAlign = 'right';
       c.fillStyle = BONE;
       c.font = `600 64px ${FONT_MONO}`;
-      const bpm = s.bpm ? (s.bpm * (1 + s.pitch)).toFixed(1) : '--.-';
+      const bpm = s.bpm ? (s.bpm * (1 + s.pitch)).toFixed(2) : '--.--';
       c.fillText(bpm, x1, l1);
       c.fillStyle = DIM;
       c.font = `500 30px ${FONT_MONO}`;

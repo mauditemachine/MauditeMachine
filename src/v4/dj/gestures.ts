@@ -26,13 +26,19 @@ import type { HotspotView } from '../scene/hit';
 import { quadToUnit } from '../scene/quad';
 import type { Stage } from '../scene/renderer';
 import { djBrowser } from './browser';
-import { djLoop, djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djHotcue, djHotcueClear, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetFxTo, djSetMaster, djSetPitch, djSetTime, djWaveNext, fxTarget, fxToOfValue, fxToValue } from './actions';
+import { djLoop, djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djHotcue, djHotcueClear, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetFxTo, djSetMaster, djSetPitch, djSetTime, djWaveNext, djExportToSmpl, fxTarget, fxToOfValue, fxToText, fxToValue } from './actions';
+import { MASTER_DEFAULT } from './engine';
+import { KILL, eqDb, faderGain } from './math';
 import { djFader, djKey, djKnob, type DjFaderSpec, type DjKeySpec, type DjKnobSpec } from './layout';
 import { djState } from './state';
 import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_CHANNELS, DJ_DECKS_ALL, DJ_FADER, UNIT_X, type DjDeck } from './theme';
 
 const KNOB_PX = 150;
 const FINE = 0.1;
+/** Le cran du milieu des potards a zero au centre (part de la demi-course). */
+const CENTER_DETENT = 0.04;
+/** Le vernier du pitch : l'ecart lateral (px) qui rend le geste deux fois plus fin. */
+const VERNIER_PX = 60;
 const AXIS_PX = 4;
 const DOUBLE_TAP_MS = 350;
 const HOLD_CLEAR_MS = 600;
@@ -60,8 +66,30 @@ export function knobValue(k: DjKnobSpec): number {
   return t.kind === 'eq' ? s.ch[t.ch][t.eq] : t.kind === 'fx' ? s.fx[t.fx] : t.kind === 'fxto' ? fxToValue(fxTarget(s)) : s.master;
 }
 
+/**
+ * La valeur d'un potard de la table en mots (2026-10-05, Mika : "les EQ du
+ * mixer : le 0, le milieu, a 0 dB") : GAIN et EQ en dB (0 DB au milieu, KILL
+ * tout a gauche pour les EQ), FILTER (LP a gauche, HP a droite, OFF au
+ * milieu), MASTER en dB, les effets en pour cent, FX TO sa voie.
+ */
+export function knobText(k: DjKnobSpec, v = knobValue(k)): string {
+  const t = k.target;
+  const db = (x: number): string => (Math.abs(x) < 0.05 ? '0 DB' : `${x > 0 ? '+' : '-'}${Math.abs(x).toFixed(1)} DB`);
+  if (t.kind === 'eq') {
+    if (t.eq === 'filter') return Math.abs(v) < 0.005 ? 'OFF' : `${v < 0 ? 'LP' : 'HP'} ${Math.round(Math.abs(v) * 100)}%`;
+    if (t.eq !== 'gain' && v <= KILL) return 'KILL';
+    return db(eqDb(v));
+  }
+  if (t.kind === 'fx') return `${Math.round(v * 100)}%`;
+  if (t.kind === 'fxto') return fxToText(fxToOfValue(v));
+  const g = faderGain(v) / faderGain(MASTER_DEFAULT);
+  return g <= 0 ? '-INF DB' : db(20 * Math.log10(g));
+}
+
 export function setKnob(k: DjKnobSpec, v: number): void {
   const t = k.target;
+  // Zero au centre : le reste d'une somme de pas (molette, fleches) tombe pile sur 0
+  if (k.bipolar && Math.abs(v) < 0.005) v = 0;
   if (t.kind === 'eq') djSetEq(t.ch, t.eq, v);
   else if (t.kind === 'fx') djSetFx(t.fx, v);
   else if (t.kind === 'fxto') djSetFxTo(fxToOfValue(v));
@@ -122,6 +150,7 @@ export function keyDown(k: DjKeySpec, stage: Stage | null, coarse = false): void
   else if (t.kind === 'sync') djSync(t.deck);
   else if (t.kind === 'loop') djLoop(t.deck, t.beats);
   else if (t.kind === 'machines') machinesToggle();
+  else if (t.kind === 'export') void djExportToSmpl();
   else if (t.kind === 'tempo') {
     const step = coarse ? 1 : 0.1;
     djTempoStep(t.deck, t.dir, step);
@@ -305,7 +334,10 @@ export class DjGestures {
         g.fine = shift;
       }
       const range = 1 - knobMin(k);
-      setKnob(k, Math.max(knobMin(k), Math.min(1, g.v0 + ((travel - g.a) / KNOB_PX) * range * (shift ? FINE : 1))));
+      let v = Math.max(knobMin(k), Math.min(1, g.v0 + ((travel - g.a) / KNOB_PX) * range * (shift ? FINE : 1)));
+      // Le cran du milieu (2026-10-05) : GAIN, EQ et FILTER retombent pile a 0 en passant (pas en Maj, le reglage fin)
+      if (k.bipolar && !shift && Math.abs(v) < CENTER_DETENT) v = 0;
+      setKnob(k, v);
     } else if (g.kind === 'fader') {
       const f = faderById.get(g.id);
       const L2 = g.ax * g.ax + g.ay * g.ay;
@@ -316,12 +348,19 @@ export class DjGestures {
          * mouvement depuis le point precedent, et un glisser lent est cinq
          * fois plus fin qu'un glisser vif (Maj : dix fois) ; on arrive au
          * dixieme de BPM sans les touches TEMPO.
+         * Vernier (2026-10-05, Mika : "le gerer finement, des fois c'est
+         * difficile d'atteindre la valeur souhaitee") : le doigt ou la souris
+         * qui s'ecarte de la fente, sur le cote, rend le geste plus fin
+         * (deux fois a 60 px, cinq fois a 240 px, dix fois au-dela de 540 px),
+         * comme le defilement fin d'un lecteur.
          */
         const now = performance.now();
         const ddx = x - g.cx;
         const ddy = y - g.cy;
         const speed = Math.hypot(ddx, ddy) / Math.max(1, now - g.t);
-        const k = shift ? FINE : Math.max(0.2, Math.min(1, speed / 0.8));
+        const side = Math.abs((x - g.x0) * g.ay - (y - g.y0) * g.ax) / Math.sqrt(L2);
+        const vernier = Math.max(FINE, 1 / (1 + side / VERNIER_PX));
+        const k = (shift ? FINE : Math.max(0.2, Math.min(1, speed / 0.8))) * vernier;
         g.v0 = Math.max(-1, Math.min(1, g.v0 + ((2 * (ddx * g.ax + ddy * g.ay)) / L2) * k));
         g.cx = x;
         g.cy = y;

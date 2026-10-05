@@ -14,6 +14,8 @@ export interface SmplModules {
   SmplGestures: typeof import('../smpl/gestures').SmplGestures;
   smplState: typeof import('../smpl/state').smplState;
   smplEngine: typeof import('../smpl/engine').smplEngine;
+  /** GRAB : la boucle (ou la fenetre) d'une platine, LOOP > SMPL du mixer aussi */
+  smplGrab: typeof import('../smpl/actions').smplGrab;
 }
 
 let mods: SmplModules | null = null;
@@ -26,8 +28,8 @@ export const smplLoad = {
   /** Le chargement (une fois) ; null avec ?smpl=0. */
   load(): Promise<SmplModules> | null {
     if (!SMPL) return null;
-    pending ??= Promise.all([import('../smpl/rig'), import('../smpl/gestures'), import('../smpl/state'), import('../smpl/engine'), import('../smpl/actions')]).then(([rig, gestures, state, engine]) => {
-      mods = { SmplRig: rig.SmplRig, SmplGestures: gestures.SmplGestures, smplState: state.smplState, smplEngine: engine.smplEngine };
+    pending ??= Promise.all([import('../smpl/rig'), import('../smpl/gestures'), import('../smpl/state'), import('../smpl/engine'), import('../smpl/actions')]).then(([rig, gestures, state, engine, actions]) => {
+      mods = { SmplRig: rig.SmplRig, SmplGestures: gestures.SmplGestures, smplState: state.smplState, smplEngine: engine.smplEngine, smplGrab: actions.smplGrab };
       listeners.forEach((fn) => fn());
       return mods;
     });
