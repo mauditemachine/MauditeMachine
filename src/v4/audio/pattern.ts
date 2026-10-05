@@ -30,7 +30,8 @@
 
 import type { Inst } from '../theme';
 
-export const INSTRUMENTS: readonly Inst[] = ['BD', 'SD', 'TOM', 'CH', 'OH', 'CP', 'RS', 'HT', 'CY', 'PC'];
+// Huit voix (2026-10-05), dans l'ordre des pads : BD SD CH OH en haut, CP TOM HT CY dessous
+export const INSTRUMENTS: readonly Inst[] = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'];
 export const STEP_COUNT = 16;
 export const BPM = { min: 100, max: 150, initial: 130 } as const;
 /**
@@ -106,10 +107,8 @@ export const DEFAULT_STEPS: Readonly<Steps> = {
   OH: '0090009000900090',
   // Les voix du 2026-10-03 arrivent vides : le motif d'arrivee ne change pas
   CP: '0000000000000000',
-  RS: '0000000000000000',
   HT: '0000000000000000',
   CY: '0000000000000000',
-  PC: '0000000000000000',
 };
 
 /** Velocite du pas i de inst : 0 (vide) a 9 (le plus fort). */

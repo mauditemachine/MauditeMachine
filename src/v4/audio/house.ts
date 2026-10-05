@@ -144,13 +144,6 @@ function snare(r: Rand): Row {
   return s;
 }
 
-/** Rimshot : souvent rien, sinon une figure syncopee douce. */
-const RS_FIGURES: readonly string[] = ['0003000000300000', '0000003000000300', '0030000300000030', '0000030000300003'];
-function rim(r: Rand): Row {
-  if (r() < 0.55) return empty();
-  return fromString(pick(r, RS_FIGURES));
-}
-
 /** Tom aigu : un roulement de fin de mesure, une fois sur quatre. */
 function highTom(r: Rand): Row {
   const h = empty();
@@ -169,13 +162,6 @@ function cymbal(r: Rand): Row {
   return c;
 }
 
-/** Percussion (conga) : souvent rien, sinon une figure syncopee douce qui tourne autour du temps. */
-const PC_FIGURES: readonly string[] = ['0030030000300300', '0003003000030030', '0020300200203003', '0300003003000030'];
-function perc(r: Rand): Row {
-  if (r() < 0.6) return empty();
-  return fromString(pick(r, PC_FIGURES));
-}
-
 /** Les crans 1 2 3 (fort, moyen, doux) en niveaux du motif : 9 6 3 (audio/pattern.ts). */
 const join = (row: Row): string => fromLevels3(row.join(''));
 
@@ -189,10 +175,8 @@ export function houseSteps(r: Rand = Math.random): Steps {
     CH: closedHat(r, oh),
     OH: oh,
     CP: clap(r),
-    RS: rim(r),
     HT: highTom(r),
     CY: cymbal(r),
-    PC: perc(r),
   };
   return Object.fromEntries(Object.entries(rows).map(([k, v]) => [k, join(v)])) as Steps;
 }

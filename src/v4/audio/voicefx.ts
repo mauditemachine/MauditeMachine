@@ -36,7 +36,7 @@ const clamp = (p: VoiceParam, v: number): number => {
   return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : p === 'decay' ? 1 : 0;
 };
 
-const INSTS: readonly Inst[] = ['BD', 'SD', 'TOM', 'CH', 'OH', 'CP', 'RS', 'HT', 'CY', 'PC'];
+const INSTS: readonly Inst[] = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'];
 
 let state: Readonly<Record<Inst, Readonly<VoiceFx>>> = Object.fromEntries(INSTS.map((i) => [i, { ...VOICE_FX_DEFAULT }])) as Record<Inst, VoiceFx>;
 const listeners = new Set<() => void>();

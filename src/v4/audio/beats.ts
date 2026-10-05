@@ -77,10 +77,8 @@ function techHouse(r: Rand): Record<Inst, Row> {
     CH: ch,
     OH: oh,
     CP: cp,
-    RS: figure(r, ['0030030000300300', '0003003000030030', '0010010000100100'].map((s) => s.replace(/1/g, '3'))),
     HT: empty(),
     CY: r() < 0.7 ? empty() : figure(r, ['0030003000300030']),
-    PC: r() < 0.35 ? empty() : figure(r, ['0003003000030030', '0030030000300300', '0020300200203003']),
   };
 }
 
@@ -106,10 +104,8 @@ function techno(r: Rand): Record<Inst, Row> {
     CH: ch,
     OH: oh,
     CP: cp,
-    RS: rs,
     HT: r() < 0.8 ? empty() : figure(r, ['0000000000000033']),
     CY: r() < 0.5 ? empty() : figure(r, ['0030003000300030', '3030303030303030'], 0.05),
-    PC: empty(),
   };
 }
 
@@ -127,10 +123,8 @@ function minimal(r: Rand): Record<Inst, Row> {
     CH: ch,
     OH: oh,
     CP: r() < 0.6 ? empty() : fromString('0000000000003000'),
-    RS: rs,
     HT: empty(),
     CY: empty(),
-    PC: figure(r, ['0001000100000010', '0100000100010000', '0001001000000100', '0000010000100001'].map((s) => s.replace(/1/g, '3')), 0.05),
   };
 }
 
@@ -156,10 +150,8 @@ function indieDance(r: Rand): Record<Inst, Row> {
     CH: ch,
     OH: oh,
     CP: cp,
-    RS: empty(),
     HT: r() < 0.7 ? empty() : figure(r, ['0000000000000033']),
     CY: r() < 0.6 ? empty() : fromString('2000000000000000'),
-    PC: r() < 0.6 ? empty() : figure(r, ['3333333333333333', '0303030303030303'], 0.2),
   };
 }
 
@@ -179,10 +171,8 @@ function prog(r: Rand): Record<Inst, Row> {
     CH: ch,
     OH: oh,
     CP: cp,
-    RS: r() < 0.5 ? empty() : figure(r, ['0000000033333333', '0000000003030303']),
     HT: empty(),
     CY: r() < 0.5 ? empty() : figure(r, ['0030003000300030']),
-    PC: r() < 0.6 ? empty() : figure(r, ['0030030030030030', '0300300300300300']),
   };
 }
 
@@ -199,10 +189,8 @@ function electro(r: Rand): Record<Inst, Row> {
     CH: underOpen(figure(r, ['1010101010101010', '2020202020202020', '1030103010301030'], 0), oh),
     OH: oh,
     CP: r() < 0.6 ? empty() : fromString('0000200000002000'),
-    RS: empty(),
     HT: r() < 0.7 ? empty() : figure(r, ['0000000000003300']),
     CY: r() < 0.5 ? empty() : fromString('2000000000000000'),
-    PC: empty(),
   };
 }
 
@@ -253,10 +241,8 @@ const COLOR: Readonly<Record<Inst, { tone: [number, number]; level: [number, num
   CH: { tone: [-0.1, 0.35], level: [0.6, 0.82] },
   OH: { tone: [-0.1, 0.3], level: [0.6, 0.8] },
   CP: { tone: [-0.25, 0.25], level: [0.6, 0.78] },
-  RS: { tone: [-0.35, 0.35], level: [0.6, 0.8] },
   HT: { tone: [-0.45, 0.45], level: [0.62, 0.82] },
   CY: { tone: [-0.2, 0.2], level: [0.55, 0.76] },
-  PC: { tone: [-0.45, 0.45], level: [0.6, 0.82] },
 };
 
 export function randomColors(r: Rand = Math.random): Record<Inst, { tone: number; level: number }> {

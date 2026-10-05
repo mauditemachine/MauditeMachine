@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 5 octobre 2026 depuis le code du site (`npm run docs:midi`) : 346 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 5 octobre 2026 depuis le code du site (`npm run docs:midi`) : 327 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -188,20 +188,20 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 15 | 2.8 | 1 | 29 | V REVERB | peche | rytm:enc:vreverb | REVERB (SELECTED VOICE) | continu |
 | 16 | 3.1 | 1 | 30 | BD VOL | creme | rytm:voice:BD:level | BD VOLUME | continu |
 | 17 | 3.2 | 1 | 31 | SD VOL | creme | rytm:voice:SD:level | SD VOLUME | continu |
-| 18 | 3.3 | 1 | 102 | TOM VOL | creme | rytm:voice:TOM:level | TOM VOLUME | continu |
-| 19 | 3.4 | 1 | 103 | CH VOL | creme | rytm:voice:CH:level | CH VOLUME | continu |
-| 20 | 3.5 | 1 | 104 | OH VOL | creme | rytm:voice:OH:level | OH VOLUME | continu |
-| 21 | 3.6 | 1 | 105 | CP VOL | creme | rytm:voice:CP:level | CP VOLUME | continu |
-| 22 | 3.7 | 1 | 106 | RS VOL | creme | rytm:voice:RS:level | RS VOLUME | continu |
-| 23 | 3.8 | 1 | 107 | HT VOL | creme | rytm:voice:HT:level | HT VOLUME | continu |
-| 24 | 4.1 | 1 | 108 | CY VOL | creme | rytm:voice:CY:level | CY VOLUME | continu |
-| 25 | 4.2 | 1 | 109 | PC VOL | creme | rytm:voice:PC:level | PC VOLUME | continu |
-| 26 | 4.3 | 1 | 110 | KICK TUNE | or | rytm:kit:tune | TWEAK TUNE | bipolaire, cran au milieu (64) |
-| 27 | 4.4 | 1 | 111 | KICK ATTACK | or | rytm:kit:attack | TWEAK ATTACK | continu |
-| 28 | 4.5 | 1 | 112 | KICK DECAY | or | rytm:kit:decay | TWEAK DECAY | continu |
-| 29 | 4.6 | 1 | 113 | KICK DRIVE | or | rytm:kit:drive | TWEAK DRIVE | continu |
-| 30 | 4.7 | 1 | 114 | SNARE SOUND | or | rytm:kit:sd | TWEAK SNARE | potard a 7 crans : 909 / 808 / MM / PSY 02 / PSY 12 / PSY 26 / 707 |
-| 31 | 4.8 | 1 | 115 | SNAPPY | or | rytm:kit:snappy | TWEAK SNAPPY | continu |
+| 18 | 3.3 | 1 | 102 | CH VOL | creme | rytm:voice:CH:level | CH VOLUME | continu |
+| 19 | 3.4 | 1 | 103 | OH VOL | creme | rytm:voice:OH:level | OH VOLUME | continu |
+| 20 | 3.5 | 1 | 104 | CP VOL | creme | rytm:voice:CP:level | CP VOLUME | continu |
+| 21 | 3.6 | 1 | 105 | TOM VOL | creme | rytm:voice:TOM:level | TOM VOLUME | continu |
+| 22 | 3.7 | 1 | 106 | HT VOL | creme | rytm:voice:HT:level | HT VOLUME | continu |
+| 23 | 3.8 | 1 | 107 | CY VOL | creme | rytm:voice:CY:level | CY VOLUME | continu |
+| 24 | 4.1 | 1 | 108 | KICK SOUND | or | rytm:kit:bd | TWEAK KICK | potard a 9 crans : 909 / 808 / MM / BLUEPRINT / VNTM / ENGELHARDT / CARASSI / STEIN / AFFKT |
+| 25 | 4.2 | 1 | 109 | KICK TUNE | or | rytm:kit:tune | TWEAK TUNE | bipolaire, cran au milieu (64) |
+| 26 | 4.3 | 1 | 110 | KICK ATTACK | or | rytm:kit:attack | TWEAK ATTACK | continu |
+| 27 | 4.4 | 1 | 111 | KICK DECAY | or | rytm:kit:decay | TWEAK DECAY | continu |
+| 28 | 4.5 | 1 | 112 | KICK DRIVE | or | rytm:kit:drive | TWEAK DRIVE | continu |
+| 29 | 4.6 | 1 | 113 | SNARE SOUND | or | rytm:kit:sd | TWEAK SNARE | potard a 7 crans : 909 / 808 / MM / PSY 02 / PSY 12 / PSY 26 / 707 |
+| 30 | 4.7 | 1 | 114 | SNAPPY | or | rytm:kit:snappy | TWEAK SNAPPY | continu |
+| 31 | 4.8 | 1 | 115 | HATS SOUND | or | rytm:kit:hh | TWEAK HATS | potard a 3 crans : 909 / 808 / MM |
 
 **Boutons**
 
@@ -217,28 +217,28 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 7 | 1.8 | 9 | 21 | NEXT MACHINE | blanc | nav:next | NEXT MACHINE | appui |
 | 8 | 2.1 | 9 | 22 | BD | jaune | rytm:pad:BD | PAD BD | appui |
 | 9 | 2.2 | 9 | 23 | SD | jaune | rytm:pad:SD | PAD SD | appui |
-| 10 | 2.3 | 9 | 24 | TOM | jaune | rytm:pad:TOM | PAD TOM | appui |
-| 11 | 2.4 | 9 | 25 | CH | jaune | rytm:pad:CH | PAD CH | appui |
-| 12 | 2.5 | 9 | 26 | OH | jaune | rytm:pad:OH | PAD OH | appui |
-| 13 | 2.6 | 9 | 27 | CP | jaune | rytm:pad:CP | PAD CP | appui |
-| 14 | 2.7 | 9 | 28 | RS | jaune | rytm:pad:RS | PAD RS | appui |
-| 15 | 2.8 | 9 | 29 | HT | jaune | rytm:pad:HT | PAD HT | appui |
+| 10 | 2.3 | 9 | 24 | CH | jaune | rytm:pad:CH | PAD CH | appui |
+| 11 | 2.4 | 9 | 25 | OH | jaune | rytm:pad:OH | PAD OH | appui |
+| 12 | 2.5 | 9 | 26 | CP | jaune | rytm:pad:CP | PAD CP | appui |
+| 13 | 2.6 | 9 | 27 | TOM | jaune | rytm:pad:TOM | PAD TOM | appui |
+| 14 | 2.7 | 9 | 28 | HT | jaune | rytm:pad:HT | PAD HT | appui |
+| 15 | 2.8 | 9 | 29 | CY | jaune | rytm:pad:CY | PAD CY | appui |
 | 16 | 3.1 | 9 | 30 | MUTE BD | rose | rytm:voice:BD:mute | MUTE BD | bascule (la LED suit le site) |
 | 17 | 3.2 | 9 | 31 | MUTE SD | rose | rytm:voice:SD:mute | MUTE SD | bascule (la LED suit le site) |
-| 18 | 3.3 | 9 | 102 | MUTE TOM | rose | rytm:voice:TOM:mute | MUTE TOM | bascule (la LED suit le site) |
-| 19 | 3.4 | 9 | 103 | MUTE CH | rose | rytm:voice:CH:mute | MUTE CH | bascule (la LED suit le site) |
-| 20 | 3.5 | 9 | 104 | MUTE OH | rose | rytm:voice:OH:mute | MUTE OH | bascule (la LED suit le site) |
-| 21 | 3.6 | 9 | 105 | MUTE CP | rose | rytm:voice:CP:mute | MUTE CP | bascule (la LED suit le site) |
-| 22 | 3.7 | 9 | 106 | MUTE RS | rose | rytm:voice:RS:mute | MUTE RS | bascule (la LED suit le site) |
-| 23 | 3.8 | 9 | 107 | MUTE HT | rose | rytm:voice:HT:mute | MUTE HT | bascule (la LED suit le site) |
-| 24 | 4.1 | 9 | 108 | MUTE CY | rose | rytm:voice:CY:mute | MUTE CY | bascule (la LED suit le site) |
-| 25 | 4.2 | 9 | 109 | MUTE PC | rose | rytm:voice:PC:mute | MUTE PC | bascule (la LED suit le site) |
-| 26 | 4.3 | 9 | 110 | CY | jaune | rytm:pad:CY | PAD CY | appui |
-| 27 | 4.4 | 9 | 111 | PC | jaune | rytm:pad:PC | PAD PC | appui |
-| 28 | 4.5 | 9 | 112 | PTN A01 | bleu | rytm:ptn:0 | PATTERN A01 | appui |
-| 29 | 4.6 | 9 | 113 | PTN A02 | bleu | rytm:ptn:1 | PATTERN A02 | appui |
-| 30 | 4.7 | 9 | 114 | PTN A03 | bleu | rytm:ptn:2 | PATTERN A03 | appui |
-| 31 | 4.8 | 9 | 115 | PTN A04 | bleu | rytm:ptn:3 | PATTERN A04 | appui |
+| 18 | 3.3 | 9 | 102 | MUTE CH | rose | rytm:voice:CH:mute | MUTE CH | bascule (la LED suit le site) |
+| 19 | 3.4 | 9 | 103 | MUTE OH | rose | rytm:voice:OH:mute | MUTE OH | bascule (la LED suit le site) |
+| 20 | 3.5 | 9 | 104 | MUTE CP | rose | rytm:voice:CP:mute | MUTE CP | bascule (la LED suit le site) |
+| 21 | 3.6 | 9 | 105 | MUTE TOM | rose | rytm:voice:TOM:mute | MUTE TOM | bascule (la LED suit le site) |
+| 22 | 3.7 | 9 | 106 | MUTE HT | rose | rytm:voice:HT:mute | MUTE HT | bascule (la LED suit le site) |
+| 23 | 3.8 | 9 | 107 | MUTE CY | rose | rytm:voice:CY:mute | MUTE CY | bascule (la LED suit le site) |
+| 24 | 4.1 | 9 | 108 | PTN A01 | bleu | rytm:ptn:0 | PATTERN A01 | appui |
+| 25 | 4.2 | 9 | 109 | PTN A02 | bleu | rytm:ptn:1 | PATTERN A02 | appui |
+| 26 | 4.3 | 9 | 110 | PTN A03 | bleu | rytm:ptn:2 | PATTERN A03 | appui |
+| 27 | 4.4 | 9 | 111 | PTN A04 | bleu | rytm:ptn:3 | PATTERN A04 | appui |
+| 28 | 4.5 | 9 | 112 | PTN A05 | bleu | rytm:ptn:4 | PATTERN A05 | appui |
+| 29 | 4.6 | 9 | 113 | PTN A06 | bleu | rytm:ptn:5 | PATTERN A06 | appui |
+| 30 | 4.7 | 9 | 114 | PTN A07 | bleu | rytm:ptn:6 | PATTERN A07 | appui |
+| 31 | 4.8 | 9 | 115 | PTN A08 | bleu | rytm:ptn:7 | PATTERN A08 | appui |
 
 ### ARP (SETUP 12, potards canal 2, boutons canal 10)
 
@@ -435,8 +435,8 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 11 | 2.4 | 12 | 25 | MUTE OH | rose | rytm:voice:OH:mute | MUTE OH | bascule (la LED suit le site) |
 | 12 | 2.5 | 12 | 26 | MUTE CP | rose | rytm:voice:CP:mute | MUTE CP | bascule (la LED suit le site) |
 | 13 | 2.6 | 12 | 27 | MUTE TOM | rose | rytm:voice:TOM:mute | MUTE TOM | bascule (la LED suit le site) |
-| 14 | 2.7 | 12 | 28 | MUTE RS | rose | rytm:voice:RS:mute | MUTE RS | bascule (la LED suit le site) |
-| 15 | 2.8 | 12 | 29 | MUTE HT | rose | rytm:voice:HT:mute | MUTE HT | bascule (la LED suit le site) |
+| 14 | 2.7 | 12 | 28 | MUTE HT | rose | rytm:voice:HT:mute | MUTE HT | bascule (la LED suit le site) |
+| 15 | 2.8 | 12 | 29 | MUTE CY | rose | rytm:voice:CY:mute | MUTE CY | bascule (la LED suit le site) |
 | 16 | 3.1 | 12 | 30 | SYNC A | blanc | dj:dj-a-sync | DECK A SYNC: MATCH THE TEMPO YOU HEAR | maintenu |
 | 17 | 3.2 | 12 | 31 | SYNC B | blanc | dj:dj-b-sync | DECK B SYNC: MATCH THE TEMPO YOU HEAR | maintenu |
 | 18 | 3.3 | 12 | 102 | LOOP 4 A | vert | dj:dj-a-loop4 | DECK A LOOP 4 BEATS (PRESS AGAIN TO EXIT) | maintenu |
@@ -563,8 +563,8 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 11 | 2.4 | 14 | 25 | MUTE OH | rose | rytm:voice:OH:mute | MUTE OH | bascule (la LED suit le site) |
 | 12 | 2.5 | 14 | 26 | MUTE CP | rose | rytm:voice:CP:mute | MUTE CP | bascule (la LED suit le site) |
 | 13 | 2.6 | 14 | 27 | MUTE TOM | rose | rytm:voice:TOM:mute | MUTE TOM | bascule (la LED suit le site) |
-| 14 | 2.7 | 14 | 28 | MUTE RS | rose | rytm:voice:RS:mute | MUTE RS | bascule (la LED suit le site) |
-| 15 | 2.8 | 14 | 29 | MUTE HT | rose | rytm:voice:HT:mute | MUTE HT | bascule (la LED suit le site) |
+| 14 | 2.7 | 14 | 28 | MUTE HT | rose | rytm:voice:HT:mute | MUTE HT | bascule (la LED suit le site) |
+| 15 | 2.8 | 14 | 29 | MUTE CY | rose | rytm:voice:CY:mute | MUTE CY | bascule (la LED suit le site) |
 | 16 | 3.1 | 14 | 30 | F#m | bleu | voy:pad:0 | CHORD F#m | appui |
 | 17 | 3.2 | 14 | 31 | D | bleu | voy:pad:1 | CHORD D | appui |
 | 18 | 3.3 | 14 | 102 | E | bleu | voy:pad:2 | CHORD E | appui |
@@ -586,7 +586,7 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 
 Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI LEARN, ou le fichier d'assignations du chapitre 5). La colonne « Dans » dit dans quels setups du Roto elle est deja placee. La cible d'un id est dans la machine de son prefixe : `rytm:` MM-RYTM (scope `mm808`), `voy:` MM-ARP (`voy`), `smpl:` MM-SMPL (`smpl`), `dj:` MM-DECKS (`dj`), `nav:` navigation (`global`).
 
-### MM-RYTM (scope `mm808`, 158 cibles)
+### MM-RYTM (scope `mm808`, 139 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -620,13 +620,6 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:SD:reverb` | SD REVERB | valeur 0 a 127 |  |  |
 | `rytm:voice:SD:delay` | SD DELAY | valeur 0 a 127 |  |  |
 | `rytm:voice:SD:chorus` | SD CHORUS | valeur 0 a 127 |  |  |
-| `rytm:voice:TOM:tone` | TOM TONE | valeur 0 a 127 |  |  |
-| `rytm:voice:TOM:decay` | TOM DECAY | valeur 0 a 127 |  |  |
-| `rytm:voice:TOM:level` | TOM VOLUME | valeur 0 a 127 |  | RYTM |
-| `rytm:voice:TOM:dist` | TOM DIST | valeur 0 a 127 |  |  |
-| `rytm:voice:TOM:reverb` | TOM REVERB | valeur 0 a 127 |  |  |
-| `rytm:voice:TOM:delay` | TOM DELAY | valeur 0 a 127 |  |  |
-| `rytm:voice:TOM:chorus` | TOM CHORUS | valeur 0 a 127 |  |  |
 | `rytm:voice:CH:tone` | CH TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:CH:decay` | CH DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:CH:level` | CH VOLUME | valeur 0 a 127 |  | RYTM |
@@ -648,13 +641,13 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:CP:reverb` | CP REVERB | valeur 0 a 127 |  |  |
 | `rytm:voice:CP:delay` | CP DELAY | valeur 0 a 127 |  |  |
 | `rytm:voice:CP:chorus` | CP CHORUS | valeur 0 a 127 |  |  |
-| `rytm:voice:RS:tone` | RS TONE | valeur 0 a 127 |  |  |
-| `rytm:voice:RS:decay` | RS DECAY | valeur 0 a 127 |  |  |
-| `rytm:voice:RS:level` | RS VOLUME | valeur 0 a 127 |  | RYTM |
-| `rytm:voice:RS:dist` | RS DIST | valeur 0 a 127 |  |  |
-| `rytm:voice:RS:reverb` | RS REVERB | valeur 0 a 127 |  |  |
-| `rytm:voice:RS:delay` | RS DELAY | valeur 0 a 127 |  |  |
-| `rytm:voice:RS:chorus` | RS CHORUS | valeur 0 a 127 |  |  |
+| `rytm:voice:TOM:tone` | TOM TONE | valeur 0 a 127 |  |  |
+| `rytm:voice:TOM:decay` | TOM DECAY | valeur 0 a 127 |  |  |
+| `rytm:voice:TOM:level` | TOM VOLUME | valeur 0 a 127 |  | RYTM |
+| `rytm:voice:TOM:dist` | TOM DIST | valeur 0 a 127 |  |  |
+| `rytm:voice:TOM:reverb` | TOM REVERB | valeur 0 a 127 |  |  |
+| `rytm:voice:TOM:delay` | TOM DELAY | valeur 0 a 127 |  |  |
+| `rytm:voice:TOM:chorus` | TOM CHORUS | valeur 0 a 127 |  |  |
 | `rytm:voice:HT:tone` | HT TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:HT:decay` | HT DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:HT:level` | HT VOLUME | valeur 0 a 127 |  | RYTM |
@@ -669,25 +662,16 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:CY:reverb` | CY REVERB | valeur 0 a 127 |  |  |
 | `rytm:voice:CY:delay` | CY DELAY | valeur 0 a 127 |  |  |
 | `rytm:voice:CY:chorus` | CY CHORUS | valeur 0 a 127 |  |  |
-| `rytm:voice:PC:tone` | PC TONE | valeur 0 a 127 |  |  |
-| `rytm:voice:PC:decay` | PC DECAY | valeur 0 a 127 |  |  |
-| `rytm:voice:PC:level` | PC VOLUME | valeur 0 a 127 |  | RYTM |
-| `rytm:voice:PC:dist` | PC DIST | valeur 0 a 127 |  |  |
-| `rytm:voice:PC:reverb` | PC REVERB | valeur 0 a 127 |  |  |
-| `rytm:voice:PC:delay` | PC DELAY | valeur 0 a 127 |  |  |
-| `rytm:voice:PC:chorus` | PC CHORUS | valeur 0 a 127 |  |  |
 | `rytm:voice:BD:mute` | MUTE BD | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
 | `rytm:voice:SD:mute` | MUTE SD | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
-| `rytm:voice:TOM:mute` | MUTE TOM | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
 | `rytm:voice:CH:mute` | MUTE CH | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
 | `rytm:voice:OH:mute` | MUTE OH | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
 | `rytm:voice:CP:mute` | MUTE CP | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
-| `rytm:voice:RS:mute` | MUTE RS | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
+| `rytm:voice:TOM:mute` | MUTE TOM | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
 | `rytm:voice:HT:mute` | MUTE HT | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
-| `rytm:voice:CY:mute` | MUTE CY | valeur 0 a 127 | 2 | RYTM |
-| `rytm:voice:PC:mute` | MUTE PC | valeur 0 a 127 | 2 | RYTM |
+| `rytm:voice:CY:mute` | MUTE CY | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
 | `rytm:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
-| `rytm:kit:bd` | TWEAK KICK | valeur 0 a 127 | 9 |  |
+| `rytm:kit:bd` | TWEAK KICK | valeur 0 a 127 | 9 | RYTM |
 | `rytm:kit:tune` | TWEAK TUNE | valeur 0 a 127 |  | RYTM, LIVE |
 | `rytm:kit:attack` | TWEAK ATTACK | valeur 0 a 127 |  | RYTM |
 | `rytm:kit:decay` | TWEAK DECAY | valeur 0 a 127 |  | RYTM, LIVE |
@@ -696,19 +680,16 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:kit:snappy` | TWEAK SNAPPY | valeur 0 a 127 |  | RYTM |
 | `rytm:kit:cp` | TWEAK CLAP | valeur 0 a 127 | 3 |  |
 | `rytm:kit:gate` | TWEAK GATE | valeur 0 a 127 | 2 |  |
-| `rytm:kit:hh` | TWEAK HATS | valeur 0 a 127 | 3 |  |
+| `rytm:kit:hh` | TWEAK HATS | valeur 0 a 127 | 3 | RYTM |
 | `rytm:kit:tom` | TWEAK TOMS | valeur 0 a 127 | 3 |  |
-| `rytm:kit:rs` | TWEAK RIM | valeur 0 a 127 | 3 |  |
 | `rytm:pad:BD` | PAD BD | appui |  | RYTM |
 | `rytm:pad:SD` | PAD SD | appui |  | RYTM |
-| `rytm:pad:TOM` | PAD TOM | appui |  | RYTM |
 | `rytm:pad:CH` | PAD CH | appui |  | RYTM |
 | `rytm:pad:OH` | PAD OH | appui |  | RYTM |
 | `rytm:pad:CP` | PAD CP | appui |  | RYTM |
-| `rytm:pad:RS` | PAD RS | appui |  | RYTM |
+| `rytm:pad:TOM` | PAD TOM | appui |  | RYTM |
 | `rytm:pad:HT` | PAD HT | appui |  | RYTM |
 | `rytm:pad:CY` | PAD CY | appui |  | RYTM |
-| `rytm:pad:PC` | PAD PC | appui |  | RYTM |
 | `rytm:step:0` | STEP 1 | appui |  |  |
 | `rytm:step:1` | STEP 2 | appui |  |  |
 | `rytm:step:2` | STEP 3 | appui |  |  |
@@ -736,10 +717,10 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:ptn:1` | PATTERN A02 | appui |  | RYTM |
 | `rytm:ptn:2` | PATTERN A03 | appui |  | RYTM |
 | `rytm:ptn:3` | PATTERN A04 | appui |  | RYTM |
-| `rytm:ptn:4` | PATTERN A05 | appui |  |  |
-| `rytm:ptn:5` | PATTERN A06 | appui |  |  |
-| `rytm:ptn:6` | PATTERN A07 | appui |  |  |
-| `rytm:ptn:7` | PATTERN A08 | appui |  |  |
+| `rytm:ptn:4` | PATTERN A05 | appui |  | RYTM |
+| `rytm:ptn:5` | PATTERN A06 | appui |  | RYTM |
+| `rytm:ptn:6` | PATTERN A07 | appui |  | RYTM |
+| `rytm:ptn:7` | PATTERN A08 | appui |  | RYTM |
 | `rytm:ptn:8` | PATTERN A09 | appui |  |  |
 | `rytm:ptn:9` | PATTERN A10 | appui |  |  |
 | `rytm:ptn:10` | PATTERN A11 | appui |  |  |

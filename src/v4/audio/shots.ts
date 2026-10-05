@@ -46,7 +46,8 @@ const keyPf = (pk: number): number => Math.pow(2, pk / 12000);
 
 const MAX_ENTRIES = 160;
 /** Ordre du prechauffage : les voix du motif d'arrivee d'abord. */
-const IDS: readonly ShotId[] = ['BD', 'CH', 'CP', 'SD', 'TOM', 'CY', 'OH', 'RS', 'HT', 'PC', 'CHopen'];
+// Huit voix (2026-10-05) : RS et PC ne se calculent plus
+const IDS: readonly ShotId[] = ['BD', 'CH', 'CP', 'SD', 'TOM', 'CY', 'OH', 'HT', 'CHopen'];
 /** Frequence du prechauffage, avant tout contexte (la plus courante). */
 const PREWARM_SR = 48000;
 let prewarmed = false;

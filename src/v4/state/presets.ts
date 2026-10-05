@@ -14,7 +14,7 @@
  * Gardes dans ce navigateur (localStorage), 60 par machine au plus.
  */
 
-import { pattern, type Fx, type Steps } from '../audio/pattern';
+import { INSTRUMENTS, pattern, type Fx, type Steps } from '../audio/pattern';
 import { mix, setStretch } from '../audio/drums';
 import { voiceFx, VOICE_PARAMS, type VoiceFx } from '../audio/voicefx';
 import { KIT_FAMILIES, KIT_IDS, isFamily, kit, modelAt, type KitFamily, type KitId } from '../audio/kit';
@@ -155,6 +155,8 @@ function apply(m: PresetMachine, d: VoyData | RytmData): void {
   pattern.fx.set(r.fx);
   setStretch(r.stretch);
   for (const [inst, fx] of Object.entries(r.voices) as [Inst, VoiceFx][]) {
+    // Un preset d'avant les huit voix (2026-10-05) : RS et PC n'existent plus
+    if (!INSTRUMENTS.includes(inst) || !fx) continue;
     for (const p of VOICE_PARAMS) if (typeof fx[p] === 'number') voiceFx.set(inst, p, fx[p]);
   }
   if (r.kit) {

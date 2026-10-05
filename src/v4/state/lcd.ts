@@ -105,13 +105,14 @@ const pct = (v: number): number => Math.round(v * 100);
  * CP a PC depuis le 2026-10-03), et leur texte pour le jumeau.
  */
 function composeMix(sel: Inst): Omit<LcdState, 'updates'> {
-  const bank = Math.floor(Math.max(0, INSTRUMENTS.indexOf(sel)) / 5);
-  const insts = INSTRUMENTS.slice(bank * 5, bank * 5 + 5);
+  // Huit voix (2026-10-05) : deux rangees de quatre, comme les pads
+  const bank = Math.floor(Math.max(0, INSTRUMENTS.indexOf(sel)) / 4);
+  const insts = INSTRUMENTS.slice(bank * 4, bank * 4 + 4);
   const levels = insts.map((i) => voiceFx.of(i).level);
   const cell = (k: number): string => `${insts[k]}${pct(levels[k])}`;
   const line1 = row('VOLUME', sel);
-  const t2 = [0, 1, 2].map(cell).join(' ');
-  const t3 = [3, 4].map(cell).join(' ');
+  const t2 = [0, 1].map(cell).join(' ');
+  const t3 = [2, 3].map(cell).join(' ');
   return { l1: line1.l, r1: line1.r, l2: t2, r2: '', l3: t3, r3: '', bar: null, param: true, mix: { sel, insts, levels }, samples: null, text: [line1.t, t2, t3], keys: null, tag: false };
 }
 

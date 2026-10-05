@@ -98,9 +98,7 @@ export const SHOT_LOUD: Readonly<Record<ShotId, number>> = {
   CHopen: -11.5,
   OH: -11.5,
   CP: -9.5,
-  RS: -10.5,
   CY: -12.5,
-  PC: -10,
 };
 const LOUD_WIN_S = 0.1;
 const LOUD_MAX_PEAK_DB = 6;
@@ -173,10 +171,8 @@ export const VARIANTS: Readonly<Record<ShotId, number>> = {
   CHopen: 2,
   OH: 3,
   CP: 3,
-  RS: 2,
   HT: 1,
   CY: 2,
-  PC: 2,
 };
 
 /* ---------------- outils ---------------- */
@@ -681,47 +677,6 @@ function tom(sr: number, ts: number, r: () => number, to: number, from: number, 
   return { L: y, R: y };
 }
 
-/** RS : le bois du cercle (triangles a 980 et 290 Hz, plus bas que la 808, voulu par Mika), un claquement vers 3.5 kHz. */
-function rs(sr: number, ts: number, r: () => number): Shot {
-  const fs = sr * OS;
-  const len = Math.round(fs * Math.max(0.06, 0.12 * ts));
-  const x = new Float64Array(len);
-  const bp = new Bq('bp', 3500, 1.2, fs);
-  const hp = new Bq('hp', 180, 0.7, fs);
-  for (let i = 0; i < len; i += 1) {
-    const t = i / fs;
-    const a = (1 - Math.exp(-t / 0.0002)) * Math.exp(-t / (0.022 * ts));
-    const v = (tri(980 * t) + 0.8 * tri(290 * t)) * a + 0.9 * bp.run(r() * 2 - 1) * Math.exp(-t / 0.0012);
-    x[i] = sat(hp.run(v), 1.6);
-  }
-  fadeOut(x, fs, 0.02);
-  const y = decimate(x);
-  return { L: y, R: y };
-}
-
-/** PC : la conga grave (200 Hz, voulue par Mika) : la peau qui se pose, son mode x1.5, la claque vers 1.6 kHz. */
-function pc(sr: number, ts: number, r: () => number): Shot {
-  const fs = sr * OS;
-  const len = Math.round(fs * Math.max(0.1, 0.32 * ts));
-  const x = new Float64Array(len);
-  const bp = new Bq('bp', 1600, 1.1, fs);
-  let p1 = 0;
-  let p2 = 0;
-  for (let i = 0; i < len; i += 1) {
-    const t = i / fs;
-    const f = 200 + 50 * Math.exp(-t / 0.008);
-    p1 += f / fs;
-    p2 += (f * 1.5) / fs;
-    const a = (1 - Math.exp(-t / 0.0004)) * Math.exp(-t / (0.075 * ts));
-    const v = Math.sin(TAU * p1) * a + 0.3 * Math.sin(TAU * p2) * Math.exp(-t / 0.02) + 0.55 * bp.run(r() * 2 - 1) * Math.exp(-t / 0.005);
-    x[i] = sat(v, 1.4);
-  }
-  fadeOut(x, fs, 0.03);
-  const y = decimate(x);
-  dcBlock(y, sr, 40);
-  return { L: y, R: y };
-}
-
 /* ---------------- les sons a la facon de la 909 et de la 808 (2026-10-04, audio/kit.ts) ---------------- */
 
 /** Un front de 1.5 ms filtre en bande : le clic d'un declencheur (la frappe d'une 909, le tic d'une 808). */
@@ -985,33 +940,6 @@ function tomModel(sr: number, ts: number, r: () => number, m: '909' | '808', hig
   return { L: y, R: y };
 }
 
-/**
- * RIM 909 et 808 : la 909, trois oscillateurs (500 Hz, 1.7 kHz et un carre
- * a 820 Hz) tres brefs et un claquement, satures fort : le "tac" sec ; la
- * 808, ses deux resonateurs (1667 et 455 Hz).
- */
-function rsModel(sr: number, ts: number, r: () => number, m: '909' | '808'): Shot {
-  const fs = sr * OS;
-  const is909 = m === '909';
-  const len = Math.round(fs * Math.max(0.05, 0.09 * ts));
-  const x = new Float64Array(len);
-  const bp = new Bq('bp', 5000, 1.2, fs);
-  const hp = new Bq('hp', is909 ? 300 : 200, 0.7, fs);
-  for (let i = 0; i < len; i += 1) {
-    const t = i / fs;
-    const a = 1 - Math.exp(-t / 0.0002);
-    const v = is909
-      ? (Math.sin(TAU * 500 * t) * Math.exp(-t / (0.012 * ts)) + 0.7 * Math.sin(TAU * 1700 * t) * Math.exp(-t / (0.006 * ts)) + 0.4 * sq(820 * t) * Math.exp(-t / 0.004)) * a +
-        0.6 * bp.run(r() * 2 - 1) * Math.exp(-t / 0.0015)
-      : (Math.sin(TAU * 1667 * t) * Math.exp(-t / (0.006 * ts)) + 0.8 * Math.sin(TAU * 455 * t) * Math.exp(-t / (0.018 * ts))) * a +
-        0.2 * bp.run(r() * 2 - 1) * Math.exp(-t / 0.001);
-    x[i] = sat(hp.run(v), is909 ? 2.6 : 1.4);
-  }
-  fadeOut(x, fs, 0.015);
-  const y = decimate(x);
-  return { L: y, R: y };
-}
-
 /** Calcule un son, cale sur sa sonie (SHOT_LOUD). Deterministe : (son, variante, STRETCH, frequence). */
 export function renderShot(id: ShotId, sr: number, stretch: number, variant: number, tw: ShotTweak = TWEAK_MM): Shot {
   // STRETCH (2026-10-04) : le son a sa duree naturelle, puis etire en grains facon Impulse (audio/stretch.ts)
@@ -1046,14 +974,9 @@ export function renderShot(id: ShotId, sr: number, stretch: number, variant: num
     case 'CP':
       s = m === 'mm' ? cp(sr, ts, r, !!tw.gate) : cpModel(sr, ts, r, m, !!tw.gate);
       break;
-    case 'RS':
-      s = m === 'mm' ? rs(sr, ts, r) : rsModel(sr, ts, r, m);
-      break;
-    case 'CY':
-      s = cy(sr, ts, r);
-      break;
     default:
-      s = pc(sr, ts, r);
+      // CY (2026-10-05 : plus de RS ni de PC, huit voix)
+      s = cy(sr, ts, r);
   }
   if (Math.abs(stretch - 1) > 1e-3) {
     if (s.L === s.R) {
@@ -1073,7 +996,7 @@ export function renderShot(id: ShotId, sr: number, stretch: number, variant: num
  * comme le 909, 1.5 dB sous BD) : changer de son ne change pas le niveau.
  */
 export function renderSampleShot(id: ShotId, sr: number, stretch: number, pcm: SamplePcm, tw: ShotTweak): Shot {
-  const family = id === 'BD' ? 'bd' : id === 'SD' ? 'sd' : id === 'CP' ? 'cp' : id === 'RS' ? 'rs' : id === 'TOM' || id === 'HT' ? 'tom' : 'hh';
+  const family = id === 'BD' ? 'bd' : id === 'SD' ? 'sd' : id === 'CP' ? 'cp' : id === 'TOM' || id === 'HT' ? 'tom' : 'hh';
   let s: Shot = playSample(pcm, sr, { family, tune: tw.tune, attack: tw.attack, decay: tw.decay, drive: tw.drive, snappy: tw.snappy });
   if (Math.abs(stretch - 1) > 1e-3) {
     if (s.L === s.R) {

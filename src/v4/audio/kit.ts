@@ -42,7 +42,8 @@ export type KitId = KitFamily | KitKnob;
 
 export const KIT_FAMILIES: readonly KitFamily[] = ['bd', 'sd', 'hh', 'cp', 'tom', 'rs'];
 export const KIT_KNOBS: readonly KitKnob[] = ['tune', 'attack', 'decay', 'drive', 'snappy', 'gate'];
-export const KIT_IDS: readonly KitId[] = ['bd', 'tune', 'attack', 'decay', 'drive', 'sd', 'snappy', 'cp', 'gate', 'hh', 'tom', 'rs'];
+// Plus de RIM depuis le 2026-10-05 (huit voix, plus de RS) : la famille reste pour les anciens reglages, sans potard
+export const KIT_IDS: readonly KitId[] = ['bd', 'tune', 'attack', 'decay', 'drive', 'sd', 'snappy', 'cp', 'gate', 'hh', 'tom'];
 
 export const isFamily = (id: KitId): id is KitFamily => (KIT_FAMILIES as readonly string[]).includes(id);
 /** Les crans d'un TWEAK : 3 pour un choix de son (plus un par echantillon de la famille), 2 pour GATE, 0 pour un potard. */
@@ -110,13 +111,12 @@ export const familyOf = (id: ShotId): KitFamily | null => {
   if (id === 'CH' || id === 'CHopen' || id === 'OH') return 'hh';
   if (id === 'CP') return 'cp';
   if (id === 'TOM' || id === 'HT') return 'tom';
-  if (id === 'RS') return 'rs';
   return null;
 };
 
 /** Les sons d'une famille (pour recalculer ceux qui changent). */
 export const shotsOf = (f: KitFamily): readonly ShotId[] =>
-  f === 'bd' ? ['BD'] : f === 'sd' ? ['SD'] : f === 'hh' ? ['CH', 'CHopen', 'OH'] : f === 'cp' ? ['CP'] : f === 'tom' ? ['TOM', 'HT'] : ['RS'];
+  f === 'bd' ? ['BD'] : f === 'sd' ? ['SD'] : f === 'hh' ? ['CH', 'CHopen', 'OH'] : f === 'cp' ? ['CP'] : f === 'tom' ? ['TOM', 'HT'] : [];
 
 /** Un potard au cinquantieme : la cle d'un echantillon ne change pas a chaque pixel de glisser ; GATE 0 ou 1. */
 const q = (v: number, id?: KitKnob): number => (id === 'gate' ? (v >= 0.5 ? 1 : 0) : Math.round(Math.min(1, Math.max(0, v)) * 50) / 50);

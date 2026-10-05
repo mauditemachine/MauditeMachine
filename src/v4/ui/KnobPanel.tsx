@@ -70,7 +70,7 @@ const RYTM_GROUPS: readonly Group[] = [
   },
   { id: 'main', label: 'MASTER', dials: [e('level', 'MASTER'), e('tempo', 'TEMPO')] },
   { id: 'kick', label: 'KICK', dials: [r('bd', 'SOUND'), r('tune', 'TUNE'), r('attack', 'ATTACK'), r('decay', 'DECAY'), r('drive', 'DRIVE')] },
-  { id: 'kit', label: 'VOICES', dials: [r('sd', 'SNARE'), r('snappy', 'SNAPPY'), r('cp', 'CLAP'), r('gate', 'GATE'), r('hh', 'HATS'), r('tom', 'TOMS'), r('rs', 'RIM')] },
+  { id: 'kit', label: 'VOICES', dials: [r('sd', 'SNARE'), r('snappy', 'SNAPPY'), r('cp', 'CLAP'), r('gate', 'GATE'), r('hh', 'HATS'), r('tom', 'TOMS')] },
 ];
 
 const TAB_KEY = 'mm.v4.knobtab.';

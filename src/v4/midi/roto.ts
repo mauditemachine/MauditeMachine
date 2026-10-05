@@ -108,8 +108,9 @@ const dj = (id: string, n: string, c: number): Ctl => ({ t: `dj:dj-${id}`, n, c 
  * milieu (sa valeur neutre).
  */
 
-const VOICES8 = ['BD', 'SD', 'TOM', 'CH', 'OH', 'CP', 'RS', 'HT'] as const;
-const LIVE_MUTES = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'RS', 'HT'] as const;
+/** Les huit voix (2026-10-05 : plus de RS ni de PC), dans l'ordre des pads : une page du Roto les tient toutes. */
+const VOICES8 = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'] as const;
+const LIVE_MUTES = VOICES8;
 const CHORD_NAMES = ['F#m', 'D', 'E', 'C#m', 'Bm', 'A', 'F#m7', 'Dmaj7'] as const;
 
 /** Un potard au cran du milieu. */
@@ -167,15 +168,15 @@ function buildSetups(): RotoSetup[] {
       k('rytm:enc:vreverb', 'V REVERB', C.peach),
       // 3 : les volumes des voix (leurs boutons : leurs mutes)
       ...VOICES8.map((i) => k(`rytm:voice:${i}:level`, `${i} VOL`, C.cream)),
-      // 4 : CY et PC, le kit
-      k('rytm:voice:CY:level', 'CY VOL', C.cream),
-      k('rytm:voice:PC:level', 'PC VOL', C.cream),
+      // 4 : le kit (le son du kick, ses reglages, la caisse claire, les charleys)
+      kitSound('bd', 'KICK SOUND'),
       mid(k('rytm:kit:tune', 'KICK TUNE', C.gold)),
       k('rytm:kit:attack', 'KICK ATTACK', C.gold),
       k('rytm:kit:decay', 'KICK DECAY', C.gold),
       k('rytm:kit:drive', 'KICK DRIVE', C.gold),
       kitSound('sd', 'SNARE SOUND'),
       k('rytm:kit:snappy', 'SNAPPY', C.gold),
+      kitSound('hh', 'HATS SOUND'),
     ],
     buttons: [
       // 1 : jouer
@@ -191,12 +192,8 @@ function buildSetups(): RotoSetup[] {
       ...VOICES8.map((i) => b(`rytm:pad:${i}`, i, C.yellow)),
       // 3 : les mutes
       ...VOICES8.map(mute),
-      // 4 : CY et PC, les quatre premiers patterns
-      mute('CY'),
-      mute('PC'),
-      b('rytm:pad:CY', 'CY', C.yellow),
-      b('rytm:pad:PC', 'PC', C.yellow),
-      ...Array.from({ length: 4 }, (_, i) => b(`rytm:ptn:${i}`, `PTN A${String(i + 1).padStart(2, '0')}`, C.blue)),
+      // 4 : les huit premiers patterns (un toucher joue, deux enchainent)
+      ...Array.from({ length: 8 }, (_, i) => b(`rytm:ptn:${i}`, `PTN A${String(i + 1).padStart(2, '0')}`, C.blue)),
     ],
   };
 

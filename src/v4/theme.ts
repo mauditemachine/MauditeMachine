@@ -645,7 +645,7 @@ export const BTN_LED = { w: 0.46, d: 0.05, back: 0.13, y: 0.002, flashMs: 520, h
  * PC de Mika ; elle remplace la cloche CB le jour meme, Mika n'aimait pas
  * son son).
  */
-export type Inst = 'BD' | 'SD' | 'TOM' | 'CH' | 'OH' | 'CP' | 'RS' | 'HT' | 'CY' | 'PC';
+export type Inst = 'BD' | 'SD' | 'TOM' | 'CH' | 'OH' | 'CP' | 'HT' | 'CY';
 /** Les cinq pages du site (touches 1 a 5 ; puces de la carte des deux machines). */
 export type PageId = 'tracks' | 'mixtapes' | 'press' | 'shows' | 'contact';
 /** Les sections du panneau : les cinq pages, GOODIES, MERCH et STUDIO (puces de la vue eclatee). */
@@ -661,7 +661,7 @@ export type PadId = Inst | PageId | 'open' | 'edit';
  * carre de 1.0 a plat sous chaque pad (retroeclairage).
  */
 export const PAD = {
-  size: 0.86,
+  size: 0.98,
   height: 0.22,
   radius: 0.08,
   segments: { desktop: 3, mobile: 2 },
@@ -670,12 +670,13 @@ export const PAD = {
   /** hauteur du plan du dome, un soupcon au-dessus du dessus plat (pas de z-fight) */
   domeY: 0.222,
   x0: PORTRAIT ? -2.8 : 0.37,
-  pitch: PORTRAIT ? 1.12 : 1.0,
+  // Huit voix (2026-10-05) : quatre colonnes et EDIT/OPEN sur la largeur des six d'avant, des pads un peu plus grands
+  pitch: PORTRAIT ? 1.4 : 1.25,
   rowZ: PORTRAIT ? [-0.5, 0.8] : [-2.05, -0.75],
   /** serigraphie sous chaque pad */
-  labelDz: 0.58,
+  labelDz: 0.64,
   press: 0.06,
-  halo: 1.0,
+  halo: PORTRAIT ? 1.4 : 1.25,
   haloY: 0.003,
 } as const;
 
@@ -714,7 +715,10 @@ export interface EditPad {
 }
 export type PadSpec = VoicePad | PagePad | OpenPad | EditPad;
 
-/** Un pad de la grille : colonne 0 a 4, rangee 0 (voix) ou 1 (pages). */
+/** Les colonnes des voix (2026-10-05 : quatre, huit voix) ; EDIT et OPEN dans la suivante. */
+export const VOICE_COLS = 4;
+
+/** Un pad de la grille : colonne 0 a 4 (4 : EDIT et OPEN), rangee 0 ou 1. */
 const padAt = (col: number, row: 0 | 1): { x: number; z: number } => ({ x: PAD.x0 + PAD.pitch * col, z: PAD.rowZ[row] });
 
 /**
@@ -727,19 +731,19 @@ const padAt = (col: number, row: 0 | 1): { x: number; z: number } => ({ x: PAD.x
  * OPEN") ; elles gardent les touches 1 a 5. OPEN : 6 (et O).
  */
 export const PADS: readonly PadSpec[] = [
+  // Huit voix (2026-10-05, Mika : "je veux finalement 8 VOICES dans RYTM, enleve RS et PC") :
+  // le groove en haut (kick, caisse claire, les deux charleys), le reste dessous (clap, les deux toms, la cymbale)
   { id: 'BD', kind: 'voice', label: 'BD', key: 'A', ...padAt(0, 0) },
   { id: 'SD', kind: 'voice', label: 'SD', key: 'S', ...padAt(1, 0) },
-  { id: 'TOM', kind: 'voice', label: 'TOM', key: 'D', ...padAt(2, 0) },
-  { id: 'CH', kind: 'voice', label: 'CH', key: 'F', ...padAt(3, 0) },
-  { id: 'OH', kind: 'voice', label: 'OH', key: 'G', ...padAt(4, 0) },
+  { id: 'CH', kind: 'voice', label: 'CH', key: 'D', ...padAt(2, 0) },
+  { id: 'OH', kind: 'voice', label: 'OH', key: 'F', ...padAt(3, 0) },
   { id: 'CP', kind: 'voice', label: 'CP', key: 'Z', ...padAt(0, 1) },
-  { id: 'RS', kind: 'voice', label: 'RS', key: 'X', ...padAt(1, 1) },
+  { id: 'TOM', kind: 'voice', label: 'TOM', key: 'X', ...padAt(1, 1) },
   { id: 'HT', kind: 'voice', label: 'HT', key: 'C', ...padAt(2, 1) },
   { id: 'CY', kind: 'voice', label: 'CY', key: 'V', ...padAt(3, 1) },
-  { id: 'PC', kind: 'voice', label: 'PC', key: 'B', ...padAt(4, 1) },
-  // La sixieme colonne (2026-10-04) : EDIT en haut (l'editeur du motif), OPEN dessous
-  { id: 'edit', kind: 'edit', label: 'EDIT', key: 'E', ...padAt(5, 0) },
-  { id: 'open', kind: 'open', label: 'OPEN', key: '6', ...padAt(5, 1) },
+  // La colonne d'apres (2026-10-04) : EDIT en haut (l'editeur du motif), OPEN dessous
+  { id: 'edit', kind: 'edit', label: 'EDIT', key: 'E', ...padAt(VOICE_COLS, 0) },
+  { id: 'open', kind: 'open', label: 'OPEN', key: '6', ...padAt(VOICE_COLS, 1) },
 ];
 
 /** Les cinq pages, dans l'ordre du site (onglets de la feuille, touches 1 a 5). */
@@ -939,7 +943,7 @@ function encPlaces(): Record<EncId, EncPlace> {
   // Le libelle suit le bord de la collerette : remonte de ce qu'elle perd
   const labelZ = z + ENC_ROW_Z.labelDz - ENCODER.collar.r * (1 - s);
   // Sous les pads de pages : de la colonne 0 (BD) a la colonne d'OPEN (5, depuis le 2026-10-05 : huit potards avec SAMPLE, leurs noms se touchaient)
-  const vPitch = (5 * PAD.pitch) / (VOICE_ENCODERS.length - 1);
+  const vPitch = (VOICE_COLS * PAD.pitch) / (VOICE_ENCODERS.length - 1);
   VOICE_ENCODERS.forEach((id, k) => {
     out[id] = { x: PAD.x0 + vPitch * k, z, labelZ, s };
   });
@@ -995,10 +999,8 @@ export const INST_NAMES: Readonly<Record<Inst, string>> = {
   CH: 'closed hi-hat',
   OH: 'open hi-hat',
   CP: 'clap',
-  RS: 'rimshot',
   HT: 'high tom',
   CY: 'cymbal',
-  PC: 'percussion',
 };
 
 /**
@@ -1244,7 +1246,7 @@ export const SILK_LINES: readonly (readonly number[])[] = [
     ];
   }),
   // la colonne d'OPEN a part (les deux rangees sont des voix depuis le 2026-10-03)
-  [PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[0] - 0.5, PAD.x0 + 4.5 * PAD.pitch, PAD.rowZ[1] + 0.72],
+  [PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[0] - 0.5, PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[1] + 0.72],
   ...[0, 1, 2, 3].map((g) => {
     const a = keyX(4 * g) - KEYS.w / 2;
     const b = keyX(4 * g + 3) + KEYS.w / 2;
@@ -1728,10 +1730,8 @@ export const PAD_ARIA: Readonly<Record<Inst, string>> = {
   CH: 'Hi-hat pad, key F',
   OH: 'Open hi-hat pad, key G',
   CP: 'Clap pad, key Z',
-  RS: 'Rimshot pad, key X',
   HT: 'High tom pad, key C',
   CY: 'Cymbal pad, key V',
-  PC: 'Percussion pad, key B',
 };
 
 /**

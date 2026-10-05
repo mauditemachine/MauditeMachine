@@ -392,7 +392,7 @@ function useOnMachine(stage: Stage | null, on: boolean, ref: RefObject<HTMLEleme
       // Le haut : au-dessus des LED des pas (une hauteur de touche plus haut)
       const top = Math.max(60, cr.top - host.top + y0 - h0 * 1.15);
       const room = host.bottom - host.top - top - 12;
-      const row = Math.max(ON_MACHINE.rowMin, Math.min(ON_MACHINE.rowMax, Math.floor((room - ON_MACHINE.fixed) / 10) - 2));
+      const row = Math.max(ON_MACHINE.rowMin, Math.min(ON_MACHINE.rowMax, Math.floor((room - ON_MACHINE.fixed) / INSTRUMENTS.length) - 2));
       const key = `${Math.round(left)}|${Math.round(top)}|${Math.round(width)}|${row}`;
       if (key === last) return;
       last = key;

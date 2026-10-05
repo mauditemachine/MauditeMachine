@@ -99,7 +99,7 @@ const X1 = PIX_W - 2;
 const GRID = { x: 41, y: 12, w: 6, h: 12, gap: 1, group: 2 } as const;
 const cellX = (i: number): number => GRID.x + i * (GRID.w + GRID.gap) + Math.floor(i / 4) * GRID.group;
 /* Les dix vumetres sous la grille : six segments d'un point (un point de jour), leur nom dessous */
-const METERS = { x: 41, bottom: 33.5, w: 7, segs: 6, label: 35, pitch: 12.2 } as const;
+const METERS = { x: 41, bottom: 33.5, w: 7, segs: 6, label: 35, pitch: 109 / (INSTRUMENTS.length - 1) } as const;
 /* Les filets, sous l'en-tete et au-dessus des deux lignes du bas (OLED_BAR.bandY0 : 40 unites) */
 const RULE_TOP = 10;
 const RULE_BOTTOM = 40;
@@ -505,7 +505,7 @@ export class Screen {
       const k = s.mix.insts.indexOf(s.mix.sel);
       const v = Math.round((s.mix.levels[k] ?? 0) * 100);
       b.text(`VOLUME ${s.mix.sel} ${v}`, X0, LINE_A);
-      b.text('THE FIVE VOICES OF ITS ROW', X0, LINE_B, 1);
+      b.text('THE FOUR VOICES OF ITS ROW', X0, LINE_B, 1);
       this.bar = null;
       return;
     }

@@ -29,13 +29,6 @@ rytm:voice:SD:dist,mm808,MM-RYTM,SD DIST,value,,
 rytm:voice:SD:reverb,mm808,MM-RYTM,SD REVERB,value,,
 rytm:voice:SD:delay,mm808,MM-RYTM,SD DELAY,value,,
 rytm:voice:SD:chorus,mm808,MM-RYTM,SD CHORUS,value,,
-rytm:voice:TOM:tone,mm808,MM-RYTM,TOM TONE,value,,
-rytm:voice:TOM:decay,mm808,MM-RYTM,TOM DECAY,value,,
-rytm:voice:TOM:level,mm808,MM-RYTM,TOM VOLUME,value,,RYTM
-rytm:voice:TOM:dist,mm808,MM-RYTM,TOM DIST,value,,
-rytm:voice:TOM:reverb,mm808,MM-RYTM,TOM REVERB,value,,
-rytm:voice:TOM:delay,mm808,MM-RYTM,TOM DELAY,value,,
-rytm:voice:TOM:chorus,mm808,MM-RYTM,TOM CHORUS,value,,
 rytm:voice:CH:tone,mm808,MM-RYTM,CH TONE,value,,
 rytm:voice:CH:decay,mm808,MM-RYTM,CH DECAY,value,,
 rytm:voice:CH:level,mm808,MM-RYTM,CH VOLUME,value,,RYTM
@@ -57,13 +50,13 @@ rytm:voice:CP:dist,mm808,MM-RYTM,CP DIST,value,,
 rytm:voice:CP:reverb,mm808,MM-RYTM,CP REVERB,value,,
 rytm:voice:CP:delay,mm808,MM-RYTM,CP DELAY,value,,
 rytm:voice:CP:chorus,mm808,MM-RYTM,CP CHORUS,value,,
-rytm:voice:RS:tone,mm808,MM-RYTM,RS TONE,value,,
-rytm:voice:RS:decay,mm808,MM-RYTM,RS DECAY,value,,
-rytm:voice:RS:level,mm808,MM-RYTM,RS VOLUME,value,,RYTM
-rytm:voice:RS:dist,mm808,MM-RYTM,RS DIST,value,,
-rytm:voice:RS:reverb,mm808,MM-RYTM,RS REVERB,value,,
-rytm:voice:RS:delay,mm808,MM-RYTM,RS DELAY,value,,
-rytm:voice:RS:chorus,mm808,MM-RYTM,RS CHORUS,value,,
+rytm:voice:TOM:tone,mm808,MM-RYTM,TOM TONE,value,,
+rytm:voice:TOM:decay,mm808,MM-RYTM,TOM DECAY,value,,
+rytm:voice:TOM:level,mm808,MM-RYTM,TOM VOLUME,value,,RYTM
+rytm:voice:TOM:dist,mm808,MM-RYTM,TOM DIST,value,,
+rytm:voice:TOM:reverb,mm808,MM-RYTM,TOM REVERB,value,,
+rytm:voice:TOM:delay,mm808,MM-RYTM,TOM DELAY,value,,
+rytm:voice:TOM:chorus,mm808,MM-RYTM,TOM CHORUS,value,,
 rytm:voice:HT:tone,mm808,MM-RYTM,HT TONE,value,,
 rytm:voice:HT:decay,mm808,MM-RYTM,HT DECAY,value,,
 rytm:voice:HT:level,mm808,MM-RYTM,HT VOLUME,value,,RYTM
@@ -78,25 +71,16 @@ rytm:voice:CY:dist,mm808,MM-RYTM,CY DIST,value,,
 rytm:voice:CY:reverb,mm808,MM-RYTM,CY REVERB,value,,
 rytm:voice:CY:delay,mm808,MM-RYTM,CY DELAY,value,,
 rytm:voice:CY:chorus,mm808,MM-RYTM,CY CHORUS,value,,
-rytm:voice:PC:tone,mm808,MM-RYTM,PC TONE,value,,
-rytm:voice:PC:decay,mm808,MM-RYTM,PC DECAY,value,,
-rytm:voice:PC:level,mm808,MM-RYTM,PC VOLUME,value,,RYTM
-rytm:voice:PC:dist,mm808,MM-RYTM,PC DIST,value,,
-rytm:voice:PC:reverb,mm808,MM-RYTM,PC REVERB,value,,
-rytm:voice:PC:delay,mm808,MM-RYTM,PC DELAY,value,,
-rytm:voice:PC:chorus,mm808,MM-RYTM,PC CHORUS,value,,
 rytm:voice:BD:mute,mm808,MM-RYTM,MUTE BD,value,2,RYTM MIXER LIVE
 rytm:voice:SD:mute,mm808,MM-RYTM,MUTE SD,value,2,RYTM MIXER LIVE
-rytm:voice:TOM:mute,mm808,MM-RYTM,MUTE TOM,value,2,RYTM MIXER LIVE
 rytm:voice:CH:mute,mm808,MM-RYTM,MUTE CH,value,2,RYTM MIXER LIVE
 rytm:voice:OH:mute,mm808,MM-RYTM,MUTE OH,value,2,RYTM MIXER LIVE
 rytm:voice:CP:mute,mm808,MM-RYTM,MUTE CP,value,2,RYTM MIXER LIVE
-rytm:voice:RS:mute,mm808,MM-RYTM,MUTE RS,value,2,RYTM MIXER LIVE
+rytm:voice:TOM:mute,mm808,MM-RYTM,MUTE TOM,value,2,RYTM MIXER LIVE
 rytm:voice:HT:mute,mm808,MM-RYTM,MUTE HT,value,2,RYTM MIXER LIVE
-rytm:voice:CY:mute,mm808,MM-RYTM,MUTE CY,value,2,RYTM
-rytm:voice:PC:mute,mm808,MM-RYTM,MUTE PC,value,2,RYTM
+rytm:voice:CY:mute,mm808,MM-RYTM,MUTE CY,value,2,RYTM MIXER LIVE
 rytm:running,mm808,MM-RYTM,RUN (ON / OFF),value,2,RYTM MIXER LIVE
-rytm:kit:bd,mm808,MM-RYTM,TWEAK KICK,value,9,
+rytm:kit:bd,mm808,MM-RYTM,TWEAK KICK,value,9,RYTM
 rytm:kit:tune,mm808,MM-RYTM,TWEAK TUNE,value,,RYTM LIVE
 rytm:kit:attack,mm808,MM-RYTM,TWEAK ATTACK,value,,RYTM
 rytm:kit:decay,mm808,MM-RYTM,TWEAK DECAY,value,,RYTM LIVE
@@ -105,19 +89,16 @@ rytm:kit:sd,mm808,MM-RYTM,TWEAK SNARE,value,7,RYTM
 rytm:kit:snappy,mm808,MM-RYTM,TWEAK SNAPPY,value,,RYTM
 rytm:kit:cp,mm808,MM-RYTM,TWEAK CLAP,value,3,
 rytm:kit:gate,mm808,MM-RYTM,TWEAK GATE,value,2,
-rytm:kit:hh,mm808,MM-RYTM,TWEAK HATS,value,3,
+rytm:kit:hh,mm808,MM-RYTM,TWEAK HATS,value,3,RYTM
 rytm:kit:tom,mm808,MM-RYTM,TWEAK TOMS,value,3,
-rytm:kit:rs,mm808,MM-RYTM,TWEAK RIM,value,3,
 rytm:pad:BD,mm808,MM-RYTM,PAD BD,press,,RYTM
 rytm:pad:SD,mm808,MM-RYTM,PAD SD,press,,RYTM
-rytm:pad:TOM,mm808,MM-RYTM,PAD TOM,press,,RYTM
 rytm:pad:CH,mm808,MM-RYTM,PAD CH,press,,RYTM
 rytm:pad:OH,mm808,MM-RYTM,PAD OH,press,,RYTM
 rytm:pad:CP,mm808,MM-RYTM,PAD CP,press,,RYTM
-rytm:pad:RS,mm808,MM-RYTM,PAD RS,press,,RYTM
+rytm:pad:TOM,mm808,MM-RYTM,PAD TOM,press,,RYTM
 rytm:pad:HT,mm808,MM-RYTM,PAD HT,press,,RYTM
 rytm:pad:CY,mm808,MM-RYTM,PAD CY,press,,RYTM
-rytm:pad:PC,mm808,MM-RYTM,PAD PC,press,,RYTM
 rytm:step:0,mm808,MM-RYTM,STEP 1,press,,
 rytm:step:1,mm808,MM-RYTM,STEP 2,press,,
 rytm:step:2,mm808,MM-RYTM,STEP 3,press,,
@@ -145,10 +126,10 @@ rytm:ptn:0,mm808,MM-RYTM,PATTERN A01,press,,RYTM
 rytm:ptn:1,mm808,MM-RYTM,PATTERN A02,press,,RYTM
 rytm:ptn:2,mm808,MM-RYTM,PATTERN A03,press,,RYTM
 rytm:ptn:3,mm808,MM-RYTM,PATTERN A04,press,,RYTM
-rytm:ptn:4,mm808,MM-RYTM,PATTERN A05,press,,
-rytm:ptn:5,mm808,MM-RYTM,PATTERN A06,press,,
-rytm:ptn:6,mm808,MM-RYTM,PATTERN A07,press,,
-rytm:ptn:7,mm808,MM-RYTM,PATTERN A08,press,,
+rytm:ptn:4,mm808,MM-RYTM,PATTERN A05,press,,RYTM
+rytm:ptn:5,mm808,MM-RYTM,PATTERN A06,press,,RYTM
+rytm:ptn:6,mm808,MM-RYTM,PATTERN A07,press,,RYTM
+rytm:ptn:7,mm808,MM-RYTM,PATTERN A08,press,,RYTM
 rytm:ptn:8,mm808,MM-RYTM,PATTERN A09,press,,
 rytm:ptn:9,mm808,MM-RYTM,PATTERN A10,press,,
 rytm:ptn:10,mm808,MM-RYTM,PATTERN A11,press,,

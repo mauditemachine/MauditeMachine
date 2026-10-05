@@ -68,9 +68,9 @@ const CELLS: readonly [KitId, number, number][] = PORTRAIT
       ['sd', 0, 2],
       ['snappy', 1, 2],
       ['gate', 2, 2],
-      ['cp', 0, 3],
-      ['tom', 1, 3],
-      ['rs', 2, 3],
+      // Plus de RIM (2026-10-05, huit voix) : CLAP et TOMS au milieu de la derniere rangee
+      ['cp', 0.5, 3],
+      ['tom', 1.5, 3],
     ]
   : [
       ['bd', 0, 0],
@@ -78,13 +78,13 @@ const CELLS: readonly [KitId, number, number][] = PORTRAIT
       ['attack', 2, 0],
       ['decay', 3, 0],
       ['drive', 4, 0],
+      // Plus de RIM (2026-10-05, huit voix) : les six de la rangee du bas s'etalent sur ses sept colonnes
       ['sd', 0, 1],
-      ['snappy', 1, 1],
-      ['cp', 2, 1],
-      ['gate', 3, 1],
-      ['hh', 4, 1],
-      ['tom', 5, 1],
-      ['rs', 6, 1],
+      ['snappy', 1.2, 1],
+      ['cp', 2.4, 1],
+      ['gate', 3.6, 1],
+      ['hh', 4.8, 1],
+      ['tom', 6, 1],
     ];
 
 /** Les bouts de course des potards (0, 10). */
@@ -96,10 +96,11 @@ const ENDS: Partial<Record<KitId, readonly [string, string]>> = {
   snappy: ['TONE', 'SNAP'],
 };
 
+/** La place d'une case : sa colonne peut tomber entre deux (les colonnes sont regulieres). */
 const cellOf = (id: KitId): { x: number; z: number } => {
   const c = CELLS.find((k) => k[0] === id);
   const [, col, row] = c ?? [id, 0, 0];
-  return { x: COLS[col], z: ROWS[row] };
+  return { x: COLS[0] + (COLS[1] - COLS[0]) * col, z: ROWS[row] };
 };
 
 function items(): TweakItem[] {
