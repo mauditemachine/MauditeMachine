@@ -24,7 +24,7 @@ const ROWS = [
 const PAD_OF = new Map<string, number>(ROWS.flatMap((row, r) => row.map((code, c) => [code, r * 4 + c] as [string, number])));
 
 export const SMPL_KEY_LEGEND: readonly { keys: string; what: string }[] = [
-  { keys: 'Z X C V  /  A S D F  /  Q W E R  /  1 2 3 4', what: 'Pads 1 to 16 (1 bottom left)' },
+  { keys: 'Z X C V  /  A S D F  /  Q W E R  /  1 2 3 4', what: 'Trigs 1 to 16 (Z = 1, 4 = 16)' },
   { keys: 'Space', what: 'Play the region, or the grain cloud' },
   { keys: 'M', what: 'Mode: slice or grain' },
   { keys: 'L', what: 'Loop while a pad is held' },

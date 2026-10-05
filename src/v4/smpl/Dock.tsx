@@ -3,7 +3,8 @@
  * etre disponible avec des knobs plus gros ! la plupart des gens viendront
  * en mobile"). Sous la machine, repliable (sa languette, retenu sous
  * mm.v4.sdock), deux pages (retenues sous mm.v4.sdock.page) :
- * - PADS : les seize pads en gros (le 1 en bas a gauche, comme sur la
+ * - PADS : les seize trigs en gros (de 1 a 16 dans l'ordre de lecture depuis
+ *   le 2026-10-05, comme la rangee de la machine ; avant : le 1 en bas a gauche, comme sur la
  *   machine), allumes quand ils ont une slice et quand ils sonnent, et
  *   toutes les touches : GRAB A, GRAB B, FILE, REC, SLICES, MODE, REV,
  *   LOOP, SAVE, PLAY ;
@@ -15,7 +16,7 @@
 import React, { useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { Stage } from '../scene/renderer';
 import { KnobView, useDockInset, useDockPage, DockPages, type KnobSpec } from '../ui/KnobPanel';
-import { smplDial, smplPad, smplPlayToggle } from './actions';
+import { smplDial, smplPad } from './actions';
 import { keyAction } from './gestures';
 import { SMPL_KNOBS, smplParams, smplReadout, smplValueText, type SmplKnobId } from './params';
 import { padCount, smplState } from './state';
@@ -57,8 +58,8 @@ function knobSpec(id: SmplKnobId): KnobSpec {
   };
 }
 
-/** Les pads de haut en bas, a l'ecran : 13 a 16, puis 9 a 12, 5 a 8, 1 a 4. */
-const PAD_ORDER = [12, 13, 14, 15, 8, 9, 10, 11, 4, 5, 6, 7, 0, 1, 2, 3];
+/** Les trigs dans l'ordre de lecture (2026-10-05, comme la machine, de 1 a 16) : 1 a 4 en haut, 13 a 16 en bas. */
+const PAD_ORDER = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
 
 const Pad: React.FC<{ i: number; lit: boolean; slice: boolean }> = ({ i, lit, slice }) => {
   const down = useRef(false);
@@ -139,7 +140,8 @@ export const SmplDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage 
       /* stockage indisponible */
     }
   };
-  const on = (k: (typeof SMPL_KEYS)[number]['kind']): boolean => (k === 'rev' ? s.reverse : k === 'loop' ? s.loop : k === 'rec' ? s.recording : k === 'mode' ? s.mode === 'grain' : false);
+  const on = (k: (typeof SMPL_KEYS)[number]['kind']): boolean =>
+    k === 'play' ? s.preview : k === 'rev' ? s.reverse : k === 'loop' ? s.loop : k === 'rec' ? s.recording : k === 'mode' ? s.mode === 'grain' : false;
 
   return (
     <>
@@ -180,18 +182,15 @@ export const SmplDock: React.FC<{ getStage: () => Stage | null }> = ({ getStage 
           <>
             <div className="v4-sdock-keys" role="group" aria-label="Sampler keys">
               {SMPL_KEYS.map((k) => (
-                <button key={k.kind} type="button" className="v4-sdock-key" data-on={on(k.kind) ? '1' : '0'} aria-label={k.aria} aria-pressed={on(k.kind) || undefined} onClick={() => keyAction(k.kind)}>
+                <button key={k.kind} type="button" className={k.kind === 'play' ? 'v4-sdock-key v4-sdock-play' : 'v4-sdock-key'} data-on={on(k.kind) ? '1' : '0'} aria-label={k.aria} aria-pressed={on(k.kind) || undefined} onClick={() => keyAction(k.kind)}>
                   {k.kind === 'mode' ? (s.mode === 'grain' ? 'GRAIN' : 'SLICE') : k.kind === 'slices' ? (s.slicing === 'auto' ? 'AUTO' : `${s.slicing} SL`) : k.label}
                 </button>
               ))}
-              <button type="button" className="v4-sdock-key v4-sdock-play" data-on={s.preview ? '1' : '0'} aria-pressed={s.preview} aria-label="Play the region, or the grain cloud" onClick={() => smplPlayToggle()}>
-                PLAY
-              </button>
             </div>
             <p className="v4-sdock-line" aria-live="polite">
               {s.message ?? (s.sample ? `${s.sample.name.toUpperCase()}  ${s.sample.duration.toFixed(2)} S` : 'GRAB A DECK, PICK A FILE OR REC')}
             </p>
-            <div className="v4-sdock-pads" role="group" aria-label="Pads, 1 bottom left">
+            <div className="v4-sdock-pads" role="group" aria-label="Trigs 1 to 16, reading order">
               {PAD_ORDER.map((i) => (
                 <Pad key={i} i={i} lit={s.pads.includes(i)} slice={i < n} />
               ))}

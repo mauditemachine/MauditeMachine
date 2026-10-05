@@ -12,11 +12,11 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Stage } from '../scene/renderer';
 import { focus } from '../state/focus';
-import { smplDial, smplLoadFile, smplPad, smplPlayToggle } from './actions';
+import { smplDial, smplLoadFile, smplPad } from './actions';
 import { listenSmplKeys } from './keys';
 import { keyAction } from './gestures';
 import { SMPL_KNOBS, smplParams, smplValueText } from './params';
-import { SMPL_PLAY_ID, smplKeyId, smplKnobId, smplPadId } from './rig';
+import { smplKeyId, smplKnobId, smplPadId } from './rig';
 import { SMPL_PADS } from './slices';
 import { padSlice, smplState } from './state';
 import { SMPL_KEYS } from './theme';
@@ -153,7 +153,7 @@ export const SmplTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     <div ref={groupRef} className="v4-twins" role="group" aria-label="MM-SMPL sampler, slicer and granular" aria-hidden={off || undefined}>
       {SMPL_KEYS.map((k) => {
         const id = smplKeyId(k.kind);
-        const pressed = k.kind === 'rev' ? s.reverse : k.kind === 'loop' ? s.loop : k.kind === 'rec' ? s.recording : k.kind === 'mode' ? s.mode === 'grain' : undefined;
+        const pressed = k.kind === 'play' ? s.preview : k.kind === 'rev' ? s.reverse : k.kind === 'loop' ? s.loop : k.kind === 'rec' ? s.recording : k.kind === 'mode' ? s.mode === 'grain' : undefined;
         return (
           <button
             key={id}
@@ -172,20 +172,6 @@ export const SmplTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
           />
         );
       })}
-      <button
-        ref={refFor(SMPL_PLAY_ID)}
-        type="button"
-        className="v4-twin"
-        data-twin="smplkey"
-        data-hotspot={SMPL_PLAY_ID}
-        aria-label={s.mode === 'grain' ? 'Play or stop the grain cloud at POSITION' : 'Play or stop the whole region'}
-        aria-pressed={s.preview}
-        onClick={() => {
-          press(SMPL_PLAY_ID, true);
-          smplPlayToggle();
-          window.setTimeout(() => press(SMPL_PLAY_ID, false), 120);
-        }}
-      />
       {Array.from({ length: SMPL_PADS }, (_, i) => {
         const id = smplPadId(i);
         const sl = padSlice(i);

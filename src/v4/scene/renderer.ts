@@ -133,7 +133,7 @@ import { DJ_FRAME, DJ_W, DJ_X, UNIT_X, unitW } from '../dj/theme';
 import { djView } from '../dj/view';
 import type { SmplRig } from '../smpl/rig';
 import { smplLoad } from '../state/smplload';
-import { SMPL_FRAME, SMPL_W, smplX } from '../smpl/theme';
+import { SMPL_D, SMPL_FRAME, SMPL_W, smplX } from '../smpl/theme';
 
 const DEG = Math.PI / 180;
 
@@ -1976,7 +1976,7 @@ export class Stage {
     const cam = new PerspectiveCamera(24, w / h, 0.1, 200);
     const cx = m === 'voy' ? VOY_X : m === 'dj' && dj ? dj.root.position.x : m === 'smpl' && sm ? sm.root.position.x : 0;
     const ty = m === 'voy' ? VOY_FRAME.targetY : m === 'dj' ? DJ_FRAME.targetY : m === 'smpl' ? SMPL_FRAME.targetY : ORBIT.targetY;
-    const R = m === 'voy' ? Math.hypot(VOY_BODY.w, VOY_BODY.d) / 2 : m === 'dj' ? (DJ_W / 2) * 0.82 : m === 'smpl' ? Math.hypot(SMPL_W, 11) / 2 : Math.hypot(BODY.w, BODY.d) / 2;
+    const R = m === 'voy' ? Math.hypot(VOY_BODY.w, VOY_BODY.d) / 2 : m === 'dj' ? (DJ_W / 2) * 0.82 : m === 'smpl' ? Math.hypot(SMPL_W, SMPL_D) / 2 : Math.hypot(BODY.w, BODY.d) / 2;
     const az = (26 * Math.PI) / 180;
     const el = (30 * Math.PI) / 180;
     const D = (R / Math.sin((24 * Math.PI) / 360)) * 0.62;

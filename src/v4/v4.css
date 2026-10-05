@@ -4266,7 +4266,8 @@ html:has(body.v4-active.v4-light) {
 /* Le Dock du MM-SMPL (smpl/Dock.tsx) : ses touches en deux rangees, une ligne d'etat, seize pads */
 .v4-root .v4-sdock-keys {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  /* onze touches depuis PLAY et STOP (2026-10-05) : deux rangees de six */
+  grid-template-columns: repeat(6, 1fr);
   gap: 5px;
   width: 100%;
 }

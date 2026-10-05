@@ -8,7 +8,7 @@
  *   MODE, SLICES, PITCH, REV, LOOP (allumes en orange), ou le message du
  *   moment en jaune (REC en rouge).
  * - Dessous : le sample entier en barres fines (les barres fines du
- *   MM-DECKS), la region en clair, le reste pale ; les slices en traits
+ *   MM-DECKS), la region en or, le reste en or eteint (2026-10-05) ; les slices en traits
  *   orange numerotes (le numero de leur pad) ; en GRAIN, POSITION en cyan.
  * - Vide : comment poser un sample.
  */
@@ -26,6 +26,9 @@ const BONE = '#F6F1E7';
 const DIM = 'rgba(246, 241, 231, 0.45)';
 const FAINT = 'rgba(246, 241, 231, 0.16)';
 const CYAN = '#5CC8FF';
+/** La forme d'onde : la region en or, le reste en or eteint (2026-10-05) */
+const GOLD = '#FFA600';
+const GOLD_DIM = 'rgba(255, 166, 0, 0.26)';
 const RED = '#FF3B30';
 /** Les barres : 3 px pleins, 1 px de jour (a l'echelle de la texture) */
 const BAR = { w: 3, gap: 1.5 };
@@ -197,19 +200,19 @@ export class SmplScreen {
     for (let i = 0; i < pk.length; i += 1) top = Math.max(top, Math.abs(pk[i]));
     const ra = this.uOf(v.start * s.sample.duration) * W;
     const rb = this.uOf(v.end * s.sample.duration) * W;
-    // La region : un fond a peine plus clair
-    c.fillStyle = 'rgba(246, 241, 231, 0.06)';
+    // La region : un fond a peine dore (2026-10-05, aux couleurs de la marque, comme WARM sur les platines)
+    c.fillStyle = 'rgba(255, 166, 0, 0.07)';
     c.fillRect(ra, y0, rb - ra, y1 - y0);
     const step = (x1 - x0) / bars;
     for (let i = 0; i < bars; i += 1) {
       const x = x0 + i * step;
       const h = (Math.max(Math.abs(pk[i * 2]), Math.abs(pk[i * 2 + 1])) / top) * half * 0.94;
       const inside = x + BAR.w >= ra && x <= rb;
-      c.fillStyle = inside ? BONE : 'rgba(246, 241, 231, 0.28)';
+      c.fillStyle = inside ? GOLD : GOLD_DIM;
       c.fillRect(x, cy - h, BAR.w, Math.max(1, 2 * h));
     }
-    // Les bornes de la region : START et END en jaune
-    c.fillStyle = DJ_LIGHT.yellow;
+    // Les bornes de la region : START et END en os (elles se lisent sur l'or)
+    c.fillStyle = BONE;
     for (const x of [ra, rb]) c.fillRect(x - 2, y0, 4, y1 - y0);
     // Les slices : un trait orange, le numero de son pad en haut
     c.font = `700 ${Math.round(textH * 0.2)}px ${FONT_MONO}`;

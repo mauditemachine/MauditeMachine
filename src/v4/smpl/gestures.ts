@@ -17,9 +17,9 @@ import type { HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { quadToUnit } from '../scene/quad';
 import { DJ_BEZEL } from '../dj/theme';
-import { smplDial, smplGrab, smplLoopToggle, smplModeToggle, smplPad, smplPickFile, smplPlayToggle, smplRec, smplReverse, smplSave, smplSlicingNext } from './actions';
+import { smplDial, smplGrab, smplLoopToggle, smplModeToggle, smplPad, smplPickFile, smplPlayToggle, smplRec, smplReverse, smplSave, smplSlicingNext, smplStopAll } from './actions';
 import { smplParams, type SmplKnobId } from './params';
-import { SMPL_PLAY_ID, smplKeyId, smplPadId } from './rig';
+import { smplKeyId, smplPadId } from './rig';
 import { smplState } from './state';
 import { SMPL, type SmplKeyKind } from './theme';
 
@@ -31,7 +31,7 @@ const TAP_MS = 320;
 const EDGE = 0.03;
 
 interface Grip {
-  kind: 'knob' | 'key' | 'pad' | 'play' | 'screen';
+  kind: 'knob' | 'key' | 'pad' | 'screen';
   id: string;
   x0: number;
   y0: number;
@@ -88,10 +88,6 @@ export class SmplGestures {
     } else if (h.kind === 'smplscreen') {
       g.kind = 'screen';
       if (!this.screenDown(g, x, y)) return;
-    } else if (h.id === SMPL_PLAY_ID) {
-      g.kind = 'play';
-      this.press(h.id, true);
-      smplPlayToggle();
     } else {
       g.kind = 'key';
       g.key = h.id.slice('smpl-key-'.length) as SmplKeyKind;
@@ -130,8 +126,7 @@ export class SmplGestures {
     if (g.kind === 'pad') {
       this.press(g.id, false);
       smplPad(g.pad, false);
-    } else if (g.kind === 'play') this.press(g.id, false);
-    else if (g.kind === 'key' && g.key) {
+    } else if (g.kind === 'key' && g.key) {
       this.press(g.id, false);
       if ((g.key === 'file' || g.key === 'save') && tap) keyAction(g.key);
     } else if (g.kind === 'screen' && g.tapPad >= 0) smplPad(g.tapPad, false);
@@ -251,7 +246,9 @@ export class SmplGestures {
 
 /** Ce que fait une touche de la rangee. */
 export function keyAction(k: SmplKeyKind): void {
-  if (k === 'grabA') smplGrab('a');
+  if (k === 'play') smplPlayToggle();
+  else if (k === 'stop') smplStopAll();
+  else if (k === 'grabA') smplGrab('a');
   else if (k === 'grabB') smplGrab('b');
   else if (k === 'file') smplPickFile();
   else if (k === 'rec') smplRec();

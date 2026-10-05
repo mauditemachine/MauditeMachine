@@ -107,15 +107,17 @@ function inset(pts: P2[], d: number): P2[] {
  * Un bloc : le profil (u = -z, v = y) du coin, rentre du biseau, extrude
  * le long de x de x0 a x1 ; la piece finie a les cotes du theme.
  */
-export function wedge(x0: number, x1: number): BufferGeometry {
+export function wedge(x0: number, x1: number, d: number = DJ_UNIT.d): BufferGeometry {
   const B = DJ_BODY;
-  const d = DJ_UNIT.d;
   const b = B.bevel;
+  // Moins profond (le MM-SMPL, 2026-10-05) : la meme pente et la meme hauteur au milieu (TOP_M reste vrai)
+  const mid = (B.front + B.back) / 2;
+  const half = (d * Math.tan(DJ_TILT)) / 2;
   const pts: P2[] = [
     [-d / 2, B.feet],
     [d / 2, B.feet],
-    [d / 2, B.feet + B.back],
-    [-d / 2, B.feet + B.front],
+    [d / 2, B.feet + mid + half],
+    [-d / 2, B.feet + mid - half],
   ];
   const ins = inset(pts, b);
   const s = new Shape();
