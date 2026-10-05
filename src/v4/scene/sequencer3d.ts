@@ -49,6 +49,14 @@ import { withInstanceEmissive } from './materials';
 /** Teinte d'un trait ; 'none' : trait cache (au-dessus de la LED du bas, pas assez fort). */
 export type LedTone = 'line' | 'ledSet' | 'ledHover' | 'yellowHi' | 'none';
 
+/** EDIT du MM-RYTM : le pattern courant, celui qui attend, la chaine, les emplacements pleins. */
+export interface PatternView {
+  cur: number;
+  next: number;
+  chain: readonly number[];
+  filled: readonly boolean[];
+}
+
 /**
  * Index des touches : les 16 trig (maillage keys), puis RUN, CLEAR, MUTE,
  * SOLO et RANDOM (maillage buttons, 2026-10-01 : des carres de 0.8 a leur
@@ -190,6 +198,8 @@ export class Sequencer3D {
   /** LED du test de l'intro (spec 7.4), -1 hors intro */
   private introLed = -1;
   private running = false;
+  /** EDIT (2026-10-05) : les steps sont les seize patterns (state/patterns.ts) ; null : le motif */
+  private patView: PatternView | null = null;
 
   constructor(opts: { mobile: boolean } = { mobile: false }) {
     LED_HEX = { line: COLOR.line, ledSet: COLOR.ledSet, ledHover: COLOR.ledHover, yellowHi: COLOR.yellowHi };
@@ -379,8 +389,20 @@ export class Sequencer3D {
     this.emissive.needsUpdate = true;
   }
 
-  /** Teinte du trait b du pas i (regle de l'en-tete). */
+  /**
+   * Teinte du trait b du pas i (regle de l'en-tete). EDIT : le pattern
+   * courant ses trois traits en jaune, celui qui attend la mesure en
+   * survol, ceux de la chaine deux traits, un pattern plein un trait.
+   */
   private barTone(i: number, b: number): LedTone {
+    const v = this.patView;
+    if (v) {
+      if (i === v.cur) return 'yellowHi';
+      if (i === v.next) return 'ledHover';
+      const n = v.chain.includes(i) ? 2 : v.filled[i] ? 1 : 0;
+      if (b < n) return 'ledSet';
+      return b > 0 ? 'none' : i === this.hover ? 'ledHover' : 'line';
+    }
     const n = VEL_BARS[this.programmed(i)];
     const head = i === this.playhead || i === this.introLed;
     if (b < n) return head ? 'yellowHi' : 'ledSet';
@@ -418,6 +440,15 @@ export class Sequencer3D {
   setPattern(steps: Steps, instrument: Inst | null): boolean {
     this.steps = steps;
     this.instrument = instrument;
+    return this.refresh();
+  }
+
+  /** EDIT : la vue des patterns (null : le motif) ; true s'il faut une frame. */
+  setPatternView(v: PatternView | null): boolean {
+    const a = this.patView;
+    if (!a && !v) return false;
+    if (a && v && a.cur === v.cur && a.next === v.next && a.chain.join() === v.chain.join() && a.filled.join() === v.filled.join()) return false;
+    this.patView = v;
     return this.refresh();
   }
 

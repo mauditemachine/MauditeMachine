@@ -125,6 +125,14 @@ const stats = {
 
 const runListeners = new Set<() => void>();
 const stepListeners = new Set<(e: StepEvent) => void>();
+/**
+ * Le debut d'une mesure (2026-10-05, les patterns et la chaine du MM-RYTM,
+ * state/patterns.ts) : appele juste avant de programmer le premier pas,
+ * pour que le pattern suivant soit pose avant que ses coups partent ; first :
+ * la premiere mesure de la lecture.
+ */
+const barListeners = new Set<(first: boolean) => void>();
+let firstBar = false;
 
 function resetStats(): void {
   stats.count = 0;
@@ -153,6 +161,11 @@ function recent(i: number): StepEvent | undefined {
 
 /** Programme un pas : les voix a `when`, l'entree du journal, les ecouteurs. */
 function schedule(s: number, when: number, expected: number, now: number, off: number): void {
+  if (s === 0) {
+    const first = firstBar;
+    firstBar = false;
+    barListeners.forEach((fn) => fn(first));
+  }
   const steps = pattern.get().steps;
   let mask = 0;
   for (let k = 0; k < INSTRUMENTS.length; k += 1) {
@@ -251,6 +264,7 @@ function start(): boolean {
   n = 0;
   step = g ? g.step : 0;
   runFirst = seq;
+  firstBar = true;
   resetStats();
   running = true;
   timer = window.setInterval(tick, TICK_MS);
@@ -369,6 +383,13 @@ export const clock = {
     runListeners.add(fn);
     return () => {
       runListeners.delete(fn);
+    };
+  },
+  /** Le debut de chaque mesure, avant que son premier pas soit programme ; rend de quoi se desabonner. */
+  onBar(fn: (first: boolean) => void): () => void {
+    barListeners.add(fn);
+    return () => {
+      barListeners.delete(fn);
     };
   },
   /** Chaque pas programme, a l'instant de programmation (jusqu'a 100 ms avant l'echeance). */

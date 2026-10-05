@@ -25,7 +25,8 @@ import { Explode, type ExplodeCfg } from '../scene/explode';
 import { Pcb } from '../scene/pcb';
 import type { Tweens } from '../scene/tween';
 import { voyExplode } from '../state/explode';
-import { EXPLODE, PCB, PCB_TURN, type SectionId } from '../theme';
+import { EXPLODE, PCB, PCB_TURN, PORTRAIT, type SectionId } from '../theme';
+import { VoySeqScreen } from './seqscreen';
 import { arp } from './arp';
 import { VoyBackPlate } from './backplate';
 import { VoyBody } from './body';
@@ -101,6 +102,10 @@ export class VoyagerRig {
   /** sous le capot, sur la carte : les TWEAKS (2026-10-04) */
   readonly tweaks: VoyTweaks;
   readonly explode: Explode;
+  /** au desktop : l'ecran de la suite que EDIT fait monter a la place des pads (2026-10-05) ; null au telephone */
+  readonly seqScreen: VoySeqScreen | null;
+  private seqDef: HotspotDef | null = null;
+  private padDefs: HotspotDef[] = [];
   /** ancres de la trace : plus de puces sur la carte du MM-ARP (2026-10-04), les sections s'ouvrent sans trace depuis elle */
   readonly anchors = new Map<SectionId, HotspotDef>();
   private defs: HotspotDef[] = [];
@@ -147,6 +152,8 @@ export class VoyagerRig {
     this.lid.add(this.knobs.mesh);
     this.lcd = new VoyLcd(opts.anisotropy);
     this.lid.add(this.lcd.bezel, this.lcd.glass);
+    this.seqScreen = !PORTRAIT && !opts.mobile ? new VoySeqScreen(opts.anisotropy) : null;
+    if (this.seqScreen) this.lid.add(this.seqScreen.group);
 
     this.pcb = new Pcb(opts.mobile, opts.anisotropy, { model: `${VOY_COPY.model} R1.0`, variant: 'voy', chips: false });
     this.pcbGroup.add(this.pcb.board, this.pcb.parts);
@@ -190,7 +197,10 @@ export class VoyagerRig {
       lcdBox('next', 0.5, 1, 0, band),
       ...(['save', 'name', 'del', 'exit'] as const).map((k, i) => lcdBox(k, i / 4, (i + 1) / 4, band, 1)),
     ];
-    this.defs = [...keyDefs, ...lcdDefs, ...this.knobs.hotspots(this.panel, this.lid), ...this.tweaks.hotspots()].map((d) => ({ ...d, machine: 'voy' as const }));
+    const seqDefs = this.seqScreen ? [this.seqScreen.hotspot(this.lid)] : [];
+    this.defs = [...keyDefs, ...seqDefs, ...lcdDefs, ...this.knobs.hotspots(this.panel, this.lid), ...this.tweaks.hotspots()].map((d) => ({ ...d, machine: 'voy' as const }));
+    this.seqDef = this.defs.find((d) => d.kind === 'vseq') ?? null;
+    this.padDefs = this.defs.filter((d) => d.kind === 'vpad');
     // Les copies portent l'etat : retrouver les TWEAKS dans la liste finale
     this.tweakDefs = this.defs.filter((d) => d.layer === this.tweaks.top);
 
@@ -276,6 +286,26 @@ export class VoyagerRig {
   private syncEditor = (): void => {
     if (this.keys.setEditing(editor.get() === 'voy')) this.opts.repaint();
   };
+
+  /**
+   * EDIT au desktop (2026-10-05) : l'ecran de la suite monte, les pads se
+   * rangent (et ne se touchent plus) ; true si les zones de saisie changent
+   * (le Stage refait son picking).
+   */
+  setSeqOpen(on: boolean): boolean {
+    const sc = this.seqScreen;
+    const def = this.seqDef;
+    if (!sc || !def || def.enabled === on) return false;
+    sc.setShown(on, performance.now());
+    this.keys.setPadsHidden(on);
+    def.enabled = on;
+    for (const d of this.padDefs) d.enabled = !on;
+    this.opts.invalidate();
+    return true;
+  }
+
+  /** L'ecran de la suite : sa montee, sa tete de lecture, son dessin. */
+  stepSeq = (now: number): 'paint' | 'poll' | false => (this.seqScreen ? this.seqScreen.step(now) : false);
 
   private syncArp = (): void => {
     const s = arp.get();
@@ -462,6 +492,7 @@ export class VoyagerRig {
     this.deckSilk.dispose();
     this.panelSilk.dispose();
     this.lcd.dispose();
+    this.seqScreen?.dispose();
     this.tweaks.dispose();
     this.pcb.dispose();
   }

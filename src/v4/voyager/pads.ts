@@ -334,6 +334,21 @@ export class VoyKeys {
     return true;
   }
 
+  /**
+   * EDIT au desktop (2026-10-05) : les pads se rangent dans le plateau,
+   * l'ecran de la suite monte a leur place (voyager/seqscreen.ts) ; leurs
+   * halos s'eteignent avec eux.
+   */
+  setPadsHidden(on: boolean): void {
+    this.pads.visible = !on;
+    for (let i = 0; i < PADS; i += 1) {
+      const p = voyPadAt(i);
+      const k = on ? 0 : VOY_PAD.size * 1.16;
+      this.halos.setMatrixAt(i, m4.compose(v3.set(p.x, 0.003, p.z), q0, s3.set(k, 1, k)));
+    }
+    this.halos.instanceMatrix.needsUpdate = true;
+  }
+
   /** EDIT allume tant que la suite est ouverte (state/editor.ts) ; true s'il faut une frame. */
   setEditing(on: boolean): boolean {
     if (on === this.editing) return false;

@@ -13,16 +13,79 @@
  * Au clavier : chaque case est un bouton (Entree pose ou enleve, fleches
  * pour se deplacer), chaque barre un curseur (haut et bas).
  * La tete de lecture suit le sequenceur (state/playhead.ts).
+ * 2026-10-05 (Mika : "le contenu de EDIT doit s'ouvrir a l'interieur de la
+ * machine, pas en dessous") : au desktop, EDIT ne l'ouvre plus (les steps
+ * de la machine deviennent les seize patterns, state/patterns.ts) ; au
+ * telephone, ou tout est sous la machine, le panneau reste, les patterns en
+ * tete (taper : le pattern, d'autres dans les deux secondes : la chaine ;
+ * tenir un vide : y copier le courant).
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { gesture } from '../actions';
+import { gesture, patternHold, patternTap } from '../actions';
 import { INSTRUMENTS, STEP_COUNT, VEL_MAX, VEL_NAMES, pattern, velocity } from '../audio/pattern';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
+import { PATTERN_SLOTS, patterns, slotName } from '../state/patterns';
 import { playhead } from '../state/playhead';
 import type { Inst } from '../theme';
 import { useEditorPanel } from './editorPanel';
+
+/** Tenir un emplacement vide (ms) : il recoit une copie du pattern courant. */
+const HOLD_MS = 500;
+
+/** Les seize patterns (le telephone) : le courant en jaune, la chaine et les pleins en orange. */
+const PatternStrip: React.FC = () => {
+  const p = useSyncExternalStore(patterns.subscribe, patterns.get, patterns.get);
+  const hold = useRef<{ i: number; t: number; fired: boolean } | null>(null);
+  return (
+    <div className="v4-beat-ptns" role="group" aria-label="Patterns A01 to A16">
+      {Array.from({ length: PATTERN_SLOTS }, (_, i) => {
+        const inChain = p.chain.length > 1 ? p.chain.indexOf(i) : -1;
+        return (
+          <button
+            key={i}
+            type="button"
+            className="v4-beat-ptn"
+            data-cur={i === p.cur ? '1' : '0'}
+            data-next={i === p.next ? '1' : '0'}
+            data-chain={inChain >= 0 ? '1' : '0'}
+            data-full={patterns.filled(i) ? '1' : '0'}
+            aria-pressed={i === p.cur}
+            aria-label={`Pattern ${slotName(i)}${patterns.filled(i) ? '' : ', empty'}${inChain >= 0 ? `, chain position ${inChain + 1}` : ''}`}
+            onPointerDown={() => {
+              const t = window.setTimeout(() => {
+                if (hold.current?.i === i) {
+                  hold.current.fired = true;
+                  patternHold(i);
+                }
+              }, HOLD_MS);
+              hold.current = { i, t, fired: false };
+            }}
+            onPointerUp={() => {
+              const h = hold.current;
+              hold.current = null;
+              if (!h || h.i !== i) return;
+              window.clearTimeout(h.t);
+              if (!h.fired) patternTap(i);
+            }}
+            onPointerCancel={() => {
+              if (hold.current) window.clearTimeout(hold.current.t);
+              hold.current = null;
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter' && e.key !== ' ') return;
+              e.preventDefault();
+              patternTap(i);
+            }}
+          >
+            {slotName(i).slice(1)}
+          </button>
+        );
+      })}
+    </div>
+  );
+};
 
 /** Un coup pose a la main : fort (le niveau d'un appui sur la machine). */
 const PEN = VEL_MAX;
@@ -162,6 +225,7 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
 
   return (
     <div className="v4-seq-body v4-beat-body" data-variant={variant} data-edit="1">
+      {variant === 'mobile' && <PatternStrip />}
       <div className="v4-seq-head">
         <span className="v4-seq-title">PATTERN</span>
         <span className="v4-seq-chord" aria-live="polite">
@@ -286,9 +350,10 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
   );
 };
 
-/** Le panneau, sous le MM-RYTM quand son pad EDIT l'a ouvert. */
+/** Le panneau, sous le MM-RYTM quand son pad EDIT l'a ouvert : au telephone seulement (2026-10-05). */
 export const BeatPanel: React.FC<{ stage: Stage | null; mobile: boolean }> = ({ stage, mobile }) => {
   const { shown, ref } = useEditorPanel('mm808', stage);
+  if (!mobile) return null;
   return (
     <section ref={ref} className="v4-seq v4-beat" data-shown={shown ? '1' : '0'} aria-label="Pattern editor" aria-hidden={!shown}>
       <BeatEditor variant={mobile ? 'mobile' : 'desk'} />

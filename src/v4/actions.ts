@@ -22,6 +22,7 @@ import { lcdMessage } from './state/lcdMessage';
 import { lcdMix } from './state/lcdMix';
 import { contactDraft, type ContactTopic } from './state/contactDraft';
 import { editor, type EditorId } from './state/editor';
+import { patterns, slotName } from './state/patterns';
 import { presetMode, type PresetKey } from './state/presetMode';
 import type { PresetMachine } from './state/presets';
 import { presskit } from './state/presskit';
@@ -168,6 +169,11 @@ export function tuneVoice(inst: Inst): void {
  * STEP 07 BD HIGH / MID / LOW / OFF, ou TAP A PAD FIRST.
  */
 export function stepToggle(i: number, stage: Stage | null = null): boolean {
+  // EDIT (2026-10-05) : les steps sont les seize patterns
+  if (editor.get() === 'mm808') {
+    patternTap(i, stage);
+    return true;
+  }
   resume();
   stage?.pressStep(i);
   const inst = pattern.get().instrument;
@@ -209,6 +215,7 @@ export function stepClear(i: number, stage: Stage | null = null): boolean {
  * sans voix choisie.
  */
 export function stepVelocity(i: number, v: number): boolean {
+  if (editor.get() === 'mm808') return false;
   resume();
   const inst = pattern.get().instrument;
   if (!inst) {
@@ -229,12 +236,48 @@ export function stepVelocityOf(i: number): number {
 
 /** L'appui tenu sur un pas, sans glisser encore : l'ecran dit sa velocite et comment la changer. */
 export function stepHoldHint(i: number): void {
+  if (editor.get() === 'mm808') {
+    patternHold(i);
+    return;
+  }
   const inst = pattern.get().instrument;
   if (!inst) {
     lcdMessage.show('TAP A PAD FIRST');
     return;
   }
   lcdMessage.show(`${stepLine(inst, i)}: DRAG`, POT_UI.readoutMs * 2, true);
+}
+
+/* ---------------- les patterns du MM-RYTM (EDIT, 2026-10-05) ---------------- */
+
+/** La chaine pour l'ecran : ses patterns, les derniers s'ils ne tiennent pas (A01>A03>A02). */
+function chainLine(c: readonly number[]): string {
+  const names = c.map((k) => slotName(k).slice(1));
+  let out = names.join('>');
+  for (let k = 1; out.length > 14 && k < names.length; k += 1) out = `..${names.slice(k).join('>')}`;
+  return `CHAIN ${out}`;
+}
+
+/**
+ * EDIT, un step touche : son pattern (A01 a A16). A l'arret il est pose,
+ * en lecture il attend la fin de la mesure ; d'autres touches dans les deux
+ * secondes en font une chaine (state/patterns.ts).
+ */
+export function patternTap(i: number, stage: Stage | null = null): void {
+  resume();
+  stage?.pressStep(i);
+  const r = patterns.tap(i, clock.running);
+  const p = patterns.get();
+  if (r === 'chain') lcdMessage.show(chainLine(p.chain), 2600);
+  else if (r === 'next') lcdMessage.show(`NEXT ${slotName(i)}: AT THE BAR`, 2000);
+  else lcdMessage.show(`PATTERN ${slotName(i)}${patterns.filled(i) ? '' : ' EMPTY'}`, 2000);
+}
+
+/** EDIT, un step tenu : un emplacement vide recoit une copie du pattern courant. */
+export function patternHold(i: number): void {
+  const from = patterns.get().cur;
+  if (patterns.copyTo(i)) lcdMessage.show(`COPY ${slotName(from)} > ${slotName(i)}`, 2000);
+  else lcdMessage.show(i === from ? `${slotName(i)} PLAYS` : !patterns.filled(from) ? `${slotName(from)} IS EMPTY` : 'HOLD AN EMPTY SLOT TO COPY', 2000);
 }
 
 /**
@@ -624,7 +667,8 @@ export function editToggle(which: EditorId, stage: Stage | null = null): void {
     voyMsg.show(on ? 'EDIT SEQUENCE' : 'EDIT CLOSED');
   } else {
     stage?.pads.press('edit');
-    lcdMessage.show(on ? 'EDIT PATTERN' : 'EDIT CLOSED');
+    const p = patterns.get();
+    lcdMessage.show(on ? `PATTERNS: ${slotName(p.cur)}` : 'EDIT CLOSED');
   }
 }
 

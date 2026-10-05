@@ -19,12 +19,13 @@
  *   (dj/midi.ts, smpl/midi.ts) ; une assignation qui les vise les charge.
  */
 
-import { anyDial, anyDialValue, clearPattern, dialRange, dialSteps, editToggle, focusMachine, kitDial, machinesToggle, muteToggle, openToggle, padHit, randomPattern, runToggle, soloToggle, stepMachine, stepToggle, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
+import { anyDial, anyDialValue, clearPattern, dialRange, dialSteps, editToggle, focusMachine, kitDial, machinesToggle, muteToggle, openToggle, padHit, patternTap, randomPattern, runToggle, soloToggle, stepMachine, stepToggle, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
 import { KIT_IDS, KIT_LABEL, kit, kitSteps } from '../audio/kit';
 import { setVoiceFx } from '../audio/drums';
 import { VOICE_PARAMS, voiceFx, type VoiceParam } from '../audio/voicefx';
 import type { Stage } from '../scene/renderer';
 import { MACHINES, VOYAGER, type MachineId } from '../state/focus';
+import { PATTERN_SLOTS, slotName } from '../state/patterns';
 import { ENCODERS, PADS, isVoiceEnc, type Inst } from '../theme';
 import { STEP_COUNT } from '../audio/pattern';
 import { CHORDS } from '../voyager/chords';
@@ -107,6 +108,8 @@ function coreTargets(): MidiTarget[] {
   out.push(press('rytm:solo', 'mm808', 'SOLO', () => void soloToggle(getStage())));
   out.push(press('rytm:edit', 'mm808', 'EDIT', () => editToggle('mm808', getStage())));
   out.push(press('rytm:open', 'mm808', 'OPEN', () => void openToggle(getStage(), 'mm808')));
+  // Les seize patterns (2026-10-05, state/patterns.ts) : comme un step en EDIT (d'autres dans les deux secondes : la chaine)
+  for (let i = 0; i < PATTERN_SLOTS; i += 1) out.push(press(`rytm:ptn:${i}`, 'mm808', `PATTERN ${slotName(i)}`, () => patternTap(i, getStage())));
   // MM-ARP
   if (VOYAGER) {
     for (const k of VOY_KNOBS) {

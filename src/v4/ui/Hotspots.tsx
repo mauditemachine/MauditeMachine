@@ -75,11 +75,13 @@ import { mix } from '../audio/drums';
 import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
 import { BPM, STEP_COUNT, isOn, pattern } from '../audio/pattern';
 import type { HotspotKind, HotspotView } from '../scene/hit';
+import { quadToUnit } from '../scene/quad';
 import type { Stage } from '../scene/renderer';
 import { djLoad, type DjModules } from '../state/djload';
 import { smplLoad, type SmplModules } from '../state/smplload';
 import { djView } from '../dj/view';
 import { editor } from '../state/editor';
+import { patterns, slotName } from '../state/patterns';
 import { PRESET_KEY_ARIA, PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode, type PresetKey } from '../state/presetMode';
 import { chipsLive, explode } from '../state/explode';
 import { MACHINES, focus, VOYAGER } from '../state/focus';
@@ -305,6 +307,20 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     const gesturesOf = (h: HotspotView | null): typeof djg | typeof smg => (!h ? null : isDj(h.kind) ? djGestures() : isSmpl(h.kind) ? smplGestures() : null);
     /** Celui qui tient ce pointeur. */
     const holder = (id: number): typeof djg | typeof smg => (djg?.holds(id) ? djg : smg?.holds(id) ? smg : null);
+    // L'ecran de la suite du MM-ARP (2026-10-05, voyager/seqscreen.ts) : le point touche sur son verre (u, v), un dessin suit son pointeur
+    const seqDrags = new Set<number>();
+    const seqOut = { x: 0, y: 0 };
+    const seqUv = (x: number, y: number): { u: number; v: number } | null => {
+      const v = stage.voy;
+      const sc = v?.seqScreen;
+      if (!v || !sc) return null;
+      const quad: number[] = [];
+      for (const [px, py, pz] of sc.corners()) {
+        const p = stage.hit.project(v.lid, px, py, pz, seqOut);
+        quad.push(p.x, p.y);
+      }
+      return quadToUnit(quad, x, y);
+    };
 
     const isCoarse = (e: PointerEvent): boolean =>
       e.pointerType === 'touch' || e.pointerType === 'pen' || coarseMql.matches;
@@ -453,6 +469,14 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         e.preventDefault();
         return;
       }
+      // L'ecran de la suite du MM-ARP : un toucher (un accord, AUTO, EDIT, STEPS, une note), ou un dessin
+      if (h && h.kind === 'vseq') {
+        const uv = seqUv(e.clientX - rect.left, e.clientY - rect.top);
+        if (uv && stage.voy?.seqScreen?.down(uv.u, uv.v)) seqDrags.add(e.pointerId);
+        e.stopPropagation();
+        e.preventDefault();
+        return;
+      }
       // Une commande du MM-DECKS ou du MM-SMPL : elle seule voit ce pointeur (ni orbite ni pincement)
       const g = gesturesOf(h);
       if (h && g) {
@@ -525,6 +549,12 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     const onMove = (e: PointerEvent): void => {
       // Lu ici, avant l'orbite (sur le parent) dont la garde prend l'encodeur
       shiftHeld = e.shiftKey;
+      if (seqDrags.has(e.pointerId)) {
+        const uv = seqUv(e.clientX - rect.left, e.clientY - rect.top);
+        if (uv) stage.voy?.seqScreen?.move(uv.u, uv.v);
+        e.stopPropagation();
+        return;
+      }
       const mg = holder(e.pointerId);
       if (mg) {
         mg.move(e.pointerId, e.clientX - rect.left, e.clientY - rect.top, e.shiftKey);
@@ -561,6 +591,12 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     };
 
     const onUp = (e: PointerEvent): void => {
+      if (seqDrags.delete(e.pointerId)) {
+        stage.voy?.seqScreen?.up();
+        if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+        e.stopPropagation();
+        return;
+      }
       const mg = holder(e.pointerId);
       if (mg) {
         const over = e.type === 'pointerup' ? pickAt(e, isCoarse(e)) : null;
@@ -677,6 +713,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     };
 
     const onLost = (e: PointerEvent): void => {
+      if (seqDrags.delete(e.pointerId)) stage.voy?.seqScreen?.up();
       holder(e.pointerId)?.up(e.pointerId, null);
       forget(e.pointerId);
     };
@@ -871,6 +908,9 @@ function dialText(k: EncId, v: number): string {
 export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const s = useSyncExternalStore(explode.subscribe, explode.get, explode.get);
   const p = useSyncExternalStore(pattern.subscribe, pattern.get, pattern.get);
+  // EDIT du MM-RYTM (2026-10-05) : les steps sont les patterns
+  const ptns = useSyncExternalStore(patterns.subscribe, patterns.get, patterns.get);
+  const rytmEdit = useSyncExternalStore(editor.subscribe, editor.get, editor.get) === 'mm808';
   const running = useSyncExternalStore(clock.subscribe, () => clock.running, () => clock.running);
   const v = useSyncExternalStore(voices.subscribe, voices.get, voices.get);
   const muteOn = v.muteMode;
@@ -1228,7 +1268,12 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
         onClick={() => soloToggle(stageRef.current)}
       />
       {STEP_INDEXES.map((i) => {
-        const on = inst ? isOn(p.steps, inst, i) : false;
+        const on = rytmEdit ? i === ptns.cur : inst ? isOn(p.steps, inst, i) : false;
+        const label = rytmEdit
+          ? `Pattern ${slotName(i)}${patterns.filled(i) ? '' : ', empty'}${i === ptns.cur ? ', playing' : ''}. Tap to play it, tap others within two seconds to chain them, hold an empty one to copy the current pattern`
+          : inst
+            ? `Step ${i + 1}, ${INST_NAMES[inst]} ${on ? 'on' : 'off'}`
+            : `Step ${i + 1}, no instrument selected`;
         return (
           <button
             key={i}
@@ -1237,7 +1282,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
             className="v4-twin"
             data-twin="step"
             data-hotspot={`step-${i + 1}`}
-            aria-label={inst ? `Step ${i + 1}, ${INST_NAMES[inst]} ${on ? 'on' : 'off'}` : `Step ${i + 1}, no instrument selected`}
+            aria-label={label}
             aria-pressed={on}
             onKeyDown={(e) => {
               // Suppr ou retour arriere : le pas se vide (l'appui long du clavier)

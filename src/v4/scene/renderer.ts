@@ -55,6 +55,7 @@ import { machinePlaying, onPlayStart } from '../state/playLock';
 import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
 import { motion } from '../state/motion';
 import { editor } from '../state/editor';
+import { PATTERN_SLOTS, patterns } from '../state/patterns';
 import { presetMode, type PresetKey } from '../state/presetMode';
 import { explode as explodeState, voyExplode } from '../state/explode';
 import { DJ, MACHINES, SMPL, focus, startMachine, VOYAGER, type Focus, type MachineId } from '../state/focus';
@@ -473,6 +474,7 @@ export class Stage {
   private focusK = 1;
   private unsubFocus: () => void = () => undefined;
   private unsubEditor: () => void = () => undefined;
+  private unsubPatterns: () => void = () => undefined;
   private unsubVoyExplode: () => void = () => undefined;
   private unsubView: () => void = () => undefined;
   private unsubDjUnit: () => void = () => undefined;
@@ -639,7 +641,7 @@ export class Stage {
     plateau.add(this.pads.mesh, this.pads.halos, this.seq.keys, this.seq.frames, this.seq.buttons, this.seq.leds, this.seq.btnLeds, this.encoders.mesh, this.encoders.skirts);
     // L'ecran (redessine 4 fois par seconde au plus, jamais par frame) ; il
     // ne s'abonne a state/lcd.ts qu'avec les autres ecouteurs
-    this.screen = new Screen(aniso, () => this.repaint());
+    this.screen = new Screen(aniso, () => this.repaint(), mobile);
     plateau.add(this.screen.mesh);
     // PCB : la carte et ses composants, dans le chassis. Plus de puces de pages
     // (2026-10-04, Mika : "a la place des liens de mauditemachine qui sont deja dans
@@ -797,7 +799,8 @@ export class Stage {
           return true;
         },
         voyRig.stepKeys,
-        voyRig.stepArp
+        voyRig.stepArp,
+        voyRig.stepSeq
       );
     }
     // Intro (2026-10-01) : mouvement complet seulement ; la machine attend
@@ -874,12 +877,22 @@ export class Stage {
     this.applyExplode(true);
     this.unsubExplode = explodeState.subscribe(this.syncExplode);
     this.detachExplode = explodeState.attach();
-    // EDIT du MM-RYTM (2026-10-04) : allume tant que l'editeur du motif est ouvert
+    // EDIT du MM-RYTM (2026-10-04) : allume tant que l'editeur est ouvert ; depuis le 2026-10-05,
+    // les seize steps y sont les patterns (state/patterns.ts)
+    const syncPatView = (): void => {
+      const p = patterns.get();
+      const view = editor.get() === 'mm808' ? { cur: p.cur, next: p.next, chain: p.chain, filled: Array.from({ length: PATTERN_SLOTS }, (_, i) => patterns.filled(i)) } : null;
+      if (this.seq.setPatternView(view)) this.repaint();
+    };
     const syncEditor = (): void => {
       if (this.pads.setEditing(editor.get() === 'mm808')) this.invalidate();
+      // Le MM-ARP au desktop : l'ecran de la suite monte a la place des pads
+      if (this.voy?.setSeqOpen(editor.get() === 'voy')) this.hit.invalidate();
+      syncPatView();
     };
     syncEditor();
     this.unsubEditor = editor.subscribe(syncEditor);
+    this.unsubPatterns = patterns.subscribe(syncPatView);
     // Le mode presets : les touches des ecrans suivent
     const syncPresets = (): void => {
       let changed = false;
@@ -2591,6 +2604,7 @@ export class Stage {
     this.detachExplode();
     this.unsubFocus();
     this.unsubEditor();
+    this.unsubPatterns();
     this.unsubPresets();
     this.unsubPlay();
     this.orbit.lock = () => false;

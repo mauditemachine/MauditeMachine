@@ -17,14 +17,14 @@ export const MACHINE_HELP: Readonly<Record<MachineId, { name: string; kind: stri
     kind: 'Drum machine',
     text: [
       'Pick a voice pad (BD, SD, CH...), then tap the 16 steps to write its part; hold a step and drag to set its velocity. RUN/STOP plays, RANDOM writes a groove.',
-      'The VOICE knobs shape the selected voice, GLOBAL the whole kit. OPEN lifts the hood: TWEAKS change each sound (909, 808, MM or your samples). Keys: A S D F G and Z X C V B, Space runs.',
+      'EDIT turns the steps into 16 patterns: tap one to play it, tap a few in a row to chain them, hold an empty one to copy. The VOICE knobs shape the selected voice, GLOBAL the kit; OPEN lifts the hood for the TWEAKS (909, 808, MM or your samples).',
     ],
   },
   voy: {
     name: 'MM-ARP',
     kind: 'Arpeggiator synthesizer',
     text: [
-      'Tap chord pads to build a progression in F# minor, one chord per bar; RUN/STOP plays it in time with the MM-RYTM. RATE, MODE and RANGE shape the arpeggio, EDIT lets you draw your own notes.',
+      'Tap chord pads to build a progression in F# minor, one chord per bar; RUN/STOP plays it in time with the MM-RYTM. RATE, MODE and RANGE shape the arpeggio; EDIT raises a screen in place of the pads where you draw your own notes.',
       'Two oscillators, a Moog style filter, two envelopes, a tempo synced LFO and effects. OPEN hides the TWEAKS: CHORD voicings, SIDECHAIN on the kick, stereo width.',
     ],
   },

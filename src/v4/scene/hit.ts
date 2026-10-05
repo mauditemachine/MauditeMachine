@@ -60,6 +60,8 @@ export type HotspotKind =
   | 'vbtn'
   | 'vknob'
   | 'vchip'
+  // MM-ARP (2026-10-05) : l'ecran de la suite, monte par EDIT (voyager/seqscreen.ts)
+  | 'vseq'
   // MM-RYTM (2026-10-04) : les TWEAKS sous le capot (audio/kit.ts)
   | 'rknob'
   // MM-DECKS (2026-10-04) : potards, faders, touches, jogs

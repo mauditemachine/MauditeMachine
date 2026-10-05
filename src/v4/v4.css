@@ -3878,6 +3878,51 @@ html:has(body.v4-active.v4-light) {
   margin-left: auto;
 }
 
+/* Les seize patterns au telephone (2026-10-05, state/patterns.ts) : le courant en jaune, celui qui
+   attend la mesure cercle de jaune, la chaine en orange, un plein en orange discret */
+.v4-beat-ptns {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.v4-root .v4-beat-ptn {
+  height: 28px;
+  min-height: 0;
+  padding: 0;
+  border: 1px solid var(--seq-guide);
+  border-radius: 6px;
+  background: var(--seq-cell);
+  color: var(--seq-dim);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.v4-root .v4-beat-ptn[data-full='1'] {
+  border-color: rgba(255, 106, 19, 0.5);
+  color: var(--seq-note);
+}
+
+.v4-root .v4-beat-ptn[data-chain='1'] {
+  border-color: var(--orange, #ff6a13);
+  background: rgba(255, 106, 19, 0.22);
+}
+
+.v4-root .v4-beat-ptn[data-next='1'] {
+  border-color: var(--yellow, #f2c230);
+}
+
+.v4-root .v4-beat-ptn[data-cur='1'] {
+  border-color: var(--yellow, #f2c230);
+  background: var(--yellow, #f2c230);
+  color: #191919;
+}
+
 .v4-beat-main {
   display: flex;
   gap: 6px;

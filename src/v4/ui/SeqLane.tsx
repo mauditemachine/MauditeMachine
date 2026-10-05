@@ -13,7 +13,11 @@
  * l'a pas ouvert (2026-10-04, Mika : "cachee, et qui s'ouvre en cliquant
  * sur un bouton EDIT sur la machine, en desktop et en mobile") ; le
  * cadrage de la machine remonte au-dessus (ui/editorPanel.ts). DONE, EDIT,
- * E ou Echap le referment.
+ * E ou Echap le referment. 2026-10-05 (Mika : "le contenu d'EDIT doit
+ * s'ouvrir a l'interieur de la machine, pas en dessous") : au desktop, EDIT
+ * fait monter l'ecran de la suite dans la machine, a la place des pads
+ * (voyager/seqscreen.ts) ; le panneau ne reste qu'au telephone (et en
+ * mise en page portrait, ou la machine n'a pas cet ecran).
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -26,6 +30,7 @@ import { CHORDS, chordTones, degreeName } from '../voyager/chords';
 import { chordType, stepIndex, voyParams } from '../voyager/params';
 import { SEQ_MAX, SEQ_MIN, SEQ_TOP, seq, type SeqStep } from '../voyager/seq';
 import { useEditorPanel } from './editorPanel';
+import { PORTRAIT } from '../theme';
 
 /** Tete de lecture : relue toutes les 40 ms (et les notes tirees en RAND). */
 const POLL_MS = 40;
@@ -261,6 +266,7 @@ export const SeqLane: React.FC<LaneProps> = ({ variant }) => {
  */
 export const SeqPanel: React.FC<{ stage: Stage | null; mobile: boolean }> = ({ stage, mobile }) => {
   const { shown, ref } = useEditorPanel('voy', stage);
+  if (!mobile && !PORTRAIT) return null;
   return (
     <section ref={ref} className="v4-seq" data-shown={shown ? '1' : '0'} aria-label="Arpeggiator sequence" aria-hidden={!shown}>
       <SeqLane variant={mobile ? 'mobile' : 'desk'} />
