@@ -437,6 +437,10 @@ class MMVoyager extends AudioWorkletProcessor {
     else if (m.type === 'params') {
       Object.assign(this.p, m.params);
       this.coefs();
+    } else if (m.type === 'cancel') {
+      // Re-programmation (2026-10-05) : les notes attendues a partir de time sont oubliees, ce qui sonne continue
+      const f = Math.round((m.time || 0) * sampleRate);
+      this.queue = this.queue.filter((n) => n.frame < f);
     } else if (m.type === 'stop') {
       // STOP : plus rien d'attendu, ce qui sonne s'eteint en 12 ms ; le LFO repartira avec la musique
       this.lfoRestart = true;

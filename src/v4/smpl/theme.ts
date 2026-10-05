@@ -118,26 +118,28 @@ export const SMPL_KEY_GROUPS: readonly number[] = [3, 8];
 /** Les potards, page par page (SAMPLE, GRAIN) : les onglets du telephone (smpl/Dock.tsx) ; LEVEL et PITCH en tete de SAMPLE. */
 export const SMPL_KNOB_ROWS: readonly (readonly SmplKnobId[])[] = [
   ['level', 'pitch', 'start', 'end', 'attack', 'release', 'filter'],
-  ['position', 'size', 'density', 'spray', 'spread'],
+  ['position', 'scan', 'size', 'density', 'spray'],
 ];
 export const SMPL_ROW_NAMES = ['SAMPLE', 'GRAIN'] as const;
 
 /**
  * La machine : LEVEL et PITCH a gauche de l'ecran, la grille a sa droite
  * (une rangee par page) ; au telephone, trois rangees de quatre sous
- * l'ecran (LEVEL et PITCH en tete, toujours en aluminium).
+ * l'ecran (LEVEL et PITCH en tete, toujours en aluminium). 2026-10-05 :
+ * SCAN prend la place de SPREAD, juste apres POSITION (la tete et sa
+ * vitesse) ; au telephone, SPRAY monte a cote de FILTER.
  */
 export const SMPL_PERF: readonly SmplKnobId[] = ['level', 'pitch'];
 const PERF_HERO = new Set<SmplKnobId>(SMPL_PERF);
 export const SMPL_GRID: readonly (readonly SmplKnobId[])[] = PORTRAIT
   ? [
       ['level', 'pitch', 'start', 'end'],
-      ['attack', 'release', 'filter', 'spread'],
-      ['position', 'size', 'density', 'spray'],
+      ['attack', 'release', 'filter', 'spray'],
+      ['position', 'scan', 'size', 'density'],
     ]
   : [
       ['start', 'end', 'attack', 'release', 'filter'],
-      ['position', 'size', 'density', 'spray', 'spread'],
+      ['position', 'scan', 'size', 'density', 'spray'],
     ];
 /** Les potards dessines a part, a gauche de l'ecran (desktop) ; aucun au telephone (ils sont dans la grille). */
 export const SMPL_PERF_PLACED: readonly SmplKnobId[] = PORTRAIT ? [] : SMPL_PERF;

@@ -9,7 +9,15 @@
  *
  * Calage : la meme technique que l'horloge de la boite a rythmes
  * (audio/clock.ts) : un reveil de 25 ms programme sur l'horloge AUDIO
- * chaque note des 100 ms a venir. Quand la boite a rythmes joue, chaque pas
+ * chaque note de l'horizon (300 ms depuis le 2026-10-05, audio/sched.ts ;
+ * 100 ms avant : le son se coupait au moindre gel de la page). Un
+ * changement (un accord, la suite, RATE, GATE, OCTAVE, MODE, RANGE, NOTES,
+ * ACCENT, DRIFT, le tempo, le swing) re-programme tout de suite les notes
+ * pas encore parties : chaque pas programme garde de quoi repartir de lui
+ * (sa grille, la mesure, l'accord, la note, la derniere hauteur), le
+ * moteur oublie les notes annulees ('cancel'). Un pas saute (plus de 50 ms
+ * de retard) fait quand meme avancer la mesure et la suite : la
+ * progression ne se decale plus. Quand la boite a rythmes joue, chaque pas
  * est pris sur SA grille (clock.gridAfter) : l'arpege tombe exactement sur
  * ses temps, mesures comprises, et suit son tempo ; sinon il tient sa
  * propre grille au meme tempo, et c'est la boite qui s'y cale si on la
@@ -29,10 +37,11 @@
  * touche pendant une piste la met en pause (actions).
  */
 
-import { clock, LOOKAHEAD_S, TICK_MS } from '../audio/clock';
+import { clock } from '../audio/clock';
 import { context } from '../audio/drums';
 import { pattern } from '../audio/pattern';
-import { noteOn, synthStop } from '../audio/synth';
+import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, horizon, registerScheduler, type Scheduler } from '../audio/sched';
+import { noteOn, synthCancel, synthStop } from '../audio/synth';
 import { SWING } from '../theme';
 import { CHORDS, degreeMidi } from './chords';
 import { gateFrac, octaveShift, stepsPerNote, voyParams } from './params';
@@ -85,10 +94,23 @@ let lastMidi: number | null = null;
 let serial = 0;
 /** le pas suivant est le premier : il ouvre la mesure, quel que soit son numero */
 let first = true;
-const ring: ArpNote[] = [];
-let head = 0;
-const posRing: ArpPos[] = [];
-let posHead = 0;
+let ring: ArpNote[] = [];
+let posRing: ArpPos[] = [];
+
+/** Un pas programme : tout ce qu'il faut pour repartir de lui (re-programmation). */
+interface Snap {
+  time: number;
+  stepIdx: number;
+  anchor: number;
+  n: number;
+  stepDur: number;
+  bar: number;
+  chord: number;
+  noteIdx: number;
+  lastMidi: number | null;
+  first: boolean;
+}
+const plan: Snap[] = [];
 
 function setState(next: ArpState): void {
   state = next;
@@ -96,15 +118,13 @@ function setState(next: ArpState): void {
 }
 
 function push(e: ArpNote): void {
-  if (ring.length < RING) ring.push(e);
-  else ring[head] = e;
-  head = (head + 1) % RING;
+  ring.push(e);
+  if (ring.length > RING) ring.shift();
 }
 
 function pushPos(e: ArpPos): void {
-  if (posRing.length < RING) posRing.push(e);
-  else posRing[posHead] = e;
-  posHead = (posHead + 1) % RING;
+  posRing.push(e);
+  if (posRing.length > RING) posRing.shift();
 }
 
 /** L'accord de la mesure en cours : celui de la progression, ou le suivant si on l'a retire. */
@@ -114,8 +134,8 @@ function chordFor(b: number): number {
   return p[((b % p.length) + p.length) % p.length];
 }
 
-/** Programme les notes du pas courant (une, deux en 1/32, ou aucune). */
-function scheduleStep(now: number): void {
+/** Programme les notes du pas courant (une, deux en 1/32, ou aucune) ; silent : un pas saute, la suite avance sans rien jouer. */
+function scheduleStep(now: number, silent = false): void {
   const p = voyParams.get();
   // Nouvelle mesure : l'accord suivant, l'arpege repart de sa premiere note
   if (first || stepIdx === 0) {
@@ -145,6 +165,7 @@ function scheduleStep(now: number): void {
     const when = nextTime + swing + k * interval;
     const pos = noteIdx % len;
     noteIdx += 1;
+    if (silent) continue;
     let d: SeqStep;
     if (steps) {
       d = steps[pos];
@@ -203,13 +224,76 @@ function tick(): void {
   const c = context();
   if (!c) return;
   const now = c.currentTime;
-  const horizon = now + LOOKAHEAD_S;
-  for (let guard = 0; nextTime < horizon && guard < 64; guard += 1) {
-    // Un pas rate de plus de 50 ms (onglet gele) est saute, pas rattrape
-    if (nextTime >= now - 0.05) scheduleStep(now);
+  let k = 0;
+  for (let i = 0; i < plan.length; i += 1) if (plan[i].time >= now) plan[k++] = plan[i];
+  plan.length = k;
+  const until = horizon(now);
+  for (let guard = 0; nextTime < until && guard < 96; guard += 1) {
+    // Un pas rate de plus de 50 ms (onglet gele) est saute, pas rattrape : la mesure et la suite avancent quand meme
+    if (nextTime >= now - DROP_AFTER_S) {
+      plan.push({ time: nextTime, stepIdx, anchor, n, stepDur, bar, chord, noteIdx, lastMidi, first });
+      scheduleStep(now);
+    } else scheduleStep(now, true);
     advance();
   }
 }
+
+/** Un changement : les pas pas encore partis (au-dela de GUARD_S) sont oublies du moteur et refaits. */
+function reschedule(): void {
+  if (!state.running) return;
+  const c = context();
+  if (!c) return;
+  const edge = c.currentTime + GUARD_S;
+  const i = plan.findIndex((x) => x.time > edge);
+  if (i < 0) return;
+  const s = plan[i];
+  plan.length = i;
+  synthCancel(s.time);
+  ring = ring.filter((e) => e.when < s.time);
+  posRing = posRing.filter((e) => e.when < s.time);
+  nextTime = s.time;
+  stepIdx = s.stepIdx;
+  anchor = s.anchor;
+  n = s.n;
+  stepDur = s.stepDur;
+  bar = s.bar;
+  chord = s.chord;
+  noteIdx = s.noteIdx;
+  lastMidi = s.lastMidi;
+  first = s.first;
+  tick();
+}
+
+const me: Scheduler = { tick, reschedule, order: 1 };
+registerScheduler(me);
+const ask = (): void => {
+  if (state.running) askReschedule(me);
+};
+// Ce qui change les notes : les potards de l'arpege (pas ceux du son, que le moteur suit en direct), la suite, le tempo, le swing
+const arpKey = (): string => {
+  const p = voyParams.get();
+  return `${p.rate}|${p.gate}|${p.octave}|${p.mode}|${p.range}|${p.notes}|${p.chord}|${p.accent}|${p.drift}`;
+};
+let lastArpKey = arpKey();
+voyParams.subscribe(() => {
+  const k = arpKey();
+  if (k === lastArpKey) return;
+  lastArpKey = k;
+  ask();
+});
+seq.subscribe(ask);
+let lastBpm = pattern.get().bpm;
+pattern.subscribe(() => {
+  if (pattern.get().bpm === lastBpm) return;
+  lastBpm = pattern.get().bpm;
+  ask();
+});
+let lastSwing = pattern.fx.get().swing;
+pattern.fx.subscribe(() => {
+  if (pattern.fx.get().swing === lastSwing) return;
+  lastSwing = pattern.fx.get().swing;
+  ask();
+});
 
 function start(): boolean {
   if (state.running) return true;
@@ -233,6 +317,7 @@ function start(): boolean {
   noteIdx = 0;
   lastMidi = null;
   first = true;
+  plan.length = 0;
   timer = window.setInterval(tick, TICK_MS);
   setState({ ...state, running: true });
   tick();
@@ -245,6 +330,7 @@ function stop(): void {
   timer = 0;
   synthStop();
   chord = -1;
+  plan.length = 0;
   setState({ ...state, running: false });
 }
 
@@ -255,9 +341,12 @@ function stop(): void {
  */
 function setProg(prog: number[], go = false): void {
   const was = state.prog.length;
+  const playing = state.running;
   setState({ ...state, prog });
   if (prog.length === 0) stop();
   else if (go || was === 0) start();
+  // Un accord ajoute ou retire pendant qu'il joue : les pas deja programmes le suivent
+  if (playing) ask();
 }
 
 /**
@@ -301,6 +390,7 @@ export const arp = {
     const p = prog.filter((k) => Number.isInteger(k) && k >= 0 && k < CHORDS.length).slice(0, MAX_CHORDS);
     setState({ ...state, prog: p });
     if (p.length === 0) stop();
+    else ask();
   },
   /** RUN/STOP : arrete ou relance ; sans progression, part sur F#m. Renvoie l'etat. */
   toggleRun(): boolean {

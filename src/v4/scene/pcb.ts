@@ -58,6 +58,7 @@ import { BOARD_CHIPS, CHIP, CHIP_MID, EXTERNAL_MARK, FONT_DISPLAY, PCB, PCB_PART
 import type { HotspotDef } from './hit';
 import { albedoRgb, litCss } from './materials';
 import { drawTracked, fontsReady, makeCanvasTexture, mulberry32, trackedWidth } from './silk';
+import { reserve } from '../audio/sched';
 
 type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
 type Rgb = readonly number[];
@@ -1152,6 +1153,8 @@ export class Pcb {
    */
   prepare(): boolean {
     if (this.prepared) return false;
+    // Un quart de seconde de fil principal (plus au telephone) : la musique est programmee d'avance (2026-10-05)
+    reserve(1.5);
     const t0 = performance.now();
     this.canvas.width = this.W;
     this.canvas.height = this.H;
@@ -1169,6 +1172,16 @@ export class Pcb {
   /** Polices arrivees : redessin, seulement si les textures existent deja. */
   redraw(): void {
     if (this.prepared) this.draw();
+  }
+
+  /** Deja preparee (prepare). */
+  get ready(): boolean {
+    return this.prepared;
+  }
+
+  /** Les grandes textures (l'envoi au GPU se fait d'avance, en temps libre : Stage.warmIdle). */
+  bigTextures(): CanvasTexture[] {
+    return [this.texture, this.orm, this.normalTex, this.atlasTex];
   }
 
   private get ux(): number {

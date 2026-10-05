@@ -8,7 +8,10 @@
  * CLEAR la vide, PLAY la joue (sinon, sans pas, la region comme avant).
  *
  * Calage : la technique de l'arpegiateur (voyager/arp.ts) : un reveil de
- * 25 ms programme sur l'horloge AUDIO chaque pas des 100 ms a venir, sur la
+ * 25 ms programme sur l'horloge AUDIO chaque pas de l'horizon (300 ms depuis
+ * le 2026-10-05, audio/sched.ts ; un changement de pas, de slice, de mode,
+ * de region, de POSITION, de tempo ou de swing re-programme tout de suite
+ * ce qui n'est pas encore parti, le worklet l'oublie : 'unseq'), sur la
  * grille du MM-RYTM s'il joue, sinon sur celle du MM-ARP, sinon la sienne
  * au tempo du motif (le SWING de la boite aussi). Chaque pas joue sa slice
  * jusqu'au pas suivant (une piste : le suivant coupe le precedent) ; en
@@ -16,14 +19,15 @@
  * La suite est retenue (mm.v4.smpl.seq.1).
  */
 
-import { clock, LOOKAHEAD_S, TICK_MS } from '../audio/clock';
+import { clock } from '../audio/clock';
 import { context } from '../audio/drums';
 import { pattern } from '../audio/pattern';
+import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, horizon, registerScheduler, type Scheduler } from '../audio/sched';
 import { SWING } from '../theme';
 import { arp } from '../voyager/arp';
 import { smplEngine } from './engine';
 import { SMPL_PADS } from './slices';
-import { padSlice, regionOf, smplState } from './state';
+import { padSlice, smplState } from './state';
 import { smplParams } from './params';
 
 export const SEQ_STEPS = 16;
@@ -72,6 +76,8 @@ function setState(next: SmplSeqState): void {
     } catch {
       /* stockage indisponible : la suite vit pour la visite */
     }
+    // Un pas change pendant la lecture : on l'entend au prochain passage, pas apres l'horizon
+    if (state.running) askReschedule(me);
   }
   listeners.forEach((fn) => fn());
 }
@@ -85,13 +91,13 @@ let stepDur = 60 / pattern.get().bpm / 4;
 let nextTime = 0;
 let stepIdx = 0;
 /** les pas programmes (la tete de lecture des trigs et de l'ecran les suit) */
-const ring: { when: number; step: number }[] = [];
-let head = 0;
+let ring: { when: number; step: number }[] = [];
+/** les pas programmes pas encore partis : de quoi repartir de chacun (re-programmation) */
+const plan: { time: number; stepIdx: number; anchor: number; n: number; stepDur: number }[] = [];
 
 function pushPos(when: number, step: number): void {
-  if (ring.length < RING) ring.push({ when, step });
-  else ring[head] = { when, step };
-  head = (head + 1) % RING;
+  ring.push({ when, step });
+  if (ring.length > RING) ring.shift();
 }
 
 /** La slice qu'un pas joue : son numero, ramene au nombre de slices du moment (une decoupe plus courte la reprend). */
@@ -116,11 +122,10 @@ function scheduleStep(): void {
   const s = smplState.get();
   if (s.mode === 'grain') {
     const v = smplParams.get();
-    const r = regionOf(v.start, v.end);
-    // Le nuage tient jusqu'au prochain pas plein (au plus la mesure)
+    // Le nuage tient jusqu'au prochain pas plein (au plus la mesure), a POSITION dans sa slice (SCAN l'y fait avancer)
     let len = 1;
     while (len < SEQ_STEPS && state.steps[(stepIdx + len) % SEQ_STEPS] === null) len += 1;
-    smplEngine.cloud(SEQ_CLOUD + stepIdx, sl.a, r.a, r.b, when, len * stepDur);
+    smplEngine.cloud(SEQ_CLOUD + stepIdx, sl.a + (sl.b - sl.a) * v.position, sl.a, sl.b, when, len * stepDur);
   } else smplEngine.play(SEQ_VOICE, sl.a, sl.b, false, when);
 }
 
@@ -152,13 +157,74 @@ function tick(): void {
   const c = context();
   if (!c) return;
   const now = c.currentTime;
-  const horizon = now + LOOKAHEAD_S;
-  for (let guard = 0; nextTime < horizon && guard < 64; guard += 1) {
+  let k = 0;
+  for (let i = 0; i < plan.length; i += 1) if (plan[i].time >= now) plan[k++] = plan[i];
+  plan.length = k;
+  const until = horizon(now);
+  for (let guard = 0; nextTime < until && guard < 96; guard += 1) {
     // Un pas rate de plus de 50 ms (onglet gele) est saute, pas rattrape
-    if (nextTime >= now - 0.05) scheduleStep();
+    if (nextTime >= now - DROP_AFTER_S) {
+      plan.push({ time: nextTime, stepIdx, anchor, n, stepDur });
+      scheduleStep();
+    }
     advance();
   }
 }
+
+/** Un changement : les pas pas encore partis (au-dela de GUARD_S) sont oublies du worklet et refaits. */
+function reschedule(): void {
+  if (!state.running) return;
+  const c = context();
+  if (!c) return;
+  const edge = c.currentTime + GUARD_S;
+  const i = plan.findIndex((x) => x.time > edge);
+  if (i < 0) return;
+  const s = plan[i];
+  plan.length = i;
+  smplEngine.unseq(s.time);
+  ring = ring.filter((e) => e.when < s.time);
+  nextTime = s.time;
+  stepIdx = s.stepIdx;
+  anchor = s.anchor;
+  n = s.n;
+  stepDur = s.stepDur;
+  tick();
+}
+
+const me: Scheduler = { tick, reschedule, order: 2 };
+registerScheduler(me);
+const ask = (): void => {
+  if (state.running) askReschedule(me);
+};
+// Ce qui change un pas : la suite (setState), la decoupe et le mode, la region et POSITION, le tempo, le swing
+let cutKey = '';
+smplState.subscribe(() => {
+  const st = smplState.get();
+  const k = `${st.mode}|${st.slices.join(',')}|${st.sample?.id ?? 0}`;
+  if (k === cutKey) return;
+  cutKey = k;
+  ask();
+});
+let regionKey = '';
+smplParams.subscribe(() => {
+  const v = smplParams.get();
+  const k = `${v.start}|${v.end}|${v.position}`;
+  if (k === regionKey) return;
+  regionKey = k;
+  ask();
+});
+let lastBpm = pattern.get().bpm;
+pattern.subscribe(() => {
+  if (pattern.get().bpm === lastBpm) return;
+  lastBpm = pattern.get().bpm;
+  ask();
+});
+let lastSwing = pattern.fx.get().swing;
+pattern.fx.subscribe(() => {
+  if (pattern.fx.get().swing === lastSwing) return;
+  lastSwing = pattern.fx.get().swing;
+  ask();
+});
 
 function start(): boolean {
   if (state.running) return true;
@@ -177,8 +243,8 @@ function start(): boolean {
   }
   anchor = nextTime;
   n = 0;
-  ring.length = 0;
-  head = 0;
+  ring = [];
+  plan.length = 0;
   timer = window.setInterval(tick, TICK_MS);
   setState({ ...state, running: true });
   tick();
@@ -189,8 +255,8 @@ function stop(): void {
   if (!state.running) return;
   window.clearInterval(timer);
   timer = 0;
-  ring.length = 0;
-  head = 0;
+  ring = [];
+  plan.length = 0;
   setState({ ...state, running: false });
 }
 

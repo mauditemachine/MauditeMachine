@@ -12,6 +12,7 @@
 import { focusMachine } from '../actions';
 import { clock } from '../audio/clock';
 import { smplLoad } from '../state/smplload';
+import { anyPlaying } from '../state/playLock';
 import { routeMachines } from '../audio/drums';
 import { sc } from '../audio/soundcloud';
 import { djEngine, djEngineIfAny, type DjEngine } from './engine';
@@ -81,8 +82,10 @@ function engine(): DjEngine | null {
   for (const d of DJ_DECKS_ALL) {
     e.decks[d].onEnd = () => djState.setDeck(d, { playing: false });
   }
-  // Les analyses de la caisse attendent que les platines s'arretent
-  setCrateBusy(() => DJ_DECKS_ALL.some((d) => e.decks[d].playing));
+  // Les analyses de la caisse attendent que plus rien ne joue (2026-10-05 : le MM-RYTM, le MM-ARP et le
+  // MM-SMPL aussi, plus seulement les platines ; decoder et chercher le BPM d'un morceau gelait la page
+  // une fraction de seconde, la musique se coupait)
+  setCrateBusy(() => DJ_DECKS_ALL.some((d) => e.decks[d].playing) || anyPlaying());
   /*
    * Les machines du site entrent sur la table (2026-10-04, Mika : "1 et 2
    * doivent etre RYTM et ARP") : le MM-RYTM sur la voie 1, le MM-ARP sur la

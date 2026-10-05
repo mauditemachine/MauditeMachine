@@ -407,8 +407,9 @@ html:has(body.v4-active) {
   transition: background 140ms ease, color 140ms ease;
 }
 
+/* STUDIO (toutes les machines) un peu en retrait ; --bone-70 existe dans les deux themes (le repli creme etait invisible en light) */
 .v4-root .v4-hmachines-btn[data-all='1'] {
-  color: var(--bone-50, rgba(246, 241, 231, 0.5));
+  color: var(--bone-70);
 }
 
 .v4-root .v4-hmachines-btn:hover {
@@ -1236,33 +1237,6 @@ html:has(body.v4-active) {
   margin-top: auto;
 }
 
-/* OPEN / CLOSE : l'orange plein de l'action qui transforme la page */
-.v4-root .v4-mmenu-open {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  height: 56px;
-  padding: 0 20px;
-  border-radius: 14px;
-  background: var(--orange);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.v4-root .v4-mmenu-open .v4-fa {
-  font-size: 16px;
-}
-
-.v4-root .v4-mmenu-open[data-open='1'] {
-  background: transparent;
-  color: var(--orange);
-  box-shadow: inset 0 0 0 1.5px var(--orange);
-}
-
 .v4-mm-tools {
   display: flex;
   align-items: center;
@@ -1380,14 +1354,6 @@ html:has(body.v4-active) {
 
 .v4-root .v4-mmenu[data-variant='desk'] .v4-mm-pill:hover {
   box-shadow: inset 0 0 0 1.5px var(--orange);
-}
-
-.v4-root .v4-mmenu[data-variant='desk'] .v4-mmenu-open {
-  height: 60px;
-}
-
-.v4-root .v4-mmenu[data-variant='desk'] .v4-mmenu-open:hover {
-  filter: brightness(1.06);
 }
 
 .v4-root .v4-mmenu[data-variant='desk'] .v4-mmenu-reset:hover {
@@ -4061,6 +4027,74 @@ html:has(body.v4-active.v4-light) {
   gap: 2px;
 }
 
+/* Desktop (2026-10-05) : l'editeur du MM-RYTM pose sur la machine, a la place
+   de sa rangee de pas (ui/BeatEditor.tsx le place et le suit : translate,
+   largeur, --beat-row) ; sa grille sur les seize pas, les patterns au-dessus. */
+.v4-root .v4-seq[data-place='machine'] {
+  left: 0;
+  top: 0;
+  bottom: auto;
+  width: 640px;
+  padding: 6px 8px 8px;
+  border-radius: 10px;
+  background: linear-gradient(#18191c, #111214);
+  box-shadow:
+    0 0 0 1px rgba(246, 241, 231, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 16px 36px rgba(0, 0, 0, 0.5);
+  transition: opacity 150ms ease;
+  will-change: transform;
+}
+
+.v4-root .v4-seq[data-place='machine'][data-shown='1'] {
+  transition: opacity 200ms ease-out;
+}
+
+.v4-seq[data-place='machine'] .v4-seq-body {
+  gap: 4px;
+}
+
+.v4-seq[data-place='machine'] .v4-seq-head {
+  min-height: 26px;
+}
+
+.v4-seq[data-place='machine'] .v4-seq-hint {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1 1 auto;
+  text-align: right;
+}
+
+.v4-seq[data-place='machine'] .v4-beat-ptns {
+  flex: 1 1 auto;
+  min-width: 0;
+  grid-template-columns: repeat(16, minmax(0, 1fr));
+  gap: 2px;
+  margin: 0;
+}
+
+.v4-root .v4-seq[data-place='machine'] .v4-beat-ptn {
+  height: 22px;
+  font-size: 9px;
+}
+
+.v4-seq[data-place='machine'] .v4-beat-grid {
+  grid-template-rows: repeat(10, var(--beat-row, 15px));
+}
+
+.v4-seq[data-place='machine'] .v4-seq-lane.v4-beat-lane {
+  height: 44px;
+}
+
+.v4-root[data-v4-theme='light'] .v4-seq[data-place='machine'] {
+  background: linear-gradient(#fbfaf7, #f1eee8);
+  box-shadow:
+    0 0 0 1px rgba(67, 67, 67, 0.14),
+    0 16px 36px rgba(67, 67, 67, 0.18);
+}
+
 /* Telephone : le panneau sur toute la largeur, au-dessus de la barre du bas */
 @media (max-width: 767px) {
   .v4-seq {
@@ -4238,8 +4272,7 @@ html:has(body.v4-active.v4-light) {
   background: rgba(255, 106, 19, 0.1);
 }
 
-.v4-root .v4-scope-btn:focus-visible,
-.v4-root .v4-scope-pill:focus-visible {
+.v4-root .v4-scope-btn:focus-visible {
   outline: 2px solid var(--yellow);
   outline-offset: 2px;
 }
@@ -4320,38 +4353,88 @@ html:has(body.v4-active.v4-light) {
   pointer-events: none;
 }
 
-.v4-root .v4-scope-pill {
+/* Les petites touches posees sur les machines (2026-10-05, ui/MachineKey.tsx) :
+   SCOPE sur la plaque TWEAKS du MM-ARP ouvert (sa LED verte quand l'oscilloscope
+   est la), INFO du MM-SMPL ; placees et mises a l'echelle a chaque image ;
+   caoutchouc sombre. */
+.v4-root .v4-mkey {
   position: absolute;
-  right: 20px;
-  top: 50%;
-  z-index: 22;
+  left: 0;
+  top: 0;
+  z-index: 21;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 14px;
+  justify-content: center;
+  gap: 0.5em;
   margin: 0;
-  border-radius: 999px;
+  padding: 0 0.6em;
+  border-radius: 5px;
   border: 1px solid rgba(246, 241, 231, 0.16);
-  background: rgba(14, 15, 16, 0.9);
-  color: var(--bone);
+  background: linear-gradient(#1d1e21, #121315);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: #f6f1e7;
   font: inherit;
-  font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  white-space: nowrap;
   cursor: pointer;
-  transform: translateY(-50%);
+  will-change: transform;
 }
 
-.v4-root .v4-scope-pill[data-mobile='1'] {
-  top: calc(104px + env(safe-area-inset-top, 0px));
-  right: 12px;
-  height: 44px;
-  transform: none;
+.v4-root .v4-mkey:hover {
+  border-color: rgba(246, 241, 231, 0.32);
 }
 
-.v4-root .v4-scope-pill svg {
-  color: #62f28c;
+/* Une touche toute petite : sa zone de toucher deborde de 8 px (le doigt) */
+.v4-root .v4-mkey::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+.v4-root .v4-mkey:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+.v4-scope-led {
+  width: 0.55em;
+  height: 0.55em;
+  flex: none;
+  border-radius: 50%;
+  background: #24412d;
+}
+
+.v4-root .v4-scope-key[aria-pressed='true'] .v4-scope-led {
+  background: #62f28c;
+  box-shadow: 0 0 6px #62f28c;
+}
+
+/* INFO du MM-SMPL : un lien, son i dans un rond */
+.v4-root .v4-info-key {
+  text-decoration: none;
+}
+
+.v4-info-i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15em;
+  height: 1.15em;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-size: 0.85em;
+  font-style: italic;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+/* Light : le panneau reste un ecran sombre, ses textes restent clairs (ils prenaient le gris fonce du theme) */
+.v4-root[data-v4-theme='light'] .v4-scope {
+  --bone: #f6f1e7;
+  --bone-70: rgba(246, 241, 231, 0.7);
 }
 
 /* Au telephone, les mesures sur deux lignes (elles debordaient) */

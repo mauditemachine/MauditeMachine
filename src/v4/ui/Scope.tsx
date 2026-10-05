@@ -28,8 +28,14 @@
  *   la meme place une mesure plus tot (correlation croisee sur ses 4096
  *   premiers echantillons, affinee a la parabole), en millisecondes.
  * Desktop : un panneau a droite de la machine ouverte, qu'on deplace par sa
- * barre du haut (retenu ; double clic : sa place) ; telephone : replie en
- * pastille SCOPE en haut, deplie sur le haut de l'ecran.
+ * barre du haut (retenu ; double clic : sa place) ; telephone : sur le haut
+ * de l'ecran.
+ * Depuis le 2026-10-05 (Mika : "le Scope, je voudrais que ce soit un bouton
+ * a l'interieur de OPEN du MM-ARP") : il ne s'ouvre plus tout seul, et plus
+ * sur le MM-RYTM ; une touche SCOPE, posee sur la plaque TWEAKS du MM-ARP
+ * ouvert (sous ANALOG CONTROL, voyager/theme.ts VOY_SCOPE_KEY), le montre ou
+ * le cache ; sa LED verte dit qu'il est la. Elle suit la camera (projetee a
+ * chaque image, a la taille de la plaque).
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -54,6 +60,9 @@ import {
   type ScopeSource,
 } from '../audio/scope';
 import { explode, voyExplode } from '../state/explode';
+import type { Stage } from '../scene/renderer';
+import { VOY_SCOPE_KEY } from '../voyager/theme';
+import { MachineKey } from './MachineKey';
 import { focus } from '../state/focus';
 
 const GREEN = '#62f28c';
@@ -393,18 +402,31 @@ const stepIn = <T,>(list: readonly T[], v: T, dir: 1 | -1): T => list[Math.max(0
 
 interface Props {
   mobile: boolean;
+  getStage: () => Stage | null;
 }
 
-export const Scope: React.FC<Props> = ({ mobile }) => {
+/** La touche SCOPE sur la plaque du MM-ARP ouvert (ui/MachineKey.tsx : elle suit la camera). */
+const ScopeKey: React.FC<{ getStage: () => Stage | null; on: boolean; onToggle: () => void }> = ({ getStage, on, onToggle }) => (
+  <MachineKey getStage={getStage} layer={(st) => st.voy?.tweaks.top} spot={VOY_SCOPE_KEY} className="v4-scope-key" label={on ? 'Hide the oscilloscope' : 'Show the oscilloscope'} pressed={on} onClick={onToggle}>
+    <span className="v4-scope-led" aria-hidden="true" />
+    SCOPE
+  </MachineKey>
+);
+
+export const Scope: React.FC<Props> = ({ mobile, getStage }) => {
   useSyncExternalStore(explode.subscribe, explode.get, explode.get);
   useSyncExternalStore(voyExplode.subscribe, voyExplode.get, voyExplode.get);
   useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   const s = useSyncExternalStore(scopeSettings.subscribe, scopeSettings.get, scopeSettings.get);
   const m = hoodMachine();
-  const open = m !== 'dj' && m !== 'smpl' && hoodOf(m).get() === 'open';
-  const source: ScopeSource = s.source ?? (m === 'voy' ? 'arp' : 'rytm');
-  // Au telephone, replie au depart : la carte et ses TWEAKS d'abord
-  const [unfolded, setUnfolded] = useState(!mobile && s.shown);
+  // Le MM-ARP ouvert seulement (sa touche SCOPE) ; le panneau attend qu'on la presse
+  const open = m === 'voy' && hoodOf(m).get() === 'open';
+  const source: ScopeSource = s.source ?? 'arp';
+  const [unfolded, setUnfolded] = useState(false);
+  // Le capot se referme : la prochaine fois, le SCOPE attend sa touche
+  useEffect(() => {
+    if (!open) setUnfolded(false);
+  }, [open]);
   const live = open && unfolded;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [meas, setMeas] = useState<Measure | null>(null);
@@ -491,27 +513,12 @@ export const Scope: React.FC<Props> = ({ mobile }) => {
   const placed: React.CSSProperties | undefined =
     !mobile && s.pos ? { left: `${Math.min(s.pos.x, Math.max(8, window.innerWidth - 300))}px`, top: `${Math.min(s.pos.y, Math.max(8, window.innerHeight - 200))}px`, right: 'auto', transform: 'none' } : undefined;
 
-  if (!unfolded) {
-    return (
-      <button
-        type="button"
-        className="v4-scope-pill"
-        data-mobile={mobile ? '1' : '0'}
-        aria-label="Show the oscilloscope"
-        onClick={() => {
-          setUnfolded(true);
-          set({ shown: true });
-        }}
-      >
-        <svg viewBox="0 0 24 12" width="22" height="11" aria-hidden="true">
-          <path d="M1 6h4l2-5 3 10 3-10 3 10 2-5h5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
-        </svg>
-        SCOPE
-      </button>
-    );
-  }
+  const key = <ScopeKey getStage={getStage} on={unfolded} onToggle={() => setUnfolded((u) => !u)} />;
+  if (!unfolded) return key;
 
   return (
+    <>
+      {key}
     <section className="v4-scope" data-mobile={mobile ? '1' : '0'} style={placed} aria-label="Oscilloscope" onPointerDown={stop} onWheel={stop} onTouchStart={stop}>
       <header className="v4-scope-bar" data-drag={mobile ? '0' : '1'} onPointerDown={drag} onDoubleClick={() => set({ pos: null })}>
         <span className="v4-scope-title">SCOPE</span>
@@ -526,10 +533,7 @@ export const Scope: React.FC<Props> = ({ mobile }) => {
           type="button"
           className="v4-scope-btn v4-scope-icon"
           aria-label="Hide the oscilloscope"
-          onClick={() => {
-            setUnfolded(false);
-            set({ shown: false });
-          }}
+          onClick={() => setUnfolded(false)}
         >
           <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
             <path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -603,6 +607,7 @@ export const Scope: React.FC<Props> = ({ mobile }) => {
         </button>
       </footer>
     </section>
+    </>
   );
 };
 

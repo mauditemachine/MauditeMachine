@@ -11,9 +11,11 @@
  * - SLICES : 4, 8, 16 parts egales de la region, ou AUTO (les attaques) ;
  *   MODE : SLICE ou GRAIN ; REV ; LOOP ; SAVE : la region en WAV, au PITCH
  *   (a l'envers avec REV) ;
- * - les pads : SLICE, la slice du pad ; GRAIN, un nuage de grains au debut
- *   de sa slice, tant qu'on le tient ; PLAY : la sequence s'il y en a une
- *   (smpl/seq.ts), sinon la region entiere, ou le nuage a POSITION ;
+ * - les pads : SLICE, la slice du pad (elle s'eteint au lacher, sur
+ *   RELEASE, 2026-10-05) ; GRAIN, un nuage de grains dans sa slice, a
+ *   POSITION, tant qu'on le tient (SCAN y fait avancer la tete) ; PLAY : la
+ *   sequence s'il y en a une (smpl/seq.ts), sinon la region entiere, ou le
+ *   nuage a POSITION ; GRAIN, l'ecran : un nuage sous le doigt (smplTouch) ;
  * - RANDOM, CLEAR, EDIT (2026-10-05) : la sequence (une au hasard, qui part ;
  *   vide ; EDIT fait des trigs ses seize pas) ;
  * - les potards : smplParams ; START, END et SLICES refont la decoupe.
@@ -28,9 +30,12 @@ import { randomSteps, smplSeq } from './seq';
 import { SMPL_PADS, SMPL_SLICINGS, equalSlices, onsetSlices, wavOf } from './slices';
 import { padCount, padSlice, regionOf, smplState } from './state';
 
-/** L'identifiant de PLAY pour le moteur (les pads : 0 a 15) ; celui de l'ecoute d'une slice en EDIT. */
+/** L'identifiant de PLAY pour le moteur (les pads : 0 a 15) ; celui du nuage de l'ecran (GRAIN) ; celui de l'ecoute d'une slice en EDIT. */
 const PREVIEW = 100;
+const TOUCH = 120;
 const AUDITION = 150;
+/** Les potards du mode GRAIN : en SLICE, l'ecran le rappelle quand on les tourne. */
+const GRAIN_KNOBS: ReadonlySet<SmplKnobId> = new Set(['position', 'scan', 'size', 'density', 'spray']);
 const NO_SAMPLE = 'PICK A FILE, REC, OR SEND A LOOP FROM THE MIXER';
 
 /* ---------------- la decoupe ---------------- */
@@ -61,6 +66,7 @@ smplParams.subscribe(() => {
   resliceRaf = requestAnimationFrame(() => {
     resliceRaf = 0;
     reslice();
+    followClouds();
   });
 });
 
@@ -167,9 +173,10 @@ export function smplModeToggle(): void {
   const s = smplState.get();
   // Les voix se taisent ; la sequence continue (elle jouera dans le nouveau mode)
   smplEngine.stop();
+  touching = false;
   smplState.set({ pads: [], preview: false });
   smplState.set({ mode: s.mode === 'slice' ? 'grain' : 'slice' });
-  smplState.say(smplState.get().mode === 'grain' ? 'GRAIN: PADS PLAY A GRAIN CLOUD' : 'SLICE: PADS PLAY THEIR SLICE');
+  smplState.say(smplState.get().mode === 'grain' ? 'GRAIN: PADS AND THE SCREEN PLAY GRAIN CLOUDS' : 'SLICE: PADS PLAY THEIR SLICE');
 }
 
 export function smplReverse(): void {
@@ -178,14 +185,63 @@ export function smplReverse(): void {
 
 export function smplLoopToggle(): void {
   smplState.set({ loop: !smplState.get().loop });
+  smplEngine.loop(smplState.get().loop);
 }
 
-/** Un potard (0 a 1) ; l'ecran dit sa valeur. POSITION deplace le nuage de PLAY. */
+/**
+ * Un potard (0 a 1) ; l'ecran dit sa valeur (en SLICE, un potard du GRAIN le
+ * dit aussi : il ne joue qu'en GRAIN). POSITION, START et END deplacent les
+ * nuages qui jouent (PLAY, l'ecran, les pads tenus).
+ */
 export function smplDial(id: SmplKnobId, v: number): void {
   if (!smplParams.set(id, v)) return;
   const s = smplState.get();
-  smplState.say(smplReadout(id, smplParams.of(id), s.sample?.duration ?? 0), 1400);
-  if (id === 'position' && s.preview && s.mode === 'grain') smplEngine.move(PREVIEW, cloudPos());
+  const text = smplReadout(id, smplParams.of(id), s.sample?.duration ?? 0);
+  smplState.say(s.mode === 'slice' && GRAIN_KNOBS.has(id) ? `${text}   GRAIN ONLY: PRESS MODE` : text, 1400);
+  if (id === 'position' || id === 'start' || id === 'end') followClouds();
+}
+
+/** Le nuage de l'ecran (GRAIN) : tenu tant que le doigt y est. */
+let touching = false;
+
+/** GRAIN : le nuage de PLAY, celui de l'ecran et ceux des pads tenus suivent POSITION, START et END. */
+function followClouds(): void {
+  const s = smplState.get();
+  if (s.mode !== 'grain') return;
+  const v = smplParams.get();
+  const { a, b } = regionOf(v.start, v.end);
+  if (s.preview) smplEngine.move(PREVIEW, cloudPos(), a, b);
+  if (touching) smplEngine.move(TOUCH, cloudPos(), a, b);
+  for (const i of s.pads) {
+    const sl = padSlice(i);
+    if (sl) smplEngine.move(i, sl.a + (sl.b - sl.a) * v.position, sl.a, sl.b);
+  }
+}
+
+/**
+ * GRAIN, l'ecran (2026-10-05, Mika : "implemente la fonction granulaire") :
+ * poser le doigt sur la forme d'onde y fait naitre un nuage (POSITION suit
+ * le doigt, le nuage aussi), le lever l'eteint sur RELEASE. PLAY deja
+ * allume : le doigt deplace son nuage, sans en ajouter un.
+ */
+export function smplTouch(down: boolean): void {
+  const s = smplState.get();
+  if (down) {
+    if (touching || s.preview || s.mode !== 'grain') return;
+    gesture();
+    if (!s.sample) {
+      smplState.say(NO_SAMPLE);
+      return;
+    }
+    const v = smplParams.get();
+    const { a, b } = regionOf(v.start, v.end);
+    touching = true;
+    smplEngine.cloud(TOUCH, cloudPos(), a, b);
+    return;
+  }
+  if (!touching) return;
+  touching = false;
+  smplEngine.release(TOUCH);
 }
 
 /* ---------------- jouer ---------------- */
@@ -217,16 +273,16 @@ export function smplPad(i: number, down: boolean): void {
       if (!s.sample) smplState.say(NO_SAMPLE);
       return;
     }
+    // GRAIN : un nuage dans la slice du pad, a POSITION (SCAN l'y fait avancer, en boucle)
     const v = smplParams.get();
-    const { a, b } = regionOf(v.start, v.end);
-    if (s.mode === 'grain') smplEngine.cloud(i, sl.a, a, b);
+    if (s.mode === 'grain') smplEngine.cloud(i, sl.a + (sl.b - sl.a) * v.position, sl.a, sl.b);
     else smplEngine.play(i, sl.a, sl.b, s.loop);
     setPad(i, true);
     return;
   }
-  // Lache : un nuage et une slice bouclee s'eteignent ; une slice simple va au bout (sa lumiere s'eteint seule)
+  // Lache : le nuage, la slice bouclee et la slice simple s'eteignent sur RELEASE
   smplEngine.release(i);
-  if (s.mode === 'grain' || s.loop) setPad(i, false);
+  setPad(i, false);
 }
 
 /**
@@ -266,6 +322,7 @@ export function smplPlayToggle(): void {
 export function smplStopAll(): void {
   smplSeq.stop();
   smplEngine.stop();
+  touching = false;
   smplState.set({ pads: [], preview: false });
 }
 
@@ -355,6 +412,9 @@ smplEngine.subscribeLive(() => {
   const pads = s.pads.filter(sounds);
   const preview = s.preview && sounds(PREVIEW);
   if (pads.length !== s.pads.length || preview !== s.preview) smplState.set({ pads, preview });
+  // Une lumiere gardee seulement par sa fraicheur : le dernier rapport du worklet est peut-etre deja passe, on revoit dans FRESH_MS
+  const fresh = (id: number): boolean => !live.voices.has(id) && !live.clouds.has(id) && now - (pressedAt.get(id) ?? -Infinity) < FRESH_MS;
+  if (pads.some(fresh) || (preview && fresh(PREVIEW))) window.setTimeout(() => smplEngine.recheck(), FRESH_MS);
 });
 
 /* ---------------- SAVE ---------------- */

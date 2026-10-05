@@ -17,7 +17,7 @@
 
 import type { HotspotDef } from '../scene/hit';
 import { TweakPlate, type TweakItem } from '../scene/tweakplate';
-import { VOY_COPY, VOY_TWEAK_CELLS, VOY_TWEAK_ENDS, VOY_TWEAK_PLATE, VOY_TWEAK_TITLE_W, voyTweakPlace } from './theme';
+import { VOY_TWEAK_CELLS, VOY_TWEAK_ENDS, VOY_TWEAK_PLATE, VOY_TWEAK_TITLE_W, voyTweakPlace } from './theme';
 import { VOY_TWEAKS, type VoyKnobId } from './params';
 
 const P = VOY_TWEAK_PLATE;
@@ -47,7 +47,8 @@ export class VoyTweaks extends TweakPlate {
         name: 'voyTweaks',
         dims: P,
         items: items(),
-        title: title ? { x: title.x, z: title.z, w: VOY_TWEAK_TITLE_W, sub: 'ANALOG CONTROL', model: `${VOY_COPY.model} R1.0` } : null,
+        // La ligne du modele laisse sa place a la touche SCOPE (voyager/theme.ts VOY_SCOPE_KEY)
+        title: title ? { x: title.x, z: title.z, w: VOY_TWEAK_TITLE_W, sub: 'ANALOG CONTROL', model: '' } : null,
         // La largeur d'une case : cinq colonnes a plat (desktop), deux debout (portrait)
         cellW: (P.w > P.d ? P.w / 5 : P.w / 2) - 0.12,
       },

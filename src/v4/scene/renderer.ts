@@ -52,6 +52,7 @@ import { context, mix } from '../audio/drums';
 import { BPM, INSTRUMENTS, pattern } from '../audio/pattern';
 import { kit } from '../audio/kit';
 import { machinePlaying, onPlayStart } from '../state/playLock';
+import { reserve } from '../audio/sched';
 import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
 import { motion } from '../state/motion';
 import { editor } from '../state/editor';
@@ -382,6 +383,8 @@ export class Stage {
   private anchors = new Map<SectionId, HotspotDef>();
   private animators: Animator[] = [];
   private timers: number[] = [];
+  /** le travail d'avance en temps libre (warmIdle) : une fois */
+  private warmed = false;
   private width = 1;
   private height = 1;
   private hw = 1;
@@ -511,6 +514,8 @@ export class Stage {
         alpha: BACKDROP.transparent,
         powerPreference: 'high-performance',
       });
+      // En production, pas de verification des shaders : elle bloquait le fil principal a chaque programme (2026-10-05)
+      renderer.debug.checkShaderErrors = opts.dev;
       return new Stage(opts, canvas, renderer);
     } catch (e) {
       opts.onError('create', msg(e));
@@ -1090,7 +1095,21 @@ export class Stage {
     this.unsubDjUnit = djView.subscribe(this.syncDjUnit);
     this.setShown(this.fTo);
     this.updateCamera();
+    this.precompile();
     this.invalidate();
+  }
+
+  /**
+   * Les programmes d'une machine arrivee, compiles en parallele (2026-10-05) :
+   * sa premiere visite ne bloque plus le fil principal (au telephone, une
+   * demi-seconde et plus : la musique se coupait).
+   */
+  private precompile(): void {
+    try {
+      void this.renderer.compileAsync(this.scene, this.camera).catch(() => undefined);
+    } catch {
+      /* rien : la premiere image compilera */
+    }
   }
 
   /**
@@ -1121,6 +1140,7 @@ export class Stage {
     sm.listen();
     this.setShown(this.fTo);
     this.updateCamera();
+    this.precompile();
     this.invalidate();
   }
 
@@ -1798,7 +1818,46 @@ export class Stage {
     } catch (e) {
       this.opts.onError('compile', msg(e));
     }
+    // Sans intro : le travail d'avance tout de suite (avec, a sa fin : finishIntro)
+    if (!this.introOn) this.warmIdle();
     this.invalidate();
+  }
+
+  /**
+   * En temps libre, apres l'intro (2026-10-05, Mika : "des que je fais un
+   * petit truc le son se coupe") : au desktop, les PCB du MM-RYTM et du
+   * MM-ARP se preparent d'avance et leurs grandes textures partent au GPU ;
+   * le premier OPEN ne gele plus la page (plusieurs secondes sur certaines
+   * machines). Au telephone, rien d'avance (la memoire) : la preparation
+   * reserve la musique (Pcb.prepare), elle ne se coupe pas.
+   */
+  private warmIdle(): void {
+    if (this.warmed || this.opts.mobile) return;
+    this.warmed = true;
+    const ric = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+    const later = (fn: () => void, ms: number): void => {
+      this.timers.push(
+        window.setTimeout(() => {
+          if (this.disposed) return;
+          if (ric) ric(() => !this.disposed && fn(), { timeout: 4000 });
+          else fn();
+        }, ms)
+      );
+    };
+    const upload = (pcb: Pcb): void => {
+      reserve(1.2);
+      for (const t of pcb.bigTextures()) this.renderer.initTexture(t);
+    };
+    later(() => {
+      this.pcb.prepare();
+      later(() => upload(this.pcb), 300);
+    }, 1500);
+    later(() => {
+      const v = this.voy;
+      if (!v) return;
+      v.pcb.prepare();
+      later(() => upload(v.pcb), 300);
+    }, 2600);
   }
 
   /* ---------------- intro (spec 7.4) ---------------- */
@@ -1882,6 +1941,7 @@ export class Stage {
     this.pendingSmpl = null;
     if (dj) this.attachDj(dj);
     if (sm) this.attachSmpl(sm);
+    this.warmIdle();
     this.invalidate();
   }
 
@@ -2335,6 +2395,8 @@ export class Stage {
       changed = true;
     } else if (goal !== this.explodeGoal) {
       this.explodeGoal = goal;
+      // Le capot s'ouvre : textures, ombres, programmes, la musique est programmee d'avance (2026-10-05)
+      if (goal) reserve(1.2);
       // Premiere apparition du PCB : textures de cuivre et de serigraphie
       if (goal) this.pcb.prepare();
       if (s === 'opening' || s === 'closing') this.explode.start(goal, performance.now(), motion.reduced());

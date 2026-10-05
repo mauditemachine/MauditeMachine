@@ -343,35 +343,58 @@ export class PixelBuffer {
     return w;
   }
 
+  /** Le petit canvas des points (un pixel par point) et la trame de l'OLED, faits une fois. */
+  private small: { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D; img: ImageData } | null = null;
+  private grid: CanvasPattern | null = null;
+
   /**
-   * Agrandit l'image dans le canvas : chaque point un carre de PIX_SCALE
-   * texels, sa derniere rangee et sa derniere colonne a 86 % (la trame, de pres).
+   * Agrandit l'image dans le canvas : les points dans un petit canvas (un
+   * pixel chacun), agrandis PIX_SCALE fois sans lissage par le navigateur,
+   * puis la trame (la derniere rangee et la derniere colonne de chaque
+   * point a 86 %) posee en une passe ; avant, chaque texel etait ecrit en
+   * JavaScript (345 600 par image), ce qui chargeait le fil principal.
    */
-  blit(ctx: CanvasRenderingContext2D, img: ImageData, off: readonly number[], dim: readonly number[], full: readonly number[]): void {
-    const d = img.data;
+  blit(ctx: CanvasRenderingContext2D, off: readonly number[], dim: readonly number[], full: readonly number[]): void {
     const S = PIX_SCALE;
-    const W = FW * S;
-    const shade = (c: readonly number[], k: number): number[] => [Math.round(c[0] * k), Math.round(c[1] * k), Math.round(c[2] * k)];
-    const tones = [off, dim, full];
-    const edges = [off, shade(dim, 0.86), shade(full, 0.86)];
-    for (let y = 0; y < FH; y += 1) {
-      for (let x = 0; x < FW; x += 1) {
-        const v = this.px[y * FW + x];
-        const c = tones[v];
-        const e = edges[v];
-        for (let j = 0; j < S; j += 1) {
-          let o = ((y * S + j) * W + x * S) * 4;
-          for (let i = 0; i < S; i += 1) {
-            const t = i === S - 1 || j === S - 1 ? e : c;
-            d[o] = t[0];
-            d[o + 1] = t[1];
-            d[o + 2] = t[2];
-            d[o + 3] = 255;
-            o += 4;
-          }
-        }
+    if (!this.small) {
+      const canvas = document.createElement('canvas');
+      canvas.width = FW;
+      canvas.height = FH;
+      const c = canvas.getContext('2d');
+      if (!c) return;
+      this.small = { canvas, ctx: c, img: c.createImageData(FW, FH) };
+      // La trame : un carre de S texels, blanc, sa derniere rangee et sa derniere colonne a 86 %
+      const tile = document.createElement('canvas');
+      tile.width = S;
+      tile.height = S;
+      const t = tile.getContext('2d');
+      if (t) {
+        t.fillStyle = 'rgb(219, 219, 219)';
+        t.fillRect(0, 0, S, S);
+        t.fillStyle = '#ffffff';
+        t.fillRect(0, 0, S - 1, S - 1);
+        this.grid = ctx.createPattern(tile, 'repeat');
       }
     }
-    ctx.putImageData(img, 0, 0);
+    const sm = this.small;
+    const d = sm.img.data;
+    const tones = [off, dim, full];
+    for (let i = 0, o = 0; i < this.px.length; i += 1, o += 4) {
+      const c = tones[this.px[i]];
+      d[o] = c[0];
+      d[o + 1] = c[1];
+      d[o + 2] = c[2];
+      d[o + 3] = 255;
+    }
+    sm.ctx.putImageData(sm.img, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.globalCompositeOperation = 'copy';
+    ctx.drawImage(sm.canvas, 0, 0, FW * S, FH * S);
+    if (this.grid) {
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = this.grid;
+      ctx.fillRect(0, 0, FW * S, FH * S);
+    }
+    ctx.globalCompositeOperation = 'source-over';
   }
 }

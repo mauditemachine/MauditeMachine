@@ -365,7 +365,7 @@ function buildSetups(): RotoSetup[] {
       dj('adddeck', 'ADD DECK', C.white),
       b('nav:prev', 'PREV MACHINE', C.white),
       b('nav:next', 'NEXT MACHINE', C.white),
-      b('nav:all', 'ALL MACHINES', C.white),
+      b('nav:all', 'MM-STUDIO', C.white),
       // 4 : le temps des effets
       dj('time1', 'FX TIME 1/4', C.purple),
       dj('time2', 'FX TIME 1/2', C.purple),
@@ -381,6 +381,7 @@ function buildSetups(): RotoSetup[] {
     slot: 15,
     ch: 5,
     knobs: [
+      // Page 1 : le son ; page 2 : les grains (2026-10-05 : SCAN, la vitesse de la tete, remplace SPREAD)
       k('smpl:knob:level', 'LEVEL', C.white),
       mid(k('smpl:knob:pitch', 'PITCH', C.white)),
       k('smpl:knob:start', 'START', C.yellow),
@@ -388,8 +389,9 @@ function buildSetups(): RotoSetup[] {
       k('smpl:knob:attack', 'ATTACK', C.yellow),
       k('smpl:knob:release', 'RELEASE', C.yellow),
       mid(k('smpl:knob:filter', 'FILTER', C.orange)),
-      k('smpl:knob:spread', 'SPREAD', C.cyan),
+      null,
       k('smpl:knob:position', 'POSITION', C.cyan),
+      mid(k('smpl:knob:scan', 'SCAN', C.cyan)),
       k('smpl:knob:size', 'GRAIN SIZE', C.cyan),
       k('smpl:knob:density', 'DENSITY', C.cyan),
       k('smpl:knob:spray', 'SPRAY', C.cyan),

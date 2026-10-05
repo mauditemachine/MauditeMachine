@@ -40,6 +40,16 @@ export function machinePlaying(m: MachineId): boolean {
 }
 
 /**
+ * Quelque chose joue, quelque part (2026-10-05) : le son ne dort pas quand
+ * l'onglet se cache (une autre fenetre devant, une autre app), la page ne
+ * se recharge pas sous la musique. La sequence du MM-SMPL compte meme entre
+ * deux pas.
+ */
+export function anyPlaying(): boolean {
+  return clock.running || arp.get().running || djPlaying() || smplPlaying() || !!smplLoad.get()?.smplSeq.get().running;
+}
+
+/**
  * Chaque machine qui se met a jouer (une transition, pas un etat) ; rend
  * de quoi se desabonner.
  */

@@ -12,7 +12,8 @@
     "postbuild": "node scripts/prerender-seo.mjs",
     "sitemap": "node scripts/generate-sitemap.mjs",
     "preview": "vite preview --open",
-    "stats": "node scripts/fetch-stats.mjs"
+    "stats": "node scripts/fetch-stats.mjs",
+    "manual:smpl": "node scripts/smpl-manual/make.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -81,7 +81,7 @@ const SHORT: Record<MachineId, { label: string; aria: string }> = {
 
 const HeaderMachines: React.FC = () => {
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
-  const items: readonly { id: Focus; label: string; aria: string }[] = [{ id: 'all', label: 'ALL', aria: 'All the machines' }, ...MACHINES.map((id) => ({ id, ...SHORT[id] }))];
+  const items: readonly { id: Focus; label: string; aria: string }[] = [{ id: 'all', label: 'STUDIO', aria: 'MM-STUDIO, all the machines' }, ...MACHINES.map((id) => ({ id, ...SHORT[id] }))];
   return (
     <nav className="v4-hmachines" aria-label="Machines">
       {items.map((it) => (

@@ -35,6 +35,8 @@ import './v4.css';
 import { attachStage } from './midi/targets';
 import { gesture } from './actions';
 import { clock } from './audio/clock';
+import { reserve } from './audio/sched';
+import { anyPlaying } from './state/playLock';
 import { quiet, resume, suspend } from './audio/drums';
 import { pattern } from './audio/pattern';
 import { shots } from './audio/shots';
@@ -70,6 +72,7 @@ import { HitLayer, Twins } from './ui/Hotspots';
 import { MachineNav } from './ui/MachineNav';
 import { SeqPanel } from './ui/SeqLane';
 import { RytmSamples } from './ui/RytmSamples';
+import { SmplInfo } from './ui/SmplInfo';
 import { VoyDock } from './ui/VoyDock';
 import { VoyTwins } from './ui/VoyTwins';
 import { Lcd } from './ui/Lcd';
@@ -315,7 +318,8 @@ function useShapeReload(): void {
     const onChange = (): void => {
       window.clearTimeout(t);
       t = window.setTimeout(() => {
-        if (mql.matches !== PORTRAIT) window.location.reload();
+        // Jamais sous la musique (2026-10-05) : la forme changera au prochain passage a l'arret
+        if (mql.matches !== PORTRAIT && !anyPlaying()) window.location.reload();
       }, 600);
     };
     mql.addEventListener('change', onChange);
@@ -362,10 +366,11 @@ const V4Shell: React.FC = () => {
   const scStatus = useSyncExternalStore(sc.subscribe, () => sc.get().status);
   const exploded = useSyncExternalStore(explode.subscribe, explode.get, explode.get);
   const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
-  // Les one-shots du MM-RYTM se calculent (worker) des que l'intro est finie : prets avant RUN
+  // Les one-shots du MM-RYTM se calculent (worker) des le chargement, pendant l'intro (2026-10-05 : plus a
+  // sa fin) : prets avant RUN, jamais calcules sur le fil principal pendant la lecture
   useEffect(() => {
-    if (introState === 'done') shots.prewarm();
-  }, [introState]);
+    shots.prewarm();
+  }, []);
   const viewMoved = useSyncExternalStore(view.subscribe, view.get, view.get);
   // Deux machines (2026-10-03) : celle qu'on utilise
   const machineFocus = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
@@ -422,8 +427,12 @@ const V4Shell: React.FC = () => {
         setGl('fallback');
       },
       onContextRestored: () => setGl('webgl'),
-      // Onglet cache ou canvas hors ecran : le son dort avec le rendu
-      onVisibility: (visible) => (visible ? resume() : suspend()),
+      // Onglet cache ou canvas hors ecran : le rendu dort ; le son aussi, sauf si quelque chose joue
+      // (2026-10-05 : une autre fenetre devant ou une autre app ne coupe plus la musique)
+      onVisibility: (visible) => {
+        if (visible) resume();
+        else if (!anyPlaying()) suspend();
+      },
     });
     if (!stage) {
       setGl('fallback');
@@ -435,6 +444,9 @@ const V4Shell: React.FC = () => {
     // Un premier montage en echec (StrictMode, contexte sature) ne fige pas le repli
     setGl('webgl');
     return () => {
+      // La scene se reconstruit (Dark / Light, ADD DECK, REMOVE DECK : plusieurs secondes de fil principal
+      // au telephone) : la musique est programmee d'avance, elle ne s'arrete pas (2026-10-05)
+      reserve(3);
       stageRef.current = null;
       setStage(null);
       stage.dispose();
@@ -525,10 +537,12 @@ const V4Shell: React.FC = () => {
           {/* Hors de .v4-stage : ses pointeurs n'atteignent jamais l'orbite */}
           <ResetView getStage={getStage} />
           <Lcd />
-          {/* Capot ouvert : l'oscilloscope (2026-10-04, ui/Scope.tsx) */}
-          <Scope mobile={mobile} />
+          {/* MM-ARP ouvert : sa touche SCOPE et l'oscilloscope (2026-10-04, ui/Scope.tsx) */}
+          <Scope mobile={mobile} getStage={getStage} />
           {/* Capot du MM-RYTM ouvert : tes samples (2026-10-05, ui/RytmSamples.tsx) */}
           <RytmSamples mobile={mobile} getStage={getStage} />
+          {/* Le MM-SMPL : sa touche INFO, le mode d'emploi en PDF (2026-10-05, ui/SmplInfo.tsx) */}
+          {SMPL && <SmplInfo getStage={getStage} />}
           {/* Le Dock n'existe que sur la mise en page mobile : pas de rendu React par pas sur desktop ; il programme la 808 */}
           {/* EDIT ouvert (2026-10-04) : l'editeur prend la place du Dock de sa machine */}
           {mobile && machineFocus !== 'voy' && machineFocus !== 'dj' && machineFocus !== 'smpl' && editorOpen !== 'mm808' && <Dock getStage={getStage} />}

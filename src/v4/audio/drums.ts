@@ -120,6 +120,10 @@ export interface Voice {
   nodes: AudioNode[];
   /** un kick : ce qu'il joue (le SIDECHAIN du MM-ARP s'y cale) */
   kick?: KickPlay;
+  /** un charley : le charley ouvert qu'il etouffe a `when` (une annulation le lui rend, 2026-10-05) */
+  choked?: { gate: GainNode; end: number };
+  /** un charley ouvert : sa porte */
+  gate?: GainNode;
 }
 
 /** Le compresseur commun (la batterie et le MM-ARP), reglable par les tests (__v4.audio.comp). */
@@ -362,6 +366,23 @@ export function ensure(): AudioContext | undefined {
   }
   created += 1;
   graph = build(ctx);
+  // iPhone (Safari 17+) : une session de lecture, la musique ne s'efface pas pour un son du systeme (2026-10-05)
+  try {
+    const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+    if (session) session.type = 'playback';
+  } catch {
+    /* pas de session audio : rien */
+  }
+  // Les reverbes construites d'avance, en temps libre : leur premier tour ne gele plus la musique (2026-10-05)
+  const g0 = graph;
+  const ric = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+  const warmSends = (): void => {
+    if (graph !== g0) return;
+    g0.reverb.warm();
+    g0.arpReverb.warm();
+  };
+  if (ric) ric(warmSends, { timeout: 3000 });
+  else window.setTimeout(warmSends, 1500);
   // Les one-shots a STRETCH 0, un par tache (audio/shots.ts)
   shots.warm(ctx.sampleRate);
   // Le chorus sans interpolation lineaire (audio/chorus.worklet.js) : pret pour la premiere branche
@@ -491,12 +512,15 @@ export function routeMachines(to: { rytm: AudioNode; arp: AudioNode } | null): v
     [g.rytmOut, was.rytm, to?.rytm],
     [g.arpOut, was.arp, to?.arp],
   ] as const) {
+    // La nouvelle prise d'abord, l'ancienne ensuite : pas un instant sans son (2026-10-05)
+    const next = dest ?? g.analyser;
+    if (next === from) continue;
+    out.connect(next);
     try {
       out.disconnect(from);
     } catch {
       /* deja debranchee */
     }
-    out.connect(dest ?? g.analyser);
   }
   routed = to;
 }
@@ -534,12 +558,18 @@ function chokeOH(when: number): void {
  * qui sonne encore (choke) ; le charley ouvert passe par sa porte. `open` :
  * le pad CH tenu (CHopen).
  */
-function voice(g: Graph, inst: Inst, when: number, open: boolean, dest: AudioNode, pf: number, ts: number, sync = false, decay = 1): Voice {
+function voice(g: Graph, inst: Inst, when: number, open: boolean, dest: AudioNode, pf: number, ts: number, sync = false, decay = 1): Voice | null {
   const c = g.ctx;
   const id: ShotId = inst === 'CH' && open ? 'CHopen' : inst;
-  if (inst === 'CH' || inst === 'OH') chokeOH(when);
-  const src = c.createBufferSource();
+  // Rien de pret pour ce son (le tout premier coup, avant le prechauffage) : il ne joue pas, aucun calcul ici
   const shot = shots.get(id, ts, pf, c.sampleRate, sync);
+  if (!shot) return null;
+  let choked: { gate: GainNode; end: number } | undefined;
+  if (inst === 'CH' || inst === 'OH') {
+    if (ohGate && ohEnd > when) choked = { gate: ohGate, end: ohEnd };
+    chokeOH(when);
+  }
+  const src = c.createBufferSource();
   src.buffer = shot.buf;
   // 1 : l'echantillon est deja a sa hauteur (aucune interpolation) ; sinon, en attendant, le plus proche relu
   src.playbackRate.value = shot.rate;
@@ -557,6 +587,7 @@ function voice(g: Graph, inst: Inst, when: number, open: boolean, dest: AudioNod
     const end = when + DECAY_HOLD_S + 7 * tau;
     if (end < when + shot.buf.duration / shot.rate) stopAt = end;
   }
+  let ownGate: GainNode | undefined;
   if (inst === 'OH') {
     const gate = c.createGain();
     gate.gain.value = 1;
@@ -565,6 +596,7 @@ function voice(g: Graph, inst: Inst, when: number, open: boolean, dest: AudioNod
     nodes.push(gate);
     ohGate = gate;
     ohEnd = when + shot.buf.duration / shot.rate;
+    ownGate = gate;
   } else src.connect(dest);
   src.onended = () => {
     for (const n of nodes) n.disconnect();
@@ -573,7 +605,7 @@ function voice(g: Graph, inst: Inst, when: number, open: boolean, dest: AudioNod
   if (stopAt > 0) src.stop(stopAt);
   // Un kick : son enveloppe, a sa vitesse, avec son DECAY (le SIDECHAIN du MM-ARP)
   const kick = inst === 'BD' ? { env: kickEnvelope(shot.buf), rate: shot.rate, hold: DECAY_HOLD_S, tau, vel: 1 } : undefined;
-  return { when, srcs: [src], nodes, kick };
+  return { when, srcs: [src], nodes, kick, choked, gate: ownGate };
 }
 
 /**
@@ -599,6 +631,10 @@ export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], 
     dest = vg;
   }
   const v = voice(g, inst, t, open, dest, voicePitch(inst, tone), voiceTime(stretch), false, voiceFx.of(inst).decay);
+  if (!v) {
+    vg?.disconnect();
+    return false;
+  }
   // Le gain part avec la voix (meme liste de noeuds a debrancher)
   if (vg) v.nodes.push(vg);
   // Un kick : le MM-ARP s'efface avec lui (SIDECHAIN), a sa velocite et a son VOLUME
@@ -620,6 +656,18 @@ export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], 
  */
 export function cancelVoice(v: Voice): void {
   if (v.kick) graph?.duck.cancel(v);
+  // Un charley annule (re-programmation, 2026-10-05) : le charley ouvert qu'il etouffait sonne de nouveau
+  // (annulees du dernier au premier, les portes reviennent dans l'ordre)
+  if (v.choked) {
+    v.choked.gate.gain.cancelScheduledValues(v.when);
+    if (ohGate === null || ohGate === v.gate) {
+      ohGate = v.choked.gate;
+      ohEnd = v.choked.end;
+    }
+  } else if (v.gate && ohGate === v.gate) {
+    ohGate = null;
+    ohEnd = 0;
+  }
   for (const s of v.srcs) {
     s.onended = null;
     try {
@@ -874,7 +922,8 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
         osc.start(0);
       }
     } else if (o.single) {
-      voices.push(voice(g, o.single, 0.05, false, voiceIn(g, o.single), voicePitch(o.single, tone0, vt(o.single)), ts0, true, vd(o.single)));
+      const v = voice(g, o.single, 0.05, false, voiceIn(g, o.single), voicePitch(o.single, tone0, vt(o.single)), ts0, true, vd(o.single));
+      if (v) voices.push(v);
     } else {
       const steps = o.steps ?? pattern.get().steps;
       const step = 60 / (o.bpm ?? pattern.get().bpm) / 4;
@@ -889,7 +938,8 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
             vg.connect(dest);
             dest = vg;
           }
-          voices.push(voice(g, inst, t, false, dest, voicePitch(inst, tone0, vt(inst)), ts0, true, vd(inst)));
+          const vo = voice(g, inst, t, false, dest, voicePitch(inst, tone0, vt(inst)), ts0, true, vd(inst));
+          if (vo) voices.push(vo);
         }
       }
     }

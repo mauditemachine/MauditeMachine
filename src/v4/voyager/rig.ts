@@ -43,6 +43,7 @@ import { seq } from './seq';
 import { VoySilk } from './silk';
 import { VoyTweaks } from './tweaks';
 import { VOY_BODY, VOY_COPY, VOY_EXPLODE, VOY_LCD, VOY_LID_W, VOY_PANEL, VOY_PCB_Y, VOY_X } from './theme';
+import { reserve } from '../audio/sched';
 
 export interface VoyRigOpts {
   mobile: boolean;
@@ -357,6 +358,8 @@ export class VoyagerRig {
       changed = true;
     } else if (goal !== this.explodeGoal) {
       this.explodeGoal = goal;
+      // Le capot s'ouvre : la musique est programmee d'avance (2026-10-05, audio/sched.ts)
+      if (goal) reserve(1.2);
       if (goal) this.pcb.prepare();
       if (s === 'opening' || s === 'closing') this.explode.start(goal, performance.now(), this.opts.reduced());
       else this.explode.snap(goal);

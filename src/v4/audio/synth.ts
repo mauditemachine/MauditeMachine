@@ -268,6 +268,15 @@ export function noteOn(midi: number, time: number, gate: number, from: number | 
   return true;
 }
 
+/**
+ * Re-programmation de l'arpegiateur (2026-10-05) : les notes attendues a
+ * partir de `from` (temps du contexte) sont oubliees, ce qui sonne continue.
+ */
+export function synthCancel(from: number): void {
+  for (let i = early.length - 1; i >= 0; i -= 1) if (early[i].time >= from) early.splice(i, 1);
+  if (sg) sg.node.port.postMessage({ type: 'cancel', time: from });
+}
+
 /** STOP de l'arpegiateur : plus rien d'attendu, ce qui sonne s'eteint en 12 ms. */
 export function synthStop(): void {
   early.length = 0;

@@ -17,6 +17,7 @@
 
 import { glide } from '../audio/glide';
 import { synthPort } from '../audio/drums';
+import { reserve } from '../audio/sched';
 import { decodeAudio } from './decode';
 import { CROSSOVER, bandEnergy, bandGain, bandOverview, beatsToSeconds, dbToGain, eqDb, energy, faderGain, filterOf, fxMix, speedOf } from './math';
 import { DJ_CHANNELS_MAX, DJ_FX, deckChannel, type DjDeck, type DjFxId } from './theme';
@@ -547,8 +548,12 @@ export class DjPlayer {
     this.loopAB = null;
     this.buffer = null;
     this.startPos = 0;
+    // Le decodeur de repli (AIFF) et les formes d'onde tournent sur le fil principal : la musique des autres
+    // machines est programmee d'avance (2026-10-05, audio/sched.ts), elle ne se coupe pas
+    reserve(2.5);
     // Le navigateur, puis notre decodeur (AIFF, WAV atypiques) : dj/decode.ts
     const buffer = await decodeAudio(this.ctx, bytes);
+    reserve(2);
     const chans = Array.from({ length: buffer.numberOfChannels }, (_, c) => buffer.getChannelData(c));
     this.overview = energy(chans, OVERVIEW_SLICES);
     this.detail = energy(chans, Math.max(1, Math.floor(buffer.duration * DETAIL_RATE)));

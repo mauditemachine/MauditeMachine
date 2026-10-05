@@ -14,14 +14,20 @@
  * pour se deplacer), chaque barre un curseur (haut et bas).
  * La tete de lecture suit le sequenceur (state/playhead.ts).
  * 2026-10-05 (Mika : "le contenu de EDIT doit s'ouvrir a l'interieur de la
- * machine, pas en dessous") : au desktop, EDIT ne l'ouvre plus (les steps
- * de la machine deviennent les seize patterns, state/patterns.ts) ; au
- * telephone, ou tout est sous la machine, le panneau reste, les patterns en
- * tete (taper : le pattern, d'autres dans les deux secondes : la chaine ;
- * tenir un vide : y copier le courant).
+ * machine, pas en dessous") : les seize patterns en tete (taper : le
+ * pattern, d'autres dans les deux secondes : la chaine ; tenir un vide : y
+ * copier le courant). Puis (Mika : "avant, EDIT affichait un ecran ou je
+ * pouvais ecrire les notes, je ne le vois plus ; je le voulais a la place
+ * des steps du bas, je pouvais voir les velocites, le faire a la souris ;
+ * garde aussi l'enchainement et le changement de pattern la-dedans") : au
+ * desktop, l'editeur revient, pose sur la machine a la place de sa rangee
+ * de pas (il la couvre et la suit a chaque image) ; ses seize colonnes
+ * tombent sur les seize pas, les patterns sur une rangee au-dessus, les
+ * rangees a la hauteur qui tient jusqu'au bas de la fenetre. Le cadrage ne
+ * bouge pas. Au telephone, le panneau sous la machine reste.
  */
 
-import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
 import { gesture, patternHold, patternTap } from '../actions';
 import { INSTRUMENTS, STEP_COUNT, VEL_MAX, VEL_NAMES, pattern, velocity } from '../audio/pattern';
 import type { Stage } from '../scene/renderer';
@@ -226,6 +232,12 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
   return (
     <div className="v4-seq-body v4-beat-body" data-variant={variant} data-edit="1">
       {variant === 'mobile' && <PatternStrip />}
+      {variant === 'desk' && (
+        <div className="v4-beat-main v4-beat-ptnrow">
+          <span className="v4-beat-lanelabel">PTN</span>
+          <PatternStrip />
+        </div>
+      )}
       <div className="v4-seq-head">
         <span className="v4-seq-title">PATTERN</span>
         <span className="v4-seq-chord" aria-live="polite">
@@ -242,7 +254,7 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
         >
           CLEAR {row}
         </button>
-        {variant === 'desk' && <span className="v4-seq-hint">Tap or drag to place hits. Draw the velocities below.</span>}
+        {variant === 'desk' && <span className="v4-seq-hint">Tap or drag to place hits, draw the velocities below. Patterns: tap to play, tap tap to chain, hold an empty one to copy.</span>}
         <button type="button" className="v4-seq-done" aria-label="Close the pattern editor" onClick={() => editor.close()}>
           DONE
         </button>
@@ -350,12 +362,65 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
   );
 };
 
-/** Le panneau, sous le MM-RYTM quand son pad EDIT l'a ouvert : au telephone seulement (2026-10-05). */
+/**
+ * Desktop : le panneau pose sur la machine, a la place de sa rangee de pas
+ * (les LED, les seize touches, leurs numeros) ; sa grille sur les pas 1 a
+ * 16, la colonne des voix a gauche du pas 1 ; les rangees a la hauteur qui
+ * tient jusqu'au bas de la fenetre. Il suit chaque vue (Stage.onView).
+ */
+function useOnMachine(stage: Stage | null, on: boolean, ref: RefObject<HTMLElement | null>): void {
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || !stage || !on) return undefined;
+    let last = '';
+    const place = (): void => {
+      const ids = stage.hit.ids();
+      const r = stage.hit.rects();
+      const i0 = ids.indexOf('step-1');
+      const i1 = ids.indexOf('step-16');
+      if (i0 < 0 || i1 < 0) return;
+      const cr = stage.renderer.domElement.getBoundingClientRect();
+      const host = el.offsetParent instanceof HTMLElement ? el.offsetParent.getBoundingClientRect() : { left: 0, top: 0, bottom: window.innerHeight };
+      const x0 = r[i0 * 4];
+      const y0 = r[i0 * 4 + 1];
+      const h0 = r[i0 * 4 + 3];
+      const x1 = r[i1 * 4] + r[i1 * 4 + 2];
+      const pad = 8;
+      const names = ON_MACHINE.names + pad;
+      const left = cr.left - host.left + x0 - names;
+      const width = x1 - x0 + names + pad;
+      // Le haut : au-dessus des LED des pas (une hauteur de touche plus haut)
+      const top = Math.max(60, cr.top - host.top + y0 - h0 * 1.15);
+      const room = host.bottom - host.top - top - 12;
+      const row = Math.max(ON_MACHINE.rowMin, Math.min(ON_MACHINE.rowMax, Math.floor((room - ON_MACHINE.fixed) / 10) - 2));
+      const key = `${Math.round(left)}|${Math.round(top)}|${Math.round(width)}|${row}`;
+      if (key === last) return;
+      last = key;
+      el.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
+      el.style.width = `${Math.round(width)}px`;
+      el.style.setProperty('--beat-row', `${row}px`);
+    };
+    place();
+    const a = stage.onView(place);
+    const b = stage.onIdle(place);
+    window.addEventListener('resize', place);
+    return () => {
+      a();
+      b();
+      window.removeEventListener('resize', place);
+    };
+  }, [stage, on, ref]);
+}
+
+/** Les mesures du panneau pose sur la machine (px) : la colonne des voix et son jour (38 + 6), ce qui n'est pas la grille, la hauteur d'une rangee. */
+const ON_MACHINE = { names: 44, fixed: 140, rowMin: 10, rowMax: 17 } as const;
+
+/** Le panneau du MM-RYTM ouvert par son pad EDIT : sur la machine au desktop, sous elle au telephone. */
 export const BeatPanel: React.FC<{ stage: Stage | null; mobile: boolean }> = ({ stage, mobile }) => {
-  const { shown, ref } = useEditorPanel('mm808', stage);
-  if (!mobile) return null;
+  const { shown, ref } = useEditorPanel('mm808', stage, { inset: mobile });
+  useOnMachine(stage, shown && !mobile, ref);
   return (
-    <section ref={ref} className="v4-seq v4-beat" data-shown={shown ? '1' : '0'} aria-label="Pattern editor" aria-hidden={!shown}>
+    <section ref={ref} className="v4-seq v4-beat" data-place={mobile ? 'below' : 'machine'} data-shown={shown ? '1' : '0'} aria-label="Pattern editor" aria-hidden={!shown}>
       <BeatEditor variant={mobile ? 'mobile' : 'desk'} />
     </section>
   );

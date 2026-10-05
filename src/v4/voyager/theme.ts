@@ -651,6 +651,17 @@ export const VOY_TWEAK_CELLS: readonly { id: VoyTweakCell; x: number; z: number 
 export const VOY_TWEAK_TITLE_W = PORTRAIT ? 1.75 : 1.4;
 
 /**
+ * La touche SCOPE (2026-10-05, Mika : "le Scope, un bouton a l'interieur de
+ * OPEN du MM-ARP") : sur la plaque, sous TWEAKS et ANALOG CONTROL, a la
+ * place de la ligne du modele (repere de la plaque : centre, largeur,
+ * profondeur ; ui/Scope.tsx la pose et la suit).
+ */
+export const VOY_SCOPE_KEY = (() => {
+  const t = VOY_TWEAK_CELLS.find((c) => c.id === 'title') ?? { x: 0, z: 0 };
+  return PORTRAIT ? { x: t.x, z: t.z + 0.5, w: 1.3, d: 0.34, y: 0.02 } : { x: t.x, z: t.z + 0.5, w: 1.12, d: 0.3, y: 0.02 };
+})();
+
+/**
  * Les bouts de course ecrits sous chaque potard (gauche : 0, droite : 10) ;
  * SYNC, un commutateur, porte OFF et ON a ses reperes.
  */

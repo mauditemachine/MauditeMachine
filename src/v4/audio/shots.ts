@@ -13,8 +13,10 @@
  * - Un coup dont l'echantillon n'est pas pret prend le plus proche deja
  *   calcule : meme frequence et STRETCH voisin, sinon l'autre frequence (le
  *   navigateur reechantillonne), sinon une autre variante ; et le bon part
- *   en file. Aucun : calcule tout de suite (le rendu hors ligne passe
- *   toujours par la, sync).
+ *   en file. Aucun (2026-10-05) : ce coup ne joue pas et son son passe en
+ *   tete de file. Jamais de calcul sur le fil principal pendant la lecture :
+ *   100 a 250 ms qui gelaient l'ordonnanceur au premier RUN (le son se
+ *   coupait). Le rendu hors ligne (sync) calcule toujours tout de suite.
  * - Les sons bruites ont plusieurs variantes, tirees au hasard, jamais deux
  *   fois la meme de suite.
  * - TONE (2026-10-04, pour l'ecoute aux intra-auriculaires) : un coup
@@ -75,7 +77,7 @@ const queue: Job[] = [];
 let busy: Job | null = null;
 /** undefined : pas encore essaye ; null : pas de worker (calcul sur le fil principal). */
 let worker: Worker | null | undefined;
-const stats = { rendered: 0, ms: 0, sync: 0, nearest: 0, inWorker: 0 };
+const stats = { rendered: 0, ms: 0, sync: 0, nearest: 0, inWorker: 0, skipped: 0 };
 /** La derniere variante jouee de chaque son. */
 const lastVar = new Map<ShotId, number>();
 
@@ -182,13 +184,21 @@ function pump(): void {
   }, 0);
 }
 
-function enqueue(id: ShotId, k: number, v: number, sr: number, pk = 0): void {
+function enqueue(id: ShotId, k: number, v: number, sr: number, pk = 0, first = false): void {
   const sig = kit.sig(id);
   const key = cacheKey(id, k, v, sr, pk, sig);
-  if (cache.has(key) || busy?.key === key || queue.some((j) => j.key === key)) return;
+  if (cache.has(key) || busy?.key === key) return;
+  const at = queue.findIndex((j) => j.key === key);
+  if (at >= 0) {
+    // Deja en file : en tete si un coup l'attend
+    if (first && at > 0) queue.unshift(...queue.splice(at, 1));
+    return;
+  }
   // Un reglage du kit tourne : les calculs en attente d'un reglage depasse de ce son ne servent plus
   for (let i = queue.length - 1; i >= 0; i -= 1) if (queue[i].id === id && queue[i].sig !== sig) queue.splice(i, 1);
-  queue.push({ key, id, sr, ts: keyTs(k), v, pk, tw: kit.tweak(id), sig });
+  const job = { key, id, sr, ts: keyTs(k), v, pk, tw: kit.tweak(id), sig };
+  if (first) queue.unshift(job);
+  else queue.push(job);
   pump();
 }
 
@@ -242,9 +252,10 @@ export const shots = {
   /**
    * L'echantillon d'un coup : sa variante (au hasard, jamais la derniere),
    * son STRETCH, sa hauteur (pf, TONE). sync : jamais d'approximation
-   * (rendu hors ligne).
+   * (rendu hors ligne), jamais null. Sans sync, null quand ce son n'a encore
+   * rien de pret (le coup ne joue pas, son son passe en tete de file).
    */
-  get(id: ShotId, ts: number, pf: number, sr: number, sync = false): ShotPlay {
+  get(id: ShotId, ts: number, pf: number, sr: number, sync = false): ShotPlay | null {
     const n = variantsOf(id);
     let v = n > 1 ? Math.floor(Math.random() * (n - 1)) : 0;
     if (n > 1 && v >= (lastVar.get(id) ?? -1)) v += 1;
@@ -277,6 +288,9 @@ export const shots = {
         enqueue(id, k, v, sr, pk);
         return { buf: best, rate: pf / keyPf(bestPk) };
       }
+      stats.skipped += 1;
+      enqueue(id, k, v, sr, pk, true);
+      return null;
     }
     stats.sync += 1;
     return { buf: makeNow({ key, id, sr, ts: keyTs(k), v, pk, tw: kit.tweak(id), sig }), rate: 1 };

@@ -12,7 +12,7 @@
  *   sont les pas de la sequence : taper pose ou enleve, glisser vers le
  *   haut ou le bas change la slice (son numero en gros) ;
  * - SAMPLE : LEVEL, PITCH, START, END, ATTACK, RELEASE, FILTER ;
- * - GRAIN : POSITION, SIZE, DENSITY, SPRAY, SPREAD.
+ * - GRAIN : POSITION, SCAN, SIZE, DENSITY, SPRAY (2026-10-05 : SCAN remplace SPREAD).
  * Memes actions et memes stores que la machine.
  */
 

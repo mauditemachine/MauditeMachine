@@ -115,7 +115,6 @@ export class Screen {
   readonly info: ScreenInfo;
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private img: ImageData;
   private pix = new PixelBuffer();
   private timer = 0;
   private unsubs: (() => void)[] = [];
@@ -146,7 +145,6 @@ export class Screen {
     const ctx = this.canvas.getContext('2d');
     if (!ctx) throw new Error('screen: no 2d context');
     this.ctx = ctx;
-    this.img = ctx.createImageData(W, H);
     // Mipmaps et anisotropie : l'ecran est vu de biais et reduit (sur un
     // telephone il fait 80 px de large), un simple filtre lineaire scintillerait
     this.texture = makeCanvasTexture(this.canvas, anisotropy);
@@ -260,7 +258,7 @@ export class Screen {
     if (this.blinkUntil > now || (rytmEdit && ptn.next >= 0) || this.slideFrom + SLIDE_MS > now || this.waveFrom > 0) next = ANIM_MS;
     // Les vumetres retombent entre deux pas (au telephone, l'ecran est trop petit : au pas seulement)
     if (!this.mobile && this.meters.some((v) => v > 0.02)) next = next || ANIM_MS * 2;
-    b.blit(this.ctx, this.img, OFF, DIM, FULL);
+    b.blit(this.ctx, OFF, DIM, FULL);
     this.done(s, now);
     return next;
   }

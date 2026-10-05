@@ -20,7 +20,13 @@ const GAP = 12;
 /** L'en-tete du desktop ; au telephone, le bas du selecteur des machines. */
 const HEAD_PX = 56;
 
-export function useEditorPanel(id: EditorId, stage: Stage | null): { shown: boolean; ref: RefObject<HTMLElement | null> } {
+/**
+ * inset false (2026-10-05, l'editeur du MM-RYTM pose sur la machine, a la
+ * place de sa rangee de pas) : le cadrage ne bouge pas, le panneau suit la
+ * machine (ui/BeatEditor.tsx).
+ */
+export function useEditorPanel(id: EditorId, stage: Stage | null, opts: { inset?: boolean } = {}): { shown: boolean; ref: RefObject<HTMLElement | null> } {
+  const inset = opts.inset !== false;
   const ed = useSyncExternalStore(editor.subscribe, editor.get, editor.get);
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
   const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
@@ -40,7 +46,7 @@ export function useEditorPanel(id: EditorId, stage: Stage | null): { shown: bool
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el || !stage) return undefined;
-    if (!shown) {
+    if (!shown || !inset) {
       stage.setInset(id, 0);
       return undefined;
     }
@@ -55,7 +61,7 @@ export function useEditorPanel(id: EditorId, stage: Stage | null): { shown: bool
     const ro = new ResizeObserver(apply);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [shown, stage, id]);
+  }, [shown, stage, id, inset]);
 
   return { shown, ref };
 }

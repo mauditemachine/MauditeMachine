@@ -1,7 +1,8 @@
 /**
  * Horloge du sequenceur (spec 9) : ordonnancement par anticipation sur
  * l'horloge AUDIO. Un setInterval de 25 ms reveille l'ordonnanceur, qui
- * programme sur ctx.currentTime chaque pas tombant dans les 100 ms a venir.
+ * programme sur ctx.currentTime chaque pas tombant dans l'horizon (300 ms
+ * depuis le 2026-10-05, audio/sched.ts ; 100 ms avant).
  * La grille est exacte : nextTime = ancre + n x stepDur, jamais une
  * mesure du temps ecoule ni une somme de pas (revue de la revision 2 : la
  * somme derivait de 1e-8 ms par minute, en flottants), et un pas programme
@@ -11,38 +12,44 @@
  *
  * Le rendu (LED, flash des pads, Dock) suit la position AUDIO avec
  * entryAt(ctx.currentTime), pas l'instant de programmation qui la precede
- * de 100 ms au plus. onStep() previent a chaque pas programme (reveil de la
+ * de l'horizon au plus. onStep() previent a chaque pas programme (reveil de la
  * boucle de rendu). CLEAR vide le motif sans arreter la lecture. STOP
  * annule les coups deja programmes qui n'ont pas encore sonne : un RUN
  * juste apres ne les entend pas par-dessus son premier pas, et une piste
- * SoundCloud qui demarre n'a pas 100 ms de batterie sur ses premieres notes.
+ * SoundCloud qui demarre n'a pas de batterie sur ses premieres notes.
  *
  * SWING (revision 2, spec 20.8) : les pas pairs (2, 4 ... 16, index
  * impairs) partent en retard de swing x un tiers de pas, sur le temps
  * programme lui-meme (jamais un minuteur) ; la grille attendue du journal
  * (expected) porte le meme retard, drift() se mesure donc contre la grille
- * swinguee. La valeur est lue a chaque pas programme : un reglage s'entend
- * au plus 100 ms plus tard (l'horizon), comme un changement de tempo.
+ * swinguee. La valeur est lue a chaque pas programme.
+ *
+ * L'avance (2026-10-05, audio/sched.ts ; Mika : "des que je fais un petit
+ * truc le son se coupe") : 300 ms devant (450 au telephone) au lieu de 100,
+ * et une re-programmation a chaque changement (un pas, un mute ou un solo,
+ * un son du kit, un reglage de voix, TONE, STRETCH, le tempo, le swing) :
+ * les coups pas encore partis (au-dela de 30 ms) sont annules et refaits,
+ * on entend le changement au pas suivant. Un tempo part du premier pas
+ * re-programme (plus d'attente de l'horizon). Les pas d'une mesure deja
+ * finie gardent leur motif (la chaine des patterns change de pattern au
+ * debut de la mesure suivante, avant que ses pas soient programmes), et le
+ * debut d'une mesure ne previent qu'une fois (onBar), meme re-programme ou
+ * saute.
  */
 
 import { voices } from '../state/voices';
 import { SWING } from '../theme';
-import { cancelVoice, context, trigger, type Voice } from './drums';
-import { INSTRUMENTS, STEP_COUNT, VEL_GAIN, pattern, velocity } from './pattern';
+import { voiceFx } from './voicefx';
+import { kit } from './kit';
+import { cancelVoice, context, mix, trigger, type Voice } from './drums';
+import { INSTRUMENTS, STEP_COUNT, VEL_GAIN, pattern, velocity, type Steps } from './pattern';
+import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, horizon, registerScheduler, type Scheduler } from './sched';
 
-/** Reveil de l'ordonnanceur, en ms. */
-export const TICK_MS = 25;
-/** Horizon de programmation, en s. */
-export const LOOKAHEAD_S = 0.1;
+export { LOOKAHEAD_S, TICK_MS } from './sched';
 /** Premier pas 50 ms apres RUN : le debut se programme proprement. */
 const START_DELAY_S = 0.05;
-/**
- * Un pas rate de plus de 50 ms (onglet gele, processeur sature) est saute
- * et compte, pas rattrape en rafale : la grille continue sans decalage.
- */
-const DROP_AFTER_S = 0.05;
-/** Garde-fou d'une boucle de programmation (une mesure entiere et plus). */
-const MAX_PER_TICK = 64;
+/** Garde-fou d'une boucle de programmation (une reserve de 4 s a 200 BPM tient dedans). */
+const MAX_PER_TICK = 96;
 const RING = 64;
 
 /** Un pas programme. */
@@ -93,12 +100,34 @@ let n = 0;
 let nextTime = 0;
 let step = 0;
 let seq = 0;
+/** le numero du pas depuis RUN (jamais remis a zero par un tempo) */
+let abs = 0;
+/** le dernier debut de mesure annonce (onBar) : une fois chacun */
+let barAbs = -1;
+/** onBar en cours : le pattern qu'il pose ne re-programme rien (il vaut pour la mesure qui commence) */
+let inBar = false;
 /** premier seq de la lecture en cours */
 let runFirst = 0;
-const ring: StepEvent[] = [];
-let head = 0;
+/** le journal des pas programmes, du plus ancien au plus recent (RING au plus) */
+const journal: StepEvent[] = [];
 /** voix programmees par la lecture en cours, pas encore toutes parties */
 const pending: Voice[] = [];
+
+/** Un pas programme qui n'a peut-etre pas encore sonne : de quoi le refaire. */
+interface Planned {
+  abs: number;
+  step: number;
+  /** la grille (sans le swing) et l'instant programme */
+  grid: number;
+  when: number;
+  voices: Voice[];
+  /** le motif qui l'a joue (une mesure finie garde le sien) */
+  steps: Steps;
+  seq: number;
+}
+const plan: Planned[] = [];
+/** re-programmation en cours : le motif des pas d'une mesure deja finie */
+const replay = new Map<number, Steps>();
 /** repli sans WebGL affiche : plus de machine, RUN refuse (index.tsx) */
 let locked = false;
 /**
@@ -121,6 +150,8 @@ const stats = {
   lastTick: 0,
   /** voix annulees par STOP depuis le chargement (jamais remis a zero) */
   cancelled: 0,
+  /** re-programmations (un changement pendant la lecture) depuis le chargement */
+  rescheduled: 0,
 };
 
 const runListeners = new Set<() => void>();
@@ -148,25 +179,35 @@ function resetStats(): void {
 }
 
 function push(e: StepEvent): void {
-  if (ring.length < RING) ring.push(e);
-  else ring[head] = e;
-  head = (head + 1) % RING;
+  journal.push(e);
+  if (journal.length > RING) journal.shift();
 }
 
 /** i = 0 : le pas le plus recemment programme. */
 function recent(i: number): StepEvent | undefined {
-  if (i >= ring.length) return undefined;
-  return ring[(head - 1 - i + 2 * RING) % RING];
+  return journal[journal.length - 1 - i];
+}
+
+/** Le debut d'une mesure : annonce une seule fois (meme re-programme, meme saute). */
+function bar(): void {
+  if (abs <= barAbs) return;
+  barAbs = abs;
+  const first = firstBar;
+  firstBar = false;
+  inBar = true;
+  try {
+    barListeners.forEach((fn) => fn(first));
+  } finally {
+    inBar = false;
+  }
 }
 
 /** Programme un pas : les voix a `when`, l'entree du journal, les ecouteurs. */
-function schedule(s: number, when: number, expected: number, now: number, off: number): void {
-  if (s === 0) {
-    const first = firstBar;
-    firstBar = false;
-    barListeners.forEach((fn) => fn(first));
-  }
-  const steps = pattern.get().steps;
+function schedule(s: number, when: number, expected: number, now: number, off: number, grid: number): void {
+  if (s === 0) bar();
+  // Un pas d'une mesure deja finie, re-programme : son motif d'alors (la chaine a pu changer de pattern depuis)
+  const steps = (abs < barAbs ? replay.get(abs) : undefined) ?? pattern.get().steps;
+  const vs: Voice[] = [];
   let mask = 0;
   for (let k = 0; k < INSTRUMENTS.length; k += 1) {
     const inst = INSTRUMENTS[k];
@@ -175,9 +216,11 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
     const vel = velocity(steps, inst, s);
     if (vel > 0 && voices.plays(inst)) {
       mask |= 1 << k;
-      trigger(inst, when, false, pending, VEL_GAIN[vel]);
+      trigger(inst, when, false, vs, VEL_GAIN[vel]);
     }
   }
+  for (const v of vs) pending.push(v);
+  plan.push({ abs, step: s, grid, when, voices: vs, steps, seq });
   const e: StepEvent = { seq, step: s, when, expected, at: now, mask, off };
   seq += 1;
   push(e);
@@ -194,13 +237,18 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
   stepListeners.forEach((fn) => fn(e));
 }
 
-/** Oublie les voix deja parties (compactage sur place, aucune allocation). */
+/** Oublie les voix deja parties et les pas passes (compactage sur place, aucune allocation). */
 function prune(now: number): void {
   let k = 0;
   for (let i = 0; i < pending.length; i += 1) {
     if (pending[i].when >= now) pending[k++] = pending[i];
   }
   pending.length = k;
+  k = 0;
+  for (let i = 0; i < plan.length; i += 1) {
+    if (plan[i].when >= now) plan[k++] = plan[i];
+  }
+  plan.length = k;
 }
 
 function tick(): void {
@@ -214,8 +262,8 @@ function tick(): void {
   // Contexte suspendu (onglet cache) : currentTime est fige, rien ne part
   const now = c.currentTime;
   prune(now);
-  const horizon = now + LOOKAHEAD_S;
-  for (let guard = 0; nextTime < horizon && guard < MAX_PER_TICK; guard += 1) {
+  const until = horizon(now);
+  for (let guard = 0; nextTime < until && guard < MAX_PER_TICK; guard += 1) {
     // Nouveau tempo : il part de cette frontiere de pas, la grille s'y reancre
     if (pendingDur > 0) {
       stepDur = pendingDur;
@@ -223,18 +271,74 @@ function tick(): void {
       anchor = nextTime;
       n = 0;
     }
-    if (nextTime < now - DROP_AFTER_S) stats.dropped += 1;
-    else {
+    if (nextTime < now - DROP_AFTER_S) {
+      stats.dropped += 1;
+      // Saute, le debut de mesure compte quand meme : la chaine des patterns ne prend pas de retard
+      if (step === 0) bar();
+    } else {
       // SWING : un pas pair (index impair) part plus tard, jamais au-dela d'un tiers de pas
       const off = (step & 1) === 1 ? pattern.fx.get().swing * SWING.maxDelay * stepDur : 0;
-      schedule(step, nextTime + off, anchor + n * stepDur + off, now, off);
+      schedule(step, nextTime + off, anchor + n * stepDur + off, now, off, nextTime);
     }
     // Depuis l'ancre, pas par addition : aucune erreur qui s'accumule
     n += 1;
+    abs += 1;
     nextTime = anchor + n * stepDur;
     step = (step + 1) % STEP_COUNT;
   }
 }
+
+/**
+ * Un changement (pas, mute, son, reglage, tempo, swing) : les pas
+ * programmes qui n'ont pas encore sonne (au-dela de GUARD_S) sont annules,
+ * du dernier au premier (les etouffements de charley se defont dans
+ * l'ordre), et refaits tout de suite avec ce qui vaut maintenant ; un
+ * tempo en attente part du premier d'entre eux.
+ */
+function reschedule(): void {
+  if (!running) return;
+  const c = context();
+  if (!c) return;
+  const now = c.currentTime;
+  prune(now);
+  const edge = now + GUARD_S;
+  const i = plan.findIndex((x) => x.when > edge);
+  if (i < 0) return;
+  const first = plan[i];
+  const dead = new Set<Voice>();
+  for (let k = plan.length - 1; k >= i; k -= 1) {
+    const x = plan[k];
+    for (let j = x.voices.length - 1; j >= 0; j -= 1) {
+      cancelVoice(x.voices[j]);
+      dead.add(x.voices[j]);
+    }
+    replay.set(x.abs, x.steps);
+  }
+  let w = 0;
+  for (let k = 0; k < pending.length; k += 1) if (!dead.has(pending[k])) pending[w++] = pending[k];
+  pending.length = w;
+  plan.length = i;
+  while (journal.length > 0 && journal[journal.length - 1].seq >= first.seq) journal.pop();
+  // La grille repart du premier pas annule (le tempo en attente aussi)
+  abs = first.abs;
+  step = first.step;
+  anchor = first.grid;
+  nextTime = first.grid;
+  n = 0;
+  if (pendingDur > 0) {
+    stepDur = pendingDur;
+    pendingDur = 0;
+  }
+  stats.rescheduled += 1;
+  tick();
+  replay.clear();
+}
+
+const me: Scheduler = { tick, reschedule, order: 0 };
+registerScheduler(me);
+const ask = (): void => {
+  if (running && !inBar) askReschedule(me);
+};
 
 const emit = (): void => runListeners.forEach((fn) => fn());
 
@@ -247,8 +351,22 @@ function setBpm(b: number): void {
   else stepDur = d;
 }
 
-// Le tempo suit le store du motif (TEMPO, tests, rechargement)
-pattern.subscribe(() => setBpm(pattern.get().bpm));
+// Le tempo suit le store du motif (TEMPO, tests, rechargement) ; tout ce qui change un coup le re-programme
+pattern.subscribe(() => {
+  setBpm(pattern.get().bpm);
+  ask();
+});
+pattern.fx.subscribe(ask);
+voices.subscribe(ask);
+voiceFx.subscribe(ask);
+kit.subscribe(ask);
+let mixKey = '';
+mix.subscribe(() => {
+  const k = `${mix.tone}|${mix.stretch}`;
+  if (k === mixKey) return;
+  mixKey = k;
+  ask();
+});
 
 function start(): boolean {
   if (running) return true;
@@ -263,6 +381,9 @@ function start(): boolean {
   nextTime = anchor;
   n = 0;
   step = g ? g.step : 0;
+  abs = 0;
+  barAbs = -1;
+  plan.length = 0;
   runFirst = seq;
   firstBar = true;
   resetStats();
@@ -274,7 +395,7 @@ function start(): boolean {
 }
 
 /**
- * STOP : les coups programmes qui n'ont pas encore sonne (100 ms au plus)
+ * STOP : les coups programmes qui n'ont pas encore sonne (l'horizon au plus)
  * sont annules. Ceux qui partent dans le quantum de rendu en cours (moins
  * de 3 ms) jouent jusqu'au bout : les couper net ferait un clic.
  */
@@ -294,13 +415,14 @@ function stop(): void {
     }
   }
   pending.length = 0;
+  plan.length = 0;
   emit();
 }
 
 /** Le dernier pas de la lecture en cours dont l'instant est passe a t (temps du contexte). */
 function entryAt(t: number): StepEvent | null {
   if (!running) return null;
-  for (let i = 0; i < ring.length; i += 1) {
+  for (let i = 0; i < journal.length; i += 1) {
     const e = recent(i);
     if (!e || e.seq < runFirst) return null;
     if (e.when <= t) return e;
@@ -392,7 +514,7 @@ export const clock = {
       barListeners.delete(fn);
     };
   },
-  /** Chaque pas programme, a l'instant de programmation (jusqu'a 100 ms avant l'echeance). */
+  /** Chaque pas programme, a l'instant de programmation (jusqu'a l'horizon avant l'echeance ; un pas re-programme previent de nouveau). */
   onStep(fn: (e: StepEvent) => void): () => void {
     stepListeners.add(fn);
     return () => {
@@ -416,9 +538,10 @@ export interface ClockDebug {
   resetStats(): void;
   /** le pas sous la tete de lecture maintenant (-1 a l'arret) */
   currentStep(): number;
-  /** voix programmees pas encore parties ; voix annulees par STOP (total) */
+  /** voix programmees pas encore parties ; voix annulees par STOP (total) ; re-programmations (total) */
   readonly pending: number;
   readonly cancelled: number;
+  readonly rescheduled: number;
   /** RUN refuse (repli sans WebGL affiche) */
   readonly locked: boolean;
 }
@@ -434,12 +557,7 @@ export const clockDebug: ClockDebug = {
     return stepDur;
   },
   get scheduled() {
-    const out: StepEvent[] = [];
-    for (let i = ring.length - 1; i >= 0; i -= 1) {
-      const e = recent(i);
-      if (e) out.push({ ...e });
-    }
-    return out;
+    return journal.map((e) => ({ ...e }));
   },
   drift,
   resetStats,
@@ -452,6 +570,9 @@ export const clockDebug: ClockDebug = {
   },
   get cancelled() {
     return stats.cancelled;
+  },
+  get rescheduled() {
+    return stats.rescheduled;
   },
   get locked() {
     return locked;

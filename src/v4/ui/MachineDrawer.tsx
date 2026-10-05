@@ -22,7 +22,8 @@ import { explode, voyExplode, type ExplodeState } from '../state/explode';
 import { intro } from '../state/intro';
 
 const ITEMS: readonly { id: Focus; title: string; sub: string }[] = [
-  { id: 'all', title: DJ ? 'ALL MACHINES' : 'BOTH MACHINES', sub: 'OVERVIEW' },
+  // L'ensemble a un nom (2026-10-05, Mika : "MM-STUDIO pour Maudite Machine Studio, juste pour donner un nom a tout ca")
+  { id: 'all', title: 'MM-STUDIO', sub: 'ALL THE MACHINES' },
   { id: 'mm808', title: 'MM-RYTM', sub: 'DRUM MACHINE' },
   { id: 'voy', title: 'MM-ARP', sub: 'ARPEGGIATOR SYNTHESIZER' },
   ...(SMPL ? [{ id: 'smpl' as const, title: 'MM-SMPL', sub: 'SAMPLER, SLICER, GRANULAR' }] : []),

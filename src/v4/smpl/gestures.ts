@@ -3,7 +3,8 @@
  * - un potard : glisser vers le haut ou la droite (150 px la course
  *   entiere ; Maj, dix fois plus fin), la molette, deux tapes : sa valeur
  *   de depart ;
- * - un pad : il sonne a l'appui, se tait au lacher (GRAIN, LOOP) ; en EDIT
+ * - un pad : il sonne a l'appui, se tait au lacher sur RELEASE (2026-10-05 :
+ *   une slice simple aussi, plus seulement GRAIN et LOOP) ; en EDIT
  *   (2026-10-05) c'est un pas de la sequence : le taper le pose ou l'enleve,
  *   glisser vers le haut ou le bas change sa slice (12 px par slice a la
  *   souris, 16 au doigt, comme la velocite d'un step du MM-RYTM) ;
@@ -12,7 +13,8 @@
  * - l'ecran : pres d'une borne de la region (START, END), on la deplace ;
  *   ailleurs, glisser choisit une nouvelle region (de la ou on a pose le
  *   doigt a la ou il est) ; toucher sans glisser joue la slice touchee (en
- *   GRAIN : POSITION va la, et suit le doigt).
+ *   GRAIN : POSITION va la et suit le doigt, et un nuage y joue tant que le
+ *   doigt reste, 2026-10-05).
  * Le meme contrat que les gestes du MM-DECKS (ui/Hotspots.tsx les appelle).
  */
 
@@ -20,7 +22,7 @@ import type { HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { quadToUnit } from '../scene/quad';
 import { DJ_BEZEL } from '../dj/theme';
-import { smplClear, smplDial, smplEditToggle, smplLoopToggle, smplModeToggle, smplPad, smplPickFile, smplPlayToggle, smplRandom, smplRec, smplReverse, smplSave, smplSlicingNext, smplStepSlice, smplStepTap, smplStopAll } from './actions';
+import { smplClear, smplDial, smplEditToggle, smplLoopToggle, smplModeToggle, smplPad, smplPickFile, smplPlayToggle, smplRandom, smplRec, smplReverse, smplSave, smplSlicingNext, smplStepSlice, smplStepTap, smplStopAll, smplTouch } from './actions';
 import { smplParams, type SmplKnobId } from './params';
 import { smplKeyId, smplPadId } from './rig';
 import { smplSeq } from './seq';
@@ -156,7 +158,10 @@ export class SmplGestures {
     } else if (g.kind === 'key' && g.key) {
       this.press(g.id, false);
       if ((g.key === 'file' || g.key === 'save') && tap) keyAction(g.key);
-    } else if (g.kind === 'screen' && g.tapPad >= 0) smplPad(g.tapPad, false);
+    } else if (g.kind === 'screen') {
+      if (g.tapPad >= 0) smplPad(g.tapPad, false);
+      if (g.hold === 'position') smplTouch(false);
+    }
   }
 
   /** La molette au-dessus d'un potard : 2 % par cran (Maj : 0.2 %) ; true si elle est prise. */
@@ -171,6 +176,7 @@ export class SmplGestures {
     for (const g of this.grips.values()) {
       if (g.kind === 'pad') smplPad(g.pad, false);
       if (g.kind === 'screen' && g.tapPad >= 0) smplPad(g.tapPad, false);
+      if (g.kind === 'screen' && g.hold === 'position') smplTouch(false);
       if (g.kind !== 'knob' && g.kind !== 'screen') this.press(g.id, false);
     }
     this.grips.clear();
@@ -217,8 +223,10 @@ export class SmplGestures {
     if (Math.abs(uv.u - ua) < EDGE && Math.abs(uv.u - ua) <= Math.abs(uv.u - ub)) g.hold = 'start';
     else if (Math.abs(uv.u - ub) < EDGE) g.hold = 'end';
     else if (s.mode === 'grain') {
+      // GRAIN : le doigt pose POSITION et y fait naitre un nuage, tenu tant qu'il reste (2026-10-05)
       g.hold = 'position';
       this.setPosition(uv.u);
+      smplTouch(true);
     } else {
       g.hold = 'select';
       // Toucher sans glisser : la slice sous le doigt sonne (comme son pad)

@@ -4,18 +4,22 @@
  * au worklet (smpl/smpl.worklet.js), lui passe les voix, les nuages et les
  * reglages, et recoit les positions qui jouent (l'ecran les montre).
  *
- * Apres le worklet : FILTER (un biquad, passe-bas ou passe-haut, ou rien),
- * LEVEL, puis l'analyseur de la boite a rythmes (le bus de sortie du site,
+ * Apres le worklet : FILTER (deux biquads en serie, un passe-bas puis un
+ * passe-haut, jamais de changement de type : plus de trou en passant le
+ * milieu, 2026-10-05), LEVEL, puis l'analyseur de la boite a rythmes (le bus de sortie du site,
  * avant son limiteur : ?mute=1 tient). REC branche la sortie du site
  * (apres le limiteur) sur l'entree du worklet le temps de l'enregistrement.
  *
  * Le dernier sample est retenu dans le navigateur (IndexedDB mm-smpl) : il
  * revient a la visite suivante. Au plus SMPL_MAX_S secondes.
+ * 2026-10-05 : un message envoye pendant le chargement du worklet attend son
+ * tour (un lacher tres rapide au premier toucher ne laisse plus une note
+ * bloquee).
  */
 
 import workletUrl from './smpl.worklet.js?url';
 import { synthPort } from '../audio/drums';
-import { attackS, densityHz, filterOf, levelGain, pitchSemis, releaseS, sizeS, smplParams } from './params';
+import { attackS, densityHz, filterOf, levelGain, pitchSemis, releaseS, scanSpeed, sizeS, smplParams } from './params';
 import { monoOf } from './slices';
 import { smplState } from './state';
 
@@ -26,6 +30,7 @@ interface Graph {
   ctx: AudioContext;
   node: AudioWorkletNode;
   filter: BiquadFilterNode;
+  hp: BiquadFilterNode;
   level: GainNode;
   /** la sortie du site, branchee sur l'entree pendant REC */
   tap: AudioNode;
@@ -76,7 +81,7 @@ function workletParams(): Record<string, number | boolean> {
     size: sizeS(v.size),
     density: densityHz(v.density),
     spray: v.spray,
-    spread: v.spread,
+    scan: scanSpeed(v.scan),
     pitch: pitchSemis(v.pitch),
     reverse: smplState.get().reverse,
   };
@@ -87,14 +92,9 @@ function applyNodes(g: Graph): void {
   const t = g.ctx.currentTime;
   g.level.gain.setTargetAtTime(levelGain(v.level), t, 0.02);
   const f = filterOf(v.filter);
-  if (f.type === 'off') {
-    // Au milieu : un passe-bas grand ouvert (aucun changement de branchement, aucun clic)
-    g.filter.type = 'lowpass';
-    g.filter.frequency.setTargetAtTime(22000, t, 0.02);
-  } else {
-    g.filter.type = f.type;
-    g.filter.frequency.setTargetAtTime(f.hz, t, 0.02);
-  }
+  // Deux filtres en serie, jamais de changement de type : LP ouvert a 22 kHz, HP ouvert a 10 Hz
+  g.filter.frequency.setTargetAtTime(f.type === 'lowpass' ? f.hz : 22000, t, 0.02);
+  g.hp.frequency.setTargetAtTime(f.type === 'highpass' ? f.hz : 10, t, 0.02);
 }
 
 function sendSample(g: Graph): void {
@@ -118,9 +118,10 @@ function ensure(): Promise<Graph | null> {
       const node = new AudioWorkletNode(ctx, 'mm-smpl', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: 'explicit' });
       node.port.onmessage = onMsg;
       const filter = new BiquadFilterNode(ctx, { type: 'lowpass', frequency: 22000, Q: 0.707 });
+      const hp = new BiquadFilterNode(ctx, { type: 'highpass', frequency: 10, Q: 0.707 });
       const level = new GainNode(ctx, { gain: levelGain(smplParams.of('level')) });
-      node.connect(filter).connect(level).connect(port.input);
-      graph = { ctx, node, filter, level, tap: port.out };
+      node.connect(filter).connect(hp).connect(level).connect(port.input);
+      graph = { ctx, node, filter, hp, level, tap: port.out };
       node.port.postMessage({ type: 'params', p: workletParams() });
       applyNodes(graph);
       sendSample(graph);
@@ -209,6 +210,12 @@ async function recall(): Promise<Stored | null> {
 
 let sampleId = 0;
 
+/** Un message au worklet ; pendant son chargement, il attend son tour (create : le charger s'il ne l'est pas). */
+function send(msg: Record<string, unknown>, create = true): void {
+  if (graph) graph.node.port.postMessage(msg);
+  else if (create || loading) void ensure().then((g) => g?.node.port.postMessage(msg));
+}
+
 export const smplEngine = {
   ensure,
   /** Le sample pose (canaux, frequence, mono), ou null. */
@@ -244,26 +251,32 @@ export const smplEngine = {
   },
   /** Une voix de a a b (s) ; at : l'heure du contexte ou elle part (un pas de la sequence), 0 tout de suite. */
   play(id: number, a: number, b: number, loop: boolean, at = 0): void {
-    if (graph) graph.node.port.postMessage({ type: 'play', id, a, b, loop, at });
-    else void ensure().then((g) => g?.node.port.postMessage({ type: 'play', id, a, b, loop, at }));
+    send({ type: 'play', id, a, b, loop, at });
   },
   /** Un nuage a pos (s) dans [a, b] ; at et dur : un nuage de la sequence (son heure, sa duree). */
   cloud(id: number, pos: number, a: number, b: number, at = 0, dur = 0): void {
-    if (graph) graph.node.port.postMessage({ type: 'cloud', id, pos, a, b, at, dur });
-    else void ensure().then((g) => g?.node.port.postMessage({ type: 'cloud', id, pos, a, b, at, dur }));
+    send({ type: 'cloud', id, pos, a, b, at, dur });
   },
   /** Le contexte du son, s'il existe (la sequence s'y cale). */
   get ctx(): AudioContext | null {
     return graph?.ctx ?? null;
   },
-  move(id: number, pos: number): void {
-    graph?.node.port.postMessage({ type: 'move', id, pos });
+  move(id: number, pos: number, a = 0, b = 0): void {
+    send({ type: 'move', id, pos, a, b }, false);
   },
   release(id: number): void {
-    graph?.node.port.postMessage({ type: 'release', id });
+    send({ type: 'release', id }, false);
   },
   stop(): void {
-    graph?.node.port.postMessage({ type: 'stop' });
+    send({ type: 'stop' }, false);
+  },
+  /** LOOP pris ou lache : les pads tenus et PLAY suivent */
+  loop(on: boolean): void {
+    send({ type: 'loop', on }, false);
+  },
+  /** La sequence se re-programme : ses voix et ses nuages pas encore partis, a partir de `from` (temps du contexte), sont oublies. */
+  unseq(from: number): void {
+    send({ type: 'unseq', time: from }, false);
   },
   /** REC : enregistre la sortie du site ; la promesse rend la prise au stop (ou a SMPL_MAX_S). */
   async record(): Promise<{ channels: Float32Array[]; rate: number } | null> {
@@ -284,6 +297,10 @@ export const smplEngine = {
   },
   /** Ce qui joue : voix et nuages (secondes dans le sample), par identifiant. */
   live: (): { voices: ReadonlyMap<number, number>; clouds: ReadonlyMap<number, number>; at: number } => live,
+  /** Les lumieres se revoient sans nouveau rapport du worklet. */
+  recheck(): void {
+    posListeners.forEach((fn) => fn());
+  },
   subscribeLive(fn: () => void): () => void {
     posListeners.add(fn);
     return () => {

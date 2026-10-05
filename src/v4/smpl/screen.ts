@@ -9,7 +9,10 @@
  *   moment en jaune (REC en rouge).
  * - Dessous : le sample entier en barres fines (les barres fines du
  *   MM-DECKS), la region en or, le reste en or eteint (2026-10-05) ; les slices en traits
- *   orange numerotes (le numero de leur pad) ; en GRAIN, POSITION en cyan.
+ *   orange numerotes (le numero de leur pad) ; en GRAIN, POSITION en cyan :
+ *   le pointille pour PLAY et le doigt (dans la region), une encoche dans
+ *   chaque slice pour son pad (2026-10-05), et SCAN dans la ligne d'etat a la
+ *   place de LOOP.
  * - La sequence (2026-10-05) : des qu'elle a un pas, ou en EDIT, une bande
  *   de seize cases sous la forme d'onde (le numero de la slice de chaque
  *   pas, en orange) ; un trait or sous la case qui joue (une piece posee
@@ -21,7 +24,7 @@ import { Color, DynamicDrawUsage, InstancedMesh, Matrix4, Mesh, MeshBasicMateria
 import { makeCanvasTexture } from '../scene/silk';
 import { FONT_DISPLAY, FONT_MONO } from '../theme';
 import { DJ_BEZEL, DJ_LIGHT } from '../dj/theme';
-import { pitchSemis, type SmplValues } from './params';
+import { pitchSemis, scanSpeed, smplValueText, type SmplValues } from './params';
 import { peaksOf } from './slices';
 import type { SmplSeqState } from './seq';
 import type { SmplState } from './state';
@@ -150,7 +153,7 @@ export class SmplScreen {
   /** Redessine si l'etat a change ; true si redessine. */
   draw(s: SmplState, v: SmplValues, mono: Float32Array | null, recSeconds: number, q: SmplSeqState | null = null): boolean {
     const showSteps = !!q && (q.edit || q.steps.some((x) => x !== null));
-    const key = JSON.stringify([s.sample?.id ?? 0, s.slices, s.mode, s.slicing, s.reverse, s.loop, s.message, s.recording, s.busy, v.start, v.end, v.pitch, v.position, s.recording ? Math.floor(recSeconds * 4) : 0, showSteps ? q?.steps : 0, q?.edit]);
+    const key = JSON.stringify([s.sample?.id ?? 0, s.slices, s.mode, s.slicing, s.reverse, s.loop, s.message, s.recording, s.busy, v.start, v.end, v.pitch, v.position, s.mode === 'grain' ? v.scan : 0, s.recording ? Math.floor(recSeconds * 4) : 0, showSteps ? q?.steps : 0, q?.edit]);
     if (key === this.key) return false;
     this.key = key;
     this.duration = s.sample?.duration ?? 0;
@@ -204,7 +207,8 @@ export class SmplScreen {
         { t: s.slicing === 'auto' ? `AUTO ${n}` : `SLICES ${s.slicing}`, on: true },
         { t: `PITCH ${semis > 0 ? '+' : ''}${semis}`, on: semis !== 0 },
         { t: 'REV', on: s.reverse, hot: true },
-        { t: 'LOOP', on: s.loop, hot: true },
+        // En GRAIN, LOOP ne change rien (un nuage tient tant qu'on tient) : SCAN prend sa place
+        s.mode === 'grain' ? { t: `SCAN ${smplValueText('scan', v.scan)}`, on: scanSpeed(v.scan) !== 0, hot: true } : { t: 'LOOP', on: s.loop, hot: true },
         { t: 'EDIT', on: !!q?.edit, hot: true },
       ];
       let x = pad;
@@ -276,7 +280,7 @@ export class SmplScreen {
       c.fillStyle = '#000';
       c.fillText(lab, x + tw / 2, y0 + textH * 0.13);
     }
-    // GRAIN : POSITION en cyan, pointille
+    // GRAIN : POSITION en cyan, pointille (PLAY, le doigt) ; une encoche en bas de chaque slice (son pad)
     if (s.mode === 'grain') {
       const t = (v.start + (v.end - v.start) * v.position) * s.sample.duration;
       const x = this.uOf(t) * W;
@@ -288,6 +292,12 @@ export class SmplScreen {
       c.lineTo(x, y1);
       c.stroke();
       c.setLineDash([]);
+      c.fillStyle = CYAN;
+      const tick = (y1 - y0) * 0.16;
+      for (let i = 0; i < n; i += 1) {
+        const xs = this.uOf(s.slices[i] + (s.slices[i + 1] - s.slices[i]) * v.position) * W;
+        c.fillRect(xs - 3, y1 - tick, 6, tick);
+      }
     }
     if (showSteps && q) this.drawSteps(q, n);
     this.texture.needsUpdate = true;

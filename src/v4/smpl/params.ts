@@ -1,17 +1,25 @@
 /**
  * Les potards du MM-SMPL (2026-10-04) : douze, en trois rangees de quatre
  * comme sur la machine, tous de 0 a 1 dans le store (retenus sous
- * mm.v4.smpl.1), convertis ici en grandeurs :
+ * mm.v4.smpl.2), convertis ici en grandeurs :
  * - SAMPLE : START et END (la region, en part du sample), PITCH (-24 a +24
  *   demi-tons, un cran par demi-ton), LEVEL ;
- * - SHAPE : ATTACK (0.5 ms a 1 s), RELEASE (5 ms a 3 s), FILTER (zero au
- *   milieu : passe-bas a gauche, passe-haut a droite), SPREAD (l'image des
- *   grains) ;
- * - GRAIN : POSITION (dans la region), SIZE (10 a 500 ms), DENSITY (2 a 80
- *   grains par seconde), SPRAY (de combien les grains s'ecartent).
+ * - SHAPE : ATTACK (0.5 ms a 1 s), RELEASE (5 ms a 3 s, au lacher d'un pad
+ *   ou de PLAY), FILTER (zero au milieu : passe-bas a gauche, passe-haut a
+ *   droite) ;
+ * - GRAIN : POSITION (dans la slice d'un pad, dans la region pour PLAY),
+ *   SCAN (2026-10-05 : la tete qui avance, de -2x a +2x ; au milieu, figee),
+ *   SIZE (10 a 500 ms), DENSITY (2 a 80 grains par seconde), SPRAY (de
+ *   combien les grains s'ecartent : leur place, l'image, un peu de hauteur).
+ * 2026-10-05 (Mika : "plein de choses ne fonctionnent pas quand on tourne
+ * les knobs, et implemente la fonction granulaire") : SCAN prend la place
+ * de SPREAD (l'image suit SPRAY) ; nouveaux defauts (un nuage plein, sans
+ * hachure ; un RELEASE de 122 ms, les pads s'eteignent au lacher), d'ou la
+ * nouvelle cle du store (les reglages d'avant, sous mm.v4.smpl.1, sont
+ * laisses).
  */
 
-export type SmplKnobId = 'start' | 'end' | 'pitch' | 'level' | 'attack' | 'release' | 'filter' | 'spread' | 'position' | 'size' | 'density' | 'spray';
+export type SmplKnobId = 'start' | 'end' | 'pitch' | 'level' | 'attack' | 'release' | 'filter' | 'scan' | 'position' | 'size' | 'density' | 'spray';
 
 export interface SmplKnobDef {
   id: SmplKnobId;
@@ -30,13 +38,13 @@ export const SMPL_KNOBS: readonly SmplKnobDef[] = [
   { id: 'pitch', label: 'PITCH', aria: 'Pitch in semitones', def: 0.5, bipolar: true, steps: 49 },
   { id: 'level', label: 'LEVEL', aria: 'Level', def: 0.8 },
   { id: 'attack', label: 'ATTACK', aria: 'Attack', def: 0.05 },
-  { id: 'release', label: 'RELEASE', aria: 'Release', def: 0.3 },
+  { id: 'release', label: 'RELEASE', aria: 'Release', def: 0.5 },
   { id: 'filter', label: 'FILTER', aria: 'Filter, low-pass to the left, high-pass to the right', def: 0.5, bipolar: true },
-  { id: 'spread', label: 'SPREAD', aria: 'Grain stereo spread', def: 0.35 },
-  { id: 'position', label: 'POSITION', aria: 'Grain position in the region', def: 0.25 },
-  { id: 'size', label: 'SIZE', aria: 'Grain size', def: 0.4 },
-  { id: 'density', label: 'DENSITY', aria: 'Grains per second', def: 0.5 },
-  { id: 'spray', label: 'SPRAY', aria: 'Grain position spray', def: 0.12 },
+  { id: 'position', label: 'POSITION', aria: 'Grain position in the slice of a pad, in the region for PLAY', def: 0.25 },
+  { id: 'scan', label: 'SCAN', aria: 'Grain head speed, frozen in the middle, backwards to the left', def: 0.5, bipolar: true },
+  { id: 'size', label: 'SIZE', aria: 'Grain size', def: 0.55 },
+  { id: 'density', label: 'DENSITY', aria: 'Grains per second', def: 0.7 },
+  { id: 'spray', label: 'SPRAY', aria: 'Grain spray: place, stereo image and a little pitch', def: 0.12 },
 ];
 
 export const smplKnob = (id: SmplKnobId): SmplKnobDef => SMPL_KNOBS.find((k) => k.id === id) as SmplKnobDef;
@@ -52,6 +60,16 @@ export const sizeS = (v: number): number => expMap(v, 0.01, 0.5);
 export const densityHz = (v: number): number => expMap(v, 2, 80);
 /** LEVEL : au carre (le potard suit l'oreille), x1.2 a fond. */
 export const levelGain = (v: number): number => 1.2 * v * v;
+/**
+ * SCAN : la vitesse de la tete des grains (x la vitesse d'origine), au carre
+ * pour la finesse des vitesses lentes : au milieu figee (0), 1x aux trois
+ * quarts environ (0.854), 2x a fond ; a gauche, a reculons.
+ */
+export function scanSpeed(v: number): number {
+  const d = (Math.min(1, Math.max(0, v)) - 0.5) * 2;
+  if (Math.abs(d) < 0.02) return 0;
+  return Math.sign(d) * 2 * d * d;
+}
 /** FILTER : sous le milieu un passe-bas de 20 kHz a 200 Hz, au-dessus un passe-haut de 20 Hz a 4 kHz ; au milieu, rien. */
 export function filterOf(v: number): { type: 'lowpass' | 'highpass' | 'off'; hz: number } {
   const d = (v - 0.5) * 2;
@@ -82,6 +100,10 @@ export function smplValueText(id: SmplKnobId, v: number, dur = 0): string {
       return ms(sizeS(v));
     case 'density':
       return `${densityHz(v).toFixed(densityHz(v) < 10 ? 1 : 0)}/S`;
+    case 'scan': {
+      const x = scanSpeed(v);
+      return x === 0 ? 'FREEZE' : `${x < 0 ? '-' : ''}${Math.abs(x).toFixed(2)}X`;
+    }
     case 'filter': {
       const f = filterOf(v);
       return f.type === 'off' ? 'OFF' : `${f.type === 'lowpass' ? 'LP' : 'HP'} ${hz(f.hz)}`;
@@ -96,7 +118,7 @@ export const smplReadout = (id: SmplKnobId, v: number, dur = 0): string => `${sm
 /* ---------------- le store ---------------- */
 
 export type SmplValues = Record<SmplKnobId, number>;
-const KEY = 'mm.v4.smpl.1';
+const KEY = 'mm.v4.smpl.2';
 const DEFAULTS = Object.fromEntries(SMPL_KNOBS.map((k) => [k.id, k.def])) as SmplValues;
 
 function load(): SmplValues {

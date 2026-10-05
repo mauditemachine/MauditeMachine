@@ -14,6 +14,8 @@ export interface SmplModules {
   SmplGestures: typeof import('../smpl/gestures').SmplGestures;
   smplState: typeof import('../smpl/state').smplState;
   smplEngine: typeof import('../smpl/engine').smplEngine;
+  /** la sequence (state/playLock.ts : elle joue, le son ne dort pas onglet cache) */
+  smplSeq: typeof import('../smpl/seq').smplSeq;
   /** GRAB : la boucle (ou la fenetre) d'une platine, LOOP > SMPL du mixer aussi */
   smplGrab: typeof import('../smpl/actions').smplGrab;
 }
@@ -29,8 +31,8 @@ export const smplLoad = {
   load(): Promise<SmplModules> | null {
     if (!SMPL) return null;
     // smpl/midi : ses cibles MIDI s'inscrivent (midi/targets.ts, 2026-10-05)
-    pending ??= Promise.all([import('../smpl/rig'), import('../smpl/gestures'), import('../smpl/state'), import('../smpl/engine'), import('../smpl/actions'), import('../smpl/midi')]).then(([rig, gestures, state, engine, actions]) => {
-      mods = { SmplRig: rig.SmplRig, SmplGestures: gestures.SmplGestures, smplState: state.smplState, smplEngine: engine.smplEngine, smplGrab: actions.smplGrab };
+    pending ??= Promise.all([import('../smpl/rig'), import('../smpl/gestures'), import('../smpl/state'), import('../smpl/engine'), import('../smpl/actions'), import('../smpl/seq'), import('../smpl/midi')]).then(([rig, gestures, state, engine, actions, seq]) => {
+      mods = { SmplRig: rig.SmplRig, SmplGestures: gestures.SmplGestures, smplState: state.smplState, smplEngine: engine.smplEngine, smplSeq: seq.smplSeq, smplGrab: actions.smplGrab };
       listeners.forEach((fn) => fn());
       return mods;
     });

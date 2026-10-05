@@ -56,6 +56,12 @@ export interface SendBus {
   silence(): void;
   /** Apres silence() : les envois au-dessus de 0 se rebranchent sur une unite neuve. */
   revive(): void;
+  /**
+   * L'unite construite d'avance, en temps libre (2026-10-05) : le premier
+   * tour de REVERB ne calcule plus sa reponse sous la musique (un gel de
+   * 130 ms, une note en retard). Seulement pour un bus jamais arrete.
+   */
+  warm(): void;
   info(): BusInfo;
 }
 
@@ -176,6 +182,9 @@ function sendBus(c: BaseAudioContext, make: () => Unit, scale: number, idleMs: n
     },
     revive() {
       for (const s of sends) if (s.value > 0 && !s.linked) apply(s);
+    },
+    warm() {
+      if (!Number.isFinite(idleMs)) ensureUnit();
     },
     info: () => ({
       live: unit !== null,
