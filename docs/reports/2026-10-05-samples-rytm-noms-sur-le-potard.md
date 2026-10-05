@@ -22,10 +22,7 @@ Demande de Mika : « je voudrais que tu mettes ces samples dans le sélecteur de
 
 ## 3. Ce qui reste à faire / points en suspens
 
-- **Côté Mika : mettre les fichiers dans le dépôt** (sur ton Mac, dans le dossier du projet) :
-  `git pull && npm run samples:import -- "/Users/mauditemachine/Desktop/Samples" && git add public/samples && git commit -m "Samples de Mika dans MM-RYTM" && git push`
-  Le script retrouve chaque fichier par son nom dans tout le dossier donné (à plat ou en sous-dossiers, un nom légèrement changé passe par son mot-clé). Le déploiement prend environ une minute.
-- **Autre voie** : déposer les dix fichiers dans un dossier de ton Google Drive et me donner son nom, je les récupère par le connecteur Drive (plus lourd).
+- **Fait (commit 7fdd34d de Mika)** : les dix fichiers sont dans `public/samples/rytm/` (6 kicks, 4 snares, 1 Mo au total) et servis par le site (`audio/wav`). Vérifié en prod : les dix se décodent dans le navigateur, la plaque écrit les dix noms, aucune erreur.
 - **Licence** : les préfixes « AT » sont des packs du commerce. Une fois dans `public/`, ces fichiers se téléchargent depuis le site, ce qui est une redistribution. À vérifier dans la licence des packs avant de pousser ; sinon, ne garder que les tiens.
 - Toujours en attente : le compteur de visiteurs du MENU (« go » + projet Supabase).
 
