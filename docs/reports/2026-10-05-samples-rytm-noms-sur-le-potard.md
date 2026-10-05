@@ -23,12 +23,12 @@ Demande de Mika : « je voudrais que tu mettes ces samples dans le sélecteur de
 ## 3. Ce qui reste à faire / points en suspens
 
 - **Côté Mika : mettre les fichiers dans le dépôt** (sur ton Mac, dans le dossier du projet) :
-  `git pull && npm run samples:import && git add public/samples && git commit -m "Samples de Mika dans MM-RYTM" && git push`
-  Le déploiement prend environ une minute. Si le script ne trouve pas le dossier : `npm run samples:import -- "/chemin/vers/shots"`.
+  `git pull && npm run samples:import -- "/Users/mauditemachine/Desktop/Samples" && git add public/samples && git commit -m "Samples de Mika dans MM-RYTM" && git push`
+  Le script retrouve chaque fichier par son nom dans tout le dossier donné (à plat ou en sous-dossiers, un nom légèrement changé passe par son mot-clé). Le déploiement prend environ une minute.
 - **Autre voie** : déposer les dix fichiers dans un dossier de ton Google Drive et me donner son nom, je les récupère par le connecteur Drive (plus lourd).
 - **Licence** : les préfixes « AT » sont des packs du commerce. Une fois dans `public/`, ces fichiers se téléchargent depuis le site, ce qui est une redistribution. À vérifier dans la licence des packs avant de pousser ; sinon, ne garder que les tiens.
 - Toujours en attente : le compteur de visiteurs du MENU (« go » + projet Supabase).
 
 ## 4. Commandes utiles ajoutées
 
-- `npm run samples:import` : range les échantillons de Mika dans `public/samples/rytm/` (argument facultatif : le dossier `shots`).
+- `npm run samples:import -- "<dossier>"` : cherche les échantillons de Mika dans le dossier donné et les range dans `public/samples/rytm/`.
