@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 7 octobre 2026 depuis le code du site (`npm run docs:midi`) : 359 cibles, 5 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 7 octobre 2026 depuis le code du site (`npm run docs:midi`) : 405 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -28,7 +28,7 @@ Genere le 7 octobre 2026 depuis le code du site (`npm run docs:midi`) : 359 cibl
 
 **Le retour vers le Roto.** Les potards motorises et les LEDs recoivent la valeur du site (meme canal, meme CC) toutes les 50 ms quand elle change (souris, preset, RANDOM, changement de machine), jamais pendant 300 ms apres un geste sur le potard, et un echo qui revient aussitot est ignore. Seulement vers une sortie dont le nom contient « roto », ou un appareil sur lequel tu as appris. Pas de retour pour les boutons d'action.
 
-**FOLLOW.** Toucher un controle d'un setup montre sa machine : RYTM > MM-RYTM, ARP > MM-ARP, DECK et MIXER > MM-DECKS. LIVE ne change pas de machine.
+**FOLLOW.** Toucher un controle d'un setup montre sa machine : RYTM > MM-RYTM, ARP > MM-ARP, BASS > MM-BASS, DECK et MIXER > MM-DECKS. LIVE ne change pas de machine.
 
 **Retenu** dans le navigateur (`mm.v4.midi.1`) : assignations apprises, appareils, ROTO (la carte), FEEDBACK, FOLLOW.
 
@@ -159,6 +159,7 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | --- | --- | --- | --- | --- |
 | RYTM | MM RYTM (SETUP 11).json | 11 | 1 | 9 |
 | ARP | MM ARP (SETUP 12).json | 12 | 2 | 10 |
+| BASS | MM BASS (SETUP 15).json | 15 | 5 | 13 |
 | DECK | MM DECK (SETUP 13).json | 13 | 3 | 11 |
 | MIXER | MM MIXER (SETUP 14).json | 14 | 4 | 12 |
 | LIVE | MM LIVE (SETUP 16).json | 16 | 6 | 14 |
@@ -300,6 +301,69 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 15 | 2.8 | 10 | 29 | Dmaj7 | bleu | voy:pad:7 | CHORD Dmaj7 | appui |
 | 16 | 3.1 | 10 | 30 | OSC 1 ON | vert | voy:knob:on1 | OSC 1 | bascule (la LED suit le site) |
 | 17 | 3.2 | 10 | 31 | OSC 2 ON | vert | voy:knob:on2 | OSC 2 | bascule (la LED suit le site) |
+
+### BASS (SETUP 15, potards canal 5, boutons canal 13)
+
+**Potards**
+
+| n | Page.pos | Canal | CC | Nom Roto | Couleur | Cible (id) | Ce que ca fait | Type |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1.1 | 5 | 14 | CUTOFF | orange | bass:knob:cutoff | CUTOFF | continu |
+| 1 | 1.2 | 5 | 15 | RESO | orange | bass:knob:reso | RESO | continu |
+| 2 | 1.3 | 5 | 16 | ENV MOD | orange | bass:knob:envmod | ENV MOD | continu |
+| 3 | 1.4 | 5 | 17 | DECAY | orange | bass:knob:decay | DECAY | continu |
+| 4 | 1.5 | 5 | 18 | ACCENT | rouge | bass:knob:accent | ACCENT | continu |
+| 5 | 1.6 | 5 | 19 | DRIVE | violet | bass:knob:drive | DRIVE | continu |
+| 6 | 1.7 | 5 | 20 | SUB | or | bass:knob:sub | SUB | continu |
+| 7 | 1.8 | 5 | 21 | VOLUME | blanc | bass:knob:volume | VOLUME | continu |
+| 8 | 2.1 | 5 | 22 | WAVE | or | bass:knob:wave | WAVE | continu |
+| 9 | 2.2 | 5 | 23 | GLIDE | or | bass:knob:glide | GLIDE | continu |
+| 10 | 2.3 | 5 | 24 | OCTAVE | or | bass:knob:octave | OCTAVE | potard a 4 crans : -2 / -1 / 0 / +1 |
+| 11 | 2.4 | 5 | 25 | STYLE | jaune | bass:knob:style | STYLE | potard a 4 crans : ACID / DISCO / ROLL / SUB |
+| 12 | 2.5 | 5 | 26 | DENSITY | jaune | bass:knob:density | DENSITY | continu |
+| 13 | 2.6 | 5 | 27 | SLIDES | jaune | bass:knob:slides | SLIDES | continu |
+| 14 | 2.7 | 5 | 28 | ACCENTS | jaune | bass:knob:accents | ACCENTS | continu |
+| 15 | 2.8 | 5 | 29 | RANGE | jaune | bass:knob:range | RANGE | potard a 3 crans : 1 / 2 / 3 |
+| 16 | 3.1 | 5 | 30 | ROOT | cyan | bass:knob:root | ROOT | potard a 13 crans : ARP / F# / G / G# / A / A# / B / C / C# / D / D# / E / F |
+| 17 | 3.2 | 5 | 31 | SCALE | cyan | bass:knob:scale | SCALE | potard a 5 crans : MINOR / DORIAN / PHRYGIAN / HARMONIC / PENTA |
+| 18 | 3.3 | 5 | 102 | SWING | blanc | rytm:enc:swing | SWING | continu |
+
+**Boutons**
+
+| n | Page.pos | Canal | CC | Nom Roto | Couleur | Cible (id) | Ce que ca fait | Type |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1.1 | 13 | 14 | RUN | rouge | bass:running | RUN (ON / OFF) | bascule (la LED suit le site) |
+| 1 | 1.2 | 13 | 15 | GEN | orange | bass:key:gen | GEN | appui |
+| 2 | 1.3 | 13 | 16 | MUTATE | orange | bass:key:mutate | MUTATE | appui |
+| 3 | 1.4 | 13 | 17 | CLEAR | orange | bass:key:clear | CLEAR | appui |
+| 4 | 1.5 | 13 | 18 | ACCENT | rouge | bass:key:accent | ACCENT | appui |
+| 5 | 1.6 | 13 | 19 | SLIDE | jaune | bass:key:slide | SLIDE | appui |
+| 6 | 1.7 | 13 | 20 | PREV MACHINE | blanc | nav:prev | PREVIOUS MACHINE | appui |
+| 7 | 1.8 | 13 | 21 | NEXT MACHINE | blanc | nav:next | NEXT MACHINE | appui |
+| 8 | 2.1 | 13 | 22 | STEP 1 | orange | bass:trig:0 | STEP 1 | appui |
+| 9 | 2.2 | 13 | 23 | STEP 2 | orange | bass:trig:1 | STEP 2 | appui |
+| 10 | 2.3 | 13 | 24 | STEP 3 | orange | bass:trig:2 | STEP 3 | appui |
+| 11 | 2.4 | 13 | 25 | STEP 4 | orange | bass:trig:3 | STEP 4 | appui |
+| 12 | 2.5 | 13 | 26 | STEP 5 | orange | bass:trig:4 | STEP 5 | appui |
+| 13 | 2.6 | 13 | 27 | STEP 6 | orange | bass:trig:5 | STEP 6 | appui |
+| 14 | 2.7 | 13 | 28 | STEP 7 | orange | bass:trig:6 | STEP 7 | appui |
+| 15 | 2.8 | 13 | 29 | STEP 8 | orange | bass:trig:7 | STEP 8 | appui |
+| 16 | 3.1 | 13 | 30 | STEP 9 | peche | bass:trig:8 | STEP 9 | appui |
+| 17 | 3.2 | 13 | 31 | STEP 10 | peche | bass:trig:9 | STEP 10 | appui |
+| 18 | 3.3 | 13 | 102 | STEP 11 | peche | bass:trig:10 | STEP 11 | appui |
+| 19 | 3.4 | 13 | 103 | STEP 12 | peche | bass:trig:11 | STEP 12 | appui |
+| 20 | 3.5 | 13 | 104 | STEP 13 | peche | bass:trig:12 | STEP 13 | appui |
+| 21 | 3.6 | 13 | 105 | STEP 14 | peche | bass:trig:13 | STEP 14 | appui |
+| 22 | 3.7 | 13 | 106 | STEP 15 | peche | bass:trig:14 | STEP 15 | appui |
+| 23 | 3.8 | 13 | 107 | STEP 16 | peche | bass:trig:15 | STEP 16 | appui |
+| 24 | 4.1 | 13 | 108 | NOTE - | cyan | bass:key:notedn | NOTE - | appui |
+| 25 | 4.2 | 13 | 109 | NOTE + | cyan | bass:key:noteup | NOTE + | appui |
+| 26 | 4.3 | 13 | 110 | OCT - | cyan | bass:key:octdn | OCT - | appui |
+| 27 | 4.4 | 13 | 111 | OCT + | cyan | bass:key:octup | OCT + | appui |
+| 28 | 4.5 | 13 | 112 | RYTM + ARP | rouge | nav:machines | PLAY/STOP RYTM + ARP | appui |
+| 29 | 4.6 | 13 | 113 | RUN RYTM | rouge | rytm:running | RUN (ON / OFF) | bascule (la LED suit le site) |
+| 30 | 4.7 | 13 | 114 | RUN ARP | rouge | voy:running | RUN (ON / OFF) | bascule (la LED suit le site) |
+| 31 | 4.8 | 13 | 115 | MM-STUDIO | blanc | nav:all | MM-STUDIO (ALL THE MACHINES) | appui |
 
 ### DECK (SETUP 13, potards canal 3, boutons canal 11)
 
@@ -529,7 +593,7 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 
 ## 4. Le catalogue complet des cibles
 
-Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI LEARN, ou le fichier d'assignations du chapitre 5). La colonne « Dans » dit dans quels setups du Roto elle est deja placee. La cible d'un id est dans la machine de son prefixe : `rytm:` MM-RYTM (scope `mm808`), `voy:` MM-ARP (`voy`), `dj:` MM-DECKS (`dj`, `dj:smpl:<platine>:` pour le sampler de chaque platine), `nav:` navigation (`global`).
+Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI LEARN, ou le fichier d'assignations du chapitre 5). La colonne « Dans » dit dans quels setups du Roto elle est deja placee. La cible d'un id est dans la machine de son prefixe : `rytm:` MM-RYTM (scope `mm808`), `voy:` MM-ARP (`voy`), `bass:` MM-BASS (`bass`), `dj:` MM-DECKS (`dj`, `dj:smpl:<platine>:` pour le sampler de chaque platine), `nav:` navigation (`global`).
 
 ### MM-RYTM (scope `mm808`, 139 cibles)
 
@@ -537,7 +601,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | --- | --- | --- | --- | --- |
 | `rytm:enc:level` | MASTER | valeur 0 a 127 |  | RYTM |
 | `rytm:enc:tempo` | TEMPO | valeur 0 a 127 |  | RYTM |
-| `rytm:enc:swing` | SWING | valeur 0 a 127 |  | RYTM, LIVE |
+| `rytm:enc:swing` | SWING | valeur 0 a 127 |  | RYTM, BASS, LIVE |
 | `rytm:enc:stretch` | STRETCH | valeur 0 a 127 |  | RYTM, LIVE |
 | `rytm:enc:dist` | DIST | valeur 0 a 127 |  | RYTM, LIVE |
 | `rytm:enc:chorus` | CHORUS | valeur 0 a 127 |  | RYTM |
@@ -615,7 +679,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:TOM:mute` | MUTE TOM | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
 | `rytm:voice:HT:mute` | MUTE HT | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
 | `rytm:voice:CY:mute` | MUTE CY | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
-| `rytm:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
+| `rytm:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | RYTM, BASS, MIXER, LIVE |
 | `rytm:kit:bd` | TWEAK KICK | valeur 0 a 127 | 9 | RYTM |
 | `rytm:kit:tune` | TWEAK TUNE | valeur 0 a 127 |  | RYTM, LIVE |
 | `rytm:kit:attack` | TWEAK ATTACK | valeur 0 a 127 |  | RYTM |
@@ -740,11 +804,61 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:pad:6` | CHORD F#m7 | appui |  | ARP, LIVE |
 | `voy:pad:7` | CHORD Dmaj7 | appui |  | ARP, LIVE |
 | `voy:run` | RUN/STOP | appui |  |  |
-| `voy:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | ARP, MIXER, LIVE |
+| `voy:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | ARP, BASS, MIXER, LIVE |
 | `voy:clear` | CLEAR | appui |  | ARP |
 | `voy:random` | RANDOM | appui |  | ARP |
 | `voy:edit` | EDIT | appui |  | ARP |
 | `voy:open` | OPEN | appui |  | ARP |
+
+### MM-BASS (scope `bass`, 45 cibles)
+
+| id | Nom | Type | Crans | Dans |
+| --- | --- | --- | --- | --- |
+| `bass:knob:cutoff` | CUTOFF | valeur 0 a 127 |  | BASS |
+| `bass:knob:reso` | RESO | valeur 0 a 127 |  | BASS |
+| `bass:knob:envmod` | ENV MOD | valeur 0 a 127 |  | BASS |
+| `bass:knob:decay` | DECAY | valeur 0 a 127 |  | BASS |
+| `bass:knob:accent` | ACCENT | valeur 0 a 127 |  | BASS |
+| `bass:knob:wave` | WAVE | valeur 0 a 127 |  | BASS |
+| `bass:knob:sub` | SUB | valeur 0 a 127 |  | BASS |
+| `bass:knob:drive` | DRIVE | valeur 0 a 127 |  | BASS |
+| `bass:knob:glide` | GLIDE | valeur 0 a 127 |  | BASS |
+| `bass:knob:volume` | VOLUME | valeur 0 a 127 |  | BASS |
+| `bass:knob:octave` | OCTAVE | valeur 0 a 127 | 4 | BASS |
+| `bass:knob:style` | STYLE | valeur 0 a 127 | 4 | BASS |
+| `bass:knob:density` | DENSITY | valeur 0 a 127 |  | BASS |
+| `bass:knob:slides` | SLIDES | valeur 0 a 127 |  | BASS |
+| `bass:knob:accents` | ACCENTS | valeur 0 a 127 |  | BASS |
+| `bass:knob:range` | RANGE | valeur 0 a 127 | 3 | BASS |
+| `bass:knob:root` | ROOT | valeur 0 a 127 | 13 | BASS |
+| `bass:knob:scale` | SCALE | valeur 0 a 127 | 5 | BASS |
+| `bass:key:run` | RUN/STOP | appui |  |  |
+| `bass:key:gen` | GEN | appui |  | BASS |
+| `bass:key:mutate` | MUTATE | appui |  | BASS |
+| `bass:key:clear` | CLEAR | appui |  | BASS |
+| `bass:key:accent` | ACCENT | appui |  | BASS |
+| `bass:key:slide` | SLIDE | appui |  | BASS |
+| `bass:key:notedn` | NOTE - | appui |  | BASS |
+| `bass:key:noteup` | NOTE + | appui |  | BASS |
+| `bass:key:octdn` | OCT - | appui |  | BASS |
+| `bass:key:octup` | OCT + | appui |  | BASS |
+| `bass:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | BASS |
+| `bass:trig:0` | STEP 1 | appui |  | BASS |
+| `bass:trig:1` | STEP 2 | appui |  | BASS |
+| `bass:trig:2` | STEP 3 | appui |  | BASS |
+| `bass:trig:3` | STEP 4 | appui |  | BASS |
+| `bass:trig:4` | STEP 5 | appui |  | BASS |
+| `bass:trig:5` | STEP 6 | appui |  | BASS |
+| `bass:trig:6` | STEP 7 | appui |  | BASS |
+| `bass:trig:7` | STEP 8 | appui |  | BASS |
+| `bass:trig:8` | STEP 9 | appui |  | BASS |
+| `bass:trig:9` | STEP 10 | appui |  | BASS |
+| `bass:trig:10` | STEP 11 | appui |  | BASS |
+| `bass:trig:11` | STEP 12 | appui |  | BASS |
+| `bass:trig:12` | STEP 13 | appui |  | BASS |
+| `bass:trig:13` | STEP 14 | appui |  | BASS |
+| `bass:trig:14` | STEP 15 | appui |  | BASS |
+| `bass:trig:15` | STEP 16 | appui |  | BASS |
 
 ### MM-DECKS (table, platines, samplers, effets) (scope `dj`, 147 cibles)
 
@@ -898,17 +1012,18 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `dj:smpl:b:pad:14` | SMPL B PAD 15 | maintenu (appui puis relachement) |  |  |
 | `dj:smpl:b:pad:15` | SMPL B PAD 16 | maintenu (appui puis relachement) |  |  |
 
-### Partout (navigation) (scope `global`, 7 cibles)
+### Partout (navigation) (scope `global`, 8 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
-| `nav:all` | MM-STUDIO (ALL THE MACHINES) | appui |  | MIXER |
+| `nav:all` | MM-STUDIO (ALL THE MACHINES) | appui |  | BASS, MIXER |
 | `nav:mm808` | GO TO MM-RYTM | appui |  |  |
 | `nav:voy` | GO TO MM-ARP | appui |  |  |
+| `nav:bass` | GO TO MM-BASS | appui |  |  |
 | `nav:dj` | GO TO MM-DECKS | appui |  |  |
-| `nav:prev` | PREVIOUS MACHINE | appui |  | RYTM, ARP, MIXER, LIVE |
-| `nav:next` | NEXT MACHINE | appui |  | RYTM, ARP, MIXER, LIVE |
-| `nav:machines` | PLAY/STOP RYTM + ARP | appui |  | RYTM, ARP, MIXER, LIVE |
+| `nav:prev` | PREVIOUS MACHINE | appui |  | RYTM, ARP, BASS, MIXER, LIVE |
+| `nav:next` | NEXT MACHINE | appui |  | RYTM, ARP, BASS, MIXER, LIVE |
+| `nav:machines` | PLAY/STOP RYTM + ARP | appui |  | RYTM, ARP, BASS, MIXER, LIVE |
 
 ## 5. Faire ton propre fichier
 
@@ -939,8 +1054,8 @@ Le fichier d'assignations (panneau MIDI > EXPORT ou IMPORT) :
 }
 ```
 
-- `maps` : une entree par machine (`mm808`, `voy`, `dj`, `global`) ; chaque ligne est `"cc:CANAL:CC": "id de la cible"`, le canal de 1 a 16. Aussi `note:CANAL:NOTE` et `pb:CANAL:0`.
-- La machine d'une ligne est celle du prefixe de la cible (`rytm:` dans `mm808`, `voy:` dans `voy`, `dj:` dans `dj`, `nav:` dans `global`).
+- `maps` : une entree par machine (`mm808`, `voy`, `bass`, `dj`, `global`) ; chaque ligne est `"cc:CANAL:CC": "id de la cible"`, le canal de 1 a 16. Aussi `note:CANAL:NOTE` et `pb:CANAL:0`.
+- La machine d'une ligne est celle du prefixe de la cible (`rytm:` dans `mm808`, `voy:` dans `voy`, `bass:` dans `bass`, `dj:` dans `dj`, `nav:` dans `global`).
 - Une cle vise une seule cible par machine, et une cible n'a qu'une seule cle : ne la mets pas deux fois.
 - IMPORT **remplace** toutes les assignations du navigateur : exporte d'abord les tiennes.
 - Ce que tu as appris passe avant la carte du Roto : ta disposition l'emporte sur les six setups, mais des canaux libres (7, 8, 15, 16) evitent tout melange. Tu peux aussi eteindre la carte (la case « ROTO-CONTROL map » du panneau MIDI).

@@ -36,6 +36,7 @@ import { MachineDrawer } from './MachineDrawer';
 const NAMES: Record<MachineId, { title: string; sub: string; aria: string }> = {
   mm808: { title: 'MM-RYTM', sub: 'DRUM MACHINE', aria: 'Play the MM-RYTM drum machine' },
   voy: { title: 'MM-ARP', sub: 'SYNTHESIZER', aria: 'Play the MM-ARP synthesizer' },
+  bass: { title: 'MM-BASS', sub: 'BASSLINE GENERATOR', aria: 'Play the MM-BASS bassline generator' },
   dj: { title: 'MM-DECKS', sub: 'DJ DECKS AND MIXER', aria: 'Play the MM-DECKS DJ decks and mixer' },
 };
 

@@ -1,4 +1,4 @@
-# 2026-10-07 - Le sampler dans les platines, le MM-SMPL retiré
+# 2026-10-07 - Le sampler dans les platines, le MM-SMPL retiré, le MM-BASS
 
 Mika a demandé quatre choses :
 - « déplacer le contenu de MM-SMPL dans un DECK », chaque platine pouvant sampler ce qui joue ou le mixer, avec les boutons de CUE devenus des boutons du sampler ;
@@ -6,7 +6,7 @@ Mika a demandé quatre choses :
 - un prototype de générateur de basslines, MM-BASS ;
 - l'écran du MM-RYTM façon OP-1, sans couleurs.
 
-Ce rapport couvre la première étape, la mise en ligne du sampler dans les platines et le retrait du MM-SMPL.
+Les quatre sont faites : le sampler dans les platines et le retrait du MM-SMPL, l'écran du MM-RYTM, puis le prototype du MM-BASS.
 
 ## Ce qui a été fait
 
@@ -33,6 +33,22 @@ Ce rapport couvre la première étape, la mise en ligne du sampler dans les plat
   - les styles : `v4.css`.
 - Roto-Control (`midi/roto.ts`) : DECK, MIXER et LIVE sont refaits pour le sampler, et le setup SMPL (15) disparaît. `docs/midi/*` sont régénérés (359 cibles, 5 setups).
 - `public/llms.txt`, `docs/v4/spec.md` : R14-187, R14-188.
+- `src/v4/bass/` (nouveau dossier), le MM-BASS :
+  - `bass.worklet.js` : la voix. Dent de scie et carré polyBLEP, le filtre de la TB-303 d'après Open303 (notice MIT dans le fichier), l'enveloppe et le circuit d'accent de la 303, les slides, DRIVE, et un SUB sinus une octave dessous, ajouté propre après le filtre ;
+  - `params.ts`, `state.ts` : les 18 potards et les 16 pas (note, liaison, vide ; ACCENT, SLIDE), retenus dans le navigateur ;
+  - `gen.ts` : le générateur façon Torso T-1, avec les styles ACID, DISCO, ROLL et SUB, plus DENSITY, SLIDES, ACCENTS, RANGE et MUTATE ;
+  - `seq.ts` : la séquence sur l'horloge audio, calée sur la grille du MM-RYTM (sinon du MM-ARP) avec son swing ; ROOT sur ARP suit les accords du MM-ARP ;
+  - `engine.ts`, `actions.ts` : le moteur côté page et les commandes ;
+  - `theme.ts`, `rig.ts`, `screen.ts` : la machine 3D à la taille du MM-RYTM, debout au téléphone, et son écran façon OP-1 (le rouleau des notes, la courbe du filtre) ;
+  - `gestures.ts`, `keys.ts`, `Twins.tsx`, `midi.ts` : la souris et le doigt (glisser un pas change sa note), le clavier, les jumeaux, les cibles MIDI.
+- Le MM-BASS branché :
+  - `state/bassload.ts` (son code chargé à part) et `state/focus.ts` (`?bass=0`, `?m=bass`) ;
+  - la scène : `renderer.ts`, `floor.ts`, `hit.ts`, `Hotspots.tsx` et `dj/theme.ts` (le MM-DECKS passe à sa droite) ;
+  - l'interface : `Header`, `MachineDrawer`, `MachineNav`, `OverviewHelp`, `InstallPrompt`, `index.tsx` ;
+  - la lecture et le clavier : `playLock.ts`, `useKeys.ts`, `actions.ts`, `debug.ts` (`__v4.bass`) ;
+  - le MIDI : `midi/midi.ts`, `midi/targets.ts`, `MidiPanel`, et `midi/roto.ts` (setup BASS sur le 15, canal 5) ;
+  - `scripts/midi-reference.mjs`, `docs/midi/*` régénérés (405 cibles, 6 setups) ;
+  - `public/llms.txt`, spec R14-190 à R14-193.
 - `src/v4/scene/screen.ts` : l'écran du MM-RYTM redessiné façon OP-1, en vectoriel noir et os. On y voit l'anneau des 16 pas avec la voix au centre, la lecture, le pattern et le tempo, puis trois réglages illustrés (VOLUME en barres, TONE en courbe, DECAY en enveloppe) et la ligne du message. `scene/pixels.ts` (les polices de pixels) est retiré. Spec R14-189.
 
 ## Décisions prises et pourquoi
@@ -45,6 +61,18 @@ Ce rapport couvre la première étape, la mise en ligne du sampler dans les plat
 - **La séquence suit la grille de la platine qui joue.** Un pas prend la slice qui tombe à son heure : la boucle d'origine se reconstruit.
 - **Roto, DECK page 4** : le sampler de chaque platine remplace RYTM et ARP, qui restent sur MIXER.
 - **L'écran du MM-RYTM, moins de choses et plus grandes.** Sont retirés : les huit vumètres, READY et RUN, le nom de la section et les cases des temps. L'anneau des pas reprend le langage des séquenceurs circulaires de l'OP-1. Chaque réglage a son dessin, en monochrome comme demandé. Une première version : des captures de l'OP-1 de Mika permettraient de l'affiner.
+- **MM-BASS, le meilleur de chaque machine** :
+  - le grand CUTOFF en aluminium du Minitaur ;
+  - les potards et le filtre de la TB-303, avec ACCENT, SLIDE et les liaisons (TIE) de son mode TIME ;
+  - le générateur par règles du Torso T-1 (on choisit un style et des chances, pas des notes) ;
+  - les seize pas en groupes de quatre de la 303 et du Norand Mono ;
+  - la façon Elektron (Syntakt) : on choisit un pas, puis on règle sa note, son accent, son slide ;
+  - DRIVE et SUB pour le grain et le poids des basses analogiques du Minitaur et du SE-02.
+- **Le filtre est celui d'Open303**, l'émulation de la TB-303 la plus étudiée en logiciel libre, à quatre pôles couplés comme les diodes de la 303. Le filtre de Pirkle essayé d'abord résonnait trop bas et perdait les basses : il est remplacé. Mesuré hors navigateur : la bosse de résonance tombe sur la coupure, la voix reste stable à fond, et elle prend 1.7 % d'un cœur.
+- **Le SUB ne passe ni par le filtre ni par DRIVE** : les basses restent pleines même à toute résonance. OCTAVE à -2 descend jusqu'à 20 Hz.
+- **Le MM-BASS suit l'horloge du MM-RYTM** (et son swing), sinon celle du MM-ARP, sinon son propre tempo : il se cale toujours sur ce qui joue.
+- **Il sort sur le master**, pas encore sur une voie du mixer : le mixer du MM-DECKS a ses quatre voies prises.
+- **Pas de capot ni de Dock au téléphone** : la machine debout tient dans l'écran, avec ses potards en rangées de quatre et ses pas en deux rangées de huit.
 - **Le MM-SMPL disparaît sans redirection cassée** : `?m=smpl` mène aux DECKS. Son dernier sample revient sur DECK A.
 
 ## Ce qui reste à faire / points en suspens
@@ -54,9 +82,13 @@ Ce rapport couvre la première étape, la mise en ligne du sampler dans les plat
   - essayer les pads, la séquence et SAVE, au desktop et au téléphone ;
   - réimporter les setups du Roto DECK (13), MIXER (14) et LIVE (16). Le setup 15 (SMPL) peut être effacé.
 - Mika : regarder le nouvel écran du MM-RYTM (au repos, en RUN, en EDIT, en tournant VOLUME). S'il veut l'affiner, des captures des écrans de l'OP-1 qu'il aime aideront.
-- La suite de la demande, dans cette même session : MM-BASS.
+- Mika : essayer le MM-BASS, au desktop et au téléphone. Les tests ont tourné son coupé : la qualité du son (filtre, accent, sub) reste à juger à l'oreille. GEN dans chaque STYLE, RUN avec le MM-RYTM, ROOT sur ARP avec le MM-ARP, puis CUTOFF, RESO et ACCENT pour l'acid.
+- Mika : importer le setup BASS du Roto sur le SETUP 15 (le fichier est dans le panneau MIDI et dans `docs/midi/roto/`).
+- Plus tard, si Mika le veut : une voie du mixer pour le MM-BASS, la basse dans le setup LIVE (plein aujourd'hui), un EDIT du MM-BASS avec plusieurs lignes en mémoire.
 - Toujours en attente : le compteur de visiteurs du MENU (Supabase, quand Mika dit go).
 
 ## Commandes utiles ajoutées
 
-- Aucune. `npm run manual:smpl` est retiré. `window.__v4.sampler('a')` (avec `?debug=1`) donne le sampler d'une platine.
+- Aucune nouvelle commande npm. `npm run manual:smpl` est retiré.
+- Avec `?debug=1` : `window.__v4.sampler('a')` donne le sampler d'une platine, `window.__v4.bass` le MM-BASS (rig, state, params, engine, seq).
+- `?m=bass` ouvre le site sur le MM-BASS, `?bass=0` le retire pour l'onglet.

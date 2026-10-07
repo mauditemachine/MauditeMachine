@@ -10,7 +10,7 @@
  * Sans le MM-VOYAGER (?voyager=0), la 808 seule : focus reste 'mm808'.
  */
 
-export type MachineId = 'mm808' | 'voy' | 'dj';
+export type MachineId = 'mm808' | 'voy' | 'bass' | 'dj';
 export type Focus = 'all' | MachineId;
 
 /**
@@ -47,11 +47,29 @@ export const DJ: boolean = (() => {
 })();
 
 /**
- * Les machines sur la table, de gauche a droite. Le MM-SMPL (2026-10-04)
- * est parti le 2026-10-07 : son sampler est dans chaque platine du MM-DECKS
- * (Mika : "supprime MM-SMPL, ca ne sert a rien").
+ * Le MM-BASS (2026-10-07, Mika : "un prototype de generateur de bassline,
+ * la meme taille que MM-RYTM") : a droite du MM-ARP, le MM-DECKS apres lui.
+ * Pour tout le monde ; ?bass=0 le retire (retenu pour l'onglet), ?bass=1 le
+ * remet. Il suppose le MM-VOYAGER sur la table.
  */
-export const MACHINES: readonly MachineId[] = VOYAGER ? ['mm808', 'voy', ...(DJ ? (['dj'] as const) : [])] : ['mm808'];
+export const BASS: boolean = (() => {
+  if (typeof window === 'undefined' || !VOYAGER) return false;
+  try {
+    const q = new URLSearchParams(window.location.search).get('bass');
+    if (q === '1' || q === '0') window.sessionStorage.setItem('mm.v4.bass', q);
+    return window.sessionStorage.getItem('mm.v4.bass') !== '0';
+  } catch {
+    return true;
+  }
+})();
+
+/**
+ * Les machines sur la table, de gauche a droite : MM-RYTM, MM-ARP, MM-BASS,
+ * MM-DECKS. Le MM-SMPL (2026-10-04) est parti le 2026-10-07 : son sampler
+ * est dans chaque platine du MM-DECKS (Mika : "supprime MM-SMPL, ca ne sert
+ * a rien").
+ */
+export const MACHINES: readonly MachineId[] = VOYAGER ? ['mm808', 'voy', ...(BASS ? (['bass'] as const) : []), ...(DJ ? (['dj'] as const) : [])] : ['mm808'];
 
 /**
  * La machine d'arrivee (2026-10-04, Mika : "oui, ajoute ?m=dj") : ?m=dj
@@ -72,6 +90,9 @@ const START_ALIASES: Readonly<Record<string, MachineId>> = {
   '808': 'mm808',
   mm808: 'mm808',
   'mm-rytm': 'mm808',
+  bass: 'bass',
+  'mm-bass': 'bass',
+  acid: 'bass',
   // Le MM-SMPL est dans les platines depuis le 2026-10-07 : ses anciens liens menent au MM-DECKS
   smpl: 'dj',
   sampler: 'dj',

@@ -80,6 +80,7 @@ import type { HotspotKind, HotspotView } from '../scene/hit';
 import { quadToUnit } from '../scene/quad';
 import type { Stage } from '../scene/renderer';
 import { djLoad, type DjModules } from '../state/djload';
+import { bassLoad, type BassModules } from '../state/bassload';
 import { djView } from '../dj/view';
 import { editor } from '../state/editor';
 import { patterns, slotName } from '../state/patterns';
@@ -296,10 +297,20 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     };
     // Tout type de zone du MM-DECKS (djknob, djfader, djkey, djjog, djscreen...)
     const isDj = (k: HotspotKind): boolean => k.startsWith('dj');
-    /** Les gestes de la machine d'une zone (MM-DECKS), ou null. */
-    const gesturesOf = (h: HotspotView | null): typeof djg => (!h ? null : isDj(h.kind) ? djGestures() : null);
+    // Le MM-BASS (2026-10-07) : le meme contrat (bass/gestures.ts), son code arrive a part aussi (state/bassload.ts)
+    let bsg: InstanceType<BassModules['BassGestures']> | null = null;
+    const bassGestures = (): typeof bsg => {
+      if (!bsg && stage.bass) {
+        const m = bassLoad.get();
+        if (m) bsg = new m.BassGestures(stage);
+      }
+      return bsg;
+    };
+    const isBass = (k: HotspotKind): boolean => k.startsWith('bass');
+    /** Les gestes de la machine d'une zone (MM-DECKS, MM-BASS), ou null. */
+    const gesturesOf = (h: HotspotView | null): typeof djg | typeof bsg => (!h ? null : isDj(h.kind) ? djGestures() : isBass(h.kind) ? bassGestures() : null);
     /** Celui qui tient ce pointeur. */
-    const holder = (id: number): typeof djg => (djg?.holds(id) ? djg : null);
+    const holder = (id: number): typeof djg | typeof bsg => (djg?.holds(id) ? djg : bsg?.holds(id) ? bsg : null);
     // L'ecran de la suite du MM-ARP (2026-10-05, voyager/seqscreen.ts) : le point touche sur son verre (u, v), un dessin suit son pointeur
     const seqDrags = new Set<number>();
     const seqOut = { x: 0, y: 0 };
@@ -732,6 +743,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       ro.disconnect();
       downs.clear();
       djg?.release();
+      bsg?.release();
       stage.orbit.gate = () => true;
       el.removeEventListener('pointerdown', onDown);
       el.removeEventListener('pointermove', onMove);

@@ -5,7 +5,7 @@
  * c'est lock sur la vue la plus adaptee pour utiliser la machine").
  *
  * - Une machine joue : le MM-RYTM quand son horloge tourne, le MM-ARP quand
- *   son arpege joue, le MM-DECKS quand une platine tourne ou que le sampler
+ *   son arpege joue, le MM-BASS quand sa ligne tourne (2026-10-07), le MM-DECKS quand une platine tourne ou que le sampler
  *   d'une platine sonne (2026-10-07).
  * - Elle demarre : la vue passe a elle, de face (le Stage, scene/renderer.ts).
  * - Tant qu'elle joue, un geste parti sur elle ne bouge plus la vue
@@ -16,6 +16,7 @@
 
 import { clock } from '../audio/clock';
 import { arp } from '../voyager/arp';
+import { bassLoad } from './bassload';
 import { djLoad } from './djload';
 import type { MachineId } from './focus';
 
@@ -26,9 +27,15 @@ function djPlaying(): boolean {
   return Object.values(m.djState.get().deck).some((d) => d.playing) || m.samplersSounding();
 }
 
+/** La ligne du MM-BASS tourne (2026-10-07 ; rien tant que son code n'est pas arrive). */
+function bassPlaying(): boolean {
+  return !!bassLoad.get()?.bassSeq.running;
+}
+
 export function machinePlaying(m: MachineId): boolean {
   if (m === 'mm808') return clock.running;
   if (m === 'voy') return arp.get().running;
+  if (m === 'bass') return bassPlaying();
   return djPlaying();
 }
 
@@ -39,7 +46,7 @@ export function machinePlaying(m: MachineId): boolean {
  * entre deux pas.
  */
 export function anyPlaying(): boolean {
-  return clock.running || arp.get().running || djPlaying();
+  return clock.running || arp.get().running || bassPlaying() || djPlaying();
 }
 
 /**
@@ -47,7 +54,7 @@ export function anyPlaying(): boolean {
  * de quoi se desabonner.
  */
 export function onPlayStart(fn: (m: MachineId) => void): () => void {
-  const was: Record<MachineId, boolean> = { mm808: clock.running, voy: arp.get().running, dj: djPlaying() };
+  const was: Record<MachineId, boolean> = { mm808: clock.running, voy: arp.get().running, bass: bassPlaying(), dj: djPlaying() };
   const check = (m: MachineId): void => {
     const now = machinePlaying(m);
     if (now && !was[m]) fn(m);
@@ -63,8 +70,18 @@ export function onPlayStart(fn: (m: MachineId) => void): () => void {
   };
   hookDj();
   offs.push(djLoad.subscribe(hookDj));
+  // Le MM-BASS aussi : sa sequence, des que son code est la
+  let offBass: (() => void) | null = null;
+  const hookBass = (): void => {
+    const st = bassLoad.get()?.bassState;
+    if (!st || offBass) return;
+    offBass = st.subscribe(() => check('bass'));
+  };
+  hookBass();
+  offs.push(bassLoad.subscribe(hookBass));
   return () => {
     for (const off of offs) off();
     offDj?.();
+    offBass?.();
   };
 }

@@ -49,7 +49,7 @@ import { useMedia } from './hooks/useMedia';
 import { Stage } from './scene/renderer';
 import { editor } from './state/editor';
 import { explode, voyExplode } from './state/explode';
-import { DJ, focus, VOYAGER } from './state/focus';
+import { BASS, DJ, focus, VOYAGER } from './state/focus';
 import { FLAGS, syncFlags } from './state/flags';
 import { intro } from './state/intro';
 import { lcd } from './state/lcd';
@@ -339,6 +339,8 @@ const DjBrowser = lazy(() =>
 );
 /** Les jumeaux HTML du MM-DECKS (clavier, lecteurs d'ecran), charges a part eux aussi. */
 const DjTwins = lazy(() => import('./dj/Twins'));
+/** Le MM-BASS (2026-10-07) : ses jumeaux (et son clavier), charges a part */
+const BassTwins = lazy(() => import('./bass/Twins'));
 
 const V4Shell: React.FC = () => {
   const stageRef = useRef<Stage | null>(null);
@@ -520,6 +522,11 @@ const V4Shell: React.FC = () => {
                 <DjTwins stage={stage} />
               </Suspense>
             )}
+            {BASS && (
+              <Suspense fallback={null}>
+                <BassTwins stage={stage} />
+              </Suspense>
+            )}
           </StageBoundary>
         )}
       </div>
@@ -532,10 +539,10 @@ const V4Shell: React.FC = () => {
           <Scope mobile={mobile} getStage={getStage} />
           {/* Le Dock n'existe que sur la mise en page mobile : pas de rendu React par pas sur desktop ; il programme la 808 */}
           {/* EDIT ouvert (2026-10-04) : l'editeur prend la place du Dock de sa machine */}
-          {mobile && machineFocus !== 'voy' && machineFocus !== 'dj' && editorOpen !== 'mm808' && <Dock getStage={getStage} />}
+          {mobile && machineFocus !== 'voy' && machineFocus !== 'dj' && machineFocus !== 'bass' && editorOpen !== 'mm808' && <Dock getStage={getStage} />}
           {/* Le Voyager a le sien au telephone : accords, octave, arpege en gros boutons */}
           {mobile && VOYAGER && machineFocus === 'voy' && editorOpen !== 'voy' && <VoyDock getStage={getStage} />}
-          {/* Le MM-DECKS n'en a plus (2026-10-05, Mika : "le bouton MIXER ne sert a rien") : la table tient dans l'ecran */}
+          {/* Le MM-DECKS n'en a plus (2026-10-05, Mika : "le bouton MIXER ne sert a rien") : la table tient dans l'ecran ; le MM-BASS non plus, debout au telephone */}
           {/* Les editeurs (EDIT sur la machine) : la suite de l'arpege, le motif du MM-RYTM et ses velocites */}
           {VOYAGER && <SeqPanel stage={stage} mobile={mobile} />}
           <BeatPanel stage={stage} mobile={mobile} />

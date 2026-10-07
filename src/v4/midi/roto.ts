@@ -11,8 +11,8 @@
  * la table, le MM-RYTM et ses mutes, le MM-ARP et ses accords, les effets,
  * sans changer de setup :
  * - chacun sur son canal : les potards sur 1 (RYTM), 2 (ARP), 3 (DECK),
- *   4 (MIXER), 6 (LIVE), ses boutons sur le canal + 8 (9 a 14) ; le canal
- *   5 (SETUP 15) etait celui du MM-SMPL ;
+ *   4 (MIXER), 5 (BASS, le MM-BASS du 2026-10-07, a la place du MM-SMPL),
+ *   6 (LIVE), ses boutons sur le canal + 8 (9 a 14) ;
  * - une page du Roto montre huit potards et huit boutons : ils vont
  *   ensemble (la voix choisie et ses boutons de choix, les volumes et leurs
  *   mutes, le filtre et les accords) ;
@@ -42,8 +42,9 @@
 import { KIT_MODELS, KIT_MODEL_LABEL, type KitFamily } from '../audio/kit';
 import { samplesOf } from '../audio/samples';
 import { voyKnob, type VoyKnobId } from '../voyager/params';
+import { bassKnob, type BassKnobId } from '../bass/params';
 
-export type RotoSetupName = 'RYTM' | 'ARP' | 'DECK' | 'MIXER' | 'LIVE';
+export type RotoSetupName = 'RYTM' | 'ARP' | 'BASS' | 'DECK' | 'MIXER' | 'LIVE';
 
 /** Les couleurs de la palette du Roto utilisees ici (son numero). */
 const C = {
@@ -98,6 +99,8 @@ const k = (t: string, n: string, c: number, s?: readonly string[]): Ctl => ({ t,
 const b = (t: string, n: string, c: number, toggle = false): Ctl => ({ t, n, c, ...(toggle ? { toggle } : {}) });
 const v = (id: VoyKnobId, n: string, c: number): Ctl => k(`voy:knob:${id}`, n, c, steps(id));
 const dj = (id: string, n: string, c: number): Ctl => ({ t: `dj:dj-${id}`, n, c });
+/** Un potard du MM-BASS, ses crans nommes s'il en a. */
+const bs = (id: BassKnobId, n: string, c: number): Ctl => k(`bass:knob:${id}`, n, c, bassKnob(id).names);
 
 /* ---------------- les setups ---------------- */
 
@@ -436,7 +439,70 @@ function buildSetups(): RotoSetup[] {
     ],
   };
 
-  return [RYTM, ARP, DECK, MIXER, LIVE];
+  /**
+   * BASS (2026-10-07) : le MM-BASS sur le setup 15 (canal 5, celui du
+   * MM-SMPL parti) ; page 1 le filtre de la TB-303 et RUN, GEN, MUTATE,
+   * page 2 la voix et le generateur (les pas 1 a 8 dessous), page 3 la
+   * gamme (les pas 9 a 16), page 4 les touches du pas choisi.
+   */
+  const BASS: RotoSetup = {
+    name: 'BASS',
+    slot: 15,
+    ch: 5,
+    knobs: [
+      // 1 : le filtre
+      bs('cutoff', 'CUTOFF', C.orange),
+      bs('reso', 'RESO', C.orange),
+      bs('envmod', 'ENV MOD', C.orange),
+      bs('decay', 'DECAY', C.orange),
+      bs('accent', 'ACCENT', C.red),
+      bs('drive', 'DRIVE', C.purple),
+      bs('sub', 'SUB', C.gold),
+      bs('volume', 'VOLUME', C.white),
+      // 2 : la voix, le generateur
+      bs('wave', 'WAVE', C.gold),
+      bs('glide', 'GLIDE', C.gold),
+      bs('octave', 'OCTAVE', C.gold),
+      bs('style', 'STYLE', C.yellow),
+      bs('density', 'DENSITY', C.yellow),
+      bs('slides', 'SLIDES', C.yellow),
+      bs('accents', 'ACCENTS', C.yellow),
+      bs('range', 'RANGE', C.yellow),
+      // 3 : la gamme, le groove du MM-RYTM
+      bs('root', 'ROOT', C.cyan),
+      bs('scale', 'SCALE', C.cyan),
+      k('rytm:enc:swing', 'SWING', C.white),
+      null,
+      null,
+      null,
+      null,
+      null,
+    ],
+    buttons: [
+      // 1 : jouer
+      tog('bass:running', 'RUN', C.red),
+      b('bass:key:gen', 'GEN', C.orange),
+      b('bass:key:mutate', 'MUTATE', C.orange),
+      b('bass:key:clear', 'CLEAR', C.orange),
+      b('bass:key:accent', 'ACCENT', C.red),
+      b('bass:key:slide', 'SLIDE', C.yellow),
+      b('nav:prev', 'PREV MACHINE', C.white),
+      b('nav:next', 'NEXT MACHINE', C.white),
+      // 2 et 3 : les seize pas
+      ...Array.from({ length: 16 }, (_, i) => b(`bass:trig:${i}`, `STEP ${i + 1}`, i < 8 ? C.orange : C.peach)),
+      // 4 : le pas choisi
+      b('bass:key:notedn', 'NOTE -', C.cyan),
+      b('bass:key:noteup', 'NOTE +', C.cyan),
+      b('bass:key:octdn', 'OCT -', C.cyan),
+      b('bass:key:octup', 'OCT +', C.cyan),
+      b('nav:machines', 'RYTM + ARP', C.red),
+      tog('rytm:running', 'RUN RYTM', C.red),
+      tog('voy:running', 'RUN ARP', C.red),
+      b('nav:all', 'MM-STUDIO', C.white),
+    ],
+  };
+
+  return [RYTM, ARP, BASS, DECK, MIXER, LIVE];
 }
 
 /** Les setups (au chargement ; refaits au telechargement : rotoSetups). */

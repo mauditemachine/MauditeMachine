@@ -60,7 +60,7 @@ import { editor } from '../state/editor';
 import { PATTERN_SLOTS, patterns } from '../state/patterns';
 import { presetMode, type PresetKey } from '../state/presetMode';
 import { explode as explodeState, voyExplode } from '../state/explode';
-import { DJ, MACHINES, focus, startMachine, VOYAGER, type Focus, type MachineId } from '../state/focus';
+import { BASS, DJ, MACHINES, focus, startMachine, VOYAGER, type Focus, type MachineId } from '../state/focus';
 import { view } from '../state/view';
 import { intro } from '../state/intro';
 import { playhead } from '../state/playhead';
@@ -136,6 +136,9 @@ import type { DjRig } from '../dj/rig';
 import { djLoad } from '../state/djload';
 import { DJ_FRAME, DJ_TOP_Y, DJ_W, DJ_X, UNIT_X, unitW } from '../dj/theme';
 import { djView } from '../dj/view';
+import type { BassRig } from '../bass/rig';
+import { bassLoad } from '../state/bassload';
+import { BASS_D, BASS_FRAME, BASS_W, bassX } from '../bass/theme';
 
 const DEG = Math.PI / 180;
 
@@ -464,10 +467,13 @@ export class Stage {
   private introSign = 1;
   /** le MM-DECKS arrive pendant l'intro : pose a sa fin (pas de saccade, pas de saut de cadrage) */
   private pendingDj: typeof DjRig | null = null;
+  private pendingBass: typeof BassRig | null = null;
   /** le MM-VOYAGER (2026-10-03, ?voyager=1), null sans lui */
   readonly voy: VoyagerRig | null;
   /** le MM-DECKS (2026-10-04), accroche une fois son code arrive (attachDj) ; null avant, et sans lui (?dj=0) */
   dj: DjRig | null = null;
+  /** le MM-BASS (2026-10-07) : son code arrive a part (state/bassload.ts) ; null avant, et sans lui (?bass=0) */
+  bass: BassRig | null = null;
   /** l'anisotropie des textures, gardee pour le MM-DECKS qui arrive apres le constructeur */
   private aniso = 1;
   /** cadrage de la cible : courant, depart et arrivee du zoom, cibles, avancement (courbe appliquee) */
@@ -484,7 +490,7 @@ export class Stage {
   private unsubView: () => void = () => undefined;
   private unsubDjUnit: () => void = () => undefined;
   /** abscisses des machines au depart du zoom (le bout qui depasse les deplace) */
-  private nbFrom: Record<MachineId, number> = { mm808: 0, voy: VOY_X, dj: DJ_X };
+  private nbFrom: Record<MachineId, number> = { mm808: 0, voy: VOY_X, bass: bassX(), dj: DJ_X };
   /** survol du bout de la machine voisine : 0 a 1 */
   private peekHover = 0;
   /**
@@ -495,6 +501,7 @@ export class Stage {
   private insets: Record<MachineId, { cur: number; goal: number; top: number }> = {
     mm808: { cur: 0, goal: 0, top: 0 },
     voy: { cur: 0, goal: 0, top: 0 },
+    bass: { cur: 0, goal: 0, top: 0 },
     dj: { cur: 0, goal: 0, top: 0 },
   };
 
@@ -775,6 +782,8 @@ export class Stage {
     // le chargement principal ; le rig s'accroche ensuite (attachDj). Avec ?dj=0, rien
     this.aniso = aniso;
     if (VOYAGER && DJ) void djLoad.load()?.then((m) => this.attachDj(m.DjRig));
+    // Le MM-BASS (2026-10-07) : de meme, entre le MM-ARP et le MM-DECKS (state/bassload.ts) ; avec ?bass=0, rien
+    if (VOYAGER && BASS) void bassLoad.load()?.then((m) => this.attachBass(m.BassRig));
 
     // Taille initiale ; le canvas passe a l'encre tout de suite (jamais un noir pur)
     this.width = Math.max(1, opts.host.clientWidth);
@@ -1107,6 +1116,38 @@ export class Stage {
   }
 
   /**
+   * Le MM-BASS arrive (son code charge a part) : entre le MM-ARP et le
+   * MM-DECKS ; ses animations (la tete de lecture, l'ecran), son ecoute ;
+   * puis la scene se recadre.
+   */
+  private attachBass(Rig: typeof BassRig): void {
+    if (this.disposed || this.bass) return;
+    if (this.introOn) {
+      this.pendingBass = Rig;
+      return;
+    }
+    const bs = new Rig({
+      mobile: this.opts.mobile,
+      anisotropy: this.aniso,
+      repaint: () => this.repaint(),
+      invalidate: () => this.invalidate(),
+    });
+    this.bass = bs;
+    this.scene.add(bs.root);
+    this.hit.add(bs.hotspots);
+    for (const o of bs.occluders()) this.hit.addOccluder(o);
+    void whenLogos().then(() => {
+      if (!this.disposed) bs.redrawText();
+    });
+    this.animators.push(bs.step);
+    bs.listen();
+    this.setShown(this.fTo);
+    this.updateCamera();
+    this.precompile();
+    this.invalidate();
+  }
+
+  /**
    * Les programmes d'une machine arrivee, compiles en parallele (2026-10-05) :
    * sa premiere visite ne bloque plus le fil principal (au telephone, une
    * demi-seconde et plus : la musique se coupait).
@@ -1149,7 +1190,7 @@ export class Stage {
     const k = this.focusK;
     let insetPx = 0;
     let headPx = 0;
-    for (const id of ['mm808', 'voy', 'dj'] as const) {
+    for (const id of ['mm808', 'voy', 'bass', 'dj'] as const) {
       const w = (this.fFrom === id ? 1 - k : 0) + (this.fTo === id ? k : 0);
       insetPx += this.insets[id].cur * w;
       headPx += this.insets[id].top * w;
@@ -1214,6 +1255,7 @@ export class Stage {
     const voy = this.voy;
     if (!voy) return;
     const dj = this.dj;
+    const bs = this.bass;
     const f = this.fTo;
     const u = (2 * hw) / Math.max(1, this.width);
     const peek = (PEEK.px + PEEK.hoverPx * this.peekHover) * u;
@@ -1222,22 +1264,31 @@ export class Stage {
     let t808 = 0;
     let tVoy = VOY_X;
     let tDj = DJ_X;
-    // L'ordre : MM-RYTM, MM-ARP, MM-DECKS ; les voisines de la machine utilisee depassent
+    const homeBass = bassX();
+    let tBass = homeBass;
+    // L'ordre (2026-10-07) : MM-RYTM, MM-ARP, MM-BASS, MM-DECKS ; les voisines de la machine utilisee depassent
     const voyR = VOY_X + VOY_BODY.w / 2;
     if (!this.layoutMobile && f === 'mm808') {
       tVoy = Math.max(BODY.w / 2 + PEEK.gap + VOY_BODY.w / 2, cx + hw - peek + VOY_BODY.w / 2);
     } else if (!this.layoutMobile && f === 'voy') {
       t808 = Math.min(VOY_X - VOY_BODY.w / 2 - PEEK.gap - BODY.w / 2, cx - hw + peek - BODY.w / 2);
-      // A droite : le MM-DECKS
-      tDj = Math.max(voyR + PEEK.gap + DJ_W / 2, cx + hw - peek + DJ_W / 2);
+      // A droite : le MM-BASS (le MM-DECKS sans lui)
+      if (BASS) tBass = Math.max(voyR + PEEK.gap + BASS_W / 2, cx + hw - peek + BASS_W / 2);
+      else tDj = Math.max(voyR + PEEK.gap + DJ_W / 2, cx + hw - peek + DJ_W / 2);
+    } else if (!this.layoutMobile && f === 'bass') {
+      // Le MM-ARP depasse a gauche, le MM-DECKS a droite
+      tVoy = Math.min(homeBass - BASS_W / 2 - PEEK.gap - VOY_BODY.w / 2, cx - hw + peek - VOY_BODY.w / 2);
+      if (DJ) tDj = Math.max(homeBass + BASS_W / 2 + PEEK.gap + DJ_W / 2, cx + hw - peek + DJ_W / 2);
     } else if (!this.layoutMobile && f === 'dj') {
-      // Sa voisine de gauche depasse : le MM-ARP
-      tVoy = Math.min(DJ_X - DJ_W / 2 - PEEK.gap - VOY_BODY.w / 2, cx - hw + peek - VOY_BODY.w / 2);
+      // Sa voisine de gauche depasse : le MM-BASS (le MM-ARP sans lui)
+      if (BASS) tBass = Math.min(DJ_X - DJ_W / 2 - PEEK.gap - BASS_W / 2, cx - hw + peek - BASS_W / 2);
+      else tVoy = Math.min(DJ_X - DJ_W / 2 - PEEK.gap - VOY_BODY.w / 2, cx - hw + peek - VOY_BODY.w / 2);
     }
     const k = this.focusK;
     const x808 = this.nbFrom.mm808 + (t808 - this.nbFrom.mm808) * k;
     const xVoy = this.nbFrom.voy + (tVoy - this.nbFrom.voy) * k;
     const xDj = this.nbFrom.dj + (tDj - this.nbFrom.dj) * k;
+    const xBass = this.nbFrom.bass + (tBass - this.nbFrom.bass) * k;
     let moved = false;
     if (this.machine.root.position.x !== x808) {
       this.machine.root.position.x = x808;
@@ -1251,7 +1302,11 @@ export class Stage {
       dj.root.position.x = xDj;
       moved = true;
     }
-    if (this.floor.setCenters(x808, xVoy, xDj)) moved = true;
+    if (bs && bs.root.position.x !== xBass) {
+      bs.root.position.x = xBass;
+      moved = true;
+    }
+    if (this.floor.setCenters(x808, xVoy, xDj, xBass)) moved = true;
     if (moved) {
       this.shadowDirty = true;
       this.dirty = true;
@@ -1372,13 +1427,29 @@ export class Stage {
       openZ: 0,
     };
     if (f === 'dj') return dj;
+    // Le MM-BASS (2026-10-07) : le bloc entier de face, comme une platine du MM-DECKS (pas de capot)
+    const bass: Frame = {
+      cx: bassX(),
+      hw0: BASS_W / 2 / (mob ? FRAME_MOBILE : DJ_FRAME.fill),
+      h: BASS_FRAME.h,
+      ty: BASS_FRAME.targetY,
+      explodeTy: BASS_FRAME.targetY,
+      rClosed: BASS_W / 2 + 0.6,
+      rOpen: BASS_W / 2 + 0.6,
+      fitHalfH: BASS_FRAME.h / 2,
+      extent: BASS_W / 2 + (mob ? 3 : 2),
+      openW: 0,
+      openY: BASS_FRAME.targetY,
+      openZ: 0,
+    };
+    if (f === 'bass') return bass;
     const left = -BODY.w / 2;
-    const right = DJ ? DJ_X + DJ_W / 2 : VOY_X + VOY_BODY.w / 2;
+    const right = DJ ? DJ_X + DJ_W / 2 : BASS ? bassX() + BASS_W / 2 : VOY_X + VOY_BODY.w / 2;
     const half = (right - left) / 2;
     return {
       cx: (left + right) / 2,
       hw0: half / (mob ? OVERVIEW_FILL.mobile : OVERVIEW_FILL.desktop),
-      h: Math.max(m808.h, voy.h, DJ ? dj.h : 0),
+      h: Math.max(m808.h, voy.h, DJ ? dj.h : 0, BASS ? bass.h : 0),
       ty: (m808.ty + voy.ty) / 2,
       explodeTy: Math.max(m808.explodeTy, voy.explodeTy),
       rClosed: half + 1,
@@ -1395,7 +1466,7 @@ export class Stage {
   private explodeOf(f: Focus): number {
     const a = this.explode.p.frame;
     const b = this.voy ? this.voy.explode.p.frame : 0;
-    return f === 'mm808' ? a : f === 'voy' ? b : f === 'dj' ? 0 : Math.max(a, b);
+    return f === 'mm808' ? a : f === 'voy' ? b : f === 'dj' || f === 'bass' ? 0 : Math.max(a, b);
   }
 
   private explodeFrame(): number {
@@ -1426,7 +1497,7 @@ export class Stage {
     this.back.target.position.set(cx, 0, 0);
     this.back.target.updateMatrixWorld();
     // Le lisere jaune reste a gauche de la machine utilisee (vue d'ensemble : la 808)
-    this.rim.position.x = LIGHT_RIM.x + (this.fTo === 'voy' || this.fTo === 'dj' ? cx : 0);
+    this.rim.position.x = LIGHT_RIM.x + (this.fTo === 'voy' || this.fTo === 'dj' || this.fTo === 'bass' ? cx : 0);
     this.shadowDirty = true;
   }
 
@@ -1442,18 +1513,21 @@ export class Stage {
     // la vue tournee, elle se cache (elle passerait devant)
     const peek = !this.layoutMobile && !view.get();
     const dj = this.dj;
+    const bs = this.bass;
     // Les voisines immediates seulement, dans l'ordre de la scene (state/focus.ts MACHINES :
-    // MM-RYTM, MM-ARP, MM-DECKS)
+    // MM-RYTM, MM-ARP, MM-BASS, MM-DECKS)
     const at = f === 'all' ? -1 : MACHINES.indexOf(f);
     const shown = (id: MachineId): boolean => f === 'all' || id === f || (peek && at >= 0 && Math.abs(MACHINES.indexOf(id) - at) === 1);
     const a = shown('mm808');
     const b = shown('voy');
     const c = !!dj && shown('dj');
-    if (this.machine.root.visible === a && voy.root.visible === b && (!dj || dj.root.visible === c)) return;
+    const d = !!bs && shown('bass');
+    if (this.machine.root.visible === a && voy.root.visible === b && (!dj || dj.root.visible === c) && (!bs || bs.root.visible === d)) return;
     this.machine.root.visible = a;
     voy.root.visible = b;
     if (dj) dj.root.visible = c;
-    this.floor.setMachines(a, b, c);
+    if (bs) bs.root.visible = d;
+    this.floor.setMachines(a, b, c, d);
     this.hit.invalidate();
     this.invalidate();
   }
@@ -1497,7 +1571,7 @@ export class Stage {
     this.fTo = f;
     this.frTo = this.frameOf(f);
     this.focusK = 0;
-    this.nbFrom = { mm808: this.machine.root.position.x, voy: this.voy ? this.voy.root.position.x : VOY_X, dj: this.dj ? this.dj.root.position.x : DJ_X };
+    this.nbFrom = { mm808: this.machine.root.position.x, voy: this.voy ? this.voy.root.position.x : VOY_X, bass: this.bass ? this.bass.root.position.x : bassX(), dj: this.dj ? this.dj.root.position.x : DJ_X };
     this.peekHover = 0;
     this.tweens.cancel('peek.hover');
     this.setShown('all');
@@ -1899,8 +1973,11 @@ export class Stage {
     }
     // Le MM-DECKS arrive pendant l'intro se pose maintenant
     const dj = this.pendingDj;
+    const bs = this.pendingBass;
     this.pendingDj = null;
+    this.pendingBass = null;
     if (dj) this.attachDj(dj);
+    if (bs) this.attachBass(bs);
     this.warmIdle();
     this.invalidate();
   }
@@ -2048,19 +2125,23 @@ export class Stage {
     const voy = this.voy;
     if (!voy || this.disposed || this.contextLost || !this.started) return null;
     const dj = this.dj;
+    const bs = this.bass;
     if (m === 'dj' && !dj) return null;
+    if (m === 'bass' && !bs) return null;
     const a = this.machine.root.visible;
     const b = voy.root.visible;
     const c = dj ? dj.root.visible : false;
+    const dv = bs ? bs.root.visible : false;
     const fl = this.floor.mesh.visible;
     this.machine.root.visible = m === 'mm808';
     voy.root.visible = m === 'voy';
     if (dj) dj.root.visible = m === 'dj';
+    if (bs) bs.root.visible = m === 'bass';
     this.floor.mesh.visible = false;
     const cam = new PerspectiveCamera(24, w / h, 0.1, 200);
-    const cx = m === 'voy' ? VOY_X : m === 'dj' && dj ? dj.root.position.x : 0;
-    const ty = m === 'voy' ? VOY_FRAME.targetY : m === 'dj' ? DJ_FRAME.targetY : ORBIT.targetY;
-    const R = m === 'voy' ? Math.hypot(VOY_BODY.w, VOY_BODY.d) / 2 : m === 'dj' ? (DJ_W / 2) * 0.82 : Math.hypot(BODY.w, BODY.d) / 2;
+    const cx = m === 'voy' ? VOY_X : m === 'dj' && dj ? dj.root.position.x : m === 'bass' && bs ? bs.root.position.x : 0;
+    const ty = m === 'voy' ? VOY_FRAME.targetY : m === 'dj' ? DJ_FRAME.targetY : m === 'bass' ? BASS_FRAME.targetY : ORBIT.targetY;
+    const R = m === 'voy' ? Math.hypot(VOY_BODY.w, VOY_BODY.d) / 2 : m === 'dj' ? (DJ_W / 2) * 0.82 : m === 'bass' ? Math.hypot(BASS_W, BASS_D) / 2 : Math.hypot(BODY.w, BODY.d) / 2;
     const az = (26 * Math.PI) / 180;
     const el = (30 * Math.PI) / 180;
     const D = (R / Math.sin((24 * Math.PI) / 360)) * 0.62;
@@ -2090,6 +2171,7 @@ export class Stage {
       this.machine.root.visible = a;
       voy.root.visible = b;
       if (dj) dj.root.visible = c;
+      if (bs) bs.root.visible = dv;
       this.floor.mesh.visible = fl;
       // La vue normale, tout de suite : le coin rendu ne s'affiche jamais
       this.dirty = true;
@@ -2226,6 +2308,7 @@ export class Stage {
     // Le MM-VOYAGER : ses ids commencent par v (vpad, vbtn, vchip, vk)
     if (this.voy && this.voy.setHover(id !== null && id.startsWith('v') ? id : null)) changed = true;
     if (this.dj && this.dj.setHover(id !== null && id.startsWith('dj-') ? id : null)) changed = true;
+    if (this.bass && this.bass.setHover(id !== null && id.startsWith('bass-') ? id : null)) changed = true;
     const pad = id !== null && id.startsWith('pad-') ? (id.slice(4) as PadId) : null;
     if (this.pads.setHover(pad)) changed = true;
     // Puce du PCB (vue ouverte)
@@ -2672,6 +2755,7 @@ export class Stage {
     this.voy?.dispose();
     this.unsubDjUnit();
     this.dj?.dispose();
+    this.bass?.dispose();
     this.floor.dispose();
     this.key.dispose();
     this.hemi.dispose();

@@ -14,7 +14,7 @@
  *   fichier JSON, pour garder ou partager ses assignations) ;
  * - SEND VALUES BACK : les potards motorises du Roto-Control suivent.
  * - ROTO-CONTROL (2026-10-05) : la carte toute faite (les setups RYTM,
- *   ARP, DECK, MIXER, LIVE, midi/roto.ts), allumee ou non ; ses fichiers
+ *   ARP, BASS, DECK, MIXER, LIVE, midi/roto.ts), allumee ou non ; ses fichiers
  *   pour ROTO-SETUP a telecharger (tous en .zip, ou un par un) et
  *   comment les importer.
  * Le moteur : midi/midi.ts ; les cibles : midi/targets.ts.
@@ -61,7 +61,7 @@ function statusText(m: MidiView): string {
   }
 }
 
-const SCOPES: readonly TargetScope[] = ['mm808', 'voy', 'dj', 'global'];
+const SCOPES: readonly TargetScope[] = ['mm808', 'voy', 'bass', 'dj', 'global'];
 
 /** Un fichier telecharge (un blob, son nom). */
 function download(blob: Blob, name: string): void {
@@ -84,7 +84,7 @@ const RotoSection: React.FC<{ on: boolean; follow: boolean }> = ({ on, follow })
   <section className="v4-midi-roto" aria-label="Roto-Control">
     <label className="v4-midi-check">
       <input type="checkbox" checked={on} onChange={(e) => rotoToggle(e.target.checked)} />
-      <span>ROTO-CONTROL map: five ready setups, no MIDI LEARN needed</span>
+      <span>ROTO-CONTROL map: six ready setups, no MIDI LEARN needed</span>
     </label>
     <label className="v4-midi-check">
       <input type="checkbox" checked={follow} disabled={!on} onChange={(e) => followToggle(e.target.checked)} />
@@ -92,7 +92,7 @@ const RotoSection: React.FC<{ on: boolean; follow: boolean }> = ({ on, follow })
     </label>
     <div className="v4-midi-row">
       <button type="button" className="v4-midi-key v4-midi-key-main" onClick={rotoZip}>
-        DOWNLOAD THE 5 SETUPS
+        DOWNLOAD THE 6 SETUPS
       </button>
     </div>
     <div className="v4-midi-row v4-midi-roto-files" role="group" aria-label="One setup file">
@@ -105,7 +105,7 @@ const RotoSection: React.FC<{ on: boolean; follow: boolean }> = ({ on, follow })
     <ol className="v4-midi-roto-how">
       <li>In ROTO-SETUP 3.3.0, accept the firmware update it asks for, then back up with File &gt; Export All.</li>
       <li>Put the Roto in MIDI mode. Press SEL and pick SETUP 11, then File &gt; Import (Cmd+I): MM RYTM (SETUP 11).json.</li>
-      <li>Same for ARP on 12, DECK on 13, MIXER on 14, LIVE on 16 (your setups 1 to 10 stay as they are).</li>
+      <li>Same for ARP on 12, DECK on 13, MIXER on 14, BASS on 15, LIVE on 16 (your setups 1 to 10 stay as they are).</li>
       <li>Here: CONNECT. Every knob goes from 0 to 127, the motor knobs and the LEDs follow the site. LIVE plays all the machines without changing setup.</li>
     </ol>
   </section>

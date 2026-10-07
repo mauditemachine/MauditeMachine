@@ -1,0 +1,101 @@
+/**
+ * Le moteur du MM-BASS cote page (2026-10-07) : le worklet de
+ * bass/bass.worklet.js sur le contexte du site (cree au premier geste), sa
+ * sortie sur le bus de la page (l'analyseur, puis le limiteur : ?mute=1
+ * tient), les reglages qui suivent les potards, les notes de la sequence et
+ * celles jouees a la main, et ce qui sonne (la coupure du moment, la note
+ * tenue : l'ecran les montre).
+ */
+
+import workletUrl from './bass.worklet.js?url';
+import { synthPort } from '../audio/drums';
+import { bassParams } from './params';
+
+interface Graph {
+  ctx: AudioContext;
+  node: AudioWorkletNode;
+}
+
+let graph: Graph | null = null;
+let loading: Promise<Graph | null> | null = null;
+let moduleCtx: BaseAudioContext | null = null;
+
+/** Ce qui sonne : la coupure (Hz), l'enveloppe du filtre, la note tenue (-1 : rien), l'instant du rapport. */
+const live = { cut: 0, env: 0, gate: false, midi: -1, peak: 0, at: 0 };
+const liveListeners = new Set<() => void>();
+
+function params(): Record<string, number> {
+  const v = bassParams.get();
+  return { cutoff: v.cutoff, reso: v.reso, envmod: v.envmod, decay: v.decay, accent: v.accent, wave: v.wave, sub: v.sub, drive: v.drive, glide: v.glide, volume: v.volume };
+}
+
+function ensure(): Promise<Graph | null> {
+  if (graph) return Promise.resolve(graph);
+  if (loading) return loading;
+  const port = synthPort();
+  if (!port || !port.ctx.audioWorklet) return Promise.resolve(null);
+  const ctx = port.ctx as AudioContext;
+  const add = moduleCtx === ctx ? Promise.resolve() : ctx.audioWorklet.addModule(workletUrl);
+  moduleCtx = ctx;
+  loading = add
+    .then(() => {
+      const node = new AudioWorkletNode(ctx, 'mm-bass', { numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [2] });
+      node.port.onmessage = (e: MessageEvent<{ type: string; cut: number; env: number; gate: boolean; midi: number; peak: number }>) => {
+        const m = e.data;
+        if (m.type !== 'pos') return;
+        live.cut = m.cut;
+        live.env = m.env;
+        live.gate = m.gate;
+        live.midi = m.midi;
+        live.peak = m.peak;
+        live.at = performance.now();
+        liveListeners.forEach((fn) => fn());
+      };
+      node.connect(port.input);
+      node.port.postMessage({ type: 'params', p: params() });
+      graph = { ctx, node };
+      return graph;
+    })
+    .catch(() => null)
+    .finally(() => {
+      loading = null;
+    });
+  return loading;
+}
+
+bassParams.subscribe(() => graph?.node.port.postMessage({ type: 'params', p: params() }));
+
+/** Un message ; pendant le chargement du worklet, il attend son tour (create : le charger s'il ne l'est pas). */
+function send(msg: Record<string, unknown>, create = true): void {
+  if (graph) graph.node.port.postMessage(msg);
+  else if (create || loading) void ensure().then((g) => g?.node.port.postMessage(msg));
+}
+
+export const bassEngine = {
+  ensure,
+  /** Une note a l'heure at du contexte (0 : tout de suite) ; legato : elle glisse depuis la note tenue. */
+  on(midi: number, acc: boolean, legato: boolean, at = 0): void {
+    send({ type: 'on', at, midi, acc, legato });
+  },
+  off(at = 0): void {
+    send({ type: 'off', at }, false);
+  },
+  /** La sequence se re-programme : ce qui partait a from ou apres s'oublie. */
+  unseq(from: number): void {
+    send({ type: 'unseq', time: from }, false);
+  },
+  stop(): void {
+    send({ type: 'stop' }, false);
+  },
+  get ctx(): AudioContext | null {
+    return graph?.ctx ?? null;
+  },
+  live: (): Readonly<typeof live> => live,
+  subscribeLive(fn: () => void): () => void {
+    liveListeners.add(fn);
+    return () => {
+      liveListeners.delete(fn);
+    };
+  },
+  info: () => ({ ready: graph !== null, ...live }),
+};

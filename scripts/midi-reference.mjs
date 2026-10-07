@@ -69,8 +69,10 @@ async function readSite(chromium, url) {
       const R = await imp('/src/v4/midi/roto.ts');
       const DL = await imp('/src/v4/state/djload.ts');
       await DL.djLoad.load();
+      const BL = await imp('/src/v4/state/bassload.ts');
+      await BL.bassLoad.load();
       await new Promise((r) => setTimeout(r, 1500));
-      const scopes = ['mm808', 'voy', 'dj', 'global'];
+      const scopes = ['mm808', 'voy', 'bass', 'dj', 'global'];
       const targets = scopes.flatMap((s) => T.targetsOf(s).map((t) => ({ id: t.id, scope: t.scope, label: t.label, kind: t.kind, steps: t.steps ?? 0 })));
       const setups = R.rotoSetups().map((s) => ({
         name: s.name,
@@ -107,8 +109,8 @@ const COLORS = [
   ['LED eteinte', 70],
 ];
 const colorName = (n) => COLORS.find((c) => c[1] === n)?.[0] ?? String(n);
-const MACHINE = { mm808: 'MM-RYTM', voy: 'MM-ARP', dj: 'MM-DECKS (table, platines, samplers, effets)', global: 'Partout (navigation)' };
-const SCOPE_OF_PREFIX = { rytm: 'mm808', voy: 'voy', dj: 'dj', nav: 'global' };
+const MACHINE = { mm808: 'MM-RYTM', voy: 'MM-ARP', bass: 'MM-BASS', dj: 'MM-DECKS (table, platines, samplers, effets)', global: 'Partout (navigation)' };
+const SCOPE_OF_PREFIX = { rytm: 'mm808', voy: 'voy', bass: 'bass', dj: 'dj', nav: 'global' };
 const KIND = { value: 'valeur 0 a 127', press: 'appui', hold: 'maintenu (appui puis relachement)' };
 const cell = (s) => String(s ?? '').replace(/\|/g, '/').replace(/\n/g, ' ');
 const csv = (rows) => rows.map((r) => r.map((c) => (/[",;\n]/.test(String(c ?? '')) ? `"${String(c ?? '').replace(/"/g, '""')}"` : String(c ?? ''))).join(',')).join('\n') + '\n';
@@ -161,7 +163,7 @@ function build(data, date) {
   L.push('- Une **action** (RANDOM, CLEAR, OPEN, PLAY d\'une platine...) part au front montant : un CC qui passe au-dessus de 63, ou une note enfoncee. Une action **maintenue** (CUE, boucles, pads des samplers, bends) dure jusqu\'au relachement.');
   L.push('- Un **etat** (RUN, un mute, OSC ON) est une valeur 0 ou 1 : sur le Roto un bouton **bascule** (TOGGLE) dont la LED suit le site. Une note fait basculer un parametre.', '');
   L.push('**Le retour vers le Roto.** Les potards motorises et les LEDs recoivent la valeur du site (meme canal, meme CC) toutes les 50 ms quand elle change (souris, preset, RANDOM, changement de machine), jamais pendant 300 ms apres un geste sur le potard, et un echo qui revient aussitot est ignore. Seulement vers une sortie dont le nom contient « roto », ou un appareil sur lequel tu as appris. Pas de retour pour les boutons d\'action.', '');
-  L.push('**FOLLOW.** Toucher un controle d\'un setup montre sa machine : RYTM > MM-RYTM, ARP > MM-ARP, DECK et MIXER > MM-DECKS. LIVE ne change pas de machine.', '');
+  L.push('**FOLLOW.** Toucher un controle d\'un setup montre sa machine : RYTM > MM-RYTM, ARP > MM-ARP, BASS > MM-BASS, DECK et MIXER > MM-DECKS. LIVE ne change pas de machine.', '');
   L.push('**Retenu** dans le navigateur (`mm.v4.midi.1`) : assignations apprises, appareils, ROTO (la carte), FEEDBACK, FOLLOW.', '');
 
   L.push('## 2. Le fichier ROTO-SETUP (JSON)', '');
@@ -210,8 +212,8 @@ function build(data, date) {
   }
 
   L.push('## 4. Le catalogue complet des cibles', '');
-  L.push('Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI LEARN, ou le fichier d\'assignations du chapitre 5). La colonne « Dans » dit dans quels setups du Roto elle est deja placee. La cible d\'un id est dans la machine de son prefixe : `rytm:` MM-RYTM (scope `mm808`), `voy:` MM-ARP (`voy`), `dj:` MM-DECKS (`dj`, `dj:smpl:<platine>:` pour le sampler de chaque platine), `nav:` navigation (`global`).', '');
-  for (const scope of ['mm808', 'voy', 'dj', 'global']) {
+  L.push('Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI LEARN, ou le fichier d\'assignations du chapitre 5). La colonne « Dans » dit dans quels setups du Roto elle est deja placee. La cible d\'un id est dans la machine de son prefixe : `rytm:` MM-RYTM (scope `mm808`), `voy:` MM-ARP (`voy`), `bass:` MM-BASS (`bass`), `dj:` MM-DECKS (`dj`, `dj:smpl:<platine>:` pour le sampler de chaque platine), `nav:` navigation (`global`).', '');
+  for (const scope of ['mm808', 'voy', 'bass', 'dj', 'global']) {
     const list = data.targets.filter((t) => t.scope === scope);
     L.push(`### ${MACHINE[scope]} (scope \`${scope}\`, ${list.length} cibles)`, '');
     L.push(table(['id', 'Nom', 'Type', 'Crans', 'Dans'], list.map((t) => [`\`${t.id}\``, t.label, KIND[t.kind], t.steps || '', [...(inSetups.get(t.id) ?? [])].join(', ')])), '');
@@ -239,8 +241,8 @@ function build(data, date) {
     '```',
     ''
   );
-  L.push('- `maps` : une entree par machine (`mm808`, `voy`, `dj`, `global`) ; chaque ligne est `"cc:CANAL:CC": "id de la cible"`, le canal de 1 a 16. Aussi `note:CANAL:NOTE` et `pb:CANAL:0`.');
-  L.push('- La machine d\'une ligne est celle du prefixe de la cible (`rytm:` dans `mm808`, `voy:` dans `voy`, `dj:` dans `dj`, `nav:` dans `global`).');
+  L.push('- `maps` : une entree par machine (`mm808`, `voy`, `bass`, `dj`, `global`) ; chaque ligne est `"cc:CANAL:CC": "id de la cible"`, le canal de 1 a 16. Aussi `note:CANAL:NOTE` et `pb:CANAL:0`.');
+  L.push('- La machine d\'une ligne est celle du prefixe de la cible (`rytm:` dans `mm808`, `voy:` dans `voy`, `bass:` dans `bass`, `dj:` dans `dj`, `nav:` dans `global`).');
   L.push('- Une cle vise une seule cible par machine, et une cible n\'a qu\'une seule cle : ne la mets pas deux fois.');
   L.push('- IMPORT **remplace** toutes les assignations du navigateur : exporte d\'abord les tiennes.');
   L.push('- Ce que tu as appris passe avant la carte du Roto : ta disposition l\'emporte sur les six setups, mais des canaux libres (7, 8, 15, 16) evitent tout melange. Tu peux aussi eteindre la carte (la case « ROTO-CONTROL map » du panneau MIDI).');

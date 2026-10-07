@@ -143,7 +143,7 @@ export function page(id: PageId, stage: Stage | null): void {
 
 /** Le pad de page de la 808 s'enfonce (le MM-VOYAGER a ses pages sur la carte, pas de touche). */
 function pressPage(id: PageId, stage: Stage | null): void {
-  if (focus.get() === 'voy' || focus.get() === 'dj') return;
+  if (focus.get() === 'voy' || focus.get() === 'dj' || focus.get() === 'bass') return;
   stage?.pads.press(id);
 }
 
@@ -550,8 +550,8 @@ export function closeSection(): void {
  * demande est prise.
  */
 export function openToggle(stage: Stage | null = null, which: MachineId = hoodMachine()): boolean {
-  // Le MM-DECKS n'a pas de capot
-  if (which === 'dj') return false;
+  // Le MM-DECKS et le MM-BASS n'ont pas de capot
+  if (which === 'dj' || which === 'bass') return false;
   resume();
   const ok = hoodOf(which).toggle();
   if (ok) {
@@ -610,7 +610,7 @@ export function escape(): boolean {
   }
   const hood = hoodOf(hoodMachine());
   if (hood.get() === 'open') return hood.toggle();
-  if (pattern.get().instrument !== null && focus.get() !== 'voy' && focus.get() !== 'dj') {
+  if (pattern.get().instrument !== null && focus.get() !== 'voy' && focus.get() !== 'dj' && focus.get() !== 'bass') {
     selectVoice(null);
     return true;
   }
@@ -632,7 +632,7 @@ export function focusMachine(f: Focus): void {
 /**
  * Fleches gauche et droite (2026-10-05, Mika : "naviguer entre les machines
  * avec les fleches gauche droite") : la machine d'a cote, dans l'ordre de la
- * scene et du selecteur de l'en-tete (ALL, RYTM, ARP, DECKS ; ALL
+ * scene et du selecteur de l'en-tete (ALL, RYTM, ARP, BASS, DECKS ; ALL
  * seulement sur desktop) ; aux bouts, rien. true si la vue a change.
  */
 export function stepMachine(dir: -1 | 1): boolean {

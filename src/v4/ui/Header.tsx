@@ -75,6 +75,7 @@ interface Props {
 const SHORT: Record<MachineId, { label: string; aria: string }> = {
   mm808: { label: 'RYTM', aria: 'MM-RYTM drum machine' },
   voy: { label: 'ARP', aria: 'MM-ARP synthesizer' },
+  bass: { label: 'BASS', aria: 'MM-BASS bassline generator' },
   dj: { label: 'DECKS', aria: 'MM-DECKS DJ decks and mixer' },
 };
 

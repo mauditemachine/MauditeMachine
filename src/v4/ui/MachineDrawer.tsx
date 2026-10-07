@@ -17,7 +17,7 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { focusMachine } from '../actions';
 import type { Stage } from '../scene/renderer';
-import { DJ, MACHINES, focus, type Focus, type MachineId } from '../state/focus';
+import { BASS, DJ, MACHINES, focus, type Focus, type MachineId } from '../state/focus';
 import { explode, voyExplode, type ExplodeState } from '../state/explode';
 import { intro } from '../state/intro';
 
@@ -26,6 +26,7 @@ const ITEMS: readonly { id: Focus; title: string; sub: string }[] = [
   { id: 'all', title: 'MM-STUDIO', sub: 'ALL THE MACHINES' },
   { id: 'mm808', title: 'MM-RYTM', sub: 'DRUM MACHINE' },
   { id: 'voy', title: 'MM-ARP', sub: 'ARPEGGIATOR SYNTHESIZER' },
+  ...(BASS ? [{ id: 'bass' as const, title: 'MM-BASS', sub: 'BASSLINE GENERATOR' }] : []),
   ...(DJ ? [{ id: 'dj' as const, title: 'MM-DECKS', sub: 'DJ DECKS AND MIXER' }] : []),
 ];
 

@@ -28,6 +28,14 @@ export const MACHINE_HELP: Readonly<Record<MachineId, { name: string; kind: stri
       'Two oscillators, a Moog style filter, two envelopes, a tempo synced LFO and effects. OPEN hides the TWEAKS: CHORD voicings, SIDECHAIN on the kick, stereo width.',
     ],
   },
+  bass: {
+    name: 'MM-BASS',
+    kind: 'Bassline generator',
+    text: [
+      'GEN writes a bassline in the chosen STYLE (ACID, DISCO, ROLL, SUB), DENSITY, SLIDES and ACCENTS; MUTATE changes a few steps. RUN plays it in time with the MM-RYTM, ROOT on ARP follows the MM-ARP chords.',
+      'A TB-303 style filter (CUTOFF, RESO, ENV MOD, DECAY, ACCENT), a sine SUB one octave below and OCTAVE down to 20 Hz. Tap a step: note, tie, off; drag it up or down to change its note, then ACCENT and SLIDE.',
+    ],
+  },
   dj: {
     name: 'MM-DECKS',
     kind: 'DJ decks and mixer',

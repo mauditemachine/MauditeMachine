@@ -44,6 +44,7 @@ import { arp, arpDebug } from './voyager/arp';
 import { voyParams } from './voyager/params';
 import { djView } from './dj/view';
 import { djLoad, type DjModules } from './state/djload';
+import { bassLoad, type BassModules } from './state/bassload';
 import type { ExplodeInfo } from './scene/explode';
 import type { HotspotView } from './scene/hit';
 import type { EncodersInfo } from './scene/encoders';
@@ -213,6 +214,14 @@ export interface V4Debug {
   };
   /** Le sampler d'une platine (2026-10-07 ; null tant que le code du MM-DECKS n'est pas arrive) */
   sampler(d: 'a' | 'b' | 'c' | 'd'): ReturnType<DjModules['samplerOf']> | null;
+  /** Le MM-BASS (2026-10-07 ; absent avec ?bass=0) : le rig, son etat, ses potards, son moteur, sa sequence (null tant que son code n'est pas arrive) */
+  readonly bass: {
+    rig: ReturnType<NonNullable<Stage['bass']>['info']> | null;
+    readonly state: BassModules['bassState'] | null;
+    readonly params: BassModules['bassParams'] | null;
+    readonly engine: BassModules['bassEngine'] | null;
+    readonly seq: BassModules['bassSeq'] | null;
+  };
 }
 
 const NO_STATS: StageStats = {
@@ -368,6 +377,23 @@ export function installDebug(src: DebugSource): () => void {
       },
     },
     sampler: (d) => djLoad.get()?.samplerOf(d) ?? null,
+    bass: {
+      get rig() {
+        return src.stage()?.bass?.info() ?? null;
+      },
+      get state() {
+        return bassLoad.get()?.bassState ?? null;
+      },
+      get params() {
+        return bassLoad.get()?.bassParams ?? null;
+      },
+      get engine() {
+        return bassLoad.get()?.bassEngine ?? null;
+      },
+      get seq() {
+        return bassLoad.get()?.bassSeq ?? null;
+      },
+    },
   };
   window.__v4 = api;
   return () => {

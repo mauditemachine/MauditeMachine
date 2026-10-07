@@ -21,6 +21,8 @@
 
 import { APPEARANCE, PORTRAIT } from '../theme';
 import { VOY_BODY, VOY_X } from '../voyager/theme';
+import { BASS } from '../state/focus';
+import { BASS_W, bassX } from '../bass/theme';
 
 /* ---------- blocs ---------- */
 
@@ -103,11 +105,11 @@ let mixViews = 2;
 /** Largeur de l'ensemble pose. */
 export let DJ_W = 0;
 /**
- * Place du MM-DECKS : la derniere machine, a droite du MM-ARP (le MM-SMPL
- * est parti le 2026-10-07), le meme jour qu'entre la 808 et le MM-ARP ; son bord
+ * Place du MM-DECKS : la derniere machine, a droite du MM-BASS (2026-10-07 ;
+ * du MM-ARP sans lui), le meme jour qu'entre la 808 et le MM-ARP ; son bord
  * gauche ne bouge pas quand on ajoute une platine.
  */
-const DJ_LEFT = VOY_X + VOY_BODY.w / 2 + (PORTRAIT ? 1.8 : 2.6);
+const DJ_LEFT = (BASS ? bassX() + BASS_W / 2 : VOY_X + VOY_BODY.w / 2) + (PORTRAIT ? 1.8 : 2.6);
 export let DJ_X = 0;
 
 /**

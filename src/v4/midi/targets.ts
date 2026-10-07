@@ -19,7 +19,9 @@
  * - MM-DECKS (dj:<commande>, et dj:smpl:<platine>:... pour le sampler de
  *   chaque platine, 2026-10-07) : son code arrive a part (state/djload.ts)
  *   et inscrit ses cibles (dj/midi.ts) ; une assignation qui les vise le
- *   charge. Le MM-SMPL (smpl:...) est parti le 2026-10-07.
+ *   charge. Le MM-SMPL (smpl:...) est parti le 2026-10-07 ;
+ * - MM-BASS (bass:knob:<potard>, bass:key:<touche>, bass:running,
+ *   bass:trig:<0-15>, 2026-10-07) : de meme (state/bassload.ts, bass/midi.ts).
  */
 
 import { anyDial, anyDialValue, clearPattern, dialRange, dialSteps, editToggle, focusMachine, kitDial, machinesToggle, muteToggle, openToggle, padHit, patternTap, randomPattern, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
@@ -195,7 +197,7 @@ function coreTargets(): MidiTarget[] {
   return out;
 }
 
-export const MACHINE_NAME: Readonly<Record<MachineId, string>> = { mm808: 'MM-RYTM', voy: 'MM-ARP', dj: 'MM-DECKS' };
+export const MACHINE_NAME: Readonly<Record<MachineId, string>> = { mm808: 'MM-RYTM', voy: 'MM-ARP', bass: 'MM-BASS', dj: 'MM-DECKS' };
 
 let core: Map<string, MidiTarget> | null = null;
 const coreMap = (): Map<string, MidiTarget> => {
@@ -203,11 +205,11 @@ const coreMap = (): Map<string, MidiTarget> => {
   return core;
 };
 
-/** Les cibles des machines chargees a part : le MM-DECKS (sa liste suit ses platines). */
+/** Les cibles des machines chargees a part : le MM-DECKS (sa liste suit ses platines), le MM-BASS. */
 const lazy = new Map<string, { list: () => MidiTarget[]; find: (id: string) => MidiTarget | undefined }>();
 const lazyListeners = new Set<() => void>();
 
-/** Une machine chargee a part inscrit ses cibles (prefixe : dj). */
+/** Une machine chargee a part inscrit ses cibles (prefixe : dj, bass). */
 export function registerTargets(prefix: string, list: () => MidiTarget[], find: (id: string) => MidiTarget | undefined): void {
   lazy.set(prefix, { list, find });
   lazyListeners.forEach((fn) => fn());
@@ -236,7 +238,7 @@ export function targetsOf(scope: TargetScope): MidiTarget[] {
 }
 
 /** La cible d'une commande de la scene (ui/Hotspots.tsx, MIDI LEARN : on la touche, puis on bouge le controleur). */
-export function targetIdOfHotspot(h: { kind: string; param?: string; rknob?: string; inst?: string; index?: number; vpad?: number; vbtn?: string; vknob?: string; dj?: string }): string | null {
+export function targetIdOfHotspot(h: { kind: string; param?: string; rknob?: string; inst?: string; index?: number; vpad?: number; vbtn?: string; vknob?: string; dj?: string; bass?: string }): string | null {
   switch (h.kind) {
     case 'encoder':
       return h.param ? `rytm:enc:${h.param}` : null;
@@ -266,6 +268,12 @@ export function targetIdOfHotspot(h: { kind: string; param?: string; rknob?: str
     case 'djfader':
     case 'djkey':
       return h.dj ? `dj:${h.dj}` : null;
+    case 'bassknob':
+      return h.bass ? `bass:knob:${h.bass}` : null;
+    case 'basskey':
+      return h.bass ? `bass:key:${h.bass}` : null;
+    case 'basstrig':
+      return h.bass ? `bass:trig:${h.bass}` : null;
     default:
       return null;
   }
