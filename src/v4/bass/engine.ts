@@ -52,7 +52,8 @@ function ensure(): Promise<Graph | null> {
         live.at = performance.now();
         liveListeners.forEach((fn) => fn());
       };
-      node.connect(port.input);
+      // Sa prise (2026-10-07) : le master, ou la voie 2 du mixer du MM-DECKS (audio/drums.ts routeMachines)
+      node.connect(port.bass);
       node.port.postMessage({ type: 'params', p: params() });
       graph = { ctx, node };
       return graph;

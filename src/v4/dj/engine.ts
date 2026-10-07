@@ -422,7 +422,7 @@ export class DjFx {
 export const MASTER_DEFAULT = 0.88;
 
 export class DjMixer {
-  /** six voies : 1 et 2 les machines, 3 a 6 les platines A a D */
+  /** sept voies : 1 a 3 les machines (MM-RYTM, MM-BASS, MM-ARP), 4 a 7 les platines A a D */
   readonly ch: readonly DjChannel[];
   readonly fx: DjFx;
   private master: GainNode;

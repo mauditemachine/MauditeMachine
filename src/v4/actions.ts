@@ -30,6 +30,7 @@ import type { PresetMachine } from './state/presets';
 import { presskit } from './state/presskit';
 import { section } from './state/section';
 import { voices } from './state/voices';
+import { bassLoad } from './state/bassload';
 import { BOARD_CHIPS, MOBILE_QUERY, POT_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potMin, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
 import { arp } from './voyager/arp';
 import { CHORDS, PROGRESSIONS } from './voyager/chords';
@@ -764,25 +765,36 @@ export function voyRun(stage: Stage | null = null): boolean {
   return on;
 }
 
+/** Une machine du site joue-t-elle (le MM-RYTM, le MM-BASS, le MM-ARP) ? */
+export function machinesRunning(): boolean {
+  return clock.running || arp.get().running || !!bassLoad.get()?.bassSeq.running;
+}
+
 /**
  * PLAY/STOP du mixer du MM-DECKS (2026-10-04, Mika : "un bouton playstop
  * dans le mixer, bien place, pas trop imposant, et que ca se voie au
- * telephone") : les deux machines de ses voies 1 et 2 ensemble. L'une
- * joue : les deux s'arretent. Rien ne joue : le MM-RYTM part, l'arpege le
- * rejoint sur sa grille (sans progression, F#m). Les platines continuent :
- * c'est fait pour mixer par-dessus. Renvoie l'etat.
+ * telephone") : les machines de ses voies ensemble, le MM-BASS avec elles
+ * depuis le 2026-10-07 (ses voies 1 a 3). L'une joue : toutes s'arretent.
+ * Rien ne joue : le MM-RYTM part, l'arpege et la basse le rejoignent sur sa
+ * grille. Les platines continuent : c'est fait pour mixer par-dessus (et
+ * elles suivent le tempo des machines, dj/actions.ts). Renvoie l'etat.
  */
 export function machinesToggle(): boolean {
   gesture();
-  if (clock.running || arp.get().running) {
+  if (machinesRunning()) {
     if (clock.running) clock.stop();
     if (arp.get().running) arp.stop();
+    bassLoad.get()?.bassSeq.stop();
     return false;
   }
   sc.pauseForRun();
   clock.toggle();
   arp.toggleRun();
-  return clock.running || arp.get().running;
+  void bassLoad.load()?.then((m) => m.bassEngine.ensure().then(() => {
+    // Toujours voulu : rien ne l'a arretee entre-temps
+    if (clock.running && !m.bassSeq.running) m.bassSeq.start();
+  }));
+  return true;
 }
 
 /** Un potard du MM-VOYAGER (0 a 1) ; l'ecran dit sa valeur. */

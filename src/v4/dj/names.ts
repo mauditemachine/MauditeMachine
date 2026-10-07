@@ -7,7 +7,7 @@ import { DJ_FX_LABEL } from './theme';
 import type { DjFaderSpec, DjKeySpec, DjKnobSpec } from './layout';
 
 /** Ce qui entre sur chaque voie de la table. */
-const CH = ['MM-RYTM', 'MM-ARP', 'deck A', 'deck B', 'deck C', 'deck D'] as const;
+const CH = ['MM-RYTM', 'MM-BASS', 'MM-ARP', 'deck A', 'deck B', 'deck C', 'deck D'] as const;
 
 export function knobName(k: DjKnobSpec): string {
   const t = k.target;
@@ -43,7 +43,7 @@ export function keyName(k: DjKeySpec): string {
     case 'time':
       return `Effects time ${k.label} beat${t.d === 1 ? '' : 's'}`;
     case 'tempo':
-      return `Deck ${t.deck.toUpperCase()} pitch ${t.dir < 0 ? 'down' : 'up'} 0.1 BPM (hold to repeat)`;
+      return `Deck ${t.deck.toUpperCase()} pitch ${t.dir < 0 ? 'down' : 'up'} 0.05 BPM (hold to repeat)`;
     case 'sync':
       return `Deck ${t.deck.toUpperCase()} sync: match the tempo you hear`;
     case 'loop':
@@ -51,7 +51,7 @@ export function keyName(k: DjKeySpec): string {
     case 'removedeck':
       return `Remove deck ${t.deck.toUpperCase()} (while it plays: press twice)`;
     case 'machines':
-      return 'Play or stop the MM-RYTM and the MM-ARP together, key G';
+      return 'Play or stop the machines together (MM-RYTM, MM-BASS, MM-ARP), key G';
     case 'adddeck':
       return 'Add a deck, with its channel on the mixer';
   }

@@ -65,8 +65,15 @@ export const DJ_DECKS_ALL: readonly DjDeck[] = ['a', 'b', 'c', 'd'];
 export type DjUnit = DjDeck | 'mix' | 'mix1' | 'mix2' | 'mix3' | 'add';
 export const DJ_DECKS_MIN = 2;
 export const DJ_DECKS_MAX = 4;
-/** La voie de la table d'une platine : A 3, B 4, C 5, D 6 (index 2 a 5). */
-export const deckChannel = (d: DjDeck): DjChannel => (2 + DJ_DECKS_ALL.indexOf(d)) as DjChannel;
+/**
+ * Les machines du site sur la table (2026-10-07, Mika : "avec MM-BASS, ca
+ * fait trois machines, on devrait avoir trois tranches pour les machines et
+ * deux pour les DECKS, donc 5") : dans l'ordre de la table, 1 MM-RYTM, 2
+ * MM-BASS, 3 MM-ARP ; les platines ensuite.
+ */
+export const DJ_MACHINE_CHANNELS = 3;
+/** La voie de la table d'une platine : A 4, B 5, C 6, D 7 (index 3 a 6). */
+export const deckChannel = (d: DjDeck): DjChannel => (DJ_MACHINE_CHANNELS + DJ_DECKS_ALL.indexOf(d)) as DjChannel;
 
 /** Les platines posees, de gauche a droite (A, B, puis C et D si ajoutees). */
 export let DJ_DECKS: readonly DjDeck[] = ['a', 'b'];
@@ -79,8 +86,8 @@ export let DJ_UNITS_ON: readonly DjUnit[] = ['a', 'mix', 'b'];
  * derniere platine.
  */
 export let DJ_VIEW_UNITS: readonly DjUnit[] = ['a', 'mix', 'b'];
-/** Le nombre de voies de la table : le MM-RYTM, le MM-ARP, puis une par platine. */
-export let DJ_CHANNELS = 4;
+/** Le nombre de voies de la table : le MM-RYTM, le MM-BASS, le MM-ARP, puis une par platine. */
+export let DJ_CHANNELS = 5;
 /**
  * La table s'elargit d'une colonne par voie en plus. Au telephone tenu
  * droit (2026-10-05, Mika : "redesign le MIXER en mobile, ca doit rentrer
@@ -133,7 +140,7 @@ const readDecks = (): number => {
 /** Les places (blocs, table, cadrage) pour n platines. */
 function place(n: number): void {
   DJ_DECKS = DJ_DECKS_ALL.slice(0, n);
-  DJ_CHANNELS = 2 + n;
+  DJ_CHANNELS = DJ_MACHINE_CHANNELS + n;
   DJ_UNITS_ON = ['a', 'mix', ...DJ_DECKS.slice(1)];
   // Au telephone couche, la table se voit en deux ou trois vues, de gauche a droite ; tenu droit, en une
   mixViews = Math.min(MIX_VIEWS.length, Math.max(2, Math.ceil(mixWidth(DJ_CHANNELS) / MIX_VIEW)));
@@ -289,9 +296,11 @@ export const DJ_KNOB = {
   segments: { desktop: 40, mobile: 28 },
 } as const;
 
-/** Les voies de la table : 1 le MM-RYTM, 2 le MM-ARP, 3 a 6 les platines A a D. */
-export type DjChannel = 0 | 1 | 2 | 3 | 4 | 5;
-export const DJ_CHANNELS_MAX = 6;
+/** Les voies de la table : 1 le MM-RYTM, 2 le MM-BASS, 3 le MM-ARP, 4 a 7 les platines A a D. */
+export type DjChannel = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+export const DJ_CHANNELS_MAX = 7;
+/** Le nom court de chaque voie (la serigraphie, FX TO, le Roto-Control). */
+export const DJ_CH_NAMES = ['RYTM', 'BASS', 'ARP', 'A', 'B', 'C', 'D'] as const;
 export type DjEqId = 'gain' | 'hi' | 'mid' | 'low' | 'filter';
 export const DJ_EQ: readonly { id: DjEqId; label: string }[] = [
   { id: 'gain', label: 'GAIN' },
@@ -318,7 +327,7 @@ export const timeLabel = (d: number): string => (d === 0.25 ? '1/4' : d === 0.5 
 
 /**
  * La table, colonnes : une voie par machine et par platine (1 MM-RYTM, 2
- * MM-ARP, 3 a 6 les platines), puis MASTER. Rangees des potards de voie, du
+ * MM-BASS, 3 MM-ARP, 4 a 7 les platines), puis MASTER. Rangees des potards de voie, du
  * haut vers le bas, libelles au-dessus (Mika, 2026-10-03 : "les titres
  * au-dessus des boutons"). Repere du bloc ; a quatre voies, la table fait
  * 8.4 de large, chaque voie en plus l'elargit de MIX_COL a droite : la
@@ -365,7 +374,8 @@ export const MIX = {
   /**
    * PLAY/STOP des machines (2026-10-04, Mika : "un bouton playstop dans le
    * mixer, bien place, pas trop imposant") : sous le VU du master, plus
-   * petit que le PLAY d'une platine, son nom (RYTM + ARP) au-dessus
+   * petit que le PLAY d'une platine, son nom (MACHINES : les trois depuis le
+   * 2026-10-07) au-dessus
    */
   play: PORTRAIT ? { z: 3.25, r: 0.34, labelZ: 2.8 } : { z: 4.62, r: 0.36, labelZ: 3.98 },
   /** l'en-tete (MIXER), a la hauteur de celui des platines */

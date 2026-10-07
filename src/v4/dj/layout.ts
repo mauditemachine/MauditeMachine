@@ -79,7 +79,7 @@ export type DjKeyTarget =
   | { kind: 'removedeck'; deck: DjDeck }
   /** ADD DECK, dans l'en-tete de la table : une platine de plus (tant qu'il reste une place) */
   | { kind: 'adddeck' }
-  /** PLAY/STOP du mixer : le MM-RYTM et le MM-ARP (voies 1 et 2) ensemble */
+  /** PLAY/STOP du mixer : les machines (MM-RYTM, MM-BASS, MM-ARP, voies 1 a 3) ensemble */
   | { kind: 'machines' };
 
 export interface DjKeySpec {

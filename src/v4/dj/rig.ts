@@ -15,6 +15,8 @@
 import { Group } from 'three';
 import { clock } from '../audio/clock';
 import { arp } from '../voyager/arp';
+import { machinesRunning } from '../actions';
+import { bassLoad } from '../state/bassload';
 import type { HotspotDef, Occluder } from '../scene/hit';
 import { whenFonts } from '../scene/silk';
 import { DjBody } from './body';
@@ -56,6 +58,8 @@ export class DjRig {
   readonly silks: DjSilk[];
   private defs: HotspotDef[];
   private unsubs: (() => void)[] = [];
+  /** la basse est suivie (une fois son code arrive) */
+  private bassWatched = false;
   private lastFx: DjFxId | 'fxto' | DjKnobSpec | null = null;
   private prevCh: DjState['ch'] | null = null;
   /** FX TO au dernier etat lu : un changement redessine la serigraphie de la table (le numero vise en orange) */
@@ -144,6 +148,20 @@ export class DjRig {
     this.unsubs.push(arp.subscribe(() => {
       if (this.syncLights()) this.opts.repaint();
     }));
+    // La basse aussi (2026-10-07), une fois son code arrive (state/bassload.ts)
+    const onBass = (): void => {
+      const m = bassLoad.get();
+      if (!m || this.bassWatched) return;
+      this.bassWatched = true;
+      let was = m.bassSeq.running;
+      this.unsubs.push(m.bassState.subscribe(() => {
+        if (m.bassSeq.running === was) return;
+        was = m.bassSeq.running;
+        if (this.syncLights()) this.opts.repaint();
+      }));
+    };
+    this.unsubs.push(bassLoad.subscribe(onBass));
+    onBass();
     // Le sampler de chaque platine : ses touches s'allument (sa page, une prise, PLAY)
     for (const d of DJ_DECKS) {
       const sm = samplerOf(d);
@@ -236,9 +254,9 @@ export class DjRig {
     });
     DJ_ROUND_KEYS.forEach((k, i) => {
       const t = k.target;
-      // PLAY/STOP des machines : jaune quand le MM-RYTM ou le MM-ARP joue, pale sinon (il est toujours pret)
+      // PLAY/STOP des machines : jaune quand une machine joue (MM-RYTM, MM-BASS, MM-ARP), pale sinon (il est toujours pret)
       if (t.kind === 'machines') {
-        if (this.controls.setKeyGlow(i, clock.running || arp.get().running ? DJ_GLOW.yellow : paleYellow, true)) changed = true;
+        if (this.controls.setKeyGlow(i, machinesRunning() ? DJ_GLOW.yellow : paleYellow, true)) changed = true;
         return;
       }
       if (t.kind !== 'cue' && t.kind !== 'play') return;

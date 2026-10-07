@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 7 octobre 2026 depuis le code du site (`npm run docs:midi`) : 423 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 7 octobre 2026 depuis le code du site (`npm run docs:midi`) : 429 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -212,7 +212,7 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 2 | 1.3 | 9 | 16 | CLEAR | orange | rytm:clear | CLEAR | appui |
 | 3 | 1.4 | 9 | 17 | EDIT | jaune | rytm:edit | EDIT | appui |
 | 4 | 1.5 | 9 | 18 | OPEN | orange | rytm:open | OPEN | appui |
-| 5 | 1.6 | 9 | 19 | RYTM + ARP | rouge | nav:machines | PLAY/STOP RYTM + ARP | appui |
+| 5 | 1.6 | 9 | 19 | MACHINES | rouge | nav:machines | PLAY/STOP MACHINES | appui |
 | 6 | 1.7 | 9 | 20 | PREV MACHINE | blanc | nav:prev | PREVIOUS MACHINE | appui |
 | 7 | 1.8 | 9 | 21 | NEXT MACHINE | blanc | nav:next | NEXT MACHINE | appui |
 | 8 | 2.1 | 9 | 22 | BD | jaune | rytm:pad:BD | PAD BD | appui |
@@ -288,7 +288,7 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 2 | 1.3 | 10 | 16 | CLEAR | orange | voy:clear | CLEAR | appui |
 | 3 | 1.4 | 10 | 17 | EDIT | jaune | voy:edit | EDIT | appui |
 | 4 | 1.5 | 10 | 18 | OPEN | orange | voy:open | OPEN | appui |
-| 5 | 1.6 | 10 | 19 | RYTM + ARP | rouge | nav:machines | PLAY/STOP RYTM + ARP | appui |
+| 5 | 1.6 | 10 | 19 | MACHINES | rouge | nav:machines | PLAY/STOP MACHINES | appui |
 | 6 | 1.7 | 10 | 20 | PREV MACHINE | blanc | nav:prev | PREVIOUS MACHINE | appui |
 | 7 | 1.8 | 10 | 21 | NEXT MACHINE | blanc | nav:next | NEXT MACHINE | appui |
 | 8 | 2.1 | 10 | 22 | F#m | bleu | voy:pad:0 | CHORD F#m | appui |
@@ -362,7 +362,7 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 27 | 4.4 | 13 | 111 | OCT + | cyan | bass:key:octup | OCT + | appui |
 | 28 | 4.5 | 13 | 112 | LOCK | jaune | bass:lock | LOCK (CHOSEN STEP) | appui |
 | 29 | 4.6 | 13 | 113 | EDIT | jaune | bass:key:edit | EDIT | appui |
-| 30 | 4.7 | 13 | 114 | RYTM + ARP | rouge | nav:machines | PLAY/STOP RYTM + ARP | appui |
+| 30 | 4.7 | 13 | 114 | MACHINES | rouge | nav:machines | PLAY/STOP MACHINES | appui |
 | 31 | 4.8 | 13 | 115 | MM-STUDIO | blanc | nav:all | MM-STUDIO (ALL THE MACHINES) | appui |
 
 ### DECK (SETUP 13, potards canal 3, boutons canal 11)
@@ -372,20 +372,20 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | n | Page.pos | Canal | CC | Nom Roto | Couleur | Cible (id) | Ce que ca fait | Type |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 0 | 1.1 | 3 | 14 | PITCH A | cyan | dj:dj-a-pitch | DECK A PITCH | bipolaire, cran au milieu (64) |
-| 1 | 1.2 | 3 | 15 | FADER A | blanc | dj:dj-ch3-fader | CHANNEL 3 (DECK A) FADER | continu |
-| 2 | 1.3 | 3 | 16 | GAIN A | cyan | dj:dj-ch3-gain | CHANNEL 3 (DECK A) GAIN | bipolaire, cran au milieu (64) |
-| 3 | 1.4 | 3 | 17 | HI A | cyan | dj:dj-ch3-hi | CHANNEL 3 (DECK A) EQ HI | bipolaire, cran au milieu (64) |
-| 4 | 1.5 | 3 | 18 | MID A | cyan | dj:dj-ch3-mid | CHANNEL 3 (DECK A) EQ MID | bipolaire, cran au milieu (64) |
-| 5 | 1.6 | 3 | 19 | LOW A | cyan | dj:dj-ch3-low | CHANNEL 3 (DECK A) EQ LOW | bipolaire, cran au milieu (64) |
-| 6 | 1.7 | 3 | 20 | FILTER A | orange | dj:dj-ch3-filter | CHANNEL 3 (DECK A) FILTER | bipolaire, cran au milieu (64) |
+| 1 | 1.2 | 3 | 15 | FADER A | blanc | dj:dj-ch4-fader | CHANNEL 4 (DECK A) FADER | continu |
+| 2 | 1.3 | 3 | 16 | GAIN A | cyan | dj:dj-ch4-gain | CHANNEL 4 (DECK A) GAIN | bipolaire, cran au milieu (64) |
+| 3 | 1.4 | 3 | 17 | HI A | cyan | dj:dj-ch4-hi | CHANNEL 4 (DECK A) EQ HI | bipolaire, cran au milieu (64) |
+| 4 | 1.5 | 3 | 18 | MID A | cyan | dj:dj-ch4-mid | CHANNEL 4 (DECK A) EQ MID | bipolaire, cran au milieu (64) |
+| 5 | 1.6 | 3 | 19 | LOW A | cyan | dj:dj-ch4-low | CHANNEL 4 (DECK A) EQ LOW | bipolaire, cran au milieu (64) |
+| 6 | 1.7 | 3 | 20 | FILTER A | orange | dj:dj-ch4-filter | CHANNEL 4 (DECK A) FILTER | bipolaire, cran au milieu (64) |
 | 7 | 1.8 | 3 | 21 | MASTER | blanc | dj:dj-master | MASTER VOLUME | continu |
 | 8 | 2.1 | 3 | 22 | PITCH B | rose | dj:dj-b-pitch | DECK B PITCH | bipolaire, cran au milieu (64) |
-| 9 | 2.2 | 3 | 23 | FADER B | blanc | dj:dj-ch4-fader | CHANNEL 4 (DECK B) FADER | continu |
-| 10 | 2.3 | 3 | 24 | GAIN B | rose | dj:dj-ch4-gain | CHANNEL 4 (DECK B) GAIN | bipolaire, cran au milieu (64) |
-| 11 | 2.4 | 3 | 25 | HI B | rose | dj:dj-ch4-hi | CHANNEL 4 (DECK B) EQ HI | bipolaire, cran au milieu (64) |
-| 12 | 2.5 | 3 | 26 | MID B | rose | dj:dj-ch4-mid | CHANNEL 4 (DECK B) EQ MID | bipolaire, cran au milieu (64) |
-| 13 | 2.6 | 3 | 27 | LOW B | rose | dj:dj-ch4-low | CHANNEL 4 (DECK B) EQ LOW | bipolaire, cran au milieu (64) |
-| 14 | 2.7 | 3 | 28 | FILTER B | orange | dj:dj-ch4-filter | CHANNEL 4 (DECK B) FILTER | bipolaire, cran au milieu (64) |
+| 9 | 2.2 | 3 | 23 | FADER B | blanc | dj:dj-ch5-fader | CHANNEL 5 (DECK B) FADER | continu |
+| 10 | 2.3 | 3 | 24 | GAIN B | rose | dj:dj-ch5-gain | CHANNEL 5 (DECK B) GAIN | bipolaire, cran au milieu (64) |
+| 11 | 2.4 | 3 | 25 | HI B | rose | dj:dj-ch5-hi | CHANNEL 5 (DECK B) EQ HI | bipolaire, cran au milieu (64) |
+| 12 | 2.5 | 3 | 26 | MID B | rose | dj:dj-ch5-mid | CHANNEL 5 (DECK B) EQ MID | bipolaire, cran au milieu (64) |
+| 13 | 2.6 | 3 | 27 | LOW B | rose | dj:dj-ch5-low | CHANNEL 5 (DECK B) EQ LOW | bipolaire, cran au milieu (64) |
+| 14 | 2.7 | 3 | 28 | FILTER B | orange | dj:dj-ch5-filter | CHANNEL 5 (DECK B) FILTER | bipolaire, cran au milieu (64) |
 | 15 | 2.8 | 3 | 29 | MASTER | blanc | dj:dj-master | MASTER VOLUME | continu |
 | 16 | 3.1 | 3 | 30 | OVERDRIVE | violet | dj:dj-fx-overdrive | EFFECT OVERDRIVE | continu |
 | 17 | 3.2 | 3 | 31 | CRUSH | violet | dj:dj-fx-crush | EFFECT CRUSH | continu |
@@ -394,7 +394,7 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 20 | 3.5 | 3 | 104 | TRANS | violet | dj:dj-fx-trans | EFFECT TRANS | continu |
 | 21 | 3.6 | 3 | 105 | DELAY | violet | dj:dj-fx-delay | EFFECT DELAY | continu |
 | 22 | 3.7 | 3 | 106 | REVERB | violet | dj:dj-fx-reverb | EFFECT REVERB | continu |
-| 23 | 3.8 | 3 | 107 | FX TO | blanc | dj:dj-fxto | EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL | potard a 5 crans : ALL / RYTM / ARP / A / B |
+| 23 | 3.8 | 3 | 107 | FX TO | blanc | dj:dj-fxto | EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL | potard a 6 crans : ALL / RYTM / BASS / ARP / A / B |
 | 24 | 4.1 | 3 | 108 | SMPL LVL A | cyan | dj:smpl:a:knob:level | SMPL A LEVEL | continu |
 | 25 | 4.2 | 3 | 109 | SMPL PITCH A | cyan | dj:smpl:a:knob:pitch | SMPL A PITCH | bipolaire, cran au milieu (64) |
 | 26 | 4.3 | 3 | 110 | SMPL FLT A | orange | dj:smpl:a:knob:filter | SMPL A FILTER | bipolaire, cran au milieu (64) |
@@ -429,16 +429,16 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 18 | 3.3 | 11 | 102 | LOOP 8 A | vert | dj:dj-a-loop8 | DECK A LOOP 8 BEATS (PRESS AGAIN TO EXIT) | maintenu |
 | 19 | 3.4 | 11 | 103 | BEND - A | cyan | dj:dj-a-bendm | DECK A BEND SLOWER (HOLD) | maintenu |
 | 20 | 3.5 | 11 | 104 | BEND + A | cyan | dj:dj-a-bendp | DECK A BEND FASTER (HOLD) | maintenu |
-| 21 | 3.6 | 11 | 105 | PITCH - A | cyan | dj:dj-a-tempom | DECK A PITCH DOWN 0.1 BPM (HOLD TO REPEAT) | maintenu |
-| 22 | 3.7 | 11 | 106 | PITCH + A | cyan | dj:dj-a-tempop | DECK A PITCH UP 0.1 BPM (HOLD TO REPEAT) | maintenu |
+| 21 | 3.6 | 11 | 105 | PITCH - A | cyan | dj:dj-a-tempom | DECK A PITCH DOWN 0.05 BPM (HOLD TO REPEAT) | maintenu |
+| 22 | 3.7 | 11 | 106 | PITCH + A | cyan | dj:dj-a-tempop | DECK A PITCH UP 0.05 BPM (HOLD TO REPEAT) | maintenu |
 | 23 | 3.8 | 11 | 107 | SMPL MODE A | orange | dj:smpl:a:mode | SMPL A MODE | appui |
 | 24 | 4.1 | 11 | 108 | LOOP 1 B | vert | dj:dj-b-loop1 | DECK B LOOP 1 BEAT (PRESS AGAIN TO EXIT) | maintenu |
 | 25 | 4.2 | 11 | 109 | LOOP 2 B | vert | dj:dj-b-loop2 | DECK B LOOP 2 BEATS (PRESS AGAIN TO EXIT) | maintenu |
 | 26 | 4.3 | 11 | 110 | LOOP 8 B | vert | dj:dj-b-loop8 | DECK B LOOP 8 BEATS (PRESS AGAIN TO EXIT) | maintenu |
 | 27 | 4.4 | 11 | 111 | BEND - B | rose | dj:dj-b-bendm | DECK B BEND SLOWER (HOLD) | maintenu |
 | 28 | 4.5 | 11 | 112 | BEND + B | rose | dj:dj-b-bendp | DECK B BEND FASTER (HOLD) | maintenu |
-| 29 | 4.6 | 11 | 113 | PITCH - B | rose | dj:dj-b-tempom | DECK B PITCH DOWN 0.1 BPM (HOLD TO REPEAT) | maintenu |
-| 30 | 4.7 | 11 | 114 | PITCH + B | rose | dj:dj-b-tempop | DECK B PITCH UP 0.1 BPM (HOLD TO REPEAT) | maintenu |
+| 29 | 4.6 | 11 | 113 | PITCH - B | rose | dj:dj-b-tempom | DECK B PITCH DOWN 0.05 BPM (HOLD TO REPEAT) | maintenu |
+| 30 | 4.7 | 11 | 114 | PITCH + B | rose | dj:dj-b-tempop | DECK B PITCH UP 0.05 BPM (HOLD TO REPEAT) | maintenu |
 | 31 | 4.8 | 11 | 115 | SMPL MODE B | orange | dj:smpl:b:mode | SMPL B MODE | appui |
 
 ### MIXER (SETUP 14, potards canal 4, boutons canal 12)
@@ -448,29 +448,29 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | n | Page.pos | Canal | CC | Nom Roto | Couleur | Cible (id) | Ce que ca fait | Type |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 0 | 1.1 | 4 | 14 | FADER RYTM | blanc | dj:dj-ch1-fader | CHANNEL 1 (MM-RYTM) FADER | continu |
-| 1 | 1.2 | 4 | 15 | FADER ARP | blanc | dj:dj-ch2-fader | CHANNEL 2 (MM-ARP) FADER | continu |
-| 2 | 1.3 | 4 | 16 | FADER A | blanc | dj:dj-ch3-fader | CHANNEL 3 (DECK A) FADER | continu |
-| 3 | 1.4 | 4 | 17 | FADER B | blanc | dj:dj-ch4-fader | CHANNEL 4 (DECK B) FADER | continu |
-| 4 | 1.5 | 4 | 18 | FILTER RYTM | orange | dj:dj-ch1-filter | CHANNEL 1 (MM-RYTM) FILTER | bipolaire, cran au milieu (64) |
-| 5 | 1.6 | 4 | 19 | FILTER ARP | orange | dj:dj-ch2-filter | CHANNEL 2 (MM-ARP) FILTER | bipolaire, cran au milieu (64) |
-| 6 | 1.7 | 4 | 20 | FILTER A | orange | dj:dj-ch3-filter | CHANNEL 3 (DECK A) FILTER | bipolaire, cran au milieu (64) |
-| 7 | 1.8 | 4 | 21 | FILTER B | orange | dj:dj-ch4-filter | CHANNEL 4 (DECK B) FILTER | bipolaire, cran au milieu (64) |
-| 8 | 2.1 | 4 | 22 | HI RYTM | jaune | dj:dj-ch1-hi | CHANNEL 1 (MM-RYTM) EQ HI | bipolaire, cran au milieu (64) |
-| 9 | 2.2 | 4 | 23 | MID RYTM | jaune | dj:dj-ch1-mid | CHANNEL 1 (MM-RYTM) EQ MID | bipolaire, cran au milieu (64) |
-| 10 | 2.3 | 4 | 24 | LOW RYTM | jaune | dj:dj-ch1-low | CHANNEL 1 (MM-RYTM) EQ LOW | bipolaire, cran au milieu (64) |
-| 11 | 2.4 | 4 | 25 | HI ARP | or | dj:dj-ch2-hi | CHANNEL 2 (MM-ARP) EQ HI | bipolaire, cran au milieu (64) |
-| 12 | 2.5 | 4 | 26 | MID ARP | or | dj:dj-ch2-mid | CHANNEL 2 (MM-ARP) EQ MID | bipolaire, cran au milieu (64) |
-| 13 | 2.6 | 4 | 27 | LOW ARP | or | dj:dj-ch2-low | CHANNEL 2 (MM-ARP) EQ LOW | bipolaire, cran au milieu (64) |
-| 14 | 2.7 | 4 | 28 | GAIN RYTM | jaune | dj:dj-ch1-gain | CHANNEL 1 (MM-RYTM) GAIN | bipolaire, cran au milieu (64) |
-| 15 | 2.8 | 4 | 29 | GAIN ARP | or | dj:dj-ch2-gain | CHANNEL 2 (MM-ARP) GAIN | bipolaire, cran au milieu (64) |
-| 16 | 3.1 | 4 | 30 | HI A | cyan | dj:dj-ch3-hi | CHANNEL 3 (DECK A) EQ HI | bipolaire, cran au milieu (64) |
-| 17 | 3.2 | 4 | 31 | MID A | cyan | dj:dj-ch3-mid | CHANNEL 3 (DECK A) EQ MID | bipolaire, cran au milieu (64) |
-| 18 | 3.3 | 4 | 102 | LOW A | cyan | dj:dj-ch3-low | CHANNEL 3 (DECK A) EQ LOW | bipolaire, cran au milieu (64) |
-| 19 | 3.4 | 4 | 103 | HI B | rose | dj:dj-ch4-hi | CHANNEL 4 (DECK B) EQ HI | bipolaire, cran au milieu (64) |
-| 20 | 3.5 | 4 | 104 | MID B | rose | dj:dj-ch4-mid | CHANNEL 4 (DECK B) EQ MID | bipolaire, cran au milieu (64) |
-| 21 | 3.6 | 4 | 105 | LOW B | rose | dj:dj-ch4-low | CHANNEL 4 (DECK B) EQ LOW | bipolaire, cran au milieu (64) |
-| 22 | 3.7 | 4 | 106 | GAIN A | cyan | dj:dj-ch3-gain | CHANNEL 3 (DECK A) GAIN | bipolaire, cran au milieu (64) |
-| 23 | 3.8 | 4 | 107 | GAIN B | rose | dj:dj-ch4-gain | CHANNEL 4 (DECK B) GAIN | bipolaire, cran au milieu (64) |
+| 1 | 1.2 | 4 | 15 | FADER BASS | blanc | dj:dj-ch2-fader | CHANNEL 2 (MM-BASS) FADER | continu |
+| 2 | 1.3 | 4 | 16 | FADER ARP | blanc | dj:dj-ch3-fader | CHANNEL 3 (MM-ARP) FADER | continu |
+| 3 | 1.4 | 4 | 17 | FADER A | blanc | dj:dj-ch4-fader | CHANNEL 4 (DECK A) FADER | continu |
+| 4 | 1.5 | 4 | 18 | FADER B | blanc | dj:dj-ch5-fader | CHANNEL 5 (DECK B) FADER | continu |
+| 5 | 1.6 | 4 | 19 | FILTER RYTM | orange | dj:dj-ch1-filter | CHANNEL 1 (MM-RYTM) FILTER | bipolaire, cran au milieu (64) |
+| 6 | 1.7 | 4 | 20 | FILTER A | orange | dj:dj-ch4-filter | CHANNEL 4 (DECK A) FILTER | bipolaire, cran au milieu (64) |
+| 7 | 1.8 | 4 | 21 | FILTER B | orange | dj:dj-ch5-filter | CHANNEL 5 (DECK B) FILTER | bipolaire, cran au milieu (64) |
+| 8 | 2.1 | 4 | 22 | FILTER BASS | orange | dj:dj-ch2-filter | CHANNEL 2 (MM-BASS) FILTER | bipolaire, cran au milieu (64) |
+| 9 | 2.2 | 4 | 23 | FILTER ARP | orange | dj:dj-ch3-filter | CHANNEL 3 (MM-ARP) FILTER | bipolaire, cran au milieu (64) |
+| 10 | 2.3 | 4 | 24 | HI RYTM | jaune | dj:dj-ch1-hi | CHANNEL 1 (MM-RYTM) EQ HI | bipolaire, cran au milieu (64) |
+| 11 | 2.4 | 4 | 25 | LOW RYTM | jaune | dj:dj-ch1-low | CHANNEL 1 (MM-RYTM) EQ LOW | bipolaire, cran au milieu (64) |
+| 12 | 2.5 | 4 | 26 | HI BASS | peche | dj:dj-ch2-hi | CHANNEL 2 (MM-BASS) EQ HI | bipolaire, cran au milieu (64) |
+| 13 | 2.6 | 4 | 27 | LOW BASS | peche | dj:dj-ch2-low | CHANNEL 2 (MM-BASS) EQ LOW | bipolaire, cran au milieu (64) |
+| 14 | 2.7 | 4 | 28 | HI ARP | or | dj:dj-ch3-hi | CHANNEL 3 (MM-ARP) EQ HI | bipolaire, cran au milieu (64) |
+| 15 | 2.8 | 4 | 29 | LOW ARP | or | dj:dj-ch3-low | CHANNEL 3 (MM-ARP) EQ LOW | bipolaire, cran au milieu (64) |
+| 16 | 3.1 | 4 | 30 | HI A | cyan | dj:dj-ch4-hi | CHANNEL 4 (DECK A) EQ HI | bipolaire, cran au milieu (64) |
+| 17 | 3.2 | 4 | 31 | MID A | cyan | dj:dj-ch4-mid | CHANNEL 4 (DECK A) EQ MID | bipolaire, cran au milieu (64) |
+| 18 | 3.3 | 4 | 102 | LOW A | cyan | dj:dj-ch4-low | CHANNEL 4 (DECK A) EQ LOW | bipolaire, cran au milieu (64) |
+| 19 | 3.4 | 4 | 103 | HI B | rose | dj:dj-ch5-hi | CHANNEL 5 (DECK B) EQ HI | bipolaire, cran au milieu (64) |
+| 20 | 3.5 | 4 | 104 | MID B | rose | dj:dj-ch5-mid | CHANNEL 5 (DECK B) EQ MID | bipolaire, cran au milieu (64) |
+| 21 | 3.6 | 4 | 105 | LOW B | rose | dj:dj-ch5-low | CHANNEL 5 (DECK B) EQ LOW | bipolaire, cran au milieu (64) |
+| 22 | 3.7 | 4 | 106 | GAIN A | cyan | dj:dj-ch4-gain | CHANNEL 4 (DECK A) GAIN | bipolaire, cran au milieu (64) |
+| 23 | 3.8 | 4 | 107 | GAIN B | rose | dj:dj-ch5-gain | CHANNEL 5 (DECK B) GAIN | bipolaire, cran au milieu (64) |
 | 24 | 4.1 | 4 | 108 | OVERDRIVE | violet | dj:dj-fx-overdrive | EFFECT OVERDRIVE | continu |
 | 25 | 4.2 | 4 | 109 | CRUSH | violet | dj:dj-fx-crush | EFFECT CRUSH | continu |
 | 26 | 4.3 | 4 | 110 | CHORUS | violet | dj:dj-fx-chorus | EFFECT CHORUS | continu |
@@ -478,20 +478,20 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 28 | 4.5 | 4 | 112 | TRANS | violet | dj:dj-fx-trans | EFFECT TRANS | continu |
 | 29 | 4.6 | 4 | 113 | DELAY | violet | dj:dj-fx-delay | EFFECT DELAY | continu |
 | 30 | 4.7 | 4 | 114 | REVERB | violet | dj:dj-fx-reverb | EFFECT REVERB | continu |
-| 31 | 4.8 | 4 | 115 | FX TO | blanc | dj:dj-fxto | EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL | potard a 5 crans : ALL / RYTM / ARP / A / B |
+| 31 | 4.8 | 4 | 115 | FX TO | blanc | dj:dj-fxto | EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL | potard a 6 crans : ALL / RYTM / BASS / ARP / A / B |
 
 **Boutons**
 
 | n | Page.pos | Canal | CC | Nom Roto | Couleur | Cible (id) | Ce que ca fait | Type |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 0 | 1.1 | 12 | 14 | RUN RYTM | rouge | rytm:running | RUN (ON / OFF) | bascule (la LED suit le site) |
-| 1 | 1.2 | 12 | 15 | RUN ARP | rouge | voy:running | RUN (ON / OFF) | bascule (la LED suit le site) |
-| 2 | 1.3 | 12 | 16 | PLAY A | jaune | dj:dj-a-play | DECK A PLAY OR PAUSE | maintenu |
-| 3 | 1.4 | 12 | 17 | PLAY B | jaune | dj:dj-b-play | DECK B PLAY OR PAUSE | maintenu |
-| 4 | 1.5 | 12 | 18 | CUE A | orange | dj:dj-a-cue | DECK A CUE (HOLD TO PREVIEW) | maintenu |
-| 5 | 1.6 | 12 | 19 | CUE B | orange | dj:dj-b-cue | DECK B CUE (HOLD TO PREVIEW) | maintenu |
-| 6 | 1.7 | 12 | 20 | RYTM + ARP | rouge | nav:machines | PLAY/STOP RYTM + ARP | appui |
-| 7 | 1.8 | 12 | 21 | REC MIX A | rouge | dj:dj-a-smpl-recmix | DECK A SAMPLER: SAMPLE THE MIXER OUTPUT (THE LAST BEATS) | maintenu |
+| 1 | 1.2 | 12 | 15 | RUN BASS | rouge | bass:running | RUN (ON / OFF) | bascule (la LED suit le site) |
+| 2 | 1.3 | 12 | 16 | RUN ARP | rouge | voy:running | RUN (ON / OFF) | bascule (la LED suit le site) |
+| 3 | 1.4 | 12 | 17 | PLAY A | jaune | dj:dj-a-play | DECK A PLAY OR PAUSE | maintenu |
+| 4 | 1.5 | 12 | 18 | PLAY B | jaune | dj:dj-b-play | DECK B PLAY OR PAUSE | maintenu |
+| 5 | 1.6 | 12 | 19 | CUE A | orange | dj:dj-a-cue | DECK A CUE (HOLD TO PREVIEW) | maintenu |
+| 6 | 1.7 | 12 | 20 | CUE B | orange | dj:dj-b-cue | DECK B CUE (HOLD TO PREVIEW) | maintenu |
+| 7 | 1.8 | 12 | 21 | MACHINES | rouge | nav:machines | PLAY/STOP MACHINES | appui |
 | 8 | 2.1 | 12 | 22 | MUTE BD | rose | rytm:voice:BD:mute | MUTE BD | bascule (la LED suit le site) |
 | 9 | 2.2 | 12 | 23 | MUTE SD | rose | rytm:voice:SD:mute | MUTE SD | bascule (la LED suit le site) |
 | 10 | 2.3 | 12 | 24 | MUTE CH | rose | rytm:voice:CH:mute | MUTE CH | bascule (la LED suit le site) |
@@ -522,13 +522,13 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | n | Page.pos | Canal | CC | Nom Roto | Couleur | Cible (id) | Ce que ca fait | Type |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 0 | 1.1 | 6 | 14 | FADER RYTM | blanc | dj:dj-ch1-fader | CHANNEL 1 (MM-RYTM) FADER | continu |
-| 1 | 1.2 | 6 | 15 | FADER ARP | blanc | dj:dj-ch2-fader | CHANNEL 2 (MM-ARP) FADER | continu |
-| 2 | 1.3 | 6 | 16 | FADER A | blanc | dj:dj-ch3-fader | CHANNEL 3 (DECK A) FADER | continu |
-| 3 | 1.4 | 6 | 17 | FADER B | blanc | dj:dj-ch4-fader | CHANNEL 4 (DECK B) FADER | continu |
-| 4 | 1.5 | 6 | 18 | FILTER RYTM | orange | dj:dj-ch1-filter | CHANNEL 1 (MM-RYTM) FILTER | bipolaire, cran au milieu (64) |
-| 5 | 1.6 | 6 | 19 | FILTER ARP | orange | dj:dj-ch2-filter | CHANNEL 2 (MM-ARP) FILTER | bipolaire, cran au milieu (64) |
-| 6 | 1.7 | 6 | 20 | FILTER A | orange | dj:dj-ch3-filter | CHANNEL 3 (DECK A) FILTER | bipolaire, cran au milieu (64) |
-| 7 | 1.8 | 6 | 21 | FILTER B | orange | dj:dj-ch4-filter | CHANNEL 4 (DECK B) FILTER | bipolaire, cran au milieu (64) |
+| 1 | 1.2 | 6 | 15 | FADER BASS | blanc | dj:dj-ch2-fader | CHANNEL 2 (MM-BASS) FADER | continu |
+| 2 | 1.3 | 6 | 16 | FADER ARP | blanc | dj:dj-ch3-fader | CHANNEL 3 (MM-ARP) FADER | continu |
+| 3 | 1.4 | 6 | 17 | FADER A | blanc | dj:dj-ch4-fader | CHANNEL 4 (DECK A) FADER | continu |
+| 4 | 1.5 | 6 | 18 | FADER B | blanc | dj:dj-ch5-fader | CHANNEL 5 (DECK B) FADER | continu |
+| 5 | 1.6 | 6 | 19 | FILTER RYTM | orange | dj:dj-ch1-filter | CHANNEL 1 (MM-RYTM) FILTER | bipolaire, cran au milieu (64) |
+| 6 | 1.7 | 6 | 20 | FILTER A | orange | dj:dj-ch4-filter | CHANNEL 4 (DECK A) FILTER | bipolaire, cran au milieu (64) |
+| 7 | 1.8 | 6 | 21 | FILTER B | orange | dj:dj-ch5-filter | CHANNEL 5 (DECK B) FILTER | bipolaire, cran au milieu (64) |
 | 8 | 2.1 | 6 | 22 | SWING | orange | rytm:enc:swing | SWING | continu |
 | 9 | 2.2 | 6 | 23 | STRETCH | orange | rytm:enc:stretch | STRETCH | bipolaire, cran au milieu (64) |
 | 10 | 2.3 | 6 | 24 | RYTM DIST | violet | rytm:enc:dist | DIST | continu |
@@ -552,20 +552,20 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 28 | 4.5 | 6 | 112 | TRANS | violet | dj:dj-fx-trans | EFFECT TRANS | continu |
 | 29 | 4.6 | 6 | 113 | DELAY | violet | dj:dj-fx-delay | EFFECT DELAY | continu |
 | 30 | 4.7 | 6 | 114 | REVERB | violet | dj:dj-fx-reverb | EFFECT REVERB | continu |
-| 31 | 4.8 | 6 | 115 | FX TO | blanc | dj:dj-fxto | EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL | potard a 5 crans : ALL / RYTM / ARP / A / B |
+| 31 | 4.8 | 6 | 115 | FX TO | blanc | dj:dj-fxto | EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL | potard a 6 crans : ALL / RYTM / BASS / ARP / A / B |
 
 **Boutons**
 
 | n | Page.pos | Canal | CC | Nom Roto | Couleur | Cible (id) | Ce que ca fait | Type |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 0 | 1.1 | 14 | 14 | RUN RYTM | rouge | rytm:running | RUN (ON / OFF) | bascule (la LED suit le site) |
-| 1 | 1.2 | 14 | 15 | RUN ARP | rouge | voy:running | RUN (ON / OFF) | bascule (la LED suit le site) |
-| 2 | 1.3 | 14 | 16 | PLAY A | jaune | dj:dj-a-play | DECK A PLAY OR PAUSE | maintenu |
-| 3 | 1.4 | 14 | 17 | PLAY B | jaune | dj:dj-b-play | DECK B PLAY OR PAUSE | maintenu |
-| 4 | 1.5 | 14 | 18 | CUE A | orange | dj:dj-a-cue | DECK A CUE (HOLD TO PREVIEW) | maintenu |
-| 5 | 1.6 | 14 | 19 | CUE B | orange | dj:dj-b-cue | DECK B CUE (HOLD TO PREVIEW) | maintenu |
-| 6 | 1.7 | 14 | 20 | RYTM + ARP | rouge | nav:machines | PLAY/STOP RYTM + ARP | appui |
-| 7 | 1.8 | 14 | 21 | REC MIX A | rouge | dj:dj-a-smpl-recmix | DECK A SAMPLER: SAMPLE THE MIXER OUTPUT (THE LAST BEATS) | maintenu |
+| 1 | 1.2 | 14 | 15 | RUN BASS | rouge | bass:running | RUN (ON / OFF) | bascule (la LED suit le site) |
+| 2 | 1.3 | 14 | 16 | RUN ARP | rouge | voy:running | RUN (ON / OFF) | bascule (la LED suit le site) |
+| 3 | 1.4 | 14 | 17 | PLAY A | jaune | dj:dj-a-play | DECK A PLAY OR PAUSE | maintenu |
+| 4 | 1.5 | 14 | 18 | PLAY B | jaune | dj:dj-b-play | DECK B PLAY OR PAUSE | maintenu |
+| 5 | 1.6 | 14 | 19 | CUE A | orange | dj:dj-a-cue | DECK A CUE (HOLD TO PREVIEW) | maintenu |
+| 6 | 1.7 | 14 | 20 | CUE B | orange | dj:dj-b-cue | DECK B CUE (HOLD TO PREVIEW) | maintenu |
+| 7 | 1.8 | 14 | 21 | MACHINES | rouge | nav:machines | PLAY/STOP MACHINES | appui |
 | 8 | 2.1 | 14 | 22 | MUTE BD | rose | rytm:voice:BD:mute | MUTE BD | bascule (la LED suit le site) |
 | 9 | 2.2 | 14 | 23 | MUTE SD | rose | rytm:voice:SD:mute | MUTE SD | bascule (la LED suit le site) |
 | 10 | 2.3 | 14 | 24 | MUTE CH | rose | rytm:voice:CH:mute | MUTE CH | bascule (la LED suit le site) |
@@ -843,7 +843,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:key:noteup` | NOTE + | appui |  | BASS |
 | `bass:key:octdn` | OCT - | appui |  | BASS |
 | `bass:key:octup` | OCT + | appui |  | BASS |
-| `bass:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | BASS |
+| `bass:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | BASS, MIXER, LIVE |
 | `bass:trig:0` | STEP 1 | appui |  | BASS |
 | `bass:trig:1` | STEP 2 | appui |  | BASS |
 | `bass:trig:2` | STEP 3 | appui |  | BASS |
@@ -878,30 +878,35 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:lock:15` | LOCK 16 | appui |  |  |
 | `bass:lock` | LOCK (CHOSEN STEP) | appui |  | BASS |
 
-### MM-DECKS (table, platines, samplers, effets) (scope `dj`, 147 cibles)
+### MM-DECKS (table, platines, samplers, effets) (scope `dj`, 153 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
-| `dj:dj-ch1-gain` | CHANNEL 1 (MM-RYTM) GAIN | valeur 0 a 127 |  | MIXER |
+| `dj:dj-ch1-gain` | CHANNEL 1 (MM-RYTM) GAIN | valeur 0 a 127 |  |  |
 | `dj:dj-ch1-hi` | CHANNEL 1 (MM-RYTM) EQ HI | valeur 0 a 127 |  | MIXER |
-| `dj:dj-ch1-mid` | CHANNEL 1 (MM-RYTM) EQ MID | valeur 0 a 127 |  | MIXER |
+| `dj:dj-ch1-mid` | CHANNEL 1 (MM-RYTM) EQ MID | valeur 0 a 127 |  |  |
 | `dj:dj-ch1-low` | CHANNEL 1 (MM-RYTM) EQ LOW | valeur 0 a 127 |  | MIXER |
 | `dj:dj-ch1-filter` | CHANNEL 1 (MM-RYTM) FILTER | valeur 0 a 127 |  | MIXER, LIVE |
-| `dj:dj-ch2-gain` | CHANNEL 2 (MM-ARP) GAIN | valeur 0 a 127 |  | MIXER |
-| `dj:dj-ch2-hi` | CHANNEL 2 (MM-ARP) EQ HI | valeur 0 a 127 |  | MIXER |
-| `dj:dj-ch2-mid` | CHANNEL 2 (MM-ARP) EQ MID | valeur 0 a 127 |  | MIXER |
-| `dj:dj-ch2-low` | CHANNEL 2 (MM-ARP) EQ LOW | valeur 0 a 127 |  | MIXER |
-| `dj:dj-ch2-filter` | CHANNEL 2 (MM-ARP) FILTER | valeur 0 a 127 |  | MIXER, LIVE |
-| `dj:dj-ch3-gain` | CHANNEL 3 (DECK A) GAIN | valeur 0 a 127 |  | DECK, MIXER |
-| `dj:dj-ch3-hi` | CHANNEL 3 (DECK A) EQ HI | valeur 0 a 127 |  | DECK, MIXER |
-| `dj:dj-ch3-mid` | CHANNEL 3 (DECK A) EQ MID | valeur 0 a 127 |  | DECK, MIXER |
-| `dj:dj-ch3-low` | CHANNEL 3 (DECK A) EQ LOW | valeur 0 a 127 |  | DECK, MIXER |
-| `dj:dj-ch3-filter` | CHANNEL 3 (DECK A) FILTER | valeur 0 a 127 |  | DECK, MIXER, LIVE |
-| `dj:dj-ch4-gain` | CHANNEL 4 (DECK B) GAIN | valeur 0 a 127 |  | DECK, MIXER |
-| `dj:dj-ch4-hi` | CHANNEL 4 (DECK B) EQ HI | valeur 0 a 127 |  | DECK, MIXER |
-| `dj:dj-ch4-mid` | CHANNEL 4 (DECK B) EQ MID | valeur 0 a 127 |  | DECK, MIXER |
-| `dj:dj-ch4-low` | CHANNEL 4 (DECK B) EQ LOW | valeur 0 a 127 |  | DECK, MIXER |
-| `dj:dj-ch4-filter` | CHANNEL 4 (DECK B) FILTER | valeur 0 a 127 |  | DECK, MIXER, LIVE |
+| `dj:dj-ch2-gain` | CHANNEL 2 (MM-BASS) GAIN | valeur 0 a 127 |  |  |
+| `dj:dj-ch2-hi` | CHANNEL 2 (MM-BASS) EQ HI | valeur 0 a 127 |  | MIXER |
+| `dj:dj-ch2-mid` | CHANNEL 2 (MM-BASS) EQ MID | valeur 0 a 127 |  |  |
+| `dj:dj-ch2-low` | CHANNEL 2 (MM-BASS) EQ LOW | valeur 0 a 127 |  | MIXER |
+| `dj:dj-ch2-filter` | CHANNEL 2 (MM-BASS) FILTER | valeur 0 a 127 |  | MIXER |
+| `dj:dj-ch3-gain` | CHANNEL 3 (MM-ARP) GAIN | valeur 0 a 127 |  |  |
+| `dj:dj-ch3-hi` | CHANNEL 3 (MM-ARP) EQ HI | valeur 0 a 127 |  | MIXER |
+| `dj:dj-ch3-mid` | CHANNEL 3 (MM-ARP) EQ MID | valeur 0 a 127 |  |  |
+| `dj:dj-ch3-low` | CHANNEL 3 (MM-ARP) EQ LOW | valeur 0 a 127 |  | MIXER |
+| `dj:dj-ch3-filter` | CHANNEL 3 (MM-ARP) FILTER | valeur 0 a 127 |  | MIXER |
+| `dj:dj-ch4-gain` | CHANNEL 4 (DECK A) GAIN | valeur 0 a 127 |  | DECK, MIXER |
+| `dj:dj-ch4-hi` | CHANNEL 4 (DECK A) EQ HI | valeur 0 a 127 |  | DECK, MIXER |
+| `dj:dj-ch4-mid` | CHANNEL 4 (DECK A) EQ MID | valeur 0 a 127 |  | DECK, MIXER |
+| `dj:dj-ch4-low` | CHANNEL 4 (DECK A) EQ LOW | valeur 0 a 127 |  | DECK, MIXER |
+| `dj:dj-ch4-filter` | CHANNEL 4 (DECK A) FILTER | valeur 0 a 127 |  | DECK, MIXER, LIVE |
+| `dj:dj-ch5-gain` | CHANNEL 5 (DECK B) GAIN | valeur 0 a 127 |  | DECK, MIXER |
+| `dj:dj-ch5-hi` | CHANNEL 5 (DECK B) EQ HI | valeur 0 a 127 |  | DECK, MIXER |
+| `dj:dj-ch5-mid` | CHANNEL 5 (DECK B) EQ MID | valeur 0 a 127 |  | DECK, MIXER |
+| `dj:dj-ch5-low` | CHANNEL 5 (DECK B) EQ LOW | valeur 0 a 127 |  | DECK, MIXER |
+| `dj:dj-ch5-filter` | CHANNEL 5 (DECK B) FILTER | valeur 0 a 127 |  | DECK, MIXER, LIVE |
 | `dj:dj-fx-overdrive` | EFFECT OVERDRIVE | valeur 0 a 127 |  | DECK, MIXER, LIVE |
 | `dj:dj-fx-crush` | EFFECT CRUSH | valeur 0 a 127 |  | DECK, MIXER, LIVE |
 | `dj:dj-fx-chorus` | EFFECT CHORUS | valeur 0 a 127 |  | DECK, MIXER, LIVE |
@@ -909,17 +914,18 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `dj:dj-fx-trans` | EFFECT TRANS | valeur 0 a 127 |  | DECK, MIXER, LIVE |
 | `dj:dj-fx-delay` | EFFECT DELAY | valeur 0 a 127 |  | DECK, MIXER, LIVE |
 | `dj:dj-fx-reverb` | EFFECT REVERB | valeur 0 a 127 |  | DECK, MIXER, LIVE |
-| `dj:dj-fxto` | EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL | valeur 0 a 127 | 5 | DECK, MIXER, LIVE |
+| `dj:dj-fxto` | EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL | valeur 0 a 127 | 6 | DECK, MIXER, LIVE |
 | `dj:dj-master` | MASTER VOLUME | valeur 0 a 127 |  | DECK |
 | `dj:dj-ch1-fader` | CHANNEL 1 (MM-RYTM) FADER | valeur 0 a 127 |  | MIXER, LIVE |
-| `dj:dj-ch2-fader` | CHANNEL 2 (MM-ARP) FADER | valeur 0 a 127 |  | MIXER, LIVE |
-| `dj:dj-ch3-fader` | CHANNEL 3 (DECK A) FADER | valeur 0 a 127 |  | DECK, MIXER, LIVE |
-| `dj:dj-ch4-fader` | CHANNEL 4 (DECK B) FADER | valeur 0 a 127 |  | DECK, MIXER, LIVE |
+| `dj:dj-ch2-fader` | CHANNEL 2 (MM-BASS) FADER | valeur 0 a 127 |  | MIXER, LIVE |
+| `dj:dj-ch3-fader` | CHANNEL 3 (MM-ARP) FADER | valeur 0 a 127 |  | MIXER, LIVE |
+| `dj:dj-ch4-fader` | CHANNEL 4 (DECK A) FADER | valeur 0 a 127 |  | DECK, MIXER, LIVE |
+| `dj:dj-ch5-fader` | CHANNEL 5 (DECK B) FADER | valeur 0 a 127 |  | DECK, MIXER, LIVE |
 | `dj:dj-a-pitch` | DECK A PITCH | valeur 0 a 127 |  | DECK |
 | `dj:dj-b-pitch` | DECK B PITCH | valeur 0 a 127 |  | DECK |
 | `dj:dj-a-smpl-open` | DECK A SAMPLER: SHOW IT ON THE SCREEN, OR THE TRACK | maintenu (appui puis relachement) |  | DECK |
 | `dj:dj-a-smpl-recdeck` | DECK A SAMPLER: SAMPLE THE DECK (ITS LOOP, OR THE LAST BEATS) | maintenu (appui puis relachement) |  | DECK |
-| `dj:dj-a-smpl-recmix` | DECK A SAMPLER: SAMPLE THE MIXER OUTPUT (THE LAST BEATS) | maintenu (appui puis relachement) |  | DECK, MIXER, LIVE |
+| `dj:dj-a-smpl-recmix` | DECK A SAMPLER: SAMPLE THE MIXER OUTPUT (THE LAST BEATS) | maintenu (appui puis relachement) |  | DECK |
 | `dj:dj-a-smpl-play` | DECK A SAMPLER: PLAY OR STOP | maintenu (appui puis relachement) |  | DECK, LIVE |
 | `dj:dj-a-loop1` | DECK A LOOP 1 BEAT (PRESS AGAIN TO EXIT) | maintenu (appui puis relachement) |  | DECK |
 | `dj:dj-a-loop2` | DECK A LOOP 2 BEATS (PRESS AGAIN TO EXIT) | maintenu (appui puis relachement) |  | DECK |
@@ -929,8 +935,8 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `dj:dj-a-bendp` | DECK A BEND FASTER (HOLD) | maintenu (appui puis relachement) |  | DECK |
 | `dj:dj-a-cue` | DECK A CUE (HOLD TO PREVIEW) | maintenu (appui puis relachement) |  | DECK, MIXER, LIVE |
 | `dj:dj-a-play` | DECK A PLAY OR PAUSE | maintenu (appui puis relachement) |  | DECK, MIXER, LIVE |
-| `dj:dj-a-tempom` | DECK A PITCH DOWN 0.1 BPM (HOLD TO REPEAT) | maintenu (appui puis relachement) |  | DECK |
-| `dj:dj-a-tempop` | DECK A PITCH UP 0.1 BPM (HOLD TO REPEAT) | maintenu (appui puis relachement) |  | DECK |
+| `dj:dj-a-tempom` | DECK A PITCH DOWN 0.05 BPM (HOLD TO REPEAT) | maintenu (appui puis relachement) |  | DECK |
+| `dj:dj-a-tempop` | DECK A PITCH UP 0.05 BPM (HOLD TO REPEAT) | maintenu (appui puis relachement) |  | DECK |
 | `dj:dj-a-sync` | DECK A SYNC: MATCH THE TEMPO YOU HEAR | maintenu (appui puis relachement) |  | DECK, MIXER |
 | `dj:dj-b-smpl-open` | DECK B SAMPLER: SHOW IT ON THE SCREEN, OR THE TRACK | maintenu (appui puis relachement) |  | DECK |
 | `dj:dj-b-smpl-recdeck` | DECK B SAMPLER: SAMPLE THE DECK (ITS LOOP, OR THE LAST BEATS) | maintenu (appui puis relachement) |  | DECK |
@@ -944,8 +950,8 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `dj:dj-b-bendp` | DECK B BEND FASTER (HOLD) | maintenu (appui puis relachement) |  | DECK |
 | `dj:dj-b-cue` | DECK B CUE (HOLD TO PREVIEW) | maintenu (appui puis relachement) |  | DECK, MIXER, LIVE |
 | `dj:dj-b-play` | DECK B PLAY OR PAUSE | maintenu (appui puis relachement) |  | DECK, MIXER, LIVE |
-| `dj:dj-b-tempom` | DECK B PITCH DOWN 0.1 BPM (HOLD TO REPEAT) | maintenu (appui puis relachement) |  | DECK |
-| `dj:dj-b-tempop` | DECK B PITCH UP 0.1 BPM (HOLD TO REPEAT) | maintenu (appui puis relachement) |  | DECK |
+| `dj:dj-b-tempom` | DECK B PITCH DOWN 0.05 BPM (HOLD TO REPEAT) | maintenu (appui puis relachement) |  | DECK |
+| `dj:dj-b-tempop` | DECK B PITCH UP 0.05 BPM (HOLD TO REPEAT) | maintenu (appui puis relachement) |  | DECK |
 | `dj:dj-b-sync` | DECK B SYNC: MATCH THE TEMPO YOU HEAR | maintenu (appui puis relachement) |  | DECK, MIXER |
 | `dj:dj-time1` | EFFECTS TIME 1/4 BEATS | maintenu (appui puis relachement) |  | MIXER, LIVE |
 | `dj:dj-time2` | EFFECTS TIME 1/2 BEATS | maintenu (appui puis relachement) |  | MIXER, LIVE |
@@ -953,7 +959,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `dj:dj-time4` | EFFECTS TIME 1 BEAT | maintenu (appui puis relachement) |  | MIXER, LIVE |
 | `dj:dj-time5` | EFFECTS TIME 2 BEATS | maintenu (appui puis relachement) |  | MIXER, LIVE |
 | `dj:dj-time6` | EFFECTS TIME 4 BEATS | maintenu (appui puis relachement) |  | MIXER |
-| `dj:dj-machines` | PLAY OR STOP THE MM-RYTM AND THE MM-ARP TOGETHER, KEY G | maintenu (appui puis relachement) |  |  |
+| `dj:dj-machines` | PLAY OR STOP THE MACHINES TOGETHER (MM-RYTM, MM-BASS, MM-ARP), KEY G | maintenu (appui puis relachement) |  |  |
 | `dj:dj-adddeck` | ADD A DECK, WITH ITS CHANNEL ON THE MIXER | maintenu (appui puis relachement) |  | MIXER |
 | `dj:smpl:a:knob:start` | SMPL A START | valeur 0 a 127 |  |  |
 | `dj:smpl:a:knob:end` | SMPL A END | valeur 0 a 127 |  |  |
@@ -1036,12 +1042,12 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | --- | --- | --- | --- | --- |
 | `nav:all` | MM-STUDIO (ALL THE MACHINES) | appui |  | BASS, MIXER |
 | `nav:mm808` | GO TO MM-RYTM | appui |  |  |
-| `nav:voy` | GO TO MM-ARP | appui |  |  |
 | `nav:bass` | GO TO MM-BASS | appui |  |  |
+| `nav:voy` | GO TO MM-ARP | appui |  |  |
 | `nav:dj` | GO TO MM-DECKS | appui |  |  |
 | `nav:prev` | PREVIOUS MACHINE | appui |  | RYTM, ARP, BASS, MIXER, LIVE |
 | `nav:next` | NEXT MACHINE | appui |  | RYTM, ARP, BASS, MIXER, LIVE |
-| `nav:machines` | PLAY/STOP RYTM + ARP | appui |  | RYTM, ARP, BASS, MIXER, LIVE |
+| `nav:machines` | PLAY/STOP MACHINES | appui |  | RYTM, ARP, BASS, MIXER, LIVE |
 
 ## 5. Faire ton propre fichier
 

@@ -26,7 +26,7 @@ import type { HotspotView } from '../scene/hit';
 import { quadToUnit } from '../scene/quad';
 import type { Stage } from '../scene/renderer';
 import { djBrowser } from './browser';
-import { djLoop, djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetFxTo, djSetMaster, djSetPitch, djSetTime, djWaveNext, djAddDeck, fxTarget, fxToOfValue, fxToText, fxToValue } from './actions';
+import { TEMPO_STEP, djLoop, djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetFxTo, djSetMaster, djSetPitch, djSetTime, djWaveNext, djAddDeck, fxTarget, fxToOfValue, fxToText, fxToValue } from './actions';
 import { MASTER_DEFAULT } from './engine';
 import { KILL, eqDb, faderGain } from './math';
 import { djFader, djKey, djKnob, type DjFaderSpec, type DjKeySpec, type DjKnobSpec, type DjSmplKey } from './layout';
@@ -139,9 +139,9 @@ function smplKey(d: DjDeck, fn: DjSmplKey): void {
   else s.recMix();
 }
 
-/** Les touches TEMPO tenues : un dixieme, puis en continu apres 0.4 s. */
+/** Les touches TEMPO tenues : un pas (0.05 BPM), puis en continu apres 0.4 s, deux fois plus vite apres dix pas. */
 const repeats = new Map<string, number>();
-const REPEAT = { delay: 400, every: 90 } as const;
+const REPEAT = { delay: 400, every: 90, fast: 45, after: 10 } as const;
 
 /** Une touche enfoncee (pointeur, jumeau, clavier) ; coarse : Maj tenue (TEMPO au BPM entier). */
 export function keyDown(k: DjKeySpec, stage: Stage | null, coarse = false): void {
@@ -162,14 +162,16 @@ export function keyDown(k: DjKeySpec, stage: Stage | null, coarse = false): void
   else if (t.kind === 'machines') machinesToggle();
   else if (t.kind === 'adddeck') djAddDeck();
   else if (t.kind === 'tempo') {
-    const step = coarse ? 1 : 0.1;
+    const step = coarse ? 1 : TEMPO_STEP;
     djTempoStep(t.deck, t.dir, step);
     window.clearTimeout(repeats.get(k.id));
+    let n = 0;
     repeats.set(
       k.id,
       window.setTimeout(function again() {
         djTempoStep(t.deck, t.dir, step);
-        repeats.set(k.id, window.setTimeout(again, REPEAT.every));
+        n += 1;
+        repeats.set(k.id, window.setTimeout(again, n >= REPEAT.after ? REPEAT.fast : REPEAT.every));
       }, REPEAT.delay)
     );
   }
@@ -438,7 +440,7 @@ export class DjGestures {
     if (!k && !f) return false;
     // Le pitch a la molette : un dixieme de BPM par cran (vers le haut : plus vite)
     if (f && f.target.kind === 'pitch') {
-      djTempoStep(f.target.deck, deltaY < 0 ? 1 : -1, shift ? 1 : 0.1);
+      djTempoStep(f.target.deck, deltaY < 0 ? 1 : -1, shift ? 1 : TEMPO_STEP);
       return true;
     }
     // Un selecteur (FX TO) : un cran par cran de molette (un pave tactile en envoie beaucoup de petits)

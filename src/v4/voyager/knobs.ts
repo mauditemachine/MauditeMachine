@@ -132,7 +132,8 @@ export class VoyKnobs {
     return VOY_FACE_KNOBS.map((k) => {
       const pl = voyKnobPlace(k.id);
       // Un commutateur se prend aussi par ses reperes (12, 24) : sa cible deborde
-      const r = VOY_KNOB.skirt.r * pl.s + (isSwitch(k.id) ? VOY_SWITCH.markR * 0.6 : 0);
+      // Au telephone, au moins la demi-colonne (2026-10-07) : un doigt l'attrape sans viser la jupe
+      const r = Math.max(VOY_KNOB.touchR, VOY_KNOB.skirt.r * pl.s + (isSwitch(k.id) ? VOY_SWITCH.markR * 0.6 : 0));
       return {
         id: `vk-${k.id}`,
         kind: 'vknob' as const,

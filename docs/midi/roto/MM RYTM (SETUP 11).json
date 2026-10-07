@@ -1235,7 +1235,7 @@
       "nrpnAddress": 65535,
       "minValue": 0,
       "maxValue": 127,
-      "controlName": "RYTM + ARP",
+      "controlName": "MACHINES",
       "colorScheme": 14,
       "ledOnColor": 14,
       "ledOffColor": 70,

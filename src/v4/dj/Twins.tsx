@@ -16,7 +16,7 @@ import { faderMin, faderNeutral, faderValue, keyDown, keyUp, knobMin, knobNeutra
 import { DJ_FADERS, DJ_KEYS, DJ_KNOBS, type DjKeySpec } from './layout';
 import { faderName, keyName, knobName } from './names';
 import { samplerOf } from '../sampler/sampler';
-import { djTempoStep } from './actions';
+import { TEMPO_STEP, djTempoStep } from './actions';
 import { djState } from './state';
 import './dj.css';
 
@@ -229,7 +229,7 @@ export const DjTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
               if (tg.kind === 'pitch' && /^Arrow/.test(e.key)) {
                 e.preventDefault();
                 e.stopPropagation();
-                djTempoStep(tg.deck, e.key === 'ArrowUp' || e.key === 'ArrowRight' ? 1 : -1, e.shiftKey ? 1 : 0.1);
+                djTempoStep(tg.deck, e.key === 'ArrowUp' || e.key === 'ArrowRight' ? 1 : -1, e.shiftKey ? 1 : TEMPO_STEP);
                 return;
               }
               const next = stepValue(e, faderValue(fd), lo, faderNeutral(fd));

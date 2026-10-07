@@ -130,18 +130,23 @@ const kitSound = (f: KitFamily, n: string): Ctl => {
 const mute = (i: string): Ctl => tog(`rytm:voice:${i}:mute`, `MUTE ${i}`, C.pink);
 const chord = (i: number): Ctl => b(`voy:pad:${i}`, CHORD_NAMES[i], C.blue);
 const fx = (id: string, n: string): Ctl => dj(`fx-${id}`, n, C.purple);
-const FX_TO: Ctl = { ...dj('fxto', 'FX TO', C.white), steps: ['ALL', 'RYTM', 'ARP', 'A', 'B'] };
+const FX_TO: Ctl = { ...dj('fxto', 'FX TO', C.white), steps: ['ALL', 'RYTM', 'BASS', 'ARP', 'A', 'B'] };
 
-/** La table, les quatre voies : faders et filtres (la page 1 du MIXER et du LIVE). */
+/**
+ * La table, ses cinq voies (2026-10-07 : 1 RYTM, 2 BASS, 3 ARP, 4 A, 5 B) :
+ * les cinq faders et les filtres du MM-RYTM et des platines (la page 1 du
+ * MIXER et du LIVE) ; les filtres du MM-BASS et du MM-ARP sont sur la page 2
+ * du MIXER (et leur CUTOFF sur leur machine).
+ */
 const MIX_PAGE: readonly Ctl[] = [
   dj('ch1-fader', 'FADER RYTM', C.white),
-  dj('ch2-fader', 'FADER ARP', C.white),
-  dj('ch3-fader', 'FADER A', C.white),
-  dj('ch4-fader', 'FADER B', C.white),
+  dj('ch2-fader', 'FADER BASS', C.white),
+  dj('ch3-fader', 'FADER ARP', C.white),
+  dj('ch4-fader', 'FADER A', C.white),
+  dj('ch5-fader', 'FADER B', C.white),
   mid(dj('ch1-filter', 'FILTER RYTM', C.orange)),
-  mid(dj('ch2-filter', 'FILTER ARP', C.orange)),
-  mid(dj('ch3-filter', 'FILTER A', C.orange)),
-  mid(dj('ch4-filter', 'FILTER B', C.orange)),
+  mid(dj('ch4-filter', 'FILTER A', C.orange)),
+  mid(dj('ch5-filter', 'FILTER B', C.orange)),
 ];
 const FX_PAGE: readonly Ctl[] = [fx('overdrive', 'OVERDRIVE'), fx('crush', 'CRUSH'), fx('chorus', 'CHORUS'), fx('flanger', 'FLANGER'), fx('trans', 'TRANS'), fx('delay', 'DELAY'), fx('reverb', 'REVERB'), FX_TO];
 
@@ -190,7 +195,7 @@ function buildSetups(): RotoSetup[] {
       b('rytm:clear', 'CLEAR', C.orange),
       b('rytm:edit', 'EDIT', C.yellow),
       b('rytm:open', 'OPEN', C.orange),
-      b('nav:machines', 'RYTM + ARP', C.red),
+      b('nav:machines', 'MACHINES', C.red),
       b('nav:prev', 'PREV MACHINE', C.white),
       b('nav:next', 'NEXT MACHINE', C.white),
       // 2 : choisir la voix (en marche : sans la jouer)
@@ -251,7 +256,7 @@ function buildSetups(): RotoSetup[] {
       b('voy:clear', 'CLEAR', C.orange),
       b('voy:edit', 'EDIT', C.yellow),
       b('voy:open', 'OPEN', C.orange),
-      b('nav:machines', 'RYTM + ARP', C.red),
+      b('nav:machines', 'MACHINES', C.red),
       b('nav:prev', 'PREV MACHINE', C.white),
       b('nav:next', 'NEXT MACHINE', C.white),
       // 2 : les accords, sous le filtre
@@ -263,7 +268,7 @@ function buildSetups(): RotoSetup[] {
   };
 
   /** Une platine : son pitch, sa voie au mixer. */
-  const deckKnobs = (d: 'a' | 'b', ch: 3 | 4, c: number): Ctl[] => {
+  const deckKnobs = (d: 'a' | 'b', ch: 4 | 5, c: number): Ctl[] => {
     const D = d.toUpperCase();
     return [
       mid(dj(`${d}-pitch`, `PITCH ${D}`, c)),
@@ -318,8 +323,8 @@ function buildSetups(): RotoSetup[] {
     slot: 13,
     ch: 3,
     knobs: [
-      ...deckKnobs('a', 3, C.cyan),
-      ...deckKnobs('b', 4, C.pink),
+      ...deckKnobs('a', 4, C.cyan),
+      ...deckKnobs('b', 5, C.pink),
       // 3 : les effets de la table
       ...FX_PAGE,
       // 4 : le sampler de chaque platine (2026-10-07 ; le MM-RYTM et le MM-ARP restent sur le MIXER)
@@ -334,39 +339,39 @@ function buildSetups(): RotoSetup[] {
     slot: 14,
     ch: 4,
     knobs: [
-      // 1 : les quatre faders, les quatre filtres
+      // 1 : les cinq faders, les filtres du MM-RYTM et des platines
       ...MIX_PAGE,
-      // 2 : RYTM et ARP
+      // 2 : les trois machines (2026-10-07) : les filtres du MM-BASS et du MM-ARP, HI et LOW de chacune
+      mid(dj('ch2-filter', 'FILTER BASS', C.orange)),
+      mid(dj('ch3-filter', 'FILTER ARP', C.orange)),
       mid(dj('ch1-hi', 'HI RYTM', C.yellow)),
-      mid(dj('ch1-mid', 'MID RYTM', C.yellow)),
       mid(dj('ch1-low', 'LOW RYTM', C.yellow)),
-      mid(dj('ch2-hi', 'HI ARP', C.gold)),
-      mid(dj('ch2-mid', 'MID ARP', C.gold)),
-      mid(dj('ch2-low', 'LOW ARP', C.gold)),
-      mid(dj('ch1-gain', 'GAIN RYTM', C.yellow)),
-      mid(dj('ch2-gain', 'GAIN ARP', C.gold)),
+      mid(dj('ch2-hi', 'HI BASS', C.peach)),
+      mid(dj('ch2-low', 'LOW BASS', C.peach)),
+      mid(dj('ch3-hi', 'HI ARP', C.gold)),
+      mid(dj('ch3-low', 'LOW ARP', C.gold)),
       // 3 : les platines
-      mid(dj('ch3-hi', 'HI A', C.cyan)),
-      mid(dj('ch3-mid', 'MID A', C.cyan)),
-      mid(dj('ch3-low', 'LOW A', C.cyan)),
-      mid(dj('ch4-hi', 'HI B', C.pink)),
-      mid(dj('ch4-mid', 'MID B', C.pink)),
-      mid(dj('ch4-low', 'LOW B', C.pink)),
-      mid(dj('ch3-gain', 'GAIN A', C.cyan)),
-      mid(dj('ch4-gain', 'GAIN B', C.pink)),
+      mid(dj('ch4-hi', 'HI A', C.cyan)),
+      mid(dj('ch4-mid', 'MID A', C.cyan)),
+      mid(dj('ch4-low', 'LOW A', C.cyan)),
+      mid(dj('ch5-hi', 'HI B', C.pink)),
+      mid(dj('ch5-mid', 'MID B', C.pink)),
+      mid(dj('ch5-low', 'LOW B', C.pink)),
+      mid(dj('ch4-gain', 'GAIN A', C.cyan)),
+      mid(dj('ch5-gain', 'GAIN B', C.pink)),
       // 4 : les effets
       ...FX_PAGE,
     ],
     buttons: [
-      // 1 : ce qui joue
+      // 1 : ce qui joue (le MM-BASS depuis le 2026-10-07)
       tog('rytm:running', 'RUN RYTM', C.red),
+      tog('bass:running', 'RUN BASS', C.red),
       tog('voy:running', 'RUN ARP', C.red),
       dj('a-play', 'PLAY A', C.yellow),
       dj('b-play', 'PLAY B', C.yellow),
       dj('a-cue', 'CUE A', C.orange),
       dj('b-cue', 'CUE B', C.orange),
-      b('nav:machines', 'RYTM + ARP', C.red),
-      dj('a-smpl-recmix', 'REC MIX A', C.red),
+      b('nav:machines', 'MACHINES', C.red),
       // 2 : les mutes du MM-RYTM, sous ses EQ
       ...LIVE_MUTES.map(mute),
       // 3 : les platines
@@ -419,13 +424,13 @@ function buildSetups(): RotoSetup[] {
     ],
     buttons: [
       tog('rytm:running', 'RUN RYTM', C.red),
+      tog('bass:running', 'RUN BASS', C.red),
       tog('voy:running', 'RUN ARP', C.red),
       dj('a-play', 'PLAY A', C.yellow),
       dj('b-play', 'PLAY B', C.yellow),
       dj('a-cue', 'CUE A', C.orange),
       dj('b-cue', 'CUE B', C.orange),
-      b('nav:machines', 'RYTM + ARP', C.red),
-      dj('a-smpl-recmix', 'REC MIX A', C.red),
+      b('nav:machines', 'MACHINES', C.red),
       ...LIVE_MUTES.map(mute),
       ...CHORD_NAMES.map((_, i) => chord(i)),
       dj('time1', 'FX TIME 1/4', C.purple),
@@ -497,7 +502,7 @@ function buildSetups(): RotoSetup[] {
       b('bass:key:octup', 'OCT +', C.cyan),
       b('bass:lock', 'LOCK', C.yellow),
       b('bass:key:edit', 'EDIT', C.yellow),
-      b('nav:machines', 'RYTM + ARP', C.red),
+      b('nav:machines', 'MACHINES', C.red),
       b('nav:all', 'MM-STUDIO', C.white),
     ],
   };

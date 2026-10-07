@@ -10,6 +10,7 @@
  */
 
 import { clock } from '../audio/clock';
+import { pattern } from '../audio/pattern';
 import { arp } from '../voyager/arp';
 import { anyPlaying } from '../state/playLock';
 import { routeMachines } from '../audio/drums';
@@ -20,7 +21,7 @@ import { crateFile, crateLearn, setCrateBusy } from './crate';
 import { beatGrid, estimateBpm, phaseShift } from './math';
 import { soundcloudBytes } from './soundcloud';
 import { DJ_WAVES, DJ_ZOOMS, djState, type DjTrack } from './state';
-import { DJ_CHANNELS, DJ_DECKS, DJ_DECKS_ALL, DJ_FX, deckChannel, djDecks, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
+import { DJ_CHANNELS, DJ_CH_NAMES, DJ_DECKS, DJ_DECKS_ALL, DJ_FX, deckChannel, djDecks, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
 
 /* ---------------- le moteur suit le store ---------------- */
 
@@ -88,14 +89,16 @@ function engine(): DjEngine | null {
   setCrateBusy(() => DJ_DECKS_ALL.some((d) => e.decks[d].playing) || anyPlaying());
   /*
    * Les machines du site entrent sur la table (2026-10-04, Mika : "1 et 2
-   * doivent etre RYTM et ARP") : le MM-RYTM sur la voie 1, le MM-ARP sur la
-   * voie 2, effets compris ; on mixe donc les platines avec elles, elles ne
-   * se taisent plus l'une l'autre. Seule la piste SoundCloud du site, qui
-   * ne passe pas par la table, reste une source a part.
+   * doivent etre RYTM et ARP") : effets compris ; on mixe donc les platines
+   * avec elles, elles ne se taisent plus l'une l'autre. Seule la piste
+   * SoundCloud du site, qui ne passe pas par la table, reste une source a
+   * part. Trois machines depuis le 2026-10-07, dans l'ordre de la table :
+   * 1 MM-RYTM, 2 MM-BASS, 3 MM-ARP.
    */
-  routeMachines({ rytm: e.mixer.ch[0].input, arp: e.mixer.ch[1].input });
+  routeMachines({ rytm: e.mixer.ch[0].input, bass: e.mixer.ch[1].input, arp: e.mixer.ch[2].input });
   // La memoire du MIXER (2026-10-07) : REC MIX d'une platine y prend les temps qui viennent de passer
   void startRing();
+  watchMachines();
   sc.subscribe(() => {
     if (sc.get().status === 'playing') djPauseAll();
   });
@@ -106,7 +109,7 @@ function engine(): DjEngine | null {
  * La table en vue (2026-10-04, Mika : "quand on joue sur les machines MM et
  * qu'on arrive sur le mixer, on ne voit pas les pistes jouer sur 1 et 2") :
  * le moteur se cree des que le son existe, sans attendre un geste sur la
- * table ; le MM-RYTM et le MM-ARP passent alors par les voies 1 et 2 et
+ * table ; les machines passent alors par les voies 1 a 3 et
  * leurs VU les montrent. null avant le premier geste du site.
  */
 export function djWake(): DjEngine | null {
@@ -215,6 +218,9 @@ export function djPlay(d: DjDeck): void {
     return;
   }
   silenceOthers();
+  // Les machines jouent (2026-10-07) : la platine prend leur tempo et part sur un de leurs temps
+  freed.delete(d);
+  follow(d);
   p.play(syncedStart(d, e));
   djState.setDeck(d, { playing: p.playing });
 }
@@ -290,6 +296,9 @@ export function djHotcue(d: DjDeck, n: number): void {
   p.seek(at);
   loopFollows(d, e);
   silenceOthers();
+  // Les machines jouent (2026-10-07) : la platine prend leur tempo et part sur un de leurs temps
+  freed.delete(d);
+  follow(d);
   p.play(syncedStart(d, e));
   djState.setDeck(d, { playing: p.playing });
 }
@@ -356,17 +365,14 @@ export function djSetFx(id: DjFxId, v: number): void {
 /** La voie des effets (FX TO) parmi celles posees : -1 toutes. */
 export const fxTarget = (s = djState.get()): number => (s.fxTo >= DJ_CHANNELS ? -1 : s.fxTo);
 
-/** Les noms des voies, comme sur la table : 1 RYTM, 2 ARP, 3 A... */
-const FX_TO_NAMES = ['RYTM', 'ARP', 'A', 'B', 'C', 'D'] as const;
-
-/** FX TO en mots : ALL, ou le numero et le nom de la voie (2 ARP). */
-export const fxToText = (t = fxTarget()): string => (t < 0 ? 'ALL' : `${t + 1} ${FX_TO_NAMES[t]}`);
+/** FX TO en mots : ALL, ou le numero et le nom de la voie, comme sur la table (2 BASS). */
+export const fxToText = (t = fxTarget()): string => (t < 0 ? 'ALL' : `${t + 1} ${DJ_CH_NAMES[t]}`);
 
 /** FX TO en position de potard (0 a 1, DJ_CHANNELS + 1 crans : ALL puis les voies). */
 export const fxToValue = (t = fxTarget()): number => (t + 1) / DJ_CHANNELS;
 export const fxToOfValue = (v: number): number => Math.round(Math.max(0, Math.min(1, v)) * DJ_CHANNELS) - 1;
 
-/** FX TO : -1 toutes les voies, sinon une voie (0 a 5) ; au-dela des voies posees : toutes. */
+/** FX TO : -1 toutes les voies, sinon une voie (0 a 6) ; au-dela des voies posees : toutes. */
 export function djSetFxTo(t: number): void {
   engine();
   djState.setFxTo(t >= DJ_CHANNELS ? -1 : t);
@@ -382,35 +388,67 @@ export function djSetTime(beats: number): void {
   djState.setTime(beats);
 }
 
-/** Le pitch a la main (fader, molette, PITCH - et +) : SYNC se desarme. */
+/**
+ * Le pas du tempo d'une platine (2026-10-07, Mika : "je veux pouvoir
+ * modifier le pitch des decks finement, arriver a des .05 sans probleme, et
+ * avec le doigt aussi en mobile") : 0.05 BPM, au lieu du dixieme.
+ */
+export const TEMPO_STEP = 0.05;
+
+/**
+ * Le pitch a la main (fader, molette, PITCH - et +) : SYNC se desarme ; les
+ * machines qui jouent ne la suivent plus (freed). Un BPM connu : le tempo
+ * tombe sur le pas de 0.05 BPM le plus proche (le fader au doigt s'y arrete
+ * sans chercher) ; sinon au centieme de pour cent (2026-10-05).
+ */
 export function djSetPitch(d: DjDeck, v: number): void {
   engine();
-  // Au centieme de pour cent (2026-10-05) : la valeur lue a l'ecran est celle qui joue
-  const r = djState.get().deck[d].range || 8;
-  djState.setDeck(d, { pitch: Math.round(v * r * 100) / (r * 100), sync: false });
+  if (machinesOn()) freed.add(d);
+  const ds = djState.get().deck[d];
+  const r = ds.range || 8;
+  const bpm = ds.track?.bpm ?? null;
+  let pitch = Math.round(v * r * 100) / (r * 100);
+  if (bpm) {
+    const target = Math.round((bpm * (1 + (v * r) / 100)) / TEMPO_STEP) * TEMPO_STEP;
+    pitch = Math.max(-1, Math.min(1, ((target / bpm - 1) * 100) / r));
+  }
+  djState.setDeck(d, { pitch, sync: false });
 }
 
 /**
- * Le tempo au dixieme de BPM (2026-10-04) : le BPM affiche (au pitch) va au
- * dixieme le plus proche dans la direction voulue, et le pitch s'y cale ;
- * sans BPM connu, un pas de 0.02 %. step : en BPM (0.1, ou 1 avec Maj).
+ * Le tempo au pas de 0.05 BPM (2026-10-04 au dixieme, 2026-10-07 au
+ * vingtieme) : le BPM affiche (au pitch) va au pas le plus proche dans la
+ * direction voulue, et le pitch s'y cale ; sans BPM connu, un pas de
+ * 0.01 %. step : en BPM (TEMPO_STEP, ou 1 avec Maj).
  */
-export function djTempoStep(d: DjDeck, dir: -1 | 1, step = 0.1): void {
+export function djTempoStep(d: DjDeck, dir: -1 | 1, step = TEMPO_STEP): void {
   const ds = djState.get().deck[d];
   const bpm = ds.track?.bpm ?? null;
   let next: number;
   if (bpm) {
     const now = bpm * (1 + (ds.pitch * ds.range) / 100);
-    const target = Math.round((now + dir * step) / 0.1) * 0.1;
+    const target = Math.round((now + dir * step) / TEMPO_STEP) * TEMPO_STEP;
     next = ((target / bpm - 1) * 100) / ds.range;
-  } else next = ds.pitch + (dir * 0.02) / ds.range;
+  } else next = ds.pitch + (dir * 0.01) / ds.range;
   djSetPitch(d, Math.max(-1, Math.min(1, next)));
 }
 
 /* ---------------- SYNC ---------------- */
 
-/** La platine qu'on entend le plus parmi les autres (celle sur laquelle on se cale), ou null. */
+/** Les machines du site jouent (le MM-RYTM, ou l'arpege seul) : elles font la reference des platines. */
+export const machinesOn = (): boolean => clock.running || arp.get().running;
+/** Leur grille en doubles croches apres t (celle du MM-RYTM, sinon celle de l'arpege). */
+const machinesGrid = (t: number): { time: number; step: number; dur: number } | null => clock.gridAfter(t) ?? arp.grid(t);
+/** Leur tempo. */
+const machinesBpm = (): number => (clock.running ? clock.bpm : pattern.get().bpm);
+
+/**
+ * La platine qu'on entend le plus parmi les autres (celle sur laquelle on se
+ * cale), ou null ; null aussi quand les machines jouent (2026-10-07) : elles
+ * sont la reference de toutes les platines.
+ */
 function syncDeck(d: DjDeck, s = djState.get()): DjDeck | null {
+  if (machinesOn()) return null;
   let best: DjDeck | null = null;
   let w = 0;
   for (const o of DJ_DECKS_ALL) {
@@ -425,14 +463,14 @@ function syncDeck(d: DjDeck, s = djState.get()): DjDeck | null {
 }
 
 /**
- * Le tempo de reference pour SYNC : la platine qu'on entend le plus parmi
- * les autres, sinon le MM-RYTM et le MM-ARP s'ils tournent ; null s'il n'y a
- * rien sur quoi se caler.
+ * Le tempo de reference pour SYNC : les machines quand elles jouent
+ * (2026-10-07), sinon la platine qu'on entend le plus parmi les autres ;
+ * null s'il n'y a rien sur quoi se caler.
  */
 export function syncBpm(d: DjDeck, s = djState.get()): number | null {
+  if (machinesOn()) return machinesBpm();
   const r = syncDeck(d, s);
-  if (r) return deckBpm(s, r);
-  return clock.running ? clock.bpm : null;
+  return r ? deckBpm(s, r) : null;
 }
 
 /**
@@ -454,10 +492,10 @@ function deckBeat(d: DjDeck, e: DjEngine, s = djState.get()): { in: number; peri
 function refBeat(d: DjDeck, e: DjEngine, s = djState.get()): { in: number; period: number } | null {
   const r = syncDeck(d, s);
   if (r) return deckBeat(r, e, s);
-  if (!clock.running) return null;
+  if (!machinesOn()) return null;
   // Les machines : seize pas par mesure, un temps tous les quatre
   const now = e.ctx.currentTime;
-  const g = clock.gridAfter(now);
+  const g = machinesGrid(now);
   if (!g) return null;
   const k = (4 - (g.step % 4)) % 4;
   return { in: g.time + k * g.dur - now, period: 4 * g.dur };
@@ -502,18 +540,27 @@ function syncedStart(d: DjDeck, e: DjEngine): number {
  * tant qu'on ne touche pas au pitch.
  */
 export function djSync(d: DjDeck): void {
+  if (!matchTempo(d)) return;
+  // Un SYNC a la main : la platine redevient suivie par les machines
+  freed.delete(d);
+  const e = engine();
+  if (e && e.decks[d].playing) alignNow(d, e);
+}
+
+/** Le tempo de la platine sur celui de la reference (SYNC, sans les temps) ; false s'il est trop loin ou inconnu. */
+function matchTempo(d: DjDeck): boolean {
   const s = djState.get();
   const ds = s.deck[d];
   const ref = syncBpm(d, s);
   const own = ds.track?.bpm;
-  if (!ref || !own) return;
+  if (!ref || !own) return false;
   const ratio = [ref, ref * 2, ref / 2].map((r) => r / own).reduce((a, b) => (Math.abs(b - 1) < Math.abs(a - 1) ? b : a));
   const pct = (ratio - 1) * 100;
   const range = Math.abs(pct) <= 8 ? ds.range : Math.abs(pct) <= 16 ? 16 : 0;
-  if (range === 0) return;
-  const e = engine();
+  if (range === 0) return false;
+  engine();
   djState.setDeck(d, { range, pitch: Math.max(-1, Math.min(1, pct / range)), sync: true });
-  if (e && e.decks[d].playing) alignNow(d, e);
+  return true;
 }
 
 /**
@@ -533,6 +580,66 @@ export function djSynced(d: DjDeck, s = djState.get()): boolean {
   const b = refBeat(d, e, s);
   if (!a || !b) return true;
   return Math.abs(phaseShift(a.in, a.period, b.in, b.period)) < 0.02;
+}
+
+/* ---------------- les platines suivent les machines ---------------- */
+
+/**
+ * Les platines suivent les machines (2026-10-07, Mika : "j'aimerais que les
+ * decks soient sync avec les machines, automatiquement, quand les machines
+ * jouent") : tant que le MM-RYTM (ou l'arpege) joue, chaque platine qui
+ * joue prend son tempo (au double ou a la moitie si c'est plus pres, la
+ * plage du pitch a 16 % au plus) et cale ses temps sur les siens, comme
+ * SYNC ; elle le garde quand le tempo des machines change, et une platine
+ * qui part attend un de leurs temps. Toucher son pitch (fader, PITCH - et
+ * +, molette) la libere jusqu'a sa prochaine lecture, ou un SYNC ; les
+ * machines a l'arret, chaque platine garde son tempo.
+ */
+const freed = new Set<DjDeck>();
+let watching = false;
+
+/** Une platine prend le tempo et les temps des machines (tempo : sans les temps), si elles jouent et qu'on ne l'a pas liberee. */
+function follow(d: DjDeck, tempo = false): void {
+  if (!machinesOn() || freed.has(d)) return;
+  const ds = djState.get().deck[d];
+  if (!ds.track?.bpm || !ds.loaded || !matchTempo(d)) return;
+  const e = djEngineIfAny();
+  if (!tempo && e && e.decks[d].playing) alignNow(d, e);
+}
+
+/** Toutes celles qui jouent. */
+function followAll(tempo = false): void {
+  for (const d of DJ_DECKS) if (djState.get().deck[d].playing) follow(d, tempo);
+}
+let realign = 0;
+
+/** Les machines partent (une platine joue : elle les suit), leur tempo change (les platines suivies aussi). */
+function watchMachines(): void {
+  if (watching) return;
+  watching = true;
+  let on = machinesOn();
+  let bpm = machinesBpm();
+  const check = (): void => {
+    const now = machinesOn();
+    if (now && !on) {
+      // Le depart : leur grille existe un instant plus tard ; chaque platine redevient suivie
+      freed.clear();
+      window.setTimeout(followAll, 80);
+    }
+    on = now;
+  };
+  clock.subscribe(check);
+  arp.subscribe(check);
+  pattern.subscribe(() => {
+    const b = machinesBpm();
+    if (Math.abs(b - bpm) < 1e-6) return;
+    bpm = b;
+    if (!machinesOn()) return;
+    // Le tempo tout de suite ; les temps une fois le potard pose (un recalage par geste, pas un par pixel)
+    followAll(true);
+    window.clearTimeout(realign);
+    realign = window.setTimeout(() => followAll(), 400);
+  });
 }
 
 /* ---------------- les grilles, pour le sampler des platines ---------------- */

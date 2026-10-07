@@ -93,6 +93,8 @@ interface Graph {
    */
   rytmOut: GainNode;
   arpOut: GainNode;
+  /** la prise du MM-BASS (2026-10-07) : sa voie du mixer du MM-DECKS peut la prendre */
+  bassOut: GainNode;
   arpReverb: SendBus;
   /** les envois REVERB et DELAY des voix partent apres MASTER (LEVEL) : MASTER baisse aussi leurs queues */
   taps: GainNode[];
@@ -238,8 +240,10 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   const rytmOut = c.createGain();
   rytmOut.gain.value = RYTM_TRIM;
   const arpOut = c.createGain();
+  const bassOut = c.createGain();
   rytmOut.connect(analyser);
   arpOut.connect(analyser);
+  bassOut.connect(analyser);
   comp.connect(rytmOut);
   analyser.connect(clipPre);
   const post = c.createGain();
@@ -291,7 +295,7 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   }
 
   const duck = new Ducker(c, arpOut.gain);
-  const g: Graph = { ctx: c, bus, tone: toneSt, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, post, fx, reverb, delay, reverbSend, delaySend, ch, rytmOut, arpOut, arpReverb, taps, duck };
+  const g: Graph = { ctx: c, bus, tone: toneSt, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, post, fx, reverb, delay, reverbSend, delaySend, ch, rytmOut, arpOut, bassOut, arpReverb, taps, duck };
   if (!o.bare) {
     reverbSend.set(o.reverb ?? f.reverb);
     delaySend.set(o.delay ?? f.delay);
@@ -485,6 +489,8 @@ export interface SynthPort {
   ctx: AudioContext;
   input: AudioNode;
   arp: AudioNode;
+  /** la prise du MM-BASS (2026-10-07) */
+  bass: AudioNode;
   /** la sortie apres le limiteur, avant MASTER (vumetre master du MM-DECKS) */
   out: AudioNode;
   reverb: SendBus;
@@ -493,29 +499,37 @@ export interface SynthPort {
 
 export function synthPort(): SynthPort | null {
   if (!ctx || !graph) return null;
-  return { ctx, input: graph.analyser, arp: graph.arpOut, out: graph.post, reverb: graph.arpReverb, delay: graph.delay };
+  return { ctx, input: graph.analyser, arp: graph.arpOut, bass: graph.bassOut, out: graph.post, reverb: graph.arpReverb, delay: graph.delay };
+}
+
+/** Les prises des machines (un MM-RYTM, un MM-BASS, un MM-ARP). */
+export interface MachineOuts {
+  rytm: AudioNode;
+  bass: AudioNode;
+  arp: AudioNode;
 }
 
 /** La sortie complete de chaque machine (sec et effets) ; null avant le premier geste. */
-export function machineOuts(): { rytm: AudioNode; arp: AudioNode } | null {
-  return graph ? { rytm: graph.rytmOut, arp: graph.arpOut } : null;
+export function machineOuts(): MachineOuts | null {
+  return graph ? { rytm: graph.rytmOut, bass: graph.bassOut, arp: graph.arpOut } : null;
 }
 
-/** Ou vont les deux machines : le mixer du MM-DECKS, ou null (le master). */
-let routed: { rytm: AudioNode; arp: AudioNode } | null = null;
+/** Ou vont les machines : le mixer du MM-DECKS, ou null (le master). */
+let routed: MachineOuts | null = null;
 
 /**
- * Le mixer du MM-DECKS prend les deux machines sur ses canaux 1 (MM-RYTM)
- * et 2 (MM-ARP) : leurs prises quittent le master pour ses entrees ; null
- * les rend au master.
+ * Le mixer du MM-DECKS prend les trois machines sur ses voies 1 (MM-RYTM),
+ * 2 (MM-BASS, 2026-10-07) et 3 (MM-ARP) : leurs prises quittent le master
+ * pour ses entrees ; null les rend au master.
  */
-export function routeMachines(to: { rytm: AudioNode; arp: AudioNode } | null): void {
+export function routeMachines(to: MachineOuts | null): void {
   if (!graph) return;
   const g = graph;
   // Seule l'ancienne destination est debranchee : les prises de l'oscilloscope (scopeTaps) restent
-  const was = routed ?? { rytm: g.analyser, arp: g.analyser };
+  const was = routed ?? { rytm: g.analyser, bass: g.analyser, arp: g.analyser };
   for (const [out, from, dest] of [
     [g.rytmOut, was.rytm, to?.rytm],
+    [g.bassOut, was.bass, to?.bass],
     [g.arpOut, was.arp, to?.arp],
   ] as const) {
     // La nouvelle prise d'abord, l'ancienne ensuite : pas un instant sans son (2026-10-05)

@@ -194,7 +194,7 @@ function coreTargets(): MidiTarget[] {
   for (const m of MACHINES) out.push(press(`nav:${m}`, 'global', `GO TO ${MACHINE_NAME[m]}`, () => focusMachine(m)));
   out.push(press('nav:prev', 'global', 'PREVIOUS MACHINE', () => void stepMachine(-1)));
   out.push(press('nav:next', 'global', 'NEXT MACHINE', () => void stepMachine(1)));
-  out.push(press('nav:machines', 'global', 'PLAY/STOP RYTM + ARP', () => void machinesToggle()));
+  out.push(press('nav:machines', 'global', 'PLAY/STOP MACHINES', () => void machinesToggle()));
   return out;
 }
 

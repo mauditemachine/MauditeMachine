@@ -17,7 +17,7 @@ import { Mesh, MeshStandardMaterial, PlaneGeometry, type CanvasTexture } from 't
 import { drawTracked, logoImage, makeCanvasTexture, trackedWidth } from '../scene/silk';
 import { HEX, PORTRAIT, SILK, silkA } from '../theme';
 import { DJ_FADERS, DJ_KNOBS, DJ_KEYS, knobLabelZ, type DjKeySpec } from './layout';
-import { DECK, DJ_CHANNELS, DJ_KNOB, DJ_UNIT, MIX, UNIT_X, unitW, type DjDeck, type DjUnit } from './theme';
+import { DECK, DJ_CHANNELS, DJ_CH_NAMES, DJ_KNOB, DJ_UNIT, MIX, UNIT_X, unitW, type DjDeck, type DjUnit } from './theme';
 
 type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
 
@@ -61,8 +61,6 @@ export interface Bracket {
 }
 
 const BRACKET = { cap: 0.075, weight: 700, tick: 0.08, pad: 0.1 } as const;
-/** Ce qui entre sur chaque voie de la table. */
-const CH_NAMES = ['RYTM', 'ARP', 'A', 'B', 'C', 'D'] as const;
 
 /** FX TO (2026-10-04) : la voie visee (-1 toutes), posee par le rig avant de redessiner la table. */
 let silkFxTo = -1;
@@ -175,9 +173,9 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   texts.push({ text: 'TIME', x: T.x0 + ((times.length - 1) * T.pitch) / 2, z: T.z - T.d / 2 - 0.17, cap: PORTRAIT ? 0.08 : 0.07, weight: 700 });
   // Voies : le numero, et la platine qui y joue
   MIX.cols.forEach((cx, i) => {
-    // Les quatre voies jouent : 1 le MM-RYTM, 2 le MM-ARP, 3 et 4 les platines (Mika, 2026-10-04)
+    // Chaque voie joue : 1 le MM-RYTM, 2 le MM-BASS, 3 le MM-ARP, puis les platines (Mika, 2026-10-04 et 2026-10-07)
     texts.push({ text: String(i + 1), x: cx - 0.1, z: MIX.numZ, cap: 0.17, weight: 700, alpha: 1, align: 'right', ...(fxTo === i ? { ink: 'orange' as const } : {}) });
-    texts.push({ text: CH_NAMES[i], x: cx + 0.02, z: MIX.numZ, cap: 0.09, weight: 700, ink: 'orange', alpha: 1, align: 'left', maxW: 0.62, group: 'chname' });
+    texts.push({ text: DJ_CH_NAMES[i], x: cx + 0.02, z: MIX.numZ, cap: 0.09, weight: 700, ink: 'orange', alpha: 1, align: 'left', maxW: 0.62, group: 'chname' });
     // Graduation du fader de voie : 11 tics, 10 en haut (tenu droit, pas de fader)
     const F = MIX.fader;
     if (!PORTRAIT) for (let t = 0; t <= 10; t += 1) {
@@ -186,8 +184,8 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
     }
   });
   texts.push({ text: 'M', x: MIX.masterX, z: MIX.numZ, cap: 0.17, weight: 700, alpha: 1 });
-  // PLAY/STOP des machines : ce qu'il lance, en orange comme les noms des voies 1 et 2
-  texts.push({ text: 'RYTM + ARP', x: MIX.masterX, z: MIX.play.labelZ, cap: 0.075, weight: 700, ink: 'orange', alpha: 1, maxW: 1.1 });
+  // PLAY/STOP des machines : ce qu'il lance (les trois), en orange comme les noms de leurs voies
+  texts.push({ text: 'MACHINES', x: MIX.masterX, z: MIX.play.labelZ, cap: 0.075, weight: 700, ink: 'orange', alpha: 1, maxW: 1.1 });
   // Tenu droit, ADD DECK est dans la colonne du MASTER : son nom au-dessus ; sinon a gauche de sa touche, en orange comme REMOVE DECK
   const keyName = (k: DjKeySpec, text: string): Text =>
     MIX.keysInMaster

@@ -12,10 +12,10 @@
  *   Q W  bend - +      O P
  *   A  cue  S  play    K  cue  L  play
  *   E  browse A        I  browse B
- *   Z X  tempo - + 0.1 BPM (Maj : 1 BPM)   N M
+ *   Z X  tempo - + 0.05 BPM (Maj : 1 BPM)   N M
  *   D  sync            J  sync
  *   F  loop 4 temps    H  loop 4 temps
- *   G  PLAY/STOP des machines (le MM-RYTM et le MM-ARP, voies 1 et 2)
+ *   G  PLAY/STOP des machines (MM-RYTM, MM-BASS, MM-ARP, voies 1 a 3)
  *   Espace : PLAY de la derniere platine touchee
  *   - et = : zoom des formes d'onde
  *   V : l'affichage des formes d'onde (WARM, 3BAND, RGB, MONO)
@@ -72,7 +72,7 @@ export const DJ_KEY_LEGEND: readonly { keys: string; what: string }[] = [
   { keys: 'S  /  L', what: 'Play A / B' },
   { keys: 'Q W  /  O P', what: 'Bend - + A / B (hold)' },
   { keys: 'E  /  I', what: 'Browse on deck A / B' },
-  { keys: 'Z X  /  N M', what: 'Pitch - + 0.1 BPM A / B (Shift: 1 BPM)' },
+  { keys: 'Z X  /  N M', what: 'Pitch - + 0.05 BPM A / B (Shift: 1 BPM)' },
   { keys: 'D  /  J', what: 'Sync A / B to the tempo you hear' },
   { keys: 'F  /  H', what: 'Loop 4 beats on A / B (again: exit)' },
   { keys: 'Space', what: 'Play the last deck used' },

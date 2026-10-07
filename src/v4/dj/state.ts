@@ -95,7 +95,7 @@ export type DjWaveMode = (typeof DJ_WAVES)[number];
 export const DJ_WAVE_LABEL: Readonly<Record<DjWaveMode, string>> = { warm: 'WARM', '3band': '3BAND', rgb: 'RGB', mono: 'MONO' };
 
 export interface DjState {
-  /** six voies : 1 MM-RYTM, 2 MM-ARP, 3 a 6 les platines A a D (C et D seulement si posees) */
+  /** sept voies : 1 MM-RYTM, 2 MM-BASS, 3 MM-ARP, 4 a 7 les platines A a D (C et D seulement si posees) */
   ch: DjChannelState[];
   fx: Record<DjFxId, number>;
   time: number;
@@ -104,7 +104,7 @@ export interface DjState {
    * FX TO (2026-10-04, Mika : "assigner avec un knob les FX vers une piste,
    * un knob qui selectionne la piste de destination ou alors toutes les
    * pistes") : -1 toutes les voies, sinon la voie (0 : 1 MM-RYTM, 1 : 2
-   * MM-ARP, 2 a 5 : les platines A a D). Retenu.
+   * MM-BASS, 2 : 3 MM-ARP, 3 a 6 : les platines A a D). Retenu.
    */
   fxTo: number;
   /** l'affichage des formes d'onde, retenu */
@@ -114,18 +114,24 @@ export interface DjState {
 
 /**
  * La table a quatre voies depuis le 2026-10-04 : 1 MM-RYTM, 2 MM-ARP, 3 et 4
- * les platines. Nouvelle cle : l'ancienne (deux voies de platines) est lue
- * une fois et ses voies passent en 3 et 4.
+ * les platines ; cinq depuis le 2026-10-07 : 1 MM-RYTM, 2 MM-BASS, 3 MM-ARP,
+ * 4 et 5 les platines. Nouvelle cle a chaque fois : l'ancienne est lue une
+ * fois et ses voies passent a leur nouvelle place (SLOT).
  */
-const KEY = 'mm.v4.dj.2';
-const OLD_KEY = 'mm.v4.dj.1';
+const KEY = 'mm.v4.dj.3';
+const OLD_KEYS = ['mm.v4.dj.2', 'mm.v4.dj.1'] as const;
+/** La place d'une voie d'une table d'avant : mm.v4.dj.2 (RYTM, ARP, platines), mm.v4.dj.1 (deux platines). */
+const SLOT: Readonly<Record<(typeof OLD_KEYS)[number], (i: number) => number>> = {
+  'mm.v4.dj.2': (i) => (i === 0 ? 0 : i === 1 ? 2 : i + 1),
+  'mm.v4.dj.1': (i) => i + 3,
+};
 /** Les machines : fader en haut, le son du site ne change pas ; les platines : 0.8, comme une table. */
 const channel = (fader = 0.8): DjChannelState => ({ gain: 0, hi: 0, mid: 0, low: 0, filter: 0, fader });
 const deck = (): DjDeckState => ({ pitch: 0, range: 8, playing: false, loaded: false, track: null, loading: null, error: null, cue: 0, cues: [null, null, null, null], zoom: 8, beat: null, sync: false, loop: null, remove: false });
 
 function fresh(): DjState {
   return {
-    ch: [channel(1), channel(1), channel(), channel(), channel(), channel()],
+    ch: [channel(1), channel(1), channel(1), channel(), channel(), channel(), channel()],
     fx: Object.fromEntries(DJ_FX.map((f) => [f, 0])) as Record<DjFxId, number>,
     time: 1,
     master: 0.88,
@@ -142,13 +148,14 @@ function load(): DjState {
   const s = fresh();
   try {
     const raw = window.localStorage.getItem(KEY);
-    const legacy = raw ? null : window.localStorage.getItem(OLD_KEY);
-    if (!raw && !legacy) return s;
-    const o = JSON.parse((raw ?? legacy) as string) as Partial<DjState>;
-    // L'ancienne table : ses voies 1 et 2 etaient les platines, elles passent en 3 et 4
-    const slot = (i: number): number => (legacy ? i + 2 : i);
+    const old = raw ? undefined : OLD_KEYS.find((k) => window.localStorage.getItem(k) !== null);
+    const text = raw ?? (old ? window.localStorage.getItem(old) : null);
+    if (!text) return s;
+    const o = JSON.parse(text) as Partial<DjState>;
+    // Une table d'avant : chaque voie a sa nouvelle place (le MM-BASS arrive en 2, ses reglages de depart)
+    const slot = (i: number): number => (old ? SLOT[old](i) : i);
     o.ch?.forEach((c, i) => {
-      if (slot(i) > 5 || !c) return;
+      if (slot(i) > 6 || !c) return;
       const t = s.ch[slot(i)];
       t.gain = clamp(c.gain, -1, 1);
       t.hi = clamp(c.hi, -1, 1);
@@ -159,11 +166,11 @@ function load(): DjState {
     });
     if (o.fx) for (const f of DJ_FX) s.fx[f] = clamp(o.fx[f] ?? 0, 0, 1);
     // DISTO est devenu OVERDRIVE (2026-10-04) : sa dose retenue suit
-    const old = (o.fx as Record<string, number> | undefined)?.disto;
-    if (typeof old === 'number' && o.fx && o.fx.overdrive === undefined) s.fx.overdrive = clamp(old, 0, 1);
+    const disto = (o.fx as Record<string, number> | undefined)?.disto;
+    if (typeof disto === 'number' && o.fx && o.fx.overdrive === undefined) s.fx.overdrive = clamp(disto, 0, 1);
     if (typeof o.time === 'number' && (DJ_TIMES as readonly number[]).includes(o.time)) s.time = o.time;
     if (typeof o.master === 'number') s.master = clamp(o.master, 0, 1);
-    if (typeof o.fxTo === 'number' && Number.isInteger(o.fxTo)) s.fxTo = clamp(o.fxTo, -1, 5);
+    if (typeof o.fxTo === 'number' && Number.isInteger(o.fxTo)) s.fxTo = o.fxTo < 0 ? -1 : clamp(slot(o.fxTo), 0, 6);
     // WARM arrive (2026-10-05) : le 3BAND retenu etait l'affichage de depart, il passe a WARM ; RGB ou MONO choisis restent
     const w = (o as { waveMode?: unknown }).waveMode ?? (o.wave === 'rgb' || o.wave === 'mono' ? o.wave : undefined);
     if (typeof w === 'string' && (DJ_WAVES as readonly string[]).includes(w)) s.wave = w as DjWaveMode;
@@ -224,9 +231,9 @@ export const djState = {
     state = { ...state, master: next };
     emit();
   },
-  /** FX TO : -1 toutes les voies, sinon une voie (0 a 5). */
+  /** FX TO : -1 toutes les voies, sinon une voie (0 a 6). */
   setFxTo(t: number): void {
-    const next = Math.round(clamp(t, -1, 5));
+    const next = Math.round(clamp(t, -1, 6));
     if (state.fxTo === next) return;
     state = { ...state, fxTo: next };
     emit();

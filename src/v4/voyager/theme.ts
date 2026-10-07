@@ -74,10 +74,14 @@ export const VOY_KNOB = {
    * plateau garde 1.3 (au doigt), le panneau 1.12 depuis le 2026-10-05 (Mika :
    * "en mobile, les boutons plus gros, c'est trop difficile a attraper et a
    * lire" : AMP EG et EFFECTS sont descendus sur le plateau, le panneau n'a
-   * plus que quatre rangees ; 1.0 avant)
+   * plus que quatre rangees ; 1.0 avant ; 2026-10-07, Mika : "en mobile,
+   * MM-ARP, je trouve les boutons petits" : 1.36 et 1.2, et chaque potard se
+   * prend au doigt dans un disque de touchR au moins, la demi-colonne)
    */
-  scale: PORTRAIT ? 1.3 : 1,
-  panelScale: PORTRAIT ? 1.12 : 1,
+  scale: PORTRAIT ? 1.36 : 1,
+  panelScale: PORTRAIT ? 1.2 : 1,
+  /** au telephone, le rayon de prise minimal d'un potard (les rangees de huit sont a 0.88) */
+  touchR: PORTRAIT ? 0.42 : 0,
 } as const;
 
 /**
@@ -129,8 +133,10 @@ export interface VoyKnobPlace {
 export type KnobSize = 'xl' | 'l' | 'm' | 's' | 'sw' | 'sel';
 // Desktop un peu plus gros le 2026-10-05 (Mika : "MM-ARP, j'aimerais que les knobs soient un peu plus gros en desktop") :
 // xl 1.5, l 1.18, m 1, s 0.8, sw 0.62, sel 0.85 avant
+// Au telephone, plus gros le 2026-10-07 (Mika : "en mobile, MM-ARP, je trouve les boutons petits") :
+// xl 1.6, l 1.15, m 0.95, s 0.8, sel 0.8 avant (le plateau a 1.36, le panneau a 1.2 : les selecteurs et XL a peine plus gros) ; les rangees de huit tiennent encore (pas de 0.88)
 const SIZE_SCALE: Readonly<Record<KnobSize, number>> = PORTRAIT
-  ? { xl: 1.6, l: 1.15, m: 0.95, s: 0.8, sw: 0.62, sel: 0.8 }
+  ? { xl: 1.5, l: 1.1, m: 1.08, s: 0.98, sw: 0.62, sel: 0.76 }
   : { xl: 1.6, l: 1.28, m: 1.1, s: 0.9, sw: 0.68, sel: 0.92 };
 
 /** Une place : x, z, taille ; plateau (deck) ou panneau. */
@@ -396,7 +402,7 @@ export const VOY_HEAD = PORTRAIT
  * aux knobs" ; deux rangees de quatre de 1.1 avant).
  */
 export const VOY_PAD = PORTRAIT
-  ? { size: 0.8, height: 0.2, radius: 0.08, dome: 0.035, xs: [-3.29, -2.35, -1.41, -0.47, 0.47, 1.41, 2.35, 3.29], zs: [5.85], perRow: 8, labelDz: 0.6 }
+  ? { size: 0.86, height: 0.2, radius: 0.08, dome: 0.035, xs: [-3.29, -2.35, -1.41, -0.47, 0.47, 1.41, 2.35, 3.29], zs: [5.9], perRow: 8, labelDz: 0.62 }
   : { size: 0.98, height: 0.22, radius: 0.08, dome: 0.04, xs: [-4.2, -3.0, -1.8, -0.6, 0.6, 1.8, 3.0, 4.2], zs: [2.75], perRow: 8, labelDz: 0.72 };
 
 export const voyPadAt = (i: number): { x: number; z: number } => ({
@@ -413,13 +419,13 @@ export type VoyButtonId = 'run' | 'clear' | 'random' | 'edit' | 'open';
  * l'arpegiateur a sa gauche) ou en rangee sous lui (portrait).
  */
 export const VOY_BUTTONS: readonly { id: VoyButtonId; label: string; x: number; z: number; w: number; d: number }[] = PORTRAIT
-  ? // Plus gros au telephone (2026-10-05, Mika : "trop difficile a attraper") : 1.15 x 0.6 avant
+  ? // Plus gros au telephone (2026-10-05, Mika : "trop difficile a attraper") : 1.15 x 0.6 avant ; 1.3 x 0.68 jusqu'au 2026-10-07
     [
-      { id: 'run', label: 'RUN/STOP', x: -2.9, z: 1.58, w: 1.3, d: 0.68 },
-      { id: 'clear', label: 'CLEAR', x: -1.45, z: 1.58, w: 1.3, d: 0.68 },
-      { id: 'random', label: 'RANDOM', x: 0, z: 1.58, w: 1.3, d: 0.68 },
-      { id: 'edit', label: 'EDIT', x: 1.45, z: 1.58, w: 1.3, d: 0.68 },
-      { id: 'open', label: 'OPEN', x: 2.9, z: 1.58, w: 1.3, d: 0.68 },
+      { id: 'run', label: 'RUN/STOP', x: -2.9, z: 1.6, w: 1.36, d: 0.78 },
+      { id: 'clear', label: 'CLEAR', x: -1.45, z: 1.6, w: 1.36, d: 0.78 },
+      { id: 'random', label: 'RANDOM', x: 0, z: 1.6, w: 1.36, d: 0.78 },
+      { id: 'edit', label: 'EDIT', x: 1.45, z: 1.6, w: 1.36, d: 0.78 },
+      { id: 'open', label: 'OPEN', x: 2.9, z: 1.6, w: 1.36, d: 0.78 },
     ]
   : [
       { id: 'run', label: 'RUN/STOP', x: 2.5, z: 0.85, w: 0.7, d: 0.55 },
