@@ -19,6 +19,8 @@
  */
 
 import { PORTRAIT, TEMPO_UI } from '../theme';
+import { BASS } from '../state/focus';
+import { BASS_W, bassX } from '../bass/theme';
 import type { VoyKnobId } from './params';
 
 export const VOY_BODY = PORTRAIT
@@ -43,10 +45,12 @@ export const VOY_PANEL = (() => {
 export const VOY_CHEEK = { above: 0.16, noseR: 0.62, backR: 0.4 } as const;
 
 /**
- * Place de la seconde machine (vue d'ensemble) : a droite de la 808, un
- * jour de 2.6 entre elles (1.8 en portrait).
+ * Place du MM-ARP (vue d'ensemble) : a droite de la 808, un jour de 2.6
+ * entre elles (1.8 en portrait) ; depuis le 2026-10-07 (Mika : "MM-BASS
+ * devrait se situer avant MM-ARP") a droite du MM-BASS, le meme jour, quand
+ * celui-ci est sur la table.
  */
-export const VOY_X = PORTRAIT ? 8.2 / 2 + 1.8 + VOY_BODY.w / 2 : 12.6 / 2 + 2.6 + VOY_BODY.w / 2;
+export const VOY_X = (BASS ? bassX() + BASS_W / 2 : PORTRAIT ? 8.2 / 2 : 12.6 / 2) + (PORTRAIT ? 1.8 : 2.6) + VOY_BODY.w / 2;
 
 /* ---------- potards (repere du panneau, ou du plateau) ---------- */
 

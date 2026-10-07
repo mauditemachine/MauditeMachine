@@ -2,7 +2,7 @@
 
 > Maudite Machine is a DJ and producer based between Canada, France and Spain, after fifteen years in the Montréal underground. He plays indie dance and psy prog, as a DJ (CDJ) and as a hybrid live act (synths and grooveboxes). He founded VRSTL Records, an independent label with 21 EPs and 2 albums, and is a member of the 8day collective in Montréal. Available for club and festival dates across France, Spain and the rest of Europe, and still playing Canada.
 
-The website is an interactive drum machine (MM-RYTM), arpeggiator synthesizer (MM-ARP), bassline generator with a TB-303 style filter and deep subs (MM-BASS), pair of DJ decks with a mixer and a sampler in each deck, with a slicer and a granular engine (MM-DECKS), in 3D; every section also has a plain HTML page.
+The website is an interactive drum machine (MM-RYTM), bassline generator with a TB-303 style filter and deep subs (MM-BASS), arpeggiator synthesizer (MM-ARP), pair of DJ decks with a mixer and a sampler in each deck, with a slicer and a granular engine (MM-DECKS), in 3D; every section also has a plain HTML page.
 
 ## Main pages
 

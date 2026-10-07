@@ -32,6 +32,11 @@ Suite de la session du jour (rapport précédent : `2026-10-07-sampler-decks-mm-
 - `midi/roto.ts` : la page 4 du setup BASS prend LOCK et EDIT. `docs/midi/*` régénérés : 423 cibles, 6 setups.
 - `ui/OverviewHelp.tsx` : l'aide du MM-BASS. `scene/hit.ts` : les zones `basslock` et `basslcd`.
 - `docs/v4/spec.md` : R14-194 à R14-198.
+- Le MM-BASS passe avant le MM-ARP (demande de Mika, plus tard le même jour) :
+  - `state/focus.ts` : l'ordre des machines devient MM-RYTM, MM-BASS, MM-ARP, MM-DECKS ;
+  - `bass/theme.ts`, `voyager/theme.ts`, `dj/theme.ts` : les places de la table, la basse à droite du MM-RYTM, puis le MM-ARP, puis le MM-DECKS ;
+  - `scene/renderer.ts` : le bout de la voisine, écrit une fois pour toutes les machines (celle de gauche et celle de droite dépassent), et le cadrage de la vue d'ensemble ;
+  - `ui/MachineDrawer.tsx`, `public/llms.txt`, spec R14-199.
 
 ## Décisions prises et pourquoi
 
@@ -41,6 +46,7 @@ Suite de la session du jour (rapport précédent : `2026-10-07-sampler-decks-mm-
 - **EDIT fait comme sur le MM-RYTM**, la machine de même format : les seize pas deviennent seize patterns. Les réglages d'un pas passent par les boutons LOCK.
 - **LOCK suit les parameter locks d'Elektron.** Le bouton au-dessus d'un pas en fait la cible. Les dix potards du son ne changent alors que ce pas. Les potards du générateur et OCTAVE restent globaux : ils ne s'entendent pas pas à pas.
 - **Les verrous partent avec la note.** Le worklet les pose juste avant la note, parce que la décroissance et l'accent en dépendent, puis revient aux potards à la note suivante sans verrou. Une liaison verrouillée change le son de la note qui continue.
+- **MM-BASS avant MM-ARP.** Le RYTM et la basse, les deux machines de rythme, sont voisins, et l'ARP suit. Le bout de la voisine est maintenant calculé pour n'importe quel ordre : un futur déplacement ne demandera plus de réécrire cette partie. Le mixer du MM-DECKS garde ses voies (1 RYTM, 2 ARP) ; les numéros de setups du Roto et les liens `?m=bass`, `?m=arp` ne changent pas.
 - **E reste EDIT sur toutes les machines.** Les pas 9 à 16 passent donc sur Maj + 1 à 8 au clavier, au lieu de Q à I.
 
 ## Ce qui reste à faire / points en suspens

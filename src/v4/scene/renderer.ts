@@ -793,7 +793,7 @@ export class Stage {
     // le chargement principal ; le rig s'accroche ensuite (attachDj). Avec ?dj=0, rien
     this.aniso = aniso;
     if (VOYAGER && DJ) void djLoad.load()?.then((m) => this.attachDj(m.DjRig));
-    // Le MM-BASS (2026-10-07) : de meme, entre le MM-ARP et le MM-DECKS (state/bassload.ts) ; avec ?bass=0, rien
+    // Le MM-BASS (2026-10-07) : de meme, entre le MM-RYTM et le MM-ARP (state/bassload.ts) ; avec ?bass=0, rien
     if (VOYAGER && BASS) void bassLoad.load()?.then((m) => this.attachBass(m.BassRig));
 
     // Taille initiale ; le canvas passe a l'encre tout de suite (jamais un noir pur)
@@ -1127,8 +1127,8 @@ export class Stage {
   }
 
   /**
-   * Le MM-BASS arrive (son code charge a part) : entre le MM-ARP et le
-   * MM-DECKS ; ses animations (la tete de lecture, l'ecran), son ecoute ;
+   * Le MM-BASS arrive (son code charge a part) : entre le MM-RYTM et le
+   * MM-ARP ; ses animations (la tete de lecture, l'ecran), son ecoute ;
    * puis la scene se recadre.
    */
   private attachBass(Rig: typeof BassRig): void {
@@ -1275,35 +1275,24 @@ export class Stage {
     const u = (2 * hw) / Math.max(1, this.width);
     const peek = (PEEK.px + PEEK.hoverPx * this.peekHover) * u;
     const cx = this.fr.cx;
-    // Chez elles (vue d'ensemble, telephone) ; une machine utilisee : ses voisines au bord
-    let t808 = 0;
-    let tVoy = VOY_X;
-    let tDj = DJ_X;
-    const homeBass = bassX();
-    let tBass = homeBass;
-    // L'ordre (2026-10-07) : MM-RYTM, MM-ARP, MM-BASS, MM-DECKS ; les voisines de la machine utilisee depassent
-    const voyR = VOY_X + VOY_BODY.w / 2;
-    if (!this.layoutMobile && f === 'mm808') {
-      tVoy = Math.max(BODY.w / 2 + PEEK.gap + VOY_BODY.w / 2, cx + hw - peek + VOY_BODY.w / 2);
-    } else if (!this.layoutMobile && f === 'voy') {
-      t808 = Math.min(VOY_X - VOY_BODY.w / 2 - PEEK.gap - BODY.w / 2, cx - hw + peek - BODY.w / 2);
-      // A droite : le MM-BASS (le MM-DECKS sans lui)
-      if (BASS) tBass = Math.max(voyR + PEEK.gap + BASS_W / 2, cx + hw - peek + BASS_W / 2);
-      else tDj = Math.max(voyR + PEEK.gap + DJ_W / 2, cx + hw - peek + DJ_W / 2);
-    } else if (!this.layoutMobile && f === 'bass') {
-      // Le MM-ARP depasse a gauche, le MM-DECKS a droite
-      tVoy = Math.min(homeBass - BASS_W / 2 - PEEK.gap - VOY_BODY.w / 2, cx - hw + peek - VOY_BODY.w / 2);
-      if (DJ) tDj = Math.max(homeBass + BASS_W / 2 + PEEK.gap + DJ_W / 2, cx + hw - peek + DJ_W / 2);
-    } else if (!this.layoutMobile && f === 'dj') {
-      // Sa voisine de gauche depasse : le MM-BASS (le MM-ARP sans lui)
-      if (BASS) tBass = Math.min(DJ_X - DJ_W / 2 - PEEK.gap - BASS_W / 2, cx - hw + peek - BASS_W / 2);
-      else tVoy = Math.min(DJ_X - DJ_W / 2 - PEEK.gap - VOY_BODY.w / 2, cx - hw + peek - VOY_BODY.w / 2);
+    // Chez elles (vue d'ensemble, telephone) ; une machine utilisee : ses voisines au bord.
+    // L'ordre (2026-10-07) : MM-RYTM, MM-BASS, MM-ARP, MM-DECKS (state/focus.ts MACHINES) : celle de gauche
+    // et celle de droite de la machine utilisee depassent
+    const home: Record<MachineId, number> = { mm808: 0, bass: bassX(), voy: VOY_X, dj: DJ_X };
+    const half: Record<MachineId, number> = { mm808: BODY.w / 2, bass: BASS_W / 2, voy: VOY_BODY.w / 2, dj: DJ_W / 2 };
+    const goal: Record<MachineId, number> = { ...home };
+    const at = f === 'all' ? -1 : MACHINES.indexOf(f);
+    if (!this.layoutMobile && at >= 0 && f !== 'all') {
+      const left = MACHINES[at - 1];
+      const right = MACHINES[at + 1];
+      if (left) goal[left] = Math.min(home[f] - half[f] - PEEK.gap - half[left], cx - hw + peek - half[left]);
+      if (right) goal[right] = Math.max(home[f] + half[f] + PEEK.gap + half[right], cx + hw - peek + half[right]);
     }
     const k = this.focusK;
-    const x808 = this.nbFrom.mm808 + (t808 - this.nbFrom.mm808) * k;
-    const xVoy = this.nbFrom.voy + (tVoy - this.nbFrom.voy) * k;
-    const xDj = this.nbFrom.dj + (tDj - this.nbFrom.dj) * k;
-    const xBass = this.nbFrom.bass + (tBass - this.nbFrom.bass) * k;
+    const x808 = this.nbFrom.mm808 + (goal.mm808 - this.nbFrom.mm808) * k;
+    const xVoy = this.nbFrom.voy + (goal.voy - this.nbFrom.voy) * k;
+    const xDj = this.nbFrom.dj + (goal.dj - this.nbFrom.dj) * k;
+    const xBass = this.nbFrom.bass + (goal.bass - this.nbFrom.bass) * k;
     let moved = false;
     if (this.machine.root.position.x !== x808) {
       this.machine.root.position.x = x808;
@@ -1459,7 +1448,7 @@ export class Stage {
     };
     if (f === 'bass') return bass;
     const left = -BODY.w / 2;
-    const right = DJ ? DJ_X + DJ_W / 2 : BASS ? bassX() + BASS_W / 2 : VOY_X + VOY_BODY.w / 2;
+    const right = DJ ? DJ_X + DJ_W / 2 : VOY_X + VOY_BODY.w / 2;
     const half = (right - left) / 2;
     return {
       cx: (left + right) / 2,
@@ -1530,7 +1519,7 @@ export class Stage {
     const dj = this.dj;
     const bs = this.bass;
     // Les voisines immediates seulement, dans l'ordre de la scene (state/focus.ts MACHINES :
-    // MM-RYTM, MM-ARP, MM-BASS, MM-DECKS)
+    // MM-RYTM, MM-BASS, MM-ARP, MM-DECKS)
     const at = f === 'all' ? -1 : MACHINES.indexOf(f);
     const shown = (id: MachineId): boolean => f === 'all' || id === f || (peek && at >= 0 && Math.abs(MACHINES.indexOf(id) - at) === 1);
     const a = shown('mm808');

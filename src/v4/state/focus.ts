@@ -48,7 +48,8 @@ export const DJ: boolean = (() => {
 
 /**
  * Le MM-BASS (2026-10-07, Mika : "un prototype de generateur de bassline,
- * la meme taille que MM-RYTM") : a droite du MM-ARP, le MM-DECKS apres lui.
+ * la meme taille que MM-RYTM") : a droite du MM-RYTM, le MM-ARP apres lui
+ * (la place d'abord a droite du MM-ARP, changee le meme jour).
  * Pour tout le monde ; ?bass=0 le retire (retenu pour l'onglet), ?bass=1 le
  * remet. Il suppose le MM-VOYAGER sur la table.
  */
@@ -64,12 +65,13 @@ export const BASS: boolean = (() => {
 })();
 
 /**
- * Les machines sur la table, de gauche a droite : MM-RYTM, MM-ARP, MM-BASS,
- * MM-DECKS. Le MM-SMPL (2026-10-04) est parti le 2026-10-07 : son sampler
- * est dans chaque platine du MM-DECKS (Mika : "supprime MM-SMPL, ca ne sert
- * a rien").
+ * Les machines sur la table, de gauche a droite : MM-RYTM, MM-BASS, MM-ARP,
+ * MM-DECKS (2026-10-07, Mika : "MM-BASS devrait se situer avant MM-ARP" :
+ * la basse est a droite du MM-RYTM, avec lui les deux machines de rythme).
+ * Le MM-SMPL (2026-10-04) est parti le 2026-10-07 : son sampler est dans
+ * chaque platine du MM-DECKS (Mika : "supprime MM-SMPL, ca ne sert a rien").
  */
-export const MACHINES: readonly MachineId[] = VOYAGER ? ['mm808', 'voy', ...(BASS ? (['bass'] as const) : []), ...(DJ ? (['dj'] as const) : [])] : ['mm808'];
+export const MACHINES: readonly MachineId[] = VOYAGER ? ['mm808', ...(BASS ? (['bass'] as const) : []), 'voy', ...(DJ ? (['dj'] as const) : [])] : ['mm808'];
 
 /**
  * La machine d'arrivee (2026-10-04, Mika : "oui, ajoute ?m=dj") : ?m=dj

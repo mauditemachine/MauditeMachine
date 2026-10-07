@@ -3,7 +3,7 @@
  * mauditemachine.com", "en 3d please") : la troisieme machine, celle des
  * Decks de sonaa.ca. Deux platines facon CDJ (DECK A, DECK B) et une table
  * de mixage facon DJM (MIXER) entre elles, posees cote a cote sur la meme
- * table que le MM-RYTM et le MM-ARP, a droite du MM-ARP.
+ * table que le MM-RYTM, le MM-BASS et le MM-ARP, a droite du MM-ARP.
  *
  * Les trois blocs ont le meme coin (avant 1.0, arriere 1.5 au-dessus des
  * pieds) : leurs dessus sont dans un meme plan incline, le repere "top" du
@@ -21,8 +21,6 @@
 
 import { APPEARANCE, PORTRAIT } from '../theme';
 import { VOY_BODY, VOY_X } from '../voyager/theme';
-import { BASS } from '../state/focus';
-import { BASS_W, bassX } from '../bass/theme';
 
 /* ---------- blocs ---------- */
 
@@ -105,11 +103,11 @@ let mixViews = 2;
 /** Largeur de l'ensemble pose. */
 export let DJ_W = 0;
 /**
- * Place du MM-DECKS : la derniere machine, a droite du MM-BASS (2026-10-07 ;
- * du MM-ARP sans lui), le meme jour qu'entre la 808 et le MM-ARP ; son bord
- * gauche ne bouge pas quand on ajoute une platine.
+ * Place du MM-DECKS : la derniere machine, a droite du MM-ARP (qui suit le
+ * MM-BASS depuis le 2026-10-07), le meme jour qu'entre la 808 et le MM-ARP ;
+ * son bord gauche ne bouge pas quand on ajoute une platine.
  */
-const DJ_LEFT = (BASS ? bassX() + BASS_W / 2 : VOY_X + VOY_BODY.w / 2) + (PORTRAIT ? 1.8 : 2.6);
+const DJ_LEFT = VOY_X + VOY_BODY.w / 2 + (PORTRAIT ? 1.8 : 2.6);
 export let DJ_X = 0;
 
 /**

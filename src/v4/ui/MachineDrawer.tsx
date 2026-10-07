@@ -25,8 +25,8 @@ const ITEMS: readonly { id: Focus; title: string; sub: string }[] = [
   // L'ensemble a un nom (2026-10-05, Mika : "MM-STUDIO pour Maudite Machine Studio, juste pour donner un nom a tout ca")
   { id: 'all', title: 'MM-STUDIO', sub: 'ALL THE MACHINES' },
   { id: 'mm808', title: 'MM-RYTM', sub: 'DRUM MACHINE' },
-  { id: 'voy', title: 'MM-ARP', sub: 'ARPEGGIATOR SYNTHESIZER' },
   ...(BASS ? [{ id: 'bass' as const, title: 'MM-BASS', sub: 'BASSLINE GENERATOR' }] : []),
+  { id: 'voy', title: 'MM-ARP', sub: 'ARPEGGIATOR SYNTHESIZER' },
   ...(DJ ? [{ id: 'dj' as const, title: 'MM-DECKS', sub: 'DJ DECKS AND MIXER' }] : []),
 ];
 

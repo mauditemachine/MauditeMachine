@@ -632,7 +632,7 @@ export function focusMachine(f: Focus): void {
 /**
  * Fleches gauche et droite (2026-10-05, Mika : "naviguer entre les machines
  * avec les fleches gauche droite") : la machine d'a cote, dans l'ordre de la
- * scene et du selecteur de l'en-tete (ALL, RYTM, ARP, BASS, DECKS ; ALL
+ * scene et du selecteur de l'en-tete (ALL, RYTM, BASS, ARP, DECKS ; ALL
  * seulement sur desktop) ; aux bouts, rien. true si la vue a change.
  */
 export function stepMachine(dir: -1 | 1): boolean {

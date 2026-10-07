@@ -5,7 +5,9 @@
  * meilleur de chacun : Moog Minitaur, Norand Mono, Torso T-1, TB-303,
  * Syntakt, Roland SE-02"). Un bloc de la famille du MM-DECKS (le coin, le
  * dessus brosse, les vis, les potards, les touches en caoutchouc a LED), a
- * la taille du MM-RYTM, pose a droite du MM-ARP ; le MM-DECKS apres lui. Le
+ * la taille du MM-RYTM, pose a droite du MM-RYTM (puis le MM-ARP, le
+ * MM-DECKS ; d'abord a droite du MM-ARP, "MM-BASS avant MM-ARP", Mika, le
+ * meme jour). Le
  * dessus, du fond vers soi (repere top : x de -6.3 a 6.3, z de -4 a 4) :
  * - l'en-tete : MM-BASS, BASSLINE GENERATOR / ACID / SUB, le logotype ;
  * - l'ecran a gauche (la ligne de basse, facon OP-1, bass/screen.ts) ; a sa
@@ -31,18 +33,17 @@
  */
 
 import { BODY, PORTRAIT } from '../theme';
-import { VOY_BODY, VOY_X } from '../voyager/theme';
 import type { BassKnobId } from './params';
 
 /** La taille du MM-RYTM. */
 export const BASS_W = BODY.w;
 export const BASS_D = BODY.d;
-/** Le jour avec la machine de gauche : celui du MM-DECKS avec le MM-ARP. */
+/** Le jour avec la machine de gauche (le MM-RYTM) : le meme que partout. */
 const GAP = PORTRAIT ? 1.8 : 2.6;
 
-/** Le centre du MM-BASS : a droite du MM-ARP, le MM-DECKS apres lui. */
+/** Le centre du MM-BASS : a droite du MM-RYTM (centre a 0), le MM-ARP apres lui. */
 export function bassX(): number {
-  return VOY_X + VOY_BODY.w / 2 + GAP + BASS_W / 2;
+  return BODY.w / 2 + GAP + BASS_W / 2;
 }
 
 /** Le cadrage : de face, sa hauteur projetee. */
