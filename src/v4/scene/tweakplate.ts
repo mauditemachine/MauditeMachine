@@ -218,7 +218,7 @@ export class TweakPlate {
 
     this.knobMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.28 });
     this.knobMat.name = `${spec.name}Knob`;
-    // Une plaque sans reglage (celle du MM-SMPL, 2026-10-05) : un tampon d'une instance, aucune dessinee
+    // Une plaque sans reglage : un tampon d'une instance, aucune dessinee
     this.knobs = new InstancedMesh(buildKnobGeometry(opts.mobile), this.knobMat, Math.max(1, spec.items.length));
     this.knobs.count = spec.items.length;
     this.knobs.name = `${spec.name}Knobs`;

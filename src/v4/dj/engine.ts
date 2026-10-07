@@ -529,7 +529,7 @@ export class DjPlayer {
 
   /**
    * Une copie de [a, b] (secondes) de la piste posee, ses canaux et sa
-   * frequence ; null sans piste. Le MM-SMPL y prend ses samples (2026-10-04).
+   * frequence ; null sans piste. Le sampler de la platine y prend ses samples (REC DECK, 2026-10-07).
    */
   excerpt(a: number, b: number): { channels: Float32Array[]; rate: number } | null {
     const buf = this.buffer;

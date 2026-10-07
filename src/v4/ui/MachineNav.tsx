@@ -37,7 +37,6 @@ const NAMES: Record<MachineId, { title: string; sub: string; aria: string }> = {
   mm808: { title: 'MM-RYTM', sub: 'DRUM MACHINE', aria: 'Play the MM-RYTM drum machine' },
   voy: { title: 'MM-ARP', sub: 'SYNTHESIZER', aria: 'Play the MM-ARP synthesizer' },
   dj: { title: 'MM-DECKS', sub: 'DJ DECKS AND MIXER', aria: 'Play the MM-DECKS DJ decks and mixer' },
-  smpl: { title: 'MM-SMPL', sub: 'SAMPLER AND GRANULAR', aria: 'Play the MM-SMPL sampler, slicer and granular machine' },
 };
 
 /** Le nom d'un bloc du MM-DECKS (les fleches le disent). */

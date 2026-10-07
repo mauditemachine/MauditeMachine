@@ -6,7 +6,9 @@
  * cette liste.
  *
  * Ids : "dj-" puis le bloc et la commande (jamais un id en v : le Stage
- * envoie ceux-la au MM-ARP).
+ * envoie ceux-la au MM-ARP). Les touches du sampler d'une platine
+ * (2026-10-07) : dj-a-smpl-open, dj-a-smpl-recdeck, dj-a-smpl-recmix,
+ * dj-a-smpl-play.
  */
 
 import { PORTRAIT } from '../theme';
@@ -48,8 +50,22 @@ export interface DjFaderSpec {
   target: DjFaderTarget;
 }
 
+/**
+ * Le sampler de la platine (2026-10-07, a la place des hot cues : Mika, "les
+ * boutons de CUE que je n'ai pas besoin pour l'instant, transforme-les en
+ * boutons pour le sampler") : SMPL (la page du sampler sur l'ecran), REC
+ * DECK (les temps de la platine), REC MIX (ceux du MIXER), PLAY.
+ */
+export type DjSmplKey = 'open' | 'recdeck' | 'recmix' | 'play';
+export const DJ_SMPL_KEYS: readonly { fn: DjSmplKey; label: string }[] = [
+  { fn: 'open', label: 'SMPL' },
+  { fn: 'recdeck', label: 'REC DECK' },
+  { fn: 'recmix', label: 'REC MIX' },
+  { fn: 'play', label: 'PLAY' },
+];
+
 export type DjKeyTarget =
-  | { kind: 'hotcue'; deck: DjDeck; n: number }
+  | { kind: 'smpl'; deck: DjDeck; fn: DjSmplKey }
   | { kind: 'bend'; deck: DjDeck; dir: -1 | 1 }
   | { kind: 'tempo'; deck: DjDeck; dir: -1 | 1 }
   | { kind: 'time'; d: number }
@@ -64,9 +80,7 @@ export type DjKeyTarget =
   /** ADD DECK, dans l'en-tete de la table : une platine de plus (tant qu'il reste une place) */
   | { kind: 'adddeck' }
   /** PLAY/STOP du mixer : le MM-RYTM et le MM-ARP (voies 1 et 2) ensemble */
-  | { kind: 'machines' }
-  /** LOOP > SMPL : la boucle d'une platine part dans le MM-SMPL */
-  | { kind: 'export' };
+  | { kind: 'machines' };
 
 export interface DjKeySpec {
   id: string;
@@ -182,7 +196,8 @@ function buildKeys(): DjKeySpec[] {
   for (const d of DJ_DECKS) {
     const ux = UNIT_X[d];
     DECK.cues.xs.forEach((x, n) => {
-      keys.push({ id: `dj-${d}-hotcue${n + 1}`, label: String(n + 1), x: ux + x, z: DECK.cues.z, w: DECK.cues.w, d: DECK.cues.d, round: false, target: { kind: 'hotcue', deck: d, n } });
+      const k = DJ_SMPL_KEYS[n];
+      keys.push({ id: `dj-${d}-smpl-${k.fn}`, label: k.label, x: ux + x, z: DECK.cues.z, w: DECK.cues.w, d: DECK.cues.d, round: false, target: { kind: 'smpl', deck: d, fn: k.fn } });
     });
     // LOAD n'est plus une touche (Mika, 2026-10-04) : toucher l'ecran ouvre la playlist
     DECK.loops.xs.forEach((x, n) => {
@@ -224,11 +239,8 @@ function buildKeys(): DjKeySpec[] {
   // PLAY/STOP des machines, sous le VU du master
   const P = MIX.play;
   keys.push({ id: 'dj-machines', label: 'PLAY', x: UNIT_X.mix + MIX.masterX, z: P.z, w: 2 * P.r, d: 2 * P.r, round: true, target: { kind: 'machines' } });
-  // LOOP > SMPL, dans l'en-tete de la table (tenu droit : la colonne du MASTER)
+  // ADD DECK, dans l'en-tete de la table (tenu droit : la colonne du MASTER), tant qu'il reste une place
   const rightX = (dx: number): number => UNIT_X.mix + (MIX.keysInMaster ? MIX.masterX : mixWidth(DJ_CHANNELS) / 2 - dx);
-  const X = MIX.export;
-  keys.push({ id: 'dj-export', label: 'EXPORT', x: rightX(X.dx), z: X.z, w: X.w, d: X.d, round: false, target: { kind: 'export' } });
-  // ADD DECK, a sa gauche (tenu droit : au-dessus), tant qu'il reste une place
   const A = MIX.add;
   if (DJ_DECKS.length < DJ_DECKS_MAX) keys.push({ id: 'dj-adddeck', label: 'ADD', x: rightX(A.dx), z: A.z, w: A.w, d: A.d, round: false, target: { kind: 'adddeck' } });
   // PLAYLIST est parti : la liste des morceaux est dans l'ecran de chaque platine

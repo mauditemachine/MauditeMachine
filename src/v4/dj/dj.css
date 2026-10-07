@@ -529,3 +529,369 @@
     display: none;
   }
 }
+
+/*
+ * La page SMPL d'une platine (2026-10-07, dj/SamplerScreen.tsx) : le
+ * sampler sur l'ecran, dans les couleurs de l'ecran du MM-SMPL (l'os, l'or,
+ * l'orange, le cyan, le jaune de ce qui joue), en em comme la liste.
+ */
+.dj-smp {
+  --gold: #ffa600;
+  --yellow: #ffd75e;
+  --rubber: #141416;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1.3fr) minmax(0, 1fr) auto;
+  gap: 0.34em;
+  padding: 0.45em 0.5em 0.42em;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.dj-smp button {
+  background: none;
+  border: 0;
+  padding: 0;
+  touch-action: none;
+}
+
+.dj-smp-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+  min-width: 0;
+}
+
+.dj-smp-tag {
+  flex: 0 0 auto;
+  padding: 0.12em 0.4em;
+  border-radius: 0.25em;
+  background: var(--orange);
+  color: #000;
+  font-size: 0.72em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.dj-smp-src {
+  flex: 0 0 auto;
+  padding: 0.1em 0.38em;
+  border: 1px solid var(--dim);
+  border-radius: 0.25em;
+  color: var(--bone);
+  font-size: 0.66em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.dj-smp-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-family: 'SF Pro Display', system-ui, -apple-system, sans-serif;
+  font-size: 0.98em;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dj-smp-len {
+  flex: 0 0 auto;
+  color: var(--dim);
+  font-size: 0.72em;
+  font-weight: 600;
+  white-space: pre;
+}
+
+/* Les touches de l'ecran : un cadre fin, l'os ; TRACK, FILE, SAVE, RANDOM, CLEAR */
+.dj-smp .dj-smp-key {
+  flex: 0 0 auto;
+  padding: 0.28em 0.55em;
+  border: 1px solid var(--faint);
+  border-radius: 0.3em;
+  color: var(--bone);
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.dj-smp .dj-smp-key:active {
+  background: var(--bone);
+  color: #000;
+}
+
+/* Les reglages qu'on touche en jouant */
+.dj-smp-chips {
+  display: flex;
+  align-items: center;
+  gap: 0.34em;
+  min-width: 0;
+}
+
+.dj-smp .dj-smp-chip {
+  flex: 0 0 auto;
+  padding: 0.3em 0.5em;
+  border: 1px solid var(--faint);
+  border-radius: 0.3em;
+  color: var(--faint);
+  font-size: 0.74em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.dj-smp .dj-smp-chip[data-on='1'] {
+  color: var(--bone);
+  border-color: rgba(246, 241, 231, 0.32);
+}
+
+.dj-smp .dj-smp-chip[data-hot='1'] {
+  color: var(--orange);
+  border-color: var(--orange);
+}
+
+.dj-smp .dj-smp-play {
+  margin-left: auto;
+  min-width: 4.4em;
+  color: var(--yellow);
+  border-color: var(--yellow);
+}
+
+.dj-smp .dj-smp-play[data-play='1'] {
+  background: var(--yellow);
+  color: #000;
+  box-shadow: 0 0 0.8em rgba(255, 215, 94, 0.45);
+}
+
+/* La forme d'onde : le canvas, et le message du moment en jaune par-dessus */
+.dj-smp-wave {
+  position: relative;
+  min-height: 0;
+  border-top: 1px solid var(--faint);
+  border-bottom: 1px solid var(--faint);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.dj-smp-wave canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.dj-smp-msg {
+  position: absolute;
+  right: 0.3em;
+  bottom: 0.3em;
+  max-width: calc(100% - 0.6em);
+  padding: 0.15em 0.4em;
+  overflow: hidden;
+  border-radius: 0.2em;
+  background: rgba(0, 0, 0, 0.72);
+  color: var(--yellow);
+  font-size: 0.7em;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.dj-smp-page {
+  min-height: 0;
+  display: flex;
+}
+
+.dj-smp-page > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* PADS : une case par slice, en gros ; orange pale quand elle a une slice, or quand elle sonne */
+.dj-smp-pads {
+  display: grid;
+  gap: 0.3em;
+  grid-auto-rows: 1fr;
+}
+
+.dj-smp .dj-smp-pad {
+  min-height: 0;
+  border: 1px solid rgba(246, 241, 231, 0.1);
+  border-radius: 0.35em;
+  background: var(--rubber);
+  color: var(--faint);
+  font-size: 0.95em;
+  font-weight: 800;
+  transition: background-color 60ms linear;
+}
+
+.dj-smp .dj-smp-pad[data-slice='1'] {
+  border-color: rgba(255, 106, 19, 0.55);
+  background: rgba(255, 106, 19, 0.16);
+  color: var(--bone);
+}
+
+.dj-smp .dj-smp-pad[data-on='1'] {
+  border-color: var(--gold);
+  background: var(--gold);
+  color: #000;
+  box-shadow: 0 0 0.9em rgba(255, 166, 0, 0.5);
+}
+
+/* SAMPLE, GRAIN : les reglages en cases, glisses vers le haut ou la droite */
+.dj-smp-dials {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 0.3em;
+}
+
+.dj-smp-dials[data-n='5'] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dj-smp-dial {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.18em;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.25em 0.45em;
+  border: 1px solid var(--faint);
+  border-radius: 0.35em;
+  cursor: ns-resize;
+  outline: none;
+  touch-action: none;
+}
+
+.dj-smp-dial:focus-visible {
+  border-color: var(--bone);
+}
+
+.dj-smp-dial-name {
+  color: var(--dim);
+  font-size: 0.62em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.dj-smp-dial-val {
+  overflow: hidden;
+  color: var(--bone);
+  font-size: 0.86em;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dj-smp-dial-bar {
+  position: relative;
+  display: block;
+  height: 0.22em;
+  border-radius: 0.11em;
+  background: var(--faint);
+  overflow: hidden;
+}
+
+.dj-smp-dial-bar > span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 0.11em;
+  background: var(--orange);
+}
+
+.dj-smp .dj-smp-hint {
+  grid-column: span 1;
+  color: var(--orange);
+  border-color: var(--orange);
+  white-space: normal;
+  line-height: 1.2;
+}
+
+/* SEQ : seize pas en deux rangees de huit, RANDOM et CLEAR a droite */
+.dj-smp-seq {
+  display: flex;
+  gap: 0.35em;
+  min-height: 0;
+}
+
+.dj-smp-steps {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-rows: 1fr 1fr;
+  gap: 0.26em;
+  min-width: 0;
+}
+
+.dj-smp .dj-smp-step {
+  min-height: 0;
+  border: 1px solid rgba(246, 241, 231, 0.22);
+  border-radius: 0.3em;
+  color: #000;
+  font-size: 0.8em;
+  font-weight: 800;
+}
+
+.dj-smp .dj-smp-step[data-beat='1'] {
+  border-color: rgba(246, 241, 231, 0.5);
+}
+
+.dj-smp .dj-smp-step[data-on='1'] {
+  border-color: var(--orange);
+  background: var(--orange);
+}
+
+.dj-smp .dj-smp-step[data-head='1'] {
+  box-shadow: 0 0 0 2px var(--yellow);
+}
+
+.dj-smp-seqkeys {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.3em;
+}
+
+/* Les onglets, FILE et SAVE */
+.dj-smp-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.28em;
+  min-width: 0;
+}
+
+.dj-smp .dj-smp-tab {
+  position: relative;
+  padding: 0.3em 0.55em;
+  border-radius: 0.3em;
+  color: var(--dim);
+  font-size: 0.74em;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.dj-smp .dj-smp-tab[aria-selected='true'] {
+  background: var(--bone);
+  color: #000;
+}
+
+/* SEQ a des pas : un point orange */
+.dj-smp .dj-smp-tab[data-dot='1']::after {
+  content: '';
+  position: absolute;
+  top: 0.2em;
+  right: 0.18em;
+  width: 0.36em;
+  height: 0.36em;
+  border-radius: 50%;
+  background: var(--orange);
+}
+
+.dj-smp-gap {
+  flex: 1 1 auto;
+}

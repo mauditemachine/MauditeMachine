@@ -17,7 +17,7 @@
  *   propres CC : pas besoin de changer de vue).
  * - Un parametre suit le potard (0 a 127 sur toute sa course, ses crans
  *   s'il en a) ; une note le fait basculer. Une action part a l'appui
- *   (note, ou CC qui passe au-dessus de 63) ; CUE et les pads du MM-SMPL
+ *   (note, ou CC qui passe au-dessus de 63) ; CUE et les pads des samplers
  *   tiennent jusqu'au relachement.
  * - Retour vers le controleur (les potards motorises du Roto-Control) :
  *   chaque parametre assigne renvoie sa valeur quand elle change (souris,
@@ -27,15 +27,14 @@
  *   pendant qu'on tourne le potard (300 ms).
  * Retenu dans le navigateur (mm.v4.midi.1) ; le panneau exporte et importe
  * les assignations en JSON.
- * - La carte du Roto-Control (2026-10-05, midi/roto.ts) : cinq setups tout
- *   faits (RYTM, ARP, DECK, MIXER, SMPL, chacun son canal) ; allumee, un
+ * - La carte du Roto-Control (2026-10-05, midi/roto.ts) : des setups tout
+ *   faits (RYTM, ARP, DECK, MIXER, LIVE, chacun son canal) ; allumee, un
  *   message sans assignation apprise va a la cible de la carte, et les
  *   potards motorises de toute sortie dont le nom contient "roto" suivent.
  */
 
 import { djLoad } from '../state/djload';
 import { MACHINES, focus, type MachineId } from '../state/focus';
-import { smplLoad } from '../state/smplload';
 import { rotoFeedbackKeys, rotoSetupOfChannel, rotoTarget, type RotoSetupName } from './roto';
 import { prefixOf, targetOf, type MidiTarget, type TargetScope } from './targets';
 
@@ -130,7 +129,7 @@ function cleanMaps(raw: unknown): MidiMaps {
   const out: MidiMaps = {};
   if (!raw || typeof raw !== 'object') return out;
   for (const [scope, m] of Object.entries(raw as Record<string, unknown>)) {
-    if (!['mm808', 'voy', 'smpl', 'dj', 'global'].includes(scope) || !m || typeof m !== 'object') continue;
+    if (!['mm808', 'voy', 'dj', 'global'].includes(scope) || !m || typeof m !== 'object') continue;
     const clean: Record<string, string> = {};
     for (const [k, t] of Object.entries(m as Record<string, unknown>)) if (/^(cc|note|pb):\d{1,2}:\d{1,3}$/.test(k) && typeof t === 'string' && t.length < 80) clean[k] = t;
     out[scope as TargetScope] = clean;
@@ -225,7 +224,7 @@ export function midiDisable(): void {
 
 /* ---------------- les assignations ---------------- */
 
-const SCOPES: readonly TargetScope[] = ['mm808', 'voy', 'smpl', 'dj', 'global'];
+const SCOPES: readonly TargetScope[] = ['mm808', 'voy', 'dj', 'global'];
 
 /** Ce qu'on a appris pour un message, pour la vue du moment : la machine regardee, partout, puis une autre machine. */
 function resolveLearned(key: string): string | null {
@@ -251,7 +250,7 @@ function resolve(key: string): string | null {
 }
 
 /** La machine que montre un setup du Roto (LIVE les pilote toutes : aucune). */
-const SETUP_MACHINE: Readonly<Record<RotoSetupName, MachineId | null>> = { RYTM: 'mm808', ARP: 'voy', DECK: 'dj', MIXER: 'dj', SMPL: 'smpl', LIVE: null };
+const SETUP_MACHINE: Readonly<Record<RotoSetupName, MachineId | null>> = { RYTM: 'mm808', ARP: 'voy', DECK: 'dj', MIXER: 'dj', LIVE: null };
 
 /**
  * FOLLOW (2026-10-05) : un controle d'un setup du Roto (sa carte, rien
@@ -275,7 +274,7 @@ function withTarget(id: string, fn: (t: MidiTarget) => void): void {
     return;
   }
   const p = prefixOf(id);
-  const load = p === 'dj' ? djLoad.load() : p === 'smpl' ? smplLoad.load() : null;
+  const load = p === 'dj' ? djLoad.load() : null;
   void load?.then(() => {
     const again = targetOf(id);
     if (again) fn(again);
@@ -332,7 +331,7 @@ export function handle(m: MidiMsg): void {
 /** Assigne une cle a une cible (dans la machine de la cible) ; une cle n'y vise qu'une cible, une cible n'a qu'une cle. */
 export function bind(targetId: string, key: string, device?: string): void {
   const t = targetOf(targetId);
-  const scope: TargetScope = t?.scope ?? (prefixOf(targetId) === 'dj' ? 'dj' : prefixOf(targetId) === 'smpl' ? 'smpl' : 'global');
+  const scope: TargetScope = t?.scope ?? (prefixOf(targetId) === 'dj' ? 'dj' : 'global');
   const maps: MidiMaps = { ...view.maps };
   const m = { ...(maps[scope] ?? {}) };
   for (const [k, v] of Object.entries(m)) if (v === targetId) delete m[k];

@@ -1,7 +1,8 @@
 /**
- * Le calcul du MM-SMPL qui ne touche ni au son en direct ni a l'ecran
- * (2026-10-04) : les slices (parts egales, ou les attaques trouvees dans le
- * son), les cretes de la forme d'onde, et le fichier WAV d'une region.
+ * Le calcul du sampler qui ne touche ni au son en direct ni a l'ecran
+ * (2026-10-04, ne dans le MM-SMPL ; dans chaque platine du MM-DECKS depuis
+ * le 2026-10-07) : les slices (parts egales, ou les attaques trouvees dans
+ * le son), les cretes de la forme d'onde, et le fichier WAV d'une region.
  * Fonctions pures : elles se testent hors du navigateur.
  */
 

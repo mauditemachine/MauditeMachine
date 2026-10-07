@@ -1,5 +1,6 @@
 /**
- * Le son du MM-SMPL (2026-10-04, Mika : "une machine de travail du sample
+ * Le son du sampler (2026-10-04, ne dans le MM-SMPL ; un par platine du
+ * MM-DECKS depuis le 2026-10-07, sampler/sampler.ts ; Mika : "une machine de travail du sample
  * avec une partie granulaire ; faire des samples, extraire des parties,
  * changer la tonalite, slicer"). Un AudioWorklet qui garde le sample (les
  * deux canaux, a sa frequence) et joue :
@@ -15,7 +16,9 @@
  *   vitesse d'origine, a reculons sous 0) et boucle dans les bornes du
  *   nuage (la slice d'un pad, la region pour PLAY) : le time-stretch, la
  *   hauteur sans la vitesse ;
- * - l'enregistrement de son entree (la sortie du site) : REC.
+ * - l'enregistrement de son entree (la sortie du site) : REC (plus utilise
+ *   depuis le 2026-10-07 : REC MIX prend dans la memoire du MIXER,
+ *   sampler/ring.ts).
  * port, du fil principal :
  *   { type: 'sample', L, R, rate }  le sample (transfere)
  *   { type: 'params', p }           ATTACK, RELEASE (s), SIZE (s), DENSITY (Hz), SPRAY, SCAN (x), PITCH (demi-tons), reverse

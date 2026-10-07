@@ -69,12 +69,7 @@ export type HotspotKind =
   | 'djfader'
   | 'djkey'
   | 'djjog'
-  | 'djscreen'
-  // MM-SMPL (2026-10-04) : potards, touches, pads, l'ecran
-  | 'smplknob'
-  | 'smplkey'
-  | 'smplpad'
-  | 'smplscreen';
+  | 'djscreen';
 
 export interface HotspotDef {
   id: string;
@@ -114,8 +109,6 @@ export interface HotspotDef {
   rknob?: KitId;
   /** MM-DECKS : l'id de la commande (dj/layout.ts) */
   dj?: string;
-  /** MM-SMPL : l'id de la commande (smpl/rig.ts) */
-  smpl?: string;
 }
 
 /**
@@ -147,9 +140,8 @@ export interface HotspotView {
   lcd?: PresetKey;
   vknob?: VoyKnobId;
   rknob?: KitId;
-  /** MM-DECKS et MM-SMPL : l'id de la commande (le MIDI LEARN s'en sert, 2026-10-05) */
+  /** MM-DECKS : l'id de la commande (le MIDI LEARN s'en sert, 2026-10-05) */
   dj?: string;
-  smpl?: string;
   /** rectangle cible : la boite projetee, elargie a 48 x 48 (tactile) ou 32 x 32 (souris) autour du centre */
   x: number;
   y: number;
@@ -638,7 +630,6 @@ export class HitMap {
         ...(def.vknob ? { vknob: def.vknob } : {}),
         ...(def.rknob ? { rknob: def.rknob } : {}),
         ...(def.dj ? { dj: def.dj } : {}),
-        ...(def.smpl ? { smpl: def.smpl } : {}),
         x: r1(rect[0]),
         y: r1(rect[1]),
         w: r1(rect[2]),

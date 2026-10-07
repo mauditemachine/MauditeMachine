@@ -17,8 +17,8 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { focusMachine } from '../actions';
 import type { Stage } from '../scene/renderer';
-import { DJ, MACHINES, SMPL, focus, type Focus, type MachineId } from '../state/focus';
-import { explode, smplExplode, voyExplode, type ExplodeState } from '../state/explode';
+import { DJ, MACHINES, focus, type Focus, type MachineId } from '../state/focus';
+import { explode, voyExplode, type ExplodeState } from '../state/explode';
 import { intro } from '../state/intro';
 
 const ITEMS: readonly { id: Focus; title: string; sub: string }[] = [
@@ -26,7 +26,6 @@ const ITEMS: readonly { id: Focus; title: string; sub: string }[] = [
   { id: 'all', title: 'MM-STUDIO', sub: 'ALL THE MACHINES' },
   { id: 'mm808', title: 'MM-RYTM', sub: 'DRUM MACHINE' },
   { id: 'voy', title: 'MM-ARP', sub: 'ARPEGGIATOR SYNTHESIZER' },
-  ...(SMPL ? [{ id: 'smpl' as const, title: 'MM-SMPL', sub: 'SAMPLER, SLICER, GRANULAR' }] : []),
   ...(DJ ? [{ id: 'dj' as const, title: 'MM-DECKS', sub: 'DJ DECKS AND MIXER' }] : []),
 ];
 
@@ -38,7 +37,6 @@ export const MachineDrawer: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
   const hood808 = useSyncExternalStore(explode.subscribe, explode.get, explode.get);
   const hoodVoy = useSyncExternalStore(voyExplode.subscribe, voyExplode.get, voyExplode.get);
-  const hoodSmpl = useSyncExternalStore(smplExplode.subscribe, smplExplode.get, smplExplode.get);
   const [open, setOpen] = useState(false);
   const [thumbs, setThumbs] = useState<Partial<Record<MachineId, string>>>({});
   const thumbsFor = useRef<{ stage: Stage; hoods: string } | null>(null);
@@ -49,8 +47,8 @@ export const MachineDrawer: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   useEffect(() => {
     if (!open || !stage) return;
     const moving = (h: ExplodeState): boolean => h === 'opening' || h === 'closing';
-    if (moving(hood808) || moving(hoodVoy) || moving(hoodSmpl)) return;
-    const hoods = `${hood808}/${hoodVoy}/${hoodSmpl}`;
+    if (moving(hood808) || moving(hoodVoy)) return;
+    const hoods = `${hood808}/${hoodVoy}`;
     const was = thumbsFor.current;
     if (was && was.stage === stage && was.hoods === hoods) return;
     thumbsFor.current = { stage, hoods };
@@ -60,7 +58,7 @@ export const MachineDrawer: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       if (url) next[id] = url;
     }
     setThumbs(next);
-  }, [open, stage, hood808, hoodVoy, hoodSmpl]);
+  }, [open, stage, hood808, hoodVoy]);
 
   // Echap ferme le volet (avant tout le reste)
   useEffect(() => {

@@ -55,7 +55,7 @@ export interface Bracket {
   x0: number;
   x1: number;
   z: number;
-  /** au-dessus d'un groupe : les tics vers lui (vers soi) ; le nom en orange (les pages du MM-SMPL) */
+  /** au-dessus d'un groupe : les tics vers lui (vers soi) ; le nom en orange */
   down?: boolean;
   ink?: 'bone' | 'orange';
 }
@@ -83,8 +83,8 @@ function head(u: DjUnit): Text[] {
   const z = u === 'mix' ? MIX.head.z : DECK.head.z;
   // La platine qu'on peut retirer : REMOVE DECK prend la place du sous-titre ; sur la table, ADD DECK (2026-10-05)
   const removable = DJ_KEYS.some((k) => k.target.kind === 'removedeck' && k.target.deck === u);
-  const addable = DJ_KEYS.some((k) => k.target.kind === 'adddeck');
-  const sub = u === 'mix' ? (addable && !MIX.keysInMaster ? '' : `${DJ_CHANNELS} CHANNEL ${c.sub}`) : removable ? '' : c.sub;
+  // ADD DECK est pres du logotype depuis que LOOP > SMPL est parti (2026-10-07) : le sous-titre de la table revient
+  const sub = u === 'mix' ? `${DJ_CHANNELS} CHANNEL ${c.sub}` : removable ? '' : c.sub;
   return headTexts(c.name, sub, unitW(u), z, u === 'mix' ? 1.55 : 1.85);
 }
 
@@ -97,7 +97,8 @@ function deckItems(u: DjDeck): { texts: Text[]; lines: Line[]; brackets: Bracket
   for (const k of DJ_KEYS) {
     if (k.target.kind === 'time' || !('deck' in k.target) || k.target.deck !== u) continue;
     const x = k.x - ux;
-    if (k.target.kind === 'hotcue') texts.push({ text: k.label, x, z: k.z - k.d / 2 - 0.16, cap: 0.075, weight: 600, group: 'cues' });
+    // Le sampler (2026-10-07) : les noms au-dessus des touches, REC DECK et REC MIX en orange
+    if (k.target.kind === 'smpl') texts.push({ text: k.label, x, z: k.z - k.d / 2 - 0.16, cap: 0.075, weight: 700, group: 'cues', ...(k.target.fn === 'recdeck' || k.target.fn === 'recmix' ? { ink: 'orange' as const, alpha: 1 } : {}) });
     else if (k.target.kind === 'bend') texts.push({ text: k.label, x, z: k.z + k.d / 2 + 0.2, cap: 0.12, weight: 600 });
     else if (k.target.kind === 'loop') texts.push({ text: k.label, x, z: k.z - k.d / 2 - 0.16, cap: 0.075, weight: 600, group: 'loops' });
     // CUE et PLAY / PAUSE : leur nom est grave sur le bouton (dj/controls.ts)
@@ -107,8 +108,8 @@ function deckItems(u: DjDeck): { texts: Text[]; lines: Line[]; brackets: Bracket
   const J = DECK.jog;
   texts.push({ text: 'TOUCH CENTER TO SYNC', x: J.x, z: J.z + J.ring + 0.24, cap: 0.058, weight: 600, alpha: 0.5 });
   const C = DECK.cues;
-  brackets.push({ text: 'HOT CUE', x0: C.xs[0] - C.w / 2, x1: C.xs[C.xs.length - 1] + C.w / 2, z: C.z + C.d / 2 + 0.22 });
-  // LOOP : son crochet sous la rangee, comme HOT CUE
+  brackets.push({ text: 'SAMPLER', x0: C.xs[0] - C.w / 2, x1: C.xs[C.xs.length - 1] + C.w / 2, z: C.z + C.d / 2 + 0.22 });
+  // LOOP : son crochet sous la rangee, comme SAMPLER
   const Lp = DECK.loops;
   brackets.push({ text: 'LOOP', x0: Lp.xs[0] - Lp.w / 2, x1: Lp.xs[Lp.xs.length - 1] + Lp.w / 2, z: Lp.z + Lp.d / 2 + 0.22 });
   // BEND : son nom entre ses deux signes, sous les touches (le crochet LOOP est au-dessus)
@@ -187,22 +188,18 @@ function mixItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   texts.push({ text: 'M', x: MIX.masterX, z: MIX.numZ, cap: 0.17, weight: 700, alpha: 1 });
   // PLAY/STOP des machines : ce qu'il lance, en orange comme les noms des voies 1 et 2
   texts.push({ text: 'RYTM + ARP', x: MIX.masterX, z: MIX.play.labelZ, cap: 0.075, weight: 700, ink: 'orange', alpha: 1, maxW: 1.1 });
-  // LOOP > SMPL : son nom a gauche de la touche, en orange comme REMOVE DECK
-  const ex = DJ_KEYS.find((k) => k.target.kind === 'export');
-  // Tenu droit, les deux touches sont dans la colonne du MASTER : leur nom au-dessus
+  // Tenu droit, ADD DECK est dans la colonne du MASTER : son nom au-dessus ; sinon a gauche de sa touche, en orange comme REMOVE DECK
   const keyName = (k: DjKeySpec, text: string): Text =>
     MIX.keysInMaster
       ? { text, x: k.x - ux, z: k.z - k.d / 2 - 0.15, cap: 0.075, weight: 700, ink: 'orange', alpha: 1, maxW: 1.1 }
       : { text, x: k.x - ux - k.w / 2 - 0.14, z: k.z, cap: 0.11, weight: 700, ink: 'orange', alpha: 1, align: 'right' };
-  if (ex) texts.push(keyName(ex, 'LOOP > SMPL'));
-  // ADD DECK : de meme, a gauche de sa touche
   const ad = DJ_KEYS.find((k) => k.target.kind === 'adddeck');
   if (ad) texts.push(keyName(ad, 'ADD DECK'));
   return { texts, lines, brackets };
 }
 
 /**
- * Une plaque serigraphiee (2026-10-04, le MM-SMPL s'en sert aussi) : sa
+ * Une plaque serigraphiee (2026-10-04) : sa
  * largeur, sa place (x, repere du rig), ce qu'elle porte, son logotype a
  * droite de l'en-tete.
  */

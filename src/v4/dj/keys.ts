@@ -5,10 +5,10 @@
  * un controleur. Actives seulement quand on utilise le MM-DECKS, jamais
  * pendant qu'on ecrit dans un champ. Les memes actions que les touches 3D
  * (dj/gestures.ts keyDown, keyUp) : CUE et BEND agissent tant qu'on les
- * tient, un hot cue tenu 0.6 s s'efface.
+ * tient.
  *
  *   DECK A            DECK B
- *   1 2 3 4  hot cues  7 8 9 0
+ *   1 2 3 4  sampler   7 8 9 0   (SMPL, REC DECK, REC MIX, PLAY ; 2026-10-07)
  *   Q W  bend - +      O P
  *   A  cue  S  play    K  cue  L  play
  *   E  browse A        I  browse B
@@ -19,12 +19,12 @@
  *   Espace : PLAY de la derniere platine touchee
  *   - et = : zoom des formes d'onde
  *   V : l'affichage des formes d'onde (WARM, 3BAND, RGB, MONO)
- *   T : LOOP > SMPL (la boucle part dans le MM-SMPL)
  */
 
 import type { Stage } from '../scene/renderer';
 import { djWaveNext, djZoomStep } from './actions';
 import { djBrowser } from './browser';
+import { samplerOf } from '../sampler/sampler';
 import { keyDown, keyUp } from './gestures';
 import { DJ_KEYS, type DjKeySpec } from './layout';
 import { djState } from './state';
@@ -34,18 +34,18 @@ const key = (id: string): DjKeySpec | undefined => DJ_KEYS.find((k) => k.id === 
 
 /** Touche physique -> touche du MM-DECKS. */
 const MAP: Readonly<Record<string, string>> = {
-  Digit1: 'dj-a-hotcue1',
-  Digit2: 'dj-a-hotcue2',
-  Digit3: 'dj-a-hotcue3',
-  Digit4: 'dj-a-hotcue4',
+  Digit1: 'dj-a-smpl-open',
+  Digit2: 'dj-a-smpl-recdeck',
+  Digit3: 'dj-a-smpl-recmix',
+  Digit4: 'dj-a-smpl-play',
   KeyQ: 'dj-a-bendm',
   KeyW: 'dj-a-bendp',
   KeyA: 'dj-a-cue',
   KeyS: 'dj-a-play',
-  Digit7: 'dj-b-hotcue1',
-  Digit8: 'dj-b-hotcue2',
-  Digit9: 'dj-b-hotcue3',
-  Digit0: 'dj-b-hotcue4',
+  Digit7: 'dj-b-smpl-open',
+  Digit8: 'dj-b-smpl-recdeck',
+  Digit9: 'dj-b-smpl-recmix',
+  Digit0: 'dj-b-smpl-play',
   KeyO: 'dj-b-bendm',
   KeyP: 'dj-b-bendp',
   KeyK: 'dj-b-cue',
@@ -63,13 +63,11 @@ const MAP: Readonly<Record<string, string>> = {
   KeyH: 'dj-b-loop4',
   // Entre les deux mains : PLAY/STOP des machines (le mixer)
   KeyG: 'dj-machines',
-  // LOOP > SMPL : la boucle part dans le MM-SMPL
-  KeyT: 'dj-export',
 };
 
 /** La legende, pour l'aide a l'ecran (touches lues en QWERTY). */
 export const DJ_KEY_LEGEND: readonly { keys: string; what: string }[] = [
-  { keys: '1 2 3 4  /  7 8 9 0', what: 'Hot cues A / B (hold: clear)' },
+  { keys: '1 2 3 4  /  7 8 9 0', what: 'Sampler A / B: SMPL, REC DECK, REC MIX, PLAY' },
   { keys: 'A  /  K', what: 'Cue A / B (hold: preview)' },
   { keys: 'S  /  L', what: 'Play A / B' },
   { keys: 'Q W  /  O P', what: 'Bend - + A / B (hold)' },
@@ -81,7 +79,6 @@ export const DJ_KEY_LEGEND: readonly { keys: string; what: string }[] = [
   { keys: 'G', what: 'Play / stop the MM-RYTM and the MM-ARP' },
   { keys: '-  =', what: 'Waveform zoom' },
   { keys: 'V', what: 'Waveform view: WARM, 3BAND, RGB, MONO' },
-  { keys: 'T', what: 'Export the loop to the MM-SMPL' },
 ];
 
 const editable = (t: EventTarget | null): boolean =>
@@ -119,7 +116,10 @@ export function listenDjKeys(getStage: () => Stage | null, active: () => boolean
     // E et I : la liste des morceaux dans l'ecran de A ou de B
     if ((e.code === 'KeyE' || e.code === 'KeyI') && !e.repeat) {
       e.preventDefault();
-      djBrowser.open(e.code === 'KeyE' ? 'a' : 'b');
+      const d = e.code === 'KeyE' ? 'a' : 'b';
+      // La page du sampler cede l'ecran a la liste (2026-10-07)
+      samplerOf(d).toggleOpen(false);
+      djBrowser.open(d);
       return;
     }
     const id = e.code === 'Space' ? `dj-${last}-play` : MAP[e.code];

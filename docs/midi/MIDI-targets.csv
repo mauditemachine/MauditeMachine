@@ -204,126 +204,157 @@ voy:clear,voy,MM-ARP,CLEAR,press,,ARP
 voy:random,voy,MM-ARP,RANDOM,press,,ARP
 voy:edit,voy,MM-ARP,EDIT,press,,ARP
 voy:open,voy,MM-ARP,OPEN,press,,ARP
-smpl:knob:start,smpl,MM-SMPL,START,value,,SMPL
-smpl:knob:end,smpl,MM-SMPL,END,value,,SMPL
-smpl:knob:pitch,smpl,MM-SMPL,PITCH,value,49,SMPL
-smpl:knob:level,smpl,MM-SMPL,LEVEL,value,,SMPL
-smpl:knob:attack,smpl,MM-SMPL,ATTACK,value,,SMPL
-smpl:knob:release,smpl,MM-SMPL,RELEASE,value,,SMPL
-smpl:knob:filter,smpl,MM-SMPL,FILTER,value,,SMPL
-smpl:knob:position,smpl,MM-SMPL,POSITION,value,,SMPL
-smpl:knob:scan,smpl,MM-SMPL,SCAN,value,,SMPL
-smpl:knob:size,smpl,MM-SMPL,SIZE,value,,SMPL
-smpl:knob:density,smpl,MM-SMPL,DENSITY,value,,SMPL
-smpl:knob:spray,smpl,MM-SMPL,SPRAY,value,,SMPL
-smpl:key:rec,smpl,MM-SMPL,REC,press,,SMPL
-smpl:key:play,smpl,MM-SMPL,PLAY,press,,SMPL LIVE
-smpl:key:stop,smpl,MM-SMPL,STOP,press,,SMPL LIVE
-smpl:key:file,smpl,MM-SMPL,FILE,press,,SMPL
-smpl:key:slices,smpl,MM-SMPL,SLICES,press,,SMPL
-smpl:key:mode,smpl,MM-SMPL,MODE,press,,SMPL
-smpl:key:rev,smpl,MM-SMPL,REV,press,,SMPL
-smpl:key:loop,smpl,MM-SMPL,LOOP,press,,SMPL
-smpl:key:random,smpl,MM-SMPL,RANDOM,press,,SMPL
-smpl:key:clear,smpl,MM-SMPL,CLEAR,press,,SMPL
-smpl:key:edit,smpl,MM-SMPL,EDIT,press,,SMPL
-smpl:key:save,smpl,MM-SMPL,SAVE,press,,SMPL
-smpl:open,smpl,MM-SMPL,OPEN,press,,
-smpl:pad:0,smpl,MM-SMPL,TRIG 1,hold,,SMPL
-smpl:pad:1,smpl,MM-SMPL,TRIG 2,hold,,SMPL
-smpl:pad:2,smpl,MM-SMPL,TRIG 3,hold,,SMPL
-smpl:pad:3,smpl,MM-SMPL,TRIG 4,hold,,SMPL
-smpl:pad:4,smpl,MM-SMPL,TRIG 5,hold,,SMPL
-smpl:pad:5,smpl,MM-SMPL,TRIG 6,hold,,SMPL
-smpl:pad:6,smpl,MM-SMPL,TRIG 7,hold,,SMPL
-smpl:pad:7,smpl,MM-SMPL,TRIG 8,hold,,SMPL
-smpl:pad:8,smpl,MM-SMPL,TRIG 9,hold,,SMPL
-smpl:pad:9,smpl,MM-SMPL,TRIG 10,hold,,SMPL
-smpl:pad:10,smpl,MM-SMPL,TRIG 11,hold,,SMPL
-smpl:pad:11,smpl,MM-SMPL,TRIG 12,hold,,SMPL
-smpl:pad:12,smpl,MM-SMPL,TRIG 13,hold,,SMPL
-smpl:pad:13,smpl,MM-SMPL,TRIG 14,hold,,SMPL
-smpl:pad:14,smpl,MM-SMPL,TRIG 15,hold,,SMPL
-smpl:pad:15,smpl,MM-SMPL,TRIG 16,hold,,SMPL
-dj:dj-ch1-gain,dj,"MM-DECKS (table, platines, effets)",CHANNEL 1 (MM-RYTM) GAIN,value,,MIXER
-dj:dj-ch1-hi,dj,"MM-DECKS (table, platines, effets)",CHANNEL 1 (MM-RYTM) EQ HI,value,,DECK MIXER
-dj:dj-ch1-mid,dj,"MM-DECKS (table, platines, effets)",CHANNEL 1 (MM-RYTM) EQ MID,value,,MIXER
-dj:dj-ch1-low,dj,"MM-DECKS (table, platines, effets)",CHANNEL 1 (MM-RYTM) EQ LOW,value,,DECK MIXER
-dj:dj-ch1-filter,dj,"MM-DECKS (table, platines, effets)",CHANNEL 1 (MM-RYTM) FILTER,value,,DECK MIXER LIVE
-dj:dj-ch2-gain,dj,"MM-DECKS (table, platines, effets)",CHANNEL 2 (MM-ARP) GAIN,value,,MIXER
-dj:dj-ch2-hi,dj,"MM-DECKS (table, platines, effets)",CHANNEL 2 (MM-ARP) EQ HI,value,,DECK MIXER
-dj:dj-ch2-mid,dj,"MM-DECKS (table, platines, effets)",CHANNEL 2 (MM-ARP) EQ MID,value,,MIXER
-dj:dj-ch2-low,dj,"MM-DECKS (table, platines, effets)",CHANNEL 2 (MM-ARP) EQ LOW,value,,DECK MIXER
-dj:dj-ch2-filter,dj,"MM-DECKS (table, platines, effets)",CHANNEL 2 (MM-ARP) FILTER,value,,DECK MIXER LIVE
-dj:dj-ch3-gain,dj,"MM-DECKS (table, platines, effets)",CHANNEL 3 (DECK A) GAIN,value,,DECK MIXER
-dj:dj-ch3-hi,dj,"MM-DECKS (table, platines, effets)",CHANNEL 3 (DECK A) EQ HI,value,,DECK MIXER
-dj:dj-ch3-mid,dj,"MM-DECKS (table, platines, effets)",CHANNEL 3 (DECK A) EQ MID,value,,DECK MIXER
-dj:dj-ch3-low,dj,"MM-DECKS (table, platines, effets)",CHANNEL 3 (DECK A) EQ LOW,value,,DECK MIXER
-dj:dj-ch3-filter,dj,"MM-DECKS (table, platines, effets)",CHANNEL 3 (DECK A) FILTER,value,,DECK MIXER LIVE
-dj:dj-ch4-gain,dj,"MM-DECKS (table, platines, effets)",CHANNEL 4 (DECK B) GAIN,value,,DECK MIXER
-dj:dj-ch4-hi,dj,"MM-DECKS (table, platines, effets)",CHANNEL 4 (DECK B) EQ HI,value,,DECK MIXER
-dj:dj-ch4-mid,dj,"MM-DECKS (table, platines, effets)",CHANNEL 4 (DECK B) EQ MID,value,,DECK MIXER
-dj:dj-ch4-low,dj,"MM-DECKS (table, platines, effets)",CHANNEL 4 (DECK B) EQ LOW,value,,DECK MIXER
-dj:dj-ch4-filter,dj,"MM-DECKS (table, platines, effets)",CHANNEL 4 (DECK B) FILTER,value,,DECK MIXER LIVE
-dj:dj-fx-overdrive,dj,"MM-DECKS (table, platines, effets)",EFFECT OVERDRIVE,value,,DECK MIXER LIVE
-dj:dj-fx-crush,dj,"MM-DECKS (table, platines, effets)",EFFECT CRUSH,value,,DECK MIXER LIVE
-dj:dj-fx-chorus,dj,"MM-DECKS (table, platines, effets)",EFFECT CHORUS,value,,DECK MIXER LIVE
-dj:dj-fx-flanger,dj,"MM-DECKS (table, platines, effets)",EFFECT FLANGER,value,,DECK MIXER LIVE
-dj:dj-fx-trans,dj,"MM-DECKS (table, platines, effets)",EFFECT TRANS,value,,DECK MIXER LIVE
-dj:dj-fx-delay,dj,"MM-DECKS (table, platines, effets)",EFFECT DELAY,value,,DECK MIXER LIVE
-dj:dj-fx-reverb,dj,"MM-DECKS (table, platines, effets)",EFFECT REVERB,value,,DECK MIXER LIVE
-dj:dj-fxto,dj,"MM-DECKS (table, platines, effets)","EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL",value,5,DECK MIXER LIVE
-dj:dj-master,dj,"MM-DECKS (table, platines, effets)",MASTER VOLUME,value,,DECK
-dj:dj-ch1-fader,dj,"MM-DECKS (table, platines, effets)",CHANNEL 1 (MM-RYTM) FADER,value,,DECK MIXER LIVE
-dj:dj-ch2-fader,dj,"MM-DECKS (table, platines, effets)",CHANNEL 2 (MM-ARP) FADER,value,,DECK MIXER LIVE
-dj:dj-ch3-fader,dj,"MM-DECKS (table, platines, effets)",CHANNEL 3 (DECK A) FADER,value,,DECK MIXER LIVE
-dj:dj-ch4-fader,dj,"MM-DECKS (table, platines, effets)",CHANNEL 4 (DECK B) FADER,value,,DECK MIXER LIVE
-dj:dj-a-pitch,dj,"MM-DECKS (table, platines, effets)",DECK A PITCH,value,,DECK
-dj:dj-b-pitch,dj,"MM-DECKS (table, platines, effets)",DECK B PITCH,value,,DECK
-dj:dj-a-hotcue1,dj,"MM-DECKS (table, platines, effets)",DECK A HOT CUE 1,hold,,DECK
-dj:dj-a-hotcue2,dj,"MM-DECKS (table, platines, effets)",DECK A HOT CUE 2,hold,,DECK
-dj:dj-a-hotcue3,dj,"MM-DECKS (table, platines, effets)",DECK A HOT CUE 3,hold,,DECK
-dj:dj-a-hotcue4,dj,"MM-DECKS (table, platines, effets)",DECK A HOT CUE 4,hold,,DECK
-dj:dj-a-loop1,dj,"MM-DECKS (table, platines, effets)",DECK A LOOP 1 BEAT (PRESS AGAIN TO EXIT),hold,,DECK
-dj:dj-a-loop2,dj,"MM-DECKS (table, platines, effets)",DECK A LOOP 2 BEATS (PRESS AGAIN TO EXIT),hold,,DECK
-dj:dj-a-loop4,dj,"MM-DECKS (table, platines, effets)",DECK A LOOP 4 BEATS (PRESS AGAIN TO EXIT),hold,,DECK MIXER
-dj:dj-a-loop8,dj,"MM-DECKS (table, platines, effets)",DECK A LOOP 8 BEATS (PRESS AGAIN TO EXIT),hold,,DECK
-dj:dj-a-bendm,dj,"MM-DECKS (table, platines, effets)",DECK A BEND SLOWER (HOLD),hold,,DECK
-dj:dj-a-bendp,dj,"MM-DECKS (table, platines, effets)",DECK A BEND FASTER (HOLD),hold,,DECK
-dj:dj-a-cue,dj,"MM-DECKS (table, platines, effets)",DECK A CUE (HOLD TO PREVIEW),hold,,DECK MIXER LIVE
-dj:dj-a-play,dj,"MM-DECKS (table, platines, effets)",DECK A PLAY OR PAUSE,hold,,DECK MIXER LIVE
-dj:dj-a-tempom,dj,"MM-DECKS (table, platines, effets)",DECK A PITCH DOWN 0.1 BPM (HOLD TO REPEAT),hold,,DECK
-dj:dj-a-tempop,dj,"MM-DECKS (table, platines, effets)",DECK A PITCH UP 0.1 BPM (HOLD TO REPEAT),hold,,DECK
-dj:dj-a-sync,dj,"MM-DECKS (table, platines, effets)",DECK A SYNC: MATCH THE TEMPO YOU HEAR,hold,,DECK MIXER
-dj:dj-b-hotcue1,dj,"MM-DECKS (table, platines, effets)",DECK B HOT CUE 1,hold,,DECK
-dj:dj-b-hotcue2,dj,"MM-DECKS (table, platines, effets)",DECK B HOT CUE 2,hold,,DECK
-dj:dj-b-hotcue3,dj,"MM-DECKS (table, platines, effets)",DECK B HOT CUE 3,hold,,DECK
-dj:dj-b-hotcue4,dj,"MM-DECKS (table, platines, effets)",DECK B HOT CUE 4,hold,,DECK
-dj:dj-b-loop1,dj,"MM-DECKS (table, platines, effets)",DECK B LOOP 1 BEAT (PRESS AGAIN TO EXIT),hold,,DECK
-dj:dj-b-loop2,dj,"MM-DECKS (table, platines, effets)",DECK B LOOP 2 BEATS (PRESS AGAIN TO EXIT),hold,,DECK
-dj:dj-b-loop4,dj,"MM-DECKS (table, platines, effets)",DECK B LOOP 4 BEATS (PRESS AGAIN TO EXIT),hold,,DECK MIXER
-dj:dj-b-loop8,dj,"MM-DECKS (table, platines, effets)",DECK B LOOP 8 BEATS (PRESS AGAIN TO EXIT),hold,,DECK
-dj:dj-b-bendm,dj,"MM-DECKS (table, platines, effets)",DECK B BEND SLOWER (HOLD),hold,,DECK
-dj:dj-b-bendp,dj,"MM-DECKS (table, platines, effets)",DECK B BEND FASTER (HOLD),hold,,DECK
-dj:dj-b-cue,dj,"MM-DECKS (table, platines, effets)",DECK B CUE (HOLD TO PREVIEW),hold,,DECK MIXER LIVE
-dj:dj-b-play,dj,"MM-DECKS (table, platines, effets)",DECK B PLAY OR PAUSE,hold,,DECK MIXER LIVE
-dj:dj-b-tempom,dj,"MM-DECKS (table, platines, effets)",DECK B PITCH DOWN 0.1 BPM (HOLD TO REPEAT),hold,,DECK
-dj:dj-b-tempop,dj,"MM-DECKS (table, platines, effets)",DECK B PITCH UP 0.1 BPM (HOLD TO REPEAT),hold,,DECK
-dj:dj-b-sync,dj,"MM-DECKS (table, platines, effets)",DECK B SYNC: MATCH THE TEMPO YOU HEAR,hold,,DECK MIXER
-dj:dj-time1,dj,"MM-DECKS (table, platines, effets)",EFFECTS TIME 1/4 BEATS,hold,,MIXER LIVE
-dj:dj-time2,dj,"MM-DECKS (table, platines, effets)",EFFECTS TIME 1/2 BEATS,hold,,MIXER LIVE
-dj:dj-time3,dj,"MM-DECKS (table, platines, effets)",EFFECTS TIME 3/4 BEATS,hold,,MIXER
-dj:dj-time4,dj,"MM-DECKS (table, platines, effets)",EFFECTS TIME 1 BEAT,hold,,MIXER LIVE
-dj:dj-time5,dj,"MM-DECKS (table, platines, effets)",EFFECTS TIME 2 BEATS,hold,,MIXER LIVE
-dj:dj-time6,dj,"MM-DECKS (table, platines, effets)",EFFECTS TIME 4 BEATS,hold,,MIXER
-dj:dj-machines,dj,"MM-DECKS (table, platines, effets)","PLAY OR STOP THE MM-RYTM AND THE MM-ARP TOGETHER, KEY G",hold,,
-dj:dj-export,dj,"MM-DECKS (table, platines, effets)","EXPORT THE LOOP TO THE MM-SMPL AND EDIT IT THERE, KEY T",hold,,DECK MIXER LIVE
-dj:dj-adddeck,dj,"MM-DECKS (table, platines, effets)","ADD A DECK, WITH ITS CHANNEL ON THE MIXER",hold,,MIXER
+dj:dj-ch1-gain,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) GAIN,value,,MIXER
+dj:dj-ch1-hi,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) EQ HI,value,,MIXER
+dj:dj-ch1-mid,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) EQ MID,value,,MIXER
+dj:dj-ch1-low,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) EQ LOW,value,,MIXER
+dj:dj-ch1-filter,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) FILTER,value,,MIXER LIVE
+dj:dj-ch2-gain,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 2 (MM-ARP) GAIN,value,,MIXER
+dj:dj-ch2-hi,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 2 (MM-ARP) EQ HI,value,,MIXER
+dj:dj-ch2-mid,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 2 (MM-ARP) EQ MID,value,,MIXER
+dj:dj-ch2-low,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 2 (MM-ARP) EQ LOW,value,,MIXER
+dj:dj-ch2-filter,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 2 (MM-ARP) FILTER,value,,MIXER LIVE
+dj:dj-ch3-gain,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 3 (DECK A) GAIN,value,,DECK MIXER
+dj:dj-ch3-hi,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 3 (DECK A) EQ HI,value,,DECK MIXER
+dj:dj-ch3-mid,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 3 (DECK A) EQ MID,value,,DECK MIXER
+dj:dj-ch3-low,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 3 (DECK A) EQ LOW,value,,DECK MIXER
+dj:dj-ch3-filter,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 3 (DECK A) FILTER,value,,DECK MIXER LIVE
+dj:dj-ch4-gain,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 4 (DECK B) GAIN,value,,DECK MIXER
+dj:dj-ch4-hi,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 4 (DECK B) EQ HI,value,,DECK MIXER
+dj:dj-ch4-mid,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 4 (DECK B) EQ MID,value,,DECK MIXER
+dj:dj-ch4-low,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 4 (DECK B) EQ LOW,value,,DECK MIXER
+dj:dj-ch4-filter,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 4 (DECK B) FILTER,value,,DECK MIXER LIVE
+dj:dj-fx-overdrive,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECT OVERDRIVE,value,,DECK MIXER LIVE
+dj:dj-fx-crush,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECT CRUSH,value,,DECK MIXER LIVE
+dj:dj-fx-chorus,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECT CHORUS,value,,DECK MIXER LIVE
+dj:dj-fx-flanger,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECT FLANGER,value,,DECK MIXER LIVE
+dj:dj-fx-trans,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECT TRANS,value,,DECK MIXER LIVE
+dj:dj-fx-delay,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECT DELAY,value,,DECK MIXER LIVE
+dj:dj-fx-reverb,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECT REVERB,value,,DECK MIXER LIVE
+dj:dj-fxto,dj,"MM-DECKS (table, platines, samplers, effets)","EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL",value,5,DECK MIXER LIVE
+dj:dj-master,dj,"MM-DECKS (table, platines, samplers, effets)",MASTER VOLUME,value,,DECK
+dj:dj-ch1-fader,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) FADER,value,,MIXER LIVE
+dj:dj-ch2-fader,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 2 (MM-ARP) FADER,value,,MIXER LIVE
+dj:dj-ch3-fader,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 3 (DECK A) FADER,value,,DECK MIXER LIVE
+dj:dj-ch4-fader,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 4 (DECK B) FADER,value,,DECK MIXER LIVE
+dj:dj-a-pitch,dj,"MM-DECKS (table, platines, samplers, effets)",DECK A PITCH,value,,DECK
+dj:dj-b-pitch,dj,"MM-DECKS (table, platines, samplers, effets)",DECK B PITCH,value,,DECK
+dj:dj-a-smpl-open,dj,"MM-DECKS (table, platines, samplers, effets)","DECK A SAMPLER: SHOW IT ON THE SCREEN, OR THE TRACK",hold,,DECK
+dj:dj-a-smpl-recdeck,dj,"MM-DECKS (table, platines, samplers, effets)","DECK A SAMPLER: SAMPLE THE DECK (ITS LOOP, OR THE LAST BEATS)",hold,,DECK
+dj:dj-a-smpl-recmix,dj,"MM-DECKS (table, platines, samplers, effets)",DECK A SAMPLER: SAMPLE THE MIXER OUTPUT (THE LAST BEATS),hold,,DECK MIXER LIVE
+dj:dj-a-smpl-play,dj,"MM-DECKS (table, platines, samplers, effets)",DECK A SAMPLER: PLAY OR STOP,hold,,DECK LIVE
+dj:dj-a-loop1,dj,"MM-DECKS (table, platines, samplers, effets)",DECK A LOOP 1 BEAT (PRESS AGAIN TO EXIT),hold,,DECK
+dj:dj-a-loop2,dj,"MM-DECKS (table, platines, samplers, effets)",DECK A LOOP 2 BEATS (PRESS AGAIN TO EXIT),hold,,DECK
+dj:dj-a-loop4,dj,"MM-DECKS (table, platines, samplers, effets)",DECK A LOOP 4 BEATS (PRESS AGAIN TO EXIT),hold,,DECK MIXER
+dj:dj-a-loop8,dj,"MM-DECKS (table, platines, samplers, effets)",DECK A LOOP 8 BEATS (PRESS AGAIN TO EXIT),hold,,DECK
+dj:dj-a-bendm,dj,"MM-DECKS (table, platines, samplers, effets)",DECK A BEND SLOWER (HOLD),hold,,DECK
+dj:dj-a-bendp,dj,"MM-DECKS (table, platines, samplers, effets)",DECK A BEND FASTER (HOLD),hold,,DECK
+dj:dj-a-cue,dj,"MM-DECKS (table, platines, samplers, effets)",DECK A CUE (HOLD TO PREVIEW),hold,,DECK MIXER LIVE
+dj:dj-a-play,dj,"MM-DECKS (table, platines, samplers, effets)",DECK A PLAY OR PAUSE,hold,,DECK MIXER LIVE
+dj:dj-a-tempom,dj,"MM-DECKS (table, platines, samplers, effets)",DECK A PITCH DOWN 0.1 BPM (HOLD TO REPEAT),hold,,DECK
+dj:dj-a-tempop,dj,"MM-DECKS (table, platines, samplers, effets)",DECK A PITCH UP 0.1 BPM (HOLD TO REPEAT),hold,,DECK
+dj:dj-a-sync,dj,"MM-DECKS (table, platines, samplers, effets)",DECK A SYNC: MATCH THE TEMPO YOU HEAR,hold,,DECK MIXER
+dj:dj-b-smpl-open,dj,"MM-DECKS (table, platines, samplers, effets)","DECK B SAMPLER: SHOW IT ON THE SCREEN, OR THE TRACK",hold,,DECK
+dj:dj-b-smpl-recdeck,dj,"MM-DECKS (table, platines, samplers, effets)","DECK B SAMPLER: SAMPLE THE DECK (ITS LOOP, OR THE LAST BEATS)",hold,,DECK
+dj:dj-b-smpl-recmix,dj,"MM-DECKS (table, platines, samplers, effets)",DECK B SAMPLER: SAMPLE THE MIXER OUTPUT (THE LAST BEATS),hold,,DECK
+dj:dj-b-smpl-play,dj,"MM-DECKS (table, platines, samplers, effets)",DECK B SAMPLER: PLAY OR STOP,hold,,DECK LIVE
+dj:dj-b-loop1,dj,"MM-DECKS (table, platines, samplers, effets)",DECK B LOOP 1 BEAT (PRESS AGAIN TO EXIT),hold,,DECK
+dj:dj-b-loop2,dj,"MM-DECKS (table, platines, samplers, effets)",DECK B LOOP 2 BEATS (PRESS AGAIN TO EXIT),hold,,DECK
+dj:dj-b-loop4,dj,"MM-DECKS (table, platines, samplers, effets)",DECK B LOOP 4 BEATS (PRESS AGAIN TO EXIT),hold,,DECK MIXER
+dj:dj-b-loop8,dj,"MM-DECKS (table, platines, samplers, effets)",DECK B LOOP 8 BEATS (PRESS AGAIN TO EXIT),hold,,DECK
+dj:dj-b-bendm,dj,"MM-DECKS (table, platines, samplers, effets)",DECK B BEND SLOWER (HOLD),hold,,DECK
+dj:dj-b-bendp,dj,"MM-DECKS (table, platines, samplers, effets)",DECK B BEND FASTER (HOLD),hold,,DECK
+dj:dj-b-cue,dj,"MM-DECKS (table, platines, samplers, effets)",DECK B CUE (HOLD TO PREVIEW),hold,,DECK MIXER LIVE
+dj:dj-b-play,dj,"MM-DECKS (table, platines, samplers, effets)",DECK B PLAY OR PAUSE,hold,,DECK MIXER LIVE
+dj:dj-b-tempom,dj,"MM-DECKS (table, platines, samplers, effets)",DECK B PITCH DOWN 0.1 BPM (HOLD TO REPEAT),hold,,DECK
+dj:dj-b-tempop,dj,"MM-DECKS (table, platines, samplers, effets)",DECK B PITCH UP 0.1 BPM (HOLD TO REPEAT),hold,,DECK
+dj:dj-b-sync,dj,"MM-DECKS (table, platines, samplers, effets)",DECK B SYNC: MATCH THE TEMPO YOU HEAR,hold,,DECK MIXER
+dj:dj-time1,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECTS TIME 1/4 BEATS,hold,,MIXER LIVE
+dj:dj-time2,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECTS TIME 1/2 BEATS,hold,,MIXER LIVE
+dj:dj-time3,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECTS TIME 3/4 BEATS,hold,,MIXER
+dj:dj-time4,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECTS TIME 1 BEAT,hold,,MIXER LIVE
+dj:dj-time5,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECTS TIME 2 BEATS,hold,,MIXER LIVE
+dj:dj-time6,dj,"MM-DECKS (table, platines, samplers, effets)",EFFECTS TIME 4 BEATS,hold,,MIXER
+dj:dj-machines,dj,"MM-DECKS (table, platines, samplers, effets)","PLAY OR STOP THE MM-RYTM AND THE MM-ARP TOGETHER, KEY G",hold,,
+dj:dj-adddeck,dj,"MM-DECKS (table, platines, samplers, effets)","ADD A DECK, WITH ITS CHANNEL ON THE MIXER",hold,,MIXER
+dj:smpl:a:knob:start,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A START,value,,
+dj:smpl:a:knob:end,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A END,value,,
+dj:smpl:a:knob:pitch,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A PITCH,value,49,DECK
+dj:smpl:a:knob:level,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A LEVEL,value,,DECK
+dj:smpl:a:knob:attack,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A ATTACK,value,,
+dj:smpl:a:knob:release,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A RELEASE,value,,
+dj:smpl:a:knob:filter,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A FILTER,value,,DECK
+dj:smpl:a:knob:position,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A POSITION,value,,DECK
+dj:smpl:a:knob:scan,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A SCAN,value,,
+dj:smpl:a:knob:size,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A SIZE,value,,
+dj:smpl:a:knob:density,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A DENSITY,value,,
+dj:smpl:a:knob:spray,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A SPRAY,value,,
+dj:smpl:a:mode,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A MODE,press,,DECK
+dj:smpl:a:slices,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A SLICES,press,,
+dj:smpl:a:len,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A LEN,press,,
+dj:smpl:a:rev,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A REV,press,,
+dj:smpl:a:loop,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A LOOP,press,,
+dj:smpl:a:random,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A RANDOM,press,,
+dj:smpl:a:clear,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A CLEAR,press,,
+dj:smpl:a:save,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A SAVE,press,,
+dj:smpl:a:stop,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A STOP,press,,
+dj:smpl:a:pad:0,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A PAD 1,hold,,
+dj:smpl:a:pad:1,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A PAD 2,hold,,
+dj:smpl:a:pad:2,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A PAD 3,hold,,
+dj:smpl:a:pad:3,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A PAD 4,hold,,
+dj:smpl:a:pad:4,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A PAD 5,hold,,
+dj:smpl:a:pad:5,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A PAD 6,hold,,
+dj:smpl:a:pad:6,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A PAD 7,hold,,
+dj:smpl:a:pad:7,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A PAD 8,hold,,
+dj:smpl:a:pad:8,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A PAD 9,hold,,
+dj:smpl:a:pad:9,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A PAD 10,hold,,
+dj:smpl:a:pad:10,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A PAD 11,hold,,
+dj:smpl:a:pad:11,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A PAD 12,hold,,
+dj:smpl:a:pad:12,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A PAD 13,hold,,
+dj:smpl:a:pad:13,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A PAD 14,hold,,
+dj:smpl:a:pad:14,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A PAD 15,hold,,
+dj:smpl:a:pad:15,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL A PAD 16,hold,,
+dj:smpl:b:knob:start,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B START,value,,
+dj:smpl:b:knob:end,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B END,value,,
+dj:smpl:b:knob:pitch,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PITCH,value,49,DECK
+dj:smpl:b:knob:level,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B LEVEL,value,,DECK
+dj:smpl:b:knob:attack,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B ATTACK,value,,
+dj:smpl:b:knob:release,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B RELEASE,value,,
+dj:smpl:b:knob:filter,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B FILTER,value,,DECK
+dj:smpl:b:knob:position,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B POSITION,value,,DECK
+dj:smpl:b:knob:scan,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B SCAN,value,,
+dj:smpl:b:knob:size,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B SIZE,value,,
+dj:smpl:b:knob:density,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B DENSITY,value,,
+dj:smpl:b:knob:spray,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B SPRAY,value,,
+dj:smpl:b:mode,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B MODE,press,,DECK
+dj:smpl:b:slices,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B SLICES,press,,
+dj:smpl:b:len,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B LEN,press,,
+dj:smpl:b:rev,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B REV,press,,
+dj:smpl:b:loop,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B LOOP,press,,
+dj:smpl:b:random,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B RANDOM,press,,
+dj:smpl:b:clear,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B CLEAR,press,,
+dj:smpl:b:save,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B SAVE,press,,
+dj:smpl:b:stop,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B STOP,press,,
+dj:smpl:b:pad:0,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 1,hold,,
+dj:smpl:b:pad:1,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 2,hold,,
+dj:smpl:b:pad:2,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 3,hold,,
+dj:smpl:b:pad:3,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 4,hold,,
+dj:smpl:b:pad:4,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 5,hold,,
+dj:smpl:b:pad:5,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 6,hold,,
+dj:smpl:b:pad:6,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 7,hold,,
+dj:smpl:b:pad:7,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 8,hold,,
+dj:smpl:b:pad:8,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 9,hold,,
+dj:smpl:b:pad:9,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 10,hold,,
+dj:smpl:b:pad:10,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 11,hold,,
+dj:smpl:b:pad:11,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 12,hold,,
+dj:smpl:b:pad:12,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 13,hold,,
+dj:smpl:b:pad:13,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 14,hold,,
+dj:smpl:b:pad:14,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 15,hold,,
+dj:smpl:b:pad:15,dj,"MM-DECKS (table, platines, samplers, effets)",SMPL B PAD 16,hold,,
 nav:all,global,Partout (navigation),MM-STUDIO (ALL THE MACHINES),press,,MIXER
 nav:mm808,global,Partout (navigation),GO TO MM-RYTM,press,,
 nav:voy,global,Partout (navigation),GO TO MM-ARP,press,,
-nav:smpl,global,Partout (navigation),GO TO MM-SMPL,press,,
 nav:dj,global,Partout (navigation),GO TO MM-DECKS,press,,
-nav:prev,global,Partout (navigation),PREVIOUS MACHINE,press,,RYTM ARP MIXER SMPL LIVE
-nav:next,global,Partout (navigation),NEXT MACHINE,press,,RYTM ARP MIXER SMPL LIVE
+nav:prev,global,Partout (navigation),PREVIOUS MACHINE,press,,RYTM ARP MIXER LIVE
+nav:next,global,Partout (navigation),NEXT MACHINE,press,,RYTM ARP MIXER LIVE
 nav:machines,global,Partout (navigation),PLAY/STOP RYTM + ARP,press,,RYTM ARP MIXER LIVE

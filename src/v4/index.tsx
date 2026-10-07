@@ -48,8 +48,8 @@ import { useKeys } from './hooks/useKeys';
 import { useMedia } from './hooks/useMedia';
 import { Stage } from './scene/renderer';
 import { editor } from './state/editor';
-import { explode, smplExplode, voyExplode } from './state/explode';
-import { DJ, SMPL, focus, VOYAGER } from './state/focus';
+import { explode, voyExplode } from './state/explode';
+import { DJ, focus, VOYAGER } from './state/focus';
 import { FLAGS, syncFlags } from './state/flags';
 import { intro } from './state/intro';
 import { lcd } from './state/lcd';
@@ -72,7 +72,6 @@ import { Header, openHood } from './ui/Header';
 import { HitLayer, Twins } from './ui/Hotspots';
 import { MachineNav } from './ui/MachineNav';
 import { SeqPanel } from './ui/SeqLane';
-import { SmplInfo } from './ui/SmplInfo';
 import { VoyDock } from './ui/VoyDock';
 import { VoyTwins } from './ui/VoyTwins';
 import { Lcd } from './ui/Lcd';
@@ -240,7 +239,6 @@ function useSectionsLifecycle(): void {
       section.set(null);
       explode.reset();
       voyExplode.reset();
-      smplExplode.reset();
     };
   }, []);
 }
@@ -341,9 +339,6 @@ const DjBrowser = lazy(() =>
 );
 /** Les jumeaux HTML du MM-DECKS (clavier, lecteurs d'ecran), charges a part eux aussi. */
 const DjTwins = lazy(() => import('./dj/Twins'));
-/** Le MM-SMPL (2026-10-04) : ses jumeaux (et son clavier), son Dock au telephone */
-const SmplTwins = lazy(() => import('./smpl/Twins'));
-const SmplDock = lazy(() => import('./smpl/Dock'));
 
 const V4Shell: React.FC = () => {
   const stageRef = useRef<Stage | null>(null);
@@ -525,11 +520,6 @@ const V4Shell: React.FC = () => {
                 <DjTwins stage={stage} />
               </Suspense>
             )}
-            {SMPL && (
-              <Suspense fallback={null}>
-                <SmplTwins stage={stage} />
-              </Suspense>
-            )}
           </StageBoundary>
         )}
       </div>
@@ -540,20 +530,12 @@ const V4Shell: React.FC = () => {
           <Lcd />
           {/* MM-ARP ouvert : sa touche SCOPE et l'oscilloscope (2026-10-04, ui/Scope.tsx) */}
           <Scope mobile={mobile} getStage={getStage} />
-          {/* Le MM-SMPL : sa touche OPEN, et dans la machine ouverte INFO, le mode d'emploi en PDF (2026-10-05, ui/SmplInfo.tsx) */}
-          {SMPL && <SmplInfo getStage={getStage} mobile={mobile} />}
           {/* Le Dock n'existe que sur la mise en page mobile : pas de rendu React par pas sur desktop ; il programme la 808 */}
           {/* EDIT ouvert (2026-10-04) : l'editeur prend la place du Dock de sa machine */}
-          {mobile && machineFocus !== 'voy' && machineFocus !== 'dj' && machineFocus !== 'smpl' && editorOpen !== 'mm808' && <Dock getStage={getStage} />}
+          {mobile && machineFocus !== 'voy' && machineFocus !== 'dj' && editorOpen !== 'mm808' && <Dock getStage={getStage} />}
           {/* Le Voyager a le sien au telephone : accords, octave, arpege en gros boutons */}
           {mobile && VOYAGER && machineFocus === 'voy' && editorOpen !== 'voy' && <VoyDock getStage={getStage} />}
           {/* Le MM-DECKS n'en a plus (2026-10-05, Mika : "le bouton MIXER ne sert a rien") : la table tient dans l'ecran */}
-          {/* Le MM-SMPL : ses seize pads et ses potards en gros */}
-          {mobile && SMPL && machineFocus === 'smpl' && (
-            <Suspense fallback={null}>
-              <SmplDock getStage={getStage} />
-            </Suspense>
-          )}
           {/* Les editeurs (EDIT sur la machine) : la suite de l'arpege, le motif du MM-RYTM et ses velocites */}
           {VOYAGER && <SeqPanel stage={stage} mobile={mobile} />}
           <BeatPanel stage={stage} mobile={mobile} />

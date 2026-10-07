@@ -15,6 +15,7 @@ import { focus } from '../state/focus';
 import { faderMin, faderNeutral, faderValue, keyDown, keyUp, knobMin, knobNeutral, knobSteps, knobText, knobValue, setFader, setKnob } from './gestures';
 import { DJ_FADERS, DJ_KEYS, DJ_KNOBS, type DjKeySpec } from './layout';
 import { faderName, keyName, knobName } from './names';
+import { samplerOf } from '../sampler/sampler';
 import { djTempoStep } from './actions';
 import { djState } from './state';
 import './dj.css';
@@ -140,7 +141,7 @@ export const DjTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       {DJ_KEYS.map((k) => {
         const t = k.target;
         const pressed =
-          t.kind === 'play' ? s.deck[t.deck].playing : t.kind === 'hotcue' ? s.deck[t.deck].cues[t.n] !== null : t.kind === 'time' ? s.time === t.d : undefined;
+          t.kind === 'play' ? s.deck[t.deck].playing : t.kind === 'smpl' && t.fn === 'open' ? samplerOf(t.deck).get().open : t.kind === 'time' ? s.time === t.d : undefined;
         return (
           <button
             key={k.id}

@@ -16,7 +16,7 @@ import { BPM, INSTRUMENTS, VEL_MAX, VEL_NAMES, pattern, velocity } from './audio
 import { sc } from './audio/soundcloud';
 import { prepareSynth } from './audio/synth';
 import type { Stage } from './scene/renderer';
-import { chipsLive, explode, smplExplode, voyExplode, type ExplodeStore } from './state/explode';
+import { chipsLive, explode, voyExplode, type ExplodeStore } from './state/explode';
 import { focus, MACHINES, VOYAGER, type Focus, type MachineId } from './state/focus';
 import { lcdMessage } from './state/lcdMessage';
 import { lcdMix } from './state/lcdMix';
@@ -143,7 +143,7 @@ export function page(id: PageId, stage: Stage | null): void {
 
 /** Le pad de page de la 808 s'enfonce (le MM-VOYAGER a ses pages sur la carte, pas de touche). */
 function pressPage(id: PageId, stage: Stage | null): void {
-  if (focus.get() === 'voy' || focus.get() === 'dj' || focus.get() === 'smpl') return;
+  if (focus.get() === 'voy' || focus.get() === 'dj') return;
   stage?.pads.press(id);
 }
 
@@ -550,7 +550,7 @@ export function closeSection(): void {
  * demande est prise.
  */
 export function openToggle(stage: Stage | null = null, which: MachineId = hoodMachine()): boolean {
-  // Le MM-DECKS n'a pas de capot ; le MM-SMPL a le sien depuis le 2026-10-05 (sa touche OPEN est dans le DOM)
+  // Le MM-DECKS n'a pas de capot
   if (which === 'dj') return false;
   resume();
   const ok = hoodOf(which).toggle();
@@ -568,7 +568,7 @@ export function hoodMachine(): MachineId {
 
 /** Le capot d'une machine (le MM-DECKS n'en a pas : celui de la 808). */
 export function hoodOf(m: MachineId): ExplodeStore {
-  return m === 'voy' ? voyExplode : m === 'smpl' ? smplExplode : explode;
+  return m === 'voy' ? voyExplode : explode;
 }
 
 /**
@@ -610,7 +610,7 @@ export function escape(): boolean {
   }
   const hood = hoodOf(hoodMachine());
   if (hood.get() === 'open') return hood.toggle();
-  if (pattern.get().instrument !== null && focus.get() !== 'voy' && focus.get() !== 'dj' && focus.get() !== 'smpl') {
+  if (pattern.get().instrument !== null && focus.get() !== 'voy' && focus.get() !== 'dj') {
     selectVoice(null);
     return true;
   }
@@ -632,7 +632,7 @@ export function focusMachine(f: Focus): void {
 /**
  * Fleches gauche et droite (2026-10-05, Mika : "naviguer entre les machines
  * avec les fleches gauche droite") : la machine d'a cote, dans l'ordre de la
- * scene et du selecteur de l'en-tete (ALL, RYTM, ARP, SMPL, DECKS ; ALL
+ * scene et du selecteur de l'en-tete (ALL, RYTM, ARP, DECKS ; ALL
  * seulement sur desktop) ; aux bouts, rien. true si la vue a change.
  */
 export function stepMachine(dir: -1 | 1): boolean {

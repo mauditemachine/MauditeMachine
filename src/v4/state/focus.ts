@@ -10,7 +10,7 @@
  * Sans le MM-VOYAGER (?voyager=0), la 808 seule : focus reste 'mm808'.
  */
 
-export type MachineId = 'mm808' | 'voy' | 'dj' | 'smpl';
+export type MachineId = 'mm808' | 'voy' | 'dj';
 export type Focus = 'all' | MachineId;
 
 /**
@@ -47,25 +47,11 @@ export const DJ: boolean = (() => {
 })();
 
 /**
- * Le MM-SMPL (2026-10-04, Mika : "une machine de travail du sample avec une
- * partie granulaire, rajoute-la dans la liste des machines") : a droite du
- * MM-DECKS. Pour tout le monde ; ?smpl=0 le retire (retenu pour l'onglet),
- * ?smpl=1 le remet. Il suppose le MM-VOYAGER sur la table.
+ * Les machines sur la table, de gauche a droite. Le MM-SMPL (2026-10-04)
+ * est parti le 2026-10-07 : son sampler est dans chaque platine du MM-DECKS
+ * (Mika : "supprime MM-SMPL, ca ne sert a rien").
  */
-export const SMPL: boolean = (() => {
-  if (typeof window === 'undefined' || !VOYAGER) return false;
-  try {
-    const q = new URLSearchParams(window.location.search).get('smpl');
-    if (q === '1' || q === '0') window.sessionStorage.setItem('mm.v4.smpl', q);
-    return window.sessionStorage.getItem('mm.v4.smpl') !== '0';
-  } catch {
-    return true;
-  }
-})();
-
-/** Les machines sur la table, de gauche a droite. */
-/** L'ordre de la scene, de gauche a droite (2026-10-05 : le MM-SMPL a droite du MM-ARP, le MM-DECKS au bout). */
-export const MACHINES: readonly MachineId[] = VOYAGER ? ['mm808', 'voy', ...(SMPL ? (['smpl'] as const) : []), ...(DJ ? (['dj'] as const) : [])] : ['mm808'];
+export const MACHINES: readonly MachineId[] = VOYAGER ? ['mm808', 'voy', ...(DJ ? (['dj'] as const) : [])] : ['mm808'];
 
 /**
  * La machine d'arrivee (2026-10-04, Mika : "oui, ajoute ?m=dj") : ?m=dj
@@ -86,10 +72,11 @@ const START_ALIASES: Readonly<Record<string, MachineId>> = {
   '808': 'mm808',
   mm808: 'mm808',
   'mm-rytm': 'mm808',
-  smpl: 'smpl',
-  sampler: 'smpl',
-  'mm-smpl': 'smpl',
-  grain: 'smpl',
+  // Le MM-SMPL est dans les platines depuis le 2026-10-07 : ses anciens liens menent au MM-DECKS
+  smpl: 'dj',
+  sampler: 'dj',
+  'mm-smpl': 'dj',
+  grain: 'dj',
 };
 let start: MachineId | null = (() => {
   if (typeof window === 'undefined') return null;

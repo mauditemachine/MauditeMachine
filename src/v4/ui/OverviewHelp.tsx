@@ -28,19 +28,12 @@ export const MACHINE_HELP: Readonly<Record<MachineId, { name: string; kind: stri
       'Two oscillators, a Moog style filter, two envelopes, a tempo synced LFO and effects. OPEN hides the TWEAKS: CHORD voicings, SIDECHAIN on the kick, stereo width.',
     ],
   },
-  smpl: {
-    name: 'MM-SMPL',
-    kind: 'Sampler, slicer, granular',
-    text: [
-      'Send a loop from the MM-DECKS mixer (LOOP > SMPL), load an audio file or record the site: the sample is cut into slices that the 16 trigs play. MODE turns them into grain clouds.',
-      'EDIT turns the trigs into a 16 step sequence: tap a step, drag it up or down to pick its slice; RANDOM writes one, CLEAR empties it, PLAY runs it in time with the other machines. SAVE exports a WAV.',
-    ],
-  },
   dj: {
     name: 'MM-DECKS',
     kind: 'DJ decks and mixer',
     text: [
-      'Two decks (up to four): search Maudite Machine or SoundCloud tracks in a deck screen and load them. CUE, PLAY, hot cues, loops, pitch and SYNC, like a club player.',
+      'Two decks (up to four): search Maudite Machine or SoundCloud tracks in a deck screen and load them. CUE, PLAY, loops, pitch and SYNC, like a club player.',
+      'Each deck has a sampler: REC DECK grabs its last beats (or its loop), REC MIX the last beats of the mixer. SMPL shows it on the screen: slices on pads, grain clouds, a 16 step sequence, SAVE as a WAV.',
       'The mixer also takes the MM-RYTM and the MM-ARP on channels 1 and 2, with EQ, filter, effects and FX TO. ADD DECK sits in its header.',
     ],
   },

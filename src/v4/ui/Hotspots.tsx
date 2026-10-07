@@ -80,7 +80,6 @@ import type { HotspotKind, HotspotView } from '../scene/hit';
 import { quadToUnit } from '../scene/quad';
 import type { Stage } from '../scene/renderer';
 import { djLoad, type DjModules } from '../state/djload';
-import { smplLoad, type SmplModules } from '../state/smplload';
 import { djView } from '../dj/view';
 import { editor } from '../state/editor';
 import { patterns, slotName } from '../state/patterns';
@@ -297,20 +296,10 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     };
     // Tout type de zone du MM-DECKS (djknob, djfader, djkey, djjog, djscreen...)
     const isDj = (k: HotspotKind): boolean => k.startsWith('dj');
-    // Le MM-SMPL (2026-10-04) : le meme contrat (smpl/gestures.ts), son code arrive a part aussi (state/smplload.ts)
-    let smg: InstanceType<SmplModules['SmplGestures']> | null = null;
-    const smplGestures = (): typeof smg => {
-      if (!smg && stage.smpl) {
-        const m = smplLoad.get();
-        if (m) smg = new m.SmplGestures(stage);
-      }
-      return smg;
-    };
-    const isSmpl = (k: HotspotKind): boolean => k.startsWith('smpl');
-    /** Les gestes de la machine d'une zone (MM-DECKS, MM-SMPL), ou null. */
-    const gesturesOf = (h: HotspotView | null): typeof djg | typeof smg => (!h ? null : isDj(h.kind) ? djGestures() : isSmpl(h.kind) ? smplGestures() : null);
+    /** Les gestes de la machine d'une zone (MM-DECKS), ou null. */
+    const gesturesOf = (h: HotspotView | null): typeof djg => (!h ? null : isDj(h.kind) ? djGestures() : null);
     /** Celui qui tient ce pointeur. */
-    const holder = (id: number): typeof djg | typeof smg => (djg?.holds(id) ? djg : smg?.holds(id) ? smg : null);
+    const holder = (id: number): typeof djg => (djg?.holds(id) ? djg : null);
     // L'ecran de la suite du MM-ARP (2026-10-05, voyager/seqscreen.ts) : le point touche sur son verre (u, v), un dessin suit son pointeur
     const seqDrags = new Set<number>();
     const seqOut = { x: 0, y: 0 };
@@ -481,7 +470,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         e.preventDefault();
         return;
       }
-      // Une commande du MM-DECKS ou du MM-SMPL : elle seule voit ce pointeur (ni orbite ni pincement)
+      // Une commande du MM-DECKS : elle seule voit ce pointeur (ni orbite ni pincement)
       const g = gesturesOf(h);
       if (h && g) {
         g.down(e.pointerId, h, e.clientX - rect.left, e.clientY - rect.top, isCoarse(e));
@@ -676,7 +665,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Ctrl + molette (pincement d'un pave tactile) : le zoom de la vue
       if (e.ctrlKey) return;
       const h = pickAt(e, false);
-      // Au-dessus d'une commande du MM-DECKS ou du MM-SMPL : elle prend la molette si elle en veut (sinon la vue zoome)
+      // Au-dessus d'une commande du MM-DECKS : elle prend la molette si elle en veut (sinon la vue zoome)
       const g = gesturesOf(h);
       if (h && g) {
         const delta = e.shiftKey && e.deltaY === 0 ? e.deltaX : e.deltaY;
@@ -743,7 +732,6 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       ro.disconnect();
       downs.clear();
       djg?.release();
-      smg?.release();
       stage.orbit.gate = () => true;
       el.removeEventListener('pointerdown', onDown);
       el.removeEventListener('pointermove', onMove);

@@ -14,7 +14,7 @@ import React, { useCallback, useRef, useState, useSyncExternalStore } from 'reac
 import { closeSection, focusMachine, openSection, openToggle, resetView } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { appearance } from '../state/appearance';
-import { explode, smplExplode, voyExplode } from '../state/explode';
+import { explode, voyExplode } from '../state/explode';
 import { MACHINES, focus, VOYAGER, type Focus, type MachineId } from '../state/focus';
 import { section } from '../state/section';
 import { MOBILE_QUERY, type PageId } from '../theme';
@@ -47,7 +47,6 @@ export function goHome(stage: Stage | null): void {
   closeSection();
   if (explode.get() === 'open') openToggle(stage, 'mm808');
   if (voyExplode.get() === 'open') openToggle(stage, 'voy');
-  if (smplExplode.get() === 'open') openToggle(stage, 'smpl');
   resetView(stage);
   if (VOYAGER) focus.set(window.matchMedia(MOBILE_QUERY).matches ? 'mm808' : 'all');
 }
@@ -76,7 +75,6 @@ interface Props {
 const SHORT: Record<MachineId, { label: string; aria: string }> = {
   mm808: { label: 'RYTM', aria: 'MM-RYTM drum machine' },
   voy: { label: 'ARP', aria: 'MM-ARP synthesizer' },
-  smpl: { label: 'SMPL', aria: 'MM-SMPL sampler' },
   dj: { label: 'DECKS', aria: 'MM-DECKS DJ decks and mixer' },
 };
 

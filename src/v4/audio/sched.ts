@@ -2,8 +2,8 @@
  * L'avance des ordonnanceurs (2026-10-05, Mika : "je lance le site et des
  * que je fais un petit truc le son se coupe ; faut arranger ca une bonne
  * fois pour toutes, optimise le tout"). Le MM-RYTM (audio/clock.ts),
- * l'arpegiateur du MM-ARP (voyager/arp.ts) et la sequence du MM-SMPL
- * (smpl/seq.ts) programment leurs notes sur l'horloge AUDIO, reveilles par
+ * l'arpegiateur du MM-ARP (voyager/arp.ts) et la sequence du sampler de
+ * chaque platine (sampler/seq.ts) programment leurs notes sur l'horloge AUDIO, reveilles par
  * un minuteur du fil principal. Avant, ils voyaient 100 ms devant eux : une
  * tache de plus de 75 a 100 ms (ouvrir un capot, une premiere visite, une
  * section du site, le ramasse-miettes) suffisait a faire partir des notes

@@ -1,8 +1,8 @@
 /**
  * Les cibles MIDI du MM-DECKS (2026-10-05, midi/targets.ts) : chaque
  * potard (EQ, FILTER, effets, FX TO, MASTER), chaque fader (voies, pitch)
- * et chaque touche (CUE et PLAY, hot cues, boucles, BEND, SYNC, TIME, ADD
- * DECK, LOOP > SMPL...) des platines posees. Une touche tient comme au
+ * et chaque touche (CUE et PLAY, le sampler, boucles, BEND, SYNC, TIME, ADD
+ * DECK...) des platines posees. Une touche tient comme au
  * clavier : appui, puis relachement (CUE ecoute tant qu'on tient). Inscrites
  * au chargement du code du MM-DECKS (state/djload.ts).
  */
@@ -11,6 +11,10 @@ import { registerTargets, stageNow, type MidiTarget } from '../midi/targets';
 import { faderMin, faderValue, keyDown, keyUp, knobMin, knobSteps, knobValue, setFader, setKnob } from './gestures';
 import { DJ_FADERS, DJ_KEYS, DJ_KNOBS, djFader, djKey, djKnob, type DjFaderSpec, type DjKeySpec, type DjKnobSpec } from './layout';
 import { faderName, keyName, knobName } from './names';
+import { DJ_DECKS, type DjDeck } from './theme';
+import { SMPL_KNOBS } from '../sampler/params';
+import { samplerOf, type Sampler } from '../sampler/sampler';
+import { SMPL_PADS } from '../sampler/slices';
 
 const up = (s: string): string => s.toUpperCase();
 
@@ -68,7 +72,45 @@ function keyTarget(k: DjKeySpec): MidiTarget {
   };
 }
 
+/*
+ * Le sampler de chaque platine (2026-10-07) : ses douze reglages, ses seize
+ * pads (tenus), et ses fonctions de l'ecran (MODE, SLICES, LEN, REV, LOOP,
+ * RANDOM, CLEAR, SAVE, STOP) ; SMPL, REC DECK, REC MIX et PLAY sont des
+ * touches de la platine (plus haut). Ids : dj:smpl:<platine>:knob:<reglage>,
+ * dj:smpl:<platine>:pad:<0-15>, dj:smpl:<platine>:<fonction>.
+ */
+const SMPL_FNS: readonly { fn: string; label: string; run: (s: Sampler) => void }[] = [
+  { fn: 'mode', label: 'MODE', run: (s) => s.modeToggle() },
+  { fn: 'slices', label: 'SLICES', run: (s) => s.slicingNext() },
+  { fn: 'len', label: 'LEN', run: (s) => s.lenNext() },
+  { fn: 'rev', label: 'REV', run: (s) => s.reverseToggle() },
+  { fn: 'loop', label: 'LOOP', run: (s) => s.loopToggle() },
+  { fn: 'random', label: 'RANDOM', run: (s) => s.random() },
+  { fn: 'clear', label: 'CLEAR', run: (s) => s.clear() },
+  { fn: 'save', label: 'SAVE', run: (s) => s.save() },
+  { fn: 'stop', label: 'STOP', run: (s) => s.stopAll() },
+];
+
+function smplTargets(d: DjDeck): MidiTarget[] {
+  const D = d.toUpperCase();
+  const sm = (): Sampler => samplerOf(d);
+  const out: MidiTarget[] = [];
+  for (const k of SMPL_KNOBS) {
+    out.push({ id: `dj:smpl:${d}:knob:${k.id}`, scope: 'dj', label: `SMPL ${D} ${k.label}`, kind: 'value', steps: k.steps ?? 0, get: () => sm().params.of(k.id), set: (v) => sm().dial(k.id, v) });
+  }
+  for (const f of SMPL_FNS) out.push({ id: `dj:smpl:${d}:${f.fn}`, scope: 'dj', label: `SMPL ${D} ${f.label}`, kind: 'press', down: () => f.run(sm()) });
+  for (let i = 0; i < SMPL_PADS; i += 1) out.push({ id: `dj:smpl:${d}:pad:${i}`, scope: 'dj', label: `SMPL ${D} PAD ${i + 1}`, kind: 'hold', down: () => sm().trig(i, true), up: () => sm().trig(i, false) });
+  return out;
+}
+
+function findSmpl(id: string): MidiTarget | undefined {
+  const d = id.split(':')[2] as DjDeck;
+  if (!DJ_DECKS.includes(d)) return undefined;
+  return smplTargets(d).find((t) => t.id === id);
+}
+
 function find(id: string): MidiTarget | undefined {
+  if (id.startsWith('dj:smpl:')) return findSmpl(id);
   const cid = id.slice(3);
   const k = djKnob(cid);
   if (k) return knobTarget(k);
@@ -78,4 +120,4 @@ function find(id: string): MidiTarget | undefined {
   return key ? keyTarget(key) : undefined;
 }
 
-registerTargets('dj', () => [...DJ_KNOBS.map(knobTarget), ...DJ_FADERS.map(faderTarget), ...DJ_KEYS.map(keyTarget)], find);
+registerTargets('dj', () => [...DJ_KNOBS.map(knobTarget), ...DJ_FADERS.map(faderTarget), ...DJ_KEYS.map(keyTarget), ...DJ_DECKS.flatMap(smplTargets)], find);

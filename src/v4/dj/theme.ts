@@ -21,8 +21,6 @@
 
 import { APPEARANCE, PORTRAIT } from '../theme';
 import { VOY_BODY, VOY_X } from '../voyager/theme';
-import { SMPL } from '../state/focus';
-import { SMPL_W, smplX } from '../smpl/theme';
 
 /* ---------- blocs ---------- */
 
@@ -105,11 +103,11 @@ let mixViews = 2;
 /** Largeur de l'ensemble pose. */
 export let DJ_W = 0;
 /**
- * Place du MM-DECKS : la derniere machine, a droite du MM-SMPL (2026-10-05 ;
- * du MM-ARP sans lui), le meme jour qu'entre la 808 et le MM-ARP ; son bord
+ * Place du MM-DECKS : la derniere machine, a droite du MM-ARP (le MM-SMPL
+ * est parti le 2026-10-07), le meme jour qu'entre la 808 et le MM-ARP ; son bord
  * gauche ne bouge pas quand on ajoute une platine.
  */
-const DJ_LEFT = (SMPL ? smplX() + SMPL_W / 2 : VOY_X + VOY_BODY.w / 2) + (PORTRAIT ? 1.8 : 2.6);
+const DJ_LEFT = VOY_X + VOY_BODY.w / 2 + (PORTRAIT ? 1.8 : 2.6);
 export let DJ_X = 0;
 
 /**
@@ -373,24 +371,17 @@ export const MIX = {
   /** l'en-tete (MIXER), a la hauteur de celui des platines */
   head: { z: -5.19 },
   /**
-   * LOOP > SMPL (2026-10-05, Mika : "quand je fais une loop dans un DECK, un
-   * bouton Exporter sur le MIXER vers SMPL, et la je peux editer mon
-   * sample") : dans l'en-tete, a gauche du logotype, comme REMOVE DECK sur
-   * une platine ; dx : son centre depuis le bord droit de la table
-   */
-  export: PORTRAIT ? { dx: 0, z: 4.82, w: 0.72, d: 0.3 } : { dx: 1.62, z: -5.19, w: 0.72, d: 0.28 },
-  /**
    * ADD DECK (2026-10-05, Mika : "quand on pose la souris sur le bord du
    * deck B pour voir ce qu'il y a a droite, c'est trop fragile, on clique
    * sans faire expres pour ajouter un deck ; juste pouvoir rajouter un deck
-   * a partir du mixer") : dans l'en-tete aussi, a gauche de LOOP > SMPL ;
-   * son nom prend la place du sous-titre. dx : son centre depuis le bord
-   * droit de la table
+   * a partir du mixer") : dans l'en-tete, a gauche du logotype (la place de
+   * LOOP > SMPL, parti le 2026-10-07 avec le MM-SMPL), comme REMOVE DECK sur
+   * une platine. dx : son centre depuis le bord droit de la table
    */
-  add: PORTRAIT ? { dx: 0, z: 4.12, w: 0.72, d: 0.3 } : { dx: 4.2, z: -5.19, w: 0.72, d: 0.28 },
+  add: PORTRAIT ? { dx: 0, z: 4.12, w: 0.72, d: 0.3 } : { dx: 1.62, z: -5.19, w: 0.72, d: 0.28 },
   /**
-   * Au telephone tenu droit, l'en-tete n'a plus la place : ADD DECK et LOOP >
-   * SMPL descendent dans la colonne du MASTER, sous PLAY, leur nom au-dessus.
+   * Au telephone tenu droit, l'en-tete n'a plus la place : ADD DECK descend
+   * dans la colonne du MASTER, sous PLAY, son nom au-dessus.
    */
   keysInMaster: PORTRAIT,
 };
@@ -443,7 +434,10 @@ export const DECK = {
    * toucher l'ecran passe de l'un a l'autre.
    */
   screen: { x: 0, z: -2.55, w: 5.6, d: 4.5 },
-  /** hot cues : une rangee de quatre sous l'ecran, une seule couleur (Mika, 2026-10-03) */
+  /**
+   * Le sampler : une rangee de quatre sous l'ecran (SMPL, REC DECK, REC MIX,
+   * PLAY), a la place des hot cues depuis le 2026-10-07 (dj/layout.ts)
+   */
   cues: { xs: [-1.95, -0.65, 0.65, 1.95] as readonly number[], z: 0.3, w: 1.1, d: 0.38 },
   /**
    * LOOP (Mika, 2026-10-04 : "continue avec les boucles LOOP") : 1, 2, 4 et

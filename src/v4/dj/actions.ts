@@ -9,12 +9,12 @@
  * SoundCloud du site, la boite a rythmes et l'arpege, comme RUN.
  */
 
-import { focusMachine } from '../actions';
 import { clock } from '../audio/clock';
-import { smplLoad } from '../state/smplload';
+import { arp } from '../voyager/arp';
 import { anyPlaying } from '../state/playLock';
 import { routeMachines } from '../audio/drums';
 import { sc } from '../audio/soundcloud';
+import { startRing } from '../sampler/ring';
 import { djEngine, djEngineIfAny, type DjEngine } from './engine';
 import { crateFile, crateLearn, setCrateBusy } from './crate';
 import { beatGrid, estimateBpm, phaseShift } from './math';
@@ -82,8 +82,8 @@ function engine(): DjEngine | null {
   for (const d of DJ_DECKS_ALL) {
     e.decks[d].onEnd = () => djState.setDeck(d, { playing: false });
   }
-  // Les analyses de la caisse attendent que plus rien ne joue (2026-10-05 : le MM-RYTM, le MM-ARP et le
-  // MM-SMPL aussi, plus seulement les platines ; decoder et chercher le BPM d'un morceau gelait la page
+  // Les analyses de la caisse attendent que plus rien ne joue (2026-10-05 : le MM-RYTM, le MM-ARP et les
+  // samplers aussi, plus seulement les platines ; decoder et chercher le BPM d'un morceau gelait la page
   // une fraction de seconde, la musique se coupait)
   setCrateBusy(() => DJ_DECKS_ALL.some((d) => e.decks[d].playing) || anyPlaying());
   /*
@@ -94,6 +94,8 @@ function engine(): DjEngine | null {
    * ne passe pas par la table, reste une source a part.
    */
   routeMachines({ rytm: e.mixer.ch[0].input, arp: e.mixer.ch[1].input });
+  // La memoire du MIXER (2026-10-07) : REC MIX d'une platine y prend les temps qui viennent de passer
+  void startRing();
   sc.subscribe(() => {
     if (sc.get().status === 'playing') djPauseAll();
   });
@@ -533,6 +535,66 @@ export function djSynced(d: DjDeck, s = djState.get()): boolean {
   return Math.abs(phaseShift(a.in, a.period, b.in, b.period)) < 0.02;
 }
 
+/* ---------------- les grilles, pour le sampler des platines ---------------- */
+
+/**
+ * La grille en doubles croches d'une platine qui joue (2026-10-07, la
+ * sequence de son sampler s'y cale) : le premier pas a partir de t (temps
+ * du contexte), son numero dans la mesure, sa duree ; null a l'arret ou
+ * sans grille des temps.
+ */
+export function deckGridAfter(d: DjDeck, t: number): { time: number; step: number; dur: number } | null {
+  const e = djEngineIfAny();
+  const ds = djState.get().deck[d];
+  const p = e?.decks[d];
+  if (!e || !p || !p.playing || ds.beat === null || !ds.track?.bpm) return null;
+  const sub = 60 / ds.track.bpm / 4;
+  const speed = p.speed;
+  const now = e.ctx.currentTime;
+  const pos = p.position();
+  const k = Math.ceil((pos + (t - now) * speed - ds.beat) / sub - 1e-6);
+  return { time: now + (ds.beat + k * sub - pos) / speed, step: ((k % 16) + 16) % 16, dur: sub / speed };
+}
+
+/**
+ * Le dernier temps de ce que sort le MIXER (2026-10-07, REC MIX d'une
+ * platine) : son heure (temps du contexte), la periode d'un temps et son
+ * rang dans la mesure (0 a 3, null s'il n'est pas connu). La reference : la
+ * platine qu'on entend le plus, sinon le MM-RYTM ou le MM-ARP qui tournent ;
+ * null s'il n'y a rien sur quoi se caler.
+ */
+export function mixBeat(): { last: number; period: number; index: number | null } | null {
+  const e = djEngineIfAny();
+  if (!e) return null;
+  const s = djState.get();
+  const now = e.ctx.currentTime;
+  let best: DjDeck | null = null;
+  let w = 0;
+  for (const d of DJ_DECKS_ALL) {
+    const k = heardWeight(s, d);
+    if (k > w) {
+      w = k;
+      best = d;
+    }
+  }
+  if (best) {
+    const b = deckBeat(best, e, s);
+    const ds = s.deck[best];
+    const p = e.decks[best];
+    if (b && ds.beat !== null && ds.track?.bpm) {
+      const idx = Math.floor((p.position() - ds.beat) / (60 / ds.track.bpm) + 1e-6);
+      return { last: now + b.in - b.period, period: b.period, index: ((idx % 4) + 4) % 4 };
+    }
+  }
+  const g = clock.gridAfter(now) ?? arp.grid(now);
+  if (!g) return null;
+  const k = (4 - (g.step % 4)) % 4;
+  const next = g.time + k * g.dur;
+  const period = 4 * g.dur;
+  const nextIndex = Math.floor(((g.step + k) % 16) / 4);
+  return { last: next - period, period, index: (nextIndex + 3) % 4 };
+}
+
 /* ---------------- LOOP ---------------- */
 
 /** Un saut hors de la boucle la quitte (dj/engine.ts seek) : le store suit. */
@@ -548,14 +610,10 @@ function loopFollows(d: DjDeck, e: DjEngine): void {
  * meme touche la quitte, et la lecture continue tout droit. La source boucle
  * d'elle-meme, a l'echantillon pres (dj/engine.ts setLoop).
  */
-/** La derniere platine ou une boucle a ete posee (LOOP > SMPL la prend d'abord). */
-let lastLoopDeck: DjDeck | null = null;
-
 export function djLoop(d: DjDeck, beats: number): void {
   const e = engine();
   const p = e?.decks[d];
   if (!e || !p || !p.loaded) return;
-  lastLoopDeck = d;
   const ds = djState.get().deck[d];
   if (p.loop && ds.loop === beats) {
     p.setLoop(null);
@@ -572,40 +630,6 @@ export function djLoop(d: DjDeck, beats: number): void {
   }
   p.setLoop({ a, b: Math.min(p.duration, a + beats * spb) });
   djState.setDeck(d, { loop: p.loop ? beats : null });
-}
-
-/**
- * LOOP > SMPL (2026-10-05, Mika : "quand je fais une loop dans un DECK, un
- * bouton Exporter situe sur le MIXER vers SMPL, et la je peux editer mon
- * sample") : la boucle de la derniere platine bouclee (sinon d'une autre qui
- * boucle, sinon la fenetre de celle qu'on entend, sinon de la premiere
- * chargee) part dans le MM-SMPL, qui vient devant pour l'editer (son
- * ecran dit ce qu'il a pris, ou qu'il n'y a rien a prendre).
- */
-export function djExportDeck(): DjDeck {
-  const e = djEngineIfAny();
-  const s = djState.get();
-  const looping = (d: DjDeck): boolean => !!e?.decks[d].loop;
-  if (lastLoopDeck && DJ_DECKS.includes(lastLoopDeck) && looping(lastLoopDeck)) return lastLoopDeck;
-  const loop = DJ_DECKS.find(looping);
-  if (loop) return loop;
-  let best: DjDeck | null = null;
-  let w = 0;
-  for (const d of DJ_DECKS) {
-    const k = heardWeight(s, d) || (s.deck[d].playing ? 0.01 : 0);
-    if (k > w) {
-      w = k;
-      best = d;
-    }
-  }
-  return best ?? DJ_DECKS.find((d) => s.deck[d].loaded) ?? 'a';
-}
-
-export async function djExportToSmpl(): Promise<void> {
-  const d = djExportDeck();
-  focusMachine('smpl');
-  const m = await smplLoad.load();
-  m?.smplGrab(d);
 }
 
 /* ---------------- des platines en plus ---------------- */

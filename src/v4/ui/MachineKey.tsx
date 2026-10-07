@@ -1,7 +1,7 @@
 /**
  * Une petite touche posee sur une machine (2026-10-05) : la touche SCOPE sur
- * la plaque TWEAKS du MM-ARP ouvert (ui/Scope.tsx), la touche INFO du
- * MM-SMPL (ui/SmplInfo.tsx). Un element du DOM, place a chaque image sur un
+ * la plaque TWEAKS du MM-ARP ouvert (ui/Scope.tsx), CLOSE dans la machine
+ * ouverte (ui/HoodClose.tsx). Un element du DOM, place a chaque image sur un
  * point de la scene (un calque de la machine, son repere) et a la taille de
  * sa place : il suit la camera, le zoom et l'ouverture du capot.
  */

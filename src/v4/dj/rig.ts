@@ -26,6 +26,7 @@ import { DJ_FADERS, DJ_KNOBS, DJ_RECT_KEYS, DJ_ROUND_KEYS, type DjKnobSpec } fro
 import { knobText } from './gestures';
 import { toDbfs, vuLit, VU_DB } from './math';
 import { DjScreens } from './screens';
+import { samplerOf } from '../sampler/sampler';
 import { DjWaves } from './waveform';
 import { DjSilk, setSilkFxTo } from './silk';
 import { LICENSE_LABEL } from './soundcloud';
@@ -143,6 +144,14 @@ export class DjRig {
     this.unsubs.push(arp.subscribe(() => {
       if (this.syncLights()) this.opts.repaint();
     }));
+    // Le sampler de chaque platine : ses touches s'allument (sa page, une prise, PLAY)
+    for (const d of DJ_DECKS) {
+      const sm = samplerOf(d);
+      const relight = (): void => {
+        if (this.syncLights()) this.opts.repaint();
+      };
+      this.unsubs.push(sm.subscribe(relight), sm.subscribeLive(relight), sm.seq.subscribe(relight));
+    }
     // Les trois bandes d'un morceau arrivent apres lui : l'animateur les pose
     this.unsubs.push(djWaveBands.subscribe(() => this.opts.repaint()));
     void whenFonts().then(() => this.redrawText());
@@ -206,12 +215,23 @@ export class DjRig {
     DJ_RECT_KEYS.forEach((k, i) => {
       const t = k.target;
       let on = this.held.has(k.id);
-      if (t.kind === 'hotcue') on = on || s.deck[t.deck].cues[t.n] !== null;
-      else if (t.kind === 'loop') on = on || s.deck[t.deck].loop === t.beats;
+      if (t.kind === 'smpl') {
+        // Le sampler (2026-10-07) : SMPL orange quand sa page est a l'ecran, REC un instant apres une prise,
+        // PLAY jaune quand il joue, pale quand il a un sample
+        const sm = samplerOf(t.deck);
+        const st = sm.get();
+        const glow =
+          t.fn === 'open'
+            ? on || st.open ? DJ_GLOW.orange : DJ_GLOW.dim
+            : t.fn === 'play'
+              ? on || sm.sounding() ? DJ_GLOW.yellow : st.sample ? paleYellow : DJ_GLOW.dim
+              : on || st.flash === (t.fn === 'recdeck' ? 'deck' : 'mix') || (t.fn === 'recmix' && st.busy) ? DJ_GLOW.orange : DJ_GLOW.dim;
+        if (this.controls.setKeyGlow(i, glow)) changed = true;
+        return;
+      }
+      if (t.kind === 'loop') on = on || s.deck[t.deck].loop === t.beats;
       else if (t.kind === 'time') on = on || s.time === t.d;
       else if (t.kind === 'removedeck') on = on || s.deck[t.deck].remove;
-      // LOOP > SMPL : allume des qu'une platine boucle (il y a quelque chose a exporter)
-      else if (t.kind === 'export') on = on || DJ_DECKS.some((d) => s.deck[d].loop !== null);
       if (this.controls.setKeyGlow(i, on ? DJ_GLOW.orange : DJ_GLOW.dim)) changed = true;
     });
     DJ_ROUND_KEYS.forEach((k, i) => {

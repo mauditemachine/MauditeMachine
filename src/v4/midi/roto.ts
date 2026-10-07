@@ -4,13 +4,15 @@
  * Roto-Control ; j'ai Roto-Setup pour assigner toutes les touches, passe par
  * la pour tout configurer, mets de bonnes couleurs, les bonnes
  * denominations ; les machines sur le Roto devraient s'appeler RYTM, ARP,
- * DECK, MIXER, SMPL"). Six setups MIDI du Roto, un par machine (le MM-DECKS
- * en deux : ses platines, sa table), et LIVE (2026-10-05, Mika : "le mieux
+ * DECK, MIXER, SMPL"). Un setup MIDI du Roto par machine (le MM-DECKS en
+ * deux : ses platines, sa table ; le MM-SMPL est parti le 2026-10-07, son
+ * sampler est dans chaque platine), et LIVE (2026-10-05, Mika : "le mieux
  * possible pour le jeu en live, je veux controler toutes les machines") :
  * la table, le MM-RYTM et ses mutes, le MM-ARP et ses accords, les effets,
  * sans changer de setup :
  * - chacun sur son canal : les potards sur 1 (RYTM), 2 (ARP), 3 (DECK),
- *   4 (MIXER), 5 (SMPL), 6 (LIVE), ses boutons sur le canal + 8 (9 a 14) ;
+ *   4 (MIXER), 6 (LIVE), ses boutons sur le canal + 8 (9 a 14) ; le canal
+ *   5 (SETUP 15) etait celui du MM-SMPL ;
  * - une page du Roto montre huit potards et huit boutons : ils vont
  *   ensemble (la voix choisie et ses boutons de choix, les volumes et leurs
  *   mutes, le filtre et les accords) ;
@@ -41,7 +43,7 @@ import { KIT_MODELS, KIT_MODEL_LABEL, type KitFamily } from '../audio/kit';
 import { samplesOf } from '../audio/samples';
 import { voyKnob, type VoyKnobId } from '../voyager/params';
 
-export type RotoSetupName = 'RYTM' | 'ARP' | 'DECK' | 'MIXER' | 'SMPL' | 'LIVE';
+export type RotoSetupName = 'RYTM' | 'ARP' | 'DECK' | 'MIXER' | 'LIVE';
 
 /** Les couleurs de la palette du Roto utilisees ici (son numero). */
 const C = {
@@ -62,7 +64,7 @@ const C = {
 } as const;
 
 interface Ctl {
-  /** la cible MIDI du site (midi/targets.ts, dj/midi.ts, smpl/midi.ts) */
+  /** la cible MIDI du site (midi/targets.ts, dj/midi.ts) */
   t: string;
   /** son nom sur l'ecran du Roto (12 lettres au plus) */
   n: string;
@@ -97,7 +99,7 @@ const b = (t: string, n: string, c: number, toggle = false): Ctl => ({ t, n, c, 
 const v = (id: VoyKnobId, n: string, c: number): Ctl => k(`voy:knob:${id}`, n, c, steps(id));
 const dj = (id: string, n: string, c: number): Ctl => ({ t: `dj:dj-${id}`, n, c });
 
-/* ---------------- les six setups ---------------- */
+/* ---------------- les setups ---------------- */
 
 /*
  * Une page du Roto montre huit potards ET huit boutons : chaque page va
@@ -277,7 +279,11 @@ function buildSetups(): RotoSetup[] {
       dj(`${d}-cue`, `CUE ${D}`, C.orange),
       dj(`${d}-play`, `PLAY ${D}`, C.yellow),
       dj(`${d}-sync`, `SYNC ${D}`, C.white),
-      ...[1, 2, 3, 4].map((n) => dj(`${d}-hotcue${n}`, `HOT CUE ${n} ${D}`, c)),
+      // Le sampler de la platine (2026-10-07, a la place des hot cues)
+      dj(`${d}-smpl-open`, `SMPL ${D}`, c),
+      dj(`${d}-smpl-recdeck`, `REC DECK ${D}`, C.red),
+      dj(`${d}-smpl-recmix`, `REC MIX ${D}`, C.red),
+      dj(`${d}-smpl-play`, `SMPL PLAY ${D}`, C.yellow),
       dj(`${d}-loop4`, `LOOP 4 ${D}`, C.green),
     ];
   };
@@ -289,7 +295,18 @@ function buildSetups(): RotoSetup[] {
       dj(`${d}-bendp`, `BEND + ${D}`, c),
       dj(`${d}-tempom`, `PITCH - ${D}`, c),
       dj(`${d}-tempop`, `PITCH + ${D}`, c),
-      dj('export', 'LOOP > SMPL', C.orange),
+      b(`dj:smpl:${d}:mode`, `SMPL MODE ${D}`, C.orange),
+    ];
+  };
+
+  /** Le sampler d'une platine : LEVEL, PITCH, FILTER, POSITION. */
+  const smplKnobs = (d: 'a' | 'b', c: number): Ctl[] => {
+    const D = d.toUpperCase();
+    return [
+      k(`dj:smpl:${d}:knob:level`, `SMPL LVL ${D}`, c),
+      mid(k(`dj:smpl:${d}:knob:pitch`, `SMPL PITCH ${D}`, c)),
+      mid(k(`dj:smpl:${d}:knob:filter`, `SMPL FLT ${D}`, C.orange)),
+      k(`dj:smpl:${d}:knob:position`, `SMPL POS ${D}`, C.cyan),
     ];
   };
 
@@ -302,15 +319,9 @@ function buildSetups(): RotoSetup[] {
       ...deckKnobs('b', 4, C.pink),
       // 3 : les effets de la table
       ...FX_PAGE,
-      // 4 : le MM-RYTM et le MM-ARP sous les platines
-      dj('ch1-fader', 'FADER RYTM', C.white),
-      mid(dj('ch1-filter', 'FILTER RYTM', C.orange)),
-      mid(dj('ch1-low', 'LOW RYTM', C.yellow)),
-      mid(dj('ch1-hi', 'HI RYTM', C.yellow)),
-      dj('ch2-fader', 'FADER ARP', C.white),
-      mid(dj('ch2-filter', 'FILTER ARP', C.orange)),
-      mid(dj('ch2-low', 'LOW ARP', C.gold)),
-      mid(dj('ch2-hi', 'HI ARP', C.gold)),
+      // 4 : le sampler de chaque platine (2026-10-07 ; le MM-RYTM et le MM-ARP restent sur le MIXER)
+      ...smplKnobs('a', C.cyan),
+      ...smplKnobs('b', C.pink),
     ],
     buttons: [...deckKeys('a', C.cyan), ...deckKeys('b', C.pink), ...deckMore('a', C.cyan), ...deckMore('b', C.pink)],
   };
@@ -352,7 +363,7 @@ function buildSetups(): RotoSetup[] {
       dj('a-cue', 'CUE A', C.orange),
       dj('b-cue', 'CUE B', C.orange),
       b('nav:machines', 'RYTM + ARP', C.red),
-      dj('export', 'LOOP > SMPL', C.orange),
+      dj('a-smpl-recmix', 'REC MIX A', C.red),
       // 2 : les mutes du MM-RYTM, sous ses EQ
       ...LIVE_MUTES.map(mute),
       // 3 : les platines
@@ -371,47 +382,6 @@ function buildSetups(): RotoSetup[] {
       dj('time4', 'FX TIME 1', C.purple),
       dj('time5', 'FX TIME 2', C.purple),
       dj('time6', 'FX TIME 4', C.purple),
-    ],
-  };
-
-  const SMPL: RotoSetup = {
-    name: 'SMPL',
-    slot: 15,
-    ch: 5,
-    knobs: [
-      // Page 1 : le son ; page 2 : les grains (2026-10-05 : SCAN, la vitesse de la tete, remplace SPREAD)
-      k('smpl:knob:level', 'LEVEL', C.white),
-      mid(k('smpl:knob:pitch', 'PITCH', C.white)),
-      k('smpl:knob:start', 'START', C.yellow),
-      k('smpl:knob:end', 'END', C.yellow),
-      k('smpl:knob:attack', 'ATTACK', C.yellow),
-      k('smpl:knob:release', 'RELEASE', C.yellow),
-      mid(k('smpl:knob:filter', 'FILTER', C.orange)),
-      null,
-      k('smpl:knob:position', 'POSITION', C.cyan),
-      mid(k('smpl:knob:scan', 'SCAN', C.cyan)),
-      k('smpl:knob:size', 'GRAIN SIZE', C.cyan),
-      k('smpl:knob:density', 'DENSITY', C.cyan),
-      k('smpl:knob:spray', 'SPRAY', C.cyan),
-    ],
-    buttons: [
-      b('smpl:key:rec', 'REC', C.red),
-      b('smpl:key:play', 'PLAY', C.yellow),
-      b('smpl:key:stop', 'STOP', C.white),
-      b('smpl:key:file', 'FILE', C.white),
-      b('smpl:key:slices', 'SLICES', C.orange),
-      b('smpl:key:mode', 'MODE', C.orange),
-      b('smpl:key:rev', 'REV', C.orange),
-      b('smpl:key:loop', 'LOOP', C.orange),
-      b('smpl:key:random', 'RANDOM', C.orange),
-      b('smpl:key:clear', 'CLEAR', C.orange),
-      b('smpl:key:edit', 'EDIT', C.yellow),
-      b('smpl:key:save', 'SAVE', C.white),
-      null,
-      null,
-      b('nav:prev', 'PREV MACHINE', C.white),
-      b('nav:next', 'NEXT MACHINE', C.white),
-      ...Array.from({ length: 16 }, (_, i) => b(`smpl:pad:${i}`, `TRIG ${i + 1}`, C.blue)),
     ],
   };
 
@@ -452,21 +422,21 @@ function buildSetups(): RotoSetup[] {
       dj('a-cue', 'CUE A', C.orange),
       dj('b-cue', 'CUE B', C.orange),
       b('nav:machines', 'RYTM + ARP', C.red),
-      dj('export', 'LOOP > SMPL', C.orange),
+      dj('a-smpl-recmix', 'REC MIX A', C.red),
       ...LIVE_MUTES.map(mute),
       ...CHORD_NAMES.map((_, i) => chord(i)),
       dj('time1', 'FX TIME 1/4', C.purple),
       dj('time2', 'FX TIME 1/2', C.purple),
       dj('time4', 'FX TIME 1', C.purple),
       dj('time5', 'FX TIME 2', C.purple),
-      b('smpl:key:play', 'SMPL PLAY', C.yellow),
-      b('smpl:key:stop', 'SMPL STOP', C.white),
+      dj('a-smpl-play', 'SMPL PLAY A', C.yellow),
+      dj('b-smpl-play', 'SMPL PLAY B', C.yellow),
       b('nav:prev', 'PREV MACHINE', C.white),
       b('nav:next', 'NEXT MACHINE', C.white),
     ],
   };
 
-  return [RYTM, ARP, DECK, MIXER, SMPL, LIVE];
+  return [RYTM, ARP, DECK, MIXER, LIVE];
 }
 
 /** Les setups (au chargement ; refaits au telechargement : rotoSetups). */

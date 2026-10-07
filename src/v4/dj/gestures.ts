@@ -26,10 +26,11 @@ import type { HotspotView } from '../scene/hit';
 import { quadToUnit } from '../scene/quad';
 import type { Stage } from '../scene/renderer';
 import { djBrowser } from './browser';
-import { djLoop, djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djHotcue, djHotcueClear, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetFxTo, djSetMaster, djSetPitch, djSetTime, djWaveNext, djExportToSmpl, djAddDeck, fxTarget, fxToOfValue, fxToText, fxToValue } from './actions';
+import { djLoop, djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetFxTo, djSetMaster, djSetPitch, djSetTime, djWaveNext, djAddDeck, fxTarget, fxToOfValue, fxToText, fxToValue } from './actions';
 import { MASTER_DEFAULT } from './engine';
 import { KILL, eqDb, faderGain } from './math';
-import { djFader, djKey, djKnob, type DjFaderSpec, type DjKeySpec, type DjKnobSpec } from './layout';
+import { djFader, djKey, djKnob, type DjFaderSpec, type DjKeySpec, type DjKnobSpec, type DjSmplKey } from './layout';
+import { samplerOf } from '../sampler/sampler';
 import { djState } from './state';
 import { DECK, DECK_SCREEN, DJ_BEZEL, DJ_CHANNELS, DJ_DECKS_ALL, DJ_FADER, UNIT_X, type DjDeck } from './theme';
 
@@ -41,7 +42,6 @@ const CENTER_DETENT = 0.04;
 const VERNIER_PX = 60;
 const AXIS_PX = 4;
 const DOUBLE_TAP_MS = 350;
-const HOLD_CLEAR_MS = 600;
 
 /** Les listes changent avec le nombre de platines : on les lit par id a chaque geste. */
 const knobById = { get: djKnob };
@@ -122,7 +122,22 @@ export const faderNeutral = (f: DjFaderSpec): number => (f.target.kind === 'chan
 
 /* ---------------- touches ---------------- */
 
-const holdTimers = new Map<string, number>();
+/**
+ * Les touches du sampler d'une platine (2026-10-07) : SMPL montre sa page
+ * sur l'ecran (ou revient au morceau), REC DECK et REC MIX prennent un
+ * sample (la page s'ouvre pour le montrer), PLAY le joue.
+ */
+function smplKey(d: DjDeck, fn: DjSmplKey): void {
+  const s = samplerOf(d);
+  if (fn === 'play') {
+    s.playToggle();
+    return;
+  }
+  djBrowser.close(d);
+  if (fn === 'open') s.toggleOpen();
+  else if (fn === 'recdeck') s.recDeck();
+  else s.recMix();
+}
 
 /** Les touches TEMPO tenues : un dixieme, puis en continu apres 0.4 s. */
 const repeats = new Map<string, number>();
@@ -139,21 +154,12 @@ export function keyDown(k: DjKeySpec, stage: Stage | null, coarse = false): void
   else if (t.kind === 'play') {
     if (cueHeld(t.deck)) djKeepPreview(t.deck);
     else djPlay(t.deck);
-  } else if (t.kind === 'hotcue') {
-    djHotcue(t.deck, t.n);
-    holdTimers.set(
-      k.id,
-      window.setTimeout(() => {
-        holdTimers.delete(k.id);
-        djHotcueClear(t.deck, t.n);
-      }, HOLD_CLEAR_MS)
-    );
-  } else if (t.kind === 'bend') djBend(t.deck, t.dir);
+  } else if (t.kind === 'smpl') smplKey(t.deck, t.fn);
+  else if (t.kind === 'bend') djBend(t.deck, t.dir);
   else if (t.kind === 'time') djSetTime(t.d);
   else if (t.kind === 'sync') djSync(t.deck);
   else if (t.kind === 'loop') djLoop(t.deck, t.beats);
   else if (t.kind === 'machines') machinesToggle();
-  else if (t.kind === 'export') void djExportToSmpl();
   else if (t.kind === 'adddeck') djAddDeck();
   else if (t.kind === 'tempo') {
     const step = coarse ? 1 : 0.1;
@@ -173,11 +179,6 @@ export function keyDown(k: DjKeySpec, stage: Stage | null, coarse = false): void
 export function keyUp(k: DjKeySpec, stage: Stage | null, tap: boolean): void {
   stage?.dj?.pressKey(k.id, false);
   const t = k.target;
-  const timer = holdTimers.get(k.id);
-  if (timer !== undefined) {
-    window.clearTimeout(timer);
-    holdTimers.delete(k.id);
-  }
   const again = repeats.get(k.id);
   if (again !== undefined) {
     window.clearTimeout(again);

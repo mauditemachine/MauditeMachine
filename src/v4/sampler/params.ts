@@ -1,22 +1,18 @@
 /**
- * Les potards du MM-SMPL (2026-10-04) : douze, en trois rangees de quatre
- * comme sur la machine, tous de 0 a 1 dans le store (retenus sous
- * mm.v4.smpl.2), convertis ici en grandeurs :
+ * Les reglages du sampler (2026-10-04, nes dans le MM-SMPL ; dans chaque
+ * platine du MM-DECKS depuis le 2026-10-07, Mika : "deplace le contenu de
+ * MM-SMPL dans un DECK, chaque deck doit avoir les memes choses") : douze,
+ * tous de 0 a 1 dans le store (un par platine, retenu sous
+ * mm.v4.dj.smpl.<platine>.params), convertis ici en grandeurs :
  * - SAMPLE : START et END (la region, en part du sample), PITCH (-24 a +24
  *   demi-tons, un cran par demi-ton), LEVEL ;
  * - SHAPE : ATTACK (0.5 ms a 1 s), RELEASE (5 ms a 3 s, au lacher d'un pad
  *   ou de PLAY), FILTER (zero au milieu : passe-bas a gauche, passe-haut a
  *   droite) ;
  * - GRAIN : POSITION (dans la slice d'un pad, dans la region pour PLAY),
- *   SCAN (2026-10-05 : la tete qui avance, de -2x a +2x ; au milieu, figee),
- *   SIZE (10 a 500 ms), DENSITY (2 a 80 grains par seconde), SPRAY (de
- *   combien les grains s'ecartent : leur place, l'image, un peu de hauteur).
- * 2026-10-05 (Mika : "plein de choses ne fonctionnent pas quand on tourne
- * les knobs, et implemente la fonction granulaire") : SCAN prend la place
- * de SPREAD (l'image suit SPRAY) ; nouveaux defauts (un nuage plein, sans
- * hachure ; un RELEASE de 122 ms, les pads s'eteignent au lacher), d'ou la
- * nouvelle cle du store (les reglages d'avant, sous mm.v4.smpl.1, sont
- * laisses).
+ *   SCAN (la tete qui avance, de -2x a +2x ; au milieu, figee), SIZE (10 a
+ *   500 ms), DENSITY (2 a 80 grains par seconde), SPRAY (de combien les
+ *   grains s'ecartent : leur place, l'image, un peu de hauteur).
  */
 
 export type SmplKnobId = 'start' | 'end' | 'pitch' | 'level' | 'attack' | 'release' | 'filter' | 'scan' | 'position' | 'size' | 'density' | 'spray';
@@ -118,60 +114,66 @@ export const smplReadout = (id: SmplKnobId, v: number, dur = 0): string => `${sm
 /* ---------------- le store ---------------- */
 
 export type SmplValues = Record<SmplKnobId, number>;
-const KEY = 'mm.v4.smpl.2';
 const DEFAULTS = Object.fromEntries(SMPL_KNOBS.map((k) => [k.id, k.def])) as SmplValues;
-
-function load(): SmplValues {
-  const v = { ...DEFAULTS };
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    if (!raw) return v;
-    const o = JSON.parse(raw) as Partial<SmplValues>;
-    for (const k of SMPL_KNOBS) {
-      const x = o[k.id];
-      if (typeof x === 'number' && Number.isFinite(x)) v[k.id] = Math.min(1, Math.max(0, x));
-    }
-  } catch {
-    /* rien de retenu */
-  }
-  return v;
-}
-
-let values: SmplValues = typeof window === 'undefined' ? { ...DEFAULTS } : load();
-const listeners = new Set<() => void>();
-let saveTimer = 0;
 
 /** La plus petite region (en part du sample) : START et END ne se croisent jamais. */
 const MIN_SPAN = 0.002;
 
-export const smplParams = {
-  get: (): SmplValues => values,
-  of: (id: SmplKnobId): number => values[id],
-  def: (id: SmplKnobId): number => smplKnob(id).def,
+/** Les douze reglages d'un sampler, retenus sous key. */
+export class SmplParams {
+  private values: SmplValues;
+  private listeners = new Set<() => void>();
+  private saveTimer = 0;
+
+  constructor(private key: string) {
+    this.values = typeof window === 'undefined' ? { ...DEFAULTS } : this.load();
+  }
+
+  private load(): SmplValues {
+    const v = { ...DEFAULTS };
+    try {
+      const raw = window.localStorage.getItem(this.key);
+      if (!raw) return v;
+      const o = JSON.parse(raw) as Partial<SmplValues>;
+      for (const k of SMPL_KNOBS) {
+        const x = o[k.id];
+        if (typeof x === 'number' && Number.isFinite(x)) v[k.id] = Math.min(1, Math.max(0, x));
+      }
+    } catch {
+      /* rien de retenu */
+    }
+    return v;
+  }
+
+  get = (): SmplValues => this.values;
+  of = (id: SmplKnobId): number => this.values[id];
+  def = (id: SmplKnobId): number => smplKnob(id).def;
+
   /** Une valeur (0 a 1, au cran pres) ; true si elle change. */
   set(id: SmplKnobId, v: number): boolean {
     const k = smplKnob(id);
     let x = Math.min(1, Math.max(0, v));
     if (k.steps && k.steps > 1) x = Math.round(x * (k.steps - 1)) / (k.steps - 1);
-    if (id === 'start') x = Math.min(x, values.end - MIN_SPAN);
-    if (id === 'end') x = Math.max(x, values.start + MIN_SPAN);
-    if (values[id] === x) return false;
-    values = { ...values, [id]: x };
-    listeners.forEach((fn) => fn());
-    window.clearTimeout(saveTimer);
-    saveTimer = window.setTimeout(() => {
+    if (id === 'start') x = Math.min(x, this.values.end - MIN_SPAN);
+    if (id === 'end') x = Math.max(x, this.values.start + MIN_SPAN);
+    if (this.values[id] === x) return false;
+    this.values = { ...this.values, [id]: x };
+    this.listeners.forEach((fn) => fn());
+    window.clearTimeout(this.saveTimer);
+    this.saveTimer = window.setTimeout(() => {
       try {
-        window.localStorage.setItem(KEY, JSON.stringify(values));
+        window.localStorage.setItem(this.key, JSON.stringify(this.values));
       } catch {
         /* stockage indisponible : les reglages vivent pour la visite */
       }
     }, 300);
     return true;
-  },
-  subscribe(fn: () => void): () => void {
-    listeners.add(fn);
+  }
+
+  subscribe = (fn: () => void): (() => void) => {
+    this.listeners.add(fn);
     return () => {
-      listeners.delete(fn);
+      this.listeners.delete(fn);
     };
-  },
-};
+  };
+}

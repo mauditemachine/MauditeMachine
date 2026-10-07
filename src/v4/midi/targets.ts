@@ -5,7 +5,7 @@
  * voudrais selectionner un preset de mon Roto-Control, choisir la machine
  * que je veux et avoir les assignations"). Une cible : un parametre (une
  * valeur de 0 a 1, des crans s'il en a), ou une action (un appui ; tenue :
- * appui et relachement, CUE, un pad du MM-SMPL). Son id est stable (les
+ * appui et relachement, CUE, un pad d'un sampler). Son id est stable (les
  * assignations retenues s'y referent) :
  * - MM-RYTM : rytm:enc:<encodeur>, rytm:voice:<voix>:<parametre> (le
  *   parametre d'une voix sans la choisir ; :mute, la voix coupee, 0 ou 1),
@@ -14,11 +14,12 @@
  *   bouton a bascule dont la LED suit) ;
  * - MM-ARP : voy:knob:<potard>, voy:pad:<0-7>, voy:run, clear, random,
  *   edit, open ; voy:running ;
- * - partout : nav:<all|mm808|voy|smpl|dj|prev|next>, nav:machines (PLAY/STOP
+ * - partout : nav:<all|mm808|voy|dj|prev|next>, nav:machines (PLAY/STOP
  *   du MM-RYTM et du MM-ARP ensemble) ;
- * - MM-DECKS (dj:<commande>) et MM-SMPL (smpl:...) : leur code arrive a
- *   part (state/djload.ts, state/smplload.ts) et inscrit ses cibles
- *   (dj/midi.ts, smpl/midi.ts) ; une assignation qui les vise les charge.
+ * - MM-DECKS (dj:<commande>, et dj:smpl:<platine>:... pour le sampler de
+ *   chaque platine, 2026-10-07) : son code arrive a part (state/djload.ts)
+ *   et inscrit ses cibles (dj/midi.ts) ; une assignation qui les vise le
+ *   charge. Le MM-SMPL (smpl:...) est parti le 2026-10-07.
  */
 
 import { anyDial, anyDialValue, clearPattern, dialRange, dialSteps, editToggle, focusMachine, kitDial, machinesToggle, muteToggle, openToggle, padHit, patternTap, randomPattern, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
@@ -194,7 +195,7 @@ function coreTargets(): MidiTarget[] {
   return out;
 }
 
-export const MACHINE_NAME: Readonly<Record<MachineId, string>> = { mm808: 'MM-RYTM', voy: 'MM-ARP', smpl: 'MM-SMPL', dj: 'MM-DECKS' };
+export const MACHINE_NAME: Readonly<Record<MachineId, string>> = { mm808: 'MM-RYTM', voy: 'MM-ARP', dj: 'MM-DECKS' };
 
 let core: Map<string, MidiTarget> | null = null;
 const coreMap = (): Map<string, MidiTarget> => {
@@ -202,11 +203,11 @@ const coreMap = (): Map<string, MidiTarget> => {
   return core;
 };
 
-/** Les cibles des machines chargees a part : MM-DECKS et MM-SMPL (leur liste suit leurs platines, leurs potards). */
+/** Les cibles des machines chargees a part : le MM-DECKS (sa liste suit ses platines). */
 const lazy = new Map<string, { list: () => MidiTarget[]; find: (id: string) => MidiTarget | undefined }>();
 const lazyListeners = new Set<() => void>();
 
-/** Une machine chargee a part inscrit ses cibles (prefixe : dj, smpl). */
+/** Une machine chargee a part inscrit ses cibles (prefixe : dj). */
 export function registerTargets(prefix: string, list: () => MidiTarget[], find: (id: string) => MidiTarget | undefined): void {
   lazy.set(prefix, { list, find });
   lazyListeners.forEach((fn) => fn());
@@ -235,7 +236,7 @@ export function targetsOf(scope: TargetScope): MidiTarget[] {
 }
 
 /** La cible d'une commande de la scene (ui/Hotspots.tsx, MIDI LEARN : on la touche, puis on bouge le controleur). */
-export function targetIdOfHotspot(h: { kind: string; param?: string; rknob?: string; inst?: string; index?: number; vpad?: number; vbtn?: string; vknob?: string; dj?: string; smpl?: string }): string | null {
+export function targetIdOfHotspot(h: { kind: string; param?: string; rknob?: string; inst?: string; index?: number; vpad?: number; vbtn?: string; vknob?: string; dj?: string }): string | null {
   switch (h.kind) {
     case 'encoder':
       return h.param ? `rytm:enc:${h.param}` : null;
@@ -265,12 +266,6 @@ export function targetIdOfHotspot(h: { kind: string; param?: string; rknob?: str
     case 'djfader':
     case 'djkey':
       return h.dj ? `dj:${h.dj}` : null;
-    case 'smplknob':
-      return h.smpl ? `smpl:knob:${h.smpl}` : null;
-    case 'smplkey':
-      return h.smpl ? `smpl:key:${h.smpl}` : null;
-    case 'smplpad':
-      return h.smpl ? `smpl:pad:${h.smpl}` : null;
     default:
       return null;
   }

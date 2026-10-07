@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 5 octobre 2026 depuis le code du site (`npm run docs:midi`) : 328 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 7 octobre 2026 depuis le code du site (`npm run docs:midi`) : 359 cibles, 5 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -23,18 +23,18 @@ Genere le 5 octobre 2026 depuis le code du site (`npm run docs:midi`) : 328 cibl
 - Un potard va de 0 a 127 sur toute sa course. 64 est le neutre exact d'un potard bipolaire (EQ a 0 dB, filtre ouvert, PITCH, TONE, STRETCH, TUNE, GAIN) : le Roto y met un cran.
 - Un selecteur a crans du site est un potard a crans du Roto (hapticMode 1, jusqu'a 16 crans, noms courts) : le cran i de n correspond a la valeur i/(n-1). Le choix de son du kit compte les echantillons du site : KICK SOUND a 9 crans (909, 808, MM, puis les 6 samples), SNARE SOUND a 7.
 - **SAMPLE** (`rytm:enc:vsound`, a droite de VOLUME) choisit le son de la voix selectionnee : son nombre de crans suit la voix (BD 9, SD 7, les autres 3 ; CY et PC n'ont qu'un son). Il est donc continu sur le Roto : le site prend le cran le plus proche. La colonne Crans du catalogue donne son nombre pour la voix selectionnee a la generation (BD par defaut).
-- Une **action** (RANDOM, CLEAR, OPEN, PLAY d'une platine...) part au front montant : un CC qui passe au-dessus de 63, ou une note enfoncee. Une action **maintenue** (CUE, HOT CUE, boucles, pads TRIG du MM-SMPL, bends) dure jusqu'au relachement.
+- Une **action** (RANDOM, CLEAR, OPEN, PLAY d'une platine...) part au front montant : un CC qui passe au-dessus de 63, ou une note enfoncee. Une action **maintenue** (CUE, boucles, pads des samplers, bends) dure jusqu'au relachement.
 - Un **etat** (RUN, un mute, OSC ON) est une valeur 0 ou 1 : sur le Roto un bouton **bascule** (TOGGLE) dont la LED suit le site. Une note fait basculer un parametre.
 
 **Le retour vers le Roto.** Les potards motorises et les LEDs recoivent la valeur du site (meme canal, meme CC) toutes les 50 ms quand elle change (souris, preset, RANDOM, changement de machine), jamais pendant 300 ms apres un geste sur le potard, et un echo qui revient aussitot est ignore. Seulement vers une sortie dont le nom contient « roto », ou un appareil sur lequel tu as appris. Pas de retour pour les boutons d'action.
 
-**FOLLOW.** Toucher un controle d'un setup montre sa machine : RYTM > MM-RYTM, ARP > MM-ARP, DECK et MIXER > MM-DECKS, SMPL > MM-SMPL. LIVE ne change pas de machine.
+**FOLLOW.** Toucher un controle d'un setup montre sa machine : RYTM > MM-RYTM, ARP > MM-ARP, DECK et MIXER > MM-DECKS. LIVE ne change pas de machine.
 
 **Retenu** dans le navigateur (`mm.v4.midi.1`) : assignations apprises, appareils, ROTO (la carte), FEEDBACK, FOLLOW.
 
 ## 2. Le fichier ROTO-SETUP (JSON)
 
-Format des exports de ROTO-SETUP (version 1), un fichier par setup, a importer (File > Import) sur le setup choisi avec SEL. Le panneau MIDI du site les telecharge tout faits (DOWNLOAD THE 6 SETUPS), et ils sont aussi dans ce dossier : `docs/midi/roto/` (`MM RYTM (SETUP 11).json`...).
+Format des exports de ROTO-SETUP (version 1), un fichier par setup, a importer (File > Import) sur le setup choisi avec SEL. Le panneau MIDI du site les telecharge tout faits (DOWNLOAD THE SETUPS), et ils sont aussi dans ce dossier : `docs/midi/roto/` (`MM RYTM (SETUP 11).json`...).
 
 ```json
 {
@@ -161,7 +161,6 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | ARP | MM ARP (SETUP 12).json | 12 | 2 | 10 |
 | DECK | MM DECK (SETUP 13).json | 13 | 3 | 11 |
 | MIXER | MM MIXER (SETUP 14).json | 14 | 4 | 12 |
-| SMPL | MM SMPL (SETUP 15).json | 15 | 5 | 13 |
 | LIVE | MM LIVE (SETUP 16).json | 16 | 6 | 14 |
 
 ### RYTM (SETUP 11, potards canal 1, boutons canal 9)
@@ -332,14 +331,14 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 21 | 3.6 | 3 | 105 | DELAY | violet | dj:dj-fx-delay | EFFECT DELAY | continu |
 | 22 | 3.7 | 3 | 106 | REVERB | violet | dj:dj-fx-reverb | EFFECT REVERB | continu |
 | 23 | 3.8 | 3 | 107 | FX TO | blanc | dj:dj-fxto | EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL | potard a 5 crans : ALL / RYTM / ARP / A / B |
-| 24 | 4.1 | 3 | 108 | FADER RYTM | blanc | dj:dj-ch1-fader | CHANNEL 1 (MM-RYTM) FADER | continu |
-| 25 | 4.2 | 3 | 109 | FILTER RYTM | orange | dj:dj-ch1-filter | CHANNEL 1 (MM-RYTM) FILTER | bipolaire, cran au milieu (64) |
-| 26 | 4.3 | 3 | 110 | LOW RYTM | jaune | dj:dj-ch1-low | CHANNEL 1 (MM-RYTM) EQ LOW | bipolaire, cran au milieu (64) |
-| 27 | 4.4 | 3 | 111 | HI RYTM | jaune | dj:dj-ch1-hi | CHANNEL 1 (MM-RYTM) EQ HI | bipolaire, cran au milieu (64) |
-| 28 | 4.5 | 3 | 112 | FADER ARP | blanc | dj:dj-ch2-fader | CHANNEL 2 (MM-ARP) FADER | continu |
-| 29 | 4.6 | 3 | 113 | FILTER ARP | orange | dj:dj-ch2-filter | CHANNEL 2 (MM-ARP) FILTER | bipolaire, cran au milieu (64) |
-| 30 | 4.7 | 3 | 114 | LOW ARP | or | dj:dj-ch2-low | CHANNEL 2 (MM-ARP) EQ LOW | bipolaire, cran au milieu (64) |
-| 31 | 4.8 | 3 | 115 | HI ARP | or | dj:dj-ch2-hi | CHANNEL 2 (MM-ARP) EQ HI | bipolaire, cran au milieu (64) |
+| 24 | 4.1 | 3 | 108 | SMPL LVL A | cyan | dj:smpl:a:knob:level | SMPL A LEVEL | continu |
+| 25 | 4.2 | 3 | 109 | SMPL PITCH A | cyan | dj:smpl:a:knob:pitch | SMPL A PITCH | bipolaire, cran au milieu (64) |
+| 26 | 4.3 | 3 | 110 | SMPL FLT A | orange | dj:smpl:a:knob:filter | SMPL A FILTER | bipolaire, cran au milieu (64) |
+| 27 | 4.4 | 3 | 111 | SMPL POS A | cyan | dj:smpl:a:knob:position | SMPL A POSITION | continu |
+| 28 | 4.5 | 3 | 112 | SMPL LVL B | rose | dj:smpl:b:knob:level | SMPL B LEVEL | continu |
+| 29 | 4.6 | 3 | 113 | SMPL PITCH B | rose | dj:smpl:b:knob:pitch | SMPL B PITCH | bipolaire, cran au milieu (64) |
+| 30 | 4.7 | 3 | 114 | SMPL FLT B | orange | dj:smpl:b:knob:filter | SMPL B FILTER | bipolaire, cran au milieu (64) |
+| 31 | 4.8 | 3 | 115 | SMPL POS B | cyan | dj:smpl:b:knob:position | SMPL B POSITION | continu |
 
 **Boutons**
 
@@ -348,18 +347,18 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 0 | 1.1 | 11 | 14 | CUE A | orange | dj:dj-a-cue | DECK A CUE (HOLD TO PREVIEW) | maintenu |
 | 1 | 1.2 | 11 | 15 | PLAY A | jaune | dj:dj-a-play | DECK A PLAY OR PAUSE | maintenu |
 | 2 | 1.3 | 11 | 16 | SYNC A | blanc | dj:dj-a-sync | DECK A SYNC: MATCH THE TEMPO YOU HEAR | maintenu |
-| 3 | 1.4 | 11 | 17 | HOT CUE 1 A | cyan | dj:dj-a-hotcue1 | DECK A HOT CUE 1 | maintenu |
-| 4 | 1.5 | 11 | 18 | HOT CUE 2 A | cyan | dj:dj-a-hotcue2 | DECK A HOT CUE 2 | maintenu |
-| 5 | 1.6 | 11 | 19 | HOT CUE 3 A | cyan | dj:dj-a-hotcue3 | DECK A HOT CUE 3 | maintenu |
-| 6 | 1.7 | 11 | 20 | HOT CUE 4 A | cyan | dj:dj-a-hotcue4 | DECK A HOT CUE 4 | maintenu |
+| 3 | 1.4 | 11 | 17 | SMPL A | cyan | dj:dj-a-smpl-open | DECK A SAMPLER: SHOW IT ON THE SCREEN, OR THE TRACK | maintenu |
+| 4 | 1.5 | 11 | 18 | REC DECK A | rouge | dj:dj-a-smpl-recdeck | DECK A SAMPLER: SAMPLE THE DECK (ITS LOOP, OR THE LAST BEATS) | maintenu |
+| 5 | 1.6 | 11 | 19 | REC MIX A | rouge | dj:dj-a-smpl-recmix | DECK A SAMPLER: SAMPLE THE MIXER OUTPUT (THE LAST BEATS) | maintenu |
+| 6 | 1.7 | 11 | 20 | SMPL PLAY A | jaune | dj:dj-a-smpl-play | DECK A SAMPLER: PLAY OR STOP | maintenu |
 | 7 | 1.8 | 11 | 21 | LOOP 4 A | vert | dj:dj-a-loop4 | DECK A LOOP 4 BEATS (PRESS AGAIN TO EXIT) | maintenu |
 | 8 | 2.1 | 11 | 22 | CUE B | orange | dj:dj-b-cue | DECK B CUE (HOLD TO PREVIEW) | maintenu |
 | 9 | 2.2 | 11 | 23 | PLAY B | jaune | dj:dj-b-play | DECK B PLAY OR PAUSE | maintenu |
 | 10 | 2.3 | 11 | 24 | SYNC B | blanc | dj:dj-b-sync | DECK B SYNC: MATCH THE TEMPO YOU HEAR | maintenu |
-| 11 | 2.4 | 11 | 25 | HOT CUE 1 B | rose | dj:dj-b-hotcue1 | DECK B HOT CUE 1 | maintenu |
-| 12 | 2.5 | 11 | 26 | HOT CUE 2 B | rose | dj:dj-b-hotcue2 | DECK B HOT CUE 2 | maintenu |
-| 13 | 2.6 | 11 | 27 | HOT CUE 3 B | rose | dj:dj-b-hotcue3 | DECK B HOT CUE 3 | maintenu |
-| 14 | 2.7 | 11 | 28 | HOT CUE 4 B | rose | dj:dj-b-hotcue4 | DECK B HOT CUE 4 | maintenu |
+| 11 | 2.4 | 11 | 25 | SMPL B | rose | dj:dj-b-smpl-open | DECK B SAMPLER: SHOW IT ON THE SCREEN, OR THE TRACK | maintenu |
+| 12 | 2.5 | 11 | 26 | REC DECK B | rouge | dj:dj-b-smpl-recdeck | DECK B SAMPLER: SAMPLE THE DECK (ITS LOOP, OR THE LAST BEATS) | maintenu |
+| 13 | 2.6 | 11 | 27 | REC MIX B | rouge | dj:dj-b-smpl-recmix | DECK B SAMPLER: SAMPLE THE MIXER OUTPUT (THE LAST BEATS) | maintenu |
+| 14 | 2.7 | 11 | 28 | SMPL PLAY B | jaune | dj:dj-b-smpl-play | DECK B SAMPLER: PLAY OR STOP | maintenu |
 | 15 | 2.8 | 11 | 29 | LOOP 4 B | vert | dj:dj-b-loop4 | DECK B LOOP 4 BEATS (PRESS AGAIN TO EXIT) | maintenu |
 | 16 | 3.1 | 11 | 30 | LOOP 1 A | vert | dj:dj-a-loop1 | DECK A LOOP 1 BEAT (PRESS AGAIN TO EXIT) | maintenu |
 | 17 | 3.2 | 11 | 31 | LOOP 2 A | vert | dj:dj-a-loop2 | DECK A LOOP 2 BEATS (PRESS AGAIN TO EXIT) | maintenu |
@@ -368,7 +367,7 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 20 | 3.5 | 11 | 104 | BEND + A | cyan | dj:dj-a-bendp | DECK A BEND FASTER (HOLD) | maintenu |
 | 21 | 3.6 | 11 | 105 | PITCH - A | cyan | dj:dj-a-tempom | DECK A PITCH DOWN 0.1 BPM (HOLD TO REPEAT) | maintenu |
 | 22 | 3.7 | 11 | 106 | PITCH + A | cyan | dj:dj-a-tempop | DECK A PITCH UP 0.1 BPM (HOLD TO REPEAT) | maintenu |
-| 23 | 3.8 | 11 | 107 | LOOP > SMPL | orange | dj:dj-export | EXPORT THE LOOP TO THE MM-SMPL AND EDIT IT THERE, KEY T | maintenu |
+| 23 | 3.8 | 11 | 107 | SMPL MODE A | orange | dj:smpl:a:mode | SMPL A MODE | appui |
 | 24 | 4.1 | 11 | 108 | LOOP 1 B | vert | dj:dj-b-loop1 | DECK B LOOP 1 BEAT (PRESS AGAIN TO EXIT) | maintenu |
 | 25 | 4.2 | 11 | 109 | LOOP 2 B | vert | dj:dj-b-loop2 | DECK B LOOP 2 BEATS (PRESS AGAIN TO EXIT) | maintenu |
 | 26 | 4.3 | 11 | 110 | LOOP 8 B | vert | dj:dj-b-loop8 | DECK B LOOP 8 BEATS (PRESS AGAIN TO EXIT) | maintenu |
@@ -376,7 +375,7 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 28 | 4.5 | 11 | 112 | BEND + B | rose | dj:dj-b-bendp | DECK B BEND FASTER (HOLD) | maintenu |
 | 29 | 4.6 | 11 | 113 | PITCH - B | rose | dj:dj-b-tempom | DECK B PITCH DOWN 0.1 BPM (HOLD TO REPEAT) | maintenu |
 | 30 | 4.7 | 11 | 114 | PITCH + B | rose | dj:dj-b-tempop | DECK B PITCH UP 0.1 BPM (HOLD TO REPEAT) | maintenu |
-| 31 | 4.8 | 11 | 115 | LOOP > SMPL | orange | dj:dj-export | EXPORT THE LOOP TO THE MM-SMPL AND EDIT IT THERE, KEY T | maintenu |
+| 31 | 4.8 | 11 | 115 | SMPL MODE B | orange | dj:smpl:b:mode | SMPL B MODE | appui |
 
 ### MIXER (SETUP 14, potards canal 4, boutons canal 12)
 
@@ -428,7 +427,7 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 4 | 1.5 | 12 | 18 | CUE A | orange | dj:dj-a-cue | DECK A CUE (HOLD TO PREVIEW) | maintenu |
 | 5 | 1.6 | 12 | 19 | CUE B | orange | dj:dj-b-cue | DECK B CUE (HOLD TO PREVIEW) | maintenu |
 | 6 | 1.7 | 12 | 20 | RYTM + ARP | rouge | nav:machines | PLAY/STOP RYTM + ARP | appui |
-| 7 | 1.8 | 12 | 21 | LOOP > SMPL | orange | dj:dj-export | EXPORT THE LOOP TO THE MM-SMPL AND EDIT IT THERE, KEY T | maintenu |
+| 7 | 1.8 | 12 | 21 | REC MIX A | rouge | dj:dj-a-smpl-recmix | DECK A SAMPLER: SAMPLE THE MIXER OUTPUT (THE LAST BEATS) | maintenu |
 | 8 | 2.1 | 12 | 22 | MUTE BD | rose | rytm:voice:BD:mute | MUTE BD | bascule (la LED suit le site) |
 | 9 | 2.2 | 12 | 23 | MUTE SD | rose | rytm:voice:SD:mute | MUTE SD | bascule (la LED suit le site) |
 | 10 | 2.3 | 12 | 24 | MUTE CH | rose | rytm:voice:CH:mute | MUTE CH | bascule (la LED suit le site) |
@@ -451,60 +450,6 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 27 | 4.4 | 12 | 111 | FX TIME 1 | violet | dj:dj-time4 | EFFECTS TIME 1 BEAT | maintenu |
 | 28 | 4.5 | 12 | 112 | FX TIME 2 | violet | dj:dj-time5 | EFFECTS TIME 2 BEATS | maintenu |
 | 29 | 4.6 | 12 | 113 | FX TIME 4 | violet | dj:dj-time6 | EFFECTS TIME 4 BEATS | maintenu |
-
-### SMPL (SETUP 15, potards canal 5, boutons canal 13)
-
-**Potards**
-
-| n | Page.pos | Canal | CC | Nom Roto | Couleur | Cible (id) | Ce que ca fait | Type |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 0 | 1.1 | 5 | 14 | LEVEL | blanc | smpl:knob:level | LEVEL | continu |
-| 1 | 1.2 | 5 | 15 | PITCH | blanc | smpl:knob:pitch | PITCH | bipolaire, cran au milieu (64) |
-| 2 | 1.3 | 5 | 16 | START | jaune | smpl:knob:start | START | continu |
-| 3 | 1.4 | 5 | 17 | END | jaune | smpl:knob:end | END | continu |
-| 4 | 1.5 | 5 | 18 | ATTACK | jaune | smpl:knob:attack | ATTACK | continu |
-| 5 | 1.6 | 5 | 19 | RELEASE | jaune | smpl:knob:release | RELEASE | continu |
-| 6 | 1.7 | 5 | 20 | FILTER | orange | smpl:knob:filter | FILTER | bipolaire, cran au milieu (64) |
-| 8 | 2.1 | 5 | 22 | POSITION | cyan | smpl:knob:position | POSITION | continu |
-| 9 | 2.2 | 5 | 23 | SCAN | cyan | smpl:knob:scan | SCAN | bipolaire, cran au milieu (64) |
-| 10 | 2.3 | 5 | 24 | GRAIN SIZE | cyan | smpl:knob:size | SIZE | continu |
-| 11 | 2.4 | 5 | 25 | DENSITY | cyan | smpl:knob:density | DENSITY | continu |
-| 12 | 2.5 | 5 | 26 | SPRAY | cyan | smpl:knob:spray | SPRAY | continu |
-
-**Boutons**
-
-| n | Page.pos | Canal | CC | Nom Roto | Couleur | Cible (id) | Ce que ca fait | Type |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 0 | 1.1 | 13 | 14 | REC | rouge | smpl:key:rec | REC | appui |
-| 1 | 1.2 | 13 | 15 | PLAY | jaune | smpl:key:play | PLAY | appui |
-| 2 | 1.3 | 13 | 16 | STOP | blanc | smpl:key:stop | STOP | appui |
-| 3 | 1.4 | 13 | 17 | FILE | blanc | smpl:key:file | FILE | appui |
-| 4 | 1.5 | 13 | 18 | SLICES | orange | smpl:key:slices | SLICES | appui |
-| 5 | 1.6 | 13 | 19 | MODE | orange | smpl:key:mode | MODE | appui |
-| 6 | 1.7 | 13 | 20 | REV | orange | smpl:key:rev | REV | appui |
-| 7 | 1.8 | 13 | 21 | LOOP | orange | smpl:key:loop | LOOP | appui |
-| 8 | 2.1 | 13 | 22 | RANDOM | orange | smpl:key:random | RANDOM | appui |
-| 9 | 2.2 | 13 | 23 | CLEAR | orange | smpl:key:clear | CLEAR | appui |
-| 10 | 2.3 | 13 | 24 | EDIT | jaune | smpl:key:edit | EDIT | appui |
-| 11 | 2.4 | 13 | 25 | SAVE | blanc | smpl:key:save | SAVE | appui |
-| 14 | 2.7 | 13 | 28 | PREV MACHINE | blanc | nav:prev | PREVIOUS MACHINE | appui |
-| 15 | 2.8 | 13 | 29 | NEXT MACHINE | blanc | nav:next | NEXT MACHINE | appui |
-| 16 | 3.1 | 13 | 30 | TRIG 1 | bleu | smpl:pad:0 | TRIG 1 | maintenu |
-| 17 | 3.2 | 13 | 31 | TRIG 2 | bleu | smpl:pad:1 | TRIG 2 | maintenu |
-| 18 | 3.3 | 13 | 102 | TRIG 3 | bleu | smpl:pad:2 | TRIG 3 | maintenu |
-| 19 | 3.4 | 13 | 103 | TRIG 4 | bleu | smpl:pad:3 | TRIG 4 | maintenu |
-| 20 | 3.5 | 13 | 104 | TRIG 5 | bleu | smpl:pad:4 | TRIG 5 | maintenu |
-| 21 | 3.6 | 13 | 105 | TRIG 6 | bleu | smpl:pad:5 | TRIG 6 | maintenu |
-| 22 | 3.7 | 13 | 106 | TRIG 7 | bleu | smpl:pad:6 | TRIG 7 | maintenu |
-| 23 | 3.8 | 13 | 107 | TRIG 8 | bleu | smpl:pad:7 | TRIG 8 | maintenu |
-| 24 | 4.1 | 13 | 108 | TRIG 9 | bleu | smpl:pad:8 | TRIG 9 | maintenu |
-| 25 | 4.2 | 13 | 109 | TRIG 10 | bleu | smpl:pad:9 | TRIG 10 | maintenu |
-| 26 | 4.3 | 13 | 110 | TRIG 11 | bleu | smpl:pad:10 | TRIG 11 | maintenu |
-| 27 | 4.4 | 13 | 111 | TRIG 12 | bleu | smpl:pad:11 | TRIG 12 | maintenu |
-| 28 | 4.5 | 13 | 112 | TRIG 13 | bleu | smpl:pad:12 | TRIG 13 | maintenu |
-| 29 | 4.6 | 13 | 113 | TRIG 14 | bleu | smpl:pad:13 | TRIG 14 | maintenu |
-| 30 | 4.7 | 13 | 114 | TRIG 15 | bleu | smpl:pad:14 | TRIG 15 | maintenu |
-| 31 | 4.8 | 13 | 115 | TRIG 16 | bleu | smpl:pad:15 | TRIG 16 | maintenu |
 
 ### LIVE (SETUP 16, potards canal 6, boutons canal 14)
 
@@ -556,7 +501,7 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 4 | 1.5 | 14 | 18 | CUE A | orange | dj:dj-a-cue | DECK A CUE (HOLD TO PREVIEW) | maintenu |
 | 5 | 1.6 | 14 | 19 | CUE B | orange | dj:dj-b-cue | DECK B CUE (HOLD TO PREVIEW) | maintenu |
 | 6 | 1.7 | 14 | 20 | RYTM + ARP | rouge | nav:machines | PLAY/STOP RYTM + ARP | appui |
-| 7 | 1.8 | 14 | 21 | LOOP > SMPL | orange | dj:dj-export | EXPORT THE LOOP TO THE MM-SMPL AND EDIT IT THERE, KEY T | maintenu |
+| 7 | 1.8 | 14 | 21 | REC MIX A | rouge | dj:dj-a-smpl-recmix | DECK A SAMPLER: SAMPLE THE MIXER OUTPUT (THE LAST BEATS) | maintenu |
 | 8 | 2.1 | 14 | 22 | MUTE BD | rose | rytm:voice:BD:mute | MUTE BD | bascule (la LED suit le site) |
 | 9 | 2.2 | 14 | 23 | MUTE SD | rose | rytm:voice:SD:mute | MUTE SD | bascule (la LED suit le site) |
 | 10 | 2.3 | 14 | 24 | MUTE CH | rose | rytm:voice:CH:mute | MUTE CH | bascule (la LED suit le site) |
@@ -577,14 +522,14 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 25 | 4.2 | 14 | 109 | FX TIME 1/2 | violet | dj:dj-time2 | EFFECTS TIME 1/2 BEATS | maintenu |
 | 26 | 4.3 | 14 | 110 | FX TIME 1 | violet | dj:dj-time4 | EFFECTS TIME 1 BEAT | maintenu |
 | 27 | 4.4 | 14 | 111 | FX TIME 2 | violet | dj:dj-time5 | EFFECTS TIME 2 BEATS | maintenu |
-| 28 | 4.5 | 14 | 112 | SMPL PLAY | jaune | smpl:key:play | PLAY | appui |
-| 29 | 4.6 | 14 | 113 | SMPL STOP | blanc | smpl:key:stop | STOP | appui |
+| 28 | 4.5 | 14 | 112 | SMPL PLAY A | jaune | dj:dj-a-smpl-play | DECK A SAMPLER: PLAY OR STOP | maintenu |
+| 29 | 4.6 | 14 | 113 | SMPL PLAY B | jaune | dj:dj-b-smpl-play | DECK B SAMPLER: PLAY OR STOP | maintenu |
 | 30 | 4.7 | 14 | 114 | PREV MACHINE | blanc | nav:prev | PREVIOUS MACHINE | appui |
 | 31 | 4.8 | 14 | 115 | NEXT MACHINE | blanc | nav:next | NEXT MACHINE | appui |
 
 ## 4. Le catalogue complet des cibles
 
-Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI LEARN, ou le fichier d'assignations du chapitre 5). La colonne « Dans » dit dans quels setups du Roto elle est deja placee. La cible d'un id est dans la machine de son prefixe : `rytm:` MM-RYTM (scope `mm808`), `voy:` MM-ARP (`voy`), `smpl:` MM-SMPL (`smpl`), `dj:` MM-DECKS (`dj`), `nav:` navigation (`global`).
+Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI LEARN, ou le fichier d'assignations du chapitre 5). La colonne « Dans » dit dans quels setups du Roto elle est deja placee. La cible d'un id est dans la machine de son prefixe : `rytm:` MM-RYTM (scope `mm808`), `voy:` MM-ARP (`voy`), `dj:` MM-DECKS (`dj`, `dj:smpl:<platine>:` pour le sampler de chaque platine), `nav:` navigation (`global`).
 
 ### MM-RYTM (scope `mm808`, 139 cibles)
 
@@ -801,66 +746,20 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:edit` | EDIT | appui |  | ARP |
 | `voy:open` | OPEN | appui |  | ARP |
 
-### MM-SMPL (scope `smpl`, 41 cibles)
-
-| id | Nom | Type | Crans | Dans |
-| --- | --- | --- | --- | --- |
-| `smpl:knob:start` | START | valeur 0 a 127 |  | SMPL |
-| `smpl:knob:end` | END | valeur 0 a 127 |  | SMPL |
-| `smpl:knob:pitch` | PITCH | valeur 0 a 127 | 49 | SMPL |
-| `smpl:knob:level` | LEVEL | valeur 0 a 127 |  | SMPL |
-| `smpl:knob:attack` | ATTACK | valeur 0 a 127 |  | SMPL |
-| `smpl:knob:release` | RELEASE | valeur 0 a 127 |  | SMPL |
-| `smpl:knob:filter` | FILTER | valeur 0 a 127 |  | SMPL |
-| `smpl:knob:position` | POSITION | valeur 0 a 127 |  | SMPL |
-| `smpl:knob:scan` | SCAN | valeur 0 a 127 |  | SMPL |
-| `smpl:knob:size` | SIZE | valeur 0 a 127 |  | SMPL |
-| `smpl:knob:density` | DENSITY | valeur 0 a 127 |  | SMPL |
-| `smpl:knob:spray` | SPRAY | valeur 0 a 127 |  | SMPL |
-| `smpl:key:rec` | REC | appui |  | SMPL |
-| `smpl:key:play` | PLAY | appui |  | SMPL, LIVE |
-| `smpl:key:stop` | STOP | appui |  | SMPL, LIVE |
-| `smpl:key:file` | FILE | appui |  | SMPL |
-| `smpl:key:slices` | SLICES | appui |  | SMPL |
-| `smpl:key:mode` | MODE | appui |  | SMPL |
-| `smpl:key:rev` | REV | appui |  | SMPL |
-| `smpl:key:loop` | LOOP | appui |  | SMPL |
-| `smpl:key:random` | RANDOM | appui |  | SMPL |
-| `smpl:key:clear` | CLEAR | appui |  | SMPL |
-| `smpl:key:edit` | EDIT | appui |  | SMPL |
-| `smpl:key:save` | SAVE | appui |  | SMPL |
-| `smpl:open` | OPEN | appui |  |  |
-| `smpl:pad:0` | TRIG 1 | maintenu (appui puis relachement) |  | SMPL |
-| `smpl:pad:1` | TRIG 2 | maintenu (appui puis relachement) |  | SMPL |
-| `smpl:pad:2` | TRIG 3 | maintenu (appui puis relachement) |  | SMPL |
-| `smpl:pad:3` | TRIG 4 | maintenu (appui puis relachement) |  | SMPL |
-| `smpl:pad:4` | TRIG 5 | maintenu (appui puis relachement) |  | SMPL |
-| `smpl:pad:5` | TRIG 6 | maintenu (appui puis relachement) |  | SMPL |
-| `smpl:pad:6` | TRIG 7 | maintenu (appui puis relachement) |  | SMPL |
-| `smpl:pad:7` | TRIG 8 | maintenu (appui puis relachement) |  | SMPL |
-| `smpl:pad:8` | TRIG 9 | maintenu (appui puis relachement) |  | SMPL |
-| `smpl:pad:9` | TRIG 10 | maintenu (appui puis relachement) |  | SMPL |
-| `smpl:pad:10` | TRIG 11 | maintenu (appui puis relachement) |  | SMPL |
-| `smpl:pad:11` | TRIG 12 | maintenu (appui puis relachement) |  | SMPL |
-| `smpl:pad:12` | TRIG 13 | maintenu (appui puis relachement) |  | SMPL |
-| `smpl:pad:13` | TRIG 14 | maintenu (appui puis relachement) |  | SMPL |
-| `smpl:pad:14` | TRIG 15 | maintenu (appui puis relachement) |  | SMPL |
-| `smpl:pad:15` | TRIG 16 | maintenu (appui puis relachement) |  | SMPL |
-
-### MM-DECKS (table, platines, effets) (scope `dj`, 74 cibles)
+### MM-DECKS (table, platines, samplers, effets) (scope `dj`, 147 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
 | `dj:dj-ch1-gain` | CHANNEL 1 (MM-RYTM) GAIN | valeur 0 a 127 |  | MIXER |
-| `dj:dj-ch1-hi` | CHANNEL 1 (MM-RYTM) EQ HI | valeur 0 a 127 |  | DECK, MIXER |
+| `dj:dj-ch1-hi` | CHANNEL 1 (MM-RYTM) EQ HI | valeur 0 a 127 |  | MIXER |
 | `dj:dj-ch1-mid` | CHANNEL 1 (MM-RYTM) EQ MID | valeur 0 a 127 |  | MIXER |
-| `dj:dj-ch1-low` | CHANNEL 1 (MM-RYTM) EQ LOW | valeur 0 a 127 |  | DECK, MIXER |
-| `dj:dj-ch1-filter` | CHANNEL 1 (MM-RYTM) FILTER | valeur 0 a 127 |  | DECK, MIXER, LIVE |
+| `dj:dj-ch1-low` | CHANNEL 1 (MM-RYTM) EQ LOW | valeur 0 a 127 |  | MIXER |
+| `dj:dj-ch1-filter` | CHANNEL 1 (MM-RYTM) FILTER | valeur 0 a 127 |  | MIXER, LIVE |
 | `dj:dj-ch2-gain` | CHANNEL 2 (MM-ARP) GAIN | valeur 0 a 127 |  | MIXER |
-| `dj:dj-ch2-hi` | CHANNEL 2 (MM-ARP) EQ HI | valeur 0 a 127 |  | DECK, MIXER |
+| `dj:dj-ch2-hi` | CHANNEL 2 (MM-ARP) EQ HI | valeur 0 a 127 |  | MIXER |
 | `dj:dj-ch2-mid` | CHANNEL 2 (MM-ARP) EQ MID | valeur 0 a 127 |  | MIXER |
-| `dj:dj-ch2-low` | CHANNEL 2 (MM-ARP) EQ LOW | valeur 0 a 127 |  | DECK, MIXER |
-| `dj:dj-ch2-filter` | CHANNEL 2 (MM-ARP) FILTER | valeur 0 a 127 |  | DECK, MIXER, LIVE |
+| `dj:dj-ch2-low` | CHANNEL 2 (MM-ARP) EQ LOW | valeur 0 a 127 |  | MIXER |
+| `dj:dj-ch2-filter` | CHANNEL 2 (MM-ARP) FILTER | valeur 0 a 127 |  | MIXER, LIVE |
 | `dj:dj-ch3-gain` | CHANNEL 3 (DECK A) GAIN | valeur 0 a 127 |  | DECK, MIXER |
 | `dj:dj-ch3-hi` | CHANNEL 3 (DECK A) EQ HI | valeur 0 a 127 |  | DECK, MIXER |
 | `dj:dj-ch3-mid` | CHANNEL 3 (DECK A) EQ MID | valeur 0 a 127 |  | DECK, MIXER |
@@ -880,16 +779,16 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `dj:dj-fx-reverb` | EFFECT REVERB | valeur 0 a 127 |  | DECK, MIXER, LIVE |
 | `dj:dj-fxto` | EFFECTS TO: ALL CHANNELS, OR ONE CHANNEL | valeur 0 a 127 | 5 | DECK, MIXER, LIVE |
 | `dj:dj-master` | MASTER VOLUME | valeur 0 a 127 |  | DECK |
-| `dj:dj-ch1-fader` | CHANNEL 1 (MM-RYTM) FADER | valeur 0 a 127 |  | DECK, MIXER, LIVE |
-| `dj:dj-ch2-fader` | CHANNEL 2 (MM-ARP) FADER | valeur 0 a 127 |  | DECK, MIXER, LIVE |
+| `dj:dj-ch1-fader` | CHANNEL 1 (MM-RYTM) FADER | valeur 0 a 127 |  | MIXER, LIVE |
+| `dj:dj-ch2-fader` | CHANNEL 2 (MM-ARP) FADER | valeur 0 a 127 |  | MIXER, LIVE |
 | `dj:dj-ch3-fader` | CHANNEL 3 (DECK A) FADER | valeur 0 a 127 |  | DECK, MIXER, LIVE |
 | `dj:dj-ch4-fader` | CHANNEL 4 (DECK B) FADER | valeur 0 a 127 |  | DECK, MIXER, LIVE |
 | `dj:dj-a-pitch` | DECK A PITCH | valeur 0 a 127 |  | DECK |
 | `dj:dj-b-pitch` | DECK B PITCH | valeur 0 a 127 |  | DECK |
-| `dj:dj-a-hotcue1` | DECK A HOT CUE 1 | maintenu (appui puis relachement) |  | DECK |
-| `dj:dj-a-hotcue2` | DECK A HOT CUE 2 | maintenu (appui puis relachement) |  | DECK |
-| `dj:dj-a-hotcue3` | DECK A HOT CUE 3 | maintenu (appui puis relachement) |  | DECK |
-| `dj:dj-a-hotcue4` | DECK A HOT CUE 4 | maintenu (appui puis relachement) |  | DECK |
+| `dj:dj-a-smpl-open` | DECK A SAMPLER: SHOW IT ON THE SCREEN, OR THE TRACK | maintenu (appui puis relachement) |  | DECK |
+| `dj:dj-a-smpl-recdeck` | DECK A SAMPLER: SAMPLE THE DECK (ITS LOOP, OR THE LAST BEATS) | maintenu (appui puis relachement) |  | DECK |
+| `dj:dj-a-smpl-recmix` | DECK A SAMPLER: SAMPLE THE MIXER OUTPUT (THE LAST BEATS) | maintenu (appui puis relachement) |  | DECK, MIXER, LIVE |
+| `dj:dj-a-smpl-play` | DECK A SAMPLER: PLAY OR STOP | maintenu (appui puis relachement) |  | DECK, LIVE |
 | `dj:dj-a-loop1` | DECK A LOOP 1 BEAT (PRESS AGAIN TO EXIT) | maintenu (appui puis relachement) |  | DECK |
 | `dj:dj-a-loop2` | DECK A LOOP 2 BEATS (PRESS AGAIN TO EXIT) | maintenu (appui puis relachement) |  | DECK |
 | `dj:dj-a-loop4` | DECK A LOOP 4 BEATS (PRESS AGAIN TO EXIT) | maintenu (appui puis relachement) |  | DECK, MIXER |
@@ -901,10 +800,10 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `dj:dj-a-tempom` | DECK A PITCH DOWN 0.1 BPM (HOLD TO REPEAT) | maintenu (appui puis relachement) |  | DECK |
 | `dj:dj-a-tempop` | DECK A PITCH UP 0.1 BPM (HOLD TO REPEAT) | maintenu (appui puis relachement) |  | DECK |
 | `dj:dj-a-sync` | DECK A SYNC: MATCH THE TEMPO YOU HEAR | maintenu (appui puis relachement) |  | DECK, MIXER |
-| `dj:dj-b-hotcue1` | DECK B HOT CUE 1 | maintenu (appui puis relachement) |  | DECK |
-| `dj:dj-b-hotcue2` | DECK B HOT CUE 2 | maintenu (appui puis relachement) |  | DECK |
-| `dj:dj-b-hotcue3` | DECK B HOT CUE 3 | maintenu (appui puis relachement) |  | DECK |
-| `dj:dj-b-hotcue4` | DECK B HOT CUE 4 | maintenu (appui puis relachement) |  | DECK |
+| `dj:dj-b-smpl-open` | DECK B SAMPLER: SHOW IT ON THE SCREEN, OR THE TRACK | maintenu (appui puis relachement) |  | DECK |
+| `dj:dj-b-smpl-recdeck` | DECK B SAMPLER: SAMPLE THE DECK (ITS LOOP, OR THE LAST BEATS) | maintenu (appui puis relachement) |  | DECK |
+| `dj:dj-b-smpl-recmix` | DECK B SAMPLER: SAMPLE THE MIXER OUTPUT (THE LAST BEATS) | maintenu (appui puis relachement) |  | DECK |
+| `dj:dj-b-smpl-play` | DECK B SAMPLER: PLAY OR STOP | maintenu (appui puis relachement) |  | DECK, LIVE |
 | `dj:dj-b-loop1` | DECK B LOOP 1 BEAT (PRESS AGAIN TO EXIT) | maintenu (appui puis relachement) |  | DECK |
 | `dj:dj-b-loop2` | DECK B LOOP 2 BEATS (PRESS AGAIN TO EXIT) | maintenu (appui puis relachement) |  | DECK |
 | `dj:dj-b-loop4` | DECK B LOOP 4 BEATS (PRESS AGAIN TO EXIT) | maintenu (appui puis relachement) |  | DECK, MIXER |
@@ -923,20 +822,92 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `dj:dj-time5` | EFFECTS TIME 2 BEATS | maintenu (appui puis relachement) |  | MIXER, LIVE |
 | `dj:dj-time6` | EFFECTS TIME 4 BEATS | maintenu (appui puis relachement) |  | MIXER |
 | `dj:dj-machines` | PLAY OR STOP THE MM-RYTM AND THE MM-ARP TOGETHER, KEY G | maintenu (appui puis relachement) |  |  |
-| `dj:dj-export` | EXPORT THE LOOP TO THE MM-SMPL AND EDIT IT THERE, KEY T | maintenu (appui puis relachement) |  | DECK, MIXER, LIVE |
 | `dj:dj-adddeck` | ADD A DECK, WITH ITS CHANNEL ON THE MIXER | maintenu (appui puis relachement) |  | MIXER |
+| `dj:smpl:a:knob:start` | SMPL A START | valeur 0 a 127 |  |  |
+| `dj:smpl:a:knob:end` | SMPL A END | valeur 0 a 127 |  |  |
+| `dj:smpl:a:knob:pitch` | SMPL A PITCH | valeur 0 a 127 | 49 | DECK |
+| `dj:smpl:a:knob:level` | SMPL A LEVEL | valeur 0 a 127 |  | DECK |
+| `dj:smpl:a:knob:attack` | SMPL A ATTACK | valeur 0 a 127 |  |  |
+| `dj:smpl:a:knob:release` | SMPL A RELEASE | valeur 0 a 127 |  |  |
+| `dj:smpl:a:knob:filter` | SMPL A FILTER | valeur 0 a 127 |  | DECK |
+| `dj:smpl:a:knob:position` | SMPL A POSITION | valeur 0 a 127 |  | DECK |
+| `dj:smpl:a:knob:scan` | SMPL A SCAN | valeur 0 a 127 |  |  |
+| `dj:smpl:a:knob:size` | SMPL A SIZE | valeur 0 a 127 |  |  |
+| `dj:smpl:a:knob:density` | SMPL A DENSITY | valeur 0 a 127 |  |  |
+| `dj:smpl:a:knob:spray` | SMPL A SPRAY | valeur 0 a 127 |  |  |
+| `dj:smpl:a:mode` | SMPL A MODE | appui |  | DECK |
+| `dj:smpl:a:slices` | SMPL A SLICES | appui |  |  |
+| `dj:smpl:a:len` | SMPL A LEN | appui |  |  |
+| `dj:smpl:a:rev` | SMPL A REV | appui |  |  |
+| `dj:smpl:a:loop` | SMPL A LOOP | appui |  |  |
+| `dj:smpl:a:random` | SMPL A RANDOM | appui |  |  |
+| `dj:smpl:a:clear` | SMPL A CLEAR | appui |  |  |
+| `dj:smpl:a:save` | SMPL A SAVE | appui |  |  |
+| `dj:smpl:a:stop` | SMPL A STOP | appui |  |  |
+| `dj:smpl:a:pad:0` | SMPL A PAD 1 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:a:pad:1` | SMPL A PAD 2 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:a:pad:2` | SMPL A PAD 3 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:a:pad:3` | SMPL A PAD 4 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:a:pad:4` | SMPL A PAD 5 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:a:pad:5` | SMPL A PAD 6 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:a:pad:6` | SMPL A PAD 7 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:a:pad:7` | SMPL A PAD 8 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:a:pad:8` | SMPL A PAD 9 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:a:pad:9` | SMPL A PAD 10 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:a:pad:10` | SMPL A PAD 11 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:a:pad:11` | SMPL A PAD 12 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:a:pad:12` | SMPL A PAD 13 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:a:pad:13` | SMPL A PAD 14 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:a:pad:14` | SMPL A PAD 15 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:a:pad:15` | SMPL A PAD 16 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:b:knob:start` | SMPL B START | valeur 0 a 127 |  |  |
+| `dj:smpl:b:knob:end` | SMPL B END | valeur 0 a 127 |  |  |
+| `dj:smpl:b:knob:pitch` | SMPL B PITCH | valeur 0 a 127 | 49 | DECK |
+| `dj:smpl:b:knob:level` | SMPL B LEVEL | valeur 0 a 127 |  | DECK |
+| `dj:smpl:b:knob:attack` | SMPL B ATTACK | valeur 0 a 127 |  |  |
+| `dj:smpl:b:knob:release` | SMPL B RELEASE | valeur 0 a 127 |  |  |
+| `dj:smpl:b:knob:filter` | SMPL B FILTER | valeur 0 a 127 |  | DECK |
+| `dj:smpl:b:knob:position` | SMPL B POSITION | valeur 0 a 127 |  | DECK |
+| `dj:smpl:b:knob:scan` | SMPL B SCAN | valeur 0 a 127 |  |  |
+| `dj:smpl:b:knob:size` | SMPL B SIZE | valeur 0 a 127 |  |  |
+| `dj:smpl:b:knob:density` | SMPL B DENSITY | valeur 0 a 127 |  |  |
+| `dj:smpl:b:knob:spray` | SMPL B SPRAY | valeur 0 a 127 |  |  |
+| `dj:smpl:b:mode` | SMPL B MODE | appui |  | DECK |
+| `dj:smpl:b:slices` | SMPL B SLICES | appui |  |  |
+| `dj:smpl:b:len` | SMPL B LEN | appui |  |  |
+| `dj:smpl:b:rev` | SMPL B REV | appui |  |  |
+| `dj:smpl:b:loop` | SMPL B LOOP | appui |  |  |
+| `dj:smpl:b:random` | SMPL B RANDOM | appui |  |  |
+| `dj:smpl:b:clear` | SMPL B CLEAR | appui |  |  |
+| `dj:smpl:b:save` | SMPL B SAVE | appui |  |  |
+| `dj:smpl:b:stop` | SMPL B STOP | appui |  |  |
+| `dj:smpl:b:pad:0` | SMPL B PAD 1 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:b:pad:1` | SMPL B PAD 2 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:b:pad:2` | SMPL B PAD 3 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:b:pad:3` | SMPL B PAD 4 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:b:pad:4` | SMPL B PAD 5 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:b:pad:5` | SMPL B PAD 6 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:b:pad:6` | SMPL B PAD 7 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:b:pad:7` | SMPL B PAD 8 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:b:pad:8` | SMPL B PAD 9 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:b:pad:9` | SMPL B PAD 10 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:b:pad:10` | SMPL B PAD 11 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:b:pad:11` | SMPL B PAD 12 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:b:pad:12` | SMPL B PAD 13 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:b:pad:13` | SMPL B PAD 14 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:b:pad:14` | SMPL B PAD 15 | maintenu (appui puis relachement) |  |  |
+| `dj:smpl:b:pad:15` | SMPL B PAD 16 | maintenu (appui puis relachement) |  |  |
 
-### Partout (navigation) (scope `global`, 8 cibles)
+### Partout (navigation) (scope `global`, 7 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
 | `nav:all` | MM-STUDIO (ALL THE MACHINES) | appui |  | MIXER |
 | `nav:mm808` | GO TO MM-RYTM | appui |  |  |
 | `nav:voy` | GO TO MM-ARP | appui |  |  |
-| `nav:smpl` | GO TO MM-SMPL | appui |  |  |
 | `nav:dj` | GO TO MM-DECKS | appui |  |  |
-| `nav:prev` | PREVIOUS MACHINE | appui |  | RYTM, ARP, MIXER, SMPL, LIVE |
-| `nav:next` | NEXT MACHINE | appui |  | RYTM, ARP, MIXER, SMPL, LIVE |
+| `nav:prev` | PREVIOUS MACHINE | appui |  | RYTM, ARP, MIXER, LIVE |
+| `nav:next` | NEXT MACHINE | appui |  | RYTM, ARP, MIXER, LIVE |
 | `nav:machines` | PLAY/STOP RYTM + ARP | appui |  | RYTM, ARP, MIXER, LIVE |
 
 ## 5. Faire ton propre fichier
@@ -968,8 +939,8 @@ Le fichier d'assignations (panneau MIDI > EXPORT ou IMPORT) :
 }
 ```
 
-- `maps` : une entree par machine (`mm808`, `voy`, `smpl`, `dj`, `global`) ; chaque ligne est `"cc:CANAL:CC": "id de la cible"`, le canal de 1 a 16. Aussi `note:CANAL:NOTE` et `pb:CANAL:0`.
-- La machine d'une ligne est celle du prefixe de la cible (`rytm:` dans `mm808`, `voy:` dans `voy`, `dj:` dans `dj`, `smpl:` dans `smpl`, `nav:` dans `global`).
+- `maps` : une entree par machine (`mm808`, `voy`, `dj`, `global`) ; chaque ligne est `"cc:CANAL:CC": "id de la cible"`, le canal de 1 a 16. Aussi `note:CANAL:NOTE` et `pb:CANAL:0`.
+- La machine d'une ligne est celle du prefixe de la cible (`rytm:` dans `mm808`, `voy:` dans `voy`, `dj:` dans `dj`, `nav:` dans `global`).
 - Une cle vise une seule cible par machine, et une cible n'a qu'une seule cle : ne la mets pas deux fois.
 - IMPORT **remplace** toutes les assignations du navigateur : exporte d'abord les tiennes.
 - Ce que tu as appris passe avant la carte du Roto : ta disposition l'emporte sur les six setups, mais des canaux libres (7, 8, 15, 16) evitent tout melange. Tu peux aussi eteindre la carte (la case « ROTO-CONTROL map » du panneau MIDI).

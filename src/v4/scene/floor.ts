@@ -19,10 +19,9 @@
 
 import { Color, Mesh, PlaneGeometry, ShadowMaterial, Vector4 } from 'three';
 import { DJ_UNIT, DJ_W } from '../dj/theme';
-import { DJ, SMPL, VOYAGER } from '../state/focus';
+import { DJ, VOYAGER } from '../state/focus';
 import { BACKDROP, COLOR, FLOOR } from '../theme';
 import { VOY_BODY } from '../voyager/theme';
-import { SMPL_D, SMPL_W } from '../smpl/theme';
 
 const glf = (v: number): string => v.toFixed(6);
 const vec3 = (c: Color): string => `vec3(${glf(c.r)}, ${glf(c.g)}, ${glf(c.b)})`;
@@ -64,7 +63,7 @@ float v4Contact(vec2 p) {
   vec2 q = abs(p) - vec2(${glf(c.halfW - c.radius)}, ${glf(c.halfD - c.radius)});
   float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - ${glf(c.radius)};
   return ${glf(c.opacity)} * (1.0 - smoothstep(0.0, ${glf(c.falloff)}, d));
-}${VOYAGER ? box('v4ContactVoy', 'uX.y', VOY_BODY.w, VOY_BODY.d) : ''}${DJ ? box('v4ContactDj', 'uX.z', DJ_W, DJ_UNIT.d) : ''}${SMPL ? box('v4ContactSmpl', 'uX.w', SMPL_W, SMPL_D) : ''}`;
+}${VOYAGER ? box('v4ContactVoy', 'uX.y', VOY_BODY.w, VOY_BODY.d) : ''}${DJ ? box('v4ContactDj', 'uX.z', DJ_W, DJ_UNIT.d) : ''}`;
   // Une machine cachee (uOn a 0) n'a ni ombre ni brouillard : sa distance vaut 1e4
   const far = (k: string): string => `mix(1.0e4, length(vFloor - vec2(uX.${k}, 0.0)), step(0.5, uOn.${k}))`;
   let contact = 'v4Contact(vFloor)';
@@ -77,10 +76,6 @@ float v4Contact(vec2 p) {
     contact = `max(${contact}, v4ContactDj(vFloor) * uOn.z)`;
     // Le brouillard de l'ensemble DJ se mesure depuis son bord le plus proche (il est large)
     radius = `min(${radius}, mix(1.0e4, max(0.0, abs(vFloor.x - uX.z) - ${glf(DJ_W / 2 - 4)}) + length(vec2(0.0, vFloor.y)), step(0.5, uOn.z)))`;
-  }
-  if (SMPL) {
-    contact = `max(${contact}, v4ContactSmpl(vFloor) * uOn.w)`;
-    radius = `min(${radius}, ${far('w')})`;
   }
   const out = BACKDROP.transparent
     ? `gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0 - pow(1.0 - a, 0.4545));`
@@ -101,7 +96,7 @@ float v4Contact(vec2 p) {
 	${out}`
     );
   };
-  m.customProgramCacheKey = () => `${BACKDROP.transparent ? 'v4FloorClear' : 'v4Floor'}${DJ ? '3' : VOYAGER ? '2' : '1'}${SMPL ? 's' : ''}`;
+  m.customProgramCacheKey = () => `${BACKDROP.transparent ? 'v4FloorClear' : 'v4Floor'}${DJ ? '3' : VOYAGER ? '2' : '1'}`;
   return m;
 }
 
@@ -109,27 +104,26 @@ export class Floor {
   readonly mesh: Mesh;
   private material: ShadowMaterial;
   /** ombre de contact et brouillard : la 808, le MM-VOYAGER, le MM-DECKS (1 visible, 0 cachee) */
-  private on = { value: new Vector4(1, VOYAGER ? 1 : 0, DJ ? 1 : 0, SMPL ? 1 : 0) };
+  private on = { value: new Vector4(1, VOYAGER ? 1 : 0, DJ ? 1 : 0, 0) };
   /** abscisses des machines (la 808 a 0, les autres chez elles) */
   private xs = { value: new Vector4(0, 0, 0, 0) };
 
   /** Les machines ont bouge (le bout qui depasse) ; true si ca change. */
-  setCenters(x808: number, xVoy: number, xDj = 0, xSmpl = 0): boolean {
+  setCenters(x808: number, xVoy: number, xDj = 0): boolean {
     const v = this.xs.value;
-    if (v.x === x808 && v.y === xVoy && v.z === xDj && v.w === xSmpl) return false;
-    v.set(x808, xVoy, xDj, xSmpl);
+    if (v.x === x808 && v.y === xVoy && v.z === xDj) return false;
+    v.set(x808, xVoy, xDj, 0);
     return true;
   }
 
   /** Les machines visibles ; true si ca change (une frame). */
-  setMachines(mm808: boolean, voy: boolean, dj = false, smpl = false): boolean {
+  setMachines(mm808: boolean, voy: boolean, dj = false): boolean {
     const v = this.on.value;
     const x = mm808 ? 1 : 0;
     const y = voy && VOYAGER ? 1 : 0;
     const z = dj && DJ ? 1 : 0;
-    const w = smpl && SMPL ? 1 : 0;
-    if (v.x === x && v.y === y && v.z === z && v.w === w) return false;
-    v.set(x, y, z, w);
+    if (v.x === x && v.y === y && v.z === z) return false;
+    v.set(x, y, z, 0);
     return true;
   }
 

@@ -1,6 +1,6 @@
 /**
  * Un point de l'ecran du canvas vers un plan projete (2026-10-04, sorti de
- * dj/gestures.ts : le MM-DECKS et le MM-SMPL s'en servent pour leurs ecrans).
+ * dj/gestures.ts : le MM-DECKS s'en sert pour ses ecrans).
  */
 
 /**

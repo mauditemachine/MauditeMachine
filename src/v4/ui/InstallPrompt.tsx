@@ -163,7 +163,6 @@ export const InstallPrompt: React.FC<Props> = ({ stage, mobile }) => {
     hood808 !== 'closed' ||
     hoodVoy !== 'closed' ||
     machine === 'dj' ||
-    machine === 'smpl' ||
     dockOpen;
 
   const dismiss = useCallback((): void => {

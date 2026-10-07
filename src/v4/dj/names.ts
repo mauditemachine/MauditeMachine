@@ -27,8 +27,13 @@ export function faderName(f: DjFaderSpec): string {
 export function keyName(k: DjKeySpec): string {
   const t = k.target;
   switch (t.kind) {
-    case 'hotcue':
-      return `Deck ${t.deck.toUpperCase()} hot cue ${t.n + 1}`;
+    case 'smpl': {
+      const D = t.deck.toUpperCase();
+      if (t.fn === 'open') return `Deck ${D} sampler: show it on the screen, or the track`;
+      if (t.fn === 'recdeck') return `Deck ${D} sampler: sample the deck (its loop, or the last beats)`;
+      if (t.fn === 'recmix') return `Deck ${D} sampler: sample the mixer output (the last beats)`;
+      return `Deck ${D} sampler: play or stop`;
+    }
     case 'bend':
       return `Deck ${t.deck.toUpperCase()} bend ${t.dir < 0 ? 'slower' : 'faster'} (hold)`;
     case 'cue':
@@ -47,8 +52,6 @@ export function keyName(k: DjKeySpec): string {
       return `Remove deck ${t.deck.toUpperCase()} (while it plays: press twice)`;
     case 'machines':
       return 'Play or stop the MM-RYTM and the MM-ARP together, key G';
-    case 'export':
-      return 'Export the loop to the MM-SMPL and edit it there, key T';
     case 'adddeck':
       return 'Add a deck, with its channel on the mixer';
   }

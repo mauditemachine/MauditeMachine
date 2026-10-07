@@ -66,6 +66,8 @@ import {
   type PlacedFile,
 } from './crate';
 import { DJ_KEY_LEGEND, listenDjKeys } from './keys';
+import { DeckSampler } from './SamplerScreen';
+import { samplerOf } from '../sampler/sampler';
 import { LICENSE_LABEL, connectSoundcloud, disconnectSoundcloud, mauditeTracks, myTracks, scAccount, searchSoundcloud } from './soundcloud';
 import { djState, type DjTrack } from './state';
 import { DECK, DJ_BEZEL, DJ_DECKS, UNIT_X, djDecks, type DjDeck } from './theme';
@@ -931,6 +933,24 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
   );
 };
 
+/* ---------------- les samplers des platines ---------------- */
+
+/** Les platines dont la page SMPL est a l'ecran ('ab' : A et B), relu a chaque changement d'un sampler. */
+let openKey = '';
+const samplersOpen = (): string => {
+  const k = DJ_DECKS.filter((d) => samplerOf(d).get().open).join('');
+  if (k !== openKey) openKey = k;
+  return openKey;
+};
+const subscribeSamplers = (fn: () => void): (() => void) => {
+  const offs = DJ_DECKS.map((d) => samplerOf(d).subscribe(fn));
+  const offDecks = djDecks.subscribe(fn);
+  return () => {
+    offs.forEach((off) => off());
+    offDecks();
+  };
+};
+
 /* ---------------- les navigateurs des platines ---------------- */
 
 interface Props {
@@ -947,8 +967,11 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
   const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
   useSyncExternalStore(djDecks.subscribe, djDecks.get, djDecks.get);
   const on = f === 'dj' && introState === 'done';
+  // Le sampler de chaque platine (2026-10-07) : sa page prend l'ecran, a la place du morceau et de la liste
+  const smplOpen = useSyncExternalStore(subscribeSamplers, samplersOpen, samplersOpen);
+  const sampling = (d: DjDeck): boolean => on && smplOpen.includes(d);
   // Une platine vide montre sa liste ; une platine chargee, son morceau (toucher l'ecran rouvre la liste)
-  const browsing = (d: DjDeck): boolean => on && (b[d] ?? dj.deck[d].track === null);
+  const browsing = (d: DjDeck): boolean => on && !sampling(d) && (b[d] ?? dj.deck[d].track === null);
   const clip = useRef<HTMLDivElement>(null);
   const roots = useRef(new Map<DjDeck, HTMLDivElement>());
   const placeRef = useRef<() => void>(() => undefined);
@@ -964,10 +987,12 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key !== 'Escape') return;
       const open = DJ_DECKS.filter((d) => browsing(d));
-      if (open.length === 0) return;
+      const smpl = DJ_DECKS.filter((d) => sampling(d));
+      if (open.length === 0 && smpl.length === 0) return;
       e.preventDefault();
       e.stopImmediatePropagation();
       for (const d of open) djBrowser.close(d);
+      for (const d of smpl) samplerOf(d).toggleOpen(false);
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
@@ -1045,12 +1070,10 @@ export const DjBrowser: React.FC<Props> = ({ getStage, stage: current }) => {
     };
   }, [current, getStage]);
 
-  const open = DJ_DECKS.filter((d) => browsing(d));
+  const open = DJ_DECKS.filter((d) => browsing(d) || sampling(d));
   return (
     <div ref={clip} className="dj-scr-clip" data-on={open.length > 0 ? '1' : '0'}>
-      {open.map((d) => (
-        <DeckBrowser key={d} deck={d} setRoot={setRoot} />
-      ))}
+      {open.map((d) => (sampling(d) ? <DeckSampler key={`smpl-${d}`} deck={d} setRoot={setRoot} /> : <DeckBrowser key={d} deck={d} setRoot={setRoot} />))}
     </div>
   );
 };
