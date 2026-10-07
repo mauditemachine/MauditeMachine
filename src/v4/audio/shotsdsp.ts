@@ -82,26 +82,51 @@ const TAU = Math.PI * 2;
  * fortes que d'autres alors que le knob VOLUME est pareil"). Caler les cretes
  * (SHOT_PEAK, jusqu'au 2026-10-05) laissait 11 dB d'ecart entre les voix : les toms et le perc
  * sortaient 6 a 7 dB au-dessus du kick, le clap 5 dB dessous. Chaque coup est
- * maintenant cale sur sa sonie : la crete de l'energie ponderee K (celle des
+ * cale sur sa sonie : la crete de l'energie ponderee K (celle des
  * LUFS, ITU-R BS.1770 : le grave compte moins, l'oreille aussi) sur 100 ms.
- * Les cibles gardent un equilibre de batterie (les charleys et la cymbale un
- * peu dessous) ; un meme VOLUME sonne pareil d'un son a l'autre, 909, 808,
- * MM ou un echantillon. Une crete qui depasserait +6 dB reste a +6 (le
- * limiteur est plus loin).
+ *
+ * Le kick devient la reference (2026-10-07, Mika : "quand je fais du son,
+ * le kick est la reference ; tout ce qu'il y a apres ne doit pas etre aussi
+ * fort que lui : mon sub a -14, mon snare a -13 ou -14 quand le kick est a
+ * -12 ; la, le snare et le clap sonnent vraiment trop fort") : a sonie
+ * egale, la caisse claire, le clap et les charleys cretaient 2 a 6 dB
+ * au-dessus du kick. Desormais :
+ * - le kick est cale sur sa crete (SHOT_KICK_PEAK), comme un echantillon
+ *   normalise sur la tranche d'une console : 909, 808, MM ou un sample, la
+ *   meme marge ;
+ * - chaque autre voix garde sa sonie cible (SHOT_LOUD, plus bas qu'avant),
+ *   sous un plafond de crete : `below` dB sous celle du kick (SHOT_BELOW,
+ *   la caisse claire 1.5 dB, le clap 3.5, les charleys 6...). Le plus bas
+ *   des deux gagne : rien ne crete jamais au niveau du kick. Mesure a la
+ *   sortie (le compresseur de la boite compris, un coup a la fois) : la
+ *   caisse claire 2 a 3 dB sous le kick, le clap 2.5 a 6, les toms 5 a 6,
+ *   les charleys 6 a 7, la cymbale 9 ; les kicks (909, 808, MM, les six
+ *   samples) a 1.4 dB les uns des autres.
  */
+export const SHOT_KICK_PEAK = -2.5;
 export const SHOT_LOUD: Readonly<Record<ShotId, number>> = {
   BD: -7.5,
-  SD: -7.5,
-  TOM: -9,
-  HT: -9.5,
-  CH: -12,
-  CHopen: -11.5,
-  OH: -11.5,
-  CP: -9.5,
-  CY: -12.5,
+  SD: -9.5,
+  TOM: -11,
+  HT: -11.5,
+  CH: -14.5,
+  CHopen: -14.5,
+  OH: -14.5,
+  CP: -12.5,
+  CY: -15.5,
+};
+export const SHOT_BELOW: Readonly<Record<ShotId, number>> = {
+  BD: 0,
+  SD: 1.5,
+  TOM: 3,
+  HT: 3.5,
+  CH: 6,
+  CHopen: 5.5,
+  OH: 5.5,
+  CP: 3.5,
+  CY: 7,
 };
 const LOUD_WIN_S = 0.1;
-const LOUD_MAX_PEAK_DB = 6;
 
 /** Un biquad applique en place (forme directe I). */
 function biquad(x: Float32Array, b0: number, b1: number, b2: number, a1: number, a2: number): Float32Array {
@@ -151,12 +176,11 @@ export function shotLoudness(s: Shot, sr: number): number {
   return 10 * Math.log10(best + 1e-12) + 2.32;
 }
 
-/** Le coup a la sonie de sa voix (SHOT_LOUD), sa crete sous +6 dB. */
+/** Le coup a son niveau (2026-10-07) : le kick a sa crete, les autres a leur sonie sous leur plafond (SHOT_BELOW). */
 function setLoudness(id: ShotId, s: Shot, sr: number): void {
-  const l = shotLoudness(s, sr);
-  let k = Math.pow(10, (SHOT_LOUD[id] - l) / 20);
   const p = peakOf(s.L === s.R ? [s.L] : [s.L, s.R]);
-  if (p * k > Math.pow(10, LOUD_MAX_PEAK_DB / 20)) k = Math.pow(10, LOUD_MAX_PEAK_DB / 20) / p;
+  const cap = Math.pow(10, (SHOT_KICK_PEAK - SHOT_BELOW[id]) / 20) / p;
+  const k = id === 'BD' ? cap : Math.min(cap, Math.pow(10, (SHOT_LOUD[id] - shotLoudness(s, sr)) / 20));
   if (!Number.isFinite(k) || k <= 0) return;
   for (let i = 0; i < s.L.length; i += 1) s.L[i] *= k;
   if (s.R !== s.L) for (let i = 0; i < s.R.length; i += 1) s.R[i] *= k;
@@ -984,7 +1008,7 @@ export function renderShot(id: ShotId, sr: number, stretch: number, variant: num
       s = { L: one, R: one };
     } else s = { L: timeStretch(s.L, stretch, sr), R: timeStretch(s.R, stretch, sr) };
   }
-  // La sonie de la voix (2026-10-05), a la place de sa crete : SHOT_PEAK, et un kick 909 1.5 dB et 808 2 dB plus bas
+  // Le niveau de la voix (2026-10-07) : le kick a sa crete, les autres a leur sonie sous leur plafond
   setLoudness(id, s, sr);
   return s;
 }

@@ -42,8 +42,11 @@ const engineOs = (): number => (typeof window !== 'undefined' && window.matchMed
  * s'ajoutent au son sec. 1.03 : le MM-RYTM et le MM-ARP au meme niveau dans
  * les mediums (0.75 le 2026-10-03, quand le synthe passait encore par le
  * compresseur de la batterie et son gain de compensation automatique).
+ * 0.7 depuis le 2026-10-07 (Mika : "le kick est la reference, tout ce qu'il
+ * y a apres ne doit pas etre aussi fort que lui") : l'arpege par defaut
+ * crete vers -9 dBFS, 4 dB sous le kick (il cretait au-dessus).
  */
-const VOLUME_K = 1.03;
+const VOLUME_K = 0.7;
 const MAKEUP = { delay: 0.35, reverb: 0.5 } as const;
 /** REVERB : envoi renforce vers la reverbe partagee. */
 const REVERB_BOOST = 1.25;

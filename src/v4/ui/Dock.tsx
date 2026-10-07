@@ -123,7 +123,7 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
           </button>
           {INSTRUMENTS.map((k) => {
             const muted = v.muted.includes(k);
-            const solo = v.solo === k;
+            const solo = v.solo.includes(k);
             return (
               <button
                 key={k}
@@ -213,14 +213,14 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
           <button
             type="button"
             className="v4-dock-key v4-dock-mute"
-            aria-pressed={v.muteMode}
-            aria-label="Mute mode, then tap voices to mute them"
+            aria-pressed={voices.lit('mute')}
+            aria-label="Mute, then tap a voice to mute it; twice: mute several voices; again: all voices back"
             onClick={() => muteToggle(getStage())}
           >
             <Icon name="fa-solid fa-volume-xmark" />
             <span>MUTE</span>
           </button>
-          <button type="button" className="v4-dock-key" aria-pressed={v.soloMode} aria-label="Solo mode, then tap a voice to solo it" onClick={() => soloToggle(getStage())}>
+          <button type="button" className="v4-dock-key" aria-pressed={voices.lit('solo')} aria-label="Solo, then tap a voice to solo it; twice: solo several voices; again: all voices back" onClick={() => soloToggle(getStage())}>
             <Icon name="fa-solid fa-headphones" />
             <span>SOLO</span>
           </button>

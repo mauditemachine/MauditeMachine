@@ -1,38 +1,51 @@
 /**
- * MUTE et SOLO (2026-10-01) : les voix coupees et la voix en solo du
- * sequenceur. SOLO ne laisse jouer que la voix selectionnee (un seul solo
- * a la fois). Seul le sequenceur est concerne. Pas de persistance : une
+ * MUTE et SOLO (2026-10-01) : les voix coupees et les voix en solo du
+ * sequenceur. Seul le sequenceur est concerne. Pas de persistance : une
  * visite commence avec toutes les voix.
  *
- * Mode MUTE (2026-10-03, Mika) : MUTE s'allume et reste allume ; chaque
- * pad de voix touche se coupe ou revient (plusieurs a la fois) ; MUTE
- * touche de nouveau : le mode s'eteint et toutes les voix reviennent.
- *
- * Mode SOLO (2026-10-04, Mika : "je voulais choisir BD et c'est CP qui se
- * met en SOLO") : comme MUTE. SOLO s'allume ; le pad de voix touche passe
- * en solo (le meme une seconde fois : plus de solo) ; SOLO touche de
- * nouveau : le mode s'eteint et toutes les voix reviennent. Avant, SOLO
- * prenait tout de suite la derniere voix touchee.
+ * Les modes (2026-10-07, Mika : "quand j'appuie sur MUTE je clique sur une
+ * voix, ca la mute, mais une autre voix juste apres ne doit pas se muter ;
+ * MUTE de nouveau demute la voix ; DEUX fois MUTE et je peux muter
+ * plusieurs voix ; l'ecran affiche la difference et le tip du double MUTE ;
+ * pareil pour SOLO") :
+ * - un appui : le mode s'arme pour UNE voix ; la voix touchee se coupe (ou
+ *   passe en solo) et le mode retombe (les pads jouent de nouveau) ; la
+ *   voix reste coupee, le temoin allume ;
+ * - deux appuis rapides : le mode a plusieurs voix (multi) ; chaque voix
+ *   touchee se coupe ou revient (en solo ou en sort), autant qu'on veut ;
+ * - un appui de plus (mode arme, multi, ou une voix encore coupee) : tout
+ *   revient.
+ * actions.ts (muteToggle, soloToggle) decide ; ce store garde l'etat. Le
+ * solo passe avant les mutes.
  */
 
 import type { Inst } from '../theme';
 
 export interface VoicesState {
   muted: readonly Inst[];
-  solo: Inst | null;
-  /** mode MUTE : les pads de voix coupent au lieu de jouer */
+  /** les voix en solo (plusieurs en SOLO multi) ; vide : pas de solo */
+  solo: readonly Inst[];
+  /** mode MUTE arme : le pad de voix touche se coupe au lieu de jouer */
   muteMode: boolean;
-  /** mode SOLO : le pad de voix touche passe en solo au lieu de jouer */
+  /** MUTE multi (deux appuis) : il reste arme apres chaque voix */
+  muteMulti: boolean;
+  /** mode SOLO arme : le pad de voix touche passe en solo au lieu de jouer */
   soloMode: boolean;
+  /** SOLO multi (deux appuis) */
+  soloMulti: boolean;
 }
 
-let state: VoicesState = { muted: [], solo: null, muteMode: false, soloMode: false };
+export type VoiceModeKind = 'mute' | 'solo';
+
+let state: VoicesState = { muted: [], solo: [], muteMode: false, muteMulti: false, soloMode: false, soloMulti: false };
 const listeners = new Set<() => void>();
 
 const commit = (next: VoicesState): void => {
   state = next;
   listeners.forEach((fn) => fn());
 };
+
+const toggled = (list: readonly Inst[], inst: Inst): Inst[] => (list.includes(inst) ? list.filter((k) => k !== inst) : [...list, inst]);
 
 export const voices = {
   get: (): VoicesState => state,
@@ -43,29 +56,33 @@ export const voices = {
     };
   },
   isMuted: (inst: Inst): boolean => state.muted.includes(inst),
+  isSolo: (inst: Inst): boolean => state.solo.includes(inst),
   /** Le sequenceur joue-t-il cette voix ? Le solo passe avant les mutes. */
-  plays: (inst: Inst): boolean => (state.solo ? inst === state.solo : !state.muted.includes(inst)),
+  plays: (inst: Inst): boolean => (state.solo.length > 0 ? state.solo.includes(inst) : !state.muted.includes(inst)),
+  /** Le temoin d'un mode : arme, ou une voix encore coupee (en solo). */
+  lit: (k: VoiceModeKind): boolean => (k === 'mute' ? state.muteMode || state.muted.length > 0 : state.soloMode || state.solo.length > 0),
   toggleMute(inst: Inst): void {
-    const muted = state.muted.includes(inst) ? state.muted.filter((k) => k !== inst) : [...state.muted, inst];
-    commit({ ...state, muted });
+    commit({ ...state, muted: toggled(state.muted, inst) });
   },
   toggleSolo(inst: Inst): void {
-    commit({ ...state, solo: state.solo === inst ? null : inst });
+    commit({ ...state, solo: toggled(state.solo, inst) });
+  },
+  /** Arme un mode (multi : plusieurs voix) ; l'autre mode s'eteint, ses voix reviennent. */
+  arm(k: VoiceModeKind, multi: boolean): void {
+    commit(k === 'mute' ? { ...state, muteMode: true, muteMulti: multi, soloMode: false, soloMulti: false, solo: [] } : { ...state, soloMode: true, soloMulti: multi, muteMode: false, muteMulti: false, muted: [] });
+  },
+  /** Le mode a une voix a servi : il retombe, la voix reste coupee (en solo). */
+  disarm(k: VoiceModeKind): void {
+    commit(k === 'mute' ? { ...state, muteMode: false, muteMulti: false } : { ...state, soloMode: false, soloMulti: false });
+  },
+  /** Le mode s'eteint et toutes ses voix reviennent. */
+  release(k: VoiceModeKind): void {
+    commit(k === 'mute' ? { ...state, muteMode: false, muteMulti: false, muted: [] } : { ...state, soloMode: false, soloMulti: false, solo: [] });
   },
   clearMutes(): void {
     if (state.muted.length) commit({ ...state, muted: [] });
   },
-  /** Mode MUTE : il s'allume ; eteint, toutes les voix reviennent. */
-  setMuteMode(on: boolean): void {
-    if (on === state.muteMode && (on || state.muted.length === 0)) return;
-    commit({ ...state, muteMode: on, muted: on ? state.muted : [] });
-  },
-  /** Mode SOLO : il s'allume ; eteint, plus de solo. */
-  setSoloMode(on: boolean): void {
-    if (on === state.soloMode && (on || state.solo === null)) return;
-    commit({ ...state, soloMode: on, solo: on ? state.solo : null });
-  },
   clearSolo(): void {
-    if (state.solo) commit({ ...state, solo: null });
+    if (state.solo.length) commit({ ...state, solo: [] });
   },
 };

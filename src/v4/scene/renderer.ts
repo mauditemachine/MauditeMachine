@@ -2562,17 +2562,15 @@ export class Stage {
   };
 
   /**
-   * MUTE et SOLO : MUTE allume tant que le mode MUTE dure (2026-10-03),
-   * SOLO si un solo est en cours. true s'il faut une frame.
+   * MUTE et SOLO : allumes tant que leur mode est arme ou qu'une voix reste
+   * coupee (en solo) ; un appui de plus les eteint (2026-10-07, state/
+   * voices.ts). true s'il faut une frame.
    */
-  private syncVoiceKeys = (): boolean => {
-    const v = voices.get();
-    return this.seq.setVoiceKeys(v.muteMode, v.soloMode || v.solo !== null);
-  };
+  private syncVoiceKeys = (): boolean => this.seq.setVoiceKeys(voices.lit('mute'), voices.lit('solo'));
 
   private syncVoices = (): void => {
     const v = voices.get();
-    // Les pads aussi : rose poudre pour une voix coupee, bleu pour le solo
+    // Les pads aussi : rouge LED pour une voix coupee, bleu pour le solo
     const pads = this.pads.setVoiceState(v.muted, v.solo);
     if (this.syncVoiceKeys() || pads) this.repaint();
   };

@@ -283,8 +283,12 @@ class MMBass extends AudioWorkletProcessor {
     // Le VCA, a chaque echantillon du contexte
     const kAtt = 1 - Math.exp(-1 / (0.0025 * sampleRate));
     const kRel = 1 - Math.exp(-1 / ((this.quick ? 0.006 : 0.014) * sampleRate));
-    const sub = this.p.sub * 0.9;
-    const vol = this.p.volume * this.p.volume * 1.15;
+    // Le niveau (2026-10-07, Mika : "le kick est la reference ; mon sub bassline, je le mets 2 dB sous lui") :
+    // le SUB prend la place de l'oscillateur au lieu de s'y ajouter (la crete bouge peu quand il monte), et
+    // VOLUME par defaut crete vers -6 dBFS, 2 dB sous le kick du MM-RYTM (mesure hors ligne)
+    const sub = this.p.sub * 0.55;
+    const oscK = 0.55 * (1 - 0.5 * this.p.sub);
+    const vol = this.p.volume * this.p.volume * 1.82;
     const wave = this.p.wave;
     const drive = this.drive;
     const dNorm = this.driveNorm;
@@ -335,7 +339,7 @@ class MMBass extends AudioWorkletProcessor {
       this.subPhase += dt * OS * 0.5;
       if (this.subPhase >= 1) this.subPhase -= 1;
       this.vca += ((this.gate ? 1 : 0) - this.vca) * (this.gate ? kAtt : kRel);
-      let v = ((acc / OS) * 0.55 + sin(TWO_PI * this.subPhase) * sub) * this.vca * gainAcc * vol;
+      let v = ((acc / OS) * oscK + sin(TWO_PI * this.subPhase) * sub) * this.vca * gainAcc * vol;
       // Un coupe-continu tres bas (20 Hz : les subs restent)
       const yv = v - this.dc.x + 0.9974 * this.dc.y;
       this.dc.x = v;

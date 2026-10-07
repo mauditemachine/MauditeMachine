@@ -189,8 +189,14 @@ function softClipCurve(): Float32Array {
   return out;
 }
 
-/** La marge du MM-RYTM a sa sortie (-2 dB) : ses cretes passent sous -1 dBFS avant le limiteur. */
-const RYTM_TRIM = 0.8;
+/**
+ * La sortie du MM-RYTM. -2 dB jusqu'au 2026-10-07 ; depuis (Mika : "le
+ * kick est la reference... ensuite je rattrape le tout dans ma tranche
+ * master et je monte de quelques dB"), les autres voix sont plus bas que le
+ * kick (shotsdsp.ts SHOT_BELOW) et la boite sort a 0 dB : le kick crete
+ * vers -5 dBFS, le motif entier sous -1 dBFS.
+ */
+const RYTM_TRIM = 1;
 
 function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   const bus = c.createGain();
@@ -227,8 +233,8 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   // Le bus rejoint TONE par DIST (sec, et mouille si DIST > 0), puis CHORUS
   lvl.connect(comp);
   // Chaque machine sort par sa propre prise (le mixer du MM-DECKS peut la prendre).
-  // Le MM-RYTM y garde 2 dB de marge (2026-10-04) : apres son compresseur il crete
-  // a +0.3 dBFS, et la voie 1 du MM-DECKS (vumetre exact, rouge a -0.5) s'allumait
+  // Le MM-RYTM y gardait 2 dB de marge (2026-10-04, la voie 1 du MM-DECKS s'allumait) ;
+  // a 0 dB depuis le 2026-10-07 : ses voix sous le kick, il crete sous -1 dBFS
   const rytmOut = c.createGain();
   rytmOut.gain.value = RYTM_TRIM;
   const arpOut = c.createGain();

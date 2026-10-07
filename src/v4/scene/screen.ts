@@ -411,7 +411,7 @@ export class Screen {
     // Le centre : la voix en grand, son son (ou MUTE, SOLO) ; sans voix, le pattern
     if (inst) {
       this.text(inst, RING.cx, RING.cy + 7, inst.length > 2 ? 21 : 25, INK, 300, 'center');
-      const solo = voices.get().solo === inst;
+      const solo = voices.isSolo(inst);
       const muted = !voices.plays(inst);
       if (solo || muted) {
         const word = solo ? 'SOLO' : 'MUTE';
@@ -674,7 +674,27 @@ export class Screen {
       return;
     }
     if (rytmEdit) this.text('TAP: PLAY   TAP TAP: CHAIN', x0, LINE.y, 7, FAINT, 700, 'left', 0.6);
+    else if (this.paintMode(x0, x1)) return;
     else if (s.tag) this.text('TOUCH: PRESETS', x1, LINE.y, 6.5, FAINT, 700, 'right', 0.8);
+  }
+
+  /**
+   * MUTE et SOLO (2026-10-07, Mika : "l'ecran affiche la difference et le
+   * tip du double MUTE") : le mode du moment a gauche, son tip a droite ;
+   * false sans mode ni voix coupee.
+   */
+  private paintMode(x0: number, x1: number): boolean {
+    const v = voices.get();
+    const line = (left: string, tip: string): true => {
+      const tw = this.text(tip, x1, LINE.y, 6.5, HALF, 700, 'right', 0.8);
+      this.text(fit(left, Math.max(6, Math.floor((x1 - x0 - tw - 8) / 6.4))), x0, LINE.y, 9, INK, 600, 'left', 0.6);
+      return true;
+    };
+    if (v.soloMode) return v.soloMulti ? line('MULTI SOLO', 'TAP VOICES / SOLO: OFF') : line('SOLO 1 VOICE', '2X SOLO: SEVERAL');
+    if (v.solo.length) return line(`SOLO ${v.solo.join(' ')}`, 'SOLO: ALL ON');
+    if (v.muteMode) return v.muteMulti ? line('MULTI MUTE', 'TAP VOICES / MUTE: OFF') : line('MUTE 1 VOICE', '2X MUTE: SEVERAL');
+    if (v.muted.length) return line(`MUTED ${v.muted.join(' ')}`, 'MUTE: ALL ON');
+    return false;
   }
 
   /** Fin d'un redessin : la texture part, les compteurs suivent. */

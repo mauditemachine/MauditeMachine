@@ -6,6 +6,11 @@
  *   (fort) ou l'enleve ; glisser le long d'une rangee pose ou enleve tous
  *   les pas traverses. La case montre sa velocite (plus pleine, plus
  *   forte). Taper le nom d'une voix la choisit (sur la machine aussi).
+ *   Tenir une case (2026-10-07, Mika : "en EDIT, j'aimais bien le principe
+ *   de changer la velocite en maintenant le clic de la souris appuye",
+ *   comme sur les pas de la machine) : glisser vers le haut ou le bas
+ *   change sa velocite (12 px par niveau a la souris, 16 au doigt), son
+ *   niveau s'ecrit dans la case ; une case vide se remplit.
  * - VELOCITY : la voix choisie, une barre par coup, neuf niveaux ;
  *   glisser dessus les dessine (les pas traverses suivent la ligne, les pas
  *   vides restent vides).
@@ -95,6 +100,31 @@ const PatternStrip: React.FC = () => {
 
 /** Un coup pose a la main : fort (le niveau d'un appui sur la machine). */
 const PEN = VEL_MAX;
+/** Tenir une case autant : sa velocite se regle en glissant (comme STEP_HOLD_MS sur la machine). */
+const VEL_HOLD_MS = 350;
+/** Les pixels par niveau de velocite, et le glisser vertical qui y entre sans attendre. */
+const VEL_PX = { mouse: 12, touch: 16 } as const;
+const VEL_DRAG_PX = 6;
+
+/** Un geste dans la grille : il attend (tape), peint une rangee, ou regle une velocite. */
+interface Grip {
+  id: number;
+  inst: Inst;
+  r: number;
+  c: number;
+  x0: number;
+  y0: number;
+  /** la velocite de la case au depart (0 : vide, un coup vient d'y etre pose) */
+  had: number;
+  /** la velocite de depart du reglage */
+  v0: number;
+  px: number;
+  mode: 'wait' | 'row' | 'vel';
+  /** la rangee : la valeur peinte, la derniere colonne */
+  v: number;
+  last: number;
+  timer: number;
+}
 
 const STEPS = Array.from({ length: STEP_COUNT }, (_, i) => i);
 
@@ -109,9 +139,19 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
   const [cell, setCell] = useState({ r: 0, c: 0 });
   const grid = useRef<HTMLDivElement>(null);
   const lane = useRef<HTMLDivElement>(null);
-  /** geste en cours dans la grille (sa rangee, la valeur posee) ou dans VELOCITY */
-  const paint = useRef<{ id: number; inst: Inst; v: number; last: number } | null>(null);
+  /** geste en cours dans la grille (Grip) ou dans VELOCITY */
+  const paint = useRef<Grip | null>(null);
   const draw = useRef<{ id: number; i: number; v: number } | null>(null);
+  /** la case dont on regle la velocite (son niveau s'y ecrit) */
+  const [velCell, setVelCell] = useState<{ r: number; c: number } | null>(null);
+
+  // Le panneau se ferme ou se demonte : plus de minuteur
+  useEffect(
+    () => () => {
+      if (paint.current) window.clearTimeout(paint.current.timer);
+    },
+    []
+  );
 
   // Un pad frappe sur la machine choisit sa voix ici aussi
   useEffect(() => {
@@ -146,11 +186,24 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
     }
     gesture();
     const inst = INSTRUMENTS[at.r];
-    const v = velocity(pattern.get().steps, inst, at.c) > 0 ? 0 : PEN;
-    paint.current = { id: e.pointerId, inst, v, last: at.c };
-    pattern.set(inst, at.c, v);
+    const had = velocity(pattern.get().steps, inst, at.c);
+    // Une case vide se remplit tout de suite ; une pleine attend : la tape l'enleve, l'appui tenu regle sa velocite
+    if (had === 0) pattern.set(inst, at.c, PEN);
+    if (paint.current) window.clearTimeout(paint.current.timer);
+    const g: Grip = { id: e.pointerId, inst, r: at.r, c: at.c, x0: e.clientX, y0: e.clientY, had, v0: had || PEN, px: e.pointerType === 'mouse' ? VEL_PX.mouse : VEL_PX.touch, mode: 'wait', v: had > 0 ? 0 : PEN, last: at.c, timer: 0 };
+    g.timer = window.setTimeout(() => {
+      if (paint.current === g && g.mode === 'wait') startVel(g);
+    }, VEL_HOLD_MS);
+    paint.current = g;
     setCell(at);
     if (inst !== row) choose(inst);
+  };
+
+  /** L'appui tenu (ou un glisser vertical sur place) : la case regle sa velocite. */
+  const startVel = (g: Grip): void => {
+    g.mode = 'vel';
+    if (velocity(pattern.get().steps, g.inst, g.c) === 0) pattern.set(g.inst, g.c, g.v0);
+    setVelCell({ r: g.r, c: g.c });
   };
 
   const onGridMove = (e: React.PointerEvent<HTMLDivElement>): void => {
@@ -159,12 +212,39 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
     const el = grid.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    // La rangee du depart : on peint le long d'elle
     const c = Math.max(0, Math.min(STEP_COUNT - 1, Math.floor(((e.clientX - rect.left) / rect.width) * STEP_COUNT)));
+    const dy = e.clientY - g.y0;
+    if (g.mode === 'wait') {
+      if (c !== g.c) {
+        // Le long de la rangee : on peint (une case pleine au depart : on efface)
+        window.clearTimeout(g.timer);
+        g.mode = 'row';
+        if (g.had > 0) pattern.set(g.inst, g.c, 0);
+      } else if (Math.abs(dy) >= VEL_DRAG_PX) {
+        window.clearTimeout(g.timer);
+        startVel(g);
+      } else return;
+    }
+    if (g.mode === 'vel') {
+      const v = Math.max(1, Math.min(VEL_MAX, g.v0 + Math.round(-dy / g.px)));
+      if (velocity(pattern.get().steps, g.inst, g.c) !== v) pattern.set(g.inst, g.c, v);
+      return;
+    }
+    // La rangee du depart : on peint le long d'elle
     if (c === g.last) return;
     const dir = c > g.last ? 1 : -1;
     for (let j = g.last + dir; j !== c + dir; j += dir) pattern.set(g.inst, j, g.v);
     g.last = c;
+  };
+
+  /** Le geste finit : une tape sur une case pleine l'enleve. */
+  const onGridUp = (e: React.PointerEvent<HTMLDivElement>, cancel: boolean): void => {
+    const g = paint.current;
+    if (!g || g.id !== e.pointerId) return;
+    window.clearTimeout(g.timer);
+    paint.current = null;
+    if (!cancel && g.mode === 'wait' && g.had > 0) pattern.set(g.inst, g.c, 0);
+    setVelCell(null);
   };
 
   const levelAt = (y: number): number => {
@@ -254,7 +334,7 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
         >
           CLEAR {row}
         </button>
-        {variant === 'desk' && <span className="v4-seq-hint">Tap or drag to place hits, draw the velocities below. Patterns: tap to play, tap tap to chain, hold an empty one to copy.</span>}
+        {variant === 'desk' && <span className="v4-seq-hint">Tap or drag to place hits, hold one and drag up or down for its velocity (or draw them below). Patterns: tap to play, tap tap to chain, hold an empty one to copy.</span>}
         <button type="button" className="v4-seq-done" aria-label="Close the pattern editor" onClick={() => editor.close()}>
           DONE
         </button>
@@ -272,14 +352,11 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
           className="v4-beat-grid"
           role="grid"
           aria-label="Pattern: voices by steps"
+          data-vel={velCell ? '1' : '0'}
           onPointerDown={onGridDown}
           onPointerMove={onGridMove}
-          onPointerUp={() => {
-            paint.current = null;
-          }}
-          onPointerCancel={() => {
-            paint.current = null;
-          }}
+          onPointerUp={(e) => onGridUp(e, false)}
+          onPointerCancel={(e) => onGridUp(e, true)}
         >
           {INSTRUMENTS.map((inst, r) => (
             <div key={inst} className="v4-beat-row" role="row" data-sel={inst === row ? '1' : '0'}>
@@ -299,6 +376,11 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
                     onKeyDown={(e) => onCellKey(e, r, c)}
                   >
                     {v > 0 && <span className="v4-beat-hit" style={{ opacity: 0.35 + (0.65 * v) / VEL_MAX }} />}
+                    {velCell && velCell.r === r && velCell.c === c && (
+                      <span className="v4-beat-velnum" aria-hidden="true">
+                        {v}
+                      </span>
+                    )}
                   </div>
                 );
               })}

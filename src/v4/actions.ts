@@ -88,15 +88,18 @@ function touchedVoice(inst: Inst): void {
   lastVoice = { inst, at: performance.now() };
 }
 
-/** Mode SOLO : la voix passe en solo, ou en sort ; l'ecran le dit. */
+/** Mode SOLO : la voix passe en solo, ou en sort ; a une voix, le mode retombe ; l'ecran le dit. */
 function soloVoice(inst: Inst): void {
   voices.toggleSolo(inst);
-  lcdMessage.show(voices.get().solo ? `SOLO ${inst}` : 'SOLO: TAP A VOICE');
+  const v = voices.get();
+  if (!v.soloMulti) voices.disarm('solo');
+  lcdMessage.show(v.solo.includes(inst) ? `SOLO ${inst}` : `${inst} SOLO OFF`);
 }
 
-/** Mode MUTE : une voix coupee ou rendue ; l'ecran le dit. */
+/** Mode MUTE : une voix coupee ou rendue ; a une voix, le mode retombe ; l'ecran le dit. */
 function muteVoice(inst: Inst): void {
   voices.toggleMute(inst);
+  if (!voices.get().muteMulti) voices.disarm('mute');
   lcdMessage.show(`${inst} ${voices.isMuted(inst) ? 'MUTED' : 'ON'}`);
 }
 
@@ -106,7 +109,8 @@ function muteVoice(inst: Inst): void {
  */
 export function voiceMute(inst: Inst, on: boolean): void {
   if (voices.isMuted(inst) === on) return;
-  muteVoice(inst);
+  voices.toggleMute(inst);
+  lcdMessage.show(`${inst} ${on ? 'MUTED' : 'ON'}`);
 }
 
 /**
@@ -308,50 +312,68 @@ export function runToggle(stage: Stage | null = null): boolean {
 }
 
 /**
- * MUTE (2026-10-03, Mika) : le mode MUTE s'allume (son temoin reste
- * allume) ; les pads de voix (et les voix du Dock, et A S D F G Z X C V B)
- * coupent ou rendent chacun sa voix, autant qu'on veut. MUTE de nouveau :
- * le mode s'eteint, toutes les voix reviennent. Renvoie l'etat du mode.
- *
- * 2026-10-04, Mika : "on clique sur une voix et ensuite sur MUTE, ca mute
- * la voix, mais quand on reclique sur une autre voix ca ne la mute pas".
- * Les deux ordres marchent : une voix touchee juste avant (1.5 s) se coupe
- * avec MUTE, et le mode reste allume pour les suivantes. Le mode SOLO
- * s'eteint en passant : il prenait les pads avant MUTE (MUTE allume, une
- * voix touchee passait en solo).
+ * MUTE (2026-10-03, Mika ; refait le 2026-10-07, state/voices.ts) :
+ * - un appui arme le mode pour UNE voix : la voix touchee ensuite se coupe
+ *   et le mode retombe (une autre voix touchee joue, elle ne se coupe pas) ;
+ *   une voix touchee juste avant (1.5 s, 2026-10-04 : "on clique sur une
+ *   voix et ensuite sur MUTE") se coupe tout de suite ;
+ * - deux appuis en moins de MODE_DOUBLE_MS : MUTE multi, chaque voix
+ *   touchee se coupe ou revient, autant qu'on veut ;
+ * - un appui quand le mode est arme, multi, ou qu'une voix est coupee :
+ *   toutes les voix reviennent.
+ * Un seul mode a la fois : MUTE eteint SOLO (ses voix reviennent).
+ * Renvoie l'etat du temoin.
  */
 export function muteToggle(stage: Stage | null = null): boolean {
   resume();
   stage?.pressButton('mute');
-  const on = !voices.get().muteMode;
-  if (on && voices.get().soloMode) voices.setSoloMode(false);
-  voices.setMuteMode(on);
-  const just = on && lastVoice && performance.now() - lastVoice.at <= VOICE_THEN_MUTE_MS ? lastVoice.inst : null;
-  lastVoice = null;
-  if (just && !voices.isMuted(just)) {
-    voices.toggleMute(just);
-    lcdMessage.show(`${just} MUTED: TAP VOICES`);
-  } else {
-    lcdMessage.show(on ? 'MUTE: TAP VOICES' : 'ALL VOICES ON');
-  }
-  return on;
+  return modeTap('mute');
 }
 
-/**
- * SOLO (2026-10-04, comme MUTE) : le mode s'allume, puis le pad de voix
- * touche passe en solo ; SOLO de nouveau : le mode s'eteint et toutes les
- * voix reviennent. Renvoie l'etat du mode.
- */
+/** SOLO (2026-10-04 ; refait le 2026-10-07) : comme MUTE, sans la voix touchee juste avant. */
 export function soloToggle(stage: Stage | null = null): boolean {
   resume();
   stage?.pressButton('solo');
-  const on = !voices.get().soloMode;
-  // Un seul mode a la fois : MUTE s'eteint (ses voix reviennent)
-  if (on && voices.get().muteMode) voices.setMuteMode(false);
+  return modeTap('solo');
+}
+
+/** Deux appuis sur MUTE (SOLO) dans ce delai : le mode a plusieurs voix. */
+export const MODE_DOUBLE_MS = 420;
+/** Les messages des modes restent un peu plus que les autres ; l'ecran garde ensuite le mode et son tip (scene/screen.ts). */
+const MODE_MSG_MS = 1200;
+/** Le dernier appui qui a arme un mode a une voix (le premier d'un double). */
+let armedTap: { kind: 'mute' | 'solo'; at: number } | null = null;
+
+function modeTap(k: 'mute' | 'solo'): boolean {
+  const now = performance.now();
+  const v = voices.get();
+  const word = k === 'mute' ? 'MUTE' : 'SOLO';
+  // Le second appui d'un double : plusieurs voix (celle deja prise par le premier reste prise)
+  if (armedTap && armedTap.kind === k && now - armedTap.at <= MODE_DOUBLE_MS) {
+    armedTap = null;
+    voices.arm(k, true);
+    lcdMessage.show(`MULTI ${word}: ON`, MODE_MSG_MS);
+    return true;
+  }
+  armedTap = null;
+  const on = k === 'mute' ? v.muteMode : v.soloMode;
+  const held = k === 'mute' ? v.muted.length > 0 : v.solo.length > 0;
+  if (on || held) {
+    voices.release(k);
+    lastVoice = null;
+    lcdMessage.show('ALL VOICES ON');
+    return false;
+  }
+  voices.arm(k, false);
+  armedTap = { kind: k, at: now };
+  const just = k === 'mute' && lastVoice && now - lastVoice.at <= VOICE_THEN_MUTE_MS ? lastVoice.inst : null;
   lastVoice = null;
-  voices.setSoloMode(on);
-  lcdMessage.show(on ? 'SOLO: TAP A VOICE' : 'ALL VOICES ON');
-  return on;
+  if (just) {
+    voices.toggleMute(just);
+    voices.disarm('mute');
+    lcdMessage.show(`${just} MUTED`, MODE_MSG_MS);
+  } else lcdMessage.show(`${word}: 1 VOICE`, MODE_MSG_MS);
+  return true;
 }
 
 /** CLEAR : les quatre rangees a zero, la lecture continue. */

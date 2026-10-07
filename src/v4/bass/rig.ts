@@ -1,7 +1,8 @@
 /**
  * Le MM-BASS en 3D (2026-10-07) : un bloc de la taille du MM-RYTM, fait des
- * pieces du MM-DECKS (dj/body.ts le coin, le dessus brosse, les vis, les
- * pieds, la connectique derriere ; dj/controls.ts les potards et les touches
+ * pieces du MM-DECKS (dj/body.ts le coin, le dessus brosse, les pieds, la
+ * connectique derriere ; le dessus a la forme de celui du MM-RYTM, coins
+ * arrondis, sans vis ; dj/controls.ts les potards et les touches
  * en caoutchouc a LED ; dj/silk.ts la serigraphie), dispose d'apres
  * bass/theme.ts :
  * - l'ecran (bass/screen.ts) ;
@@ -34,7 +35,7 @@ import { pattern } from '../audio/pattern';
 import { editor } from '../state/editor';
 import { presetMode, type PresetKey } from '../state/presetMode';
 import { presets } from '../state/presets';
-import { bezel, dc, partDj, power, rca, screw, usb, wedge } from '../dj/body';
+import { bezel, dc, partDj, power, rca, roundSlab, usb, wedge } from '../dj/body';
 import { DJ_GLOW, keyGeometry, knobGeometry } from '../dj/controls';
 import { DjSilk, headTexts, type Bracket, type Line, type Text } from '../dj/silk';
 import { DJ_BEZEL, DJ_BODY, DJ_KEY, DJ_KNOB, DJ_TILT, DJ_TOP_Y, DJ_UNIT } from '../dj/theme';
@@ -106,13 +107,21 @@ function brushUv(g: BufferGeometry): void {
   g.setAttribute('uv', new Float32BufferAttribute(uv, 2));
 }
 
-/** Le bloc : le coin, le cadre de l'ecran, les vis, les pieds, la connectique derriere. */
+/**
+ * Le dessus (2026-10-07, Mika : "MM-BASS devrait avoir la meme forme de
+ * boitier que MM-RYTM, un peu arrondi sur les bordures mais pas trop") : la
+ * dalle du MM-RYTM, coins arrondis (0.2, plus le biseau de 0.1), 0.14
+ * d'epaisseur, posee sur le coin ; plus de vis (le MM-RYTM n'en a pas).
+ */
+const SLAB = { t: 0.14, r: 0.2, bevel: 0.1 } as const;
+
+/** Le bloc : le coin sous la dalle du dessus, le cadre de l'ecran, les pieds, la connectique derriere. */
 function buildBody(mobile: boolean): BufferGeometry {
   const seg = mobile ? 12 : 16;
   const hw = BASS_W / 2;
   const hd = BASS_D / 2;
-  const parts: BufferGeometry[] = [wedge(-hw, hw, BASS_D), bezel(BASS.screen.x, BASS.screen.z, BASS.screen.w, BASS.screen.d)];
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) parts.push(...screw(sx * (hw - 0.26), sz * (hd - 0.26), seg));
+  const slope = BASS_D / Math.cos(DJ_TILT);
+  const parts: BufferGeometry[] = [wedge(-hw, hw, BASS_D, SLAB.t, 'body'), roundSlab(BASS_W, slope, SLAB.t, SLAB.r, SLAB.bevel), bezel(BASS.screen.x, BASS.screen.z, BASS.screen.w, BASS.screen.d)];
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
       const f = new CylinderGeometry(0.3, 0.3, DJ_BODY.feet, seg);

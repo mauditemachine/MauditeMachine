@@ -922,7 +922,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const rytmEdit = useSyncExternalStore(editor.subscribe, editor.get, editor.get) === 'mm808';
   const running = useSyncExternalStore(clock.subscribe, () => clock.running, () => clock.running);
   const v = useSyncExternalStore(voices.subscribe, voices.get, voices.get);
-  const muteOn = v.muteMode;
+  const muteOn = v.muteMode || v.muted.length > 0;
   const open = useSyncExternalStore(section.subscribe, section.get, section.get);
   const stretch = useSyncExternalStore(mix.subscribe, () => mix.stretch, () => mix.stretch);
   const level = useSyncExternalStore(mix.subscribe, () => mix.level, () => mix.level);
@@ -1276,7 +1276,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
         data-twin="solo"
         data-hotspot="solo"
         aria-label={TWIN_ARIA.solo}
-        aria-pressed={v.soloMode}
+        aria-pressed={v.soloMode || v.solo.length > 0}
         onKeyDown={noRepeat}
         onClick={() => soloToggle(stageRef.current)}
       />

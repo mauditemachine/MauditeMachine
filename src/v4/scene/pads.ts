@@ -12,8 +12,11 @@
  * - pages TRACKS a SONAA : jaune faible en permanence (on les distingue),
  *   plus fort au survol de la souris, yellowHi pour la page ouverte, une
  *   seule a la fois ;
- * - teinte des voix (2026-10-01, VOICE_TINT) : caoutchouc rose poudre
- *   pour une voix coupee, bleu pour la voix en solo (setVoiceState) ;
+ * - teinte des voix (2026-10-01, VOICE_TINT) : bleu pour une voix en solo,
+ *   rouge LED pour une voix coupee (2026-10-07, avant un rose poudre : un
+ *   rouge profond et sa LED allumee dessous, setVoiceState) ;
+ * - machine claire (2026-10-07) : le flash d'une voix passe le caoutchouc a
+ *   l'orange franc (FLASH_TINT), le jaune ne se voyait pas sur le clair ;
  * - OPEN : orange plein machine fermee, et il respire (OPEN_BREATHE,
  *   breathe() appele par le Stage) ; orange faible vue ouverte.
  * Frappe (les 12) : le pad s'enfonce de 0.06 en 60 ms et remonte en 180 ms
@@ -38,14 +41,14 @@ import {
 } from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { COLOR, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD, PADS, PAD_FX, PAD_GLOW, PAD_HALO, VOICE_TINT, gainOf, type Inst, type PadId, type PageId } from '../theme';
+import { COLOR, FLASH_TINT, MATERIAL, OPEN_BREATHE, OPEN_TINT, PAD, PADS, PAD_FX, PAD_GLOW, PAD_HALO, VOICE_TINT, gainOf, type Inst, type PadId, type PageId } from '../theme';
 import type { HotspotDef } from './hit';
 import { albedo, withInstanceEmissive } from './materials';
 import { makeHaloTexture } from './silk';
 import { easeOutCubic, linear, type Tweens } from './tween';
 
 /** Etat lumineux d'un pad. */
-type Glow = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+type Glow = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 const OFF: Glow = 0;
 const SELECTED: Glow = 1;
 const FAINT: Glow = 2;
@@ -55,7 +58,9 @@ const FLASH: Glow = 5;
 /** OPEN (revision 4) : orange plein machine fermee, faible machine ouverte */
 const ORANGE: Glow = 6;
 const ORANGE_DIM: Glow = 7;
-const GLOW_NAME = ['off', 'selected', 'faint', 'hover', 'active', 'flash', 'orange', 'orangeDim'] as const;
+/** une voix coupee : sa LED rouge sous le caoutchouc (2026-10-07) */
+const MUTED: Glow = 8;
+const GLOW_NAME = ['off', 'selected', 'faint', 'hover', 'active', 'flash', 'orange', 'orangeDim', 'muted'] as const;
 const ZERO = [0, 0, 0] as const;
 const GLOW_RGB: readonly (readonly number[])[] = [
   ZERO,
@@ -66,8 +71,9 @@ const GLOW_RGB: readonly (readonly number[])[] = [
   PAD_GLOW.flash,
   PAD_GLOW.orange,
   PAD_GLOW.orangeDim,
+  PAD_GLOW.muted,
 ];
-const HALO_K = [0, PAD_HALO.selected, PAD_HALO.faint, PAD_HALO.hover, PAD_HALO.active, PAD_HALO.flash, PAD_HALO.orange, PAD_HALO.orangeDim];
+const HALO_K = [0, PAD_HALO.selected, PAD_HALO.faint, PAD_HALO.hover, PAD_HALO.active, PAD_HALO.flash, PAD_HALO.orange, PAD_HALO.orangeDim, PAD_HALO.muted];
 const COUNT = PADS.length;
 const OPEN_I = PADS.findIndex((p) => p.id === 'open');
 
@@ -78,6 +84,8 @@ const YELLOW = new Color(COLOR.yellow);
 const YELLOW_HI = new Color(COLOR.yellowHi);
 const WARM = new Color(COLOR.bone);
 const ORANGE_TINT = new Color(COLOR.orange);
+/** le halo d'une voix coupee : le rouge de sa LED */
+const RED = new Color(0xe0261b);
 
 const smoothstep = (a: number, b: number, x: number): number => {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
@@ -153,7 +161,7 @@ export interface PadsInfo {
   lastPress: { id: PadId | null; at: number; count: number };
   /** flashs recus par pad (frappes et coups du sequenceur), ordre des pads */
   flashes: number[];
-  /** teinte de chaque pad : la sienne, coupee (rose), en solo (bleu) */
+  /** teinte de chaque pad : la sienne, coupee (rouge), en solo (bleu) */
   tint: ('none' | 'mute' | 'solo')[];
 }
 
@@ -182,7 +190,9 @@ export class Pads {
   private breath = 1;
   /** teinte de chaque pad de voix : 0 la sienne, 1 coupee, 2 en solo */
   private voiceState = new Uint8Array(COUNT);
-  /** multiplicateurs du caoutchouc : rose (coupee), bleu (solo) */
+  /** caoutchouc d'une voix a l'orange de son flash (machine claire) : 1 */
+  private tinted = new Uint8Array(COUNT);
+  /** multiplicateurs du caoutchouc : rouge (coupee), bleu (solo) */
   private tintMute = new Color();
   private tintSolo = new Color();
   // Cles et setters prepares : un appui n'alloue presque rien
@@ -263,15 +273,29 @@ export class Pads {
     a[i * 3 + 1] = c[1] * k;
     a[i * 3 + 2] = c[2] * k;
     this.emissive.needsUpdate = true;
-    const tint = g === SELECTED ? WARM : g === ACTIVE ? YELLOW_HI : g === ORANGE || g === ORANGE_DIM ? ORANGE_TINT : YELLOW;
+    const flashTint = (g === FLASH) !== (this.tinted[i] === 1);
+    const tint = g === SELECTED ? WARM : g === ACTIVE ? YELLOW_HI : g === ORANGE || g === ORANGE_DIM || (g === FLASH && FLASH_TINT.rgb) ? ORANGE_TINT : g === MUTED ? RED : YELLOW;
     this.halos.setColorAt(i, col.copy(tint).multiplyScalar(HALO_K[g] * k));
     if (this.halos.instanceColor) this.halos.instanceColor.needsUpdate = true;
+    // La machine claire : le caoutchouc d'une voix passe a l'orange le temps du flash (FLASH_TINT)
+    if (FLASH_TINT.rgb && PADS[i].kind === 'voice' && flashTint) this.paintRubber(i);
+  }
+
+  /** La couleur du caoutchouc d'une voix : orange pendant son flash (machine claire), sinon la teinte de son etat. */
+  private paintRubber(i: number): void {
+    const f = FLASH_TINT.rgb;
+    const flash = !!f && this.glow[i] === FLASH;
+    this.tinted[i] = flash ? 1 : 0;
+    const s = this.voiceState[i];
+    if (flash && f) this.mesh.setColorAt(i, col.setRGB(f[0], f[1], f[2]));
+    else this.mesh.setColorAt(i, s === 2 ? this.tintSolo : s === 1 ? this.tintMute : col.setRGB(1, 1, 1));
+    if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
   }
 
   /** Lumiere de repos d'un pad (hors flash). */
   private restGlow(i: number): Glow {
     const k = PADS[i].kind;
-    if (k === 'voice') return i === this.selected ? SELECTED : OFF;
+    if (k === 'voice') return this.voiceState[i] === 1 ? MUTED : i === this.selected ? SELECTED : OFF;
     if (k === 'open') return this.open ? ORANGE_DIM : ORANGE;
     if (k === 'edit') return this.editing ? ACTIVE : i === this.hover ? HOVER : FAINT;
     const on = i === this.activePage;
@@ -381,20 +405,20 @@ export class Pads {
   }
 
   /**
-   * Voix coupees (rose poudre) et voix en solo (bleu) ; le solo passe avant
-   * le mute. true s'il faut une frame.
+   * Voix coupees (rouge, leur LED allumee) et voix en solo (bleu) ; le solo
+   * passe avant le mute. true s'il faut une frame.
    */
-  setVoiceState(muted: readonly Inst[], solo: Inst | null): boolean {
+  setVoiceState(muted: readonly Inst[], solo: readonly Inst[]): boolean {
     let changed = false;
     PADS.forEach((p, i) => {
       if (p.kind !== 'voice') return;
-      const s = p.id === solo ? 2 : muted.includes(p.id) ? 1 : 0;
+      const s = solo.includes(p.id) ? 2 : muted.includes(p.id) ? 1 : 0;
       if (s === this.voiceState[i]) return;
       this.voiceState[i] = s;
-      this.mesh.setColorAt(i, s === 2 ? this.tintSolo : s === 1 ? this.tintMute : col.setRGB(1, 1, 1));
+      this.paintRubber(i);
+      this.refresh(i);
       changed = true;
     });
-    if (changed && this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
     return changed;
   }
 

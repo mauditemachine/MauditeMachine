@@ -146,6 +146,46 @@ export function wedge(x0: number, x1: number, d: number = DJ_UNIT.d, drop = 0, t
   return out;
 }
 
+/** Un rectangle a coins arrondis, centre (le dessus du MM-BASS). */
+function roundedRect(w: number, d: number, r: number): Shape {
+  const hw = w / 2;
+  const hd = d / 2;
+  const s = new Shape();
+  s.moveTo(-hw + r, -hd);
+  s.lineTo(hw - r, -hd);
+  s.absarc(hw - r, -hd + r, r, -Math.PI / 2, 0, false);
+  s.lineTo(hw, hd - r);
+  s.absarc(hw - r, hd - r, r, 0, Math.PI / 2, false);
+  s.lineTo(-hw + r, hd);
+  s.absarc(-hw + r, hd - r, r, Math.PI / 2, Math.PI, false);
+  s.lineTo(-hw, -hd + r);
+  s.absarc(-hw + r, -hd + r, r, Math.PI, Math.PI * 1.5, false);
+  return s;
+}
+
+/**
+ * Le dessus a coins arrondis (le MM-BASS, 2026-10-07, Mika : "la meme forme
+ * de boitier que MM-RYTM, un peu arrondi sur les bordures mais pas trop") :
+ * la dalle du panneau du MM-RYTM (theme.ts PANEL), w sur d le long de la
+ * pente, t d'epaisseur, ses coins de rayon r (plus le biseau), son arete
+ * biseautee de bevel ; son dessus a y 0 du repere top, rendue dans celui du
+ * rig. Sous elle, le coin descendu de t (wedge, drop).
+ */
+export function roundSlab(w: number, d: number, t: number, r: number, bevel: number): BufferGeometry {
+  const bt = bevel / 2;
+  const depth = t - 2 * bt;
+  const g = new ExtrudeGeometry(roundedRect(w - 2 * bevel, d - 2 * bevel, r), { depth, steps: 1, curveSegments: 4, bevelEnabled: true, bevelThickness: bt, bevelSize: bevel, bevelSegments: 1 });
+  // (x, y, z) -> (x, z, -y) : l'extrusion devient la hauteur, le dessus a 0
+  g.rotateX(-Math.PI / 2);
+  g.translate(0, -(depth + bt), 0);
+  const out = g.toNonIndexed();
+  g.dispose();
+  out.deleteAttribute('uv');
+  paintFaces(out, (_nx, ny) => (ny > 0.995 ? 'panel' : ny > 0.15 ? 'edge' : 'body'));
+  out.applyMatrix4(TOP_M);
+  return out;
+}
+
 /**
  * Un capot (le MM-SMPL, 2026-10-05) : la dalle du dessus, w sur d (le long
  * de la pente), t d'epaisseur, dans le repere top (son dessus a y 0, comme

@@ -794,6 +794,8 @@ export const PAD_GLOW = {
   orange: [1.6, 0.2, 0.004],
   /** OPEN devenu CLOSE, machine ouverte : orange faible */
   orangeDim: [0.16, 0.024, 0],
+  /** voix coupee (2026-10-07, Mika : "Mute en rouge, type LED a travers un caoutchouc") : une LED rouge allumee sous le pad */
+  muted: [0.62, 0.025, 0.012],
 } as const;
 
 /**
@@ -801,17 +803,28 @@ export const PAD_GLOW = {
  * blanc chaud pour la selection, lineaire x intensite) : +20 niveaux au
  * ras d'une page au repos, +75 autour de la page ouverte.
  */
-export const PAD_HALO = { selected: 0.025, faint: 0.025, hover: 0.06, active: 0.35, flash: 0.45, orange: 0.3, orangeDim: 0.06 } as const;
+export const PAD_HALO = { selected: 0.025, faint: 0.025, hover: 0.06, active: 0.35, flash: 0.45, orange: 0.3, orangeDim: 0.06, muted: 0.22 } as const;
 
 /**
  * Pads de voix coupes ou en solo (2026-10-01, demande de Mika) : le
  * caoutchouc change de teinte, meme matiere (rugosite, dome, flancs) ;
- * MUTE en rose (un rose poudre, pas bonbon), SOLO en bleu. Couleurs
- * AFFICHEES visees, converties par pads.ts en multiplicateur du
- * caoutchouc. Le solo passe avant le mute (state/voices.ts). La machine
- * claire a les siennes (applyAppearance).
+ * SOLO en bleu ; MUTE en rouge depuis le 2026-10-07 (Mika : "je n'aime pas
+ * la couleur du Mute ; mieux en rouge, type LED a travers un caoutchouc") :
+ * un rouge profond et sa LED allumee dessous (PAD_GLOW.muted, le dessus
+ * plus lumineux que les flancs). Couleurs AFFICHEES visees, converties par
+ * pads.ts en multiplicateur du caoutchouc. Le solo passe avant le mute
+ * (state/voices.ts). La machine claire a les siennes (applyAppearance).
  */
-export const VOICE_TINT = { mute: '#7A5662', solo: '#2B5896' };
+export const VOICE_TINT = { mute: '#4A0F0C', solo: '#2B5896' };
+
+/**
+ * Le coup d'une voix sur la machine claire (2026-10-07, Mika : "en light
+ * mode, le petit eclairage quand les voix jouent est jaunatre, difficile a
+ * voir") : le caoutchouc passe a l'orange franc le temps du flash (un
+ * multiplicateur de sa couleur, comme OPEN), en plus de sa lueur. null : la
+ * lueur seule (la machine noire, ou le jaune se voit).
+ */
+export const FLASH_TINT: { rgb: number[] | null } = { rgb: null };
 
 /**
  * OPEN respire (2026-10-01, demande de Mika : le pad lui-meme, plus le
@@ -1747,8 +1760,8 @@ export const RESET_VIEW = { label: 'RESET VIEW', aria: 'Reset view' } as const;
 export const TWIN_ARIA = {
   run: 'Run, Space',
   clear: 'Clear pattern',
-  mute: 'Mute mode, then tap voices to mute them; again to bring them all back',
-  solo: 'Solo mode, then tap a voice to solo it',
+  mute: 'Mute, then tap a voice to mute it; press twice to mute several voices; press again to bring them all back',
+  solo: 'Solo, then tap a voice to solo it; press twice to solo several voices; press again to bring them all back',
   random: 'Random house pattern',
   group: 'MM-RYTM drum machine',
 } as const;
@@ -1838,10 +1851,13 @@ const LIGHT = {
   glow: {
     selected: [0.05, 0.016, 0.0],
     active: [0.42, 0.1, 0.0],
-    flash: [0.55, 0.14, 0.0],
+    flash: [0.3, 0.045, 0.0],
     orange: [0.32, 0.035, 0.0],
     orangeDim: [0.08, 0.01, 0.0],
+    muted: [0.2, 0.004, 0.0],
   } as Record<string, number[]>,
+  /** le flash d'une voix : le caoutchouc a l'orange (FLASH_TINT), un peu plus clair que celui d'OPEN */
+  flashTint: [1.32, 0.21, 0.014],
   floor: { haloHex: '#FAF8F4', shadow: 0.32, contact: 0.32 },
   hemi: { ground: 0xe9e5dd, intensity: 0.6, sky: 0xffffff },
   /** lumieres blanches neutres : la machine reste blanche, pas creme */
@@ -1853,8 +1869,8 @@ const LIGHT = {
   press: [0.55, 0.14, 0.012],
   /** OPEN, multiplicateur de sa couleur : l'orange plein sur le caoutchouc clair */
   openTint: [1.32, 0.19, 0.012],
-  /** pads de voix coupes (rose poudre) et en solo (bleu) */
-  voiceTint: { mute: '#E3B1A9', solo: '#8DB2E4' },
+  /** pads de voix coupes (rouge LED) et en solo (bleu) */
+  voiceTint: { mute: '#C8372C', solo: '#8DB2E4' },
 };
 
 /** Multiplicateur de couleur du pad OPEN (blanc : la teinte du caoutchouc). */
@@ -1871,7 +1887,7 @@ const DARK = {
   gain: { ...GAIN },
   lit: Object.fromEntries(Object.entries(LIT).map(([k, v]) => [k, [...v]])) as Record<string, number[]>,
   material: JSON.parse(JSON.stringify(MATERIAL)) as Mutable<typeof MATERIAL>,
-  glow: Object.fromEntries((['selected', 'active', 'flash', 'orange', 'orangeDim'] as const).map((k) => [k, [...PAD_GLOW[k]]])) as Record<string, number[]>,
+  glow: Object.fromEntries((['selected', 'active', 'flash', 'orange', 'orangeDim', 'muted'] as const).map((k) => [k, [...PAD_GLOW[k]]])) as Record<string, number[]>,
   floor: { haloHex: FLOOR.haloHex as string, shadow: FLOOR.shadow as number, contact: FLOOR.contact.opacity as number },
   hemi: { ground: LIGHT_HEMI.ground as number, intensity: LIGHT_HEMI.intensity as number, sky: LIGHT_HEMI.sky as number },
   key: LIGHT_KEY.color as number,
@@ -1901,7 +1917,8 @@ export function applyAppearance(a: Appearance): void {
   for (const k of Object.keys(DARK.material) as (keyof typeof MATERIAL)[]) {
     Object.assign(mat[k], DARK.material[k], L ? (LIGHT.material as Record<string, object>)[k] ?? {} : {});
   }
-  for (const k of ['selected', 'active', 'flash', 'orange', 'orangeDim'] as const) Object.assign(PAD_GLOW[k] as unknown as number[], L ? LIGHT.glow[k] : DARK.glow[k]);
+  for (const k of ['selected', 'active', 'flash', 'orange', 'orangeDim', 'muted'] as const) Object.assign(PAD_GLOW[k] as unknown as number[], L ? LIGHT.glow[k] : DARK.glow[k]);
+  FLASH_TINT.rgb = L ? [...LIGHT.flashTint] : null;
   Object.assign(STEP_PRESS.glow as unknown as number[], L ? LIGHT.press : DARK.press);
   const floor = FLOOR as unknown as { haloHex: string; shadow: number; contact: { opacity: number } };
   floor.haloHex = L ? LIGHT.floor.haloHex : DARK.floor.haloHex;

@@ -4011,6 +4011,26 @@ html:has(body.v4-active.v4-light) {
   background: var(--seq-on);
 }
 
+/* La case dont on regle la velocite (appui tenu, 2026-10-07) : son niveau ecrit dedans, le curseur vertical */
+.v4-beat-grid[data-vel='1'] {
+  cursor: ns-resize;
+}
+
+.v4-beat-velnum {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  box-shadow: 0 0 0 2px var(--seq-note);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+}
+
 .v4-beat-lanelabel {
   flex: 0 0 38px;
   align-self: center;

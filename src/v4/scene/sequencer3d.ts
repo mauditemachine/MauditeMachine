@@ -187,6 +187,9 @@ export class Sequencer3D {
   private btnLedOn = new Color();
   /** RUN est rouge : son temoin passe au jaune (l'orange s'y perdait) */
   private runLedOn = new Color();
+  /** MUTE et SOLO (2026-10-07) : le rouge et le bleu de leurs pads */
+  private muteLedOn = new Color(0xff2a1f);
+  private soloLedOn = new Color(0x5b9bff);
   /** teinte propre de chaque bouton (l'appui la tire vers PRESS_TINT en mode clair) */
   private btnColor = new Float32Array(BUTTON_COUNT * 3);
   /** teinte de chaque trait, index pas x BARS + trait */
@@ -290,7 +293,8 @@ export class Sequencer3D {
   }
 
   private paintButtonLed(j: number): void {
-    const on = j + STEP_COUNT === RUN ? this.runLedOn : this.btnLedOn;
+    const k = j + STEP_COUNT;
+    const on = k === RUN ? this.runLedOn : k === MUTE ? this.muteLedOn : k === SOLO ? this.soloLedOn : this.btnLedOn;
     this.btnLeds.setColorAt(j, col.copy(this.btnLedOff).lerp(on, this.ledLevel(j)));
     if (this.btnLeds.instanceColor) this.btnLeds.instanceColor.needsUpdate = true;
   }
