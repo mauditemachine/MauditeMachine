@@ -443,7 +443,7 @@ function buildSetups(): RotoSetup[] {
    * BASS (2026-10-07) : le MM-BASS sur le setup 15 (canal 5, celui du
    * MM-SMPL parti) ; page 1 le filtre de la TB-303 et RUN, GEN, MUTATE,
    * page 2 la voix et le generateur (les pas 1 a 8 dessous), page 3 la
-   * gamme (les pas 9 a 16), page 4 les touches du pas choisi.
+   * gamme (les pas 9 a 16), page 4 les touches du pas choisi, LOCK et EDIT.
    */
   const BASS: RotoSetup = {
     name: 'BASS',
@@ -490,14 +490,14 @@ function buildSetups(): RotoSetup[] {
       b('nav:next', 'NEXT MACHINE', C.white),
       // 2 et 3 : les seize pas
       ...Array.from({ length: 16 }, (_, i) => b(`bass:trig:${i}`, `STEP ${i + 1}`, i < 8 ? C.orange : C.peach)),
-      // 4 : le pas choisi
+      // 4 : le pas choisi, son LOCK (les potards ne changent que lui), EDIT (les patterns)
       b('bass:key:notedn', 'NOTE -', C.cyan),
       b('bass:key:noteup', 'NOTE +', C.cyan),
       b('bass:key:octdn', 'OCT -', C.cyan),
       b('bass:key:octup', 'OCT +', C.cyan),
+      b('bass:lock', 'LOCK', C.yellow),
+      b('bass:key:edit', 'EDIT', C.yellow),
       b('nav:machines', 'RYTM + ARP', C.red),
-      tog('rytm:running', 'RUN RYTM', C.red),
-      tog('voy:running', 'RUN ARP', C.red),
       b('nav:all', 'MM-STUDIO', C.white),
     ],
   };

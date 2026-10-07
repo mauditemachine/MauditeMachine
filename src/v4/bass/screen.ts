@@ -11,7 +11,16 @@
  *   dans une bande a peine claire, le pas qui joue souligne.
  * - A droite, le filtre : sa courbe (la coupure, la resonance) et un point
  *   qui suit la coupure qui sonne (l'enveloppe, l'accent).
- * - En bas : le message du moment (un potard, un pas), sinon le pas choisi.
+ * - En bas : le message du moment (un potard, un pas), sinon le pas choisi ;
+ *   a droite, discret, TOUCH: PRESETS.
+ * Trois pages de plus (2026-10-07) :
+ * - LOCK : LOCK 05 en pastille a la place du style, le pas regle dans une
+ *   bande plus claire, le filtre dessine avec ses verrous, la liste des
+ *   verrous en bas ; un petit trait au-dessus de chaque pas verrouille ;
+ * - EDIT : les seize patterns en deux rangees (le courant plein, celui qui
+ *   attend cerne, la chaine numerotee), le courant en grand, la chaine ;
+ * - PRESETS : le titre et le rang, le nom en grand entre deux fleches, les
+ *   quatre touches en bas (SAVE NAME DEL EXIT), comme le MM-RYTM.
  * Une texture sur le verre, redessinee quand quelque chose change, et a
  * chaque image tant que la basse sonne (le point du filtre, la tete).
  */
@@ -20,6 +29,7 @@ import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'thre
 import { makeCanvasTexture } from '../scene/silk';
 import { DJ_BEZEL } from '../dj/theme';
 import { FONT_DISPLAY, HEX } from '../theme';
+import type { PresetView } from '../state/presetMode';
 import { BASS_ROOTS, BASS_SCALES, BASS_STYLES, stepOf, type BassValues } from './params';
 import { BASS_STEPS, type BassState } from './state';
 import { BASS } from './theme';
@@ -30,6 +40,16 @@ const FAINT: string = 'rgba(246, 241, 231, 0.18)';
 const BLACK: string = '#050506';
 
 const font = (weight: number, size: number): string => `${weight} ${size}px ${FONT_DISPLAY}`;
+
+/** Les pages de l'ecran (2026-10-07). */
+export interface BassScreenMode {
+  edit: { cur: number; next: number; chain: readonly number[]; filled: readonly boolean[] } | null;
+  /** le pas dont on regle les verrous, et leur texte (CUTOFF 1.2 KHZ...) */
+  lock: { step: number; items: readonly string[] } | null;
+  presets: PresetView | null;
+}
+
+const slot = (i: number): string => `A${String(i + 1).padStart(2, '0')}`;
 
 export interface BassLive {
   /** la coupure du moment (Hz), 0 : rien ne sonne */
@@ -127,18 +147,42 @@ export class BassScreen {
    * hauteur de chaque pas (une liaison : celle de la note d'avant), null
    * pour un pas vide.
    */
-  draw(s: BassState, v: BassValues, midis: readonly (number | null)[], bpm: number, live: BassLive, message: string | null, info: string): boolean {
+  draw(s: BassState, v: BassValues, midis: readonly (number | null)[], bpm: number, live: BassLive, message: string | null, info: string, mode: BassScreenMode): boolean {
     const cutK = live.cut > 0 ? Math.round(Math.log2(live.cut) * 24) : 0;
-    const key = JSON.stringify([s.steps, s.sel, s.running, v.cutoff, v.reso, v.style, v.root, v.scale, midis, Math.round(bpm), live.step, cutK, message, info]);
+    const key = JSON.stringify([s.steps, s.sel, s.running, v.cutoff, v.reso, v.style, v.root, v.scale, midis, Math.round(bpm), live.step, cutK, message, info, mode]);
     if (key === this.key) return false;
     this.key = key;
     const c = this.ctx;
-    const UW = this.UW;
-    const UH = this.UH;
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.fillStyle = BLACK;
     c.fillRect(0, 0, this.canvas.width, this.canvas.height);
     c.setTransform(this.scale, 0, 0, this.scale, 0, 0);
+    if (mode.presets) this.drawPresets(mode.presets);
+    else if (mode.edit) this.drawEdit(s, bpm, mode.edit, message);
+    else this.drawLine(s, v, midis, bpm, live, message, info, mode.lock);
+    this.texture.needsUpdate = true;
+    this.draws += 1;
+    return true;
+  }
+
+  /** Une pastille : pleine (le texte en noir) ou cernee. */
+  private pill(text: string, x: number, y: number, size: number, full: boolean, align: 'left' | 'center' | 'right' = 'left'): number {
+    const c = this.ctx;
+    c.font = font(700, size);
+    const tw = c.measureText(text).width;
+    const w = tw + size * 1.4;
+    const h = size * 1.55;
+    const x0 = align === 'left' ? x : align === 'right' ? x - w : x - w / 2;
+    this.bar(x0, y - h + size * 0.38, w, h, full ? INK : null, full ? null : INK);
+    this.text(text, x0 + w / 2, y, size, full ? BLACK : INK, 700, 'center');
+    return w;
+  }
+
+  /** La page de la ligne : le rouleau, le filtre ; en LOCK, le pas regle et ses verrous. */
+  private drawLine(s: BassState, v: BassValues, midis: readonly (number | null)[], bpm: number, live: BassLive, message: string | null, info: string, lock: BassScreenMode['lock']): void {
+    const c = this.ctx;
+    const UW = this.UW;
+    const UH = this.UH;
     // L'en-tete
     const hy = 18;
     c.fillStyle = INK;
@@ -150,20 +194,22 @@ export class BassScreen {
       c.closePath();
       c.fill();
     } else c.fillRect(10, hy - 8.5, 8, 8);
-    this.text(BASS_STYLES[stepOf('style', v.style)], 24, hy, 12, INK, 600);
+    if (lock) this.pill(`LOCK ${String(lock.step + 1).padStart(2, '0')}`, 24, hy, 9, true);
+    else this.text(BASS_STYLES[stepOf('style', v.style)], 24, hy, 12, INK, 600);
     const root = BASS_ROOTS[stepOf('root', v.root)];
     const scale = BASS_SCALES[stepOf('scale', v.scale)];
     const bw = this.text('BPM', UW - 10, hy, 7, HALF, 600, 'right');
     const nw = this.text(String(Math.round(bpm)), UW - 14 - bw, hy, 12, INK, 400, 'right');
     this.text(`${root} ${scale}`, UW - 26 - bw - nw, hy, 9, HALF, 600, 'right');
 
-    // Le filtre, a droite (plus large ecran : un peu plus de place)
+    // Le filtre, a droite ; en LOCK, celui du pas regle
     const fw = Math.min(84, UW * 0.24);
     const fx1 = UW - 10;
     const fx0 = fx1 - fw;
     const fy0 = 32;
     const fy1 = UH - 26;
-    this.drawFilter(fx0, fy0, fx1, fy1, v, live.cut);
+    const lv = lock ? { ...v, ...(s.steps[lock.step]?.locks ?? {}) } : v;
+    this.drawFilter(fx0, fy0, fx1, fy1, lv, live.cut);
 
     // Le rouleau
     const rx0 = 10;
@@ -180,34 +226,37 @@ export class BassScreen {
       hi = Math.ceil(mid + 6);
     }
     const yOf = (m: number): number => ry1 - 4 - ((m - lo) / Math.max(1, hi - lo)) * (ry1 - ry0 - 8);
-    // Les temps : un trait fin tous les quatre pas ; le pas choisi dans une bande claire
+    // Les temps : un trait fin tous les quatre pas ; le pas choisi (ou celui qu'on verrouille) dans une bande claire
     for (let i = 0; i <= BASS_STEPS; i += 4) {
       c.fillStyle = FAINT;
       c.fillRect(rx0 + i * cw - 0.3, ry0, 0.6, ry1 - ry0);
     }
-    c.fillStyle = 'rgba(246, 241, 231, 0.08)';
-    c.fillRect(rx0 + s.sel * cw, ry0, cw, ry1 - ry0);
+    const band = lock ? lock.step : s.sel;
+    c.fillStyle = lock ? 'rgba(246, 241, 231, 0.16)' : 'rgba(246, 241, 231, 0.08)';
+    c.fillRect(rx0 + band * cw, ry0, cw, ry1 - ry0);
     c.fillStyle = HALF;
     c.fillRect(rx0 + s.sel * cw + 1, ry1 + 2, cw - 2, 1.2);
     for (let i = 0; i < BASS_STEPS; i += 1) {
       const st = s.steps[i];
       const m = midis[i];
       const x = rx0 + i * cw;
+      // Un pas verrouille : un petit trait au-dessus de sa colonne
+      if (st.locks) {
+        c.fillStyle = lock && lock.step === i ? INK : HALF;
+        c.fillRect(x + cw / 2 - 2, ry0 - 4, 4, 1.6);
+      }
       if (st.kind === 'off' || m === null) {
         this.circle(x + cw / 2, ry1 - 2, 0.9, i % 4 === 0 ? HALF : FAINT);
         continue;
       }
       const y = yOf(m);
-      // Une liaison continue la note d'avant : le trait se prolonge
       const tieIn = st.kind === 'tie';
       const nx = s.steps[(i + 1) % BASS_STEPS];
       const tieOut = nx.kind === 'tie' && i < BASS_STEPS - 1;
       const x0 = tieIn ? x - 0.5 : x + 1.2;
       const x1 = tieOut ? x + cw + 0.5 : x + cw - 1.2;
-      const acc = st.kind === 'note' ? st.acc : false;
       const head = st.kind === 'note';
-      // La note de la liaison : celle de la note qui l'ouvre
-      let accent = acc;
+      let accent = st.kind === 'note' ? st.acc : false;
       if (tieIn) for (let k = i - 1; k >= 0; k -= 1) if (s.steps[k].kind === 'note') {
         accent = s.steps[k].acc;
         break;
@@ -228,16 +277,126 @@ export class BassScreen {
         }
       }
     }
-    // La tete de lecture
     if (live.step >= 0) {
       c.fillStyle = INK;
       c.fillRect(rx0 + live.step * cw + 1, ry1 + 5, cw - 2, 1.6);
     }
-    // Le bas : le message, sinon le pas choisi
-    this.text(message ?? info, rx0, UH - 7, 8.5, message ? INK : HALF, 600);
-    this.texture.needsUpdate = true;
-    this.draws += 1;
-    return true;
+    // Le bas : le message ; en LOCK la liste des verrous ; sinon le pas choisi et, discret, les presets
+    if (message) this.text(message, rx0, UH - 7, 8.5, INK, 600);
+    else if (lock) this.text(lock.items.length ? lock.items.join('   ') : 'TURN A SOUND KNOB TO LOCK IT ON THIS STEP', rx0, UH - 7, 8, lock.items.length ? INK : HALF, 600);
+    else {
+      this.text(info, rx0, UH - 7, 8.5, HALF, 600);
+      this.text('TOUCH: PRESETS', UW - 10, UH - 7, 6, FAINT, 700, 'right');
+    }
+  }
+
+  /** EDIT : les seize patterns. */
+  private drawEdit(s: BassState, bpm: number, e: NonNullable<BassScreenMode['edit']>, message: string | null): void {
+    const UW = this.UW;
+    const UH = this.UH;
+    const hy = 18;
+    const c = this.ctx;
+    c.fillStyle = INK;
+    if (s.running) {
+      c.beginPath();
+      c.moveTo(10, hy - 9);
+      c.lineTo(18, hy - 4.5);
+      c.lineTo(10, hy);
+      c.closePath();
+      c.fill();
+    } else c.fillRect(10, hy - 8.5, 8, 8);
+    const pw = this.pill('EDIT', 24, hy, 9, false);
+    this.text('PATTERNS', 30 + pw, hy, 9, HALF, 600);
+    const bw = this.text('BPM', UW - 10, hy, 7, HALF, 600, 'right');
+    this.text(String(Math.round(bpm)), UW - 14 - bw, hy, 12, INK, 400, 'right');
+    // Les emplacements, deux rangees de huit
+    const gx0 = 10;
+    const gx1 = UW * 0.64;
+    const gy0 = 30;
+    const gw = (gx1 - gx0) / 8;
+    const gh = (UH - 30 - 26) / 2;
+    for (let i = 0; i < 16; i += 1) {
+      const x = gx0 + (i % 8) * gw + 1.5;
+      const y = gy0 + Math.floor(i / 8) * gh + 1.5;
+      const w = gw - 3;
+      const h = gh - 3;
+      const cur = i === e.cur;
+      const inChain = e.chain.length > 1 ? e.chain.indexOf(i) : -1;
+      if (cur) this.box(x, y, w, h, INK, null);
+      else if (e.filled[i]) this.box(x, y, w, h, 'rgba(246, 241, 231, 0.14)', null);
+      else this.box(x, y, w, h, null, FAINT);
+      if (i === e.next) this.box(x - 1, y - 1, w + 2, h + 2, null, INK, 1.6);
+      this.text(String(i + 1), x + w / 2, y + h / 2 + 3, 8, cur ? BLACK : e.filled[i] ? INK : HALF, 600, 'center');
+      if (inChain >= 0) this.text(String(inChain + 1), x + w - 2.5, y + 7, 5.5, cur ? BLACK : INK, 700, 'right');
+    }
+    // Le courant en grand, la chaine dessous
+    const rx = UW * 0.82;
+    this.text(slot(e.cur), rx, UH * 0.52, 30, INK, 300, 'center');
+    const chain = e.chain.length > 1 ? e.chain.map(slot).join(' > ') : e.next >= 0 ? `NEXT ${slot(e.next)}` : e.filled[e.cur] ? 'PLAYING' : 'EMPTY';
+    this.text(chain.length > 24 ? `${chain.slice(0, 23)}...` : chain, rx, UH * 0.52 + 16, 7, HALF, 600, 'center');
+    this.text(message ?? 'TAP: PLAY   TAP MORE: CHAIN   HOLD AN EMPTY ONE: COPY', 10, UH - 7, 7.5, message ? INK : HALF, 600);
+  }
+
+  /** PRESETS : comme l'ecran du MM-RYTM. */
+  private drawPresets(p: PresetView): void {
+    const UW = this.UW;
+    const UH = this.UH;
+    this.text(p.title, 10, 18, 9, INK, 700);
+    if (p.count) this.text(p.count, UW - 10, 18, 9, HALF, 600, 'right');
+    // Le nom en grand entre les fleches (gauche : le precedent, droite : le suivant)
+    const band = UH * 0.74;
+    const my = band * 0.58 + 6;
+    const c = this.ctx;
+    if (!p.empty) {
+      c.fillStyle = INK;
+      for (const [x, d] of [
+        [14, -1],
+        [UW - 14, 1],
+      ] as const) {
+        // La pointe vers le bord (gauche : le precedent, droite : le suivant)
+        c.beginPath();
+        c.moveTo(x - d * 3, my - 6);
+        c.lineTo(x + d * 4, my - 1);
+        c.lineTo(x - d * 3, my + 4);
+        c.closePath();
+        c.fill();
+      }
+    }
+    let size = 20;
+    c.font = font(400, size);
+    while (size > 9 && c.measureText(p.name).width > UW - 60) {
+      size -= 1;
+      c.font = font(400, size);
+    }
+    this.text(p.name, UW / 2, my + size * 0.35, size, INK, 400, 'center');
+    // Les quatre touches du bas
+    const kw = UW / 4;
+    p.keys.forEach((k, i) => {
+      if (!k) return;
+      this.pill(k, i * kw + kw / 2, UH - 9, 8, k === 'EXIT', 'center');
+    });
+  }
+
+  /** Un rectangle a coins arrondis (la pastille, les emplacements). */
+  private box(x: number, y: number, w: number, h: number, fill: string | null, stroke: string | null, lw = 1): void {
+    const c = this.ctx;
+    const r = Math.min(3, w / 4, h / 4);
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+    if (fill) {
+      c.fillStyle = fill;
+      c.fill();
+    }
+    if (stroke) {
+      c.strokeStyle = stroke;
+      c.lineWidth = lw;
+      c.stroke();
+    }
   }
 
   /** La courbe du filtre (passe-bas a quatre poles, sa bosse de resonance) et la coupure qui sonne. */
@@ -274,7 +433,8 @@ export class BassScreen {
       const f = Math.max(30, Math.min(16000, liveCut));
       this.circle(xOf(f), yOf(dbAt(f, liveCut)), 3.2, INK);
     }
-    this.text('FILTER', x0, y1 + 12, 6.5, HALF, 700);
+    // En haut a droite (la ou la courbe est tombee) : le bas de l'ecran garde TOUCH: PRESETS
+    this.text('FILTER', x1, y0 + 6, 6.5, HALF, 700, 'right');
   }
 
   dispose(): void {

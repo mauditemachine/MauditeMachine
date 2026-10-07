@@ -11,7 +11,11 @@
  *   CHORUS DELAY REVERB, les effets de chaque voix (MASTER reste : un
  *   preset ne fait jamais sauter le niveau), et le kit des TWEAKS (les sons
  *   et le kick, audio/kit.ts, 2026-10-04 ; un preset d'avant ne le touche pas).
- * Gardes dans ce navigateur (localStorage), 60 par machine au plus.
+ * - MM-BASS (2026-10-07) : tous ses potards et sa ligne (les pas et leurs
+ *   verrous) ; recharger ne lance ni n'arrete la basse.
+ * Gardes dans ce navigateur (localStorage), 60 par machine au plus. Les
+ * presets d'usine (state/factory.ts, des styles de musique electronique)
+ * suivent ceux de Mika ; ils se chargent, ne se renomment ni ne s'effacent.
  */
 
 import { INSTRUMENTS, pattern, type Fx, type Steps } from '../audio/pattern';
@@ -21,9 +25,17 @@ import { KIT_FAMILIES, KIT_IDS, isFamily, kit, modelAt, type KitFamily, type Kit
 import type { Inst } from '../theme';
 import { arp } from '../voyager/arp';
 import { VOY_KNOB_IDS, migrateKnobs, voyKnob, voyParams, type VoyValues } from '../voyager/params';
-import { seq, type SeqState } from '../voyager/seq';
+import { SEQ_MAX, seq, type SeqState } from '../voyager/seq';
+import { BASS_KNOBS, bassParams } from '../bass/params';
+import { bassState, cleanSteps, type BassStep } from '../bass/state';
+import { arpFactory, bassFactory, rytmFactory } from './factory';
 
-export type PresetMachine = 'voy' | 'mm808';
+export type PresetMachine = 'voy' | 'mm808' | 'bass';
+
+interface BassData {
+  params: Record<string, number>;
+  steps: readonly BassStep[];
+}
 
 interface VoyData {
   knobs: Partial<VoyValues>;
@@ -52,7 +64,9 @@ export interface Preset {
   name: string;
   /** Date.now() a l'enregistrement */
   at: number;
-  data: VoyData | RytmData;
+  data: VoyData | RytmData | BassData;
+  /** un preset d'usine (state/factory.ts) : ni renomme ni efface */
+  factory?: boolean;
 }
 
 const KEY = 'mm.v4.presets.1';
@@ -98,13 +112,27 @@ function load(): All {
   try {
     const raw = JSON.parse(window.localStorage.getItem(KEY) ?? 'null') as Partial<All> | null;
     const ok = (xs: unknown): Preset[] => (Array.isArray(xs) ? xs.filter((p) => p && typeof p.name === 'string' && typeof p.id === 'string' && p.data).slice(0, MAX) : []);
-    return { voy: ok(raw?.voy), mm808: ok(raw?.mm808) };
+    return { voy: ok(raw?.voy), mm808: ok(raw?.mm808), bass: ok(raw?.bass) };
   } catch {
-    return { voy: [], mm808: [] };
+    return { voy: [], mm808: [], bass: [] };
   }
 }
 
-let all: All = typeof window === 'undefined' ? { voy: [], mm808: [] } : load();
+let all: All = typeof window === 'undefined' ? { voy: [], mm808: [], bass: [] } : load();
+
+/** Les presets d'usine, faits a la premiere demande. */
+let factory: All | null = null;
+function factoryOf(m: PresetMachine): readonly Preset[] {
+  if (!factory) {
+    const mk = (prefix: string, list: { name: string; data: Preset['data'] }[]): Preset[] => list.map((x, i) => ({ id: `factory-${prefix}-${i}`, name: x.name, at: 0, data: x.data, factory: true }));
+    factory = {
+      mm808: mk('rytm', rytmFactory() as { name: string; data: Preset['data'] }[]),
+      voy: mk('arp', arpFactory(SEQ_MAX) as { name: string; data: Preset['data'] }[]),
+      bass: mk('bass', bassFactory()),
+    };
+  }
+  return factory[m];
+}
 const listeners = new Set<() => void>();
 
 function commit(next: All): void {
@@ -118,7 +146,8 @@ function commit(next: All): void {
 }
 
 /** L'etat de la machine, tel qu'il est. */
-function capture(m: PresetMachine): VoyData | RytmData {
+function capture(m: PresetMachine): VoyData | RytmData | BassData {
+  if (m === 'bass') return { params: { ...bassParams.get() }, steps: bassState.get().steps.map((x) => ({ ...x })) };
   if (m === 'voy') {
     return { knobs: { ...voyParams.get() }, seq: { ...seq.get(), buf: [...seq.get().buf] }, prog: [...arp.get().prog] };
   }
@@ -135,7 +164,17 @@ function capture(m: PresetMachine): VoyData | RytmData {
   };
 }
 
-function apply(m: PresetMachine, d: VoyData | RytmData): void {
+function apply(m: PresetMachine, d: VoyData | RytmData | BassData): void {
+  if (m === 'bass') {
+    const b = d as BassData;
+    for (const k of BASS_KNOBS) {
+      const v = b.params?.[k.id];
+      bassParams.set(k.id, typeof v === 'number' ? v : k.def);
+    }
+    const steps = cleanSteps(b.steps);
+    if (steps) bassState.set({ steps, lock: -1 });
+    return;
+  }
   if (m === 'voy') {
     const v = d as VoyData;
     // Un preset d'avant un potard (les TWEAKS, 2026-10-04) : ce potard a sa valeur de depart, le son d'alors ;
@@ -178,6 +217,8 @@ function apply(m: PresetMachine, d: VoyData | RytmData): void {
 export const presets = {
   get: (): All => all,
   of: (m: PresetMachine): readonly Preset[] => all[m],
+  /** Ceux de Mika (les plus recents d'abord), puis ceux d'usine : la liste du mode presets. */
+  list: (m: PresetMachine): readonly Preset[] => [...all[m], ...factoryOf(m)],
   subscribe(fn: () => void): () => void {
     listeners.add(fn);
     return () => {
@@ -193,7 +234,7 @@ export const presets = {
   },
   /** Recharge un preset ; false s'il n'existe plus. */
   load(m: PresetMachine, id: string): Preset | null {
-    const p = all[m].find((x) => x.id === id);
+    const p = all[m].find((x) => x.id === id) ?? factoryOf(m).find((x) => x.id === id);
     if (!p) return null;
     apply(m, p.data);
     return p;

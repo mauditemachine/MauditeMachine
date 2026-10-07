@@ -32,8 +32,8 @@ export const MACHINE_HELP: Readonly<Record<MachineId, { name: string; kind: stri
     name: 'MM-BASS',
     kind: 'Bassline generator',
     text: [
-      'GEN writes a bassline in the chosen STYLE (ACID, DISCO, ROLL, SUB), DENSITY, SLIDES and ACCENTS; MUTATE changes a few steps. RUN plays it in time with the MM-RYTM, ROOT on ARP follows the MM-ARP chords.',
-      'A TB-303 style filter (CUTOFF, RESO, ENV MOD, DECAY, ACCENT), a sine SUB one octave below and OCTAVE down to 20 Hz. Tap a step: note, tie, off; drag it up or down to change its note, then ACCENT and SLIDE.',
+      'GEN writes a bassline in the chosen STYLE (acid, dark disco, indie dance, minimal, psy prog, techno, house, electro, EBM, italo, sub), DENSITY, SLIDES and ACCENTS; MUTATE changes a few steps. RUN plays it in time with the MM-RYTM. Touch the screen for presets, a factory one per style.',
+      'A TB-303 style filter, a sine SUB down to 20 Hz. Tap a step: note, tie, off; drag it to change its note. LOCK above a step: the sound knobs then change only that step. EDIT turns the steps into 16 patterns you can chain.',
     ],
   },
   dj: {

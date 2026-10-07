@@ -6,7 +6,10 @@
  * - VOICE : WAVE (dent de scie vers carre), SUB (un sinus une octave sous la
  *   note), DRIVE, GLIDE (la duree d'un SLIDE), VOLUME, OCTAVE (de -2 a +1 :
  *   les subs descendent jusqu'a 20 Hz) ;
- * - GENERATOR, facon Torso T-1 : STYLE (ACID, DISCO, ROLL, SUB), DENSITY,
+ * - GENERATOR, facon Torso T-1 : STYLE (onze styles de musique electronique,
+ *   2026-10-07, Mika : "des styles de musique electro differents, et pas juste
+ *   Disco" : ACID, DARK DISCO, INDIE DANCE, MINIMAL, PSY PROG, TECHNO, HOUSE,
+ *   ELECTRO, EBM, ITALO, SUB), DENSITY,
  *   SLIDES, ACCENTS (leurs chances), RANGE (l'etendue en octaves), ROOT (la
  *   tonique, ou ARP : elle suit les accords du MM-ARP), SCALE.
  */
@@ -25,7 +28,7 @@ export interface BassKnobDef {
   names?: readonly string[];
 }
 
-export const BASS_STYLES = ['ACID', 'DISCO', 'ROLL', 'SUB'] as const;
+export const BASS_STYLES = ['ACID', 'DARK DISCO', 'INDIE DANCE', 'MINIMAL', 'PSY PROG', 'TECHNO', 'HOUSE', 'ELECTRO', 'EBM', 'ITALO', 'SUB'] as const;
 export type BassStyle = (typeof BASS_STYLES)[number];
 /** ROOT : ARP (les accords du MM-ARP), puis les douze toniques depuis fa diese (la tonalite du site). */
 export const BASS_ROOTS = ['ARP', 'F#', 'G', 'G#', 'A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F'] as const;
@@ -53,7 +56,7 @@ export const BASS_KNOBS: readonly BassKnobDef[] = [
   { id: 'glide', label: 'GLIDE', aria: 'Slide time', def: 0.35 },
   { id: 'volume', label: 'VOLUME', aria: 'Volume', def: 0.78 },
   { id: 'octave', label: 'OCTAVE', aria: 'Octave, from minus two to plus one', def: 2 / 3, steps: 4, names: BASS_OCTAVES },
-  { id: 'style', label: 'STYLE', aria: 'Generator style: acid, disco, roll or sub', def: 0, steps: 4, names: BASS_STYLES },
+  { id: 'style', label: 'STYLE', aria: 'Generator style: acid, dark disco, indie dance, minimal, psy prog, techno, house, electro, EBM, italo or sub', def: 0, steps: BASS_STYLES.length, names: BASS_STYLES },
   { id: 'density', label: 'DENSITY', aria: 'Generator density: how many notes', def: 0.6 },
   { id: 'slides', label: 'SLIDES', aria: 'Generator: chance of a slide', def: 0.3 },
   { id: 'accents', label: 'ACCENTS', aria: 'Generator: chance of an accent', def: 0.35 },

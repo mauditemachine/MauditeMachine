@@ -9,17 +9,31 @@
  *   note a liaison (TIE, s'il suit une note), de liaison a vide ; a l'arret,
  *   on entend sa note ;
  * - ACCENT, SLIDE, NOTE - +, OCT - + : sur le pas choisi ;
- * - les potards : bassParams, l'ecran dit leur valeur.
+ * - les potards : bassParams, l'ecran dit leur valeur ;
+ * - LOCK (2026-10-07, les boutons au-dessus des pas, les parameter locks des
+ *   Elektron) : le pas dont on regle les verrous ; les potards du son ne
+ *   changent alors que lui (deux tapes sur un potard : son verrou s'en va ;
+ *   CLEAR : tous ceux du pas) ; le meme bouton, Echap ou EDIT en sortent ;
+ * - EDIT (2026-10-07) : les seize pas deviennent les seize patterns (taper,
+ *   chainer, tenir un vide pour copier, bass/patterns.ts).
  * Une piste SoundCloud du site qui part : la basse se tait (comme RUN).
  */
 
 import { gesture } from '../actions';
 import { sc } from '../audio/soundcloud';
+import { editor } from '../state/editor';
+import { focus } from '../state/focus';
 import { bassEngine } from './engine';
 import { generate, mutate, type GenOpts } from './gen';
 import { BASS_SCALES, BASS_STYLES, SCALE_TONES, bassKnob, bassParams, bassValueText, stepOf, type BassKnobId } from './params';
+import { bassPatterns, bassSlotName } from './patterns';
 import { bassSeq, midiOf } from './seq';
-import { BASS_STEPS, bassState, emptyStep } from './state';
+import { BASS_STEPS, bassState, emptyStep, isLockable } from './state';
+
+const two = (i: number): string => String(i + 1).padStart(2, '0');
+
+/** EDIT est ouvert sur le MM-BASS : les pas sont les patterns. */
+export const bassEditing = (): boolean => editor.get() === 'bass';
 
 const genOpts = (): GenOpts => {
   const v = bassParams.get();
@@ -58,6 +72,13 @@ export function bassMutate(): void {
 }
 
 export function bassClear(): void {
+  // En LOCK : les verrous du pas seulement
+  const st = bassState.get();
+  if (st.lock >= 0) {
+    bassState.setStep(st.lock, { locks: undefined });
+    bassState.say(`LOCK ${two(st.lock)} CLEARED`, 1400);
+    return;
+  }
   bassState.set({ steps: Array.from({ length: BASS_STEPS }, emptyStep) });
   bassState.say('CLEARED', 1200);
 }
@@ -69,7 +90,7 @@ function audition(i: number): void {
   if (s.kind !== 'note') return;
   gesture();
   void bassEngine.ensure().then(() => {
-    bassEngine.on(midiOf(s), s.acc, false);
+    bassEngine.on(midiOf(s), s.acc, false, 0, s.locks ?? null);
     const c = bassEngine.ctx;
     bassEngine.off(c ? c.currentTime + 0.22 : 0);
   });
@@ -84,9 +105,13 @@ function sayStep(i: number): void {
   bassState.say(`STEP ${String(i + 1).padStart(2, '0')}  ${what}`, 1600);
 }
 
-/** Taper un pas : choisi ; vide, note, liaison (apres une note), vide. */
+/** Taper un pas : choisi ; vide, note, liaison (apres une note), vide. En EDIT : son pattern. */
 export function bassStepTap(i: number): void {
   gesture();
+  if (bassEditing()) {
+    bassPatternTap(i);
+    return;
+  }
   const st = bassState.get();
   if (i < 0 || i >= BASS_STEPS) return;
   const s = st.steps[i];
@@ -165,11 +190,110 @@ export function bassOct(dir: -1 | 1): void {
   audition(st.sel);
 }
 
-/** Un potard (0 a 1) ; l'ecran dit sa valeur. */
+/** Ce que montre un potard : le verrou du pas en LOCK, sinon sa valeur. */
+export function bassKnobValue(id: BassKnobId): number {
+  const st = bassState.get();
+  if (st.lock >= 0 && isLockable(id)) {
+    const v = st.steps[st.lock]?.locks?.[id];
+    if (v !== undefined) return v;
+  }
+  return bassParams.of(id);
+}
+
+/** Un potard (0 a 1) ; l'ecran dit sa valeur. En LOCK, un potard du son verrouille le pas. */
 export function bassDial(id: BassKnobId, v: number): void {
+  const st = bassState.get();
+  if (st.lock >= 0 && isLockable(id)) {
+    const x = Math.min(1, Math.max(0, v));
+    const s = st.steps[st.lock];
+    if (s.locks?.[id] === x) return;
+    bassState.setStep(st.lock, { locks: { ...(s.locks ?? {}), [id]: x } });
+    bassState.say(`LOCK ${two(st.lock)}  ${bassKnob(id).label} ${bassValueText(id, x)}`, 1400);
+    return;
+  }
   if (!bassParams.set(id, v)) return;
   bassState.say(`${bassKnob(id).label} ${bassValueText(id, bassParams.of(id))}`, 1400);
 }
+
+/** Deux tapes sur un potard : en LOCK, son verrou s'en va ; sinon, sa valeur de depart. */
+export function bassDialReset(id: BassKnobId): void {
+  const st = bassState.get();
+  if (st.lock >= 0 && isLockable(id)) {
+    const s = st.steps[st.lock];
+    if (!s.locks || s.locks[id] === undefined) {
+      bassState.say(`LOCK ${two(st.lock)}  ${bassKnob(id).label} NOT LOCKED`, 1400);
+      return;
+    }
+    const { [id]: _gone, ...rest } = s.locks;
+    bassState.setStep(st.lock, { locks: Object.keys(rest).length ? rest : undefined });
+    bassState.say(`LOCK ${two(st.lock)}  ${bassKnob(id).label} OFF`, 1400);
+    return;
+  }
+  bassDial(id, bassParams.def(id));
+}
+
+/* ---------------- LOCK : les boutons au-dessus des pas ---------------- */
+
+/** Un bouton LOCK : ce pas recoit les potards du son (le meme : on sort). */
+export function bassLockTap(i: number): void {
+  gesture();
+  if (i < 0 || i >= BASS_STEPS) return;
+  if (bassEditing()) {
+    bassState.say('CLOSE EDIT TO LOCK A STEP', 1600);
+    return;
+  }
+  const st = bassState.get();
+  if (st.lock === i) {
+    bassLockOff();
+    return;
+  }
+  bassState.set({ lock: i, sel: i });
+  const n = Object.keys(st.steps[i].locks ?? {}).length;
+  bassState.say(`LOCK ${two(i)}  ${n ? `${n} LOCKED` : 'TURN A KNOB'}`, 2000);
+}
+
+/** LOCK sur le pas choisi (clavier L, MIDI). */
+export function bassLockToggle(): void {
+  bassLockTap(bassState.get().sel);
+}
+
+export function bassLockOff(): void {
+  if (bassState.get().lock < 0) return;
+  bassState.set({ lock: -1 });
+  bassState.say('LOCK OFF', 1200);
+}
+
+/* ---------------- EDIT : les patterns ---------------- */
+
+export function bassEditToggle(): void {
+  gesture();
+  editor.toggle('bass');
+  const on = bassEditing();
+  if (on && bassState.get().lock >= 0) bassState.set({ lock: -1 });
+  bassState.say(on ? `PATTERNS  ${bassSlotName(bassPatterns.get().cur)}` : 'EDIT CLOSED', 1800);
+}
+
+const chainLine = (c: readonly number[]): string => `CHAIN ${c.map(bassSlotName).join(' > ')}`;
+
+export function bassPatternTap(i: number): void {
+  const r = bassPatterns.tap(i, bassSeq.running);
+  const p = bassPatterns.get();
+  if (r === 'chain') bassState.say(chainLine(p.chain), 2600);
+  else if (r === 'next') bassState.say(`NEXT ${bassSlotName(i)}: AT THE BAR`, 2000);
+  else bassState.say(`PATTERN ${bassSlotName(i)}${bassPatterns.filled(i) ? '' : ' EMPTY'}`, 2000);
+}
+
+/** EDIT, un pas tenu : un emplacement vide recoit une copie de la ligne courante. */
+export function bassPatternHold(i: number): void {
+  const from = bassPatterns.get().cur;
+  if (bassPatterns.copyTo(i)) bassState.say(`COPY ${bassSlotName(from)} > ${bassSlotName(i)}`, 2000);
+  else bassState.say(i === from ? `${bassSlotName(i)} PLAYS` : !bassPatterns.filled(from) ? `${bassSlotName(from)} IS EMPTY` : 'HOLD AN EMPTY SLOT TO COPY', 2000);
+}
+
+// Une autre machine : LOCK se ferme (EDIT aussi, state/editor.ts)
+focus.subscribe(() => {
+  if (focus.get() !== 'bass' && bassState.get().lock >= 0) bassState.set({ lock: -1 });
+});
 
 /** Une piste du site qui part : la basse s'arrete. */
 export function bassStop(): void {

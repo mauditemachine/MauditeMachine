@@ -14,6 +14,11 @@
  * la note d'avant. La hauteur : la tonique (ROOT), la gamme (SCALE), le
  * degre et l'octave du pas, OCTAVE ; ROOT sur ARP : la basse suit la racine
  * de l'accord que joue le MM-ARP (dans la gamme de fa diese).
+ *
+ * Les verrous d'un pas (2026-10-07) partent avec sa note (le worklet les pose
+ * avant elle) ; une liaison verrouillee change le son de la note qui
+ * continue. Le premier pas de chaque mesure previent les patterns (EDIT :
+ * la ligne suivante de la chaine, ou celle qui attend, est posee avant lui).
  */
 
 import { clock } from '../audio/clock';
@@ -25,6 +30,7 @@ import { arp } from '../voyager/arp';
 import { CHORDS } from '../voyager/chords';
 import { bassEngine } from './engine';
 import { BASS_SCALES, BASS_STYLES, SCALE_TONES, bassParams, stepOf } from './params';
+import { bassPatterns } from './patterns';
 import { BASS_STEPS, bassState, type BassStep } from './state';
 
 const START_DELAY_S = 0.05;
@@ -36,7 +42,19 @@ const MIDI_MAX = 84;
 const BASE = 42;
 
 /** La duree d'une note (en part du pas) selon le style. */
-const GATE: Readonly<Record<(typeof BASS_STYLES)[number], number>> = { ACID: 0.52, DISCO: 0.45, ROLL: 0.38, SUB: 0.92 };
+const GATE: Readonly<Record<(typeof BASS_STYLES)[number], number>> = {
+  ACID: 0.52,
+  'DARK DISCO': 0.45,
+  'INDIE DANCE': 0.45,
+  MINIMAL: 0.32,
+  'PSY PROG': 0.38,
+  TECHNO: 0.42,
+  HOUSE: 0.62,
+  ELECTRO: 0.42,
+  EBM: 0.36,
+  ITALO: 0.4,
+  SUB: 0.92,
+};
 
 /** Le degre de la gamme le plus proche sous un intervalle (pour suivre une racine d'accord). */
 function degreeOf(semis: number, tones: readonly number[]): number {
@@ -80,6 +98,10 @@ let stepIdx = 0;
 /** la note tenue a la fin du dernier pas programme (SLIDE, TIE) */
 let holding = false;
 let ring: { when: number; step: number }[] = [];
+/** la premiere mesure d'une lecture (la chaine repart de son debut) */
+let firstBar = true;
+/** un pattern se pose (EDIT) : sa ligne n'est pas une edition a re-programmer */
+let switching = false;
 const plan: { time: number; stepIdx: number; anchor: number; n: number; stepDur: number; holding: boolean }[] = [];
 
 function gridOf(t: number): { time: number; step: number; dur: number } | null {
@@ -90,6 +112,12 @@ function scheduleStep(): void {
   const when = nextTime + ((stepIdx & 1) === 1 ? pattern.fx.get().swing * SWING.maxDelay * stepDur : 0);
   ring.push({ when, step: stepIdx });
   if (ring.length > RING) ring.shift();
+  if (stepIdx === 0) {
+    switching = true;
+    bassPatterns.bar(nextTime, firstBar);
+    switching = false;
+    firstBar = false;
+  }
   const steps = bassState.get().steps;
   const s = steps[stepIdx];
   const next = steps[(stepIdx + 1) % BASS_STEPS];
@@ -104,6 +132,7 @@ function scheduleStep(): void {
   if (s.kind === 'tie') {
     // La note d'avant continue ; rien a tenir : un silence
     if (!holding) return;
+    if (s.locks) bassEngine.lock(when, s.locks);
     if (next.kind !== 'tie' && !(s.slide && next.kind === 'note')) {
       bassEngine.off(when + gate);
       holding = false;
@@ -113,7 +142,7 @@ function scheduleStep(): void {
   // Une note : glissee depuis la precedente si celle-ci avait SLIDE (ou une liaison qui glisse)
   const legato = holding && prev.kind !== 'off' && prev.slide;
   if (holding && !legato) bassEngine.off(when);
-  bassEngine.on(midiOf(s, when), s.acc, legato, when);
+  bassEngine.on(midiOf(s, when), s.acc, legato, when, s.locks ?? null);
   holding = true;
   const held = (s.slide && next.kind === 'note') || next.kind === 'tie';
   if (!held) {
@@ -194,7 +223,7 @@ bassState.subscribe(() => {
   const st = bassState.get();
   if (st.steps === lastSteps) return;
   lastSteps = st.steps;
-  ask();
+  if (!switching) ask();
 });
 let pitchKey = '';
 bassParams.subscribe(() => {
@@ -238,6 +267,7 @@ export const bassSeq = {
     holding = false;
     ring = [];
     plan.length = 0;
+    firstBar = true;
     running = true;
     timer = window.setInterval(tick, TICK_MS);
     bassState.set({ running: true });
@@ -253,6 +283,7 @@ export const bassSeq = {
     plan.length = 0;
     holding = false;
     bassEngine.stop();
+    bassPatterns.stopped();
     bassState.set({ running: false });
   },
   get running(): boolean {

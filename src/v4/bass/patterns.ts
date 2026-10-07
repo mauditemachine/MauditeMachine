@@ -1,0 +1,183 @@
+/**
+ * Les patterns du MM-BASS (2026-10-07, Mika : "sur BASS il n'y a pas de
+ * bouton EDIT, j'aimerais en avoir un"), comme ceux du MM-RYTM
+ * (state/patterns.ts) : seize emplacements, A01 a A16, chacun une ligne
+ * entiere (ses seize pas et leurs verrous) ; la ligne qui joue (bass/
+ * state.ts) est celle de l'emplacement courant, et chaque changement y est
+ * garde. EDIT (sur la machine, les seize pas sont les emplacements) :
+ * - taper un emplacement le choisit : a l'arret tout de suite, en lecture
+ *   au debut de la mesure suivante (NEXT) ;
+ * - en taper d'autres dans les deux secondes les ajoute a la suite : la
+ *   CHAINE (A01 > A03 > A02...), une mesure chacun, en boucle ;
+ * - tenir un emplacement vide y copie la ligne courante.
+ * La sequence (bass/seq.ts) previent au premier pas de chaque mesure qu'elle
+ * programme (bar) : la ligne suivante est posee a ce moment.
+ * Retenu sous mm.v4.bass.patterns (les emplacements, le courant, la chaine).
+ */
+
+import { BASS_STEPS, bassState, cleanSteps, emptyStep, type BassStep } from './state';
+
+export const BASS_SLOTS = 16;
+/** Taper un autre pattern dans ce delai l'ajoute a la chaine. */
+const CHAIN_MS = 2000;
+const KEY = 'mm.v4.bass.patterns';
+const SAVE_MS = 400;
+
+export interface BassPatternsState {
+  /** les seize emplacements ; null : vide (jamais ecrit) */
+  slots: readonly (readonly BassStep[] | null)[];
+  cur: number;
+  chain: readonly number[];
+  pos: number;
+  /** le pattern qui attend la mesure suivante (lecture), -1 aucun */
+  next: number;
+}
+
+export const bassSlotName = (i: number): string => `A${String(i + 1).padStart(2, '0')}`;
+
+const isEmpty = (s: readonly BassStep[]): boolean => s.every((x) => x.kind === 'off');
+const emptyLine = (): BassStep[] => Array.from({ length: BASS_STEPS }, emptyStep);
+
+function load(): BassPatternsState {
+  const slots: (readonly BassStep[] | null)[] = Array.from({ length: BASS_SLOTS }, () => null);
+  let cur = 0;
+  let chain: number[] = [0];
+  try {
+    const raw = JSON.parse(window.localStorage.getItem(KEY) ?? 'null') as { slots?: unknown[]; cur?: unknown; chain?: unknown[] } | null;
+    if (raw && Array.isArray(raw.slots)) {
+      for (let i = 0; i < BASS_SLOTS; i += 1) slots[i] = raw.slots[i] ? cleanSteps(raw.slots[i]) : null;
+      if (Number.isInteger(raw.cur) && (raw.cur as number) >= 0 && (raw.cur as number) < BASS_SLOTS) cur = raw.cur as number;
+      if (Array.isArray(raw.chain)) {
+        const c = raw.chain.filter((v): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) < BASS_SLOTS).slice(0, BASS_SLOTS);
+        if (c.length > 0) chain = c;
+      }
+    }
+  } catch {
+    /* rien de retenu */
+  }
+  // La ligne du moment (retenue par bass/state.ts) est celle de l'emplacement courant
+  slots[cur] = bassState.get().steps;
+  if (!chain.includes(cur)) chain = [cur];
+  return { slots, cur, chain, pos: Math.max(0, chain.indexOf(cur)), next: -1 };
+}
+
+let state: BassPatternsState = typeof window === 'undefined' ? { slots: [], cur: 0, chain: [0], pos: 0, next: -1 } : load();
+const listeners = new Set<() => void>();
+let saveTimer = 0;
+let loading = false;
+let lastTap = -Infinity;
+/** l'heure (contexte) de la derniere mesure traitee : une re-programmation ne la rejoue pas */
+let lastBar = -1;
+
+function save(): void {
+  window.clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(() => {
+    try {
+      window.localStorage.setItem(KEY, JSON.stringify({ slots: state.slots, cur: state.cur, chain: state.chain }));
+    } catch {
+      /* stockage indisponible : les patterns vivent pour la visite */
+    }
+  }, SAVE_MS);
+}
+
+function setState(next: BassPatternsState, keep = true): void {
+  state = next;
+  if (keep) save();
+  listeners.forEach((fn) => fn());
+}
+
+/** Pose la ligne i (ses pas et leurs verrous ; les potards restent). */
+function apply(i: number): void {
+  loading = true;
+  bassState.set({ steps: state.slots[i] ?? emptyLine(), lock: -1 });
+  loading = false;
+}
+
+// Chaque edition de la ligne est gardee dans l'emplacement courant
+if (typeof window !== 'undefined') {
+  let last = bassState.get().steps;
+  bassState.subscribe(() => {
+    const steps = bassState.get().steps;
+    if (steps === last) return;
+    last = steps;
+    if (loading) return;
+    const had = state.slots[state.cur];
+    const slots = state.slots.slice();
+    slots[state.cur] = isEmpty(steps) && !had ? null : steps;
+    setState({ ...state, slots });
+  });
+}
+
+function switchTo(i: number, pos: number): void {
+  if (i !== state.cur) apply(i);
+  setState({ ...state, cur: i, pos, next: -1 });
+}
+
+export const bassPatterns = {
+  get: (): BassPatternsState => state,
+  subscribe(fn: () => void): () => void {
+    listeners.add(fn);
+    return () => {
+      listeners.delete(fn);
+    };
+  },
+  filled(i: number): boolean {
+    const s = state.slots[i];
+    return !!s && !isEmpty(s);
+  },
+  /** EDIT, un emplacement touche (voir plus haut) ; renvoie ce qui s'est passe. */
+  tap(i: number, running: boolean, now = performance.now()): 'chain' | 'next' | 'now' {
+    if (i < 0 || i >= BASS_SLOTS) return 'now';
+    const chaining = now - lastTap < CHAIN_MS && state.chain.length < BASS_SLOTS;
+    lastTap = now;
+    if (chaining) {
+      setState({ ...state, chain: [...state.chain, i] });
+      return 'chain';
+    }
+    if (running) {
+      setState({ ...state, chain: [i], next: i === state.cur ? -1 : i });
+      return 'next';
+    }
+    if (i !== state.cur) apply(i);
+    setState({ ...state, cur: i, chain: [i], pos: 0, next: -1 });
+    return 'now';
+  },
+  /** Tenir un emplacement vide : il recoit une copie de la ligne courante ; false s'il est plein (ou la ligne vide). */
+  copyTo(i: number): boolean {
+    const steps = bassState.get().steps;
+    if (i < 0 || i >= BASS_SLOTS || bassPatterns.filled(i) || isEmpty(steps)) return false;
+    const slots = state.slots.slice();
+    slots[i] = steps;
+    setState({ ...state, slots });
+    return true;
+  },
+  /**
+   * Le premier pas d'une mesure que la sequence programme, a l'heure at du
+   * contexte (first : le premier de la lecture) : le pattern qui attend, ou
+   * le suivant de la chaine. Une mesure deja traitee (re-programmation) ne
+   * change rien.
+   */
+  bar(at: number, first: boolean): void {
+    if (at <= lastBar + 1e-4) return;
+    lastBar = at;
+    const c = state.chain;
+    if (first) {
+      if (c.length > 1 && state.cur !== c[0]) switchTo(c[0], 0);
+      else if (state.next >= 0) switchTo(state.next, 0);
+      return;
+    }
+    if (state.next >= 0) {
+      switchTo(state.next, Math.max(0, c.indexOf(state.next)));
+      return;
+    }
+    if (c.length > 1) {
+      const pos = (state.pos + 1) % c.length;
+      switchTo(c[pos], pos);
+    }
+  },
+  /** La lecture s'arrete : la prochaine mesure sera une premiere. */
+  stopped(): void {
+    lastBar = -1;
+    if (state.next >= 0) setState({ ...state, next: -1 }, false);
+  },
+};

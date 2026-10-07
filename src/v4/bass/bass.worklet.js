@@ -24,8 +24,10 @@
  *   pleines a toute resonance).
  * port, du fil principal :
  *   { type: 'params', p }              CUTOFF, RESO, ENVMOD, DECAY, ACCENT, WAVE, SUB, DRIVE, GLIDE, VOLUME (0 a 1)
- *   { type: 'on', at, midi, acc, legato }  une note a l'heure at du contexte (0 : tout de suite) ; legato : glisse
- *                                      depuis la note tenue, sans relancer les enveloppes
+ *   { type: 'on', at, midi, acc, legato, lock }  une note a l'heure at du contexte (0 : tout de suite) ; legato :
+ *                                      glisse depuis la note tenue, sans relancer les enveloppes ; lock : les
+ *                                      verrous de son pas (2026-10-07, les parameter locks), null : les potards
+ *   { type: 'lock', at, lock }         les verrous d'une liaison (la note continue, son son change)
  *   { type: 'off', at }                la note se relache a at
  *   { type: 'unseq', time }            les evenements programmes a time ou apres s'oublient (re-programmation)
  *   { type: 'stop' }                   tout se tait en 15 ms, plus rien de programme
@@ -157,7 +159,10 @@ class MMBass extends AudioWorkletProcessor {
     super();
     this.R = sampleRate * OS;
     this.ladder = new TeeBee(this.R);
-    this.p = { cutoff: 0.35, reso: 0.55, envmod: 0.55, decay: 0.45, accent: 0.6, wave: 0, sub: 0.35, drive: 0.15, glide: 0.35, volume: 0.8 };
+    // Les potards (base) ; les verrous du pas qui joue par-dessus (lock) ; p : ce qui sonne
+    this.base = { cutoff: 0.35, reso: 0.55, envmod: 0.55, decay: 0.45, accent: 0.6, wave: 0, sub: 0.35, drive: 0.15, glide: 0.35, volume: 0.8 };
+    this.lock = null;
+    this.p = { ...this.base };
     this.derive();
     this.phase = 0;
     this.subPhase = 0;
@@ -197,14 +202,20 @@ class MMBass extends AudioWorkletProcessor {
     this.driveNorm = 1 / Math.pow(this.drive, 0.45);
   }
 
+  /** Les potards, puis les verrous du pas qui joue. */
+  mix() {
+    this.p = this.lock ? { ...this.base, ...this.lock } : { ...this.base };
+    this.derive();
+  }
+
   onMsg(m) {
     if (!m) return;
     if (m.type === 'params') {
-      Object.assign(this.p, m.p);
-      this.derive();
-    } else if (m.type === 'on' || m.type === 'off') {
+      Object.assign(this.base, m.p);
+      this.mix();
+    } else if (m.type === 'on' || m.type === 'off' || m.type === 'lock') {
       const at = m.at > 0 ? Math.max(0, Math.round((m.at - currentTime) * sampleRate)) : 0;
-      const ev = { frame: currentFrame + at, type: m.type, midi: m.midi, acc: !!m.acc, legato: !!m.legato };
+      const ev = { frame: currentFrame + at, type: m.type, midi: m.midi, acc: !!m.acc, legato: !!m.legato, lock: m.lock || null };
       // Rangee par heure (un evenement a la meme heure passe apres ceux deja la)
       let i = this.queue.length;
       while (i > 0 && this.queue[i - 1].frame > ev.frame) i -= 1;
@@ -216,6 +227,10 @@ class MMBass extends AudioWorkletProcessor {
       this.queue = [];
       this.gate = false;
       this.quick = true;
+      if (this.lock) {
+        this.lock = null;
+        this.mix();
+      }
     }
   }
 
@@ -224,6 +239,12 @@ class MMBass extends AudioWorkletProcessor {
       this.gate = false;
       return;
     }
+    // Les verrous du pas : avant la note (sa decroissance, son accent en dependent)
+    if (ev.lock !== this.lock) {
+      this.lock = ev.lock;
+      this.mix();
+    }
+    if (ev.type === 'lock') return;
     const target = Math.log(440 * Math.pow(2, (ev.midi - 69) / 12));
     const legato = ev.legato && this.gate;
     this.logT = target;

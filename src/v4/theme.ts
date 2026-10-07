@@ -304,7 +304,7 @@ export const BACK = {
   tex: { desktop: 2048, mobile: 1024 },
   logo: PORTRAIT ? { u: -3.8, y: 0.5, w: 1.6 } : { u: -5.95, y: 1.66, w: 3.2 },
   model: { u: PORTRAIT ? -2.05 : -5.95, y: PORTRAIT ? 0.55 : 1.3, text: 'MM-RYTM DRUM MACHINE', cap: PORTRAIT ? 0.06 : 0.08 },
-  firmware: { u: PORTRAIT ? -2.05 : -5.95, y: PORTRAIT ? 0.38 : 1.08, text: 'FIRMWARE V.2.1 / 2026', cap: PORTRAIT ? 0.05 : 0.06, alpha: 0.55 },
+  firmware: { u: PORTRAIT ? -2.05 : -5.95, y: PORTRAIT ? 0.38 : 1.08, text: 'FIRMWARE V.3.0 / 2026', cap: PORTRAIT ? 0.05 : 0.06, alpha: 0.55 },
   sticker: PORTRAIT
     ? { u0: 2.3, u1: 3.8, y0: 0.26, y1: 0.58, serial: 'S/N MMRYTM-000808' }
     : { u0: -5.95, u1: -4.45, y0: 0.42, y1: 0.78, serial: 'S/N MMRYTM-000808' },
@@ -1173,7 +1173,7 @@ export type SilkLogoId = 'wordmark' | 'mark';
  * Logos serigraphies sur le panneau (2026-09-30) : dessines dans la meme
  * texture que les legendes, ils suivent la machine en 3D. Le logo aligne
  * (wordmark, 971 x 57) prend la place du texte MAUDITE MACHINE en haut a
- * gauche ; le logotype (le M, 1891 x 1612) se pose en haut a droite, FIRMWARE V.2.1 /
+ * gauche ; le logotype (le M, 1891 x 1612) se pose en haut a droite, FIRMWARE V.3.0 /
  * 2026 a sa gauche. Images blanches, teintees a l'encre de la serigraphie.
  * x : bord d'alignement, z : centre ; w ou h fixe la taille (unites).
  */
@@ -1208,7 +1208,7 @@ const padLabel = (p: PadSpec): SilkText =>
 export const SILK_TEXTS: readonly SilkText[] = [
   { text: 'MAUDITE MACHINE', x: HEAD.word.x, z: HEAD.z, cap: 0.2, align: 'left', weight: SILK.strongWeight, fallbackFor: 'wordmark' },
   { text: 'MM-RYTM', x: HEAD.model, z: HEAD.z, cap: 0.13, align: 'left' },
-  { text: 'FIRMWARE V.2.1 / 2026', x: HEAD.firmware, z: HEAD.z, cap: PORTRAIT ? 0.06 : 0.07, align: 'right', alpha: 0.45 },
+  { text: 'FIRMWARE V.3.0 / 2026', x: HEAD.firmware, z: HEAD.z, cap: PORTRAIT ? 0.06 : 0.07, align: 'right', alpha: 0.45 },
   { text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - 0.72, cap: 0.06, align: 'left' },
   ...ENCODERS.map((e, i) => ({ text: e.label, x: encPos(i).x, z: encPos(i).labelZ, cap: 0.085, maxW: 0.66, group: 'enc' })),
   ...ENC_GROUPS.map((g) => ({ text: g.text, x: groupSpan(g.ids).mid, z: groupSpan(g.ids).z, cap: ENC_GROUP_TYPE.cap, weight: ENC_GROUP_TYPE.weight, alpha: 1 })),

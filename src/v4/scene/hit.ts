@@ -70,10 +70,12 @@ export type HotspotKind =
   | 'djkey'
   | 'djjog'
   | 'djscreen'
-  // MM-BASS (2026-10-07) : potards, touches, pas
+  // MM-BASS (2026-10-07) : potards, touches, pas, leurs LOCK, l'ecran des presets
   | 'bassknob'
   | 'basskey'
-  | 'basstrig';
+  | 'basstrig'
+  | 'basslock'
+  | 'basslcd';
 
 export interface HotspotDef {
   id: string;

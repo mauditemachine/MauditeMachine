@@ -10,7 +10,13 @@
  * - dix touches (RUN en or quand la basse joue, ACCENT et SLIDE allumes
  *   quand le pas choisi les a) ;
  * - seize pas : orange une note (plus vif accentuee), pale une liaison, or le
- *   pas qui joue, le pas choisi plus clair ;
+ *   pas qui joue, le pas choisi plus clair ; en EDIT (2026-10-07) les seize
+ *   patterns : le courant vif, la chaine a demi, celui qui attend en or, un
+ *   plein a peine ;
+ * - seize boutons LOCK au-dessus des pas (2026-10-07) : orange pale si le pas
+ *   a des verrous, or celui qu'on regle ;
+ * - l'ecran se touche pour les presets (state/presetMode.ts, comme ceux du
+ *   MM-RYTM et du MM-ARP) ;
  * - la serigraphie : l'en-tete, les noms, les familles (FILTER, VOICE en os,
  *   GENERATOR en orange), les filets entre les groupes de touches, le numero
  *   de chaque pas (1, 5, 9, 13 plus marques).
@@ -25,16 +31,23 @@ import { withRubberLed } from '../scene/materials';
 import { makeBrushTexture, whenFonts } from '../scene/silk';
 import { APPEARANCE, PORTRAIT } from '../theme';
 import { pattern } from '../audio/pattern';
+import { editor } from '../state/editor';
+import { presetMode, type PresetKey } from '../state/presetMode';
+import { presets } from '../state/presets';
 import { bezel, dc, partDj, power, rca, screw, usb, wedge } from '../dj/body';
 import { DJ_GLOW, keyGeometry, knobGeometry } from '../dj/controls';
 import { DjSilk, headTexts, type Bracket, type Line, type Text } from '../dj/silk';
-import { DJ_BODY, DJ_KEY, DJ_KNOB, DJ_TILT, DJ_TOP_Y, DJ_UNIT } from '../dj/theme';
-import { noteName } from './actions';
+import { DJ_BEZEL, DJ_BODY, DJ_KEY, DJ_KNOB, DJ_TILT, DJ_TOP_Y, DJ_UNIT } from '../dj/theme';
+import { bassKnobValue, noteName } from './actions';
+import { BASS_SLOTS, bassPatterns } from './patterns';
 import { bassEngine } from './engine';
-import { BASS_KNOBS, bassParams, type BassKnobId } from './params';
+import { BASS_KNOBS, bassParams, bassValueText, type BassKnobId } from './params';
 import { BassScreen } from './screen';
 import { bassSeq, midiOf } from './seq';
-import { BASS_STEPS, bassState } from './state';
+import { BASS_LOCKABLE, BASS_STEPS, bassState, type BassLockId } from './state';
+
+/** Les noms courts des verrous, sur la ligne du bas de l'ecran. */
+const LOCK_SHORT: Readonly<Record<BassLockId, string>> = { cutoff: 'CUT', reso: 'RES', envmod: 'ENV', decay: 'DEC', accent: 'ACC', wave: 'WAVE', sub: 'SUB', drive: 'DRV', glide: 'GLD', volume: 'VOL' };
 import {
   BASS,
   BASS_D,
@@ -48,6 +61,7 @@ import {
   BASS_W,
   bassKeyAt,
   bassKnobAt,
+  bassLockAt,
   bassKnobTone,
   bassTrigAt,
   bassX,
@@ -67,6 +81,8 @@ export interface BassRigOpts {
   anisotropy: number;
   repaint: () => void;
   invalidate: () => void;
+  /** des zones ont change (l'ecran des presets) : le picking se refait */
+  hitChanged: () => void;
 }
 
 /* ---------------- les ids des commandes ---------------- */
@@ -74,6 +90,8 @@ export interface BassRigOpts {
 export const bassKnobId = (k: BassKnobId): string => `bass-knob-${k}`;
 export const bassKeyId = (k: BassKeyKind): string => `bass-key-${k}`;
 export const bassTrigId = (i: number): string => `bass-trig-${i + 1}`;
+export const bassLockId = (i: number): string => `bass-lock-${i + 1}`;
+export const bassLcdId = (k: PresetKey): string => `bass-lcd-${k}`;
 
 /* ---------------- le corps ---------------- */
 
@@ -122,7 +140,9 @@ const knobLabelZ = (z: number, s: number): number => z - DJ_KNOB.skirt.r * s - 0
 const INK_K = PORTRAIT ? 1.3 : 1;
 
 function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
-  const texts: Text[] = headTexts('MM-BASS', 'BASSLINE GENERATOR / ACID / SUB', BASS_W, BASS.head.z, PORTRAIT ? 1.95 : 1.95);
+  const texts: Text[] = headTexts('MM-BASS', 'BASSLINE GENERATOR', BASS_W, BASS.head.z, 1.95);
+  // Le firmware, a gauche du logotype (2026-10-07, Mika : "V1 sur BASS", comme V3 sur le MM-RYTM)
+  texts.push({ text: 'FIRMWARE V.1.0 / 2026', x: BASS_W / 2 - (PORTRAIT ? 1.0 : 1.05), z: BASS.head.z + 0.035, cap: PORTRAIT ? 0.058 : 0.065, align: 'right', alpha: 0.45 });
   const lines: Line[] = [];
   const brackets: Bracket[] = [];
   const tick = (x: number, z: number, deg: number, r0: number, r1: number): void => {
@@ -165,7 +185,7 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   const K = BASS.keys;
   BASS_KEYS.forEach((k, i) => {
     const p = bassKeyAt(i);
-    texts.push({ text: k.label, x: p.x, z: p.z - K.d / 2 - 0.15, cap: 0.058 * INK_K, weight: 700, group: 'keys', maxW: K.w + 0.2, ...(k.kind === 'run' || k.kind === 'gen' ? { ink: 'orange' as const, alpha: 1 } : {}) });
+    texts.push({ text: k.label, x: p.x, z: p.z - K.d / 2 - 0.15, cap: 0.058 * INK_K, weight: 700, group: 'keys', maxW: K.w + 0.2, ...(k.kind === 'run' || k.kind === 'gen' || k.kind === 'edit' ? { ink: 'orange' as const, alpha: 1 } : {}) });
   });
   if (!PORTRAIT) {
     for (const g of BASS_KEY_GROUPS) {
@@ -180,10 +200,12 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
     const p = bassTrigAt(i);
     texts.push({ text: String(i + 1), x: p.x, z: p.z + T.d / 2 + 0.13, cap: 0.058 * INK_K, weight: 700, alpha: i % 4 === 0 ? 1 : 0.5, group: 'trigs' });
   }
-  const t0 = bassTrigAt(0).x - T.w / 2;
-  const t1 = bassTrigAt(PORTRAIT ? 7 : 15).x + T.w / 2;
-  if (PORTRAIT) brackets.push({ text: 'STEPS  /  TAP: NOTE, TIE, OFF', x0: t0, x1: t1, z: bassTrigAt(0).z - T.d / 2 - 0.2, down: true });
-  else brackets.push({ text: 'STEPS  /  TAP: NOTE, TIE, OFF', x0: t0, x1: t1, z: bassTrigAt(0).z + T.d / 2 + 0.42 });
+  // Desktop : le crochet sous les pas dit les deux rangees (au telephone, pas la place)
+  if (!PORTRAIT) {
+    const t0 = bassTrigAt(0).x - T.w / 2;
+    const t1 = bassTrigAt(15).x + T.w / 2;
+    brackets.push({ text: 'LOCK ABOVE: THAT STEP TAKES THE KNOBS  /  STEPS: NOTE, TIE, OFF', x0: t0, x1: t1, z: bassTrigAt(0).z + T.d / 2 + 0.42 });
+  }
   return { texts, lines, brackets };
 }
 
@@ -201,13 +223,17 @@ export class BassRig {
   private knobSlot: { m: number; j: number }[];
   private keys: InstancedMesh;
   private trigs: InstancedMesh;
+  private locks: InstancedMesh;
   private silk: DjSilk;
   private materials: MeshStandardMaterial[] = [];
   private keyEm: InstancedBufferAttribute;
   private trigEm: InstancedBufferAttribute;
+  private lockEm: InstancedBufferAttribute;
   private knobAngle = new Float32Array(BASS_KNOBS.length);
   private keyY = new Float32Array(BASS_KEYS.length);
   private trigY = new Float32Array(BASS_STEPS);
+  private lockY = new Float32Array(BASS_STEPS);
+  private lcdDefs: HotspotDef[] = [];
   private defs: HotspotDef[];
   private unsubs: (() => void)[] = [];
   private held = new Set<string>();
@@ -265,12 +291,18 @@ export class BassRig {
     tg.setAttribute('instanceEmissive', this.trigEm);
     this.trigs = new InstancedMesh(tg, std('bassTrig', { roughness: 0.85, metalness: 0 }, true), BASS_STEPS);
     this.trigs.name = 'bassTrigs';
-    for (const m of [...this.knobs, this.keys, this.trigs]) {
+    const lg = keyGeometry(opts.mobile);
+    this.lockEm = new InstancedBufferAttribute(new Float32Array(BASS_STEPS * 3), 3);
+    this.lockEm.setUsage(DynamicDrawUsage);
+    lg.setAttribute('instanceEmissive', this.lockEm);
+    this.locks = new InstancedMesh(lg, std('bassLock', { roughness: 0.88, metalness: 0 }, true), BASS_STEPS);
+    this.locks.name = 'bassLocks';
+    for (const m of [...this.knobs, this.keys, this.trigs, this.locks]) {
       m.instanceMatrix.setUsage(DynamicDrawUsage);
       m.castShadow = !opts.mobile;
       m.receiveShadow = true;
     }
-    this.top.add(...this.knobs, this.keys, this.trigs);
+    this.top.add(...this.knobs, this.keys, this.trigs, this.locks);
 
     this.screen = new BassScreen(opts.anisotropy, opts.mobile);
     this.top.add(this.screen.mesh);
@@ -278,11 +310,14 @@ export class BassRig {
     this.top.add(this.silk.mesh);
 
     BASS_KNOBS.forEach((k, i) => {
-      this.knobAngle[i] = potAngle(bassParams.of(k.id));
+      this.knobAngle[i] = potAngle(bassKnobValue(k.id));
       this.placeKnob(i);
     });
     BASS_KEYS.forEach((_, i) => this.placeKey(i));
-    for (let i = 0; i < BASS_STEPS; i += 1) this.placeTrig(i);
+    for (let i = 0; i < BASS_STEPS; i += 1) {
+      this.placeTrig(i);
+      this.placeLock(i);
+    }
     this.defs = this.buildHotspots();
     this.syncLights();
     this.drawScreen();
@@ -312,6 +347,13 @@ export class BassRig {
     this.trigs.instanceMatrix.needsUpdate = true;
   }
 
+  private placeLock(i: number): void {
+    const p = bassLockAt(i);
+    const Lk = BASS.locks;
+    this.locks.setMatrixAt(i, m4.compose(v3.set(p.x, this.lockY[i], p.z), q0, s3.set(Lk.w, Lk.h, Lk.d)));
+    this.locks.instanceMatrix.needsUpdate = true;
+  }
+
   /* ---------- picking ---------- */
 
   private buildHotspots(): HotspotDef[] {
@@ -331,7 +373,47 @@ export class BassRig {
       const p = bassTrigAt(i);
       out.push({ id: bassTrigId(i), kind: 'basstrig', layer: top, shape: 'box', x: p.x, z: p.z, hx: T.w / 2 + 0.04, hz: T.d / 2 + 0.04, y0: 0, y1: DJ_KEY.h * T.h, enabled: true, bass: String(i) });
     }
-    return out.map((d) => ({ ...d, machine: 'bass' as const }));
+    const Lk = BASS.locks;
+    for (let i = 0; i < BASS_STEPS; i += 1) {
+      const p = bassLockAt(i);
+      out.push({ id: bassLockId(i), kind: 'basslock', layer: top, shape: 'box', x: p.x, z: p.z, hx: Lk.w / 2 + 0.04, hz: Lk.d / 2 + 0.06, y0: 0, y1: DJ_KEY.h * Lk.h, enabled: true, bass: String(i) });
+    }
+    // L'ecran : le toucher ouvre les presets ; en mode presets, le haut a gauche et a droite (precedent,
+    // suivant), la bande du bas en quatre touches (SAVE NAME DEL EXIT), comme les ecrans du MM-RYTM et du MM-ARP
+    const S = BASS.screen;
+    const band = 0.74;
+    const box = (key: PresetKey, u0: number, u1: number, v0: number, v1: number): HotspotDef => ({
+      id: bassLcdId(key),
+      kind: 'basslcd',
+      lcd: key,
+      layer: top,
+      shape: 'box',
+      x: S.x - S.w / 2 + ((u0 + u1) / 2) * S.w,
+      z: S.z - S.d / 2 + ((v0 + v1) / 2) * S.d,
+      hx: ((u1 - u0) / 2) * S.w,
+      hz: ((v1 - v0) / 2) * S.d,
+      y0: DJ_BEZEL.h - 0.005,
+      y1: DJ_BEZEL.h + 0.03,
+      enabled: key === 'open',
+    });
+    const lcd = [box('open', 0, 1, 0, 1), box('prev', 0, 0.5, 0, band), box('next', 0.5, 1, 0, band), ...(['save', 'name', 'del', 'exit'] as const).map((k, i) => box(k, i / 4, (i + 1) / 4, band, 1))];
+    const all = [...out, ...lcd].map((d) => ({ ...d, machine: 'bass' as const }));
+    this.lcdDefs = all.filter((d) => d.kind === 'basslcd');
+    return all;
+  }
+
+  /** Le mode presets : les touches de l'ecran suivent ; true si ca change. */
+  private syncPresetKeys(): boolean {
+    const on = presetMode.on('bass');
+    let changed = false;
+    for (const d of this.lcdDefs) {
+      const want = d.lcd === 'open' ? !on : on;
+      if (d.enabled !== want) {
+        d.enabled = want;
+        changed = true;
+      }
+    }
+    return changed;
   }
 
   get hotspots(): readonly HotspotDef[] {
@@ -363,15 +445,32 @@ export class BassRig {
     };
     const scale = (rgb: readonly number[], k: number): number[] => [rgb[0] * k, rgb[1] * k, rgb[2] * k];
     const sel = s.steps[s.sel];
+    const editing = editor.get() === 'bass';
     BASS_KEYS.forEach((k, i) => {
       const held = this.held.has(bassKeyId(k.kind));
       if (k.kind === 'run') {
         set(this.keyEm, i, s.running || held ? DJ_GLOW.yellow : scale(DJ_GLOW.yellow, 0.18));
         return;
       }
-      const on = held || (k.kind === 'accent' && sel.kind === 'note' && sel.acc) || (k.kind === 'slide' && sel.kind !== 'off' && sel.slide);
+      const on = held || (k.kind === 'edit' && editing) || (k.kind === 'accent' && sel.kind === 'note' && sel.acc) || (k.kind === 'slide' && sel.kind !== 'off' && sel.slide);
       set(this.keyEm, i, on ? DJ_GLOW.orange : DJ_GLOW.dim);
     });
+    // Les LOCK : pale si le pas a des verrous, or celui qu'on regle ; eteints en EDIT
+    for (let i = 0; i < BASS_STEPS; i += 1) {
+      const held = this.held.has(bassLockId(i));
+      const has = !!s.steps[i].locks;
+      set(this.lockEm, i, held || s.lock === i ? DJ_GLOW.yellow : editing ? scale(DJ_GLOW.dim, 0.5) : has ? scale(DJ_GLOW.orange, 0.45) : DJ_GLOW.dim);
+    }
+    if (editing) {
+      // EDIT : les seize patterns
+      const p = bassPatterns.get();
+      for (let i = 0; i < BASS_SLOTS; i += 1) {
+        const held = this.held.has(bassTrigId(i));
+        const lit = held || i === p.next ? DJ_GLOW.yellow : i === p.cur ? DJ_GLOW.orange : p.chain.length > 1 && p.chain.includes(i) ? scale(DJ_GLOW.orange, 0.5) : bassPatterns.filled(i) ? scale(DJ_GLOW.orange, 0.2) : DJ_GLOW.dim;
+        set(this.trigEm, i, lit);
+      }
+      return changed;
+    }
     const at = this.stepAt;
     for (let i = 0; i < BASS_STEPS; i += 1) {
       const st = s.steps[i];
@@ -386,7 +485,7 @@ export class BassRig {
   private syncKnobs(): boolean {
     let moved = false;
     BASS_KNOBS.forEach((k, i) => {
-      const a = Math.fround(potAngle(bassParams.of(k.id)));
+      const a = Math.fround(potAngle(bassKnobValue(k.id)));
       if (this.knobAngle[i] === a) return;
       this.knobAngle[i] = a;
       this.placeKnob(i);
@@ -409,7 +508,12 @@ export class BassRig {
     const info = `STEP ${String(s.sel + 1).padStart(2, '0')}  ${sel.kind === 'off' ? 'OFF' : sel.kind === 'tie' ? 'TIE' : `${noteName(midiOf(sel))}${sel.acc ? '  ACC' : ''}${sel.slide ? '  SLIDE' : ''}`}`;
     const live = bassEngine.live();
     const sounding = live.gate || performance.now() - live.at < 120;
-    return this.screen.draw(s, bassParams.get(), midis, pattern.get().bpm, { cut: sounding ? live.cut : 0, step: this.stepAt }, s.message, info);
+    const pv = presetMode.view('bass');
+    const p = bassPatterns.get();
+    const edit = editor.get() === 'bass' ? { cur: p.cur, next: p.next, chain: p.chain, filled: Array.from({ length: BASS_SLOTS }, (_, i) => bassPatterns.filled(i)) } : null;
+    const locks = s.lock >= 0 ? s.steps[s.lock]?.locks : undefined;
+    const lock = s.lock >= 0 ? { step: s.lock, items: BASS_LOCKABLE.filter((id) => locks?.[id] !== undefined).map((id) => `${LOCK_SHORT[id]} ${bassValueText(id, locks?.[id] ?? 0)}`) } : null;
+    return this.screen.draw(s, bassParams.get(), midis, pattern.get().bpm, { cut: sounding ? live.cut : 0, step: this.stepAt }, s.message, info, { edit, lock, presets: pv });
   }
 
   pressKey(id: string, down: boolean): void {
@@ -427,6 +531,14 @@ export class BassRig {
       if (i >= 0 && i < BASS_STEPS) {
         this.trigY[i] = down ? -DJ_KEY.press : 0;
         this.placeTrig(i);
+        moved = true;
+      }
+    }
+    if (id.startsWith('bass-lock-')) {
+      const i = Number(id.slice(10)) - 1;
+      if (i >= 0 && i < BASS_STEPS) {
+        this.lockY[i] = down ? -DJ_KEY.press * 0.8 : 0;
+        this.placeLock(i);
         moved = true;
       }
     }
@@ -456,8 +568,25 @@ export class BassRig {
     this.unsubs.push(
       bassState.subscribe(() => {
         const lit = this.syncLights();
+        const moved = this.syncKnobs();
         const drawn = this.drawScreen();
-        if (lit || drawn || bassState.get().running) this.opts.repaint();
+        if (moved && this.knobs[0].castShadow) this.opts.invalidate();
+        else if (lit || moved || drawn || bassState.get().running) this.opts.repaint();
+      }),
+      bassPatterns.subscribe(() => {
+        const lit = this.syncLights();
+        if (this.drawScreen() || lit) this.opts.repaint();
+      }),
+      editor.subscribe(() => {
+        const lit = this.syncLights();
+        if (this.drawScreen() || lit) this.opts.repaint();
+      }),
+      presetMode.subscribe(() => {
+        if (this.syncPresetKeys()) this.opts.hitChanged();
+        if (this.drawScreen()) this.opts.repaint();
+      }),
+      presets.subscribe(() => {
+        if (this.drawScreen()) this.opts.repaint();
       }),
       bassParams.subscribe(() => {
         const moved = this.syncKnobs();
@@ -484,8 +613,8 @@ export class BassRig {
     return false;
   }
 
-  info(): { knobs: number; keys: number; trigs: number; screenDraws: number; silkDraws: number } {
-    return { knobs: BASS_KNOBS.length, keys: BASS_KEYS.length, trigs: BASS_STEPS, screenDraws: this.screen.draws, silkDraws: this.silk.draws };
+  info(): { knobs: number; keys: number; trigs: number; locks: number; screenDraws: number; silkDraws: number } {
+    return { knobs: BASS_KNOBS.length, keys: BASS_KEYS.length, trigs: BASS_STEPS, locks: BASS_STEPS, screenDraws: this.screen.draws, silkDraws: this.silk.draws };
   }
 
   dispose(): void {
@@ -494,7 +623,7 @@ export class BassRig {
     this.body.geometry.dispose();
     this.bodyMat.dispose();
     this.brush.dispose();
-    for (const m of [...this.knobs, this.keys, this.trigs]) {
+    for (const m of [...this.knobs, this.keys, this.trigs, this.locks]) {
       m.geometry.dispose();
       m.dispose();
     }

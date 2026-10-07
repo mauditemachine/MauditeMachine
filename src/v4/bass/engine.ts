@@ -10,6 +10,7 @@
 import workletUrl from './bass.worklet.js?url';
 import { synthPort } from '../audio/drums';
 import { bassParams } from './params';
+import type { BassLocks } from './state';
 
 interface Graph {
   ctx: AudioContext;
@@ -73,9 +74,13 @@ function send(msg: Record<string, unknown>, create = true): void {
 
 export const bassEngine = {
   ensure,
-  /** Une note a l'heure at du contexte (0 : tout de suite) ; legato : elle glisse depuis la note tenue. */
-  on(midi: number, acc: boolean, legato: boolean, at = 0): void {
-    send({ type: 'on', at, midi, acc, legato });
+  /** Une note a l'heure at du contexte (0 : tout de suite) ; legato : elle glisse depuis la note tenue ; lock : les verrous de son pas. */
+  on(midi: number, acc: boolean, legato: boolean, at = 0, lock: BassLocks | null = null): void {
+    send({ type: 'on', at, midi, acc, legato, lock });
+  },
+  /** Les verrous d'une liaison a l'heure at (la note continue). */
+  lock(at: number, lock: BassLocks | null): void {
+    send({ type: 'lock', at, lock }, false);
   },
   off(at = 0): void {
     send({ type: 'off', at }, false);

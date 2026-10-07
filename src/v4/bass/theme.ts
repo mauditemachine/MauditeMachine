@@ -14,14 +14,18 @@
  *   ACCENT) et VOLUME ; VOICE (WAVE, SUB, DRIVE, GLIDE, OCTAVE) ;
  * - GENERATOR, la rangee facon Torso T-1 : STYLE, DENSITY, SLIDES, ACCENTS,
  *   RANGE, ROOT, SCALE (potards noirs, noms en orange) ;
- * - dix touches : RUN | GEN, MUTATE, CLEAR | ACCENT, SLIDE | NOTE -, NOTE +,
- *   OCT -, OCT + ;
+ * - onze touches : RUN, EDIT | GEN, MUTATE, CLEAR | ACCENT, SLIDE | NOTE -,
+ *   NOTE +, OCT -, OCT + (EDIT le 2026-10-07) ;
+ * - seize boutons LOCK, un au-dessus de chaque pas (2026-10-07, Mika : "des
+ *   boutons au-dessus de chaque step ; j'appuie, je parametre ce step
+ *   uniquement") ;
  * - seize pas en une rangee, par groupes de quatre (la TB-303, le Norand
  *   Mono) : orange une note (plus vif accentuee), pale une liaison, jaune
  *   le pas qui joue.
  * Au telephone (PORTRAIT) : le bloc debout comme le MM-RYTM, l'ecran sur
  * toute la largeur, les potards en rangees de quatre, les touches en deux
- * rangees de cinq, les pas en deux rangees de huit.
+ * rangees (cinq, puis six), les pas en deux rangees de huit, chacun son
+ * LOCK au-dessus.
  * Ce module reste dans le chargement principal (le Stage en a besoin pour
  * cadrer) ; le reste du MM-BASS arrive a part (state/bassload.ts).
  */
@@ -49,15 +53,17 @@ export const BASS = PORTRAIT
       head: { z: -6.62 },
       logo: { h: 0.32, z: -6.62 },
       screen: { x: 0, z: -4.92, w: 7.4, d: 2.5 },
-      keys: { w: 1.24, d: 0.46 },
-      trigs: { w: 0.8, d: 0.64, h: 1.15 },
+      keys: { w: 1.1, d: 0.42 },
+      trigs: { w: 0.8, d: 0.56, h: 1.15 },
+      locks: { w: 0.62, d: 0.2, h: 0.85 },
     }
   : {
       head: { z: -3.42 },
       logo: { h: 0.3, z: -3.42 },
       screen: { x: -3.95, z: -1.72, w: 4.3, d: 2.3 },
-      keys: { w: 0.82, d: 0.4 },
+      keys: { w: 0.8, d: 0.4 },
       trigs: { w: 0.62, d: 0.62, h: 1.15 },
+      locks: { w: 0.5, d: 0.2, h: 0.85 },
     };
 
 /** Les familles de potards (leur nom sur le panneau, en orange pour le generateur). */
@@ -96,7 +102,7 @@ const phone = (): KnobPlace[] => {
     ['style', 'density', 'slides', 'accents'],
     ['range', 'root', 'scale', null],
   ];
-  const zs = [-2.75, -1.45, -0.15, 1.35, 2.65];
+  const zs = [-2.75, -1.45, -0.15, 1.3, 2.55];
   const out: KnobPlace[] = [];
   rows.forEach((row, r) =>
     row.forEach((id, c) => {
@@ -120,12 +126,13 @@ export const bassKnobTone = (id: BassKnobId): BassKnobTone => (id === 'accent' ?
 
 /* ---------------- les touches ---------------- */
 
-export type BassKeyKind = 'run' | 'gen' | 'mutate' | 'clear' | 'accent' | 'slide' | 'notedn' | 'noteup' | 'octdn' | 'octup';
+export type BassKeyKind = 'run' | 'edit' | 'gen' | 'mutate' | 'clear' | 'accent' | 'slide' | 'notedn' | 'noteup' | 'octdn' | 'octup';
 export const BASS_KEYS: readonly { kind: BassKeyKind; label: string; aria: string }[] = [
   { kind: 'run', label: 'RUN', aria: 'Run or stop the bassline, in time with the MM-RYTM, key Space' },
+  { kind: 'edit', label: 'EDIT', aria: 'Edit: the sixteen steps become sixteen patterns, key E' },
   { kind: 'gen', label: 'GEN', aria: 'Generate a new bassline, key G' },
   { kind: 'mutate', label: 'MUTATE', aria: 'Change a few steps, key M' },
-  { kind: 'clear', label: 'CLEAR', aria: 'Clear the bassline' },
+  { kind: 'clear', label: 'CLEAR', aria: 'Clear the bassline; while a step is locked, clear its locks' },
   { kind: 'accent', label: 'ACCENT', aria: 'Accent on the chosen step, key A' },
   { kind: 'slide', label: 'SLIDE', aria: 'Slide from the chosen step to the next, key S' },
   { kind: 'notedn', label: 'NOTE -', aria: 'Chosen step one note down in the scale, key Down' },
@@ -133,16 +140,16 @@ export const BASS_KEYS: readonly { kind: BassKeyKind; label: string; aria: strin
   { kind: 'octdn', label: 'OCT -', aria: 'Chosen step one octave down, key Z' },
   { kind: 'octup', label: 'OCT +', aria: 'Chosen step one octave up, key X' },
 ];
-/** Desktop : un jour de plus apres RUN, apres CLEAR, apres SLIDE. */
-const KEY_GROUPS = [1, 4, 6];
+/** Desktop : un jour de plus apres EDIT, apres CLEAR, apres SLIDE. */
+const KEY_GROUPS = [2, 5, 7];
 
-/** La place d'une touche (desktop : une rangee ; au telephone : deux rangees de cinq). */
+/** La place d'une touche (desktop : une rangee ; au telephone : cinq, puis six). */
 export function bassKeyAt(i: number): { x: number; z: number } {
   if (PORTRAIT) {
-    const xs = [-3.1, -1.55, 0, 1.55, 3.1];
-    return { x: xs[i % 5], z: i < 5 ? 3.85 : 4.66 };
+    if (i < 5) return { x: [-3.1, -1.55, 0, 1.55, 3.1][i], z: 3.78 };
+    return { x: -3.25 + (i - 5) * 1.3, z: 4.5 };
   }
-  return { x: -5.42 + i * 1.12 + KEY_GROUPS.filter((g) => i >= g).length * 0.25, z: 1.6 };
+  return { x: -5.33 + i * 1.0 + KEY_GROUPS.filter((g) => i >= g).length * 0.22, z: 1.6 };
 }
 
 /** Les filets entre les groupes de touches (desktop). */
@@ -154,8 +161,14 @@ export const BASS_KEY_GROUPS = KEY_GROUPS;
 export function bassTrigAt(i: number): { x: number; z: number } {
   if (PORTRAIT) {
     const c = i % 8;
-    return { x: (c - 3.5) * 0.95 + (c >= 4 ? 0.08 : -0.08), z: i < 8 ? 5.56 : 6.46 };
+    return { x: (c - 3.5) * 0.95 + (c >= 4 ? 0.08 : -0.08), z: i < 8 ? 5.45 : 6.55 };
   }
   const g = Math.floor(i / 4);
   return { x: -5.69 + i * 0.74 + g * 0.1, z: 2.78 };
+}
+
+/** Le bouton LOCK d'un pas : juste au-dessus de lui. */
+export function bassLockAt(i: number): { x: number; z: number } {
+  const t = bassTrigAt(i);
+  return { x: t.x, z: PORTRAIT ? t.z - 0.43 : 2.13 };
 }

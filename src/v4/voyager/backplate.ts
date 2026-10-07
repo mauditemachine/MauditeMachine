@@ -96,7 +96,7 @@ export class VoyBackPlate {
       tmp.height = 0;
     } else this.text('MAUDITE MACHINE', K.logo.u, K.logo.y, 0.12, 'left', SILK.alpha, SILK.strongWeight);
     this.text(`${VOY_COPY.model} ARPEGGIATOR SYNTHESIZER`, K.model.u, K.model.y, K.model.cap, 'left');
-    this.text('FIRMWARE V.1.0 / 2026', K.firmware.u, K.firmware.y, K.firmware.cap, 'left', 0.55);
+    this.text('FIRMWARE V.2.3 / 2026', K.firmware.u, K.firmware.y, K.firmware.cap, 'left', 0.55);
 
     // Etiquette du numero de serie : papier argente, code-barres, numero
     const S = K.sticker;

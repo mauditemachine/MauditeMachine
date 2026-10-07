@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 7 octobre 2026 depuis le code du site (`npm run docs:midi`) : 405 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 7 octobre 2026 depuis le code du site (`npm run docs:midi`) : 423 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -319,7 +319,7 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 8 | 2.1 | 5 | 22 | WAVE | or | bass:knob:wave | WAVE | continu |
 | 9 | 2.2 | 5 | 23 | GLIDE | or | bass:knob:glide | GLIDE | continu |
 | 10 | 2.3 | 5 | 24 | OCTAVE | or | bass:knob:octave | OCTAVE | potard a 4 crans : -2 / -1 / 0 / +1 |
-| 11 | 2.4 | 5 | 25 | STYLE | jaune | bass:knob:style | STYLE | potard a 4 crans : ACID / DISCO / ROLL / SUB |
+| 11 | 2.4 | 5 | 25 | STYLE | jaune | bass:knob:style | STYLE | potard a 11 crans : ACID / DARK DISCO / INDIE DANCE / MINIMAL / PSY PROG / TECHNO / HOUSE / ELECTRO / EBM / ITALO / SUB |
 | 12 | 2.5 | 5 | 26 | DENSITY | jaune | bass:knob:density | DENSITY | continu |
 | 13 | 2.6 | 5 | 27 | SLIDES | jaune | bass:knob:slides | SLIDES | continu |
 | 14 | 2.7 | 5 | 28 | ACCENTS | jaune | bass:knob:accents | ACCENTS | continu |
@@ -360,9 +360,9 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 25 | 4.2 | 13 | 109 | NOTE + | cyan | bass:key:noteup | NOTE + | appui |
 | 26 | 4.3 | 13 | 110 | OCT - | cyan | bass:key:octdn | OCT - | appui |
 | 27 | 4.4 | 13 | 111 | OCT + | cyan | bass:key:octup | OCT + | appui |
-| 28 | 4.5 | 13 | 112 | RYTM + ARP | rouge | nav:machines | PLAY/STOP RYTM + ARP | appui |
-| 29 | 4.6 | 13 | 113 | RUN RYTM | rouge | rytm:running | RUN (ON / OFF) | bascule (la LED suit le site) |
-| 30 | 4.7 | 13 | 114 | RUN ARP | rouge | voy:running | RUN (ON / OFF) | bascule (la LED suit le site) |
+| 28 | 4.5 | 13 | 112 | LOCK | jaune | bass:lock | LOCK (CHOSEN STEP) | appui |
+| 29 | 4.6 | 13 | 113 | EDIT | jaune | bass:key:edit | EDIT | appui |
+| 30 | 4.7 | 13 | 114 | RYTM + ARP | rouge | nav:machines | PLAY/STOP RYTM + ARP | appui |
 | 31 | 4.8 | 13 | 115 | MM-STUDIO | blanc | nav:all | MM-STUDIO (ALL THE MACHINES) | appui |
 
 ### DECK (SETUP 13, potards canal 3, boutons canal 11)
@@ -679,7 +679,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:TOM:mute` | MUTE TOM | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
 | `rytm:voice:HT:mute` | MUTE HT | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
 | `rytm:voice:CY:mute` | MUTE CY | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
-| `rytm:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | RYTM, BASS, MIXER, LIVE |
+| `rytm:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
 | `rytm:kit:bd` | TWEAK KICK | valeur 0 a 127 | 9 | RYTM |
 | `rytm:kit:tune` | TWEAK TUNE | valeur 0 a 127 |  | RYTM, LIVE |
 | `rytm:kit:attack` | TWEAK ATTACK | valeur 0 a 127 |  | RYTM |
@@ -804,13 +804,13 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:pad:6` | CHORD F#m7 | appui |  | ARP, LIVE |
 | `voy:pad:7` | CHORD Dmaj7 | appui |  | ARP, LIVE |
 | `voy:run` | RUN/STOP | appui |  |  |
-| `voy:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | ARP, BASS, MIXER, LIVE |
+| `voy:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | ARP, MIXER, LIVE |
 | `voy:clear` | CLEAR | appui |  | ARP |
 | `voy:random` | RANDOM | appui |  | ARP |
 | `voy:edit` | EDIT | appui |  | ARP |
 | `voy:open` | OPEN | appui |  | ARP |
 
-### MM-BASS (scope `bass`, 45 cibles)
+### MM-BASS (scope `bass`, 63 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -825,7 +825,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:knob:glide` | GLIDE | valeur 0 a 127 |  | BASS |
 | `bass:knob:volume` | VOLUME | valeur 0 a 127 |  | BASS |
 | `bass:knob:octave` | OCTAVE | valeur 0 a 127 | 4 | BASS |
-| `bass:knob:style` | STYLE | valeur 0 a 127 | 4 | BASS |
+| `bass:knob:style` | STYLE | valeur 0 a 127 | 11 | BASS |
 | `bass:knob:density` | DENSITY | valeur 0 a 127 |  | BASS |
 | `bass:knob:slides` | SLIDES | valeur 0 a 127 |  | BASS |
 | `bass:knob:accents` | ACCENTS | valeur 0 a 127 |  | BASS |
@@ -833,6 +833,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:knob:root` | ROOT | valeur 0 a 127 | 13 | BASS |
 | `bass:knob:scale` | SCALE | valeur 0 a 127 | 5 | BASS |
 | `bass:key:run` | RUN/STOP | appui |  |  |
+| `bass:key:edit` | EDIT | appui |  | BASS |
 | `bass:key:gen` | GEN | appui |  | BASS |
 | `bass:key:mutate` | MUTATE | appui |  | BASS |
 | `bass:key:clear` | CLEAR | appui |  | BASS |
@@ -859,6 +860,23 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:trig:13` | STEP 14 | appui |  | BASS |
 | `bass:trig:14` | STEP 15 | appui |  | BASS |
 | `bass:trig:15` | STEP 16 | appui |  | BASS |
+| `bass:lock:0` | LOCK 1 | appui |  |  |
+| `bass:lock:1` | LOCK 2 | appui |  |  |
+| `bass:lock:2` | LOCK 3 | appui |  |  |
+| `bass:lock:3` | LOCK 4 | appui |  |  |
+| `bass:lock:4` | LOCK 5 | appui |  |  |
+| `bass:lock:5` | LOCK 6 | appui |  |  |
+| `bass:lock:6` | LOCK 7 | appui |  |  |
+| `bass:lock:7` | LOCK 8 | appui |  |  |
+| `bass:lock:8` | LOCK 9 | appui |  |  |
+| `bass:lock:9` | LOCK 10 | appui |  |  |
+| `bass:lock:10` | LOCK 11 | appui |  |  |
+| `bass:lock:11` | LOCK 12 | appui |  |  |
+| `bass:lock:12` | LOCK 13 | appui |  |  |
+| `bass:lock:13` | LOCK 14 | appui |  |  |
+| `bass:lock:14` | LOCK 15 | appui |  |  |
+| `bass:lock:15` | LOCK 16 | appui |  |  |
+| `bass:lock` | LOCK (CHOSEN STEP) | appui |  | BASS |
 
 ### MM-DECKS (table, platines, samplers, effets) (scope `dj`, 147 cibles)
 

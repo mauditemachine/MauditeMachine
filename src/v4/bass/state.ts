@@ -5,6 +5,13 @@
  * comme le mode TIME de la 303). SLIDE sur un pas : sa note glisse vers la
  * suivante sans se relacher. Le pas choisi (le dernier touche) recoit
  * ACCENT, SLIDE, NOTE - +, OCT - +. Retenu sous mm.v4.bass.state.
+ *
+ * Les verrous (2026-10-07, Mika : "des boutons au-dessus de chaque step ;
+ * quand j'appuie sur ce bouton, je peux parametrer tout ce que je veux sur
+ * CE step uniquement, et les parametres changent au passage de ce step") :
+ * les parameter locks des Elektron. Un pas garde ses valeurs des potards du
+ * son (locks) ; lock : le pas dont on regle les verrous (-1 : aucun), les
+ * potards du son ne changent alors que lui.
  */
 
 export type BassStepKind = 'off' | 'note' | 'tie';
@@ -17,9 +24,17 @@ export interface BassStep {
   oct: number;
   acc: boolean;
   slide: boolean;
+  /** les valeurs verrouillees de ce pas (0 a 1), absentes : celles des potards */
+  locks?: BassLocks;
 }
 
 export const BASS_STEPS = 16;
+
+/** Les potards du son qu'un pas peut verrouiller (pas ceux du generateur, ni OCTAVE). */
+export type BassLockId = 'cutoff' | 'reso' | 'envmod' | 'decay' | 'accent' | 'wave' | 'sub' | 'drive' | 'glide' | 'volume';
+export const BASS_LOCKABLE: readonly BassLockId[] = ['cutoff', 'reso', 'envmod', 'decay', 'accent', 'wave', 'sub', 'drive', 'glide', 'volume'];
+export const isLockable = (id: string): id is BassLockId => (BASS_LOCKABLE as readonly string[]).includes(id);
+export type BassLocks = Partial<Record<BassLockId, number>>;
 
 export interface BassState {
   steps: readonly BassStep[];
@@ -30,6 +45,8 @@ export interface BassState {
   message: string | null;
   /** un numero par suite generee (l'ecran fait son petit effet) */
   gen: number;
+  /** le pas dont on regle les verrous (-1 : aucun) */
+  lock: number;
 }
 
 const KEY = 'mm.v4.bass.state';
@@ -48,44 +65,78 @@ function clean(o: unknown): BassStep | null {
   const kind: BassStepKind = s.kind === 'note' || s.kind === 'tie' ? s.kind : 'off';
   const deg = typeof s.deg === 'number' && Number.isFinite(s.deg) ? Math.max(0, Math.min(20, Math.round(s.deg))) : 0;
   const oct = typeof s.oct === 'number' && Number.isFinite(s.oct) ? Math.max(-1, Math.min(2, Math.round(s.oct))) : 0;
-  return { kind, deg, oct, acc: !!s.acc, slide: !!s.slide };
+  const out: BassStep = { kind, deg, oct, acc: !!s.acc, slide: !!s.slide };
+  const locks = cleanLocks(s.locks);
+  if (locks) out.locks = locks;
+  return out;
+}
+
+/** Des verrous lus : seulement les potards du son, de 0 a 1 ; null s'il n'en reste aucun. */
+export function cleanLocks(o: unknown): BassLocks | null {
+  if (!o || typeof o !== 'object') return null;
+  const out: BassLocks = {};
+  let n = 0;
+  for (const id of BASS_LOCKABLE) {
+    const v = (o as Record<string, unknown>)[id];
+    if (typeof v === 'number' && Number.isFinite(v)) {
+      out[id] = Math.min(1, Math.max(0, v));
+      n += 1;
+    }
+  }
+  return n ? out : null;
+}
+
+/** Une suite lue (stockage, pattern, preset) : seize pas valides, ou null. */
+export function cleanSteps(o: unknown): BassStep[] | null {
+  if (!Array.isArray(o) || o.length !== BASS_STEPS) return null;
+  const steps = o.map(clean);
+  return steps.every((x) => x) ? (steps as BassStep[]) : null;
 }
 
 function load(): BassStep[] {
   try {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return initial();
-    const o = JSON.parse(raw) as unknown;
-    if (!Array.isArray(o) || o.length !== BASS_STEPS) return initial();
-    const steps = o.map(clean);
-    return steps.every((x) => x) ? (steps as BassStep[]) : initial();
+    return cleanSteps(JSON.parse(raw) as unknown) ?? initial();
   } catch {
     return initial();
   }
 }
 
-let state: BassState = { steps: typeof window === 'undefined' ? initial() : load(), sel: 0, running: false, message: null, gen: 0 };
+let state: BassState = { steps: typeof window === 'undefined' ? initial() : load(), sel: 0, running: false, message: null, gen: 0, lock: -1 };
 const listeners = new Set<() => void>();
 let msgTimer = 0;
+let saveTimer = 0;
+
+/** Retenue un peu apres (un potard verrouille qui tourne ecrit des dizaines de fois par seconde). */
+function save(): void {
+  window.clearTimeout(saveTimer);
+  saveTimer = window.setTimeout(() => {
+    try {
+      window.localStorage.setItem(KEY, JSON.stringify(state.steps));
+    } catch {
+      /* stockage indisponible : la suite vit pour la visite */
+    }
+  }, 300);
+}
 
 export const bassState = {
   get: (): BassState => state,
   set(patch: Partial<BassState>): void {
     const keep = patch.steps !== undefined && patch.steps !== state.steps;
     state = { ...state, ...patch };
-    if (keep) {
-      try {
-        window.localStorage.setItem(KEY, JSON.stringify(state.steps));
-      } catch {
-        /* stockage indisponible : la suite vit pour la visite */
-      }
-    }
+    if (keep) save();
     listeners.forEach((fn) => fn());
   },
   /** Un pas change (les autres restent). */
   setStep(i: number, patch: Partial<BassStep>): void {
     if (i < 0 || i >= BASS_STEPS) return;
-    const steps = state.steps.map((s, k) => (k === i ? { ...s, ...patch } : s));
+    const steps = state.steps.map((s, k) => {
+      if (k !== i) return s;
+      const next: BassStep = { ...s, ...patch };
+      if ('locks' in patch && !patch.locks) delete next.locks;
+      return next;
+    });
     bassState.set({ steps });
   },
   /** Une ligne a l'ecran, quelques secondes. */

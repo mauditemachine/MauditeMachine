@@ -10,7 +10,9 @@
  *                           sous un nom au hasard, un autre nom, effacer
  *                           (touchee deux fois : DEL?), sortir
  * Echap, une autre machine ou 15 s sans rien toucher en sortent. Les
- * presets eux-memes : state/presets.ts.
+ * presets eux-memes : state/presets.ts ; apres ceux de Mika, ceux d'usine
+ * (2026-10-07, des styles electro : FACTORY en titre, ni NAME ni DEL). Le
+ * MM-BASS aussi (2026-10-07).
  */
 
 import { focus } from './focus';
@@ -95,7 +97,7 @@ export const presetMode = {
   key(m: PresetMachine, k: PresetKey): void {
     if (k === 'open') {
       touch();
-      commit({ machine: m, index: Math.min(state.machine === m ? state.index : 0, Math.max(0, presets.of(m).length - 1)), confirm: false, note: '' });
+      commit({ machine: m, index: Math.min(state.machine === m ? state.index : 0, Math.max(0, presets.list(m).length - 1)), confirm: false, note: '' });
       return;
     }
     if (state.machine !== m) return;
@@ -104,7 +106,7 @@ export const presetMode = {
       return;
     }
     touch();
-    const list = presets.of(m);
+    const list = presets.list(m);
     if (k === 'save') {
       presets.save(m);
       commit({ ...state, index: 0, confirm: false });
@@ -119,6 +121,11 @@ export const presetMode = {
       presets.load(m, list[i].id);
       commit({ ...state, index: i, confirm: false });
       note('LOADED');
+      return;
+    }
+    // Un preset d'usine ne se renomme ni ne s'efface (SAVE en fait un a soi)
+    if ((k === 'name' || k === 'del') && cur.factory) {
+      note('FACTORY');
       return;
     }
     if (k === 'name') {
@@ -139,14 +146,15 @@ export const presetMode = {
   /** Ce que l'ecran montre (null : le mode est ferme pour cette machine). */
   view(m: PresetMachine): PresetView | null {
     if (state.machine !== m) return null;
-    const list = presets.of(m);
+    const list = presets.list(m);
     const empty = list.length === 0;
     const i = Math.min(state.index, Math.max(0, list.length - 1));
+    const fac = !empty && !!list[i].factory;
     return {
-      title: state.note || 'PRESETS',
+      title: state.note || (fac ? 'FACTORY' : 'PRESETS'),
       count: empty ? '' : `${i + 1}/${list.length}`,
       name: empty ? 'NOTHING SAVED YET' : list[i].name.toUpperCase(),
-      keys: ['SAVE', empty ? '' : 'NAME', empty ? '' : state.confirm ? 'DEL?' : 'DEL', 'EXIT'],
+      keys: ['SAVE', empty || fac ? '' : 'NAME', empty || fac ? '' : state.confirm ? 'DEL?' : 'DEL', 'EXIT'],
       empty,
     };
   },

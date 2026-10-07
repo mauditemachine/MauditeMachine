@@ -21,7 +21,8 @@
  *   et inscrit ses cibles (dj/midi.ts) ; une assignation qui les vise le
  *   charge. Le MM-SMPL (smpl:...) est parti le 2026-10-07 ;
  * - MM-BASS (bass:knob:<potard>, bass:key:<touche>, bass:running,
- *   bass:trig:<0-15>, 2026-10-07) : de meme (state/bassload.ts, bass/midi.ts).
+ *   bass:trig:<0-15>, bass:lock:<0-15> et bass:lock, 2026-10-07) : de meme
+ *   (state/bassload.ts, bass/midi.ts).
  */
 
 import { anyDial, anyDialValue, clearPattern, dialRange, dialSteps, editToggle, focusMachine, kitDial, machinesToggle, muteToggle, openToggle, padHit, patternTap, randomPattern, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
@@ -274,6 +275,8 @@ export function targetIdOfHotspot(h: { kind: string; param?: string; rknob?: str
       return h.bass ? `bass:key:${h.bass}` : null;
     case 'basstrig':
       return h.bass ? `bass:trig:${h.bass}` : null;
+    case 'basslock':
+      return h.bass ? `bass:lock:${h.bass}` : null;
     default:
       return null;
   }

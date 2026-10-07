@@ -79,7 +79,7 @@ rytm:voice:CP:mute,mm808,MM-RYTM,MUTE CP,value,2,RYTM MIXER LIVE
 rytm:voice:TOM:mute,mm808,MM-RYTM,MUTE TOM,value,2,RYTM MIXER LIVE
 rytm:voice:HT:mute,mm808,MM-RYTM,MUTE HT,value,2,RYTM MIXER LIVE
 rytm:voice:CY:mute,mm808,MM-RYTM,MUTE CY,value,2,RYTM MIXER LIVE
-rytm:running,mm808,MM-RYTM,RUN (ON / OFF),value,2,RYTM BASS MIXER LIVE
+rytm:running,mm808,MM-RYTM,RUN (ON / OFF),value,2,RYTM MIXER LIVE
 rytm:kit:bd,mm808,MM-RYTM,TWEAK KICK,value,9,RYTM
 rytm:kit:tune,mm808,MM-RYTM,TWEAK TUNE,value,,RYTM LIVE
 rytm:kit:attack,mm808,MM-RYTM,TWEAK ATTACK,value,,RYTM
@@ -199,7 +199,7 @@ voy:pad:5,voy,MM-ARP,CHORD A,press,,ARP LIVE
 voy:pad:6,voy,MM-ARP,CHORD F#m7,press,,ARP LIVE
 voy:pad:7,voy,MM-ARP,CHORD Dmaj7,press,,ARP LIVE
 voy:run,voy,MM-ARP,RUN/STOP,press,,
-voy:running,voy,MM-ARP,RUN (ON / OFF),value,2,ARP BASS MIXER LIVE
+voy:running,voy,MM-ARP,RUN (ON / OFF),value,2,ARP MIXER LIVE
 voy:clear,voy,MM-ARP,CLEAR,press,,ARP
 voy:random,voy,MM-ARP,RANDOM,press,,ARP
 voy:edit,voy,MM-ARP,EDIT,press,,ARP
@@ -215,7 +215,7 @@ bass:knob:drive,bass,MM-BASS,DRIVE,value,,BASS
 bass:knob:glide,bass,MM-BASS,GLIDE,value,,BASS
 bass:knob:volume,bass,MM-BASS,VOLUME,value,,BASS
 bass:knob:octave,bass,MM-BASS,OCTAVE,value,4,BASS
-bass:knob:style,bass,MM-BASS,STYLE,value,4,BASS
+bass:knob:style,bass,MM-BASS,STYLE,value,11,BASS
 bass:knob:density,bass,MM-BASS,DENSITY,value,,BASS
 bass:knob:slides,bass,MM-BASS,SLIDES,value,,BASS
 bass:knob:accents,bass,MM-BASS,ACCENTS,value,,BASS
@@ -223,6 +223,7 @@ bass:knob:range,bass,MM-BASS,RANGE,value,3,BASS
 bass:knob:root,bass,MM-BASS,ROOT,value,13,BASS
 bass:knob:scale,bass,MM-BASS,SCALE,value,5,BASS
 bass:key:run,bass,MM-BASS,RUN/STOP,press,,
+bass:key:edit,bass,MM-BASS,EDIT,press,,BASS
 bass:key:gen,bass,MM-BASS,GEN,press,,BASS
 bass:key:mutate,bass,MM-BASS,MUTATE,press,,BASS
 bass:key:clear,bass,MM-BASS,CLEAR,press,,BASS
@@ -249,6 +250,23 @@ bass:trig:12,bass,MM-BASS,STEP 13,press,,BASS
 bass:trig:13,bass,MM-BASS,STEP 14,press,,BASS
 bass:trig:14,bass,MM-BASS,STEP 15,press,,BASS
 bass:trig:15,bass,MM-BASS,STEP 16,press,,BASS
+bass:lock:0,bass,MM-BASS,LOCK 1,press,,
+bass:lock:1,bass,MM-BASS,LOCK 2,press,,
+bass:lock:2,bass,MM-BASS,LOCK 3,press,,
+bass:lock:3,bass,MM-BASS,LOCK 4,press,,
+bass:lock:4,bass,MM-BASS,LOCK 5,press,,
+bass:lock:5,bass,MM-BASS,LOCK 6,press,,
+bass:lock:6,bass,MM-BASS,LOCK 7,press,,
+bass:lock:7,bass,MM-BASS,LOCK 8,press,,
+bass:lock:8,bass,MM-BASS,LOCK 9,press,,
+bass:lock:9,bass,MM-BASS,LOCK 10,press,,
+bass:lock:10,bass,MM-BASS,LOCK 11,press,,
+bass:lock:11,bass,MM-BASS,LOCK 12,press,,
+bass:lock:12,bass,MM-BASS,LOCK 13,press,,
+bass:lock:13,bass,MM-BASS,LOCK 14,press,,
+bass:lock:14,bass,MM-BASS,LOCK 15,press,,
+bass:lock:15,bass,MM-BASS,LOCK 16,press,,
+bass:lock,bass,MM-BASS,LOCK (CHOSEN STEP),press,,BASS
 dj:dj-ch1-gain,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) GAIN,value,,MIXER
 dj:dj-ch1-hi,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) EQ HI,value,,MIXER
 dj:dj-ch1-mid,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) EQ MID,value,,MIXER

@@ -185,7 +185,18 @@ const FOCUS_MS = 450;
  * la vue par defaut) ; au survol elle en montre hoverPx de plus, en ms ;
  * jamais plus pres que gap de la machine utilisee.
  */
-const PEEK = { px: 36, hoverPx: 40, ms: 180, gap: 0.8 } as const;
+/**
+ * Le bout de la voisine (desktop) : son bord a px du bord de l'ecran (52 px depuis le 2026-10-07,
+ * Mika : "en voyant la machine de droite pour qu'on puisse cliquer dessus et switcher rapidement").
+ */
+const PEEK = { px: 52, hoverPx: 40, ms: 180, gap: 0.6 } as const;
+/**
+ * Une machine utilisee sur desktop (2026-10-07, Mika : "pour cette taille de machine comme la
+ * MM-RYTM tu pourrais arriver plus zoome, tout en voyant la machine de droite") : cadree de face,
+ * sa vraie largeur sur 80 % de l'ecran (au lieu de la largeur projetee a l'azimut 45 sur 78 %),
+ * sa hauteur vue de face ; tournee, elle peut deborder un peu, comme au telephone.
+ */
+const SINGLE_FILL = 0.8;
 const OVERVIEW_FILL = { desktop: 0.88, mobile: 0.92 } as const;
 /** Au telephone, d'un bloc du MM-DECKS a l'autre (ms). */
 const DJ_UNIT_MS = 420;
@@ -1131,6 +1142,10 @@ export class Stage {
       anisotropy: this.aniso,
       repaint: () => this.repaint(),
       invalidate: () => this.invalidate(),
+      hitChanged: () => {
+        this.hit.invalidate();
+        this.invalidate();
+      },
     });
     this.bass = bs;
     this.scene.add(bs.root);
@@ -1381,8 +1396,8 @@ export class Stage {
     const mob = this.layoutMobile;
     const m808: Frame = {
       cx: 0,
-      hw0: mob ? FRONT_W / 2 / FRAME_MOBILE : PLATEAU_W / 2 / FRAME_DESKTOP,
-      h: MACHINE_H,
+      hw0: mob ? FRONT_W / 2 / FRAME_MOBILE : f === 'mm808' ? BODY.w / 2 / SINGLE_FILL : PLATEAU_W / 2 / FRAME_DESKTOP,
+      h: !mob && f === 'mm808' ? BODY.d + 0.5 : MACHINE_H,
       ty: ORBIT.targetY,
       explodeTy: EXPLODE.targetY,
       rClosed: SECTION_FRAME.radius.closed,
@@ -1397,7 +1412,7 @@ export class Stage {
     if (!VOYAGER || f === 'mm808') return m808;
     const voy: Frame = {
       cx: VOY_X,
-      hw0: mob ? VOY_BODY.w / 2 / FRAME_MOBILE : VOY_FRAME.plate / 2 / FRAME_DESKTOP,
+      hw0: mob ? VOY_BODY.w / 2 / FRAME_MOBILE : f === 'voy' ? VOY_BODY.w / 2 / SINGLE_FILL : VOY_FRAME.plate / 2 / FRAME_DESKTOP,
       h: VOY_FRAME.h,
       ty: VOY_FRAME.targetY,
       explodeTy: VOY_FRAME.explodeTargetY,
@@ -1430,7 +1445,7 @@ export class Stage {
     // Le MM-BASS (2026-10-07) : le bloc entier de face, comme une platine du MM-DECKS (pas de capot)
     const bass: Frame = {
       cx: bassX(),
-      hw0: BASS_W / 2 / (mob ? FRAME_MOBILE : DJ_FRAME.fill),
+      hw0: BASS_W / 2 / (mob ? FRAME_MOBILE : SINGLE_FILL),
       h: BASS_FRAME.h,
       ty: BASS_FRAME.targetY,
       explodeTy: BASS_FRAME.targetY,

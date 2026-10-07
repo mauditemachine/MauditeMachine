@@ -4,23 +4,26 @@
  * MM-BASS, jamais pendant qu'on ecrit dans un champ. Les seize pas en deux
  * rangees, comme les trigs d'une Elektron :
  *
- *   1 2 3 4 5 6 7 8   pas 1 a 8
- *   Q W E R T Y U I   pas 9 a 16
- *   Espace : RUN ; G : GEN ; M : MUTATE
- *   A : ACCENT ; S : SLIDE (le pas choisi)
+ *   1 2 3 4 5 6 7 8         pas 1 a 8
+ *   Maj + 1 2 3 4 5 6 7 8   pas 9 a 16 (2026-10-07 : E est EDIT, comme
+ *                           sur le MM-RYTM et le MM-ARP)
+ *   Espace : RUN ; E : EDIT (les patterns) ; G : GEN ; M : MUTATE
+ *   A : ACCENT ; S : SLIDE ; L : LOCK (le pas choisi ; Echap en sort)
  *   Haut, Bas : NOTE + - ; Z, X : OCT - +
  */
 
 import type { Stage } from '../scene/renderer';
-import { bassStepTap } from './actions';
+import { bassLockOff, bassLockToggle, bassStepTap } from './actions';
 import { bassKeyAction } from './gestures';
-import { bassKeyId, bassTrigId } from './rig';
+import { bassKeyId, bassLockId, bassTrigId } from './rig';
+import { bassState } from './state';
 import type { BassKeyKind } from './theme';
 
-const STEP_CODES = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8', 'KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyY', 'KeyU', 'KeyI'];
+const STEP_CODES = ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'Digit7', 'Digit8'];
 const STEP_OF = new Map<string, number>(STEP_CODES.map((c, i) => [c, i]));
 const KEY_OF: Readonly<Record<string, BassKeyKind>> = {
   Space: 'run',
+  KeyE: 'edit',
   KeyG: 'gen',
   KeyM: 'mutate',
   KeyA: 'accent',
@@ -32,8 +35,10 @@ const KEY_OF: Readonly<Record<string, BassKeyKind>> = {
 };
 
 export const BASS_KEY_LEGEND: readonly { keys: string; what: string }[] = [
-  { keys: '1 to 8  /  Q to I', what: 'Steps 1 to 16: pick, then note, tie, off' },
+  { keys: '1 to 8  /  Shift + 1 to 8', what: 'Steps 1 to 16: pick, then note, tie, off (in EDIT: the patterns)' },
   { keys: 'Space', what: 'Run or stop, in time with the MM-RYTM' },
+  { keys: 'E', what: 'Edit: the sixteen patterns on the steps' },
+  { keys: 'L  /  Esc', what: 'Lock the chosen step: the sound knobs change only it  /  out of lock' },
   { keys: 'G  /  M', what: 'Generate a new line  /  mutate a few steps' },
   { keys: 'A  /  S', what: 'Accent  /  slide on the chosen step' },
   { keys: 'Up  Down', what: 'Chosen step one note up or down in the scale' },
@@ -53,7 +58,26 @@ export function listenBassKeys(getStage: () => Stage | null, active: () => boole
     // Un jumeau qui a le focus garde ses fleches, Espace et Entree
     const twin = e.target instanceof HTMLElement && e.target.classList.contains('v4-twin');
     if (twin && /^(Arrow|Page|Home|End|Space|Enter)/.test(e.code)) return;
-    const step = STEP_OF.get(e.code);
+    // Echap : d'abord le LOCK (le reste, EDIT compris, est a hooks/useKeys.ts)
+    if (e.code === 'Escape') {
+      if (bassState.get().lock < 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      bassLockOff();
+      return;
+    }
+    if (e.code === 'KeyL') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.repeat) return;
+      const id = bassLockId(bassState.get().sel);
+      held.set(e.code, id);
+      press(id, true);
+      bassLockToggle();
+      return;
+    }
+    const s0 = STEP_OF.get(e.code);
+    const step = s0 === undefined ? undefined : s0 + (e.shiftKey ? 8 : 0);
     const kind = KEY_OF[e.code];
     if (step === undefined && !kind) return;
     e.preventDefault();

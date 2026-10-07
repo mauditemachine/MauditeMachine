@@ -3,14 +3,15 @@
  * cliquant sur un bouton EDIT sur la machine, en desktop et en mobile ; la
  * meme chose pour RYTM, avec des editions de pattern rythmique, avec
  * velocite"). Une machine a la fois : 'voy' (la suite de l'arpege,
- * ui/SeqLane.tsx) ou 'mm808' (le motif et ses velocites, ui/BeatEditor.tsx).
+ * ui/SeqLane.tsx), 'mm808' (le motif et ses velocites, ui/BeatEditor.tsx)
+ * ou 'bass' (les seize patterns du MM-BASS sur ses pas, 2026-10-07).
  * Le bouton EDIT de la machine l'ouvre ou le ferme (touche E aussi) ; passer
  * a une autre machine le ferme.
  */
 
 import { focus } from './focus';
 
-export type EditorId = 'voy' | 'mm808';
+export type EditorId = 'voy' | 'mm808' | 'bass';
 
 let current: EditorId | null = null;
 const listeners = new Set<() => void>();
