@@ -33,6 +33,7 @@ Ce rapport couvre la première étape, la mise en ligne du sampler dans les plat
   - les styles : `v4.css`.
 - Roto-Control (`midi/roto.ts`) : DECK, MIXER et LIVE sont refaits pour le sampler, et le setup SMPL (15) disparaît. `docs/midi/*` sont régénérés (359 cibles, 5 setups).
 - `public/llms.txt`, `docs/v4/spec.md` : R14-187, R14-188.
+- `src/v4/scene/screen.ts` : l'écran du MM-RYTM redessiné façon OP-1, en vectoriel noir et os. On y voit l'anneau des 16 pas avec la voix au centre, la lecture, le pattern et le tempo, puis trois réglages illustrés (VOLUME en barres, TONE en courbe, DECAY en enveloppe) et la ligne du message. `scene/pixels.ts` (les polices de pixels) est retiré. Spec R14-189.
 
 ## Décisions prises et pourquoi
 
@@ -43,6 +44,7 @@ Ce rapport couvre la première étape, la mise en ligne du sampler dans les plat
 - **Des pages à la Elektron** (PADS, SAMPLE, GRAIN, SEQ) plutôt que tout à la fois : au téléphone, chaque chose reste lisible.
 - **La séquence suit la grille de la platine qui joue.** Un pas prend la slice qui tombe à son heure : la boucle d'origine se reconstruit.
 - **Roto, DECK page 4** : le sampler de chaque platine remplace RYTM et ARP, qui restent sur MIXER.
+- **L'écran du MM-RYTM, moins de choses et plus grandes.** Sont retirés : les huit vumètres, READY et RUN, le nom de la section et les cases des temps. L'anneau des pas reprend le langage des séquenceurs circulaires de l'OP-1. Chaque réglage a son dessin, en monochrome comme demandé. Une première version : des captures de l'OP-1 de Mika permettraient de l'affiner.
 - **Le MM-SMPL disparaît sans redirection cassée** : `?m=smpl` mène aux DECKS. Son dernier sample revient sur DECK A.
 
 ## Ce qui reste à faire / points en suspens
@@ -51,7 +53,8 @@ Ce rapport couvre la première étape, la mise en ligne du sampler dans les plat
   - charger un morceau, appuyer sur REC DECK en lecture, puis essayer REC MIX pendant que le MM-RYTM joue ;
   - essayer les pads, la séquence et SAVE, au desktop et au téléphone ;
   - réimporter les setups du Roto DECK (13), MIXER (14) et LIVE (16). Le setup 15 (SMPL) peut être effacé.
-- La suite de la demande, dans cette même session : MM-BASS, puis l'écran du MM-RYTM.
+- Mika : regarder le nouvel écran du MM-RYTM (au repos, en RUN, en EDIT, en tournant VOLUME). S'il veut l'affiner, des captures des écrans de l'OP-1 qu'il aime aideront.
+- La suite de la demande, dans cette même session : MM-BASS.
 - Toujours en attente : le compteur de visiteurs du MENU (Supabase, quand Mika dit go).
 
 ## Commandes utiles ajoutées
