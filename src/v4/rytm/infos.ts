@@ -121,7 +121,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   src: {
     section: 'PAGES',
     title: 'SRC',
-    text: "La couche SYNTH de la voix choisie, comme une machine de l'Analog Rytm : MACHINE (909, 808 ou MM, le son calculé), puis ses réglages, et son LEVEL en H. Le kick a TUNE, ATTACK, SWEEP, DECAY et DRIVE ; la caisse claire TUNE, SNAPPY, TONE, DECAY et GATE ; le clap GATE ; les autres voix le TUNE de la voix. La couche SAMPLE est sur SMPL : les deux jouent ensemble, chacune à son niveau, puis passent par la même voix (AMP, FX). Au pied de l'écran, SYN et SMP disent ce qui joue. C'est la page de départ.",
+    text: "La couche SYNTH de la voix choisie, comme une machine de l'Analog Rytm : MACHINE (909, 808 ou MM, le son calculé), puis ses réglages, et son LEVEL en H. Le kick a TUNE, ATTACK, SWEEP, DECAY et DRIVE ; la caisse claire TUNE, SNAPPY, TONE, DECAY et GATE ; le clap GATE ; les autres voix le TUNE de la voix. La couche SAMPLE est sur SMPL : les deux jouent ensemble, chacune à son niveau, puis passent par la même voix (AMP, FX). Pour BD et SD, PITCH (G) accorde toute la voix d'un coup, les deux couches ensemble. Dans l'en-tête, SYN et SMP disent ce que joue chaque couche et à quel niveau (le pas montré compte, en LOCK et quand il joue). C'est la page de départ.",
     tip: "Pour BD et SD, le sample de Mika joue seul au départ : monte LEVEL (H) pour glisser un 909 sous le kick, puis accorde-le avec TUNE.",
   },
   smpl: {
@@ -138,7 +138,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   amp: {
     section: 'PAGES',
     title: 'AMP',
-    text: "L'enveloppe et le niveau de la voix : DEC (la queue du coup), PAN (sa place entre gauche et droite) et VOL (son niveau), tous verrouillables pas par pas. ATK et HOLD viendront.",
+    text: "L'enveloppe et le niveau de la voix : DEC (la queue du coup), START (où commence tout le coup, ses deux couches), PAN (sa place entre gauche et droite) et VOL (son niveau), tous verrouillables pas par pas. ATK et HOLD viendront.",
     tip: 'La page des ghost notes : en LOCK, un VOL plus bas et un DEC plus court sur quelques pas de caisse claire.',
   },
   fx: {
@@ -208,7 +208,16 @@ const RAW: Record<RytmInfoId, Raw> = {
     text: "La hauteur de la voix, au demi-ton, de -24 à +24 (deux octaves de chaque côté) ; la ligne du dessous nomme l'intervalle (5TH, OCTAVE). Le coup est recalculé à sa hauteur, comme un sampler : plus aigu, il est aussi plus court. TONE (FLTR E) transpose aussi, de ±7 demi-tons.",
     tip: 'Verrouille +5, +7 ou +12 sur deux ou trois pas de TOM : une petite mélodie de toms façon minimal, sans changer de son.',
     voice: {
-      bd: { tip: 'Sur BD, TUNE (SRC B) accorde la synthèse et TUNE (SMPL A) le sample ; ce TUNE de la voix ne reste qu’en MIDI.' },
+      bd: {
+        title: 'PITCH',
+        text: "La hauteur de tout le kick, ses deux couches ensemble (BOTH), au demi-ton, de -24 à +24 (SRC G). Le coup est recalculé à sa hauteur, comme un sampler : plus aigu, il est aussi plus court. TUNE (SRC B) n'accorde que la synthèse, TUNE (SMPL A) que le sample.",
+        tip: 'Verrouille -2 sur le dernier kick de la mesure : il retombe sans changer de son.',
+      },
+      sd: {
+        title: 'PITCH',
+        text: "La hauteur de toute la caisse claire, ses deux couches ensemble (BOTH), au demi-ton, de -24 à +24 (SRC G). Le coup est recalculé à sa hauteur : plus aigu, il est aussi plus court. TUNE (SRC B) n'accorde que la synthèse, TUNE (SMPL A) que le sample.",
+        tip: 'Un +3 verrouillé sur une ghost note : la caisse claire répond plus haut, sans changer de son.',
+      },
     },
   },
   'r:tune': {
@@ -256,7 +265,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     title: 'GATE',
     lock: 'no',
     plate: { title: 'GATE', section: 'TWEAKS / SNARE + CLAP' },
-    text: "La réverbe à porte, OFF ou ON, pour la caisse claire et le clap à la fois (SD + CP). ON : la caisse claire MM reçoit une pièce claire ouverte 130 ms puis fermée en 40 ms, le clap MM et le clap 909 une petite pièce. Rien sur les caisses claires 909 et 808, le clap 808, ni sur un sample.",
+    text: "La réverbe à porte, OFF ou ON, pour la caisse claire et le clap à la fois (SD + CP). ON : la caisse claire MM et le sample de la caisse claire (BOTH, le kit de départ joue celui de Mika) reçoivent une pièce claire ouverte 130 ms puis fermée en 40 ms, le clap MM et le clap 909 une petite pièce. Rien sur les caisses claires de synthèse 909 et 808 ni sur le clap 808.",
     tip: 'ON sur une caisse claire MM : la dark disco des années 80 ; OFF pour un minimal sec.',
   },
   stretch: {
@@ -293,15 +302,22 @@ const RAW: Record<RytmInfoId, Raw> = {
       },
     },
   },
-  vstart: {
+  'r3:sstart': {
     section: 'SMPL',
     title: 'START',
     lock: 'yes',
-    text: "Où le sample commence dans son fichier, de 0 (FROM TOP, le début) à 90 % (90% IN) ; LEN se compte depuis là. Il ne règle que la couche SAMPLE (la synthèse part toujours du début).",
+    text: "Où le sample commence dans son fichier, de 0 (FROM TOP, le début) à 90 % (90% IN) ; LEN se compte depuis là. Ce qui reste du fichier joue à son niveau : plus loin, le coup est plus doux. Il ne règle que la couche SAMPLE (la synthèse part toujours du début).",
     tip: 'Un START vers 20 % verrouillé sur un pas de caisse claire : il perd son attaque, une note fantôme sans changer de son.',
     voice: {
       bd: { tip: 'Sur BD, un START verrouillé un peu plus loin saute la frappe : un kick plus mou, un pas sur deux, en minimal.' },
     },
+  },
+  vstart: {
+    section: 'AMP',
+    title: 'START',
+    lock: 'yes',
+    text: "Où commence tout le coup de la voix, ses deux couches ensemble (BOTH), de 0 (le début) à 90 % de sa longueur. START de SMPL (E) ne règle que la couche SAMPLE.",
+    tip: 'Verrouillé sur quelques pas de charley : la frappe disparaît, il ne reste que le souffle.',
   },
 
   /* ---------- FLTR ---------- */

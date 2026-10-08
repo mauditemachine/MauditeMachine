@@ -8,9 +8,9 @@
 
 import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
-import { ensure, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, trigger } from './audio/drums';
+import { ensure, kitOverride, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, trigger } from './audio/drums';
 import { VOICE_FX_DEFAULT, voiceFx, type VoiceParam } from './audio/voicefx';
-import { KIT_DEFAULT, KIT_LABEL, KIT_MODELS, KIT_MODEL_LABEL, LAYER_DEFAULT, LAYER_PARAMS, familyOf, isFamily, kit, kitSoundIndex, kitSoundNames, kitSteps, layerRange, layerSteps, type KitFamily, type KitId, type KitKnob, type KitModel } from './audio/kit';
+import { KIT_DEFAULT, KIT_LABEL, KIT_MODELS, KIT_MODEL_LABEL, LAYER_DEFAULT, LAYER_PARAMS, familyOf, isFamily, kit, kitSoundIndex, kitSoundNames, kitSteps, layerRange, layerSteps, type KitFamily, type KitId, type KitKnob, type KitModel, type Plays } from './audio/kit';
 import { lockOf, parseSnd, type LockId, type StepLock } from './audio/locks';
 import { samplesOf } from './audio/samples';
 import { randomBeat, randomColors, type BeatStyle } from './audio/beats';
@@ -131,8 +131,9 @@ export function voiceMute(inst: Inst, on: boolean): void {
 function selectVoice(inst: Inst | null): void {
   if (pattern.get().instrument === inst) return;
   pattern.select(inst);
-  // La liste des sons est ouverte : elle passe a la voix touchee (et reste un peu)
-  if (lcdSamples.get()) lcdSamples.show();
+  // La liste des sons est ouverte : elle passe a la voix touchee (et reste un peu), la meme liste (revue de R3 : SAMPLE de
+  // SMPL redevenait la liste SOUND d'avant)
+  if (lcdSamples.get()) lcdSamples.show(undefined, lcdSamples.kind());
   else lcdMessage.show(`KNOBS > ${inst ?? 'PATTERN'}`);
 }
 
@@ -959,12 +960,13 @@ const LAYER_NAME: Readonly<Record<LayerDial, string>> = {
   rev: 'SAMPLE REV',
 };
 
-/** La valeur d'un reglage de couche de la voix choisie (la MACHINE : son rang, 0 a 2). */
-function layerValue(p: LayerDial): number {
-  const f = soundFamily();
+/** La valeur d'un reglage de couche d'une famille (la MACHINE : son rang, 0 a 2 ; null : CY, sans couches). */
+function layerValueOf(f: KitFamily | null, p: LayerDial): number {
   if (!f) return p === 'mach' ? KIT_MODELS.indexOf('mm') : LAYER_DEFAULT[p];
   return p === 'mach' ? KIT_MODELS.indexOf(kit.get().model[f]) : kit.layerOf(f)[p];
 }
+/** Celle de la voix choisie. */
+const layerValue = (p: LayerDial): number => layerValueOf(soundFamily(), p);
 const layerSpan = (p: LayerDial): [number, number] => (p === 'mach' ? [0, KIT_MODELS.length - 1] : layerRange(p));
 const layerNotches = (p: LayerDial): number => (p === 'mach' ? KIT_MODELS.length : layerSteps(p));
 /** Son depart : celui du kit de depart (BD et SD : SYNTH 0, leurs samples). */
@@ -973,30 +975,87 @@ function layerReset(p: LayerDial): number {
   if (!f) return layerValue(p);
   return p === 'mach' ? KIT_MODELS.indexOf(KIT_DEFAULT.model[f]) : kit.layerDef(f, p);
 }
-/** Ce que la couche SAMPLE de la voix joue (LEN se dit en ms quand le fichier est la). */
-const sampleCtx = (f: KitFamily): { key: string; layer: ReturnType<typeof kit.layerOf> } | undefined => {
-  const key = kit.get().sample[f];
-  return key ? { key, layer: kit.layerOf(f) } : undefined;
+/**
+ * Ce que la couche SAMPLE de la voix joue (LEN se dit en ms quand le fichier
+ * est la) ; lock : le pas montre (revue de R3 : son sample, son START et son
+ * TUNE verrouilles comptent dans la longueur de LEN).
+ */
+const sampleCtx = (f: KitFamily, lock?: Readonly<StepLock> | null): { key: string; layer: ReturnType<typeof kit.layerOf> } | undefined => {
+  const ov = lock ? kitOverride(lock) : null;
+  const snd = ov && ov.sample !== undefined ? ov.sample : kit.get().sample[f];
+  if (!snd) return undefined;
+  return { key: snd, layer: ov?.layer ? { ...kit.layerOf(f), ...ov.layer } : kit.layerOf(f) };
 };
-/** Sa ligne d'unite, ce qui l'empeche de s'entendre compris (la couche muette). */
-function layerUnitNow(p: LayerDial): string {
-  const f = soundFamily();
+/** Sa ligne d'unite, ce qui l'empeche de s'entendre compris (la couche muette) ; f : la famille (la voix choisie). */
+function layerUnitNow(p: LayerDial, f: KitFamily | null = soundFamily()): string {
   if (!f) return '';
-  const v = layerValue(p);
+  const v = layerValueOf(f, p);
   if (p === 'mach') return kit.layerOf(f).syn > 0 ? 'SYNTH' : 'SYNTH OFF';
   return layerUnit(p, v, sampleCtx(f));
 }
 
 /** Ce que dit l'ecran quand un reglage de couche tourne : BD SAMPLE TUNE +2  2ND ; et pourquoi il ne s'entend pas. */
-function layerReadout(p: LayerDial, inst: Inst, f: KitFamily): string {
+function layerReadout(p: LayerDial, inst: Inst | string, f: KitFamily): string {
   const l = kit.layerOf(f);
   const smp = !!kit.get().sample[f];
   let why = '';
   if (p !== 'mach' && p !== 'syn' && !smp) why = '  SAMPLE OFF';
   else if ((p === 'syn' && l.syn <= 0 && (!smp || l.lev <= 0)) || (p === 'lev' && l.lev <= 0 && l.syn <= 0)) why = '  VOICE SILENT';
   // La MACHINE : son nom, et la couche a rallumer si elle est muette (l'unite SYNTH OFF ne se repete pas)
-  if (p === 'mach') return `${inst} MACHINE ${layerText(p, layerValue(p))}${l.syn <= 0 ? '  SYNTH OFF: LEVEL H' : ''}`;
-  return `${inst} ${LAYER_NAME[p]} ${layerText(p, layerValue(p))}  ${layerUnitNow(p)}${why}`;
+  if (p === 'mach') return `${inst} MACHINE ${layerText(p, layerValueOf(f, p))}${l.syn <= 0 ? '  SYNTH OFF: LEVEL H' : ''}`;
+  return `${inst} ${LAYER_NAME[p]} ${layerText(p, layerValueOf(f, p))}  ${layerUnitNow(p, f)}${why}`;
+}
+
+/** Les familles dont les couches ont des cibles MIDI (rytm:layer:<famille>:<reglage>) ; celles qui ont des samples, toutes. */
+export const LAYER_TARGET_FAMS: readonly KitFamily[] = ['bd', 'sd', 'hh', 'cp', 'tom'];
+/** Ce qu'une cible de couche regle : un reglage de couche, ou l'echantillon de la couche SAMPLE. */
+export type LayerTarget = LayerDial | 'sample';
+
+/** Sa course (0 a 1 pour le MIDI) : la MACHINE en trois crans, TUNE et FINE autour du centre, SAMPLE OFF puis ses samples. */
+export function layerTargetSteps(f: KitFamily, p: LayerTarget): number {
+  if (p === 'sample') return samplesOf(f).length + 1;
+  return layerNotches(p);
+}
+/** La valeur 0 a 1 d'une cible de couche (le Roto la relit). */
+export function layerTargetValue(f: KitFamily, p: LayerTarget): number {
+  if (p === 'sample') {
+    const n = samplesOf(f).length;
+    const key = kit.get().sample[f];
+    const j = key ? samplesOf(f).findIndex((x) => x.key === key) + 1 : 0;
+    return n > 0 ? Math.max(0, j) / n : 0;
+  }
+  const [lo, hi] = layerSpan(p);
+  return hi > lo ? (layerValueOf(f, p) - lo) / (hi - lo) : 0;
+}
+
+/**
+ * Une cible MIDI de couche tourne (revue de R3, 2026-10-08) : la couche d'une
+ * famille sans choisir sa voix (le Roto-Control : le TUNE du sample du kick,
+ * son LEN, le niveau de la synthese...). v : 0 a 1 ; l'ecran dit le reglage,
+ * la page le montre si elle est affichee.
+ */
+export function kitLayerDial(f: KitFamily, p: LayerTarget, v: number): void {
+  resume();
+  const who = KIT_LABEL[f];
+  const c = Math.max(0, Math.min(1, v));
+  if (p === 'sample') {
+    const list = samplesOf(f);
+    if (list.length === 0) {
+      lcdMessage.show(`${who}: NO SAMPLES`);
+      return;
+    }
+    const j = Math.round(c * list.length);
+    kit.setSample(f, j === 0 ? null : list[j - 1].key);
+    lcdMessage.show(`${who} SAMPLE ${j === 0 ? 'OFF' : kit.sampleLabel(f)}${j === 0 ? '' : `  ${j} OF ${list.length}`}`, POT_UI.readoutMs, true);
+  } else {
+    const [lo, hi] = layerSpan(p);
+    const x = lo + c * (hi - lo);
+    if (p === 'mach') kit.setMachine(f, KIT_MODELS[Math.max(0, Math.min(KIT_MODELS.length - 1, Math.round(x)))]);
+    else kit.setLayer(f, p, x);
+    lcdMessage.show(layerReadout(p, who, f), POT_UI.readoutMs, true);
+  }
+  const inst = pattern.get().instrument;
+  if (inst && familyOf(inst as ShotId) === f) touchPage(p === 'sample' ? 'smpl:sample' : `l:${p}`, inst);
 }
 
 /** Un reglage de couche tourne (un potard de page, un jumeau) : la voix choisie, sa famille. */
@@ -1096,11 +1155,16 @@ function sampleDial(v: number): void {
   touchPage('smpl:sample', inst);
 }
 
-/** SMPL SAMPLE ecrit : OFF, ou le nom de l'echantillon (BLUEPRINT) ; '--' sans echantillon a choisir. */
+/**
+ * SMPL SAMPLE ecrit : OFF, ou le nom de l'echantillon de la couche SAMPLE
+ * (BLUEPRINT) ; '--' sans echantillon a choisir. Le nom du sample seul (revue
+ * de R3 : ce qui joue, 909+BLUEPR. ou 909, prenait sa place des que la
+ * synthese montait ; c'est l'en-tete qui le dit).
+ */
 function sampleText(): string {
   const f = soundFamily();
   if (!f || sampleCount() === 0) return '--';
-  return sampleValue() === 0 ? 'OFF' : kit.valueText(f);
+  return sampleValue() === 0 ? 'OFF' : kit.sampleLabel(f);
 }
 
 /** Sa ligne d'unite : SYNTH 909 (OFF : le son de synthese joue), 2 OF 6. */
@@ -1650,7 +1714,8 @@ export function lockList(step: number, lockArg?: Readonly<StepLock> | null): Loc
       const lv = slotLockView(slot, inst, step, lockArg);
       if (!lv) continue;
       seen.add(slot.lock);
-      out.push({ ...lv, page: p.label, name: slot.label });
+      // Le nom court du verrou (revue de R3 : START de SMPL et START de AMP, TUNE et PITCH se lisaient pareil)
+      out.push({ ...lv, page: p.label, name: lockNameOf(slot.lock, inst) ?? slot.label });
     }
   }
   return out;
@@ -1697,8 +1762,8 @@ function slotLockView(slot: PageSlot, inst: Inst, step: number, lockArg?: Readon
   const lp = slot.target ? layerIdOf(slot.target) : null;
   if (lp && lp !== 'mach') {
     const [lo, hi] = layerSpan(lp);
-    const f = soundFamily();
-    return { text: layerText(lp, v), unit: layerUnit(lp, v, f ? sampleCtx(f) : undefined), course: hi > lo ? (v - lo) / (hi - lo) : 0, value: v };
+    const f = familyOf(inst as ShotId);
+    return { text: layerText(lp, v), unit: layerUnit(lp, v, f ? sampleCtx(f, l) : undefined), course: hi > lo ? (v - lo) / (hi - lo) : 0, value: v };
   }
   // Un potard de la machine (revue de R2) : 0 a 127 et son unite a cette valeur (52 HZ, 216 MS) ; GATE ON ou OFF
   const r = slot.target && slot.target !== 'step:vel' && slot.target !== 'smpl:sample' ? kitIdOf(slot.target) : null;
@@ -1747,6 +1812,7 @@ function lockDialValue(k: number): number | null {
 const LOCK_NAMES: readonly { key: string; name: string; page: string }[] = [
   // La couche SYNTH (R3) : la MACHINE, son niveau
   { key: 'mach', name: 'MACHINE', page: 'SRC' },
+  // La hauteur de toute la voix (R2) : TUNE des voix de synthese, PITCH de BD et SD (lockNameOf)
   { key: 'tune', name: 'TUNE', page: 'SRC' },
   // Les potards de la machine (revue de R2 ; SWEEP et la caisse claire depuis R3)
   { key: 'ktune', name: 'TUNE', page: 'SRC' },
@@ -1765,11 +1831,12 @@ const LOCK_NAMES: readonly { key: string; name: string; page: string }[] = [
   { key: 'sfine', name: 'FINE', page: 'SMPL' },
   { key: 'srev', name: 'REV', page: 'SMPL' },
   { key: 'snd', name: 'SAMPLE', page: 'SMPL' },
-  { key: 'sstart', name: 'START', page: 'SMPL' },
+  { key: 'sstart', name: 'S.START', page: 'SMPL' },
   { key: 'slen', name: 'LEN', page: 'SMPL' },
   { key: 'slev', name: 'SMP.LEV', page: 'SMPL' },
-  { key: 'start', name: 'START', page: 'SMPL' },
+  // Le debut de toute la voix (R2) : son bloc START sur AMP depuis la revue de R3
   { key: 'decay', name: 'DEC', page: 'AMP' },
+  { key: 'start', name: 'START', page: 'AMP' },
   { key: 'pan', name: 'PAN', page: 'AMP' },
   { key: 'level', name: 'VOL', page: 'AMP' },
   // Les envois de la voix (revue de R2)
@@ -1777,12 +1844,21 @@ const LOCK_NAMES: readonly { key: string; name: string; page: string }[] = [
   { key: 'reverb', name: 'REVERB', page: 'FX' },
 ];
 
-/** Les verrous du pas en LOCK, par leur nom de bloc, toutes pages, dans l'ordre des pages : TUNE DEC VOL (l'ecran et le Dock les listent). */
+/** Le nom court d'un verrou pour cette voix (TUNE de toute la voix : PITCH sur BD et SD, ou TUNE est celui de leur machine). */
+function lockNameOf(key: string, inst: Inst): string | undefined {
+  if (key === 'tune') {
+    const f = familyOf(inst as ShotId);
+    return f === 'bd' || f === 'sd' ? 'PITCH' : 'TUNE';
+  }
+  return LOCK_NAMES.find((x) => x.key === key)?.name;
+}
+
+/** Les verrous du pas en LOCK, par leur nom court, toutes pages, dans l'ordre des pages : TUNE DEC VOL (l'ecran et le Dock les listent). */
 export function lockSummary(step: number): string[] {
   const inst = pattern.get().instrument;
   const l = inst && step >= 0 ? lockOf(pattern.get().locks, inst, step) : null;
-  if (!l) return [];
-  return LOCK_NAMES.filter((x) => x.key in l).map((x) => x.name);
+  if (!l || !inst) return [];
+  return LOCK_NAMES.filter((x) => x.key in l).map((x) => lockNameOf(x.key, inst) ?? x.name);
 }
 
 /** Les pages ou le pas a des verrous (SRC AMP) : le pied de l'ecran les dit quand la liste ne tient pas. */
@@ -1880,14 +1956,18 @@ function lockWrite(k: number, slot: PageSlot, v: number): void {
 
 /** La couche ne joue-t-elle pas sur ce pas (R3) : son niveau a 0 (ou son verrou), la couche SAMPLE sans sample ? */
 function layerSilentAt(layer: 'synth' | 'sample', inst: Inst, step: number): boolean {
-  const f = familyOf(inst as ShotId);
-  if (!f) return layer === 'sample' && !lockOf(pattern.get().locks, inst, step)?.snd;
-  const l = kit.layerOf(f);
-  const lk = lockOf(pattern.get().locks, inst, step);
-  if (layer === 'synth') return (lk?.syn ?? l.syn) <= 0;
-  const snd = lk?.snd ? parseSnd(lk.snd) : null;
-  const on = snd ? snd.sound !== 'off' : !!kit.get().sample[f];
-  return !on || (lk?.slev ?? l.lev) <= 0;
+  const p = stepPlays(inst, lockOf(pattern.get().locks, inst, step));
+  return layer === 'synth' ? !p.synth : !p.smp;
+}
+
+/**
+ * Ce que joue la voix sur un pas (revue de R3, 2026-10-08) : ses deux
+ * couches avec les verrous du pas (null : le kit du moment) ; un sample
+ * emprunte a une autre famille y joue seul (audio/kit.ts). L'ecran (l'en-tete,
+ * les blocs en retrait) et les messages du LOCK le lisent.
+ */
+export function stepPlays(inst: Inst, lock: Readonly<StepLock> | null | undefined): Plays {
+  return kit.playsWith(inst as ShotId, lock ? kitOverride(lock) : null);
 }
 
 /**

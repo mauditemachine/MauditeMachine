@@ -46,12 +46,16 @@
  * - SRC : A MACHINE (909, 808, MM), puis ses potards (le KICK : TUNE ATTACK
  *   SWEEP / DECAY DRIVE ; la caisse claire : TUNE SNAPPY TONE / DECAY GATE ;
  *   le clap : GATE ; les autres : le TUNE de la voix en B), H LEVEL. ATTACK et
- *   DRIVE du kick, SNAPPY de la caisse claire reglent aussi la couche SAMPLE
- *   (both : BOTH a l'ecran) ;
+ *   DRIVE du kick, SNAPPY et GATE de la caisse claire reglent aussi la couche
+ *   SAMPLE (both : BOTH a l'ecran) ; G, pour BD et SD : PITCH, la hauteur de
+ *   toute la voix (le TUNE de R2, revue de R3) ;
  * - SMPL : A TUNE, B FINE, C REV / D SAMPLE (OFF ou un echantillon), E START,
  *   F LEN, H LEVEL ;
- * - STRETCH (toute la machine) passe sur TRIG, a cote de SWING.
- * Une couche muette (LEVEL 0, SAMPLE OFF) : ses blocs en retrait (layer).
+ * - STRETCH (toute la machine) passe sur TRIG, a cote de SWING ;
+ * - AMP D : START, le debut de tout le coup (le START de R2, revue de R3).
+ * Une couche muette (LEVEL 0, SAMPLE OFF) : ses blocs en retrait (layer) ;
+ * BOTH en retrait quand la voix se tait. Les couches sont celles de la
+ * famille : CH et OH, TOM et HT les partagent (l'ecran le dit, CH+OH).
  */
 
 import type { DialId } from '../actions';
@@ -169,7 +173,22 @@ const SMPL: readonly PageSlot[] = [
 
 const FLTR: readonly PageSlot[] = [soon('ATK'), soon('DEC'), EMPTY, EMPTY, live('TONE', 'tone', 'tone'), soon('RESO'), soon('TYPE'), soon('ENV')];
 
-const AMP: readonly PageSlot[] = [soon('ATK'), soon('HOLD'), lockable('DEC', 'vdecay', 'decay', 'decay'), EMPTY, EMPTY, EMPTY, lockable('PAN', 'vpan', 'barc', 'pan'), lockable('VOL', 'vol', 'level', 'level')];
+/**
+ * AMP ; D : START, le debut de tout le coup de la voix (R2, les deux couches :
+ * BOTH), revenu sur la face a la revue de R3 (2026-10-08 : sans bloc, son
+ * verrou de R2 et sa valeur d'un preset jouaient sans se voir) ; START de
+ * SMPL n'est que celui de la couche SAMPLE.
+ */
+const AMP: readonly PageSlot[] = [
+  soon('ATK'),
+  soon('HOLD'),
+  lockable('DEC', 'vdecay', 'decay', 'decay'),
+  { ...lockable('START', 'vstart', 'start', 'start'), both: true },
+  EMPTY,
+  EMPTY,
+  lockable('PAN', 'vpan', 'barc', 'pan'),
+  lockable('VOL', 'vol', 'level', 'level'),
+];
 
 /** En haut les effets de la voix, dessous ceux de toute la machine, colonne par colonne. */
 const FX: readonly PageSlot[] = [
@@ -192,6 +211,9 @@ const synth = (label: string, target: SlotTarget, draw: SlotDraw, lock: LockKey,
  * pas (revue de R2, Mika : "le kick peut etre parametre comme une machine").
  */
 function srcMiddle(f: KitFamily | null): readonly PageSlot[] {
+  // G (revue de R3) : PITCH, la hauteur de toute la voix (le TUNE de R2, coup par coup, les deux couches) ; B est le
+  // TUNE de la machine du KICK et de la caisse claire
+  const pitch: PageSlot = { ...lockable('PITCH', 'vtune', 'barc', 'tune'), both: true };
   if (f === 'bd')
     return [
       synth('TUNE', 'r:tune', 'barc', 'ktune'),
@@ -199,16 +221,17 @@ function srcMiddle(f: KitFamily | null): readonly PageSlot[] {
       synth('SWEEP', 'r:sweep', 'bar', 'ksweep'),
       synth('DECAY', 'r:decay', 'decay', 'kdecay'),
       synth('DRIVE', 'r:drive', 'bar', 'kdrive', true),
-      EMPTY,
+      pitch,
     ];
+  // GATE passe aussi sur le sample de la caisse claire depuis la revue de R3 (BOTH)
   if (f === 'sd')
     return [
       synth('TUNE', 'r:sdtune', 'barc', 'sdtune'),
       synth('SNAPPY', 'r:snappy', 'bar', 'snappy', true),
       synth('TONE', 'r:sdtone', 'barc', 'sdtone'),
       synth('DECAY', 'r:sddecay', 'decay', 'sddecay'),
-      synth('GATE', 'r:gate', 'notch', 'gate'),
-      EMPTY,
+      synth('GATE', 'r:gate', 'notch', 'gate', true),
+      pitch,
     ];
   // Le TUNE de la voix (2026-10-08, R2) : toute la voix, au demi-ton ; le clap garde GATE
   const tune = lockable('TUNE', 'vtune', 'barc', 'tune');
@@ -223,8 +246,9 @@ function src(inst: Inst | null): readonly PageSlot[] {
   const key = f ?? 'none';
   let slots = SRC_CACHE.get(key);
   if (!slots) {
-    // A : la MACHINE de la couche SYNTH (909, 808, MM ; CY : sa synthese a elle, sans choix), H : son LEVEL
-    const machine: PageSlot = { ...lockable('MACHINE', 'l:mach', 'notch', 'mach'), layer: 'synth', level: true };
+    // A : la MACHINE de la couche SYNTH (909, 808, MM ; CY : sa synthese a elle, sans choix), H : son LEVEL. La MACHINE
+    // se met en retrait avec sa couche (revue de R3 : un grand 909 brillant sur le kit de depart, ou le sample joue seul)
+    const machine: PageSlot = { ...lockable('MACHINE', 'l:mach', 'notch', 'mach'), layer: 'synth' };
     const level = f ? synth('LEVEL', 'l:syn', 'level', 'syn') : EMPTY;
     slots = [machine, ...srcMiddle(f), f ? { ...level, level: true } : EMPTY];
     SRC_CACHE.set(key, slots);

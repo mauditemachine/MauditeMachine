@@ -87,10 +87,11 @@
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
 import { clock } from '../audio/clock';
 import { mix } from '../audio/drums';
-import { KIT_MODEL_LABEL, familyOf, kit, type KitFamily } from '../audio/kit';
+import { KIT_MODEL_LABEL, familyOf, kit, type KitFamily, type Plays } from '../audio/kit';
+import { sampleByKey } from '../audio/samples';
 import { INSTRUMENTS, STEP_COUNT, VEL_BARS, pattern, velocity } from '../audio/pattern';
 import { lockMask, lockOf, type StepLock } from '../audio/locks';
-import { lockList, lockPages, lockSummary, type LockLine } from '../actions';
+import { lockList, lockPages, lockSummary, stepPlays, type LockLine } from '../actions';
 import { rytmLock } from '../state/rytmLock';
 import type { ShotId } from '../audio/shotsdsp';
 import { sc } from '../audio/soundcloud';
@@ -139,7 +140,7 @@ export interface ScreenInfo {
   panel: string[];
   /** le pied hors LOCK : le message, les verrous du pas qui joue, l'aide (telephone), les onglets ; '' rien */
   footText: string;
-  /** les deux couches de la voix au pied de SRC et SMPL (R3) : SYN 909 0 | SMP BLUEPRINT 127 ; '' ailleurs */
+  /** les deux couches de la voix dans l'en-tete de SRC et SMPL (R3, revue) : SYN 909 OFF | SMP BLUEPRINT 127 ; '' ailleurs ou sans la place */
   layers: string;
 }
 
@@ -972,7 +973,7 @@ export class Screen {
         this.text(name, x + 7, y, 10, BLACK, 600);
       } else this.text(name, x + 7, y, 9, HALF, 500);
     }
-    this.text(`${m.cur + 1}/${n}`, col.x1, 62, 8, HALF, 600, 'right');
+    this.text(m.rank, col.x1, 62, 8, HALF, 600, 'right');
     // Le titre : KICK SOUND (le choix de son d'avant), KICK SAMPLE ou KICK SYNTH (les couches de R3, 2026-10-08)
     this.text(/ (SAMPLE|SYNTH)$/.test(m.title) ? m.title : `${m.title} SOUND`, x, 96, 7, HALF, 700, 'left', 0.9);
   }
@@ -1063,9 +1064,12 @@ export class Screen {
    * (0 : aucun ; paint() en arme le minuteur).
    */
   private paintPage(s: LcdState, rp: RytmPageState, inst: Inst | null, cur: number, now: number, lockStep: number): number {
-    this.paintPageHead(rp.page, inst, cur, now, lockStep);
     let next = 0;
     const mode = this.blockMode(inst, lockStep, now);
+    // L'en-tete dit ce que joue le pas montre (revue de R3 : en LOCK et au flash, il disait le kit pendant que les
+    // blocs montraient le pas)
+    const shownLock = !inst || !mode ? null : mode.kind === 'lock' ? lockOf(pattern.get().locks, inst, mode.step) : mode.lock;
+    this.paintPageHead(rp.page, inst, cur, now, lockStep, shownLock);
     if (s.samples && lockStep < 0) this.paintSamples(s.samples, PAGE_COL);
     else {
       const blocks = pageBlocks(rp, inst, now, mode);
@@ -1210,10 +1214,17 @@ export class Screen {
    * son (ou MUTE, SOLO ; sans voix ALL, PICK A VOICE) ; a droite le pattern
    * (il clignote quand il change) et le tempo ; un filet dessous.
    */
-  private paintPageHead(page: RytmPageId, inst: Inst | null, cur: number, now: number, lockStep = -1): void {
+  private paintPageHead(page: RytmPageId, inst: Inst | null, cur: number, now: number, lockStep = -1, lock: Readonly<StepLock> | null = null): void {
     const H = PAGE_HEAD;
     const T = this.bt.head;
     const y = H.y;
+    // A droite d'abord, le pattern et le tempo : la place qui reste va au son
+    const blinkOff = this.blinkUntil > now && Math.floor((this.blinkUntil - now) / 100) % 2 === 1;
+    const bpm = String(Math.round(pattern.get().bpm));
+    const bw = this.text('BPM', H.right, y, T.bpm, HALF, 600, 'right', 0.8);
+    const nw = this.text(bpm, H.right - bw - 3, y, T.num, INK, 400, 'right');
+    const sw = this.text(slotName(cur), H.right - bw - 3 - nw - 10, y, T.num, blinkOff ? FAINT : INK, 600, 'right', 0.6);
+    const rightX = H.right - bw - 3 - nw - 10 - sw - 8;
     this.runIcon(H.iconX, y);
     const label = pageLabel(page);
     const ty = H.pillY + T.pillH / 2 + T.pill * 0.36;
@@ -1247,21 +1258,77 @@ export class Screen {
         this.pill(x + vw + 6, H.pillY, w, T.pillH, INK);
         this.text(word, x + vw + 6 + w / 2, H.pillY + T.pillH / 2 + T.sound * 0.36, T.sound, BLACK, 700, 'center', 0.8);
       } else {
-        // Le son a la place qui reste avant le pattern et le tempo (en LOCK la pastille est plus large)
-        const room = H.right - 70 - (x + vw + 5);
-        const snd = this.fitText(fit(soundOf(inst), this.mobile ? 10 : 12), Math.max(10, room), T.sound, 0.6, 600);
-        if (room > 14) this.text(snd, x + vw + 5, y, T.sound, HALF, 600, 'left', 0.6);
+        // Le son a la place qui reste avant le pattern et le tempo (en LOCK la pastille est plus large) ; toute la place,
+        // plus de coupe a 12 lettres (revue de R3 : 909+BLUEPRI. avec la moitie de l'en-tete vide) ; SRC et SMPL : les
+        // deux couches, ce que le pas montre joue
+        const x0 = x + vw + 5;
+        const room = rightX - x0;
+        const f = familyOf(inst as ShotId);
+        const plays = stepPlays(inst, lock);
+        const drawn = f && (page === 'src' || page === 'smpl') && room > 30 ? this.paintHeadLayers(plays, f, page, x0, rightX, y, T.sound) : false;
+        if (!drawn && room > 14) this.text(this.fitText(kit.playsText(plays), room, T.sound, 0.6, 600), x0, y, T.sound, HALF, 600, 'left', 0.6);
       }
     } else {
       const aw = this.text('ALL', x, y, T.voice, HALF, 600);
       this.text('PICK A VOICE', x + aw + 6, y, T.sound * 0.85, FAINT, 600, 'left', 0.5);
     }
-    const blinkOff = this.blinkUntil > now && Math.floor((this.blinkUntil - now) / 100) % 2 === 1;
-    const bpm = String(Math.round(pattern.get().bpm));
-    const bw = this.text('BPM', H.right, y, T.bpm, HALF, 600, 'right', 0.8);
-    const nw = this.text(bpm, H.right - bw - 3, y, T.num, INK, 400, 'right');
-    this.text(slotName(cur), H.right - bw - 3 - nw - 10, y, T.num, blinkOff ? FAINT : INK, 600, 'right', 0.6);
     this.line([MATRIX.x0, H.rule, UW - MATRIX.x0, H.rule], FAINT, 0.6);
+  }
+
+  /**
+   * Les deux couches de la voix dans l'en-tete de SRC et SMPL (revue de R3,
+   * 2026-10-08 ; au pied avant, ou elles cachaient les onglets et l'aide du
+   * LOCK) : SYN et sa MACHINE, SMP et son sample, chacun suivi de son niveau
+   * (0 a 127, OFF), un filet entre les deux ; la couche qui s'entend en
+   * clair, l'autre a peine ; celle de la page affichee soulignee. Le pas
+   * montre compte (LOCK, flash). Trop long : un corps plus petit, le nom du
+   * sample coupe, puis sans les niveaux ; false si rien ne tient (l'appelant
+   * ecrit ce qui joue en un mot).
+   */
+  private paintHeadLayers(p: Readonly<Plays>, f: KitFamily, page: RytmPageId, x0: number, x1: number, y: number, size: number): boolean {
+    const halves = [
+      { tag: 'SYN', name: KIT_MODEL_LABEL[p.model], lev: p.syn > 0 ? v127Text(p.syn) : 'OFF', on: p.synth, hot: page === 'src' },
+      { tag: 'SMP', name: p.sample ? (sampleByKey(p.sample)?.label ?? 'SAMPLE') : 'OFF', lev: p.sample ? (p.lev > 0 ? v127Text(p.lev) : 'OFF') : '', on: p.smp, hot: page === 'smpl' },
+    ];
+    const room = x1 - x0;
+    const sep = 9;
+    for (const [k, withLev] of [
+      [1, true],
+      [0.86, true],
+      [0.86, false],
+    ] as const) {
+      const fs = size * k;
+      const ts = fs * 0.78;
+      const tagW = halves.map((h) => this.textWidth(h.tag, ts, 700, 0.6) + 3);
+      const levW = halves.map((h) => (withLev && h.lev ? this.textWidth(h.lev, fs, 600) + 3 : 0));
+      const synW = this.textWidth(halves[0].name, fs, 600, 0.4) + 3;
+      const fixed = tagW[0] + synW + levW[0] + sep + tagW[1] + levW[1];
+      const nameRoom = room - fixed;
+      const smpName = halves[1].name;
+      const fitName = this.fitText(smpName, Math.max(1, nameRoom), fs, 0.4, 600);
+      // Le nom du sample garde au moins cinq lettres, sinon le cran suivant
+      if (fitName.length < Math.min(5, smpName.length) || this.textWidth(fitName, fs, 600, 0.4) > nameRoom) continue;
+      let x = x0;
+      const parts: string[] = [];
+      halves.forEach((h, i) => {
+        if (i === 1) {
+          // Le filet entre les deux couches
+          this.line([x + sep / 2 - 0.5, y - fs * 0.78, x + sep / 2 - 0.5, y + 1], FAINT, 0.7);
+          x += sep;
+        }
+        const tw = this.text(h.tag, x, y, ts, h.on ? HALF : FAINT, 700, 'left', 0.6);
+        // La page affichee : la couche soulignee (la pastille pleine de l'en-tete dit deja la page)
+        if (h.hot) this.line([x, y + 2, x + tw, y + 2], h.on ? INK : HALF, 0.9);
+        x += tw + 3;
+        const name = i === 0 ? h.name : fitName;
+        x += this.text(name, x, y, fs, h.on ? INK : FAINT, 600, 'left', 0.4) + 3;
+        if (withLev && h.lev) x += this.text(h.lev, x, y, fs, h.on ? INK : FAINT, 600) + 3;
+        parts.push(`${h.tag} ${name}${withLev && h.lev ? ` ${h.lev}` : ''}`);
+      });
+      this.info.layers = parts.join(' | ');
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -1310,8 +1377,13 @@ export class Screen {
     const T = this.bt;
     // Le nom ; au desktop la lettre du potard au bout (au telephone elle est imprimee a cote du potard) ; un cadenas en negatif
     const lockW = neg ? 7 : 0;
-    const nameW = M.w - 2 * B.padX - (T.letters ? 8 : 0) - lockW - (b.tag === 'BOTH' && !T.letters ? 10 : 0);
+    // Un bloc a crans au desktop (MACHINE, GATE) : ses crans tiennent le bout de la ligne d'unite, son etiquette (BOTH,
+    // CH+OH) monte sur la ligne du nom, avant la lettre (revue de R3 : elles se chevauchaient)
+    const tagName = alive && !!b.tag && b.draw === 'notch' && T.notchRow && b.lock !== 'global' && b.lock !== 'nolock';
+    const tnW = tagName ? this.textWidth(b.tag, T.unitSize * 0.92, 700, 0.5) + 4 : 0;
+    const nameW = M.w - 2 * B.padX - (T.letters ? 8 : 0) - lockW - (b.tag === 'BOTH' && !T.letters ? 10 : 0) - tnW;
     this.text(this.fitText(b.label, nameW, T.nameSize, 0.7, 700), bx + B.padX, by + T.nameDy, T.nameSize, alive ? P.half : P.faint, 700, 'left', 0.7);
+    if (tagName) this.text(b.tag, bx + M.w - B.padX - (T.letters ? 8 : 0) - lockW, by + T.nameDy, T.unitSize * 0.92, P.half, 700, 'right', 0.5);
     if (T.letters) this.text(PAGE_KNOB_LETTERS[b.k], bx + M.w - B.padX, by + T.nameDy, T.letterSize, neg ? P.half : b.echo ? HALF : FAINT, 700, 'right');
     if (neg) this.padlock(bx + M.w - B.padX - (T.letters ? 8 : 0) - 5.5, by + T.nameDy + 0.2, this.mobile ? 6 : 4.6, P.ink);
     if (!alive) {
@@ -1327,7 +1399,7 @@ export class Screen {
     // d'unite il touchait l'arc du petit potard)
     const tagTop = b.tag === 'BOTH' && !T.letters;
     if (tagTop) this.layersGlyph(bx + M.w - B.padX, by + T.nameDy, P.half);
-    const tag = tagTop ? '' : b.tag;
+    const tag = tagTop || tagName ? '' : b.tag;
     const tw = tag ? this.text(tag, bx + M.w - B.padX, by + T.unitDy, T.unitSize, b.noBd || b.all ? P.faint : P.half, 700, 'right', 0.5) + 4 : 0;
     const notchRow = stepped && T.notchRow;
     const unitW = M.w - 2 * B.padX - tw - (notchRow ? 26 : 0);
@@ -1544,13 +1616,6 @@ export class Screen {
       return 0;
     }
     if (this.paintMode(x0, x1, y, fs + 0.5, this.mobile ? 7.5 : 6.5)) return 0;
-    // SRC et SMPL (R3) : les deux couches de la voix, ce qui joue et a quel niveau (le telephone garde le pas qui joue)
-    const inst = pattern.get().instrument;
-    const famL = inst ? familyOf(inst as ShotId) : null;
-    if ((page === 'src' || page === 'smpl') && famL && !(this.mobile && flash && flash.lock)) {
-      this.paintLayers(famL, page, x0, x1, y, fs);
-      return 0;
-    }
     // Le pas verrouille qui joue (revue de R2) : ses pages (desktop, un point sur leur onglet) ; au telephone ses
     // verrous ecrits, toutes pages (la page affichee n'en montre peut-etre aucun)
     const fl = flash ? lockList(flash.step, flash.lock) : [];
@@ -1583,40 +1648,6 @@ export class Screen {
     });
     if (flashPages.size > 0) this.info.footText = `TABS ${[...flashPages].join(' ')}`;
     return 0;
-  }
-
-  /**
-   * Les deux couches de la voix (2026-10-08, l'etape R3, Mika : "comme la
-   * ANALOG Rytm ou on peut mettre des samples mais le kick peut etre parametre
-   * comme une machine") : SYN et sa MACHINE, SMP et son sample, chacune son
-   * niveau (une barre et 0 a 127, OFF) ; la couche de la page affichee en
-   * pastille. Une couche muette s'ecrit a peine.
-   */
-  private paintLayers(f: KitFamily, page: RytmPageId, x0: number, x1: number, y: number, fs: number): void {
-    const g = kit.get();
-    const l = g.layer[f];
-    const smp = g.sample[f];
-    const mid = (x0 + x1) / 2;
-    const ts = fs * 0.78;
-    const half = (tag: string, name: string, lev: number, on: boolean, hot: boolean, a: number, b: number): string => {
-      // La pastille de la couche : pleine sur sa page
-      const tw = this.textWidth(tag, ts, 700, 0.6) + 6;
-      this.roundRect(a, y - ts - 1.4, tw, ts + 3.6, 1.8, hot ? INK : null, hot ? null : on ? HALF : FAINT, 0.7);
-      this.text(tag, a + tw / 2, y, ts, hot ? BLACK : on ? HALF : FAINT, 700, 'center', 0.6);
-      // Son niveau en nombre (le bloc LEVEL de sa page le dessine) : la place va au nom
-      const num = on ? v127Text(lev) : 'OFF';
-      const nw = this.text(num, b, y, fs, on ? INK : FAINT, 600, 'right');
-      const room = b - nw - 4 - (a + tw + 3);
-      const nm = this.fitText(name, Math.max(6, room), fs, 0.4, 600);
-      this.text(nm, a + tw + 3, y, fs, on ? INK : FAINT, 600, 'left', 0.4);
-      return `${tag} ${name} ${num}`;
-    };
-    const synOn = l.syn > 0;
-    const smpOn = !!smp && l.lev > 0;
-    const left = half('SYN', KIT_MODEL_LABEL[g.model[f]], l.syn, synOn, page === 'src', x0, mid - 4);
-    const right = half('SMP', smp ? kit.sampleLabel(f) : 'OFF', l.lev, smpOn, page === 'smpl', mid + 4, x1);
-    this.info.layers = `${left} | ${right}`;
-    this.info.footText = 'LAYERS';
   }
 
   /** Les verrous du pas qui joue sur une ligne : autant qu'il en tient, puis combien il en reste (+2). */

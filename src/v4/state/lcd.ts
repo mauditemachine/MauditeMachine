@@ -58,7 +58,8 @@ export interface LcdState {
   /** page MIX : la voix reglee et les cinq volumes (0 a 1, ordre BD SD TOM CH OH) ; null : le texte */
   mix: { sel: Inst; insts: Inst[]; levels: number[] } | null;
   /** page SAMPLES (2026-10-05) : la voix choisie, sa famille de sons, leurs noms et le cran du moment ; null : le texte */
-  samples: { inst: Inst; fam: KitFamily; title: string; names: string[]; cur: number } | null;
+  /** rank : son rang a l'ecran (4/6 ; OFF n'est pas un sample : OFF), le meme compte que le bloc SAMPLE (revue de R3) */
+  samples: { inst: Inst; fam: KitFamily; title: string; names: string[]; cur: number; rank: string } | null;
   /** les trois lignes telles qu'affichees (gauche, espaces, droite) */
   text: [string, string, string];
   /** mode presets (2026-10-04) : les quatre touches de la ligne 3, dessinees en negatif ; null : le texte */
@@ -144,8 +145,13 @@ function composeSamples(inst: Inst): Omit<LcdState, 'updates'> | null {
   const title = k === 'machine' ? `${KIT_LABEL[fam]} SYNTH` : k === 'sample' ? `${KIT_LABEL[fam]} SAMPLE` : KIT_LABEL[fam];
   const line1 = row(k === 'machine' ? 'MACHINE' : 'SAMPLE', inst);
   const l2 = fit(names[cur], COLS);
-  const l3 = fit(`${title} ${cur + 1} OF ${names.length}`, COLS);
-  return { l1: line1.l, r1: line1.r, l2, r2: '', l3, r3: '', bar: null, param: true, mix: null, samples: { inst, fam, title, names, cur }, text: [line1.t, l2, l3], keys: null, tag: false };
+  // La couche SAMPLE : OFF a part, les samples comptes seuls (4 OF 6, comme le bloc SAMPLE de SMPL)
+  const off = k === 'sample' && cur === 0;
+  const of = k === 'sample' ? names.length - 1 : names.length;
+  const nth = k === 'sample' ? cur : cur + 1;
+  const l3 = fit(off ? `${title} OFF` : `${title} ${nth} OF ${of}`, COLS);
+  const rank = off ? 'OFF' : `${nth}/${of}`;
+  return { l1: line1.l, r1: line1.r, l2, r2: '', l3, r3: '', bar: null, param: true, mix: null, samples: { inst, fam, title, names, cur, rank }, text: [line1.t, l2, l3], keys: null, tag: false };
 }
 
 /** Centre s sur n colonnes. */

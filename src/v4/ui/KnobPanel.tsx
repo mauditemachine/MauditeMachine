@@ -182,6 +182,8 @@ export interface KnobSpec {
   onReset?(): void;
   /** en LOCK (2026-10-08) : locked (en negatif), base, global, nolock ; absent hors LOCK */
   lockState?: string;
+  /** sa couche ne s'entend pas (R3, revue) : en retrait, comme le bloc de l'ecran */
+  quiet?: boolean;
 }
 
 /** Un potard : glisser, taper (cran suivant), deux tapes (valeur de depart), clavier. */
@@ -273,6 +275,7 @@ export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean }> = ({ spec
       className={compact ? 'v4-knob v4-knob-page' : 'v4-knob'}
       data-soon={spec.soon ? '1' : undefined}
       data-lock={spec.lockState}
+      data-quiet={spec.quiet ? '1' : undefined}
       role="slider"
       tabIndex={0}
       aria-label={spec.letter ? `Knob ${spec.letter}, ${spec.tag ? `${spec.tag} ` : ''}${spec.label}${spec.soon ? ', coming soon' : ''}` : spec.label}
@@ -332,7 +335,10 @@ const PageKnob: React.FC<{ k: number }> = ({ k }) => {
   const block = slot && slot.label ? slotBlock(slot, k, p.instrument, rp.sel, false, lk.step >= 0 ? { kind: 'lock', step: lk.step } : null) : null;
   // Le meme bloc que l'ecran : son etiquette (la voix sur la rangee du haut de FX, ALL ou NO BD dessous ; en LOCK GLOBAL, NO LOCK ;
   // R3, 2026-10-08 : sa couche muette, SYN OFF ou SMP OFF, comme le bloc en retrait de l'ecran)
-  const tag = block ? (block.quiet ? (slot?.layer === 'synth' ? 'SYN OFF' : 'SMP OFF') : block.tag) : '';
+  // (revue de R3 : BOTH en retrait, la voix muette, SILENT ; le potard en retrait comme le bloc)
+  // MACHINE dit deja SYNTH OFF sur sa ligne d'unite : pas d'etiquette en double
+  const quietTag = slot?.target === 'l:mach' ? '' : slot?.both ? 'SILENT' : slot?.layer === 'synth' ? 'SYN OFF' : 'SMP OFF';
+  const tag = block ? (block.quiet ? quietTag : block.tag) : '';
   if (!slot || !slot.label) {
     return (
       <div className="v4-knob v4-knob-page v4-knob-empty" aria-hidden="true">
@@ -364,6 +370,7 @@ const PageKnob: React.FC<{ k: number }> = ({ k }) => {
     tag,
     onReset: () => pageKnobReset(k),
     lockState: block && block.lock !== 'none' ? block.lock : undefined,
+    quiet: !!block?.quiet && (!block.lock || block.lock === 'none' || block.lock === 'base'),
   };
   return <KnobView spec={spec} compact />;
 };

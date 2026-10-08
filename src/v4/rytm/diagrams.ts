@@ -128,12 +128,14 @@ export type RytmSoonId = (typeof RYTM_SOON_IDS)[number];
  * peut mettre des samples mais le kick peut etre parametre comme une
  * machine") : la couche SYNTH (MACHINE, SYNTH LEVEL, SWEEP, et ce que la
  * caisse claire de synthese gagne : TUNE, DECAY, TONE) et la couche SAMPLE
- * (TUNE, FINE, LEN (r3:send), LEVEL, REV ; START de la couche : vstart).
- * Branches depuis R3 (avail live) ; leurs cibles dans actions.ts : l:mach,
- * l:syn, r:sweep, r:sdtune, r:sddecay, r:sdtone, l:tune, l:fine, l:len,
- * l:lev, l:rev (TARGET_INFO), l:start (vstart).
+ * (TUNE, FINE, START (r3:sstart), LEN (r3:send), LEVEL, REV). Branches
+ * depuis R3 (avail live) ; leurs cibles dans actions.ts : l:mach, l:syn,
+ * r:sweep, r:sdtune, r:sddecay, r:sdtone, l:tune, l:fine, l:start, l:len,
+ * l:lev, l:rev (TARGET_INFO). Depuis la revue de R3 (2026-10-08), vstart est
+ * le START de toute la voix (AMP D) et vtune la hauteur de toute la voix
+ * (SRC B des voix de synthese, PITCH en G pour BD et SD).
  */
-export const RYTM_R3_IDS = ['r3:machine', 'r3:synlevel', 'r3:sweep', 'r3:sdtune', 'r3:sddecay', 'r3:sdtone', 'r3:stune', 'r3:sfine', 'r3:send', 'r3:smplevel', 'r3:reverse'] as const;
+export const RYTM_R3_IDS = ['r3:machine', 'r3:synlevel', 'r3:sweep', 'r3:sdtune', 'r3:sddecay', 'r3:sdtone', 'r3:stune', 'r3:sfine', 'r3:sstart', 'r3:send', 'r3:smplevel', 'r3:reverse'] as const;
 export type RytmR3Id = (typeof RYTM_R3_IDS)[number];
 
 /** Les commandes fixes de la face, de l'ecran et du capot. */
@@ -202,16 +204,18 @@ const s = (id: RytmInfoId, label: string): RytmSlot => ({ id, label });
 /** TRIG ; STRETCH (toute la machine) y est depuis R3, a cote de SWING. */
 const TRIG: readonly (RytmSlot | null)[] = [s('step:vel', 'VEL'), s('soon:prob', 'PROB'), s('soon:micro', 'MICRO'), s('soon:cond', 'COND'), s('soon:rtrg', 'RTRG'), s('soon:rtim', 'RTIM'), s('stretch', 'STRETCH'), s('swing', 'SWING')];
 /** SMPL, la couche SAMPLE (R3, rytm/pages.ts) : TUNE FINE REV SAMPLE, START LEN (LOOP) LEVEL. */
-const SMPL: readonly (RytmSlot | null)[] = [s('r3:stune', 'TUNE'), s('r3:sfine', 'FINE'), s('r3:reverse', 'REV'), s('smpl:sample', 'SAMPLE'), s('vstart', 'START'), s('r3:send', 'LEN'), s('soon:loop', 'LOOP'), s('r3:smplevel', 'LEVEL')];
+const SMPL: readonly (RytmSlot | null)[] = [s('r3:stune', 'TUNE'), s('r3:sfine', 'FINE'), s('r3:reverse', 'REV'), s('smpl:sample', 'SAMPLE'), s('r3:sstart', 'START'), s('r3:send', 'LEN'), s('soon:loop', 'LOOP'), s('r3:smplevel', 'LEVEL')];
 const FLTR: readonly (RytmSlot | null)[] = [s('soon:fatk', 'ATK'), s('soon:fdec', 'DEC'), null, null, s('tone', 'TONE'), s('soon:reso', 'RESO'), s('soon:ftype', 'TYPE'), s('soon:fenv', 'ENV')];
-const AMP: readonly (RytmSlot | null)[] = [s('soon:attack', 'ATK'), s('soon:hold', 'HOLD'), s('vdecay', 'DEC'), null, null, null, s('vpan', 'PAN'), s('vol', 'VOL')];
+/** AMP ; D : START, le debut de tout le coup (revue de R3). */
+const AMP: readonly (RytmSlot | null)[] = [s('soon:attack', 'ATK'), s('soon:hold', 'HOLD'), s('vdecay', 'DEC'), s('vstart', 'START'), null, null, s('vpan', 'PAN'), s('vol', 'VOL')];
 /** En haut les effets de la voix, dessous ceux de tout le MM-RYTM (sauf le kick), colonne par colonne. */
 const FX: readonly (RytmSlot | null)[] = [s('vdist', 'DIST'), s('vchorus', 'CHORUS'), s('vdelay', 'DELAY'), s('vreverb', 'REVERB'), s('dist', 'DIST'), s('chorus', 'CHORUS'), s('delay', 'DELAY'), s('reverb', 'REVERB')];
 
 /** SRC, la couche SYNTH (R3, rytm/pages.ts) : B a G selon la famille de la voix (le kick, la caisse claire, le clap ; les autres le TUNE de la voix). */
 function srcMiddle(g: RytmVoiceGroup | null): readonly (RytmSlot | null)[] {
-  if (g === 'bd') return [s('r:tune', 'TUNE'), s('r:attack', 'ATTACK'), s('r3:sweep', 'SWEEP'), s('r:decay', 'DECAY'), s('r:drive', 'DRIVE'), null];
-  if (g === 'sd') return [s('r3:sdtune', 'TUNE'), s('r:snappy', 'SNAPPY'), s('r3:sdtone', 'TONE'), s('r3:sddecay', 'DECAY'), s('r:gate', 'GATE'), null];
+  // G : PITCH, la hauteur de toute la voix (revue de R3)
+  if (g === 'bd') return [s('r:tune', 'TUNE'), s('r:attack', 'ATTACK'), s('r3:sweep', 'SWEEP'), s('r:decay', 'DECAY'), s('r:drive', 'DRIVE'), s('vtune', 'PITCH')];
+  if (g === 'sd') return [s('r3:sdtune', 'TUNE'), s('r:snappy', 'SNAPPY'), s('r3:sdtone', 'TONE'), s('r3:sddecay', 'DECAY'), s('r:gate', 'GATE'), s('vtune', 'PITCH')];
   if (g === 'cp') return [s('vtune', 'TUNE'), null, s('r:gate', 'GATE'), null, null, null];
   return [s('vtune', 'TUNE'), null, null, null, null, null];
 }
@@ -290,7 +294,7 @@ const TARGET_INFO: Readonly<Record<string, RytmInfoId>> = {
   'r:sdtone': 'r3:sdtone',
   'l:tune': 'r3:stune',
   'l:fine': 'r3:sfine',
-  'l:start': 'vstart',
+  'l:start': 'r3:sstart',
   'l:len': 'r3:send',
   'l:lev': 'r3:smplevel',
   'l:rev': 'r3:reverse',
@@ -1445,6 +1449,7 @@ const DRAW: Partial<Record<RytmInfoId, Draw>> = {
   'r3:sdtone': drawSdTone,
   'r3:stune': drawTune,
   'r3:sfine': drawFine,
+  'r3:sstart': drawStart,
   'r3:send': drawSampleLen,
   'r3:reverse': drawReverse,
   'r:tune': drawKickTune,

@@ -46,7 +46,9 @@
  * retenu d'avant R3 se traduit au meme son (load) : un echantillon choisi
  * devient la couche SAMPLE (TUNE et DECAY du kick d'alors : son TUNE et son
  * LEN), un modele la couche SYNTH seule ; le son par defaut d'alors (BD 909,
- * SD MM, jamais choisi) prend le nouveau defaut. Les potards au 127e depuis
+ * SD MM, jamais choisi ni regle : ses potards a leur depart) prend le nouveau
+ * defaut. Un sample emprunte a une autre famille par un verrou joue seul sur
+ * son pas (revue de R3). Les potards au 127e depuis
  * R3 (au cinquantieme avant : un kit retenu garde ses valeurs exactes).
  */
 
@@ -280,6 +282,11 @@ const soundValue = (k: Kit, f: KitFamily): number => {
 export type KitSound = KitModel | string;
 const isModel = (s: unknown): s is KitModel => typeof s === 'string' && (KIT_MODELS as readonly string[]).includes(s);
 
+/** Les potards d'avant R3 qui faconnaient le son par defaut d'une famille (le KICK 909, la caisse claire MM). */
+const SHAPING: Partial<Record<KitFamily, readonly KitKnob[]>> = { bd: ['tune', 'attack', 'decay', 'drive'], sd: ['snappy'] };
+/** Ces potards sont-ils tous a leur depart (un kit d'avant R3 qui n'a jamais regle ce son) ? */
+const untouchedKnobs = (kn: Readonly<Record<KitKnob, number>>, f: KitFamily): boolean => (SHAPING[f] ?? []).every((n) => Math.abs(kn[n] - KNOB_DEFAULT[n]) < 1e-6);
+
 const KEY = 'mm.v4.kit.1';
 /** La forme retenue : 2 depuis R3 (les couches). */
 const KIT_V = 2;
@@ -325,7 +332,9 @@ function load(): Kit {
         };
         continue;
       }
-      const oldDefault = SAMPLE_FIRST.includes(f) && k.model[f] === MODEL_DEFAULT[f];
+      // Le defaut d'alors jamais touche : sa machine ET ses potards a leur depart (revue de R3 : un 909 accorde, une
+      // MM au SNAPPY regle etaient un choix, ils restent ; leur DRIVE ou leur ATTACK auraient sature le sample de Mika)
+      const oldDefault = SAMPLE_FIRST.includes(f) && k.model[f] === MODEL_DEFAULT[f] && untouchedKnobs(k.knob, f);
       if (oldDefault && k.sample[f]) continue;
       delete k.sample[f];
       k.layer[f] = { ...LAYER_DEFAULT };
@@ -392,10 +401,27 @@ function viewOf(f: KitFamily | null, ov?: KitOverride | null): View {
   const knob = ov?.knobs ? { ...state.knob, ...ov.knobs } : state.knob;
   const sample = ov && ov.sample !== undefined ? (ov.sample ?? undefined) : f ? state.sample[f] : undefined;
   const sf = sample ? sampleByKey(sample)?.family : undefined;
+  const from = sf && sf !== f ? sf : undefined;
   const base = f ? state.layer[f] : LAYER_DEFAULT;
-  const layer = ov?.layer ? { ...base, ...ov.layer } : base;
-  return { model, knob, sample, from: sf && sf !== f ? sf : undefined, layer };
+  let layer: Readonly<Layer> = ov?.layer ? { ...base, ...ov.layer } : base;
+  // Un sample emprunte a une autre famille (un sample lock ; CY, sans famille, n'a que ceux-la) joue seul sur son pas,
+  // comme le sample lock de R2 (revue de R3, 2026-10-08 : la cymbale restait dessous, sans moyen de la couper) ; un
+  // SYN LEVEL verrouille sur le meme pas remet la synthese avec lui
+  if (from && ov?.sample && ov.layer?.syn === undefined) layer = { ...layer, syn: 0 };
+  return { model, knob, sample, from, layer };
 }
+
+/** Ce que joue une voix (revue de R3) : sa MACHINE, ses deux niveaux, son sample, et quelles couches s'entendent. */
+export interface Plays {
+  model: KitModel;
+  syn: number;
+  lev: number;
+  sample: string | undefined;
+  from: string | undefined;
+  synth: boolean;
+  smp: boolean;
+}
+const playsOf = (v: View): Plays => ({ model: v.model, syn: v.layer.syn, lev: v.layer.lev, sample: v.sample, from: v.from, synth: v.layer.syn > 0, smp: !!v.sample && v.layer.lev > 0 });
 
 /** Ce que le calcul d'un son doit savoir d'une vue (les deux couches). */
 function tweakOf(v: View): ShotTweak {
@@ -440,7 +466,8 @@ function sigOf(f: KitFamily | null, v: View): string {
     // Le caractere de la voix sur l'echantillon (ATTACK et DRIVE du kick, SNAPPY de la caisse claire)
     const sf = v.from ?? f;
     if (sf === 'bd') s += `~${k.attack}~${k.drive}`;
-    else if (sf === 'sd') s += `~${k.snappy}`;
+    // GATE passe aussi sur le sample de la caisse claire (revue de R3)
+    else if (sf === 'sd') s += `~${k.snappy}~${k.gate}`;
     if (v.from) s += `~${v.from}`;
   }
   return s;
@@ -563,6 +590,23 @@ export const kit = {
     const f = familyOf(id);
     return sigOf(f, viewOf(f, ov));
   },
+  /**
+   * Ce que joue la voix id (revue de R3, 2026-10-08) : ses deux couches, un
+   * verrou de pas compris (kitOverride du pas, audio/drums.ts ; null : le
+   * kit du moment). L'en-tete de l'ecran, le pied des couches et les blocs en
+   * retrait le lisent : ce qu'ils montrent pendant un LOCK ou un flash est ce
+   * que le pas joue.
+   */
+  playsWith(id: ShotId, ov: KitOverride | null): Plays {
+    return playsOf(viewOf(familyOf(id), ov));
+  },
+  /** Ce qui joue en un mot : BLUEPRINT, 909, 909+BLUEPRINT, SILENT (l'en-tete). */
+  playsText(p: Readonly<Plays>): string {
+    if (!p.synth && !p.smp) return 'SILENT';
+    if (!p.smp) return KIT_MODEL_LABEL[p.model];
+    const name = sampleLabelOf(p.sample);
+    return p.synth ? `${KIT_MODEL_LABEL[p.model]}+${name}` : name;
+  },
   /** Le coup d'une famille avec ce verrou joue-t-il un kick (la synthese, ou un echantillon de kick) ? Le SIDECHAIN du MM-ARP s'y cale. */
   kickWith(ov: KitOverride | null): boolean {
     const v = viewOf('bd', ov);
@@ -583,15 +627,8 @@ export const kit = {
    * 216 MS, 50 ; un choix de son, ce qui joue (909+BLUEPRINT : les deux couches).
    */
   valueText(id: KitId): string {
-    if (isFamily(id)) {
-      const smp = state.sample[id];
-      const l = state.layer[id];
-      // Les deux couches muettes (SYNTH a 0, SAMPLE sur OFF ou a 0) : la voix se tait, l'ecran le dit
-      if ((!smp || l.lev <= 0) && l.syn <= 0) return 'SILENT';
-      if (!smp || l.lev <= 0) return KIT_MODEL_LABEL[state.model[id]];
-      if (l.syn <= 0) return sampleLabelOf(smp);
-      return `${KIT_MODEL_LABEL[state.model[id]]}+${sampleLabelOf(smp)}`;
-    }
+    // Les deux couches muettes (SYNTH a 0, SAMPLE sur OFF ou a 0) : la voix se tait, l'ecran le dit
+    if (isFamily(id)) return kit.playsText(playsOf(viewOf(id)));
     return kit.knobText(id, state.knob[id]);
   },
   /**

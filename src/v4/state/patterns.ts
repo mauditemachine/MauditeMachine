@@ -22,7 +22,7 @@
  */
 
 import { clock } from '../audio/clock';
-import { cleanLocks, sameLocks, type Locks } from '../audio/locks';
+import { anyLocks, cleanLocks, sameLocks, type Locks } from '../audio/locks';
 import { INSTRUMENTS, STEP_COUNT, pattern, type Steps } from '../audio/pattern';
 
 export const PATTERN_SLOTS = 16;
@@ -66,7 +66,8 @@ function validSteps(x: unknown): Steps | null {
 }
 
 /** Les verrous a garder dans un emplacement : null sans verrou (le JSON reste court). */
-const keepLocks = (l: Readonly<Locks> | null | undefined): Readonly<Locks> | null => (l && Object.keys(l).length > 0 ? l : null);
+// Au moins un verrou (anyLocks : la forme v des verrous de R3 seule n'en est pas un)
+const keepLocks = (l: Readonly<Locks> | null | undefined): Readonly<Locks> | null => (l && anyLocks(l) ? l : null);
 
 function load(): PatternsState {
   const slots: (Steps | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);

@@ -222,14 +222,23 @@ export function shotLoudness(s: Shot, sr: number): number {
   return 10 * Math.log10(best + 1e-12) + 2.32;
 }
 
-/** Le coup a son niveau (2026-10-07) : le kick a sa crete, les autres a leur sonie sous leur plafond (SHOT_BELOW). */
-function setLoudness(id: ShotId, s: Shot, sr: number): void {
+/** Le gain qui met un coup a son niveau (2026-10-07) : le kick a sa crete, les autres a leur sonie sous leur plafond (SHOT_BELOW). */
+function loudGain(id: ShotId, s: Shot, sr: number): number {
   const p = peakOf(s.L === s.R ? [s.L] : [s.L, s.R]);
   const cap = Math.pow(10, (SHOT_KICK_PEAK - SHOT_BELOW[id]) / 20) / p;
-  const k = id === 'BD' ? cap : Math.min(cap, Math.pow(10, (SHOT_LOUD[id] - shotLoudness(s, sr)) / 20));
+  return id === 'BD' ? cap : Math.min(cap, Math.pow(10, (SHOT_LOUD[id] - shotLoudness(s, sr)) / 20));
+}
+
+/** Un gain applique en place (rien s'il n'est pas un nombre positif). */
+function applyGain(s: Shot, k: number): void {
   if (!Number.isFinite(k) || k <= 0) return;
   for (let i = 0; i < s.L.length; i += 1) s.L[i] *= k;
   if (s.R !== s.L) for (let i = 0; i < s.R.length; i += 1) s.R[i] *= k;
+}
+
+/** Le coup a son niveau (2026-10-07) : le kick a sa crete, les autres a leur sonie sous leur plafond (SHOT_BELOW). */
+function setLoudness(id: ShotId, s: Shot, sr: number): void {
+  applyGain(s, loudGain(id, s, sr));
 }
 
 /** Variantes jouees en alternance (sons bruites). */
@@ -584,20 +593,36 @@ function sd(sr: number, ts: number, r: () => number, tw: ShotTweak = TWEAK_MM): 
   const dry = decimate(x);
   dcBlock(dry, sr, 60);
   if (!tw.gate) return { L: dry, R: dry };
-  // La reverbe a porte : ouverte `hold`, fermee en 40 ms
+  return gatedVerb(dry, dry, sr, ts);
+}
+
+/**
+ * La reverbe a porte de la caisse claire (2026-10-04, GATE) : ouverte `hold`,
+ * fermee en 40 ms, a 0.32 sous le coup sec. Depuis la revue de R3
+ * (2026-10-08) elle passe aussi sur la couche SAMPLE de la caisse claire
+ * (renderSampleShot) : le kit de depart joue le sample de Mika, GATE (la
+ * plaque, SRC F) ne doit pas s'y taire. Un coup stereo entre en mono dans le
+ * FDN, la queue s'ajoute a chaque cote ; un coup mono : le calcul d'avant.
+ */
+function gatedVerb(dl: Float32Array, dr: Float32Array, sr: number, ts: number): Shot {
   const hold = 0.13 * Math.min(1.6, Math.max(0.7, ts));
   const close = 0.04;
-  const total = Math.max(dry.length, Math.round((hold + close + 0.01) * sr));
-  const [wl, wr] = fdn(dry, sr, total, 1.1, 7500, 6, 0.8);
+  const n = dl.length;
+  const total = Math.max(n, Math.round((hold + close + 0.01) * sr));
+  let input = dl;
+  if (dr !== dl) {
+    input = new Float32Array(n);
+    for (let i = 0; i < n; i += 1) input[i] = 0.5 * (dl[i] + dr[i]);
+  }
+  const [wl, wr] = fdn(input, sr, total, 1.1, 7500, 6, 0.8);
   const L = new Float32Array(total);
   const R = new Float32Array(total);
   const wet = 0.32;
   for (let i = 0; i < total; i += 1) {
     const t = i / sr;
     const gate = t < hold ? 1 : t < hold + close ? 0.5 + 0.5 * Math.cos((Math.PI * (t - hold)) / close) : 0;
-    const d = i < dry.length ? dry[i] : 0;
-    L[i] = d + wet * gate * wl[i];
-    R[i] = d + wet * gate * wr[i];
+    L[i] = (i < n ? dl[i] : 0) + wet * gate * wl[i];
+    R[i] = (i < n ? dr[i] : 0) + wet * gate * wr[i];
   }
   return { L, R };
 }
@@ -1093,9 +1118,39 @@ const familyOfShot = (id: ShotId): string => (id === 'BD' ? 'bd' : id === 'SD' ?
  */
 export function renderSampleShot(id: ShotId, sr: number, stretch: number, pcm: SamplePcm, tw: ShotTweak): Shot {
   const l = tw.smp ?? SAMPLE_LAYER_DEFAULT;
+  const { family, cal } = sampleCal(id, l);
+  const s = sampleBody(pcm, sr, stretch, family, cal, tw, l);
+  // Les reglages de depart (le fichier entier, a l'endroit, a sa hauteur) : cale sur lui-meme, le calcul d'avant
+  if (atRest(l)) {
+    setLoudness(cal, s, sr);
+    return s;
+  }
+  // Sinon le gain du fichier entier (revue de R3, 2026-10-08) : caler la part gardee sur elle-meme remontait la queue
+  // a pleine voix (START a 50 % sur la caisse claire : +23 dB, un coup fort au lieu d'une fin douce) ; une
+  // Elektron joue ce qui reste du fichier a son niveau. Jamais au-dessus du plafond de la voix.
+  const p = peakOf(s.L === s.R ? [s.L] : [s.L, s.R]);
+  const k = refGain(pcm, sr, stretch, family, cal, tw);
+  applyGain(s, p > 0 ? Math.min(k, shotCeiling(cal) / p) : k);
+  return s;
+}
+
+/** La famille dont un echantillon garde le caractere, et la voix sur laquelle il se cale (un sample lock : la sienne). */
+function sampleCal(id: ShotId, l: Readonly<SampleLayer>): { family: string; cal: ShotId } {
   const family = l.from && FAMILY_SHOT[l.from] ? l.from : familyOfShot(id);
   const cal: ShotId = l.from && FAMILY_SHOT[l.from] && l.from !== familyOfShot(id) ? FAMILY_SHOT[l.from] : id;
+  return { family, cal };
+}
+
+/** La couche SAMPLE a ses reglages de depart : TUNE et FINE a 0, START 0, LEN plein, a l'endroit. */
+const atRest = (l: Readonly<SampleLayer>): boolean => l.st === 0 && l.start <= 0 && l.len >= 1 && !l.rev;
+
+/**
+ * L'echantillon relu (playSample), la porte de la caisse claire (GATE, revue
+ * de R3), le kick en mono, etire par STRETCH ; pas encore a son niveau.
+ */
+function sampleBody(pcm: SamplePcm, sr: number, stretch: number, family: string, cal: ShotId, tw: ShotTweak, l: Readonly<SampleLayer>): Shot {
   let s: Shot = playSample(pcm, sr, { family, attack: tw.attack, drive: tw.drive, snappy: tw.snappy, st: l.st, start: l.start, len: l.len, rev: l.rev });
+  if (family === 'sd' && tw.gate) s = gatedVerb(s.L, s.R, sr, 1);
   // Le kick en mono (2026-10-08, "un bon kick") : les fichiers ont un leger cote stereo (-28 a -44 dB, un decalage
   // L/R de quelques echantillons sur certains) ; le grave d'un kick se tient au centre
   if (cal === 'BD' && s.L !== s.R) {
@@ -1109,8 +1164,25 @@ export function renderSampleShot(id: ShotId, sr: number, stretch: number, pcm: S
       s = { L: one, R: one };
     } else s = { L: timeStretch(s.L, stretch, sr), R: timeStretch(s.R, stretch, sr) };
   }
-  setLoudness(cal, s, sr);
   return s;
+}
+
+/** Le gain du fichier entier, par echantillon decode et par reglage de caractere (un calcul par cle, garde). */
+const REF_GAIN = new WeakMap<SamplePcm, Map<string, number>>();
+function refGain(pcm: SamplePcm, sr: number, stretch: number, family: string, cal: ShotId, tw: ShotTweak): number {
+  let m = REF_GAIN.get(pcm);
+  if (!m) {
+    m = new Map();
+    REF_GAIN.set(pcm, m);
+  }
+  const key = `${sr}|${stretch}|${family}|${cal}|${tw.attack}|${tw.drive}|${tw.snappy}|${family === 'sd' && tw.gate ? 1 : 0}`;
+  let k = m.get(key);
+  if (k === undefined) {
+    k = loudGain(cal, sampleBody(pcm, sr, stretch, family, cal, tw, SAMPLE_LAYER_DEFAULT), sr);
+    if (m.size > 64) m.clear();
+    m.set(key, k);
+  }
+  return k;
 }
 
 /** La crete au-dessus de laquelle une voix ne monte jamais (celle du kick, moins SHOT_BELOW de la voix). */
@@ -1173,11 +1245,15 @@ export function renderLayers(id: ShotId, sr: number, stretch: number, variant: n
   const L = mix(a.L, b.L);
   const R = mono ? L : mix(a.R, b.R);
   const sum: Shot = { L, R };
-  // La sonie de la plus forte des deux couches a son niveau, sous le plafond de crete
+  // La sonie de la plus forte des deux couches a son niveau, sous le plafond de crete ; un sample emprunte a une
+  // autre famille (un sample lock, SYN LEVEL verrouille avec lui) garde au moins le plafond de la sienne (revue de R3 :
+  // un kick sur la voie des charleys jouait 5 dB sous son niveau)
   const target = Math.max(shotLoudness(a, sr) + 20 * Math.log10(ga), shotLoudness(b, sr) + 20 * Math.log10(gb));
   const p = peakOf(mono ? [L] : [L, R]);
   let k = Math.pow(10, (target - shotLoudness(sum, sr)) / 20);
-  if (p > 0) k = Math.min(k, layerCap(id) / p);
+  const { cal } = sampleCal(id, tw.smp ?? SAMPLE_LAYER_DEFAULT);
+  const cap = cal === id ? layerCap(id) : Math.max(layerCap(id), shotCeiling(cal));
+  if (p > 0) k = Math.min(k, cap / p);
   if (Number.isFinite(k) && k > 0 && k !== 1) {
     for (let i = 0; i < n; i += 1) L[i] *= k;
     if (R !== L) for (let i = 0; i < n; i += 1) R[i] *= k;
