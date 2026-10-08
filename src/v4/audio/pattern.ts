@@ -26,9 +26,17 @@
  * sur un pas fait toujours vide, fort, moyen, doux, vide. Un motif de la
  * cle '.2' est converti a la lecture (fromLevels3) ; les generateurs de
  * RANDOM pensent toujours en 1 2 3 et convertissent a la sortie.
+ *
+ * Les verrous (2026-10-08, l'etape R2, les parameter locks facon Elektron,
+ * audio/locks.ts) : le motif porte aussi les verrous de ses pas (locks),
+ * gardes sous la meme cle (un champ de plus, absent quand il n'y en a pas :
+ * un vieux motif se lit sans verrou, la revision d'avant ignore le champ).
+ * CLEAR les efface avec les pas ; un pas vide garde les siens ; RANDOM les
+ * garde (replace 'keep') ; un pattern ou un preset pose les siens.
  */
 
 import type { Inst } from '../theme';
+import { anyLocks, cleanLocks, NO_LOCKS, withLock, withoutLock, type LockKey, type Locks } from './locks';
 
 // Huit voix (2026-10-05), dans l'ordre des pads : BD SD CH OH en haut, CP TOM HT CY dessous
 export const INSTRUMENTS: readonly Inst[] = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'];
@@ -83,10 +91,14 @@ export interface StoredPattern {
   bpm: number;
   steps: Steps;
   fx: Fx;
+  /** les verrous des pas (2026-10-08, audio/locks.ts) ; absent sans verrou */
+  locks?: Locks;
 }
 
 export interface PatternState extends Pattern {
   instrument: Inst | null;
+  /** les verrous des pas (2026-10-08, audio/locks.ts) : {} sans verrou */
+  locks: Readonly<Locks>;
 }
 
 /**
@@ -202,14 +214,22 @@ export function load(): Pattern {
 /** Au millieme : le JSON reste court, un glisser donne des valeurs continues. */
 const r3 = (v: number): number => Math.round(v * 1000) / 1000;
 
-export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX): StoredPattern {
-  return { v: 1, bpm: p.bpm, steps: { ...p.steps }, fx: { swing: r3(f.swing), drive: r3(f.drive), reverb: r3(f.reverb), delay: r3(f.delay), chorus: r3(f.chorus) } };
+export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS): StoredPattern {
+  const out: StoredPattern = { v: 1, bpm: p.bpm, steps: { ...p.steps }, fx: { swing: r3(f.swing), drive: r3(f.drive), reverb: r3(f.reverb), delay: r3(f.delay), chorus: r3(f.chorus) } };
+  if (anyLocks(locks)) out.locks = locks as Locks;
+  return out;
+}
+
+/** Les verrous d'un motif stocke (la cle d'avant les neuf niveaux n'en a pas) ; {} sans verrou. */
+export function validateLocks(raw: unknown): Readonly<Locks> {
+  if (!raw || typeof raw !== 'object') return NO_LOCKS;
+  return cleanLocks((raw as { locks?: unknown }).locks) ?? NO_LOCKS;
 }
 
 /** true si l'ecriture a reussi. */
-export function save(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX): boolean {
+export function save(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS): boolean {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize(p, f)));
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(serialize(p, f, locks)));
     return true;
   } catch {
     return false;
@@ -255,7 +275,7 @@ export function clearSteps(p: Pattern): Pattern {
 
 const stored = typeof window === 'undefined' ? { raw: null, legacy: false } : readStored();
 // Depuis le 2026-10-05 (Mika : "par defaut je veux toujours que le BD soit selectionne pour les FX Voices") : la grosse caisse
-let state: PatternState = { ...validate(stored.raw, stored.legacy), instrument: 'BD' };
+let state: PatternState = { ...validate(stored.raw, stored.legacy), instrument: 'BD', locks: stored.legacy ? NO_LOCKS : validateLocks(stored.raw) };
 let fxState: Readonly<Fx> = validateFx(stored.raw);
 const listeners = new Set<() => void>();
 const fxListeners = new Set<() => void>();
@@ -267,7 +287,7 @@ function scheduleSave(): void {
   if (saveTimer !== 0) window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     saveTimer = 0;
-    save(state, fxState);
+    save(state, fxState, state.locks);
   }, SAVE_DEBOUNCE_MS);
 }
 
@@ -276,7 +296,7 @@ function flush(): void {
   if (saveTimer === 0) return;
   window.clearTimeout(saveTimer);
   saveTimer = 0;
-  save(state, fxState);
+  save(state, fxState, state.locks);
 }
 
 function commit(next: PatternState, persist: boolean): void {
@@ -332,32 +352,48 @@ export const pattern = {
   },
   toggle(inst: Inst, i: number): void {
     const next = toggleStep(state, inst, i);
-    if (next !== state) commit({ ...next, instrument: state.instrument }, true);
+    if (next !== state) commit({ ...next, instrument: state.instrument, locks: state.locks }, true);
   },
   /** L'editeur (ui/BeatEditor.tsx) : un pas a un niveau, 0 a 9. */
   set(inst: Inst, i: number, v: number): void {
     const next = setStep(state, inst, i, v);
-    if (next !== state) commit({ ...next, instrument: state.instrument }, true);
+    if (next !== state) commit({ ...next, instrument: state.instrument, locks: state.locks }, true);
   },
   /** Appui long : le pas vide. */
   clearStep(inst: Inst, i: number): void {
     const next = clearStep(state, inst, i);
-    if (next !== state) commit({ ...next, instrument: state.instrument }, true);
+    if (next !== state) commit({ ...next, instrument: state.instrument, locks: state.locks }, true);
   },
+  /** CLEAR : les pas et leurs verrous, toutes les voix. */
   clear(): void {
-    commit({ ...clearSteps(state), instrument: state.instrument }, true);
+    commit({ ...clearSteps(state), instrument: state.instrument, locks: NO_LOCKS }, true);
   },
-  /** Un motif entier (RANDOM) ; les rangees invalides gardent les leurs. */
-  replace(steps: Steps): void {
+  /**
+   * Un motif entier ; les rangees invalides gardent les leurs. locks : ceux
+   * du motif pose (un pattern, un preset : les siens, ou aucun), 'keep'
+   * (RANDOM) : ceux d'avant restent.
+   */
+  replace(steps: Steps, locks: Readonly<Locks> | 'keep' = 'keep'): void {
     const next = { ...state.steps };
     for (const inst of INSTRUMENTS) if (STEPS_RE.test(steps[inst])) next[inst] = steps[inst];
-    commit({ ...state, steps: next }, true);
+    commit({ ...state, steps: next, locks: locks === 'keep' ? state.locks : (cleanLocks(locks) ?? NO_LOCKS) }, true);
+  },
+  /** Un verrou sur des pas d'une voix (2026-10-08, audio/locks.ts) : la valeur du domaine, ou le son (snd). */
+  setLock(inst: Inst, steps: readonly number[], key: LockKey, v: number | string): void {
+    const locks = withLock(state.locks, inst, steps, key, v);
+    if (JSON.stringify(locks[inst]) === JSON.stringify(state.locks[inst])) return;
+    commit({ ...state, locks }, true);
+  },
+  /** Un verrou retire de ces pas ; key absent : tous ceux de ces pas. */
+  clearLock(inst: Inst, steps: readonly number[], key?: LockKey): void {
+    const locks = withoutLock(state.locks, inst, steps, key);
+    if (locks !== state.locks) commit({ ...state, locks }, true);
   },
   setBpm(bpm: number): void {
     const b = clampBpm(bpm);
     if (b !== state.bpm) commit({ ...state, bpm: b }, true);
   },
-  serialize: (): StoredPattern => serialize(state, fxState),
+  serialize: (): StoredPattern => serialize(state, fxState, state.locks),
   flush,
   /** SWING, DIST, REVERB, DELAY, CHORUS (0 a 1) : get, set(patch), subscribe. */
   fx: fxStore,

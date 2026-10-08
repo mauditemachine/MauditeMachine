@@ -74,7 +74,8 @@ async function readSite(chromium, url) {
       await BL.bassLoad.load();
       await new Promise((r) => setTimeout(r, 1500));
       const scopes = ['mm808', 'voy', 'bass', 'dj', 'global'];
-      const targets = scopes.flatMap((s) => T.targetsOf(s).map((t) => ({ id: t.id, scope: t.scope, label: t.label, kind: t.kind, steps: t.steps ?? 0 })));
+      // Un potard de page (rytm:knob) : ses crans suivent la page affichee, ceux de la page de depart ne veulent rien dire
+      const targets = scopes.flatMap((s) => T.targetsOf(s).map((t) => ({ id: t.id, scope: t.scope, label: t.label, kind: t.kind, steps: t.follows === 'page' ? 'selon la page' : (t.steps ?? 0) })));
       // Canal et CC : ceux du registre (2026-10-08, midi/rotoKeys.ts), plus la place du controle
       const setups = R.rotoSetups().map((s) => {
         const ad = R.rotoAddresses(s);

@@ -87,6 +87,8 @@ export interface KickPlay {
   hold: number;
   tau: number | null;
   vel: number;
+  /** START (2026-10-08) : le coup part a off s de son echantillon (0 : du debut) */
+  off?: number;
 }
 
 /** La baisse au coup (dB) pour SIDECHAIN de 0 a 1 (0 : rien). */
@@ -94,7 +96,7 @@ export const duckDb = (depth: number): number => Math.max(0, Math.min(1, depth))
 
 /** Le niveau du kick a t s du coup (1 a la crete, velocite comprise). */
 function levelAt(k: KickPlay, t: number): number {
-  const x = (t * k.rate) / k.env.step;
+  const x = (t * k.rate + (k.off ?? 0)) / k.env.step;
   const e = k.env.env;
   if (x >= e.length - 1) return 0;
   const i = Math.max(0, Math.floor(x));

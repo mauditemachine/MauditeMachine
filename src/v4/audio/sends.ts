@@ -21,7 +21,7 @@
  * qui s'entendent et durent.
  */
 
-import { glide, makeImpulse } from './fx';
+import { GLIDE_S, glide, makeImpulse } from './fx';
 import { UNLINK_MS } from './insert';
 
 /** Envoi a 1 : REVERB 1.0 (reponse d'energie unite), DELAY 0.9. */
@@ -31,12 +31,31 @@ const DELAY = { send: 0.9, feedback: 0.58, lowpass: 4500, highpass: 180, steps: 
 export interface SendInfo {
   value: number;
   linked: boolean;
+  /** les points de coups verrouilles en attente (revue de R2) */
+  points?: number;
 }
 
 /** Un envoi d'une source vers une unite : set(0 a 1). */
 export interface Send {
   set(v: number): void;
   info(): SendInfo;
+}
+
+/** Un envoi qui suit aussi les coups d'une voix verrouillee (les tranches du MM-RYTM). */
+export interface LockSend extends Send {
+  /**
+   * Un coup de la source a `when` (2026-10-08, revue de R2 : les verrous
+   * DELAY et REVERB d'une voix du MM-RYTM, Mika : "est-ce que le voice,
+   * est-ce que le FX, est-ce que l'enveloppe") : l'envoi vaut v (un verrou)
+   * ou sa propre valeur (null) depuis when, jusqu'au coup suivant ; la queue
+   * deja envoyee reste dans l'unite, comme un verrou d'envoi d'une Elektron.
+   * Rien ne se pose quand l'envoi ne change pas : une source sans verrou ne
+   * recoit aucun point (le son de toujours). true : un point pose, a retirer
+   * par cancel(tag) si le coup est annule.
+   */
+  hit(when: number, v: number | null, tag: object): boolean;
+  /** Le coup `tag` annule (re-programmation, STOP) : son point s'en va, les autres restent. */
+  cancel(tag: object): void;
 }
 
 export interface BusInfo {
@@ -51,7 +70,7 @@ export interface BusInfo {
 }
 
 export interface SendBus {
-  attach(src: AudioNode): Send;
+  attach(src: AudioNode): LockSend;
   /** Demontage : l'unite et sa queue sont jetees, les envois debranches (leurs valeurs gardees). */
   silence(): void;
   /** Apres silence() : les envois au-dessus de 0 se rebranchent sur une unite neuve. */
@@ -70,12 +89,21 @@ interface Unit {
   dispose(): void;
 }
 
+/** Un point d'un coup sur un envoi (revue de R2) : a `when`, la valeur v (null : celle de l'envoi), pose par `tag`. */
+interface Point {
+  when: number;
+  v: number | null;
+  tag: object;
+}
+
 interface SendState {
   src: AudioNode;
   value: number;
   gain: GainNode | null;
   linked: boolean;
   timer: ReturnType<typeof setTimeout> | undefined;
+  /** les points des coups, dans l'ordre du temps (vide sans verrou) */
+  pts: Point[];
 }
 
 /**
@@ -133,25 +161,65 @@ function sendBus(c: BaseAudioContext, make: () => Unit, scale: number, idleMs: n
     maybeIdle();
   };
 
+  /* Les points des coups verrouilles (revue de R2) : chacun tient l'envoi de son instant au point suivant. */
+  const effOf = (s: SendState, p: Point): number => (p.v === null ? s.value : p.v);
+  /** La valeur de l'envoi a t : celle du dernier point avant t, sinon la sienne. */
+  const valueAt = (s: SendState, t: number): number => {
+    let v = s.value;
+    for (const p of s.pts) {
+      if (p.when > t) break;
+      v = effOf(s, p);
+    }
+    return v;
+  };
+  /** Les points passes s'en vont, sauf le dernier s'il tient encore une autre valeur que celle de l'envoi. */
+  const prune = (s: SendState): void => {
+    const now = c.currentTime;
+    let k = 0;
+    while (k + 1 < s.pts.length && s.pts[k + 1].when <= now) k += 1;
+    if (k > 0) s.pts.splice(0, k);
+    if (s.pts.length > 0 && s.pts[0].when <= now && effOf(s, s.pts[0]) === s.value) s.pts.shift();
+  };
+  /** Un point au-dessus de 0 (en cours ou a venir) : l'envoi doit rester branche. */
+  const hasLive = (s: SendState): boolean => s.pts.some((p) => effOf(s, p) > 0);
+  /** Les points a venir reposes sur le gain (apres une rampe ou une annulation qui les a effaces). */
+  const repost = (s: SendState, from: number): void => {
+    if (!s.gain) return;
+    for (const p of s.pts) if (p.when > from) s.gain.gain.setValueAtTime(scale * effOf(s, p), p.when);
+  };
+  /** Le debranchement d'un envoi revenu a 0 (ms : apres sa rampe, ou apres le dernier point). */
+  const unlinkLater = (s: SendState, ms: number): void => {
+    clearTimeout(s.timer);
+    s.timer = setTimeout(() => {
+      s.timer = undefined;
+      prune(s);
+      if (s.value > 0 || hasLive(s)) return;
+      s.pts.length = 0;
+      unlink(s);
+    }, ms);
+  };
+
   const apply = (s: SendState): void => {
-    if (s.value > 0) {
+    prune(s);
+    // Sans point (le cas de toujours) : la valeur de l'envoi ; sinon celle du moment (un verrou en cours la garde)
+    const cur = s.pts.length > 0 ? valueAt(s, c.currentTime) : s.value;
+    if (cur > 0 || (s.pts.length > 0 && hasLive(s))) {
       link(s);
-      if (s.gain) glide(s.gain.gain, scale * s.value, c);
+      if (s.gain) {
+        glide(s.gain.gain, scale * cur, c);
+        // La rampe efface ce qui suivait : les points a venir reviennent (ceux de la valeur de l'envoi, a la nouvelle)
+        if (s.pts.length > 0) repost(s, c.currentTime + GLIDE_S);
+      }
       return;
     }
     if (!s.linked || !s.gain) return;
     glide(s.gain.gain, 0, c);
-    clearTimeout(s.timer);
-    s.timer = setTimeout(() => {
-      s.timer = undefined;
-      if (s.value > 0) return;
-      unlink(s);
-    }, UNLINK_MS);
+    unlinkLater(s, UNLINK_MS);
   };
 
   return {
-    attach(src: AudioNode): Send {
-      const s: SendState = { src, value: 0, gain: null, linked: false, timer: undefined };
+    attach(src: AudioNode): LockSend {
+      const s: SendState = { src, value: 0, gain: null, linked: false, timer: undefined, pts: [] };
       sends.push(s);
       return {
         set(v: number) {
@@ -160,7 +228,37 @@ function sendBus(c: BaseAudioContext, make: () => Unit, scale: number, idleMs: n
           s.value = t;
           apply(s);
         },
-        info: () => ({ value: s.value, linked: s.linked }),
+        hit(when: number, v: number | null, tag: object): boolean {
+          const lv = v === null || !Number.isFinite(v) ? null : Math.min(1, Math.max(0, v));
+          // Ni verrou ni point d'avant : rien du tout (une voix sans verrou sonne exactement comme avant)
+          if (lv === null && s.pts.length === 0) return false;
+          prune(s);
+          const eff = lv ?? s.value;
+          if (eff === valueAt(s, when)) return false;
+          if (eff > 0) link(s);
+          if (!s.gain) return false;
+          s.gain.gain.setValueAtTime(scale * eff, when);
+          let i = s.pts.length;
+          while (i > 0 && s.pts[i - 1].when > when) i -= 1;
+          s.pts.splice(i, 0, { when, v: lv, tag });
+          // Revenu a 0 (la voix sans envoi, apres un coup verrouille) : debranche une fois ce point passe
+          if (eff === 0 && s.value === 0) unlinkLater(s, Math.max(0, when - c.currentTime) * 1000 + UNLINK_MS);
+          return true;
+        },
+        cancel(tag: object): void {
+          const i = s.pts.findIndex((p) => p.tag === tag);
+          if (i < 0) return;
+          const t0 = s.pts[i].when;
+          s.pts.splice(i, 1);
+          if (!s.gain) return;
+          // Le gain repart de ce qui vaut sans ce point, puis les points qui restent apres lui
+          const from = Math.max(t0, c.currentTime);
+          const g = s.gain.gain;
+          g.cancelScheduledValues(from);
+          g.setValueAtTime(scale * valueAt(s, from), from);
+          repost(s, from);
+        },
+        info: () => ({ value: s.value, linked: s.linked, points: s.pts.length }),
       };
     },
     silence() {
@@ -169,6 +267,7 @@ function sendBus(c: BaseAudioContext, make: () => Unit, scale: number, idleMs: n
       for (const s of sends) {
         clearTimeout(s.timer);
         s.timer = undefined;
+        s.pts.length = 0;
         if (s.linked && s.gain) {
           s.src.disconnect(s.gain);
           unlinks += 1;

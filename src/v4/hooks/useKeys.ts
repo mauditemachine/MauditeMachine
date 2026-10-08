@@ -3,9 +3,10 @@
  * src/v3/hooks/useKeys.ts. A S D F frappent BD SD CH OH, Z X C V frappent
  * CP TOM HT CY (les huit voix depuis le 2026-10-05, theme.ts PADS ; le son
  * part a la touche, en mode MUTE la voix se coupe). Sur le MM-RYTM
- * (2026-10-08, state/rytmPage.ts), hors EDIT et du mode presets : H garde
- * la vue PAGE de l'ecran (H encore : HOME), [ et ] passent a la page
- * d'avant ou d'apres et la gardent. 1 a 5 ouvrent les pages (TRACKS, MIXTAPES,
+ * (2026-10-08, state/rytmPage.ts), hors EDIT et du mode presets : H passe
+ * de la vue PAGE de l'ecran (par defaut) a HOME et retour, [ et ] passent a
+ * la page d'avant ou d'apres (comme les touches de page), L met le pas choisi
+ * en LOCK (les parameter locks, 2026-10-08 ; L encore, ou Echap, en sort). 1 a 5 ouvrent les pages (TRACKS, MIXTAPES,
  * SHOWS, PRESS, CONTACT ; la page deja ouverte se ferme), 6 et O ouvrent ou
  * referment la machine (le pad OPEN), Espace lance ou arrete le
  * sequenceur (RUN/STOP du MM-VOYAGER quand on l'utilise), R ramene la vue par defaut, Echap ferme
@@ -23,7 +24,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { editToggle, escape, openToggle, padHit, page, presetKey, resetView, runToggle, stepMachine, voyPad, voyRun } from '../actions';
+import { editToggle, escape, openToggle, padHit, page, presetKey, resetView, runToggle, rytmHome, rytmLockToggle, stepMachine, voyPad, voyRun } from '../actions';
 import { presetMode } from '../state/presetMode';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
@@ -108,18 +109,25 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         return;
       }
       // Les pages du MM-RYTM (2026-10-08, Mika : "8 encodeurs assignables a condition de presser les bonnes
-      // touches ; l'ecran divise en 8 blocs ; allons-y petit a petit") : H garde la vue PAGE, [ et ] changent
-      // de page ; pas dans EDIT ni en mode presets (leurs ecrans passent avant)
+      // touches ; l'ecran divise en 8 blocs") : H bascule HOME et la vue PAGE, [ et ] changent de page ;
+      // pas dans EDIT ni en mode presets (leurs ecrans passent avant)
       if (focus.get() === 'mm808' && editor.get() !== 'mm808' && presetMode.get().machine !== 'mm808') {
         const k = e.key.toLowerCase();
         if (e.code === 'KeyH' || k === 'h') {
           e.preventDefault();
-          rytmPage.toggleView();
+          // rytm:home (actions.ts) : en LOCK, il le dit et ne change pas la vue (revue de R2)
+          rytmHome();
           return;
         }
         if (e.code === 'BracketLeft' || e.code === 'BracketRight' || k === '[' || k === ']') {
           e.preventDefault();
           rytmPage.step(e.code === 'BracketLeft' || k === '[' ? -1 : 1);
+          return;
+        }
+        // L (2026-10-08) : le LOCK sur le pas choisi (le dernier touche), ou hors LOCK
+        if (e.code === 'KeyL' || k === 'l') {
+          e.preventDefault();
+          rytmLockToggle();
           return;
         }
       }

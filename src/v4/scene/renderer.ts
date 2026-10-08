@@ -66,6 +66,8 @@ import { intro } from '../state/intro';
 import { playhead } from '../state/playhead';
 import { lcd } from '../state/lcd';
 import { rytmPage } from '../state/rytmPage';
+import { rytmLock } from '../state/rytmLock';
+import { lockMask } from '../audio/locks';
 import { section } from '../state/section';
 import { voices } from '../state/voices';
 import {
@@ -78,7 +80,7 @@ import {
   COLOR,
   DPR_MAX,
   DPR_MIN_DESKTOP,
-  ENCODERS,
+  FACE_KNOBS,
   EXPLODE,
   OPEN_VIEW,
   EXPOSURE,
@@ -92,6 +94,7 @@ import {
   OLED,
   OLED_BAR,
   OLED_BAR_PAGE,
+  OLED_PAGE_ZONES,
   STEP_PRESS,
   LIGHT_BACK,
   LIGHT_HEMI,
@@ -105,8 +108,9 @@ import {
   PANEL,
   PANEL_D,
   PCB,
+  PAGE_KNOB_IDS,
+  RYTM_PAGE_KEYS,
   PORTRAIT,
-  potCourse,
   PLATEAU_W,
   SECTION_FRAME,
   TILT,
@@ -119,6 +123,9 @@ import {
   type SectionId,
 } from '../theme';
 import { Encoders } from './encoders';
+import { RytmPageKeys } from './rytmPageKeys';
+import { pageKnobCourse } from '../actions';
+import type { RytmPageId } from '../rytm/pages';
 import { Explode, type ExplodeInfo } from './explode';
 import { Floor } from './floor';
 import { HitMap, type HotspotDef } from './hit';
@@ -158,6 +165,9 @@ function seekBox(band: { bandY0: number; bandY1: number }): { z: number; hz: num
   const z1 = OLED.z - OLED.d / 2 + (band.bandY1 / TH) * OLED.d;
   return { z: (z0 + z1) / 2, hz: (z1 - z0) / 2 };
 }
+
+/** Le rang de chaque touche de page (scene/rytmPageKeys.ts), par page. */
+const PAGE_KEY_INDEX: Readonly<Record<string, number>> = Object.fromEntries(RYTM_PAGE_KEYS.map((p, i) => [p.id, i]));
 
 /* ---------------- deux machines (2026-10-03) ---------------- */
 
@@ -368,8 +378,10 @@ export class Stage {
   readonly pads: Pads;
   /** touches trig, RUN/STOP, CLEAR et les 16 LED */
   readonly seq: Sequencer3D;
-  /** TEMPO, TONE, LEVEL, SWING, DIST, REVERB */
+  /** MASTER, TEMPO et les huit potards de page A a H (2026-10-08) */
   readonly encoders: Encoders;
+  /** les six touches de page du MM-RYTM et leurs temoins (2026-10-08) */
+  readonly pageKeys: RytmPageKeys;
   /** l'ecran OLED, texte de state/lcd.ts */
   readonly screen: Screen;
   /** le PCB de la vue eclatee : carte texturee et composants */
@@ -467,6 +479,8 @@ export class Stage {
   private seekDef!: HotspotDef;
   /** les touches de l'ecran (mode presets, 2026-10-04) */
   private lcdDefs: HotspotDef[] = [];
+  /** les six onglets de page du pied de l'ecran en vue PAGE (desktop, 2026-10-08) : des touches de page */
+  private tabDefs: HotspotDef[] = [];
   private unsubPresets: () => void = () => undefined;
   private unsubSeek: () => void = () => undefined;
   private raycaster = new Raycaster();
@@ -678,10 +692,19 @@ export class Stage {
     // Bas : touches trig, RUN/STOP, CLEAR, LED ; moitie gauche : les six encodeurs
     this.seq = new Sequencer3D({ mobile });
     this.encoders = new Encoders({ mobile, castShadow: !mobile });
-    plateau.add(this.pads.mesh, this.pads.halos, this.seq.keys, this.seq.frames, this.seq.buttons, this.seq.leds, this.seq.btnLeds, this.encoders.mesh, this.encoders.skirts);
+    // Les touches de page (2026-10-08, la refonte facon Digitakt) : sous les potards de page
+    this.pageKeys = new RytmPageKeys({ mobile });
+    plateau.add(this.pads.mesh, this.pads.halos, this.seq.keys, this.seq.frames, this.seq.buttons, this.seq.leds, this.seq.btnLeds, this.encoders.mesh, this.encoders.skirts, ...this.pageKeys.objects());
     // L'ecran (redessine 4 fois par seconde au plus, jamais par frame) ; il
     // ne s'abonne a state/lcd.ts qu'avec les autres ecouteurs
-    this.screen = new Screen(aniso, () => this.repaint(), mobile);
+    this.screen = new Screen(
+      aniso,
+      () => {
+        this.syncScreenTabs();
+        this.repaint();
+      },
+      mobile
+    );
     plateau.add(this.screen.mesh);
     // PCB : la carte et ses composants, dans le chassis. Plus de puces de pages
     // (2026-10-04, Mika : "a la place des liens de mauditemachine qui sont deja dans
@@ -712,7 +735,8 @@ export class Stage {
     // Les TWEAKS juste apres OPEN qui les decouvre
     this.tweakDefs = this.rytmTweaks.hotspots();
     this.hit.add(this.tweakDefs);
-    const encDefs = ENCODERS.map((e) => this.encoders.hotspot(e.id, plateau));
+    // MASTER, TEMPO, puis les potards de page A a H et les touches de page (2026-10-08)
+    const encDefs = [...FACE_KNOBS.map((e) => this.encoders.hotspot(e.id, plateau)), ...this.pageKeys.hotspots(plateau)];
     this.hit.add(encDefs);
     const seqDefs = this.seq.hotspots(plateau);
     this.stepDefs = seqDefs.filter((d) => d.kind === 'step');
@@ -764,6 +788,27 @@ export class Stage {
         ...(['save', 'name', 'del', 'exit'] as const).map((k, i) => box(k, i / 4, (i + 1) / 4, band, TH, false)),
       ];
       this.hit.add(this.lcdDefs);
+      // Les onglets du pied de la vue PAGE (scene/screen.ts paintFoot) : une touche de page chacun,
+      // allumes seulement quand l'ecran les dessine (syncScreenTabs)
+      const P = OLED_PAGE_ZONES;
+      const n = RYTM_PAGE_KEYS.length;
+      const u0 = OLED_BAR_PAGE.u0;
+      const cw = (OLED_BAR_PAGE.u1 - u0) / n;
+      this.tabDefs = RYTM_PAGE_KEYS.map((pk, i) => ({
+        id: `lcd-tab-${pk.id}`,
+        kind: 'pkey' as const,
+        rpage: pk.id,
+        layer: plateau,
+        shape: 'box' as const,
+        x: xAt(u0 + cw * (i + 0.5)),
+        z: (zAt(P.tabY0) + zAt(P.tabY1)) / 2,
+        hx: (xAt(cw) - xAt(0)) / 2,
+        hz: (zAt(P.tabY1) - zAt(P.tabY0)) / 2,
+        y0: OLED.y - 0.005,
+        y1: OLED.y + 0.03,
+        enabled: false,
+      }));
+      this.hit.add(this.tabDefs);
     }
     // Les volumes pleins de la machine : ils cachent ce qui est derriere eux
     // (picking, ancre de la trace) et dessinent sa silhouette (fond ou machine)
@@ -778,7 +823,7 @@ export class Stage {
     // Le MM-VOYAGER (2026-10-03) : a droite de la 808 sur la meme table ;
     // ses objets et ses volumes apres ceux de la 808, chacun marque de sa machine
     if (VOYAGER) {
-      for (const d of [...padDefs, ...this.chipDefs, ...this.tweakDefs, ...encDefs, ...seqDefs, this.seekDef, ...this.lcdDefs]) d.machine = 'mm808';
+      for (const d of [...padDefs, ...this.chipDefs, ...this.tweakDefs, ...encDefs, ...seqDefs, this.seekDef, ...this.lcdDefs, ...this.tabDefs]) d.machine = 'mm808';
       const voy = new VoyagerRig({
         mobile,
         anisotropy: aniso,
@@ -824,7 +869,8 @@ export class Stage {
       this.stepExplode,
       (now) => this.pads.update(now),
       this.pollPlayhead,
-      this.stepBreathe
+      this.stepBreathe,
+      this.stepLockBlink
     );
     const voyRig = this.voy;
     if (voyRig) {
@@ -900,8 +946,21 @@ export class Stage {
     this.applySection(true);
     this.unsubSection = section.subscribe(this.syncSection);
     {
-      // La bande de la barre suit aussi la vue de l'ecran (HOME, PAGE) et EDIT
-      const offs = [lcd.subscribe(this.syncSeek), rytmPage.subscribe(this.syncSeek), editor.subscribe(this.syncSeek)];
+      // La bande de la barre suit aussi la vue de l'ecran (HOME, PAGE) et EDIT ; les touches de page et
+      // les potards de page suivent la page (2026-10-08)
+      const offs = [
+        lcd.subscribe(this.syncSeek),
+        rytmPage.subscribe(this.syncSeek),
+        editor.subscribe(this.syncSeek),
+        rytmPage.subscribe(this.syncPageKeys),
+        rytmPage.subscribe(this.syncMix),
+        // Le LOCK (2026-10-08) : les potards de page montrent les verrous du pas, les touches leurs lueurs
+        rytmLock.subscribe(this.syncMix),
+        rytmLock.subscribe(this.syncLocks),
+        editor.subscribe(this.syncLocks),
+      ];
+      this.syncLocks();
+      this.syncPageKeys();
       this.unsubSeek = () => {
         for (const off of offs) off();
       };
@@ -1072,13 +1131,49 @@ export class Stage {
    */
   private syncSeek = (): void => {
     const on = lcd.get().bar !== null;
-    const band = seekBox(rytmPage.get().view === 'page' && editor.get() !== 'mm808' ? OLED_BAR_PAGE : OLED_BAR);
-    if (this.seekDef.enabled === on && this.seekDef.z === band.z && this.seekDef.hz === band.hz) return;
-    this.seekDef.enabled = on;
-    this.seekDef.z = band.z;
-    this.seekDef.hz = band.hz;
+    const paged = rytmPage.get().view === 'page' && editor.get() !== 'mm808';
+    const band = seekBox(paged ? OLED_BAR_PAGE : OLED_BAR);
+    // En vue PAGE, la barre est a droite des seize pas du pied (scene/screen.ts PAGE_FOOT) : la bande aussi
+    const u0 = paged ? OLED_BAR_PAGE.u0 : 0;
+    const u1 = paged ? OLED_BAR_PAGE.u1 : 1;
+    const x = OLED.x - OLED.w / 2 + ((u0 + u1) / 2) * OLED.w;
+    const hx = ((u1 - u0) / 2) * OLED.w;
+    // Toucher l'ecran : les presets depuis l'en-tete seulement en vue PAGE (OLED_PAGE_ZONES), tout le haut ailleurs
+    let moved = false;
+    const open = this.lcdDefs.find((o) => o.lcd === 'open');
+    if (open) {
+      const [, TH] = OLED.tex;
+      const y1 = paged ? OLED_PAGE_ZONES.openY1 : OLED_BAR.bandY0;
+      const oz = OLED.z - OLED.d / 2 + (y1 / TH) * OLED.d * 0.5;
+      const ohz = (y1 / TH) * OLED.d * 0.5;
+      if (open.z !== oz || open.hz !== ohz) {
+        open.z = oz;
+        open.hz = ohz;
+        moved = true;
+      }
+    }
+    const d = this.seekDef;
+    if (d.enabled === on && d.z === band.z && d.hz === band.hz && d.x === x && d.hx === hx && !moved) return;
+    d.enabled = on;
+    d.z = band.z;
+    d.hz = band.hz;
+    d.x = x;
+    d.hx = hx;
     this.hit.invalidate();
   };
+
+  /** Les onglets du pied de l'ecran repondent quand l'ecran les dessine (vue PAGE, desktop, rien d'autre au pied). */
+  private syncScreenTabs(): void {
+    const on = this.screen.tabsShown && !presetMode.on('mm808');
+    let changed = false;
+    for (const d of this.tabDefs) {
+      if (d.enabled !== on) {
+        d.enabled = on;
+        changed = true;
+      }
+    }
+    if (changed) this.hit.invalidate();
+  }
 
   /**
    * Clic sur la barre de l'ecran (2026-10-01), en px CSS de la fenetre : le
@@ -2560,37 +2655,68 @@ export class Stage {
   }
 
   /**
-   * Les potards suivent leur cible : la rangee GLOBAL et MASTER, le
-   * pattern ; la rangee VOICE, la voix du pad selectionne (ses valeurs de
-   * depart sans selection) ; elle tourne aussi quand la selection change.
-   * TONE et STRETCH vont de -1 a 1 : course centree (repere a midi a 0).
+   * Les potards suivent leur cible : MASTER, le volume principal ; les huit
+   * potards de page (2026-10-08), la course de ce que leur bloc regle sur la
+   * page affichee, pour la voix choisie (un bloc vide, ou rien a regler : en bas) ;
+   * ils tournent aussi quand la page ou la voix change. TONE et STRETCH vont
+   * de -1 a 1 : course centree (repere a midi a 0).
    */
   private syncMix = (): void => {
-    const inst = pattern.get().instrument;
-    const v = inst ? voiceFx.of(inst) : VOICE_FX_DEFAULT;
-    const fam = inst ? familyOf(inst as ShotId) : null;
     const e = this.encoders;
-    let changed = false;
-    for (const [id, t] of [
-      ['level', mix.level],
-      ['swing', mix.swing],
-      ['stretch', potCourse('stretch', mix.stretch)],
-      ['dist', mix.drive],
-      ['chorus', mix.chorus],
-      ['delay', mix.delay],
-      ['reverb', mix.reverb],
-      ['vol', v.level],
-      ['vsound', fam ? kit.value(fam) : 0],
-      ['tone', potCourse('tone', v.tone)],
-      ['vdecay', v.decay],
-      ['vdist', v.dist],
-      ['vchorus', v.chorus],
-      ['vdelay', v.delay],
-      ['vreverb', v.reverb],
-    ] as const) {
-      if (e.setValue(id, t)) changed = true;
-    }
+    let changed = e.setValue('level', mix.level);
+    PAGE_KNOB_IDS.forEach((id, k) => {
+      // Un bloc vide, ou rien a regler (pas de voix, pas de pas choisi) : le repere en bas, comme le MIDI
+      if (e.setValue(id, pageKnobCourse(k))) changed = true;
+    });
     if (changed) this.encodersMoved();
+  };
+
+  /** Les touches de page : le temoin de la page affichee (a peine en vue HOME). */
+  private syncPageKeys = (): void => {
+    const rp = rytmPage.get();
+    if (this.pageKeys.setPage(rp.page, rp.view === 'home')) this.repaint();
+  };
+
+  /** Une touche de page s'enfonce et s'eclaire, comme un pas (2026-10-08). */
+  pressPageKey(id: RytmPageId): void {
+    if (this.disposed) return;
+    const i = PAGE_KEY_INDEX[id];
+    if (i === undefined) return;
+    const move = !motion.reduced();
+    const set = (v: number): void => this.pageKeys.setPress(i, v, move);
+    const tw = this.paintTweens;
+    const key = `pkey.press.${i}`;
+    tw.run(key, set, 0, 1, STEP_PRESS.downMs, linear, performance.now(), (end) => tw.run(key, set, 1, 0, STEP_PRESS.upMs, easeOutCubic, end));
+    this.repaint();
+  }
+
+  /** Le clignotement du pas en LOCK (2026-10-08) : 280 ms allume, 280 ms en retrait. */
+  private static readonly LOCK_BLINK_MS = 280;
+
+  /**
+   * Les verrous sur les touches (2026-10-08) : la lueur des pas qui en ont
+   * (la voix choisie), le pas en LOCK qui clignote ; rien en EDIT. true s'il
+   * faut une frame.
+   */
+  private lockLeds(now: number): boolean {
+    const ed = editor.get() === 'mm808';
+    const p = pattern.get();
+    const step = ed ? -1 : rytmLock.get().step;
+    const blink = step >= 0 && Math.floor(now / Stage.LOCK_BLINK_MS) % 2 === 0;
+    return this.seq.setLocks(ed ? 0 : lockMask(p.locks, p.instrument), step, blink);
+  }
+
+  private syncLocks = (): void => {
+    if (this.disposed) return;
+    if (this.lockLeds(performance.now())) this.repaint();
+    // Le clignotement a besoin de la boucle tant que le LOCK dure
+    if (rytmLock.get().step >= 0) this.kick();
+  };
+
+  /** Animateur : le pas en LOCK clignote (une image a chaque changement de phase, rien sinon). */
+  private stepLockBlink = (now: number): 'paint' | 'poll' | false => {
+    if (rytmLock.get().step < 0 || editor.get() === 'mm808') return false;
+    return this.lockLeds(now) ? 'paint' : 'poll';
   };
 
   /**
@@ -2601,6 +2727,8 @@ export class Stage {
     const p = pattern.get();
     let lit = this.pads.setSelected(p.instrument);
     if (this.seq.setPattern(p.steps, p.instrument)) lit = true;
+    // Les verrous suivent le motif et la voix choisie (2026-10-08)
+    if (this.lockLeds(performance.now())) lit = true;
     if (this.syncVoiceKeys()) lit = true;
     if (this.encoders.setValue('tempo', (p.bpm - BPM.min) / (BPM.max - BPM.min))) this.encodersMoved();
     else if (lit) this.repaint();
@@ -2799,6 +2927,7 @@ export class Stage {
     this.pads.dispose();
     this.seq.dispose();
     this.encoders.dispose();
+    this.pageKeys.dispose();
     this.screen.dispose();
     this.pcb.dispose();
     this.rytmTweaks.dispose();

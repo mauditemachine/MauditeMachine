@@ -31,6 +31,20 @@
  * objet. Un appui au pointeur ne leur donne pas le focus (et retire celui
  * d'un jumeau) : Espace reste RUN/STOP apres un clic, au lieu de rejouer le
  * dernier objet touche (section 19).
+ *
+ * Les verrous du MM-RYTM (2026-10-08, l'etape R2 des parameter locks, Mika :
+ * "quand on clic sur un step on selectionne la partie qu'on veut modifier ...
+ * on tourne un encoder sur ce step") :
+ * - un pas tenu 350 ms sans glisser passe en LOCK (l'ecran le montre tout de
+ *   suite) ; lache sans rien tourner, le LOCK reste (la souris peut ensuite
+ *   tourner les potards) ; lache apres un potard tourne ou un glisser de
+ *   velocite, il revient a ce qu'il etait (un LOCK momentane) ;
+ * - au doigt, tenir un pas et tourner un potard de page d'un autre doigt
+ *   verrouille tout de suite (plusieurs pas tenus : tous) ; le pincement ne
+ *   prend plus ces pointeurs (orbit.claim) ; le lacher d'un pas qui a recu un
+ *   verrou ne le change pas ;
+ * - en LOCK, une tape sur un pas deplace le LOCK (le meme pas : il en sort),
+ *   deux tapes sur un potard de page retirent son verrou.
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
@@ -38,6 +52,17 @@ import {
   anyDial,
   anyDialReset,
   anyDialValue,
+  pageKnobReset,
+  rytmLockEnter,
+  rytmLockToggle,
+  dialNudge,
+  dialRange,
+  dialReadout,
+  pageKnobCourse,
+  pageKnobLive,
+  pageKnobOf,
+  pageSlotOf,
+  rytmPageKey,
   chipAction,
   clearPattern,
   randomPattern,
@@ -84,6 +109,11 @@ import { bassLoad, type BassModules } from '../state/bassload';
 import { djView } from '../dj/view';
 import { editor } from '../state/editor';
 import { patterns, slotName } from '../state/patterns';
+import { rytmPage } from '../state/rytmPage';
+import { rytmLock } from '../state/rytmLock';
+import { lockCount } from '../audio/locks';
+import { isRytmPage, pageLabel } from '../rytm/pages';
+import { v127 } from '../rytm/values';
 import { PRESET_KEY_ARIA, PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode, type PresetKey } from '../state/presetMode';
 import { chipsLive, explode } from '../state/explode';
 import { MACHINES, focus, VOYAGER } from '../state/focus';
@@ -106,7 +136,12 @@ import {
   DIAL_FINE,
   DIAL_KEYS,
   ENCODERS,
+  FACE_KNOBS,
   INST_NAMES,
+  PAGE_KNOB_LETTERS,
+  RYTM_PAGE_KEYS,
+  isPageKnob,
+  pageKnobIndex,
   OPEN_ARIA,
   ORBIT,
   PADS,
@@ -147,6 +182,8 @@ interface Down {
   vpad?: number;
   vbtn?: 'run' | 'clear' | 'random' | 'edit';
   lcd?: PresetKey;
+  /** une touche de page du MM-RYTM (2026-10-08) */
+  rpage?: string;
   x: number;
   y: number;
   /** encodeur (ou potard du MM-VOYAGER, v:<id>) sous le pointerdown, et sa valeur de depart */
@@ -163,12 +200,33 @@ interface Down {
   mouse: boolean;
   /** instant du pointerdown (performance.now) */
   t: number;
+  /** l'horodatage de l'evenement pointerdown (e.timeStamp) : la tenue d'un pas se mesure d'un evenement a l'autre */
+  ts: number;
   /** un autre doigt etait pose (pincement, rotation) : jamais un glisser d'une machine a l'autre */
   multi: boolean;
   /** un pas : sa velocite au pointerdown (0 vide) ; le glisser la change (velDrag) */
   vel0: number;
   velDrag: boolean;
+  /**
+   * un pas du MM-RYTM tenu (2026-10-08) : tenu dans state/rytmLock.ts ;
+   * lockHold, la tenue l'a mis en LOCK ; writes0, les verrous poses avant lui ;
+   * prevLock, le LOCK fixe d'avant (-1 aucun), rendu au lacher d'un LOCK momentane
+   */
+  held: boolean;
+  lockHold: boolean;
+  writes0: number;
+  prevLock: number;
+  /** un potard : le LOCK au debut de son glisser (un changement le fait repartir de la valeur du moment) */
+  lockKey: string;
 }
+
+/** Tenir un pas du MM-RYTM (2026-10-08) : le LOCK, comme un trig tenu d'une Elektron (et le MM-BASS). */
+const LOCK_HOLD_MS = 350;
+/** Le LOCK du moment, pour les potards qui tournent (lu a chaque mouvement). */
+const lockKeyNow = (): string => {
+  const l = rytmLock.get();
+  return `${l.step}|${l.held.join(',')}`;
+};
 
 /** La velocite d'un pas au glisser : un cran tous les 12 px (souris), 16 px (doigt) ; vers le haut, plus fort. */
 const VEL_PX = { mouse: 12, touch: 16 } as const;
@@ -217,13 +275,35 @@ const voySteps = (k: DialId): number => {
   return vk.morph ? 0 : (vk.steps?.length ?? 0);
 };
 
-/** Le potard d'une cible : un encodeur de la 808, un potard du MM-ARP, un TWEAK du MM-RYTM. */
+/**
+ * Le potard d'une cible : un encodeur de la 808, un potard du MM-ARP, un
+ * TWEAK du MM-RYTM, un potard de page du MM-RYTM (p:<0-7>, 2026-10-08).
+ */
 const dialOf = (h: HotspotView | null | undefined): DialId | null =>
-  !h ? null : h.kind === 'encoder' && h.param ? h.param : h.kind === 'vknob' && h.vknob ? (`v:${h.vknob}` as DialId) : h.kind === 'rknob' && h.rknob ? (`r:${h.rknob}` as DialId) : null;
+  !h
+    ? null
+    : h.kind === 'encoder' && h.param
+      ? h.param
+      : h.kind === 'penc' && h.index !== undefined
+        ? (`p:${h.index}` as DialId)
+        : h.kind === 'vknob' && h.vknob
+          ? (`v:${h.vknob}` as DialId)
+          : h.kind === 'rknob' && h.rknob
+            ? (`r:${h.rknob}` as DialId)
+            : null;
 
-/** Valeur par px de glisser : TEMPO 2 px par BPM, les autres 150 px la course (TONE : 2 unites). */
-const perPx = (k: DialId): number =>
-  isVoy(k) || isKit(k) ? 1 / POT_UI.pxRange : k === 'tempo' ? 1 / TEMPO_UI.pxPerBpm : (1 - potMin(k as EncId)) / POT_UI.pxRange;
+/**
+ * Valeur par px de glisser : TEMPO 2 px par BPM, les autres 150 px la course
+ * (TONE : 2 unites) ; un potard de page, 150 px la course de ce qu'il regle
+ * sur la page affichee (relatif : partie de sa valeur, jamais de saut).
+ */
+const perPx = (k: DialId): number => {
+  if (pageKnobOf(k) >= 0) {
+    const [lo, hi] = dialRange(k);
+    return (hi - lo) / POT_UI.pxRange;
+  }
+  return isVoy(k) || isKit(k) ? 1 / POT_UI.pxRange : k === 'tempo' ? 1 / TEMPO_UI.pxPerBpm : (1 - potMin(k as EncId)) / POT_UI.pxRange;
+};
 
 /**
  * L'encodeur d'un glisser qui le tient : valeur de depart + ecart sur son
@@ -234,10 +314,14 @@ const perPx = (k: DialId): number =>
 function turnDial(d: Down, dx: number, dy: number, fine: boolean): void {
   if (!d.dial) return;
   const travel = d.axis === 'y' ? -dy : dx;
-  if (fine !== d.fine) {
+  // Le LOCK a change pendant que le potard de page tourne (2026-10-08 : le pas tenu lache avant lui, ou le
+  // premier verrou qui met le LOCK) : il repart de la valeur qu'il regle maintenant, sans saut
+  const lk = pageKnobOf(d.dial) >= 0 ? lockKeyNow() : d.lockKey;
+  if (fine !== d.fine || lk !== d.lockKey) {
     d.v0 = anyDialValue(d.dial);
     d.a = travel;
     d.fine = fine;
+    d.lockKey = lk;
   }
   anyDial(d.dial, d.v0 + (travel - d.a) * perPx(d.dial) * (fine ? DIAL_FINE.drag : 1));
 }
@@ -373,7 +457,10 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       const t = performance.now();
       if (t - (lastTap.get(k) ?? -Infinity) <= TEMPO_UI.tapMs) {
         lastTap.delete(k);
-        anyDial(k, anyDialReset(k));
+        // Un potard de page (2026-10-08) : en LOCK, son verrou s'en va ; sinon sa valeur de depart
+        const pk = pageKnobOf(k);
+        if (pk >= 0) pageKnobReset(pk);
+        else anyDial(k, anyDialReset(k));
       } else {
         lastTap.set(k, t);
       }
@@ -395,6 +482,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.kind === 'open') openToggle(stage, 'mm808');
       else if (d.kind === 'step' && d.index !== undefined) {
         // Appui long : il montrait la velocite (2026-10-05 ; il vidait le pas avant) ; une tape change le pas
+        // (en LOCK, elle deplace le LOCK, actions.ts stepToggle) ; une tenue du LOCK (2026-10-08) a deja tout fait
+        if (d.lockHold) return d.id;
         if (stage.orbit.lastTap.ms < STEP_HOLD_MS) stepToggle(d.index, stage);
       }
       else if (d.kind === 'run') runToggle(stage);
@@ -412,6 +501,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.kind === 'vbtn' && d.vbtn === 'edit') editToggle('voy', stage);
       else if (d.kind === 'edit') editToggle('mm808', stage);
       else if ((d.kind === 'lcd' || d.kind === 'vlcd') && d.lcd) presetKey(d.kind === 'lcd' ? 'mm808' : 'voy', d.lcd);
+      else if (d.kind === 'pkey' && d.rpage && isRytmPage(d.rpage)) rytmPageKey(d.rpage, stage);
       else if (d.dial) tapDial(d.dial);
       else return null;
       return d.id;
@@ -528,6 +618,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         vpad: h?.vpad,
         vbtn: h?.vbtn,
         lcd: h?.lcd,
+        rpage: h?.rpage,
         multi,
         x: e.clientX,
         y: e.clientY,
@@ -539,20 +630,119 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         axis: 'y',
         mouse: e.pointerType === 'mouse',
         t: performance.now(),
+        ts: e.timeStamp || performance.now(),
         vel0: h?.kind === 'step' && h.index !== undefined ? stepVelocityOf(h.index) : 0,
         velDrag: false,
+        held: false,
+        lockHold: false,
+        writes0: rytmLock.get().writes,
+        prevLock: rytmLock.get().latched ? rytmLock.get().step : -1,
+        lockKey: lockKeyNow(),
       });
-      // Un pas tenu (2026-10-05) : l'ecran dit sa velocite et qu'un glisser la change
+      // Les pas et les potards de page ne font jamais de pincement (2026-10-08) : tenir un pas d'un doigt et
+      // tourner un potard d'un autre doit verrouiller, pas zoomer
+      if (h && (h.kind === 'step' || h.kind === 'penc')) stage.orbit.claim(e.pointerId);
+      // Un pas tenu (2026-10-05) : l'ecran dit sa velocite et qu'un glisser la change ; depuis le 2026-10-08,
+      // hors EDIT et une voix choisie, 350 ms de tenue sans glisser : le LOCK (les parameter locks)
       if (h?.kind === 'step' && h.index !== undefined) {
         const idx = h.index;
         const pid = e.pointerId;
-        window.setTimeout(() => {
-          const d = downs.get(pid);
-          if (d && !d.velDrag && d.index === idx && !disposed) stepHoldHint(idx);
-        }, STEP_HOLD_MS);
+        const lockable = editor.get() !== 'mm808' && pattern.get().instrument !== null;
+        // La pression de CE pointerdown (revue de R2) : une souris a toujours le pointerId 1, la minuterie d'un
+        // clic d'avant ne doit pas prendre le clic suivant pour une tenue (trois clics a la seconde latchaient le LOCK)
+        const d0 = downs.get(pid);
+        if (lockable) {
+          if (d0) d0.held = true;
+          rytmLock.hold(idx);
+          window.setTimeout(() => {
+            const d = downs.get(pid);
+            if (!d || d !== d0 || d.velDrag || d.index !== idx || disposed) return;
+            // Deja passe en LOCK par un potard tourne pendant la tenue : il y reste jusqu'au lacher
+            if (rytmLock.get().writes > d.writes0) {
+              d.lockHold = true;
+              return;
+            }
+            if (rytmLockEnter(idx, false)) d.lockHold = true;
+          }, LOCK_HOLD_MS);
+        } else {
+          window.setTimeout(() => {
+            const d = downs.get(pid);
+            if (d && d === d0 && !d.velDrag && d.index === idx && !disposed) stepHoldHint(idx);
+          }, STEP_HOLD_MS);
+        }
       }
       // Rien ne part ici : un objet attend la tape (relachement)
       if (h) e.preventDefault();
+    };
+
+    /**
+     * Le lacher d'un pas du MM-RYTM tenu (2026-10-08) : il n'est plus tenu ;
+     * une tenue qui a mis le LOCK le garde si rien n'a tourne pendant (fixe),
+     * sinon le LOCK revient a ce qu'il etait (un LOCK momentane) ; un pas qui
+     * a recu un verrou (deux doigts) n'est ni change ni tape. Rend true si le
+     * lacher est pris (la tape ne part pas).
+     */
+    const stepUp = (d: Down, upTs = -1): boolean => {
+      if (!d.held || d.index === undefined) return false;
+      d.held = false;
+      rytmLock.release(d.index);
+      const turned = rytmLock.get().writes > d.writes0;
+      // Une tenue dont la minuterie n'a pas encore parle (revue de R2 : le fil principal gele, le pointerup passe
+      // avant elle) : mesuree d'un evenement a l'autre, 350 ms ou plus, c'est la tenue, le LOCK fixe
+      if (!d.lockHold && !turned && !d.velDrag && upTs >= 0 && upTs - d.ts >= LOCK_HOLD_MS) {
+        if (rytmLockEnter(d.index, true)) {
+          d.lockHold = true;
+          return true;
+        }
+      }
+      if (!d.lockHold && !turned) return false;
+      d.lockHold = true;
+      if (turned || d.velDrag) {
+        // Momentane : le LOCK fixe d'avant revient, ou plus de LOCK
+        if (rytmLock.get().held.length > 0) return true;
+        // Un potard de page encore tenu (deux doigts, revue de R2 : le doigt du pas leve le premier) : il
+        // continue d'ecrire sur ce pas, le LOCK ne revient qu'a son lacher
+        if (knobHeld()) {
+          // Le plus ancien LOCK fixe attendu gagne (un autre pas tenu entre-temps ne le connaissait plus)
+          if (pendingRestore === null) pendingRestore = d.prevLock;
+          return true;
+        }
+        const prev = pendingRestore ?? d.prevLock;
+        pendingRestore = null;
+        restoreLock(prev);
+      } else {
+        // Un LOCK fixe tout neuf : plus rien a rendre
+        pendingRestore = null;
+        rytmLock.latch();
+      }
+      return true;
+    };
+
+    /** Un potard de page est-il tenu (un doigt, la souris) ? */
+    const knobHeld = (): boolean => {
+      for (const o of downs.values()) if (o.dial && pageKnobOf(o.dial) >= 0) return true;
+      return false;
+    };
+    /** Le LOCK fixe a rendre au lacher du dernier potard de page (-1 : plus de LOCK), null : rien en attente. */
+    let pendingRestore: number | null = null;
+    /**
+     * La fin d'un LOCK momentane : le LOCK fixe d'avant revient, ou plus de
+     * LOCK. Seulement si le LOCK est encore celui de la tenue (revue de R2) :
+     * Echap, EDIT ou une autre machine en sont sortis, une tape l'a fixe
+     * ailleurs : rien a rendre (jamais un LOCK qui revient dans EDIT).
+     */
+    const restoreLock = (prev: number): void => {
+      const s = rytmLock.get();
+      if (s.step < 0 || s.latched) return;
+      if (prev >= 0 && editor.get() !== 'mm808') rytmLock.enter(prev, true);
+      else rytmLock.leave();
+    };
+    /** Un pointeur lache : le dernier potard de page parti, le LOCK en attente revient. */
+    const flushRestore = (): void => {
+      if (pendingRestore === null || knobHeld() || rytmLock.get().held.length > 0) return;
+      const prev = pendingRestore;
+      pendingRestore = null;
+      restoreLock(prev);
     };
 
     /**
@@ -564,6 +754,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (!d) return;
       downs.delete(id);
       if (d.dial && isVoy(d.dial)) voyEcho.release(id);
+      stepUp(d);
+      flushRestore();
       try {
         if (el.hasPointerCapture(id)) el.releasePointerCapture(id);
       } catch {
@@ -641,6 +833,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         turnAxis = null;
         setCursor();
       }
+      // Un pas tenu du MM-RYTM (2026-10-08) : son lacher decide du LOCK (et la tape ne part pas s'il l'a pris)
+      if (d) stepUp(d, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
+      flushRestore();
       // Lu AVANT le pointerup de l'orbite (elle ecoute le parent) : sa fiche existe encore
       if (d && !d.turning && e.type === 'pointerup') {
         const tap = stage.orbit.isTap(e);
@@ -731,7 +926,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       wheelAcc -= delta * unit;
       const px = k === 'tempo' ? TEMPO_UI.wheelPx : POT_UI.wheelPx;
       const steps = Math.trunc(wheelAcc / px);
-      if (steps !== 0) {
+      if (steps !== 0 && pageKnobOf(k) >= 0) {
+        // Un potard de page (2026-10-08) : un cran = 1 sur 127 (un cran du reglage s'il en a), Maj aussi
+        wheelAcc -= steps * px;
+        dialNudge(k, steps);
+      } else if (steps !== 0) {
         wheelAcc -= steps * px;
         // Maj : reglage fin, 1 % le cran (TEMPO reste a 1 BPM)
         // Un potard a crans du MM-ARP : un cran par cran de molette (2 % ne le faisaient jamais bouger)
@@ -770,6 +969,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Demontee en plein geste : l'echo du MM-ARP ne reste pas tenu par un pointeur parti
       voyEcho.releaseAll();
       downs.clear();
+      rytmLock.releaseAll();
       djg?.release();
       bsg?.release();
       stage.orbit.gate = () => true;
@@ -863,6 +1063,42 @@ const onDialKey =
     dial(k, k === 'tempo' ? v : Math.round(v * 100) / 100);
   };
 
+/**
+ * Les fleches sur un potard de page (2026-10-08) : un cran de 1 sur 127 (Maj
+ * ou Page : 10), un cran du reglage s'il en a ; Debut et Fin aux butees.
+ */
+const onPageKnobKey =
+  (d: DialId) =>
+  (e: React.KeyboardEvent<HTMLElement>): void => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    const big = e.shiftKey ? 10 : 1;
+    switch (e.key) {
+      case 'ArrowUp':
+      case 'ArrowRight':
+        dialNudge(d, big);
+        break;
+      case 'ArrowDown':
+      case 'ArrowLeft':
+        dialNudge(d, -big);
+        break;
+      case 'PageUp':
+        dialNudge(d, 10);
+        break;
+      case 'PageDown':
+        dialNudge(d, -10);
+        break;
+      case 'Home':
+        anyDial(d, dialRange(d)[0]);
+        break;
+      case 'End':
+        anyDial(d, dialRange(d)[1]);
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+  };
+
 /** Les fleches sur un TWEAK du kit : un centieme (Maj : un dixieme), un cran pour un choix de son. */
 const onKitKey =
   (k: KitId) =>
@@ -942,6 +1178,17 @@ function dialText(k: EncId, v: number): string {
  * son objet. Seules les valeurs qui ont change (au dixieme de px) sont
  * reecrites ; le montage ecrit tout, onIdle rattrape un rendu hors boucle.
  */
+/** Ce que les jumeaux lisent de la page du MM-RYTM : la page, la vue, le pas choisi. */
+const rytmPageKey3 = (): string => {
+  const s = rytmPage.get();
+  return `${s.page}|${s.view}|${s.sel}`;
+};
+/** Ce que les jumeaux lisent du LOCK (2026-10-08) : le pas et s'il est fixe (les verrous poses passent par le motif). */
+const rytmLockKey = (): string => {
+  const s = rytmLock.get();
+  return `${s.step}|${s.latched}`;
+};
+
 export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const s = useSyncExternalStore(explode.subscribe, explode.get, explode.get);
   const p = useSyncExternalStore(pattern.subscribe, pattern.get, pattern.get);
@@ -961,6 +1208,16 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const chorus = useSyncExternalStore(mix.subscribe, () => mix.chorus, () => mix.chorus);
   // Rangee VOICE : la voix du pad selectionne, sinon ses valeurs de depart
   const vfx = useSyncExternalStore(voiceFx.subscribe, voiceFx.get, voiceFx.get);
+  // La page du MM-RYTM (2026-10-08) : les jumeaux des potards et des touches de page la suivent
+  // Seulement la page, la vue et le pas choisi (2026-10-08, revue de R1) : le contour d'un bloc tourne (l'echo,
+  // a chaque cran) ne refait pas les 240 jumeaux ; les valeurs, elles, ont leurs propres abonnements
+  useSyncExternalStore(rytmPage.subscribe, rytmPageKey3, rytmPageKey3);
+  const rp = rytmPage.get();
+  // Le LOCK (2026-10-08) : les potards de page lisent alors les verrous du pas, les pas disent les leurs
+  useSyncExternalStore(rytmLock.subscribe, rytmLockKey, rytmLockKey);
+  const lockAt = rytmLock.get().step;
+  // Le kit : les potards de page de SRC (K.TUNE, ATTACK...) et SOUND suivent ses valeurs
+  useSyncExternalStore(kit.subscribe, kit.get, kit.get);
   const els = useRef(new Map<string, HTMLElement>());
   const refs = useRef(new Map<string, (el: HTMLElement | null) => void>());
   const stageRef = useRef(stage);
@@ -1003,6 +1260,9 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
     vchorus: sel.chorus,
     vdelay: sel.delay,
     vreverb: sel.reverb,
+    vtune: sel.tune,
+    vpan: sel.pan,
+    vstart: sel.start,
   };
 
   /** Ref stable par id : l'element entre et sort des deux registres. */
@@ -1232,7 +1492,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
             />
           );
         })}
-      {ENCODERS.map((enc) => {
+      {FACE_KNOBS.filter((k) => !isPageKnob(k.id)).map((fk) => {
+        const enc = ENCODERS.find((e) => e.id === fk.id) ?? ENCODERS[0];
         const id = `enc-${enc.id}`;
         const v = values[enc.id];
         const tempo = enc.id === 'tempo';
@@ -1255,6 +1516,57 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
           />
         );
       })}
+      {FACE_KNOBS.filter((k) => isPageKnob(k.id)).map((fk) => {
+        // Les huit potards de page (2026-10-08) : ce qu'ils reglent sur la page affichee, de 0 a 127
+        const k = isPageKnob(fk.id) ? pageKnobIndex(fk.id) : 0;
+        const id = `penc-${k}`;
+        const d = `p:${k}` as DialId;
+        const slot = pageSlotOf(k);
+        // Le nombre de l'ecran : 0 a 127, -64 a +63 pour TONE et STRETCH (un bloc vide : en bas, comme son repere)
+        const bipolar = pageKnobLive(k) && dialRange(d)[0] < 0;
+        const course = pageKnobCourse(k);
+        const what = slot && slot.label ? `${slot.label}${slot.target === null ? ', coming soon' : ''}` : 'nothing';
+        return (
+          <div
+            key={id}
+            ref={refFor(id)}
+            className="v4-twin"
+            data-twin="penc"
+            data-hotspot={id}
+            role="slider"
+            tabIndex={0}
+            aria-label={`Knob ${PAGE_KNOB_LETTERS[k]}, ${pageLabel(rp.page)} page: ${what}${slot?.scope === 'track' && inst ? `, ${INST_NAMES[inst]}` : ''}${lockAt >= 0 ? `, lock on step ${lockAt + 1}, delete removes its lock` : ''}`}
+            aria-orientation="vertical"
+            aria-valuemin={bipolar ? -64 : 0}
+            aria-valuemax={bipolar ? 63 : 127}
+            aria-valuenow={v127(course, bipolar)}
+            aria-valuetext={dialReadout(d)}
+            onKeyDown={(e) => {
+              // Suppr : le verrou du pas en LOCK s'en va (deux tapes au pointeur), sinon la valeur de depart
+              if (e.key === 'Delete' || e.key === 'Backspace') {
+                e.preventDefault();
+                pageKnobReset(k);
+                return;
+              }
+              onPageKnobKey(d)(e);
+            }}
+          />
+        );
+      })}
+      {RYTM_PAGE_KEYS.map((pk) => (
+        <button
+          key={`pkey-${pk.id}`}
+          ref={refFor(`pkey-${pk.id}`)}
+          type="button"
+          className="v4-twin"
+          data-twin="pkey"
+          data-hotspot={`pkey-${pk.id}`}
+          aria-label={`${pk.label} page${rp.page === pk.id ? (rp.view === 'page' ? ', shown, press again for HOME' : ', press for the page view') : ''}`}
+          aria-pressed={rp.page === pk.id && rp.view === 'page'}
+          onKeyDown={noRepeat}
+          onClick={() => rytmPageKey(pk.id, stageRef.current)}
+        />
+      ))}
       <button
         ref={refFor('run')}
         type="button"
@@ -1310,10 +1622,12 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
       />
       {STEP_INDEXES.map((i) => {
         const on = rytmEdit ? i === ptns.cur : inst ? isOn(p.steps, inst, i) : false;
+        // Ses verrous (2026-10-08) : combien, et s'il est en LOCK
+        const nl = inst && !rytmEdit ? lockCount(p.locks, inst, i) : 0;
         const label = rytmEdit
           ? `Pattern ${slotName(i)}${patterns.filled(i) ? '' : ', empty'}${i === ptns.cur ? ', playing' : ''}. Tap to play it, tap others within two seconds to chain them, hold an empty one to copy the current pattern`
           : inst
-            ? `Step ${i + 1}, ${INST_NAMES[inst]} ${on ? 'on' : 'off'}`
+            ? `Step ${i + 1}, ${INST_NAMES[inst]} ${on ? 'on' : 'off'}${nl > 0 ? `, ${nl} lock${nl > 1 ? 's' : ''}` : ''}${lockAt === i ? ', in lock mode' : ''}. L: lock mode`
             : `Step ${i + 1}, no instrument selected`;
         return (
           <button
@@ -1330,6 +1644,10 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
               if (e.key === 'Delete' || e.key === 'Backspace') {
                 e.preventDefault();
                 stepClear(i, stage);
+              } else if ((e.key === 'l' || e.key === 'L') && !e.repeat && !rytmEdit) {
+                // L (2026-10-08) : ce pas en LOCK, ou hors LOCK s'il y est
+                e.preventDefault();
+                rytmLockToggle(i);
               } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
                 // Haut et bas : sa velocite (2026-10-05), un cran
                 e.preventDefault();

@@ -5,7 +5,8 @@
  * constantes de theme.ts. Le chassis en coin (faces avant et droite, leurs
  * chanfreins), le panneau incline (tranche et dessus), la serigraphie,
  * l'ecran OLED (MM-808, le tempo, READY), les 16 LED (le motif par defaut),
- * puis les volumes du plus lointain au plus proche : les six encodeurs, les
+ * puis les volumes du plus lointain au plus proche : MASTER, TEMPO et les huit
+ * potards de page (les six touches de page dessous, 2026-10-08), les
  * 12 pads (les pages en jaune faible), RUN, CLEAR, les 16 touches trig.
  * Aucune animation ; calcule une fois au chargement du module.
  */
@@ -15,12 +16,14 @@ import { BPM, DEFAULT_STEPS, INSTRUMENTS, isOn } from '../audio/pattern';
 import {
   BODY,
   ENCODER,
-  ENCODERS,
+  FACE_KNOBS,
   HEX,
   KEYS,
   OLED,
   ORBIT,
   PAD,
+  PAGE_KEYS,
+  RYTM_PAGE_KEYS,
   PADS,
   PANEL,
   PANEL_D,
@@ -32,7 +35,7 @@ import {
   TILT,
   TRANSPORT,
   chassisTopY,
-  encPos,
+  pageKeyX,
   keyDz,
   keyX,
   type SilkText,
@@ -263,13 +266,13 @@ function box(key: string, x: number, z: number, hx: number, hz: number, h: numbe
 
 /** Encodeur : flanc (enveloppe des deux cercles), dessus, repere bone. */
 function encoder(i: number, angleDeg: number): Solid {
-  const { x, z, s } = encPos(i);
+  const { x, z, s } = FACE_KNOBS[i];
   const ring = (r: number, y: number): V2[] =>
     Array.from({ length: 24 }, (_, k) => {
       const a = (k / 24) * Math.PI * 2;
       return P(panel(x + Math.cos(a) * r, y, z + Math.sin(a) * r));
     });
-  // La rangee VOICE, plus petite (ENCODER.voiceScale)
+  // A son echelle (les potards du telephone sont plus gros)
   const topY = ENCODER.h * s;
   const bottom = ring(ENCODER.r * s, 0);
   const top = ring(ENCODER.rTop * s, topY);
@@ -300,11 +303,21 @@ function encoder(i: number, angleDeg: number): Solid {
 }
 
 const potDeg = (t: number): number => TEMPO_UI.sweepDeg / 2 - TEMPO_UI.sweepDeg * t;
-const START: Record<string, number> = { tempo: (BPM.initial - BPM.min) / (BPM.max - BPM.min), tone: 0.5, stretch: 0.5, vdecay: 1, level: 0.8, vol: 0.8 };
+/**
+ * Les potards a l'arrivee : MASTER 80 %, TEMPO 130, les potards de page sur
+ * SRC du KICK (909, K.TUNE, ATTACK, DECAY, DRIVE, STRETCH a midi) ; B (TUNE,
+ * a venir) et G (vide) en bas, comme sur la machine (actions.ts
+ * pageKnobCourse, 2026-10-08).
+ */
+const START: Record<string, number> = { tempo: (BPM.initial - BPM.min) / (BPM.max - BPM.min), level: 0.8, p2: 0.5, p3: 0.5, p4: 0.45, p5: 0.25, p7: 0.5 };
 
 function solids(): React.ReactNode[] {
   const items: Solid[] = [];
-  ENCODERS.forEach((e, i) => items.push(encoder(i, potDeg(START[e.id] ?? 0))));
+  FACE_KNOBS.forEach((e, i) => items.push(encoder(i, potDeg(START[e.id] ?? 0))));
+  // Les touches de page (2026-10-08), sous les potards de page
+  RYTM_PAGE_KEYS.forEach((p, i) =>
+    items.push(box(`pkey-${p.id}`, pageKeyX(i), PAGE_KEYS.z, PAGE_KEYS.w / 2, PAGE_KEYS.d / 2, PAGE_KEYS.h, HEX.graphiteHi, C.clearSide, C.clearSide))
+  );
   const ph = PAD.height + PAD.dome;
   for (const p of PADS) {
     const page = p.kind !== 'voice';
@@ -366,7 +379,7 @@ const DRAWING = (
 export const StaticMachine: React.FC = () => (
   <svg className="v4-fallback-machine" viewBox={`0 0 ${VB_W} ${VB_H}`} role="img" aria-labelledby="v4-machine-title v4-machine-desc">
     <title id="v4-machine-title">MM-RYTM drum machine</title>
-    <desc id="v4-machine-desc">A black drum machine: a screen and six encoders, twelve pads, sixteen trig keys with a red RUN button.</desc>
+    <desc id="v4-machine-desc">A black drum machine: a screen, eight page encoders with six page keys, master and tempo, ten pads, sixteen trig keys with a red RUN button.</desc>
     {DRAWING}
   </svg>
 );

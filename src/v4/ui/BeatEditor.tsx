@@ -30,11 +30,15 @@
  * tombent sur les seize pas, les patterns sur une rangee au-dessus, les
  * rangees a la hauteur qui tient jusqu'au bas de la fenetre. Le cadrage ne
  * bouge pas. Au telephone, le panneau sous la machine reste.
+ * Les verrous (2026-10-08, l'etape R2 des parameter locks) : une case dont le
+ * pas a des verrous porte un petit point dans son coin (pale si le pas est
+ * vide : ses verrous attendent un coup).
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
 import { gesture, patternHold, patternTap } from '../actions';
 import { INSTRUMENTS, STEP_COUNT, VEL_MAX, VEL_NAMES, pattern, velocity } from '../audio/pattern';
+import { lockCount } from '../audio/locks';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
 import { PATTERN_SLOTS, patterns, slotName } from '../state/patterns';
@@ -362,13 +366,15 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
             <div key={inst} className="v4-beat-row" role="row" data-sel={inst === row ? '1' : '0'}>
               {STEPS.map((c) => {
                 const v = velocity(p.steps, inst, c);
+                const nl = lockCount(p.locks, inst, c);
                 return (
                   <div
                     key={c}
                     className="v4-beat-cell"
                     role="gridcell"
                     tabIndex={cell.r === r && cell.c === c ? 0 : -1}
-                    aria-label={`${inst} step ${c + 1}${v > 0 ? `, ${VEL_NAMES[v].toLowerCase()}` : ', empty'}`}
+                    aria-label={`${inst} step ${c + 1}${v > 0 ? `, ${VEL_NAMES[v].toLowerCase()}` : ', empty'}${nl > 0 ? `, ${nl} lock${nl > 1 ? 's' : ''}` : ''}`}
+                    data-lock={nl > 0 ? (v > 0 ? '1' : 'idle') : undefined}
                     aria-selected={v > 0}
                     data-beat={c % 4 === 0 ? '1' : '0'}
                     data-on={live(c) ? '1' : '0'}
@@ -376,6 +382,7 @@ export const BeatEditor: React.FC<Props> = ({ variant }) => {
                     onKeyDown={(e) => onCellKey(e, r, c)}
                   >
                     {v > 0 && <span className="v4-beat-hit" style={{ opacity: 0.35 + (0.65 * v) / VEL_MAX }} />}
+                    {nl > 0 && <span className="v4-beat-lock" aria-hidden="true" />}
                     {velCell && velCell.r === r && velCell.c === c && (
                       <span className="v4-beat-velnum" aria-hidden="true">
                         {v}

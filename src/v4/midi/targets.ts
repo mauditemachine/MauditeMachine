@@ -11,7 +11,13 @@
  *   parametre d'une voix sans la choisir ; :mute, la voix coupee, 0 ou 1),
  *   rytm:kit:<tweak>, rytm:pad:<voix>, rytm:step:<0-15>, rytm:run, clear,
  *   random, mute, solo, edit, open ; rytm:running (en marche, 0 ou 1 : un
- *   bouton a bascule dont la LED suit) ;
+ *   bouton a bascule dont la LED suit) ; depuis le 2026-10-08 (la refonte
+ *   facon Digitakt) rytm:knob:<1-8> (les potards de page A a H : ce que leur
+ *   bloc regle sur la page affichee, 0 a 127 comme l'ecran ; une autre page,
+ *   leurs valeurs repartent vers les potards motorises), rytm:page:<page>,
+ *   rytm:page (six crans) et rytm:home ; les verrous (2026-10-08, l'etape R2)
+ *   rytm:lock:<0-15> (le LOCK sur ce pas, encore : hors LOCK) et rytm:lock
+ *   (le pas choisi) ; en LOCK, rytm:knob regle les verrous du pas ;
  * - MM-ARP : voy:knob:<potard>, voy:pad:<0-7>, voy:run, clear, random,
  *   edit, open ; voy:running ; voy:infos (la touche i du grand ecran,
  *   2026-10-08) ;
@@ -26,7 +32,8 @@
  *   (state/bassload.ts, bass/midi.ts).
  */
 
-import { anyDial, anyDialValue, clearPattern, dialRange, dialSteps, editToggle, focusMachine, kitDial, machinesToggle, muteToggle, openToggle, padHit, patternTap, randomPattern, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
+import { anyDial, anyDialValue, clearPattern, dialRange, dialSteps, editToggle, focusMachine, kitDial, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmShowPage, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
+import { rytmPage } from '../state/rytmPage';
 import { clock } from '../audio/clock';
 import { voices as voiceState } from '../state/voices';
 import { arp } from '../voyager/arp';
@@ -37,7 +44,7 @@ import { VOICE_PARAMS, voiceFx, type VoiceParam } from '../audio/voicefx';
 import type { Stage } from '../scene/renderer';
 import { MACHINES, VOYAGER, type MachineId } from '../state/focus';
 import { PATTERN_SLOTS, slotName } from '../state/patterns';
-import { ENCODERS, PADS, isVoiceEnc, type Inst } from '../theme';
+import { ENCODERS, PADS, PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS, isVoiceEnc, type Inst } from '../theme';
 import { STEP_COUNT } from '../audio/pattern';
 import { CHORDS } from '../voyager/chords';
 import { VOY_KNOBS, voyParams } from '../voyager/params';
@@ -57,6 +64,12 @@ export interface MidiTarget {
   set?: (v: number) => void;
   /** crans (0 : continu) */
   steps?: number;
+  /**
+   * page : un potard de page (rytm:knob:1-8, 2026-10-08) ; ce qu'il regle,
+   * sa course et ses crans suivent la page affichee (le catalogue MIDI le dit
+   * au lieu de figer les crans de la page de depart)
+   */
+  follows?: 'page';
   down?: () => void;
   up?: () => void;
 }
@@ -89,7 +102,7 @@ function dialTarget(id: string, scope: TargetScope, label: string, dial: DialId)
 
 const press = (id: string, scope: TargetScope, label: string, fn: () => void): MidiTarget => ({ id, scope, label, kind: 'press', down: fn });
 
-const VOICE_LABEL: Readonly<Record<VoiceParam, string>> = { level: 'VOLUME', tone: 'TONE', decay: 'DECAY', dist: 'DIST', chorus: 'CHORUS', delay: 'DELAY', reverb: 'REVERB' };
+const VOICE_LABEL: Readonly<Record<VoiceParam, string>> = { level: 'VOLUME', tone: 'TONE', decay: 'DECAY', dist: 'DIST', chorus: 'CHORUS', delay: 'DELAY', reverb: 'REVERB', tune: 'TUNE', pan: 'PAN', start: 'START' };
 
 function coreTargets(): MidiTarget[] {
   const out: MidiTarget[] = [];
@@ -99,12 +112,14 @@ function coreTargets(): MidiTarget[] {
   const voices = PADS.filter((p) => p.kind === 'voice').map((p) => p.id as Inst);
   for (const inst of voices) {
     for (const p of VOICE_PARAMS) {
-      const bip = p === 'tone';
+      // A zero au centre : TONE, et TUNE et PAN (2026-10-08) ; TUNE a ses 49 crans (le demi-ton)
+      const bip = p === 'tone' || p === 'tune' || p === 'pan';
       out.push({
         id: `rytm:voice:${inst}:${p}`,
         scope: 'mm808',
         label: `${inst} ${VOICE_LABEL[p]}`,
         kind: 'value',
+        ...(p === 'tune' ? { steps: 49 } : {}),
         get: () => (bip ? (voiceFx.of(inst)[p] + 1) / 2 : voiceFx.of(inst)[p]),
         set: (v) => setVoiceFx(inst, p, bip ? v * 2 - 1 : v),
       });
@@ -148,8 +163,44 @@ function coreTargets(): MidiTarget[] {
       set: (v) => kitDial(k, v),
     });
   }
+  // Les potards de page (2026-10-08) : relatifs a la page, leur course, leurs crans et leur nom suivent la page
+  PAGE_KNOB_LETTERS.forEach((letter, k) => {
+    const dial = `p:${k}` as DialId;
+    const span = (): [number, number] => dialRange(dial);
+    out.push({
+      id: `rytm:knob:${k + 1}`,
+      scope: 'mm808',
+      label: `KNOB ${letter} (PAGE)`,
+      kind: 'value',
+      follows: 'page',
+      get steps() {
+        return dialSteps(dial);
+      },
+      // Un bloc vide, ou rien a regler (pas de voix choisie, pas de pas choisi) : 0, comme son repere sur
+      // la face (2026-10-08, revue de R1 : VOL sans voix renvoyait 102, une valeur que l'ecran ne montrait pas)
+      get: () => pageKnobCourse(k),
+      set: (v) => {
+        const [lo, hi] = span();
+        anyDial(dial, lo + v * (hi - lo));
+      },
+    });
+  });
+  for (const pk of RYTM_PAGE_KEYS) out.push(press(`rytm:page:${pk.id}`, 'mm808', `PAGE ${pk.label}`, () => rytmPageKey(pk.id, getStage())));
+  out.push({
+    id: 'rytm:page',
+    scope: 'mm808',
+    label: 'PAGE (TRIG TO FX)',
+    kind: 'value',
+    steps: RYTM_PAGE_KEYS.length,
+    get: () => Math.max(0, RYTM_PAGE_KEYS.findIndex((p) => p.id === rytmPage.get().page)) / (RYTM_PAGE_KEYS.length - 1),
+    set: (v) => rytmShowPage(RYTM_PAGE_KEYS[Math.max(0, Math.min(RYTM_PAGE_KEYS.length - 1, Math.round(v * (RYTM_PAGE_KEYS.length - 1))))].id),
+  });
+  out.push(press('rytm:home', 'mm808', 'HOME / PAGE SCREEN', () => rytmHome()));
   for (const inst of voices) out.push(press(`rytm:pad:${inst}`, 'mm808', `PAD ${inst}`, () => padHit(inst, getStage())));
   for (let i = 0; i < STEP_COUNT; i += 1) out.push(press(`rytm:step:${i}`, 'mm808', `STEP ${i + 1}`, () => void stepToggle(i, getStage())));
+  // Le LOCK (2026-10-08, les parameter locks) : un bouton par pas (encore : hors LOCK), et celui du pas choisi
+  for (let i = 0; i < STEP_COUNT; i += 1) out.push(press(`rytm:lock:${i}`, 'mm808', `LOCK STEP ${i + 1}`, () => rytmLockToggle(i)));
+  out.push(press('rytm:lock', 'mm808', 'LOCK (SELECTED STEP)', () => rytmLockToggle()));
   out.push(press('rytm:run', 'mm808', 'RUN/STOP', () => void runToggle(getStage())));
   out.push(press('rytm:clear', 'mm808', 'CLEAR', () => clearPattern(getStage())));
   out.push(press('rytm:random', 'mm808', 'RANDOM', () => randomPattern(getStage())));
@@ -257,10 +308,14 @@ export function targetsOf(scope: TargetScope): MidiTarget[] {
 }
 
 /** La cible d'une commande de la scene (ui/Hotspots.tsx, MIDI LEARN : on la touche, puis on bouge le controleur). */
-export function targetIdOfHotspot(h: { kind: string; param?: string; rknob?: string; inst?: string; index?: number; vpad?: number; vbtn?: string; vknob?: string; dj?: string; bass?: string }): string | null {
+export function targetIdOfHotspot(h: { kind: string; param?: string; rknob?: string; rpage?: string; inst?: string; index?: number; vpad?: number; vbtn?: string; vknob?: string; dj?: string; bass?: string }): string | null {
   switch (h.kind) {
     case 'encoder':
       return h.param ? `rytm:enc:${h.param}` : null;
+    case 'penc':
+      return typeof h.index === 'number' ? `rytm:knob:${h.index + 1}` : null;
+    case 'pkey':
+      return h.rpage ? `rytm:page:${h.rpage}` : null;
     case 'rknob':
       return h.rknob ? `rytm:kit:${h.rknob}` : null;
     case 'pad':

@@ -5045,3 +5045,306 @@ html:has(body.v4-active.v4-light) {
 .v4-root[data-v4-theme='light'] .v4-knob-cap {
   fill: #2a2b30;
 }
+
+/*
+ * PAGES du MM-RYTM (2026-10-08, ui/KnobPanel.tsx) : les six touches de page
+ * (un fin temoin orange sur la page affichee, a peine en vue HOME), puis les
+ * huit potards de page en 2 x 4 comme sous l'ecran, plus serres : la lettre
+ * du potard, son nom, sa valeur de 0 a 127 en grand, son unite dessous.
+ */
+.v4-knobs-pages {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+}
+
+.v4-root .v4-knobs-page {
+  position: relative;
+  height: 44px;
+  margin: 0;
+  padding: 8px 0 0;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--graphite);
+  color: var(--bone-70);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+}
+
+.v4-root .v4-knobs-page::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  width: 22px;
+  height: 3px;
+  margin-left: -11px;
+  border-radius: 2px;
+  background: rgba(246, 241, 231, 0.12);
+}
+
+.v4-root .v4-knobs-page[data-lit='1'] {
+  border-color: var(--orange);
+  color: var(--bone);
+}
+
+.v4-root .v4-knobs-page[data-lit='1']::before {
+  background: var(--orange);
+  box-shadow: 0 0 6px rgba(255, 106, 19, 0.6);
+}
+
+.v4-root .v4-knobs-page[data-lit='dim']::before {
+  background: rgba(255, 106, 19, 0.4);
+}
+
+/*
+ * Au doigt, 44 px au moins (revue de R1, 2026-10-08 : les voix etaient
+ * tombees a 32 px) : les voix, les touches de page et les onglets du
+ * MM-RYTM ; la hauteur se reprend sur les potards de page (un cadran de 40).
+ */
+.v4-root .v4-knobs[data-pages='1'] .v4-knobs-voice,
+.v4-root .v4-knobs[data-rytm='1'] .v4-knobs-tab {
+  height: 44px;
+}
+
+.v4-knob-page {
+  gap: 0;
+  padding: 3px 2px 3px;
+}
+
+.v4-knob-page .v4-knob-dial {
+  width: 40px;
+  height: 40px;
+}
+
+/* Quatre colonnes egales quoi qu'ecrivent les noms (un nom long se coupe, la grille ne deborde jamais) */
+.v4-knobs[data-pages='1'] .v4-knobs-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.v4-knob-page {
+  min-width: 0;
+}
+
+/* L'etiquette du bloc (la voix, ALL, NO BD), comme au bout de la ligne d'unite de l'ecran */
+.v4-knob-tag {
+  margin-left: 5px;
+  padding: 0 3px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  opacity: 0.75;
+}
+
+.v4-knob-page .v4-knob-value {
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 300;
+  line-height: 1.05;
+}
+
+.v4-knob-unit {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--bone-60);
+}
+
+.v4-knob-letter {
+  margin-right: 5px;
+  color: var(--bone-40, rgba(246, 241, 231, 0.4));
+}
+
+.v4-knob[data-soon='1'] {
+  opacity: 0.4;
+}
+
+.v4-knob-empty {
+  cursor: default;
+  background: rgba(246, 241, 231, 0.015);
+}
+
+@media (max-width: 767px) {
+  /* Avec les touches de page, la page KNOBS du MM-RYTM est un peu plus haute */
+  .v4-root:has(#v4-dock[data-page='knobs'] .v4-knobs[data-pages='1']) {
+    --knobs-h-mobile: 452px;
+  }
+}
+
+/*
+ * Le LOCK du MM-RYTM (2026-10-08, l'etape R2 des parameter locks, Mika : "on
+ * voit a l'ecran que quand le sequenceur passe sur ce step alors le
+ * changement est fait") : comme l'ecran de la machine, un potard verrouille
+ * sur le pas en LOCK passe en negatif (os plein, texte noir), la valeur de la
+ * voix en retrait, GLOBAL et NO LOCK a peine. La barre du LOCK prend la place
+ * des voix : la pastille LOCK 05, les verrous du pas, CLEAR et EXIT (44 px).
+ */
+.v4-knob-page[data-lock='locked'] {
+  border-radius: 12px;
+  background: var(--bone);
+  color: #0b0b0b;
+}
+
+.v4-knob-page[data-lock='locked'] .v4-knob-label,
+.v4-knob-page[data-lock='locked'] .v4-knob-letter,
+.v4-knob-page[data-lock='locked'] .v4-knob-value,
+.v4-knob-page[data-lock='locked'] .v4-knob-unit {
+  color: #0b0b0b;
+}
+
+.v4-knob-page[data-lock='locked'] .v4-knob-track {
+  stroke: rgba(0, 0, 0, 0.18);
+}
+
+.v4-knob-page[data-lock='locked'] .v4-knob-arc,
+.v4-knob-page[data-lock='locked'] .v4-knob-mark {
+  stroke: #0b0b0b;
+}
+
+.v4-knob-page[data-lock='locked'] .v4-knob-cap {
+  fill: rgba(0, 0, 0, 0.08);
+}
+
+.v4-knob-page[data-lock='base'] {
+  opacity: 0.62;
+}
+
+.v4-knob-page[data-lock='global'],
+.v4-knob-page[data-lock='nolock'] {
+  opacity: 0.34;
+}
+
+.v4-knobs-lockbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+}
+
+.v4-knobs-lock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.v4-knobs-lock-pill {
+  flex: none;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: var(--bone);
+  color: #0b0b0b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.v4-knobs-lock-what {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--bone-70);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+/* Le pas et ses verrous, puis la double tape qui en enleve un (revue de R2) */
+.v4-knobs-lock-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.v4-knobs-lock-tip {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--bone-70);
+  opacity: 0.72;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.v4-root .v4-knobs-lockkey {
+  height: 44px;
+  min-width: 64px;
+  margin: 0;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--graphite);
+  color: var(--bone);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+
+/* Les pas du Dock : un point sur ceux qui ont des verrous, le pas en LOCK cerne et qui clignote */
+.v4-root .v4-dock-step[data-locks='1']::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--bone);
+  pointer-events: none;
+}
+
+.v4-root .v4-dock-step[data-lockstep='1'] {
+  box-shadow:
+    0 0 0 2px var(--yellow-hi),
+    inset 0 0 0 2px #0b0b0b;
+  animation: v4-lock-blink 0.56s steps(2, jump-none) infinite;
+}
+
+@keyframes v4-lock-blink {
+  from {
+    box-shadow:
+      0 0 0 2px var(--yellow-hi),
+      inset 0 0 0 2px #0b0b0b;
+  }
+  to {
+    box-shadow:
+      0 0 0 2px rgba(255, 215, 94, 0.3),
+      inset 0 0 0 2px #0b0b0b;
+  }
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-dock-step[data-lockstep='1'] {
+  animation: none;
+}
+
+/* L'editeur du motif : un point dans le coin d'une case dont le pas a des verrous (pale sur un pas vide), noir cercle d'os : il se lit sur le jaune comme sur le gris */
+.v4-beat-lock {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #0b0b0b;
+  box-shadow: 0 0 0 1.5px var(--bone);
+  pointer-events: none;
+}
+
+.v4-beat-cell[data-lock='idle'] .v4-beat-lock {
+  opacity: 0.45;
+}

@@ -22,6 +22,11 @@
  * pour RUN/STOP en lecture, MUTE et SOLO actifs, un eclair a chaque appui
  * (le seul signe de CLEAR et RANDOM). Le Stage ne rend une frame que si un
  * trait a change.
+ *
+ * Les verrous (2026-10-08, l'etape R2 des parameter locks) : un pas qui a des
+ * verrous (la voix choisie) garde une lueur orange pale sur sa touche ; le
+ * pas en LOCK clignote, sa touche plus claire et ses traits en jaune (comme
+ * le trig tenu d'une Elektron). Rien en EDIT (les pas y sont les patterns).
  */
 
 import {
@@ -78,6 +83,9 @@ const BUTTON_X = [TRANSPORT.run.x, TRANSPORT.clear.x, TRANSPORT.mute.x, TRANSPOR
 const BTN_LED_Z = TRANSPORT.z - TRANSPORT.size / 2 + BTN_LED.back;
 
 const BARS = KEYS.velBars;
+
+/** Les lueurs des verrous (2026-10-08) : un pas verrouille, le pas en LOCK allume puis eteint (le clignotement). */
+const LOCK_GLOW = { locks: [0.075, 0.024, 0.003], step: [0.2, 0.135, 0.022], stepDim: [0.07, 0.045, 0.008] } as const;
 
 /** Teintes des traits, lues a la construction (l'apparence claire change line et ledHover). */
 let LED_HEX: Readonly<Record<Exclude<LedTone, 'none'>, number>> = { line: 0, ledSet: 0, ledHover: 0, yellowHi: 0 };
@@ -160,6 +168,10 @@ export interface SequencerInfo {
   buttonLeds: number[];
   playhead: number;
   hover: number;
+  /** les verrous (2026-10-08) : les pas qui en ont (masque), le pas en LOCK, sa phase */
+  lockMask: number;
+  lockStep: number;
+  lockBlink: boolean;
   /** velocite de chaque pas selon la regle 7.5 (0 vide, 1 fort, 2 moyen, 3 doux) */
   programmed: string;
   instrument: Inst | null;
@@ -203,6 +215,12 @@ export class Sequencer3D {
   private running = false;
   /** EDIT (2026-10-05) : les steps sont les seize patterns (state/patterns.ts) ; null : le motif */
   private patView: PatternView | null = null;
+  /** les verrous (2026-10-08) : les pas qui en ont (bit i), le pas en LOCK (-1), sa phase de clignotement */
+  private lockMask = 0;
+  private lockStep = -1;
+  private lockBlink = false;
+  /** l'appui en cours de chaque pas (0 a 1), pour composer sa lueur avec celle des verrous */
+  private keyPress = new Float32Array(STEP_COUNT);
 
   constructor(opts: { mobile: boolean } = { mobile: false }) {
     LED_HEX = { line: COLOR.line, ledSet: COLOR.ledSet, ledHover: COLOR.ledHover, yellowHi: COLOR.yellowHi };
@@ -386,11 +404,34 @@ export class Sequencer3D {
       this.keys.setColorAt(j, this.pressedColor(LIT.key, v));
       if (this.keys.instanceColor) this.keys.instanceColor.needsUpdate = true;
     }
-    const e = this.emissive.array as Float32Array;
-    e[j * 3] = STEP_PRESS.glow[0] * v;
-    e[j * 3 + 1] = STEP_PRESS.glow[1] * v;
-    e[j * 3 + 2] = STEP_PRESS.glow[2] * v;
+    this.keyPress[j] = v;
+    this.writeKeyGlow(j);
     this.emissive.needsUpdate = true;
+  }
+
+  /** La lueur d'une touche : celle de l'appui, ou celle de ses verrous si elle est plus forte (2026-10-08). */
+  private writeKeyGlow(j: number): void {
+    const e = this.emissive.array as Float32Array;
+    const v = this.keyPress[j];
+    const G = STEP_PRESS.glow;
+    const L = j === this.lockStep ? (this.lockBlink ? LOCK_GLOW.step : LOCK_GLOW.stepDim) : (this.lockMask >> j) & 1 ? LOCK_GLOW.locks : null;
+    for (let c = 0; c < 3; c += 1) e[j * 3 + c] = Math.max(G[c] * v, L ? L[c] : 0);
+  }
+
+  /**
+   * Les verrous sur les touches (2026-10-08) : mask, les pas qui en ont ;
+   * step, le pas en LOCK (-1 aucun) ; blink, la phase de son clignotement.
+   * true s'il faut une frame.
+   */
+  setLocks(mask: number, step: number, blink: boolean): boolean {
+    if (mask === this.lockMask && step === this.lockStep && blink === this.lockBlink) return false;
+    this.lockMask = mask;
+    this.lockStep = step;
+    this.lockBlink = blink;
+    for (let i = 0; i < STEP_COUNT; i += 1) this.writeKeyGlow(i);
+    this.emissive.needsUpdate = true;
+    this.refresh();
+    return true;
   }
 
   /**
@@ -409,6 +450,8 @@ export class Sequencer3D {
     }
     const n = VEL_BARS[this.programmed(i)];
     const head = i === this.playhead || i === this.introLed;
+    // Le pas en LOCK (2026-10-08) : ses traits clignotent en jaune (un pas vide : sa LED du bas)
+    if (i === this.lockStep && this.lockBlink) return b < Math.max(1, n) ? 'yellowHi' : 'none';
     if (b < n) return head ? 'yellowHi' : 'ledSet';
     if (b > 0) return 'none';
     return head ? 'yellowHi' : i === this.hover ? 'ledHover' : 'line';
@@ -534,6 +577,9 @@ export class Sequencer3D {
       buttonLeds: Array.from({ length: BUTTON_COUNT }, (_, j) => Math.round(this.ledLevel(j) * 100) / 100),
       playhead: this.playhead,
       hover: this.hover,
+      lockMask: this.lockMask,
+      lockStep: this.lockStep,
+      lockBlink: this.lockBlink,
       programmed,
       instrument: this.instrument,
     };

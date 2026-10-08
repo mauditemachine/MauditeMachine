@@ -186,6 +186,18 @@ function save(): void {
 /** Les familles touchees par un reglage (les potards du KICK : le kick ; SNAPPY : la caisse claire ; GATE : elle et le clap). */
 const familiesOf = (id: KitId): readonly KitFamily[] => (isFamily(id) ? [id] : id === 'snappy' ? ['sd'] : id === 'gate' ? ['sd', 'cp'] : ['bd']);
 
+/** Des potards du kit pour un coup verrouille (revue de R2, audio/locks.ts) : ceux du moment, sauf ceux du pas. */
+export type KitKnobs = Partial<Record<KitKnob, number>>;
+const knobsWith = (kn?: KitKnobs | null): Record<KitKnob, number> => (kn ? { ...state.knob, ...kn } : state.knob);
+
+/** La signature d'un son de la famille f qui joue m (un modele ou un echantillon), les potards du kit du moment. */
+function sigOf(f: KitFamily, m: KitSound, k: Readonly<Record<KitKnob, number>> = state.knob): string {
+  if (f === 'bd') return `${m}~${k.tune}~${k.attack}~${k.decay}~${k.drive}`;
+  if (f === 'sd') return `${m}~${k.snappy}~${k.gate}`;
+  if (f === 'cp') return `${m}~${k.gate}`;
+  return m;
+}
+
 const stText = (st: number): string => (st === 0 ? '0 ST' : `${st > 0 ? '+' : ''}${st} ST`);
 /** Le nom du son d'une famille : 909, 808, MM, ou celui de son echantillon (BLUEPRINT F). */
 function soundLabel(f: KitFamily): string {
@@ -246,17 +258,39 @@ export const kit = {
   sig(id: ShotId): string {
     const f = familyOf(id);
     if (!f) return 'mm';
-    const m = state.sample[f] ?? state.model[f];
-    const k = state.knob;
-    if (f === 'bd') return `${m}~${k.tune}~${k.attack}~${k.decay}~${k.drive}`;
-    if (f === 'sd') return `${m}~${k.snappy}~${k.gate}`;
-    if (f === 'cp') return `${m}~${k.gate}`;
-    return m;
+    return sigOf(f, state.sample[f] ?? state.model[f]);
+  },
+  /**
+   * Un son verrouille (2026-10-08, le sample lock d'un pas, audio/locks.ts) :
+   * ce que le calcul du son id doit savoir s'il joue `sound` (un modele ou la
+   * cle d'un echantillon de sa famille) au lieu du son du kit ; les potards
+   * du kit restent ceux du moment.
+   */
+  tweakWith(id: ShotId, sound: KitSound, kn?: KitKnobs | null): ShotTweak {
+    const f = familyOf(id);
+    // Les potards verrouilles du pas (revue de R2) a la place de ceux du kit
+    const k = knobsWith(kn);
+    const isModel = (KIT_MODELS as readonly string[]).includes(sound);
+    const model: KitModel = isModel ? (sound as KitModel) : f ? state.model[f] : 'mm';
+    return { model, tune: k.tune, attack: k.attack, decay: k.decay, drive: k.drive, snappy: k.snappy, gate: k.gate >= 0.5, ...(!isModel && f ? { sample: sound } : {}) };
+  },
+  /** Sa signature (la cle de l'echantillon verrouille). */
+  sigWith(id: ShotId, sound: KitSound, kn?: KitKnobs | null): string {
+    const f = familyOf(id);
+    return f ? sigOf(f, sound, knobsWith(kn)) : 'mm';
+  },
+  /** Le nom d'un son d'une famille (909, 808, MM, BLUEPRINT), pour l'ecran d'un verrou. */
+  soundName(f: KitFamily, sound: KitSound): string {
+    if ((KIT_MODELS as readonly string[]).includes(sound)) return KIT_MODEL_LABEL[sound as KitModel];
+    return sampleByKey(sound)?.label ?? String(sound).toUpperCase();
   },
   /** La valeur seule d'un TWEAK (sous un potard du telephone) : 909, 52 HZ, 216 MS, 50. */
   valueText(id: KitId): string {
     if (isFamily(id)) return soundLabel(id);
-    const v = state.knob[id];
+    return kit.knobText(id, state.knob[id]);
+  },
+  /** La valeur d'un potard du kit a v (un verrou de pas, revue de R2) : 52 HZ, 216 MS, ON, 50. */
+  knobText(id: KitKnob, v: number): string {
     if (id === 'gate') return GATE_LABELS[v >= 0.5 ? 1 : 0];
     // Un echantillon au kick : TUNE en demi-tons, DECAY en part de sa longueur
     if (id === 'tune') return state.sample.bd ? stText(sampleTuneSt(v)) : `${Math.round(kickHz(state.model.bd, v))} HZ`;

@@ -18,6 +18,11 @@
  * (effets, voix, MASTER et TEMPO, kick et sons du kit : ui/KnobPanel.tsx) ;
  * le choix de page est retenu (mm.v4.dock.page).
  *
+ * Le LOCK (2026-10-08, l'etape R2 des parameter locks) : l'appui long sur un
+ * pas le met en LOCK (il le vidait avant ; une tape passe toujours par vide,
+ * l'etude l'a garde par defaut) ; un pas qui a des verrous porte un point,
+ * le pas en LOCK clignote ; la page KNOBS regle ses verrous.
+ *
  * Repliable (2026-10-01, demande de Mika) : replie par defaut, la machine a
  * tout l'ecran ; une languette a fleche au bord du bas le deplie (et le
  * replie, posee alors sur son bord haut). Le choix est retenu
@@ -26,7 +31,9 @@
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { clearPattern, randomPattern, muteToggle, runToggle, selectInstrument, setTempo, soloToggle, stepClear, stepToggle } from '../actions';
+import { clearPattern, randomPattern, muteToggle, runToggle, rytmLockToggle, selectInstrument, setTempo, soloToggle, stepToggle } from '../actions';
+import { lockMask } from '../audio/locks';
+import { rytmLock } from '../state/rytmLock';
 import { clock } from '../audio/clock';
 import { BPM, INSTRUMENTS, STEP_COUNT, VEL_BARS, VEL_NAMES, pattern, velocity } from '../audio/pattern';
 import type { Stage } from '../scene/renderer';
@@ -68,6 +75,8 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
   const head = useSyncExternalStore(playhead.subscribe, playhead.get, playhead.get);
   const running = useSyncExternalStore(clock.subscribe, () => clock.running, () => clock.running);
   const v = useSyncExternalStore(voices.subscribe, voices.get, voices.get);
+  // Le pas en LOCK (2026-10-08)
+  const lockAt = useSyncExternalStore(rytmLock.subscribe, () => rytmLock.get().step, () => -1);
   // Un pas touche sans instrument : les instruments clignotent une fois
   const [nudge, setNudge] = useState(0);
   const [shown, setShown] = useState(readDockOpen);
@@ -86,11 +95,31 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
       /* stockage indisponible : le choix vaut pour la visite */
     }
   }, [shown]);
+  // La languette posee sur le bord haut du Dock deplie, a sa hauteur mesuree (revue de R2) : --dock-h-mobile (209 px)
+  // datait d'avant les onglets SEQUENCER / KNOBS, elle tombait sur eux ; le Dock change de hauteur avec sa page
+  const [dockH, setDockH] = useState(0);
+  useEffect(() => {
+    const el = dockRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(() => setDockH(el.offsetHeight));
+    ro.observe(el);
+    setDockH(el.offsetHeight);
+    return () => ro.disconnect();
+  }, []);
+  // Le LOCK pris par un appui long du Dock (revue de R2) : la page KNOBS s'ouvre (ses potards reglent les verrous du
+  // pas), et le Dock revient au SEQUENCER a la sortie du LOCK
+  const autoKnobs = useRef(false);
+  useEffect(() => {
+    if (lockAt >= 0 || !autoKnobs.current) return;
+    autoKnobs.current = false;
+    setPage('main');
+  }, [lockAt, setPage]);
   // Appui long sur un pas : le pas et l'instant du pointerdown ; le clic qui suit est ignore
   const hold = useRef<{ i: number; t: number } | null>(null);
   const skipClick = useRef(-1);
   const inst = p.instrument;
   const bpm = p.bpm;
+  const locks = lockMask(p.locks, inst);
 
   const onStep = (i: number): void => {
     if (!stepToggle(i, getStage())) setNudge((n) => n + 1);
@@ -103,6 +132,7 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
         className="v4-dock-tab"
         data-open={shown ? '1' : '0'}
         data-page={page}
+        style={shown && dockH > 0 ? { bottom: `${dockH - 4}px` } : undefined}
         aria-expanded={shown}
         aria-controls="v4-dock"
         aria-label={shown ? 'Hide the sequencer' : 'Show the sequencer'}
@@ -151,7 +181,7 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
                 }, 0);
             const on = vel > 0;
             const label = inst
-              ? `Step ${i + 1}, ${INST_NAMES[inst]} ${VEL_NAMES[vel].toLowerCase()}`
+              ? `Step ${i + 1}, ${INST_NAMES[inst]} ${VEL_NAMES[vel].toLowerCase()}${(locks >> i) & 1 ? ', locked' : ''}${lockAt === i ? ', in lock mode' : ''}. Hold: lock mode`
               : `Step ${i + 1}, no instrument selected`;
             return (
               <button
@@ -161,6 +191,8 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
                 data-on={on ? '1' : '0'}
                 data-vel={vel}
                 data-head={head === i ? '1' : '0'}
+                data-locks={(locks >> i) & 1 ? '1' : undefined}
+                data-lockstep={lockAt === i ? '1' : undefined}
                 aria-pressed={inst ? on : false}
                 aria-disabled={inst ? undefined : true}
                 aria-label={label}
@@ -172,7 +204,15 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
                   hold.current = null;
                   if (h && h.i === i && e.timeStamp - h.t >= STEP_HOLD_MS) {
                     skipClick.current = i;
-                    if (!stepClear(i, getStage())) setNudge((n) => n + 1);
+                    // L'appui long (2026-10-08) : le LOCK sur ce pas (encore : hors LOCK), la page KNOBS regle ses verrous
+                    if (!inst) setNudge((n) => n + 1);
+                    else {
+                      rytmLockToggle(i);
+                      if (rytmLock.get().step >= 0) {
+                        autoKnobs.current = true;
+                        setPage('knobs');
+                      }
+                    }
                   }
                 }}
                 onPointerCancel={() => {

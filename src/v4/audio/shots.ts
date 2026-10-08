@@ -29,6 +29,13 @@
  *   fil principal (relire un fichier ne coute presque rien, le worker n'a
  *   pas le fichier) une fois telecharge ; en attendant, la voix joue le son
  *   calcule le plus proche, puis le bon des qu'il est la.
+ * - Un coup verrouille (2026-10-08, les parameter locks, audio/locks.ts) :
+ *   son son (un "sample lock" : un autre son de sa famille, ou d'une autre)
+ *   et sa hauteur (TUNE) viennent du pas, pas du kit ; il passe par un
+ *   ShotOverride (le calcul et sa signature), joue toujours la variante 0,
+ *   et ses calculs en attente ne sont jamais purges par un reglage du kit
+ *   qui tourne (ils ne sont pas a lui). drums.ts les prepare a l'avance
+ *   (prepare), un coup verrouille arrive donc deja calcule.
  */
 
 import { KIT_FAMILIES, familyOf, kit, shotsOf } from './kit';
@@ -64,6 +71,17 @@ interface Job {
   /** le kit du moment pour ce son (audio/kit.ts), et sa signature dans la cle */
   tw: ShotTweak;
   sig: string;
+  /** un coup verrouille (2026-10-08) : jamais purge par un reglage du kit */
+  lock?: boolean;
+}
+
+/**
+ * Un son verrouille (2026-10-08) : ce que son calcul doit savoir (le son du
+ * pas au lieu de celui du kit) et sa signature dans la cle ; la variante 0.
+ */
+export interface ShotOverride {
+  tw: ShotTweak;
+  sig: string;
 }
 
 /** Un coup pret a partir : l'echantillon, et sa vitesse de lecture (1 : exact). */
@@ -91,11 +109,32 @@ const variantsOf = (id: ShotId): number => {
 /** La cle d'un echantillon : son, STRETCH, variante, frequence, hauteur, et la signature du kit (audio/kit.ts, 2026-10-04). */
 const cacheKey = (id: ShotId, k: number, v: number, sr: number, pk = 0, sig = kit.sig(id)): string => `${id}|${k}|${v}|${sr}|${pk}|${sig}`;
 
+/** Les echantillons dont les deux canaux different (un sample stereo) : le PAN d'un coup les garde stereo (drums.ts). */
+const stereoBufs = new WeakSet<AudioBuffer>();
+
 function toBuffer(L: Float32Array, R: Float32Array | null, sr: number): AudioBuffer {
   const b = new AudioBuffer({ length: L.length, numberOfChannels: 2, sampleRate: sr });
   b.copyToChannel(L, 0);
   b.copyToChannel(R ?? L, 1);
+  if (R && R !== L && differs(L, R)) stereoBufs.add(b);
   return b;
+}
+
+/**
+ * Deux canaux vraiment differents : leur ecart au-dessus de -40 dB du son
+ * (un fichier stereo en double mono reste mono pour le PAN, sa loi a
+ * puissance constante).
+ */
+function differs(L: Float32Array, R: Float32Array): boolean {
+  const n = Math.min(L.length, R.length);
+  let d = 0;
+  let e = 0;
+  for (let i = 0; i < n; i += 1) {
+    const x = L[i] - R[i];
+    d += x * x;
+    e += L[i] * L[i] + R[i] * R[i];
+  }
+  return d > 1e-4 * e;
 }
 
 function put(key: string, b: AudioBuffer): void {
@@ -159,6 +198,9 @@ function getWorker(): Worker | null {
   return worker;
 }
 
+/** Les calculs verrouilles qui attendent leur echantillon (2026-10-08) : repris a son arrivee. */
+const waitSample: Job[] = [];
+
 function pump(): void {
   if (busy) return;
   let j = queue.shift();
@@ -167,6 +209,9 @@ function pump(): void {
   // Un echantillon : sur le fil principal, une fois telecharge (son arrivee relance le calcul)
   if (j.tw.sample && !samplePcm(j.tw.sample)) {
     void loadSample(j.tw.sample);
+    // Un son verrouille : le kit ne le relancera pas, il attend ici son fichier
+    const key = j.key;
+    if (j.lock && !waitSample.some((w) => w.key === key)) waitSample.push(j);
     pump();
     return;
   }
@@ -185,8 +230,8 @@ function pump(): void {
   }, 0);
 }
 
-function enqueue(id: ShotId, k: number, v: number, sr: number, pk = 0, first = false): void {
-  const sig = kit.sig(id);
+function enqueue(id: ShotId, k: number, v: number, sr: number, pk = 0, first = false, ov: ShotOverride | null = null): void {
+  const sig = ov ? ov.sig : kit.sig(id);
   const key = cacheKey(id, k, v, sr, pk, sig);
   if (cache.has(key) || busy?.key === key) return;
   const at = queue.findIndex((j) => j.key === key);
@@ -196,8 +241,9 @@ function enqueue(id: ShotId, k: number, v: number, sr: number, pk = 0, first = f
     return;
   }
   // Un reglage du kit tourne : les calculs en attente d'un reglage depasse de ce son ne servent plus
-  for (let i = queue.length - 1; i >= 0; i -= 1) if (queue[i].id === id && queue[i].sig !== sig) queue.splice(i, 1);
-  const job = { key, id, sr, ts: keyTs(k), v, pk, tw: kit.tweak(id), sig };
+  // (ni ceux des verrous, 2026-10-08 : ils ne suivent pas le son du kit, gotcha 4 de l'etude)
+  if (!ov) for (let i = queue.length - 1; i >= 0; i -= 1) if (queue[i].id === id && queue[i].sig !== sig && !queue[i].lock) queue.splice(i, 1);
+  const job: Job = { key, id, sr, ts: keyTs(k), v, pk, tw: ov ? ov.tw : kit.tweak(id), sig, ...(ov ? { lock: true } : {}) };
   if (first) queue.unshift(job);
   else queue.push(job);
   pump();
@@ -225,6 +271,14 @@ kit.subscribe((changed) => {
 
 /** Un echantillon telecharge : les voix qui le jouent se recalculent (a STRETCH 0, la variante 0). */
 onSampleLoaded((key) => {
+  // Les sons verrouilles qui l'attendaient (2026-10-08)
+  for (let i = waitSample.length - 1; i >= 0; i -= 1) {
+    const j = waitSample[i];
+    if (j.tw.sample !== key) continue;
+    waitSample.splice(i, 1);
+    if (!cache.has(j.key) && !queue.some((q) => q.key === j.key)) queue.push(j);
+  }
+  pump();
   if (warmSr === 0) return;
   for (const f of KIT_FAMILIES) if (kit.get().sample[f] === key) for (const id of shotsOf(f)) enqueue(id, 0, 0, warmSr);
 });
@@ -256,15 +310,19 @@ export const shots = {
    * (rendu hors ligne), jamais null. Sans sync, null quand ce son n'a encore
    * rien de pret (le coup ne joue pas, son son passe en tete de file).
    */
-  get(id: ShotId, ts: number, pf: number, sr: number, sync = false): ShotPlay | null {
-    const n = variantsOf(id);
-    let v = n > 1 ? Math.floor(Math.random() * (n - 1)) : 0;
-    if (n > 1 && v >= (lastVar.get(id) ?? -1)) v += 1;
-    v = Math.min(n - 1, v);
-    lastVar.set(id, v);
+  get(id: ShotId, ts: number, pf: number, sr: number, sync = false, ov: ShotOverride | null = null): ShotPlay | null {
+    // Un coup verrouille (2026-10-08) : la variante 0, la rotation des autres coups n'en sait rien
+    let v = 0;
+    if (!ov) {
+      const n = variantsOf(id);
+      v = n > 1 ? Math.floor(Math.random() * (n - 1)) : 0;
+      if (n > 1 && v >= (lastVar.get(id) ?? -1)) v += 1;
+      v = Math.min(n - 1, v);
+      lastVar.set(id, v);
+    }
     const k = shotKey(ts);
     const pk = pitchKey(pf);
-    const sig = kit.sig(id);
+    const sig = ov ? ov.sig : kit.sig(id);
     const key = cacheKey(id, k, v, sr, pk, sig);
     const hit = cache.get(key);
     if (hit) return { buf: hit, rate: 1 };
@@ -286,15 +344,30 @@ export const shots = {
       }
       if (best) {
         stats.nearest += 1;
-        enqueue(id, k, v, sr, pk);
+        enqueue(id, k, v, sr, pk, false, ov);
         return { buf: best, rate: pf / keyPf(bestPk) };
       }
       stats.skipped += 1;
-      enqueue(id, k, v, sr, pk, true);
+      enqueue(id, k, v, sr, pk, true, ov);
       return null;
     }
     stats.sync += 1;
-    return { buf: makeNow({ key, id, sr, ts: keyTs(k), v, pk, tw: kit.tweak(id), sig }), rate: 1 };
+    return { buf: makeNow({ key, id, sr, ts: keyTs(k), v, pk, tw: ov ? ov.tw : kit.tweak(id), sig }), rate: 1 };
+  },
+  /**
+   * Un coup verrouille prepare a l'avance (2026-10-08, drums.ts prepareLocks) :
+   * calcule en fond s'il manque, la variante 0 ; rien s'il est deja la.
+   */
+  prepare(id: ShotId, ts: number, pf: number, sr: number, ov: ShotOverride | null): void {
+    enqueue(id, shotKey(ts), 0, sr, pitchKey(pf), false, ov);
+  },
+  /** Un echantillon aux deux canaux differents (un sample stereo, revue de R2) ? */
+  isStereo(b: AudioBuffer): boolean {
+    return stereoBufs.has(b);
+  },
+  /** Ce coup est-il deja calcule (tests : un verrou prepare a l'avance) ? */
+  ready(id: ShotId, ts: number, pf: number, sr: number, ov: ShotOverride | null): boolean {
+    return cache.has(cacheKey(id, shotKey(ts), 0, sr, pitchKey(pf), ov ? ov.sig : kit.sig(id)));
   },
   /** La rotation des variantes repart du debut (rendus hors ligne reproductibles). */
   resetRotation(): void {

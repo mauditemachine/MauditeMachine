@@ -2,9 +2,12 @@
  * Les pages du MM-RYTM facon Digitakt (2026-10-08, etape 1, Mika : "8
  * encodeurs assignables a condition de presser les bonnes touches ; l'ecran
  * divise en 8 blocs ; j'adore l'ecran, je veux le meme ecran mais plus
- * utilise ; allons-y petit a petit"). Six pages, TRIG SRC FLTR AMP FX LFO,
- * de huit blocs chacune (A B C D en haut, E F G H dessous, la place des
- * futurs potards sous l'ecran). Un bloc ne fait que montrer un reglage qui
+ * utilise ; allons-y petit a petit"). Six pages, TRIG SRC SMPL FLTR AMP FX
+ * depuis le 2026-10-08 (l'ordre de l'Analog Rytm, Mika : "comme la ANALOG
+ * Rytm ou on peut mettre des samples mais le kick peut etre parametre comme
+ * une machine" : SMPL prend la place de LFO, qui viendra plus tard), de
+ * huit blocs chacune (A B C D en haut, E F G H dessous, au-dessus des huit
+ * potards de page de la face). Un bloc ne fait que montrer un reglage qui
  * existe deja (un DialId, ou la velocite du pas choisi) : aucun nouveau
  * parametre, aucun changement du son a cette etape.
  * - label vide : un bloc vide (rien de dessine) ;
@@ -17,44 +20,67 @@
  *   l'ecran le dit (NO BD) quand BD est la voix choisie.
  * SRC depend de la famille de la voix : le KICK a ses quatre potards, la
  * caisse claire SNAPPY et GATE, le clap GATE, les autres rien de plus.
- * Une table pure : elle n'importe que des types et familyOf.
+ * SMPL : SAMPLE, l'echantillon de la voix (OFF : le son de synthese de SRC
+ * joue ; sinon l'un des echantillons de sa famille), le reste a venir.
+ * Les reglages a venir ne se dessinent pas (SHOW_SOON, 2026-10-08) : une
+ * grille de blocs SOON se lisait comme un travail pas fini ; la table les
+ * garde pour les etapes suivantes (R2, R3), qui n'ont qu'a les brancher.
+ * Une table pure : elle n'importe que des types, familyOf et la liste des
+ * touches (theme.ts).
+ *
+ * Les verrous (2026-10-08, l'etape R2, audio/locks.ts) : lock dit ce qu'un
+ * bloc verrouille sur le pas en LOCK (vel : la velocite du pas elle-meme ;
+ * snd : le son, SOUND et SAMPLE ; level, decay, tune, pan, start). Un bloc
+ * de toute la machine (ALL) n'est jamais verrouillable (GLOBAL a l'ecran) ;
+ * un bloc de voix sans lock ne l'est pas encore (TONE, DIST et CHORUS de la
+ * voix : des inserts de sa tranche, leur verrou viendra, l'ecran le dit).
+ * TUNE (SRC), PAN (AMP) et START (SMPL) arrivent avec, pour toutes les voix ;
+ * depuis la revue de R2, les potards de la machine (K.TUNE ATTACK DECAY
+ * DRIVE, SNAPPY, GATE) et les envois DELAY et REVERB de la voix aussi.
  */
 
 import type { DialId } from '../actions';
+import type { LockKey } from '../audio/locks';
 import { familyOf, type KitFamily } from '../audio/kit';
 import type { ShotId } from '../audio/shotsdsp';
-import type { Inst } from '../theme';
+import { RYTM_PAGE_KEYS, type Inst } from '../theme';
 
-export type RytmPageId = 'trig' | 'src' | 'fltr' | 'amp' | 'fx' | 'lfo';
+export type RytmPageId = (typeof RYTM_PAGE_KEYS)[number]['id'];
 
-/** L'ordre des pages (les touches [ et ] en font le tour). */
-export const RYTM_PAGES: readonly { id: RytmPageId; label: string }[] = [
-  { id: 'trig', label: 'TRIG' },
-  { id: 'src', label: 'SRC' },
-  { id: 'fltr', label: 'FLTR' },
-  { id: 'amp', label: 'AMP' },
-  { id: 'fx', label: 'FX' },
-  { id: 'lfo', label: 'LFO' },
-];
+/** L'ordre des pages (les touches de page, [ et ] en font le tour). */
+export const RYTM_PAGES: readonly { id: RytmPageId; label: string }[] = RYTM_PAGE_KEYS;
+
+/**
+ * Les reglages a venir a l'ecran (2026-10-08, revue de l'etape R1) : non, ils
+ * ne se dessinent pas, leur bloc est vide comme un emplacement libre (Mika :
+ * "je ne vois AUCUN changement", une grille de SOON gris le confirmait).
+ */
+export const SHOW_SOON = false;
 
 /** La page de depart : SRC, ou le KICK montre six blocs vivants. */
 export const DEFAULT_PAGE: RytmPageId = 'src';
 
 /**
- * Etape 1 : la page suit le reglage touche (le seul moyen de la rendre utile
- * avant les touches de page) ; l'etape 2 la fixera (false).
+ * La page ne suit plus le reglage touche (2026-10-08, les touches de page
+ * existent) : un potard absolu (TWEAKS sous le capot, MIDI rytm:enc:...)
+ * n'allume son bloc que sur la page affichee.
  */
-export const FOLLOW_TOUCH = true;
+export const FOLLOW_TOUCH = false;
 
-/** Ce que montre un bloc : un potard (DialId), ou la velocite du pas choisi. */
-export type SlotTarget = DialId | 'step:vel';
+/**
+ * Ce que montre un bloc : un potard (DialId), la velocite du pas choisi
+ * (step:vel), l'echantillon de la voix (smpl:sample : OFF, ou l'un des
+ * echantillons de sa famille ; le meme choix de son du kit que SOUND, sans
+ * les sons de synthese).
+ */
+export type SlotTarget = DialId | 'step:vel' | 'smpl:sample';
 
 /**
  * Le dessin d'un bloc : les images des cartes de l'ecran (level, tone,
- * decay, swing, stretch), des crans (notch), une barre (bar), une barre
- * depuis le centre (barc).
+ * decay, swing, stretch), des crans (notch), un petit potard (bar), un
+ * petit potard depuis le centre (barc).
  */
-export type SlotDraw = 'level' | 'tone' | 'decay' | 'swing' | 'stretch' | 'notch' | 'bar' | 'barc';
+export type SlotDraw = 'level' | 'tone' | 'decay' | 'swing' | 'stretch' | 'notch' | 'bar' | 'barc' | 'start';
 
 export interface PageSlot {
   /** '' : bloc vide */
@@ -65,6 +91,10 @@ export interface PageSlot {
   draw: SlotDraw;
   /** effet global que le kick ne recoit pas */
   noBd?: boolean;
+  /** la voix choisie en etiquette (la rangee du haut de FX : les effets de CETTE voix, sous ceux de toute la machine) */
+  voiceTag?: boolean;
+  /** ce qu'il verrouille sur le pas en LOCK (2026-10-08) ; absent : pas verrouillable (encore) */
+  lock?: LockKey | 'vel';
 }
 
 export const isRytmPage = (v: unknown): v is RytmPageId => RYTM_PAGES.some((p) => p.id === v);
@@ -79,9 +109,13 @@ const live = (label: string, target: SlotTarget, draw: SlotDraw, scope: PageSlot
   draw,
   ...(noBd ? { noBd } : {}),
 });
+/** Un effet de la voix (la rangee du haut de FX) : la voix en etiquette ; DELAY et REVERB se verrouillent (revue de R2). */
+const voiceFxSlot = (label: string, target: SlotTarget, lock?: LockKey): PageSlot => ({ ...live(label, target, 'bar'), voiceTag: true, ...(lock ? { lock } : {}) });
+/** Un reglage de voix verrouillable pas par pas (2026-10-08). */
+const lockable = (label: string, target: SlotTarget, draw: SlotDraw, lock: LockKey | 'vel'): PageSlot => ({ ...live(label, target, draw), lock });
 
 const TRIG: readonly PageSlot[] = [
-  live('VEL', 'step:vel', 'level'),
+  lockable('VEL', 'step:vel', 'level', 'vel'),
   soon('PROB'),
   soon('MICRO'),
   soon('COND'),
@@ -91,29 +125,31 @@ const TRIG: readonly PageSlot[] = [
   live('SWING', 'swing', 'swing', 'all'),
 ];
 
-const FLTR: readonly PageSlot[] = [soon('F.ATK'), soon('F.DEC'), EMPTY, EMPTY, live('TONE', 'tone', 'tone'), soon('RESO'), soon('TYPE'), soon('ENV')];
+/** SMPL, dans l'ordre de l'Analog Rytm : TUNE FINE BR SAMPLE, START END LOOP LEVEL. */
+const SMPL: readonly PageSlot[] = [soon('TUNE'), soon('FINE'), soon('BR'), lockable('SAMPLE', 'smpl:sample', 'notch', 'snd'), lockable('START', 'vstart', 'start', 'start'), soon('END'), soon('LOOP'), soon('LEVEL')];
 
-const AMP: readonly PageSlot[] = [soon('ATK'), soon('HOLD'), live('DEC', 'vdecay', 'decay'), EMPTY, EMPTY, EMPTY, soon('PAN'), live('VOL', 'vol', 'level')];
+const FLTR: readonly PageSlot[] = [soon('ATK'), soon('DEC'), EMPTY, EMPTY, live('TONE', 'tone', 'tone'), soon('RESO'), soon('TYPE'), soon('ENV')];
+
+const AMP: readonly PageSlot[] = [soon('ATK'), soon('HOLD'), lockable('DEC', 'vdecay', 'decay', 'decay'), EMPTY, EMPTY, EMPTY, lockable('PAN', 'vpan', 'barc', 'pan'), lockable('VOL', 'vol', 'level', 'level')];
 
 /** En haut les effets de la voix, dessous ceux de toute la machine, colonne par colonne. */
 const FX: readonly PageSlot[] = [
-  live('DIST', 'vdist', 'bar'),
-  live('CHORUS', 'vchorus', 'bar'),
-  live('DELAY', 'vdelay', 'bar'),
-  live('REVERB', 'vreverb', 'bar'),
+  voiceFxSlot('DIST', 'vdist'),
+  voiceFxSlot('CHORUS', 'vchorus'),
+  voiceFxSlot('DELAY', 'vdelay', 'delay'),
+  voiceFxSlot('REVERB', 'vreverb', 'reverb'),
   live('DIST', 'dist', 'bar', 'all', true),
   live('CHORUS', 'chorus', 'bar', 'all', true),
   live('DELAY', 'delay', 'bar', 'all', true),
   live('REVERB', 'reverb', 'bar', 'all', true),
 ];
 
-const LFO: readonly PageSlot[] = ['SPEED', 'MULT', 'FADE', 'DEST', 'WAVE', 'PHASE', 'MODE', 'DEPTH'].map((l) => soon(l));
-
 /** SRC : C a F selon la famille de la voix (le KICK, la caisse claire, le clap ; rien pour les autres). */
 function srcMiddle(f: KitFamily | null): readonly PageSlot[] {
-  if (f === 'bd') return [live('K.TUNE', 'r:tune', 'barc'), live('ATTACK', 'r:attack', 'bar'), live('DECAY', 'r:decay', 'decay'), live('DRIVE', 'r:drive', 'bar')];
-  if (f === 'sd') return [live('SNAPPY', 'r:snappy', 'bar'), live('GATE', 'r:gate', 'notch'), EMPTY, EMPTY];
-  if (f === 'cp') return [EMPTY, live('GATE', 'r:gate', 'notch'), EMPTY, EMPTY];
+  // Les potards de la machine se verrouillent pas par pas (revue de R2, Mika : "le kick peut etre parametre comme une machine")
+  if (f === 'bd') return [lockable('K.TUNE', 'r:tune', 'barc', 'ktune'), lockable('ATTACK', 'r:attack', 'bar', 'kattack'), lockable('DECAY', 'r:decay', 'decay', 'kdecay'), lockable('DRIVE', 'r:drive', 'bar', 'kdrive')];
+  if (f === 'sd') return [lockable('SNAPPY', 'r:snappy', 'bar', 'snappy'), lockable('GATE', 'r:gate', 'notch', 'gate'), EMPTY, EMPTY];
+  if (f === 'cp') return [EMPTY, lockable('GATE', 'r:gate', 'notch', 'gate'), EMPTY, EMPTY];
   return [EMPTY, EMPTY, EMPTY, EMPTY];
 }
 
@@ -124,42 +160,63 @@ function src(inst: Inst | null): readonly PageSlot[] {
   const key = f ?? 'none';
   let slots = SRC_CACHE.get(key);
   if (!slots) {
-    // A : le son de la famille (le choix de son du kit), B : TUNE a venir (toutes les voix), G : START a venir
-    slots = [live('SOUND', 'vsound', 'notch'), soon('TUNE'), ...srcMiddle(f), soon('START'), live('STRETCH', 'stretch', 'stretch', 'all')];
+    // A : le son de la famille (le choix de son du kit), B : TUNE (toutes les voix, au demi-ton, 2026-10-08), G : vide (START est sur SMPL)
+    slots = [lockable('SOUND', 'vsound', 'notch', 'snd'), lockable('TUNE', 'vtune', 'barc', 'tune'), ...srcMiddle(f), EMPTY, live('STRETCH', 'stretch', 'stretch', 'all')];
     SRC_CACHE.set(key, slots);
   }
   return slots;
 }
 
-/** Les huit blocs d'une page pour la voix choisie (null : aucune). */
-export function pageSlots(page: RytmPageId, inst: Inst | null): readonly PageSlot[] {
+/** Les huit blocs de la table d'une page (les reglages a venir compris). */
+function tableOf(page: RytmPageId, inst: Inst | null): readonly PageSlot[] {
   switch (page) {
     case 'trig':
       return TRIG;
     case 'src':
       return src(inst);
+    case 'smpl':
+      return SMPL;
     case 'fltr':
       return FLTR;
     case 'amp':
       return AMP;
-    case 'fx':
-      return FX;
     default:
-      return LFO;
+      return FX;
   }
+}
+
+/** Un reglage a venir tant qu'il ne se montre pas (SHOW_SOON) : un emplacement vide. */
+const SHOWN = new WeakMap<readonly PageSlot[], readonly PageSlot[]>();
+function shown(slots: readonly PageSlot[]): readonly PageSlot[] {
+  if (SHOW_SOON) return slots;
+  let out = SHOWN.get(slots);
+  if (!out) {
+    out = slots.map((s) => (s.label && s.target === null ? EMPTY : s));
+    SHOWN.set(slots, out);
+  }
+  return out;
+}
+
+/** Les huit blocs d'une page pour la voix choisie (null : aucune), tels que l'ecran, le Dock et le MIDI les voient. */
+export function pageSlots(page: RytmPageId, inst: Inst | null): readonly PageSlot[] {
+  return shown(tableOf(page, inst));
 }
 
 /**
  * La page et le bloc d'un reglage pour cette voix, null s'il n'est sur
  * aucune page (MASTER, TEMPO, le MM-ARP) : un choix de son r:<famille> est
  * SOUND quand c'est la famille de la voix, un potard du kit seulement quand
- * la famille de la voix le porte (SNAPPY pour la caisse claire...).
+ * la famille de la voix le porte (SNAPPY pour la caisse claire...). page :
+ * celle qu'on regarde, d'abord (SOUND et SAMPLE sont le meme reglage).
  */
-export function slotOf(t: SlotTarget, inst: Inst | null): { page: RytmPageId; k: number } | null {
+export function slotOf(t: SlotTarget, inst: Inst | null, page?: RytmPageId): { page: RytmPageId; k: number } | null {
   const f = inst ? familyOf(inst as ShotId) : null;
-  if (t.startsWith('r:') && f !== null && t.slice(2) === f) return { page: 'src', k: 0 };
-  for (const { id } of RYTM_PAGES) {
-    const k = pageSlots(id, inst).findIndex((s) => s.target === t);
+  const target: SlotTarget = t.startsWith('r:') && f !== null && t.slice(2) === f ? 'vsound' : t;
+  // Le choix du son : SOUND (SRC) et SAMPLE (SMPL) en sont deux vues
+  const same = (s: PageSlot): boolean => s.target === target || (target === 'vsound' && s.target === 'smpl:sample') || (target === 'smpl:sample' && s.target === 'vsound');
+  const order = page ? [page, ...RYTM_PAGES.map((p) => p.id).filter((id) => id !== page)] : RYTM_PAGES.map((p) => p.id);
+  for (const id of order) {
+    const k = pageSlots(id, inst).findIndex(same);
     if (k >= 0) return { page: id, k };
   }
   return null;
