@@ -214,6 +214,17 @@ function shown(o: Object3D): boolean {
   return true;
 }
 
+/**
+ * Un calque (ou l'un de ses parents) marque userData.noPick : ses objets ne
+ * repondent plus, meme dessines (2026-10-08, la revue de l'OPEN : le capot
+ * leve sort du cadre ouvert, ses touches ne volent plus les touchers de la
+ * carte). Ils cachent toujours ce qui est derriere eux (visible()).
+ */
+function pickable(o: Object3D): boolean {
+  for (let p: Object3D | null = o; p; p = p.parent) if (p.userData.noPick === true) return false;
+  return true;
+}
+
 /** Enveloppe convexe (chaine monotone d'Andrew) ; entree et sortie [x, y, ...]. */
 function hull(pts: number[]): number[] {
   const n = pts.length / 2;
@@ -491,11 +502,23 @@ export class HitMap {
       const l = layers[i];
       l.updateWorldMatrix(true, false);
       this.putMatrix(l.matrixWorld.elements);
-      this.put(shown(l) ? 1 : 0);
+      this.put(shown(l) ? (pickable(l) ? 1 : 2) : 0);
     }
     this.put(this.active === 'any' ? 2 : this.active === null ? 0 : this.active === 'mm808' ? 3 : this.active === 'voy' ? 4 : 5);
     const defs = this.defs;
-    for (let i = 0; i < defs.length; i += 1) this.put(defs[i].enabled ? 1 : 0);
+    // Le drapeau et la forme de chaque objet : une cible qui change de forme (un selecteur des TWEAKS
+    // dont la legende se replie, 2026-10-08) se reprojette sans qu'on ait a le demander
+    for (let i = 0; i < defs.length; i += 1) {
+      const d = defs[i];
+      this.put(d.enabled ? 1 : 0);
+      this.put(d.shape === 'box' ? 1 : 0);
+      this.put(d.x);
+      this.put(d.z);
+      this.put(d.hx);
+      this.put(d.hz);
+      this.put(d.y0);
+      this.put(d.y1);
+    }
     if (this.sig.length !== this.si) {
       this.sig.length = this.si;
       this.sd = true;
@@ -634,7 +657,7 @@ export class HitMap {
         id: def.id,
         kind: def.kind,
         shape: def.shape,
-        enabled: this.live(def) && shown(def.layer),
+        enabled: this.live(def) && shown(def.layer) && pickable(def.layer),
         ...(def.inst ? { inst: def.inst } : {}),
         ...(def.index !== undefined ? { index: def.index } : {}),
         ...(def.section ? { section: def.section } : {}),

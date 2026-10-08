@@ -52,6 +52,7 @@ import { bassExplode, explode, voyExplode } from './state/explode';
 import { bassInfos } from './state/bassInfos';
 import { voyInfos } from './state/voyInfos';
 import { BassInfosKey } from './ui/BassInfosKey';
+import { VoyInfosKey } from './ui/VoyInfosKey';
 import { BASS, DJ, focus, VOYAGER } from './state/focus';
 import { FLAGS, syncFlags } from './state/flags';
 import { intro } from './state/intro';
@@ -576,12 +577,15 @@ const V4Shell: React.FC = () => {
           )}
           {/* Deux machines : leurs noms, le retour a la vue d'ensemble, le selecteur du telephone */}
           {VOYAGER && <MachineNav stage={stage} mobile={mobile} />}
-          {/* Machine ouverte au telephone : CLOSE a portee de pouce, sur l'avant de la carte */}
-          {mobile && <PcbClose getStage={getStage} />}
+          {/* Machine ouverte au telephone : CLOSE a portee de pouce, sur l'avant de la carte ; la forme debout
+              (PORTRAIT, choisie au chargement) le garde meme une fois la fenetre elargie (2026-10-08, la revue :
+              un telephone tourne en paysage posait la touche CLOSE de la carte sur INFOS ou SCOPE) */}
+          {(mobile || PORTRAIT) && <PcbClose getStage={getStage} />}
           {/* Desktop : CLOSE sur la plaque de la machine ouverte (2026-10-05, ui/HoodClose.tsx) */}
-          {!mobile && <HoodClose getStage={getStage} />}
-          {/* Le MM-BASS ouvert : INFOS sur sa plaque (2026-10-08, ui/BassInfosKey.tsx) */}
+          {!mobile && !PORTRAIT && <HoodClose getStage={getStage} />}
+          {/* Le MM-BASS ouvert : INFOS sur sa plaque (2026-10-08, ui/BassInfosKey.tsx) ; le MM-ARP aussi */}
           <BassInfosKey getStage={getStage} />
+          {VOYAGER && <VoyInfosKey getStage={getStage} />}
           {/* L'en-tete : fin sur desktop ; logo et hamburger sur mobile (2026-10-01) */}
           {mobile ? <MobileHeader getStage={getStage} /> : <Header getStage={getStage} />}
           <Trace stage={stage} panelRef={panelRef} mobile={mobile} />

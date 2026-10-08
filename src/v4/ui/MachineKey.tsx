@@ -74,7 +74,8 @@ export const MachineKey: React.FC<Props> = ({ getStage, layer, spot, className, 
       last = key;
       el.style.width = `${Math.round(w)}px`;
       el.style.height = `${Math.round(h)}px`;
-      el.style.fontSize = `${Math.max(8, Math.min(14, h * 0.42)).toFixed(1)}px`;
+      // De petites capitales (2026-10-08, les touches fines sur la carte)
+      el.style.fontSize = `${Math.max(8.5, Math.min(12, h * 0.44)).toFixed(1)}px`;
       el.style.transform = `translate(${x}px, ${y}px)`;
       el.style.visibility = 'visible';
     };

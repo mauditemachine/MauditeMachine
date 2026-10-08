@@ -133,14 +133,14 @@ import { Machine } from './machine';
 import { Orbit } from './orbit';
 import { Pads } from './pads';
 import { Pcb } from './pcb';
-import { RYTM_TWEAK_PLATE, RytmTweaks, rytmTweakClear } from './rytmTweaks';
+import { RYTM_OPEN_FRAME, RytmTweaks, rytmTweakClear } from './rytmTweaks';
 import { Screen } from './screen';
 import { BackPlate } from './backplate';
 import { BUTTON_INDEX, Sequencer3D, type TransportButton } from './sequencer3d';
 import { PanelSilk, fontsReady, makeBrushTexture, whenFonts, whenLogos } from './silk';
 import { Tweens, easeInOutCubic, easeOutCubic, linear } from './tween';
 import { VoyagerRig } from '../voyager/rig';
-import { VOY_BODY, VOY_FRAME, VOY_TWEAK_PLATE, VOY_X } from '../voyager/theme';
+import { VOY_BODY, VOY_FRAME, VOY_OPEN_FRAME, VOY_X } from '../voyager/theme';
 import type { DjRig } from '../dj/rig';
 import { djLoad } from '../state/djload';
 import { DJ_FRAME, DJ_TOP_Y, DJ_W, DJ_X, UNIT_X, unitW } from '../dj/theme';
@@ -213,7 +213,8 @@ const FOCUS_MS = 450;
  * Le bout de la voisine (desktop) : son bord a px du bord de l'ecran (52 px depuis le 2026-10-07,
  * Mika : "en voyant la machine de droite pour qu'on puisse cliquer dessus et switcher rapidement").
  */
-const PEEK = { px: 52, hoverPx: 40, ms: 180, gap: 0.6 } as const;
+/** openPx (2026-10-08) : capot ouvert, le bord interieur des voisines passe a openPx au-dela du bord de l'ecran (la perspective les ramenait dedans) */
+const PEEK = { px: 52, hoverPx: 40, ms: 180, gap: 0.6, openPx: 140 } as const;
 /**
  * Une machine utilisee sur desktop (2026-10-07, Mika : "pour cette taille de machine comme la
  * MM-RYTM tu pourrais arriver plus zoome, tout en voyant la machine de droite") : cadree de face,
@@ -1413,7 +1414,11 @@ export class Stage {
     const bs = this.bass;
     const f = this.fTo;
     const u = (2 * hw) / Math.max(1, this.width);
-    const peek = (PEEK.px + PEEK.hoverPx * this.peekHover) * u;
+    // Capot ouvert (2026-10-08, la revue de l'OPEN moins zoome) : les voisines et leurs ecrans vivants sortent du
+    // cadre, une marge calme autour de la carte ; elles reviennent avec la fermeture (ferme : Mika, tache 85).
+    // Pas pendant l'intro (la machine eclatee qui s'assemble) : les voisines y restent ou elles etaient
+    const e = this.introOn ? 0 : this.explodeFrame();
+    const peek = ((PEEK.px + PEEK.hoverPx * this.peekHover) * (1 - e) - PEEK.openPx * e) * u;
     const cx = this.fr.cx;
     // Chez elles (vue d'ensemble, telephone) ; une machine utilisee : ses voisines au bord.
     // L'ordre (2026-10-07) : MM-RYTM, MM-BASS, MM-ARP, MM-DECKS (state/focus.ts MACHINES) : celle de gauche
@@ -1533,10 +1538,10 @@ export class Stage {
       rOpen: SECTION_FRAME.radius.open,
       fitHalfH: EXPLODE.fitHalfH,
       extent: LIGHT_KEY.extent,
-      // La plaque des TWEAKS et sa carte (OPEN_VIEW) ; au telephone, le cadrage de la pile
-      openW: mob || PORTRAIT ? 0 : RYTM_TWEAK_PLATE.w + OPEN_VIEW.margin,
-      openY: 2.39,
-      openZ: RYTM_TWEAK_PLATE.cz,
+      // La carte entiere et ses TWEAKS soudes (OPEN_VIEW ; 2026-10-08, moins zoome), au telephone aussi
+      openW: RYTM_OPEN_FRAME.w,
+      openY: RYTM_OPEN_FRAME.y,
+      openZ: RYTM_OPEN_FRAME.z,
     };
     if (!VOYAGER || f === 'mm808') return m808;
     const voy: Frame = {
@@ -1549,9 +1554,9 @@ export class Stage {
       rOpen: VOY_FRAME.radius.open,
       fitHalfH: VOY_FRAME.fitHalfH,
       extent: LIGHT_KEY.extent + 1,
-      openW: mob || PORTRAIT ? 0 : VOY_TWEAK_PLATE.w + OPEN_VIEW.margin,
-      openY: 1.54,
-      openZ: 1.4,
+      openW: VOY_OPEN_FRAME.w,
+      openY: VOY_OPEN_FRAME.y,
+      openZ: VOY_OPEN_FRAME.z,
     };
     if (f === 'voy') return voy;
     // Le MM-DECKS : l'ensemble de face (deux platines, la table) ; au telephone, un bloc a la fois
@@ -2541,6 +2546,12 @@ export class Stage {
     for (const d of [...this.chipDefs, ...this.tweakDefs]) {
       if (d.enabled === live) continue;
       d.enabled = live;
+      changed = true;
+    }
+    // Le capot leve sort du cadre ouvert (2026-10-08) : ses commandes ne repondent plus tant que la carte repond
+    const lid = this.machine.plateau.userData;
+    if (lid.noPick !== live) {
+      lid.noPick = live;
       changed = true;
     }
     if (!live) {

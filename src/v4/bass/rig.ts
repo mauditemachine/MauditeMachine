@@ -600,6 +600,8 @@ export class BassRig {
     this.iDef = all.find((d) => d.id === BASS_I_ID) ?? null;
     this.blockDefs = all.filter((d) => d.id.startsWith('bass-blk-'));
     this.tweakDefs = all.filter((d) => d.id.startsWith('bass-tw-'));
+    // Les copies enregistrees suivent la mise en page de la plaque (scene/tweakplate.ts track)
+    this.tweaks.track(this.tweakDefs);
     this.syncScreenKeys();
     return all;
   }
@@ -633,6 +635,11 @@ export class BassRig {
     for (const d of this.tweakDefs) {
       if (d.enabled === live) continue;
       d.enabled = live;
+      changed = true;
+    }
+    // Le capot leve sort du cadre ouvert (2026-10-08) : ses commandes ne repondent plus tant que la carte repond
+    if (this.top.userData.noPick !== live) {
+      this.top.userData.noPick = live;
       changed = true;
     }
     return changed;

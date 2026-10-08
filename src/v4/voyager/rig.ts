@@ -52,7 +52,7 @@ import { voyInfos } from '../state/voyInfos';
 import { seq } from './seq';
 import { VoySilk } from './silk';
 import { VoyTweaks } from './tweaks';
-import { VOY_BODY, VOY_COPY, VOY_EXPLODE, VOY_INFO_KEY, VOY_LCD, VOY_LID_W, VOY_PANEL, VOY_PCB_Y, VOY_X } from './theme';
+import { VOY_BODY, VOY_COPY, VOY_EXPLODE, VOY_INFO_KEY, VOY_LCD, VOY_LID_W, VOY_PANEL, VOY_PCB_Y, VOY_X, voyTweakClear } from './theme';
 import { reserve } from '../audio/sched';
 
 export interface VoyRigOpts {
@@ -181,7 +181,8 @@ export class VoyagerRig {
       this.seqScreen.onView = () => this.syncLcd();
     }
 
-    this.pcb = new Pcb(opts.mobile, opts.anisotropy, { model: `${VOY_COPY.model} R1.0`, variant: 'voy', chips: false });
+    // Les TWEAKS soudes sur la carte (2026-10-08) : leur zone sans composant de decor ni piste
+    this.pcb = new Pcb(opts.mobile, opts.anisotropy, { model: `${VOY_COPY.model} R1.0`, variant: 'voy', chips: false, clear: voyTweakClear() });
     this.pcbGroup.add(this.pcb.board, this.pcb.parts);
     // La plaque des TWEAKS pousse avec les composants de la carte (pcb.parts) a l'ouverture
     this.tweaks = new VoyTweaks({ mobile: opts.mobile, anisotropy: opts.anisotropy });
@@ -243,6 +244,8 @@ export class VoyagerRig {
     this.padDefs = this.defs.filter((d) => d.kind === 'vpad');
     // Les copies portent l'etat : retrouver les TWEAKS dans la liste finale
     this.tweakDefs = this.defs.filter((d) => d.layer === this.tweaks.top);
+    // Les copies enregistrees suivent la mise en page de la plaque (scene/tweakplate.ts track)
+    this.tweaks.track(this.tweakDefs);
 
     this.syncKnobs();
     this.syncArp();
@@ -475,6 +478,11 @@ export class VoyagerRig {
     for (const d of this.tweakDefs) {
       if (d.enabled === live) continue;
       d.enabled = live;
+      changed = true;
+    }
+    // Le capot leve sort du cadre ouvert (2026-10-08) : ses commandes ne repondent plus tant que la carte repond
+    if (this.lid.userData.noPick !== live) {
+      this.lid.userData.noPick = live;
       changed = true;
     }
     return changed;

@@ -1528,26 +1528,35 @@ html:has(body.v4-active) {
   display: none;
 }
 
-/* CLOSE sur la carte, machine ouverte au telephone (ui/PcbClose.tsx) :
-   l'orange plein d'OPEN, un pad en caoutchouc, a portee de pouce */
+/* CLOSE sur la carte, machine ouverte au telephone (ui/PcbClose.tsx), a portee de
+   pouce. 2026-10-08 (Mika : "avoir de la finesse design ici") : plus de dalle orange,
+   une touche fine et sombre, son filet et sa LED orange allumee, 46 px de haut. */
 .v4-root .v4-pcb-close {
   position: absolute;
   left: 50%;
   bottom: calc(52px + env(safe-area-inset-bottom, 0px) + var(--ios-bar, 0px));
   z-index: 21;
-  min-width: 132px;
-  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 128px;
+  height: 46px;
   padding: 0 22px;
-  border-radius: 12px;
-  background: var(--orange);
-  color: #fff;
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-indent: 0.16em;
+  border-radius: 23px;
+  border: 1px solid rgba(255, 106, 19, 0.85);
+  background: rgba(10, 11, 12, 0.8);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: #f6f1e7;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  text-indent: 0.26em;
   box-shadow:
-    0 2px 0 rgba(0, 0, 0, 0.25),
-    0 10px 24px rgba(0, 0, 0, 0.35);
+    0 1px 2px rgba(0, 0, 0, 0.3),
+    0 8px 22px rgba(0, 0, 0, 0.3),
+    0 0 12px rgba(255, 106, 34, 0.22);
   transform: translateX(-50%);
   animation: v4-pcb-close-in 240ms ease-out both;
   /* Dock deplie : monte au-dessus de lui (ui/PcbClose.tsx), au pas de la languette */
@@ -1561,6 +1570,20 @@ html:has(body.v4-active) {
 .v4-root .v4-pcb-close:focus-visible {
   outline: 2px solid var(--yellow);
   outline-offset: 3px;
+}
+
+.v4-root[data-v4-theme='light'] .v4-pcb-close {
+  background: rgba(255, 255, 255, 0.86);
+  color: #191919;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.12),
+    0 8px 22px rgba(0, 0, 0, 0.12),
+    0 0 12px rgba(255, 106, 34, 0.2);
+}
+
+.v4-root .v4-pcb-close .v4-close-led {
+  width: 7px;
+  height: 7px;
 }
 
 @keyframes v4-pcb-close-in {
@@ -4415,9 +4438,12 @@ html:has(body.v4-active.v4-light) {
 }
 
 /* Les petites touches posees sur les machines (2026-10-05, ui/MachineKey.tsx) :
-   SCOPE sur la plaque TWEAKS du MM-ARP ouvert (sa LED verte quand l'oscilloscope
-   est la), CLOSE ; placees et mises a l'echelle a chaque image ;
-   caoutchouc sombre. */
+   SCOPE sur les TWEAKS du MM-ARP ouvert (sa LED verte quand l'oscilloscope
+   est la), INFOS du MM-BASS, CLOSE ; placees et mises a l'echelle a chaque image.
+   2026-10-08 (Mika : "c'est moche des grosses cases par dessus un PCB.. avoir de la
+   finesse design ici") : de petites touches fines posees sur la carte, un filet
+   clair, de petites capitales espacees, une LED ; plus de dalle orange. Sur le vert
+   de la carte dans les deux apparences : la meme encre. */
 .v4-root .v4-mkey {
   position: absolute;
   left: 0;
@@ -4426,32 +4452,44 @@ html:has(body.v4-active.v4-light) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5em;
+  gap: 0.6em;
   margin: 0;
-  padding: 0 0.6em;
-  border-radius: 5px;
-  border: 1px solid rgba(246, 241, 231, 0.16);
-  background: linear-gradient(#1d1e21, #121315);
-  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  padding: 0 0.8em 0 0.7em;
+  border-radius: 3px;
+  border: 1px solid rgba(246, 241, 231, 0.4);
+  background: rgba(5, 10, 8, 0.6);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   color: #f6f1e7;
   font: inherit;
-  font-weight: 800;
-  letter-spacing: 0.16em;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-indent: 0.24em;
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
   will-change: transform;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease;
 }
 
 .v4-root .v4-mkey:hover {
-  border-color: rgba(246, 241, 231, 0.32);
+  border-color: rgba(246, 241, 231, 0.85);
+  background: rgba(5, 10, 8, 0.8);
 }
 
-/* Une touche toute petite : sa zone de toucher deborde de 8 px (le doigt) */
+.v4-root .v4-mkey:active {
+  background: rgba(5, 10, 8, 0.92);
+}
+
+/* Une touche toute petite : sa zone de toucher deborde, 44 px au moins (le doigt) */
 .v4-root .v4-mkey::before {
   content: '';
   position: absolute;
-  inset: -8px;
+  top: min(-8px, calc(50% - 22px));
+  bottom: min(-8px, calc(50% - 22px));
+  left: min(-8px, calc(50% - 22px));
+  right: min(-8px, calc(50% - 22px));
 }
 
 .v4-root .v4-mkey:focus-visible {
@@ -4460,11 +4498,12 @@ html:has(body.v4-active.v4-light) {
 }
 
 .v4-scope-led {
-  width: 0.55em;
-  height: 0.55em;
+  width: 0.5em;
+  height: 0.5em;
   flex: none;
   border-radius: 50%;
   background: #24412d;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.4);
 }
 
 .v4-root .v4-scope-key[aria-pressed='true'] .v4-scope-led {
@@ -4472,20 +4511,25 @@ html:has(body.v4-active.v4-light) {
   box-shadow: 0 0 6px #62f28c;
 }
 
-/* INFOS du MM-BASS ouvert (2026-10-08, ui/BassInfosKey.tsx) : sombre, son i cerne ; allume, l'orange
-   du mode (l'encre sombre sur l'orange, 6.4:1). */
+/* INFOS du MM-BASS ouvert (2026-10-08, ui/BassInfosKey.tsx) : son i cerne ; allume, le filet
+   et le i pleins de l'orange du mode (l'encre sombre dans le i, 6.4:1). */
 .v4-root .v4-bass-infos-key {
-  gap: 0.45em;
+  gap: 0.5em;
 }
 
 .v4-root .v4-bass-infos-key[aria-pressed='true'] {
-  border-color: rgba(255, 255, 255, 0.28);
-  background: linear-gradient(#ff7a2e, var(--orange));
-  color: #141414;
+  border-color: var(--orange);
+  color: #ffd2b5;
   box-shadow:
-    0 2px 0 rgba(0, 0, 0, 0.55),
-    0 0 14px rgba(255, 106, 34, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 0 10px rgba(255, 106, 34, 0.35);
+}
+
+.v4-root .v4-bass-infos-key[aria-pressed='true'] .v4-info-i {
+  border-color: var(--orange);
+  background: var(--orange);
+  color: #141414;
+  box-shadow: 0 0 6px rgba(255, 106, 34, 0.8);
 }
 
 .v4-info-i {
@@ -4502,34 +4546,32 @@ html:has(body.v4-active.v4-light) {
   letter-spacing: 0;
 }
 
-/* CLOSE dans la machine ouverte (2026-10-05, ui/HoodClose.tsx) : orange, allume
-   comme le pad OPEN, sa LED blanche ; l'encre sombre sur l'orange (6.4:1). */
+/* CLOSE dans la machine ouverte (2026-10-05, ui/HoodClose.tsx ; Mika : "un CLOSE a l'interieur
+   de la machine, voyant") : 2026-10-08, une touche fine comme les autres, son filet et sa LED
+   orange allumee (on la voit d'un coup d'oeil sans la dalle). */
 .v4-root .v4-close-key {
-  border-color: rgba(255, 255, 255, 0.28);
-  background: linear-gradient(#ff7a2e, var(--orange));
-  color: #141414;
+  border-color: rgba(255, 106, 19, 0.85);
   box-shadow:
-    0 2px 0 rgba(0, 0, 0, 0.55),
-    0 0 14px rgba(255, 106, 34, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 0 10px rgba(255, 106, 34, 0.25);
   animation: v4-close-key-in 220ms ease-out both;
 }
 
 .v4-root .v4-close-key:hover {
-  border-color: rgba(255, 255, 255, 0.6);
+  border-color: var(--orange);
+  background: rgba(60, 22, 4, 0.82);
   box-shadow:
-    0 2px 0 rgba(0, 0, 0, 0.55),
-    0 0 20px rgba(255, 106, 34, 0.8),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 0 14px rgba(255, 106, 34, 0.5);
 }
 
 .v4-close-led {
-  width: 0.55em;
-  height: 0.55em;
+  width: 0.5em;
+  height: 0.5em;
   flex: none;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 6px #fff;
+  background: var(--orange);
+  box-shadow: 0 0 6px var(--orange);
 }
 
 @keyframes v4-close-key-in {

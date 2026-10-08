@@ -54,7 +54,7 @@ import {
   type Object3D,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { BOARD_CHIPS, CHIP, CHIP_MID, EXTERNAL_MARK, FONT_DISPLAY, PCB, PCB_PARTS, PCB_TYPE, SILK, boneA, pcbAt, type ChipId, type ChipSpec } from '../theme';
+import { BOARD_CHIPS, CHIP, CHIP_MID, EXTERNAL_MARK, FONT_DISPLAY, PCB, PCB_PARTS, PCB_TYPE, PORTRAIT, SILK, boneA, pcbAt, type ChipId, type ChipSpec } from '../theme';
 import type { HotspotDef } from './hit';
 import { albedoRgb, litCss } from './materials';
 import { drawTracked, fontsReady, makeCanvasTexture, mulberry32, trackedWidth } from './silk';
@@ -234,6 +234,8 @@ interface Footprint {
   pads: { x: number; z: number; w: number; d: number; round?: boolean }[];
   /** emprise de l'ombre de contact */
   shadow: { x: number; z: number; hx: number; hz: number; round: boolean } | null;
+  /** hauteur du corps (unites) : vu de la camera, il cache la carte juste derriere lui (placeRefs) */
+  h: number;
 }
 
 /** Une piste routee et son rendu. */
@@ -363,9 +365,44 @@ export interface PcbClear {
   z1: number;
 }
 
+/**
+ * Les demi-etendues de chaque famille de decor (unites de la carte),
+ * designateur et pastilles compris : une piece est retiree des que son
+ * emprise touche la zone degagee (2026-10-08 : les TWEAKS y sont soudes,
+ * rien ne doit les toucher ; avant, seul son centre comptait).
+ */
+const EXTENT = {
+  small: { hx: 0.46, hz: 0.5 },
+  cap: { hx: 0.46, hz: 0.36 },
+  resistor: { hx: 0.22, hz: 0.24 },
+  ceramic: { hx: 0.2, hz: 0.26 },
+  crystal: { hx: 0.36, hz: 0.33 },
+  regulator: { hx: 0.62, hz: 0.42 },
+  header: { hx: 0.66, hz: 0.42 },
+  terminal: { hx: 0.6, hz: 0.38 },
+} as const;
+
+/** L'emprise (centre, demi-etendues) touche-t-elle la zone degagee ? */
+const touches = (clear: PcbClear | null, x: number, z: number, hx: number, hz: number): boolean =>
+  clear !== null && x + hx > clear.x0 && x - hx < clear.x1 && z + hz > clear.z0 && z - hz < clear.z1;
+
+/** Une piece de decor dans la zone degagee (son genre, sa place). */
+function offOf(clear: PcbClear | null): (kind: keyof typeof EXTENT | ExtraKind, x: number, z: number) => boolean {
+  return (kind, x, z) => {
+    if (clear === null) return false;
+    if (kind in EXTENT) {
+      const e = EXTENT[kind as keyof typeof EXTENT];
+      // Le regulateur : son dissipateur recule derriere sa place
+      return touches(clear, x, kind === 'regulator' ? z - 0.15 : z, e.hx, e.hz);
+    }
+    const S = EXTRA_SIZE[kind as ExtraKind];
+    return touches(clear, x, z - 0.07, S.hx + 0.06, S.hz + 0.2);
+  };
+}
+
 function footprints(variant: PcbVariant, chips: readonly ChipSpec[], clear: PcbClear | null = null): Footprint[] {
-  // La zone degagee (buildParts) : pas d'empreinte vide sous la plaque des TWEAKS
-  const off = (x: number, z: number): boolean => clear !== null && x > clear.x0 && x < clear.x1 && z > clear.z0 && z < clear.z1;
+  // La zone degagee (buildParts) : pas d'empreinte vide sous les TWEAKS
+  const off = offOf(clear);
   const out: Footprint[] = [];
   chips.forEach((c, k) => {
     const D = chipDims(c);
@@ -389,10 +426,11 @@ function footprints(variant: PcbVariant, chips: readonly ChipSpec[], clear: PcbC
       outline: true,
       pads,
       shadow: { x: c.x, z: c.z, hx: D.w / 2, hz: D.d / 2, round: false },
+      h: 0.15,
     });
   });
   P.small.forEach((s, k) => {
-    if (off(s.x, s.z)) return;
+    if (off('small', s.x, s.z)) return;
     const hz = P.small3.d / 2 + 0.1;
     const pads: Footprint['pads'] = [];
     for (const side of [-1, 1]) {
@@ -401,61 +439,62 @@ function footprints(variant: PcbVariant, chips: readonly ChipSpec[], clear: PcbC
         pads.push({ x: lx, z: s.z + side * (P.small3.d / 2 + 0.04), w: LEG_SMALL.w + 0.03, d: LEG_SMALL.d + 0.04 });
       }
     }
-    out.push({ x: s.x, z: s.z, hx: P.small3.w / 2 + 0.05, hz, round: false, frame: false, ref: `U${k + chips.length + 1}`, refX: s.x, refZ: s.z - hz - 0.16, refAlign: 'center', axis: 'x', outline: true, pads, shadow: { x: s.x, z: s.z, hx: P.small3.w / 2, hz: P.small3.d / 2, round: false } });
+    out.push({ x: s.x, z: s.z, hx: P.small3.w / 2 + 0.05, hz, round: false, frame: false, ref: `U${k + chips.length + 1}`, refX: s.x, refZ: s.z - hz - 0.16, refAlign: 'center', axis: 'x', outline: true, pads, shadow: { x: s.x, z: s.z, hx: P.small3.w / 2, hz: P.small3.d / 2, round: false }, h: P.small3.h });
   });
   P.caps.forEach((c, k) => {
-    if (off(c.x, c.z)) return;
+    if (off('cap', c.x, c.z)) return;
     const r = P.cap3.r + 0.05;
-    out.push({ x: c.x, z: c.z, hx: r, hz: r, round: true, frame: false, ref: `C${k + 1}`, refX: c.x + r + 0.08, refZ: c.z, refAlign: 'left', axis: 'x', outline: true, pads: [], shadow: { x: c.x, z: c.z, hx: P.cap3.r, hz: P.cap3.r, round: true } });
+    out.push({ x: c.x, z: c.z, hx: r, hz: r, round: true, frame: false, ref: `C${k + 1}`, refX: c.x + r + 0.08, refZ: c.z, refAlign: 'left', axis: 'x', outline: true, pads: [], shadow: { x: c.x, z: c.z, hx: P.cap3.r, hz: P.cap3.r, round: true }, h: P.capTall[k] ? P.cap3.h : P.cap3.hShort });
   });
   // Plus de pile bouton (2026-10-03) : sa place est dans la bande des pages
   P.resistors.forEach((s, k) => {
-    if (inBand(s.z) || off(s.x, s.z)) return;
+    if (inBand(s.z) || off('resistor', s.x, s.z)) return;
     const R = P.resistor3;
     const hz = R.d / 2 + 0.04;
     const pads = [-1, 1].map((sd) => ({ x: s.x + sd * (R.w / 2 - 0.03), z: s.z, w: 0.1, d: R.d + 0.04 }));
-    out.push({ x: s.x, z: s.z, hx: R.w / 2 + 0.06, hz, round: false, frame: false, ref: `R${k + 1}`, refX: s.x, refZ: s.z - hz - 0.12, refAlign: 'center', axis: 'z', outline: false, pads, shadow: { x: s.x, z: s.z, hx: R.w / 2, hz: R.d / 2, round: false } });
+    out.push({ x: s.x, z: s.z, hx: R.w / 2 + 0.06, hz, round: false, frame: false, ref: `R${k + 1}`, refX: s.x, refZ: s.z - hz - 0.12, refAlign: 'center', axis: 'z', outline: false, pads, shadow: { x: s.x, z: s.z, hx: R.w / 2, hz: R.d / 2, round: false }, h: R.h });
   });
   P.ceramics.forEach((s, k) => {
-    if (inBand(s.z) || off(s.x, s.z)) return;
+    if (inBand(s.z) || off('ceramic', s.x, s.z)) return;
     const Cc = P.ceramic3;
     const pads = [-1, 1].map((sd) => ({ x: s.x + sd * (Cc.w / 2 - 0.03), z: s.z, w: 0.09, d: Cc.d + 0.04 }));
-    out.push({ x: s.x, z: s.z, hx: Cc.w / 2 + 0.06, hz: Cc.d / 2 + 0.04, round: false, frame: false, ref: `C${k + P.caps.length + 1}`, refX: s.x, refZ: s.z + Cc.d / 2 + 0.16, refAlign: 'center', axis: 'z', outline: false, pads, shadow: { x: s.x, z: s.z, hx: Cc.w / 2, hz: Cc.d / 2, round: false } });
+    out.push({ x: s.x, z: s.z, hx: Cc.w / 2 + 0.06, hz: Cc.d / 2 + 0.04, round: false, frame: false, ref: `C${k + P.caps.length + 1}`, refX: s.x, refZ: s.z + Cc.d / 2 + 0.16, refAlign: 'center', axis: 'z', outline: false, pads, shadow: { x: s.x, z: s.z, hx: Cc.w / 2, hz: Cc.d / 2, round: false }, h: Cc.h });
   });
   P.crystals.forEach((s, k) => {
-    if (off(s.x, s.z)) return;
+    if (off('crystal', s.x, s.z)) return;
     const hz = P.crystal3.r + 0.05;
     const pads = [-1, 1].map((sd) => ({ x: s.x + sd * (P.crystal3.l / 2 + 0.05), z: s.z, w: 0.08, d: 0.1 }));
-    out.push({ x: s.x, z: s.z, hx: P.crystal3.l / 2 + 0.1, hz, round: false, frame: false, ref: `X${k + 1}`, refX: s.x, refZ: s.z - hz - 0.16, refAlign: 'center', axis: 'x', outline: true, pads, shadow: { x: s.x, z: s.z, hx: P.crystal3.l / 2, hz: P.crystal3.r * 0.9, round: false } });
+    out.push({ x: s.x, z: s.z, hx: P.crystal3.l / 2 + 0.1, hz, round: false, frame: false, ref: `X${k + 1}`, refX: s.x, refZ: s.z - hz - 0.16, refAlign: 'center', axis: 'x', outline: true, pads, shadow: { x: s.x, z: s.z, hx: P.crystal3.l / 2, hz: P.crystal3.r * 0.9, round: false }, h: P.crystal3.r * 2 });
   });
-  if (!off(P.regulator.x, P.regulator.z)) {
+  if (!off('regulator', P.regulator.x, P.regulator.z)) {
     const r = P.regulator;
     const pads = [-1, 0, 1].map((k) => ({ x: r.x + k * 0.1, z: r.z + 0.05, w: 0.07, d: 0.1, round: true }));
-    out.push({ x: r.x, z: r.z - 0.15, hx: 0.42, hz: 0.33, round: false, frame: false, ref: 'VR1', refX: r.x + 0.48, refZ: r.z + 0.05, refAlign: 'left', axis: null, outline: true, pads, shadow: { x: r.x, z: r.z - 0.17, hx: 0.38, hz: 0.27, round: false } });
+    // U5 (2026-10-08, un seul jeu de designateurs : VR1 etait aussi le premier potard des TWEAKS ; les potards sont des RV)
+    out.push({ x: r.x, z: r.z - 0.15, hx: 0.42, hz: 0.33, round: false, frame: false, ref: 'U5', refX: r.x + 0.48, refZ: r.z + 0.05, refAlign: 'left', axis: null, outline: true, pads, shadow: { x: r.x, z: r.z - 0.17, hx: 0.38, hz: 0.27, round: false }, h: 0.6 });
   }
-  if (!off(P.header.x, P.header.z)) {
+  if (!off('header', P.header.x, P.header.z)) {
     const h = P.header;
     const pads: Footprint['pads'] = [];
     for (let c = 0; c < h.cols; c += 1) {
       for (const row of [-1, 1]) pads.push({ x: h.x + (c - (h.cols - 1) / 2) * HEADER.pitch, z: h.z + row * HEADER.pitch * 0.5, w: 0.07, d: 0.07, round: true });
     }
-    out.push({ x: h.x, z: h.z, hx: HEADER.w / 2 + 0.05, hz: HEADER.d / 2 + 0.05, round: false, frame: false, ref: 'J1', refX: h.x - HEADER.w / 2, refZ: h.z + HEADER.d / 2 + 0.16, refAlign: 'left', axis: 'z', outline: true, pads, shadow: { x: h.x, z: h.z, hx: HEADER.w / 2, hz: HEADER.d / 2, round: false } });
+    out.push({ x: h.x, z: h.z, hx: HEADER.w / 2 + 0.05, hz: HEADER.d / 2 + 0.05, round: false, frame: false, ref: 'J1', refX: h.x - HEADER.w / 2, refZ: h.z + HEADER.d / 2 + 0.16, refAlign: 'left', axis: 'z', outline: true, pads, shadow: { x: h.x, z: h.z, hx: HEADER.w / 2, hz: HEADER.d / 2, round: false }, h: HEADER.h });
   }
-  if (!off(P.terminal.x, P.terminal.z)) {
+  if (!off('terminal', P.terminal.x, P.terminal.z)) {
     const t = P.terminal;
     const w = t.n * TERM.pitch;
-    out.push({ x: t.x, z: t.z, hx: w / 2 + 0.05, hz: TERM.d / 2 + 0.05, round: false, frame: false, ref: 'J2', refX: t.x + w / 2, refZ: t.z + TERM.d / 2 + 0.16, refAlign: 'right', axis: 'z', outline: true, pads: [], shadow: { x: t.x, z: t.z, hx: w / 2, hz: TERM.d / 2, round: false } });
+    out.push({ x: t.x, z: t.z, hx: w / 2 + 0.05, hz: TERM.d / 2 + 0.05, round: false, frame: false, ref: 'J2', refX: t.x + w / 2, refZ: t.z + TERM.d / 2 + 0.16, refAlign: 'right', axis: 'z', outline: true, pads: [], shadow: { x: t.x, z: t.z, hx: w / 2, hz: TERM.d / 2, round: false }, h: TERM.h });
   }
   {
     const l = P.led;
     const pads = [-1, 1].map((sd) => ({ x: l.x + sd * 0.06, z: l.z, w: 0.06, d: 0.09 }));
-    out.push({ x: l.x, z: l.z, hx: 0.12, hz: 0.12, round: true, frame: false, ref: 'D1', refX: l.x + 0.2, refZ: l.z - 0.05, refAlign: 'left', axis: 'x', outline: true, pads, shadow: { x: l.x, z: l.z, hx: 0.08, hz: 0.08, round: true } });
+    out.push({ x: l.x, z: l.z, hx: 0.12, hz: 0.12, round: true, frame: false, ref: 'D1', refX: l.x + 0.2, refZ: l.z - 0.05, refAlign: 'left', axis: 'x', outline: true, pads, shadow: { x: l.x, z: l.z, hx: 0.08, hz: 0.08, round: true }, h: 0.1 });
   }
   for (const h of P.holes) {
-    out.push({ x: h.x, z: h.z, hx: 0.24, hz: 0.24, round: true, frame: false, ref: '', refX: 0, refZ: 0, refAlign: 'center', axis: null, outline: false, pads: [], shadow: { x: h.x, z: h.z, hx: 0.15, hz: 0.15, round: true } });
+    out.push({ x: h.x, z: h.z, hx: 0.24, hz: 0.24, round: true, frame: false, ref: '', refX: 0, refZ: 0, refAlign: 'center', axis: null, outline: false, pads: [], shadow: { x: h.x, z: h.z, hx: 0.15, hz: 0.15, round: true }, h: 0 });
   }
   for (const e of extrasOf(variant)) {
-    if (off(e.x, e.z)) continue;
+    if (off(e.kind, e.x, e.z)) continue;
     const S = EXTRA_SIZE[e.kind];
     const pads: Footprint['pads'] = [];
     if (e.kind === 'tp') pads.push({ x: e.x, z: e.z, w: 0.13, d: 0.13, round: true });
@@ -480,12 +519,103 @@ function footprints(variant: PcbVariant, chips: readonly ChipSpec[], clear: PcbC
       outline: !flat,
       pads,
       shadow: flat ? null : { x: e.x, z: e.z, hx: S.hx, hz: S.hz, round: e.kind === 'to92' },
+      h: EXTRA_H[e.kind],
     });
   }
-  if (variant === 'mm808') {
-    out.push({ x: STICKER.x, z: STICKER.z, hx: STICKER.hx + 0.05, hz: STICKER.hz + 0.05, round: false, frame: false, ref: '', refX: 0, refZ: 0, refAlign: 'center', axis: null, outline: false, pads: [], shadow: null });
+  if (variant === 'mm808' && !touches(clear, STICKER.x, STICKER.z, STICKER.hx + 0.05, STICKER.hz + 0.05)) {
+    out.push({ x: STICKER.x, z: STICKER.z, hx: STICKER.hx + 0.05, hz: STICKER.hz + 0.05, round: false, frame: false, ref: '', refX: 0, refZ: 0, refAlign: 'center', axis: null, outline: false, pads: [], shadow: null, h: 0 });
   }
+  placeRefs(out, clear);
   return out;
+}
+
+/** Hauteur du corps de chaque piece de plus (unites, buildParts). */
+const EXTRA_H: Record<ExtraKind, number> = { trim: 0.24, film: 0.34, to92: 0.32, dip: 0.2, sot: 0.08, tp: 0, fid: 0 };
+
+/**
+ * Part de la hauteur d'une piece cachee derriere elle sur la carte (vue
+ * ouverte : la camera plonge a 68 deg environ, 1 / tan 68 = 0.4).
+ */
+const BEHIND = 0.4;
+
+/**
+ * Chaque designateur a sa place (2026-10-08, la revue de l'OPEN : les
+ * pieces decouvertes par les TWEAKS soudes couvraient les leurs, C21 a C23
+ * sous les condensateurs film, C3 / C4 entre leurs deux boitiers au
+ * telephone, C12 sur l'empreinte de la CA3046). Sa place d'origine d'abord,
+ * puis devant la piece (vers soi a l'ecran), puis ses quatre cotes : la
+ * premiere qui ne touche ni l'empreinte d'une autre piece, ni l'ombre
+ * d'une piece haute (ce qu'elle cache juste derriere elle : vers -z au
+ * desktop, vers +x debout, la carte y tourne d'un quart de tour), ni un
+ * designateur deja place, ni un texte de la carte, ni la zone des TWEAKS,
+ * et qui reste sur la carte. Aucune : sa place d'origine. Une estimation
+ * de la largeur du texte (sans police : la meme a chaque construction).
+ */
+function placeRefs(prints: Footprint[], clear: PcbClear | null): void {
+  const size = (PCB.designatorPx / PX_REF) * PCB.w;
+  const capH = size * SILK.capRatio;
+  const widthOf = (t: string, px: number): number => {
+    const s = (px / PX_REF) * PCB.w;
+    return (t.length * 0.68 + Math.max(0, t.length - 1) * PCB_TYPE.tracking) * s * 1.1;
+  };
+  type R = { x0: number; x1: number; z0: number; z1: number };
+  const rectAt = (t: string, x: number, z: number, align: Footprint['refAlign'], px: number = PCB.designatorPx): R => {
+    const w = widthOf(t, px);
+    const h = (px / PX_REF) * PCB.w * SILK.capRatio;
+    const x0 = align === 'left' ? x : align === 'right' ? x - w : x - w / 2;
+    return { x0, x1: x0 + w, z0: z - h / 2, z1: z + h / 2 };
+  };
+  const EPS = 0.01;
+  const hit = (a: R, b: R): boolean => a.x0 < b.x1 - EPS && a.x1 > b.x0 + EPS && a.z0 < b.z1 - EPS && a.z1 > b.z0 + EPS;
+  // Les empreintes et un peu d'air (un designateur ne colle pas au contour d'une autre piece)
+  const air = 0.04;
+  const bodies: R[] = prints.map((f) => ({ x0: f.x - f.hx - air, x1: f.x + f.hx + air, z0: f.z - f.hz - air, z1: f.z + f.hz + air }));
+  const behind: (R | null)[] = prints.map((f) => {
+    const b = f.shadow ?? { x: f.x, z: f.z, hx: f.hx, hz: f.hz };
+    const L = f.h * BEHIND;
+    if (L < 0.06) return null;
+    return PORTRAIT ? { x0: b.x + b.hx, x1: b.x + b.hx + L, z0: b.z - b.hz, z1: b.z + b.hz } : { x0: b.x - b.hx, x1: b.x + b.hx, z0: b.z - b.hz - L, z1: b.z - b.hz };
+  });
+  // Les textes fixes de la carte : le + des condensateurs, PWR, GND, MAUDITE MACHINE
+  const off = offOf(clear);
+  const placed: R[] = [];
+  for (const c of P.caps) if (!off('cap', c.x, c.z)) placed.push(rectAt('+', c.x - P.cap3.r - 0.1, c.z, 'center', 12));
+  placed.push(rectAt('PWR', P.led.x + 0.2, P.led.z + 0.12, 'left', 10));
+  placed.push(rectAt('MAUDITE MACHINE', pcbAt(-5.33, -0.86).x, pcbAt(-5.33, -0.86).z, 'left', 24));
+  const zone: R | null = clear ? { x0: clear.x0, x1: clear.x1, z0: clear.z0, z1: clear.z1 } : null;
+  const hx = PCB.w / 2 - 0.08;
+  const hz = PCB.d / 2 - 0.08;
+  const g = 0.08;
+  prints.forEach((f, i) => {
+    if (!f.ref) return;
+    type C = { x: number; z: number; align: Footprint['refAlign'] };
+    const front: C = PORTRAIT ? { x: f.x - f.hx - g, z: f.z, align: 'right' } : { x: f.x, z: f.z + f.hz + g + capH / 2, align: 'center' };
+    // Derriere, passe l'ombre de la piece (une rangee de transistors : devant eux, la rangee des trimmers)
+    const L = f.h * BEHIND;
+    const back: C = PORTRAIT ? { x: f.x + f.hx + g + L, z: f.z, align: 'left' } : { x: f.x, z: f.z - f.hz - g - capH / 2 - L, align: 'center' };
+    const cands: C[] = [
+      { x: f.refX, z: f.refZ, align: f.refAlign },
+      front,
+      { x: f.x, z: f.z + f.hz + g + capH / 2, align: 'center' },
+      { x: f.x, z: f.z - f.hz - g - capH / 2, align: 'center' },
+      { x: f.x + f.hx + g, z: f.z, align: 'left' },
+      { x: f.x - f.hx - g, z: f.z, align: 'right' },
+      back,
+    ];
+    const ok = (c: C): boolean => {
+      const r = rectAt(f.ref, c.x, c.z, c.align);
+      if (r.x0 < -hx || r.x1 > hx || r.z0 < -hz || r.z1 > hz) return false;
+      if (zone && hit(r, zone)) return false;
+      if (bodies.some((b, j) => j !== i && hit(r, b))) return false;
+      if (behind.some((b) => b !== null && hit(r, b))) return false;
+      return !placed.some((p) => hit(r, p));
+    };
+    const best = cands.find(ok) ?? cands[0];
+    f.refX = best.x;
+    f.refZ = best.z;
+    f.refAlign = best.align;
+    placed.push(rectAt(f.ref, best.x, best.z, best.align));
+  });
 }
 
 /* ---------------- geometrie ---------------- */
@@ -619,8 +749,8 @@ const SMALL_REFS_VOY = ['TL072', 'CA3046', 'LM13700', 'LM324'] as const;
 
 function buildParts(mobile: boolean, variant: PcbVariant, chips: readonly ChipSpec[], clear: PcbClear | null = null): Built {
   const seg = mobile ? 12 : 16;
-  // La zone degagee (2026-10-04) : sous la plaque des TWEAKS, aucun composant ne la traverse
-  const off = (x: number, z: number): boolean => clear !== null && x > clear.x0 && x < clear.x1 && z > clear.z0 && z < clear.z1;
+  // La zone degagee (2026-10-04 ; 2026-10-08 : l'emprise entiere, les TWEAKS y sont soudes) : aucun composant ne la touche
+  const off = offOf(clear);
   const parts = new Bucket();
   const metal = new Bucket();
   const labels = new Bucket();
@@ -680,7 +810,7 @@ function buildParts(mobile: boolean, variant: PcbVariant, chips: readonly ChipSp
 
   // Petites puces : corps, creux de la broche 1, pattes sur les flancs, reference
   P.small.forEach((s, k) => {
-    if (off(s.x, s.z)) return;
+    if (off('small', s.x, s.z)) return;
     const S = P.small3;
     parts.add(box(S.w, S.h, S.d, s.x, 0.03 + S.h / 2, s.z, RGB.chip));
     parts.add(cyl(0.035, 0.004, 10, s.x - S.w / 2 + 0.1, 0.03 + S.h, s.z - S.d / 2 + 0.1, RGB.dimple));
@@ -698,7 +828,7 @@ function buildParts(mobile: boolean, variant: PcbVariant, chips: readonly ChipSp
   // Condensateurs electrolytiques, deux hauteurs : gaine, bande de polarite,
   // dessus en aluminium et sa croix en relief
   P.caps.forEach((c, k) => {
-    if (off(c.x, c.z)) return;
+    if (off('cap', c.x, c.z)) return;
     const C3 = P.cap3;
     const h = P.capTall[k] ? C3.h : C3.hShort;
     parts.add(cyl(C3.r, h, seg, c.x, 0, c.z, RGB.capBody));
@@ -710,7 +840,7 @@ function buildParts(mobile: boolean, variant: PcbVariant, chips: readonly ChipSp
 
   // Resistances CMS : corps noir, terminaisons argentees, code sur le dessus
   P.resistors.forEach((s, k) => {
-    if (inBand(s.z) || off(s.x, s.z)) return;
+    if (inBand(s.z) || off('resistor', s.x, s.z)) return;
     const R = P.resistor3;
     parts.add(box(R.w - 0.1, R.h, R.d, s.x, R.h / 2, s.z, RGB.resistor));
     for (const sd of [-1, 1]) metal.add(box(0.05, R.h + 0.006, R.d + 0.006, s.x + sd * (R.w / 2 - 0.025), (R.h + 0.006) / 2, s.z, METAL.leg));
@@ -721,17 +851,17 @@ function buildParts(mobile: boolean, variant: PcbVariant, chips: readonly ChipSp
 
   // Condensateurs ceramiques CMS : petits blocs beiges, terminaisons
   for (const s of P.ceramics) {
-    if (inBand(s.z) || off(s.x, s.z)) continue;
+    if (inBand(s.z) || off('ceramic', s.x, s.z)) continue;
     const Cc = P.ceramic3;
     parts.add(box(Cc.w - 0.08, Cc.h, Cc.d, s.x, Cc.h / 2, s.z, RGB.ceramic));
     for (const sd of [-1, 1]) metal.add(box(0.04, Cc.h + 0.006, Cc.d + 0.006, s.x + sd * (Cc.w / 2 - 0.02), (Cc.h + 0.006) / 2, s.z, METAL.leg));
   }
 
   // Quartz : boitier metallique ovale, couche
-  for (const s of P.crystals) if (!off(s.x, s.z)) metal.add(cyl(P.crystal3.r, P.crystal3.l, seg, s.x, 0, s.z, METAL.can, { alongX: true, squash: 0.62 }));
+  for (const s of P.crystals) if (!off('crystal', s.x, s.z)) metal.add(cyl(P.crystal3.r, P.crystal3.l, seg, s.x, 0, s.z, METAL.can, { alongX: true, squash: 0.62 }));
 
   // Regulateur TO-220 debout, sa languette, son dissipateur vertical a ailettes
-  if (!off(P.regulator.x, P.regulator.z)) {
+  if (!off('regulator', P.regulator.x, P.regulator.z)) {
     const r = P.regulator;
     for (const k of [-1, 0, 1]) metal.add(box(0.035, 0.1, 0.035, r.x + k * 0.1, 0.05, r.z + 0.05, METAL.leg));
     parts.add(box(0.4, 0.3, 0.16, r.x, 0.1 + 0.15, r.z + 0.05, RGB.chip));
@@ -741,7 +871,7 @@ function buildParts(mobile: boolean, variant: PcbVariant, chips: readonly ChipSp
   }
 
   // Connecteur de nappe 2 x 8 : boitier noir, broches dorees
-  if (!off(P.header.x, P.header.z)) {
+  if (!off('header', P.header.x, P.header.z)) {
     const h = P.header;
     const H = HEADER;
     parts.add(box(H.w, 0.04, H.d, h.x, 0.02, h.z, RGB.shroud));
@@ -753,7 +883,7 @@ function buildParts(mobile: boolean, variant: PcbVariant, chips: readonly ChipSp
   }
 
   // Bornier a vis 3 points : bloc bleu, entrees des fils, vis et leur fente
-  if (!off(P.terminal.x, P.terminal.z)) {
+  if (!off('terminal', P.terminal.x, P.terminal.z)) {
     const t = P.terminal;
     const w = t.n * TERM.pitch;
     parts.add(box(w, TERM.h, TERM.d, t.x, TERM.h / 2, t.z, RGB.block));
@@ -794,7 +924,7 @@ function buildParts(mobile: boolean, variant: PcbVariant, chips: readonly ChipSp
 
   // Les composants de plus (2026-10-03)
   for (const e of extrasOf(variant)) {
-    if (off(e.x, e.z)) continue;
+    if (off(e.kind, e.x, e.z)) continue;
     const S = EXTRA_SIZE[e.kind];
     if (e.kind === 'trim') {
       // Trimmer : boitier carre bleu, rotor blanc et sa fente en croix
@@ -1219,8 +1349,9 @@ export class Pcb {
     const name = cut < 0 ? model : model.slice(0, cut);
     const rev = cut < 0 ? '' : model.slice(cut + 1);
     out.push({ text: 'MAUDITE MACHINE', ...pcbAt(-5.33, -0.86), px: 24, align: 'left', reserve: 0 });
-    out.push({ text: name, ...pcbAt(5.8, -0.05), px: 15, align: 'right', reserve: 0 });
-    if (rev) out.push({ text: `${rev}  2026`, ...pcbAt(5.8, 0.33), px: 12, align: 'right', reserve: 0 });
+    // Une carte a TWEAKS (2026-10-08) : son cartouche porte deja le nom et la revision
+    if (!this.clear) out.push({ text: name, ...pcbAt(5.8, -0.05), px: 15, align: 'right', reserve: 0 });
+    if (rev && !this.clear) out.push({ text: `${rev}  2026`, ...pcbAt(5.8, 0.33), px: 12, align: 'right', reserve: 0 });
     for (const c of this.chips) {
       const D = chipDims(c);
       const reserve = c.href ? CHIP.extGapPx + D.labelPx * SILK.capRatio : 0;
@@ -1229,8 +1360,16 @@ export class Pcb {
     for (const f of this.prints) if (f.ref) out.push({ text: f.ref, x: f.refX, z: f.refZ, px: PCB.designatorPx, align: f.refAlign, reserve: 0 });
     out.push({ text: 'PWR', x: P.led.x + 0.2, z: P.led.z + 0.12, px: 10, align: 'left', reserve: 0 });
     out.push({ text: 'GND', x: this.pour.x0 + 0.25, z: this.pour.z1 - 0.2, px: 12, align: 'left', reserve: 0 });
-    for (const c of P.caps) out.push({ text: '+', x: c.x - P.cap3.r - 0.1, z: c.z, px: 12, align: 'center', reserve: 0 });
-    return out;
+    // Le + des condensateurs presents seulement (2026-10-08 : ceux de la zone des TWEAKS sont partis)
+    const off = offOf(this.clear);
+    for (const c of P.caps) if (!off('cap', c.x, c.z)) out.push({ text: '+', x: c.x - P.cap3.r - 0.1, z: c.z, px: 12, align: 'center', reserve: 0 });
+    // La zone des TWEAKS : aucun texte de la carte n'y tombe (son cartouche porte le nom et la revision)
+    const C = this.clear;
+    if (!C) return out;
+    return out.filter((t) => {
+      const r = this.textRect(t);
+      return r.x1 < C.x0 || r.x0 > C.x1 || r.z1 < C.z0 || r.z0 > C.z1;
+    });
   }
 
   private textRect(t: SilkText): Rect {
@@ -1269,6 +1408,8 @@ export class Pcb {
     };
     for (const f of this.prints) block({ x0: f.x - f.hx, z0: f.z - f.hz, x1: f.x + f.hx, z1: f.z + f.hz });
     for (const t of this.texts()) block(this.textRect(t));
+    // La zone des TWEAKS (2026-10-08) : un vernis calme sous la serigraphie fine, les pistes la contournent
+    if (this.clear) block(this.clear, 0.02);
     block({ x0: this.pour.x0, z0: this.pour.z0, x1: this.pour.x1, z1: this.pour.z1 }, 0.12);
 
     const starts: { i: number; j: number; d: number; main: boolean }[] = [];
@@ -1450,7 +1591,8 @@ export class Pcb {
       for (let x = R.x0 + 0.2; x < R.x1 - 0.1; x += 0.32) {
         const hit = this.prints.some((f) => x > f.x - f.hx - 0.12 && x < f.x + f.hx + 0.12 && z > f.z - f.hz - 0.12 && z < f.z + f.hz + 0.12);
         const text = x < R.x0 + 0.9 && z > R.z1 - 0.35;
-        if (!hit && !text) this.stitch.push([x, z]);
+        const tw = touches(this.clear, x, z, 0.06, 0.06);
+        if (!hit && !text && !tw) this.stitch.push([x, z]);
       }
     }
     this.segments = segments;
@@ -1624,6 +1766,11 @@ export class Pcb {
     }
     // La place du texte GND
     ctx.fillRect(R.x0 + 0.12, R.z1 - 0.34, 0.85, 0.26);
+    // La zone des TWEAKS (2026-10-08) : le plan de masse s'arrete a 0.06 de son bord
+    if (this.clear) {
+      const C = this.clear;
+      ctx.fillRect(C.x0 - 0.06, C.z0 - 0.06, C.x1 - C.x0 + 0.12, C.z1 - C.z0 + 0.12);
+    }
     for (const [x, z] of this.stitch) {
       ctx.beginPath();
       ctx.ellipse(x, z, PCB.viaR + 0.035, PCB.viaR + 0.035, 0, 0, Math.PI * 2);
@@ -1781,7 +1928,7 @@ export class Pcb {
     }
 
     // L'etiquette a code-barres de la MM-808 (papier blanc mat, en leger relief)
-    if (this.variant === 'mm808') this.sticker(ctx, orm, hc);
+    if (this.variant === 'mm808' && !touches(this.clear, STICKER.x, STICKER.z, STICKER.hx + 0.05, STICKER.hz + 0.05)) this.sticker(ctx, orm, hc);
 
     // Ombres de contact : la couleur s'assombrit, l'occlusion (rouge) aussi
     this.shadows(ctx, 'rgba(0, 0, 0, 0.62)', 'source-over');
@@ -1856,8 +2003,12 @@ export class Pcb {
       x += bw + (0.004 + rnd() * 0.008) * this.ux;
     }
     ctx.textBaseline = 'alphabetic';
-    const px = h * 0.2;
-    drawTracked(ctx, 'SN MMRYTM-000808  REV 4.0', x0 + w * 0.08, y0 + h * 0.88, px, 600, 0.08);
+    // Le numero tient dans l'etiquette (2026-10-08 : capot ouvert moins zoome, on voyait REV 4.0 deborder)
+    const label = 'SN MMRYTM-000808  REV 4.0';
+    let px = h * 0.2;
+    const tw = trackedWidth(ctx, label, px, 600, 0.08);
+    if (tw > w * 0.84) px *= (w * 0.84) / tw;
+    drawTracked(ctx, label, x0 + w * 0.08, y0 + h * 0.88, px, 600, 0.08);
   }
 
   /**
