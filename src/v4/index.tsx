@@ -341,6 +341,8 @@ const DjBrowser = lazy(() =>
 const DjTwins = lazy(() => import('./dj/Twins'));
 /** Le MM-BASS (2026-10-07) : ses jumeaux (et son clavier), charges a part */
 const BassTwins = lazy(() => import('./bass/Twins'));
+/** Ses INFOS (2026-10-08) : la carte et la pastille INFOS ON, avec le reste du MM-BASS */
+const BassInfosCard = lazy(() => import('./bass/InfosCard'));
 
 const V4Shell: React.FC = () => {
   const stageRef = useRef<Stage | null>(null);
@@ -537,6 +539,12 @@ const V4Shell: React.FC = () => {
           <Lcd />
           {/* MM-ARP ouvert : sa touche SCOPE et l'oscilloscope (2026-10-04, ui/Scope.tsx) */}
           <Scope mobile={mobile} getStage={getStage} />
+          {/* MM-BASS : la carte INFOS et sa pastille (2026-10-08), hors de .v4-stage : la pastille ne lance pas l'orbite */}
+          {BASS && (
+            <Suspense fallback={null}>
+              <BassInfosCard stage={stage} />
+            </Suspense>
+          )}
           {/* Le Dock n'existe que sur la mise en page mobile : pas de rendu React par pas sur desktop ; il programme la 808 */}
           {/* EDIT ouvert (2026-10-04) : l'editeur prend la place du Dock de sa machine */}
           {mobile && machineFocus !== 'voy' && machineFocus !== 'dj' && machineFocus !== 'bass' && editorOpen !== 'mm808' && <Dock getStage={getStage} />}

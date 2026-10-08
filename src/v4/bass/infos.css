@@ -1,0 +1,297 @@
+/*
+ * La carte INFOS du MM-BASS (2026-10-08, bass/InfosCard.tsx) : sombre dans
+ * les deux apparences, comme les ecrans des machines (le look de la carte
+ * de la vue d'ensemble, ui/OverviewHelp.tsx). Le dessin : os pour le trait,
+ * orange pour ce que la commande change, la grille a peine.
+ */
+
+.v4-root .v4-binfo {
+  --bi-bone: #f6f1e7;
+  --bi-orange: #ff6a13;
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 24;
+  box-sizing: border-box;
+  width: 300px;
+  padding: 12px 14px 12px;
+  border-radius: 14px;
+  background: rgba(16, 16, 19, 0.97);
+  box-shadow:
+    inset 0 0 0 1px #2e3036,
+    0 14px 40px rgba(0, 0, 0, 0.42);
+  color: var(--bi-bone);
+  color-scheme: dark;
+  font-size: 12.5px;
+  line-height: 1.45;
+  text-align: left;
+  pointer-events: none;
+  will-change: transform;
+  animation: v4-binfo-in 140ms ease-out;
+}
+
+@keyframes v4-binfo-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Sur la table creme : la carte garde son noir, l'ombre la decolle */
+.v4-root[data-v4-theme='light'] .v4-binfo,
+.v4-root[data-v4-theme='light'] .v4-binfo-chip {
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.5),
+    0 12px 32px rgba(40, 32, 20, 0.28);
+}
+
+.v4-root .v4-binfo-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 14px;
+}
+
+.v4-root .v4-binfo-sec {
+  color: rgba(246, 241, 231, 0.6);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.v4-root .v4-binfo-lock {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--bi-bone);
+  color: #0c0b09;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.v4-root .v4-binfo-title {
+  margin: 1px 0 6px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.v4-root .v4-binfo-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 0 8px;
+  border-radius: 8px;
+  background: #050506;
+  overflow: visible;
+}
+
+.v4-root .v4-binfo-svg path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.v4-root .v4-binfo-svg .r-main {
+  stroke: var(--bi-bone);
+  stroke-width: 1.6;
+}
+
+.v4-root .v4-binfo-svg .r-hot {
+  stroke: var(--bi-orange);
+  stroke-width: 2;
+}
+
+.v4-root .v4-binfo-svg .r-ghost {
+  stroke: rgba(246, 241, 231, 0.34);
+  stroke-width: 1.2;
+}
+
+.v4-root .v4-binfo-svg .r-grid {
+  stroke: rgba(246, 241, 231, 0.16);
+  stroke-width: 1;
+}
+
+.v4-root .v4-binfo-svg .r-dash {
+  stroke: rgba(246, 241, 231, 0.55);
+  stroke-width: 1.3;
+  stroke-dasharray: 4 3;
+}
+
+.v4-root .v4-binfo-svg .f {
+  stroke: none;
+}
+
+.v4-root .v4-binfo-svg .r-main.f {
+  fill: rgba(246, 241, 231, 0.82);
+}
+
+.v4-root .v4-binfo-svg .r-hot.f {
+  fill: var(--bi-orange);
+}
+
+.v4-root .v4-binfo-svg .r-ghost.f {
+  fill: rgba(246, 241, 231, 0.24);
+}
+
+.v4-root .v4-binfo-svg .r-grid.f {
+  fill: rgba(246, 241, 231, 0.14);
+}
+
+.v4-root .v4-binfo-svg .r-dash.f {
+  fill: rgba(246, 241, 231, 0.4);
+}
+
+.v4-root .v4-binfo-svg text {
+  font-family: 'SF Pro Display', system-ui, -apple-system, sans-serif;
+  letter-spacing: 0.04em;
+}
+
+.v4-root .v4-binfo-svg .t-label {
+  fill: rgba(246, 241, 231, 0.62);
+  font-size: 9.5px;
+  font-weight: 600;
+}
+
+.v4-root .v4-binfo-svg .t-value {
+  fill: var(--bi-bone);
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.v4-root .v4-binfo-text {
+  margin: 0;
+  color: rgba(246, 241, 231, 0.88);
+}
+
+.v4-root .v4-binfo-tip {
+  margin: 7px 0 0;
+  color: rgba(246, 241, 231, 0.72);
+  font-size: 12px;
+}
+
+.v4-root .v4-binfo-tipk {
+  margin-right: 6px;
+  color: var(--bi-orange);
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* Telephone : une feuille sur le bas de l'ecran (au-dessus de la barre flottante de Safari) */
+.v4-root .v4-binfo[data-mode='sheet'] {
+  left: 0;
+  right: 0;
+  top: auto;
+  bottom: var(--ios-bar, 0px);
+  width: auto;
+  max-height: 52vh;
+  max-height: 52dvh;
+  overflow-y: auto;
+  padding: 8px 16px calc(14px + env(safe-area-inset-bottom, 0px));
+  border-radius: 18px 18px 0 0;
+  pointer-events: auto;
+  touch-action: pan-y;
+  will-change: auto;
+  animation: v4-binfo-up 180ms ease-out;
+}
+
+@keyframes v4-binfo-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+}
+
+.v4-root .v4-binfo-grab {
+  display: block;
+  width: 36px;
+  height: 4px;
+  margin: 0 auto 8px;
+  border-radius: 2px;
+  background: rgba(246, 241, 231, 0.25);
+}
+
+.v4-root .v4-binfo[data-mode='sheet'] .v4-binfo-svg {
+  max-width: 420px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* La pastille INFOS ON : le mode est allume, la croix l'eteint */
+.v4-root .v4-binfo-chip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 23;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  margin: 0;
+  padding: 0 8px 0 11px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(16, 16, 19, 0.94);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 106, 19, 0.55),
+    0 6px 18px rgba(0, 0, 0, 0.35);
+  color: #f6f1e7;
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  line-height: 30px;
+  cursor: pointer;
+  color-scheme: dark;
+}
+
+/* Telephone : sous le selecteur des machines (.v4-mswitch, a 58 px), au-dessus du MM-BASS */
+.v4-root .v4-binfo-chip[data-mode='sheet'] {
+  left: 12px;
+  top: calc(106px + env(safe-area-inset-top, 0px));
+  height: 34px;
+  line-height: 34px;
+}
+
+.v4-root .v4-binfo-chip:focus-visible {
+  outline: 2px solid var(--yellow, #f2c230);
+  outline-offset: 2px;
+}
+
+.v4-root .v4-binfo-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff6a13;
+  box-shadow: 0 0 6px rgba(255, 106, 19, 0.8);
+}
+
+.v4-root .v4-binfo-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(246, 241, 231, 0.12);
+  transition: background 140ms ease;
+}
+
+.v4-root .v4-binfo-x path {
+  fill: none;
+  stroke: #f6f1e7;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.v4-root .v4-binfo-chip:hover .v4-binfo-x {
+  background: rgba(255, 106, 19, 0.5);
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-binfo,
+.v4-root[data-v4-motion='reduced'] .v4-binfo[data-mode='sheet'] {
+  animation: none;
+}

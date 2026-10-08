@@ -21,6 +21,20 @@
  *   attend cerne, la chaine numerotee), le courant en grand, la chaine ;
  * - PRESETS : le titre et le rang, le nom en grand entre deux fleches, les
  *   quatre touches en bas (SAVE NAME DEL EXIT), comme le MM-RYTM.
+ * Deux de plus (2026-10-08, la refonte facon Monark et Elektron) :
+ * - l'echo d'un potard (mode.knob, un instant apres qu'on l'a tourne, comme
+ *   les Elektron) : sa section en petit, son nom et sa valeur en grand, son
+ *   dessin des INFOS (bass/diagrams.ts, trace avec Path2D : os, HALF pour
+ *   les fantomes, FAINT pour la grille), LOCKED en pastille s'il est
+ *   verrouille sur le pas ; PRESS GEN sous les regles du generateur ;
+ * - la grille LOCK (mode.lock.cells) : l'en-tete du pas en pastille (LOCK 05
+ *   F#2 ACC SLD), les onze parametres verrouillables en cases (6 x 2 sur
+ *   l'ecran large et bas du telephone, 4 x 3 sur desktop), les verrouilles
+ *   en negatif (os plein, texte noir, la convention du Digitakt), les autres
+ *   avec la valeur du potard en demi-teinte ; la derniere case compte les
+ *   verrous ; en bas, les gestes.
+ * Priorite : PRESETS, EDIT, l'echo, la grille LOCK, la ligne (en LOCK sans
+ * cells, l'ancienne page : la liste des verrous en bas).
  * Une texture sur le verre, redessinee quand quelque chose change, et a
  * chaque image tant que la basse sonne (le point du filtre, la tete).
  */
@@ -30,7 +44,9 @@ import { makeCanvasTexture } from '../scene/silk';
 import { DJ_BEZEL } from '../dj/theme';
 import { FONT_DISPLAY, HEX } from '../theme';
 import type { PresetView } from '../state/presetMode';
-import { BASS_ROOTS, BASS_SCALES, BASS_STYLES, stepOf, type BassKnobId, type BassValues } from './params';
+import { bassDiagram, type BassDiagram } from './diagrams';
+import { BASS_INFOS } from './infos';
+import { BASS_ROOTS, BASS_SCALES, BASS_STYLES, bassKnob, bassValueText, stepOf, type BassKnobId, type BassValues } from './params';
 import { BASS_STEPS, type BassLockId, type BassState } from './state';
 import { BASS } from './theme';
 
@@ -40,6 +56,19 @@ const FAINT: string = 'rgba(246, 241, 231, 0.18)';
 const BLACK: string = '#050506';
 
 const font = (weight: number, size: number): string => `${weight} ${size}px ${FONT_DISPLAY}`;
+const two = (i: number): string => String(i + 1).padStart(2, '0');
+
+/** Les roles d'un dessin des INFOS a l'ecran (en unites de l'ecran) : tout en os, la hierarchie par l'epaisseur et l'intensite. */
+const DIAGRAM_INK: Readonly<Record<BassDiagram['paths'][number]['role'], { stroke: string; fill: string; lw: number }>> = {
+  main: { stroke: INK, fill: HALF, lw: 1.1 },
+  hot: { stroke: INK, fill: INK, lw: 1.8 },
+  ghost: { stroke: HALF, fill: FAINT, lw: 0.8 },
+  grid: { stroke: FAINT, fill: FAINT, lw: 0.7 },
+  dash: { stroke: HALF, fill: HALF, lw: 0.9 },
+};
+
+/** Les regles du generateur : on les entend au prochain GEN (l'echo le dit). */
+const GEN_RULES: ReadonlySet<BassKnobId> = new Set<BassKnobId>(['style', 'density', 'slides', 'accents', 'range']);
 
 /** Une case de la page LOCK (2026-10-08) : un potard verrouillable, sa valeur sur ce pas, verrouillee ou non. */
 export interface BassLockCell {
@@ -169,7 +198,8 @@ export class BassScreen {
    */
   draw(s: BassState, v: BassValues, midis: readonly (number | null)[], bpm: number, live: BassLive, message: string | null, info: string, mode: BassScreenMode): boolean {
     const cutK = live.cut > 0 ? Math.round(Math.log2(live.cut) * 24) : 0;
-    const key = JSON.stringify([s.steps, s.sel, s.running, v.cutoff, v.reso, v.style, v.root, v.scale, midis, Math.round(bpm), live.step, cutK, message, info, mode]);
+    // L'echo dessine avec toutes les valeurs (le dessin de RESO lit CUTOFF, celui de DECAY le tempo...) et les verrous du pas
+    const key = JSON.stringify([s.steps, s.sel, s.running, s.lock, v.cutoff, v.reso, v.style, v.root, v.scale, midis, Math.round(bpm), live.step, cutK, message, info, mode, mode.knob ? v : null]);
     if (key === this.key) return false;
     this.key = key;
     const c = this.ctx;
@@ -179,6 +209,8 @@ export class BassScreen {
     c.setTransform(this.scale, 0, 0, this.scale, 0, 0);
     if (mode.presets) this.drawPresets(mode.presets);
     else if (mode.edit) this.drawEdit(s, bpm, mode.edit, message);
+    else if (mode.knob) this.drawKnob(s, v, bpm, mode.knob, mode.lock);
+    else if (mode.lock?.cells) this.drawLockGrid(s, bpm, mode.lock, message);
     else this.drawLine(s, v, midis, bpm, live, message, info, mode.lock);
     this.texture.needsUpdate = true;
     this.draws += 1;
@@ -308,6 +340,153 @@ export class BassScreen {
       this.text(info, rx0, UH - 7, 8.5, HALF, 600);
       this.text('TOUCH: PRESETS', UW - 10, UH - 7, 6, FAINT, 700, 'right');
     }
+  }
+
+  /** La lecture en haut a gauche : un triangle, un carre a l'arret. */
+  private transport(running: boolean, hy: number): void {
+    const c = this.ctx;
+    c.fillStyle = INK;
+    if (running) {
+      c.beginPath();
+      c.moveTo(10, hy - 9);
+      c.lineTo(18, hy - 4.5);
+      c.lineTo(10, hy);
+      c.closePath();
+      c.fill();
+    } else c.fillRect(10, hy - 8.5, 8, 8);
+  }
+
+  /** Le tempo en haut a droite. */
+  private tempo(bpm: number, hy: number): void {
+    const bw = this.text('BPM', this.UW - 10, hy, 7, HALF, 600, 'right');
+    this.text(String(Math.round(bpm)), this.UW - 14 - bw, hy, 12, INK, 400, 'right');
+  }
+
+  /** La plus grande taille (jusqu'a size) ou le texte tient dans maxW. */
+  private fit(s: string, weight: number, size: number, maxW: number, min = 6): number {
+    const c = this.ctx;
+    let z = size;
+    c.font = font(weight, z);
+    while (z > min && c.measureText(s).width > maxW) {
+      z -= 0.5;
+      c.font = font(weight, z);
+    }
+    return z;
+  }
+
+  /**
+   * Un dessin des INFOS (bass/diagrams.ts) dans la boite donnee, a
+   * l'echelle, centre : les traits en os (le principal fin, ce qui change
+   * plus epais), HALF pour les fantomes et les pointilles, FAINT pour la
+   * grille ; les etiquettes en HALF (la valeur, deja en grand, non).
+   */
+  private drawDiagram(d: BassDiagram, x: number, y: number, w: number, h: number): void {
+    const c = this.ctx;
+    const k = Math.min(w / d.w, h / d.h);
+    c.save();
+    c.translate(x + (w - d.w * k) / 2, y + (h - d.h * k) / 2);
+    c.scale(k, k);
+    c.lineCap = 'round';
+    c.lineJoin = 'round';
+    for (const p of d.paths) {
+      const path = new Path2D(p.d);
+      const ink = DIAGRAM_INK[p.role];
+      if (p.fill) {
+        c.fillStyle = ink.fill;
+        c.fill(path);
+        continue;
+      }
+      c.strokeStyle = ink.stroke;
+      c.lineWidth = ink.lw / k;
+      c.setLineDash(p.role === 'dash' ? [3 / k, 2.4 / k] : []);
+      c.stroke(path);
+    }
+    c.setLineDash([]);
+    c.font = font(600, 9.5);
+    c.fillStyle = HALF;
+    c.textBaseline = 'alphabetic';
+    for (const t of d.texts) {
+      if (t.role !== 'label') continue;
+      c.textAlign = t.anchor === 'middle' ? 'center' : t.anchor === 'end' ? 'right' : 'left';
+      c.fillText(t.text, t.x, t.y);
+    }
+    c.restore();
+  }
+
+  /**
+   * L'echo d'un potard (2026-10-08, l'habitude des Elektron) : a gauche sa
+   * section, son nom et sa valeur en grand ; a droite son dessin, avec les
+   * valeurs du moment (en LOCK, celles du pas).
+   */
+  private drawKnob(s: BassState, v: BassValues, bpm: number, k: NonNullable<BassScreenMode['knob']>, lock: BassScreenMode['lock']): void {
+    const UW = this.UW;
+    const UH = this.UH;
+    const hy = 18;
+    this.transport(s.running, hy);
+    let x = 24;
+    if (lock) x += this.pill(`LOCK ${two(lock.step)}`, x, hy, 9, true) + 6;
+    this.text(BASS_INFOS[k.id].section, x, hy, 8.5, HALF, 700);
+    if (k.locked) this.pill('LOCKED', UW - 10, hy, 8, true, 'right');
+    else this.tempo(bpm, hy);
+    // Le nom et la valeur, centres dans la colonne de gauche
+    const label = bassKnob(k.id).label;
+    const value = bassValueText(k.id, k.v);
+    const colW = UW * 0.42 - 12;
+    const top = 28;
+    const bot = UH - 10;
+    const band = bot - top;
+    const ls = this.fit(label, 700, Math.min(15, band * 0.2), colW);
+    const vs = this.fit(value, 300, Math.min(30, band * 0.38), colW, 9);
+    const block = ls + vs * 1.08 + 4;
+    const y0 = top + Math.max(0, (band - block) / 2);
+    this.text(label, 10, y0 + ls, ls, INK, 700);
+    this.text(value, 9, y0 + ls + 4 + vs * 1.02, vs, INK, 300);
+    if (GEN_RULES.has(k.id)) this.text('PRESS GEN TO HEAR IT', 10, UH - 6, 6.5, HALF, 700);
+    // Le dessin, a droite
+    const values = s.lock >= 0 && s.steps[s.lock]?.locks ? { ...v, ...s.steps[s.lock].locks } : v;
+    const d = bassDiagram(k.id, { v: k.v, values, bpm, steps: s.steps });
+    if (d) this.drawDiagram(d, UW * 0.44, 28, UW * 0.56 - 10, UH - 36);
+  }
+
+  /** La grille LOCK (2026-10-08, facon Digitakt) : les parametres verrouillables du pas, les verrouilles en negatif. */
+  private drawLockGrid(s: BassState, bpm: number, lock: NonNullable<BassScreenMode['lock']>, message: string | null): void {
+    const UW = this.UW;
+    const UH = this.UH;
+    const hy = 18;
+    this.transport(s.running, hy);
+    this.pill(lock.head ?? `LOCK ${two(lock.step)}`, 24, hy, 9, true);
+    this.tempo(bpm, hy);
+    const cells = lock.cells ?? [];
+    // L'ecran du telephone est large et bas : deux rangees de six ; desktop : trois de quatre
+    const cols = UH < 120 ? 6 : 4;
+    const rows = Math.max(1, Math.ceil((cells.length + 1) / cols));
+    const gx0 = 10;
+    const gx1 = UW - 10;
+    const gy0 = 28;
+    const gy1 = UH - 16;
+    const gap = 3;
+    const cw = (gx1 - gx0 - gap * (cols - 1)) / cols;
+    const chh = (gy1 - gy0 - gap * (rows - 1)) / rows;
+    const ls = Math.max(5.5, Math.min(8, chh * 0.24));
+    const vmax = Math.max(7, Math.min(13, chh * 0.4));
+    const at = (i: number): { x: number; y: number } => ({ x: gx0 + (i % cols) * (cw + gap), y: gy0 + Math.floor(i / cols) * (chh + gap) });
+    cells.forEach((cell, i) => {
+      const { x, y } = at(i);
+      if (cell.locked) this.box(x, y, cw, chh, INK, null);
+      else this.box(x, y, cw, chh, null, FAINT);
+      const ink = cell.locked ? BLACK : HALF;
+      this.text(cell.label, x + 4, y + ls + 3, ls, ink, 700);
+      const vs = this.fit(cell.value, cell.locked ? 700 : 500, vmax, cw - 8, 5.5);
+      this.text(cell.value, x + 4, y + chh - 4.5, vs, ink, cell.locked ? 700 : 500);
+    });
+    // La case d'apres : combien de verrous sur ce pas
+    if (cells.length < rows * cols) {
+      const { x, y } = at(cells.length);
+      const n = cells.filter((c) => c.locked).length;
+      this.text(`${n}/${cells.length}`, x + cw / 2, y + chh - 6.5 - ls, vmax, n ? INK : HALF, 300, 'center');
+      this.text('LOCKED', x + cw / 2, y + chh - 4.5, ls, HALF, 700, 'center');
+    }
+    this.text(message ?? 'TURN A KNOB: LOCK   DOUBLE TAP: UNLOCK   CLEAR: ALL', 10, UH - 6, 6.5, message ? INK : HALF, 600);
   }
 
   /** EDIT : les seize patterns. */
