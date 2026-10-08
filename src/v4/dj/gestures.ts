@@ -528,6 +528,8 @@ export class DjGestures {
       return true;
     }
     g.zone = zoneOf(uv.u, uv.v, djState.get().deck[g.deck].track !== null);
+    // L'ecran touche fait de cette platine la derniere touchee (Espace, Retour arriere)
+    djTouchDeck(g.deck);
     g.u0 = uv.u;
     g.target = djPosition(g.deck);
     g.v0 = g.target;
