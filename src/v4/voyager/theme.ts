@@ -29,10 +29,11 @@
  * rejoint la rangee de l'arpegiateur (son crochet OUTPUT).
  */
 
-import { PORTRAIT, TEMPO_UI } from '../theme';
+import { PCB, PORTRAIT, TEMPO_UI } from '../theme';
 import { BASS } from '../state/focus';
 import { BASS_W, bassX } from '../bass/theme';
 import type { VoyKnobId } from './params';
+import { tweakClearOf } from '../scene/tweaklayout';
 
 // Portrait (2026-10-08, le grand ecran) : d 14.4, bendZ -0.5, backZ -6.85 avant ; le panneau garde sa longueur (6.35)
 export const VOY_BODY = PORTRAIT
@@ -663,9 +664,10 @@ export const VOY_BACK = PORTRAIT
  * (2026-10-03) : plus haut et plus loin que la 808, la rangee des pages au
  * milieu de la carte se voit en entier.
  */
+// 2026-10-08 : slideZ -3.8 -> -5.1 (desktop), -3.4 -> -4.6 (portrait) : le cadrage ouvert est moins zoome, seul le bord du capot leve se devine en haut
 export const VOY_EXPLODE = PORTRAIT
-  ? { lift: 6.3, slideZ: -3.4, tiltOpenDeg: -55, pcbRise: 1.0 }
-  : { lift: 5.0, slideZ: -3.8, tiltOpenDeg: -24, pcbRise: 1.0 };
+  ? { lift: 6.3, slideZ: -4.6, tiltOpenDeg: -55, pcbRise: 1.0 }
+  : { lift: 5.0, slideZ: -5.1, tiltOpenDeg: -24, pcbRise: 1.0 };
 
 /** La carte (celle de la 808, meme taille) dans le bac, a plat. */
 export const VOY_PCB_Y = VOY_BODY.floorY + 0.12;
@@ -689,70 +691,106 @@ export const VOY_PCB_Y = VOY_BODY.floorY + 0.12;
  */
 // 2026-10-04 (Mika : "on voit rien ; les boutons un peu plus gros et surtout les titres, sans trop exagerer") :
 // potards 1.3 -> 1.5 (1.45 au telephone), noms 0.08 -> 0.11, bouts de course 0.055 -> 0.068, titre 0.2 -> 0.24
-/** Potards un peu plus petits depuis SIDECHAIN (2026-10-04) : cinq colonnes a plat, cinq rangees debout. */
-export const VOY_TWEAK_PLATE = PORTRAIT
-  ? { cx: 0, cz: 1.4, w: 4.0, d: 8.2, y: 0.5, t: 0.08, r: 0.12, screwIn: 0.17, frame: 0.28, knob: 1.3, label: 0.11, end: 0.068, title: 0.24 }
-  : { cx: 0, cz: 1.4, w: 8.2, d: 3.9, y: 0.5, t: 0.08, r: 0.12, screwIn: 0.22, frame: 0.36, knob: 1.3, label: 0.11, end: 0.068, title: 0.24 };
+/**
+ * 2026-10-08 (Mika : "c'est moche des grosses cases par dessus un PCB..
+ * avoir de la finesse design ici") : plus de plaque, les neuf reglages
+ * sont soudes sur l'avant de la carte (scene/tweakplate.ts), en trois
+ * groupes serigraphies : OSCILLATORS (PHASE, DRIFT, la glissiere SYNC),
+ * OUTPUT (WIDTH, BASS MONO, SIDECHAIN), PERFORMANCE (KEY TRACK, ACCENT,
+ * le selecteur CHORD) ; le cartouche MM-ARP / TWEAKS, SCOPE et CLOSE
+ * dessous. Desktop : deux rangees entre les deux petites puces des cotes
+ * (TL072, CA3046, gardees) ; portrait : la carte debout, trois colonnes.
+ * La zone : son centre (repere de la carte), ses cotes (repere droit).
+ */
+const VT = PORTRAIT
+  ? (() => {
+      // Les rangees, et les cadres : 1.02 au-dessus d'une rangee (le titre du groupe, puis le nom), 0.66 dessous
+      const R = [-1.22, 0.78, 2.78];
+      const C = [-2.15, 0, 2.15];
+      return {
+        dims: { cx: 0, cz: 0, w: 6.6, d: 10.6 },
+        cellW: 2.05,
+        at: {
+          phase: [C[0], R[0]],
+          drift: [C[1], R[0]],
+          sync: [C[2], R[0]],
+          width: [C[0], R[1]],
+          monoLow: [C[1], R[1]],
+          duck: [C[2], R[1]],
+          keyTrack: [C[0], R[2]],
+          accent: [C[1], R[2]],
+          chord: [C[2], R[2]],
+        } as Partial<Record<VoyKnobId, readonly [number, number]>>,
+        groups: [
+          { title: 'OSCILLATORS', x0: -3.15, z0: R[0] - 1.02, x1: 3.15, z1: R[0] + 0.66, accent: true },
+          { title: 'OUTPUT', x0: -3.15, z0: R[1] - 1.02, x1: 3.15, z1: R[1] + 0.66 },
+          { title: 'PERFORMANCE', x0: -3.15, z0: R[2] - 1.02, x1: 3.15, z1: R[2] + 0.66 },
+        ],
+        title: { x0: -3.15, z0: -3.44, x1: 1.0, z1: -2.59, name: 'MM-ARP', sub: 'ANALOG CONTROL', rev: 'REV 1.0' },
+        scope: { x: 2.2, z: -3.01, w: 1.6, d: 0.5, y: 0.01 },
+        close: { x: 2.2, z: -3.01, w: 1.6, d: 0.5, y: 0.01 },
+      };
+    })()
+  : (() => {
+      const A = -0.66;
+      const B = 0.92;
+      return {
+        dims: { cx: 0, cz: 1.25, w: 8.4, d: 3.4 },
+        cellW: 1.2,
+        at: {
+          phase: [-3.4, A],
+          drift: [-2.15, A],
+          sync: [-0.85, A],
+          width: [0.75, A],
+          monoLow: [2.0, A],
+          duck: [3.3, A],
+          keyTrack: [-3.4, B],
+          accent: [-2.15, B],
+          chord: [-0.45, B],
+        } as Partial<Record<VoyKnobId, readonly [number, number]>>,
+        groups: [
+          { title: 'OSCILLATORS', x0: -4.0, z0: A - 0.62, x1: -0.12, z1: A + 0.52, accent: true },
+          { title: 'OUTPUT', x0: 0.12, z0: A - 0.62, x1: 4.0, z1: A + 0.52 },
+          { title: 'PERFORMANCE', x0: -4.0, z0: B - 0.62, x1: 1.2, z1: B + 0.52 },
+        ],
+        title: { x0: 1.6, z0: B - 0.62, x1: 4.0, z1: B + 0.12, name: 'MM-ARP', sub: 'ANALOG CONTROL', rev: 'REV 1.0' },
+        scope: { x: 1.6 + 0.47, z: B + 0.36, w: 0.94, d: 0.25, y: 0.01 },
+        close: { x: 4.0 - 0.47, z: B + 0.36, w: 0.94, d: 0.25, y: 0.01 },
+      };
+    })();
 
-export type VoyTweakCell = VoyKnobId | 'title';
+export const VOY_TWEAK_PLATE = VT.dims;
+export const VOY_TWEAK_GROUPS = VT.groups;
+export const VOY_TWEAK_TITLE = VT.title;
+export const VOY_TWEAK_CELL_W = VT.cellW;
 
 /**
- * Les cases de la plaque (repere de la plaque, son centre) : desktop deux
- * rangees de cinq (le titre sur la derniere case du bas), portrait cinq
- * rangees de deux (le titre sur la derniere case). CHORD (2026-10-05) a
- * pris la place de la moitie du titre.
+ * Le cadrage ouvert (renderer, OPEN_VIEW ; 2026-10-08, Mika : "deja c'est
+ * super zoome") : le pivot sur le dessus de la carte sortie (a plat), un peu
+ * derriere son centre, la largeur a tenir : la carte entiere (debout au
+ * telephone).
  */
-export const VOY_TWEAK_CELLS: readonly { id: VoyTweakCell; x: number; z: number }[] = (PORTRAIT
-  ? ([
-      ['phase', -0.95, -3.1],
-      ['drift', 0.95, -3.1],
-      ['width', -0.95, -1.55],
-      ['monoLow', 0.95, -1.55],
-      ['keyTrack', -0.95, 0],
-      ['accent', 0.95, 0],
-      ['sync', -0.95, 1.55],
-      ['duck', 0.95, 1.55],
-      ['chord', -0.95, 3.1],
-      ['title', 0.95, 3.1],
-    ] as const)
-  : ([
-      ['phase', -3.0, -0.72],
-      ['drift', -1.5, -0.72],
-      ['width', 0, -0.72],
-      ['monoLow', 1.5, -0.72],
-      ['keyTrack', 3.0, -0.72],
-      ['accent', -3.0, 0.86],
-      ['sync', -1.5, 0.86],
-      ['duck', 0, 0.86],
-      ['chord', 1.5, 0.86],
-      ['title', 3.0, 0.86],
-    ] as const)
-).map(([id, x, z]) => ({ id, x, z }));
-/** La largeur du titre (une case). */
-export const VOY_TWEAK_TITLE_W = PORTRAIT ? 1.75 : 1.4;
+export const VOY_OPEN_FRAME = { y: VOY_PCB_Y + VOY_EXPLODE.pcbRise + PCB.h, z: PORTRAIT ? 0 : -0.15, w: PORTRAIT ? PCB.d : PCB.w } as const;
+
+/** La zone de la carte degagee pour les TWEAKS (repere de la carte ; scene/tweaklayout.ts tweakClearOf). */
+export function voyTweakClear(): { x0: number; x1: number; z0: number; z1: number } {
+  return tweakClearOf(VT.dims, VT.groups, VT.title);
+}
 
 /**
  * La touche SCOPE (2026-10-05, Mika : "le Scope, un bouton a l'interieur de
- * OPEN du MM-ARP") : sur la plaque, sous TWEAKS et ANALOG CONTROL, a la
- * place de la ligne du modele (repere de la plaque : centre, largeur,
- * profondeur ; ui/Scope.tsx la pose et la suit).
+ * OPEN du MM-ARP") : sous le cartouche, a gauche (repere de la zone :
+ * centre, largeur, profondeur ; ui/Scope.tsx la pose et la suit) ; au
+ * telephone a droite du cartouche.
  */
-export const VOY_SCOPE_KEY = (() => {
-  const t = VOY_TWEAK_CELLS.find((c) => c.id === 'title') ?? { x: 0, z: 0 };
-  // Desktop (2026-10-05) : SCOPE a gauche, CLOSE a cote (VOY_CLOSE_KEY)
-  return PORTRAIT ? { x: t.x, z: t.z + 0.5, w: 1.3, d: 0.34, y: 0.02 } : { x: t.x - 0.37, z: t.z + 0.5, w: 0.68, d: 0.3, y: 0.02 };
-})();
+export const VOY_SCOPE_KEY = VT.scope;
 
 /**
- * CLOSE sur la plaque du MM-ARP ouvert (2026-10-05, Mika : "quand on clique
- * sur OPEN on devrait voir un CLOSE a l'interieur de la machine, voyant") :
- * desktop, a droite de SCOPE (le capot et son pad sortent du cadre ouvert ;
- * au telephone, ui/PcbClose.tsx).
+ * CLOSE dans le MM-ARP ouvert (2026-10-05, Mika : "quand on clique sur OPEN
+ * on devrait voir un CLOSE a l'interieur de la machine, voyant") : desktop,
+ * sous le cartouche, a droite (au telephone, ui/PcbClose.tsx).
  */
-export const VOY_CLOSE_KEY = (() => {
-  const t = VOY_TWEAK_CELLS.find((c) => c.id === 'title') ?? { x: 0, z: 0 };
-  return { x: t.x + 0.37, z: t.z + 0.5, w: 0.68, d: 0.3, y: 0.02 };
-})();
+export const VOY_CLOSE_KEY = VT.close;
 
 /**
  * Les bouts de course ecrits sous chaque potard (gauche : 0, droite : 10) ;
@@ -768,12 +806,11 @@ export const VOY_TWEAK_ENDS: Partial<Record<VoyKnobId, readonly [string, string]
   accent: ['FLAT', 'HARD'],
 };
 
-/** La place d'un TWEAK sur sa plaque (null : pas un TWEAK) ; SYNC et CHORD en commutateurs. */
-export function voyTweakPlace(id: VoyKnobId): { x: number; z: number; s: number; sw: boolean } | null {
-  const c = VOY_TWEAK_CELLS.find((k) => k.id === id);
+/** La place d'un TWEAK sur la carte (null : pas un TWEAK) ; SYNC et CHORD : des commutateurs (leurs crans). */
+export function voyTweakPlace(id: VoyKnobId): { x: number; z: number; sw: boolean } | null {
+  const c = VT.at[id];
   if (!c) return null;
-  const sw = id === 'sync' || id === 'chord';
-  return { x: c.x, z: c.z, s: VOY_TWEAK_PLATE.knob * (sw ? 0.8 : 1), sw };
+  return { x: c[0], z: c[1], sw: id === 'sync' || id === 'chord' };
 }
 
 

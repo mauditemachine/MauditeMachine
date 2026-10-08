@@ -1521,7 +1521,8 @@ export const EXPLODE = {
   staggerMs: 80,
   /** desktop (2026-10-03) : plus haut et plus loin, la rangee des pages au milieu de la carte se voit en entier */
   lift: PORTRAIT ? 6.3 : 5.0,
-  slideZ: PORTRAIT ? -3.6 : -3.9,
+  /** desktop 2026-10-08 : -3.9 -> -5.2, le cadrage ouvert est moins zoome : seul le bord du capot leve se devine en haut */
+  slideZ: PORTRAIT ? -3.6 : -5.2,
   tiltOpenDeg: PORTRAIT ? -60 : -24,
   pcbRise: 0.9,
   /**
@@ -1552,11 +1553,20 @@ export const EXPLODE = {
  * que le cadrage garde (la plaque et un peu de sa carte). Le pivot va au
  * centre de la plaque ouverte (y, z du monde) : tourner la vue tourne
  * autour d'elle. Telephone : le cadrage d'avant (la plaque debout y tient deja).
+ *
+ * 2026-10-08 (Mika : "deja c'est super zoome") : on regarde toujours dans
+ * la machine, mais comme un objet : la carte entiere (ses bords, ses vis),
+ * a 70 % de la largeur au desktop, le bord du capot leve qui se devine en
+ * haut, une marge calme autour, rien sous l'en-tete ; au telephone aussi
+ * (la carte debout, 86 % de la largeur). fill : la part de la largeur que
+ * prend la carte (sa largeur vue, divisee par fill) ; h : la hauteur que le
+ * cadrage garde (la carte et le bord du capot). Le pivot va un peu derriere
+ * le centre de la carte ouverte (y, z du monde, l'open* de chaque machine).
  */
 export const OPEN_VIEW = {
-  fill: 0.82,
-  margin: 0.6,
-  h: 6.4,
+  fill: PORTRAIT ? 0.86 : 0.7,
+  margin: 0,
+  h: PORTRAIT ? 10.9 : 7.6,
 } as const;
 
 /**

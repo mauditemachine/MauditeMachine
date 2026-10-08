@@ -52,7 +52,7 @@ import { voyInfos } from '../state/voyInfos';
 import { seq } from './seq';
 import { VoySilk } from './silk';
 import { VoyTweaks } from './tweaks';
-import { VOY_BODY, VOY_COPY, VOY_EXPLODE, VOY_INFO_KEY, VOY_LCD, VOY_LID_W, VOY_PANEL, VOY_PCB_Y, VOY_X } from './theme';
+import { VOY_BODY, VOY_COPY, VOY_EXPLODE, VOY_INFO_KEY, VOY_LCD, VOY_LID_W, VOY_PANEL, VOY_PCB_Y, VOY_X, voyTweakClear } from './theme';
 import { reserve } from '../audio/sched';
 
 export interface VoyRigOpts {
@@ -181,7 +181,8 @@ export class VoyagerRig {
       this.seqScreen.onView = () => this.syncLcd();
     }
 
-    this.pcb = new Pcb(opts.mobile, opts.anisotropy, { model: `${VOY_COPY.model} R1.0`, variant: 'voy', chips: false });
+    // Les TWEAKS soudes sur la carte (2026-10-08) : leur zone sans composant de decor ni piste
+    this.pcb = new Pcb(opts.mobile, opts.anisotropy, { model: `${VOY_COPY.model} R1.0`, variant: 'voy', chips: false, clear: voyTweakClear() });
     this.pcbGroup.add(this.pcb.board, this.pcb.parts);
     // La plaque des TWEAKS pousse avec les composants de la carte (pcb.parts) a l'ouverture
     this.tweaks = new VoyTweaks({ mobile: opts.mobile, anisotropy: opts.anisotropy });

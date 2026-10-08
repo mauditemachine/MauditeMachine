@@ -2,142 +2,174 @@
  * TWEAKS du MM-RYTM (2026-10-04, Mika : "met un kick de 909 s'il te plait et
  * tweakable comme il faut dans le OPEN de la machine ; sous le capot, a la
  * place des liens de mauditemachine qui sont deja dans le header, un
- * systeme de Tweaks.. genre changement de samples pour les voices"). La
- * plaque (scene/tweakplate.ts, la meme que celle du MM-ARP) remplace les
- * puces des pages sur la carte, et regle le kit (audio/kit.ts) :
- * - KICK (son son : 909, 808, MM), puis ses TUNE, ATTACK, DECAY, DRIVE ;
- * - le son de la caisse claire (SNARE, et son SNAPPY), du clap, des
- *   charleys (HATS), des toms et du rim (909, 808, MM : des commutateurs a
- *   trois crans) ;
- * - GATE (2026-10-04) : la reverbe a porte de la caisse claire et du clap,
- *   OFF ou ON (un commutateur a deux crans, entre CLAP et HATS).
- * Desktop : deux rangees de sept, devant les composants (la ou etaient les
- * puces), le titre sur les deux dernieres cases du haut ; portrait : quatre
- * rangees de trois, debout, le titre en tete. Cibles rk-<id>, vivantes
- * capot ouvert seulement (scene/renderer.ts, comme les puces).
+ * systeme de Tweaks.. genre changement de samples pour les voices"). Ils
+ * reglent le kit (audio/kit.ts) :
+ * - KICK (son son : 909, 808, MM, puis les echantillons de Mika), ses
+ *   TUNE, ATTACK, DECAY, DRIVE ;
+ * - SNARE (son son), son SNAPPY, GATE (2026-10-04 : la reverbe a porte de
+ *   la caisse claire et du clap, OFF ou ON) ;
+ * - le son du clap, des charleys (HATS) et des toms (909, 808, MM).
+ *
+ * 2026-10-08 (Mika : "c'est moche des grosses cases par dessus un PCB..
+ * avoir de la finesse design ici") : plus de plaque, les reglages sont
+ * soudes sur la carte (scene/tweakplate.ts) : potards de precision,
+ * glissieres, selecteurs a legende, groupes KICK, SNARE et VOICES en
+ * cadres fins de serigraphie, un cartouche MM-RYTM / TWEAKS dans le coin.
+ *
+ * Le contenu est une donnee (RYTM_TWEAK_LAYOUT) : chaque reglage (son id
+ * du kit, sa place), chaque groupe (son titre, son cadre), le cartouche et
+ * la touche CLOSE. La lane R3 (les couches SYNTH et SAMPLE de KICK et
+ * SNARE) change cette liste sans toucher au dessin : un reglage sans crans
+ * est un potard, deux ou trois crans une glissiere, plus un selecteur
+ * (scene/tweakplate.ts tweakKind). Cibles rk-<id>, vivantes capot ouvert
+ * seulement (scene/renderer.ts, comme les puces).
  */
 
 import type { HotspotDef } from './hit';
-import { TweakPlate, type TweakItem, type TweakPlateDims } from './tweakplate';
+import { TweakPlate, tweakClearOf, type TweakGroup, type TweakItem, type TweakPlateDims, type TweakTitle } from './tweakplate';
 import { GATE_LABELS, KIT_IDS, KIT_LABEL, isFamily, kit, kitStepLabels, kitSteps, type KitId } from '../audio/kit';
-import { PORTRAIT } from '../theme';
+import { EXPLODE, LAYERS, PCB, PORTRAIT, TILT } from '../theme';
 
-/** La plaque (repere de la carte : son centre ; puis le sien, x a droite, z vers soi). */
-export const RYTM_TWEAK_PLATE: TweakPlateDims = PORTRAIT
-  ? { cx: -0.2, cz: 0, w: 6.3, d: 9.9, y: 0.5, t: 0.08, r: 0.12, screwIn: 0.17, frame: 0.28, label: 0.15, end: 0.09, title: 0.3 }
-  : { cx: 0, cz: 1.2, w: 10.2, d: 3.95, y: 0.5, t: 0.08, r: 0.12, screwIn: 0.22, frame: 0.3, label: 0.12, end: 0.072, title: 0.26 };
-
-/**
- * La place de la plaque sur la carte (repere de la carte, avec 0.3 de marge) :
- * aucun composant de decor n'y est pose (scene/pcb.ts clear). En portrait,
- * la plaque tourne d'un quart de tour par rapport a la carte : ses cotes
- * s'echangent.
- */
-export function rytmTweakClear(): { x0: number; x1: number; z0: number; z1: number } {
-  const P = RYTM_TWEAK_PLATE;
-  const hx = (PORTRAIT ? P.d : P.w) / 2 + 0.3;
-  const hz = (PORTRAIT ? P.w : P.d) / 2 + 0.3;
-  return { x0: P.cx - hx, x1: P.cx + hx, z0: P.cz - hz, z1: P.cz + hz };
+/** Un reglage de la liste : l'id du kit et sa place (repere de la zone : x a droite, z vers soi). */
+export interface RytmTweakSlot {
+  id: KitId;
+  x: number;
+  z: number;
+  /** les bouts de course d'un potard */
+  ends?: readonly [string, string];
 }
 
-const COLS = PORTRAIT ? [-2.0, 0, 2.0] : [-4.05, -2.7, -1.35, 0, 1.35, 2.7, 4.05];
-const ROWS = PORTRAIT ? [-2.55, -0.38, 1.79, 3.96] : [-0.5, 1.2];
-/** Le titre : desktop sur les deux dernieres cases du haut, portrait en tete de plaque. */
-const TITLE = PORTRAIT ? { x: 0, z: -4.1, w: 4 } : { x: (COLS[5] + COLS[6]) / 2, z: ROWS[0] - 0.1, w: 2.4 };
+/** La mise en page des TWEAKS : la zone sur la carte, les reglages, les groupes, le cartouche, CLOSE. */
+export interface RytmTweakLayout {
+  dims: TweakPlateDims;
+  cellW: number;
+  slots: readonly RytmTweakSlot[];
+  groups: readonly TweakGroup[];
+  title: TweakTitle;
+  close: { x: number; z: number; w: number; d: number; y: number };
+}
+
 /**
- * CLOSE sur la plaque du MM-RYTM ouvert (2026-10-05, Mika : "quand on clique
- * sur OPEN on devrait voir un CLOSE a l'interieur de la machine, voyant") :
- * desktop, sous le bloc du titre (le capot et son pad sortent du cadre ouvert ;
- * au telephone, ui/PcbClose.tsx). Repere de la plaque (ui/HoodClose.tsx).
+ * Desktop : deux rangees sur l'avant de la carte (la ou etaient la plaque
+ * et, avant elle, les puces) ; KICK en haut (le selecteur a legende puis
+ * TUNE, ATTACK, DECAY, DRIVE), le cartouche a droite et CLOSE dessous ;
+ * SNARE (selecteur, SNAPPY, GATE) et VOICES (CLAP, HATS, TOMS) en bas.
+ * Portrait : la carte debout, trois colonnes, le cartouche en tete.
  */
-export const RYTM_CLOSE_KEY = { x: TITLE.x, z: TITLE.z + 0.74, w: 1.2, d: 0.32, y: 0.02 } as const;
+export const RYTM_TWEAK_LAYOUT: RytmTweakLayout = PORTRAIT
+  ? (() => {
+      // Les rangees, et les cadres : 1.02 au-dessus d'une rangee (le titre du groupe, puis le nom), 0.66 dessous
+      const R = [-1.98, -0.13, 1.87, 3.87];
+      const C = [-2.15, 0, 2.15];
+      return {
+        dims: { cx: 0, cz: 0, w: 6.6, d: 10.6 },
+        cellW: 2.05,
+        slots: [
+          { id: 'bd', x: -2.55, z: R[0] },
+          { id: 'tune', x: C[2], z: R[0], ends: ['LOW', 'HIGH'] },
+          { id: 'attack', x: C[0], z: R[1], ends: ['SOFT', 'HARD'] },
+          { id: 'decay', x: C[1], z: R[1], ends: ['SHORT', 'LONG'] },
+          { id: 'drive', x: C[2], z: R[1], ends: ['CLEAN', 'HOT'] },
+          { id: 'sd', x: -2.55, z: R[2] },
+          { id: 'snappy', x: 1.0, z: R[2], ends: ['TONE', 'SNAP'] },
+          { id: 'gate', x: 2.45, z: R[2] },
+          { id: 'cp', x: C[0], z: R[3] },
+          { id: 'hh', x: C[1], z: R[3] },
+          { id: 'tom', x: C[2], z: R[3] },
+        ],
+        groups: [
+          { title: 'KICK', x0: -3.15, z0: R[0] - 1.02, x1: 3.15, z1: R[1] + 0.66, accent: true },
+          { title: 'SNARE', x0: -3.15, z0: R[2] - 1.02, x1: 3.15, z1: R[2] + 0.66 },
+          { title: 'VOICES', x0: -3.15, z0: R[3] - 1.02, x1: 3.15, z1: R[3] + 0.66 },
+        ],
+        title: { x0: -3.15, z0: -4.2, x1: 3.15, z1: -3.35, name: 'MM-RYTM', sub: 'DRUM VOICES', rev: 'REV 1.0 / 2026' },
+        close: { x: 2.2, z: -3.77, w: 1.5, d: 0.5, y: 0.01 },
+      };
+    })()
+  : (() => {
+      const A = -0.66;
+      const B = 0.92;
+      return {
+        dims: { cx: 0, cz: 1.25, w: 10.2, d: 3.4 },
+        cellW: 1.12,
+        slots: [
+          { id: 'bd', x: -4.45, z: A },
+          { id: 'tune', x: -1.62, z: A, ends: ['LOW', 'HIGH'] },
+          { id: 'attack', x: -0.5, z: A, ends: ['SOFT', 'HARD'] },
+          { id: 'decay', x: 0.62, z: A, ends: ['SHORT', 'LONG'] },
+          { id: 'drive', x: 1.74, z: A, ends: ['CLEAN', 'HOT'] },
+          { id: 'sd', x: -4.45, z: B },
+          { id: 'snappy', x: -2.05, z: B, ends: ['TONE', 'SNAP'] },
+          { id: 'gate', x: -0.85, z: B },
+          { id: 'cp', x: 1.15, z: B },
+          { id: 'hh', x: 2.6, z: B },
+          { id: 'tom', x: 4.05, z: B },
+        ],
+        groups: [
+          { title: 'KICK', x0: -4.95, z0: A - 0.62, x1: 2.3, z1: A + 0.52, accent: true },
+          { title: 'SNARE', x0: -4.95, z0: B - 0.62, x1: -0.2, z1: B + 0.52 },
+          { title: 'VOICES', x0: 0.2, z0: B - 0.62, x1: 4.95, z1: B + 0.52 },
+        ],
+        title: { x0: 2.7, z0: A - 0.62, x1: 4.95, z1: A + 0.12, name: 'MM-RYTM', sub: 'DRUM VOICES', rev: 'REV 1.0' },
+        close: { x: 4.95 - 0.47, z: A + 0.36, w: 0.94, d: 0.25, y: 0.01 },
+      };
+    })();
 
-/** L'echelle des potards (desktop un peu plus petits depuis la septieme colonne, 2026-10-04) ; les commutateurs plus petits. */
-const KNOB_S = PORTRAIT ? 1.55 : 1.25;
-const SWITCH_S = PORTRAIT ? 0.82 : 0.8;
+/** La zone (repere de la carte : son centre ; puis la sienne, x a droite, z vers soi). */
+export const RYTM_TWEAK_PLATE: TweakPlateDims = RYTM_TWEAK_LAYOUT.dims;
 
-/** Les cases : desktop KICK puis VOICES en deux rangees de sept ; portrait quatre rangees de trois. */
-const CELLS: readonly [KitId, number, number][] = PORTRAIT
-  ? [
-      ['bd', 0, 0],
-      ['tune', 1, 0],
-      ['attack', 2, 0],
-      ['decay', 0, 1],
-      ['drive', 1, 1],
-      ['hh', 2, 1],
-      ['sd', 0, 2],
-      ['snappy', 1, 2],
-      ['gate', 2, 2],
-      // Plus de RIM (2026-10-05, huit voix) : CLAP et TOMS au milieu de la derniere rangee
-      ['cp', 0.5, 3],
-      ['tom', 1.5, 3],
-    ]
-  : [
-      ['bd', 0, 0],
-      ['tune', 1, 0],
-      ['attack', 2, 0],
-      ['decay', 3, 0],
-      ['drive', 4, 0],
-      // Plus de RIM (2026-10-05, huit voix) : les six de la rangee du bas s'etalent sur ses sept colonnes
-      ['sd', 0, 1],
-      ['snappy', 1.2, 1],
-      ['cp', 2.4, 1],
-      ['gate', 3.6, 1],
-      ['hh', 4.8, 1],
-      ['tom', 6, 1],
-    ];
+/**
+ * Le cadrage ouvert (renderer, OPEN_VIEW ; 2026-10-08, Mika : "deja c'est
+ * super zoome") : le pivot sur le dessus de la carte sortie, un peu derriere
+ * son centre (le bord du capot leve se devine en haut), la largeur a tenir :
+ * la carte entiere (debout au telephone). La carte suit la pente du
+ * panneau : son dessus descend vers soi de tan(TILT).
+ */
+export const RYTM_OPEN_FRAME = (() => {
+  const z = PORTRAIT ? 0 : -0.15;
+  return { y: LAYERS.pcbY + EXPLODE.pcbRise + PCB.h - z * Math.tan(TILT), z, w: PORTRAIT ? PCB.d : PCB.w };
+})();
 
-/** Les bouts de course des potards (0, 10). */
-const ENDS: Partial<Record<KitId, readonly [string, string]>> = {
-  tune: ['LOW', 'HIGH'],
-  attack: ['SOFT', 'HARD'],
-  decay: ['SHORT', 'LONG'],
-  drive: ['CLEAN', 'HOT'],
-  snappy: ['TONE', 'SNAP'],
-};
+/** La zone degagee de la carte (scene/pcb.ts clear) : les cadres et le cartouche, avec leur marge. */
+export function rytmTweakClear(): { x0: number; x1: number; z0: number; z1: number } {
+  const L = RYTM_TWEAK_LAYOUT;
+  return tweakClearOf(L.dims, L.groups, L.title);
+}
 
-/** La place d'une case : sa colonne peut tomber entre deux (les colonnes sont regulieres). */
-const cellOf = (id: KitId): { x: number; z: number } => {
-  const c = CELLS.find((k) => k[0] === id);
-  const [, col, row] = c ?? [id, 0, 0];
-  return { x: COLS[0] + (COLS[1] - COLS[0]) * col, z: ROWS[row] };
-};
+/**
+ * CLOSE dans le MM-RYTM ouvert (2026-10-05, Mika : "quand on clique sur OPEN
+ * on devrait voir un CLOSE a l'interieur de la machine, voyant") : desktop,
+ * sous le cartouche (au telephone, ui/PcbClose.tsx). Repere de la zone
+ * (ui/HoodClose.tsx).
+ */
+export const RYTM_CLOSE_KEY = RYTM_TWEAK_LAYOUT.close;
 
 function items(): TweakItem[] {
   return KIT_IDS.map((id) => {
-    const { x, z } = cellOf(id);
+    const slot = RYTM_TWEAK_LAYOUT.slots.find((s) => s.id === id) ?? { id, x: 0, z: 0 };
     const sw = kitSteps(id) > 1;
     return {
       hotspot: `rk-${id}`,
       label: KIT_LABEL[id],
-      x,
-      z,
-      s: sw ? KNOB_S * SWITCH_S : KNOB_S,
+      x: slot.x,
+      z: slot.z,
       // Un choix de son : 909, 808, MM, puis le nom de chaque echantillon de Mika (audio/samples.ts)
       ...(sw ? { steps: isFamily(id) ? kitStepLabels(id) : GATE_LABELS } : {}),
-      ...(ENDS[id] ? { ends: ENDS[id] } : {}),
+      ...(slot.ends ? { ends: slot.ends } : {}),
     };
   });
 }
 
 export class RytmTweaks extends TweakPlate {
   constructor(opts: { mobile: boolean; anisotropy: number }) {
-    super(
-      {
-        name: 'rytmTweaks',
-        dims: RYTM_TWEAK_PLATE,
-        items: items(),
-        title: { x: TITLE.x, z: TITLE.z, w: TITLE.w, sub: 'DRUM VOICES', model: 'MM-RYTM R1.0' },
-        cellW: (PORTRAIT ? 2.0 : 1.35) - 0.12,
-      },
-      opts
-    );
+    const L = RYTM_TWEAK_LAYOUT;
+    super({ name: 'rytmTweaks', dims: L.dims, items: items(), groups: L.groups, title: L.title, cellW: L.cellW }, opts);
     this.sync();
   }
 
   /**
    * Les potards et commutateurs suivent le kit ; un choix de son suit aussi
-   * ses crans (echantillons du dossier du site : leurs noms a la plaque).
+   * ses crans (echantillons du dossier du site : leurs noms a la legende).
    * true s'il faut une frame.
    */
   sync(): boolean {
@@ -152,38 +184,40 @@ export class RytmTweaks extends TweakPlate {
           relabel = true;
         }
       }
-      if (this.setAt(i, kit.value(id))) changed = true;
     });
     if (relabel) {
-      this.draw();
+      this.restep();
       changed = true;
     }
+    KIT_IDS.forEach((id, i) => {
+      if (this.setAt(i, kit.value(id))) changed = true;
+    });
+    if (relabel) this.draw();
     return changed;
   }
 
-  /** Les cibles du picking : un cylindre par reglage, coupees capot ferme. */
+  /** Les cibles du picking : une par reglage (la piece et sa serigraphie), coupees capot ferme. */
   hotspots(): HotspotDef[] {
     return KIT_IDS.map((id, i) => {
-      const it = this.spec.items[i];
-      const r = this.hitR(it);
+      const h = this.hitOf(i);
       return {
-        id: it.hotspot,
+        id: this.spec.items[i].hotspot,
         kind: 'rknob' as const,
         layer: this.top,
-        shape: 'disc' as const,
-        x: it.x,
-        z: it.z,
-        hx: r,
-        hz: r,
+        shape: h.shape,
+        x: h.x,
+        z: h.z,
+        hx: h.hx,
+        hz: h.hz,
         y0: 0,
-        y1: this.hitY(it),
+        y1: h.y1,
         enabled: false,
         rknob: id,
       };
     });
   }
 
-  info(): { ids: readonly KitId[]; angleDeg: number[]; draws: number } {
-    return { ids: KIT_IDS, angleDeg: this.angles(), draws: this.draws };
+  info(): { ids: readonly KitId[]; angleDeg: number[]; draws: number; kinds: string[] } {
+    return { ids: KIT_IDS, angleDeg: this.angles(), draws: this.draws, kinds: KIT_IDS.map((_, i) => this.kindAt(i)) };
   }
 }

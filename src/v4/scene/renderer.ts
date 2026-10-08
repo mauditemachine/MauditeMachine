@@ -126,14 +126,14 @@ import { Machine } from './machine';
 import { Orbit } from './orbit';
 import { Pads } from './pads';
 import { Pcb } from './pcb';
-import { RYTM_TWEAK_PLATE, RytmTweaks, rytmTweakClear } from './rytmTweaks';
+import { RYTM_OPEN_FRAME, RytmTweaks, rytmTweakClear } from './rytmTweaks';
 import { Screen } from './screen';
 import { BackPlate } from './backplate';
 import { BUTTON_INDEX, Sequencer3D, type TransportButton } from './sequencer3d';
 import { PanelSilk, fontsReady, makeBrushTexture, whenFonts, whenLogos } from './silk';
 import { Tweens, easeInOutCubic, easeOutCubic, linear } from './tween';
 import { VoyagerRig } from '../voyager/rig';
-import { VOY_BODY, VOY_FRAME, VOY_TWEAK_PLATE, VOY_X } from '../voyager/theme';
+import { VOY_BODY, VOY_FRAME, VOY_OPEN_FRAME, VOY_X } from '../voyager/theme';
 import type { DjRig } from '../dj/rig';
 import { djLoad } from '../state/djload';
 import { DJ_FRAME, DJ_TOP_Y, DJ_W, DJ_X, UNIT_X, unitW } from '../dj/theme';
@@ -1438,10 +1438,10 @@ export class Stage {
       rOpen: SECTION_FRAME.radius.open,
       fitHalfH: EXPLODE.fitHalfH,
       extent: LIGHT_KEY.extent,
-      // La plaque des TWEAKS et sa carte (OPEN_VIEW) ; au telephone, le cadrage de la pile
-      openW: mob || PORTRAIT ? 0 : RYTM_TWEAK_PLATE.w + OPEN_VIEW.margin,
-      openY: 2.39,
-      openZ: RYTM_TWEAK_PLATE.cz,
+      // La carte entiere et ses TWEAKS soudes (OPEN_VIEW ; 2026-10-08, moins zoome), au telephone aussi
+      openW: RYTM_OPEN_FRAME.w,
+      openY: RYTM_OPEN_FRAME.y,
+      openZ: RYTM_OPEN_FRAME.z,
     };
     if (!VOYAGER || f === 'mm808') return m808;
     const voy: Frame = {
@@ -1454,9 +1454,9 @@ export class Stage {
       rOpen: VOY_FRAME.radius.open,
       fitHalfH: VOY_FRAME.fitHalfH,
       extent: LIGHT_KEY.extent + 1,
-      openW: mob || PORTRAIT ? 0 : VOY_TWEAK_PLATE.w + OPEN_VIEW.margin,
-      openY: 1.54,
-      openZ: 1.4,
+      openW: VOY_OPEN_FRAME.w,
+      openY: VOY_OPEN_FRAME.y,
+      openZ: VOY_OPEN_FRAME.z,
     };
     if (f === 'voy') return voy;
     // Le MM-DECKS : l'ensemble de face (deux platines, la table) ; au telephone, un bloc a la fois

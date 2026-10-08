@@ -10,16 +10,19 @@
  * - VOICE : LENGTH (la longueur des notes, AUTO : celle du style), ACC DECAY,
  *   SWEEP, RELEASE, SUB OCT (un commutateur : une ou deux octaves sous la
  *   note), TUNE (cran au milieu).
- * Desktop : deux rangees de sept cases (le titre sur les deux dernieres du
- * haut, INFOS et CLOSE dessous) ; portrait : quatre rangees de trois, INFOS
- * dans la derniere case. Cibles bass-tw-<id>, du meme genre que les potards
- * de la face (bassknob) : les memes gestes, vivantes capot ouvert seulement.
+ * 2026-10-08 (Mika : "c'est moche des grosses cases par dessus un PCB..
+ * avoir de la finesse design ici") : plus de plaque, ils sont soudes sur la
+ * carte (bass/theme.ts, la zone et les places) : potards de precision,
+ * RANGE et SUB OCT en glissieres, TUNE a cran central, les groupes
+ * GENERATOR et VOICE en cadres fins de serigraphie, le cartouche, INFOS et
+ * CLOSE dessous. Cibles bass-tw-<id>, du meme genre que les potards de la
+ * face (bassknob) : les memes gestes, vivantes capot ouvert seulement.
  */
 
 import type { HotspotDef } from '../scene/hit';
 import { TweakPlate, type TweakItem } from '../scene/tweakplate';
 import { BASS_PLATE_KNOBS, type BassKnobId } from './params';
-import { BASS_PLATE, BASS_PLATE_TITLE, BASS_TWEAK_CELL_W, BASS_TWEAK_S, bassTweakAt } from './theme';
+import { BASS_PLATE, BASS_TWEAK_CELL_W, BASS_TWEAK_GROUPS, BASS_TWEAK_TITLE, bassTweakAt } from './theme';
 
 export const bassTweakId = (id: BassKnobId): string => `bass-tw-${id}`;
 
@@ -46,8 +49,9 @@ function items(): TweakItem[] {
       label: k.label,
       x,
       z,
-      s: sw ? BASS_TWEAK_S.knob * BASS_TWEAK_S.switch : BASS_TWEAK_S.knob,
       ...(sw ? { steps: sw } : {}),
+      // TUNE : un cran au milieu (le 0 cents)
+      ...(k.id === 'tune' ? { center: true } : {}),
       ...(ENDS[k.id] ? { ends: ENDS[k.id] } : {}),
       // Le reglage d'origine en orange : AUTO de LENGTH (la longueur du style)
       ...(k.id === 'length' ? { endOrange: true } : {}),
@@ -57,17 +61,7 @@ function items(): TweakItem[] {
 
 export class BassTweaks extends TweakPlate {
   constructor(opts: { mobile: boolean; anisotropy: number }) {
-    const T = BASS_PLATE_TITLE;
-    super(
-      {
-        name: 'bassTweaks',
-        dims: BASS_PLATE,
-        items: items(),
-        title: { x: T.x, z: T.z, w: T.w, sub: 'GENERATOR / VOICE', model: 'MM-BASS R2.0' },
-        cellW: BASS_TWEAK_CELL_W,
-      },
-      opts
-    );
+    super({ name: 'bassTweaks', dims: BASS_PLATE, items: items(), groups: BASS_TWEAK_GROUPS, title: BASS_TWEAK_TITLE, cellW: BASS_TWEAK_CELL_W }, opts);
   }
 
   /** Les potards suivent leurs valeurs (value : celle que montre un potard, le verrou du pas en LOCK) ; true s'il faut une frame. */
@@ -79,22 +73,21 @@ export class BassTweaks extends TweakPlate {
     return changed;
   }
 
-  /** Les cibles du picking : un cylindre par reglage, coupees capot ferme. */
+  /** Les cibles du picking : une par reglage (la piece et sa serigraphie), coupees capot ferme. */
   hotspots(): HotspotDef[] {
     return BASS_PLATE_KNOBS.map((k, i) => {
-      const it = this.spec.items[i];
-      const r = this.hitR(it);
+      const h = this.hitOf(i);
       return {
-        id: it.hotspot,
+        id: this.spec.items[i].hotspot,
         kind: 'bassknob' as const,
         layer: this.top,
-        shape: 'disc' as const,
-        x: it.x,
-        z: it.z,
-        hx: r,
-        hz: r,
+        shape: h.shape,
+        x: h.x,
+        z: h.z,
+        hx: h.hx,
+        hz: h.hz,
         y0: 0,
-        y1: this.hitY(it),
+        y1: h.y1,
         enabled: false,
         bass: k.id,
       };

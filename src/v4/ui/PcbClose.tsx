@@ -9,6 +9,9 @@
  * Dock deplie (2026-10-03, Mika : CLOSE chevauchait le Dock) : CLOSE monte
  * au-dessus de lui et de sa languette, quelle que soit sa hauteur (celui de
  * la 808 ou celui du MM-VOYAGER), et redescend quand on le replie.
+ *
+ * 2026-10-08 (Mika : "avoir de la finesse design ici") : une touche fine et
+ * sombre, son filet et sa LED orange (v4.css), plus la dalle orange.
  */
 
 import React, { useLayoutEffect, useState, useSyncExternalStore } from 'react';
@@ -71,6 +74,7 @@ export const PcbClose: React.FC<Props> = ({ getStage }) => {
       aria-label="Close the machine"
       onClick={() => openToggle(getStage(), m)}
     >
+      <span className="v4-close-led" aria-hidden="true" />
       CLOSE
     </button>
   );

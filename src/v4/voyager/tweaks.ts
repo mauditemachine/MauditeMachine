@@ -10,27 +10,29 @@
  * (voyager/params.ts dit ce qu'ils font).
  *
  * La plaque elle-meme (geometrie, serigraphie) est commune avec celle du
- * MM-RYTM depuis le meme jour : scene/tweakplate.ts. Les cibles du picking
- * (vk-<id>, comme ceux de la face) ne repondent que capot ouvert (rig.ts,
- * comme les puces avant elles).
+ * MM-RYTM depuis le meme jour : scene/tweakplate.ts. Depuis le 2026-10-08
+ * (Mika : "c'est moche des grosses cases par dessus un PCB.. avoir de la
+ * finesse design ici"), plus de plaque : les reglages sont soudes sur la
+ * carte, en trois groupes (voyager/theme.ts, la zone et les places). Les
+ * cibles du picking (vk-<id>, comme ceux de la face) ne repondent que capot
+ * ouvert (rig.ts, comme les puces avant elles).
  */
 
 import type { HotspotDef } from '../scene/hit';
 import { TweakPlate, type TweakItem } from '../scene/tweakplate';
-import { VOY_TWEAK_CELLS, VOY_TWEAK_ENDS, VOY_TWEAK_PLATE, VOY_TWEAK_TITLE_W, voyTweakPlace } from './theme';
+import { VOY_TWEAK_CELL_W, VOY_TWEAK_ENDS, VOY_TWEAK_GROUPS, VOY_TWEAK_PLATE, VOY_TWEAK_TITLE, voyTweakPlace } from './theme';
 import { VOY_TWEAKS, type VoyKnobId } from './params';
 
 const P = VOY_TWEAK_PLATE;
 
 function items(): TweakItem[] {
   return VOY_TWEAKS.map((k) => {
-    const pl = voyTweakPlace(k.id) ?? { x: 0, z: 0, s: 1, sw: false };
+    const pl = voyTweakPlace(k.id) ?? { x: 0, z: 0, sw: false };
     return {
       hotspot: `vk-${k.id}`,
       label: k.label,
       x: pl.x,
       z: pl.z,
-      s: pl.s,
       // SYNC : un commutateur, OFF et ON a ses reperes (ON en orange) ; CHORD : cinq crans, 7TH (celui de depart) en orange
       ...(pl.sw ? { steps: k.steps ?? ['OFF', 'ON'], stepOrange: k.id === 'chord' ? 2 : 1 } : {}),
       // PHASE : FREE en orange (le reglage d'origine, la phase libre)
@@ -41,19 +43,8 @@ function items(): TweakItem[] {
 
 export class VoyTweaks extends TweakPlate {
   constructor(opts: { mobile: boolean; anisotropy: number }) {
-    const title = VOY_TWEAK_CELLS.find((c) => c.id === 'title');
-    super(
-      {
-        name: 'voyTweaks',
-        dims: P,
-        items: items(),
-        // La ligne du modele laisse sa place a la touche SCOPE (voyager/theme.ts VOY_SCOPE_KEY)
-        title: title ? { x: title.x, z: title.z, w: VOY_TWEAK_TITLE_W, sub: 'ANALOG CONTROL', model: '' } : null,
-        // La largeur d'une case : cinq colonnes a plat (desktop), deux debout (portrait)
-        cellW: (P.w > P.d ? P.w / 5 : P.w / 2) - 0.12,
-      },
-      opts
-    );
+    // SCOPE et CLOSE sous le cartouche (voyager/theme.ts VOY_SCOPE_KEY, VOY_CLOSE_KEY)
+    super({ name: 'voyTweaks', dims: P, items: items(), groups: VOY_TWEAK_GROUPS, title: VOY_TWEAK_TITLE, cellW: VOY_TWEAK_CELL_W }, opts);
   }
 
   /** Valeur 0 a 1 -> angle ; true s'il faut une frame. */
@@ -64,22 +55,21 @@ export class VoyTweaks extends TweakPlate {
     );
   }
 
-  /** Les cibles du picking : un cylindre par potard (un commutateur deborde sur ses reperes), coupees capot ferme. */
+  /** Les cibles du picking : une par reglage (la piece et sa serigraphie), coupees capot ferme. */
   hotspots(): HotspotDef[] {
     return VOY_TWEAKS.map((k, i) => {
-      const it = this.spec.items[i];
-      const r = this.hitR(it);
+      const h = this.hitOf(i);
       return {
-        id: it.hotspot,
+        id: this.spec.items[i].hotspot,
         kind: 'vknob' as const,
         layer: this.top,
-        shape: 'disc' as const,
-        x: it.x,
-        z: it.z,
-        hx: r,
-        hz: r,
+        shape: h.shape,
+        x: h.x,
+        z: h.z,
+        hx: h.hx,
+        hz: h.hz,
         y0: 0,
-        y1: this.hitY(it),
+        y1: h.y1,
         enabled: false,
         vknob: k.id,
       };

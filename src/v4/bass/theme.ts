@@ -47,7 +47,8 @@
  * cadrer) ; le reste du MM-BASS arrive a part (state/bassload.ts).
  */
 
-import { BODY, PORTRAIT } from '../theme';
+import { BODY, PCB, PORTRAIT } from '../theme';
+import { tweakClearOf } from '../scene/tweaklayout';
 import type { BassKnobId } from './params';
 
 /**
@@ -277,50 +278,109 @@ export const BASS_LOCK_LEGEND_DZ = PORTRAIT ? 0.47 : 0.35;
  * RELEASE, SUB OCT, TUNE), le titre, INFOS et CLOSE.
  */
 export const BASS_LID = { t: 0.14 } as const;
-export const BASS_EXPLODE = PORTRAIT ? { lift: 6.2, slideZ: -4.6, tiltOpenDeg: -58, pcbRise: 0.45 } : { lift: 4.4, slideZ: -3.6, tiltOpenDeg: -26, pcbRise: 0.45 };
+// Desktop 2026-10-08 : slideZ -3.6 -> -4.9, le cadrage ouvert est moins zoome : seul le bord du capot leve se devine en haut
+export const BASS_EXPLODE = PORTRAIT ? { lift: 6.2, slideZ: -4.6, tiltOpenDeg: -58, pcbRise: 0.45 } : { lift: 4.4, slideZ: -4.9, tiltOpenDeg: -26, pcbRise: 0.45 };
 /** La carte au fond du bac, repere du fond : sortie, son dessous a 0.03 du fond. */
 export const BASS_PCB_Y = -BASS_LID.t + 0.03 - BASS_EXPLODE.pcbRise;
 
-/** La plaque (repere de la carte : son centre ; puis le sien, x a droite, z vers soi), celle du MM-RYTM. */
-export const BASS_PLATE = PORTRAIT
-  ? { cx: -0.2, cz: 0, w: 6.3, d: 9.9, y: 0.5, t: 0.08, r: 0.12, screwIn: 0.17, frame: 0.28, label: 0.15, end: 0.09, title: 0.3 }
-  : { cx: 0, cz: 1.2, w: 10.2, d: 3.95, y: 0.5, t: 0.08, r: 0.12, screwIn: 0.22, frame: 0.3, label: 0.12, end: 0.072, title: 0.26 };
+/**
+ * Les TWEAKS sur la carte (2026-10-08, Mika : "c'est moche des grosses cases
+ * par dessus un PCB.. avoir de la finesse design ici") : plus de plaque,
+ * les reglages sont soudes sur l'avant de la carte (scene/tweakplate.ts),
+ * en deux groupes serigraphies, GENERATOR et VOICE, un cartouche MM-BASS /
+ * TWEAKS dans le coin, INFOS et CLOSE dessous. La zone : son centre
+ * (repere de la carte), ses cotes (repere droit, x a droite, z vers soi).
+ * Desktop : GENERATOR en haut (SLIDE PROB, ACC PROB, la glissiere RANGE,
+ * ROOT, SCALE) et le cartouche a sa droite ; VOICE en bas (LENGTH, ACC
+ * DECAY, SWEEP, RELEASE, la glissiere SUB OCT, TUNE a cran central).
+ * Portrait : la carte debout, trois colonnes, le cartouche et INFOS en tete.
+ */
+const TW = PORTRAIT
+  ? (() => {
+      // Les rangees, et les cadres : 1.02 au-dessus d'une rangee (le titre du groupe, puis le nom), 0.66 dessous
+      const R = [-1.98, -0.13, 1.87, 3.72];
+      const C = [-2.15, 0, 2.15];
+      return {
+        dims: { cx: 0, cz: 0, w: 6.6, d: 10.6 },
+        cellW: 2.05,
+        at: {
+          slides: [C[0], R[0]],
+          accents: [C[1], R[0]],
+          range: [C[2], R[0]],
+          root: [-1.075, R[1]],
+          scale: [1.075, R[1]],
+          length: [C[0], R[2]],
+          accdecay: [C[1], R[2]],
+          sweep: [C[2], R[2]],
+          release: [C[0], R[3]],
+          suboct: [C[1], R[3]],
+          tune: [C[2], R[3]],
+        } as Partial<Record<BassKnobId, readonly [number, number]>>,
+        groups: [
+          { title: 'GENERATOR', x0: -3.15, z0: R[0] - 1.02, x1: 3.15, z1: R[1] + 0.66, accent: true },
+          { title: 'VOICE', x0: -3.15, z0: R[2] - 1.02, x1: 3.15, z1: R[3] + 0.66 },
+        ],
+        title: { x0: -3.15, z0: -4.2, x1: 1.0, z1: -3.35, name: 'MM-BASS', sub: 'GENERATOR / VOICE', rev: 'REV 2.0' },
+        infos: { x: 2.2, z: -3.77, w: 1.6, d: 0.5, y: 0.01 },
+        close: { x: 2.2, z: -3.77, w: 1.6, d: 0.5, y: 0.01 },
+      };
+    })()
+  : (() => {
+      const A = -0.66;
+      const B = 0.92;
+      return {
+        dims: { cx: 0, cz: 1.25, w: 10.2, d: 3.4 },
+        cellW: 1.25,
+        at: {
+          slides: [-4.3, A],
+          accents: [-2.8, A],
+          range: [-1.3, A],
+          root: [0.2, A],
+          scale: [1.7, A],
+          length: [-4.15, B],
+          accdecay: [-2.5, B],
+          sweep: [-0.85, B],
+          release: [0.8, B],
+          suboct: [2.45, B],
+          tune: [4.1, B],
+        } as Partial<Record<BassKnobId, readonly [number, number]>>,
+        groups: [
+          { title: 'GENERATOR', x0: -4.95, z0: A - 0.62, x1: 2.3, z1: A + 0.52, accent: true },
+          { title: 'VOICE', x0: -4.95, z0: B - 0.62, x1: 4.95, z1: B + 0.52 },
+        ],
+        title: { x0: 2.7, z0: A - 0.62, x1: 4.95, z1: A + 0.12, name: 'MM-BASS', sub: 'GENERATOR / VOICE', rev: 'REV 2.0' },
+        infos: { x: 2.7 + 0.47, z: A + 0.36, w: 0.94, d: 0.25, y: 0.01 },
+        close: { x: 4.95 - 0.47, z: A + 0.36, w: 0.94, d: 0.25, y: 0.01 },
+      };
+    })();
 
-/** La zone de la carte degagee sous la plaque (repere de la carte ; en portrait la plaque tourne, ses cotes s'echangent). */
+export const BASS_PLATE = TW.dims;
+export const BASS_TWEAK_GROUPS = TW.groups;
+export const BASS_TWEAK_TITLE = TW.title;
+export const bassTweakAt = (id: BassKnobId): { x: number; z: number } => {
+  const [x, z] = TW.at[id] ?? [0, 0];
+  return { x, z };
+};
+export const BASS_TWEAK_CELL_W = TW.cellW;
+
+/** La zone de la carte degagee pour les TWEAKS (repere de la carte ; scene/tweaklayout.ts tweakClearOf). */
 export function bassPlateClear(): { x0: number; x1: number; z0: number; z1: number } {
-  const P = BASS_PLATE;
-  const hx = (PORTRAIT ? P.d : P.w) / 2 + 0.3;
-  const hz = (PORTRAIT ? P.w : P.d) / 2 + 0.3;
-  return { x0: P.cx - hx, x1: P.cx + hx, z0: P.cz - hz, z1: P.cz + hz };
+  return tweakClearOf(TW.dims, TW.groups, TW.title);
 }
 
-const TW_COLS = PORTRAIT ? [-2.0, 0, 2.0] : [-4.05, -2.7, -1.35, 0, 1.35, 2.7, 4.05];
-const TW_ROWS = PORTRAIT ? [-2.55, -0.38, 1.79, 3.96] : [-0.5, 1.2];
-/** Le titre : desktop sur les deux dernieres cases du haut, portrait en tete. */
-export const BASS_PLATE_TITLE = PORTRAIT ? { x: 0, z: -4.1, w: 4 } : { x: (TW_COLS[5] + TW_COLS[6]) / 2, z: TW_ROWS[0] - 0.1, w: 2.4 };
-/** Les cases (colonne, rangee) : desktop GENERATOR en haut, VOICE en bas ; portrait quatre rangees de trois, INFOS dans la derniere case. */
-const TW_CELLS: Readonly<Partial<Record<BassKnobId, readonly [number, number]>>> = PORTRAIT
-  ? { slides: [0, 0], accents: [1, 0], range: [2, 0], root: [0, 1], scale: [1, 1], length: [2, 1], accdecay: [0, 2], sweep: [1, 2], release: [2, 2], suboct: [0, 3], tune: [1, 3] }
-  : { slides: [0, 0], accents: [1, 0], range: [2, 0], root: [3, 0], scale: [4, 0], length: [0, 1], accdecay: [1.2, 1], sweep: [2.4, 1], release: [3.6, 1], suboct: [4.8, 1], tune: [6, 1] };
-export const bassTweakAt = (id: BassKnobId): { x: number; z: number } => {
-  const [col, row] = TW_CELLS[id] ?? [0, 0];
-  return { x: TW_COLS[0] + (TW_COLS[1] - TW_COLS[0]) * col, z: TW_ROWS[row] };
-};
-export const BASS_TWEAK_CELL_W = (PORTRAIT ? 2.0 : 1.35) - 0.12;
-export const BASS_TWEAK_S = { knob: PORTRAIT ? 1.55 : 1.25, switch: PORTRAIT ? 0.82 : 0.8 } as const;
-/** Les noms des rangees de la plaque (desktop : a gauche de chaque rangee, en orange pour le generateur). */
-export const BASS_TWEAK_ROWS = { gen: TW_ROWS[0], voice: TW_ROWS[1] } as const;
 /**
- * INFOS et CLOSE (des touches du DOM posees sur la plaque, repere de son
- * dessus, ui/MachineKey.tsx) : desktop cote a cote sous le titre ; au
- * telephone INFOS dans la derniere case (CLOSE est en bas de l'ecran,
+ * INFOS et CLOSE (des touches du DOM posees sur la carte, repere de la zone,
+ * ui/MachineKey.tsx) : desktop cote a cote sous le cartouche ; au
+ * telephone INFOS a droite du cartouche (CLOSE est en bas de l'ecran,
  * ui/PcbClose.tsx).
  */
-export const BASS_INFOS_KEY = PORTRAIT ? { x: TW_COLS[2], z: TW_ROWS[3], w: 1.7, d: 0.5, y: 0.02 } : { x: BASS_PLATE_TITLE.x - 0.62, z: BASS_PLATE_TITLE.z + 0.74, w: 1.1, d: 0.32, y: 0.02 };
-export const BASS_CLOSE_KEY = { x: BASS_PLATE_TITLE.x + 0.62, z: BASS_PLATE_TITLE.z + 0.74, w: 1.1, d: 0.32, y: 0.02 } as const;
+export const BASS_INFOS_KEY = TW.infos;
+export const BASS_CLOSE_KEY = TW.close;
 /**
- * Le cadrage ouvert : la hauteur du dessus de la plaque au-dessus du dessus
- * ferme (le fond, la carte sortie, son epaisseur 0.1, puis y + t), le point
- * vise en z et la largeur a tenir (renderer, OPEN_VIEW), comme le MM-RYTM.
+ * Le cadrage ouvert (renderer, OPEN_VIEW) : la hauteur du dessus de la
+ * carte au-dessus du dessus ferme (le fond, la carte sortie et son
+ * epaisseur 0.1), le point vise en z (un peu derriere le centre de la
+ * carte : le bord du capot leve se devine en haut) et la largeur a tenir,
+ * la carte entiere (debout au telephone).
  */
-export const BASS_OPEN_FRAME = { y: -BASS_LID.t + 0.03 + 0.1 + BASS_PLATE.y + BASS_PLATE.t, z: PORTRAIT ? 0 : 0.8, w: BASS_PLATE.w } as const;
+export const BASS_OPEN_FRAME = { y: -BASS_LID.t + 0.03 + 0.1, z: PORTRAIT ? 0 : -0.15, w: PORTRAIT ? PCB.d : PCB.w } as const;
