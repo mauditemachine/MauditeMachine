@@ -29,6 +29,8 @@ import { patterns, slotName } from './state/patterns';
 import { presetMode, type PresetKey } from './state/presetMode';
 import type { PresetMachine } from './state/presets';
 import { presskit } from './state/presskit';
+import { rytmPage } from './state/rytmPage';
+import type { SlotTarget } from './rytm/pages';
 import { section } from './state/section';
 import { voices } from './state/voices';
 import { bassLoad } from './state/bassload';
@@ -203,6 +205,7 @@ export function stepToggle(i: number, stage: Stage | null = null): boolean {
     return false;
   }
   pattern.toggle(inst, i);
+  rytmPage.select(i);
   lcdMessage.show(stepLine(inst, i));
   return true;
 }
@@ -225,6 +228,7 @@ export function stepClear(i: number, stage: Stage | null = null): boolean {
     return false;
   }
   pattern.clearStep(inst, i);
+  rytmPage.select(i);
   lcdMessage.show(stepLine(inst, i));
   return true;
 }
@@ -245,6 +249,9 @@ export function stepVelocity(i: number, v: number): boolean {
   }
   const n = Math.max(1, Math.min(VEL_MAX, Math.round(v)));
   if (velocity(pattern.get().steps, inst, i) !== n) pattern.set(inst, i, n);
+  // La vue PAGE (2026-10-08) : TRIG en coup d'oeil, le bloc VEL montre ce pas
+  rytmPage.select(i);
+  touchPage('step:vel', inst);
   lcdMessage.show(stepLine(inst, i), POT_UI.readoutMs, true);
   return true;
 }
@@ -266,6 +273,7 @@ export function stepHoldHint(i: number): void {
     lcdMessage.show('TAP A PAD FIRST');
     return;
   }
+  rytmPage.select(i);
   lcdMessage.show(`${stepLine(inst, i)}: DRAG`, POT_UI.readoutMs * 2, true);
 }
 
@@ -451,6 +459,7 @@ function soundDial(v: number): void {
   }
   kit.set(f, v);
   lcdSamples.show();
+  touchPage('vsound', inst);
 }
 
 /**
@@ -460,6 +469,23 @@ function soundDial(v: number): void {
  */
 export function dialTarget(id: EncId): Inst | null {
   return isVoiceEnc(id) ? pattern.get().instrument : null;
+}
+
+/**
+ * La vue PAGE de l'ecran du MM-RYTM (2026-10-08, etape 1 de la refonte facon
+ * Digitakt, Mika : "8 encodeurs assignables a condition de presser les
+ * bonnes touches ; l'ecran divise en 8 blocs ; j'adore l'ecran, je veux le
+ * meme ecran mais plus utilise ; allons-y petit a petit") : un reglage
+ * touche montre sa page en coup d'oeil, son bloc cerne (state/rytmPage.ts).
+ * EDIT ouvert garde son ecran : la page suit, sans coup d'oeil.
+ */
+function touchPage(t: SlotTarget, inst: Inst | null): void {
+  rytmPage.touch(t, inst, { peek: editor.get() !== 'mm808' });
+}
+
+/** L'ecran du MM-RYTM montre-t-il celui d'aujourd'hui (HOME, ou EDIT et son anneau des patterns) ? */
+function screenHome(): boolean {
+  return editor.get() === 'mm808' || rytmPage.get().view === 'home';
 }
 
 /**
@@ -492,9 +518,13 @@ export function dial(id: EncId, v: number): void {
       return;
     }
     setVoiceFx(inst, p, v);
-    // VOLUME d'une voix : la page MIX montre les cinq volumes (facon Elektron)
-    if (id === 'vol') lcdMix.show(inst);
-    else lcdMessage.show(readout(id, dialValue(id), inst), POT_UI.readoutMs, true);
+    // VOLUME d'une voix : la page MIX montre les cinq volumes (facon Elektron), sur l'ecran d'aujourd'hui
+    // seulement (HOME, EDIT) ; en vue PAGE (2026-10-08) le bloc VOL de AMP montre la valeur, la ligne du bas la dit
+    if (id === 'vol' && screenHome()) lcdMix.show(inst);
+    else {
+      lcdMessage.show(readout(id, dialValue(id), inst), POT_UI.readoutMs, true);
+      touchPage(id, inst);
+    }
     return;
   }
   if (id === 'stretch') setStretch(v);
@@ -505,6 +535,7 @@ export function dial(id: EncId, v: number): void {
   else if (id === 'delay') setDelay(v);
   else setChorus(v);
   lcdMessage.show(readout(id, dialValue(id), null), POT_UI.readoutMs, true);
+  touchPage(id, pattern.get().instrument);
 }
 
 /** Valeur courante d'un encodeur (rangee VOICE : la voix selectionnee, sinon son depart) : BPM, ou -1 a 1, ou 0 a 1. */
@@ -839,6 +870,8 @@ export function kitDial(id: KitId, v: number): void {
   resume();
   kit.set(id, v);
   lcdMessage.show(kit.readout(id), POT_UI.readoutMs, true);
+  // La page SRC en coup d'oeil quand la famille de la voix porte ce reglage (rytm/pages.ts slotOf)
+  touchPage(`r:${id}`, pattern.get().instrument);
 }
 
 /**

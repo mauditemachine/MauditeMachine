@@ -467,6 +467,14 @@ export const OLED_DRAW = { font: `400 40px ${FONT_MONO}`, pad: 24, baselines: [6
 export const OLED_BAR = { h: 22, lift: 3, gap: 14, stroke: 2, inset: 4, bandY0: 160, bandY1: 236 } as const;
 
 /**
+ * La meme bande en vue PAGE du MM-RYTM (2026-10-08, rytm/pages.ts) : la
+ * piste tient sur la ligne du bas (y 114 des 120 unites), sous la seconde
+ * rangee de blocs ; une touche sur cette rangee ne fait jamais avancer la
+ * piste.
+ */
+export const OLED_BAR_PAGE = { bandY0: 206, bandY1: 240 } as const;
+
+/**
  * Page MIX de l'ecran (2026-10-01, facon Elektron), px de la texture
  * 640 x 240 : cinq cellules de 128 separees par un filet (bone 30 %) ; en
  * haut le nom de la voix (la voix reglee en negatif, dans une etiquette

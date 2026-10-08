@@ -32,6 +32,25 @@
  * lit) ; l'image se refait quand un store change, au plus tous les 60 ms,
  * et ne demande une frame qu'apres un redessin. Materiau non eclaire, sans
  * tone mapping.
+ *
+ * La vue PAGE (2026-10-08, etape 1 de la refonte facon Digitakt, Mika : "8
+ * encodeurs assignables a condition de presser les bonnes touches ; l'ecran
+ * divise en 8 blocs ; j'adore l'ecran, je veux le meme ecran mais plus
+ * utilise ; allons-y petit a petit") : l'ecran ci-dessus reste celui de
+ * tous les jours (HOME, au pixel pres) ; la page d'un reglage (rytm/pages.ts,
+ * state/rytmPage.ts) vient en coup d'oeil quand on le touche, ou reste
+ * epinglee au clavier (H, [ et ]). Dans la meme langue OP-1 :
+ * - en haut, la lecture, la page en pastille (SRC), la voix et son son ; a
+ *   droite le pattern et le tempo ;
+ * - huit blocs en 2 x 4 (A B C D, E F G H : la place des futurs potards sous
+ *   l'ecran), chacun son nom, sa valeur en grand, sa petite image ; un
+ *   reglage a venir a peine (--), celui qu'on vient de tourner cerne
+ *   (l'echo), ALL ou NO BD pour ceux de toute la machine ;
+ * - la ligne du bas sur toute la largeur : le message, la piste sur une
+ *   ligne (sa barre cliquable, OLED_BAR_PAGE), MUTE et SOLO, TOUCH: PRESETS.
+ * La liste des sons (SAMPLES) y prend toute la largeur ; la page MIX reste a
+ * HOME. Ni la tete de lecture ni les coups qui pulsent n'y redessinent rien,
+ * la vague du repos non plus (moins d'envois de texture).
  */
 
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
@@ -47,8 +66,11 @@ import { focus } from '../state/focus';
 import { lcd, type LcdState } from '../state/lcd';
 import { PATTERN_SLOTS, patterns, slotName } from '../state/patterns';
 import { playhead } from '../state/playhead';
+import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
 import { FONT_DISPLAY, HEX, OLED, swingRatio, type Inst } from '../theme';
+import { pageLabel, type RytmPageId } from '../rytm/pages';
+import { pageBlocks, type Block } from '../rytm/pageView';
 import { makeCanvasTexture } from './silk';
 
 export interface ScreenInfo {
@@ -62,6 +84,14 @@ export interface ScreenInfo {
   minGapMs: number;
   font: string;
   size: [number, number];
+  /** ce que montre l'ecran (2026-10-08) : HOME, la vue PAGE, EDIT, les presets */
+  view: RytmView | 'edit' | 'presets';
+  /** la page du MM-RYTM (dessinee en vue PAGE) */
+  page: RytmPageId;
+  /** les blocs dessines en vue PAGE, NOM=VALEUR:etat ; [] ailleurs */
+  blocks: string[];
+  /** le bloc cerne (l'echo) dessine, -1 aucun */
+  echo: number;
 }
 
 /** Au plus un redessin tous les 60 ms (un potard tourne a la cadence du pointeur). */
@@ -94,6 +124,45 @@ const COL = { x0: 124, x1: 314 } as const;
 const CARD = { y0: 30, y1: 64, label: 74, value: 90, gap: 8 } as const;
 /** La ligne du bas (message, piste). */
 const LINE = { y: 110 } as const;
+/** La largeur d'une carte de HOME ((190 - 2 x 8) / 3) : les images des blocs, plus petites, s'y rapportent. */
+const CARD_W = 58;
+
+/** Une zone de dessin, en unites. */
+interface Rect {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+/** Une colonne de texte (x0 a x1). */
+interface Col {
+  x0: number;
+  x1: number;
+}
+
+/*
+ * La vue PAGE (2026-10-08) : huit blocs de 72 x 35 en 2 x 4, les centres des
+ * colonnes (44, 120, 196, 272) au-dessus des futurs potards ; dans un bloc
+ * le nom en haut, la valeur en grand dessous (12, puis 10 et 8 pour tenir),
+ * l'image en haut a droite, l'etiquette ALL ou NO BD en bas a droite.
+ */
+const MATRIX = { x0: 8, pitch: 76, w: 72, h: 35, rows: [26, 65], r: 4 } as const;
+const BLOCK = {
+  nameDx: 4,
+  nameDy: 9,
+  nameSize: 6.5,
+  valueDy: 30,
+  valueSizes: [12, 10, 8],
+  valueW: 64,
+  valueWTag: 50,
+  draw: { dx0: 44, dx1: 66, dy0: 3, dy1: 17 },
+  tagDx: 68,
+} as const;
+const PAGE_HEAD = { y: 17, iconX: 10, pillX: 24, pillY: 8.5, pillH: 11, right: 312 } as const;
+const PAGE_LINE = { y: 114, x0: 10, x1: 310 } as const;
+const PAGE_COL: Col = { x0: PAGE_LINE.x0, x1: PAGE_LINE.x1 };
+
+const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
 
 /** Coupe a n lettres, un point final quand ca deborde. */
 const fit = (s: string, n: number): string => (s.length <= n ? s : `${s.slice(0, Math.max(0, n - 1))}.`);
@@ -134,7 +203,7 @@ export class Screen {
     const W = mobile ? 1024 : 1280;
     const H = Math.round((W * UH) / UW);
     this.scale = W / UW;
-    this.info = { draws: 0, text: ['', '', ''], lastDrawAt: -Infinity, minGapMs: Infinity, font: 'vector op-1', size: [W, H] };
+    this.info = { draws: 0, text: ['', '', ''], lastDrawAt: -Infinity, minGapMs: Infinity, font: 'vector op-1', size: [W, H], view: 'home', page: rytmPage.get().page, blocks: [], echo: -1 };
     this.canvas = document.createElement('canvas');
     this.canvas.width = W;
     this.canvas.height = H;
@@ -176,12 +245,24 @@ export class Screen {
       voiceFx.subscribe(active),
       mix.subscribe(active),
       clock.subscribe(active),
-      playhead.subscribe(() => this.request()),
+      // La vue PAGE (2026-10-08) : sa page, ses valeurs (le kit, les effets du pattern) ; la tete de lecture
+      // ne redessine que l'ecran d'aujourd'hui (HOME, EDIT), la page ne la montre pas
+      rytmPage.subscribe(active),
+      kit.subscribe(() => active()),
+      pattern.fx.subscribe(active),
+      playhead.subscribe(() => {
+        if (!this.pageShown()) this.request();
+      }),
       focus.subscribe(() => this.request()),
     ];
     // La police arrivee apres la premiere image : on redessine
     void document.fonts?.ready.then(() => this.request());
     this.request();
+  }
+
+  /** La vue PAGE est-elle a l'ecran (ni presets, ni EDIT) ? */
+  private pageShown(): boolean {
+    return !lcd.get().keys && editor.get() !== 'mm808' && rytmPage.get().view === 'page';
   }
 
   /** Un redessin bientot (au plus tous les MIN_GAP_MS). */
@@ -196,6 +277,22 @@ export class Screen {
       if (more > 0) this.request(more);
       else this.armIdle(now);
     }, wait);
+  }
+
+  /**
+   * La fin de l'echo d'un bloc (vue PAGE, 2026-10-08) : un redessin a ce
+   * moment, par son propre minuteur (comme la vague) ; celui de request()
+   * reste libre, un potard qu'on continue de tourner redessine tout de suite.
+   */
+  private echoTimer = 0;
+  private armEcho(ms: number): void {
+    window.clearTimeout(this.echoTimer);
+    this.echoTimer = 0;
+    if (ms <= 0) return;
+    this.echoTimer = window.setTimeout(() => {
+      this.echoTimer = 0;
+      this.request();
+    }, ms);
   }
 
   /** Desktop, la machine regardee, rien ne bouge : la vague viendra dans IDLE_MS. */
@@ -281,6 +378,27 @@ export class Screen {
     }
   }
 
+  /** Un rectangle aux coins arrondis (le contour du bloc tourne). */
+  private roundRect(x: number, y: number, w: number, h: number, r: number, fill: string | null, stroke: string | null = null, lw = 1): void {
+    const c = this.ctx;
+    c.beginPath();
+    c.moveTo(x + r, y);
+    c.arcTo(x + w, y, x + w, y + h, r);
+    c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r);
+    c.arcTo(x, y, x + w, y, r);
+    c.closePath();
+    if (fill) {
+      c.fillStyle = fill;
+      c.fill();
+    }
+    if (stroke) {
+      c.strokeStyle = stroke;
+      c.lineWidth = lw;
+      c.stroke();
+    }
+  }
+
   private line(pts: readonly number[], color: string, lw = 1.4): void {
     const c = this.ctx;
     c.beginPath();
@@ -309,15 +427,19 @@ export class Screen {
     const p = pattern.get();
     const ptn = patterns.get();
     const rytmEdit = editor.get() === 'mm808';
+    // Ce que montre l'ecran : les presets, EDIT, sinon la vue du MM-RYTM (HOME, ou la page en coup d'oeil)
+    const rp = rytmPage.get();
+    const view: ScreenInfo['view'] = s.keys ? 'presets' : rytmEdit ? 'edit' : rp.view;
+    const paged = view === 'page';
     let next = 0;
     if (ptn.cur !== this.lastCur) {
       this.lastCur = ptn.cur;
       this.blinkUntil = now + BLINK_MS;
     }
     this.stepHits(now);
-    // La vague du repos (desktop, la machine regardee, rien ne joue ni ne s'affiche)
+    // La vague du repos (desktop, la machine regardee, rien ne joue ni ne s'affiche ; jamais sur la page)
     const quiet = !clock.running && sc.get().status !== 'playing' && !s.l3 && !s.mix && !s.samples && !s.keys;
-    if (!this.mobile && quiet && focus.get() === 'mm808' && now - this.activeAt > IDLE_MS) {
+    if (!paged && !this.mobile && quiet && focus.get() === 'mm808' && now - this.activeAt > IDLE_MS) {
       if (this.waveFrom === 0) this.waveFrom = now;
       if (now - this.waveFrom > WAVE_MS) {
         this.waveFrom = 0;
@@ -326,7 +448,12 @@ export class Screen {
     } else this.waveFrom = 0;
 
     this.bar = null;
+    this.info.view = view;
+    this.info.page = rp.page;
+    this.info.blocks = [];
+    this.info.echo = -1;
     if (s.keys) this.paintPresets(s);
+    else if (paged) this.armEcho(this.paintPage(s, rp, p.instrument, ptn.cur, now));
     else {
       if (rytmEdit) this.paintPatternRing(now);
       else next = Math.max(next, this.paintStepRing(p.instrument, p.steps, now));
@@ -338,7 +465,8 @@ export class Screen {
       this.paintLine(s, rytmEdit);
     }
     if (this.blinkUntil > now || (rytmEdit && ptn.next >= 0) || this.waveFrom > 0) next = ANIM_MS;
-    if (this.hitAt.some((t) => now - t < PULSE_MS)) next = next || ANIM_MS;
+    // Les coups qui pulsent : sur l'anneau seulement (la page n'en montre rien)
+    if (!paged && this.hitAt.some((t) => now - t < PULSE_MS)) next = next || ANIM_MS;
     this.done(s, now);
     return next;
   }
@@ -359,7 +487,17 @@ export class Screen {
   private paintHead(cur: number, now: number): void {
     const y = 17;
     const x = COL.x0;
-    // La lecture : un triangle ; a l'arret, un carre
+    this.runIcon(x, y);
+    const blinkOff = this.blinkUntil > now && Math.floor((this.blinkUntil - now) / 100) % 2 === 1;
+    this.text(slotName(cur), x + 14, y, 12, blinkOff ? FAINT : INK, 600, 'left', 0.6);
+    // Le tempo : le nombre, BPM a cote en petit (la ligne 1 du texte porte autre chose sur les pages MIX et SAMPLES)
+    const bpm = String(Math.round(pattern.get().bpm));
+    const bw = this.text('BPM', COL.x1, y, 7, HALF, 600, 'right', 0.8);
+    this.text(bpm, COL.x1 - bw - 4, y, 12, INK, 400, 'right');
+  }
+
+  /** La lecture : un triangle ; a l'arret, un carre (x : son bord gauche, y : la ligne de base). */
+  private runIcon(x: number, y: number): void {
     const c = this.ctx;
     c.fillStyle = INK;
     if (clock.running) {
@@ -370,12 +508,6 @@ export class Screen {
       c.closePath();
       c.fill();
     } else c.fillRect(x, y - 8.5, 8, 8);
-    const blinkOff = this.blinkUntil > now && Math.floor((this.blinkUntil - now) / 100) % 2 === 1;
-    this.text(slotName(cur), x + 14, y, 12, blinkOff ? FAINT : INK, 600, 'left', 0.6);
-    // Le tempo : le nombre, BPM a cote en petit (la ligne 1 du texte porte autre chose sur les pages MIX et SAMPLES)
-    const bpm = String(Math.round(pattern.get().bpm));
-    const bw = this.text('BPM', COL.x1, y, 7, HALF, 600, 'right', 0.8);
-    this.text(bpm, COL.x1 - bw - 4, y, 12, INK, 400, 'right');
   }
 
   /** L'anneau des pas de la voix choisie (sans voix : le motif entier en demi-teinte) ; la voix au centre. */
@@ -489,45 +621,59 @@ export class Screen {
   /** Les trois reglages de la voix (VOLUME, TONE, DECAY) ou de la machine (SWING, STRETCH, MASTER). */
   private paintCards(inst: Inst | null): void {
     const fx = inst ? voiceFx.of(inst) : null;
-    const cards: { label: string; text: string; draw: (x0: number, x1: number) => void }[] = fx
+    const cards: { label: string; text: string; draw: (r: Rect) => void }[] = fx
       ? [
-          { label: 'VOLUME', text: String(Math.round(fx.level * 100)), draw: (a, b) => this.drawLevel(a, b, fx.level) },
-          { label: 'TONE', text: `${fx.tone > 0.005 ? '+' : ''}${Math.round(fx.tone * 100)}`, draw: (a, b) => this.drawTone(a, b, fx.tone) },
-          { label: 'DECAY', text: String(Math.round(fx.decay * 100)), draw: (a, b) => this.drawDecay(a, b, fx.decay) },
+          { label: 'VOLUME', text: String(Math.round(fx.level * 100)), draw: (r) => this.drawLevel(r, fx.level) },
+          { label: 'TONE', text: `${fx.tone > 0.005 ? '+' : ''}${Math.round(fx.tone * 100)}`, draw: (r) => this.drawTone(r, fx.tone) },
+          { label: 'DECAY', text: String(Math.round(fx.decay * 100)), draw: (r) => this.drawDecay(r, fx.decay) },
         ]
       : [
-          { label: 'SWING', text: `${swingRatio(mix.swing)}`, draw: (a, b) => this.drawSwing(a, b, mix.swing) },
-          { label: 'STRETCH', text: `${mix.stretch > 0.005 ? '+' : ''}${Math.round(mix.stretch * 100)}`, draw: (a, b) => this.drawStretch(a, b, mix.stretch) },
-          { label: 'MASTER', text: String(Math.round(mix.level * 100)), draw: (a, b) => this.drawLevel(a, b, mix.level) },
+          { label: 'SWING', text: `${swingRatio(mix.swing)}`, draw: (r) => this.drawSwing(r, mix.swing) },
+          { label: 'STRETCH', text: `${mix.stretch > 0.005 ? '+' : ''}${Math.round(mix.stretch * 100)}`, draw: (r) => this.drawStretch(r, mix.stretch) },
+          { label: 'MASTER', text: String(Math.round(mix.level * 100)), draw: (r) => this.drawLevel(r, mix.level) },
         ];
     const w = (COL.x1 - COL.x0 - CARD.gap * (cards.length - 1)) / cards.length;
     cards.forEach((card, i) => {
       const x0 = COL.x0 + i * (w + CARD.gap);
-      card.draw(x0, x0 + w);
+      card.draw({ x0, y0: CARD.y0, x1: x0 + w, y1: CARD.y1 });
       this.text(card.label, x0, CARD.label, 7, HALF, 700, 'left', 0.9);
       this.text(card.text, x0, CARD.value, 13, INK, 400);
     });
   }
 
+  /*
+   * Les images prennent leur zone (2026-10-08) : la carte de HOME (CARD_W de
+   * large, 34 de haut) ou l'image d'un bloc de la vue PAGE (22 x 14). A la
+   * taille d'une carte, tout reste comme avant (k = 1) ; plus petites, les
+   * ecarts, les points et les traits se resserrent.
+   */
+
+  /** L'echelle d'une image par rapport a une carte de HOME (1 a sa taille, jamais plus). */
+  private static cardK(r: Rect): number {
+    return Math.min(1, (r.x1 - r.x0) / CARD_W);
+  }
+
   /** VOLUME, MASTER : des barres qui montent, allumees jusqu'a la valeur. */
-  private drawLevel(x0: number, x1: number, v: number): void {
+  private drawLevel(r: Rect, v: number): void {
     const n = 7;
-    const gap = 2.4;
-    const bw = (x1 - x0 - gap * (n - 1)) / n;
+    const gap = 2.4 * Screen.cardK(r);
+    const bw = (r.x1 - r.x0 - gap * (n - 1)) / n;
     const lit = Math.max(0, Math.min(1, v)) * n;
+    const base = Math.min(6, 0.3 * (r.y1 - r.y0));
     for (let k = 0; k < n; k += 1) {
-      const h = 6 + ((CARD.y1 - CARD.y0 - 6) * (k + 1)) / n;
-      const x = x0 + k * (bw + gap);
+      const h = base + ((r.y1 - r.y0 - base) * (k + 1)) / n;
+      const x = r.x0 + k * (bw + gap);
       const on = k + 1 <= lit + 1e-6 ? INK : k < lit ? HALF : FAINT;
       this.ctx.fillStyle = on;
-      this.ctx.fillRect(x, CARD.y1 - h, bw, h);
+      this.ctx.fillRect(x, r.y1 - h, bw, h);
     }
   }
 
   /** TONE, STRETCH : une courbe de filtre qui bascule (a gauche plus sombre, a droite plus brillant). */
-  private drawTone(x0: number, x1: number, v: number): void {
-    const mid = (CARD.y0 + CARD.y1) / 2;
-    const amp = (CARD.y1 - CARD.y0) / 2 - 2;
+  private drawTone(r: Rect, v: number): void {
+    const { x0, x1 } = r;
+    const mid = (r.y0 + r.y1) / 2;
+    const amp = (r.y1 - r.y0) / 2 - 2;
     const pts: number[] = [];
     const n = 28;
     for (let k = 0; k <= n; k += 1) {
@@ -536,14 +682,15 @@ export class Screen {
       pts.push(x0 + (x1 - x0) * t, mid - v * amp * (2 * s - 1));
     }
     this.line([x0, mid, x1, mid], FAINT, 0.8);
-    this.line(pts, INK, 2);
+    this.line(pts, INK, 2 * Math.max(0.7, Screen.cardK(r)));
   }
 
   /** DECAY : une enveloppe, l'attaque puis la queue, plus longue avec la valeur. */
-  private drawDecay(x0: number, x1: number, v: number): void {
-    const base = CARD.y1;
-    const top = CARD.y0 + 2;
-    const ax = x0 + 3;
+  private drawDecay(r: Rect, v: number): void {
+    const { x0, x1 } = r;
+    const base = r.y1;
+    const top = r.y0 + 2;
+    const ax = x0 + 3 * Math.max(0.5, Screen.cardK(r));
     const tau = 0.08 + 0.6 * Math.max(0, Math.min(1, v));
     const pts: number[] = [x0, base, ax, top];
     const n = 30;
@@ -552,27 +699,30 @@ export class Screen {
       pts.push(ax + (x1 - ax) * t, base - (base - top) * Math.exp(-t / tau));
     }
     this.line([x0, base, x1, base], FAINT, 0.8);
-    this.line(pts, INK, 2);
+    this.line(pts, INK, 2 * Math.max(0.7, Screen.cardK(r)));
   }
 
   /** SWING : quatre paires de points, la seconde de chaque paire decalee par le swing. */
-  private drawSwing(x0: number, x1: number, v: number): void {
+  private drawSwing(r: Rect, v: number): void {
+    const { x0, x1 } = r;
     const n = 4;
     const cell = (x1 - x0) / n;
-    const y = (CARD.y0 + CARD.y1) / 2;
+    const y = (r.y0 + r.y1) / 2;
+    const ks = Screen.cardK(r);
     this.line([x0, y, x1, y], FAINT, 0.8);
     for (let k = 0; k < n; k += 1) {
       const xa = x0 + k * cell + cell * 0.18;
       const xb = x0 + k * cell + cell * (0.5 + 0.32 * Math.max(0, Math.min(1, v)));
-      this.circle(xa, y, 3.4, INK);
-      this.circle(xb, y, 2.6, HALF);
+      this.circle(xa, y, 3.4 * ks, INK);
+      this.circle(xb, y, 2.6 * ks, HALF);
     }
   }
 
   /** STRETCH : une onde dont la longueur s'etire ou se resserre. */
-  private drawStretch(x0: number, x1: number, v: number): void {
-    const mid = (CARD.y0 + CARD.y1) / 2;
-    const amp = (CARD.y1 - CARD.y0) / 2 - 3;
+  private drawStretch(r: Rect, v: number): void {
+    const { x0, x1 } = r;
+    const mid = (r.y0 + r.y1) / 2;
+    const amp = (r.y1 - r.y0) / 2 - 3;
     const cycles = 3 * Math.pow(2, -Math.max(-1, Math.min(1, v)));
     const pts: number[] = [];
     const n = 48;
@@ -581,7 +731,34 @@ export class Screen {
       pts.push(x0 + (x1 - x0) * t, mid - amp * Math.sin(t * cycles * Math.PI * 2) * Math.exp(-t * 1.6));
     }
     this.line([x0, mid, x1, mid], FAINT, 0.8);
-    this.line(pts, INK, 2);
+    this.line(pts, INK, 2 * Math.max(0.7, Screen.cardK(r)));
+  }
+
+  /** Des crans (SOUND, GATE) : un point par cran, le choisi en grand ; plus de 12 : une barre. */
+  private drawNotch(r: Rect, n: number, course: number): void {
+    if (n < 2 || n > 12) {
+      this.drawBar(r, course, false);
+      return;
+    }
+    const y = (r.y0 + r.y1) / 2;
+    const cur = Math.round(clamp01(course) * (n - 1));
+    const step = (r.x1 - r.x0) / (n - 1);
+    for (let i = 0; i < n; i += 1) {
+      const x = r.x0 + i * step;
+      if (i === cur) this.circle(x, y, n > 6 ? 1.7 : 2.3, INK);
+      else this.circle(x, y, 0.8, HALF);
+    }
+  }
+
+  /** Une barre : le trait a peine, la valeur pleine et son point ; centre : depuis le milieu (son repere). */
+  private drawBar(r: Rect, course: number, centre: boolean): void {
+    const y = (r.y0 + r.y1) / 2;
+    const x = r.x0 + (r.x1 - r.x0) * clamp01(course);
+    const from = centre ? (r.x0 + r.x1) / 2 : r.x0;
+    this.line([r.x0, y, r.x1, y], FAINT, 1.4);
+    if (centre) this.line([from, y - 2.4, from, y + 2.4], HALF, 0.8);
+    this.line([from, y, x, y], INK, 1.8);
+    this.circle(x, y, 2, INK);
   }
 
   /* ---------------- les pages ---------------- */
@@ -606,9 +783,9 @@ export class Screen {
   }
 
   /** Page SAMPLES : le son precedent, le son du moment en pastille, le suivant ; leur rang. */
-  private paintSamples(m: NonNullable<LcdState['samples']>): void {
+  private paintSamples(m: NonNullable<LcdState['samples']>, col: Col = COL): void {
     const n = m.names.length;
-    const x = COL.x0;
+    const x = col.x0;
     const ROW = 18;
     for (let k = -1; k <= 1; k += 1) {
       const i = m.cur + k;
@@ -616,12 +793,12 @@ export class Screen {
       const y = 58 + k * ROW;
       const name = fit(m.names[i], 18);
       if (k === 0) {
-        const w = COL.x1 - x - 24;
+        const w = col.x1 - x - 24;
         this.pill(x, y - 10.5, w, 14, INK);
         this.text(name, x + 7, y, 10, BLACK, 600);
       } else this.text(name, x + 7, y, 9, HALF, 500);
     }
-    this.text(`${m.cur + 1}/${n}`, COL.x1, 62, 8, HALF, 600, 'right');
+    this.text(`${m.cur + 1}/${n}`, col.x1, 62, 8, HALF, 600, 'right');
     this.text(`${m.title} SOUND`, x, 96, 7, HALF, 700, 'left', 0.9);
   }
 
@@ -646,10 +823,41 @@ export class Screen {
     });
   }
 
-  /** La ligne du bas a droite : le message du moment, ou la piste et sa barre, sinon rien. */
-  private paintLine(s: LcdState, rytmEdit: boolean): void {
-    const x0 = COL.x0;
-    const x1 = COL.x1;
+  /**
+   * La ligne du bas a droite : le message du moment, ou la piste et sa barre,
+   * sinon rien. compact (la vue PAGE, 2026-10-08) : toute la largeur, la
+   * piste sur une seule ligne (son titre, la position, la barre, la duree) ;
+   * la page MIX n'y ecrit rien.
+   */
+  private paintLine(s: LcdState, rytmEdit: boolean, col: Col = COL, y: number = LINE.y, compact = false): void {
+    const x0 = col.x0;
+    const x1 = col.x1;
+    if (compact) {
+      if (s.samples) return;
+      if (s.bar !== null) {
+        const tw = this.text(fit(s.l2.trim(), 16), x0, y, 7, HALF, 600, 'left', 0.5);
+        const lw = this.text(s.l3, x0 + tw + 8, y, 7, INK, 600);
+        const rw = this.text(s.r3, x1, y, 7, INK, 600, 'right');
+        const a = x0 + tw + 8 + lw + 5;
+        const b = x1 - rw - 5;
+        if (b - a > 10) {
+          const yb = y - 2.5;
+          const v = Math.max(0, Math.min(1, s.bar));
+          this.line([a, yb, b, yb], FAINT, 1.4);
+          this.line([a, yb, a + (b - a) * v, yb], INK, 1.8);
+          this.circle(a + (b - a) * v, yb, 2.6, INK);
+          this.bar = { x0: a * TEX_K, x1: b * TEX_K, y0: (y - 12) * TEX_K, y1: (y + 6) * TEX_K };
+        }
+        return;
+      }
+      if (s.l3 && !s.mix) {
+        this.text(fit(s.l3, 44), x0, y, 9, INK, 600, 'left', 0.6);
+        return;
+      }
+      if (this.paintMode(x0, x1, y)) return;
+      if (s.tag) this.text('TOUCH: PRESETS', x1, y, 6.5, FAINT, 700, 'right', 0.8);
+      return;
+    }
     if (s.mix || s.samples) return;
     if (s.bar !== null) {
       // La piste : son titre, la position et la duree, une barre fine et son point
@@ -683,11 +891,11 @@ export class Screen {
    * tip du double MUTE") : le mode du moment a gauche, son tip a droite ;
    * false sans mode ni voix coupee.
    */
-  private paintMode(x0: number, x1: number): boolean {
+  private paintMode(x0: number, x1: number, y: number = LINE.y): boolean {
     const v = voices.get();
     const line = (left: string, tip: string): true => {
-      const tw = this.text(tip, x1, LINE.y, 6.5, HALF, 700, 'right', 0.8);
-      this.text(fit(left, Math.max(6, Math.floor((x1 - x0 - tw - 8) / 6.4))), x0, LINE.y, 9, INK, 600, 'left', 0.6);
+      const tw = this.text(tip, x1, y, 6.5, HALF, 700, 'right', 0.8);
+      this.text(fit(left, Math.max(6, Math.floor((x1 - x0 - tw - 8) / 6.4))), x0, y, 9, INK, 600, 'left', 0.6);
       return true;
     };
     if (v.soloMode) return v.soloMulti ? line('MULTI SOLO', 'TAP VOICES / SOLO: OFF') : line('SOLO 1 VOICE', '2X SOLO: SEVERAL');
@@ -695,6 +903,118 @@ export class Screen {
     if (v.muteMode) return v.muteMulti ? line('MULTI MUTE', 'TAP VOICES / MUTE: OFF') : line('MUTE 1 VOICE', '2X MUTE: SEVERAL');
     if (v.muted.length) return line(`MUTED ${v.muted.join(' ')}`, 'MUTE: ALL ON');
     return false;
+  }
+
+  /* ---------------- la vue PAGE (2026-10-08) ---------------- */
+
+  /**
+   * La vue PAGE : l'en-tete, les huit blocs (ou la liste des sons sur toute
+   * la largeur), la ligne du bas ; rend dans combien de ms l'echo s'eteint
+   * (0 : aucun ; paint() en arme le minuteur).
+   */
+  private paintPage(s: LcdState, rp: RytmPageState, inst: Inst | null, cur: number, now: number): number {
+    this.paintPageHead(rp.page, inst, cur, now);
+    let next = 0;
+    if (s.samples) this.paintSamples(s.samples, PAGE_COL);
+    else {
+      const blocks = pageBlocks(rp, inst, now);
+      this.paintMatrix(blocks);
+      this.info.blocks = blocks.map((b) => `${b.label}=${b.text}:${b.state}`);
+      const echo = blocks.find((b) => b.echo);
+      if (echo && rp.echo) {
+        this.info.echo = echo.k;
+        next = Math.max(1, rp.echo.until - now + 1);
+      }
+    }
+    this.paintLine(s, false, PAGE_COL, PAGE_LINE.y, true);
+    return next;
+  }
+
+  /**
+   * L'en-tete de la vue PAGE : la lecture, la page en pastille, la voix et son
+   * son (ou MUTE, SOLO ; sans voix ALL, PICK A VOICE) ; a droite le pattern
+   * (il clignote quand il change) et le tempo, comme HOME.
+   */
+  private paintPageHead(page: RytmPageId, inst: Inst | null, cur: number, now: number): void {
+    const y = PAGE_HEAD.y;
+    this.runIcon(PAGE_HEAD.iconX, y);
+    const label = pageLabel(page);
+    const pw = this.textWidth(label, 7, 700, 0.8) + 10;
+    this.pill(PAGE_HEAD.pillX, PAGE_HEAD.pillY, pw, PAGE_HEAD.pillH, INK);
+    this.text(label, PAGE_HEAD.pillX + pw / 2, PAGE_HEAD.pillY + 8, 7, BLACK, 700, 'center', 0.8);
+    const x = PAGE_HEAD.pillX + pw + 7;
+    if (inst) {
+      const vw = this.text(inst, x, y, 12, INK, 600);
+      const solo = voices.isSolo(inst);
+      const muted = !voices.plays(inst);
+      if (solo || muted) {
+        const word = solo ? 'SOLO' : 'MUTE';
+        const w = this.textWidth(word, 7, 700, 0.8) + 8;
+        this.pill(x + vw + 6, PAGE_HEAD.pillY, w, PAGE_HEAD.pillH, INK);
+        this.text(word, x + vw + 6 + w / 2, PAGE_HEAD.pillY + 8, 7, BLACK, 700, 'center', 0.8);
+      } else this.text(fit(soundOf(inst), 10), x + vw + 5, y, 7, HALF, 600, 'left', 0.6);
+    } else {
+      const aw = this.text('ALL', x, y, 12, HALF, 600);
+      this.text('PICK A VOICE', x + aw + 6, y, 6, FAINT, 600, 'left', 0.5);
+    }
+    const blinkOff = this.blinkUntil > now && Math.floor((this.blinkUntil - now) / 100) % 2 === 1;
+    const bpm = String(Math.round(pattern.get().bpm));
+    const bw = this.text('BPM', PAGE_HEAD.right, y, 7, HALF, 600, 'right', 0.8);
+    const nw = this.text(bpm, PAGE_HEAD.right - bw - 4, y, 12, INK, 400, 'right');
+    this.text(slotName(cur), PAGE_HEAD.right - bw - 4 - nw - 10, y, 12, blinkOff ? FAINT : INK, 600, 'right', 0.6);
+  }
+
+  /** Les huit blocs : A B C D en haut, E F G H dessous. */
+  private paintMatrix(blocks: readonly Block[]): void {
+    for (const b of blocks) {
+      if (b.state === 'empty') continue;
+      const bx = MATRIX.x0 + MATRIX.pitch * (b.k % 4);
+      const by = MATRIX.rows[b.k >> 2];
+      // Le bloc qu'on vient de tourner : un contour, l'echo
+      if (b.echo) this.roundRect(bx, by, MATRIX.w, MATRIX.h, MATRIX.r, null, HALF, 1);
+      const alive = b.state === 'live';
+      this.text(b.label, bx + BLOCK.nameDx, by + BLOCK.nameDy, BLOCK.nameSize, alive ? HALF : FAINT, 700, 'left', 0.8);
+      if (!alive) {
+        this.text('--', bx + BLOCK.nameDx, by + BLOCK.valueDy, BLOCK.valueSizes[0], FAINT, 400);
+        continue;
+      }
+      const tag = b.noBd ? 'NO BD' : b.all ? 'ALL' : '';
+      const v = this.fitValue(b.text, tag ? BLOCK.valueWTag : BLOCK.valueW);
+      this.text(v.text, bx + BLOCK.nameDx, by + BLOCK.valueDy, v.size, INK, 400);
+      if (tag) this.text(tag, bx + BLOCK.tagDx, by + BLOCK.valueDy, 5, FAINT, 700, 'right', 0.5);
+      const r: Rect = { x0: bx + BLOCK.draw.dx0, y0: by + BLOCK.draw.dy0, x1: bx + BLOCK.draw.dx1, y1: by + BLOCK.draw.dy1 };
+      switch (b.draw) {
+        case 'level':
+          this.drawLevel(r, b.course);
+          break;
+        case 'tone':
+          this.drawTone(r, b.value);
+          break;
+        case 'decay':
+          this.drawDecay(r, b.course);
+          break;
+        case 'swing':
+          this.drawSwing(r, b.value);
+          break;
+        case 'stretch':
+          this.drawStretch(r, b.value);
+          break;
+        case 'notch':
+          this.drawNotch(r, b.notches, b.course);
+          break;
+        default:
+          this.drawBar(r, b.course, b.draw === 'barc' || b.bipolar);
+      }
+    }
+  }
+
+  /** La valeur d'un bloc dans sa largeur : 12, sinon 10, sinon 8 et coupee. */
+  private fitValue(s: string, maxW: number): { text: string; size: number } {
+    for (const size of BLOCK.valueSizes) if (this.textWidth(s, size, 400) <= maxW) return { text: s, size };
+    const size = BLOCK.valueSizes[BLOCK.valueSizes.length - 1];
+    let n = s.length - 1;
+    while (n > 1 && this.textWidth(fit(s, n), size, 400) > maxW) n -= 1;
+    return { text: fit(s, n), size };
   }
 
   /** Fin d'un redessin : la texture part, les compteurs suivent. */
@@ -713,6 +1033,7 @@ export class Screen {
     if (this.timer !== 0) window.clearTimeout(this.timer);
     this.timer = 0;
     window.clearTimeout(this.idleTimer);
+    window.clearTimeout(this.echoTimer);
     this.mesh.geometry.dispose();
     (this.mesh.material as MeshBasicMaterial).dispose();
     this.texture.dispose();
