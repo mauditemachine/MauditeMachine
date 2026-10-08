@@ -996,6 +996,12 @@ function dialText(k: EncId, v: number): string {
  * son objet. Seules les valeurs qui ont change (au dixieme de px) sont
  * reecrites ; le montage ecrit tout, onIdle rattrape un rendu hors boucle.
  */
+/** Ce que les jumeaux lisent de la page du MM-RYTM : la page, la vue, le pas choisi. */
+const rytmPageKey3 = (): string => {
+  const s = rytmPage.get();
+  return `${s.page}|${s.view}|${s.sel}`;
+};
+
 export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const s = useSyncExternalStore(explode.subscribe, explode.get, explode.get);
   const p = useSyncExternalStore(pattern.subscribe, pattern.get, pattern.get);
@@ -1016,7 +1022,12 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   // Rangee VOICE : la voix du pad selectionne, sinon ses valeurs de depart
   const vfx = useSyncExternalStore(voiceFx.subscribe, voiceFx.get, voiceFx.get);
   // La page du MM-RYTM (2026-10-08) : les jumeaux des potards et des touches de page la suivent
-  const rp = useSyncExternalStore(rytmPage.subscribe, rytmPage.get, rytmPage.get);
+  // Seulement la page, la vue et le pas choisi (2026-10-08, revue de R1) : le contour d'un bloc tourne (l'echo,
+  // a chaque cran) ne refait pas les 240 jumeaux ; les valeurs, elles, ont leurs propres abonnements
+  useSyncExternalStore(rytmPage.subscribe, rytmPageKey3, rytmPageKey3);
+  const rp = rytmPage.get();
+  // Le kit : les potards de page de SRC (K.TUNE, ATTACK...) et SOUND suivent ses valeurs
+  useSyncExternalStore(kit.subscribe, kit.get, kit.get);
   const els = useRef(new Map<string, HTMLElement>());
   const refs = useRef(new Map<string, (el: HTMLElement | null) => void>());
   const stageRef = useRef(stage);
