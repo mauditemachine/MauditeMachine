@@ -210,9 +210,19 @@ const coreMap = (): Map<string, MidiTarget> => {
 const lazy = new Map<string, { list: () => MidiTarget[]; find: (id: string) => MidiTarget | undefined }>();
 const lazyListeners = new Set<() => void>();
 
+/**
+ * Les cibles trouvees des machines chargees a part, gardees (2026-10-08, Mika :
+ * "Roto control : des fois ca fonctionne, des fois ca ne fonctionne pas") :
+ * le MM-DECKS refaisait sa cible a chaque recherche, et le retour vers le
+ * Roto en cherche des centaines toutes les 50 ms. Une cible lit l'etat de sa
+ * commande a chaque appel : la garder ne fige rien. Vide a chaque inscription.
+ */
+const lazyFound = new Map<string, MidiTarget>();
+
 /** Une machine chargee a part inscrit ses cibles (prefixe : dj, bass). */
 export function registerTargets(prefix: string, list: () => MidiTarget[], find: (id: string) => MidiTarget | undefined): void {
   lazy.set(prefix, { list, find });
+  lazyFound.clear();
   lazyListeners.forEach((fn) => fn());
 }
 export function onTargetsRegistered(fn: () => void): () => void {
@@ -228,7 +238,11 @@ export const prefixOf = (id: string): string => id.slice(0, id.indexOf(':'));
 export function targetOf(id: string): MidiTarget | undefined {
   const c = coreMap().get(id);
   if (c) return c;
-  return lazy.get(prefixOf(id))?.find(id);
+  const kept = lazyFound.get(id);
+  if (kept) return kept;
+  const t = lazy.get(prefixOf(id))?.find(id);
+  if (t) lazyFound.set(id, t);
+  return t;
 }
 
 /** Les cibles d'une machine (ou de la navigation), dans l'ordre de la machine. */

@@ -17,12 +17,19 @@
  *   ARP, BASS, DECK, MIXER, LIVE, midi/roto.ts), allumee ou non ; ses fichiers
  *   pour ROTO-SETUP a telecharger (tous en .zip, ou un par un) et
  *   comment les importer.
+ * - 2026-10-08 (Mika : "Roto control : des fois ca fonctionne, des fois ca
+ *   ne fonctionne pas") : l'autorisation du navigateur, RESCAN, les sorties
+ *   qui recoivent le retour, un autre onglet qui a le MIDI (USE MIDI HERE),
+ *   ce qu'a fait le dernier message, les assignations apprises qui tombent
+ *   sur la carte du Roto (REMOVE CONFLICTS WITH THE ROTO MAP), la version
+ *   des setups ; le panneau se ferme a un clic ailleurs (il cachait la
+ *   platine B), sauf pendant MIDI LEARN (on touche alors la machine).
  * Le moteur : midi/midi.ts ; les cibles : midi/targets.ts.
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { clearScope, exportMaps, feedbackToggle, followToggle, importMaps, keyOfTarget, keyText, learnPick, learnToggle, midi, midiDisable, midiEnable, rotoToggle, unbind, type MidiView } from '../midi/midi';
-import { ROTO_SETUPS, rotoFileName, rotoSetupJson, rotoSetups, zipFiles, type RotoSetup } from '../midi/roto';
+import { clearScope, exportMaps, feedbackToggle, followToggle, importMaps, keyOfTarget, keyText, learnPick, learnToggle, midi, midiClaim, midiDisable, midiEnable, midiRescan, removeRotoConflicts, rotoConflicts, rotoToggle, unbind, type MidiView } from '../midi/midi';
+import { ROTO_SETUPS, ROTO_VERSION, rotoFileName, rotoSetupJson, rotoSetupLabel, rotoSetups, zipFiles, type RotoSetup } from '../midi/roto';
 import { MACHINE_NAME, onTargetsRegistered, targetIdOfHotspot, targetOf, targetsOf, type TargetScope } from '../midi/targets';
 import type { Stage } from '../scene/renderer';
 import { focus, type Focus } from '../state/focus';
@@ -46,19 +53,32 @@ function shortKey(key: string): string {
   return ch === '1' ? base : `${base}/${ch}`;
 }
 
+const BLOCKED = 'MIDI is blocked for this site. Click the icon left of the address, then Site settings, MIDI devices: Allow. Then CONNECT.';
+
 function statusText(m: MidiView): string {
   switch (m.status) {
     case 'unsupported':
       return 'This browser has no Web MIDI. Use Chrome, Edge, Opera or Firefox on a computer.';
     case 'asking':
-      return 'Allow MIDI in the browser prompt.';
+      return m.permission === 'prompt' ? 'Allow MIDI in the browser prompt (next to the address bar).' : 'Asking the browser for MIDI...';
     case 'denied':
-      return 'MIDI was refused. Allow it in the site settings, then connect again.';
+      return m.permission === 'denied' ? BLOCKED : 'MIDI was refused. Allow it in the site settings, then connect again.';
     case 'on':
-      return m.inputs.length > 0 ? `Inputs: ${m.inputs.join(', ')}` : 'No MIDI input yet. Plug your controller in.';
+      return m.inputs.length > 0 ? `Inputs: ${m.inputs.join(', ')}` : 'No MIDI input yet. Plug your controller in, then RESCAN.';
     default:
-      return 'Plug your controller in (USB), then connect.';
+      if (m.notice) return m.notice;
+      return m.permission === 'denied' ? BLOCKED : 'Plug your controller in (USB), then connect.';
   }
+}
+
+/** L'autorisation du navigateur, en clair (2026-10-08). */
+const PERMISSION_TEXT: Readonly<Record<MidiView['permission'], string | null>> = { granted: 'allowed', prompt: 'the browser will ask', denied: 'blocked', unknown: null };
+
+/** Ou part le retour des valeurs (2026-10-08 : sans sortie Roto, les potards motorises ne suivent pas). */
+function outputsText(m: MidiView): string | null {
+  if (m.status !== 'on' || !m.feedback) return null;
+  if (m.outputs.length > 0) return `Values sent back to: ${m.outputs.join(', ')}`;
+  return m.roto ? 'No Roto output found: the motor knobs and LEDs will not follow. Plug the Roto in, then RESCAN.' : 'No output receives the values.';
 }
 
 const SCOPES: readonly TargetScope[] = ['mm808', 'voy', 'bass', 'dj', 'global'];
@@ -82,6 +102,7 @@ const rotoZip = (): void => download(zipFiles(rotoSetups().map((r) => ({ name: r
 /** La carte du Roto-Control : allumee ou non, ses setups a telecharger, comment les importer, FOLLOW. */
 const RotoSection: React.FC<{ on: boolean; follow: boolean }> = ({ on, follow }) => (
   <section className="v4-midi-roto" aria-label="Roto-Control">
+    <p className="v4-midi-last v4-midi-version">Roto setups version {ROTO_VERSION}: if your Roto shows another version, re-import the setups.</p>
     <label className="v4-midi-check">
       <input type="checkbox" checked={on} onChange={(e) => rotoToggle(e.target.checked)} />
       <span>ROTO-CONTROL map: six ready setups, no MIDI LEARN needed</span>
@@ -104,7 +125,7 @@ const RotoSection: React.FC<{ on: boolean; follow: boolean }> = ({ on, follow })
     </div>
     <ol className="v4-midi-roto-how">
       <li>In ROTO-SETUP 3.3.0, accept the firmware update it asks for, then back up with File &gt; Export All.</li>
-      <li>Put the Roto in MIDI mode. Press SEL and pick SETUP 11, then File &gt; Import (Cmd+I): MM RYTM (SETUP 11).json.</li>
+      <li>Put the Roto in MIDI mode. Press SEL and pick SETUP 11, then File &gt; Import (Cmd+I): MM RYTM (SETUP 11).json. The Roto then shows {rotoSetupLabel(ROTO_SETUPS[0])}.</li>
       <li>Same for ARP on 12, DECK on 13, MIXER on 14, BASS on 15, LIVE on 16 (your setups 1 to 10 stay as they are).</li>
       <li>Here: CONNECT. Every knob goes from 0 to 127, the motor knobs and the LEDs follow the site. LIVE plays all the machines without changing setup.</li>
     </ol>
@@ -120,6 +141,8 @@ const MidiPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const here: TargetScope | null = f === 'all' ? null : f;
   const choices = [...(here ? targetsOf(here) : []), ...targetsOf('global')];
   const picked = m.pick ? targetOf(m.pick) : undefined;
+  // Les assignations apprises sur une cle de la carte du Roto (2026-10-08)
+  const conflicts = m.roto ? rotoConflicts(m.maps) : [];
   // La machine regardee d'abord, puis partout, puis les autres
   const order = [...(here ? [here] : []), 'global' as const, ...SCOPES.filter((s) => s !== here && s !== 'global')];
 
@@ -158,12 +181,31 @@ const MidiPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         </button>
       </div>
       <p className="v4-midi-status">{statusText(m)}</p>
+      {PERMISSION_TEXT[m.permission] && m.status !== 'unsupported' && <p className="v4-midi-last">Browser permission: {PERMISSION_TEXT[m.permission]}</p>}
+      {!m.leader && (
+        <div className="v4-midi-alert" role="status">
+          <p>MIDI IS USED BY ANOTHER TAB of this site: this tab ignores the controller and sends nothing back.</p>
+          <button type="button" className="v4-midi-key v4-midi-key-main" onClick={() => midiClaim()}>
+            USE MIDI HERE
+          </button>
+        </div>
+      )}
+      {m.hint && (
+        <p className="v4-midi-alert" role="status">
+          {m.hint}
+        </p>
+      )}
       {m.status !== 'unsupported' && (
         <div className="v4-midi-row">
           {m.status === 'on' ? (
-            <button type="button" className="v4-midi-key" onClick={() => midiDisable()}>
-              DISCONNECT
-            </button>
+            <>
+              <button type="button" className="v4-midi-key" onClick={() => midiDisable()}>
+                DISCONNECT
+              </button>
+              <button type="button" className="v4-midi-key" onClick={() => midiRescan()}>
+                RESCAN
+              </button>
+            </>
           ) : (
             <button type="button" className="v4-midi-key v4-midi-key-main" disabled={m.status === 'asking'} onClick={() => void midiEnable()}>
               CONNECT
@@ -174,6 +216,7 @@ const MidiPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           </button>
         </div>
       )}
+      {outputsText(m) && <p className="v4-midi-last">{outputsText(m)}</p>}
       {m.learn && (
         <div className="v4-midi-learn">
           <p>Touch a control on the machine (or pick it below), then move a knob or press a button on your controller.</p>
@@ -196,6 +239,28 @@ const MidiPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         </div>
       )}
       {m.last && <p className="v4-midi-last">Last message: {m.last}</p>}
+      {conflicts.length > 0 && (
+        <section className="v4-midi-scope v4-midi-conflicts" aria-label="Learned keys on the Roto map">
+          <div className="v4-midi-scope-head">
+            <span>LEARNED ON THE ROTO MAP</span>
+          </div>
+          <ul>
+            {conflicts.map((c) => (
+              <li key={`${c.scope}:${c.key}`}>
+                <span className="v4-midi-k">{keyText(c.key)}</span>
+                <span className="v4-midi-t">
+                  {targetOf(c.id)?.label ?? c.id} ({scopeName(c.scope)}), Roto map: {targetOf(c.roto)?.label ?? c.roto}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="v4-midi-row">
+            <button type="button" className="v4-midi-key" onClick={() => setNote(`${removeRotoConflicts()} assignment(s) removed: the Roto map has its keys back.`)}>
+              REMOVE CONFLICTS WITH THE ROTO MAP
+            </button>
+          </div>
+        </section>
+      )}
       <div className="v4-midi-maps">
         {order.map((s) => {
           const entries = Object.entries(m.maps[s] ?? {});
@@ -257,21 +322,43 @@ const MidiPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 export const MidiButton: React.FC = () => {
   const m = useMidi();
   const [open, setOpen] = useState(false);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const learn = m.learn;
+  // 2026-10-08 : un clic ailleurs ferme le panneau (il cachait l'ecran, CUE, SYNC et PLAY de la platine B),
+  // sauf pendant MIDI LEARN (on touche alors les commandes de la machine) ; le bouton MIDI l'ouvre et le ferme
+  useEffect(() => {
+    if (!open || learn) return undefined;
+    const onDown = (e: PointerEvent): void => {
+      const t = e.target as Node | null;
+      if (!t || btnRef.current?.contains(t) || document.getElementById('v4-midi-panel')?.contains(t)) return;
+      setOpen(false);
+    };
+    window.addEventListener('pointerdown', onDown, true);
+    return () => window.removeEventListener('pointerdown', onDown, true);
+  }, [open, learn]);
   return (
     <>
       <button
+        ref={btnRef}
         type="button"
         className="v4-midi-btn"
-        data-on={m.status === 'on' ? '1' : '0'}
+        data-on={m.status === 'on' && m.leader ? '1' : '0'}
         data-learn={m.learn ? '1' : '0'}
+        data-hint={m.hint ? '1' : '0'}
         aria-expanded={open}
         aria-controls="v4-midi-panel"
-        aria-label="MIDI controller"
+        aria-label={m.hint ? `MIDI controller: ${m.hint}` : 'MIDI controller'}
+        title={m.hint ?? (m.status === 'on' && !m.leader ? 'MIDI is used by another tab' : undefined)}
         onClick={() => setOpen((o) => !o)}
       >
         <span className="v4-midi-dot" aria-hidden="true" />
         MIDI
       </button>
+      {m.hint && !open && (
+        <span className="v4-midi-hint" role="status" style={{ position: 'fixed', top: 64, right: 24 }}>
+          {m.hint}
+        </span>
+      )}
       {open && <MidiPanel onClose={() => setOpen(false)} />}
     </>
   );

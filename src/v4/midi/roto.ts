@@ -19,7 +19,11 @@
  * - le potard ou le bouton n (0 a 31, quatre pages de huit) envoie le CC
  *   14 + n (n < 18), sinon 102 + (n - 18) : des CC sans role reserve par la
  *   norme MIDI (ni 0 bank, ni 1 modulation, ni 6/38 data, ni 64 pedale, ni
- *   96 a 101 RPN/NRPN, ni 120 a 127 messages de canal) ;
+ *   96 a 101 RPN/NRPN, ni 120 a 127 messages de canal) ; depuis le
+ *   2026-10-08, ces adresses sont gelees dans un registre (midi/rotoKeys.ts :
+ *   une cible garde son canal et son CC meme deplacee sur une autre page, une
+ *   nouvelle cible prend une adresse libre) et le nom du setup porte sa
+ *   version (RYTM 1008) ;
  * - 0 a 127 sur toute la course (le test de Mika : son potard etait borne
  *   de 15 a 115 dans son setup) ; un selecteur a crans du site devient un
  *   potard a crans du Roto (TYPE STEP), ses crans nommes quand le site les
@@ -43,6 +47,7 @@ import { KIT_MODELS, KIT_MODEL_LABEL, type KitFamily } from '../audio/kit';
 import { samplesOf } from '../audio/samples';
 import { voyKnob, type VoyKnobId } from '../voyager/params';
 import { bassKnob, type BassKnobId } from '../bass/params';
+import { ROTO_KEYS, type RotoKey } from './rotoKeys';
 
 export type RotoSetupName = 'RYTM' | 'ARP' | 'BASS' | 'DECK' | 'MIXER' | 'LIVE';
 
@@ -64,7 +69,7 @@ const C = {
   off: 70,
 } as const;
 
-interface Ctl {
+export interface Ctl {
   /** la cible MIDI du site (midi/targets.ts, dj/midi.ts) */
   t: string;
   /** son nom sur l'ecran du Roto (12 lettres au plus) */
@@ -473,8 +478,9 @@ function buildSetups(): RotoSetup[] {
       bs('octave', 'OCTAVE', C.gold),
       bs('style', 'STYLE', C.yellow),
       bs('density', 'DENSITY', C.yellow),
-      bs('slides', 'SLIDES', C.yellow),
-      bs('accents', 'ACCENTS', C.yellow),
+      // 2026-10-08 : les noms de la machine refaite (SLIDE PROB, ACC PROB), meme adresse
+      bs('slides', 'SLIDE PROB', C.yellow),
+      bs('accents', 'ACC PROB', C.yellow),
       bs('range', 'RANGE', C.yellow),
       // 3 : la gamme, le groove du MM-RYTM
       bs('root', 'ROOT', C.cyan),
@@ -485,7 +491,8 @@ function buildSetups(): RotoSetup[] {
       bs('accdecay', 'ACC DECAY', C.red),
       bs('sweep', 'SWEEP', C.red),
       bs('release', 'RELEASE', C.gold),
-      bs('tune', 'TUNE', C.gold),
+      // TUNE est bipolaire (2026-10-08) : un cran au milieu, comme KICK TUNE
+      mid(bs('tune', 'TUNE', C.gold)),
     ],
     buttons: [
       // 1 : jouer
@@ -524,46 +531,146 @@ export function rotoSetupOfChannel(ch: number): RotoSetup | null {
 }
 
 
+/* ---------------- la version des setups ---------------- */
+
+/**
+ * La version des setups (2026-10-08, Mika : "Roto control : des fois ca
+ * fonctionne, des fois ca ne fonctionne pas") : elle est dans le nom du
+ * setup que montre le Roto (RYTM 1008, 12 lettres au plus) et le panneau MIDI
+ * la dit ; un Roto qui montre une autre version a un ancien fichier. A
+ * changer a chaque setup modifie (un nom, un mode, des crans, un controle
+ * ajoute) : les adresses, elles, ne bougent plus (midi/rotoKeys.ts).
+ */
+export const ROTO_VERSION = '2026-10-08';
+const ROTO_TAG = ROTO_VERSION.slice(5).replace('-', '');
+/** Le nom du setup sur l'ecran du Roto : RYTM 1008. */
+export const rotoSetupLabel = (s: RotoSetup): string => `${s.name} ${ROTO_TAG}`.slice(0, 12);
+
+/* ---------------- les adresses (midi/rotoKeys.ts) ---------------- */
+
+/** Le canal et le CC d'un controle. */
+export interface RotoAddress {
+  ch: number;
+  cc: number;
+}
+
+/**
+ * Les CC libres pour une nouvelle cible : ceux de la grille d'avant (14 a 31,
+ * 102 a 115), puis d'autres sans role reserve par la norme MIDI (3, 9, 85 a
+ * 90, les LSB 46 a 63 des CC 14 a 31).
+ */
+const FREE_CC: readonly number[] = [...Array.from({ length: 32 }, (_, n) => rotoCc(n)), 3, 9, 85, 86, 87, 88, 89, 90, ...Array.from({ length: 18 }, (_, i) => 46 + i)];
+
+/** Les CC deja donnes, par canal (toutes les lignes du registre : une adresse retiree n'est jamais redonnee). */
+const takenCc = new Map<number, Set<number>>();
+for (const [, ch, cc] of ROTO_KEYS) (takenCc.get(ch) ?? takenCc.set(ch, new Set()).get(ch)!).add(cc);
+
+/** Les lignes manquantes du registre (une nouvelle cible), une fois par session. */
+const missing = new Set<string>();
+
+/**
+ * Les adresses des controles d'un setup : la ligne du registre de sa cible
+ * (la n-ieme fois qu'elle apparait dans le setup prend sa n-ieme ligne), sinon
+ * une adresse libre ; la place sur la page ne compte plus.
+ */
+export function rotoAddresses(s: RotoSetup): { knobs: (RotoAddress | null)[]; buttons: (RotoAddress | null)[] } {
+  const used = new Set<RotoKey>();
+  const fresh = new Map<number, Set<number>>();
+  const one = (c: Ctl | null, ch: number): RotoAddress | null => {
+    if (!c) return null;
+    const line = ROTO_KEYS.find((r) => !used.has(r) && r[0] === s.name && r[1] === ch && r[3] === c.t);
+    if (line) {
+      used.add(line);
+      return { ch, cc: line[2] };
+    }
+    const mine = fresh.get(ch) ?? fresh.set(ch, new Set()).get(ch)!;
+    const cc = FREE_CC.find((x) => !takenCc.get(ch)?.has(x) && !mine.has(x)) ?? 127;
+    mine.add(cc);
+    missing.add(`['${s.name}', ${ch}, ${cc}, '${c.t}'],`);
+    return { ch, cc };
+  };
+  return { knobs: s.knobs.map((c) => one(c, s.ch)), buttons: s.buttons.map((c) => one(c, s.ch + 8)) };
+}
+
 /* ---------------- la table du site ---------------- */
 
-/** Le message qu'envoie un controle : la cle du moteur MIDI (cc:canal:numero). */
-const keyOf = (ch: number, n: number): string => `cc:${ch}:${rotoCc(n)}`;
+/** Ce que le site sait d'une cle du Roto : son setup, potard ou bouton, son controle (null : une adresse retiree). */
+export interface RotoKeyInfo {
+  setup: RotoSetupName;
+  button: boolean;
+  /** le controle place sur une page du setup (son nom, bascule, crans) ; null : retire, l'adresse reste a sa cible */
+  ctl: Ctl | null;
+}
 
 const table = new Map<string, string>();
+const info = new Map<string, RotoKeyInfo>();
+const placed: string[] = [];
 const knobKeys: string[] = [];
+const keysBySetup = new Map<RotoSetupName, string[]>();
 for (const s of ROTO_SETUPS) {
-  s.knobs.forEach((c, n) => {
-    if (!c) return;
-    table.set(keyOf(s.ch, n), c.t);
-    knobKeys.push(keyOf(s.ch, n));
-  });
-  s.buttons.forEach((c, n) => {
-    if (c) table.set(keyOf(s.ch + 8, n), c.t);
-  });
+  const a = rotoAddresses(s);
+  const mine: string[] = [];
+  const put = (c: Ctl | null, ad: RotoAddress | null, button: boolean): void => {
+    if (!c || !ad) return;
+    const key = `cc:${ad.ch}:${ad.cc}`;
+    table.set(key, c.t);
+    info.set(key, { setup: s.name, button, ctl: c });
+    placed.push(key);
+    mine.push(key);
+    if (!button) knobKeys.push(key);
+  };
+  s.knobs.forEach((c, n) => put(c, a.knobs[n], false));
+  s.buttons.forEach((c, n) => put(c, a.buttons[n], true));
+  keysBySetup.set(s.name, mine);
+}
+// Les adresses retirees des pages : elles restent a leur cible (un ancien setup du Roto la pilote encore)
+for (const [name, ch, cc, t] of ROTO_KEYS) {
+  const key = `cc:${ch}:${cc}`;
+  if (table.has(key)) continue;
+  const s = ROTO_SETUPS.find((x) => x.name === name);
+  table.set(key, t);
+  info.set(key, { setup: name, button: !!s && ch === s.ch + 8, ctl: null });
+}
+if (missing.size > 0 && import.meta.env.DEV) {
+  console.warn(`[roto] cible(s) sans adresse fixe : ajoute ces lignes a la fin de ROTO_KEYS (midi/rotoKeys.ts)\n${[...missing].join('\n')}`);
 }
 
 /** La cible d'un message du Roto (null : ce n'est pas un controle de ces setups). */
 export const rotoTarget = (key: string): string | null => table.get(key) ?? null;
-/** Les cles des controles qui recoivent les valeurs du site (potards, bascules), pour le retour vers le Roto. */
-export const rotoFeedbackKeys = (): readonly string[] => [...table.keys()];
+/** Le setup, le type et le controle d'une cle du Roto (null : pas une cle des setups). */
+export const rotoKeyInfo = (key: string): RotoKeyInfo | null => info.get(key) ?? null;
+/** Une cle du Roto dont le bouton est une bascule (TOGGLE) : chaque message fait basculer sa cible. */
+export const rotoIsToggle = (key: string): boolean => info.get(key)?.ctl?.toggle === true;
+/** Les cles des controles places sur les pages, pour le retour vers le Roto. */
+export const rotoFeedbackKeys = (): readonly string[] => placed;
 export const rotoKnobKeys = (): readonly string[] => knobKeys;
+/** Les cles d'un setup (ses potards et ses boutons). */
+export const rotoKeysOfSetup = (name: RotoSetupName): readonly string[] => keysBySetup.get(name) ?? [];
+/** Les lignes a ajouter au registre (des cibles nouvelles sans adresse fixe). */
+export const rotoMissingKeys = (): readonly string[] => [...missing];
 
 /* ---------------- les fichiers de ROTO-SETUP ---------------- */
 
 const EMPTY_NAMES = Array.from({ length: 16 }, () => '');
 const clip = (s: string): string => s.replace(/[^\x20-\x7e]/g, '').slice(0, 12);
 
-/** Le setup au format des exports de ROTO-SETUP (un .json par setup, a importer sur le setup choisi). */
+/**
+ * Le setup au format des exports de ROTO-SETUP (un .json par setup, a importer
+ * sur le setup choisi). Canal et CC : ceux du registre (2026-10-08,
+ * midi/rotoKeys.ts), plus la place du controle ; le nom porte la version.
+ */
 export function rotoSetupJson(s: RotoSetup): string {
+  const ad = rotoAddresses(s);
   const knobs = s.knobs.flatMap((c, i) => {
-    if (!c) return [];
+    const a = ad.knobs[i];
+    if (!c || !a) return [];
     const st = c.steps && c.steps.length >= 2 && c.steps.length <= 16 ? c.steps : null;
     return [
       {
         controlIndex: i,
         controlMode: 0,
-        controlChannel: s.ch,
-        controlParam: rotoCc(i),
+        controlChannel: a.ch,
+        controlParam: a.cc,
         nrpnAddress: 0,
         minValue: 0,
         maxValue: 127,
@@ -578,13 +685,14 @@ export function rotoSetupJson(s: RotoSetup): string {
     ];
   });
   const buttons = s.buttons.flatMap((c, i) => {
-    if (!c) return [];
+    const a = ad.buttons[i];
+    if (!c || !a) return [];
     return [
       {
         controlIndex: i,
         controlMode: 0,
-        controlChannel: s.ch + 8,
-        controlParam: rotoCc(i),
+        controlChannel: a.ch,
+        controlParam: a.cc,
         nrpnAddress: 65535,
         minValue: 0,
         maxValue: 127,
@@ -598,7 +706,7 @@ export function rotoSetupJson(s: RotoSetup): string {
       },
     ];
   });
-  return JSON.stringify({ version: 1, type: 'MIDI', name: s.name, index: s.slot - 1, knobs, buttons }, null, 2);
+  return JSON.stringify({ version: 1, type: 'MIDI', name: rotoSetupLabel(s), index: s.slot - 1, knobs, buttons }, null, 2);
 }
 
 /* ---------------- un .zip des cinq (sans compression) ---------------- */

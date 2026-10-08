@@ -368,11 +368,51 @@ mix.subscribe(() => {
   ask();
 });
 
+/**
+ * RUN pendant que le contexte dort (2026-10-08, Mika : "Roto control : des
+ * fois ca fonctionne, des fois ca ne fonctionne pas") : un RUN du Roto juste
+ * apres le chargement, sans clic sur la page, trouvait le contexte
+ * 'suspended' (la regle d'autoplay du navigateur) ; l'horloge se disait en
+ * marche, le temps etait gele, rien ne sonnait. Desormais elle attend : RUN
+ * part quand le contexte tourne (le premier clic sur la page le reveille),
+ * dans les 20 s ; d'ici la, running reste faux (la LED du Roto ne ment pas),
+ * et un deuxieme RUN ou STOP annule l'attente.
+ */
+let waitCtx: AudioContext | null = null;
+let waitTimer = 0;
+const WAIT_MS = 20000;
+
+function cancelWait(): void {
+  if (!waitCtx) return;
+  waitCtx.removeEventListener('statechange', onCtxState);
+  waitCtx = null;
+  window.clearTimeout(waitTimer);
+}
+
+function onCtxState(): void {
+  const c = waitCtx;
+  if (!c) return;
+  if (c.state === 'closed') cancelWait();
+  if (c.state !== 'running') return;
+  cancelWait();
+  start();
+}
+
 function start(): boolean {
   if (running) return true;
   if (locked) return false;
   const c = context();
   if (!c || c.state === 'closed') return false;
+  if (c.state !== 'running') {
+    if (waitCtx !== c) {
+      cancelWait();
+      waitCtx = c;
+      c.addEventListener('statechange', onCtxState);
+      waitTimer = window.setTimeout(cancelWait, WAIT_MS);
+    }
+    return false;
+  }
+  cancelWait();
   bpm = pattern.get().bpm;
   stepDur = stepDuration(bpm);
   pendingDur = 0;
@@ -400,6 +440,7 @@ function start(): boolean {
  * de 3 ms) jouent jusqu'au bout : les couper net ferait un clic.
  */
 function stop(): void {
+  cancelWait();
   if (!running) return;
   running = false;
   window.clearInterval(timer);
@@ -484,11 +525,16 @@ export const clock = {
   follow(fn: (t: number) => { time: number; step: number } | null): void {
     follow = fn;
   },
-  /** RUN/STOP ; renvoie le nouvel etat. */
+  /** RUN/STOP ; renvoie le nouvel etat (un RUN qui attend le son : un deuxieme appui l'annule). */
   toggle(): boolean {
     if (running) stop();
+    else if (waitCtx) cancelWait();
     else start();
     return running;
+  },
+  /** Un RUN attend que le contexte tourne (2026-10-08). */
+  get waiting(): boolean {
+    return waitCtx !== null;
   },
   /** CLEAR : vide les quatre rangees, la lecture continue (spec 7.2). */
   clear(): void {
