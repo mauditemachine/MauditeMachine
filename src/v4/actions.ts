@@ -34,7 +34,7 @@ import { presskit } from './state/presskit';
 import { rytmPage } from './state/rytmPage';
 import { rytmLock } from './state/rytmLock';
 import { pageLabel, pageSlots, type PageSlot, type RytmPageId, type SlotTarget } from './rytm/pages';
-import { encText, encUnit, kitUnit, v127Text, velTo127 } from './rytm/values';
+import { encText, encUnit, kitUnit, kitUnitAt, v127Text, velTo127, velWord } from './rytm/values';
 import { section } from './state/section';
 import { voices } from './state/voices';
 import { bassLoad } from './state/bassload';
@@ -1359,8 +1359,18 @@ export function rytmShowPage(id: RytmPageId): void {
 
 /** rytm:home en MIDI (H au clavier, hors EDIT) : HOME, ou la vue PAGE ; sous EDIT ou les presets, les referme sur HOME. */
 export function rytmHome(): void {
-  if (leaveRytmOverlay()) rytmPage.setView('home');
-  else rytmPage.toggleView();
+  if (leaveRytmOverlay()) {
+    rytmPage.setView('home');
+    return;
+  }
+  // En LOCK (revue de R2) : l'ecran reste aux blocs (HOME ne montre pas les verrous), la vue gardee ne change pas
+  // en cachette (elle tombait sur HOME a la sortie du LOCK) ; le pas, Echap ou L en sortent d'abord
+  const lk = rytmLock.get().step;
+  if (lk >= 0) {
+    lcdMessage.show(`LOCK ${two(lk + 1)}: ESC FIRST, THEN HOME`);
+    return;
+  }
+  rytmPage.toggleView();
 }
 
 /* ---------------- les verrous du MM-RYTM (2026-10-08, l'etape R2 des P-locks) ---------------- */
@@ -1452,7 +1462,8 @@ export function pageLockView(k: number, step: number, lockArg?: Readonly<StepLoc
   if (slot.lock === 'vel') {
     const v = velocity(pattern.get().steps, inst, step);
     if (v === 0) return null;
-    return { text: String(velTo127(v)), unit: `STEP ${two(step + 1)} ${VEL_NAMES[v]}`, course: v / VEL_MAX, value: v };
+    // Le pas est deja dans LOCK 05 de l'en-tete : son mot seul, HIGH MID LOW ou son gain (revue de R2 : plus de VEL 7 sous 99)
+    return { text: String(velTo127(v)), unit: velWord(v), course: v / VEL_MAX, value: v };
   }
   const l = lockArg === undefined ? lockOf(pattern.get().locks, inst, step) : lockArg;
   if (!l) return null;
@@ -1477,6 +1488,12 @@ export function pageLockView(k: number, step: number, lockArg?: Readonly<StepLoc
   const id = slot.lock;
   const v = l[id];
   if (v === undefined) return null;
+  // Un potard de la machine (revue de R2) : 0 a 127 et son unite a cette valeur (52 HZ, 216 MS) ; GATE ON ou OFF
+  const r = slot.target && slot.target !== 'step:vel' && slot.target !== 'smpl:sample' ? kitIdOf(slot.target) : null;
+  if (r && !isFamily(r)) {
+    if (r === 'gate') return { text: kit.knobText('gate', v), unit: v >= 0.5 ? 'GATED VERB' : 'NO GATE', course: v, value: v };
+    return { text: v127Text(v), unit: kitUnitAt(r, v), course: v, value: v };
+  }
   const e = slot.target as ContEnc;
   const course = potCourse(e, v);
   return { text: encText(e, v, course, isBipolar(e)), unit: encUnit(e, v), course, value: v };
@@ -1511,10 +1528,20 @@ function lockDialValue(k: number): number | null {
 const LOCK_NAMES: readonly { key: string; name: string; page: string }[] = [
   { key: 'snd', name: 'SOUND', page: 'SRC' },
   { key: 'tune', name: 'TUNE', page: 'SRC' },
+  // Les potards de la machine (revue de R2)
+  { key: 'ktune', name: 'K.TUNE', page: 'SRC' },
+  { key: 'kattack', name: 'ATTACK', page: 'SRC' },
+  { key: 'kdecay', name: 'DECAY', page: 'SRC' },
+  { key: 'kdrive', name: 'DRIVE', page: 'SRC' },
+  { key: 'snappy', name: 'SNAPPY', page: 'SRC' },
+  { key: 'gate', name: 'GATE', page: 'SRC' },
   { key: 'start', name: 'START', page: 'SMPL' },
   { key: 'decay', name: 'DEC', page: 'AMP' },
   { key: 'pan', name: 'PAN', page: 'AMP' },
   { key: 'level', name: 'VOL', page: 'AMP' },
+  // Les envois de la voix (revue de R2)
+  { key: 'delay', name: 'DELAY', page: 'FX' },
+  { key: 'reverb', name: 'REVERB', page: 'FX' },
 ];
 
 /** Les verrous du pas en LOCK, par leur nom de bloc, toutes pages, dans l'ordre des pages : TUNE DEC VOL (l'ecran et le Dock les listent). */

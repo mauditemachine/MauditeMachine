@@ -9,11 +9,11 @@
  * tone, time, kit) ; actions.ts, l'ecran, le Dock et le MIDI le lisent.
  */
 
-import { kit, type KitId } from '../audio/kit';
+import { kit, type KitId, type KitKnob } from '../audio/kit';
 import { toneHpHz, toneLpHz } from '../audio/tone';
 import { timeFactor } from '../audio/time';
 import { START_MAX, decayTau, tuneSt, voiceGain } from '../audio/voicefx';
-import { VEL_MAX } from '../audio/pattern';
+import { VEL_GAIN, VEL_MAX, VEL_NAMES } from '../audio/pattern';
 import { swingRatio, type EncId } from '../theme';
 
 /** Le nombre 0 a 127 d'une course 0 a 1 ; a zero au centre : -64 a +63 (le centre exact vaut 0). */
@@ -49,6 +49,17 @@ export function tuneUnit(v: number): string {
 /** Le nombre d'un potard de la machine (sa valeur dans son domaine) : 0 a 127, -64 a +63, TUNE en demi-tons. */
 export function encText(id: Exclude<EncId, 'tempo' | 'vsound'>, v: number, course: number, bipolar: boolean): string {
   return id === 'vtune' ? tuneText(v) : v127Text(course, bipolar);
+}
+
+/**
+ * Le mot d'une velocite de pas (revue de R2 : 'VEL 7' sous 99 melangeait les
+ * deux echelles) : HIGH, MID, LOW pour les trois d'un appui, sinon son gain
+ * en dB (-2.9 DB) ; OFF a 0.
+ */
+export function velWord(vel: number): string {
+  const v = Math.max(0, Math.min(VEL_MAX, Math.round(vel)));
+  const n = VEL_NAMES[v] ?? 'OFF';
+  return n.startsWith('VEL') ? db(VEL_GAIN[v] ?? 0) : n;
 }
 
 /** La velocite d'un pas (0 a 9, l'echelle des pas) en 0 a 127. */
@@ -126,6 +137,11 @@ export function encUnit(id: Exclude<EncId, 'tempo' | 'vsound'>, v: number): stri
 
 /** La ligne d'unite d'un TWEAK du kit (sous le capot, SRC) : 52 HZ, 216 MS, +2 ST ; un potard sans unite, sa part. */
 export function kitUnit(id: KitId): string {
-  const t = kit.valueText(id);
-  return /\d/.test(t) && !/[A-Z%]/.test(t) ? `${t}%` : t;
+  return unitOf(kit.valueText(id));
+}
+const unitOf = (t: string): string => (/\d/.test(t) && !/[A-Z%]/.test(t) ? `${t}%` : t);
+
+/** La meme ligne pour un potard du kit a la valeur v (un verrou de pas, revue de R2). */
+export function kitUnitAt(id: KitKnob, v: number): string {
+  return unitOf(kit.knobText(id, v));
 }

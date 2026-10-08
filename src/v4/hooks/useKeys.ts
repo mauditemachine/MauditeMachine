@@ -22,7 +22,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { editToggle, escape, openToggle, padHit, page, presetKey, resetView, runToggle, rytmLockToggle, stepMachine, voyPad, voyRun } from '../actions';
+import { editToggle, escape, openToggle, padHit, page, presetKey, resetView, runToggle, rytmHome, rytmLockToggle, stepMachine, voyPad, voyRun } from '../actions';
 import { presetMode } from '../state/presetMode';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
@@ -106,7 +106,8 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         const k = e.key.toLowerCase();
         if (e.code === 'KeyH' || k === 'h') {
           e.preventDefault();
-          rytmPage.toggleView();
+          // rytm:home (actions.ts) : en LOCK, il le dit et ne change pas la vue (revue de R2)
+          rytmHome();
           return;
         }
         if (e.code === 'BracketLeft' || e.code === 'BracketRight' || k === '[' || k === ']') {

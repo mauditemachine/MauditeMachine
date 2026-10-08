@@ -109,10 +109,14 @@ const variantsOf = (id: ShotId): number => {
 /** La cle d'un echantillon : son, STRETCH, variante, frequence, hauteur, et la signature du kit (audio/kit.ts, 2026-10-04). */
 const cacheKey = (id: ShotId, k: number, v: number, sr: number, pk = 0, sig = kit.sig(id)): string => `${id}|${k}|${v}|${sr}|${pk}|${sig}`;
 
+/** Les echantillons dont les deux canaux different (un sample stereo) : le PAN d'un coup les garde stereo (drums.ts). */
+const stereoBufs = new WeakSet<AudioBuffer>();
+
 function toBuffer(L: Float32Array, R: Float32Array | null, sr: number): AudioBuffer {
   const b = new AudioBuffer({ length: L.length, numberOfChannels: 2, sampleRate: sr });
   b.copyToChannel(L, 0);
   b.copyToChannel(R ?? L, 1);
+  if (R && R !== L) stereoBufs.add(b);
   return b;
 }
 
@@ -339,6 +343,10 @@ export const shots = {
    */
   prepare(id: ShotId, ts: number, pf: number, sr: number, ov: ShotOverride | null): void {
     enqueue(id, shotKey(ts), 0, sr, pitchKey(pf), false, ov);
+  },
+  /** Un echantillon aux deux canaux differents (un sample stereo, revue de R2) ? */
+  isStereo(b: AudioBuffer): boolean {
+    return stereoBufs.has(b);
   },
   /** Ce coup est-il deja calcule (tests : un verrou prepare a l'avance) ? */
   ready(id: ShotId, ts: number, pf: number, sr: number, ov: ShotOverride | null): boolean {

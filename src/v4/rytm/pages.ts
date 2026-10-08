@@ -32,9 +32,11 @@
  * bloc verrouille sur le pas en LOCK (vel : la velocite du pas elle-meme ;
  * snd : le son, SOUND et SAMPLE ; level, decay, tune, pan, start). Un bloc
  * de toute la machine (ALL) n'est jamais verrouillable (GLOBAL a l'ecran) ;
- * un bloc de voix sans lock ne l'est pas encore (les potards du kit, TONE,
- * les effets de la voix : leur verrou viendra, l'ecran le dit). TUNE (SRC),
- * PAN (AMP) et START (SMPL) arrivent avec, pour toutes les voix.
+ * un bloc de voix sans lock ne l'est pas encore (TONE, DIST et CHORUS de la
+ * voix : des inserts de sa tranche, leur verrou viendra, l'ecran le dit).
+ * TUNE (SRC), PAN (AMP) et START (SMPL) arrivent avec, pour toutes les voix ;
+ * depuis la revue de R2, les potards de la machine (K.TUNE ATTACK DECAY
+ * DRIVE, SNAPPY, GATE) et les envois DELAY et REVERB de la voix aussi.
  */
 
 import type { DialId } from '../actions';
@@ -107,8 +109,8 @@ const live = (label: string, target: SlotTarget, draw: SlotDraw, scope: PageSlot
   draw,
   ...(noBd ? { noBd } : {}),
 });
-/** Un effet de la voix (la rangee du haut de FX) : la voix en etiquette. */
-const voiceFxSlot = (label: string, target: SlotTarget): PageSlot => ({ ...live(label, target, 'bar'), voiceTag: true });
+/** Un effet de la voix (la rangee du haut de FX) : la voix en etiquette ; DELAY et REVERB se verrouillent (revue de R2). */
+const voiceFxSlot = (label: string, target: SlotTarget, lock?: LockKey): PageSlot => ({ ...live(label, target, 'bar'), voiceTag: true, ...(lock ? { lock } : {}) });
 /** Un reglage de voix verrouillable pas par pas (2026-10-08). */
 const lockable = (label: string, target: SlotTarget, draw: SlotDraw, lock: LockKey | 'vel'): PageSlot => ({ ...live(label, target, draw), lock });
 
@@ -134,8 +136,8 @@ const AMP: readonly PageSlot[] = [soon('ATK'), soon('HOLD'), lockable('DEC', 'vd
 const FX: readonly PageSlot[] = [
   voiceFxSlot('DIST', 'vdist'),
   voiceFxSlot('CHORUS', 'vchorus'),
-  voiceFxSlot('DELAY', 'vdelay'),
-  voiceFxSlot('REVERB', 'vreverb'),
+  voiceFxSlot('DELAY', 'vdelay', 'delay'),
+  voiceFxSlot('REVERB', 'vreverb', 'reverb'),
   live('DIST', 'dist', 'bar', 'all', true),
   live('CHORUS', 'chorus', 'bar', 'all', true),
   live('DELAY', 'delay', 'bar', 'all', true),
@@ -144,9 +146,10 @@ const FX: readonly PageSlot[] = [
 
 /** SRC : C a F selon la famille de la voix (le KICK, la caisse claire, le clap ; rien pour les autres). */
 function srcMiddle(f: KitFamily | null): readonly PageSlot[] {
-  if (f === 'bd') return [live('K.TUNE', 'r:tune', 'barc'), live('ATTACK', 'r:attack', 'bar'), live('DECAY', 'r:decay', 'decay'), live('DRIVE', 'r:drive', 'bar')];
-  if (f === 'sd') return [live('SNAPPY', 'r:snappy', 'bar'), live('GATE', 'r:gate', 'notch'), EMPTY, EMPTY];
-  if (f === 'cp') return [EMPTY, live('GATE', 'r:gate', 'notch'), EMPTY, EMPTY];
+  // Les potards de la machine se verrouillent pas par pas (revue de R2, Mika : "le kick peut etre parametre comme une machine")
+  if (f === 'bd') return [lockable('K.TUNE', 'r:tune', 'barc', 'ktune'), lockable('ATTACK', 'r:attack', 'bar', 'kattack'), lockable('DECAY', 'r:decay', 'decay', 'kdecay'), lockable('DRIVE', 'r:drive', 'bar', 'kdrive')];
+  if (f === 'sd') return [lockable('SNAPPY', 'r:snappy', 'bar', 'snappy'), lockable('GATE', 'r:gate', 'notch', 'gate'), EMPTY, EMPTY];
+  if (f === 'cp') return [EMPTY, lockable('GATE', 'r:gate', 'notch', 'gate'), EMPTY, EMPTY];
   return [EMPTY, EMPTY, EMPTY, EMPTY];
 }
 

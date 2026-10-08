@@ -9,15 +9,23 @@
  * Un verrou : la valeur d'un reglage de voix pour UN pas d'UNE voix ; quand
  * ce pas joue, le coup prend cette valeur au lieu de celle de la voix (sa
  * valeur de base, audio/voicefx.ts), le pas d'apres revient a la base. Tous
- * coup par coup (audio/drums.ts hitParams), aucun ne touche la tranche de la
- * voix :
+ * coup par coup (audio/drums.ts hitParams) ; seuls DELAY et REVERB passent
+ * par la tranche de la voix (ses envois, a l'instant du coup) :
  * - level : VOL (le gain du coup, rapporte a celui de la voix) ;
  * - decay : AMP DEC (l'enveloppe du coup) ;
  * - tune : SRC TUNE (la hauteur du coup, calcule a sa hauteur, audio/shots.ts) ;
  * - pan : AMP PAN (un StereoPannerNode pour ce coup) ;
  * - start : SMPL START (le debut du coup dans son echantillon) ;
  * - snd : le son du coup, un "sample lock" facon Digitakt ('<famille>:<son>',
- *   un son de sa famille ou d'une autre : bd:909, cp:mm, sd:sd/01 Psy 02.wav).
+ *   un son de sa famille ou d'une autre : bd:909, cp:mm, sd:sd/01 Psy 02.wav) ;
+ * - ktune, kattack, kdecay, kdrive (le KICK), snappy (la caisse claire), gate
+ *   (elle et le clap) : les potards de la machine de SRC (revue de R2, Mika :
+ *   "le kick peut etre parametre comme une machine"), le coup calcule avec ces
+ *   reglages (audio/shots.ts, un ShotOverride prepare a l'avance), au
+ *   cinquantieme comme le kit (audio/kit.ts) ;
+ * - delay, reverb : les envois de la voix (FX), poses sur sa tranche a
+ *   l'instant du coup, jusqu'au coup suivant de la voix (audio/sends.ts hit),
+ *   comme un verrou d'envoi d'une Elektron : la queue deja envoyee reste.
  * La velocite (TRIG VEL) n'est pas un verrou : c'est le chiffre du pas
  * lui-meme (audio/pattern.ts), comme sur une Elektron.
  *
@@ -31,10 +39,14 @@
 
 import type { Inst } from '../theme';
 
-/** Les reglages verrouillables a cette etape (R2) : tous coup par coup. */
-export type LockId = 'level' | 'decay' | 'tune' | 'pan' | 'start';
-export const LOCK_IDS: readonly LockId[] = ['level', 'decay', 'tune', 'pan', 'start'];
+/** Les reglages verrouillables (R2) : tous coup par coup. */
+export type LockId = 'level' | 'decay' | 'tune' | 'pan' | 'start' | KitLockId | 'delay' | 'reverb';
+/** Les potards de la machine (SRC) : le coup se calcule avec eux (revue de R2). */
+export type KitLockId = 'ktune' | 'kattack' | 'kdecay' | 'kdrive' | 'snappy' | 'gate';
+export const KIT_LOCK_IDS: readonly KitLockId[] = ['ktune', 'kattack', 'kdecay', 'kdrive', 'snappy', 'gate'];
+export const LOCK_IDS: readonly LockId[] = ['level', 'decay', 'tune', 'pan', 'start', ...KIT_LOCK_IDS, 'delay', 'reverb'];
 export const isLockId = (v: unknown): v is LockId => typeof v === 'string' && (LOCK_IDS as readonly string[]).includes(v);
+export const isKitLock = (v: unknown): v is KitLockId => typeof v === 'string' && (KIT_LOCK_IDS as readonly string[]).includes(v);
 
 /** Un verrou de pas ou le son (snd). */
 export type LockKey = LockId | 'snd';
@@ -60,6 +72,9 @@ export function clampLock(id: LockId, v: number): number {
   if (!Number.isFinite(v)) return id === 'decay' ? 1 : id === 'level' ? 0.8 : 0;
   if (id === 'tune') return Math.max(-24, Math.min(24, Math.round(v * 24))) / 24;
   if (id === 'pan') return r3(Math.max(-1, Math.min(1, v)));
+  // Les potards de la machine : au cinquantieme comme le kit (un calcul de coup par cran, pas par pixel) ; GATE 0 ou 1
+  if (id === 'gate') return v >= 0.5 ? 1 : 0;
+  if (isKitLock(id)) return Math.round(Math.max(0, Math.min(1, v)) * 50) / 50;
   return r3(Math.max(0, Math.min(1, v)));
 }
 

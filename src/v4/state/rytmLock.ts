@@ -42,7 +42,8 @@ export const rytmLock = {
   get: (): RytmLockState => state,
   /** Le LOCK sur le pas i ; latched : il reste au lacher. */
   enter(i: number, latched: boolean): void {
-    if (!valid(i)) return;
+    // Jamais dans EDIT (revue de R2) : ses pas y sont les seize patterns
+    if (!valid(i) || editor.get() === 'mm808') return;
     if (state.step === i && state.latched === latched) return;
     set({ step: i, latched, since: state.writes });
   },

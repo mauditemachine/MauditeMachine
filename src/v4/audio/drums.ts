@@ -44,10 +44,10 @@ import type { Inst } from '../theme';
 import { buildChorus, loadChorus, type ChorusInfo, type ChorusStage } from './chorus';
 import { buildDrive, buildFx, glide, type DriveStage, type FxChain } from './fx';
 import { pattern, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
-import { familyOf, kit, type KitFamily } from './kit';
+import { familyOf, kit, type KitFamily, type KitKnob, type KitKnobs } from './kit';
 import { sampleByKey } from './samples';
-import { lockOf, parseSnd, type Locks, type StepLock } from './locks';
-import { buildDelayBus, buildReverbBus, type BusInfo, type DelayBus, type Send, type SendBus, type SendInfo } from './sends';
+import { KIT_LOCK_IDS, lockOf, parseSnd, type KitLockId, type Locks, type StepLock } from './locks';
+import { buildDelayBus, buildReverbBus, type BusInfo, type DelayBus, type LockSend, type Send, type SendBus, type SendInfo } from './sends';
 import { hitTime, snapTime } from './time';
 import { buildTone, pitchFactor, snapTone, type ToneInfo, type ToneStage } from './tone';
 import { shots, type ShotId, type ShotOverride } from './shots';
@@ -63,8 +63,8 @@ interface Channel {
   drive: DriveStage;
   chorus: ChorusStage;
   out: GainNode;
-  reverb: Send;
-  delay: Send;
+  reverb: LockSend;
+  delay: LockSend;
 }
 
 interface Graph {
@@ -154,6 +154,8 @@ export interface Voice {
   /** un kick : le kick d'avant qu'il coupe (une annulation le lui rend), et sa porte a lui (2026-10-08) */
   bdChoked?: { gate: GainNode; end: number };
   bdGate?: GainNode;
+  /** les envois de sa tranche ou ce coup a pose un point (les verrous DELAY et REVERB, revue de R2) : retires a l'annulation */
+  sends?: LockSend[];
 }
 
 /**
@@ -464,6 +466,9 @@ export function ensure(): AudioContext | undefined {
   else window.setTimeout(warmSends, 1500);
   // Les one-shots a STRETCH 0, un par tache (audio/shots.ts)
   shots.warm(ctx.sampleRate);
+  // Les verrous deja la avant le contexte (revue de R2 : relus du stockage, d'un preset ou d'un pattern avant le
+  // premier RUN) : prepares eux aussi, sinon leur premier passage jouait le son le plus proche (celui du kit)
+  prepareLocks();
   // Le chorus sans interpolation lineaire (audio/chorus.worklet.js) : pret pour la premiere branche
   void loadChorus(ctx);
   attachLimiter(ctx, graph);
@@ -676,8 +681,23 @@ export interface HitParams {
   start: number;
 }
 
+/** Le potard du kit de chaque verrou de la machine (revue de R2). */
+const KNOB_OF: Readonly<Record<KitLockId, KitKnob>> = { ktune: 'tune', kattack: 'attack', kdecay: 'decay', kdrive: 'drive', snappy: 'snappy', gate: 'gate' };
+
+/** Les potards de la machine verrouilles sur un pas (K.TUNE, ATTACK, DECAY, DRIVE, SNAPPY, GATE) ; null : aucun. */
+function kitKnobsOf(lock: Readonly<StepLock>): KitKnobs | null {
+  let kn: KitKnobs | null = null;
+  for (const id of KIT_LOCK_IDS) {
+    const v = lock[id];
+    if (v === undefined) continue;
+    kn = kn ?? {};
+    kn[KNOB_OF[id]] = v;
+  }
+  return kn;
+}
+
 /** Le son verrouille d'un pas, s'il existe encore (un echantillon parti du dossier : le son de la voix). */
-function lockedShot(base: ShotId, snd: string | undefined): { id: ShotId; ov: ShotOverride } | null {
+function lockedShot(base: ShotId, snd: string | undefined, kn: KitKnobs | null = null): { id: ShotId; ov: ShotOverride } | null {
   if (!snd) return null;
   const p = parseSnd(snd);
   if (!p) return null;
@@ -688,7 +708,7 @@ function lockedShot(base: ShotId, snd: string | undefined): { id: ShotId; ov: Sh
   // La meme famille : le son de la voix (OH reste OH) ; une autre : son son principal, joue par la voix
   const id = familyOf(base) === f ? base : MAIN_SHOT[f];
   if (!id) return null;
-  return { id, ov: { tw: kit.tweakWith(id, p.sound), sig: kit.sigWith(id, p.sound) } };
+  return { id, ov: { tw: kit.tweakWith(id, p.sound, kn), sig: kit.sigWith(id, p.sound, kn) } };
 }
 
 export function hitParams(inst: Inst, open: boolean, lock: Readonly<StepLock> | null, globalTone: number, globalStretch: number, fx: Readonly<VoiceFx>): HitParams {
@@ -697,17 +717,26 @@ export function hitParams(inst: Inst, open: boolean, lock: Readonly<StepLock> | 
   const pf = voicePitch(inst, globalTone, fx.tone) * tuneFactor(tune);
   const hp: HitParams = { id: base, ov: null, pf, ts: voiceTime(globalStretch), decay: lock?.decay ?? fx.decay, gain: 1, pan: lock?.pan ?? fx.pan, start: lock?.start ?? fx.start };
   if (!lock) return withPanGain(hp);
-  const snd = lockedShot(base, lock.snd);
+  // Les potards de la machine du pas (revue de R2) : le coup se calcule avec eux (la variante 0, prepare a l'avance)
+  const kn = kitKnobsOf(lock);
+  const snd = lockedShot(base, lock.snd, kn);
   if (snd) {
     hp.id = snd.id;
     hp.ov = snd.ov;
+  } else if (kn) {
+    const f = familyOf(base);
+    const sound = f ? kit.sound(f) : 'mm';
+    hp.ov = { tw: kit.tweakWith(base, sound, kn), sig: kit.sigWith(base, sound, kn) };
   } else if (lock.tune !== undefined) {
     // Une hauteur verrouillee : la variante 0 (le calcul prepare a l'avance est celui-la)
     hp.ov = { tw: kit.tweak(base), sig: kit.sig(base) };
   }
   if (lock.level !== undefined) {
+    // Le gain du verrou rapporte a celui de la voix (sa tranche l'applique ensuite) : le niveau exact du VOL
+    // verrouille (revue de R2 : le plafond de x4 jouait VOL 80 pour un verrou a 100 sur une voix a 40) ; une
+    // voix a VOL 0 reste muette (sa tranche est a 0, le rapport n'y change rien)
     const was = voiceGain(fx.level);
-    hp.gain = was > 1e-6 ? Math.min(4, voiceGain(lock.level) / was) : 4;
+    hp.gain = was > 1e-6 ? voiceGain(lock.level) / was : 1;
   }
   return withPanGain(hp);
 }
@@ -753,12 +782,24 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
   // StereoPannerNode en stereo doublait le canal du bord, +6 dB)
   if (hp.pan !== 0) {
     const pn = c.createStereoPanner();
-    pn.channelCount = 1;
-    pn.channelCountMode = 'explicit';
+    // Un echantillon vraiment stereo (revue de R2) : le panoramique stereo (identite au centre, sa largeur
+    // gardee, PAN 0.02 sonne comme PAN 0), sans le x racine de 2 de la loi mono ; un son mono : la loi mono
+    const stereo = shots.isStereo(shot.buf);
+    if (!stereo) {
+      pn.channelCount = 1;
+      pn.channelCountMode = 'explicit';
+    }
     pn.pan.value = Math.max(-1, Math.min(1, hp.pan));
     pn.connect(dest);
     nodes.push(pn);
     dest = pn;
+    if (stereo) {
+      const comp = c.createGain();
+      comp.gain.value = Math.SQRT1_2;
+      comp.connect(dest);
+      nodes.push(comp);
+      dest = comp;
+    }
   }
   // START (2026-10-08) : le coup part plus loin dans son echantillon (secondes du tampon) ; sa fin avance d'autant
   const off = hp.start > 0 ? Math.min(hp.start, 1) * START_MAX * shot.buf.duration : 0;
@@ -838,6 +879,8 @@ export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], 
   }
   // Le gain part avec la voix (meme liste de noeuds a debrancher)
   if (vg) v.nodes.push(vg);
+  // Les envois verrouilles du pas (revue de R2) : sur sa tranche a l'instant du coup
+  postSends(g, inst, t, lock, v);
   // Un kick : le MM-ARP s'efface avec lui (SIDECHAIN), a sa velocite et a son VOLUME
   if (v.kick && arpDuck > 0) {
     v.kick.vel = Math.max(0, vel) * Math.min(1, voiceGain(lock?.level ?? fx.level));
@@ -847,6 +890,22 @@ export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], 
   triggers += 1;
   last = { inst, open: inst === 'CH' && open, when: t, at: performance.now(), state: g.ctx.state as AudioContextState, lock, decay: hp.decay, gain, shot: hp.id, pf: hp.pf, pan: hp.pan, start: hp.start };
   return true;
+}
+
+/**
+ * Les verrous DELAY et REVERB d'un coup (2026-10-08, revue de R2, Mika :
+ * "est-ce que le voice, est-ce que le FX, est-ce que l'enveloppe") : les
+ * envois de la tranche de la voix prennent la valeur du pas a l'instant du
+ * coup, et la reprennent au coup suivant de la voix (verrouille ou non) ; la
+ * queue deja envoyee reste. Une voix qui n'a jamais eu de verrou d'envoi ne
+ * recoit rien (audio/sends.ts hit) : le son de toujours.
+ */
+function postSends(g: Graph, inst: Inst, when: number, lock: Readonly<StepLock> | null, v: Voice): void {
+  const ch = g.ch?.[inst];
+  if (!ch) return;
+  const r = ch.reverb.hit(when, lock?.reverb ?? null, v);
+  const d = ch.delay.hit(when, lock?.delay ?? null, v);
+  if (r || d) v.sends = [...(r ? [ch.reverb] : []), ...(d ? [ch.delay] : [])];
 }
 
 /**
@@ -869,7 +928,7 @@ function prepareLocks(): void {
       if (!row) continue;
       const fx = voiceFx.of(inst);
       for (const l of Object.values(row)) {
-        if (!l.snd && l.tune === undefined) continue;
+        if (!l.snd && l.tune === undefined && !kitKnobsOf(l)) continue;
         const hp = hitParams(inst, false, l, tone, stretch, fx);
         shots.prepare(hp.id, hp.ts, hp.pf, c.sampleRate, hp.ov);
       }
@@ -895,6 +954,8 @@ voiceFx.subscribe(() => prepareLocks());
  */
 export function cancelVoice(v: Voice): void {
   if (v.kick) graph?.duck.cancel(v);
+  // Ses points d'envoi (revue de R2, les verrous DELAY et REVERB) : retires, les autres coups gardent les leurs
+  if (v.sends) for (const snd of v.sends) snd.cancel(v);
   // Un charley annule (re-programmation, 2026-10-05) : le charley ouvert qu'il etouffait sonne de nouveau
   // (annulees du dernier au premier, les portes reviennent dans l'ordre)
   if (v.choked) {
@@ -1197,7 +1258,10 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
         dest = vg;
       }
       const v = voice(g, o.single, 0.05, dest, hp, true);
-      if (v) voices.push(v);
+      if (v) {
+        postSends(g, o.single, 0.05, o.singleLock ?? null, v);
+        voices.push(v);
+      }
     } else {
       const steps = o.steps ?? pattern.get().steps;
       const step = 60 / (o.bpm ?? pattern.get().bpm) / 4;
@@ -1205,7 +1269,8 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
         for (const inst of INSTRUMENTS) {
           const v = velocity(steps, inst, n % STEP_COUNT);
           if (v === 0) continue;
-          const hp = hpOf(inst, lockOf(o.locks, inst, n % STEP_COUNT));
+          const lk = lockOf(o.locks, inst, n % STEP_COUNT);
+          const hp = hpOf(inst, lk);
           const gain = VEL_GAIN[v] * hp.gain;
           let dest: AudioNode = voiceIn(g, inst);
           if (gain !== 1) {
@@ -1215,7 +1280,10 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
             dest = vg;
           }
           const vo = voice(g, inst, t, dest, hp, true);
-          if (vo) voices.push(vo);
+          if (vo) {
+            postSends(g, inst, t, lk, vo);
+            voices.push(vo);
+          }
         }
       }
     }

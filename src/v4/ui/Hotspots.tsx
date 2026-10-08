@@ -197,6 +197,8 @@ interface Down {
   mouse: boolean;
   /** instant du pointerdown (performance.now) */
   t: number;
+  /** l'horodatage de l'evenement pointerdown (e.timeStamp) : la tenue d'un pas se mesure d'un evenement a l'autre */
+  ts: number;
   /** un autre doigt etait pose (pincement, rotation) : jamais un glisser d'une machine a l'autre */
   multi: boolean;
   /** un pas : sa velocite au pointerdown (0 vide) ; le glisser la change (velDrag) */
@@ -604,6 +606,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         axis: 'y',
         mouse: e.pointerType === 'mouse',
         t: performance.now(),
+        ts: e.timeStamp || performance.now(),
         vel0: h?.kind === 'step' && h.index !== undefined ? stepVelocityOf(h.index) : 0,
         velDrag: false,
         held: false,
@@ -621,13 +624,15 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         const idx = h.index;
         const pid = e.pointerId;
         const lockable = editor.get() !== 'mm808' && pattern.get().instrument !== null;
+        // La pression de CE pointerdown (revue de R2) : une souris a toujours le pointerId 1, la minuterie d'un
+        // clic d'avant ne doit pas prendre le clic suivant pour une tenue (trois clics a la seconde latchaient le LOCK)
+        const d0 = downs.get(pid);
         if (lockable) {
-          const d0 = downs.get(pid);
           if (d0) d0.held = true;
           rytmLock.hold(idx);
           window.setTimeout(() => {
             const d = downs.get(pid);
-            if (!d || d.velDrag || d.index !== idx || disposed) return;
+            if (!d || d !== d0 || d.velDrag || d.index !== idx || disposed) return;
             // Deja passe en LOCK par un potard tourne pendant la tenue : il y reste jusqu'au lacher
             if (rytmLock.get().writes > d.writes0) {
               d.lockHold = true;
@@ -638,7 +643,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         } else {
           window.setTimeout(() => {
             const d = downs.get(pid);
-            if (d && !d.velDrag && d.index === idx && !disposed) stepHoldHint(idx);
+            if (d && d === d0 && !d.velDrag && d.index === idx && !disposed) stepHoldHint(idx);
           }, STEP_HOLD_MS);
         }
       }
@@ -653,20 +658,60 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
      * a recu un verrou (deux doigts) n'est ni change ni tape. Rend true si le
      * lacher est pris (la tape ne part pas).
      */
-    const stepUp = (d: Down): boolean => {
+    const stepUp = (d: Down, upTs = -1): boolean => {
       if (!d.held || d.index === undefined) return false;
       d.held = false;
       rytmLock.release(d.index);
       const turned = rytmLock.get().writes > d.writes0;
+      // Une tenue dont la minuterie n'a pas encore parle (revue de R2 : le fil principal gele, le pointerup passe
+      // avant elle) : mesuree d'un evenement a l'autre, 350 ms ou plus, c'est la tenue, le LOCK fixe
+      if (!d.lockHold && !turned && !d.velDrag && upTs >= 0 && upTs - d.ts >= LOCK_HOLD_MS) {
+        if (rytmLockEnter(d.index, true)) {
+          d.lockHold = true;
+          return true;
+        }
+      }
       if (!d.lockHold && !turned) return false;
       d.lockHold = true;
       if (turned || d.velDrag) {
         // Momentane : le LOCK fixe d'avant revient, ou plus de LOCK
         if (rytmLock.get().held.length > 0) return true;
-        if (d.prevLock >= 0) rytmLock.enter(d.prevLock, true);
-        else rytmLock.leave();
+        // Un potard de page encore tenu (deux doigts, revue de R2 : le doigt du pas leve le premier) : il
+        // continue d'ecrire sur ce pas, le LOCK ne revient qu'a son lacher
+        if (knobHeld()) {
+          pendingRestore = d.prevLock;
+          return true;
+        }
+        restoreLock(d.prevLock);
       } else rytmLock.latch();
       return true;
+    };
+
+    /** Un potard de page est-il tenu (un doigt, la souris) ? */
+    const knobHeld = (): boolean => {
+      for (const o of downs.values()) if (o.dial && pageKnobOf(o.dial) >= 0) return true;
+      return false;
+    };
+    /** Le LOCK fixe a rendre au lacher du dernier potard de page (-1 : plus de LOCK), null : rien en attente. */
+    let pendingRestore: number | null = null;
+    /**
+     * La fin d'un LOCK momentane : le LOCK fixe d'avant revient, ou plus de
+     * LOCK. Seulement si le LOCK est encore celui de la tenue (revue de R2) :
+     * Echap, EDIT ou une autre machine en sont sortis, une tape l'a fixe
+     * ailleurs : rien a rendre (jamais un LOCK qui revient dans EDIT).
+     */
+    const restoreLock = (prev: number): void => {
+      const s = rytmLock.get();
+      if (s.step < 0 || s.latched) return;
+      if (prev >= 0 && editor.get() !== 'mm808') rytmLock.enter(prev, true);
+      else rytmLock.leave();
+    };
+    /** Un pointeur lache : le dernier potard de page parti, le LOCK en attente revient. */
+    const flushRestore = (): void => {
+      if (pendingRestore === null || knobHeld() || rytmLock.get().held.length > 0) return;
+      const prev = pendingRestore;
+      pendingRestore = null;
+      restoreLock(prev);
     };
 
     /**
@@ -678,6 +723,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (!d) return;
       downs.delete(id);
       stepUp(d);
+      flushRestore();
       try {
         if (el.hasPointerCapture(id)) el.releasePointerCapture(id);
       } catch {
@@ -755,7 +801,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         setCursor();
       }
       // Un pas tenu du MM-RYTM (2026-10-08) : son lacher decide du LOCK (et la tape ne part pas s'il l'a pris)
-      if (d) stepUp(d);
+      if (d) stepUp(d, e.type === 'pointerup' ? e.timeStamp || performance.now() : -1);
+      flushRestore();
       // Lu AVANT le pointerup de l'orbite (elle ecoute le parent) : sa fiche existe encore
       if (d && !d.turning && e.type === 'pointerup') {
         const tap = stage.orbit.isTap(e);

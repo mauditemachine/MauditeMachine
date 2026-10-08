@@ -28,12 +28,12 @@
 import { anyDialValue, dialRange, dialSteps, dialUnit, dialValueText, kitIdOf, pageLockView, stepVelocityOf, type DialId } from '../actions';
 import type { StepLock } from '../audio/locks';
 import { familyOf, isFamily, kitSoundIndex, kitSteps } from '../audio/kit';
-import { VEL_NAMES, pattern } from '../audio/pattern';
+import { pattern } from '../audio/pattern';
 import type { ShotId } from '../audio/shotsdsp';
 import type { RytmPageState } from '../state/rytmPage';
 import type { EncId, Inst } from '../theme';
 import { pageSlots, type PageSlot, type SlotDraw } from './pages';
-import { encText, encUnit, kitUnit, v127Text, velTo127 } from './values';
+import { encText, encUnit, kitUnit, v127Text, velTo127, velWord } from './values';
 
 export type BlockState = 'live' | 'soon' | 'off' | 'empty';
 /** Le bloc pour le pas en LOCK (2026-10-08) : none hors LOCK. */
@@ -175,7 +175,7 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, sel: number, ec
     const v = stepVelocityOf(sel);
     b.state = 'live';
     b.text = v > 0 ? String(velTo127(v)) : 'OFF';
-    b.unit = `STEP ${two(sel + 1)}${v > 0 ? ` ${VEL_NAMES[v]}` : ''}`;
+    b.unit = `STEP ${two(sel + 1)}${v > 0 ? ` ${velWord(v)}` : ''}`;
     b.value = v;
     b.course = v / 9;
     b.notches = 10;
