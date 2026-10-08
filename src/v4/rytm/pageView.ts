@@ -81,6 +81,13 @@ const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
 export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, sel: number, echo = false, mode: BlockMode | null = null): Block {
   const b = baseBlock(slot, k, inst, sel, echo);
   if (!mode || b.state === 'empty' || b.state === 'soon') return b;
+  // SOUND d'une voix a un seul son (CY) : sans choix de son a elle, mais un son d'une autre famille se verrouille
+  if (b.state === 'off' && inst && slot.lock === 'snd' && slot.target === 'vsound' && (mode.kind === 'lock' || !!mode.lock?.snd)) {
+    b.state = 'live';
+    b.text = inst;
+    b.unit = 'OWN SOUND';
+    b.notches = 0;
+  }
   if (mode.kind === 'lock') {
     if (b.state === 'off') return b;
     if (slot.scope === 'all') {
