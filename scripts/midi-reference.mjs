@@ -25,7 +25,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const OUT = path.join(ROOT, 'docs/midi');
+// MIDI_OUT : un autre dossier (une verification, sans toucher docs/midi)
+const OUT = process.env.MIDI_OUT ? path.resolve(process.env.MIDI_OUT) : path.join(ROOT, 'docs/midi');
 const require = createRequire(import.meta.url);
 
 function playwright() {
@@ -74,16 +75,21 @@ async function readSite(chromium, url) {
       await new Promise((r) => setTimeout(r, 1500));
       const scopes = ['mm808', 'voy', 'bass', 'dj', 'global'];
       const targets = scopes.flatMap((s) => T.targetsOf(s).map((t) => ({ id: t.id, scope: t.scope, label: t.label, kind: t.kind, steps: t.steps ?? 0 })));
-      const setups = R.rotoSetups().map((s) => ({
-        name: s.name,
-        slot: s.slot,
-        ch: s.ch,
-        file: R.rotoFileName(s),
-        json: JSON.parse(R.rotoSetupJson(s)),
-        knobs: s.knobs.map((c, i) => (c ? { ...c, n: c.n, cc: R.rotoCc(i) } : null)),
-        buttons: s.buttons.map((c, i) => (c ? { ...c, cc: R.rotoCc(i) } : null)),
-      }));
-      return { targets, setups, ccTable: Array.from({ length: 32 }, (_, n) => R.rotoCc(n)) };
+      // Canal et CC : ceux du registre (2026-10-08, midi/rotoKeys.ts), plus la place du controle
+      const setups = R.rotoSetups().map((s) => {
+        const ad = R.rotoAddresses(s);
+        return {
+          name: s.name,
+          label: R.rotoSetupLabel(s),
+          slot: s.slot,
+          ch: s.ch,
+          file: R.rotoFileName(s),
+          json: JSON.parse(R.rotoSetupJson(s)),
+          knobs: s.knobs.map((c, i) => (c ? { ...c, n: c.n, ch: ad.knobs[i].ch, cc: ad.knobs[i].cc } : null)),
+          buttons: s.buttons.map((c, i) => (c ? { ...c, ch: ad.buttons[i].ch, cc: ad.buttons[i].cc } : null)),
+        };
+      });
+      return { targets, setups, version: R.ROTO_VERSION, missing: [...R.rotoMissingKeys()], ccTable: Array.from({ length: 32 }, (_, n) => R.rotoCc(n)) };
     });
   } finally {
     await browser.close();
@@ -149,11 +155,14 @@ function build(data, date) {
   L.push('## 1. Comment c\'est fait', '');
   L.push('**Le principe.** Le site ecoute le MIDI du navigateur (Web MIDI : Chrome, Edge, Opera, Firefox ; pas Safari). Panneau MIDI > CONNECT. Chaque message est reconnu par une cle `type:canal:numero` (`cc:1:14` : CC 14 sur le canal 1 ; `note:10:36` ; `pb:2:0` pour le pitch bend). Une cle vise une **cible** du site (un potard, un bouton) par son id (`voy:knob:cutoff`).', '');
   L.push('**D\'ou vient la cible d\'une cle**, dans cet ordre :', '');
-  L.push('1. ce que tu as appris (MIDI LEARN, ou un fichier d\'assignations importe) : la machine regardee d\'abord, puis les assignations de partout, puis les autres machines ;');
-  L.push('2. sinon la **carte du Roto** (les six setups ci-dessous), si elle est allumee (par defaut oui).', '');
+  L.push('1. ce que tu as appris (MIDI LEARN, ou un fichier d\'assignations importe) pour la machine regardee, puis les assignations de partout ;');
+  L.push('2. sinon la **carte du Roto** (les six setups ci-dessous), si elle est allumee (par defaut oui), pour un message d\'une entree dont le nom contient « roto » ;');
+  L.push('3. sinon ce que tu as appris pour une autre machine (depuis le 2026-10-08 : une vieille assignation d\'une autre machine ne vole plus un controle du Roto).', '');
+  L.push('Une assignation apprise ne repond qu\'a l\'appareil qui l\'a apprise. Le panneau MIDI liste celles qui tombent sur une cle de la carte (REMOVE CONFLICTS WITH THE ROTO MAP) et dit, pour chaque message recu, ce qu\'il a fait.', '');
   L.push('**La carte du Roto.**', '');
   L.push('- Un setup par machine, chacun sur son canal : potards sur le canal N, boutons sur le canal N + 8.');
-  L.push(`- Le potard ou bouton numero n (0 a 31, quatre pages de huit) envoie le CC **14 + n** (n de 0 a 17), puis **102 + (n - 18)** (n de 18 a 31). Soit : ${data.ccTable.map((cc, n) => `${n}:${cc}`).join(', ')}.`);
+  L.push(`- Les adresses sont gelees (2026-10-08, \`src/v4/midi/rotoKeys.ts\`) : une cible garde son canal et son CC pour toujours, meme deplacee sur une autre page ; une nouvelle cible prend une adresse libre, une adresse retiree n'est jamais redonnee. Au depart, le controle numero n (0 a 31, quatre pages de huit) avait le CC **14 + n** (n de 0 a 17), puis **102 + (n - 18)** (n de 18 a 31) : ${data.ccTable.map((cc, n) => `${n}:${cc}`).join(', ')} ; les colonnes Canal et CC ci-dessous font foi.`);
+  L.push(`- **Version des setups : ${data.version}.** Le nom du setup sur l'ecran du Roto la porte (${data.setups.map((s) => s.label).join(', ')}) : un Roto qui montre un autre nom a un ancien fichier, reimporte les setups.`);
   L.push('- Ces CC n\'ont aucun role reserve dans la norme MIDI (ni 0 bank, 1 modulation, 6 et 38 data, 64 pedale, 96 a 101 RPN/NRPN, 120 a 127 messages de canal).');
   L.push('- Ce que dit le fichier JSON, c\'est seulement **canal + CC + nom + couleur + type**. La **cible** (ce que ca pilote) est dans le site : il retrouve la cible avec le canal et le CC. Changer l\'ordre dans le JSON sans changer le site ne deplace donc rien (voir le chapitre 5).', '');
   L.push('**Les valeurs.**', '');
@@ -161,8 +170,9 @@ function build(data, date) {
   L.push('- Un selecteur a crans du site est un potard a crans du Roto (hapticMode 1, jusqu\'a 16 crans, noms courts) : le cran i de n correspond a la valeur i/(n-1). Le choix de son du kit compte les echantillons du site : KICK SOUND a 9 crans (909, 808, MM, puis les 6 samples), SNARE SOUND a 7.');
   L.push('- **SAMPLE** (`rytm:enc:vsound`, a droite de VOLUME) choisit le son de la voix selectionnee : son nombre de crans suit la voix (BD 9, SD 7, les autres 3 ; CY et PC n\'ont qu\'un son). Il est donc continu sur le Roto : le site prend le cran le plus proche. La colonne Crans du catalogue donne son nombre pour la voix selectionnee a la generation (BD par defaut).');
   L.push('- Une **action** (RANDOM, CLEAR, OPEN, PLAY d\'une platine...) part au front montant : un CC qui passe au-dessus de 63, ou une note enfoncee. Une action **maintenue** (CUE, boucles, pads des samplers, bends) dure jusqu\'au relachement.');
-  L.push('- Un **etat** (RUN, un mute, OSC ON) est une valeur 0 ou 1 : sur le Roto un bouton **bascule** (TOGGLE) dont la LED suit le site. Une note fait basculer un parametre.', '');
-  L.push('**Le retour vers le Roto.** Les potards motorises et les LEDs recoivent la valeur du site (meme canal, meme CC) toutes les 50 ms quand elle change (souris, preset, RANDOM, changement de machine), jamais pendant 300 ms apres un geste sur le potard, et un echo qui revient aussitot est ignore. Seulement vers une sortie dont le nom contient « roto », ou un appareil sur lequel tu as appris. Pas de retour pour les boutons d\'action.', '');
+  L.push('- Un **etat** (RUN, un mute, OSC ON) est une valeur 0 ou 1 : sur le Roto un bouton **bascule** (TOGGLE) dont la LED suit le site. Depuis le 2026-10-08, chaque message d\'un bouton TOGGLE de la carte fait basculer sa cible (127 ou 0, peu importe : apres un changement fait sur la page, le premier appui marche). Une note fait basculer un parametre.', '');
+  L.push('**Le retour vers le Roto.** Les potards motorises et les LEDs recoivent la valeur du site (meme canal, meme CC) toutes les 50 ms quand elle change (souris, preset, RANDOM), 48 messages au plus par tick, jamais pendant 300 ms apres un geste sur le potard, et un echo qui revient aussitot est ignore. La carte part seulement vers une sortie dont le nom contient « roto », une assignation apprise seulement vers son appareil. Pas de retour pour les boutons d\'action. Un seul onglet du site pilote le Roto : le dernier montre ou clique.', '');
+  L.push('**Changer de setup sur le Roto.** Le Roto ne le dit pas : le premier potard touche d\'un autre setup qui saute loin de la valeur du site ne compte pas, son moteur y retourne et les potards et LEDs de ce setup sont renvoyes ; tourne-le de nouveau.', '');
   L.push('**FOLLOW.** Toucher un controle d\'un setup montre sa machine : RYTM > MM-RYTM, ARP > MM-ARP, BASS > MM-BASS, DECK et MIXER > MM-DECKS. LIVE ne change pas de machine.', '');
   L.push('**Retenu** dans le navigateur (`mm.v4.midi.1`) : assignations apprises, appareils, ROTO (la carte), FEEDBACK, FOLLOW.', '');
 
@@ -177,11 +187,11 @@ function build(data, date) {
       ['Champ', 'Sens'],
       [
         ['version, type', '1 et "MIDI" (toujours)'],
-        ['name, index', 'nom du setup ; index = numero de SETUP moins 1 (SETUP 12 : 11)'],
+        ['name, index', 'nom du setup sur l\'ecran du Roto, avec la version (RYTM 1008) ; index = numero de SETUP moins 1 (SETUP 12 : 11)'],
         ['controlIndex', 'le controle n, de 0 a 31 (page = n div 8 + 1, position = n mod 8 + 1)'],
         ['controlMode', '0 : CC'],
         ['controlChannel', 'canal MIDI 1 a 16 (potards N, boutons N + 8)'],
-        ['controlParam', 'le numero de CC (14 + n, puis 102 + n - 18)'],
+        ['controlParam', 'le numero de CC (celui du registre des adresses, src/v4/midi/rotoKeys.ts)'],
         ['nrpnAddress', '0 pour un potard, 65535 pour un bouton (sans objet en CC)'],
         ['minValue, maxValue', '0 et 127 : toute la course'],
         ['controlName', 'nom sur l\'ecran du Roto : 12 caracteres ASCII au plus'],
@@ -205,7 +215,7 @@ function build(data, date) {
       list.flatMap((c, n) => {
         if (!c) return [];
         const d = describe(c, isButton, byId);
-        return [[n, `${Math.floor(n / 8) + 1}.${(n % 8) + 1}`, isButton ? s.ch + 8 : s.ch, c.cc, c.n, colorName(c.c), c.t, d.label, [d.way, d.steps].filter(Boolean).join(' : ')]];
+        return [[n, `${Math.floor(n / 8) + 1}.${(n % 8) + 1}`, c.ch, c.cc, c.n, colorName(c.c), c.t, d.label, [d.way, d.steps].filter(Boolean).join(' : ')]];
       });
     const head = ['n', 'Page.pos', 'Canal', 'CC', 'Nom Roto', 'Couleur', 'Cible (id)', 'Ce que ca fait', 'Type'];
     L.push('**Potards**', '', table(head, rows(s.knobs, false)), '', '**Boutons**', '', table(head, rows(s.buttons, true)), '');
@@ -256,7 +266,7 @@ function build(data, date) {
       list.forEach((c, n) => {
         if (!c) return;
         const d = describe(c, isButton, byId);
-        setupsCsv.push([s.name, s.slot, isButton ? 'bouton' : 'potard', n, Math.floor(n / 8) + 1, (n % 8) + 1, isButton ? s.ch + 8 : s.ch, c.cc, c.n, colorName(c.c), c.t, d.label, d.way, d.steps]);
+        setupsCsv.push([s.name, s.slot, isButton ? 'bouton' : 'potard', n, Math.floor(n / 8) + 1, (n % 8) + 1, c.ch, c.cc, c.n, colorName(c.c), c.t, d.label, d.way, d.steps]);
       });
     }
   }
@@ -282,7 +292,9 @@ async function main() {
   // Les fichiers a importer dans ROTO-SETUP (File > Import, sur le setup choisi avec SEL)
   await mkdir(path.join(OUT, 'roto'), { recursive: true });
   for (const st of data.setups) await writeFile(path.join(OUT, 'roto', st.file), `${JSON.stringify(st.json, null, 2)}\n`);
-  console.log(`docs/midi : ${data.targets.length} cibles, ${data.setups.length} setups`);
+  console.log(`${path.relative(ROOT, OUT)} : ${data.targets.length} cibles, ${data.setups.length} setups, version ${data.version}`);
+  // Une nouvelle cible sans adresse fixe : la ligne a ajouter au registre (src/v4/midi/rotoKeys.ts)
+  if (data.missing.length > 0) console.warn(`A ajouter a la fin de ROTO_KEYS (src/v4/midi/rotoKeys.ts) :\n${data.missing.join('\n')}`);
 }
 
 main().catch((e) => {
