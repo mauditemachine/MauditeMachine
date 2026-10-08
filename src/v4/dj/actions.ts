@@ -192,10 +192,18 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
   loads[d]?.abort();
   const ctl = new AbortController();
   loads[d] = ctl;
+  /*
+   * SYNC reste engage d'un morceau a l'autre (relecture du 2026-10-08,
+   * BACK puis un autre morceau : la platine perdait SYNC et gardait le pitch
+   * de l'ancien, le nouveau partait au mauvais tempo) : comme sur une CDJ,
+   * le nouveau prend le tempo de la reference des qu'il est analyse.
+   */
+  const keepSync = djState.get().deck[d].sync || syncArmed.has(d);
   // L'ancien morceau s'ejecte : ni PLAY, ni CUE, ni un hot cue ne peuvent le relancer pendant le chargement
   e.decks[d].unload();
   previewing[d] = false;
   syncArmed.delete(d);
+  if (keepSync) syncArmed.add(d);
   lastDeck = d;
   djState.setDeck(d, { playing: false, loaded: false, track, loading: 0, loadStep: 'read', armed: false, error: null, beat: null, sync: false, loop: null });
   try {
@@ -352,8 +360,14 @@ export function djCue(d: DjDeck, down: boolean): void {
     }
     silenceOthers();
     previewing[d] = true;
-    p.play();
-    djState.setDeck(d, { playing: true });
+    /*
+     * Calee (SYNC, ou suivie par les machines), le preview part comme PLAY :
+     * tout de suite, la tete deplacee d'au plus un demi-temps sur les temps
+     * de la reference (relecture du 2026-10-08 : CUE tenu puis PLAY, le geste
+     * CDJ, partait hors phase et le restait, jusqu'a 226 ms).
+     */
+    follow(d);
+    startSynced(d, e, performance.now());
     return;
   }
   if (!previewing[d]) return;
@@ -363,9 +377,19 @@ export function djCue(d: DjDeck, down: boolean): void {
   djState.setDeck(d, { playing: false });
 }
 
-/** PLAY pendant un preview de CUE : la lecture continue au lacher de CUE. */
+/**
+ * PLAY pendant un preview de CUE : la lecture continue au lacher de CUE.
+ * Comme PLAY, la platine redevient suivie par les machines ; calee, elle
+ * saute sur les temps de la reference si le preview ne l'etait pas (SYNC
+ * presse apres, les machines parties entre-temps), en fondu croise.
+ */
 export function djKeepPreview(d: DjDeck): void {
   previewing[d] = false;
+  const e = engine();
+  if (!e) return;
+  freed.delete(d);
+  follow(d, true);
+  if (djState.get().deck[d].sync) alignNow(d, e);
 }
 
 /** Un preview de CUE joue-t-il ? (un CUE tenu sans preview ne doit pas bloquer PLAY) */
@@ -610,19 +634,31 @@ function refBeat(d: DjDeck, e: DjEngine, s = djState.get(), t = e.ctx.currentTim
  * sur les temps de la reference : le plus petit saut, au plus un demi-temps,
  * dans un sens ou dans l'autre (avant le debut du morceau, l'autre sens).
  * pos tel quel sans grille ni reference. playing : la platine joue deja (un
- * saut en lecture).
+ * saut en lecture). hold : l'ecart a garder avec la reference (s, un nudge
+ * a la main), 0 : pile dessus.
+ *
+ * Dans une boucle, la tete y reste (relecture du 2026-10-08 : PLAY avec
+ * SYNC sur une platine en pause dans une boucle d'un temps la quittait une
+ * fois sur quatre) : la boucle dure un nombre de temps, la ramener dedans
+ * ne change pas la phase.
  */
-function inPhase(d: DjDeck, e: DjEngine, pos: number, when: number, playing = false): number {
+function inPhase(d: DjDeck, e: DjEngine, pos: number, when: number, playing = false, hold = 0): number {
   const p = e.decks[d];
   const s = djState.get();
   const own = deckBeat(d, e, s, pos, when);
   const ref = refBeat(d, e, s, when);
   if (!own || !ref) return pos;
-  const shift = phaseShift(own.in, own.period, ref.in, ref.period);
-  const period = Math.min(own.period, ref.period) * p.speed;
+  const beat = Math.min(own.period, ref.period);
+  const shift = wrapPhase(phaseShift(own.in, own.period, ref.in, ref.period) - hold, beat);
+  const period = beat * p.speed;
   let to = pos + shift * p.speed;
   if (to < 0) to += period;
   if (to > p.duration - END_S) to -= period;
+  const L = p.loop;
+  if (L && pos >= L.a && pos < L.b) {
+    const len = L.b - L.a;
+    to = L.a + ((((to - L.a) % len) + len) % len);
+  }
   return playing ? Math.max(0, to) : Math.max(0, Math.min(p.duration, to));
 }
 
@@ -646,20 +682,26 @@ function jumpSynced(d: DjDeck, e: DjEngine, pos: number): void {
 /**
  * En lecture : la platine saute d'au plus un demi-temps, ses temps tombent
  * sur ceux de la reference (un seul saut, en fondu croise : dj/engine.ts
- * seek). gentle : un petit ecart (moins de LOCK.seekAboveS) est laisse au
- * verrou de phase, qui le rattrape sans saut.
+ * seek). gentle (le tempo des machines a change, elles partent) : l'ecart
+ * laisse par la main contre cette reference est garde, et un petit ecart
+ * (moins de LOCK.seekAboveS) est laisse au verrou de phase, qui le rattrape
+ * sans saut. Sinon (SYNC presse, PLAY pendant un preview) : pile sur la
+ * reference.
  */
 function alignNow(d: DjDeck, e: DjEngine, gentle = false): void {
   const p = e.decks[d];
   if (!p.playing) return;
+  const s = djState.get();
+  const hold = gentle ? heldOffset(d, s) : 0;
   const when = startTime(e, d);
   const here = p.positionAt(when);
-  const to = inPhase(d, e, here, when, true);
+  const to = inPhase(d, e, here, when, true, hold);
   const jump = Math.abs(to - here) / p.speed;
   if (jump < 0.002 || (gentle && jump < LOCK.seekAboveS)) return;
   p.seek(to, when);
   loopFollows(d, e);
-  rearm(d, e);
+  if (gentle) stopNudge(d, e, true);
+  else rearm(d, e);
 }
 
 /**
@@ -721,7 +763,7 @@ export function djSynced(d: DjDeck, s = djState.get()): boolean {
   const b = refBeat(d, e, s, t);
   if (!a || !b) return true;
   // L'ecart garde par un nudge a la main compte comme cale (le verrou de phase le tient)
-  return Math.abs(wrapPhase(phaseShift(a.in, a.period, b.in, b.period) - keep[d], Math.min(a.period, b.period))) < 0.02;
+  return Math.abs(wrapPhase(phaseShift(a.in, a.period, b.in, b.period) - heldOffset(d, s), Math.min(a.period, b.period))) < 0.02;
 }
 
 /* ---------------- le verrou de phase de SYNC ---------------- */
@@ -745,6 +787,13 @@ const LOCK = { everyMs: 250, startS: 0.004, settleS: 0.001, seekAboveS: 0.02 } a
 const each = <T>(v: T): Record<DjDeck, T> => ({ a: v, b: v, c: v, d: v });
 /** l'ecart garde (s, positif : en retard), pose par la main */
 const keep = each(0);
+/**
+ * la reference contre laquelle la main l'a pose ('machines', ou la lettre
+ * d'une platine) : l'ecart ne vaut que contre elle (relecture du
+ * 2026-10-08 : pris contre B, il s'appliquait ensuite contre les machines,
+ * un flam que personne n'avait demande)
+ */
+const keepRef = each<string | null>(null);
 /** la main tient la platine (jog en lecture, BEND) */
 const touching = each(false);
 /** la main vient de lacher : l'ecart du moment devient celui qu'on garde */
@@ -752,6 +801,9 @@ const recapture = new Set<DjDeck>();
 const nudgeEnd = each(0);
 /** le rattrapage est lance (au-dela de 4 ms) : il continue jusqu'a 1 ms d'ecart, sans osciller autour du seuil */
 const locking = each(false);
+/** l'ordre des calages exacts (SYNC, PLAY, un saut cale) : de deux platines calees l'une sur l'autre, la premiere calee mene */
+const syncSeq = each(0);
+let syncCount = 0;
 
 /** Un ecart ramene dans une demi-periode. */
 function wrapPhase(x: number, period: number): number {
@@ -761,10 +813,47 @@ function wrapPhase(x: number, period: number): number {
   return v;
 }
 
+/** La reference d'une platine en un mot : 'machines', la lettre d'une platine, ou null. */
+const refId = (d: DjDeck, s = djState.get()): string | null => (machinesOn() ? 'machines' : syncDeck(d, s));
+
+/** L'ecart garde par la main, s'il a ete pris contre la reference du moment ; sinon il s'oublie. */
+function kept(d: DjDeck, s = djState.get()): number {
+  if (keepRef[d] !== null && keepRef[d] !== refId(d, s)) {
+    keep[d] = 0;
+    keepRef[d] = null;
+  }
+  return keep[d];
+}
+
+/**
+ * Deux platines calees l'une sur l'autre (SYNC sur A et sur B, ou les
+ * machines qui s'arretent sous deux platines suivies) : chacune est la
+ * reference de l'autre. Si les deux rattrapaient, elles se poursuivraient
+ * (relecture du 2026-10-08 : apres un jog, toutes deux a +0.3 % sans fin).
+ * Comme le MASTER d'une CDJ : la premiere calee mene, la derniere suit.
+ * Rend la platine qui mene d, ou null si d ne mene pas.
+ */
+function ledBy(d: DjDeck, s = djState.get()): DjDeck | null {
+  const r = syncDeck(d, s);
+  if (!r) return null;
+  const rs = s.deck[r];
+  if (!rs.sync || !rs.playing || !rs.loaded || syncDeck(r, s) !== d) return null;
+  return syncSeq[d] < syncSeq[r] || (syncSeq[d] === syncSeq[r] && d < r) ? r : null;
+}
+
+/** L'ecart que d garde avec sa reference ; celle qui mene une paire garde l'oppose de celle qui la suit. */
+function heldOffset(d: DjDeck, s = djState.get()): number {
+  const f = ledBy(d, s);
+  return f ? -kept(f, s) : kept(d, s);
+}
+
 /** Un calage exact (SYNC, PLAY, un saut cale) : plus d'ecart garde, plus de rattrapage en cours. */
 function rearm(d: DjDeck, e: DjEngine): void {
   keep[d] = 0;
+  keepRef[d] = null;
   recapture.delete(d);
+  syncCount += 1;
+  syncSeq[d] = syncCount;
   stopNudge(d, e, true);
 }
 
@@ -775,6 +864,9 @@ function stopNudge(d: DjDeck, e: DjEngine, done = false): void {
   e.sync.nudge[d] = 0;
 }
 
+/** La main tient-elle la platine ? */
+const handOn = (d: DjDeck, e: DjEngine): boolean => touching[d] || e.decks[d].bending;
+
 function phaseLock(e: DjEngine): void {
   const s = djState.get();
   for (const d of DJ_DECKS_ALL) {
@@ -784,23 +876,38 @@ function phaseLock(e: DjEngine): void {
     const own = p.playing && ds.sync && ds.loaded ? deckBeat(d, e, s, undefined, t) : null;
     const ref = own ? refBeat(d, e, s, t) : null;
     if (!own || !ref) {
+      // Plus calee (SYNC tombe, la platine s'arrete) : l'ecart de la main s'oublie avec
       stopNudge(d, e, true);
+      keep[d] = 0;
+      keepRef[d] = null;
+      recapture.delete(d);
       e.sync.errMs[d] = null;
+      e.sync.keepMs[d] = 0;
       continue;
     }
     const period = Math.min(own.period, ref.period);
     const raw = phaseShift(own.in, own.period, ref.in, ref.period);
-    if (touching[d] || p.bending) {
-      // La main tient la platine : on la laisse faire, on retiendra l'ecart qu'elle laisse
+    const r = syncDeck(d, s);
+    // La main tient la platine, ou sa reference (un jog sur la platine qui mene) : on la laisse faire, on retiendra l'ecart laisse
+    if (handOn(d, e) || (r !== null && handOn(r, e))) {
       stopNudge(d, e, true);
       recapture.add(d);
-      e.sync.errMs[d] = wrapPhase(raw - keep[d], period) * 1000;
+      e.sync.errMs[d] = wrapPhase(raw - heldOffset(d, s), period) * 1000;
       continue;
     }
-    if (recapture.delete(d)) keep[d] = raw;
-    e.sync.keepMs[d] = keep[d] * 1000;
-    const err = wrapPhase(raw - keep[d], period);
+    if (recapture.delete(d)) {
+      keep[d] = raw;
+      keepRef[d] = refId(d, s);
+    }
+    const hold = heldOffset(d, s);
+    e.sync.keepMs[d] = hold * 1000;
+    const err = wrapPhase(raw - hold, period);
     e.sync.errMs[d] = err * 1000;
+    // Celle qui mene une paire ne rattrape pas : l'autre la suit
+    if (ledBy(d, s) !== null) {
+      stopNudge(d, e, true);
+      continue;
+    }
     if (Math.abs(err) > LOCK.startS) locking[d] = true;
     if (Math.abs(err) <= LOCK.settleS || Math.abs(err) > period / 8) locking[d] = false;
     if (!locking[d]) {
