@@ -579,7 +579,8 @@ async function main() {
     const byHash = new Map(plan.flatMap((p) => p.adds.map((a) => [a.f.hash, `${p.fam}/${a.file}`])));
     const old = new Map(plan.flatMap((p) => p.removes.map((x) => [`${p.fam}/${x.name}`, x.hash])));
     const uniq = [...new Map(lost.map((k) => [k.key, k])).values()];
-    console.log(`Presets d'usine : ${uniq.length} cle(s) du code ne trouveront plus leur fichier (ces presets joueront leur son calcule de secours) :`);
+    // Depuis R3 (2026-10-08, audio/kit.ts resolveSample) : une cle partie prend le sample du meme numero, sinon le premier de la famille
+    console.log(`Presets d'usine : ${uniq.length} cle(s) du code ne trouveront plus leur fichier (ces presets prendront le sample du meme numero, sinon le premier de la famille) :`);
     for (const k of uniq) {
       const same = byHash.get(old.get(k.key));
       console.log(`  ${k.key}  (${k.where})${same ? `  ->  meme son : ${same}` : ''}`);

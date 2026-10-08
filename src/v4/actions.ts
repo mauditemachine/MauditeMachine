@@ -994,7 +994,8 @@ function layerReadout(p: LayerDial, inst: Inst, f: KitFamily): string {
   let why = '';
   if (p !== 'mach' && p !== 'syn' && !smp) why = '  SAMPLE OFF';
   else if ((p === 'syn' && l.syn <= 0 && (!smp || l.lev <= 0)) || (p === 'lev' && l.lev <= 0 && l.syn <= 0)) why = '  VOICE SILENT';
-  else if (p === 'mach' && l.syn <= 0) why = '  SYNTH OFF: LEVEL H';
+  // La MACHINE : son nom, et la couche a rallumer si elle est muette (l'unite SYNTH OFF ne se repete pas)
+  if (p === 'mach') return `${inst} MACHINE ${layerText(p, layerValue(p))}${l.syn <= 0 ? '  SYNTH OFF: LEVEL H' : ''}`;
   return `${inst} ${LAYER_NAME[p]} ${layerText(p, layerValue(p))}  ${layerUnitNow(p)}${why}`;
 }
 
@@ -1011,11 +1012,9 @@ function layerDial(p: LayerDial, v: number): void {
     lcdMessage.show(`${inst} HAS ONE SOUND`);
     return;
   }
-  if (p === 'mach') {
-    kit.setMachine(f, KIT_MODELS[Math.max(0, Math.min(KIT_MODELS.length - 1, Math.round(v)))]);
-    // La liste des machines a l'ecran, comme celle des samples
-    lcdSamples.show(undefined, 'machine');
-  } else kit.setLayer(f, p, v);
+  // La MACHINE : trois crans, son nom dans le bloc et au pied suffit (pas de liste)
+  if (p === 'mach') kit.setMachine(f, KIT_MODELS[Math.max(0, Math.min(KIT_MODELS.length - 1, Math.round(v)))]);
+  else kit.setLayer(f, p, v);
   lcdMessage.show(layerReadout(p, inst, f), POT_UI.readoutMs, true);
   touchPage(`l:${p}`, inst);
 }
@@ -1873,8 +1872,22 @@ function lockWrite(k: number, slot: PageSlot, v: number): void {
   const at = rytmLock.get().step;
   const lv = pageLockView(k, at);
   const who = steps.length > 1 ? `${steps.length} STEPS` : `STEP ${two(at + 1)}`;
-  lcdMessage.show(lv ? `${who} ${lockName(slot)} ${lv.text}${lv.unit ? `  ${lv.unit}` : ''}` : `${who} ${lockName(slot)}`, POT_UI.readoutMs, true);
+  // Une couche muette sur ce pas (R3) : le verrou est pose, il ne s'entendra qu'avec son LEVEL (H), l'ecran le dit
+  const silent = slot.layer && !slot.level && layerSilentAt(slot.layer, inst, at) ? `  ${slot.layer === 'synth' ? 'SYNTH' : 'SAMPLE'} OFF HERE` : '';
+  lcdMessage.show(lv ? `${who} ${lockName(slot)} ${lv.text}${lv.unit ? `  ${lv.unit}` : ''}${silent}` : `${who} ${lockName(slot)}${silent}`, POT_UI.readoutMs, true);
   rytmPage.echo(k);
+}
+
+/** La couche ne joue-t-elle pas sur ce pas (R3) : son niveau a 0 (ou son verrou), la couche SAMPLE sans sample ? */
+function layerSilentAt(layer: 'synth' | 'sample', inst: Inst, step: number): boolean {
+  const f = familyOf(inst as ShotId);
+  if (!f) return layer === 'sample' && !lockOf(pattern.get().locks, inst, step)?.snd;
+  const l = kit.layerOf(f);
+  const lk = lockOf(pattern.get().locks, inst, step);
+  if (layer === 'synth') return (lk?.syn ?? l.syn) <= 0;
+  const snd = lk?.snd ? parseSnd(lk.snd) : null;
+  const on = snd ? snd.sound !== 'off' : !!kit.get().sample[f];
+  return !on || (lk?.slev ?? l.lev) <= 0;
 }
 
 /**

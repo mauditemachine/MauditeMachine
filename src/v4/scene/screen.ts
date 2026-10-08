@@ -973,7 +973,8 @@ export class Screen {
       } else this.text(name, x + 7, y, 9, HALF, 500);
     }
     this.text(`${m.cur + 1}/${n}`, col.x1, 62, 8, HALF, 600, 'right');
-    this.text(`${m.title} SOUND`, x, 96, 7, HALF, 700, 'left', 0.9);
+    // Le titre : KICK SOUND (le choix de son d'avant), KICK SAMPLE ou KICK SYNTH (les couches de R3, 2026-10-08)
+    this.text(/ (SAMPLE|SYNTH)$/.test(m.title) ? m.title : `${m.title} SOUND`, x, 96, 7, HALF, 700, 'left', 0.9);
   }
 
   /** Mode presets : le titre, le nom en grand entre ses fleches, les quatre touches en pastilles. */

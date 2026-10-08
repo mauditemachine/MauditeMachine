@@ -205,7 +205,7 @@ function srcMiddle(f: KitFamily | null): readonly PageSlot[] {
     return [
       synth('TUNE', 'r:sdtune', 'barc', 'sdtune'),
       synth('SNAPPY', 'r:snappy', 'bar', 'snappy', true),
-      synth('TONE', 'r:sdtone', 'tone', 'sdtone'),
+      synth('TONE', 'r:sdtone', 'barc', 'sdtone'),
       synth('DECAY', 'r:sddecay', 'decay', 'sddecay'),
       synth('GATE', 'r:gate', 'notch', 'gate'),
       EMPTY,

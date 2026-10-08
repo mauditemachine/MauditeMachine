@@ -478,23 +478,25 @@ export const kit = {
   },
   /**
    * Regle un TWEAK ; true s'il change. Un choix de son (SOUND, la plaque,
-   * rytm:kit:<famille>) : un modele joue seul (sa couche SYNTH a son niveau,
-   * au moins audible ; plus d'echantillon) ; un echantillon joue seul (la
-   * synthese a 0).
+   * rytm:kit:<famille>) : le raccourci vers UNE couche, a son plein niveau,
+   * comme avant R3 : un modele joue seul (la couche SYNTH a 127, plus
+   * d'echantillon), un echantillon joue seul (lui a 127, la synthese a 0).
+   * Deja ce son, seul : rien ne change.
    */
   set(id: KitId, v: number): boolean {
     if (isFamily(id)) {
       const n = kitSteps(id);
       const i = Math.max(0, Math.min(n - 1, Math.round(clamp01(v) * (n - 1))));
-      if (i === soundIndex(state, id)) return false;
       const l = state.layer[id];
+      const alone = i < KIT_MODELS.length ? !state.sample[id] && l.syn === 1 : l.syn === 0 && l.lev === 1;
+      if (i === soundIndex(state, id) && alone) return false;
       if (i < KIT_MODELS.length) {
         const sample = { ...state.sample };
         delete sample[id];
-        state = { ...state, model: { ...state.model, [id]: KIT_MODELS[i] }, sample, layer: { ...state.layer, [id]: { ...l, syn: l.syn > 0 ? l.syn : 1 } } };
+        state = { ...state, model: { ...state.model, [id]: KIT_MODELS[i] }, sample, layer: { ...state.layer, [id]: { ...l, syn: 1 } } };
       } else {
         const key = samplesOf(id)[i - KIT_MODELS.length].key;
-        state = { ...state, sample: { ...state.sample, [id]: key }, layer: { ...state.layer, [id]: { ...l, syn: 0, lev: l.lev > 0 ? l.lev : 1 } } };
+        state = { ...state, sample: { ...state.sample, [id]: key }, layer: { ...state.layer, [id]: { ...l, syn: 0, lev: 1 } } };
       }
     } else {
       const n = q(v, id);
@@ -583,8 +585,12 @@ export const kit = {
   valueText(id: KitId): string {
     if (isFamily(id)) {
       const smp = state.sample[id];
-      if (!smp) return KIT_MODEL_LABEL[state.model[id]];
-      return kit.layered(id) ? `${KIT_MODEL_LABEL[state.model[id]]}+${sampleLabelOf(smp)}` : sampleLabelOf(smp);
+      const l = state.layer[id];
+      // Les deux couches muettes (SYNTH a 0, SAMPLE sur OFF ou a 0) : la voix se tait, l'ecran le dit
+      if ((!smp || l.lev <= 0) && l.syn <= 0) return 'SILENT';
+      if (!smp || l.lev <= 0) return KIT_MODEL_LABEL[state.model[id]];
+      if (l.syn <= 0) return sampleLabelOf(smp);
+      return `${KIT_MODEL_LABEL[state.model[id]]}+${sampleLabelOf(smp)}`;
     }
     return kit.knobText(id, state.knob[id]);
   },
