@@ -33,8 +33,14 @@ export interface TweakItem {
   endOrange?: boolean;
   /** un potard a cran central (TUNE) : un petit repere a midi */
   center?: boolean;
-  /** son designateur (VR1, SW1... sinon numerote dans l'ordre) */
+  /** son designateur (RV5, SW1... sinon numerote dans l'ordre) */
   ref?: string;
+  /**
+   * un selecteur de plus de trois crans : ses noms autour du capuchon
+   * ('select', des noms courts, comme CHORD ou SCALE) ou en legende a cote
+   * ('legend', nombreux ou longs) ; sans : deduit des crans (tweakKind)
+   */
+  kind?: 'select' | 'legend';
 }
 
 /** Un groupe : un cadre fin de serigraphie et son titre, en haut a gauche. */
@@ -67,6 +73,12 @@ export interface TweakPlateSpec {
   title: TweakTitle | null;
   /** la largeur d'une case (les noms s'y tiennent) */
   cellW: number;
+  /**
+   * le numero du premier potard (RV) : ceux de la carte d'abord (2026-10-08,
+   * un seul jeu de designateurs par carte : ses trimmers RV1 a RV4 sur le
+   * MM-BASS et le MM-ARP, les TWEAKS a la suite)
+   */
+  refStart?: number;
 }
 
 /**
@@ -90,10 +102,11 @@ export function tweakClearOf(dims: TweakPlateDims, groups: readonly TweakGroup[]
 
 /** Le genre d'un reglage, d'apres ses crans. */
 export type TweakKind = 'pot' | 'slide' | 'select' | 'legend';
-export function tweakKind(it: Pick<TweakItem, 'steps'>): TweakKind {
+export function tweakKind(it: Pick<TweakItem, 'steps' | 'kind'>): TweakKind {
   const n = it.steps?.length ?? 0;
   if (n === 0) return 'pot';
   if (n <= 3) return 'slide';
+  if (it.kind) return it.kind;
   return n > 5 || (it.steps ?? []).some((s) => s.length > 5) ? 'legend' : 'select';
 }
 

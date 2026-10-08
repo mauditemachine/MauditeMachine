@@ -54,7 +54,7 @@ import {
   type Object3D,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { BOARD_CHIPS, CHIP, CHIP_MID, EXTERNAL_MARK, FONT_DISPLAY, PCB, PCB_PARTS, PCB_TYPE, SILK, boneA, pcbAt, type ChipId, type ChipSpec } from '../theme';
+import { BOARD_CHIPS, CHIP, CHIP_MID, EXTERNAL_MARK, FONT_DISPLAY, PCB, PCB_PARTS, PCB_TYPE, PORTRAIT, SILK, boneA, pcbAt, type ChipId, type ChipSpec } from '../theme';
 import type { HotspotDef } from './hit';
 import { albedoRgb, litCss } from './materials';
 import { drawTracked, fontsReady, makeCanvasTexture, mulberry32, trackedWidth } from './silk';
@@ -234,6 +234,8 @@ interface Footprint {
   pads: { x: number; z: number; w: number; d: number; round?: boolean }[];
   /** emprise de l'ombre de contact */
   shadow: { x: number; z: number; hx: number; hz: number; round: boolean } | null;
+  /** hauteur du corps (unites) : vu de la camera, il cache la carte juste derriere lui (placeRefs) */
+  h: number;
 }
 
 /** Une piste routee et son rendu. */
@@ -424,6 +426,7 @@ function footprints(variant: PcbVariant, chips: readonly ChipSpec[], clear: PcbC
       outline: true,
       pads,
       shadow: { x: c.x, z: c.z, hx: D.w / 2, hz: D.d / 2, round: false },
+      h: 0.15,
     });
   });
   P.small.forEach((s, k) => {
@@ -436,12 +439,12 @@ function footprints(variant: PcbVariant, chips: readonly ChipSpec[], clear: PcbC
         pads.push({ x: lx, z: s.z + side * (P.small3.d / 2 + 0.04), w: LEG_SMALL.w + 0.03, d: LEG_SMALL.d + 0.04 });
       }
     }
-    out.push({ x: s.x, z: s.z, hx: P.small3.w / 2 + 0.05, hz, round: false, frame: false, ref: `U${k + chips.length + 1}`, refX: s.x, refZ: s.z - hz - 0.16, refAlign: 'center', axis: 'x', outline: true, pads, shadow: { x: s.x, z: s.z, hx: P.small3.w / 2, hz: P.small3.d / 2, round: false } });
+    out.push({ x: s.x, z: s.z, hx: P.small3.w / 2 + 0.05, hz, round: false, frame: false, ref: `U${k + chips.length + 1}`, refX: s.x, refZ: s.z - hz - 0.16, refAlign: 'center', axis: 'x', outline: true, pads, shadow: { x: s.x, z: s.z, hx: P.small3.w / 2, hz: P.small3.d / 2, round: false }, h: P.small3.h });
   });
   P.caps.forEach((c, k) => {
     if (off('cap', c.x, c.z)) return;
     const r = P.cap3.r + 0.05;
-    out.push({ x: c.x, z: c.z, hx: r, hz: r, round: true, frame: false, ref: `C${k + 1}`, refX: c.x + r + 0.08, refZ: c.z, refAlign: 'left', axis: 'x', outline: true, pads: [], shadow: { x: c.x, z: c.z, hx: P.cap3.r, hz: P.cap3.r, round: true } });
+    out.push({ x: c.x, z: c.z, hx: r, hz: r, round: true, frame: false, ref: `C${k + 1}`, refX: c.x + r + 0.08, refZ: c.z, refAlign: 'left', axis: 'x', outline: true, pads: [], shadow: { x: c.x, z: c.z, hx: P.cap3.r, hz: P.cap3.r, round: true }, h: P.capTall[k] ? P.cap3.h : P.cap3.hShort });
   });
   // Plus de pile bouton (2026-10-03) : sa place est dans la bande des pages
   P.resistors.forEach((s, k) => {
@@ -449,24 +452,25 @@ function footprints(variant: PcbVariant, chips: readonly ChipSpec[], clear: PcbC
     const R = P.resistor3;
     const hz = R.d / 2 + 0.04;
     const pads = [-1, 1].map((sd) => ({ x: s.x + sd * (R.w / 2 - 0.03), z: s.z, w: 0.1, d: R.d + 0.04 }));
-    out.push({ x: s.x, z: s.z, hx: R.w / 2 + 0.06, hz, round: false, frame: false, ref: `R${k + 1}`, refX: s.x, refZ: s.z - hz - 0.12, refAlign: 'center', axis: 'z', outline: false, pads, shadow: { x: s.x, z: s.z, hx: R.w / 2, hz: R.d / 2, round: false } });
+    out.push({ x: s.x, z: s.z, hx: R.w / 2 + 0.06, hz, round: false, frame: false, ref: `R${k + 1}`, refX: s.x, refZ: s.z - hz - 0.12, refAlign: 'center', axis: 'z', outline: false, pads, shadow: { x: s.x, z: s.z, hx: R.w / 2, hz: R.d / 2, round: false }, h: R.h });
   });
   P.ceramics.forEach((s, k) => {
     if (inBand(s.z) || off('ceramic', s.x, s.z)) return;
     const Cc = P.ceramic3;
     const pads = [-1, 1].map((sd) => ({ x: s.x + sd * (Cc.w / 2 - 0.03), z: s.z, w: 0.09, d: Cc.d + 0.04 }));
-    out.push({ x: s.x, z: s.z, hx: Cc.w / 2 + 0.06, hz: Cc.d / 2 + 0.04, round: false, frame: false, ref: `C${k + P.caps.length + 1}`, refX: s.x, refZ: s.z + Cc.d / 2 + 0.16, refAlign: 'center', axis: 'z', outline: false, pads, shadow: { x: s.x, z: s.z, hx: Cc.w / 2, hz: Cc.d / 2, round: false } });
+    out.push({ x: s.x, z: s.z, hx: Cc.w / 2 + 0.06, hz: Cc.d / 2 + 0.04, round: false, frame: false, ref: `C${k + P.caps.length + 1}`, refX: s.x, refZ: s.z + Cc.d / 2 + 0.16, refAlign: 'center', axis: 'z', outline: false, pads, shadow: { x: s.x, z: s.z, hx: Cc.w / 2, hz: Cc.d / 2, round: false }, h: Cc.h });
   });
   P.crystals.forEach((s, k) => {
     if (off('crystal', s.x, s.z)) return;
     const hz = P.crystal3.r + 0.05;
     const pads = [-1, 1].map((sd) => ({ x: s.x + sd * (P.crystal3.l / 2 + 0.05), z: s.z, w: 0.08, d: 0.1 }));
-    out.push({ x: s.x, z: s.z, hx: P.crystal3.l / 2 + 0.1, hz, round: false, frame: false, ref: `X${k + 1}`, refX: s.x, refZ: s.z - hz - 0.16, refAlign: 'center', axis: 'x', outline: true, pads, shadow: { x: s.x, z: s.z, hx: P.crystal3.l / 2, hz: P.crystal3.r * 0.9, round: false } });
+    out.push({ x: s.x, z: s.z, hx: P.crystal3.l / 2 + 0.1, hz, round: false, frame: false, ref: `X${k + 1}`, refX: s.x, refZ: s.z - hz - 0.16, refAlign: 'center', axis: 'x', outline: true, pads, shadow: { x: s.x, z: s.z, hx: P.crystal3.l / 2, hz: P.crystal3.r * 0.9, round: false }, h: P.crystal3.r * 2 });
   });
   if (!off('regulator', P.regulator.x, P.regulator.z)) {
     const r = P.regulator;
     const pads = [-1, 0, 1].map((k) => ({ x: r.x + k * 0.1, z: r.z + 0.05, w: 0.07, d: 0.1, round: true }));
-    out.push({ x: r.x, z: r.z - 0.15, hx: 0.42, hz: 0.33, round: false, frame: false, ref: 'VR1', refX: r.x + 0.48, refZ: r.z + 0.05, refAlign: 'left', axis: null, outline: true, pads, shadow: { x: r.x, z: r.z - 0.17, hx: 0.38, hz: 0.27, round: false } });
+    // U5 (2026-10-08, un seul jeu de designateurs : VR1 etait aussi le premier potard des TWEAKS ; les potards sont des RV)
+    out.push({ x: r.x, z: r.z - 0.15, hx: 0.42, hz: 0.33, round: false, frame: false, ref: 'U5', refX: r.x + 0.48, refZ: r.z + 0.05, refAlign: 'left', axis: null, outline: true, pads, shadow: { x: r.x, z: r.z - 0.17, hx: 0.38, hz: 0.27, round: false }, h: 0.6 });
   }
   if (!off('header', P.header.x, P.header.z)) {
     const h = P.header;
@@ -474,20 +478,20 @@ function footprints(variant: PcbVariant, chips: readonly ChipSpec[], clear: PcbC
     for (let c = 0; c < h.cols; c += 1) {
       for (const row of [-1, 1]) pads.push({ x: h.x + (c - (h.cols - 1) / 2) * HEADER.pitch, z: h.z + row * HEADER.pitch * 0.5, w: 0.07, d: 0.07, round: true });
     }
-    out.push({ x: h.x, z: h.z, hx: HEADER.w / 2 + 0.05, hz: HEADER.d / 2 + 0.05, round: false, frame: false, ref: 'J1', refX: h.x - HEADER.w / 2, refZ: h.z + HEADER.d / 2 + 0.16, refAlign: 'left', axis: 'z', outline: true, pads, shadow: { x: h.x, z: h.z, hx: HEADER.w / 2, hz: HEADER.d / 2, round: false } });
+    out.push({ x: h.x, z: h.z, hx: HEADER.w / 2 + 0.05, hz: HEADER.d / 2 + 0.05, round: false, frame: false, ref: 'J1', refX: h.x - HEADER.w / 2, refZ: h.z + HEADER.d / 2 + 0.16, refAlign: 'left', axis: 'z', outline: true, pads, shadow: { x: h.x, z: h.z, hx: HEADER.w / 2, hz: HEADER.d / 2, round: false }, h: HEADER.h });
   }
   if (!off('terminal', P.terminal.x, P.terminal.z)) {
     const t = P.terminal;
     const w = t.n * TERM.pitch;
-    out.push({ x: t.x, z: t.z, hx: w / 2 + 0.05, hz: TERM.d / 2 + 0.05, round: false, frame: false, ref: 'J2', refX: t.x + w / 2, refZ: t.z + TERM.d / 2 + 0.16, refAlign: 'right', axis: 'z', outline: true, pads: [], shadow: { x: t.x, z: t.z, hx: w / 2, hz: TERM.d / 2, round: false } });
+    out.push({ x: t.x, z: t.z, hx: w / 2 + 0.05, hz: TERM.d / 2 + 0.05, round: false, frame: false, ref: 'J2', refX: t.x + w / 2, refZ: t.z + TERM.d / 2 + 0.16, refAlign: 'right', axis: 'z', outline: true, pads: [], shadow: { x: t.x, z: t.z, hx: w / 2, hz: TERM.d / 2, round: false }, h: TERM.h });
   }
   {
     const l = P.led;
     const pads = [-1, 1].map((sd) => ({ x: l.x + sd * 0.06, z: l.z, w: 0.06, d: 0.09 }));
-    out.push({ x: l.x, z: l.z, hx: 0.12, hz: 0.12, round: true, frame: false, ref: 'D1', refX: l.x + 0.2, refZ: l.z - 0.05, refAlign: 'left', axis: 'x', outline: true, pads, shadow: { x: l.x, z: l.z, hx: 0.08, hz: 0.08, round: true } });
+    out.push({ x: l.x, z: l.z, hx: 0.12, hz: 0.12, round: true, frame: false, ref: 'D1', refX: l.x + 0.2, refZ: l.z - 0.05, refAlign: 'left', axis: 'x', outline: true, pads, shadow: { x: l.x, z: l.z, hx: 0.08, hz: 0.08, round: true }, h: 0.1 });
   }
   for (const h of P.holes) {
-    out.push({ x: h.x, z: h.z, hx: 0.24, hz: 0.24, round: true, frame: false, ref: '', refX: 0, refZ: 0, refAlign: 'center', axis: null, outline: false, pads: [], shadow: { x: h.x, z: h.z, hx: 0.15, hz: 0.15, round: true } });
+    out.push({ x: h.x, z: h.z, hx: 0.24, hz: 0.24, round: true, frame: false, ref: '', refX: 0, refZ: 0, refAlign: 'center', axis: null, outline: false, pads: [], shadow: { x: h.x, z: h.z, hx: 0.15, hz: 0.15, round: true }, h: 0 });
   }
   for (const e of extrasOf(variant)) {
     if (off(e.kind, e.x, e.z)) continue;
@@ -515,12 +519,103 @@ function footprints(variant: PcbVariant, chips: readonly ChipSpec[], clear: PcbC
       outline: !flat,
       pads,
       shadow: flat ? null : { x: e.x, z: e.z, hx: S.hx, hz: S.hz, round: e.kind === 'to92' },
+      h: EXTRA_H[e.kind],
     });
   }
   if (variant === 'mm808' && !touches(clear, STICKER.x, STICKER.z, STICKER.hx + 0.05, STICKER.hz + 0.05)) {
-    out.push({ x: STICKER.x, z: STICKER.z, hx: STICKER.hx + 0.05, hz: STICKER.hz + 0.05, round: false, frame: false, ref: '', refX: 0, refZ: 0, refAlign: 'center', axis: null, outline: false, pads: [], shadow: null });
+    out.push({ x: STICKER.x, z: STICKER.z, hx: STICKER.hx + 0.05, hz: STICKER.hz + 0.05, round: false, frame: false, ref: '', refX: 0, refZ: 0, refAlign: 'center', axis: null, outline: false, pads: [], shadow: null, h: 0 });
   }
+  placeRefs(out, clear);
   return out;
+}
+
+/** Hauteur du corps de chaque piece de plus (unites, buildParts). */
+const EXTRA_H: Record<ExtraKind, number> = { trim: 0.24, film: 0.34, to92: 0.32, dip: 0.2, sot: 0.08, tp: 0, fid: 0 };
+
+/**
+ * Part de la hauteur d'une piece cachee derriere elle sur la carte (vue
+ * ouverte : la camera plonge a 68 deg environ, 1 / tan 68 = 0.4).
+ */
+const BEHIND = 0.4;
+
+/**
+ * Chaque designateur a sa place (2026-10-08, la revue de l'OPEN : les
+ * pieces decouvertes par les TWEAKS soudes couvraient les leurs, C21 a C23
+ * sous les condensateurs film, C3 / C4 entre leurs deux boitiers au
+ * telephone, C12 sur l'empreinte de la CA3046). Sa place d'origine d'abord,
+ * puis devant la piece (vers soi a l'ecran), puis ses quatre cotes : la
+ * premiere qui ne touche ni l'empreinte d'une autre piece, ni l'ombre
+ * d'une piece haute (ce qu'elle cache juste derriere elle : vers -z au
+ * desktop, vers +x debout, la carte y tourne d'un quart de tour), ni un
+ * designateur deja place, ni un texte de la carte, ni la zone des TWEAKS,
+ * et qui reste sur la carte. Aucune : sa place d'origine. Une estimation
+ * de la largeur du texte (sans police : la meme a chaque construction).
+ */
+function placeRefs(prints: Footprint[], clear: PcbClear | null): void {
+  const size = (PCB.designatorPx / PX_REF) * PCB.w;
+  const capH = size * SILK.capRatio;
+  const widthOf = (t: string, px: number): number => {
+    const s = (px / PX_REF) * PCB.w;
+    return (t.length * 0.68 + Math.max(0, t.length - 1) * PCB_TYPE.tracking) * s * 1.1;
+  };
+  type R = { x0: number; x1: number; z0: number; z1: number };
+  const rectAt = (t: string, x: number, z: number, align: Footprint['refAlign'], px: number = PCB.designatorPx): R => {
+    const w = widthOf(t, px);
+    const h = (px / PX_REF) * PCB.w * SILK.capRatio;
+    const x0 = align === 'left' ? x : align === 'right' ? x - w : x - w / 2;
+    return { x0, x1: x0 + w, z0: z - h / 2, z1: z + h / 2 };
+  };
+  const EPS = 0.01;
+  const hit = (a: R, b: R): boolean => a.x0 < b.x1 - EPS && a.x1 > b.x0 + EPS && a.z0 < b.z1 - EPS && a.z1 > b.z0 + EPS;
+  // Les empreintes et un peu d'air (un designateur ne colle pas au contour d'une autre piece)
+  const air = 0.04;
+  const bodies: R[] = prints.map((f) => ({ x0: f.x - f.hx - air, x1: f.x + f.hx + air, z0: f.z - f.hz - air, z1: f.z + f.hz + air }));
+  const behind: (R | null)[] = prints.map((f) => {
+    const b = f.shadow ?? { x: f.x, z: f.z, hx: f.hx, hz: f.hz };
+    const L = f.h * BEHIND;
+    if (L < 0.06) return null;
+    return PORTRAIT ? { x0: b.x + b.hx, x1: b.x + b.hx + L, z0: b.z - b.hz, z1: b.z + b.hz } : { x0: b.x - b.hx, x1: b.x + b.hx, z0: b.z - b.hz - L, z1: b.z - b.hz };
+  });
+  // Les textes fixes de la carte : le + des condensateurs, PWR, GND, MAUDITE MACHINE
+  const off = offOf(clear);
+  const placed: R[] = [];
+  for (const c of P.caps) if (!off('cap', c.x, c.z)) placed.push(rectAt('+', c.x - P.cap3.r - 0.1, c.z, 'center', 12));
+  placed.push(rectAt('PWR', P.led.x + 0.2, P.led.z + 0.12, 'left', 10));
+  placed.push(rectAt('MAUDITE MACHINE', pcbAt(-5.33, -0.86).x, pcbAt(-5.33, -0.86).z, 'left', 24));
+  const zone: R | null = clear ? { x0: clear.x0, x1: clear.x1, z0: clear.z0, z1: clear.z1 } : null;
+  const hx = PCB.w / 2 - 0.08;
+  const hz = PCB.d / 2 - 0.08;
+  const g = 0.08;
+  prints.forEach((f, i) => {
+    if (!f.ref) return;
+    type C = { x: number; z: number; align: Footprint['refAlign'] };
+    const front: C = PORTRAIT ? { x: f.x - f.hx - g, z: f.z, align: 'right' } : { x: f.x, z: f.z + f.hz + g + capH / 2, align: 'center' };
+    // Derriere, passe l'ombre de la piece (une rangee de transistors : devant eux, la rangee des trimmers)
+    const L = f.h * BEHIND;
+    const back: C = PORTRAIT ? { x: f.x + f.hx + g + L, z: f.z, align: 'left' } : { x: f.x, z: f.z - f.hz - g - capH / 2 - L, align: 'center' };
+    const cands: C[] = [
+      { x: f.refX, z: f.refZ, align: f.refAlign },
+      front,
+      { x: f.x, z: f.z + f.hz + g + capH / 2, align: 'center' },
+      { x: f.x, z: f.z - f.hz - g - capH / 2, align: 'center' },
+      { x: f.x + f.hx + g, z: f.z, align: 'left' },
+      { x: f.x - f.hx - g, z: f.z, align: 'right' },
+      back,
+    ];
+    const ok = (c: C): boolean => {
+      const r = rectAt(f.ref, c.x, c.z, c.align);
+      if (r.x0 < -hx || r.x1 > hx || r.z0 < -hz || r.z1 > hz) return false;
+      if (zone && hit(r, zone)) return false;
+      if (bodies.some((b, j) => j !== i && hit(r, b))) return false;
+      if (behind.some((b) => b !== null && hit(r, b))) return false;
+      return !placed.some((p) => hit(r, p));
+    };
+    const best = cands.find(ok) ?? cands[0];
+    f.refX = best.x;
+    f.refZ = best.z;
+    f.refAlign = best.align;
+    placed.push(rectAt(f.ref, best.x, best.z, best.align));
+  });
 }
 
 /* ---------------- geometrie ---------------- */

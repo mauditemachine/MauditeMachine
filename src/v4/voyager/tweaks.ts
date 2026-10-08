@@ -44,7 +44,8 @@ function items(): TweakItem[] {
 export class VoyTweaks extends TweakPlate {
   constructor(opts: { mobile: boolean; anisotropy: number }) {
     // SCOPE et CLOSE sous le cartouche (voyager/theme.ts VOY_SCOPE_KEY, VOY_CLOSE_KEY)
-    super({ name: 'voyTweaks', dims: P, items: items(), groups: VOY_TWEAK_GROUPS, title: VOY_TWEAK_TITLE, cellW: VOY_TWEAK_CELL_W }, opts);
+    // Les potards a la suite des trimmers RV1 a RV4 de la carte (scene/pcb.ts, la carte analogique)
+    super({ name: 'voyTweaks', dims: P, items: items(), groups: VOY_TWEAK_GROUPS, title: VOY_TWEAK_TITLE, cellW: VOY_TWEAK_CELL_W, refStart: 5 }, opts);
   }
 
   /** Valeur 0 a 1 -> angle ; true s'il faut une frame. */
@@ -57,7 +58,7 @@ export class VoyTweaks extends TweakPlate {
 
   /** Les cibles du picking : une par reglage (la piece et sa serigraphie), coupees capot ferme. */
   hotspots(): HotspotDef[] {
-    return VOY_TWEAKS.map((k, i) => {
+    return this.track(VOY_TWEAKS.map((k, i) => {
       const h = this.hitOf(i);
       return {
         id: this.spec.items[i].hotspot,
@@ -73,7 +74,7 @@ export class VoyTweaks extends TweakPlate {
         enabled: false,
         vknob: k.id,
       };
-    });
+    }));
   }
 
   info(): { ids: VoyKnobId[]; angleDeg: number[]; draws: number } {

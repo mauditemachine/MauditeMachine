@@ -37,6 +37,8 @@ export interface RytmTweakSlot {
   z: number;
   /** les bouts de course d'un potard */
   ends?: readonly [string, string];
+  /** son nom sur la carte, s'il differe de celui du kit (KIT_LABEL) */
+  label?: string;
 }
 
 /** La mise en page des TWEAKS : la zone sur la carte, les reglages, les groupes, le cartouche, CLOSE. */
@@ -49,7 +51,14 @@ export interface RytmTweakLayout {
   close: { x: number; z: number; w: number; d: number; y: number };
 }
 
+/** La revision de la carte : celle de son etiquette a code-barres (scene/pcb.ts, REV 4.0), dans le cartouche (2026-10-08). */
+const RYTM_REV = 'REV 4.0 / 2026';
+
 /**
+ * Les selecteurs de KICK et SNARE disent ce qu'ils choisissent (SOUND : 909,
+ * 808, MM, les echantillons), le cadre dit la voix (2026-10-08, la revue :
+ * KICK / KICK se lisait deux fois).
+ *
  * Desktop : deux rangees sur l'avant de la carte (la ou etaient la plaque
  * et, avant elle, les puces) ; KICK en haut (le selecteur a legende puis
  * TUNE, ATTACK, DECAY, DRIVE), le cartouche a droite et CLOSE dessous ;
@@ -65,12 +74,12 @@ export const RYTM_TWEAK_LAYOUT: RytmTweakLayout = PORTRAIT
         dims: { cx: 0, cz: 0, w: 6.6, d: 10.6 },
         cellW: 2.05,
         slots: [
-          { id: 'bd', x: -2.55, z: R[0] },
+          { id: 'bd', x: -2.55, z: R[0], label: 'SOUND' },
           { id: 'tune', x: C[2], z: R[0], ends: ['LOW', 'HIGH'] },
           { id: 'attack', x: C[0], z: R[1], ends: ['SOFT', 'HARD'] },
           { id: 'decay', x: C[1], z: R[1], ends: ['SHORT', 'LONG'] },
           { id: 'drive', x: C[2], z: R[1], ends: ['CLEAN', 'HOT'] },
-          { id: 'sd', x: -2.55, z: R[2] },
+          { id: 'sd', x: -2.55, z: R[2], label: 'SOUND' },
           { id: 'snappy', x: 1.0, z: R[2], ends: ['TONE', 'SNAP'] },
           { id: 'gate', x: 2.45, z: R[2] },
           { id: 'cp', x: C[0], z: R[3] },
@@ -82,7 +91,8 @@ export const RYTM_TWEAK_LAYOUT: RytmTweakLayout = PORTRAIT
           { title: 'SNARE', x0: -3.15, z0: R[2] - 1.02, x1: 3.15, z1: R[2] + 0.66 },
           { title: 'VOICES', x0: -3.15, z0: R[3] - 1.02, x1: 3.15, z1: R[3] + 0.66 },
         ],
-        title: { x0: -3.15, z0: -4.2, x1: 3.15, z1: -3.35, name: 'MM-RYTM', sub: 'DRUM VOICES', rev: 'REV 1.0 / 2026' },
+        title: { x0: -3.15, z0: -4.2, x1: 3.15, z1: -3.35, name: 'MM-RYTM', sub: 'DRUM VOICES', rev: RYTM_REV },
+        // Portrait : CLOSE est en bas de l'ecran (ui/PcbClose.tsx, index.tsx) ; cette place ne sert pas
         close: { x: 2.2, z: -3.77, w: 1.5, d: 0.5, y: 0.01 },
       };
     })()
@@ -93,12 +103,12 @@ export const RYTM_TWEAK_LAYOUT: RytmTweakLayout = PORTRAIT
         dims: { cx: 0, cz: 1.25, w: 10.2, d: 3.4 },
         cellW: 1.12,
         slots: [
-          { id: 'bd', x: -4.45, z: A },
+          { id: 'bd', x: -4.45, z: A, label: 'SOUND' },
           { id: 'tune', x: -1.62, z: A, ends: ['LOW', 'HIGH'] },
           { id: 'attack', x: -0.5, z: A, ends: ['SOFT', 'HARD'] },
           { id: 'decay', x: 0.62, z: A, ends: ['SHORT', 'LONG'] },
           { id: 'drive', x: 1.74, z: A, ends: ['CLEAN', 'HOT'] },
-          { id: 'sd', x: -4.45, z: B },
+          { id: 'sd', x: -4.45, z: B, label: 'SOUND' },
           { id: 'snappy', x: -2.05, z: B, ends: ['TONE', 'SNAP'] },
           { id: 'gate', x: -0.85, z: B },
           { id: 'cp', x: 1.15, z: B },
@@ -110,7 +120,7 @@ export const RYTM_TWEAK_LAYOUT: RytmTweakLayout = PORTRAIT
           { title: 'SNARE', x0: -4.95, z0: B - 0.62, x1: -0.2, z1: B + 0.52 },
           { title: 'VOICES', x0: 0.2, z0: B - 0.62, x1: 4.95, z1: B + 0.52 },
         ],
-        title: { x0: 2.7, z0: A - 0.62, x1: 4.95, z1: A - 0.05, name: 'MM-RYTM', sub: 'DRUM VOICES', rev: 'REV 1.0' },
+        title: { x0: 2.7, z0: A - 0.62, x1: 4.95, z1: A - 0.05, name: 'MM-RYTM', sub: 'DRUM VOICES', rev: RYTM_REV },
         close: { x: 4.95 - 0.47, z: A + 0.2, w: 0.94, d: 0.25, y: 0.01 },
       };
     })();
@@ -121,7 +131,8 @@ export const RYTM_TWEAK_PLATE: TweakPlateDims = RYTM_TWEAK_LAYOUT.dims;
 /**
  * Le cadrage ouvert (renderer, OPEN_VIEW ; 2026-10-08, Mika : "deja c'est
  * super zoome") : le pivot sur le dessus de la carte sortie, un peu derriere
- * son centre (le bord du capot leve se devine en haut), la largeur a tenir :
+ * son centre (la carte un peu plus bas que le milieu de l'ecran, sous
+ * l'en-tete ; le capot leve est sorti par le haut), la largeur a tenir :
  * la carte entiere (debout au telephone). La carte suit la pente du
  * panneau : son dessus descend vers soi de tan(TILT).
  */
@@ -146,11 +157,11 @@ export const RYTM_CLOSE_KEY = RYTM_TWEAK_LAYOUT.close;
 
 function items(): TweakItem[] {
   return KIT_IDS.map((id) => {
-    const slot = RYTM_TWEAK_LAYOUT.slots.find((s) => s.id === id) ?? { id, x: 0, z: 0 };
+    const slot: RytmTweakSlot = RYTM_TWEAK_LAYOUT.slots.find((s) => s.id === id) ?? { id, x: 0, z: 0 };
     const sw = kitSteps(id) > 1;
     return {
       hotspot: `rk-${id}`,
-      label: KIT_LABEL[id],
+      label: slot.label ?? KIT_LABEL[id],
       x: slot.x,
       z: slot.z,
       // Un choix de son : 909, 808, MM, puis le nom de chaque echantillon de Mika (audio/samples.ts)
@@ -196,9 +207,9 @@ export class RytmTweaks extends TweakPlate {
     return changed;
   }
 
-  /** Les cibles du picking : une par reglage (la piece et sa serigraphie), coupees capot ferme. */
+  /** Les cibles du picking : une par reglage (la piece et sa serigraphie), coupees capot ferme ; elles suivent la legende. */
   hotspots(): HotspotDef[] {
-    return KIT_IDS.map((id, i) => {
+    return this.track(KIT_IDS.map((id, i) => {
       const h = this.hitOf(i);
       return {
         id: this.spec.items[i].hotspot,
@@ -214,10 +225,10 @@ export class RytmTweaks extends TweakPlate {
         enabled: false,
         rknob: id,
       };
-    });
+    }));
   }
 
-  info(): { ids: readonly KitId[]; angleDeg: number[]; draws: number; kinds: string[] } {
-    return { ids: KIT_IDS, angleDeg: this.angles(), draws: this.draws, kinds: KIT_IDS.map((_, i) => this.kindAt(i)) };
+  info(): { ids: readonly KitId[]; angleDeg: number[]; draws: number; litDraws: number; kinds: string[]; legends: ReturnType<TweakPlate['legendInfo']> } {
+    return { ids: KIT_IDS, angleDeg: this.angles(), draws: this.draws, litDraws: this.litDraws, kinds: KIT_IDS.map((_, i) => this.kindAt(i)), legends: this.legendInfo() };
   }
 }

@@ -244,6 +244,8 @@ export class VoyagerRig {
     this.padDefs = this.defs.filter((d) => d.kind === 'vpad');
     // Les copies portent l'etat : retrouver les TWEAKS dans la liste finale
     this.tweakDefs = this.defs.filter((d) => d.layer === this.tweaks.top);
+    // Les copies enregistrees suivent la mise en page de la plaque (scene/tweakplate.ts track)
+    this.tweaks.track(this.tweakDefs);
 
     this.syncKnobs();
     this.syncArp();
@@ -476,6 +478,11 @@ export class VoyagerRig {
     for (const d of this.tweakDefs) {
       if (d.enabled === live) continue;
       d.enabled = live;
+      changed = true;
+    }
+    // Le capot leve sort du cadre ouvert (2026-10-08) : ses commandes ne repondent plus tant que la carte repond
+    if (this.lid.userData.noPick !== live) {
+      this.lid.userData.noPick = live;
       changed = true;
     }
     return changed;

@@ -278,8 +278,9 @@ export const BASS_LOCK_LEGEND_DZ = PORTRAIT ? 0.47 : 0.35;
  * RELEASE, SUB OCT, TUNE), le titre, INFOS et CLOSE.
  */
 export const BASS_LID = { t: 0.14 } as const;
-// Desktop 2026-10-08 : slideZ -3.6 -> -4.9, le cadrage ouvert est moins zoome : seul le bord du capot leve se devine en haut
-export const BASS_EXPLODE = PORTRAIT ? { lift: 6.2, slideZ: -4.6, tiltOpenDeg: -58, pcbRise: 0.45 } : { lift: 4.4, slideZ: -4.9, tiltOpenDeg: -26, pcbRise: 0.45 };
+// 2026-10-08 (revue de l'OPEN moins zoome) : le capot leve sort tout entier du cadre ouvert, plus rien de lui sous
+// l'en-tete translucide (son texte du bas s'y lisait) ; desktop 4.4 / -3.6 -> 4.8 / -6.6, portrait 6.2 / -4.6 -> 7.0 / -7.0
+export const BASS_EXPLODE = PORTRAIT ? { lift: 7.0, slideZ: -7.0, tiltOpenDeg: -58, pcbRise: 0.45 } : { lift: 4.8, slideZ: -6.6, tiltOpenDeg: -26, pcbRise: 0.45 };
 /** La carte au fond du bac, repere du fond : sortie, son dessous a 0.03 du fond. */
 export const BASS_PCB_Y = -BASS_LID.t + 0.03 - BASS_EXPLODE.pcbRise;
 
@@ -295,6 +296,9 @@ export const BASS_PCB_Y = -BASS_LID.t + 0.03 - BASS_EXPLODE.pcbRise;
  * DECAY, SWEEP, RELEASE, la glissiere SUB OCT, TUNE a cran central).
  * Portrait : la carte debout, trois colonnes, le cartouche et INFOS en tete.
  */
+/** La revision de la carte : celle de son modele (rig.ts, MM-BASS R2.0), dans le cartouche des TWEAKS (2026-10-08). */
+const BASS_REV = 'REV 2.0 / 2026';
+
 const TW = PORTRAIT
   ? (() => {
       // Les rangees, et les cadres : 1.02 au-dessus d'une rangee (le titre du groupe, puis le nom), 0.66 dessous
@@ -307,8 +311,9 @@ const TW = PORTRAIT
           slides: [C[0], R[0]],
           accents: [C[1], R[0]],
           range: [C[2], R[0]],
-          root: [-1.075, R[1]],
-          scale: [1.075, R[1]],
+          // ROOT et sa legende a gauche, SCALE et ses noms a droite (2026-10-08, des selecteurs a crans)
+          root: [C[0], R[1]],
+          scale: [1.6, R[1]],
           length: [C[0], R[2]],
           accdecay: [C[1], R[2]],
           sweep: [C[2], R[2]],
@@ -320,8 +325,9 @@ const TW = PORTRAIT
           { title: 'GENERATOR', x0: -3.15, z0: R[0] - 1.02, x1: 3.15, z1: R[1] + 0.66, accent: true },
           { title: 'VOICE', x0: -3.15, z0: R[2] - 1.02, x1: 3.15, z1: R[3] + 0.66 },
         ],
-        title: { x0: -3.15, z0: -4.2, x1: 1.0, z1: -3.35, name: 'MM-BASS', sub: 'GENERATOR / VOICE', rev: 'REV 2.0' },
+        title: { x0: -3.15, z0: -4.2, x1: 1.0, z1: -3.35, name: 'MM-BASS', sub: 'GENERATOR / VOICE', rev: BASS_REV },
         infos: { x: 2.2, z: -3.77, w: 1.6, d: 0.5, y: 0.01 },
+        // Portrait : CLOSE est en bas de l'ecran (ui/PcbClose.tsx, index.tsx) ; cette place ne sert pas
         close: { x: 2.2, z: -3.77, w: 1.6, d: 0.5, y: 0.01 },
       };
     })()
@@ -332,11 +338,12 @@ const TW = PORTRAIT
         dims: { cx: 0, cz: 1.25, w: 10.2, d: 3.4 },
         cellW: 1.25,
         at: {
-          slides: [-4.3, A],
-          accents: [-2.8, A],
-          range: [-1.3, A],
-          root: [0.2, A],
-          scale: [1.7, A],
+          // ROOT (sa legende a droite) et SCALE (ses noms autour) prennent plus de place (2026-10-08) : la rangee se resserre
+          slides: [-4.35, A],
+          accents: [-3.25, A],
+          range: [-2.15, A],
+          root: [-1.15, A],
+          scale: [1.35, A],
           length: [-4.15, B],
           accdecay: [-2.5, B],
           sweep: [-0.85, B],
@@ -348,7 +355,7 @@ const TW = PORTRAIT
           { title: 'GENERATOR', x0: -4.95, z0: A - 0.62, x1: 2.3, z1: A + 0.52, accent: true },
           { title: 'VOICE', x0: -4.95, z0: B - 0.62, x1: 4.95, z1: B + 0.52 },
         ],
-        title: { x0: 2.7, z0: A - 0.62, x1: 4.95, z1: A - 0.05, name: 'MM-BASS', sub: 'GENERATOR / VOICE', rev: 'REV 2.0' },
+        title: { x0: 2.7, z0: A - 0.62, x1: 4.95, z1: A - 0.05, name: 'MM-BASS', sub: 'GENERATOR / VOICE', rev: BASS_REV },
         infos: { x: 2.7 + 0.47, z: A + 0.2, w: 0.94, d: 0.25, y: 0.01 },
         close: { x: 4.95 - 0.47, z: A + 0.2, w: 0.94, d: 0.25, y: 0.01 },
       };
@@ -380,7 +387,8 @@ export const BASS_CLOSE_KEY = TW.close;
  * Le cadrage ouvert (renderer, OPEN_VIEW) : la hauteur du dessus de la
  * carte au-dessus du dessus ferme (le fond, la carte sortie et son
  * epaisseur 0.1), le point vise en z (un peu derriere le centre de la
- * carte : le bord du capot leve se devine en haut) et la largeur a tenir,
+ * carte : elle passe sous l'en-tete ; le capot leve est sorti par le haut)
+ * et la largeur a tenir,
  * la carte entiere (debout au telephone).
  */
 export const BASS_OPEN_FRAME = { y: -BASS_LID.t + 0.03 + 0.1, z: PORTRAIT ? 0 : -0.15, w: PORTRAIT ? PCB.d : PCB.w } as const;

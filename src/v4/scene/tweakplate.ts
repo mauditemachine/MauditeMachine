@@ -61,6 +61,7 @@ import { paintLinear } from './materials';
 import { drawTracked, makeCanvasTexture, trackedWidth } from './silk';
 import { HEX, PCB_TURN, PORTRAIT, SILK, TEMPO_UI, boneA } from '../theme';
 import { tweakKind, type TweakGroup, type TweakKind, type TweakPlateSpec, type TweakTitle } from './tweaklayout';
+import type { HotspotDef } from './hit';
 
 type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
 
@@ -73,6 +74,12 @@ type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
  * les pieces et les textes un peu plus grands, les cibles a 0.6 (59 px).
  */
 const U = PORTRAIT ? 1.5 : 1;
+/**
+ * Un ecran desktop a 1x (2026-10-08, la revue : les plus petits textes, bouts
+ * de course, legendes, designateurs, n'avaient que 5 px de capitales) : 10 %
+ * de plus ; a 2x (retina) et au telephone, tels quels.
+ */
+const LOW_DPR = !PORTRAIT && typeof window !== 'undefined' && (window.devicePixelRatio || 1) < 1.5 ? 1.1 : 1;
 export const TWEAK = {
   /** potard de precision : capuchon moletee, chanfrein du dessus, rondelle d'aluminium, son trait */
   knob: { r: 0.175 * U, h: 0.125 * U, lift: 0.03 * U, ridges: 36, ridgeDepth: 0.006 * U, collarR: 0.232 * U, collarH: 0.022 * U, mark: { w: 0.02 * U, len: 0.12 * U } },
@@ -81,7 +88,7 @@ export const TWEAK = {
   /** glissiere : pas entre deux positions (deux crans, trois crans : leurs noms tiennent), boitier, levier, cadre */
   slide: { pitch: { two: 0.21 * U, three: 0.26 * U }, d: 0.15 * U, h: 0.06 * U, lever: { w: 0.08 * U, d: 0.11 * U, h: 0.05 * U }, frame: 0.028 * U },
   /** hauteurs de capitales : nom, petits textes (bouts de course, positions), designateurs, titres des groupes */
-  type: PORTRAIT ? { name: 0.124, small: 0.082, ref: 0.064, group: 0.09, num: 0.064 } : { name: 0.084, small: 0.054, ref: 0.042, group: 0.064, num: 0.042 },
+  type: PORTRAIT ? { name: 0.124, small: 0.082, ref: 0.064, group: 0.09, num: 0.064 } : { name: 0.084, small: 0.054 * LOW_DPR, ref: 0.042 * LOW_DPR, group: 0.064, num: 0.042 * LOW_DPR },
   /** le nom au-dessus du centre d'un reglage, le designateur dessous */
   nameDz: PORTRAIT ? 0.675 : 0.45,
   refDz: PORTRAIT ? 0.575 : 0.4,
@@ -106,8 +113,42 @@ const slidePitch = (n: number): number => (n <= 2 ? TWEAK.slide.pitch.two : TWEA
 /** La longueur du boitier d'une glissiere de n positions. */
 const slideLen = (n: number): number => slidePitch(n) * (n - 1) + TWEAK.slide.lever.w + 0.08 * U;
 
-/** Les cotes d'une legende (selecteur aux noms longs) : trois rangees, des colonnes. */
-const LEGEND = { rows: 3, pitch: 0.118 * U, gap: 0.2 * U, colGap: 0.13 * U, numW: 0.085 * U } as const;
+/**
+ * Les cotes d'une legende (selecteur aux noms longs) : trois rangees, des
+ * colonnes ; quand elles ne tiennent plus jusqu'au reglage voisin (ou au
+ * cadre du groupe), une rangee de plus a la fois jusqu'a sept (span : leur
+ * hauteur au plus), puis des noms plus petits (minScale, jamais moins :
+ * lisibles), puis chaque nom abrege a sa colonne (un point a la fin)
+ * (2026-10-08, la revue : la lane R3 ajoute des echantillons, la legende ne
+ * deborde jamais). dotW : la place du point orange apres le nom choisi.
+ */
+const LEGEND = { rows: 3, maxRows: 7, pitch: 0.118 * U, span: 0.5 * U, gap: 0.2 * U, colGap: 0.13 * U, numW: 0.085 * U, dotW: 0.075 * U, minScale: 0.8 } as const;
+
+/** Le nom d'une position de legende : le sien, sinon un tiret (un echantillon sans nom). */
+const legendName = (steps: readonly string[], k: number): string => steps[k] || '-';
+/** La colonne des numeros d'une legende : plus large a deux chiffres (10 et plus). */
+const legendNumW = (n: number): number => LEGEND.numW + (n >= 10 ? 0.035 * U : 0);
+
+/** La mise en page d'une legende : ses rangees, leur pas, ses colonnes (x depuis le debut, largeur), l'echelle des noms. */
+interface LegendLayout {
+  rows: number;
+  pitch: number;
+  cols: { x: number; w: number }[];
+  scale: number;
+  /** largeur max d'un nom (unites), Infinity : libre */
+  nameMax: number;
+  width: number;
+}
+
+/** Une legende sur sa propre petite texture : son cran allume se redessine seul (la serigraphie entiere ne remonte pas). */
+interface Overlay {
+  canvas: HTMLCanvasElement;
+  ctx: Ctx;
+  texture: CanvasTexture;
+  mesh: Mesh;
+  x0: number;
+  z0: number;
+}
 
 /* ---------------- geometries ---------------- */
 
@@ -170,7 +211,11 @@ function knobGeometry(mobile: boolean): BufferGeometry {
   top.translate(0, K.lift + K.h + 0.02 * U, 0);
   const mark = new BoxGeometry(K.mark.w, 0.004, K.mark.len);
   mark.translate(0, K.lift + K.h + 0.02 * U + 0.002, -K.r * 0.82 + K.mark.len / 2 + 0.008);
-  return merge([flat(body, RGB.cap), flat(bevel, RGB.capTop), flat(top, RGB.capTop), flat(mark, RGB.mark)], 'knob');
+  // Le trait descend aussi la jupe (2026-10-08, la revue : vu de face, le trait du dessus d'un capuchon haut
+  // se lisait un demi-cran a cote ; sur la jupe, il tombe sur son cran). Dans le creux d'une strie, a fleur.
+  const skirt = new BoxGeometry(K.mark.w * 0.9, K.h * 0.9, 0.012 * U);
+  skirt.translate(0, K.lift + K.h * 0.5, -(K.r - K.ridgeDepth - 0.0005));
+  return merge([flat(body, RGB.cap), flat(bevel, RGB.capTop), flat(top, RGB.capTop), flat(mark, RGB.mark), flat(skirt, RGB.mark)], 'knob');
 }
 
 /** La rondelle d'aluminium sous un capuchon (ronde : elle peut tourner avec lui). */
@@ -241,7 +286,12 @@ export class TweakPlate {
   private silk: Mesh;
   private texture: CanvasTexture;
   private canvas: HTMLCanvasElement;
+  /** le contexte de la serigraphie */
+  private main: Ctx;
+  /** la cible du dessin en cours (la serigraphie ou la texture d'une legende) et son origine (unites du repere de top) */
   private ctx: Ctx;
+  private ox: number;
+  private oz: number;
   private W: number;
   private H: number;
   private knobMat: MeshStandardMaterial;
@@ -253,12 +303,22 @@ export class TweakPlate {
   private value: Float32Array;
   /** le cran allume de chaque legende (-1 : aucun) */
   private lit: Int16Array;
+  /** la mise en page de chaque legende (mesuree au dernier dessin : les polices) */
+  private layouts: (LegendLayout | null)[];
+  /** la petite texture de chaque legende */
+  private overlays: (Overlay | null)[];
+  private anisotropy: number;
+  /** les cibles du picking, une par reglage dans l'ordre (hotspots() des machines) : elles suivent la mise en page */
+  private defs: HotspotDef[] = [];
+  /** dessins de la serigraphie entiere ; d'une legende seule */
   draws = 0;
+  litDraws = 0;
 
   constructor(spec: TweakPlateSpec, opts: { mobile: boolean; anisotropy: number }) {
     this.spec = spec;
     const P = spec.dims;
     const n = spec.items.length;
+    this.anisotropy = opts.anisotropy;
     this.group.name = spec.name;
     this.group.position.set(P.cx, 0, P.cz);
     this.group.rotation.y = -PCB_TURN;
@@ -268,6 +328,8 @@ export class TweakPlate {
     this.angle = new Float32Array(n);
     this.value = new Float32Array(n).fill(-1);
     this.lit = new Int16Array(n).fill(-1);
+    this.layouts = spec.items.map(() => null);
+    this.overlays = spec.items.map(() => null);
 
     // Plastique satine (les capuchons), aluminium (rondelles, cadres, leviers)
     this.knobMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.46, metalness: 0.12 });
@@ -300,20 +362,14 @@ export class TweakPlate {
     this.canvas.height = this.H;
     const ctx = this.canvas.getContext('2d');
     if (!ctx) throw new Error('tweaks: no 2d context');
-    this.ctx = ctx as Ctx;
+    this.main = ctx as Ctx;
+    this.ctx = this.main;
+    this.ox = -P.w / 2;
+    this.oz = -P.d / 2;
     this.texture = makeCanvasTexture(this.canvas, opts.anisotropy);
     const geo = new PlaneGeometry(P.w, P.d);
     geo.rotateX(-Math.PI / 2);
-    const mat = new MeshStandardMaterial({
-      map: this.texture,
-      transparent: true,
-      depthWrite: false,
-      polygonOffset: true,
-      polygonOffsetFactor: -2,
-      polygonOffsetUnits: -2,
-      roughness: 0.62,
-      metalness: 0,
-    });
+    const mat = this.silkMaterial(this.texture, -2);
     mat.name = `${spec.name}Silk`;
     this.silk = new Mesh(geo, mat);
     this.silk.name = `${spec.name}Silk`;
@@ -321,7 +377,22 @@ export class TweakPlate {
     this.silk.renderOrder = 1;
 
     this.top.add(this.silk, this.slides, this.collars, this.knobs, this.levers);
+    this.buildOverlays();
     this.draw();
+  }
+
+  /** Le vernis serigraphie (transparent, sans ecriture de profondeur, tire vers la camera). */
+  private silkMaterial(map: CanvasTexture, offset: number): MeshStandardMaterial {
+    return new MeshStandardMaterial({
+      map,
+      transparent: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: offset,
+      polygonOffsetUnits: offset,
+      roughness: 0.62,
+      metalness: 0,
+    });
   }
 
   /** Les boitiers des glissieres, fusionnes a leur place (refaits si un genre change). */
@@ -341,7 +412,120 @@ export class TweakPlate {
     return merge(parts, 'slides');
   }
 
-  /** Les crans d'un reglage ont change (RytmTweaks.sync : les echantillons arrivent) : genres, pieces, serigraphie. */
+  /**
+   * La place de la legende d'un reglage (unites) : de la droite de son
+   * capuchon jusqu'au reglage voisin de la meme rangee (sa cible) ou au cadre
+   * de son groupe, la plus proche ; ne depend que des places (pas des polices).
+   */
+  private legendMax(i: number): number {
+    const it = this.spec.items[i];
+    const x0 = it.x + TWEAK.arc.r + LEGEND.gap;
+    const half = this.spec.cellW / 2;
+    let lim = this.spec.dims.w / 2 - 0.12 * U;
+    for (const g of this.spec.groups) if (it.x > g.x0 && it.x < g.x1 && it.z > g.z0 && it.z < g.z1) lim = Math.min(lim, g.x1 - 0.12 * U);
+    const t = this.spec.title;
+    if (t && it.z > t.z0 - 0.3 * U && it.z < t.z1 + 0.3 * U && t.x0 > it.x) lim = Math.min(lim, t.x0 - 0.12 * U);
+    this.spec.items.forEach((o, j) => {
+      if (j === i || o.x <= it.x || Math.abs(o.z - it.z) > 0.3 * U) return;
+      const k = this.kinds[j];
+      // Son bord gauche : sa cible (un potard), son boitier (une glissiere), ses noms (un selecteur), son capuchon (une legende)
+      const left =
+        k === 'slide'
+          ? Math.max(TWEAK.hitMin, slidePitch(o.steps?.length ?? 2) * ((o.steps?.length ?? 2) - 1) / 2 + 0.22 * U)
+          : k === 'select'
+            ? Math.max(TWEAK.hit, 0.6 * U)
+            : k === 'legend'
+              ? TWEAK.arc.r + 0.08 * U
+              : Math.min(TWEAK.hit, half);
+      lim = Math.min(lim, o.x - left - 0.08 * U);
+    });
+    return Math.max(0.3 * U, lim - x0);
+  }
+
+  /** Mise en page d'une legende : trois rangees, sinon plus (cinq au plus), puis des noms plus petits, puis tenus. */
+  private legendLayout(i: number): LegendLayout {
+    const steps = this.spec.items[i].steps ?? [];
+    const n = steps.length;
+    const T = TWEAK.type;
+    const maxW = this.legendMax(i);
+    const nameW = steps.map((_, k) => this.text(legendName(steps, k), 0, 0, T.small, { measure: true }));
+    const numW = legendNumW(n);
+    const build = (rows: number, scale: number, nameMax: number): LegendLayout => {
+      const cols: { x: number; w: number }[] = [];
+      let x = 0;
+      for (let c = 0; c * rows < n; c += 1) {
+        let w = 0;
+        for (let r = 0; r < rows && c * rows + r < n; r += 1) w = Math.max(w, numW + Math.min(nameW[c * rows + r] * scale, nameMax) + LEGEND.dotW);
+        if (c > 0) x += LEGEND.colGap;
+        cols.push({ x, w });
+        x += w;
+      }
+      const pitch = rows > 1 ? Math.min(LEGEND.pitch, LEGEND.span / (rows - 1)) : LEGEND.pitch;
+      return { rows, pitch, cols, scale, nameMax, width: x };
+    };
+    // Des colonnes egales : n rangees donnent c colonnes, puis le moins de rangees pour ces c colonnes (13 : 5, 5, 3, pas 6, 6, 1)
+    const even = (rows: number): number => Math.ceil(n / Math.ceil(n / rows));
+    let L = build(even(LEGEND.rows), 1, Infinity);
+    for (let rows = LEGEND.rows + 1; L.width > maxW && rows <= LEGEND.maxRows; rows += 1) L = build(even(rows), 1, Infinity);
+    if (L.width <= maxW) return L;
+    // Des noms plus petits, jusqu'a minScale
+    const fixed = (L.cols.length - 1) * LEGEND.colGap + L.cols.length * (numW + LEGEND.dotW);
+    const scale = Math.max(LEGEND.minScale, Math.min(1, (maxW - fixed) / Math.max(1e-6, L.width - fixed)));
+    L = build(L.rows, scale, Infinity);
+    if (L.width <= maxW) return L;
+    // Chaque nom tenu dans sa colonne : la legende ne deborde jamais
+    const per = (maxW - (L.cols.length - 1) * LEGEND.colGap) / L.cols.length - numW - LEGEND.dotW;
+    return build(L.rows, scale, Math.max(0.05 * U, per));
+  }
+
+  /** Les legendes : leur mise en page (les polices du moment). */
+  private layoutLegends(): void {
+    this.spec.items.forEach((_, i) => {
+      this.layouts[i] = this.kinds[i] === 'legend' ? this.legendLayout(i) : null;
+    });
+  }
+
+  /** La petite texture de chaque legende : sa place la plus grande (legendMax), refaite quand les genres changent. */
+  private buildOverlays(): void {
+    for (const o of this.overlays) if (o) this.disposeOverlay(o);
+    const A = TWEAK.arc;
+    this.overlays = this.spec.items.map((it, i) => {
+      if (this.kinds[i] !== 'legend') return null;
+      const m = A.r + A.num + 0.07 * U;
+      const x0 = it.x - m;
+      const x1 = it.x + A.r + LEGEND.gap + this.legendMax(i) + 0.03 * U;
+      const hz = Math.max(m, LEGEND.span / 2 + TWEAK.type.small);
+      const w = x1 - x0;
+      const d = 2 * hz;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(w * TWEAK.ppu));
+      canvas.height = Math.max(1, Math.round(d * TWEAK.ppu));
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('tweaks: no 2d context');
+      const texture = makeCanvasTexture(canvas, this.anisotropy);
+      const geo = new PlaneGeometry(w, d);
+      geo.rotateX(-Math.PI / 2);
+      const mat = this.silkMaterial(texture, -3);
+      mat.name = `${this.spec.name}Legend`;
+      const mesh = new Mesh(geo, mat);
+      mesh.name = `${this.spec.name}Legend${i}`;
+      mesh.position.set(x0 + w / 2, 0.0025, it.z);
+      mesh.renderOrder = 2;
+      this.top.add(mesh);
+      return { canvas, ctx: ctx as Ctx, texture, mesh, x0, z0: it.z - hz };
+    });
+  }
+
+  private disposeOverlay(o: Overlay): void {
+    this.top.remove(o.mesh);
+    o.mesh.geometry.dispose();
+    (o.mesh.material as MeshStandardMaterial).dispose();
+    o.texture.dispose();
+    o.canvas.width = 0;
+    o.canvas.height = 0;
+  }
+
+  /** Les crans d'un reglage ont change (RytmTweaks.sync : les echantillons arrivent) : genres, pieces, legendes. */
   protected restep(): void {
     const kinds = this.spec.items.map((it) => tweakKind(it));
     const moved = kinds.some((k, i) => k !== this.kinds[i]);
@@ -349,7 +533,9 @@ export class TweakPlate {
     if (moved) {
       this.slides.geometry.dispose();
       this.slides.geometry = this.slidesGeometry();
+      this.buildOverlays();
     }
+    this.layoutLegends();
     for (let i = 0; i < this.spec.items.length; i += 1) {
       const v = this.value[i];
       this.value[i] = -1;
@@ -404,12 +590,12 @@ export class TweakPlate {
     this.value[i] = c;
     const a = Math.fround(potAngle(c) * (n > 0 ? switchThrowDeg(n) / TEMPO_UI.sweepDeg : 1));
     let changed = false;
-    // Une legende : le cran choisi s'allume (la serigraphie se redessine, a chaque cran seulement)
+    // Une legende : le cran choisi s'allume (sa petite texture seule se redessine, a chaque cran seulement)
     if (kind === 'legend') {
       const step = Math.round(c * (n - 1));
       if (step !== this.lit[i]) {
         this.lit[i] = step;
-        this.draw();
+        this.drawLit(i);
         changed = true;
       }
     }
@@ -431,22 +617,51 @@ export class TweakPlate {
       return { shape: 'box', x: it.x, z: it.z - 0.08 * U, hx, hz: Math.max(TWEAK.hitMin, 0.3 * U), y1 };
     }
     if (kind === 'legend') {
-      const w = this.legendWidth(i);
+      // La legende mesuree (bornee a sa place : elle ne mord jamais sur le reglage voisin)
+      const L = this.layouts[i];
+      const w = Math.min(L ? L.width : this.legendMax(i), this.legendMax(i));
       const x0 = it.x - TWEAK.arc.r - 0.08 * U;
       const x1 = it.x + TWEAK.arc.r + LEGEND.gap + w;
-      return { shape: 'box', x: (x0 + x1) / 2, z: it.z, hx: (x1 - x0) / 2, hz: Math.max(TWEAK.hitMin, 0.36 * U), y1 };
+      const hz = Math.max(TWEAK.hitMin, 0.36 * U, L ? ((L.rows - 1) * L.pitch) / 2 + L.pitch : 0);
+      return { shape: 'box', x: (x0 + x1) / 2, z: it.z, hx: (x1 - x0) / 2, hz, y1 };
     }
     return { shape: 'disc', x: it.x, z: it.z, hx: Math.min(TWEAK.hit, half), hz: Math.min(TWEAK.hit, half), y1 };
+  }
+
+  /**
+   * Retient les cibles du picking (une par reglage, dans l'ordre) : elles
+   * suivront la mise en page (legendes, polices). Celles que la scene
+   * enregistre : un rig qui les recopie (sa machine) rappelle track sur ses
+   * copies.
+   */
+  track(defs: HotspotDef[]): HotspotDef[] {
+    this.defs = defs;
+    this.refit();
+    return defs;
+  }
+
+  /** Les cibles suivent la mise en page ; scene/hit.ts les reprojette d'elle-meme (leur forme est dans sa signature). */
+  private refit(): void {
+    this.defs.forEach((d, i) => {
+      if (!this.spec.items[i]) return;
+      const h = this.hitOf(i);
+      d.shape = h.shape;
+      d.x = h.x;
+      d.z = h.z;
+      d.hx = h.hx;
+      d.hz = h.hz;
+      d.y1 = h.y1;
+    });
   }
 
   /* ---------- la serigraphie ---------- */
 
   private X(x: number): number {
-    return (x + this.spec.dims.w / 2) * TWEAK.ppu;
+    return (x - this.ox) * TWEAK.ppu;
   }
 
   private Y(z: number): number {
-    return (z + this.spec.dims.d / 2) * TWEAK.ppu;
+    return (z - this.oz) * TWEAK.ppu;
   }
 
   /** Un texte centre (ou aligne) sur (x, z), z au milieu des capitales ; cap : leur hauteur (unites). Rend sa largeur (unites). */
@@ -529,29 +744,27 @@ export class TweakPlate {
     ctx.closePath();
   }
 
-  /** La largeur d'une legende (unites) : ses colonnes. */
-  private legendWidth(i: number): number {
-    const it = this.spec.items[i];
-    const steps = it.steps ?? [];
-    const T = TWEAK.type;
-    let w = 0;
-    for (let c = 0; c * LEGEND.rows < steps.length; c += 1) {
-      let cw = 0;
-      for (let r = 0; r < LEGEND.rows; r += 1) {
-        const k = c * LEGEND.rows + r;
-        if (k >= steps.length) break;
-        cw = Math.max(cw, LEGEND.numW + this.text(steps[k] || String(k + 1), 0, 0, T.small, { measure: true }));
-      }
-      w += cw + (c > 0 ? LEGEND.colGap : 0);
-    }
-    return w;
-  }
-
-  /** Les designateurs : VR1, VR2... pour les potards, SW1... pour les commutateurs, dans l'ordre. */
+  /**
+   * Les designateurs, un seul jeu par carte (2026-10-08, la revue) : RV pour
+   * les potards, a la suite des trimmers de la carte (refStart), SW pour les
+   * commutateurs.
+   */
   private refs(): string[] {
-    let vr = 0;
+    let rv = (this.spec.refStart ?? 1) - 1;
     let sw = 0;
-    return this.spec.items.map((it, i) => it.ref ?? (this.kinds[i] === 'pot' ? `VR${(vr += 1)}` : `SW${(sw += 1)}`));
+    // Dans l'ordre de lecture de la carte : rangee par rangee, de gauche a droite (RV5, RV6... sans saut)
+    const row = (z: number): number => Math.round(z / (0.5 * U));
+    const order = this.spec.items.map((_, i) => i).sort((a, b) => {
+      const A = this.spec.items[a];
+      const B = this.spec.items[b];
+      return row(A.z) - row(B.z) || A.x - B.x;
+    });
+    const out: string[] = [];
+    for (const i of order) {
+      const it = this.spec.items[i];
+      out[i] = it.ref ?? (this.kinds[i] === 'pot' ? `RV${(rv += 1)}` : `SW${(sw += 1)}`);
+    }
+    return out;
   }
 
   private drawGroup(g: TweakGroup): void {
@@ -592,8 +805,9 @@ export class TweakPlate {
     this.stroke(TWEAK.ink.line);
     this.line(t.x0 + pad, zRule, t.x1 - pad, zRule);
     const zSub = zRule + 0.07 * U + T.small / 2;
-    this.text(t.sub, t.x0 + pad, zSub, T.small, { align: 'left', alpha: 0.82, maxW: w * 0.66 });
-    this.text(t.rev, t.x1 - pad, zSub, T.small * 0.86, { align: 'right', alpha: TWEAK.ink.small });
+    const sw = this.text(t.sub, t.x0 + pad, zSub, T.small, { align: 'left', alpha: 0.82, maxW: w * 0.66 });
+    // La revision tient dans ce qui reste (un cartouche etroit, le MM-ARP debout : elle ne mord plus sur la ligne)
+    this.text(t.rev, t.x1 - pad, zSub, T.small * 0.86, { align: 'right', alpha: TWEAK.ink.small, maxW: Math.max(0.2 * U, w - sw - 0.12 * U) });
   }
 
   private drawPot(i: number, ref: string): void {
@@ -634,60 +848,97 @@ export class TweakPlate {
     this.text(ref, it.x, it.z + TWEAK.refDz, T.ref, { alpha: TWEAK.ink.ref });
   }
 
-  /** Les crans d'un selecteur : un trait par position et son numero (legende) ou son nom (court). */
-  private drawSelect(i: number, ref: string, legend: boolean): void {
+  /**
+   * Un selecteur aux noms courts : un trait par cran et son nom, a droite, a
+   * gauche ou au-dessus selon l'angle. Un nom au-dessus (le cran du milieu,
+   * 7TH de CHORD) : le nom du reglage monte au-dessus de lui (2026-10-08, la
+   * revue : ils se touchaient).
+   */
+  private drawSelect(i: number, ref: string): void {
     const it = this.spec.items[i];
     const steps = it.steps ?? [];
     const n = steps.length;
     const T = TWEAK.type;
     const A = TWEAK.arc;
-    this.text(it.label, it.x, it.z - TWEAK.nameDz, T.name, { weight: 600, alpha: TWEAK.ink.name, maxW: this.spec.cellW * (legend ? 0.6 : 0.94) });
+    const r = A.r + A.tick + 0.05 * U;
+    let top = Infinity;
     for (let k = 0; k < n; k += 1) {
       const a = stepDeg(k, n);
-      const on = legend && k === this.lit[i];
+      const c = Math.cos((a * Math.PI) / 180);
+      const s = Math.sin((a * Math.PI) / 180);
+      this.stroke(TWEAK.ink.line, TWEAK.hair * 1.3);
+      this.ray(it.x, it.z, a, A.r - 0.02 * U, A.r + A.tick);
+      const align = c > 0.3 ? 'left' : c < -0.3 ? 'right' : 'center';
+      const dz = s < -0.3 ? T.small * 0.6 : s > 0.3 ? -T.small * 0.4 : 0;
+      const z = it.z - s * r + dz;
+      if (align === 'center' && s > 0) top = Math.min(top, z - T.small / 2);
+      this.text(steps[k], it.x + c * r, z, T.small, { align, alpha: TWEAK.ink.small, orange: k === it.stepOrange, tracking: 0.12 });
+    }
+    const zName = Math.min(it.z - TWEAK.nameDz, top - 0.05 * U - T.name / 2);
+    this.text(it.label, it.x, zName, T.name, { weight: 600, alpha: TWEAK.ink.name, maxW: this.spec.cellW * 0.94 });
+    this.text(ref, it.x, it.z + TWEAK.refDz, T.ref, { alpha: TWEAK.ink.ref });
+  }
+
+  /** Un selecteur a legende, sur la serigraphie : son nom et son designateur (le reste sur sa petite texture, drawLit). */
+  private drawLegendName(i: number, ref: string): void {
+    const it = this.spec.items[i];
+    const T = TWEAK.type;
+    this.text(it.label, it.x, it.z - TWEAK.nameDz, T.name, { weight: 600, alpha: TWEAK.ink.name, maxW: this.spec.cellW * 0.6 });
+    this.text(ref, it.x, it.z + TWEAK.refDz, T.ref, { alpha: TWEAK.ink.ref });
+  }
+
+  /** Un selecteur a legende, sur sa petite texture : ses crans numerotes et la legende, le cran choisi allume. */
+  private drawLegend(i: number): void {
+    const it = this.spec.items[i];
+    const steps = it.steps ?? [];
+    const n = steps.length;
+    const T = TWEAK.type;
+    const A = TWEAK.arc;
+    const L = this.layouts[i] ?? this.legendLayout(i);
+    const numW = legendNumW(n);
+    const ctx = this.ctx;
+    for (let k = 0; k < n; k += 1) {
+      const a = stepDeg(k, n);
+      const on = k === this.lit[i];
       this.stroke(on ? 1 : TWEAK.ink.line, TWEAK.hair * (on ? 1.8 : 1.3));
       this.ray(it.x, it.z, a, A.r - 0.02 * U, A.r + A.tick);
       const c = Math.cos((a * Math.PI) / 180);
       const s = Math.sin((a * Math.PI) / 180);
-      if (legend) {
-        const r = A.r + A.num;
-        this.text(String(k + 1), it.x + c * r, it.z - s * r, T.num, { weight: on ? 700 : 600, alpha: on ? 1 : TWEAK.ink.small, tracking: 0 });
-        continue;
-      }
-      // Un nom court a son cran : a droite, a gauche ou au-dessus selon l'angle
-      const r = A.r + A.tick + 0.05 * U;
-      const align = c > 0.3 ? 'left' : c < -0.3 ? 'right' : 'center';
-      const dz = s < -0.3 ? T.small * 0.6 : s > 0.3 ? -T.small * 0.4 : 0;
-      this.text(steps[k], it.x + c * r, it.z - s * r + dz, T.small, { align, alpha: TWEAK.ink.small, orange: k === it.stepOrange, tracking: 0.12 });
+      const rr = A.r + A.num;
+      this.text(String(k + 1), it.x + c * rr, it.z - s * rr, T.num, { weight: on ? 700 : 600, alpha: on ? 1 : TWEAK.ink.small, tracking: 0 });
     }
-    if (legend) {
-      // La legende a droite : trois rangees, des colonnes ; le cran choisi en blanc plein, un point devant
-      const x0 = it.x + A.r + LEGEND.gap;
-      const z0 = it.z - LEGEND.pitch;
-      let cx = x0;
-      for (let c = 0; c * LEGEND.rows < n; c += 1) {
-        let cw = 0;
-        for (let r = 0; r < LEGEND.rows; r += 1) {
-          const k = c * LEGEND.rows + r;
-          if (k >= n) break;
-          const on = k === this.lit[i];
-          const z = z0 + r * LEGEND.pitch;
-          this.text(String(k + 1), cx, z, T.num, { align: 'left', alpha: on ? 1 : TWEAK.ink.ref, tracking: 0, weight: on ? 700 : 600 });
-          const w = this.text(steps[k] || '-', cx + LEGEND.numW, z, T.small, { align: 'left', alpha: on ? 1 : 0.8, weight: on ? 700 : 600, orange: on && k === it.stepOrange });
-          if (on) {
-            const ctx = this.ctx;
-            ctx.fillStyle = HEX.orange;
-            const d = 0.028 * U;
-            ctx.beginPath();
-            ctx.arc(this.X(cx + LEGEND.numW + w + 0.05 * U), this.Y(z), d * TWEAK.ppu * 0.5, 0, Math.PI * 2);
-            ctx.fill();
-          }
-          cw = Math.max(cw, LEGEND.numW + w + 0.06 * U);
+    // La legende a droite : ses rangees, ses colonnes ; le cran choisi en blanc plein, un point orange apres lui
+    const x0 = it.x + A.r + LEGEND.gap;
+    const z0 = it.z - ((L.rows - 1) * L.pitch) / 2;
+    const cap = T.small * L.scale;
+    L.cols.forEach((col, c) => {
+      for (let r = 0; r < L.rows; r += 1) {
+        const k = c * L.rows + r;
+        if (k >= n) break;
+        const on = k === this.lit[i];
+        const z = z0 + r * L.pitch;
+        const cx = x0 + col.x;
+        this.text(String(k + 1), cx, z, T.num, { align: 'left', alpha: on ? 1 : TWEAK.ink.ref, tracking: 0, weight: on ? 700 : 600 });
+        const name = Number.isFinite(L.nameMax) ? this.abbrev(legendName(steps, k), cap, L.nameMax, on ? 700 : 600) : legendName(steps, k);
+        const w = this.text(name, cx + numW, z, cap, { align: 'left', alpha: on ? 1 : 0.8, weight: on ? 700 : 600, orange: on && k === it.stepOrange });
+        if (on) {
+          ctx.fillStyle = HEX.orange;
+          ctx.beginPath();
+          ctx.arc(this.X(cx + numW + w + 0.05 * U), this.Y(z), 0.014 * U * TWEAK.ppu, 0, Math.PI * 2);
+          ctx.fill();
         }
-        cx += cw + LEGEND.colGap;
       }
+    });
+  }
+
+  /** Un nom abrege a maxW (unites) : des lettres en moins et un point, comme sur une serigraphie (TECHNO RUMB.). */
+  private abbrev(t: string, cap: number, maxW: number, weight: number): string {
+    if (this.text(t, 0, 0, cap, { weight, measure: true }) <= maxW) return t;
+    for (let n = t.length - 1; n >= 2; n -= 1) {
+      const a = `${t.slice(0, n).trimEnd()}.`;
+      if (this.text(a, 0, 0, cap, { weight, measure: true }) <= maxW) return a;
     }
-    this.text(ref, it.x, it.z + TWEAK.refDz, T.ref, { alpha: TWEAK.ink.ref });
+    return `${t.slice(0, 2)}.`;
   }
 
   /** Une glissiere : le contour du boitier, un repere et le nom de chaque position au-dessus. */
@@ -715,34 +966,68 @@ export class TweakPlate {
     this.text(ref, it.x, it.z + TWEAK.refDz, T.ref, { alpha: TWEAK.ink.ref });
   }
 
-  /** La serigraphie : ombres de contact, cadres des groupes, cartouche, chaque reglage. */
-  draw(): void {
-    const ctx = this.ctx;
+  /** Dessine dans ctx (origine ox, oz : le coin haut gauche, unites du repere de top). */
+  private into(ctx: Ctx, ox: number, oz: number, fn: () => void): void {
+    const prev = { ctx: this.ctx, ox: this.ox, oz: this.oz };
+    this.ctx = ctx;
+    this.ox = ox;
+    this.oz = oz;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, this.W, this.H);
     ctx.textBaseline = 'alphabetic';
     ctx.lineCap = 'butt';
     ctx.lineJoin = 'round';
-    const K = TWEAK.knob;
-    const S = TWEAK.slide;
-    // Les ombres d'abord (sous l'encre)
-    this.spec.items.forEach((it, i) => {
-      if (this.kinds[i] === 'slide') {
-        const L = slideLen(it.steps?.length ?? 2);
-        this.shade(it.x, it.z + 0.02 * U, L / 2 + 0.07 * U, S.d / 2 + 0.07 * U, 0.4);
-      } else this.shade(it.x, it.z + 0.025 * U, K.collarR * 1.35, K.collarR * 1.3, 0.5);
+    try {
+      fn();
+    } finally {
+      this.ctx = prev.ctx;
+      this.ox = prev.ox;
+      this.oz = prev.oz;
+    }
+  }
+
+  /** La petite texture d'une legende : effacee, redessinee, remontee seule (quelques dizaines de ko). */
+  private drawLit(i: number): void {
+    const o = this.overlays[i];
+    if (!o) return;
+    this.into(o.ctx, o.x0, o.z0, () => {
+      o.ctx.clearRect(0, 0, o.canvas.width, o.canvas.height);
+      this.drawLegend(i);
     });
-    for (const g of this.spec.groups) this.drawGroup(g);
-    if (this.spec.title) this.drawTitle(this.spec.title);
-    const refs = this.refs();
-    this.spec.items.forEach((_, i) => {
-      const k = this.kinds[i];
-      if (k === 'pot') this.drawPot(i, refs[i]);
-      else if (k === 'slide') this.drawSlide(i, refs[i]);
-      else this.drawSelect(i, refs[i], k === 'legend');
+    o.texture.needsUpdate = true;
+    this.litDraws += 1;
+  }
+
+  /** La serigraphie : ombres de contact, cadres des groupes, cartouche, chaque reglage ; puis les legendes et les cibles. */
+  draw(): void {
+    const P = this.spec.dims;
+    this.layoutLegends();
+    this.into(this.main, -P.w / 2, -P.d / 2, () => {
+      const ctx = this.ctx;
+      ctx.clearRect(0, 0, this.W, this.H);
+      const K = TWEAK.knob;
+      const S = TWEAK.slide;
+      // Les ombres d'abord (sous l'encre)
+      this.spec.items.forEach((it, i) => {
+        if (this.kinds[i] === 'slide') {
+          const L = slideLen(it.steps?.length ?? 2);
+          this.shade(it.x, it.z + 0.02 * U, L / 2 + 0.07 * U, S.d / 2 + 0.07 * U, 0.4);
+        } else this.shade(it.x, it.z + 0.025 * U, K.collarR * 1.35, K.collarR * 1.3, 0.5);
+      });
+      for (const g of this.spec.groups) this.drawGroup(g);
+      if (this.spec.title) this.drawTitle(this.spec.title);
+      const refs = this.refs();
+      this.spec.items.forEach((_, i) => {
+        const k = this.kinds[i];
+        if (k === 'pot') this.drawPot(i, refs[i]);
+        else if (k === 'slide') this.drawSlide(i, refs[i]);
+        else if (k === 'legend') this.drawLegendName(i, refs[i]);
+        else this.drawSelect(i, refs[i]);
+      });
     });
     this.draws += 1;
     this.texture.needsUpdate = true;
+    this.spec.items.forEach((_, i) => this.drawLit(i));
+    this.refit();
   }
 
   /** Les angles des capuchons (deg) ; une glissiere : sa position (0, 1, 2). */
@@ -750,6 +1035,11 @@ export class TweakPlate {
     return this.spec.items.map((it, i) =>
       this.kinds[i] === 'slide' ? Math.round(Math.max(0, this.value[i]) * ((it.steps?.length ?? 2) - 1)) : +((this.angle[i] * 180) / Math.PI).toFixed(2)
     );
+  }
+
+  /** Revue : la mise en page des legendes (rangees, largeur, echelle des noms). */
+  legendInfo(): ({ rows: number; width: number; scale: number; max: number } | null)[] {
+    return this.layouts.map((L, i) => (L ? { rows: L.rows, width: +L.width.toFixed(3), scale: +L.scale.toFixed(3), max: +this.legendMax(i).toFixed(3) } : null));
   }
 
   dispose(): void {
@@ -763,6 +1053,8 @@ export class TweakPlate {
     this.collars.dispose();
     this.levers.dispose();
     this.texture.dispose();
+    for (const o of this.overlays) if (o) this.disposeOverlay(o);
+    this.overlays = [];
     this.canvas.width = 0;
     this.canvas.height = 0;
   }

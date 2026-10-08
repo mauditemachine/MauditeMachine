@@ -1520,9 +1520,16 @@ export const EXPLODE = {
   ms: 900,
   staggerMs: 80,
   /** desktop (2026-10-03) : plus haut et plus loin, la rangee des pages au milieu de la carte se voit en entier */
-  lift: PORTRAIT ? 6.3 : 5.0,
-  /** desktop 2026-10-08 : -3.9 -> -5.2, le cadrage ouvert est moins zoome : seul le bord du capot leve se devine en haut */
-  slideZ: PORTRAIT ? -3.6 : -5.2,
+  lift: PORTRAIT ? 7.5 : 5.0,
+  /**
+   * 2026-10-08 (revue de l'OPEN moins zoome) : le capot leve sort tout entier
+   * du cadre ouvert, au-dessus du haut de l'ecran (desktop 1440 x 900 : 84 px
+   * au-dessus ; telephone 390 x 844 : 40 px), plus rien de lui sous l'en-tete
+   * translucide ; avant, son bord avant y passait. Portrait : 6.3 / -3.6 ->
+   * 7.5 / -7.4 ; desktop -3.9 -> -6.4. Ses commandes ne repondent plus
+   * capot ouvert (renderer.ts syncChips).
+   */
+  slideZ: PORTRAIT ? -7.4 : -6.4,
   tiltOpenDeg: PORTRAIT ? -60 : -24,
   pcbRise: 0.9,
   /**
@@ -1556,12 +1563,13 @@ export const EXPLODE = {
  *
  * 2026-10-08 (Mika : "deja c'est super zoome") : on regarde toujours dans
  * la machine, mais comme un objet : la carte entiere (ses bords, ses vis),
- * a 70 % de la largeur au desktop, le bord du capot leve qui se devine en
- * haut, une marge calme autour, rien sous l'en-tete ; au telephone aussi
+ * a 70 % de la largeur au desktop, une marge calme autour, rien sous
+ * l'en-tete (le capot leve sort du cadre par le haut, EXPLODE, et les
+ * voisines par les cotes, renderer.ts placeNeighbors) ; au telephone aussi
  * (la carte debout, 86 % de la largeur). fill : la part de la largeur que
  * prend la carte (sa largeur vue, divisee par fill) ; h : la hauteur que le
- * cadrage garde (la carte et le bord du capot). Le pivot va un peu derriere
- * le centre de la carte ouverte (y, z du monde, l'open* de chaque machine).
+ * cadrage garde. Le pivot va un peu derriere le centre de la carte ouverte
+ * (y, z du monde, l'open* de chaque machine).
  */
 export const OPEN_VIEW = {
   fill: PORTRAIT ? 0.86 : 0.7,

@@ -203,7 +203,8 @@ const FOCUS_MS = 450;
  * Le bout de la voisine (desktop) : son bord a px du bord de l'ecran (52 px depuis le 2026-10-07,
  * Mika : "en voyant la machine de droite pour qu'on puisse cliquer dessus et switcher rapidement").
  */
-const PEEK = { px: 52, hoverPx: 40, ms: 180, gap: 0.6 } as const;
+/** openPx (2026-10-08) : capot ouvert, le bord interieur des voisines passe a openPx au-dela du bord de l'ecran (la perspective les ramenait dedans) */
+const PEEK = { px: 52, hoverPx: 40, ms: 180, gap: 0.6, openPx: 140 } as const;
 /**
  * Une machine utilisee sur desktop (2026-10-07, Mika : "pour cette taille de machine comme la
  * MM-RYTM tu pourrais arriver plus zoome, tout en voyant la machine de droite") : cadree de face,
@@ -1318,7 +1319,11 @@ export class Stage {
     const bs = this.bass;
     const f = this.fTo;
     const u = (2 * hw) / Math.max(1, this.width);
-    const peek = (PEEK.px + PEEK.hoverPx * this.peekHover) * u;
+    // Capot ouvert (2026-10-08, la revue de l'OPEN moins zoome) : les voisines et leurs ecrans vivants sortent du
+    // cadre, une marge calme autour de la carte ; elles reviennent avec la fermeture (ferme : Mika, tache 85).
+    // Pas pendant l'intro (la machine eclatee qui s'assemble) : les voisines y restent ou elles etaient
+    const e = this.introOn ? 0 : this.explodeFrame();
+    const peek = ((PEEK.px + PEEK.hoverPx * this.peekHover) * (1 - e) - PEEK.openPx * e) * u;
     const cx = this.fr.cx;
     // Chez elles (vue d'ensemble, telephone) ; une machine utilisee : ses voisines au bord.
     // L'ordre (2026-10-07) : MM-RYTM, MM-BASS, MM-ARP, MM-DECKS (state/focus.ts MACHINES) : celle de gauche
@@ -2446,6 +2451,12 @@ export class Stage {
     for (const d of [...this.chipDefs, ...this.tweakDefs]) {
       if (d.enabled === live) continue;
       d.enabled = live;
+      changed = true;
+    }
+    // Le capot leve sort du cadre ouvert (2026-10-08) : ses commandes ne repondent plus tant que la carte repond
+    const lid = this.machine.plateau.userData;
+    if (lid.noPick !== live) {
+      lid.noPick = live;
       changed = true;
     }
     if (!live) {

@@ -24,11 +24,12 @@
  */
 
 import React, { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
-import { focusMachine } from '../actions';
+import { focusMachine, hoodOf } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { djView } from '../dj/view';
 import { DJ_VIEW_UNITS, type DjUnit } from '../dj/theme';
 import { MACHINES, focus, type MachineId } from '../state/focus';
+import { bassExplode, explode, voyExplode } from '../state/explode';
 import { intro } from '../state/intro';
 import { view } from '../state/view';
 import { MachineDrawer } from './MachineDrawer';
@@ -60,6 +61,12 @@ export const MachineNav: React.FC<Props> = ({ stage, mobile }) => {
   const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
   const moved = useSyncExternalStore(view.subscribe, view.get, view.get);
   const unit = useSyncExternalStore(djView.subscribe, djView.get, djView.get);
+  // Les capots : une machine ouverte garde ses bords (2026-10-08, la revue de l'OPEN : au telephone la carte
+  // prend 91 % de la largeur, les fleches passaient sur elle et un toucher au bord changeait de machine)
+  useSyncExternalStore(explode.subscribe, explode.get, explode.get);
+  useSyncExternalStore(voyExplode.subscribe, voyExplode.get, voyExplode.get);
+  useSyncExternalStore(bassExplode.subscribe, bassExplode.get, bassExplode.get);
+  const hood = f === 'mm808' || f === 'voy' || f === 'bass' ? hoodOf(f).get() !== 'closed' : false;
   const refs = useRef(new Map<MachineId, HTMLButtonElement>());
   const overview = !mobile && f === 'all' && settled && introState === 'done';
 
@@ -129,19 +136,24 @@ export const MachineNav: React.FC<Props> = ({ stage, mobile }) => {
             </button>
           ))}
         </div>
-        <button type="button" className="v4-medge" data-side="left" aria-label={label(-1)} onClick={() => go(-1)}>
-          <Chevron dir="left" />
-        </button>
-        <button type="button" className="v4-medge" data-side="right" aria-label={label(1)} onClick={() => go(1)}>
-          <Chevron dir="right" />
-        </button>
+        {/* Capot ouvert : pas de fleches (CLOSE est la sortie, ui/PcbClose.tsx) */}
+        {!hood && (
+          <button type="button" className="v4-medge" data-side="left" aria-label={label(-1)} onClick={() => go(-1)}>
+            <Chevron dir="left" />
+          </button>
+        )}
+        {!hood && (
+          <button type="button" className="v4-medge" data-side="right" aria-label={label(1)} onClick={() => go(1)}>
+            <Chevron dir="right" />
+          </button>
+        )}
       </>
     );
   }
 
   // Desktop, vue tournee : une fleche vers chaque voisine
   const cur = f === 'all' ? -1 : MACHINES.indexOf(f);
-  const edges = cur >= 0 && settled && introState === 'done' && moved;
+  const edges = cur >= 0 && settled && introState === 'done' && moved && !hood;
   const prev = edges && cur > 0 ? MACHINES[cur - 1] : null;
   const next = edges && cur < MACHINES.length - 1 ? MACHINES[cur + 1] : null;
   const go = (id: MachineId): void => {
