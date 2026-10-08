@@ -121,9 +121,9 @@
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.3em;
+  gap: 0.2em;
   min-height: 2em;
-  padding: 0 0.75em 0 0.5em;
+  padding: 0 0.6em 0 0.35em;
   border: 1px solid rgba(246, 241, 231, 0.3);
   border-radius: 0.55em;
   background: rgba(246, 241, 231, 0.07);
@@ -137,6 +137,17 @@
   width: 1.25em;
   height: 1.25em;
   color: var(--orange);
+}
+
+/* La lettre de la platine, comme avant (orange, grasse) : la touche reste compacte, les sources gardent leur place */
+.dj-scr-back-deck {
+  font-size: 1.6em;
+  line-height: 1;
+  color: var(--orange);
+}
+
+.dj-scr-back:active .dj-scr-back-deck {
+  color: #000;
 }
 
 .dj-scr-back:active {
@@ -637,7 +648,7 @@
   /* BACK au doigt : plus haute, et sa cible deborde en dessous et a droite (44 px au moins au telephone) */
   .dj-scr-back {
     min-height: 2.8em;
-    padding: 0 0.9em 0 0.6em;
+    padding: 0 0.75em 0 0.45em;
     font-size: 0.8em;
   }
 

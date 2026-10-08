@@ -312,6 +312,15 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
   const [naming, setNaming] = useState<{ id: string | null; name: string } | null>(null);
   const [roots, setRoots] = useState<{ name: string; granted: boolean }[]>([]);
   const pick = useRef<HTMLInputElement>(null);
+  /*
+   * Le clic fantome du telephone (2026-10-08) : la liste s'ouvre sous le
+   * doigt (BACK, ou l'ecran touche), et le clic que le navigateur envoie
+   * apres le toucher tombait sur ce qui vient d'apparaitre au meme endroit
+   * (le retour au morceau, une source, un morceau). Pendant 500 ms, seul un
+   * clic commence dans la liste compte.
+   */
+  const openedAt = useRef(performance.now());
+  const downInside = useRef(false);
   const pickDir = useRef<HTMLInputElement>(null);
   const setPath = (p: string): void => {
     setPathState(p);
@@ -629,6 +638,14 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
       data-drop={drop ? '1' : '0'}
       role="region"
       aria-label={`Deck ${deck.toUpperCase()} track browser`}
+      onPointerDownCapture={() => {
+        downInside.current = true;
+      }}
+      onClickCapture={(e) => {
+        if (downInside.current || performance.now() - openedAt.current > 500) return;
+        e.preventDefault();
+        e.stopPropagation();
+      }}
       onDragOver={(e) => {
         e.preventDefault();
         setDrop(true);
@@ -643,9 +660,9 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
       <div className="dj-scr-head">
         {/* BACK (2026-10-08) : a la place de la touche BACK de l'ecran, le retour au morceau de la platine */}
         {held ? (
-          <button type="button" className="dj-scr-back" onClick={() => djBrowser.close(deck)} aria-label={`Back to deck ${deck.toUpperCase()}`}>
+          <button type="button" className="dj-scr-back" onClick={() => djBrowser.close(deck)} aria-label={`Back to deck ${deck.toUpperCase()}`} title="Back to the track">
             <Icon d={BACK_ICON} />
-            <span>DECK {deck.toUpperCase()}</span>
+            <span className="dj-scr-back-deck">{deck.toUpperCase()}</span>
           </button>
         ) : (
           <span className="dj-scr-deck">{deck.toUpperCase()}</span>
