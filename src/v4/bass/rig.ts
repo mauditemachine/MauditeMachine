@@ -6,8 +6,6 @@
  * en caoutchouc a LED ; dj/silk.ts la serigraphie), dispose d'apres
  * bass/theme.ts :
  * - l'ecran (bass/screen.ts) ;
- * - le grand CUTOFF en aluminium et les potards du son (aluminium, ACCENT
- *   en orange), le generateur en noir ;
  * - dix touches (RUN en or quand la basse joue, ACCENT et SLIDE allumes
  *   quand le pas choisi les a) ;
  * - seize pas : orange une note (plus vif accentuee), pale une liaison, or le
@@ -18,30 +16,31 @@
  *   a des verrous, or celui qu'on regle ;
  * - l'ecran se touche pour les presets (state/presetMode.ts, comme ceux du
  *   MM-RYTM et du MM-ARP) ;
- * - la serigraphie : l'en-tete, les noms, les familles (FILTER, VOICE en os,
- *   GENERATOR en orange), les filets entre les groupes de touches, le numero
- *   de chaque pas (1, 5, 9, 13 plus marques).
  * Tout dans le repere top (le dessus incline), x = 0 au centre du bloc.
  *
  * La refonte facon Monark et Elektron (2026-10-08, Mika : "MM-BASS est un
  * peu complexe ; quelque chose d'intuitif, pour qu'on ne cherche pas les
- * choses ; un bouton OPEN ; un bouton EDIT, je n'en vois pas") :
- * - la face par sections, dans l'ordre du signal (bass/theme.ts
- *   BASS_SECTIONS) : GENERATOR a cote de l'ecran (STYLE, DENSITY, GEN,
- *   MUTATE), puis OSC | FILTER | ENVELOPE | ACCENT / SLIDE | OUTPUT ; EDIT et
- *   OPEN en haut a droite, plus grands, noms et LED orange ;
- * - le capot (top) : la dalle, l'ecran, toutes les commandes, pose sur le
- *   coin descendu de son epaisseur ; OPEN le souleve (scene/explode.ts,
- *   bassExplode) ; dans le bac (inner, le repere du fond), la carte du
- *   MM-RYTM sort, sa plaque TWEAKS (bass/tweaks.ts) porte les reglages fins,
- *   INFOS et CLOSE (des touches du DOM, ui/HoodClose.tsx, bass/InfosKey) ;
- * - LOCK se voit : le pas qu'on regle clignote en or, une LED orange
- *   s'allume a cote de chaque potard verrouille sur ce pas, l'ecran montre
- *   la grille des verrous ; un potard qu'on tourne s'affiche en grand un
- *   instant (l'echo des Elektron).
+ * choses ; un bouton OPEN ; un bouton EDIT, je n'en vois pas") : EDIT et
+ * OPEN en haut a droite, noms et LED orange ; le capot (top) : la dalle,
+ * l'ecran, toutes les commandes, pose sur le coin descendu de son epaisseur ;
+ * OPEN le souleve (scene/explode.ts, bassExplode) ; dans le bac (inner, le
+ * repere du fond), la carte du MM-RYTM sort, sa plaque TWEAKS
+ * (bass/tweaks.ts) porte les reglages fins, INFOS et CLOSE.
+ *
+ * La machine Elektron (le meme jour, Mika : "il faudrait vraiment faire
+ * comme un principe de machine elektron ; les valeurs des knobs sont a
+ * l'ecran, pas sur les encodeurs, de 0 a 127 ; je veux un petit bouton i
+ * dans l'ecran") : les onze potards du son et leurs LED de verrou partent ;
+ * a leur place l'ecran deux fois plus grand et huit encodeurs sans fin A a
+ * H (aluminium, une fente : ils tournent avec le geste, la valeur est a
+ * l'ecran), les quatre touches de page dessous (la LED de la page allumee ;
+ * en LOCK, a demi celles qui portent un verrou sur le pas), la touche "i"
+ * dessinee dans le coin de l'ecran (bass-key-i), le GENERATOR (STYLE,
+ * DENSITY, GEN, MUTATE) sous EDIT et OPEN. Le pas en LOCK clignote, son
+ * bouton LOCK aussi.
  */
 
-import { BufferGeometry, Color, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, Group, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, MeshStandardMaterial, Quaternion, Vector3, type Texture } from 'three';
+import { BufferGeometry, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, Group, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Quaternion, Vector3, type Texture } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { reserve } from '../audio/sched';
 import type { HotspotDef, Occluder } from '../scene/hit';
@@ -51,7 +50,7 @@ import { withRubberLed } from '../scene/materials';
 import { Pcb } from '../scene/pcb';
 import { makeBrushTexture, whenFonts } from '../scene/silk';
 import { bassExplode } from '../state/explode';
-import { APPEARANCE, HEX, PCB_TURN, PORTRAIT } from '../theme';
+import { APPEARANCE, PCB_TURN, PORTRAIT } from '../theme';
 import { pattern } from '../audio/pattern';
 import { editor } from '../state/editor';
 import { presetMode, type PresetKey } from '../state/presetMode';
@@ -62,43 +61,47 @@ import { DjSilk, headTexts, type Bracket, type Line, type Text } from '../dj/sil
 import { DJ_BEZEL, DJ_BODY, DJ_KEY, DJ_KNOB, DJ_TILT, DJ_TOP_Y, DJ_UNIT } from '../dj/theme';
 import { bassGenLive, bassKnobValue, noteName } from './actions';
 import { BASS_SLOTS, bassPatterns } from './patterns';
-import { bassEngine } from './engine';
-import { BASS_FACE_KNOBS as BASS_KNOBS, BASS_PLATE_KNOBS, bassParams, bassValueText, type BassKnobId } from './params';
+import { BASS_FACE_KNOBS as BASS_KNOBS, BASS_PLATE_KNOBS, bassParams, type BassKnobId } from './params';
+import { BASS_PAGE_SLOTS, ENC_LETTERS, bassPage, bassSlotOf, type BassPageId } from './pages';
+import { bassEditModel, bassPageModel, type BassEditModel, type BassPageModel } from './pageView';
 import { BassTweaks } from './tweaks';
 import { bassInfos } from '../state/bassInfos';
-import { BassScreen } from './screen';
+import { BassScreen, type BassScreenView } from './screen';
 import { bassSeq, midiOf } from './seq';
-import { BASS_LOCKABLE, BASS_STEPS, bassState, isLockable, type BassLockId } from './state';
-import type { BassLockCell } from './screen';
-
-/** L'echo d'un potard a l'ecran (2026-10-08) : le temps qu'il reste. */
-const ECHO_MS = 1200;
-/** LOCK : la periode du clignotement du pas regle (ms) et la part allumee. */
-const BLINK = { period: 760, on: 0.62 } as const;
-
-/** Les noms courts des verrous, sur la ligne du bas de l'ecran. */
-const LOCK_SHORT: Readonly<Record<BassLockId, string>> = { cutoff: 'CUT', reso: 'RES', envmod: 'ENV', decay: 'DEC', accent: 'ACC', wave: 'WAVE', sub: 'SUB', drive: 'DRV', glide: 'GLD', volume: 'VOL', length: 'LEN' };
+import { BASS_STEPS, bassState, isLockable } from './state';
 import {
   BASS,
   BASS_D,
+  BASS_ENC_S,
   BASS_EXPLODE,
   BASS_KEYS,
   BASS_KEY_SEPS,
   BASS_KNOB_PLACES,
   BASS_LID,
+  BASS_PAGE_KEYS,
   BASS_PCB_Y,
   BASS_SECTIONS,
   BASS_W,
+  bassEncAt,
   bassKeyAt,
   bassKnobAt,
   bassLockAt,
-  bassKnobTone,
   bassPlateClear,
   bassTrigAt,
   bassX,
   type BassKeyKind,
-  type BassKnobTone,
+  type BassPageKey,
 } from './theme';
+
+/** L'echo d'un reglage tourne (2026-10-08) : le temps qu'il reste (le bloc cerne, ou l'echo plein ecran hors page). */
+const ECHO_MS = 1200;
+/** LOCK : la periode du clignotement du pas regle (ms) et la part allumee. */
+const BLINK = { period: 760, on: 0.62 } as const;
+/** Un encodeur fait un tour et demi pour la course entiere (le geste se voit, la valeur est a l'ecran). */
+const ENC_TURN = Math.PI * 3;
+/** La page d'une touche de page. */
+const PAGE_OF: Readonly<Record<BassPageKey, BassPageId>> = { pvoice: 'voice', pfilter: 'filter', penv: 'env', pfx: 'fx' };
+const isPageKey = (k: BassKeyKind): k is BassPageKey => (BASS_PAGE_KEYS as readonly string[]).includes(k);
 
 const AXIS_Y = new Vector3(0, 1, 0);
 const m4 = new Matrix4();
@@ -121,7 +124,11 @@ export interface BassRigOpts {
 /* ---------------- les ids des commandes ---------------- */
 
 export const bassKnobId = (k: BassKnobId): string => `bass-knob-${k}`;
+/** Un encodeur (2026-10-08) : k de 0 a 7, bass-enc-1 a bass-enc-8 (MIDI : bass:knob:1 a 8). */
+export const bassEncId = (k: number): string => `bass-enc-${k + 1}`;
 export const bassKeyId = (k: BassKeyKind): string => `bass-key-${k}`;
+/** La touche "i" de l'ecran (2026-10-08). */
+export const BASS_I_ID = 'bass-key-i';
 export const bassTrigId = (i: number): string => `bass-trig-${i + 1}`;
 export const bassLockId = (i: number): string => `bass-lock-${i + 1}`;
 export const bassLcdId = (k: PresetKey): string => `bass-lcd-${k}`;
@@ -187,16 +194,20 @@ function buildLid(): BufferGeometry {
   return g;
 }
 
-/** Les potards qu'un pas peut verrouiller, sur la face : une LED a cote de chacun (LOCK). */
-const LOCK_KNOBS: readonly BassKnobId[] = BASS_KNOBS.map((k) => k.id).filter((id) => isLockable(id));
-/** La LED d'un potard : a sa droite, a mi-hauteur. */
-const lockDotAt = (id: BassKnobId): { x: number; z: number } => {
-  const p = bassKnobAt(id);
-  return { x: p.x + DJ_KNOB.skirt.r * p.s + (PORTRAIT ? 0.11 : 0.09), z: p.z };
-};
-const DOT_OFF = new Color(APPEARANCE.current === 'light' ? '#3a3631' : '#1a1816');
-const DOT_DIM = new Color(APPEARANCE.current === 'light' ? '#7a5a40' : '#4a2a14');
-const DOT_ON = new Color(HEX.orange).multiplyScalar(1.25);
+/**
+ * Un encodeur sans fin (2026-10-08) : le capuchon cannele d'aluminium des
+ * potards du MM-DECKS, sans repere de valeur (il n'en a pas), un petit point
+ * sombre pres du bord qui montre seulement qu'il tourne.
+ */
+function encoderGeometry(mobile: boolean): BufferGeometry {
+  const base = knobGeometry(mobile, 'ring', 'ring');
+  const dot = new CylinderGeometry(0.026, 0.026, 0.01, mobile ? 10 : 14);
+  dot.translate(0, DJ_KNOB.skirt.h + DJ_KNOB.h + 0.002, -0.155);
+  const g = mergeGeometries([base, partDj(dot, 'slit')], false);
+  base.dispose();
+  if (!g) throw new Error('bass: encoder merge failed');
+  return g;
+}
 
 /* ---------------- la serigraphie ---------------- */
 
@@ -206,50 +217,34 @@ const INK_K = PORTRAIT ? 1.3 : 1;
 
 function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   const texts: Text[] = headTexts('MM-BASS', 'MONO BASS SYNTH', BASS_W, BASS.head.z, 1.95);
-  // Le firmware, a gauche du logotype (2026-10-07, Mika : "V1 sur BASS", comme V3 sur le MM-RYTM ; V2 la refonte du 2026-10-08)
-  texts.push({ text: 'FIRMWARE V.2.0 / 2026', x: BASS_W / 2 - (PORTRAIT ? 1.0 : 1.05), z: BASS.head.z + 0.035, cap: PORTRAIT ? 0.058 : 0.065, align: 'right', alpha: 0.45 });
+  // Le firmware, a gauche du logotype (2026-10-07, Mika : "V1 sur BASS", comme V3 sur le MM-RYTM ; V2 la refonte du
+  // 2026-10-08, V3 la machine Elektron du meme jour)
+  texts.push({ text: 'FIRMWARE V.3.0 / 2026', x: BASS_W / 2 - (PORTRAIT ? 1.0 : 1.05), z: BASS.head.z + 0.035, cap: PORTRAIT ? 0.058 : 0.065, align: 'right', alpha: 0.45 });
   const lines: Line[] = [];
   const brackets: Bracket[] = [];
   const tick = (x: number, z: number, deg: number, r0: number, r1: number): void => {
     const a = (deg * Math.PI) / 180;
     lines.push([x + Math.cos(a) * r0, z - Math.sin(a) * r0, x + Math.cos(a) * r1, z - Math.sin(a) * r1]);
   };
-  // Les potards : le nom au-dessus (orange pour le generateur) ; CUTOFF gradue de 0 a 10, les autres leurs butees ou leurs crans
-  const genIds = BASS_SECTIONS[0].ids;
+  // STYLE et DENSITY : le nom au-dessus, en orange (le generateur) ; STYLE ses crans, DENSITY ses butees
   for (const p of BASS_KNOB_PLACES) {
     const def = BASS_KNOBS.find((k) => k.id === p.id);
     const r = DJ_KNOB.skirt.r * p.s;
-    const hero = p.id === 'cutoff' || p.id === 'style';
-    const gen = genIds.includes(p.id);
-    texts.push({ text: def?.label ?? p.id, x: p.x, z: knobLabelZ(p.z, p.s), cap: (hero ? 0.075 : 0.058) * INK_K, weight: 700, maxW: PORTRAIT ? 1.7 : 1.1, group: hero ? 'hero' : 'knob', ...(gen ? { ink: 'orange' as const, alpha: 1 } : {}) });
-    if (p.id === 'cutoff') {
-      for (let t = 0; t <= 10; t += 1) tick(p.x, p.z, 225 - t * 27, r + 0.05, r + (t % 5 === 0 ? 0.16 : 0.1));
-    } else if (def?.steps) {
-      for (let t = 0; t < def.steps; t += 1) tick(p.x, p.z, 225 - (t * 270) / (def.steps - 1), r + 0.03, r + 0.09);
-    } else {
-      for (const deg of [225, -45]) tick(p.x, p.z, deg, r + 0.03, r + 0.08);
-    }
+    texts.push({ text: def?.label ?? p.id, x: p.x, z: knobLabelZ(p.z, p.s), cap: (p.id === 'style' ? 0.07 : 0.058) * INK_K, weight: 700, maxW: PORTRAIT ? 1.7 : 1.1, group: 'gen', ink: 'orange', alpha: 1 });
+    if (def?.steps) for (let t = 0; t < def.steps; t += 1) tick(p.x, p.z, 225 - (t * 270) / (def.steps - 1), r + 0.03, r + 0.09);
+    else for (const deg of [225, -45]) tick(p.x, p.z, deg, r + 0.03, r + 0.08);
   }
-  // Les sections (2026-10-08, l'ordre du signal) : desktop un crochet au-dessus des noms, comme les sections d'un
-  // Minimoog ; au telephone un crochet sous chaque rangee (une rangee peut en porter deux)
-  const K = (s: number): number => DJ_KNOB.skirt.r * s;
-  // Desktop : les sections du son a la meme hauteur (au-dessus du plus haut des noms de la rangee)
-  const soundIds = BASS_SECTIONS.slice(1).flatMap((g) => g.ids);
-  const soundTop = Math.min(...soundIds.map((id) => knobLabelZ(bassKnobAt(id).z, bassKnobAt(id).s))) - 0.22;
-  for (const g of BASS_SECTIONS) {
-    const ps = g.ids.map(bassKnobAt);
-    // Le generateur prend aussi ses touches GEN et MUTATE
-    const keys = g.name === 'GENERATOR' ? BASS_KEYS.filter((k) => k.kind === 'gen' || k.kind === 'mutate') : [];
-    const x0 = Math.min(...ps.map((p) => p.x - K(p.s)), ...keys.map((k) => k.x - k.w / 2)) - 0.06;
-    const x1 = Math.max(...ps.map((p) => p.x + K(p.s)), ...keys.map((k) => k.x + k.w / 2)) + 0.06;
-    const ink = g.ink ? { ink: g.ink } : {};
-    if (PORTRAIT) brackets.push({ text: g.name, x0, x1, z: Math.max(...ps.map((p) => p.z + K(p.s)), ...keys.map((k) => k.z + k.d / 2)) + 0.2, ...ink });
-    else brackets.push({ text: g.name, x0, x1, z: g.name === 'GENERATOR' ? Math.min(...ps.map((p) => knobLabelZ(p.z, p.s))) - 0.24 : soundTop, down: true, ...ink });
+  // Les encodeurs (2026-10-08) : leur lettre au-dessus, comme les blocs de l'ecran ; pas de graduation (ils sont sans fin)
+  const er = DJ_KNOB.skirt.r * BASS_ENC_S;
+  for (let k = 0; k < 8; k += 1) {
+    const p = bassEncAt(k);
+    texts.push({ text: ENC_LETTERS[k], x: p.x, z: p.z - er - (PORTRAIT ? 0.17 : 0.14), cap: (PORTRAIT ? 0.07 : 0.064) * INK_K, weight: 700, alpha: 0.7, group: 'enc' });
   }
   // Les touches : leur nom au-dessus (RUN, EDIT, OPEN, GEN en orange) ; un filet entre les groupes de la rangee de jeu (desktop)
   for (const k of BASS_KEYS) {
     const big = k.kind === 'edit' || k.kind === 'open';
-    texts.push({ text: k.label, x: k.x, z: k.z - k.d / 2 - 0.15, cap: (big ? 0.072 : 0.058) * INK_K, weight: 700, group: 'keys', maxW: k.w + 0.2, ...(k.orange ? { ink: 'orange' as const, alpha: 1 } : {}) });
+    const page = isPageKey(k.kind);
+    texts.push({ text: k.label, x: k.x, z: k.z - k.d / 2 - (page ? 0.12 : 0.15), cap: (big ? 0.072 : page ? 0.062 : 0.058) * INK_K, weight: 700, group: page ? 'pages' : 'keys', maxW: k.w + 0.2, ...(k.orange ? { ink: 'orange' as const, alpha: 1 } : {}) });
   }
   for (const [a, b] of BASS_KEY_SEPS) {
     const ka = BASS_KEYS.find((k) => k.kind === a);
@@ -257,6 +252,19 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
     if (!ka || !kb) continue;
     const sep = (ka.x + ka.w / 2 + kb.x - kb.w / 2) / 2;
     lines.push([sep, ka.z - 0.3, sep, ka.z + 0.2]);
+  }
+  // PARAMETER sous les touches de page (le crochet des Elektron) ; GENERATOR sous ses touches, a la meme hauteur (desktop)
+  const pk = BASS_KEYS.filter((k) => isPageKey(k.kind));
+  const pz = Math.max(...pk.map((k) => k.z + k.d / 2)) + 0.2;
+  brackets.push({ text: 'PARAMETER', x0: Math.min(...pk.map((k) => k.x - k.w / 2)) - 0.04, x1: Math.max(...pk.map((k) => k.x + k.w / 2)) + 0.04, z: pz });
+  const K = (s: number): number => DJ_KNOB.skirt.r * s;
+  for (const g of BASS_SECTIONS) {
+    const ps = g.ids.map(bassKnobAt);
+    const keys = BASS_KEYS.filter((k) => k.kind === 'gen' || k.kind === 'mutate');
+    const x0 = Math.min(...ps.map((p) => p.x - K(p.s)), ...keys.map((k) => k.x - k.w / 2)) - 0.04;
+    const x1 = Math.max(...ps.map((p) => p.x + K(p.s)), ...keys.map((k) => k.x + k.w / 2)) + 0.04;
+    const z = PORTRAIT ? Math.max(...ps.map((p) => p.z + K(p.s)), ...keys.map((k) => k.z + k.d / 2)) + 0.2 : Math.max(pz, ...keys.map((k) => k.z + k.d / 2 + 0.2));
+    brackets.push({ text: g.name, x0, x1, z, ...(g.ink ? { ink: g.ink } : {}) });
   }
   // Les pas : leur numero dessous (1, 5, 9, 13 plus marques), LOCK au-dessus des boutons, le crochet qui dit les gestes
   const T = BASS.trigs;
@@ -267,7 +275,7 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   const t0 = bassTrigAt(PORTRAIT ? 8 : 0).x - T.w / 2;
   const t1 = bassTrigAt(15).x + T.w / 2;
   brackets.push({
-    text: PORTRAIT ? 'LOCK OR HOLD A STEP + KNOB: THAT STEP  /  TAP: NOTE, TIE, OFF' : 'LOCK (OR HOLD A STEP) + TURN A KNOB: THAT STEP ONLY  /  TAP A STEP: NOTE, TIE, OFF',
+    text: PORTRAIT ? 'HOLD A STEP OR LOCK + ENCODER: THAT STEP  /  TAP: NOTE, TIE, OFF' : 'HOLD A STEP (OR LOCK) + TURN AN ENCODER: THAT STEP ONLY  /  TAP A STEP: NOTE, TIE, OFF',
     x0: t0,
     x1: t1,
     z: bassTrigAt(15).z + T.d / 2 + 0.42,
@@ -294,21 +302,23 @@ export class BassRig {
   private lid: Mesh;
   private bodyMat: MeshStandardMaterial;
   private brush: Texture;
-  private knobs: InstancedMesh[];
-  private knobSlot: { m: number; j: number }[];
+  /** STYLE et DENSITY */
+  private knobs: InstancedMesh;
+  /** les huit encodeurs (2026-10-08) */
+  private encs: InstancedMesh;
   private keys: InstancedMesh;
   private trigs: InstancedMesh;
   private locks: InstancedMesh;
-  /** LOCK : une LED a cote de chaque potard verrouillable (allumee s'il a un verrou sur le pas qu'on regle) */
-  private dots: InstancedMesh;
-  private dotMat: MeshBasicMaterial;
-  private dotOn: Int8Array;
   private silk: DjSilk;
   private materials: MeshStandardMaterial[] = [];
   private keyEm: InstancedBufferAttribute;
   private trigEm: InstancedBufferAttribute;
   private lockEm: InstancedBufferAttribute;
   private knobAngle = new Float32Array(BASS_KNOBS.length);
+  /** l'angle de chaque encodeur (il tourne avec le geste, sans fin) et la valeur qu'il montrait */
+  private encAngle = new Float32Array(8);
+  private encShown = new Float32Array(8).fill(NaN);
+  private encFor = '';
   private keyY = new Float32Array(BASS_KEYS.length);
   private trigY = new Float32Array(BASS_STEPS);
   private lockY = new Float32Array(BASS_STEPS);
@@ -318,14 +328,15 @@ export class BassRig {
   private unsubs: (() => void)[] = [];
   private held = new Set<string>();
   private stepAt = -1;
-  private liveAt = 0;
   private glow = APPEARANCE.current === 'light' ? 1.6 : 1;
   private explodeGoal = false;
   private detach: () => void = () => undefined;
   /** LOCK : le pas regle clignote (allume ou non a cette image) */
   private blink = true;
-  /** l'echo du potard tourne : son minuteur de fin */
+  /** l'echo du reglage tourne : son minuteur de fin */
   private echoTimer = 0;
+  /** ce que l'ecran montre (les tests le lisent, debug.ts) */
+  private shown: BassScreenView | null = null;
 
   constructor(private opts: BassRigOpts) {
     this.root.name = 'bassRoot';
@@ -373,19 +384,13 @@ export class BassRig {
       this.materials.push(m);
       return led ? withRubberLed(m) : m;
     };
-    const tones: readonly BassKnobTone[] = ['knob', 'ring', 'hot'];
     const knobMat = std('bassKnob', { roughness: 0.42, metalness: 0.28 });
-    const count = [0, 0, 0];
-    this.knobSlot = BASS_KNOBS.map((k) => {
-      const m = tones.indexOf(bassKnobTone(k.id));
-      return { m, j: count[m]++ };
-    });
-    this.knobs = tones.map((t, i) => {
-      const mesh = new InstancedMesh(knobGeometry(opts.mobile, t, t === 'ring' ? 'slit' : 'mark'), knobMat, Math.max(1, count[i]));
-      mesh.name = `bassKnobs-${t}`;
-      mesh.count = count[i];
-      return mesh;
-    });
+    // STYLE et DENSITY : capuchon noir, repere os (des potards : leur angle est leur valeur)
+    this.knobs = new InstancedMesh(knobGeometry(opts.mobile, 'knob', 'mark'), knobMat, Math.max(1, BASS_KNOBS.length));
+    this.knobs.name = 'bassKnobs';
+    // Les encodeurs : aluminium cannele, un point sombre (il montre le geste, pas une valeur)
+    this.encs = new InstancedMesh(encoderGeometry(opts.mobile), knobMat, 8);
+    this.encs.name = 'bassEncoders';
     const kg = keyGeometry(opts.mobile);
     this.keyEm = new InstancedBufferAttribute(new Float32Array(BASS_KEYS.length * 3), 3);
     this.keyEm.setUsage(DynamicDrawUsage);
@@ -404,25 +409,12 @@ export class BassRig {
     lg.setAttribute('instanceEmissive', this.lockEm);
     this.locks = new InstancedMesh(lg, std('bassLock', { roughness: 0.88, metalness: 0 }, true), BASS_STEPS);
     this.locks.name = 'bassLocks';
-    for (const m of [...this.knobs, this.keys, this.trigs, this.locks]) {
+    for (const m of [this.knobs, this.encs, this.keys, this.trigs, this.locks]) {
       m.instanceMatrix.setUsage(DynamicDrawUsage);
       m.castShadow = !opts.mobile;
       m.receiveShadow = true;
     }
-    // Les LED des verrous : de petites pastilles qui eclairent par elles-memes
-    const dg = new CylinderGeometry(0.045, 0.045, 0.02, opts.mobile ? 10 : 14);
-    dg.translate(0, 0.01, 0);
-    this.dotMat = new MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
-    this.dotMat.name = 'bassLockDot';
-    this.dots = new InstancedMesh(dg, this.dotMat, Math.max(1, LOCK_KNOBS.length));
-    this.dots.name = 'bassLockDots';
-    this.dotOn = new Int8Array(LOCK_KNOBS.length).fill(-1);
-    LOCK_KNOBS.forEach((id, i) => {
-      const p = lockDotAt(id);
-      this.dots.setMatrixAt(i, m4.compose(v3.set(p.x, 0, p.z), q0, s3.set(1, 1, 1)));
-      this.dots.setColorAt(i, DOT_OFF);
-    });
-    this.top.add(...this.knobs, this.keys, this.trigs, this.locks, this.dots);
+    this.top.add(this.knobs, this.encs, this.keys, this.trigs, this.locks);
 
     this.screen = new BassScreen(opts.anisotropy, opts.mobile);
     this.top.add(this.screen.mesh);
@@ -433,6 +425,12 @@ export class BassRig {
       this.knobAngle[i] = potAngle(bassKnobValue(k.id));
       this.placeKnob(i);
     });
+    for (let k = 0; k < 8; k += 1) {
+      // Des angles de depart un peu differents : huit encodeurs poses a la main, pas un alignement de jouet
+      this.encAngle[k] = ((k * 37) % 360) * (Math.PI / 180);
+      this.placeEnc(k);
+    }
+    this.syncEncs();
     BASS_KEYS.forEach((_, i) => this.placeKey(i));
     for (let i = 0; i < BASS_STEPS; i += 1) {
       this.placeTrig(i);
@@ -448,11 +446,15 @@ export class BassRig {
 
   private placeKnob(i: number): void {
     const p = bassKnobAt(BASS_KNOBS[i].id);
-    const { m, j } = this.knobSlot[i];
-    const mesh = this.knobs[m];
-    const sy = p.id === 'cutoff' ? p.s * 0.82 : p.s;
-    mesh.setMatrixAt(j, m4.compose(v3.set(p.x, 0, p.z), q.setFromAxisAngle(AXIS_Y, this.knobAngle[i]), s3.set(p.s, sy, p.s)));
-    mesh.instanceMatrix.needsUpdate = true;
+    this.knobs.setMatrixAt(i, m4.compose(v3.set(p.x, 0, p.z), q.setFromAxisAngle(AXIS_Y, this.knobAngle[i]), s3.set(p.s, p.s, p.s)));
+    this.knobs.instanceMatrix.needsUpdate = true;
+  }
+
+  private placeEnc(k: number): void {
+    const p = bassEncAt(k);
+    // Un peu plus bas qu'un potard : un encodeur de machine a pas, pas un bouton de volume
+    this.encs.setMatrixAt(k, m4.compose(v3.set(p.x, 0, p.z), q.setFromAxisAngle(AXIS_Y, this.encAngle[k]), s3.set(p.s, p.s * 0.82, p.s)));
+    this.encs.instanceMatrix.needsUpdate = true;
   }
 
   private placeKey(i: number): void {
@@ -482,10 +484,16 @@ export class BassRig {
     const out: HotspotDef[] = [];
     for (const k of BASS_KNOBS) {
       const p = bassKnobAt(k.id);
-      const r = DJ_KNOB.skirt.r * p.s + (p.id === 'cutoff' ? 0.04 : 0.07);
+      const r = DJ_KNOB.skirt.r * p.s + 0.07;
       out.push({ id: bassKnobId(k.id), kind: 'bassknob', layer: top, shape: 'disc', x: p.x, z: p.z, hx: r, hz: r, y0: 0, y1: (DJ_KNOB.skirt.h + DJ_KNOB.h) * p.s, enabled: true, bass: k.id });
     }
-    for (const k of BASS_KEYS) out.push({ id: bassKeyId(k.kind), kind: 'basskey', layer: top, shape: 'box', x: k.x, z: k.z, hx: k.w / 2, hz: k.d / 2, y0: 0, y1: DJ_KEY.h, enabled: true, bass: k.kind });
+    // Les encodeurs : bass.bass = '1' a '8' (MIDI LEARN : bass:knob:1 a 8, la page courante)
+    for (let k = 0; k < 8; k += 1) {
+      const p = bassEncAt(k);
+      const r = DJ_KNOB.skirt.r * p.s + (PORTRAIT ? 0.16 : 0.08);
+      out.push({ id: bassEncId(k), kind: 'bassknob', layer: top, shape: 'disc', x: p.x, z: p.z, hx: r, hz: r, y0: 0, y1: (DJ_KNOB.skirt.h + DJ_KNOB.h) * p.s * 0.82, enabled: true, bass: String(k + 1) });
+    }
+    for (const k of BASS_KEYS) out.push({ id: bassKeyId(k.kind), kind: 'basskey', layer: top, shape: 'box', x: k.x, z: k.z, hx: k.w / 2, hz: k.d / 2 + (PORTRAIT ? 0.06 : 0), y0: 0, y1: DJ_KEY.h, enabled: true, bass: k.kind });
     const T = BASS.trigs;
     for (let i = 0; i < BASS_STEPS; i += 1) {
       const p = bassTrigAt(i);
@@ -500,23 +508,29 @@ export class BassRig {
     // suivant), la bande du bas en quatre touches (SAVE NAME DEL EXIT), comme les ecrans du MM-RYTM et du MM-ARP
     const S = BASS.screen;
     const band = 0.74;
+    const area = (u0: number, u1: number, v0: number, v1: number, y1: number): Pick<HotspotDef, 'x' | 'z' | 'hx' | 'hz' | 'y0' | 'y1'> => ({
+      x: S.x - S.w / 2 + ((u0 + u1) / 2) * S.w,
+      z: S.z - S.d / 2 + ((v0 + v1) / 2) * S.d,
+      hx: ((u1 - u0) / 2) * S.w,
+      hz: ((v1 - v0) / 2) * S.d,
+      y0: DJ_BEZEL.h - 0.005,
+      y1,
+    });
     const box = (key: PresetKey, u0: number, u1: number, v0: number, v1: number): HotspotDef => ({
       id: bassLcdId(key),
       kind: 'basslcd',
       lcd: key,
       layer: top,
       shape: 'box',
-      x: S.x - S.w / 2 + ((u0 + u1) / 2) * S.w,
-      z: S.z - S.d / 2 + ((v0 + v1) / 2) * S.d,
-      hx: ((u1 - u0) / 2) * S.w,
-      hz: ((v1 - v0) / 2) * S.d,
-      y0: DJ_BEZEL.h - 0.005,
-      y1: DJ_BEZEL.h + 0.03,
+      ...area(u0, u1, v0, v1, DJ_BEZEL.h + 0.03),
       enabled: key === 'open',
     });
     const lcd = [box('open', 0, 1, 0, 1), box('prev', 0, 0.5, 0, band), box('next', 0.5, 1, 0, band), ...(['save', 'name', 'del', 'exit'] as const).map((k, i) => box(k, i / 4, (i + 1) / 4, band, 1))];
+    // La touche "i" (2026-10-08) : dans le coin de l'ecran, un peu au-dessus du verre (elle passe avant les presets)
+    const ir = this.screen.iRect();
+    const iKey: HotspotDef = { id: BASS_I_ID, kind: 'basskey', layer: top, shape: 'box', ...area(ir.u0, ir.u1, ir.v0, ir.v1, DJ_BEZEL.h + 0.06), enabled: true, bass: 'i' };
     // La plaque sous le capot : ses potards, vivants capot ouvert (syncHood)
-    const all = [...out, ...lcd, ...this.tweaks.hotspots()].map((d) => ({ ...d, machine: 'bass' as const }));
+    const all = [...out, iKey, ...lcd, ...this.tweaks.hotspots()].map((d) => ({ ...d, machine: 'bass' as const }));
     this.lcdDefs = all.filter((d) => d.kind === 'basslcd');
     this.tweakDefs = all.filter((d) => d.id.startsWith('bass-tw-'));
     return all;
@@ -584,10 +598,19 @@ export class BassRig {
     const scale = (rgb: readonly number[], k: number): number[] => [rgb[0] * k, rgb[1] * k, rgb[2] * k];
     const sel = s.steps[s.sel];
     const editing = editor.get() === 'bass';
+    const page = bassPage.get();
+    const lockLocks = s.lock >= 0 ? s.steps[s.lock]?.locks : undefined;
     BASS_KEYS.forEach((k, i) => {
       const held = this.held.has(bassKeyId(k.kind));
       if (k.kind === 'run') {
         set(this.keyEm, i, s.running || held ? DJ_GLOW.yellow : scale(DJ_GLOW.yellow, 0.18));
+        return;
+      }
+      // Les pages (2026-10-08) : la LED de la page allumee ; en LOCK, a demi celles qui portent un verrou sur le pas
+      if (isPageKey(k.kind)) {
+        const p = PAGE_OF[k.kind];
+        const has = !!lockLocks && BASS_PAGE_SLOTS[p].some((id) => id !== null && isLockable(id) && (lockLocks as Record<string, number>)[id] !== undefined);
+        set(this.keyEm, i, held || p === page ? DJ_GLOW.orange : has ? scale(DJ_GLOW.orange, 0.32) : DJ_GLOW.dim);
         return;
       }
       const hood = bassExplode.get();
@@ -596,14 +619,12 @@ export class BassRig {
       const idle = k.kind === 'edit' || k.kind === 'open' || k.kind === 'gen' ? scale(DJ_GLOW.orange, 0.16) : DJ_GLOW.dim;
       set(this.keyEm, i, on ? DJ_GLOW.orange : idle);
     });
-    // Les LOCK : pale si le pas a des verrous, or celui qu'on regle (il clignote) ; eteints en EDIT
+    // Les LOCK : pale si le pas a des verrous, or celui qu'on regle (il clignote avec son pas) ; eteints en EDIT
     for (let i = 0; i < BASS_STEPS; i += 1) {
       const held = this.held.has(bassLockId(i));
       const has = !!s.steps[i].locks;
-      set(this.lockEm, i, held || s.lock === i ? DJ_GLOW.yellow : editing ? scale(DJ_GLOW.dim, 0.5) : has ? scale(DJ_GLOW.orange, 0.45) : DJ_GLOW.dim);
+      set(this.lockEm, i, held ? DJ_GLOW.yellow : s.lock === i ? scale(DJ_GLOW.yellow, this.blink ? 1 : 0.3) : editing ? scale(DJ_GLOW.dim, 0.5) : has ? scale(DJ_GLOW.orange, 0.45) : DJ_GLOW.dim);
     }
-    // Les LED des potards suivent le LOCK, EDIT compris (EDIT ferme le LOCK : elles s'eteignent)
-    if (this.syncDots()) changed = true;
     if (editing) {
       // EDIT : les seize patterns
       const p = bassPatterns.get();
@@ -627,22 +648,6 @@ export class BassRig {
     return changed;
   }
 
-  /** Les LED des potards : en LOCK, allumees pour les verrous du pas regle, a peine pour les autres ; eteintes sinon. */
-  private syncDots(): boolean {
-    const s = bassState.get();
-    const locks = s.lock >= 0 ? s.steps[s.lock]?.locks : undefined;
-    let changed = false;
-    LOCK_KNOBS.forEach((id, i) => {
-      const want = s.lock < 0 ? 0 : isLockable(id) && locks?.[id] !== undefined ? 2 : 1;
-      if (this.dotOn[i] === want) return;
-      this.dotOn[i] = want;
-      this.dots.setColorAt(i, want === 2 ? DOT_ON : want === 1 ? DOT_DIM : DOT_OFF);
-      changed = true;
-    });
-    if (changed && this.dots.instanceColor) this.dots.instanceColor.needsUpdate = true;
-    return changed;
-  }
-
   private syncKnobs(): boolean {
     let moved = false;
     BASS_KNOBS.forEach((k, i) => {
@@ -652,48 +657,114 @@ export class BassRig {
       this.placeKnob(i);
       moved = true;
     });
+    if (this.syncEncs()) moved = true;
     // La plaque : ses potards suivent aussi (LENGTH en LOCK : le verrou du pas)
     if (this.tweaks.sync(bassKnobValue)) moved = true;
     return moved;
   }
 
-  private drawScreen(): boolean {
+  /**
+   * Les encodeurs (2026-10-08) : un encodeur tourne de ce que son reglage a
+   * bouge (le geste, une molette, le MIDI) ; quand la page ou le pas en LOCK
+   * change, il ne saute pas (un encodeur sans fin n'a pas de position).
+   */
+  private syncEncs(): boolean {
     const s = bassState.get();
-    const midis: (number | null)[] = [];
-    let last: number | null = null;
-    for (let i = 0; i < BASS_STEPS; i += 1) {
-      const st = s.steps[i];
-      if (st.kind === 'note') last = midiOf(st);
-      midis.push(st.kind === 'off' ? null : st.kind === 'note' ? last : last);
-      if (st.kind === 'off') last = null;
+    const page = bassPage.get();
+    const fresh = `${page}|${s.lock}`;
+    const same = fresh === this.encFor;
+    this.encFor = fresh;
+    let moved = false;
+    for (let k = 0; k < 8; k += 1) {
+      const id = bassPage.slot(k, page);
+      const v = id ? bassKnobValue(id) : 0;
+      const was = this.encShown[k];
+      this.encShown[k] = v;
+      if (!same || !Number.isFinite(was) || v === was) continue;
+      this.encAngle[k] -= (v - was) * ENC_TURN;
+      this.placeEnc(k);
+      moved = true;
     }
-    const sel = s.steps[s.sel];
-    const info = `STEP ${String(s.sel + 1).padStart(2, '0')}  ${sel.kind === 'off' ? 'OFF' : sel.kind === 'tie' ? 'TIE' : `${noteName(midiOf(sel))}${sel.acc ? '  ACC' : ''}${sel.slide ? '  SLIDE' : ''}`}`;
-    const live = bassEngine.live();
-    const sounding = live.gate || performance.now() - live.at < 120;
+    return moved;
+  }
+
+  /** Ce que l'ecran doit montrer maintenant : PRESETS, EDIT, l'echo d'un reglage hors page, sinon la PAGE. */
+  private screenView(): BassScreenView {
+    const s = bassState.get();
+    const values = bassParams.get();
+    const bpm = pattern.get().bpm;
+    const infos = bassInfos.isOn();
     const pv = presetMode.view('bass');
+    if (pv) return { view: 'presets', p: pv };
+    const page = bassPage.get();
     const p = bassPatterns.get();
-    const edit = editor.get() === 'bass' ? { cur: p.cur, next: p.next, chain: p.chain, filled: Array.from({ length: BASS_SLOTS }, (_, i) => bassPatterns.filled(i)) } : null;
-    const locks = s.lock >= 0 ? s.steps[s.lock]?.locks : undefined;
-    let lock = null;
-    if (s.lock >= 0) {
-      const ls = s.steps[s.lock];
-      const what = ls.kind === 'off' ? 'EMPTY' : ls.kind === 'tie' ? 'TIE' : `${noteName(midiOf(ls))}${ls.acc ? ' ACC' : ''}${ls.slide ? ' SLD' : ''}`;
-      const cells: BassLockCell[] = BASS_LOCKABLE.map((id) => ({ id, label: LOCK_SHORT[id], value: bassValueText(id, locks?.[id] ?? bassParams.of(id)), locked: locks?.[id] !== undefined }));
-      lock = { step: s.lock, items: BASS_LOCKABLE.filter((id) => locks?.[id] !== undefined).map((id) => `${LOCK_SHORT[id]} ${bassValueText(id, locks?.[id] ?? 0)}`), head: `LOCK ${String(s.lock + 1).padStart(2, '0')}  ${what}`, cells };
+    if (editor.get() === 'bass') {
+      const m: BassEditModel = bassEditModel({
+        steps: s.steps,
+        values,
+        page,
+        running: s.running,
+        playing: this.stepAt,
+        sel: s.sel,
+        bpm,
+        cur: p.cur,
+        next: p.next,
+        chain: p.chain,
+        filled: Array.from({ length: BASS_SLOTS }, (_, i) => bassPatterns.filled(i)),
+        message: s.message,
+        infos,
+        midiOf: (st) => midiOf(st),
+        maxLanes: PORTRAIT ? 2 : 4,
+      });
+      return { view: 'edit', m };
     }
-    // L'echo du potard qu'on vient de tourner (1.2 s), facon Elektron ; puis la page revient
+    // L'echo (1.2 s) : sur la page, son bloc se cerne ; hors de la page, l'ecran entier un instant
     const t = s.touched;
     const left = t ? ECHO_MS - (performance.now() - t.at) : 0;
     window.clearTimeout(this.echoTimer);
-    let knob = null;
+    let echo: BassKnobId | null = null;
     if (t && left > 0) {
-      knob = { id: t.id, v: bassKnobValue(t.id), locked: s.lock >= 0 && isLockable(t.id) && locks?.[t.id] !== undefined, live: bassGenLive() };
       this.echoTimer = window.setTimeout(() => {
         if (this.drawScreen()) this.opts.repaint();
       }, left + 16);
+      const at = bassSlotOf(t.id);
+      if (at && at.page === page) echo = t.id;
+      else {
+        const lockV = s.lock >= 0 && isLockable(t.id) ? s.steps[s.lock]?.locks?.[t.id] : undefined;
+        return {
+          view: 'knob',
+          k: { id: t.id, v: bassKnobValue(t.id), locked: lockV !== undefined, live: bassGenLive(), lock: s.lock },
+          running: s.running,
+          bpm,
+          values: s.lock >= 0 && s.steps[s.lock]?.locks ? { ...values, ...s.steps[s.lock].locks } : values,
+          steps: s.steps,
+          infos,
+        };
+      }
     }
-    return this.screen.draw(s, bassParams.get(), midis, pattern.get().bpm, { cut: sounding ? live.cut : 0, step: this.stepAt }, s.message, info, { edit, lock, presets: pv, knob });
+    const m: BassPageModel = bassPageModel({
+      steps: s.steps,
+      values,
+      page,
+      sel: s.sel,
+      lock: s.lock,
+      running: s.running,
+      playing: this.stepAt,
+      bpm,
+      pattern: `A${String(p.cur + 1).padStart(2, '0')}`,
+      message: s.message,
+      infos,
+      echo,
+      noteName: (st) => noteName(midiOf(st)),
+      midiOf: (st) => midiOf(st),
+    });
+    return { view: 'page', m };
+  }
+
+  private drawScreen(): boolean {
+    const sv = this.screenView();
+    this.shown = sv;
+    return this.screen.draw(sv);
   }
 
   pressKey(id: string, down: boolean): void {
@@ -727,7 +798,12 @@ export class BassRig {
     else if (moved || lit) this.opts.repaint();
   }
 
-  /** L'animateur : la tete de lecture et la coupure qui sonne ; 'paint' tant que la basse joue. */
+  /**
+   * L'animateur : la tete de lecture (les LED, l'ecran qui suit le pas qui
+   * joue, ses verrous en negatif) ; 'paint' tant que la basse joue. L'ecran
+   * ne se redessine qu'au changement de pas (2026-10-08 : plus a chaque
+   * rapport du worklet, la texture part au GPU a chaque fois).
+   */
   step = (): 'paint' | 'poll' | false => {
     if (!this.root.visible) return false;
     let changed = false;
@@ -736,14 +812,11 @@ export class BassRig {
     const locking = bassState.get().lock >= 0;
     const blink = !locking || performance.now() % BLINK.period < BLINK.period * BLINK.on;
     if (at !== this.stepAt || blink !== this.blink) {
+      const stepped = at !== this.stepAt;
       this.stepAt = at;
       this.blink = blink;
       if (this.syncLights()) changed = true;
-    }
-    const live = bassEngine.live();
-    if (live.at !== this.liveAt || changed) {
-      this.liveAt = live.at;
-      if (this.drawScreen()) changed = true;
+      if (stepped && this.drawScreen()) changed = true;
     }
     // LOCK a l'arret : relu a chaque image pour le clignotement, rendu seulement quand il change
     return bassSeq.running || changed ? 'paint' : locking ? 'poll' : false;
@@ -799,14 +872,16 @@ export class BassRig {
     this.applyExplode(true);
     if (this.syncHood()) this.opts.hitChanged();
     this.detach = bassExplode.attach();
+    const all = (): void => {
+      const lit = this.syncLights();
+      const moved = this.syncKnobs();
+      const drawn = this.drawScreen();
+      if (moved && this.knobs.castShadow) this.opts.invalidate();
+      else if (lit || moved || drawn || bassState.get().running) this.opts.repaint();
+    };
     this.unsubs.push(
-      bassState.subscribe(() => {
-        const lit = this.syncLights();
-        const moved = this.syncKnobs();
-        const drawn = this.drawScreen();
-        if (moved && this.knobs[0].castShadow) this.opts.invalidate();
-        else if (lit || moved || drawn || bassState.get().running) this.opts.repaint();
-      }),
+      bassState.subscribe(all),
+      bassPage.subscribe(all),
       bassPatterns.subscribe(() => {
         const lit = this.syncLights();
         if (this.drawScreen() || lit) this.opts.repaint();
@@ -822,16 +897,18 @@ export class BassRig {
       presets.subscribe(() => {
         if (this.drawScreen()) this.opts.repaint();
       }),
+      bassInfos.subscribe(() => {
+        if (this.drawScreen()) this.opts.repaint();
+      }),
       bassParams.subscribe(() => {
         const moved = this.syncKnobs();
         const drawn = this.drawScreen();
-        if (moved && this.knobs[0].castShadow) this.opts.invalidate();
+        if (moved && this.knobs.castShadow) this.opts.invalidate();
         else if (moved || drawn) this.opts.repaint();
       }),
       pattern.subscribe(() => {
         if (this.drawScreen()) this.opts.repaint();
-      }),
-      bassEngine.subscribeLive(() => this.opts.repaint())
+      })
     );
     void whenFonts().then(() => this.redrawText());
   }
@@ -851,8 +928,20 @@ export class BassRig {
     return false;
   }
 
-  info(): { knobs: number; plate: number; keys: number; trigs: number; locks: number; screenDraws: number; silkDraws: number; explode: ExplodeInfo } {
-    return { knobs: BASS_KNOBS.length, plate: BASS_PLATE_KNOBS.length, keys: BASS_KEYS.length, trigs: BASS_STEPS, locks: BASS_STEPS, screenDraws: this.screen.draws, silkDraws: this.silk.draws, explode: this.explode.info() };
+  info(): { knobs: number; encoders: number; plate: number; keys: number; trigs: number; locks: number; screenDraws: number; silkDraws: number; encAngleDeg: number[]; screen: BassScreenView | null; explode: ExplodeInfo } {
+    return {
+      knobs: BASS_KNOBS.length,
+      encoders: 8,
+      plate: BASS_PLATE_KNOBS.length,
+      keys: BASS_KEYS.length,
+      trigs: BASS_STEPS,
+      locks: BASS_STEPS,
+      screenDraws: this.screen.draws,
+      silkDraws: this.silk.draws,
+      encAngleDeg: Array.from(this.encAngle, (a) => Math.round((a * 180) / Math.PI)),
+      screen: this.shown,
+      explode: this.explode.info(),
+    };
   }
 
   dispose(): void {
@@ -864,12 +953,9 @@ export class BassRig {
     this.lid.geometry.dispose();
     this.pcb.dispose();
     this.tweaks.dispose();
-    this.dots.geometry.dispose();
-    this.dots.dispose();
-    this.dotMat.dispose();
     this.bodyMat.dispose();
     this.brush.dispose();
-    for (const m of [...this.knobs, this.keys, this.trigs, this.locks]) {
+    for (const m of [this.knobs, this.encs, this.keys, this.trigs, this.locks]) {
       m.geometry.dispose();
       m.dispose();
     }

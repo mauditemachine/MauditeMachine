@@ -38,6 +38,15 @@
  * STYLE, DENSITY, SLIDE PROB, ACC PROB ou RANGE la reecrit avec le meme
  * tirage (on entend le potard) ; une ligne retouchee ne bouge plus, l'ecran
  * dit PRESS GEN.
+ *
+ * La machine Elektron (2026-10-08, Mika : "quand on clique sur un step on
+ * selectionne la partie qu'on veut modifier, est-ce que le voice, est-ce que
+ * le FX, est-ce que l'enveloppe, et ensuite on tourne un encodeur sur ce
+ * step") : les huit encodeurs reglent la page allumee (bass/pages.ts) ; en
+ * LOCK, un encodeur verrouille son reglage sur le pas (un cran entier pour
+ * un reglage a crans), deux tapes l'en retirent ; un reglage GLOBAL (OCTAVE,
+ * les reglages des effets) ne bouge pas en LOCK et l'ecran le dit, jamais un
+ * geste qui ne fait rien en silence.
  */
 
 import { gesture } from '../actions';
@@ -49,6 +58,7 @@ import { bassEngine } from './engine';
 import { generate, mutate, type GenOpts } from './gen';
 import type { BassStep } from './state';
 import { BASS_SCALES, BASS_STYLES, SCALE_TONES, bassKnob, bassParams, bassValueText, stepOf, type BassKnobId } from './params';
+import { BASS_PAGE_SLOTS, bassPage, bassPageDef, isBassGlobal, type BassPageId } from './pages';
 import { bassPatterns, bassSlotName } from './patterns';
 import { bassSeq, gateOf, midiOf } from './seq';
 import { BASS_STEPS, bassState, emptyStep, isLockable } from './state';
@@ -284,8 +294,17 @@ let lockAudition = 0;
 /** Un potard (0 a 1) ; l'ecran dit sa valeur. En LOCK, un potard du son verrouille le pas. */
 export function bassDial(id: BassKnobId, v: number): void {
   const st = bassState.get();
+  // En LOCK, un reglage GLOBAL d'une page (2026-10-08) : il ne bouge pas, l'ecran dit pourquoi
+  if (st.lock >= 0 && isBassGlobal(id)) {
+    bassState.set({ touched: { id, at: performance.now() } });
+    bassState.say(`${bassKnob(id).label}: GLOBAL, NOT PER STEP`, 1800);
+    return;
+  }
   if (st.lock >= 0 && isLockable(id)) {
-    const x = Math.min(1, Math.max(0, v));
+    // Un reglage a crans se verrouille sur un cran entier (SUB OCT)
+    const n = bassKnob(id).steps ?? 0;
+    const c = Math.min(1, Math.max(0, v));
+    const x = n > 1 ? Math.round(c * (n - 1)) / (n - 1) : c;
     const s = st.steps[st.lock];
     if (s.locks?.[id] === x) return;
     lockTurns += 1;
@@ -322,6 +341,10 @@ export function bassDial(id: BassKnobId, v: number): void {
 /** Deux tapes sur un potard : en LOCK, son verrou s'en va ; sinon, sa valeur de depart. */
 export function bassDialReset(id: BassKnobId): void {
   const st = bassState.get();
+  if (st.lock >= 0 && isBassGlobal(id)) {
+    bassState.say(`${bassKnob(id).label}: GLOBAL, NOT PER STEP`, 1800);
+    return;
+  }
   if (st.lock >= 0 && isLockable(id)) {
     const s = st.steps[st.lock];
     if (!s.locks || s.locks[id] === undefined) {
@@ -336,6 +359,52 @@ export function bassDialReset(id: BassKnobId): void {
     return;
   }
   bassDial(id, bassParams.def(id));
+}
+
+/* ---------------- les encodeurs et les pages (2026-10-08, la machine Elektron) ---------------- */
+
+/** Le reglage de l'encodeur k (0 a 7) sur la page allumee ; null : une case vide. */
+export const bassEncParam = (k: number): BassKnobId | null => bassPage.slot(k);
+
+/** Ce que montre l'encodeur k : le verrou du pas en LOCK, sinon le son ; 0 pour une case vide. */
+export const bassEncValue = (k: number): number => {
+  const id = bassEncParam(k);
+  return id ? bassKnobValue(id) : 0;
+};
+
+/** L'encodeur k tourne (0 a 1, la valeur voulue) : le reglage de la page, ou son verrou en LOCK. */
+export function bassEncDial(k: number, v: number): void {
+  const id = bassEncParam(k);
+  if (!id) {
+    bassState.say(`${'ABCDEFGH'[k] ?? ''}: EMPTY ON ${bassPageDef(bassPage.get()).label}`, 1200);
+    return;
+  }
+  bassDial(id, v);
+}
+
+/** Deux tapes sur l'encodeur k : en LOCK son verrou s'en va, sinon sa valeur de depart. */
+export function bassEncReset(k: number): void {
+  const id = bassEncParam(k);
+  if (id) bassDialReset(id);
+}
+
+/** Une touche de page : les encodeurs reglent cette page ; en LOCK, l'ecran dit ses verrous sur le pas. */
+export function bassPageSet(p: BassPageId): void {
+  gesture();
+  // La page change : l'echo du dernier reglage tourne s'en va (sinon l'ecran le montrerait en plein, hors de la page)
+  if (bassState.get().touched) bassState.set({ touched: null });
+  bassPage.set(p);
+  const st = bassState.get();
+  if (st.lock < 0) return;
+  const locks = st.steps[st.lock]?.locks ?? {};
+  const n = BASS_PAGE_SLOTS[p].filter((id) => id !== null && isLockable(id) && locks[id] !== undefined).length;
+  bassState.say(`LOCK ${two(st.lock)}  ${bassPageDef(p).label}: ${n ? `${n} LOCKED` : 'TURN A KNOB'}`, 1400);
+}
+
+/** Les touches [ et ] : la page d'a cote. */
+export function bassPageStep(dir: -1 | 1): void {
+  bassPage.step(dir);
+  bassPageSet(bassPage.get());
 }
 
 /* ---------------- LOCK : les boutons au-dessus des pas ---------------- */

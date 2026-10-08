@@ -22,16 +22,33 @@
  *   que ceux de la face ;
  * - INFOS allume, au doigt : toucher une commande montre sa carte sans rien
  *   changer (un potard qu'on glisse tourne toujours, la carte le suit).
+ * La machine Elektron (2026-10-08, Mika : "quand on clique sur un step on
+ * selectionne la partie qu'on veut modifier, et ensuite on tourne un
+ * encodeur sur ce step") :
+ * - les huit encodeurs (bass-enc-1 a 8) : les gestes d'un potard, relatifs
+ *   (le reglage repart de sa valeur a chaque appui : rien ne saute quand la
+ *   page change), sur le reglage de la page allumee ; la molette, un cran =
+ *   1/127 (un cran entier pour un reglage a crans) ;
+ * - un doigt tient un pas, un autre tourne un encodeur : le pas passe en
+ *   LOCK tout de suite (sans attendre les 350 ms), comme sur une Elektron ;
+ * - les touches de page ; la touche "i" de l'ecran (bass-key-i) allume ou
+ *   eteint INFOS, meme au doigt en INFOS.
  */
 
 import type { HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { openToggle, presetKey } from '../actions';
 import { bassInfos } from '../state/bassInfos';
-import { bassAccent, bassClear, bassDial, bassDialReset, bassEditToggle, bassEditing, bassGenerate, bassKnobValue, bassLockEnter, bassLockOff, bassLockTap, bassLockTurns, bassMutate, bassNote, bassOct, bassPatternHold, bassRun, bassSlide, bassStepDeg, bassStepTap } from './actions';
+import { bassAccent, bassClear, bassDial, bassDialReset, bassEditToggle, bassEditing, bassEncParam, bassGenerate, bassKnobValue, bassLockEnter, bassLockOff, bassLockTap, bassLockTurns, bassMutate, bassNote, bassOct, bassPageSet, bassPatternHold, bassRun, bassSlide, bassStepDeg, bassStepTap } from './actions';
 import { bassKnob, type BassKnobId } from './params';
 import { bassState } from './state';
 import type { BassKeyKind } from './theme';
+
+/** La molette : un cran (2026-10-08, 1/127 sur un encodeur), les pixels d'un cran (les petits pas d'un pave tactile s'additionnent). */
+const NOTCH = 1 / 127;
+const WHEEL_PX = 50;
+/** Un encodeur de la face (bass-enc-1 a 8) : son rang, 0 a 7 ; -1 sinon. */
+const encOf = (h: HotspotView): number => (h.id.startsWith('bass-enc-') ? Number(h.id.slice('bass-enc-'.length)) - 1 : -1);
 
 const KNOB_PX = 150;
 const FINE = 0.1;
@@ -78,6 +95,7 @@ interface Grip {
 export class BassGestures {
   private grips = new Map<number, Grip>();
   private lastTap = new Map<string, number>();
+  private wheelAcc = new Map<string, number>();
 
   constructor(private stage: Stage) {}
 
@@ -91,6 +109,12 @@ export class BassGestures {
 
   down(pointerId: number, h: HotspotView, x: number, y: number, touch = false): void {
     const g: Grip = { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, infoOnly: false, lock: -1 };
+    // La touche "i" de l'ecran : INFOS, toujours (au doigt en INFOS aussi : c'est elle qui l'eteint)
+    if (h.id === 'bass-key-i') {
+      bassInfos.toggle();
+      this.grips.set(pointerId, g);
+      return;
+    }
     // INFOS au doigt : la carte de la commande ; un potard peut encore tourner (la carte le suit), le reste attend
     if (touch && bassInfos.isOn()) {
       bassInfos.show(h.id);
@@ -107,7 +131,25 @@ export class BassGestures {
     }
     if (h.kind === 'bassknob') {
       g.kind = 'knob';
-      g.knob = knobOf(h);
+      const enc = encOf(h);
+      // Un encodeur : le reglage de la page allumee (une case vide : l'ecran le dit, rien ne tourne)
+      g.knob = enc >= 0 ? bassEncParam(enc) : knobOf(h);
+      if (!g.knob) {
+        bassState.say(`${'ABCDEFGH'[enc] ?? ''}: EMPTY ON THIS PAGE`, 1200);
+        this.grips.set(pointerId, g);
+        return;
+      }
+      // Deux doigts (2026-10-08) : un pas tenu (pas encore en LOCK) et un encodeur qu'on prend : LOCK tout de suite
+      if (!bassEditing()) {
+        for (const o of this.grips.values()) {
+          if (o.kind !== 'trig' || o.dragged || o.held) continue;
+          window.clearTimeout(o.hold);
+          o.held = true;
+          o.lockHold = true;
+          bassLockEnter(o.step);
+          break;
+        }
+      }
       g.v0 = bassKnobValue(g.knob);
       g.lock = bassState.get().lock;
       // Deux tapes : la valeur de depart (en LOCK : le verrou s'en va) ; pas en INFOS au doigt (on lit)
@@ -198,8 +240,13 @@ export class BassGestures {
     } else if (g.kind === 'key') this.press(g.id, false);
   }
 
-  /** La molette au-dessus d'un potard : 2 % par cran (Maj : 0.2 %), un cran entier sur les selecteurs ; true si elle est prise. */
-  wheel(h: HotspotView, delta: number, shift: boolean): boolean {
+  /**
+   * La molette au-dessus d'un potard ou d'un encodeur (2026-10-08, la machine
+   * Elektron) : un cran = 1/127, le nombre de l'ecran bouge de 1 (les petits
+   * pas d'un pave tactile s'additionnent ; Maj sans effet, c'est deja le plus
+   * fin) ; un cran entier sur un reglage a crans ; true si elle est prise.
+   */
+  wheel(h: HotspotView, delta: number, _shift: boolean): boolean {
     if (h.kind === 'basstrig') {
       if (bassEditing()) return true;
       const i = Number(h.id.slice('bass-trig-'.length)) - 1;
@@ -208,10 +255,23 @@ export class BassGestures {
       return true;
     }
     if (h.kind !== 'bassknob') return false;
-    const id = knobOf(h);
+    const enc = encOf(h);
+    const id = enc >= 0 ? bassEncParam(enc) : knobOf(h);
+    if (!id) return true;
+    // Une molette de souris : un evenement, un cran ; un pave tactile : ses petits pas s'additionnent
+    let notches: number;
+    if (Math.abs(delta) >= WHEEL_PX) {
+      notches = -Math.sign(delta);
+      this.wheelAcc.set(h.id, 0);
+    } else {
+      const acc = (this.wheelAcc.get(h.id) ?? 0) - delta;
+      notches = Math.trunc(acc / WHEEL_PX);
+      this.wheelAcc.set(h.id, acc - notches * WHEEL_PX);
+    }
+    if (!notches) return true;
     const n = bassKnob(id).steps;
-    if (n && n > 1) bassDial(id, bassKnobValue(id) - Math.sign(delta) / (n - 1));
-    else bassDial(id, bassKnobValue(id) - Math.sign(delta) * (shift ? 0.002 : 0.02) * Math.min(4, Math.abs(delta) / 40 || 1));
+    if (n && n > 1) bassDial(id, bassKnobValue(id) + Math.sign(notches) / (n - 1));
+    else bassDial(id, Math.round((bassKnobValue(id) + notches * NOTCH) * 127) / 127);
     return true;
   }
 
@@ -238,4 +298,8 @@ export function bassKeyAction(k: BassKeyKind): void {
   else if (k === 'noteup') bassNote(1);
   else if (k === 'octdn') bassOct(-1);
   else if (k === 'octup') bassOct(1);
+  else if (k === 'pvoice') bassPageSet('voice');
+  else if (k === 'pfilter') bassPageSet('filter');
+  else if (k === 'penv') bassPageSet('env');
+  else if (k === 'pfx') bassPageSet('fx');
 }

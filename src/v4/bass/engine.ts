@@ -9,8 +9,12 @@
 
 import workletUrl from './bass.worklet.js?url';
 import { synthPort } from '../audio/drums';
+import { pattern } from '../audio/pattern';
 import { bassParams } from './params';
 import type { BassLocks } from './state';
+
+/** La duree d'un pas (une double croche) au tempo du motif. */
+const stepS = (): number => 60 / Math.max(20, pattern.get().bpm) / 4;
 
 interface Graph {
   ctx: AudioContext;
@@ -25,10 +29,24 @@ let moduleCtx: BaseAudioContext | null = null;
 const live = { cut: 0, env: 0, gate: false, midi: -1, peak: 0, at: 0 };
 const liveListeners = new Set<() => void>();
 
-/** Les reglages du worklet ; les reglages fins de la voix aussi (2026-10-08 ; LENGTH n'en est pas un : la duree des notes, seq.ts). */
+/**
+ * Les reglages du worklet ; les reglages fins de la voix aussi (2026-10-08 ; LENGTH n'en est pas un : la duree des notes, seq.ts),
+ * et ceux des pages de la machine Elektron (le meme jour : PW, KEY TRK, l'ampli, le DELAY, la REVERB).
+ */
 function params(): Record<string, number> {
   const v = bassParams.get();
   return {
+    pw: v.pw,
+    keytrack: v.keytrack,
+    attack: v.attack,
+    adecay: v.adecay,
+    sustain: v.sustain,
+    delay: v.delay,
+    dtime: v.dtime,
+    dfb: v.dfb,
+    reverb: v.reverb,
+    rsize: v.rsize,
+    rtone: v.rtone,
     cutoff: v.cutoff,
     reso: v.reso,
     envmod: v.envmod,
@@ -80,6 +98,7 @@ function ensure(): Promise<Graph | null> {
       // Sa prise (2026-10-07) : le master, ou la voie 2 du mixer du MM-DECKS (audio/drums.ts routeMachines)
       node.connect(port.bass);
       node.port.postMessage({ type: 'params', p: params() });
+      node.port.postMessage({ type: 'tempo', step: stepS() });
       graph = { ctx, node };
       return graph;
     })
@@ -91,6 +110,14 @@ function ensure(): Promise<Graph | null> {
 }
 
 bassParams.subscribe(() => graph?.node.port.postMessage({ type: 'params', p: params() }));
+// Le tempo : le temps du DELAY reste en pas (2026-10-08)
+let lastStep = stepS();
+pattern.subscribe(() => {
+  const s = stepS();
+  if (s === lastStep) return;
+  lastStep = s;
+  graph?.node.port.postMessage({ type: 'tempo', step: s });
+});
 
 /** Un message ; pendant le chargement du worklet, il attend son tour (create : le charger s'il ne l'est pas). */
 function send(msg: Record<string, unknown>, create = true): void {

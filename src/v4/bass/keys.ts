@@ -11,11 +11,14 @@
  *   A : ACCENT ; S : SLIDE ; L : LOCK (le pas choisi ; Echap en sort)
  *   Haut, Bas : NOTE + - ; Z, X : OCT - +
  *   O : OPEN (le capot, 2026-10-08) ; I : INFOS (l'aide au survol)
+ *   [ ] : la page d'avant, d'apres (VOICE FILTER ENV FX, la machine Elektron
+ *         du 2026-10-08, comme sur le MM-RYTM)
  */
 
 import type { Stage } from '../scene/renderer';
 import { bassInfos } from '../state/bassInfos';
-import { bassLockOff, bassLockToggle, bassStepTap } from './actions';
+import { bassLockOff, bassLockToggle, bassPageStep, bassStepTap } from './actions';
+import { bassPage } from './pages';
 import { bassKeyAction } from './gestures';
 import { bassKeyId, bassLockId, bassTrigId } from './rig';
 import { bassState } from './state';
@@ -42,7 +45,8 @@ export const BASS_KEY_LEGEND: readonly { keys: string; what: string }[] = [
   { keys: 'Space', what: 'Run or stop, in time with the MM-RYTM' },
   { keys: 'E', what: 'Edit: the sixteen patterns on the steps' },
   { keys: 'O  /  I', what: 'Open the machine (fine settings)  /  INFOS: hover a control to read what it does' },
-  { keys: 'L  /  Esc', what: 'Lock the chosen step (or hold a step): the sound knobs change only it  /  out of lock' },
+  { keys: '[  ]', what: 'Previous or next page (VOICE, FILTER, ENV, FX): the eight encoders follow it' },
+  { keys: 'L  /  Esc', what: 'Lock the chosen step (or hold a step): the encoders change only it  /  out of lock' },
   { keys: 'G  /  M', what: 'Generate a new line  /  mutate a few steps' },
   { keys: 'A  /  S', what: 'Accent  /  slide on the chosen step' },
   { keys: 'Up  Down', what: 'Chosen step one note up or down in the scale' },
@@ -75,6 +79,16 @@ export function listenBassKeys(getStage: () => Stage | null, active: () => boole
       e.preventDefault();
       e.stopPropagation();
       if (!e.repeat) bassInfos.toggle();
+      return;
+    }
+    // [ et ] : les pages (2026-10-08) ; la LED de la touche de page s'allume avec
+    if (e.code === 'BracketLeft' || e.code === 'BracketRight') {
+      e.preventDefault();
+      e.stopPropagation();
+      bassPageStep(e.code === 'BracketLeft' ? -1 : 1);
+      const id = bassKeyId(`p${bassPage.get()}` as BassKeyKind);
+      press(id, true);
+      window.setTimeout(() => press(id, false), 120);
       return;
     }
     if (e.code === 'KeyL') {

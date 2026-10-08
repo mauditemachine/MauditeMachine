@@ -11,12 +11,18 @@
  * Les ids : chaque potard (BassKnobId), chaque touche (BassKeyKind ; la
  * touche ACCENT s'appelle accentkey, accent est deja le potard), plus les
  * pas, les LOCK, l'ecran, INFOS et CLOSE sous le capot.
+ * La machine Elektron (2026-10-08, Mika : "je veux un petit bouton i dans
+ * l'ecran a activer et de ce fait on peut voir les infos au survol") : un
+ * encodeur montre la carte du reglage qu'il tient sur la page allumee (enc
+ * pour une case vide), les touches de page la leur, la touche "i" (ikey) la
+ * sienne ; la section d'un reglage d'une page dit ou le trouver (FILTER B).
  */
 
+import { ENC_LETTERS, bassPage, bassPageDef, bassSlotOf } from './pages';
 import { BASS_KNOBS, type BassKnobId } from './params';
 import type { BassKeyKind } from './theme';
 
-export type BassInfoId = BassKnobId | Exclude<BassKeyKind, 'accent'> | 'accentkey' | 'trig' | 'lock' | 'screen' | 'infos' | 'close';
+export type BassInfoId = BassKnobId | Exclude<BassKeyKind, 'accent'> | 'accentkey' | 'trig' | 'lock' | 'screen' | 'infos' | 'close' | 'enc' | 'ikey';
 
 export interface BassInfo {
   /** la section du panneau (OSC, FILTER...), en petites capitales sur la carte */
@@ -105,7 +111,7 @@ const RAW: Record<BassInfoId, BassInfo> = {
   decay: {
     section: 'ENVELOPE',
     title: 'DECAY',
-    text: "Le temps que met le filtre à se refermer après chaque note, de 120 ms à 2,5 s : court pour des notes sèches, long pour des notes qui respirent. Une note accentuée garde sa décroissance courte (ACC DECAY, sous le capot), comme sur la 303.",
+    text: "Le temps que met le filtre à se refermer après chaque note, de 120 ms à 2,5 s : court pour des notes sèches, long pour des notes qui respirent. Une note accentuée garde sa décroissance courte (ACC DECAY, l'encodeur voisin), comme sur la 303, sauf si DECAY est verrouillé sur son pas.",
     tip: "Moins de 250 ms en EBM et en psy prog, plus long en house.",
   },
 
@@ -113,7 +119,7 @@ const RAW: Record<BassInfoId, BassInfo> = {
   accent: {
     section: 'ACCENT / SLIDE',
     title: 'ACCENT',
-    text: "La force des pas accentués (touche ACCENT, pas orange vif) : plus de volume, un filtre qui s'ouvre plus haut et plus court. Les accents qui se suivent s'additionnent et le filtre monte encore, le fameux wow de la 303 (SWEEP, sous le capot).",
+    text: "La force des pas accentués (touche ACCENT, pas orange vif) : plus de volume, un filtre qui s'ouvre plus haut et plus court. Les accents qui se suivent s'additionnent et le filtre monte encore, le fameux wow de la 303 (SWEEP, deux encodeurs plus loin). Verrouillé sur un pas sans accent, il lui donne l'accent.",
     tip: "Place-les sur les contretemps en acid ; à 0, les accents ne font plus rien.",
   },
   glide: {
@@ -207,6 +213,107 @@ const RAW: Record<BassInfoId, BassInfo> = {
     tip: "Les kicks d'usine sont accordés en F#, donc 0 est juste.",
   },
 
+  /* ---------- la machine Elektron (2026-10-08) : les reglages des pages ---------- */
+  pw: {
+    section: 'VOICE',
+    title: 'PW',
+    text: "La largeur du carré de WAVE, de 50 % (le carré rond et creux) à 95 % (une impulsion fine et nasillarde, façon SH-101). Sans effet sur la dent de scie : monte WAVE pour l'entendre. Se verrouille pas par pas.",
+    tip: "Un PW différent verrouillé sur deux ou trois pas : la ligne change de couleur sans changer de note.",
+  },
+  keytrack: {
+    section: 'FILTER',
+    title: 'KEY TRK',
+    text: "Fait suivre la coupure à la note : à 0, toutes les notes passent par le même filtre (la 303) ; à fond, le filtre monte d'une octave quand la note monte d'une octave, les notes hautes restent aussi brillantes que les graves.",
+    tip: "Vers 50 % pour une ligne qui saute d'octave sans que les notes hautes paraissent étouffées.",
+  },
+  attack: {
+    section: 'ENV',
+    title: 'ATTACK',
+    text: "Le temps de montée du volume de chaque note, de 0,5 ms à 1 s. Réglage d'usine : 2,5 ms, le claquement net de la 303. Plus long, la note entre en douceur. Une note glissée (SLIDE) ne remonte pas.",
+    tip: "Une ATTACK longue verrouillée sur la dernière note de la mesure : un effet aspiré.",
+  },
+  adecay: {
+    section: 'ENV',
+    title: 'AMP DECAY',
+    text: "Après la montée, le volume descend vers SUSTAIN en ce temps-là, de 20 ms à 4 s. Avec SUSTAIN au maximum (réglage d'usine), il ne se passe rien : la note reste pleine tant qu'elle est tenue.",
+    tip: "SUSTAIN à 0 et AMP DECAY court : des notes pincées, très percussives, même avec une LENGTH longue.",
+  },
+  sustain: {
+    section: 'ENV',
+    title: 'SUSTAIN',
+    text: "Le niveau où la note se tient après AMP DECAY, tant qu'elle n'est pas relâchée. Au maximum (réglage d'usine), comme la 303 : pleine jusqu'au relâchement.",
+    tip: "Vers 40 % avec un AMP DECAY de 300 ms : une basse house qui respire.",
+  },
+  delay: {
+    section: 'FX',
+    title: 'DELAY',
+    text: "Envoie la basse dans le DELAY : des répétitions gauche, droite, calées sur le tempo (DLY TIME), qui s'éteignent avec DLY FB. Le grave sous 140 Hz ne repasse pas dans les répétitions : le mix reste propre. Se verrouille pas par pas : un écho sur une seule note.",
+    tip: "Le classique dub : DELAY verrouillé à fond sur le dernier pas de la mesure, DLY TIME sur 3/16.",
+  },
+  dtime: {
+    section: 'FX',
+    title: 'DLY TIME',
+    text: "Le temps entre deux répétitions, en pas du tempo : de 1/16 (une double croche) à 1/2 (deux temps). 3/16, la croche pointée, fait rebondir la ligne entre ses notes. Global : le même pour tous les pas.",
+    tip: "1/8 pour épaissir, 3/16 pour le groove, 1/2 pour un écho qu'on remarque.",
+  },
+  dfb: {
+    section: 'FX',
+    title: 'DLY FB',
+    text: "Combien chaque répétition renvoie dans la suivante, de 0 à 90 % : peu, un ou deux échos ; beaucoup, une traîne qui dure des mesures. Global.",
+    tip: "Au-dessus de 70 %, garde l'envoi DELAY pour quelques pas seulement.",
+  },
+  reverb: {
+    section: 'FX',
+    title: 'REVERB',
+    text: "Envoie la basse dans la REVERB du MM-BASS. Une basse aime peu de réverbération : sur quelques notes verrouillées, elle ouvre l'espace sans noyer le grave.",
+    tip: "Une REVERB verrouillée sur un pas accentué, et rien ailleurs : une note qui s'envole.",
+  },
+  rsize: {
+    section: 'FX',
+    title: 'REV SIZE',
+    text: "La durée de la REVERB, de 0,3 s (une petite pièce) à 8 s (une cathédrale). Global.",
+    tip: "Moins d'une seconde en techno, plus long pour les breaks.",
+  },
+  rtone: {
+    section: 'FX',
+    title: 'REV TONE',
+    text: "La couleur de la REVERB : sombre à gauche (les aigus s'éteignent vite), claire à droite. Global.",
+    tip: "Sombre pour une basse : elle reste derrière le kick.",
+  },
+
+  /* ---------- les pages et les encodeurs (2026-10-08) ---------- */
+  pvoice: {
+    section: 'PAGES',
+    title: 'VOICE',
+    text: "Les huit encodeurs règlent la voix : WAVE, PW, SUB, SUB OCT, OCTAVE, TUNE et GLIDE. La LED dit la page allumée ; les touches [ et ] passent d'une page à l'autre.",
+    tip: "En LOCK, une touche de page à demi allumée porte déjà des verrous sur ce pas.",
+  },
+  pfilter: {
+    section: 'PAGES',
+    title: 'FILTER',
+    text: "Les huit encodeurs règlent le filtre de la 303 : CUTOFF, RESO, ENV MOD, DECAY, ACCENT, ACC DECAY, SWEEP et KEY TRK. C'est la page de départ.",
+  },
+  penv: {
+    section: 'PAGES',
+    title: 'ENV',
+    text: "Les huit encodeurs règlent l'enveloppe de l'ampli : ATTACK, AMP DECAY, SUSTAIN, RELEASE, la longueur des notes (LENGTH) et VOLUME.",
+  },
+  pfx: {
+    section: 'PAGES',
+    title: 'FX',
+    text: "Les huit encodeurs règlent les effets : DRIVE, l'envoi DELAY avec son temps et son retour, l'envoi REVERB avec sa durée et sa couleur. Les envois se verrouillent pas par pas ; le temps, le retour, la durée et la couleur sont globaux.",
+  },
+  enc: {
+    section: 'ENCODERS',
+    title: 'ENCODER',
+    text: "Les huit encodeurs A à H règlent la page allumée (VOICE, FILTER, ENV, FX) ; leur valeur est à l'écran, de 0 à 127, dans le bloc à leur place. Ils sont sans fin : rien ne saute quand tu changes de page. Cette case est vide sur cette page.",
+  },
+  ikey: {
+    section: 'SCREEN',
+    title: 'INFOS',
+    text: "Allume l'aide : survole n'importe quelle commande du MM-BASS (au téléphone, touche-la, sans la changer) pour lire ce qu'elle fait ; un encodeur montre le réglage qu'il tient sur la page allumée. Le i se remplit tant que c'est allumé ; touche-le encore, ou Échap, pour l'éteindre.",
+  },
+
   /* ---------- les touches ---------- */
   run: {
     section: 'KEYS',
@@ -216,7 +323,7 @@ const RAW: Record<BassInfoId, BassInfo> = {
   clear: {
     section: 'KEYS',
     title: 'CLEAR',
-    text: "Efface la ligne ; en LOCK, seulement les verrous du pas.",
+    text: "Efface la ligne ; en LOCK, seulement les verrous du pas (toutes les pages).",
   },
   accentkey: {
     section: 'KEYS',
@@ -251,7 +358,7 @@ const RAW: Record<BassInfoId, BassInfo> = {
   edit: {
     section: 'KEYS',
     title: 'EDIT',
-    text: "Les 16 pas deviennent 16 patterns : touche un pas pour jouer son pattern à la mesure, plusieurs à la suite pour les enchaîner, tiens un vide pour y copier la ligne. Touche E.",
+    text: "Les 16 pas deviennent 16 patterns : touche un pas pour jouer son pattern à la mesure, plusieurs à la suite pour les enchaîner, tiens un vide pour y copier la ligne. L'écran montre la ligne en rouleau et, dessous, les verrous de la page allumée, pas par pas (change de page pour voir les autres). Touche E.",
   },
   open: {
     section: 'KEYS',
@@ -263,26 +370,26 @@ const RAW: Record<BassInfoId, BassInfo> = {
   lock: {
     section: 'STEPS',
     title: 'LOCK',
-    text: "Ce pas prend les potards du son : chaque potard que tu tournes ne change plus que lui. Double tape sur un potard pour enlever son verrou, réappuie sur LOCK pour sortir.",
+    text: "Ce pas passe en LOCK : sa LED clignote, l'écran affiche LOCK 05 en négatif. Choisis la partie à changer avec une touche de page (VOICE, FILTER, ENV, FX), puis tourne un encodeur : ce réglage ne change plus que sur ce pas, son bloc passe en négatif. Double tape sur l'encodeur pour enlever ce verrou, CLEAR pour tous ceux du pas ; réappuie sur LOCK, ou Échap, pour sortir.",
     tip: "Un CUTOFF plus ouvert sur le pas 16, c'est une relance acid instantanée.",
   },
   trig: {
     section: 'STEPS',
     title: 'STEPS',
-    text: "Touche un pas : vide, note, liaison, vide ; glisse dessus pour changer sa note. Tiens-le et tourne un potard pour le verrouiller sur ce pas, comme sur une Elektron.",
-    tip: "Au téléphone, un doigt tient le pas, un autre tourne le potard.",
+    text: "Touche un pas : vide, note, liaison, vide ; glisse dessus pour changer sa note. Tiens-le et tourne un encodeur : ce réglage est verrouillé sur ce pas, comme sur une Elektron (un appui long seul garde le LOCK). Quand la lecture passe sur un pas verrouillé, ses blocs passent en négatif à l'écran.",
+    tip: "Au téléphone, un doigt tient le pas, un autre tourne l'encodeur.",
   },
   screen: {
     section: 'SCREEN',
     title: 'SCREEN',
-    text: "La ligne en rouleau, le filtre en direct, le dernier potard tourné ; en LOCK, la grille des verrous du pas. Touche-le pour les presets.",
+    text: "La page des huit encodeurs : chaque bloc est à la place de son encodeur (A en haut à gauche, H en bas à droite), avec sa valeur de 0 à 127 et son unité. En LOCK, les réglages verrouillés sur le pas sont en négatif ; en lecture, ceux du pas qui joue s'allument le temps du pas. Dessous, les 16 pas : un point sur chaque pas verrouillé (plein : sur cette page). Touche l'écran pour les presets, le petit i pour INFOS.",
   },
 
   /* ---------- sous le capot ---------- */
   infos: {
     section: 'TWEAKS',
     title: 'INFOS',
-    text: "Allume l'aide : survole un potard ou une touche du MM-BASS ; au téléphone, touche-le, sans le changer. Réappuie, ou touche la pastille INFOS ON, pour l'éteindre.",
+    text: "Allume l'aide : survole un potard, un encodeur ou une touche du MM-BASS ; au téléphone, touche-le, sans le changer. Le petit i dans le coin de l'écran fait la même chose. Réappuie, ou touche la pastille, pour l'éteindre.",
   },
   close: {
     section: 'TWEAKS',
@@ -291,11 +398,20 @@ const RAW: Record<BassInfoId, BassInfo> = {
   },
 };
 
-export const BASS_INFOS: Record<BassInfoId, BassInfo> = Object.fromEntries(
-  Object.entries(RAW).map(([id, x]) => [id, { section: x.section, title: x.title, text: fr(x.text), ...(x.tip ? { tip: fr(x.tip) } : {}) }])
-) as Record<BassInfoId, BassInfo>;
-
 const KNOBS: ReadonlySet<string> = new Set(BASS_KNOBS.map((k) => k.id));
+
+/** La section d'un reglage d'une page : ou le trouver (FILTER B), et sous le capot s'il y est aussi (2026-10-08). */
+function sectionOf(id: string, raw: string): string {
+  if (!KNOBS.has(id)) return raw;
+  const at = bassSlotOf(id as BassKnobId);
+  if (!at) return raw;
+  const plate = BASS_KNOBS.find((k) => k.id === id)?.plate;
+  return `${bassPageDef(at.page).label} ${ENC_LETTERS[at.k]}${plate ? ' / TWEAKS' : ''}`;
+}
+
+export const BASS_INFOS: Record<BassInfoId, BassInfo> = Object.fromEntries(
+  Object.entries(RAW).map(([id, x]) => [id, { section: sectionOf(id, x.section), title: x.title, text: fr(x.text), ...(x.tip ? { tip: fr(x.tip) } : {}) }])
+) as Record<BassInfoId, BassInfo>;
 
 /** Un potard ? (sa valeur se lit, son dessin la suit). */
 export const isBassInfoKnob = (id: BassInfoId): id is BassKnobId => KNOBS.has(id);
@@ -307,6 +423,9 @@ export const isBassInfoKnob = (id: BassInfoId): id is BassKnobId => KNOBS.has(id
  * bass-tw-infos et bass-tw-close INFOS et CLOSE ; null sinon.
  */
 export function bassInfoIdOf(hotspotId: string): BassInfoId | null {
+  // Un encodeur (2026-10-08) : le reglage qu'il tient sur la page allumee
+  if (hotspotId.startsWith('bass-enc-')) return bassPage.slot(Number(hotspotId.slice(9)) - 1) ?? 'enc';
+  if (hotspotId === 'bass-key-i') return 'ikey';
   if (hotspotId.startsWith('bass-knob-')) {
     const id = hotspotId.slice(10);
     return KNOBS.has(id) ? (id as BassKnobId) : null;

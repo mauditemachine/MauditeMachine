@@ -7,13 +7,20 @@
  * seize LOCK (bass:lock:<0-15>) et LOCK sur le pas choisi (bass:lock), comme
  * sur une Elektron : un potard du son tourne pendant un LOCK ne change que
  * ce pas. Inscrites au chargement de son code (state/bassload.ts).
+ * La machine Elektron (2026-10-08) : les huit encodeurs de la page allumee
+ * (bass:knob:1 a 8, les memes que MIDI LEARN sur un encodeur de la face ; un
+ * cran du controleur = un cran de l'ecran, cc / 127), les pages
+ * (bass:page:voice, filter, env, fx, et bass:page en quatre crans), la
+ * touche "i" (bass:key:i) ; les reglages des pages ont aussi leur cible
+ * directe (bass:knob:pw, bass:knob:delay...). Les ids d'avant restent.
  */
 
 import { registerTargets, type MidiTarget } from '../midi/targets';
 import { bassInfos } from '../state/bassInfos';
-import { bassDial, bassKnobValue, bassLockTap, bassLockToggle, bassRun, bassStepTap } from './actions';
+import { bassDial, bassEncDial, bassEncParam, bassEncValue, bassKnobValue, bassLockTap, bassLockToggle, bassPageSet, bassRun, bassStepTap } from './actions';
 import { bassKeyAction } from './gestures';
-import { BASS_KNOBS } from './params';
+import { BASS_PAGES, ENC_LETTERS, bassPage } from './pages';
+import { BASS_KNOBS, bassKnob } from './params';
 import { bassSeq } from './seq';
 import { BASS_STEPS } from './state';
 import { BASS_KEYS } from './theme';
@@ -23,6 +30,32 @@ function all(): MidiTarget[] {
   for (const k of BASS_KNOBS) {
     out.push({ id: `bass:knob:${k.id}`, scope: 'bass', label: k.label, kind: 'value', steps: k.steps ?? 0, get: () => bassKnobValue(k.id), set: (v) => bassDial(k.id, v) });
   }
+  // Les encodeurs de la page allumee : leurs crans suivent le reglage qu'ils tiennent
+  for (let i = 0; i < 8; i += 1) {
+    out.push({
+      id: `bass:knob:${i + 1}`,
+      scope: 'bass',
+      label: `ENCODER ${ENC_LETTERS[i]} (PAGE)`,
+      kind: 'value',
+      get steps() {
+        const id = bassEncParam(i);
+        return id ? bassKnob(id).steps ?? 0 : 0;
+      },
+      get: () => bassEncValue(i),
+      set: (v) => bassEncDial(i, v),
+    });
+  }
+  for (const p of BASS_PAGES) out.push({ id: `bass:page:${p.id}`, scope: 'bass', label: `PAGE ${p.label}`, kind: 'press', down: () => bassPageSet(p.id) });
+  out.push({
+    id: 'bass:page',
+    scope: 'bass',
+    label: 'PAGE (VOICE FILTER ENV FX)',
+    kind: 'value',
+    steps: BASS_PAGES.length,
+    get: () => BASS_PAGES.findIndex((p) => p.id === bassPage.get()) / (BASS_PAGES.length - 1),
+    set: (v) => bassPageSet(BASS_PAGES[Math.max(0, Math.min(BASS_PAGES.length - 1, Math.round(v * (BASS_PAGES.length - 1))))].id),
+  });
+  out.push({ id: 'bass:key:i', scope: 'bass', label: 'INFOS (THE i OF THE SCREEN)', kind: 'press', down: () => void bassInfos.toggle() });
   for (const k of BASS_KEYS) out.push({ id: `bass:key:${k.kind}`, scope: 'bass', label: k.kind === 'run' ? 'RUN/STOP' : k.label, kind: 'press', down: () => bassKeyAction(k.kind) });
   out.push({
     id: 'bass:running',

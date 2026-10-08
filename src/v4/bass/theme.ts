@@ -27,11 +27,22 @@
  *   verrouille clignote.
  * Les regles du generateur (SLIDE PROB, ACC PROB, RANGE, ROOT, SCALE) et les
  * reglages fins de la voix sont sous le capot (OPEN, la plaque TWEAKS).
- * Au telephone (PORTRAIT) : le bloc debout, l'ecran sur toute la largeur,
- * les sections en quatre rangees (GENERATOR avec GEN et MUTATE, OSC,
- * FILTER + ENVELOPE, ACCENT / SLIDE + OUTPUT), RUN CLEAR EDIT OPEN, puis
- * les touches du pas choisi, les pas en deux rangees de huit, chacun son
- * LOCK au-dessus.
+ *
+ * La machine Elektron (2026-10-08, Mika : "faire comme un principe de
+ * machine elektron ; les valeurs des knobs sont a l'ecran, pas sur les
+ * encodeurs ; fais evoluer l'ecran parce que je pense que c'est la cle") :
+ * les onze potards du son laissent la place a un ecran deux fois plus
+ * grand, le coeur de la machine, et a huit encodeurs sans fin A a H en deux
+ * rangees de quatre, a cote de lui comme sur un Digitakt (le bloc k de
+ * l'ecran est a la place de l'encodeur k), les quatre touches de page
+ * dessous (VOICE, FILTER, ENV, FX, sous le filet PARAMETER), une par
+ * colonne. A droite : EDIT et OPEN en haut, puis le GENERATOR (STYLE,
+ * DENSITY, GEN, MUTATE). Le reste ne bouge pas : la rangee de jeu, les LOCK,
+ * les pas.
+ * Au telephone (PORTRAIT) : l'ecran sur toute la largeur, les encodeurs en
+ * deux rangees de quatre sous lui (meme ordre que ses blocs), les touches de
+ * page, le GENERATOR sur une rangee, RUN CLEAR EDIT OPEN, les touches du pas
+ * choisi, les pas en deux rangees de huit, chacun son LOCK au-dessus.
  * Ce module reste dans le chargement principal (le Stage en a besoin pour
  * cadrer) ; le reste du MM-BASS arrive a part (state/bassload.ts).
  */
@@ -55,9 +66,10 @@ export const BASS_FRAME = { h: BASS_D + 0.5, targetY: 1.3 } as const;
 
 export const BASS = PORTRAIT
   ? {
-      head: { z: -6.62 },
-      logo: { h: 0.32, z: -6.62 },
-      screen: { x: 0, z: -4.92, w: 7.4, d: 2.5 },
+      head: { z: -6.8 },
+      logo: { h: 0.32, z: -6.8 },
+      // La machine Elektron (2026-10-08) : l'ecran plus profond (3.5 au lieu de 2.5), toute la largeur
+      screen: { x: 0, z: -4.65, w: 7.6, d: 3.5 },
       trigs: { w: 0.8, d: 0.56, h: 1.15 },
       // Plus grands au doigt (2026-10-08 : la bande de 15 px entre NOTE + et le pas ratait)
       locks: { w: 0.72, d: 0.3, h: 0.85 },
@@ -65,30 +77,18 @@ export const BASS = PORTRAIT
   : {
       head: { z: -3.42 },
       logo: { h: 0.3, z: -3.42 },
-      screen: { x: -3.95, z: -1.72, w: 4.3, d: 2.3 },
+      // La machine Elektron (2026-10-08) : 5.5 x 3.5 au lieu de 4.3 x 2.3, deux fois la surface
+      screen: { x: -3.3, z: -1.25, w: 5.5, d: 3.5 },
       trigs: { w: 0.62, d: 0.62, h: 1.15 },
       locks: { w: 0.56, d: 0.26, h: 0.85 },
     };
 
 /**
- * Les sections de la face (2026-10-08, la refonte facon Monark : "quelque
- * chose d'intuitif, pour qu'on ne cherche pas les choses") : le son dans
- * l'ordre du signal, de gauche a droite, comme un Minimoog ; le generateur
- * a cote de l'ecran (ce que la machine joue). Leur nom au-dessus de leurs
- * potards (desktop), sous leur rangee au telephone.
+ * Les sections de la face qui gardent des potards dedies : le GENERATOR
+ * (STYLE, DENSITY, ses touches GEN et MUTATE), en orange. Le son passe par
+ * les encodeurs et les pages depuis la machine Elektron (2026-10-08).
  */
-export const BASS_SECTIONS: readonly { name: string; ids: readonly BassKnobId[]; ink?: 'orange' }[] = [
-  { name: 'GENERATOR', ids: ['style', 'density'], ink: 'orange' },
-  { name: 'OSC', ids: ['octave', 'wave', 'sub'] },
-  { name: 'FILTER', ids: ['cutoff', 'reso'] },
-  { name: 'ENVELOPE', ids: ['envmod', 'decay'] },
-  { name: 'ACCENT / SLIDE', ids: ['accent', 'glide'] },
-  { name: 'OUTPUT', ids: ['drive', 'volume'] },
-];
-export const bassSectionOf = (id: BassKnobId): string | null => BASS_SECTIONS.find((g) => g.ids.includes(id))?.name ?? null;
-
-/** Le potard en vedette : le grand CUTOFF. */
-export const BASS_HERO: BassKnobId = 'cutoff';
+export const BASS_SECTIONS: readonly { name: string; ids: readonly BassKnobId[]; ink?: 'orange' }[] = [{ name: 'GENERATOR', ids: ['style', 'density'], ink: 'orange' }];
 
 /** Les potards, leur place (repere top), leur echelle. */
 interface KnobPlace {
@@ -98,56 +98,44 @@ interface KnobPlace {
   s: number;
 }
 
-/** La rangee du son (desktop), un peu sous l'ecran. */
-const SOUND_Z = 0.62;
+/** Les colonnes des encodeurs (et des touches de page), leurs rangees, leur echelle. */
+const PH_X = [-2.85, -0.95, 0.95, 2.85];
+const ENC = PORTRAIT ? { x: PH_X, z: [-2.17, -0.87], s: 1.25, pageZ: 0.08 } : { x: [0.3, 1.3, 2.3, 3.3], z: [-2.25, -0.95], s: 1.1, pageZ: 0.3 };
+/** La rangee du GENERATOR au telephone (STYLE, DENSITY, GEN, MUTATE). */
+const PH_GEN_Z = 1.32;
 
 const desk = (): KnobPlace[] => [
-  // Le generateur, a droite de l'ecran : STYLE (le choix musical), DENSITY
-  { id: 'style', x: -0.72, z: -1.62, s: 1.45 },
-  { id: 'density', x: 0.98, z: -1.62, s: 1.05 },
-  // Le son, de gauche a droite : OSC | FILTER | ENVELOPE | ACCENT / SLIDE | OUTPUT
-  { id: 'octave', x: -5.62, z: SOUND_Z, s: 0.95 },
-  { id: 'wave', x: -4.67, z: SOUND_Z, s: 0.95 },
-  { id: 'sub', x: -3.72, z: SOUND_Z, s: 0.95 },
-  { id: 'cutoff', x: -2.36, z: SOUND_Z, s: 1.3 },
-  { id: 'reso', x: -1.04, z: SOUND_Z, s: 0.95 },
-  { id: 'envmod', x: 0.12, z: SOUND_Z, s: 0.95 },
-  { id: 'decay', x: 1.07, z: SOUND_Z, s: 0.95 },
-  { id: 'accent', x: 2.23, z: SOUND_Z, s: 0.95 },
-  { id: 'glide', x: 3.18, z: SOUND_Z, s: 0.95 },
-  { id: 'drive', x: 4.34, z: SOUND_Z, s: 0.95 },
-  { id: 'volume', x: 5.42, z: SOUND_Z, s: 1.05 },
+  // Le generateur, sous EDIT et OPEN : STYLE (le choix musical), DENSITY
+  { id: 'style', x: 4.55, z: -1.2, s: 1.25 },
+  { id: 'density', x: 5.55, z: -1.2, s: 0.98 },
 ];
 
-/** Au telephone : quatre rangees (GENERATOR, OSC, FILTER + ENVELOPE, ACCENT / SLIDE + OUTPUT), des potards plus gros au doigt. */
-const PH_X = [-2.85, -0.95, 0.95, 2.85];
-export const PH_ROWS = { gen: -2.82, osc: -1.36, filter: 0.12, out: 1.6 } as const;
 const phone = (): KnobPlace[] => [
-  { id: 'style', x: PH_X[0], z: PH_ROWS.gen, s: 1.25 },
-  { id: 'density', x: PH_X[1], z: PH_ROWS.gen, s: 1.12 },
-  { id: 'octave', x: -1.9, z: PH_ROWS.osc, s: 1.12 },
-  { id: 'wave', x: 0, z: PH_ROWS.osc, s: 1.12 },
-  { id: 'sub', x: 1.9, z: PH_ROWS.osc, s: 1.12 },
-  { id: 'cutoff', x: PH_X[0], z: PH_ROWS.filter, s: 1.36 },
-  { id: 'reso', x: PH_X[1], z: PH_ROWS.filter, s: 1.12 },
-  { id: 'envmod', x: PH_X[2], z: PH_ROWS.filter, s: 1.12 },
-  { id: 'decay', x: PH_X[3], z: PH_ROWS.filter, s: 1.12 },
-  { id: 'accent', x: PH_X[0], z: PH_ROWS.out, s: 1.12 },
-  { id: 'glide', x: PH_X[1], z: PH_ROWS.out, s: 1.12 },
-  { id: 'drive', x: PH_X[2], z: PH_ROWS.out, s: 1.12 },
-  { id: 'volume', x: PH_X[3], z: PH_ROWS.out, s: 1.12 },
+  { id: 'style', x: PH_X[0], z: PH_GEN_Z, s: 1.15 },
+  { id: 'density', x: PH_X[1], z: PH_GEN_Z, s: 1.05 },
 ];
 
 export const BASS_KNOB_PLACES: readonly KnobPlace[] = PORTRAIT ? phone() : desk();
 export const bassKnobAt = (id: BassKnobId): KnobPlace => BASS_KNOB_PLACES.find((k) => k.id === id) ?? { id, x: 0, z: 0, s: 1 };
 
-/** Le capuchon d'un potard : aluminium pour le son (CUTOFF le plus grand), orange pour ACCENT, noir pour le generateur. */
+/** Le capuchon d'un potard dedie : noir pour le generateur. */
 export type BassKnobTone = 'knob' | 'ring' | 'hot';
-export const bassKnobTone = (id: BassKnobId): BassKnobTone => (id === 'accent' ? 'hot' : id === 'style' || id === 'density' ? 'knob' : 'ring');
+export const bassKnobTone = (_id: BassKnobId): BassKnobTone => 'knob';
+
+/**
+ * Les huit encodeurs (2026-10-08, la machine Elektron) : k de 0 a 7, A B C D
+ * en haut, E F G H dessous, comme les blocs de l'ecran.
+ */
+export const BASS_ENC_S = ENC.s;
+export const bassEncAt = (k: number): { x: number; z: number; s: number } => ({ x: ENC.x[k % 4], z: ENC.z[k < 4 ? 0 : 1], s: ENC.s });
 
 /* ---------------- les touches ---------------- */
 
-export type BassKeyKind = 'run' | 'edit' | 'open' | 'gen' | 'mutate' | 'clear' | 'accent' | 'slide' | 'notedn' | 'noteup' | 'octdn' | 'octup';
+/** Les touches de page (2026-10-08) : une par colonne d'encodeurs. */
+export type BassPageKey = 'pvoice' | 'pfilter' | 'penv' | 'pfx';
+export const BASS_PAGE_KEYS: readonly BassPageKey[] = ['pvoice', 'pfilter', 'penv', 'pfx'];
+
+export type BassKeyKind = 'run' | 'edit' | 'open' | 'gen' | 'mutate' | 'clear' | 'accent' | 'slide' | 'notedn' | 'noteup' | 'octdn' | 'octup' | BassPageKey;
 
 /** Une touche : son nom, sa place et sa taille (repere top) ; orange : son nom en orange, sa LED orange (RUN en or). */
 export interface BassKeyDef {
@@ -175,6 +163,11 @@ const COPY: readonly KeyCopy[] = [
   { kind: 'noteup', label: 'NOTE +', aria: 'Chosen step one note up in the scale, key Up' },
   { kind: 'octdn', label: 'OCT -', aria: 'Chosen step one octave down, key Z' },
   { kind: 'octup', label: 'OCT +', aria: 'Chosen step one octave up, key X' },
+  // Les pages (2026-10-08, la machine Elektron) : les huit encodeurs reglent la page allumee
+  { kind: 'pvoice', label: 'VOICE', aria: 'Page VOICE: the eight encoders set the oscillator, the sub and the pitch, keys [ and ]' },
+  { kind: 'pfilter', label: 'FILTER', aria: 'Page FILTER: the eight encoders set the 303 filter and the accent' },
+  { kind: 'penv', label: 'ENV', aria: 'Page ENV: the eight encoders set the amp envelope, the note length and the volume' },
+  { kind: 'pfx', label: 'FX', aria: 'Page FX: the eight encoders set the drive, the delay and the reverb' },
 ];
 
 /**
@@ -183,12 +176,18 @@ const COPY: readonly KeyCopy[] = [
  * MM-RYTM : on les voit tout de suite), la rangee de jeu au-dessus des pas
  * (RUN | CLEAR | ACCENT SLIDE | NOTE - NOTE + OCT - OCT +) ; au telephone,
  * GEN et MUTATE a cote de STYLE et DENSITY, puis RUN CLEAR EDIT OPEN, puis
- * ACCENT SLIDE NOTE - NOTE + OCT - OCT +.
+ * ACCENT SLIDE NOTE - NOTE + OCT - OCT +. Les touches de page (la machine
+ * Elektron, le meme jour) sous les encodeurs, une par colonne ; GEN et
+ * MUTATE sur leur rangee (desktop).
  */
 const PLACES: Readonly<Record<BassKeyKind, { x: number; z: number; w: number; d: number }>> = PORTRAIT
   ? {
-      gen: { x: 0.95, z: PH_ROWS.gen, w: 1.5, d: 0.62 },
-      mutate: { x: 2.85, z: PH_ROWS.gen, w: 1.5, d: 0.62 },
+      pvoice: { x: ENC.x[0], z: ENC.pageZ, w: 1.55, d: 0.5 },
+      pfilter: { x: ENC.x[1], z: ENC.pageZ, w: 1.55, d: 0.5 },
+      penv: { x: ENC.x[2], z: ENC.pageZ, w: 1.55, d: 0.5 },
+      pfx: { x: ENC.x[3], z: ENC.pageZ, w: 1.55, d: 0.5 },
+      gen: { x: 0.95, z: PH_GEN_Z, w: 1.5, d: 0.58 },
+      mutate: { x: 2.85, z: PH_GEN_Z, w: 1.5, d: 0.58 },
       run: { x: -2.95, z: 2.92, w: 1.55, d: 0.6 },
       clear: { x: -0.98, z: 2.92, w: 1.55, d: 0.6 },
       edit: { x: 0.98, z: 2.92, w: 1.55, d: 0.6 },
@@ -201,10 +200,14 @@ const PLACES: Readonly<Record<BassKeyKind, { x: number; z: number; w: number; d:
       octup: { x: 3.25, z: 3.78, w: 1.12, d: 0.5 },
     }
   : {
-      gen: { x: 2.55, z: -1.62, w: 1.15, d: 0.56 },
-      mutate: { x: 3.85, z: -1.62, w: 1.15, d: 0.56 },
-      edit: { x: 5.38, z: -2.12, w: 1.3, d: 0.5 },
-      open: { x: 5.38, z: -1.18, w: 1.3, d: 0.5 },
+      pvoice: { x: ENC.x[0], z: ENC.pageZ, w: 0.8, d: 0.34 },
+      pfilter: { x: ENC.x[1], z: ENC.pageZ, w: 0.8, d: 0.34 },
+      penv: { x: ENC.x[2], z: ENC.pageZ, w: 0.8, d: 0.34 },
+      pfx: { x: ENC.x[3], z: ENC.pageZ, w: 0.8, d: 0.34 },
+      gen: { x: 4.55, z: 0.3, w: 0.92, d: 0.38 },
+      mutate: { x: 5.55, z: 0.3, w: 0.92, d: 0.38 },
+      edit: { x: 4.55, z: -2.55, w: 0.95, d: 0.44 },
+      open: { x: 5.55, z: -2.55, w: 0.95, d: 0.44 },
       run: { x: -5.3, z: 1.6, w: 1.1, d: 0.42 },
       clear: { x: -3.75, z: 1.6, w: 1.0, d: 0.42 },
       accent: { x: -2.2, z: 1.6, w: 1.0, d: 0.42 },

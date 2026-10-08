@@ -22,7 +22,8 @@
 import { bassFactory } from '../state/factory';
 import { generate, mutate, type GenOpts } from './gen';
 import type { BassInfoId } from './infos';
-import { BASS_ROOTS, BASS_SCALES, BASS_STYLES, BASS_KNOBS, SCALE_TONES, accDecayMs, bassValueText, lengthPct, releaseMs, stepOf, sweepOct, tuneCents, type BassKnobId, type BassStyle, type BassValues } from './params';
+import { BASS_ROOTS, BASS_SCALES, BASS_STYLES, BASS_KNOBS, DTIME_STEPS, SCALE_TONES, accDecayMs, adecayMs, attackMs, bassKnob, bassValueText, dfbPct, lengthPct, pwPct, releaseMs, rsizeS, rtoneHz, stepOf, sweepOct, tuneCents, type BassKnobId, type BassStyle, type BassValues } from './params';
+import { BASS_PAGE_SLOTS, type BassPageId } from './pages';
 import { BASS_STEPS, type BassStep } from './state';
 
 export interface BassDiagram {
@@ -1079,7 +1080,197 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
   noteup: (values) => degreeMove(values, 1),
   octdn: () => octaveMove(-1),
   octup: () => octaveMove(1),
+
+  /* ----- la machine Elektron (2026-10-08) ----- */
+  pw(values) {
+    const p = new Pic();
+    const duty = pwPct(values.pw) / 100;
+    const sq = (d: number): Pt[] => {
+      const pts: Pt[] = [];
+      const per = (X1 - X0) / 2;
+      for (let k = 0; k < 2; k += 1) {
+        const x = X0 + k * per;
+        pts.push([x, 34], [x + per * d, 34], [x + per * d, 86], [x + per, 86]);
+      }
+      pts.push([X1, 34]);
+      return pts;
+    };
+    p.p(seg(X0, 60, X1, 60), 'grid');
+    p.p(poly(sq(0.5)), 'ghost');
+    p.p(poly(sq(duty)), 'hot');
+    p.label(values.wave < 0.03 ? 'WAVE AT SAW: TURN WAVE UP TO HEAR PW' : `SQUARE ${Math.round(values.wave * 100)} % OF THE MIX`, X0, TOP);
+    p.label('50 %', X0, BOT);
+    return valueOf(p, 'pw', values).done();
+  },
+  keytrack(values) {
+    // La coupure (log) selon la note jouee, sur trois octaves autour de la tonique
+    const p = new Pic();
+    const kt = values.keytrack;
+    const fc = cutHz(values.cutoff);
+    const yOf = (f: number): number => Y1 - ((Math.log2(f) - Math.log2(30)) / (Math.log2(16000) - Math.log2(30))) * (Y1 - Y0);
+    const xOf = (oct: number): number => X0 + ((oct + 1) / 3) * (X1 - X0);
+    for (const o of [-1, 0, 1, 2]) p.p(seg(xOf(o), Y0, xOf(o), Y1), 'grid');
+    p.p(seg(X0, yOf(fc), X1, yOf(fc)), 'ghost');
+    p.p(seg(xOf(-1), yOf(fc * Math.pow(2, -kt)), xOf(2), yOf(fc * Math.pow(2, 2 * kt))), 'hot');
+    p.p(dot(xOf(0), yOf(fc), 2.4), 'hot', true);
+    p.label('F#1', xOf(-1), BOT, 'middle').label('F#2', xOf(0), BOT, 'middle').label('F#3', xOf(1), BOT, 'middle').label('F#4', xOf(2), BOT, 'end');
+    p.label(`CUTOFF ${hzText(fc)} AT F#2`, X0, TOP);
+    return valueOf(p, 'keytrack', values).done();
+  },
+  attack: (values, c) => ampEnv(values, c, 'attack'),
+  adecay: (values, c) => ampEnv(values, c, 'adecay'),
+  sustain: (values, c) => ampEnv(values, c, 'sustain'),
+  delay: (values, c) => echoes(values, c, 'delay'),
+  dtime: (values, c) => echoes(values, c, 'dtime'),
+  dfb: (values, c) => echoes(values, c, 'dfb'),
+  reverb: (values) => tail(values, 'reverb'),
+  rsize: (values) => tail(values, 'rsize'),
+  rtone: (values) => tail(values, 'rtone'),
+  pvoice: () => pageGrid('voice'),
+  pfilter: () => pageGrid('filter'),
+  penv: () => pageGrid('env'),
+  pfx: () => pageGrid('fx'),
 };
+
+/**
+ * L'ampli (2026-10-08) : une note tenue six pas, la loi du worklet (la montee
+ * vers 1 en ATTACK, AMP DECAY vers SUSTAIN une fois a 99 %, RELEASE au
+ * relachement) ; le segment du reglage en trait plein.
+ */
+function ampEnv(values: BassValues, c: BassDiagramCtx, hot: 'attack' | 'adecay' | 'sustain'): BassDiagram {
+  const p = new Pic();
+  const sd = stepS(c.bpm);
+  const gate = 6 * sd;
+  const att = attackMs(values.attack) / 1000;
+  const dec = adecayMs(values.adecay) / 1000;
+  const rel = releaseMs(values.release) / 1000;
+  const sus = values.sustain;
+  const span = gate + Math.max(2 * sd, Math.min(6 * sd, 4 * rel));
+  const N = 220;
+  const dt = span / N;
+  const tx = (t: number): number => X0 + ((X1 - X0) * t) / span;
+  const ay = (a: number): number => 96 - a * (96 - 26);
+  sixteenths(p, sd, span, 26, 96);
+  p.p(seg(X0, 96, X1, 96), 'grid');
+  const segs: Record<'attack' | 'adecay' | 'sustain' | 'release', Pt[]> = { attack: [], adecay: [], sustain: [], release: [] };
+  let vca = 0;
+  let lvl = 1;
+  let decaying = false;
+  let phase: 'attack' | 'adecay' | 'sustain' | 'release' = 'attack';
+  for (let k = 0; k <= N; k += 1) {
+    const t = k * dt;
+    if (t < gate) {
+      vca += ((decaying ? lvl : 1) - vca) * (1 - Math.exp(-dt / att));
+      if (!decaying && vca >= 0.99) decaying = true;
+      if (decaying) lvl = sus + (lvl - sus) * Math.exp(-dt / dec);
+      phase = !decaying ? 'attack' : Math.abs(lvl - sus) > 0.02 ? 'adecay' : 'sustain';
+    } else {
+      vca += (0 - vca) * (1 - Math.exp(-dt / rel));
+      phase = 'release';
+    }
+    const pt: Pt = [tx(t), ay(vca)];
+    const prev = segs[phase];
+    // Les segments se touchent : chacun commence ou finit le precedent
+    if (prev.length === 0 && k > 0) {
+      const all = [...segs.attack, ...segs.adecay, ...segs.sustain, ...segs.release];
+      const last = all[all.length - 1];
+      if (last) prev.push(last);
+    }
+    prev.push(pt);
+  }
+  for (const key of ['attack', 'adecay', 'sustain', 'release'] as const) if (segs[key].length > 1) p.p(poly(segs[key]), key === hot ? 'hot' : 'main');
+  p.p(seg(X0, ay(sus), tx(gate), ay(sus)), 'dash');
+  p.p(seg(tx(gate), 20, tx(gate), 98), 'dash');
+  p.label('NOTE HELD 6/16', Math.min(tx(gate) + 4, X1 - 70), 22);
+  p.label(`A ${bassValueText('attack', values.attack)}  D ${bassValueText('adecay', values.adecay)}  S ${bassValueText('sustain', values.sustain)}  R ${bassValueText('release', values.release)}`, X0, BOT);
+  return valueOf(p, hot, values).done();
+}
+
+/** Le DELAY : les repetitions gauche (au-dessus), droite (dessous), espacees de DLY TIME, attenuees de DLY FB. */
+function echoes(values: BassValues, c: BassDiagramCtx, hot: 'delay' | 'dtime' | 'dfb'): BassDiagram {
+  const p = new Pic();
+  const sd = stepS(c.bpm);
+  const steps = DTIME_STEPS[stepOf('dtime', values.dtime)];
+  const time = steps * sd;
+  const fb = dfbPct(values.dfb) / 100;
+  const send = hot === 'delay' ? Math.max(values.delay, 0.02) : 1;
+  const span = 16 * sd;
+  const tx = (t: number): number => X0 + ((X1 - X0) * t) / span;
+  const mid = 60;
+  sixteenths(p, sd * 4, span, 22, 98);
+  p.p(seg(X0, mid, X1, mid), 'grid');
+  // La note seche, puis ses echos
+  p.p(seg(tx(0), mid, tx(0), 24), 'main');
+  let a = send;
+  let n = 0;
+  for (let t = time; t < span && n < 24; t += time, n += 1) {
+    const up = n % 2 === 0;
+    const h = 34 * a;
+    p.p(seg(tx(t), mid, tx(t), up ? mid - h : mid + h), hot === 'dtime' && n === 0 ? 'hot' : hot === 'dfb' && n > 0 ? 'hot' : hot === 'delay' ? 'hot' : 'main');
+    a *= fb;
+    if (a < 0.02) break;
+  }
+  if (hot === 'dtime') p.p(arrow(tx(0), 100, tx(time), 100, 4), 'hot');
+  p.label('L', X1, mid - 26, 'end').label('R', X1, mid + 32, 'end');
+  p.label(`${BASS_DTIME_NAME(values)} = ${Math.round(time * 1000)} MS  FEEDBACK ${Math.round(fb * 100)} %`, X0, TOP);
+  p.label('ONE BAR', X0, BOT);
+  return valueOf(p, hot, values).done();
+}
+const BASS_DTIME_NAME = (values: BassValues): string => bassKnob('dtime').names?.[stepOf('dtime', values.dtime)] ?? '';
+
+/** La REVERB : la queue (son enveloppe sur REV SIZE), ses aigus qui s'eteignent plus vite (REV TONE). */
+function tail(values: BassValues, hot: 'reverb' | 'rsize' | 'rtone'): BassDiagram {
+  const p = new Pic();
+  const rt = rsizeS(values.rsize);
+  const tone = rtoneHz(values.rtone);
+  const span = Math.max(1, Math.min(8, rt * 1.25));
+  const tx = (t: number): number => X0 + ((X1 - X0) * t) / span;
+  const base = 96;
+  const ay = (a: number): number => base - a * (base - 28);
+  p.p(seg(X0, base, X1, base), 'grid');
+  // Le corps : des reflexions de plus en plus denses sous l'enveloppe (-60 dB a REV SIZE)
+  const env = (t: number): number => Math.pow(10, (-3 * t) / rt);
+  const rnd = mulberry(7);
+  let lines = '';
+  for (let k = 0; k < 90; k += 1) {
+    const t = 0.012 + (span - 0.012) * Math.pow(k / 90, 1.3);
+    const a = env(t) * (0.35 + 0.65 * rnd()) * (hot === 'reverb' ? 0.3 + 0.7 * values.reverb : 1);
+    lines += seg(tx(t), base, tx(t), ay(a));
+  }
+  p.p(lines, hot === 'rtone' ? 'ghost' : 'main');
+  const pts: Pt[] = [];
+  const hi: Pt[] = [];
+  // Les aigus durent moins quand REV TONE est sombre
+  const hiRt = rt * Math.min(1, tone / 12000) * 0.9 + 0.05;
+  for (let k = 0; k <= 48; k += 1) {
+    const t = (span * k) / 48;
+    pts.push([tx(t), ay(env(t))]);
+    hi.push([tx(t), ay(Math.pow(10, (-3 * t) / hiRt))]);
+  }
+  p.p(poly(pts), hot === 'rsize' || hot === 'reverb' ? 'hot' : 'dash');
+  if (hot === 'rtone') p.p(poly(hi), 'hot');
+  p.p(seg(tx(rt), 24, tx(rt), base), 'dash');
+  p.label(`-60 DB AT ${rt.toFixed(1)} S`, Math.min(tx(rt) + 4, X1 - 70), 22);
+  p.label(hot === 'rtone' ? `TREBLE ABOVE ${hzText(tone)} DIES FIRST` : `${span.toFixed(1)} S`, X0, BOT);
+  return valueOf(p, hot, values).done();
+}
+
+/** Une touche de page : ses huit blocs, dans l'ordre des encodeurs. */
+function pageGrid(page: BassPageId): BassDiagram {
+  const p = new Pic();
+  const ids = BASS_PAGE_SLOTS[page];
+  const bw = (X1 - X0 - 18) / 4;
+  const bh = 34;
+  ids.forEach((id, k) => {
+    const x = X0 + (k % 4) * (bw + 6);
+    const y = 24 + (k < 4 ? 0 : bh + 8);
+    p.p(rbox(x, y, bw, bh, 3), id ? 'main' : 'grid');
+    p.label('ABCDEFGH'[k], x + bw - 4, y + 11, 'end');
+    if (id) p.label(bassKnob(id).label, x + 4, y + bh - 7);
+  });
+  p.label('ENCODERS A TO H', X0, TOP);
+  return p.done();
+}
 
 /** NOTE - + : un degre de la gamme, sur l'echelle de SCALE. */
 function degreeMove(values: BassValues, dir: -1 | 1): BassDiagram {

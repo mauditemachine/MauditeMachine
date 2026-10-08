@@ -8,6 +8,11 @@
  * - Touches, pas, LOCK (2026-10-07) et l'ecran des presets : Entree ou Espace.
  * - En LOCK, Suppr sur un potard du son : son verrou s'en va.
  * - Capot ouvert (2026-10-08) : les potards de la plaque TWEAKS aussi.
+ * - La machine Elektron (2026-10-08) : huit curseurs pour les encodeurs,
+ *   lies a la page allumee (leur nom dit l'encodeur et son reglage, leur
+ *   valeur de 0 a 127 comme l'ecran ; une fleche = 1/127, Page = 8/127 ;
+ *   en LOCK ils reglent le verrou du pas, Suppr l'enleve), les quatre
+ *   touches de page, la touche "i" de l'ecran.
  * Inertes tant qu'on n'utilise pas le MM-BASS. Le clavier de la machine
  * (bass/keys.ts) s'ecoute ici.
  */
@@ -15,25 +20,27 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Stage } from '../scene/renderer';
 import { bassExplode } from '../state/explode';
+import { bassInfos } from '../state/bassInfos';
 import { focus } from '../state/focus';
 import { PRESET_KEYS_OFF, PRESET_KEYS_ON, PRESET_KEY_ARIA, presetMode } from '../state/presetMode';
 import { presetKey } from '../actions';
 import { bassDial, bassDialReset, bassKnobValue, bassLockTap, bassStepTap, noteName } from './actions';
 import { bassKeyAction } from './gestures';
 import { listenBassKeys } from './keys';
-import { BASS_FACE_KNOBS, BASS_PLATE_KNOBS, bassParams, bassValueText, type BassKnobDef } from './params';
+import { ENC_LETTERS, bassPage, isBassGlobal } from './pages';
+import { BASS_FACE_KNOBS, BASS_PLATE_KNOBS, bassCC, bassKnob, bassParams, bassUnit, bassValueText, type BassKnobDef } from './params';
 import { bassTweakId } from './tweaks';
-import { bassKeyId, bassKnobId, bassLcdId, bassLockId, bassTrigId } from './rig';
+import { BASS_I_ID, bassEncId, bassKeyId, bassKnobId, bassLcdId, bassLockId, bassTrigId } from './rig';
 import { midiOf } from './seq';
-import { BASS_STEPS, bassState } from './state';
-import { BASS_KEYS } from './theme';
+import { BASS_STEPS, bassState, isLockable } from './state';
+import { BASS_KEYS, BASS_PAGE_KEYS } from './theme';
 
 const r1 = (n: number): number => Math.round(n * 10) / 10;
 const pct = (v: number): number => Math.round(v * 100);
 
-function stepValue(e: React.KeyboardEvent, v: number, def: number, notch: number): number | null {
+function stepValue(e: React.KeyboardEvent, v: number, def: number, notch: number, coarse = 0): number | null {
   const unit = notch || 0.02;
-  const big = notch || 0.1;
+  const big = coarse || notch || 0.1;
   switch (e.key) {
     case 'ArrowUp':
     case 'ArrowRight':
@@ -63,6 +70,8 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   useSyncExternalStore(bassParams.subscribe, bassParams.get, bassParams.get);
   const pm = useSyncExternalStore(presetMode.subscribe, presetMode.get, presetMode.get);
   const hood = useSyncExternalStore(bassExplode.subscribe, bassExplode.get, bassExplode.get);
+  const page = useSyncExternalStore(bassPage.subscribe, bassPage.get, bassPage.get);
+  const infosOn = useSyncExternalStore(bassInfos.subscribe, bassInfos.isOn, bassInfos.isOn);
   const els = useRef(new Map<string, HTMLElement>());
   const refs = useRef(new Map<string, (el: HTMLElement | null) => void>());
   const stageRef = useRef(stage);
@@ -167,6 +176,47 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
 
   return (
     <div ref={groupRef} className="v4-twins" role="group" aria-label="MM-BASS bass synth and sequencer" aria-hidden={off || undefined}>
+      {ENC_LETTERS.map((letter, i) => {
+        // Les encodeurs (2026-10-08) : le reglage de la page allumee, son verrou en LOCK
+        const id = bassEncId(i);
+        const param = bassPage.slot(i, page);
+        if (!param) return <div key={id} ref={refFor(id)} className="v4-twin" data-twin="bassenc" data-hotspot={id} role="slider" tabIndex={-1} aria-disabled="true" aria-label={`Encoder ${letter}: empty on this page`} aria-valuemin={0} aria-valuemax={127} aria-valuenow={0} />;
+        const def = bassKnob(param);
+        const val = bassKnobValue(param);
+        const notch = def.steps && def.steps > 1 ? 1 / (def.steps - 1) : 0;
+        const where = s.lock >= 0 ? (isBassGlobal(param) ? ', global, not per step' : isLockable(param) && s.steps[s.lock]?.locks?.[param] !== undefined ? `, locked on step ${s.lock + 1}` : `, lock step ${s.lock + 1}`) : '';
+        return (
+          <div
+            key={id}
+            ref={refFor(id)}
+            className="v4-twin"
+            data-twin="bassenc"
+            data-hotspot={id}
+            role="slider"
+            tabIndex={0}
+            aria-label={`Encoder ${letter}: ${def.label}${where}`}
+            aria-orientation="vertical"
+            aria-valuemin={def.bipolar ? -64 : 0}
+            aria-valuemax={def.bipolar ? 63 : 127}
+            aria-valuenow={bassCC(param, val)}
+            aria-valuetext={`${def.names ? bassValueText(param, val) : bassCC(param, val)}, ${bassUnit(param, val)}`}
+            onKeyDown={(e) => {
+              if (e.altKey || e.ctrlKey || e.metaKey) return;
+              if (e.key === 'Delete' || e.key === 'Backspace') {
+                e.preventDefault();
+                e.stopPropagation();
+                bassDialReset(param);
+                return;
+              }
+              const next = stepValue(e, bassKnobValue(param), def.def, notch || 1 / 127, notch || 8 / 127);
+              if (next === null) return;
+              e.preventDefault();
+              e.stopPropagation();
+              bassDial(param, Math.max(0, Math.min(1, notch ? next : Math.round(next * 127) / 127)));
+            }}
+          />
+        );
+      })}
       {knobs.map(({ k, id }) => {
         const val = bassKnobValue(k.id);
         const notch = k.steps && k.steps > 1 ? 1 / (k.steps - 1) : 0;
@@ -204,7 +254,7 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       })}
       {BASS_KEYS.map((k) => {
         const id = bassKeyId(k.kind);
-        const pressed = k.kind === 'run' ? s.running : k.kind === 'accent' ? sel.kind === 'note' && sel.acc : k.kind === 'slide' ? sel.kind !== 'off' && sel.slide : undefined;
+        const pressed = k.kind === 'run' ? s.running : k.kind === 'accent' ? sel.kind === 'note' && sel.acc : k.kind === 'slide' ? sel.kind !== 'off' && sel.slide : (BASS_PAGE_KEYS as readonly string[]).includes(k.kind) ? k.kind === `p${page}` : undefined;
         return (
           <button
             key={id}
@@ -230,6 +280,26 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
           />
         );
       })}
+      <button
+        key={BASS_I_ID}
+        ref={refFor(BASS_I_ID)}
+        type="button"
+        className="v4-twin"
+        data-twin="basskey"
+        data-hotspot={BASS_I_ID}
+        aria-label="INFOS: hover or tap a control of the MM-BASS to read what it does"
+        aria-pressed={infosOn}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter' && e.key !== ' ') return;
+          e.preventDefault();
+          e.stopPropagation();
+          if (!e.repeat) bassInfos.toggle();
+        }}
+        onClick={(e) => {
+          if (e.detail !== 0) return;
+          bassInfos.toggle();
+        }}
+      />
       {Array.from({ length: BASS_STEPS }, (_, i) => {
         const id = bassLockId(i);
         const n = Object.keys(s.steps[i].locks ?? {}).length;

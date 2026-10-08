@@ -12,7 +12,10 @@
  * - telephone : une feuille en bas de l'ecran, le meme contenu ; toucher
  *   ailleurs que sur une commande du MM-BASS la range ;
  * - la pastille INFOS ON (et sa croix) tant que le mode est allume et le
- *   MM-BASS a l'ecran : la toucher eteint INFOS.
+ *   MM-BASS a l'ecran : la toucher eteint INFOS. Depuis la touche "i" de
+ *   l'ecran (2026-10-08) elle dit quoi faire : INFOS: HOVER A CONTROL (au
+ *   telephone : TAP A CONTROL) ; un encodeur montre la carte du reglage
+ *   qu'il tient sur la page allumee.
  * La carte reste sombre dans les deux apparences, comme les ecrans des
  * machines. Eteint, rien n'ecoute la vue (pas de cout par image).
  * Montee par index.tsx hors de .v4-stage (la pastille ne lance pas
@@ -31,6 +34,7 @@ import { CHORDS } from '../voyager/chords';
 import { bassKnobValue } from './actions';
 import { bassDiagram, type BassDiagram } from './diagrams';
 import { BASS_INFOS, bassInfoIdOf, isBassInfoKnob, type BassInfoId } from './infos';
+import { bassPage } from './pages';
 import { bassParams } from './params';
 import { bassState, isLockable } from './state';
 import './infos.css';
@@ -222,7 +226,8 @@ const Chip: React.FC<{ stage: Stage | null; sheet: boolean }> = ({ stage, sheet 
   return (
     <button ref={ref} type="button" className="v4-binfo-chip" data-mode={sheet ? 'sheet' : 'float'} aria-label="INFOS on: turn the MM-BASS help off" onClick={() => bassInfos.set(false)}>
       <span className="v4-binfo-dot" aria-hidden="true" />
-      INFOS ON
+      {/* 2026-10-08 (la touche "i" de l'ecran) : la pastille dit quoi faire */}
+      {sheet ? 'INFOS: TAP A CONTROL' : 'INFOS: HOVER A CONTROL'}
       <span className="v4-binfo-x" aria-hidden="true">
         <svg viewBox="0 0 10 10" width="8" height="8">
           <path d="M1.5 1.5L8.5 8.5M8.5 1.5L1.5 8.5" />
@@ -235,6 +240,8 @@ const Chip: React.FC<{ stage: Stage | null; sheet: boolean }> = ({ stage, sheet 
 export const BassInfosCard: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const st = useSyncExternalStore(bassInfos.subscribe, bassInfos.get, bassInfos.get);
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
+  // Un encodeur montre le reglage de la page allumee : la carte suit la page (2026-10-08)
+  const page = useSyncExternalStore(bassPage.subscribe, bassPage.get, bassPage.get);
   const sheet = useMedia(MOBILE_QUERY);
   const want = st.on && st.id && bassInfoIdOf(st.id) ? st.id : null;
   const [shown, setShown] = useState<string | null>(null);
@@ -261,7 +268,7 @@ export const BassInfosCard: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   return (
     <>
       {f === 'bass' && <Chip stage={stage} sheet={sheet} />}
-      {shown && id && <Card key={shown} stage={stage} hotspot={shown} id={id} sheet={sheet} pinned={st.pinned} />}
+      {shown && id && <Card key={`${shown}|${page}`} stage={stage} hotspot={shown} id={id} sheet={sheet} pinned={st.pinned} />}
     </>
   );
 };
