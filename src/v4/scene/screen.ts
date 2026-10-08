@@ -181,7 +181,7 @@ const UH = 120;
  * se touchent pas, ce sont les encodeurs). scene/renderer.ts pose la zone
  * lcd-i avec.
  */
-export const INFO_KEY = { x: UW - 9, y: 10.5, r: { desk: 5.4, phone: 6.8 }, hit: { desk: 8, phone: 26 } } as const;
+export const INFO_KEY = { x: UW - 8, y: 10.5, r: { desk: 5.2, phone: 6.6 }, hit: { desk: 8, phone: 26 } } as const;
 
 /**
  * Le bloc k de la vue PAGE sur le verre (u, v de 0 a 1) : INFOS allume, sa
@@ -307,8 +307,8 @@ const BLOCK_TYPE = {
     selR: 1.3,
   },
 } as const;
-/** right : le bord droit du pattern et du tempo, a gauche de la touche i (R4 ; 312 avant). */
-const PAGE_HEAD = { y: 15.5, iconX: 10, pillX: 23, pillY: 4.5, right: 297, rule: 21.5 } as const;
+/** right : le bord droit du pattern et du tempo, a gauche de la touche i (R4 ; 312 avant) ; gap : l'air entre le son, le pattern et le tempo (R4 : 8 et 10 avant, la place rendue au son). */
+const PAGE_HEAD = { y: 15.5, iconX: 10, pillX: 23, pillY: 4.5, right: 301, rule: 21.5, gap: 7 } as const;
 /** Les seize pas du pied (a gauche) et le reste du pied (a droite). */
 const PAGE_STRIP = { x0: 10, y: 105.5, size: 5.5, pitch: 7 } as const;
 const PAGE_FOOT = { x0: 132, x1: 312, y: 112.5 } as const;
@@ -1275,8 +1275,8 @@ export class Screen {
     const bpm = String(Math.round(pattern.get().bpm));
     const bw = this.text('BPM', H.right, y, T.bpm, HALF, 600, 'right', 0.8);
     const nw = this.text(bpm, H.right - bw - 3, y, T.num, INK, 400, 'right');
-    const sw = this.text(slotName(cur), H.right - bw - 3 - nw - 10, y, T.num, blinkOff ? FAINT : INK, 600, 'right', 0.6);
-    const rightX = H.right - bw - 3 - nw - 10 - sw - 8;
+    const sw = this.text(slotName(cur), H.right - bw - 3 - nw - H.gap, y, T.num, blinkOff ? FAINT : INK, 600, 'right', 0.6);
+    const rightX = H.right - bw - 3 - nw - H.gap - sw - 6;
     this.runIcon(H.iconX, y);
     const label = pageLabel(page);
     const ty = H.pillY + T.pillH / 2 + T.pill * 0.36;

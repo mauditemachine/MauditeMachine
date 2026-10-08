@@ -229,8 +229,9 @@ const Card: React.FC<CardProps> = ({ stage, hotspot, sheet, pinned, dock }) => {
     const ids = stage.hit.ids();
     const i = ids.indexOf(hotspot);
     const below = BELOW.test(hotspot);
-    // Un bloc de l'ecran : la carte a cote de l'ecran entier (les huit blocs), jamais dessus
-    const blocks = hotspot.startsWith('lcd-blk-') ? Array.from({ length: 8 }, (_, k) => ids.indexOf(`lcd-blk-${k}`)).filter((j) => j >= 0) : [];
+    // Un bloc de l'ecran ou son encodeur : la carte a cote de l'ecran entier (les huit blocs), jamais dessus (au-dessus d'un
+    // encodeur du bas, elle cachait l'ecran dont elle parle)
+    const blocks = /^(lcd-blk|penc)-/.test(hotspot) ? Array.from({ length: 8 }, (_, k) => ids.indexOf(`lcd-blk-${k}`)).filter((j) => j >= 0) : [];
     let cw = el.offsetWidth;
     let ch = el.offsetHeight;
     let last = '';
@@ -245,19 +246,23 @@ const Card: React.FC<CardProps> = ({ stage, hotspot, sheet, pinned, dock }) => {
         const w = r[i * 4 + 2];
         const h = r[i * 4 + 3];
         const seen = w > 0 && h > 0 && x + w > 0 && x < vw && y + h > 0 && y < vh;
-        if (seen && blocks.length > 0) {
-          let sx0 = Infinity;
-          let sy0 = Infinity;
-          let sx1 = -Infinity;
-          for (const j of blocks) {
-            sx0 = Math.min(sx0, r[j * 4]);
-            sy0 = Math.min(sy0, r[j * 4 + 1]);
-            sx1 = Math.max(sx1, r[j * 4] + r[j * 4 + 2]);
-          }
-          let left = sx1 + GAP * 2;
-          if (left + cw > vw - EDGE) left = sx0 - cw - GAP * 2;
-          t = `translate(${Math.round(clamp(left, EDGE, vw - cw - EDGE))}px, ${Math.round(clamp(sy0 - 8, TOP_EDGE, vh - ch - EDGE))}px)`;
-          el.dataset.side = 'side';
+        // Les blocs : leurs rectangles meme eteints (hors INFOS ils ne prennent rien, mais se projettent)
+        let sx0 = Infinity;
+        let sy0 = Infinity;
+        let sx1 = -Infinity;
+        for (const j of blocks) {
+          if (!(r[j * 4 + 2] > 0)) continue;
+          sx0 = Math.min(sx0, r[j * 4]);
+          sy0 = Math.min(sy0, r[j * 4 + 1]);
+          sx1 = Math.max(sx1, r[j * 4] + r[j * 4 + 2]);
+        }
+        const right = sx1 + GAP * 2;
+        const leftOf = sx0 - cw - GAP * 2;
+        const beside = seen && Number.isFinite(sx1) && (right + cw <= vw - EDGE || leftOf >= EDGE);
+        if (beside) {
+          const left = right + cw <= vw - EDGE ? right : leftOf;
+          t = `translate(${Math.round(left)}px, ${Math.round(clamp(sy0 - 8, TOP_EDGE, vh - ch - EDGE))}px)`;
+          el.dataset.side = 'screen';
         } else if (seen) {
           const left0 = clamp(x + w / 2 - cw / 2, EDGE, vw - cw - EDGE);
           const up = y - ch - GAP;
