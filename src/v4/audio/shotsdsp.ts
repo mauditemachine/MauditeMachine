@@ -1022,6 +1022,13 @@ export function renderShot(id: ShotId, sr: number, stretch: number, variant: num
 export function renderSampleShot(id: ShotId, sr: number, stretch: number, pcm: SamplePcm, tw: ShotTweak): Shot {
   const family = id === 'BD' ? 'bd' : id === 'SD' ? 'sd' : id === 'CP' ? 'cp' : id === 'TOM' || id === 'HT' ? 'tom' : 'hh';
   let s: Shot = playSample(pcm, sr, { family, tune: tw.tune, attack: tw.attack, decay: tw.decay, drive: tw.drive, snappy: tw.snappy });
+  // Le kick en mono (2026-10-08, "un bon kick") : les fichiers ont un leger cote stereo (-28 a -44 dB, un decalage
+  // L/R de quelques echantillons sur certains) ; le grave d'un kick se tient au centre
+  if (id === 'BD' && s.L !== s.R) {
+    const m = new Float32Array(s.L.length);
+    for (let i = 0; i < m.length; i += 1) m[i] = 0.5 * (s.L[i] + s.R[i]);
+    s = { L: m, R: m };
+  }
   if (Math.abs(stretch - 1) > 1e-3) {
     if (s.L === s.R) {
       const one = timeStretch(s.L, stretch, sr);

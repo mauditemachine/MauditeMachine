@@ -279,7 +279,13 @@ export const DJ_LIGHT = {
    * lisibles au soleil sur le panneau creme.
    */
   offLight: '#34312C',
-  vuLight: ['#FF5A00', '#E3340B', '#BE1A12'],
+  vuLight: ['#14B83C', '#F2B800', '#D81E16'],
+  /**
+   * Les vumetres aux couleurs d'un vumetre (2026-10-08, Mika : "blanc creme
+   * c'est vert, orange c'est jaune, et rouge c'est rouge") : vert, puis jaune
+   * de -6 a -2 dBFS, rouge a -1 ; plus saturees en clair (vuLight).
+   */
+  vu: ['#2FD65A', '#FFD23F', '#FF2A1F'],
 } as const;
 
 /* ---------- commandes : potards (repere du bloc) ---------- */

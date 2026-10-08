@@ -99,6 +99,9 @@ export function filterOf(v: number): { type: 'none' | 'low' | 'high'; freq: numb
 
 /** De -1 a +1 : la gauche coupe presque tout (-26 dB), la droite pousse de 6 dB. */
 export const eqDb = (v: number): number => (v < 0 ? v * 26 : v * 6);
+/** GAIN d'une voie (2026-10-08, Mika : "je veux un gain de +12 dB et -12 dB") : -12 a +12 dB, 0 au milieu (les EQ gardent leur loi). */
+export const GAIN_DB = 12;
+export const gainDb = (v: number): number => Math.max(-1, Math.min(1, v)) * GAIN_DB;
 export const dbToGain = (db: number): number => 10 ** (db / 20);
 /** Le bout de course a gauche coupe net la bande (kill). */
 export const KILL = -0.97;

@@ -28,7 +28,7 @@ import type { Stage } from '../scene/renderer';
 import { djBrowser } from './browser';
 import { TEMPO_STEP, djLoop, djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetFxTo, djSetMaster, djSetPitch, djSetTime, djWaveNext, djAddDeck, fxTarget, fxToOfValue, fxToText, fxToValue } from './actions';
 import { MASTER_DEFAULT } from './engine';
-import { KILL, eqDb, faderGain } from './math';
+import { KILL, eqDb, gainDb, faderGain } from './math';
 import { djFader, djKey, djKnob, type DjFaderSpec, type DjKeySpec, type DjKnobSpec, type DjSmplKey } from './layout';
 import { samplerOf } from '../sampler/sampler';
 import { djState } from './state';
@@ -77,7 +77,8 @@ export function knobText(k: DjKnobSpec, v = knobValue(k)): string {
   const db = (x: number): string => (Math.abs(x) < 0.05 ? '0 DB' : `${x > 0 ? '+' : '-'}${Math.abs(x).toFixed(1)} DB`);
   if (t.kind === 'eq') {
     if (t.eq === 'filter') return Math.abs(v) < 0.005 ? 'OFF' : `${v < 0 ? 'LP' : 'HP'} ${Math.round(Math.abs(v) * 100)}%`;
-    if (t.eq !== 'gain' && v <= KILL) return 'KILL';
+    if (t.eq === 'gain') return db(gainDb(v));
+    if (v <= KILL) return 'KILL';
     return db(eqDb(v));
   }
   if (t.kind === 'fx') return `${Math.round(v * 100)}%`;

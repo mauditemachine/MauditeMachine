@@ -60,6 +60,8 @@ interface Graph {
   ctx: BaseAudioContext;
   bus: GainNode;
   tone: ToneStage;
+  /** le TONE du kick (2026-10-08) : le kick ne prend que lui des effets GLOBAL ; null sans tranches */
+  kickTone: ToneStage | null;
   chorus: ChorusStage;
   level: GainNode;
   comp: DynamicsCompressorNode;
@@ -126,12 +128,23 @@ export interface Voice {
   choked?: { gate: GainNode; end: number };
   /** un charley ouvert : sa porte */
   gate?: GainNode;
+  /** un kick : le kick d'avant qu'il coupe (une annulation le lui rend), et sa porte a lui (2026-10-08) */
+  bdChoked?: { gate: GainNode; end: number };
+  bdGate?: GainNode;
 }
 
 /** Le compresseur commun (la batterie et le MM-ARP), reglable par les tests (__v4.audio.comp). */
 const COMP = { threshold: -14, knee: 10, ratio: 3, attack: 0.004, release: 0.15 };
 /** Un charley (ferme ou ouvert) coupe le charley ouvert qui sonne encore, en 8 ms (choke 808). */
 const CHOKE_S = 0.008;
+/**
+ * Le kick monophonique (2026-10-08, Mika : "mon kick a l'air double") : un
+ * kick coupe la queue du precedent en 3 ms, juste avant de frapper, comme une
+ * 909 ou un sampler en mode mono. Avant, la queue du 909 (-13 dB au temps
+ * suivant a 130 BPM) sonnait sous le nouveau coup : deux 52 Hz de phases
+ * differentes qui battaient (12 Hz, puis 6, 2...) a chaque kick.
+ */
+const BD_CHOKE_S = 0.003;
 
 let ctx: AudioContext | undefined;
 let graph: Graph | undefined;
@@ -254,30 +267,53 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   const direct = { direct: true, linked: false, dry: 1, wet: 0, unlinks: 0 };
   let toneSt: ToneStage;
   let chorusSt: ChorusStage;
+  /**
+   * Le kick hors des effets GLOBAL (2026-10-08, Mika : "quand j'utilise juste
+   * MM-RYTM, j'ai l'impression que mon kick a un chorus, qu'il est double ; je
+   * veux un bon kick") : le CHORUS du bus (un insert) posait sur le kick une
+   * copie retardee de 7 a 28 ms qui changeait a chaque coup, la REVERB et le
+   * DELAY partaient de LEVEL kick compris, DIST le gonflait ; les presets
+   * d'usine les allumaient. Le kick a sa voie : le TONE du pattern seulement,
+   * puis LEVEL ; les autres voix (pads) gardent DIST, TONE, CHORUS et les
+   * envois du pattern. Ses effets a lui restent possibles (la rangee VOICE sur
+   * BD). Au repos (tout a 0), rien ne change : le meme chemin, le meme niveau.
+   */
+  const pads = c.createGain();
+  const kickBus = c.createGain();
+  let kickTone: ToneStage | null = null;
   if (o.bare) {
     toneSt = { input: lvl, set: () => undefined, reset: () => undefined, info: () => ({ value: 0, semitones: 0, hpHz: 0, lpHz: 0, insert: direct }) };
     chorusSt = { input: lvl, set: () => undefined, value: () => 0, reset: () => undefined, info: () => ({ value: 0, live: false, built: 0, insert: direct }) };
+    pads.connect(lvl);
   } else {
-    chorusSt = buildChorus(c, lvl);
+    chorusSt = buildChorus(c, pads);
     toneSt = buildTone(c, chorusSt.input, o.tone ?? tone);
+    pads.connect(lvl);
+    kickTone = buildTone(c, lvl, o.tone ?? tone);
+    kickBus.connect(kickTone.input);
   }
   const fx = buildFx(c, { bus, tone: toneSt.input }, o.drive ?? f.drive);
 
-  // REVERB et DELAY de la boite ; les envois de tout le pattern partent de LEVEL. Le MM-ARP a sa REVERB a lui
+  // REVERB et DELAY de la boite ; les envois du pattern partent des pads (LEVEL applique : le gain level², comme les
+  // envois des voix), plus du kick depuis le 2026-10-08. Le MM-ARP a sa REVERB a lui
   const reverb = buildReverbBus(c, rytmOut);
   const delay = buildDelayBus(c, rytmOut, stepOf(o.bpm ?? pattern.get().bpm));
   const arpReverb = buildReverbBus(c, arpOut);
-  const reverbSend = reverb.attach(lvl);
-  const delaySend = delay.attach(lvl);
-
-  // Tranches des voix : LEVEL -> TONE -> DIST -> CHORUS -> bus, et leurs envois
-  let ch: Record<Inst, Channel> | null = null;
   const taps: GainNode[] = [];
+  const padsSend = c.createGain();
+  padsSend.gain.value = level * level;
+  pads.connect(padsSend);
+  taps.push(padsSend);
+  const reverbSend = reverb.attach(padsSend);
+  const delaySend = delay.attach(padsSend);
+
+  // Tranches des voix : LEVEL -> TONE -> DIST -> CHORUS -> bus (le kick : sa voie), et leurs envois
+  let ch: Record<Inst, Channel> | null = null;
   if (!o.bare) {
     const out = {} as Record<Inst, Channel>;
     for (const inst of INSTRUMENTS) {
       const chOut = c.createGain();
-      chOut.connect(bus);
+      chOut.connect(inst === 'BD' ? kickBus : bus);
       const chChorus = buildChorus(c, chOut);
       const chDrive = buildDrive(c, chChorus.input);
       const chTone = buildTone(c, chDrive.input, 0);
@@ -295,7 +331,7 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   }
 
   const duck = new Ducker(c, arpOut.gain);
-  const g: Graph = { ctx: c, bus, tone: toneSt, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, post, fx, reverb, delay, reverbSend, delaySend, ch, rytmOut, arpOut, bassOut, arpReverb, taps, duck };
+  const g: Graph = { ctx: c, bus, tone: toneSt, kickTone, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, post, fx, reverb, delay, reverbSend, delaySend, ch, rytmOut, arpOut, bassOut, arpReverb, taps, duck };
   if (!o.bare) {
     reverbSend.set(o.reverb ?? f.reverb);
     delaySend.set(o.delay ?? f.delay);
@@ -561,6 +597,18 @@ export function scopeTaps(): { ctx: AudioContext; rytm: AudioNode; arp: AudioNod
 /** La porte du dernier charley ouvert et la fin de son enveloppe (choke). */
 let ohGate: GainNode | null = null;
 let ohEnd = 0;
+/** La porte du dernier kick et la fin de son echantillon (le kick monophonique). */
+let bdGate: GainNode | null = null;
+let bdEnd = 0;
+
+/** Coupe le kick qui sonne encore : la porte tombe en 3 ms et finit a `when` (des que possible si c'est deja passe). */
+function chokeBD(when: number, now: number): void {
+  if (!bdGate || bdEnd <= when) return;
+  const t0 = when - BD_CHOKE_S >= now ? when - BD_CHOKE_S : when;
+  bdGate.gain.setValueAtTime(1, t0);
+  bdGate.gain.linearRampToValueAtTime(0, t0 + BD_CHOKE_S);
+  bdGate = null;
+}
 
 /** Ferme le charley ouvert qui sonne encore a `when` (le suivant le coupe). */
 function chokeOH(when: number): void {
@@ -589,6 +637,11 @@ function voice(g: Graph, inst: Inst, when: number, open: boolean, dest: AudioNod
     if (ohGate && ohEnd > when) choked = { gate: ohGate, end: ohEnd };
     chokeOH(when);
   }
+  let bdChoked: { gate: GainNode; end: number } | undefined;
+  if (inst === 'BD') {
+    if (bdGate && bdEnd > when) bdChoked = { gate: bdGate, end: bdEnd };
+    chokeBD(when, c.currentTime);
+  }
   const src = c.createBufferSource();
   src.buffer = shot.buf;
   // 1 : l'echantillon est deja a sa hauteur (aucune interpolation) ; sinon, en attendant, le plus proche relu
@@ -608,15 +661,22 @@ function voice(g: Graph, inst: Inst, when: number, open: boolean, dest: AudioNod
     if (end < when + shot.buf.duration / shot.rate) stopAt = end;
   }
   let ownGate: GainNode | undefined;
-  if (inst === 'OH') {
+  let ownBd: GainNode | undefined;
+  if (inst === 'OH' || inst === 'BD') {
     const gate = c.createGain();
     gate.gain.value = 1;
     src.connect(gate);
     gate.connect(dest);
     nodes.push(gate);
-    ohGate = gate;
-    ohEnd = when + shot.buf.duration / shot.rate;
-    ownGate = gate;
+    if (inst === 'OH') {
+      ohGate = gate;
+      ohEnd = when + shot.buf.duration / shot.rate;
+      ownGate = gate;
+    } else {
+      bdGate = gate;
+      bdEnd = when + shot.buf.duration / shot.rate;
+      ownBd = gate;
+    }
   } else src.connect(dest);
   src.onended = () => {
     for (const n of nodes) n.disconnect();
@@ -625,7 +685,7 @@ function voice(g: Graph, inst: Inst, when: number, open: boolean, dest: AudioNod
   if (stopAt > 0) src.stop(stopAt);
   // Un kick : son enveloppe, a sa vitesse, avec son DECAY (le SIDECHAIN du MM-ARP)
   const kick = inst === 'BD' ? { env: kickEnvelope(shot.buf), rate: shot.rate, hold: DECAY_HOLD_S, tau, vel: 1 } : undefined;
-  return { when, srcs: [src], nodes, kick, choked, gate: ownGate };
+  return { when, srcs: [src], nodes, kick, choked, gate: ownGate, bdChoked, bdGate: ownBd };
 }
 
 /**
@@ -687,6 +747,18 @@ export function cancelVoice(v: Voice): void {
   } else if (v.gate && ohGate === v.gate) {
     ohGate = null;
     ohEnd = 0;
+  }
+  // Un kick annule : le kick d'avant qu'il coupait sonne de nouveau
+  if (v.bdChoked) {
+    v.bdChoked.gate.gain.cancelScheduledValues(0);
+    v.bdChoked.gate.gain.value = 1;
+    if (bdGate === null || bdGate === v.bdGate) {
+      bdGate = v.bdChoked.gate;
+      bdEnd = v.bdChoked.end;
+    }
+  } else if (v.bdGate && bdGate === v.bdGate) {
+    bdGate = null;
+    bdEnd = 0;
   }
   for (const s of v.srcs) {
     s.onended = null;
@@ -761,6 +833,7 @@ export function setTone(v: number): void {
   if (t === tone) return;
   tone = t;
   graph?.tone.set(tone);
+  graph?.kickTone?.set(tone);
   emitMix();
 }
 
@@ -906,6 +979,10 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
   const rnd = Math.random;
   const gate = ohGate;
   const end = ohEnd;
+  const bGate = bdGate;
+  const bEnd = bdEnd;
+  bdGate = null;
+  bdEnd = 0;
   Math.random = seeded(o.seed ?? 808);
   // Deux rendus identiques : la rotation des variantes repart du debut
   shots.resetRotation();
@@ -968,6 +1045,8 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
     Math.random = rnd;
     ohGate = gate;
     ohEnd = end;
+    bdGate = bGate;
+    bdEnd = bEnd;
   }
   // La sortie comme en direct : le limiteur (rendu sans lui si l'AudioWorklet manque)
   if (!o.bare && o.limiter !== false) await attachLimiter(oc, g);
@@ -975,7 +1054,15 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
   // 30 ms plus loin, rampe finie : le debranchement differe (setTimeout) y tombe
   const q = 128 / sr;
   const at = (t: number): number => Math.round(t / q) * q;
-  const events = (o.toneAt ?? []).map(([t, v]) => ({ t, run: () => g.tone.set(snapTone(v)) })).sort((a, b) => a.t - b.t);
+  const events = (o.toneAt ?? [])
+    .map(([t, v]) => ({
+      t,
+      run: () => {
+        g.tone.set(snapTone(v));
+        g.kickTone?.set(snapTone(v));
+      },
+    }))
+    .sort((a, b) => a.t - b.t);
   const used = new Set<number>();
   for (const e of events) {
     const t0 = at(e.t);

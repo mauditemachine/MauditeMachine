@@ -19,7 +19,7 @@ import { glide } from '../audio/glide';
 import { synthPort } from '../audio/drums';
 import { reserve } from '../audio/sched';
 import { decodeAudio } from './decode';
-import { CROSSOVER, bandEnergy, bandGain, bandOverview, beatsToSeconds, dbToGain, eqDb, energy, faderGain, filterOf, fxMix, speedOf } from './math';
+import { CROSSOVER, bandEnergy, bandGain, bandOverview, beatsToSeconds, dbToGain, eqDb, gainDb, energy, faderGain, filterOf, fxMix, speedOf } from './math';
 import { DJ_CHANNELS_MAX, DJ_FX, deckChannel, type DjDeck, type DjFxId } from './theme';
 
 /** Q de Butterworth : en dB pour passe-bas et passe-haut (piege de Web Audio), lineaire pour le passe-tout. */
@@ -186,7 +186,7 @@ export class DjChannel {
   }
 
   setGain(v: number): void {
-    glide(this.input.gain, dbToGain(eqDb(v)), this.ctx);
+    glide(this.input.gain, dbToGain(gainDb(v)), this.ctx);
   }
 
   setBand(band: 'hi' | 'mid' | 'low', v: number): void {

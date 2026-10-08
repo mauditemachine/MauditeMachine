@@ -320,8 +320,8 @@ export interface DjLedSpec {
 function ledSpecs(light: boolean): { leds: DjLedSpec[]; vu: number[][]; master: number[][]; jog: Record<DjDeck, number[]>; zero: Record<DjDeck, number> } {
   const leds: DjLedSpec[] = [];
   const V = MIX.vu;
-  const [lo, mid, top] = light ? DJ_LIGHT.vuLight : [DJ_LIGHT.yellow, DJ_LIGHT.orange, DJ_LIGHT.red];
-  // La couleur suit la loi en dBFS (dj/math.ts VU_DB) : rouge a -1, orange de -6 a -2, jaune dessous
+  const [lo, mid, top] = light ? DJ_LIGHT.vuLight : DJ_LIGHT.vu;
+  // La couleur suit la loi en dBFS (dj/math.ts VU_DB) : rouge a -1, jaune de -6 a -2, vert dessous
   const tone = (k: number): string => {
     const z = vuZone(VU_DB[Math.min(k, VU_DB.length - 1)]);
     return z === 'red' ? top : z === 'orange' ? mid : lo;
