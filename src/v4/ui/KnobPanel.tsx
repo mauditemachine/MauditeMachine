@@ -31,6 +31,13 @@
  * sur la page affichee, sa valeur de 0 a 127 et son unite ; MASTER garde
  * MASTER et TEMPO. GLOBAL FX, KICK et VOICES sont partis : tout est sur les
  * pages.
+ *
+ * Le LOCK (2026-10-08, l'etape R2 des parameter locks) : un pas en LOCK (une
+ * tenue sur la machine, ou sur le Dock), les potards de page reglent ses
+ * verrous ; un verrou pose se montre en negatif (comme a l'ecran), la valeur
+ * de la voix en retrait, GLOBAL et NO LOCK a peine ; deux tapes retirent un
+ * verrou. La rangee des voix laisse la place a la barre du LOCK : le pas, ses
+ * verrous, CLEAR (ses verrous) et EXIT.
  */
 
 import React, { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
@@ -44,11 +51,16 @@ import {
   dialSteps,
   dialUnit,
   dialValueText,
+  lockSummary,
+  pageKnobReset,
+  rytmLockClear,
+  rytmLockToggle,
   rytmPageKey,
   subscribeDials,
   tuneVoice,
   type DialId,
 } from '../actions';
+import { rytmLock } from '../state/rytmLock';
 import { INSTRUMENTS, pattern } from '../audio/pattern';
 import { stageNow } from '../midi/targets';
 import { pageSlots } from '../rytm/pages';
@@ -166,6 +178,10 @@ export interface KnobSpec {
   selector?: boolean;
   /** l'etiquette du bloc (la voix, ALL, NO BD) au bout de la ligne d'unite, comme a l'ecran */
   tag?: string;
+  /** deux tapes : cette action au lieu de la valeur de depart (un potard de page en LOCK : son verrou s'en va) */
+  onReset?(): void;
+  /** en LOCK (2026-10-08) : locked (en negatif), base, global, nolock ; absent hors LOCK */
+  lockState?: string;
 }
 
 /** Un potard : glisser, taper (cran suivant), deux tapes (valeur de depart), clavier. */
@@ -225,7 +241,8 @@ export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean }> = ({ spec
     const t = performance.now();
     if (t - lastTap.current <= TEMPO_UI.tapMs) {
       lastTap.current = 0;
-      spec.set(spec.reset());
+      if (spec.onReset) spec.onReset();
+      else spec.set(spec.reset());
     } else lastTap.current = t;
   };
   const onKey = (ev: React.KeyboardEvent<HTMLDivElement>): void => {
@@ -254,6 +271,7 @@ export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean }> = ({ spec
     <div
       className={compact ? 'v4-knob v4-knob-page' : 'v4-knob'}
       data-soon={spec.soon ? '1' : undefined}
+      data-lock={spec.lockState}
       role="slider"
       tabIndex={0}
       aria-label={spec.letter ? `Knob ${spec.letter}, ${spec.tag ? `${spec.tag} ` : ''}${spec.label}${spec.soon ? ', coming soon' : ''}` : spec.label}
@@ -306,10 +324,13 @@ export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean }> = ({ spec
 const PageKnob: React.FC<{ k: number }> = ({ k }) => {
   const rp = useSyncExternalStore(rytmPage.subscribe, rytmPage.get, rytmPage.get);
   const p = useSyncExternalStore(pattern.subscribe, pattern.get, pattern.get);
+  // Le LOCK (2026-10-08) : le bloc de l'ecran pour ce pas (verrouille, la valeur de la voix, GLOBAL, NO LOCK)
+  const lk = useSyncExternalStore(rytmLock.subscribe, rytmLock.get, rytmLock.get);
   const slot = pageSlots(rp.page, p.instrument)[k];
   const letter = PAGE_KNOB_LETTERS[k];
-  // Le meme bloc que l'ecran : son etiquette (la voix sur la rangee du haut de FX, ALL ou NO BD dessous)
-  const tag = slot && slot.label ? slotBlock(slot, k, p.instrument, rp.sel).tag : '';
+  const block = slot && slot.label ? slotBlock(slot, k, p.instrument, rp.sel, false, lk.step >= 0 ? { kind: 'lock', step: lk.step } : null) : null;
+  // Le meme bloc que l'ecran : son etiquette (la voix sur la rangee du haut de FX, ALL ou NO BD dessous ; en LOCK GLOBAL, NO LOCK)
+  const tag = block ? block.tag : '';
   if (!slot || !slot.label) {
     return (
       <div className="v4-knob v4-knob-page v4-knob-empty" aria-hidden="true">
@@ -339,8 +360,35 @@ const PageKnob: React.FC<{ k: number }> = ({ k }) => {
     scale127: true,
     selector: slot.target !== 'step:vel',
     tag,
+    onReset: () => pageKnobReset(k),
+    lockState: block && block.lock !== 'none' ? block.lock : undefined,
   };
   return <KnobView spec={spec} compact />;
+};
+
+/**
+ * La barre du LOCK (2026-10-08) a la place des voix : le pas et ses verrous
+ * (toutes pages), CLEAR (ses verrous, ses coups restent) et EXIT.
+ */
+const LockBar: React.FC = () => {
+  const lk = useSyncExternalStore(rytmLock.subscribe, rytmLock.get, rytmLock.get);
+  const p = useSyncExternalStore(pattern.subscribe, pattern.get, pattern.get);
+  const n = lk.step + 1;
+  const names = lockSummary(lk.step);
+  return (
+    <div className="v4-knobs-lockbar" role="group" aria-label={`Lock mode on step ${n}`}>
+      <span className="v4-knobs-lock" aria-live="polite">
+        <span className="v4-knobs-lock-pill">LOCK {n < 10 ? `0${n}` : n}</span>
+        <span className="v4-knobs-lock-what">{p.instrument ?? ''} {names.length > 0 ? names.join(' ') : 'TURN A KNOB'}</span>
+      </span>
+      <button type="button" className="v4-knobs-lockkey" aria-label={`Clear the locks of step ${n}`} onClick={() => rytmLockClear()}>
+        CLEAR
+      </button>
+      <button type="button" className="v4-knobs-lockkey" aria-label="Leave lock mode" onClick={() => rytmLockToggle(lk.step)}>
+        EXIT
+      </button>
+    </div>
+  );
 };
 
 /** Les six touches de page (2026-10-08) : comme sur la machine, la page allumee pressee encore : HOME. */
@@ -397,6 +445,7 @@ export const KnobPanel: React.FC<Props> = ({ machine }) => {
   const groups = machine === 'voy' ? ARP_GROUPS : RYTM_GROUPS;
   const [tab, setTab] = useState(() => readTab(machine, groups));
   const p = useSyncExternalStore(pattern.subscribe, pattern.get, pattern.get);
+  const locking = useSyncExternalStore(rytmLock.subscribe, () => rytmLock.get().step >= 0, () => false) && machine === 'mm808';
   const g = groups.find((x) => x.id === tab) ?? groups[0];
   const pick = (id: string): void => {
     setTab(id);
@@ -416,7 +465,8 @@ export const KnobPanel: React.FC<Props> = ({ machine }) => {
         ))}
       </div>
       {g.pages && <PageKeys />}
-      {g.voices && (
+      {g.pages && locking && <LockBar />}
+      {g.voices && !(g.pages && locking) && (
         <div className="v4-knobs-voices" role="group" aria-label="Voice to tune">
           {INSTRUMENTS.map((inst) => (
             <button key={inst} type="button" className="v4-knobs-voice" aria-pressed={p.instrument === inst} onClick={() => tuneVoice(inst)}>

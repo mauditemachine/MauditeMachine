@@ -13,18 +13,34 @@
  * - empty : rien de dessine.
  * echo : le bloc qu'on vient de tourner, cerne POT_UI.readoutMs.
  * Le Dock du telephone (ui/KnobPanel.tsx) lit les memes blocs.
+ *
+ * Les verrous (2026-10-08, l'etape R2, Mika : "on voit a l'ecran que quand le
+ * sequenceur passe sur ce step alors le changement est fait") :
+ * - en LOCK (un pas tenu ou fixe, state/rytmLock.ts), lock dit ce que le bloc
+ *   est pour ce pas : locked (son verrou, dessine en negatif), base (la
+ *   valeur de la voix, en retrait : il se verrouille si on le tourne),
+ *   global (toute la machine, jamais verrouille : GLOBAL), nolock (pas encore
+ *   verrouillable : NO LOCK) ;
+ * - en lecture hors LOCK, flash : le pas qui joue a un verrou pour ce bloc,
+ *   le bloc montre sa valeur verrouillee en negatif le temps du pas.
  */
 
-import { anyDialValue, dialRange, dialSteps, dialUnit, dialValueText, kitIdOf, stepVelocityOf, type DialId } from '../actions';
+import { anyDialValue, dialRange, dialSteps, dialUnit, dialValueText, kitIdOf, pageLockView, stepVelocityOf, type DialId } from '../actions';
+import type { StepLock } from '../audio/locks';
 import { familyOf, isFamily, kitSoundIndex, kitSteps } from '../audio/kit';
 import { VEL_NAMES, pattern } from '../audio/pattern';
 import type { ShotId } from '../audio/shotsdsp';
 import type { RytmPageState } from '../state/rytmPage';
 import type { EncId, Inst } from '../theme';
 import { pageSlots, type PageSlot, type SlotDraw } from './pages';
-import { encUnit, kitUnit, v127Text, velTo127 } from './values';
+import { encText, encUnit, kitUnit, v127Text, velTo127 } from './values';
 
 export type BlockState = 'live' | 'soon' | 'off' | 'empty';
+/** Le bloc pour le pas en LOCK (2026-10-08) : none hors LOCK. */
+export type BlockLock = 'none' | 'locked' | 'base' | 'global' | 'nolock';
+
+/** Les verrous a montrer : le pas en LOCK, ou le pas qui joue et ses verrous (flash). */
+export type BlockMode = { kind: 'lock'; step: number } | { kind: 'flash'; step: number; lock: Readonly<StepLock> | null };
 
 export interface Block {
   k: number;
@@ -52,13 +68,60 @@ export interface Block {
   notches: number;
   draw: SlotDraw;
   echo: boolean;
+  /** en LOCK : verrouille, la valeur de la voix, global, pas verrouillable */
+  lock: BlockLock;
+  /** en lecture : la valeur verrouillee du pas qui joue */
+  flash: boolean;
 }
 
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
 const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
 
 /** Le bloc d'un emplacement (k : son rang), pour la voix choisie et le pas choisi. */
-export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, sel: number, echo = false): Block {
+export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, sel: number, echo = false, mode: BlockMode | null = null): Block {
+  const b = baseBlock(slot, k, inst, sel, echo);
+  if (!mode || b.state === 'empty' || b.state === 'soon') return b;
+  if (mode.kind === 'lock') {
+    if (b.state === 'off') return b;
+    if (slot.scope === 'all') {
+      b.lock = 'global';
+      b.tag = 'GLOBAL';
+      return b;
+    }
+    if (!slot.lock) {
+      b.lock = 'nolock';
+      b.tag = 'NO LOCK';
+      return b;
+    }
+    const lv = pageLockView(k, mode.step);
+    if (!lv) {
+      b.lock = 'base';
+      return b;
+    }
+    b.lock = 'locked';
+    b.text = lv.text;
+    b.unit = lv.unit;
+    b.course = lv.course;
+    b.value = lv.value;
+    // SOUND verrouille : la liste de toutes les familles (trop de crans pour des points : une barre)
+    if (slot.lock === 'snd' && slot.target === 'vsound') b.notches = 0;
+    return b;
+  }
+  // La lecture : seulement les vrais verrous (VEL est le pas lui-meme, il ne clignote pas)
+  if (!slot.lock || slot.lock === 'vel' || slot.scope !== 'track' || b.state !== 'live') return b;
+  const lv = pageLockView(k, mode.step, mode.lock);
+  if (!lv) return b;
+  b.flash = true;
+  b.text = lv.text;
+  b.unit = lv.unit;
+  b.course = lv.course;
+  b.value = lv.value;
+  if (slot.lock === 'snd' && slot.target === 'vsound') b.notches = 0;
+  return b;
+}
+
+/** Le bloc d'un emplacement, valeurs de la voix (hors verrous). */
+function baseBlock(slot: PageSlot, k: number, inst: Inst | null, sel: number, echo: boolean): Block {
   const b: Block = {
     k,
     label: slot.label,
@@ -74,6 +137,8 @@ export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, sel: num
     notches: 0,
     draw: slot.draw,
     echo,
+    lock: 'none',
+    flash: false,
   };
   if (!slot.label) {
     b.state = 'empty';
@@ -159,16 +224,17 @@ export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, sel: num
       b.unit = kitUnit(r);
     }
   } else {
-    b.text = v127Text(b.course, b.bipolar);
-    b.unit = encUnit(id as Exclude<EncId, 'tempo' | 'vsound'>, v);
+    const e = id as Exclude<EncId, 'tempo' | 'vsound'>;
+    b.text = encText(e, v, b.course, b.bipolar);
+    b.unit = encUnit(e, v);
   }
   return b;
 }
 
 /** Les blocs de la page courante pour la voix choisie (null : aucune). */
-export function pageBlocks(s: RytmPageState, inst: Inst | null, now: number): Block[] {
+export function pageBlocks(s: RytmPageState, inst: Inst | null, now: number, mode: BlockMode | null = null): Block[] {
   const echoK = s.echo && s.echo.page === s.page && now < s.echo.until ? s.echo.k : -1;
-  return pageSlots(s.page, inst).map((slot, k) => slotBlock(slot, k, inst, s.sel, k === echoK));
+  return pageSlots(s.page, inst).map((slot, k) => slotBlock(slot, k, inst, s.sel, k === echoK, mode));
 }
 
 /** La voix des blocs : celle du pattern (BD par defaut). */

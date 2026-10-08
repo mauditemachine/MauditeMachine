@@ -12,7 +12,7 @@
 import { kit, type KitId } from '../audio/kit';
 import { toneHpHz, toneLpHz } from '../audio/tone';
 import { timeFactor } from '../audio/time';
-import { decayTau, voiceGain } from '../audio/voicefx';
+import { START_MAX, decayTau, tuneSt, voiceGain } from '../audio/voicefx';
 import { VEL_MAX } from '../audio/pattern';
 import { swingRatio, type EncId } from '../theme';
 
@@ -27,6 +27,28 @@ export function v127(course: number, bipolar = false): number {
 export function v127Text(course: number, bipolar = false): string {
   const n = v127(course, bipolar);
   return bipolar && n > 0 ? `+${n}` : String(n);
+}
+
+/**
+ * TUNE de la voix (2026-10-08) : un reglage a crans, ecrit en demi-tons
+ * (+5, -12, 0) comme le TUNE d'une Digitakt ; sa ligne d'unite dit
+ * l'intervalle (4TH, OCTAVE, OCT + 5TH).
+ */
+export function tuneText(v: number): string {
+  const st = tuneSt(v);
+  return st > 0 ? `+${st}` : String(st);
+}
+const INTERVALS = ['ROOT', 'MIN 2ND', '2ND', 'MIN 3RD', '3RD', '4TH', 'TRITONE', '5TH', 'MIN 6TH', '6TH', 'MIN 7TH', '7TH', 'OCTAVE'] as const;
+export function tuneUnit(v: number): string {
+  const a = Math.abs(tuneSt(v));
+  if (a <= 12) return INTERVALS[a];
+  if (a === 24) return '2 OCTAVES';
+  return `OCT + ${INTERVALS[a - 12]}`;
+}
+
+/** Le nombre d'un potard de la machine (sa valeur dans son domaine) : 0 a 127, -64 a +63, TUNE en demi-tons. */
+export function encText(id: Exclude<EncId, 'tempo' | 'vsound'>, v: number, course: number, bipolar: boolean): string {
+  return id === 'vtune' ? tuneText(v) : v127Text(course, bipolar);
 }
 
 /** La velocite d'un pas (0 a 9, l'echelle des pas) en 0 a 127. */
@@ -85,6 +107,18 @@ export function encUnit(id: Exclude<EncId, 'tempo' | 'vsound'>, v: number): stri
       return `X${timeFactor(v).toFixed(2)}`;
     case 'swing':
       return `${swingRatio(v)}%`;
+    case 'vtune':
+      return tuneUnit(v);
+    case 'vpan': {
+      // PAN (2026-10-08) : le cote et combien, CENTER au milieu
+      const n = Math.round(Math.abs(v) * 100);
+      return n === 0 ? 'CENTER' : `${n}% ${v < 0 ? 'LEFT' : 'RIGHT'}`;
+    }
+    case 'vstart': {
+      // START (2026-10-08) : ou le coup commence dans son echantillon (90 % au plus)
+      const n = Math.round(Math.max(0, Math.min(1, v)) * START_MAX * 100);
+      return n === 0 ? 'FROM TOP' : `${n}% IN`;
+    }
     default:
       return `${Math.round(Math.max(0, Math.min(1, v)) * 100)}%`;
   }

@@ -540,7 +540,11 @@ export type EncId =
   | 'vdist'
   | 'vchorus'
   | 'vdelay'
-  | 'vreverb';
+  | 'vreverb'
+  // TUNE, PAN et START de la voix (2026-10-08, l'etape R2 des P-locks) : sur les pages (SRC, AMP, SMPL), pas sur la face
+  | 'vtune'
+  | 'vpan'
+  | 'vstart';
 
 /**
  * Les potards de la rangee VOICE et le parametre de voix qu'ils reglent
@@ -555,6 +559,9 @@ export const VOICE_PARAM = {
   vchorus: 'chorus',
   vdelay: 'delay',
   vreverb: 'reverb',
+  vtune: 'tune',
+  vpan: 'pan',
+  vstart: 'start',
 } as const;
 /** Les potards de la rangee VOICE qui reglent un parametre de voix (VOLUME, TONE, DECAY, les effets). */
 export type VoiceFxEncId = keyof typeof VOICE_PARAM;
@@ -567,11 +574,11 @@ export type VoiceFxEncId = keyof typeof VOICE_PARAM;
  * puis ses echantillons) ; l'ecran en montre la liste (state/lcdSamples.ts).
  */
 export type VoiceEncId = VoiceFxEncId | 'vsound';
-export const VOICE_ENCODERS: readonly VoiceEncId[] = ['vol', 'vsound', 'tone', 'vdecay', 'vdist', 'vchorus', 'vdelay', 'vreverb'];
+export const VOICE_ENCODERS: readonly VoiceEncId[] = ['vol', 'vsound', 'tone', 'vdecay', 'vdist', 'vchorus', 'vdelay', 'vreverb', 'vtune', 'vpan', 'vstart'];
 export const isVoiceEnc = (id: EncId): id is VoiceEncId => (VOICE_ENCODERS as readonly string[]).includes(id);
 
-/** Potards a zero au centre (-1 a 1) : TONE et STRETCH. */
-export const BIPOLAR: readonly EncId[] = ['tone', 'stretch'];
+/** Potards a zero au centre (-1 a 1) : TONE et STRETCH ; TUNE et PAN de la voix (2026-10-08). */
+export const BIPOLAR: readonly EncId[] = ['tone', 'stretch', 'vtune', 'vpan'];
 export const isBipolar = (id: EncId): boolean => BIPOLAR.includes(id);
 
 /**
@@ -620,6 +627,10 @@ export const ENCODERS: readonly { id: EncId; label: string; aria: string }[] = [
   { id: 'vchorus', label: 'CHORUS', aria: 'Voice chorus' },
   { id: 'vdelay', label: 'DELAY', aria: 'Voice delay' },
   { id: 'vreverb', label: 'REVERB', aria: 'Voice reverb' },
+  // Sur les pages seulement (2026-10-08) : SRC TUNE, AMP PAN, SMPL START
+  { id: 'vtune', label: 'TUNE', aria: 'Voice tune, in semitones' },
+  { id: 'vpan', label: 'PAN', aria: 'Voice pan, left to right' },
+  { id: 'vstart', label: 'START', aria: 'Voice sample start' },
 ];
 
 /** Libelle serigraphie d'un encodeur (l'ecran l'affiche aussi : VOLUME 80%). */
@@ -1109,7 +1120,7 @@ export const POT_UI = {
   wheelStep: 0.02,
   bipolarStep: 0.05,
   readoutMs: 1200,
-  reset: { level: 0.8, swing: 0, stretch: 0, dist: 0, chorus: 0, delay: 0, reverb: 0, vol: 0.8, vsound: 0, tone: 0, vdecay: 1, vdist: 0, vchorus: 0, vdelay: 0, vreverb: 0 },
+  reset: { level: 0.8, swing: 0, stretch: 0, dist: 0, chorus: 0, delay: 0, reverb: 0, vol: 0.8, vsound: 0, tone: 0, vdecay: 1, vdist: 0, vchorus: 0, vdelay: 0, vreverb: 0, vtune: 0, vpan: 0, vstart: 0 },
 } as const;
 
 /** Bornes d'un encodeur hors TEMPO : TONE et STRETCH -1 a 1, les autres 0 a 1. */

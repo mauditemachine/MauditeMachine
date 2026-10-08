@@ -35,6 +35,12 @@
  * debut de la mesure suivante, avant que ses pas soient programmes), et le
  * debut d'une mesure ne previent qu'une fois (onBar), meme re-programme ou
  * saute.
+ *
+ * Les verrous (2026-10-08, l'etape R2 des parameter locks, audio/locks.ts) :
+ * chaque coup programme recoit les verrous de son pas (trigger(..., lock)) ;
+ * un pas d'une mesure finie re-programme garde le motif ET les verrous
+ * d'alors (Snap), comme ses pas. Poser un verrou pendant la lecture
+ * re-programme (le store du motif change) : on l'entend au pas suivant.
  */
 
 import { voices } from '../state/voices';
@@ -43,6 +49,7 @@ import { voiceFx } from './voicefx';
 import { kit } from './kit';
 import { cancelVoice, context, mix, trigger, type Voice } from './drums';
 import { INSTRUMENTS, STEP_COUNT, VEL_GAIN, pattern, velocity, type Steps } from './pattern';
+import { lockOf, type Locks } from './locks';
 import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, horizon, registerScheduler, type Scheduler } from './sched';
 
 export { LOOKAHEAD_S, TICK_MS } from './sched';
@@ -113,6 +120,12 @@ const journal: StepEvent[] = [];
 /** voix programmees par la lecture en cours, pas encore toutes parties */
 const pending: Voice[] = [];
 
+/** Le motif d'un pas programme : ses pas et leurs verrous (2026-10-08). */
+interface Snap {
+  steps: Steps;
+  locks: Readonly<Locks>;
+}
+
 /** Un pas programme qui n'a peut-etre pas encore sonne : de quoi le refaire. */
 interface Planned {
   abs: number;
@@ -121,13 +134,13 @@ interface Planned {
   grid: number;
   when: number;
   voices: Voice[];
-  /** le motif qui l'a joue (une mesure finie garde le sien) */
-  steps: Steps;
+  /** le motif qui l'a joue, ses verrous compris (une mesure finie garde le sien) */
+  snap: Snap;
   seq: number;
 }
 const plan: Planned[] = [];
-/** re-programmation en cours : le motif des pas d'une mesure deja finie */
-const replay = new Map<number, Steps>();
+/** re-programmation en cours : le motif (et ses verrous) des pas d'une mesure deja finie */
+const replay = new Map<number, Snap>();
 /** repli sans WebGL affiche : plus de machine, RUN refuse (index.tsx) */
 let locked = false;
 /**
@@ -206,7 +219,9 @@ function bar(): void {
 function schedule(s: number, when: number, expected: number, now: number, off: number, grid: number): void {
   if (s === 0) bar();
   // Un pas d'une mesure deja finie, re-programme : son motif d'alors (la chaine a pu changer de pattern depuis)
-  const steps = (abs < barAbs ? replay.get(abs) : undefined) ?? pattern.get().steps;
+  const cur = pattern.get();
+  const snap: Snap = (abs < barAbs ? replay.get(abs) : undefined) ?? { steps: cur.steps, locks: cur.locks };
+  const steps = snap.steps;
   const vs: Voice[] = [];
   let mask = 0;
   for (let k = 0; k < INSTRUMENTS.length; k += 1) {
@@ -216,11 +231,12 @@ function schedule(s: number, when: number, expected: number, now: number, off: n
     const vel = velocity(steps, inst, s);
     if (vel > 0 && voices.plays(inst)) {
       mask |= 1 << k;
-      trigger(inst, when, false, vs, VEL_GAIN[vel]);
+      // Les verrous du pas (2026-10-08) : null sans verrou, le coup d'avant
+      trigger(inst, when, false, vs, VEL_GAIN[vel], lockOf(snap.locks, inst, s));
     }
   }
   for (const v of vs) pending.push(v);
-  plan.push({ abs, step: s, grid, when, voices: vs, steps, seq });
+  plan.push({ abs, step: s, grid, when, voices: vs, snap, seq });
   const e: StepEvent = { seq, step: s, when, expected, at: now, mask, off };
   seq += 1;
   push(e);
@@ -312,7 +328,7 @@ function reschedule(): void {
       cancelVoice(x.voices[j]);
       dead.add(x.voices[j]);
     }
-    replay.set(x.abs, x.steps);
+    replay.set(x.abs, x.snap);
   }
   let w = 0;
   for (let k = 0; k < pending.length; k += 1) if (!dead.has(pending[k])) pending[w++] = pending[k];

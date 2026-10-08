@@ -5,7 +5,8 @@
  * part a la touche, en mode MUTE la voix se coupe). Sur le MM-RYTM
  * (2026-10-08, state/rytmPage.ts), hors EDIT et du mode presets : H passe
  * de la vue PAGE de l'ecran (par defaut) a HOME et retour, [ et ] passent a
- * la page d'avant ou d'apres (comme les touches de page). 1 a 5 ouvrent les pages (TRACKS, MIXTAPES,
+ * la page d'avant ou d'apres (comme les touches de page), L met le pas choisi
+ * en LOCK (les parameter locks, 2026-10-08 ; L encore, ou Echap, en sort). 1 a 5 ouvrent les pages (TRACKS, MIXTAPES,
  * SHOWS, PRESS, CONTACT ; la page deja ouverte se ferme), 6 et O ouvrent ou
  * referment la machine (le pad OPEN), Espace lance ou arrete le
  * sequenceur (RUN/STOP du MM-VOYAGER quand on l'utilise), R ramene la vue par defaut, Echap ferme
@@ -21,7 +22,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { editToggle, escape, openToggle, padHit, page, presetKey, resetView, runToggle, stepMachine, voyPad, voyRun } from '../actions';
+import { editToggle, escape, openToggle, padHit, page, presetKey, resetView, runToggle, rytmLockToggle, stepMachine, voyPad, voyRun } from '../actions';
 import { presetMode } from '../state/presetMode';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
@@ -111,6 +112,12 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         if (e.code === 'BracketLeft' || e.code === 'BracketRight' || k === '[' || k === ']') {
           e.preventDefault();
           rytmPage.step(e.code === 'BracketLeft' || k === '[' ? -1 : 1);
+          return;
+        }
+        // L (2026-10-08) : le LOCK sur le pas choisi (le dernier touche), ou hors LOCK
+        if (e.code === 'KeyL' || k === 'l') {
+          e.preventDefault();
+          rytmLockToggle();
           return;
         }
       }

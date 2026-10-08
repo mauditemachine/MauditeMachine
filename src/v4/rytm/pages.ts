@@ -27,9 +27,18 @@
  * garde pour les etapes suivantes (R2, R3), qui n'ont qu'a les brancher.
  * Une table pure : elle n'importe que des types, familyOf et la liste des
  * touches (theme.ts).
+ *
+ * Les verrous (2026-10-08, l'etape R2, audio/locks.ts) : lock dit ce qu'un
+ * bloc verrouille sur le pas en LOCK (vel : la velocite du pas elle-meme ;
+ * snd : le son, SOUND et SAMPLE ; level, decay, tune, pan, start). Un bloc
+ * de toute la machine (ALL) n'est jamais verrouillable (GLOBAL a l'ecran) ;
+ * un bloc de voix sans lock ne l'est pas encore (les potards du kit, TONE,
+ * les effets de la voix : leur verrou viendra, l'ecran le dit). TUNE (SRC),
+ * PAN (AMP) et START (SMPL) arrivent avec, pour toutes les voix.
  */
 
 import type { DialId } from '../actions';
+import type { LockKey } from '../audio/locks';
 import { familyOf, type KitFamily } from '../audio/kit';
 import type { ShotId } from '../audio/shotsdsp';
 import { RYTM_PAGE_KEYS, type Inst } from '../theme';
@@ -69,7 +78,7 @@ export type SlotTarget = DialId | 'step:vel' | 'smpl:sample';
  * decay, swing, stretch), des crans (notch), un petit potard (bar), un
  * petit potard depuis le centre (barc).
  */
-export type SlotDraw = 'level' | 'tone' | 'decay' | 'swing' | 'stretch' | 'notch' | 'bar' | 'barc';
+export type SlotDraw = 'level' | 'tone' | 'decay' | 'swing' | 'stretch' | 'notch' | 'bar' | 'barc' | 'start';
 
 export interface PageSlot {
   /** '' : bloc vide */
@@ -82,6 +91,8 @@ export interface PageSlot {
   noBd?: boolean;
   /** la voix choisie en etiquette (la rangee du haut de FX : les effets de CETTE voix, sous ceux de toute la machine) */
   voiceTag?: boolean;
+  /** ce qu'il verrouille sur le pas en LOCK (2026-10-08) ; absent : pas verrouillable (encore) */
+  lock?: LockKey | 'vel';
 }
 
 export const isRytmPage = (v: unknown): v is RytmPageId => RYTM_PAGES.some((p) => p.id === v);
@@ -98,9 +109,11 @@ const live = (label: string, target: SlotTarget, draw: SlotDraw, scope: PageSlot
 });
 /** Un effet de la voix (la rangee du haut de FX) : la voix en etiquette. */
 const voiceFxSlot = (label: string, target: SlotTarget): PageSlot => ({ ...live(label, target, 'bar'), voiceTag: true });
+/** Un reglage de voix verrouillable pas par pas (2026-10-08). */
+const lockable = (label: string, target: SlotTarget, draw: SlotDraw, lock: LockKey | 'vel'): PageSlot => ({ ...live(label, target, draw), lock });
 
 const TRIG: readonly PageSlot[] = [
-  live('VEL', 'step:vel', 'level'),
+  lockable('VEL', 'step:vel', 'level', 'vel'),
   soon('PROB'),
   soon('MICRO'),
   soon('COND'),
@@ -111,11 +124,11 @@ const TRIG: readonly PageSlot[] = [
 ];
 
 /** SMPL, dans l'ordre de l'Analog Rytm : TUNE FINE BR SAMPLE, START END LOOP LEVEL. */
-const SMPL: readonly PageSlot[] = [soon('TUNE'), soon('FINE'), soon('BR'), live('SAMPLE', 'smpl:sample', 'notch'), soon('START'), soon('END'), soon('LOOP'), soon('LEVEL')];
+const SMPL: readonly PageSlot[] = [soon('TUNE'), soon('FINE'), soon('BR'), lockable('SAMPLE', 'smpl:sample', 'notch', 'snd'), lockable('START', 'vstart', 'start', 'start'), soon('END'), soon('LOOP'), soon('LEVEL')];
 
 const FLTR: readonly PageSlot[] = [soon('ATK'), soon('DEC'), EMPTY, EMPTY, live('TONE', 'tone', 'tone'), soon('RESO'), soon('TYPE'), soon('ENV')];
 
-const AMP: readonly PageSlot[] = [soon('ATK'), soon('HOLD'), live('DEC', 'vdecay', 'decay'), EMPTY, EMPTY, EMPTY, soon('PAN'), live('VOL', 'vol', 'level')];
+const AMP: readonly PageSlot[] = [soon('ATK'), soon('HOLD'), lockable('DEC', 'vdecay', 'decay', 'decay'), EMPTY, EMPTY, EMPTY, lockable('PAN', 'vpan', 'barc', 'pan'), lockable('VOL', 'vol', 'level', 'level')];
 
 /** En haut les effets de la voix, dessous ceux de toute la machine, colonne par colonne. */
 const FX: readonly PageSlot[] = [
@@ -144,8 +157,8 @@ function src(inst: Inst | null): readonly PageSlot[] {
   const key = f ?? 'none';
   let slots = SRC_CACHE.get(key);
   if (!slots) {
-    // A : le son de la famille (le choix de son du kit), B : TUNE a venir (toutes les voix), G : vide (START est sur SMPL)
-    slots = [live('SOUND', 'vsound', 'notch'), soon('TUNE'), ...srcMiddle(f), EMPTY, live('STRETCH', 'stretch', 'stretch', 'all')];
+    // A : le son de la famille (le choix de son du kit), B : TUNE (toutes les voix, au demi-ton, 2026-10-08), G : vide (START est sur SMPL)
+    slots = [lockable('SOUND', 'vsound', 'notch', 'snd'), lockable('TUNE', 'vtune', 'barc', 'tune'), ...srcMiddle(f), EMPTY, live('STRETCH', 'stretch', 'stretch', 'all')];
     SRC_CACHE.set(key, slots);
   }
   return slots;

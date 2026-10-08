@@ -58,6 +58,24 @@
  * La liste des sons (SAMPLES) y prend toute la largeur ; la page MIX reste a
  * HOME. Les coups qui pulsent et la vague du repos n'y redessinent rien ; la
  * tete de lecture, si (les seize pas du pied), au plus tous les 60 ms.
+ *
+ * Les verrous (2026-10-08, l'etape R2 des parameter locks, Mika : "on voit a
+ * l'ecran que quand le sequenceur passe sur ce step alors le changement est
+ * fait ; fait evoluer l'ecran, c'est la cle de ce que je demande") :
+ * - en LOCK (un pas tenu, ou fixe, state/rytmLock.ts) : l'en-tete porte la
+ *   pastille LOCK 05 (pleine, un petit cadenas) et la page en contour ; un
+ *   bloc verrouille sur ce pas passe en negatif (plein, texte noir, le
+ *   cadenas) avec sa valeur verrouillee ; un bloc verrouillable mais pas
+ *   verrouille montre la valeur de la voix en retrait ; ceux de toute la
+ *   machine (GLOBAL) et ceux pas encore verrouillables (NO LOCK), a peine ;
+ *   le pied dit quoi faire (TURN A KNOB: STEP 05 ONLY, 2X: UNLOCK, CLEAR:
+ *   ALL) ou les verrous du pas ;
+ * - en lecture : quand le pas qui joue a des verrous, leurs blocs passent en
+ *   negatif avec la valeur verrouillee le temps du pas, puis reviennent ;
+ * - les seize pas du pied : un point sous chaque pas qui a des verrous, le
+ *   pas en LOCK cerne ; l'anneau de HOME, un trait dehors.
+ * Les dessins des blocs passent par une palette (pal) : la normale, ou la
+ * negative d'un bloc plein ; HOME garde la normale, au pixel pres.
  */
 
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
@@ -65,6 +83,9 @@ import { clock } from '../audio/clock';
 import { mix } from '../audio/drums';
 import { familyOf, kit } from '../audio/kit';
 import { INSTRUMENTS, STEP_COUNT, VEL_BARS, pattern, velocity } from '../audio/pattern';
+import { lockMask, lockOf } from '../audio/locks';
+import { lockSummary } from '../actions';
+import { rytmLock } from '../state/rytmLock';
 import type { ShotId } from '../audio/shotsdsp';
 import { sc } from '../audio/soundcloud';
 import { voiceFx } from '../audio/voicefx';
@@ -77,7 +98,7 @@ import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
 import { FONT_DISPLAY, HEX, OLED, PAGE_KNOB_LETTERS, type Inst } from '../theme';
 import { RYTM_PAGES, pageLabel, type RytmPageId } from '../rytm/pages';
-import { pageBlocks, type Block } from '../rytm/pageView';
+import { pageBlocks, type Block, type BlockMode } from '../rytm/pageView';
 import { v127Text } from '../rytm/values';
 import { makeCanvasTexture } from './silk';
 
@@ -100,6 +121,14 @@ export interface ScreenInfo {
   blocks: string[];
   /** le bloc cerne (l'echo) dessine, -1 aucun */
   echo: number;
+  /** le pas en LOCK dessine (2026-10-08), -1 aucun */
+  lock: number;
+  /** les blocs en negatif pour le pas qui joue (ses verrous) */
+  flash: number[];
+  /** les seize pas du pied : . vide, o un coup, L un coup verrouille, l des verrous sans coup ; * le pas en LOCK */
+  strip: string;
+  /** les lignes du pied en LOCK */
+  foot: string[];
 }
 
 /** Au plus un redessin tous les 60 ms (un potard tourne a la cadence du pointeur). */
@@ -127,6 +156,19 @@ const BLACK: string = HEX.oled;
 /** Le cadre d'un bloc de la vue PAGE : a peine (un reglage a venir, encore moins). */
 const FRAME: string = 'rgba(246, 241, 231, 0.14)';
 const FRAME_DIM: string = 'rgba(246, 241, 231, 0.07)';
+
+/**
+ * La palette des dessins (2026-10-08) : la normale (l'os sur le noir), ou la
+ * negative d'un bloc verrouille (le noir sur l'os plein) ; bg : le fond.
+ */
+interface Pal {
+  ink: string;
+  half: string;
+  faint: string;
+  bg: string;
+}
+const PAL: Pal = { ink: INK, half: HALF, faint: FAINT, bg: BLACK };
+const PAL_NEG: Pal = { ink: BLACK, half: 'rgba(0, 0, 0, 0.58)', faint: 'rgba(0, 0, 0, 0.24)', bg: INK };
 
 /** L'anneau des pas : son centre, son rayon ; la colonne de droite. */
 const RING = { cx: 60, cy: 60, r: 47 } as const;
@@ -216,6 +258,8 @@ const PAGE_FOOT = { x0: 132, x1: 312, y: 112.5 } as const;
 /** La liste des sons (SAMPLES) sur toute la largeur. */
 const PAGE_COL: Col = { x0: 10, x1: 310 };
 
+const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
+
 const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
 
 /** Coupe a n lettres, un point final quand ca deborde. */
@@ -248,6 +292,8 @@ export class Screen {
   private scale: number;
   /** les corps des blocs de la vue PAGE (le telephone : plus gros) */
   private bt: (typeof BLOCK_TYPE)[keyof typeof BLOCK_TYPE];
+  /** la palette des dessins (la negative dans un bloc verrouille) */
+  private pal: Pal = PAL;
 
   constructor(
     anisotropy: number,
@@ -260,7 +306,7 @@ export class Screen {
     const H = Math.round((W * UH) / UW);
     this.scale = W / UW;
     this.bt = mobile ? BLOCK_TYPE.phone : BLOCK_TYPE.desk;
-    this.info = { draws: 0, text: ['', '', ''], lastDrawAt: -Infinity, minGapMs: Infinity, font: 'vector op-1', size: [W, H], view: 'home', page: rytmPage.get().page, blocks: [], echo: -1 };
+    this.info = { draws: 0, text: ['', '', ''], lastDrawAt: -Infinity, minGapMs: Infinity, font: 'vector op-1', size: [W, H], view: 'home', page: rytmPage.get().page, blocks: [], echo: -1, lock: -1, flash: [], strip: '', foot: [] };
     this.canvas = document.createElement('canvas');
     this.canvas.width = W;
     this.canvas.height = H;
@@ -305,6 +351,8 @@ export class Screen {
       // La vue PAGE (2026-10-08) : sa page, ses valeurs (le kit, les effets du pattern) ; la tete de lecture
       // ne redessine que l'ecran d'aujourd'hui (HOME, EDIT), la page ne la montre pas
       rytmPage.subscribe(active),
+      // Le LOCK (2026-10-08) : la pastille, les blocs en negatif, le pied
+      rytmLock.subscribe(active),
       kit.subscribe(() => active()),
       pattern.fx.subscribe(active),
       // La tete de lecture : l'anneau de HOME, les seize pas du pied de la vue PAGE
@@ -487,7 +535,9 @@ export class Screen {
     const rytmEdit = editor.get() === 'mm808';
     // Ce que montre l'ecran : les presets, EDIT, sinon la vue du MM-RYTM (HOME, ou la page en coup d'oeil)
     const rp = rytmPage.get();
-    const view: ScreenInfo['view'] = s.keys ? 'presets' : rytmEdit ? 'edit' : rp.view;
+    // Le LOCK (2026-10-08) se montre toujours sur la vue PAGE (HOME n'a pas les blocs)
+    const lockStep = rytmEdit ? -1 : rytmLock.get().step;
+    const view: ScreenInfo['view'] = s.keys ? 'presets' : rytmEdit ? 'edit' : lockStep >= 0 ? 'page' : rp.view;
     const paged = view === 'page';
     let next = 0;
     if (ptn.cur !== this.lastCur) {
@@ -511,8 +561,12 @@ export class Screen {
     this.info.page = rp.page;
     this.info.blocks = [];
     this.info.echo = -1;
+    this.info.lock = paged ? lockStep : -1;
+    this.info.flash = [];
+    this.info.strip = '';
+    this.info.foot = [];
     if (s.keys) this.paintPresets(s);
-    else if (paged) this.armEcho(this.paintPage(s, rp, p.instrument, ptn.cur, now));
+    else if (paged) this.armEcho(this.paintPage(s, rp, p.instrument, ptn.cur, now, lockStep));
     else {
       if (rytmEdit) this.paintPatternRing(now);
       else next = Math.max(next, this.paintStepRing(p.instrument, p.steps, now));
@@ -591,6 +645,12 @@ export class Screen {
         const on = i === head && pulse > 0 ? rr + 2.2 * pulse : rr;
         this.circle(at.x, at.y, on, inst ? INK : HALF);
       } else this.circle(at.x, at.y, i % 4 === 0 ? 1.5 : 1, i % 4 === 0 ? HALF : FAINT);
+      // Un pas qui a des verrous (2026-10-08) : un petit trait dehors
+      if (inst && (lockMask(pattern.get().locks, inst) >> i) & 1) {
+        const o0 = this.ringAt(i, r + 5.5);
+        const o1 = this.ringAt(i, r + 9);
+        this.line([o0.x, o0.y, o1.x, o1.y], bars > 0 ? INK : HALF, 1.4);
+      }
       if (i === head) {
         // La tete : un cercle autour du pas, un trait vers le centre
         this.circle(at.x, at.y, 7.2, null, INK, 1.2);
@@ -723,7 +783,7 @@ export class Screen {
     for (let k = 0; k < n; k += 1) {
       const h = base + ((r.y1 - r.y0 - base) * (k + 1)) / n;
       const x = r.x0 + k * (bw + gap);
-      const on = k + 1 <= lit + 1e-6 ? INK : k < lit ? HALF : FAINT;
+      const on = k + 1 <= lit + 1e-6 ? this.pal.ink : k < lit ? this.pal.half : this.pal.faint;
       this.ctx.fillStyle = on;
       this.ctx.fillRect(x, r.y1 - h, bw, h);
     }
@@ -741,8 +801,8 @@ export class Screen {
       const s = 1 / (1 + Math.exp(-(t - 0.5) * 9));
       pts.push(x0 + (x1 - x0) * t, mid - v * amp * (2 * s - 1));
     }
-    this.line([x0, mid, x1, mid], FAINT, 0.8);
-    this.line(pts, INK, 2 * Math.max(0.7, Screen.cardK(r)));
+    this.line([x0, mid, x1, mid], this.pal.faint, 0.8);
+    this.line(pts, this.pal.ink, 2 * Math.max(0.7, Screen.cardK(r)));
   }
 
   /** DECAY : une enveloppe, l'attaque puis la queue, plus longue avec la valeur. */
@@ -758,8 +818,8 @@ export class Screen {
       const t = k / n;
       pts.push(ax + (x1 - ax) * t, base - (base - top) * Math.exp(-t / tau));
     }
-    this.line([x0, base, x1, base], FAINT, 0.8);
-    this.line(pts, INK, 2 * Math.max(0.7, Screen.cardK(r)));
+    this.line([x0, base, x1, base], this.pal.faint, 0.8);
+    this.line(pts, this.pal.ink, 2 * Math.max(0.7, Screen.cardK(r)));
   }
 
   /** SWING : quatre paires de points, la seconde de chaque paire decalee par le swing. */
@@ -769,12 +829,12 @@ export class Screen {
     const cell = (x1 - x0) / n;
     const y = (r.y0 + r.y1) / 2;
     const ks = Screen.cardK(r);
-    this.line([x0, y, x1, y], FAINT, 0.8);
+    this.line([x0, y, x1, y], this.pal.faint, 0.8);
     for (let k = 0; k < n; k += 1) {
       const xa = x0 + k * cell + cell * 0.18;
       const xb = x0 + k * cell + cell * (0.5 + 0.32 * Math.max(0, Math.min(1, v)));
-      this.circle(xa, y, 3.4 * ks, INK);
-      this.circle(xb, y, 2.6 * ks, HALF);
+      this.circle(xa, y, 3.4 * ks, this.pal.ink);
+      this.circle(xb, y, 2.6 * ks, this.pal.half);
     }
   }
 
@@ -790,8 +850,8 @@ export class Screen {
       const t = k / n;
       pts.push(x0 + (x1 - x0) * t, mid - amp * Math.sin(t * cycles * Math.PI * 2) * Math.exp(-t * 1.6));
     }
-    this.line([x0, mid, x1, mid], FAINT, 0.8);
-    this.line(pts, INK, 2 * Math.max(0.7, Screen.cardK(r)));
+    this.line([x0, mid, x1, mid], this.pal.faint, 0.8);
+    this.line(pts, this.pal.ink, 2 * Math.max(0.7, Screen.cardK(r)));
   }
 
   /** Des crans (SOUND, GATE) : un point par cran, le choisi en grand ; plus de 12 : une barre. */
@@ -805,8 +865,8 @@ export class Screen {
     const step = (r.x1 - r.x0) / (n - 1);
     for (let i = 0; i < n; i += 1) {
       const x = r.x0 + i * step;
-      if (i === cur) this.circle(x, y, n > 6 ? 1.7 : 2.3, INK);
-      else this.circle(x, y, 0.8, HALF);
+      if (i === cur) this.circle(x, y, n > 6 ? 1.7 : 2.3, this.pal.ink);
+      else this.circle(x, y, 0.8, this.pal.half);
     }
   }
 
@@ -815,10 +875,34 @@ export class Screen {
     const y = (r.y0 + r.y1) / 2;
     const x = r.x0 + (r.x1 - r.x0) * clamp01(course);
     const from = centre ? (r.x0 + r.x1) / 2 : r.x0;
-    this.line([r.x0, y, r.x1, y], FAINT, 1.4);
-    if (centre) this.line([from, y - 2.4, from, y + 2.4], HALF, 0.8);
-    this.line([from, y, x, y], INK, 1.8);
-    this.circle(x, y, 2, INK);
+    this.line([r.x0, y, r.x1, y], this.pal.faint, 1.4);
+    if (centre) this.line([from, y - 2.4, from, y + 2.4], this.pal.half, 0.8);
+    this.line([from, y, x, y], this.pal.ink, 1.8);
+    this.circle(x, y, 2, this.pal.ink);
+  }
+
+  /**
+   * START (2026-10-08) : une onde qui s'eteint, le repere du debut ; ce qui
+   * est avant lui (saute) a peine.
+   */
+  private drawStart(r: Rect, course: number): void {
+    const { x0, x1 } = r;
+    const mid = (r.y0 + r.y1) / 2;
+    const amp = (r.y1 - r.y0) / 2 - 1;
+    const cut = x0 + (x1 - x0) * clamp01(course) * 0.9;
+    const n = 40;
+    const before: number[] = [];
+    const after: number[] = [];
+    for (let k = 0; k <= n; k += 1) {
+      const t = k / n;
+      const x = x0 + (x1 - x0) * t;
+      const y = mid - amp * Math.sin(t * 5.5 * Math.PI * 2) * Math.exp(-t * 2.6);
+      if (x <= cut) before.push(x, y);
+      if (x >= cut - (x1 - x0) / n) after.push(x, y);
+    }
+    if (before.length >= 4) this.line(before, this.pal.faint, 1.2);
+    if (after.length >= 4) this.line(after, this.pal.ink, 1.4 * Math.max(0.7, Screen.cardK(r)));
+    this.line([cut, r.y0, cut, r.y1], this.pal.ink, 1.2);
   }
 
   /* ---------------- les pages ---------------- */
@@ -947,23 +1031,51 @@ export class Screen {
    * la piste ou les six pages) ; rend dans combien de ms l'echo s'eteint
    * (0 : aucun ; paint() en arme le minuteur).
    */
-  private paintPage(s: LcdState, rp: RytmPageState, inst: Inst | null, cur: number, now: number): number {
-    this.paintPageHead(rp.page, inst, cur, now);
+  private paintPage(s: LcdState, rp: RytmPageState, inst: Inst | null, cur: number, now: number, lockStep: number): number {
+    this.paintPageHead(rp.page, inst, cur, now, lockStep);
     let next = 0;
-    if (s.samples) this.paintSamples(s.samples, PAGE_COL);
+    if (s.samples && lockStep < 0) this.paintSamples(s.samples, PAGE_COL);
     else {
-      const blocks = pageBlocks(rp, inst, now);
+      const blocks = pageBlocks(rp, inst, now, this.blockMode(inst, lockStep));
       this.paintMatrix(blocks);
-      this.info.blocks = blocks.map((b) => `${b.label}=${b.text}:${b.state}`);
+      this.info.blocks = blocks.map((b) => `${b.label}=${b.text}:${b.state}${b.lock !== 'none' ? `/${b.lock}` : ''}${b.flash ? '!' : ''}`);
+      this.info.flash = blocks.filter((b) => b.flash).map((b) => b.k);
       const echo = blocks.find((b) => b.echo);
       if (echo && rp.echo) {
         this.info.echo = echo.k;
         next = Math.max(1, rp.echo.until - now + 1);
       }
     }
-    this.paintStrip(inst, rp.sel);
-    this.paintFoot(s, rp.page);
+    this.paintStrip(inst, rp.sel, lockStep);
+    this.paintFoot(s, rp.page, lockStep, inst);
     return next;
+  }
+
+  /**
+   * Les verrous a montrer (2026-10-08) : ceux du pas en LOCK ; sinon, en
+   * lecture, ceux du pas qui joue s'il sonne (un coup, la voix pas coupee).
+   */
+  private blockMode(inst: Inst | null, lockStep: number): BlockMode | null {
+    if (lockStep >= 0) return { kind: 'lock', step: lockStep };
+    if (!inst || !clock.running) return null;
+    const head = playhead.get();
+    if (head < 0 || velocity(pattern.get().steps, inst, head) === 0 || !voices.plays(inst)) return null;
+    const lock = lockOf(pattern.get().locks, inst, head);
+    return lock ? { kind: 'flash', step: head, lock } : null;
+  }
+
+  /** Un petit cadenas (x : son bord gauche, y : le bas de son corps), plein. */
+  private padlock(x: number, y: number, s: number, color: string): void {
+    const c = this.ctx;
+    const w = s;
+    const h = s * 0.72;
+    c.fillStyle = color;
+    c.fillRect(x, y - h, w, h);
+    c.beginPath();
+    c.arc(x + w / 2, y - h, w * 0.32, Math.PI, 0);
+    c.strokeStyle = color;
+    c.lineWidth = Math.max(0.7, s * 0.17);
+    c.stroke();
   }
 
   /**
@@ -971,16 +1083,33 @@ export class Screen {
    * son (ou MUTE, SOLO ; sans voix ALL, PICK A VOICE) ; a droite le pattern
    * (il clignote quand il change) et le tempo ; un filet dessous.
    */
-  private paintPageHead(page: RytmPageId, inst: Inst | null, cur: number, now: number): void {
+  private paintPageHead(page: RytmPageId, inst: Inst | null, cur: number, now: number, lockStep = -1): void {
     const H = PAGE_HEAD;
     const T = this.bt.head;
     const y = H.y;
     this.runIcon(H.iconX, y);
     const label = pageLabel(page);
-    const pw = this.textWidth(label, T.pill, 700, 0.9) + 12;
-    this.roundRect(H.pillX, H.pillY, pw, T.pillH, 2.5, INK);
-    this.text(label, H.pillX + pw / 2, H.pillY + T.pillH / 2 + T.pill * 0.36, T.pill, BLACK, 700, 'center', 0.9);
-    const x = H.pillX + pw + 8;
+    const ty = H.pillY + T.pillH / 2 + T.pill * 0.36;
+    let x: number;
+    if (lockStep >= 0) {
+      // LOCK (2026-10-08) : la pastille pleine du pas, un cadenas devant ; la page en contour a cote
+      const lk = `LOCK ${two(lockStep + 1)}`;
+      const gs = T.pill * 0.78;
+      const lw = this.textWidth(lk, T.pill, 700, 0.9) + 12 + gs + 3;
+      this.roundRect(H.pillX, H.pillY, lw, T.pillH, 2.5, INK);
+      this.padlock(H.pillX + 6, ty, gs, BLACK);
+      this.text(lk, H.pillX + 6 + gs + 3, ty, T.pill, BLACK, 700, 'left', 0.9);
+      const px = H.pillX + lw + 4;
+      const pw = this.textWidth(label, T.pill, 700, 0.9) + 10;
+      this.roundRect(px, H.pillY + 0.5, pw, T.pillH - 1, 2.5, null, HALF, 0.8);
+      this.text(label, px + pw / 2, ty, T.pill, HALF, 700, 'center', 0.9);
+      x = px + pw + 7;
+    } else {
+      const pw = this.textWidth(label, T.pill, 700, 0.9) + 12;
+      this.roundRect(H.pillX, H.pillY, pw, T.pillH, 2.5, INK);
+      this.text(label, H.pillX + pw / 2, ty, T.pill, BLACK, 700, 'center', 0.9);
+      x = H.pillX + pw + 8;
+    }
     if (inst) {
       const vw = this.text(inst, x, y, T.voice, INK, 600);
       const solo = voices.isSolo(inst);
@@ -990,7 +1119,12 @@ export class Screen {
         const w = this.textWidth(word, T.sound, 700, 0.8) + 8;
         this.pill(x + vw + 6, H.pillY, w, T.pillH, INK);
         this.text(word, x + vw + 6 + w / 2, H.pillY + T.pillH / 2 + T.sound * 0.36, T.sound, BLACK, 700, 'center', 0.8);
-      } else this.text(fit(soundOf(inst), this.mobile ? 10 : 12), x + vw + 5, y, T.sound, HALF, 600, 'left', 0.6);
+      } else {
+        // Le son a la place qui reste avant le pattern et le tempo (en LOCK la pastille est plus large)
+        const room = H.right - 70 - (x + vw + 5);
+        const snd = this.fitText(fit(soundOf(inst), this.mobile ? 10 : 12), Math.max(10, room), T.sound, 0.6, 600);
+        if (room > 14) this.text(snd, x + vw + 5, y, T.sound, HALF, 600, 'left', 0.6);
+      }
     } else {
       const aw = this.text('ALL', x, y, T.voice, HALF, 600);
       this.text('PICK A VOICE', x + aw + 6, y, T.sound * 0.85, FAINT, 600, 'left', 0.5);
@@ -1013,59 +1147,89 @@ export class Screen {
   private paintMatrix(blocks: readonly Block[]): void {
     const M = MATRIX;
     const B = BLOCK;
+    const c = this.ctx;
     for (const b of blocks) {
       if (b.state === 'empty') continue;
-      const bx = M.x0 + M.pitch * (b.k % 4);
-      const by = M.rows[b.k >> 2];
-      const alive = b.state === 'live';
+      this.paintBlock(b, M, B);
+      this.pal = PAL;
+      c.globalAlpha = 1;
+    }
+  }
+
+  /**
+   * Un bloc de la vue PAGE. En negatif (2026-10-08) : son verrou sur le pas en
+   * LOCK, ou celui du pas qui joue ; en retrait : la valeur de la voix en LOCK
+   * (base), a peine : GLOBAL et NO LOCK.
+   */
+  private paintBlock(b: Block, M: typeof MATRIX, B: typeof BLOCK): void {
+    const c = this.ctx;
+    const bx = M.x0 + M.pitch * (b.k % 4);
+    const by = M.rows[b.k >> 2];
+    const alive = b.state === 'live';
+    const neg = alive && (b.lock === 'locked' || b.flash);
+    const alpha = b.lock === 'base' ? 0.6 : b.lock === 'global' || b.lock === 'nolock' ? 0.32 : 1;
+    if (neg) {
+      this.roundRect(bx + 0.5, by + 0.5, M.w - 1, M.h - 1, M.r, INK);
+      // Le bloc tourne reste cerne : un filet dehors
+      if (b.echo) this.roundRect(bx - 1, by - 1, M.w + 2, M.h + 2, M.r + 1.2, null, INK, 0.8);
+    } else {
+      c.globalAlpha = b.echo ? 1 : alpha;
       this.roundRect(bx + 0.5, by + 0.5, M.w - 1, M.h - 1, M.r, null, b.echo ? INK : alive ? FRAME : FRAME_DIM, b.echo ? 1.1 : 0.7);
-      const T = this.bt;
-      // Le nom ; au desktop la lettre du potard au bout (au telephone elle est imprimee a cote du potard)
-      const nameW = M.w - 2 * B.padX - (T.letters ? 8 : 0);
-      this.text(this.fitText(b.label, nameW, T.nameSize, 0.7, 700), bx + B.padX, by + T.nameDy, T.nameSize, alive ? HALF : FAINT, 700, 'left', 0.7);
-      if (T.letters) this.text(PAGE_KNOB_LETTERS[b.k], bx + M.w - B.padX, by + T.nameDy, T.letterSize, b.echo ? HALF : FAINT, 700, 'right');
-      if (!alive) {
-        this.text('--', bx + B.padX, by + T.valueDy, T.valueSizes[1], FAINT, 300);
-        if (b.unit) this.text(this.fitText(b.unit, M.w - 2 * B.padX, T.unitSize), bx + B.padX, by + T.unitDy, T.unitSize, FAINT, 600, 'left', 0.4);
-        continue;
-      }
-      const stepped = b.draw === 'notch';
-      const v = this.fitValue(b.text, stepped ? M.w - 2 * B.padX : B.valueW);
-      this.text(v.text, bx + B.padX, by + T.valueDy, v.size, INK, 300);
-      // La ligne d'unite, et l'etiquette au bout : NO BD, ALL, ou la voix (la rangee du haut de FX)
-      const tag = b.tag;
-      const tw = tag ? this.text(tag, bx + M.w - B.padX, by + T.unitDy, T.unitSize, b.noBd || b.all ? FAINT : HALF, 700, 'right', 0.5) + 4 : 0;
-      const notchRow = stepped && T.notchRow;
-      const unitW = M.w - 2 * B.padX - tw - (notchRow ? 26 : 0);
-      if (b.unit) this.text(this.fitText(b.unit, unitW, T.unitSize), bx + B.padX, by + T.unitDy, T.unitSize, HALF, 600, 'left', 0.4);
-      if (stepped) {
-        if (!notchRow) continue;
-        // Un reglage a crans : ses crans en ligne au bout de la ligne d'unite ; a deux crans (GATE), un interrupteur
-        const nr: Rect = { x0: bx + M.w - B.padX - 22, y0: by + T.unitDy - 4, x1: bx + M.w - B.padX - 1, y1: by + T.unitDy };
-        if (b.notches === 2) this.drawSwitch({ x0: nr.x1 - 13, y0: nr.y0 - 1.5, x1: nr.x1, y1: nr.y1 + 0.5 }, b.course >= 0.5);
-        else this.drawNotch(nr, b.notches, b.course);
-        continue;
-      }
-      const r: Rect = { x0: bx + B.draw.dx0, y0: by + B.draw.dy0, x1: bx + B.draw.dx1, y1: by + B.draw.dy1 };
-      switch (b.draw) {
-        case 'level':
-          this.drawLevel(r, b.course);
-          break;
-        case 'tone':
-          this.drawTone(r, b.value);
-          break;
-        case 'decay':
-          this.drawDecay(r, b.course);
-          break;
-        case 'swing':
-          this.drawSwing(r, b.value);
-          break;
-        case 'stretch':
-          this.drawStretch(r, b.value);
-          break;
-        default:
-          this.drawArc(r, b.course, b.draw === 'barc' || b.bipolar);
-      }
+    }
+    this.pal = neg ? PAL_NEG : PAL;
+    c.globalAlpha = neg ? 1 : alpha;
+    const P = this.pal;
+    const T = this.bt;
+    // Le nom ; au desktop la lettre du potard au bout (au telephone elle est imprimee a cote du potard) ; un cadenas en negatif
+    const lockW = neg ? 7 : 0;
+    const nameW = M.w - 2 * B.padX - (T.letters ? 8 : 0) - lockW;
+    this.text(this.fitText(b.label, nameW, T.nameSize, 0.7, 700), bx + B.padX, by + T.nameDy, T.nameSize, alive ? P.half : P.faint, 700, 'left', 0.7);
+    if (T.letters) this.text(PAGE_KNOB_LETTERS[b.k], bx + M.w - B.padX, by + T.nameDy, T.letterSize, neg ? P.half : b.echo ? HALF : FAINT, 700, 'right');
+    if (neg) this.padlock(bx + M.w - B.padX - (T.letters ? 8 : 0) - 5.5, by + T.nameDy + 0.2, this.mobile ? 6 : 4.6, P.ink);
+    if (!alive) {
+      this.text('--', bx + B.padX, by + T.valueDy, T.valueSizes[1], P.faint, 300);
+      if (b.unit) this.text(this.fitText(b.unit, M.w - 2 * B.padX, T.unitSize), bx + B.padX, by + T.unitDy, T.unitSize, P.faint, 600, 'left', 0.4);
+      return;
+    }
+    const stepped = b.draw === 'notch';
+    const v = this.fitValue(b.text, stepped ? M.w - 2 * B.padX : B.valueW);
+    this.text(v.text, bx + B.padX, by + T.valueDy, v.size, P.ink, neg ? 400 : 300);
+    // La ligne d'unite, et l'etiquette au bout : NO BD, ALL, la voix (la rangee du haut de FX) ; en LOCK GLOBAL, NO LOCK
+    const tag = b.tag;
+    const tw = tag ? this.text(tag, bx + M.w - B.padX, by + T.unitDy, T.unitSize, b.noBd || b.all ? P.faint : P.half, 700, 'right', 0.5) + 4 : 0;
+    const notchRow = stepped && T.notchRow;
+    const unitW = M.w - 2 * B.padX - tw - (notchRow ? 26 : 0);
+    if (b.unit) this.text(this.fitText(b.unit, unitW, T.unitSize), bx + B.padX, by + T.unitDy, T.unitSize, P.half, 600, 'left', 0.4);
+    if (stepped) {
+      if (!notchRow) return;
+      // Un reglage a crans : ses crans en ligne au bout de la ligne d'unite ; a deux crans (GATE), un interrupteur
+      const nr: Rect = { x0: bx + M.w - B.padX - 22, y0: by + T.unitDy - 4, x1: bx + M.w - B.padX - 1, y1: by + T.unitDy };
+      if (b.notches === 2) this.drawSwitch({ x0: nr.x1 - 13, y0: nr.y0 - 1.5, x1: nr.x1, y1: nr.y1 + 0.5 }, b.course >= 0.5);
+      else this.drawNotch(nr, b.notches, b.course);
+      return;
+    }
+    const r: Rect = { x0: bx + B.draw.dx0, y0: by + B.draw.dy0, x1: bx + B.draw.dx1, y1: by + B.draw.dy1 };
+    switch (b.draw) {
+      case 'level':
+        this.drawLevel(r, b.course);
+        break;
+      case 'tone':
+        this.drawTone(r, b.value);
+        break;
+      case 'decay':
+        this.drawDecay(r, b.course);
+        break;
+      case 'swing':
+        this.drawSwing(r, b.value);
+        break;
+      case 'stretch':
+        this.drawStretch(r, b.value);
+        break;
+      case 'start':
+        this.drawStart(r, b.course);
+        break;
+      default:
+        this.drawArc(r, b.course, b.draw === 'barc' || b.bipolar);
     }
   }
 
@@ -1073,8 +1237,8 @@ export class Screen {
   private drawSwitch(r: Rect, on: boolean): void {
     const h = r.y1 - r.y0;
     const w = r.x1 - r.x0;
-    this.pill(r.x0, r.y0, w, h, on ? INK : null, on ? null : HALF, 0.8);
-    this.circle(on ? r.x1 - h / 2 : r.x0 + h / 2, r.y0 + h / 2, h / 2 - 1.2, on ? BLACK : HALF);
+    this.pill(r.x0, r.y0, w, h, on ? this.pal.ink : null, on ? null : this.pal.half, 0.8);
+    this.circle(on ? r.x1 - h / 2 : r.x0 + h / 2, r.y0 + h / 2, h / 2 - 1.2, on ? this.pal.bg : this.pal.half);
   }
 
   /**
@@ -1094,17 +1258,17 @@ export class Screen {
     c.lineCap = 'round';
     c.beginPath();
     c.arc(cx, cy, rad, a0, a0 + sweep);
-    c.strokeStyle = FAINT;
+    c.strokeStyle = this.pal.faint;
     c.lineWidth = 1.4;
     c.stroke();
     if (Math.abs(at - from) > 0.01) {
       c.beginPath();
       c.arc(cx, cy, rad, Math.min(from, at), Math.max(from, at));
-      c.strokeStyle = INK;
+      c.strokeStyle = this.pal.ink;
       c.lineWidth = 1.8;
       c.stroke();
     }
-    this.line([cx + Math.cos(at) * rad * 0.25, cy + Math.sin(at) * rad * 0.25, cx + Math.cos(at) * rad * 0.85, cy + Math.sin(at) * rad * 0.85], INK, 1.3);
+    this.line([cx + Math.cos(at) * rad * 0.25, cy + Math.sin(at) * rad * 0.25, cx + Math.cos(at) * rad * 0.85, cy + Math.sin(at) * rad * 0.85], this.pal.ink, 1.3);
   }
 
   /**
@@ -1118,14 +1282,21 @@ export class Screen {
    * seul trait de 1.6 ne se voyait pas a 1x), comme la lumiere qui court sur
    * les touches trig d'une Elektron.
    */
-  private paintStrip(inst: Inst | null, sel: number): void {
+  private paintStrip(inst: Inst | null, sel: number, lockStep = -1): void {
     const S = PAGE_STRIP;
     const steps = pattern.get().steps;
     const head = clock.running ? playhead.get() : -1;
+    // Les pas qui ont des verrous (2026-10-08) : un point dessous ; le pas en LOCK, cerne
+    const mask = lockMask(pattern.get().locks, inst);
+    let strip = '';
     for (let i = 0; i < STEP_COUNT; i += 1) {
       const x = S.x0 + i * S.pitch;
       const v = inst ? velocity(steps, inst, i) : this.maxVel(steps, i);
       const bars = VEL_BARS[v];
+      const locked = ((mask >> i) & 1) === 1;
+      strip += i === lockStep ? '*' : locked ? (bars > 0 ? 'L' : 'l') : bars > 0 ? 'o' : '.';
+      if (i === lockStep) this.roundRect(x - 1.7, S.y - 1.7, S.size + 3.4, S.size + 3.4, 1.4, null, INK, 1.1);
+      if (locked && i !== head) this.circle(x + S.size / 2, S.y + S.size + 2.5, this.bt.selR, bars > 0 ? INK : HALF);
       if (i === head) {
         // La tete : en negatif, debordant d'un rien sur ses voisins
         this.ctx.fillStyle = INK;
@@ -1136,8 +1307,9 @@ export class Screen {
         this.ctx.fillStyle = !inst ? HALF : bars >= 3 ? INK : bars === 2 ? 'rgba(246, 241, 231, 0.75)' : HALF;
         this.ctx.fillRect(x, S.y, S.size, S.size);
       } else this.roundRect(x + 0.4, S.y + 0.4, S.size - 0.8, S.size - 0.8, 0.6, null, i % 4 === 0 ? HALF : FAINT, 0.7);
-      if (i === sel && inst) this.circle(x + S.size / 2, S.y - 2.6, this.bt.selR, INK);
+      if (i === sel && inst && i !== lockStep) this.circle(x + S.size / 2, S.y - 2.6, this.bt.selR, INK);
     }
+    this.info.strip = strip;
   }
 
   /**
@@ -1147,13 +1319,34 @@ export class Screen {
    * affichee en pastille : ce que les touches de page sous les potards
    * choisissent.
    */
-  private paintFoot(s: LcdState, page: RytmPageId): void {
+  private paintFoot(s: LcdState, page: RytmPageId, lockStep = -1, inst: Inst | null = null): void {
     const F = PAGE_FOOT;
     const x0 = F.x0;
     const x1 = F.x1;
     const y = F.y;
-    if (s.samples) return;
     const fs = this.bt.foot;
+    if (lockStep >= 0) {
+      // LOCK (2026-10-08) : deux lignes, ce qui vient de se passer (ou les verrous du pas), puis comment faire
+      const lk = rytmLock.get();
+      const held = !lk.latched;
+      // Tenu : lache sans rien tourner, le LOCK reste ; un potard deja tourne pendant la tenue : le lacher en sort
+      const used = held && lk.writes > lk.since;
+      const names = lockSummary(lockStep);
+      const top = s.l3 && !s.mix ? s.l3 : names.length > 0 ? `STEP ${two(lockStep + 1)} LOCKS: ${names.join(' ')}` : `TURN A KNOB: STEP ${two(lockStep + 1)} ONLY`;
+      const tip = used ? 'RELEASE: LOCK DONE' : held ? 'RELEASE: STAY IN LOCK' : this.mobile ? '2X: UNLOCK  CLEAR: ALL' : '2X: UNLOCK  CLEAR: ALL  STEP: EXIT';
+      const s1 = fs - (this.mobile ? 1 : 1.2);
+      const s2 = this.mobile ? 7.4 : 5.8;
+      const y1 = this.mobile ? 107.6 : 106.8;
+      const y2 = this.mobile ? 116.6 : 114.8;
+      const t1 = this.fitText(top, x1 - x0, s1, 0.5, 600);
+      const t2 = this.fitText(tip, x1 - x0, s2, 0.6, 700);
+      this.text(t1, x0, y1, s1, INK, 600, 'left', 0.5);
+      this.text(t2, x0, y2, s2, HALF, 700, 'left', 0.6);
+      this.info.foot = [t1, t2];
+      void inst;
+      return;
+    }
+    if (s.samples) return;
     if (s.bar !== null) {
       // La piste : son titre, le temps, la barre (un corps un peu plus petit que les messages)
       const ts = fs - 1.5;

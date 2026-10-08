@@ -5178,3 +5178,148 @@ html:has(body.v4-active.v4-light) {
     --knobs-h-mobile: 452px;
   }
 }
+
+/*
+ * Le LOCK du MM-RYTM (2026-10-08, l'etape R2 des parameter locks, Mika : "on
+ * voit a l'ecran que quand le sequenceur passe sur ce step alors le
+ * changement est fait") : comme l'ecran de la machine, un potard verrouille
+ * sur le pas en LOCK passe en negatif (os plein, texte noir), la valeur de la
+ * voix en retrait, GLOBAL et NO LOCK a peine. La barre du LOCK prend la place
+ * des voix : la pastille LOCK 05, les verrous du pas, CLEAR et EXIT (44 px).
+ */
+.v4-knob-page[data-lock='locked'] {
+  border-radius: 12px;
+  background: var(--bone);
+  color: #0b0b0b;
+}
+
+.v4-knob-page[data-lock='locked'] .v4-knob-label,
+.v4-knob-page[data-lock='locked'] .v4-knob-letter,
+.v4-knob-page[data-lock='locked'] .v4-knob-value,
+.v4-knob-page[data-lock='locked'] .v4-knob-unit {
+  color: #0b0b0b;
+}
+
+.v4-knob-page[data-lock='locked'] .v4-knob-track {
+  stroke: rgba(0, 0, 0, 0.18);
+}
+
+.v4-knob-page[data-lock='locked'] .v4-knob-arc,
+.v4-knob-page[data-lock='locked'] .v4-knob-mark {
+  stroke: #0b0b0b;
+}
+
+.v4-knob-page[data-lock='locked'] .v4-knob-cap {
+  fill: rgba(0, 0, 0, 0.08);
+}
+
+.v4-knob-page[data-lock='base'] {
+  opacity: 0.62;
+}
+
+.v4-knob-page[data-lock='global'],
+.v4-knob-page[data-lock='nolock'] {
+  opacity: 0.34;
+}
+
+.v4-knobs-lockbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+}
+
+.v4-knobs-lock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.v4-knobs-lock-pill {
+  flex: none;
+  padding: 5px 9px;
+  border-radius: 7px;
+  background: var(--bone);
+  color: #0b0b0b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.v4-knobs-lock-what {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--bone-70);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.v4-root .v4-knobs-lockkey {
+  height: 44px;
+  min-width: 64px;
+  margin: 0;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--graphite);
+  color: var(--bone);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+
+/* Les pas du Dock : un point sur ceux qui ont des verrous, le pas en LOCK cerne et qui clignote */
+.v4-root .v4-dock-step[data-locks='1']::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--bone);
+  pointer-events: none;
+}
+
+.v4-root .v4-dock-step[data-lockstep='1'] {
+  box-shadow: inset 0 0 0 2px var(--yellow-hi);
+  animation: v4-lock-blink 0.56s steps(2, jump-none) infinite;
+}
+
+@keyframes v4-lock-blink {
+  from {
+    box-shadow: inset 0 0 0 2px var(--yellow-hi);
+  }
+  to {
+    box-shadow: inset 0 0 0 2px rgba(255, 215, 94, 0.25);
+  }
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-dock-step[data-lockstep='1'] {
+  animation: none;
+}
+
+/* L'editeur du motif : un point dans le coin d'une case dont le pas a des verrous (pale sur un pas vide), noir cercle d'os : il se lit sur le jaune comme sur le gris */
+.v4-beat-lock {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #0b0b0b;
+  box-shadow: 0 0 0 1.5px var(--bone);
+  pointer-events: none;
+}
+
+.v4-beat-cell[data-lock='idle'] .v4-beat-lock {
+  opacity: 0.45;
+}

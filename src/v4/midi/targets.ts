@@ -15,7 +15,9 @@
  *   facon Digitakt) rytm:knob:<1-8> (les potards de page A a H : ce que leur
  *   bloc regle sur la page affichee, 0 a 127 comme l'ecran ; une autre page,
  *   leurs valeurs repartent vers les potards motorises), rytm:page:<page>,
- *   rytm:page (six crans) et rytm:home ;
+ *   rytm:page (six crans) et rytm:home ; les verrous (2026-10-08, l'etape R2)
+ *   rytm:lock:<0-15> (le LOCK sur ce pas, encore : hors LOCK) et rytm:lock
+ *   (le pas choisi) ; en LOCK, rytm:knob regle les verrous du pas ;
  * - MM-ARP : voy:knob:<potard>, voy:pad:<0-7>, voy:run, clear, random,
  *   edit, open ; voy:running ;
  * - partout : nav:<all|mm808|voy|dj|prev|next>, nav:machines (PLAY/STOP
@@ -29,7 +31,7 @@
  *   (state/bassload.ts, bass/midi.ts).
  */
 
-import { anyDial, anyDialValue, clearPattern, dialRange, dialSteps, editToggle, focusMachine, kitDial, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, randomPattern, rytmHome, rytmPageKey, rytmShowPage, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
+import { anyDial, anyDialValue, clearPattern, dialRange, dialSteps, editToggle, focusMachine, kitDial, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmShowPage, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
 import { rytmPage } from '../state/rytmPage';
 import { clock } from '../audio/clock';
 import { voices as voiceState } from '../state/voices';
@@ -98,7 +100,7 @@ function dialTarget(id: string, scope: TargetScope, label: string, dial: DialId)
 
 const press = (id: string, scope: TargetScope, label: string, fn: () => void): MidiTarget => ({ id, scope, label, kind: 'press', down: fn });
 
-const VOICE_LABEL: Readonly<Record<VoiceParam, string>> = { level: 'VOLUME', tone: 'TONE', decay: 'DECAY', dist: 'DIST', chorus: 'CHORUS', delay: 'DELAY', reverb: 'REVERB' };
+const VOICE_LABEL: Readonly<Record<VoiceParam, string>> = { level: 'VOLUME', tone: 'TONE', decay: 'DECAY', dist: 'DIST', chorus: 'CHORUS', delay: 'DELAY', reverb: 'REVERB', tune: 'TUNE', pan: 'PAN', start: 'START' };
 
 function coreTargets(): MidiTarget[] {
   const out: MidiTarget[] = [];
@@ -108,12 +110,14 @@ function coreTargets(): MidiTarget[] {
   const voices = PADS.filter((p) => p.kind === 'voice').map((p) => p.id as Inst);
   for (const inst of voices) {
     for (const p of VOICE_PARAMS) {
-      const bip = p === 'tone';
+      // A zero au centre : TONE, et TUNE et PAN (2026-10-08) ; TUNE a ses 49 crans (le demi-ton)
+      const bip = p === 'tone' || p === 'tune' || p === 'pan';
       out.push({
         id: `rytm:voice:${inst}:${p}`,
         scope: 'mm808',
         label: `${inst} ${VOICE_LABEL[p]}`,
         kind: 'value',
+        ...(p === 'tune' ? { steps: 49 } : {}),
         get: () => (bip ? (voiceFx.of(inst)[p] + 1) / 2 : voiceFx.of(inst)[p]),
         set: (v) => setVoiceFx(inst, p, bip ? v * 2 - 1 : v),
       });
@@ -192,6 +196,9 @@ function coreTargets(): MidiTarget[] {
   out.push(press('rytm:home', 'mm808', 'HOME / PAGE SCREEN', () => rytmHome()));
   for (const inst of voices) out.push(press(`rytm:pad:${inst}`, 'mm808', `PAD ${inst}`, () => padHit(inst, getStage())));
   for (let i = 0; i < STEP_COUNT; i += 1) out.push(press(`rytm:step:${i}`, 'mm808', `STEP ${i + 1}`, () => void stepToggle(i, getStage())));
+  // Le LOCK (2026-10-08, les parameter locks) : un bouton par pas (encore : hors LOCK), et celui du pas choisi
+  for (let i = 0; i < STEP_COUNT; i += 1) out.push(press(`rytm:lock:${i}`, 'mm808', `LOCK STEP ${i + 1}`, () => rytmLockToggle(i)));
+  out.push(press('rytm:lock', 'mm808', 'LOCK (SELECTED STEP)', () => rytmLockToggle()));
   out.push(press('rytm:run', 'mm808', 'RUN/STOP', () => void runToggle(getStage())));
   out.push(press('rytm:clear', 'mm808', 'CLEAR', () => clearPattern(getStage())));
   out.push(press('rytm:random', 'mm808', 'RANDOM', () => randomPattern(getStage())));

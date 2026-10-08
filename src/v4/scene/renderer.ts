@@ -66,6 +66,8 @@ import { intro } from '../state/intro';
 import { playhead } from '../state/playhead';
 import { lcd } from '../state/lcd';
 import { rytmPage } from '../state/rytmPage';
+import { rytmLock } from '../state/rytmLock';
+import { lockMask } from '../audio/locks';
 import { section } from '../state/section';
 import { voices } from '../state/voices';
 import {
@@ -867,7 +869,8 @@ export class Stage {
       this.stepExplode,
       (now) => this.pads.update(now),
       this.pollPlayhead,
-      this.stepBreathe
+      this.stepBreathe,
+      this.stepLockBlink
     );
     const voyRig = this.voy;
     if (voyRig) {
@@ -951,7 +954,12 @@ export class Stage {
         editor.subscribe(this.syncSeek),
         rytmPage.subscribe(this.syncPageKeys),
         rytmPage.subscribe(this.syncMix),
+        // Le LOCK (2026-10-08) : les potards de page montrent les verrous du pas, les touches leurs lueurs
+        rytmLock.subscribe(this.syncMix),
+        rytmLock.subscribe(this.syncLocks),
+        editor.subscribe(this.syncLocks),
       ];
+      this.syncLocks();
       this.syncPageKeys();
       this.unsubSeek = () => {
         for (const off of offs) off();
@@ -2682,6 +2690,35 @@ export class Stage {
     this.repaint();
   }
 
+  /** Le clignotement du pas en LOCK (2026-10-08) : 280 ms allume, 280 ms en retrait. */
+  private static readonly LOCK_BLINK_MS = 280;
+
+  /**
+   * Les verrous sur les touches (2026-10-08) : la lueur des pas qui en ont
+   * (la voix choisie), le pas en LOCK qui clignote ; rien en EDIT. true s'il
+   * faut une frame.
+   */
+  private lockLeds(now: number): boolean {
+    const ed = editor.get() === 'mm808';
+    const p = pattern.get();
+    const step = ed ? -1 : rytmLock.get().step;
+    const blink = step >= 0 && Math.floor(now / Stage.LOCK_BLINK_MS) % 2 === 0;
+    return this.seq.setLocks(ed ? 0 : lockMask(p.locks, p.instrument), step, blink);
+  }
+
+  private syncLocks = (): void => {
+    if (this.disposed) return;
+    if (this.lockLeds(performance.now())) this.repaint();
+    // Le clignotement a besoin de la boucle tant que le LOCK dure
+    if (rytmLock.get().step >= 0) this.kick();
+  };
+
+  /** Animateur : le pas en LOCK clignote (une image a chaque changement de phase, rien sinon). */
+  private stepLockBlink = (now: number): 'paint' | 'poll' | false => {
+    if (rytmLock.get().step < 0 || editor.get() === 'mm808') return false;
+    return this.lockLeds(now) ? 'paint' : 'poll';
+  };
+
   /**
    * Store du motif : le pad de l'instrument selectionne reste allume, les
    * LED suivent les pas programmes, TEMPO tourne avec le tempo.
@@ -2690,6 +2727,8 @@ export class Stage {
     const p = pattern.get();
     let lit = this.pads.setSelected(p.instrument);
     if (this.seq.setPattern(p.steps, p.instrument)) lit = true;
+    // Les verrous suivent le motif et la voix choisie (2026-10-08)
+    if (this.lockLeds(performance.now())) lit = true;
     if (this.syncVoiceKeys()) lit = true;
     if (this.encoders.setValue('tempo', (p.bpm - BPM.min) / (BPM.max - BPM.min))) this.encodersMoved();
     else if (lit) this.repaint();

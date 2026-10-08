@@ -10,7 +10,8 @@ import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
 import { ensure, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, trigger } from './audio/drums';
 import { VOICE_FX_DEFAULT, voiceFx, type VoiceParam } from './audio/voicefx';
-import { KIT_LABEL, KIT_MODELS, KIT_MODEL_LABEL, familyOf, isFamily, kit, kitSoundIndex, kitSteps, type KitFamily, type KitId } from './audio/kit';
+import { KIT_LABEL, KIT_MODELS, KIT_MODEL_LABEL, familyOf, isFamily, kit, kitSoundIndex, kitSoundNames, kitSteps, type KitFamily, type KitId } from './audio/kit';
+import { lockOf, parseSnd, type LockId, type StepLock } from './audio/locks';
 import { samplesOf } from './audio/samples';
 import { randomBeat, randomColors, type BeatStyle } from './audio/beats';
 import { BPM, INSTRUMENTS, VEL_MAX, VEL_NAMES, pattern, velocity } from './audio/pattern';
@@ -31,8 +32,9 @@ import { presetMode, type PresetKey } from './state/presetMode';
 import type { PresetMachine } from './state/presets';
 import { presskit } from './state/presskit';
 import { rytmPage } from './state/rytmPage';
+import { rytmLock } from './state/rytmLock';
 import { pageLabel, pageSlots, type PageSlot, type RytmPageId, type SlotTarget } from './rytm/pages';
-import { encUnit, kitUnit, v127Text, velTo127 } from './rytm/values';
+import { encText, encUnit, kitUnit, v127Text, velTo127 } from './rytm/values';
 import { section } from './state/section';
 import { voices } from './state/voices';
 import { bassLoad } from './state/bassload';
@@ -205,9 +207,15 @@ export function stepToggle(i: number, stage: Stage | null = null): boolean {
     lcdMessage.show('TAP A PAD FIRST');
     return false;
   }
+  // En LOCK (2026-10-08) : une tape sur le pas en LOCK en sort, sur un autre y deplace le LOCK (le pas ne change pas)
+  if (rytmLock.get().step >= 0) {
+    rytmLockTap(i);
+    return true;
+  }
   pattern.toggle(inst, i);
   rytmPage.select(i);
-  lcdMessage.show(stepLine(inst, i));
+  // Le geste des verrous se dit a chaque pas pose (2026-10-08, Mika : "je ne comprends toujours pas comment mettre des parameter locks")
+  lcdMessage.show(`${stepLine(inst, i)}  HOLD: LOCK`);
   return true;
 }
 
@@ -391,6 +399,11 @@ function modeTap(k: 'mute' | 'solo'): boolean {
 export function clearPattern(stage: Stage | null = null): void {
   resume();
   stage?.pressButton('clear');
+  // En LOCK (2026-10-08) : CLEAR efface les verrous du pas en LOCK, rien d'autre
+  if (rytmLock.active() && editor.get() !== 'mm808') {
+    rytmLockClear();
+    return;
+  }
   clock.clear();
   lcdMessage.show('CLEARED');
 }
@@ -433,7 +446,7 @@ export function setTempo(bpm: number): void {
  */
 function readout(id: ContEnc, v: number, inst: Inst | null): string {
   const who = inst ? `${inst} ` : '';
-  return `${who}${encLabel(id)} ${v127Text(potCourse(id, v), isBipolar(id))}  ${encUnit(id, v)}`;
+  return `${who}${encLabel(id)} ${encText(id, v, potCourse(id, v), isBipolar(id))}  ${encUnit(id, v)}`;
 }
 
 /** Le meme pour un TWEAK du kit : KICK TUNE 64  52 HZ ; un choix de son ou GATE, son nom. */
@@ -664,6 +677,11 @@ export function escape(): boolean {
   // Le mode presets d'abord, puis un editeur ouvert (EDIT)
   if (presetMode.get().machine) {
     presetMode.close();
+    return true;
+  }
+  // Le LOCK du MM-RYTM (2026-10-08) : Echap en sort, avant de fermer EDIT
+  if (rytmLock.leave()) {
+    lcdMessage.show('LOCK OFF');
     return true;
   }
   if (editor.get() !== null) {
@@ -1005,6 +1023,15 @@ function pageDial(k: number, v: number): void {
     lcdMessage.show(`${letter}: EMPTY ON ${page}`);
     return;
   }
+  // Un pas tenu (deux doigts, ou la souris et un potard MIDI, 2026-10-08) : le LOCK passe sur lui des ce potard,
+  // meme avant les 350 ms de la tenue
+  const lk = rytmLock.get();
+  if (editor.get() !== 'mm808' && lk.held.length > 0 && !lk.held.includes(lk.step) && pattern.get().instrument) rytmLockEnter(lk.held[0], false);
+  // En LOCK (2026-10-08) : le potard pose le verrou du pas (des pas tenus), jamais la valeur de la voix
+  if (lockMode()) {
+    lockWrite(k, slot, v);
+    return;
+  }
   const before = rytmPage.get().echo;
   if (t === 'step:vel') {
     const sel = rytmPage.get().sel;
@@ -1060,6 +1087,11 @@ export function anyDial(id: DialId, v: number): void {
 }
 
 export function anyDialValue(id: DialId): number {
+  const pk = pageKnobOf(id);
+  if (pk >= 0 && lockMode()) {
+    const lv = lockDialValue(pk);
+    if (lv !== null) return lv;
+  }
   const t = resolve(id);
   if (t === null) return 0;
   if (t === 'step:vel') {
@@ -1099,6 +1131,7 @@ export function anyDialReset(id: DialId): number {
 export function dialRange(id: DialId): [number, number] {
   const t = resolve(id);
   if (t === null) return [0, 1];
+  if (t === 'vsound' && pageKnobOf(id) >= 0 && lockMode()) return [0, Math.max(1, lockSoundsOf().length - 1)];
   if (t === 'step:vel') return [0, VEL_MAX];
   if (t === 'smpl:sample') return [0, Math.max(1, sampleCount())];
   if (kitIdOf(t) || voyId(t)) return [0, 1];
@@ -1111,6 +1144,10 @@ export function dialSteps(id: DialId): number {
   const t = resolve(id);
   if (t === null) return 0;
   if (t === 'step:vel') return VEL_MAX + 1;
+  // SOUND en LOCK (2026-10-08) : les sons de toutes les familles, un cran chacun
+  if (t === 'vsound' && pageKnobOf(id) >= 0 && lockMode()) return lockSoundsOf().length;
+  // TUNE : au demi-ton, 49 crans (-24 a +24)
+  if (t === 'vtune') return 49;
   if (t === 'smpl:sample') {
     const n = sampleCount();
     return n > 0 ? n + 1 : 0;
@@ -1157,6 +1194,15 @@ export function dialReadout(id: DialId): string {
     if (!slot || !slot.label) return 'nothing on this page';
     const t = slot.target;
     if (t === null) return `${slot.label}, coming soon`;
+    // En LOCK (2026-10-08) : ce que le pas a, verrouille ou non
+    const ls = lockReadStep();
+    if (lockMode() && ls >= 0) {
+      const lv = pageLockView(pk, ls);
+      if (slot.scope === 'all') return `${slot.label}, global, not lockable`;
+      if (!slot.lock) return `${slot.label}, not lockable yet`;
+      if (lv) return `${slot.label} ${lv.text}${lv.unit ? `, ${lv.unit.toLowerCase()}` : ''}, locked on step ${two(ls + 1)}`;
+      return `${slot.label} ${dialValueText(id)}, not locked on step ${two(ls + 1)}`;
+    }
     if (t === 'step:vel') {
       const sel = rytmPage.get().sel;
       const v = sel < 0 ? 0 : stepVelocityOf(sel);
@@ -1193,6 +1239,12 @@ export function dialValueText(id: DialId): string {
   if (pk >= 0) {
     const t = pageTarget(pk);
     if (t === null) return '--';
+    // En LOCK (2026-10-08) : la valeur verrouillee du pas, sinon celle de la voix
+    const ls = lockReadStep();
+    if (ls >= 0 && pattern.get().instrument) {
+      const lv = pageLockView(pk, ls);
+      if (lv) return lv.text;
+    }
     if (t === 'step:vel') {
       const sel = rytmPage.get().sel;
       if (sel < 0) return '--';
@@ -1214,13 +1266,20 @@ export function dialValueText(id: DialId): string {
     const f = soundFamily();
     return f ? kit.valueText(f) : '--';
   }
-  return v127Text(potCourse(e, dialValue(e)), isBipolar(e));
+  const v = dialValue(e);
+  return encText(e, v, potCourse(e, v), isBipolar(e));
 }
 
 /** La ligne d'unite d'un potard du MM-RYTM (216 MS, -3.2 DB, rytm/values.ts) ; '' sans unite. */
 export function dialUnit(id: DialId): string {
   const t = resolve(id);
   if (t === null) return '';
+  const pk = pageKnobOf(id);
+  const ls = lockReadStep();
+  if (pk >= 0 && ls >= 0 && pattern.get().instrument) {
+    const lv = pageLockView(pk, ls);
+    if (lv) return lv.unit;
+  }
   if (t === 'step:vel') {
     const sel = rytmPage.get().sel;
     return sel < 0 ? 'HOLD A STEP' : `STEP ${two(sel + 1)}`;
@@ -1296,9 +1355,315 @@ export function rytmHome(): void {
   else rytmPage.toggleView();
 }
 
+/* ---------------- les verrous du MM-RYTM (2026-10-08, l'etape R2 des P-locks) ---------------- */
+
+/*
+ * Mika (2026-10-08) : "quand on clic sur un step on selectionne la partie
+ * qu'on veut modifier, est-ce que le voice, est-ce que le FX, est-ce que
+ * l'enveloppe, et ensuite on tourne un encoder sur ce step et donc ce step a
+ * une valeur differente, et on voit a l'ecran que quand le sequenceur passe
+ * sur ce step alors le changement est fait ... MEME CHOSE DANS RYTM". Un pas
+ * tenu (ou mis en LOCK, state/rytmLock.ts), une touche de page, un potard
+ * de page : le bloc du potard pose son verrou sur ce pas (audio/locks.ts),
+ * l'ecran le montre en negatif. Hors de EDIT seulement (ses pas y sont les
+ * patterns).
+ */
+
+/** Les potards de page reglent-ils des verrous (un pas en LOCK ou tenu, hors EDIT) ? */
+export function lockMode(): boolean {
+  return rytmLock.active() && editor.get() !== 'mm808';
+}
+
+/** Le pas dont les potards lisent les verrous : le pas en LOCK ; -1 hors LOCK. */
+export function lockReadStep(): number {
+  return lockMode() ? rytmLock.get().step : -1;
+}
+
+/** Un son de la liste de SOUND en LOCK : le verrou ('<famille>:<son>' ; '' : le son de la voix) et son nom. */
+export interface LockSound {
+  snd: string;
+  label: string;
+}
+
+/** Les familles dans l'ordre de la liste (celle de la voix d'abord), et leur nom court. */
+const LOCK_FAMS: readonly KitFamily[] = ['bd', 'sd', 'cp', 'hh', 'tom'];
+const FAM_TAG: Readonly<Record<KitFamily, string>> = { bd: 'BD', sd: 'SD', cp: 'CP', hh: 'HH', tom: 'TOM', rs: 'RS' };
+const lockSoundCache = new Map<string, readonly LockSound[]>();
+
+/**
+ * SOUND en LOCK (le "sample lock" d'une Digitakt) : les sons de la famille
+ * de la voix d'abord (909, 808, MM, ses echantillons), puis ceux des autres
+ * familles, leur famille devant (CP 909, SD PSY 02) ; une voix sans famille
+ * (CY) commence par son propre son (pas de verrou).
+ */
+export function lockSounds(inst: Inst): readonly LockSound[] {
+  let out = lockSoundCache.get(inst);
+  if (out) return out;
+  const own = familyOf(inst as ShotId);
+  const list: LockSound[] = own ? [] : [{ snd: '', label: inst }];
+  for (const f of own ? [own, ...LOCK_FAMS.filter((x) => x !== own)] : LOCK_FAMS) {
+    const names = kitSoundNames(f);
+    const sounds = [...KIT_MODELS, ...samplesOf(f).map((x) => x.key)];
+    sounds.forEach((snd, i) => list.push({ snd: `${f}:${snd}`, label: f === own ? names[i] : `${FAM_TAG[f]} ${names[i]}` }));
+  }
+  out = list;
+  lockSoundCache.set(inst, out);
+  return out;
+}
+const lockSoundsOf = (): readonly LockSound[] => {
+  const inst = pattern.get().instrument;
+  return inst ? lockSounds(inst) : [];
+};
+
+/** Le nom d'un son verrouille, tel que la liste l'ecrit (BLUEPRINT, CP 909). */
+function sndLabel(inst: Inst, snd: string): string {
+  const hit = lockSounds(inst).find((x) => x.snd === snd);
+  if (hit) return hit.label;
+  const p = parseSnd(snd);
+  return p ? kit.soundName(p.family as KitFamily, p.sound) : snd.toUpperCase();
+}
+
+/** SMPL SAMPLE en LOCK : OFF (le son de synthese de la famille) puis ses echantillons, en verrous. */
+function lockSamples(f: KitFamily): string[] {
+  return [`${f}:${kit.get().model[f]}`, ...samplesOf(f).map((x) => `${f}:${x.key}`)];
+}
+
+/** Le nom d'un verrou pour l'ecran (DEC, SOUND) : le nom du bloc. */
+const lockName = (slot: PageSlot): string => slot.label;
+
+/**
+ * Ce que montre le bloc k pour les verrous du pas `step` de la voix choisie
+ * (en LOCK, ou le pas qui joue) : sa valeur ecrite, son unite, sa course et
+ * sa valeur ; null quand le pas n'a pas de verrou pour ce bloc. VEL : la
+ * velocite du pas lui-meme (c'est son verrou), null sur un pas vide.
+ */
+export function pageLockView(k: number, step: number, lockArg?: Readonly<StepLock> | null): { text: string; unit: string; course: number; value: number } | null {
+  const slot = pageSlotOf(k);
+  const inst = pattern.get().instrument;
+  if (!slot || !slot.lock || !inst || step < 0) return null;
+  if (slot.lock === 'vel') {
+    const v = velocity(pattern.get().steps, inst, step);
+    if (v === 0) return null;
+    return { text: String(velTo127(v)), unit: `STEP ${two(step + 1)} ${VEL_NAMES[v]}`, course: v / VEL_MAX, value: v };
+  }
+  const l = lockArg === undefined ? lockOf(pattern.get().locks, inst, step) : lockArg;
+  if (!l) return null;
+  if (slot.lock === 'snd') {
+    if (!l.snd) return null;
+    const label = sndLabel(inst, l.snd);
+    if (slot.target === 'smpl:sample') {
+      const f = soundFamily();
+      const list = f ? lockSamples(f) : [];
+      const i = list.indexOf(l.snd);
+      const n = Math.max(1, list.length - 1);
+      return { text: i === 0 ? 'OFF' : label, unit: i > 0 ? `SAMPLE ${i}/${n}` : i === 0 ? 'SYNTH' : 'OTHER SOUND', course: i > 0 ? i / n : 0, value: Math.max(0, i) };
+    }
+    const list = lockSounds(inst);
+    const i = list.findIndex((x) => x.snd === l.snd);
+    const n = Math.max(1, list.length - 1);
+    // Sa source en un mot (le nom dit deja la famille d'une autre voix) : SYNTH (909, 808, MM) ou SAMPLE
+    const ps = parseSnd(l.snd);
+    const synth = !!ps && (KIT_MODELS as readonly string[]).includes(ps.sound);
+    return { text: label, unit: synth ? 'SYNTH' : 'SAMPLE', course: Math.max(0, i) / n, value: Math.max(0, i) };
+  }
+  const id = slot.lock;
+  const v = l[id];
+  if (v === undefined) return null;
+  const e = slot.target as ContEnc;
+  const course = potCourse(e, v);
+  return { text: encText(e, v, course, isBipolar(e)), unit: encUnit(e, v), course, value: v };
+}
+
+/** La valeur du potard de page k en LOCK (son domaine : celui du reglage, un rang de liste pour SOUND) ; null : celle de la voix. */
+function lockDialValue(k: number): number | null {
+  const slot = pageSlotOf(k);
+  const step = lockReadStep();
+  const inst = pattern.get().instrument;
+  if (!slot || !slot.lock || step < 0 || !inst) return null;
+  if (slot.lock === 'vel') return velocity(pattern.get().steps, inst, step);
+  const l = lockOf(pattern.get().locks, inst, step);
+  if (slot.lock === 'snd') {
+    if (slot.target === 'smpl:sample') {
+      if (!l?.snd) return null;
+      const f = soundFamily();
+      const i = f ? lockSamples(f).indexOf(l.snd) : -1;
+      return i >= 0 ? i : null;
+    }
+    // SOUND : le rang du son verrouille, sinon celui du son de la voix (sa famille, ou son propre son)
+    const list = lockSounds(inst);
+    const f = familyOf(inst as ShotId);
+    const want = l?.snd ?? (f ? `${f}:${kit.sound(f)}` : '');
+    return Math.max(0, list.findIndex((x) => x.snd === want));
+  }
+  const v = l?.[slot.lock];
+  return v === undefined ? null : v;
+}
+
+/** Les verrous du pas en LOCK, par leur nom de bloc, toutes pages : TUNE DEC VOL (l'ecran et le Dock les listent). */
+export function lockSummary(step: number): string[] {
+  const inst = pattern.get().instrument;
+  const l = inst && step >= 0 ? lockOf(pattern.get().locks, inst, step) : null;
+  if (!l) return [];
+  const names: Record<string, string> = { level: 'VOL', decay: 'DEC', tune: 'TUNE', pan: 'PAN', start: 'START', snd: 'SOUND' };
+  return Object.keys(l).map((k) => names[k] ?? k.toUpperCase());
+}
+
+/** Le bloc tourne en LOCK : son verrou pose sur les pas en LOCK ou tenus (ou un message, jamais un geste muet). */
+function lockWrite(k: number, slot: PageSlot, v: number): void {
+  const inst = pattern.get().instrument;
+  const steps = rytmLock.targets();
+  if (!inst) {
+    lcdMessage.show('TAP A PAD FIRST');
+    return;
+  }
+  if (slot.scope === 'all') {
+    lcdMessage.show(`${slot.label} IS GLOBAL: NO LOCK`);
+    return;
+  }
+  if (!slot.lock) {
+    lcdMessage.show(`${slot.label}: NOT LOCKABLE YET`);
+    return;
+  }
+  if (steps.length === 0) return;
+  if (slot.lock === 'vel') {
+    // VEL : la velocite des pas eux-memes (0 les vide, leurs verrous restent)
+    const n = Math.max(0, Math.min(VEL_MAX, Math.round(v)));
+    for (const i of steps) pattern.set(inst, i, n);
+  } else {
+    // Un pas vide qu'on verrouille recoit un coup (fort) : un verrou sans coup ne s'entendrait pas
+    for (const i of steps) if (velocity(pattern.get().steps, inst, i) === 0) pattern.set(inst, i, VEL_MAX);
+    if (slot.lock === 'snd') {
+      const i = Math.max(0, Math.round(v));
+      let snd = '';
+      if (slot.target === 'smpl:sample') {
+        const f = soundFamily();
+        const list = f ? lockSamples(f) : [];
+        if (list.length < 2) {
+          lcdMessage.show(`${inst}: NO SAMPLES`);
+          return;
+        }
+        snd = list[Math.min(list.length - 1, i)];
+      } else {
+        const list = lockSounds(inst);
+        snd = list[Math.min(list.length - 1, i)]?.snd ?? '';
+      }
+      if (snd) pattern.setLock(inst, steps, 'snd', snd);
+      else pattern.clearLock(inst, steps, 'snd');
+    } else {
+      const id: LockId = slot.lock;
+      const e = slot.target as ContEnc;
+      // PAN colle au centre, TUNE au demi-ton (comme la valeur de la voix, audio/voicefx.ts)
+      const val = id === 'pan' ? (Math.abs(v) < 0.02 ? 0 : v) : id === 'tune' ? Math.round(v * 24) / 24 : v;
+      pattern.setLock(inst, steps, id, Math.max(potMin(e), Math.min(1, val)));
+    }
+  }
+  rytmLock.wrote();
+  // Deux doigts (un pas tenu, un potard tourne) : le LOCK s'affiche des le premier verrou
+  if (rytmLock.get().step < 0) rytmLock.enter(steps[0], false);
+  const at = rytmLock.get().step;
+  const lv = pageLockView(k, at);
+  const who = steps.length > 1 ? `${steps.length} STEPS` : `STEP ${two(at + 1)}`;
+  lcdMessage.show(lv ? `${who} ${lockName(slot)} ${lv.text}${lv.unit ? `  ${lv.unit}` : ''}` : `${who} ${lockName(slot)}`, POT_UI.readoutMs, true);
+  rytmPage.echo(k);
+}
+
+/**
+ * Deux tapes sur un potard de page (la face, le Dock) : en LOCK, son verrou
+ * s'en va (le pas reprend la valeur de la voix) ; sinon, sa valeur de depart.
+ */
+export function pageKnobReset(k: number): void {
+  const id = `p:${k}` as DialId;
+  if (!lockMode()) {
+    anyDial(id, anyDialReset(id));
+    return;
+  }
+  const slot = pageSlotOf(k);
+  const inst = pattern.get().instrument;
+  if (!slot || !slot.label || slot.target === null) return;
+  if (!inst) {
+    lcdMessage.show('TAP A PAD FIRST');
+    return;
+  }
+  if (slot.scope === 'all' || !slot.lock) {
+    lockWrite(k, slot, 0);
+    return;
+  }
+  const steps = rytmLock.targets();
+  const at = rytmLock.get().step >= 0 ? rytmLock.get().step : steps[0];
+  if (slot.lock === 'vel') {
+    // VEL : un pas remis a sa velocite d'un appui (fort)
+    for (const i of steps) pattern.set(inst, i, VEL_MAX);
+  } else pattern.clearLock(inst, steps, slot.lock);
+  rytmLock.wrote();
+  lcdMessage.show(`STEP ${two(at + 1)} ${lockName(slot)} ${slot.lock === 'vel' ? 'HIGH' : 'UNLOCKED'}`, POT_UI.readoutMs, true);
+  rytmPage.echo(k);
+}
+
+/**
+ * Le LOCK sur le pas i (une tenue, L, le MIDI, le Dock) ; latched : il reste
+ * au lacher. L'ecran passe a la vue PAGE (HOME ne montre pas les blocs) et
+ * TRIG VEL montre ce pas. false s'il n'a pas pu (EDIT, pas de voix).
+ */
+export function rytmLockEnter(i: number, latched: boolean): boolean {
+  if (editor.get() === 'mm808') {
+    lcdMessage.show('CLOSE EDIT TO LOCK A STEP');
+    return false;
+  }
+  const inst = pattern.get().instrument;
+  if (!inst) {
+    lcdMessage.show('TAP A PAD FIRST');
+    return false;
+  }
+  rytmLock.enter(i, latched);
+  rytmPage.select(i);
+  rytmPage.setView('page');
+  if (presetMode.on('mm808')) presetMode.close();
+  const n = lockSummary(i).length;
+  lcdMessage.show(`STEP ${two(i + 1)} ${inst} LOCK${n > 0 ? `: ${n} LOCK${n > 1 ? 'S' : ''}` : ''}`, POT_UI.readoutMs, true);
+  return true;
+}
+
+/** Une tape sur un pas en LOCK : le meme pas en sort, un autre y deplace le LOCK. */
+export function rytmLockTap(i: number): void {
+  const s = rytmLock.get();
+  if (s.step === i) {
+    rytmLock.leave();
+    lcdMessage.show('LOCK OFF');
+    return;
+  }
+  rytmLockEnter(i, true);
+}
+
+/** L, rytm:lock : le LOCK sur ce pas (le pas choisi par defaut), ou hors LOCK s'il y est deja. */
+export function rytmLockToggle(i: number = rytmPage.get().sel): void {
+  const s = rytmLock.get();
+  if (s.step >= 0 && (i < 0 || s.step === i)) {
+    rytmLock.leave();
+    lcdMessage.show('LOCK OFF');
+    return;
+  }
+  if (i < 0) {
+    lcdMessage.show('HOLD A STEP TO LOCK IT');
+    return;
+  }
+  rytmLockEnter(i, true);
+}
+
+/** CLEAR en LOCK : les verrous des pas en LOCK (ou tenus) s'en vont ; leurs coups restent. */
+export function rytmLockClear(): void {
+  const inst = pattern.get().instrument;
+  const steps = rytmLock.targets();
+  if (!inst || steps.length === 0) return;
+  const had = steps.some((i) => lockOf(pattern.get().locks, inst, i) !== null);
+  pattern.clearLock(inst, steps);
+  rytmLock.wrote();
+  const who = steps.length > 1 ? `${steps.length} STEPS` : `STEP ${two(steps[0] + 1)}`;
+  lcdMessage.show(had ? `${who} LOCKS CLEARED` : `${who} HAS NO LOCKS`);
+}
+
 /** Un seul abonnement pour toutes les valeurs des potards (les deux machines, le kit). */
 export function subscribeDials(fn: () => void): () => void {
-  const offs = [voyParams.subscribe(fn), mix.subscribe(fn), voiceFx.subscribe(fn), kit.subscribe(() => fn()), pattern.subscribe(fn), pattern.fx.subscribe(fn)];
+  const offs = [voyParams.subscribe(fn), mix.subscribe(fn), voiceFx.subscribe(fn), kit.subscribe(() => fn()), pattern.subscribe(fn), pattern.fx.subscribe(fn), rytmLock.subscribe(fn)];
   return () => {
     for (const off of offs) off();
   };

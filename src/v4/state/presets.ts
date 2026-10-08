@@ -10,7 +10,9 @@
  * - MM-RYTM : le motif et ses velocites, le tempo, SWING STRETCH DIST
  *   CHORUS DELAY REVERB, les effets de chaque voix (MASTER reste : un
  *   preset ne fait jamais sauter le niveau), et le kit des TWEAKS (les sons
- *   et le kick, audio/kit.ts, 2026-10-04 ; un preset d'avant ne le touche pas).
+ *   et le kick, audio/kit.ts, 2026-10-04 ; un preset d'avant ne le touche pas),
+ *   et depuis le 2026-10-08 les verrous des pas (audio/locks.ts ; un preset
+ *   d'avant n'en a pas : le motif recharge n'en garde aucun).
  * - MM-BASS (2026-10-07) : tous ses potards et sa ligne (les pas et leurs
  *   verrous) ; recharger ne lance ni n'arrete la basse.
  * Gardes dans ce navigateur (localStorage), 60 par machine au plus. Les
@@ -20,7 +22,8 @@
 
 import { INSTRUMENTS, pattern, type Fx, type Steps } from '../audio/pattern';
 import { mix, setStretch } from '../audio/drums';
-import { voiceFx, VOICE_PARAMS, type VoiceFx } from '../audio/voicefx';
+import { anyLocks, cleanLocks, type Locks } from '../audio/locks';
+import { VOICE_FX_DEFAULT, voiceFx, VOICE_PARAMS, type VoiceFx } from '../audio/voicefx';
 import { KIT_FAMILIES, KIT_IDS, isFamily, kit, modelAt, type KitFamily, type KitId } from '../audio/kit';
 import type { Inst } from '../theme';
 import { arp } from '../voyager/arp';
@@ -57,6 +60,8 @@ interface RytmData {
    * kit se lit sur trois crans (909, 808, MM)
    */
   sounds?: Partial<Record<KitFamily, string>>;
+  /** les verrous des pas (2026-10-08, audio/locks.ts) ; absent sans verrou */
+  locks?: Locks;
 }
 
 export interface Preset {
@@ -161,6 +166,7 @@ function capture(m: PresetMachine): VoyData | RytmData | BassData {
     voices: Object.fromEntries(Object.entries(v).map(([k, fx]) => [k, { ...fx }])) as Record<Inst, VoiceFx>,
     kit: Object.fromEntries(KIT_IDS.map((id) => [id, kit.value(id)])) as Record<KitId, number>,
     sounds: Object.fromEntries(KIT_FAMILIES.map((f) => [f, kit.sound(f)])) as Record<KitFamily, string>,
+    ...(anyLocks(p.locks) ? { locks: p.locks as Locks } : {}),
   };
 }
 
@@ -189,14 +195,17 @@ function apply(m: PresetMachine, d: VoyData | RytmData | BassData): void {
     return;
   }
   const r = d as RytmData;
-  pattern.replace(r.steps);
+  // Ses verrous, ou aucun (un preset d'avant le 2026-10-08)
+  pattern.replace(r.steps, cleanLocks(r.locks) ?? {});
   pattern.setBpm(r.bpm);
   pattern.fx.set(r.fx);
   setStretch(r.stretch);
   for (const [inst, fx] of Object.entries(r.voices) as [Inst, VoiceFx][]) {
     // Un preset d'avant les huit voix (2026-10-05) : RS et PC n'existent plus
     if (!INSTRUMENTS.includes(inst) || !fx) continue;
-    for (const p of VOICE_PARAMS) if (typeof fx[p] === 'number') voiceFx.set(inst, p, fx[p]);
+    // Un reglage absent du preset (TUNE, PAN, START sont du 2026-10-08) : sa valeur de depart, le son d'alors
+    // (avant, il gardait la valeur du moment : un preset ne sonnait pas pareil selon ce qui jouait avant lui)
+    for (const p of VOICE_PARAMS) voiceFx.set(inst, p, typeof fx[p] === 'number' ? fx[p] : VOICE_FX_DEFAULT[p]);
   }
   if (r.kit) {
     for (const id of KIT_IDS) {

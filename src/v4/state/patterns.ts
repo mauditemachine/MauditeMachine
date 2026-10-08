@@ -15,9 +15,14 @@
  *   premier pas de chaque mesure : le pattern suivant de la chaine (ou
  *   celui qui attend) est pose a ce moment, ses coups partent a l'heure.
  * Retenu sous mm.v4.patterns.1 (les emplacements, le courant, la chaine).
+ * Les verrous (2026-10-08, l'etape R2, audio/locks.ts) : chaque emplacement
+ * garde aussi ceux de ses pas (locks, a cote des slots ; une sauvegarde
+ * d'avant n'en a pas : aucun) ; changer de pattern pose les siens, la copie
+ * d'un emplacement les copie.
  */
 
 import { clock } from '../audio/clock';
+import { cleanLocks, sameLocks, type Locks } from '../audio/locks';
 import { INSTRUMENTS, STEP_COUNT, pattern, type Steps } from '../audio/pattern';
 
 export const PATTERN_SLOTS = 16;
@@ -30,6 +35,8 @@ const STEPS_RE = /^[0-9]{16}$/;
 export interface PatternsState {
   /** les seize emplacements ; null : vide (jamais ecrit) */
   slots: readonly (Steps | null)[];
+  /** les verrous de chaque emplacement (2026-10-08) ; null : aucun */
+  locks: readonly (Readonly<Locks> | null)[];
   /** l'emplacement qui joue (et qu'on edite) */
   cur: number;
   /** la chaine : au moins un pattern (le courant seul : pas de chaine) */
@@ -58,14 +65,20 @@ function validSteps(x: unknown): Steps | null {
   return out;
 }
 
+/** Les verrous a garder dans un emplacement : null sans verrou (le JSON reste court). */
+const keepLocks = (l: Readonly<Locks> | null | undefined): Readonly<Locks> | null => (l && Object.keys(l).length > 0 ? l : null);
+
 function load(): PatternsState {
   const slots: (Steps | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
+  const locks: (Readonly<Locks> | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
   let cur = 0;
   let chain: number[] = [0];
   try {
-    const raw = JSON.parse(window.localStorage.getItem(KEY) ?? 'null') as { slots?: unknown[]; cur?: unknown; chain?: unknown[] } | null;
+    const raw = JSON.parse(window.localStorage.getItem(KEY) ?? 'null') as { slots?: unknown[]; locks?: unknown[]; cur?: unknown; chain?: unknown[] } | null;
     if (raw && Array.isArray(raw.slots)) {
       for (let i = 0; i < PATTERN_SLOTS; i += 1) slots[i] = raw.slots[i] ? validSteps(raw.slots[i]) : null;
+      // Une sauvegarde d'avant les verrous (2026-10-08) : aucun
+      if (Array.isArray(raw.locks)) for (let i = 0; i < PATTERN_SLOTS; i += 1) locks[i] = cleanLocks(raw.locks[i]);
       if (Number.isInteger(raw.cur) && (raw.cur as number) >= 0 && (raw.cur as number) < PATTERN_SLOTS) cur = raw.cur as number;
       if (Array.isArray(raw.chain)) {
         const c = raw.chain.filter((v): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) < PATTERN_SLOTS).slice(0, PATTERN_SLOTS);
@@ -75,13 +88,14 @@ function load(): PatternsState {
   } catch {
     /* rien de retenu */
   }
-  // Le motif du moment (retenu par audio/pattern.ts) est celui de l'emplacement courant
+  // Le motif du moment (retenu par audio/pattern.ts) est celui de l'emplacement courant, ses verrous aussi
   slots[cur] = { ...pattern.get().steps };
+  locks[cur] = keepLocks(pattern.get().locks);
   if (!chain.includes(cur)) chain = [cur];
-  return { slots, cur, chain, pos: Math.max(0, chain.indexOf(cur)), next: -1 };
+  return { slots, locks, cur, chain, pos: Math.max(0, chain.indexOf(cur)), next: -1 };
 }
 
-let state: PatternsState = typeof window === 'undefined' ? { slots: [], cur: 0, chain: [0], pos: 0, next: -1 } : load();
+let state: PatternsState = typeof window === 'undefined' ? { slots: [], locks: [], cur: 0, chain: [0], pos: 0, next: -1 } : load();
 const listeners = new Set<() => void>();
 let saveTimer = 0;
 /** le motif pose par nous (un changement de pattern) : pas une edition a garder */
@@ -92,7 +106,9 @@ function save(): void {
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     try {
-      window.localStorage.setItem(KEY, JSON.stringify({ slots: state.slots, cur: state.cur, chain: state.chain }));
+      // Les verrous seulement s'il y en a (une sauvegarde sans verrou reste celle d'avant)
+      const locks = state.locks.some((l) => l !== null) ? state.locks : undefined;
+      window.localStorage.setItem(KEY, JSON.stringify({ slots: state.slots, ...(locks ? { locks } : {}), cur: state.cur, chain: state.chain }));
     } catch {
       /* stockage indisponible : les patterns vivent pour la visite */
     }
@@ -105,24 +121,28 @@ function setState(next: PatternsState, keep = true): void {
   listeners.forEach((fn) => fn());
 }
 
-/** Pose le pattern i dans le motif qui joue (ses coups, rien d'autre : tempo, effets et kit restent). */
+/** Pose le pattern i dans le motif qui joue (ses coups et leurs verrous, rien d'autre : tempo, effets et kit restent). */
 function apply(i: number): void {
   const steps = state.slots[i] ?? emptySteps();
   loading = true;
-  pattern.replace(steps);
+  pattern.replace(steps, state.locks[i] ?? {});
   loading = false;
 }
 
-// Chaque edition du motif est gardee dans l'emplacement courant
+// Chaque edition du motif (ses pas, ses verrous) est gardee dans l'emplacement courant
 if (typeof window !== 'undefined') {
   pattern.subscribe(() => {
     if (loading) return;
-    const steps = pattern.get().steps;
+    const { steps, locks } = pattern.get();
     const had = state.slots[state.cur];
-    if (had && sameSteps(had, steps)) return;
+    const sameL = sameLocks(state.locks[state.cur], keepLocks(locks));
+    if (had && sameSteps(had, steps) && sameL) return;
+    if (!had && isEmpty(steps) && sameL) return;
     const slots = state.slots.slice();
-    slots[state.cur] = isEmpty(steps) && !had ? null : { ...steps };
-    setState({ ...state, slots });
+    slots[state.cur] = isEmpty(steps) && !had && !keepLocks(locks) ? null : { ...steps };
+    const ls = state.locks.slice();
+    ls[state.cur] = keepLocks(locks);
+    setState({ ...state, slots, locks: ls });
   });
 }
 
@@ -171,7 +191,10 @@ export const patterns = {
     if (i < 0 || i >= PATTERN_SLOTS || patterns.filled(i) || isEmpty(pattern.get().steps)) return false;
     const slots = state.slots.slice();
     slots[i] = { ...pattern.get().steps };
-    setState({ ...state, slots });
+    // Ses verrous aussi (2026-10-08)
+    const locks = state.locks.slice();
+    locks[i] = keepLocks(pattern.get().locks);
+    setState({ ...state, slots, locks });
     return true;
   },
   /** La chaine redevient le pattern courant seul. */
@@ -206,7 +229,9 @@ export const patterns = {
     lastTap = -Infinity;
     const slots: (Steps | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
     slots[0] = { ...pattern.get().steps };
-    setState({ slots, cur: 0, chain: [0], pos: 0, next: -1 });
+    const locks: (Readonly<Locks> | null)[] = Array.from({ length: PATTERN_SLOTS }, () => null);
+    locks[0] = keepLocks(pattern.get().locks);
+    setState({ slots, locks, cur: 0, chain: [0], pos: 0, next: -1 });
   },
 };
 

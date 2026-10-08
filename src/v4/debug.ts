@@ -60,6 +60,8 @@ import { lcd, type LcdState } from './state/lcd';
 import { lcdMessage } from './state/lcdMessage';
 import { playhead } from './state/playhead';
 import { rytmPage, type RytmPageState, type RytmView } from './state/rytmPage';
+import { rytmLock, type RytmLockState } from './state/rytmLock';
+import type { Locks } from './audio/locks';
 import { section } from './state/section';
 import { view } from './state/view';
 import type { Inst, SectionId } from './theme';
@@ -231,6 +233,11 @@ export interface V4Debug {
   readonly rytm: {
     readonly page: RytmPageState & { view: RytmView };
     store: typeof rytmPage;
+    /** le LOCK (2026-10-08, state/rytmLock.ts) : le pas, fixe ou tenu, les pas tenus, les verrous poses */
+    readonly lock: RytmLockState;
+    lockStore: typeof rytmLock;
+    /** les verrous du motif (audio/locks.ts), une copie */
+    readonly locks: Locks;
   };
 }
 
@@ -411,6 +418,13 @@ export function installDebug(src: DebugSource): () => void {
         return { ...s, view: s.view };
       },
       store: rytmPage,
+      get lock() {
+        return { ...rytmLock.get() };
+      },
+      lockStore: rytmLock,
+      get locks() {
+        return JSON.parse(JSON.stringify(pattern.get().locks)) as Locks;
+      },
     },
   };
   window.__v4 = api;

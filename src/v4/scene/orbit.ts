@@ -76,6 +76,8 @@ interface Ptr {
   touch: boolean;
   /** parti sur une machine qui joue (lock) : ses commandes repondent, la vue ne bouge pas */
   locked: boolean;
+  /** pris par la couche de saisie des le pointerdown (claim) : jamais dans un pincement */
+  claimed: boolean;
 }
 
 export class Orbit {
@@ -102,6 +104,19 @@ export class Orbit {
   /** derniere tape jugee (debug) ; quick : moins de 400 ms (double tape du fond) */
   readonly lastTap = { dist: 0, ms: 0, fired: false, quick: false };
   private ptrs = new Map<number, Ptr>();
+  /**
+   * Les pointeurs pris par la couche de saisie (2026-10-08, les verrous du
+   * MM-RYTM) : un pas tenu d'un doigt et un potard de page tourne d'un autre
+   * ne se pincent pas (sinon la vue zoomait au lieu de verrouiller, gotcha 1
+   * de l'etude). La couche les declare avant que l'orbite voie leur
+   * pointerdown (elle ecoute l'enfant, l'orbite le parent).
+   */
+  private claims = new Set<number>();
+
+  /** Ce pointeur n'entre dans aucun pincement (un pas, un potard de page). */
+  claim(pointerId: number): void {
+    this.claims.add(pointerId);
+  }
   /** pointeurs qui tournent ou pincent (compte tenu aux evenements) */
   private held = 0;
   /** restes a consommer : rotation (rad) et log du zoom */
@@ -373,15 +388,17 @@ export class Orbit {
     if (e.isPrimary) {
       this.ptrs.clear();
       this.pAz = this.pEl = this.pZ = 0;
+      // Les prises d'un geste d'avant s'en vont (celle de ce pointeur vient d'etre posee)
+      for (const id of this.claims) if (id !== e.pointerId) this.claims.delete(id);
     }
     this.tw = false;
     this.h = Math.max(1, this.opts.input.clientHeight);
     const x = e.clientX;
     const y = e.clientY;
-    const p: Ptr = { x0: x, y0: y, t0: e.timeStamp || performance.now(), x, y, max: 0, orbiting: false, foreign: false, multi: false, touch: e.pointerType === 'touch', locked: this.lock(x, y, e.pointerType === 'mouse') };
-    // Un deuxieme pointeur libre : pincement, plus de tape ni de rotation (pas sur une machine qui joue)
+    const p: Ptr = { x0: x, y0: y, t0: e.timeStamp || performance.now(), x, y, max: 0, orbiting: false, foreign: false, multi: false, touch: e.pointerType === 'touch', locked: this.lock(x, y, e.pointerType === 'mouse'), claimed: this.claims.has(e.pointerId) };
+    // Un deuxieme pointeur libre : pincement, plus de tape ni de rotation (pas sur une machine qui joue, ni un pointeur pris)
     for (const q of this.ptrs.values()) {
-      if (q.foreign || q.locked || p.locked) continue;
+      if (q.foreign || q.locked || p.locked || q.claimed || p.claimed) continue;
       q.multi = p.multi = true;
       q.orbiting = false;
     }
@@ -445,6 +462,7 @@ export class Orbit {
 
   /** Relache ou annule : le reste continue de glisser (la boucle tourne deja s'il y en a un). */
   private onUp = (e: PointerEvent): void => {
+    this.claims.delete(e.pointerId);
     const p = this.ptrs.get(e.pointerId);
     if (!p) return;
     this.ptrs.delete(e.pointerId);
