@@ -7,7 +7,8 @@
  * OPEN, les potards de la face (role slider : fleches, Maj ou Page pour
  * 10 %, Debut et Fin), puis, capot ouvert, les TWEAKS (2026-10-04 : a la
  * place des puces des pages). Inertes tant qu'on n'utilise pas le
- * Voyager.
+ * Voyager. La touche i du grand ecran (2026-10-08) : un bouton de plus,
+ * apres les touches de l'ecran (INFOS, state/voyInfos.ts).
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
@@ -17,6 +18,7 @@ import { editor } from '../state/editor';
 import { PRESET_KEY_ARIA, PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode } from '../state/presetMode';
 import { chipsLive, voyExplode } from '../state/explode';
 import { focus } from '../state/focus';
+import { voyInfos } from '../state/voyInfos';
 import { DIAL_KEYS, OPEN_ARIA } from '../theme';
 import { arp } from '../voyager/arp';
 import { CHORDS } from '../voyager/chords';
@@ -74,6 +76,7 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const ed = useSyncExternalStore(editor.subscribe, editor.get, editor.get);
   const pmVoy = useSyncExternalStore(presetMode.subscribe, () => presetMode.on('voy'), () => false);
   const params = useSyncExternalStore(voyParams.subscribe, voyParams.get, voyParams.get);
+  const infos = useSyncExternalStore(voyInfos.subscribe, () => voyInfos.get().on, () => false);
   const els = useRef(new Map<string, HTMLElement>());
   const refs = useRef(new Map<string, (el: HTMLElement | null) => void>());
   const stageRef = useRef(stage);
@@ -219,6 +222,18 @@ export const VoyTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
           onClick={() => presetKey('voy', k)}
         />
       ))}
+      {/* La touche i du grand ecran (2026-10-08) : INFOS, l'aide au survol */}
+      <button
+        ref={refFor('vinfo')}
+        type="button"
+        className="v4-twin"
+        data-twin="vinfo"
+        data-hotspot="vinfo"
+        aria-label={infos ? 'INFOS on: hover a control of the MM-ARP (tap on a phone) to read what it does. Press to turn off' : 'INFOS: hover a control of the MM-ARP (tap on a phone) to read what it does'}
+        aria-pressed={infos}
+        onKeyDown={noRepeat}
+        onClick={() => voyInfos.toggle()}
+      />
       {[...VOY_FACE_KNOBS, ...(showChips ? VOY_TWEAKS : [])].map((k: VoyKnob) => {
         const id = `vk-${k.id}`;
         const v = params[k.id];

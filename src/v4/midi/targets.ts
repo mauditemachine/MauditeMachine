@@ -13,7 +13,8 @@
  *   random, mute, solo, edit, open ; rytm:running (en marche, 0 ou 1 : un
  *   bouton a bascule dont la LED suit) ;
  * - MM-ARP : voy:knob:<potard>, voy:pad:<0-7>, voy:run, clear, random,
- *   edit, open ; voy:running ;
+ *   edit, open ; voy:running ; voy:infos (la touche i du grand ecran,
+ *   2026-10-08) ;
  * - partout : nav:<all|mm808|voy|dj|prev|next>, nav:machines (PLAY/STOP
  *   du MM-RYTM et du MM-ARP ensemble) ;
  * - MM-DECKS (dj:<commande>, et dj:smpl:<platine>:... pour le sampler de
@@ -29,6 +30,7 @@ import { anyDial, anyDialValue, clearPattern, dialRange, dialSteps, editToggle, 
 import { clock } from '../audio/clock';
 import { voices as voiceState } from '../state/voices';
 import { arp } from '../voyager/arp';
+import { voyInfos } from '../state/voyInfos';
 import { KIT_IDS, KIT_LABEL, kit, kitSteps } from '../audio/kit';
 import { setVoiceFx } from '../audio/drums';
 import { VOICE_PARAMS, voiceFx, type VoiceParam } from '../audio/voicefx';
@@ -188,6 +190,8 @@ function coreTargets(): MidiTarget[] {
     out.push(press('voy:random', 'voy', 'RANDOM', () => voyRandom(getStage())));
     out.push(press('voy:edit', 'voy', 'EDIT', () => editToggle('voy', getStage())));
     out.push(press('voy:open', 'voy', 'OPEN', () => void openToggle(getStage(), 'voy')));
+    // La touche i du grand ecran (2026-10-08) : INFOS, l'aide au survol
+    out.push(press('voy:infos', 'voy', 'INFOS (HELP ON HOVER)', () => void voyInfos.toggle()));
   }
   // Partout : la navigation, PLAY/STOP des deux machines
   out.push(press('nav:all', 'global', 'MM-STUDIO (ALL THE MACHINES)', () => focusMachine('all')));
@@ -279,6 +283,9 @@ export function targetIdOfHotspot(h: { kind: string; param?: string; rknob?: str
       return h.vbtn ? `voy:${h.vbtn}` : null;
     case 'vopen':
       return 'voy:open';
+    // La touche i du grand ecran (2026-10-08) : MIDI LEARN l'apprend aussi
+    case 'vinfo':
+      return 'voy:infos';
     case 'djknob':
     case 'djfader':
     case 'djkey':

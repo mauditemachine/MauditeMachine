@@ -14,8 +14,19 @@
  * plateau, au-dessus du centre de l'empreinte ; le plateau est son plan
  * y = 0. Repere du panneau : origine au centre de sa face, x a droite, z
  * qui descend la pente vers l'utilisateur (comme le panneau de la 808).
- * Desktop : 13.6 x 8.6 au sol ; portrait (telephone) : 8.6 x 14.4, les
+ * Desktop : 13.6 x 8.6 au sol ; portrait (telephone) : 8.6 x 15.6, les
  * memes elements places en hauteur, comme la 808.
+ *
+ * Le grand ecran (2026-10-08, Mika : "je veux le meme type d'ecran pour ARP
+ * aussi, plus gros, plus de detail ! fais de la place et bien sur que ce
+ * soit super responsive en mobile et utilisable") : l'ecran de la famille
+ * MM-RYTM / MM-BASS (voyager/screen.ts) au milieu du plateau. Desktop :
+ * l'arpegiateur en deux rangees a sa gauche (RATE MODE RANGE NOTES, puis
+ * GATE OCTAVE GLIDE en quinconce), les touches en deux rangees a sa droite
+ * (CLEAR RANDOM EDIT, puis RUN/STOP en large et OPEN), les pads plus minces
+ * dessous. Portrait : le plateau s'allonge de 1.2 (le panneau ne bouge
+ * pas : le pli recule d'autant), l'ecran prend toute la largeur, VOLUME
+ * rejoint la rangee de l'arpegiateur (son crochet OUTPUT).
  */
 
 import { PORTRAIT, TEMPO_UI } from '../theme';
@@ -23,8 +34,9 @@ import { BASS } from '../state/focus';
 import { BASS_W, bassX } from '../bass/theme';
 import type { VoyKnobId } from './params';
 
+// Portrait (2026-10-08, le grand ecran) : d 14.4, bendZ -0.5, backZ -6.85 avant ; le panneau garde sa longueur (6.35)
 export const VOY_BODY = PORTRAIT
-  ? { w: 8.6, d: 14.4, cheek: 0.45, feet: 0.12, deckY: 1.32, bendZ: -0.5, backZ: -6.85, topY: 3.05, lidT: 0.12, wall: 0.16, floorY: 0.32 }
+  ? { w: 8.6, d: 15.6, cheek: 0.45, feet: 0.12, deckY: 1.32, bendZ: -1.1, backZ: -7.45, topY: 3.05, lidT: 0.12, wall: 0.16, floorY: 0.32 }
   : { w: 13.6, d: 8.6, cheek: 0.5, feet: 0.12, deckY: 1.32, bendZ: 0.15, backZ: -3.95, topY: 3.36, lidT: 0.12, wall: 0.16, floorY: 0.32 };
 
 /** Largeur entre les joues (le bac), et celle du capot (un jour de 0.02 de chaque cote). */
@@ -204,16 +216,24 @@ const DESK_PANEL: Partial<Record<VoyKnobId, Spot>> = {
   reverb: [DESK_FX[1], RB, 's'],
   volume: [DESK_OUT_X, (RA + RB) / 2, 'l'],
 };
-/** Plateau, desktop : l'arpegiateur en rangee a gauche de l'ecran (GLIDE au bout, 2026-10-03). */
-const DESK_ARP_Z = 0.85;
+/**
+ * Plateau, desktop : l'arpegiateur a gauche de l'ecran. Une rangee de sept
+ * jusqu'au 2026-10-08 (z 0.85, x -5.55 a -1.05) ; depuis le grand ecran,
+ * deux rangees facon Elektron : RATE MODE RANGE NOTES, puis GATE OCTAVE
+ * GLIDE en quinconce (entre les colonnes du dessus). Les colonnes
+ * repondent a celles des touches, a droite de l'ecran (DESK_KEY_X).
+ */
+const DESK_ARP_Z = [0.84, 1.9] as const;
+const DESK_ARP_X = [-5.75, -4.95, -4.15, -3.35] as const;
+const between = (a: number, b: number): number => (a + b) / 2;
 const DESK_DECK: Partial<Record<VoyKnobId, Spot>> = {
-  rate: [-5.55, DESK_ARP_Z, 'm'],
-  mode: [-4.8, DESK_ARP_Z, 's'],
-  range: [-4.05, DESK_ARP_Z, 's'],
-  notes: [-3.3, DESK_ARP_Z, 's'],
-  gate: [-2.55, DESK_ARP_Z, 'm'],
-  octave: [-1.8, DESK_ARP_Z, 's'],
-  glide: [-1.05, DESK_ARP_Z, 's'],
+  rate: [DESK_ARP_X[0], DESK_ARP_Z[0], 'm'],
+  mode: [DESK_ARP_X[1], DESK_ARP_Z[0], 's'],
+  range: [DESK_ARP_X[2], DESK_ARP_Z[0], 's'],
+  notes: [DESK_ARP_X[3], DESK_ARP_Z[0], 's'],
+  gate: [between(DESK_ARP_X[0], DESK_ARP_X[1]), DESK_ARP_Z[1], 'm'],
+  octave: [between(DESK_ARP_X[1], DESK_ARP_X[2]), DESK_ARP_Z[1], 's'],
+  glide: [between(DESK_ARP_X[2], DESK_ARP_X[3]), DESK_ARP_Z[1], 's'],
 };
 
 /**
@@ -266,18 +286,26 @@ const PORT_PANEL: Partial<Record<VoyKnobId, Spot>> = {
   lfoDest: [PORT_EIGHT[6], PORT_E1, 's'],
   lfoAmt: [PORT_EIGHT[7], PORT_E1, 'm'],
 };
-/** Plateau, portrait : l'arpegiateur en rangee (GLIDE au bout), VOLUME a droite de l'ecran, AMP EG et EFFECTS dessous. */
-const PORT_ARP_Z = 2.95;
-const PORT_E2 = 4.35;
+/**
+ * Plateau, portrait : l'arpegiateur en rangee (GLIDE au bout), AMP EG et
+ * EFFECTS dessous. Le grand ecran (2026-10-08) prend toute la largeur :
+ * VOLUME (a droite du petit ecran, en l, avant) passe au bout de la rangee
+ * de l'arpegiateur, en m, sous son crochet OUTPUT ; les sept potards de
+ * l'arpege au pas des rangees de huit (0.88). Rangees en z : 2.95 et 4.35
+ * avant (le plateau commencait a -0.5, il commence a -1.1).
+ */
+const PORT_ARP_Z = 3.9;
+const PORT_E2 = 5.33;
+const PORT_ARP_X = [-3.3, -2.42, -1.54, -0.66, 0.22, 1.1, 1.98] as const;
 const PORT_DECK: Partial<Record<VoyKnobId, Spot>> = {
-  rate: [-2.9, PORT_ARP_Z, 'm'],
-  mode: [-1.933, PORT_ARP_Z, 's'],
-  range: [-0.967, PORT_ARP_Z, 's'],
-  notes: [0, PORT_ARP_Z, 's'],
-  gate: [0.967, PORT_ARP_Z, 'm'],
-  octave: [1.933, PORT_ARP_Z, 's'],
-  glide: [2.9, PORT_ARP_Z, 's'],
-  volume: [2.45, 0.3, 'l'],
+  rate: [PORT_ARP_X[0], PORT_ARP_Z, 'm'],
+  mode: [PORT_ARP_X[1], PORT_ARP_Z, 's'],
+  range: [PORT_ARP_X[2], PORT_ARP_Z, 's'],
+  notes: [PORT_ARP_X[3], PORT_ARP_Z, 's'],
+  gate: [PORT_ARP_X[4], PORT_ARP_Z, 'm'],
+  octave: [PORT_ARP_X[5], PORT_ARP_Z, 's'],
+  glide: [PORT_ARP_X[6], PORT_ARP_Z, 's'],
+  volume: [3.2, PORT_ARP_Z, 'm'],
   aA: [PORT_EIGHT[0], PORT_E2, 's'],
   aD: [PORT_EIGHT[1], PORT_E2, 's'],
   aS: [PORT_EIGHT[2], PORT_E2, 's'],
@@ -401,9 +429,10 @@ export const VOY_HEAD = PORTRAIT
  * Mika : "reduis les pads en bas, qui sont enormes, pour faire plus de place
  * aux knobs" ; deux rangees de quatre de 1.1 avant).
  */
+// Plus minces le 2026-10-08 (le grand ecran) : depth, la profondeur, plus courte que la largeur (size) ; carres de 0.86 et 0.98 avant (labelDz 0.62 et 0.72)
 export const VOY_PAD = PORTRAIT
-  ? { size: 0.86, height: 0.2, radius: 0.08, dome: 0.035, xs: [-3.29, -2.35, -1.41, -0.47, 0.47, 1.41, 2.35, 3.29], zs: [5.9], perRow: 8, labelDz: 0.62 }
-  : { size: 0.98, height: 0.22, radius: 0.08, dome: 0.04, xs: [-4.2, -3.0, -1.8, -0.6, 0.6, 1.8, 3.0, 4.2], zs: [2.75], perRow: 8, labelDz: 0.72 };
+  ? { size: 0.86, depth: 0.66, height: 0.2, radius: 0.08, dome: 0.035, xs: [-3.29, -2.35, -1.41, -0.47, 0.47, 1.41, 2.35, 3.29], zs: [6.72], perRow: 8, labelDz: 0.57 }
+  : { size: 0.98, depth: 0.7, height: 0.22, radius: 0.08, dome: 0.04, xs: [-4.2, -3.0, -1.8, -0.6, 0.6, 1.8, 3.0, 4.2], zs: [3.16], perRow: 8, labelDz: 0.55 };
 
 export const voyPadAt = (i: number): { x: number; z: number } => ({
   x: VOY_PAD.xs[i % VOY_PAD.perRow],
@@ -418,28 +447,68 @@ export type VoyButtonId = 'run' | 'clear' | 'random' | 'edit' | 'open';
  * de l'arpege, state/editor.ts) et OPEN, a droite de l'ecran (desktop :
  * l'arpegiateur a sa gauche) ou en rangee sous lui (portrait).
  */
+/**
+ * Desktop, depuis le grand ecran (2026-10-08) : deux rangees a droite de
+ * l'ecran, en miroir de l'arpegiateur (ses quatre puis trois potards en
+ * quinconce) : en haut CLEAR, RANDOM, EDIT ; en bas, entre elles, RUN/STOP
+ * (le transport sous la main, comme sur les Elektron) et OPEN. Une rangee
+ * de cinq a z 0.85 avant (x 2.5 a 5.65). L'ordre du tableau (pads.ts,
+ * jumeaux) ne change pas.
+ */
+const DESK_KEY_X = [3.55, 4.55, 5.55] as const;
+const DESK_KEY_Z = [0.8, 1.86] as const;
 export const VOY_BUTTONS: readonly { id: VoyButtonId; label: string; x: number; z: number; w: number; d: number }[] = PORTRAIT
-  ? // Plus gros au telephone (2026-10-05, Mika : "trop difficile a attraper") : 1.15 x 0.6 avant ; 1.3 x 0.68 jusqu'au 2026-10-07
+  ? // Plus gros au telephone (2026-10-05, Mika : "trop difficile a attraper") : 1.15 x 0.6 avant ; 1.3 x 0.68 jusqu'au 2026-10-07 ; z 1.6 jusqu'au grand ecran
     [
-      { id: 'run', label: 'RUN/STOP', x: -2.9, z: 1.6, w: 1.36, d: 0.78 },
-      { id: 'clear', label: 'CLEAR', x: -1.45, z: 1.6, w: 1.36, d: 0.78 },
-      { id: 'random', label: 'RANDOM', x: 0, z: 1.6, w: 1.36, d: 0.78 },
-      { id: 'edit', label: 'EDIT', x: 1.45, z: 1.6, w: 1.36, d: 0.78 },
-      { id: 'open', label: 'OPEN', x: 2.9, z: 1.6, w: 1.36, d: 0.78 },
+      { id: 'run', label: 'RUN/STOP', x: -2.9, z: 2.38, w: 1.36, d: 0.78 },
+      { id: 'clear', label: 'CLEAR', x: -1.45, z: 2.38, w: 1.36, d: 0.78 },
+      { id: 'random', label: 'RANDOM', x: 0, z: 2.38, w: 1.36, d: 0.78 },
+      { id: 'edit', label: 'EDIT', x: 1.45, z: 2.38, w: 1.36, d: 0.78 },
+      { id: 'open', label: 'OPEN', x: 2.9, z: 2.38, w: 1.36, d: 0.78 },
     ]
   : [
-      { id: 'run', label: 'RUN/STOP', x: 2.5, z: 0.85, w: 0.7, d: 0.55 },
-      { id: 'clear', label: 'CLEAR', x: 3.25, z: 0.85, w: 0.7, d: 0.55 },
-      { id: 'random', label: 'RANDOM', x: 4.0, z: 0.85, w: 0.7, d: 0.55 },
-      { id: 'edit', label: 'EDIT', x: 4.75, z: 0.85, w: 0.7, d: 0.55 },
-      { id: 'open', label: 'OPEN', x: 5.65, z: 0.85, w: 0.9, d: 0.55 },
+      { id: 'run', label: 'RUN/STOP', x: between(DESK_KEY_X[0], DESK_KEY_X[1]), z: DESK_KEY_Z[1], w: 0.82, d: 0.52 },
+      { id: 'clear', label: 'CLEAR', x: DESK_KEY_X[0], z: DESK_KEY_Z[0], w: 0.82, d: 0.52 },
+      { id: 'random', label: 'RANDOM', x: DESK_KEY_X[1], z: DESK_KEY_Z[0], w: 0.82, d: 0.52 },
+      { id: 'edit', label: 'EDIT', x: DESK_KEY_X[2], z: DESK_KEY_Z[0], w: 0.82, d: 0.52 },
+      { id: 'open', label: 'OPEN', x: between(DESK_KEY_X[1], DESK_KEY_X[2]), z: DESK_KEY_Z[1], w: 0.82, d: 0.52 },
     ];
 export const VOY_BUTTON = { h: 0.12, radius: 0.05, labelGap: 0.2, press: 0.04 } as const;
 
-/** L'ecran du plateau (verre, cadre fusionne au capot), et sa texture. */
+/**
+ * L'ecran du plateau (verre, cadre fusionne au capot). Le grand ecran
+ * (2026-10-08, voyager/screen.ts) : 5.3 x 2.06 au milieu du plateau
+ * (2.4 x 0.9 a droite de l'arpegiateur avant), 7.0 x 2.42 sur toute la
+ * largeur au telephone (3.9 x 1.0 avant) ; les deux au meme format (2.7 a
+ * 2.9 pour 1), une seule mise en page. tex : la largeur de la texture.
+ */
 export const VOY_LCD = PORTRAIT
-  ? { x: -1.6, z: 0.3, w: 3.9, d: 1.0, bezel: { w: 4.14, d: 1.24, h: 0.02 }, tex: [780, 200] as const }
-  : { x: 0.75, z: 0.9, w: 2.4, d: 0.9, bezel: { w: 2.62, d: 1.12, h: 0.02 }, tex: [640, 240] as const };
+  ? { x: 0, z: 0.4, w: 7.0, d: 2.42, bezel: { w: 7.34, d: 2.76, h: 0.02 }, tex: 1024 }
+  : { x: 0, z: 1.4, w: 5.3, d: 2.06, bezel: { w: 5.6, d: 2.36, h: 0.02 }, tex: 1280 };
+
+/**
+ * La touche i de l'ecran (2026-10-08, Mika : "un petit bouton i dans
+ * l'ecran a activer, et de ce fait on peut voir les infos au survol") : un
+ * i cerne dessine dans le coin en haut a droite du verre (voyager/screen.ts
+ * le dessine a u, v), sa zone de saisie autour (repere du plateau, un peu
+ * plus haute que celle de l'ecran : elle passe devant).
+ */
+/** La largeur de la mise en page de l'ecran, en unites (voyager/screen.ts) : 300 au desktop, 260 au telephone (le texte plus gros). */
+export const VOY_SCREEN_UW = PORTRAIT ? 260 : 300;
+export const VOY_INFO_KEY = (() => {
+  const L = VOY_LCD;
+  const UW = VOY_SCREEN_UW;
+  // Le centre du i : a 11 unites du bord droit et 10.5 du haut (screen.ts INFO_I)
+  const u = 1 - 11 / UW;
+  const v = (10.5 * L.w) / UW / L.d;
+  // La zone de saisie : un disque de r. scene/hit.ts pick() garde d'abord les formes qui contiennent le
+  // doigt (la marge tactile de 24 px ne joue que hors de toute forme) : a cote du disque, c'est vlcd-open
+  // (tout l'ecran) qui gagne et PRESETS s'ouvre. Au telephone (revue du 2026-10-08) r 0.6, 46 x 45 px CSS
+  // a 390 x 844 (0.3 avant : 23 px, une tape a 14 px du centre ouvrait PRESETS), le contrat veut 44 px ;
+  // le disque mord le tempo de l'en-tete, rien d'autre : le pli est a z -1.1, le bord du capot a x 3.83
+  const r = PORTRAIT ? 0.6 : 0.17;
+  return { u, v, x: L.x - L.w / 2 + u * L.w, z: L.z - L.d / 2 + v * L.d, r };
+})();
 
 /**
  * Crochets nommes sous un groupe (comme les rangees de la 808) : le trait
@@ -488,7 +557,9 @@ export const VOY_GROUPS: readonly VoyGroup[] = PORTRAIT
       knobGroup('MOD', ['lfoRate', 'lfoShape', 'lfoDest', 'lfoAmt'], ['fA']),
       knobGroup('AMP EG', ['aA', 'aD', 'aS', 'aR'], ['dist']),
       knobGroup('EFFECTS', ['dist', 'chorus', 'delay', 'reverb'], ['aA']),
-      knobGroup('ARPEGGIATOR', ['rate', 'mode', 'range', 'notes', 'gate', 'octave', 'glide']),
+      // VOLUME au bout de la rangee de l'arpegiateur (2026-10-08, le grand ecran) : son crochet a lui
+      knobGroup('ARPEGGIATOR', ['rate', 'mode', 'range', 'notes', 'gate', 'octave', 'glide'], ['volume']),
+      knobGroup('OUTPUT', ['volume'], ['rate']),
       padGroup(),
     ]
   : [knobGroup('ARPEGGIATOR', ['rate', 'mode', 'range', 'notes', 'gate', 'octave', 'glide']), padGroup()];
@@ -712,8 +783,9 @@ export function voyTweakPlace(id: VoyKnobId): { x: number; z: number; s: number;
  * rayons (cadrage de section), pile ouverte : mesures sur la machine
  * (window.__v4.voyager.fit()).
  */
+// Portrait : h 14.4, rayons 8.4 et 10.4, fitHalfH 11.5 avant le plateau allonge (2026-10-08)
 export const VOY_FRAME = PORTRAIT
-  ? { plate: VOY_BODY.w, h: 14.4, targetY: 1.6, radius: { closed: 8.4, open: 10.4 }, fitHalfH: 11.5, explodeTargetY: 4.2 }
+  ? { plate: VOY_BODY.w, h: VOY_BODY.d, targetY: 1.6, radius: { closed: 9.0, open: 11.0 }, fitHalfH: 12.4, explodeTargetY: 4.2 }
   : { plate: Math.SQRT1_2 * (VOY_BODY.w + VOY_BODY.d), h: 9.4, targetY: 1.6, radius: { closed: 8.1, open: 9.6 }, fitHalfH: 8.6, explodeTargetY: 5.9 };
 
 

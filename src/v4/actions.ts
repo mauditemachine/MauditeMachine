@@ -18,6 +18,9 @@ import { prepareSynth } from './audio/synth';
 import type { Stage } from './scene/renderer';
 import { bassExplode, chipsLive, explode, voyExplode, type ExplodeStore } from './state/explode';
 import { bassInfos } from './state/bassInfos';
+import { voyInfos } from './state/voyInfos';
+import { voyEcho } from './voyager/echo';
+import { voyPatch } from './voyager/patch';
 import { focus, MACHINES, VOYAGER, type Focus, type MachineId } from './state/focus';
 import { lcdMessage } from './state/lcdMessage';
 import { lcdMix } from './state/lcdMix';
@@ -669,6 +672,11 @@ export function escape(): boolean {
     bassInfos.set(false);
     return true;
   }
+  // INFOS du MM-ARP (2026-10-08, la touche i du grand ecran) : de meme, quand on le voit
+  if (voyInfos.isOn() && focus.get() === 'voy') {
+    voyInfos.set(false);
+    return true;
+  }
   const hood = hoodOf(hoodMachine());
   if (hood.get() === 'open') return hood.toggle();
   if (pattern.get().instrument !== null && focus.get() !== 'voy' && focus.get() !== 'dj' && focus.get() !== 'bass') {
@@ -754,6 +762,8 @@ export function voyRandom(stage: Stage | null = null): void {
     const buf = Array.from({ length: SEQ_MAX }, (_, i) => r.seq?.[i % (r.seq?.length || 1)] ?? null);
     seq.restore({ edit: true, buf, len: Math.min(SEQ_MAX, r.seq.length), has: true });
   } else seq.auto();
+  // L'en-tete du grand ecran (2026-10-08) : RANDOM et son style, a la place du nom d'un preset
+  voyPatch.random(r.style);
   const cur = arp.get().prog.join(',');
   const pool = PROGRESSIONS.filter((p) => p.join(',') !== cur);
   const pick = r.prog ?? pool[Math.floor(Math.random() * pool.length)] ?? PROGRESSIONS[0];
@@ -854,12 +864,16 @@ export function machinesToggle(): boolean {
   return true;
 }
 
-/** Un potard du MM-VOYAGER (0 a 1) ; l'ecran dit sa valeur. */
+/**
+ * Un potard du MM-VOYAGER (0 a 1) ; l'ecran dit sa valeur. Depuis le grand
+ * ecran (2026-10-08) : son echo (voyager/echo.ts, le nom, la valeur de 0 a
+ * 127, l'unite, le dessin) a la place du message CUTOFF 64 %.
+ */
 export function voyDial(id: VoyKnobId, v: number): void {
   resume();
   // MODE, RANGE et NOTES fabriquent la suite : la tourner repasse en AUTO (voyager/seq.ts)
   if (voyParams.set(id, v) && (id === 'mode' || id === 'range' || id === 'notes')) seq.auto();
-  voyMsg.show(voyReadout(id, voyParams.of(id)), POT_UI.readoutMs);
+  voyEcho.touch(id);
 }
 
 /**

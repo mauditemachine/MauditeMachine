@@ -106,16 +106,19 @@ function paintRubber(g: BufferGeometry): void {
 /** Pad bombe (la geometrie des pads de la 808, a la taille de VOY_PAD). */
 function padGeometry(mobile: boolean): BufferGeometry {
   const P = VOY_PAD;
-  const box = new RoundedBoxGeometry(P.size, P.height, P.size, mobile ? 2 : 3, P.radius);
+  // Plus minces depuis le grand ecran (2026-10-08) : la profondeur (depth) plus courte que la largeur
+  const box = new RoundedBoxGeometry(P.size, P.height, P.depth, mobile ? 2 : 3, P.radius);
   box.translate(0, P.height / 2, 0);
   const flat = P.size - 2 * P.radius;
-  const plane = new PlaneGeometry(flat, flat, 6, 6);
+  const flatD = P.depth - 2 * P.radius;
+  const plane = new PlaneGeometry(flat, flatD, 6, 6);
   plane.rotateX(-Math.PI / 2);
   const pos = plane.getAttribute('position');
   const h = flat / 2;
+  const hd = flatD / 2;
   for (let i = 0; i < pos.count; i += 1) {
     const x = pos.getX(i) / h;
-    const z = pos.getZ(i) / h;
+    const z = pos.getZ(i) / hd;
     pos.setY(i, P.height + 0.002 + P.dome * (1 - x * x) * (1 - z * z));
   }
   plane.computeVertexNormals();
@@ -228,8 +231,7 @@ export class VoyKeys {
     this.halos.name = 'voyHalos';
     for (let i = 0; i < PADS; i += 1) {
       const p = voyPadAt(i);
-      const k = VOY_PAD.size * 1.16;
-      this.halos.setMatrixAt(i, m4.compose(v3.set(p.x, 0.003, p.z), q0, s3.set(k, 1, k)));
+      this.halos.setMatrixAt(i, m4.compose(v3.set(p.x, 0.003, p.z), q0, s3.set(VOY_PAD.size * 1.16, 1, VOY_PAD.depth * 1.22)));
       this.placePad(i);
     }
     VOY_BUTTONS.forEach((b, i) => {
@@ -343,8 +345,8 @@ export class VoyKeys {
     this.pads.visible = !on;
     for (let i = 0; i < PADS; i += 1) {
       const p = voyPadAt(i);
-      const k = on ? 0 : VOY_PAD.size * 1.16;
-      this.halos.setMatrixAt(i, m4.compose(v3.set(p.x, 0.003, p.z), q0, s3.set(k, 1, k)));
+      const k = on ? 0 : 1;
+      this.halos.setMatrixAt(i, m4.compose(v3.set(p.x, 0.003, p.z), q0, s3.set(k * VOY_PAD.size * 1.16, 1, k * VOY_PAD.depth * 1.22)));
     }
     this.halos.instanceMatrix.needsUpdate = true;
   }
@@ -478,7 +480,7 @@ export class VoyKeys {
         x: p.x,
         z: p.z,
         hx: VOY_PAD.size / 2,
-        hz: VOY_PAD.size / 2,
+        hz: VOY_PAD.depth / 2,
         y0: 0,
         y1: VOY_PAD.height + VOY_PAD.dome,
         enabled: true,
