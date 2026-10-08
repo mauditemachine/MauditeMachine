@@ -45,6 +45,12 @@ interface Entry {
   title: string;
   artist: string;
   bpm: number | null;
+  /**
+   * d'ou vient bpm : les tags du fichier ('tag'), ou l'analyse du son
+   * ('audio', en fond ou sur une platine). Absent sur les morceaux entres
+   * avant le 2026-10-08 : traite comme un tag, jamais remplace.
+   */
+  bpmFrom?: 'tag' | 'audio';
   key: string | null;
   duration: number;
   /** le chemin du dossier, depuis le dossier relie ou glisse : "Musique/Techno/Peak" ('' : en vrac) */
@@ -191,6 +197,7 @@ async function entryOf(f: File, id: string, folder: string, where: Pick<Entry, '
     title: tags.title || named.title,
     artist: tags.artist || named.artist,
     bpm: tags.bpm ?? null,
+    ...(tags.bpm != null ? { bpmFrom: 'tag' as const } : {}),
     key: camelot(tags.key),
     duration: 0,
     folder,
@@ -363,17 +370,20 @@ export function rescanRoots(progress: (done: number, total: number) => void): Pr
 
 /**
  * Ce qu'une platine a appris en chargeant le morceau (duree, BPM). Le BPM
- * de l'analyse entiere (2026-10-08, dj/math.ts trackGridSteps) remplace
- * celui qu'on avait (l'estimation d'avant, ou un tag) des qu'il en differe
- * de plus de 0.05 : l'ancienne estimation se trompait souvent, et la liste
- * dit maintenant le tempo que SYNC utilise.
+ * des tags n'est jamais remplace (relecture du 2026-10-08 : un 160 lu 80
+ * par l'analyse etait garde a 80, puis passe a 80 a l'analyse suivante, et
+ * la liste le montrait faux pour toujours) ; il reste le guide de chaque
+ * analyse. Seul un BPM trouve par l'analyse elle-meme (un fichier sans tag)
+ * se precise : celui de la platine, au millieme, remplace celui du fond.
  */
 export async function crateLearn(id: string, duration: number, bpm: number | null): Promise<void> {
   try {
     const e = await req<Entry | undefined>('readonly', (s) => s.get(id));
-    const better = bpm !== null && (e?.bpm === null || e?.bpm === undefined || Math.abs(e.bpm - bpm) > 0.05);
-    if (!e || (e.duration > 0 && !better)) return;
-    await req('readwrite', (s) => s.put({ ...e, duration, bpm: better ? bpm : e.bpm }));
+    if (!e) return;
+    const ours = e.bpm === null || e.bpmFrom === 'audio';
+    const better = bpm !== null && ours && (e.bpm === null || Math.abs(e.bpm - bpm) > 0.0005);
+    if (e.duration > 0 && !better) return;
+    await req('readwrite', (s) => s.put({ ...e, duration, ...(better ? { bpm, bpmFrom: 'audio' as const } : {}) }));
     changed();
   } catch {
     /* base indisponible */
@@ -420,8 +430,8 @@ async function analyze(e: Entry, ask = false): Promise<Entry> {
     // AIFF et WAV atypiques : notre decodeur prend le relais (un canal suffit au BPM)
     const snd = await decodeAudio(new OfflineAudioContext(1, 1, 22050), await raw.arrayBuffer(), true);
     // Le BPM par l'analyse entiere, dans le worker des platines (2026-10-08, dj/grid.ts) : la liste ne gele plus
-    const bpm = e.bpm ?? (await analyseGrid(snd.getChannelData(0), snd.sampleRate, null))?.bpm ?? null;
-    out = { ...e, duration: snd.duration, bpm: bpm === null ? null : Math.round(bpm * 100) / 100 };
+    const found = e.bpm === null ? ((await analyseGrid(snd.getChannelData(0), snd.sampleRate, null))?.bpm ?? null) : null;
+    out = { ...e, duration: snd.duration, ...(found !== null ? { bpm: Math.round(found * 100) / 100, bpmFrom: 'audio' as const } : {}) };
   } catch {
     out = { ...e, unreadable: true };
   }
