@@ -147,6 +147,7 @@ export class VoyagerRig {
   private preset = readPreset();
   /** un dessin de l'ecran venu trop tot (moins de 40 ms apres le precedent) : l'animateur le refait */
   private screenWait = false;
+  private waitTimer = 0;
   private bpm = 0;
   readonly cfg: ExplodeCfg;
 
@@ -436,10 +437,18 @@ export class VoyagerRig {
     this.bpm = pattern.get().bpm;
     const r = this.lcd.draw(this.screenState());
     if (r === 'wait') {
+      // Trop tot : l'animateur le refera a la prochaine image, ou ce minuteur si aucune image ne vient
       this.screenWait = true;
+      if (!this.waitTimer) {
+        this.waitTimer = window.setTimeout(() => {
+          this.waitTimer = 0;
+          if (this.screenWait) this.syncLcd();
+        }, 45);
+      }
       if (paint !== false) this.opts.repaint();
       return false;
     }
+    this.screenWait = false;
     if (r === 'drawn' && paint !== false) this.opts.repaint();
     return r === 'drawn';
   };
@@ -614,6 +623,7 @@ export class VoyagerRig {
   }
 
   dispose(): void {
+    window.clearTimeout(this.waitTimer);
     for (const u of this.unsubs) u();
     this.unsubs.length = 0;
     this.detach();

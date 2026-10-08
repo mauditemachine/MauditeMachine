@@ -206,7 +206,7 @@ export function echoValue(id: VoyKnobId, v: number, bpm: number): { value: strin
     else if (id === 'ratio') unit = `OPERATOR x ${fmRatio(v)}`;
     else if (id === 'fmode') unit = ['24 DB LOW PASS', '12 DB LOW PASS', 'BAND PASS', 'HIGH PASS'][stepIndex('fmode', v)];
     else if (id === 'lfoRate') unit = 'ONE CYCLE';
-    else if (id === 'lfoShape') unit = ['TRIANGLE', 'SAW', 'SQUARE', 'SAMPLE AND HOLD'][stepIndex('lfoShape', v)];
+    else if (id === 'lfoShape') unit = ['TRIANGLE', 'RAMP DOWN', 'SQUARE', 'RANDOM STEPS'][stepIndex('lfoShape', v)];
     else if (id === 'lfoDest') unit = 'MOD TARGET';
     else if (id === 'on1' || id === 'on2') unit = id === 'on1' ? 'OSCILLATOR 1' : 'OSCILLATOR 2';
     else if (id === 'sync') unit = stepIndex('sync', v) === 1 ? 'OSC 2 HARD SYNCED' : 'OSC 2 RUNS FREE';
@@ -508,8 +508,9 @@ export class VoyScreen {
     const rw = this.txt(ROMAN[chord], 10, ry, FS.small, INK, 700);
     this.pill(cam, 10 + rw + 5, ry, FS.tiny, false);
     const at = s.prog.indexOf(chord);
-    const where = !has ? 'NO CHORD' : at >= 0 ? `CHORD ${at + 1}/${s.prog.length}` : 'NOT IN THE PROG';
-    if (MAIN1 - ry > FS.tiny + 3) this.txt(where, 10, Math.min(MAIN1, ry + FS.tiny + 5), FS.tiny, HALF, 700);
+    const where = !has ? 'NO CHORD' : at >= 0 ? `CHORD ${at + 1}/${s.prog.length}` : 'VIEW ONLY';
+    // Coupee avant les noms des racines de l'echelle (a gauche de LAD_X0, une vingtaine d'unites)
+    if (MAIN1 - ry > FS.tiny + 3) this.txt(this.clip(where, FS.tiny, 700, LAD_X0 - 26), 10, Math.min(MAIN1, ry + FS.tiny + 5), FS.tiny, HALF, 700);
 
     // Au milieu : l'echelle des notes
     const pv = arpPreview(chord, s.values, s.steps);
@@ -658,7 +659,8 @@ export class VoyScreen {
     }
     c.globalAlpha = 1;
     // Les marques de la suite : RAND (une note tiree par pas), YOUR NOTES (la suite d'EDIT)
-    const tag = pv.random ? 'RAND' : s.seqEdit ? 'YOUR NOTES' : '';
+    // (en EDIT, l'en-tete le dit deja)
+    const tag = pv.random ? 'RAND' : s.seqEdit && !s.editing ? 'YOUR NOTES' : '';
     if (tag) this.pill(tag, x1, y0 + FS.tiny + 1, FS.tiny, false, 'right');
     this.info.ladder = pv.notes.slice(0, n).map((nt) => (nt.midi === null ? '-' : midiName(nt.midi)));
     this.info.pos = playing;

@@ -11,8 +11,10 @@
  * sequenceur (RUN/STOP du MM-VOYAGER quand on l'utilise), R ramene la vue par defaut, Echap ferme
  * la section ouverte (sinon referme la vue eclatee, sinon deselectionne
  * l'instrument). E ouvre ou ferme l'editeur (EDIT) du MM-ARP ou du
- * MM-RYTM (2026-10-04). I allume ou eteint les INFOS du MM-ARP (2026-10-08). Gauche et droite passent d'une machine a l'autre
- * (2026-10-05), sauf sur un controle qui s'en sert (encodeur, onglets).
+ * MM-RYTM (2026-10-04). I allume ou eteint les INFOS du MM-ARP
+ * (2026-10-08, la touche i de son grand ecran). Gauche et droite passent
+ * d'une machine a l'autre (2026-10-05), sauf sur un controle qui s'en sert
+ * (encodeur, onglets).
  * Rien ne part avec Alt, Ctrl ou Meta, dans un champ editable, ni sur une
  * repetition de touche. Espace est laisse au controle qui l'utilise deja
  * (bouton, lien, jumeau bouton ou lien) : il l'active, comme partout. Un
