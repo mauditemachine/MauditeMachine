@@ -406,7 +406,8 @@ export function vuLit(db: number): number {
  * pleine bande, une minute au milieu) se trompait sur 16 morceaux sur 36
  * (134.5 pour 118, 110 pour 118, 142.5 pour 128.04), et la grille calait
  * 128.04 a 128 (19 ms de derive par minute, 110 ms au bout de six). En
- * trois etages maintenant :
+ * quatre etages maintenant (36 sur 36, BPM exact, premier temps a 2 ms
+ * pres, 0.3 s pour 6 minutes) :
  * 1. le tempo : les montees de l'enveloppe des basses (les grosses caisses)
  *    sur tout le morceau, leur autocorrelation, et pour chaque tempo de 78 a
  *    180 BPM la somme de ses quatre premiers temps (un tempo faux au double,
@@ -414,13 +415,14 @@ export function vuLit(db: number): number {
  *    connu (SoundCloud, les tags) ne sert que s'il s'accorde avec le son ;
  * 2. la grille : chaque trame rangee selon sa phase dans le temps, au
  *    tempo essaye a plus ou moins 0.6 par pas de 0.02 (beatGrid d'avant) ;
- * 3. la precision : l'attaque de chaque temps cherchee pres de la grille,
+ * 3. la phase des grosses caisses parmi les doubles croches (kickPhase) ;
+ * 4. la precision : l'attaque de chaque temps cherchee pres de la grille,
  *    puis la droite des moindres carres (ponderee, les ecarts rejetes) sur
  *    tout le morceau : le BPM au millieme, le premier temps a la
  *    milliseconde. Les temps sans attaque franche (intro, break) ne
  *    comptent pas.
- * Un generateur : il rend la main souvent (dj/actions.ts le fait tourner
- * par tranches de quelques millisecondes, l'ecran ne fige pas).
+ * Un generateur : il rend la main souvent (dj/grid.worker.ts le fait
+ * tourner hors du fil principal ; sans worker, dj/actions.ts par tranches).
  */
 
 /** Trames par seconde de l'enveloppe des basses (2.5 ms). */
@@ -438,10 +440,11 @@ export interface TrackGrid {
 }
 
 /** Les montees de l'enveloppe des basses (passe-bas a un pole vers 150 Hz, en log), GRID_FPS trames par seconde. */
-function* lowOnsets(signal: Float32Array, rate: number): Generator<void, Float32Array, void> {
+function* lowOnsets(signal: Float32Array, rate: number): Generator<void, { onset: Float32Array; level: Float32Array }, void> {
   const hop = rate / GRID_FPS;
   const frames = Math.max(0, Math.floor(signal.length / hop));
   const onset = new Float32Array(frames);
+  const level = new Float32Array(frames);
   const a = 1 - Math.exp((-2 * Math.PI * 150) / rate);
   let y = 0;
   let i = 0;
@@ -457,11 +460,43 @@ function* lowOnsets(signal: Float32Array, rate: number): Generator<void, Float32
     }
     y = flush(y);
     const env = Math.log1p((1000 * e) / Math.max(1, n));
+    level[f] = e / Math.max(1, n);
     if (f > 0 && env > prev) onset[f] = env - prev;
     prev = env;
     if ((f & 4095) === 4095) yield;
   }
-  return onset;
+  return { onset, level };
+}
+
+/**
+ * La phase des grosses caisses parmi les quatre doubles croches d'un temps
+ * (2026-10-08) : une basse roulante attaque aussi fort qu'une grosse caisse
+ * dans les basses, la grille pouvait tomber sur elle (un quart de temps a
+ * cote ; 3 morceaux sur 36 quand la grosse caisse est un peu moins forte).
+ * La grosse caisse reste ce qui monte le plus : pour chaque double croche, la
+ * crete d'energie des 40 ms qui suivent moins la moyenne des 40 ms d'avant,
+ * sommee sur tout le morceau ; une autre double croche ne l'emporte que
+ * nettement (20 % de plus). Rend le decalage en trames.
+ */
+function kickPhase(level: Float32Array, a: number, b: number): number {
+  const frames = level.length;
+  const win = Math.round(0.04 * GRID_FPS);
+  const sums = [0, 0, 0, 0];
+  for (let j = 0; j < 4; j += 1) {
+    for (let c = a + (j * b) / 4; c < frames - win; c += b) {
+      const f0 = Math.round(c);
+      if (f0 < win) continue;
+      // La montee : la crete des 40 ms qui suivent moins la moyenne des 40 ms d'avant
+      let m = 0;
+      for (let f = f0; f < f0 + win; f += 1) if (level[f] > m) m = level[f];
+      let before = 0;
+      for (let f = f0 - win; f < f0; f += 1) before += level[f];
+      sums[j] += Math.max(0, m - before / win);
+    }
+  }
+  let best = 0;
+  for (let j = 1; j < 4; j += 1) if (sums[j] > sums[best]) best = j;
+  return best !== 0 && sums[best] > 1.2 * sums[0] ? (best * b) / 4 : 0;
 }
 
 /**
@@ -689,7 +724,7 @@ function refine(onset: Float32Array, a: number, b: number, win: number): { a: nu
  */
 export function* trackGridSteps(signal: Float32Array, rate: number, hint: number | null = null): Generator<void, TrackGrid | null, void> {
   if (!(rate > 0) || signal.length < rate * 8) return null;
-  const onset = yield* lowOnsets(signal, rate);
+  const { onset, level } = yield* lowOnsets(signal, rate);
   const curve = yield* tempoCurve(onset);
   if (!curve) return null;
   const top = peakOf(curve, BPM_MIN, BPM_MAX);
@@ -720,7 +755,7 @@ export function* trackGridSteps(signal: Float32Array, rate: number, hint: number
   const g = fold(onset, bpm);
   if (g.score <= 0) return null;
   // La precision : la fenetre d'un huitieme, puis d'un douzieme, puis d'un seizieme de temps, jusqu'a ce que la droite ne bouge plus
-  let a = g.at;
+  let a = g.at + kickPhase(level, g.at, (GRID_FPS * 60) / bpm);
   let b = (GRID_FPS * 60) / bpm;
   // Le pivot (trames) : un temps au milieu des attaques ; la grille finale passe par lui
   let pivot = a + Math.floor(onset.length / b / 2) * b;
@@ -759,11 +794,31 @@ export function analyseTrack(signal: Float32Array, rate: number, hint: number | 
 }
 
 /**
+ * Le signal de l'analyse : la moyenne de q echantillons, q la frequence sur
+ * 11 025 (entier) ; l'analyse n'ecoute que les basses, quatre fois moins de
+ * calcul a 44.1 kHz pour le meme resultat (mesure sur les morceaux de
+ * synthese). Toujours une copie : elle peut partir dans un worker.
+ */
+export function analysisSignal(signal: Float32Array, rate: number): { x: Float32Array; rate: number } {
+  const q = Math.max(1, Math.floor(rate / 11025));
+  if (q === 1) return { x: signal.slice(), rate };
+  const n = Math.floor(signal.length / q);
+  const x = new Float32Array(n);
+  for (let i = 0, j = 0; i < n; i += 1) {
+    let s = 0;
+    for (let k = 0; k < q; k += 1, j += 1) s += signal[j];
+    x[i] = s / q;
+  }
+  return { x, rate: rate / q };
+}
+
+/**
  * Le tempo d'un fichier sans BPM (la caisse, en fond) : l'analyse entiere,
  * au centieme (a un centieme d'un entier, l'entier).
  */
 export function estimateBpm(signal: Float32Array, rate: number): number | null {
-  const g = analyseTrack(signal, rate);
+  const s = analysisSignal(signal, rate);
+  const g = analyseTrack(s.x, s.rate);
   return g ? Math.round(g.bpm * 100) / 100 : null;
 }
 

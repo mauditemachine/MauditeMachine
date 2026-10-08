@@ -18,7 +18,7 @@ import { sc } from '../audio/soundcloud';
 import { startRing } from '../sampler/ring';
 import { NUDGE_MAX, djEngine, djEngineIfAny, type DjEngine } from './engine';
 import { crateFile, crateLearn, setCrateBusy } from './crate';
-import { phaseShift, trackGridSteps, type TrackGrid } from './math';
+import { analysisSignal, phaseShift, trackGridSteps, type TrackGrid } from './math';
 import { soundcloudBytes } from './soundcloud';
 import { DJ_WAVES, DJ_ZOOMS, djState, type DjTrack } from './state';
 import { DJ_CHANNELS, DJ_CH_NAMES, DJ_DECKS, DJ_DECKS_ALL, DJ_FX, deckChannel, djDecks, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
@@ -246,17 +246,69 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
   }
 }
 
-/** L'analyse d'un morceau, par tranches de ANALYSE_SLICE_MS ; null si un autre morceau arrive entre-temps. */
+/**
+ * L'analyse d'un morceau (dj/math.ts trackGridSteps) dans un worker
+ * (dj/grid.worker.ts) : sur le signal reduit a 11 kHz environ
+ * (analysisSignal), transfere sans copie ; la scene et l'autre platine ne
+ * sautent aucune image. Sans worker (ou s'il plante) : sur le fil principal,
+ * par tranches de ANALYSE_SLICE_MS. null si un autre morceau arrive
+ * entre-temps.
+ */
 const ANALYSE_SLICE_MS = 12;
+let gridWorker: Worker | null | undefined;
+let gridJob = 0;
+/** les analyses en cours dans le worker : leur reponse (undefined : le worker a plante) */
+const gridWaiting = new Map<number, (g: TrackGrid | null | undefined) => void>();
+/** La duree de la derniere analyse (ms, le calcul seul ; le debug, les tests). */
+let lastAnalyseMs = 0;
+export const djAnalyseMs = (): number => lastAnalyseMs;
+
+function getGridWorker(): Worker | null {
+  if (gridWorker !== undefined) return gridWorker;
+  try {
+    const w = new Worker(new URL('./grid.worker.ts', import.meta.url), { type: 'module' });
+    w.onmessage = (m: MessageEvent<{ id: number; grid: TrackGrid | null; ms: number }>) => {
+      lastAnalyseMs = m.data.ms;
+      gridWaiting.get(m.data.id)?.(m.data.grid);
+      gridWaiting.delete(m.data.id);
+    };
+    w.onerror = () => {
+      w.terminate();
+      gridWorker = null;
+      for (const done of gridWaiting.values()) done(undefined);
+      gridWaiting.clear();
+    };
+    gridWorker = w;
+  } catch {
+    gridWorker = null;
+  }
+  return gridWorker;
+}
+
 async function analyse(signal: Float32Array, rate: number, hint: number | null, abort: AbortSignal): Promise<TrackGrid | null> {
-  const it = trackGridSteps(signal, rate, hint);
+  const s = analysisSignal(signal, rate);
+  const w = getGridWorker();
+  if (w) {
+    const id = ++gridJob;
+    const grid = await new Promise<TrackGrid | null | undefined>((done) => {
+      gridWaiting.set(id, done);
+      w.postMessage({ id, x: s.x, rate: s.rate, hint }, [s.x.buffer]);
+    });
+    if (abort.aborted) return null;
+    if (grid !== undefined) return grid;
+    // Le worker a plante : le signal est parti avec lui, on le refait sur le fil principal
+    return analyse(signal, rate, hint, abort);
+  }
+  const t0 = performance.now();
+  const it = trackGridSteps(s.x, s.rate, hint);
   let r = it.next();
   while (!r.done) {
     await new Promise<void>((done) => window.setTimeout(done, 0));
     if (abort.aborted) return null;
-    const t0 = performance.now();
-    while (!r.done && performance.now() - t0 < ANALYSE_SLICE_MS) r = it.next();
+    const t1 = performance.now();
+    while (!r.done && performance.now() - t1 < ANALYSE_SLICE_MS) r = it.next();
   }
+  lastAnalyseMs = performance.now() - t0;
   return r.value;
 }
 
