@@ -14,16 +14,26 @@
  *   de retour), calcule deux fois plus vite que le contexte ; RESO va
  *   jusqu'au bord de l'auto-oscillation ;
  * - l'enveloppe du filtre (MEG) : attaque immediate, DECAY ; une note
- *   accentuee a sa decroissance courte et fixe, plus de profondeur, et le
- *   circuit d'accent de la 303 : une charge qui s'accumule d'un accent a
- *   l'autre (le "wow"), plus lente avec la resonance ;
- * - le VCA : tenu tant que la note l'est, un relachement court ; l'accent
- *   pousse aussi le volume ;
- * - DRIVE apres le filtre ; le SUB, un sinus une octave sous la note, ajoute
- *   propre apres (il ne passe ni par le filtre ni par DRIVE : des basses
- *   pleines a toute resonance).
+ *   accentuee a sa decroissance courte et fixe (ACC DECAY), plus de
+ *   profondeur, et le circuit d'accent de la 303 : une charge qui s'accumule
+ *   d'un accent a l'autre (le "wow", jusqu'a SWEEP octaves), plus lente avec
+ *   la resonance ;
+ * - le VCA : tenu tant que la note l'est, un relachement court (RELEASE) ;
+ *   l'accent pousse aussi le volume ;
+ * - DRIVE apres le filtre ; le SUB, un sinus une octave sous la note (ou
+ *   deux : SUB OCT), ajoute propre apres (il ne passe ni par le filtre ni par
+ *   DRIVE : des basses pleines a toute resonance) ; TUNE accorde les deux.
+ *
+ * Les reglages fins sous le capot (2026-10-08, la refonte facon Monark) :
+ * ACC DECAY, SWEEP, RELEASE, SUB OCT, TUNE etaient des constantes ; memes
+ * lois que bass/params.ts, et leurs defauts redonnent exactement les
+ * anciennes constantes (un message sans eux : le son d'avant). Un verrou de
+ * DECAY sur un pas accentue l'emporte sur ACC DECAY (avant, l'accent
+ * l'ignorait : le verrou ne faisait rien) ; sur une liaison ou une note
+ * glissee, il change la decroissance de l'enveloppe qui continue.
  * port, du fil principal :
- *   { type: 'params', p }              CUTOFF, RESO, ENVMOD, DECAY, ACCENT, WAVE, SUB, DRIVE, GLIDE, VOLUME (0 a 1)
+ *   { type: 'params', p }              CUTOFF, RESO, ENVMOD, DECAY, ACCENT, WAVE, SUB, DRIVE, GLIDE, VOLUME,
+ *                                      ACCDECAY, SWEEP, RELEASE, SUBOCT, TUNE (0 a 1)
  *   { type: 'on', at, midi, acc, legato, lock }  une note a l'heure at du contexte (0 : tout de suite) ; legato :
  *                                      glisse depuis la note tenue, sans relancer les enveloppes ; lock : les
  *                                      verrous de son pas (2026-10-07, les parameter locks), null : les potards
@@ -145,6 +155,8 @@ function blep(t, dt) {
 }
 
 const expMap = (v, lo, hi) => lo * Math.pow(hi / lo, Math.min(1, Math.max(0, v)));
+/** Des ms en secondes, a la microseconde pres (le defaut retombe pile sur l'ancienne constante : 0.2, 0.014). */
+const msToS = (ms) => Math.round(ms * 1000) / 1e6;
 
 /** tanh, approche rationnelle (assez juste pour une saturation, bien moins chere). */
 function fastTanh(x) {
@@ -159,8 +171,25 @@ class MMBass extends AudioWorkletProcessor {
     super();
     this.R = sampleRate * OS;
     this.ladder = new TeeBee(this.R);
-    // Les potards (base) ; les verrous du pas qui joue par-dessus (lock) ; p : ce qui sonne
-    this.base = { cutoff: 0.35, reso: 0.55, envmod: 0.55, decay: 0.45, accent: 0.6, wave: 0, sub: 0.35, drive: 0.15, glide: 0.35, volume: 0.8 };
+    // Les potards (base) ; les verrous du pas qui joue par-dessus (lock) ; p : ce qui sonne.
+    // Les reglages fins (2026-10-08) : leurs defauts, ceux de bass/params.ts (200 ms, 2.2 octaves, 14 ms, -1, 0 cent)
+    this.base = {
+      cutoff: 0.35,
+      reso: 0.55,
+      envmod: 0.55,
+      decay: 0.45,
+      accent: 0.6,
+      wave: 0,
+      sub: 0.35,
+      drive: 0.15,
+      glide: 0.35,
+      volume: 0.8,
+      accdecay: Math.log(200 / 80) / Math.log(600 / 80),
+      sweep: 0.55,
+      release: Math.log(14 / 6) / Math.log(400 / 6),
+      suboct: 0,
+      tune: 0.5,
+    };
     this.lock = null;
     this.p = { ...this.base };
     this.derive();
@@ -200,6 +229,13 @@ class MMBass extends AudioWorkletProcessor {
     this.drive = 1 + 14 * p.drive * p.drive;
     // Le volume tenu a peu pres constant quand DRIVE monte (mesure hors ligne)
     this.driveNorm = 1 / Math.pow(this.drive, 0.45);
+    // ACC DECAY : 80 a 600 ms ; SWEEP : la charge des accents, 0 a 4 octaves ; RELEASE : 6 a 400 ms
+    this.accDecayS = msToS(expMap(p.accdecay, 80, 600));
+    this.sweepOct = 4 * Math.min(1, Math.max(0, p.sweep));
+    this.releaseS = msToS(expMap(p.release, 6, 400));
+    // SUB OCT : le sinus une octave sous la note (0.5) ou deux (0.25) ; TUNE : -50 a +50 cents (en log)
+    this.subMul = p.suboct >= 0.5 ? 0.25 : 0.5;
+    this.tuneLog = ((Math.min(1, Math.max(0, p.tune)) - 0.5) * 100 * Math.LN2) / 1200;
   }
 
   /** Les potards, puis les verrous du pas qui joue. */
@@ -244,16 +280,23 @@ class MMBass extends AudioWorkletProcessor {
       this.lock = ev.lock;
       this.mix();
     }
-    if (ev.type === 'lock') return;
+    // Un verrou de DECAY sur ce pas (2026-10-08) : il l'emporte, accent ou pas
+    const lockedDecay = !!ev.lock && typeof ev.lock.decay === 'number';
+    if (ev.type === 'lock') {
+      // Une liaison verrouillee : l'enveloppe qui continue prend sa decroissance
+      if (lockedDecay) this.envTau = this.decayS;
+      return;
+    }
     const target = Math.log(440 * Math.pow(2, (ev.midi - 69) / 12));
     const legato = ev.legato && this.gate;
     this.logT = target;
     this.midi = ev.midi;
     this.acc = ev.acc ? this.accAmt : 0;
     if (legato) {
-      // Glisse : la hauteur part vers la note, les enveloppes continuent
+      // Glisse : la hauteur part vers la note, les enveloppes continuent (un verrou de DECAY : comme une liaison)
       this.glideOn = true;
       this.dirty = true;
+      if (lockedDecay) this.envTau = this.decayS;
       return;
     }
     this.glideOn = false;
@@ -261,9 +304,9 @@ class MMBass extends AudioWorkletProcessor {
     this.logF = target;
     this.gate = true;
     this.quick = false;
-    // L'enveloppe du filtre repart ; une note accentuee : courte et fixe (la 303)
+    // L'enveloppe du filtre repart ; une note accentuee : courte et fixe (la 303 : ACC DECAY), sauf un verrou de DECAY
     this.env = 1;
-    this.envTau = ev.acc ? 0.2 : this.decayS;
+    this.envTau = ev.acc && !lockedDecay ? this.accDecayS : this.decayS;
     if (ev.acc) this.accEnv = 1;
   }
 
@@ -277,12 +320,12 @@ class MMBass extends AudioWorkletProcessor {
     const steps = CTRL * OS;
     const kGlide = 1 - Math.exp(-steps / (this.glideS * R));
     const kEnv = Math.exp(-steps / (this.envTau * R));
-    const kAccEnv = Math.exp(-steps / (0.2 * R));
+    const kAccEnv = Math.exp(-steps / (this.accDecayS * R));
     // Le circuit d'accent : plus lent avec la resonance (la charge s'accumule d'un accent a l'autre)
     const kSweep = 1 - Math.exp(-steps / ((0.03 + 0.12 * this.p.reso) * R));
-    // Le VCA, a chaque echantillon du contexte
+    // Le VCA, a chaque echantillon du contexte (RELEASE ; STOP : 6 ms, plus vite)
     const kAtt = 1 - Math.exp(-1 / (0.0025 * sampleRate));
-    const kRel = 1 - Math.exp(-1 / ((this.quick ? 0.006 : 0.014) * sampleRate));
+    const kRel = 1 - Math.exp(-1 / ((this.quick ? 0.006 : this.releaseS) * sampleRate));
     // Le niveau (2026-10-07, Mika : "le kick est la reference ; mon sub bassline, je le mets 2 dB sous lui") :
     // le SUB prend la place de l'oscillateur au lieu de s'y ajouter (la crete bouge peu quand il monte), et
     // VOLUME par defaut crete vers -6 dBFS, 2 dB sous le kick du MM-RYTM (mesure hors ligne)
@@ -309,12 +352,12 @@ class MMBass extends AudioWorkletProcessor {
         this.dirty = false;
         // La hauteur (glisse en log), les enveloppes, la coupure
         if (this.glideOn) this.logF += (this.logT - this.logF) * kGlide;
-        dt = Math.min(0.45, Math.exp(this.logF) / R);
+        dt = Math.min(0.45, Math.exp(this.logF + this.tuneLog) / R);
         this.env *= kEnv;
         this.accEnv *= kAccEnv;
         this.accSweep += (this.accEnv * this.acc - this.accSweep) * kSweep;
         const depth = this.envOct * (1 + 0.6 * this.acc);
-        let fc = this.cutBase * Math.exp((depth * this.env + 2.2 * this.accSweep) * Math.LN2);
+        let fc = this.cutBase * Math.exp((depth * this.env + this.sweepOct * this.accSweep) * Math.LN2);
         if (fc > R * 0.42) fc = R * 0.42;
         if (fc < 20) fc = 20;
         ladder.set(fc, this.res);
@@ -335,8 +378,8 @@ class MMBass extends AudioWorkletProcessor {
         if (drive > 1.001) y = fastTanh(y * drive) * dNorm;
         acc += y;
       }
-      // Le SUB : un sinus une octave dessous, propre (a la cadence du contexte)
-      this.subPhase += dt * OS * 0.5;
+      // Le SUB : un sinus une octave dessous (ou deux : SUB OCT), propre (a la cadence du contexte)
+      this.subPhase += dt * OS * this.subMul;
       if (this.subPhase >= 1) this.subPhase -= 1;
       this.vca += ((this.gate ? 1 : 0) - this.vca) * (this.gate ? kAtt : kRel);
       let v = ((acc / OS) * oscK + sin(TWO_PI * this.subPhase) * sub) * this.vca * gainAcc * vol;

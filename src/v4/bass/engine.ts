@@ -25,9 +25,34 @@ let moduleCtx: BaseAudioContext | null = null;
 const live = { cut: 0, env: 0, gate: false, midi: -1, peak: 0, at: 0 };
 const liveListeners = new Set<() => void>();
 
+/** Les reglages du worklet ; les reglages fins de la voix aussi (2026-10-08 ; LENGTH n'en est pas un : la duree des notes, seq.ts). */
 function params(): Record<string, number> {
   const v = bassParams.get();
-  return { cutoff: v.cutoff, reso: v.reso, envmod: v.envmod, decay: v.decay, accent: v.accent, wave: v.wave, sub: v.sub, drive: v.drive, glide: v.glide, volume: v.volume };
+  return {
+    cutoff: v.cutoff,
+    reso: v.reso,
+    envmod: v.envmod,
+    decay: v.decay,
+    accent: v.accent,
+    wave: v.wave,
+    sub: v.sub,
+    drive: v.drive,
+    glide: v.glide,
+    volume: v.volume,
+    accdecay: v.accdecay,
+    sweep: v.sweep,
+    release: v.release,
+    suboct: v.suboct,
+    tune: v.tune,
+  };
+}
+
+/** Les verrous du son d'un pas, sans LENGTH (la duree de sa note, seq.ts) : null s'il n'en reste aucun. */
+export function soundLocks(l: BassLocks | null | undefined): BassLocks | null {
+  if (!l) return null;
+  if (l.length === undefined) return l;
+  const { length: _len, ...rest } = l;
+  return Object.keys(rest).length ? rest : null;
 }
 
 function ensure(): Promise<Graph | null> {
@@ -77,11 +102,11 @@ export const bassEngine = {
   ensure,
   /** Une note a l'heure at du contexte (0 : tout de suite) ; legato : elle glisse depuis la note tenue ; lock : les verrous de son pas. */
   on(midi: number, acc: boolean, legato: boolean, at = 0, lock: BassLocks | null = null): void {
-    send({ type: 'on', at, midi, acc, legato, lock });
+    send({ type: 'on', at, midi, acc, legato, lock: soundLocks(lock) });
   },
   /** Les verrous d'une liaison a l'heure at (la note continue). */
   lock(at: number, lock: BassLocks | null): void {
-    send({ type: 'lock', at, lock }, false);
+    send({ type: 'lock', at, lock: soundLocks(lock) }, false);
   },
   off(at = 0): void {
     send({ type: 'off', at }, false);

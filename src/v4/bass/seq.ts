@@ -19,6 +19,13 @@
  * avant elle) ; une liaison verrouillee change le son de la note qui
  * continue. Le premier pas de chaque mesure previent les patterns (EDIT :
  * la ligne suivante de la chaine, ou celle qui attend, est posee avant lui).
+ *
+ * LENGTH (2026-10-08, sous le capot) : la duree d'une note en part du pas,
+ * AUTO (0) : celle du style comme avant ; un verrou LENGTH du pas l'emporte
+ * sur le potard (0 : AUTO). Le pas ou la note se relache decide (le dernier
+ * d'une liaison). Une note qui irait jusqu'au pas suivant (100 %, ou le
+ * swing qui retarde un pas impair) reste tenue et se relache a l'heure de ce
+ * pas : son relachement ne coupe plus la note d'apres.
  */
 
 import { clock } from '../audio/clock';
@@ -28,8 +35,8 @@ import { DROP_AFTER_S, GUARD_S, TICK_MS, askReschedule, horizon, registerSchedul
 import { SWING } from '../theme';
 import { arp } from '../voyager/arp';
 import { CHORDS } from '../voyager/chords';
-import { bassEngine } from './engine';
-import { BASS_SCALES, BASS_STYLES, SCALE_TONES, bassParams, stepOf } from './params';
+import { bassEngine, soundLocks } from './engine';
+import { BASS_SCALES, BASS_STYLES, SCALE_TONES, bassParams, lengthPct, stepOf } from './params';
 import { bassPatterns } from './patterns';
 import { BASS_STEPS, bassState, type BassStep } from './state';
 
@@ -55,6 +62,13 @@ const GATE: Readonly<Record<(typeof BASS_STYLES)[number], number>> = {
   ITALO: 0.4,
   SUB: 0.92,
 };
+
+/** La duree de la note d'un pas (s) : son verrou LENGTH, sinon le potard ; AUTO : celle du style. */
+function gateOf(s: BassStep, dur: number): number {
+  const l = lengthPct(s.locks?.length ?? bassParams.of('length'));
+  if (l === null) return GATE[BASS_STYLES[stepOf('style', bassParams.of('style'))]] * dur;
+  return (l / 100) * dur;
+}
 
 /** Le degre de la gamme le plus proche sous un intervalle (pour suivre une racine d'accord). */
 function degreeOf(semis: number, tones: readonly number[]): number {
@@ -108,6 +122,16 @@ function gridOf(t: number): { time: number; step: number; dur: number } | null {
   return clock.gridAfter(t) ?? arp.grid(t);
 }
 
+/** Le relachement d'une note a when + gate ; s'il atteint le pas suivant (a 1 ms pres), la note reste tenue : ce pas la relache a son heure. */
+function endNote(when: number, gate: number): void {
+  const swing = pattern.fx.get().swing * SWING.maxDelay * stepDur;
+  const nextWhen = nextTime + stepDur + (((stepIdx + 1) & 1) === 1 ? swing : 0);
+  if (when + gate < nextWhen - 0.001) {
+    bassEngine.off(when + gate);
+    holding = false;
+  }
+}
+
 function scheduleStep(): void {
   const when = nextTime + ((stepIdx & 1) === 1 ? pattern.fx.get().swing * SWING.maxDelay * stepDur : 0);
   ring.push({ when, step: stepIdx });
@@ -122,8 +146,6 @@ function scheduleStep(): void {
   const s = steps[stepIdx];
   const next = steps[(stepIdx + 1) % BASS_STEPS];
   const prev = steps[(stepIdx + BASS_STEPS - 1) % BASS_STEPS];
-  const style = BASS_STYLES[stepOf('style', bassParams.of('style'))];
-  const gate = GATE[style] * stepDur;
   if (s.kind === 'off') {
     if (holding) bassEngine.off(when);
     holding = false;
@@ -132,11 +154,10 @@ function scheduleStep(): void {
   if (s.kind === 'tie') {
     // La note d'avant continue ; rien a tenir : un silence
     if (!holding) return;
-    if (s.locks) bassEngine.lock(when, s.locks);
-    if (next.kind !== 'tie' && !(s.slide && next.kind === 'note')) {
-      bassEngine.off(when + gate);
-      holding = false;
-    }
+    // Ses verrous du son (un verrou LENGTH seul ne change pas le son de la note qui continue)
+    const lk = soundLocks(s.locks);
+    if (lk) bassEngine.lock(when, lk);
+    if (next.kind !== 'tie' && !(s.slide && next.kind === 'note')) endNote(when, gateOf(s, stepDur));
     return;
   }
   // Une note : glissee depuis la precedente si celle-ci avait SLIDE (ou une liaison qui glisse)
@@ -145,10 +166,7 @@ function scheduleStep(): void {
   bassEngine.on(midiOf(s, when), s.acc, legato, when, s.locks ?? null);
   holding = true;
   const held = (s.slide && next.kind === 'note') || next.kind === 'tie';
-  if (!held) {
-    bassEngine.off(when + gate);
-    holding = false;
-  }
+  if (!held) endNote(when, gateOf(s, stepDur));
 }
 
 function advance(): void {
@@ -228,7 +246,7 @@ bassState.subscribe(() => {
 let pitchKey = '';
 bassParams.subscribe(() => {
   const v = bassParams.get();
-  const k = `${v.root}|${v.scale}|${v.octave}|${v.style}`;
+  const k = `${v.root}|${v.scale}|${v.octave}|${v.style}|${v.length}`;
   if (k === pitchKey) return;
   pitchKey = k;
   ask();

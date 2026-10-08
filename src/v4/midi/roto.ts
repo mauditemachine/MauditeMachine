@@ -449,6 +449,9 @@ function buildSetups(): RotoSetup[] {
    * MM-SMPL parti) ; page 1 le filtre de la TB-303 et RUN, GEN, MUTATE,
    * page 2 la voix et le generateur (les pas 1 a 8 dessous), page 3 la
    * gamme (les pas 9 a 16), page 4 les touches du pas choisi, LOCK et EDIT.
+   * Les reglages fins sous le capot (2026-10-08) finissent la page 3 :
+   * LENGTH, ACC DECAY, SWEEP, RELEASE, TUNE (SUB OCT, deux crans, reste au
+   * capot) ; les potards 1 a 19 ne bougent pas (les mappings de Mika).
    */
   const BASS: RotoSetup = {
     name: 'BASS',
@@ -477,11 +480,12 @@ function buildSetups(): RotoSetup[] {
       bs('root', 'ROOT', C.cyan),
       bs('scale', 'SCALE', C.cyan),
       k('rytm:enc:swing', 'SWING', C.white),
-      null,
-      null,
-      null,
-      null,
-      null,
+      // 3 (suite) : les reglages fins de la voix, comme leurs voisins de la page 1 et 2
+      bs('length', 'LENGTH', C.gold),
+      bs('accdecay', 'ACC DECAY', C.red),
+      bs('sweep', 'SWEEP', C.red),
+      bs('release', 'RELEASE', C.gold),
+      bs('tune', 'TUNE', C.gold),
     ],
     buttons: [
       // 1 : jouer
