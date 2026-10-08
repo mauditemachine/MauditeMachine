@@ -794,13 +794,13 @@ export function djSynced(d: DjDeck, s = djState.get()): boolean {
  * de phase de chaque platine calee (SYNC, ou suivie par les machines) avec
  * sa reference ; au-dela de 4 ms, la platine accelere ou freine de 0.3 % au
  * plus (cinq centiemes de demi-ton, inaudible) le temps de combler l'ecart,
- * un temps au plus. Jamais de saut en lecture (un saut s'entend). Au-dela
+ * un temps au plus a chaque mesure, jusqu'a 1 ms d'ecart. Jamais de saut en lecture (un saut s'entend). Au-dela
  * d'un huitieme de temps, rien d'automatique : la grille est fausse, le jog
  * ou BEND corrigent. Un nudge a la main (jog, BEND) est respecte : l'ecart
  * laisse par la main devient celui que le verrou garde, jusqu'au prochain
  * SYNC, PLAY ou saut cale.
  */
-const LOCK = { everyMs: 250, deadS: 0.004, seekAboveS: 0.02 } as const;
+const LOCK = { everyMs: 250, startS: 0.004, settleS: 0.001, seekAboveS: 0.02 } as const;
 const each = <T>(v: T): Record<DjDeck, T> => ({ a: v, b: v, c: v, d: v });
 /** l'ecart garde (s, positif : en retard), pose par la main */
 const keep = each(0);
@@ -809,6 +809,8 @@ const touching = each(false);
 /** la main vient de lacher : l'ecart du moment devient celui qu'on garde */
 const recapture = new Set<DjDeck>();
 const nudgeEnd = each(0);
+/** le rattrapage est lance (au-dela de 4 ms) : il continue jusqu'a 1 ms d'ecart, sans osciller autour du seuil */
+const locking = each(false);
 
 /** Un ecart ramene dans une demi-periode. */
 function wrapPhase(x: number, period: number): number {
@@ -822,10 +824,11 @@ function wrapPhase(x: number, period: number): number {
 function rearm(d: DjDeck, e: DjEngine): void {
   keep[d] = 0;
   recapture.delete(d);
-  stopNudge(d, e);
+  stopNudge(d, e, true);
 }
 
-function stopNudge(d: DjDeck, e: DjEngine): void {
+function stopNudge(d: DjDeck, e: DjEngine, done = false): void {
+  if (done) locking[d] = false;
   window.clearTimeout(nudgeEnd[d]);
   if (e.decks[d].nudging !== 0) e.decks[d].nudge(0);
   e.sync.nudge[d] = 0;
@@ -840,7 +843,7 @@ function phaseLock(e: DjEngine): void {
     const own = p.playing && ds.sync && ds.loaded ? deckBeat(d, e, s, undefined, t) : null;
     const ref = own ? refBeat(d, e, s, t) : null;
     if (!own || !ref) {
-      stopNudge(d, e);
+      stopNudge(d, e, true);
       e.sync.errMs[d] = null;
       continue;
     }
@@ -848,7 +851,7 @@ function phaseLock(e: DjEngine): void {
     const raw = phaseShift(own.in, own.period, ref.in, ref.period);
     if (touching[d] || p.bending) {
       // La main tient la platine : on la laisse faire, on retiendra l'ecart qu'elle laisse
-      stopNudge(d, e);
+      stopNudge(d, e, true);
       recapture.add(d);
       e.sync.errMs[d] = wrapPhase(raw - keep[d], period) * 1000;
       continue;
@@ -857,7 +860,9 @@ function phaseLock(e: DjEngine): void {
     e.sync.keepMs[d] = keep[d] * 1000;
     const err = wrapPhase(raw - keep[d], period);
     e.sync.errMs[d] = err * 1000;
-    if (Math.abs(err) <= LOCK.deadS || Math.abs(err) > period / 8) {
+    if (Math.abs(err) > LOCK.startS) locking[d] = true;
+    if (Math.abs(err) <= LOCK.settleS || Math.abs(err) > period / 8) locking[d] = false;
+    if (!locking[d]) {
       stopNudge(d, e);
       continue;
     }
