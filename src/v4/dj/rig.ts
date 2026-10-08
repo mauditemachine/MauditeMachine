@@ -405,7 +405,9 @@ export class DjRig {
       const angle = pos * 2 * Math.PI * (100 / 3 / 60);
       // SYNC : cale (orange), calable (os), ou rien a suivre (pale)
       const sync: DjSyncLight = !ds.loaded || !t?.bpm || syncBpm(d, s) === null ? 'off' : djSynced(d, s) ? 'on' : 'ready';
-      if (this.screens.setJog(d, dur > 0 ? pos / dur : 0, angle, ds.loaded, sync)) changed = true;
+      // L'ecart de phase, sous SYNC, tant que le verrou le mesure (dj/actions.ts phaseLock)
+      const phase = ds.playing && ds.sync ? (djEngineIfAny()?.sync.errMs[d] ?? null) : null;
+      if (this.screens.setJog(d, dur > 0 ? pos / dur : 0, angle, ds.loaded, sync, phase)) changed = true;
     }
     const fx = this.lastFx;
     // FX TO tourne : la voie visee ; sinon l'effet tourne, et au repos la voie visee si ce n'est pas toutes
