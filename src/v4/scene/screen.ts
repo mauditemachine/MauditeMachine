@@ -162,15 +162,19 @@ const MATRIX = { x0: 8, pitch: 76, w: 72, h: 37, rows: [24, 63], r: 3.5 } as con
 const BLOCK = {
   padX: 5,
   nameDy: 9,
-  nameSize: 6.5,
-  letterSize: 5.5,
   valueDy: 27.5,
-  valueSizes: [16, 13, 11, 9],
   /** la largeur de la valeur avant l'image */
   valueW: 34,
   unitDy: 34,
-  unitSize: 5.5,
   draw: { dx0: 42, dx1: 67, dy0: 13, dy1: 29 },
+} as const;
+/**
+ * Les corps des blocs : au telephone un peu plus gros (l'ecran y fait 230 px
+ * de large : le nom et l'unite a 6.5 et 5.5 n'y faisaient pas 5 px).
+ */
+const BLOCK_TYPE = {
+  desk: { nameSize: 6.5, letterSize: 5.5, unitSize: 5.5, valueSizes: [16, 13, 11, 9], tabSize: 6 },
+  phone: { nameSize: 8, letterSize: 6.5, unitSize: 6.5, valueSizes: [17, 14, 12, 10], tabSize: 7.5 },
 } as const;
 const PAGE_HEAD = { y: 15, iconX: 10, pillX: 23, pillY: 5.5, pillH: 12, pillSize: 7.5, right: 312, rule: 21 } as const;
 /** Les seize pas du pied (a gauche) et le reste du pied (a droite). */
@@ -209,6 +213,8 @@ export class Screen {
   private lastCur = -1;
   private activeAt = performance.now();
   private scale: number;
+  /** les corps des blocs de la vue PAGE (le telephone : plus gros) */
+  private bt: (typeof BLOCK_TYPE)[keyof typeof BLOCK_TYPE];
 
   constructor(
     anisotropy: number,
@@ -220,6 +226,7 @@ export class Screen {
     const W = mobile ? 1024 : 1280;
     const H = Math.round((W * UH) / UW);
     this.scale = W / UW;
+    this.bt = mobile ? BLOCK_TYPE.phone : BLOCK_TYPE.desk;
     this.info = { draws: 0, text: ['', '', ''], lastDrawAt: -Infinity, minGapMs: Infinity, font: 'vector op-1', size: [W, H], view: 'home', page: rytmPage.get().page, blocks: [], echo: -1 };
     this.canvas = document.createElement('canvas');
     this.canvas.width = W;
@@ -970,11 +977,12 @@ export class Screen {
       const by = M.rows[b.k >> 2];
       const alive = b.state === 'live';
       this.roundRect(bx + 0.5, by + 0.5, M.w - 1, M.h - 1, M.r, null, b.echo ? INK : alive ? FRAME : FRAME_DIM, b.echo ? 1.1 : 0.7);
-      this.text(b.label, bx + B.padX, by + B.nameDy, B.nameSize, alive ? HALF : FAINT, 700, 'left', 0.7);
-      this.text(PAGE_KNOB_LETTERS[b.k], bx + M.w - B.padX, by + B.nameDy, B.letterSize, b.echo ? HALF : FAINT, 700, 'right');
+      const T = this.bt;
+      this.text(this.fitText(b.label, M.w - 2 * B.padX - 8, T.nameSize, 0.7, 700), bx + B.padX, by + B.nameDy, T.nameSize, alive ? HALF : FAINT, 700, 'left', 0.7);
+      this.text(PAGE_KNOB_LETTERS[b.k], bx + M.w - B.padX, by + B.nameDy, T.letterSize, b.echo ? HALF : FAINT, 700, 'right');
       if (!alive) {
-        this.text('--', bx + B.padX, by + B.valueDy, B.valueSizes[1], FAINT, 300);
-        if (b.unit) this.text(b.unit, bx + B.padX, by + B.unitDy, B.unitSize, FAINT, 600, 'left', 0.4);
+        this.text('--', bx + B.padX, by + B.valueDy, T.valueSizes[1], FAINT, 300);
+        if (b.unit) this.text(b.unit, bx + B.padX, by + B.unitDy, T.unitSize, FAINT, 600, 'left', 0.4);
         continue;
       }
       const tag = b.noBd ? 'NO BD' : b.all ? 'ALL' : '';
@@ -982,9 +990,9 @@ export class Screen {
       const v = this.fitValue(b.text, stepped ? M.w - 2 * B.padX : B.valueW);
       this.text(v.text, bx + B.padX, by + B.valueDy, v.size, INK, 300);
       // La ligne d'unite, et l'etiquette ALL / NO BD au bout
-      const tw = tag ? this.text(tag, bx + M.w - B.padX, by + B.unitDy, B.unitSize, FAINT, 700, 'right', 0.5) + 4 : 0;
+      const tw = tag ? this.text(tag, bx + M.w - B.padX, by + B.unitDy, T.unitSize, FAINT, 700, 'right', 0.5) + 4 : 0;
       const unitW = M.w - 2 * B.padX - tw - (stepped ? 26 : 0);
-      if (b.unit) this.text(this.fitText(b.unit, unitW, B.unitSize), bx + B.padX, by + B.unitDy, B.unitSize, HALF, 600, 'left', 0.4);
+      if (b.unit) this.text(this.fitText(b.unit, unitW, T.unitSize), bx + B.padX, by + B.unitDy, T.unitSize, HALF, 600, 'left', 0.4);
       if (stepped) {
         // Un reglage a crans : ses crans en ligne au bout de la ligne d'unite ; a deux crans (GATE), un interrupteur
         const nr: Rect = { x0: bx + M.w - B.padX - 22, y0: by + B.unitDy - 4, x1: bx + M.w - B.padX - 1, y1: by + B.unitDy };
@@ -1117,10 +1125,11 @@ export class Screen {
     RYTM_PAGES.forEach((p, i) => {
       const cx = x0 + cw * (i + 0.5);
       if (p.id === page) {
-        const w = this.textWidth(p.label, 6, 700, 0.7) + 8;
-        this.roundRect(cx - w / 2, y - 7.6, w, 10, 2, INK);
-        this.text(p.label, cx, y, 6, BLACK, 700, 'center', 0.7);
-      } else this.text(p.label, cx, y, 6, FAINT, 700, 'center', 0.7);
+        const ts = this.bt.tabSize;
+        const w = this.textWidth(p.label, ts, 700, 0.7) + 8;
+        this.roundRect(cx - w / 2, y - ts - 1.6, w, ts + 4, 2, INK);
+        this.text(p.label, cx, y, ts, BLACK, 700, 'center', 0.7);
+      } else this.text(p.label, cx, y, this.bt.tabSize, FAINT, 700, 'center', 0.7);
     });
   }
 
@@ -1134,8 +1143,9 @@ export class Screen {
 
   /** La valeur d'un bloc dans sa largeur : 16, sinon 13, 11 puis 9 et coupee. */
   private fitValue(s: string, maxW: number): { text: string; size: number } {
-    for (const size of BLOCK.valueSizes) if (this.textWidth(s, size, 300) <= maxW) return { text: s, size };
-    const size = BLOCK.valueSizes[BLOCK.valueSizes.length - 1];
+    const sizes = this.bt.valueSizes;
+    for (const size of sizes) if (this.textWidth(s, size, 300) <= maxW) return { text: s, size };
+    const size = sizes[sizes.length - 1];
     let n = s.length - 1;
     while (n > 1 && this.textWidth(fit(s, n), size, 300) > maxW) n -= 1;
     return { text: fit(s, n), size };
