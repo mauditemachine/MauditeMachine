@@ -110,8 +110,8 @@ export const RYTM_TWEAK_LAYOUT: RytmTweakLayout = PORTRAIT
           { title: 'SNARE', x0: -4.95, z0: B - 0.62, x1: -0.2, z1: B + 0.52 },
           { title: 'VOICES', x0: 0.2, z0: B - 0.62, x1: 4.95, z1: B + 0.52 },
         ],
-        title: { x0: 2.7, z0: A - 0.62, x1: 4.95, z1: A + 0.12, name: 'MM-RYTM', sub: 'DRUM VOICES', rev: 'REV 1.0' },
-        close: { x: 4.95 - 0.47, z: A + 0.36, w: 0.94, d: 0.25, y: 0.01 },
+        title: { x0: 2.7, z0: A - 0.62, x1: 4.95, z1: A - 0.05, name: 'MM-RYTM', sub: 'DRUM VOICES', rev: 'REV 1.0' },
+        close: { x: 4.95 - 0.47, z: A + 0.2, w: 0.94, d: 0.25, y: 0.01 },
       };
     })();
 

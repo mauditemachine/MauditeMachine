@@ -7,6 +7,9 @@
  * MM-BASS (sous son titre, a droite d'INFOS, 2026-10-08) ; elle
  * suit la camera (ui/MachineKey.tsx), apparait une fois la machine ouverte et
  * part des que la fermeture commence. Au telephone : ui/PcbClose.tsx.
+ * 2026-10-08 (Mika : "avoir de la finesse design ici") : plus de dalle
+ * orange, une touche fine posee sur la carte sous le cartouche des TWEAKS,
+ * son filet et sa LED orange allumee (v4.css .v4-close-key).
  */
 
 import React, { useSyncExternalStore } from 'react';

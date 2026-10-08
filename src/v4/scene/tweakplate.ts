@@ -75,7 +75,7 @@ type Ctx = CanvasRenderingContext2D & { letterSpacing?: string };
 const U = PORTRAIT ? 1.5 : 1;
 export const TWEAK = {
   /** potard de precision : capuchon moletee, chanfrein du dessus, rondelle d'aluminium, son trait */
-  knob: { r: 0.175 * U, h: 0.125 * U, lift: 0.03 * U, ridges: 36, ridgeDepth: 0.006 * U, collarR: 0.245 * U, collarH: 0.022 * U, mark: { w: 0.02 * U, len: 0.12 * U } },
+  knob: { r: 0.175 * U, h: 0.125 * U, lift: 0.03 * U, ridges: 36, ridgeDepth: 0.006 * U, collarR: 0.232 * U, collarH: 0.022 * U, mark: { w: 0.02 * U, len: 0.12 * U } },
   /** l'echelle autour : arc, graduations, numeros des crans */
   arc: { r: 0.258 * U, tick: 0.032 * U, major: 0.052 * U, num: 0.072 * U },
   /** glissiere : pas entre deux positions (deux crans, trois crans : leurs noms tiennent), boitier, levier, cadre */
@@ -83,15 +83,15 @@ export const TWEAK = {
   /** hauteurs de capitales : nom, petits textes (bouts de course, positions), designateurs, titres des groupes */
   type: PORTRAIT ? { name: 0.124, small: 0.082, ref: 0.064, group: 0.09, num: 0.064 } : { name: 0.084, small: 0.054, ref: 0.042, group: 0.064, num: 0.042 },
   /** le nom au-dessus du centre d'un reglage, le designateur dessous */
-  nameDz: 0.45 * U,
-  refDz: 0.33 * U,
+  nameDz: PORTRAIT ? 0.675 : 0.45,
+  refDz: PORTRAIT ? 0.575 : 0.4,
   /** filets (cadres, arcs) */
   hair: PORTRAIT ? 0.017 : 0.011,
   /** rayon de la cible d'un potard ; demi-cote mini d'une cible (telephone : 44 px et plus) */
   hit: PORTRAIT ? 0.6 : 0.4,
   hitMin: PORTRAIT ? 0.46 : 0.2,
   /** pixels de texture par unite (la serigraphie reste nette a cette distance, mipmaps et anisotropie) */
-  ppu: PORTRAIT ? 210 : 256,
+  ppu: PORTRAIT ? 190 : 256,
   /** encre : la serigraphie de la carte (bone sur vert, dans les deux apparences) */
   ink: { name: 0.94, small: 0.72, ref: 0.5, line: 0.6, faint: 0.34 },
 } as const;
@@ -123,7 +123,7 @@ const RGB = {
   cap: [0.018, 0.018, 0.02],
   capTop: [0.03, 0.03, 0.033],
   mark: [0.86, 0.84, 0.8],
-  alu: [0.62, 0.63, 0.65],
+  alu: [0.5, 0.51, 0.53],
   housing: [0.02, 0.02, 0.022],
   slot: [0.004, 0.004, 0.005],
   lever: [0.7, 0.71, 0.73],

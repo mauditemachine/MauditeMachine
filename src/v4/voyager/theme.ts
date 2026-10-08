@@ -664,9 +664,9 @@ export const VOY_BACK = PORTRAIT
  * (2026-10-03) : plus haut et plus loin que la 808, la rangee des pages au
  * milieu de la carte se voit en entier.
  */
-// 2026-10-08 : slideZ -3.8 -> -5.1 (desktop), -3.4 -> -4.6 (portrait) : le cadrage ouvert est moins zoome, seul le bord du capot leve se devine en haut
+// 2026-10-08 : slideZ -3.8 -> -5.1 (desktop), -3.4 -> -5.6 (portrait) : le cadrage ouvert est moins zoome, seul le bord du capot leve se devine en haut
 export const VOY_EXPLODE = PORTRAIT
-  ? { lift: 6.3, slideZ: -4.6, tiltOpenDeg: -55, pcbRise: 1.0 }
+  ? { lift: 6.3, slideZ: -5.6, tiltOpenDeg: -55, pcbRise: 1.0 }
   : { lift: 5.0, slideZ: -5.1, tiltOpenDeg: -24, pcbRise: 1.0 };
 
 /** La carte (celle de la 808, meme taille) dans le bac, a plat. */
@@ -753,9 +753,9 @@ const VT = PORTRAIT
           { title: 'OUTPUT', x0: 0.12, z0: A - 0.62, x1: 4.0, z1: A + 0.52 },
           { title: 'PERFORMANCE', x0: -4.0, z0: B - 0.62, x1: 1.2, z1: B + 0.52 },
         ],
-        title: { x0: 1.6, z0: B - 0.62, x1: 4.0, z1: B + 0.12, name: 'MM-ARP', sub: 'ANALOG CONTROL', rev: 'REV 1.0' },
-        scope: { x: 1.6 + 0.47, z: B + 0.36, w: 0.94, d: 0.25, y: 0.01 },
-        close: { x: 4.0 - 0.47, z: B + 0.36, w: 0.94, d: 0.25, y: 0.01 },
+        title: { x0: 1.6, z0: B - 0.62, x1: 4.0, z1: B - 0.05, name: 'MM-ARP', sub: 'ANALOG CONTROL', rev: 'REV 1.0' },
+        scope: { x: 1.6 + 0.47, z: B + 0.2, w: 0.94, d: 0.25, y: 0.01 },
+        close: { x: 4.0 - 0.47, z: B + 0.2, w: 0.94, d: 0.25, y: 0.01 },
       };
     })();
 

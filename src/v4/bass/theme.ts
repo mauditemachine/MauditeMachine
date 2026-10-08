@@ -348,9 +348,9 @@ const TW = PORTRAIT
           { title: 'GENERATOR', x0: -4.95, z0: A - 0.62, x1: 2.3, z1: A + 0.52, accent: true },
           { title: 'VOICE', x0: -4.95, z0: B - 0.62, x1: 4.95, z1: B + 0.52 },
         ],
-        title: { x0: 2.7, z0: A - 0.62, x1: 4.95, z1: A + 0.12, name: 'MM-BASS', sub: 'GENERATOR / VOICE', rev: 'REV 2.0' },
-        infos: { x: 2.7 + 0.47, z: A + 0.36, w: 0.94, d: 0.25, y: 0.01 },
-        close: { x: 4.95 - 0.47, z: A + 0.36, w: 0.94, d: 0.25, y: 0.01 },
+        title: { x0: 2.7, z0: A - 0.62, x1: 4.95, z1: A - 0.05, name: 'MM-BASS', sub: 'GENERATOR / VOICE', rev: 'REV 2.0' },
+        infos: { x: 2.7 + 0.47, z: A + 0.2, w: 0.94, d: 0.25, y: 0.01 },
+        close: { x: 4.95 - 0.47, z: A + 0.2, w: 0.94, d: 0.25, y: 0.01 },
       };
     })();
 
