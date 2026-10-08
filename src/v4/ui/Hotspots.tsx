@@ -94,6 +94,9 @@ import { section } from '../state/section';
 import { view } from '../state/view';
 import { voices } from '../state/voices';
 import { voyKnob, type VoyKnobId } from '../voyager/params';
+import { voyEcho } from '../voyager/echo';
+import { voyInfoIdOf } from '../voyager/infos';
+import { voyInfos } from '../state/voyInfos';
 import { isSwitch } from '../voyager/theme';
 import { EXTERNAL_REL } from './ExternalLink';
 import {
@@ -378,6 +381,15 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
 
     /** L'objet tape (relache sur lui, tape au sens du brief) part ; renvoie son id. */
     const fire = (d: Down): string | null => {
+      // MM-ARP (2026-10-08) : la touche i du grand ecran allume ou eteint INFOS ; INFOS allume, au doigt, une tape montre la carte au lieu de jouer
+      if (d.kind === 'vinfo') {
+        voyInfos.toggle();
+        return d.id;
+      }
+      if (!d.mouse && d.id && voyInfos.isOn() && voyInfoIdOf(d.id)) {
+        voyInfos.show(d.id);
+        return d.id;
+      }
       if (d.kind === 'pad' && d.inst) padHit(d.inst, stage);
       else if (d.kind === 'page' && d.section && isPage(d.section)) page(d.section, stage);
       else if (d.kind === 'open') openToggle(stage, 'mm808');
@@ -475,6 +487,12 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       // L'ecran de la suite du MM-ARP : un toucher (un accord, AUTO, EDIT, STEPS, une note), ou un dessin
       if (h && h.kind === 'vseq') {
+        if (e.pointerType !== 'mouse' && voyInfos.isOn()) {
+          voyInfos.show(h.id);
+          e.stopPropagation();
+          e.preventDefault();
+          return;
+        }
         const uv = seqUv(e.clientX - rect.left, e.clientY - rect.top);
         if (uv && stage.voy?.seqScreen?.down(uv.u, uv.v)) seqDrags.add(e.pointerId);
         e.stopPropagation();
@@ -491,6 +509,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       const encoder: DialId | null =
         dialOf(h);
+      // Le grand ecran du MM-ARP (2026-10-08) : l'echo du potard tenu reste tant qu'on le tient
+      if (encoder && isVoy(encoder)) voyEcho.hold(encoder.slice(2) as VoyKnobId);
       // Un deuxieme doigt : ni l'un ni l'autre ne glisse d'une machine a l'autre
       const multi = downs.size > 0;
       if (multi) for (const o of downs.values()) o.multi = true;
@@ -539,6 +559,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       const d = downs.get(id);
       if (!d) return;
       downs.delete(id);
+      if (d.dial && isVoy(d.dial)) voyEcho.hold(null);
       try {
         if (el.hasPointerCapture(id)) el.releasePointerCapture(id);
       } catch {
@@ -611,6 +632,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       const d = downs.get(e.pointerId);
       downs.delete(e.pointerId);
+      if (d?.dial && isVoy(d.dial)) voyEcho.hold(null);
       if (d && d.turning && d.mouse) {
         turnAxis = null;
         setCursor();

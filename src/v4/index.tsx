@@ -50,6 +50,7 @@ import { Stage } from './scene/renderer';
 import { editor } from './state/editor';
 import { bassExplode, explode, voyExplode } from './state/explode';
 import { bassInfos } from './state/bassInfos';
+import { voyInfos } from './state/voyInfos';
 import { BassInfosKey } from './ui/BassInfosKey';
 import { BASS, DJ, focus, VOYAGER } from './state/focus';
 import { FLAGS, syncFlags } from './state/flags';
@@ -243,6 +244,7 @@ function useSectionsLifecycle(): void {
       voyExplode.reset();
       bassExplode.reset();
       bassInfos.set(false);
+      voyInfos.set(false);
     };
   }, []);
 }
@@ -347,6 +349,8 @@ const DjTwins = lazy(() => import('./dj/Twins'));
 const BassTwins = lazy(() => import('./bass/Twins'));
 /** Ses INFOS (2026-10-08) : la carte et la pastille INFOS ON, avec le reste du MM-BASS */
 const BassInfosCard = lazy(() => import('./bass/InfosCard'));
+/** Les INFOS du MM-ARP (2026-10-08, la touche i de son grand ecran) : sa carte et sa pastille */
+const VoyInfosCard = lazy(() => import('./voyager/InfosCard'));
 
 const V4Shell: React.FC = () => {
   const stageRef = useRef<Stage | null>(null);
@@ -547,6 +551,12 @@ const V4Shell: React.FC = () => {
           {BASS && (
             <Suspense fallback={null}>
               <BassInfosCard stage={stage} />
+            </Suspense>
+          )}
+          {/* MM-ARP : la carte INFOS et sa pastille (2026-10-08), allumees par le i de son grand ecran */}
+          {VOYAGER && (
+            <Suspense fallback={null}>
+              <VoyInfosCard stage={stage} />
             </Suspense>
           )}
           {/* Le Dock n'existe que sur la mise en page mobile : pas de rendu React par pas sur desktop ; il programme la 808 */}

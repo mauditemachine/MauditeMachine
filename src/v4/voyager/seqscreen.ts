@@ -4,18 +4,25 @@
  * la machine, pas en dessous, dans la partie du bas, dans un design sur la
  * machine ou je peux mettre des notes"). Au desktop, EDIT range les huit
  * pads d'accords dans le plateau et fait monter a leur place un ecran (son
- * cadre noir, son verre), toute la largeur des pads :
- * - en haut, les huit accords (celui qu'on regarde en negatif ; celui qui
- *   joue souligne en jaune ; ceux de la progression marques d'un point
- *   orange : les toucher choisit l'accord dont on lit les notes), d'ou
+ * cadre noir, son verre).
+ *
+ * Refait le 2026-10-08 avec le grand ecran (voyager/screen.ts) : la meme
+ * langue, facon OP-1, noir et os en trois intensites (plus d'or, de jaune
+ * ni d'orange), et toute la largeur du plateau sous l'ecran et ses deux
+ * blocs (les pads, plus minces, laissent une bande plus basse : les
+ * accords passent dans une colonne a gauche pour garder la hauteur des
+ * notes) :
+ * - a gauche, les huit accords en deux rangees (celui qu'on regarde en
+ *   negatif ; celui qui joue souligne ; ceux de la progression marques d'un
+ *   point : les toucher choisit l'accord dont on lit les notes), d'ou
  *   viennent les notes (FROM THE KNOBS, ou YOUR NOTES des qu'on dessine ;
- *   2026-10-05, Mika : plus de touches AUTO / EDIT dans la page, CLEAR sur la
- *   machine rend la suite des potards), STEPS - n + ;
- * - au milieu, une colonne par pas : une barre, sa hauteur sa note (une
- *   octave sous la racine a trois au-dessus) ; les notes de l'accord en or,
- *   les autres en os ; des filets aux notes de l'accord (plus forts a ses
- *   racines) ; la colonne qui joue eclairee ; on glisse pour dessiner (les
- *   pas traverses suivent la ligne, comme ui/SeqLane.tsx) ;
+ *   2026-10-05, Mika : CLEAR sur la machine rend la suite des potards),
+ *   STEPS - n + ;
+ * - a droite, une colonne par pas : une barre, sa hauteur sa note (une
+ *   octave sous la racine a trois au-dessus) ; les notes de l'accord en os
+ *   plein, les autres en demi-teinte ; des filets aux notes de l'accord
+ *   (plus forts a ses racines) ; la colonne qui joue eclairee ; on glisse
+ *   pour dessiner (les pas traverses suivent la ligne, comme ui/SeqLane.tsx) ;
  * - en bas, le nom de chaque note : le toucher fait un silence, ou rend la
  *   note.
  * Memes stores que le panneau du telephone (voyager/seq.ts, arp.ts). Le
@@ -29,20 +36,26 @@ import { context } from '../audio/drums';
 import type { HotspotDef } from '../scene/hit';
 import { albedo } from '../scene/materials';
 import { makeCanvasTexture } from '../scene/silk';
-import { FONT_DISPLAY, FONT_MONO, GAIN, HEX } from '../theme';
+import { FONT_DISPLAY, GAIN, HEX } from '../theme';
 import { arp } from './arp';
 import { CHORDS, chordTones, degreeName } from './chords';
 import { chordType, voyParams } from './params';
 import { SEQ_MAX, SEQ_MIN, SEQ_TOP, seq, type SeqStep } from './seq';
-import { VOY_PAD } from './theme';
+import { VOY_LID_W, VOY_PAD } from './theme';
 
-/** L'ecran : la largeur des pads (et un peu), du crochet de l'arpegiateur au bord du plateau. */
+/**
+ * L'ecran : toute la largeur du plateau (le capot, moins un jour), du bas des
+ * blocs de l'ecran (le crochet de l'arpegiateur) au bord avant. 2026-10-05
+ * a 2026-10-08 : la largeur des pads, z 1.74 a 4.02.
+ */
 export const VOY_SEQ = (() => {
-  const x0 = VOY_PAD.xs[0] - VOY_PAD.size / 2 - 0.12;
-  const x1 = VOY_PAD.xs[VOY_PAD.xs.length - 1] + VOY_PAD.size / 2 + 0.12;
-  const z0 = 1.74;
-  const z1 = 4.02;
-  return { x: (x0 + x1) / 2, z: (z0 + z1) / 2, w: x1 - x0, d: z1 - z0, bezel: 0.1, h: 0.025, rise: 0.22, tex: [2048, Math.round((2048 * (z1 - z0)) / (x1 - x0))] as const };
+  const x1 = VOY_LID_W / 2 - 0.16;
+  const x0 = -x1;
+  const z0 = VOY_PAD.zs[0] - VOY_PAD.depth / 2 - 0.14;
+  const z1 = VOY_PAD.zs[0] + VOY_PAD.depth / 2 + 0.7;
+  const w = x1 - x0;
+  const d = z1 - z0;
+  return { x: (x0 + x1) / 2, z: (z0 + z1) / 2, w, d, bezel: 0.09, h: 0.025, rise: 0.22, tex: [2048, Math.round((2048 * (d - 0.18)) / (w - 0.18))] as const };
 })();
 
 const LEVELS = SEQ_TOP - SEQ_MIN + 1;
@@ -50,15 +63,20 @@ const mod7 = (d: number): number => ((d % 7) + 7) % 7;
 const POLL_MS = 40;
 const RISE_MS = 240;
 
-const BONE = '#F6F1E7';
-const DIM = 'rgba(246, 241, 231, 0.45)';
-const FAINT = 'rgba(246, 241, 231, 0.14)';
-const GOLD = '#FFA600';
-const YELLOW = '#FFD60A';
-const ORANGE = '#FF6A13';
+const INK: string = HEX.bone;
+const HALF = 'rgba(246, 241, 231, 0.5)';
+const FAINT = 'rgba(246, 241, 231, 0.16)';
+const BLACK = '#050506';
 
 /** Ce qu'un toucher vise sur l'ecran. */
 type Hit = { kind: 'chord'; i: number } | { kind: 'minus' } | { kind: 'plus' } | { kind: 'lane' } | { kind: 'name'; i: number } | null;
+
+interface Box {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 
 export class VoySeqScreen {
   readonly group = new Group();
@@ -70,8 +88,8 @@ export class VoySeqScreen {
   private bezelMat: MeshStandardMaterial;
   private W: number;
   private H: number;
-  /** la boite du haut, les colonnes, les noms (px de la texture) */
-  private L: { top: number; lane0: number; lane1: number; names0: number; x0: number; x1: number; tabs: { x: number; w: number }[]; source: { x: number; w: number }; minus: { x: number; w: number }; plus: { x: number; w: number } };
+  /** la colonne de gauche (accords, STEPS) et la zone des pas (px de la texture) */
+  private L: { panel: number; tabs: Box[]; source: { x: number; y: number }; minus: Box; plus: Box; count: { x: number; y: number }; x0: number; x1: number; lane0: number; lane1: number; names0: number };
   private shown = false;
   private riseFrom = 0;
   private rise = 0;
@@ -115,25 +133,28 @@ export class VoySeqScreen {
     this.group.add(this.bezel, this.glass);
     this.group.visible = false;
     this.group.position.y = -VOY_SEQ.rise;
-    // La mise en page (px de la texture)
-    const pad = Math.round(W * 0.012);
-    const top = Math.round(H * 0.155);
-    const tabW = Math.round(W * 0.056);
-    const tabs = CHORDS.map((_, i) => ({ x: pad + i * (tabW + 8), w: tabW }));
-    const after = pad + CHORDS.length * (tabW + 8) + Math.round(W * 0.02);
-    const modeW = Math.round(W * 0.062);
-    const nudgeW = Math.round(W * 0.034);
+    // La mise en page (px de la texture) : la colonne de gauche (un sixieme), les pas a droite
+    // La colonne : les accords en haut (deux rangees), d'ou viennent les notes au milieu, STEPS - n + en bas
+    const pad = Math.round(H * 0.07);
+    const panel = Math.round(W * 0.17);
+    const tw = Math.floor((panel - 2 * pad - 3 * 8) / 4);
+    const th = Math.round(H * 0.21);
+    const tabs = CHORDS.map((_, i) => ({ x: pad + (i % 4) * (tw + 8), y: pad + Math.floor(i / 4) * (th + 8), w: tw, h: th }));
+    const kh = Math.round(H * 0.2);
+    const ky = H - pad - kh;
+    const kw = Math.round(kh * 1.25);
     this.L = {
-      top,
-      lane0: top + Math.round(H * 0.035),
-      lane1: Math.round(H * 0.82),
-      names0: Math.round(H * 0.835),
-      x0: pad,
-      x1: W - pad,
+      panel,
       tabs,
-      source: { x: after, w: 2 * modeW + 6 },
-      minus: { x: after + 2 * modeW + 40, w: nudgeW },
-      plus: { x: after + 2 * modeW + 40 + nudgeW + Math.round(W * 0.07), w: nudgeW },
+      source: { x: panel / 2, y: Math.round((pad + 2 * (th + 8) + ky) / 2 + H * 0.03) },
+      minus: { x: pad, y: ky, w: kw, h: kh },
+      plus: { x: panel - pad - kw, y: ky, w: kw, h: kh },
+      count: { x: panel / 2, y: ky + kh / 2 },
+      x0: panel + pad,
+      x1: W - pad,
+      lane0: pad,
+      lane1: Math.round(H * 0.8),
+      names0: Math.round(H * 0.82),
     };
   }
 
@@ -184,6 +205,22 @@ export class VoySeqScreen {
     return arp.get().running ? 'poll' : false;
   }
 
+  private box(b: Box, fill: string | null, stroke: string | null, lw = 3, r = 12): void {
+    const c = this.ctx;
+    c.beginPath();
+    if (typeof c.roundRect === 'function') c.roundRect(b.x, b.y, b.w, b.h, r);
+    else c.rect(b.x, b.y, b.w, b.h);
+    if (fill) {
+      c.fillStyle = fill;
+      c.fill();
+    }
+    if (stroke) {
+      c.strokeStyle = stroke;
+      c.lineWidth = lw;
+      c.stroke();
+    }
+  }
+
   /** Redessine si quelque chose a change ; true si redessine. */
   draw(): boolean {
     const s = seq.get();
@@ -196,78 +233,60 @@ export class VoySeqScreen {
     this.key = key;
     const c = this.ctx;
     const { W, H, L } = this;
-    c.fillStyle = HEX.oled;
+    c.fillStyle = BLACK;
     c.fillRect(0, 0, W, H);
     c.textBaseline = 'middle';
-    // Les accords
-    const ty = L.top / 2;
-    c.font = `700 ${Math.round(L.top * 0.4)}px ${FONT_DISPLAY}`;
+    // La colonne de gauche : les accords
     CHORDS.forEach((ch, i) => {
       const t = L.tabs[i];
       const picked = i === chord;
+      const inProg = a.prog.includes(i);
       const playing = a.running && i === this.ph.chord;
-      const r = 12;
-      c.beginPath();
-      if (typeof c.roundRect === 'function') c.roundRect(t.x, 12, t.w, L.top - 24, r);
-      else c.rect(t.x, 12, t.w, L.top - 24);
-      if (picked) {
-        c.fillStyle = BONE;
-        c.fill();
-      } else {
-        c.strokeStyle = FAINT;
-        c.lineWidth = 3;
-        c.stroke();
-      }
-      c.fillStyle = picked ? '#000' : a.prog.includes(i) ? BONE : DIM;
+      if (picked) this.box(t, INK, null);
+      else this.box(t, null, inProg ? HALF : FAINT, 2.5);
+      c.font = `700 ${Math.round(t.h * 0.42)}px ${FONT_DISPLAY}`;
       c.textAlign = 'center';
-      c.fillText(ch.label, t.x + t.w / 2, ty + 2);
-      if (a.prog.includes(i)) {
-        c.fillStyle = ORANGE;
+      c.fillStyle = picked ? BLACK : inProg ? INK : HALF;
+      c.fillText(ch.label, t.x + t.w / 2, t.y + t.h / 2 + 1);
+      if (inProg) {
+        c.fillStyle = picked ? BLACK : INK;
         c.beginPath();
-        c.arc(t.x + t.w - 16, 24, 6, 0, Math.PI * 2);
+        c.arc(t.x + t.w - 11, t.y + 11, 4.5, 0, Math.PI * 2);
         c.fill();
       }
       if (playing) {
-        c.fillStyle = YELLOW;
-        c.fillRect(t.x + 10, L.top - 8, t.w - 20, 6);
+        c.fillStyle = picked ? BLACK : INK;
+        c.fillRect(t.x + 10, t.y + t.h - 9, t.w - 20, 4);
       }
     });
-    // AUTO / EDIT, STEPS
-    const chip = (box: { x: number; w: number }, text: string, on: boolean, hot = false): void => {
-      c.beginPath();
-      if (typeof c.roundRect === 'function') c.roundRect(box.x, 12, box.w, L.top - 24, 12);
-      else c.rect(box.x, 12, box.w, L.top - 24);
-      if (on) {
-        c.fillStyle = hot ? YELLOW : BONE;
-        c.fill();
-      } else {
-        c.strokeStyle = DIM;
-        c.lineWidth = 3;
-        c.stroke();
-      }
-      c.fillStyle = on ? '#000' : BONE;
+    // STEPS - n +
+    c.font = `800 ${Math.round(L.minus.h * 0.55)}px ${FONT_DISPLAY}`;
+    for (const [b, t] of [
+      [L.minus, '-'],
+      [L.plus, '+'],
+    ] as const) {
+      this.box(b, null, HALF, 2.5, b.h / 2);
+      c.fillStyle = INK;
       c.textAlign = 'center';
-      c.fillText(text, box.x + box.w / 2, ty + 2);
-    };
+      c.fillText(t, b.x + b.w / 2, b.y + b.h / 2 + 1);
+    }
+    c.fillStyle = INK;
+    c.textAlign = 'center';
+    c.font = `300 ${Math.round(L.minus.h * 0.72)}px ${FONT_DISPLAY}`;
+    c.fillText(String(steps.length), L.count.x, L.count.y - L.minus.h * 0.08);
+    c.font = `700 ${Math.round(L.minus.h * 0.22)}px ${FONT_DISPLAY}`;
+    c.fillStyle = HALF;
+    c.fillText('STEPS', L.count.x, L.count.y + L.minus.h * 0.38);
     // D'ou viennent les notes : un mot, pas une touche
-    c.font = `800 ${Math.round(L.top * 0.28)}px ${FONT_DISPLAY}`;
     c.textAlign = 'center';
-    c.fillStyle = s.edit ? YELLOW : DIM;
-    c.fillText(s.edit ? 'YOUR NOTES' : 'FROM THE KNOBS', L.source.x + L.source.w / 2, ty + 2);
-    c.font = `800 ${Math.round(L.top * 0.32)}px ${FONT_DISPLAY}`;
-    chip(L.minus, '-', false);
-    chip(L.plus, '+', false);
-    c.fillStyle = BONE;
-    c.textAlign = 'center';
-    c.font = `700 ${Math.round(L.top * 0.42)}px ${FONT_MONO}`;
-    const mid = (L.minus.x + L.minus.w + L.plus.x) / 2;
-    c.fillText(String(steps.length), mid - 34, ty + 2);
-    c.font = `700 ${Math.round(L.top * 0.22)}px ${FONT_DISPLAY}`;
-    c.fillStyle = DIM;
-    c.fillText('STEPS', mid + 40, ty + 2);
-    c.textAlign = 'right';
-    c.font = `600 ${Math.round(L.top * 0.24)}px ${FONT_MONO}`;
-    c.fillText(s.edit ? 'TAP A NOTE: REST  /  CLEAR: THE KNOBS' : 'DRAG TO DRAW YOUR NOTES', L.x1, ty + 2);
+    c.textBaseline = 'alphabetic';
+    c.font = `800 ${Math.round(H * 0.075)}px ${FONT_DISPLAY}`;
+    c.fillStyle = s.edit ? INK : HALF;
+    c.fillText(s.edit ? 'YOUR NOTES' : 'FROM THE KNOBS', L.source.x, L.source.y);
+    c.textBaseline = 'middle';
+    // Le filet entre la colonne et les pas
+    c.fillStyle = FAINT;
+    c.fillRect(L.panel, 10, 2, H - 20);
     // Les colonnes
     const n = Math.max(1, steps.length);
     const cw = (L.x1 - L.x0) / SEQ_MAX;
@@ -279,7 +298,7 @@ export class VoySeqScreen {
       for (const t of tones) {
         const d = o * 7 + t;
         if (d < SEQ_MIN || d > SEQ_TOP) continue;
-        c.fillStyle = t === 0 ? 'rgba(255, 166, 0, 0.42)' : 'rgba(255, 166, 0, 0.16)';
+        c.fillStyle = t === 0 ? 'rgba(246, 241, 231, 0.3)' : 'rgba(246, 241, 231, 0.1)';
         c.fillRect(L.x0, Math.round(yOf(d)) - 1, L.x1 - L.x0, t === 0 ? 3 : 2);
       }
     }
@@ -288,29 +307,29 @@ export class VoySeqScreen {
       const active = i < n;
       const playing = active && a.running && this.ph.pos === i;
       if (playing) {
-        c.fillStyle = 'rgba(255, 214, 10, 0.14)';
+        c.fillStyle = 'rgba(246, 241, 231, 0.13)';
         c.fillRect(x + 3, L.lane0, cw - 6, lh);
       } else if (!active) {
-        // Au-dela de la suite : hachure
-        c.fillStyle = 'rgba(246, 241, 231, 0.04)';
+        // Au-dela de la suite : a peine
+        c.fillStyle = 'rgba(246, 241, 231, 0.035)';
         c.fillRect(x + 3, L.lane0, cw - 6, lh);
         continue;
       } else if (i % 4 === 0) {
-        c.fillStyle = 'rgba(246, 241, 231, 0.035)';
+        c.fillStyle = 'rgba(246, 241, 231, 0.03)';
         c.fillRect(x + 3, L.lane0, cw - 6, lh);
       }
       const d = steps[i];
       if (d === null || d === undefined) {
-        c.fillStyle = DIM;
-        c.fillRect(x + cw * 0.3, L.lane1 - 6, cw * 0.4, 4);
+        c.fillStyle = HALF;
+        c.fillRect(x + cw * 0.36, L.lane1 - 6, cw * 0.28, 4);
         continue;
       }
       const tone = tones.includes(mod7(d));
       const y = yOf(d);
-      c.fillStyle = tone ? 'rgba(255, 166, 0, 0.55)' : 'rgba(246, 241, 231, 0.32)';
-      c.fillRect(x + cw * 0.14, y, cw * 0.72, L.lane1 - y);
-      c.fillStyle = playing ? YELLOW : tone ? GOLD : BONE;
-      c.fillRect(x + cw * 0.14, y - 4, cw * 0.72, 9);
+      c.fillStyle = tone ? 'rgba(246, 241, 231, 0.26)' : 'rgba(246, 241, 231, 0.1)';
+      c.fillRect(x + cw * 0.16, y, cw * 0.68, L.lane1 - y);
+      c.fillStyle = playing || tone ? INK : HALF;
+      c.fillRect(x + cw * 0.16, y - 4, cw * 0.68, 9);
     }
     // Les noms des notes
     c.textAlign = 'center';
@@ -319,8 +338,9 @@ export class VoySeqScreen {
       const d = steps[i];
       const x = L.x0 + (i + 0.5) * cw;
       const playing = a.running && this.ph.pos === i;
-      c.fillStyle = playing ? YELLOW : d === null ? DIM : BONE;
+      c.fillStyle = playing ? INK : d === null ? FAINT : HALF;
       c.fillText(d === null ? '-' : degreeName(chord, d), x, (L.names0 + H) / 2);
+      if (playing) c.fillRect(x - cw * 0.25, H - 7, cw * 0.5, 3);
     }
     this.texture.needsUpdate = true;
     this.draws += 1;
@@ -333,8 +353,8 @@ export class VoySeqScreen {
     const x = u * this.W;
     const y = v * this.H;
     const L = this.L;
-    const inside = (b: { x: number; w: number }): boolean => x >= b.x - 6 && x <= b.x + b.w + 6;
-    if (y < L.top) {
+    const inside = (b: Box): boolean => x >= b.x - 6 && x <= b.x + b.w + 6 && y >= b.y - 6 && y <= b.y + b.h + 6;
+    if (x < L.panel) {
       for (let i = 0; i < L.tabs.length; i += 1) if (inside(L.tabs[i])) return { kind: 'chord', i };
       if (inside(L.minus)) return { kind: 'minus' };
       if (inside(L.plus)) return { kind: 'plus' };
