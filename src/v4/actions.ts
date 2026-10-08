@@ -996,14 +996,15 @@ function sampleText(): string {
   return sampleValue() === 0 ? 'OFF' : kit.valueText(f);
 }
 
-/** Sa ligne d'unite : SYNTH 909 (OFF : le son de synthese joue), SAMPLE 2/6. */
+/** Sa ligne d'unite : SYNTH 909 (OFF : le son de synthese joue), 2 OF 6. */
 function sampleUnit(): string {
   const f = soundFamily();
   const n = sampleCount();
   if (!f) return '';
   if (n === 0) return 'NO SAMPLES';
   const j = sampleValue();
-  return j === 0 ? `SYNTH ${KIT_MODEL_LABEL[kit.get().model[f]]}` : `SAMPLE ${j}/${n}`;
+  // Le rang seul (2026-10-08) : le bloc s'appelle deja SAMPLE, et ses crans tiennent au bout de la ligne
+  return j === 0 ? `SYNTH ${KIT_MODEL_LABEL[kit.get().model[f]]}` : `${j} OF ${n}`;
 }
 
 /**
@@ -1334,6 +1335,13 @@ export function rytmPageKey(id: RytmPageId, stage: Stage | null = null): void {
     lcdMessage.show(`${pageLabel(id)} PAGE`);
     return;
   }
+  // En LOCK (2026-10-08) : une touche de page choisit la page des verrous, jamais HOME (l'ecran reste aux blocs)
+  const lk = rytmLock.get().step;
+  if (lk >= 0 && editor.get() !== 'mm808') {
+    rytmPage.setPage(id);
+    lcdMessage.show(`${pageLabel(id)} PAGE  LOCK ${two(lk + 1)}`);
+    return;
+  }
   const was = rytmPage.get().view;
   const view = rytmPage.press(id);
   // HOME le dit (et comment revenir) ; le retour de HOME aussi (le message de HOME ne reste pas)
@@ -1456,7 +1464,7 @@ export function pageLockView(k: number, step: number, lockArg?: Readonly<StepLoc
       const list = f ? lockSamples(f) : [];
       const i = list.indexOf(l.snd);
       const n = Math.max(1, list.length - 1);
-      return { text: i === 0 ? 'OFF' : label, unit: i > 0 ? `SAMPLE ${i}/${n}` : i === 0 ? 'SYNTH' : 'OTHER SOUND', course: i > 0 ? i / n : 0, value: Math.max(0, i) };
+      return { text: i === 0 ? 'OFF' : label, unit: i > 0 ? `${i} OF ${n}` : i === 0 ? 'SYNTH' : 'OTHER SOUND', course: i > 0 ? i / n : 0, value: Math.max(0, i) };
     }
     const list = lockSounds(inst);
     const i = list.findIndex((x) => x.snd === l.snd);
@@ -1499,13 +1507,30 @@ function lockDialValue(k: number): number | null {
   return v === undefined ? null : v;
 }
 
-/** Les verrous du pas en LOCK, par leur nom de bloc, toutes pages : TUNE DEC VOL (l'ecran et le Dock les listent). */
+/** Le nom court et la page de chaque verrou (dans l'ordre des pages). */
+const LOCK_NAMES: readonly { key: string; name: string; page: string }[] = [
+  { key: 'snd', name: 'SOUND', page: 'SRC' },
+  { key: 'tune', name: 'TUNE', page: 'SRC' },
+  { key: 'start', name: 'START', page: 'SMPL' },
+  { key: 'decay', name: 'DEC', page: 'AMP' },
+  { key: 'pan', name: 'PAN', page: 'AMP' },
+  { key: 'level', name: 'VOL', page: 'AMP' },
+];
+
+/** Les verrous du pas en LOCK, par leur nom de bloc, toutes pages, dans l'ordre des pages : TUNE DEC VOL (l'ecran et le Dock les listent). */
 export function lockSummary(step: number): string[] {
   const inst = pattern.get().instrument;
   const l = inst && step >= 0 ? lockOf(pattern.get().locks, inst, step) : null;
   if (!l) return [];
-  const names: Record<string, string> = { level: 'VOL', decay: 'DEC', tune: 'TUNE', pan: 'PAN', start: 'START', snd: 'SOUND' };
-  return Object.keys(l).map((k) => names[k] ?? k.toUpperCase());
+  return LOCK_NAMES.filter((x) => x.key in l).map((x) => x.name);
+}
+
+/** Les pages ou le pas a des verrous (SRC AMP) : le pied de l'ecran les dit quand la liste ne tient pas. */
+export function lockPages(step: number): string[] {
+  const inst = pattern.get().instrument;
+  const l = inst && step >= 0 ? lockOf(pattern.get().locks, inst, step) : null;
+  if (!l) return [];
+  return [...new Set(LOCK_NAMES.filter((x) => x.key in l).map((x) => x.page))];
 }
 
 /** Le bloc tourne en LOCK : son verrou pose sur les pas en LOCK ou tenus (ou un message, jamais un geste muet). */

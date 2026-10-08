@@ -1101,10 +1101,10 @@ const rytmPageKey3 = (): string => {
   const s = rytmPage.get();
   return `${s.page}|${s.view}|${s.sel}`;
 };
-/** Ce que les jumeaux lisent du LOCK (2026-10-08) : le pas, s'il est fixe, les verrous poses. */
+/** Ce que les jumeaux lisent du LOCK (2026-10-08) : le pas et s'il est fixe (les verrous poses passent par le motif). */
 const rytmLockKey = (): string => {
   const s = rytmLock.get();
-  return `${s.step}|${s.latched}|${s.writes}`;
+  return `${s.step}|${s.latched}`;
 };
 
 export const Twins: React.FC<TwinsProps> = ({ stage }) => {

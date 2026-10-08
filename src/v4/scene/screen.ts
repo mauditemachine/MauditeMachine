@@ -84,7 +84,7 @@ import { mix } from '../audio/drums';
 import { familyOf, kit } from '../audio/kit';
 import { INSTRUMENTS, STEP_COUNT, VEL_BARS, pattern, velocity } from '../audio/pattern';
 import { lockMask, lockOf } from '../audio/locks';
-import { lockSummary } from '../actions';
+import { lockPages, lockSummary } from '../actions';
 import { rytmLock } from '../state/rytmLock';
 import type { ShotId } from '../audio/shotsdsp';
 import { sc } from '../audio/soundcloud';
@@ -1199,7 +1199,12 @@ export class Screen {
     const tw = tag ? this.text(tag, bx + M.w - B.padX, by + T.unitDy, T.unitSize, b.noBd || b.all ? P.faint : P.half, 700, 'right', 0.5) + 4 : 0;
     const notchRow = stepped && T.notchRow;
     const unitW = M.w - 2 * B.padX - tw - (notchRow ? 26 : 0);
-    if (b.unit) this.text(this.fitText(b.unit, unitW, T.unitSize), bx + B.padX, by + T.unitDy, T.unitSize, P.half, 600, 'left', 0.4);
+    if (b.unit) {
+      // En LOCK, un bloc GLOBAL ou NO LOCK dont l'unite ne tient plus a cote de son etiquette (le telephone) : l'etiquette seule
+      const u = this.fitText(b.unit, unitW, T.unitSize);
+      const drop = u !== b.unit && (b.lock === 'global' || b.lock === 'nolock');
+      if (!drop) this.text(u, bx + B.padX, by + T.unitDy, T.unitSize, P.half, 600, 'left', 0.4);
+    }
     if (stepped) {
       if (!notchRow) return;
       // Un reglage a crans : ses crans en ligne au bout de la ligne d'unite ; a deux crans (GATE), un interrupteur
@@ -1332,7 +1337,11 @@ export class Screen {
       // Tenu : lache sans rien tourner, le LOCK reste ; un potard deja tourne pendant la tenue : le lacher en sort
       const used = held && lk.writes > lk.since;
       const names = lockSummary(lockStep);
-      const top = s.l3 && !s.mix ? s.l3 : names.length > 0 ? `STEP ${two(lockStep + 1)} LOCKS: ${names.join(' ')}` : `TURN A KNOB: STEP ${two(lockStep + 1)} ONLY`;
+      // Les verrous du pas ; trop pour la ligne : combien, et sur quelles pages
+      const full = `STEP ${two(lockStep + 1)} LOCKS: ${names.join(' ')}`;
+      const s1w = fs - (this.mobile ? 1 : 1.2);
+      const list = this.textWidth(full, s1w, 600, 0.5) <= x1 - x0 ? full : `STEP ${two(lockStep + 1)}: ${names.length} LOCKS ON ${lockPages(lockStep).join(' ')}`;
+      const top = s.l3 && !s.mix ? s.l3 : names.length > 0 ? list : `TURN A KNOB: STEP ${two(lockStep + 1)} ONLY`;
       const tip = used ? 'RELEASE: LOCK DONE' : held ? 'RELEASE: STAY IN LOCK' : this.mobile ? '2X: UNLOCK  CLEAR: ALL' : '2X: UNLOCK  CLEAR: ALL  STEP: EXIT';
       const s1 = fs - (this.mobile ? 1 : 1.2);
       const s2 = this.mobile ? 7.4 : 5.8;

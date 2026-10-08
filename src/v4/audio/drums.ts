@@ -44,8 +44,8 @@ import type { Inst } from '../theme';
 import { buildChorus, loadChorus, type ChorusInfo, type ChorusStage } from './chorus';
 import { buildDrive, buildFx, glide, type DriveStage, type FxChain } from './fx';
 import { pattern, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
-import { familyOf, kit, kitSteps, type KitFamily } from './kit';
-import { sampleByKey, samplesOf } from './samples';
+import { familyOf, kit, type KitFamily } from './kit';
+import { sampleByKey } from './samples';
 import { lockOf, parseSnd, type Locks, type StepLock } from './locks';
 import { buildDelayBus, buildReverbBus, type BusInfo, type DelayBus, type Send, type SendBus, type SendInfo } from './sends';
 import { hitTime, snapTime } from './time';
@@ -685,8 +685,6 @@ function lockedShot(base: ShotId, snd: string | undefined): { id: ShotId; ov: Sh
   if (!(f in MAIN_SHOT)) return null;
   const isModel = p.sound === '909' || p.sound === '808' || p.sound === 'mm';
   if (!isModel && sampleByKey(p.sound)?.family !== f) return null;
-  if (!isModel && !samplesOf(f).length) return null;
-  if (kitSteps(f) === 0) return null;
   // La meme famille : le son de la voix (OH reste OH) ; une autre : son son principal, joue par la voix
   const id = familyOf(base) === f ? base : MAIN_SHOT[f];
   if (!id) return null;
