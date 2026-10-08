@@ -112,68 +112,94 @@
 }
 
 /*
- * BACK dans la liste (2026-10-08) : a la place exacte de la touche BACK de
- * l'ecran, le retour au morceau de la platine (DONE fait de meme) ; le
- * chevron orange, comme sur l'ecran.
+ * Le retour au morceau (2026-10-08, BACK ; relecture du meme jour) : la
+ * ligne du morceau de la platine, en premier, est le retour ; la lettre de
+ * la platine et une fleche qui revient (l'ecran de la platine dit
+ * "< TRACKS" pour l'aller). Les sources ont la ligne du dessous pour elles.
  */
-.dj-scr-back {
-  position: relative;
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 0.2em;
-  min-height: 2em;
-  padding: 0 0.6em 0 0.35em;
-  border: 1px solid rgba(246, 241, 231, 0.3);
-  border-radius: 0.55em;
-  background: rgba(246, 241, 231, 0.07);
-  font-size: 0.72em;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  white-space: nowrap;
-}
-
-.dj-scr-back svg {
-  width: 1.25em;
-  height: 1.25em;
-  color: var(--orange);
-}
-
-/* La lettre de la platine, comme avant (orange, grasse) : la touche reste compacte, les sources gardent leur place */
-.dj-scr-back-deck {
-  font-size: 1.6em;
-  line-height: 1;
-  color: var(--orange);
-}
-
-.dj-scr-back:active .dj-scr-back-deck {
-  color: #000;
-}
-
-.dj-scr-back:active {
-  border-color: var(--orange);
-  background: var(--orange);
-  color: #000;
-}
-
-.dj-scr-back:active svg {
-  color: #000;
-}
-
-/* Le morceau qui continue de jouer pendant qu'on choisit le suivant (le toucher ramene a lui) */
 .dj-scr-now {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
   gap: 0.5em;
   min-width: 0;
-  margin-top: 0.4em;
-  padding: 0.3em 0.6em;
-  border: 0;
-  border-radius: 0.45em;
+  min-height: 2.5em;
+  padding: 0.2em 0.6em 0.2em 0.3em;
+  border: 1px solid rgba(246, 241, 231, 0.22);
+  border-radius: 0.55em;
   background: rgba(246, 241, 231, 0.06);
   font-size: 0.7em;
   text-align: left;
+}
+
+.dj-scr-now:hover {
+  border-color: rgba(246, 241, 231, 0.45);
+  background: rgba(246, 241, 231, 0.11);
+}
+
+.dj-scr-now:active {
+  border-color: var(--orange);
+  background: rgba(255, 106, 19, 0.18);
+}
+
+.dj-scr-now-back {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.25em;
+  padding-right: 0.55em;
+  border-right: 1px solid var(--faint);
+  color: var(--orange);
+}
+
+.dj-scr-now-back svg {
+  width: 1.35em;
+  height: 1.35em;
+}
+
+.dj-scr-now-deck {
+  font-size: 1.55em;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.dj-scr-head[data-held='1'] {
+  margin-top: 0.4em;
+}
+
+/* La touche compacte du retour : au doigt seulement (sur la ligne des sources) */
+.dj-scr-now-compact {
+  display: none;
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+/* Les sources qui debordent : un fondu au bord ou il en reste */
+.dj-scr-tabs[data-more='right'] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.2em), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 2.2em), transparent);
+}
+
+.dj-scr-tabs[data-more='left'] {
+  -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 2.2em), transparent);
+  mask-image: linear-gradient(to left, #000 calc(100% - 2.2em), transparent);
+}
+
+.dj-scr-tabs[data-more='both'] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 2.2em, #000 calc(100% - 2.2em), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 2.2em, #000 calc(100% - 2.2em), transparent);
+}
+
+/* Un morceau touche sur une platine qui joue : le second appui le pose */
+.dj-scr-row[data-sure='1'] .dj-scr-load {
+  box-shadow: inset 0 0 0 1px var(--orange);
+  background: rgba(255, 106, 19, 0.12);
+}
+
+.dj-scr .dj-scr-sure {
+  color: var(--orange);
+  font-weight: 700;
+  letter-spacing: 0.06em;
 }
 
 .dj-scr-now-dot {
@@ -628,41 +654,45 @@
 
 /* Au doigt, des cibles plus grandes */
 @media (hover: none) {
-  .dj-scr-load {
-    min-height: 3em;
-  }
-
-  .dj-scr-tab,
-  .dj-scr-keys,
-  .dj-scr-done,
-  .dj-scr-add,
-  .dj-scr-folder,
-  .dj-scr-forget {
-    min-height: 2.4em;
-  }
-
   .dj-scr-keys {
     display: none;
   }
 
-  /* BACK au doigt : plus haute, et sa cible deborde en dessous et a droite (44 px au moins au telephone) */
-  .dj-scr-back {
-    min-height: 2.8em;
-    padding: 0 0.75em 0 0.45em;
-    font-size: 0.8em;
+  /*
+   * Au doigt (relecture du 2026-10-08, 44 px au moins au telephone, ou
+   * l'ecran fait 313 x 226 px) : le retour devient une touche compacte sur
+   * la ligne des sources, la longue ligne du morceau s'efface (l'ecran de
+   * la platine la montre au retour) ; sources, recherche, ajouts et
+   * morceaux a 44 px.
+   */
+  .dj-scr-now-full {
+    display: none;
   }
 
-  .dj-scr-back::after {
-    content: '';
-    position: absolute;
-    left: -0.4em;
-    right: -0.4em;
-    top: -0.5em;
-    bottom: -1.4em;
+  .dj-scr-now-compact {
+    display: inline-flex;
+    min-height: 4.4em;
+    padding: 0 0.6em 0 0.35em;
   }
 
-  .dj-scr-now {
-    min-height: 2.6em;
+  .dj-scr-head[data-held='1'] {
+    margin-top: 0;
+  }
+
+  .dj-scr-tab,
+  .dj-scr-done,
+  .dj-scr-add,
+  .dj-scr-folder,
+  .dj-scr-forget {
+    min-height: 4.3em;
+  }
+
+  .dj-scr-search {
+    min-height: 3.6em;
+  }
+
+  .dj-scr-load {
+    min-height: 4.1em;
   }
 }
 
