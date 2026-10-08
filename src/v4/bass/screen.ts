@@ -30,8 +30,8 @@ import { makeCanvasTexture } from '../scene/silk';
 import { DJ_BEZEL } from '../dj/theme';
 import { FONT_DISPLAY, HEX } from '../theme';
 import type { PresetView } from '../state/presetMode';
-import { BASS_ROOTS, BASS_SCALES, BASS_STYLES, stepOf, type BassValues } from './params';
-import { BASS_STEPS, type BassState } from './state';
+import { BASS_ROOTS, BASS_SCALES, BASS_STYLES, stepOf, type BassKnobId, type BassValues } from './params';
+import { BASS_STEPS, type BassLockId, type BassState } from './state';
 import { BASS } from './theme';
 
 const INK: string = HEX.bone;
@@ -41,12 +41,32 @@ const BLACK: string = '#050506';
 
 const font = (weight: number, size: number): string => `${weight} ${size}px ${FONT_DISPLAY}`;
 
+/** Une case de la page LOCK (2026-10-08) : un potard verrouillable, sa valeur sur ce pas, verrouillee ou non. */
+export interface BassLockCell {
+  id: BassLockId;
+  /** le nom court (CUT, RES...) */
+  label: string;
+  /** la valeur lisible sur ce pas (celle du verrou, sinon celle du potard) */
+  value: string;
+  locked: boolean;
+}
+
 /** Les pages de l'ecran (2026-10-07). */
 export interface BassScreenMode {
   edit: { cur: number; next: number; chain: readonly number[]; filled: readonly boolean[] } | null;
-  /** le pas dont on regle les verrous, et leur texte (CUTOFF 1.2 KHZ...) */
-  lock: { step: number; items: readonly string[] } | null;
+  /**
+   * le pas dont on regle les verrous, et leur texte (CUTOFF 1.2 KHZ...) ;
+   * head : l'en-tete (LOCK 05  F#2 ACC SLD), cells : la grille des
+   * parametres verrouillables (2026-10-08)
+   */
+  lock: { step: number; items: readonly string[]; head?: string; cells?: readonly BassLockCell[] } | null;
   presets: PresetView | null;
+  /**
+   * le potard qu'on vient de tourner (2026-10-08, l'echo des Elektron) :
+   * son id, sa valeur (0 a 1, celle du verrou en LOCK), verrouille ou non ;
+   * null hors de l'instant
+   */
+  knob?: { id: BassKnobId; v: number; locked: boolean } | null;
 }
 
 const slot = (i: number): string => `A${String(i + 1).padStart(2, '0')}`;

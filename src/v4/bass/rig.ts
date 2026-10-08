@@ -42,13 +42,14 @@ import { DJ_BEZEL, DJ_BODY, DJ_KEY, DJ_KNOB, DJ_TILT, DJ_TOP_Y, DJ_UNIT } from '
 import { bassKnobValue, noteName } from './actions';
 import { BASS_SLOTS, bassPatterns } from './patterns';
 import { bassEngine } from './engine';
-import { BASS_KNOBS, bassParams, bassValueText, type BassKnobId } from './params';
+import { BASS_FACE_KNOBS as BASS_KNOBS, bassParams, bassValueText, type BassKnobId } from './params';
+import { bassInfos } from '../state/bassInfos';
 import { BassScreen } from './screen';
 import { bassSeq, midiOf } from './seq';
 import { BASS_LOCKABLE, BASS_STEPS, bassState, type BassLockId } from './state';
 
 /** Les noms courts des verrous, sur la ligne du bas de l'ecran. */
-const LOCK_SHORT: Readonly<Record<BassLockId, string>> = { cutoff: 'CUT', reso: 'RES', envmod: 'ENV', decay: 'DEC', accent: 'ACC', wave: 'WAVE', sub: 'SUB', drive: 'DRV', glide: 'GLD', volume: 'VOL' };
+const LOCK_SHORT: Readonly<Record<BassLockId, string>> = { cutoff: 'CUT', reso: 'RES', envmod: 'ENV', decay: 'DEC', accent: 'ACC', wave: 'WAVE', sub: 'SUB', drive: 'DRV', glide: 'GLD', volume: 'VOL', length: 'LEN' };
 import {
   BASS,
   BASS_D,
@@ -618,7 +619,9 @@ export class BassRig {
     this.opts.repaint();
   }
 
-  setHover(_id: string | null): boolean {
+  /** Le survol : INFOS (2026-10-08) montre la carte de la commande survolee. */
+  setHover(id: string | null): boolean {
+    bassInfos.hover(id && id.startsWith('bass-') ? id : null);
     return false;
   }
 

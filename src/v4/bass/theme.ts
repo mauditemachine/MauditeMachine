@@ -127,7 +127,7 @@ export const bassKnobTone = (id: BassKnobId): BassKnobTone => (id === 'accent' ?
 
 /* ---------------- les touches ---------------- */
 
-export type BassKeyKind = 'run' | 'edit' | 'gen' | 'mutate' | 'clear' | 'accent' | 'slide' | 'notedn' | 'noteup' | 'octdn' | 'octup';
+export type BassKeyKind = 'run' | 'edit' | 'open' | 'gen' | 'mutate' | 'clear' | 'accent' | 'slide' | 'notedn' | 'noteup' | 'octdn' | 'octup';
 export const BASS_KEYS: readonly { kind: BassKeyKind; label: string; aria: string }[] = [
   { kind: 'run', label: 'RUN', aria: 'Run or stop the bassline, in time with the MM-RYTM, key Space' },
   { kind: 'edit', label: 'EDIT', aria: 'Edit: the sixteen steps become sixteen patterns, key E' },

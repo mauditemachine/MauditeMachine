@@ -19,7 +19,7 @@ import { presetKey } from '../actions';
 import { bassDial, bassDialReset, bassKnobValue, bassLockTap, bassStepTap, noteName } from './actions';
 import { bassKeyAction } from './gestures';
 import { listenBassKeys } from './keys';
-import { BASS_KNOBS, bassParams, bassValueText } from './params';
+import { BASS_FACE_KNOBS as BASS_KNOBS, bassParams, bassValueText } from './params';
 import { bassKeyId, bassKnobId, bassLcdId, bassLockId, bassTrigId } from './rig';
 import { midiOf } from './seq';
 import { BASS_STEPS, bassState } from './state';

@@ -208,10 +208,12 @@ export function bassDial(id: BassKnobId, v: number): void {
     const s = st.steps[st.lock];
     if (s.locks?.[id] === x) return;
     bassState.setStep(st.lock, { locks: { ...(s.locks ?? {}), [id]: x } });
+    bassState.set({ touched: { id, at: performance.now() } });
     bassState.say(`LOCK ${two(st.lock)}  ${bassKnob(id).label} ${bassValueText(id, x)}`, 1400);
     return;
   }
   if (!bassParams.set(id, v)) return;
+  bassState.set({ touched: { id, at: performance.now() } });
   bassState.say(`${bassKnob(id).label} ${bassValueText(id, bassParams.of(id))}`, 1400);
 }
 

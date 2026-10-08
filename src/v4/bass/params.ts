@@ -12,9 +12,46 @@
  *   ELECTRO, EBM, ITALO, SUB), DENSITY,
  *   SLIDES, ACCENTS (leurs chances), RANGE (l'etendue en octaves), ROOT (la
  *   tonique, ou ARP : elle suit les accords du MM-ARP), SCALE.
+ *
+ * La refonte facon Monark et Elektron (2026-10-08, Mika : "MM-BASS est un
+ * peu complexe ; je m'attendais plus a une machine qui ressemble a un MONARK
+ * de Native Instruments qu'a un T-1 incomprehensible ; j'aime Elektron :
+ * quelque chose d'intuitif, pour qu'on ne cherche pas les choses ; un bouton
+ * OPEN avec des parametres plus particuliers") : la face garde le son dans
+ * l'ordre du signal et STYLE, DENSITY ; les regles du generateur (SLIDE
+ * PROB, ACC PROB, RANGE, ROOT, SCALE) passent sous le capot (plate), avec
+ * six reglages fins de la voix qui etaient des constantes du worklet
+ * (LENGTH, ACC DECAY, SWEEP, RELEASE, SUB OCT, TUNE ; leur defaut est
+ * l'ancienne constante, le son ne change pas). Les ids ne changent pas
+ * (stockage, presets, MIDI, Roto) ; SLIDES et ACCENTS s'appellent SLIDE PROB
+ * et ACC PROB (ils se confondaient avec SLIDE, GLIDE et ACCENT).
  */
 
-export type BassKnobId = 'cutoff' | 'reso' | 'envmod' | 'decay' | 'accent' | 'wave' | 'sub' | 'drive' | 'glide' | 'volume' | 'octave' | 'style' | 'density' | 'slides' | 'accents' | 'range' | 'root' | 'scale';
+export type BassKnobId =
+  | 'cutoff'
+  | 'reso'
+  | 'envmod'
+  | 'decay'
+  | 'accent'
+  | 'wave'
+  | 'sub'
+  | 'drive'
+  | 'glide'
+  | 'volume'
+  | 'octave'
+  | 'style'
+  | 'density'
+  | 'slides'
+  | 'accents'
+  | 'range'
+  | 'root'
+  | 'scale'
+  | 'length'
+  | 'accdecay'
+  | 'sweep'
+  | 'release'
+  | 'suboct'
+  | 'tune';
 
 export interface BassKnobDef {
   id: BassKnobId;
@@ -26,6 +63,8 @@ export interface BassKnobDef {
   steps?: number;
   /** le nom de chaque cran */
   names?: readonly string[];
+  /** sous le capot (OPEN), sur la plaque TWEAKS, pas sur la face (2026-10-08) */
+  plate?: boolean;
 }
 
 export const BASS_STYLES = ['ACID', 'DARK DISCO', 'INDIE DANCE', 'MINIMAL', 'PSY PROG', 'TECHNO', 'HOUSE', 'ELECTRO', 'EBM', 'ITALO', 'SUB'] as const;
@@ -43,6 +82,21 @@ export const SCALE_TONES: Readonly<Record<(typeof BASS_SCALES)[number], readonly
 };
 export const BASS_OCTAVES = ['-2', '-1', '0', '+1'] as const;
 export const BASS_RANGES = ['1', '2', '3'] as const;
+export const BASS_SUBOCTS = ['-1', '-2'] as const;
+
+/* Les reglages fins de la voix (2026-10-08) : leurs lois (0 a 1 vers l'unite), le worklet fait les memes. */
+/** LENGTH : 0 AUTO (la longueur du style), sinon 10 a 100 % du pas. */
+export const lengthPct = (v: number): number | null => (v < 0.02 ? null : 10 + 90 * v);
+/** ACC DECAY : 80 a 600 ms (200 : la 303). */
+export const accDecayMs = (v: number): number => 80 * Math.pow(600 / 80, v);
+/** SWEEP : la charge des accents qui se suivent, 0 a 4 octaves (2.2 : l'ancienne constante). */
+export const sweepOct = (v: number): number => 4 * v;
+/** RELEASE : 6 a 400 ms (14 : l'ancienne constante). */
+export const releaseMs = (v: number): number => 6 * Math.pow(400 / 6, v);
+/** TUNE : -50 a +50 cents. */
+export const tuneCents = (v: number): number => (v - 0.5) * 100;
+/** La valeur d'un potard pour une valeur voulue (les defauts = les anciennes constantes). */
+const inv = (lo: number, hi: number, x: number): number => Math.log(x / lo) / Math.log(hi / lo);
 
 export const BASS_KNOBS: readonly BassKnobDef[] = [
   { id: 'cutoff', label: 'CUTOFF', aria: 'Filter cutoff', def: 0.32 },
@@ -58,12 +112,22 @@ export const BASS_KNOBS: readonly BassKnobDef[] = [
   { id: 'octave', label: 'OCTAVE', aria: 'Octave, from minus two to plus one', def: 2 / 3, steps: 4, names: BASS_OCTAVES },
   { id: 'style', label: 'STYLE', aria: 'Generator style: acid, dark disco, indie dance, minimal, psy prog, techno, house, electro, EBM, italo or sub', def: 0, steps: BASS_STYLES.length, names: BASS_STYLES },
   { id: 'density', label: 'DENSITY', aria: 'Generator density: how many notes', def: 0.6 },
-  { id: 'slides', label: 'SLIDES', aria: 'Generator: chance of a slide', def: 0.3 },
-  { id: 'accents', label: 'ACCENTS', aria: 'Generator: chance of an accent', def: 0.35 },
-  { id: 'range', label: 'RANGE', aria: 'Generator: range in octaves', def: 0.5, steps: 3, names: BASS_RANGES },
-  { id: 'root', label: 'ROOT', aria: 'Root note, or ARP: follow the MM-ARP chords', def: 1 / 12, steps: 13, names: BASS_ROOTS },
-  { id: 'scale', label: 'SCALE', aria: 'Scale', def: 0, steps: 5, names: BASS_SCALES },
+  { id: 'slides', label: 'SLIDE PROB', aria: 'Generator: chance of a slide when GEN writes a line', def: 0.3, plate: true },
+  { id: 'accents', label: 'ACC PROB', aria: 'Generator: chance of an accent when GEN writes a line', def: 0.35, plate: true },
+  { id: 'range', label: 'RANGE', aria: 'Generator: range in octaves', def: 0.5, steps: 3, names: BASS_RANGES, plate: true },
+  { id: 'root', label: 'ROOT', aria: 'Root note, or ARP: follow the MM-ARP chords', def: 1 / 12, steps: 13, names: BASS_ROOTS, plate: true },
+  { id: 'scale', label: 'SCALE', aria: 'Scale', def: 0, steps: 5, names: BASS_SCALES, plate: true },
+  { id: 'length', label: 'LENGTH', aria: 'Note length: AUTO follows the style, or 10 to 100 percent of a step', def: 0, plate: true },
+  { id: 'accdecay', label: 'ACC DECAY', aria: 'Filter decay of the accented notes, 80 to 600 milliseconds', def: inv(80, 600, 200), plate: true },
+  { id: 'sweep', label: 'SWEEP', aria: 'Accent sweep: how high successive accents push the filter, 0 to 4 octaves', def: 2.2 / 4, plate: true },
+  { id: 'release', label: 'RELEASE', aria: 'Release of a note, 6 to 400 milliseconds', def: inv(6, 400, 14), plate: true },
+  { id: 'suboct', label: 'SUB OCT', aria: 'Sub oscillator octave: one or two below the note', def: 0, steps: 2, names: BASS_SUBOCTS, plate: true },
+  { id: 'tune', label: 'TUNE', aria: 'Fine tune, minus 50 to plus 50 cents', def: 0.5, bipolar: true, plate: true },
 ];
+
+/** Les potards de la face, et ceux de la plaque sous le capot (2026-10-08). */
+export const BASS_FACE_KNOBS: readonly BassKnobDef[] = BASS_KNOBS.filter((k) => !k.plate);
+export const BASS_PLATE_KNOBS: readonly BassKnobDef[] = BASS_KNOBS.filter((k) => k.plate);
 
 export const bassKnob = (id: BassKnobId): BassKnobDef => BASS_KNOBS.find((k) => k.id === id) as BassKnobDef;
 
@@ -89,6 +153,17 @@ export function bassValueText(id: BassKnobId, v: number): string {
     return s < 1 ? `${Math.round(s * 1000)} MS` : `${s.toFixed(2)} S`;
   }
   if (id === 'glide') return `${Math.round(12 * Math.pow(0.35 / 0.012, v))} MS`;
+  if (id === 'length') {
+    const l = lengthPct(v);
+    return l === null ? 'AUTO' : `${Math.round(l)} %`;
+  }
+  if (id === 'accdecay') return `${Math.round(accDecayMs(v))} MS`;
+  if (id === 'sweep') return `${sweepOct(v).toFixed(1)} OCT`;
+  if (id === 'release') return `${Math.round(releaseMs(v))} MS`;
+  if (id === 'tune') {
+    const c = Math.round(tuneCents(v));
+    return c === 0 ? '0 CT' : `${c > 0 ? '+' : ''}${c} CT`;
+  }
   if (id === 'wave') return v < 0.03 ? 'SAW' : v > 0.97 ? 'SQUARE' : pct(v);
   return pct(v);
 }

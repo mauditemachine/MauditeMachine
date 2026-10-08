@@ -14,6 +14,8 @@
  * potards du son ne changent alors que lui.
  */
 
+import type { BassKnobId } from './params';
+
 export type BassStepKind = 'off' | 'note' | 'tie';
 
 export interface BassStep {
@@ -30,9 +32,9 @@ export interface BassStep {
 
 export const BASS_STEPS = 16;
 
-/** Les potards du son qu'un pas peut verrouiller (pas ceux du generateur, ni OCTAVE). */
-export type BassLockId = 'cutoff' | 'reso' | 'envmod' | 'decay' | 'accent' | 'wave' | 'sub' | 'drive' | 'glide' | 'volume';
-export const BASS_LOCKABLE: readonly BassLockId[] = ['cutoff', 'reso', 'envmod', 'decay', 'accent', 'wave', 'sub', 'drive', 'glide', 'volume'];
+/** Les potards du son qu'un pas peut verrouiller (pas ceux du generateur, ni OCTAVE) ; LENGTH aussi (2026-10-08, la longueur de la note du pas). */
+export type BassLockId = 'cutoff' | 'reso' | 'envmod' | 'decay' | 'accent' | 'wave' | 'sub' | 'drive' | 'glide' | 'volume' | 'length';
+export const BASS_LOCKABLE: readonly BassLockId[] = ['cutoff', 'reso', 'envmod', 'decay', 'accent', 'wave', 'sub', 'drive', 'glide', 'volume', 'length'];
 export const isLockable = (id: string): id is BassLockId => (BASS_LOCKABLE as readonly string[]).includes(id);
 export type BassLocks = Partial<Record<BassLockId, number>>;
 
@@ -47,6 +49,8 @@ export interface BassState {
   gen: number;
   /** le pas dont on regle les verrous (-1 : aucun) */
   lock: number;
+  /** le dernier potard tourne et quand (performance.now) : l'ecran le montre un instant, facon Elektron (2026-10-08) */
+  touched: { id: BassKnobId; at: number } | null;
 }
 
 const KEY = 'mm.v4.bass.state';
@@ -103,7 +107,7 @@ function load(): BassStep[] {
   }
 }
 
-let state: BassState = { steps: typeof window === 'undefined' ? initial() : load(), sel: 0, running: false, message: null, gen: 0, lock: -1 };
+let state: BassState = { steps: typeof window === 'undefined' ? initial() : load(), sel: 0, running: false, message: null, gen: 0, lock: -1, touched: null };
 const listeners = new Set<() => void>();
 let msgTimer = 0;
 let saveTimer = 0;
