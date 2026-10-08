@@ -10,7 +10,8 @@ import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
 import { ensure, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, trigger } from './audio/drums';
 import { VOICE_FX_DEFAULT, voiceFx, type VoiceParam } from './audio/voicefx';
-import { KIT_LABEL, familyOf, isFamily, kit, kitSoundIndex, kitSteps, type KitFamily, type KitId } from './audio/kit';
+import { KIT_LABEL, KIT_MODELS, KIT_MODEL_LABEL, familyOf, isFamily, kit, kitSoundIndex, kitSteps, type KitFamily, type KitId } from './audio/kit';
+import { samplesOf } from './audio/samples';
 import { randomBeat, randomColors, type BeatStyle } from './audio/beats';
 import { BPM, INSTRUMENTS, VEL_MAX, VEL_NAMES, pattern, velocity } from './audio/pattern';
 import { sc } from './audio/soundcloud';
@@ -908,35 +909,138 @@ export function pageTarget(k: number): SlotTarget | null {
 }
 
 /**
+ * TRIG VEL (2026-10-08) : la velocite du pas choisi, de 0 a 9 ; 0 le vide
+ * (OFF, ce que le bloc montre au bas de sa course), 1 a 9 le pose ou le
+ * change (stepVelocity). false sans voix choisie, ou dans EDIT (les pas y
+ * sont les patterns).
+ */
+function stepLevel(i: number, v: number): boolean {
+  const n = Math.max(0, Math.min(VEL_MAX, Math.round(v)));
+  if (n > 0) return stepVelocity(i, n);
+  if (editor.get() === 'mm808') return false;
+  resume();
+  const inst = pattern.get().instrument;
+  if (!inst) {
+    lcdMessage.show('TAP A PAD FIRST');
+    return false;
+  }
+  if (velocity(pattern.get().steps, inst, i) !== 0) pattern.clearStep(inst, i);
+  rytmPage.select(i);
+  touchPage('step:vel', inst);
+  lcdMessage.show(stepLine(inst, i), POT_UI.readoutMs, true);
+  return true;
+}
+
+/** Les echantillons de la famille de la voix choisie (SMPL SAMPLE), 0 sans voix ni famille. */
+function sampleCount(): number {
+  const f = soundFamily();
+  return f ? Math.max(0, kitSteps(f) - KIT_MODELS.length) : 0;
+}
+
+/** SMPL SAMPLE : 0 (OFF, le son de synthese de la famille joue) ou le rang de l'echantillon, 1 a n. */
+function sampleValue(): number {
+  const f = soundFamily();
+  if (!f) return 0;
+  const i = kitSoundIndex(f);
+  return i < KIT_MODELS.length ? 0 : i - KIT_MODELS.length + 1;
+}
+
+/**
+ * SMPL SAMPLE tourne (2026-10-08, revue de R1 : le bloc SAMPLE montrait 909,
+ * un son de synthese) : OFF rend a la famille son son de synthese (celui que
+ * le kit garde sous l'echantillon, kit.model), un cran plus loin l'un de ses
+ * echantillons ; la liste des sons s'ouvre comme pour SOUND. Le meme choix
+ * de son du kit que SOUND de SRC, sans ses trois synthes, jusqu'aux deux
+ * couches SYNTH et SAMPLE de l'etape R3.
+ */
+function sampleDial(v: number): void {
+  const inst = pattern.get().instrument;
+  if (!inst) {
+    lcdMessage.show('TAP A PAD FIRST');
+    return;
+  }
+  const f = soundFamily();
+  const n = sampleCount();
+  if (!f || n === 0) {
+    lcdMessage.show(`${inst}: NO SAMPLES`);
+    return;
+  }
+  const j = Math.max(0, Math.min(n, Math.round(v)));
+  kit.setSound(f, j === 0 ? kit.get().model[f] : samplesOf(f)[j - 1].key);
+  lcdSamples.show();
+  touchPage('smpl:sample', inst);
+}
+
+/** SMPL SAMPLE ecrit : OFF, ou le nom de l'echantillon (BLUEPRINT) ; '--' sans echantillon a choisir. */
+function sampleText(): string {
+  const f = soundFamily();
+  if (!f || sampleCount() === 0) return '--';
+  return sampleValue() === 0 ? 'OFF' : kit.valueText(f);
+}
+
+/** Sa ligne d'unite : SYNTH 909 (OFF : le son de synthese joue), SAMPLE 2/6. */
+function sampleUnit(): string {
+  const f = soundFamily();
+  const n = sampleCount();
+  if (!f) return '';
+  if (n === 0) return 'NO SAMPLES';
+  const j = sampleValue();
+  return j === 0 ? `SYNTH ${KIT_MODEL_LABEL[kit.get().model[f]]}` : `SAMPLE ${j}/${n}`;
+}
+
+/**
  * Un potard de page tourne : il regle ce que son bloc montre ; un bloc vide
- * ou a venir le dit a l'ecran (jamais un geste qui ne fait rien en silence).
- * TRIG VEL : la velocite du dernier pas touche.
+ * le dit a l'ecran (jamais un geste qui ne fait rien en silence). TRIG VEL :
+ * la velocite du pas choisi ; SMPL SAMPLE : l'echantillon de la voix.
+ * L'echo (le contour du bloc) une seule fois : le reglage touche l'a deja
+ * pose s'il est sur la page (touchPage), sinon il est pose ici.
  */
 function pageDial(k: number, v: number): void {
   resume();
   const slot = pageSlotOf(k);
   const page = pageLabel(rytmPage.get().page);
   const letter = PAGE_KNOB_LETTERS[k] ?? '?';
-  if (!slot || !slot.label) {
-    lcdMessage.show(`KNOB ${letter}: NOTHING ON ${page}`);
+  const t = slot && slot.label ? slot.target : null;
+  if (!slot || t === null) {
+    lcdMessage.show(`${letter}: EMPTY ON ${page}`);
     return;
   }
-  const t = slot.target;
-  if (t === null) {
-    lcdMessage.show(`${page} ${slot.label}: COMING SOON`);
-    return;
-  }
+  const before = rytmPage.get().echo;
   if (t === 'step:vel') {
     const sel = rytmPage.get().sel;
     if (sel < 0) {
-      lcdMessage.show(pattern.get().instrument ? 'TAP A STEP FIRST' : 'TAP A PAD FIRST');
+      lcdMessage.show(pattern.get().instrument ? 'VEL: HOLD A STEP' : 'TAP A PAD FIRST');
       return;
     }
-    if (stepVelocity(sel, v)) rytmPage.echo(k);
-    return;
-  }
-  anyDial(t, v);
-  rytmPage.echo(k);
+    if (!stepLevel(sel, v)) return;
+  } else if (t === 'smpl:sample') sampleDial(v);
+  else anyDial(t, v);
+  // Rien a regler (pas de voix choisie, une voix a un seul son) : le message suffit, pas de contour
+  if (!pageKnobLive(k)) return;
+  const e = rytmPage.get().echo;
+  if (!e || e === before || e.k !== k || e.page !== rytmPage.get().page) rytmPage.echo(k);
+}
+
+/**
+ * Le potard de page k a-t-il quelque chose a regler maintenant (un bloc
+ * vivant) ? Non pour un bloc vide, un reglage de voix sans voix choisie,
+ * VEL sans pas choisi, SOUND ou SAMPLE d'une voix sans choix de son.
+ */
+export function pageKnobLive(k: number): boolean {
+  return dialValueText(`p:${k}` as DialId) !== '--';
+}
+
+/**
+ * La course (0 a 1) du potard de page k : celle de ce que son bloc regle,
+ * que lisent son repere sur la face, son jumeau et le MIDI (rytm:knob) ; un
+ * bloc qui n'a rien a regler (pageKnobLive) : en bas, comme son bloc vide
+ * (2026-10-08, revue de R1 : a midi, le repere faisait croire a une valeur).
+ */
+export function pageKnobCourse(k: number): number {
+  if (!pageKnobLive(k)) return 0;
+  const id = `p:${k}` as DialId;
+  const [lo, hi] = dialRange(id);
+  return hi > lo ? Math.max(0, Math.min(1, (anyDialValue(id) - lo) / (hi - lo))) : 0;
 }
 
 /** La cible d'un potard (un potard de page : celle de son bloc ; null, vide ou a venir). */
@@ -962,6 +1066,7 @@ export function anyDialValue(id: DialId): number {
     const sel = rytmPage.get().sel;
     return sel < 0 ? 0 : stepVelocityOf(sel);
   }
+  if (t === 'smpl:sample') return sampleValue();
   const r = kitIdOf(t);
   if (r) return kit.value(r);
   const k = voyId(t);
@@ -971,8 +1076,13 @@ export function anyDialValue(id: DialId): number {
 export function anyDialReset(id: DialId): number {
   const t = resolve(id);
   if (t === null) return 0;
-  // Un pas remis a sa velocite d'un appui (fort)
-  if (t === 'step:vel') return VEL_MAX;
+  // Un pas remis a sa velocite d'un appui (fort) ; un pas vide le reste (deux tapes n'y posent pas de note)
+  if (t === 'step:vel') {
+    const sel = rytmPage.get().sel;
+    return sel >= 0 && stepVelocityOf(sel) > 0 ? VEL_MAX : 0;
+  }
+  // SMPL SAMPLE : OFF, le son de synthese
+  if (t === 'smpl:sample') return 0;
   const r = kitIdOf(t);
   if (r) return kit.def(r);
   const k = voyId(t);
@@ -990,6 +1100,7 @@ export function dialRange(id: DialId): [number, number] {
   const t = resolve(id);
   if (t === null) return [0, 1];
   if (t === 'step:vel') return [0, VEL_MAX];
+  if (t === 'smpl:sample') return [0, Math.max(1, sampleCount())];
   if (kitIdOf(t) || voyId(t)) return [0, 1];
   if (t === 'tempo') return [BPM.min, BPM.max];
   return [potMin(t as EncId), 1];
@@ -1000,6 +1111,10 @@ export function dialSteps(id: DialId): number {
   const t = resolve(id);
   if (t === null) return 0;
   if (t === 'step:vel') return VEL_MAX + 1;
+  if (t === 'smpl:sample') {
+    const n = sampleCount();
+    return n > 0 ? n + 1 : 0;
+  }
   if (t === 'vsound') {
     const f = soundFamily();
     return f ? kitSteps(f) : 0;
@@ -1045,7 +1160,11 @@ export function dialReadout(id: DialId): string {
     if (t === 'step:vel') {
       const sel = rytmPage.get().sel;
       const v = sel < 0 ? 0 : stepVelocityOf(sel);
-      return sel < 0 ? 'VEL, tap a step first' : `VEL ${velTo127(v)}, step ${two(sel + 1)}`;
+      return sel < 0 ? 'VEL, hold a step first' : `VEL ${v > 0 ? velTo127(v) : 'OFF'}, step ${two(sel + 1)}`;
+    }
+    if (t === 'smpl:sample') {
+      const txt = sampleText();
+      return txt === '--' ? (pattern.get().instrument ? 'SAMPLE, no samples for this voice' : 'TAP A VOICE') : `SAMPLE ${txt}, ${sampleUnit().toLowerCase()}`;
     }
     return dialReadout(t);
   }
@@ -1076,8 +1195,12 @@ export function dialValueText(id: DialId): string {
     if (t === null) return '--';
     if (t === 'step:vel') {
       const sel = rytmPage.get().sel;
-      return sel < 0 ? '--' : String(velTo127(stepVelocityOf(sel)));
+      if (sel < 0) return '--';
+      const v = stepVelocityOf(sel);
+      // Le pas vide : OFF, comme le bloc de l'ecran
+      return v > 0 ? String(velTo127(v)) : 'OFF';
     }
+    if (t === 'smpl:sample') return sampleText();
     return dialValueText(t);
   }
   const r = kitIdOf(id);
@@ -1100,8 +1223,9 @@ export function dialUnit(id: DialId): string {
   if (t === null) return '';
   if (t === 'step:vel') {
     const sel = rytmPage.get().sel;
-    return sel < 0 ? 'TAP A STEP' : `STEP ${two(sel + 1)}`;
+    return sel < 0 ? 'HOLD A STEP' : `STEP ${two(sel + 1)}`;
   }
+  if (t === 'smpl:sample') return sampleUnit();
   const r = kitIdOf(t);
   if (r) return isFamily(r) ? '' : r === 'gate' ? 'SD + CP' : kitUnit(r);
   if (t === 'vsound') {
@@ -1118,13 +1242,39 @@ export function dialUnit(id: DialId): string {
 }
 
 /**
+ * EDIT ou le mode presets du MM-RYTM tiennent-ils l'ecran ? Une touche de
+ * page les referme (2026-10-08, revue de R1 : pressee sous EDIT, elle
+ * changeait la vue cachee sans rien montrer, et EDIT referme laissait HOME) ;
+ * rend true s'il y en avait un.
+ */
+function leaveRytmOverlay(): boolean {
+  let left = false;
+  if (editor.get() === 'mm808') {
+    editor.close();
+    left = true;
+  }
+  if (presetMode.on('mm808')) {
+    presetMode.close();
+    left = true;
+  }
+  return left;
+}
+
+/**
  * Une touche de page du MM-RYTM (la face, le Dock, le MIDI, 2026-10-08) :
  * sa page s'affiche ; la touche deja allumee pressee encore : HOME (l'ecran
- * d'avant, l'anneau), puis PAGE. La touche s'enfonce.
+ * d'avant, l'anneau), puis PAGE. Sous EDIT ou les presets, elle les referme
+ * et montre sa page (jamais HOME : on ne voyait pas la page qu'on quittait).
+ * La touche s'enfonce.
  */
 export function rytmPageKey(id: RytmPageId, stage: Stage | null = null): void {
   resume();
   stage?.pressPageKey(id);
+  if (leaveRytmOverlay()) {
+    rytmPage.setPage(id);
+    lcdMessage.show(`${pageLabel(id)} PAGE`);
+    return;
+  }
   const was = rytmPage.get().view;
   const view = rytmPage.press(id);
   // HOME le dit (et comment revenir) ; le retour de HOME aussi (le message de HOME ne reste pas)
@@ -1132,9 +1282,18 @@ export function rytmPageKey(id: RytmPageId, stage: Stage | null = null): void {
   else if (was === 'home') lcdMessage.show(`${pageLabel(id)} PAGE`);
 }
 
-/** H, ou rytm:home en MIDI : HOME, ou la vue PAGE. */
+/** rytm:page en MIDI (un potard a six crans) : la page, en vue PAGE ; sous EDIT ou les presets, comme une touche. */
+export function rytmShowPage(id: RytmPageId): void {
+  const left = leaveRytmOverlay();
+  const same = id === rytmPage.get().page && rytmPage.get().view === 'page';
+  rytmPage.setPage(id);
+  if (left || !same) lcdMessage.show(`${pageLabel(id)} PAGE`);
+}
+
+/** rytm:home en MIDI (H au clavier, hors EDIT) : HOME, ou la vue PAGE ; sous EDIT ou les presets, les referme sur HOME. */
 export function rytmHome(): void {
-  rytmPage.toggleView();
+  if (leaveRytmOverlay()) rytmPage.setView('home');
+  else rytmPage.toggleView();
 }
 
 /** Un seul abonnement pour toutes les valeurs des potards (les deux machines, le kit). */

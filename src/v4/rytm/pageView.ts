@@ -15,7 +15,7 @@
  * Le Dock du telephone (ui/KnobPanel.tsx) lit les memes blocs.
  */
 
-import { anyDialValue, dialRange, dialSteps, dialValueText, kitIdOf, stepVelocityOf, type DialId } from '../actions';
+import { anyDialValue, dialRange, dialSteps, dialUnit, dialValueText, kitIdOf, stepVelocityOf, type DialId } from '../actions';
 import { familyOf, isFamily, kitSoundIndex, kitSteps } from '../audio/kit';
 import { VEL_NAMES, pattern } from '../audio/pattern';
 import type { ShotId } from '../audio/shotsdsp';
@@ -38,6 +38,11 @@ export interface Block {
   all: boolean;
   /** effet global que le kick ne recoit pas, BD choisi (etiquette NO BD) */
   noBd: boolean;
+  /**
+   * l'etiquette au bout de la ligne d'unite : NO BD, ALL (toute la machine),
+   * la voix (les effets de la voix sur FX, au-dessus de ceux de ALL) ; ''
+   */
+  tag: string;
   /** la valeur du reglage (son domaine : -1 a 1 pour TONE et STRETCH) */
   value: number;
   /** sa place sur la course, 0 a 1 */
@@ -62,6 +67,7 @@ export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, sel: num
     state: 'soon',
     all: slot.scope === 'all',
     noBd: !!slot.noBd && inst === 'BD',
+    tag: '',
     value: 0,
     course: 0,
     bipolar: false,
@@ -74,6 +80,7 @@ export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, sel: num
     b.text = '';
     return b;
   }
+  b.tag = b.noBd ? 'NO BD' : b.all ? 'ALL' : slot.voiceTag && inst ? inst : '';
   const t = slot.target;
   if (t === null) {
     b.unit = 'SOON';
@@ -88,8 +95,9 @@ export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, sel: num
   if (t === 'step:vel') {
     // TRIG : la velocite du dernier pas touche
     if (sel < 0) {
+      // Tenir un pas le choisit sans le changer (une tape le change)
       b.state = 'off';
-      b.unit = 'TAP A STEP';
+      b.unit = 'HOLD A STEP';
       return b;
     }
     const v = stepVelocityOf(sel);
@@ -99,6 +107,24 @@ export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, sel: num
     b.value = v;
     b.course = v / 9;
     b.notches = 10;
+    return b;
+  }
+  if (t === 'smpl:sample') {
+    // SMPL : OFF (le son de synthese joue), ou l'echantillon de la voix et son rang
+    const pk = `p:${k}` as DialId;
+    const text = dialValueText(pk);
+    b.unit = dialUnit(pk);
+    if (text === '--') {
+      b.state = 'off';
+      return b;
+    }
+    const [lo, hi] = dialRange(pk);
+    const v = anyDialValue(pk);
+    b.state = 'live';
+    b.text = text;
+    b.value = v;
+    b.course = hi > lo ? clamp01((v - lo) / (hi - lo)) : 0;
+    b.notches = dialSteps(pk);
     return b;
   }
   const id: DialId = t;

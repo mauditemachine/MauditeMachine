@@ -116,6 +116,10 @@ export const rytmPage = {
   toggleView(): void {
     set({ view: state.view === 'page' ? 'home' : 'page' });
   },
+  /** Une vue (rytm:home sous EDIT : HOME une fois EDIT referme). */
+  setView(v: RytmView): void {
+    if (v !== state.view) set({ view: v });
+  },
   /**
    * Un reglage touche (un potard, un TWEAK, la velocite d'un pas) : son
    * bloc s'entoure un instant (l'echo) s'il est sur la page affichee ; la

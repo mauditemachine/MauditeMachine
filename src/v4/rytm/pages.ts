@@ -20,8 +20,11 @@
  *   l'ecran le dit (NO BD) quand BD est la voix choisie.
  * SRC depend de la famille de la voix : le KICK a ses quatre potards, la
  * caisse claire SNAPPY et GATE, le clap GATE, les autres rien de plus.
- * SMPL : le choix du son (SAMPLE, le meme reglage que SOUND de SRC tant que
- * les couches SYNTH et SAMPLE de l'etape R3 n'existent pas), le reste a venir.
+ * SMPL : SAMPLE, l'echantillon de la voix (OFF : le son de synthese de SRC
+ * joue ; sinon l'un des echantillons de sa famille), le reste a venir.
+ * Les reglages a venir ne se dessinent pas (SHOW_SOON, 2026-10-08) : une
+ * grille de blocs SOON se lisait comme un travail pas fini ; la table les
+ * garde pour les etapes suivantes (R2, R3), qui n'ont qu'a les brancher.
  * Une table pure : elle n'importe que des types, familyOf et la liste des
  * touches (theme.ts).
  */
@@ -36,6 +39,13 @@ export type RytmPageId = (typeof RYTM_PAGE_KEYS)[number]['id'];
 /** L'ordre des pages (les touches de page, [ et ] en font le tour). */
 export const RYTM_PAGES: readonly { id: RytmPageId; label: string }[] = RYTM_PAGE_KEYS;
 
+/**
+ * Les reglages a venir a l'ecran (2026-10-08, revue de l'etape R1) : non, ils
+ * ne se dessinent pas, leur bloc est vide comme un emplacement libre (Mika :
+ * "je ne vois AUCUN changement", une grille de SOON gris le confirmait).
+ */
+export const SHOW_SOON = false;
+
 /** La page de depart : SRC, ou le KICK montre six blocs vivants. */
 export const DEFAULT_PAGE: RytmPageId = 'src';
 
@@ -46,8 +56,13 @@ export const DEFAULT_PAGE: RytmPageId = 'src';
  */
 export const FOLLOW_TOUCH = false;
 
-/** Ce que montre un bloc : un potard (DialId), ou la velocite du pas choisi. */
-export type SlotTarget = DialId | 'step:vel';
+/**
+ * Ce que montre un bloc : un potard (DialId), la velocite du pas choisi
+ * (step:vel), l'echantillon de la voix (smpl:sample : OFF, ou l'un des
+ * echantillons de sa famille ; le meme choix de son du kit que SOUND, sans
+ * les sons de synthese).
+ */
+export type SlotTarget = DialId | 'step:vel' | 'smpl:sample';
 
 /**
  * Le dessin d'un bloc : les images des cartes de l'ecran (level, tone,
@@ -65,6 +80,8 @@ export interface PageSlot {
   draw: SlotDraw;
   /** effet global que le kick ne recoit pas */
   noBd?: boolean;
+  /** la voix choisie en etiquette (la rangee du haut de FX : les effets de CETTE voix, sous ceux de toute la machine) */
+  voiceTag?: boolean;
 }
 
 export const isRytmPage = (v: unknown): v is RytmPageId => RYTM_PAGES.some((p) => p.id === v);
@@ -79,6 +96,8 @@ const live = (label: string, target: SlotTarget, draw: SlotDraw, scope: PageSlot
   draw,
   ...(noBd ? { noBd } : {}),
 });
+/** Un effet de la voix (la rangee du haut de FX) : la voix en etiquette. */
+const voiceFxSlot = (label: string, target: SlotTarget): PageSlot => ({ ...live(label, target, 'bar'), voiceTag: true });
 
 const TRIG: readonly PageSlot[] = [
   live('VEL', 'step:vel', 'level'),
@@ -92,7 +111,7 @@ const TRIG: readonly PageSlot[] = [
 ];
 
 /** SMPL, dans l'ordre de l'Analog Rytm : TUNE FINE BR SAMPLE, START END LOOP LEVEL. */
-const SMPL: readonly PageSlot[] = [soon('TUNE'), soon('FINE'), soon('BR'), live('SAMPLE', 'vsound', 'notch'), soon('START'), soon('END'), soon('LOOP'), soon('LEVEL')];
+const SMPL: readonly PageSlot[] = [soon('TUNE'), soon('FINE'), soon('BR'), live('SAMPLE', 'smpl:sample', 'notch'), soon('START'), soon('END'), soon('LOOP'), soon('LEVEL')];
 
 const FLTR: readonly PageSlot[] = [soon('ATK'), soon('DEC'), EMPTY, EMPTY, live('TONE', 'tone', 'tone'), soon('RESO'), soon('TYPE'), soon('ENV')];
 
@@ -100,10 +119,10 @@ const AMP: readonly PageSlot[] = [soon('ATK'), soon('HOLD'), live('DEC', 'vdecay
 
 /** En haut les effets de la voix, dessous ceux de toute la machine, colonne par colonne. */
 const FX: readonly PageSlot[] = [
-  live('DIST', 'vdist', 'bar'),
-  live('CHORUS', 'vchorus', 'bar'),
-  live('DELAY', 'vdelay', 'bar'),
-  live('REVERB', 'vreverb', 'bar'),
+  voiceFxSlot('DIST', 'vdist'),
+  voiceFxSlot('CHORUS', 'vchorus'),
+  voiceFxSlot('DELAY', 'vdelay'),
+  voiceFxSlot('REVERB', 'vreverb'),
   live('DIST', 'dist', 'bar', 'all', true),
   live('CHORUS', 'chorus', 'bar', 'all', true),
   live('DELAY', 'delay', 'bar', 'all', true),
@@ -132,8 +151,8 @@ function src(inst: Inst | null): readonly PageSlot[] {
   return slots;
 }
 
-/** Les huit blocs d'une page pour la voix choisie (null : aucune). */
-export function pageSlots(page: RytmPageId, inst: Inst | null): readonly PageSlot[] {
+/** Les huit blocs de la table d'une page (les reglages a venir compris). */
+function tableOf(page: RytmPageId, inst: Inst | null): readonly PageSlot[] {
   switch (page) {
     case 'trig':
       return TRIG;
@@ -150,6 +169,23 @@ export function pageSlots(page: RytmPageId, inst: Inst | null): readonly PageSlo
   }
 }
 
+/** Un reglage a venir tant qu'il ne se montre pas (SHOW_SOON) : un emplacement vide. */
+const SHOWN = new WeakMap<readonly PageSlot[], readonly PageSlot[]>();
+function shown(slots: readonly PageSlot[]): readonly PageSlot[] {
+  if (SHOW_SOON) return slots;
+  let out = SHOWN.get(slots);
+  if (!out) {
+    out = slots.map((s) => (s.label && s.target === null ? EMPTY : s));
+    SHOWN.set(slots, out);
+  }
+  return out;
+}
+
+/** Les huit blocs d'une page pour la voix choisie (null : aucune), tels que l'ecran, le Dock et le MIDI les voient. */
+export function pageSlots(page: RytmPageId, inst: Inst | null): readonly PageSlot[] {
+  return shown(tableOf(page, inst));
+}
+
 /**
  * La page et le bloc d'un reglage pour cette voix, null s'il n'est sur
  * aucune page (MASTER, TEMPO, le MM-ARP) : un choix de son r:<famille> est
@@ -160,9 +196,11 @@ export function pageSlots(page: RytmPageId, inst: Inst | null): readonly PageSlo
 export function slotOf(t: SlotTarget, inst: Inst | null, page?: RytmPageId): { page: RytmPageId; k: number } | null {
   const f = inst ? familyOf(inst as ShotId) : null;
   const target: SlotTarget = t.startsWith('r:') && f !== null && t.slice(2) === f ? 'vsound' : t;
+  // Le choix du son : SOUND (SRC) et SAMPLE (SMPL) en sont deux vues
+  const same = (s: PageSlot): boolean => s.target === target || (target === 'vsound' && s.target === 'smpl:sample') || (target === 'smpl:sample' && s.target === 'vsound');
   const order = page ? [page, ...RYTM_PAGES.map((p) => p.id).filter((id) => id !== page)] : RYTM_PAGES.map((p) => p.id);
   for (const id of order) {
-    const k = pageSlots(id, inst).findIndex((s) => s.target === target);
+    const k = pageSlots(id, inst).findIndex(same);
     if (k >= 0) return { page: id, k };
   }
   return null;

@@ -161,25 +161,58 @@ interface Col {
 const MATRIX = { x0: 8, pitch: 76, w: 72, h: 37, rows: [24, 63], r: 3.5 } as const;
 const BLOCK = {
   padX: 5,
-  nameDy: 9,
-  valueDy: 27.5,
   /** la largeur de la valeur avant l'image */
   valueW: 34,
-  unitDy: 34,
   draw: { dx0: 42, dx1: 67, dy0: 13, dy1: 29 },
 } as const;
 /**
- * Les corps des blocs : au telephone un peu plus gros (l'ecran y fait 230 px
- * de large : le nom et l'unite a 6.5 et 5.5 n'y faisaient pas 5 px).
+ * Les corps de la vue PAGE (2026-10-08, revue de R1, Mika : "plus gros, plus
+ * de detail ; super responsive en mobile") : l'ecran fait 465 px de large au
+ * desktop (1.45 px l'unite) et 280 px au telephone (0.88 px l'unite) ; au
+ * telephone le nom a 10 et l'unite a 8.6 (7.5 a 8.5 px a l'ecran ; 6.5 et
+ * 5.5 n'y faisaient pas 5 px), la valeur a 17 ; ni lettre de potard dans le bloc
+ * (elle est imprimee a cote du potard), ni crans au bout de l'unite, ni les
+ * six onglets du pied (la touche allumee et la pastille de l'en-tete disent
+ * la page) : la place va au texte.
  */
 const BLOCK_TYPE = {
-  desk: { nameSize: 6.5, letterSize: 5.5, unitSize: 5.5, valueSizes: [16, 13, 11, 9], tabSize: 6 },
-  phone: { nameSize: 8, letterSize: 6.5, unitSize: 6.5, valueSizes: [17, 14, 12, 10], tabSize: 7.5 },
+  desk: {
+    nameSize: 7,
+    letterSize: 5.5,
+    unitSize: 6,
+    valueSizes: [17, 14, 12, 10],
+    nameDy: 9.5,
+    valueDy: 27.5,
+    unitDy: 34.6,
+    letters: true,
+    notchRow: true,
+    tabs: true,
+    tabSize: 6.5,
+    foot: 8,
+    head: { pill: 7.5, pillH: 12, voice: 12, sound: 7.5, bpm: 6.5, num: 12 },
+    selR: 0.9,
+  },
+  phone: {
+    nameSize: 10,
+    letterSize: 0,
+    unitSize: 8.6,
+    valueSizes: [17, 14.5, 12, 10],
+    nameDy: 10.2,
+    valueDy: 26.4,
+    unitDy: 34.3,
+    letters: false,
+    notchRow: false,
+    tabs: false,
+    tabSize: 0,
+    foot: 9.5,
+    head: { pill: 9, pillH: 13.5, voice: 13, sound: 9, bpm: 8, num: 13 },
+    selR: 1.3,
+  },
 } as const;
-const PAGE_HEAD = { y: 15, iconX: 10, pillX: 23, pillY: 5.5, pillH: 12, pillSize: 7.5, right: 312, rule: 21 } as const;
+const PAGE_HEAD = { y: 15.5, iconX: 10, pillX: 23, pillY: 4.5, right: 312, rule: 21.5 } as const;
 /** Les seize pas du pied (a gauche) et le reste du pied (a droite). */
 const PAGE_STRIP = { x0: 10, y: 105.5, size: 5.5, pitch: 7 } as const;
-const PAGE_FOOT = { x0: 132, x1: 312, y: 112 } as const;
+const PAGE_FOOT = { x0: 132, x1: 312, y: 112.5 } as const;
 /** La liste des sons (SAMPLES) sur toute la largeur. */
 const PAGE_COL: Col = { x0: 10, x1: 310 };
 
@@ -329,6 +362,12 @@ export class Screen {
    * Stage y lit un clic (seekAt).
    */
   bar: { x0: number; x1: number; y0: number; y1: number } | null = null;
+  /**
+   * Les six onglets de page du pied de la vue PAGE sont-ils a l'ecran
+   * (desktop, rien d'autre au pied) ? Le Stage y pose leurs zones (une touche
+   * de page chacun, 2026-10-08, revue de R1 : dessines, ils ne faisaient rien).
+   */
+  tabsShown = false;
 
   /* ---------------- le dessin ---------------- */
 
@@ -467,6 +506,7 @@ export class Screen {
     } else this.waveFrom = 0;
 
     this.bar = null;
+    this.tabsShown = false;
     this.info.view = view;
     this.info.page = rp.page;
     this.info.blocks = [];
@@ -871,7 +911,8 @@ export class Screen {
       return;
     }
     if (s.l3) {
-      this.text(fit(s.l3, 30), x0, LINE.y, 9, INK, 600, 'left', 0.6);
+      // A la largeur de la colonne (le message garde 40 lettres depuis le 2026-10-08, state/lcd.ts)
+      this.text(this.fitText(s.l3, x1 - x0, 9, 0.6, 600), x0, LINE.y, 9, INK, 600, 'left', 0.6);
       return;
     }
     if (rytmEdit) this.text('TAP: PLAY   TAP TAP: CHAIN', x0, LINE.y, 7, FAINT, 700, 'left', 0.6);
@@ -884,11 +925,11 @@ export class Screen {
    * tip du double MUTE") : le mode du moment a gauche, son tip a droite ;
    * false sans mode ni voix coupee.
    */
-  private paintMode(x0: number, x1: number, y: number = LINE.y): boolean {
+  private paintMode(x0: number, x1: number, y: number = LINE.y, big = 9, small = 6.5): boolean {
     const v = voices.get();
     const line = (left: string, tip: string): true => {
-      const tw = this.text(tip, x1, y, 6.5, HALF, 700, 'right', 0.8);
-      this.text(fit(left, Math.max(6, Math.floor((x1 - x0 - tw - 8) / 6.4))), x0, y, 9, INK, 600, 'left', 0.6);
+      const tw = this.text(tip, x1, y, small, HALF, 700, 'right', 0.8);
+      this.text(this.fitText(left, Math.max(20, x1 - x0 - tw - 8), big, 0.6), x0, y, big, INK, 600, 'left', 0.6);
       return true;
     };
     if (v.soloMode) return v.soloMulti ? line('MULTI SOLO', 'TAP VOICES / SOLO: OFF') : line('SOLO 1 VOICE', '2X SOLO: SEVERAL');
@@ -932,32 +973,33 @@ export class Screen {
    */
   private paintPageHead(page: RytmPageId, inst: Inst | null, cur: number, now: number): void {
     const H = PAGE_HEAD;
+    const T = this.bt.head;
     const y = H.y;
     this.runIcon(H.iconX, y);
     const label = pageLabel(page);
-    const pw = this.textWidth(label, H.pillSize, 700, 0.9) + 12;
-    this.roundRect(H.pillX, H.pillY, pw, H.pillH, 2.5, INK);
-    this.text(label, H.pillX + pw / 2, H.pillY + H.pillH - 3, H.pillSize, BLACK, 700, 'center', 0.9);
+    const pw = this.textWidth(label, T.pill, 700, 0.9) + 12;
+    this.roundRect(H.pillX, H.pillY, pw, T.pillH, 2.5, INK);
+    this.text(label, H.pillX + pw / 2, H.pillY + T.pillH / 2 + T.pill * 0.36, T.pill, BLACK, 700, 'center', 0.9);
     const x = H.pillX + pw + 8;
     if (inst) {
-      const vw = this.text(inst, x, y, 12, INK, 600);
+      const vw = this.text(inst, x, y, T.voice, INK, 600);
       const solo = voices.isSolo(inst);
       const muted = !voices.plays(inst);
       if (solo || muted) {
         const word = solo ? 'SOLO' : 'MUTE';
-        const w = this.textWidth(word, 7, 700, 0.8) + 8;
-        this.pill(x + vw + 6, H.pillY, w, H.pillH, INK);
-        this.text(word, x + vw + 6 + w / 2, H.pillY + H.pillH - 3, 7, BLACK, 700, 'center', 0.8);
-      } else this.text(fit(soundOf(inst), 12), x + vw + 5, y, 7, HALF, 600, 'left', 0.6);
+        const w = this.textWidth(word, T.sound, 700, 0.8) + 8;
+        this.pill(x + vw + 6, H.pillY, w, T.pillH, INK);
+        this.text(word, x + vw + 6 + w / 2, H.pillY + T.pillH / 2 + T.sound * 0.36, T.sound, BLACK, 700, 'center', 0.8);
+      } else this.text(fit(soundOf(inst), this.mobile ? 10 : 12), x + vw + 5, y, T.sound, HALF, 600, 'left', 0.6);
     } else {
-      const aw = this.text('ALL', x, y, 12, HALF, 600);
-      this.text('PICK A VOICE', x + aw + 6, y, 6, FAINT, 600, 'left', 0.5);
+      const aw = this.text('ALL', x, y, T.voice, HALF, 600);
+      this.text('PICK A VOICE', x + aw + 6, y, T.sound * 0.85, FAINT, 600, 'left', 0.5);
     }
     const blinkOff = this.blinkUntil > now && Math.floor((this.blinkUntil - now) / 100) % 2 === 1;
     const bpm = String(Math.round(pattern.get().bpm));
-    const bw = this.text('BPM', H.right, y, 6.5, HALF, 600, 'right', 0.8);
-    const nw = this.text(bpm, H.right - bw - 3, y, 12, INK, 400, 'right');
-    this.text(slotName(cur), H.right - bw - 3 - nw - 10, y, 12, blinkOff ? FAINT : INK, 600, 'right', 0.6);
+    const bw = this.text('BPM', H.right, y, T.bpm, HALF, 600, 'right', 0.8);
+    const nw = this.text(bpm, H.right - bw - 3, y, T.num, INK, 400, 'right');
+    this.text(slotName(cur), H.right - bw - 3 - nw - 10, y, T.num, blinkOff ? FAINT : INK, 600, 'right', 0.6);
     this.line([MATRIX.x0, H.rule, UW - MATRIX.x0, H.rule], FAINT, 0.6);
   }
 
@@ -978,24 +1020,28 @@ export class Screen {
       const alive = b.state === 'live';
       this.roundRect(bx + 0.5, by + 0.5, M.w - 1, M.h - 1, M.r, null, b.echo ? INK : alive ? FRAME : FRAME_DIM, b.echo ? 1.1 : 0.7);
       const T = this.bt;
-      this.text(this.fitText(b.label, M.w - 2 * B.padX - 8, T.nameSize, 0.7, 700), bx + B.padX, by + B.nameDy, T.nameSize, alive ? HALF : FAINT, 700, 'left', 0.7);
-      this.text(PAGE_KNOB_LETTERS[b.k], bx + M.w - B.padX, by + B.nameDy, T.letterSize, b.echo ? HALF : FAINT, 700, 'right');
+      // Le nom ; au desktop la lettre du potard au bout (au telephone elle est imprimee a cote du potard)
+      const nameW = M.w - 2 * B.padX - (T.letters ? 8 : 0);
+      this.text(this.fitText(b.label, nameW, T.nameSize, 0.7, 700), bx + B.padX, by + T.nameDy, T.nameSize, alive ? HALF : FAINT, 700, 'left', 0.7);
+      if (T.letters) this.text(PAGE_KNOB_LETTERS[b.k], bx + M.w - B.padX, by + T.nameDy, T.letterSize, b.echo ? HALF : FAINT, 700, 'right');
       if (!alive) {
-        this.text('--', bx + B.padX, by + B.valueDy, T.valueSizes[1], FAINT, 300);
-        if (b.unit) this.text(b.unit, bx + B.padX, by + B.unitDy, T.unitSize, FAINT, 600, 'left', 0.4);
+        this.text('--', bx + B.padX, by + T.valueDy, T.valueSizes[1], FAINT, 300);
+        if (b.unit) this.text(this.fitText(b.unit, M.w - 2 * B.padX, T.unitSize), bx + B.padX, by + T.unitDy, T.unitSize, FAINT, 600, 'left', 0.4);
         continue;
       }
-      const tag = b.noBd ? 'NO BD' : b.all ? 'ALL' : '';
       const stepped = b.draw === 'notch';
       const v = this.fitValue(b.text, stepped ? M.w - 2 * B.padX : B.valueW);
-      this.text(v.text, bx + B.padX, by + B.valueDy, v.size, INK, 300);
-      // La ligne d'unite, et l'etiquette ALL / NO BD au bout
-      const tw = tag ? this.text(tag, bx + M.w - B.padX, by + B.unitDy, T.unitSize, FAINT, 700, 'right', 0.5) + 4 : 0;
-      const unitW = M.w - 2 * B.padX - tw - (stepped ? 26 : 0);
-      if (b.unit) this.text(this.fitText(b.unit, unitW, T.unitSize), bx + B.padX, by + B.unitDy, T.unitSize, HALF, 600, 'left', 0.4);
+      this.text(v.text, bx + B.padX, by + T.valueDy, v.size, INK, 300);
+      // La ligne d'unite, et l'etiquette au bout : NO BD, ALL, ou la voix (la rangee du haut de FX)
+      const tag = b.tag;
+      const tw = tag ? this.text(tag, bx + M.w - B.padX, by + T.unitDy, T.unitSize, b.noBd || b.all ? FAINT : HALF, 700, 'right', 0.5) + 4 : 0;
+      const notchRow = stepped && T.notchRow;
+      const unitW = M.w - 2 * B.padX - tw - (notchRow ? 26 : 0);
+      if (b.unit) this.text(this.fitText(b.unit, unitW, T.unitSize), bx + B.padX, by + T.unitDy, T.unitSize, HALF, 600, 'left', 0.4);
       if (stepped) {
+        if (!notchRow) continue;
         // Un reglage a crans : ses crans en ligne au bout de la ligne d'unite ; a deux crans (GATE), un interrupteur
-        const nr: Rect = { x0: bx + M.w - B.padX - 22, y0: by + B.unitDy - 4, x1: bx + M.w - B.padX - 1, y1: by + B.unitDy };
+        const nr: Rect = { x0: bx + M.w - B.padX - 22, y0: by + T.unitDy - 4, x1: bx + M.w - B.padX - 1, y1: by + T.unitDy };
         if (b.notches === 2) this.drawSwitch({ x0: nr.x1 - 13, y0: nr.y0 - 1.5, x1: nr.x1, y1: nr.y1 + 0.5 }, b.course >= 0.5);
         else this.drawNotch(nr, b.notches, b.course);
         continue;
@@ -1064,9 +1110,13 @@ export class Screen {
   /**
    * Les seize pas de la voix choisie, en bas a gauche (sans voix : le plus
    * fort des voix, en demi-teinte) : plein et blanc fort, demi-teinte doux,
-   * vide un cadre a peine ; les temps (1 5 9 13) un peu plus marques ; en
-   * lecture, la tete : un trait plein sous le pas qui joue ; le pas choisi
-   * (la velocite de TRIG) : un point au-dessus.
+   * vide un cadre a peine ; les temps (1 5 9 13) un peu plus marques ; le pas
+   * choisi (la velocite de TRIG) : un point au-dessus. En lecture, la tete :
+   * le pas qui joue s'allume en negatif, un carre plein plus grand et un
+   * point noir s'il porte un coup, et un trait dessous (2026-10-08, revue de
+   * R1, Mika : "on voit a l'ecran quand le sequenceur passe sur ce step" ; le
+   * seul trait de 1.6 ne se voyait pas a 1x), comme la lumiere qui court sur
+   * les touches trig d'une Elektron.
    */
   private paintStrip(inst: Inst | null, sel: number): void {
     const S = PAGE_STRIP;
@@ -1076,12 +1126,17 @@ export class Screen {
       const x = S.x0 + i * S.pitch;
       const v = inst ? velocity(steps, inst, i) : this.maxVel(steps, i);
       const bars = VEL_BARS[v];
-      if (bars > 0) {
+      if (i === head) {
+        // La tete : en negatif, debordant d'un rien sur ses voisins
+        this.ctx.fillStyle = INK;
+        this.ctx.fillRect(x - 0.9, S.y - 0.9, S.size + 1.8, S.size + 1.8);
+        if (bars > 0) this.circle(x + S.size / 2, S.y + S.size / 2, 1.3, BLACK);
+        this.line([x - 0.9, S.y + S.size + 2.6, x + S.size + 0.9, S.y + S.size + 2.6], INK, 1.6);
+      } else if (bars > 0) {
         this.ctx.fillStyle = !inst ? HALF : bars >= 3 ? INK : bars === 2 ? 'rgba(246, 241, 231, 0.75)' : HALF;
         this.ctx.fillRect(x, S.y, S.size, S.size);
       } else this.roundRect(x + 0.4, S.y + 0.4, S.size - 0.8, S.size - 0.8, 0.6, null, i % 4 === 0 ? HALF : FAINT, 0.7);
-      if (i === head) this.line([x - 0.3, S.y + S.size + 2.3, x + S.size + 0.3, S.y + S.size + 2.3], INK, 1.6);
-      if (i === sel && inst) this.circle(x + S.size / 2, S.y - 2.4, 0.9, INK);
+      if (i === sel && inst) this.circle(x + S.size / 2, S.y - 2.6, this.bt.selR, INK);
     }
   }
 
@@ -1098,10 +1153,13 @@ export class Screen {
     const x1 = F.x1;
     const y = F.y;
     if (s.samples) return;
+    const fs = this.bt.foot;
     if (s.bar !== null) {
-      const tw = this.text(fit(s.l2.trim(), 14), x0, y, 6.5, HALF, 600, 'left', 0.5);
-      const lw = this.text(s.l3, x0 + tw + 6, y, 6.5, INK, 600);
-      const rw = this.text(s.r3, x1, y, 6.5, INK, 600, 'right');
+      // La piste : son titre, le temps, la barre (un corps un peu plus petit que les messages)
+      const ts = fs - 1.5;
+      const tw = this.text(fit(s.l2.trim(), this.mobile ? 10 : 14), x0, y, ts, HALF, 600, 'left', 0.5);
+      const lw = this.text(s.l3, x0 + tw + 6, y, ts, INK, 600);
+      const rw = this.text(s.r3, x1, y, ts, INK, 600, 'right');
       const a = x0 + tw + 6 + lw + 5;
       const b = x1 - rw - 5;
       if (b - a > 10) {
@@ -1115,11 +1173,14 @@ export class Screen {
       return;
     }
     if (s.l3 && !s.mix) {
-      this.text(this.fitText(s.l3, x1 - x0, 8, 0.5, 600), x0, y, 8, INK, 600, 'left', 0.5);
+      this.text(this.fitText(s.l3, x1 - x0, fs, 0.5, 600), x0, y, fs, INK, 600, 'left', 0.5);
       return;
     }
-    if (this.paintMode(x0, x1, y)) return;
-    // Les six pages : la page affichee en pastille, les autres a peine
+    if (this.paintMode(x0, x1, y, fs + 0.5, this.mobile ? 7.5 : 6.5)) return;
+    // Les six pages (desktop) : la page affichee en pastille, les autres a peine ; au telephone, rien
+    // (la touche allumee et la pastille de l'en-tete la disent, le texte du bloc a pris la place)
+    this.tabsShown = this.bt.tabs;
+    if (!this.bt.tabs) return;
     const n = RYTM_PAGES.length;
     const cw = (x1 - x0) / n;
     RYTM_PAGES.forEach((p, i) => {

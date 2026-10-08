@@ -69,6 +69,14 @@ export interface LcdState {
 }
 
 const COLS = LCD_TEXT.cols;
+/**
+ * Le message passager garde ses 40 premieres lettres (2026-10-08, revue de
+ * l'etape R1) : les valeurs 0 a 127 et leur unite (BD VOLUME 102  0.0 DB)
+ * depassaient les 20 colonnes et perdaient leur unite ; l'ecran le coupe a
+ * sa propre largeur (scene/screen.ts : 30 lettres en HOME, la largeur du
+ * pied en vue PAGE).
+ */
+const MSG_COLS = 40;
 /** Ecart entre la fin du titre et sa reprise, dans le defilement. */
 const MARQUEE_GAP = '   ';
 
@@ -189,7 +197,7 @@ function compose(now: number): Omit<LcdState, 'updates'> {
   let l3 = '';
   let r3 = '';
   let bar: number | null = null;
-  if (msg) l3 = fit(msg.text, COLS);
+  if (msg) l3 = fit(msg.text, MSG_COLS);
   else if ((st.status === 'playing' || st.status === 'paused') && st.duration > 0) {
     l3 = fmtTime(sc.position());
     r3 = fmtTime(st.duration);

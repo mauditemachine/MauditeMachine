@@ -29,7 +29,7 @@
  *   (state/bassload.ts, bass/midi.ts).
  */
 
-import { anyDial, anyDialValue, clearPattern, dialRange, dialSteps, editToggle, focusMachine, kitDial, machinesToggle, muteToggle, openToggle, padHit, pageSlotOf, patternTap, randomPattern, rytmHome, rytmPageKey, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
+import { anyDial, anyDialValue, clearPattern, dialRange, dialSteps, editToggle, focusMachine, kitDial, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, randomPattern, rytmHome, rytmPageKey, rytmShowPage, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
 import { rytmPage } from '../state/rytmPage';
 import { clock } from '../audio/clock';
 import { voices as voiceState } from '../state/voices';
@@ -60,6 +60,12 @@ export interface MidiTarget {
   set?: (v: number) => void;
   /** crans (0 : continu) */
   steps?: number;
+  /**
+   * page : un potard de page (rytm:knob:1-8, 2026-10-08) ; ce qu'il regle,
+   * sa course et ses crans suivent la page affichee (le catalogue MIDI le dit
+   * au lieu de figer les crans de la page de depart)
+   */
+  follows?: 'page';
   down?: () => void;
   up?: () => void;
 }
@@ -160,15 +166,13 @@ function coreTargets(): MidiTarget[] {
       scope: 'mm808',
       label: `KNOB ${letter} (PAGE)`,
       kind: 'value',
+      follows: 'page',
       get steps() {
         return dialSteps(dial);
       },
-      get: () => {
-        // Un bloc vide ou a venir : midi (le potard motorise se pose au centre)
-        if (!pageSlotOf(k)?.target) return 0.5;
-        const [lo, hi] = span();
-        return hi > lo ? (anyDialValue(dial) - lo) / (hi - lo) : 0;
-      },
+      // Un bloc vide, ou rien a regler (pas de voix choisie, pas de pas choisi) : 0, comme son repere sur
+      // la face (2026-10-08, revue de R1 : VOL sans voix renvoyait 102, une valeur que l'ecran ne montrait pas)
+      get: () => pageKnobCourse(k),
       set: (v) => {
         const [lo, hi] = span();
         anyDial(dial, lo + v * (hi - lo));
@@ -183,7 +187,7 @@ function coreTargets(): MidiTarget[] {
     kind: 'value',
     steps: RYTM_PAGE_KEYS.length,
     get: () => Math.max(0, RYTM_PAGE_KEYS.findIndex((p) => p.id === rytmPage.get().page)) / (RYTM_PAGE_KEYS.length - 1),
-    set: (v) => rytmPage.setPage(RYTM_PAGE_KEYS[Math.max(0, Math.min(RYTM_PAGE_KEYS.length - 1, Math.round(v * (RYTM_PAGE_KEYS.length - 1))))].id),
+    set: (v) => rytmShowPage(RYTM_PAGE_KEYS[Math.max(0, Math.min(RYTM_PAGE_KEYS.length - 1, Math.round(v * (RYTM_PAGE_KEYS.length - 1))))].id),
   });
   out.push(press('rytm:home', 'mm808', 'HOME / PAGE SCREEN', () => rytmHome()));
   for (const inst of voices) out.push(press(`rytm:pad:${inst}`, 'mm808', `PAD ${inst}`, () => padHit(inst, getStage())));

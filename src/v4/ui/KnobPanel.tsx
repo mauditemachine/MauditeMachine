@@ -52,6 +52,8 @@ import {
 import { INSTRUMENTS, pattern } from '../audio/pattern';
 import { stageNow } from '../midi/targets';
 import { pageSlots } from '../rytm/pages';
+import { slotBlock } from '../rytm/pageView';
+import { v127 } from '../rytm/values';
 import type { Stage } from '../scene/renderer';
 import type { MachineId } from '../state/focus';
 import { rytmPage } from '../state/rytmPage';
@@ -155,6 +157,15 @@ export interface KnobSpec {
   nudge?(n: number): void;
   /** un reglage a venir : grise, il le dit a l'ecran */
   soon?: boolean;
+  /**
+   * le nombre de l'ecran du MM-RYTM pour les lecteurs d'ecran (0 a 127, -64
+   * a +63 a zero au centre ; 2026-10-08) au lieu du pour cent
+   */
+  scale127?: boolean;
+  /** false : une tape ne passe pas au cran suivant (TRIG VEL : un niveau, pas un selecteur) */
+  selector?: boolean;
+  /** l'etiquette du bloc (la voix, ALL, NO BD) au bout de la ligne d'unite, comme a l'ecran */
+  tag?: string;
 }
 
 /** Un potard : glisser, taper (cran suivant), deux tapes (valeur de depart), clavier. */
@@ -164,6 +175,8 @@ export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean }> = ({ spec
   const steps = spec.steps;
   // Un selecteur (16 crans au plus) : ses crans marques, une tape passe au suivant ; au-dela (PITCH, 49) : un potard fin
   const detents = steps > 1 && steps <= 16;
+  // TRIG VEL (2026-10-08) : des crans, mais une tape ne doit pas poser de note
+  const tapNext = detents && spec.selector !== false;
   const k = hi > lo ? Math.min(1, Math.max(0, (value - lo) / (hi - lo))) : 0;
   const bipolar = spec.bipolar;
   const drag = useRef<{ y: number; x: number; k0: number; moved: boolean } | null>(null);
@@ -204,7 +217,7 @@ export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean }> = ({ spec
     drag.current = null;
     if (!d || d.moved) return;
     // Une tape : un selecteur passe au cran suivant (et reboucle) ; deux tapes : la valeur de depart
-    if (detents) {
+    if (tapNext) {
       const i = Math.round(k * (steps - 1));
       setAt(((i + 1) % steps) / (steps - 1));
       return;
@@ -243,10 +256,10 @@ export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean }> = ({ spec
       data-soon={spec.soon ? '1' : undefined}
       role="slider"
       tabIndex={0}
-      aria-label={spec.letter ? `Knob ${spec.letter}, ${spec.label}${spec.soon ? ', coming soon' : ''}` : spec.label}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={Math.round(k * 100)}
+      aria-label={spec.letter ? `Knob ${spec.letter}, ${spec.tag ? `${spec.tag} ` : ''}${spec.label}${spec.soon ? ', coming soon' : ''}` : spec.label}
+      aria-valuemin={spec.scale127 ? (bipolar ? -64 : 0) : 0}
+      aria-valuemax={spec.scale127 ? (bipolar ? 63 : 127) : 100}
+      aria-valuenow={spec.scale127 ? v127(k, bipolar) : Math.round(k * 100)}
       aria-valuetext={spec.readout()}
       data-steps={detents ? '1' : '0'}
       onPointerDown={onDown}
@@ -274,7 +287,12 @@ export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean }> = ({ spec
         <line className="v4-knob-mark" x1={qx} y1={qy} x2={px} y2={py} />
       </svg>
       <span className="v4-knob-value">{spec.valueText()}</span>
-      {spec.unit && <span className="v4-knob-unit">{spec.unit() || '\u00a0'}</span>}
+      {spec.unit && (
+        <span className="v4-knob-unit">
+          {spec.unit() || (spec.tag ? '' : '\u00a0')}
+          {spec.tag && <span className="v4-knob-tag">{spec.tag}</span>}
+        </span>
+      )}
     </div>
   );
 };
@@ -290,6 +308,8 @@ const PageKnob: React.FC<{ k: number }> = ({ k }) => {
   const p = useSyncExternalStore(pattern.subscribe, pattern.get, pattern.get);
   const slot = pageSlots(rp.page, p.instrument)[k];
   const letter = PAGE_KNOB_LETTERS[k];
+  // Le meme bloc que l'ecran : son etiquette (la voix sur la rangee du haut de FX, ALL ou NO BD dessous)
+  const tag = slot && slot.label ? slotBlock(slot, k, p.instrument, rp.sel).tag : '';
   if (!slot || !slot.label) {
     return (
       <div className="v4-knob v4-knob-page v4-knob-empty" aria-hidden="true">
@@ -316,6 +336,9 @@ const PageKnob: React.FC<{ k: number }> = ({ k }) => {
     nudge: (n) => dialNudge(id, n),
     subscribe: subscribeDials,
     soon: slot.target === null,
+    scale127: true,
+    selector: slot.target !== 'step:vel',
+    tag,
   };
   return <KnobView spec={spec} compact />;
 };
@@ -384,7 +407,7 @@ export const KnobPanel: React.FC<Props> = ({ machine }) => {
     }
   };
   return (
-    <div className="v4-knobs" data-pages={g.pages ? '1' : undefined}>
+    <div className="v4-knobs" data-pages={g.pages ? '1' : undefined} data-rytm={machine === 'mm808' ? '1' : undefined}>
       <div className="v4-knobs-tabs" role="tablist" aria-label="Sections">
         {groups.map((x) => (
           <button key={x.id} type="button" role="tab" aria-selected={x.id === g.id} className="v4-knobs-tab" onClick={() => pick(x.id)}>

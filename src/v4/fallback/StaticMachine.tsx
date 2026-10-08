@@ -303,7 +303,12 @@ function encoder(i: number, angleDeg: number): Solid {
 }
 
 const potDeg = (t: number): number => TEMPO_UI.sweepDeg / 2 - TEMPO_UI.sweepDeg * t;
-/** Les potards a l'arrivee : MASTER 80 %, TEMPO 130, les potards de page sur SRC du KICK (909, TUNE, ATTACK, DECAY, DRIVE). */
+/**
+ * Les potards a l'arrivee : MASTER 80 %, TEMPO 130, les potards de page sur
+ * SRC du KICK (909, K.TUNE, ATTACK, DECAY, DRIVE, STRETCH a midi) ; B (TUNE,
+ * a venir) et G (vide) en bas, comme sur la machine (actions.ts
+ * pageKnobCourse, 2026-10-08).
+ */
 const START: Record<string, number> = { tempo: (BPM.initial - BPM.min) / (BPM.max - BPM.min), level: 0.8, p2: 0.5, p3: 0.5, p4: 0.45, p5: 0.25, p7: 0.5 };
 
 function solids(): React.ReactNode[] {

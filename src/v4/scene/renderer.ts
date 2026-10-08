@@ -92,6 +92,7 @@ import {
   OLED,
   OLED_BAR,
   OLED_BAR_PAGE,
+  OLED_PAGE_ZONES,
   STEP_PRESS,
   LIGHT_BACK,
   LIGHT_HEMI,
@@ -121,7 +122,7 @@ import {
 } from '../theme';
 import { Encoders } from './encoders';
 import { RytmPageKeys } from './rytmPageKeys';
-import { anyDialValue, dialRange, pageTarget } from '../actions';
+import { pageKnobCourse } from '../actions';
 import type { RytmPageId } from '../rytm/pages';
 import { Explode, type ExplodeInfo } from './explode';
 import { Floor } from './floor';
@@ -476,6 +477,8 @@ export class Stage {
   private seekDef!: HotspotDef;
   /** les touches de l'ecran (mode presets, 2026-10-04) */
   private lcdDefs: HotspotDef[] = [];
+  /** les six onglets de page du pied de l'ecran en vue PAGE (desktop, 2026-10-08) : des touches de page */
+  private tabDefs: HotspotDef[] = [];
   private unsubPresets: () => void = () => undefined;
   private unsubSeek: () => void = () => undefined;
   private raycaster = new Raycaster();
@@ -692,7 +695,14 @@ export class Stage {
     plateau.add(this.pads.mesh, this.pads.halos, this.seq.keys, this.seq.frames, this.seq.buttons, this.seq.leds, this.seq.btnLeds, this.encoders.mesh, this.encoders.skirts, ...this.pageKeys.objects());
     // L'ecran (redessine 4 fois par seconde au plus, jamais par frame) ; il
     // ne s'abonne a state/lcd.ts qu'avec les autres ecouteurs
-    this.screen = new Screen(aniso, () => this.repaint(), mobile);
+    this.screen = new Screen(
+      aniso,
+      () => {
+        this.syncScreenTabs();
+        this.repaint();
+      },
+      mobile
+    );
     plateau.add(this.screen.mesh);
     // PCB : la carte et ses composants, dans le chassis. Plus de puces de pages
     // (2026-10-04, Mika : "a la place des liens de mauditemachine qui sont deja dans
@@ -776,6 +786,27 @@ export class Stage {
         ...(['save', 'name', 'del', 'exit'] as const).map((k, i) => box(k, i / 4, (i + 1) / 4, band, TH, false)),
       ];
       this.hit.add(this.lcdDefs);
+      // Les onglets du pied de la vue PAGE (scene/screen.ts paintFoot) : une touche de page chacun,
+      // allumes seulement quand l'ecran les dessine (syncScreenTabs)
+      const P = OLED_PAGE_ZONES;
+      const n = RYTM_PAGE_KEYS.length;
+      const u0 = OLED_BAR_PAGE.u0;
+      const cw = (OLED_BAR_PAGE.u1 - u0) / n;
+      this.tabDefs = RYTM_PAGE_KEYS.map((pk, i) => ({
+        id: `lcd-tab-${pk.id}`,
+        kind: 'pkey' as const,
+        rpage: pk.id,
+        layer: plateau,
+        shape: 'box' as const,
+        x: xAt(u0 + cw * (i + 0.5)),
+        z: (zAt(P.tabY0) + zAt(P.tabY1)) / 2,
+        hx: (xAt(cw) - xAt(0)) / 2,
+        hz: (zAt(P.tabY1) - zAt(P.tabY0)) / 2,
+        y0: OLED.y - 0.005,
+        y1: OLED.y + 0.03,
+        enabled: false,
+      }));
+      this.hit.add(this.tabDefs);
     }
     // Les volumes pleins de la machine : ils cachent ce qui est derriere eux
     // (picking, ancre de la trace) et dessinent sa silhouette (fond ou machine)
@@ -790,7 +821,7 @@ export class Stage {
     // Le MM-VOYAGER (2026-10-03) : a droite de la 808 sur la meme table ;
     // ses objets et ses volumes apres ceux de la 808, chacun marque de sa machine
     if (VOYAGER) {
-      for (const d of [...padDefs, ...this.chipDefs, ...this.tweakDefs, ...encDefs, ...seqDefs, this.seekDef, ...this.lcdDefs]) d.machine = 'mm808';
+      for (const d of [...padDefs, ...this.chipDefs, ...this.tweakDefs, ...encDefs, ...seqDefs, this.seekDef, ...this.lcdDefs, ...this.tabDefs]) d.machine = 'mm808';
       const voy = new VoyagerRig({
         mobile,
         anisotropy: aniso,
@@ -1099,8 +1130,22 @@ export class Stage {
     const u1 = paged ? OLED_BAR_PAGE.u1 : 1;
     const x = OLED.x - OLED.w / 2 + ((u0 + u1) / 2) * OLED.w;
     const hx = ((u1 - u0) / 2) * OLED.w;
+    // Toucher l'ecran : les presets depuis l'en-tete seulement en vue PAGE (OLED_PAGE_ZONES), tout le haut ailleurs
+    let moved = false;
+    const open = this.lcdDefs.find((o) => o.lcd === 'open');
+    if (open) {
+      const [, TH] = OLED.tex;
+      const y1 = paged ? OLED_PAGE_ZONES.openY1 : OLED_BAR.bandY0;
+      const oz = OLED.z - OLED.d / 2 + (y1 / TH) * OLED.d * 0.5;
+      const ohz = (y1 / TH) * OLED.d * 0.5;
+      if (open.z !== oz || open.hz !== ohz) {
+        open.z = oz;
+        open.hz = ohz;
+        moved = true;
+      }
+    }
     const d = this.seekDef;
-    if (d.enabled === on && d.z === band.z && d.hz === band.hz && d.x === x && d.hx === hx) return;
+    if (d.enabled === on && d.z === band.z && d.hz === band.hz && d.x === x && d.hx === hx && !moved) return;
     d.enabled = on;
     d.z = band.z;
     d.hz = band.hz;
@@ -1108,6 +1153,19 @@ export class Stage {
     d.hx = hx;
     this.hit.invalidate();
   };
+
+  /** Les onglets du pied de l'ecran repondent quand l'ecran les dessine (vue PAGE, desktop, rien d'autre au pied). */
+  private syncScreenTabs(): void {
+    const on = this.screen.tabsShown && !presetMode.on('mm808');
+    let changed = false;
+    for (const d of this.tabDefs) {
+      if (d.enabled !== on) {
+        d.enabled = on;
+        changed = true;
+      }
+    }
+    if (changed) this.hit.invalidate();
+  }
 
   /**
    * Clic sur la barre de l'ecran (2026-10-01), en px CSS de la fenetre : le
@@ -2591,7 +2649,7 @@ export class Stage {
   /**
    * Les potards suivent leur cible : MASTER, le volume principal ; les huit
    * potards de page (2026-10-08), la course de ce que leur bloc regle sur la
-   * page affichee, pour la voix choisie (un bloc vide ou a venir : en bas) ;
+   * page affichee, pour la voix choisie (un bloc vide, ou rien a regler : en bas) ;
    * ils tournent aussi quand la page ou la voix change. TONE et STRETCH vont
    * de -1 a 1 : course centree (repere a midi a 0).
    */
@@ -2599,11 +2657,8 @@ export class Stage {
     const e = this.encoders;
     let changed = e.setValue('level', mix.level);
     PAGE_KNOB_IDS.forEach((id, k) => {
-      const d = `p:${k}` as const;
-      const [lo, hi] = dialRange(d);
-      // Un bloc vide ou a venir : le repere a midi (un potard sans emploi sur cette page)
-      const t = pageTarget(k) === null ? 0.5 : hi > lo ? (anyDialValue(d) - lo) / (hi - lo) : 0;
-      if (e.setValue(id, t)) changed = true;
+      // Un bloc vide, ou rien a regler (pas de voix, pas de pas choisi) : le repere en bas, comme le MIDI
+      if (e.setValue(id, pageKnobCourse(k))) changed = true;
     });
     if (changed) this.encodersMoved();
   };

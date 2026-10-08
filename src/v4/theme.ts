@@ -443,16 +443,17 @@ export const BACKDROP: { transparent: boolean; readonly page: string } = { trans
 /**
  * Ecran OLED en haut a gauche : verre a cadre fusionne au panneau.
  * Plus grand depuis le 2026-10-08 (Mika : "je veux donc des ecrans super
- * evolues ; fais de la place ; que ce soit super responsive en mobile") :
- * 4.3 x 1.6125 au desktop (3.6 x 1.35 avant), 5.9 x 2.2125 au telephone
- * (3.6 x 1.35 avant, illisible a 140 px de large) ; les proportions de la
- * texture (640 x 240) ne changent pas. Ses quatre colonnes de blocs (vue
- * PAGE, scene/screen.ts) tombent au-dessus des huit potards de page
- * (pageKnobX) ; au telephone, sur les colonnes des pads aussi.
+ * evolues ; plus gros, plus de detail ; fais de la place ; que ce soit super
+ * responsive en mobile") : 5.0 x 1.875 au desktop (3.6 x 1.35 avant), 6.9 x
+ * 2.5875 au telephone (3.6 x 1.35 avant, illisible a 140 px de large) :
+ * MASTER et TEMPO sont descendus a cote des potards de page (FACE_KNOBS), sa
+ * colonne a droite de l'ecran est a lui. Les proportions de la texture (640
+ * x 240) ne changent pas. Ses quatre colonnes de blocs (vue PAGE,
+ * scene/screen.ts) tombent au-dessus des huit potards de page (pageKnobX).
  */
 export const OLED = PORTRAIT
-  ? ({ x: -0.66, z: -4.98, w: 5.9, d: 2.2125, y: 0.025, tex: [640, 240], bezel: { w: 6.16, d: 2.4725, h: 0.02 } } as const)
-  : ({ x: -3.6, z: -1.92, w: 4.3, d: 1.6125, y: 0.025, tex: [640, 240], bezel: { w: 4.56, d: 1.8725, h: 0.02 } } as const);
+  ? ({ x: -0.16, z: -4.996, w: 6.9, d: 2.5875, y: 0.025, tex: [640, 240], bezel: { w: 7.12, d: 2.8075, h: 0.02 } } as const)
+  : ({ x: -3.25, z: -1.88, w: 5.0, d: 1.875, y: 0.025, tex: [640, 240], bezel: { w: 5.26, d: 2.135, h: 0.02 } } as const);
 
 /**
  * Dessin de l'ecran (spec 20.3.8) : texte bone sur noir profond,
@@ -478,6 +479,15 @@ export const OLED_BAR = { h: 22, lift: 3, gap: 14, stroke: 2, inset: 4, bandY0: 
  * unites), une touche sur les pas ne ramene pas la piste au debut.
  */
 export const OLED_BAR_PAGE = { bandY0: 206, bandY1: 240, u0: 132 / 320, u1: 312 / 320 } as const;
+
+/**
+ * Le reste de l'ecran en vue PAGE (2026-10-08, revue de R1), px de la
+ * texture : toucher l'ecran ouvre les presets seulement sur son en-tete
+ * (openY1 : le pattern, le tempo ; une tape sur un bloc ouvrait les presets,
+ * a la surprise de tous) ; les six onglets du pied (desktop) sont six
+ * touches de page, de tabY0 a tabY1, sur la largeur u0 a u1 du pied.
+ */
+export const OLED_PAGE_ZONES = { openY1: 44, tabY0: 204, tabY1: 236 } as const;
 
 /**
  * Page MIX de l'ecran (2026-10-01, facon Elektron), px de la texture
@@ -693,10 +703,11 @@ export const PAD = {
   x0: PORTRAIT ? -2.8 : 0.37,
   // Huit voix (2026-10-05) : quatre colonnes et EDIT/OPEN sur la largeur des six d'avant, des pads un peu plus grands
   pitch: PORTRAIT ? 1.4 : 1.25,
-  // Portrait : plus bas le 2026-10-08 (l'ecran plus grand, les potards et les touches de page au-dessus)
-  rowZ: PORTRAIT ? [0.08, 1.38] : [-2.05, -0.75],
-  /** serigraphie sous chaque pad */
-  labelDz: 0.64,
+  // Portrait : plus bas le 2026-10-08 (l'ecran plus grand, les potards et les touches de page au-dessus),
+  // encore un peu (revue de R1 : les noms des touches de page touchaient les pads, 39 px entre leurs centres)
+  rowZ: PORTRAIT ? [0.2, 1.46] : [-2.05, -0.75],
+  /** serigraphie sous chaque pad (portrait : un rien plus pres, la rangee du bas garde son jour sur le transport) */
+  labelDz: PORTRAIT ? 0.6 : 0.64,
   press: 0.06,
   halo: PORTRAIT ? 1.4 : 1.25,
   haloY: 0.003,
@@ -876,9 +887,10 @@ export const KEYS = {
   pitch: PORTRAIT ? 0.86 : 0.74,
   /**
    * desktop : 0.11 plus bas le 2026-10-02 (8 px a 1440 x 900, Mika : les pas touchaient GLOBAL FX / VOICE FX) ;
-   * encore 0.15 plus bas le 2026-10-08 (les touches de page et leurs noms au-dessus), 0.3 au telephone
+   * encore 0.15 plus bas le 2026-10-08 (les touches de page et leurs noms au-dessus), 0.3 au telephone ;
+   * 0.17 de plus au desktop (revue de R1 : l'ecran plus grand, les potards et les touches de page plus bas)
    */
-  z: PORTRAIT ? 4.3 : 2.57,
+  z: PORTRAIT ? 4.3 : 2.74,
   /** portrait : deux rangees de 8, la seconde rowDz plus bas (1.95 avant le 2026-10-08) */
   perRow: PORTRAIT ? 8 : 16,
   rowDz: PORTRAIT ? 1.85 : 0,
@@ -894,7 +906,7 @@ export const KEYS = {
   segments: { desktop: 3, mobile: 2 },
   /** le cadre des temps (1, 5, 9, 13), imprime sur le dessus de la touche, facon Elektron : sa marge, son trait */
   frame: { inset: 0.065, line: 0.022 },
-  ledZ: PORTRAIT ? 3.52 : 1.88,
+  ledZ: PORTRAIT ? 3.52 : 2.05,
   ledW: 0.22,
   ledD: 0.055,
   ledY: 0.006,
@@ -905,8 +917,8 @@ export const KEYS = {
    */
   velBars: 3,
   velPitch: 0.09,
-  numberZ: PORTRAIT ? 4.88 : 3.1,
-  bracketZ: PORTRAIT ? 5.05 : 3.27,
+  numberZ: PORTRAIT ? 4.88 : 3.27,
+  bracketZ: PORTRAIT ? 5.05 : 3.44,
   bracketTick: 0.06,
 } as const;
 /** x du pas i ; sa rangee le decale de keyDz en z (portrait : deux rangees de 8). */
@@ -945,34 +957,39 @@ export interface EncPlace {
   s: number;
 }
 
-const ENC_SIDE = { masterZ: -2.62, tempoZ: -1.55, labelDz: 0.45 } as const;
-/** Portrait : MASTER et TEMPO a droite de l'ecran ; leur echelle et celle des potards de page. */
-const ENC_PORTRAIT = { sideX: 3.2, masterZ: -5.55, tempoZ: -4.35, sideScale: 1.2 } as const;
+const ENC_SIDE = { labelDz: 0.45 } as const;
 
-/** Les deux rangees des potards de page (z de leur centre), leur echelle, la lettre en haut a gauche. */
+/**
+ * Les deux rangees des potards de page (z de leur centre), leur echelle, la
+ * lettre en haut a gauche de la collerette. Les rangees un peu plus espacees
+ * depuis la revue de l'etape R1 (2026-10-08 : 40 px au telephone, sous les
+ * 44 px d'une cible au doigt) ; au telephone la lettre glisse sur le cote
+ * (elle ne prend plus de hauteur, l'ecran en a gagne).
+ */
 export const PAGE_KNOBS = PORTRAIT
-  ? ({ rowZ: [-3.06, -2.02], s: 1.2, letterDx: -0.42, letterDz: -0.4, cap: 0.085 } as const)
-  : ({ rowZ: [-0.4, 0.42], s: 1, letterDx: -0.34, letterDz: -0.33, cap: 0.075 } as const);
+  ? ({ rowZ: [-3.08, -1.96], s: 1.15, letterDx: -0.5, letterDz: -0.26, cap: 0.085 } as const)
+  : ({ rowZ: [-0.23, 0.67], s: 1, letterDx: -0.34, letterDz: -0.33, cap: 0.075 } as const);
 
 /** x de la colonne c (0 a 3) des potards de page : sous le centre de la colonne de blocs de l'ecran. */
 export const pageKnobX = (c: number): number => OLED.x + ((44 + 76 * c - 160) * OLED.w) / 320;
 
+/**
+ * MASTER et TEMPO (2026-10-08, revue de R1, Mika : "plus gros, plus de
+ * detail ! fais de la place") : une cinquieme colonne a droite des potards
+ * de page, MASTER sur la rangee du haut, TEMPO dessous, un peu plus petits ;
+ * la colonne a droite de l'ecran revient a l'ecran. Au desktop entre le
+ * potard D et les pads, au telephone entre D et le bord.
+ */
+const ENC_SIDE_COL = PORTRAIT ? ({ x: 3.36, s: 1.0 } as const) : ({ x: -0.66, s: 0.9 } as const);
+
 function sidePlaces(): { level: EncPlace; tempo: EncPlace } {
-  if (PORTRAIT) {
-    const P = ENC_PORTRAIT;
-    // Le libelle suit le bord de la collerette a l'echelle s
-    const dz = ENC_SIDE.labelDz + ENCODER.collar.r * (P.sideScale - 1);
-    return {
-      level: { x: P.sideX, z: P.masterZ, labelZ: P.masterZ + dz, s: P.sideScale },
-      tempo: { x: P.sideX, z: P.tempoZ, labelZ: P.tempoZ + dz, s: P.sideScale },
-    };
-  }
-  const left = OLED.x + OLED.bezel.w / 2;
-  const right = PAD.x0 - PAD.size / 2;
-  const mid = (left + right) / 2;
+  const { x, s } = ENC_SIDE_COL;
+  const [masterZ, tempoZ] = PAGE_KNOBS.rowZ;
+  // Le libelle suit le bord de la collerette a l'echelle s
+  const dz = ENC_SIDE.labelDz + ENCODER.collar.r * (s - 1);
   return {
-    level: { x: mid, z: ENC_SIDE.masterZ, labelZ: ENC_SIDE.masterZ + ENC_SIDE.labelDz, s: 1 },
-    tempo: { x: mid, z: ENC_SIDE.tempoZ, labelZ: ENC_SIDE.tempoZ + ENC_SIDE.labelDz, s: 1 },
+    level: { x, z: masterZ, labelZ: masterZ + dz, s },
+    tempo: { x, z: tempoZ, labelZ: tempoZ + dz, s },
   };
 }
 
@@ -992,10 +1009,12 @@ export const pageKnobIndex = (id: PageKnobId): number => PAGE_KNOB_IDS.indexOf(i
 /**
  * Les six touches de page (2026-10-08, l'ordre de l'Analog Rytm : TRIG SRC
  * SMPL FLTR AMP FX ; rytm/pages.ts) : de petites touches a LED sous les
- * potards de page, sur la grille des pas au desktop (la touche k au-dessus
- * du pas k), sur toute la largeur au telephone ; leur nom serigraphie
- * dessous. La LED de la page choisie est allumee (a peine en vue HOME :
- * l'appui la rallume) ; la touche allumee pressee encore : HOME.
+ * potards de page, sur la largeur de la grille des potards au desktop (du
+ * bord de la collerette A a celui de D, revue de R1 : sur la grille des pas
+ * elles se lisaient comme une rangee de pas), sur toute la largeur au
+ * telephone ; leur nom serigraphie dessous. La LED de la page choisie est
+ * allumee (a peine en vue HOME : l'appui la rallume) ; la touche allumee
+ * pressee encore : HOME.
  */
 export const RYTM_PAGE_KEYS = [
   { id: 'trig', label: 'TRIG' },
@@ -1006,10 +1025,15 @@ export const RYTM_PAGE_KEYS = [
   { id: 'fx', label: 'FX' },
 ] as const;
 export const PAGE_KEYS = PORTRAIT
-  ? ({ w: 0.9, d: 0.42, h: 0.1, radius: 0.04, z: -1.12, labelZ: -0.68, cap: 0.085, led: { w: 0.5, d: 0.045, back: 0.1 } } as const)
-  : ({ w: 0.56, d: 0.32, h: 0.1, radius: 0.04, z: 1.08, labelZ: 1.43, cap: 0.075, led: { w: 0.34, d: 0.04, back: 0.075 } } as const);
-/** x de la touche de page k (0 a 5). */
-export const pageKeyX = (k: number): number => (PORTRAIT ? -2.9 + 1.16 * k : KEYS.x0 + KEYS.pitch * k);
+  ? ({ w: 0.9, d: 0.42, h: 0.1, radius: 0.04, z: -0.96, labelZ: -0.56, cap: 0.085, led: { w: 0.5, d: 0.045, back: 0.1 } } as const)
+  : ({ w: 0.6, d: 0.36, h: 0.1, radius: 0.04, z: 1.31, labelZ: 1.69, cap: 0.075, led: { w: 0.36, d: 0.04, back: 0.085 } } as const);
+/** x de la touche de page k (0 a 5) : au desktop, de la collerette A a la collerette D. */
+export const pageKeyX = (k: number): number => {
+  if (PORTRAIT) return -2.9 + 1.16 * k;
+  const x0 = pageKnobX(0) - ENCODER.collar.r * PAGE_KNOBS.s + PAGE_KEYS.w / 2;
+  const x1 = pageKnobX(3) + ENCODER.collar.r * PAGE_KNOBS.s - PAGE_KEYS.w / 2;
+  return x0 + ((x1 - x0) * k) / (RYTM_PAGE_KEYS.length - 1);
+};
 
 /** Appui long sur un pas (revision 4) : il se vide au lieu de changer, en ms. */
 export const STEP_HOLD_MS = 400;
@@ -1219,7 +1243,7 @@ export type SilkLogoId = 'wordmark' | 'mark';
  */
 /** L'en-tete du panneau : wordmark, MM-808, firmware et logotype (portrait : plus serres, en haut). */
 const HEAD = PORTRAIT
-  ? { z: -6.6, word: { x: -3.75, w: 3.0 }, model: -0.55, firmware: 3.05, mark: { x: 3.75, h: 0.5 } }
+  ? { z: -6.74, word: { x: -3.75, w: 3.0 }, model: -0.55, firmware: 3.05, mark: { x: 3.75, h: 0.5 } }
   : { z: -3.5, word: { x: -5.8, w: 3.5 }, model: -1.95, firmware: 4.95, mark: { x: 5.8, h: 0.52 } };
 
 export const SILK_LOGOS: readonly { id: SilkLogoId; src: string; x: number; z: number; w?: number; h?: number; align: 'left' | 'right' }[] = [

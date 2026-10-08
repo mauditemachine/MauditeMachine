@@ -10,7 +10,7 @@
  */
 
 import { kit, type KitId } from '../audio/kit';
-import { toneSemitones } from '../audio/tone';
+import { toneHpHz, toneLpHz } from '../audio/tone';
 import { timeFactor } from '../audio/time';
 import { decayTau, voiceGain } from '../audio/voicefx';
 import { VEL_MAX } from '../audio/pattern';
@@ -40,6 +40,13 @@ function db(gain: number): string {
   return `${r > 0 ? '+' : ''}${r === 0 ? '0.0' : r.toFixed(1)} DB`;
 }
 
+/** Une frequence : 120 HZ, 2.1 KHZ, 18 KHZ. */
+function hz(f: number): string {
+  if (f < 1000) return `${Math.round(f)} HZ`;
+  const k = f / 1000;
+  return `${k < 10 ? k.toFixed(1) : Math.round(k)} KHZ`;
+}
+
 /** Une duree : 83 MS, 1.2 S. */
 function dur(s: number): string {
   return s < 1 ? `${Math.round(s * 1000)} MS` : `${(Math.round(s * 10) / 10).toFixed(1)} S`;
@@ -52,7 +59,8 @@ function dur(s: number): string {
  * - MASTER : de meme (le gain suit le carre) ;
  * - DEC (vdecay) : la longueur de la queue a -60 dB, FULL au bout (la queue
  *   entiere, pas d'enveloppe) ;
- * - TONE : la hauteur en demi-tons (+/-7 aux butees, le filtre bascule avec) ;
+ * - TONE : son filtre, passe-bas a gauche (LP 2.1 KHZ), passe-haut a droite
+ *   (HP 120 HZ), FLAT au centre (la hauteur bascule avec, +/-7 demi-tons) ;
  * - STRETCH : le facteur des durees (x0.25 a x4) ;
  * - SWING : le rapport des doubles croches (50 % droit, 67 % triolet) ;
  * - les effets : la part envoyee, en pour cent.
@@ -68,8 +76,10 @@ export function encUnit(id: Exclude<EncId, 'tempo' | 'vsound'>, v: number): stri
       return tau === null ? 'FULL' : dur(tau * Math.log(1000));
     }
     case 'tone': {
-      const st = Math.round(toneSemitones(v) * 10) / 10;
-      return st === 0 ? '0 ST' : `${st > 0 ? '+' : ''}${st.toFixed(1)} ST`;
+      // Sur FLTR, le cote filtre (2026-10-08, revue de R1 : '0 ST' sur une page de filtre) : le passe-bas
+      // vers la gauche, le passe-haut vers la droite (la hauteur suit, +/-7 demi-tons aux butees)
+      if (v === 0) return 'FLAT';
+      return v < 0 ? `LP ${hz(toneLpHz(v, 24000))}` : `HP ${hz(toneHpHz(v))}`;
     }
     case 'stretch':
       return `X${timeFactor(v).toFixed(2)}`;

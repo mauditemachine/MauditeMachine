@@ -41,6 +41,8 @@ import {
   dialNudge,
   dialRange,
   dialReadout,
+  pageKnobCourse,
+  pageKnobLive,
   pageKnobOf,
   pageSlotOf,
   rytmPageKey,
@@ -1316,8 +1318,9 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
         const id = `penc-${k}`;
         const d = `p:${k}` as DialId;
         const slot = pageSlotOf(k);
-        const [lo, hi] = dialRange(d);
-        const course = hi > lo ? (anyDialValue(d) - lo) / (hi - lo) : 0;
+        // Le nombre de l'ecran : 0 a 127, -64 a +63 pour TONE et STRETCH (un bloc vide : en bas, comme son repere)
+        const bipolar = pageKnobLive(k) && dialRange(d)[0] < 0;
+        const course = pageKnobCourse(k);
         const what = slot && slot.label ? `${slot.label}${slot.target === null ? ', coming soon' : ''}` : 'nothing';
         return (
           <div
@@ -1330,9 +1333,9 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
             tabIndex={0}
             aria-label={`Knob ${PAGE_KNOB_LETTERS[k]}, ${pageLabel(rp.page)} page: ${what}${slot?.scope === 'track' && inst ? `, ${INST_NAMES[inst]}` : ''}`}
             aria-orientation="vertical"
-            aria-valuemin={0}
-            aria-valuemax={127}
-            aria-valuenow={v127(course)}
+            aria-valuemin={bipolar ? -64 : 0}
+            aria-valuemax={bipolar ? 63 : 127}
+            aria-valuenow={v127(course, bipolar)}
             aria-valuetext={dialReadout(d)}
             onKeyDown={onPageKnobKey(d)}
           />
