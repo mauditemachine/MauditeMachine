@@ -16,7 +16,8 @@ import { BPM, INSTRUMENTS, VEL_MAX, VEL_NAMES, pattern, velocity } from './audio
 import { sc } from './audio/soundcloud';
 import { prepareSynth } from './audio/synth';
 import type { Stage } from './scene/renderer';
-import { chipsLive, explode, voyExplode, type ExplodeStore } from './state/explode';
+import { bassExplode, chipsLive, explode, voyExplode, type ExplodeStore } from './state/explode';
+import { bassInfos } from './state/bassInfos';
 import { focus, MACHINES, VOYAGER, type Focus, type MachineId } from './state/focus';
 import { lcdMessage } from './state/lcdMessage';
 import { lcdMix } from './state/lcdMix';
@@ -573,8 +574,8 @@ export function closeSection(): void {
  * demande est prise.
  */
 export function openToggle(stage: Stage | null = null, which: MachineId = hoodMachine()): boolean {
-  // Le MM-DECKS et le MM-BASS n'ont pas de capot
-  if (which === 'dj' || which === 'bass') return false;
+  // Le MM-DECKS n'a pas de capot ; le MM-BASS a le sien depuis le 2026-10-08 (sa touche OPEN est sur sa face)
+  if (which === 'dj') return false;
   resume();
   const ok = hoodOf(which).toggle();
   if (ok) {
@@ -591,7 +592,7 @@ export function hoodMachine(): MachineId {
 
 /** Le capot d'une machine (le MM-DECKS n'en a pas : celui de la 808). */
 export function hoodOf(m: MachineId): ExplodeStore {
-  return m === 'voy' ? voyExplode : explode;
+  return m === 'voy' ? voyExplode : m === 'bass' ? bassExplode : explode;
 }
 
 /**
@@ -629,6 +630,11 @@ export function escape(): boolean {
   }
   if (editor.get() !== null) {
     editor.close();
+    return true;
+  }
+  // INFOS du MM-BASS (2026-10-08) : Echap l'eteint avant de refermer le capot
+  if (bassInfos.isOn()) {
+    bassInfos.set(false);
     return true;
   }
   const hood = hoodOf(hoodMachine());

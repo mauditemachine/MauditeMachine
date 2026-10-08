@@ -4431,6 +4431,36 @@ html:has(body.v4-active.v4-light) {
   box-shadow: 0 0 6px #62f28c;
 }
 
+/* INFOS du MM-BASS ouvert (2026-10-08, ui/BassInfosKey.tsx) : sombre, son i cerne ; allume, l'orange
+   du mode (l'encre sombre sur l'orange, 6.4:1). */
+.v4-root .v4-bass-infos-key {
+  gap: 0.45em;
+}
+
+.v4-root .v4-bass-infos-key[aria-pressed='true'] {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: linear-gradient(#ff7a2e, var(--orange));
+  color: #141414;
+  box-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.55),
+    0 0 14px rgba(255, 106, 34, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.v4-info-i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15em;
+  height: 1.15em;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-size: 0.85em;
+  font-style: italic;
+  letter-spacing: 0;
+}
+
 /* CLOSE dans la machine ouverte (2026-10-05, ui/HoodClose.tsx) : orange, allume
    comme le pad OPEN, sa LED blanche ; l'encre sombre sur l'orange (6.4:1). */
 .v4-root .v4-close-key {

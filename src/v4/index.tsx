@@ -48,7 +48,9 @@ import { useKeys } from './hooks/useKeys';
 import { useMedia } from './hooks/useMedia';
 import { Stage } from './scene/renderer';
 import { editor } from './state/editor';
-import { explode, voyExplode } from './state/explode';
+import { bassExplode, explode, voyExplode } from './state/explode';
+import { bassInfos } from './state/bassInfos';
+import { BassInfosKey } from './ui/BassInfosKey';
 import { BASS, DJ, focus, VOYAGER } from './state/focus';
 import { FLAGS, syncFlags } from './state/flags';
 import { intro } from './state/intro';
@@ -239,6 +241,8 @@ function useSectionsLifecycle(): void {
       section.set(null);
       explode.reset();
       voyExplode.reset();
+      bassExplode.reset();
+      bassInfos.set(false);
     };
   }, []);
 }
@@ -558,6 +562,8 @@ const V4Shell: React.FC = () => {
           {mobile && <PcbClose getStage={getStage} />}
           {/* Desktop : CLOSE sur la plaque de la machine ouverte (2026-10-05, ui/HoodClose.tsx) */}
           {!mobile && <HoodClose getStage={getStage} />}
+          {/* Le MM-BASS ouvert : INFOS sur sa plaque (2026-10-08, ui/BassInfosKey.tsx) */}
+          <BassInfosKey getStage={getStage} />
           {/* L'en-tete : fin sur desktop ; logo et hamburger sur mobile (2026-10-01) */}
           {mobile ? <MobileHeader getStage={getStage} /> : <Header getStage={getStage} />}
           <Trace stage={stage} panelRef={panelRef} mobile={mobile} />

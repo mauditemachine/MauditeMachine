@@ -7,19 +7,22 @@
  *   ou Page 10 %, Debut et Fin aux butees, Suppr : la valeur de depart.
  * - Touches, pas, LOCK (2026-10-07) et l'ecran des presets : Entree ou Espace.
  * - En LOCK, Suppr sur un potard du son : son verrou s'en va.
+ * - Capot ouvert (2026-10-08) : les potards de la plaque TWEAKS aussi.
  * Inertes tant qu'on n'utilise pas le MM-BASS. Le clavier de la machine
  * (bass/keys.ts) s'ecoute ici.
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Stage } from '../scene/renderer';
+import { bassExplode } from '../state/explode';
 import { focus } from '../state/focus';
 import { PRESET_KEYS_OFF, PRESET_KEYS_ON, PRESET_KEY_ARIA, presetMode } from '../state/presetMode';
 import { presetKey } from '../actions';
 import { bassDial, bassDialReset, bassKnobValue, bassLockTap, bassStepTap, noteName } from './actions';
 import { bassKeyAction } from './gestures';
 import { listenBassKeys } from './keys';
-import { BASS_FACE_KNOBS as BASS_KNOBS, bassParams, bassValueText } from './params';
+import { BASS_FACE_KNOBS, BASS_PLATE_KNOBS, bassParams, bassValueText, type BassKnobDef } from './params';
+import { bassTweakId } from './tweaks';
 import { bassKeyId, bassKnobId, bassLcdId, bassLockId, bassTrigId } from './rig';
 import { midiOf } from './seq';
 import { BASS_STEPS, bassState } from './state';
@@ -59,6 +62,7 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const s = useSyncExternalStore(bassState.subscribe, bassState.get, bassState.get);
   useSyncExternalStore(bassParams.subscribe, bassParams.get, bassParams.get);
   const pm = useSyncExternalStore(presetMode.subscribe, presetMode.get, presetMode.get);
+  const hood = useSyncExternalStore(bassExplode.subscribe, bassExplode.get, bassExplode.get);
   const els = useRef(new Map<string, HTMLElement>());
   const refs = useRef(new Map<string, (el: HTMLElement | null) => void>());
   const stageRef = useRef(stage);
@@ -145,10 +149,10 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     };
   }, [stage, ready]);
 
-  // Le mode presets ouvre ou ferme : ses touches viennent d'arriver, on les pose tout de suite
+  // Le mode presets ouvre ou ferme (ses touches viennent d'arriver), le capot s'ouvre (la plaque) : on les pose tout de suite
   useLayoutEffect(() => {
     placeRef.current?.(true);
-  }, [pm.machine]);
+  }, [pm.machine, hood]);
 
   if (!ready) return null;
 
@@ -158,13 +162,14 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     window.setTimeout(() => stageRef.current?.bass?.pressKey(id, false), 120);
   };
   const sel = s.steps[s.sel];
+  // Capot ouvert : la plaque et ses potards
+  const knobs: readonly { k: BassKnobDef; id: string }[] = [...BASS_FACE_KNOBS.map((k) => ({ k, id: bassKnobId(k.id) })), ...(hood === 'open' ? BASS_PLATE_KNOBS.map((k) => ({ k, id: bassTweakId(k.id) })) : [])];
 
   return (
-    <div ref={groupRef} className="v4-twins" role="group" aria-label="MM-BASS bassline generator" aria-hidden={off || undefined}>
-      {BASS_KNOBS.map((k) => {
+    <div ref={groupRef} className="v4-twins" role="group" aria-label="MM-BASS bass synth and sequencer" aria-hidden={off || undefined}>
+      {knobs.map(({ k, id }) => {
         const val = bassKnobValue(k.id);
         const notch = k.steps && k.steps > 1 ? 1 / (k.steps - 1) : 0;
-        const id = bassKnobId(k.id);
         return (
           <div
             key={id}

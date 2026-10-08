@@ -85,3 +85,5 @@ function makeExplode(): ExplodeStore {
 
 export const explode = makeExplode();
 export const voyExplode = makeExplode();
+/** Le MM-BASS a son capot depuis le 2026-10-08 (Mika : "un bouton OPEN"). */
+export const bassExplode = makeExplode();

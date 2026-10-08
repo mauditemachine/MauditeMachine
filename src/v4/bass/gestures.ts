@@ -14,12 +14,21 @@
  * - un bouton LOCK (2026-10-07) : a l'appui, son pas recoit les potards du
  *   son ; deux tapes sur un potard en LOCK : son verrou s'en va ;
  * - l'ecran : les presets (state/presetMode.ts), a l'appui.
+ * 2026-10-08 :
+ * - tenir un pas 350 ms sans glisser (hors EDIT) : LOCK sur ce pas, comme
+ *   une Elektron ; un potard tourne pendant l'appui et le lacher sort, sinon
+ *   le LOCK reste (bass/actions.ts) ;
+ * - les potards de la plaque sous le capot (bass-tw-<id>) : les memes gestes
+ *   que ceux de la face ;
+ * - INFOS allume, au doigt : toucher une commande montre sa carte sans rien
+ *   changer (un potard qu'on glisse tourne toujours, la carte le suit).
  */
 
 import type { HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
-import { presetKey } from '../actions';
-import { bassAccent, bassClear, bassDial, bassDialReset, bassEditToggle, bassEditing, bassGenerate, bassKnobValue, bassLockTap, bassMutate, bassNote, bassOct, bassPatternHold, bassRun, bassSlide, bassStepDeg, bassStepTap } from './actions';
+import { openToggle, presetKey } from '../actions';
+import { bassInfos } from '../state/bassInfos';
+import { bassAccent, bassClear, bassDial, bassDialReset, bassEditToggle, bassEditing, bassGenerate, bassKnobValue, bassLockEnter, bassLockOff, bassLockTap, bassLockTurns, bassMutate, bassNote, bassOct, bassPatternHold, bassRun, bassSlide, bassStepDeg, bassStepTap } from './actions';
 import { bassKnob, type BassKnobId } from './params';
 import { bassState } from './state';
 import type { BassKeyKind } from './theme';
@@ -33,6 +42,11 @@ const DEG_PX = { mouse: 14, touch: 18 } as const;
 const STEP_DRAG_PX = 6;
 /** EDIT : tenir un pattern vide autant pour y copier la ligne. */
 const HOLD_MS = 500;
+/** Hors EDIT (2026-10-08) : tenir un pas autant le verrouille (LOCK, facon Elektron). */
+const LOCK_HOLD_MS = 350;
+
+/** Le potard d'une cible : sur la face (bass-knob-<id>) ou sur la plaque (bass-tw-<id>), son id dans h.bass. */
+const knobOf = (h: HotspotView): BassKnobId => (h.bass ?? h.id.replace(/^bass-(knob|tw)-/, '')) as BassKnobId;
 
 interface Grip {
   kind: 'knob' | 'key' | 'trig';
@@ -53,6 +67,10 @@ interface Grip {
   /** EDIT : le minuteur de l'appui tenu, et s'il a fini */
   hold: number;
   held: boolean;
+  /** un pas tenu qui a mis le LOCK (2026-10-08) */
+  lockHold: boolean;
+  /** INFOS au doigt : la carte seulement, l'appui ne fait rien d'autre */
+  infoOnly: boolean;
 }
 
 export class BassGestures {
@@ -70,7 +88,16 @@ export class BassGestures {
   }
 
   down(pointerId: number, h: HotspotView, x: number, y: number, touch = false): void {
-    const g: Grip = { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, dragged: false, hold: 0, held: false };
+    const g: Grip = { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, infoOnly: false };
+    // INFOS au doigt : la carte de la commande ; un potard peut encore tourner (la carte le suit), le reste attend
+    if (touch && bassInfos.isOn()) {
+      bassInfos.show(h.id);
+      if (h.kind !== 'bassknob') {
+        g.infoOnly = true;
+        this.grips.set(pointerId, g);
+        return;
+      }
+    }
     if (h.kind === 'basslcd') {
       // L'ecran : une touche des presets
       if (h.lcd) presetKey('bass', h.lcd);
@@ -78,11 +105,12 @@ export class BassGestures {
     }
     if (h.kind === 'bassknob') {
       g.kind = 'knob';
-      g.knob = h.id.slice('bass-knob-'.length) as BassKnobId;
+      g.knob = knobOf(h);
       g.v0 = bassKnobValue(g.knob);
-      // Deux tapes : la valeur de depart (en LOCK : le verrou s'en va)
+      // Deux tapes : la valeur de depart (en LOCK : le verrou s'en va) ; pas en INFOS au doigt (on lit)
       const now = performance.now();
-      if (now - (this.lastTap.get(h.id) ?? -Infinity) < TAP_MS) {
+      if (touch && bassInfos.isOn()) this.lastTap.delete(h.id);
+      else if (now - (this.lastTap.get(h.id) ?? -Infinity) < TAP_MS) {
         bassDialReset(g.knob);
         g.v0 = bassKnobValue(g.knob);
         this.lastTap.delete(h.id);
@@ -97,6 +125,14 @@ export class BassGestures {
           g.held = true;
           bassPatternHold(g.step);
         }, HOLD_MS);
+      } else {
+        // Tenir le pas sans glisser : LOCK sur lui
+        g.hold = window.setTimeout(() => {
+          if (g.dragged) return;
+          g.held = true;
+          g.lockHold = true;
+          bassLockEnter(g.step);
+        }, LOCK_HOLD_MS);
       }
     } else if (h.kind === 'basslock') {
       g.kind = 'key';
@@ -112,7 +148,7 @@ export class BassGestures {
 
   move(pointerId: number, x: number, y: number, shift: boolean): void {
     const g = this.grips.get(pointerId);
-    if (!g) return;
+    if (!g || g.infoOnly) return;
     const dx = x - g.x0;
     const dy = y - g.y0;
     if (Math.hypot(dx, dy) > AXIS_PX) g.moved = true;
@@ -132,7 +168,10 @@ export class BassGestures {
       // EDIT : un pattern ne glisse pas
       if (bassEditing()) return;
       if (!g.dragged && Math.abs(dy) < STEP_DRAG_PX) return;
+      // Deja verrouille par l'appui tenu : le pas ne glisse plus
+      if (g.lockHold) return;
       g.dragged = true;
+      window.clearTimeout(g.hold);
       bassStepDeg(g.step, g.deg0 + Math.round(-dy / g.px));
     }
   }
@@ -141,9 +180,12 @@ export class BassGestures {
     const g = this.grips.get(pointerId);
     if (!g) return;
     this.grips.delete(pointerId);
+    if (g.infoOnly) return;
     if (g.kind === 'trig') {
       this.press(g.id, false);
       window.clearTimeout(g.hold);
+      // Un pas tenu pour LOCK, un potard tourne pendant l'appui : le lacher sort (LOCK momentane)
+      if (g.lockHold && bassLockTurns() > 0) bassLockOff();
       if (!g.dragged && !g.held && overId === g.id) bassStepTap(g.step);
     } else if (g.kind === 'key') this.press(g.id, false);
   }
@@ -158,7 +200,7 @@ export class BassGestures {
       return true;
     }
     if (h.kind !== 'bassknob') return false;
-    const id = h.id.slice('bass-knob-'.length) as BassKnobId;
+    const id = knobOf(h);
     const n = bassKnob(id).steps;
     if (n && n > 1) bassDial(id, bassKnobValue(id) - Math.sign(delta) / (n - 1));
     else bassDial(id, bassKnobValue(id) - Math.sign(delta) * (shift ? 0.002 : 0.02) * Math.min(4, Math.abs(delta) / 40 || 1));
@@ -178,6 +220,7 @@ export class BassGestures {
 export function bassKeyAction(k: BassKeyKind): void {
   if (k === 'run') bassRun();
   else if (k === 'edit') bassEditToggle();
+  else if (k === 'open') openToggle(null, 'bass');
   else if (k === 'gen') bassGenerate();
   else if (k === 'mutate') bassMutate();
   else if (k === 'clear') bassClear();

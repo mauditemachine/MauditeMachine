@@ -110,8 +110,8 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         else if (focus.get() !== 'dj' && focus.get() !== 'bass') openToggle(getStage());
         return;
       }
-      // O : OPEN de la machine qu'on utilise (le MM-DECKS n'a pas de capot)
-      if ((e.key === 'o' || e.key === 'O') && focus.get() !== 'dj' && focus.get() !== 'bass') {
+      // O : OPEN de la machine qu'on utilise (le MM-DECKS n'a pas de capot ; le MM-BASS a le sien depuis le 2026-10-08)
+      if ((e.key === 'o' || e.key === 'O') && focus.get() !== 'dj') {
         e.preventDefault();
         openToggle(getStage());
         return;

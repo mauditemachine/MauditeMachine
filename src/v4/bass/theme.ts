@@ -4,29 +4,33 @@
  * completement adapte en mobile ; inspire-toi de ces synthes, trouve le
  * meilleur de chacun : Moog Minitaur, Norand Mono, Torso T-1, TB-303,
  * Syntakt, Roland SE-02"). Un bloc de la famille du MM-DECKS (le coin, le
- * dessus brosse, les vis, les potards, les touches en caoutchouc a LED), a
- * la taille du MM-RYTM, pose a droite du MM-RYTM (puis le MM-ARP, le
- * MM-DECKS ; d'abord a droite du MM-ARP, "MM-BASS avant MM-ARP", Mika, le
- * meme jour). Le
- * dessus, du fond vers soi (repere top : x de -6.3 a 6.3, z de -4 a 4) :
- * - l'en-tete : MM-BASS, BASSLINE GENERATOR / ACID / SUB, le logotype ;
- * - l'ecran a gauche (la ligne de basse, facon OP-1, bass/screen.ts) ; a sa
- *   droite le grand CUTOFF en aluminium (celui du Minitaur), puis deux
- *   rangees : FILTER, les potards de la TB-303 (RESO, ENV MOD, DECAY,
- *   ACCENT) et VOLUME ; VOICE (WAVE, SUB, DRIVE, GLIDE, OCTAVE) ;
- * - GENERATOR, la rangee facon Torso T-1 : STYLE, DENSITY, SLIDES, ACCENTS,
- *   RANGE, ROOT, SCALE (potards noirs, noms en orange) ;
- * - onze touches : RUN, EDIT | GEN, MUTATE, CLEAR | ACCENT, SLIDE | NOTE -,
- *   NOTE +, OCT -, OCT + (EDIT le 2026-10-07) ;
- * - seize boutons LOCK, un au-dessus de chaque pas (2026-10-07, Mika : "des
- *   boutons au-dessus de chaque step ; j'appuie, je parametre ce step
- *   uniquement") ;
- * - seize pas en une rangee, par groupes de quatre (la TB-303, le Norand
- *   Mono) : orange une note (plus vif accentuee), pale une liaison, jaune
- *   le pas qui joue.
- * Au telephone (PORTRAIT) : le bloc debout comme le MM-RYTM, l'ecran sur
- * toute la largeur, les potards en rangees de quatre, les touches en deux
- * rangees (cinq, puis six), les pas en deux rangees de huit, chacun son
+ * dessus brosse, les potards, les touches en caoutchouc a LED), a la taille
+ * du MM-RYTM, pose a droite du MM-RYTM (puis le MM-ARP, le MM-DECKS).
+ * La face depuis la refonte du 2026-10-08 (Mika : "MM-BASS est un peu
+ * complexe ; je m'attendais plus a une machine qui ressemble a un MONARK
+ * qu'a un T-1 incomprehensible ; j'aime Elektron : quelque chose
+ * d'intuitif, pour qu'on ne cherche pas les choses ; un bouton EDIT, je n'en
+ * vois pas"), du fond vers soi (repere top : x de -6.3 a 6.3, z de -4 a 4) :
+ * - l'en-tete : MM-BASS, MONO BASS SYNTH, le firmware, le logotype ;
+ * - l'ecran a gauche (bass/screen.ts) ; a sa droite le GENERATOR (STYLE,
+ *   DENSITY, GEN, MUTATE : ce que la machine joue), puis EDIT et OPEN en
+ *   haut a droite, plus grands, en orange, comme les pads EDIT et OPEN du
+ *   MM-RYTM ;
+ * - le son sur une rangee, dans l'ordre du signal comme un Minimoog (ou le
+ *   Monark) : OSC (OCTAVE, WAVE, SUB) | FILTER (le grand CUTOFF, RESO) |
+ *   ENVELOPE (ENV MOD, DECAY) | ACCENT / SLIDE (ACCENT, GLIDE) | OUTPUT
+ *   (DRIVE, VOLUME), le nom de chaque section au-dessus d'elle ;
+ * - la rangee de jeu : RUN | CLEAR | ACCENT SLIDE | NOTE - NOTE + OCT - OCT + ;
+ * - seize boutons LOCK, un au-dessus de chaque pas (2026-10-07) ;
+ * - seize pas en une rangee, par groupes de quatre : orange une note (plus
+ *   vif accentuee), pale une liaison, jaune le pas qui joue ; le pas qu'on
+ *   verrouille clignote.
+ * Les regles du generateur (SLIDE PROB, ACC PROB, RANGE, ROOT, SCALE) et les
+ * reglages fins de la voix sont sous le capot (OPEN, la plaque TWEAKS).
+ * Au telephone (PORTRAIT) : le bloc debout, l'ecran sur toute la largeur,
+ * les sections en quatre rangees (GENERATOR avec GEN et MUTATE, OSC,
+ * FILTER + ENVELOPE, ACCENT / SLIDE + OUTPUT), RUN CLEAR EDIT OPEN, puis
+ * les touches du pas choisi, les pas en deux rangees de huit, chacun son
  * LOCK au-dessus.
  * Ce module reste dans le chargement principal (le Stage en a besoin pour
  * cadrer) ; le reste du MM-BASS arrive a part (state/bassload.ts).
@@ -54,21 +58,34 @@ export const BASS = PORTRAIT
       head: { z: -6.62 },
       logo: { h: 0.32, z: -6.62 },
       screen: { x: 0, z: -4.92, w: 7.4, d: 2.5 },
-      keys: { w: 1.1, d: 0.42 },
       trigs: { w: 0.8, d: 0.56, h: 1.15 },
-      locks: { w: 0.62, d: 0.2, h: 0.85 },
+      // Plus grands au doigt (2026-10-08 : la bande de 15 px entre NOTE + et le pas ratait)
+      locks: { w: 0.72, d: 0.3, h: 0.85 },
     }
   : {
       head: { z: -3.42 },
       logo: { h: 0.3, z: -3.42 },
       screen: { x: -3.95, z: -1.72, w: 4.3, d: 2.3 },
-      keys: { w: 0.8, d: 0.4 },
       trigs: { w: 0.62, d: 0.62, h: 1.15 },
-      locks: { w: 0.5, d: 0.2, h: 0.85 },
+      locks: { w: 0.56, d: 0.26, h: 0.85 },
     };
 
-/** Les familles de potards (leur nom sur le panneau, en orange pour le generateur). */
-export const BASS_GROUPS = { filter: 'FILTER', voice: 'VOICE', gen: 'GENERATOR' } as const;
+/**
+ * Les sections de la face (2026-10-08, la refonte facon Monark : "quelque
+ * chose d'intuitif, pour qu'on ne cherche pas les choses") : le son dans
+ * l'ordre du signal, de gauche a droite, comme un Minimoog ; le generateur
+ * a cote de l'ecran (ce que la machine joue). Leur nom au-dessus de leurs
+ * potards (desktop), sous leur rangee au telephone.
+ */
+export const BASS_SECTIONS: readonly { name: string; ids: readonly BassKnobId[]; ink?: 'orange' }[] = [
+  { name: 'GENERATOR', ids: ['style', 'density'], ink: 'orange' },
+  { name: 'OSC', ids: ['octave', 'wave', 'sub'] },
+  { name: 'FILTER', ids: ['cutoff', 'reso'] },
+  { name: 'ENVELOPE', ids: ['envmod', 'decay'] },
+  { name: 'ACCENT / SLIDE', ids: ['accent', 'glide'] },
+  { name: 'OUTPUT', ids: ['drive', 'volume'] },
+];
+export const bassSectionOf = (id: BassKnobId): string | null => BASS_SECTIONS.find((g) => g.ids.includes(id))?.name ?? null;
 
 /** Le potard en vedette : le grand CUTOFF. */
 export const BASS_HERO: BassKnobId = 'cutoff';
@@ -81,57 +98,75 @@ interface KnobPlace {
   s: number;
 }
 
-const desk = (): KnobPlace[] => {
-  const xs = [0.85, 2.05, 3.25, 4.45, 5.65];
-  const r1: BassKnobId[] = ['reso', 'envmod', 'decay', 'accent', 'volume'];
-  const r2: BassKnobId[] = ['wave', 'sub', 'drive', 'glide', 'octave'];
-  const gen: BassKnobId[] = ['style', 'density', 'slides', 'accents', 'range', 'root', 'scale'];
-  return [
-    { id: 'cutoff', x: -0.72, z: -1.66, s: 2.05 },
-    ...r1.map((id, i) => ({ id, x: xs[i], z: -2.3, s: 0.95 })),
-    ...r2.map((id, i) => ({ id, x: xs[i], z: -1.02, s: 0.95 })),
-    ...gen.map((id, i) => ({ id, x: -5.4 + i * 1.8, z: 0.5, s: 0.9 })),
-  ];
-};
+/** La rangee du son (desktop), un peu sous l'ecran. */
+const SOUND_Z = 0.62;
 
-const phone = (): KnobPlace[] => {
-  const xs = [-2.85, -0.95, 0.95, 2.85];
-  const rows: (BassKnobId | null)[][] = [
-    ['cutoff', 'reso', 'envmod', 'decay'],
-    ['accent', 'volume', 'wave', 'sub'],
-    ['drive', 'glide', 'octave', null],
-    ['style', 'density', 'slides', 'accents'],
-    ['range', 'root', 'scale', null],
-  ];
-  const zs = [-2.75, -1.45, -0.15, 1.3, 2.55];
-  const out: KnobPlace[] = [];
-  rows.forEach((row, r) =>
-    row.forEach((id, c) => {
-      if (id) out.push({ id, x: xs[c], z: zs[r], s: id === 'cutoff' ? 1.32 : 1.05 });
-    })
-  );
-  return out;
-};
+const desk = (): KnobPlace[] => [
+  // Le generateur, a droite de l'ecran : STYLE (le choix musical), DENSITY
+  { id: 'style', x: -0.72, z: -1.62, s: 1.45 },
+  { id: 'density', x: 0.98, z: -1.62, s: 1.05 },
+  // Le son, de gauche a droite : OSC | FILTER | ENVELOPE | ACCENT / SLIDE | OUTPUT
+  { id: 'octave', x: -5.62, z: SOUND_Z, s: 0.95 },
+  { id: 'wave', x: -4.67, z: SOUND_Z, s: 0.95 },
+  { id: 'sub', x: -3.72, z: SOUND_Z, s: 0.95 },
+  { id: 'cutoff', x: -2.36, z: SOUND_Z, s: 1.3 },
+  { id: 'reso', x: -1.04, z: SOUND_Z, s: 0.95 },
+  { id: 'envmod', x: 0.12, z: SOUND_Z, s: 0.95 },
+  { id: 'decay', x: 1.07, z: SOUND_Z, s: 0.95 },
+  { id: 'accent', x: 2.23, z: SOUND_Z, s: 0.95 },
+  { id: 'glide', x: 3.18, z: SOUND_Z, s: 0.95 },
+  { id: 'drive', x: 4.34, z: SOUND_Z, s: 0.95 },
+  { id: 'volume', x: 5.42, z: SOUND_Z, s: 1.05 },
+];
+
+/** Au telephone : quatre rangees (GENERATOR, OSC, FILTER + ENVELOPE, ACCENT / SLIDE + OUTPUT), des potards plus gros au doigt. */
+const PH_X = [-2.85, -0.95, 0.95, 2.85];
+export const PH_ROWS = { gen: -2.82, osc: -1.36, filter: 0.12, out: 1.6 } as const;
+const phone = (): KnobPlace[] => [
+  { id: 'style', x: PH_X[0], z: PH_ROWS.gen, s: 1.25 },
+  { id: 'density', x: PH_X[1], z: PH_ROWS.gen, s: 1.12 },
+  { id: 'octave', x: -1.9, z: PH_ROWS.osc, s: 1.12 },
+  { id: 'wave', x: 0, z: PH_ROWS.osc, s: 1.12 },
+  { id: 'sub', x: 1.9, z: PH_ROWS.osc, s: 1.12 },
+  { id: 'cutoff', x: PH_X[0], z: PH_ROWS.filter, s: 1.36 },
+  { id: 'reso', x: PH_X[1], z: PH_ROWS.filter, s: 1.12 },
+  { id: 'envmod', x: PH_X[2], z: PH_ROWS.filter, s: 1.12 },
+  { id: 'decay', x: PH_X[3], z: PH_ROWS.filter, s: 1.12 },
+  { id: 'accent', x: PH_X[0], z: PH_ROWS.out, s: 1.12 },
+  { id: 'glide', x: PH_X[1], z: PH_ROWS.out, s: 1.12 },
+  { id: 'drive', x: PH_X[2], z: PH_ROWS.out, s: 1.12 },
+  { id: 'volume', x: PH_X[3], z: PH_ROWS.out, s: 1.12 },
+];
 
 export const BASS_KNOB_PLACES: readonly KnobPlace[] = PORTRAIT ? phone() : desk();
 export const bassKnobAt = (id: BassKnobId): KnobPlace => BASS_KNOB_PLACES.find((k) => k.id === id) ?? { id, x: 0, z: 0, s: 1 };
 
-/** Les familles : la rangee de chaque potard. */
-export const BASS_FILTER: readonly BassKnobId[] = ['cutoff', 'reso', 'envmod', 'decay', 'accent', 'volume'];
-export const BASS_VOICE: readonly BassKnobId[] = ['wave', 'sub', 'drive', 'glide', 'octave'];
-export const BASS_GEN: readonly BassKnobId[] = ['style', 'density', 'slides', 'accents', 'range', 'root', 'scale'];
-
 /** Le capuchon d'un potard : aluminium pour le son (CUTOFF le plus grand), orange pour ACCENT, noir pour le generateur. */
 export type BassKnobTone = 'knob' | 'ring' | 'hot';
-export const bassKnobTone = (id: BassKnobId): BassKnobTone => (id === 'accent' ? 'hot' : BASS_GEN.includes(id) ? 'knob' : 'ring');
+export const bassKnobTone = (id: BassKnobId): BassKnobTone => (id === 'accent' ? 'hot' : id === 'style' || id === 'density' ? 'knob' : 'ring');
 
 /* ---------------- les touches ---------------- */
 
 export type BassKeyKind = 'run' | 'edit' | 'open' | 'gen' | 'mutate' | 'clear' | 'accent' | 'slide' | 'notedn' | 'noteup' | 'octdn' | 'octup';
-export const BASS_KEYS: readonly { kind: BassKeyKind; label: string; aria: string }[] = [
-  { kind: 'run', label: 'RUN', aria: 'Run or stop the bassline, in time with the MM-RYTM, key Space' },
-  { kind: 'edit', label: 'EDIT', aria: 'Edit: the sixteen steps become sixteen patterns, key E' },
-  { kind: 'gen', label: 'GEN', aria: 'Generate a new bassline, key G' },
+
+/** Une touche : son nom, sa place et sa taille (repere top) ; orange : son nom en orange, sa LED orange (RUN en or). */
+export interface BassKeyDef {
+  kind: BassKeyKind;
+  label: string;
+  aria: string;
+  x: number;
+  z: number;
+  w: number;
+  d: number;
+  orange?: boolean;
+}
+
+type KeyCopy = Pick<BassKeyDef, 'kind' | 'label' | 'aria' | 'orange'>;
+const COPY: readonly KeyCopy[] = [
+  { kind: 'run', label: 'RUN', aria: 'Run or stop the bassline, in time with the MM-RYTM, key Space', orange: true },
+  { kind: 'edit', label: 'EDIT', aria: 'Edit: the sixteen steps become sixteen patterns, key E', orange: true },
+  { kind: 'open', label: 'OPEN', aria: 'Open the machine: the fine settings and INFOS, key O', orange: true },
+  { kind: 'gen', label: 'GEN', aria: 'Generate a new bassline with STYLE and DENSITY, key G', orange: true },
   { kind: 'mutate', label: 'MUTATE', aria: 'Change a few steps, key M' },
   { kind: 'clear', label: 'CLEAR', aria: 'Clear the bassline; while a step is locked, clear its locks' },
   { kind: 'accent', label: 'ACCENT', aria: 'Accent on the chosen step, key A' },
@@ -141,20 +176,56 @@ export const BASS_KEYS: readonly { kind: BassKeyKind; label: string; aria: strin
   { kind: 'octdn', label: 'OCT -', aria: 'Chosen step one octave down, key Z' },
   { kind: 'octup', label: 'OCT +', aria: 'Chosen step one octave up, key X' },
 ];
-/** Desktop : un jour de plus apres EDIT, apres CLEAR, apres SLIDE. */
-const KEY_GROUPS = [2, 5, 7];
 
-/** La place d'une touche (desktop : une rangee ; au telephone : cinq, puis six). */
-export function bassKeyAt(i: number): { x: number; z: number } {
-  if (PORTRAIT) {
-    if (i < 5) return { x: [-3.1, -1.55, 0, 1.55, 3.1][i], z: 3.78 };
-    return { x: -3.25 + (i - 5) * 1.3, z: 4.5 };
-  }
-  return { x: -5.33 + i * 1.0 + KEY_GROUPS.filter((g) => i >= g).length * 0.22, z: 1.6 };
-}
+/**
+ * Les places (2026-10-08) : desktop, GEN et MUTATE dans le bloc du
+ * generateur, EDIT et OPEN en haut a droite (comme les pads EDIT et OPEN du
+ * MM-RYTM : on les voit tout de suite), la rangee de jeu au-dessus des pas
+ * (RUN | CLEAR | ACCENT SLIDE | NOTE - NOTE + OCT - OCT +) ; au telephone,
+ * GEN et MUTATE a cote de STYLE et DENSITY, puis RUN CLEAR EDIT OPEN, puis
+ * ACCENT SLIDE NOTE - NOTE + OCT - OCT +.
+ */
+const PLACES: Readonly<Record<BassKeyKind, { x: number; z: number; w: number; d: number }>> = PORTRAIT
+  ? {
+      gen: { x: 0.95, z: PH_ROWS.gen, w: 1.5, d: 0.62 },
+      mutate: { x: 2.85, z: PH_ROWS.gen, w: 1.5, d: 0.62 },
+      run: { x: -2.95, z: 2.92, w: 1.55, d: 0.6 },
+      clear: { x: -0.98, z: 2.92, w: 1.55, d: 0.6 },
+      edit: { x: 0.98, z: 2.92, w: 1.55, d: 0.6 },
+      open: { x: 2.95, z: 2.92, w: 1.55, d: 0.6 },
+      accent: { x: -3.25, z: 3.78, w: 1.12, d: 0.5 },
+      slide: { x: -1.95, z: 3.78, w: 1.12, d: 0.5 },
+      notedn: { x: -0.65, z: 3.78, w: 1.12, d: 0.5 },
+      noteup: { x: 0.65, z: 3.78, w: 1.12, d: 0.5 },
+      octdn: { x: 1.95, z: 3.78, w: 1.12, d: 0.5 },
+      octup: { x: 3.25, z: 3.78, w: 1.12, d: 0.5 },
+    }
+  : {
+      gen: { x: 2.55, z: -1.62, w: 1.15, d: 0.56 },
+      mutate: { x: 3.85, z: -1.62, w: 1.15, d: 0.56 },
+      edit: { x: 5.38, z: -2.12, w: 1.3, d: 0.5 },
+      open: { x: 5.38, z: -1.18, w: 1.3, d: 0.5 },
+      run: { x: -5.3, z: 1.6, w: 1.1, d: 0.42 },
+      clear: { x: -3.75, z: 1.6, w: 1.0, d: 0.42 },
+      accent: { x: -2.2, z: 1.6, w: 1.0, d: 0.42 },
+      slide: { x: -0.95, z: 1.6, w: 1.0, d: 0.42 },
+      notedn: { x: 0.65, z: 1.6, w: 1.0, d: 0.42 },
+      noteup: { x: 1.9, z: 1.6, w: 1.0, d: 0.42 },
+      octdn: { x: 3.15, z: 1.6, w: 1.0, d: 0.42 },
+      octup: { x: 4.4, z: 1.6, w: 1.0, d: 0.42 },
+    };
 
-/** Les filets entre les groupes de touches (desktop). */
-export const BASS_KEY_GROUPS = KEY_GROUPS;
+export const BASS_KEYS: readonly BassKeyDef[] = COPY.map((c) => ({ ...c, ...PLACES[c.kind] }));
+export const bassKeyAt = (i: number): BassKeyDef => BASS_KEYS[i];
+
+/** Desktop : les filets entre les groupes de la rangee de jeu (entre deux touches : leur milieu). */
+export const BASS_KEY_SEPS: readonly [BassKeyKind, BassKeyKind][] = PORTRAIT
+  ? []
+  : [
+      ['run', 'clear'],
+      ['clear', 'accent'],
+      ['slide', 'notedn'],
+    ];
 
 /* ---------------- les pas ---------------- */
 
@@ -162,14 +233,76 @@ export const BASS_KEY_GROUPS = KEY_GROUPS;
 export function bassTrigAt(i: number): { x: number; z: number } {
   if (PORTRAIT) {
     const c = i % 8;
-    return { x: (c - 3.5) * 0.95 + (c >= 4 ? 0.08 : -0.08), z: i < 8 ? 5.45 : 6.55 };
+    return { x: (c - 3.5) * 0.95 + (c >= 4 ? 0.08 : -0.08), z: i < 8 ? 4.92 : 6.18 };
   }
   const g = Math.floor(i / 4);
-  return { x: -5.69 + i * 0.74 + g * 0.1, z: 2.78 };
+  return { x: -5.69 + i * 0.74 + g * 0.1, z: 2.8 };
 }
 
 /** Le bouton LOCK d'un pas : juste au-dessus de lui. */
 export function bassLockAt(i: number): { x: number; z: number } {
   const t = bassTrigAt(i);
-  return { x: t.x, z: PORTRAIT ? t.z - 0.43 : 2.13 };
+  return { x: t.x, z: PORTRAIT ? t.z - 0.5 : 2.16 };
 }
+
+/* ---------------- OPEN : le capot, la plaque ---------------- */
+
+/**
+ * OPEN (2026-10-08, Mika : "je voudrais un bouton OPEN, et dans le OPEN des
+ * parametres plus particuliers, et surtout un bouton INFOS") : le dessus est
+ * un capot (la dalle arrondie, l'ecran et son cadre, toutes les commandes)
+ * pose sur le coin descendu de son epaisseur, comme le MM-SMPL l'avait. OPEN
+ * le souleve, le recule et le cabre (scene/explode.ts) ; la carte du
+ * MM-RYTM sort du fond du bac et sa plaque TWEAKS (scene/tweakplate.ts)
+ * porte les reglages fins : la rangee GENERATOR (SLIDE PROB, ACC PROB,
+ * RANGE, ROOT, SCALE) et la rangee VOICE (LENGTH, ACC DECAY, SWEEP,
+ * RELEASE, SUB OCT, TUNE), le titre, INFOS et CLOSE.
+ */
+export const BASS_LID = { t: 0.14 } as const;
+export const BASS_EXPLODE = PORTRAIT ? { lift: 6.2, slideZ: -4.6, tiltOpenDeg: -58, pcbRise: 0.45 } : { lift: 4.4, slideZ: -3.6, tiltOpenDeg: -26, pcbRise: 0.45 };
+/** La carte au fond du bac, repere du fond : sortie, son dessous a 0.03 du fond. */
+export const BASS_PCB_Y = -BASS_LID.t + 0.03 - BASS_EXPLODE.pcbRise;
+
+/** La plaque (repere de la carte : son centre ; puis le sien, x a droite, z vers soi), celle du MM-RYTM. */
+export const BASS_PLATE = PORTRAIT
+  ? { cx: -0.2, cz: 0, w: 6.3, d: 9.9, y: 0.5, t: 0.08, r: 0.12, screwIn: 0.17, frame: 0.28, label: 0.15, end: 0.09, title: 0.3 }
+  : { cx: 0, cz: 1.2, w: 10.2, d: 3.95, y: 0.5, t: 0.08, r: 0.12, screwIn: 0.22, frame: 0.3, label: 0.12, end: 0.072, title: 0.26 };
+
+/** La zone de la carte degagee sous la plaque (repere de la carte ; en portrait la plaque tourne, ses cotes s'echangent). */
+export function bassPlateClear(): { x0: number; x1: number; z0: number; z1: number } {
+  const P = BASS_PLATE;
+  const hx = (PORTRAIT ? P.d : P.w) / 2 + 0.3;
+  const hz = (PORTRAIT ? P.w : P.d) / 2 + 0.3;
+  return { x0: P.cx - hx, x1: P.cx + hx, z0: P.cz - hz, z1: P.cz + hz };
+}
+
+const TW_COLS = PORTRAIT ? [-2.0, 0, 2.0] : [-4.05, -2.7, -1.35, 0, 1.35, 2.7, 4.05];
+const TW_ROWS = PORTRAIT ? [-2.55, -0.38, 1.79, 3.96] : [-0.5, 1.2];
+/** Le titre : desktop sur les deux dernieres cases du haut, portrait en tete. */
+export const BASS_PLATE_TITLE = PORTRAIT ? { x: 0, z: -4.1, w: 4 } : { x: (TW_COLS[5] + TW_COLS[6]) / 2, z: TW_ROWS[0] - 0.1, w: 2.4 };
+/** Les cases (colonne, rangee) : desktop GENERATOR en haut, VOICE en bas ; portrait quatre rangees de trois, INFOS dans la derniere case. */
+const TW_CELLS: Readonly<Partial<Record<BassKnobId, readonly [number, number]>>> = PORTRAIT
+  ? { slides: [0, 0], accents: [1, 0], range: [2, 0], root: [0, 1], scale: [1, 1], length: [2, 1], accdecay: [0, 2], sweep: [1, 2], release: [2, 2], suboct: [0, 3], tune: [1, 3] }
+  : { slides: [0, 0], accents: [1, 0], range: [2, 0], root: [3, 0], scale: [4, 0], length: [0, 1], accdecay: [1.2, 1], sweep: [2.4, 1], release: [3.6, 1], suboct: [4.8, 1], tune: [6, 1] };
+export const bassTweakAt = (id: BassKnobId): { x: number; z: number } => {
+  const [col, row] = TW_CELLS[id] ?? [0, 0];
+  return { x: TW_COLS[0] + (TW_COLS[1] - TW_COLS[0]) * col, z: TW_ROWS[row] };
+};
+export const BASS_TWEAK_CELL_W = (PORTRAIT ? 2.0 : 1.35) - 0.12;
+export const BASS_TWEAK_S = { knob: PORTRAIT ? 1.55 : 1.25, switch: PORTRAIT ? 0.82 : 0.8 } as const;
+/** Les noms des rangees de la plaque (desktop : a gauche de chaque rangee, en orange pour le generateur). */
+export const BASS_TWEAK_ROWS = { gen: TW_ROWS[0], voice: TW_ROWS[1] } as const;
+/**
+ * INFOS et CLOSE (des touches du DOM posees sur la plaque, repere de son
+ * dessus, ui/MachineKey.tsx) : desktop cote a cote sous le titre ; au
+ * telephone INFOS dans la derniere case (CLOSE est en bas de l'ecran,
+ * ui/PcbClose.tsx).
+ */
+export const BASS_INFOS_KEY = PORTRAIT ? { x: TW_COLS[2], z: TW_ROWS[3], w: 1.7, d: 0.5, y: 0.02 } : { x: BASS_PLATE_TITLE.x - 0.62, z: BASS_PLATE_TITLE.z + 0.74, w: 1.1, d: 0.32, y: 0.02 };
+export const BASS_CLOSE_KEY = { x: BASS_PLATE_TITLE.x + 0.62, z: BASS_PLATE_TITLE.z + 0.74, w: 1.1, d: 0.32, y: 0.02 } as const;
+/**
+ * Le cadrage ouvert : la hauteur du dessus de la plaque au-dessus du dessus
+ * ferme (le fond, la carte sortie, son epaisseur 0.1, puis y + t), le point
+ * vise en z et la largeur a tenir (renderer, OPEN_VIEW), comme le MM-RYTM.
+ */
+export const BASS_OPEN_FRAME = { y: -BASS_LID.t + 0.03 + 0.1 + BASS_PLATE.y + BASS_PLATE.t, z: PORTRAIT ? 0 : 0.8, w: BASS_PLATE.w } as const;

@@ -30,10 +30,10 @@ export const MACHINE_HELP: Readonly<Record<MachineId, { name: string; kind: stri
   },
   bass: {
     name: 'MM-BASS',
-    kind: 'Bassline generator',
+    kind: 'Bass synth and sequencer',
     text: [
-      'GEN writes a bassline in the chosen STYLE (acid, dark disco, indie dance, minimal, psy prog, techno, house, electro, EBM, italo, sub), DENSITY, SLIDES and ACCENTS; MUTATE changes a few steps. RUN plays it in time with the MM-RYTM. Touch the screen for presets, a factory one per style.',
-      'A TB-303 style filter, a sine SUB down to 20 Hz. Tap a step: note, tie, off; drag it to change its note. LOCK above a step: the sound knobs then change only that step. EDIT turns the steps into 16 patterns you can chain.',
+      'The sound reads left to right like a classic mono synth: OSC, FILTER, ENVELOPE, ACCENT / SLIDE, OUTPUT. GEN writes a line in the chosen STYLE (acid, dark disco, indie dance, minimal, psy prog, techno, house, electro, EBM, italo, sub) and DENSITY; turn them and the fresh line follows. RUN plays in time with the MM-RYTM. Touch the screen for presets.',
+      'Tap a step: note, tie, off; drag it to change its note. Hold a step (or press its LOCK) and turn a knob: that step only, like an Elektron. EDIT turns the steps into 16 patterns. OPEN lifts the hood: fine settings and INFOS, a help card on every control.',
     ],
   },
   dj: {
@@ -42,7 +42,7 @@ export const MACHINE_HELP: Readonly<Record<MachineId, { name: string; kind: stri
     text: [
       'Two decks (up to four): search Maudite Machine or SoundCloud tracks in a deck screen and load them. CUE, PLAY, loops, pitch and SYNC, like a club player.',
       'Each deck has a sampler: REC DECK grabs its last beats (or its loop), REC MIX the last beats of the mixer. SMPL shows it on the screen: slices on pads, grain clouds, a 16 step sequence, SAVE as a WAV.',
-      'The mixer also takes the MM-RYTM and the MM-ARP on channels 1 and 2, with EQ, filter, effects and FX TO. ADD DECK sits in its header.',
+      'The mixer also takes the three machines on channels 1 to 3 (MM-RYTM, MM-BASS, MM-ARP), with EQ, filter, effects and FX TO; playing decks follow their tempo. ADD DECK sits in its header.',
     ],
   },
 };

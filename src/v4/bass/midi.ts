@@ -1,7 +1,8 @@
 /**
- * Les cibles MIDI du MM-BASS (2026-10-07, midi/targets.ts) : ses dix-huit
- * potards (bass:knob:<id>), ses onze touches (bass:key:<touche>, EDIT
- * compris), RUN en bascule (bass:running, la LED suit), ses seize pas
+ * Les cibles MIDI du MM-BASS (2026-10-07, midi/targets.ts) : ses potards
+ * (bass:knob:<id>, ceux de la plaque sous le capot compris depuis le
+ * 2026-10-08), ses touches (bass:key:<touche>, EDIT et OPEN compris), INFOS
+ * (bass:infos), RUN en bascule (bass:running, la LED suit), ses seize pas
  * (bass:trig:<0-15> : comme un appui sur le pas ; en EDIT, un pattern), leurs
  * seize LOCK (bass:lock:<0-15>) et LOCK sur le pas choisi (bass:lock), comme
  * sur une Elektron : un potard du son tourne pendant un LOCK ne change que
@@ -9,6 +10,7 @@
  */
 
 import { registerTargets, type MidiTarget } from '../midi/targets';
+import { bassInfos } from '../state/bassInfos';
 import { bassDial, bassKnobValue, bassLockTap, bassLockToggle, bassRun, bassStepTap } from './actions';
 import { bassKeyAction } from './gestures';
 import { BASS_KNOBS } from './params';
@@ -36,6 +38,7 @@ function all(): MidiTarget[] {
   for (let i = 0; i < BASS_STEPS; i += 1) out.push({ id: `bass:trig:${i}`, scope: 'bass', label: `STEP ${i + 1}`, kind: 'press', down: () => bassStepTap(i) });
   for (let i = 0; i < BASS_STEPS; i += 1) out.push({ id: `bass:lock:${i}`, scope: 'bass', label: `LOCK ${i + 1}`, kind: 'press', down: () => bassLockTap(i) });
   out.push({ id: 'bass:lock', scope: 'bass', label: 'LOCK (CHOSEN STEP)', kind: 'press', down: () => bassLockToggle() });
+  out.push({ id: 'bass:infos', scope: 'bass', label: 'INFOS (HELP ON HOVER)', kind: 'press', down: () => void bassInfos.toggle() });
   return out;
 }
 

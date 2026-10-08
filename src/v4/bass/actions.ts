@@ -17,6 +17,27 @@
  * - EDIT (2026-10-07) : les seize pas deviennent les seize patterns (taper,
  *   chainer, tenir un vide pour copier, bass/patterns.ts).
  * Une piste SoundCloud du site qui part : la basse se tait (comme RUN).
+ *
+ * LOCK qu'on entend et qu'on voit (2026-10-08, Mika : "mes parameter locks ne
+ * fonctionnent pas : je clique sur le bouton au-dessus des pas et ca ne fait
+ * rien") : ils marchaient, mais a l'arret rien ne sonnait et rien ne
+ * changeait sur la machine. Desormais :
+ * - entrer en LOCK, puis chaque reglage (une fois le potard pose), fait
+ *   entendre le pas a l'arret ;
+ * - un pas vide qu'on verrouille recoit une note (la tonique) : un verrou
+ *   sur un pas vide ne se serait jamais entendu ;
+ * - en LOCK, taper un autre pas y deplace le verrou (il ne change plus sa
+ *   note), taper le pas regle sort ;
+ * - tenir un pas (350 ms, sans glisser) le verrouille, comme une Elektron :
+ *   un potard tourne pendant l'appui, et le lacher sort (au doigt, deux
+ *   doigts) ; sans potard tourne, le LOCK reste (a la souris : appui long,
+ *   lacher, tourner) ;
+ * - ACCENT verrouille sur un pas sans accent lui donne l'accent.
+ * Le generateur repond a ses potards (2026-10-08, "pour qu'on ne cherche pas
+ * les choses") : tant que la ligne n'a pas ete touchee depuis GEN, tourner
+ * STYLE, DENSITY, SLIDE PROB, ACC PROB ou RANGE la reecrit avec le meme
+ * tirage (on entend le potard) ; une ligne retouchee ne bouge plus, l'ecran
+ * dit PRESS GEN.
  */
 
 import { gesture } from '../actions';
@@ -25,6 +46,7 @@ import { editor } from '../state/editor';
 import { focus } from '../state/focus';
 import { bassEngine } from './engine';
 import { generate, mutate, type GenOpts } from './gen';
+import type { BassStep } from './state';
 import { BASS_SCALES, BASS_STYLES, SCALE_TONES, bassKnob, bassParams, bassValueText, stepOf, type BassKnobId } from './params';
 import { bassPatterns, bassSlotName } from './patterns';
 import { bassSeq, midiOf } from './seq';
@@ -56,12 +78,38 @@ export function bassRun(): void {
   void bassEngine.ensure().then(() => bassSeq.start());
 }
 
+/** Un tirage qu'on peut refaire (mulberry32) : la ligne de GEN, reecrite par les potards du generateur. */
+function seeded(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Le tirage de la derniere ligne de GEN, et cette ligne (tant que la suite est elle, les potards du generateur la reecrivent). */
+let genSeed = 0;
+let genLine: readonly BassStep[] | null = null;
+const GEN_LIVE: readonly BassKnobId[] = ['style', 'density', 'slides', 'accents', 'range'];
+
+function writeGen(): string {
+  const o = genOpts();
+  const steps = generate({ ...o, rnd: seeded(genSeed) });
+  genLine = steps;
+  bassState.set({ steps, gen: bassState.get().gen + 1 });
+  return o.style;
+}
+
 /** GEN : une ligne neuve ; elle part si la basse ne jouait pas. */
 export function bassGenerate(): void {
   gesture();
-  const o = genOpts();
-  bassState.set({ steps: generate(o), gen: bassState.get().gen + 1, sel: 0 });
-  bassState.say(`${o.style} LINE`, 1600);
+  genSeed = Math.floor(Math.random() * 4294967296);
+  const style = writeGen();
+  bassState.set({ sel: 0 });
+  bassState.say(`${style} LINE`, 1600);
   if (!bassSeq.running) void bassEngine.ensure().then(() => bassSeq.start());
 }
 
@@ -105,7 +153,7 @@ function sayStep(i: number): void {
   bassState.say(`STEP ${String(i + 1).padStart(2, '0')}  ${what}`, 1600);
 }
 
-/** Taper un pas : choisi ; vide, note, liaison (apres une note), vide. En EDIT : son pattern. */
+/** Taper un pas : choisi ; vide, note, liaison (apres une note), vide. En EDIT : son pattern. En LOCK : le verrou y va. */
 export function bassStepTap(i: number): void {
   gesture();
   if (bassEditing()) {
@@ -114,6 +162,12 @@ export function bassStepTap(i: number): void {
   }
   const st = bassState.get();
   if (i < 0 || i >= BASS_STEPS) return;
+  // En LOCK (2026-10-08) : un autre pas prend le verrou (sa note ne change pas) ; le pas regle sort
+  if (st.lock >= 0) {
+    if (i === st.lock) bassLockOff();
+    else bassLockEnter(i);
+    return;
+  }
   const s = st.steps[i];
   const prev = st.steps[(i + BASS_STEPS - 1) % BASS_STEPS];
   if (st.sel !== i && s.kind !== 'off') {
@@ -200,6 +254,11 @@ export function bassKnobValue(id: BassKnobId): number {
   return bassParams.of(id);
 }
 
+/** Les potards tournes en LOCK depuis le debut d'un appui tenu (un pas tenu qu'on lache apres un reglage sort du LOCK). */
+let lockTurns = 0;
+export const bassLockTurns = (): number => lockTurns;
+let lockAudition = 0;
+
 /** Un potard (0 a 1) ; l'ecran dit sa valeur. En LOCK, un potard du son verrouille le pas. */
 export function bassDial(id: BassKnobId, v: number): void {
   const st = bassState.get();
@@ -207,14 +266,34 @@ export function bassDial(id: BassKnobId, v: number): void {
     const x = Math.min(1, Math.max(0, v));
     const s = st.steps[st.lock];
     if (s.locks?.[id] === x) return;
-    bassState.setStep(st.lock, { locks: { ...(s.locks ?? {}), [id]: x } });
+    lockTurns += 1;
+    // ACCENT verrouille sur un pas sans accent : il le prend (sinon le verrou ne servirait a rien)
+    const acc = id === 'accent' && s.kind === 'note' && !s.acc ? { acc: true } : {};
+    bassState.setStep(st.lock, { ...acc, locks: { ...(s.locks ?? {}), [id]: x } });
     bassState.set({ touched: { id, at: performance.now() } });
-    bassState.say(`LOCK ${two(st.lock)}  ${bassKnob(id).label} ${bassValueText(id, x)}`, 1400);
+    bassState.say(`LOCK ${two(st.lock)}  ${bassKnob(id).label} ${bassValueText(id, x)}${'acc' in acc ? '  +ACC' : ''}`, 1400);
+    // A l'arret, on entend le pas une fois le potard pose
+    if (!bassSeq.running) {
+      const step = st.lock;
+      window.clearTimeout(lockAudition);
+      lockAudition = window.setTimeout(() => {
+        if (bassState.get().lock === step) audition(step);
+      }, 160);
+    }
     return;
   }
   if (!bassParams.set(id, v)) return;
   bassState.set({ touched: { id, at: performance.now() } });
-  bassState.say(`${bassKnob(id).label} ${bassValueText(id, bassParams.of(id))}`, 1400);
+  const label = `${bassKnob(id).label} ${bassValueText(id, bassParams.of(id))}`;
+  // Le generateur : la ligne de GEN se reecrit, sinon l'ecran dit comment l'entendre
+  if (GEN_LIVE.includes(id)) {
+    if (genLine && bassState.get().steps === genLine) {
+      writeGen();
+      bassState.say(label, 1400);
+    } else bassState.say(`${label}   PRESS GEN`, 1800);
+    return;
+  }
+  bassState.say(label, 1400);
 }
 
 /** Deux tapes sur un potard : en LOCK, son verrou s'en va ; sinon, sa valeur de depart. */
@@ -238,6 +317,15 @@ export function bassDialReset(id: BassKnobId): void {
 
 /** Un bouton LOCK : ce pas recoit les potards du son (le meme : on sort). */
 export function bassLockTap(i: number): void {
+  if (bassState.get().lock === i) {
+    bassLockOff();
+    return;
+  }
+  bassLockEnter(i);
+}
+
+/** LOCK sur ce pas (un pas tenu, un autre pas en LOCK) : les potards du son ne regleront que lui ; on l'entend a l'arret. */
+export function bassLockEnter(i: number): void {
   gesture();
   if (i < 0 || i >= BASS_STEPS) return;
   if (bassEditing()) {
@@ -245,13 +333,14 @@ export function bassLockTap(i: number): void {
     return;
   }
   const st = bassState.get();
-  if (st.lock === i) {
-    bassLockOff();
-    return;
-  }
+  lockTurns = 0;
+  // Un pas vide : une note (la tonique), sinon son verrou ne s'entendrait jamais
+  const empty = st.steps[i].kind === 'off';
+  if (empty) bassState.setStep(i, { kind: 'note', deg: 0, oct: 0, acc: false, slide: false });
   bassState.set({ lock: i, sel: i });
   const n = Object.keys(st.steps[i].locks ?? {}).length;
-  bassState.say(`LOCK ${two(i)}  ${n ? `${n} LOCKED` : 'TURN A KNOB'}`, 2000);
+  bassState.say(`LOCK ${two(i)}  ${empty ? 'NEW NOTE, TURN A KNOB' : n ? `${n} LOCKED` : 'TURN A KNOB'}`, 2000);
+  audition(i);
 }
 
 /** LOCK sur le pas choisi (clavier L, MIDI). */

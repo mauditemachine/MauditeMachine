@@ -10,9 +10,11 @@
  *   Espace : RUN ; E : EDIT (les patterns) ; G : GEN ; M : MUTATE
  *   A : ACCENT ; S : SLIDE ; L : LOCK (le pas choisi ; Echap en sort)
  *   Haut, Bas : NOTE + - ; Z, X : OCT - +
+ *   O : OPEN (le capot, 2026-10-08) ; I : INFOS (l'aide au survol)
  */
 
 import type { Stage } from '../scene/renderer';
+import { bassInfos } from '../state/bassInfos';
 import { bassLockOff, bassLockToggle, bassStepTap } from './actions';
 import { bassKeyAction } from './gestures';
 import { bassKeyId, bassLockId, bassTrigId } from './rig';
@@ -24,6 +26,7 @@ const STEP_OF = new Map<string, number>(STEP_CODES.map((c, i) => [c, i]));
 const KEY_OF: Readonly<Record<string, BassKeyKind>> = {
   Space: 'run',
   KeyE: 'edit',
+  KeyO: 'open',
   KeyG: 'gen',
   KeyM: 'mutate',
   KeyA: 'accent',
@@ -38,7 +41,8 @@ export const BASS_KEY_LEGEND: readonly { keys: string; what: string }[] = [
   { keys: '1 to 8  /  Shift + 1 to 8', what: 'Steps 1 to 16: pick, then note, tie, off (in EDIT: the patterns)' },
   { keys: 'Space', what: 'Run or stop, in time with the MM-RYTM' },
   { keys: 'E', what: 'Edit: the sixteen patterns on the steps' },
-  { keys: 'L  /  Esc', what: 'Lock the chosen step: the sound knobs change only it  /  out of lock' },
+  { keys: 'O  /  I', what: 'Open the machine (fine settings)  /  INFOS: hover a control to read what it does' },
+  { keys: 'L  /  Esc', what: 'Lock the chosen step (or hold a step): the sound knobs change only it  /  out of lock' },
   { keys: 'G  /  M', what: 'Generate a new line  /  mutate a few steps' },
   { keys: 'A  /  S', what: 'Accent  /  slide on the chosen step' },
   { keys: 'Up  Down', what: 'Chosen step one note up or down in the scale' },
@@ -64,6 +68,13 @@ export function listenBassKeys(getStage: () => Stage | null, active: () => boole
       e.preventDefault();
       e.stopPropagation();
       bassLockOff();
+      return;
+    }
+    // I : INFOS, l'aide au survol (2026-10-08)
+    if (e.code === 'KeyI') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!e.repeat) bassInfos.toggle();
       return;
     }
     if (e.code === 'KeyL') {

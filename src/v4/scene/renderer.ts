@@ -59,7 +59,7 @@ import { motion } from '../state/motion';
 import { editor } from '../state/editor';
 import { PATTERN_SLOTS, patterns } from '../state/patterns';
 import { presetMode, type PresetKey } from '../state/presetMode';
-import { explode as explodeState, voyExplode } from '../state/explode';
+import { bassExplode, explode as explodeState, voyExplode } from '../state/explode';
 import { BASS, DJ, MACHINES, focus, startMachine, VOYAGER, type Focus, type MachineId } from '../state/focus';
 import { view } from '../state/view';
 import { intro } from '../state/intro';
@@ -138,7 +138,7 @@ import { DJ_FRAME, DJ_TOP_Y, DJ_W, DJ_X, UNIT_X, unitW } from '../dj/theme';
 import { djView } from '../dj/view';
 import type { BassRig } from '../bass/rig';
 import { bassLoad } from '../state/bassload';
-import { BASS_D, BASS_FRAME, BASS_W, bassX } from '../bass/theme';
+import { BASS_D, BASS_FRAME, BASS_OPEN_FRAME, BASS_W, bassX } from '../bass/theme';
 
 const DEG = Math.PI / 180;
 
@@ -498,6 +498,8 @@ export class Stage {
   private unsubEditor: () => void = () => undefined;
   private unsubPatterns: () => void = () => undefined;
   private unsubVoyExplode: () => void = () => undefined;
+  private unsubBassExplode: () => void = () => undefined;
+  private bassGoal = false;
   private unsubView: () => void = () => undefined;
   private unsubDjUnit: () => void = () => undefined;
   /** abscisses des machines au depart du zoom (le bout qui depasse les deplace) */
@@ -1140,6 +1142,7 @@ export class Stage {
     const bs = new Rig({
       mobile: this.opts.mobile,
       anisotropy: this.aniso,
+      reduced: motion.reduced,
       repaint: () => this.repaint(),
       invalidate: () => this.invalidate(),
       hitChanged: () => {
@@ -1154,8 +1157,26 @@ export class Stage {
     void whenLogos().then(() => {
       if (!this.disposed) bs.redrawText();
     });
-    this.animators.push(bs.step);
+    // Son capot (2026-10-08) : les couches, puis le cadrage qui les suit
+    this.animators.push(bs.step, (now) => {
+      if (!bs.stepExplode(now)) return false;
+      this.updateCamera();
+      return true;
+    });
     bs.listen();
+    this.bassGoal = bassExplode.get() === 'opening' || bassExplode.get() === 'open';
+    // OPEN et CLOSE : la vue repart de la vue par defaut, le cadrage rejoint l'interieur (ou revient)
+    this.unsubBassExplode = bassExplode.subscribe(() => {
+      const st = bassExplode.get();
+      const goal = st === 'opening' || st === 'open';
+      if (goal !== this.bassGoal) {
+        this.bassGoal = goal;
+        this.openView('bass');
+      }
+      this.hit.invalidate();
+      this.updateCamera();
+      this.invalidate();
+    });
     this.setShown(this.fTo);
     this.updateCamera();
     this.precompile();
@@ -1431,20 +1452,21 @@ export class Stage {
       openZ: 0,
     };
     if (f === 'dj') return dj;
-    // Le MM-BASS (2026-10-07) : le bloc entier de face, comme une platine du MM-DECKS (pas de capot)
+    // Le MM-BASS (2026-10-07) : le bloc entier de face, comme une platine du MM-DECKS ; ouvert (2026-10-08),
+    // sa plaque TWEAKS et sa carte (OPEN_VIEW), au telephone aussi
     const bass: Frame = {
       cx: bassX(),
       hw0: BASS_W / 2 / (mob ? FRAME_MOBILE : SINGLE_FILL),
       h: BASS_FRAME.h,
       ty: BASS_FRAME.targetY,
-      explodeTy: BASS_FRAME.targetY,
+      explodeTy: DJ_TOP_Y + BASS_OPEN_FRAME.y,
       rClosed: BASS_W / 2 + 0.6,
       rOpen: BASS_W / 2 + 0.6,
       fitHalfH: BASS_FRAME.h / 2,
       extent: BASS_W / 2 + (mob ? 3 : 2),
-      openW: 0,
-      openY: BASS_FRAME.targetY,
-      openZ: 0,
+      openW: BASS_OPEN_FRAME.w + OPEN_VIEW.margin,
+      openY: DJ_TOP_Y + BASS_OPEN_FRAME.y,
+      openZ: BASS_OPEN_FRAME.z,
     };
     if (f === 'bass') return bass;
     const left = -BODY.w / 2;
@@ -1470,7 +1492,8 @@ export class Stage {
   private explodeOf(f: Focus): number {
     const a = this.explode.p.frame;
     const b = this.voy ? this.voy.explode.p.frame : 0;
-    return f === 'mm808' ? a : f === 'voy' ? b : f === 'dj' || f === 'bass' ? 0 : Math.max(a, b);
+    if (f === 'bass') return this.bass ? this.bass.explode.p.frame : 0;
+    return f === 'mm808' ? a : f === 'voy' ? b : f === 'dj' ? 0 : Math.max(a, b);
   }
 
   private explodeFrame(): number {
@@ -2419,7 +2442,7 @@ export class Stage {
    * rejoint l'interieur de la machine, fermee il revient a la machine. Pas
    * pendant l'intro, qui conduit sa propre camera.
    */
-  private openView(id: 'mm808' | 'voy'): void {
+  private openView(id: 'mm808' | 'voy' | 'bass'): void {
     if (this.introOn || this.fTo !== id) return;
     this.orbit.reset();
   }
@@ -2726,6 +2749,7 @@ export class Stage {
     this.unsubPlay();
     this.orbit.lock = () => false;
     this.unsubVoyExplode();
+    this.unsubBassExplode();
     this.unsubView();
     this.viewListeners.length = 0;
     this.idleListeners.length = 0;
