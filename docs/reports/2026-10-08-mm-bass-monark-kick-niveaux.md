@@ -39,7 +39,18 @@ Suite des sessions du 2026-10-07 (rapport précédent : `2026-10-07-mixer-5-voie
   - les samples de kick sont sommés en mono.
 - **Niveaux** (`drums.ts`, `bass.worklet.js`, `synth.ts`, `limiter.worklet.js`) : plus de compresseur sur le bus du RYTM, les trois machines rattrapées de -3 dB, le plafond du limiteur à -0,3 dBFS.
 - **MIXER** (`dj/math.ts`, `dj/engine.ts`, `dj/gestures.ts`, `dj/theme.ts`, `dj/controls.ts`) : GAIN de -12 à +12 dB ; vumètres vert, jaune à partir de -6 dBFS, rouge à -1.
-- `docs/midi` régénéré (437 cibles) ; `docs/v4/spec.md` : R14-210 à R14-217.
+- **DECKS, la platine qui ne démarre pas** (`dj/actions.ts`, `dj/rig.ts`, `dj/gestures.ts`, `dj/keys.ts`, `dj/state.ts`, `audio/soundcloud.ts`) :
+  - PLAY pressé pendant le chargement arme la platine : PLAY s'allume en orange, l'écran dit PLAY ARMED, elle part toute seule dès qu'elle est prête ; un second appui désarme ; SYNC pressé pendant le chargement se fait aussi ;
+  - l'ancien morceau s'éjecte dès qu'on en choisit un autre : il ne peut plus repartir puis rester figé, lampe allumée, sans son ;
+  - l'écran dit l'étape du chargement : READING, DECODING, ANALYSING ;
+  - un cue retenu à la toute fin d'un morceau ne gare plus la platine là ; PLAY au bout du morceau repart du cue ;
+  - un CUE dont le relâchement s'est perdu (bouton MIDI en mode bascule) ne bloque plus PLAY ;
+  - Espace lance la dernière platine touchée, à la souris comme au clavier ;
+  - le pont avec le lecteur SoundCloud du site ne relance plus la piste du site (qui coupait les platines) quand on lance A puis B très vite.
+- **Relecture critique** (trois relecteurs, chaque constat contre-vérifié), tout corrigé avant le déploiement :
+  - MM-BASS : un potard tourné à deux doigts pendant qu'on lâche le pas tenu n'écrase plus le son global ; promener LOCK sur des pas vides ne remplit plus la ligne de notes ; l'accent posé par un verrou d'ACCENT part avec lui ; l'écoute à l'arrêt respecte LENGTH ; Échap ne bute plus sur INFOS quand on est sur une autre machine ; toucher la carte INFOS la range (au téléphone, elle couvrait CLOSE) ; LOCK ne fait plus tourner le rendu en continu ; le logo referme aussi le capot du MM-BASS ;
+  - kick : après STOP, le kick suivant coupe bien la queue de celui qui sonne encore.
+- `docs/midi` régénéré (437 cibles) ; `docs/v4/spec.md` : R14-210 à R14-219.
 
 ## Décisions prises et pourquoi
 
@@ -58,11 +69,14 @@ Suite des sessions du 2026-10-07 (rapport précédent : `2026-10-07-mixer-5-voie
   - le mix complet crête à -1,56 dBFS : le limiteur ne touche plus au kick.
   - Contrepartie : le site sonne environ 4,5 LU moins fort. Les morceaux masterisés des platines paraîtront plus forts que les machines : on rattrape au MIXER, comme dans ta façon de faire.
 - **GAIN ±12 dB pour le GAIN seulement** : les EQ gardent leur loi (KILL à gauche, +6 dB à droite).
-- **DECKS** : le bug n'a pas pu être reproduit en test. Le scénario passe à chaque fois : A puis B, B en SYNC, avec les machines, B chargé pendant que A joue. L'enquête continue (voir plus bas).
+- **DECKS, ce qui se passait** : avec un vrai fichier (MP3 de 7 min, WAV 24 bits), la platine met 2 à 10 s à lire, décoder et analyser le morceau. Un PLAY pressé pendant ce temps ne faisait rien, sans rien montrer ; et si la platine tenait déjà un morceau, il relançait l'ancien, que le décodage coupait ensuite en laissant la platine allumée et muette. Une platine chargée, elle, démarre à chaque fois (12 tailles d'écran, 7 angles de vue, au doigt aussi). Cinq autres causes donnent le même symptôme ; quatre sont corrigées, la dernière demande de réimporter les setups du Roto (voir plus bas).
+- **Le panneau MIDI** couvrait l'écran de la platine B, et à certaines tailles ses touches CUE, SYNC et PLAY ; il se ferme maintenant quand on clique ailleurs (sauf en MIDI LEARN).
 
 ## Ce qui reste à faire / points en suspens
 
-- **DECKS, la platine B qui ne démarre pas** : enquête en cours, avec de vrais morceaux SoundCloud, le lecteur SoundCloud du site, le Roto et les tailles d'écran. Utile de savoir, côté Mika : d'où venaient les morceaux (MAUDITE, SoundCloud, fichiers), et si le Roto était branché.
+- **DECKS, à confirmer par Mika** : quand ça a raté, PLAY B était-il pressé juste après le choix du morceau, avant que la forme d'onde apparaisse ? Ou au bouton PLAY B du Roto ? Si ça recommence, noter ce que dit l'écran de la platine (READING, DECODING, PLAY ARMED).
+- **Roto, setups d'avant le 2026-10-07** : sur les setups MIXER et LIVE de cette époque, le bouton PLAY B du Roto lance la platine A, et CUE A lance B. Réimporter MIXER (14) et LIVE (16) depuis `docs/midi/roto/`.
+- **SoundCloud en production** : le Worker répond 503 « soundcloud non configure » pour MAUDITE, la recherche et le flux. Sur le site en ligne, les platines ne lisent donc que tes fichiers. Il manque la clé SoundCloud dans les secrets du Worker, à poser de ton côté (je n'y touche pas sans ton accord).
 - **Roto-Control** : enquête en cours (cas où il ne répond plus, et un mode séquenceur avec défilement).
 - **MM-RYTM façon Digitakt** : la conception est en cours (8 potards, pages, écran en 2x4, P-locks, sample locks), pour avancer étape par étape.
 - **Réimporter le setup Roto MM BASS** (`docs/midi/roto/MM BASS (SETUP 15).json`) : il a cinq potards de plus.
