@@ -23,7 +23,8 @@
  *   de plaque ; ctx.step : le pas montre (STEP 05, LOCK 05) ;
  * - ctx.lockable : ce que dit rytm/pages.ts du bloc (slot.lock, scope ALL) ;
  *   il passe avant la table d'ici (celle de l'etape R2), au cas ou une etape
- *   rende un reglage verrouillable.
+ *   rende un reglage verrouillable ; sauf pour une voix qui n'a rien a y
+ *   verrouiller (SAMPLE sur une voix sans echantillon : pas de phrase).
  * Les reglages a venir (avail soon) et les couches de l'etape R3 (avail r3)
  * ont leur carte, marquee : la carte peut ecrire BIENTOT, R3 n'a qu'a
  * relire leur texte une fois branches.
@@ -77,7 +78,8 @@ export interface RytmInfoCtx extends RytmResolveCtx {
   lockable?: RytmLockable;
 }
 
-type Words = Partial<Pick<Raw, 'title' | 'text' | 'tip'>>;
+/** Les mots d'une voix ; lock null : rien a verrouiller pour cette voix (SAMPLE sur une voix sans echantillon), pas de phrase de verrou. */
+type Words = Partial<Pick<Raw, 'title' | 'text' | 'tip'>> & { lock?: RytmLockable | null };
 
 interface Raw {
   section: string;
@@ -102,7 +104,7 @@ const fr = (x: string): string =>
 const LOCK_LINE: Readonly<Record<RytmLockable, string>> = {
   yes: 'Se verrouille pas par pas (LOCK) : un pas peut garder sa propre valeur.',
   no: "Pas encore verrouillable : en LOCK, son bloc affiche NO LOCK et l'écran le dit si tu le tournes.",
-  global: 'Global : tout le MM-RYTM, jamais verrouillé sur un pas (GLOBAL en LOCK).',
+  global: "Global : tout le MM-RYTM (ALL sur son bloc), jamais verrouillé sur un pas ; en LOCK, son bloc affiche GLOBAL et l'écran le dit si tu le tournes.",
   vel: "En LOCK, c'est la vélocité du pas lui-même, comme sur une Elektron.",
 };
 
@@ -113,7 +115,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   trig: {
     section: 'PAGES',
     title: 'TRIG',
-    text: "La page des pas : VEL, la vélocité du pas choisi (le dernier touché, ou celui en LOCK), et SWING, le retard des doubles croches paires de tout le MM-RYTM. PROB, MICRO, COND, RTRG et RTIM viendront ici. La LED dit la page allumée ; [ et ] passent d'une page à l'autre ; la touche déjà allumée, encore, montre HOME.",
+    text: "La page des pas : VEL, la vélocité du pas choisi (le dernier touché, ou celui en LOCK), et SWING, le retard des doubles croches paires de tout le MM-RYTM. PROB, MICRO, COND, RTRG et RTIM viendront ici. La LED montre la page affichée ; [ et ] passent d'une page à l'autre ; un nouvel appui sur la touche allumée montre HOME.",
     tip: 'En LOCK, VEL change la force d’un seul pas : un charley plus doux sur un contretemps, les autres ne bougent pas.',
   },
   src: {
@@ -126,7 +128,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'PAGES',
     title: 'SMPL',
     text: "L'échantillon de la voix : SAMPLE (OFF, et c'est le son de synthèse de sa famille qui joue ; sinon l'un de ses samples) et START, l'endroit où le coup commence. Aujourd'hui, seuls BD et SD ont des samples. TUNE, FINE, BR, END, LOOP et LEVEL viendront avec la couche SAMPLE.",
-    tip: 'Un sample de Mika au kick et SRC pour le reste : le grain du fichier, réglé comme une machine.',
+    tip: 'Choisis un kick de Mika ici, puis règle-le sur SRC (K.TUNE, ATTACK, DECAY, DRIVE) : le grain du fichier, réglé comme une machine.',
   },
   fltr: {
     section: 'PAGES',
@@ -162,7 +164,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'TRIG',
     title: 'SWING',
     lock: 'global',
-    text: "Retarde les doubles croches paires (2, 4... 16) de tout le MM-RYTM, jusqu'à un tiers de pas : de 50 % (droit) à 67 % (le shuffle de triolet), le rapport s'affiche sous la valeur. Une première visite part à 55 %.",
+    text: "Retarde les doubles croches paires (2, 4... 16) de tout le MM-RYTM, jusqu'à un tiers de pas : de 50 % (droit) à 67 % (le shuffle de triolet), le rapport s'affiche sous la valeur. Une première visite part à 55 % ; deux tapes le remettent droit, à 50 %.",
     tip: '55 à 58 % pour l’indie dance et la house, 50 % pour une techno raide, 60 % et plus pour un minimal qui balance.',
   },
 
@@ -174,11 +176,11 @@ const RAW: Record<RytmInfoId, Raw> = {
     text: "Le son de la voix choisie : 909, 808 ou MM (des sons de synthèse calculés par la machine), puis les samples de sa famille. CH et OH partagent le même choix, TOM et HT aussi ; CY n'a qu'un son. La liste s'ouvre à l'écran quand tu le tournes, et chaque son est recalé à son niveau : en changer ne fait pas sauter le volume. En LOCK, c'est un sample lock : ce pas joue un autre son, de sa famille ou d'une autre (CP 909 sur un pas de BD), par la voie de la voix.",
     voice: {
       bd: {
-        text: "Le son du kick : 909, 808 ou MM (calculés par la machine, réglés par K.TUNE, ATTACK, DECAY et DRIVE), puis les samples de Mika, chacun à son nom. Tous sortent à la même crête : le kick est la référence du mix. En LOCK, c'est un sample lock : ce pas joue un autre kick, ou le son d'une autre famille (CP 909) par la voie du kick.",
+        text: "Le son du kick : 909, 808 ou MM (calculés par la machine), puis les samples de Mika, chacun à son nom ; K.TUNE, ATTACK, DECAY et DRIVE les règlent tous. Tous sortent à la même crête : le kick est la référence du mix. En LOCK, c'est un sample lock : ce pas joue un autre kick, ou le son d'une autre famille (CP 909) par la voie du kick.",
         tip: '909 pour une techno qui claque, 808 pour un minimal rond et long, un sample de Mika pour l’indie dance.',
       },
       sd: {
-        text: "Le son de la caisse claire : 909, 808 ou MM, puis les samples de Mika. SNAPPY et GATE, sur cette page, la règlent. En LOCK, c'est un sample lock : ce pas joue un autre son (une autre caisse claire, un clap...).",
+        text: "Le son de la caisse claire : 909, 808 ou MM, puis les samples de Mika. SNAPPY, sur cette page, règle son timbre ; GATE n'agit que sur la caisse claire MM. En LOCK, c'est un sample lock : ce pas joue un autre son (une autre caisse claire, un clap...).",
         tip: 'MM avec GATE sur ON pour la dark disco des années 80 ; un sample sec pour l’indie dance.',
       },
       hh: {
@@ -246,7 +248,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     title: 'SNAPPY',
     lock: 'no',
     plate: { title: 'SNAPPY', section: 'TWEAKS / SNARE' },
-    text: "Le timbre de la caisse claire, son bruit de cordes face à sa peau. En 909, la part du bruit va de 0,3 à 2,1 ; en 808 de 0,2 à 1,6 ; en MM, de rien à deux fois le réglage d'usine (64). Sur un sample, 64 garde le fichier ; plus haut, plus de claquant au-dessus de 2 kHz ; plus bas, plus sourd.",
+    text: "Le claquant de la caisse claire : la part de son timbre (le bruit des cordes sous la caisse) face à sa peau. En 909, la part du bruit va de 0,3 à 2,1 ; en 808, de 0,2 à 1,6 ; en MM, de rien à deux fois le réglage d'usine (64). Sur un sample, 64 garde le fichier ; plus haut, plus de claquant au-dessus de 2 kHz ; plus bas, plus sourd.",
     tip: 'Plus de SNAPPY pour une caisse claire qui perce en indie dance ; moins pour une dark disco sourde et ronde.',
   },
   'r:gate': {
@@ -270,13 +272,29 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'SMPL',
     title: 'SAMPLE',
     lock: 'yes',
-    text: "L'échantillon de la voix : OFF, et c'est le son de synthèse de sa famille qui joue (la ligne du dessous le nomme : SYNTH 909) ; un cran plus loin, l'un de ses samples (2 OF 6). Le même choix que SOUND (SRC A), sans ses trois sons de synthèse. Aujourd'hui, seuls BD et SD ont des samples ; les autres voix affichent NO SAMPLES. En LOCK, un pas peut jouer un autre sample de la famille, ou OFF.",
-    tip: 'Deux kicks de Mika qui alternent : verrouille le second sur les pas 7 et 15, la boucle respire.',
+    text: "L'échantillon de la voix : OFF, et c'est le son de synthèse de sa famille qui joue (la ligne du dessous le nomme : SYNTH 909) ; un cran plus loin, l'un de ses samples (la ligne dit son rang : 2 OF 6). Le même choix que SOUND (SRC A), sans ses trois sons de synthèse. Aujourd'hui, seuls BD et SD ont des samples ; les autres voix affichent --. En LOCK, un pas peut jouer un autre sample de la famille, ou OFF.",
+    tip: 'Deux kicks de Mika qui alternent : le premier sur 1 et 9, le second verrouillé sur 5 et 13, la boucle respire.',
     voice: {
-      hh: { tip: 'Pas de sample de charley pour l’instant : SOUND (SRC A) choisit 909, 808 ou MM.' },
-      cp: { tip: 'Pas de sample de clap pour l’instant : SOUND (SRC A) choisit 909, 808 ou MM.' },
-      tom: { tip: 'Pas de sample de tom pour l’instant : SOUND (SRC A) choisit 909, 808 ou MM.' },
-      cy: { tip: 'CY n’a pas de sample : son seul son est calculé par la machine.' },
+      sd: { tip: 'Deux caisses claires de Mika qui alternent : verrouille la seconde sur le pas 13, la mesure respire.' },
+      hh: {
+        text: "L'échantillon de la voix. Les charleys n'ont pas encore de sample : le bloc affiche -- et NO SAMPLES, et l'écran le dit si tu le tournes, en LOCK aussi. Aujourd'hui, seuls BD et SD en ont.",
+        tip: 'SOUND (SRC A) choisit le son des charleys : 909, 808 ou MM.',
+        lock: null,
+      },
+      cp: {
+        text: "L'échantillon de la voix. Le clap n'a pas encore de sample : le bloc affiche -- et NO SAMPLES, et l'écran le dit si tu le tournes, en LOCK aussi. Aujourd'hui, seuls BD et SD en ont.",
+        tip: 'SOUND (SRC A) choisit le son du clap : 909, 808 ou MM.',
+        lock: null,
+      },
+      tom: {
+        text: "L'échantillon de la voix. Les toms n'ont pas encore de sample : le bloc affiche -- et NO SAMPLES, et l'écran le dit si tu le tournes, en LOCK aussi. Aujourd'hui, seuls BD et SD en ont.",
+        tip: 'SOUND (SRC A) choisit le son des toms : 909, 808 ou MM.',
+        lock: null,
+      },
+      cy: {
+        text: "L'échantillon de la voix. CY n'a qu'un son, calculé par la machine, et pas de sample : le bloc affiche --, et l'écran le dit si tu le tournes. Aujourd'hui, seuls BD et SD en ont.",
+        lock: null,
+      },
     },
   },
   vstart: {
@@ -286,7 +304,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     text: "Où le coup commence dans son échantillon, de 0 (FROM TOP, le début) à 90 % (90% IN) ; il finit au même endroit, il est donc d'autant plus court. Marche aussi sur les sons de synthèse : la machine les joue comme des échantillons.",
     tip: 'Un START vers 20 % verrouillé sur un pas de caisse claire : il perd son attaque, une note fantôme sans changer de son.',
     voice: {
-      bd: { tip: 'Sur BD, un START de 10 à 20 % enlève le clic : un kick plus mou, un pas sur deux, en minimal.' },
+      bd: { tip: 'Sur BD, un START verrouillé un peu plus loin saute la frappe : un kick plus mou, un pas sur deux, en minimal.' },
     },
   },
 
@@ -304,7 +322,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'AMP',
     title: 'DEC',
     lock: 'yes',
-    text: "La queue du coup. Tout en haut (FULL), le son entier ; en dessous, le coup garde ses 4 premières ms puis s'éteint de plus en plus tôt. La ligne du dessous donne sa durée jusqu'à -60 dB : 83 ms à 0, 640 ms vers le milieu, plusieurs secondes près du haut (le son lui-même peut finir avant).",
+    text: "La queue du coup. Tout en haut (FULL), le son entier ; en dessous, le coup garde ses 4 premières ms puis s'éteint de plus en plus tôt. La ligne du dessous donne sa durée jusqu'à -60 dB : 83 ms à 0, environ 650 ms au milieu, plusieurs secondes près du haut (le son lui-même peut finir avant).",
     tip: 'En LOCK, un DEC court sur le dernier OH de la mesure : un charley ouvert qui se ferme net avant le temps.',
     voice: {
       bd: { tip: 'Sur BD, un DEC court resserre un kick 808 trop long sans toucher à son DECAY (SRC E).' },
@@ -322,7 +340,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'AMP',
     title: 'VOL',
     lock: 'yes',
-    text: "Le niveau de la voix : 0.0 dB à 102 (80 %, le réglage d'usine), +3,9 dB tout en haut, rien à 0 ; la ligne du dessous le donne en dB. Les voix sont déjà calées sous la crête du kick (la caisse claire 1,5 dB dessous au plus, le clap 3,5, les charleys 5,5 à 6) : VOL part de là. Verrouillé, il change le gain de ce coup seulement ; une voix à 0 reste muette.",
+    text: "Le niveau de la voix : 0.0 dB à 102 (80 %, le réglage d'usine), +3,9 dB tout en haut, rien à 0 ; la ligne du dessous le donne en dB. Les voix sont déjà calées sous le kick : la crête de la caisse claire reste au moins 1,5 dB sous la sienne, celle du clap 3,5 dB, celle des charleys 5,5 à 6 dB ; VOL part de là. Verrouillé, il change le gain de ce coup seulement, jusqu'à +12 dB au-dessus du VOL de la voix ; une voix à 0 reste muette, même verrouillée plus haut.",
     tip: 'Règle d’abord le kick, la référence (il sort vers -9 dBFS), puis monte le reste juste sous lui.',
     voice: {
       bd: { tip: 'Sur BD, VOL dose aussi le SIDECHAIN du MM-ARP. Le kick est la référence : règle le reste sous lui.' },
@@ -334,7 +352,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'FX',
     title: 'DIST',
     lock: 'no',
-    text: "La saturation de la voix choisie, en parallèle : le son sec reste, une copie saturée (tanh, de 1 à 13 fois le gain) s'y mélange, jusqu'à 85 % à fond. Après le filtre de la voix (TONE), avant son CHORUS ; à 0, rien n'est calculé.",
+    text: "La saturation de la voix choisie, en parallèle : une copie saturée (tanh, de 1 à 13 fois le gain) se mélange au son sec, qui baisse d'autant ; à fond, 85 % de saturé pour 15 % de sec. Après le filtre de la voix (TONE), avant son CHORUS ; à 0, rien n'est calculé.",
     tip: 'Un peu de DIST sur la caisse claire et le clap (20 à 30 %) : du mordant indie dance sans toucher au kick.',
     voice: {
       bd: { tip: 'Sur BD, c’est la seule DIST qui touche le kick (celle du bas ne le voit pas). Avec DRIVE (SRC F), dose-la peu.' },
@@ -344,7 +362,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'FX',
     title: 'CHORUS',
     lock: 'no',
-    text: "Élargit la voix choisie : deux copies retardées de 14 et 21 ms qui ondulent lentement (0,53 et 0,71 Hz, ±7 ms), l'une à gauche, l'autre à droite. À fond, le son sec descend de moitié sous le chorus. À 0, rien n'est calculé.",
+    text: "Élargit la voix choisie : deux copies retardées de 14 et 21 ms qui ondulent lentement (0,53 et 0,71 Hz, ±7 ms), l'une à gauche, l'autre à droite. À fond, le son sec tombe à la moitié et le chorus joue plein. À 0, rien n'est calculé.",
     tip: 'Sur les charleys ou un clap en dark disco ; jamais sur le kick, il paraîtrait doublé.',
   },
   vdelay: {
@@ -367,7 +385,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'FX',
     title: 'DIST',
     lock: 'global',
-    text: "La saturation parallèle de tout le MM-RYTM sauf le kick : la même loi que la DIST d'une voix (une copie saturée jusqu'à 13 fois le gain, mélangée jusqu'à 85 %), sur le bus des autres voix, avant leur TONE et leur CHORUS communs.",
+    text: "La saturation parallèle de tout le MM-RYTM sauf le kick : la même loi que la DIST d'une voix (une copie saturée jusqu'à 13 fois le gain, 85 % de saturé pour 15 % de sec à fond), sur le bus des autres voix, avant leur CHORUS commun.",
     tip: '15 à 25 % pour souder charleys, clap et toms en indie dance ; le kick reste propre.',
     voice: { bd: { tip: NO_BD } },
   },
@@ -430,7 +448,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   'soon:prob': {
     section: 'TRIG',
     title: 'PROB',
-    text: "Bientôt : la chance qu'un pas joue, de 0 à 100 % ; un charley à 50 % ne tombe qu'une fois sur deux, au hasard.",
+    text: "Bientôt : la probabilité qu'un pas joue, de 0 à 100 % ; un charley à 50 % ne tombe qu'une fois sur deux, au hasard.",
     tip: 'Des charleys à 70 ou 80 % : un minimal qui ne se répète jamais tout à fait.',
   },
   'soon:micro': {
@@ -573,7 +591,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   'pad:SD': {
     section: 'VOICES',
     title: 'SD',
-    text: "La caisse claire, 1,5 dB sous la crête du kick au plus. Touche le pad : elle sonne (à l'arrêt) et devient la voix choisie ; les pas, les encodeurs et l'écran la règlent. Touche S.",
+    text: "La caisse claire : sa crête reste au moins 1,5 dB sous celle du kick. Touche le pad : elle sonne (à l'arrêt) et devient la voix choisie ; les pas, les encodeurs et l'écran la règlent. Touche S.",
   },
   'pad:CH': {
     section: 'VOICES',
@@ -589,7 +607,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   'pad:CP': {
     section: 'VOICES',
     title: 'CP',
-    text: "Le clap, 3,5 dB sous la crête du kick au plus. Touche le pad : il sonne (à l'arrêt) et devient la voix choisie. Touche Z.",
+    text: "Le clap : sa crête reste au moins 3,5 dB sous celle du kick. Touche le pad : il sonne (à l'arrêt) et devient la voix choisie. Touche Z.",
   },
   'pad:TOM': {
     section: 'VOICES',
@@ -604,14 +622,14 @@ const RAW: Record<RytmInfoId, Raw> = {
   'pad:CY': {
     section: 'VOICES',
     title: 'CY',
-    text: "La cymbale, large (sa gauche et sa droite ont leurs propres phases), la voix la plus basse du kit ; un seul son. Touche le pad : elle sonne (à l'arrêt) et devient la voix choisie. Touche V.",
+    text: "La cymbale, en stéréo large (sa gauche et sa droite ont leurs propres phases), la voix la plus basse du kit ; un seul son. Touche le pad : elle sonne (à l'arrêt) et devient la voix choisie. Touche V.",
   },
 
   /* ---------- les pas et le LOCK ---------- */
   step: {
     section: 'STEPS',
     title: 'STEPS',
-    text: "Les 16 pas de la voix choisie. Touche un pas : vide, 127 (HIGH), 85 (MID), 42 (LOW), vide. Tiens-le et glisse : sa vélocité. Tiens-le 350 ms sans bouger : LOCK. Au téléphone, tiens un pas d'un doigt et tourne un encodeur d'un autre : le verrou se pose tout de suite. Un pas qui porte des verrous a un point dessous, à l'écran. Dans EDIT, les 16 pas sont les 16 patterns.",
+    text: "Les 16 pas de la voix choisie. Touche un pas : vide, 127 (HIGH), 85 (MID), 42 (LOW), vide. Tiens-le et glisse : sa vélocité. Tiens-le 350 ms sans bouger : LOCK. Au téléphone, tiens un pas d'un doigt et tourne un encodeur d'un autre : le verrou se pose tout de suite. Un pas qui porte des verrous garde une lueur orange pâle sur sa touche, et un point dessous à l'écran. Dans EDIT, les 16 pas sont les 16 patterns.",
     tip: 'Le kick sur 1, 5, 9 et 13 (les pas encadrés), le clap ou la caisse claire sur 5 et 13 : la base du four on the floor.',
     voice: {
       none: { text: "Les 16 pas de la voix choisie : touche d'abord un pad (l'écran dit TAP A PAD FIRST). Ensuite, une touche sur un pas : vide, 127, 85, 42, vide ; tenu 350 ms : LOCK." },
@@ -620,8 +638,8 @@ const RAW: Record<RytmInfoId, Raw> = {
   lock: {
     section: 'STEPS',
     title: 'LOCK',
-    text: "Le parameter lock, comme sur une Elektron : un pas garde sa propre valeur d'un réglage. Tiens un pas 350 ms (ou L sur le pas choisi) : il passe en LOCK, il clignote, l'écran affiche LOCK 05 en négatif. Choisis la page, tourne un encodeur : ce réglage ne change que sur ce pas, son bloc passe en négatif. Deux tapes sur l'encodeur enlèvent ce verrou, CLEAR tous ceux du pas ; le même pas, Échap ou EDIT pour sortir, un autre pas pour y déplacer le LOCK. Lâché sans rien tourner, le LOCK reste ; lâché après avoir tourné, il s'en va. Verrouiller un pas vide y pose un coup. En lecture, les blocs verrouillés passent en négatif le temps de leur pas.",
-    tip: 'Un sample lock : en LOCK sur le pas 16 de BD, tourne SOUND jusqu’à CP 909 ; le kick laisse la place à un clap en fin de mesure.',
+    text: "Le parameter lock, comme sur une Elektron : un pas garde sa propre valeur d'un réglage. Tiens un pas 350 ms (ou L sur le pas choisi) : il passe en LOCK, il clignote, l'écran affiche LOCK 05 en négatif. Choisis la page, tourne un encodeur : ce réglage ne change que sur ce pas, son bloc passe en négatif. Deux tapes sur l'encodeur enlèvent ce verrou, CLEAR tous ceux du pas ; le même pas, Échap ou EDIT pour sortir, un autre pas pour y déplacer le LOCK. Lâché sans rien tourner, le LOCK reste ; lâché après avoir tourné, il s'en va. Verrouiller un pas vide y pose un coup. En lecture, les blocs verrouillés passent en négatif le temps de leur pas. Dans le Dock du téléphone, un appui long sur un pas le met en LOCK, et la page KNOBS règle ses verrous.",
+    tip: 'Un sample lock : en LOCK sur le pas 16 de BD, tourne SOUND (SRC A) jusqu’à CP 909 ; le kick laisse la place à un clap en fin de mesure.',
   },
 
   /* ---------- le transport ---------- */
@@ -638,7 +656,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   random: {
     section: 'TRANSPORT',
     title: 'RANDOM',
-    text: "Tire un motif 4x4 pour toutes les voix dans un style (HOUSE, TECH HOUSE, TECHNO, MINIMAL, INDIE DANCE, PROG ou ELECTRO), jamais deux fois le même de suite, avec un TONE et un VOL pour chaque voix. Le tempo, les effets et les verrous restent.",
+    text: "Tire un motif 4x4 pour toutes les voix dans un style (HOUSE, TECH HOUSE, TECHNO, MINIMAL, INDIE DANCE, PROG ou ELECTRO), jamais deux fois le même style de suite, avec un TONE et un VOL tirés pour chaque voix. Le tempo, les effets, les autres réglages des voix et les verrous restent.",
     tip: 'Appuie jusqu’à ce qu’un groove t’accroche, puis garde-le dans un pattern avec EDIT.',
   },
   mute: {
@@ -668,7 +686,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   close: {
     section: 'TWEAKS',
     title: 'CLOSE',
-    text: 'Referme le capot du MM-RYTM. Touche O.',
+    text: 'Referme le capot du MM-RYTM. Touche O, ou Échap.',
   },
 
   /* ---------- MASTER et TEMPO ---------- */
@@ -689,7 +707,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   screen: {
     section: 'SCREEN',
     title: 'SCREEN',
-    text: "La vue PAGE, toujours là. En haut, la lecture, la page en pastille, la voix et son son, le pattern et le tempo ; puis huit blocs à la place des huit encodeurs (A B C D en haut, E F G H dessous), chacun avec sa valeur de 0 à 127 (de -64 à +63 pour un réglage centré, le nom du cran pour un choix), son unité et son petit dessin. Dessous, les 16 pas de la voix et la tête de lecture, un point sous chaque pas verrouillé. Touche l'en-tête pour les presets ; la touche de page allumée, ou H, montre HOME.",
+    text: "La vue PAGE, toujours là. En haut, la lecture, la page en pastille, la voix et son son, le pattern et le tempo ; puis huit blocs à la place des huit encodeurs (A B C D en haut, E F G H dessous), chacun avec sa valeur de 0 à 127 (de -64 à +63 pour un réglage centré, les demi-tons pour TUNE, le nom du cran pour un choix), son unité et son petit dessin. Dessous, les 16 pas de la voix et la tête de lecture, un point sous chaque pas verrouillé. Touche l'en-tête pour les presets ; la touche de page allumée, ou H, montre HOME.",
   },
   presets: {
     section: 'SCREEN',
@@ -699,12 +717,12 @@ const RAW: Record<RytmInfoId, Raw> = {
   seek: {
     section: 'SCREEN',
     title: 'TRACK',
-    text: "La piste SoundCloud en cours, dans le pied de l'écran : touche la barre pour avancer dans la piste.",
+    text: "La piste SoundCloud en cours, dans le pied de l'écran : touche la barre à l'endroit où tu veux reprendre la piste.",
   },
   ikey: {
     section: 'SCREEN',
     title: 'INFOS',
-    text: "Allume l'aide : survole n'importe quelle commande du MM-RYTM (au téléphone, touche-la, elle ne change pas) pour lire ce qu'elle fait ; un encodeur montre le réglage qu'il tient sur la page allumée, pour la voix choisie. Le i se remplit tant que c'est allumé ; touche-le encore, ou Échap, pour l'éteindre.",
+    text: "Allume l'aide : survole n'importe quelle commande du MM-RYTM (au téléphone, touche-la : sa carte s'affiche, la commande n'agit pas) pour lire ce qu'elle fait ; un encodeur montre le réglage qu'il tient sur la page allumée, pour la voix choisie. Le i se remplit tant que c'est allumé ; touche-le encore, ou Échap, pour l'éteindre.",
   },
   home: {
     section: 'SCREEN',
@@ -714,7 +732,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   enc: {
     section: 'ENCODERS',
     title: 'ENCODER',
-    text: "Les huit encodeurs A à H règlent la page allumée, pour la voix choisie ; leur valeur est à l'écran, de 0 à 127, dans le bloc à leur place. Ils sont sans fin : rien ne saute quand tu changes de page. Deux tapes : la valeur de départ (en LOCK, le verrou s'en va). Cette case est vide sur cette page. Au téléphone, l'onglet PAGES du Dock a les mêmes huit encodeurs.",
+    text: "Les huit encodeurs A à H règlent la page allumée, pour la voix choisie ; leur valeur est à l'écran, de 0 à 127, dans le bloc à leur place. Ils sont sans fin : rien ne saute quand tu changes de page. Deux tapes : la valeur de départ (en LOCK, le verrou s'en va). Cette case est vide sur cette page. Au téléphone, la page KNOBS du Dock (onglet PAGES) a les mêmes huit encodeurs et les six touches de page.",
   },
 };
 
@@ -746,7 +764,8 @@ export function infoOf(id: string, ctx: RytmInfoCtx = {}): RytmInfo | null {
   if (!rid) return null;
   const r = RAW[rid];
   const w = wordsFor(r, ctx.voice);
-  const lock = ctx.lockable ?? r.lock;
+  // Une voix sans rien a verrouiller (lock null) passe avant tout : son bloc n'a rien a choisir
+  const lock = w.lock === null ? undefined : (ctx.lockable ?? w.lock ?? r.lock);
   let title = ctx.plate && r.plate ? r.plate.title : (w.title ?? r.title);
   if (ctx.step !== undefined && ctx.step >= 0 && ctx.step < 16) {
     if (rid === 'step') title = `STEP ${two(ctx.step + 1)}`;

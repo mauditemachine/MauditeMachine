@@ -38,8 +38,10 @@
  * le laisse (worktree wf_b0d0237c, 2026-10-08), reglages a venir compris :
  * si pages.ts change (l'etape R3 et ses couches), la mettre a jour, ou passer
  * la cible resolue par actions.ts (pageTarget) dans le contexte (target).
- * Les constantes que les moteurs n'exportent pas (TUNE +/-24, START 90 %, la
- * DIST, le DELAY, la REVERB, le CHORUS) sont recopiees ici, avec leur source.
+ * Les constantes que les moteurs n'exportent pas (la DIST, le DELAY, la
+ * REVERB, le CHORUS), ou pas encore sur cette branche (TUNE +/-24 et START
+ * 90 %, exportees par voicefx.ts a l'etape R2), sont recopiees ici, avec
+ * leur source.
  */
 
 import type { BassDiagram } from '../bass/diagrams';
@@ -479,9 +481,9 @@ function noteOf(hz: number): string {
 /** La duree d'une double croche au tempo (BPM borne a celui du MM-RYTM). */
 const stepS = (bpm: number | undefined): number => 60 / clamp(bpm ?? BPM.initial, BPM.min, BPM.max) / 4;
 
-/* ---------------- les lois recopiees (ces modules ne les exportent pas) ---------------- */
+/* ---------------- les lois recopiees (ces modules ne les exportent pas, ou pas encore sur cette branche) ---------------- */
 
-/** audio/voicefx.ts (etape R2) : TUNE +/-24 demi-tons, START au plus 90 % de l'echantillon. */
+/** audio/voicefx.ts (etape R2, qui les exporte : TUNE_ST, START_MAX ; a importer une fois R2 merge) : TUNE +/-24 demi-tons, START au plus 90 % de l'echantillon. */
 const TUNE_ST = 24;
 const START_MAX = 0.9;
 /** audio/fx.ts DRIVE : la copie saturee tanh((1 + 12 d) x), melangee a 0.85 d. */
@@ -1033,7 +1035,8 @@ const drawAmpDecay: Draw = (c, v) => {
   p.label('HOLD 4 MS, THEN THE TAIL', X0, TOP);
   if (tail < span) p.label('-60 DB', Math.max(X0 + 30, tx(tail) - 3), Y0 + 8, 'end');
   p.label(`1/16 = ${Math.round(sd * 1000)} MS`, X0, BOT);
-  return p.value(durText(tail)).done();
+  // La valeur lue : celle de la ligne d'unite de l'ecran (rytm/values.ts encUnit, la queue sans les 4 ms tenues)
+  return p.value(durText(tau * Math.log(1000))).done();
 };
 
 /** PAN : la place du coup, et ses deux cotes (mono a puissance constante, x racine de 2 : drums.ts). */
@@ -1074,7 +1077,8 @@ const drawDist: Draw = (_c, v) => {
   p.p(poly(shaped((x) => x, yc, 30)), 'ghost');
   p.p(poly(shaped((x) => (1 - m) * x + m * Math.tanh(D * x), yc, 30)), 'hot');
   p.label(`DRIVE X${D.toFixed(1)}`, X0, TOP);
-  p.label(`WET ${Math.round(m * 100)} %, DRY STAYS`, X0, BOT);
+  // Le sec baisse d'autant que le sature monte (fx.ts : sec 1 - m, sature m)
+  p.label(`WET ${Math.round(m * 100)}%  DRY ${Math.round((1 - m) * 100)}%`, X0, BOT);
   return p.value(`${Math.round(d * 100)}%`).done();
 };
 
