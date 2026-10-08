@@ -1,7 +1,7 @@
 {
   "version": 1,
   "type": "MIDI",
-  "name": "BASS",
+  "name": "BASS 1008",
   "index": 14,
   "knobs": [
     {
@@ -441,7 +441,7 @@
       "nrpnAddress": 0,
       "minValue": 0,
       "maxValue": 127,
-      "controlName": "SLIDES",
+      "controlName": "SLIDE PROB",
       "colorScheme": 17,
       "hapticMode": 0,
       "hapticIndent1": 255,
@@ -474,7 +474,7 @@
       "nrpnAddress": 0,
       "minValue": 0,
       "maxValue": 127,
-      "controlName": "ACCENTS",
+      "controlName": "ACC PROB",
       "colorScheme": 17,
       "hapticMode": 0,
       "hapticIndent1": 255,
@@ -774,7 +774,7 @@
       "controlName": "TUNE",
       "colorScheme": 1,
       "hapticMode": 0,
-      "hapticIndent1": 255,
+      "hapticIndent1": 64,
       "hapticIndent2": 255,
       "hapticSteps": 0,
       "stepNames": [

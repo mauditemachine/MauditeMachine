@@ -126,8 +126,8 @@ BASS,15,potard,9,2,2,5,23,GLIDE,or,bass:knob:glide,GLIDE,continu,
 BASS,15,potard,10,2,3,5,24,OCTAVE,or,bass:knob:octave,OCTAVE,potard a 4 crans,-2 / -1 / 0 / +1
 BASS,15,potard,11,2,4,5,25,STYLE,jaune,bass:knob:style,STYLE,potard a 11 crans,ACID / DARK DISCO / INDIE DANCE / MINIMAL / PSY PROG / TECHNO / HOUSE / ELECTRO / EBM / ITALO / SUB
 BASS,15,potard,12,2,5,5,26,DENSITY,jaune,bass:knob:density,DENSITY,continu,
-BASS,15,potard,13,2,6,5,27,SLIDES,jaune,bass:knob:slides,SLIDE PROB,continu,
-BASS,15,potard,14,2,7,5,28,ACCENTS,jaune,bass:knob:accents,ACC PROB,continu,
+BASS,15,potard,13,2,6,5,27,SLIDE PROB,jaune,bass:knob:slides,SLIDE PROB,continu,
+BASS,15,potard,14,2,7,5,28,ACC PROB,jaune,bass:knob:accents,ACC PROB,continu,
 BASS,15,potard,15,2,8,5,29,RANGE,jaune,bass:knob:range,RANGE,potard a 3 crans,1 / 2 / 3
 BASS,15,potard,16,3,1,5,30,ROOT,cyan,bass:knob:root,ROOT,potard a 13 crans,ARP / F# / G / G# / A / A# / B / C / C# / D / D# / E / F
 BASS,15,potard,17,3,2,5,31,SCALE,cyan,bass:knob:scale,SCALE,potard a 5 crans,MINOR / DORIAN / PHRYGIAN / HARMONIC / PENTA
@@ -136,7 +136,7 @@ BASS,15,potard,19,3,4,5,103,LENGTH,or,bass:knob:length,LENGTH,continu,
 BASS,15,potard,20,3,5,5,104,ACC DECAY,rouge,bass:knob:accdecay,ACC DECAY,continu,
 BASS,15,potard,21,3,6,5,105,SWEEP,rouge,bass:knob:sweep,SWEEP,continu,
 BASS,15,potard,22,3,7,5,106,RELEASE,or,bass:knob:release,RELEASE,continu,
-BASS,15,potard,23,3,8,5,107,TUNE,or,bass:knob:tune,TUNE,continu,
+BASS,15,potard,23,3,8,5,107,TUNE,or,bass:knob:tune,TUNE,"bipolaire, cran au milieu (64)",
 BASS,15,bouton,0,1,1,13,14,RUN,rouge,bass:running,RUN (ON / OFF),bascule (la LED suit le site),
 BASS,15,bouton,1,1,2,13,15,GEN,orange,bass:key:gen,GEN,appui,
 BASS,15,bouton,2,1,3,13,16,MUTATE,orange,bass:key:mutate,MUTATE,appui,

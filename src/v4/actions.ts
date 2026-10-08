@@ -786,10 +786,16 @@ export function machinesRunning(): boolean {
  * grille. Les platines continuent : c'est fait pour mixer par-dessus (et
  * elles suivent le tempo des machines, dj/actions.ts). Renvoie l'etat.
  */
+/** Le numero du dernier PLAY/STOP des machines : un depart de la basse qui attend le son ne survit pas a un STOP. */
+let machinesGen = 0;
+
 export function machinesToggle(): boolean {
   gesture();
+  const gen = ++machinesGen;
   if (machinesRunning()) {
     if (clock.running) clock.stop();
+    // Un RUN qui attend encore le son : STOP l'annule (toggle, clock.ts)
+    else if (clock.waiting) clock.toggle();
     if (arp.get().running) arp.stop();
     bassLoad.get()?.bassSeq.stop();
     return false;
@@ -799,7 +805,20 @@ export function machinesToggle(): boolean {
   arp.toggleRun();
   void bassLoad.load()?.then((m) => m.bassEngine.ensure().then(() => {
     // Toujours voulu : rien ne l'a arretee entre-temps
-    if (clock.running && !m.bassSeq.running) m.bassSeq.start();
+    if (clock.running) {
+      if (!m.bassSeq.running) m.bassSeq.start();
+      return;
+    }
+    // Le son se reveille encore (2026-10-08 : l'horloge attend que le contexte joue) : la basse part avec elle
+    if (!clock.waiting) return;
+    const t0 = performance.now();
+    const off = clock.subscribe(() => {
+      if (gen !== machinesGen) off();
+      else if (clock.running) {
+        off();
+        if (!m.bassSeq.running) m.bassSeq.start();
+      } else if (performance.now() - t0 > 20000) off();
+    });
   }));
   return true;
 }

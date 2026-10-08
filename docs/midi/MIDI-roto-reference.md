@@ -8,13 +8,17 @@ Genere le 8 octobre 2026 depuis le code du site (`npm run docs:midi`) : 437 cibl
 
 **D'ou vient la cible d'une cle**, dans cet ordre :
 
-1. ce que tu as appris (MIDI LEARN, ou un fichier d'assignations importe) : la machine regardee d'abord, puis les assignations de partout, puis les autres machines ;
-2. sinon la **carte du Roto** (les six setups ci-dessous), si elle est allumee (par defaut oui).
+1. ce que tu as appris (MIDI LEARN, ou un fichier d'assignations importe) pour la machine regardee, puis les assignations de partout ;
+2. sinon la **carte du Roto** (les six setups ci-dessous), si elle est allumee (par defaut oui), pour un message d'une entree dont le nom contient « roto » ;
+3. sinon ce que tu as appris pour une autre machine (depuis le 2026-10-08 : une vieille assignation d'une autre machine ne vole plus un controle du Roto).
+
+Une assignation apprise ne repond qu'a l'appareil qui l'a apprise. Le panneau MIDI liste celles qui tombent sur une cle de la carte (REMOVE CONFLICTS WITH THE ROTO MAP) et dit, pour chaque message recu, ce qu'il a fait.
 
 **La carte du Roto.**
 
 - Un setup par machine, chacun sur son canal : potards sur le canal N, boutons sur le canal N + 8.
-- Le potard ou bouton numero n (0 a 31, quatre pages de huit) envoie le CC **14 + n** (n de 0 a 17), puis **102 + (n - 18)** (n de 18 a 31). Soit : 0:14, 1:15, 2:16, 3:17, 4:18, 5:19, 6:20, 7:21, 8:22, 9:23, 10:24, 11:25, 12:26, 13:27, 14:28, 15:29, 16:30, 17:31, 18:102, 19:103, 20:104, 21:105, 22:106, 23:107, 24:108, 25:109, 26:110, 27:111, 28:112, 29:113, 30:114, 31:115.
+- Les adresses sont gelees (2026-10-08, `src/v4/midi/rotoKeys.ts`) : une cible garde son canal et son CC pour toujours, meme deplacee sur une autre page ; une nouvelle cible prend une adresse libre, une adresse retiree n'est jamais redonnee. Au depart, le controle numero n (0 a 31, quatre pages de huit) avait le CC **14 + n** (n de 0 a 17), puis **102 + (n - 18)** (n de 18 a 31) : 0:14, 1:15, 2:16, 3:17, 4:18, 5:19, 6:20, 7:21, 8:22, 9:23, 10:24, 11:25, 12:26, 13:27, 14:28, 15:29, 16:30, 17:31, 18:102, 19:103, 20:104, 21:105, 22:106, 23:107, 24:108, 25:109, 26:110, 27:111, 28:112, 29:113, 30:114, 31:115 ; les colonnes Canal et CC ci-dessous font foi.
+- **Version des setups : 2026-10-08.** Le nom du setup sur l'ecran du Roto la porte (RYTM 1008, ARP 1008, BASS 1008, DECK 1008, MIXER 1008, LIVE 1008) : un Roto qui montre un autre nom a un ancien fichier, reimporte les setups.
 - Ces CC n'ont aucun role reserve dans la norme MIDI (ni 0 bank, 1 modulation, 6 et 38 data, 64 pedale, 96 a 101 RPN/NRPN, 120 a 127 messages de canal).
 - Ce que dit le fichier JSON, c'est seulement **canal + CC + nom + couleur + type**. La **cible** (ce que ca pilote) est dans le site : il retrouve la cible avec le canal et le CC. Changer l'ordre dans le JSON sans changer le site ne deplace donc rien (voir le chapitre 5).
 
@@ -24,9 +28,11 @@ Genere le 8 octobre 2026 depuis le code du site (`npm run docs:midi`) : 437 cibl
 - Un selecteur a crans du site est un potard a crans du Roto (hapticMode 1, jusqu'a 16 crans, noms courts) : le cran i de n correspond a la valeur i/(n-1). Le choix de son du kit compte les echantillons du site : KICK SOUND a 9 crans (909, 808, MM, puis les 6 samples), SNARE SOUND a 7.
 - **SAMPLE** (`rytm:enc:vsound`, a droite de VOLUME) choisit le son de la voix selectionnee : son nombre de crans suit la voix (BD 9, SD 7, les autres 3 ; CY et PC n'ont qu'un son). Il est donc continu sur le Roto : le site prend le cran le plus proche. La colonne Crans du catalogue donne son nombre pour la voix selectionnee a la generation (BD par defaut).
 - Une **action** (RANDOM, CLEAR, OPEN, PLAY d'une platine...) part au front montant : un CC qui passe au-dessus de 63, ou une note enfoncee. Une action **maintenue** (CUE, boucles, pads des samplers, bends) dure jusqu'au relachement.
-- Un **etat** (RUN, un mute, OSC ON) est une valeur 0 ou 1 : sur le Roto un bouton **bascule** (TOGGLE) dont la LED suit le site. Une note fait basculer un parametre.
+- Un **etat** (RUN, un mute, OSC ON) est une valeur 0 ou 1 : sur le Roto un bouton **bascule** (TOGGLE) dont la LED suit le site. Depuis le 2026-10-08, chaque message d'un bouton TOGGLE de la carte fait basculer sa cible (127 ou 0, peu importe : apres un changement fait sur la page, le premier appui marche). Une note fait basculer un parametre.
 
-**Le retour vers le Roto.** Les potards motorises et les LEDs recoivent la valeur du site (meme canal, meme CC) toutes les 50 ms quand elle change (souris, preset, RANDOM, changement de machine), jamais pendant 300 ms apres un geste sur le potard, et un echo qui revient aussitot est ignore. Seulement vers une sortie dont le nom contient « roto », ou un appareil sur lequel tu as appris. Pas de retour pour les boutons d'action.
+**Le retour vers le Roto.** Les potards motorises et les LEDs recoivent la valeur du site (meme canal, meme CC) toutes les 50 ms quand elle change (souris, preset, RANDOM), 48 messages au plus par tick, jamais pendant 300 ms apres un geste sur le potard, et un echo qui revient aussitot est ignore. La carte part seulement vers une sortie dont le nom contient « roto », une assignation apprise seulement vers son appareil. Pas de retour pour les boutons d'action. Un seul onglet du site pilote le Roto : le dernier montre ou clique.
+
+**Changer de setup sur le Roto.** Le Roto ne le dit pas : le premier potard touche d'un autre setup qui saute loin de la valeur du site ne compte pas, son moteur y retourne et les potards et LEDs de ce setup sont renvoyes ; tourne-le de nouveau.
 
 **FOLLOW.** Toucher un controle d'un setup montre sa machine : RYTM > MM-RYTM, ARP > MM-ARP, BASS > MM-BASS, DECK et MIXER > MM-DECKS. LIVE ne change pas de machine.
 
@@ -40,7 +46,7 @@ Format des exports de ROTO-SETUP (version 1), un fichier par setup, a importer (
 {
   "version": 1,
   "type": "MIDI",
-  "name": "ARP",
+  "name": "ARP 1008",
   "index": 11,
   "knobs": [
     {
@@ -118,11 +124,11 @@ Format des exports de ROTO-SETUP (version 1), un fichier par setup, a importer (
 | Champ | Sens |
 | --- | --- |
 | version, type | 1 et "MIDI" (toujours) |
-| name, index | nom du setup ; index = numero de SETUP moins 1 (SETUP 12 : 11) |
+| name, index | nom du setup sur l'ecran du Roto, avec la version (RYTM 1008) ; index = numero de SETUP moins 1 (SETUP 12 : 11) |
 | controlIndex | le controle n, de 0 a 31 (page = n div 8 + 1, position = n mod 8 + 1) |
 | controlMode | 0 : CC |
 | controlChannel | canal MIDI 1 a 16 (potards N, boutons N + 8) |
-| controlParam | le numero de CC (14 + n, puis 102 + n - 18) |
+| controlParam | le numero de CC (celui du registre des adresses, src/v4/midi/rotoKeys.ts) |
 | nrpnAddress | 0 pour un potard, 65535 pour un bouton (sans objet en CC) |
 | minValue, maxValue | 0 et 127 : toute la course |
 | controlName | nom sur l'ecran du Roto : 12 caracteres ASCII au plus |
@@ -321,8 +327,8 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 10 | 2.3 | 5 | 24 | OCTAVE | or | bass:knob:octave | OCTAVE | potard a 4 crans : -2 / -1 / 0 / +1 |
 | 11 | 2.4 | 5 | 25 | STYLE | jaune | bass:knob:style | STYLE | potard a 11 crans : ACID / DARK DISCO / INDIE DANCE / MINIMAL / PSY PROG / TECHNO / HOUSE / ELECTRO / EBM / ITALO / SUB |
 | 12 | 2.5 | 5 | 26 | DENSITY | jaune | bass:knob:density | DENSITY | continu |
-| 13 | 2.6 | 5 | 27 | SLIDES | jaune | bass:knob:slides | SLIDE PROB | continu |
-| 14 | 2.7 | 5 | 28 | ACCENTS | jaune | bass:knob:accents | ACC PROB | continu |
+| 13 | 2.6 | 5 | 27 | SLIDE PROB | jaune | bass:knob:slides | SLIDE PROB | continu |
+| 14 | 2.7 | 5 | 28 | ACC PROB | jaune | bass:knob:accents | ACC PROB | continu |
 | 15 | 2.8 | 5 | 29 | RANGE | jaune | bass:knob:range | RANGE | potard a 3 crans : 1 / 2 / 3 |
 | 16 | 3.1 | 5 | 30 | ROOT | cyan | bass:knob:root | ROOT | potard a 13 crans : ARP / F# / G / G# / A / A# / B / C / C# / D / D# / E / F |
 | 17 | 3.2 | 5 | 31 | SCALE | cyan | bass:knob:scale | SCALE | potard a 5 crans : MINOR / DORIAN / PHRYGIAN / HARMONIC / PENTA |
@@ -331,7 +337,7 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 20 | 3.5 | 5 | 104 | ACC DECAY | rouge | bass:knob:accdecay | ACC DECAY | continu |
 | 21 | 3.6 | 5 | 105 | SWEEP | rouge | bass:knob:sweep | SWEEP | continu |
 | 22 | 3.7 | 5 | 106 | RELEASE | or | bass:knob:release | RELEASE | continu |
-| 23 | 3.8 | 5 | 107 | TUNE | or | bass:knob:tune | TUNE | continu |
+| 23 | 3.8 | 5 | 107 | TUNE | or | bass:knob:tune | TUNE | bipolaire, cran au milieu (64) |
 
 **Boutons**
 
