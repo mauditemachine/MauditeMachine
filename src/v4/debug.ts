@@ -59,6 +59,7 @@ import { intro } from './state/intro';
 import { lcd, type LcdState } from './state/lcd';
 import { lcdMessage } from './state/lcdMessage';
 import { playhead } from './state/playhead';
+import { rytmPage, type RytmPageState, type RytmView } from './state/rytmPage';
 import { section } from './state/section';
 import { view } from './state/view';
 import type { Inst, SectionId } from './theme';
@@ -221,6 +222,15 @@ export interface V4Debug {
     readonly params: BassModules['bassParams'] | null;
     readonly engine: BassModules['bassEngine'] | null;
     readonly seq: BassModules['bassSeq'] | null;
+  };
+  /**
+   * Les pages du MM-RYTM (2026-10-08, state/rytmPage.ts) : page, l'etat a
+   * l'instant (view : 'page' epinglee ou en coup d'oeil, sinon 'home') ;
+   * store, pour les tests (setPage, step, toggleView, touch).
+   */
+  readonly rytm: {
+    readonly page: RytmPageState & { view: RytmView };
+    store: typeof rytmPage;
   };
 }
 
@@ -393,6 +403,14 @@ export function installDebug(src: DebugSource): () => void {
       get seq() {
         return bassLoad.get()?.bassSeq ?? null;
       },
+    },
+    rytm: {
+      get page() {
+        // Un objet simple : la vue lue maintenant (l'accesseur du store se lit a chaque fois)
+        const s = rytmPage.get();
+        return { ...s, view: s.view };
+      },
+      store: rytmPage,
     },
   };
   window.__v4 = api;

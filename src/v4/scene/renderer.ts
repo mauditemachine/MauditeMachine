@@ -65,6 +65,7 @@ import { view } from '../state/view';
 import { intro } from '../state/intro';
 import { playhead } from '../state/playhead';
 import { lcd } from '../state/lcd';
+import { rytmPage } from '../state/rytmPage';
 import { section } from '../state/section';
 import { voices } from '../state/voices';
 import {
@@ -90,6 +91,7 @@ import {
   INTRO,
   OLED,
   OLED_BAR,
+  OLED_BAR_PAGE,
   STEP_PRESS,
   LIGHT_BACK,
   LIGHT_HEMI,
@@ -144,6 +146,18 @@ const DEG = Math.PI / 180;
 
 /** Eclair d'un temoin : plein sur BTN_LED.hold de sa duree, puis il s'eteint. */
 const holdThenOut = (t: number): number => (t < BTN_LED.hold ? 0 : easeOutCubic((t - BTN_LED.hold) / (1 - BTN_LED.hold)));
+
+/**
+ * La bande de la barre de l'ecran (px de la texture, OLED.tex) en centre et
+ * demi-profondeur du panneau : OLED_BAR sur l'ecran d'aujourd'hui,
+ * OLED_BAR_PAGE en vue PAGE (2026-10-08).
+ */
+function seekBox(band: { bandY0: number; bandY1: number }): { z: number; hz: number } {
+  const [, TH] = OLED.tex;
+  const z0 = OLED.z - OLED.d / 2 + (band.bandY0 / TH) * OLED.d;
+  const z1 = OLED.z - OLED.d / 2 + (band.bandY1 / TH) * OLED.d;
+  return { z: (z0 + z1) / 2, hz: (z1 - z0) / 2 };
+}
 
 /* ---------------- deux machines (2026-10-03) ---------------- */
 
@@ -707,18 +721,14 @@ export class Stage {
     // La bande de la ligne 3 de l'ecran (2026-10-01) : la barre de progression
     // de la piste courante, cliquable seulement quand elle est affichee
     {
-      const [, TH] = OLED.tex;
-      const z0 = OLED.z - OLED.d / 2 + (OLED_BAR.bandY0 / TH) * OLED.d;
-      const z1 = OLED.z - OLED.d / 2 + (OLED_BAR.bandY1 / TH) * OLED.d;
       this.seekDef = {
         id: 'seek',
         kind: 'seek',
         layer: plateau,
         shape: 'box',
         x: OLED.x,
-        z: (z0 + z1) / 2,
+        ...seekBox(OLED_BAR),
         hx: OLED.w / 2,
-        hz: (z1 - z0) / 2,
         y0: OLED.y - 0.005,
         y1: OLED.y + 0.03,
         enabled: false,
@@ -889,7 +899,13 @@ export class Stage {
     // Section deja ouverte (remontage) : etat pose sans animation
     this.applySection(true);
     this.unsubSection = section.subscribe(this.syncSection);
-    this.unsubSeek = lcd.subscribe(this.syncSeek);
+    {
+      // La bande de la barre suit aussi la vue de l'ecran (HOME, PAGE) et EDIT
+      const offs = [lcd.subscribe(this.syncSeek), rytmPage.subscribe(this.syncSeek), editor.subscribe(this.syncSeek)];
+      this.unsubSeek = () => {
+        for (const off of offs) off();
+      };
+    }
     this.syncSeek();
     this.syncRun();
     const offRun = clock.subscribe(this.syncRun);
@@ -1048,11 +1064,19 @@ export class Stage {
     this.repaint();
   }
 
-  /** La barre de l'ecran repond au pointeur quand elle est affichee. */
+  /**
+   * La barre de l'ecran repond au pointeur quand elle est affichee. En vue
+   * PAGE du MM-RYTM (2026-10-08, state/rytmPage.ts) elle tient sur la ligne
+   * du bas : sa bande descend sous la seconde rangee de blocs
+   * (OLED_BAR_PAGE), EDIT garde l'ecran d'avant et sa bande.
+   */
   private syncSeek = (): void => {
     const on = lcd.get().bar !== null;
-    if (this.seekDef.enabled === on) return;
+    const band = seekBox(rytmPage.get().view === 'page' && editor.get() !== 'mm808' ? OLED_BAR_PAGE : OLED_BAR);
+    if (this.seekDef.enabled === on && this.seekDef.z === band.z && this.seekDef.hz === band.hz) return;
     this.seekDef.enabled = on;
+    this.seekDef.z = band.z;
+    this.seekDef.hz = band.hz;
     this.hit.invalidate();
   };
 

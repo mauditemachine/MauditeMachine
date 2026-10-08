@@ -1,8 +1,11 @@
 /**
  * Clavier global (spec 7.2, 13 et 20.6.2), sur le modele de
- * src/v3/hooks/useKeys.ts. A S D F G frappent BD SD TOM CH OH, Z X C V B
- * frappent CP RS HT CY PC (2026-10-03 ; le son part a la touche, en mode
- * MUTE la voix se coupe), 1 a 5 ouvrent les pages (TRACKS, MIXTAPES,
+ * src/v3/hooks/useKeys.ts. A S D F frappent BD SD CH OH, Z X C V frappent
+ * CP TOM HT CY (les huit voix depuis le 2026-10-05, theme.ts PADS ; le son
+ * part a la touche, en mode MUTE la voix se coupe). Sur le MM-RYTM
+ * (2026-10-08, state/rytmPage.ts), hors EDIT et du mode presets : H garde
+ * la vue PAGE de l'ecran (H encore : HOME), [ et ] passent a la page
+ * d'avant ou d'apres et la gardent. 1 a 5 ouvrent les pages (TRACKS, MIXTAPES,
  * SHOWS, PRESS, CONTACT ; la page deja ouverte se ferme), 6 et O ouvrent ou
  * referment la machine (le pad OPEN), Espace lance ou arrete le
  * sequenceur (RUN/STOP du MM-VOYAGER quand on l'utilise), R ramene la vue par defaut, Echap ferme
@@ -21,7 +24,9 @@ import { useEffect, useRef } from 'react';
 import { editToggle, escape, openToggle, padHit, page, presetKey, resetView, runToggle, stepMachine, voyPad, voyRun } from '../actions';
 import { presetMode } from '../state/presetMode';
 import type { Stage } from '../scene/renderer';
+import { editor } from '../state/editor';
 import { focus } from '../state/focus';
+import { rytmPage } from '../state/rytmPage';
 import { section } from '../state/section';
 import { PADS, PAGES, type PageId } from '../theme';
 
@@ -92,6 +97,22 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         e.preventDefault();
         padHit(inst, getStage());
         return;
+      }
+      // Les pages du MM-RYTM (2026-10-08, Mika : "8 encodeurs assignables a condition de presser les bonnes
+      // touches ; l'ecran divise en 8 blocs ; allons-y petit a petit") : H garde la vue PAGE, [ et ] changent
+      // de page ; pas dans EDIT ni en mode presets (leurs ecrans passent avant)
+      if (focus.get() === 'mm808' && editor.get() !== 'mm808' && presetMode.get().machine !== 'mm808') {
+        const k = e.key.toLowerCase();
+        if (e.code === 'KeyH' || k === 'h') {
+          e.preventDefault();
+          rytmPage.toggleView();
+          return;
+        }
+        if (e.code === 'BracketLeft' || e.code === 'BracketRight' || k === '[' || k === ']') {
+          e.preventDefault();
+          rytmPage.step(e.code === 'BracketLeft' || k === '[' ? -1 : 1);
+          return;
+        }
       }
       if (e.key === ' ' || e.code === 'Space') {
         if (ownsSpace(e.target)) return;
