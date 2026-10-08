@@ -116,8 +116,25 @@ function toBuffer(L: Float32Array, R: Float32Array | null, sr: number): AudioBuf
   const b = new AudioBuffer({ length: L.length, numberOfChannels: 2, sampleRate: sr });
   b.copyToChannel(L, 0);
   b.copyToChannel(R ?? L, 1);
-  if (R && R !== L) stereoBufs.add(b);
+  if (R && R !== L && differs(L, R)) stereoBufs.add(b);
   return b;
+}
+
+/**
+ * Deux canaux vraiment differents : leur ecart au-dessus de -40 dB du son
+ * (un fichier stereo en double mono reste mono pour le PAN, sa loi a
+ * puissance constante).
+ */
+function differs(L: Float32Array, R: Float32Array): boolean {
+  const n = Math.min(L.length, R.length);
+  let d = 0;
+  let e = 0;
+  for (let i = 0; i < n; i += 1) {
+    const x = L[i] - R[i];
+    d += x * x;
+    e += L[i] * L[i] + R[i] * R[i];
+  }
+  return d > 1e-4 * e;
 }
 
 function put(key: string, b: AudioBuffer): void {
