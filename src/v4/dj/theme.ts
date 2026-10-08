@@ -501,6 +501,13 @@ export const DECK = {
  */
 export const DECK_SCREEN = {
   text: 0.22,
+  /**
+   * La touche BACK (2026-10-08, Mika : "je devrais aussi avoir un bouton
+   * retour arriere pour aller choisir une autre track") : a gauche de la
+   * bande de texte, toute sa hauteur, jusqu'a u1 ; elle ouvre la liste des
+   * morceaux de la platine sans arreter celui qui joue.
+   */
+  back: { u1: 0.155 },
   detail: { u0: 0.02, u1: 0.98, v0: 0.25, v1: 0.76 },
   overview: { u0: 0.02, u1: 0.71, v0: 0.8, v1: 0.95 },
   wave: { u0: 0.73, u1: 0.845, v0: 0.79, v1: 0.96 },

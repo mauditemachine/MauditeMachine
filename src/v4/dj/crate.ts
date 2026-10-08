@@ -360,12 +360,19 @@ export function rescanRoots(progress: (done: number, total: number) => void): Pr
   return rescan.finally(() => rescanWatchers.delete(progress));
 }
 
-/** Ce qu'une platine a appris en chargeant le morceau (duree, BPM). */
+/**
+ * Ce qu'une platine a appris en chargeant le morceau (duree, BPM). Le BPM
+ * de l'analyse entiere (2026-10-08, dj/math.ts trackGridSteps) remplace
+ * celui qu'on avait (l'estimation d'avant, ou un tag) des qu'il en differe
+ * de plus de 0.05 : l'ancienne estimation se trompait souvent, et la liste
+ * dit maintenant le tempo que SYNC utilise.
+ */
 export async function crateLearn(id: string, duration: number, bpm: number | null): Promise<void> {
   try {
     const e = await req<Entry | undefined>('readonly', (s) => s.get(id));
-    if (!e || (e.duration > 0 && e.bpm !== null)) return;
-    await req('readwrite', (s) => s.put({ ...e, duration, bpm: e.bpm ?? bpm }));
+    const better = bpm !== null && (e?.bpm === null || e?.bpm === undefined || Math.abs(e.bpm - bpm) > 0.05);
+    if (!e || (e.duration > 0 && !better)) return;
+    await req('readwrite', (s) => s.put({ ...e, duration, bpm: better ? bpm : e.bpm }));
     changed();
   } catch {
     /* base indisponible */

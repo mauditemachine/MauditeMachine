@@ -111,6 +111,111 @@
   color: var(--orange);
 }
 
+/*
+ * BACK dans la liste (2026-10-08) : a la place exacte de la touche BACK de
+ * l'ecran, le retour au morceau de la platine (DONE fait de meme) ; le
+ * chevron orange, comme sur l'ecran.
+ */
+.dj-scr-back {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.3em;
+  min-height: 2em;
+  padding: 0 0.75em 0 0.5em;
+  border: 1px solid rgba(246, 241, 231, 0.3);
+  border-radius: 0.55em;
+  background: rgba(246, 241, 231, 0.07);
+  font-size: 0.72em;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+}
+
+.dj-scr-back svg {
+  width: 1.25em;
+  height: 1.25em;
+  color: var(--orange);
+}
+
+.dj-scr-back:active {
+  border-color: var(--orange);
+  background: var(--orange);
+  color: #000;
+}
+
+.dj-scr-back:active svg {
+  color: #000;
+}
+
+/* Le morceau qui continue de jouer pendant qu'on choisit le suivant (le toucher ramene a lui) */
+.dj-scr-now {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5em;
+  min-width: 0;
+  margin-top: 0.4em;
+  padding: 0.3em 0.6em;
+  border: 0;
+  border-radius: 0.45em;
+  background: rgba(246, 241, 231, 0.06);
+  font-size: 0.7em;
+  text-align: left;
+}
+
+.dj-scr-now-dot {
+  flex: 0 0 auto;
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  background: var(--dim);
+}
+
+.dj-scr-now[data-state='playing'] .dj-scr-now-dot {
+  background: #ffd75e;
+  box-shadow: 0 0 0.5em rgba(255, 215, 94, 0.7);
+}
+
+.dj-scr-now[data-state='loading'] .dj-scr-now-dot {
+  background: var(--orange);
+}
+
+.dj-scr-now-state {
+  flex: 0 0 auto;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--dim);
+}
+
+.dj-scr-now[data-state='playing'] .dj-scr-now-state {
+  color: #ffd75e;
+}
+
+.dj-scr-now-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dj-scr-now-artist {
+  margin-left: 0.6em;
+  font-weight: 500;
+  color: var(--dim);
+}
+
+.dj-scr-now-meta {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.8em;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  color: var(--dim);
+}
+
 .dj-scr-add {
   border-radius: 0.5em;
   background: rgba(246, 241, 231, 0.08);
@@ -527,6 +632,26 @@
 
   .dj-scr-keys {
     display: none;
+  }
+
+  /* BACK au doigt : plus haute, et sa cible deborde en dessous et a droite (44 px au moins au telephone) */
+  .dj-scr-back {
+    min-height: 2.8em;
+    padding: 0 0.9em 0 0.6em;
+    font-size: 0.8em;
+  }
+
+  .dj-scr-back::after {
+    content: '';
+    position: absolute;
+    left: -0.4em;
+    right: -0.4em;
+    top: -0.5em;
+    bottom: -1.4em;
+  }
+
+  .dj-scr-now {
+    min-height: 2.6em;
   }
 }
 

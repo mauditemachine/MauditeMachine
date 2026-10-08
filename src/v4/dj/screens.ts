@@ -130,6 +130,8 @@ export interface DjDeckScreen {
   wave: string;
   /** un avis en orange a la place de l'artiste (REMOVE arme), ou '' */
   note: string;
+  /** la touche BACK enfoncee (le doigt ou la souris dessus) */
+  back: boolean;
 }
 
 export interface DjFxScreen {
@@ -139,7 +141,7 @@ export interface DjFxScreen {
 }
 
 const deckKey = (s: DjDeckScreen): string =>
-  `${s.loaded}|${s.title}|${s.artist}|${s.bpm}|${s.key}|${Math.floor(s.position * 4)}|${Math.round(s.duration)}|${s.playing}|${s.pitch.toFixed(6)}|${s.zoom}|${s.wave}|${s.note}`;
+  `${s.loaded}|${s.title}|${s.artist}|${s.bpm}|${s.key}|${Math.floor(s.position * 4)}|${Math.round(s.duration)}|${s.playing}|${s.pitch.toFixed(6)}|${s.zoom}|${s.wave}|${s.note}|${s.back}`;
 
 const clock = (s: number): string => {
   const t = Math.max(0, Math.floor(s));
@@ -230,13 +232,15 @@ export class DjScreens {
       c.fillText(`TOUCH THE SCREEN TO BROWSE  DECK ${d.toUpperCase()}`, x0, l2);
     } else {
       const colX = x1 - 360;
+      // BACK a gauche (2026-10-08) : le titre et l'artiste passent a sa droite
+      const tx = this.drawBack(r, s.back);
       c.textAlign = 'left';
       c.fillStyle = BONE;
       c.font = `700 52px ${FONT_DISPLAY}`;
-      c.fillText(this.fit(s.title, colX - x0 - 20), x0, l1);
+      c.fillText(this.fit(s.title, colX - tx - 20), tx, l1);
       c.fillStyle = s.note ? DJ_LIGHT.orange : DIM;
       c.font = `${s.note ? 700 : 500} 36px ${FONT_DISPLAY}`;
-      c.fillText(this.fit(s.note || s.artist, colX - x0 - 20), x0, l2);
+      c.fillText(this.fit(s.note || s.artist, colX - tx - 20), tx, l2);
       // BPM au centieme (2026-10-05 : caler un tempo exact), le pitch au centieme de pour cent, la tonalite, le temps restant
       c.textAlign = 'right';
       c.fillStyle = BONE;
@@ -296,6 +300,56 @@ export class DjScreens {
     c.strokeRect(wv.x + 1, wv.y + 1, wv.w - 2, wv.h - 2);
     c.textBaseline = 'alphabetic';
     c.restore();
+  }
+
+  /**
+   * La touche BACK (2026-10-08, Mika : "je devrais aussi avoir un bouton
+   * retour arriere pour aller choisir une autre track") : en haut a gauche
+   * de l'ecran, un chevron orange et TRACKS, dans un cadre fin comme les
+   * touches du zoom ; enfoncee, elle s'allume en orange. Elle ouvre la liste
+   * de la platine, le morceau continue de jouer (dj/gestures.ts). Rend le x
+   * ou commence le texte, a sa droite.
+   */
+  private drawBack(r: Region, down: boolean): number {
+    const c = this.ctx;
+    const right = r.x + Math.round(DECK_SCREEN.back.u1 * r.w);
+    const x = r.x + 14;
+    const y = r.y + 16;
+    const w = right - 8 - x;
+    const h = r.h - 32;
+    const rad = 16;
+    c.beginPath();
+    c.moveTo(x + rad, y);
+    c.arcTo(x + w, y, x + w, y + h, rad);
+    c.arcTo(x + w, y + h, x, y + h, rad);
+    c.arcTo(x, y + h, x, y, rad);
+    c.arcTo(x, y, x + w, y, rad);
+    c.closePath();
+    c.fillStyle = down ? DJ_LIGHT.orange : 'rgba(246, 241, 231, 0.07)';
+    c.fill();
+    c.lineWidth = 2;
+    c.strokeStyle = down ? DJ_LIGHT.orange : 'rgba(246, 241, 231, 0.3)';
+    c.stroke();
+    // Le chevron, trait rond
+    const cx = x + w / 2;
+    const cy = y + h * 0.38;
+    const k = h * 0.15;
+    c.lineWidth = 8;
+    c.lineCap = 'round';
+    c.lineJoin = 'round';
+    c.strokeStyle = down ? '#000' : DJ_LIGHT.orange;
+    c.beginPath();
+    c.moveTo(cx + k * 0.55, cy - k);
+    c.lineTo(cx - k * 0.55, cy);
+    c.lineTo(cx + k * 0.55, cy + k);
+    c.stroke();
+    c.lineCap = 'butt';
+    c.lineJoin = 'miter';
+    c.textAlign = 'center';
+    c.fillStyle = down ? '#000' : BONE;
+    c.font = `700 25px ${FONT_DISPLAY}`;
+    c.fillText('TRACKS', cx, y + h * 0.83);
+    return right + 14;
   }
 
   /** Coupe un texte trop long d'un point de suspension (ASCII : trois points). */

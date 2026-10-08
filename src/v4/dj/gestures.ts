@@ -123,6 +123,12 @@ export const faderNeutral = (f: DjFaderSpec): number => (f.target.kind === 'chan
 
 /* ---------------- touches ---------------- */
 
+/** La liste des morceaux sur l'ecran d'une platine (BACK, toucher l'ecran, E et I, Retour arriere) : la page du sampler lui cede la place. */
+export function djBrowse(d: DjDeck): void {
+  if (samplerOf(d).get().open) samplerOf(d).toggleOpen(false);
+  djBrowser.open(d);
+}
+
 /**
  * Les touches du sampler d'une platine (2026-10-07) : SMPL montre sa page
  * sur l'ecran (ou revient au morceau), REC DECK et REC MIX prennent un
@@ -214,11 +220,12 @@ const cueHeld = (d: DjDeck): boolean => cueDown[d];
 
 /* ---------------- pointeurs ---------------- */
 
-type ScreenZone = 'text' | 'detail' | 'whole' | 'wave' | 'zoom';
+type ScreenZone = 'back' | 'text' | 'detail' | 'whole' | 'wave' | 'zoom';
 
-function zoneOf(u: number, v: number): ScreenZone {
+/** La zone touchee ; back : la platine tient un morceau (sa touche BACK est dessinee). */
+function zoneOf(u: number, v: number, back: boolean): ScreenZone {
   const S = DECK_SCREEN;
-  if (v < S.detail.v0 - 0.01) return 'text';
+  if (v < S.detail.v0 - 0.01) return back && u <= S.back.u1 ? 'back' : 'text';
   if (v <= S.detail.v1 + 0.02) return 'detail';
   if (u >= S.zoom.u0 - 0.0075) return 'zoom';
   if (u >= S.wave.u0 - 0.01) return 'wave';
@@ -418,8 +425,13 @@ export class DjGestures {
     if (g.kind === 'screen') {
       // En lecture, la forme d'onde glissee : la piste saute au lacher
       if (g.zone === 'detail' && g.moved && g.pinch === 0) djSeek(g.deck, g.target);
+      // BACK (2026-10-08) : la liste des morceaux de la platine, le morceau continue de jouer
+      if (g.zone === 'back') {
+        this.stage.dj?.pressKey(`dj-${g.deck}-back`, false);
+        if (tap) djBrowse(g.deck);
+      }
       // Toucher l'ecran (sans glisser) ouvre la playlist sur cette platine (Mika, 2026-10-04 : "pas besoin de bouton")
-      if ((g.zone === 'text' || g.zone === 'detail') && tap && g.pinch === 0) djBrowser.open(g.deck);
+      if ((g.zone === 'text' || g.zone === 'detail') && tap && g.pinch === 0) djBrowse(g.deck);
       this.stage.repaint();
       return;
     }
@@ -515,11 +527,12 @@ export class DjGestures {
       g.zone = o.zone = 'detail';
       return true;
     }
-    g.zone = zoneOf(uv.u, uv.v);
+    g.zone = zoneOf(uv.u, uv.v, djState.get().deck[g.deck].track !== null);
     g.u0 = uv.u;
     g.target = djPosition(g.deck);
     g.v0 = g.target;
-    if (g.zone === 'zoom') {
+    if (g.zone === 'back') this.stage.dj?.pressKey(`dj-${g.deck}-back`, true);
+    else if (g.zone === 'zoom') {
       const Z = DECK_SCREEN.zoom;
       const k = (uv.u - Z.u0) / (Z.u1 - Z.u0);
       if (k < 0.4) djZoomStep(g.deck, 1);

@@ -302,7 +302,8 @@ export class DjRig {
     if (r >= 0) moved = this.controls.setKeyPress(r, down ? 1 : 0);
     const o = DJ_ROUND_KEYS.findIndex((k) => k.id === id);
     if (o >= 0) moved = this.controls.setKeyPress(o, down ? 1 : 0, true) || moved;
-    const lit = this.syncLights();
+    // La touche BACK de l'ecran d'une platine (dj-a-back...) : elle s'allume a l'ecran
+    const lit = this.syncLights() || (id.endsWith('-back') && this.syncScreens());
     if (moved && this.controls.keys.castShadow) this.opts.invalidate();
     else if (moved || lit) this.opts.repaint();
   }
@@ -397,6 +398,7 @@ export class DjRig {
         zoom: ds.zoom,
         wave: DJ_WAVE_LABEL[s.wave],
         note: ds.remove ? 'PLAYING: PRESS REMOVE DECK AGAIN' : '',
+        back: this.held.has(`dj-${d}-back`),
       };
       if (this.screens.setDeck(d, screen)) changed = true;
       const angle = pos * 2 * Math.PI * (100 / 3 / 60);

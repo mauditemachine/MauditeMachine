@@ -33,7 +33,7 @@ import { gesture } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { focus } from '../state/focus';
 import { intro } from '../state/intro';
-import { djLoad } from './actions';
+import { djLoad, djPosition } from './actions';
 import { djBrowser } from './browser';
 import {
   addFiles,
@@ -240,6 +240,47 @@ const DOWN = 'M2.5 4.5 L6 8 L9.5 4.5';
 const MINUS = 'M2.5 6 H9.5';
 const PLUS = 'M2.5 6 H9.5 M6 2.5 V9.5';
 const FOLDER_ICON = 'M1.5 3 H4.5 L5.5 4 H10.5 V9.5 H1.5 Z';
+const BACK_ICON = 'M7.5 2.5 L4 6 L7.5 9.5';
+
+const clockOf = (s: number): string => {
+  const t = Math.max(0, Math.floor(s));
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+};
+
+/**
+ * Le morceau de la platine, pendant qu'on choisit le suivant (2026-10-08,
+ * BACK) : il continue de jouer, la ligne le dit (en jaune quand il joue),
+ * avec son tempo et son temps restant ; le toucher ramene au morceau.
+ */
+const NowPlaying: React.FC<{ deck: DjDeck }> = ({ deck }) => {
+  const dj = useSyncExternalStore(djState.subscribe, djState.get, djState.get);
+  const ds = dj.deck[deck];
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!ds.playing) return undefined;
+    const id = window.setInterval(() => tick((n) => n + 1), 500);
+    return () => window.clearInterval(id);
+  }, [ds.playing]);
+  const t = ds.track;
+  if (!t) return null;
+  const bpm = t.bpm ? (t.bpm * (1 + (ds.pitch * ds.range) / 100)).toFixed(2) : '--.--';
+  const state = ds.loading !== null ? 'LOADING' : ds.playing ? 'PLAYING' : 'PAUSED';
+  const left = ds.loaded ? `-${clockOf((t.duration || 0) - djPosition(deck))}` : '';
+  return (
+    <button type="button" className="dj-scr-now" data-state={state.toLowerCase()} onClick={() => djBrowser.close(deck)} aria-label={`${state.toLowerCase()} on deck ${deck.toUpperCase()}: ${t.title}. Back to the track`}>
+      <span className="dj-scr-now-dot" aria-hidden="true" />
+      <span className="dj-scr-now-state">{state}</span>
+      <span className="dj-scr-now-title">
+        {t.title}
+        {t.artist ? <span className="dj-scr-now-artist">{t.artist}</span> : null}
+      </span>
+      <span className="dj-scr-now-meta">
+        <span>{bpm}</span>
+        {left ? <span>{left}</span> : null}
+      </span>
+    </button>
+  );
+};
 
 const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
   const dj = useSyncExternalStore(djState.subscribe, djState.get, djState.get);
@@ -574,6 +615,8 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
   };
 
   const loadedId = dj.deck[deck].track?.id ?? null;
+  /** la platine tient un morceau : BACK ramene a lui, la ligne du dessous le montre */
+  const held = dj.deck[deck].track !== null;
   /** MY SC sans connexion : le bouton prend la place de la liste */
   const gate = tab === 'mysc' && !me;
   const locked = roots.filter((r) => !r.granted);
@@ -598,7 +641,15 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
       }}
     >
       <div className="dj-scr-head">
-        <span className="dj-scr-deck">{deck.toUpperCase()}</span>
+        {/* BACK (2026-10-08) : a la place de la touche BACK de l'ecran, le retour au morceau de la platine */}
+        {held ? (
+          <button type="button" className="dj-scr-back" onClick={() => djBrowser.close(deck)} aria-label={`Back to deck ${deck.toUpperCase()}`}>
+            <Icon d={BACK_ICON} />
+            <span>DECK {deck.toUpperCase()}</span>
+          </button>
+        ) : (
+          <span className="dj-scr-deck">{deck.toUpperCase()}</span>
+        )}
         <div className="dj-scr-tabs" role="tablist">
           {TABS.filter((t) => t === 'files' || t === 'lists' || !scOff).map((t) => (
             <button key={t} type="button" role="tab" aria-selected={tab === t} className="dj-scr-tab" onClick={() => setTab(t)}>
@@ -613,6 +664,7 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
           DONE
         </button>
       </div>
+      {held && <NowPlaying deck={deck} />}
       <div className="dj-scr-tools">
         {naming ? (
           <>

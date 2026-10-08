@@ -12,6 +12,7 @@
  *   Q W  bend - +      O P
  *   A  cue  S  play    K  cue  L  play
  *   E  browse A        I  browse B
+ *   Retour arriere : BACK, la liste de la derniere platine touchee, ou le retour au morceau (2026-10-08)
  *   Z X  tempo - + 0.05 BPM (Maj : 1 BPM)   N M
  *   D  sync            J  sync
  *   F  loop 4 temps    H  loop 4 temps
@@ -24,8 +25,7 @@
 import type { Stage } from '../scene/renderer';
 import { djLastDeck, djWaveNext, djZoomStep } from './actions';
 import { djBrowser } from './browser';
-import { samplerOf } from '../sampler/sampler';
-import { keyDown, keyUp } from './gestures';
+import { djBrowse, keyDown, keyUp } from './gestures';
 import { DJ_KEYS, type DjKeySpec } from './layout';
 import { djState } from './state';
 
@@ -71,6 +71,7 @@ export const DJ_KEY_LEGEND: readonly { keys: string; what: string }[] = [
   { keys: 'S  /  L', what: 'Play A / B' },
   { keys: 'Q W  /  O P', what: 'Bend - + A / B (hold)' },
   { keys: 'E  /  I', what: 'Browse on deck A / B' },
+  { keys: 'Backspace', what: 'Back: tracks of the last deck used, or back to its track' },
   { keys: 'Z X  /  N M', what: 'Pitch - + 0.05 BPM A / B (Shift: 1 BPM)' },
   { keys: 'D  /  J', what: 'Sync A / B to the tempo you hear' },
   { keys: 'F  /  H', what: 'Loop 4 beats on A / B (again: exit)' },
@@ -112,10 +113,17 @@ export function listenDjKeys(getStage: () => Stage | null, active: () => boolean
     // E et I : la liste des morceaux dans l'ecran de A ou de B
     if ((e.code === 'KeyE' || e.code === 'KeyI') && !e.repeat) {
       e.preventDefault();
-      const d = e.code === 'KeyE' ? 'a' : 'b';
       // La page du sampler cede l'ecran a la liste (2026-10-07)
-      samplerOf(d).toggleOpen(false);
-      djBrowser.open(d);
+      djBrowse(e.code === 'KeyE' ? 'a' : 'b');
+      return;
+    }
+    // Retour arriere (2026-10-08) : BACK sur la derniere platine touchee ; la liste ouverte, le retour au morceau
+    if (e.code === 'Backspace' && !e.repeat) {
+      const d = djLastDeck();
+      if (s.deck[d].track === null) return;
+      e.preventDefault();
+      if (djBrowser.get()[d]) djBrowser.close(d);
+      else djBrowse(d);
       return;
     }
     const id = e.code === 'Space' ? `dj-${djLastDeck()}-play` : MAP[e.code];
