@@ -439,8 +439,19 @@ export interface TrackGrid {
   confidence: number;
 }
 
-/** Les montees de l'enveloppe des basses (passe-bas a un pole vers 150 Hz, en log), GRID_FPS trames par seconde. */
-function* lowOnsets(signal: Float32Array, rate: number): Generator<void, { onset: Float32Array; level: Float32Array }, void> {
+/**
+ * La fenetre de l'enveloppe du tempo (trames, 20 ms). L'energie a 2.5 ms
+ * d'une grosse caisse a 50 Hz ondule a 100 Hz (le carre d'une sinusoide) :
+ * ces fausses montees, tout le long de la queue, brouillaient
+ * l'autocorrelation au-dela de 155 BPM (2026-10-08, relecture : 170 BPM y
+ * pesait 7 % du meilleur score, 160 tombait a 80, des breaks a 135 a 101).
+ * Moyennee sur 20 ms (une periode de 50 Hz), l'ondulation disparait ; la
+ * grille et la precision gardent l'enveloppe fine.
+ */
+const TEMPO_WIN = 8;
+
+/** Les montees de l'enveloppe des basses (passe-bas a un pole vers 150 Hz, en log), GRID_FPS trames par seconde ; beat : celles de l'enveloppe lissee (TEMPO_WIN), pour le tempo. */
+function* lowOnsets(signal: Float32Array, rate: number): Generator<void, { onset: Float32Array; level: Float32Array; beat: Float32Array }, void> {
   const hop = rate / GRID_FPS;
   const frames = Math.max(0, Math.floor(signal.length / hop));
   const onset = new Float32Array(frames);
@@ -465,7 +476,18 @@ function* lowOnsets(signal: Float32Array, rate: number): Generator<void, { onset
     prev = env;
     if ((f & 4095) === 4095) yield;
   }
-  return { onset, level };
+  // L'enveloppe du tempo : la moyenne glissante de l'energie sur TEMPO_WIN trames, en log, ses montees
+  const beat = new Float32Array(frames);
+  let sum = 0;
+  let last = 0;
+  for (let f = 0; f < frames; f += 1) {
+    sum += level[f];
+    if (f >= TEMPO_WIN) sum -= level[f - TEMPO_WIN];
+    const env = Math.log1p((1000 * Math.max(0, sum)) / Math.min(f + 1, TEMPO_WIN));
+    if (f > 0 && env > last) beat[f] = env - last;
+    last = env;
+  }
+  return { onset, level, beat };
 }
 
 /**
@@ -649,8 +671,15 @@ function line(ks: readonly number[], ts: readonly number[], ws: readonly number[
  * francs (au moins 30 % de la force des plus forts) font la droite, les
  * ecarts de plus de 10 ms (ou trois fois l'ecart median) sont rejetes. La
  * grille en trames : le temps 0 a la trame a, un temps toutes les b trames.
+ * L'attaque se cherche en deux temps (relecture du 2026-10-08) : dans
+ * l'enveloppe lissee (coarse, sans l'ondulation des basses), puis a
+ * +-REFINE_NEAR trames de la, dans l'enveloppe fine. Au-dela de 165 BPM, la
+ * queue de la grosse caisse d'avant ondule encore sous la suivante ; ses
+ * fausses montees attiraient la grille 16 ms trop tot (175 et 180 BPM).
  */
-function refine(onset: Float32Array, a: number, b: number, win: number): { a: number; b: number; kc: number; hits: number; beats: number } | null {
+const REFINE_NEAR = 3;
+
+function refine(onset: Float32Array, coarse: Float32Array, a: number, b: number, win: number): { a: number; b: number; kc: number; hits: number; beats: number } | null {
   const frames = onset.length;
   const ks: number[] = [];
   const ts: number[] = [];
@@ -662,9 +691,19 @@ function refine(onset: Float32Array, a: number, b: number, win: number): { a: nu
     const c = a + k * b;
     const lo = Math.max(1, Math.round(c - win));
     const hi = Math.min(frames - 2, Math.round(c + win));
+    // L'attaque dans l'enveloppe lissee, puis sa place exacte dans la fine
+    let near = -1;
+    let top = 0;
+    for (let f = lo; f <= hi; f += 1) {
+      if (coarse[f] > top) {
+        top = coarse[f];
+        near = f;
+      }
+    }
+    if (near < 0) continue;
     let m = -1;
     let v = 0;
-    for (let f = lo; f <= hi; f += 1) {
+    for (let f = Math.max(1, near - REFINE_NEAR); f <= Math.min(frames - 2, near + REFINE_NEAR); f += 1) {
       if (onset[f] > v) {
         v = onset[f];
         m = f;
@@ -716,29 +755,52 @@ function refine(onset: Float32Array, a: number, b: number, win: number): { a: nu
   return { a: fit.a, b: fit.b, kc: sk / sw, hits: K.length, beats };
 }
 
+/** Un BPM connu s'accorde avec le son quand lui, son double ou sa moitie fait au moins cette part du meilleur score. */
+const HINT_AGREES = 0.85;
+/** Sans BPM connu, le double du meilleur tempo l'emporte s'il garde cette part de son score. */
+const OCTAVE_UP = 0.9;
+
+/**
+ * Le tempo de depart de la grille (2026-10-08). Une grosse caisse a chaque
+ * temps de 160 se lit aussi bien a 80 (ses temps tombent un sur deux) : la
+ * courbe ne tranche pas entre un tempo et sa moitie. Avec un BPM connu
+ * (tags, SoundCloud, la caisse) qui s'accorde avec le son, a l'octave pres,
+ * c'est son octave qui compte, lui d'abord : un 174 de drum and bass reste a
+ * 174 meme si le son pese plus a 87 (relecture du 2026-10-08 : l'ancienne
+ * regle prenait le meilleur score des trois, 160 devenait 80). Un BPM faux
+ * (3 de trop) ne s'accorde pas : le son l'emporte. Sans BPM connu, le plus
+ * rapide des deux s'il garde 90 % du score (160 et non 80).
+ */
+function tempoGuess(curve: (bpm: number) => number, hint: number | null): number {
+  const top = peakOf(curve, BPM_MIN, BPM_MAX);
+  const inRange = (b: number): boolean => b >= BPM_MIN - 0.6 && b <= BPM_MAX + 0.6;
+  const near = (b: number): { bpm: number; score: number } => peakOf(curve, b - 0.6, b + 0.6);
+  if (hint && hint > 0) {
+    const octaves = [hint, hint * 2, hint / 2].filter(inRange);
+    if (octaves.some((h) => near(h).score >= HINT_AGREES * top.score)) return octaves[0];
+  }
+  const up = top.bpm * 2;
+  if (inRange(up)) {
+    const p = near(up);
+    if (p.score >= OCTAVE_UP * top.score) return p.bpm;
+  }
+  return top.bpm;
+}
+
 /**
  * L'analyse entiere, en generateur. hint : un BPM connu (SoundCloud, tags,
- * la caisse) ; il guide la recherche s'il s'accorde avec le son (lui, son
- * double ou sa moitie a 85 % au moins du meilleur score), sinon le son
- * l'emporte. null : morceau trop court (moins de 8 s) ou sans attaques.
+ * la caisse) ; s'il s'accorde avec le son (lui, son double ou sa moitie a
+ * 85 % au moins du meilleur score), son octave fait le tempo (tempoGuess),
+ * sinon le son l'emporte. null : morceau trop court (moins de 8 s) ou sans
+ * attaques.
  */
 export function* trackGridSteps(signal: Float32Array, rate: number, hint: number | null = null): Generator<void, TrackGrid | null, void> {
   if (!(rate > 0) || signal.length < rate * 8) return null;
-  const { onset, level } = yield* lowOnsets(signal, rate);
-  const curve = yield* tempoCurve(onset);
+  const { onset, level, beat } = yield* lowOnsets(signal, rate);
+  const curve = yield* tempoCurve(beat);
   if (!curve) return null;
-  const top = peakOf(curve, BPM_MIN, BPM_MAX);
-  if (!(top.score > 0)) return null;
-  let guess = top.bpm;
-  if (hint && hint > 0) {
-    let best: { bpm: number; score: number } | null = null;
-    for (const h of [hint, hint * 2, hint / 2]) {
-      if (h < BPM_MIN - 0.6 || h > BPM_MAX + 0.6) continue;
-      const p = peakOf(curve, h - 0.6, h + 0.6);
-      if (!best || p.score > best.score) best = { bpm: h, score: p.score };
-    }
-    if (best && best.score >= 0.85 * top.score) guess = best.bpm;
-  }
+  if (!(peakOf(curve, BPM_MIN, BPM_MAX).score > 0)) return null;
+  const guess = tempoGuess(curve, hint);
   yield;
   // La grille : le tempo a +-0.6 par pas de 0.02, la phase la plus chargee
   let bpm = guess;
@@ -763,7 +825,7 @@ export function* trackGridSteps(signal: Float32Array, rate: number, hint: number
   let beats = 0;
   for (const div of [8, 12, 16, 16, 16, 16]) {
     yield;
-    const r = refine(onset, a, b, b / div);
+    const r = refine(onset, beat, a, b, b / div);
     if (!r) break;
     const still = Math.abs(r.b - b) < 1e-6 && div === 16;
     pivot = r.a + r.b * Math.round(r.kc);
