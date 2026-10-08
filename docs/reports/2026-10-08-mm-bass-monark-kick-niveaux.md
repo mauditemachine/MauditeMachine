@@ -50,7 +50,19 @@ Suite des sessions du 2026-10-07 (rapport précédent : `2026-10-07-mixer-5-voie
 - **Relecture critique** (trois relecteurs, chaque constat contre-vérifié), tout corrigé avant le déploiement :
   - MM-BASS : un potard tourné à deux doigts pendant qu'on lâche le pas tenu n'écrase plus le son global ; promener LOCK sur des pas vides ne remplit plus la ligne de notes ; l'accent posé par un verrou d'ACCENT part avec lui ; l'écoute à l'arrêt respecte LENGTH ; Échap ne bute plus sur INFOS quand on est sur une autre machine ; toucher la carte INFOS la range (au téléphone, elle couvrait CLOSE) ; LOCK ne fait plus tourner le rendu en continu ; le logo referme aussi le capot du MM-BASS ;
   - kick : après STOP, le kick suivant coupe bien la queue de celui qui sonne encore.
-- `docs/midi` régénéré (437 cibles) ; `docs/v4/spec.md` : R14-210 à R14-219.
+- **Roto-Control, la fiabilité** (`midi/midi.ts`, `midi/roto.ts`, `midi/targets.ts`, `midi/leader.ts`, `midi/rotoKeys.ts`, `ui/MidiPanel.tsx`, `audio/clock.ts`) : 14 façons de rater reproduites avec un faux Roto, toutes corrigées :
+  - les boutons en mode TOGGLE marchent du premier coup, même après un changement fait sur la page ;
+  - PREV / NEXT / MM-STUDIO finissent sur la bonne machine (FOLLOW ne réagit plus au relâchement) ;
+  - le Roto n'écoute que les ports nommés Roto ; un réglage appris ne répond qu'à son appareil ; les doublons sont filtrés ;
+  - un réglage appris sur la même adresse que le Roto est signalé dans le panneau MIDI, avec un bouton pour le retirer ;
+  - plus de RUN muet : tant que la page n'a pas été cliquée, l'écran dit CLICK THE PAGE ONCE FOR SOUND et la machine part au premier clic ;
+  - un seul onglet pilote le Roto (les autres l'indiquent) ;
+  - un changement de setup sur le Roto ne fait plus sauter un potard ;
+  - plus de rafales de 214 messages à chaque changement de machine ;
+  - le panneau MIDI dit ce que chaque message a fait (CC 17 CH 12 -> PLAY A) et se ferme quand on clique ailleurs ;
+  - les adresses sont gelées : déplacer une commande ne change plus jamais ce que fait un bouton du Roto ; les setups portent une version (RYTM 1008...).
+- **MM-RYTM façon Digitakt, étape 1** (`rytm/pages.ts`, `rytm/pageView.ts`, `state/rytmPage.ts`, `scene/screen.ts`) : l'écran gagne une vue PAGE dans le même style, les 8 blocs d'une page en 2x4 (TRIG, SRC, FLTR, AMP, FX, LFO). L'écran d'aujourd'hui reste celui par défaut. Toucher un potard du MM-RYTM montre sa page 4 s, avec son bloc encadré. Au clavier, H garde la vue PAGE, [ et ] changent de page. Rien ne change au son ni à la face.
+- `docs/midi` régénéré (437 cibles, mêmes adresses, setups versionnés) ; `docs/v4/spec.md` : R14-210 à R14-221.
 
 ## Décisions prises et pourquoi
 
@@ -77,9 +89,9 @@ Suite des sessions du 2026-10-07 (rapport précédent : `2026-10-07-mixer-5-voie
 - **DECKS, à confirmer par Mika** : quand ça a raté, PLAY B était-il pressé juste après le choix du morceau, avant que la forme d'onde apparaisse ? Ou au bouton PLAY B du Roto ? Si ça recommence, noter ce que dit l'écran de la platine (READING, DECODING, PLAY ARMED).
 - **Roto, setups d'avant le 2026-10-07** : sur les setups MIXER et LIVE de cette époque, le bouton PLAY B du Roto lance la platine A, et CUE A lance B. Réimporter MIXER (14) et LIVE (16) depuis `docs/midi/roto/`.
 - **SoundCloud en production** : le Worker répond 503 « soundcloud non configure » pour MAUDITE, la recherche et le flux. Sur le site en ligne, les platines ne lisent donc que tes fichiers. Il manque la clé SoundCloud dans les secrets du Worker, à poser de ton côté (je n'y touche pas sans ton accord).
-- **Roto-Control** : enquête en cours (cas où il ne répond plus, et un mode séquenceur avec défilement).
-- **MM-RYTM façon Digitakt** : la conception est en cours (8 potards, pages, écran en 2x4, P-locks, sample locks), pour avancer étape par étape.
-- **Réimporter le setup Roto MM BASS** (`docs/midi/roto/MM BASS (SETUP 15).json`) : il a cinq potards de plus.
+- **Roto-Control, côté Mika** : réimporter les 6 setups de `docs/midi/roto/` (ils portent maintenant la version 1008 ; BASS a cinq potards de plus). Puis les tests sur l'appareil : RUN du Roto après un RUN cliqué (doit arrêter au premier appui), PREV / NEXT, changer de setup puis toucher un potard (pas de saut), deux onglets ouverts (seul le dernier réagit), et dans MIDI Monitor : le Roto renvoie-t-il des CC pendant que ses moteurs bougent ?
+- **Roto en séquenceur** : faisable (16 pas vus 8 par 8 avec défilement, LED des pas et de la tête de lecture, un pas tenu pour LOCK). À faire après l'étape des P-locks du MM-RYTM.
+- **MM-RYTM façon Digitakt, la suite** : étape 2, les touches de page et les 8 potards sous l'écran ; puis les P-locks (tenir un pas + tourner), puis les sample locks. Questions à trancher par Mika avant l'étape 2 (voir le rapport Claude Desktop).
 - **À écouter, côté Mika** : le kick seul et en preset, l'équilibre des trois machines, les réglages fins de la basse.
 - Toujours en attente : le compteur de visiteurs du MENU.
 
@@ -87,3 +99,6 @@ Suite des sessions du 2026-10-07 (rapport précédent : `2026-10-07-mixer-5-voie
 
 - Aucune nouvelle commande npm. `npm run docs:midi` régénère la doc MIDI après un changement de cibles.
 - Clavier du MM-BASS : O ouvre le capot, I allume ou éteint INFOS, Échap éteint INFOS.
+- Clavier du MM-RYTM : H garde ou lâche la vue PAGE, [ et ] changent de page.
+- `npm run docs:midi` lit maintenant les adresses dans le registre gelé (`src/v4/midi/rotoKeys.ts`) ; la variable `MIDI_OUT` écrit la doc ailleurs que dans `docs/midi`.
+- Console (`?debug=1`) : `__v4.rytm.page` et `__v4.rytm.store` pour la vue PAGE.

@@ -268,7 +268,8 @@ export class Screen {
   /** Un redessin bientot (au plus tous les MIN_GAP_MS). */
   private request(delay = 0): void {
     if (this.timer !== 0) return;
-    const wait = Math.max(delay, this.info.lastDrawAt + MIN_GAP_MS - performance.now(), 0);
+    // Arrondi au-dessus : setTimeout tronque les fractions, l'ecart tombait a 59,5 ms au lieu de 60
+    const wait = Math.ceil(Math.max(delay, this.info.lastDrawAt + MIN_GAP_MS - performance.now(), 0));
     this.timer = window.setTimeout(() => {
       this.timer = 0;
       const now = performance.now();
