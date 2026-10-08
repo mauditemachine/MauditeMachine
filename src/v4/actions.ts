@@ -907,7 +907,6 @@ export function pageTarget(k: number): SlotTarget | null {
   return pageSlotOf(k)?.target ?? null;
 }
 
-
 /**
  * Un potard de page tourne : il regle ce que son bloc montre ; un bloc vide
  * ou a venir le dit a l'ecran (jamais un geste qui ne fait rien en silence).
