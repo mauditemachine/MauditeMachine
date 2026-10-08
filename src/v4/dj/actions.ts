@@ -16,9 +16,10 @@ import { anyPlaying } from '../state/playLock';
 import { routeMachines } from '../audio/drums';
 import { sc } from '../audio/soundcloud';
 import { startRing } from '../sampler/ring';
-import { djEngine, djEngineIfAny, type DjEngine } from './engine';
+import { NUDGE_MAX, djEngine, djEngineIfAny, type DjEngine } from './engine';
 import { crateFile, crateLearn, setCrateBusy } from './crate';
-import { beatGrid, estimateBpm, phaseShift } from './math';
+import { analyseGrid, gridAnalyseMs } from './grid';
+import { phaseShift } from './math';
 import { soundcloudBytes } from './soundcloud';
 import { DJ_WAVES, DJ_ZOOMS, djState, type DjTrack } from './state';
 import { DJ_CHANNELS, DJ_CH_NAMES, DJ_DECKS, DJ_DECKS_ALL, DJ_FX, deckChannel, djDecks, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
@@ -99,6 +100,8 @@ function engine(): DjEngine | null {
   // La memoire du MIXER (2026-10-07) : REC MIX d'une platine y prend les temps qui viennent de passer
   void startRing();
   watchMachines();
+  // Le verrou de phase de SYNC (2026-10-08) : quatre mesures par seconde, un rattrapage invisible au besoin
+  window.setInterval(() => phaseLock(e), LOCK.everyMs);
   // Seulement quand la piste du site PART (2026-10-08) : le pont emet aussi pendant qu'elle joue (la progression)
   let scWas = sc.get().status;
   sc.subscribe(() => {
@@ -189,10 +192,18 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
   loads[d]?.abort();
   const ctl = new AbortController();
   loads[d] = ctl;
+  /*
+   * SYNC reste engage d'un morceau a l'autre (relecture du 2026-10-08,
+   * BACK puis un autre morceau : la platine perdait SYNC et gardait le pitch
+   * de l'ancien, le nouveau partait au mauvais tempo) : comme sur une CDJ,
+   * le nouveau prend le tempo de la reference des qu'il est analyse.
+   */
+  const keepSync = djState.get().deck[d].sync || syncArmed.has(d);
   // L'ancien morceau s'ejecte : ni PLAY, ni CUE, ni un hot cue ne peuvent le relancer pendant le chargement
   e.decks[d].unload();
   previewing[d] = false;
   syncArmed.delete(d);
+  if (keepSync) syncArmed.add(d);
   lastDeck = d;
   djState.setDeck(d, { playing: false, loaded: false, track, loading: 0, loadStep: 'read', armed: false, error: null, beat: null, sync: false, loop: null });
   try {
@@ -211,16 +222,19 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
     await e.decks[d].load(bytes);
     if (ctl.signal.aborted) return;
     djState.setDeck(d, { loadStep: 'analyse' });
-    // L'ecran dit ANALYSING avant que l'analyse (sur le fil principal) ne commence
-    await new Promise((r) => window.setTimeout(r, 0));
-    if (ctl.signal.aborted) return;
     const p = e.decks[d];
-    let bpm = track.bpm;
     const ch0 = p.channel0;
-    if (!bpm && ch0) bpm = estimateBpm(ch0, p.sampleRate);
-    // La grille des temps (SYNC cale aussi les temps) : le premier temps, et le BPM affine au centieme
-    const grid = ch0 ? beatGrid(ch0, p.sampleRate, bpm) : null;
-    if (grid) bpm = grid.bpm;
+    /*
+     * L'analyse du morceau entier (2026-10-08, Mika : "je pense qu'il faut
+     * analyser la track pour que ca fonctionne") : le tempo au millieme et
+     * le premier temps a la milliseconde (dj/math.ts trackGridSteps). Le BPM
+     * de SoundCloud ou des tags ne fait que guider : faux, le son l'emporte.
+     * Par tranches de quelques millisecondes : l'ecran et l'autre platine
+     * ne figent pas.
+     */
+    const grid = ch0 ? await analyseGrid(ch0, p.sampleRate, track.bpm, ctl.signal) : null;
+    if (ctl.signal.aborted) return;
+    const bpm = grid?.bpm ?? track.bpm;
     const saved = savedCues(track.id);
     // Un cue pose a la toute fin (CUE presse apres la fin du morceau) : la platine repart du debut
     const atEnd = saved.cue >= p.duration - END_S;
@@ -240,6 +254,9 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
     djState.setDeck(d, { loading: null, loadStep: null, armed: false, loaded: false, error: err instanceof Error ? err.message : 'load failed' });
   }
 }
+
+/** La duree de la derniere analyse (ms, le calcul seul ; le debug, les tests). */
+export const djAnalyseMs = gridAnalyseMs;
 
 /** Une platine a moins de 50 ms de la fin ne repart pas (DjPlayer.play) : on la ramene au cue, ou au debut. */
 const END_S = 0.05;
@@ -270,13 +287,39 @@ export function djPlay(d: DjDeck): void {
     djState.setDeck(d, { playing: false });
     return;
   }
+  const t0 = performance.now();
   // Au bout du morceau, PLAY repart du cue (ou du debut) au lieu de ne rien faire
   if (p.position() >= p.duration - END_S) p.seek(ds.cue < p.duration - END_S ? ds.cue : 0);
   silenceOthers();
-  // Les machines jouent (2026-10-07) : la platine prend leur tempo et part sur un de leurs temps
+  // Les machines jouent (2026-10-07) : la platine prend leur tempo et cale ses temps sur les leurs
   freed.delete(d);
   follow(d);
-  p.play(syncedStart(d, e));
+  startSynced(d, e, t0);
+}
+
+/**
+ * Le depart d'une platine en pause, tout de suite (2026-10-08, Mika :
+ * "quand j'utilise SYNC, quand j'appuie sur play ca met une demi seconde
+ * avant de se lancer ! faut corriger ca c'est insoutenable"). Avant, SYNC
+ * attendait le prochain temps de la reference pour partir : jusqu'a un
+ * temps entier (0.48 s a 124 BPM). Comme une CDJ ou Rekordbox : PLAY part
+ * maintenant, et c'est la tete qui se deplace d'au plus un demi-temps
+ * (inPhase) pour que les temps tombent sur ceux de la reference.
+ */
+function startSynced(d: DjDeck, e: DjEngine, t0: number): void {
+  const p = e.decks[d];
+  const ds = djState.get().deck[d];
+  const from = p.position();
+  // Un seul instant pour le calcul et le depart (deckBeat)
+  const when = startTime(e, d);
+  if (ds.sync) {
+    const to = inPhase(d, e, from, when);
+    if (Math.abs(to - from) > 1e-4) p.seek(to);
+    loopFollows(d, e);
+    rearm(d, e);
+  }
+  p.play(when);
+  e.sync.lastPlay = { deck: d, callMs: performance.now() - t0, leadMs: p.startLead() * 1000, jumpMs: ((p.position() - from) / p.speed) * 1000, sync: ds.sync };
   djState.setDeck(d, { playing: p.playing });
 }
 
@@ -317,8 +360,14 @@ export function djCue(d: DjDeck, down: boolean): void {
     }
     silenceOthers();
     previewing[d] = true;
-    p.play();
-    djState.setDeck(d, { playing: true });
+    /*
+     * Calee (SYNC, ou suivie par les machines), le preview part comme PLAY :
+     * tout de suite, la tete deplacee d'au plus un demi-temps sur les temps
+     * de la reference (relecture du 2026-10-08 : CUE tenu puis PLAY, le geste
+     * CDJ, partait hors phase et le restait, jusqu'a 226 ms).
+     */
+    follow(d);
+    startSynced(d, e, performance.now());
     return;
   }
   if (!previewing[d]) return;
@@ -328,9 +377,19 @@ export function djCue(d: DjDeck, down: boolean): void {
   djState.setDeck(d, { playing: false });
 }
 
-/** PLAY pendant un preview de CUE : la lecture continue au lacher de CUE. */
+/**
+ * PLAY pendant un preview de CUE : la lecture continue au lacher de CUE.
+ * Comme PLAY, la platine redevient suivie par les machines ; calee, elle
+ * saute sur les temps de la reference si le preview ne l'etait pas (SYNC
+ * presse apres, les machines parties entre-temps), en fondu croise.
+ */
 export function djKeepPreview(d: DjDeck): void {
   previewing[d] = false;
+  const e = engine();
+  if (!e) return;
+  freed.delete(d);
+  follow(d, true);
+  if (djState.get().deck[d].sync) alignNow(d, e);
 }
 
 /** Un preview de CUE joue-t-il ? (un CUE tenu sans preview ne doit pas bloquer PLAY) */
@@ -352,20 +411,18 @@ export function djHotcue(d: DjDeck, n: number): void {
     return;
   }
   if (p.playing) {
-    p.seek(at);
-    loopFollows(d, e);
-    // SYNC arme : le saut garde la phase (au plus un demi-temps de decalage)
-    if (ds.sync) alignNow(d, e);
+    // SYNC arme : le saut garde la phase (au plus un demi-temps de decalage), en un seul saut
+    jumpSynced(d, e, at);
     return;
   }
+  const t0 = performance.now();
   p.seek(at);
   loopFollows(d, e);
   silenceOthers();
-  // Les machines jouent (2026-10-07) : la platine prend leur tempo et part sur un de leurs temps
+  // Les machines jouent (2026-10-07) : la platine prend leur tempo et part tout de suite, calee (startSynced)
   freed.delete(d);
   follow(d);
-  p.play(syncedStart(d, e));
-  djState.setDeck(d, { playing: p.playing });
+  startSynced(d, e, t0);
 }
 
 /** Un hot cue tenu longtemps s'efface. */
@@ -380,6 +437,7 @@ export function djHotcueClear(d: DjDeck, n: number): void {
 
 /** BEND tenu : la platine accelere ou freine de 4 % (beatmatch a l'oreille). */
 export function djBend(d: DjDeck, dir: -1 | 0 | 1): void {
+  touching[d] = dir !== 0;
   const p = engine()?.decks[d];
   if (!p || !p.playing) {
     p?.bend(0);
@@ -398,6 +456,7 @@ export function djJog(d: DjDeck, dAngle: number, dt: number): void {
   const p = engine()?.decks[d];
   if (!p || !p.loaded) return;
   if (p.playing) {
+    touching[d] = true;
     const revPerS = dt > 0 ? dAngle / (2 * Math.PI) / dt : 0;
     p.bend(Math.max(-0.5, Math.min(0.5, revPerS * 0.25)));
     return;
@@ -407,6 +466,7 @@ export function djJog(d: DjDeck, dAngle: number, dt: number): void {
 
 /** La main quitte le jog : la vitesse revient. */
 export function djJogRelease(d: DjDeck): void {
+  touching[d] = false;
   djEngineIfAny()?.decks[d].bend(0);
 }
 
@@ -539,59 +599,109 @@ export function syncBpm(d: DjDeck, s = djState.get()): number | null {
 }
 
 /**
- * Le prochain temps d'une platine, en temps reel : dans combien de
- * secondes il tombe (si elle part maintenant, quand elle est en pause) et
- * la periode. null sans grille.
+ * Le prochain temps d'une platine apres l'instant t du contexte : dans
+ * combien de secondes il tombe et la periode, en temps reel. pos : la
+ * platine posee la a l'instant t (un depart, un saut) ; sinon la ou elle est
+ * a t. null sans grille. Toutes les mesures de SYNC prennent un seul instant
+ * t (2026-10-08) : deux lectures de currentTime peuvent tomber de part et
+ * d'autre d'un paquet de rendu, 2.9 ms d'ecart de phase.
  */
-function deckBeat(d: DjDeck, e: DjEngine, s = djState.get()): { in: number; period: number } | null {
+function deckBeat(d: DjDeck, e: DjEngine, s = djState.get(), pos?: number, t = e.ctx.currentTime): { in: number; period: number } | null {
   const ds = s.deck[d];
   const p = e.decks[d];
   if (ds.beat === null || !ds.track?.bpm || !p.loaded) return null;
   const spb = 60 / ds.track.bpm;
   const speed = p.speed;
-  const beats = (p.position() - ds.beat) / spb;
+  const beats = ((pos ?? p.positionAt(t)) - ds.beat) / spb;
   return { in: ((1 - (beats - Math.floor(beats))) * spb) / speed, period: spb / speed };
 }
 
-/** Le prochain temps de la reference (une platine, ou les machines du site), en temps reel. */
-function refBeat(d: DjDeck, e: DjEngine, s = djState.get()): { in: number; period: number } | null {
+/** Le prochain temps de la reference (une platine, ou les machines du site) apres l'instant t, en temps reel. */
+function refBeat(d: DjDeck, e: DjEngine, s = djState.get(), t = e.ctx.currentTime): { in: number; period: number } | null {
   const r = syncDeck(d, s);
-  if (r) return deckBeat(r, e, s);
+  if (r) return deckBeat(r, e, s, undefined, t);
   if (!machinesOn()) return null;
   // Les machines : seize pas par mesure, un temps tous les quatre
-  const now = e.ctx.currentTime;
-  const g = machinesGrid(now);
+  const g = machinesGrid(t);
   if (!g) return null;
   const k = (4 - (g.step % 4)) % 4;
-  return { in: g.time + k * g.dur - now, period: 4 * g.dur };
-}
-
-/** En lecture : la platine saute d'au plus un demi-temps, ses temps tombent sur ceux de la reference. */
-function alignNow(d: DjDeck, e: DjEngine): void {
-  const own = deckBeat(d, e);
-  const ref = refBeat(d, e);
-  const p = e.decks[d];
-  if (!own || !ref || !p.playing) return;
-  const shift = phaseShift(own.in, own.period, ref.in, ref.period);
-  if (Math.abs(shift) < 0.002) return;
-  p.seek(p.position() + shift * p.speed);
-  loopFollows(d, e);
+  return { in: g.time + k * g.dur - t, period: 4 * g.dur };
 }
 
 /**
- * En pause, SYNC arme : l'instant ou partir pour que le prochain temps de
- * la platine tombe sur un temps de la reference (au plus une periode
- * d'attente) ; 0 (tout de suite) sans SYNC ou sans reference.
+ * La place ou poser la tete pour que la platine, partie de pos a l'instant
+ * when du contexte (une nouvelle source, en pause comme en lecture), tombe
+ * sur les temps de la reference : le plus petit saut, au plus un demi-temps,
+ * dans un sens ou dans l'autre (avant le debut du morceau, l'autre sens).
+ * pos tel quel sans grille ni reference. playing : la platine joue deja (un
+ * saut en lecture). hold : l'ecart a garder avec la reference (s, un nudge
+ * a la main), 0 : pile dessus.
+ *
+ * Dans une boucle, la tete y reste (relecture du 2026-10-08 : PLAY avec
+ * SYNC sur une platine en pause dans une boucle d'un temps la quittait une
+ * fois sur quatre) : la boucle dure un nombre de temps, la ramener dedans
+ * ne change pas la phase.
  */
-function syncedStart(d: DjDeck, e: DjEngine): number {
-  if (!djState.get().deck[d].sync) return 0;
-  const own = deckBeat(d, e);
-  const ref = refBeat(d, e);
-  if (!own || !ref) return 0;
-  const now = e.ctx.currentTime;
-  let at = now + ref.in - own.in;
-  while (at < now + 0.01) at += ref.period;
-  return at;
+function inPhase(d: DjDeck, e: DjEngine, pos: number, when: number, playing = false, hold = 0): number {
+  const p = e.decks[d];
+  const s = djState.get();
+  const own = deckBeat(d, e, s, pos, when);
+  const ref = refBeat(d, e, s, when);
+  if (!own || !ref) return pos;
+  const beat = Math.min(own.period, ref.period);
+  const shift = wrapPhase(phaseShift(own.in, own.period, ref.in, ref.period) - hold, beat);
+  const period = beat * p.speed;
+  let to = pos + shift * p.speed;
+  if (to < 0) to += period;
+  if (to > p.duration - END_S) to -= period;
+  const L = p.loop;
+  if (L && pos >= L.a && pos < L.b) {
+    const len = L.b - L.a;
+    to = L.a + ((((to - L.a) % len) + len) % len);
+  }
+  return playing ? Math.max(0, to) : Math.max(0, Math.min(p.duration, to));
+}
+
+/** L'instant d'un depart ou d'un saut : maintenant, plus l'avance d'un depart (dj/engine.ts startLead). */
+const startTime = (e: DjEngine, d: DjDeck): number => e.ctx.currentTime + e.decks[d].startLead();
+
+/**
+ * Un saut en lecture vers pos, cale si la platine est calee : la nouvelle
+ * source part a l'instant prevu, sa tete deplacee d'au plus un demi-temps
+ * (un seul saut, en fondu croise : dj/engine.ts seek).
+ */
+function jumpSynced(d: DjDeck, e: DjEngine, pos: number): void {
+  const p = e.decks[d];
+  const synced = djState.get().deck[d].sync;
+  const when = startTime(e, d);
+  p.seek(synced ? inPhase(d, e, pos, when, true) : pos, when);
+  loopFollows(d, e);
+  if (synced) rearm(d, e);
+}
+
+/**
+ * En lecture : la platine saute d'au plus un demi-temps, ses temps tombent
+ * sur ceux de la reference (un seul saut, en fondu croise : dj/engine.ts
+ * seek). gentle (le tempo des machines a change, elles partent) : l'ecart
+ * laisse par la main contre cette reference est garde, et un petit ecart
+ * (moins de LOCK.seekAboveS) est laisse au verrou de phase, qui le rattrape
+ * sans saut. Sinon (SYNC presse, PLAY pendant un preview) : pile sur la
+ * reference.
+ */
+function alignNow(d: DjDeck, e: DjEngine, gentle = false): void {
+  const p = e.decks[d];
+  if (!p.playing) return;
+  const s = djState.get();
+  const hold = gentle ? heldOffset(d, s) : 0;
+  const when = startTime(e, d);
+  const here = p.positionAt(when);
+  const to = inPhase(d, e, here, when, true, hold);
+  const jump = Math.abs(to - here) / p.speed;
+  if (jump < 0.002 || (gentle && jump < LOCK.seekAboveS)) return;
+  p.seek(to, when);
+  loopFollows(d, e);
+  if (gentle) stopNudge(d, e, true);
+  else rearm(d, e);
 }
 
 /**
@@ -611,10 +721,12 @@ export function djSync(d: DjDeck): void {
     return;
   }
   if (!matchTempo(d)) return;
-  // Un SYNC a la main : la platine redevient suivie par les machines
+  // Un SYNC a la main : la platine redevient suivie par les machines, ses temps exactement sur la reference
   freed.delete(d);
   const e = engine();
-  if (e && e.decks[d].playing) alignNow(d, e);
+  if (!e) return;
+  rearm(d, e);
+  if (e.decks[d].playing) alignNow(d, e);
 }
 
 /** Le tempo de la platine sur celui de la reference (SYNC, sans les temps) ; false s'il est trop loin ou inconnu. */
@@ -646,10 +758,169 @@ export function djSynced(d: DjDeck, s = djState.get()): boolean {
   if (![ref, ref * 2, ref / 2].some((r) => Math.abs(own - r) < 0.05)) return false;
   const e = djEngineIfAny();
   if (!e || !e.decks[d].playing) return true;
-  const a = deckBeat(d, e, s);
-  const b = refBeat(d, e, s);
+  const t = e.ctx.currentTime;
+  const a = deckBeat(d, e, s, undefined, t);
+  const b = refBeat(d, e, s, t);
   if (!a || !b) return true;
-  return Math.abs(phaseShift(a.in, a.period, b.in, b.period)) < 0.02;
+  // L'ecart garde par un nudge a la main compte comme cale (le verrou de phase le tient)
+  return Math.abs(wrapPhase(phaseShift(a.in, a.period, b.in, b.period) - heldOffset(d, s), Math.min(a.period, b.period))) < 0.02;
+}
+
+/* ---------------- le verrou de phase de SYNC ---------------- */
+
+/**
+ * Les platines calees le restent (2026-10-08) : SYNC ne calait les temps
+ * qu'a l'appui et aux changements de tempo. Quatre fois par seconde, l'ecart
+ * de phase de chaque platine calee (SYNC, ou suivie par les machines) avec
+ * sa reference ; au-dela de 4 ms, la platine accelere ou freine de 0.3 % au
+ * plus (cinq centiemes de demi-ton, inaudible) le temps de combler l'ecart,
+ * un temps au plus a chaque mesure, jusqu'a 1 ms d'ecart. Jamais de saut en
+ * lecture (un saut s'entend). Au-dela d'un huitieme de temps, rien
+ * d'automatique : la grille est fausse, le jog ou BEND corrigent. Un nudge a
+ * la main (jog, BEND) est respecte : l'ecart laisse par la main devient
+ * celui que le verrou garde, jusqu'au prochain SYNC, PLAY ou saut cale.
+ * Mesure (2026-10-08, morceaux de synthese, son coupe) : une platine poussee
+ * de 6.6 ms revient a 0.8 ms en 2 s ; calee sur une autre, ses grosses
+ * caisses tombent a 0.2 ms pres des siennes sur 20 s.
+ */
+const LOCK = { everyMs: 250, startS: 0.004, settleS: 0.001, seekAboveS: 0.02 } as const;
+const each = <T>(v: T): Record<DjDeck, T> => ({ a: v, b: v, c: v, d: v });
+/** l'ecart garde (s, positif : en retard), pose par la main */
+const keep = each(0);
+/**
+ * la reference contre laquelle la main l'a pose ('machines', ou la lettre
+ * d'une platine) : l'ecart ne vaut que contre elle (relecture du
+ * 2026-10-08 : pris contre B, il s'appliquait ensuite contre les machines,
+ * un flam que personne n'avait demande)
+ */
+const keepRef = each<string | null>(null);
+/** la main tient la platine (jog en lecture, BEND) */
+const touching = each(false);
+/** la main vient de lacher : l'ecart du moment devient celui qu'on garde */
+const recapture = new Set<DjDeck>();
+const nudgeEnd = each(0);
+/** le rattrapage est lance (au-dela de 4 ms) : il continue jusqu'a 1 ms d'ecart, sans osciller autour du seuil */
+const locking = each(false);
+/** l'ordre des calages exacts (SYNC, PLAY, un saut cale) : de deux platines calees l'une sur l'autre, la premiere calee mene */
+const syncSeq = each(0);
+let syncCount = 0;
+
+/** Un ecart ramene dans une demi-periode. */
+function wrapPhase(x: number, period: number): number {
+  if (!(period > 0)) return x;
+  let v = ((x % period) + period) % period;
+  if (v > period / 2) v -= period;
+  return v;
+}
+
+/** La reference d'une platine en un mot : 'machines', la lettre d'une platine, ou null. */
+const refId = (d: DjDeck, s = djState.get()): string | null => (machinesOn() ? 'machines' : syncDeck(d, s));
+
+/** L'ecart garde par la main, s'il a ete pris contre la reference du moment ; sinon il s'oublie. */
+function kept(d: DjDeck, s = djState.get()): number {
+  if (keepRef[d] !== null && keepRef[d] !== refId(d, s)) {
+    keep[d] = 0;
+    keepRef[d] = null;
+  }
+  return keep[d];
+}
+
+/**
+ * Deux platines calees l'une sur l'autre (SYNC sur A et sur B, ou les
+ * machines qui s'arretent sous deux platines suivies) : chacune est la
+ * reference de l'autre. Si les deux rattrapaient, elles se poursuivraient
+ * (relecture du 2026-10-08 : apres un jog, toutes deux a +0.3 % sans fin).
+ * Comme le MASTER d'une CDJ : la premiere calee mene, la derniere suit.
+ * Rend la platine qui mene d, ou null si d ne mene pas.
+ */
+function ledBy(d: DjDeck, s = djState.get()): DjDeck | null {
+  const r = syncDeck(d, s);
+  if (!r) return null;
+  const rs = s.deck[r];
+  if (!rs.sync || !rs.playing || !rs.loaded || syncDeck(r, s) !== d) return null;
+  return syncSeq[d] < syncSeq[r] || (syncSeq[d] === syncSeq[r] && d < r) ? r : null;
+}
+
+/** L'ecart que d garde avec sa reference ; celle qui mene une paire garde l'oppose de celle qui la suit. */
+function heldOffset(d: DjDeck, s = djState.get()): number {
+  const f = ledBy(d, s);
+  return f ? -kept(f, s) : kept(d, s);
+}
+
+/** Un calage exact (SYNC, PLAY, un saut cale) : plus d'ecart garde, plus de rattrapage en cours. */
+function rearm(d: DjDeck, e: DjEngine): void {
+  keep[d] = 0;
+  keepRef[d] = null;
+  recapture.delete(d);
+  syncCount += 1;
+  syncSeq[d] = syncCount;
+  stopNudge(d, e, true);
+}
+
+function stopNudge(d: DjDeck, e: DjEngine, done = false): void {
+  if (done) locking[d] = false;
+  window.clearTimeout(nudgeEnd[d]);
+  if (e.decks[d].nudging !== 0) e.decks[d].nudge(0);
+  e.sync.nudge[d] = 0;
+}
+
+/** La main tient-elle la platine ? */
+const handOn = (d: DjDeck, e: DjEngine): boolean => touching[d] || e.decks[d].bending;
+
+function phaseLock(e: DjEngine): void {
+  const s = djState.get();
+  for (const d of DJ_DECKS_ALL) {
+    const p = e.decks[d];
+    const ds = s.deck[d];
+    const t = e.ctx.currentTime;
+    const own = p.playing && ds.sync && ds.loaded ? deckBeat(d, e, s, undefined, t) : null;
+    const ref = own ? refBeat(d, e, s, t) : null;
+    if (!own || !ref) {
+      // Plus calee (SYNC tombe, la platine s'arrete) : l'ecart de la main s'oublie avec
+      stopNudge(d, e, true);
+      keep[d] = 0;
+      keepRef[d] = null;
+      recapture.delete(d);
+      e.sync.errMs[d] = null;
+      e.sync.keepMs[d] = 0;
+      continue;
+    }
+    const period = Math.min(own.period, ref.period);
+    const raw = phaseShift(own.in, own.period, ref.in, ref.period);
+    const r = syncDeck(d, s);
+    // La main tient la platine, ou sa reference (un jog sur la platine qui mene) : on la laisse faire, on retiendra l'ecart laisse
+    if (handOn(d, e) || (r !== null && handOn(r, e))) {
+      stopNudge(d, e, true);
+      recapture.add(d);
+      e.sync.errMs[d] = wrapPhase(raw - heldOffset(d, s), period) * 1000;
+      continue;
+    }
+    if (recapture.delete(d)) {
+      keep[d] = raw;
+      keepRef[d] = refId(d, s);
+    }
+    const hold = heldOffset(d, s);
+    e.sync.keepMs[d] = hold * 1000;
+    const err = wrapPhase(raw - hold, period);
+    e.sync.errMs[d] = err * 1000;
+    // Celle qui mene une paire ne rattrape pas : l'autre la suit
+    if (ledBy(d, s) !== null) {
+      stopNudge(d, e, true);
+      continue;
+    }
+    if (Math.abs(err) > LOCK.startS) locking[d] = true;
+    if (Math.abs(err) <= LOCK.settleS || Math.abs(err) > period / 8) locking[d] = false;
+    if (!locking[d]) {
+      stopNudge(d, e);
+      continue;
+    }
+    // En retard (err > 0) : un peu plus vite, le temps de combler l'ecart (un temps au plus)
+    const n = Math.max(-NUDGE_MAX, Math.min(NUDGE_MAX, err / period));
+    p.nudge(n);
+    e.sync.nudge[d] = n;
+    window.clearTimeout(nudgeEnd[d]);
+    nudgeEnd[d] = window.setTimeout(() => stopNudge(d, e), Math.min(period, Math.abs(err / n)) * 1000);
+  }
 }
 
 /* ---------------- les platines suivent les machines ---------------- */
@@ -674,7 +945,8 @@ function follow(d: DjDeck, tempo = false): void {
   const ds = djState.get().deck[d];
   if (!ds.track?.bpm || !ds.loaded || !matchTempo(d)) return;
   const e = djEngineIfAny();
-  if (!tempo && e && e.decks[d].playing) alignNow(d, e);
+  // Un petit ecart (un tempo qui vient de changer) : le verrou de phase le rattrape, sans saut
+  if (!tempo && e && e.decks[d].playing) alignNow(d, e, true);
 }
 
 /** Toutes celles qui jouent. */
@@ -728,7 +1000,7 @@ export function deckGridAfter(d: DjDeck, t: number): { time: number; step: numbe
   const sub = 60 / ds.track.bpm / 4;
   const speed = p.speed;
   const now = e.ctx.currentTime;
-  const pos = p.position();
+  const pos = p.positionAt(now);
   const k = Math.ceil((pos + (t - now) * speed - ds.beat) / sub - 1e-6);
   return { time: now + (ds.beat + k * sub - pos) / speed, step: ((k % 16) + 16) % 16, dur: sub / speed };
 }
@@ -755,11 +1027,11 @@ export function mixBeat(): { last: number; period: number; index: number | null 
     }
   }
   if (best) {
-    const b = deckBeat(best, e, s);
+    const b = deckBeat(best, e, s, undefined, now);
     const ds = s.deck[best];
     const p = e.decks[best];
     if (b && ds.beat !== null && ds.track?.bpm) {
-      const idx = Math.floor((p.position() - ds.beat) / (60 / ds.track.bpm) + 1e-6);
+      const idx = Math.floor((p.positionAt(now) - ds.beat) / (60 / ds.track.bpm) + 1e-6);
       return { last: now + b.in - b.period, period: b.period, index: ((idx % 4) + 4) % 4 };
     }
   }
@@ -846,11 +1118,20 @@ export function djRemoveDeck(d: DjDeck): void {
 
 /* ---------------- l'ecran : recherche, scrub, zoom ---------------- */
 
-/** Aller a un instant de la piste (en lecture, elle continue de la). */
+/**
+ * Aller a un instant de la piste (en lecture, elle continue de la). Calee
+ * et en lecture (2026-10-08) : le saut garde la phase, a un demi-temps pres
+ * de l'endroit touche, comme une CDJ en QUANTIZE ; sinon le verrou de phase
+ * ne pourrait plus la rattraper.
+ */
 export function djSeek(d: DjDeck, seconds: number): void {
   const e = engine();
   const p = e?.decks[d];
   if (!e || !p || !p.loaded) return;
+  if (p.playing) {
+    jumpSynced(d, e, seconds);
+    return;
+  }
   p.seek(seconds);
   loopFollows(d, e);
 }

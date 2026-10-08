@@ -476,14 +476,35 @@ export class DjMixer {
 
 /* ---------------- une platine ---------------- */
 
+/**
+ * Le fondu d'un depart et d'un arret (2026-10-08) : une source ne part ni
+ * ne s'arrete plus net. SYNC fait maintenant partir la platine tout de
+ * suite, la tete deplacee d'au plus un demi-temps (dj/actions.ts inPhase) :
+ * elle peut donc partir en plein milieu d'une grosse caisse, et une onde
+ * coupee en son milieu claque. 3 ms : rien ne s'entend du fondu, le clic
+ * disparait. Un saut en lecture (hot cue, boucle, recalage de SYNC) passe
+ * de l'ancienne source a la nouvelle en fondu croise, sans trou.
+ */
+const FADE_S = 0.003;
+/**
+ * Le rattrapage de phase de SYNC (2026-10-08) : au plus 0.3 % de vitesse,
+ * cinq centiemes de demi-ton, inaudible (dj/actions.ts phaseLock).
+ */
+export const NUDGE_MAX = 0.003;
+
 export class DjPlayer {
   private buffer: AudioBuffer | null = null;
   private source: AudioBufferSourceNode | null = null;
+  /** le gain de la source du moment (ses fondus) et l'instant ou elle part */
+  private env: GainNode | null = null;
+  private envAt = 0;
   private token = 0;
   private startPos = 0;
   private startAt = 0;
   private pitch = 0;
   private bendF = 0;
+  /** le rattrapage de phase de SYNC (-NUDGE_MAX a NUDGE_MAX) */
+  private lockF = 0;
   /**
    * La boucle (2026-10-04, Mika : "continue avec les boucles LOOP") : de a
    * a b, en secondes de la piste ; la source boucle d'elle-meme, a
@@ -590,18 +611,49 @@ export class DjPlayer {
   }
 
   private rate(): number {
-    return speedOf(this.pitch) * (1 + this.bendF);
+    return speedOf(this.pitch) * (1 + this.bendF) * (1 + this.lockF);
   }
 
-  /** Vitesse de lecture du moment (pitch et bend). */
+  /** Vitesse de lecture du moment (pitch, bend et rattrapage de SYNC). */
   get speed(): number {
     return this.rate();
   }
 
+  /** La main tient-elle la platine (BEND, jog en lecture) ? SYNC ne la rattrape pas pendant ce temps. */
+  get bending(): boolean {
+    return this.bendF !== 0;
+  }
+
+  /** Le rattrapage de phase du moment (dj/actions.ts phaseLock). */
+  get nudging(): number {
+    return this.lockF;
+  }
+
+  /**
+   * L'avance d'un depart (s) : le temps du contexte lu ici peut retarder
+   * d'un paquet de rendu sur le fil audio ; une source programmee dans le
+   * passe partirait plus tard que prevu, sans le dire, et la position
+   * calculee (startAt) mentirait de quelques millisecondes. 256 echantillons
+   * (5 ms a 48 kHz) suffisent ; bien en dessous de ce qu'une oreille percoit
+   * entre le doigt et le son.
+   */
+  startLead(): number {
+    return 256 / this.ctx.sampleRate;
+  }
+
   position(): number {
+    return this.positionAt(this.ctx.currentTime);
+  }
+
+  /**
+   * La position a l'instant t du contexte (2026-10-08) : SYNC calcule un
+   * depart et la reference au meme instant ; deux lectures de currentTime
+   * peuvent tomber de part et d'autre d'un paquet de rendu (2.9 ms d'ecart).
+   */
+  positionAt(t: number): number {
     if (!this.playing) return this.startPos;
-    // Un depart programme (SYNC) : rien n'a encore joue avant startAt
-    const p = this.startPos + Math.max(0, this.ctx.currentTime - this.startAt) * this.rate();
+    // Pendant l'avance d'un depart : rien n'a encore joue avant startAt
+    const p = this.startPos + Math.max(0, t - this.startAt) * this.rate();
     // Dans une boucle, la tete revient a a chaque fois qu'elle atteint b
     const L = this.loopAB;
     if (L && this.startPos < L.b && p >= L.b) return L.a + ((p - L.a) % (L.b - L.a));
@@ -642,8 +694,12 @@ export class DjPlayer {
   }
 
   /**
-   * Lecture depuis startPos ; at : un instant du contexte ou partir (SYNC
-   * part sur un temps de la reference), maintenant par defaut.
+   * Lecture depuis startPos, tout de suite (2026-10-08, Mika : "quand
+   * j'utilise SYNC, quand j'appuie sur play ca met une demi seconde avant
+   * de se lancer ! insoutenable") : apres l'avance d'un depart (startLead),
+   * jamais plus. SYNC ne retarde plus le depart, il deplace la tete
+   * (dj/actions.ts inPhase). at : l'instant du contexte ou partir, calcule
+   * par l'appelant (SYNC, un fondu croise) ; respecte a l'echantillon pres.
    */
   play(at = 0): void {
     if (!this.buffer || this.playing) return;
@@ -655,43 +711,88 @@ export class DjPlayer {
       s.loopEnd = this.loopAB.b;
       s.loop = true;
     }
-    s.connect(this.ch.input);
+    const env = new GainNode(this.ctx, { gain: 0 });
+    s.connect(env).connect(this.ch.input);
     const token = ++this.token;
     s.onended = () => {
+      s.disconnect();
+      env.disconnect();
       if (token !== this.token) return;
       this.startPos = this.duration;
       this.playing = false;
       this.source = null;
+      this.env = null;
       this.onEnd?.();
     };
-    const when = Math.max(this.ctx.currentTime, at);
+    const when = at > 0 ? Math.max(this.ctx.currentTime, at) : this.ctx.currentTime + this.startLead();
+    env.gain.setValueAtTime(0, when);
+    env.gain.linearRampToValueAtTime(1, when + FADE_S);
     this.startAt = when;
     s.start(when, this.startPos);
     this.source = s;
+    this.env = env;
+    this.envAt = when;
     this.playing = true;
+  }
+
+  /** La source du moment s'eteint en FADE_S a partir de t, puis s'arrete (elle se debranche seule a la fin). */
+  private release(t: number): void {
+    const s = this.source;
+    const env = this.env;
+    this.source = null;
+    this.env = null;
+    if (!s || !env) return;
+    // Le gain a l'instant t, d'apres son fondu d'entree (cancelAndHoldAtTime n'existe pas partout)
+    const g = t <= this.envAt ? 0 : Math.min(1, (t - this.envAt) / FADE_S);
+    env.gain.cancelScheduledValues(t);
+    env.gain.setValueAtTime(g, t);
+    env.gain.linearRampToValueAtTime(0, t + FADE_S);
+    try {
+      s.stop(t + FADE_S + 0.001);
+    } catch {
+      /* deja arretee */
+    }
   }
 
   pause(): void {
     if (!this.playing) return;
     this.startPos = this.position();
     this.token += 1;
-    this.source?.stop();
-    this.source?.disconnect();
-    this.source = null;
+    this.release(this.ctx.currentTime);
     this.playing = false;
   }
 
-  seek(seconds: number): void {
+  /**
+   * Aller a un instant de la piste. En lecture, une nouvelle source part de
+   * la apres l'avance d'un depart (ou a l'instant at du contexte), et
+   * l'ancienne joue jusqu'a cet instant, puis s'efface en fondu croise : ni
+   * trou ni clic.
+   */
+  seek(seconds: number, at = 0): void {
     const t = Math.max(0, Math.min(this.duration, seconds));
     // Aller hors de la boucle la quitte (un hot cue, la piste touchee, un recalage)
     if (this.loopAB && (t < this.loopAB.a || t >= this.loopAB.b)) this.loopAB = null;
-    if (this.playing) {
-      this.pause();
+    if (!this.playing) {
       this.startPos = t;
-      this.play();
-    } else {
-      this.startPos = t;
+      return;
     }
+    const when = at > 0 ? Math.max(this.ctx.currentTime, at) : this.ctx.currentTime + this.startLead();
+    const old = { source: this.source, env: this.env, at: this.envAt };
+    this.token += 1;
+    this.source = null;
+    this.env = null;
+    this.playing = false;
+    this.startPos = t;
+    this.play(when);
+    // L'ancienne source s'efface la ou la nouvelle part
+    const next = { source: this.source, env: this.env, at: this.envAt };
+    this.source = old.source;
+    this.env = old.env;
+    this.envAt = old.at;
+    this.release(when);
+    this.source = next.source;
+    this.env = next.env;
+    this.envAt = next.at;
   }
 
   /** Pitch en pour cent. */
@@ -705,6 +806,15 @@ export class DjPlayer {
   bend(f: number): void {
     this.reanchor();
     this.bendF = Math.max(-0.5, Math.min(0.5, f));
+    this.source?.playbackRate.setValueAtTime(this.rate(), this.ctx.currentTime);
+  }
+
+  /** Le rattrapage de phase de SYNC : un ecart de vitesse de NUDGE_MAX au plus (0 : aucun). */
+  nudge(f: number): void {
+    const next = Math.max(-NUDGE_MAX, Math.min(NUDGE_MAX, f));
+    if (next === this.lockF) return;
+    this.reanchor();
+    this.lockF = next;
     this.source?.playbackRate.setValueAtTime(this.rate(), this.ctx.currentTime);
   }
 
@@ -729,10 +839,25 @@ export class DjPlayer {
 
 /* ---------------- le moteur entier ---------------- */
 
+/**
+ * Ce que SYNC mesure (2026-10-08, dj/actions.ts phaseLock), lu par le debug
+ * (window.__v4.dj.phaseErrMs) : l'ecart de phase de chaque platine calee
+ * (ms, positif : en retard sur sa reference ; null sans reference), l'ecart
+ * qu'on garde (un nudge a la main), le rattrapage en cours, et la duree du
+ * dernier PLAY (de l'appui a la source programmee, et l'avance du depart).
+ */
+export interface DjSyncInfo {
+  errMs: Record<DjDeck, number | null>;
+  keepMs: Record<DjDeck, number>;
+  nudge: Record<DjDeck, number>;
+  lastPlay: { deck: DjDeck; callMs: number; leadMs: number; jumpMs: number; sync: boolean } | null;
+}
+
 export interface DjEngine {
   readonly ctx: AudioContext;
   readonly mixer: DjMixer;
   readonly decks: Readonly<Record<DjDeck, DjPlayer>>;
+  readonly sync: DjSyncInfo;
 }
 
 let engine: DjEngine | null = null;
@@ -749,7 +874,8 @@ export function djEngine(): DjEngine | null {
   // Les platines sur les voies 3 a 6 ; 1 et 2 recoivent le MM-RYTM et le MM-ARP (dj/actions.ts).
   // Les quatre existent toujours : poser C ou D ne touche pas au son en cours
   const p = (d: DjDeck): DjPlayer => new DjPlayer(port.ctx, mixer.ch[deckChannel(d)]);
-  engine = { ctx: port.ctx, mixer, decks: { a: p('a'), b: p('b'), c: p('c'), d: p('d') } };
+  const each = <T>(v: T): Record<DjDeck, T> => ({ a: v, b: v, c: v, d: v });
+  engine = { ctx: port.ctx, mixer, decks: { a: p('a'), b: p('b'), c: p('c'), d: p('d') }, sync: { errMs: each<number | null>(null), keepMs: each(0), nudge: each(0), lastPlay: null } };
   return engine;
 }
 

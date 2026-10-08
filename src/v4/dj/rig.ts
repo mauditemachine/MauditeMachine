@@ -302,7 +302,9 @@ export class DjRig {
     if (r >= 0) moved = this.controls.setKeyPress(r, down ? 1 : 0);
     const o = DJ_ROUND_KEYS.findIndex((k) => k.id === id);
     if (o >= 0) moved = this.controls.setKeyPress(o, down ? 1 : 0, true) || moved;
-    const lit = this.syncLights();
+    // La touche BACK de l'ecran d'une platine (dj-a-back...) : elle s'allume a l'ecran
+    const screen = id.endsWith('-back') && this.syncScreens();
+    const lit = this.syncLights() || screen;
     if (moved && this.controls.keys.castShadow) this.opts.invalidate();
     else if (moved || lit) this.opts.repaint();
   }
@@ -397,12 +399,15 @@ export class DjRig {
         zoom: ds.zoom,
         wave: DJ_WAVE_LABEL[s.wave],
         note: ds.remove ? 'PLAYING: PRESS REMOVE DECK AGAIN' : '',
+        back: this.held.has(`dj-${d}-back`),
       };
       if (this.screens.setDeck(d, screen)) changed = true;
       const angle = pos * 2 * Math.PI * (100 / 3 / 60);
       // SYNC : cale (orange), calable (os), ou rien a suivre (pale)
       const sync: DjSyncLight = !ds.loaded || !t?.bpm || syncBpm(d, s) === null ? 'off' : djSynced(d, s) ? 'on' : 'ready';
-      if (this.screens.setJog(d, dur > 0 ? pos / dur : 0, angle, ds.loaded, sync)) changed = true;
+      // L'ecart de phase, sous SYNC, tant que le verrou le mesure (dj/actions.ts phaseLock)
+      const phase = ds.playing && ds.sync ? (djEngineIfAny()?.sync.errMs[d] ?? null) : null;
+      if (this.screens.setJog(d, dur > 0 ? pos / dur : 0, angle, ds.loaded, sync, phase)) changed = true;
     }
     const fx = this.lastFx;
     // FX TO tourne : la voie visee ; sinon l'effet tourne, et au repos la voie visee si ce n'est pas toutes

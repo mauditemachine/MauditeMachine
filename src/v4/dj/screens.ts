@@ -130,6 +130,8 @@ export interface DjDeckScreen {
   wave: string;
   /** un avis en orange a la place de l'artiste (REMOVE arme), ou '' */
   note: string;
+  /** la touche BACK enfoncee (le doigt ou la souris dessus) */
+  back: boolean;
 }
 
 export interface DjFxScreen {
@@ -139,7 +141,7 @@ export interface DjFxScreen {
 }
 
 const deckKey = (s: DjDeckScreen): string =>
-  `${s.loaded}|${s.title}|${s.artist}|${s.bpm}|${s.key}|${Math.floor(s.position * 4)}|${Math.round(s.duration)}|${s.playing}|${s.pitch.toFixed(6)}|${s.zoom}|${s.wave}|${s.note}`;
+  `${s.loaded}|${s.title}|${s.artist}|${s.bpm}|${s.key}|${Math.floor(s.position * 4)}|${Math.round(s.duration)}|${s.playing}|${s.pitch.toFixed(6)}|${s.zoom}|${s.wave}|${s.note}|${s.back}`;
 
 const clock = (s: number): string => {
   const t = Math.max(0, Math.floor(s));
@@ -230,13 +232,20 @@ export class DjScreens {
       c.fillText(`TOUCH THE SCREEN TO BROWSE  DECK ${d.toUpperCase()}`, x0, l2);
     } else {
       const colX = x1 - 360;
+      // BACK a gauche (2026-10-08) : le titre et l'artiste passent a sa droite
+      const tx = this.drawBack(r, s.back);
       c.textAlign = 'left';
       c.fillStyle = BONE;
-      c.font = `700 52px ${FONT_DISPLAY}`;
-      c.fillText(this.fit(s.title, colX - x0 - 20), x0, l1);
+      // Un titre long perd un peu de taille avant d'etre coupe (relecture du 2026-10-08 : la touche BACK lui prend la place de "(Original Mix)")
+      const room = colX - tx - 20;
+      for (const px of [52, 46, 41, 37]) {
+        c.font = `700 ${px}px ${FONT_DISPLAY}`;
+        if (c.measureText(s.title).width <= room) break;
+      }
+      c.fillText(this.fit(s.title, room), tx, l1);
       c.fillStyle = s.note ? DJ_LIGHT.orange : DIM;
       c.font = `${s.note ? 700 : 500} 36px ${FONT_DISPLAY}`;
-      c.fillText(this.fit(s.note || s.artist, colX - x0 - 20), x0, l2);
+      c.fillText(this.fit(s.note || s.artist, colX - tx - 20), tx, l2);
       // BPM au centieme (2026-10-05 : caler un tempo exact), le pitch au centieme de pour cent, la tonalite, le temps restant
       c.textAlign = 'right';
       c.fillStyle = BONE;
@@ -298,6 +307,56 @@ export class DjScreens {
     c.restore();
   }
 
+  /**
+   * La touche BACK (2026-10-08, Mika : "je devrais aussi avoir un bouton
+   * retour arriere pour aller choisir une autre track") : en haut a gauche
+   * de l'ecran, un chevron orange et TRACKS, dans un cadre fin comme les
+   * touches du zoom ; enfoncee, elle s'allume en orange. Elle ouvre la liste
+   * de la platine, le morceau continue de jouer (dj/gestures.ts). Rend le x
+   * ou commence le texte, a sa droite.
+   */
+  private drawBack(r: Region, down: boolean): number {
+    const c = this.ctx;
+    const right = r.x + Math.round(DECK_SCREEN.back.u1 * r.w);
+    const x = r.x + 14;
+    const y = r.y + 16;
+    const w = right - 8 - x;
+    const h = r.h - 32;
+    const rad = 16;
+    c.beginPath();
+    c.moveTo(x + rad, y);
+    c.arcTo(x + w, y, x + w, y + h, rad);
+    c.arcTo(x + w, y + h, x, y + h, rad);
+    c.arcTo(x, y + h, x, y, rad);
+    c.arcTo(x, y, x + w, y, rad);
+    c.closePath();
+    c.fillStyle = down ? DJ_LIGHT.orange : 'rgba(246, 241, 231, 0.07)';
+    c.fill();
+    c.lineWidth = 2;
+    c.strokeStyle = down ? DJ_LIGHT.orange : 'rgba(246, 241, 231, 0.3)';
+    c.stroke();
+    // Le chevron, trait rond
+    const cx = x + w / 2;
+    const cy = y + h * 0.38;
+    const k = h * 0.15;
+    c.lineWidth = 8;
+    c.lineCap = 'round';
+    c.lineJoin = 'round';
+    c.strokeStyle = down ? '#000' : DJ_LIGHT.orange;
+    c.beginPath();
+    c.moveTo(cx + k * 0.55, cy - k);
+    c.lineTo(cx - k * 0.55, cy);
+    c.lineTo(cx + k * 0.55, cy + k);
+    c.stroke();
+    c.lineCap = 'butt';
+    c.lineJoin = 'miter';
+    c.textAlign = 'center';
+    c.fillStyle = down ? '#000' : BONE;
+    c.font = `700 25px ${FONT_DISPLAY}`;
+    c.fillText('TRACKS', cx, y + h * 0.83);
+    return right + 14;
+  }
+
   /** Coupe un texte trop long d'un point de suspension (ASCII : trois points). */
   private fit(text: string, max: number): string {
     const c = this.ctx;
@@ -342,9 +401,14 @@ export class DjScreens {
    * milieu : pale sans rien a suivre, en os quand on peut se caler, en
    * orange une fois cale.
    */
-  setJog(d: DjDeck, progress: number, angle: number, loaded: boolean, sync: DjSyncLight): boolean {
+  /**
+   * phaseMs : l'ecart de phase avec la reference (ms, positif : en retard ;
+   * dj/actions.ts phaseLock), ou null sans verrou (la platine n'est pas
+   * calee, ou ne joue pas).
+   */
+  setJog(d: DjDeck, progress: number, angle: number, loaded: boolean, sync: DjSyncLight, phaseMs: number | null = null): boolean {
     const id = `jog-${d}`;
-    const k = `${loaded}|${Math.round(progress * 200)}|${Math.round(angle * 40)}|${sync}`;
+    const k = `${loaded}|${Math.round(progress * 200)}|${Math.round(angle * 40)}|${sync}|${phaseMs === null ? '-' : Math.round(phaseMs * 2)}`;
     if (this.shown[id] === k) return false;
     this.shown[id] = k;
     const r = JOG_REGION[d];
@@ -398,10 +462,47 @@ export class DjScreens {
     c.textBaseline = 'middle';
     c.font = `700 30px ${FONT_DISPLAY}`;
     c.fillStyle = sync === 'on' ? '#000' : sync === 'ready' ? BONE : FAINT;
-    c.fillText('SYNC', cx, cy + 1);
+    c.fillText('SYNC', cx, phaseMs === null ? cy + 1 : cy - 10);
+    if (phaseMs !== null) this.drawPhase(cx, cy + 22, R * 0.34, phaseMs, sync === 'on');
     c.textBaseline = 'alphabetic';
     this.done();
     return true;
+  }
+
+  /**
+   * L'ecart de phase sous SYNC (relecture du 2026-10-08, Mika : "je pense
+   * qu'il faut analyser la track pour que ca fonctionne") : voir que SYNC
+   * tient. Un trait, son milieu marque, un point qui s'en ecarte avec
+   * l'ecart (12 ms au bord, la fleche au-dela) ; au milieu, les temps
+   * tombent ensemble. Redessine avec le jog, qui l'est deja a chaque image
+   * en lecture : rien de plus a envoyer.
+   */
+  private drawPhase(cx: number, y: number, half: number, ms: number, on: boolean): void {
+    const c = this.ctx;
+    const ink = on ? '#000' : BONE;
+    c.strokeStyle = on ? 'rgba(0, 0, 0, 0.55)' : DIM;
+    c.lineWidth = 4;
+    c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(cx - half, y);
+    c.lineTo(cx + half, y);
+    c.moveTo(cx, y - 8);
+    c.lineTo(cx, y + 8);
+    c.stroke();
+    c.lineCap = 'butt';
+    const k = Math.max(-1, Math.min(1, ms / 12));
+    const x = cx + k * half;
+    c.fillStyle = ink;
+    c.beginPath();
+    if (Math.abs(ms) > 12) {
+      // Hors d'echelle : une pointe vers le cote ou elle va
+      const dir = Math.sign(ms);
+      c.moveTo(x + dir * 9, y);
+      c.lineTo(x - dir * 5, y - 9);
+      c.lineTo(x - dir * 5, y + 9);
+      c.closePath();
+    } else c.arc(x, y, 8, 0, Math.PI * 2);
+    c.fill();
   }
 
   private done(): void {

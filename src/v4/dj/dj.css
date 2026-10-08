@@ -111,6 +111,148 @@
   color: var(--orange);
 }
 
+/*
+ * Le retour au morceau (2026-10-08, BACK ; relecture du meme jour) : la
+ * ligne du morceau de la platine, en premier, est le retour ; la lettre de
+ * la platine et une fleche qui revient (l'ecran de la platine dit
+ * "< TRACKS" pour l'aller). Les sources ont la ligne du dessous pour elles.
+ */
+.dj-scr-now {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.5em;
+  min-width: 0;
+  min-height: 2.5em;
+  padding: 0.2em 0.6em 0.2em 0.3em;
+  border: 1px solid rgba(246, 241, 231, 0.22);
+  border-radius: 0.55em;
+  background: rgba(246, 241, 231, 0.06);
+  font-size: 0.7em;
+  text-align: left;
+}
+
+.dj-scr-now:hover {
+  border-color: rgba(246, 241, 231, 0.45);
+  background: rgba(246, 241, 231, 0.11);
+}
+
+.dj-scr-now:active {
+  border-color: var(--orange);
+  background: rgba(255, 106, 19, 0.18);
+}
+
+.dj-scr-now-back {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.25em;
+  padding-right: 0.55em;
+  border-right: 1px solid var(--faint);
+  color: var(--orange);
+}
+
+.dj-scr-now-back svg {
+  width: 1.35em;
+  height: 1.35em;
+}
+
+.dj-scr-now-deck {
+  font-size: 1.55em;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.dj-scr-head[data-held='1'] {
+  margin-top: 0.4em;
+}
+
+/* La touche compacte du retour : au doigt seulement (sur la ligne des sources) */
+.dj-scr-now-compact {
+  display: none;
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+/* Les sources qui debordent : un fondu au bord ou il en reste */
+.dj-scr-tabs[data-more='right'] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.2em), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 2.2em), transparent);
+}
+
+.dj-scr-tabs[data-more='left'] {
+  -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 2.2em), transparent);
+  mask-image: linear-gradient(to left, #000 calc(100% - 2.2em), transparent);
+}
+
+.dj-scr-tabs[data-more='both'] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 2.2em, #000 calc(100% - 2.2em), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 2.2em, #000 calc(100% - 2.2em), transparent);
+}
+
+/* Un morceau touche sur une platine qui joue : le second appui le pose */
+.dj-scr-row[data-sure='1'] .dj-scr-load {
+  box-shadow: inset 0 0 0 1px var(--orange);
+  background: rgba(255, 106, 19, 0.12);
+}
+
+.dj-scr .dj-scr-sure {
+  color: var(--orange);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.dj-scr-now-dot {
+  flex: 0 0 auto;
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  background: var(--dim);
+}
+
+.dj-scr-now[data-state='playing'] .dj-scr-now-dot {
+  background: #ffd75e;
+  box-shadow: 0 0 0.5em rgba(255, 215, 94, 0.7);
+}
+
+.dj-scr-now[data-state='loading'] .dj-scr-now-dot {
+  background: var(--orange);
+}
+
+.dj-scr-now-state {
+  flex: 0 0 auto;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--dim);
+}
+
+.dj-scr-now[data-state='playing'] .dj-scr-now-state {
+  color: #ffd75e;
+}
+
+.dj-scr-now-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dj-scr-now-artist {
+  margin-left: 0.6em;
+  font-weight: 500;
+  color: var(--dim);
+}
+
+.dj-scr-now-meta {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.8em;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  color: var(--dim);
+}
+
 .dj-scr-add {
   border-radius: 0.5em;
   background: rgba(246, 241, 231, 0.08);
@@ -512,21 +654,45 @@
 
 /* Au doigt, des cibles plus grandes */
 @media (hover: none) {
-  .dj-scr-load {
-    min-height: 3em;
+  .dj-scr-keys {
+    display: none;
+  }
+
+  /*
+   * Au doigt (relecture du 2026-10-08, 44 px au moins au telephone, ou
+   * l'ecran fait 313 x 226 px) : le retour devient une touche compacte sur
+   * la ligne des sources, la longue ligne du morceau s'efface (l'ecran de
+   * la platine la montre au retour) ; sources, recherche, ajouts et
+   * morceaux a 44 px.
+   */
+  .dj-scr-now-full {
+    display: none;
+  }
+
+  .dj-scr-now-compact {
+    display: inline-flex;
+    min-height: 4.4em;
+    padding: 0 0.6em 0 0.35em;
+  }
+
+  .dj-scr-head[data-held='1'] {
+    margin-top: 0;
   }
 
   .dj-scr-tab,
-  .dj-scr-keys,
   .dj-scr-done,
   .dj-scr-add,
   .dj-scr-folder,
   .dj-scr-forget {
-    min-height: 2.4em;
+    min-height: 4.3em;
   }
 
-  .dj-scr-keys {
-    display: none;
+  .dj-scr-search {
+    min-height: 3.6em;
+  }
+
+  .dj-scr-load {
+    min-height: 4.1em;
   }
 }
 

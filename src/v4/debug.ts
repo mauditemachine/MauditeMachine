@@ -212,6 +212,8 @@ export interface V4Debug {
     readonly state: DjModules['djState'] | null;
     view: typeof djView;
     readonly engine: DjModules['djEngineIfAny'] | null;
+    /** SYNC (2026-10-08) : l'ecart de phase de chaque platine calee avec sa reference (ms, positif : en retard ; null sans reference) */
+    readonly phaseErrMs: Record<'a' | 'b' | 'c' | 'd', number | null> | null;
   };
   /** Le sampler d'une platine (2026-10-07 ; null tant que le code du MM-DECKS n'est pas arrive) */
   sampler(d: 'a' | 'b' | 'c' | 'd'): ReturnType<DjModules['samplerOf']> | null;
@@ -384,6 +386,9 @@ export function installDebug(src: DebugSource): () => void {
       view: djView,
       get engine() {
         return djLoad.get()?.djEngineIfAny ?? null;
+      },
+      get phaseErrMs() {
+        return djLoad.get()?.djEngineIfAny()?.sync.errMs ?? null;
       },
     },
     sampler: (d) => djLoad.get()?.samplerOf(d) ?? null,

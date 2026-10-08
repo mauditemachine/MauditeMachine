@@ -33,7 +33,7 @@ import { gesture } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { focus } from '../state/focus';
 import { intro } from '../state/intro';
-import { djLoad } from './actions';
+import { djLoad, djPosition } from './actions';
 import { djBrowser } from './browser';
 import {
   addFiles,
@@ -74,6 +74,8 @@ import { DECK, DJ_BEZEL, DJ_DECKS, UNIT_X, djDecks, type DjDeck } from './theme'
 import './dj.css';
 
 const ROWS = 200;
+/** Le second appui qui pose un morceau sur une platine qui joue (TrackBrowser load) */
+const SURE_LOAD_MS = 3000;
 
 /** La caisse, relue a chaque changement ; null tant qu'elle n'est pas lue. */
 function useCrate(on: boolean): DjTrack[] | null {
@@ -240,6 +242,68 @@ const DOWN = 'M2.5 4.5 L6 8 L9.5 4.5';
 const MINUS = 'M2.5 6 H9.5';
 const PLUS = 'M2.5 6 H9.5 M6 2.5 V9.5';
 const FOLDER_ICON = 'M1.5 3 H4.5 L5.5 4 H10.5 V9.5 H1.5 Z';
+/** le retour au morceau (une fleche qui revient) : l'ecran de la platine dit "< TRACKS" pour l'aller, la liste ne reprend pas le meme chevron */
+const RETURN_ICON = 'M4.5 2 L2 4.5 L4.5 7 M2 4.5 H7.5 A2.5 2.5 0 0 1 7.5 9.5 H5';
+
+const clockOf = (s: number): string => {
+  const t = Math.max(0, Math.floor(s));
+  return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+};
+
+/**
+ * Le morceau de la platine, pendant qu'on choisit le suivant (2026-10-08,
+ * BACK) : il continue de jouer, la ligne le dit (en jaune quand il joue),
+ * avec son tempo et son temps restant ; le toucher ramene au morceau. Elle
+ * est le retour (relecture du 2026-10-08) : la lettre de la platine et la
+ * fleche qui revient, sur la premiere ligne ; la touche "< A" et DONE, qui
+ * faisaient la meme chose, laissent la ligne du dessous aux sources.
+ */
+const NowPlaying: React.FC<{ deck: DjDeck; compact?: boolean }> = ({ deck, compact = false }) => {
+  const dj = useSyncExternalStore(djState.subscribe, djState.get, djState.get);
+  const ds = dj.deck[deck];
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!ds.playing) return undefined;
+    const id = window.setInterval(() => tick((n) => n + 1), 500);
+    return () => window.clearInterval(id);
+  }, [ds.playing]);
+  const t = ds.track;
+  if (!t) return null;
+  const bpm = t.bpm ? (t.bpm * (1 + (ds.pitch * ds.range) / 100)).toFixed(2) : '--.--';
+  const state = ds.loading !== null ? 'LOADING' : ds.playing ? 'PLAYING' : 'PAUSED';
+  const left = ds.loaded ? `-${clockOf((t.duration || 0) - djPosition(deck))}` : '';
+  const label = `Back to deck ${deck.toUpperCase()}, ${state.toLowerCase()}: ${t.title}`;
+  // Au doigt (relecture du 2026-10-08) : la touche compacte tient sur la ligne des sources, 44 px de haut, la liste garde sa place
+  if (compact)
+    return (
+      <button type="button" className="dj-scr-now dj-scr-now-compact" data-state={state.toLowerCase()} onClick={() => djBrowser.close(deck)} aria-label={label}>
+        <span className="dj-scr-now-back" aria-hidden="true">
+          <Icon d={RETURN_ICON} />
+          <span className="dj-scr-now-deck">{deck.toUpperCase()}</span>
+        </span>
+        <span className="dj-scr-now-dot" aria-hidden="true" />
+        {left ? <span className="dj-scr-now-meta">{left}</span> : null}
+      </button>
+    );
+  return (
+    <button type="button" className="dj-scr-now dj-scr-now-full" data-state={state.toLowerCase()} onClick={() => djBrowser.close(deck)} aria-label={label} title="Back to the deck">
+      <span className="dj-scr-now-back" aria-hidden="true">
+        <Icon d={RETURN_ICON} />
+        <span className="dj-scr-now-deck">{deck.toUpperCase()}</span>
+      </span>
+      <span className="dj-scr-now-dot" aria-hidden="true" />
+      <span className="dj-scr-now-state">{state}</span>
+      <span className="dj-scr-now-title">
+        {t.title}
+        {t.artist ? <span className="dj-scr-now-artist">{t.artist}</span> : null}
+      </span>
+      <span className="dj-scr-now-meta">
+        <span>{bpm}</span>
+        {left ? <span>{left}</span> : null}
+      </span>
+    </button>
+  );
+};
 
 const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
   const dj = useSyncExternalStore(djState.subscribe, djState.get, djState.get);
@@ -250,6 +314,7 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
     setTabState(t);
     saveTab(t);
     setAdding(null);
+    setLoadSure(null);
   };
   const mine = useCrate(true) ?? [];
   const lists = useLists();
@@ -271,6 +336,48 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
   const [naming, setNaming] = useState<{ id: string | null; name: string } | null>(null);
   const [roots, setRoots] = useState<{ name: string; granted: boolean }[]>([]);
   const pick = useRef<HTMLInputElement>(null);
+  /*
+   * Le clic fantome du telephone (2026-10-08) : la liste s'ouvre sous le
+   * doigt (BACK, ou l'ecran touche), et le clic que le navigateur envoie
+   * apres le toucher tombait sur ce qui vient d'apparaitre au meme endroit
+   * (le retour au morceau, une source, un morceau). Pendant 500 ms, seul un
+   * clic commence dans la liste compte.
+   */
+  const openedAt = useRef(performance.now());
+  const downInside = useRef(false);
+  /*
+   * Les sources debordent (relecture du 2026-10-08 : FILES et PLAYLISTS
+   * restaient hors champ, sans indice) : un fondu au bord ou il en reste,
+   * et la molette les fait defiler.
+   */
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const [tabsMore, setTabsMore] = useState<string | undefined>(undefined);
+  const measureTabs = (): void => {
+    const el = tabsRef.current;
+    if (!el) return;
+    const left = el.scrollLeft > 2;
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+    const next = left && right ? 'both' : left ? 'left' : right ? 'right' : undefined;
+    setTabsMore((m) => (m === next ? m : next));
+  };
+  useEffect(() => {
+    const el = tabsRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(measureTabs);
+    ro.observe(el);
+    measureTabs();
+    return () => ro.disconnect();
+  });
+  /*
+   * Une platine qui joue ne se coupe pas d'un toucher de travers
+   * (relecture du 2026-10-08 : BACK ouvre la liste en pleine lecture, et
+   * choisir un morceau arrete la platine tout de suite) : le premier appui
+   * sur un morceau arme le chargement (la ligne le dit), le second, dans
+   * SURE_LOAD_MS, le pose. Comme REMOVE DECK.
+   */
+  const [loadSure, setLoadSure] = useState<string | null>(null);
+  const sureTimer = useRef(0);
+  useEffect(() => () => window.clearTimeout(sureTimer.current), []);
   const pickDir = useRef<HTMLInputElement>(null);
   const setPath = (p: string): void => {
     setPathState(p);
@@ -399,9 +506,17 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
     return src.slice(0, ROWS);
   }, [tab, list, mine, query, here, listItems]);
 
-  /** Un morceau choisi : il part sur cette platine, l'ecran revient au morceau. */
-  const load = (t: DjTrack): void => {
+  /** Un morceau choisi : il part sur cette platine, l'ecran revient au morceau. sure : sans demander, meme si la platine joue. */
+  const load = (t: DjTrack, sure = false): void => {
     gesture();
+    if (!sure && djState.get().deck[deck].playing && loadSure !== t.id) {
+      setLoadSure(t.id);
+      window.clearTimeout(sureTimer.current);
+      sureTimer.current = window.setTimeout(() => setLoadSure(null), SURE_LOAD_MS);
+      return;
+    }
+    window.clearTimeout(sureTimer.current);
+    setLoadSure(null);
     void djLoad(deck, t);
     djBrowser.close(deck);
   };
@@ -425,7 +540,7 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
         const p = waitingFor.current;
         waitingFor.current = null;
         if (!r || !p) return;
-        if (await crateFile(p.id).catch(() => null)) load({ ...p, relink: undefined });
+        if (await crateFile(p.id).catch(() => null)) load({ ...p, relink: undefined }, true);
         else flash('THIS TRACK IS NOT IN THAT FOLDER');
       })
       .finally(() => {
@@ -446,7 +561,7 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
     if (p) {
       waitingFor.current = null;
       const hit = sounds.find((x) => fingerprint(x.file) === p.id);
-      if (hit) load({ ...p, file: hit.file, relink: undefined });
+      if (hit) load({ ...p, file: hit.file, relink: undefined }, true);
       else flash('THIS TRACK IS NOT IN THAT FOLDER');
       const left = await storageLeft();
       await run(sounds, left === null || left > bytes * 1.1 ? 'copy' : 'visit');
@@ -532,7 +647,7 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
       const p = waitingFor.current;
       if (ds.length > 0 && p && (await crateFile(p.id).catch(() => null))) {
         waitingFor.current = null;
-        load({ ...p, relink: undefined });
+        load({ ...p, relink: undefined }, true);
       }
       setWork(null);
       void crateRoots().then(setRoots);
@@ -574,6 +689,8 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
   };
 
   const loadedId = dj.deck[deck].track?.id ?? null;
+  /** la platine tient un morceau : BACK ramene a lui, la ligne du dessous le montre */
+  const held = dj.deck[deck].track !== null;
   /** MY SC sans connexion : le bouton prend la place de la liste */
   const gate = tab === 'mysc' && !me;
   const locked = roots.filter((r) => !r.granted);
@@ -586,6 +703,14 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
       data-drop={drop ? '1' : '0'}
       role="region"
       aria-label={`Deck ${deck.toUpperCase()} track browser`}
+      onPointerDownCapture={() => {
+        downInside.current = true;
+      }}
+      onClickCapture={(e) => {
+        if (downInside.current || performance.now() - openedAt.current > 500) return;
+        e.preventDefault();
+        e.stopPropagation();
+      }}
       onDragOver={(e) => {
         e.preventDefault();
         setDrop(true);
@@ -597,9 +722,23 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
         onDrop(e.dataTransfer.items);
       }}
     >
-      <div className="dj-scr-head">
-        <span className="dj-scr-deck">{deck.toUpperCase()}</span>
-        <div className="dj-scr-tabs" role="tablist">
+      {/* BACK (2026-10-08) : la platine tient un morceau, sa ligne vient en premier et ramene a lui */}
+      {held && <NowPlaying deck={deck} />}
+      <div className="dj-scr-head" data-held={held ? '1' : undefined}>
+        {held ? <NowPlaying deck={deck} compact /> : <span className="dj-scr-deck">{deck.toUpperCase()}</span>}
+        <div
+          ref={tabsRef}
+          className="dj-scr-tabs"
+          role="tablist"
+          data-more={tabsMore}
+          onScroll={measureTabs}
+          onWheel={(e) => {
+            // La molette fait defiler les sources (sans Maj)
+            const el = e.currentTarget;
+            if (el.scrollWidth <= el.clientWidth || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+            el.scrollLeft += e.deltaY;
+          }}
+        >
           {TABS.filter((t) => t === 'files' || t === 'lists' || !scOff).map((t) => (
             <button key={t} type="button" role="tab" aria-selected={tab === t} className="dj-scr-tab" onClick={() => setTab(t)}>
               {t === 'files' && mine.length ? `${TAB_LABEL.files} ${mine.length}` : t === 'lists' && lists.length ? `${TAB_LABEL.lists} ${lists.length}` : TAB_LABEL[t]}
@@ -609,9 +748,11 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
         <button type="button" className="dj-scr-keys" aria-pressed={legend} onClick={() => setLegend(!legend)}>
           KEYS
         </button>
-        <button type="button" className="dj-scr-done" onClick={() => djBrowser.close(deck)}>
-          DONE
-        </button>
+        {!held && (
+          <button type="button" className="dj-scr-done" onClick={() => djBrowser.close(deck)}>
+            DONE
+          </button>
+        )}
       </div>
       <div className="dj-scr-tools">
         {naming ? (
@@ -855,20 +996,30 @@ const DeckBrowser: React.FC<DeckProps> = ({ deck, setRoot }) => {
           // Un morceau d'une visite passee se touche aussi : on retrouve son dossier
           const off = t.unreadable;
           return (
-            <li key={t.id} className="dj-scr-row" data-relink={t.relink ? '1' : undefined} aria-current={t.id === loadedId ? 'true' : undefined}>
+            <li key={t.id} className="dj-scr-row" data-relink={t.relink ? '1' : undefined} data-sure={loadSure === t.id ? '1' : undefined} aria-current={t.id === loadedId ? 'true' : undefined}>
               <button
                 type="button"
                 className="dj-scr-load"
                 disabled={off}
-                aria-label={t.relink ? `Find the folder of ${t.title}, then load it on deck ${deck.toUpperCase()}` : `Load ${t.title} on deck ${deck.toUpperCase()}`}
+                aria-label={
+                  t.relink
+                    ? `Find the folder of ${t.title}, then load it on deck ${deck.toUpperCase()}`
+                    : loadSure === t.id
+                      ? `Deck ${deck.toUpperCase()} is playing: press again to load ${t.title}`
+                      : `Load ${t.title} on deck ${deck.toUpperCase()}`
+                }
                 onClick={() => (t.relink ? findFolder(t) : load(t))}
               >
                 <span className="dj-scr-names">
                   <span className="dj-scr-name">{t.title}</span>
-                  <span className="dj-scr-artist">
-                    {t.unreadable ? (t.artist === 'No longer in FILES' ? t.artist : 'Unreadable file') : t.relink ? 'Tap, then pick its folder again' : t.artist}
-                    {tab === 'files' && query.trim() && t.folder ? `  /  ${t.folder}` : ''}
-                  </span>
+                  {loadSure === t.id ? (
+                    <span className="dj-scr-artist dj-scr-sure">DECK {deck.toUpperCase()} IS PLAYING: TAP AGAIN TO LOAD</span>
+                  ) : (
+                    <span className="dj-scr-artist">
+                      {t.unreadable ? (t.artist === 'No longer in FILES' ? t.artist : 'Unreadable file') : t.relink ? 'Tap, then pick its folder again' : t.artist}
+                      {tab === 'files' && query.trim() && t.folder ? `  /  ${t.folder}` : ''}
+                    </span>
+                  )}
                 </span>
                 <span className="dj-scr-meta">
                   <span className="dj-scr-bpm">{t.bpm ? t.bpm.toFixed(0) : '--'}</span>
