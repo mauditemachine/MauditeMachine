@@ -99,8 +99,12 @@ function engine(): DjEngine | null {
   // La memoire du MIXER (2026-10-07) : REC MIX d'une platine y prend les temps qui viennent de passer
   void startRing();
   watchMachines();
+  // Seulement quand la piste du site PART (2026-10-08) : le pont emet aussi pendant qu'elle joue (la progression)
+  let scWas = sc.get().status;
   sc.subscribe(() => {
-    if (sc.get().status === 'playing') djPauseAll();
+    const now = sc.get().status;
+    if (now === 'playing' && scWas !== 'playing') djPauseAll();
+    scWas = now;
   });
   return e;
 }

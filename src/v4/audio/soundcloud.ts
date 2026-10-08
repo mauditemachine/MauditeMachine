@@ -71,6 +71,9 @@ let pending = false;
 let playGen = 0;
 let pendingTimer = 0;
 const counters = { requests: 0, starts: 0, autoStops: 0, runPauses: 0, noSignal: 0 };
+/** pauseForRun : l'instant de la derniere pause demandee (oubliee quand le moteur la confirme, ou apres 1,5 s) */
+let pausingAt = -Infinity;
+const PAUSE_WAIT_MS = 1500;
 const listeners = new Set<() => void>();
 
 function derive(): void {
@@ -179,6 +182,10 @@ export const sc = {
   pauseForRun(): boolean {
     const e = simEngine ?? engine;
     if (!e || !snap.current || !snap.playing) return false;
+    // Une pause deja demandee, pas encore vue par React (2026-10-08) : deux appels coup sur coup (PLAY A puis
+    // PLAY B) basculaient deux fois, la piste du site repartait et coupait les platines
+    if (performance.now() - pausingAt < PAUSE_WAIT_MS) return false;
+    pausingAt = performance.now();
     counters.runPauses += 1;
     e.toggle();
     return true;
@@ -188,6 +195,7 @@ export const sc = {
   sync(n: EngineSnapshot): void {
     const prev = snap;
     snap = n;
+    if (!n.playing) pausingAt = -Infinity;
     const id = n.current?.id ?? null;
     // Nouvelle piste courante (clic, file qui avance, lien mort saute) : on
     // l'attend, 8 s pour chacune
