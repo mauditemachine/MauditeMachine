@@ -87,7 +87,7 @@
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
 import { clock } from '../audio/clock';
 import { mix } from '../audio/drums';
-import { familyOf, kit } from '../audio/kit';
+import { KIT_MODEL_LABEL, familyOf, kit, type KitFamily } from '../audio/kit';
 import { INSTRUMENTS, STEP_COUNT, VEL_BARS, pattern, velocity } from '../audio/pattern';
 import { lockMask, lockOf, type StepLock } from '../audio/locks';
 import { lockList, lockPages, lockSummary, type LockLine } from '../actions';
@@ -139,6 +139,8 @@ export interface ScreenInfo {
   panel: string[];
   /** le pied hors LOCK : le message, les verrous du pas qui joue, l'aide (telephone), les onglets ; '' rien */
   footText: string;
+  /** les deux couches de la voix au pied de SRC et SMPL (R3) : SYN 909 0 | SMP BLUEPRINT 127 ; '' ailleurs */
+  layers: string;
 }
 
 /** Au plus un redessin tous les 60 ms (un potard tourne a la cadence du pointeur). */
@@ -329,7 +331,7 @@ export class Screen {
     const H = Math.round((W * UH) / UW);
     this.scale = W / UW;
     this.bt = mobile ? BLOCK_TYPE.phone : BLOCK_TYPE.desk;
-    this.info = { draws: 0, text: ['', '', ''], lastDrawAt: -Infinity, minGapMs: Infinity, font: 'vector op-1', size: [W, H], view: 'home', page: rytmPage.get().page, blocks: [], echo: -1, lock: -1, flash: [], strip: '', foot: [], panel: [], footText: '' };
+    this.info = { draws: 0, text: ['', '', ''], lastDrawAt: -Infinity, minGapMs: Infinity, font: 'vector op-1', size: [W, H], view: 'home', page: rytmPage.get().page, blocks: [], echo: -1, lock: -1, flash: [], strip: '', foot: [], panel: [], footText: '', layers: '' };
     this.canvas = document.createElement('canvas');
     this.canvas.width = W;
     this.canvas.height = H;
@@ -590,6 +592,7 @@ export class Screen {
     this.info.foot = [];
     this.info.panel = [];
     this.info.footText = '';
+    this.info.layers = '';
     if (s.keys) this.paintPresets(s);
     else if (paged) this.armEcho(this.paintPage(s, rp, p.instrument, ptn.cur, now, lockStep));
     else {
@@ -1068,7 +1071,7 @@ export class Screen {
       this.paintMatrix(blocks);
       // Les verrous du pas, toutes pages, dans la place que la page laisse vide (revue de R2)
       if (mode) this.paintLockPanel(blocks, mode.step, mode.kind === 'flash' ? mode.lock : undefined);
-      this.info.blocks = blocks.map((b) => `${b.label}=${b.text}:${b.state}${b.lock !== 'none' ? `/${b.lock}` : ''}${b.flash ? '!' : ''}`);
+      this.info.blocks = blocks.map((b) => `${b.label}=${b.text}:${b.state}${b.lock !== 'none' ? `/${b.lock}` : ''}${b.flash ? '!' : ''}${b.quiet ? '~' : ''}`);
       this.info.flash = blocks.filter((b) => b.flash).map((b) => b.k);
       const echo = blocks.find((b) => b.echo);
       if (echo && rp.echo) {
@@ -1290,7 +1293,8 @@ export class Screen {
     const by = M.rows[b.k >> 2];
     const alive = b.state === 'live';
     const neg = alive && (b.lock === 'locked' || b.flash);
-    const alpha = b.lock === 'base' ? 0.6 : b.lock === 'global' || b.lock === 'nolock' ? 0.32 : 1;
+    // Une couche qui ne joue pas (R3) : ses blocs en retrait, lisibles (LEVEL ou SAMPLE la rallument)
+    const alpha = b.lock === 'base' ? (b.quiet ? 0.4 : 0.6) : b.lock === 'global' || b.lock === 'nolock' ? 0.32 : b.quiet ? 0.42 : 1;
     if (neg) {
       this.roundRect(bx + 0.5, by + 0.5, M.w - 1, M.h - 1, M.r, INK);
       // Le bloc tourne reste cerne : un filet dehors
@@ -1305,7 +1309,7 @@ export class Screen {
     const T = this.bt;
     // Le nom ; au desktop la lettre du potard au bout (au telephone elle est imprimee a cote du potard) ; un cadenas en negatif
     const lockW = neg ? 7 : 0;
-    const nameW = M.w - 2 * B.padX - (T.letters ? 8 : 0) - lockW;
+    const nameW = M.w - 2 * B.padX - (T.letters ? 8 : 0) - lockW - (b.tag === 'BOTH' && !T.letters ? 10 : 0);
     this.text(this.fitText(b.label, nameW, T.nameSize, 0.7, 700), bx + B.padX, by + T.nameDy, T.nameSize, alive ? P.half : P.faint, 700, 'left', 0.7);
     if (T.letters) this.text(PAGE_KNOB_LETTERS[b.k], bx + M.w - B.padX, by + T.nameDy, T.letterSize, neg ? P.half : b.echo ? HALF : FAINT, 700, 'right');
     if (neg) this.padlock(bx + M.w - B.padX - (T.letters ? 8 : 0) - 5.5, by + T.nameDy + 0.2, this.mobile ? 6 : 4.6, P.ink);
@@ -1318,7 +1322,11 @@ export class Screen {
     const v = this.fitValue(b.text, stepped ? M.w - 2 * B.padX : B.valueW);
     this.text(v.text, bx + B.padX, by + T.valueDy, v.size, P.ink, neg ? 400 : 300);
     // La ligne d'unite, et l'etiquette au bout : NO BD, ALL, la voix (la rangee du haut de FX) ; en LOCK GLOBAL, NO LOCK
-    const tag = b.tag;
+    // BOTH (R3, les deux couches) au telephone : en haut a droite, ou la lettre du potard n'est pas (sur la ligne
+    // d'unite il touchait l'arc du petit potard)
+    const tagTop = b.tag === 'BOTH' && !T.letters;
+    if (tagTop) this.layersGlyph(bx + M.w - B.padX, by + T.nameDy, P.half);
+    const tag = tagTop ? '' : b.tag;
     const tw = tag ? this.text(tag, bx + M.w - B.padX, by + T.unitDy, T.unitSize, b.noBd || b.all ? P.faint : P.half, 700, 'right', 0.5) + 4 : 0;
     const notchRow = stepped && T.notchRow;
     const unitW = M.w - 2 * B.padX - tw - (notchRow ? 26 : 0);
@@ -1364,6 +1372,18 @@ export class Screen {
       default:
         this.drawArc(r, b.course, b.draw === 'barc' || b.bipolar);
     }
+  }
+
+  /**
+   * Deux couches (R3, au telephone a la place de BOTH, qui ne tient pas a cote
+   * du nom) : deux petites plaques decalees, l'une pleine ; x : le bord droit,
+   * y : la ligne du nom.
+   */
+  private layersGlyph(x: number, y: number, color: string): void {
+    const w = 6.2;
+    const h = 4.4;
+    this.roundRect(x - w - 2.4, y - h - 3.6, w, h, 1, null, color, 0.9);
+    this.roundRect(x - w, y - h - 1.2, w, h, 1, color);
   }
 
   /** Un interrupteur (un reglage a deux crans, GATE) : une pastille, son bouton a gauche (OFF) ou plein a droite (ON). */
@@ -1523,6 +1543,13 @@ export class Screen {
       return 0;
     }
     if (this.paintMode(x0, x1, y, fs + 0.5, this.mobile ? 7.5 : 6.5)) return 0;
+    // SRC et SMPL (R3) : les deux couches de la voix, ce qui joue et a quel niveau (le telephone garde le pas qui joue)
+    const inst = pattern.get().instrument;
+    const famL = inst ? familyOf(inst as ShotId) : null;
+    if ((page === 'src' || page === 'smpl') && famL && !(this.mobile && flash && flash.lock)) {
+      this.paintLayers(famL, page, x0, x1, y, fs);
+      return 0;
+    }
     // Le pas verrouille qui joue (revue de R2) : ses pages (desktop, un point sur leur onglet) ; au telephone ses
     // verrous ecrits, toutes pages (la page affichee n'en montre peut-etre aucun)
     const fl = flash ? lockList(flash.step, flash.lock) : [];
@@ -1555,6 +1582,40 @@ export class Screen {
     });
     if (flashPages.size > 0) this.info.footText = `TABS ${[...flashPages].join(' ')}`;
     return 0;
+  }
+
+  /**
+   * Les deux couches de la voix (2026-10-08, l'etape R3, Mika : "comme la
+   * ANALOG Rytm ou on peut mettre des samples mais le kick peut etre parametre
+   * comme une machine") : SYN et sa MACHINE, SMP et son sample, chacune son
+   * niveau (une barre et 0 a 127, OFF) ; la couche de la page affichee en
+   * pastille. Une couche muette s'ecrit a peine.
+   */
+  private paintLayers(f: KitFamily, page: RytmPageId, x0: number, x1: number, y: number, fs: number): void {
+    const g = kit.get();
+    const l = g.layer[f];
+    const smp = g.sample[f];
+    const mid = (x0 + x1) / 2;
+    const ts = fs * 0.78;
+    const half = (tag: string, name: string, lev: number, on: boolean, hot: boolean, a: number, b: number): string => {
+      // La pastille de la couche : pleine sur sa page
+      const tw = this.textWidth(tag, ts, 700, 0.6) + 6;
+      this.roundRect(a, y - ts - 1.4, tw, ts + 3.6, 1.8, hot ? INK : null, hot ? null : on ? HALF : FAINT, 0.7);
+      this.text(tag, a + tw / 2, y, ts, hot ? BLACK : on ? HALF : FAINT, 700, 'center', 0.6);
+      // Son niveau en nombre (le bloc LEVEL de sa page le dessine) : la place va au nom
+      const num = on ? v127Text(lev) : 'OFF';
+      const nw = this.text(num, b, y, fs, on ? INK : FAINT, 600, 'right');
+      const room = b - nw - 4 - (a + tw + 3);
+      const nm = this.fitText(name, Math.max(6, room), fs, 0.4, 600);
+      this.text(nm, a + tw + 3, y, fs, on ? INK : FAINT, 600, 'left', 0.4);
+      return `${tag} ${name} ${num}`;
+    };
+    const synOn = l.syn > 0;
+    const smpOn = !!smp && l.lev > 0;
+    const left = half('SYN', KIT_MODEL_LABEL[g.model[f]], l.syn, synOn, page === 'src', x0, mid - 4);
+    const right = half('SMP', smp ? kit.sampleLabel(f) : 'OFF', l.lev, smpOn, page === 'smpl', mid + 4, x1);
+    this.info.layers = `${left} | ${right}`;
+    this.info.footText = 'LAYERS';
   }
 
   /** Les verrous du pas qui joue sur une ligne : autant qu'il en tient, puis combien il en reste (+2). */

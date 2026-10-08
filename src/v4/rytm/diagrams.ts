@@ -46,8 +46,8 @@
 
 import type { BassDiagram } from '../bass/diagrams';
 import { BPM, VEL_GAIN } from '../audio/pattern';
-import { sampleDecayPart, sampleTuneSt } from '../audio/sampledsp';
-import { SHOT_BELOW, kickDecayS, kickHz, type KitModel } from '../audio/shotsdsp';
+import { sampleLenPart } from '../audio/sampledsp';
+import { KICK_SWEEP, SD_BODY_HZ, SD_DECAY_S, SD_TONE_HZ, SHOT_BELOW, kickDecayS, kickHz, sdDecayFactor, sdToneFactor, sdTuneFactor, sweepDepth, type KitModel } from '../audio/shotsdsp';
 import { timeFactor } from '../audio/time';
 import { toneHpHz, toneLpHz, toneSemitones } from '../audio/tone';
 import { DECAY_HOLD_S, decayTau, voiceGain } from '../audio/voicefx';
@@ -128,7 +128,10 @@ export type RytmSoonId = (typeof RYTM_SOON_IDS)[number];
  * peut mettre des samples mais le kick peut etre parametre comme une
  * machine") : la couche SYNTH (MACHINE, SYNTH LEVEL, SWEEP, et ce que la
  * caisse claire de synthese gagne : TUNE, DECAY, TONE) et la couche SAMPLE
- * (TUNE, FINE, END, LEVEL, REVERSE ; START existe deja, vstart).
+ * (TUNE, FINE, LEN (r3:send), LEVEL, REV ; START de la couche : vstart).
+ * Branches depuis R3 (avail live) ; leurs cibles dans actions.ts : l:mach,
+ * l:syn, r:sweep, r:sdtune, r:sddecay, r:sdtone, l:tune, l:fine, l:len,
+ * l:lev, l:rev (TARGET_INFO), l:start (vstart).
  */
 export const RYTM_R3_IDS = ['r3:machine', 'r3:synlevel', 'r3:sweep', 'r3:sdtune', 'r3:sddecay', 'r3:sdtone', 'r3:stune', 'r3:sfine', 'r3:send', 'r3:smplevel', 'r3:reverse'] as const;
 export type RytmR3Id = (typeof RYTM_R3_IDS)[number];
@@ -172,7 +175,8 @@ export const isRytmInfoId = (s: unknown): s is RytmInfoId => typeof s === 'strin
 
 /** Ce qui existe deja (live), ce qui viendra (soon : l'etude ; r3 : les couches SYNTH et SAMPLE). */
 export type RytmInfoAvail = 'live' | 'soon' | 'r3';
-export const rytmAvail = (id: RytmInfoId): RytmInfoAvail => (id.startsWith('soon:') ? 'soon' : id.startsWith('r3:') ? 'r3' : 'live');
+// Les couches de R3 sont branchees (2026-10-08) : leurs cartes sont vivantes
+export const rytmAvail = (id: RytmInfoId): RytmInfoAvail => (id.startsWith('soon:') ? 'soon' : 'live');
 
 /** Les familles de sons (audio/kit.ts familyOf) ; cy : la cymbale, un seul son. */
 export type RytmVoiceGroup = 'bd' | 'sd' | 'hh' | 'cp' | 'tom' | 'cy';
@@ -195,20 +199,21 @@ export interface RytmSlot {
 
 const s = (id: RytmInfoId, label: string): RytmSlot => ({ id, label });
 
-const TRIG: readonly (RytmSlot | null)[] = [s('step:vel', 'VEL'), s('soon:prob', 'PROB'), s('soon:micro', 'MICRO'), s('soon:cond', 'COND'), s('soon:rtrg', 'RTRG'), s('soon:rtim', 'RTIM'), null, s('swing', 'SWING')];
-/** SMPL dans l'ordre de l'Analog Rytm : TUNE FINE BR SAMPLE, START END LOOP LEVEL (TUNE, FINE, END, LEVEL : la couche SAMPLE de R3). */
-const SMPL: readonly (RytmSlot | null)[] = [s('r3:stune', 'TUNE'), s('r3:sfine', 'FINE'), s('soon:br', 'BR'), s('smpl:sample', 'SAMPLE'), s('vstart', 'START'), s('r3:send', 'END'), s('soon:loop', 'LOOP'), s('r3:smplevel', 'LEVEL')];
+/** TRIG ; STRETCH (toute la machine) y est depuis R3, a cote de SWING. */
+const TRIG: readonly (RytmSlot | null)[] = [s('step:vel', 'VEL'), s('soon:prob', 'PROB'), s('soon:micro', 'MICRO'), s('soon:cond', 'COND'), s('soon:rtrg', 'RTRG'), s('soon:rtim', 'RTIM'), s('stretch', 'STRETCH'), s('swing', 'SWING')];
+/** SMPL, la couche SAMPLE (R3, rytm/pages.ts) : TUNE FINE REV SAMPLE, START LEN (LOOP) LEVEL. */
+const SMPL: readonly (RytmSlot | null)[] = [s('r3:stune', 'TUNE'), s('r3:sfine', 'FINE'), s('r3:reverse', 'REV'), s('smpl:sample', 'SAMPLE'), s('vstart', 'START'), s('r3:send', 'LEN'), s('soon:loop', 'LOOP'), s('r3:smplevel', 'LEVEL')];
 const FLTR: readonly (RytmSlot | null)[] = [s('soon:fatk', 'ATK'), s('soon:fdec', 'DEC'), null, null, s('tone', 'TONE'), s('soon:reso', 'RESO'), s('soon:ftype', 'TYPE'), s('soon:fenv', 'ENV')];
 const AMP: readonly (RytmSlot | null)[] = [s('soon:attack', 'ATK'), s('soon:hold', 'HOLD'), s('vdecay', 'DEC'), null, null, null, s('vpan', 'PAN'), s('vol', 'VOL')];
 /** En haut les effets de la voix, dessous ceux de tout le MM-RYTM (sauf le kick), colonne par colonne. */
 const FX: readonly (RytmSlot | null)[] = [s('vdist', 'DIST'), s('vchorus', 'CHORUS'), s('vdelay', 'DELAY'), s('vreverb', 'REVERB'), s('dist', 'DIST'), s('chorus', 'CHORUS'), s('delay', 'DELAY'), s('reverb', 'REVERB')];
 
-/** SRC C a F selon la famille de la voix : le KICK ses quatre potards, la caisse claire SNAPPY et GATE, le clap GATE. */
+/** SRC, la couche SYNTH (R3, rytm/pages.ts) : B a G selon la famille de la voix (le kick, la caisse claire, le clap ; les autres le TUNE de la voix). */
 function srcMiddle(g: RytmVoiceGroup | null): readonly (RytmSlot | null)[] {
-  if (g === 'bd') return [s('r:tune', 'K.TUNE'), s('r:attack', 'ATTACK'), s('r:decay', 'DECAY'), s('r:drive', 'DRIVE')];
-  if (g === 'sd') return [s('r:snappy', 'SNAPPY'), s('r:gate', 'GATE'), null, null];
-  if (g === 'cp') return [null, s('r:gate', 'GATE'), null, null];
-  return [null, null, null, null];
+  if (g === 'bd') return [s('r:tune', 'TUNE'), s('r:attack', 'ATTACK'), s('r3:sweep', 'SWEEP'), s('r:decay', 'DECAY'), s('r:drive', 'DRIVE'), null];
+  if (g === 'sd') return [s('r3:sdtune', 'TUNE'), s('r:snappy', 'SNAPPY'), s('r3:sdtone', 'TONE'), s('r3:sddecay', 'DECAY'), s('r:gate', 'GATE'), null];
+  if (g === 'cp') return [s('vtune', 'TUNE'), null, s('r:gate', 'GATE'), null, null, null];
+  return [s('vtune', 'TUNE'), null, null, null, null, null];
 }
 const SRC_CACHE = new Map<string, readonly (RytmSlot | null)[]>();
 function src(v: Inst | null): readonly (RytmSlot | null)[] {
@@ -216,7 +221,7 @@ function src(v: Inst | null): readonly (RytmSlot | null)[] {
   const key = g ?? 'none';
   let out = SRC_CACHE.get(key);
   if (!out) {
-    out = [s('vsound', 'SOUND'), s('vtune', 'TUNE'), ...srcMiddle(g), null, s('stretch', 'STRETCH')];
+    out = [s('r3:machine', 'MACHINE'), ...srcMiddle(g), g && g !== 'cy' ? s('r3:synlevel', 'LEVEL') : null];
     SRC_CACHE.set(key, out);
   }
   return out;
@@ -275,6 +280,22 @@ export interface RytmResolveCtx {
   soon?: boolean;
 }
 
+/** Les cibles de actions.ts (pageTarget) qui ont une carte d'un autre nom : les couches de R3. */
+const TARGET_INFO: Readonly<Record<string, RytmInfoId>> = {
+  'l:mach': 'r3:machine',
+  'l:syn': 'r3:synlevel',
+  'r:sweep': 'r3:sweep',
+  'r:sdtune': 'r3:sdtune',
+  'r:sddecay': 'r3:sddecay',
+  'r:sdtone': 'r3:sdtone',
+  'l:tune': 'r3:stune',
+  'l:fine': 'r3:sfine',
+  'l:start': 'vstart',
+  'l:len': 'r3:send',
+  'l:lev': 'r3:smplevel',
+  'l:rev': 'r3:reverse',
+};
+
 /**
  * L'id de carte d'une commande : un potard de page (p:0 a p:7) donne le
  * reglage qu'il tient sur la page affichee pour la voix choisie (K.TUNE sur
@@ -286,7 +307,8 @@ export function resolveRytmId(id: string, c: RytmResolveCtx = {}): RytmInfoId | 
   if (!m) return isRytmInfoId(id) ? id : null;
   if (c.target !== undefined) {
     if (c.target === null) return 'enc';
-    return isRytmInfoId(c.target) ? c.target : 'enc';
+    const t = TARGET_INFO[c.target] ?? c.target;
+    return isRytmInfoId(t) ? t : 'enc';
   }
   const slot = rytmSlots(c.page ?? 'src', c.voice ?? null)[Number(m[1])];
   if (!slot) return 'enc';
@@ -694,15 +716,9 @@ const drawTune: Draw = (_c, v) => {
   return p.value(st > 0 ? `+${st}` : String(st)).done();
 };
 
-/** K.TUNE : la note du kick (une octave autour de 52 Hz, 49 en 808) ; un echantillon, +/-12 demi-tons. */
+/** TUNE du kick de synthese (SRC B depuis R3) : sa note (une octave autour de 52 Hz, 49 en 808) ; le sample a son TUNE (SMPL A). */
 const drawKickTune: Draw = (c, v) => {
   const p = new Pic();
-  if (c.sample) {
-    const st = sampleTuneSt(v);
-    semitoneScale(p, st, 12);
-    p.label('SAMPLE PITCH', X0, TOP);
-    return p.value(st > 0 ? `+${st} ST` : `${st} ST`).done();
-  }
   const m = c.model ?? '909';
   const lo = 30;
   const hi = 100;
@@ -724,33 +740,12 @@ const drawKickTune: Draw = (c, v) => {
   return p.value(`${Math.round(f)} HZ`).done();
 };
 
-/** DECAY du kick : sa queue e^(-t/tau) (shotsdsp.ts kickDecayS) ; un echantillon, la part gardee et son fondu. */
+/** DECAY du kick de synthese : sa queue e^(-t/tau) (shotsdsp.ts kickDecayS) ; le sample a son LEN (SMPL F, drawSampleLen). */
 const drawKickDecay: Draw = (c, v) => {
   const p = new Pic();
   const sd = stepS(c.bpm);
   const yOf = (a: number): number => Y1 - a * (Y1 - Y0 - 6);
   p.p(seg(X0, Y1, X1, Y1), 'grid');
-  if (c.sample) {
-    const part = sampleDecayPart(v);
-    const span = 1;
-    const tx = (t: number): number => X0 + ((X1 - X0) * t) / span;
-    const file: Pt[] = [];
-    const kept: Pt[] = [];
-    const fade0 = part < 1 ? part * 0.5 : 1;
-    for (let k = 0; k <= 96; k += 1) {
-      const t = (span * k) / 96;
-      const a = Math.exp(-t / 0.3);
-      file.push([tx(t), yOf(a)]);
-      let g = t > part ? 0 : 1;
-      if (t >= fade0 && t <= part) g = 0.5 + 0.5 * Math.cos((Math.PI * (t - fade0)) / Math.max(1e-6, part - fade0));
-      kept.push([tx(t), yOf(a * g)]);
-    }
-    p.p(poly(file), 'ghost');
-    p.p(poly(kept), 'hot');
-    if (part < 1) p.p(seg(tx(part), Y0, tx(part), Y1), 'dash');
-    p.label(`KEEPS ${Math.round(part * 100)}% OF THE FILE`, X0, TOP);
-    return p.done();
-  }
   const m = c.model ?? '909';
   const tau = kickDecayS(m, clamp(v, 0, 1));
   const span = clamp(5 * tau, 0.3, 4);
@@ -961,6 +956,142 @@ const drawStretch: Draw = (_c, v) => {
   p.label('X1', x(base) + 3, Y0 + 6);
   p.label('SAME PITCH', X0, BOT);
   return p.value(`X${f.toFixed(2)}`).done();
+};
+
+/* ---------------- les couches de R3 (2026-10-08) ---------------- */
+
+/** LEVEL d'une couche (SRC H, SMPL H) : le gain v^2, 0 dB a 127 (la couche calee), OFF a 0. */
+const drawLayerLevel: Draw = (c, v) => {
+  const p = new Pic();
+  gainCurve(p, (x) => x * x, v, 6, -30);
+  p.label(c.page === 'smpl' ? 'SAMPLE LAYER' : 'SYNTH LAYER', X0 + 34, TOP);
+  return p.value(v <= 0 ? 'OFF' : dbText(v * v)).done();
+};
+
+/** LEN de la couche SAMPLE : la part du fichier gardee, sa fin en fondu (sampledsp.ts sampleLenPart). */
+const drawSampleLen: Draw = (_c, v) => {
+  const p = new Pic();
+  const yOf = (a: number): number => Y1 - a * (Y1 - Y0 - 6);
+  p.p(seg(X0, Y1, X1, Y1), 'grid');
+  const part = sampleLenPart(v);
+  const tx = (t: number): number => X0 + (X1 - X0) * t;
+  const file: Pt[] = [];
+  const kept: Pt[] = [];
+  const fade0 = part < 1 ? part * 0.5 : 1;
+  for (let k = 0; k <= 96; k += 1) {
+    const t = k / 96;
+    const a = Math.exp(-t / 0.3);
+    file.push([tx(t), yOf(a)]);
+    let g = t > part ? 0 : 1;
+    if (t >= fade0 && t <= part) g = 0.5 + 0.5 * Math.cos((Math.PI * (t - fade0)) / Math.max(1e-6, part - fade0));
+    kept.push([tx(t), yOf(a * g)]);
+  }
+  p.p(poly(file), 'ghost');
+  p.p(poly(kept), 'hot');
+  if (part < 1) p.p(seg(tx(part), Y0, tx(part), Y1), 'dash');
+  p.label(`KEEPS ${Math.round(part * 100)}% OF THE FILE`, X0, TOP);
+  return p.value(part >= 1 ? 'FULL' : `${Math.round(part * 100)}%`).done();
+};
+
+/** FINE de la couche SAMPLE : +/-64 cents, entre deux demi-tons. */
+const drawFine: Draw = (_c, v) => {
+  const p = new Pic();
+  const cents = Math.round(clamp(v, -1, 1) * 64);
+  const y = 72;
+  const xOf = (k: number): number => X0 + ((k + 64) / 128) * (X1 - X0);
+  p.p(seg(X0, y, X1, y), 'grid');
+  for (const k of [-64, -32, 0, 32, 64]) {
+    p.p(seg(xOf(k), y, xOf(k), y - (k === 0 ? 10 : 5)), k === 0 ? 'main' : 'grid');
+    p.label(k > 0 ? `+${k}` : String(k), xOf(k), y + 14, k === -64 ? 'start' : k === 64 ? 'end' : 'middle');
+  }
+  p.p(seg(xOf(cents), 34, xOf(cents), y), 'hot');
+  p.p(dot(xOf(cents), 34, 2.6), 'hot', true);
+  p.label('CENTS (100 = A SEMITONE)', X0, BOT);
+  return p.value(cents > 0 ? `+${cents}` : String(cents)).done();
+};
+
+/** REV de la couche SAMPLE : le fichier a l'endroit ou a l'envers. */
+const drawReverse: Draw = (_c, v) => {
+  const p = new Pic();
+  const on = v >= 0.5;
+  const wave = hitWave(X0, X1, 60, 30);
+  const shown = on ? wave.map(([x, y]) => [X0 + X1 - x, y] as Pt) : wave;
+  p.p(seg(X0, 60, X1, 60), 'grid');
+  p.p(poly(on ? wave : shown.map(([x, y]) => [X0 + X1 - x, y] as Pt)), 'ghost');
+  p.p(poly(shown), 'hot');
+  p.p(arrow(on ? X1 - 20 : X0 + 20, Y0, on ? X0 + 20 : X1 - 20, Y0, 4), 'main');
+  p.label(on ? 'PLAYED BACKWARD' : 'PLAYED FORWARD', X0, BOT);
+  return p.value(on ? 'ON' : 'OFF').done();
+};
+
+/** SWEEP du kick de synthese : sa hauteur dans les 60 premieres ms (la descente, x0 a x2 de celle d'origine). */
+const drawSweep: Draw = (c, v) => {
+  const p = new Pic();
+  const m = c.model ?? '909';
+  const f0 = kickHz(m, c.kit?.tune ?? 0.5);
+  const sw = sweepDepth(clamp(v, 0, 1));
+  const span = 0.06;
+  const fOf = (t: number, k: number): number => {
+    if (m === '909') return f0 * (1 + 3.4 * k * Math.exp(-t / 0.0045) + 0.45 * k * Math.exp(-t / 0.03));
+    if (m === '808') return f0 * (1 + 0.3 * k * Math.exp(-t / 0.01));
+    return (52 + 125 * k * Math.exp(-t / 0.009) + 22 * k * Math.exp(-t / 0.045)) * (f0 / 52);
+  };
+  const top = f0 * (1 + KICK_SWEEP[m] * 2);
+  const yOf = (f: number): number => Y1 - ((Math.log(f) - Math.log(f0 * 0.9)) / (Math.log(top) - Math.log(f0 * 0.9))) * (Y1 - Y0);
+  const tx = (t: number): number => X0 + ((X1 - X0) * t) / span;
+  const curve = (k: number): Pt[] => Array.from({ length: 97 }, (_, i) => [tx((span * i) / 96), yOf(fOf((span * i) / 96, k))] as Pt);
+  p.p(seg(X0, yOf(f0), X1, yOf(f0)), 'dash');
+  p.p(poly(curve(1)), 'ghost');
+  p.p(poly(curve(sw)), 'hot');
+  p.label(`${Math.round(f0)} HZ`, X1, yOf(f0) - 4, 'end');
+  p.label(`${m === 'mm' ? 'MM' : m} KICK PITCH, 60 MS`, X0, TOP);
+  return p.value(`${Math.log2(1 + KICK_SWEEP[m] * sw).toFixed(1)} OCT`).done();
+};
+
+/** TUNE de la caisse claire de synthese : la note de sa peau, +/-12 demi-tons. */
+const drawSdTune: Draw = (c, v) => {
+  const p = new Pic();
+  const m = c.model ?? 'mm';
+  const st = Math.round((clamp(v, 0, 1) - 0.5) * 24);
+  semitoneScale(p, st, 12);
+  p.label(`${m === 'mm' ? 'MM' : m} SNARE HEAD`, X0, TOP);
+  return p.value(hzText(SD_BODY_HZ[m] * sdTuneFactor(clamp(v, 0, 1)))).done();
+};
+
+/** DECAY de la caisse claire de synthese : la tenue de son timbre, x0.42 a x2.4. */
+const drawSdDecay: Draw = (c, v) => {
+  const p = new Pic();
+  const m = c.model ?? 'mm';
+  const tau = SD_DECAY_S[m] * sdDecayFactor(clamp(v, 0, 1));
+  const span = 0.6;
+  const tx = (t: number): number => X0 + ((X1 - X0) * t) / span;
+  const yOf = (a: number): number => Y1 - a * (Y1 - Y0 - 6);
+  const curve = (tt: number): Pt[] => Array.from({ length: 97 }, (_, i) => [tx((span * i) / 96), yOf(Math.exp(-((span * i) / 96) / tt))] as Pt);
+  p.p(seg(X0, Y1, X1, Y1), 'grid');
+  sixteenths(p, stepS(c.bpm), span);
+  p.p(poly(curve(SD_DECAY_S[m])), 'ghost');
+  p.p(poly(curve(tau)), 'hot');
+  p.label(`${m === 'mm' ? 'MM' : m} SNARE WIRES`, X0, TOP);
+  return p.value(durText(3 * tau)).done();
+};
+
+/** TONE de la caisse claire de synthese : le passe-haut de son timbre, +/-1 octave. */
+const drawSdTone: Draw = (c, v) => {
+  const p = new Pic();
+  const m = c.model ?? 'mm';
+  const f = SD_TONE_HZ[m] * sdToneFactor(clamp(v, 0, 1));
+  const lo = 200;
+  const hi = 8000;
+  const xOf = (x: number): number => X0 + ((Math.log(x) - Math.log(lo)) / (Math.log(hi) - Math.log(lo))) * (X1 - X0);
+  const y = 76;
+  p.p(seg(X0, y, X1, y), 'grid');
+  for (const k of [250, 500, 1000, 2000, 4000]) {
+    p.p(seg(xOf(k), y, xOf(k), y + 4), 'grid');
+    p.label(hzText(k), xOf(k), y + 15, 'middle');
+  }
+  p.p(poly([[X0, y - 2], [xOf(f) - 16, y - 2], [xOf(f), 34], [X1, 34]]), 'hot');
+  p.label('WIRES ABOVE', X0, TOP);
+  return p.value(`HP ${hzText(f)}`).done();
 };
 
 /** START : ou le coup part dans son echantillon (au plus 90 %), la partie sautee en retrait. */
@@ -1305,6 +1436,17 @@ const DRAW: Partial<Record<RytmInfoId, Draw>> = {
   'r:hh': drawSounds,
   'r:tom': drawSounds,
   vtune: drawTune,
+  'r3:machine': drawSounds,
+  'r3:synlevel': drawLayerLevel,
+  'r3:smplevel': drawLayerLevel,
+  'r3:sweep': drawSweep,
+  'r3:sdtune': drawSdTune,
+  'r3:sddecay': drawSdDecay,
+  'r3:sdtone': drawSdTone,
+  'r3:stune': drawTune,
+  'r3:sfine': drawFine,
+  'r3:send': drawSampleLen,
+  'r3:reverse': drawReverse,
   'r:tune': drawKickTune,
   'r:decay': drawKickDecay,
   'r:attack': drawKickAttack,
@@ -1332,7 +1474,7 @@ const DRAW: Partial<Record<RytmInfoId, Draw>> = {
 };
 
 /** Les reglages a zero au centre (-1 a 1). */
-const BIPOLAR: ReadonlySet<string> = new Set(['tone', 'stretch', 'vtune', 'vpan']);
+const BIPOLAR: ReadonlySet<string> = new Set(['tone', 'stretch', 'vtune', 'vpan', 'r3:stune', 'r3:sfine']);
 
 /**
  * Le dessin d'une commande (null : elle n'en a pas, ou pas encore : les

@@ -23,11 +23,18 @@
  *   verrouillable : NO LOCK) ;
  * - en lecture hors LOCK, flash : le pas qui joue a un verrou pour ce bloc,
  *   le bloc montre sa valeur verrouillee en negatif le temps du pas.
+ *
+ * Les deux couches (2026-10-08, l'etape R3) : un bloc d'une couche qui ne
+ * joue pas (la couche SYNTH a LEVEL 0, la couche SAMPLE sur OFF ou a 0) est
+ * en retrait (quiet), sauf MACHINE, SAMPLE et les LEVEL (ils la rallument) ;
+ * ATTACK et DRIVE du kick, SNAPPY de la caisse claire, qui reglent les deux
+ * couches, portent BOTH. Le pas verrouille compte : une couche rallumee sur
+ * ce pas n'est pas en retrait.
  */
 
-import { anyDialValue, dialRange, dialSteps, dialUnit, dialValueText, kitIdOf, pageLockView, stepVelocityOf, type DialId } from '../actions';
-import type { StepLock } from '../audio/locks';
-import { familyOf, isFamily, kitSoundIndex, kitSteps } from '../audio/kit';
+import { anyDialValue, dialRange, dialSteps, dialUnit, dialValueText, kitIdOf, layerIdOf, pageLockView, stepVelocityOf, type DialId } from '../actions';
+import { lockOf, parseSnd, type StepLock } from '../audio/locks';
+import { familyOf, isFamily, kit, kitSoundIndex, kitSteps, type KitFamily } from '../audio/kit';
 import { pattern } from '../audio/pattern';
 import type { ShotId } from '../audio/shotsdsp';
 import type { RytmPageState } from '../state/rytmPage';
@@ -72,6 +79,8 @@ export interface Block {
   lock: BlockLock;
   /** en lecture : la valeur verrouillee du pas qui joue */
   flash: boolean;
+  /** sa couche ne joue pas (R3) : en retrait */
+  quiet: boolean;
 }
 
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
@@ -80,12 +89,14 @@ const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
 /** Le bloc d'un emplacement (k : son rang), pour la voix choisie et le pas choisi. */
 export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, sel: number, echo = false, mode: BlockMode | null = null): Block {
   const b = baseBlock(slot, k, inst, sel, echo);
+  if (b.state === 'live' && slot.layer && !slot.level && !slot.both && inst) b.quiet = layerQuiet(slot.layer, inst, mode);
   if (!mode || b.state === 'empty' || b.state === 'soon') return b;
-  // SOUND d'une voix a un seul son (CY) : sans choix de son a elle, mais un son d'une autre famille se verrouille
-  if (b.state === 'off' && inst && slot.lock === 'snd' && slot.target === 'vsound' && (mode.kind === 'lock' || !!mode.lock?.snd)) {
+  // SOUND (R2) ou SAMPLE (R3) d'une voix sans choix de son a elle (CY), ou sans sample a elle : un sample d'une autre
+  // famille se verrouille (le sample lock)
+  if (b.state === 'off' && inst && slot.lock === 'snd' && (slot.target === 'vsound' || slot.target === 'smpl:sample') && (mode.kind === 'lock' || !!mode.lock?.snd)) {
     b.state = 'live';
-    b.text = inst;
-    b.unit = 'OWN';
+    b.text = slot.target === 'vsound' ? inst : 'OFF';
+    b.unit = slot.target === 'vsound' ? 'OWN' : 'LOCK ANY';
     b.notches = 0;
   }
   if (mode.kind === 'lock') {
@@ -127,6 +138,22 @@ export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, sel: num
   return b;
 }
 
+/**
+ * Une couche muette (R3) : la couche SYNTH a 0, la couche SAMPLE sur OFF ou
+ * a 0 ; le pas montre (LOCK, flash) compte avec ses verrous (sa MACHINE n'y
+ * change rien, son LEVEL ou son SAMPLE si).
+ */
+function layerQuiet(layer: 'synth' | 'sample', inst: Inst, mode: BlockMode | null): boolean {
+  const f: KitFamily | null = familyOf(inst as ShotId);
+  if (!f) return layer === 'sample';
+  const l = kit.layerOf(f);
+  const lk = mode ? (mode.kind === 'lock' ? lockOf(pattern.get().locks, inst, mode.step) : mode.lock) : null;
+  if (layer === 'synth') return (lk?.syn ?? l.syn) <= 0;
+  const p = lk?.snd ? parseSnd(lk.snd) : null;
+  const on = p ? p.sound !== 'off' : !!kit.get().sample[f];
+  return !on || (lk?.slev ?? l.lev) <= 0;
+}
+
 /** Le bloc d'un emplacement, valeurs de la voix (hors verrous). */
 function baseBlock(slot: PageSlot, k: number, inst: Inst | null, sel: number, echo: boolean): Block {
   const b: Block = {
@@ -146,13 +173,14 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, sel: number, ec
     echo,
     lock: 'none',
     flash: false,
+    quiet: false,
   };
   if (!slot.label) {
     b.state = 'empty';
     b.text = '';
     return b;
   }
-  b.tag = b.noBd ? 'NO BD' : b.all ? 'ALL' : slot.voiceTag && inst ? inst : '';
+  b.tag = b.noBd ? 'NO BD' : b.all ? 'ALL' : slot.voiceTag && inst ? inst : slot.both ? 'BOTH' : '';
   const t = slot.target;
   if (t === null) {
     b.unit = 'SOON';
@@ -204,6 +232,19 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, sel: number, ec
   if (text === '--') {
     b.state = 'off';
     b.unit = inst ? `${inst} HAS ONE SOUND` : 'PICK A VOICE';
+    return b;
+  }
+  // Un reglage de couche (R3) : son nombre et son unite tels que actions.ts les ecrit (909, +5, 216 MS, -3.2 DB)
+  if (layerIdOf(id)) {
+    const [lo, hi] = dialRange(id);
+    const v = anyDialValue(id);
+    b.state = 'live';
+    b.text = text;
+    b.unit = dialUnit(id);
+    b.value = v;
+    b.course = hi > lo ? clamp01((v - lo) / (hi - lo)) : 0;
+    b.bipolar = lo < 0;
+    b.notches = dialSteps(id);
     return b;
   }
   const [lo, hi] = dialRange(id);

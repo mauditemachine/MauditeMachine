@@ -40,6 +40,12 @@ export type KitModel = '909' | '808' | 'mm';
  * son modele, et les reglages de 0 a 1 (TUNE, ATTACK, DECAY, DRIVE : le
  * kick ; SNAPPY : la caisse claire). Sans lui : MM et les reglages de
  * depart, le son d'avant.
+ *
+ * Les deux couches (2026-10-08, l'etape R3, Mika : "comme la ANALOG Rytm ou
+ * on peut mettre des samples mais le kick peut etre parametre comme une
+ * machine") : la couche SYNTH (le modele et ses potards, a son niveau syn)
+ * et la couche SAMPLE (sample, l'echantillon, et ses reglages smp), qui
+ * jouent ensemble (renderLayers). Absents : SYNTH seule a 1, pas de SAMPLE.
  */
 export interface ShotTweak {
   model: KitModel;
@@ -50,11 +56,51 @@ export interface ShotTweak {
   snappy: number;
   /** GATE (2026-10-04) : la reverbe a porte de la caisse claire MM, la piece des claps MM et 909 */
   gate?: boolean;
-  /** un echantillon de Mika (2026-10-05, audio/samples.ts) : sa cle ; le calcul passe alors par renderSampleShot */
+  /** SWEEP du kick (2026-10-08, R3) : la profondeur de sa descente de hauteur, 0.5 celle d'avant */
+  sweep?: number;
+  /** la caisse claire de synthese (R3) : TUNE (sa peau), DECAY (sa longueur), TONE (la couleur du timbre), 0.5 : celle d'avant */
+  sdTune?: number;
+  sdDecay?: number;
+  sdTone?: number;
+  /** le niveau de la couche SYNTH, 0 a 1 (gain au carre ; absent : 1) */
+  syn?: number;
+  /** la couche SAMPLE : la cle de son echantillon (audio/samples.ts) ; absente : OFF */
   sample?: string;
+  /** ses reglages (la page SMPL) ; absents : ceux de depart */
+  smp?: SampleLayer;
 }
 
+/** Les reglages de la couche SAMPLE (R3, la page SMPL de la voix). */
+export interface SampleLayer {
+  /** LEVEL, 0 a 1 (gain au carre) */
+  lev: number;
+  /** TUNE et FINE ensemble, en demi-tons */
+  st: number;
+  /** START, LEN : 0 a 1 ; REV : a l'envers */
+  start: number;
+  len: number;
+  rev: boolean;
+  /** la famille de l'echantillon quand ce n'est pas celle de la voix (un sample lock, cale comme elle) */
+  from?: string;
+}
+
+export const SAMPLE_LAYER_DEFAULT: Readonly<SampleLayer> = { lev: 1, st: 0, start: 0, len: 1, rev: false };
+
 const TWEAK_MM: ShotTweak = { model: 'mm', tune: 0.5, attack: 0.5, decay: 0.45, drive: 0.25, snappy: 0.5 };
+
+/** SWEEP : la profondeur de la descente du kick, x0 a x2 (x1 a 0.5, le kick d'avant). */
+export const sweepDepth = (v: number | undefined): number => (v === undefined ? 1 : 2 * Math.max(0, Math.min(1, v)));
+/** La caisse claire de synthese : sa peau +/-12 demi-tons, sa longueur x0.42 a x2.4, sa couleur +/-1 octave (x1 a 0.5). */
+export const sdTuneFactor = (v: number | undefined): number => (v === undefined || v === 0.5 ? 1 : Math.pow(2, (v - 0.5) * 2));
+export const sdDecayFactor = (v: number | undefined): number => (v === undefined || v === 0.5 ? 1 : Math.pow(2, (v - 0.5) * 2.5));
+export const sdToneFactor = (v: number | undefined): number => (v === undefined || v === 0.5 ? 1 : Math.pow(2, (v - 0.5) * 2));
+/** La note de la peau de chaque caisse claire de synthese (Hz), et sa tenue (s, le timbre) : l'unite de SD TUNE et SD DECAY. */
+export const SD_BODY_HZ: Readonly<Record<KitModel, number>> = { '909': 175, '808': 238, mm: 185 };
+export const SD_DECAY_S: Readonly<Record<KitModel, number>> = { '909': 0.11, '808': 0.1, mm: 0.05 };
+/** Le passe-haut du timbre de chaque caisse claire (Hz) : l'unite de SD TONE. */
+export const SD_TONE_HZ: Readonly<Record<KitModel, number>> = { '909': 600, '808': 1800, mm: 1200 };
+/** La descente du kick de chaque modele (le depart, en fois la note, moins 1) : l'unite de SWEEP. */
+export const KICK_SWEEP: Readonly<Record<KitModel, number>> = { '909': 3.85, '808': 0.3, mm: 147 / 52 };
 
 /**
  * La hauteur du kick (Hz, le bas du balayage) pour TUNE : une octave de
@@ -474,10 +520,12 @@ function bd(sr: number, ts: number, r: () => number, tw: ShotTweak = TWEAK_MM): 
   const k = 1.5 * (0.4 + 2.4 * tw.drive);
   const drive = Math.tanh(k);
   const clickAmt = 0.36 * tw.attack;
+  // SWEEP (2026-10-08, R3) : la profondeur de la descente, x1 au depart (le kick d'avant)
+  const sw = sweepDepth(tw.sweep);
   let ph = 0;
   for (let i = 0; i < len; i += 1) {
     const t = i / fs;
-    const f = (52 + 125 * Math.exp(-t / 0.009) + 22 * Math.exp(-t / 0.045)) * kf;
+    const f = (52 + 125 * sw * Math.exp(-t / 0.009) + 22 * sw * Math.exp(-t / 0.045)) * kf;
     ph += f / fs;
     const amp = (1 - Math.exp(-t / 0.0008)) * Math.exp(-t / tauA) * (1 + 0.2 * Math.exp(-t / 0.02));
     const b = Math.sin(TAU * ph) * amp;
@@ -504,11 +552,16 @@ function sd(sr: number, ts: number, r: () => number, tw: ShotTweak = TWEAK_MM): 
   const fs = sr * OS;
   // SNAPPY (2026-10-04) : le timbre, 1 au depart (0.5), de rien a deux fois plus
   const wiresK = 2 * tw.snappy;
-  const dryS = Math.max(0.12, 0.3 * ts);
+  // La caisse claire de synthese de R3 (2026-10-08) : sa peau (TUNE), sa longueur (DECAY), sa couleur (TONE) ; x1 au depart
+  const ft = sdTuneFactor(tw.sdTune);
+  const fd = sdDecayFactor(tw.sdDecay);
+  const fc = sdToneFactor(tw.sdTone);
+  const td = ts * fd;
+  const dryS = Math.max(0.12, 0.3 * td);
   const len = Math.round(fs * dryS);
   const x = new Float64Array(len);
-  const hp1 = new Bq('hp', 1200, 0.7, fs);
-  const pkF = new Bq('peak', 4500, 0.9, fs, 4);
+  const hp1 = new Bq('hp', 1200 * fc, 0.7, fs);
+  const pkF = new Bq('peak', 4500 * fc, 0.9, fs, 4);
   const air = new Bq('hshelf', 10000, 0.7, fs, 1.5);
   const top = new Bq('lp', 15000, 0.7, fs);
   const crackBp = new Bq('bp', 2500, 1, fs);
@@ -517,12 +570,12 @@ function sd(sr: number, ts: number, r: () => number, tw: ShotTweak = TWEAK_MM): 
   let p3 = 0;
   for (let i = 0; i < len; i += 1) {
     const t = i / fs;
-    p1 += (185 + 30 * Math.exp(-t / 0.01)) / fs;
-    p2 += 330 / fs;
-    p3 += 540 / fs;
-    const body = Math.sin(TAU * p1) * Math.exp(-t / (0.045 * ts)) + 0.45 * Math.sin(TAU * p2) * Math.exp(-t / 0.025) + 0.35 * Math.sin(TAU * p3) * Math.exp(-t / 0.012);
+    p1 += ((185 + 30 * Math.exp(-t / 0.01)) * ft) / fs;
+    p2 += (330 * ft) / fs;
+    p3 += (540 * ft) / fs;
+    const body = Math.sin(TAU * p1) * Math.exp(-t / (0.045 * td)) + 0.45 * Math.sin(TAU * p2) * Math.exp(-t / (0.025 * fd)) + 0.35 * Math.sin(TAU * p3) * Math.exp(-t / (0.012 * fd));
     const n = r() * 2 - 1;
-    const wiresEnv = (1 - Math.exp(-t / 0.0005)) * (0.85 * Math.exp(-t / (0.05 * ts)) + 0.15 * Math.exp(-t / (0.13 * ts)));
+    const wiresEnv = (1 - Math.exp(-t / 0.0005)) * (0.85 * Math.exp(-t / (0.05 * td)) + 0.15 * Math.exp(-t / (0.13 * td)));
     const wires = top.run(air.run(pkF.run(hp1.run(n)))) * wiresEnv;
     const crack = crackBp.run(r() * 2 - 1) * Math.exp(-t / 0.002);
     x[i] = sat(0.8 * body + 1.5 * wiresK * wires + 2 * crack, 1.3);
@@ -727,10 +780,12 @@ function bd909(sr: number, ts: number, r: () => number, tw: ShotTweak): Shot {
   const noiseLp = new Bq('lp', 5000, 0.7, fs);
   const k = 1.2 + 4 * tw.drive;
   const amt = 2 * tw.attack;
+  // SWEEP (2026-10-08, R3) : la profondeur du balayage, x1 au depart
+  const sw = sweepDepth(tw.sweep);
   let ph = 0;
   for (let i = 0; i < len; i += 1) {
     const t = i / fs;
-    const f = f0 * (1 + 3.4 * Math.exp(-t / 0.0045) + 0.45 * Math.exp(-t / 0.03));
+    const f = f0 * (1 + 3.4 * sw * Math.exp(-t / 0.0045) + 0.45 * sw * Math.exp(-t / 0.03));
     ph += f / fs;
     const osc = 0.85 * Math.sin(TAU * ph) + 0.15 * tri(ph + 0.25);
     const amp = (1 - Math.exp(-t / 0.0004)) * Math.exp(-t / tau);
@@ -758,10 +813,11 @@ function bd808(sr: number, ts: number, r: () => number, tw: ShotTweak): Shot {
   const clickBp = new Bq('bp', 1100, 0.9, fs);
   const k = 0.6 + 3 * tw.drive;
   const amt = 0.7 * tw.attack;
+  const sw = sweepDepth(tw.sweep);
   let ph = 0;
   for (let i = 0; i < len; i += 1) {
     const t = i / fs;
-    ph += (f0 * (1 + 0.3 * Math.exp(-t / 0.01))) / fs;
+    ph += (f0 * (1 + 0.3 * sw * Math.exp(-t / 0.01))) / fs;
     const amp = (1 - Math.exp(-t / 0.0005)) * Math.exp(-t / tau);
     x[i] = sat(Math.sin(TAU * ph) * amp + amt * trigClick(clickBp, t) + 0.05 * amt * (r() * 2 - 1) * Math.exp(-t / 0.001), k);
   }
@@ -778,19 +834,23 @@ function bd808(sr: number, ts: number, r: () => number, tw: ShotTweak): Shot {
  */
 function sd909(sr: number, ts: number, r: () => number, tw: ShotTweak): Shot {
   const fs = sr * OS;
-  const len = Math.round(fs * Math.max(0.15, 0.36 * ts));
+  // TUNE, DECAY, TONE de la caisse claire (2026-10-08, R3) : x1 au depart
+  const ft = sdTuneFactor(tw.sdTune);
+  const fc = sdToneFactor(tw.sdTone);
+  const td = ts * sdDecayFactor(tw.sdDecay);
+  const len = Math.round(fs * Math.max(0.15, 0.36 * td));
   const x = new Float64Array(len);
-  const lp = new Bq('lp', 7000, 0.7, fs);
-  const hp = new Bq('hp', 600, 0.7, fs);
+  const lp = new Bq('lp', 7000 * fc, 0.7, fs);
+  const hp = new Bq('hp', 600 * fc, 0.7, fs);
   const snap = 0.3 + 3.6 * tw.snappy * 0.5;
   let p1 = 0;
   let p2 = 0;
   for (let i = 0; i < len; i += 1) {
     const t = i / fs;
-    p1 += (175 * (1 + 0.6 * Math.exp(-t / 0.008))) / fs;
-    p2 += (330 * (1 + 0.3 * Math.exp(-t / 0.006))) / fs;
-    const tone = Math.sin(TAU * p1) * Math.exp(-t / (0.06 * ts)) + 0.6 * Math.sin(TAU * p2) * Math.exp(-t / (0.04 * ts));
-    const nEnv = (1 - Math.exp(-t / 0.0004)) * Math.exp(-t / (0.11 * ts));
+    p1 += (175 * ft * (1 + 0.6 * Math.exp(-t / 0.008))) / fs;
+    p2 += (330 * ft * (1 + 0.3 * Math.exp(-t / 0.006))) / fs;
+    const tone = Math.sin(TAU * p1) * Math.exp(-t / (0.06 * td)) + 0.6 * Math.sin(TAU * p2) * Math.exp(-t / (0.04 * td));
+    const nEnv = (1 - Math.exp(-t / 0.0004)) * Math.exp(-t / (0.11 * td));
     x[i] = sat(0.9 * tone + snap * hp.run(lp.run(r() * 2 - 1)) * nEnv, 1.4);
   }
   fadeOut(x, fs, 0.03);
@@ -805,18 +865,21 @@ function sd909(sr: number, ts: number, r: () => number, tw: ShotTweak): Shot {
  */
 function sd808(sr: number, ts: number, r: () => number, tw: ShotTweak): Shot {
   const fs = sr * OS;
-  const len = Math.round(fs * Math.max(0.12, 0.3 * ts));
+  const ft = sdTuneFactor(tw.sdTune);
+  const fc = sdToneFactor(tw.sdTone);
+  const td = ts * sdDecayFactor(tw.sdDecay);
+  const len = Math.round(fs * Math.max(0.12, 0.3 * td));
   const x = new Float64Array(len);
-  const hp = new Bq('hp', 1800, 0.7, fs);
+  const hp = new Bq('hp', 1800 * fc, 0.7, fs);
   const snap = 0.2 + 2.8 * tw.snappy * 0.5;
   let p1 = 0;
   let p2 = 0;
   for (let i = 0; i < len; i += 1) {
     const t = i / fs;
-    p1 += (238 * (1 + 0.08 * Math.exp(-t / 0.004))) / fs;
-    p2 += 476 / fs;
-    const tone = Math.sin(TAU * p1) * Math.exp(-t / (0.05 * ts)) + 0.65 * Math.sin(TAU * p2) * Math.exp(-t / (0.035 * ts));
-    const nEnv = (1 - Math.exp(-t / 0.0005)) * Math.exp(-t / (0.1 * ts));
+    p1 += (238 * ft * (1 + 0.08 * Math.exp(-t / 0.004))) / fs;
+    p2 += (476 * ft) / fs;
+    const tone = Math.sin(TAU * p1) * Math.exp(-t / (0.05 * td)) + 0.65 * Math.sin(TAU * p2) * Math.exp(-t / (0.035 * td));
+    const nEnv = (1 - Math.exp(-t / 0.0005)) * Math.exp(-t / (0.1 * td));
     x[i] = sat(0.85 * tone + snap * hp.run(r() * 2 - 1) * nEnv, 1.2);
   }
   fadeOut(x, fs, 0.03);
@@ -1013,18 +1076,29 @@ export function renderShot(id: ShotId, sr: number, stretch: number, variant: num
   return s;
 }
 
+/** Le son principal d'une famille (un echantillon d'une autre famille se cale comme lui, un sample lock). */
+const FAMILY_SHOT: Readonly<Record<string, ShotId>> = { bd: 'BD', sd: 'SD', cp: 'CP', hh: 'CH', tom: 'TOM' };
+const familyOfShot = (id: ShotId): string => (id === 'BD' ? 'bd' : id === 'SD' ? 'sd' : id === 'CP' ? 'cp' : id === 'TOM' || id === 'HT' ? 'tom' : 'hh');
+
 /**
  * Un coup joue par un echantillon de Mika (2026-10-05, audio/sampledsp.ts) :
- * relu a sr avec les TWEAKS de sa famille, etire par STRETCH comme les
- * autres, et sa crete calee comme celle du son calcule de sa voix (le kick
- * comme le 909, 1.5 dB sous BD) : changer de son ne change pas le niveau.
+ * relu a sr avec les reglages de sa couche (TUNE, FINE, START, LEN, REV :
+ * la page SMPL, 2026-10-08) et le caractere de sa famille (ATTACK, DRIVE du
+ * kick ; SNAPPY de la caisse claire), etire par STRETCH comme les autres, et
+ * sa crete calee comme celle du son calcule de sa voix (le kick comme le
+ * 909, 1.5 dB sous BD) : changer de son ne change pas le niveau. Un
+ * echantillon d'une autre famille (un sample lock, smp.from) garde le
+ * caractere et le niveau de la sienne (une caisse claire sur la voie du kick
+ * reste une caisse claire).
  */
 export function renderSampleShot(id: ShotId, sr: number, stretch: number, pcm: SamplePcm, tw: ShotTweak): Shot {
-  const family = id === 'BD' ? 'bd' : id === 'SD' ? 'sd' : id === 'CP' ? 'cp' : id === 'TOM' || id === 'HT' ? 'tom' : 'hh';
-  let s: Shot = playSample(pcm, sr, { family, tune: tw.tune, attack: tw.attack, decay: tw.decay, drive: tw.drive, snappy: tw.snappy });
+  const l = tw.smp ?? SAMPLE_LAYER_DEFAULT;
+  const family = l.from && FAMILY_SHOT[l.from] ? l.from : familyOfShot(id);
+  const cal: ShotId = l.from && FAMILY_SHOT[l.from] && l.from !== familyOfShot(id) ? FAMILY_SHOT[l.from] : id;
+  let s: Shot = playSample(pcm, sr, { family, attack: tw.attack, drive: tw.drive, snappy: tw.snappy, st: l.st, start: l.start, len: l.len, rev: l.rev });
   // Le kick en mono (2026-10-08, "un bon kick") : les fichiers ont un leger cote stereo (-28 a -44 dB, un decalage
   // L/R de quelques echantillons sur certains) ; le grave d'un kick se tient au centre
-  if (id === 'BD' && s.L !== s.R) {
+  if (cal === 'BD' && s.L !== s.R) {
     const m = new Float32Array(s.L.length);
     for (let i = 0; i < m.length; i += 1) m[i] = 0.5 * (s.L[i] + s.R[i]);
     s = { L: m, R: m };
@@ -1035,6 +1109,90 @@ export function renderSampleShot(id: ShotId, sr: number, stretch: number, pcm: S
       s = { L: one, R: one };
     } else s = { L: timeStretch(s.L, stretch, sr), R: timeStretch(s.R, stretch, sr) };
   }
-  setLoudness(id, s, sr);
+  setLoudness(cal, s, sr);
   return s;
+}
+
+/** La crete au-dessus de laquelle une voix ne monte jamais (celle du kick, moins SHOT_BELOW de la voix). */
+export const shotCeiling = (id: ShotId): number => Math.pow(10, (SHOT_KICK_PEAK - SHOT_BELOW[id]) / 20);
+
+/** Le gain d'une couche a son niveau (LEVEL 0 a 1, au carre : 1 la couche telle que calee, 0 muette). */
+export const layerGain = (v: number): number => {
+  const c = Math.max(0, Math.min(1, v));
+  return c * c;
+};
+
+/** La marge de crete d'un coup a deux couches (dB) : leurs attaques s'additionnent, la somme peut monter un peu au-dessus de la voix seule. */
+const LAYER_HEADROOM_DB = 2;
+/** Le plafond d'un coup a deux couches : 2 dB au-dessus de sa voix, jamais a moins de 0.5 dB sous la crete du kick (le kick seul la passe). */
+const layerCap = (id: ShotId): number => {
+  const up = shotCeiling(id) * Math.pow(10, LAYER_HEADROOM_DB / 20);
+  return id === 'BD' ? up : Math.min(up, Math.pow(10, (SHOT_KICK_PEAK - 0.5) / 20));
+};
+
+/**
+ * Le coup complet d'une voix, ses deux couches ensemble (2026-10-08, l'etape
+ * R3, Mika : "une machine pour la configuration a la main du Voice pour avoir
+ * des samples et aussi une configuration digitale du BD ou SD.. comme la
+ * ANALOG Rytm") : la couche SYNTH (renderShot, son modele et ses potards) a
+ * son niveau, plus la couche SAMPLE (renderSampleShot) au sien, chacune deja
+ * calee sur le niveau de sa voix (le kick a sa crete). Une seule couche (l'autre
+ * a 0 ou OFF) : exactement ce coup-la a son niveau, le son d'avant R3 a 127.
+ * Les deux : leur somme prend la sonie de la plus forte des deux (a son
+ * niveau), comme deux pistes calees sur une console : monter la synthese sous
+ * un sample change son grain sans faire sauter la voix (mesure sur les six
+ * kicks de Mika et le 909 a 127 : en calant la somme sur la crete, elle
+ * perdait 1 a 4 dB de sonie, leurs attaques s'additionnant) ; sa crete au plus
+ * LAYER_HEADROOM_DB au-dessus de celle de la voix, et une autre voix jamais a
+ * moins de 0.5 dB sous la crete du kick : le kick reste la reference. Les deux
+ * a 0 : un coup muet. pcm : l'echantillon decode de la couche SAMPLE
+ * (audio/samples.ts) ; sans lui, la couche SAMPLE ne joue pas.
+ */
+export function renderLayers(id: ShotId, sr: number, stretch: number, variant: number, tw: ShotTweak, pcm?: SamplePcm): Shot {
+  const syn = tw.syn ?? 1;
+  const lev = tw.smp?.lev ?? 1;
+  const withSample = !!tw.sample && !!pcm && lev > 0;
+  if (!withSample) {
+    if (syn <= 0) return silent();
+    const a = renderShot(id, sr, stretch, variant, tw);
+    return syn >= 1 ? a : scaled(a, layerGain(syn));
+  }
+  const b = renderSampleShot(id, sr, stretch, pcm as SamplePcm, tw);
+  if (syn <= 0) return lev >= 1 ? b : scaled(b, layerGain(lev));
+  const a = renderShot(id, sr, stretch, variant, tw);
+  const ga = layerGain(syn);
+  const gb = layerGain(lev);
+  const n = Math.max(a.L.length, b.L.length);
+  const mono = a.L === a.R && b.L === b.R;
+  const mix = (x: Float32Array, y: Float32Array): Float32Array => {
+    const out = new Float32Array(n);
+    for (let i = 0; i < x.length; i += 1) out[i] = ga * x[i];
+    for (let i = 0; i < y.length; i += 1) out[i] += gb * y[i];
+    return out;
+  };
+  const L = mix(a.L, b.L);
+  const R = mono ? L : mix(a.R, b.R);
+  const sum: Shot = { L, R };
+  // La sonie de la plus forte des deux couches a son niveau, sous le plafond de crete
+  const target = Math.max(shotLoudness(a, sr) + 20 * Math.log10(ga), shotLoudness(b, sr) + 20 * Math.log10(gb));
+  const p = peakOf(mono ? [L] : [L, R]);
+  let k = Math.pow(10, (target - shotLoudness(sum, sr)) / 20);
+  if (p > 0) k = Math.min(k, layerCap(id) / p);
+  if (Number.isFinite(k) && k > 0 && k !== 1) {
+    for (let i = 0; i < n; i += 1) L[i] *= k;
+    if (R !== L) for (let i = 0; i < n; i += 1) R[i] *= k;
+  }
+  return sum;
+}
+
+/** Un coup muet (les deux couches a 0) : 10 ms de silence. */
+function silent(): Shot {
+  const z = new Float32Array(480);
+  return { L: z, R: z };
+}
+
+/** Une couche a son niveau (une copie : le coup cale reste le meme). */
+function scaled(s: Shot, g: number): Shot {
+  const L = Float32Array.from(s.L, (v) => v * g);
+  return { L, R: s.R === s.L ? L : Float32Array.from(s.R, (v) => v * g) };
 }

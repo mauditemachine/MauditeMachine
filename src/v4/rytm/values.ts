@@ -9,7 +9,9 @@
  * tone, time, kit) ; actions.ts, l'ecran, le Dock et le MIDI le lisent.
  */
 
-import { kit, type KitId, type KitKnob } from '../audio/kit';
+import { KIT_MODELS, KIT_MODEL_LABEL, LAYER_FINE_CENTS, kit, layerSt, type KitId, type KitKnob, type Layer, type LayerParam } from '../audio/kit';
+import { SAMPLE_START_MAX, sampleLenPart } from '../audio/sampledsp';
+import { samplePcm } from '../audio/samples';
 import { toneHpHz, toneLpHz } from '../audio/tone';
 import { timeFactor } from '../audio/time';
 import { START_MAX, decayTau, tuneSt, voiceGain } from '../audio/voicefx';
@@ -144,4 +146,61 @@ const unitOf = (t: string): string => (/\d/.test(t) && !/[A-Z%]/.test(t) ? `${t}
 /** La meme ligne pour un potard du kit a la valeur v (un verrou de pas, revue de R2). */
 export function kitUnitAt(id: KitKnob, v: number): string {
   return unitOf(kit.knobText(id, v));
+}
+
+/* ---------------- les couches SYNTH et SAMPLE (2026-10-08, l'etape R3) ---------------- */
+
+/** Un reglage de couche du MM-RYTM (audio/kit.ts), ou la MACHINE de la couche SYNTH. */
+export type LayerDial = LayerParam | 'mach';
+
+/**
+ * Le nombre d'un reglage de couche : la MACHINE par son nom (909, MM), TUNE
+ * en demi-tons (+5), FINE en cents (+12), REV OFF ou ON, les autres de 0 a 127.
+ */
+export function layerText(p: LayerDial, v: number): string {
+  if (p === 'mach') return KIT_MODEL_LABEL[KIT_MODELS[Math.max(0, Math.min(2, Math.round(v)))]];
+  if (p === 'tune') return tuneText(v);
+  if (p === 'fine') {
+    const c = Math.round(v * LAYER_FINE_CENTS);
+    return c > 0 ? `+${c}` : String(c);
+  }
+  if (p === 'rev') return v >= 0.5 ? 'ON' : 'OFF';
+  return v127Text(v);
+}
+
+/**
+ * Sa ligne d'unite : un niveau en dB (OFF a 0), l'intervalle de TUNE, CENTS,
+ * ou commence START, la longueur gardee par LEN (en ms quand l'echantillon
+ * est la, sinon en part), le sens de REV.
+ */
+export function layerUnit(p: LayerDial, v: number, sample?: { key: string; layer: Readonly<Layer> }): string {
+  switch (p) {
+    case 'mach':
+      return 'SYNTH';
+    case 'syn':
+    case 'lev':
+      return v <= 0 ? 'OFF' : db(v * v);
+    case 'tune':
+      return tuneUnit(v);
+    case 'fine':
+      return 'CENTS';
+    case 'start': {
+      const n = Math.round(Math.max(0, Math.min(1, v)) * SAMPLE_START_MAX * 100);
+      return n === 0 ? 'FROM TOP' : `${n}% IN`;
+    }
+    case 'len': {
+      const part = sampleLenPart(v);
+      const pcm = sample ? samplePcm(sample.key) : undefined;
+      if (pcm && sample) {
+        // Ce qui sonne vraiment : le fichier apres START, a la hauteur de TUNE et FINE, LEN de sa part
+        const l = sample.layer;
+        const st = layerSt(l);
+        const left = pcm.L.length * (1 - Math.max(0, Math.min(1, l.start)) * SAMPLE_START_MAX);
+        return dur(((left / pcm.sr) * part) / Math.pow(2, st / 12));
+      }
+      return part >= 1 ? 'FULL' : `${Math.round(part * 100)}%`;
+    }
+    default:
+      return v >= 0.5 ? 'BACKWARD' : 'FORWARD';
+  }
 }

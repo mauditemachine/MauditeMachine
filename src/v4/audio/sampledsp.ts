@@ -3,18 +3,30 @@
  * "je voudrais que tu mettes ces samples dans le selecteur de samples, pour
  * BD et SD"). Calcul pur (sans DOM : testable sous Node), comme
  * audio/shotsdsp.ts : le fichier decode (audio/samples.ts) est relu a la
- * frequence de rendu, avec les TWEAKS de sa famille :
- * - KICK : TUNE (-12 a +12 demi-tons, un cran par demi-ton, 0 au milieu :
- *   le fichier a sa hauteur), ATTACK (5 : la frappe du fichier ; plus haut
- *   elle claque, jusqu'a +6 dB sur ses 4 premieres ms ; plus bas elle
- *   s'adoucit, une montee jusqu'a 6 ms), DECAY (a 4.5 et au-dessus la
- *   longueur du fichier ; dessous, une fin en fondu de plus en plus tot,
- *   jusqu'a 12 % de sa duree), DRIVE (a 2.5 et dessous, propre ; au-dessus
- *   une saturation douce, tanh, de plus en plus forte) ;
- * - SNARE : SNAPPY (5 : le fichier ; plus haut plus de claquant au-dessus
- *   de 2 kHz, plus bas plus sourd).
- * Les autres familles le jouent tel quel. Le niveau est cale ensuite comme
- * celui des sons calcules (renderSampleShot, audio/shotsdsp.ts).
+ * frequence de rendu.
+ *
+ * La couche SAMPLE (2026-10-08, l'etape R3, Mika : "comme la ANALOG Rytm ou
+ * on peut mettre des samples mais le kick peut etre parametre comme une
+ * machine") : l'echantillon est une couche de la voix, sous la couche SYNTH
+ * (audio/shotsdsp.ts renderLayers), avec ses reglages a elle (la page SMPL) :
+ * - TUNE et FINE : sa hauteur, en demi-tons et en cents (le fichier relu plus
+ *   vite ou plus lentement, interpolation Hermite : le calcul est fait une
+ *   fois, jamais a la lecture) ;
+ * - START : ou il commence dans le fichier (0 a 90 %) ;
+ * - LEN : la part gardee apres START (12 % a 100 %), la fin en fondu
+ *   (cosinus) sur la seconde moitie de cette part, comme DECAY d'avant ;
+ * - REV : le fichier a l'envers (START et LEN comptent depuis sa fin).
+ * Le caractere de la voix reste aux potards de la machine (SRC), sur les deux
+ * couches : le KICK ATTACK (5 : la frappe du fichier ; plus haut elle claque,
+ * jusqu'a +6 dB sur ses 4 premieres ms ; plus bas une montee jusqu'a 6 ms) et
+ * DRIVE (a 2.5 et dessous, propre ; au-dessus une saturation douce, tanh) ;
+ * la SNARE SNAPPY (5 : le fichier ; plus haut plus de claquant au-dessus de
+ * 2 kHz, plus bas plus sourd). Les autres familles le jouent tel quel. Le
+ * niveau est cale ensuite comme celui des sons calcules (renderSampleShot,
+ * audio/shotsdsp.ts).
+ * Avant R3, TUNE et DECAY du KICK reglaient l'echantillon (sampleTuneSt,
+ * sampleDecayPart) : un kit ou un preset d'avant se traduit avec eux
+ * (audio/kit.ts), au meme son.
  */
 
 export interface SamplePcm {
@@ -25,15 +37,28 @@ export interface SamplePcm {
   sr: number;
 }
 
-/** Ce qu'un echantillon sait du kit : sa famille et les reglages de 0 a 1. */
+/** Ce qu'un echantillon sait de sa voix : sa famille (son caractere), les potards de la machine (0 a 1), et ses reglages de couche. */
 export interface SampleTweak {
   family: string;
-  tune: number;
   attack: number;
-  decay: number;
   drive: number;
   snappy: number;
+  /** sa hauteur en demi-tons (TUNE et FINE ensemble ; 0 : la hauteur du fichier) */
+  st: number;
+  /** START, 0 a 1 (fois START_MAX du fichier) */
+  start: number;
+  /** LEN, 0 a 1 : la part gardee, 12 % a 100 % (1 : tout) */
+  len: number;
+  /** REV : a l'envers */
+  rev: boolean;
 }
+
+/** START au plus : 90 % du fichier (au-dela presque rien ne sonnerait). */
+export const SAMPLE_START_MAX = 0.9;
+/** La part gardee pour LEN (12 % a 100 %). */
+export const sampleLenPart = (len: number): number => (len >= 1 ? 1 : 0.12 + 0.88 * Math.max(0, len));
+/** LEN d'apres le DECAY d'un kit d'avant R3 (sampleDecayPart) : la meme part. */
+export const lenOfDecay = (decay: number): number => (decay >= 0.45 ? 1 : Math.max(0, decay) / 0.45);
 
 /** TUNE d'un echantillon : -12 a +12 demi-tons, 0 au milieu. */
 export const sampleTuneSt = (v: number): number => Math.round((Math.min(1, Math.max(0, v)) - 0.5) * 24);
@@ -55,31 +80,37 @@ function hermite(x: Float32Array, pos: number): number {
   return ((c3 * f + c2) * f + c1) * f + x0;
 }
 
-/** Le canal relu a srOut, hauteur et longueur du kick comprises. */
-function readChannel(x: Float32Array, srIn: number, srOut: number, ratio: number, nOut: number): Float32Array {
+/** Le canal relu a srOut depuis off (START), hauteur et longueur comprises. */
+function readChannel(x: Float32Array, srIn: number, srOut: number, ratio: number, nOut: number, off = 0): Float32Array {
   const out = new Float32Array(nOut);
   const step = (ratio * srIn) / srOut;
-  for (let i = 0; i < nOut; i += 1) out[i] = hermite(x, i * step);
+  if (off === 0) for (let i = 0; i < nOut; i += 1) out[i] = hermite(x, i * step);
+  else for (let i = 0; i < nOut; i += 1) out[i] = hermite(x, off + i * step);
   return out;
 }
 
 /**
  * L'echantillon pret a jouer, a srOut (la frequence de rendu : celle du
  * contexte divisee par la hauteur de TONE, audio/shots.ts) ; L === R s'il
- * est mono.
+ * est mono. Aux reglages de depart (TUNE 0, START 0, LEN 1, endroit), le
+ * calcul d'avant R3, au meme echantillon pres.
  */
 export function playSample(p: SamplePcm, srOut: number, tw: SampleTweak): { L: Float32Array; R: Float32Array } {
   const kick = tw.family === 'bd';
   const snare = tw.family === 'sd';
-  const ratio = kick ? Math.pow(2, sampleTuneSt(tw.tune) / 12) : 1;
-  const durIn = p.L.length / p.sr;
+  const ratio = tw.st === 0 ? 1 : Math.pow(2, tw.st / 12);
+  // REV : le fichier a l'envers (une copie : le fichier decode sert aux autres coups)
+  const srcs = p.R ? [p.L, p.R] : [p.L];
+  const chans = tw.rev ? srcs.map((x) => Float32Array.from(x).reverse()) : srcs;
+  // START : les premiers echantillons sautes (en echantillons du fichier)
+  const off = tw.start > 0 ? Math.round(Math.min(1, tw.start) * SAMPLE_START_MAX * p.L.length) : 0;
+  const durIn = (p.L.length - off) / p.sr;
   let nOut = Math.max(1, Math.ceil((durIn / ratio) * srOut));
-  // DECAY : une fin en fondu (cosinus) sur la seconde moitie de la part gardee
-  const part = kick ? sampleDecayPart(tw.decay) : 1;
+  // LEN : une fin en fondu (cosinus) sur la seconde moitie de la part gardee
+  const part = sampleLenPart(tw.len);
   const end = Math.max(1, Math.round(nOut * part));
   nOut = Math.min(nOut, end + 1);
-  const chans = p.R ? [p.L, p.R] : [p.L];
-  const outs = chans.map((x) => readChannel(x, p.sr, srOut, ratio, nOut));
+  const outs = chans.map((x) => readChannel(x, p.sr, srOut, ratio, nOut, off));
   const fade0 = part < 1 ? Math.round(end * 0.5) : nOut;
   // ATTACK : une frappe en plus (une bosse qui retombe en 4 ms) ou une montee douce
   const a = kick ? tw.attack - 0.5 : 0;

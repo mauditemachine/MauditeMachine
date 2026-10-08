@@ -25,6 +25,13 @@
  *   PSY 12 (brillante et seche : acid, minimal, psy prog), PSY 26 (tres
  *   brillante, longue queue : EBM, coupee par DECAY), 707 (courte, annees
  *   80 : dark disco, electro, italo).
+ * Les deux couches (2026-10-08, l'etape R3, audio/kit.ts) : ces samples
+ * jouent sur la couche SAMPLE (son TUNE vers F#, son LEN quand le style
+ * coupe la queue), la couche SYNTH a 0, prete : sa MACHINE (le son calcule
+ * qui remplacait le sample s'il manquait) accordee elle aussi sur F#1 ; la
+ * monter double le kick d'un 909 juste. Un sample parti (Mika a remplace le
+ * dossier par scripts/import-rytm-samples.mjs) : celui du meme numero, sinon
+ * le premier de la famille ; aucun : la synthese joue seule.
  * Les niveaux (2026-10-07, la meme demande) : le kick est la reference,
  * le reste dessous (audio/shotsdsp.ts) ; les velocites des patterns s'y
  * lisent : 9 l'accent, 6 a 8 le jeu, 2 a 4 les notes fantomes.
@@ -91,8 +98,9 @@
 
 import { INSTRUMENTS, NEUTRAL_FX, type Fx, type Steps } from '../audio/pattern';
 import { VOICE_FX_DEFAULT, type VoiceFx } from '../audio/voicefx';
-import { KIT_FAMILIES, type KitFamily, type KitKnob, type KitModel } from '../audio/kit';
-import { sampleByKey } from '../audio/samples';
+import { KIT_FAMILIES, LAYER_DEFAULT, LAYER_TUNE_ST, resolveSample, type KitFamily, type KitKnob, type KitModel, type Layer } from '../audio/kit';
+import { kickHz } from '../audio/shotsdsp';
+import { lenOfDecay } from '../audio/sampledsp';
 import type { Inst } from '../theme';
 import { VOY_KNOB_IDS, voyKnob, type VoyKnobId } from '../voyager/params';
 import { BASS_KNOBS, BASS_ROOTS, BASS_SCALES, BASS_STYLES, type BassKnobId, type BassStyle } from '../bass/params';
@@ -356,18 +364,35 @@ export interface RytmFactory {
   voices: Record<Inst, VoiceFx>;
   kit: Record<string, number>;
   sounds: Partial<Record<KitFamily, string>>;
+  /** les deux couches (R3, state/presets.ts RytmData) */
+  machines: Partial<Record<KitFamily, string>>;
+  samples: Partial<Record<KitFamily, string>>;
+  layers: Partial<Record<KitFamily, Layer>>;
+  knobs: Record<string, number>;
 }
 
 const blank = '0000000000000000';
 /** Les potards du kit poses par chaque preset (le reste de leur valeur de depart). */
-const KIT_BASE: Record<KitKnob, number> = { tune: 0.5, attack: 0.5, decay: 0.45, drive: 0.25, snappy: 0.5, gate: 0 };
+const KIT_BASE: Record<KitKnob, number> = { tune: 0.5, attack: 0.5, decay: 0.45, drive: 0.25, snappy: 0.5, gate: 0, sweep: 0.5, sdtune: 0.5, sddecay: 0.5, sdtone: 0.5 };
 
-/** Un sample de Mika s'il est la, sinon le son calcule qui le remplace. */
-const soundOf = (s: { key: string; or: KitModel }): string => (sampleByKey(s.key) ? s.key : s.or);
+/** Un sample de Mika s'il est la (ou celui du meme numero apres un nouvel import), sinon undefined. */
+const sampleOf = (f: KitFamily, s: { key: string }): string | undefined => resolveSample(f, s.key);
+
+/** Le K.TUNE qui pose le kick de synthese sur F#1 (46.25 Hz, la tonalite du site), au 127e. */
+const kickOnF = (m: KitModel): number => Math.round((0.5 + Math.log2(46.25 / kickHz(m, 0.5))) * 127) / 127;
 
 export function rytmFactory(): { name: string; data: RytmFactory }[] {
   return RYTM.map((g) => {
-    const families: Record<KitFamily, string> = { bd: soundOf(g.kick), sd: soundOf(g.snare), hh: g.hh, cp: g.cp, tom: g.tom, rs: 'mm' };
+    const bd = sampleOf('bd', g.kick);
+    const sd = sampleOf('sd', g.snare);
+    // Avant R3, TUNE et DECAY reglaient le sample du kick : ils passent a sa couche SAMPLE, la synthese est accordee sur F#1
+    const kitKnobs: Record<KitKnob, number> = { ...KIT_BASE, ...g.kit, tune: kickOnF(g.kick.or), decay: g.kit.decay ?? KIT_BASE.decay };
+    const sampleTune = Math.round(((g.kit.tune ?? 0.5) - 0.5) * 24) / LAYER_TUNE_ST;
+    const families: Record<KitFamily, string> = { bd: bd ?? g.kick.or, sd: sd ?? g.snare.or, hh: g.hh, cp: g.cp, tom: g.tom, rs: 'mm' };
+    const machines: Record<KitFamily, KitModel> = { bd: g.kick.or, sd: g.snare.or, hh: g.hh, cp: g.cp, tom: g.tom, rs: 'mm' };
+    const layers = Object.fromEntries(KIT_FAMILIES.map((f) => [f, { ...LAYER_DEFAULT }])) as Record<KitFamily, Layer>;
+    if (bd) layers.bd = { ...LAYER_DEFAULT, syn: 0, tune: sampleTune, len: lenOfDecay(g.kit.decay ?? KIT_BASE.decay) };
+    if (sd) layers.sd = { ...LAYER_DEFAULT, syn: 0 };
     return {
       name: g.name,
       data: {
@@ -376,8 +401,12 @@ export function rytmFactory(): { name: string; data: RytmFactory }[] {
         fx: { ...NEUTRAL_FX, ...g.fx },
         stretch: 0,
         voices: Object.fromEntries(INSTRUMENTS.map((k) => [k, { ...VOICE_FX_DEFAULT, ...(g.voices?.[k] ?? {}) }])) as Record<Inst, VoiceFx>,
-        kit: { ...KIT_BASE, ...g.kit },
+        kit: kitKnobs,
         sounds: Object.fromEntries(KIT_FAMILIES.filter((f) => f !== 'rs').map((f) => [f, families[f]])) as Partial<Record<KitFamily, string>>,
+        machines,
+        samples: { ...(bd ? { bd } : {}), ...(sd ? { sd } : {}) },
+        layers,
+        knobs: kitKnobs,
       },
     };
   });

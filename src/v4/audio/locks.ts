@@ -26,6 +26,21 @@
  * - delay, reverb : les envois de la voix (FX), poses sur sa tranche a
  *   l'instant du coup, jusqu'au coup suivant de la voix (audio/sends.ts hit),
  *   comme un verrou d'envoi d'une Elektron : la queue deja envoyee reste.
+ * Les deux couches (2026-10-08, l'etape R3, audio/kit.ts) : le coup se
+ * calcule avec ce que le pas change de sa voix (audio/shots.ts, un
+ * ShotOverride prepare a l'avance) :
+ * - mach : la MACHINE de la couche SYNTH ('909', '808', 'mm') ;
+ * - ksweep, sdtune, sddecay, sdtone : les potards de machine de R3 (SWEEP du
+ *   kick ; TUNE, DECAY, TONE de la caisse claire) ;
+ * - syn : le niveau de la couche SYNTH ; slev : celui de la couche SAMPLE ;
+ * - stune, sfine, sstart, slen, srev : TUNE, FINE, START, LEN, REV de la
+ *   couche SAMPLE (la page SMPL) ;
+ * - snd : depuis R3 l'echantillon de la couche SAMPLE, le "sample lock" de
+ *   l'Analog Rytm ('<famille>:<cle>', un echantillon de n'importe quelle
+ *   famille ; '<famille>:off' : la couche SAMPLE muette sur ce pas). Un snd
+ *   de R2 sur un modele (bd:909) n'est plus lu (la MACHINE a son verrou).
+ * start reste le debut du coup dans tout son tampon (la voix, R2), sans bloc
+ * depuis R3 : START de SMPL est celui de la couche SAMPLE (sstart).
  * La velocite (TRIG VEL) n'est pas un verrou : c'est le chiffre du pas
  * lui-meme (audio/pattern.ts), comme sur une Elektron.
  *
@@ -39,20 +54,24 @@
 
 import type { Inst } from '../theme';
 
-/** Les reglages verrouillables (R2) : tous coup par coup. */
-export type LockId = 'level' | 'decay' | 'tune' | 'pan' | 'start' | KitLockId | 'delay' | 'reverb';
-/** Les potards de la machine (SRC) : le coup se calcule avec eux (revue de R2). */
-export type KitLockId = 'ktune' | 'kattack' | 'kdecay' | 'kdrive' | 'snappy' | 'gate';
-export const KIT_LOCK_IDS: readonly KitLockId[] = ['ktune', 'kattack', 'kdecay', 'kdrive', 'snappy', 'gate'];
-export const LOCK_IDS: readonly LockId[] = ['level', 'decay', 'tune', 'pan', 'start', ...KIT_LOCK_IDS, 'delay', 'reverb'];
+/** Les reglages verrouillables (R2, R3) : tous coup par coup. */
+export type LockId = 'level' | 'decay' | 'tune' | 'pan' | 'start' | KitLockId | LayerLockId | 'delay' | 'reverb';
+/** Les potards de la machine (SRC) : le coup se calcule avec eux (revue de R2 ; SWEEP et la caisse claire depuis R3). */
+export type KitLockId = 'ktune' | 'kattack' | 'kdecay' | 'kdrive' | 'snappy' | 'gate' | 'ksweep' | 'sdtune' | 'sddecay' | 'sdtone';
+export const KIT_LOCK_IDS: readonly KitLockId[] = ['ktune', 'kattack', 'kdecay', 'kdrive', 'snappy', 'gate', 'ksweep', 'sdtune', 'sddecay', 'sdtone'];
+/** Les reglages des couches (R3) : les deux niveaux, la couche SAMPLE. */
+export type LayerLockId = 'syn' | 'slev' | 'stune' | 'sfine' | 'sstart' | 'slen' | 'srev';
+export const LAYER_LOCK_IDS: readonly LayerLockId[] = ['syn', 'slev', 'stune', 'sfine', 'sstart', 'slen', 'srev'];
+export const LOCK_IDS: readonly LockId[] = ['level', 'decay', 'tune', 'pan', 'start', ...KIT_LOCK_IDS, ...LAYER_LOCK_IDS, 'delay', 'reverb'];
 export const isLockId = (v: unknown): v is LockId => typeof v === 'string' && (LOCK_IDS as readonly string[]).includes(v);
 export const isKitLock = (v: unknown): v is KitLockId => typeof v === 'string' && (KIT_LOCK_IDS as readonly string[]).includes(v);
+export const isLayerLock = (v: unknown): v is LayerLockId => typeof v === 'string' && (LAYER_LOCK_IDS as readonly string[]).includes(v);
 
-/** Un verrou de pas ou le son (snd). */
-export type LockKey = LockId | 'snd';
+/** Un verrou de pas, l'echantillon (snd) ou la MACHINE (mach). */
+export type LockKey = LockId | 'snd' | 'mach';
 
-/** Les verrous d'un pas : des valeurs (le domaine du reglage) et le son. */
-export type StepLock = Partial<Record<LockId, number>> & { snd?: string };
+/** Les verrous d'un pas : des valeurs (le domaine du reglage), l'echantillon et la MACHINE. */
+export type StepLock = Partial<Record<LockId, number>> & { snd?: string; mach?: string };
 
 /** Les verrous du motif : par voix, par pas ('0' a '15'). */
 export type Locks = Partial<Record<Inst, Readonly<Record<string, Readonly<StepLock>>>>>;
@@ -60,8 +79,12 @@ export type Locks = Partial<Record<Inst, Readonly<Record<string, Readonly<StepLo
 /** Les voix (l'ordre des pads) : une copie locale, pas d'import circulaire avec audio/pattern.ts. */
 const INSTS: readonly Inst[] = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'];
 const STEPS = 16;
-/** Le son verrouille : famille, deux-points, son (909, 808, mm ou la cle d'un echantillon). */
+/** Le son verrouille : famille, deux-points, son (la cle d'un echantillon, ou off ; 909, 808, mm avant R3). */
 const SND_RE = /^(bd|sd|hh|cp|tom|rs):[^\s:][^:]{0,120}$/;
+/** Les MACHINES de la couche SYNTH. */
+const MACHS: readonly string[] = ['909', '808', 'mm'];
+/** Un snd de R2 qui verrouillait un modele : plus lu depuis R3. */
+const oldModelSnd = (snd: string): boolean => /:(909|808|mm)$/.test(snd);
 
 export const NO_LOCKS: Readonly<Locks> = Object.freeze({});
 
@@ -70,11 +93,13 @@ const r3 = (v: number): number => Math.round(v * 1000) / 1000;
 /** Une valeur dans le domaine de son reglage (TUNE au demi-ton, PAN a -1..1, les autres a 0..1). */
 export function clampLock(id: LockId, v: number): number {
   if (!Number.isFinite(v)) return id === 'decay' ? 1 : id === 'level' ? 0.8 : 0;
-  if (id === 'tune') return Math.max(-24, Math.min(24, Math.round(v * 24))) / 24;
+  if (id === 'tune' || id === 'stune') return Math.max(-24, Math.min(24, Math.round(v * 24))) / 24;
+  if (id === 'sfine') return Math.max(-64, Math.min(64, Math.round(v * 64))) / 64;
   if (id === 'pan') return r3(Math.max(-1, Math.min(1, v)));
-  // Les potards de la machine : au cinquantieme comme le kit (un calcul de coup par cran, pas par pixel) ; GATE 0 ou 1
-  if (id === 'gate') return v >= 0.5 ? 1 : 0;
-  if (isKitLock(id)) return Math.round(Math.max(0, Math.min(1, v)) * 50) / 50;
+  // Les potards de la machine et des couches : au 127e comme le kit depuis R3 (un calcul de coup par cran, pas par
+  // pixel ; au cinquantieme en R2) ; GATE et REV 0 ou 1
+  if (id === 'gate' || id === 'srev') return v >= 0.5 ? 1 : 0;
+  if (isKitLock(id) || isLayerLock(id)) return Math.round(Math.max(0, Math.min(1, v)) * 127) / 127;
   return r3(Math.max(0, Math.min(1, v)));
 }
 
@@ -91,8 +116,12 @@ function cleanStep(o: unknown): StepLock | null {
       n += 1;
     }
   }
-  if (typeof x.snd === 'string' && SND_RE.test(x.snd)) {
+  if (typeof x.snd === 'string' && SND_RE.test(x.snd) && !oldModelSnd(x.snd)) {
     out.snd = x.snd;
+    n += 1;
+  }
+  if (typeof x.mach === 'string' && MACHS.includes(x.mach)) {
+    out.mach = x.mach;
     n += 1;
   }
   return n > 0 ? out : null;
@@ -158,6 +187,7 @@ export const anyLocks = (l: Readonly<Locks> | null | undefined): boolean => !!l 
 
 /** Un verrou pose (ou remplace) sur des pas d'une voix : de nouveaux verrous (mise a jour immuable). */
 export function withLock(l: Readonly<Locks>, inst: Inst, steps: readonly number[], key: LockKey, v: number | string): Locks {
+  if (key === 'snd' && typeof v === 'string' && oldModelSnd(v)) return l as Locks;
   const row: Record<string, StepLock> = { ...(l[inst] ?? {}) };
   for (const i of steps) {
     if (!Number.isInteger(i) || i < 0 || i >= STEPS) continue;
@@ -166,6 +196,9 @@ export function withLock(l: Readonly<Locks>, inst: Inst, steps: readonly number[
     if (key === 'snd') {
       if (typeof v !== 'string' || !SND_RE.test(v)) continue;
       cur.snd = v;
+    } else if (key === 'mach') {
+      if (typeof v !== 'string' || !MACHS.includes(v)) continue;
+      cur.mach = v;
     } else {
       if (typeof v !== 'number') continue;
       cur[key] = clampLock(key, v);

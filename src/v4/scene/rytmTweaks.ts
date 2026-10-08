@@ -96,6 +96,15 @@ const ENDS: Partial<Record<KitId, readonly [string, string]>> = {
   snappy: ['TONE', 'SNAP'],
 };
 
+/**
+ * Les noms de la plaque qui changent avec les deux couches (2026-10-08, l'etape
+ * R3) : TUNE et DECAY du KICK ne reglent plus que sa couche SYNTH (le sample a
+ * son TUNE et son LEN, page SMPL) ; ATTACK, DRIVE et SNAPPY reglent les deux.
+ * Le selecteur KICK (SNARE, CLAP...) reste le raccourci vers une couche : un
+ * modele joue seul, un sample joue seul.
+ */
+const PLATE_LABEL: Partial<Record<KitId, string>> = { tune: 'SYN TUNE', decay: 'SYN DECAY' };
+
 /** La place d'une case : sa colonne peut tomber entre deux (les colonnes sont regulieres). */
 const cellOf = (id: KitId): { x: number; z: number } => {
   const c = CELLS.find((k) => k[0] === id);
@@ -109,7 +118,7 @@ function items(): TweakItem[] {
     const sw = kitSteps(id) > 1;
     return {
       hotspot: `rk-${id}`,
-      label: KIT_LABEL[id],
+      label: PLATE_LABEL[id] ?? KIT_LABEL[id],
       x,
       z,
       s: sw ? KNOB_S * SWITCH_S : KNOB_S,

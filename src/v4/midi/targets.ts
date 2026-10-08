@@ -38,7 +38,7 @@ import { clock } from '../audio/clock';
 import { voices as voiceState } from '../state/voices';
 import { arp } from '../voyager/arp';
 import { voyInfos } from '../state/voyInfos';
-import { KIT_IDS, KIT_LABEL, kit, kitSteps } from '../audio/kit';
+import { KIT_IDS, KIT_LABEL, KIT_MORE, kit, kitSteps, type KitKnob } from '../audio/kit';
 import { setVoiceFx } from '../audio/drums';
 import { VOICE_PARAMS, voiceFx, type VoiceParam } from '../audio/voicefx';
 import type { Stage } from '../scene/renderer';
@@ -149,12 +149,13 @@ function coreTargets(): MidiTarget[] {
       if (v >= 0.5 !== clock.running) void runToggle(getStage());
     },
   });
-  for (const k of KIT_IDS) {
+  // Les potards de la machine ajoutes par R3 (2026-10-08 : SWEEP du kick, TUNE DECAY TONE de la caisse claire) suivent la plaque
+  for (const k of [...KIT_IDS, ...KIT_MORE]) {
     // Ses crans suivent les echantillons du site (audio/samples.ts) : lus a chaque fois
     out.push({
       id: `rytm:kit:${k}`,
       scope: 'mm808',
-      label: `TWEAK ${KIT_LABEL[k]}`,
+      label: `TWEAK ${KIT_MORE.includes(k as KitKnob) ? (k === 'sweep' ? 'KICK ' : 'SNARE ') : ''}${KIT_LABEL[k]}`,
       kind: 'value',
       get steps() {
         return kitSteps(k);

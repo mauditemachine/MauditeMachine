@@ -330,8 +330,9 @@ const PageKnob: React.FC<{ k: number }> = ({ k }) => {
   const slot = pageSlots(rp.page, p.instrument)[k];
   const letter = PAGE_KNOB_LETTERS[k];
   const block = slot && slot.label ? slotBlock(slot, k, p.instrument, rp.sel, false, lk.step >= 0 ? { kind: 'lock', step: lk.step } : null) : null;
-  // Le meme bloc que l'ecran : son etiquette (la voix sur la rangee du haut de FX, ALL ou NO BD dessous ; en LOCK GLOBAL, NO LOCK)
-  const tag = block ? block.tag : '';
+  // Le meme bloc que l'ecran : son etiquette (la voix sur la rangee du haut de FX, ALL ou NO BD dessous ; en LOCK GLOBAL, NO LOCK ;
+  // R3, 2026-10-08 : sa couche muette, SYN OFF ou SMP OFF, comme le bloc en retrait de l'ecran)
+  const tag = block ? (block.quiet ? (slot?.layer === 'synth' ? 'SYN OFF' : 'SMP OFF') : block.tag) : '';
   if (!slot || !slot.label) {
     return (
       <div className="v4-knob v4-knob-page v4-knob-empty" aria-hidden="true">
