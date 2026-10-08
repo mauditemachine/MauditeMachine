@@ -20,6 +20,7 @@ import { bassExplode, chipsLive, explode, voyExplode, type ExplodeStore } from '
 import { bassInfos } from './state/bassInfos';
 import { voyInfos } from './state/voyInfos';
 import { voyEcho } from './voyager/echo';
+import { voyPatch } from './voyager/patch';
 import { focus, MACHINES, VOYAGER, type Focus, type MachineId } from './state/focus';
 import { lcdMessage } from './state/lcdMessage';
 import { lcdMix } from './state/lcdMix';
@@ -761,6 +762,8 @@ export function voyRandom(stage: Stage | null = null): void {
     const buf = Array.from({ length: SEQ_MAX }, (_, i) => r.seq?.[i % (r.seq?.length || 1)] ?? null);
     seq.restore({ edit: true, buf, len: Math.min(SEQ_MAX, r.seq.length), has: true });
   } else seq.auto();
+  // L'en-tete du grand ecran (2026-10-08) : RANDOM et son style, a la place du nom d'un preset
+  voyPatch.random(r.style);
   const cur = arp.get().prog.join(',');
   const pool = PROGRESSIONS.filter((p) => p.join(',') !== cur);
   const pick = r.prog ?? pool[Math.floor(Math.random() * pool.length)] ?? PROGRESSIONS[0];

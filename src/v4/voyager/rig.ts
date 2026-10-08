@@ -40,7 +40,8 @@ import { CHORDS } from './chords';
 import { VoyKnobs } from './knobs';
 import { VoyScreen, type VoyScreenState } from './screen';
 import { voyEcho } from './echo';
-import { voyInfoIdOf } from './infos';
+import { voyPatch } from './patch';
+import { voyInfoIdOf } from './infoIds';
 import { voyMsg } from './msg';
 import { VoyKeys } from './pads';
 import { VOY_FACE_KNOBS, VOY_TWEAKS, morphPos, stepIndex, voyParams } from './params';
@@ -94,16 +95,6 @@ function prism(layer: Object3D, poly: [number, number][], x0: number, x1: number
   return { layer, planes, corners, tag: 'voy' };
 }
 
-/** Le nom du dernier preset charge, retenu d'une visite a l'autre (l'en-tete du grand ecran). */
-const PRESET_KEY = 'mm.v4.voyager.preset';
-function readPreset(): string {
-  try {
-    return window.localStorage.getItem(PRESET_KEY) ?? '';
-  } catch {
-    return '';
-  }
-}
-
 export class VoyagerRig {
   readonly root = new Group();
   readonly socle = new Group();
@@ -137,15 +128,14 @@ export class VoyagerRig {
   private explodeGoal = false;
   private lastSeq = -1;
   private playing = -1;
-  /** le rang de la suite qui joue et son accord (arp.posAt), -1 : a l'arret */
+  /** le rang de la suite qui joue, son accord et son rang dans la progression (arp.posAt), -1 : a l'arret */
   private pos = -1;
   private posChord = -1;
+  private posSlot = -1;
   /** le dernier accord ajoute a la progression (un pad, le Dock, le clavier, le MIDI) : l'ecran le montre a l'arret */
   private lastPad = -1;
   private prog: readonly number[] = [];
-  /** le dernier preset charge ou garde, retenu (mm.v4.voyager.preset) */
-  private preset = readPreset();
-  /** un dessin de l'ecran venu trop tot (moins de 40 ms apres le precedent) : l'animateur le refait */
+  /** un dessin de l'ecran venu trop tot (screen.ts MIN_GAP_MS apres le precedent) : l'animateur le refait */
   private screenWait = false;
   private waitTimer = 0;
   private bpm = 0;
@@ -185,7 +175,11 @@ export class VoyagerRig {
     this.lcd = new VoyScreen(opts.anisotropy);
     this.lid.add(this.lcd.bezel, this.lcd.glass);
     this.seqScreen = !PORTRAIT && !opts.mobile ? new VoySeqScreen(opts.anisotropy) : null;
-    if (this.seqScreen) this.lid.add(this.seqScreen.group);
+    if (this.seqScreen) {
+      this.lid.add(this.seqScreen.group);
+      // Un onglet d'accord touche sur l'ecran de la suite : le grand ecran montre le meme accord, lecture arretee comprise (revue du 2026-10-08)
+      this.seqScreen.onView = () => this.syncLcd();
+    }
 
     this.pcb = new Pcb(opts.mobile, opts.anisotropy, { model: `${VOY_COPY.model} R1.0`, variant: 'voy', chips: false });
     this.pcbGroup.add(this.pcb.board, this.pcb.parts);
@@ -298,6 +292,7 @@ export class VoyagerRig {
     this.unsubs.push(pattern.subscribe(this.syncTempo));
     this.unsubs.push(voyEcho.subscribe(this.syncLcd));
     this.unsubs.push(voyInfos.subscribe(this.syncLcd));
+    this.unsubs.push(voyPatch.subscribe(this.syncLcd));
     this.unsubs.push(voyExplode.subscribe(this.syncExplode));
     this.applyExplode(true);
     this.detach = voyExplode.attach();
@@ -366,6 +361,7 @@ export class VoyagerRig {
       this.playing = -1;
       this.pos = -1;
       this.posChord = -1;
+      this.posSlot = -1;
     }
     let changed = this.keys.setChords(s.prog, this.playing);
     if (this.keys.setRunning(s.running)) changed = true;
@@ -400,19 +396,18 @@ export class VoyagerRig {
   private screenState(): VoyScreenState {
     const s = arp.get();
     const chord = this.shownChord();
-    // Le preset charge ou garde : son nom reste en tete de l'ecran
-    const pv = presetMode.view('voy');
-    if (pv && !pv.empty && (pv.title === 'LOADED' || pv.title === 'SAVED')) this.setPreset(pv.name);
     return {
       running: s.running,
       bpm: this.bpm,
-      preset: this.preset,
-      presetView: pv,
+      // Le nom du son : le preset charge (une etoile s'il a bouge), RANDOM et son style, INIT (voyager/patch.ts)
+      preset: voyPatch.label(),
+      presetView: presetMode.view('voy'),
       editing: editor.get() === 'voy',
       seqEdit: seq.get().edit,
       prog: s.prog,
       chord,
       playing: s.running ? (this.posChord >= 0 ? this.posChord : this.playing) : -1,
+      slot: s.running && this.posChord >= 0 ? this.posSlot : -1,
       steps: seq.shown(chord),
       pos: s.running ? this.pos : -1,
       values: voyParams.get(),
@@ -420,16 +415,6 @@ export class VoyagerRig {
       message: voyMsg.get(),
       infos: voyInfos.isOn(),
     };
-  }
-
-  private setPreset(name: string): void {
-    if (name === this.preset) return;
-    this.preset = name;
-    try {
-      window.localStorage.setItem(PRESET_KEY, name);
-    } catch {
-      /* stockage plein ou bloque : le nom reste pour la visite */
-    }
   }
 
   /** Le grand ecran ; true s'il a ete redessine. Appele seul (un store), il demande la frame ; trop tot, l'animateur le refera. */
@@ -443,7 +428,7 @@ export class VoyagerRig {
         this.waitTimer = window.setTimeout(() => {
           this.waitTimer = 0;
           if (this.screenWait) this.syncLcd();
-        }, 45);
+        }, this.lcd.waitLeft() + 5);
       }
       if (paint !== false) this.opts.repaint();
       return false;
@@ -522,6 +507,7 @@ export class VoyagerRig {
         this.playing = -1;
         this.pos = -1;
         this.posChord = -1;
+        this.posSlot = -1;
         this.keys.setChords(s.prog, -1);
         res = 'paint';
       }
@@ -540,8 +526,9 @@ export class VoyagerRig {
       const p = c ? arp.posAt(c.currentTime) : null;
       this.pos = p ? p.pos : -1;
       this.posChord = p ? p.chord : -1;
+      this.posSlot = p ? p.slot : -1;
     }
-    // L'ecran : un dessin si la tete (ou quoi que ce soit) a change, au plus toutes les 40 ms
+    // L'ecran : un dessin si la tete (ou quoi que ce soit) a change, au plus toutes les 40 ms (60 pendant la lecture)
     const wait = this.screenWait;
     this.screenWait = false;
     if (s.running || wait || res === 'paint') {

@@ -18,9 +18,11 @@
  *   reliees par un filet (la racine plus marquee), GLIDE en liaisons, la
  *   tete de lecture qui avance, la note jouee en plein ; RATE en reperes
  *   dessous (un par note, un plus haut par temps) ; a droite (desktop) les
- *   sept reglages de l'arpegiateur, de 0 a 127 ou leur nom ; en bas la
- *   bande des huit accords (celui qui sonne en negatif, ceux de la
- *   progression cernes et numerotes), puis le message du moment ;
+ *   sept reglages de l'arpegiateur en deux colonnes de blocs, de 0 a 127 ou
+ *   leur nom ; en bas la bande des huit accords (celui qui sonne en
+ *   negatif, ceux de la progression cernes et numerotes), puis le message
+ *   du moment et la pastille PRESETS (tout l'ecran les ouvre) ; le nom du
+ *   son en tete : voyager/patch.ts ;
  * - l'echo d'un potard (voyager/echo.ts, 1.5 s apres le dernier geste,
  *   tenu tant qu'on le tient) : sa section, son nom, sa valeur de 0 a 127
  *   en grand (-64 a +63 pour FINE, le nom du cran pour un potard a crans),
@@ -35,7 +37,8 @@
  * a droite, plein quand INFOS est allume (state/voyInfos.ts), sur toutes
  * les pages ; sa zone de saisie : theme.ts VOY_INFO_KEY.
  * Redessine seulement quand ce qu'il montre change, au plus toutes les
- * MIN_GAP_MS (la tete de lecture : une image par note), jamais par frame.
+ * MIN_GAP_MS (RUN_GAP_MS pendant la lecture : la tete, une image par note
+ * au plus), jamais par frame.
  */
 
 import { BoxGeometry, Mesh, MeshBasicMaterial, MeshStandardMaterial, PlaneGeometry, type CanvasTexture } from 'three';
@@ -45,7 +48,7 @@ import { FONT_DISPLAY, GAIN, HEX, PORTRAIT } from '../theme';
 import type { PresetView } from '../state/presetMode';
 import { CHORDS } from './chords';
 import { hzText, midiName, voyDiagram, type VoyDiagram } from './diagrams';
-import { VOY_INFOS } from './infos';
+import { VOY_INFO_SECTION } from './infoIds';
 import {
   MODES,
   NOTES,
@@ -89,6 +92,8 @@ export interface VoyScreenState {
   chord: number;
   /** l'accord qui sonne, -1 : rien */
   playing: number;
+  /** son rang dans la progression (arp.posAt slot : une progression qui repete un accord), -1 : a l'arret */
+  slot: number;
   /** la suite montree pour cet accord (seq.shown) */
   steps: readonly SeqStep[];
   /** le rang de la suite qui joue, -1 : a l'arret */
@@ -109,6 +114,8 @@ export interface VoyScreenInfo {
   /** l'accord montre, son nom, sa cle */
   chord: string;
   camelot: string;
+  /** sa place dans la progression telle qu'ecrite (CHORD 2/4, NO CHORD, VIEW ONLY) */
+  where: string;
   /** l'echelle des notes dessinee (F#3 A3 C#4..., '-' : silence) et le rang en plein (-1 : aucun) */
   ladder: string[];
   pos: number;
@@ -131,8 +138,14 @@ const FAINT = 'rgba(246, 241, 231, 0.18)';
 const BAND = 'rgba(246, 241, 231, 0.09)';
 const BLACK = '#050506';
 
-/** Au plus un redessin toutes les 40 ms (un potard tourne a la cadence du pointeur ; la tete avance d'une note). */
+/**
+ * Au plus un redessin toutes les 40 ms (un potard tourne a la cadence du
+ * pointeur), 60 pendant la lecture (la tete avance d'une note : le meme pas
+ * que l'ecran du MM-RYTM, scene/screen.ts ; revue du 2026-10-08, chaque
+ * dessin renvoie 1280 x 498 au GPU, au plus 16 par seconde en 1/32 rapide).
+ */
 const MIN_GAP_MS = 40;
+const RUN_GAP_MS = 60;
 
 const DESK = !PORTRAIT;
 const UW = VOY_SCREEN_UW;
@@ -145,16 +158,24 @@ const LINE_Y = UH - (DESK ? 5 : 4.5);
 const STRIP_H = DESK ? 14.5 : 12;
 const STRIP_Y0 = LINE_Y - (DESK ? 10.5 : 9) - STRIP_H;
 const MAIN1 = STRIP_Y0 - (DESK ? 5.5 : 4.5);
-/** Les colonnes du milieu : l'accord, l'echelle, les reglages (desktop) */
+/**
+ * Les colonnes du milieu : l'accord, l'echelle, les reglages (desktop). Les
+ * reglages en deux colonnes de quatre blocs, le nom au-dessus de la valeur
+ * (revue du 2026-10-08 : une colonne de sept rangees, 8 px de texte a
+ * 1440 x 900) : RATE MODE RANGE NOTES puis GATE OCTAVE GLIDE, les deux
+ * rangees de potards de l'arpegiateur sur le plateau. L'echelle cede 12
+ * unites (224 et 234 avant).
+ */
 const CHORD_X1 = DESK ? 68 : 60;
 const LAD_X0 = DESK ? 78 : 66;
-const LAD_X1 = DESK ? 224 : UW - 10;
-const PAR_X0 = DESK ? 234 : 0;
+const LAD_X1 = DESK ? 212 : UW - 10;
+const PAR_X0 = DESK ? 222 : 0;
+const PAR_GAP = 4;
 /** La touche i : son centre et son rayon (theme.ts VOY_INFO_KEY pose sa zone au meme endroit) */
-export const INFO_I = { x: UW - 11, y: 10.5, r: DESK ? 5.4 : 5.8 } as const;
+export const INFO_I = { x: UW - 11, y: 10.5, r: DESK ? 5.4 : 6.4 } as const;
 /** Les corps (unites) */
 const FS = DESK
-  ? { head: 11.5, small: 8.4, tiny: 6.8, chord: 30, strip: 8.8, line: 8.2, par: 6.4, parV: 8.8, rung: 6.2 }
+  ? { head: 11.5, small: 8.4, tiny: 6.8, chord: 30, strip: 8.8, line: 8.2, par: 6.4, parV: 9.6, rung: 6.2 }
   : { head: 10.5, small: 8, tiny: 6.6, chord: 21, strip: 8, line: 8, par: 0, parV: 0, rung: 6.2 };
 
 const font = (weight: number, size: number): string => `${weight} ${size}px ${FONT_DISPLAY}`;
@@ -173,8 +194,18 @@ const DIAGRAM_INK: Readonly<Record<VoyDiagram['paths'][number]['role'], { stroke
   dash: { stroke: HALF, fill: HALF, lw: 0.9 },
 };
 
-/** Les sections des potards (l'en-tete de l'echo) : celles des INFOS. */
-const sectionOf = (id: VoyKnobId): string => VOY_INFOS[id]?.section ?? '';
+/** Les sections des potards (l'en-tete de l'echo) : celles des INFOS (voyager/infoIds.ts, sans leurs textes). */
+const sectionOf = (id: VoyKnobId): string => VOY_INFO_SECTION[id] ?? '';
+
+/** Un libelle de dessin qui redit l'unite ecrite sous la valeur (32 NOTES / BAR, 4.2 KHZ, F#3 de ROOT F#3) : l'echo ne l'ecrit qu'une fois. */
+const squash = (t: string): string => t.toUpperCase().replace(/\s+/g, '');
+function repeats(label: string, unit: string): boolean {
+  const a = squash(label);
+  const b = squash(unit);
+  if (!a || !b) return false;
+  // Une valeur d'au moins trois signes au bout de l'unite (F#3, +1.5 OCT) ; jamais un repere court (les temps 1 2 3 4, 1K)
+  return a === b || (a.length >= 3 && /\d/.test(a) && (b.endsWith(a) || b.startsWith(a) || a.startsWith(b)));
+}
 
 /**
  * La valeur ecrite en grand (contrat Elektron : 0 a 127, round(v x 127) ;
@@ -235,7 +266,7 @@ export function echoValue(id: VoyKnobId, v: number, bpm: number): { value: strin
 
 const timeText = (s: number): string => (s >= 1 ? `${s.toFixed(2)} S` : `${Math.round(s * 1000)} MS`);
 
-/** Les sept reglages de l'arpegiateur (colonne de droite, desktop) : nom court, valeur lue. */
+/** Les sept reglages de l'arpegiateur (a droite, desktop ; les quatre de la rangee du haut, puis les trois du bas) : nom court, valeur lue. */
 function arpParams(v: Readonly<VoyValues>): [string, string][] {
   return [
     ['RATE', RATES[stepIndex('rate', v.rate)]],
@@ -259,6 +290,9 @@ export class VoyScreen {
   private scale: number;
   private key = '';
   private drawnAt = -Infinity;
+  private gap = MIN_GAP_MS;
+  /** les noms des racines poses a gauche de l'echelle (la ligne CHORD n/total s'arrete avant eux) */
+  private rootTags: { x0: number; y0: number; y1: number }[] = [];
 
   constructor(anisotropy: number) {
     const W = VOY_LCD.tex;
@@ -270,6 +304,8 @@ export class VoyScreen {
     const ctx = this.canvas.getContext('2d');
     if (!ctx) throw new Error('voyager: no 2d context');
     this.ctx = ctx;
+    // Les mipmaps restent (revue du 2026-10-08) : au desktop les 1280 px du verre tombent sur ~450 px CSS a 1440 x 900,
+    // sans eux le texte fin scintille a DPR 1 ; le MM-BASS fait de meme. La charge se tient par RUN_GAP_MS et la cle.
     this.texture = makeCanvasTexture(this.canvas, anisotropy);
     const geo = new PlaneGeometry(VOY_LCD.w, VOY_LCD.d);
     geo.rotateX(-Math.PI / 2);
@@ -286,11 +322,16 @@ export class VoyScreen {
     this.bezel = new Mesh(bg, this.bezelMat);
     this.bezel.name = 'voyLcdBezel';
     this.bezel.receiveShadow = true;
-    this.info = { draws: 0, page: 'home', size: [W, H], chord: '', camelot: '', ladder: [], pos: -1, gate: 0, spn: 1, echo: null, value: '', unit: '', infos: false, strip: '', text: '' };
+    this.info = { draws: 0, page: 'home', size: [W, H], chord: '', camelot: '', where: '', ladder: [], pos: -1, gate: 0, spn: 1, echo: null, value: '', unit: '', infos: false, strip: '', text: '' };
   }
 
   get text(): string {
     return this.info.text;
+  }
+
+  /** Dans combien de ms un dessin refuse ('wait') passera (le minuteur du rig). */
+  waitLeft(now = performance.now()): number {
+    return Math.max(0, Math.ceil(this.drawnAt + this.gap - now));
   }
 
   /** La page que montre cet etat. */
@@ -308,11 +349,14 @@ export class VoyScreen {
   draw(s: VoyScreenState, now = performance.now()): 'drawn' | 'same' | 'wait' {
     const page = VoyScreen.pageOf(s);
     const v = s.values;
-    // La cle : ce que la page dessine (l'echo lit toutes les valeurs, ses dessins en croisent plusieurs)
+    // La cle : ce que la page dessine (l'echo lit toutes les valeurs, ses dessins en croisent plusieurs) ;
+    // l'echo et PRESETS ne montrent ni la tete ni la note qui joue : pas un dessin par note sous eux
     const arpV = [v.rate, v.mode, v.range, v.notes, v.gate, v.octave, v.glide, v.chord];
-    const key = JSON.stringify([page, s.running, Math.round(s.bpm), s.preset, s.infos, s.presetView, s.editing && s.seqEdit, s.prog, s.chord, s.playing, s.steps, s.pos, s.message, page === 'echo' ? [s.echo, v] : arpV]);
+    const live = page === 'home' || page === 'edit' ? [s.playing, s.slot, s.steps, s.pos] : 0;
+    const key = JSON.stringify([page, s.running, Math.round(s.bpm), s.preset, s.infos, s.presetView, s.editing && s.seqEdit, s.prog, s.chord, live, s.message, page === 'echo' ? [s.echo, v] : arpV]);
     if (key === this.key) return 'same';
-    if (now - this.drawnAt < MIN_GAP_MS) return 'wait';
+    this.gap = s.running ? RUN_GAP_MS : MIN_GAP_MS;
+    if (now - this.drawnAt < this.gap) return 'wait';
     this.key = key;
     this.drawnAt = now;
     const c = this.ctx;
@@ -449,8 +493,8 @@ export class VoyScreen {
     c.fillRect(x - w / 2, y - r * 0.16, w, r * 0.68);
   }
 
-  /** Un dessin des INFOS dans la boite donnee, a l'echelle, centre (comme bass/screen.ts drawDiagram). */
-  private drawDiagram(d: VoyDiagram, x: number, y: number, w: number, h: number): void {
+  /** Un dessin des INFOS dans la boite donnee, a l'echelle, centre (comme bass/screen.ts drawDiagram) ; unit : la ligne d'unite deja ecrite (ses libelles en double sautent). */
+  private drawDiagram(d: VoyDiagram, x: number, y: number, w: number, h: number, unit = ''): void {
     const c = this.ctx;
     const k = Math.min(w / d.w, h / d.h);
     c.save();
@@ -476,7 +520,7 @@ export class VoyScreen {
     c.fillStyle = HALF;
     c.textBaseline = 'alphabetic';
     for (const t of d.texts) {
-      if (t.role !== 'label') continue;
+      if (t.role !== 'label' || repeats(t.text, unit)) continue;
       c.textAlign = t.anchor === 'middle' ? 'center' : t.anchor === 'end' ? 'right' : 'left';
       c.fillText(t.text, t.x, t.y);
     }
@@ -507,27 +551,36 @@ export class VoyScreen {
     const ry = cy + (DESK ? 11 : 10);
     const rw = this.txt(ROMAN[chord], 10, ry, FS.small, INK, 700);
     this.pill(cam, 10 + rw + 5, ry, FS.tiny, false);
-    const at = s.prog.indexOf(chord);
+    // Le rang qui joue s'il s'agit de cet accord (F#m F#m D E : le second F#m dit 2/4), sinon sa premiere place
+    const at = s.slot >= 0 && s.prog[s.slot] === chord ? s.slot : s.prog.indexOf(chord);
     const where = !has ? 'NO CHORD' : at >= 0 ? `CHORD ${at + 1}/${s.prog.length}` : 'VIEW ONLY';
-    // Coupee avant les noms des racines de l'echelle (a gauche de LAD_X0, une vingtaine d'unites)
-    if (MAIN1 - ry > FS.tiny + 3) this.txt(this.clip(where, FS.tiny, 700, LAD_X0 - 26), 10, Math.min(MAIN1, ry + FS.tiny + 5), FS.tiny, HALF, 700);
 
-    // Au milieu : l'echelle des notes
+    // Au milieu : l'echelle des notes (avant la ligne du dessus : elle s'arrete devant les noms des racines)
     const pv = arpPreview(chord, s.values, s.steps);
     this.drawLadder(pv, s, has, cy + 3);
+    if (MAIN1 - ry > FS.tiny + 3) {
+      const wy = Math.min(MAIN1, ry + FS.tiny + 5);
+      // Le bord gauche du nom de racine le plus proche sur cette hauteur (revue du 2026-10-08 : NO CHORD touchait F#3)
+      let wx = LAD_X0 - 6;
+      for (const t of this.rootTags) if (t.y0 < wy + 1.5 && t.y1 > wy - FS.tiny - 1.5) wx = Math.min(wx, t.x0 - 4);
+      this.txt(this.clip(where, FS.tiny, 700, wx - 10), 10, wy, FS.tiny, HALF, 700);
+    }
 
-    // A droite (desktop) : les sept reglages de l'arpegiateur
+    // A droite (desktop) : les sept reglages de l'arpegiateur, deux colonnes de blocs (le nom, la valeur dessous)
     if (DESK) {
       const rows = arpParams(s.values);
       const y0 = MAIN0 + 1;
-      const dy = (MAIN1 - y0) / rows.length;
-      // Les corps suivent la hauteur d'une rangee : jamais deux valeurs qui se touchent
-      const pv2 = Math.min(FS.parV, dy * 0.92);
-      const pl = Math.min(FS.par, dy * 0.7);
+      const dy = (MAIN1 - y0) / 4;
+      const colW = (UWr - 10 - PAR_X0 - PAR_GAP) / 2;
+      // Les corps suivent la hauteur d'un bloc : jamais deux valeurs qui se touchent
+      const pl = Math.min(FS.par, dy * 0.42);
+      const pv2 = Math.min(FS.parV, dy * 0.64);
       rows.forEach(([k, val], i) => {
-        const y = y0 + dy * (i + 0.8);
-        this.txt(k, PAR_X0, y, pl, HALF, 700);
-        this.txt(val, UWr - 10, y, pv2, INK, 600, 'right');
+        const x = PAR_X0 + (i < 4 ? 0 : colW + PAR_GAP);
+        const top = y0 + dy * (i % 4);
+        const ly = top + pl * 0.8;
+        this.txt(k, x, ly, pl, HALF, 700);
+        this.txt(val, x, ly + 1.2 + pv2 * 0.74, this.fit(val, 600, pv2, colW), INK, 600);
       });
       this.ctx.fillStyle = FAINT;
       this.ctx.fillRect(PAR_X0 - 5, MAIN0, 0.6, MAIN1 - MAIN0);
@@ -553,12 +606,14 @@ export class VoyScreen {
             ? `F# MINOR  11A  ${s.prog.length} CHORD${s.prog.length > 1 ? 'S' : ''}`
             : settings;
     const msg = s.message ?? hint;
-    const right = edit ? '' : DESK ? 'TOUCH: PRESETS' : 'TAP: PRESETS';
-    const rw2 = right ? this.txt(right, UWr - 10, LINE_Y, FS.tiny, FAINT, 700, 'right') : 0;
+    // PRESETS : une pastille cernee, lisible (revue du 2026-10-08 : TOUCH: PRESETS en FAINT a 18 % se lisait a peine, et
+    // la bande des accords a l'air de touches ; tout l'ecran ouvre les presets, la pastille le dit)
+    const rw2 = edit ? 0 : this.pill('PRESETS', UWr - 10, LINE_Y, FS.tiny, false, 'right');
     this.txt(this.clip(msg, FS.line, 600, UWr - 26 - rw2), 10, LINE_Y, FS.line, s.message ? INK : HALF, 600);
 
     this.info.chord = name;
     this.info.camelot = cam;
+    this.info.where = where;
   }
 
   /**
@@ -603,7 +658,12 @@ export class VoyScreen {
     }
     // Les noms des racines, a gauche de l'echelle, sous le nom de l'accord (freeY) ; au telephone la plus basse seulement
     const roots = [...seen].filter((m) => ((m % 12) + 12) % 12 === root && yOf(m) - FS.rung > freeY).sort((a, b) => a - b);
-    for (const m of DESK ? roots : roots.slice(0, 1)) this.txt(midiName(m), x0 - 2, yOf(m) + FS.rung * 0.36, FS.rung, HALF, 600, 'right');
+    this.rootTags = [];
+    for (const m of DESK ? roots : roots.slice(0, 1)) {
+      const by = yOf(m) + FS.rung * 0.36;
+      const w = this.txt(midiName(m), x0 - 2, by, FS.rung, HALF, 600, 'right');
+      this.rootTags.push({ x0: x0 - 2 - w, y0: by - FS.rung * 0.74, y1: by });
+    }
     // La tete de lecture : la colonne qui joue dans une bande claire
     const playing = s.running && s.pos >= 0 && s.playing === pv.chord ? s.pos % Math.max(1, pv.notes.length) : -1;
     if (playing >= 0 && playing < n) {
@@ -684,7 +744,11 @@ export class VoyScreen {
       else this.box(x, y, w, STRIP_H, null, FAINT, 0.6);
       const size = this.fit(ch.label, 600, FS.strip, w - 5);
       this.txt(ch.label, x + w / 2, y + STRIP_H / 2 + size * 0.36, size, sounding ? BLACK : at >= 0 ? INK : HALF, sounding ? 700 : 600, 'center');
-      if (at >= 0 && s.prog.length > 1) this.txt(String(at + 1), x + w - 2, y + 4.6, 4.4, sounding ? BLACK : HALF, 700, 'right');
+      // Ses places dans la progression, toutes (F#m F#m D E : 1,2 sur F#m)
+      if (at >= 0 && s.prog.length > 1) {
+        const order = s.prog.flatMap((c, k) => (c === i ? [String(k + 1)] : [])).join(',');
+        this.txt(order, x + w - 2, y + 4.6, 4.4, sounding ? BLACK : HALF, 700, 'right');
+      }
       strip += sounding ? '*' : at >= 0 ? '+' : '.';
     });
     this.info.strip = strip;
@@ -726,7 +790,7 @@ export class VoyScreen {
     } else this.box(10, by - 1.1, Math.max(2.2, bw * v), 2.2, INK, null, 1, 1.1);
     // Le dessin, a droite, avec les valeurs du moment
     const d = voyDiagram(id, { v, values: s.values, bpm: s.bpm, chord: s.chord });
-    if (d) this.drawDiagram(d, UW * 0.42, MAIN0 - 4, UW * 0.58 - 10, UH - MAIN0 - 2);
+    if (d) this.drawDiagram(d, UW * 0.42, MAIN0 - 4, UW * 0.58 - 10, UH - MAIN0 - 2, unit);
     this.info.value = value;
     this.info.unit = unit;
   }

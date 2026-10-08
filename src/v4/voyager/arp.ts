@@ -74,6 +74,8 @@ export interface ArpPos {
   pos: number;
   len: number;
   chord: number;
+  /** le rang de la mesure dans la progression (0 a prog.length - 1) : une progression qui repete un accord (F#m F#m D E) dit lequel joue */
+  slot: number;
 }
 
 let state: ArpState = { prog: [], running: false };
@@ -134,6 +136,12 @@ function chordFor(b: number): number {
   return p[((b % p.length) + p.length) % p.length];
 }
 
+/** Le rang de la progression que joue la mesure b (celui de chordFor), -1 sans accord. */
+function slotFor(b: number): number {
+  const k = state.prog.length;
+  return k === 0 ? -1 : ((b % k) + k) % k;
+}
+
 /** Programme les notes du pas courant (une, deux en 1/32, ou aucune) ; silent : un pas saute, la suite avance sans rien jouer. */
 function scheduleStep(now: number, silent = false): void {
   const p = voyParams.get();
@@ -176,7 +184,7 @@ function scheduleStep(now: number, silent = false): void {
       d = pool[pick];
       seq.noteLive(pos, d);
     }
-    pushPos({ when, pos, len, chord });
+    pushPos({ when, pos, len, chord, slot: slotFor(bar) });
     // Un silence de la suite : rien ne part, le glissement repartira de la derniere note
     if (d === null) continue;
     const midi = degreeMidi(chord, d) + shift;

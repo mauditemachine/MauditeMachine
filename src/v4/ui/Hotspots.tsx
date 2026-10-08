@@ -95,7 +95,7 @@ import { view } from '../state/view';
 import { voices } from '../state/voices';
 import { voyKnob, type VoyKnobId } from '../voyager/params';
 import { voyEcho } from '../voyager/echo';
-import { voyInfoIdOf } from '../voyager/infos';
+import { voyInfoIdOf } from '../voyager/infoIds';
 import { voyInfos } from '../state/voyInfos';
 import { isSwitch } from '../voyager/theme';
 import { EXTERNAL_REL } from './ExternalLink';
@@ -509,8 +509,12 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       const encoder: DialId | null =
         dialOf(h);
-      // Le grand ecran du MM-ARP (2026-10-08) : l'echo du potard tenu reste tant qu'on le tient
-      if (encoder && isVoy(encoder)) voyEcho.hold(encoder.slice(2) as VoyKnobId);
+      // Le grand ecran du MM-ARP (2026-10-08) : l'echo du potard tenu reste tant qu'on le tient (une prise par pointeur)
+      if (encoder && isVoy(encoder)) {
+        voyEcho.hold(e.pointerId, encoder.slice(2) as VoyKnobId);
+        // INFOS allume, au doigt : la carte passe au potard qu'on prend, qu'on le tape ou qu'on le tourne (la carte suit)
+        if (h && e.pointerType !== 'mouse' && voyInfos.isOn() && voyInfoIdOf(h.id)) voyInfos.show(h.id);
+      }
       // Un deuxieme doigt : ni l'un ni l'autre ne glisse d'une machine a l'autre
       const multi = downs.size > 0;
       if (multi) for (const o of downs.values()) o.multi = true;
@@ -559,7 +563,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       const d = downs.get(id);
       if (!d) return;
       downs.delete(id);
-      if (d.dial && isVoy(d.dial)) voyEcho.hold(null);
+      if (d.dial && isVoy(d.dial)) voyEcho.release(id);
       try {
         if (el.hasPointerCapture(id)) el.releasePointerCapture(id);
       } catch {
@@ -632,7 +636,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       const d = downs.get(e.pointerId);
       downs.delete(e.pointerId);
-      if (d?.dial && isVoy(d.dial)) voyEcho.hold(null);
+      if (d?.dial && isVoy(d.dial)) voyEcho.release(e.pointerId);
       if (d && d.turning && d.mouse) {
         turnAxis = null;
         setCursor();
@@ -763,6 +767,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     return () => {
       disposed = true;
       ro.disconnect();
+      // Demontee en plein geste : l'echo du MM-ARP ne reste pas tenu par un pointeur parti
+      voyEcho.releaseAll();
       downs.clear();
       djg?.release();
       bsg?.release();

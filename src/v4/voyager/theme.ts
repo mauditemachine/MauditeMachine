@@ -501,8 +501,12 @@ export const VOY_INFO_KEY = (() => {
   // Le centre du i : a 11 unites du bord droit et 10.5 du haut (screen.ts INFO_I)
   const u = 1 - 11 / UW;
   const v = (10.5 * L.w) / UW / L.d;
-  // La zone de saisie : un disque de r (le doigt en prend 48 px au moins, scene/hit.ts)
-  const r = PORTRAIT ? 0.3 : 0.17;
+  // La zone de saisie : un disque de r. scene/hit.ts pick() garde d'abord les formes qui contiennent le
+  // doigt (la marge tactile de 24 px ne joue que hors de toute forme) : a cote du disque, c'est vlcd-open
+  // (tout l'ecran) qui gagne et PRESETS s'ouvre. Au telephone (revue du 2026-10-08) r 0.6, 46 x 45 px CSS
+  // a 390 x 844 (0.3 avant : 23 px, une tape a 14 px du centre ouvrait PRESETS), le contrat veut 44 px ;
+  // le disque mord le tempo de l'en-tete, rien d'autre : le pli est a z -1.1, le bord du capot a x 3.83
+  const r = PORTRAIT ? 0.6 : 0.17;
   return { u, v, x: L.x - L.w / 2 + u * L.w, z: L.z - L.d / 2 + v * L.d, r };
 })();
 

@@ -1,0 +1,37 @@
+/*
+ * La feuille INFOS du MM-ARP au telephone (2026-10-08, revue : voyager/InfosCard.tsx).
+ * Les classes v4-binfo de bass/infos.css font la carte ; ici seulement sa place :
+ * au-dessus du grand ecran (data-place top, une feuille flottante, arrondie partout)
+ * ou dessous (bottom, posee sur le bas, sa hauteur bornee par le JS). Le dessin se
+ * fait plus bas pour que le titre, le dessin et le debut du texte tiennent.
+ */
+
+.v4-root .v4-vinfo[data-mode='sheet'][data-place='top'] {
+  left: 8px;
+  right: 8px;
+  border-radius: 16px;
+  padding-bottom: 12px;
+  animation: v4-vinfo-down 180ms ease-out;
+}
+
+@keyframes v4-vinfo-down {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
+.v4-root .v4-vinfo[data-mode='sheet'][data-place='top'] .v4-binfo-grab {
+  display: none;
+}
+
+.v4-root .v4-vinfo[data-mode='sheet'][data-place='top'] .v4-binfo-svg,
+.v4-root .v4-vinfo[data-mode='sheet'][data-place='bottom'] .v4-binfo-svg {
+  width: auto;
+  max-width: 100%;
+  height: 96px;
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-vinfo[data-mode='sheet'][data-place='top'] {
+  animation: none;
+}

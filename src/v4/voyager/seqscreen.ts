@@ -41,18 +41,21 @@ import { arp } from './arp';
 import { CHORDS, chordTones, degreeName } from './chords';
 import { chordType, voyParams } from './params';
 import { SEQ_MAX, SEQ_MIN, SEQ_TOP, seq, type SeqStep } from './seq';
-import { VOY_LID_W, VOY_PAD } from './theme';
+import { VOY_BODY, VOY_LCD, VOY_LID_W } from './theme';
 
 /**
- * L'ecran : toute la largeur du plateau (le capot, moins un jour), du bas des
- * blocs de l'ecran (le crochet de l'arpegiateur) au bord avant. 2026-10-05
- * a 2026-10-08 : la largeur des pads, z 1.74 a 4.02.
+ * L'ecran : toute la largeur du plateau (le capot, moins un jour), du bas du
+ * cadre du grand ecran (un jour de 0.06) au bord avant (de meme). 2026-10-05
+ * a 2026-10-08 : la largeur des pads, z 1.74 a 4.02 ; avec le grand ecran,
+ * z 2.67 a 4.21, puis (revue du 2026-10-08 : les notes se visaient moins
+ * bien, 0.031 de hauteur par degre contre 0.041 avant) au plus haut et au
+ * plus bas que le plateau permet, z 2.64 a 4.24.
  */
 export const VOY_SEQ = (() => {
   const x1 = VOY_LID_W / 2 - 0.16;
   const x0 = -x1;
-  const z0 = VOY_PAD.zs[0] - VOY_PAD.depth / 2 - 0.14;
-  const z1 = VOY_PAD.zs[0] + VOY_PAD.depth / 2 + 0.7;
+  const z0 = VOY_LCD.z + VOY_LCD.bezel.d / 2 + 0.06;
+  const z1 = VOY_BODY.d / 2 - 0.06;
   const w = x1 - x0;
   const d = z1 - z0;
   return { x: (x0 + x1) / 2, z: (z0 + z1) / 2, w, d, bezel: 0.09, h: 0.025, rise: 0.22, tex: [2048, Math.round((2048 * (d - 0.18)) / (w - 0.18))] as const };
@@ -62,6 +65,12 @@ const LEVELS = SEQ_TOP - SEQ_MIN + 1;
 const mod7 = (d: number): number => ((d % 7) + 7) % 7;
 const POLL_MS = 40;
 const RISE_MS = 240;
+/**
+ * Un dessin garde sa note tant que le pointeur reste a moins de HYST degre
+ * au-dela de ses bords (revue du 2026-10-08) : a la frontiere de deux notes,
+ * le doigt ou la souris qui tremble ne fait plus sauter la note.
+ */
+const HYST = 0.3;
 
 const INK: string = HEX.bone;
 const HALF = 'rgba(246, 241, 231, 0.5)';
@@ -100,6 +109,8 @@ export class VoySeqScreen {
   private ph = { pos: -1, chord: -1 };
   /** le geste qui dessine : son pas et sa note precedents */
   private drag: { i: number; d: number } | null = null;
+  /** l'accord lu change (un onglet touche) : le rig redessine le grand ecran (rig.ts) */
+  onView: (() => void) | null = null;
   /** la note d'un pas avant son silence : la rallumer la rend */
   private before: SeqStep[] = [];
   draws = 0;
@@ -135,6 +146,7 @@ export class VoySeqScreen {
     this.group.position.y = -VOY_SEQ.rise;
     // La mise en page (px de la texture) : la colonne de gauche (un sixieme), les pas a droite
     // La colonne : les accords en haut (deux rangees), d'ou viennent les notes au milieu, STEPS - n + en bas
+    // Les pas (revue du 2026-10-08) : de 3.5 % a 83.5 % de la hauteur (7 % a 80 % avant), les noms sur les 15 % du bas
     const pad = Math.round(H * 0.07);
     const panel = Math.round(W * 0.17);
     const tw = Math.floor((panel - 2 * pad - 3 * 8) / 4);
@@ -152,9 +164,9 @@ export class VoySeqScreen {
       count: { x: panel / 2, y: ky + kh / 2 },
       x0: panel + pad,
       x1: W - pad,
-      lane0: pad,
-      lane1: Math.round(H * 0.8),
-      names0: Math.round(H * 0.82),
+      lane0: Math.round(H * 0.035),
+      lane1: Math.round(H * 0.835),
+      names0: Math.round(H * 0.85),
     };
   }
 
@@ -333,7 +345,7 @@ export class VoySeqScreen {
     }
     // Les noms des notes
     c.textAlign = 'center';
-    c.font = `700 ${Math.round((H - L.names0) * 0.5)}px ${FONT_DISPLAY}`;
+    c.font = `700 ${Math.round((H - L.names0) * 0.6)}px ${FONT_DISPLAY}`;
     for (let i = 0; i < n && i < SEQ_MAX; i += 1) {
       const d = steps[i];
       const x = L.x0 + (i + 0.5) * cw;
@@ -367,15 +379,16 @@ export class VoySeqScreen {
     return { kind: 'lane' };
   }
 
-  /** Le pas et la note sous (u, v), dans la suite. */
-  private laneAt(u: number, v: number): { i: number; d: number } {
+  /** Le pas et la note sous (u, v), dans la suite ; lv : la hauteur continue, en degres (le bas de SEQ_MIN a SEQ_MIN). */
+  private laneAt(u: number, v: number): { i: number; d: number; lv: number } {
     const L = this.L;
     const cols = Math.max(1, seq.shown(this.chord()).length);
     const x = u * this.W;
     const y = v * this.H;
     const i = Math.max(0, Math.min(cols - 1, Math.floor(((x - L.x0) / (L.x1 - L.x0)) * SEQ_MAX)));
-    const d = Math.max(SEQ_MIN, Math.min(SEQ_TOP, SEQ_MIN + Math.floor(((L.lane1 - y) / (L.lane1 - L.lane0)) * LEVELS)));
-    return { i, d };
+    const lv = SEQ_MIN + ((L.lane1 - y) / (L.lane1 - L.lane0)) * LEVELS;
+    const d = Math.max(SEQ_MIN, Math.min(SEQ_TOP, Math.floor(lv)));
+    return { i, d, lv };
   }
 
   private set(i: number, d: SeqStep): void {
@@ -391,6 +404,7 @@ export class VoySeqScreen {
     if (h.kind === 'chord') {
       this.view = this.view === h.i ? null : h.i;
       this.key = '';
+      this.onView?.();
     } else if (h.kind === 'minus' || h.kind === 'plus') {
       gesture();
       seq.setLen(chord, Math.min(seq.shown(chord).length, SEQ_MAX) + (h.kind === 'plus' ? 1 : -1));
@@ -413,7 +427,10 @@ export class VoySeqScreen {
   move(u: number, v: number): void {
     const g = this.drag;
     if (!g) return;
-    const { i, d } = this.laneAt(u, v);
+    const at = this.laneAt(u, v);
+    const i = at.i;
+    // Sur le meme pas, la note tenue reste tant qu'on ne passe pas franchement dans la voisine
+    const d = g.i === i && g.d >= SEQ_MIN && at.lv >= g.d - HYST && at.lv < g.d + 1 + HYST ? g.d : at.d;
     if (g.i >= 0 && Math.abs(i - g.i) > 1) {
       const dir = i > g.i ? 1 : -1;
       for (let j = g.i + dir; j !== i; j += dir) this.set(j, Math.round(g.d + ((d - g.d) * (j - g.i)) / (i - g.i)));
