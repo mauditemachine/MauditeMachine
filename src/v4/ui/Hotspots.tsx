@@ -679,11 +679,18 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         // Un potard de page encore tenu (deux doigts, revue de R2 : le doigt du pas leve le premier) : il
         // continue d'ecrire sur ce pas, le LOCK ne revient qu'a son lacher
         if (knobHeld()) {
-          pendingRestore = d.prevLock;
+          // Le plus ancien LOCK fixe attendu gagne (un autre pas tenu entre-temps ne le connaissait plus)
+          if (pendingRestore === null) pendingRestore = d.prevLock;
           return true;
         }
-        restoreLock(d.prevLock);
-      } else rytmLock.latch();
+        const prev = pendingRestore ?? d.prevLock;
+        pendingRestore = null;
+        restoreLock(prev);
+      } else {
+        // Un LOCK fixe tout neuf : plus rien a rendre
+        pendingRestore = null;
+        rytmLock.latch();
+      }
       return true;
     };
 
