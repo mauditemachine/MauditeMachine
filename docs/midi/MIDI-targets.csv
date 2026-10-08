@@ -217,13 +217,20 @@ bass:knob:volume,bass,MM-BASS,VOLUME,value,,BASS
 bass:knob:octave,bass,MM-BASS,OCTAVE,value,4,BASS
 bass:knob:style,bass,MM-BASS,STYLE,value,11,BASS
 bass:knob:density,bass,MM-BASS,DENSITY,value,,BASS
-bass:knob:slides,bass,MM-BASS,SLIDES,value,,BASS
-bass:knob:accents,bass,MM-BASS,ACCENTS,value,,BASS
+bass:knob:slides,bass,MM-BASS,SLIDE PROB,value,,BASS
+bass:knob:accents,bass,MM-BASS,ACC PROB,value,,BASS
 bass:knob:range,bass,MM-BASS,RANGE,value,3,BASS
 bass:knob:root,bass,MM-BASS,ROOT,value,13,BASS
 bass:knob:scale,bass,MM-BASS,SCALE,value,5,BASS
+bass:knob:length,bass,MM-BASS,LENGTH,value,,BASS
+bass:knob:accdecay,bass,MM-BASS,ACC DECAY,value,,BASS
+bass:knob:sweep,bass,MM-BASS,SWEEP,value,,BASS
+bass:knob:release,bass,MM-BASS,RELEASE,value,,BASS
+bass:knob:suboct,bass,MM-BASS,SUB OCT,value,2,
+bass:knob:tune,bass,MM-BASS,TUNE,value,,BASS
 bass:key:run,bass,MM-BASS,RUN/STOP,press,,
 bass:key:edit,bass,MM-BASS,EDIT,press,,BASS
+bass:key:open,bass,MM-BASS,OPEN,press,,
 bass:key:gen,bass,MM-BASS,GEN,press,,BASS
 bass:key:mutate,bass,MM-BASS,MUTATE,press,,BASS
 bass:key:clear,bass,MM-BASS,CLEAR,press,,BASS
@@ -267,6 +274,7 @@ bass:lock:13,bass,MM-BASS,LOCK 14,press,,
 bass:lock:14,bass,MM-BASS,LOCK 15,press,,
 bass:lock:15,bass,MM-BASS,LOCK 16,press,,
 bass:lock,bass,MM-BASS,LOCK (CHOSEN STEP),press,,BASS
+bass:infos,bass,MM-BASS,INFOS (HELP ON HOVER),press,,
 dj:dj-ch1-gain,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) GAIN,value,,
 dj:dj-ch1-hi,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) EQ HI,value,,MIXER
 dj:dj-ch1-mid,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) EQ MID,value,,

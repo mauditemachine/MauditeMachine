@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 7 octobre 2026 depuis le code du site (`npm run docs:midi`) : 429 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 8 octobre 2026 depuis le code du site (`npm run docs:midi`) : 437 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -321,12 +321,17 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 10 | 2.3 | 5 | 24 | OCTAVE | or | bass:knob:octave | OCTAVE | potard a 4 crans : -2 / -1 / 0 / +1 |
 | 11 | 2.4 | 5 | 25 | STYLE | jaune | bass:knob:style | STYLE | potard a 11 crans : ACID / DARK DISCO / INDIE DANCE / MINIMAL / PSY PROG / TECHNO / HOUSE / ELECTRO / EBM / ITALO / SUB |
 | 12 | 2.5 | 5 | 26 | DENSITY | jaune | bass:knob:density | DENSITY | continu |
-| 13 | 2.6 | 5 | 27 | SLIDES | jaune | bass:knob:slides | SLIDES | continu |
-| 14 | 2.7 | 5 | 28 | ACCENTS | jaune | bass:knob:accents | ACCENTS | continu |
+| 13 | 2.6 | 5 | 27 | SLIDES | jaune | bass:knob:slides | SLIDE PROB | continu |
+| 14 | 2.7 | 5 | 28 | ACCENTS | jaune | bass:knob:accents | ACC PROB | continu |
 | 15 | 2.8 | 5 | 29 | RANGE | jaune | bass:knob:range | RANGE | potard a 3 crans : 1 / 2 / 3 |
 | 16 | 3.1 | 5 | 30 | ROOT | cyan | bass:knob:root | ROOT | potard a 13 crans : ARP / F# / G / G# / A / A# / B / C / C# / D / D# / E / F |
 | 17 | 3.2 | 5 | 31 | SCALE | cyan | bass:knob:scale | SCALE | potard a 5 crans : MINOR / DORIAN / PHRYGIAN / HARMONIC / PENTA |
 | 18 | 3.3 | 5 | 102 | SWING | blanc | rytm:enc:swing | SWING | continu |
+| 19 | 3.4 | 5 | 103 | LENGTH | or | bass:knob:length | LENGTH | continu |
+| 20 | 3.5 | 5 | 104 | ACC DECAY | rouge | bass:knob:accdecay | ACC DECAY | continu |
+| 21 | 3.6 | 5 | 105 | SWEEP | rouge | bass:knob:sweep | SWEEP | continu |
+| 22 | 3.7 | 5 | 106 | RELEASE | or | bass:knob:release | RELEASE | continu |
+| 23 | 3.8 | 5 | 107 | TUNE | or | bass:knob:tune | TUNE | continu |
 
 **Boutons**
 
@@ -810,7 +815,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:edit` | EDIT | appui |  | ARP |
 | `voy:open` | OPEN | appui |  | ARP |
 
-### MM-BASS (scope `bass`, 63 cibles)
+### MM-BASS (scope `bass`, 71 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -827,13 +832,20 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:knob:octave` | OCTAVE | valeur 0 a 127 | 4 | BASS |
 | `bass:knob:style` | STYLE | valeur 0 a 127 | 11 | BASS |
 | `bass:knob:density` | DENSITY | valeur 0 a 127 |  | BASS |
-| `bass:knob:slides` | SLIDES | valeur 0 a 127 |  | BASS |
-| `bass:knob:accents` | ACCENTS | valeur 0 a 127 |  | BASS |
+| `bass:knob:slides` | SLIDE PROB | valeur 0 a 127 |  | BASS |
+| `bass:knob:accents` | ACC PROB | valeur 0 a 127 |  | BASS |
 | `bass:knob:range` | RANGE | valeur 0 a 127 | 3 | BASS |
 | `bass:knob:root` | ROOT | valeur 0 a 127 | 13 | BASS |
 | `bass:knob:scale` | SCALE | valeur 0 a 127 | 5 | BASS |
+| `bass:knob:length` | LENGTH | valeur 0 a 127 |  | BASS |
+| `bass:knob:accdecay` | ACC DECAY | valeur 0 a 127 |  | BASS |
+| `bass:knob:sweep` | SWEEP | valeur 0 a 127 |  | BASS |
+| `bass:knob:release` | RELEASE | valeur 0 a 127 |  | BASS |
+| `bass:knob:suboct` | SUB OCT | valeur 0 a 127 | 2 |  |
+| `bass:knob:tune` | TUNE | valeur 0 a 127 |  | BASS |
 | `bass:key:run` | RUN/STOP | appui |  |  |
 | `bass:key:edit` | EDIT | appui |  | BASS |
+| `bass:key:open` | OPEN | appui |  |  |
 | `bass:key:gen` | GEN | appui |  | BASS |
 | `bass:key:mutate` | MUTATE | appui |  | BASS |
 | `bass:key:clear` | CLEAR | appui |  | BASS |
@@ -877,6 +889,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:lock:14` | LOCK 15 | appui |  |  |
 | `bass:lock:15` | LOCK 16 | appui |  |  |
 | `bass:lock` | LOCK (CHOSEN STEP) | appui |  | BASS |
+| `bass:infos` | INFOS (HELP ON HOVER) | appui |  |  |
 
 ### MM-DECKS (table, platines, samplers, effets) (scope `dj`, 153 cibles)
 
