@@ -524,6 +524,8 @@ export class DjGestures {
       o.pinch = dist;
       g.pinch = dist;
       o.zoom0 = g.zoom0 = djState.get().deck[g.deck].zoom;
+      // Le premier doigt etait sur BACK : le pincement le prend, la touche s'eteint (relecture du 2026-10-08)
+      if (o.zone === 'back') this.stage.dj?.pressKey(`dj-${o.deck}-back`, false);
       g.zone = o.zone = 'detail';
       return true;
     }

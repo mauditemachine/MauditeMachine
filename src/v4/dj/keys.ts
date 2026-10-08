@@ -94,9 +94,10 @@ export function listenDjKeys(getStage: () => Stage | null, active: () => boolean
 
   const onDown = (e: KeyboardEvent): void => {
     if (!active() || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || editable(e.target)) return;
-    // Un jumeau qui a le focus garde ses fleches, Espace et Entree (dj/Twins.tsx)
-    const twin = e.target instanceof HTMLElement && e.target.classList.contains('v4-twin');
-    if (twin && /^(Arrow|Page|Home|End|Space|Enter|Delete|Backspace)/.test(e.code)) return;
+    // Un controle qui a le focus garde ses fleches, Espace, Entree, Suppr et Retour arriere : un jumeau
+    // (dj/Twins.tsx), un potard du sampler (Retour arriere le remet a sa valeur, relecture du 2026-10-08)
+    const own = e.target instanceof HTMLElement && e.target.closest('.v4-twin, [role="slider"], [role="spinbutton"]') !== null;
+    if (own && /^(Arrow|Page|Home|End|Space|Enter|Delete|Backspace)/.test(e.code)) return;
     const s = djState.get();
     // Le zoom : la repetition du clavier est permise
     if (e.code === 'Minus' || e.code === 'Equal') {
