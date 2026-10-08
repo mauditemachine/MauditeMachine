@@ -370,7 +370,7 @@ const RAW: Record<BassInfoId, BassInfo> = {
   lock: {
     section: 'STEPS',
     title: 'LOCK',
-    text: "Ce pas passe en LOCK : sa LED clignote, l'écran affiche LOCK 05 en négatif. Choisis la partie à changer avec une touche de page (VOICE, FILTER, ENV, FX), puis tourne un encodeur : ce réglage ne change plus que sur ce pas, son bloc passe en négatif. Double tape sur l'encodeur pour enlever ce verrou, CLEAR pour tous ceux du pas ; réappuie sur LOCK, ou Échap, pour sortir.",
+    text: "Ce pas passe en LOCK : sa LED clignote, l'écran affiche en négatif LOCK suivi du numéro du pas. Choisis la partie à changer avec une touche de page (VOICE, FILTER, ENV, FX), puis tourne un encodeur : ce réglage ne change plus que sur ce pas, son bloc passe en négatif. Double tape sur l'encodeur pour enlever ce verrou, CLEAR pour tous ceux du pas ; réappuie sur LOCK, ou Échap, pour sortir.",
     tip: "Un CUTOFF plus ouvert sur le pas 16, c'est une relance acid instantanée.",
   },
   trig: {
@@ -382,7 +382,7 @@ const RAW: Record<BassInfoId, BassInfo> = {
   screen: {
     section: 'SCREEN',
     title: 'SCREEN',
-    text: "La page des huit encodeurs : chaque bloc est à la place de son encodeur (A en haut à gauche, H en bas à droite), avec sa valeur de 0 à 127 et son unité. En LOCK, les réglages verrouillés sur le pas sont en négatif ; en lecture, ceux du pas qui joue s'allument le temps du pas. Dessous, les 16 pas : un point sur chaque pas verrouillé (plein : sur cette page). Touche l'écran pour les presets, le petit i pour INFOS.",
+    text: "La page des huit encodeurs : chaque bloc est à la place de son encodeur (A en haut à gauche, H en bas à droite), avec sa valeur de 0 à 127 et son unité. En LOCK, les réglages verrouillés sur le pas sont en négatif ; en lecture, ceux du pas qui joue s'allument le temps du pas. Dessous, les 16 pas : un point sur chaque pas verrouillé (plein : sur cette page). Glisse sur un bloc : c'est son encodeur. Touche l'en-tête (le pattern, A01) pour les presets, le petit i pour INFOS.",
   },
 
   /* ---------- sous le capot ---------- */
@@ -423,8 +423,9 @@ export const isBassInfoKnob = (id: BassInfoId): id is BassKnobId => KNOBS.has(id
  * bass-tw-infos et bass-tw-close INFOS et CLOSE ; null sinon.
  */
 export function bassInfoIdOf(hotspotId: string): BassInfoId | null {
-  // Un encodeur (2026-10-08) : le reglage qu'il tient sur la page allumee
-  if (hotspotId.startsWith('bass-enc-')) return bassPage.slot(Number(hotspotId.slice(9)) - 1) ?? 'enc';
+  // Un encodeur (2026-10-08) : le reglage qu'il tient sur la page allumee ; un bloc de l'ecran, celui de son encodeur
+  const enc = /^bass-(enc|blk)-(\d)$/.exec(hotspotId);
+  if (enc) return bassPage.slot(Number(enc[2]) - 1) ?? 'enc';
   if (hotspotId === 'bass-key-i') return 'ikey';
   if (hotspotId.startsWith('bass-knob-')) {
     const id = hotspotId.slice(10);

@@ -39,6 +39,8 @@ export interface BassDiagramCtx {
   values: BassValues;
   bpm: number;
   steps?: readonly BassStep[];
+  /** le pas de la commande montree (un bouton LOCK, un pas : 0 a 15), sinon le premier verrouille */
+  step?: number;
   /** ROOT sur ARP : les toniques des accords du MM-ARP (F#, D, E...), dans l'ordre de la progression */
   arpRoots?: readonly string[];
 }
@@ -1032,8 +1034,8 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
   lock(_values, c) {
     const p = new Pic();
     const steps = c.steps ?? [];
-    const lit = Math.max(0, steps.findIndex((s) => !!s.locks));
-    const locked = steps.filter((s) => !!s.locks).length;
+    const lit = c.step !== undefined && c.step >= 0 && c.step < BASS_STEPS ? c.step : Math.max(0, steps.findIndex((s) => !!s.locks));
+    const here = Object.keys(steps[lit]?.locks ?? {}).length;
     for (let i = 0; i < BASS_STEPS; i += 1) {
       const x = X0 + i * PITCH + 1;
       const s = steps[i];
@@ -1045,7 +1047,7 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
     p.p(seg(40, 36, 40 + 11 * Math.cos(-0.9), 36 + 11 * Math.sin(-0.9)), 'main');
     const tx = X0 + lit * PITCH + PITCH / 2;
     p.p(arrow(56, 40, tx, 62, 5), 'hot');
-    p.label(locked ? `${locked} LOCKED STEP${locked > 1 ? 'S' : ''}` : 'NO LOCK YET', X1, TOP, 'end');
+    p.label(here ? `${here} LOCK${here > 1 ? 'S' : ''} ON THIS STEP` : 'NO LOCK YET', X1, TOP, 'end');
     p.label(`STEP ${String(lit + 1).padStart(2, '0')}`, X0, TOP);
     return p.done();
   },
@@ -1266,7 +1268,13 @@ function pageGrid(page: BassPageId): BassDiagram {
     const y = 24 + (k < 4 ? 0 : bh + 8);
     p.p(rbox(x, y, bw, bh, 3), id ? 'main' : 'grid');
     p.label('ABCDEFGH'[k], x + bw - 4, y + 11, 'end');
-    if (id) p.label(bassKnob(id).label, x + 4, y + bh - 7);
+    if (!id) return;
+    // Un nom de deux mots sur deux lignes (2026-10-08, la revue : AMP DECAY debordait sur SUSTAIN)
+    const words = bassKnob(id).label.split(' ');
+    if (words.length > 1) {
+      p.label(words[0], x + 4, y + bh - 17);
+      p.label(words.slice(1).join(' '), x + 4, y + bh - 6);
+    } else p.label(words[0], x + 4, y + bh - 7);
   });
   p.label('ENCODERS A TO H', X0, TOP);
   return p.done();

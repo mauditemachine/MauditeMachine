@@ -15,7 +15,8 @@
  * - seize boutons LOCK au-dessus des pas (2026-10-07) : orange pale si le pas
  *   a des verrous, or celui qu'on regle ;
  * - l'ecran se touche pour les presets (state/presetMode.ts, comme ceux du
- *   MM-RYTM et du MM-ARP) ;
+ *   MM-RYTM et du MM-ARP) ; depuis la revue du 2026-10-08 son en-tete
+ *   seulement, ses huit blocs repondent comme leurs encodeurs ;
  * Tout dans le repere top (le dessus incline), x = 0 au centre du bloc.
  *
  * La refonte facon Monark et Elektron (2026-10-08, Mika : "MM-BASS est un
@@ -32,15 +33,16 @@
  * l'ecran, pas sur les encodeurs, de 0 a 127 ; je veux un petit bouton i
  * dans l'ecran") : les onze potards du son et leurs LED de verrou partent ;
  * a leur place l'ecran deux fois plus grand et huit encodeurs sans fin A a
- * H (aluminium, une fente : ils tournent avec le geste, la valeur est a
- * l'ecran), les quatre touches de page dessous (la LED de la page allumee ;
- * en LOCK, a demi celles qui portent un verrou sur le pas), la touche "i"
- * dessinee dans le coin de l'ecran (bass-key-i), le GENERATOR (STYLE,
- * DENSITY, GEN, MUTATE) sous EDIT et OPEN. Le pas en LOCK clignote, son
- * bouton LOCK aussi.
+ * H (noirs, moletes, un court trait : ils tournent avec le geste, la valeur
+ * est a l'ecran), les quatre touches de page dessous (la LED de la page
+ * allumee ; en LOCK, a demi celles qui portent un verrou sur le pas), la
+ * touche "i" dessinee dans le coin de l'ecran (bass-key-i), le GENERATOR
+ * (STYLE, DENSITY, GEN, MUTATE) sous EDIT et OPEN. Le pas en LOCK clignote,
+ * son bouton LOCK aussi ; la rangee des LOCK porte son nom (un filet LOCK,
+ * la revue).
  */
 
-import { BufferGeometry, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, Group, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Quaternion, Vector3, type Texture } from 'three';
+import { BoxGeometry, BufferGeometry, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, Group, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Quaternion, Vector3, type Texture } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { reserve } from '../audio/sched';
 import type { HotspotDef, Occluder } from '../scene/hit';
@@ -78,6 +80,7 @@ import {
   BASS_KEY_SEPS,
   BASS_KNOB_PLACES,
   BASS_LID,
+  BASS_LOCK_LEGEND_DZ,
   BASS_PAGE_KEYS,
   BASS_PCB_Y,
   BASS_SECTIONS,
@@ -129,6 +132,8 @@ export const bassEncId = (k: number): string => `bass-enc-${k + 1}`;
 export const bassKeyId = (k: BassKeyKind): string => `bass-key-${k}`;
 /** La touche "i" de l'ecran (2026-10-08). */
 export const BASS_I_ID = 'bass-key-i';
+/** Un bloc de l'ecran (2026-10-08, la revue) : k de 0 a 7, bass-blk-1 a 8, il repond comme son encodeur. */
+export const bassBlockId = (k: number): string => `bass-blk-${k + 1}`;
 export const bassTrigId = (i: number): string => `bass-trig-${i + 1}`;
 export const bassLockId = (i: number): string => `bass-lock-${i + 1}`;
 export const bassLcdId = (k: PresetKey): string => `bass-lcd-${k}`;
@@ -195,16 +200,42 @@ function buildLid(): BufferGeometry {
 }
 
 /**
- * Un encodeur sans fin (2026-10-08) : le capuchon cannele d'aluminium des
- * potards du MM-DECKS, sans repere de valeur (il n'en a pas), un petit point
- * sombre pres du bord qui montre seulement qu'il tourne.
+ * Un encodeur sans fin (2026-10-08) ; redessine le meme jour apres la revue
+ * (le capuchon gris plat et son point faisaient un bouchon, pas une machine) :
+ * sur la bague d'aluminium des potards du MM-DECKS, un capuchon noir au
+ * moletage fin (quatre facettes par cannelure, pas d'escalier), son dessus
+ * satine un peu en retrait (une collerette), un court trait os pres du bord,
+ * comme les encodeurs des Elektron : il montre que l'encodeur tourne, la
+ * valeur est a l'ecran.
  */
 function encoderGeometry(mobile: boolean): BufferGeometry {
-  const base = knobGeometry(mobile, 'ring', 'ring');
-  const dot = new CylinderGeometry(0.026, 0.026, 0.01, mobile ? 10 : 14);
-  dot.translate(0, DJ_KNOB.skirt.h + DJ_KNOB.h + 0.002, -0.155);
-  const g = mergeGeometries([base, partDj(dot, 'slit')], false);
-  base.dispose();
+  const K = DJ_KNOB;
+  const seg = mobile ? 64 : 96;
+  const flutes = seg / 4;
+  const depth = 0.009;
+  const skirt = new CylinderGeometry(K.skirt.rTop, K.skirt.r, K.skirt.h, mobile ? 28 : 40);
+  skirt.translate(0, K.skirt.h / 2, 0);
+  const cap = new CylinderGeometry(K.rTop, K.r, K.h, seg, 1);
+  const p = cap.getAttribute('position');
+  for (let i = 0; i < p.count; i += 1) {
+    const x = p.getX(i);
+    const z = p.getZ(i);
+    const r = Math.hypot(x, z);
+    if (r < 1e-4) continue;
+    const k = 1 - (depth / r) * Math.max(0, Math.cos(Math.atan2(z, x) * flutes)) ** 2;
+    p.setX(i, x * k);
+    p.setZ(i, z * k);
+  }
+  cap.computeVertexNormals();
+  cap.translate(0, K.skirt.h + K.h / 2, 0);
+  const top = K.skirt.h + K.h;
+  const face = new CylinderGeometry(K.rTop - 0.032, K.rTop - 0.026, 0.008, mobile ? 40 : 64);
+  face.translate(0, top + 0.004, 0);
+  const tick = new BoxGeometry(0.024, 0.006, 0.07);
+  tick.translate(0, top + 0.009, -(K.rTop - 0.032 - 0.016 - 0.035));
+  const parts = [partDj(skirt, 'skirt'), partDj(cap, 'knob'), partDj(face, 'cap'), partDj(tick, 'mark')];
+  const g = mergeGeometries(parts, false);
+  for (const x of parts) x.dispose();
   if (!g) throw new Error('bass: encoder merge failed');
   return g;
 }
@@ -274,12 +305,27 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   }
   const t0 = bassTrigAt(PORTRAIT ? 8 : 0).x - T.w / 2;
   const t1 = bassTrigAt(15).x + T.w / 2;
-  brackets.push({
-    text: PORTRAIT ? 'HOLD A STEP OR LOCK + ENCODER: THAT STEP  /  TAP: NOTE, TIE, OFF' : 'HOLD A STEP (OR LOCK) + TURN AN ENCODER: THAT STEP ONLY  /  TAP A STEP: NOTE, TIE, OFF',
-    x0: t0,
-    x1: t1,
-    z: bassTrigAt(15).z + T.d / 2 + 0.42,
-  });
+  // Au telephone, plus gros que le filet (2026-10-08, la revue : 3.5 px de haut, illisible) : un texte et ses traits
+  const legend = (text: string, x0: number, x1: number, z: number, cap: number, down: boolean): void => {
+    const mid = (x0 + x1) / 2;
+    const half = (cap / 0.7) * 0.36 * text.length + 0.12;
+    const t = down ? z + 0.08 : z - 0.08;
+    texts.push({ text, x: mid, z, cap, weight: 700, alpha: 0.9, group: 'legend' });
+    lines.push([x0, t, x0, z, mid - half, z], [mid + half, z, x1, z, x1, t]);
+  };
+  const how = 'HOLD A STEP (OR LOCK) + TURN AN ENCODER: THAT STEP ONLY  /  TAP A STEP: NOTE, TIE, OFF';
+  if (PORTRAIT) legend('HOLD A STEP OR ITS LOCK + TURN AN ENCODER: P-LOCK', t0, t1, bassTrigAt(15).z + T.d / 2 + 0.36, 0.105, false);
+  else brackets.push({ text: how, x0: t0, x1: t1, z: bassTrigAt(15).z + T.d / 2 + 0.42 });
+  // Le filet LOCK au-dessus des boutons LOCK (2026-10-08, la revue : la rangee n'avait pas de nom, et le "(OR LOCK)"
+  // du filet du bas ne montrait rien) ; au telephone, un par rangee
+  const Lk = BASS.locks;
+  for (const [a, b] of PORTRAIT ? [[0, 7], [8, 15]] : [[0, 15]]) {
+    const la = bassLockAt(a);
+    const lb = bassLockAt(b);
+    const z = la.z - BASS_LOCK_LEGEND_DZ;
+    if (PORTRAIT) legend(a === 0 ? 'LOCK  STEPS 1-8' : 'LOCK  STEPS 9-16', la.x - Lk.w / 2, lb.x + Lk.w / 2, z, 0.095, true);
+    else brackets.push({ text: 'LOCK: THIS STEP ONLY', x0: la.x - Lk.w / 2, x1: lb.x + Lk.w / 2, z, down: true });
+  }
   return { texts, lines, brackets };
 }
 
@@ -323,7 +369,12 @@ export class BassRig {
   private trigY = new Float32Array(BASS_STEPS);
   private lockY = new Float32Array(BASS_STEPS);
   private lcdDefs: HotspotDef[] = [];
+  /** la touche "i" et les huit blocs de la PAGE : eteints quand l'ecran montre autre chose (PRESETS, EDIT) */
+  private iDef: HotspotDef | null = null;
+  private blockDefs: HotspotDef[] = [];
   private tweakDefs: HotspotDef[] = [];
+  /** un dessin de l'ecran demande (les notifications d'un meme geste n'en font qu'un) */
+  private drawQueued = false;
   private defs: HotspotDef[];
   private unsubs: (() => void)[] = [];
   private held = new Set<string>();
@@ -525,28 +576,52 @@ export class BassRig {
       ...area(u0, u1, v0, v1, DJ_BEZEL.h + 0.03),
       enabled: key === 'open',
     });
-    const lcd = [box('open', 0, 1, 0, 1), box('prev', 0, 0.5, 0, band), box('next', 0.5, 1, 0, band), ...(['save', 'name', 'del', 'exit'] as const).map((k, i) => box(k, i / 4, (i + 1) / 4, band, 1))];
+    // L'en-tete seul ouvre les presets (2026-10-08, la revue : toucher un bloc pour choisir son reglage ouvrait les
+    // presets) ; les blocs repondent comme leur encodeur (glisser : le tourner ; deux tapes : son verrou s'en va ;
+    // INFOS : sa carte), bass.bass = '1' a '8' comme les encodeurs (MIDI LEARN : bass:knob:1 a 8)
+    const hr = this.screen.headRect();
+    const lcd = [box('open', hr.u0, hr.u1, hr.v0, hr.v1), box('prev', 0, 0.5, 0, band), box('next', 0.5, 1, 0, band), ...(['save', 'name', 'del', 'exit'] as const).map((k, i) => box(k, i / 4, (i + 1) / 4, band, 1))];
+    // Le reste du verre (la bande des pas, la ligne du bas ; en EDIT, le rouleau a la place des blocs) : des zones qui
+    // ne font rien, sinon le geste passerait a la scene (l'orbite) ; elles ne chevauchent aucune zone allumee
+    const lo = this.screen.lowRect();
+    const glass: HotspotDef = { id: 'bass-lcd-glass', kind: 'basslcd', layer: top, shape: 'box', ...area(lo.u0, lo.u1, lo.v0, lo.v1, DJ_BEZEL.h + 0.03), enabled: true };
+    const glassEdit: HotspotDef = { id: 'bass-lcd-glass-edit', kind: 'basslcd', layer: top, shape: 'box', ...area(0, 1, hr.v1, lo.v0, DJ_BEZEL.h + 0.03), enabled: false };
+    const blocks: HotspotDef[] = [];
+    for (let k = 0; k < 8; k += 1) {
+      const br = this.screen.blockRect(k);
+      blocks.push({ id: bassBlockId(k), kind: 'bassknob', layer: top, shape: 'box', ...area(br.u0, br.u1, br.v0, br.v1, DJ_BEZEL.h + 0.03), enabled: true, bass: String(k + 1) });
+    }
     // La touche "i" (2026-10-08) : dans le coin de l'ecran, un peu au-dessus du verre (elle passe avant les presets)
     const ir = this.screen.iRect();
     const iKey: HotspotDef = { id: BASS_I_ID, kind: 'basskey', layer: top, shape: 'box', ...area(ir.u0, ir.u1, ir.v0, ir.v1, DJ_BEZEL.h + 0.06), enabled: true, bass: 'i' };
     // La plaque sous le capot : ses potards, vivants capot ouvert (syncHood)
-    const all = [...out, iKey, ...lcd, ...this.tweaks.hotspots()].map((d) => ({ ...d, machine: 'bass' as const }));
+    const all = [...out, iKey, ...blocks, ...lcd, glass, glassEdit, ...this.tweaks.hotspots()].map((d) => ({ ...d, machine: 'bass' as const }));
     this.lcdDefs = all.filter((d) => d.kind === 'basslcd');
+    this.iDef = all.find((d) => d.id === BASS_I_ID) ?? null;
+    this.blockDefs = all.filter((d) => d.id.startsWith('bass-blk-'));
     this.tweakDefs = all.filter((d) => d.id.startsWith('bass-tw-'));
+    this.syncScreenKeys();
     return all;
   }
 
-  /** Le mode presets : les touches de l'ecran suivent ; true si ca change. */
-  private syncPresetKeys(): boolean {
+  /**
+   * Les zones du verre suivent ce qu'il montre ; true si ca change. PRESETS : ses touches seules (la touche "i" n'y
+   * est pas dessinee, 2026-10-08, la revue : elle restait vivante par-dessus NEXT) ; EDIT : pas de blocs (le rouleau).
+   */
+  private syncScreenKeys(): boolean {
     const on = presetMode.on('bass');
+    const blocks = !on && editor.get() !== 'bass';
     let changed = false;
-    for (const d of this.lcdDefs) {
-      const want = d.lcd === 'open' ? !on : on;
-      if (d.enabled !== want) {
-        d.enabled = want;
-        changed = true;
-      }
-    }
+    const want = (d: HotspotDef, w: boolean): void => {
+      if (d.enabled === w) return;
+      d.enabled = w;
+      changed = true;
+    };
+    // Les touches des presets en mode presets ; hors presets, l'en-tete (open) et le verre (sans touche ; celui des
+    // blocs en EDIT seulement, ou les blocs ne sont pas dessines)
+    for (const d of this.lcdDefs) want(d, d.id === 'bass-lcd-glass-edit' ? !on && !blocks : d.lcd === 'open' || !d.lcd ? !on : on);
+    if (this.iDef) want(this.iDef, !on);
+    for (const d of this.blockDefs) want(d, blocks);
     return changed;
   }
 
@@ -714,7 +789,7 @@ export class BassRig {
         message: s.message,
         infos,
         midiOf: (st) => midiOf(st),
-        maxLanes: PORTRAIT ? 2 : 4,
+        maxLanes: PORTRAIT ? 2 : 3,
       });
       return { view: 'edit', m };
     }
@@ -762,9 +837,23 @@ export class BassRig {
   }
 
   private drawScreen(): boolean {
+    this.drawQueued = false;
     const sv = this.screenView();
     this.shown = sv;
     return this.screen.draw(sv);
+  }
+
+  /**
+   * Un dessin de l'ecran a la fin du geste (2026-10-08, la revue : un potard qui tourne notifiait les reglages puis
+   * l'etat, deux ou trois dessins complets par mouvement) : les notifications d'une meme tache n'en font qu'un.
+   */
+  private queueDraw(): void {
+    if (this.drawQueued) return;
+    this.drawQueued = true;
+    queueMicrotask(() => {
+      if (!this.drawQueued) return;
+      if (this.drawScreen()) this.opts.repaint();
+    });
   }
 
   pressKey(id: string, down: boolean): void {
@@ -875,9 +964,9 @@ export class BassRig {
     const all = (): void => {
       const lit = this.syncLights();
       const moved = this.syncKnobs();
-      const drawn = this.drawScreen();
+      this.queueDraw();
       if (moved && this.knobs.castShadow) this.opts.invalidate();
-      else if (lit || moved || drawn || bassState.get().running) this.opts.repaint();
+      else if (lit || moved || bassState.get().running) this.opts.repaint();
     };
     this.unsubs.push(
       bassState.subscribe(all),
@@ -887,11 +976,12 @@ export class BassRig {
         if (this.drawScreen() || lit) this.opts.repaint();
       }),
       editor.subscribe(() => {
+        if (this.syncScreenKeys()) this.opts.hitChanged();
         const lit = this.syncLights();
         if (this.drawScreen() || lit) this.opts.repaint();
       }),
       presetMode.subscribe(() => {
-        if (this.syncPresetKeys()) this.opts.hitChanged();
+        if (this.syncScreenKeys()) this.opts.hitChanged();
         if (this.drawScreen()) this.opts.repaint();
       }),
       presets.subscribe(() => {
@@ -902,9 +992,9 @@ export class BassRig {
       }),
       bassParams.subscribe(() => {
         const moved = this.syncKnobs();
-        const drawn = this.drawScreen();
+        this.queueDraw();
         if (moved && this.knobs.castShadow) this.opts.invalidate();
-        else if (moved || drawn) this.opts.repaint();
+        else if (moved) this.opts.repaint();
       }),
       pattern.subscribe(() => {
         if (this.drawScreen()) this.opts.repaint();
@@ -929,6 +1019,8 @@ export class BassRig {
   }
 
   info(): { knobs: number; encoders: number; plate: number; keys: number; trigs: number; locks: number; screenDraws: number; silkDraws: number; encAngleDeg: number[]; screen: BassScreenView | null; explode: ExplodeInfo } {
+    // Un dessin attendu (queueDraw) : fait tout de suite, ce qu'on lit est ce que l'ecran montre
+    if (this.drawQueued && this.drawScreen()) this.opts.repaint();
     return {
       knobs: BASS_KNOBS.length,
       encoders: 8,
@@ -948,6 +1040,7 @@ export class BassRig {
     for (const off of this.unsubs) off();
     this.unsubs = [];
     this.detach();
+    this.drawQueued = false;
     window.clearTimeout(this.echoTimer);
     this.body.geometry.dispose();
     this.lid.geometry.dispose();

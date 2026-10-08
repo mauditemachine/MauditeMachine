@@ -83,13 +83,18 @@ const Card: React.FC<CardProps> = ({ stage, hotspot, id, sheet, pinned }) => {
   const knob = isBassInfoKnob(id) ? id : null;
   const lockStep = s.lock >= 0 ? s.steps[s.lock] : undefined;
   const locked = !!knob && !!lockStep && isLockable(knob) && lockStep.locks?.[knob] !== undefined;
+  // Un bouton LOCK ou un pas : la carte parle de celui-la (2026-10-08, la revue : elle montrait toujours le pas 1)
+  const stepM = /^bass-(lock|trig)-(\d+)$/.exec(hotspot);
+  const step = stepM ? Number(stepM[2]) - 1 : undefined;
   const diagram = bassDiagram(id, {
     v: knob ? bassKnobValue(knob) : 0,
     values: lockStep?.locks ? { ...values, ...lockStep.locks } : values,
     bpm,
     steps: s.steps,
+    step,
     arpRoots: prog.map((c) => ROOT_NAMES[((CHORDS[c]?.root ?? 0) % 12 + 12) % 12]),
   });
+  const title = id === 'lock' && step !== undefined ? `LOCK ${String(step + 1).padStart(2, '0')}` : info.title;
 
   // Desktop : la carte suit sa commande, a chaque image rendue (seulement tant qu'elle est la)
   useLayoutEffect(() => {
@@ -183,7 +188,7 @@ const Card: React.FC<CardProps> = ({ stage, hotspot, id, sheet, pinned }) => {
         <span className="v4-binfo-sec">{info.section}</span>
         {locked && <span className="v4-binfo-lock">LOCK {String(s.lock + 1).padStart(2, '0')}</span>}
       </div>
-      <div className="v4-binfo-title">{info.title}</div>
+      <div className="v4-binfo-title">{title}</div>
       {diagram && <DiagramSvg d={diagram} />}
       <p className="v4-binfo-text">{info.text}</p>
       {info.tip && (

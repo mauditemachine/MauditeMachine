@@ -103,7 +103,10 @@ const DTIME_STEPS = [1, 2, 3, 4, 6, 8];
 const DLY = { maxS: 2.2, lp: 3200, hp: 140, out: 0.85 };
 /** La REVERB : les quatre lignes (s), les deux diffuseurs (s, gain), le niveau du retour. */
 const REV = { lines: [0.0353, 0.0467, 0.0571, 0.0683], diff: [0.0047, 0.0036], g: 0.62, out: 0.42 };
-/** Un effet a zero s'endort quand sa queue reste sous ce niveau ce temps-la (s). */
+/**
+ * Un effet a zero s'endort quand rien n'y entre ni n'en sort sous ce niveau ce temps-la (s) ; le DELAY attend en plus
+ * son temps (2026-10-08, revue : entre l'entree et la premiere repetition une ligne longue se tait, elle n'est pas vide).
+ */
 const FX_IDLE = { level: 1e-5, s: 0.4 };
 
 /**
@@ -220,6 +223,8 @@ class PingPong {
     this.hpR = 0;
     this.outL = 0;
     this.outR = 0;
+    /** ce qui vient d'entrer dans les lignes et d'en sortir (le sommeil le surveille) */
+    this.lvl = 0;
   }
   setTime(s) {
     this.d = Math.max(1, Math.min(this.len - 2, Math.round(s * this.rate)));
@@ -235,18 +240,22 @@ class PingPong {
     this.hpL += (this.lpL - this.hpL) * this.aHp;
     this.lpR += (yr - this.lpR) * this.aLp;
     this.hpR += (this.lpR - this.hpR) * this.aHp;
-    this.l[this.w] = x + this.fb * (this.lpR - this.hpR);
-    this.r[this.w] = this.fb * (this.lpL - this.hpL);
+    const wl = x + this.fb * (this.lpR - this.hpR);
+    const wr = this.fb * (this.lpL - this.hpL);
+    this.l[this.w] = wl;
+    this.r[this.w] = wr;
     this.w += 1;
     if (this.w >= len) this.w = 0;
     this.outL = yl * DLY.out;
     this.outR = yr * DLY.out;
+    this.lvl = Math.abs(wl) + Math.abs(wr) + Math.abs(yl) + Math.abs(yr);
   }
   clear() {
     this.l.fill(0);
     this.r.fill(0);
     this.lpL = this.lpR = this.hpL = this.hpR = 0;
     this.outL = this.outR = 0;
+    this.lvl = 0;
   }
 }
 
@@ -269,6 +278,8 @@ class Fdn {
     this.aTone = 0.5;
     this.outL = 0;
     this.outR = 0;
+    /** ce qui entre dans les lignes et en sort, chacune (deux sorties ne s'annulent pas en silence) */
+    this.lvl = 0;
     this.set(2, 4000);
   }
   set(rt60, toneHz) {
@@ -305,6 +316,7 @@ class Fdn {
     }
     this.outL = (y0 + y2) * REV.out;
     this.outR = (y1 + y3) * REV.out;
+    this.lvl = Math.abs(s) + Math.abs(y0) + Math.abs(y1) + Math.abs(y2) + Math.abs(y3);
   }
   clear() {
     for (const ln of this.lines) {
@@ -313,6 +325,7 @@ class Fdn {
     }
     for (const df of this.diff) df.buf.fill(0);
     this.outL = this.outR = 0;
+    this.lvl = 0;
   }
 }
 
@@ -634,7 +647,8 @@ class MMBass extends AudioWorkletProcessor {
         dly.run(v * this.dS);
         l += dly.outL;
         r += dly.outR;
-        const e = Math.abs(dly.outL) + Math.abs(dly.outR) + this.dS;
+        // Le silence se compte sur ce qui entre dans la ligne aussi (pas seulement sur sa sortie)
+        const e = dly.lvl + this.dS;
         if (e > fxPeak) fxPeak = e;
         if (e < FX_IDLE.level && this.dSend === 0) this.dlyQuiet += 1;
         else this.dlyQuiet = 0;
@@ -644,7 +658,7 @@ class MMBass extends AudioWorkletProcessor {
         rev.run(v * this.rS);
         l += rev.outL;
         r += rev.outR;
-        const e = Math.abs(rev.outL) + Math.abs(rev.outR) + this.rS;
+        const e = rev.lvl + this.rS;
         if (e < FX_IDLE.level && this.rSend === 0) this.revQuiet += 1;
         else this.revQuiet = 0;
       }
@@ -653,9 +667,11 @@ class MMBass extends AudioWorkletProcessor {
     }
     this.dt = dt;
     this.gainAcc = gainAcc;
-    // Un effet a zero dont la queue s'est eteinte : il s'endort, ses lignes videes (rien ne traine au reveil)
+    // Un effet a zero dont la queue s'est eteinte : il s'endort, ses lignes videes (rien ne traine au reveil). Le DELAY :
+    // rien d'ecrit depuis au moins son temps (dly.d), la partie de la ligne qui sortira encore est vide (2026-10-08, revue :
+    // un verrou de DELAY en 3/8 ou 1/2 perdait sa repetition, la ligne videe avant qu'elle sorte)
     const idle = FX_IDLE.s * sampleRate;
-    if (this.dlyOn && this.dlyQuiet > idle) {
+    if (this.dlyOn && this.dlyQuiet > dly.d + idle) {
       this.dlyOn = false;
       this.dS = 0;
       dly.clear();

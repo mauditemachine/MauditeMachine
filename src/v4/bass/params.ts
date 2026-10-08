@@ -281,8 +281,11 @@ export function bassUnit(id: BassKnobId, v: number, bpm = 120): string {
     case 'delay':
     case 'reverb':
       return v <= 0.001 ? 'OFF' : `SEND ${Math.round(v * 100)} %`;
-    case 'dfb':
-      return `FEEDBACK ${Math.round(dfbPct(v))} %`;
+    case 'dfb': {
+      // Ce que perd chaque repetition (2026-10-08, la revue : FEEDBACK 45 % sous un grand 64 se contredisait)
+      const g = dfbPct(v) / 100;
+      return g < 0.01 ? 'ONE ECHO' : `${(20 * Math.log10(g)).toFixed(1)} DB / ECHO`;
+    }
     case 'dtime':
       return msText((60 / Math.max(20, bpm) / 4) * DTIME_STEPS[stepOf('dtime', v)] * 1000);
     case 'octave':

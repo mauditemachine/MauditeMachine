@@ -13,7 +13,9 @@
  *   (ou le chaine), le tenir 0.5 s sur un vide y copie la ligne ;
  * - un bouton LOCK (2026-10-07) : a l'appui, son pas recoit les potards du
  *   son ; deux tapes sur un potard en LOCK : son verrou s'en va ;
- * - l'ecran : les presets (state/presetMode.ts), a l'appui.
+ * - l'ecran : les presets (state/presetMode.ts), a l'appui ; depuis le
+ *   2026-10-08 (la revue) son en-tete seulement, ses huit blocs sont des
+ *   encodeurs (bass-blk-1 a 8 : glisser, deux tapes, la molette).
  * 2026-10-08 :
  * - tenir un pas 350 ms sans glisser (hors EDIT) : LOCK sur ce pas, comme
  *   une Elektron ; un potard tourne pendant l'appui et le lacher sort, sinon
@@ -40,6 +42,7 @@ import type { Stage } from '../scene/renderer';
 import { openToggle, presetKey } from '../actions';
 import { bassInfos } from '../state/bassInfos';
 import { bassAccent, bassClear, bassDial, bassDialReset, bassEditToggle, bassEditing, bassEncParam, bassGenerate, bassKnobValue, bassLockEnter, bassLockOff, bassLockTap, bassLockTurns, bassMutate, bassNote, bassOct, bassPageSet, bassPatternHold, bassRun, bassSlide, bassStepDeg, bassStepTap } from './actions';
+import { bassPage, type BassPageId } from './pages';
 import { bassKnob, type BassKnobId } from './params';
 import { bassState } from './state';
 import type { BassKeyKind } from './theme';
@@ -47,8 +50,16 @@ import type { BassKeyKind } from './theme';
 /** La molette : un cran (2026-10-08, 1/127 sur un encodeur), les pixels d'un cran (les petits pas d'un pave tactile s'additionnent). */
 const NOTCH = 1 / 127;
 const WHEEL_PX = 50;
-/** Un encodeur de la face (bass-enc-1 a 8) : son rang, 0 a 7 ; -1 sinon. */
-const encOf = (h: HotspotView): number => (h.id.startsWith('bass-enc-') ? Number(h.id.slice('bass-enc-'.length)) - 1 : -1);
+/** La molette d'un potard dedie (STYLE, DENSITY, la plaque) : la loi d'avant les encodeurs (2 %, plus vite aux grands pas ; Maj : 0.2 %). */
+const POT_WHEEL = { step: 0.02, fine: 0.002, px: 40, max: 4 } as const;
+/**
+ * Un encodeur : ceux de la face (bass-enc-1 a 8) et les blocs de l'ecran qui leur repondent (bass-blk-1 a 8, 2026-10-08,
+ * la revue : un bloc touche reglait les presets) ; son rang, 0 a 7 ; -1 sinon.
+ */
+const encOf = (h: HotspotView): number => {
+  const m = /^bass-(enc|blk)-(\d)$/.exec(h.id);
+  return m ? Number(m[2]) - 1 : -1;
+};
 
 const KNOB_PX = 150;
 const FINE = 0.1;
@@ -90,6 +101,9 @@ interface Grip {
   infoOnly: boolean;
   /** un potard : le pas en LOCK quand sa valeur de depart a ete prise (-1 : le son global) */
   lock: number;
+  /** un encodeur : son rang (-1 : un potard dedie) et la page ou il a pris son reglage */
+  enc: number;
+  page: BassPageId;
 }
 
 export class BassGestures {
@@ -108,7 +122,7 @@ export class BassGestures {
   }
 
   down(pointerId: number, h: HotspotView, x: number, y: number, touch = false): void {
-    const g: Grip = { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, infoOnly: false, lock: -1 };
+    const g: Grip = { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, infoOnly: false, lock: -1, enc: -1, page: bassPage.get() };
     // La touche "i" de l'ecran : INFOS, toujours (au doigt en INFOS aussi : c'est elle qui l'eteint)
     if (h.id === 'bass-key-i') {
       bassInfos.toggle();
@@ -132,6 +146,7 @@ export class BassGestures {
     if (h.kind === 'bassknob') {
       g.kind = 'knob';
       const enc = encOf(h);
+      g.enc = enc;
       // Un encodeur : le reglage de la page allumee (une case vide : l'ecran le dit, rien ne tourne)
       g.knob = enc >= 0 ? bassEncParam(enc) : knobOf(h);
       if (!g.knob) {
@@ -197,6 +212,17 @@ export class BassGestures {
     const dx = x - g.x0;
     const dy = y - g.y0;
     if (Math.hypot(dx, dy) > AXIS_PX) g.moved = true;
+    if (g.kind === 'knob' && g.enc >= 0 && bassPage.get() !== g.page) {
+      // La page a change pendant qu'un encodeur tourne (2026-10-08, la revue : [ ], le MIDI, une touche de page d'un
+      // autre doigt) : comme sur une Elektron, il regle desormais la page allumee, depuis la valeur qu'il y trouve
+      g.page = bassPage.get();
+      g.knob = bassEncParam(g.enc);
+      if (g.knob) {
+        g.v0 = bassKnobValue(g.knob);
+        g.a = g.axis === 'y' ? -dy : g.axis === 'x' ? dx : 0;
+        g.lock = bassState.get().lock;
+      }
+    }
     if (g.kind === 'knob' && g.knob) {
       if (!g.axis) {
         if (Math.hypot(dx, dy) < AXIS_PX) return;
@@ -242,11 +268,13 @@ export class BassGestures {
 
   /**
    * La molette au-dessus d'un potard ou d'un encodeur (2026-10-08, la machine
-   * Elektron) : un cran = 1/127, le nombre de l'ecran bouge de 1 (les petits
-   * pas d'un pave tactile s'additionnent ; Maj sans effet, c'est deja le plus
-   * fin) ; un cran entier sur un reglage a crans ; true si elle est prise.
+   * Elektron) : sur un encodeur, un cran = 1/127, le nombre de l'ecran bouge
+   * de 1 (les petits pas d'un pave tactile s'additionnent ; Maj sans effet,
+   * c'est deja le plus fin) ; un potard dedie (STYLE, DENSITY, la plaque)
+   * garde sa loi (2 % par cran, plus vite aux grands pas, Maj : 0.2 %) ; un
+   * cran entier sur un reglage a crans ; true si elle est prise.
    */
-  wheel(h: HotspotView, delta: number, _shift: boolean): boolean {
+  wheel(h: HotspotView, delta: number, shift: boolean): boolean {
     if (h.kind === 'basstrig') {
       if (bassEditing()) return true;
       const i = Number(h.id.slice('bass-trig-'.length)) - 1;
@@ -258,6 +286,12 @@ export class BassGestures {
     const enc = encOf(h);
     const id = enc >= 0 ? bassEncParam(enc) : knobOf(h);
     if (!id) return true;
+    if (enc < 0) {
+      const n = bassKnob(id).steps;
+      if (n && n > 1) bassDial(id, bassKnobValue(id) - Math.sign(delta) / (n - 1));
+      else bassDial(id, bassKnobValue(id) - Math.sign(delta) * (shift ? POT_WHEEL.fine : POT_WHEEL.step) * Math.min(POT_WHEEL.max, Math.abs(delta) / POT_WHEEL.px || 1));
+      return true;
+    }
     // Une molette de souris : un evenement, un cran ; un pave tactile : ses petits pas s'additionnent
     let notches: number;
     if (Math.abs(delta) >= WHEEL_PX) {

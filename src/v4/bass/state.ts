@@ -118,6 +118,36 @@ export function cleanLocks(o: unknown): BassLocks | null {
   return n ? out : null;
 }
 
+/**
+ * Les verrous qui sonnent au pas i (2026-10-08, la revue : l'ecran et le son disaient deux choses sur une liaison) :
+ * une note, les siens ; une liaison continue la note d'avant (en remontant les liaisons, la boucle comprise : une
+ * liaison au pas 1 continue la note du pas 16), avec ses verrous puis ceux de chaque liaison jusqu'a i (le dernier
+ * l'emporte) ; LENGTH reste celui du pas lui-meme (la duree de la note, decidee par le pas qui la relache, seq.ts).
+ * null : aucun verrou, ou une liaison qui ne continue aucune note (un silence). seq.ts l'envoie au worklet, l'ecran
+ * le montre (bass/pageView.ts) : les memes valeurs.
+ */
+export function chainLocks(steps: readonly BassStep[], i: number): BassLocks | null {
+  const s = steps[i];
+  if (!s || s.kind === 'off') return null;
+  if (s.kind === 'note') return s.locks ?? null;
+  const n = steps.length;
+  let j = i;
+  let k = 0;
+  while (k < n && steps[j].kind === 'tie') {
+    j = (j - 1 + n) % n;
+    k += 1;
+  }
+  if (k >= n || steps[j].kind !== 'note') return null;
+  const out: BassLocks = {};
+  for (let p = j; ; p = (p + 1) % n) {
+    const l = steps[p].locks;
+    if (l) for (const id of BASS_LOCKABLE) if (id !== 'length' && l[id] !== undefined) out[id] = l[id];
+    if (p === i) break;
+  }
+  if (s.locks?.length !== undefined) out.length = s.locks.length;
+  return Object.keys(out).length ? out : null;
+}
+
 /** Une suite lue (stockage, pattern, preset) : seize pas valides, ou null. */
 export function cleanSteps(o: unknown): BassStep[] | null {
   if (!Array.isArray(o) || o.length !== BASS_STEPS) return null;
@@ -171,10 +201,10 @@ export const bassState = {
     });
     bassState.set({ ...also, steps });
   },
-  /** Une ligne a l'ecran, quelques secondes. */
-  say(text: string | null, ms = 2200): void {
+  /** Une ligne a l'ecran, quelques secondes ; also : le reste de l'etat dans la meme notification (2026-10-08, la revue : un potard qui tourne, un seul dessin). */
+  say(text: string | null, ms = 2200, also: Partial<BassState> = {}): void {
     window.clearTimeout(msgTimer);
-    bassState.set({ message: text });
+    bassState.set({ ...also, message: text });
     if (text) msgTimer = window.setTimeout(() => bassState.set({ message: null }), ms);
   },
   subscribe(fn: () => void): () => void {

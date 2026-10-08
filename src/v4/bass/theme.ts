@@ -50,9 +50,13 @@
 import { BODY, PORTRAIT } from '../theme';
 import type { BassKnobId } from './params';
 
-/** La taille du MM-RYTM. */
+/**
+ * La taille du MM-RYTM ; au telephone (2026-10-08, la revue : les LOCK et les pas tenaient 22 a 27 px chacun sous
+ * le doigt) 2.8 de plus en profondeur : le bloc reste a la largeur de l'ecran (le cadrage tient encore la largeur,
+ * il y avait 180 px de vide dessus et dessous), chaque rangee du bas et chaque bloc de l'ecran a ses 44 px.
+ */
 export const BASS_W = BODY.w;
-export const BASS_D = BODY.d;
+export const BASS_D = PORTRAIT ? BODY.d + 2.8 : BODY.d;
 /** Le jour avec la machine de gauche (le MM-RYTM) : le meme que partout. */
 const GAP = PORTRAIT ? 1.8 : 2.6;
 
@@ -66,13 +70,14 @@ export const BASS_FRAME = { h: BASS_D + 0.5, targetY: 1.3 } as const;
 
 export const BASS = PORTRAIT
   ? {
-      head: { z: -6.8 },
-      logo: { h: 0.32, z: -6.8 },
-      // La machine Elektron (2026-10-08) : l'ecran plus profond (3.5 au lieu de 2.5), toute la largeur
-      screen: { x: 0, z: -4.65, w: 7.6, d: 3.5 },
+      head: { z: -8.2 },
+      logo: { h: 0.32, z: -8.2 },
+      // La machine Elektron (2026-10-08) : l'ecran plus profond (4.05 au lieu de 2.5 : son en-tete et ses blocs se touchent du doigt), toute la largeur
+      screen: { x: 0, z: -5.775, w: 7.6, d: 4.05 },
       trigs: { w: 0.8, d: 0.56, h: 1.15 },
-      // Plus grands au doigt (2026-10-08 : la bande de 15 px entre NOTE + et le pas ratait)
-      locks: { w: 0.72, d: 0.3, h: 0.85 },
+      // Plus grands au doigt (2026-10-08 : la bande de 15 px entre NOTE + et le pas ratait ; puis la revue : une
+      // vraie touche, plus haute, a 44 px de son pas)
+      locks: { w: 0.72, d: 0.42, h: 0.85 },
     }
   : {
       head: { z: -3.42 },
@@ -100,9 +105,16 @@ interface KnobPlace {
 
 /** Les colonnes des encodeurs (et des touches de page), leurs rangees, leur echelle. */
 const PH_X = [-2.85, -0.95, 0.95, 2.85];
-const ENC = PORTRAIT ? { x: PH_X, z: [-2.17, -0.87], s: 1.25, pageZ: 0.08 } : { x: [0.3, 1.3, 2.3, 3.3], z: [-2.25, -0.95], s: 1.1, pageZ: 0.3 };
+/**
+ * Au telephone, d'une rangee a l'autre au moins 1.05 (44 px sous le doigt ; 2026-10-08, la revue : les encodeurs
+ * E a H mangeaient 10 px des touches de page) : les encodeurs, leurs pages a 1.15, le GENERATOR, RUN CLEAR EDIT
+ * OPEN, les touches du pas, puis LOCK et pas, LOCK et pas.
+ */
+const ENC = PORTRAIT ? { x: PH_X, z: [-3.0, -1.7], s: 1.25, pageZ: -0.55 } : { x: [0.3, 1.3, 2.3, 3.3], z: [-2.25, -0.95], s: 1.1, pageZ: 0.3 };
 /** La rangee du GENERATOR au telephone (STYLE, DENSITY, GEN, MUTATE). */
-const PH_GEN_Z = 1.32;
+const PH_GEN_Z = 0.75;
+/** Les rangees du bas : desktop la rangee de jeu (remontee pour le filet LOCK, la revue), telephone RUN et les touches du pas. */
+const PLAY_Z = PORTRAIT ? { run: 2.3, keys: 3.4 } : { run: 1.5, keys: 1.5 };
 
 const desk = (): KnobPlace[] => [
   // Le generateur, sous EDIT et OPEN : STYLE (le choix musical), DENSITY
@@ -188,16 +200,16 @@ const PLACES: Readonly<Record<BassKeyKind, { x: number; z: number; w: number; d:
       pfx: { x: ENC.x[3], z: ENC.pageZ, w: 1.55, d: 0.5 },
       gen: { x: 0.95, z: PH_GEN_Z, w: 1.5, d: 0.58 },
       mutate: { x: 2.85, z: PH_GEN_Z, w: 1.5, d: 0.58 },
-      run: { x: -2.95, z: 2.92, w: 1.55, d: 0.6 },
-      clear: { x: -0.98, z: 2.92, w: 1.55, d: 0.6 },
-      edit: { x: 0.98, z: 2.92, w: 1.55, d: 0.6 },
-      open: { x: 2.95, z: 2.92, w: 1.55, d: 0.6 },
-      accent: { x: -3.25, z: 3.78, w: 1.12, d: 0.5 },
-      slide: { x: -1.95, z: 3.78, w: 1.12, d: 0.5 },
-      notedn: { x: -0.65, z: 3.78, w: 1.12, d: 0.5 },
-      noteup: { x: 0.65, z: 3.78, w: 1.12, d: 0.5 },
-      octdn: { x: 1.95, z: 3.78, w: 1.12, d: 0.5 },
-      octup: { x: 3.25, z: 3.78, w: 1.12, d: 0.5 },
+      run: { x: -2.95, z: PLAY_Z.run, w: 1.55, d: 0.6 },
+      clear: { x: -0.98, z: PLAY_Z.run, w: 1.55, d: 0.6 },
+      edit: { x: 0.98, z: PLAY_Z.run, w: 1.55, d: 0.6 },
+      open: { x: 2.95, z: PLAY_Z.run, w: 1.55, d: 0.6 },
+      accent: { x: -3.25, z: PLAY_Z.keys, w: 1.12, d: 0.5 },
+      slide: { x: -1.95, z: PLAY_Z.keys, w: 1.12, d: 0.5 },
+      notedn: { x: -0.65, z: PLAY_Z.keys, w: 1.12, d: 0.5 },
+      noteup: { x: 0.65, z: PLAY_Z.keys, w: 1.12, d: 0.5 },
+      octdn: { x: 1.95, z: PLAY_Z.keys, w: 1.12, d: 0.5 },
+      octup: { x: 3.25, z: PLAY_Z.keys, w: 1.12, d: 0.5 },
     }
   : {
       pvoice: { x: ENC.x[0], z: ENC.pageZ, w: 0.8, d: 0.34 },
@@ -208,14 +220,14 @@ const PLACES: Readonly<Record<BassKeyKind, { x: number; z: number; w: number; d:
       mutate: { x: 5.55, z: 0.3, w: 0.92, d: 0.38 },
       edit: { x: 4.55, z: -2.55, w: 0.95, d: 0.44 },
       open: { x: 5.55, z: -2.55, w: 0.95, d: 0.44 },
-      run: { x: -5.3, z: 1.6, w: 1.1, d: 0.42 },
-      clear: { x: -3.75, z: 1.6, w: 1.0, d: 0.42 },
-      accent: { x: -2.2, z: 1.6, w: 1.0, d: 0.42 },
-      slide: { x: -0.95, z: 1.6, w: 1.0, d: 0.42 },
-      notedn: { x: 0.65, z: 1.6, w: 1.0, d: 0.42 },
-      noteup: { x: 1.9, z: 1.6, w: 1.0, d: 0.42 },
-      octdn: { x: 3.15, z: 1.6, w: 1.0, d: 0.42 },
-      octup: { x: 4.4, z: 1.6, w: 1.0, d: 0.42 },
+      run: { x: -5.3, z: PLAY_Z.run, w: 1.1, d: 0.42 },
+      clear: { x: -3.75, z: PLAY_Z.keys, w: 1.0, d: 0.42 },
+      accent: { x: -2.2, z: PLAY_Z.keys, w: 1.0, d: 0.42 },
+      slide: { x: -0.95, z: PLAY_Z.keys, w: 1.0, d: 0.42 },
+      notedn: { x: 0.65, z: PLAY_Z.keys, w: 1.0, d: 0.42 },
+      noteup: { x: 1.9, z: PLAY_Z.keys, w: 1.0, d: 0.42 },
+      octdn: { x: 3.15, z: PLAY_Z.keys, w: 1.0, d: 0.42 },
+      octup: { x: 4.4, z: PLAY_Z.keys, w: 1.0, d: 0.42 },
     };
 
 export const BASS_KEYS: readonly BassKeyDef[] = COPY.map((c) => ({ ...c, ...PLACES[c.kind] }));
@@ -236,17 +248,20 @@ export const BASS_KEY_SEPS: readonly [BassKeyKind, BassKeyKind][] = PORTRAIT
 export function bassTrigAt(i: number): { x: number; z: number } {
   if (PORTRAIT) {
     const c = i % 8;
-    return { x: (c - 3.5) * 0.95 + (c >= 4 ? 0.08 : -0.08), z: i < 8 ? 4.92 : 6.18 };
+    return { x: (c - 3.5) * 0.95 + (c >= 4 ? 0.08 : -0.08), z: i < 8 ? 5.52 : 7.67 };
   }
   const g = Math.floor(i / 4);
-  return { x: -5.69 + i * 0.74 + g * 0.1, z: 2.8 };
+  return { x: -5.69 + i * 0.74 + g * 0.1, z: 2.92 };
 }
 
-/** Le bouton LOCK d'un pas : juste au-dessus de lui. */
+/** Le bouton LOCK d'un pas : au-dessus de lui (au telephone a 1.05, 44 px ; desktop sous le filet LOCK). */
 export function bassLockAt(i: number): { x: number; z: number } {
   const t = bassTrigAt(i);
-  return { x: t.x, z: PORTRAIT ? t.z - 0.5 : 2.16 };
+  return { x: t.x, z: PORTRAIT ? t.z - 1.05 : 2.3 };
 }
+
+/** Le filet LOCK au-dessus de chaque rangee de LOCK (2026-10-08, la revue : la rangee n'avait pas de nom). */
+export const BASS_LOCK_LEGEND_DZ = PORTRAIT ? 0.47 : 0.35;
 
 /* ---------------- OPEN : le capot, la plaque ---------------- */
 

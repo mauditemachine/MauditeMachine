@@ -38,7 +38,7 @@ import { CHORDS } from '../voyager/chords';
 import { bassEngine, soundLocks } from './engine';
 import { BASS_SCALES, BASS_STYLES, SCALE_TONES, bassParams, lengthPct, stepOf } from './params';
 import { bassPatterns } from './patterns';
-import { BASS_STEPS, bassState, type BassStep } from './state';
+import { BASS_STEPS, bassState, chainLocks, type BassStep } from './state';
 
 const START_DELAY_S = 0.05;
 const RING = 32;
@@ -155,9 +155,10 @@ function scheduleStep(): void {
   if (s.kind === 'tie') {
     // La note d'avant continue ; rien a tenir : un silence
     if (!holding) return;
-    // Ses verrous du son (un verrou LENGTH seul ne change pas le son de la note qui continue)
-    const lk = soundLocks(s.locks);
-    if (lk) bassEngine.lock(when, lk);
+    // Ses verrous du son (un verrou LENGTH seul ne change pas le son de la note qui continue), par-dessus ceux de la
+    // note et des liaisons d'avant (2026-10-08, la revue : ils les remplacaient, l'ecran montrait les deux) ; une
+    // liaison sans verrou garde ce qui sonne deja, comme l'ecran (state.ts chainLocks)
+    if (soundLocks(s.locks)) bassEngine.lock(when, chainLocks(steps, stepIdx));
     if (next.kind !== 'tie' && !(s.slide && next.kind === 'note')) endNote(when, gateOf(s, stepDur));
     return;
   }

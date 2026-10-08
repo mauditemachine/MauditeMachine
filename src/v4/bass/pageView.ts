@@ -25,7 +25,7 @@
 
 import { BASS_PAGES, BASS_PAGE_SLOTS, ENC_LETTERS, bassPageDef, isBassGlobal, type BassPageId } from './pages';
 import { BASS_ROOTS, BASS_SCALES, BASS_STYLES, bassBig, bassKnob, bassUnit, stepOf, type BassKnobId, type BassValues } from './params';
-import { BASS_LOCKABLE, BASS_STEPS, isLockable, type BassLocks, type BassStep } from './state';
+import { BASS_LOCKABLE, BASS_STEPS, chainLocks, isLockable, type BassLocks, type BassStep } from './state';
 
 export type BlockState = 'empty' | 'live' | 'lockOn' | 'lockOff' | 'global' | 'flash';
 
@@ -107,17 +107,8 @@ export const blockDrawOf = (id: BassKnobId): BlockDraw => DRAW[id] ?? (bassKnob(
 
 const two = (i: number): string => String(i + 1).padStart(2, '0');
 
-/** Les verrous qui sonnent au pas i : ceux de sa note (une liaison continue celle d'avant), plus les siens. */
-export function effectiveLocks(steps: readonly BassStep[], i: number): BassLocks | null {
-  const s = steps[i];
-  if (!s || s.kind === 'off') return null;
-  if (s.kind === 'note') return s.locks ?? null;
-  let j = i - 1;
-  while (j >= 0 && steps[j].kind === 'tie') j -= 1;
-  const base = j >= 0 && steps[j].kind === 'note' ? steps[j].locks : undefined;
-  if (!base && !s.locks) return null;
-  return { ...(base ?? {}), ...(s.locks ?? {}) };
-}
+/** Les verrous qui sonnent au pas i : ceux que le sequenceur envoie au worklet (state.ts chainLocks, la boucle comprise). */
+export const effectiveLocks = (steps: readonly BassStep[], i: number): BassLocks | null => chainLocks(steps, i);
 
 /** Le nombre de pas verrouilles sur une page (au moins un reglage de la page). */
 function pageLockCount(steps: readonly BassStep[], page: BassPageId): number {
@@ -220,11 +211,10 @@ export function bassPageModel(inp: PageInput): BassPageModel {
   let aside = '';
   if (inp.message) line = inp.message;
   else if (lock) line = `TURN A KNOB: STEP ${two(lock.step)} ONLY  2X: UNLOCK  CLEAR: ALL`;
-  else {
-    line = sel ? `STEP ${two(inp.sel)}  ${stepWhat(sel, inp.noteName)}` : '';
-    // Le geste du LOCK est serigraphie sous les pas ; l'ecran rappelle qu'il se touche (les presets)
-    aside = 'TOUCH: PRESETS';
-  }
+  else line = sel ? `STEP ${two(inp.sel)}  ${stepWhat(sel, inp.noteName)}` : '';
+  // Le geste du LOCK, a droite de la ligne tant qu'on n'est pas en LOCK (2026-10-08, la revue : au telephone, la
+  // serigraphie sous les pas ne se lit pas, l'ecran oui ; l'ecran le dit aussi apres un pas touche)
+  if (!lock) aside = 'HOLD A STEP + TURN: P-LOCK';
   return {
     page: inp.page,
     pages: BASS_PAGES.map((p) => ({ id: p.id, label: p.label, locks: pageLockCount(inp.steps, p.id) })),
@@ -317,7 +307,8 @@ export function bassEditModel(inp: EditInput): BassEditModel {
   const order = new Map(ids.map((id, i) => [id, i]));
   lanes.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
   const chainOn = inp.chain.length > 1;
-  const chain = chainOn ? inp.chain.map(slotName).join(' > ') : inp.next >= 0 ? `NEXT ${slotName(inp.next)}` : inp.filled[inp.cur] ? 'PLAYING' : 'EMPTY';
+  // PLAYING seulement en lecture (2026-10-08, la revue : il s'affichait a cote du carre de l'arret)
+  const chain = chainOn ? inp.chain.map(slotName).join(' > ') : inp.next >= 0 ? `NEXT ${slotName(inp.next)}` : !inp.filled[inp.cur] ? 'EMPTY' : inp.running ? 'PLAYING' : 'READY';
   return {
     running: inp.running,
     bpm: inp.bpm,

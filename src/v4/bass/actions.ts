@@ -58,7 +58,7 @@ import { bassEngine } from './engine';
 import { generate, mutate, type GenOpts } from './gen';
 import type { BassStep } from './state';
 import { BASS_SCALES, BASS_STYLES, SCALE_TONES, bassKnob, bassParams, bassValueText, stepOf, type BassKnobId } from './params';
-import { BASS_PAGE_SLOTS, bassPage, bassPageDef, isBassGlobal, type BassPageId } from './pages';
+import { BASS_PAGES, BASS_PAGE_SLOTS, bassPage, bassPageDef, isBassGlobal, type BassPageId } from './pages';
 import { bassPatterns, bassSlotName } from './patterns';
 import { bassSeq, gateOf, midiOf } from './seq';
 import { BASS_STEPS, bassState, emptyStep, isLockable } from './state';
@@ -296,8 +296,7 @@ export function bassDial(id: BassKnobId, v: number): void {
   const st = bassState.get();
   // En LOCK, un reglage GLOBAL d'une page (2026-10-08) : il ne bouge pas, l'ecran dit pourquoi
   if (st.lock >= 0 && isBassGlobal(id)) {
-    bassState.set({ touched: { id, at: performance.now() } });
-    bassState.say(`${bassKnob(id).label}: GLOBAL, NOT PER STEP`, 1800);
+    bassState.say(`${bassKnob(id).label}: GLOBAL, NOT PER STEP`, 1800, { touched: { id, at: performance.now() } });
     return;
   }
   if (st.lock >= 0 && isLockable(id)) {
@@ -324,17 +323,18 @@ export function bassDial(id: BassKnobId, v: number): void {
     return;
   }
   if (!bassParams.set(id, v)) return;
-  bassState.set({ touched: { id, at: performance.now() } });
+  // L'echo et la ligne du bas dans la meme notification (2026-10-08, la revue : un dessin de l'ecran de moins par geste)
+  const touched = { id, at: performance.now() };
   const label = `${bassKnob(id).label} ${bassValueText(id, bassParams.of(id))}`;
   // Le generateur : la ligne de GEN se reecrit, sinon l'ecran dit comment l'entendre
   if (GEN_LIVE.includes(id)) {
     if (genLine && bassState.get().steps === genLine) {
       writeGen();
-      bassState.say(label, 1400);
-    } else bassState.say(`${label}   PRESS GEN`, 1800);
+      bassState.say(label, 1400, { touched });
+    } else bassState.say(`${label}   PRESS GEN`, 1800, { touched });
     return;
   }
-  bassState.say(label, 1400);
+  bassState.say(label, 1400, { touched });
 }
 
 /** Deux tapes sur un potard : en LOCK, son verrou s'en va ; sinon, sa valeur de depart. */
@@ -387,10 +387,15 @@ export function bassEncReset(k: number): void {
   if (id) bassDialReset(id);
 }
 
-/** Une touche de page : les encodeurs reglent cette page ; en LOCK, l'ecran dit ses verrous sur le pas. */
+/**
+ * Une touche de page : les encodeurs reglent cette page ; en LOCK, l'ecran dit ses verrous sur le pas. La page deja
+ * allumee : rien ne change (2026-10-08, la revue : un potard MIDI sur bass:page envoie un flot de CC, chacun effacait
+ * l'echo et re-ecrivait la ligne du LOCK).
+ */
 export function bassPageSet(p: BassPageId): void {
   gesture();
-  // La page change : l'echo du dernier reglage tourne s'en va (sinon l'ecran le montrerait en plein, hors de la page)
+  if (p === bassPage.get()) return;
+  // La page change : l'echo du dernier reglage tourne s'en va avant (sinon l'ecran le montrerait en plein, hors de la page)
   if (bassState.get().touched) bassState.set({ touched: null });
   bassPage.set(p);
   const st = bassState.get();
@@ -400,10 +405,11 @@ export function bassPageSet(p: BassPageId): void {
   bassState.say(`LOCK ${two(st.lock)}  ${bassPageDef(p).label}: ${n ? `${n} LOCKED` : 'TURN A KNOB'}`, 1400);
 }
 
-/** Les touches [ et ] : la page d'a cote. */
+/** Les touches [ et ] : la page d'a cote (un seul changement, l'echo efface avant). */
 export function bassPageStep(dir: -1 | 1): void {
-  bassPage.step(dir);
-  bassPageSet(bassPage.get());
+  const n = BASS_PAGES.length;
+  const i = BASS_PAGES.findIndex((x) => x.id === bassPage.get());
+  bassPageSet(BASS_PAGES[(((i < 0 ? 0 : i) + dir) % n + n) % n].id);
 }
 
 /* ---------------- LOCK : les boutons au-dessus des pas ---------------- */
