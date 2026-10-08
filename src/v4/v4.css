@@ -5290,16 +5290,22 @@ html:has(body.v4-active.v4-light) {
 }
 
 .v4-root .v4-dock-step[data-lockstep='1'] {
-  box-shadow: inset 0 0 0 2px var(--yellow-hi);
+  box-shadow:
+    0 0 0 2px var(--yellow-hi),
+    inset 0 0 0 2px #0b0b0b;
   animation: v4-lock-blink 0.56s steps(2, jump-none) infinite;
 }
 
 @keyframes v4-lock-blink {
   from {
-    box-shadow: inset 0 0 0 2px var(--yellow-hi);
+    box-shadow:
+      0 0 0 2px var(--yellow-hi),
+      inset 0 0 0 2px #0b0b0b;
   }
   to {
-    box-shadow: inset 0 0 0 2px rgba(255, 215, 94, 0.25);
+    box-shadow:
+      0 0 0 2px rgba(255, 215, 94, 0.3),
+      inset 0 0 0 2px #0b0b0b;
   }
 }
 
