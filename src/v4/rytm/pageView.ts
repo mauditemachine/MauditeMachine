@@ -85,7 +85,7 @@ export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, sel: num
   if (b.state === 'off' && inst && slot.lock === 'snd' && slot.target === 'vsound' && (mode.kind === 'lock' || !!mode.lock?.snd)) {
     b.state = 'live';
     b.text = inst;
-    b.unit = 'OWN SOUND';
+    b.unit = 'OWN';
     b.notches = 0;
   }
   if (mode.kind === 'lock') {

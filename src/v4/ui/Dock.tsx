@@ -95,6 +95,25 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
       /* stockage indisponible : le choix vaut pour la visite */
     }
   }, [shown]);
+  // La languette posee sur le bord haut du Dock deplie, a sa hauteur mesuree (revue de R2) : --dock-h-mobile (209 px)
+  // datait d'avant les onglets SEQUENCER / KNOBS, elle tombait sur eux ; le Dock change de hauteur avec sa page
+  const [dockH, setDockH] = useState(0);
+  useEffect(() => {
+    const el = dockRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const ro = new ResizeObserver(() => setDockH(el.offsetHeight));
+    ro.observe(el);
+    setDockH(el.offsetHeight);
+    return () => ro.disconnect();
+  }, []);
+  // Le LOCK pris par un appui long du Dock (revue de R2) : la page KNOBS s'ouvre (ses potards reglent les verrous du
+  // pas), et le Dock revient au SEQUENCER a la sortie du LOCK
+  const autoKnobs = useRef(false);
+  useEffect(() => {
+    if (lockAt >= 0 || !autoKnobs.current) return;
+    autoKnobs.current = false;
+    setPage('main');
+  }, [lockAt, setPage]);
   // Appui long sur un pas : le pas et l'instant du pointerdown ; le clic qui suit est ignore
   const hold = useRef<{ i: number; t: number } | null>(null);
   const skipClick = useRef(-1);
@@ -113,6 +132,7 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
         className="v4-dock-tab"
         data-open={shown ? '1' : '0'}
         data-page={page}
+        style={shown && dockH > 0 ? { bottom: `${dockH - 4}px` } : undefined}
         aria-expanded={shown}
         aria-controls="v4-dock"
         aria-label={shown ? 'Hide the sequencer' : 'Show the sequencer'}
@@ -186,7 +206,13 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
                     skipClick.current = i;
                     // L'appui long (2026-10-08) : le LOCK sur ce pas (encore : hors LOCK), la page KNOBS regle ses verrous
                     if (!inst) setNudge((n) => n + 1);
-                    else rytmLockToggle(i);
+                    else {
+                      rytmLockToggle(i);
+                      if (rytmLock.get().step >= 0) {
+                        autoKnobs.current = true;
+                        setPage('knobs');
+                      }
+                    }
                   }
                 }}
                 onPointerCancel={() => {

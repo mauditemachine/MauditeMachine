@@ -192,7 +192,8 @@ export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean }> = ({ spec
   // Un selecteur (16 crans au plus) : ses crans marques, une tape passe au suivant ; au-dela (PITCH, 49) : un potard fin
   const detents = steps > 1 && steps <= 16;
   // TRIG VEL (2026-10-08) : des crans, mais une tape ne doit pas poser de note
-  const tapNext = detents && spec.selector !== false;
+  // En LOCK (revue de R2) : une tape ne pose pas le cran suivant en verrou (SAMPLE, GATE) ; deux tapes l'enlevent
+  const tapNext = detents && spec.selector !== false && !spec.lockState;
   const k = hi > lo ? Math.min(1, Math.max(0, (value - lo) / (hi - lo))) : 0;
   const bipolar = spec.bipolar;
   const drag = useRef<{ y: number; x: number; k0: number; moved: boolean } | null>(null);
@@ -368,7 +369,8 @@ const PageKnob: React.FC<{ k: number }> = ({ k }) => {
 
 /**
  * La barre du LOCK (2026-10-08) a la place des voix : le pas et ses verrous
- * (toutes pages), CLEAR (ses verrous, ses coups restent) et EXIT.
+ * (toutes pages) et la double tape qui en enleve un, CLR LOCKS (ses verrous,
+ * ses coups restent) et EXIT.
  */
 const LockBar: React.FC = () => {
   const lk = useSyncExternalStore(rytmLock.subscribe, rytmLock.get, rytmLock.get);
@@ -379,10 +381,15 @@ const LockBar: React.FC = () => {
     <div className="v4-knobs-lockbar" role="group" aria-label={`Lock mode on step ${n}`}>
       <span className="v4-knobs-lock" aria-live="polite">
         <span className="v4-knobs-lock-pill">LOCK {n < 10 ? `0${n}` : n}</span>
-        <span className="v4-knobs-lock-what">{p.instrument ?? ''} {names.length > 0 ? names.join(' ') : 'TURN A KNOB'}</span>
+        {/* Ce que le pas a, puis comment l'enlever (revue de R2 : la double tape ne se devinait pas) */}
+        <span className="v4-knobs-lock-text">
+          <span className="v4-knobs-lock-what">{p.instrument ?? ''} {names.length > 0 ? names.join(' ') : 'TURN A KNOB'}</span>
+          <span className="v4-knobs-lock-tip">2X ON A KNOB: UNLOCK</span>
+        </span>
       </span>
+      {/* CLR LOCKS (revue de R2) : CLEAR seul se lisait comme effacer le pattern */}
       <button type="button" className="v4-knobs-lockkey" aria-label={`Clear the locks of step ${n}`} onClick={() => rytmLockClear()}>
-        CLEAR
+        CLR LOCKS
       </button>
       <button type="button" className="v4-knobs-lockkey" aria-label="Leave lock mode" onClick={() => rytmLockToggle(lk.step)}>
         EXIT

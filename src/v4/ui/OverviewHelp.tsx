@@ -18,7 +18,7 @@ export const MACHINE_HELP: Readonly<Record<MachineId, { name: string; kind: stri
     text: [
       'Pick a voice pad (BD, SD, CH...), then tap the 16 steps to write its part; hold a step and drag to set its velocity. RUN/STOP plays, RANDOM writes a groove.',
       'Like an Elektron: press a page key (TRIG SRC SMPL FLTR AMP FX) and the 8 knobs A to H under the screen set the 8 blocks above them, values 0 to 127 on the screen; the lit key again shows the home screen. EDIT turns the steps into 16 patterns; OPEN lifts the hood for the TWEAKS.',
-      'Parameter locks: hold a step until the screen says LOCK, then turn a knob, that value plays on this step only (its block turns white). Tap the step again to leave; while it plays, locked blocks flash on their step.',
+      'Parameter locks: hold a step until the screen says LOCK, then turn a knob, that value plays on this step only (its block turns white): the sound, tune, the kick and snare machine knobs, decay, pan, volume, delay and reverb. Tap the step again to leave; while it plays, locked blocks flash on their step.',
     ],
   },
   voy: {

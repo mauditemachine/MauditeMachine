@@ -33,7 +33,7 @@ import type { PresetMachine } from './state/presets';
 import { presskit } from './state/presskit';
 import { rytmPage } from './state/rytmPage';
 import { rytmLock } from './state/rytmLock';
-import { pageLabel, pageSlots, type PageSlot, type RytmPageId, type SlotTarget } from './rytm/pages';
+import { RYTM_PAGES, pageLabel, pageSlots, type PageSlot, type RytmPageId, type SlotTarget } from './rytm/pages';
 import { encText, encUnit, kitUnit, kitUnitAt, v127Text, velTo127, velWord } from './rytm/values';
 import { section } from './state/section';
 import { voices } from './state/voices';
@@ -1455,10 +1455,53 @@ const lockName = (slot: PageSlot): string => slot.label;
  * sa valeur ; null quand le pas n'a pas de verrou pour ce bloc. VEL : la
  * velocite du pas lui-meme (c'est son verrou), null sur un pas vide.
  */
-export function pageLockView(k: number, step: number, lockArg?: Readonly<StepLock> | null): { text: string; unit: string; course: number; value: number } | null {
+export function pageLockView(k: number, step: number, lockArg?: Readonly<StepLock> | null): LockView | null {
   const slot = pageSlotOf(k);
   const inst = pattern.get().instrument;
-  if (!slot || !slot.lock || !inst || step < 0) return null;
+  if (!slot || !inst) return null;
+  return slotLockView(slot, inst, step, lockArg);
+}
+
+/** Ce qu'un verrou montre : sa valeur ecrite, son unite, sa course et sa valeur. */
+export interface LockView {
+  text: string;
+  unit: string;
+  course: number;
+  value: number;
+}
+
+/** Un verrou du pas, nomme et ecrit (le panneau des verrous de l'ecran, toutes pages, revue de R2). */
+export interface LockLine extends LockView {
+  page: string;
+  name: string;
+}
+
+/**
+ * Tous les verrous du pas `step` de la voix choisie, page apres page, avec
+ * leur valeur (revue de R2 : l'ecran les liste dans la place que la page
+ * laisse vide, en LOCK et quand le pas joue ; les verrous d'une autre page
+ * ne se voyaient pas). VEL n'en est pas un (c'est le pas) ; SOUND et SAMPLE
+ * sont le meme verrou, ecrit une fois.
+ */
+export function lockList(step: number, lockArg?: Readonly<StepLock> | null): LockLine[] {
+  const inst = pattern.get().instrument;
+  if (!inst || step < 0) return [];
+  const out: LockLine[] = [];
+  const seen = new Set<string>();
+  for (const p of RYTM_PAGES) {
+    for (const slot of pageSlots(p.id, inst)) {
+      if (!slot.lock || slot.lock === 'vel' || seen.has(slot.lock)) continue;
+      const lv = slotLockView(slot, inst, step, lockArg);
+      if (!lv) continue;
+      seen.add(slot.lock);
+      out.push({ ...lv, page: p.label, name: slot.label });
+    }
+  }
+  return out;
+}
+
+function slotLockView(slot: PageSlot, inst: Inst, step: number, lockArg?: Readonly<StepLock> | null): LockView | null {
+  if (!slot.lock || step < 0) return null;
   if (slot.lock === 'vel') {
     const v = velocity(pattern.get().steps, inst, step);
     if (v === 0) return null;
@@ -1491,7 +1534,8 @@ export function pageLockView(k: number, step: number, lockArg?: Readonly<StepLoc
   // Un potard de la machine (revue de R2) : 0 a 127 et son unite a cette valeur (52 HZ, 216 MS) ; GATE ON ou OFF
   const r = slot.target && slot.target !== 'step:vel' && slot.target !== 'smpl:sample' ? kitIdOf(slot.target) : null;
   if (r && !isFamily(r)) {
-    if (r === 'gate') return { text: kit.knobText('gate', v), unit: v >= 0.5 ? 'GATED VERB' : 'NO GATE', course: v, value: v };
+    // GATE : SD + CP pour la voix ; verrouille, il ne vaut que pour ce pas
+    if (r === 'gate') return { text: kit.knobText('gate', v), unit: `STEP ${two(step + 1)}`, course: v, value: v };
     return { text: v127Text(v), unit: kitUnitAt(r, v), course: v, value: v };
   }
   const e = slot.target as ContEnc;
@@ -1573,7 +1617,10 @@ function lockWrite(k: number, slot: PageSlot, v: number): void {
     return;
   }
   if (!slot.lock) {
-    lcdMessage.show(`${slot.label}: NOT LOCKABLE YET`);
+    // Le plus proche qui se verrouille (revue de R2 : jamais un cul-de-sac) : DIST et CHORUS sont des inserts de la
+    // tranche, leurs voisins DELAY et REVERB se verrouillent ; TONE, le filtre de la voix : TUNE (SRC) bouge la hauteur
+    const alt = slot.target === 'vdist' || slot.target === 'vchorus' ? 'DELAY, REVERB' : slot.target === 'tone' ? 'SRC TUNE' : '';
+    lcdMessage.show(alt ? `${slot.label}: NO LOCK YET  TRY ${alt}` : `${slot.label}: NOT LOCKABLE YET`);
     return;
   }
   if (steps.length === 0) return;

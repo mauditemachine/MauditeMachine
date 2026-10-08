@@ -5260,6 +5260,25 @@ html:has(body.v4-active.v4-light) {
   letter-spacing: 0.08em;
 }
 
+/* Le pas et ses verrous, puis la double tape qui en enleve un (revue de R2) */
+.v4-knobs-lock-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.v4-knobs-lock-tip {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--bone-70);
+  opacity: 0.72;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
 .v4-root .v4-knobs-lockkey {
   height: 44px;
   min-width: 64px;

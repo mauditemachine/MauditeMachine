@@ -71,9 +71,15 @@
  *   le pied dit quoi faire (TURN A KNOB: STEP 05 ONLY, 2X: UNLOCK, CLEAR:
  *   ALL) ou les verrous du pas ;
  * - en lecture : quand le pas qui joue a des verrous, leurs blocs passent en
- *   negatif avec la valeur verrouillee le temps du pas, puis reviennent ;
- * - les seize pas du pied : un point sous chaque pas qui a des verrous, le
- *   pas en LOCK cerne ; l'anneau de HOME, un trait dehors.
+ *   negatif avec la valeur verrouillee jusqu'au coup suivant de la voix (au
+ *   moins 280 ms depuis la revue de R2), puis reviennent ;
+ * - le panneau des verrous (revue de R2) : en LOCK et quand le pas joue, tous
+ *   ses verrous ecrits, toutes pages, dans la place que la page laisse vide ;
+ *   au desktop un point sur l'onglet des pages qui en portent, au telephone
+ *   leur liste au pied (et sinon, toujours, le geste : HOLD A STEP + TURN A
+ *   KNOB) ;
+ * - les seize pas du pied : un trait court sous chaque pas qui a des verrous,
+ *   le pas en LOCK cerne ; l'anneau de HOME, un trait dehors.
  * Les dessins des blocs passent par une palette (pal) : la normale, ou la
  * negative d'un bloc plein ; HOME garde la normale, au pixel pres.
  */
@@ -83,8 +89,8 @@ import { clock } from '../audio/clock';
 import { mix } from '../audio/drums';
 import { familyOf, kit } from '../audio/kit';
 import { INSTRUMENTS, STEP_COUNT, VEL_BARS, pattern, velocity } from '../audio/pattern';
-import { lockMask, lockOf } from '../audio/locks';
-import { lockPages, lockSummary } from '../actions';
+import { lockMask, lockOf, type StepLock } from '../audio/locks';
+import { lockList, lockPages, lockSummary, type LockLine } from '../actions';
 import { rytmLock } from '../state/rytmLock';
 import type { ShotId } from '../audio/shotsdsp';
 import { sc } from '../audio/soundcloud';
@@ -129,6 +135,10 @@ export interface ScreenInfo {
   strip: string;
   /** les lignes du pied en LOCK */
   foot: string[];
+  /** le panneau des verrous du pas (en LOCK, ou le pas qui joue) dans la place vide de la page : ses lignes */
+  panel: string[];
+  /** le pied hors LOCK : le message, les verrous du pas qui joue, l'aide (telephone), les onglets ; '' rien */
+  footText: string;
 }
 
 /** Au plus un redessin tous les 60 ms (un potard tourne a la cadence du pointeur). */
@@ -240,8 +250,9 @@ const BLOCK_TYPE = {
     unitSize: 8.6,
     valueSizes: [17, 14.5, 12, 10],
     nameDy: 10.2,
-    valueDy: 26.4,
-    unitDy: 34.3,
+    // L'unite plus haut (revue de R2 : CENTER, -8.2 DB touchaient le bord du bloc)
+    valueDy: 25.9,
+    unitDy: 33.5,
     letters: false,
     notchRow: false,
     tabs: false,
@@ -255,6 +266,14 @@ const PAGE_HEAD = { y: 15.5, iconX: 10, pillX: 23, pillY: 4.5, right: 312, rule:
 /** Les seize pas du pied (a gauche) et le reste du pied (a droite). */
 const PAGE_STRIP = { x0: 10, y: 105.5, size: 5.5, pitch: 7 } as const;
 const PAGE_FOOT = { x0: 132, x1: 312, y: 112.5 } as const;
+/**
+ * Le flash d'un pas verrouille qui joue (revue de R2 : un seizieme, 115 ms a
+ * 130 BPM, ne se lisait pas) : il tient jusqu'au coup suivant de la voix, au
+ * moins min, au plus max (ms).
+ */
+const FLASH = { min: 280, max: 900 } as const;
+/** Le pied du LOCK au telephone : ses deux aides alternent (ms). */
+const TIP_MS = 2400;
 /** La liste des sons (SAMPLES) sur toute la largeur. */
 const PAGE_COL: Col = { x0: 10, x1: 310 };
 
@@ -294,6 +313,10 @@ export class Screen {
   private bt: (typeof BLOCK_TYPE)[keyof typeof BLOCK_TYPE];
   /** la palette des dessins (la negative dans un bloc verrouille) */
   private pal: Pal = PAL;
+  /** le flash du pas verrouille qui joue (revue de R2) : sa voix, son pas, ses verrous, depuis, jusqu'a */
+  private flash: { inst: Inst; step: number; lock: Readonly<StepLock>; from: number; end: number } | null = null;
+  /** la tete de lecture vue au dernier dessin (un nouveau pas : un nouveau coup) */
+  private flashHead = -1;
 
   constructor(
     anisotropy: number,
@@ -306,7 +329,7 @@ export class Screen {
     const H = Math.round((W * UH) / UW);
     this.scale = W / UW;
     this.bt = mobile ? BLOCK_TYPE.phone : BLOCK_TYPE.desk;
-    this.info = { draws: 0, text: ['', '', ''], lastDrawAt: -Infinity, minGapMs: Infinity, font: 'vector op-1', size: [W, H], view: 'home', page: rytmPage.get().page, blocks: [], echo: -1, lock: -1, flash: [], strip: '', foot: [] };
+    this.info = { draws: 0, text: ['', '', ''], lastDrawAt: -Infinity, minGapMs: Infinity, font: 'vector op-1', size: [W, H], view: 'home', page: rytmPage.get().page, blocks: [], echo: -1, lock: -1, flash: [], strip: '', foot: [], panel: [], footText: '' };
     this.canvas = document.createElement('canvas');
     this.canvas.width = W;
     this.canvas.height = H;
@@ -565,6 +588,8 @@ export class Screen {
     this.info.flash = [];
     this.info.strip = '';
     this.info.foot = [];
+    this.info.panel = [];
+    this.info.footText = '';
     if (s.keys) this.paintPresets(s);
     else if (paged) this.armEcho(this.paintPage(s, rp, p.instrument, ptn.cur, now, lockStep));
     else {
@@ -647,9 +672,11 @@ export class Screen {
       } else this.circle(at.x, at.y, i % 4 === 0 ? 1.5 : 1, i % 4 === 0 ? HALF : FAINT);
       // Un pas qui a des verrous (2026-10-08) : un petit trait dehors
       if (inst && (lockMask(pattern.get().locks, inst) >> i) & 1) {
+        // Plus long et plus epais (revue de R2 : 2 a 3 px), un point au bout
         const o0 = this.ringAt(i, r + 5.5);
-        const o1 = this.ringAt(i, r + 9);
-        this.line([o0.x, o0.y, o1.x, o1.y], bars > 0 ? INK : HALF, 1.4);
+        const o1 = this.ringAt(i, r + 10.5);
+        this.line([o0.x, o0.y, o1.x, o1.y], bars > 0 ? INK : HALF, 1.8);
+        this.circle(o1.x, o1.y, 1.3, bars > 0 ? INK : HALF);
       }
       if (i === head) {
         // La tete : un cercle autour du pas, un trait vers le centre
@@ -1034,10 +1061,13 @@ export class Screen {
   private paintPage(s: LcdState, rp: RytmPageState, inst: Inst | null, cur: number, now: number, lockStep: number): number {
     this.paintPageHead(rp.page, inst, cur, now, lockStep);
     let next = 0;
+    const mode = this.blockMode(inst, lockStep, now);
     if (s.samples && lockStep < 0) this.paintSamples(s.samples, PAGE_COL);
     else {
-      const blocks = pageBlocks(rp, inst, now, this.blockMode(inst, lockStep));
+      const blocks = pageBlocks(rp, inst, now, mode);
       this.paintMatrix(blocks);
+      // Les verrous du pas, toutes pages, dans la place que la page laisse vide (revue de R2)
+      if (mode) this.paintLockPanel(blocks, mode.step, mode.kind === 'flash' ? mode.lock : undefined);
       this.info.blocks = blocks.map((b) => `${b.label}=${b.text}:${b.state}${b.lock !== 'none' ? `/${b.lock}` : ''}${b.flash ? '!' : ''}`);
       this.info.flash = blocks.filter((b) => b.flash).map((b) => b.k);
       const echo = blocks.find((b) => b.echo);
@@ -1047,21 +1077,114 @@ export class Screen {
       }
     }
     this.paintStrip(inst, rp.sel, lockStep);
-    this.paintFoot(s, rp.page, lockStep, inst);
+    const more = this.paintFoot(s, rp.page, lockStep, now, mode && mode.kind === 'flash' ? mode : null);
+    if (more > 0) next = next > 0 ? Math.min(next, more) : more;
     return next;
   }
 
   /**
    * Les verrous a montrer (2026-10-08) : ceux du pas en LOCK ; sinon, en
    * lecture, ceux du pas qui joue s'il sonne (un coup, la voix pas coupee).
+   * Depuis la revue de R2, le flash tient jusqu'au coup suivant de la voix
+   * (verrouille ou non : il est la valeur jouee jusque-la, comme sur une
+   * Elektron), au moins FLASH.min pour se lire, au plus FLASH.max.
    */
-  private blockMode(inst: Inst | null, lockStep: number): BlockMode | null {
-    if (lockStep >= 0) return { kind: 'lock', step: lockStep };
-    if (!inst || !clock.running) return null;
+  private blockMode(inst: Inst | null, lockStep: number, now: number): BlockMode | null {
+    if (lockStep >= 0) {
+      this.flash = null;
+      return { kind: 'lock', step: lockStep };
+    }
+    if (!inst || !clock.running) {
+      this.flash = null;
+      this.flashHead = -1;
+      return null;
+    }
     const head = playhead.get();
-    if (head < 0 || velocity(pattern.get().steps, inst, head) === 0 || !voices.plays(inst)) return null;
-    const lock = lockOf(pattern.get().locks, inst, head);
-    return lock ? { kind: 'flash', step: head, lock } : null;
+    if (head !== this.flashHead) {
+      this.flashHead = head;
+      if (head >= 0 && velocity(pattern.get().steps, inst, head) > 0 && voices.plays(inst)) {
+        const lock = lockOf(pattern.get().locks, inst, head);
+        const f = this.flash;
+        if (lock) this.flash = { inst, step: head, lock, from: now, end: now + FLASH.max };
+        else if (f) f.end = Math.min(f.end, Math.max(now, f.from + FLASH.min));
+      }
+    }
+    const f = this.flash;
+    if (f && (f.inst !== inst || now >= f.end)) this.flash = null;
+    return this.flash ? { kind: 'flash', step: this.flash.step, lock: this.flash.lock } : null;
+  }
+
+  /**
+   * Le panneau des verrous (revue de R2, Mika : "fais evoluer l'ecran") : les
+   * verrous du pas en LOCK, ou du pas qui joue, toutes pages (DEC 93, SOUND
+   * CP 909, la page au bout), dans la plus grande place que la page laisse
+   * vide (deux rangees si les deux sont libres) ; rien si la page est pleine
+   * (le pied les dit alors).
+   */
+  private paintLockPanel(blocks: readonly Block[], step: number, lockArg?: Readonly<StepLock> | null): void {
+    const M = MATRIX;
+    const empty = (k: number): boolean => blocks[k]?.state === 'empty';
+    // La plus grande place : colonnes contigues vides sur les deux rangees, sinon sur une seule (deux colonnes au moins)
+    let best: { c0: number; n: number; r0: number; rows: number } | null = null;
+    const consider = (c0: number, n: number, r0: number, rows: number): void => {
+      if (n < 1 || (rows === 1 && n < 2)) return;
+      if (!best || n * rows > best.n * best.rows || (n * rows === best.n * best.rows && n > best.n)) best = { c0, n, r0, rows };
+    };
+    for (const rows of [2, 1]) {
+      for (let r0 = 0; r0 + rows <= 2; r0 += 1) {
+        let c0 = -1;
+        for (let c = 0; c <= 4; c += 1) {
+          const free = c < 4 && empty(r0 * 4 + c) && (rows === 1 || empty(4 + c));
+          if (free && c0 < 0) c0 = c;
+          if (!free && c0 >= 0) {
+            consider(c0, c - c0, r0, rows);
+            c0 = -1;
+          }
+        }
+      }
+    }
+    const b = best as { c0: number; n: number; r0: number; rows: number } | null;
+    if (!b) return;
+    const lines: LockLine[] = lockList(step, lockArg);
+    const x0 = M.x0 + M.pitch * b.c0;
+    const x1 = x0 + M.pitch * (b.n - 1) + M.w;
+    const y0 = M.rows[b.r0];
+    const y1 = M.rows[b.r0 + b.rows - 1] + M.h;
+    const T = this.bt;
+    const pad = 5;
+    this.roundRect(x0 + 0.5, y0 + 0.5, x1 - x0 - 1, y1 - y0 - 1, M.r, null, FRAME, 0.7);
+    // Le titre : le pas, et ce qu'il fait (LOCKS en LOCK, PLAYS quand il joue)
+    const title = `STEP ${two(step + 1)} ${lockArg !== undefined ? 'PLAYS' : 'LOCKS'}`;
+    this.text(this.fitText(title, x1 - x0 - 2 * pad, T.nameSize, 0.7, 700), x0 + pad, y0 + T.nameDy, T.nameSize, HALF, 700, 'left', 0.7);
+    const size = this.mobile ? 9 : 6.8;
+    const lh = this.mobile ? 10.4 : 8.2;
+    let y = y0 + T.nameDy + lh + 0.6;
+    const bottom = y1 - 3;
+    const out: string[] = [];
+    if (lines.length === 0) {
+      this.text(this.fitText('NONE YET: TURN A KNOB', x1 - x0 - 2 * pad, size, 0.5, 600), x0 + pad, y, size, FAINT, 600, 'left', 0.5);
+      this.info.panel = ['NONE'];
+      return;
+    }
+    for (let i = 0; i < lines.length; i += 1) {
+      // La derniere ligne qui tient dit combien il en reste
+      const last = y + lh > bottom;
+      if (last && i < lines.length - 1) {
+        const more = `+${lines.length - i} MORE`;
+        this.text(more, x0 + pad, y, size, HALF, 700, 'left', 0.5);
+        out.push(more);
+        break;
+      }
+      const l = lines[i];
+      const pw = b.n > 1 ? this.text(l.page, x1 - pad, y, size * 0.82, FAINT, 700, 'right', 0.5) + 4 : 0;
+      const nw = this.text(l.name, x0 + pad, y, size, HALF, 700, 'left', 0.5);
+      const room = x1 - pad - pw - (x0 + pad + nw + 3);
+      this.text(this.fitText(l.text, Math.max(6, room), size, 0.3, 600), x0 + pad + nw + 3, y, size, INK, 600, 'left', 0.3);
+      out.push(`${l.page} ${l.name} ${l.text}`);
+      y += lh;
+      if (y > bottom + 0.01) break;
+    }
+    this.info.panel = out;
   }
 
   /** Un petit cadenas (x : son bord gauche, y : le bas de son corps), plein. */
@@ -1199,12 +1322,17 @@ export class Screen {
     const tw = tag ? this.text(tag, bx + M.w - B.padX, by + T.unitDy, T.unitSize, b.noBd || b.all ? P.faint : P.half, 700, 'right', 0.5) + 4 : 0;
     const notchRow = stepped && T.notchRow;
     const unitW = M.w - 2 * B.padX - tw - (notchRow ? 26 : 0);
+    // En LOCK, un bloc GLOBAL ou NO LOCK : ni image ni crans (revue de R2 : l'etiquette passait sur la courbe, les
+    // arcs, l'interrupteur de GATE) ; il ne se regle pas ici, son nom, sa valeur a peine et l'etiquette suffisent
+    const muted = b.lock === 'global' || b.lock === 'nolock';
+    const unitRoom = muted ? M.w - 2 * B.padX - tw : unitW;
     if (b.unit) {
-      // En LOCK, un bloc GLOBAL ou NO LOCK dont l'unite ne tient plus a cote de son etiquette (le telephone) : l'etiquette seule
-      const u = this.fitText(b.unit, unitW, T.unitSize);
-      const drop = u !== b.unit && (b.lock === 'global' || b.lock === 'nolock');
+      // Son unite si elle tient a cote de l'etiquette (le telephone : l'etiquette seule)
+      const u = this.fitText(b.unit, unitRoom, T.unitSize);
+      const drop = u !== b.unit && muted;
       if (!drop) this.text(u, bx + B.padX, by + T.unitDy, T.unitSize, P.half, 600, 'left', 0.4);
     }
+    if (muted) return;
     if (stepped) {
       if (!notchRow) return;
       // Un reglage a crans : ses crans en ligne au bout de la ligne d'unite ; a deux crans (GATE), un interrupteur
@@ -1301,7 +1429,11 @@ export class Screen {
       const locked = ((mask >> i) & 1) === 1;
       strip += i === lockStep ? '*' : locked ? (bars > 0 ? 'L' : 'l') : bars > 0 ? 'o' : '.';
       if (i === lockStep) this.roundRect(x - 1.7, S.y - 1.7, S.size + 3.4, S.size + 3.4, 1.4, null, INK, 1.1);
-      if (locked && i !== head) this.circle(x + S.size / 2, S.y + S.size + 2.5, this.bt.selR, bars > 0 ? INK : HALF);
+      // Un trait court sous le pas (revue de R2 : le meme point que le pas choisi, au-dessus, se confondait)
+      if (locked && i !== head) {
+        const ly = S.y + S.size + 2.4;
+        this.line([x + 0.9, ly, x + S.size - 0.9, ly], bars > 0 ? INK : HALF, this.mobile ? 1.5 : 1.2);
+      }
       if (i === head) {
         // La tete : en negatif, debordant d'un rien sur ses voisins
         this.ctx.fillStyle = INK;
@@ -1324,7 +1456,7 @@ export class Screen {
    * affichee en pastille : ce que les touches de page sous les potards
    * choisissent.
    */
-  private paintFoot(s: LcdState, page: RytmPageId, lockStep = -1, inst: Inst | null = null): void {
+  private paintFoot(s: LcdState, page: RytmPageId, lockStep: number, now: number, flash: { step: number; lock: Readonly<StepLock> | null } | null): number {
     const F = PAGE_FOOT;
     const x0 = F.x0;
     const x1 = F.x1;
@@ -1337,25 +1469,35 @@ export class Screen {
       // Tenu : lache sans rien tourner, le LOCK reste ; un potard deja tourne pendant la tenue : le lacher en sort
       const used = held && lk.writes > lk.since;
       const names = lockSummary(lockStep);
+      // Plus gros au telephone (revue de R2 : 5 a 6 px a l'ecran) : 10 et 8.6, comme les noms et les unites des blocs
+      const s1 = this.mobile ? 10 : fs - 1.2;
+      const s2 = this.mobile ? 8.6 : 5.8;
       // Les verrous du pas ; trop pour la ligne : combien, et sur quelles pages
       const full = `STEP ${two(lockStep + 1)} LOCKS: ${names.join(' ')}`;
-      const s1w = fs - (this.mobile ? 1 : 1.2);
-      const list = this.textWidth(full, s1w, 600, 0.5) <= x1 - x0 ? full : `STEP ${two(lockStep + 1)}: ${names.length} LOCKS ON ${lockPages(lockStep).join(' ')}`;
+      const list = this.textWidth(full, s1, 600, 0.5) <= x1 - x0 ? full : `STEP ${two(lockStep + 1)}: ${names.length} LOCKS ON ${lockPages(lockStep).join(' ')}`;
       const top = s.l3 && !s.mix ? s.l3 : names.length > 0 ? list : `TURN A KNOB: STEP ${two(lockStep + 1)} ONLY`;
-      const tip = used ? 'RELEASE: LOCK DONE' : held ? 'RELEASE: STAY IN LOCK' : this.mobile ? '2X: UNLOCK  CLEAR: ALL' : '2X: UNLOCK  CLEAR: ALL  STEP: EXIT';
-      const s1 = fs - (this.mobile ? 1 : 1.2);
-      const s2 = this.mobile ? 7.4 : 5.8;
-      const y1 = this.mobile ? 107.6 : 106.8;
-      const y2 = this.mobile ? 116.6 : 114.8;
+      // Le telephone n'a la place que d'une aide a la fois : elles alternent (comment enlever, comment sortir)
+      const phase = this.mobile ? Math.floor(now / TIP_MS) % 2 : 0;
+      const tip = used
+        ? 'RELEASE: LOCK DONE'
+        : held
+          ? 'RELEASE: STAY IN LOCK'
+          : !this.mobile
+            ? '2X: UNLOCK  CLEAR: ALL  STEP: EXIT'
+            : phase === 0
+              ? '2X: UNLOCK  CLEAR: ALL'
+              : `TAP STEP ${two(lockStep + 1)} AGAIN: EXIT`;
+      const y1 = this.mobile ? 108.7 : 106.8;
+      const y2 = this.mobile ? 118 : 114.8;
       const t1 = this.fitText(top, x1 - x0, s1, 0.5, 600);
       const t2 = this.fitText(tip, x1 - x0, s2, 0.6, 700);
       this.text(t1, x0, y1, s1, INK, 600, 'left', 0.5);
       this.text(t2, x0, y2, s2, HALF, 700, 'left', 0.6);
       this.info.foot = [t1, t2];
-      void inst;
-      return;
+      // L'aide suivante a son heure (le telephone, LOCK fixe)
+      return this.mobile && !held ? TIP_MS - (now % TIP_MS) + 1 : 0;
     }
-    if (s.samples) return;
+    if (s.samples) return 0;
     if (s.bar !== null) {
       // La piste : son titre, le temps, la barre (un corps un peu plus petit que les messages)
       const ts = fs - 1.5;
@@ -1372,28 +1514,59 @@ export class Screen {
         this.circle(a + (b - a) * v, yb, 2.4, INK);
         this.bar = { x0: a * TEX_K, x1: b * TEX_K, y0: (y - 12) * TEX_K, y1: (y + 6) * TEX_K };
       }
-      return;
+      return 0;
     }
     if (s.l3 && !s.mix) {
-      this.text(this.fitText(s.l3, x1 - x0, fs, 0.5, 600), x0, y, fs, INK, 600, 'left', 0.5);
-      return;
+      const t = this.fitText(s.l3, x1 - x0, fs, 0.5, 600);
+      this.text(t, x0, y, fs, INK, 600, 'left', 0.5);
+      this.info.footText = t;
+      return 0;
     }
-    if (this.paintMode(x0, x1, y, fs + 0.5, this.mobile ? 7.5 : 6.5)) return;
+    if (this.paintMode(x0, x1, y, fs + 0.5, this.mobile ? 7.5 : 6.5)) return 0;
+    // Le pas verrouille qui joue (revue de R2) : ses pages (desktop, un point sur leur onglet) ; au telephone ses
+    // verrous ecrits, toutes pages (la page affichee n'en montre peut-etre aucun)
+    const fl = flash ? lockList(flash.step, flash.lock) : [];
+    const flashPages = new Set(fl.map((l) => l.page));
+    if (!this.bt.tabs) {
+      // Au telephone, sans onglets : le pas qui joue et ses verrous ; sinon, toujours, le geste des verrous
+      // (revue de R2 : seul un message de 800 ms le disait, la face n'a pas la place de l'ecrire)
+      const t = flash && fl.length > 0 ? this.flashLine(flash.step, fl, x1 - x0, fs) : this.fitText('HOLD A STEP + TURN A KNOB: LOCK', x1 - x0, fs - 0.5, 0.5, 700);
+      this.text(t, x0, y, flash && fl.length > 0 ? fs : fs - 0.5, flash && fl.length > 0 ? INK : HALF, flash && fl.length > 0 ? 600 : 700, 'left', flash && fl.length > 0 ? 0.4 : 0.5);
+      this.info.footText = t;
+      return 0;
+    }
     // Les six pages (desktop) : la page affichee en pastille, les autres a peine ; au telephone, rien
     // (la touche allumee et la pastille de l'en-tete la disent, le texte du bloc a pris la place)
-    this.tabsShown = this.bt.tabs;
-    if (!this.bt.tabs) return;
+    this.tabsShown = true;
+    this.info.footText = 'TABS';
     const n = RYTM_PAGES.length;
     const cw = (x1 - x0) / n;
     RYTM_PAGES.forEach((p, i) => {
       const cx = x0 + cw * (i + 0.5);
+      const ts = this.bt.tabSize;
+      const hot = flashPages.has(p.label);
       if (p.id === page) {
-        const ts = this.bt.tabSize;
         const w = this.textWidth(p.label, ts, 700, 0.7) + 8;
         this.roundRect(cx - w / 2, y - ts - 1.6, w, ts + 4, 2, INK);
         this.text(p.label, cx, y, ts, BLACK, 700, 'center', 0.7);
-      } else this.text(p.label, cx, y, this.bt.tabSize, FAINT, 700, 'center', 0.7);
+      } else this.text(p.label, cx, y, ts, hot ? INK : FAINT, 700, 'center', 0.7);
+      // Une page ou le pas qui joue a des verrous : un point au-dessus de son onglet
+      if (hot) this.circle(cx, y - ts - 3.6, 1.1, INK);
     });
+    if (flashPages.size > 0) this.info.footText = `TABS ${[...flashPages].join(' ')}`;
+    return 0;
+  }
+
+  /** Les verrous du pas qui joue sur une ligne : autant qu'il en tient, puis combien il en reste (+2). */
+  private flashLine(step: number, fl: readonly LockLine[], maxW: number, size: number): string {
+    let t = two(step + 1);
+    for (let i = 0; i < fl.length; i += 1) {
+      const next = `${t}  ${fl[i].name} ${fl[i].text}`;
+      const rest = i < fl.length - 1 ? `  +${fl.length - i - 1}` : '';
+      if (this.textWidth(next + rest, size, 600, 0.4) > maxW) return `${t}  +${fl.length - i}`;
+      t = next;
+    }
+    return t;
   }
 
   /** Coupe un texte a la largeur (unites) ; un point final quand ca deborde. */
