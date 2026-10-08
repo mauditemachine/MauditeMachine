@@ -18,7 +18,8 @@ import { sc } from '../audio/soundcloud';
 import { startRing } from '../sampler/ring';
 import { NUDGE_MAX, djEngine, djEngineIfAny, type DjEngine } from './engine';
 import { crateFile, crateLearn, setCrateBusy } from './crate';
-import { analysisSignal, phaseShift, trackGridSteps, type TrackGrid } from './math';
+import { analyseGrid, gridAnalyseMs } from './grid';
+import { phaseShift } from './math';
 import { soundcloudBytes } from './soundcloud';
 import { DJ_WAVES, DJ_ZOOMS, djState, type DjTrack } from './state';
 import { DJ_CHANNELS, DJ_CH_NAMES, DJ_DECKS, DJ_DECKS_ALL, DJ_FX, deckChannel, djDecks, type DjChannel, type DjDeck, type DjEqId, type DjFxId } from './theme';
@@ -223,7 +224,7 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
      * Par tranches de quelques millisecondes : l'ecran et l'autre platine
      * ne figent pas.
      */
-    const grid = ch0 ? await analyse(ch0, p.sampleRate, track.bpm, ctl.signal) : null;
+    const grid = ch0 ? await analyseGrid(ch0, p.sampleRate, track.bpm, ctl.signal) : null;
     if (ctl.signal.aborted) return;
     const bpm = grid?.bpm ?? track.bpm;
     const saved = savedCues(track.id);
@@ -246,71 +247,8 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
   }
 }
 
-/**
- * L'analyse d'un morceau (dj/math.ts trackGridSteps) dans un worker
- * (dj/grid.worker.ts) : sur le signal reduit a 11 kHz environ
- * (analysisSignal), transfere sans copie ; la scene et l'autre platine ne
- * sautent aucune image. Sans worker (ou s'il plante) : sur le fil principal,
- * par tranches de ANALYSE_SLICE_MS. null si un autre morceau arrive
- * entre-temps.
- */
-const ANALYSE_SLICE_MS = 12;
-let gridWorker: Worker | null | undefined;
-let gridJob = 0;
-/** les analyses en cours dans le worker : leur reponse (undefined : le worker a plante) */
-const gridWaiting = new Map<number, (g: TrackGrid | null | undefined) => void>();
 /** La duree de la derniere analyse (ms, le calcul seul ; le debug, les tests). */
-let lastAnalyseMs = 0;
-export const djAnalyseMs = (): number => lastAnalyseMs;
-
-function getGridWorker(): Worker | null {
-  if (gridWorker !== undefined) return gridWorker;
-  try {
-    const w = new Worker(new URL('./grid.worker.ts', import.meta.url), { type: 'module' });
-    w.onmessage = (m: MessageEvent<{ id: number; grid: TrackGrid | null; ms: number }>) => {
-      lastAnalyseMs = m.data.ms;
-      gridWaiting.get(m.data.id)?.(m.data.grid);
-      gridWaiting.delete(m.data.id);
-    };
-    w.onerror = () => {
-      w.terminate();
-      gridWorker = null;
-      for (const done of gridWaiting.values()) done(undefined);
-      gridWaiting.clear();
-    };
-    gridWorker = w;
-  } catch {
-    gridWorker = null;
-  }
-  return gridWorker;
-}
-
-async function analyse(signal: Float32Array, rate: number, hint: number | null, abort: AbortSignal): Promise<TrackGrid | null> {
-  const s = analysisSignal(signal, rate);
-  const w = getGridWorker();
-  if (w) {
-    const id = ++gridJob;
-    const grid = await new Promise<TrackGrid | null | undefined>((done) => {
-      gridWaiting.set(id, done);
-      w.postMessage({ id, x: s.x, rate: s.rate, hint }, [s.x.buffer]);
-    });
-    if (abort.aborted) return null;
-    if (grid !== undefined) return grid;
-    // Le worker a plante : le signal est parti avec lui, on le refait sur le fil principal
-    return analyse(signal, rate, hint, abort);
-  }
-  const t0 = performance.now();
-  const it = trackGridSteps(s.x, s.rate, hint);
-  let r = it.next();
-  while (!r.done) {
-    await new Promise<void>((done) => window.setTimeout(done, 0));
-    if (abort.aborted) return null;
-    const t1 = performance.now();
-    while (!r.done && performance.now() - t1 < ANALYSE_SLICE_MS) r = it.next();
-  }
-  lastAnalyseMs = performance.now() - t0;
-  return r.value;
-}
+export const djAnalyseMs = gridAnalyseMs;
 
 /** Une platine a moins de 50 ms de la fin ne repart pas (DjPlayer.play) : on la ramene au cue, ou au debut. */
 const END_S = 0.05;
@@ -794,11 +732,14 @@ export function djSynced(d: DjDeck, s = djState.get()): boolean {
  * de phase de chaque platine calee (SYNC, ou suivie par les machines) avec
  * sa reference ; au-dela de 4 ms, la platine accelere ou freine de 0.3 % au
  * plus (cinq centiemes de demi-ton, inaudible) le temps de combler l'ecart,
- * un temps au plus a chaque mesure, jusqu'a 1 ms d'ecart. Jamais de saut en lecture (un saut s'entend). Au-dela
- * d'un huitieme de temps, rien d'automatique : la grille est fausse, le jog
- * ou BEND corrigent. Un nudge a la main (jog, BEND) est respecte : l'ecart
- * laisse par la main devient celui que le verrou garde, jusqu'au prochain
- * SYNC, PLAY ou saut cale.
+ * un temps au plus a chaque mesure, jusqu'a 1 ms d'ecart. Jamais de saut en
+ * lecture (un saut s'entend). Au-dela d'un huitieme de temps, rien
+ * d'automatique : la grille est fausse, le jog ou BEND corrigent. Un nudge a
+ * la main (jog, BEND) est respecte : l'ecart laisse par la main devient
+ * celui que le verrou garde, jusqu'au prochain SYNC, PLAY ou saut cale.
+ * Mesure (2026-10-08, morceaux de synthese, son coupe) : une platine poussee
+ * de 6.6 ms revient a 0.8 ms en 2 s ; calee sur une autre, ses grosses
+ * caisses tombent a 0.2 ms pres des siennes sur 20 s.
  */
 const LOCK = { everyMs: 250, startS: 0.004, settleS: 0.001, seekAboveS: 0.02 } as const;
 const each = <T>(v: T): Record<DjDeck, T> => ({ a: v, b: v, c: v, d: v });

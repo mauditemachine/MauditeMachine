@@ -69,7 +69,7 @@ export interface DjDeckState {
   cues: (number | null)[];
   /** la fenetre de la forme d'onde fine, en secondes (le zoom) */
   zoom: number;
-  /** le premier temps du morceau (secondes, dj/math.ts beatGrid), ou null sans grille */
+  /** le premier temps du morceau (secondes, dj/math.ts trackGridSteps), ou null sans grille */
   beat: number | null;
   /**
    * SYNC arme : le tempo est cale ; tant que personne ne touche au pitch,

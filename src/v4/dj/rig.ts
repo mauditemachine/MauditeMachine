@@ -303,7 +303,8 @@ export class DjRig {
     const o = DJ_ROUND_KEYS.findIndex((k) => k.id === id);
     if (o >= 0) moved = this.controls.setKeyPress(o, down ? 1 : 0, true) || moved;
     // La touche BACK de l'ecran d'une platine (dj-a-back...) : elle s'allume a l'ecran
-    const lit = this.syncLights() || (id.endsWith('-back') && this.syncScreens());
+    const screen = id.endsWith('-back') && this.syncScreens();
+    const lit = this.syncLights() || screen;
     if (moved && this.controls.keys.castShadow) this.opts.invalidate();
     else if (moved || lit) this.opts.repaint();
   }

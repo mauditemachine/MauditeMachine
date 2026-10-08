@@ -24,7 +24,8 @@
  */
 
 import { decodeAudio } from './decode';
-import { camelot, estimateBpm } from './math';
+import { analyseGrid } from './grid';
+import { camelot } from './math';
 import type { DjTrack } from './state';
 import { tagsOfFile, titleFromName } from './tags';
 
@@ -418,7 +419,9 @@ async function analyze(e: Entry, ask = false): Promise<Entry> {
     // A 22 050 Hz : assez pour entendre les coups, deux fois moins lourd
     // AIFF et WAV atypiques : notre decodeur prend le relais (un canal suffit au BPM)
     const snd = await decodeAudio(new OfflineAudioContext(1, 1, 22050), await raw.arrayBuffer(), true);
-    out = { ...e, duration: snd.duration, bpm: e.bpm ?? estimateBpm(snd.getChannelData(0), snd.sampleRate) };
+    // Le BPM par l'analyse entiere, dans le worker des platines (2026-10-08, dj/grid.ts) : la liste ne gele plus
+    const bpm = e.bpm ?? (await analyseGrid(snd.getChannelData(0), snd.sampleRate, null))?.bpm ?? null;
+    out = { ...e, duration: snd.duration, bpm: bpm === null ? null : Math.round(bpm * 100) / 100 };
   } catch {
     out = { ...e, unreadable: true };
   }
