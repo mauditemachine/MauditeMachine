@@ -41,6 +41,7 @@
  */
 
 import { gesture } from '../actions';
+import { pattern } from '../audio/pattern';
 import { sc } from '../audio/soundcloud';
 import { editor } from '../state/editor';
 import { focus } from '../state/focus';
@@ -49,7 +50,7 @@ import { generate, mutate, type GenOpts } from './gen';
 import type { BassStep } from './state';
 import { BASS_SCALES, BASS_STYLES, SCALE_TONES, bassKnob, bassParams, bassValueText, stepOf, type BassKnobId } from './params';
 import { bassPatterns, bassSlotName } from './patterns';
-import { bassSeq, midiOf } from './seq';
+import { bassSeq, gateOf, midiOf } from './seq';
 import { BASS_STEPS, bassState, emptyStep, isLockable } from './state';
 
 const two = (i: number): string => String(i + 1).padStart(2, '0');
@@ -94,6 +95,8 @@ function seeded(seed: number): () => number {
 let genSeed = 0;
 let genLine: readonly BassStep[] | null = null;
 const GEN_LIVE: readonly BassKnobId[] = ['style', 'density', 'slides', 'accents', 'range'];
+/** La ligne est-elle encore celle du dernier GEN ? (ses potards la reecrivent en direct ; sinon il faut GEN) */
+export const bassGenLive = (): boolean => genLine !== null && bassState.get().steps === genLine;
 
 function writeGen(): string {
   const o = genOpts();
@@ -123,7 +126,8 @@ export function bassClear(): void {
   // En LOCK : les verrous du pas seulement
   const st = bassState.get();
   if (st.lock >= 0) {
-    bassState.setStep(st.lock, { locks: undefined });
+    // L'accent pose par un verrou d'ACCENT s'en va avec les verrous
+    bassState.setStep(st.lock, { ...(accByLock.delete(st.lock) ? { acc: false } : {}), locks: undefined });
     bassState.say(`LOCK ${two(st.lock)} CLEARED`, 1400);
     return;
   }
@@ -137,10 +141,12 @@ function audition(i: number): void {
   const s = bassState.get().steps[i];
   if (s.kind !== 'note') return;
   gesture();
+  // La duree de la note comme en lecture (LENGTH, son verrou, ou le style en AUTO) : un verrou de LENGTH s'entend
+  const gate = Math.max(0.05, gateOf(s, 60 / pattern.get().bpm / 4));
   void bassEngine.ensure().then(() => {
     bassEngine.on(midiOf(s), s.acc, false, 0, s.locks ?? null);
     const c = bassEngine.ctx;
-    bassEngine.off(c ? c.currentTime + 0.22 : 0);
+    bassEngine.off(c ? c.currentTime + gate : 0);
   });
 }
 
@@ -254,6 +260,22 @@ export function bassKnobValue(id: BassKnobId): number {
   return bassParams.of(id);
 }
 
+/** Les pas dont l'accent vient d'un verrou d'ACCENT (il s'en va avec le verrou). */
+const accByLock = new Set<number>();
+/** Le pas vide qui a recu une note en entrant en LOCK (-1 : aucun) : sans verrou ni retouche, il redevient vide. */
+let lockNote = -1;
+
+bassState.subscribe(() => {
+  const st = bassState.get();
+  // Un verrou d'ACCENT parti (GEN, CLEAR, un pattern) : son accent n'est plus a reprendre
+  for (const i of accByLock) if (st.steps[i]?.locks?.accent === undefined) accByLock.delete(i);
+  if (lockNote < 0 || st.lock === lockNote) return;
+  const i = lockNote;
+  lockNote = -1;
+  const s = st.steps[i];
+  if (s && s.kind === 'note' && !s.locks && s.deg === 0 && s.oct === 0 && !s.acc && !s.slide) bassState.setStep(i, emptyStep());
+});
+
 /** Les potards tournes en LOCK depuis le debut d'un appui tenu (un pas tenu qu'on lache apres un reglage sort du LOCK). */
 let lockTurns = 0;
 export const bassLockTurns = (): number => lockTurns;
@@ -269,6 +291,7 @@ export function bassDial(id: BassKnobId, v: number): void {
     lockTurns += 1;
     // ACCENT verrouille sur un pas sans accent : il le prend (sinon le verrou ne servirait a rien)
     const acc = id === 'accent' && s.kind === 'note' && !s.acc ? { acc: true } : {};
+    if ('acc' in acc) accByLock.add(st.lock);
     bassState.setStep(st.lock, { ...acc, locks: { ...(s.locks ?? {}), [id]: x } });
     bassState.set({ touched: { id, at: performance.now() } });
     bassState.say(`LOCK ${two(st.lock)}  ${bassKnob(id).label} ${bassValueText(id, x)}${'acc' in acc ? '  +ACC' : ''}`, 1400);
@@ -306,7 +329,9 @@ export function bassDialReset(id: BassKnobId): void {
       return;
     }
     const { [id]: _gone, ...rest } = s.locks;
-    bassState.setStep(st.lock, { locks: Object.keys(rest).length ? rest : undefined });
+    // L'accent que ce verrou avait pose s'en va avec lui
+    const acc = id === 'accent' && accByLock.delete(st.lock) ? { acc: false } : {};
+    bassState.setStep(st.lock, { ...acc, locks: Object.keys(rest).length ? rest : undefined });
     bassState.say(`LOCK ${two(st.lock)}  ${bassKnob(id).label} OFF`, 1400);
     return;
   }
@@ -334,10 +359,14 @@ export function bassLockEnter(i: number): void {
   }
   const st = bassState.get();
   lockTurns = 0;
-  // Un pas vide : une note (la tonique), sinon son verrou ne s'entendrait jamais
+  // Un pas vide : une note (la tonique), sinon son verrou ne s'entendrait jamais ; elle repart si on quitte
+  // le pas sans rien y verrouiller (2026-10-08 : promener le LOCK sur des pas vides remplissait la ligne)
   const empty = st.steps[i].kind === 'off';
-  if (empty) bassState.setStep(i, { kind: 'note', deg: 0, oct: 0, acc: false, slide: false });
   bassState.set({ lock: i, sel: i });
+  if (empty) {
+    bassState.setStep(i, { kind: 'note', deg: 0, oct: 0, acc: false, slide: false });
+    lockNote = i;
+  }
   const n = Object.keys(st.steps[i].locks ?? {}).length;
   bassState.say(`LOCK ${two(i)}  ${empty ? 'NEW NOTE, TURN A KNOB' : n ? `${n} LOCKED` : 'TURN A KNOB'}`, 2000);
   audition(i);

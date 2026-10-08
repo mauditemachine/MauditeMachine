@@ -539,8 +539,9 @@ const BASS: readonly BassGenre[] = [
 ];
 
 /*
- * VOLUME de chaque ligne : sa crete vers -6 dBFS, 2 dB sous le kick du
- * MM-RYTM (mesure hors ligne de la ligne jouee), DEEP SUB un peu plus bas
+ * VOLUME de chaque ligne : sa crete environ 2 dB sous le kick du MM-RYTM
+ * (mesure hors ligne de la ligne jouee ; vers -11 dBFS depuis le gain staging
+ * du 2026-10-08, le kick vers -9 dBFS), DEEP SUB un peu plus bas
  * (un sinus tenu pese plus que sa crete).
  */
 

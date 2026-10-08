@@ -64,7 +64,8 @@ const GATE: Readonly<Record<(typeof BASS_STYLES)[number], number>> = {
 };
 
 /** La duree de la note d'un pas (s) : son verrou LENGTH, sinon le potard ; AUTO : celle du style. */
-function gateOf(s: BassStep, dur: number): number {
+/** La duree d'une note (LENGTH, ou celle du style en AUTO) ; dur : la duree d'un pas. */
+export function gateOf(s: BassStep, dur: number): number {
   const l = lengthPct(s.locks?.length ?? bassParams.of('length'));
   if (l === null) return GATE[BASS_STYLES[stepOf('style', bassParams.of('style'))]] * dur;
   return (l / 100) * dur;

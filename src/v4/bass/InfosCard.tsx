@@ -149,12 +149,16 @@ const Card: React.FC<CardProps> = ({ stage, hotspot, id, sheet, pinned }) => {
     };
   }, [stage, hotspot, sheet]);
 
-  // Montree au doigt : toucher ailleurs que sur une commande du MM-BASS la range (une autre commande prend la place)
+  // Montree au doigt : toucher ailleurs que sur une commande du MM-BASS la range (une autre commande prend la place) ;
+  // toucher la carte elle-meme la range aussi (2026-10-08 : au telephone, la feuille couvrait CLOSE et la rangee du bas)
   useEffect(() => {
     if (!pinned) return undefined;
     const onDown = (e: PointerEvent): void => {
       const t = e.target;
-      if (t instanceof Node && ref.current?.contains(t)) return;
+      if (t instanceof Node && ref.current?.contains(t)) {
+        bassInfos.hide();
+        return;
+      }
       if (t instanceof Element && t.closest('.v4-binfo-chip')) return;
       if (stage && t instanceof Element && t.closest('.v4-stage')) {
         const host = document.querySelector('.v4-canvas-host');

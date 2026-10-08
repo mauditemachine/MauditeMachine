@@ -60,7 +60,7 @@ import { TOP_M, bezel, dc, partDj, power, rca, roundSlab, usb, wedge } from '../
 import { DJ_GLOW, keyGeometry, knobGeometry } from '../dj/controls';
 import { DjSilk, headTexts, type Bracket, type Line, type Text } from '../dj/silk';
 import { DJ_BEZEL, DJ_BODY, DJ_KEY, DJ_KNOB, DJ_TILT, DJ_TOP_Y, DJ_UNIT } from '../dj/theme';
-import { bassKnobValue, noteName } from './actions';
+import { bassGenLive, bassKnobValue, noteName } from './actions';
 import { BASS_SLOTS, bassPatterns } from './patterns';
 import { bassEngine } from './engine';
 import { BASS_FACE_KNOBS as BASS_KNOBS, BASS_PLATE_KNOBS, bassParams, bassValueText, type BassKnobId } from './params';
@@ -602,6 +602,8 @@ export class BassRig {
       const has = !!s.steps[i].locks;
       set(this.lockEm, i, held || s.lock === i ? DJ_GLOW.yellow : editing ? scale(DJ_GLOW.dim, 0.5) : has ? scale(DJ_GLOW.orange, 0.45) : DJ_GLOW.dim);
     }
+    // Les LED des potards suivent le LOCK, EDIT compris (EDIT ferme le LOCK : elles s'eteignent)
+    if (this.syncDots()) changed = true;
     if (editing) {
       // EDIT : les seize patterns
       const p = bassPatterns.get();
@@ -622,7 +624,6 @@ export class BassRig {
       const lit = held || (i === at && st.kind !== 'off') ? DJ_GLOW.yellow : locking ? scale(DJ_GLOW.yellow, this.blink ? 1 : 0.3) : i === at ? scale(DJ_GLOW.yellow, 0.25) : i === s.sel ? scale(base[0] > 0.05 ? base : DJ_GLOW.orange, base[0] > 0.05 ? 1.45 : 0.12) : base;
       set(this.trigEm, i, lit);
     }
-    if (this.syncDots()) changed = true;
     return changed;
   }
 
@@ -687,7 +688,7 @@ export class BassRig {
     window.clearTimeout(this.echoTimer);
     let knob = null;
     if (t && left > 0) {
-      knob = { id: t.id, v: bassKnobValue(t.id), locked: s.lock >= 0 && isLockable(t.id) && locks?.[t.id] !== undefined };
+      knob = { id: t.id, v: bassKnobValue(t.id), locked: s.lock >= 0 && isLockable(t.id) && locks?.[t.id] !== undefined, live: bassGenLive() };
       this.echoTimer = window.setTimeout(() => {
         if (this.drawScreen()) this.opts.repaint();
       }, left + 16);
@@ -727,7 +728,7 @@ export class BassRig {
   }
 
   /** L'animateur : la tete de lecture et la coupure qui sonne ; 'paint' tant que la basse joue. */
-  step = (): 'paint' | false => {
+  step = (): 'paint' | 'poll' | false => {
     if (!this.root.visible) return false;
     let changed = false;
     const at = bassSeq.running ? bassSeq.stepAt(bassSeq.now()) : -1;
@@ -744,7 +745,8 @@ export class BassRig {
       this.liveAt = live.at;
       if (this.drawScreen()) changed = true;
     }
-    return bassSeq.running || locking || changed ? 'paint' : false;
+    // LOCK a l'arret : relu a chaque image pour le clignotement, rendu seulement quand il change
+    return bassSeq.running || changed ? 'paint' : locking ? 'poll' : false;
   };
 
   /* ---------- OPEN ---------- */

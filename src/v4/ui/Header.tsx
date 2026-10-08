@@ -14,7 +14,7 @@ import React, { useCallback, useRef, useState, useSyncExternalStore } from 'reac
 import { closeSection, focusMachine, openSection, openToggle, resetView } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { appearance } from '../state/appearance';
-import { explode, voyExplode } from '../state/explode';
+import { bassExplode, explode, voyExplode } from '../state/explode';
 import { MACHINES, focus, VOYAGER, type Focus, type MachineId } from '../state/focus';
 import { section } from '../state/section';
 import { MOBILE_QUERY, type PageId } from '../theme';
@@ -47,6 +47,7 @@ export function goHome(stage: Stage | null): void {
   closeSection();
   if (explode.get() === 'open') openToggle(stage, 'mm808');
   if (voyExplode.get() === 'open') openToggle(stage, 'voy');
+  if (bassExplode.get() === 'open') openToggle(stage, 'bass');
   resetView(stage);
   if (VOYAGER) focus.set(window.matchMedia(MOBILE_QUERY).matches ? 'mm808' : 'all');
 }

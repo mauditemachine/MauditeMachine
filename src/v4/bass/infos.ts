@@ -45,7 +45,7 @@ const RAW: Record<BassInfoId, BassInfo> = {
   density: {
     section: 'GENERATOR',
     title: 'DENSITY',
-    text: "Combien de notes GEN écrit : à gauche une ligne aérée, à droite une ligne qui remplit la mesure. En SUB, c'est le nombre de changements de note par mesure, de 1 à 4. Le potard change la recette : tu l'entends au prochain GEN.",
+    text: "Combien de notes GEN écrit : à gauche une ligne aérée, à droite une ligne qui remplit la mesure. En SUB, c'est le nombre de changements de note par mesure, de 1 à 4. Le potard change la recette. Juste après un GEN, la ligne suit le potard en direct ; une fois la ligne retouchée à la main, il faut un nouveau GEN.",
     tip: "Vers 60 % pour l'indie dance, 80 % et plus pour une acid qui roule.",
   },
   gen: {
@@ -133,7 +133,7 @@ const RAW: Record<BassInfoId, BassInfo> = {
   volume: {
     section: 'OUTPUT',
     title: 'VOLUME',
-    text: "Le niveau du MM-BASS vers le master (la voie 2 du MIXER). Le réglage d'usine crête vers -6 dBFS, 2 dB sous le kick du MM-RYTM, qui sert de référence.",
+    text: "Le niveau du MM-BASS vers le master (la voie 2 du MIXER). Le réglage d'usine crête vers -11 dBFS, environ 2 dB sous le kick du MM-RYTM (vers -9 dBFS), qui sert de référence.",
     tip: "Règle d'abord le kick, puis monte la basse juste sous lui.",
   },
 
@@ -153,7 +153,7 @@ const RAW: Record<BassInfoId, BassInfo> = {
   range: {
     section: 'TWEAKS / GENERATOR',
     title: 'RANGE',
-    text: "Jusqu'où les notes générées peuvent monter : 1 octave pour une ligne serrée et hypnotique, 3 pour des sauts plus fous. Tu l'entends au prochain GEN.",
+    text: "Jusqu'où les notes générées peuvent monter : 1 octave pour une ligne serrée et hypnotique, 3 pour des sauts plus fous. Juste après un GEN, la ligne suit le potard en direct ; une fois la ligne retouchée à la main, il faut un nouveau GEN.",
     tip: "1 pour le minimal et la psy prog, 2 pour la dark disco et l'acid.",
   },
   root: {

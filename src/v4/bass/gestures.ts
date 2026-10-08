@@ -71,6 +71,8 @@ interface Grip {
   lockHold: boolean;
   /** INFOS au doigt : la carte seulement, l'appui ne fait rien d'autre */
   infoOnly: boolean;
+  /** un potard : le pas en LOCK quand sa valeur de depart a ete prise (-1 : le son global) */
+  lock: number;
 }
 
 export class BassGestures {
@@ -88,7 +90,7 @@ export class BassGestures {
   }
 
   down(pointerId: number, h: HotspotView, x: number, y: number, touch = false): void {
-    const g: Grip = { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, infoOnly: false };
+    const g: Grip = { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, infoOnly: false, lock: -1 };
     // INFOS au doigt : la carte de la commande ; un potard peut encore tourner (la carte le suit), le reste attend
     if (touch && bassInfos.isOn()) {
       bassInfos.show(h.id);
@@ -107,6 +109,7 @@ export class BassGestures {
       g.kind = 'knob';
       g.knob = knobOf(h);
       g.v0 = bassKnobValue(g.knob);
+      g.lock = bassState.get().lock;
       // Deux tapes : la valeur de depart (en LOCK : le verrou s'en va) ; pas en INFOS au doigt (on lit)
       const now = performance.now();
       if (touch && bassInfos.isOn()) this.lastTap.delete(h.id);
@@ -158,10 +161,15 @@ export class BassGestures {
         g.axis = Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
       }
       const travel = g.axis === 'y' ? -dy : dx;
-      if (shift !== g.fine) {
+      // Le LOCK a change pendant que le potard tourne (2026-10-08 : deux doigts, le pas tenu lache avant le
+      // potard, ou un pas tenu qui entre en LOCK) : le potard repart de la valeur qu'il regle maintenant,
+      // sans faire sauter le son global ni le verrou d'un autre pas
+      const lock = bassState.get().lock;
+      if (shift !== g.fine || lock !== g.lock) {
         g.v0 = bassKnobValue(g.knob);
         g.a = travel;
         g.fine = shift;
+        g.lock = lock;
       }
       bassDial(g.knob, g.v0 + ((travel - g.a) / KNOB_PX) * (shift ? FINE : 1));
     } else if (g.kind === 'trig') {

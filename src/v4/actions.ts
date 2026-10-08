@@ -633,7 +633,8 @@ export function escape(): boolean {
     return true;
   }
   // INFOS du MM-BASS (2026-10-08) : Echap l'eteint avant de refermer le capot
-  if (bassInfos.isOn()) {
+  // INFOS du MM-BASS : seulement quand on le voit (ailleurs, Echap ferme le capot de la machine a l'ecran)
+  if (bassInfos.isOn() && focus.get() === 'bass') {
     bassInfos.set(false);
     return true;
   }

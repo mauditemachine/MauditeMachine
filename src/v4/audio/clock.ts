@@ -407,7 +407,9 @@ function stop(): void {
   const c = context();
   if (c) {
     const edge = c.currentTime + 128 / c.sampleRate;
-    for (let i = 0; i < pending.length; i += 1) {
+    // Du dernier au premier, comme reschedule() (2026-10-08) : un kick annule rend la main au kick qu'il
+    // coupait ; dans l'autre ordre, le kick d'apres STOP ne coupait plus la queue de celui qui sonnait encore
+    for (let i = pending.length - 1; i >= 0; i -= 1) {
       if (pending[i].when > edge) {
         cancelVoice(pending[i]);
         stats.cancelled += 1;

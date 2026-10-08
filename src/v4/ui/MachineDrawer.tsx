@@ -18,7 +18,7 @@ import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { focusMachine } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { BASS, DJ, MACHINES, focus, type Focus, type MachineId } from '../state/focus';
-import { explode, voyExplode, type ExplodeState } from '../state/explode';
+import { bassExplode, explode, voyExplode, type ExplodeState } from '../state/explode';
 import { intro } from '../state/intro';
 
 const ITEMS: readonly { id: Focus; title: string; sub: string }[] = [
@@ -38,6 +38,7 @@ export const MachineDrawer: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const introState = useSyncExternalStore(intro.subscribe, intro.get, intro.get);
   const hood808 = useSyncExternalStore(explode.subscribe, explode.get, explode.get);
   const hoodVoy = useSyncExternalStore(voyExplode.subscribe, voyExplode.get, voyExplode.get);
+  const hoodBass = useSyncExternalStore(bassExplode.subscribe, bassExplode.get, bassExplode.get);
   const [open, setOpen] = useState(false);
   const [thumbs, setThumbs] = useState<Partial<Record<MachineId, string>>>({});
   const thumbsFor = useRef<{ stage: Stage; hoods: string } | null>(null);
@@ -48,8 +49,8 @@ export const MachineDrawer: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   useEffect(() => {
     if (!open || !stage) return;
     const moving = (h: ExplodeState): boolean => h === 'opening' || h === 'closing';
-    if (moving(hood808) || moving(hoodVoy)) return;
-    const hoods = `${hood808}/${hoodVoy}`;
+    if (moving(hood808) || moving(hoodVoy) || moving(hoodBass)) return;
+    const hoods = `${hood808}/${hoodVoy}/${hoodBass}`;
     const was = thumbsFor.current;
     if (was && was.stage === stage && was.hoods === hoods) return;
     thumbsFor.current = { stage, hoods };
@@ -59,7 +60,7 @@ export const MachineDrawer: React.FC<{ stage: Stage | null }> = ({ stage }) => {
       if (url) next[id] = url;
     }
     setThumbs(next);
-  }, [open, stage, hood808, hoodVoy]);
+  }, [open, stage, hood808, hoodVoy, hoodBass]);
 
   // Echap ferme le volet (avant tout le reste)
   useEffect(() => {

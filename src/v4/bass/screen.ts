@@ -95,7 +95,8 @@ export interface BassScreenMode {
    * son id, sa valeur (0 a 1, celle du verrou en LOCK), verrouille ou non ;
    * null hors de l'instant
    */
-  knob?: { id: BassKnobId; v: number; locked: boolean } | null;
+  /** live : un potard du generateur qui reecrit la ligne en direct (pas besoin de GEN pour l'entendre) */
+  knob?: { id: BassKnobId; v: number; locked: boolean; live?: boolean } | null;
 }
 
 const slot = (i: number): string => `A${String(i + 1).padStart(2, '0')}`;
@@ -441,7 +442,7 @@ export class BassScreen {
     const y0 = top + Math.max(0, (band - block) / 2);
     this.text(label, 10, y0 + ls, ls, INK, 700);
     this.text(value, 9, y0 + ls + 4 + vs * 1.02, vs, INK, 300);
-    if (GEN_RULES.has(k.id)) this.text('PRESS GEN TO HEAR IT', 10, UH - 6, 6.5, HALF, 700);
+    if (GEN_RULES.has(k.id)) this.text(k.live ? 'THE LINE FOLLOWS LIVE' : 'PRESS GEN TO HEAR IT', 10, UH - 6, 6.5, HALF, 700);
     // Le dessin, a droite
     const values = s.lock >= 0 && s.steps[s.lock]?.locks ? { ...v, ...s.steps[s.lock].locks } : v;
     const d = bassDiagram(k.id, { v: k.v, values, bpm, steps: s.steps });
