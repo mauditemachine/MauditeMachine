@@ -135,7 +135,7 @@ import { Orbit } from './orbit';
 import { Pads } from './pads';
 import { Pcb } from './pcb';
 import { RYTM_TWEAK_PLATE, RytmTweaks, rytmTweakClear } from './rytmTweaks';
-import { Screen, infoKeySpot } from './screen';
+import { Screen, blockSpot, infoKeySpot } from './screen';
 import { BackPlate } from './backplate';
 import { BUTTON_INDEX, Sequencer3D, type TransportButton } from './sequencer3d';
 import { PanelSilk, fontsReady, makeBrushTexture, whenFonts, whenLogos } from './silk';
@@ -482,6 +482,8 @@ export class Stage {
   private lcdDefs: HotspotDef[] = [];
   /** La touche i de l'ecran du MM-RYTM (R4, 2026-10-08) : INFOS */
   private infoDef!: HotspotDef;
+  /** Les huit blocs de la vue PAGE (R4) : vivants seulement INFOS allume, leur carte au survol ou au toucher */
+  private blockDefs: HotspotDef[] = [];
   /** les six onglets de page du pied de l'ecran en vue PAGE (desktop, 2026-10-08) : des touches de page */
   private tabDefs: HotspotDef[] = [];
   private unsubPresets: () => void = () => undefined;
@@ -820,6 +822,26 @@ export class Stage {
         enabled: false,
       }));
       this.hit.add(this.tabDefs);
+      // Les huit blocs de la vue PAGE (R4, 2026-10-08) : INFOS allume (syncScreenTabs), survoler ou toucher un bloc montre
+      // la carte de son encodeur ; eteint, l'ecran ne prend aucun pointeur de plus
+      this.blockDefs = Array.from({ length: 8 }, (_, k) => {
+        const b = blockSpot(k);
+        return {
+          id: `lcd-blk-${k}`,
+          kind: 'rblock' as const,
+          index: k,
+          layer: plateau,
+          shape: 'box' as const,
+          x: (xAt(b.u0) + xAt(b.u1)) / 2,
+          z: (zAt(b.v0 * TH) + zAt(b.v1 * TH)) / 2,
+          hx: (xAt(b.u1) - xAt(b.u0)) / 2,
+          hz: (zAt(b.v1 * TH) - zAt(b.v0 * TH)) / 2,
+          y0: OLED.y - 0.005,
+          y1: OLED.y + 0.03,
+          enabled: false,
+        };
+      });
+      this.hit.add(this.blockDefs);
     }
     // Les volumes pleins de la machine : ils cachent ce qui est derriere eux
     // (picking, ancre de la trace) et dessinent sa silhouette (fond ou machine)
@@ -834,7 +856,7 @@ export class Stage {
     // Le MM-VOYAGER (2026-10-03) : a droite de la 808 sur la meme table ;
     // ses objets et ses volumes apres ceux de la 808, chacun marque de sa machine
     if (VOYAGER) {
-      for (const d of [...padDefs, ...this.chipDefs, ...this.tweakDefs, ...encDefs, ...seqDefs, this.seekDef, ...this.lcdDefs, this.infoDef, ...this.tabDefs]) d.machine = 'mm808';
+      for (const d of [...padDefs, ...this.chipDefs, ...this.tweakDefs, ...encDefs, ...seqDefs, this.seekDef, ...this.lcdDefs, this.infoDef, ...this.tabDefs, ...this.blockDefs]) d.machine = 'mm808';
       const voy = new VoyagerRig({
         mobile,
         anisotropy: aniso,
@@ -1180,6 +1202,14 @@ export class Stage {
     for (const d of this.tabDefs) {
       if (d.enabled !== on) {
         d.enabled = on;
+        changed = true;
+      }
+    }
+    // Les blocs (R4) : INFOS allume et la vue PAGE dessinee (pas HOME, EDIT, les presets)
+    const blk = rytmInfos.isOn() && this.screen.info.view === 'page';
+    for (const d of this.blockDefs) {
+      if (d.enabled !== blk) {
+        d.enabled = blk;
         changed = true;
       }
     }

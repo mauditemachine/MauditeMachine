@@ -361,6 +361,9 @@ export function targetIdOfHotspot(h: { kind: string; param?: string; rknob?: str
     // La touche i de l'ecran du MM-RYTM (R4) : MIDI LEARN l'apprend aussi
     case 'rinfo':
       return 'rytm:infos';
+    // Un bloc de l'ecran (INFOS allume) : son potard de page
+    case 'rblock':
+      return typeof h.index === 'number' ? `rytm:knob:${h.index + 1}` : null;
     case 'pad':
       return h.inst ? `rytm:pad:${h.inst}` : null;
     case 'step':

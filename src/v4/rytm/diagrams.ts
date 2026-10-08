@@ -362,7 +362,9 @@ const drawSounds: Draw = (c, v) => {
     const y = y0 + r * (bh + 10);
     const on = i === cur;
     p.p(rbox(x, y, bw, bh, 3), on ? 'hot' : i < synths ? 'main' : 'ghost', on);
-    p.label(name.slice(0, chars), x + bw / 2, y + bh / 2 + 3, 'middle');
+    // Trop long : sans ses espaces d'abord (PSY 02 : PSY02 ; couper donnait PSY 0, un autre nom), puis coupe
+    const tight = name.length <= chars ? name : name.replace(/\s+/g, '');
+    p.label(tight.slice(0, chars), x + bw / 2, y + bh / 2 + 3, 'middle');
   });
   // Les deux familles de sons : la synthese (909 808 MM, ou OFF pour SAMPLE) et les echantillons
   if (synths > 0) p.label(synths === 1 ? 'OFF: SYNTH' : 'SYNTH', X0, TOP);

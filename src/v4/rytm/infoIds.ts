@@ -316,7 +316,8 @@ const TRANSPORT = new Set(['run', 'clear', 'random', 'mute', 'solo']);
  * La carte d'une zone de saisie du MM-RYTM, telle que la face les nomme
  * (pads.ts pad-<voix|edit|open>, encoders.ts enc-level enc-tempo penc-<k>,
  * rytmPageKeys.ts pkey-<page>, renderer.ts lcd-tab-<page> lcd-open
- * lcd-prev... seek lcd-i (la touche i de l'ecran, R4), sequencer3d.ts
+ * lcd-prev... seek lcd-i (la touche i de l'ecran, R4) lcd-blk-<k> (un bloc
+ * de la vue PAGE, INFOS allume, R4), sequencer3d.ts
  * step-<1-16> run clear random mute solo, rytmTweaks.ts rk-<kit>). null :
  * pas une commande du MM-RYTM (le MM-ARP, le MM-BASS, le fond).
  */
@@ -328,7 +329,8 @@ export function rytmInfoHit(hotspot: string): RytmInfoHit | null {
   }
   if (hotspot === 'enc-level') return { id: 'level' };
   if (hotspot === 'enc-tempo') return { id: 'tempo' };
-  const pe = /^penc-([0-7])$/.exec(hotspot);
+  // Un potard de page, ou son bloc a l'ecran (R4 : INFOS allume, les blocs ont leur zone)
+  const pe = /^(?:penc|lcd-blk)-([0-7])$/.exec(hotspot);
   if (pe) return { id: `p:${pe[1]}` };
   const pk = /^(?:pkey|lcd-tab)-([a-z]+)$/.exec(hotspot);
   if (pk) return (RYTM_INFO_PAGES as readonly string[]).includes(pk[1]) ? { id: pk[1] } : null;

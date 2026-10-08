@@ -50,9 +50,11 @@
  * de l'ecran (lcd-i) l'allume ou l'eteint ; allume, la souris survole (le
  * Stage passe la commande au store) et agit comme toujours ; au doigt, une
  * tape montre la carte de la commande au lieu de la jouer (un pad ne sonne
- * pas, un pas ne change pas, une touche de page ne tourne pas la page), un
- * glisser tourne toujours un potard (sa carte suit), et la tenue d'un pas ne
- * met pas le LOCK (elle montre la carte du pas).
+ * pas, un pas ne change pas), un glisser tourne toujours un potard (sa carte
+ * suit), et la tenue d'un pas ne met pas le LOCK (elle montre la carte du
+ * pas) ; pour naviguer, une touche de page tourne quand meme la page et un
+ * pad choisit sa voix, sans un son (sinon les reglages des autres pages et
+ * des autres voix ne se liraient pas au doigt).
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
@@ -94,6 +96,7 @@ import {
   stepVelocity,
   stepVelocityOf,
   stepToggle,
+  tuneVoice,
   voyClear,
   voyPad,
   voyRandom,
@@ -497,6 +500,10 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       if (!d.mouse && d.id && rytmInfoTouch(d.id)) {
         rytmInfos.show(d.id);
+        // Sauf pour naviguer, sans un son : une touche de page tourne quand meme la page, un pad choisit sa voix sans
+        // la jouer (au doigt, c'est le seul moyen de lire les reglages des autres pages et des autres voix)
+        if (d.kind === 'pkey' && d.rpage && isRytmPage(d.rpage)) rytmPage.setPage(d.rpage);
+        else if (d.kind === 'pad' && d.inst && pattern.get().instrument !== d.inst) tuneVoice(d.inst);
         return d.id;
       }
       if (d.kind === 'pad' && d.inst) padHit(d.inst, stage);

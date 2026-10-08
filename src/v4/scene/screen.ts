@@ -183,6 +183,17 @@ const UH = 120;
  */
 export const INFO_KEY = { x: UW - 9, y: 10.5, r: { desk: 5.4, phone: 6.8 }, hit: { desk: 8, phone: 26 } } as const;
 
+/**
+ * Le bloc k de la vue PAGE sur le verre (u, v de 0 a 1) : INFOS allume, sa
+ * zone (lcd-blk-<k>, scene/renderer.ts) montre la carte de son encodeur au
+ * survol ou au toucher (R4 : on regarde l'ecran, pas le potard).
+ */
+export function blockSpot(k: number): { u0: number; u1: number; v0: number; v1: number } {
+  const x = MATRIX.x0 + MATRIX.pitch * (k % 4);
+  const y = MATRIX.rows[k >> 2];
+  return { u0: x / UW, u1: (x + MATRIX.w) / UW, v0: y / UH, v1: (y + MATRIX.h) / UH };
+}
+
 /** La zone de la touche i sur le verre : son centre (u, v de 0 a 1) et son rayon en part de la largeur de l'ecran. */
 export const infoKeySpot = (mobile: boolean): { u: number; v: number; r: number } => ({
   u: INFO_KEY.x / UW,
@@ -1389,11 +1400,11 @@ export class Screen {
     this.info.infos = on;
   }
 
-  /** L'encodeur de page dont la carte INFOS est montree (penc-<k>), -1 aucun. */
+  /** L'encodeur de page dont la carte INFOS est montree (penc-<k>, ou son bloc lcd-blk-<k>), -1 aucun. */
   private infoKnob(): number {
     const s = rytmInfos.get();
     if (!s.on || !s.id) return -1;
-    const m = /^penc-([0-7])$/.exec(s.id);
+    const m = /^(?:penc|lcd-blk)-([0-7])$/.exec(s.id);
     return m ? Number(m[1]) : -1;
   }
 

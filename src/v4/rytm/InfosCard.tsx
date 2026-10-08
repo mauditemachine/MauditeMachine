@@ -146,7 +146,8 @@ export function modelOf(hotspot: string): Model | null {
         dc.index = Math.round(dc.v);
       }
       // La couche de ce reglage se tait (R3) : la carte le dit, comme le bloc en retrait de l'ecran
-      const off = !plays ? '' : slot.layer === 'synth' && !plays.synth ? 'SYNTH OFF' : slot.layer === 'sample' && !plays.smp ? 'SAMPLE OFF' : slot.both && !plays.synth && !plays.smp ? 'SILENT' : '';
+      // (BOTH, les deux couches : seulement quand la voix se tait)
+      const off = !plays ? '' : slot.both ? (!plays.synth && !plays.smp ? 'SILENT' : '') : slot.layer === 'synth' && !plays.synth ? 'SYNTH OFF' : slot.layer === 'sample' && !plays.smp ? 'SAMPLE OFF' : '';
       tag = slot.scope === 'all' ? 'ALL' : [voice ?? '', off].filter(Boolean).join('  ');
     }
   } else if (hit.plate && id.startsWith('r:')) {
@@ -225,8 +226,11 @@ const Card: React.FC<CardProps> = ({ stage, hotspot, sheet, pinned, dock }) => {
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el || sheet || !stage) return undefined;
-    const i = stage.hit.ids().indexOf(hotspot);
+    const ids = stage.hit.ids();
+    const i = ids.indexOf(hotspot);
     const below = BELOW.test(hotspot);
+    // Un bloc de l'ecran : la carte a cote de l'ecran entier (les huit blocs), jamais dessus
+    const blocks = hotspot.startsWith('lcd-blk-') ? Array.from({ length: 8 }, (_, k) => ids.indexOf(`lcd-blk-${k}`)).filter((j) => j >= 0) : [];
     let cw = el.offsetWidth;
     let ch = el.offsetHeight;
     let last = '';
@@ -241,7 +245,20 @@ const Card: React.FC<CardProps> = ({ stage, hotspot, sheet, pinned, dock }) => {
         const w = r[i * 4 + 2];
         const h = r[i * 4 + 3];
         const seen = w > 0 && h > 0 && x + w > 0 && x < vw && y + h > 0 && y < vh;
-        if (seen) {
+        if (seen && blocks.length > 0) {
+          let sx0 = Infinity;
+          let sy0 = Infinity;
+          let sx1 = -Infinity;
+          for (const j of blocks) {
+            sx0 = Math.min(sx0, r[j * 4]);
+            sy0 = Math.min(sy0, r[j * 4 + 1]);
+            sx1 = Math.max(sx1, r[j * 4] + r[j * 4 + 2]);
+          }
+          let left = sx1 + GAP * 2;
+          if (left + cw > vw - EDGE) left = sx0 - cw - GAP * 2;
+          t = `translate(${Math.round(clamp(left, EDGE, vw - cw - EDGE))}px, ${Math.round(clamp(sy0 - 8, TOP_EDGE, vh - ch - EDGE))}px)`;
+          el.dataset.side = 'side';
+        } else if (seen) {
           const left0 = clamp(x + w / 2 - cw / 2, EDGE, vw - cw - EDGE);
           const up = y - ch - GAP;
           const down = y + h + GAP;

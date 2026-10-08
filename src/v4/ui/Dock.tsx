@@ -27,7 +27,8 @@
  * des onglets SEQUENCER / KNOBS allume l'aide (le i de l'ecran aussi) ;
  * allume, toucher une commande du Dock montre sa carte (celle de sa jumelle
  * sur la machine : un pas, une voix, RUN, un potard de page...) au lieu
- * d'agir, la carte en haut de l'ecran.
+ * d'agir, la carte en haut de l'ecran ; une voix est quand meme choisie et
+ * une touche de page tourne quand meme la page (sans un son : la navigation).
  *
  * Repliable (2026-10-01, demande de Mika) : replie par defaut, la machine a
  * tout l'ecran ; une languette a fleche au bord du bas le deplie (et le
@@ -37,7 +38,7 @@
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { clearPattern, randomPattern, muteToggle, runToggle, rytmLockToggle, selectInstrument, setTempo, soloToggle, stepToggle } from '../actions';
+import { clearPattern, randomPattern, muteToggle, runToggle, rytmLockToggle, selectInstrument, setTempo, soloToggle, stepToggle, tuneVoice } from '../actions';
 import { lockMask } from '../audio/locks';
 import { rytmLock } from '../state/rytmLock';
 import { rytmInfos } from '../state/rytmInfos';
@@ -191,7 +192,12 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
                 data-solo={solo ? '1' : '0'}
                 aria-pressed={v.soloMode ? solo : v.muteMode ? muted : inst === k}
                 aria-label={v.soloMode ? `Solo ${INST_NAMES[k]}` : v.muteMode ? `Mute ${INST_NAMES[k]}` : `Select ${INST_NAMES[k]}${muted ? ', muted' : ''}${solo ? ', solo' : ''}`}
-                onClick={() => rytmInfos.dock(`pad-${k}`) || selectInstrument(k)}
+                onClick={() => {
+                  // INFOS (R4) : la carte de la voix, et la voix choisie quand meme (sans un son, sans MUTE ni SOLO, jamais
+                  // deselectionnee : on lit ses reglages)
+                  if (!rytmInfos.dock(`pad-${k}`)) selectInstrument(k);
+                  else if (p.instrument !== k) tuneVoice(k);
+                }}
               >
                 {k}
               </button>

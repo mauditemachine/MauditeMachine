@@ -431,7 +431,7 @@ const PageKeys: React.FC = () => {
             data-lit={on ? (rp.view === 'page' ? '1' : 'dim') : '0'}
             aria-pressed={on && rp.view === 'page'}
             aria-label={`${pk.label} page${on ? (rp.view === 'page' ? ', shown, press again for home' : ', press for the page view') : ''}`}
-            onClick={() => rytmInfos.dock(`pkey-${pk.id}`) || rytmPageKey(pk.id, stageNow())}
+            onClick={() => (rytmInfos.dock(`pkey-${pk.id}`) ? rytmPage.setPage(pk.id) : rytmPageKey(pk.id, stageNow()))}
           >
             {pk.label}
           </button>
@@ -498,7 +498,17 @@ export const KnobPanel: React.FC<Props> = ({ machine }) => {
       {g.voices && !(g.pages && locking) && (
         <div className="v4-knobs-voices" role="group" aria-label="Voice to tune">
           {INSTRUMENTS.map((inst) => (
-            <button key={inst} type="button" className="v4-knobs-voice" aria-pressed={p.instrument === inst} onClick={() => (machine === 'mm808' && rytmInfos.dock(`pad-${inst}`)) || tuneVoice(inst)}>
+            <button
+              key={inst}
+              type="button"
+              className="v4-knobs-voice"
+              aria-pressed={p.instrument === inst}
+              onClick={() => {
+                // INFOS du MM-RYTM (R4) : la carte de la voix, choisie quand meme (la navigation), jamais deselectionnee
+                if (!(machine === 'mm808' && rytmInfos.dock(`pad-${inst}`))) tuneVoice(inst);
+                else if (p.instrument !== inst) tuneVoice(inst);
+              }}
+            >
               {inst}
             </button>
           ))}
