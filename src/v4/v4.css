@@ -4881,6 +4881,44 @@ html:has(body.v4-active.v4-light) {
   color: var(--ink);
 }
 
+/* INFOS du MM-RYTM (2026-10-08, l'etape R4, ui/Dock.tsx) : le i au bout des onglets du Dock ; allume, l'orange.
+   La touche fait 44 px de large, sa zone deborde de 6 px en haut et en bas (44 px au doigt) */
+.v4-root .v4-dock-info {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--bone-60);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.v4-root .v4-dock-info::after {
+  content: '';
+  position: absolute;
+  inset: -6px 0;
+}
+
+.v4-root .v4-dock-info[aria-pressed='true'] {
+  background: #ff6a13;
+  color: #0c0b09;
+}
+
+.v4-root .v4-dock-info:focus-visible {
+  outline: 2px solid var(--yellow, #f2c230);
+  outline-offset: 2px;
+}
+
 .v4-knobs {
   display: flex;
   flex-direction: column;

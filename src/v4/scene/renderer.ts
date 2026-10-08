@@ -67,6 +67,7 @@ import { playhead } from '../state/playhead';
 import { lcd } from '../state/lcd';
 import { rytmPage } from '../state/rytmPage';
 import { rytmLock } from '../state/rytmLock';
+import { rytmInfos } from '../state/rytmInfos';
 import { lockMask } from '../audio/locks';
 import { section } from '../state/section';
 import { voices } from '../state/voices';
@@ -134,7 +135,7 @@ import { Orbit } from './orbit';
 import { Pads } from './pads';
 import { Pcb } from './pcb';
 import { RYTM_TWEAK_PLATE, RytmTweaks, rytmTweakClear } from './rytmTweaks';
-import { Screen } from './screen';
+import { Screen, infoKeySpot } from './screen';
 import { BackPlate } from './backplate';
 import { BUTTON_INDEX, Sequencer3D, type TransportButton } from './sequencer3d';
 import { PanelSilk, fontsReady, makeBrushTexture, whenFonts, whenLogos } from './silk';
@@ -479,6 +480,8 @@ export class Stage {
   private seekDef!: HotspotDef;
   /** les touches de l'ecran (mode presets, 2026-10-04) */
   private lcdDefs: HotspotDef[] = [];
+  /** La touche i de l'ecran du MM-RYTM (R4, 2026-10-08) : INFOS */
+  private infoDef!: HotspotDef;
   /** les six onglets de page du pied de l'ecran en vue PAGE (desktop, 2026-10-08) : des touches de page */
   private tabDefs: HotspotDef[] = [];
   private unsubPresets: () => void = () => undefined;
@@ -788,6 +791,14 @@ export class Stage {
         ...(['save', 'name', 'del', 'exit'] as const).map((k, i) => box(k, i / 4, (i + 1) / 4, band, TH, false)),
       ];
       this.hit.add(this.lcdDefs);
+      // La touche i de l'ecran (R4, 2026-10-08, state/rytmInfos.ts) : un disque sur son coin, un peu plus haut que
+      // l'ecran (il passe devant lcd-open et les presets) ; toujours la, sur toutes les vues (scene/screen.ts INFO_KEY)
+      {
+        const ik = infoKeySpot(mobile);
+        const r = ik.r * OLED.w;
+        this.infoDef = { id: 'lcd-i', kind: 'rinfo', layer: plateau, shape: 'disc', x: xAt(ik.u), z: zAt(ik.v * TH), hx: r, hz: r, y0: OLED.y - 0.005, y1: OLED.y + 0.045, enabled: true };
+        this.hit.add([this.infoDef]);
+      }
       // Les onglets du pied de la vue PAGE (scene/screen.ts paintFoot) : une touche de page chacun,
       // allumes seulement quand l'ecran les dessine (syncScreenTabs)
       const P = OLED_PAGE_ZONES;
@@ -823,7 +834,7 @@ export class Stage {
     // Le MM-VOYAGER (2026-10-03) : a droite de la 808 sur la meme table ;
     // ses objets et ses volumes apres ceux de la 808, chacun marque de sa machine
     if (VOYAGER) {
-      for (const d of [...padDefs, ...this.chipDefs, ...this.tweakDefs, ...encDefs, ...seqDefs, this.seekDef, ...this.lcdDefs, ...this.tabDefs]) d.machine = 'mm808';
+      for (const d of [...padDefs, ...this.chipDefs, ...this.tweakDefs, ...encDefs, ...seqDefs, this.seekDef, ...this.lcdDefs, this.infoDef, ...this.tabDefs]) d.machine = 'mm808';
       const voy = new VoyagerRig({
         mobile,
         anisotropy: aniso,
@@ -2455,6 +2466,8 @@ export class Stage {
     if (this.voy && this.voy.setHover(id !== null && id.startsWith('v') ? id : null)) changed = true;
     if (this.dj && this.dj.setHover(id !== null && id.startsWith('dj-') ? id : null)) changed = true;
     if (this.bass && this.bass.setHover(id !== null && id.startsWith('bass-') ? id : null)) changed = true;
+    // INFOS du MM-RYTM (R4, 2026-10-08) : la carte de la commande survolee (le store ne garde que les siennes)
+    rytmInfos.hover(id);
     const pad = id !== null && id.startsWith('pad-') ? (id.slice(4) as PadId) : null;
     if (this.pads.setHover(pad)) changed = true;
     // Puce du PCB (vue ouverte)

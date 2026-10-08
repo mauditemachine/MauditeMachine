@@ -61,6 +61,7 @@ import {
   type DialId,
 } from '../actions';
 import { rytmLock } from '../state/rytmLock';
+import { rytmInfos } from '../state/rytmInfos';
 import { INSTRUMENTS, pattern } from '../audio/pattern';
 import { stageNow } from '../midi/targets';
 import { pageSlots } from '../rytm/pages';
@@ -184,6 +185,11 @@ export interface KnobSpec {
   lockState?: string;
   /** sa couche ne s'entend pas (R3, revue) : en retrait, comme le bloc de l'ecran */
   quiet?: boolean;
+  /**
+   * INFOS du MM-RYTM (R4, 2026-10-08) : pris, il montre sa carte (true : INFOS
+   * allume) ; une tape ne fait alors que la montrer, un glisser le tourne
+   */
+  info?(): boolean;
 }
 
 /** Un potard : glisser, taper (cran suivant), deux tapes (valeur de depart), clavier. */
@@ -222,6 +228,7 @@ export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean }> = ({ spec
       /* pas de capture : le geste reste sur le potard tant qu'on y est */
     }
     drag.current = { y: ev.clientY, x: ev.clientX, k0: k, moved: false };
+    spec.info?.();
   };
   const onMove = (ev: React.PointerEvent<HTMLDivElement>): void => {
     const d = drag.current;
@@ -235,6 +242,8 @@ export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean }> = ({ spec
     const d = drag.current;
     drag.current = null;
     if (!d || d.moved) return;
+    // INFOS du MM-RYTM allume (R4) : la tape montre sa carte, rien de plus
+    if (spec.info?.()) return;
     // Une tape : un selecteur passe au cran suivant (et reboucle) ; deux tapes : la valeur de depart
     if (tapNext) {
       const i = Math.round(k * (steps - 1));
@@ -369,6 +378,7 @@ const PageKnob: React.FC<{ k: number }> = ({ k }) => {
     selector: slot.target !== 'step:vel',
     tag,
     onReset: () => pageKnobReset(k),
+    info: () => rytmInfos.dock(`penc-${k}`),
     lockState: block && block.lock !== 'none' ? block.lock : undefined,
     quiet: !!block?.quiet && (!block.lock || block.lock === 'none' || block.lock === 'base'),
   };
@@ -421,7 +431,7 @@ const PageKeys: React.FC = () => {
             data-lit={on ? (rp.view === 'page' ? '1' : 'dim') : '0'}
             aria-pressed={on && rp.view === 'page'}
             aria-label={`${pk.label} page${on ? (rp.view === 'page' ? ', shown, press again for home' : ', press for the page view') : ''}`}
-            onClick={() => rytmPageKey(pk.id, stageNow())}
+            onClick={() => rytmInfos.dock(`pkey-${pk.id}`) || rytmPageKey(pk.id, stageNow())}
           >
             {pk.label}
           </button>
@@ -431,8 +441,11 @@ const PageKeys: React.FC = () => {
   );
 };
 
+/** INFOS du MM-RYTM (R4) : la jumelle sur la face de MASTER et TEMPO (la page MASTER du Dock). */
+const RYTM_BIG_INFO: Partial<Record<string, string>> = { level: 'enc-level', tempo: 'enc-tempo' };
+
 /** Un potard d'une machine (DialId) : les memes actions et stores que la machine. */
-const BigKnob: React.FC<Dial> = ({ id, label }) => {
+const BigKnob: React.FC<Dial & { machine?: 'mm808' | 'voy' }> = ({ id, label, machine }) => {
   const spec = useMemo<KnobSpec>(() => {
     const range = dialRange(id);
     return {
@@ -447,8 +460,9 @@ const BigKnob: React.FC<Dial> = ({ id, label }) => {
       valueText: () => dialValueText(id),
       subscribe: subscribeDials,
       whole: id === 'tempo',
+      ...(machine === 'mm808' && RYTM_BIG_INFO[id] ? { info: () => rytmInfos.dock(RYTM_BIG_INFO[id] ?? '') } : {}),
     };
-  }, [id, label]);
+  }, [id, label, machine]);
   return <KnobView spec={spec} />;
 };
 
@@ -484,14 +498,14 @@ export const KnobPanel: React.FC<Props> = ({ machine }) => {
       {g.voices && !(g.pages && locking) && (
         <div className="v4-knobs-voices" role="group" aria-label="Voice to tune">
           {INSTRUMENTS.map((inst) => (
-            <button key={inst} type="button" className="v4-knobs-voice" aria-pressed={p.instrument === inst} onClick={() => tuneVoice(inst)}>
+            <button key={inst} type="button" className="v4-knobs-voice" aria-pressed={p.instrument === inst} onClick={() => (machine === 'mm808' && rytmInfos.dock(`pad-${inst}`)) || tuneVoice(inst)}>
               {inst}
             </button>
           ))}
         </div>
       )}
       <div className="v4-knobs-grid" role="tabpanel" aria-label={g.label}>
-        {g.pages ? PAGE_KNOB_IDS.map((pk, k) => <PageKnob key={pk} k={k} />) : g.dials.map((d) => <BigKnob key={d.id} id={d.id} label={d.label} />)}
+        {g.pages ? PAGE_KNOB_IDS.map((pk, k) => <PageKnob key={pk} k={k} />) : g.dials.map((d) => <BigKnob key={d.id} id={d.id} label={d.label} machine={machine} />)}
       </div>
     </div>
   );
@@ -543,8 +557,8 @@ export function useDockPage(key: string): [DockPage, (p: DockPage) => void] {
   return [page, choose];
 }
 
-/** Les deux pages d'un Dock, en haut : la sienne, KNOBS. */
-export const DockPages: React.FC<{ page: DockPage; onPage: (p: DockPage) => void; first: string }> = ({ page, onPage, first }) => (
+/** Les deux pages d'un Dock, en haut : la sienne, KNOBS ; extra : une touche au bout (INFOS du MM-RYTM, R4). */
+export const DockPages: React.FC<{ page: DockPage; onPage: (p: DockPage) => void; first: string; extra?: React.ReactNode }> = ({ page, onPage, first, extra }) => (
   <div className="v4-dock-pages" role="tablist" aria-label="Dock page">
     <button type="button" role="tab" aria-selected={page === 'main'} className="v4-dock-page" onClick={() => onPage('main')}>
       {first}
@@ -552,6 +566,7 @@ export const DockPages: React.FC<{ page: DockPage; onPage: (p: DockPage) => void
     <button type="button" role="tab" aria-selected={page === 'knobs'} className="v4-dock-page" onClick={() => onPage('knobs')}>
       KNOBS
     </button>
+    {extra}
   </div>
 );
 

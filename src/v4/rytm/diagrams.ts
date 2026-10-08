@@ -6,42 +6,22 @@
  * vraies lois du MM-RYTM (audio/voicefx.ts, tone.ts, time.ts, fx.ts,
  * sends.ts, chorus.ts, shotsdsp.ts, sampledsp.ts, pattern.ts), dans une
  * boite de 240 x 120 : le format des dessins du MM-BASS (bass/diagrams.ts
- * BassDiagram), que sa carte INFOS sait deja tracer en SVG (et un ecran avec
- * Path2D). Fonctions pures, sans DOM. Les roles des traits sont ceux du
- * MM-BASS :
+ * BassDiagram), que la carte INFOS (rytm/InfosCard.tsx) trace en SVG.
+ * Fonctions pures, sans DOM. Les roles des traits sont ceux du MM-BASS :
  * - main : le trait principal ;
  * - hot : ce que la commande change (orange sur la carte) ;
  * - ghost : les reperes (la forme d'origine, la course entiere) ;
  * - grid : la grille ; dash : un repere en pointille.
  * Les textes : label (petit, gris), value (la valeur lue, en haut a droite).
  *
- * C'est aussi la partie legere des INFOS (comme voyager/infoIds.ts) : les
- * ids des cartes, la table des huit blocs de chaque page, la resolution d'un
- * potard de page (p:0 a p:7) vers le reglage qu'il tient pour la voix
- * choisie, et la correspondance des zones de saisie. Les textes en francais
- * sont a rytm/infos.ts (qui importe d'ici, jamais l'inverse : un ecran qui
- * trace un dessin n'emporte pas les textes).
- *
- * Les ids ne dependent pas de la disposition des zones de saisie :
- * - les pages : trig src smpl fltr amp fx (leurs touches) ;
- * - les reglages des pages : leur DialId (actions.ts : vdecay, vol, tone,
- *   vsound, r:tune...), step:vel et smpl:sample ;
- * - les choix de son de la plaque TWEAKS : r:bd r:sd r:cp r:hh r:tom (leurs
- *   potards r:tune... sont ceux des pages) ;
- * - les reglages a venir de l'etude (soon:prob...) et les couches SYNTH et
- *   SAMPLE de l'etape R3 (r3:machine...), marques pour etre branches ;
- * - les commandes fixes : pad:BD a pad:CY, step, lock, run, clear, random,
- *   mute, solo, edit, open, close, level (MASTER), tempo, screen, presets,
- *   seek, ikey (la touche i), home, enc (un encodeur sur une case vide).
- *
- * La table des blocs (rytmSlots) recopie rytm/pages.ts tel que l'etape R2
- * le laisse (worktree wf_b0d0237c, 2026-10-08), reglages a venir compris :
- * si pages.ts change (l'etape R3 et ses couches), la mettre a jour, ou passer
- * la cible resolue par actions.ts (pageTarget) dans le contexte (target).
- * Les constantes que les moteurs n'exportent pas (la DIST, le DELAY, la
- * REVERB, le CHORUS), ou pas encore sur cette branche (TUNE +/-24 et START
- * 90 %, exportees par voicefx.ts a l'etape R2), sont recopiees ici, avec
- * leur source.
+ * Les ids, la table des huit blocs de chaque page, la resolution d'un potard
+ * de page et la correspondance des zones de saisie sont a rytm/infoIds.ts
+ * depuis l'etape R4 (la face les lit sans emporter les dessins) ; ce module
+ * les rend aussi, pour rytm/infos.ts. Les textes en francais sont a
+ * rytm/infos.ts (qui importe d'ici, jamais l'inverse). Les constantes que les
+ * moteurs n'exportent pas (la DIST, le DELAY, la REVERB, le CHORUS) sont
+ * recopiees ici, avec leur source ; TUNE +/-24 et START 90 % viennent de
+ * voicefx.ts.
  */
 
 import type { BassDiagram } from '../bass/diagrams';
@@ -50,327 +30,14 @@ import { sampleLenPart } from '../audio/sampledsp';
 import { KICK_SWEEP, SD_BODY_HZ, SD_DECAY_S, SD_TONE_HZ, SHOT_BELOW, kickDecayS, kickHz, sdDecayFactor, sdToneFactor, sdTuneFactor, sweepDepth, type KitModel } from '../audio/shotsdsp';
 import { timeFactor } from '../audio/time';
 import { toneHpHz, toneLpHz, toneSemitones } from '../audio/tone';
-import { DECAY_HOLD_S, decayTau, voiceGain } from '../audio/voicefx';
+import { DECAY_HOLD_S, START_MAX, TUNE_ST, decayTau, voiceGain } from '../audio/voicefx';
 import { swingRatio, type Inst } from '../theme';
+import { RYTM_INFO_PAGES, RYTM_INFO_PAGE_LABEL, RYTM_INFO_VOICES, RYTM_LETTERS, resolveRytmId, rytmAvail, rytmSlots, type RytmInfoId, type RytmInfoPage, type RytmResolveCtx } from './infoIds';
+
+export * from './infoIds';
 
 /** Le format des dessins du MM-BASS : la meme carte les trace. */
 export type RytmDiagram = BassDiagram;
-
-/* ---------------- les ids ---------------- */
-
-/** Les voix, dans l'ordre des pads (BD SD CH OH en haut, CP TOM HT CY dessous). */
-export const RYTM_INFO_VOICES = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'] as const satisfies readonly Inst[];
-
-/** Les six pages, dans l'ordre de l'Analog Rytm (theme.ts RYTM_PAGE_KEYS a l'etape R2). */
-export const RYTM_INFO_PAGES = ['trig', 'src', 'smpl', 'fltr', 'amp', 'fx'] as const;
-export type RytmInfoPage = (typeof RYTM_INFO_PAGES)[number];
-export const RYTM_INFO_PAGE_LABEL: Readonly<Record<RytmInfoPage, string>> = { trig: 'TRIG', src: 'SRC', smpl: 'SMPL', fltr: 'FLTR', amp: 'AMP', fx: 'FX' };
-
-/** Les reglages des pages, par leur cible (le DialId de actions.ts, step:vel, smpl:sample). */
-export const RYTM_PARAM_IDS = [
-  'step:vel',
-  'swing',
-  'vsound',
-  'vtune',
-  'r:tune',
-  'r:attack',
-  'r:decay',
-  'r:drive',
-  'r:snappy',
-  'r:gate',
-  'stretch',
-  'smpl:sample',
-  'vstart',
-  'tone',
-  'vdecay',
-  'vpan',
-  'vol',
-  'vdist',
-  'vchorus',
-  'vdelay',
-  'vreverb',
-  'dist',
-  'chorus',
-  'delay',
-  'reverb',
-] as const;
-export type RytmParamId = (typeof RYTM_PARAM_IDS)[number];
-
-/** Les choix de son de la plaque TWEAKS (OPEN) : KICK, SNARE, CLAP, HATS, TOMS. */
-export const RYTM_PLATE_SOUND_IDS = ['r:bd', 'r:sd', 'r:cp', 'r:hh', 'r:tom'] as const;
-export type RytmPlateSoundId = (typeof RYTM_PLATE_SOUND_IDS)[number];
-
-/** Les potards de la plaque TWEAKS, dans l'ordre de scene/rytmTweaks.ts (KIT_IDS). */
-export const RYTM_PLATE_IDS = ['r:bd', 'r:tune', 'r:attack', 'r:decay', 'r:drive', 'r:sd', 'r:snappy', 'r:cp', 'r:gate', 'r:hh', 'r:tom'] as const;
-
-/** Les reglages a venir de l'etude (inv/rytm-synthesis.md 2.2) : leur bloc reste vide tant qu'ils n'existent pas. */
-export const RYTM_SOON_IDS = [
-  'soon:prob',
-  'soon:micro',
-  'soon:cond',
-  'soon:rtrg',
-  'soon:rtim',
-  'soon:fatk',
-  'soon:fdec',
-  'soon:freq',
-  'soon:reso',
-  'soon:ftype',
-  'soon:fenv',
-  'soon:attack',
-  'soon:hold',
-  'soon:br',
-  'soon:loop',
-] as const;
-export type RytmSoonId = (typeof RYTM_SOON_IDS)[number];
-
-/**
- * Les couches de l'etape R3 (Mika, 2026-10-08 : "comme la ANALOG Rytm ou on
- * peut mettre des samples mais le kick peut etre parametre comme une
- * machine") : la couche SYNTH (MACHINE, SYNTH LEVEL, SWEEP, et ce que la
- * caisse claire de synthese gagne : TUNE, DECAY, TONE) et la couche SAMPLE
- * (TUNE, FINE, START (r3:sstart), LEN (r3:send), LEVEL, REV). Branches
- * depuis R3 (avail live) ; leurs cibles dans actions.ts : l:mach, l:syn,
- * r:sweep, r:sdtune, r:sddecay, r:sdtone, l:tune, l:fine, l:start, l:len,
- * l:lev, l:rev (TARGET_INFO). Depuis la revue de R3 (2026-10-08), vstart est
- * le START de toute la voix (AMP D) et vtune la hauteur de toute la voix
- * (SRC B des voix de synthese, PITCH en G pour BD et SD).
- */
-export const RYTM_R3_IDS = ['r3:machine', 'r3:synlevel', 'r3:sweep', 'r3:sdtune', 'r3:sddecay', 'r3:sdtone', 'r3:stune', 'r3:sfine', 'r3:sstart', 'r3:send', 'r3:smplevel', 'r3:reverse'] as const;
-export type RytmR3Id = (typeof RYTM_R3_IDS)[number];
-
-/** Les commandes fixes de la face, de l'ecran et du capot. */
-export const RYTM_CONTROL_IDS = [
-  'pad:BD',
-  'pad:SD',
-  'pad:CH',
-  'pad:OH',
-  'pad:CP',
-  'pad:TOM',
-  'pad:HT',
-  'pad:CY',
-  'step',
-  'lock',
-  'run',
-  'clear',
-  'random',
-  'mute',
-  'solo',
-  'edit',
-  'open',
-  'close',
-  'level',
-  'tempo',
-  'screen',
-  'presets',
-  'seek',
-  'ikey',
-  'home',
-  'enc',
-] as const;
-export type RytmControlId = (typeof RYTM_CONTROL_IDS)[number];
-
-export type RytmInfoId = RytmInfoPage | RytmParamId | RytmPlateSoundId | RytmSoonId | RytmR3Id | RytmControlId;
-
-export const RYTM_INFO_IDS: readonly RytmInfoId[] = [...RYTM_INFO_PAGES, ...RYTM_PARAM_IDS, ...RYTM_PLATE_SOUND_IDS, ...RYTM_SOON_IDS, ...RYTM_R3_IDS, ...RYTM_CONTROL_IDS];
-const ID_SET: ReadonlySet<string> = new Set(RYTM_INFO_IDS);
-export const isRytmInfoId = (s: unknown): s is RytmInfoId => typeof s === 'string' && ID_SET.has(s);
-
-/** Ce qui existe deja (live), ce qui viendra (soon : l'etude ; r3 : les couches SYNTH et SAMPLE). */
-export type RytmInfoAvail = 'live' | 'soon' | 'r3';
-// Les couches de R3 sont branchees (2026-10-08) : leurs cartes sont vivantes
-export const rytmAvail = (id: RytmInfoId): RytmInfoAvail => (id.startsWith('soon:') ? 'soon' : 'live');
-
-/** Les familles de sons (audio/kit.ts familyOf) ; cy : la cymbale, un seul son. */
-export type RytmVoiceGroup = 'bd' | 'sd' | 'hh' | 'cp' | 'tom' | 'cy';
-export function voiceGroup(v: Inst): RytmVoiceGroup {
-  if (v === 'BD') return 'bd';
-  if (v === 'SD') return 'sd';
-  if (v === 'CH' || v === 'OH') return 'hh';
-  if (v === 'CP') return 'cp';
-  if (v === 'TOM' || v === 'HT') return 'tom';
-  return 'cy';
-}
-
-/* ---------------- les huit blocs de chaque page (rytm/pages.ts, etape R2) ---------------- */
-
-/** Un bloc : son reglage et son nom a l'ecran ; null : un emplacement vide. */
-export interface RytmSlot {
-  id: RytmInfoId;
-  label: string;
-}
-
-const s = (id: RytmInfoId, label: string): RytmSlot => ({ id, label });
-
-/** TRIG ; STRETCH (toute la machine) y est depuis R3, a cote de SWING. */
-const TRIG: readonly (RytmSlot | null)[] = [s('step:vel', 'VEL'), s('soon:prob', 'PROB'), s('soon:micro', 'MICRO'), s('soon:cond', 'COND'), s('soon:rtrg', 'RTRG'), s('soon:rtim', 'RTIM'), s('stretch', 'STRETCH'), s('swing', 'SWING')];
-/** SMPL, la couche SAMPLE (R3, rytm/pages.ts) : TUNE FINE REV SAMPLE, START LEN (LOOP) LEVEL. */
-const SMPL: readonly (RytmSlot | null)[] = [s('r3:stune', 'TUNE'), s('r3:sfine', 'FINE'), s('r3:reverse', 'REV'), s('smpl:sample', 'SAMPLE'), s('r3:sstart', 'START'), s('r3:send', 'LEN'), s('soon:loop', 'LOOP'), s('r3:smplevel', 'LEVEL')];
-const FLTR: readonly (RytmSlot | null)[] = [s('soon:fatk', 'ATK'), s('soon:fdec', 'DEC'), null, null, s('tone', 'TONE'), s('soon:reso', 'RESO'), s('soon:ftype', 'TYPE'), s('soon:fenv', 'ENV')];
-/** AMP ; D : START, le debut de tout le coup (revue de R3). */
-const AMP: readonly (RytmSlot | null)[] = [s('soon:attack', 'ATK'), s('soon:hold', 'HOLD'), s('vdecay', 'DEC'), s('vstart', 'START'), null, null, s('vpan', 'PAN'), s('vol', 'VOL')];
-/** En haut les effets de la voix, dessous ceux de tout le MM-RYTM (sauf le kick), colonne par colonne. */
-const FX: readonly (RytmSlot | null)[] = [s('vdist', 'DIST'), s('vchorus', 'CHORUS'), s('vdelay', 'DELAY'), s('vreverb', 'REVERB'), s('dist', 'DIST'), s('chorus', 'CHORUS'), s('delay', 'DELAY'), s('reverb', 'REVERB')];
-
-/** SRC, la couche SYNTH (R3, rytm/pages.ts) : B a G selon la famille de la voix (le kick, la caisse claire, le clap ; les autres le TUNE de la voix). */
-function srcMiddle(g: RytmVoiceGroup | null): readonly (RytmSlot | null)[] {
-  // G : PITCH, la hauteur de toute la voix (revue de R3)
-  if (g === 'bd') return [s('r:tune', 'TUNE'), s('r:attack', 'ATTACK'), s('r3:sweep', 'SWEEP'), s('r:decay', 'DECAY'), s('r:drive', 'DRIVE'), s('vtune', 'PITCH')];
-  if (g === 'sd') return [s('r3:sdtune', 'TUNE'), s('r:snappy', 'SNAPPY'), s('r3:sdtone', 'TONE'), s('r3:sddecay', 'DECAY'), s('r:gate', 'GATE'), s('vtune', 'PITCH')];
-  if (g === 'cp') return [s('vtune', 'TUNE'), null, s('r:gate', 'GATE'), null, null, null];
-  return [s('vtune', 'TUNE'), null, null, null, null, null];
-}
-const SRC_CACHE = new Map<string, readonly (RytmSlot | null)[]>();
-function src(v: Inst | null): readonly (RytmSlot | null)[] {
-  const g = v ? voiceGroup(v) : null;
-  const key = g ?? 'none';
-  let out = SRC_CACHE.get(key);
-  if (!out) {
-    out = [s('r3:machine', 'MACHINE'), ...srcMiddle(g), g && g !== 'cy' ? s('r3:synlevel', 'LEVEL') : null];
-    SRC_CACHE.set(key, out);
-  }
-  return out;
-}
-
-/** Les huit blocs d'une page pour la voix choisie (A B C D en haut, E F G H dessous), reglages a venir compris. */
-export function rytmSlots(page: RytmInfoPage, voice: Inst | null): readonly (RytmSlot | null)[] {
-  switch (page) {
-    case 'trig':
-      return TRIG;
-    case 'src':
-      return src(voice);
-    case 'smpl':
-      return SMPL;
-    case 'fltr':
-      return FLTR;
-    case 'amp':
-      return AMP;
-    default:
-      return FX;
-  }
-}
-
-/** La lettre d'un bloc (et de son potard). */
-export const RYTM_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
-
-/** La page et le bloc d'un reglage pour cette voix (la page regardee d'abord), null s'il n'est sur aucune page. */
-export function rytmSlotOf(id: RytmInfoId, voice: Inst | null, page?: RytmInfoPage): { page: RytmInfoPage; k: number } | null {
-  const order: readonly RytmInfoPage[] = page ? [page, ...RYTM_INFO_PAGES.filter((p) => p !== page)] : RYTM_INFO_PAGES;
-  // SOUND (SRC) et SAMPLE (SMPL) sont deux vues du meme choix ; chacun garde sa place
-  for (const p of order) {
-    const k = rytmSlots(p, voice).findIndex((x) => x?.id === id);
-    if (k >= 0) return { page: p, k };
-  }
-  return null;
-}
-
-/** L'id d'un reglage a venir d'apres son nom sur une page (un bloc de pages.ts sans cible : PROB, ATK...), null sinon. */
-export function soonInfoId(page: RytmInfoPage, label: string, voice: Inst | null = null): RytmInfoId | null {
-  const hit = rytmSlots(page, voice).find((x) => x && x.label === label && rytmAvail(x.id) !== 'live');
-  return hit ? hit.id : null;
-}
-
-/** Ce qu'il faut pour savoir ce que tient un potard de page. */
-export interface RytmResolveCtx {
-  /** la voix choisie (pattern.instrument), null : aucune */
-  voice?: Inst | null;
-  /** la page affichee ; SRC par defaut (la page de depart) */
-  page?: RytmInfoPage;
-  /**
-   * la cible resolue par l'appelant (actions.ts pageTarget(k) : un DialId,
-   * step:vel, smpl:sample ; null : vide ou a venir) ; passe avant la table
-   */
-  target?: string | null;
-  /** les reglages a venir ont leur carte ; sinon la case vide (enc), comme a l'ecran (pages.ts SHOW_SOON) */
-  soon?: boolean;
-}
-
-/** Les cibles de actions.ts (pageTarget) qui ont une carte d'un autre nom : les couches de R3. */
-const TARGET_INFO: Readonly<Record<string, RytmInfoId>> = {
-  'l:mach': 'r3:machine',
-  'l:syn': 'r3:synlevel',
-  'r:sweep': 'r3:sweep',
-  'r:sdtune': 'r3:sdtune',
-  'r:sddecay': 'r3:sddecay',
-  'r:sdtone': 'r3:sdtone',
-  'l:tune': 'r3:stune',
-  'l:fine': 'r3:sfine',
-  'l:start': 'r3:sstart',
-  'l:len': 'r3:send',
-  'l:lev': 'r3:smplevel',
-  'l:rev': 'r3:reverse',
-};
-
-/**
- * L'id de carte d'une commande : un potard de page (p:0 a p:7) donne le
- * reglage qu'il tient sur la page affichee pour la voix choisie (K.TUNE sur
- * BD, SNAPPY sur SD au bloc C de SRC), enc pour une case vide ; un autre id
- * connu se rend tel quel ; null : inconnu.
- */
-export function resolveRytmId(id: string, c: RytmResolveCtx = {}): RytmInfoId | null {
-  const m = /^p:([0-7])$/.exec(id);
-  if (!m) return isRytmInfoId(id) ? id : null;
-  if (c.target !== undefined) {
-    if (c.target === null) return 'enc';
-    const t = TARGET_INFO[c.target] ?? c.target;
-    return isRytmInfoId(t) ? t : 'enc';
-  }
-  const slot = rytmSlots(c.page ?? 'src', c.voice ?? null)[Number(m[1])];
-  if (!slot) return 'enc';
-  if (rytmAvail(slot.id) !== 'live' && !c.soon) return 'enc';
-  return slot.id;
-}
-
-/* ---------------- les zones de saisie (scene/*, etape R2) ---------------- */
-
-/** Une zone de saisie du MM-RYTM lue : sa carte, et ce qu'elle dit de plus (la plaque, le pas, le potard). */
-export interface RytmInfoHit {
-  /** l'id de carte ; p:0 a p:7 pour un potard de page (resolveRytmId le resout) */
-  id: string;
-  /** un potard de la plaque TWEAKS (OPEN) : son nom et sa section y sont ceux de la plaque */
-  plate?: boolean;
-  /** un pas (0 a 15) */
-  step?: number;
-}
-
-const KIT_HOT = new Set(['bd', 'tune', 'attack', 'decay', 'drive', 'sd', 'snappy', 'cp', 'gate', 'hh', 'tom']);
-const TRANSPORT = new Set(['run', 'clear', 'random', 'mute', 'solo']);
-
-/**
- * La carte d'une zone de saisie du MM-RYTM, telle que l'etape R2 les nomme
- * (pads.ts pad-<voix|edit|open>, encoders.ts enc-level enc-tempo penc-<k>,
- * rytmPageKeys.ts pkey-<page>, renderer.ts lcd-tab-<page> lcd-open
- * lcd-prev... seek, sequencer3d.ts step-<1-16> run clear random mute solo,
- * rytmTweaks.ts rk-<kit>) ; lcd-i : le nom propose pour la zone de la touche
- * i de l'ecran (R4). null : pas une commande du MM-RYTM.
- */
-export function rytmInfoHit(hotspot: string): RytmInfoHit | null {
-  if (hotspot.startsWith('pad-')) {
-    const p = hotspot.slice(4);
-    if ((RYTM_INFO_VOICES as readonly string[]).includes(p)) return { id: `pad:${p}` };
-    return p === 'edit' || p === 'open' ? { id: p } : null;
-  }
-  if (hotspot === 'enc-level') return { id: 'level' };
-  if (hotspot === 'enc-tempo') return { id: 'tempo' };
-  const pe = /^penc-([0-7])$/.exec(hotspot);
-  if (pe) return { id: `p:${pe[1]}` };
-  const pk = /^(?:pkey|lcd-tab)-([a-z]+)$/.exec(hotspot);
-  if (pk) return (RYTM_INFO_PAGES as readonly string[]).includes(pk[1]) ? { id: pk[1] } : null;
-  const st = /^step-(\d+)$/.exec(hotspot);
-  if (st) {
-    const i = Number(st[1]) - 1;
-    return i >= 0 && i < 16 ? { id: 'step', step: i } : null;
-  }
-  if (TRANSPORT.has(hotspot)) return { id: hotspot };
-  if (hotspot === 'seek') return { id: 'seek' };
-  if (hotspot === 'lcd-open') return { id: 'screen' };
-  if (/^lcd-(prev|next|save|name|del|exit)$/.test(hotspot)) return { id: 'presets' };
-  if (hotspot === 'lcd-i') return { id: 'ikey' };
-  if (hotspot.startsWith('rk-')) {
-    const k = hotspot.slice(3);
-    return KIT_HOT.has(k) ? { id: `r:${k}`, plate: true } : null;
-  }
-  return null;
-}
 
 /* ---------------- le contexte d'un dessin ---------------- */
 
@@ -507,11 +174,8 @@ function noteOf(hz: number): string {
 /** La duree d'une double croche au tempo (BPM borne a celui du MM-RYTM). */
 const stepS = (bpm: number | undefined): number => 60 / clamp(bpm ?? BPM.initial, BPM.min, BPM.max) / 4;
 
-/* ---------------- les lois recopiees (ces modules ne les exportent pas, ou pas encore sur cette branche) ---------------- */
+/* ---------------- les lois recopiees (ces modules ne les exportent pas) ---------------- */
 
-/** audio/voicefx.ts (etape R2, qui les exporte : TUNE_ST, START_MAX ; a importer une fois R2 merge) : TUNE +/-24 demi-tons, START au plus 90 % de l'echantillon. */
-const TUNE_ST = 24;
-const START_MAX = 0.9;
 /** audio/fx.ts DRIVE : la copie saturee tanh((1 + 12 d) x), melangee a 0.85 d. */
 const DRIVE = { gain: 12, mix: 0.85 } as const;
 /** audio/sends.ts DELAY : croche pointee (3 pas), envoi 0.9 a fond, retour 0.58, entre 180 Hz et 4.5 kHz. */
@@ -964,13 +628,15 @@ const drawStretch: Draw = (_c, v) => {
 
 /* ---------------- les couches de R3 (2026-10-08) ---------------- */
 
-/** LEVEL d'une couche (SRC H, SMPL H) : le gain v^2, 0 dB a 127 (la couche calee), OFF a 0. */
-const drawLayerLevel: Draw = (c, v) => {
-  const p = new Pic();
-  gainCurve(p, (x) => x * x, v, 6, -30);
-  p.label(c.page === 'smpl' ? 'SAMPLE LAYER' : 'SYNTH LAYER', X0 + 34, TOP);
-  return p.value(v <= 0 ? 'OFF' : dbText(v * v)).done();
-};
+/** LEVEL d'une couche (SRC H, SMPL H) : le gain v^2, 0 dB a 127 (la couche calee), OFF a 0 ; son nom suit la carte (R4 : il suivait la page). */
+const layerLevel =
+  (smp: boolean): Draw =>
+  (_c, v) => {
+    const p = new Pic();
+    gainCurve(p, (x) => x * x, v, 6, -30);
+    p.label(smp ? 'SAMPLE LAYER' : 'SYNTH LAYER', X0 + 34, TOP);
+    return p.value(v <= 0 ? 'OFF' : dbText(v * v)).done();
+  };
 
 /** LEN de la couche SAMPLE : la part du fichier gardee, sa fin en fondu (sampledsp.ts sampleLenPart). */
 const drawSampleLen: Draw = (_c, v) => {
@@ -1333,7 +999,7 @@ const drawTempo: Draw = (c, v) => {
 };
 
 /** Une touche de page : ses huit blocs a la place des encodeurs (les reglages a venir : une case vide, comme a l'ecran). */
-function pageGrid(page: RytmInfoPage, voice: Inst | null): RytmDiagram {
+function pageGrid(page: RytmInfoPage, voice: Inst | null, hot = -1): RytmDiagram {
   const p = new Pic();
   const slots = rytmSlots(page, voice);
   // Des blocs de 51 de large (4 entre eux) : STRETCH y tient
@@ -1343,13 +1009,14 @@ function pageGrid(page: RytmInfoPage, voice: Inst | null): RytmDiagram {
     const x = X0 + (k % 4) * (bw + 4);
     const y = 24 + (k < 4 ? 0 : bh + 8);
     const live = !!sl && rytmAvail(sl.id) === 'live';
-    p.p(rbox(x, y, bw, bh, 3), live ? 'main' : 'grid');
+    p.p(rbox(x, y, bw, bh, 3), k === hot ? 'hot' : live ? 'main' : 'grid');
     p.label(RYTM_LETTERS[k], x + bw - 4, y + 11, 'end');
     // Le nom centre : STRETCH et SNAPPY tiennent dans le bloc (a gauche, ils debordaient)
     if (sl && live) p.label(sl.label, x + bw / 2, y + bh - 7, 'middle');
   });
   p.label(page === 'src' && voice ? `ENCODERS A TO H, ${voice}` : 'ENCODERS A TO H', X0, TOP);
-  return p.done();
+  // Un encodeur sur une case vide (R4) : sa case en couleur, la page dite
+  return hot >= 0 ? p.value(`${RYTM_INFO_PAGE_LABEL[page]} ${RYTM_LETTERS[hot]}: EMPTY`).done() : p.done();
 }
 
 /** Un pas : les seize pas de la voix, leur velocite, un point sous ceux qui ont des verrous, le pas montre en couleur. */
@@ -1441,8 +1108,8 @@ const DRAW: Partial<Record<RytmInfoId, Draw>> = {
   'r:tom': drawSounds,
   vtune: drawTune,
   'r3:machine': drawSounds,
-  'r3:synlevel': drawLayerLevel,
-  'r3:smplevel': drawLayerLevel,
+  'r3:synlevel': layerLevel(false),
+  'r3:smplevel': layerLevel(true),
   'r3:sweep': drawSweep,
   'r3:sdtune': drawSdTune,
   'r3:sddecay': drawSdDecay,
@@ -1493,6 +1160,11 @@ export function rytmDiagram(id: string, c: RytmDiagramCtx): RytmDiagram | null {
   try {
     if (rid.startsWith('pad:')) return padLevels(rid.slice(4) as Inst);
     if ((RYTM_INFO_PAGES as readonly string[]).includes(rid)) return pageGrid(rid as RytmInfoPage, c.voice ?? null);
+    // Un encodeur sur une case vide de la page (R4) : la page, sa case en couleur
+    if (rid === 'enc') {
+      const pk = /^p:([0-7])$/.exec(id);
+      return pk ? pageGrid(c.page ?? 'src', c.voice ?? null, Number(pk[1])) : null;
+    }
     const fn = DRAW[rid];
     if (!fn) return null;
     const raw = Number.isFinite(c.v) ? c.v : 0;

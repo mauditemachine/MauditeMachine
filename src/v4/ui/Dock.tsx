@@ -23,6 +23,12 @@
  * l'etude l'a garde par defaut) ; un pas qui a des verrous porte un point,
  * le pas en LOCK clignote ; la page KNOBS regle ses verrous.
  *
+ * INFOS (2026-10-08, l'etape R4, state/rytmInfos.ts) : la touche i a droite
+ * des onglets SEQUENCER / KNOBS allume l'aide (le i de l'ecran aussi) ;
+ * allume, toucher une commande du Dock montre sa carte (celle de sa jumelle
+ * sur la machine : un pas, une voix, RUN, un potard de page...) au lieu
+ * d'agir, la carte en haut de l'ecran.
+ *
  * Repliable (2026-10-01, demande de Mika) : replie par defaut, la machine a
  * tout l'ecran ; une languette a fleche au bord du bas le deplie (et le
  * replie, posee alors sur son bord haut). Le choix est retenu
@@ -34,6 +40,7 @@ import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { clearPattern, randomPattern, muteToggle, runToggle, rytmLockToggle, selectInstrument, setTempo, soloToggle, stepToggle } from '../actions';
 import { lockMask } from '../audio/locks';
 import { rytmLock } from '../state/rytmLock';
+import { rytmInfos } from '../state/rytmInfos';
 import { clock } from '../audio/clock';
 import { BPM, INSTRUMENTS, STEP_COUNT, VEL_BARS, VEL_NAMES, pattern, velocity } from '../audio/pattern';
 import type { Stage } from '../scene/renderer';
@@ -77,6 +84,8 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
   const v = useSyncExternalStore(voices.subscribe, voices.get, voices.get);
   // Le pas en LOCK (2026-10-08)
   const lockAt = useSyncExternalStore(rytmLock.subscribe, () => rytmLock.get().step, () => -1);
+  // INFOS (R4) : la touche i des onglets
+  const infosOn = useSyncExternalStore(rytmInfos.subscribe, rytmInfos.isOn, rytmInfos.isOn);
   // Un pas touche sans instrument : les instruments clignotent une fois
   const [nudge, setNudge] = useState(0);
   const [shown, setShown] = useState(readDockOpen);
@@ -122,6 +131,8 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
   const locks = lockMask(p.locks, inst);
 
   const onStep = (i: number): void => {
+    // INFOS allume (R4) : la carte du pas, il ne change pas
+    if (rytmInfos.dock(`step-${i + 1}`)) return;
     if (!stepToggle(i, getStage())) setNudge((n) => n + 1);
   };
 
@@ -141,14 +152,31 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
         <Icon name={shown ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-up'} />
       </button>
       <div ref={dockRef} id="v4-dock" className="v4-dock" data-open={shown ? '1' : '0'} data-mode={inst ? 'edit' : 'union'} data-page={page}>
-        <DockPages page={page} onPage={setPage} first="SEQUENCER" />
+        <DockPages
+          page={page}
+          onPage={setPage}
+          first="SEQUENCER"
+          extra={
+            <button
+              type="button"
+              className="v4-dock-info"
+              aria-pressed={infosOn}
+              aria-label={infosOn ? 'INFOS on: tap a control of the MM-RYTM to read what it does. Press to turn off' : 'INFOS: tap a control of the MM-RYTM to read what it does'}
+              onClick={() => rytmInfos.toggle()}
+            >
+              <span className="v4-info-i" aria-hidden="true">
+                i
+              </span>
+            </button>
+          }
+        />
         {page === 'knobs' ? (
           <KnobPanel machine="mm808" />
         ) : (
           <>
         <div key={nudge} className="v4-dock-insts" data-nudge={nudge > 0 ? '1' : '0'} role="group" aria-label="Instrument, tap one, then the steps">
           {/* RANDOM a gauche des voix, comme sur la machine */}
-          <button type="button" className="v4-dock-inst v4-dock-random" aria-label="Random house pattern" onClick={() => randomPattern(getStage())}>
+          <button type="button" className="v4-dock-inst v4-dock-random" aria-label="Random house pattern" onClick={() => rytmInfos.dock('random') || randomPattern(getStage())}>
             <Icon name="fa-solid fa-dice" />
           </button>
           {INSTRUMENTS.map((k) => {
@@ -163,7 +191,7 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
                 data-solo={solo ? '1' : '0'}
                 aria-pressed={v.soloMode ? solo : v.muteMode ? muted : inst === k}
                 aria-label={v.soloMode ? `Solo ${INST_NAMES[k]}` : v.muteMode ? `Mute ${INST_NAMES[k]}` : `Select ${INST_NAMES[k]}${muted ? ', muted' : ''}${solo ? ', solo' : ''}`}
-                onClick={() => selectInstrument(k)}
+                onClick={() => rytmInfos.dock(`pad-${k}`) || selectInstrument(k)}
               >
                 {k}
               </button>
@@ -202,7 +230,8 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
                 onPointerUp={(e) => {
                   const h = hold.current;
                   hold.current = null;
-                  if (h && h.i === i && e.timeStamp - h.t >= STEP_HOLD_MS) {
+                  // INFOS allume (R4) : l'appui long ne met pas le LOCK, le clic qui suit montre la carte du pas
+                  if (h && h.i === i && e.timeStamp - h.t >= STEP_HOLD_MS && !rytmInfos.isOn()) {
                     skipClick.current = i;
                     // L'appui long (2026-10-08) : le LOCK sur ce pas (encore : hors LOCK), la page KNOBS regle ses verrous
                     if (!inst) setNudge((n) => n + 1);
@@ -242,11 +271,11 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
         </div>
         {/* Transport : nom fixe, l'etat passe par aria-pressed (comme les jumeaux) */}
         <div className="v4-dock-transport" role="group" aria-label="Transport">
-          <button type="button" className="v4-dock-key" aria-pressed={running} aria-label="Run" onClick={() => runToggle(getStage())}>
+          <button type="button" className="v4-dock-key" aria-pressed={running} aria-label="Run" onClick={() => rytmInfos.dock('run') || runToggle(getStage())}>
             <Icon name={running ? 'fa-solid fa-stop' : 'fa-solid fa-play'} />
             <span>{running ? 'STOP' : 'RUN'}</span>
           </button>
-          <button type="button" className="v4-dock-key" aria-label="Clear pattern" onClick={() => clearPattern(getStage())}>
+          <button type="button" className="v4-dock-key" aria-label="Clear pattern" onClick={() => rytmInfos.dock('clear') || clearPattern(getStage())}>
             <Icon name="fa-solid fa-eraser" />
             <span>CLEAR</span>
           </button>
@@ -255,12 +284,12 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
             className="v4-dock-key v4-dock-mute"
             aria-pressed={voices.lit('mute')}
             aria-label="Mute, then tap a voice to mute it; twice: mute several voices; again: all voices back"
-            onClick={() => muteToggle(getStage())}
+            onClick={() => rytmInfos.dock('mute') || muteToggle(getStage())}
           >
             <Icon name="fa-solid fa-volume-xmark" />
             <span>MUTE</span>
           </button>
-          <button type="button" className="v4-dock-key" aria-pressed={voices.lit('solo')} aria-label="Solo, then tap a voice to solo it; twice: solo several voices; again: all voices back" onClick={() => soloToggle(getStage())}>
+          <button type="button" className="v4-dock-key" aria-pressed={voices.lit('solo')} aria-label="Solo, then tap a voice to solo it; twice: solo several voices; again: all voices back" onClick={() => rytmInfos.dock('solo') || soloToggle(getStage())}>
             <Icon name="fa-solid fa-headphones" />
             <span>SOLO</span>
           </button>
@@ -269,7 +298,7 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
             className="v4-dock-key v4-dock-nudge"
             aria-label="Tempo down"
             disabled={bpm <= BPM.min}
-            onClick={() => setTempo(bpm - 1)}
+            onClick={() => rytmInfos.dock('enc-tempo') || setTempo(bpm - 1)}
           >
             <Glyph plus={false} />
           </button>
@@ -282,7 +311,7 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
             className="v4-dock-key v4-dock-nudge"
             aria-label="Tempo up"
             disabled={bpm >= BPM.max}
-            onClick={() => setTempo(bpm + 1)}
+            onClick={() => rytmInfos.dock('enc-tempo') || setTempo(bpm + 1)}
           >
             <Glyph plus />
           </button>

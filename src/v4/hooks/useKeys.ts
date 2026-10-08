@@ -13,7 +13,8 @@
  * la section ouverte (sinon referme la vue eclatee, sinon deselectionne
  * l'instrument). E ouvre ou ferme l'editeur (EDIT) du MM-ARP ou du
  * MM-RYTM (2026-10-04). I allume ou eteint les INFOS du MM-ARP
- * (2026-10-08, la touche i de son grand ecran). Gauche et droite passent
+ * (2026-10-08, la touche i de son grand ecran), et celles du MM-RYTM quand
+ * on l'utilise (l'etape R4, la touche i de son ecran). Gauche et droite passent
  * d'une machine a l'autre (2026-10-05), sauf sur un controle qui s'en sert
  * (encodeur, onglets).
  * Rien ne part avec Alt, Ctrl ou Meta, dans un champ editable, ni sur une
@@ -32,6 +33,7 @@ import { focus } from '../state/focus';
 import { rytmPage } from '../state/rytmPage';
 import { section } from '../state/section';
 import { voyInfos } from '../state/voyInfos';
+import { rytmInfos } from '../state/rytmInfos';
 import { PADS, PAGES, type PageId } from '../theme';
 
 /** MM-VOYAGER (2026-10-03) : A S D F G H J K jouent les huit accords quand on l'utilise. */
@@ -94,6 +96,12 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
       if (focus.get() === 'voy' && (e.code === 'KeyI' || e.key.toLowerCase() === 'i')) {
         e.preventDefault();
         voyInfos.toggle();
+        return;
+      }
+      // I (R4, 2026-10-08) : INFOS du MM-RYTM (la touche i de son ecran), partout ou on l'utilise (EDIT, presets compris)
+      if (focus.get() === 'mm808' && (e.code === 'KeyI' || e.key.toLowerCase() === 'i')) {
+        e.preventDefault();
+        rytmInfos.toggle();
         return;
       }
       const chord = focus.get() === 'voy' ? CHORD_KEYS.indexOf(e.key.toLowerCase()) : -1;

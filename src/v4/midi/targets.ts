@@ -20,7 +20,7 @@
  *   (le pas choisi) ; en LOCK, rytm:knob regle les verrous du pas ; les
  *   couches (revue de R3) rytm:layer:<famille>:<reglage> (mach, syn, sample,
  *   lev, tune, fine, start, len, rev : la couche d'une famille sans choisir
- *   sa voix) ;
+ *   sa voix) ; rytm:infos (la touche i de l'ecran, l'etape R4) ;
  * - MM-ARP : voy:knob:<potard>, voy:pad:<0-7>, voy:run, clear, random,
  *   edit, open ; voy:running ; voy:infos (la touche i du grand ecran,
  *   2026-10-08) ;
@@ -41,6 +41,7 @@ import { clock } from '../audio/clock';
 import { voices as voiceState } from '../state/voices';
 import { arp } from '../voyager/arp';
 import { voyInfos } from '../state/voyInfos';
+import { rytmInfos } from '../state/rytmInfos';
 import { KIT_IDS, KIT_LABEL, KIT_MORE, kit, kitSteps, type KitKnob } from '../audio/kit';
 import { samplesOf } from '../audio/samples';
 import { setVoiceFx } from '../audio/drums';
@@ -245,6 +246,8 @@ function coreTargets(): MidiTarget[] {
   out.push(press('rytm:solo', 'mm808', 'SOLO', () => void soloToggle(getStage())));
   out.push(press('rytm:edit', 'mm808', 'EDIT', () => editToggle('mm808', getStage())));
   out.push(press('rytm:open', 'mm808', 'OPEN', () => void openToggle(getStage(), 'mm808')));
+  // La touche i de l'ecran (R4, 2026-10-08) : INFOS, l'aide au survol
+  out.push(press('rytm:infos', 'mm808', 'INFOS (HELP ON HOVER)', () => void rytmInfos.toggle()));
   // Les seize patterns (2026-10-05, state/patterns.ts) : comme un step en EDIT (d'autres dans les deux secondes : la chaine)
   for (let i = 0; i < PATTERN_SLOTS; i += 1) out.push(press(`rytm:ptn:${i}`, 'mm808', `PATTERN ${slotName(i)}`, () => patternTap(i, getStage())));
   // MM-ARP
@@ -355,6 +358,9 @@ export function targetIdOfHotspot(h: { kind: string; param?: string; rknob?: str
       return h.rpage ? `rytm:page:${h.rpage}` : null;
     case 'rknob':
       return h.rknob ? `rytm:kit:${h.rknob}` : null;
+    // La touche i de l'ecran du MM-RYTM (R4) : MIDI LEARN l'apprend aussi
+    case 'rinfo':
+      return 'rytm:infos';
     case 'pad':
       return h.inst ? `rytm:pad:${h.inst}` : null;
     case 'step':

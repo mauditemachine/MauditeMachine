@@ -21,6 +21,7 @@ import type { Stage } from './scene/renderer';
 import { bassExplode, chipsLive, explode, voyExplode, type ExplodeStore } from './state/explode';
 import { bassInfos } from './state/bassInfos';
 import { voyInfos } from './state/voyInfos';
+import { rytmInfos } from './state/rytmInfos';
 import { voyEcho } from './voyager/echo';
 import { voyPatch } from './voyager/patch';
 import { focus, MACHINES, VOYAGER, type Focus, type MachineId } from './state/focus';
@@ -708,6 +709,11 @@ export function escape(): boolean {
   // INFOS du MM-ARP (2026-10-08, la touche i du grand ecran) : de meme, quand on le voit
   if (voyInfos.isOn() && focus.get() === 'voy') {
     voyInfos.set(false);
+    return true;
+  }
+  // INFOS du MM-RYTM (R4, la touche i de son ecran) : de meme, apres le LOCK et EDIT, avant le capot
+  if (rytmInfos.isOn() && focus.get() === 'mm808') {
+    rytmInfos.set(false);
     return true;
   }
   const hood = hoodOf(hoodMachine());

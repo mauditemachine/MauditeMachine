@@ -82,6 +82,15 @@
  *   le pas en LOCK cerne ; l'anneau de HOME, un trait dehors.
  * Les dessins des blocs passent par une palette (pal) : la normale, ou la
  * negative d'un bloc plein ; HOME garde la normale, au pixel pres.
+ *
+ * La touche i (2026-10-08, l'etape R4, Mika : "je veux un petit bouton i dans
+ * l'ecran a activer et de ce fait on peut voir les infos au survol.. et je
+ * veux la meme chose pour RYTM aussi !") : un i cercle dans le coin en haut a
+ * droite, sur toutes les vues (PAGE, HOME, EDIT, les presets), plein quand
+ * INFOS est allume (state/rytmInfos.ts) ; le pattern et le tempo se rangent a
+ * sa gauche. Sa zone de saisie (lcd-i, scene/renderer.ts) est posee sur
+ * INFO_KEY. INFOS allume, le bloc de l'encodeur dont la carte est montree
+ * porte quatre coins (la carte et l'ecran parlent du meme bloc).
  */
 
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
@@ -101,6 +110,7 @@ import { focus } from '../state/focus';
 import { lcd, type LcdState } from '../state/lcd';
 import { PATTERN_SLOTS, patterns, slotName } from '../state/patterns';
 import { playhead } from '../state/playhead';
+import { rytmInfos } from '../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
 import { FONT_DISPLAY, HEX, OLED, PAGE_KNOB_LETTERS, type Inst } from '../theme';
@@ -142,6 +152,10 @@ export interface ScreenInfo {
   footText: string;
   /** les deux couches de la voix dans l'en-tete de SRC et SMPL (R3, revue) : SYN 909 OFF | SMP BLUEPRINT 127 ; '' ailleurs ou sans la place */
   layers: string;
+  /** la touche i dessinee pleine : INFOS allume (R4) */
+  infos: boolean;
+  /** le bloc marque des quatre coins (INFOS : la carte de son encodeur est montree), -1 aucun */
+  infoBlock: number;
 }
 
 /** Au plus un redessin tous les 60 ms (un potard tourne a la cadence du pointeur). */
@@ -158,6 +172,23 @@ const WAVE_MS = 7000;
 /** La mise en page, en unites. */
 const UW = 320;
 const UH = 120;
+
+/**
+ * La touche i (R4, 2026-10-08), en unites : son centre, dans le coin en haut
+ * a droite, et son rayon dessine ; hit : le rayon de sa zone de saisie (au
+ * telephone 26 unites, 45 px CSS a 390 x 844 : le contrat veut 44 ; elle mord
+ * le tempo de l'en-tete, qui ouvre les presets, rien d'autre : les blocs ne
+ * se touchent pas, ce sont les encodeurs). scene/renderer.ts pose la zone
+ * lcd-i avec.
+ */
+export const INFO_KEY = { x: UW - 9, y: 10.5, r: { desk: 5.4, phone: 6.8 }, hit: { desk: 8, phone: 26 } } as const;
+
+/** La zone de la touche i sur le verre : son centre (u, v de 0 a 1) et son rayon en part de la largeur de l'ecran. */
+export const infoKeySpot = (mobile: boolean): { u: number; v: number; r: number } => ({
+  u: INFO_KEY.x / UW,
+  v: INFO_KEY.y / UH,
+  r: (mobile ? INFO_KEY.hit.phone : INFO_KEY.hit.desk) / UW,
+});
 /** Les coordonnees de texture du reste du site (theme OLED.tex, 640 x 240) : deux par unite. */
 const TEX_K = OLED.tex[0] / UW;
 
@@ -265,7 +296,8 @@ const BLOCK_TYPE = {
     selR: 1.3,
   },
 } as const;
-const PAGE_HEAD = { y: 15.5, iconX: 10, pillX: 23, pillY: 4.5, right: 312, rule: 21.5 } as const;
+/** right : le bord droit du pattern et du tempo, a gauche de la touche i (R4 ; 312 avant). */
+const PAGE_HEAD = { y: 15.5, iconX: 10, pillX: 23, pillY: 4.5, right: 297, rule: 21.5 } as const;
 /** Les seize pas du pied (a gauche) et le reste du pied (a droite). */
 const PAGE_STRIP = { x0: 10, y: 105.5, size: 5.5, pitch: 7 } as const;
 const PAGE_FOOT = { x0: 132, x1: 312, y: 112.5 } as const;
@@ -332,7 +364,7 @@ export class Screen {
     const H = Math.round((W * UH) / UW);
     this.scale = W / UW;
     this.bt = mobile ? BLOCK_TYPE.phone : BLOCK_TYPE.desk;
-    this.info = { draws: 0, text: ['', '', ''], lastDrawAt: -Infinity, minGapMs: Infinity, font: 'vector op-1', size: [W, H], view: 'home', page: rytmPage.get().page, blocks: [], echo: -1, lock: -1, flash: [], strip: '', foot: [], panel: [], footText: '', layers: '' };
+    this.info = { draws: 0, text: ['', '', ''], lastDrawAt: -Infinity, minGapMs: Infinity, font: 'vector op-1', size: [W, H], view: 'home', page: rytmPage.get().page, blocks: [], echo: -1, lock: -1, flash: [], strip: '', foot: [], panel: [], footText: '', layers: '', infos: false, infoBlock: -1 };
     this.canvas = document.createElement('canvas');
     this.canvas.width = W;
     this.canvas.height = H;
@@ -379,6 +411,8 @@ export class Screen {
       rytmPage.subscribe(active),
       // Le LOCK (2026-10-08) : la pastille, les blocs en negatif, le pied
       rytmLock.subscribe(active),
+      // INFOS (R4) : la touche i pleine, le bloc de la carte montree
+      rytmInfos.subscribe(() => this.request()),
       kit.subscribe(() => active()),
       pattern.fx.subscribe(active),
       // La tete de lecture : l'anneau de HOME, les seize pas du pied de la vue PAGE
@@ -594,6 +628,7 @@ export class Screen {
     this.info.panel = [];
     this.info.footText = '';
     this.info.layers = '';
+    this.info.infoBlock = -1;
     if (s.keys) this.paintPresets(s);
     else if (paged) this.armEcho(this.paintPage(s, rp, p.instrument, ptn.cur, now, lockStep));
     else {
@@ -606,6 +641,8 @@ export class Screen {
       else this.paintCards(p.instrument);
       this.paintLine(s, rytmEdit);
     }
+    // La touche i (R4) : par-dessus tout, sur toutes les vues
+    this.paintInfoKey(rytmInfos.isOn());
     if (this.blinkUntil > now || (rytmEdit && ptn.next >= 0) || this.waveFrom > 0) next = ANIM_MS;
     // Les coups qui pulsent : sur l'anneau seulement (la page n'en montre rien)
     if (!paged && this.hitAt.some((t) => now - t < PULSE_MS)) next = next || ANIM_MS;
@@ -634,8 +671,9 @@ export class Screen {
     this.text(slotName(cur), x + 14, y, 12, blinkOff ? FAINT : INK, 600, 'left', 0.6);
     // Le tempo : le nombre, BPM a cote en petit (la ligne 1 du texte porte autre chose sur les pages MIX et SAMPLES)
     const bpm = String(Math.round(pattern.get().bpm));
-    const bw = this.text('BPM', COL.x1, y, 7, HALF, 600, 'right', 0.8);
-    this.text(bpm, COL.x1 - bw - 4, y, 12, INK, 400, 'right');
+    // A gauche de la touche i (R4)
+    const bw = this.text('BPM', PAGE_HEAD.right, y, 7, HALF, 600, 'right', 0.8);
+    this.text(bpm, PAGE_HEAD.right - bw - 4, y, 12, INK, 400, 'right');
   }
 
   /** La lecture : un triangle ; a l'arret, un carre (x : son bord gauche, y : la ligne de base). */
@@ -981,7 +1019,7 @@ export class Screen {
   /** Mode presets : le titre, le nom en grand entre ses fleches, les quatre touches en pastilles. */
   private paintPresets(s: LcdState): void {
     this.text(fit(s.l1, 24), 10, 18, 9, HALF, 700, 'left', 0.9);
-    this.text(s.r1, UW - 10, 18, 9, HALF, 600, 'right');
+    this.text(s.r1, PAGE_HEAD.right, 18, 9, HALF, 600, 'right');
     const name = s.l2.replace(/^<\s*|\s*>$/g, '').trim();
     this.text(fit(name, 20), UW / 2, 66, 20, INK, 300, 'center');
     if (s.l2.startsWith('<')) {
@@ -1074,6 +1112,9 @@ export class Screen {
     else {
       const blocks = pageBlocks(rp, inst, now, mode);
       this.paintMatrix(blocks);
+      // INFOS (R4) : le bloc de l'encodeur dont la carte est montree, ses quatre coins
+      const ik = this.infoKnob();
+      if (ik >= 0 && blocks[ik] && blocks[ik].state !== 'empty') this.infoMarks(ik);
       // Les verrous du pas, toutes pages, dans la place que la page laisse vide (revue de R2)
       if (mode) this.paintLockPanel(blocks, mode.step, mode.kind === 'flash' ? mode.lock : undefined);
       this.info.blocks = blocks.map((b) => `${b.label}=${b.text}:${b.state}${b.lock !== 'none' ? `/${b.lock}` : ''}${b.flash ? '!' : ''}${b.quiet ? '~' : ''}`);
@@ -1329,6 +1370,47 @@ export class Screen {
       return true;
     }
     return false;
+  }
+
+  /**
+   * La touche i (R4) : un cercle, le i dedans ; INFOS allume, le disque plein
+   * et le i en noir (comme celles du MM-BASS et du MM-ARP).
+   */
+  private paintInfoKey(on: boolean): void {
+    const c = this.ctx;
+    const { x, y } = INFO_KEY;
+    const r = this.mobile ? INFO_KEY.r.phone : INFO_KEY.r.desk;
+    this.circle(x, y, r, on ? INK : BLACK, on ? null : INK, 0.95);
+    const ink = on ? BLACK : INK;
+    this.circle(x, y - r * 0.46, r * 0.15, ink);
+    c.fillStyle = ink;
+    const w = r * 0.26;
+    c.fillRect(x - w / 2, y - r * 0.16, w, r * 0.68);
+    this.info.infos = on;
+  }
+
+  /** L'encodeur de page dont la carte INFOS est montree (penc-<k>), -1 aucun. */
+  private infoKnob(): number {
+    const s = rytmInfos.get();
+    if (!s.on || !s.id) return -1;
+    const m = /^penc-([0-7])$/.exec(s.id);
+    return m ? Number(m[1]) : -1;
+  }
+
+  /** Quatre coins autour du bloc k (INFOS, R4) : la carte parle de lui ; dehors, sans toucher au bloc ni a son echo. */
+  private infoMarks(k: number): void {
+    const M = MATRIX;
+    const x0 = M.x0 + M.pitch * (k % 4) - 1.8;
+    const y0 = M.rows[k >> 2] - 1.8;
+    const x1 = x0 + M.w + 3.6;
+    const y1 = y0 + M.h + 3.6;
+    const a = 5;
+    const lw = this.mobile ? 1.4 : 1.1;
+    this.line([x0, y0 + a, x0, y0, x0 + a, y0], INK, lw);
+    this.line([x1 - a, y0, x1, y0, x1, y0 + a], INK, lw);
+    this.line([x1, y1 - a, x1, y1, x1 - a, y1], INK, lw);
+    this.line([x0 + a, y1, x0, y1, x0, y1 - a], INK, lw);
+    this.info.infoBlock = k;
   }
 
   /**
