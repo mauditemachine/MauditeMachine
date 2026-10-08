@@ -311,8 +311,7 @@ export function bassDial(id: BassKnobId, v: number): void {
     // ACCENT verrouille sur un pas sans accent : il le prend (sinon le verrou ne servirait a rien)
     const acc = id === 'accent' && s.kind === 'note' && !s.acc ? { acc: true } : {};
     if ('acc' in acc) accByLock.add(st.lock);
-    bassState.setStep(st.lock, { ...acc, locks: { ...(s.locks ?? {}), [id]: x } });
-    bassState.set({ touched: { id, at: performance.now() } });
+    bassState.setStep(st.lock, { ...acc, locks: { ...(s.locks ?? {}), [id]: x } }, { touched: { id, at: performance.now() } });
     bassState.say(`LOCK ${two(st.lock)}  ${bassKnob(id).label} ${bassValueText(id, x)}${'acc' in acc ? '  +ACC' : ''}`, 1400);
     // A l'arret, on entend le pas une fois le potard pose
     if (!bassSeq.running) {

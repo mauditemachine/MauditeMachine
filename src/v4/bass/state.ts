@@ -160,8 +160,8 @@ export const bassState = {
     if (keep) save();
     listeners.forEach((fn) => fn());
   },
-  /** Un pas change (les autres restent). */
-  setStep(i: number, patch: Partial<BassStep>): void {
+  /** Un pas change (les autres restent) ; also : le reste de l'etat dans la meme notification (2026-10-08 : un encodeur en LOCK, un seul dessin de l'ecran). */
+  setStep(i: number, patch: Partial<BassStep>, also: Partial<BassState> = {}): void {
     if (i < 0 || i >= BASS_STEPS) return;
     const steps = state.steps.map((s, k) => {
       if (k !== i) return s;
@@ -169,7 +169,7 @@ export const bassState = {
       if ('locks' in patch && !patch.locks) delete next.locks;
       return next;
     });
-    bassState.set({ steps });
+    bassState.set({ ...also, steps });
   },
   /** Une ligne a l'ecran, quelques secondes. */
   say(text: string | null, ms = 2200): void {
