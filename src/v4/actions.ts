@@ -10,7 +10,7 @@ import type { V2Track } from '../v2/context/AudioPlayerContext';
 import { clock } from './audio/clock';
 import { ensure, mix, resume, setChorus, setDelay, setDrive, setLevel, setReverb, setStretch, setSwing, setVoiceFx, trigger } from './audio/drums';
 import { VOICE_FX_DEFAULT, voiceFx, type VoiceParam } from './audio/voicefx';
-import { familyOf, kit, kitSteps, type KitFamily, type KitId } from './audio/kit';
+import { KIT_LABEL, familyOf, isFamily, kit, kitSoundIndex, kitSteps, type KitFamily, type KitId } from './audio/kit';
 import { randomBeat, randomColors, type BeatStyle } from './audio/beats';
 import { BPM, INSTRUMENTS, VEL_MAX, VEL_NAMES, pattern, velocity } from './audio/pattern';
 import { sc } from './audio/soundcloud';
@@ -30,11 +30,12 @@ import { presetMode, type PresetKey } from './state/presetMode';
 import type { PresetMachine } from './state/presets';
 import { presskit } from './state/presskit';
 import { rytmPage } from './state/rytmPage';
-import type { SlotTarget } from './rytm/pages';
+import { pageLabel, pageSlots, type PageSlot, type RytmPageId, type SlotTarget } from './rytm/pages';
+import { encUnit, kitUnit, v127Text, velTo127 } from './rytm/values';
 import { section } from './state/section';
 import { voices } from './state/voices';
 import { bassLoad } from './state/bassload';
-import { BOARD_CHIPS, MOBILE_QUERY, POT_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potMin, swingRatio, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
+import { BOARD_CHIPS, MOBILE_QUERY, PAGE_KNOB_LETTERS, POT_UI, isPage, VOICE_PARAM, encLabel, isBipolar, isVoiceEnc, potCourse, potMin, type ChipId, type EncId, type Inst, type PageId, type SectionId } from './theme';
 import { arp } from './voyager/arp';
 import { CHORDS, PROGRESSIONS } from './voyager/chords';
 import { voyMsg } from './voyager/msg';
@@ -43,7 +44,6 @@ import { randomVoyStyle, type VoyStyle } from './voyager/random';
 import { SEQ_MAX, seq } from './voyager/seq';
 
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
-const pct = (v: number): number => Math.round(v * 100);
 
 /** Premier geste : cree le contexte audio ; ensuite, le relance s'il dort. Le moteur du MM-VOYAGER se charge avec. */
 export function gesture(): void {
@@ -424,20 +424,28 @@ export function setTempo(bpm: number): void {
   pattern.setBpm(bpm);
 }
 
-/** Valeur affichee en ligne 3 de l'ecran : TONE +35, STRETCH -40%, SWING 58%, MASTER 80% ; BD DELAY 40% pour une voix. */
-function readout(id: Exclude<EncId, 'tempo'>, v: number, inst: Inst | null): string {
+/**
+ * Valeur affichee sur la ligne du bas de l'ecran, de 0 a 127 depuis le
+ * 2026-10-08 (Mika : "les valeurs de knobs sont a l'ecran ... de 0 a 127",
+ * le nombre du MIDI) et son unite : BD DECAY 64  640 MS, TONE +12  +1.3 ST,
+ * SWING 30  58%, MASTER 102  -2.0 DB.
+ */
+function readout(id: ContEnc, v: number, inst: Inst | null): string {
   const who = inst ? `${inst} ` : '';
-  const name = encLabel(id);
-  if (id === 'swing') return `SWING ${swingRatio(v)}%`;
-  if (isBipolar(id)) {
-    const n = Math.round(v * 100);
-    return `${who}${name} ${n > 0 ? '+' : ''}${n}${id === 'tone' ? '' : '%'}`;
-  }
-  return `${who}${name} ${pct(v)}%`;
+  return `${who}${encLabel(id)} ${v127Text(potCourse(id, v), isBipolar(id))}  ${encUnit(id, v)}`;
+}
+
+/** Le meme pour un TWEAK du kit : KICK TUNE 64  52 HZ ; un choix de son ou GATE, son nom. */
+function kitReadout(id: KitId): string {
+  if (isFamily(id) || id === 'gate') return kit.readout(id);
+  const label = id === 'snappy' ? 'SNARE SNAPPY' : `KICK ${KIT_LABEL[id]}`;
+  return `${label} ${v127Text(kit.value(id))}  ${kitUnit(id)}`;
 }
 
 /** Le parametre de voix que regle un potard de la rangee VOICE (VOLUME -> level, DIST -> dist) ; null hors de cette rangee. */
 const voiceParam = (id: EncId): VoiceParam | null => (isVoiceEnc(id) && id !== 'vsound' ? VOICE_PARAM[id] : null);
+/** Un potard de la machine a valeur continue (ni TEMPO ni le choix de son). */
+type ContEnc = Exclude<EncId, 'tempo' | 'vsound'>;
 
 /** La famille de sons de la voix selectionnee (le potard SAMPLE) ; null sans voix, ou CY et PC (un seul son). */
 export function soundFamily(): KitFamily | null {
@@ -472,15 +480,13 @@ export function dialTarget(id: EncId): Inst | null {
 }
 
 /**
- * La vue PAGE de l'ecran du MM-RYTM (2026-10-08, etape 1 de la refonte facon
+ * La vue PAGE de l'ecran du MM-RYTM (2026-10-08, la refonte facon
  * Digitakt, Mika : "8 encodeurs assignables a condition de presser les
- * bonnes touches ; l'ecran divise en 8 blocs ; j'adore l'ecran, je veux le
- * meme ecran mais plus utilise ; allons-y petit a petit") : un reglage
- * touche montre sa page en coup d'oeil, son bloc cerne (state/rytmPage.ts).
- * EDIT ouvert garde son ecran : la page suit, sans coup d'oeil.
+ * bonnes touches ; l'ecran divise en 8 blocs") : un reglage touche cerne
+ * son bloc quand il est sur la page affichee (state/rytmPage.ts).
  */
 function touchPage(t: SlotTarget, inst: Inst | null): void {
-  rytmPage.touch(t, inst, { peek: editor.get() !== 'mm808' });
+  rytmPage.touch(t, inst);
 }
 
 /** L'ecran du MM-RYTM montre-t-il celui d'aujourd'hui (HOME, ou EDIT et son anneau des patterns) ? */
@@ -522,7 +528,7 @@ export function dial(id: EncId, v: number): void {
     // seulement (HOME, EDIT) ; en vue PAGE (2026-10-08) le bloc VOL de AMP montre la valeur, la ligne du bas la dit
     if (id === 'vol' && screenHome()) lcdMix.show(inst);
     else {
-      lcdMessage.show(readout(id, dialValue(id), inst), POT_UI.readoutMs, true);
+      lcdMessage.show(readout(id as ContEnc, dialValue(id), inst), POT_UI.readoutMs, true);
       touchPage(id, inst);
     }
     return;
@@ -869,22 +875,80 @@ export function voyDial(id: VoyKnobId, v: number): void {
 export function kitDial(id: KitId, v: number): void {
   resume();
   kit.set(id, v);
-  lcdMessage.show(kit.readout(id), POT_UI.readoutMs, true);
-  // La page SRC en coup d'oeil quand la famille de la voix porte ce reglage (rytm/pages.ts slotOf)
+  lcdMessage.show(kitReadout(id), POT_UI.readoutMs, true);
+  // Son bloc cerne quand la page affichee le porte (rytm/pages.ts slotOf : SRC, SOUND ou SAMPLE)
   touchPage(`r:${id}`, pattern.get().instrument);
 }
 
 /**
  * Les potards des machines passent par un seul identifiant (la couche de
  * saisie, la molette) : EncId pour la 808, v:<id> pour le MM-VOYAGER,
- * r:<id> pour les TWEAKS du MM-RYTM.
+ * r:<id> pour les TWEAKS du MM-RYTM, p:<0-7> pour les huit potards de page
+ * du MM-RYTM (2026-10-08, la refonte facon Digitakt : le potard k regle le
+ * bloc k de la page affichee, pour la voix choisie, rytm/pages.ts).
  */
-export type DialId = EncId | `v:${VoyKnobId}` | `r:${KitId}`;
+export type DialId = EncId | `v:${VoyKnobId}` | `r:${KitId}` | `p:${number}`;
 
 const voyId = (id: DialId): VoyKnobId | null => (id.startsWith('v:') ? (id.slice(2) as VoyKnobId) : null);
 export const kitIdOf = (id: DialId): KitId | null => (id.startsWith('r:') ? (id.slice(2) as KitId) : null);
 
+/* ---------------- les potards de page du MM-RYTM (2026-10-08) ---------------- */
+
+/** Le rang (0 a 7) d'un potard de page, -1 pour un autre potard. */
+export const pageKnobOf = (id: DialId): number => (id.startsWith('p:') ? Number(id.slice(2)) : -1);
+
+/** Ce que porte le potard de page k sur la page affichee, pour la voix choisie. */
+export function pageSlotOf(k: number): PageSlot | null {
+  return pageSlots(rytmPage.get().page, pattern.get().instrument)[k] ?? null;
+}
+
+/** La cible du potard de page k (un DialId ou la velocite du pas), null : vide ou a venir. */
+export function pageTarget(k: number): SlotTarget | null {
+  return pageSlotOf(k)?.target ?? null;
+}
+
+
+/**
+ * Un potard de page tourne : il regle ce que son bloc montre ; un bloc vide
+ * ou a venir le dit a l'ecran (jamais un geste qui ne fait rien en silence).
+ * TRIG VEL : la velocite du dernier pas touche.
+ */
+function pageDial(k: number, v: number): void {
+  resume();
+  const slot = pageSlotOf(k);
+  const page = pageLabel(rytmPage.get().page);
+  const letter = PAGE_KNOB_LETTERS[k] ?? '?';
+  if (!slot || !slot.label) {
+    lcdMessage.show(`KNOB ${letter}: NOTHING ON ${page}`);
+    return;
+  }
+  const t = slot.target;
+  if (t === null) {
+    lcdMessage.show(`${page} ${slot.label}: COMING SOON`);
+    return;
+  }
+  if (t === 'step:vel') {
+    const sel = rytmPage.get().sel;
+    if (sel < 0) {
+      lcdMessage.show(pattern.get().instrument ? 'TAP A STEP FIRST' : 'TAP A PAD FIRST');
+      return;
+    }
+    if (stepVelocity(sel, v)) rytmPage.echo(k);
+    return;
+  }
+  anyDial(t, v);
+  rytmPage.echo(k);
+}
+
+/** La cible d'un potard (un potard de page : celle de son bloc ; null, vide ou a venir). */
+const resolve = (id: DialId): SlotTarget | null => {
+  const k = pageKnobOf(id);
+  return k < 0 ? id : pageTarget(k);
+};
+
 export function anyDial(id: DialId, v: number): void {
+  const pk = pageKnobOf(id);
+  if (pk >= 0) return pageDial(pk, v);
   const r = kitIdOf(id);
   if (r) return kitDial(r, v);
   const k = voyId(id);
@@ -893,17 +957,27 @@ export function anyDial(id: DialId, v: number): void {
 }
 
 export function anyDialValue(id: DialId): number {
-  const r = kitIdOf(id);
+  const t = resolve(id);
+  if (t === null) return 0;
+  if (t === 'step:vel') {
+    const sel = rytmPage.get().sel;
+    return sel < 0 ? 0 : stepVelocityOf(sel);
+  }
+  const r = kitIdOf(t);
   if (r) return kit.value(r);
-  const k = voyId(id);
-  return k ? voyParams.of(k) : dialValue(id as EncId);
+  const k = voyId(t);
+  return k ? voyParams.of(k) : dialValue(t as EncId);
 }
 
 export function anyDialReset(id: DialId): number {
-  const r = kitIdOf(id);
+  const t = resolve(id);
+  if (t === null) return 0;
+  // Un pas remis a sa velocite d'un appui (fort)
+  if (t === 'step:vel') return VEL_MAX;
+  const r = kitIdOf(t);
   if (r) return kit.def(r);
-  const k = voyId(id);
-  return k ? voyParams.def(k) : dialReset(id as EncId);
+  const k = voyId(t);
+  return k ? voyParams.def(k) : dialReset(t as EncId);
 }
 
 /**
@@ -912,22 +986,28 @@ export function anyDialReset(id: DialId): number {
  * que la machine, lue d'un seul identifiant (DialId).
  */
 
-/** La course d'un potard : TEMPO en BPM, TONE et STRETCH de -1 a 1, les autres de 0 a 1. */
+/** La course d'un potard : TEMPO en BPM, TONE et STRETCH de -1 a 1, les autres de 0 a 1 ; VEL de 0 a 9. */
 export function dialRange(id: DialId): [number, number] {
-  if (kitIdOf(id) || voyId(id)) return [0, 1];
-  if (id === 'tempo') return [BPM.min, BPM.max];
-  return [potMin(id as EncId), 1];
+  const t = resolve(id);
+  if (t === null) return [0, 1];
+  if (t === 'step:vel') return [0, VEL_MAX];
+  if (kitIdOf(t) || voyId(t)) return [0, 1];
+  if (t === 'tempo') return [BPM.min, BPM.max];
+  return [potMin(t as EncId), 1];
 }
 
 /** Ses crans (0 : continu) : les selecteurs du MM-ARP (pas le morphing de WAVE), les choix de son du kit. */
 export function dialSteps(id: DialId): number {
-  if (id === 'vsound') {
+  const t = resolve(id);
+  if (t === null) return 0;
+  if (t === 'step:vel') return VEL_MAX + 1;
+  if (t === 'vsound') {
     const f = soundFamily();
     return f ? kitSteps(f) : 0;
   }
-  const r = kitIdOf(id);
+  const r = kitIdOf(t);
   if (r) return kitSteps(r);
-  const k = voyId(id);
+  const k = voyId(t);
   if (k) {
     const vk = voyKnob(k);
     return vk.morph ? 0 : (vk.steps?.length ?? 0);
@@ -935,10 +1015,43 @@ export function dialSteps(id: DialId): number {
   return 0;
 }
 
+/**
+ * Un cran de molette ou de fleche (2026-10-08, Mika : "de 0 a 127") : un
+ * cent-vingt-septieme de la course (un cran pour un reglage a crans), n crans
+ * dans le sens de n. Un cran que le reglage ne prend pas (un TWEAK du kit au
+ * cinquantieme, le centre accrocheur de TONE et STRETCH) est repris un cran
+ * plus loin, jusqu'a ce que la valeur bouge : jamais un geste sans effet.
+ */
+export function dialNudge(id: DialId, n: number): void {
+  if (n === 0) return;
+  const [lo, hi] = dialRange(id);
+  const steps = dialSteps(id);
+  const notch = steps > 1 ? (hi - lo) / (steps - 1) : (hi - lo) / 127;
+  const v0 = anyDialValue(id);
+  for (let m = 1; m <= 8; m += 1) {
+    const v = Math.min(hi, Math.max(lo, v0 + n * notch * m));
+    anyDial(id, Math.round(v * 10000) / 10000);
+    if (anyDialValue(id) !== v0 || v === lo || v === hi) return;
+  }
+}
+
 /** Sa valeur lisible (celle des ecrans des machines) ; une voix a choisir d'abord pour la rangee VOICE. */
 export function dialReadout(id: DialId): string {
+  const pk = pageKnobOf(id);
+  if (pk >= 0) {
+    const slot = pageSlotOf(pk);
+    if (!slot || !slot.label) return 'nothing on this page';
+    const t = slot.target;
+    if (t === null) return `${slot.label}, coming soon`;
+    if (t === 'step:vel') {
+      const sel = rytmPage.get().sel;
+      const v = sel < 0 ? 0 : stepVelocityOf(sel);
+      return sel < 0 ? 'VEL, tap a step first' : `VEL ${velTo127(v)}, step ${two(sel + 1)}`;
+    }
+    return dialReadout(t);
+  }
   const r = kitIdOf(id);
-  if (r) return kit.readout(r);
+  if (r) return kitReadout(r);
   const k = voyId(id);
   if (k) return voyReadout(k, voyParams.of(k));
   if (id === 'tempo') return `${pattern.get().bpm} BPM`;
@@ -951,10 +1064,25 @@ export function dialReadout(id: DialId): string {
   return readout(e, dialValue(e), dialTarget(e));
 }
 
-/** Sa valeur seule (sous un potard du telephone) : 130, 58%, +35, SAW, 909, 52 HZ. */
+/**
+ * Sa valeur seule (sous un potard du telephone, dans un bloc de l'ecran) :
+ * TEMPO en BPM, les potards du MM-RYTM de 0 a 127 (-64 a +63 a zero au
+ * centre) depuis le 2026-10-08, un choix de son par son nom (909, BLUEPRINT),
+ * GATE OFF ou ON ; le MM-ARP garde les siens (SAW, 52 HZ).
+ */
 export function dialValueText(id: DialId): string {
+  const pk = pageKnobOf(id);
+  if (pk >= 0) {
+    const t = pageTarget(pk);
+    if (t === null) return '--';
+    if (t === 'step:vel') {
+      const sel = rytmPage.get().sel;
+      return sel < 0 ? '--' : String(velTo127(stepVelocityOf(sel)));
+    }
+    return dialValueText(t);
+  }
   const r = kitIdOf(id);
-  if (r) return kit.valueText(r);
+  if (r) return isFamily(r) || r === 'gate' ? kit.valueText(r) : v127Text(kit.value(r));
   const k = voyId(id);
   if (k) return voyValueText(k, voyParams.of(k));
   if (id === 'tempo') return `${pattern.get().bpm}`;
@@ -964,13 +1092,50 @@ export function dialValueText(id: DialId): string {
     const f = soundFamily();
     return f ? kit.valueText(f) : '--';
   }
-  const v = dialValue(e);
-  if (e === 'swing') return `${swingRatio(v)}%`;
-  if (isBipolar(e)) {
-    const n = Math.round(v * 100);
-    return `${n > 0 ? '+' : ''}${n}${e === 'tone' ? '' : '%'}`;
+  return v127Text(potCourse(e, dialValue(e)), isBipolar(e));
+}
+
+/** La ligne d'unite d'un potard du MM-RYTM (216 MS, -3.2 DB, rytm/values.ts) ; '' sans unite. */
+export function dialUnit(id: DialId): string {
+  const t = resolve(id);
+  if (t === null) return '';
+  if (t === 'step:vel') {
+    const sel = rytmPage.get().sel;
+    return sel < 0 ? 'TAP A STEP' : `STEP ${two(sel + 1)}`;
   }
-  return `${pct(v)}%`;
+  const r = kitIdOf(t);
+  if (r) return isFamily(r) ? '' : r === 'gate' ? 'SD + CP' : kitUnit(r);
+  if (t === 'vsound') {
+    // Le choix du son : d'ou il vient (SYNTH 909 / 808 / MM, ou un echantillon) et son rang, comme le bloc de l'ecran
+    const f = soundFamily();
+    const n = f ? kitSteps(f) : 0;
+    const i = f ? kitSoundIndex(f) : 0;
+    return n > 0 ? `${i < 3 ? 'SYNTH' : 'SAMPLE'} ${i + 1}/${n}` : '';
+  }
+  if (voyId(t) || t === 'tempo') return '';
+  const e = t as ContEnc;
+  if (isVoiceEnc(e) && !pattern.get().instrument) return '';
+  return encUnit(e, dialValue(e));
+}
+
+/**
+ * Une touche de page du MM-RYTM (la face, le Dock, le MIDI, 2026-10-08) :
+ * sa page s'affiche ; la touche deja allumee pressee encore : HOME (l'ecran
+ * d'avant, l'anneau), puis PAGE. La touche s'enfonce.
+ */
+export function rytmPageKey(id: RytmPageId, stage: Stage | null = null): void {
+  resume();
+  stage?.pressPageKey(id);
+  const was = rytmPage.get().view;
+  const view = rytmPage.press(id);
+  // HOME le dit (et comment revenir) ; le retour de HOME aussi (le message de HOME ne reste pas)
+  if (view === 'home') lcdMessage.show(`HOME  ${pageLabel(id)} AGAIN: PAGE`, 1600);
+  else if (was === 'home') lcdMessage.show(`${pageLabel(id)} PAGE`);
+}
+
+/** H, ou rytm:home en MIDI : HOME, ou la vue PAGE. */
+export function rytmHome(): void {
+  rytmPage.toggleView();
 }
 
 /** Un seul abonnement pour toutes les valeurs des potards (les deux machines, le kit). */

@@ -78,7 +78,7 @@ import {
   COLOR,
   DPR_MAX,
   DPR_MIN_DESKTOP,
-  ENCODERS,
+  FACE_KNOBS,
   EXPLODE,
   OPEN_VIEW,
   EXPOSURE,
@@ -105,8 +105,9 @@ import {
   PANEL,
   PANEL_D,
   PCB,
+  PAGE_KNOB_IDS,
+  RYTM_PAGE_KEYS,
   PORTRAIT,
-  potCourse,
   PLATEAU_W,
   SECTION_FRAME,
   TILT,
@@ -119,6 +120,9 @@ import {
   type SectionId,
 } from '../theme';
 import { Encoders } from './encoders';
+import { RytmPageKeys } from './rytmPageKeys';
+import { anyDialValue, dialRange, pageTarget } from '../actions';
+import type { RytmPageId } from '../rytm/pages';
 import { Explode, type ExplodeInfo } from './explode';
 import { Floor } from './floor';
 import { HitMap, type HotspotDef } from './hit';
@@ -158,6 +162,9 @@ function seekBox(band: { bandY0: number; bandY1: number }): { z: number; hz: num
   const z1 = OLED.z - OLED.d / 2 + (band.bandY1 / TH) * OLED.d;
   return { z: (z0 + z1) / 2, hz: (z1 - z0) / 2 };
 }
+
+/** Le rang de chaque touche de page (scene/rytmPageKeys.ts), par page. */
+const PAGE_KEY_INDEX: Readonly<Record<string, number>> = Object.fromEntries(RYTM_PAGE_KEYS.map((p, i) => [p.id, i]));
 
 /* ---------------- deux machines (2026-10-03) ---------------- */
 
@@ -368,8 +375,10 @@ export class Stage {
   readonly pads: Pads;
   /** touches trig, RUN/STOP, CLEAR et les 16 LED */
   readonly seq: Sequencer3D;
-  /** TEMPO, TONE, LEVEL, SWING, DIST, REVERB */
+  /** MASTER, TEMPO et les huit potards de page A a H (2026-10-08) */
   readonly encoders: Encoders;
+  /** les six touches de page du MM-RYTM et leurs temoins (2026-10-08) */
+  readonly pageKeys: RytmPageKeys;
   /** l'ecran OLED, texte de state/lcd.ts */
   readonly screen: Screen;
   /** le PCB de la vue eclatee : carte texturee et composants */
@@ -678,7 +687,9 @@ export class Stage {
     // Bas : touches trig, RUN/STOP, CLEAR, LED ; moitie gauche : les six encodeurs
     this.seq = new Sequencer3D({ mobile });
     this.encoders = new Encoders({ mobile, castShadow: !mobile });
-    plateau.add(this.pads.mesh, this.pads.halos, this.seq.keys, this.seq.frames, this.seq.buttons, this.seq.leds, this.seq.btnLeds, this.encoders.mesh, this.encoders.skirts);
+    // Les touches de page (2026-10-08, la refonte facon Digitakt) : sous les potards de page
+    this.pageKeys = new RytmPageKeys({ mobile });
+    plateau.add(this.pads.mesh, this.pads.halos, this.seq.keys, this.seq.frames, this.seq.buttons, this.seq.leds, this.seq.btnLeds, this.encoders.mesh, this.encoders.skirts, ...this.pageKeys.objects());
     // L'ecran (redessine 4 fois par seconde au plus, jamais par frame) ; il
     // ne s'abonne a state/lcd.ts qu'avec les autres ecouteurs
     this.screen = new Screen(aniso, () => this.repaint(), mobile);
@@ -712,7 +723,8 @@ export class Stage {
     // Les TWEAKS juste apres OPEN qui les decouvre
     this.tweakDefs = this.rytmTweaks.hotspots();
     this.hit.add(this.tweakDefs);
-    const encDefs = ENCODERS.map((e) => this.encoders.hotspot(e.id, plateau));
+    // MASTER, TEMPO, puis les potards de page A a H et les touches de page (2026-10-08)
+    const encDefs = [...FACE_KNOBS.map((e) => this.encoders.hotspot(e.id, plateau)), ...this.pageKeys.hotspots(plateau)];
     this.hit.add(encDefs);
     const seqDefs = this.seq.hotspots(plateau);
     this.stepDefs = seqDefs.filter((d) => d.kind === 'step');
@@ -900,8 +912,16 @@ export class Stage {
     this.applySection(true);
     this.unsubSection = section.subscribe(this.syncSection);
     {
-      // La bande de la barre suit aussi la vue de l'ecran (HOME, PAGE) et EDIT
-      const offs = [lcd.subscribe(this.syncSeek), rytmPage.subscribe(this.syncSeek), editor.subscribe(this.syncSeek)];
+      // La bande de la barre suit aussi la vue de l'ecran (HOME, PAGE) et EDIT ; les touches de page et
+      // les potards de page suivent la page (2026-10-08)
+      const offs = [
+        lcd.subscribe(this.syncSeek),
+        rytmPage.subscribe(this.syncSeek),
+        editor.subscribe(this.syncSeek),
+        rytmPage.subscribe(this.syncPageKeys),
+        rytmPage.subscribe(this.syncMix),
+      ];
+      this.syncPageKeys();
       this.unsubSeek = () => {
         for (const off of offs) off();
       };
@@ -1072,11 +1092,20 @@ export class Stage {
    */
   private syncSeek = (): void => {
     const on = lcd.get().bar !== null;
-    const band = seekBox(rytmPage.get().view === 'page' && editor.get() !== 'mm808' ? OLED_BAR_PAGE : OLED_BAR);
-    if (this.seekDef.enabled === on && this.seekDef.z === band.z && this.seekDef.hz === band.hz) return;
-    this.seekDef.enabled = on;
-    this.seekDef.z = band.z;
-    this.seekDef.hz = band.hz;
+    const paged = rytmPage.get().view === 'page' && editor.get() !== 'mm808';
+    const band = seekBox(paged ? OLED_BAR_PAGE : OLED_BAR);
+    // En vue PAGE, la barre est a droite des seize pas du pied (scene/screen.ts PAGE_FOOT) : la bande aussi
+    const u0 = paged ? OLED_BAR_PAGE.u0 : 0;
+    const u1 = paged ? OLED_BAR_PAGE.u1 : 1;
+    const x = OLED.x - OLED.w / 2 + ((u0 + u1) / 2) * OLED.w;
+    const hx = ((u1 - u0) / 2) * OLED.w;
+    const d = this.seekDef;
+    if (d.enabled === on && d.z === band.z && d.hz === band.hz && d.x === x && d.hx === hx) return;
+    d.enabled = on;
+    d.z = band.z;
+    d.hz = band.hz;
+    d.x = x;
+    d.hx = hx;
     this.hit.invalidate();
   };
 
@@ -2560,38 +2589,43 @@ export class Stage {
   }
 
   /**
-   * Les potards suivent leur cible : la rangee GLOBAL et MASTER, le
-   * pattern ; la rangee VOICE, la voix du pad selectionne (ses valeurs de
-   * depart sans selection) ; elle tourne aussi quand la selection change.
-   * TONE et STRETCH vont de -1 a 1 : course centree (repere a midi a 0).
+   * Les potards suivent leur cible : MASTER, le volume principal ; les huit
+   * potards de page (2026-10-08), la course de ce que leur bloc regle sur la
+   * page affichee, pour la voix choisie (un bloc vide ou a venir : en bas) ;
+   * ils tournent aussi quand la page ou la voix change. TONE et STRETCH vont
+   * de -1 a 1 : course centree (repere a midi a 0).
    */
   private syncMix = (): void => {
-    const inst = pattern.get().instrument;
-    const v = inst ? voiceFx.of(inst) : VOICE_FX_DEFAULT;
-    const fam = inst ? familyOf(inst as ShotId) : null;
     const e = this.encoders;
-    let changed = false;
-    for (const [id, t] of [
-      ['level', mix.level],
-      ['swing', mix.swing],
-      ['stretch', potCourse('stretch', mix.stretch)],
-      ['dist', mix.drive],
-      ['chorus', mix.chorus],
-      ['delay', mix.delay],
-      ['reverb', mix.reverb],
-      ['vol', v.level],
-      ['vsound', fam ? kit.value(fam) : 0],
-      ['tone', potCourse('tone', v.tone)],
-      ['vdecay', v.decay],
-      ['vdist', v.dist],
-      ['vchorus', v.chorus],
-      ['vdelay', v.delay],
-      ['vreverb', v.reverb],
-    ] as const) {
+    let changed = e.setValue('level', mix.level);
+    PAGE_KNOB_IDS.forEach((id, k) => {
+      const d = `p:${k}` as const;
+      const [lo, hi] = dialRange(d);
+      // Un bloc vide ou a venir : le repere a midi (un potard sans emploi sur cette page)
+      const t = pageTarget(k) === null ? 0.5 : hi > lo ? (anyDialValue(d) - lo) / (hi - lo) : 0;
       if (e.setValue(id, t)) changed = true;
-    }
+    });
     if (changed) this.encodersMoved();
   };
+
+  /** Les touches de page : le temoin de la page affichee (a peine en vue HOME). */
+  private syncPageKeys = (): void => {
+    const rp = rytmPage.get();
+    if (this.pageKeys.setPage(rp.page, rp.view === 'home')) this.repaint();
+  };
+
+  /** Une touche de page s'enfonce et s'eclaire, comme un pas (2026-10-08). */
+  pressPageKey(id: RytmPageId): void {
+    if (this.disposed) return;
+    const i = PAGE_KEY_INDEX[id];
+    if (i === undefined) return;
+    const move = !motion.reduced();
+    const set = (v: number): void => this.pageKeys.setPress(i, v, move);
+    const tw = this.paintTweens;
+    const key = `pkey.press.${i}`;
+    tw.run(key, set, 0, 1, STEP_PRESS.downMs, linear, performance.now(), (end) => tw.run(key, set, 1, 0, STEP_PRESS.upMs, easeOutCubic, end));
+    this.repaint();
+  }
 
   /**
    * Store du motif : le pad de l'instrument selectionne reste allume, les
@@ -2799,6 +2833,7 @@ export class Stage {
     this.pads.dispose();
     this.seq.dispose();
     this.encoders.dispose();
+    this.pageKeys.dispose();
     this.screen.dispose();
     this.pcb.dispose();
     this.rytmTweaks.dispose();

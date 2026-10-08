@@ -2,9 +2,12 @@
  * Les pages du MM-RYTM facon Digitakt (2026-10-08, etape 1, Mika : "8
  * encodeurs assignables a condition de presser les bonnes touches ; l'ecran
  * divise en 8 blocs ; j'adore l'ecran, je veux le meme ecran mais plus
- * utilise ; allons-y petit a petit"). Six pages, TRIG SRC FLTR AMP FX LFO,
- * de huit blocs chacune (A B C D en haut, E F G H dessous, la place des
- * futurs potards sous l'ecran). Un bloc ne fait que montrer un reglage qui
+ * utilise ; allons-y petit a petit"). Six pages, TRIG SRC SMPL FLTR AMP FX
+ * depuis le 2026-10-08 (l'ordre de l'Analog Rytm, Mika : "comme la ANALOG
+ * Rytm ou on peut mettre des samples mais le kick peut etre parametre comme
+ * une machine" : SMPL prend la place de LFO, qui viendra plus tard), de
+ * huit blocs chacune (A B C D en haut, E F G H dessous, au-dessus des huit
+ * potards de page de la face). Un bloc ne fait que montrer un reglage qui
  * existe deja (un DialId, ou la velocite du pas choisi) : aucun nouveau
  * parametre, aucun changement du son a cette etape.
  * - label vide : un bloc vide (rien de dessine) ;
@@ -17,42 +20,39 @@
  *   l'ecran le dit (NO BD) quand BD est la voix choisie.
  * SRC depend de la famille de la voix : le KICK a ses quatre potards, la
  * caisse claire SNAPPY et GATE, le clap GATE, les autres rien de plus.
- * Une table pure : elle n'importe que des types et familyOf.
+ * SMPL : le choix du son (SAMPLE, le meme reglage que SOUND de SRC tant que
+ * les couches SYNTH et SAMPLE de l'etape R3 n'existent pas), le reste a venir.
+ * Une table pure : elle n'importe que des types, familyOf et la liste des
+ * touches (theme.ts).
  */
 
 import type { DialId } from '../actions';
 import { familyOf, type KitFamily } from '../audio/kit';
 import type { ShotId } from '../audio/shotsdsp';
-import type { Inst } from '../theme';
+import { RYTM_PAGE_KEYS, type Inst } from '../theme';
 
-export type RytmPageId = 'trig' | 'src' | 'fltr' | 'amp' | 'fx' | 'lfo';
+export type RytmPageId = (typeof RYTM_PAGE_KEYS)[number]['id'];
 
-/** L'ordre des pages (les touches [ et ] en font le tour). */
-export const RYTM_PAGES: readonly { id: RytmPageId; label: string }[] = [
-  { id: 'trig', label: 'TRIG' },
-  { id: 'src', label: 'SRC' },
-  { id: 'fltr', label: 'FLTR' },
-  { id: 'amp', label: 'AMP' },
-  { id: 'fx', label: 'FX' },
-  { id: 'lfo', label: 'LFO' },
-];
+/** L'ordre des pages (les touches de page, [ et ] en font le tour). */
+export const RYTM_PAGES: readonly { id: RytmPageId; label: string }[] = RYTM_PAGE_KEYS;
 
 /** La page de depart : SRC, ou le KICK montre six blocs vivants. */
 export const DEFAULT_PAGE: RytmPageId = 'src';
 
 /**
- * Etape 1 : la page suit le reglage touche (le seul moyen de la rendre utile
- * avant les touches de page) ; l'etape 2 la fixera (false).
+ * La page ne suit plus le reglage touche (2026-10-08, les touches de page
+ * existent) : un potard absolu (TWEAKS sous le capot, MIDI rytm:enc:...)
+ * n'allume son bloc que sur la page affichee.
  */
-export const FOLLOW_TOUCH = true;
+export const FOLLOW_TOUCH = false;
 
 /** Ce que montre un bloc : un potard (DialId), ou la velocite du pas choisi. */
 export type SlotTarget = DialId | 'step:vel';
 
 /**
  * Le dessin d'un bloc : les images des cartes de l'ecran (level, tone,
- * decay, swing, stretch), des crans (notch), une barre (bar), une barre
- * depuis le centre (barc).
+ * decay, swing, stretch), des crans (notch), un petit potard (bar), un
+ * petit potard depuis le centre (barc).
  */
 export type SlotDraw = 'level' | 'tone' | 'decay' | 'swing' | 'stretch' | 'notch' | 'bar' | 'barc';
 
@@ -91,7 +91,10 @@ const TRIG: readonly PageSlot[] = [
   live('SWING', 'swing', 'swing', 'all'),
 ];
 
-const FLTR: readonly PageSlot[] = [soon('F.ATK'), soon('F.DEC'), EMPTY, EMPTY, live('TONE', 'tone', 'tone'), soon('RESO'), soon('TYPE'), soon('ENV')];
+/** SMPL, dans l'ordre de l'Analog Rytm : TUNE FINE BR SAMPLE, START END LOOP LEVEL. */
+const SMPL: readonly PageSlot[] = [soon('TUNE'), soon('FINE'), soon('BR'), live('SAMPLE', 'vsound', 'notch'), soon('START'), soon('END'), soon('LOOP'), soon('LEVEL')];
+
+const FLTR: readonly PageSlot[] = [soon('ATK'), soon('DEC'), EMPTY, EMPTY, live('TONE', 'tone', 'tone'), soon('RESO'), soon('TYPE'), soon('ENV')];
 
 const AMP: readonly PageSlot[] = [soon('ATK'), soon('HOLD'), live('DEC', 'vdecay', 'decay'), EMPTY, EMPTY, EMPTY, soon('PAN'), live('VOL', 'vol', 'level')];
 
@@ -106,8 +109,6 @@ const FX: readonly PageSlot[] = [
   live('DELAY', 'delay', 'bar', 'all', true),
   live('REVERB', 'reverb', 'bar', 'all', true),
 ];
-
-const LFO: readonly PageSlot[] = ['SPEED', 'MULT', 'FADE', 'DEST', 'WAVE', 'PHASE', 'MODE', 'DEPTH'].map((l) => soon(l));
 
 /** SRC : C a F selon la famille de la voix (le KICK, la caisse claire, le clap ; rien pour les autres). */
 function srcMiddle(f: KitFamily | null): readonly PageSlot[] {
@@ -124,8 +125,8 @@ function src(inst: Inst | null): readonly PageSlot[] {
   const key = f ?? 'none';
   let slots = SRC_CACHE.get(key);
   if (!slots) {
-    // A : le son de la famille (le choix de son du kit), B : TUNE a venir (toutes les voix), G : START a venir
-    slots = [live('SOUND', 'vsound', 'notch'), soon('TUNE'), ...srcMiddle(f), soon('START'), live('STRETCH', 'stretch', 'stretch', 'all')];
+    // A : le son de la famille (le choix de son du kit), B : TUNE a venir (toutes les voix), G : vide (START est sur SMPL)
+    slots = [live('SOUND', 'vsound', 'notch'), soon('TUNE'), ...srcMiddle(f), EMPTY, live('STRETCH', 'stretch', 'stretch', 'all')];
     SRC_CACHE.set(key, slots);
   }
   return slots;
@@ -138,14 +139,14 @@ export function pageSlots(page: RytmPageId, inst: Inst | null): readonly PageSlo
       return TRIG;
     case 'src':
       return src(inst);
+    case 'smpl':
+      return SMPL;
     case 'fltr':
       return FLTR;
     case 'amp':
       return AMP;
-    case 'fx':
-      return FX;
     default:
-      return LFO;
+      return FX;
   }
 }
 
@@ -153,13 +154,15 @@ export function pageSlots(page: RytmPageId, inst: Inst | null): readonly PageSlo
  * La page et le bloc d'un reglage pour cette voix, null s'il n'est sur
  * aucune page (MASTER, TEMPO, le MM-ARP) : un choix de son r:<famille> est
  * SOUND quand c'est la famille de la voix, un potard du kit seulement quand
- * la famille de la voix le porte (SNAPPY pour la caisse claire...).
+ * la famille de la voix le porte (SNAPPY pour la caisse claire...). page :
+ * celle qu'on regarde, d'abord (SOUND et SAMPLE sont le meme reglage).
  */
-export function slotOf(t: SlotTarget, inst: Inst | null): { page: RytmPageId; k: number } | null {
+export function slotOf(t: SlotTarget, inst: Inst | null, page?: RytmPageId): { page: RytmPageId; k: number } | null {
   const f = inst ? familyOf(inst as ShotId) : null;
-  if (t.startsWith('r:') && f !== null && t.slice(2) === f) return { page: 'src', k: 0 };
-  for (const { id } of RYTM_PAGES) {
-    const k = pageSlots(id, inst).findIndex((s) => s.target === t);
+  const target: SlotTarget = t.startsWith('r:') && f !== null && t.slice(2) === f ? 'vsound' : t;
+  const order = page ? [page, ...RYTM_PAGES.map((p) => p.id).filter((id) => id !== page)] : RYTM_PAGES.map((p) => p.id);
+  for (const id of order) {
+    const k = pageSlots(id, inst).findIndex((s) => s.target === target);
     if (k >= 0) return { page: id, k };
   }
   return null;

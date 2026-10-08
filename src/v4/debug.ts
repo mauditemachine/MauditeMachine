@@ -225,8 +225,8 @@ export interface V4Debug {
   };
   /**
    * Les pages du MM-RYTM (2026-10-08, state/rytmPage.ts) : page, l'etat a
-   * l'instant (view : 'page' epinglee ou en coup d'oeil, sinon 'home') ;
-   * store, pour les tests (setPage, step, toggleView, touch).
+   * l'instant (view : 'page' par defaut, 'home' l'anneau d'avant) ; store,
+   * pour les tests (setPage, press, step, toggleView, touch).
    */
   readonly rytm: {
     readonly page: RytmPageState & { view: RytmView };
@@ -406,7 +406,7 @@ export function installDebug(src: DebugSource): () => void {
     },
     rytm: {
       get page() {
-        // Un objet simple : la vue lue maintenant (l'accesseur du store se lit a chaque fois)
+        // Un objet simple, copie
         const s = rytmPage.get();
         return { ...s, view: s.view };
       },

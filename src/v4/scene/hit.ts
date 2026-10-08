@@ -64,6 +64,9 @@ export type HotspotKind =
   | 'vseq'
   // MM-RYTM (2026-10-04) : les TWEAKS sous le capot (audio/kit.ts)
   | 'rknob'
+  // MM-RYTM (2026-10-08, facon Digitakt) : les huit potards de page (index 0 a 7), les six touches de page (rpage)
+  | 'penc'
+  | 'pkey'
   // MM-DECKS (2026-10-04) : potards, faders, touches, jogs
   | 'djknob'
   | 'djfader'
@@ -113,6 +116,8 @@ export interface HotspotDef {
   vknob?: VoyKnobId;
   /** MM-RYTM : un TWEAK du kit (audio/kit.ts) */
   rknob?: KitId;
+  /** MM-RYTM : la page d'une touche de page (rytm/pages.ts) */
+  rpage?: string;
   /** MM-DECKS : l'id de la commande (dj/layout.ts) */
   dj?: string;
   /** MM-BASS : la commande (le potard, la touche, le rang du pas) */
@@ -148,6 +153,7 @@ export interface HotspotView {
   lcd?: PresetKey;
   vknob?: VoyKnobId;
   rknob?: KitId;
+  rpage?: string;
   /** MM-DECKS : l'id de la commande (le MIDI LEARN s'en sert, 2026-10-05) ; MM-BASS de meme */
   dj?: string;
   bass?: string;
@@ -638,6 +644,7 @@ export class HitMap {
         ...(def.lcd ? { lcd: def.lcd } : {}),
         ...(def.vknob ? { vknob: def.vknob } : {}),
         ...(def.rknob ? { rknob: def.rknob } : {}),
+        ...(def.rpage ? { rpage: def.rpage } : {}),
         ...(def.dj ? { dj: def.dj } : {}),
         ...(def.bass ? { bass: def.bass } : {}),
         x: r1(rect[0]),

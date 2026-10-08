@@ -21,14 +21,41 @@
  *   machine.
  * Memes actions et memes stores que la machine (actions.ts anyDial) : la
  * machine 3D tourne avec. Au clavier : role slider, fleches, Debut, Fin.
+ *
+ * MM-RYTM depuis le 2026-10-08 (la refonte facon Digitakt, Mika : "les
+ * valeurs de knobs sont a l'ecran, de 0 a 127 ; que ce soit super
+ * responsive en mobile et utilisable") : l'onglet PAGES (son id reste
+ * 'voice', l'onglet retenu ne se perd pas) a les six touches de page (la
+ * page allumee, encore : HOME), la voix, et les huit potards de page en
+ * 2 x 4 comme sous l'ecran (A B C D, E F G H), chacun ce que son bloc regle
+ * sur la page affichee, sa valeur de 0 a 127 et son unite ; MASTER garde
+ * MASTER et TEMPO. GLOBAL FX, KICK et VOICES sont partis : tout est sur les
+ * pages.
  */
 
 import React, { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
-import { anyDial, anyDialReset, anyDialValue, dialRange, dialReadout, dialSteps, dialValueText, subscribeDials, tuneVoice, type DialId } from '../actions';
+import {
+  anyDial,
+  anyDialReset,
+  anyDialValue,
+  dialNudge,
+  dialRange,
+  dialReadout,
+  dialSteps,
+  dialUnit,
+  dialValueText,
+  rytmPageKey,
+  subscribeDials,
+  tuneVoice,
+  type DialId,
+} from '../actions';
 import { INSTRUMENTS, pattern } from '../audio/pattern';
+import { stageNow } from '../midi/targets';
+import { pageSlots } from '../rytm/pages';
 import type { Stage } from '../scene/renderer';
 import type { MachineId } from '../state/focus';
-import { POT_UI, TEMPO_UI } from '../theme';
+import { rytmPage } from '../state/rytmPage';
+import { PAGE_KNOB_IDS, PAGE_KNOB_LETTERS, POT_UI, RYTM_PAGE_KEYS, TEMPO_UI } from '../theme';
 
 interface Dial {
   id: DialId;
@@ -41,11 +68,12 @@ interface Group {
   dials: readonly Dial[];
   /** VOICE FX : la voix a choisir au-dessus */
   voices?: boolean;
+  /** PAGES du MM-RYTM (2026-10-08) : les touches de page au-dessus, les potards de page */
+  pages?: boolean;
 }
 
 const v = (id: string, label: string): Dial => ({ id: `v:${id}` as DialId, label });
 const e = (id: string, label: string): Dial => ({ id: id as DialId, label });
-const r = (id: string, label: string): Dial => ({ id: `r:${id}` as DialId, label });
 
 const ARP_GROUPS: readonly Group[] = [
   { id: 'osc1', label: 'OSC 1', dials: [v('wave1', 'WAVE'), v('range1', 'RANGE'), v('semi1', 'SEMI'), v('fine1', 'FINE'), v('on1', 'ON'), v('osc1', 'LEVEL')] },
@@ -60,17 +88,10 @@ const ARP_GROUPS: readonly Group[] = [
   { id: 'tweaks', label: 'TWEAKS', dials: [v('phase', 'PHASE'), v('drift', 'DRIFT'), v('width', 'WIDTH'), v('monoLow', 'BASS MONO'), v('keyTrack', 'KEY TRACK'), v('accent', 'ACCENT'), v('sync', 'SYNC'), v('duck', 'SIDECHAIN'), v('chord', 'CHORD')] },
 ];
 
+/** PAGES (id 'voice', celui de l'ancien VOICE FX : l'onglet retenu reste valable) et MASTER. */
 const RYTM_GROUPS: readonly Group[] = [
-  { id: 'global', label: 'GLOBAL FX', dials: [e('swing', 'SWING'), e('stretch', 'STRETCH'), e('dist', 'DIST'), e('chorus', 'CHORUS'), e('delay', 'DELAY'), e('reverb', 'REVERB')] },
-  {
-    id: 'voice',
-    label: 'VOICE FX',
-    voices: true,
-    dials: [e('vol', 'VOLUME'), e('vsound', 'SAMPLE'), e('tone', 'TONE'), e('vdecay', 'DECAY'), e('vdist', 'DIST'), e('vchorus', 'CHORUS'), e('vdelay', 'DELAY'), e('vreverb', 'REVERB')],
-  },
+  { id: 'voice', label: 'PAGES', voices: true, pages: true, dials: PAGE_KNOB_IDS.map((_, k) => e(`p:${k}`, PAGE_KNOB_LETTERS[k])) },
   { id: 'main', label: 'MASTER', dials: [e('level', 'MASTER'), e('tempo', 'TEMPO')] },
-  { id: 'kick', label: 'KICK', dials: [r('bd', 'SOUND'), r('tune', 'TUNE'), r('attack', 'ATTACK'), r('decay', 'DECAY'), r('drive', 'DRIVE')] },
-  { id: 'kit', label: 'VOICES', dials: [r('sd', 'SNARE'), r('snappy', 'SNAPPY'), r('cp', 'CLAP'), r('gate', 'GATE'), r('hh', 'HATS'), r('tom', 'TOMS')] },
 ];
 
 const TAB_KEY = 'mm.v4.knobtab.';
@@ -126,10 +147,18 @@ export interface KnobSpec {
   subscribe(fn: () => void): () => void;
   /** TEMPO : au BPM entier */
   whole?: boolean;
+  /** la ligne d'unite sous la valeur (216 MS, -3.2 DB) */
+  unit?(): string;
+  /** la lettre du potard (un potard de page du MM-RYTM : A a H) */
+  letter?: string;
+  /** les fleches : n crans de 1 sur 127 (un potard de page) */
+  nudge?(n: number): void;
+  /** un reglage a venir : grise, il le dit a l'ecran */
+  soon?: boolean;
 }
 
 /** Un potard : glisser, taper (cran suivant), deux tapes (valeur de depart), clavier. */
-export const KnobView: React.FC<{ spec: KnobSpec }> = ({ spec }) => {
+export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean }> = ({ spec, compact = false }) => {
   const value = useSyncExternalStore(spec.subscribe, spec.get, spec.get);
   const [lo, hi] = spec.range;
   const steps = spec.steps;
@@ -187,6 +216,12 @@ export const KnobView: React.FC<{ spec: KnobSpec }> = ({ spec }) => {
     } else lastTap.current = t;
   };
   const onKey = (ev: React.KeyboardEvent<HTMLDivElement>): void => {
+    // Un potard de page (2026-10-08) : 1 sur 127 le cran (Maj : 10), Debut et Fin aux butees
+    if (spec.nudge && (ev.key === 'ArrowUp' || ev.key === 'ArrowRight' || ev.key === 'ArrowDown' || ev.key === 'ArrowLeft')) {
+      ev.preventDefault();
+      spec.nudge((ev.key === 'ArrowUp' || ev.key === 'ArrowRight' ? 1 : -1) * (ev.shiftKey ? 10 : 1));
+      return;
+    }
     const step = steps > 1 ? 1 / (steps - 1) : ev.shiftKey ? 0.1 : spec.whole ? 1 / (hi - lo) : 0.01;
     let p = k;
     if (ev.key === 'ArrowUp' || ev.key === 'ArrowRight') p += step;
@@ -204,7 +239,8 @@ export const KnobView: React.FC<{ spec: KnobSpec }> = ({ spec }) => {
   const [qx, qy] = pt(at, 7);
   return (
     <div
-      className="v4-knob"
+      className={compact ? 'v4-knob v4-knob-page' : 'v4-knob'}
+      data-soon={spec.soon ? '1' : undefined}
       role="slider"
       tabIndex={0}
       aria-label={spec.label}
@@ -221,7 +257,10 @@ export const KnobView: React.FC<{ spec: KnobSpec }> = ({ spec }) => {
       }}
       onKeyDown={onKey}
     >
-      <span className="v4-knob-label">{spec.label}</span>
+      <span className="v4-knob-label">
+        {spec.letter && <span className="v4-knob-letter">{spec.letter}</span>}
+        {spec.label}
+      </span>
       <svg className="v4-knob-dial" viewBox={`0 0 ${SIZE} ${SIZE}`} width={SIZE} height={SIZE} aria-hidden="true">
         <path className="v4-knob-track" d={arc(A0, A0 + SWEEP, R_ARC)} />
         {Math.abs(at - from) > 0.5 && <path className="v4-knob-arc" d={from < at ? arc(from, at, R_ARC) : arc(at, from, R_ARC)} />}
@@ -235,6 +274,73 @@ export const KnobView: React.FC<{ spec: KnobSpec }> = ({ spec }) => {
         <line className="v4-knob-mark" x1={qx} y1={qy} x2={px} y2={py} />
       </svg>
       <span className="v4-knob-value">{spec.valueText()}</span>
+      {spec.unit && <span className="v4-knob-unit">{spec.unit() || '\u00a0'}</span>}
+    </div>
+  );
+};
+
+/**
+ * Un potard de page du MM-RYTM (2026-10-08) : ce que son bloc regle sur la
+ * page affichee, pour la voix choisie (sa course, ses crans et son nom
+ * changent avec la page) ; un bloc vide, une case vide (la grille garde la
+ * place des potards de la machine) ; un reglage a venir, grise.
+ */
+const PageKnob: React.FC<{ k: number }> = ({ k }) => {
+  const rp = useSyncExternalStore(rytmPage.subscribe, rytmPage.get, rytmPage.get);
+  const p = useSyncExternalStore(pattern.subscribe, pattern.get, pattern.get);
+  const slot = pageSlots(rp.page, p.instrument)[k];
+  const letter = PAGE_KNOB_LETTERS[k];
+  if (!slot || !slot.label) {
+    return (
+      <div className="v4-knob v4-knob-page v4-knob-empty" aria-hidden="true">
+        <span className="v4-knob-label">
+          <span className="v4-knob-letter">{letter}</span>
+        </span>
+      </div>
+    );
+  }
+  const id = `p:${k}` as DialId;
+  const range = dialRange(id);
+  const spec: KnobSpec = {
+    label: slot.label,
+    letter,
+    get: () => anyDialValue(id),
+    set: (v) => anyDial(id, v),
+    reset: () => anyDialReset(id),
+    range,
+    steps: dialSteps(id),
+    bipolar: range[0] < 0,
+    readout: () => dialReadout(id),
+    valueText: () => dialValueText(id),
+    unit: () => (slot.target === null ? 'SOON' : dialUnit(id)),
+    nudge: (n) => dialNudge(id, n),
+    subscribe: subscribeDials,
+    soon: slot.target === null,
+  };
+  return <KnobView spec={spec} compact />;
+};
+
+/** Les six touches de page (2026-10-08) : comme sur la machine, la page allumee pressee encore : HOME. */
+const PageKeys: React.FC = () => {
+  const rp = useSyncExternalStore(rytmPage.subscribe, rytmPage.get, rytmPage.get);
+  return (
+    <div className="v4-knobs-pages" role="group" aria-label="Pages, the lit one again: home screen">
+      {RYTM_PAGE_KEYS.map((pk) => {
+        const on = rp.page === pk.id;
+        return (
+          <button
+            key={pk.id}
+            type="button"
+            className="v4-knobs-page"
+            data-lit={on ? (rp.view === 'page' ? '1' : 'dim') : '0'}
+            aria-pressed={on && rp.view === 'page'}
+            aria-label={`${pk.label} page${on ? (rp.view === 'page' ? ', shown, press again for home' : ', press for the page view') : ''}`}
+            onClick={() => rytmPageKey(pk.id, stageNow())}
+          >
+            {pk.label}
+          </button>
+        );
+      })}
     </div>
   );
 };
@@ -278,7 +384,7 @@ export const KnobPanel: React.FC<Props> = ({ machine }) => {
     }
   };
   return (
-    <div className="v4-knobs">
+    <div className="v4-knobs" data-pages={g.pages ? '1' : undefined}>
       <div className="v4-knobs-tabs" role="tablist" aria-label="Sections">
         {groups.map((x) => (
           <button key={x.id} type="button" role="tab" aria-selected={x.id === g.id} className="v4-knobs-tab" onClick={() => pick(x.id)}>
@@ -286,6 +392,7 @@ export const KnobPanel: React.FC<Props> = ({ machine }) => {
           </button>
         ))}
       </div>
+      {g.pages && <PageKeys />}
       {g.voices && (
         <div className="v4-knobs-voices" role="group" aria-label="Voice to tune">
           {INSTRUMENTS.map((inst) => (
@@ -296,9 +403,7 @@ export const KnobPanel: React.FC<Props> = ({ machine }) => {
         </div>
       )}
       <div className="v4-knobs-grid" role="tabpanel" aria-label={g.label}>
-        {g.dials.map((d) => (
-          <BigKnob key={d.id} id={d.id} label={d.label} />
-        ))}
+        {g.pages ? PAGE_KNOB_IDS.map((pk, k) => <PageKnob key={pk} k={k} />) : g.dials.map((d) => <BigKnob key={d.id} id={d.id} label={d.label} />)}
       </div>
     </div>
   );

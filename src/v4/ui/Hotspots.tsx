@@ -38,6 +38,12 @@ import {
   anyDial,
   anyDialReset,
   anyDialValue,
+  dialNudge,
+  dialRange,
+  dialReadout,
+  pageKnobOf,
+  pageSlotOf,
+  rytmPageKey,
   chipAction,
   clearPattern,
   randomPattern,
@@ -84,6 +90,9 @@ import { bassLoad, type BassModules } from '../state/bassload';
 import { djView } from '../dj/view';
 import { editor } from '../state/editor';
 import { patterns, slotName } from '../state/patterns';
+import { rytmPage } from '../state/rytmPage';
+import { isRytmPage, pageLabel } from '../rytm/pages';
+import { v127 } from '../rytm/values';
 import { PRESET_KEY_ARIA, PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode, type PresetKey } from '../state/presetMode';
 import { chipsLive, explode } from '../state/explode';
 import { MACHINES, focus, VOYAGER } from '../state/focus';
@@ -103,7 +112,12 @@ import {
   DIAL_FINE,
   DIAL_KEYS,
   ENCODERS,
+  FACE_KNOBS,
   INST_NAMES,
+  PAGE_KNOB_LETTERS,
+  RYTM_PAGE_KEYS,
+  isPageKnob,
+  pageKnobIndex,
   OPEN_ARIA,
   ORBIT,
   PADS,
@@ -144,6 +158,8 @@ interface Down {
   vpad?: number;
   vbtn?: 'run' | 'clear' | 'random' | 'edit';
   lcd?: PresetKey;
+  /** une touche de page du MM-RYTM (2026-10-08) */
+  rpage?: string;
   x: number;
   y: number;
   /** encodeur (ou potard du MM-VOYAGER, v:<id>) sous le pointerdown, et sa valeur de depart */
@@ -214,13 +230,35 @@ const voySteps = (k: DialId): number => {
   return vk.morph ? 0 : (vk.steps?.length ?? 0);
 };
 
-/** Le potard d'une cible : un encodeur de la 808, un potard du MM-ARP, un TWEAK du MM-RYTM. */
+/**
+ * Le potard d'une cible : un encodeur de la 808, un potard du MM-ARP, un
+ * TWEAK du MM-RYTM, un potard de page du MM-RYTM (p:<0-7>, 2026-10-08).
+ */
 const dialOf = (h: HotspotView | null | undefined): DialId | null =>
-  !h ? null : h.kind === 'encoder' && h.param ? h.param : h.kind === 'vknob' && h.vknob ? (`v:${h.vknob}` as DialId) : h.kind === 'rknob' && h.rknob ? (`r:${h.rknob}` as DialId) : null;
+  !h
+    ? null
+    : h.kind === 'encoder' && h.param
+      ? h.param
+      : h.kind === 'penc' && h.index !== undefined
+        ? (`p:${h.index}` as DialId)
+        : h.kind === 'vknob' && h.vknob
+          ? (`v:${h.vknob}` as DialId)
+          : h.kind === 'rknob' && h.rknob
+            ? (`r:${h.rknob}` as DialId)
+            : null;
 
-/** Valeur par px de glisser : TEMPO 2 px par BPM, les autres 150 px la course (TONE : 2 unites). */
-const perPx = (k: DialId): number =>
-  isVoy(k) || isKit(k) ? 1 / POT_UI.pxRange : k === 'tempo' ? 1 / TEMPO_UI.pxPerBpm : (1 - potMin(k as EncId)) / POT_UI.pxRange;
+/**
+ * Valeur par px de glisser : TEMPO 2 px par BPM, les autres 150 px la course
+ * (TONE : 2 unites) ; un potard de page, 150 px la course de ce qu'il regle
+ * sur la page affichee (relatif : partie de sa valeur, jamais de saut).
+ */
+const perPx = (k: DialId): number => {
+  if (pageKnobOf(k) >= 0) {
+    const [lo, hi] = dialRange(k);
+    return (hi - lo) / POT_UI.pxRange;
+  }
+  return isVoy(k) || isKit(k) ? 1 / POT_UI.pxRange : k === 'tempo' ? 1 / TEMPO_UI.pxPerBpm : (1 - potMin(k as EncId)) / POT_UI.pxRange;
+};
 
 /**
  * L'encodeur d'un glisser qui le tient : valeur de depart + ecart sur son
@@ -400,6 +438,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.kind === 'vbtn' && d.vbtn === 'edit') editToggle('voy', stage);
       else if (d.kind === 'edit') editToggle('mm808', stage);
       else if ((d.kind === 'lcd' || d.kind === 'vlcd') && d.lcd) presetKey(d.kind === 'lcd' ? 'mm808' : 'voy', d.lcd);
+      else if (d.kind === 'pkey' && d.rpage && isRytmPage(d.rpage)) rytmPageKey(d.rpage, stage);
       else if (d.dial) tapDial(d.dial);
       else return null;
       return d.id;
@@ -504,6 +543,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         vpad: h?.vpad,
         vbtn: h?.vbtn,
         lcd: h?.lcd,
+        rpage: h?.rpage,
         multi,
         x: e.clientX,
         y: e.clientY,
@@ -705,7 +745,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       wheelAcc -= delta * unit;
       const px = k === 'tempo' ? TEMPO_UI.wheelPx : POT_UI.wheelPx;
       const steps = Math.trunc(wheelAcc / px);
-      if (steps !== 0) {
+      if (steps !== 0 && pageKnobOf(k) >= 0) {
+        // Un potard de page (2026-10-08) : un cran = 1 sur 127 (un cran du reglage s'il en a), Maj aussi
+        wheelAcc -= steps * px;
+        dialNudge(k, steps);
+      } else if (steps !== 0) {
         wheelAcc -= steps * px;
         // Maj : reglage fin, 1 % le cran (TEMPO reste a 1 BPM)
         // Un potard a crans du MM-ARP : un cran par cran de molette (2 % ne le faisaient jamais bouger)
@@ -835,6 +879,42 @@ const onDialKey =
     dial(k, k === 'tempo' ? v : Math.round(v * 100) / 100);
   };
 
+/**
+ * Les fleches sur un potard de page (2026-10-08) : un cran de 1 sur 127 (Maj
+ * ou Page : 10), un cran du reglage s'il en a ; Debut et Fin aux butees.
+ */
+const onPageKnobKey =
+  (d: DialId) =>
+  (e: React.KeyboardEvent<HTMLElement>): void => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    const big = e.shiftKey ? 10 : 1;
+    switch (e.key) {
+      case 'ArrowUp':
+      case 'ArrowRight':
+        dialNudge(d, big);
+        break;
+      case 'ArrowDown':
+      case 'ArrowLeft':
+        dialNudge(d, -big);
+        break;
+      case 'PageUp':
+        dialNudge(d, 10);
+        break;
+      case 'PageDown':
+        dialNudge(d, -10);
+        break;
+      case 'Home':
+        anyDial(d, dialRange(d)[0]);
+        break;
+      case 'End':
+        anyDial(d, dialRange(d)[1]);
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+  };
+
 /** Les fleches sur un TWEAK du kit : un centieme (Maj : un dixieme), un cran pour un choix de son. */
 const onKitKey =
   (k: KitId) =>
@@ -933,6 +1013,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const chorus = useSyncExternalStore(mix.subscribe, () => mix.chorus, () => mix.chorus);
   // Rangee VOICE : la voix du pad selectionne, sinon ses valeurs de depart
   const vfx = useSyncExternalStore(voiceFx.subscribe, voiceFx.get, voiceFx.get);
+  // La page du MM-RYTM (2026-10-08) : les jumeaux des potards et des touches de page la suivent
+  const rp = useSyncExternalStore(rytmPage.subscribe, rytmPage.get, rytmPage.get);
   const els = useRef(new Map<string, HTMLElement>());
   const refs = useRef(new Map<string, (el: HTMLElement | null) => void>());
   const stageRef = useRef(stage);
@@ -1204,7 +1286,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
             />
           );
         })}
-      {ENCODERS.map((enc) => {
+      {FACE_KNOBS.filter((k) => !isPageKnob(k.id)).map((fk) => {
+        const enc = ENCODERS.find((e) => e.id === fk.id) ?? ENCODERS[0];
         const id = `enc-${enc.id}`;
         const v = values[enc.id];
         const tempo = enc.id === 'tempo';
@@ -1227,6 +1310,48 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
           />
         );
       })}
+      {FACE_KNOBS.filter((k) => isPageKnob(k.id)).map((fk) => {
+        // Les huit potards de page (2026-10-08) : ce qu'ils reglent sur la page affichee, de 0 a 127
+        const k = isPageKnob(fk.id) ? pageKnobIndex(fk.id) : 0;
+        const id = `penc-${k}`;
+        const d = `p:${k}` as DialId;
+        const slot = pageSlotOf(k);
+        const [lo, hi] = dialRange(d);
+        const course = hi > lo ? (anyDialValue(d) - lo) / (hi - lo) : 0;
+        const what = slot && slot.label ? `${slot.label}${slot.target === null ? ', coming soon' : ''}` : 'nothing';
+        return (
+          <div
+            key={id}
+            ref={refFor(id)}
+            className="v4-twin"
+            data-twin="penc"
+            data-hotspot={id}
+            role="slider"
+            tabIndex={0}
+            aria-label={`Knob ${PAGE_KNOB_LETTERS[k]}, ${pageLabel(rp.page)} page: ${what}${slot?.scope === 'track' && inst ? `, ${INST_NAMES[inst]}` : ''}`}
+            aria-orientation="vertical"
+            aria-valuemin={0}
+            aria-valuemax={127}
+            aria-valuenow={v127(course)}
+            aria-valuetext={dialReadout(d)}
+            onKeyDown={onPageKnobKey(d)}
+          />
+        );
+      })}
+      {RYTM_PAGE_KEYS.map((pk) => (
+        <button
+          key={`pkey-${pk.id}`}
+          ref={refFor(`pkey-${pk.id}`)}
+          type="button"
+          className="v4-twin"
+          data-twin="pkey"
+          data-hotspot={`pkey-${pk.id}`}
+          aria-label={`${pk.label} page${rp.page === pk.id ? (rp.view === 'page' ? ', shown, press again for HOME' : ', press for the page view') : ''}`}
+          aria-pressed={rp.page === pk.id && rp.view === 'page'}
+          onKeyDown={noRepeat}
+          onClick={() => rytmPageKey(pk.id, stageRef.current)}
+        />
+      ))}
       <button
         ref={refFor('run')}
         type="button"
