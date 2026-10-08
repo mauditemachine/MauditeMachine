@@ -44,9 +44,12 @@ const engineOs = (): number => (typeof window !== 'undefined' && window.matchMed
  * compresseur de la batterie et son gain de compensation automatique).
  * 0.7 depuis le 2026-10-07 (Mika : "le kick est la reference, tout ce qu'il
  * y a apres ne doit pas etre aussi fort que lui") : l'arpege par defaut
- * crete vers -9 dBFS, 4 dB sous le kick (il cretait au-dessus).
+ * crete vers -9 dBFS, 4 dB sous le kick (il cretait au-dessus). 0.37 le
+ * 2026-10-08, mesure en sortie reelle : la batterie n'a plus de compresseur
+ * (son gain de compensation gonflait le kick), l'ARP reste 3 a 5 dB sous lui,
+ * avec le rattrapage de -3 dB des trois machines (drums.ts RYTM_TRIM).
  */
-const VOLUME_K = 0.7;
+const VOLUME_K = 0.37;
 const MAKEUP = { delay: 0.35, reverb: 0.5 } as const;
 /** REVERB : envoi renforce vers la reverbe partagee. */
 const REVERB_BOOST = 1.25;

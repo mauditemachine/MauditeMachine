@@ -133,7 +133,12 @@ export interface Voice {
   bdGate?: GainNode;
 }
 
-/** Le compresseur commun (la batterie et le MM-ARP), reglable par les tests (__v4.audio.comp). */
+/**
+ * L'ancien compresseur de la batterie (reglable par les tests, __v4.audio.comp). Hors du chemin depuis le
+ * 2026-10-08 (Mika : "le kick est la reference, tout ce qu'il y a apres doit etre moins fort ; ensuite je
+ * rattrape au master") : le DynamicsCompressorNode de Chrome ajoute d'office un gain de compensation (+3,7 dB
+ * sous -14 dBFS) et comprimait le kick, les autres voix remontaient d'autant ; le noeud reste cree, debranche.
+ */
 const COMP = { threshold: -14, knee: 10, ratio: 3, attack: 0.004, release: 0.15 };
 /** Un charley (ferme ou ouvert) coupe le charley ouvert qui sonne encore, en 8 ms (choke 808). */
 const CHOKE_S = 0.008;
@@ -205,13 +210,18 @@ function softClipCurve(): Float32Array {
 }
 
 /**
- * La sortie du MM-RYTM. -2 dB jusqu'au 2026-10-07 ; depuis (Mika : "le
- * kick est la reference... ensuite je rattrape le tout dans ma tranche
- * master et je monte de quelques dB"), les autres voix sont plus bas que le
- * kick (shotsdsp.ts SHOT_BELOW) et la boite sort a 0 dB : le kick crete
- * vers -5 dBFS, le motif entier sous -1 dBFS.
+ * La sortie du MM-RYTM. -2 dB jusqu'au 2026-10-07, 0 dB le 2026-10-07 ;
+ * depuis le 2026-10-08 (Mika : "je descends le tout de -12 dB, le kick est
+ * la reference ; tout ce qu'il y a apres est plus bas ; ensuite je
+ * rattrape dans ma tranche master"), mesure en sortie reelle (les trois
+ * machines sommees, avant MASTER) : sans compresseur, les voix gardent leurs
+ * ecarts au kick (shotsdsp.ts SHOT_BELOW : snare -1,5 dB, clap -3,5, toms,
+ * charleys, cymbale -5,5 a -7), la basse et l'ARP sont 2 a 3 dB plus bas que
+ * lui, et le tout est rattrape de -3 dB (ici, bass.worklet.js, synth.ts) :
+ * le kick sort vers -9 dBFS, le mix le plus dense crete vers -1,7 dBFS, sous
+ * le plafond du limiteur (-0,3 dBFS), qui ne touche plus au kick.
  */
-const RYTM_TRIM = 1;
+const RYTM_TRIM = 0.71;
 
 function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   const bus = c.createGain();
@@ -246,7 +256,7 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   master.gain.value = o.master ?? (FLAGS.mute ? 0 : 1);
 
   // Le bus rejoint TONE par DIST (sec, et mouille si DIST > 0), puis CHORUS
-  lvl.connect(comp);
+  // Plus de compresseur (2026-10-08) : LEVEL va droit a la prise du MM-RYTM, les ecarts au kick restent ceux voulus
   // Chaque machine sort par sa propre prise (le mixer du MM-DECKS peut la prendre).
   // Le MM-RYTM y gardait 2 dB de marge (2026-10-04, la voie 1 du MM-DECKS s'allumait) ;
   // a 0 dB depuis le 2026-10-07 : ses voix sous le kick, il crete sous -1 dBFS
@@ -257,7 +267,7 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   rytmOut.connect(analyser);
   arpOut.connect(analyser);
   bassOut.connect(analyser);
-  comp.connect(rytmOut);
+  lvl.connect(rytmOut);
   analyser.connect(clipPre);
   const post = c.createGain();
   clipper.connect(post);

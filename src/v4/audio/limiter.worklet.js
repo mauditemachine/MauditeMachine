@@ -12,10 +12,12 @@
  *   plafond ;
  * - le son retarde de LOOK - 1 echantillons, aligne sur son gain.
  * Stereo liee (un seul gain pour les deux canaux : l'image ne bouge pas).
- * Plafond -1 dBFS. Sous le plafond, le son passe intact (gain 1).
+ * Plafond -0,3 dBFS (2026-10-08 ; -1 avant) : le mix des machines crete
+ * vers -1,7 dBFS, le limiteur n'est plus qu'un filet. Sous le plafond, le
+ * son passe intact (gain 1).
  */
 
-const CEILING = Math.pow(10, -1 / 20);
+const CEILING = Math.pow(10, -0.3 / 20);
 const LOOK_S = 0.003;
 const RELEASE_S = 0.12;
 

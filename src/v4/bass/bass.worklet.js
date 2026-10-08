@@ -327,11 +327,12 @@ class MMBass extends AudioWorkletProcessor {
     const kAtt = 1 - Math.exp(-1 / (0.0025 * sampleRate));
     const kRel = 1 - Math.exp(-1 / ((this.quick ? 0.006 : this.releaseS) * sampleRate));
     // Le niveau (2026-10-07, Mika : "le kick est la reference ; mon sub bassline, je le mets 2 dB sous lui") :
-    // le SUB prend la place de l'oscillateur au lieu de s'y ajouter (la crete bouge peu quand il monte), et
-    // VOLUME par defaut crete vers -6 dBFS, 2 dB sous le kick du MM-RYTM (mesure hors ligne)
+    // le SUB prend la place de l'oscillateur au lieu de s'y ajouter (la crete bouge peu quand il monte) ; VOLUME
+    // par defaut : 2 dB sous le kick, mesure en sortie reelle le 2026-10-08 (sans le compresseur de la batterie,
+    // avec le rattrapage de -3 dB des trois machines : 1.82 devient 0.97)
     const sub = this.p.sub * 0.55;
     const oscK = 0.55 * (1 - 0.5 * this.p.sub);
-    const vol = this.p.volume * this.p.volume * 1.82;
+    const vol = this.p.volume * this.p.volume * 0.97;
     const wave = this.p.wave;
     const drive = this.drive;
     const dNorm = this.driveNorm;
