@@ -642,9 +642,18 @@ export class DjPlayer {
   }
 
   position(): number {
+    return this.positionAt(this.ctx.currentTime);
+  }
+
+  /**
+   * La position a l'instant t du contexte (2026-10-08) : SYNC calcule un
+   * depart et la reference au meme instant ; deux lectures de currentTime
+   * peuvent tomber de part et d'autre d'un paquet de rendu (2.9 ms d'ecart).
+   */
+  positionAt(t: number): number {
     if (!this.playing) return this.startPos;
     // Pendant l'avance d'un depart : rien n'a encore joue avant startAt
-    const p = this.startPos + Math.max(0, this.ctx.currentTime - this.startAt) * this.rate();
+    const p = this.startPos + Math.max(0, t - this.startAt) * this.rate();
     // Dans une boucle, la tete revient a a chaque fois qu'elle atteint b
     const L = this.loopAB;
     if (L && this.startPos < L.b && p >= L.b) return L.a + ((p - L.a) % (L.b - L.a));
@@ -689,8 +698,8 @@ export class DjPlayer {
    * j'utilise SYNC, quand j'appuie sur play ca met une demi seconde avant
    * de se lancer ! insoutenable") : apres l'avance d'un depart (startLead),
    * jamais plus. SYNC ne retarde plus le depart, il deplace la tete
-   * (dj/actions.ts inPhase). at : un instant du contexte plus tard, s'il le
-   * faut (un fondu croise).
+   * (dj/actions.ts inPhase). at : l'instant du contexte ou partir, calcule
+   * par l'appelant (SYNC, un fondu croise) ; respecte a l'echantillon pres.
    */
   play(at = 0): void {
     if (!this.buffer || this.playing) return;
@@ -715,7 +724,7 @@ export class DjPlayer {
       this.env = null;
       this.onEnd?.();
     };
-    const when = Math.max(this.ctx.currentTime + this.startLead(), at);
+    const when = at > 0 ? Math.max(this.ctx.currentTime, at) : this.ctx.currentTime + this.startLead();
     env.gain.setValueAtTime(0, when);
     env.gain.linearRampToValueAtTime(1, when + FADE_S);
     this.startAt = when;
@@ -755,10 +764,11 @@ export class DjPlayer {
 
   /**
    * Aller a un instant de la piste. En lecture, une nouvelle source part de
-   * la apres l'avance d'un depart, et l'ancienne joue jusqu'a cet instant,
-   * puis s'efface en fondu croise : ni trou ni clic.
+   * la apres l'avance d'un depart (ou a l'instant at du contexte), et
+   * l'ancienne joue jusqu'a cet instant, puis s'efface en fondu croise : ni
+   * trou ni clic.
    */
-  seek(seconds: number): void {
+  seek(seconds: number, at = 0): void {
     const t = Math.max(0, Math.min(this.duration, seconds));
     // Aller hors de la boucle la quitte (un hot cue, la piste touchee, un recalage)
     if (this.loopAB && (t < this.loopAB.a || t >= this.loopAB.b)) this.loopAB = null;
@@ -766,7 +776,7 @@ export class DjPlayer {
       this.startPos = t;
       return;
     }
-    const when = this.ctx.currentTime + this.startLead();
+    const when = at > 0 ? Math.max(this.ctx.currentTime, at) : this.ctx.currentTime + this.startLead();
     const old = { source: this.source, env: this.env, at: this.envAt };
     this.token += 1;
     this.source = null;
