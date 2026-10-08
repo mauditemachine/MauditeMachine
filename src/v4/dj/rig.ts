@@ -32,7 +32,7 @@ import { samplerOf } from '../sampler/sampler';
 import { DjWaves } from './waveform';
 import { DjSilk, setSilkFxTo } from './silk';
 import { LICENSE_LABEL } from './soundcloud';
-import { DJ_WAVE_LABEL, djState, type DjState, type DjTrack } from './state';
+import { DJ_WAVE_LABEL, djState, type DjDeckState, type DjState, type DjTrack } from './state';
 import { DECK, DJ_BEZEL, DJ_BODY, DJ_CHANNELS, DJ_CHANNELS_MAX, DJ_DECKS, DJ_EQ, DJ_FX, DJ_FX_LABEL, DJ_TILT, DJ_TOP_Y, DJ_UNIT, DJ_UNITS_ON, DJ_W, DJ_X, UNIT_X, timeLabel, unitW, type DjFxId } from './theme';
 import type { DjSyncLight } from './screens';
 
@@ -46,6 +46,14 @@ export interface DjRigOpts {
 
 /** L'artiste, et pour SoundCloud la source et la licence (credit exige par l'API et par la licence). */
 const credit = (t: DjTrack): string => (t.source === 'soundcloud' ? `${t.artist} / SOUNDCLOUD ${LICENSE_LABEL[t.license ?? ''] ?? ''}`.trim() : t.artist);
+/**
+ * L'ecran pendant un chargement (2026-10-08) : l'etape (un fichier n'a pas de
+ * pourcentage, un flux oui), et PLAY ARMED quand PLAY attend la platine.
+ */
+const loadText = (ds: DjDeckState): string => {
+  const step = ds.loadStep === 'decode' ? 'DECODING' : ds.loadStep === 'analyse' ? 'ANALYSING' : ds.track?.source === 'file' ? 'READING' : `LOADING ${Math.round((ds.loading ?? 0) * 100)}%`;
+  return ds.armed ? `${step} / PLAY ARMED` : step;
+};
 
 export class DjRig {
   readonly root = new Group();
@@ -261,11 +269,14 @@ export class DjRig {
       }
       if (t.kind !== 'cue' && t.kind !== 'play') return;
       const ds = s.deck[t.deck];
+      // PLAY arme pendant le chargement : orange, la platine partira seule
       const glow =
         t.kind === 'play'
           ? ds.playing
             ? DJ_GLOW.yellow
-            : ds.loaded
+            : ds.armed
+              ? DJ_GLOW.orange
+              : ds.loaded
               ? paleYellow
               : DJ_GLOW.off
           : ds.loaded && !ds.playing
@@ -371,10 +382,12 @@ export class DjRig {
       const pos = p ? p.position() : 0;
       const dur = p?.duration ?? 0;
       const loading = ds.loading !== null;
+      // Le store ne peut pas dire qu'une platine joue quand son lecteur est arrete (2026-10-08 : PLAY allume, muet)
+      if (ds.playing && p && ds.loaded && !p.playing) djState.setDeck(d, { playing: false });
       const screen = {
         loaded: ds.loaded || loading || ds.error !== null,
         title: t ? t.title : '',
-        artist: ds.error ? `ERROR: ${ds.error}` : loading ? `LOADING ${Math.round((ds.loading ?? 0) * 100)}%` : t ? credit(t) : '',
+        artist: ds.error ? `ERROR: ${ds.error}` : loading ? loadText(ds) : t ? credit(t) : '',
         bpm: t?.bpm ?? null,
         key: t?.key ?? '',
         position: pos,

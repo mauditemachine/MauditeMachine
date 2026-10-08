@@ -54,6 +54,14 @@ export interface DjDeckState {
   track: DjTrack | null;
   /** chargement en cours : part telechargee (0 a 1), ou null */
   loading: number | null;
+  /** l'etape du chargement montree a l'ecran (lecture du fichier ou flux, decodage, BPM et grille), ou null */
+  loadStep: 'read' | 'decode' | 'analyse' | null;
+  /**
+   * PLAY presse pendant le chargement (2026-10-08, Mika : "quand on lance une
+   * track sur le deck de gauche puis celui de droite, le droit demarre pas
+   * quand on clic sur play") : la platine partira des qu'elle est prete
+   */
+  armed: boolean;
   error: string | null;
   /** le point de CUE (secondes) */
   cue: number;
@@ -127,7 +135,7 @@ const SLOT: Readonly<Record<(typeof OLD_KEYS)[number], (i: number) => number>> =
 };
 /** Les machines : fader en haut, le son du site ne change pas ; les platines : 0.8, comme une table. */
 const channel = (fader = 0.8): DjChannelState => ({ gain: 0, hi: 0, mid: 0, low: 0, filter: 0, fader });
-const deck = (): DjDeckState => ({ pitch: 0, range: 8, playing: false, loaded: false, track: null, loading: null, error: null, cue: 0, cues: [null, null, null, null], zoom: 8, beat: null, sync: false, loop: null, remove: false });
+const deck = (): DjDeckState => ({ pitch: 0, range: 8, playing: false, loaded: false, track: null, loading: null, loadStep: null, armed: false, error: null, cue: 0, cues: [null, null, null, null], zoom: 8, beat: null, sync: false, loop: null, remove: false });
 
 function fresh(): DjState {
   return {

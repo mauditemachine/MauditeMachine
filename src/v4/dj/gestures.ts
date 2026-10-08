@@ -26,7 +26,7 @@ import type { HotspotView } from '../scene/hit';
 import { quadToUnit } from '../scene/quad';
 import type { Stage } from '../scene/renderer';
 import { djBrowser } from './browser';
-import { TEMPO_STEP, djLoop, djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djJog, djJogRelease, djKeepPreview, djPlay, djSetEq, djSetFader, djSetFx, djSetFxTo, djSetMaster, djSetPitch, djSetTime, djWaveNext, djAddDeck, fxTarget, fxToOfValue, fxToText, fxToValue } from './actions';
+import { TEMPO_STEP, djLoop, djBend, djCue, djPosition, djRemoveDeck, djScrub, djSeek, djSync, djTempoStep, djZoom, djZoomStep, djJog, djJogRelease, djKeepPreview, djPlay, djPreviewing, djTouchDeck, djSetEq, djSetFader, djSetFx, djSetFxTo, djSetMaster, djSetPitch, djSetTime, djWaveNext, djAddDeck, fxTarget, fxToOfValue, fxToText, fxToValue } from './actions';
 import { MASTER_DEFAULT } from './engine';
 import { KILL, eqDb, gainDb, faderGain } from './math';
 import { djFader, djKey, djKnob, type DjFaderSpec, type DjKeySpec, type DjKnobSpec, type DjSmplKey } from './layout';
@@ -148,12 +148,16 @@ const REPEAT = { delay: 400, every: 90, fast: 45, after: 10 } as const;
 export function keyDown(k: DjKeySpec, stage: Stage | null, coarse = false): void {
   stage?.dj?.pressKey(k.id, true);
   const t = k.target;
+  // Espace lance la derniere platine touchee, quelle que soit la main (souris, doigt, clavier, MIDI)
+  if ('deck' in t) djTouchDeck(t.deck);
   if (t.kind === 'cue') {
     cueDown[t.deck] = true;
     djCue(t.deck, true);
   }
   else if (t.kind === 'play') {
-    if (cueHeld(t.deck)) djKeepPreview(t.deck);
+    // CUE tenu ET son preview qui joue : PLAY garde la lecture ; un CUE dont le relachement s'est perdu
+    // (bouton MIDI en mode bascule) ne bloque plus PLAY (2026-10-08)
+    if (cueHeld(t.deck) && djPreviewing(t.deck)) djKeepPreview(t.deck);
     else djPlay(t.deck);
   } else if (t.kind === 'smpl') smplKey(t.deck, t.fn);
   else if (t.kind === 'bend') djBend(t.deck, t.dir);
@@ -196,6 +200,16 @@ export function keyUp(k: DjKeySpec, stage: Stage | null, tap: boolean): void {
 }
 
 const cueDown: Record<DjDeck, boolean> = { a: false, b: false, c: false, d: false };
+// La fenetre perd la main (autre onglet, autre appli) : plus aucun CUE n'est tenu
+const releaseCues = (): void => {
+  for (const d of Object.keys(cueDown) as DjDeck[]) cueDown[d] = false;
+};
+if (typeof window !== 'undefined') {
+  window.addEventListener('blur', releaseCues);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) releaseCues();
+  });
+}
 const cueHeld = (d: DjDeck): boolean => cueDown[d];
 
 /* ---------------- pointeurs ---------------- */

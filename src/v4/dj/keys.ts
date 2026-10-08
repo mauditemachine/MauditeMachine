@@ -22,13 +22,12 @@
  */
 
 import type { Stage } from '../scene/renderer';
-import { djWaveNext, djZoomStep } from './actions';
+import { djLastDeck, djWaveNext, djZoomStep } from './actions';
 import { djBrowser } from './browser';
 import { samplerOf } from '../sampler/sampler';
 import { keyDown, keyUp } from './gestures';
 import { DJ_KEYS, type DjKeySpec } from './layout';
 import { djState } from './state';
-import type { DjDeck } from './theme';
 
 const key = (id: string): DjKeySpec | undefined => DJ_KEYS.find((k) => k.id === id);
 
@@ -91,9 +90,6 @@ const editable = (t: EventTarget | null): boolean =>
  */
 export function listenDjKeys(getStage: () => Stage | null, active: () => boolean): () => void {
   const held = new Map<string, DjKeySpec>();
-  let last: DjDeck = 'a';
-
-  const deckOf = (k: DjKeySpec): DjDeck | null => ('deck' in k.target ? k.target.deck : null);
 
   const onDown = (e: KeyboardEvent): void => {
     if (!active() || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || editable(e.target)) return;
@@ -122,14 +118,13 @@ export function listenDjKeys(getStage: () => Stage | null, active: () => boolean
       djBrowser.open(d);
       return;
     }
-    const id = e.code === 'Space' ? `dj-${last}-play` : MAP[e.code];
+    const id = e.code === 'Space' ? `dj-${djLastDeck()}-play` : MAP[e.code];
     const k = id ? key(id) : undefined;
     if (!k) return;
     e.preventDefault();
     e.stopPropagation();
     if (e.repeat || held.has(e.code)) return;
     held.set(e.code, k);
-    last = deckOf(k) ?? last;
     keyDown(k, getStage(), e.shiftKey);
   };
 

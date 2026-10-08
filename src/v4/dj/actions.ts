@@ -165,6 +165,19 @@ function saveCues(d: DjDeck): void {
  * Pose un morceau sur une platine : lit (fichier de la caisse) ou ouvre le
  * flux (SoundCloud), decode, BPM si absent. Audius est parti le 2026-10-04
  * (Mika : "cache Audius, serieux c'est nul").
+ *
+ * Le chargement d'un vrai morceau prend quelques secondes (2026-10-08, Mika :
+ * "quand on lance une track sur le deck de gauche puis celui de droite, le
+ * droit demarre pas quand on clic sur play") : un MP3 de 7 min, 2 a 5 s ; un
+ * WAV 24 bits, jusqu'a 10 s la premiere fois. Avant, un PLAY presse pendant ce
+ * temps ne faisait rien, sans le dire ; et si la platine tenait deja un
+ * morceau, il relancait l'ancien, que le decodage coupait ensuite en laissant
+ * la platine allumee, muette. Maintenant :
+ * - l'ancien morceau s'arrete tout de suite (il ne peut plus repartir) ;
+ * - l'ecran dit l'etape (READING, DECODING, ANALYSING) ;
+ * - PLAY (et SYNC) presses pendant ce temps s'arment : PLAY s'allume en orange,
+ *   la platine part toute seule des qu'elle est prete ; un second appui desarme ;
+ * - un cue retenu a la fin du morceau n'y gare plus la platine.
  */
 export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
   const e = engine();
@@ -172,7 +185,12 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
   loads[d]?.abort();
   const ctl = new AbortController();
   loads[d] = ctl;
-  djState.setDeck(d, { playing: false, loaded: false, track, loading: 0, error: null, beat: null, sync: false, loop: null });
+  // L'ancien morceau s'ejecte : ni PLAY, ni CUE, ni un hot cue ne peuvent le relancer pendant le chargement
+  e.decks[d].unload();
+  previewing[d] = false;
+  syncArmed.delete(d);
+  lastDeck = d;
+  djState.setDeck(d, { playing: false, loaded: false, track, loading: 0, loadStep: 'read', armed: false, error: null, beat: null, sync: false, loop: null });
   try {
     let bytes: ArrayBuffer;
     if (track.source === 'file') {
@@ -185,7 +203,12 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
       bytes = await soundcloudBytes(track.id, (p) => djState.setDeck(d, { loading: p }), ctl.signal);
     }
     if (ctl.signal.aborted) return;
+    djState.setDeck(d, { loadStep: 'decode' });
     await e.decks[d].load(bytes);
+    if (ctl.signal.aborted) return;
+    djState.setDeck(d, { loadStep: 'analyse' });
+    // L'ecran dit ANALYSING avant que l'analyse (sur le fil principal) ne commence
+    await new Promise((r) => window.setTimeout(r, 0));
     if (ctl.signal.aborted) return;
     const p = e.decks[d];
     let bpm = track.bpm;
@@ -194,15 +217,35 @@ export async function djLoad(d: DjDeck, track: DjTrack): Promise<void> {
     // La grille des temps (SYNC cale aussi les temps) : le premier temps, et le BPM affine au centieme
     const grid = ch0 ? beatGrid(ch0, p.sampleRate, bpm) : null;
     if (grid) bpm = grid.bpm;
-    const { cue, cues } = savedCues(track.id);
-    djState.setDeck(d, { loaded: true, loading: null, track: { ...track, bpm, duration: p.duration }, cue, cues, beat: grid?.offset ?? null, sync: false });
+    const saved = savedCues(track.id);
+    // Un cue pose a la toute fin (CUE presse apres la fin du morceau) : la platine repart du debut
+    const atEnd = saved.cue >= p.duration - END_S;
+    const cue = atEnd ? 0 : saved.cue;
+    const armed = djState.get().deck[d].armed;
+    djState.setDeck(d, { loaded: true, loading: null, loadStep: null, armed: false, track: { ...track, bpm, duration: p.duration }, cue, cues: saved.cues, beat: grid?.offset ?? null, sync: false });
+    if (atEnd) saveCues(d);
     // La caisse apprend la duree et le BPM : le morceau n'a plus a etre analyse en fond
     if (track.source === 'file') void crateLearn(track.id, p.duration, bpm);
     p.seek(cue);
+    // SYNC puis PLAY armes pendant le chargement : SYNC d'abord, PLAY part alors sur un temps de la reference
+    if (syncArmed.delete(d)) djSync(d);
+    if (armed && !p.playing) djPlay(d);
   } catch (err) {
     if (ctl.signal.aborted) return;
-    djState.setDeck(d, { loading: null, loaded: false, error: err instanceof Error ? err.message : 'load failed' });
+    syncArmed.delete(d);
+    djState.setDeck(d, { loading: null, loadStep: null, armed: false, loaded: false, error: err instanceof Error ? err.message : 'load failed' });
   }
+}
+
+/** Une platine a moins de 50 ms de la fin ne repart pas (DjPlayer.play) : on la ramene au cue, ou au debut. */
+const END_S = 0.05;
+/** SYNC presse pendant le chargement : il se fait des que la platine est prete. */
+const syncArmed = new Set<DjDeck>();
+/** La derniere platine touchee (pointeur, doigt, clavier, MIDI, chargement) : Espace la lance. */
+let lastDeck: DjDeck = 'a';
+export const djLastDeck = (): DjDeck => lastDeck;
+export function djTouchDeck(d: DjDeck): void {
+  lastDeck = d;
 }
 
 /* ---------------- transport ---------------- */
@@ -211,12 +254,20 @@ export function djPlay(d: DjDeck): void {
   const e = engine();
   if (!e) return;
   const p = e.decks[d];
-  if (!p.loaded) return;
+  const ds = djState.get().deck[d];
+  // En chargement : PLAY s'arme (ou se desarme), la platine partira des qu'elle est prete (djLoad)
+  if (ds.loading !== null) {
+    djState.setDeck(d, { armed: !ds.armed });
+    return;
+  }
+  if (!p.loaded || !ds.loaded) return;
   if (p.playing) {
     p.pause();
     djState.setDeck(d, { playing: false });
     return;
   }
+  // Au bout du morceau, PLAY repart du cue (ou du debut) au lieu de ne rien faire
+  if (p.position() >= p.duration - END_S) p.seek(ds.cue < p.duration - END_S ? ds.cue : 0);
   silenceOthers();
   // Les machines jouent (2026-10-07) : la platine prend leur tempo et part sur un de leurs temps
   freed.delete(d);
@@ -248,6 +299,13 @@ export function djCue(d: DjDeck, down: boolean): void {
       return;
     }
     const here = p.position();
+    // Le morceau est fini : CUE ramene au cue (ou au debut), comme une CDJ, sans poser de cue a la fin
+    if (here >= p.duration - END_S) {
+      p.seek(ds.cue < p.duration - END_S ? ds.cue : 0);
+      loopFollows(d, e);
+      djState.setDeck(d, { playing: false });
+      return;
+    }
     if (Math.abs(here - ds.cue) > 0.01) {
       djState.setDeck(d, { cue: here });
       saveCues(d);
@@ -270,6 +328,9 @@ export function djCue(d: DjDeck, down: boolean): void {
 export function djKeepPreview(d: DjDeck): void {
   previewing[d] = false;
 }
+
+/** Un preview de CUE joue-t-il ? (un CUE tenu sans preview ne doit pas bloquer PLAY) */
+export const djPreviewing = (d: DjDeck): boolean => previewing[d];
 
 /** Hot cue : vide, il se pose ici ; pose, la platine y saute (et joue). */
 export function djHotcue(d: DjDeck, n: number): void {
@@ -540,6 +601,11 @@ function syncedStart(d: DjDeck, e: DjEngine): number {
  * tant qu'on ne touche pas au pitch.
  */
 export function djSync(d: DjDeck): void {
+  // En chargement : SYNC attend la platine (djLoad) ; un second appui le desarme
+  if (djState.get().deck[d].loading !== null) {
+    if (!syncArmed.delete(d)) syncArmed.add(d);
+    return;
+  }
   if (!matchTempo(d)) return;
   // Un SYNC a la main : la platine redevient suivie par les machines
   freed.delete(d);
@@ -767,7 +833,8 @@ export function djRemoveDeck(d: DjDeck): void {
   }
   if (p?.playing) p.pause();
   loads[d]?.abort();
-  djState.setDeck(d, { playing: false, loaded: false, track: null, loading: null, error: null, cue: 0, cues: [null, null, null, null], pitch: 0, range: 8, remove: false });
+  syncArmed.delete(d);
+  djState.setDeck(d, { playing: false, loaded: false, track: null, loading: null, loadStep: null, armed: false, error: null, cue: 0, cues: [null, null, null, null], pitch: 0, range: 8, remove: false });
   djDecks.set(djDecks.get() - 1);
   // FX TO visait la voie retiree : les effets reviennent sur toutes
   if (djState.get().fxTo >= DJ_CHANNELS) djState.setFxTo(-1);
