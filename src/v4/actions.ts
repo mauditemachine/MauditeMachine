@@ -1555,11 +1555,10 @@ function lockWrite(k: number, slot: PageSlot, v: number): void {
     const n = Math.max(0, Math.min(VEL_MAX, Math.round(v)));
     for (const i of steps) pattern.set(inst, i, n);
   } else {
-    // Un pas vide qu'on verrouille recoit un coup (fort) : un verrou sans coup ne s'entendrait pas
-    for (const i of steps) if (velocity(pattern.get().steps, inst, i) === 0) pattern.set(inst, i, VEL_MAX);
+    // Le son d'abord : une voix sans echantillon n'a rien a verrouiller sur SAMPLE (et son pas vide ne recoit rien)
+    let snd = '';
     if (slot.lock === 'snd') {
       const i = Math.max(0, Math.round(v));
-      let snd = '';
       if (slot.target === 'smpl:sample') {
         const f = soundFamily();
         const list = f ? lockSamples(f) : [];
@@ -1572,6 +1571,10 @@ function lockWrite(k: number, slot: PageSlot, v: number): void {
         const list = lockSounds(inst);
         snd = list[Math.min(list.length - 1, i)]?.snd ?? '';
       }
+    }
+    // Un pas vide qu'on verrouille recoit un coup (fort) : un verrou sans coup ne s'entendrait pas
+    for (const i of steps) if (velocity(pattern.get().steps, inst, i) === 0) pattern.set(inst, i, VEL_MAX);
+    if (slot.lock === 'snd') {
       if (snd) pattern.setLock(inst, steps, 'snd', snd);
       else pattern.clearLock(inst, steps, 'snd');
     } else {
