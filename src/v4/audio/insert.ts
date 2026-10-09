@@ -38,6 +38,13 @@ export class Insert {
   private wet = 0;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private unlinks = 0;
+  /**
+   * Tenu engage (2026-10-09, les verrous DIST et CHORUS d'une voix du
+   * MM-RYTM, audio/lockfx.ts) : une voix qui a un verrou de cet insert garde
+   * sa branche reliee meme a son repos (sec 1, mouille 0 : le meme signal),
+   * pour que le coup verrouille trouve ses gains a l'instant ou il joue.
+   */
+  private held = false;
   /** appele quand la branche est debranchee (repos atteint) */
   onIdle: (() => void) | null = null;
 
@@ -96,7 +103,40 @@ export class Insert {
     glide(this.wetGain.gain, wet, this.c);
   }
 
-  /** Retour au repos : fondu vers le sec, puis lien direct et branche debranchee. */
+  /**
+   * Tenu engage ou non (audio/lockfx.ts) : tenu, l'insert au repos passe par
+   * ses gains (sec 1, mouille 0) ; lache, il revient au lien direct s'il est
+   * au repos.
+   */
+  hold(on: boolean): void {
+    if (on === this.held) return;
+    this.held = on;
+    if (on) {
+      // Un retour au lien direct en attente (un release juste avant) n'a plus lieu
+      clearTimeout(this.timer);
+      this.timer = undefined;
+      if (this.direct) this.engage(1, 0);
+    } else if (this.dry === 1 && this.wet === 0) this.release();
+  }
+
+  get isHeld(): boolean {
+    return this.held;
+  }
+
+  /**
+   * Le sec et le mouille a l'instant when (un coup verrouille, a l'avance) :
+   * seulement engage (tenu) ; false sinon. Les rampes d'un reglage ulterieur
+   * (glide) les effacent : audio/lockfx.ts les repose.
+   */
+  at(when: number, dry: number, wet: number): boolean {
+    if (this.direct || !this.dryGain || !this.wetGain) return false;
+    const t = Math.max(when, this.c.currentTime);
+    this.dryGain.gain.setValueAtTime(dry, t);
+    this.wetGain.gain.setValueAtTime(wet, t);
+    return true;
+  }
+
+  /** Retour au repos : fondu vers le sec, puis lien direct et branche debranchee (tenu : les gains restent). */
   release(): void {
     if (this.direct) return;
     this.dry = 1;
@@ -104,6 +144,7 @@ export class Insert {
     if (this.dryGain) glide(this.dryGain.gain, 1, this.c);
     if (this.wetGain) glide(this.wetGain.gain, 0, this.c);
     clearTimeout(this.timer);
+    if (this.held) return;
     this.timer = setTimeout(() => {
       this.timer = undefined;
       this.toDirect();
@@ -114,6 +155,7 @@ export class Insert {
   reset(): void {
     clearTimeout(this.timer);
     this.timer = undefined;
+    this.held = false;
     this.dry = 1;
     this.wet = 0;
     this.toDirect();

@@ -177,6 +177,13 @@ export interface DriveStage {
   input: AudioNode;
   set(d: number): void;
   value(): number;
+  /**
+   * Les verrous DIST de la voix (2026-10-09, audio/lockfx.ts) : tenue (la
+   * branche reste reliee, au repos le meme signal), et la valeur d'un coup a
+   * l'instant when.
+   */
+  lockHold(on: boolean): void;
+  lockAt(when: number, d: number): void;
 }
 
 export function buildDrive(c: BaseAudioContext, out: AudioNode): DriveStage {
@@ -206,5 +213,13 @@ export function buildDrive(c: BaseAudioContext, out: AudioNode): DriveStage {
       insert.engage(1 - m, m);
     },
     value: () => drive,
+    lockHold(on: boolean) {
+      insert.hold(on);
+    },
+    lockAt(when: number, d: number) {
+      const t = Number.isFinite(d) ? Math.min(1, Math.max(0, d)) : 0;
+      const m = DRIVE.mix * t;
+      if (insert.at(when, 1 - m, m)) pre.gain.setValueAtTime((1 + DRIVE.gain * t) / DRIVE.k, Math.max(when, c.currentTime));
+    },
   };
 }

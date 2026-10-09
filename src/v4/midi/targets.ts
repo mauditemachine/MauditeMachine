@@ -23,7 +23,15 @@
  *   sa voix) ; rytm:infos (la touche i de l'ecran, l'etape R4) ; le Roto en
  *   sequenceur (2026-10-09, midi/seqlink.ts) rytm:seq:<1-8> (les pas d'une
  *   fenetre, appui et lacher), rytm:seq:window, rytm:seq:follow,
- *   rytm:seq:voice:<voix> ;
+ *   rytm:seq:voice:<voix> ; l'etape 2 (2026-10-09) : quatre pages,
+ *   rytm:page:voice fltr env fx (la touche : la page, son onglet suivant,
+ *   HOME), les anciennes rytm:page:trig src smpl amp restent (des alias : TRIG
+ *   SRC SMPL ouvrent VOICE, AMP ouvre ENV), rytm:page a quatre crans,
+ *   rytm:screen:<ecran> (un onglet : voice synth fltr env fxv fxg) ;
+ *   rytm:knob:<1-8> reste le bloc k de l'ecran affiche (en P-LOCK, son
+ *   verrou) ; les encodeurs du desktop apprennent leur FX global
+ *   (rytm:enc:dist... theme.ts GLOBAL_ENCODERS), avec rytm:enc:dtime et
+ *   rytm:enc:dfb (DLY TIME, DLY FB) ;
  * - MM-ARP : voy:knob:<potard>, voy:pad:<0-7>, voy:run, clear, random,
  *   edit, open ; voy:running ; voy:infos (la touche i du grand ecran,
  *   2026-10-08) ;
@@ -38,7 +46,8 @@
  *   (state/bassload.ts, bass/midi.ts).
  */
 
-import { LAYER_TARGET_FAMS, anyDial, anyDialValue, clearPattern, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmShowPage, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
+import { LAYER_TARGET_FAMS, anyDial, anyDialValue, clearPattern, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmScreenTab, rytmShowPage, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
+import { RYTM_SCREENS, SCREEN_PAGE, SCREEN_TITLE, isRytmScreen } from '../rytm/pages';
 import { rytmPage } from '../state/rytmPage';
 import { clock } from '../audio/clock';
 import { voices as voiceState } from '../state/voices';
@@ -52,7 +61,7 @@ import { VOICE_PARAMS, voiceFx, type VoiceParam } from '../audio/voicefx';
 import type { Stage } from '../scene/renderer';
 import { MACHINES, VOYAGER, type MachineId } from '../state/focus';
 import { PATTERN_SLOTS, slotName } from '../state/patterns';
-import { ENCODERS, PADS, PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS, isVoiceEnc, type Inst } from '../theme';
+import { ENCODERS, GLOBAL_ENCODERS, PADS, PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS, isVoiceEnc, type Inst } from '../theme';
 import { STEP_COUNT } from '../audio/pattern';
 import { CHORDS } from '../voyager/chords';
 import { VOY_KNOBS, voyParams } from '../voyager/params';
@@ -111,7 +120,28 @@ function dialTarget(id: string, scope: TargetScope, label: string, dial: DialId)
 
 const press = (id: string, scope: TargetScope, label: string, fn: () => void): MidiTarget => ({ id, scope, label, kind: 'press', down: fn });
 
-const VOICE_LABEL: Readonly<Record<VoiceParam, string>> = { level: 'VOLUME', tone: 'TONE', decay: 'DECAY', dist: 'DIST', chorus: 'CHORUS', delay: 'DELAY', reverb: 'REVERB', tune: 'TUNE', pan: 'PAN', start: 'START' };
+// Les reglages de l'etape 2 (2026-10-09) : ENV ATK et HOLD, VOICE FINE, le filtre de FLTR ; leurs cibles rytm:voice:<voix>:<reglage> s'ajoutent
+const VOICE_LABEL: Readonly<Record<VoiceParam, string>> = {
+  level: 'VOLUME',
+  tone: 'TONE',
+  decay: 'DECAY',
+  dist: 'DIST',
+  chorus: 'CHORUS',
+  delay: 'DELAY',
+  reverb: 'REVERB',
+  tune: 'TUNE',
+  pan: 'PAN',
+  start: 'START',
+  atk: 'ATTACK',
+  hold: 'HOLD',
+  fine: 'FINE',
+  ftype: 'FILTER TYPE',
+  fcut: 'FILTER FREQ',
+  freso: 'FILTER RESO',
+  fenv: 'FILTER ENV',
+  fatk: 'FILTER ATTACK',
+  fdec: 'FILTER DECAY',
+};
 
 function coreTargets(): MidiTarget[] {
   const out: MidiTarget[] = [];
@@ -121,14 +151,15 @@ function coreTargets(): MidiTarget[] {
   const voices = PADS.filter((p) => p.kind === 'voice').map((p) => p.id as Inst);
   for (const inst of voices) {
     for (const p of VOICE_PARAMS) {
-      // A zero au centre : TONE, et TUNE et PAN (2026-10-08) ; TUNE a ses 49 crans (le demi-ton)
-      const bip = p === 'tone' || p === 'tune' || p === 'pan';
+      // A zero au centre : TONE, et TUNE et PAN (2026-10-08), FINE et l'ENV du filtre (2026-10-09) ; TUNE a ses 49 crans
+      // (le demi-ton), FINE ses 129 (le cent), le TYPE du filtre ses 3 (LP HP BP)
+      const bip = p === 'tone' || p === 'tune' || p === 'pan' || p === 'fine' || p === 'fenv';
       out.push({
         id: `rytm:voice:${inst}:${p}`,
         scope: 'mm808',
         label: `${inst} ${VOICE_LABEL[p]}`,
         kind: 'value',
-        ...(p === 'tune' ? { steps: 49 } : {}),
+        ...(p === 'tune' ? { steps: 49 } : p === 'fine' ? { steps: 129 } : p === 'ftype' ? { steps: 3 } : {}),
         get: () => (bip ? (voiceFx.of(inst)[p] + 1) / 2 : voiceFx.of(inst)[p]),
         set: (v) => setVoiceFx(inst, p, bip ? v * 2 - 1 : v),
       });
@@ -227,11 +258,16 @@ function coreTargets(): MidiTarget[] {
       },
     });
   });
+  // Les quatre touches de page (2026-10-09 : VOICE FLTR ENV FX) : la page, la touche allumee encore son onglet suivant ou HOME
   for (const pk of RYTM_PAGE_KEYS) out.push(press(`rytm:page:${pk.id}`, 'mm808', `PAGE ${pk.label}`, () => rytmPageKey(pk.id, getStage())));
+  // Les anciennes pages (jusqu'au 2026-10-09) : leurs assignations retenues ouvrent la page d'aujourd'hui (TRIG SRC SMPL : VOICE ; AMP : ENV)
+  for (const [old, now] of [['trig', 'VOICE'], ['src', 'VOICE'], ['smpl', 'VOICE'], ['amp', 'ENV']] as const) out.push(press(`rytm:page:${old}`, 'mm808', `PAGE ${old.toUpperCase()} (NOW ${now})`, () => rytmShowPage(old)));
+  // Un ecran precis (2026-10-09) : VOICE, VOICE SYNTH, FLTR, ENV, VOICE FX, GLOBAL FX (les onglets de l'en-tete)
+  for (const sc of RYTM_SCREENS) out.push(press(`rytm:screen:${sc}`, 'mm808', `SCREEN ${SCREEN_TITLE[sc]}`, () => rytmScreenTab(sc)));
   out.push({
     id: 'rytm:page',
     scope: 'mm808',
-    label: 'PAGE (TRIG TO FX)',
+    label: 'PAGE (VOICE TO FX)',
     kind: 'value',
     steps: RYTM_PAGE_KEYS.length,
     get: () => Math.max(0, RYTM_PAGE_KEYS.findIndex((p) => p.id === rytmPage.get().page)) / (RYTM_PAGE_KEYS.length - 1),
@@ -360,14 +396,17 @@ export function targetsOf(scope: TargetScope): MidiTarget[] {
 }
 
 /** La cible d'une commande de la scene (ui/Hotspots.tsx, MIDI LEARN : on la touche, puis on bouge le controleur). */
-export function targetIdOfHotspot(h: { kind: string; param?: string; rknob?: string; rpage?: string; inst?: string; index?: number; vpad?: number; vbtn?: string; vknob?: string; dj?: string; bass?: string }): string | null {
+export function targetIdOfHotspot(h: { id?: string; kind: string; param?: string; rknob?: string; rpage?: string; inst?: string; index?: number; vpad?: number; vbtn?: string; vknob?: string; dj?: string; bass?: string }): string | null {
   switch (h.kind) {
     case 'encoder':
       return h.param ? `rytm:enc:${h.param}` : null;
+    // Un encodeur du desktop (2026-10-09) : son FX global a poste fixe, jamais le bloc de la page
     case 'penc':
-      return typeof h.index === 'number' ? `rytm:knob:${h.index + 1}` : null;
+      return typeof h.index === 'number' && GLOBAL_ENCODERS[h.index] ? `rytm:enc:${GLOBAL_ENCODERS[h.index]}` : null;
+    // Une touche de page ; un onglet de l'en-tete (lcd-tab-<ecran>) : son ecran
     case 'pkey':
-      return h.rpage ? `rytm:page:${h.rpage}` : null;
+      if (!h.rpage) return null;
+      return isRytmScreen(h.rpage) && (h.id?.startsWith('lcd-tab-') || SCREEN_PAGE[h.rpage] !== h.rpage) ? `rytm:screen:${h.rpage}` : `rytm:page:${h.rpage}`;
     case 'rknob':
       return h.rknob ? `rytm:kit:${h.rknob}` : null;
     // La touche i de l'ecran du MM-RYTM (R4) : MIDI LEARN l'apprend aussi

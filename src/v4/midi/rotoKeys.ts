@@ -580,4 +580,10 @@ export const ROTO_KEYS: readonly RotoKey[] = [
   // 2026-10-09 (la revue) : BSEQ page 3, ACCENT et SLIDE une deuxieme fois (le pas choisi se regle sur une seule page)
   ['BSEQ', 16, 106, 'bass:key:accent'],
   ['BSEQ', 16, 107, 'bass:key:slide'],
+  // 2026-10-09 (MM-RYTM etape 2) : RSEQ page 2, les pages VOICE et ENV (TRIG SRC SMPL AMP gardent leurs adresses, des
+  // alias de VOICE et ENV), MUTE et SOLO pour garder la rangee de huit
+  ['RSEQ', 15, 3, 'rytm:page:voice'],
+  ['RSEQ', 15, 9, 'rytm:page:env'],
+  ['RSEQ', 15, 85, 'rytm:mute'],
+  ['RSEQ', 15, 86, 'rytm:solo'],
 ];

@@ -335,14 +335,24 @@ export function buildReverbBus(c: BaseAudioContext, out: AudioNode): SendBus {
 }
 
 export interface DelayBus extends SendBus {
-  /** Duree d'un pas (s) : le delay reste une croche pointee. */
+  /** Duree d'un pas (s) : le delay reste cale sur le tempo. */
   setStep(stepS: number): void;
+  /**
+   * Sa division en pas (2026-10-09, DLY TIME : 3 la croche pointee d'avant) et
+   * sa reinjection (DLY FB : 0.58 avant), les encodeurs G et H du desktop.
+   */
+  setDiv(steps: number): void;
+  setFeedback(fb: number): void;
 }
 
-/** DELAY : croche pointee calee sur le tempo, reinjection filtree. */
-export function buildDelayBus(c: BaseAudioContext, out: AudioNode, stepS: number): DelayBus {
-  let time = Math.min(DELAY.maxS, DELAY.steps * stepS);
+/** DELAY : cale sur le tempo (la croche pointee au depart), reinjection filtree. */
+export function buildDelayBus(c: BaseAudioContext, out: AudioNode, stepS: number, div0: number = DELAY.steps, fb0: number = DELAY.feedback): DelayBus {
+  let step = stepS;
+  let div = div0;
+  let feedback = Math.max(0, Math.min(0.9, fb0));
+  let time = Math.min(DELAY.maxS, div * step);
   let node: DelayNode | null = null;
+  let fbNode: GainNode | null = null;
   const bus = sendBus(
     c,
     () => {
@@ -358,7 +368,8 @@ export function buildDelayBus(c: BaseAudioContext, out: AudioNode, stepS: number
       hp.frequency.value = DELAY.highpass;
       hp.Q.value = Math.SQRT1_2;
       const fb = c.createGain();
-      fb.gain.value = DELAY.feedback;
+      fb.gain.value = feedback;
+      fbNode = fb;
       input.connect(d);
       d.connect(lp);
       lp.connect(hp);
@@ -371,6 +382,7 @@ export function buildDelayBus(c: BaseAudioContext, out: AudioNode, stepS: number
         dispose() {
           for (const n of [input, d, lp, hp, fb]) n.disconnect();
           node = null;
+          fbNode = null;
         },
       };
     },
@@ -378,13 +390,28 @@ export function buildDelayBus(c: BaseAudioContext, out: AudioNode, stepS: number
     DELAY.idleMs,
     () => ({ delayS: Math.round(time * 1000) / 1000 })
   );
+  const retime = (): void => {
+    const t = Math.min(DELAY.maxS, div * step);
+    if (t === time) return;
+    time = t;
+    if (node) glide(node.delayTime, t, c);
+  };
   return {
     ...bus,
     setStep(s: number) {
-      const t = Math.min(DELAY.maxS, DELAY.steps * s);
-      if (t === time) return;
-      time = t;
-      if (node) glide(node.delayTime, t, c);
+      step = s;
+      retime();
+    },
+    setDiv(n: number) {
+      if (!(n > 0) || n === div) return;
+      div = n;
+      retime();
+    },
+    setFeedback(f: number) {
+      const v = Math.max(0, Math.min(0.9, Number.isFinite(f) ? f : DELAY.feedback));
+      if (v === feedback) return;
+      feedback = v;
+      if (fbNode) glide(fbNode.gain, v, c);
     },
   };
 }

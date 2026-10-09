@@ -109,6 +109,13 @@ export interface ChorusStage {
   value(): number;
   reset(): void;
   info(): ChorusInfo;
+  /**
+   * Les verrous CHORUS d'une voix du MM-RYTM (2026-10-09, audio/lockfx.ts) :
+   * tenue (la branche construite et reliee, au repos le meme signal), la
+   * valeur d'un coup a l'instant when. Absent du chorus du MM-VOYAGER.
+   */
+  lockHold?(on: boolean): void;
+  lockAt?(when: number, v: number): void;
 }
 
 /** cfg : le chorus de la boite a rythmes par defaut ; le MM-VOYAGER a le sien (audio/synth.ts). */
@@ -208,6 +215,15 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
       insert.reset();
     },
     info: () => ({ value, live: branch !== null, built, insert: insert.info() }),
+    lockHold(on: boolean) {
+      if (on && !branch) build();
+      insert.hold(on);
+    },
+    lockAt(when: number, v: number) {
+      const t = Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;
+      if (!branch) return;
+      insert.at(when, 1 - cfg.dry * t, cfg.wet * t);
+    },
   };
 }
 

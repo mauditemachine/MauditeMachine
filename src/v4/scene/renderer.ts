@@ -112,6 +112,7 @@ import {
   PCB,
   PAGE_KNOB_IDS,
   PAGE_KNOBS_ON_FACE,
+  GLOBAL_ENCODERS,
   RYTM_PAGE_KEYS,
   PORTRAIT,
   PLATEAU_W,
@@ -127,8 +128,8 @@ import {
 } from '../theme';
 import { Encoders } from './encoders';
 import { RytmPageKeys } from './rytmPageKeys';
-import { pageKnobCourse } from '../actions';
-import type { RytmPageId } from '../rytm/pages';
+import { anyDialValue, dialRange, type DialId } from '../actions';
+import { PAGE_TABS, type RytmPageId, type RytmScreenId } from '../rytm/pages';
 import { Explode, type ExplodeInfo } from './explode';
 import { Floor } from './floor';
 import { HitMap, type HotspotDef } from './hit';
@@ -137,7 +138,7 @@ import { Orbit } from './orbit';
 import { Pads } from './pads';
 import { Pcb } from './pcb';
 import { RYTM_OPEN_FRAME, RytmTweaks, rytmTweakClear } from './rytmTweaks';
-import { Screen, blockSpot, infoKeySpot } from './screen';
+import { Screen, infoKeySpot } from './screen';
 import { BackPlate } from './backplate';
 import { BUTTON_INDEX, Sequencer3D, type TransportButton } from './sequencer3d';
 import { PanelSilk, fontsReady, makeBrushTexture, whenFonts, whenLogos } from './silk';
@@ -384,7 +385,7 @@ export class Stage {
   readonly seq: Sequencer3D;
   /** MASTER, TEMPO et les huit potards de page A a H (2026-10-08) */
   readonly encoders: Encoders;
-  /** les six touches de page du MM-RYTM et leurs temoins (2026-10-08) */
+  /** les touches de page du MM-RYTM et leurs temoins (2026-10-08 ; quatre depuis le 2026-10-09) */
   readonly pageKeys: RytmPageKeys;
   /** l'ecran OLED, texte de state/lcd.ts */
   readonly screen: Screen;
@@ -811,47 +812,43 @@ export class Stage {
         const ib = infoKeySpot(mobile, true);
         this.infoAt = { off: { x: xAt(ik.u), z: zAt(ik.v * TH) }, blocks: { x: xAt(ib.u), z: zAt(ib.v * TH) } };
       }
-      // Les onglets du pied de la vue PAGE (scene/screen.ts paintFoot) : une touche de page chacun,
-      // allumes seulement quand l'ecran les dessine (syncScreenTabs ; plus jamais depuis le 2026-10-09, les touches de page
-      // sont sous le verre : screen.ts BLOCK_TYPE tabs)
-      const P = OLED_PAGE_ZONES;
-      const n = RYTM_PAGE_KEYS.length;
-      const u0 = OLED_BAR_PAGE.u0;
-      const cw = (OLED_BAR_PAGE.u1 - u0) / n;
-      this.tabDefs = RYTM_PAGE_KEYS.map((pk, i) => ({
-        id: `lcd-tab-${pk.id}`,
+      // Les onglets de l'en-tete de la vue PAGE (2026-10-09, scene/screen.ts tabSpots : VOICE MAIN et SYNTH, FX de la voix et
+      // GLOBAL) : une tape y passe ; poses et allumes la ou l'ecran les dessine (syncScreenTabs), un rien plus haut que l'ecran
+      // (ils passent devant lcd-open, qui ouvre les presets depuis l'en-tete)
+      const tabbed: RytmScreenId[] = [...PAGE_TABS.voice, ...PAGE_TABS.fx];
+      this.tabDefs = tabbed.map((id) => ({
+        id: `lcd-tab-${id}`,
         kind: 'pkey' as const,
-        rpage: pk.id,
+        rpage: id,
         layer: plateau,
         shape: 'box' as const,
-        x: xAt(u0 + cw * (i + 0.5)),
-        z: (zAt(P.tabY0) + zAt(P.tabY1)) / 2,
-        hx: (xAt(cw) - xAt(0)) / 2,
-        hz: (zAt(P.tabY1) - zAt(P.tabY0)) / 2,
+        x: OLED.x,
+        z: OLED.z,
+        hx: 0.1,
+        hz: 0.1,
+        y0: OLED.y - 0.005,
+        y1: OLED.y + 0.04,
+        enabled: false,
+      }));
+      this.hit.add(this.tabDefs);
+      this.tabAt = { xAt, zAt: (v: number) => OLED.z - OLED.d / 2 + v * OLED.d };
+      // Les blocs de la vue PAGE (R4 ; l'ecran est l'editeur depuis le 2026-10-09, au desktop aussi) : huit zones au plus,
+      // posees sur les blocs que l'ecran dessine (scene/screen.ts blockRects : un bloc large, un bloc haut), jamais sur une
+      // case vide ni un dessin
+      this.blockDefs = Array.from({ length: 8 }, (_, k) => ({
+        id: `lcd-blk-${k}`,
+        kind: 'rblock' as const,
+        index: k,
+        layer: plateau,
+        shape: 'box' as const,
+        x: OLED.x,
+        z: OLED.z,
+        hx: 0.1,
+        hz: 0.1,
         y0: OLED.y - 0.005,
         y1: OLED.y + 0.03,
         enabled: false,
       }));
-      this.hit.add(this.tabDefs);
-      // Les huit blocs de la vue PAGE (R4, 2026-10-08) : INFOS allume (syncScreenTabs), survoler ou toucher un bloc montre
-      // la carte de son encodeur ; eteint, l'ecran ne prend aucun pointeur de plus
-      this.blockDefs = Array.from({ length: 8 }, (_, k) => {
-        const b = blockSpot(k);
-        return {
-          id: `lcd-blk-${k}`,
-          kind: 'rblock' as const,
-          index: k,
-          layer: plateau,
-          shape: 'box' as const,
-          x: (xAt(b.u0) + xAt(b.u1)) / 2,
-          z: (zAt(b.v0 * TH) + zAt(b.v1 * TH)) / 2,
-          hx: (xAt(b.u1) - xAt(b.u0)) / 2,
-          hz: (zAt(b.v1 * TH) - zAt(b.v0 * TH)) / 2,
-          y0: OLED.y - 0.005,
-          y1: OLED.y + 0.03,
-          enabled: false,
-        };
-      });
       this.hit.add(this.blockDefs);
     }
     // Les volumes pleins de la machine : ils cachent ce qui est derriere eux
@@ -914,7 +911,8 @@ export class Stage {
       (now) => this.pads.update(now),
       this.pollPlayhead,
       this.stepBreathe,
-      this.stepLockBlink
+      this.stepLockBlink,
+      this.modeBlink
     );
     const voyRig = this.voy;
     if (voyRig) {
@@ -1210,42 +1208,63 @@ export class Stage {
     this.hit.invalidate();
   };
 
-  /** Les onglets du pied de l'ecran repondent quand l'ecran les dessine (vue PAGE, desktop, rien d'autre au pied). */
+  /** Ou poser les zones des onglets et des blocs : les coordonnees du verre (u, v de 0 a 1) sur la face. */
+  private tabAt: { xAt: (u: number) => number; zAt: (v: number) => number } | null = null;
+
+  /**
+   * Les zones de l'ecran suivent ce qu'il dessine (apres chaque redessin) :
+   * les onglets de l'en-tete et les blocs de la vue PAGE (2026-10-09 : leur
+   * place change avec l'ecran, un bloc large, un bloc haut ; au desktop aussi,
+   * l'ecran est l'editeur : glisser, molette, deux clics) ; rien sous EDIT,
+   * HOME, les presets. La liste des sons a la place des blocs : seul le bloc
+   * qui l'a ouverte garde sa zone.
+   */
   private syncScreenTabs(): void {
-    const on = this.screen.tabsShown && !presetMode.on('mm808');
+    const at = this.tabAt;
+    if (!at) return;
+    const page = this.screen.info.view === 'page' && !presetMode.on('mm808');
     let changed = false;
-    for (const d of this.tabDefs) {
+    const place = (d: HotspotDef, r: { u0: number; u1: number; v0: number; v1: number } | null): void => {
+      const on = !!r;
+      if (r) {
+        const x = (at.xAt(r.u0) + at.xAt(r.u1)) / 2;
+        const z = (at.zAt(r.v0) + at.zAt(r.v1)) / 2;
+        const hx = Math.abs(at.xAt(r.u1) - at.xAt(r.u0)) / 2;
+        const hz = Math.abs(at.zAt(r.v1) - at.zAt(r.v0)) / 2;
+        if (d.x !== x || d.z !== z || d.hx !== hx || d.hz !== hz) {
+          d.x = x;
+          d.z = z;
+          d.hx = hx;
+          d.hz = hz;
+          changed = true;
+        }
+      }
       if (d.enabled !== on) {
         d.enabled = on;
         changed = true;
       }
-    }
-    // Les blocs (R4) : INFOS allume et la vue PAGE dessinee (pas HOME, EDIT, les presets) ; au telephone, tout le temps en vue
-    // PAGE depuis le 2026-10-09 (Mika : "on change dans l'ecran directement") : ils sont les potards de page
-    const blk = (BLOCKS_ARE_KNOBS || rytmInfos.isOn()) && this.screen.info.view === 'page';
-    // La liste des sons a leur place (revue du 2026-10-09) : seul le bloc qui l'a ouverte garde sa zone, une tape sur
-    // un nom de la liste ne tombe pas sur un bloc qu'on ne voit pas
-    const list = this.screen.listBlock;
+    };
+    for (const d of this.tabDefs) place(d, page ? (this.screen.tabSpots.find((t) => `lcd-tab-${t.screen}` === d.id) ?? null) : null);
     let gone = false;
     for (const d of this.blockDefs) {
-      const on = blk && (list === null || d.index === list);
-      if (d.enabled !== on) {
-        d.enabled = on;
-        changed = true;
-        gone = gone || !on;
-      }
+      const r = page ? (this.screen.blockRects.find((b) => b.k === d.index) ?? null) : null;
+      if (d.enabled && !r) gone = true;
+      place(d, r);
     }
-    const at = blk ? this.infoAt.blocks : this.infoAt.off;
-    if (this.infoDef && (this.infoDef.x !== at.x || this.infoDef.z !== at.z)) {
-      this.infoDef.x = at.x;
-      this.infoDef.z = at.z;
+    // La touche i : au telephone, quand les blocs ont leur zone, dans le coin du verre (revue de R4)
+    const blk = page && this.screen.blockRects.length > 0;
+    const ik = blk ? this.infoAt.blocks : this.infoAt.off;
+    if (this.infoDef && (this.infoDef.x !== ik.x || this.infoDef.z !== ik.z)) {
+      this.infoDef.x = ik.x;
+      this.infoDef.z = ik.z;
       changed = true;
     }
     if (changed) this.hit.invalidate();
     // Les blocs partis (H, EDIT, les presets ; revue de R4) : la carte d'un bloc ne reste pas sur une vue qui ne le montre plus
-    // (la souris immobile ne repasse pas par le survol)
     const shown = rytmInfos.get().id;
     if (gone && shown !== null && shown.startsWith('lcd-blk-') && !this.blockDefs.some((d) => d.id === shown && d.enabled)) rytmInfos.hide();
+    // Le bloc survole parti avec sa zone : plus de cadre de survol
+    if (gone && rytmPage.get().hover >= 0 && !this.blockDefs.some((d) => d.index === rytmPage.get().hover && d.enabled)) rytmPage.hover(-1);
   }
 
   /**
@@ -2534,6 +2553,8 @@ export class Stage {
     if (this.bass && this.bass.setHover(id !== null && id.startsWith('bass-') ? id : null)) changed = true;
     // INFOS du MM-RYTM (R4, 2026-10-08) : la carte de la commande survolee (le store ne garde que les siennes)
     rytmInfos.hover(id);
+    // Un bloc de l'ecran sous la souris (2026-10-09, l'ecran est l'editeur) : son cadre de survol
+    rytmPage.hover(id !== null && id.startsWith('lcd-blk-') ? Number(id.slice(8)) : -1);
     const pad = id !== null && id.startsWith('pad-') ? (id.slice(4) as PadId) : null;
     if (this.pads.setHover(pad)) changed = true;
     // Puce du PCB (vue ouverte)
@@ -2749,11 +2770,14 @@ export class Stage {
   private syncMix = (): void => {
     const e = this.encoders;
     let changed = e.setValue('level', mix.level);
-    // Au telephone (2026-10-09) plus de potards de page sur la face : rien a calculer (les blocs de l'ecran ont leur dessin)
+    // Au telephone (2026-10-09) plus de potards de page sur la face : rien a calculer (les blocs de l'ecran ont leur dessin).
+    // Au desktop, depuis le 2026-10-09, chaque encodeur montre son FX global (theme.ts GLOBAL_ENCODERS), jamais la page
     if (PAGE_KNOBS_ON_FACE)
       PAGE_KNOB_IDS.forEach((id, k) => {
-        // Un bloc vide, ou rien a regler (pas de voix, pas de pas choisi) : le repere en bas, comme le MIDI
-        if (e.setValue(id, pageKnobCourse(k))) changed = true;
+        const g = GLOBAL_ENCODERS[k] as DialId | undefined;
+        if (!g) return;
+        const [lo, hi] = dialRange(g);
+        if (e.setValue(id, hi > lo ? (anyDialValue(g) - lo) / (hi - lo) : 0)) changed = true;
       });
     if (changed) this.encodersMoved();
   };
@@ -2828,13 +2852,34 @@ export class Stage {
    * coupee (en solo) ; un appui de plus les eteint (2026-10-07, state/
    * voices.ts). true s'il faut une frame.
    */
-  private syncVoiceKeys = (): boolean => this.seq.setVoiceKeys(voices.lit('mute'), voices.lit('solo'));
+  private syncVoiceKeys = (now: number = performance.now()): boolean => {
+    // 2026-10-09 : le temoin dit l'etat du mode (state/voices.ts led) : il clignote en attendant une voix (ONE), fixe en
+    // MULTI, a peine quand le mode est eteint mais des voix restent coupees (en solo)
+    const blink = Math.floor(now / Stage.MODE_BLINK_MS) % 2 === 0;
+    const lv = (k: 'mute' | 'solo'): number => {
+      const led = voices.led(k);
+      return led === 'on' ? 1 : led === 'blink' ? (blink ? 1 : 0.12) : led === 'dim' ? Stage.MODE_DIM : 0;
+    };
+    return this.seq.setVoiceKeys(lv('mute'), lv('solo'));
+  };
+
+  /** Le clignotement de MUTE et SOLO en attente d'une voix (2026-10-09) : 320 ms allume, 320 ms eteint ; a peine : 0.45. */
+  private static readonly MODE_BLINK_MS = 320;
+  private static readonly MODE_DIM = 0.45;
+
+  /** Animateur : MUTE ou SOLO clignote tant qu'il attend une voix (une image a chaque phase, rien sinon). */
+  private modeBlink = (now: number): 'paint' | 'poll' | false => {
+    if (voices.led('mute') !== 'blink' && voices.led('solo') !== 'blink') return false;
+    return this.syncVoiceKeys(now) ? 'paint' : 'poll';
+  };
 
   private syncVoices = (): void => {
     const v = voices.get();
     // Les pads aussi : rouge LED pour une voix coupee, bleu pour le solo
     const pads = this.pads.setVoiceState(v.muted, v.solo);
     if (this.syncVoiceKeys() || pads) this.repaint();
+    // Le clignotement a besoin de la boucle tant qu'un mode attend une voix
+    if (voices.led('mute') === 'blink' || voices.led('solo') === 'blink') this.kick();
   };
 
   /** RUN/STOP : couleur du bouton ; la boucle se met a lire l'horloge audio. */

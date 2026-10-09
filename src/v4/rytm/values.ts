@@ -14,8 +14,8 @@ import { SAMPLE_START_MAX, sampleLenPart } from '../audio/sampledsp';
 import { samplePcm } from '../audio/samples';
 import { toneHpHz, toneLpHz } from '../audio/tone';
 import { timeFactor } from '../audio/time';
-import { START_MAX, decayTau, tuneSt, voiceGain } from '../audio/voicefx';
-import { VEL_GAIN, VEL_MAX, VEL_NAMES } from '../audio/pattern';
+import { FENV_OCT, START_MAX, atkS, cutHz, decayTau, fatkS, fdecTau, fineCents, filterType, holdS, resoQ, tuneSt, voiceGain } from '../audio/voicefx';
+import { VEL_GAIN, VEL_MAX, VEL_NAMES, delayDiv, delayFb } from '../audio/pattern';
 import { swingRatio, type EncId } from '../theme';
 
 /** Le nombre 0 a 127 d'une course 0 a 1 ; a zero au centre : -64 a +63 (le centre exact vaut 0). */
@@ -48,9 +48,20 @@ export function tuneUnit(v: number): string {
   return `OCT + ${INTERVALS[a - 12]}`;
 }
 
-/** Le nombre d'un potard de la machine (sa valeur dans son domaine) : 0 a 127, -64 a +63, TUNE en demi-tons. */
+/**
+ * Le nombre d'un potard de la machine (sa valeur dans son domaine) : 0 a 127,
+ * -64 a +63, PITCH en demi-tons ; depuis le 2026-10-09 FINE en cents (+12), le
+ * TYPE du filtre par son nom (LP, HP, BP), DLY TIME par sa division (1/8D).
+ */
 export function encText(id: Exclude<EncId, 'tempo' | 'vsound'>, v: number, course: number, bipolar: boolean): string {
-  return id === 'vtune' ? tuneText(v) : v127Text(course, bipolar);
+  if (id === 'vtune') return tuneText(v);
+  if (id === 'vfine') {
+    const c = fineCents(v);
+    return c > 0 ? `+${c}` : String(c);
+  }
+  if (id === 'vftype') return filterType(v);
+  if (id === 'dtime') return delayDiv(v).label;
+  return v127Text(course, bipolar);
 }
 
 /**
@@ -132,6 +143,31 @@ export function encUnit(id: Exclude<EncId, 'tempo' | 'vsound'>, v: number): stri
       const n = Math.round(Math.max(0, Math.min(1, v)) * START_MAX * 100);
       return n === 0 ? 'FROM TOP' : `${n}% IN`;
     }
+    // L'etape 2 (2026-10-09) : l'enveloppe du coup, FINE, le filtre, le DELAY
+    case 'vatk':
+      return v <= 0 ? 'SNAP' : dur(atkS(v));
+    case 'vhold':
+      return dur(holdS(v));
+    case 'vfine':
+      return 'CENTS';
+    case 'vftype':
+      return filterType(v) === 'LP' ? 'LOW PASS' : filterType(v) === 'HP' ? 'HIGH PASS' : 'BAND PASS';
+    case 'vfcut':
+      return hz(cutHz(v));
+    case 'vfreso':
+      return `Q ${resoQ(v).toFixed(1)}`;
+    case 'vfenv': {
+      const o = Math.round(v * FENV_OCT * 10) / 10;
+      return o === 0 ? 'NO ENV' : `${o > 0 ? '+' : ''}${o.toFixed(1)} OCT`;
+    }
+    case 'vfatk':
+      return v <= 0 ? 'SNAP' : dur(fatkS(v));
+    case 'vfdec':
+      return dur(fdecTau(v) * 3);
+    case 'dtime':
+      return 'NOTE';
+    case 'dfb':
+      return `${Math.round(delayFb(v) * 100)}% FB`;
     default:
       return `${Math.round(Math.max(0, Math.min(1, v)) * 100)}%`;
   }

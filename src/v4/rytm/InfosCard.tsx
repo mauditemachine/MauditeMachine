@@ -7,12 +7,13 @@
  * lisent pareil), sur son propre store (state/rytmInfos.ts) :
  * - allume (le i de l'ecran, I, rytm:infos, la touche INFOS du Dock), une
  *   commande survolee (souris) ou touchee (doigt) : sa carte, la section en
- *   petites capitales (la page et la lettre du bloc : SRC B), la voix ou
- *   LOCK 05 a droite, le nom, le dessin en direct (rytm/diagrams.ts, refait
- *   des valeurs du moment ; en LOCK, celles du pas), le texte et l'astuce
- *   (rytm/infos.ts) ; un encodeur de page montre le reglage qu'il tient sur
- *   la page allumee, pour la voix choisie (pageTarget : la meme table que
- *   l'ecran), et l'ecran marque son bloc de quatre coins ;
+ *   petites capitales (l'ecran et la lettre du bloc : ENV C), la voix ou
+ *   P-LOCK 05 a droite, le nom, le dessin en direct (rytm/diagrams.ts, refait
+ *   des valeurs du moment ; en P-LOCK, celles du pas), le texte et l'astuce
+ *   (rytm/infos.ts) ; un bloc de l'ecran montre le reglage qu'il tient sur
+ *   l'ecran affiche, pour la voix choisie (pageSlotOf : la meme table que
+ *   l'ecran), et l'ecran marque son bloc de quatre coins ; un encodeur du
+ *   desktop, son FX global (2026-10-09) ;
  * - desktop : les encodeurs de page et leurs blocs, les touches de page,
  *   l'ecran (son en-tete, ses onglets, son i) et les pas, LOCK compris : a
  *   cote de l'ecran entier, jamais dessus (revue de R4 : au-dessus d'une
@@ -35,8 +36,9 @@
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { anyDialValue, dialValue, lockMode, lockSamples, pageLockView, pageSlotOf, rytmInfoTap, stepPlays, subscribeDials, type DialId } from '../actions';
+import { anyDialValue, dialValue, lockMode, lockSamples, pageLockView, pageSlotOf, rytmInfoTap, stepPlays, subscribeDials, voiceSounds, type DialId } from '../actions';
 import { KIT_MODEL_LABEL, familyOf, kit, kitMachineNames, kitSampleNames, kitSoundIndex, kitSoundNames, type KitFamily, type KitId } from '../audio/kit';
+import { voiceFx } from '../audio/voicefx';
 import { sampleByKey } from '../audio/samples';
 import { lockMask, lockOf } from '../audio/locks';
 import { pattern } from '../audio/pattern';
@@ -97,7 +99,7 @@ const DiagramSvg: React.FC<{ d: RytmDiagram }> = ({ d }) => (
   </svg>
 );
 
-/** Ce que la carte montre : la carte, son dessin, ce qui va a droite de la section (la voix, LOCK 05). */
+/** Ce que la carte montre : la carte, son dessin, ce qui va a droite de la section (la voix, P-LOCK 05). */
 export interface Model {
   info: RytmInfo;
   diagram: RytmDiagram | null;
@@ -127,8 +129,19 @@ export function modelOf(hotspot: string): Model | null {
   const rp = rytmPage.get();
   const lockStep = lockMode() ? rytmLock.get().step : -1;
   const shownLock = voice && lockStep >= 0 ? lockOf(p.locks, voice, lockStep) : null;
-  const ctx: RytmInfoCtx = { voice, page: rp.page };
-  const dc: RytmDiagramCtx = { v: 0, voice, page: rp.page, bpm: p.bpm, steps: voice ? p.steps[voice] : undefined, lockMask: voice ? lockMask(p.locks, voice) : 0, step: lockStep };
+  // L'ecran affiche (2026-10-09 : la page et son onglet, VOICE SYNTH, GLOBAL FX)
+  const screen = rytmPage.screen(voice);
+  const ctx: RytmInfoCtx = { voice, page: screen };
+  const dc: RytmDiagramCtx = { v: 0, voice, page: screen, bpm: p.bpm, steps: voice ? p.steps[voice] : undefined, lockMask: voice ? lockMask(p.locks, voice) : 0, step: lockStep };
+  // L'enveloppe, le filtre (ceux du pas en P-LOCK) et le DELAY : un reglage se dessine avec ses voisins
+  const vf = voice ? voiceFx.of(voice) : null;
+  if (vf) {
+    const lk = shownLock;
+    dc.env = { atk: lk?.atk ?? vf.atk, hold: lk?.hold ?? vf.hold, decay: lk?.decay ?? vf.decay };
+    dc.filt = { ftype: lk?.ftype ?? vf.ftype, fcut: lk?.fcut ?? vf.fcut, freso: lk?.freso ?? vf.freso, fenv: lk?.fenv ?? vf.fenv, fatk: lk?.fatk ?? vf.fatk, fdec: lk?.fdec ?? vf.fdec };
+  }
+  dc.dtime = pattern.fx.get().dtime;
+  dc.dfb = pattern.fx.get().dfb;
   let id = hit.id;
   let locked = false;
   let tag = '';
@@ -166,12 +179,26 @@ export function modelOf(hotspot: string): Model | null {
         dc.sounds = lockStep >= 0 && voice ? lockSamples(voice).map((x) => x.label) : f ? kitSampleNames(f) : ['OFF'];
         dc.synths = 1;
         dc.index = Math.round(dc.v);
+      } else if (target === 'voice:sound' && voice) {
+        // SOUND (2026-10-09) : la liste unique de VOICE (OFF, les machines, les samples ; en P-LOCK, ceux des autres voix)
+        const list = voiceSounds(voice, lockStep >= 0);
+        dc.sounds = list.map((x) => x.label);
+        dc.synths = list.filter((x) => x.kind !== 'smp').length;
+        dc.index = Math.round(dc.v);
+      } else if (target === 'voice:mix' && plays) {
+        dc.mixLv = { syn: plays.syn, lev: plays.lev, sample: !!plays.sample };
       }
       // La couche de ce reglage se tait (R3) : la carte le dit, comme le bloc en retrait de l'ecran
       // (BOTH, les deux couches : seulement quand la voix se tait)
       const off = !plays ? '' : slot.both ? (!plays.synth && !plays.smp ? 'SILENT' : '') : slot.layer === 'synth' && !plays.synth ? 'SYNTH OFF' : slot.layer === 'sample' && !plays.smp ? 'SAMPLE OFF' : '';
       tag = slot.scope === 'all' ? 'ALL' : [voice ?? '', off].filter(Boolean).join('  ');
     }
+  } else if (hit.encoder !== undefined) {
+    // Un encodeur du desktop (2026-10-09) : son FX global, a poste fixe, jamais verrouille
+    ctx.encoder = hit.encoder;
+    ctx.lockable = 'global';
+    dc.v = anyDialValue(id as DialId);
+    tag = 'ALL';
   } else if (hit.plate && id.startsWith('r:')) {
     // La plaque TWEAKS (OPEN) : son potard, la famille qu'il regle
     const k = id.slice(2);
@@ -189,7 +216,7 @@ export function modelOf(hotspot: string): Model | null {
     }
   } else if (id === 'step') {
     const i = hit.step ?? -1;
-    // Le pas en LOCK : la carte du LOCK
+    // Le pas en P-LOCK : la carte du P-LOCK
     if (i >= 0 && i === rytmLock.get().step && editor.get() !== 'mm808') id = 'lock';
     ctx.step = i;
     dc.step = i;
@@ -215,7 +242,7 @@ export function modelOf(hotspot: string): Model | null {
   else if (id === 'tempo') dc.v = p.bpm;
   const info = infoOf(id, ctx);
   if (!info) return null;
-  return { info, diagram: rytmDiagram(id, dc), tag: locked ? `LOCK ${two(lockStep + 1)}` : tag, locked };
+  return { info, diagram: rytmDiagram(id, dc), tag: locked ? `P-LOCK ${two(lockStep + 1)}` : tag, locked };
 }
 
 /** Un compteur qui suit les stores lus par la carte (les potards, le motif, la page, le LOCK, les presets, EDIT). */

@@ -193,7 +193,8 @@ export class Sequencer3D {
   /** appui en cours de chaque bouton (0 a 1) */
   private btnPress = new Float32Array(BUTTON_COUNT);
   /** temoins : etat tenu (RUN qui joue, MUTE, SOLO) et eclair d'appui (0 a 1) */
-  private btnLatch = new Uint8Array(BUTTON_COUNT);
+  /** L'eclat tenu de chaque temoin, 0 a 1 (2026-10-09 : MUTE et SOLO a peine allumes quand des voix restent coupees) */
+  private btnLatch = new Float32Array(BUTTON_COUNT);
   private btnFlash = new Float32Array(BUTTON_COUNT);
   private btnLedOff = new Color();
   private btnLedOn = new Color();
@@ -307,7 +308,7 @@ export class Sequencer3D {
 
   /** Eclat du temoin j : allume si son etat tient, sinon son eclair d'appui. */
   private ledLevel(j: number): number {
-    return this.btnLatch[j] ? 1 : this.btnFlash[j];
+    return Math.max(this.btnLatch[j], this.btnFlash[j]);
   }
 
   private paintButtonLed(j: number): void {
@@ -318,10 +319,11 @@ export class Sequencer3D {
   }
 
   /** Etat tenu du temoin du bouton k ; true s'il a change. */
-  private latch(k: number, on: boolean): boolean {
+  private latch(k: number, on: boolean | number): boolean {
     const j = k - STEP_COUNT;
-    if (Boolean(this.btnLatch[j]) === on) return false;
-    this.btnLatch[j] = on ? 1 : 0;
+    const v = typeof on === 'number' ? Math.max(0, Math.min(1, on)) : on ? 1 : 0;
+    if (Math.abs(this.btnLatch[j] - v) < 1e-3) return false;
+    this.btnLatch[j] = v;
     this.paintButtonLed(j);
     return true;
   }
@@ -349,7 +351,8 @@ export class Sequencer3D {
   }
 
   /** Temoins de MUTE (voix coupee) et SOLO (solo en cours) ; true s'il faut une frame. */
-  setVoiceKeys(muteOn: boolean, soloOn: boolean): boolean {
+  /** MUTE et SOLO : leur eclat, 0 a 1 (2026-10-09 : clignotant en attente d'une voix, fixe en MULTI, a peine sinon). */
+  setVoiceKeys(muteOn: boolean | number, soloOn: boolean | number): boolean {
     const a = this.latch(MUTE, muteOn);
     const b = this.latch(SOLO, soloOn);
     return a || b;

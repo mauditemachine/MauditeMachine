@@ -66,15 +66,29 @@
 
 import type { Inst } from '../theme';
 
-/** Les reglages verrouillables (R2, R3) : tous coup par coup. */
-export type LockId = 'level' | 'decay' | 'tune' | 'pan' | 'start' | KitLockId | LayerLockId | 'delay' | 'reverb';
+/**
+ * Les reglages verrouillables (R2, R3) : tous coup par coup. L'etape 2 de la
+ * refonte (2026-10-09, VOICE FLTR ENV FX) en ajoute (VoiceLockId) : FINE de
+ * VOICE, ATK et HOLD de ENV, le filtre de FLTR (TYPE FREQ RESO ENV, ses ATK et
+ * DEC), TONE (FLTR), DIST et CHORUS de la voix (FX, ils disaient NO LOCK) :
+ * - atk, hold, fine, f* : coup par coup (l'enveloppe, la hauteur, le filtre
+ *   du coup, audio/drums.ts voice) ;
+ * - tone : le coup prend le TONE du pas (sa hauteur, et son filtre au lieu de
+ *   celui de la tranche) ;
+ * - dist, chorus : les inserts de la tranche de la voix prennent la valeur du
+ *   pas a l'instant du coup, jusqu'au coup suivant de la voix (comme DELAY et
+ *   REVERB, l'overdrive d'une piste Elektron).
+ */
+export type VoiceLockId = 'atk' | 'hold' | 'fine' | 'ftype' | 'fcut' | 'freso' | 'fenv' | 'fatk' | 'fdec' | 'tone' | 'dist' | 'chorus';
+export const VOICE_LOCK_IDS: readonly VoiceLockId[] = ['atk', 'hold', 'fine', 'ftype', 'fcut', 'freso', 'fenv', 'fatk', 'fdec', 'tone', 'dist', 'chorus'];
+export type LockId = 'level' | 'decay' | 'tune' | 'pan' | 'start' | KitLockId | LayerLockId | 'delay' | 'reverb' | VoiceLockId;
 /** Les potards de la machine (SRC) : le coup se calcule avec eux (revue de R2 ; SWEEP et la caisse claire depuis R3). */
 export type KitLockId = 'ktune' | 'kattack' | 'kdecay' | 'kdrive' | 'snappy' | 'gate' | 'ksweep' | 'sdtune' | 'sddecay' | 'sdtone';
 export const KIT_LOCK_IDS: readonly KitLockId[] = ['ktune', 'kattack', 'kdecay', 'kdrive', 'snappy', 'gate', 'ksweep', 'sdtune', 'sddecay', 'sdtone'];
 /** Les reglages des couches (R3) : les deux niveaux, la couche SAMPLE. */
 export type LayerLockId = 'syn' | 'slev' | 'stune' | 'sfine' | 'sstart' | 'slen' | 'srev';
 export const LAYER_LOCK_IDS: readonly LayerLockId[] = ['syn', 'slev', 'stune', 'sfine', 'sstart', 'slen', 'srev'];
-export const LOCK_IDS: readonly LockId[] = ['level', 'decay', 'tune', 'pan', 'start', ...KIT_LOCK_IDS, ...LAYER_LOCK_IDS, 'delay', 'reverb'];
+export const LOCK_IDS: readonly LockId[] = ['level', 'decay', 'tune', 'pan', 'start', ...KIT_LOCK_IDS, ...LAYER_LOCK_IDS, 'delay', 'reverb', ...VOICE_LOCK_IDS];
 export const isLockId = (v: unknown): v is LockId => typeof v === 'string' && (LOCK_IDS as readonly string[]).includes(v);
 export const isKitLock = (v: unknown): v is KitLockId => typeof v === 'string' && (KIT_LOCK_IDS as readonly string[]).includes(v);
 export const isLayerLock = (v: unknown): v is LayerLockId => typeof v === 'string' && (LAYER_LOCK_IDS as readonly string[]).includes(v);
@@ -114,8 +128,12 @@ const r3 = (v: number): number => Math.round(v * 1000) / 1000;
 export function clampLock(id: LockId, v: number, exact = false): number {
   if (!Number.isFinite(v)) return id === 'decay' ? 1 : id === 'level' ? 0.8 : 0;
   if (id === 'tune' || id === 'stune') return Math.max(-24, Math.min(24, Math.round(v * 24))) / 24;
-  if (id === 'sfine') return Math.max(-64, Math.min(64, Math.round(v * 64))) / 64;
-  if (id === 'pan') return r3(Math.max(-1, Math.min(1, v)));
+  if (id === 'sfine' || id === 'fine') return Math.max(-64, Math.min(64, Math.round(v * 64))) / 64;
+  if (id === 'pan' || id === 'fenv') return r3(Math.max(-1, Math.min(1, v)));
+  // TONE (2026-10-09) : -1 a 1, accroche au centre comme celui de la voix (audio/tone.ts snapTone)
+  if (id === 'tone') return Math.abs(v) < 0.04 ? 0 : r3(Math.max(-1, Math.min(1, v)));
+  // TYPE du filtre : LP, HP, BP (0, 0.5, 1)
+  if (id === 'ftype') return Math.max(0, Math.min(2, Math.round(v * 2))) / 2;
   // Les potards de la machine et des couches : au 127e comme le kit depuis R3 (un calcul de coup par cran, pas par
   // pixel ; au cinquantieme en R2) ; GATE et REV 0 ou 1
   if (id === 'gate' || id === 'srev') return v >= 0.5 ? 1 : 0;

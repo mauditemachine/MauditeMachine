@@ -25,12 +25,112 @@
 import type { Inst } from '../theme';
 import { snapTone } from './tone';
 
-export type VoiceParam = 'tone' | 'decay' | 'level' | 'dist' | 'reverb' | 'delay' | 'chorus' | 'tune' | 'pan' | 'start';
-export const VOICE_PARAMS: readonly VoiceParam[] = ['tone', 'decay', 'level', 'dist', 'reverb', 'delay', 'chorus', 'tune', 'pan', 'start'];
+/*
+ * L'etape 2 de la refonte (2026-10-09, Mika : "on doit ensuite avoir un
+ * bouton ENV donc AMP doit s'appeler ENV et doit etre plus complet pour
+ * modifier les choses") : neuf reglages de plus par voix, tous coup par coup
+ * (audio/drums.ts hitParams) et donc verrouillables pas par pas :
+ * - atk, hold : l'attaque et la tenue de l'enveloppe du coup (ENV ATK et
+ *   HOLD), avant DEC ; a 0 le coup d'avant au pixel pres (la frappe nette, les
+ *   4 ms de DECAY_HOLD_S) ;
+ * - fine : l'accord fin de toute la voix (VOICE FINE, +/-64 cents, au cent),
+ *   a cote de PITCH (les demi-tons de tune) ;
+ * - ftype, fcut, freso, fenv, fatk, fdec : le filtre de la page FLTR (un
+ *   BiquadFilterNode par coup : passe-bas, passe-haut ou passe-bande, sa
+ *   coupure, sa resonance, la profondeur et les temps de son enveloppe) ; au
+ *   depart (passe-bas ouvert, sans enveloppe) il n'existe pas, le son d'avant.
+ */
+export type VoiceParam =
+  | 'tone'
+  | 'decay'
+  | 'level'
+  | 'dist'
+  | 'reverb'
+  | 'delay'
+  | 'chorus'
+  | 'tune'
+  | 'pan'
+  | 'start'
+  | 'atk'
+  | 'hold'
+  | 'fine'
+  | 'ftype'
+  | 'fcut'
+  | 'freso'
+  | 'fenv'
+  | 'fatk'
+  | 'fdec';
+export const VOICE_PARAMS: readonly VoiceParam[] = ['tone', 'decay', 'level', 'dist', 'reverb', 'delay', 'chorus', 'tune', 'pan', 'start', 'atk', 'hold', 'fine', 'ftype', 'fcut', 'freso', 'fenv', 'fatk', 'fdec'];
 
 export type VoiceFx = Record<VoiceParam, number>;
 
-export const VOICE_FX_DEFAULT: Readonly<VoiceFx> = { tone: 0, decay: 1, level: 0.8, dist: 0, reverb: 0, delay: 0, chorus: 0, tune: 0, pan: 0, start: 0 };
+export const VOICE_FX_DEFAULT: Readonly<VoiceFx> = {
+  tone: 0,
+  decay: 1,
+  level: 0.8,
+  dist: 0,
+  reverb: 0,
+  delay: 0,
+  chorus: 0,
+  tune: 0,
+  pan: 0,
+  start: 0,
+  atk: 0,
+  hold: 0,
+  fine: 0,
+  ftype: 0,
+  fcut: 1,
+  freso: 0,
+  fenv: 0,
+  fatk: 0,
+  fdec: 0.5,
+};
+
+/* ---------------- l'enveloppe du coup (ENV, 2026-10-09) ---------------- */
+
+/** ATK : 0 la frappe nette (aucune rampe) ; sinon 1 ms a 0.5 s, en loi exponentielle (le milieu : 22 ms). */
+export const atkS = (v: number): number => (v > 0 ? 0.001 * Math.pow(500, Math.min(1, v)) : 0);
+/** HOLD : la tenue avant DEC ; 0 les 4 ms d'avant (DECAY_HOLD_S), jusqu'a environ 1 s (le milieu : 49 ms). */
+export const holdS = (v: number): number => 0.004 + (v > 0 ? 0.002 * Math.pow(500, Math.min(1, v)) : 0);
+
+/* ---------------- FINE (2026-10-09) ---------------- */
+
+/** FINE : +/-64 cents aux butees, au cent (129 crans). */
+export const FINE_CENTS = 64;
+export const snapFine = (v: number): number => (Number.isFinite(v) ? Math.max(-FINE_CENTS, Math.min(FINE_CENTS, Math.round(v * FINE_CENTS))) / FINE_CENTS : 0);
+export const fineCents = (v: number): number => Math.round(snapFine(v) * FINE_CENTS);
+/** Son facteur de hauteur : exactement 1 a 0. */
+export const fineFactor = (v: number): number => {
+  const c = fineCents(v);
+  return c === 0 ? 1 : Math.pow(2, c / 1200);
+};
+
+/* ---------------- le filtre (FLTR, 2026-10-09) ---------------- */
+
+/** Les types du filtre : passe-bas, passe-haut, passe-bande (ftype 0, 0.5, 1). */
+export const FILTER_TYPES = ['LP', 'HP', 'BP'] as const;
+export type FilterType = (typeof FILTER_TYPES)[number];
+export const filterIndex = (v: number): number => Math.max(0, Math.min(2, Math.round((Number.isFinite(v) ? v : 0) * 2)));
+export const filterType = (v: number): FilterType => FILTER_TYPES[filterIndex(v)];
+/** FREQ : 20 Hz a 20 kHz, en loi exponentielle (le milieu : 632 Hz). */
+export const cutHz = (v: number): number => 20 * Math.pow(1000, Math.max(0, Math.min(1, v)));
+/** RESO : le Q du filtre, 0.707 (aucune bosse) a environ 12. */
+export const resoQ = (v: number): number => Math.SQRT1_2 * (1 + 16 * Math.pow(Math.max(0, Math.min(1, v)), 1.5));
+/** ENV : la profondeur de l'enveloppe du filtre, +/-5 octaves de coupure au sommet. */
+export const FENV_OCT = 5;
+/** F.ATK : comme ATK ; F.DEC : la constante de temps de la descente, 10 ms a 1.6 s (le milieu : 126 ms). */
+export const fatkS = atkS;
+export const fdecTau = (v: number): number => 0.01 * Math.pow(160, Math.max(0, Math.min(1, v)));
+
+/**
+ * Le filtre d'un coup a-t-il quelque chose a faire ? Non au depart (passe-bas
+ * ouvert ou passe-haut ferme, sans enveloppe) : aucun noeud, le son d'avant.
+ */
+export const filterOpen = (type: number, cut: number, env: number): boolean => {
+  if (env !== 0) return false;
+  const t = filterIndex(type);
+  return (t === 0 && cut >= 0.999) || (t === 1 && cut <= 0.001);
+};
 
 /** TUNE : +/-24 demi-tons aux butees, au demi-ton pres (49 crans). */
 export const TUNE_ST = 24;
@@ -67,7 +167,11 @@ const clamp = (p: VoiceParam, v: number): number => {
   if (p === 'tone') return snapTone(v);
   if (p === 'tune') return snapTune(v);
   if (p === 'pan') return snapPan(v);
-  return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : p === 'decay' ? 1 : 0;
+  if (p === 'fine') return snapFine(v);
+  if (p === 'ftype') return filterIndex(v) / 2;
+  // ENV du filtre : -1 a 1, colle au centre comme PAN (un glisser y revient)
+  if (p === 'fenv') return snapPan(v);
+  return Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : p === 'decay' || p === 'fcut' ? 1 : p === 'fdec' ? 0.5 : 0;
 };
 
 const INSTS: readonly Inst[] = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'];

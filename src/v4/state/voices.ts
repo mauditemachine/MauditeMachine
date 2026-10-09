@@ -17,6 +17,13 @@
  *   revient.
  * actions.ts (muteToggle, soloToggle) decide ; ce store garde l'etat. Le
  * solo passe avant les mutes.
+ *
+ * Depuis le 2026-10-09 (Mika : "quand on appuie deux fois sur MUTE on peut
+ * selectionner plusieurs Voice pour les muter.. si une seule fois ca veut dire
+ * que c'est juste un voice") : les etats OFF, ONE, MULTI (mode), sans fenetre
+ * de temps ; les deux listes sont independantes (armer SOLO garde les mutes,
+ * et l'inverse) ; sortir de MULTI garde les voix coupees (le temoin a peine
+ * allume, led) ; MUTE tenu les rend toutes (release).
  */
 
 import type { Inst } from '../theme';
@@ -36,6 +43,14 @@ export interface VoicesState {
 }
 
 export type VoiceModeKind = 'mute' | 'solo';
+/** L'etat d'un mode : eteint, arme pour une voix, arme pour plusieurs. */
+export type VoiceMode = 'off' | 'one' | 'multi';
+/**
+ * Le temoin d'un mode (2026-10-09, sur la touche MUTE / SOLO et le bouton du
+ * Dock) : blink, il attend une voix (ONE) ; on, fixe (MULTI) ; dim, le mode
+ * eteint mais des voix coupees (en solo) ; off.
+ */
+export type VoiceLed = 'blink' | 'on' | 'dim' | 'off';
 
 let state: VoicesState = { muted: [], solo: [], muteMode: false, muteMulti: false, soloMode: false, soloMulti: false };
 const listeners = new Set<() => void>();
@@ -61,15 +76,32 @@ export const voices = {
   plays: (inst: Inst): boolean => (state.solo.length > 0 ? state.solo.includes(inst) : !state.muted.includes(inst)),
   /** Le temoin d'un mode : arme, ou une voix encore coupee (en solo). */
   lit: (k: VoiceModeKind): boolean => (k === 'mute' ? state.muteMode || state.muted.length > 0 : state.soloMode || state.solo.length > 0),
+  /** L'etat d'un mode (2026-10-09). */
+  mode(k: VoiceModeKind): VoiceMode {
+    const on = k === 'mute' ? state.muteMode : state.soloMode;
+    const multi = k === 'mute' ? state.muteMulti : state.soloMulti;
+    return !on ? 'off' : multi ? 'multi' : 'one';
+  },
+  /** Son temoin (2026-10-09) : blink (ONE), on (MULTI), dim (des voix gardees), off. */
+  led(k: VoiceModeKind): VoiceLed {
+    const m = voices.mode(k);
+    if (m === 'one') return 'blink';
+    if (m === 'multi') return 'on';
+    return (k === 'mute' ? state.muted.length : state.solo.length) > 0 ? 'dim' : 'off';
+  },
   toggleMute(inst: Inst): void {
     commit({ ...state, muted: toggled(state.muted, inst) });
   },
   toggleSolo(inst: Inst): void {
     commit({ ...state, solo: toggled(state.solo, inst) });
   },
-  /** Arme un mode (multi : plusieurs voix) ; l'autre mode s'eteint, ses voix reviennent. */
+  /**
+   * Arme un mode (multi : plusieurs voix) ; l'autre mode s'eteint (une tape de
+   * voix ne va qu'a un mode), ses voix restent (2026-10-09 : armer SOLO
+   * effacait les mutes).
+   */
   arm(k: VoiceModeKind, multi: boolean): void {
-    commit(k === 'mute' ? { ...state, muteMode: true, muteMulti: multi, soloMode: false, soloMulti: false, solo: [] } : { ...state, soloMode: true, soloMulti: multi, muteMode: false, muteMulti: false, muted: [] });
+    commit(k === 'mute' ? { ...state, muteMode: true, muteMulti: multi, soloMode: false, soloMulti: false } : { ...state, soloMode: true, soloMulti: multi, muteMode: false, muteMulti: false });
   },
   /** Le mode a une voix a servi : il retombe, la voix reste coupee (en solo). */
   disarm(k: VoiceModeKind): void {

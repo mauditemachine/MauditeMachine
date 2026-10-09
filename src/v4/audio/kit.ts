@@ -107,6 +107,12 @@ export const GATE_LABELS = ['OFF', 'ON'] as const;
 export const kitSoundNames = (f: KitFamily): string[] => [...KIT_MODELS.map((m) => KIT_MODEL_LABEL[m]), ...samplesOf(f).map((s) => s.label)];
 /** Les machines de la couche SYNTH (MACHINE de SRC). */
 export const kitMachineNames = (): string[] => KIT_MODELS.map((m) => KIT_MODEL_LABEL[m]);
+/**
+ * La liste unique de SOUND (VOICE, 2026-10-09, Mika : "on doit voir c'est quoi
+ * le sample ; je veux merge SRC SMPL et TRIG") : OFF, 909, 808, MM, puis les
+ * samples de la famille.
+ */
+export const voiceSoundNames = (f: KitFamily): string[] => ['OFF', ...kitSoundNames(f)];
 /** La couche SAMPLE d'une famille : OFF, puis ses echantillons (SAMPLE de SMPL). */
 export const kitSampleNames = (f: KitFamily): string[] => ['OFF', ...samplesOf(f).map((s) => s.label)];
 
@@ -423,6 +429,36 @@ export interface Plays {
 }
 const playsOf = (v: View): Plays => ({ model: v.model, syn: v.layer.syn, lev: v.layer.lev, sample: v.sample, from: v.from, synth: v.layer.syn > 0, smp: !!v.sample && v.layer.lev > 0 });
 
+/**
+ * Le rang de ce que joue une famille dans la liste de SOUND (voiceSoundNames,
+ * 2026-10-09) : son sample s'il s'entend (avec ou sans la synthese dessous),
+ * sinon sa machine si la synthese s'entend, sinon OFF (0).
+ */
+export function voiceSoundIndexOf(p: Readonly<Plays>, f: KitFamily): number {
+  if (p.smp && p.sample && !p.from) {
+    const j = samplesOf(f).findIndex((x) => x.key === p.sample);
+    if (j >= 0) return 1 + KIT_MODELS.length + j;
+  }
+  if (p.synth) return 1 + KIT_MODELS.indexOf(p.model);
+  return 0;
+}
+
+/**
+ * MIX de VOICE SYNTH (2026-10-09) : la part des deux couches, 0 la synthese
+ * seule, 1 le sample seul, 0.5 les deux a leur plein ; lu de leurs deux
+ * niveaux (le plus fort reste a sa place), ecrit en les deux (mixLevels).
+ */
+export function mixOf(syn: number, lev: number): number {
+  if (syn <= 0 && lev <= 0) return 0.5;
+  return syn >= lev ? 0.5 * (lev / syn) : 1 - 0.5 * (syn / lev);
+}
+/** Les deux niveaux d'un MIX m, le plus fort a S (celui du moment ; 1 si les deux sont a 0). */
+export function mixLevels(m: number, S: number): { syn: number; lev: number } {
+  const x = Math.max(0, Math.min(1, m));
+  const top = S > 0 ? S : 1;
+  return { syn: top * Math.min(1, 2 * (1 - x)), lev: top * Math.min(1, 2 * x) };
+}
+
 /** Ce que le calcul d'un son doit savoir d'une vue (les deux couches). */
 function tweakOf(v: View): ShotTweak {
   const k = v.knob;
@@ -552,6 +588,33 @@ export const kit = {
     emit([f]);
     return true;
   },
+  /**
+   * Le son de VOICE et son melange (2026-10-09, la liste unique SOUND et MIX,
+   * rytm/pages.ts) : la MACHINE, l'echantillon (null : OFF ; absent : le meme)
+   * et les deux niveaux d'un coup, une seule annonce ; true si rien que ca a
+   * change quelque chose.
+   */
+  setVoice(f: KitFamily, patch: { model?: KitModel; sample?: string | null; syn?: number; lev?: number }): boolean {
+    let next = state;
+    if (patch.model !== undefined && isModel(patch.model) && next.model[f] !== patch.model) next = { ...next, model: { ...next.model, [f]: patch.model } };
+    if (patch.sample !== undefined) {
+      const k = patch.sample ? resolveSample(f, patch.sample) : undefined;
+      if ((next.sample[f] ?? null) !== (k ?? null) && !(patch.sample && !k)) {
+        const sample = { ...next.sample };
+        if (k) sample[f] = k;
+        else delete sample[f];
+        next = { ...next, sample };
+      }
+    }
+    const l = next.layer[f];
+    const syn = patch.syn === undefined ? l.syn : clampLayer('syn', patch.syn);
+    const lev = patch.lev === undefined ? l.lev : clampLayer('lev', patch.lev);
+    if (syn !== l.syn || lev !== l.lev) next = { ...next, layer: { ...next.layer, [f]: { ...l, syn, lev } } };
+    if (next === state) return false;
+    state = next;
+    emit([f]);
+    return true;
+  },
   /** Les reglages de couche d'une famille. */
   layerOf(f: KitFamily): Readonly<Layer> {
     return state.layer[f];
@@ -599,6 +662,10 @@ export const kit = {
    */
   playsWith(id: ShotId, ov: KitOverride | null): Plays {
     return playsOf(viewOf(familyOf(id), ov));
+  },
+  /** Le rang du son de la famille dans la liste de SOUND de VOICE (2026-10-09, voiceSoundNames). */
+  voiceIndex(f: KitFamily): number {
+    return voiceSoundIndexOf(playsOf(viewOf(f)), f);
   },
   /** Ce qui joue en un mot : BLUEPRINT, 909, 909+BLUEPRINT, SILENT (l'en-tete). */
   playsText(p: Readonly<Plays>): string {

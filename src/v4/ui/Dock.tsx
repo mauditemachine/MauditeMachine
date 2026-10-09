@@ -23,6 +23,12 @@
  * l'etude l'a garde par defaut) ; un pas qui a des verrous porte un point,
  * le pas en LOCK clignote ; la page KNOBS regle ses verrous.
  *
+ * MUTE et SOLO (2026-10-09, la machine a trois etats de la face) : une tape,
+ * le mode suivant (ONE, MULTI, range) ; tenus MODE_HOLD_MS, toutes les voix
+ * reviennent ; leur temoin (data-led) clignote en attendant une voix, fixe en
+ * MULTI, a peine quand des voix restent coupees. Toutes les cibles du Dock
+ * font 44 px de haut au moins (le doigt).
+ *
  * INFOS (2026-10-08, l'etape R4, state/rytmInfos.ts) : la touche i a droite
  * des onglets SEQUENCER / KNOBS allume l'aide (le i de l'ecran aussi) ;
  * allume, toucher une commande du Dock montre sa carte (celle de sa jumelle
@@ -38,7 +44,7 @@
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { clearPattern, randomPattern, muteToggle, runToggle, rytmLockToggle, selectInstrument, setTempo, soloToggle, stepToggle, rytmInfoTap } from '../actions';
+import { MODE_HOLD_MS, clearPattern, modeHold, randomPattern, muteToggle, runToggle, rytmLockToggle, selectInstrument, setTempo, soloToggle, stepToggle, rytmInfoTap } from '../actions';
 import { lockMask } from '../audio/locks';
 import { rytmLock } from '../state/rytmLock';
 import { rytmInfos } from '../state/rytmInfos';
@@ -77,6 +83,68 @@ interface Props {
   /** le Stage : une page touchee enfonce aussi son pad 3D */
   getStage: () => Stage | null;
 }
+
+/** Ce que dit le temoin d'un mode, pour le lecteur d'ecran. */
+const LED_WORDS: Readonly<Record<'blink' | 'on' | 'dim' | 'off', string>> = {
+  blink: 'waiting for a voice',
+  on: 'multi, tap voices',
+  dim: 'off, voices kept',
+  off: 'off',
+};
+
+/**
+ * MUTE ou SOLO du Dock (2026-10-09) : la meme machine a etats que la touche
+ * de la face (actions.ts muteToggle, soloToggle) ; tenu MODE_HOLD_MS, toutes
+ * les voix reviennent (modeHold) et le lacher ne fait rien de plus.
+ */
+const ModeKey: React.FC<{ kind: 'mute' | 'solo'; getStage: () => Stage | null }> = ({ kind, getStage }) => {
+  const led = voices.led(kind);
+  const timer = useRef(0);
+  const fired = useRef(false);
+  const stop = (): void => {
+    if (timer.current) window.clearTimeout(timer.current);
+    timer.current = 0;
+  };
+  useEffect(() => stop, []);
+  const word = kind === 'mute' ? 'MUTE' : 'SOLO';
+  return (
+    <button
+      type="button"
+      className={`v4-dock-key v4-dock-mode v4-dock-${kind}`}
+      data-led={led}
+      aria-pressed={led !== 'off'}
+      aria-label={`${kind === 'mute' ? 'Mute' : 'Solo'}, ${LED_WORDS[led]}. Tap: one voice, tap again: several, again: done; hold: all voices back`}
+      onPointerDown={() => {
+        fired.current = false;
+        stop();
+        // INFOS allume : la carte, pas la tenue
+        if (rytmInfos.isOn()) return;
+        timer.current = window.setTimeout(() => {
+          timer.current = 0;
+          fired.current = true;
+          getStage()?.pressButton(kind);
+          modeHold(kind);
+        }, MODE_HOLD_MS);
+      }}
+      onPointerUp={stop}
+      onPointerCancel={stop}
+      onPointerLeave={stop}
+      onClick={() => {
+        if (fired.current) {
+          fired.current = false;
+          return;
+        }
+        if (rytmInfos.dock(kind)) return;
+        if (kind === 'mute') muteToggle(getStage());
+        else soloToggle(getStage());
+      }}
+    >
+      <i className="v4-dock-led" aria-hidden="true" />
+      <Icon name={kind === 'mute' ? 'fa-solid fa-volume-xmark' : 'fa-solid fa-headphones'} />
+      <span>{word}</span>
+    </button>
+  );
+};
 
 export const Dock: React.FC<Props> = ({ getStage }) => {
   const p = useSyncExternalStore(pattern.subscribe, pattern.get, pattern.get);
@@ -289,20 +357,9 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
             <Icon name="fa-solid fa-eraser" />
             <span>CLEAR</span>
           </button>
-          <button
-            type="button"
-            className="v4-dock-key v4-dock-mute"
-            aria-pressed={voices.lit('mute')}
-            aria-label="Mute, then tap a voice to mute it; twice: mute several voices; again: all voices back"
-            onClick={() => rytmInfos.dock('mute') || muteToggle(getStage())}
-          >
-            <Icon name="fa-solid fa-volume-xmark" />
-            <span>MUTE</span>
-          </button>
-          <button type="button" className="v4-dock-key" aria-pressed={voices.lit('solo')} aria-label="Solo, then tap a voice to solo it; twice: solo several voices; again: all voices back" onClick={() => rytmInfos.dock('solo') || soloToggle(getStage())}>
-            <Icon name="fa-solid fa-headphones" />
-            <span>SOLO</span>
-          </button>
+          {/* MUTE et SOLO (2026-10-09) : trois etats, tenus toutes les voix reviennent (le Dock se refait a chaque changement des voix) */}
+          <ModeKey kind="mute" getStage={getStage} />
+          <ModeKey kind="solo" getStage={getStage} />
           <button
             type="button"
             className="v4-dock-key v4-dock-nudge"
