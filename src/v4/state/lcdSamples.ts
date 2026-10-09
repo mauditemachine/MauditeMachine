@@ -19,7 +19,8 @@ export const LCD_SAMPLES_MS = 2400;
  * machine, les machines de la couche SYNTH (MACHINE de SRC) ; sample, la
  * couche SAMPLE (OFF puis les samples : SAMPLE de SMPL).
  */
-export type LcdSamplesKind = 'sound' | 'machine' | 'sample';
+export type LcdSamplesKind = 'sound' | 'machine' | 'sample' | 'voice';
+/* voice (2026-10-09) : la liste unique de SOUND de VOICE (OFF, 909, 808, MM, les samples ; audio/kit.ts voiceSoundNames). */
 
 let until = 0;
 let kind: LcdSamplesKind = 'sound';

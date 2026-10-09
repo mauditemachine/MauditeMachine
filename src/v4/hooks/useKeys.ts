@@ -17,6 +17,9 @@
  * on l'utilise (l'etape R4, la touche i de son ecran). Gauche et droite passent
  * d'une machine a l'autre (2026-10-05), sauf sur un controle qui s'en sert
  * (encodeur, onglets).
+ * M (2026-10-09) : MUTE du MM-RYTM, Maj + M : SOLO (la meme machine a etats
+ * que la touche : une tape, le mode suivant, au lacher ; tenue MODE_HOLD_MS,
+ * toutes les voix reviennent).
  * Rien ne part avec Alt, Ctrl ou Meta, dans un champ editable, ni sur une
  * repetition de touche. Espace est laisse au controle qui l'utilise deja
  * (bouton, lien, jumeau bouton ou lien) : il l'active, comme partout. Un
@@ -25,7 +28,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { editToggle, escape, openToggle, padHit, page, presetKey, resetView, runToggle, rytmHome, rytmLockToggle, stepMachine, voyPad, voyRun } from '../actions';
+import { MODE_HOLD_MS, editToggle, escape, modeHold, muteToggle, openToggle, padHit, page, presetKey, resetView, runToggle, rytmHome, rytmLockToggle, soloToggle, stepMachine, voyPad, voyRun } from '../actions';
 import { presetMode } from '../state/presetMode';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
@@ -69,6 +72,8 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
   // Le gestionnaire ne change pas : il lit l'etat courant ici
   const on = useRef(machine);
   on.current = machine;
+  // M tenu (2026-10-09) : son mode (MUTE, Maj : SOLO), sa minuterie, et si la tenue a deja tout rendu
+  const mKey = useRef<{ kind: 'mute' | 'solo'; timer: number; fired: boolean } | null>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -139,6 +144,20 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
           return;
         }
       }
+      // M (2026-10-09) : MUTE, Maj + M : SOLO, comme la touche de la face (la tape agit au lacher ; tenue, toutes les voix reviennent)
+      if (focus.get() === 'mm808' && editor.get() !== 'mm808' && (e.code === 'KeyM' || e.key.toLowerCase() === 'm')) {
+        e.preventDefault();
+        if (mKey.current) return;
+        const kind = e.shiftKey ? 'solo' : 'mute';
+        const held = { kind, timer: 0, fired: false } as { kind: 'mute' | 'solo'; timer: number; fired: boolean };
+        held.timer = window.setTimeout(() => {
+          held.fired = true;
+          getStage()?.pressButton(kind);
+          modeHold(kind);
+        }, MODE_HOLD_MS);
+        mKey.current = held;
+        return;
+      }
       if (e.key === ' ' || e.code === 'Space') {
         if (ownsSpace(e.target)) return;
         // Pas de defilement : la page ne defile jamais
@@ -173,7 +192,28 @@ export function useKeys(getStage: () => Stage | null, machine: boolean): void {
         resetView(getStage());
       }
     };
+    const onUp = (e: KeyboardEvent): void => {
+      const held = mKey.current;
+      if (!held || !(e.code === 'KeyM' || e.key.toLowerCase() === 'm')) return;
+      mKey.current = null;
+      window.clearTimeout(held.timer);
+      if (held.fired) return;
+      if (held.kind === 'mute') muteToggle(getStage());
+      else soloToggle(getStage());
+    };
+    // La fenetre perd le clavier pendant la tenue : rien ne part
+    const onBlur = (): void => {
+      if (mKey.current) window.clearTimeout(mKey.current.timer);
+      mKey.current = null;
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('keyup', onUp);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onUp);
+      window.removeEventListener('blur', onBlur);
+      onBlur();
+    };
   }, [getStage]);
 }

@@ -14,8 +14,9 @@
  * - grid : la grille ; dash : un repere en pointille.
  * Les textes : label (petit, gris), value (la valeur lue, en haut a droite).
  *
- * Les ids, la table des huit blocs de chaque page, la resolution d'un potard
- * de page et la correspondance des zones de saisie sont a rytm/infoIds.ts
+ * Les ids, les blocs de chaque ecran (lus dans rytm/pages.ts depuis l'etape 2,
+ * 2026-10-09), la resolution d'un bloc et la correspondance des zones de
+ * saisie sont a rytm/infoIds.ts
  * depuis l'etape R4 (la face les lit sans emporter les dessins) ; ce module
  * les rend aussi, pour rytm/infos.ts. Les textes en francais sont a
  * rytm/infos.ts (qui importe d'ici, jamais l'inverse). Les constantes que les
@@ -25,14 +26,27 @@
  */
 
 import type { BassDiagram } from '../bass/diagrams';
-import { BPM, VEL_GAIN } from '../audio/pattern';
+import { BPM, DFB_DEFAULT, DTIME_DEFAULT, VEL_GAIN, delayDiv, delayFb } from '../audio/pattern';
 import { sampleLenPart } from '../audio/sampledsp';
 import { KICK_SWEEP, SD_BODY_HZ, SD_DECAY_S, SD_TONE_HZ, SHOT_BELOW, kickDecayS, kickHz, sdDecayFactor, sdToneFactor, sdTuneFactor, sweepDepth, type KitModel } from '../audio/shotsdsp';
 import { timeFactor } from '../audio/time';
 import { toneHpHz, toneLpHz, toneSemitones } from '../audio/tone';
-import { DECAY_HOLD_S, START_MAX, TUNE_ST, decayTau, voiceGain } from '../audio/voicefx';
-import { BLOCKS_ARE_KNOBS, swingRatio, type Inst } from '../theme';
-import { RYTM_INFO_PAGES, RYTM_INFO_PAGE_LABEL, RYTM_LETTERS, resolveRytmId, rytmAvail, rytmSlots, type RytmInfoId, type RytmInfoPage, type RytmResolveCtx } from './infoIds';
+import { FENV_OCT, FILTER_TYPES, START_MAX, TUNE_ST, atkS, cutHz, decayTau, fdecTau, filterIndex, holdS, resoQ, voiceGain } from '../audio/voicefx';
+import { swingRatio, type Inst } from '../theme';
+import type { RytmScreenId } from './pages';
+import {
+  RYTM_INFO_PAGES,
+  RYTM_INFO_PAGE_LABEL,
+  RYTM_INFO_TABS,
+  RYTM_LETTERS,
+  resolveRytmId,
+  rytmSlots,
+  screenOfInfo,
+  type RytmInfoId,
+  type RytmInfoPage,
+  type RytmInfoTab,
+  type RytmResolveCtx,
+} from './infoIds';
 
 export * from './infoIds';
 
@@ -76,6 +90,15 @@ export interface RytmDiagramCtx extends RytmResolveCtx {
   /** un pad (revue de R4) : ce que joue sa voix, une ligne par couche (SYN 909 OFF, SMP BLUEPRINT 127 ; ONE SOUND) ; muted : coupee */
   layers?: readonly string[];
   muted?: boolean;
+  /** l'enveloppe de la voix (ENV, 2026-10-09 : ses courses, celles du pas en P-LOCK) : un reglage se dessine avec les deux autres */
+  env?: { atk: number; hold: number; decay: number };
+  /** le filtre de la voix (FLTR, 2026-10-09 : ses courses, celles du pas en P-LOCK) */
+  filt?: { ftype: number; fcut: number; freso: number; fenv: number; fatk: number; fdec: number };
+  /** DLY TIME et DLY FB du MM-RYTM (pattern.fx, 2026-10-09) : le dessin du DELAY les suit */
+  dtime?: number;
+  dfb?: number;
+  /** MIX de la voix (VOICE SYNTH) : ses deux niveaux, 0 a 1 ; sample : la voix a un sample a poser sous la machine */
+  mixLv?: { syn: number; lev: number; sample: boolean };
 }
 
 /* ---------------- la boite et les traits ---------------- */
@@ -181,8 +204,12 @@ const stepS = (bpm: number | undefined): number => 60 / clamp(bpm ?? BPM.initial
 
 /** audio/fx.ts DRIVE : la copie saturee tanh((1 + 12 d) x), melangee a 0.85 d. */
 const DRIVE = { gain: 12, mix: 0.85 } as const;
-/** audio/sends.ts DELAY : croche pointee (3 pas), envoi 0.9 a fond, retour 0.58, entre 180 Hz et 4.5 kHz. */
-const DELAY = { steps: 3, send: 0.9, feedback: 0.58 } as const;
+/**
+ * audio/sends.ts DELAY : envoi 0.9 a fond, entre 180 Hz et 4.5 kHz ; depuis le
+ * 2026-10-09 son temps (DLY TIME, une division calee sur le tempo) et son
+ * retour (DLY FB) sont reglables (pattern.ts delayDiv, delayFb).
+ */
+const DELAY = { send: 0.9 } as const;
 /** audio/fx.ts REVERB : une reponse de 2.4 s, -60 dB au bout. */
 const REVERB_S = 2.4;
 /** audio/chorus.ts : deux retards (14 et 21 ms) modules par deux LFO (0.53 et 0.71 Hz, +/-7 ms) ; sec 1 - 0.5 v, chorus v. */
@@ -305,7 +332,7 @@ const drawMaster: Draw = (_c, v) => {
   return p.value(dbText(v * v)).done();
 };
 
-/** TRIG VEL : les neuf niveaux et leur gain (pattern.ts VEL_GAIN), le pas choisi en couleur. */
+/** VEL : les neuf niveaux et leur gain (pattern.ts VEL_GAIN), celui du pas (P-LOCK) ou des nouveaux pas en couleur. */
 const drawVel: Draw = (_c, v) => {
   const p = new Pic();
   const n = Math.round(clamp(v, 0, 9));
@@ -686,7 +713,7 @@ const drawSampleLen: Draw = (_c, v) => {
   return p.value(part >= 1 ? 'FULL' : `${Math.round(part * 100)}%`).done();
 };
 
-/** FINE de la couche SAMPLE : +/-64 cents, entre deux demi-tons. */
+/** FINE (la voix depuis le 2026-10-09, la couche SAMPLE avant) : +/-64 cents, entre deux demi-tons. */
 const drawFine: Draw = (_c, v) => {
   const p = new Pic();
   const cents = Math.round(clamp(v, -1, 1) * 64);
@@ -833,51 +860,6 @@ const drawTone: Draw = (_c, v) => {
   return p.value(t === 0 ? 'FLAT' : t < 0 ? `LP ${hzText(fl)}` : `HP ${hzText(fh)}`).done();
 };
 
-/** DEC (AMP) : le coup tenu 4 ms, puis sa queue e^(-t/tau) (voicefx.ts decayTau) ; tout en haut, le son entier. */
-const drawAmpDecay: Draw = (c, v) => {
-  const p = new Pic();
-  const sd = stepS(c.bpm);
-  const tau = decayTau(clamp(v, 0, 1));
-  const yOf = (a: number): number => Y1 - a * (Y1 - Y0 - 6);
-  p.p(seg(X0, Y1, X1, Y1), 'grid');
-  if (tau === null) {
-    // Tout en haut, le son entier ; en repere (revue de R4 : un trait plat, a cote du bloc qui dessine une queue), les queues
-    // qu'il prend plus bas, sur une seconde
-    const span = 1;
-    const tx = (t: number): number => X0 + ((X1 - X0) * t) / span;
-    for (const g of [0.3, 0.6, 0.85]) {
-      const tg = decayTau(g);
-      if (tg === null) continue;
-      const pts: Pt[] = [];
-      for (let k = 0; k <= 80; k += 1) {
-        const t = (span * k) / 80;
-        pts.push([tx(t), yOf(t < DECAY_HOLD_S ? 1 : Math.exp(-(t - DECAY_HOLD_S) / tg))]);
-      }
-      p.p(poly(pts), 'ghost');
-    }
-    p.p(seg(X0, yOf(1), X1, yOf(1)), 'hot');
-    p.label('LOWER: A TAIL', X1, yOf(0.5), 'end');
-    p.label('THE WHOLE SOUND, NO ENVELOPE', X0, BOT);
-    return p.value('FULL').done();
-  }
-  const tail = DECAY_HOLD_S + tau * Math.log(1000);
-  const span = clamp(tail * 1.15, 0.1, 3);
-  const tx = (t: number): number => X0 + ((X1 - X0) * t) / span;
-  sixteenths(p, sd, span);
-  const pts: Pt[] = [];
-  for (let k = 0; k <= 120; k += 1) {
-    const t = (span * k) / 120;
-    pts.push([tx(t), yOf(t < DECAY_HOLD_S ? 1 : Math.exp(-(t - DECAY_HOLD_S) / tau))]);
-  }
-  p.p(poly(pts), 'hot');
-  if (tail < span) p.p(seg(tx(tail), Y0, tx(tail), Y1), 'dash');
-  p.label('HOLD 4 MS, THEN THE TAIL', X0, TOP);
-  if (tail < span) p.label('-60 DB', Math.max(X0 + 30, tx(tail) - 3), Y0 + 8, 'end');
-  p.label(`1/16 = ${Math.round(sd * 1000)} MS`, X0, BOT);
-  // La valeur lue : celle de la ligne d'unite de l'ecran (rytm/values.ts encUnit, la queue sans les 4 ms tenues)
-  return p.value(durText(tau * Math.log(1000))).done();
-};
-
 /** PAN : la place du coup, et ses deux cotes (mono a puissance constante, x racine de 2 : drums.ts). */
 const drawPan: Draw = (_c, v) => {
   const p = new Pic();
@@ -953,11 +935,18 @@ const drawChorus: Draw = (_c, v) => {
   return p.value(`${Math.round(c0 * 100)}%`).done();
 };
 
-/** DELAY : la frappe et ses echos a la croche pointee (3 pas au tempo), envoi 0.9 v, retour 0.58 (sends.ts). */
-const drawDelay: Draw = (c, v) => {
+/**
+ * DELAY : la frappe et ses echos, au temps de DLY TIME (une division calee sur
+ * le tempo, la croche pointee au depart) et au retour de DLY FB (0.58 au
+ * depart) ; envoi 0.9 v (sends.ts). hot : ce que la commande change (l'envoi,
+ * le temps, le retour).
+ */
+const delayPic = (hot: 'send' | 'time' | 'fb'): Draw => (c, v) => {
   const p = new Pic();
   const sd = stepS(c.bpm);
-  const send = clamp(v, 0, 1);
+  const send = hot === 'send' ? clamp(v, 0, 1) : 1;
+  const div = delayDiv(hot === 'time' ? v : (c.dtime ?? DTIME_DEFAULT));
+  const fb = delayFb(hot === 'fb' ? v : (c.dfb ?? DFB_DEFAULT));
   const steps = 32;
   const tx = (i: number): number => X0 + ((X1 - X0) * i) / steps;
   const base = Y1;
@@ -966,13 +955,163 @@ const drawDelay: Draw = (c, v) => {
   p.p(seg(X0, base, X1, base), 'grid');
   p.p(seg(tx(0) + 1, base, tx(0) + 1, base - hOf(1)), 'main');
   let a = DELAY.send * send;
-  for (let i = DELAY.steps; i < steps && a > 0.01; i += DELAY.steps) {
+  for (let i = div.steps; i < steps && a > 0.01; i += div.steps) {
     p.p(seg(tx(i), base, tx(i), base - hOf(a)), 'hot');
-    a *= DELAY.feedback;
+    a *= fb;
   }
-  p.label(`3/16 = ${Math.round(DELAY.steps * sd * 1000)} MS  FEEDBACK 58 %`, X0, TOP);
+  p.label(`${div.label} = ${Math.round(div.steps * sd * 1000)} MS  FEEDBACK ${Math.round(fb * 100)} %`, X0, TOP);
   p.label('TWO BARS', X0, BOT);
+  if (hot === 'time') return p.value(div.label).done();
+  if (hot === 'fb') return p.value(`${Math.round(fb * 100)}%`).done();
   return p.done();
+};
+const drawDelay = delayPic('send');
+
+/* ---------------- l'etape 2 (2026-10-09) : ENV, le filtre, MIX ---------------- */
+
+/** Les temps de l'enveloppe d'un coup (voicefx.ts atkS holdS decayTau) : ceux de la voix, la commande a sa valeur v. */
+function envTimes(c: RytmDiagramCtx, part: 'atk' | 'hold' | 'dec', v: number): { a: number; h: number; tau: number | null } {
+  const e = c.env ?? { atk: 0, hold: 0, decay: 1 };
+  return { a: atkS(part === 'atk' ? v : e.atk), h: holdS(part === 'hold' ? v : e.hold), tau: decayTau(part === 'dec' ? v : e.decay) };
+}
+
+/**
+ * ENV (l'ancien AMP) : l'enveloppe du coup, ATK (la montee), HOLD (tenu plein),
+ * DEC (la queue e^(-t/tau) ; tout en haut le son entier), sur la grille des
+ * doubles croches ; la partie que la commande regle en couleur.
+ */
+const drawEnv = (part: 'atk' | 'hold' | 'dec'): Draw => (c, v) => {
+  const p = new Pic();
+  const sd = stepS(c.bpm);
+  const { a, h, tau } = envTimes(c, part, clamp(v, 0, 1));
+  const tail = tau === null ? 0 : tau * Math.log(1000);
+  const span = clamp((a + h + (tau === null ? 0.5 : tail)) * 1.12, 0.06, 3);
+  const tx = (t: number): number => X0 + ((X1 - X0) * Math.min(t, span)) / span;
+  const yOf = (g: number): number => Y1 - g * (Y1 - Y0 - 6);
+  const gOf = (t: number): number => (t < a ? t / a : t < a + h || tau === null ? 1 : Math.exp(-(t - a - h) / tau));
+  const run = (t0: number, t1: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let k = 0; k <= 64; k += 1) {
+      const t = t0 + ((t1 - t0) * k) / 64;
+      pts.push([tx(t), yOf(gOf(t))]);
+    }
+    return pts;
+  };
+  p.p(seg(X0, Y1, X1, Y1), 'grid');
+  sixteenths(p, sd, span);
+  p.p(poly(a > 0 ? [[X0, Y1], ...run(0, span)] : [[X0, Y1], [X0, yOf(1)], ...run(0, span)]), 'main');
+  const [t0, t1] = part === 'atk' ? [0, a] : part === 'hold' ? [a, a + h] : [a + h, span];
+  if (t1 - t0 > span * 0.004) p.p(poly(run(t0, Math.min(span, t1))), 'hot');
+  else p.p(dot(tx(t0), yOf(gOf(t0)), 2.6), 'hot', true);
+  if (a + h < span) p.p(seg(tx(a + h), Y0, tx(a + h), Y1), 'dash');
+  p.label('AMP ENVELOPE', X0, TOP);
+  p.label(`A ${a > 0 ? durText(a) : 'SNAP'}  H ${durText(h)}  D ${tau === null ? 'FULL' : durText(tail)}`, X0, BOT);
+  if (part === 'atk') return p.value(a > 0 ? durText(a) : 'SNAP').done();
+  if (part === 'hold') return p.value(durText(h)).done();
+  return p.value(tau === null ? 'FULL' : durText(tail)).done();
+};
+
+/** La reponse d'un biquad de Web Audio (LP, HP, BP ; Q lineaire) a la frequence f, en dB. */
+function biquadDb(type: number, fc: number, q: number, f: number): number {
+  const r = f / fc;
+  const den = (1 - r * r) ** 2 + (r / q) ** 2;
+  const num = type === 0 ? 1 : type === 1 ? r ** 4 : (r / q) ** 2;
+  return 10 * Math.log10(Math.max(1e-12, num / den));
+}
+
+/**
+ * FLTR (2026-10-09) : la courbe du filtre de la voix, 20 Hz a 20 kHz (le
+ * passe-bas, le passe-haut, le passe-bande ; sa bosse RESO) ; ENV en repere :
+ * la coupure au sommet de l'enveloppe.
+ */
+const filterPic = (what: 'cut' | 'reso' | 'type' | 'env'): Draw => (c, v) => {
+  const p = new Pic();
+  const f = c.filt ?? { ftype: 0, fcut: 1, freso: 0, fenv: 0, fatk: 0, fdec: 0.5 };
+  const type = filterIndex(what === 'type' ? v : f.ftype);
+  const fc = cutHz(what === 'cut' ? v : f.fcut);
+  const q = resoQ(what === 'reso' ? v : f.freso);
+  const env = what === 'env' ? clamp(v, -1, 1) : f.fenv;
+  const lo = 20;
+  const hi = 20000;
+  const xOf = (x: number): number => X0 + ((Math.log(x) - Math.log(lo)) / (Math.log(hi) - Math.log(lo))) * (X1 - X0);
+  const yOf = (db: number): number => Y0 + ((18 - clamp(db, -36, 18)) / 54) * (Y1 - Y0);
+  for (const x of [100, 1000, 10000]) p.p(seg(xOf(x), Y0, xOf(x), Y1), 'grid');
+  p.label('100', xOf(100), BOT, 'middle').label('1K', xOf(1000), BOT, 'middle').label('10K', xOf(10000), BOT, 'middle');
+  p.p(seg(X0, yOf(0), X1, yOf(0)), 'dash');
+  const curve = (cut: number): Pt[] => {
+    const pts: Pt[] = [];
+    for (let k = 0; k <= 120; k += 1) {
+      const x = lo * Math.pow(hi / lo, k / 120);
+      pts.push([xOf(x), yOf(biquadDb(type, Math.max(20, Math.min(20000, cut)), q, x))]);
+    }
+    return pts;
+  };
+  if (env !== 0) p.p(poly(curve(fc * Math.pow(2, env * FENV_OCT))), 'ghost');
+  p.p(poly(curve(fc)), 'hot');
+  p.p(seg(xOf(fc), Y0, xOf(fc), Y1), 'grid');
+  const names = ['LOW PASS', 'HIGH PASS', 'BAND PASS'];
+  p.label(env !== 0 ? `${names[type]}, ENV PEAK DOTTED` : names[type], X0, TOP);
+  if (what === 'type') return p.value(FILTER_TYPES[type]).done();
+  if (what === 'reso') return p.value(`Q ${q.toFixed(1)}`).done();
+  if (what === 'env') {
+    const oct = Math.round(env * FENV_OCT * 10) / 10;
+    return p.value(oct === 0 ? 'NO ENV' : `${oct > 0 ? '+' : ''}${oct.toFixed(1)} OCT`).done();
+  }
+  return p.value(hzText(fc)).done();
+};
+
+/** F.ATK et F.DEC : la coupure du filtre dans le temps, montee de ENV octaves en F.ATK, puis redescente (constante F.DEC). */
+const filterEnvPic = (what: 'atk' | 'dec'): Draw => (c, v) => {
+  const p = new Pic();
+  const f = c.filt ?? { ftype: 0, fcut: 1, freso: 0, fenv: 0, fatk: 0, fdec: 0.5 };
+  const a = atkS(what === 'atk' ? v : f.fatk);
+  const tau = fdecTau(what === 'dec' ? v : f.fdec);
+  const oct = f.fenv * FENV_OCT;
+  const span = clamp((a + tau * 4) * 1.1, 0.05, 3);
+  const tx = (t: number): number => X0 + ((X1 - X0) * t) / span;
+  // La hauteur : les octaves gagnees, au plus 5 (ENV a 0 : la forme seule, en retrait)
+  const shape = (t: number): number => (t < a ? (a > 0 ? t / a : 1) : Math.exp(-(t - a) / tau));
+  const amp = oct === 0 ? 1 : Math.abs(oct) / FENV_OCT;
+  const yc = oct < 0 ? Y0 + 6 : Y1;
+  const yOf = (t: number): number => yc + (oct < 0 ? 1 : -1) * shape(t) * amp * (Y1 - Y0 - 6);
+  p.p(seg(X0, yc, X1, yc), 'grid');
+  sixteenths(p, stepS(c.bpm), span);
+  const pts: Pt[] = [];
+  for (let k = 0; k <= 96; k += 1) {
+    const t = (span * k) / 96;
+    pts.push([tx(t), yOf(t)]);
+  }
+  p.p(poly(pts), oct === 0 ? 'ghost' : 'hot');
+  if (a > 0 && a < span) p.p(seg(tx(a), Y0, tx(a), Y1), 'dash');
+  p.label(oct === 0 ? 'FILTER ENV: ENV IS AT 0' : `CUTOFF ${oct > 0 ? '+' : ''}${(Math.round(oct * 10) / 10).toFixed(1)} OCT AT THE PEAK`, X0, TOP);
+  p.label(`F.ATK ${a > 0 ? durText(a) : 'SNAP'}  F.DEC ${durText(tau * 3)}`, X0, BOT);
+  return p.value(what === 'atk' ? (a > 0 ? durText(a) : 'SNAP') : durText(tau * 3)).done();
+};
+
+/** MIX (VOICE SYNTH) : la synthese et le sample comme un crossfader, leurs deux niveaux (kit.ts mixLevels). */
+const drawMix: Draw = (c, v) => {
+  const p = new Pic();
+  const m = clamp(v, 0, 1);
+  const lv = c.mixLv ?? { syn: Math.min(1, 2 * (1 - m)), lev: Math.min(1, 2 * m), sample: true };
+  const y = 40;
+  const xa = X0 + 30;
+  const xb = X1 - 30;
+  const xOf = (q: number): number => xa + q * (xb - xa);
+  p.p(seg(xa, y, xb, y), 'main');
+  p.p(seg(xOf(0.5), y - 6, xOf(0.5), y + 6), 'grid');
+  p.label('SYN', X0, y + 3).label('SMP', X1, y + 3, 'end');
+  p.p(rbox(xOf(m) - 5, y - 8, 10, 16, 2), 'hot', true);
+  const bar = (x: number, g: number, name: string): void => {
+    const h = clamp(g, 0, 1) * 34;
+    p.p(rbox(x, Y1 - 34, 40, 34, 3), 'grid');
+    if (h > 0.5) p.p(rbox(x, Y1 - h, 40, h, 3), 'hot', true);
+    p.label(`${name} ${v127(g)}`, x + 20, BOT, 'middle');
+  };
+  bar(X0 + 40, lv.syn, 'SYN');
+  bar(X1 - 80, lv.lev, 'SMP');
+  if (!lv.sample) p.label('NO SAMPLE YET', 120, y - 14, 'middle');
+  // Le nombre de l'ecran, toujours (revue du 2026-10-09 : SYN, BOTH, +43 trois facons) ; OFF, la voix muette
+  return p.value(lv.syn <= 0 && lv.lev <= 0 ? 'OFF' : `${v127(m) - 64 > 0 ? '+' : ''}${v127(m) - 64}`).done();
 };
 
 /** Un hasard fixe (le dessin ne tremble pas). */
@@ -1036,27 +1175,46 @@ const drawTempo: Draw = (c, v) => {
   return p.value(`${bpm} BPM`).done();
 };
 
-/** Une touche de page : ses huit blocs a la place des encodeurs (les reglages a venir : une case vide, comme a l'ecran). */
-function pageGrid(page: RytmInfoPage, voice: Inst | null, hot = -1): RytmDiagram {
+/**
+ * Une touche de page, un onglet : les blocs de son ecran a leur place, comme
+ * l'ecran les pose (2026-10-09 : un bloc large, un bloc haut, les dessins en
+ * pointilles) ; hot : une case vide montree en couleur.
+ */
+function pageGrid(screen: RytmScreenId, voice: Inst | null, hot = -1): RytmDiagram {
   const p = new Pic();
-  const slots = rytmSlots(page, voice);
-  // Des blocs de 51 de large (4 entre eux) : STRETCH y tient
-  const bw = (X1 - X0 - 12) / 4;
-  const bh = 34;
+  const slots = rytmSlots(screen, voice);
+  const gap = 4;
+  const cw = (X1 - X0 - gap * 3) / 4;
+  const ch = 34;
+  const y0 = 24;
+  const used = new Set<number>();
   slots.forEach((sl, k) => {
-    const x = X0 + (k % 4) * (bw + 4);
-    const y = 24 + (k < 4 ? 0 : bh + 8);
-    const live = !!sl && rytmAvail(sl.id) === 'live';
-    p.p(rbox(x, y, bw, bh, 3), k === hot ? 'hot' : live ? 'main' : 'grid');
-    p.label(RYTM_LETTERS[k], x + bw - 4, y + 11, 'end');
-    // Le nom centre : STRETCH et SNAPPY tiennent dans le bloc (a gauche, ils debordaient)
-    if (sl && live) p.label(sl.label, x + bw / 2, y + bh - 7, 'middle');
+    if (!sl.label || sl.w <= 0) return;
+    const x = X0 + sl.c * (cw + gap);
+    const y = y0 + sl.r * (ch + 8);
+    const w = sl.w * cw + (sl.w - 1) * gap;
+    const h = sl.h * ch + (sl.h - 1) * 8;
+    for (let r = sl.r; r < sl.r + sl.h; r += 1) for (let c = sl.c; c < sl.c + sl.w; c += 1) used.add(r * 4 + c);
+    p.p(rbox(x, y, w, h, 3), sl.graph ? 'dash' : 'main');
+    if (!sl.graph) p.label(RYTM_LETTERS[k], x + w - 4, y + 11, 'end');
+    p.label(sl.label, x + w / 2, y + h - 7, 'middle');
   });
-  // Au telephone (2026-10-09) les blocs de l'ecran sont les encodeurs : la carte dit VALUES
-  const what = BLOCKS_ARE_KNOBS ? 'VALUES A TO H' : 'ENCODERS A TO H';
-  p.label(page === 'src' && voice ? `${what}, ${voice}` : what, X0, TOP);
-  // Un encodeur sur une case vide (R4) : sa case en couleur, la page dite
-  return hot >= 0 ? p.value(`${RYTM_INFO_PAGE_LABEL[page]} ${RYTM_LETTERS[hot]}: EMPTY`).done() : p.done();
+  // Les cases libres : leur cadre en retrait (la case montree en couleur)
+  for (let i = 0; i < 8; i += 1) {
+    if (used.has(i)) continue;
+    const x = X0 + (i % 4) * (cw + gap);
+    const y = y0 + Math.floor(i / 4) * (ch + 8);
+    p.p(rbox(x, y, cw, ch, 3), 'grid');
+  }
+  if (hot >= 0) {
+    const i = hot;
+    const x = X0 + (i % 4) * (cw + gap);
+    const y = y0 + Math.floor(i / 4) * (ch + 8);
+    if (!used.has(i)) p.p(rbox(x, y, cw, ch, 3), 'hot');
+  }
+  const title = RYTM_INFO_PAGE_LABEL[screen];
+  p.label(voice ? `${title}, ${voice}` : title, X0, TOP);
+  return hot >= 0 ? p.value(`${title} ${RYTM_LETTERS[hot]}: EMPTY`).done() : p.done();
 }
 
 /** Un pas : les seize pas de la voix, leur velocite, un point sous ceux qui ont des verrous, le pas montre en couleur. */
@@ -1141,6 +1299,19 @@ const DRAW: Partial<Record<RytmInfoId, Draw>> = {
   'step:vel': drawVel,
   swing: drawSwing,
   vsound: drawSounds,
+  'voice:sound': drawSounds,
+  'voice:mix': drawMix,
+  vfine: drawFine,
+  vatk: drawEnv('atk'),
+  vhold: drawEnv('hold'),
+  vfcut: filterPic('cut'),
+  vfreso: filterPic('reso'),
+  vftype: filterPic('type'),
+  vfenv: filterPic('env'),
+  vfatk: filterEnvPic('atk'),
+  vfdec: filterEnvPic('dec'),
+  dtime: delayPic('time'),
+  dfb: delayPic('fb'),
   'smpl:sample': drawSounds,
   'r:bd': drawSounds,
   'r:sd': drawSounds,
@@ -1169,7 +1340,7 @@ const DRAW: Partial<Record<RytmInfoId, Draw>> = {
   stretch: drawStretch,
   vstart: drawStart,
   tone: drawTone,
-  vdecay: drawAmpDecay,
+  vdecay: drawEnv('dec'),
   vpan: drawPan,
   vdist: drawDist,
   dist: drawDist,
@@ -1187,7 +1358,7 @@ const DRAW: Partial<Record<RytmInfoId, Draw>> = {
 };
 
 /** Les reglages a zero au centre (-1 a 1). */
-const BIPOLAR: ReadonlySet<string> = new Set(['tone', 'stretch', 'vtune', 'vpan', 'r3:stune', 'r3:sfine']);
+const BIPOLAR: ReadonlySet<string> = new Set(['tone', 'stretch', 'vtune', 'vpan', 'r3:stune', 'r3:sfine', 'vfine', 'vfenv']);
 
 /**
  * Le dessin d'une commande (null : elle n'en a pas, ou pas encore : les
@@ -1200,11 +1371,11 @@ export function rytmDiagram(id: string, c: RytmDiagramCtx): RytmDiagram | null {
   if (!rid) return null;
   try {
     if (rid.startsWith('pad:')) return padVoice(rid.slice(4) as Inst, c);
-    if ((RYTM_INFO_PAGES as readonly string[]).includes(rid)) return pageGrid(rid as RytmInfoPage, c.voice ?? null);
-    // Un encodeur sur une case vide de la page (R4) : la page, sa case en couleur
+    if ((RYTM_INFO_PAGES as readonly string[]).includes(rid) || (RYTM_INFO_TABS as readonly string[]).includes(rid)) return pageGrid(screenOfInfo(rid as RytmInfoPage | RytmInfoTab), c.voice ?? null);
+    // Une case vide de l'ecran : l'ecran, sa case en couleur
     if (rid === 'enc') {
       const pk = /^p:([0-7])$/.exec(id);
-      return pk ? pageGrid(c.page ?? 'src', c.voice ?? null, Number(pk[1])) : null;
+      return pk ? pageGrid(c.page ?? 'voice', c.voice ?? null, Number(pk[1])) : null;
     }
     const fn = DRAW[rid];
     if (!fn) return null;

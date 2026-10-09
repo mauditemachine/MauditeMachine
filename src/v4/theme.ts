@@ -563,7 +563,20 @@ export type EncId =
   // TUNE, PAN et START de la voix (2026-10-08, l'etape R2 des P-locks) : sur les pages (SRC, AMP, SMPL), pas sur la face
   | 'vtune'
   | 'vpan'
-  | 'vstart';
+  | 'vstart'
+  // L'etape 2 (2026-10-09, audio/voicefx.ts) : ATK et HOLD de ENV, FINE de VOICE, le filtre de FLTR
+  | 'vatk'
+  | 'vhold'
+  | 'vfine'
+  | 'vftype'
+  | 'vfcut'
+  | 'vfreso'
+  | 'vfenv'
+  | 'vfatk'
+  | 'vfdec'
+  // DLY TIME et DLY FB (2026-10-09, les encodeurs G et H du desktop : la machine entiere)
+  | 'dtime'
+  | 'dfb';
 
 /**
  * Les potards de la rangee VOICE et le parametre de voix qu'ils reglent
@@ -581,6 +594,15 @@ export const VOICE_PARAM = {
   vtune: 'tune',
   vpan: 'pan',
   vstart: 'start',
+  vatk: 'atk',
+  vhold: 'hold',
+  vfine: 'fine',
+  vftype: 'ftype',
+  vfcut: 'fcut',
+  vfreso: 'freso',
+  vfenv: 'fenv',
+  vfatk: 'fatk',
+  vfdec: 'fdec',
 } as const;
 /** Les potards de la rangee VOICE qui reglent un parametre de voix (VOLUME, TONE, DECAY, les effets). */
 export type VoiceFxEncId = keyof typeof VOICE_PARAM;
@@ -593,11 +615,32 @@ export type VoiceFxEncId = keyof typeof VOICE_PARAM;
  * puis ses echantillons) ; l'ecran en montre la liste (state/lcdSamples.ts).
  */
 export type VoiceEncId = VoiceFxEncId | 'vsound';
-export const VOICE_ENCODERS: readonly VoiceEncId[] = ['vol', 'vsound', 'tone', 'vdecay', 'vdist', 'vchorus', 'vdelay', 'vreverb', 'vtune', 'vpan', 'vstart'];
+export const VOICE_ENCODERS: readonly VoiceEncId[] = [
+  'vol',
+  'vsound',
+  'tone',
+  'vdecay',
+  'vdist',
+  'vchorus',
+  'vdelay',
+  'vreverb',
+  'vtune',
+  'vpan',
+  'vstart',
+  'vatk',
+  'vhold',
+  'vfine',
+  'vftype',
+  'vfcut',
+  'vfreso',
+  'vfenv',
+  'vfatk',
+  'vfdec',
+];
 export const isVoiceEnc = (id: EncId): id is VoiceEncId => (VOICE_ENCODERS as readonly string[]).includes(id);
 
-/** Potards a zero au centre (-1 a 1) : TONE et STRETCH ; TUNE et PAN de la voix (2026-10-08). */
-export const BIPOLAR: readonly EncId[] = ['tone', 'stretch', 'vtune', 'vpan'];
+/** Potards a zero au centre (-1 a 1) : TONE et STRETCH ; TUNE et PAN de la voix (2026-10-08) ; FINE et l'ENV du filtre (2026-10-09). */
+export const BIPOLAR: readonly EncId[] = ['tone', 'stretch', 'vtune', 'vpan', 'vfine', 'vfenv'];
 export const isBipolar = (id: EncId): boolean => BIPOLAR.includes(id);
 
 /**
@@ -646,10 +689,22 @@ export const ENCODERS: readonly { id: EncId; label: string; aria: string }[] = [
   { id: 'vchorus', label: 'CHORUS', aria: 'Voice chorus' },
   { id: 'vdelay', label: 'DELAY', aria: 'Voice delay' },
   { id: 'vreverb', label: 'REVERB', aria: 'Voice reverb' },
-  // Sur les pages seulement (2026-10-08) : SRC TUNE, AMP PAN, SMPL START
-  { id: 'vtune', label: 'TUNE', aria: 'Voice tune, in semitones' },
+  // Sur les pages seulement (2026-10-08) : SRC TUNE, AMP PAN, SMPL START ; PITCH de VOICE, PAN et START de ENV depuis le 2026-10-09
+  { id: 'vtune', label: 'PITCH', aria: 'Voice pitch, in semitones' },
   { id: 'vpan', label: 'PAN', aria: 'Voice pan, left to right' },
   { id: 'vstart', label: 'START', aria: 'Voice sample start' },
+  // L'etape 2 (2026-10-09) : ENV, FINE, le filtre de FLTR (sur les pages), DLY TIME et DLY FB (les encodeurs G et H)
+  { id: 'vatk', label: 'ATK', aria: 'Voice envelope attack' },
+  { id: 'vhold', label: 'HOLD', aria: 'Voice envelope hold' },
+  { id: 'vfine', label: 'FINE', aria: 'Voice fine tune, in cents' },
+  { id: 'vftype', label: 'TYPE', aria: 'Voice filter type, low pass, high pass or band pass' },
+  { id: 'vfcut', label: 'FREQ', aria: 'Voice filter frequency' },
+  { id: 'vfreso', label: 'RESO', aria: 'Voice filter resonance' },
+  { id: 'vfenv', label: 'ENV', aria: 'Voice filter envelope amount' },
+  { id: 'vfatk', label: 'F.ATK', aria: 'Voice filter envelope attack' },
+  { id: 'vfdec', label: 'F.DEC', aria: 'Voice filter envelope decay' },
+  { id: 'dtime', label: 'DLY TIME', aria: 'Global delay time' },
+  { id: 'dfb', label: 'DLY FB', aria: 'Global delay feedback' },
 ];
 
 /** Libelle serigraphie d'un encodeur (l'ecran l'affiche aussi : VOLUME 80%). */
@@ -1017,11 +1072,36 @@ export interface EncPlace {
  * (PAGE_KNOBS_ON_FACE) : ses valeurs ne servent qu'au type.
  */
 export const PAGE_KNOBS = PORTRAIT
-  ? ({ rowZ: [-3.08, -1.96], s: 1.15, letterDx: -0.5, letterDz: -0.26, cap: 0.085 } as const)
-  : ({ rowZ: [0.56, 1.42], s: 1, letterDx: -0.34, letterDz: -0.33, cap: 0.075 } as const);
+  ? ({ rowZ: [-3.08, -1.96], s: 1.15, letterDx: -0.5, letterDz: -0.26, cap: 0.085, nameDz: -0.38, titleDz: -0.62 } as const)
+  : ({ rowZ: [0.56, 1.42], s: 1, letterDx: -0.34, letterDz: -0.33, cap: 0.07, nameDz: -0.46, titleDz: -0.6 } as const);
+
+/**
+ * Le filet du desktop entre les touches de page et les encodeurs (revue du
+ * 2026-10-09) : sa profondeur, et l'ouverture en son milieu ou se lit GLOBAL
+ * FX (le titre des huit encodeurs, sur le filet : sous VOICE il se lisait
+ * VOICE GLOBAL FX). Les noms des encodeurs 0.46 au-dessus de leur centre (0.37
+ * : la collerette, vue d'en haut, mangeait le bas de DIST et de REVERB).
+ */
+export const GLOBAL_FX_RULE = { dz: 0.17, gap: 0.36 } as const;
 
 /** x de la colonne c (0 a 3) des potards de page : sous le centre de la colonne de blocs de l'ecran. */
 export const pageKnobX = (c: number): number => OLED.x + ((44 + 76 * c - 160) * OLED.w) / 320;
+
+/**
+ * Les huit encodeurs du desktop, a poste fixe depuis le 2026-10-09 (l'etape
+ * 2, Mika : "en desktop tu les laisses mais par contre ils ne servent qu'a
+ * faire les modifs des FX globaux de la machine ; les FX des parameters lock
+ * se font dans l'ecran") : A DIST, B CHORUS, C DELAY, D REVERB (le bus des
+ * voix, sans le kick : NO BD), E STRETCH, F SWING (toute la machine), G DLY
+ * TIME et H DLY FB (le DELAY : sa division, sa reinjection). Jamais un verrou,
+ * meme en P-LOCK ; tournes, l'ecran montre leur valeur un instant (le
+ * popup), sans changer de page. Leur nom est serigraphie a leur place (la
+ * lettre d'avant), leurs zones gardent leurs ids (penc-0 a penc-7). Le MIDI
+ * rytm:knob:1 a 8 garde son sens : le bloc k de la page a l'ecran (le Roto).
+ */
+export const GLOBAL_ENCODERS: readonly EncId[] = ['dist', 'chorus', 'delay', 'reverb', 'stretch', 'swing', 'dtime', 'dfb'];
+/** Leurs noms sur la face et a l'ecran. */
+export const GLOBAL_ENC_LABELS: readonly string[] = ['DIST', 'CHORUS', 'DELAY', 'REVERB', 'STRETCH', 'SWING', 'DLY TIME', 'DLY FB'];
 
 /**
  * MASTER et TEMPO (2026-10-09, Mika : "des knobs differents au dessus des
@@ -1120,13 +1200,19 @@ export const pageKnobIndex = (id: PageKnobId): number => PAGE_KNOB_IDS.indexOf(i
  * pressee encore : HOME.
  */
 export const RYTM_PAGE_KEYS = [
-  { id: 'trig', label: 'TRIG' },
-  { id: 'src', label: 'SRC' },
-  { id: 'smpl', label: 'SMPL' },
+  { id: 'voice', label: 'VOICE' },
   { id: 'fltr', label: 'FLTR' },
-  { id: 'amp', label: 'AMP' },
+  { id: 'env', label: 'ENV' },
   { id: 'fx', label: 'FX' },
 ] as const;
+/*
+ * Quatre depuis le 2026-10-09 (l'etape 2, Mika : "je ne comprends pas TRIG ;
+ * je veux merge SRC SMPL et TRIG ! ya la place pour mettre tous les
+ * parametres dans un seul bouton donc dans l'ecran ; AMP doit s'appeler ENV") :
+ * VOICE (TRIG, SRC et SMPL reunis), FLTR, ENV (l'ancien AMP), FX ; quatre
+ * touches egales sur la largeur du verre. Les anciens noms restent des alias
+ * (rytm/pages.ts PAGE_ALIAS : le MIDI rytm:page:trig, une page retenue).
+ */
 /*
  * Revue du 2026-10-09 : au telephone la zone d'une touche (hitZ0 a hitZ1)
  * descend du bas du verre jusqu'a la zone de MASTER et TEMPO, son nom compris :
@@ -1137,19 +1223,20 @@ export const RYTM_PAGE_KEYS = [
 const PAGE_KEYS_PHONE_Z = -2.275;
 export const PAGE_KEYS = PORTRAIT
   ? ({
-      w: 1.1,
+      // Quatre touches depuis le 2026-10-09 : plus larges (1.1 pour six), le meme air entre elles
+      w: 1.62,
       d: 0.44,
       h: 0.1,
       radius: 0.05,
       z: PAGE_KEYS_PHONE_Z,
       labelZ: PAGE_KEYS_PHONE_Z + 0.41,
-      cap: 0.09,
-      led: { w: 0.6, d: 0.05, back: 0.11 },
+      cap: 0.095,
+      led: { w: 0.86, d: 0.05, back: 0.11 },
       hitZ0: OLED.z + OLED.d / 2 + 0.002,
       hitZ1: MASTER_POTS.z - MASTER_POTS.hitR,
     } as const)
-  : ({ w: 0.74, d: 0.38, h: 0.1, radius: 0.04, z: -0.53, labelZ: -0.18, cap: 0.075, led: { w: 0.44, d: 0.042, back: 0.09 }, hitZ0: -0.53 - 0.19, hitZ1: -0.53 + 0.19 } as const);
-/** x de la touche de page k (0 a 5) : six touches egales sur la largeur du verre de l'ecran (2026-10-09). */
+  : ({ w: 1.1, d: 0.38, h: 0.1, radius: 0.04, z: -0.53, labelZ: -0.18, cap: 0.075, led: { w: 0.6, d: 0.042, back: 0.09 }, hitZ0: -0.53 - 0.19, hitZ1: -0.53 + 0.19 } as const);
+/** x de la touche de page k (0 a 3) : quatre touches egales sur la largeur du verre de l'ecran (2026-10-09). */
 export const pageKeyX = (k: number): number => {
   const x0 = OLED.x - OLED.w / 2 + PAGE_KEYS.w / 2;
   const x1 = OLED.x + OLED.w / 2 - PAGE_KEYS.w / 2;
@@ -1230,7 +1317,38 @@ export const POT_UI = {
   wheelStep: 0.02,
   bipolarStep: 0.05,
   readoutMs: 1200,
-  reset: { level: 0.8, swing: 0, stretch: 0, dist: 0, chorus: 0, delay: 0, reverb: 0, vol: 0.8, vsound: 0, tone: 0, vdecay: 1, vdist: 0, vchorus: 0, vdelay: 0, vreverb: 0, vtune: 0, vpan: 0, vstart: 0 },
+  reset: {
+    level: 0.8,
+    swing: 0,
+    stretch: 0,
+    dist: 0,
+    chorus: 0,
+    delay: 0,
+    reverb: 0,
+    vol: 0.8,
+    vsound: 0,
+    tone: 0,
+    vdecay: 1,
+    vdist: 0,
+    vchorus: 0,
+    vdelay: 0,
+    vreverb: 0,
+    vtune: 0,
+    vpan: 0,
+    vstart: 0,
+    vatk: 0,
+    vhold: 0,
+    vfine: 0,
+    vftype: 0,
+    vfcut: 1,
+    vfreso: 0,
+    vfenv: 0,
+    vfatk: 0,
+    vfdec: 0.5,
+    // La croche pointee, la reinjection d'avant (audio/pattern.ts DELAY_DIVS, DELAY_FB_MAX)
+    dtime: 0.4,
+    dfb: 2 / 3,
+  },
 } as const;
 
 /** Bornes d'un encodeur hors TEMPO : TONE et STRETCH -1 a 1, les autres 0 a 1. */
@@ -1432,14 +1550,18 @@ export const SILK_TEXTS: readonly SilkText[] = [
   // MASTER et TEMPO sous leur potard, les chiffres de leur echelle aux deux bouts (2026-10-09) ; les potards de page
   // n'ont que leur lettre (leur nom est a l'ecran, 2026-10-08)
   ...FACE_KNOBS.filter((k) => !isPageKnob(k.id)).flatMap((k) => potTexts(k.id === 'level' ? 'level' : 'tempo', k)),
+  // Les encodeurs du desktop (2026-10-09) : leur FX global a leur place, au-dessus d'eux (la lettre d'avant), et le titre
+  // GLOBAL FX au-dessus du bloc, comme VOICES au-dessus des pads
   ...FACE_KNOBS.filter((k) => isPageKnob(k.id)).map((k, i) => ({
-    text: PAGE_KNOB_LETTERS[i],
-    x: k.x + PAGE_KNOBS.letterDx,
-    z: k.z + PAGE_KNOBS.letterDz,
+    text: GLOBAL_ENC_LABELS[i],
+    x: k.x,
+    z: k.z + PAGE_KNOBS.nameDz,
     cap: PAGE_KNOBS.cap,
+    maxW: 1.05,
     weight: 700,
-    alpha: 0.75,
+    alpha: 0.8,
   })),
+  ...(PAGE_KNOBS_ON_FACE ? [{ text: 'GLOBAL FX', x: OLED.x, z: PAGE_KEYS.labelZ + GLOBAL_FX_RULE.dz, cap: 0.06, weight: 700, alpha: 0.7 }] : []),
   // Les noms des touches de page, sous elles
   ...RYTM_PAGE_KEYS.map((pk, k) => ({ text: pk.label, x: pageKeyX(k), z: PAGE_KEYS.labelZ, cap: PAGE_KEYS.cap, maxW: PAGE_KEYS.w + 0.1, group: 'pkey', weight: 600 })),
   { text: 'RUN/STOP', x: TRANSPORT.run.x, z: TRANSPORT.labelZ, cap: 0.085, maxW: 0.9, group: 'tr' },
@@ -1450,10 +1572,11 @@ export const SILK_TEXTS: readonly SilkText[] = [
   ...PADS.map(padLabel),
   ...Array.from({ length: KEYS.count }, (_, i) => ({ text: String(i + 1), x: keyX(i), z: KEYS.numberZ + keyDz(i), cap: 0.075 })),
   // Le geste des verrous sous les pas, comme le MM-BASS (revue de R2, Mika : "je ne comprends toujours pas comment
-  // mettre des parameter locks") ; au telephone le pied de l'ecran le dit (scene/screen.ts), la face n'a plus de place
+  // mettre des parameter locks") ; au telephone le pied de l'ecran le dit (scene/screen.ts), la face n'a plus de place.
+  // Le geste d'une seule souris (revue du 2026-10-09) : tenir un pas met le P-LOCK, il reste au lacher, puis on glisse
   ...(PORTRAIT
     ? []
-    : [{ text: 'HOLD A STEP + TURN A KNOB: THAT STEP ONLY  /  TAP A STEP: HIGH, MID, LOW, OFF', x: (keyX(0) + keyX(KEYS.count - 1)) / 2, z: KEYS.bracketZ + 0.25, cap: 0.068, weight: 700, alpha: 0.8 }]),
+    : [{ text: 'HOLD A STEP: P-LOCK, THEN DRAG A SCREEN VALUE  /  TAP A STEP: ON, MID, LOW, OFF', x: (keyX(0) + keyX(KEYS.count - 1)) / 2, z: KEYS.bracketZ + 0.25, cap: 0.068, weight: 700, alpha: 0.8 }]),
 ];
 /** Index du libelle du pad OPEN dans SILK_TEXTS (redessine en CLOSE pendant la vue eclatee). */
 export const OPEN_SILK_INDEX = SILK_TEXTS.findIndex((t) => t.text === 'OPEN');
@@ -1468,7 +1591,12 @@ export const SILK_LINES: readonly (readonly number[])[] = [
   [PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[0] - 0.5, PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[1] + 0.72],
   // Desktop (revue du 2026-10-09) : un filet sous les noms des touches de page, de la largeur du verre ; les touches
   // et l'ecran d'un cote, les huit potards de l'autre (les noms se lisaient comme ceux des potards)
-  ...(PAGE_KNOBS_ON_FACE ? [[OLED.x - OLED.w / 2, PAGE_KEYS.labelZ + 0.2, OLED.x + OLED.w / 2, PAGE_KEYS.labelZ + 0.2]] : []),
+  ...(PAGE_KNOBS_ON_FACE
+    ? [
+        [OLED.x - OLED.w / 2, PAGE_KEYS.labelZ + GLOBAL_FX_RULE.dz, OLED.x - GLOBAL_FX_RULE.gap, PAGE_KEYS.labelZ + GLOBAL_FX_RULE.dz],
+        [OLED.x + GLOBAL_FX_RULE.gap, PAGE_KEYS.labelZ + GLOBAL_FX_RULE.dz, OLED.x + OLED.w / 2, PAGE_KEYS.labelZ + GLOBAL_FX_RULE.dz],
+      ]
+    : []),
   ...[0, 1, 2, 3].map((g) => {
     const a = keyX(4 * g) - KEYS.w / 2;
     const b = keyX(4 * g + 3) + KEYS.w / 2;

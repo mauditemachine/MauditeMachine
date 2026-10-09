@@ -48,7 +48,7 @@ import { makeHaloTexture } from './silk';
 import { easeOutCubic, linear, type Tweens } from './tween';
 
 /** Etat lumineux d'un pad. */
-type Glow = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+type Glow = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 const OFF: Glow = 0;
 const SELECTED: Glow = 1;
 const FAINT: Glow = 2;
@@ -60,7 +60,16 @@ const ORANGE: Glow = 6;
 const ORANGE_DIM: Glow = 7;
 /** une voix coupee : sa LED rouge sous le caoutchouc (2026-10-07) */
 const MUTED: Glow = 8;
-const GLOW_NAME = ['off', 'selected', 'faint', 'hover', 'active', 'flash', 'orange', 'orangeDim', 'muted'] as const;
+/**
+ * une voix coupee, le mode MUTE ferme (2026-10-09, la revue de l'etape 2 ;
+ * Mika : "MUTE deux fois, plusieurs voix") : sa LED rouge a peine, pour voir
+ * d'un coup d'oeil si les pads arment encore des mutes (plein) ou non
+ */
+const MUTED_DIM: Glow = 9;
+/** la part de la LED rouge d'une voix coupee, le mode ferme ; et son caoutchouc, ramene d'autant vers le sien (la machine claire, ou le rouge est surtout le caoutchouc) */
+const MUTED_DIM_K = 0.36;
+const MUTED_DIM_RUBBER = 0.45;
+const GLOW_NAME = ['off', 'selected', 'faint', 'hover', 'active', 'flash', 'orange', 'orangeDim', 'muted', 'mutedDim'] as const;
 const ZERO = [0, 0, 0] as const;
 const GLOW_RGB: readonly (readonly number[])[] = [
   ZERO,
@@ -72,8 +81,9 @@ const GLOW_RGB: readonly (readonly number[])[] = [
   PAD_GLOW.orange,
   PAD_GLOW.orangeDim,
   PAD_GLOW.muted,
+  PAD_GLOW.muted,
 ];
-const HALO_K = [0, PAD_HALO.selected, PAD_HALO.faint, PAD_HALO.hover, PAD_HALO.active, PAD_HALO.flash, PAD_HALO.orange, PAD_HALO.orangeDim, PAD_HALO.muted];
+const HALO_K = [0, PAD_HALO.selected, PAD_HALO.faint, PAD_HALO.hover, PAD_HALO.active, PAD_HALO.flash, PAD_HALO.orange, PAD_HALO.orangeDim, PAD_HALO.muted, PAD_HALO.muted];
 const COUNT = PADS.length;
 const OPEN_I = PADS.findIndex((p) => p.id === 'open');
 
@@ -190,6 +200,8 @@ export class Pads {
   private breath = 1;
   /** teinte de chaque pad de voix : 0 la sienne, 1 coupee, 2 en solo */
   private voiceState = new Uint8Array(COUNT);
+  /** le mode MUTE arme (state/voices.ts muteMode) : les voix coupees ont leur LED pleine */
+  private muteArmed = true;
   /** caoutchouc d'une voix a l'orange de son flash (machine claire) : 1 */
   private tinted = new Uint8Array(COUNT);
   /** multiplicateurs du caoutchouc : rouge (coupee), bleu (solo) */
@@ -265,8 +277,8 @@ export class Pads {
 
   private setGlow(i: number, g: Glow): void {
     this.glow[i] = g;
-    // OPEN qui respire : sa lumiere et son halo au facteur du moment
-    const k = i === OPEN_I && g === ORANGE ? this.breath : 1;
+    // OPEN qui respire : sa lumiere et son halo au facteur du moment ; une voix coupee, le mode ferme : sa LED a peine
+    const k = i === OPEN_I && g === ORANGE ? this.breath : g === MUTED_DIM ? MUTED_DIM_K : 1;
     const a = this.emissive.array as Float32Array;
     const c = GLOW_RGB[g];
     a[i * 3] = c[0] * k;
@@ -274,7 +286,7 @@ export class Pads {
     a[i * 3 + 2] = c[2] * k;
     this.emissive.needsUpdate = true;
     const flashTint = (g === FLASH) !== (this.tinted[i] === 1);
-    const tint = g === SELECTED ? WARM : g === ACTIVE ? YELLOW_HI : g === ORANGE || g === ORANGE_DIM || (g === FLASH && FLASH_TINT.rgb) ? ORANGE_TINT : g === MUTED ? RED : YELLOW;
+    const tint = g === SELECTED ? WARM : g === ACTIVE ? YELLOW_HI : g === ORANGE || g === ORANGE_DIM || (g === FLASH && FLASH_TINT.rgb) ? ORANGE_TINT : g === MUTED || g === MUTED_DIM ? RED : YELLOW;
     this.halos.setColorAt(i, col.copy(tint).multiplyScalar(HALO_K[g] * k));
     if (this.halos.instanceColor) this.halos.instanceColor.needsUpdate = true;
     // La machine claire : le caoutchouc d'une voix passe a l'orange le temps du flash (FLASH_TINT)
@@ -288,6 +300,7 @@ export class Pads {
     this.tinted[i] = flash ? 1 : 0;
     const s = this.voiceState[i];
     if (flash && f) this.mesh.setColorAt(i, col.setRGB(f[0], f[1], f[2]));
+    else if (s === 1 && !this.muteArmed) this.mesh.setColorAt(i, col.setRGB(1, 1, 1).lerp(this.tintMute, 1 - MUTED_DIM_RUBBER));
     else this.mesh.setColorAt(i, s === 2 ? this.tintSolo : s === 1 ? this.tintMute : col.setRGB(1, 1, 1));
     if (this.mesh.instanceColor) this.mesh.instanceColor.needsUpdate = true;
   }
@@ -295,7 +308,7 @@ export class Pads {
   /** Lumiere de repos d'un pad (hors flash). */
   private restGlow(i: number): Glow {
     const k = PADS[i].kind;
-    if (k === 'voice') return this.voiceState[i] === 1 ? MUTED : i === this.selected ? SELECTED : OFF;
+    if (k === 'voice') return this.voiceState[i] === 1 ? (this.muteArmed ? MUTED : MUTED_DIM) : i === this.selected ? SELECTED : OFF;
     if (k === 'open') return this.open ? ORANGE_DIM : ORANGE;
     if (k === 'edit') return this.editing ? ACTIVE : i === this.hover ? HOVER : FAINT;
     const on = i === this.activePage;
@@ -408,12 +421,22 @@ export class Pads {
    * Voix coupees (rouge, leur LED allumee) et voix en solo (bleu) ; le solo
    * passe avant le mute. true s'il faut une frame.
    */
-  setVoiceState(muted: readonly Inst[], solo: readonly Inst[]): boolean {
+  setVoiceState(muted: readonly Inst[], solo: readonly Inst[], armed = true): boolean {
     let changed = false;
+    // Le mode MUTE arme (ONE, MULTI) : la LED rouge pleine ; ferme, les voix gardees coupees l'ont a peine
+    const re = armed !== this.muteArmed;
+    this.muteArmed = armed;
     PADS.forEach((p, i) => {
       if (p.kind !== 'voice') return;
       const s = solo.includes(p.id) ? 2 : muted.includes(p.id) ? 1 : 0;
-      if (s === this.voiceState[i]) return;
+      if (s === this.voiceState[i]) {
+        if (re && s === 1) {
+          this.paintRubber(i);
+          this.refresh(i);
+          changed = true;
+        }
+        return;
+      }
       this.voiceState[i] = s;
       this.paintRubber(i);
       this.refresh(i);

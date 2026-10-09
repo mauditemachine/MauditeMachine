@@ -1,9 +1,9 @@
 /**
- * Les six touches de page du MM-RYTM (2026-10-08, la refonte facon
- * Digitakt, Mika : "8 encodeurs assignables a condition de presser les
- * bonnes touches" ; "RYTM : je ne vois AUCUN changement de ce que j'ai
- * demande") : TRIG SRC SMPL FLTR AMP FX, l'ordre de l'Analog Rytm, sous les
- * potards de page (theme.ts PAGE_KEYS, pageKeyX). La matiere et l'arrondi des
+ * Les touches de page du MM-RYTM (2026-10-08, la refonte facon Digitakt,
+ * Mika : "8 encodeurs assignables a condition de presser les bonnes
+ * touches" ; "RYTM : je ne vois AUCUN changement de ce que j'ai demande") :
+ * six jusqu'a l'etape 2, quatre depuis le 2026-10-09 (VOICE FLTR ENV FX,
+ * theme.ts RYTM_PAGE_KEYS, PAGE_KEYS, pageKeyX), sous l'ecran. La matiere et l'arrondi des
  * touches du transport, plus petites ; sur chacune un fin temoin pres du
  * bord arriere, comme RUN ou MUTE (BTN_LED) : allume (l'orange des pas
  * programmes) sur la page affichee, a peine en vue HOME (la touche rallume
@@ -140,7 +140,7 @@ export class RytmPageKeys {
   }
 
   /**
-   * Les zones des touches : pkey-trig ... pkey-fx (kind pkey, rpage). De
+   * Les zones des touches : pkey-voice ... pkey-fx (kind pkey, rpage). De
    * hitZ0 a hitZ1 (theme.ts PAGE_KEYS) : la touche au desktop ; au telephone
    * (revue du 2026-10-09) du bas du verre a MASTER et TEMPO, son nom compris,
    * 44 px de haut.

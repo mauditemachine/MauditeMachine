@@ -126,7 +126,7 @@ const bs = (id: BassKnobId, n: string, c: number): Ctl => k(`bass:knob:${id}`, n
 /** Les huit voix (2026-10-05 : plus de RS ni de PC), dans l'ordre des pads : une page du Roto les tient toutes. */
 const VOICES8 = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'] as const;
 const LIVE_MUTES = VOICES8;
-/** Les encodeurs de page A a H et les six pages du MM-RYTM (les sequenceurs, 2026-10-09). */
+/** Les encodeurs de page A a H et les pages du MM-RYTM (les sequenceurs, 2026-10-09 ; quatre depuis l'etape 2 du meme jour). */
 const PAGE_LETTERS = PAGE_KNOB_LETTERS;
 const RYTM_PAGES8: readonly (readonly [string, string])[] = RYTM_PAGE_KEYS.map((p) => [p.id, p.label] as const);
 const CHORD_NAMES = ['F#m', 'D', 'E', 'C#m', 'Bm', 'A', 'F#m7', 'Dmaj7'] as const;
@@ -555,7 +555,7 @@ function buildSetups(): RotoSetup[] {
     slot: 17,
     ch: 7,
     knobs: [
-      // 1 et 2 : les huit encodeurs de la page de la machine (TRIG, SRC, SMPL, FLTR, AMP, FX)
+      // 1 et 2 : les huit blocs de l'ecran affiche sur la machine (VOICE, FLTR, ENV, FX et leurs onglets, 2026-10-09)
       ...ENC('rytm'),
       ...ENC('rytm'),
       // 3 : les volumes des voix, au-dessus de leur choix
@@ -573,8 +573,11 @@ function buildSetups(): RotoSetup[] {
     buttons: [
       // 1 : les pas
       ...STEPS8('rytm'),
-      // 2 : les pages des encodeurs, la fenetre, STEP FOLLOW
+      // 2 : les pages des encodeurs, la fenetre, STEP FOLLOW ; depuis l'etape 2 (2026-10-09) quatre pages (VOICE FLTR ENV
+      // FX, la touche encore : l'onglet suivant), MUTE et SOLO completent la rangee (la page 3 reste a sa place)
       ...RYTM_PAGES8.map(([id, n]) => b(`rytm:page:${id}`, n, C.yellow)),
+      b('rytm:mute', 'MUTE', C.red),
+      b('rytm:solo', 'SOLO', C.blue),
       b('rytm:seq:window', 'STEPS 9-16', C.cyan),
       // STEP FOLLOW, pas FOLLOW (la revue du 2026-10-09) : la case FOLLOW du panneau MIDI montre la machine du setup, autre chose
       tog('rytm:seq:follow', 'STEP FOLLOW', C.green),

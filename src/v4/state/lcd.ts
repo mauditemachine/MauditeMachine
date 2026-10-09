@@ -27,7 +27,7 @@
 import { clock } from '../audio/clock';
 import { INSTRUMENTS, pattern } from '../audio/pattern';
 import { voiceFx } from '../audio/voicefx';
-import { KIT_MODELS, familyOf, kit, kitMachineNames, kitSampleNames, kitSoundIndex, kitSoundNames, KIT_LABEL, type KitFamily } from '../audio/kit';
+import { KIT_MODELS, familyOf, kit, kitMachineNames, kitSampleNames, kitSoundIndex, kitSoundNames, voiceSoundNames, KIT_LABEL, type KitFamily } from '../audio/kit';
 import { samplesOf } from '../audio/samples';
 import type { ShotId } from '../audio/shotsdsp';
 import { sc } from '../audio/soundcloud';
@@ -139,16 +139,17 @@ function composeSamples(inst: Inst): Omit<LcdState, 'updates'> | null {
   const k = lcdSamples.kind();
   const g = kit.get();
   const smp = g.sample[fam];
-  const names = k === 'machine' ? kitMachineNames() : k === 'sample' ? kitSampleNames(fam) : kitSoundNames(fam);
-  const at = k === 'machine' ? KIT_MODELS.indexOf(g.model[fam]) : k === 'sample' ? (smp ? samplesOf(fam).findIndex((x) => x.key === smp) + 1 : 0) : kitSoundIndex(fam);
+  // voice (2026-10-09) : la liste unique de SOUND de VOICE (OFF, les machines, les samples)
+  const names = k === 'machine' ? kitMachineNames() : k === 'sample' ? kitSampleNames(fam) : k === 'voice' ? voiceSoundNames(fam) : kitSoundNames(fam);
+  const at = k === 'machine' ? KIT_MODELS.indexOf(g.model[fam]) : k === 'sample' ? (smp ? samplesOf(fam).findIndex((x) => x.key === smp) + 1 : 0) : k === 'voice' ? kit.voiceIndex(fam) : kitSoundIndex(fam);
   const cur = Math.max(0, Math.min(names.length - 1, at));
-  const title = k === 'machine' ? `${KIT_LABEL[fam]} SYNTH` : k === 'sample' ? `${KIT_LABEL[fam]} SAMPLE` : KIT_LABEL[fam];
-  const line1 = row(k === 'machine' ? 'MACHINE' : 'SAMPLE', inst);
+  const title = k === 'machine' ? `${KIT_LABEL[fam]} SYNTH` : k === 'sample' ? `${KIT_LABEL[fam]} SAMPLE` : k === 'voice' ? `${inst} SOUND` : KIT_LABEL[fam];
+  const line1 = row(k === 'machine' ? 'MACHINE' : k === 'voice' ? 'SOUND' : 'SAMPLE', inst);
   const l2 = fit(names[cur], COLS);
-  // La couche SAMPLE : OFF a part, les samples comptes seuls (4 OF 6, comme le bloc SAMPLE de SMPL)
-  const off = k === 'sample' && cur === 0;
-  const of = k === 'sample' ? names.length - 1 : names.length;
-  const nth = k === 'sample' ? cur : cur + 1;
+  // La couche SAMPLE et la liste de SOUND : OFF a part, les autres comptes seuls (4 OF 6, comme le bloc SAMPLE de SMPL)
+  const off = (k === 'sample' || k === 'voice') && cur === 0;
+  const of = k === 'sample' || k === 'voice' ? names.length - 1 : names.length;
+  const nth = k === 'sample' || k === 'voice' ? cur : cur + 1;
   const l3 = fit(off ? `${title} OFF` : `${title} ${nth} OF ${of}`, COLS);
   const rank = off ? 'OFF' : `${nth}/${of}`;
   return { l1: line1.l, r1: line1.r, l2, r2: '', l3, r3: '', bar: null, param: true, mix: null, samples: { inst, fam, title, names, cur, rank }, text: [line1.t, l2, l3], keys: null, tag: false };

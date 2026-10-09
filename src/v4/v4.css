@@ -1859,6 +1859,106 @@ html:has(body.v4-active) {
   cursor: default;
 }
 
+/* Le Dock du MM-RYTM (2026-10-09) : 44 px de haut pour chaque cible du doigt (les voix, les pas, le transport) */
+.v4-root #v4-dock .v4-dock-inst,
+.v4-root #v4-dock .v4-dock-step {
+  height: 44px;
+}
+
+.v4-root #v4-dock .v4-dock-key {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+#v4-dock .v4-dock-transport {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) 44px 60px 44px;
+}
+
+/* MUTE et SOLO (2026-10-09) : le temoin a trois etats de la touche 3D. Il clignote en attendant une voix (ONE),
+   fixe en MULTI, a peine allume quand le mode est range mais que des voix restent coupees (en solo) */
+.v4-root .v4-dock-key.v4-dock-mode {
+  position: relative;
+}
+
+.v4-root .v4-dock-led {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.2;
+}
+
+.v4-root .v4-dock-key.v4-dock-mode[data-led='dim'] {
+  background: var(--graphite);
+  color: var(--bone-60);
+}
+
+.v4-root .v4-dock-key.v4-dock-mode[data-led='on'],
+.v4-root .v4-dock-key.v4-dock-mode[data-led='blink'] {
+  background: var(--graphite-hi);
+}
+
+.v4-root .v4-dock-key.v4-dock-mute[data-led='on'],
+.v4-root .v4-dock-key.v4-dock-mute[data-led='blink'] {
+  color: var(--orange);
+}
+
+.v4-root .v4-dock-key.v4-dock-solo[data-led='on'],
+.v4-root .v4-dock-key.v4-dock-solo[data-led='blink'] {
+  color: #8db2e4;
+}
+
+.v4-root .v4-dock-mute[data-led='dim'] .v4-dock-led {
+  background: var(--orange);
+  opacity: 0.55;
+}
+
+.v4-root .v4-dock-solo[data-led='dim'] .v4-dock-led {
+  background: #8db2e4;
+  opacity: 0.55;
+}
+
+.v4-root .v4-dock-mode[data-led='on'] .v4-dock-led {
+  opacity: 1;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.v4-root .v4-dock-mode[data-led='blink'] .v4-dock-led {
+  opacity: 1;
+  box-shadow: 0 0 6px currentColor;
+  animation: v4-dock-led-blink 640ms steps(1, end) infinite;
+}
+
+@keyframes v4-dock-led-blink {
+  50% {
+    opacity: 0.12;
+    box-shadow: none;
+  }
+}
+
+/* Sans animation : en attente, un anneau autour du temoin au lieu du clignotement */
+.v4-root[data-v4-motion='reduced'] .v4-dock-mode[data-led='blink'] .v4-dock-led {
+  animation: none;
+  background: transparent;
+  box-shadow: 0 0 0 1.5px currentColor;
+}
+
+.v4-root[data-v4-theme='light'] .v4-dock-key.v4-dock-mode[data-led='dim'] {
+  color: #6d6a64;
+}
+
+.v4-root[data-v4-theme='light'] .v4-dock-key.v4-dock-solo[data-led='on'],
+.v4-root[data-v4-theme='light'] .v4-dock-key.v4-dock-solo[data-led='blink'] {
+  color: #2b5896;
+}
+
+.v4-root[data-v4-theme='light'] .v4-dock-solo[data-led='dim'] .v4-dock-led {
+  background: #2b5896;
+}
+
 .v4-dock-bpm {
   display: flex;
   align-items: baseline;

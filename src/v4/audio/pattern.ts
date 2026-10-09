@@ -76,10 +76,36 @@ export interface Fx {
   reverb: number;
   delay: number;
   chorus: number;
+  /**
+   * Le temps et la reinjection du DELAY (2026-10-09, les encodeurs G et H du
+   * desktop, Mika : "ils ne servent qu'a faire les modifs des FX globaux de la
+   * machine") : dtime choisit la division (DELAY_DIVS, la croche pointee au
+   * depart), dfb la reinjection (0.58 au depart, DELAY_FB_MAX a fond) ; un
+   * motif stocke sans eux les recoit a leur depart (le delay d'avant).
+   */
+  dtime: number;
+  dfb: number;
 }
 
-export const NEUTRAL_FX: Readonly<Fx> = { swing: 0, drive: 0, reverb: 0, delay: 0, chorus: 0 };
-const FX_KEYS: readonly (keyof Fx)[] = ['swing', 'drive', 'reverb', 'delay', 'chorus'];
+/** Les divisions du DELAY, en doubles croches (pas) : 1/16, 1/8, 1/8 pointee (le depart), 1/4, 1/4 pointee, 1/2. */
+export const DELAY_DIVS: readonly { steps: number; label: string }[] = [
+  { steps: 1, label: '1/16' },
+  { steps: 2, label: '1/8' },
+  { steps: 3, label: '1/8D' },
+  { steps: 4, label: '1/4' },
+  { steps: 6, label: '1/4D' },
+  { steps: 8, label: '1/2' },
+];
+/** La division d'une valeur dtime (0 a 1, un cran par division). */
+export const delayDiv = (v: number): (typeof DELAY_DIVS)[number] => DELAY_DIVS[Math.max(0, Math.min(DELAY_DIVS.length - 1, Math.round((Number.isFinite(v) ? v : 0) * (DELAY_DIVS.length - 1))))];
+/** La reinjection du DELAY a fond ; au depart 2/3 de la course : 0.58, celle d'avant. */
+export const DELAY_FB_MAX = 0.87;
+export const delayFb = (v: number): number => DELAY_FB_MAX * Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
+export const DTIME_DEFAULT = 2 / (DELAY_DIVS.length - 1);
+export const DFB_DEFAULT = 2 / 3;
+
+export const NEUTRAL_FX: Readonly<Fx> = { swing: 0, drive: 0, reverb: 0, delay: 0, chorus: 0, dtime: DTIME_DEFAULT, dfb: DFB_DEFAULT };
+const FX_KEYS: readonly (keyof Fx)[] = ['swing', 'drive', 'reverb', 'delay', 'chorus', 'dtime', 'dfb'];
 
 /**
  * Forme stockee (et celle de window.__v4.state.pattern). fx vient de la
@@ -147,7 +173,7 @@ export const VEL_BARS: readonly number[] = [0, 1, 1, 1, 2, 2, 2, 3, 3, 3];
  * doubles croches roulent, DIST et REVERB neutres. Un motif stocke garde
  * les siens.
  */
-export const DEFAULT_FX: Readonly<Fx> = { swing: 0.3, drive: 0, reverb: 0, delay: 0, chorus: 0 };
+export const DEFAULT_FX: Readonly<Fx> = { swing: 0.3, drive: 0, reverb: 0, delay: 0, chorus: 0, dtime: DTIME_DEFAULT, dfb: DFB_DEFAULT };
 
 export const defaultPattern = (): Pattern => ({ bpm: BPM.initial, steps: { ...DEFAULT_STEPS } });
 
@@ -215,7 +241,12 @@ export function load(): Pattern {
 const r3 = (v: number): number => Math.round(v * 1000) / 1000;
 
 export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Readonly<Locks> = NO_LOCKS): StoredPattern {
-  const out: StoredPattern = { v: 1, bpm: p.bpm, steps: { ...p.steps }, fx: { swing: r3(f.swing), drive: r3(f.drive), reverb: r3(f.reverb), delay: r3(f.delay), chorus: r3(f.chorus) } };
+  const out: StoredPattern = {
+    v: 1,
+    bpm: p.bpm,
+    steps: { ...p.steps },
+    fx: { swing: r3(f.swing), drive: r3(f.drive), reverb: r3(f.reverb), delay: r3(f.delay), chorus: r3(f.chorus), dtime: r3(f.dtime ?? DTIME_DEFAULT), dfb: r3(f.dfb ?? DFB_DEFAULT) },
+  };
   if (anyLocks(locks)) out.locks = locks as Locks;
   return out;
 }

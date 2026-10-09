@@ -76,6 +76,10 @@ import {
   pageKnobOf,
   pageSlotOf,
   rytmPageKey,
+  rytmScreenTab,
+  globalDial,
+  modeHold,
+  MODE_HOLD_MS,
   chipAction,
   clearPattern,
   randomPattern,
@@ -126,7 +130,7 @@ import { patterns, slotName } from '../state/patterns';
 import { rytmPage } from '../state/rytmPage';
 import { rytmLock } from '../state/rytmLock';
 import { lockCount } from '../audio/locks';
-import { isRytmPage, pageLabel } from '../rytm/pages';
+import { SCREEN_TITLE, isRytmPage, isRytmScreen, pageLabel } from '../rytm/pages';
 import { v127 } from '../rytm/values';
 import { PRESET_KEY_ARIA, PRESET_KEYS_OFF, PRESET_KEYS_ON, presetMode, type PresetKey } from '../state/presetMode';
 import { chipsLive, explode } from '../state/explode';
@@ -154,6 +158,8 @@ import {
   DIAL_KEYS,
   ENCODERS,
   FACE_KNOBS,
+  GLOBAL_ENCODERS,
+  GLOBAL_ENC_LABELS,
   INST_NAMES,
   PAGE_KNOB_IDS,
   PAGE_KNOB_LETTERS,
@@ -249,6 +255,8 @@ interface Down {
    * qu'il va de cote dans le temps d'un glisser (la garde de l'orbite)
    */
   swipe: boolean;
+  /** MUTE ou SOLO tenu MODE_HOLD_MS (2026-10-09) : toutes les voix sont revenues, le lacher ne fait rien de plus */
+  holdFired?: boolean;
 }
 
 /** Un bloc de l'ecran glisse a l'horizontale (1.4 fois plus qu'a la verticale, comme SWIPE) : le glisser de machine. */
@@ -265,8 +273,24 @@ const LOCK_HOLD_MS = 350;
  */
 const lockKeyNow = (): string => {
   const l = rytmLock.get();
-  return `${l.step}|${l.held.join(',')}|${rytmPage.get().page}|${pattern.get().instrument ?? '-'}`;
+  return `${l.step}|${l.held.join(',')}|${rytmPage.screen(pattern.get().instrument)}|${pattern.get().instrument ?? '-'}`;
 };
+
+/**
+ * La molette acceleree (2026-10-09, 69-common2 point 1 : "comme un encodeur
+ * Elektron") : un cran a la fois quand on tourne doucement, jusqu'a six quand
+ * les crans arrivent a moins de 40 ms l'un de l'autre ; Maj : toujours un.
+ */
+const WHEEL_ACCEL = { fastMs: 40, slowMs: 140, max: 6 } as const;
+function wheelGain(dt: number, fine: boolean): number {
+  if (fine || !(dt < WHEEL_ACCEL.slowMs)) return 1;
+  if (dt <= WHEEL_ACCEL.fastMs) return WHEEL_ACCEL.max;
+  const t = (WHEEL_ACCEL.slowMs - dt) / (WHEEL_ACCEL.slowMs - WHEEL_ACCEL.fastMs);
+  return Math.max(1, Math.round(1 + t * (WHEEL_ACCEL.max - 1)));
+}
+
+/** Une tape sur un bloc ou un encodeur ne compte que si l'appui a dure moins que ca (69-common2 point 1 : un glisser rapide n'en est pas une). */
+const TAP_MAX_MS = 320;
 
 /** INFOS du MM-RYTM allume (R4) et une de ses commandes, sur lui : au doigt, elle montre sa carte. */
 const rytmInfoTouch = (id: string): boolean => rytmInfos.isOn() && focus.get() === 'mm808' && isRytmInfoHotspot(id);
@@ -320,18 +344,23 @@ const voySteps = (k: DialId): number => {
 
 /**
  * Le potard d'une cible : un encodeur de la 808, un potard du MM-ARP, un
- * TWEAK du MM-RYTM, un potard de page du MM-RYTM (p:<0-7>, 2026-10-08) ; au
- * telephone depuis le 2026-10-09, un bloc de l'ecran (lcd-blk-<k>) est ce
- * potard (Mika : "en mobile, enleve les encoders ; on change dans l'ecran
- * directement").
+ * TWEAK du MM-RYTM, un bloc de l'ecran du MM-RYTM (lcd-blk-<k> : p:<k>, le
+ * bloc k de l'ecran affiche ; au telephone depuis le 2026-10-09, au desktop
+ * aussi depuis l'etape 2 du meme jour, Mika : "j'aimerais autant en mobile
+ * qu'en desktop pouvoir modifier les choses directement sur l'ecran") ; un
+ * encodeur du desktop (penc-<k>) : son FX global a poste fixe (theme.ts
+ * GLOBAL_ENCODERS, Mika : "ils ne servent qu'a faire les modifs des FX
+ * globaux de la machine").
  */
 const dialOf = (h: HotspotView | null | undefined): DialId | null =>
   !h
     ? null
     : h.kind === 'encoder' && h.param
       ? h.param
-      : (h.kind === 'penc' || (h.kind === 'rblock' && BLOCKS_ARE_KNOBS)) && h.index !== undefined
-        ? (`p:${h.index}` as DialId)
+      : h.kind === 'penc' && h.index !== undefined
+        ? ((GLOBAL_ENCODERS[h.index] ?? null) as DialId | null)
+        : h.kind === 'rblock' && h.index !== undefined
+          ? (`p:${h.index}` as DialId)
         : h.kind === 'vknob' && h.vknob
           ? (`v:${h.vknob}` as DialId)
           : h.kind === 'rknob' && h.rknob
@@ -369,7 +398,10 @@ function turnDial(d: Down, dx: number, dy: number, fine: boolean): void {
     d.fine = fine;
     d.lockKey = lk;
   }
-  anyDial(d.dial, d.v0 + (travel - d.a) * perPx(d.dial) * (fine ? DIAL_FINE.drag : 1));
+  const v = d.v0 + (travel - d.a) * perPx(d.dial) * (fine ? DIAL_FINE.drag : 1);
+  // Un encodeur du desktop (2026-10-09) : son FX global, et son popup a l'ecran
+  if (d.kind === 'penc' && d.index !== undefined) globalDial(d.index, v);
+  else anyDial(d.dial, v);
 }
 
 interface Point {
@@ -397,6 +429,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     let lastBg: { t: number; x: number; y: number } | null = null;
     let wheelAcc = 0;
     let wheelKind: DialId | null = null;
+    /** l'instant du dernier cran de molette (l'acceleration, 2026-10-09) */
+    let wheelAt = -Infinity;
     /** vue d'ensemble, ou le bout de la voisine : une machine sous la souris (curseur doigt, un clic zoome) */
     let hoverMachine = false;
     /** sous la souris, la machine qu'on utilise (ou une qui joue) : la vue n'en part pas, curseur normal (2026-10-05) */
@@ -466,15 +500,33 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
 
     /** axe de l'encodeur que la souris tourne, null sinon */
     let turnAxis: 'x' | 'y' | null = null;
+    /** la souris glisse un bloc de l'ecran (2026-10-09) : le curseur de haut en bas */
+    let turnBlock = false;
     /**
      * Curseur : main ouverte par defaut (CSS), fermee pendant l'orbite,
      * doigt sur un objet, encodeurs compris, survoles ou tournes (2026-10-03,
      * Mika : "comme quand on hover un lien, je veux pas les deux fleches").
      */
     const setCursor = (): void => {
-      // L'ecran du MM-BASS se glisse (2026-10-09, l'etape 2 : un bloc qui porte un reglage, le rouleau d'EDIT) : ns-resize
+      // L'ecran du MM-BASS se glisse (2026-10-09, l'etape 2 : un bloc qui porte un reglage, le rouleau d'EDIT) : ns-resize ;
+      // un bloc de l'ecran du MM-RYTM (2026-10-09, l'ecran est l'editeur) : la fleche de haut en bas, survole ou glisse
       const own = hover !== null && hover.startsWith('bass-') ? stage.bass?.cursor(hover) : null;
-      el.style.cursor = turnAxis !== null ? 'pointer' : stage.orbit.dragging ? 'grabbing' : hover === null ? (hoverMachine ? 'pointer' : overLocked ? 'default' : '') : own ?? 'pointer';
+      el.style.cursor =
+        turnAxis !== null
+          ? turnBlock
+            ? 'ns-resize'
+            : 'pointer'
+          : stage.orbit.dragging
+            ? 'grabbing'
+            : hover === null
+              ? hoverMachine
+                ? 'pointer'
+                : overLocked
+                  ? 'default'
+                  : ''
+              : hover.startsWith('lcd-blk-')
+                ? 'ns-resize'
+                : own ?? 'pointer';
     };
     const setHover = (h: HotspotView | null): void => {
       const id = h ? h.id : null;
@@ -493,13 +545,18 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
     };
 
-    /** Deux tapes sur un encodeur en moins de 350 ms : sa valeur de depart. */
-    const tapDial = (k: DialId): void => {
+    /** Deux tapes sur un encodeur en moins de 350 ms : sa valeur de depart (penc : l'encodeur k du desktop, son FX global). */
+    const tapDial = (k: DialId, pressMs = 0, penc = -1): void => {
       // Un commutateur (MODE du filtre) passe au cran suivant a chaque tape, et reboucle
       if ((isVoy(k) && isSwitch(k.slice(2) as VoyKnobId)) || (isKit(k) && voySteps(k) > 1)) {
         const n = voySteps(k);
         const i = Math.round(anyDialValue(k) * (n - 1));
         anyDial(k, ((i + 1) % n) / (n - 1));
+        return;
+      }
+      // Un appui long immobile n'est pas une tape (2026-10-09) : il ne compte pas pour les deux tapes de la remise
+      if (pressMs > TAP_MAX_MS) {
+        lastTap.delete(k);
         return;
       }
       const t = performance.now();
@@ -508,6 +565,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         // Un potard de page (2026-10-08) : en LOCK, son verrou s'en va ; sinon sa valeur de depart
         const pk = pageKnobOf(k);
         if (pk >= 0) pageKnobReset(pk);
+        // Un encodeur du desktop (revue du 2026-10-09) : remis comme il tourne, avec son popup GLOBAL a l'ecran
+        else if (penc >= 0) globalDial(penc, anyDialReset(k));
         else anyDial(k, anyDialReset(k));
       } else {
         lastTap.set(k, t);
@@ -545,6 +604,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       else if (d.kind === 'run') runToggle(stage);
       else if (d.kind === 'clear') clearPattern(stage);
+      // MUTE et SOLO (2026-10-09) : tenus, toutes les voix sont deja revenues ; sinon l'appui suivant de la machine a etats
+      else if ((d.kind === 'mute' || d.kind === 'solo') && d.holdFired) return d.id;
       else if (d.kind === 'mute') muteToggle(stage);
       else if (d.kind === 'solo') soloToggle(stage);
       else if (d.kind === 'random') randomPattern(stage);
@@ -558,8 +619,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.kind === 'vbtn' && d.vbtn === 'edit') editToggle('voy', stage);
       else if (d.kind === 'edit') editToggle('mm808', stage);
       else if ((d.kind === 'lcd' || d.kind === 'vlcd') && d.lcd) presetKey(d.kind === 'lcd' ? 'mm808' : 'voy', d.lcd);
+      // Un onglet de l'en-tete de l'ecran (2026-10-09) : son ecran, avant les touches de page (revue : l'onglet MAIN porte
+      // l'id voice, qui est aussi une page ; pris pour la touche VOICE, il passait a SYNTH)
+      else if (d.kind === 'pkey' && d.rpage && d.id?.startsWith('lcd-tab-') && isRytmScreen(d.rpage)) rytmScreenTab(d.rpage);
       else if (d.kind === 'pkey' && d.rpage && isRytmPage(d.rpage)) rytmPageKey(d.rpage, stage);
-      else if (d.dial) tapDial(d.dial);
+      else if (d.dial) tapDial(d.dial, performance.now() - d.t, d.kind === 'penc' && d.index !== undefined ? d.index : -1);
       else return null;
       return d.id;
     };
@@ -625,10 +689,12 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         return false;
       }
       d.turning = true;
-      d.axis = Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
+      // Un bloc de l'ecran a la souris (2026-10-09) : de haut en bas seulement (150 px la course), le curseur le dit
+      d.axis = d.kind === 'rblock' ? 'y' : Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
       turnDial(d, dx, dy, shiftHeld);
       if (d.mouse) {
         turnAxis = d.axis;
+        turnBlock = d.kind === 'rblock';
         setCursor();
       }
       return false;
@@ -728,10 +794,24 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       });
       // Les pas et les potards de page ne font jamais de pincement (2026-10-08) : tenir un pas d'un doigt et
       // tourner un potard d'un autre doit verrouiller, pas zoomer ; au telephone les blocs de l'ecran aussi (2026-10-09)
-      const blockKnob = !!h && h.kind === 'rblock' && BLOCKS_ARE_KNOBS && h.index !== undefined;
+      const blockKnob = !!h && h.kind === 'rblock' && h.index !== undefined;
       if (h && (h.kind === 'step' || h.kind === 'penc' || blockKnob)) stage.orbit.claim(e.pointerId);
       // Le bloc pris au doigt reste cerne tant qu'on le tient (2026-10-09), meme immobile : on voit ce qu'on regle
       if (blockKnob && h && h.index !== undefined) rytmPage.hold(h.index);
+      // MUTE ou SOLO tenu (2026-10-09) : MODE_HOLD_MS sans lacher, toutes les voix reviennent (le lacher ne fait rien de plus) ;
+      // INFOS allume, au doigt, la tenue lit la carte et ne rend aucune voix (revue : comme la touche du Dock)
+      if (h && (h.kind === 'mute' || h.kind === 'solo') && !downs.get(e.pointerId)?.info) {
+        const pid = e.pointerId;
+        const d0 = downs.get(pid);
+        const k = h.kind;
+        window.setTimeout(() => {
+          const d = downs.get(pid);
+          if (!d || d !== d0 || disposed || d.turning) return;
+          d.holdFired = true;
+          stage.pressButton(k);
+          modeHold(k);
+        }, MODE_HOLD_MS);
+      }
       // Un pas tenu (2026-10-05) : l'ecran dit sa velocite et qu'un glisser la change ; depuis le 2026-10-08,
       // hors EDIT et une voix choisie, 350 ms de tenue sans glisser : le LOCK (les parameter locks)
       // INFOS du MM-RYTM (R4), au doigt : la tenue d'un pas ne met pas le LOCK, sa tape montre la carte du pas ; il reste
@@ -817,7 +897,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
      * sauf si un autre doigt en tient un (il passe a celui-la).
      */
     const releaseBlock = (d: Down): void => {
-      if (d.kind !== 'rblock' || !BLOCKS_ARE_KNOBS) return;
+      if (d.kind !== 'rblock') return;
       let other = -1;
       for (const o of downs.values()) if (o.kind === 'rblock' && o.index !== undefined) other = o.index;
       if (other >= 0) rytmPage.hold(other);
@@ -870,6 +950,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
       if (d.turning && d.mouse) {
         turnAxis = null;
+        turnBlock = false;
         setCursor();
       }
     };
@@ -941,6 +1022,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (d) releaseBlock(d);
       if (d && d.turning && d.mouse) {
         turnAxis = null;
+        turnBlock = false;
         setCursor();
       }
       // Un pas tenu du MM-RYTM (2026-10-08) : son lacher decide du LOCK (et la tape ne part pas s'il l'a pris)
@@ -1036,10 +1118,17 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       wheelAcc -= delta * unit;
       const px = k === 'tempo' ? TEMPO_UI.wheelPx : POT_UI.wheelPx;
       const steps = Math.trunc(wheelAcc / px);
-      if (steps !== 0 && pageKnobOf(k) >= 0) {
-        // Un potard de page (2026-10-08) : un cran = 1 sur 127 (un cran du reglage s'il en a), Maj aussi
+      const pencK = h && h.kind === 'penc' && h.index !== undefined ? h.index : -1;
+      if (steps !== 0 && (pageKnobOf(k) >= 0 || pencK >= 0)) {
+        // Un bloc de l'ecran (2026-10-08) ou un encodeur du desktop (2026-10-09) : un cran = 1 sur 127 (un cran du reglage
+        // s'il en a), accelere quand les crans se suivent vite (wheelGain) ; Maj : un cran a la fois
         wheelAcc -= steps * px;
-        dialNudge(k, steps);
+        const now = e.timeStamp || performance.now();
+        const gain = wheelGain(now - wheelAt, e.shiftKey);
+        wheelAt = now;
+        // Un encodeur du desktop : son FX global, son popup seul le dit (globalDial)
+        if (pencK >= 0) dialNudge(k, steps * gain, (v) => globalDial(pencK, v));
+        else dialNudge(k, steps * gain);
       } else if (steps !== 0) {
         wheelAcc -= steps * px;
         // Maj : reglage fin, 1 % le cran (TEMPO reste a 1 BPM)
@@ -1177,32 +1266,33 @@ const onDialKey =
 /**
  * Les fleches sur un potard de page (2026-10-08) : un cran de 1 sur 127 (Maj
  * ou Page : 10), un cran du reglage s'il en a ; Debut et Fin aux butees.
+ * set : ce qui pose la valeur (un encodeur du desktop : son FX global et son popup).
  */
 const onPageKnobKey =
-  (d: DialId) =>
+  (d: DialId, set: (v: number) => void = (v) => anyDial(d, v)) =>
   (e: React.KeyboardEvent<HTMLElement>): void => {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
     const big = e.shiftKey ? 10 : 1;
     switch (e.key) {
       case 'ArrowUp':
       case 'ArrowRight':
-        dialNudge(d, big);
+        dialNudge(d, big, set);
         break;
       case 'ArrowDown':
       case 'ArrowLeft':
-        dialNudge(d, -big);
+        dialNudge(d, -big, set);
         break;
       case 'PageUp':
-        dialNudge(d, 10);
+        dialNudge(d, 10, set);
         break;
       case 'PageDown':
-        dialNudge(d, -10);
+        dialNudge(d, -10, set);
         break;
       case 'Home':
-        anyDial(d, dialRange(d)[0]);
+        set(dialRange(d)[0]);
         break;
       case 'End':
-        anyDial(d, dialRange(d)[1]);
+        set(dialRange(d)[1]);
         break;
       default:
         return;
@@ -1292,7 +1382,7 @@ function dialText(k: EncId, v: number): string {
 /** Ce que les jumeaux lisent de la page du MM-RYTM : la page, la vue, le pas choisi. */
 const rytmPageKey3 = (): string => {
   const s = rytmPage.get();
-  return `${s.page}|${s.view}|${s.sel}`;
+  return `${s.page}|${s.tabs[s.page] ?? 0}|${s.view}|${s.sel}`;
 };
 /** Ce que les jumeaux lisent du LOCK (2026-10-08) : le pas et s'il est fixe (les verrous poses passent par le motif). */
 const rytmLockKey = (): string => {
@@ -1376,6 +1466,18 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
     vtune: sel.tune,
     vpan: sel.pan,
     vstart: sel.start,
+    // L'etape 2 (2026-10-09) : ENV, FINE, le filtre, DLY TIME et DLY FB
+    vatk: sel.atk,
+    vhold: sel.hold,
+    vfine: sel.fine,
+    vftype: sel.ftype,
+    vfcut: sel.fcut,
+    vfreso: sel.freso,
+    vfenv: sel.fenv,
+    vfatk: sel.fatk,
+    vfdec: sel.fdec,
+    dtime: pattern.fx.get().dtime,
+    dfb: pattern.fx.get().dfb,
   };
 
   /** Ref stable par id : l'element entre et sort des deux registres. */
@@ -1641,17 +1743,15 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
           />
         );
       })}
-      {PAGE_KNOB_IDS.map((pid) => {
-        // Les huit potards de page (2026-10-08) : ce qu'ils reglent sur la page affichee, de 0 a 127 ; au telephone (2026-10-09)
-        // les blocs de l'ecran les remplacent sur la face, le jumeau se pose sur le bloc (lcd-blk-<k>)
-        const k = pageKnobIndex(pid);
-        const id = BLOCKS_ARE_KNOBS ? `lcd-blk-${k}` : `penc-${k}`;
-        const d = `p:${k}` as DialId;
-        const slot = pageSlotOf(k);
-        // Le nombre de l'ecran : 0 a 127, -64 a +63 pour TONE et STRETCH (un bloc vide : en bas, comme son repere)
-        const bipolar = pageKnobLive(k) && dialRange(d)[0] < 0;
-        const course = pageKnobCourse(k);
-        const what = slot && slot.label ? `${slot.label}${slot.target === null ? ', coming soon' : ''}` : 'nothing';
+      {FACE_KNOBS.filter((k) => isPageKnob(k.id)).map((fk) => {
+        // Les encodeurs du desktop (2026-10-09) : leur FX global a poste fixe (theme.ts GLOBAL_ENCODERS), jamais un verrou
+        const k = pageKnobIndex(fk.id as (typeof PAGE_KNOB_IDS)[number]);
+        const g = GLOBAL_ENCODERS[k];
+        const id = `penc-${k}`;
+        const d = g as DialId;
+        const [lo, hi] = dialRange(d);
+        const course = hi > lo ? (anyDialValue(d) - lo) / (hi - lo) : 0;
+        const bipolar = lo < 0;
         return (
           <div
             key={id}
@@ -1661,14 +1761,52 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
             data-hotspot={id}
             role="slider"
             tabIndex={0}
-            aria-label={`${BLOCKS_ARE_KNOBS ? 'Screen value' : 'Knob'} ${PAGE_KNOB_LETTERS[k]}, ${pageLabel(rp.page)} page: ${what}${slot?.scope === 'track' && inst ? `, ${INST_NAMES[inst]}` : ''}${lockAt >= 0 ? `, lock on step ${lockAt + 1}, delete removes its lock` : ''}`}
+            aria-label={`Knob ${PAGE_KNOB_LETTERS[k]}, global ${GLOBAL_ENC_LABELS[k].toLowerCase()}, the whole machine, never locked`}
             aria-orientation="vertical"
             aria-valuemin={bipolar ? -64 : 0}
             aria-valuemax={bipolar ? 63 : 127}
             aria-valuenow={v127(course, bipolar)}
             aria-valuetext={dialReadout(d)}
             onKeyDown={(e) => {
-              // Suppr : le verrou du pas en LOCK s'en va (deux tapes au pointeur), sinon la valeur de depart
+              if (e.key === 'Delete' || e.key === 'Backspace') {
+                e.preventDefault();
+                globalDial(k, anyDialReset(d));
+                return;
+              }
+              onPageKnobKey(d, (v) => globalDial(k, v))(e);
+            }}
+          />
+        );
+      })}
+      {PAGE_KNOB_IDS.map((pid) => {
+        // Les blocs de l'ecran (2026-10-08 ; l'editeur au desktop aussi depuis le 2026-10-09) : ce qu'ils reglent sur l'ecran
+        // affiche, de 0 a 127 ; le jumeau se pose sur le bloc (lcd-blk-<k>), present seulement quand l'ecran le dessine
+        const k = pageKnobIndex(pid);
+        const id = `lcd-blk-${k}`;
+        const d = `p:${k}` as DialId;
+        const slot = pageSlotOf(k);
+        if (!slot || !slot.label || slot.graph) return null;
+        // Le nombre de l'ecran : 0 a 127, -64 a +63 pour TONE et STRETCH (un bloc vide : en bas)
+        const bipolar = pageKnobLive(k) && dialRange(d)[0] < 0;
+        const course = pageKnobCourse(k);
+        const what = slot.label;
+        return (
+          <div
+            key={id}
+            ref={refFor(id)}
+            className="v4-twin"
+            data-twin="penc"
+            data-hotspot={id}
+            role="slider"
+            tabIndex={0}
+            aria-label={`Screen value ${PAGE_KNOB_LETTERS[k]}, ${SCREEN_TITLE[rytmPage.screen(inst)]}: ${what}${slot.scope === 'track' && inst ? `, ${INST_NAMES[inst]}` : ''}${lockAt >= 0 ? `, P-lock on step ${lockAt + 1}, delete removes its lock` : ''}`}
+            aria-orientation="vertical"
+            aria-valuemin={bipolar ? -64 : 0}
+            aria-valuemax={bipolar ? 63 : 127}
+            aria-valuenow={v127(course, bipolar)}
+            aria-valuetext={dialReadout(d)}
+            onKeyDown={(e) => {
+              // Suppr : le verrou du pas en P-LOCK s'en va (deux tapes au pointeur), sinon la valeur de depart
               if (e.key === 'Delete' || e.key === 'Backspace') {
                 e.preventDefault();
                 pageKnobReset(k);
@@ -1687,7 +1825,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
           className="v4-twin"
           data-twin="pkey"
           data-hotspot={`pkey-${pk.id}`}
-          aria-label={`${pk.label} page${rp.page === pk.id ? (rp.view === 'page' ? ', shown, press again for HOME' : ', press for the page view') : ''}`}
+          aria-label={`${pk.label} page${rp.page === pk.id ? (rp.view === 'page' ? ', shown, press again for its next view or HOME' : ', press for the page view') : ''}`}
           aria-pressed={rp.page === pk.id && rp.view === 'page'}
           onKeyDown={noRepeat}
           onClick={() => rytmPageKey(pk.id, stageRef.current)}

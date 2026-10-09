@@ -49,16 +49,37 @@ import { FLAGS } from '../state/flags';
 import type { Inst } from '../theme';
 import { buildChorus, loadChorus, type ChorusInfo, type ChorusStage } from './chorus';
 import { buildDrive, buildFx, glide, type DriveStage, type FxChain } from './fx';
-import { pattern, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
+import { DFB_DEFAULT, DTIME_DEFAULT, delayDiv, delayFb, pattern, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
 import { kit, type KitKnob, type KitKnobs, type KitModel, type KitOverride, type Layer } from './kit';
 import { sampleByKey } from './samples';
 import { KIT_LOCK_IDS, LAYER_LOCK_IDS, lockOf, parseSnd, type KitLockId, type LayerLockId, type Locks, type StepLock } from './locks';
 import { buildDelayBus, buildReverbBus, type BusInfo, type DelayBus, type LockSend, type Send, type SendBus, type SendInfo } from './sends';
 import { hitTime, snapTime } from './time';
-import { buildTone, pitchFactor, snapTone, type ToneInfo, type ToneStage } from './tone';
+import { buildTone, pitchFactor, snapTone, toneHpHz, toneLpHz, type ToneInfo, type ToneStage } from './tone';
 import { shots, type ShotId, type ShotOverride } from './shots';
 import { Ducker, duckCurve, kickEnvelope, type KickPlay } from './duck';
-import { DECAY_HOLD_S, START_MAX, VOICE_FX_DEFAULT, decayTau, tuneFactor, voiceFx, voiceGain, type VoiceFx, type VoiceParam } from './voicefx';
+import {
+  DECAY_HOLD_S,
+  FENV_OCT,
+  START_MAX,
+  VOICE_FX_DEFAULT,
+  atkS,
+  cutHz,
+  decayTau,
+  fatkS,
+  fdecTau,
+  filterIndex,
+  filterOpen,
+  fineFactor,
+  holdS,
+  resoQ,
+  tuneFactor,
+  voiceFx,
+  voiceGain,
+  type VoiceFx,
+  type VoiceParam,
+} from './voicefx';
+import { InsertLocks } from './lockfx';
 
 type Ctor = typeof AudioContext;
 
@@ -71,6 +92,9 @@ interface Channel {
   out: GainNode;
   reverb: LockSend;
   delay: LockSend;
+  /** les verrous DIST et CHORUS de la voix (2026-10-09, audio/lockfx.ts) */
+  distLocks: InsertLocks;
+  chorusLocks: InsertLocks;
 }
 
 interface Graph {
@@ -162,6 +186,8 @@ export interface Voice {
   bdGate?: GainNode;
   /** les envois de sa tranche ou ce coup a pose un point (les verrous DELAY et REVERB, revue de R2) : retires a l'annulation */
   sends?: LockSend[];
+  /** les inserts de sa tranche ou ce coup a pose un point (les verrous DIST et CHORUS, 2026-10-09) */
+  inserts?: InsertLocks[];
 }
 
 /**
@@ -212,6 +238,9 @@ interface BuildOpts {
   reverb?: number;
   delay?: number;
   chorus?: number;
+  /** DLY TIME et DLY FB (2026-10-09) ; absents : ceux du store */
+  dtime?: number;
+  dfb?: number;
   bpm?: number;
   /** effets par voix imposes (hors ligne) ; absent : ceux du store */
   voice?: Partial<Record<Inst, Partial<VoiceFx>>>;
@@ -338,7 +367,7 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   // REVERB et DELAY de la boite ; les envois du pattern partent des pads (LEVEL applique : le gain level², comme les
   // envois des voix), plus du kick depuis le 2026-10-08. Le MM-ARP a sa REVERB a lui
   const reverb = buildReverbBus(c, rytmOut);
-  const delay = buildDelayBus(c, rytmOut, stepOf(o.bpm ?? pattern.get().bpm));
+  const delay = buildDelayBus(c, rytmOut, stepOf(o.bpm ?? pattern.get().bpm), delayDiv(o.dtime ?? f.dtime).steps, delayFb(o.dfb ?? f.dfb));
   const arpReverb = buildReverbBus(c, arpOut);
   const taps: GainNode[] = [];
   const padsSend = c.createGain();
@@ -366,7 +395,17 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
       tap.gain.value = level * level;
       chOut.connect(tap);
       taps.push(tap);
-      out[inst] = { input: chIn, tone: chTone, drive: chDrive, chorus: chChorus, out: chOut, reverb: reverb.attach(tap), delay: delay.attach(tap) };
+      out[inst] = {
+        input: chIn,
+        tone: chTone,
+        drive: chDrive,
+        chorus: chChorus,
+        out: chOut,
+        reverb: reverb.attach(tap),
+        delay: delay.attach(tap),
+        distLocks: new InsertLocks(c, chDrive),
+        chorusLocks: new InsertLocks(c, chChorus),
+      };
     }
     ch = out;
   }
@@ -389,6 +428,7 @@ function applyVoice(g: Graph, inst: Inst, v: Readonly<VoiceFx>): void {
   const gain = voiceGain(v.level);
   if (t.input.gain.value !== gain) glide(t.input.gain, gain, g.ctx);
   t.tone.set(v.tone);
+  // Un reglage tourne efface ce qui etait programme sur l'insert : ses verrous a venir reviennent d'eux-memes (onRetime, audio/lockfx.ts)
   t.drive.set(v.dist);
   t.chorus.set(v.chorus);
   t.reverb.set(v.reverb);
@@ -453,6 +493,8 @@ export function ensure(): AudioContext | undefined {
   }
   created += 1;
   graph = build(ctx);
+  // Les verrous DIST et CHORUS du motif deja la (2026-10-09) : leurs inserts tenus engages des le premier coup
+  holdInserts(graph, pattern.get().locks);
   // iPhone (Safari 17+) : une session de lecture, la musique ne s'efface pas pour un son du systeme (2026-10-05)
   try {
     const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
@@ -684,6 +726,45 @@ export interface HitParams {
   gain: number;
   pan: number;
   start: number;
+  /** l'attaque et la tenue de l'enveloppe du coup, en secondes (ENV ATK et HOLD, 2026-10-09 ; 0 et 4 ms : le coup d'avant) */
+  atk: number;
+  hold: number;
+  /** le filtre du coup (FLTR, 2026-10-09) ; null : aucun (passe-bas ouvert sans enveloppe, le son d'avant) */
+  filter: HitFilter | null;
+  /**
+   * le TONE verrouille du pas (2026-10-09) : le coup ne passe pas par le
+   * TONE de la tranche (sa valeur de voix), il porte le sien ; null : la
+   * tranche, comme avant
+   */
+  tone: number | null;
+}
+
+/** Le filtre d'un coup : son type, sa coupure (Hz), son Q, son enveloppe (octaves au sommet, attaque, constante de descente). */
+export interface HitFilter {
+  type: BiquadFilterType;
+  hz: number;
+  q: number;
+  oct: number;
+  atk: number;
+  tau: number;
+}
+
+const FILTER_KIND: readonly BiquadFilterType[] = ['lowpass', 'highpass', 'bandpass'];
+
+/** Le filtre d'un coup d'apres les reglages de la voix et les verrous du pas (null : rien a filtrer). */
+function hitFilter(fx: Readonly<VoiceFx>, lock: Readonly<StepLock> | null): HitFilter | null {
+  const type = lock?.ftype ?? fx.ftype;
+  const cut = lock?.fcut ?? fx.fcut;
+  const env = lock?.fenv ?? fx.fenv;
+  if (filterOpen(type, cut, env)) return null;
+  return {
+    type: FILTER_KIND[filterIndex(type)],
+    hz: cutHz(cut),
+    q: resoQ(lock?.freso ?? fx.freso),
+    oct: env * FENV_OCT,
+    atk: fatkS(lock?.fatk ?? fx.fatk),
+    tau: fdecTau(lock?.fdec ?? fx.fdec),
+  };
 }
 
 /** Le potard du kit de chaque verrou de la machine (revue de R2 ; SWEEP et la caisse claire depuis R3). */
@@ -740,8 +821,24 @@ export function kitOverride(lock: Readonly<StepLock>): KitOverride | null {
 export function hitParams(inst: Inst, open: boolean, lock: Readonly<StepLock> | null, globalTone: number, globalStretch: number, fx: Readonly<VoiceFx>): HitParams {
   const base: ShotId = inst === 'CH' && open ? 'CHopen' : inst;
   const tune = lock?.tune ?? fx.tune;
-  const pf = voicePitch(inst, globalTone, fx.tone) * tuneFactor(tune);
-  const hp: HitParams = { id: base, ov: null, kick: inst === 'BD', pf, ts: voiceTime(globalStretch), decay: lock?.decay ?? fx.decay, gain: 1, pan: lock?.pan ?? fx.pan, start: lock?.start ?? fx.start };
+  // TONE et FINE du pas (2026-10-09) : sa hauteur ; TONE verrouille passe aussi son filtre au coup (tone)
+  const toneV = lock?.tone ?? fx.tone;
+  const pf = voicePitch(inst, globalTone, toneV) * tuneFactor(tune) * fineFactor(lock?.fine ?? fx.fine);
+  const hp: HitParams = {
+    id: base,
+    ov: null,
+    kick: inst === 'BD',
+    pf,
+    ts: voiceTime(globalStretch),
+    decay: lock?.decay ?? fx.decay,
+    gain: 1,
+    pan: lock?.pan ?? fx.pan,
+    start: lock?.start ?? fx.start,
+    atk: atkS(lock?.atk ?? fx.atk),
+    hold: holdS(lock?.hold ?? fx.hold),
+    filter: hitFilter(fx, lock),
+    tone: lock?.tone !== undefined ? lock.tone : null,
+  };
   if (!lock) return withPanGain(hp);
   // Ce que le pas change au kit (R2, R3) : le coup se calcule avec (la variante 0, prepare a l'avance)
   const ko = kitOverride(lock);
@@ -749,8 +846,8 @@ export function hitParams(inst: Inst, open: boolean, lock: Readonly<StepLock> | 
     hp.ov = { tw: kit.tweakWith(base, ko), sig: kit.sigWith(base, ko) };
     // Un echantillon d'une autre famille, seul, sur la voie du kick n'est pas un kick (2026-10-08, R2)
     if (inst === 'BD') hp.kick = kit.kickWith(ko);
-  } else if (lock.tune !== undefined) {
-    // Une hauteur verrouillee : la variante 0 (le calcul prepare a l'avance est celui-la)
+  } else if (lock.tune !== undefined || lock.fine !== undefined || lock.tone !== undefined) {
+    // Une hauteur verrouillee (TUNE ; FINE et TONE depuis le 2026-10-09) : la variante 0 (le calcul prepare a l'avance est celui-la)
     hp.ov = { tw: kit.tweak(base), sig: kit.sig(base) };
   }
   if (lock.level !== undefined) {
@@ -826,18 +923,49 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
   // START (2026-10-08) : le coup part plus loin dans son echantillon (secondes du tampon) ; sa fin avance d'autant
   const off = hp.start > 0 ? Math.min(hp.start, 1) * START_MAX * shot.buf.duration : 0;
   const len = (shot.buf.duration - off) / shot.rate;
-  // DECAY (2026-10-04) : l'attaque garde, puis la queue s'eteint plus tot ; la source s'arrete quand il n'y a plus rien
+  // DECAY (2026-10-04) : l'attaque garde, puis la queue s'eteint plus tot ; la source s'arrete quand il n'y a plus rien.
+  // ATK et HOLD (2026-10-09, la page ENV, Mika : "AMP doit s'appeler ENV et doit etre plus complet") : une rampe
+  // d'attaque depuis le silence, puis la tenue avant DEC ; a 0 et 0, les 4 ms d'avant (DECAY_HOLD_S), le meme coup
   const tau = decayTau(decay);
+  const atk = hp.atk;
+  const holdEnd = when + atk + hp.hold;
   let stopAt = 0;
-  if (tau !== null) {
+  if (tau !== null || atk > 0) {
     const env = c.createGain();
-    env.gain.setValueAtTime(1, when);
-    env.gain.setTargetAtTime(0, when + DECAY_HOLD_S, tau);
+    if (atk > 0) {
+      env.gain.setValueAtTime(0, when);
+      env.gain.linearRampToValueAtTime(1, when + atk);
+    } else env.gain.setValueAtTime(1, when);
+    if (tau !== null) env.gain.setTargetAtTime(0, holdEnd, tau);
     env.connect(dest);
     nodes.push(env);
     dest = env;
-    const end = when + DECAY_HOLD_S + 7 * tau;
-    if (end < when + len) stopAt = end;
+    const end = holdEnd + 7 * (tau ?? 0);
+    if (tau !== null && end < when + len) stopAt = end;
+  }
+  // Le filtre du coup (2026-10-09, la page FLTR) : passe-bas, passe-haut ou passe-bande, sa resonance, son enveloppe
+  // (la coupure monte de oct octaves en atk, puis redescend avec la constante tau) ; aucun noeud au depart
+  const fl = hp.filter;
+  if (fl) {
+    const top = Math.min(20000, c.sampleRate * 0.45);
+    const hz = (f: number): number => Math.max(20, Math.min(top, f));
+    const bq = c.createBiquadFilter();
+    bq.type = fl.type;
+    // Le Q de Web Audio est en dB pour le passe-bas et le passe-haut (lineaire pour le passe-bande) : RESO a 0 donne alors
+    // le Butterworth (0.707, aucune bosse), a fond un Q de 12
+    bq.Q.value = fl.type === 'bandpass' ? fl.q : 20 * Math.log10(fl.q);
+    const f0 = hz(fl.hz);
+    if (fl.oct !== 0) {
+      const peak = hz(fl.hz * Math.pow(2, fl.oct));
+      if (fl.atk > 0) {
+        bq.frequency.setValueAtTime(f0, when);
+        bq.frequency.exponentialRampToValueAtTime(peak, when + fl.atk);
+      } else bq.frequency.setValueAtTime(peak, when);
+      bq.frequency.setTargetAtTime(f0, when + fl.atk, fl.tau);
+    } else bq.frequency.value = f0;
+    bq.connect(dest);
+    nodes.push(bq);
+    dest = bq;
   }
   let ownGate: GainNode | undefined;
   let ownBd: GainNode | undefined;
@@ -865,7 +993,7 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
   if (stopAt > 0) src.stop(stopAt);
   // Un kick : son enveloppe, a sa vitesse, avec son DECAY (le SIDECHAIN du MM-ARP) ; un son verrouille d'une
   // autre famille sur la voie du kick n'en est pas un (2026-10-08 : le SIDECHAIN suit les kicks, pas la voie)
-  const kick = inst === 'BD' && hp.kick ? { env: kickEnvelope(shot.buf), rate: shot.rate, hold: DECAY_HOLD_S, tau, vel: 1, ...(off > 0 ? { off } : {}) } : undefined;
+  const kick = inst === 'BD' && hp.kick ? { env: kickEnvelope(shot.buf), rate: shot.rate, hold: Math.max(DECAY_HOLD_S, atk + hp.hold), tau, vel: 1, ...(off > 0 ? { off } : {}) } : undefined;
   return { when, srcs: [src], nodes, kick, choked, gate: ownGate, bdChoked, bdGate: ownBd };
 }
 
@@ -886,23 +1014,17 @@ export function trigger(inst: Inst, when?: number, open = false, out?: Voice[], 
   const hp = hitParams(inst, open, lock, tone, stretch, fx);
   // Velocite (2026-10-01) : un gain de plus entre la voix et sa tranche, sous 1 ; un VOL verrouille s'y ajoute (2026-10-08)
   const gain = Math.max(0, vel) * hp.gain;
-  let dest: AudioNode = voiceIn(g, inst);
-  let vg: GainNode | null = null;
-  if (gain !== 1) {
-    vg = g.ctx.createGain();
-    vg.gain.value = gain;
-    vg.connect(dest);
-    dest = vg;
-  }
-  const v = voice(g, inst, t, dest, hp, false);
+  const entry = hitEntry(g, inst, hp, fx, gain);
+  const v = voice(g, inst, t, entry.dest, hp, false);
   if (!v) {
-    vg?.disconnect();
+    for (const n of entry.nodes) n.disconnect();
     return false;
   }
-  // Le gain part avec la voix (meme liste de noeuds a debrancher)
-  if (vg) v.nodes.push(vg);
-  // Les envois verrouilles du pas (revue de R2) : sur sa tranche a l'instant du coup
+  // Le gain (et le TONE d'un pas verrouille) part avec la voix (meme liste de noeuds a debrancher)
+  v.nodes.push(...entry.nodes);
+  // Les envois verrouilles du pas (revue de R2) : sur sa tranche a l'instant du coup ; DIST et CHORUS aussi (2026-10-09)
   postSends(g, inst, t, lock, v);
+  postInserts(g, inst, t, lock, v);
   // Un kick : le MM-ARP s'efface avec lui (SIDECHAIN), a sa velocite et a son VOLUME
   if (v.kick && arpDuck > 0) {
     v.kick.vel = Math.max(0, vel) * Math.min(1, voiceGain(lock?.level ?? fx.level));
@@ -931,6 +1053,80 @@ function postSends(g: Graph, inst: Inst, when: number, lock: Readonly<StepLock> 
 }
 
 /**
+ * Les verrous DIST et CHORUS d'un coup (2026-10-09, audio/lockfx.ts) : les
+ * inserts de la tranche prennent la valeur du pas a l'instant du coup, et la
+ * gardent jusqu'au coup suivant de la voix (qui remet la sienne). Une voix
+ * sans ces verrous dans le motif ne recoit rien.
+ */
+function postInserts(g: Graph, inst: Inst, when: number, lock: Readonly<StepLock> | null, v: Voice): void {
+  const ch = g.ch?.[inst];
+  if (!ch) return;
+  const d = ch.distLocks.hit(when, lock?.dist ?? null, v);
+  const c = ch.chorusLocks.hit(when, lock?.chorus ?? null, v);
+  if (d || c) v.inserts = [...(d ? [ch.distLocks] : []), ...(c ? [ch.chorusLocks] : [])];
+}
+
+/** Les inserts DIST et CHORUS tenus engages pour les voix qui en ont un verrou dans ces verrous (le motif, un rendu). */
+function holdInserts(g: Graph, locks: Readonly<Locks> | null | undefined): void {
+  if (!g.ch) return;
+  for (const inst of INSTRUMENTS) {
+    const row = locks?.[inst];
+    let dist = false;
+    let chorus = false;
+    if (row) {
+      for (const l of Object.values(row)) {
+        if (l.dist !== undefined) dist = true;
+        if (l.chorus !== undefined) chorus = true;
+      }
+    }
+    g.ch[inst].distLocks.hold(dist);
+    g.ch[inst].chorusLocks.hold(chorus);
+  }
+}
+
+/**
+ * L'entree d'un coup dans sa voix (2026-10-09) : sa tranche (son LEVEL puis
+ * son TONE), avec le gain du coup (la velocite, le VOL du pas rapporte a la
+ * voix) ; un TONE verrouille sur le pas : juste apres le TONE de la tranche
+ * (son DIST, son CHORUS, ses envois restent ceux de la voix), son niveau de
+ * voix dans son gain et le filtre de son TONE a lui (audio/tone.ts : les
+ * memes passe-haut et passe-bas, poses pour ce coup ; aucun a TONE 0).
+ */
+function hitEntry(g: Graph, inst: Inst, hp: HitParams, fx: Readonly<VoiceFx>, gain: number): { dest: AudioNode; nodes: AudioNode[] } {
+  const c = g.ctx;
+  const ch = g.ch?.[inst];
+  const nodes: AudioNode[] = [];
+  let dest: AudioNode = voiceIn(g, inst);
+  let gn = gain;
+  if (ch && hp.tone !== null) {
+    dest = ch.drive.input;
+    gn *= voiceGain(fx.level);
+    if (hp.tone !== 0) {
+      const hpF = c.createBiquadFilter();
+      hpF.type = 'highpass';
+      hpF.Q.value = Math.SQRT1_2;
+      hpF.frequency.value = toneHpHz(hp.tone);
+      const lpF = c.createBiquadFilter();
+      lpF.type = 'lowpass';
+      lpF.Q.value = Math.SQRT1_2;
+      lpF.frequency.value = toneLpHz(hp.tone, c.sampleRate / 2);
+      hpF.connect(lpF);
+      lpF.connect(dest);
+      nodes.push(hpF, lpF);
+      dest = hpF;
+    }
+  }
+  if (gn !== 1) {
+    const vg = c.createGain();
+    vg.gain.value = gn;
+    vg.connect(dest);
+    nodes.push(vg);
+    dest = vg;
+  }
+  return { dest, nodes };
+}
+
+/**
  * Les coups verrouilles prepares a l'avance (2026-10-08) : un son ou une
  * hauteur verrouilles (un sample lock, TUNE) se calculent en fond des qu'ils
  * sont poses, et quand le kit, TONE, STRETCH ou la voix changent (120 ms
@@ -950,7 +1146,7 @@ function prepareLocks(): void {
       if (!row) continue;
       const fx = voiceFx.of(inst);
       for (const l of Object.values(row)) {
-        if (l.tune === undefined && !kitOverride(l)) continue;
+        if (l.tune === undefined && l.fine === undefined && l.tone === undefined && !kitOverride(l)) continue;
         const hp = hitParams(inst, false, l, tone, stretch, fx);
         shots.prepare(hp.id, hp.ts, hp.pf, c.sampleRate, hp.ov);
       }
@@ -964,6 +1160,8 @@ pattern.subscribe(() => {
   if (k === prepKey) return;
   prepKey = k;
   prepareLocks();
+  // Les inserts DIST et CHORUS des voix qui en ont un verrou : tenus engages tout de suite (le prochain coup les trouve)
+  if (graph) holdInserts(graph, pattern.get().locks);
 });
 kit.subscribe(() => prepareLocks());
 voiceFx.subscribe(() => prepareLocks());
@@ -976,8 +1174,9 @@ voiceFx.subscribe(() => prepareLocks());
  */
 export function cancelVoice(v: Voice): void {
   if (v.kick) graph?.duck.cancel(v);
-  // Ses points d'envoi (revue de R2, les verrous DELAY et REVERB) : retires, les autres coups gardent les leurs
+  // Ses points d'envoi (revue de R2, les verrous DELAY et REVERB) : retires, les autres coups gardent les leurs ; DIST et CHORUS de meme (2026-10-09)
   if (v.sends) for (const snd of v.sends) snd.cancel(v);
+  if (v.inserts) for (const ins of v.inserts) ins.cancel(v);
   // Un charley annule (re-programmation, 2026-10-05) : le charley ouvert qu'il etouffait sonne de nouveau
   // (annulees du dernier au premier, les portes reviennent dans l'ordre)
   if (v.choked) {
@@ -1051,6 +1250,9 @@ pattern.fx.subscribe(() => {
     graph.reverbSend.set(f.reverb);
     graph.delaySend.set(f.delay);
     graph.chorus.set(f.chorus);
+    // DLY TIME et DLY FB (2026-10-09, les encodeurs G et H)
+    graph.delay.setDiv(delayDiv(f.dtime).steps);
+    graph.delay.setFeedback(delayFb(f.dfb));
   }
   emitMix();
 });
@@ -1191,6 +1393,9 @@ export interface OfflineOpts {
   reverb?: number;
   delay?: number;
   chorus?: number;
+  /** DLY TIME et DLY FB (2026-10-09 ; leur depart hors ligne : la croche pointee, 0.58) */
+  dtime?: number;
+  dfb?: number;
   /** effets par voix (neutres par defaut hors ligne) */
   voice?: Partial<Record<Inst, Partial<VoiceFx>>>;
   /** reference : sans aucun stage TONE ni CHORUS, voix sans tranche */
@@ -1252,6 +1457,8 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
       reverb: o.reverb ?? 0,
       delay: o.delay ?? 0,
       chorus: o.chorus ?? 0,
+      dtime: o.dtime ?? DTIME_DEFAULT,
+      dfb: o.dfb ?? DFB_DEFAULT,
       bpm: o.bpm,
       voice: o.voice ?? {},
       master: 1,
@@ -1260,6 +1467,8 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
     // Les reglages de chaque voix hors ligne : neutres, sauf ceux imposes ; le meme calcul de coup qu'en direct
     const vfx = (inst: Inst): VoiceFx => ({ ...VOICE_FX_DEFAULT, ...(o.voice?.[inst] ?? {}), tone: snapTone(o.voice?.[inst]?.tone ?? 0) });
     const hpOf = (inst: Inst, lock: Readonly<StepLock> | null): HitParams => hitParams(inst, false, lock, tone0, stretch0, vfx(inst));
+    // Les inserts DIST et CHORUS des voix qui en ont un verrou dans le rendu (2026-10-09) : tenus engages, comme en direct
+    holdInserts(g, o.single ? (o.singleLock ? ({ [o.single]: { 0: o.singleLock } } as Locks) : null) : o.locks);
     if (o.sines) {
       for (const hz of o.sines) {
         const osc = oc.createOscillator();
@@ -1272,16 +1481,11 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
       }
     } else if (o.single) {
       const hp = hpOf(o.single, o.singleLock ?? null);
-      let dest: AudioNode = voiceIn(g, o.single);
-      if (hp.gain !== 1) {
-        const vg = oc.createGain();
-        vg.gain.value = hp.gain;
-        vg.connect(dest);
-        dest = vg;
-      }
-      const v = voice(g, o.single, 0.05, dest, hp, true);
+      const entry = hitEntry(g, o.single, hp, vfx(o.single), hp.gain);
+      const v = voice(g, o.single, 0.05, entry.dest, hp, true);
       if (v) {
         postSends(g, o.single, 0.05, o.singleLock ?? null, v);
+        postInserts(g, o.single, 0.05, o.singleLock ?? null, v);
         voices.push(v);
       }
     } else {
@@ -1294,16 +1498,11 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
           const lk = lockOf(o.locks, inst, n % STEP_COUNT);
           const hp = hpOf(inst, lk);
           const gain = VEL_GAIN[v] * hp.gain;
-          let dest: AudioNode = voiceIn(g, inst);
-          if (gain !== 1) {
-            const vg = oc.createGain();
-            vg.gain.value = gain;
-            vg.connect(dest);
-            dest = vg;
-          }
-          const vo = voice(g, inst, t, dest, hp, true);
+          const entry = hitEntry(g, inst, hp, vfx(inst), gain);
+          const vo = voice(g, inst, t, entry.dest, hp, true);
           if (vo) {
             postSends(g, inst, t, lk, vo);
+            postInserts(g, inst, t, lk, vo);
             voices.push(vo);
           }
         }

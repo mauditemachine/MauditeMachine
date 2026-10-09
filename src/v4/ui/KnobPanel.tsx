@@ -25,7 +25,7 @@
  * MM-RYTM depuis le 2026-10-08 (la refonte facon Digitakt, Mika : "les
  * valeurs de knobs sont a l'ecran, de 0 a 127 ; que ce soit super
  * responsive en mobile et utilisable") : l'onglet PAGES (son id reste
- * 'voice', l'onglet retenu ne se perd pas) a les six touches de page (la
+ * 'voice', l'onglet retenu ne se perd pas) a les touches de page (quatre depuis le 2026-10-09 ; la
  * page allumee, encore : HOME), la voix, et les huit potards de page en
  * 2 x 4 comme sous l'ecran (A B C D, E F G H), chacun ce que son bloc regle
  * sur la page affichee, sa valeur de 0 a 127 et son unite ; MASTER garde
@@ -340,16 +340,18 @@ const PageKnob: React.FC<{ k: number }> = ({ k }) => {
   const p = useSyncExternalStore(pattern.subscribe, pattern.get, pattern.get);
   // Le LOCK (2026-10-08) : le bloc de l'ecran pour ce pas (verrouille, la valeur de la voix, GLOBAL, NO LOCK)
   const lk = useSyncExternalStore(rytmLock.subscribe, rytmLock.get, rytmLock.get);
-  const slot = pageSlots(rp.page, p.instrument)[k];
+  // L'ecran affiche (2026-10-09 : la page et son onglet) : les memes blocs que l'ecran, dans le meme ordre
+  const slot = pageSlots(rytmPage.screen(p.instrument), p.instrument)[k];
   const letter = PAGE_KNOB_LETTERS[k];
-  const block = slot && slot.label ? slotBlock(slot, k, p.instrument, rp.sel, false, lk.step >= 0 ? { kind: 'lock', step: lk.step } : null) : null;
+  const block = slot && slot.label && !slot.graph ? slotBlock(slot, k, p.instrument, false, lk.step >= 0 ? { kind: 'lock', step: lk.step } : null) : null;
+  void rp;
   // Le meme bloc que l'ecran : son etiquette (la voix sur la rangee du haut de FX, ALL ou NO BD dessous ; en LOCK GLOBAL, NO LOCK ;
   // R3, 2026-10-08 : sa couche muette, SYN OFF ou SMP OFF, comme le bloc en retrait de l'ecran)
   // (revue de R3 : BOTH en retrait, la voix muette, SILENT ; le potard en retrait comme le bloc)
   // MACHINE dit deja SYNTH OFF sur sa ligne d'unite : pas d'etiquette en double
   const quietTag = slot?.target === 'l:mach' ? '' : slot?.both ? 'SILENT' : slot?.layer === 'synth' ? 'SYN OFF' : 'SMP OFF';
   const tag = block ? (block.quiet ? quietTag : block.tag) : '';
-  if (!slot || !slot.label) {
+  if (!slot || !slot.label || slot.graph) {
     return (
       <div className="v4-knob v4-knob-page v4-knob-empty" aria-hidden="true">
         <span className="v4-knob-label">
@@ -371,15 +373,15 @@ const PageKnob: React.FC<{ k: number }> = ({ k }) => {
     bipolar: range[0] < 0,
     readout: () => dialReadout(id),
     valueText: () => dialValueText(id),
-    unit: () => (slot.target === null ? 'SOON' : dialUnit(id)),
+    unit: () => dialUnit(id),
     nudge: (n) => dialNudge(id, n),
     subscribe: subscribeDials,
-    soon: slot.target === null,
+    soon: false,
     scale127: true,
-    selector: slot.target !== 'step:vel',
+    selector: slot.target !== 'step:vel' && slot.target !== 'voice:mix',
     tag,
     onReset: () => pageKnobReset(k),
-    info: () => rytmInfos.dock(`penc-${k}`),
+    info: () => rytmInfos.dock(`lcd-blk-${k}`),
     lockState: block && block.lock !== 'none' ? block.lock : undefined,
     quiet: !!block?.quiet && (!block.lock || block.lock === 'none' || block.lock === 'base'),
   };
@@ -399,11 +401,11 @@ const LockBar: React.FC = () => {
   return (
     <div className="v4-knobs-lockbar" role="group" aria-label={`Lock mode on step ${n}`}>
       <span className="v4-knobs-lock" aria-live="polite">
-        <span className="v4-knobs-lock-pill">LOCK {n < 10 ? `0${n}` : n}</span>
+        <span className="v4-knobs-lock-pill">P-LOCK {n < 10 ? `0${n}` : n}</span>
         {/* Ce que le pas a, puis comment l'enlever (revue de R2 : la double tape ne se devinait pas) */}
         <span className="v4-knobs-lock-text">
-          <span className="v4-knobs-lock-what">{p.instrument ?? ''} {names.length > 0 ? names.join(' ') : 'TURN A KNOB'}</span>
-          <span className="v4-knobs-lock-tip">2X ON A KNOB: UNLOCK</span>
+          <span className="v4-knobs-lock-what">{p.instrument ?? ''} {names.length > 0 ? names.join(' ') : 'DRAG A VALUE'}</span>
+          <span className="v4-knobs-lock-tip">2X ON A VALUE: UNLOCK</span>
         </span>
       </span>
       {/* CLR LOCKS (revue de R2) : CLEAR seul se lisait comme effacer le pattern */}
@@ -418,11 +420,11 @@ const LockBar: React.FC = () => {
   );
 };
 
-/** Les six touches de page (2026-10-08) : comme sur la machine, la page allumee pressee encore : HOME. */
+/** Les quatre touches de page (2026-10-09) : comme sur la machine, la page allumee pressee encore : son onglet suivant, ou HOME. */
 const PageKeys: React.FC = () => {
   const rp = useSyncExternalStore(rytmPage.subscribe, rytmPage.get, rytmPage.get);
   return (
-    <div className="v4-knobs-pages" role="group" aria-label="Pages, the lit one again: home screen">
+    <div className="v4-knobs-pages" role="group" aria-label="Pages, the lit one again: its next view, or the home screen">
       {RYTM_PAGE_KEYS.map((pk) => {
         const on = rp.page === pk.id;
         return (
@@ -432,7 +434,7 @@ const PageKeys: React.FC = () => {
             className="v4-knobs-page"
             data-lit={on ? (rp.view === 'page' ? '1' : 'dim') : '0'}
             aria-pressed={on && rp.view === 'page'}
-            aria-label={`${pk.label} page${on ? (rp.view === 'page' ? ', shown, press again for home' : ', press for the page view') : ''}`}
+            aria-label={`${pk.label} page${on ? (rp.view === 'page' ? ', shown, press again for its next view' : ', press for the page view') : ''}`}
             onClick={() => rytmInfoTap(`pkey-${pk.id}`, true) || rytmPageKey(pk.id, stageNow())}
           >
             {pk.label}
