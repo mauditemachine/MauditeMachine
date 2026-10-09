@@ -37,7 +37,17 @@
  * la note qu'elle continue. regenerate() ne reecrit que les pas libres (ceux
  * du generateur) et garde les pas faits a la main et tous les P-locks.
  * Ce module n'importe rien de bass/state.ts a l'execution (des types
- * seulement) : state.ts s'en sert pour sa ligne de depart.
+ * seulement) ; state.ts ecrit sa ligne de depart telle que generate la rend
+ * (START_LINE), sans l'importer.
+ * La revue du meme jour :
+ * - les seuils d'une graine sont repartis a egale distance sur la course
+ *   (DENSITY change la ligne a chaque 1/(n+1) de sa course, plus de moitie
+ *   de course a plat) ; DARK DISCO, ELECTRO et EBM ont plus de pas qui
+ *   dependent de DENSITY ;
+ * - SUB ne se tait plus sous ses seuils (ses liaisons suivent le repli) ;
+ * - le pas en P-LOCK n'est jamais reecrit (RegenOpts keep) ;
+ * - une ligne d'usine (RegenOpts anchor) : telle qu'ecrite a sa DENSITY,
+ *   eclaircie au-dessous, des notes du style au-dessus.
  */
 
 import type { BassStyle } from './params';
@@ -173,10 +183,11 @@ function candidates(o: GenOpts, seed: number): Cand[] {
       for (let i = 0; i < N; i += 1) {
         const q = i % 4;
         const d = degAt(i);
+        // (2026-10-09, la revue : plus de pas qui dependent de DENSITY, de 5 a 12 notes, pour qu'elle se voie sur toute sa course)
         if (q === 0) set(i, note(d, 0, false), 0);
-        else if (q === 2) set(i, note(d, 1, r[i][3] < o.accents * 0.8), gate(u[i], 0.55, 0.45));
-        else if (q === 3) set(i, note(r[i][0] < 0.6 ? d : pickV(W, r[i][1]), 1, false), gate(u[i], 0, 0.5));
-        else set(i, note(pickV(W, r[i][1]), 0, false), gate(u[i], 0, 0.25));
+        else if (q === 2) set(i, note(d, 1, r[i][3] < o.accents * 0.8), gate(u[i], 0.3, 0.7));
+        else if (q === 3) set(i, note(r[i][0] < 0.6 ? d : pickV(W, r[i][1]), 1, false), gate(u[i], 0, 0.7));
+        else set(i, note(pickV(W, r[i][1]), 0, false), gate(u[i], 0, 0.4));
       }
       if (g[2] < 0.7) set(14, note(g[3] < 0.5 ? fifth : seventh, 0, false), 0);
       break;
@@ -203,9 +214,11 @@ function candidates(o: GenOpts, seed: number): Cand[] {
         if (motif[at]) continue;
         motif[at] = { step: note(w < 0.75 ? 0 : x < 0.5 ? fifth : seventh, y < 0.15 * (range - 1) ? 1 : 0, z < o.accents * 0.5), rank: k === 0 ? 0 : (k - 0.5) / 3, fallback: 'off', slideU: 1 };
       }
+      // La copie de la seconde moitie arrive un cran apres celle de la premiere (2026-10-09, la revue : DENSITY ne
+      // changeait la ligne que trois fois sur toute sa course) : la figure se complete, puis se repete
       for (let i = 0; i < N; i += 1) {
         const m = motif[i % 8];
-        if (m) set(i, { ...m.step }, m.rank);
+        if (m) set(i, { ...m.step }, i >= 8 && m.rank > 0 ? Math.min(1, m.rank + 1 / 6) : m.rank);
       }
       // La seconde moitie varie a peine : une note de plus sur une place vide, ou une note du motif qui se tait
       if (g[24] < 0.5) {
@@ -259,7 +272,8 @@ function candidates(o: GenOpts, seed: number): Cand[] {
       for (let i = 0; i < N; i += 1) {
         const v = r[i][1];
         const deg = v < 0.55 ? degAt(i) : v < 0.75 ? fifth : v < 0.9 ? (o.degrees === 5 ? 1 : 2) : seventh;
-        set(i, note(deg, r[i][0] < 0.35 ? 1 : r[i][2] < 0.1 * (range - 1) ? 2 : 0, i % 4 !== 0 && r[i][3] < o.accents * 0.7), rh[i] ? 0 : gate(u[i], 0, 0.35));
+        // Hors du rythme, plus de notes possibles (2026-10-09, la revue : 0.35 -> 0.6, DENSITY ne changeait la ligne que trois fois)
+        set(i, note(deg, r[i][0] < 0.35 ? 1 : r[i][2] < 0.1 * (range - 1) ? 2 : 0, i % 4 !== 0 && r[i][3] < o.accents * 0.7), rh[i] ? 0 : gate(u[i], 0, 0.6));
       }
       break;
     }
@@ -267,7 +281,8 @@ function candidates(o: GenOpts, seed: number): Cand[] {
       // Le sequenceur qui martele : toutes les doubles croches, la tonique, un accent par temps, la ligne qui change a mi-mesure
       for (let i = 0; i < N; i += 1) {
         const q = i % 4;
-        set(i, note(degAt(i), q === 0 && range >= 2 && r[i][0] < 0.15 ? 1 : 0, q === 0 ? r[i][3] < 0.3 + o.accents : r[i][3] < o.accents * 0.15), q === 1 ? gate(u[i], 0.4, 0.6) : q === 3 ? gate(u[i], 0.6, 0.4) : 0);
+        // Les doubles croches entre les croches dependent de DENSITY (2026-10-09, la revue : de 9 a 16 notes, plus de 12 a 16)
+        set(i, note(degAt(i), q === 0 && range >= 2 && r[i][0] < 0.15 ? 1 : 0, q === 0 ? r[i][3] < 0.3 + o.accents : r[i][3] < o.accents * 0.15), q === 1 ? gate(u[i], 0.1, 0.9) : q === 3 ? gate(u[i], 0.2, 0.8) : 0);
       }
       break;
     }
@@ -289,9 +304,20 @@ function candidates(o: GenOpts, seed: number): Cand[] {
       });
     }
   }
-  // Une liaison ne sonne jamais avant la note qu'elle continue (sinon monter DENSITY changerait une note en liaison)
-  for (let i = 1; i < N; i += 1) if (c[i].step.kind === 'tie') c[i].rank = Math.max(c[i].rank, c[i - 1].rank);
+  // Une liaison ne sonne jamais avant la note qu'elle continue (sinon monter DENSITY changerait une note en liaison) ;
+  // elle continue un pas qui se replie en liaison (les changements de SUB) : sous son seuil, elle reste une liaison
+  // aussi (2026-10-09, la revue : en SUB, la note longue se taisait de 3 a 11 pas sous DENSITY 83)
+  for (let i = 1; i < N; i += 1) {
+    if (c[i].step.kind !== 'tie') continue;
+    c[i].rank = Math.max(c[i].rank, c[i - 1].rank);
+    if (c[i - 1].fallback === 'tie') c[i].fallback = 'tie';
+  }
   if (c[0].step.kind === 'tie') c[0] = { ...c[0], step: rest(), rank: NEVER };
+  // La resolution de DENSITY (2026-10-09, la revue : un balayage entier ne changeait la ligne que 2 a 5 fois, la moitie
+  // de la course a plat) : les seuils de la graine, dans leur ordre, repartis a egale distance sur la course. L'ordre ne
+  // change pas (DENSITY reste monotone) ; des seuils egaux le restent (une note et sa liaison, la figure de MINIMAL).
+  const ranks = [...new Set(c.map((x) => x.rank).filter((r) => r > 0 && r <= 1))].sort((a, b) => a - b);
+  if (ranks.length) for (const x of c) if (x.rank > 0 && x.rank <= 1) x.rank = (ranks.indexOf(x.rank) + 1) / (ranks.length + 1);
   return c;
 }
 
@@ -303,8 +329,12 @@ function candidates(o: GenOpts, seed: number): Cand[] {
  */
 export const isFreeStep = (s: BassStep): boolean => !s.locks && (s.src === 'gen' || (s.src === undefined && s.kind === 'off'));
 
-/** Les finitions : une liaison du generateur apres un silence se tait, ses slides vers une note qui suit. */
-function finish(out: BassStep[], cands: readonly Cand[], gen: readonly boolean[], o: GenOpts): BassStep[] {
+/**
+ * Les finitions : une liaison du generateur apres un silence se tait (gen : les pas que le generateur a ecrits), les
+ * notes tirees des candidats glissent vers une note qui suit selon SLIDE PROB (cand ; une note de la ligne d'usine garde
+ * son slide tel qu'ecrit).
+ */
+function finish(out: BassStep[], cands: readonly Cand[], gen: readonly boolean[], o: GenOpts, cand: readonly boolean[] = gen): BassStep[] {
   for (let i = 0; i < N; i += 1) {
     if (!gen[i]) continue;
     const s = out[i];
@@ -313,7 +343,7 @@ function finish(out: BassStep[], cands: readonly Cand[], gen: readonly boolean[]
   }
   const k = slideK(o.style);
   for (let i = 0; i < N; i += 1) {
-    if (!gen[i]) continue;
+    if (!gen[i] || !cand[i]) continue;
     const s = out[i];
     if (s.kind === 'off') continue;
     const slide = i < N - 1 && out[i + 1].kind === 'note' && cands[i].slideU < o.slides * k;
@@ -333,35 +363,84 @@ export function generate(o: GenOpts): BassStep[] {
   return finish(out, cands, out.map(() => true), o);
 }
 
+/** Ce que regenerate garde ou suit en plus de la ligne (2026-10-09, la revue). */
+export interface RegenOpts {
+  /** des pas a ne pas reecrire meme libres (le pas en P-LOCK : ses verrous a venir tomberaient sur un vide) */
+  keep?: readonly number[];
+  /**
+   * la ligne d'usine du preset (sa recette, bass/state.ts BassRecipe anchor), au STYLE du preset (l'appelant le
+   * verifie ; un autre STYLE : null, et base null) : a sa DENSITY (base) elle est telle qu'ecrite ; au-dessous ses
+   * notes s'en vont une a une (les temps en dernier) ; au-dessus des notes du style s'ajoutent sur ses pas vides
+   */
+  anchor?: readonly BassStep[] | null;
+}
+
+/**
+ * Les notes de la ligne d'usine qui restent a DENSITY d (sous base) : au moins 30 % d'entre elles ; elles s'en vont dans
+ * l'ordre de la graine, les doubles croches d'abord, puis les contretemps, puis les temps, le premier pas en dernier.
+ */
+function anchorKept(anchor: readonly BassStep[], free: readonly boolean[], seed: number, d: number, base: number): boolean[] {
+  const U = seeded((seed ^ 0x2545f491) >>> 0);
+  const u = Array.from({ length: N }, U);
+  const cls = (i: number): number => (i === 0 ? 0 : i % 4 === 0 ? 1 : i % 2 === 0 ? 2 : 3);
+  const notes = anchor
+    .map((s, i) => ({ s, i }))
+    .filter((x) => x.s.kind === 'note' && free[x.i])
+    .sort((a, b) => cls(a.i) - cls(b.i) || u[a.i] - u[b.i]);
+  const n = notes.length;
+  const min = Math.min(n, Math.max(1, Math.round(n * 0.3)));
+  const k = d >= base ? n : min + Math.round((Math.max(0, d) / Math.max(0.02, base)) * (n - min));
+  const kept = anchor.map(() => false);
+  for (const x of notes.slice(0, k)) kept[x.i] = true;
+  return kept;
+}
+
 /**
  * STYLE, DENSITY et les regles du generateur sur une ligne qui a sa recette (2026-10-09) : seuls les pas libres
- * changent (isFreeStep), les autres restent tels quels avec leurs P-locks. base null (une ligne de GEN) : un pas libre
- * sonne des que DENSITY atteint son seuil. base, un nombre (une ligne faite a la main, une ligne d'usine) : a cette
- * DENSITY la ligne est telle qu'on l'a ecrite (aucune note generee) ; au-dessus, les pas libres recoivent des notes du
- * style, le squelette d'abord, jusqu'a tous a DENSITY 100 ; au-dessous, rien ne s'enleve (les notes sont les tiennes).
+ * changent (isFreeStep, hors opts.keep), les autres restent tels quels avec leurs P-locks. base null (une ligne de GEN)
+ * : un pas libre sonne des que DENSITY atteint son seuil. base, un nombre (une ligne faite a la main) : a cette DENSITY
+ * la ligne est telle qu'on l'a ecrite (aucune note generee) ; au-dessus, les pas libres recoivent des notes du style,
+ * le squelette d'abord, jusqu'a tous a DENSITY 100 ; au-dessous, rien ne s'enleve (les notes sont les tiennes). Une
+ * ligne d'usine (opts.anchor, la revue du meme jour : sur un preset, STYLE et DENSITY ne faisaient rien) : la ligne
+ * ecrite a base, eclaircie au-dessous, des notes du style en plus au-dessus.
  */
-export function regenerate(steps: readonly BassStep[], o: GenOpts & { seed: number }, base: number | null): BassStep[] {
+export function regenerate(steps: readonly BassStep[], o: GenOpts & { seed: number }, base: number | null, opts: RegenOpts = {}): BassStep[] {
   const cands = candidates(o, o.seed >>> 0);
   const d = Math.min(1, Math.max(0, o.density));
-  const free = steps.map(isFreeStep);
+  const free = steps.map((s, i) => isFreeStep(s) && !opts.keep?.includes(i));
+  const anchor = opts.anchor && opts.anchor.length === N ? opts.anchor : null;
+  // La ligne d'usine, eclaircie sous sa DENSITY
+  const kept = anchor && base !== null ? anchorKept(anchor, free, o.seed >>> 0, d, base) : null;
+  /** un pas libre ou la ligne d'usine a quelque chose (une note, une liaison) : il ne recoit pas de note du style */
+  const taken = (i: number): boolean => !!anchor && anchor[i].kind !== 'off';
   let on: boolean[];
   if (base === null) on = cands.map((c) => c.rank <= d);
   else {
     const order = cands
       .map((c, i) => ({ c, i }))
-      .filter((x) => free[x.i] && x.c.rank <= 1)
+      .filter((x) => free[x.i] && !taken(x.i) && x.c.rank <= 1)
       .sort((a, b) => a.c.rank - b.c.rank || a.i - b.i);
     const k = d <= base ? 0 : Math.round(((d - base) / Math.max(0.02, 1 - base)) * order.length);
     on = steps.map(() => false);
     for (const x of order.slice(0, Math.min(order.length, k))) on[x.i] = true;
   }
+  const fromCand = steps.map(() => false);
   const out = steps.map((s, i): BassStep => {
     if (!free[i]) return s;
-    if (on[i]) return candStep(cands[i]);
+    if (anchor && kept && taken(i)) {
+      // Une note de la ligne d'usine (gardee ou partie) ; une liaison suit sa note (finish la tait apres un vide)
+      const a = anchor[i];
+      if (a.kind === 'tie') return { ...a, src: 'gen' };
+      return kept[i] ? { ...a, src: 'gen' } : { ...rest(), src: 'gen' };
+    }
+    if (on[i]) {
+      fromCand[i] = true;
+      return candStep(cands[i]);
+    }
     // Une ligne a la main : un pas libre qui n'a pas sa note reste vide (le repli en liaison de SUB n'y est pas)
     return base === null ? fallbackStep(cands[i]) : { ...rest(), src: 'gen' };
   });
-  return finish(out, cands, free, o);
+  return finish(out, cands, free, o, base === null ? free : fromCand);
 }
 
 /** MUTATE : quelques pas changent (un degre, un accent, un slide, une note qui apparait ou s'efface). */
@@ -381,8 +460,11 @@ export function mutate(steps: readonly BassStep[], o: GenOpts): BassStep[] {
       else if (r < 0.9) s.oct = s.oct === 0 ? 1 : 0;
       else out[i] = rest();
     } else if (s.kind === 'off' && r < 0.6) out[i] = note(pickV(W, rnd()), rnd() < 0.25 ? 1 : 0, rnd() < o.accents * 0.5);
-    // Un pas que MUTATE a change est desormais a toi (2026-10-09) : STYLE et DENSITY ne le reecrivent plus
-    if (out[i] !== steps[i] && (out[i].kind !== steps[i].kind || out[i].deg !== steps[i].deg || out[i].acc !== steps[i].acc || out[i].slide !== steps[i].slide || out[i].oct !== steps[i].oct)) out[i] = { ...out[i], src: 'hand' };
+    // Une note que MUTATE a posee ou changee est desormais a toi (2026-10-09) : STYLE et DENSITY ne la reecrivent plus ;
+    // une note qu'il a effacee laisse un pas libre s'il l'etait (la revue : DENSITY ne pouvait plus jamais le remplir)
+    const a = out[i];
+    const b = steps[i];
+    if (a.kind !== b.kind || a.deg !== b.deg || a.acc !== b.acc || a.slide !== b.slide || a.oct !== b.oct) out[i] = { ...a, src: a.kind === 'off' && isFreeStep(b) ? 'gen' : 'hand' };
   }
   return out;
 }

@@ -298,7 +298,8 @@ export function bassPageModel(inp: PageInput): BassPageModel {
       id,
       label: def.label,
       big: bassBig(id, s.v),
-      unit: s.state === 'global' ? 'GLOBAL' : bassUnit(id, s.v, inp.bpm),
+      // Un reglage GLOBAL garde sa vraie unite (la revue du 2026-10-09 : GLOBAL s'ecrivait deux fois, l'etiquette suffit)
+      unit: bassUnit(id, s.v, inp.bpm),
       v: s.v,
       state: s.state,
       echo: inp.echo === id,
@@ -330,7 +331,8 @@ export function bassPageModel(inp: PageInput): BassPageModel {
   if (hb) line = heldLine(hb, lock?.step ?? -1);
   else if (inp.message) line = inp.message;
   // La ligne du P-LOCK dit aussi comment sortir (2026-10-09, la revue : seule la carte INFOS du LOCK le disait)
-  else if (lock) line = inp.phone ? `DRAG A VALUE: STEP ${two(lock.step)} ONLY  2X: UNLOCK  TAP P-LOCK: EXIT` : `DRAG A VALUE: STEP ${two(lock.step)} ONLY  2X: UNLOCK  CLEAR: ALL  ESC: EXIT`;
+  // (la revue : CLEAR: ALL se lisait "efface la ligne", ESC: EXIT "sors de la machine")
+  else if (lock) line = inp.phone ? `DRAG A VALUE: STEP ${two(lock.step)} ONLY  2X: UNLOCK  TAP P-LOCK: EXIT` : `DRAG A VALUE: STEP ${two(lock.step)} ONLY  2X: UNLOCK  CLEAR: ITS P-LOCKS  ESC: P-LOCK OFF`;
   else line = sel ? `STEP ${two(inp.sel)}  ${stepWhat(sel, inp.noteName)}` : '';
   // Le geste, a droite de la ligne tant qu'on n'est pas en P-LOCK (2026-10-09, l'etape 2 : une tape sur un pas, puis
   // glisser une valeur de l'ecran ; au desktop, les encodeurs de la face sont les FX globaux)

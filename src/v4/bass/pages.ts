@@ -28,7 +28,9 @@
  *   LENGTH ; ses trois cases libres (F G H) portent le grand dessin de
  *   l'enveloppe, en direct (bass/screen.ts) ; son titre : AMP ENV ;
  * - FX : DRIVE, l'envoi DELAY et l'envoi REVERB se verrouillent, DLY TIME,
- *   DLY FB, REV SIZE, REV TONE sont GLOBAL ;
+ *   DLY FB, REV SIZE, REV TONE sont GLOBAL ; E, VOLUME (la revue du meme
+ *   jour), comme l'encodeur E de la face : la page FX est la rangee des
+ *   encodeurs ;
  * - les huit encodeurs de la face (desktop) ne suivent plus la page : ils
  *   tiennent pour de bon les FX globaux de la machine (BASS_FX_KNOBS), et
  *   ne posent jamais de P-lock. La page se regle a l'ecran (ses blocs), au
@@ -63,7 +65,9 @@ export const BASS_PAGE_SLOTS: Readonly<Record<BassPageId, readonly (BassKnobId |
   voice: ['wave', 'pw', 'sub', 'suboct', 'octave', 'tune', 'glide', 'volume'],
   filter: ['cutoff', 'reso', 'envmod', 'decay', 'accent', 'accdecay', 'sweep', 'keytrack'],
   env: ['attack', 'adecay', 'sustain', 'release', 'length', null, null, null],
-  fx: ['drive', 'delay', 'dtime', 'dfb', null, 'reverb', 'rsize', 'rtone'],
+  // E : VOLUME, comme l'encodeur E de la face (la revue du 2026-10-09 : la case vide faisait la page inachevee) ; le
+  // meme reglage que VOICE H, verrouillable de meme
+  fx: ['drive', 'delay', 'dtime', 'dfb', 'volume', 'reverb', 'rsize', 'rtone'],
 };
 
 /**

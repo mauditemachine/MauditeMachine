@@ -64,12 +64,12 @@ const RAW: Record<BassInfoId, RawInfo> = {
     section: 'GENERATOR',
     title: 'STYLE',
     text: "La famille de basse du générateur : ACID, DARK DISCO, INDIE DANCE, MINIMAL, PSY PROG, TECHNO, HOUSE, ELECTRO, EBM, ITALO ou SUB. À chaque cran, les notes du générateur se réécrivent dans ce style, tout de suite ; tes notes à toi (une tape, un glisser, ACCENT, NOTE…) et tes P-locks restent. Le style règle aussi la longueur des notes (tant que LENGTH, sous le capot, est sur AUTO) : courtes en MINIMAL, tenues en SUB. L'écran montre la ligne qui joue, en plein les pas qui viennent de changer.",
-    tip: "Sur une ligne d'usine, STYLE change la longueur des notes ; monte DENSITY pour ajouter des notes du style autour des tiennes.",
+    tip: "Sur un preset d'usine, un autre style réécrit sa ligne dans ce style (depuis la graine du preset) ; reviens à son style, la ligne écrite revient. Sur une ligne faite à la main, STYLE change la longueur des notes et les notes générées autour des tiennes.",
   },
   density: {
     section: 'GENERATOR',
     title: 'DENSITY',
-    text: "Combien de notes dans la ligne, à chaque cran : en montant, des notes s'ajoutent (d'abord celles qui font le style), en descendant elles s'en vont, jamais une note qui change de hauteur. Tes notes à toi et tes P-locks restent toujours. Sur une ligne d'usine ou faite à la main, DENSITY ajoute des notes générées autour des tiennes, et les retire en redescendant. En SUB, c'est le nombre de changements de note par mesure, de 1 à 4. L'écran montre la vraie ligne : en plein les notes qui arrivent, en pointillé celles qui partent, et le compte par mesure.",
+    text: "Combien de notes dans la ligne, à chaque cran : en montant, des notes s'ajoutent (d'abord celles qui font le style), en descendant elles s'en vont, jamais une note qui change de hauteur. Tes notes à toi, le pas en P-LOCK et tes P-locks restent toujours. Sur une ligne faite à la main, DENSITY ajoute des notes générées autour des tiennes, et les retire en redescendant. Sur un preset d'usine, sa ligne est telle qu'écrite à sa DENSITY ; en dessous, ses notes s'en vont une à une (les temps en dernier) et reviennent en remontant ; au-dessus, des notes du style s'ajoutent. En SUB, c'est le nombre de changements de note par mesure, de 1 à 4. L'écran montre la vraie ligne : en plein les notes qui arrivent, en pointillé celles qui partent, et le compte par mesure.",
     tip: "Vers 60 % pour l'indie dance, 80 % et plus pour une acid qui roule ; redescends pour retrouver la ligne de départ.",
   },
   gen: {
@@ -81,7 +81,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   mutate: {
     section: 'GENERATOR',
     title: 'MUTATE',
-    text: "Change 2 à 4 pas : une note, un accent, un slide, une octave, un pas qui apparaît ou disparaît ; le reste ne bouge pas. Les pas changés deviennent les tiens : STYLE et DENSITY n'y touchent plus.", keys: "Touche M.",
+    text: "Change 2 à 4 pas : une note, un accent, un slide, une octave, un pas qui apparaît ou disparaît ; le reste ne bouge pas. Les notes changées deviennent les tiennes : STYLE et DENSITY n'y touchent plus ; un pas que MUTATE vide reste au générateur, DENSITY peut y remettre une note.", keys: "Touche M.",
     tip: "Une mutation toutes les 8 mesures garde la ligne vivante en live.",
   },
 
@@ -129,7 +129,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   decay: {
     section: 'ENVELOPE',
     title: 'DECAY',
-    text: "Le temps que met le filtre à se refermer après chaque note, de 120 ms à 2,5 s : court pour des notes sèches, long pour des notes qui respirent. Une note accentuée garde sa décroissance courte (ACC DECAY, l'encodeur voisin), comme sur la 303, sauf si DECAY est verrouillé sur son pas.",
+    text: "Le temps que met le filtre à se refermer après chaque note, de 120 ms à 2,5 s : court pour des notes sèches, long pour des notes qui respirent. Une note accentuée garde sa décroissance courte (ACC DECAY, le bloc voisin), comme sur la 303, sauf si DECAY est verrouillé sur son pas.",
     tip: "Moins de 250 ms en EBM et en psy prog, plus long en house.",
   },
 
@@ -137,7 +137,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   accent: {
     section: 'ACCENT / SLIDE',
     title: 'ACCENT',
-    text: "La force des pas accentués (touche ACCENT, pas orange vif) : plus de volume, un filtre qui s'ouvre plus haut et plus court. Les accents qui se suivent s'additionnent et le filtre monte encore, le fameux wow de la 303 (SWEEP, deux encodeurs plus loin). Verrouillé sur un pas sans accent, il lui donne l'accent.",
+    text: "La force des pas accentués (touche ACCENT, pas orange vif) : plus de volume, un filtre qui s'ouvre plus haut et plus court. Les accents qui se suivent s'additionnent et le filtre monte encore, le fameux wow de la 303 (SWEEP, deux blocs plus loin). Verrouillé sur un pas sans accent, il lui donne l'accent.",
     tip: "Place-les sur les contretemps en acid ; à 0, les accents ne font plus rien.",
   },
   glide: {
@@ -157,8 +157,8 @@ const RAW: Record<BassInfoId, RawInfo> = {
   volume: {
     section: 'OUTPUT',
     title: 'VOLUME',
-    text: "Le niveau du MM-BASS vers le master (la voie 2 du MIXER), sur la page VOICE. En P-LOCK, le volume du pas choisi seulement : une note plus forte ou plus douce. Le réglage d'usine crête vers -11 dBFS, environ 2 dB sous le kick du MM-RYTM (vers -9 dBFS), qui sert de référence.",
-    tip: "Au desktop, l'encodeur E règle aussi VOLUME, toujours pour toute la ligne.",
+    text: "Le niveau du MM-BASS vers le master (la voie 2 du MIXER), sur les pages VOICE (H) et FX (E). En P-LOCK, le volume du pas choisi seulement : une note plus forte ou plus douce. Le réglage d'usine crête vers -11 dBFS, environ 2 dB sous le kick du MM-RYTM (vers -9 dBFS), qui sert de référence.",
+    tip: "Aussi sur la page FX (E). Au desktop, l'encodeur VOLUME de la face le règle aussi, toujours pour toute la ligne, jamais un P-lock.",
   },
 
   /* ---------- TWEAKS, sous le capot : les regles du generateur ---------- */
@@ -319,7 +319,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   pfx: {
     section: 'PAGES',
     title: 'FX',
-    text: "Les blocs de l'écran règlent les effets : DRIVE, l'envoi DELAY et l'envoi REVERB se verrouillent pas par pas ; DLY TIME, DLY FB, REV SIZE et REV TONE sont globaux (les mêmes pour tous les pas : en P-LOCK, leur bloc dit GLOBAL). Au desktop, les huit encodeurs de la face tiennent ces FX globaux, toujours.",
+    text: "Les blocs de l'écran règlent les effets et le volume : DRIVE, l'envoi DELAY, VOLUME et l'envoi REVERB se verrouillent pas par pas ; DLY TIME, DLY FB, REV SIZE et REV TONE sont globaux (les mêmes pour tous les pas : en P-LOCK, leur bloc dit GLOBAL). Au desktop, les huit encodeurs de la face, dans le même ordre, règlent ces réglages pour toute la machine, jamais un P-lock.",
   },
   enc: {
     section: 'SCREEN',
@@ -406,7 +406,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   screen: {
     section: 'SCREEN',
     title: 'SCREEN',
-    text: "Les huit blocs sont les commandes : glisse un bloc vers le haut ou le bas (de 0 à 127, son unité dessous), ou la molette (plus elle tourne vite, plus elle va loin ; Maj : fin), deux clics pour sa valeur de départ. Hors P-LOCK ils règlent toute la ligne ; en P-LOCK seulement le pas choisi (un P sur ce qui est verrouillé, GLOBAL sur ce qui ne se verrouille pas). Un verrou qui ne s'entendrait pas le dit (SUSTAIN FULL, SAW: NO PW, ACCENT STEPS, SLIDE STEPS, ROOT NOTE). Dessous, les 16 pas. Touche l'en-tête (le pattern, A01) pour les presets, le petit i pour INFOS.",
+    text: "Les huit blocs sont les commandes : glisse un bloc vers le haut ou le bas (de 0 à 127, son unité dessous), ou la molette (plus elle tourne vite, plus elle va loin ; Maj : fin), deux clics pour sa valeur de départ. Hors P-LOCK ils règlent toute la ligne ; en P-LOCK seulement le pas choisi (un P sur ce qui est verrouillé, GLOBAL sur ce qui ne se verrouille pas). Un verrou qui ne s'entendrait pas le dit (SUSTAIN FULL, SAW: NO PW, ACCENT STEPS, SLIDE STEPS, ROOT NOTE). Dessous, les 16 pas. En haut, clique un onglet (VOICE, FILTER, ENV, FX) pour sa page, le preset et le pattern (A01) pour les presets, le petit i pour INFOS.",
   },
 
   /* ---------- sous le capot ---------- */
@@ -436,7 +436,7 @@ const PHONE: Partial<Record<BassInfoId, Partial<BassInfo>>> = {
   pvoice: { text: "Les huit blocs de l'écran règlent la voix : WAVE, PW, SUB, SUB OCT, OCTAVE, TUNE, GLIDE et VOLUME (en P-LOCK, le volume du pas choisi). Glisse un bloc du doigt. La LED dit la page allumée, l'onglet de l'écran aussi." },
   pfilter: { text: "Les huit blocs de l'écran règlent le filtre de la 303 : CUTOFF, RESO, ENV MOD, DECAY, ACCENT, ACC DECAY, SWEEP et KEY TRK. C'est la page de départ." },
   penv: { text: "AMP ENV : les blocs règlent l'enveloppe de l'ampli (ATTACK, AMP DECAY, SUSTAIN, RELEASE) et la longueur des notes (LENGTH). À droite, l'enveloppe en grand, telle qu'elle sonne : la note qui joue jusqu'à NOTE OFF, en pointillé la même note tenue. En P-LOCK, l'écran dit AMP ENV · P-LOCKS et montre l'enveloppe du pas." },
-  pfx: { text: "Les blocs de l'écran règlent les effets : DRIVE, l'envoi DELAY et l'envoi REVERB se verrouillent pas par pas ; DLY TIME, DLY FB, REV SIZE et REV TONE sont globaux, les FX de toute la machine : sors du P-LOCK pour les régler (en P-LOCK, leur bloc dit GLB)." },
+  pfx: { text: "Les blocs de l'écran règlent les effets et le volume : DRIVE, l'envoi DELAY, VOLUME et l'envoi REVERB se verrouillent pas par pas ; DLY TIME, DLY FB, REV SIZE et REV TONE sont globaux, les FX de toute la machine : sors du P-LOCK pour les régler (en P-LOCK, leur bloc dit GLB)." },
   cutoff: {
     text: "La fréquence où le filtre de la 303 commence à couper les aigus, de 60 Hz à 6 kHz : à gauche sombre, à droite ouvert et brillant. C'est le geste principal de la machine, glisse son bloc pendant que ça joue.",
   },
@@ -448,7 +448,7 @@ const PHONE: Partial<Record<BassInfoId, Partial<BassInfo>>> = {
     text: "Les huit blocs de l'écran règlent la page allumée (VOICE, FILTER, ENV, FX, les touches sous l'écran) : glisse un bloc vers le haut ou le bas pour changer sa valeur, de 0 à 127 ; deux tapes la remettent à sa valeur de départ. Cette case est vide sur cette page.",
   },
   volume: {
-    text: "Le niveau du MM-BASS vers le master (la voie 2 du MIXER), sur la page VOICE. En P-LOCK, le volume du pas choisi seulement : une note plus forte ou plus douce. Le réglage d'usine crête vers -11 dBFS, environ 2 dB sous le kick du MM-RYTM (vers -9 dBFS), qui sert de référence.",
+    text: "Le niveau du MM-BASS vers le master (la voie 2 du MIXER), sur les pages VOICE (H) et FX (E). En P-LOCK, le volume du pas choisi seulement : une note plus forte ou plus douce. Le réglage d'usine crête vers -11 dBFS, environ 2 dB sous le kick du MM-RYTM (vers -9 dBFS), qui sert de référence.",
     tip: "Règle d'abord le kick, puis monte la basse juste sous lui.",
   },
   edit: {
@@ -503,7 +503,13 @@ export const isBassInfoKnob = (id: BassInfoId): id is BassKnobId => KNOBS.has(id
 export function bassInfoIdOf(hotspotId: string): BassInfoId | null {
   // Un encodeur de la face (2026-10-09) : le FX global qu'il tient pour de bon ; un bloc de l'ecran, le reglage de la page
   const enc = /^bass-(enc|blk)-(\d)$/.exec(hotspotId);
-  if (enc) return enc[1] === 'enc' ? BASS_FX_KNOBS[Number(enc[2]) - 1] ?? 'enc' : bassPage.slot(Number(enc[2]) - 1) ?? 'enc';
+  if (enc) {
+    if (enc[1] === 'enc') return BASS_FX_KNOBS[Number(enc[2]) - 1] ?? 'enc';
+    const k = Number(enc[2]) - 1;
+    // Les cases F G H d'ENV portent le grand dessin de l'enveloppe (la revue du 2026-10-09 : la carte disait la case vide)
+    if (bassPage.get() === 'env' && k >= 5 && !bassPage.slot(k)) return 'penv';
+    return bassPage.slot(k) ?? 'enc';
+  }
   if (hotspotId === 'bass-key-i') return 'ikey';
   // La pastille P-LOCK de l'ecran, le rouleau d'EDIT (2026-10-09)
   if (hotspotId === 'bass-lcd-plock') return 'plock';

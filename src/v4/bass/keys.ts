@@ -17,6 +17,8 @@
 
 import type { Stage } from '../scene/renderer';
 import { bassInfos } from '../state/bassInfos';
+import { presetMode } from '../state/presetMode';
+import { section } from '../state/section';
 import { PORTRAIT } from '../theme';
 import { bassLockOff, bassLockToggle, bassPageStep, bassStepTap } from './actions';
 import { bassPage } from './pages';
@@ -78,9 +80,11 @@ export function listenBassKeys(getStage: () => Stage | null, active: () => boole
     const twin = e.target instanceof HTMLElement && e.target.classList.contains('v4-twin');
     if (twin && /^(Arrow|Page|Home|End|Space|Enter)/.test(e.code)) return;
     if ((e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter') && ownsPress(e.target)) return;
-    // Echap : d'abord le LOCK (le reste, EDIT compris, est a hooks/useKeys.ts)
+    // Echap : d'abord le LOCK (le reste, EDIT compris, est a hooks/useKeys.ts) ; une page du site ou PRESETS ouverts
+    // par-dessus passent avant (la revue du 2026-10-09 : une tape sur un pas met le P-LOCK, le premier Echap le
+    // retirait derriere PRESETS sans que rien ne se voie ; actions.ts escape les ferme dans cet ordre)
     if (e.code === 'Escape') {
-      if (bassState.get().lock < 0) return;
+      if (bassState.get().lock < 0 || section.get() !== null || presetMode.get().machine) return;
       e.preventDefault();
       e.stopPropagation();
       bassLockOff();

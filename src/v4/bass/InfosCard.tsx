@@ -17,7 +17,7 @@
  *   telephone : TAP A CONTROL) ; un encodeur montre la carte du reglage
  *   qu'il tient sur la page allumee.
  * L'etape 2 (2026-10-09) : un encodeur de la face montre la carte du FX
- * global qu'il tient pour de bon (sa section : KNOB A · GLOBAL FX, sa valeur
+ * global qu'il tient pour de bon (sa section : GLOBAL FX KNOB, sans lettre depuis la revue du meme jour, sa valeur
  * globale, jamais un verrou).
  * La carte reste sombre dans les deux apparences, comme les ecrans des
  * machines. Eteint, rien n'ecoute la vue (pas de cout par image).
@@ -190,7 +190,7 @@ const Card: React.FC<CardProps> = ({ stage, hotspot, id, sheet, pinned }) => {
     <div ref={ref} className="v4-binfo" data-mode={sheet ? 'sheet' : 'float'} role="note" aria-live="polite" lang="fr">
       {sheet && <span className="v4-binfo-grab" aria-hidden="true" />}
       <div className="v4-binfo-head">
-        <span className="v4-binfo-sec">{encM ? `KNOB ${'ABCDEFGH'[Number(encM[1]) - 1]} · GLOBAL FX` : info.section}</span>
+        <span className="v4-binfo-sec">{encM ? 'GLOBAL FX KNOB' : info.section}</span>
         {locked && <span className="v4-binfo-lock">P-LOCK {String(s.lock + 1).padStart(2, '0')}</span>}
       </div>
       <div className="v4-binfo-title">{title}</div>

@@ -201,7 +201,7 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
             data-hotspot={id}
             role="slider"
             tabIndex={0}
-            aria-label={`Knob ${ENC_LETTERS[i]}: ${def.label}, global effect`}
+            aria-label={`${def.label} knob: global effect, all steps`}
             aria-orientation="vertical"
             aria-valuemin={0}
             aria-valuemax={127}

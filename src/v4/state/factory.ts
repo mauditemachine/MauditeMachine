@@ -766,8 +766,11 @@ export interface BassFactory {
   steps: BassStep[];
   /**
    * la recette (2026-10-09, STYLE et DENSITY qui agissent) : une graine tiree du nom (la meme a chaque visite), ancree
-   * a la DENSITY du preset ; la ligne ecrite reste la ligne, ses notes a la main (sans src) : au-dessus de cette
-   * DENSITY, des notes du style s'ajoutent sur ses pas vides, au-dessous rien ne s'enleve
+   * a la DENSITY du preset, et la ligne ecrite (anchor, la revue du meme jour : ses notes ne sont pas les tiennes, elles
+   * sont du preset, src gen) : au STYLE du preset la ligne est telle qu'ecrite a sa DENSITY, s'eclaircit au-dessous
+   * (les temps en dernier, elles reviennent en remontant), recoit des notes du style au-dessus ; un autre STYLE rend une
+   * ligne de ce style depuis la graine du preset, revenir au sien rend la ligne ecrite. Les notes et le son ne changent
+   * pas (la ligne d'usine reste celle du couloir des presets)
    */
   recipe: BassRecipe;
 }
@@ -787,7 +790,8 @@ export function bassFactory(): { name: string; data: BassFactory }[] {
     params.range = (g.range - 1) / 2;
     params.scale = BASS_SCALES.indexOf(g.scale) / (BASS_SCALES.length - 1);
     params.root = BASS_ROOTS.indexOf(g.root) / (BASS_ROOTS.length - 1);
-    const recipe: BassRecipe = { seed: seedOfName(g.name), base: params.density, gen: { style: params.style, density: params.density, slides: params.slides, accents: params.accents, range: params.range } };
-    return { name: g.name, data: { params, steps: parseLine(g.line), recipe } };
+    const steps = parseLine(g.line).map((x): BassStep => ({ ...x, src: 'gen' }));
+    const recipe: BassRecipe = { seed: seedOfName(g.name), base: params.density, gen: { style: params.style, density: params.density, slides: params.slides, accents: params.accents, range: params.range }, anchor: { steps, style: params.style } };
+    return { name: g.name, data: { params, steps, recipe } };
   });
 }

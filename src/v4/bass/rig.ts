@@ -461,6 +461,9 @@ export class BassRig {
   private heldBlocks = new Map<number, number>();
   /** les encodeurs de la face tenus (desktop, les FX globaux) : leur bulle reste tant qu'on les tient */
   private heldFx = new Map<number, number>();
+  /** les potards dedies tenus (STYLE, DENSITY..., la plaque) : leur echo reste ; le dernier lache et quand */
+  private heldPots = new Map<BassKnobId, number>();
+  private potUp: { id: BassKnobId; at: number } | null = null;
 
   constructor(private opts: BassRigOpts) {
     this.root.name = 'bassRoot';
@@ -691,13 +694,13 @@ export class BassRig {
     // Au telephone (2026-10-09, la revue : toucher l'onglet FILTER ouvrait les presets) : chaque onglet tourne sa page
     // (bass.bass : la touche de page, MIDI LEARN bass:key:pfilter...), le pattern seul ouvre les presets (bass-lcd-open),
     // a gauche (la lecture, LOCK 05) et a droite (le tempo) un verre qui ne fait rien (le geste ne passe pas a
-    // l'orbite) ; tous poses ou l'ecran les dessine (syncHead)
-    const head: HotspotDef[] = PORTRAIT
-      ? [
-          ...BASS_PAGE_KEYS.map((k): HotspotDef => ({ id: bassTabId(PAGE_OF[k]), kind: 'basskey', layer: top, shape: 'box', ...area(hr.u0, hr.u0, hr.v0, hr.v1, DJ_BEZEL.h + 0.03), enabled: false, bass: k })),
-          ...['l', 'r'].map((k): HotspotDef => ({ id: `bass-lcd-head-${k}`, kind: 'basslcd', layer: top, shape: 'box', ...area(hr.u0, hr.u0, hr.v0, hr.v1, DJ_BEZEL.h + 0.03), enabled: false })),
-        ]
-      : [];
+    // l'orbite) ; tous poses ou l'ecran les dessine (syncHead). Au desktop aussi depuis la seconde revue du meme jour
+    // (l'ecran y est l'editeur : un clic sur l'onglet ENV ouvrait les presets), plus le verre entre les onglets et le
+    // pattern (bass-lcd-head-m)
+    const head: HotspotDef[] = [
+      ...BASS_PAGE_KEYS.map((k): HotspotDef => ({ id: bassTabId(PAGE_OF[k]), kind: 'basskey', layer: top, shape: 'box', ...area(hr.u0, hr.u0, hr.v0, hr.v1, DJ_BEZEL.h + 0.03), enabled: false, bass: k })),
+      ...['l', 'm', 'r'].map((k): HotspotDef => ({ id: `bass-lcd-head-${k}`, kind: 'basslcd', layer: top, shape: 'box', ...area(hr.u0, hr.u0, hr.v0, hr.v1, DJ_BEZEL.h + 0.03), enabled: false })),
+    ];
     // La plaque sous le capot : ses potards, vivants capot ouvert (syncHood)
     const all = [...out, iKey, plock, ...blocks, ...lcd, ...head, title, roll, glass, glassEdit, ...this.tweaks.hotspots()].map((d) => ({ ...d, machine: 'bass' as const }));
     this.plockDef = all.find((d) => d.id === BASS_PLOCK_ID) ?? null;
@@ -705,7 +708,7 @@ export class BassRig {
     this.titleDef = all.find((d) => d.id === 'bass-lcd-title') ?? null;
     this.lcdDefs = all.filter((d) => d.kind === 'basslcd' && d !== this.plockDef && d !== this.rollDef && d !== this.titleDef);
     this.tabDefs = all.filter((d) => d.id.startsWith('bass-tab-'));
-    this.openDef = PORTRAIT ? all.find((d) => d.id === bassLcdId('open')) ?? null : null;
+    this.openDef = all.find((d) => d.id === bassLcdId('open')) ?? null;
     this.stillDefs = all.filter((d) => d.id.startsWith('bass-lcd-head-'));
     this.iDef = all.find((d) => d.id === BASS_I_ID) ?? null;
     this.blockDefs = all.filter((d) => d.id.startsWith('bass-blk-'));
@@ -779,9 +782,9 @@ export class BassRig {
   }
 
   /**
-   * Au telephone (2026-10-09) : les onglets et le pattern ou l'ecran les a dessines (BassScreen.headZones, ils bougent
-   * quand LOCK 05 entre dans l'en-tete) ; eteints quand il ne les montre pas (PRESETS, EDIT, l'echo : la, l'en-tete
-   * entier ouvre les presets, comme avant) ; true si ca change.
+   * Au telephone (2026-10-09), et au desktop depuis la seconde revue du meme jour : les onglets et le pattern ou l'ecran
+   * les a dessines (BassScreen.headZones, ils bougent quand LOCK 05 entre dans l'en-tete) ; eteints quand il ne les
+   * montre pas (PRESETS, EDIT, l'echo : la, l'en-tete entier ouvre les presets, comme avant) ; true si ca change.
    */
   private syncHead(): boolean {
     const S = BASS.screen;
@@ -807,7 +810,6 @@ export class BassRig {
         changed = true;
       }
     }
-    if (!PORTRAIT) return changed;
     const put = (d: HotspotDef, span: { u0: number; u1: number } | null | undefined): void => {
       const live = !on && !!span;
       if (span) {
@@ -986,7 +988,11 @@ export class BassRig {
     // L'echo (1.2 s) : sur la page, son bloc se cerne ; hors de la page, l'ecran entier un instant ; un encodeur de la
     // face (2026-10-09, les FX globaux) : sa bulle par-dessus la page, qui reste
     const t = s.touched;
-    const left = t ? ECHO_MS - (performance.now() - t.at) : 0;
+    let left = t ? ECHO_MS - (performance.now() - t.at) : 0;
+    // Un potard dedie tenu (2026-10-09, la revue : l'image de DENSITY partait 1.2 s apres le dernier cran, le doigt
+    // encore dessus) : son echo reste tant qu'on le tient, puis 1.2 s apres le lacher, comme la bulle d'un encodeur
+    if (t && this.heldPots.has(t.id)) left = Math.max(left, ECHO_MS);
+    else if (t && this.potUp && this.potUp.id === t.id) left = Math.max(left, ECHO_MS - (performance.now() - this.potUp.at));
     window.clearTimeout(this.echoTimer);
     if (t && left > 0) {
       this.echoTimer = window.setTimeout(() => {
@@ -1021,8 +1027,11 @@ export class BassRig {
     let echo: BassKnobId | null = null;
     let pop: { k: number; id: BassKnobId } | null = null;
     if (t && fresh) {
-      const at = bassSlotOf(t.id);
-      if (t.enc !== undefined && t.enc >= 0) pop = { k: t.enc, id: t.id };
+      // Sur la page allumee (VOLUME est sur VOICE et sur FX, la revue du 2026-10-09) : son bloc se cerne
+      const at = BASS_PAGE_SLOTS[page].includes(t.id) ? { page } : bassSlotOf(t.id);
+      // La bulle d'un encodeur de la face : au desktop seulement (la revue : au telephone, sans encodeurs, le MIDI
+      // bass:global:<id> nommait un KNOB A qui n'y est pas ; l'echo d'un reglage, comme un autre)
+      if (t.enc !== undefined && t.enc >= 0 && !PORTRAIT) pop = { k: t.enc, id: t.id };
       else if (at && at.page === page) echo = t.id;
       else {
         const lockV = s.lock >= 0 && isLockable(t.id) ? s.steps[s.lock]?.locks?.[t.id] : undefined;
@@ -1034,6 +1043,7 @@ export class BassRig {
           values: s.lock >= 0 && s.steps[s.lock]?.locks ? { ...values, ...s.steps[s.lock].locks } : values,
           steps: s.steps,
           ...(t.before ? { before: t.before } : {}),
+          ...(t.note ? { note: t.note } : {}),
           infos,
         };
       }
@@ -1098,6 +1108,17 @@ export class BassRig {
    * Un bloc de l'ecran (ou son encodeur, desktop) pris ou lache par un pointeur (2026-10-09, la machine sans encodeurs
    * du telephone) : tant qu'il est tenu, l'ecran le cerne, on voit ce que le doigt regle avant meme que la valeur bouge.
    */
+  /** Un potard dedie pris ou lache (2026-10-09, la revue) : son echo reste a l'ecran tant qu'il est tenu. */
+  holdPot(id: BassKnobId, down: boolean): void {
+    const n = (this.heldPots.get(id) ?? 0) + (down ? 1 : -1);
+    if (n > 0) this.heldPots.set(id, n);
+    else {
+      this.heldPots.delete(id);
+      if (!down) this.potUp = { id, at: performance.now() };
+    }
+    this.queueDraw();
+  }
+
   holdBlock(k: number, down: boolean, fx = false): void {
     if (k < 0 || k > 7) return;
     const held = fx ? this.heldFx : this.heldBlocks;
@@ -1303,6 +1324,9 @@ export class BassRig {
    */
   cursor(id: string): string | null {
     if (id === BASS_ROLL_ID) return 'ns-resize';
+    // Le verre qui ne fait rien (l'en-tete autour des onglets, la ligne du titre, sous les blocs) : le curseur ordinaire
+    // (la revue du 2026-10-09 : l'en-tete du desktop a ses zones)
+    if (id.startsWith('bass-lcd-head-') || id === 'bass-lcd-title' || id === 'bass-lcd-glass' || id === 'bass-lcd-glass-edit') return 'default';
     const m = /^bass-blk-(\d)$/.exec(id);
     if (!m) return null;
     const shown = this.shown;

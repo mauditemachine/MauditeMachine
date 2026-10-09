@@ -15,7 +15,6 @@
  */
 
 import type { BassKnobId } from './params';
-import { generate } from './gen';
 
 export type BassStepKind = 'off' | 'note' | 'tie';
 
@@ -49,6 +48,14 @@ export interface BassRecipe {
   seed: number;
   base: number | null;
   gen?: { style: number; density: number; slides: number; accents: number; range: number };
+  /**
+   * la ligne d'usine d'un preset (2026-10-09, la revue : sur les presets, STYLE et DENSITY ne faisaient rien, leurs
+   * notes etaient prises pour les tiennes) : telle qu'ecrite, et le STYLE du preset (0 a 1). A ce STYLE, elle est la
+   * ligne a la DENSITY base, s'eclaircit au-dessous (ses notes reviennent en remontant), recoit des notes du style
+   * au-dessus ; a un autre STYLE, la ligne est celle du generateur depuis la graine du preset (revenir a son STYLE rend
+   * la ligne ecrite). Absente : une ligne de GEN, une ligne a la main.
+   */
+  anchor?: { steps: readonly BassStep[]; style: number };
 }
 
 export const BASS_STEPS = 16;
@@ -101,9 +108,10 @@ export interface BassState {
   /**
    * le dernier potard tourne et quand (performance.now) : l'ecran le montre un instant, facon Elektron (2026-10-08) ;
    * enc (2026-10-09) : tourne par un encodeur de la face (les FX globaux), l'ecran le montre dans une bulle sans quitter
-   * la page ; before : la ligne d'avant un cran de STYLE ou de DENSITY (l'echo montre les pas ajoutes et retires)
+   * la page ; before : la ligne d'avant un cran de STYLE ou de DENSITY (l'echo montre les pas ajoutes et retires) ;
+   * note : ce que fait le cran, en bas de l'echo (la revue du 2026-10-09 : la ligne suit, ou pourquoi elle ne bouge pas)
    */
-  touched: { id: BassKnobId; at: number; enc?: number; before?: readonly BassStep[] } | null;
+  touched: { id: BassKnobId; at: number; enc?: number; before?: readonly BassStep[]; note?: string } | null;
   /** la recette de la ligne (null : une ligne sans graine, d'avant le 2026-10-09 ; le premier cran de STYLE ou DENSITY en donne une) */
   recipe: BassRecipe | null;
 }
@@ -117,12 +125,21 @@ const off = (): BassStep => ({ kind: 'off', deg: 0, oct: 0, acc: false, slide: f
  * La ligne de depart d'une premiere visite (2026-10-09) : une ligne acid du generateur (sa graine, les reglages de
  * depart des potards : ACID, DENSITY 60, SLIDE PROB 30, ACC PROB 35, deux octaves, la gamme mineure), chaque pas a lui :
  * STYLE et DENSITY la reecrivent des le premier cran, dans les deux sens. La graine choisie hors ligne : la tonique
- * accentuee sur le 1, des octaves, des slides, treize notes (huit a DENSITY 0, quinze a 100).
+ * accentuee sur le 1, des octaves, des slides, douze notes (huit a DENSITY 0, quinze a 100).
+ * Ecrite ici telle que bass/gen.ts generate la rend pour cette graine (la revue du meme jour : l'importer pour la
+ * calculer sortait tout le generateur du morceau du MM-BASS charge a la demande ; un test hors ligne verifie qu'elles
+ * sont egales) : un degre, + une octave, A l'accent, S le slide, - une liaison, . un vide.
  */
 export const START_SEED = 0x339217fd;
 export const START_RECIPE: BassRecipe = { seed: START_SEED, base: null, gen: { style: 0, density: 0.6, slides: 0.3, accents: 0.35, range: 0.5 } };
+export const START_LINE = '0A 2A . 2 0A . 4 4 0 0+AS 0+ . 0 - 4S 4A';
 function initial(): BassStep[] {
-  return generate({ style: 'ACID', density: 0.6, slides: 0.3, accents: 0.35, range: 2, degrees: 7, seed: START_SEED });
+  return START_LINE.split(' ').map((t): BassStep => {
+    if (t === '.') return { ...off(), src: 'gen' };
+    if (t === '-') return { kind: 'tie', deg: 0, oct: 0, acc: false, slide: false, src: 'gen' };
+    const m = /^(\d+)(\+?)(A?)(S?)$/.exec(t);
+    return { kind: 'note', deg: Number(m?.[1] ?? 0), oct: m?.[2] ? 1 : 0, acc: !!m?.[3], slide: !!m?.[4], src: 'gen' };
+  });
 }
 
 function clean(o: unknown): BassStep | null {
@@ -150,6 +167,10 @@ export function cleanRecipe(o: unknown): BassRecipe | null {
     const n = (k: string): number => (typeof g[k] === 'number' && Number.isFinite(g[k]) ? Math.min(1, Math.max(0, g[k] as number)) : 0);
     out.gen = { style: n('style'), density: n('density'), slides: n('slides'), accents: n('accents'), range: n('range') };
   }
+  // La ligne d'usine (2026-10-09) : seize pas valides et un STYLE, sinon rien (la ligne garde sa graine)
+  const a = r.anchor as { steps?: unknown; style?: unknown } | undefined;
+  const steps = a && typeof a === 'object' ? cleanSteps(a.steps) : null;
+  if (steps && base !== null && typeof a?.style === 'number' && Number.isFinite(a.style)) out.anchor = { steps, style: Math.min(1, Math.max(0, a.style)) };
   return out;
 }
 

@@ -25,13 +25,20 @@
  * page a l'ecran" (en P-LOCK, le verrou du pas : le Roto tient un pas et
  * tourne), bass:knob:<id> le reglage (en P-LOCK, son verrou). Aucune cible
  * d'avant ne change.
+ * La revue du meme jour : une tape sur un pas de l'ecran met le P-LOCK ;
+ * tant qu'il ne vient que d'une tape (bassTapLocked), une tape du Roto sur un
+ * pas pose ou retire sa note comme avant (le P-LOCK de l'ecran s'en va) et
+ * bass:knob:<id> regle le son de toute la ligne (un balayage du filtre ne
+ * devient pas le verrou du dernier pas tape) ; un LOCK pose par un geste de
+ * LOCK (tenir le pas, sa touche LOCK, bass:lock, le Roto tenu) reste ce qu'il
+ * etait. bass:knob:1 a 8 suivent le P-LOCK de l'ecran, quel qu'il soit.
  */
 
 import { registerTargets, type MidiTarget } from '../midi/targets';
 import { seqFollow, seqPress, seqRegister, seqRelease, seqSetFollow, seqWindow, type SeqMachine } from '../midi/seqlink';
 import { bassInfos } from '../state/bassInfos';
 import { editor } from '../state/editor';
-import { bassDial, bassEditing, bassEncDial, bassEncParam, bassEncValue, bassFxDial, bassKnobValue, bassLockEnter, bassLockOff, bassLockTap, bassLockToggle, bassPageSet, bassPatternHold, bassPatternTap, bassRun, bassStepTap, bassStepToggle } from './actions';
+import { bassEditing, bassEncDial, bassEncParam, bassEncValue, bassFxDial, bassKnobDial, bassKnobDialValue, bassLockEnter, bassLockOff, bassLockTap, bassLockToggle, bassPageSet, bassPatternHold, bassPatternTap, bassRun, bassStepTap, bassStepToggle } from './actions';
 import { bassKeyAction } from './gestures';
 import { BASS_FX_KNOBS, BASS_PAGES, ENC_LETTERS, bassPage } from './pages';
 import { BASS_KNOBS, bassKnob, bassParams } from './params';
@@ -43,7 +50,9 @@ import { BASS_KEYS } from './theme';
 function all(): MidiTarget[] {
   const out: MidiTarget[] = [];
   for (const k of BASS_KNOBS) {
-    out.push({ id: `bass:knob:${k.id}`, scope: 'bass', label: k.label, kind: 'value', steps: k.steps ?? 0, get: () => bassKnobValue(k.id), set: (v) => bassDial(k.id, v) });
+    // En P-LOCK pose par une tape sur l'ecran : le son de toute la ligne (la revue du 2026-10-09, bassKnobDial) ; en LOCK
+    // pose par un geste de LOCK (le pas du Roto tenu, sa touche LOCK) : le verrou du pas
+    out.push({ id: `bass:knob:${k.id}`, scope: 'bass', label: k.label, kind: 'value', steps: k.steps ?? 0, get: () => bassKnobDialValue(k.id), set: (v) => bassKnobDial(k.id, v) });
   }
   // Les blocs de la page a l'ecran (les encodeurs de page d'avant le 2026-10-09) : leurs crans suivent le reglage qu'ils tiennent
   for (let i = 0; i < 8; i += 1) {

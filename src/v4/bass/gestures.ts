@@ -64,6 +64,14 @@
  *   la descend (la note sous le pointeur, dans la gamme, son nom a l'ecran),
  *   cliquer un pas vide y pose une note a cette hauteur, cliquer une note la
  *   fait passer a liaison ou a vide.
+ * La revue du meme jour :
+ * - le rouleau : un vide recoit sa note au lacher (une tape) ou au premier
+ *   glisser, plus a l'appui (au doigt, une colonne de 15 px : un doigt a cote
+ *   posait une note) ; au doigt, un glisser qui part a moins d'une
+ *   demi-colonne d'une note la prend ; la molette agit sur la colonne sous la
+ *   souris, un degre de la gamme par cran (l'octave suit) ;
+ * - un potard dedie tenu (STYLE, DENSITY...) garde son echo a l'ecran
+ *   (holdPot), comme la bulle d'un encodeur.
  */
 
 import type { HotspotView } from '../scene/hit';
@@ -72,7 +80,7 @@ import { quadToUnit } from '../scene/quad';
 import { openToggle, presetKey } from '../actions';
 import { bassInfos } from '../state/bassInfos';
 import { PORTRAIT } from '../theme';
-import { bassAccent, bassClear, bassDial, bassDialReset, bassEditCycle, bassEditNote, bassEditToggle, bassEditing, bassEncParam, bassFxDial, bassFxParam, bassFxReset, bassGenerate, bassKnobValue, bassLockEnter, bassLockGen, bassLockOff, bassLockRestore, bassLockTap, bassLockTurns, bassMutate, bassNote, bassNoteName, bassOct, bassPageSet, bassPatternHold, bassPitchAt, bassRun, bassSlide, bassStepDeg, bassStepTap } from './actions';
+import { ENV_PICTURE, bassAccent, bassClear, bassDegStep, bassDial, bassDialReset, bassEditCycle, bassEditNote, bassEditToggle, bassEditing, bassEncParam, bassFxDial, bassFxParam, bassFxReset, bassGenerate, bassKnobValue, bassLockEnter, bassLockGen, bassLockOff, bassLockRestore, bassLockTap, bassLockTurns, bassMutate, bassNote, bassNoteName, bassOct, bassPageSet, bassPatternHold, bassPitchAt, bassRun, bassSlide, bassStepDeg, bassStepTap } from './actions';
 import { bassPage, isBassGlobal, type BassPageId } from './pages';
 import { bassKnob, bassParams, type BassKnobId } from './params';
 import { BASS_PLOCK_ID, BASS_ROLL_ID } from './rig';
@@ -164,6 +172,16 @@ interface Grip {
   lo: number;
   hi: number;
   oct0: number;
+  /**
+   * le rouleau, un appui sur une colonne vide (2026-10-09, la revue : au doigt, une colonne de 15 px, un doigt a cote
+   * posait une note) : la note s'y pose au lacher (une tape) ou au premier glisser ; au doigt, la colonne voisine a
+   * moins d'une demi-colonne qui porte une note (near : son pas, -1 aucun) : un glisser prend cette note
+   */
+  empty: boolean;
+  near: number;
+  touch: boolean;
+  /** un potard dedie (STYLE, DENSITY..., la plaque) tenu : son echo reste a l'ecran (le rig, holdPot) */
+  pot: boolean;
 }
 
 export class BassGestures {
@@ -172,6 +190,10 @@ export class BassGestures {
   private lastTap = new Map<string, number>();
   private wheelAcc = new Map<string, number>();
   private wheelAt = new Map<string, number>();
+  /** la colonne du rouleau d'EDIT sous la souris (-1 : aucune) : la molette y agit (la revue du 2026-10-09) */
+  private rollHoverStep = -1;
+  /** la molette du rouleau : le nom de la note reste un instant apres le dernier cran */
+  private wheelShow = 0;
   /**
    * Deux doigts (2026-10-09) : le pas tenu leve alors qu'un bloc tourne encore ; son LOCK momentane ne sort qu'au
    * lacher du dernier bloc, s'il n'a pas ete repris entre-temps (la revue : le meme pas tenu de nouveau, sa touche
@@ -190,7 +212,7 @@ export class BassGestures {
   }
 
   private grip(h: HotspotView, x: number, y: number, touch: boolean): Grip {
-    return { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, slop: touch ? STEP_DRAG_PX.touch : STEP_DRAG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, prevLock: -1, infoOnly: false, info: false, lock: -1, enc: -1, fx: false, page: bassPage.get(), ring: false, t0: performance.now(), dbl: false, taps: false, lo: 0, hi: 0, oct0: 0 };
+    return { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, slop: touch ? STEP_DRAG_PX.touch : STEP_DRAG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, prevLock: -1, infoOnly: false, info: false, lock: -1, enc: -1, fx: false, page: bassPage.get(), ring: false, t0: performance.now(), dbl: false, taps: false, lo: 0, hi: 0, oct0: 0, empty: false, near: -1, touch, pot: false };
   }
 
   down(pointerId: number, h: HotspotView, x: number, y: number, touch = false): void {
@@ -238,9 +260,14 @@ export class BassGestures {
       // dit, rien ne tourne) ; un potard dedie : le sien
       g.knob = !slot ? knobOf(h) : slot.enc ? bassFxParam(slot.k) : bassEncParam(slot.k);
       if (!g.knob) {
-        bassState.say(bassPage.get() === 'env' && g.enc >= 5 ? 'AMP ENV: DRAG A B C D' : `${'ABCDEFGH'[g.enc] ?? ''}: EMPTY ON THIS PAGE`, 1200);
+        bassState.say(bassPage.get() === 'env' && g.enc >= 5 ? ENV_PICTURE : `${'ABCDEFGH'[g.enc] ?? ''}: EMPTY ON THIS PAGE`, 1200);
         this.grips.set(pointerId, g);
         return;
+      }
+      // Un potard dedie (STYLE, DENSITY, la plaque) : son echo reste tant qu'il est tenu (2026-10-09, la revue)
+      if (!slot) {
+        g.pot = true;
+        this.stage.bass?.holdPot(g.knob, true);
       }
       // Deux doigts (2026-10-08) : un pas tenu (pas encore en LOCK, sa note pas changee) et un bloc qu'on prend : LOCK
       // tout de suite (un encodeur de la face, les FX globaux, n'en pose jamais)
@@ -390,6 +417,7 @@ export class BassGestures {
     } else if (g.kind === 'key') this.press(g.id, false);
     else if (g.kind === 'knob') {
       if (g.ring) this.stage.bass?.holdBlock(g.enc, false, g.fx);
+      if (g.pot && g.knob) this.stage.bass?.holdPot(g.knob, false);
       if (g.taps) this.tapUp(g, quick);
       this.flushLockOff();
     }
@@ -478,53 +506,91 @@ export class BassGestures {
     return g.lo + Math.max(0, Math.min(1, t)) * (g.hi - g.lo);
   }
 
+  /** La hauteur de la note que joue le pas i (une liaison : celle de la note qu'elle continue), -1 : un vide ; son octave. */
+  private noteAt(i: number): { midi: number; oct: number } | null {
+    const steps = bassState.get().steps;
+    const s = steps[i];
+    if (!s || s.kind === 'off') return null;
+    for (let k = 0; k < BASS_STEPS; k += 1) {
+      const q = steps[(i - k + BASS_STEPS) % BASS_STEPS];
+      if (q.kind === 'note') return k === 0 || s.kind === 'tie' ? { midi: midiOf(q), oct: q.oct } : null;
+      if (q.kind === 'off') return null;
+    }
+    return null;
+  }
+
   /**
-   * Un appui sur le rouleau : la note du pas sous le pointeur ; un pas vide en recoit une, a la hauteur du pointeur.
-   * Le glisser deplace la note d'autant que le pointeur (m0 : sa hauteur a l'appui, n0 : celle de la note) : on la
-   * prend n'importe ou dans sa colonne, elle ne saute pas sous le doigt.
+   * Un appui sur le rouleau : la note du pas sous le pointeur. Le glisser deplace la note d'autant que le pointeur
+   * (v0 : sa hauteur a l'appui, a : celle de la note) : on la prend n'importe ou dans sa colonne, elle ne saute pas sous
+   * le doigt. Un pas vide (la revue du 2026-10-09) : rien a l'appui ; la note se pose au lacher (une tape) ou au premier
+   * glisser, a la hauteur de l'appui ; au doigt, un glisser qui part a moins d'une demi-colonne d'une note la prend.
    */
   private rollDown(g: Grip, x: number, y: number): void {
     g.kind = 'roll';
+    window.clearTimeout(this.wheelShow);
     const r = this.stage.bass?.screen.editRoll();
     const at = this.screenAt(x, y);
     if (!r || !at) return;
     g.lo = r.lo;
     g.hi = r.hi;
     g.step = this.rollStep(at.x);
-    const steps = bassState.get().steps;
-    const s = steps[g.step];
+    const s = bassState.get().steps[g.step];
     if (!s) return;
     g.v0 = this.rollMidi(g, at.y);
-    // La hauteur de la note du pas (une liaison : celle de la note qu'elle continue, comme le rouleau la dessine)
-    let n = -1;
-    for (let k = 0; k < BASS_STEPS; k += 1) {
-      const q = steps[(g.step - k + BASS_STEPS) % BASS_STEPS];
-      if (q.kind === 'note') {
-        n = k === 0 || s.kind === 'tie' ? midiOf(q) : -1;
-        g.oct0 = q.oct;
-        break;
-      }
-      if (q.kind === 'off') break;
-    }
-    g.a = n;
-    // Un pas vide : une note la ou l'on clique (le glisser continue de la deplacer)
+    g.a = -1;
     if (s.kind === 'off') {
-      const p = bassPitchAt(g.v0, 0);
-      bassEditNote(g.step, p.deg, p.oct);
-      g.oct0 = p.oct;
-      g.a = midiOf(bassState.get().steps[g.step]);
-      g.dragged = true;
+      g.empty = true;
+      if (g.touch) {
+        // La colonne voisine la plus proche du doigt, a moins d'une demi-colonne de son bord
+        const fx = (at.x - r.x0) / r.cw;
+        let best = Infinity;
+        for (const j of [g.step - 1, g.step + 1]) {
+          if (j < 0 || j >= BASS_STEPS || !this.noteAt(j)) continue;
+          const dist = Math.abs(fx - (j + 0.5));
+          if (dist <= 1 && dist < best) {
+            best = dist;
+            g.near = j;
+          }
+        }
+      }
+      return;
+    }
+    const n = this.noteAt(g.step);
+    if (n) {
+      g.a = n.midi;
+      g.oct0 = n.oct;
     }
     this.showDrag(g);
   }
 
+  /** Un pas vide du rouleau recoit sa note, a la hauteur de l'appui (le glisser continue de la deplacer). */
+  private rollPlace(g: Grip): void {
+    const p = bassPitchAt(g.v0, 0);
+    bassEditNote(g.step, p.deg, p.oct);
+    g.oct0 = p.oct;
+    g.a = midiOf(bassState.get().steps[g.step]);
+    g.empty = false;
+  }
+
   /** Le glisser sur le rouleau : la note du pas monte ou descend d'autant que le pointeur (une liaison devient une note). */
   private rollMove(g: Grip, x: number, y: number): void {
-    if (g.step < 0 || g.a < 0) return;
+    if (g.step < 0) return;
     const dy = y - g.y0;
     if (!g.dragged && Math.abs(dy) < AXIS_PX) return;
     const at = this.screenAt(x, y);
     if (!at) return;
+    if (g.empty) {
+      // Le premier glisser depuis un vide : la note voisine (au doigt), sinon une note posee ici
+      if (g.near >= 0) {
+        const n = this.noteAt(g.near);
+        g.step = g.near;
+        g.empty = false;
+        if (!n) return;
+        g.a = n.midi;
+        g.oct0 = n.oct;
+      } else this.rollPlace(g);
+    }
+    if (g.a < 0) return;
     const target = Math.max(g.lo, Math.min(g.hi, g.a + (this.rollMidi(g, at.y) - g.v0)));
     const p = bassPitchAt(target, g.oct0);
     g.dragged = true;
@@ -533,10 +599,28 @@ export class BassGestures {
   }
 
   private rollUp(g: Grip, quick: boolean): void {
+    if (g.step < 0) {
+      this.stage.bass?.rollDragging(null);
+      return;
+    }
+    // Une tape sur un vide : sa note, a la hauteur de la tape (elle reste nommee un instant)
+    if (g.empty) {
+      if (!g.dragged) {
+        this.rollPlace(g);
+        this.showDrag(g);
+        this.unnameLater();
+        return;
+      }
+    }
     this.stage.bass?.rollDragging(null);
-    if (g.step < 0) return;
     // Une tape sur une note (ou une liaison) : liaison, vide, comme la touche du pas
     if (!g.dragged && !g.moved && quick) bassEditCycle(g.step);
+  }
+
+  /** Le nom d'une note posee d'une tape ou tournee a la molette s'efface un instant apres. */
+  private unnameLater(): void {
+    window.clearTimeout(this.wheelShow);
+    this.wheelShow = window.setTimeout(() => this.stage.bass?.rollDragging(null), 700);
   }
 
   /** L'ecran nomme la note qu'on glisse (le rig la cerne). */
@@ -552,11 +636,13 @@ export class BassGestures {
   /** La souris au-dessus du rouleau (sans bouton) : sa colonne s'eclaire (le rig, rollHover). */
   hover(h: HotspotView | null, x: number, y: number): void {
     if (!h || h.id !== BASS_ROLL_ID) {
+      this.rollHoverStep = -1;
       this.stage.bass?.rollHover(-1);
       return;
     }
     const at = this.screenAt(x, y);
-    this.stage.bass?.rollHover(at ? this.rollStep(at.x) : -1);
+    this.rollHoverStep = at ? this.rollStep(at.x) : -1;
+    this.stage.bass?.rollHover(this.rollHoverStep);
   }
 
   /**
@@ -574,13 +660,26 @@ export class BassGestures {
       return true;
     }
     if (h.id === BASS_ROLL_ID) {
-      // Le rouleau : la note du pas sous la souris, un degre par cran
-      const sel = bassState.get().sel;
-      const s = bassState.get().steps[sel];
-      if (s && s.kind === 'note') {
-        const p = bassPitchAt(midiOf(s) - Math.sign(delta) * 1.01, s.oct);
-        bassEditNote(sel, p.deg, p.oct);
+      // Le rouleau : la note du pas sous la souris (la colonne eclairee ; sinon le pas choisi), un degre de la gamme par
+      // cran, l'octave qui suit (la revue du 2026-10-09 : la molette changeait le pas choisi, pas celui sous la souris, et
+      // la hauteur la plus proche restait coincee) ; un pave tactile : ses petits pas s'additionnent
+      const i = this.rollHoverStep >= 0 ? this.rollHoverStep : bassState.get().sel;
+      const s = bassState.get().steps[i];
+      if (!s || s.kind !== 'note') return true;
+      let notches: number;
+      if (Math.abs(delta) >= WHEEL_PX) notches = -Math.sign(delta);
+      else {
+        const acc = (this.wheelAcc.get(h.id) ?? 0) - delta;
+        notches = Math.trunc(acc / WHEEL_PX);
+        this.wheelAcc.set(h.id, acc - notches * WHEEL_PX);
       }
+      if (!notches) return true;
+      const p = bassDegStep(s.deg, s.oct, notches > 0 ? 1 : -1);
+      if (p) bassEditNote(i, p.deg, p.oct);
+      // Son nom un instant (l'echelle du rouleau suit la ligne : pas de glisser en cours)
+      const now = bassState.get().steps[i];
+      if (now.kind === 'note') this.stage.bass?.rollDragging({ step: i, name: bassNoteName(now.deg, now.oct) });
+      this.unnameLater();
       return true;
     }
     if (h.kind !== 'bassknob') return false;
@@ -627,7 +726,10 @@ export class BassGestures {
       window.clearTimeout(g.hold);
       if (g.kind === 'roll') this.stage.bass?.rollDragging(null);
       else if (g.kind !== 'knob') this.press(g.id, false);
-      else if (g.ring) this.stage.bass?.holdBlock(g.enc, false, g.fx);
+      else {
+        if (g.ring) this.stage.bass?.holdBlock(g.enc, false, g.fx);
+        if (g.pot && g.knob) this.stage.bass?.holdPot(g.knob, false);
+      }
     }
     this.grips.clear();
     this.lockOffAfter = null;
