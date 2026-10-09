@@ -190,7 +190,7 @@ const Card: React.FC<CardProps> = ({ stage, hotspot, id, sheet, pinned }) => {
     <div ref={ref} className="v4-binfo" data-mode={sheet ? 'sheet' : 'float'} role="note" aria-live="polite" lang="fr">
       {sheet && <span className="v4-binfo-grab" aria-hidden="true" />}
       <div className="v4-binfo-head">
-        <span className="v4-binfo-sec">{encM ? 'GLOBAL FX KNOB' : info.section}</span>
+        <span className="v4-binfo-sec">{encM ? 'KNOB · ALL STEPS' : info.section}</span>
         {locked && <span className="v4-binfo-lock">P-LOCK {String(s.lock + 1).padStart(2, '0')}</span>}
       </div>
       <div className="v4-binfo-title">{title}</div>

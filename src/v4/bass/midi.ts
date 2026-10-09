@@ -57,7 +57,7 @@ import { editor } from '../state/editor';
 import { bassCanUndo, bassEditing, bassEncDial, bassEncParam, bassEncValue, bassFxDial, bassGenBack, bassGenerate, bassKnobDial, bassKnobDialValue, bassLockEnter, bassLockOff, bassLockTap, bassLockToggle, bassMutate, bassMutateUndo, bassNotesStep, bassPagePress, bassPageSet, bassPatternHold, bassPatternTap, bassRun, bassScreenSet, bassStepTap, bassStepToggle } from './actions';
 import { GEN_HOLD_MS, bassKeyAction } from './gestures';
 import { bassLine } from './line';
-import { BASS_FX_KNOBS, BASS_PAGES, BASS_SCREENS, ENC_LETTERS, SCREEN_LABEL, SCREEN_PAGE, bassPage, bassPageDef } from './pages';
+import { BASS_FX_KNOBS, BASS_OLD_GLOBAL, BASS_PAGES, BASS_SCREENS, ENC_LETTERS, SCREEN_LABEL, SCREEN_PAGE, bassPage, bassPageDef } from './pages';
 import { BASS_KNOBS, bassKnob, bassParams } from './params';
 import { bassPatterns } from './patterns';
 import { bassSeq } from './seq';
@@ -98,6 +98,11 @@ function all(): MidiTarget[] {
     const def = bassKnob(id);
     out.push({ id: `bass:global:${id}`, scope: 'bass', label: `${def.label} (GLOBAL, KNOB ${ENC_LETTERS[k]})`, kind: 'value', steps: def.steps ?? 0, get: () => bassParams.of(id), set: (v) => bassFxDial(k, v) });
   });
+  // Les FX que les encodeurs tenaient avant (2026-10-09) : leur cible reste, le reglage de toute la ligne
+  for (const id of BASS_OLD_GLOBAL) {
+    const def = bassKnob(id);
+    out.push({ id: `bass:global:${id}`, scope: 'bass', label: `${def.label} (GLOBAL)`, kind: 'value', steps: def.steps ?? 0, get: () => bassParams.of(id), set: (v) => void bassParams.set(id, v) });
+  }
   // Une touche de page pressee (2026-10-09) : la page allumee passe a son onglet suivant
   for (const p of BASS_PAGES) out.push({ id: `bass:page:${p.id}`, scope: 'bass', label: `PAGE ${p.label} (AGAIN: NEXT TAB)`, kind: 'press', down: () => bassPagePress(p.id) });
   // Un onglet (2026-10-09) : VOICE MAIN, OSC, MIX ; FILTER MAIN, CONTOUR ; ENV ; FX

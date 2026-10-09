@@ -185,7 +185,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
     section: 'OUTPUT',
     title: 'VOLUME',
     text: "Le niveau du MM-BASS vers le master (la voie 2 du MIXER), sur les pages VOICE (H) et FX (E). En P-LOCK, le volume du pas choisi seulement : une note plus forte ou plus douce. Le réglage d'usine crête vers -11 dBFS, environ 2 dB sous le kick du MM-RYTM (vers -9 dBFS), qui sert de référence.",
-    tip: "Aussi sur la page FX (E). Au desktop, l'encodeur VOLUME de la face le règle aussi, toujours pour toute la ligne, jamais un P-lock.",
+    tip: "Aussi sur la page FX (E).",
   },
 
   /* ---------- TWEAKS, sous le capot : les regles du generateur ---------- */
@@ -478,23 +478,23 @@ const RAW: Record<BassInfoId, RawInfo> = {
   pfx: {
     section: 'PAGES',
     title: 'FX',
-    text: "Les blocs de l'écran règlent les effets et le volume : DRIVE, l'envoi DELAY, VOLUME et l'envoi REVERB se verrouillent pas par pas ; DLY TIME, DLY FB, REV SIZE et REV TONE sont globaux (les mêmes pour tous les pas : en P-LOCK, leur bloc dit GLOBAL). Au desktop, les huit encodeurs de la face, dans le même ordre, règlent ces réglages pour toute la machine, jamais un P-lock.",
+    text: "Les blocs de l'écran règlent les effets et le volume : DRIVE, l'envoi DELAY, VOLUME et l'envoi REVERB se verrouillent pas par pas ; DLY TIME, DLY FB, REV SIZE et REV TONE sont globaux (les mêmes pour tous les pas : en P-LOCK, leur bloc dit GLOBAL). Ils se règlent ici, sur l'écran ; les huit encodeurs de la face tiennent le filtre et son enveloppe.",
   },
   enc: {
     section: 'SCREEN',
     title: 'VALUE',
-    text: "Les huit blocs de l'écran règlent l'onglet allumé (VOICE MAIN, OSC, MIX, FILTER MAIN, CONTOUR, ENV, FX) : glisse-les à la souris, ou la molette (plus elle tourne vite, plus elle va loin ; Maj : fin). Les huit encodeurs de la face, eux, tiennent les FX globaux. Cette case est vide sur cet onglet.",
+    text: "Les huit blocs de l'écran règlent l'onglet allumé (VOICE MAIN, OSC, MIX, FILTER MAIN, CONTOUR, ENV, FX) : glisse-les à la souris, ou la molette (plus elle tourne vite, plus elle va loin ; Maj : fin). Les huit encodeurs de la face, eux, tiennent le filtre : CUTOFF, RESO, ENV MOD, DRIVE, puis F.ATTACK, DECAY, F.SUSTAIN et RELEASE, pour toute la ligne. Cette case est vide sur cet onglet.",
   },
   ikey: {
     section: 'SCREEN',
     title: 'INFOS',
-    text: "Allume l'aide : survole n'importe quelle commande du MM-BASS (au téléphone, touche-la, sans la changer) pour lire ce qu'elle fait ; un bloc de l'écran montre le réglage qu'il tient sur la page allumée, un encodeur son FX global. Le i se remplit tant que c'est allumé ; touche-le encore, ou Échap, pour l'éteindre.",
+    text: "Allume l'aide : survole n'importe quelle commande du MM-BASS (au téléphone, touche-la, sans la changer) pour lire ce qu'elle fait ; un bloc de l'écran montre le réglage qu'il tient sur la page allumée, un encodeur le réglage du filtre qu'il tient. Le i se remplit tant que c'est allumé ; touche-le encore, ou Échap, pour l'éteindre.",
   },
   plock: {
     section: 'SCREEN',
     title: 'P-LOCK',
     text: "Le pas choisi est en P-LOCK : tout ce que tu glisses sur l'écran ne change que lui, l'en-tête est en négatif et chaque bloc verrouillé porte un P. Touche cette pastille pour sortir : les blocs règlent de nouveau toute la ligne.",
-    tip: "Échap, ou la touche LOCK du pas, sortent aussi.",
+    tip: "Échap sort aussi.",
   },
 
   /* ---------- les touches ---------- */
@@ -541,7 +541,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   edit: {
     section: 'KEYS',
     title: 'EDIT',
-    text: "Les 16 pas deviennent 16 patterns : touche un pas pour jouer son pattern à la mesure, plusieurs à la suite pour les enchaîner, tiens un vide pour y copier la ligne. À l'écran, la ligne en rouleau : glisse une note vers le haut ou le bas pour changer sa hauteur (son nom s'affiche), clique un pas vide pour y poser une note à cette hauteur, clique une note pour la lier (TIE) puis l'effacer ; le pattern le garde, tu l'entends au tour suivant. Dessous, les P-locks de la page allumée. Une touche LOCK ferme EDIT et met le P-LOCK sur son pas.", keys: "Touche E.",
+    text: "Les 16 pas deviennent 16 patterns : touche un pas pour jouer son pattern à la mesure, plusieurs à la suite pour les enchaîner, tiens un vide pour y copier la ligne. À l'écran, la ligne en rouleau : glisse une note vers le haut ou le bas pour changer sa hauteur (son nom s'affiche), clique un pas vide pour y poser une note à cette hauteur, clique une note pour la lier (TIE) puis l'effacer ; le pattern le garde, tu l'entends au tour suivant. Dessous, les P-locks de la page allumée.", keys: "Touche E.",
   },
   open: {
     section: 'KEYS',
@@ -615,11 +615,11 @@ const PHONE: Partial<Record<BassInfoId, Partial<BassInfo>>> = {
     tip: "Règle d'abord le kick, puis monte la basse juste sous lui.",
   },
   edit: {
-    text: "Les 16 pas deviennent 16 patterns : touche un pas pour jouer son pattern à la mesure, plusieurs à la suite pour les enchaîner, tiens un vide pour y copier la ligne. À l'écran, la ligne en rouleau : glisse une note du doigt pour changer sa hauteur (son nom s'affiche), touche un pas vide pour y poser une note à cette hauteur, touche une note pour la lier (TIE) puis l'effacer ; le pattern le garde. Une touche LOCK ferme EDIT et met le P-LOCK sur son pas.",
+    text: "Les 16 pas deviennent 16 patterns : touche un pas pour jouer son pattern à la mesure, plusieurs à la suite pour les enchaîner, tiens un vide pour y copier la ligne. À l'écran, la ligne en rouleau : glisse une note du doigt pour changer sa hauteur (son nom s'affiche), touche un pas vide pour y poser une note à cette hauteur, touche une note pour la lier (TIE) puis l'effacer ; le pattern le garde.",
   },
   plock: {
     text: "Le pas choisi est en P-LOCK : tout ce que tu glisses sur l'écran ne change que lui, l'en-tête est en négatif et chaque bloc verrouillé porte un P. Touche cette pastille pour sortir : les blocs règlent de nouveau toute la ligne (le son de tous les pas, les FX globaux).",
-    tip: "La touche LOCK du pas sort aussi.",
+    tip: "Touche le pas une autre fois pour le changer (NOTE, TIE, OFF).",
   },
   ikey: { text: "Allume l'aide : touche n'importe quelle commande du MM-BASS pour lire ce qu'elle fait, sans la changer ; un bloc de l'écran montre le réglage qu'il tient sur la page allumée. Le i se remplit tant que c'est allumé ; touche-le encore pour l'éteindre." },
   lock: {

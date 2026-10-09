@@ -75,6 +75,13 @@ export function bassX(): number {
 /** Le cadrage : de face, sa hauteur projetee. */
 export const BASS_FRAME = { h: BASS_D + 0.5, targetY: 1.3 } as const;
 
+/**
+ * Les boutons LOCK au-dessus des pas : retires de la face (2026-10-09, le soir, Mika : "je ne vois pas l'interet de ces
+ * boutons puisqu'on reste appuye pour un P-lock") ; toucher ou tenir un pas fait le P-LOCK. Les cibles MIDI bass:lock:<n>
+ * restent (le Roto, une assignation apprise).
+ */
+export const BASS_LOCK_KEYS = false;
+
 export const BASS = PORTRAIT
   ? {
       head: { z: -8.2 },
@@ -82,7 +89,8 @@ export const BASS = PORTRAIT
       // La machine Elektron (2026-10-08) : l'ecran plus profond (4.05 au lieu de 2.5 : son en-tete et ses blocs se touchent du doigt), toute la largeur ;
       // sans encodeurs (2026-10-09, Mika : "donne-moi un ecran plus grand") 6.4 : de -7.8 a -1.4, la place des deux rangees d'encodeurs
       screen: { x: 0, z: -4.6, w: 7.6, d: 6.4 },
-      trigs: { w: 0.8, d: 0.56, h: 1.15 },
+      // Sans les LOCK (2026-10-09, le soir) : les pas prennent leur place, plus hauts sous le doigt
+      trigs: { w: 0.8, d: BASS_LOCK_KEYS ? 0.56 : 1.0, h: 1.15 },
       // Plus grands au doigt (2026-10-08 : la bande de 15 px entre NOTE + et le pas ratait ; puis la revue : une
       // vraie touche, plus haute, a 44 px de son pas)
       locks: { w: 0.72, d: 0.42, h: 0.85 },
@@ -277,7 +285,7 @@ export const BASS_KEY_SEPS: readonly [BassKeyKind, BassKeyKind][] = PORTRAIT
 export function bassTrigAt(i: number): { x: number; z: number } {
   if (PORTRAIT) {
     const c = i % 8;
-    return { x: (c - 3.5) * 0.95 + (c >= 4 ? 0.08 : -0.08), z: i < 8 ? 5.52 : 7.67 };
+    return { x: (c - 3.5) * 0.95 + (c >= 4 ? 0.08 : -0.08), z: BASS_LOCK_KEYS ? (i < 8 ? 5.52 : 7.67) : i < 8 ? 5.1 : 7.2 };
   }
   const g = Math.floor(i / 4);
   return { x: -5.69 + i * 0.74 + g * 0.1, z: 2.92 };

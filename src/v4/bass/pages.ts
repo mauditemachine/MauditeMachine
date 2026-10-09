@@ -115,12 +115,17 @@ export const BASS_PAGE_SLOTS: Readonly<Record<BassPageId, readonly (BassKnobId |
 export const pageIds = (p: BassPageId): readonly BassKnobId[] => [...new Set(PAGE_TABS[p].flatMap((s) => BASS_SCREEN_SLOTS[s]).filter((id): id is BassKnobId => id !== null))];
 
 /**
- * Les encodeurs A a H de la face, desktop (2026-10-09, Mika : "en desktop tu les laisses, mais ils ne servent qu'a
- * faire les modifs des FX globaux de la machine") : une fois pour toutes, dans l'ordre de la page FX (A DRIVE, B DELAY,
- * C DLY TIME, D DLY FB ; F REVERB, G REV SIZE, H REV TONE), E le niveau de la machine (VOLUME, la ou FX n'a rien). Ils
- * reglent toujours le son global, jamais un P-lock, meme en P-LOCK.
+ * Les encodeurs A a H de la face, desktop. Le soir du 2026-10-09 (Mika : "sur les encoders j'aimerais le cutoff, res et
+ * ADSR filtre directement en encoder, pour les fx laisse-les dans l'ecran") : A CUTOFF, B RESO, C ENV MOD, D DRIVE ;
+ * E F.ATTACK, F DECAY, G F.SUSTAIN, H RELEASE (l'enveloppe du filtre). Ils reglent toujours le son de toute la ligne,
+ * jamais un P-lock, meme en P-LOCK ; les FX se reglent sur l'ecran (page FX).
  */
-export const BASS_FX_KNOBS: readonly BassKnobId[] = ['drive', 'delay', 'dtime', 'dfb', 'volume', 'reverb', 'rsize', 'rtone'];
+export const BASS_FX_KNOBS: readonly BassKnobId[] = ['cutoff', 'reso', 'envmod', 'drive', 'fattack', 'decay', 'fsustain', 'release'];
+/**
+ * Les FX globaux qu'ils tenaient avant (2026-10-09, l'etape 2) : leurs cibles MIDI bass:global:<id> restent (une
+ * assignation apprise ne casse pas), ils se reglent sur l'ecran (page FX).
+ */
+export const BASS_OLD_GLOBAL: readonly BassKnobId[] = ['delay', 'dtime', 'dfb', 'volume', 'reverb', 'rsize', 'rtone'];
 /** L'encodeur de la face qui tient ce reglage (0 a 7), -1 s'il n'est pas sur un encodeur. */
 export const bassFxEncOf = (id: BassKnobId): number => BASS_FX_KNOBS.indexOf(id);
 

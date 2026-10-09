@@ -1049,7 +1049,7 @@ export class BassScreen {
     // Le potard par son nom (la revue du 2026-10-09 : KNOB C se lisait comme le bloc C de la page) : un FX de toute la
     // machine, jamais un verrou du pas
     this.text('ALL STEPS', x + p, y + p + LAY.small, LAY.small, HALF, 700);
-    this.pill('GLOBAL FX', x + w - p, y + p + LAY.small, LAY.small * 0.92, true, 'right');
+    this.pill('KNOB', x + w - p, y + p + LAY.small, LAY.small * 0.92, true, 'right');
     const ls = this.fit(pp.label, 700, LAY.label * 1.5, w * 0.5 - p, 6);
     this.text(pp.label, x + p, y + p + LAY.small + 6 + ls, ls, INK, 700);
     const named = !/^[+-]?\d+$/.test(pp.big);

@@ -118,6 +118,7 @@ import {
   BASS_KEY_SEPS,
   BASS_KNOB_PLACES,
   BASS_LID,
+  BASS_LOCK_KEYS,
   BASS_LOCK_LEGEND_DZ,
   BASS_PAGE_HIT,
   BASS_PAGE_KEYS,
@@ -139,8 +140,6 @@ import {
 const ECHO_MS = 1200;
 /** LOCK : la periode du clignotement du pas regle (ms) et la part allumee. */
 const BLINK = { period: 760, on: 0.62 } as const;
-/** Un encodeur fait un tour et demi pour la course entiere (le geste se voit, la valeur est a l'ecran). */
-const ENC_TURN = Math.PI * 3;
 /** La page d'une touche de page. */
 const PAGE_OF: Readonly<Record<BassPageKey, BassPageId>> = { pvoice: 'voice', pfilter: 'filter', penv: 'env', pfx: 'fx' };
 const isPageKey = (k: BassKeyKind): k is BassPageKey => (BASS_PAGE_KEYS as readonly string[]).includes(k);
@@ -322,7 +321,7 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
       texts.push({ text: '16', x: p.x + c * R, z: p.z + c * R + 0.03, cap: 0.045 * INK_K, weight: 700, alpha: 0.8, group: 'gen' });
     }
   }
-  // Les encodeurs (2026-10-08) ; pas de graduation (ils sont sans fin). L'etape 2 (2026-10-09, Mika : "ils ne servent
+  // Les encodeurs (2026-10-08) ; depuis le soir du 2026-10-09 de vrais potards 0 a 127 (le filtre et son enveloppe). L'etape 2 (2026-10-09, Mika : "ils ne servent
   // qu'a faire les modifs des FX globaux de la machine") : chacun tient pour de bon un FX global, son nom au-dessus
   // (DRIVE, DELAY...), le crochet GLOBAL FX au-dessus de la rangee du haut ; la boite ne change pas, seulement ses mots.
   // Au telephone, aucun (2026-10-09) : les lettres sont dans les blocs de l'ecran
@@ -332,11 +331,13 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
     const id = BASS_FX_KNOBS[k];
     const label = id ? bassKnob(id).label : ENC_LETTERS[k];
     texts.push({ text: label, x: p.x, z: p.z - er - 0.14, cap: 0.06 * INK_K, weight: 700, alpha: 0.85, maxW: 0.92, group: 'enc' });
+    // Un vrai potard (2026-10-09, le soir) : son arc de 270 degres, onze crans, les bouts et le milieu plus longs
+    for (let t = 0; t <= 10; t += 1) tick(p.x, p.z, 225 - t * 27, er + 0.03, er + (t % 5 === 0 ? 0.085 : 0.06));
   }
   if (BASS_ENC_N > 0) {
     const a = bassEncAt(0);
     const d = bassEncAt(3);
-    brackets.push({ text: 'GLOBAL FX', x0: a.x - er - 0.04, x1: d.x + er + 0.04, z: a.z - er - 0.4, down: true });
+    brackets.push({ text: 'FILTER', x0: a.x - er - 0.04, x1: d.x + er + 0.04, z: a.z - er - 0.4, down: true });
   }
   // Les touches : leur nom au-dessus (RUN, EDIT, OPEN, GEN en orange) ; un filet entre les groupes de la rangee de jeu (desktop)
   for (const k of BASS_KEYS) {
@@ -391,7 +392,7 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   // Le filet LOCK au-dessus des boutons LOCK (2026-10-08, la revue : la rangee n'avait pas de nom, et le "(OR LOCK)"
   // du filet du bas ne montrait rien) ; au telephone, un par rangee
   const Lk = BASS.locks;
-  for (const [a, b] of PORTRAIT ? [[0, 7], [8, 15]] : [[0, 15]]) {
+  for (const [a, b] of !BASS_LOCK_KEYS ? [] : PORTRAIT ? [[0, 7], [8, 15]] : [[0, 15]]) {
     const la = bassLockAt(a);
     const lb = bassLockAt(b);
     const z = la.z - BASS_LOCK_LEGEND_DZ;
@@ -561,6 +562,8 @@ export class BassRig {
     lg.setAttribute('instanceEmissive', this.lockEm);
     this.locks = new InstancedMesh(lg, std('bassLock', { roughness: 0.88, metalness: 0 }, true), BASS_STEPS);
     this.locks.name = 'bassLocks';
+    // Les boutons LOCK retires de la face (2026-10-09, le soir) : la maille reste, cachee (son code de LED ne change pas)
+    this.locks.visible = BASS_LOCK_KEYS;
     for (const m of this.meshes()) {
       m.instanceMatrix.setUsage(DynamicDrawUsage);
       m.castShadow = !opts.mobile;
@@ -579,7 +582,9 @@ export class BassRig {
     });
     for (let k = 0; k < BASS_ENC_N; k += 1) {
       // Des angles de depart un peu differents : huit encodeurs poses a la main, pas un alignement de jouet
-      this.encAngle[k] = ((k * 37) % 360) * (Math.PI / 180);
+      // Un vrai potard de 0 a 127 (2026-10-09, Mika : "j'aimerais qu'ils aillent de 0 a 127 normaux, la ils font deux tours")
+      const id = BASS_FX_KNOBS[k];
+      this.encAngle[k] = potAngle(id ? bassParams.of(id) : 0);
       this.placeEnc(k);
     }
     this.syncEncs();
@@ -666,7 +671,7 @@ export class BassRig {
       out.push({ id: bassTrigId(i), kind: 'basstrig', layer: top, shape: 'box', x: p.x, z: p.z, hx: T.w / 2 + 0.04, hz: T.d / 2 + 0.04, y0: 0, y1: DJ_KEY.h * T.h, enabled: true, bass: String(i) });
     }
     const Lk = BASS.locks;
-    for (let i = 0; i < BASS_STEPS; i += 1) {
+    for (let i = 0; i < (BASS_LOCK_KEYS ? BASS_STEPS : 0); i += 1) {
       const p = bassLockAt(i);
       out.push({ id: bassLockId(i), kind: 'basslock', layer: top, shape: 'box', x: p.x, z: p.z, hx: Lk.w / 2 + 0.04, hz: Lk.d / 2 + 0.06, y0: 0, y1: DJ_KEY.h * Lk.h, enabled: true, bass: String(i) });
     }
@@ -1026,8 +1031,8 @@ export class BassRig {
       const v = id ? bassParams.of(id) : 0;
       const was = this.encShown[k];
       this.encShown[k] = v;
-      if (!same || !Number.isFinite(was) || v === was) continue;
-      this.encAngle[k] -= (v - was) * ENC_TURN;
+      if (same && v === was) continue;
+      this.encAngle[k] = potAngle(v);
       this.placeEnc(k);
       moved = true;
     }
