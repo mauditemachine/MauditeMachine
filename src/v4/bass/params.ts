@@ -269,9 +269,10 @@ export function ladderMag(ratio: number, v: number, mode: Exclude<BassMode, '303
 
 /** L'intervalle d'un SEMI, en un mot. */
 export function semiName(st: number): string {
-  const a = Math.abs(st);
-  const w = a === 0 ? 'UNISON' : a === 3 ? 'MIN 3RD' : a === 4 ? 'MAJ 3RD' : a === 5 ? 'FOURTH' : a === 7 ? 'FIFTH' : 'ST';
-  return a === 0 || w === 'ST' ? w : st < 0 ? `${w} DOWN` : w;
+  // Chaque intervalle a son nom (la revue du 2026-10-09 : +6 disait ST, sans plus)
+  const a = Math.min(7, Math.abs(Math.round(st)));
+  const w = ['UNISON', 'MIN 2ND', 'MAJ 2ND', 'MIN 3RD', 'MAJ 3RD', 'FOURTH', 'TRITONE', 'FIFTH'][a];
+  return a === 0 ? w : st < 0 ? `${w} DOWN` : w;
 }
 
 export const BASS_KNOBS: readonly BassKnobDef[] = [
