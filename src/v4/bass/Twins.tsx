@@ -13,6 +13,8 @@
  *   valeur de 0 a 127 comme l'ecran ; une fleche = 1/127, Page = 8/127 ;
  *   en LOCK ils reglent le verrou du pas, Suppr l'enleve), les quatre
  *   touches de page, la touche "i" de l'ecran.
+ * - Au telephone, plus d'encodeurs (2026-10-09) : les huit curseurs se posent
+ *   sur les blocs de l'ecran (bass-blk-1 a 8), qui en tiennent lieu.
  * Inertes tant qu'on n'utilise pas le MM-BASS. Le clavier de la machine
  * (bass/keys.ts) s'ecoute ici.
  */
@@ -30,10 +32,10 @@ import { listenBassKeys } from './keys';
 import { ENC_LETTERS, bassPage, isBassGlobal } from './pages';
 import { BASS_FACE_KNOBS, BASS_PLATE_KNOBS, bassCC, bassKnob, bassParams, bassUnit, bassValueText, type BassKnobDef } from './params';
 import { bassTweakId } from './tweaks';
-import { BASS_I_ID, bassEncId, bassKeyId, bassKnobId, bassLcdId, bassLockId, bassTrigId } from './rig';
+import { BASS_I_ID, bassBlockId, bassEncId, bassKeyId, bassKnobId, bassLcdId, bassLockId, bassTrigId } from './rig';
 import { midiOf } from './seq';
 import { BASS_STEPS, bassState, isLockable } from './state';
-import { BASS_KEYS, BASS_PAGE_KEYS } from './theme';
+import { BASS_ENC_N, BASS_KEYS, BASS_PAGE_KEYS } from './theme';
 
 const r1 = (n: number): number => Math.round(n * 10) / 10;
 const pct = (v: number): number => Math.round(v * 100);
@@ -177,10 +179,12 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   return (
     <div ref={groupRef} className="v4-twins" role="group" aria-label="MM-BASS bass synth and sequencer" aria-hidden={off || undefined}>
       {ENC_LETTERS.map((letter, i) => {
-        // Les encodeurs (2026-10-08) : le reglage de la page allumee, son verrou en LOCK
-        const id = bassEncId(i);
+        // Les encodeurs (2026-10-08) : le reglage de la page allumee, son verrou en LOCK ; au telephone (2026-10-09) les
+        // blocs de l'ecran, a leur place
+        const id = BASS_ENC_N > 0 ? bassEncId(i) : bassBlockId(i);
+        const what = BASS_ENC_N > 0 ? 'Encoder' : 'Screen value';
         const param = bassPage.slot(i, page);
-        if (!param) return <div key={id} ref={refFor(id)} className="v4-twin" data-twin="bassenc" data-hotspot={id} role="slider" tabIndex={-1} aria-disabled="true" aria-label={`Encoder ${letter}: empty on this page`} aria-valuemin={0} aria-valuemax={127} aria-valuenow={0} />;
+        if (!param) return <div key={id} ref={refFor(id)} className="v4-twin" data-twin="bassenc" data-hotspot={id} role="slider" tabIndex={-1} aria-disabled="true" aria-label={`${what} ${letter}: empty on this page`} aria-valuemin={0} aria-valuemax={127} aria-valuenow={0} />;
         const def = bassKnob(param);
         const val = bassKnobValue(param);
         const notch = def.steps && def.steps > 1 ? 1 / (def.steps - 1) : 0;
@@ -194,7 +198,7 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
             data-hotspot={id}
             role="slider"
             tabIndex={0}
-            aria-label={`Encoder ${letter}: ${def.label}${where}`}
+            aria-label={`${what} ${letter}: ${def.label}${where}`}
             aria-orientation="vertical"
             aria-valuemin={def.bipolar ? -64 : 0}
             aria-valuemax={def.bipolar ? 63 : 127}

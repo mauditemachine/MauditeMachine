@@ -21,6 +21,10 @@
  *   pistes des verrous de la page courante (une barre par pas verrouille,
  *   sur l'echelle 0 a 127 du reglage, le niveau du son en pointille), le
  *   compte des verrous des autres pages, et les seize patterns.
+ * Au telephone, sans encodeurs (2026-10-09, Mika : "on change dans l'ecran
+ * directement") : un bloc tenu par un doigt est cerne (held), et les gestes
+ * que l'ecran rappelle parlent de glisser une valeur (DRAG A VALUE), plus de
+ * potard a tourner.
  */
 
 import { BASS_PAGES, BASS_PAGE_SLOTS, ENC_LETTERS, bassPageDef, isBassGlobal, type BassPageId } from './pages';
@@ -44,6 +48,8 @@ export interface BassBlock {
   v: number;
   state: BlockState;
   echo: boolean;
+  /** un pointeur le tient (2026-10-09) : l'ecran le cerne */
+  held: boolean;
   draw: BlockDraw;
   /** ses crans (0 : continu) et le cran courant */
   notches: number;
@@ -135,6 +141,10 @@ export interface PageInput {
   noteName: (s: BassStep) => string;
   /** la hauteur MIDI d'un pas (la bande dessine le contour de la ligne) */
   midiOf: (s: BassStep) => number;
+  /** les blocs tenus par un pointeur, rang 0 a 7 (2026-10-09) */
+  held?: readonly number[];
+  /** le telephone : pas d'encodeurs, les gestes rappeles parlent des blocs */
+  phone?: boolean;
 }
 
 function stepWhat(s: BassStep, name: (s: BassStep) => string): string {
@@ -183,7 +193,7 @@ export function bassPageModel(inp: PageInput): BassPageModel {
   };
   const blocks = BASS_PAGE_SLOTS[inp.page].map((id, k): BassBlock => {
     const letter = ENC_LETTERS[k];
-    if (id === null) return { k, letter, id: null, label: '', big: '', unit: '', v: 0, state: 'empty', echo: false, draw: 'bar', notches: 0, notch: 0, seg: -1 };
+    if (id === null) return { k, letter, id: null, label: '', big: '', unit: '', v: 0, state: 'empty', echo: false, held: false, draw: 'bar', notches: 0, notch: 0, seg: -1 };
     const def = bassKnob(id);
     const s = shown(id);
     const notches = def.steps ?? 0;
@@ -197,6 +207,7 @@ export function bassPageModel(inp: PageInput): BassPageModel {
       v: s.v,
       state: s.state,
       echo: inp.echo === id,
+      held: !!inp.held?.includes(k),
       draw: blockDrawOf(id),
       notches,
       notch: notches ? stepOf(id, s.v) : 0,
@@ -210,11 +221,12 @@ export function bassPageModel(inp: PageInput): BassPageModel {
   let line: string;
   let aside = '';
   if (inp.message) line = inp.message;
-  else if (lock) line = `TURN A KNOB: STEP ${two(lock.step)} ONLY  2X: UNLOCK  CLEAR: ALL`;
+  else if (lock) line = `${inp.phone ? 'DRAG A VALUE' : 'TURN A KNOB'}: STEP ${two(lock.step)} ONLY  2X: UNLOCK  CLEAR: ALL`;
   else line = sel ? `STEP ${two(inp.sel)}  ${stepWhat(sel, inp.noteName)}` : '';
   // Le geste du LOCK, a droite de la ligne tant qu'on n'est pas en LOCK (2026-10-08, la revue : au telephone, la
-  // serigraphie sous les pas ne se lit pas, l'ecran oui ; l'ecran le dit aussi apres un pas touche)
-  if (!lock) aside = 'HOLD A STEP + TURN: P-LOCK';
+  // serigraphie sous les pas ne se lit pas, l'ecran oui ; l'ecran le dit aussi apres un pas touche) ; au telephone
+  // (2026-10-09) on glisse un bloc, on ne tourne plus rien
+  if (!lock) aside = inp.phone ? 'HOLD A STEP + DRAG A VALUE: P-LOCK' : 'HOLD A STEP + TURN: P-LOCK';
   return {
     page: inp.page,
     pages: BASS_PAGES.map((p) => ({ id: p.id, label: p.label, locks: pageLockCount(inp.steps, p.id) })),

@@ -20,6 +20,7 @@
  */
 
 import { bassFactory } from '../state/factory';
+import { PORTRAIT } from '../theme';
 import { generate, mutate, type GenOpts } from './gen';
 import type { BassInfoId } from './infos';
 import { BASS_ROOTS, BASS_SCALES, BASS_STYLES, BASS_KNOBS, DTIME_STEPS, SCALE_TONES, accDecayMs, adecayMs, attackMs, bassKnob, bassValueText, dfbPct, lengthPct, pwPct, releaseMs, rsizeS, rtoneHz, stepOf, sweepOct, tuneCents, type BassKnobId, type BassStyle, type BassValues } from './params';
@@ -1042,9 +1043,14 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
       p.p(rbox(x + 1.5, 66, PITCH - 5, 6, 2), i === lit ? 'hot' : s?.locks ? 'main' : 'grid', i === lit || !!s?.locks);
       p.p(rbox(x, 78, PITCH - 2, 20, 2), i === lit ? 'hot' : !s || s.kind === 'off' ? 'grid' : 'ghost', !!s && s.kind !== 'off' && i !== lit);
     }
-    // Le potard qu'on tourne : sa valeur part dans le pas
-    p.p(dot(40, 36, 14), 'main');
-    p.p(seg(40, 36, 40 + 11 * Math.cos(-0.9), 36 + 11 * Math.sin(-0.9)), 'main');
+    // Le potard qu'on tourne : sa valeur part dans le pas ; au telephone (2026-10-09) le bloc de l'ecran qu'on glisse
+    if (PORTRAIT) {
+      p.p(rbox(24, 20, 32, 32, 4), 'main');
+      p.p(arrow(40, 46, 40, 27, 4), 'main');
+    } else {
+      p.p(dot(40, 36, 14), 'main');
+      p.p(seg(40, 36, 40 + 11 * Math.cos(-0.9), 36 + 11 * Math.sin(-0.9)), 'main');
+    }
     const tx = X0 + lit * PITCH + PITCH / 2;
     p.p(arrow(56, 40, tx, 62, 5), 'hot');
     p.label(here ? `${here} LOCK${here > 1 ? 'S' : ''} ON THIS STEP` : 'NO LOCK YET', X1, TOP, 'end');
@@ -1060,7 +1066,7 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
     p.p('M198 90Q120 112 42 90', 'main').p(tip(50, 94, 42, 90, 5), 'main');
     p.label('OFF', 42, 82, 'middle').label('NOTE', 120, 82, 'middle').label('TIE', 198, 82, 'middle');
     p.label('TAP', X0, TOP);
-    p.label('HOLD + TURN A KNOB: LOCK', X1, TOP, 'end');
+    p.label(PORTRAIT ? 'HOLD + DRAG A VALUE: LOCK' : 'HOLD + TURN A KNOB: LOCK', X1, TOP, 'end');
     return p.done();
   },
   clear(_values, c) {

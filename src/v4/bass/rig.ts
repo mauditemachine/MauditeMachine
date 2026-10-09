@@ -40,6 +40,14 @@
  * (STYLE, DENSITY, GEN, MUTATE) sous EDIT et OPEN. Le pas en LOCK clignote,
  * son bouton LOCK aussi ; la rangee des LOCK porte son nom (un filet LOCK,
  * la revue).
+ *
+ * Au telephone, plus d'encodeurs (2026-10-09, Mika : "en mobile c'est mieux
+ * si tu ne mets pas d'encodeurs ; on change dans l'ecran directement, et en
+ * dessous de l'ecran on retrouve les boutons ; forcement donne-moi un ecran
+ * plus grand") : ni capuchons, ni lettres, ni zones bass-enc-* ; l'ecran
+ * prend leur place (bass/theme.ts), ses huit blocs (bass-blk-1 a 8) sont les
+ * commandes, cernes tant qu'un doigt les tient (holdBlock) ; les touches de
+ * page juste dessous, leur zone etendue a leur nom (BASS_PAGE_HIT).
  */
 
 import { BoxGeometry, BufferGeometry, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, Group, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Quaternion, Vector3, type Texture } from 'three';
@@ -74,6 +82,7 @@ import { BASS_STEPS, bassState, isLockable } from './state';
 import {
   BASS,
   BASS_D,
+  BASS_ENC_N,
   BASS_ENC_S,
   BASS_EXPLODE,
   BASS_KEYS,
@@ -81,6 +90,7 @@ import {
   BASS_KNOB_PLACES,
   BASS_LID,
   BASS_LOCK_LEGEND_DZ,
+  BASS_PAGE_HIT,
   BASS_PAGE_KEYS,
   BASS_PCB_Y,
   BASS_SECTIONS,
@@ -265,9 +275,10 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
     if (def?.steps) for (let t = 0; t < def.steps; t += 1) tick(p.x, p.z, 225 - (t * 270) / (def.steps - 1), r + 0.03, r + 0.09);
     else for (const deg of [225, -45]) tick(p.x, p.z, deg, r + 0.03, r + 0.08);
   }
-  // Les encodeurs (2026-10-08) : leur lettre au-dessus, comme les blocs de l'ecran ; pas de graduation (ils sont sans fin)
+  // Les encodeurs (2026-10-08) : leur lettre au-dessus, comme les blocs de l'ecran ; pas de graduation (ils sont sans fin).
+  // Au telephone, aucun (2026-10-09) : les lettres sont dans les blocs de l'ecran
   const er = DJ_KNOB.skirt.r * BASS_ENC_S;
-  for (let k = 0; k < 8; k += 1) {
+  for (let k = 0; k < BASS_ENC_N; k += 1) {
     const p = bassEncAt(k);
     texts.push({ text: ENC_LETTERS[k], x: p.x, z: p.z - er - (PORTRAIT ? 0.17 : 0.14), cap: (PORTRAIT ? 0.07 : 0.064) * INK_K, weight: 700, alpha: 0.7, group: 'enc' });
   }
@@ -275,7 +286,9 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   for (const k of BASS_KEYS) {
     const big = k.kind === 'edit' || k.kind === 'open';
     const page = isPageKey(k.kind);
-    texts.push({ text: k.label, x: k.x, z: k.z - k.d / 2 - (page ? 0.12 : 0.15), cap: (big ? 0.072 : page ? 0.062 : 0.058) * INK_K, weight: 700, group: page ? 'pages' : 'keys', maxW: k.w + 0.2, ...(k.orange ? { ink: 'orange' as const, alpha: 1 } : {}) });
+    // Au telephone les noms des pages un peu plus grands (2026-10-09) : sous l'ecran, ce sont eux qui menent
+    const pageCap = PORTRAIT ? 0.07 : 0.062;
+    texts.push({ text: k.label, x: k.x, z: k.z - k.d / 2 - (page ? 0.12 : 0.15), cap: (big ? 0.072 : page ? pageCap : 0.058) * INK_K, weight: 700, group: page ? 'pages' : 'keys', maxW: k.w + 0.2, ...(k.orange ? { ink: 'orange' as const, alpha: 1 } : {}) });
   }
   for (const [a, b] of BASS_KEY_SEPS) {
     const ka = BASS_KEYS.find((k) => k.kind === a);
@@ -314,7 +327,8 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
     lines.push([x0, t, x0, z, mid - half, z], [mid + half, z, x1, z, x1, t]);
   };
   const how = 'HOLD A STEP (OR LOCK) + TURN AN ENCODER: THAT STEP ONLY  /  TAP A STEP: NOTE, TIE, OFF';
-  if (PORTRAIT) legend('HOLD A STEP OR ITS LOCK + TURN AN ENCODER: P-LOCK', t0, t1, bassTrigAt(15).z + T.d / 2 + 0.36, 0.105, false);
+  // Au telephone, plus d'encodeur (2026-10-09) : on glisse un bloc de l'ecran
+  if (PORTRAIT) legend('HOLD A STEP OR ITS LOCK + DRAG A VALUE: P-LOCK', t0, t1, bassTrigAt(15).z + T.d / 2 + 0.36, 0.105, false);
   else brackets.push({ text: how, x0: t0, x1: t1, z: bassTrigAt(15).z + T.d / 2 + 0.42 });
   // Le filet LOCK au-dessus des boutons LOCK (2026-10-08, la revue : la rangee n'avait pas de nom, et le "(OR LOCK)"
   // du filet du bas ne montrait rien) ; au telephone, un par rangee
@@ -350,8 +364,8 @@ export class BassRig {
   private brush: Texture;
   /** STYLE et DENSITY */
   private knobs: InstancedMesh;
-  /** les huit encodeurs (2026-10-08) */
-  private encs: InstancedMesh;
+  /** les huit encodeurs (2026-10-08) ; null au telephone (2026-10-09, plus d'encodeurs) */
+  private encs: InstancedMesh | null;
   private keys: InstancedMesh;
   private trigs: InstancedMesh;
   private locks: InstancedMesh;
@@ -388,6 +402,8 @@ export class BassRig {
   private echoTimer = 0;
   /** ce que l'ecran montre (les tests le lisent, debug.ts) */
   private shown: BassScreenView | null = null;
+  /** les blocs de l'ecran tenus (2026-10-09) : rang 0 a 7, le nombre de pointeurs qui le tiennent ; cernes a l'ecran */
+  private heldBlocks = new Map<number, number>();
 
   constructor(private opts: BassRigOpts) {
     this.root.name = 'bassRoot';
@@ -439,9 +455,9 @@ export class BassRig {
     // STYLE et DENSITY : capuchon noir, repere os (des potards : leur angle est leur valeur)
     this.knobs = new InstancedMesh(knobGeometry(opts.mobile, 'knob', 'mark'), knobMat, Math.max(1, BASS_KNOBS.length));
     this.knobs.name = 'bassKnobs';
-    // Les encodeurs : aluminium cannele, un point sombre (il montre le geste, pas une valeur)
-    this.encs = new InstancedMesh(encoderGeometry(opts.mobile), knobMat, 8);
-    this.encs.name = 'bassEncoders';
+    // Les encodeurs : aluminium cannele, un point sombre (il montre le geste, pas une valeur) ; aucun au telephone
+    this.encs = BASS_ENC_N > 0 ? new InstancedMesh(encoderGeometry(opts.mobile), knobMat, BASS_ENC_N) : null;
+    if (this.encs) this.encs.name = 'bassEncoders';
     const kg = keyGeometry(opts.mobile);
     this.keyEm = new InstancedBufferAttribute(new Float32Array(BASS_KEYS.length * 3), 3);
     this.keyEm.setUsage(DynamicDrawUsage);
@@ -460,12 +476,12 @@ export class BassRig {
     lg.setAttribute('instanceEmissive', this.lockEm);
     this.locks = new InstancedMesh(lg, std('bassLock', { roughness: 0.88, metalness: 0 }, true), BASS_STEPS);
     this.locks.name = 'bassLocks';
-    for (const m of [this.knobs, this.encs, this.keys, this.trigs, this.locks]) {
+    for (const m of this.meshes()) {
       m.instanceMatrix.setUsage(DynamicDrawUsage);
       m.castShadow = !opts.mobile;
       m.receiveShadow = true;
     }
-    this.top.add(this.knobs, this.encs, this.keys, this.trigs, this.locks);
+    this.top.add(...this.meshes());
 
     this.screen = new BassScreen(opts.anisotropy, opts.mobile);
     this.top.add(this.screen.mesh);
@@ -476,7 +492,7 @@ export class BassRig {
       this.knobAngle[i] = potAngle(bassKnobValue(k.id));
       this.placeKnob(i);
     });
-    for (let k = 0; k < 8; k += 1) {
+    for (let k = 0; k < BASS_ENC_N; k += 1) {
       // Des angles de depart un peu differents : huit encodeurs poses a la main, pas un alignement de jouet
       this.encAngle[k] = ((k * 37) % 360) * (Math.PI / 180);
       this.placeEnc(k);
@@ -493,6 +509,11 @@ export class BassRig {
     this.drawScreen();
   }
 
+  /** Les maillages instancies de la face (sans encodeurs au telephone). */
+  private meshes(): InstancedMesh[] {
+    return [this.knobs, ...(this.encs ? [this.encs] : []), this.keys, this.trigs, this.locks];
+  }
+
   /* ---------- placement ---------- */
 
   private placeKnob(i: number): void {
@@ -502,10 +523,12 @@ export class BassRig {
   }
 
   private placeEnc(k: number): void {
+    const e = this.encs;
+    if (!e) return;
     const p = bassEncAt(k);
     // Un peu plus bas qu'un potard : un encodeur de machine a pas, pas un bouton de volume
-    this.encs.setMatrixAt(k, m4.compose(v3.set(p.x, 0, p.z), q.setFromAxisAngle(AXIS_Y, this.encAngle[k]), s3.set(p.s, p.s * 0.82, p.s)));
-    this.encs.instanceMatrix.needsUpdate = true;
+    e.setMatrixAt(k, m4.compose(v3.set(p.x, 0, p.z), q.setFromAxisAngle(AXIS_Y, this.encAngle[k]), s3.set(p.s, p.s * 0.82, p.s)));
+    e.instanceMatrix.needsUpdate = true;
   }
 
   private placeKey(i: number): void {
@@ -538,13 +561,19 @@ export class BassRig {
       const r = DJ_KNOB.skirt.r * p.s + 0.07;
       out.push({ id: bassKnobId(k.id), kind: 'bassknob', layer: top, shape: 'disc', x: p.x, z: p.z, hx: r, hz: r, y0: 0, y1: (DJ_KNOB.skirt.h + DJ_KNOB.h) * p.s, enabled: true, bass: k.id });
     }
-    // Les encodeurs : bass.bass = '1' a '8' (MIDI LEARN : bass:knob:1 a 8, la page courante)
-    for (let k = 0; k < 8; k += 1) {
+    // Les encodeurs : bass.bass = '1' a '8' (MIDI LEARN : bass:knob:1 a 8, la page courante) ; aucun au telephone
+    for (let k = 0; k < BASS_ENC_N; k += 1) {
       const p = bassEncAt(k);
       const r = DJ_KNOB.skirt.r * p.s + (PORTRAIT ? 0.16 : 0.08);
       out.push({ id: bassEncId(k), kind: 'bassknob', layer: top, shape: 'disc', x: p.x, z: p.z, hx: r, hz: r, y0: 0, y1: (DJ_KNOB.skirt.h + DJ_KNOB.h) * p.s * 0.82, enabled: true, bass: String(k + 1) });
     }
-    for (const k of BASS_KEYS) out.push({ id: bassKeyId(k.kind), kind: 'basskey', layer: top, shape: 'box', x: k.x, z: k.z, hx: k.w / 2, hz: k.d / 2 + (PORTRAIT ? 0.06 : 0), y0: 0, y1: DJ_KEY.h, enabled: true, bass: k.kind });
+    for (const k of BASS_KEYS) {
+      // Une touche de page au telephone (2026-10-09) : sa zone prend son nom et le jour sous l'ecran (BASS_PAGE_HIT)
+      const ph = BASS_PAGE_HIT && isPageKey(k.kind) ? BASS_PAGE_HIT : null;
+      const z = ph ? (ph.z0 + ph.z1) / 2 : k.z;
+      const hz = ph ? (ph.z1 - ph.z0) / 2 : k.d / 2 + (PORTRAIT ? 0.06 : 0);
+      out.push({ id: bassKeyId(k.kind), kind: 'basskey', layer: top, shape: 'box', x: k.x, z, hx: k.w / 2, hz, y0: 0, y1: DJ_KEY.h, enabled: true, bass: k.kind });
+    }
     const T = BASS.trigs;
     for (let i = 0; i < BASS_STEPS; i += 1) {
       const p = bassTrigAt(i);
@@ -751,13 +780,14 @@ export class BassRig {
    * change, il ne saute pas (un encodeur sans fin n'a pas de position).
    */
   private syncEncs(): boolean {
+    if (!this.encs) return false;
     const s = bassState.get();
     const page = bassPage.get();
     const fresh = `${page}|${s.lock}`;
     const same = fresh === this.encFor;
     this.encFor = fresh;
     let moved = false;
-    for (let k = 0; k < 8; k += 1) {
+    for (let k = 0; k < BASS_ENC_N; k += 1) {
       const id = bassPage.slot(k, page);
       const v = id ? bassKnobValue(id) : 0;
       const was = this.encShown[k];
@@ -796,7 +826,8 @@ export class BassRig {
         message: s.message,
         infos,
         midiOf: (st) => midiOf(st),
-        maxLanes: PORTRAIT ? 2 : 3,
+        // Au telephone trois pistes depuis l'ecran plus grand (2026-10-09)
+        maxLanes: 3,
       });
       return { view: 'edit', m };
     }
@@ -839,6 +870,8 @@ export class BassRig {
       echo,
       noteName: (st) => noteName(midiOf(st)),
       midiOf: (st) => midiOf(st),
+      held: [...this.heldBlocks.keys()],
+      phone: PORTRAIT,
     });
     return { view: 'page', m };
   }
@@ -861,6 +894,18 @@ export class BassRig {
       if (!this.drawQueued) return;
       if (this.drawScreen()) this.opts.repaint();
     });
+  }
+
+  /**
+   * Un bloc de l'ecran (ou son encodeur, desktop) pris ou lache par un pointeur (2026-10-09, la machine sans encodeurs
+   * du telephone) : tant qu'il est tenu, l'ecran le cerne, on voit ce que le doigt regle avant meme que la valeur bouge.
+   */
+  holdBlock(k: number, down: boolean): void {
+    if (k < 0 || k > 7) return;
+    const n = (this.heldBlocks.get(k) ?? 0) + (down ? 1 : -1);
+    if (n > 0) this.heldBlocks.set(k, n);
+    else this.heldBlocks.delete(k);
+    this.queueDraw();
   }
 
   pressKey(id: string, down: boolean): void {
@@ -1030,14 +1075,14 @@ export class BassRig {
     if (this.drawQueued && this.drawScreen()) this.opts.repaint();
     return {
       knobs: BASS_KNOBS.length,
-      encoders: 8,
+      encoders: BASS_ENC_N,
       plate: BASS_PLATE_KNOBS.length,
       keys: BASS_KEYS.length,
       trigs: BASS_STEPS,
       locks: BASS_STEPS,
       screenDraws: this.screen.draws,
       silkDraws: this.silk.draws,
-      encAngleDeg: Array.from(this.encAngle, (a) => Math.round((a * 180) / Math.PI)),
+      encAngleDeg: Array.from(this.encAngle.subarray(0, BASS_ENC_N), (a) => Math.round((a * 180) / Math.PI)),
       screen: this.shown,
       explode: this.explode.info(),
     };
@@ -1055,7 +1100,7 @@ export class BassRig {
     this.tweaks.dispose();
     this.bodyMat.dispose();
     this.brush.dispose();
-    for (const m of [this.knobs, this.encs, this.keys, this.trigs, this.locks]) {
+    for (const m of this.meshes()) {
       m.geometry.dispose();
       m.dispose();
     }

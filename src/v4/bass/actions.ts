@@ -54,6 +54,7 @@ import { pattern } from '../audio/pattern';
 import { sc } from '../audio/soundcloud';
 import { editor } from '../state/editor';
 import { focus } from '../state/focus';
+import { PORTRAIT } from '../theme';
 import { bassEngine } from './engine';
 import { generate, mutate, type GenOpts } from './gen';
 import type { BassStep } from './state';
@@ -64,6 +65,8 @@ import { bassSeq, gateOf, midiOf } from './seq';
 import { BASS_STEPS, bassState, emptyStep, isLockable } from './state';
 
 const two = (i: number): string => String(i + 1).padStart(2, '0');
+/** Le geste qui regle un verrou : au telephone on glisse un bloc de l'ecran (2026-10-09, plus d'encodeurs). */
+const TURN = PORTRAIT ? 'DRAG A VALUE' : 'TURN A KNOB';
 
 /** EDIT est ouvert sur le MM-BASS : les pas sont les patterns. */
 export const bassEditing = (): boolean => editor.get() === 'bass';
@@ -402,7 +405,7 @@ export function bassPageSet(p: BassPageId): void {
   if (st.lock < 0) return;
   const locks = st.steps[st.lock]?.locks ?? {};
   const n = BASS_PAGE_SLOTS[p].filter((id) => id !== null && isLockable(id) && locks[id] !== undefined).length;
-  bassState.say(`LOCK ${two(st.lock)}  ${bassPageDef(p).label}: ${n ? `${n} LOCKED` : 'TURN A KNOB'}`, 1400);
+  bassState.say(`LOCK ${two(st.lock)}  ${bassPageDef(p).label}: ${n ? `${n} LOCKED` : TURN}`, 1400);
 }
 
 /** Les touches [ et ] : la page d'a cote (un seul changement, l'echo efface avant). */
@@ -442,7 +445,7 @@ export function bassLockEnter(i: number): void {
     lockNote = i;
   }
   const n = Object.keys(st.steps[i].locks ?? {}).length;
-  bassState.say(`LOCK ${two(i)}  ${empty ? 'NEW NOTE, TURN A KNOB' : n ? `${n} LOCKED` : 'TURN A KNOB'}`, 2000);
+  bassState.say(`LOCK ${two(i)}  ${empty ? `NEW NOTE, ${TURN}` : n ? `${n} LOCKED` : TURN}`, 2000);
   audition(i);
 }
 

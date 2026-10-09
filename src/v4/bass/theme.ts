@@ -39,10 +39,16 @@
  * colonne. A droite : EDIT et OPEN en haut, puis le GENERATOR (STYLE,
  * DENSITY, GEN, MUTATE). Le reste ne bouge pas : la rangee de jeu, les LOCK,
  * les pas.
- * Au telephone (PORTRAIT) : l'ecran sur toute la largeur, les encodeurs en
- * deux rangees de quatre sous lui (meme ordre que ses blocs), les touches de
+ * Au telephone (PORTRAIT) : l'ecran sur toute la largeur, les touches de
  * page, le GENERATOR sur une rangee, RUN CLEAR EDIT OPEN, les touches du pas
  * choisi, les pas en deux rangees de huit, chacun son LOCK au-dessus.
+ * Plus d'encodeurs au telephone (2026-10-09, Mika : "en mobile c'est mieux
+ * si tu ne mets pas d'encodeurs, enleve-les pour RYTM et BASS, donc on
+ * change dans l'ecran directement, et en dessous de l'ecran on retrouve les
+ * boutons ; forcement donne-moi un ecran plus grand") : leur place va a
+ * l'ecran (4.05 -> 6.4 de profondeur, ses huit blocs sont les commandes :
+ * on les glisse comme les encodeurs), les quatre touches de page juste
+ * dessous, sur toute sa largeur. Desktop ne change pas.
  * Ce module reste dans le chargement principal (le Stage en a besoin pour
  * cadrer) ; le reste du MM-BASS arrive a part (state/bassload.ts).
  */
@@ -73,8 +79,9 @@ export const BASS = PORTRAIT
   ? {
       head: { z: -8.2 },
       logo: { h: 0.32, z: -8.2 },
-      // La machine Elektron (2026-10-08) : l'ecran plus profond (4.05 au lieu de 2.5 : son en-tete et ses blocs se touchent du doigt), toute la largeur
-      screen: { x: 0, z: -5.775, w: 7.6, d: 4.05 },
+      // La machine Elektron (2026-10-08) : l'ecran plus profond (4.05 au lieu de 2.5 : son en-tete et ses blocs se touchent du doigt), toute la largeur ;
+      // sans encodeurs (2026-10-09, Mika : "donne-moi un ecran plus grand") 6.4 : de -7.8 a -1.4, la place des deux rangees d'encodeurs
+      screen: { x: 0, z: -4.6, w: 7.6, d: 6.4 },
       trigs: { w: 0.8, d: 0.56, h: 1.15 },
       // Plus grands au doigt (2026-10-08 : la bande de 15 px entre NOTE + et le pas ratait ; puis la revue : une
       // vraie touche, plus haute, a 44 px de son pas)
@@ -104,14 +111,20 @@ interface KnobPlace {
   s: number;
 }
 
-/** Les colonnes des encodeurs (et des touches de page), leurs rangees, leur echelle. */
+/** Les colonnes du GENERATOR au telephone (STYLE, DENSITY, GEN, MUTATE). */
 const PH_X = [-2.85, -0.95, 0.95, 2.85];
 /**
- * Au telephone, d'une rangee a l'autre au moins 1.05 (44 px sous le doigt ; 2026-10-08, la revue : les encodeurs
- * E a H mangeaient 10 px des touches de page) : les encodeurs, leurs pages a 1.15, le GENERATOR, RUN CLEAR EDIT
- * OPEN, les touches du pas, puis LOCK et pas, LOCK et pas.
+ * Les touches de page au telephone (2026-10-09, Mika : "en dessous de l'ecran on retrouve les boutons") : juste sous
+ * l'ecran, sur toute sa largeur (7.6, quatre touches de 1.76, un jour de 0.19), une sous chaque colonne de blocs.
  */
-const ENC = PORTRAIT ? { x: PH_X, z: [-3.0, -1.7], s: 1.25, pageZ: -0.55 } : { x: [0.3, 1.3, 2.3, 3.3], z: [-2.25, -0.95], s: 1.1, pageZ: 0.3 };
+const PH_PAGE = { x: [-2.925, -0.975, 0.975, 2.925], w: 1.76, d: 0.56, z: -0.62 } as const;
+/**
+ * Au telephone, d'une rangee a l'autre au moins 1.05 (44 px sous le doigt ; 2026-10-08, la revue : les encodeurs
+ * E a H mangeaient 10 px des touches de page) : l'ecran, ses pages, le GENERATOR, RUN CLEAR EDIT OPEN, les touches du
+ * pas, puis LOCK et pas, LOCK et pas. Les encodeurs n'y sont plus (2026-10-09) : leurs colonnes et leurs rangees ne
+ * servent qu'au desktop.
+ */
+const ENC = PORTRAIT ? { x: PH_X, z: [-3.0, -1.7], s: 1.25, pageZ: PH_PAGE.z } : { x: [0.3, 1.3, 2.3, 3.3], z: [-2.25, -0.95], s: 1.1, pageZ: 0.3 };
 /** La rangee du GENERATOR au telephone (STYLE, DENSITY, GEN, MUTATE). */
 const PH_GEN_Z = 0.75;
 /** Les rangees du bas : desktop la rangee de jeu (remontee pour le filet LOCK, la revue), telephone RUN et les touches du pas. */
@@ -137,14 +150,17 @@ export const bassKnobTone = (_id: BassKnobId): BassKnobTone => 'knob';
 
 /**
  * Les huit encodeurs (2026-10-08, la machine Elektron) : k de 0 a 7, A B C D
- * en haut, E F G H dessous, comme les blocs de l'ecran.
+ * en haut, E F G H dessous, comme les blocs de l'ecran. Au telephone aucun
+ * (2026-10-09, Mika : "enleve-les") : ni capuchon, ni lettre, ni zone, les
+ * blocs de l'ecran en tiennent lieu (bass-blk-1 a 8, les memes gestes).
  */
+export const BASS_ENC_N = PORTRAIT ? 0 : 8;
 export const BASS_ENC_S = ENC.s;
 export const bassEncAt = (k: number): { x: number; z: number; s: number } => ({ x: ENC.x[k % 4], z: ENC.z[k < 4 ? 0 : 1], s: ENC.s });
 
 /* ---------------- les touches ---------------- */
 
-/** Les touches de page (2026-10-08) : une par colonne d'encodeurs. */
+/** Les touches de page (2026-10-08) : une par colonne d'encodeurs ; au telephone, sous l'ecran (2026-10-09). */
 export type BassPageKey = 'pvoice' | 'pfilter' | 'penv' | 'pfx';
 export const BASS_PAGE_KEYS: readonly BassPageKey[] = ['pvoice', 'pfilter', 'penv', 'pfx'];
 
@@ -191,14 +207,15 @@ const COPY: readonly KeyCopy[] = [
  * GEN et MUTATE a cote de STYLE et DENSITY, puis RUN CLEAR EDIT OPEN, puis
  * ACCENT SLIDE NOTE - NOTE + OCT - OCT +. Les touches de page (la machine
  * Elektron, le meme jour) sous les encodeurs, une par colonne ; GEN et
- * MUTATE sur leur rangee (desktop).
+ * MUTATE sur leur rangee (desktop). Au telephone (2026-10-09) les touches de
+ * page juste sous l'ecran, d'un bord a l'autre de son verre.
  */
 const PLACES: Readonly<Record<BassKeyKind, { x: number; z: number; w: number; d: number }>> = PORTRAIT
   ? {
-      pvoice: { x: ENC.x[0], z: ENC.pageZ, w: 1.55, d: 0.5 },
-      pfilter: { x: ENC.x[1], z: ENC.pageZ, w: 1.55, d: 0.5 },
-      penv: { x: ENC.x[2], z: ENC.pageZ, w: 1.55, d: 0.5 },
-      pfx: { x: ENC.x[3], z: ENC.pageZ, w: 1.55, d: 0.5 },
+      pvoice: { x: PH_PAGE.x[0], z: PH_PAGE.z, w: PH_PAGE.w, d: PH_PAGE.d },
+      pfilter: { x: PH_PAGE.x[1], z: PH_PAGE.z, w: PH_PAGE.w, d: PH_PAGE.d },
+      penv: { x: PH_PAGE.x[2], z: PH_PAGE.z, w: PH_PAGE.w, d: PH_PAGE.d },
+      pfx: { x: PH_PAGE.x[3], z: PH_PAGE.z, w: PH_PAGE.w, d: PH_PAGE.d },
       gen: { x: 0.95, z: PH_GEN_Z, w: 1.5, d: 0.58 },
       mutate: { x: 2.85, z: PH_GEN_Z, w: 1.5, d: 0.58 },
       run: { x: -2.95, z: PLAY_Z.run, w: 1.55, d: 0.6 },
@@ -232,6 +249,13 @@ const PLACES: Readonly<Record<BassKeyKind, { x: number; z: number; w: number; d:
     };
 
 export const BASS_KEYS: readonly BassKeyDef[] = COPY.map((c) => ({ ...c, ...PLACES[c.kind] }));
+
+/**
+ * Au telephone (2026-10-09), la zone d'une touche de page prend aussi son nom et le jour sous le verre : de juste
+ * sous le cadre de l'ecran (0.12) au filet PARAMETER, 1.14 de profondeur, 44 px sous le doigt sans grossir la touche ;
+ * null au desktop (la zone de la touche seule).
+ */
+export const BASS_PAGE_HIT: { z0: number; z1: number } | null = PORTRAIT ? { z0: BASS.screen.z + BASS.screen.d / 2 + 0.18, z1: PH_PAGE.z + PH_PAGE.d / 2 + 0.26 } : null;
 export const bassKeyAt = (i: number): BassKeyDef => BASS_KEYS[i];
 
 /** Desktop : les filets entre les groupes de la rangee de jeu (entre deux touches : leur milieu). */

@@ -16,8 +16,12 @@
  * encodeur montre la carte du reglage qu'il tient sur la page allumee (enc
  * pour une case vide), les touches de page la leur, la touche "i" (ikey) la
  * sienne ; la section d'un reglage d'une page dit ou le trouver (FILTER B).
+ * Au telephone, plus d'encodeurs (2026-10-09, Mika : "on change dans l'ecran
+ * directement") : les cartes qui parlaient d'encodeurs parlent des blocs de
+ * l'ecran (PHONE, par-dessus RAW), sans les touches du clavier.
  */
 
+import { PORTRAIT } from '../theme';
 import { ENC_LETTERS, bassPage, bassPageDef, bassSlotOf } from './pages';
 import { BASS_KNOBS, type BassKnobId } from './params';
 import type { BassKeyKind } from './theme';
@@ -398,6 +402,40 @@ const RAW: Record<BassInfoId, BassInfo> = {
   },
 };
 
+/**
+ * Au telephone (2026-10-09) : plus d'encodeurs, les huit blocs de l'ecran en tiennent lieu (on les glisse), les
+ * touches de page sont sous l'ecran ; pas de clavier (ni [ ], ni Echap).
+ */
+const PHONE: Partial<Record<BassInfoId, Partial<BassInfo>>> = {
+  decay: {
+    text: "Le temps que met le filtre à se refermer après chaque note, de 120 ms à 2,5 s : court pour des notes sèches, long pour des notes qui respirent. Une note accentuée garde sa décroissance courte (ACC DECAY, le bloc voisin), comme sur la 303, sauf si DECAY est verrouillé sur son pas.",
+  },
+  accent: {
+    text: "La force des pas accentués (touche ACCENT, pas orange vif) : plus de volume, un filtre qui s'ouvre plus haut et plus court. Les accents qui se suivent s'additionnent et le filtre monte encore, le fameux wow de la 303 (SWEEP, deux blocs plus loin). Verrouillé sur un pas sans accent, il lui donne l'accent.",
+  },
+  pvoice: { text: "Les huit blocs de l'écran règlent la voix : WAVE, PW, SUB, SUB OCT, OCTAVE, TUNE et GLIDE. La LED dit la page allumée, l'onglet de l'écran aussi." },
+  pfilter: { text: "Les huit blocs de l'écran règlent le filtre de la 303 : CUTOFF, RESO, ENV MOD, DECAY, ACCENT, ACC DECAY, SWEEP et KEY TRK. C'est la page de départ." },
+  penv: { text: "Les huit blocs de l'écran règlent l'enveloppe de l'ampli : ATTACK, AMP DECAY, SUSTAIN, RELEASE, la longueur des notes (LENGTH) et VOLUME." },
+  pfx: { text: "Les huit blocs de l'écran règlent les effets : DRIVE, l'envoi DELAY avec son temps et son retour, l'envoi REVERB avec sa durée et sa couleur. Les envois se verrouillent pas par pas ; le temps, le retour, la durée et la couleur sont globaux." },
+  enc: {
+    section: 'SCREEN',
+    title: 'VALUE',
+    text: "Les huit blocs de l'écran règlent la page allumée (VOICE, FILTER, ENV, FX, les touches sous l'écran) : glisse un bloc vers le haut ou le bas pour changer sa valeur, de 0 à 127 ; deux tapes la remettent à sa valeur de départ. Cette case est vide sur cette page.",
+  },
+  ikey: { text: "Allume l'aide : touche n'importe quelle commande du MM-BASS pour lire ce qu'elle fait, sans la changer ; un bloc de l'écran montre le réglage qu'il tient sur la page allumée. Le i se remplit tant que c'est allumé ; touche-le encore pour l'éteindre." },
+  lock: {
+    text: "Ce pas passe en LOCK : sa LED clignote, l'écran affiche en négatif LOCK suivi du numéro du pas. Choisis la partie à changer avec une touche de page (VOICE, FILTER, ENV, FX, sous l'écran), puis glisse un bloc de l'écran : ce réglage ne change plus que sur ce pas, son bloc passe en négatif. Deux tapes sur le bloc enlèvent ce verrou, CLEAR tous ceux du pas ; réappuie sur LOCK pour sortir.",
+  },
+  trig: {
+    text: "Touche un pas : vide, note, liaison, vide ; glisse dessus pour changer sa note. Tiens-le d'un doigt et glisse un bloc de l'écran d'un autre : ce réglage est verrouillé sur ce pas, comme sur une Elektron (un appui long seul garde le LOCK). Quand la lecture passe sur un pas verrouillé, ses blocs passent en négatif à l'écran.",
+    tip: "Lâche le pas avant le bloc si tu veux : le verrou s'écrit jusqu'au lâcher du bloc.",
+  },
+  screen: {
+    text: "Les huit blocs sont les commandes : glisse un bloc vers le haut pour monter sa valeur (de 0 à 127, son unité dessous), deux tapes pour sa valeur de départ ; le bloc que ton doigt tient est cerné. En LOCK, les réglages verrouillés sur le pas sont en négatif ; en lecture, ceux du pas qui joue s'allument le temps du pas. Dessous, les 16 pas : un point sur chaque pas verrouillé (plein : sur cette page). Touche l'en-tête (le pattern, A01) pour les presets, le petit i pour INFOS.",
+  },
+  infos: { text: "Allume l'aide : touche un bloc de l'écran, un potard ou une touche du MM-BASS pour lire ce qu'il fait, sans le changer. Le petit i dans le coin de l'écran fait la même chose. Réappuie, ou touche la pastille, pour l'éteindre." },
+};
+
 const KNOBS: ReadonlySet<string> = new Set(BASS_KNOBS.map((k) => k.id));
 
 /** La section d'un reglage d'une page : ou le trouver (FILTER B), et sous le capot s'il y est aussi (2026-10-08). */
@@ -410,7 +448,10 @@ function sectionOf(id: string, raw: string): string {
 }
 
 export const BASS_INFOS: Record<BassInfoId, BassInfo> = Object.fromEntries(
-  Object.entries(RAW).map(([id, x]) => [id, { section: sectionOf(id, x.section), title: x.title, text: fr(x.text), ...(x.tip ? { tip: fr(x.tip) } : {}) }])
+  Object.entries(RAW).map(([id, raw]) => {
+    const x: BassInfo = PORTRAIT ? { ...raw, ...PHONE[id as BassInfoId] } : raw;
+    return [id, { section: sectionOf(id, x.section), title: x.title, text: fr(x.text), ...(x.tip ? { tip: fr(x.tip) } : {}) }];
+  })
 ) as Record<BassInfoId, BassInfo>;
 
 /** Un potard ? (sa valeur se lit, son dessin la suit). */

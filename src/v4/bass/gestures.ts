@@ -35,6 +35,14 @@
  *   LOCK tout de suite (sans attendre les 350 ms), comme sur une Elektron ;
  * - les touches de page ; la touche "i" de l'ecran (bass-key-i) allume ou
  *   eteint INFOS, meme au doigt en INFOS.
+ * Au telephone, plus d'encodeurs (2026-10-09, Mika : "on change dans l'ecran
+ * directement") : les blocs de l'ecran sont les commandes, les memes gestes
+ * (un doigt qui glisse : relatif, 150 px la course ; deux tapes : la valeur
+ * de depart, en LOCK le verrou s'en va ; INFOS : la carte, un glisser tourne
+ * encore). Le bloc tenu est cerne a l'ecran (le rig, holdBlock), desktop
+ * aussi pour l'encodeur tenu. Deux doigts : le doigt du pas leve avant celui
+ * du bloc, le LOCK attend le lacher du bloc (sinon la fin du geste aurait
+ * regle le son de tous les pas).
  */
 
 import type { HotspotView } from '../scene/hit';
@@ -104,12 +112,19 @@ interface Grip {
   /** un encodeur : son rang (-1 : un potard dedie) et la page ou il a pris son reglage */
   enc: number;
   page: BassPageId;
+  /** un bloc (ou un encodeur) cerne a l'ecran tant qu'il est tenu (2026-10-09) */
+  ring: boolean;
 }
 
 export class BassGestures {
   private grips = new Map<number, Grip>();
   private lastTap = new Map<string, number>();
   private wheelAcc = new Map<string, number>();
+  /**
+   * Deux doigts (2026-10-09) : le pas tenu leve alors qu'un bloc tourne encore ; son LOCK momentane ne sort qu'au
+   * lacher du dernier bloc (-1 : rien en attente).
+   */
+  private lockOffAfter = -1;
 
   constructor(private stage: Stage) {}
 
@@ -122,7 +137,7 @@ export class BassGestures {
   }
 
   down(pointerId: number, h: HotspotView, x: number, y: number, touch = false): void {
-    const g: Grip = { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, infoOnly: false, lock: -1, enc: -1, page: bassPage.get() };
+    const g: Grip = { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, infoOnly: false, lock: -1, enc: -1, page: bassPage.get(), ring: false };
     // La touche "i" de l'ecran : INFOS, toujours (au doigt en INFOS aussi : c'est elle qui l'eteint)
     if (h.id === 'bass-key-i') {
       bassInfos.toggle();
@@ -167,6 +182,11 @@ export class BassGestures {
       }
       g.v0 = bassKnobValue(g.knob);
       g.lock = bassState.get().lock;
+      // Le bloc tenu se cerne a l'ecran (2026-10-09) : on voit ce que le doigt regle avant que la valeur bouge
+      if (enc >= 0) {
+        g.ring = true;
+        this.stage.bass?.holdBlock(enc, true);
+      }
       // Deux tapes : la valeur de depart (en LOCK : le verrou s'en va) ; pas en INFOS au doigt (on lit)
       const now = performance.now();
       if (touch && bassInfos.isOn()) this.lastTap.delete(h.id);
@@ -260,10 +280,32 @@ export class BassGestures {
     if (g.kind === 'trig') {
       this.press(g.id, false);
       window.clearTimeout(g.hold);
-      // Un pas tenu pour LOCK, un potard tourne pendant l'appui : le lacher sort (LOCK momentane)
-      if (g.lockHold && bassLockTurns() > 0) bassLockOff();
+      // Un pas tenu pour LOCK, un potard tourne pendant l'appui : le lacher sort (LOCK momentane) ; un bloc encore tenu
+      // d'un autre doigt (2026-10-09) : il continue d'ecrire sur ce pas, le LOCK sort a son lacher
+      if (g.lockHold && bassLockTurns() > 0) {
+        if (this.knobHeld()) this.lockOffAfter = g.step;
+        else bassLockOff();
+      }
       if (!g.dragged && !g.held && overId === g.id) bassStepTap(g.step);
     } else if (g.kind === 'key') this.press(g.id, false);
+    else if (g.kind === 'knob') {
+      if (g.ring) this.stage.bass?.holdBlock(g.enc, false);
+      this.flushLockOff();
+    }
+  }
+
+  /** Un potard, un encodeur ou un bloc tenu (un doigt, la souris) ? */
+  private knobHeld(): boolean {
+    for (const o of this.grips.values()) if (o.kind === 'knob' && !o.infoOnly) return true;
+    return false;
+  }
+
+  /** Le dernier bloc lache : le LOCK momentane en attente sort, s'il est encore celui du pas leve. */
+  private flushLockOff(): void {
+    if (this.lockOffAfter < 0 || this.knobHeld()) return;
+    const step = this.lockOffAfter;
+    this.lockOffAfter = -1;
+    if (bassState.get().lock === step) bassLockOff();
   }
 
   /**
@@ -313,8 +355,10 @@ export class BassGestures {
     for (const g of this.grips.values()) {
       window.clearTimeout(g.hold);
       if (g.kind !== 'knob') this.press(g.id, false);
+      else if (g.ring) this.stage.bass?.holdBlock(g.enc, false);
     }
     this.grips.clear();
+    this.lockOffAfter = -1;
   }
 }
 
