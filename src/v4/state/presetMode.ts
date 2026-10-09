@@ -12,11 +12,22 @@
  * Echap, une autre machine ou 15 s sans rien toucher en sortent. Les
  * presets eux-memes : state/presets.ts ; apres ceux de Mika, ceux d'usine
  * (2026-10-07, des styles electro : FACTORY en titre, ni NAME ni DEL). Le
- * MM-BASS aussi (2026-10-07).
+ * MM-BASS aussi (2026-10-07) ; ses 35 presets d'usine (2026-10-09) montrent
+ * leur style devant leur rang.
  */
 
+import { BASS_STYLES, stepOf } from '../bass/params';
 import { focus } from './focus';
-import { presets, type PresetMachine } from './presets';
+import { presets, type Preset, type PresetMachine } from './presets';
+
+/**
+ * Le style d'un preset d'usine du MM-BASS (2026-10-09 : 35 presets ranges par style, Mika : "une bonne grosse
+ * liste") : l'ecran le montre devant le rang (DARK DISCO 4/35), on sait ou l'on est en parcourant PREV / NEXT.
+ */
+function bassGroup(p: Preset): string {
+  const v = (p.data as { params?: Record<string, number> }).params?.style;
+  return typeof v === 'number' ? BASS_STYLES[stepOf('style', v)] : '';
+}
 
 export type PresetKey = 'open' | 'prev' | 'next' | 'save' | 'name' | 'del' | 'exit';
 
@@ -150,9 +161,10 @@ export const presetMode = {
     const empty = list.length === 0;
     const i = Math.min(state.index, Math.max(0, list.length - 1));
     const fac = !empty && !!list[i].factory;
+    const group = fac && m === 'bass' ? bassGroup(list[i]) : '';
     return {
       title: state.note || (fac ? 'FACTORY' : 'PRESETS'),
-      count: empty ? '' : `${i + 1}/${list.length}`,
+      count: empty ? '' : `${group ? `${group}  ` : ''}${i + 1}/${list.length}`,
       name: empty ? 'NOTHING SAVED YET' : list[i].name.toUpperCase(),
       keys: ['SAVE', empty || fac ? '' : 'NAME', empty || fac ? '' : state.confirm ? 'DEL?' : 'DEL', 'EXIT'],
       empty,
