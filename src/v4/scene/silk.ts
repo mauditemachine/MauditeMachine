@@ -33,6 +33,7 @@ import {
   SILK,
   SILK_LINES,
   SILK_LOGOS,
+  SILK_MARKS,
   SILK_PLANE,
   SILK_TEXTS,
   silkA,
@@ -372,6 +373,21 @@ export class PanelSilk {
       }
       ctx.stroke();
     }
+    // L'echelle de MASTER et TEMPO (2026-10-09) : des traits plus marques, chacun son epaisseur
+    ctx.lineCap = 'round';
+    for (const m of SILK_MARKS) {
+      ctx.strokeStyle = silkA(m.alpha);
+      ctx.lineWidth = Math.max(1, m.w * u);
+      ctx.beginPath();
+      for (let k = 0; k < m.pts.length; k += 2) {
+        const x = this.px(m.pts[k]);
+        const y = this.py(m.pts[k + 1]);
+        if (k === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.lineCap = 'butt';
 
     // Logos, centres en z, poses sur leur bord d'alignement
     const logos: SilkLogoId[] = [];

@@ -146,6 +146,7 @@ import { isRytmInfoHotspot } from '../rytm/infoIds';
 import { isSwitch } from '../voyager/theme';
 import { EXTERNAL_REL } from './ExternalLink';
 import {
+  BLOCKS_ARE_KNOBS,
   BOARD_CHIPS,
   COARSE_QUERY,
   MOBILE_QUERY,
@@ -154,6 +155,7 @@ import {
   ENCODERS,
   FACE_KNOBS,
   INST_NAMES,
+  PAGE_KNOB_IDS,
   PAGE_KNOB_LETTERS,
   RYTM_PAGE_KEYS,
   isPageKnob,
@@ -240,14 +242,30 @@ interface Down {
   prevLock: number;
   /** un potard : le LOCK au debut de son glisser (un changement le fait repartir de la valeur du moment) */
   lockKey: string;
+  /**
+   * un bloc de l'ecran du telephone (2026-10-09), au doigt, glisse a
+   * l'horizontale : ce n'est pas encore un reglage (il se regle de haut en
+   * bas), peut-etre le glisser d'une machine a l'autre ; il le reste tant
+   * qu'il va de cote dans le temps d'un glisser (la garde de l'orbite)
+   */
+  swipe: boolean;
 }
+
+/** Un bloc de l'ecran glisse a l'horizontale (1.4 fois plus qu'a la verticale, comme SWIPE) : le glisser de machine. */
+const BLOCK_SWIPE_RATIO = 1.4;
 
 /** Tenir un pas du MM-RYTM (2026-10-08) : le LOCK, comme un trig tenu d'une Elektron (et le MM-BASS). */
 const LOCK_HOLD_MS = 350;
-/** Le LOCK du moment, pour les potards qui tournent (lu a chaque mouvement). */
+/**
+ * Ce que regle un potard de page en ce moment, pour ceux qui tournent (lu a
+ * chaque mouvement) : le LOCK, et depuis la revue du 2026-10-09 la page et la
+ * voix (un bloc tenu au telephone pendant qu'un autre doigt, ], le MIDI
+ * changent de page ou de voix : il repart de la valeur du nouveau reglage, il
+ * ne saute pas a celle de l'ancien plus la course).
+ */
 const lockKeyNow = (): string => {
   const l = rytmLock.get();
-  return `${l.step}|${l.held.join(',')}`;
+  return `${l.step}|${l.held.join(',')}|${rytmPage.get().page}|${pattern.get().instrument ?? '-'}`;
 };
 
 /** INFOS du MM-RYTM allume (R4) et une de ses commandes, sur lui : au doigt, elle montre sa carte. */
@@ -302,14 +320,17 @@ const voySteps = (k: DialId): number => {
 
 /**
  * Le potard d'une cible : un encodeur de la 808, un potard du MM-ARP, un
- * TWEAK du MM-RYTM, un potard de page du MM-RYTM (p:<0-7>, 2026-10-08).
+ * TWEAK du MM-RYTM, un potard de page du MM-RYTM (p:<0-7>, 2026-10-08) ; au
+ * telephone depuis le 2026-10-09, un bloc de l'ecran (lcd-blk-<k>) est ce
+ * potard (Mika : "en mobile, enleve les encoders ; on change dans l'ecran
+ * directement").
  */
 const dialOf = (h: HotspotView | null | undefined): DialId | null =>
   !h
     ? null
     : h.kind === 'encoder' && h.param
       ? h.param
-      : h.kind === 'penc' && h.index !== undefined
+      : (h.kind === 'penc' || (h.kind === 'rblock' && BLOCKS_ARE_KNOBS)) && h.index !== undefined
         ? (`p:${h.index}` as DialId)
         : h.kind === 'vknob' && h.vknob
           ? (`v:${h.vknob}` as DialId)
@@ -581,6 +602,26 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         return false;
       }
       if (!d || !d.dial) return true;
+      // Un bloc de l'ecran du telephone (2026-10-09) : de haut en bas seulement, comme un potard ; parti a l'horizontale
+      // au doigt, c'est peut-etre le glisser d'une machine a l'autre (le grand ecran couvre le haut de la face, il ne doit
+      // pas le bloquer). Revue du 2026-10-09 : la garde le laisse faire tant qu'il reste a l'horizontale et dans le temps
+      // d'un glisser (SWIPE.ms) ; sinon il redevient le reglage, repris de la valeur du moment (rien ne saute, et le geste
+      // ne se perd plus). A la souris (une fenetre etroite), le chemin des encodeurs plus bas : son axe, son curseur.
+      if (d.kind === 'rblock' && !d.mouse) {
+        if (!d.multi && Math.abs(dx) > BLOCK_SWIPE_RATIO * Math.abs(dy) && performance.now() - d.t < SWIPE.ms) {
+          d.swipe = true;
+          return true;
+        }
+        if (d.swipe) {
+          d.swipe = false;
+          d.v0 = anyDialValue(d.dial);
+          d.a = -dy;
+        }
+        d.turning = true;
+        d.axis = 'y';
+        turnDial(d, dx, dy, shiftHeld);
+        return false;
+      }
       d.turning = true;
       d.axis = Math.abs(dy) >= Math.abs(dx) ? 'y' : 'x';
       turnDial(d, dx, dy, shiftHeld);
@@ -681,10 +722,14 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         writes0: rytmLock.get().writes,
         prevLock: rytmLock.get().latched ? rytmLock.get().step : -1,
         lockKey: lockKeyNow(),
+        swipe: false,
       });
       // Les pas et les potards de page ne font jamais de pincement (2026-10-08) : tenir un pas d'un doigt et
-      // tourner un potard d'un autre doit verrouiller, pas zoomer
-      if (h && (h.kind === 'step' || h.kind === 'penc')) stage.orbit.claim(e.pointerId);
+      // tourner un potard d'un autre doit verrouiller, pas zoomer ; au telephone les blocs de l'ecran aussi (2026-10-09)
+      const blockKnob = !!h && h.kind === 'rblock' && BLOCKS_ARE_KNOBS && h.index !== undefined;
+      if (h && (h.kind === 'step' || h.kind === 'penc' || blockKnob)) stage.orbit.claim(e.pointerId);
+      // Le bloc pris au doigt reste cerne tant qu'on le tient (2026-10-09), meme immobile : on voit ce qu'on regle
+      if (blockKnob && h && h.index !== undefined) rytmPage.hold(h.index);
       // Un pas tenu (2026-10-05) : l'ecran dit sa velocite et qu'un glisser la change ; depuis le 2026-10-08,
       // hors EDIT et une voix choisie, 350 ms de tenue sans glisser : le LOCK (les parameter locks)
       // INFOS du MM-RYTM (R4), au doigt : la tenue d'un pas ne met pas le LOCK, sa tape montre la carte du pas ; il reste
@@ -765,6 +810,18 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       return true;
     };
 
+    /**
+     * Un bloc de l'ecran lache (le telephone, 2026-10-09) : il n'est plus cerne,
+     * sauf si un autre doigt en tient un (il passe a celui-la).
+     */
+    const releaseBlock = (d: Down): void => {
+      if (d.kind !== 'rblock' || !BLOCKS_ARE_KNOBS) return;
+      let other = -1;
+      for (const o of downs.values()) if (o.kind === 'rblock' && o.index !== undefined) other = o.index;
+      if (other >= 0) rytmPage.hold(other);
+      else rytmPage.release();
+    };
+
     /** Un potard de page est-il tenu (un doigt, la souris) ? */
     const knobHeld = (): boolean => {
       for (const o of downs.values()) if (o.dial && pageKnobOf(o.dial) >= 0) return true;
@@ -801,6 +858,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (!d) return;
       downs.delete(id);
       if (d.dial && isVoy(d.dial)) voyEcho.release(id);
+      releaseBlock(d);
       stepUp(d);
       flushRestore();
       try {
@@ -876,6 +934,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       const d = downs.get(e.pointerId);
       downs.delete(e.pointerId);
       if (d?.dial && isVoy(d.dial)) voyEcho.release(e.pointerId);
+      if (d) releaseBlock(d);
       if (d && d.turning && d.mouse) {
         turnAxis = null;
         setCursor();
@@ -1016,6 +1075,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       // Demontee en plein geste : l'echo du MM-ARP ne reste pas tenu par un pointeur parti
       voyEcho.releaseAll();
       downs.clear();
+      rytmPage.release();
       rytmLock.releaseAll();
       djg?.release();
       bsg?.release();
@@ -1577,10 +1637,11 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
           />
         );
       })}
-      {FACE_KNOBS.filter((k) => isPageKnob(k.id)).map((fk) => {
-        // Les huit potards de page (2026-10-08) : ce qu'ils reglent sur la page affichee, de 0 a 127
-        const k = isPageKnob(fk.id) ? pageKnobIndex(fk.id) : 0;
-        const id = `penc-${k}`;
+      {PAGE_KNOB_IDS.map((pid) => {
+        // Les huit potards de page (2026-10-08) : ce qu'ils reglent sur la page affichee, de 0 a 127 ; au telephone (2026-10-09)
+        // les blocs de l'ecran les remplacent sur la face, le jumeau se pose sur le bloc (lcd-blk-<k>)
+        const k = pageKnobIndex(pid);
+        const id = BLOCKS_ARE_KNOBS ? `lcd-blk-${k}` : `penc-${k}`;
         const d = `p:${k}` as DialId;
         const slot = pageSlotOf(k);
         // Le nombre de l'ecran : 0 a 127, -64 a +63 pour TONE et STRETCH (un bloc vide : en bas, comme son repere)
@@ -1596,7 +1657,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
             data-hotspot={id}
             role="slider"
             tabIndex={0}
-            aria-label={`Knob ${PAGE_KNOB_LETTERS[k]}, ${pageLabel(rp.page)} page: ${what}${slot?.scope === 'track' && inst ? `, ${INST_NAMES[inst]}` : ''}${lockAt >= 0 ? `, lock on step ${lockAt + 1}, delete removes its lock` : ''}`}
+            aria-label={`${BLOCKS_ARE_KNOBS ? 'Screen value' : 'Knob'} ${PAGE_KNOB_LETTERS[k]}, ${pageLabel(rp.page)} page: ${what}${slot?.scope === 'track' && inst ? `, ${INST_NAMES[inst]}` : ''}${lockAt >= 0 ? `, lock on step ${lockAt + 1}, delete removes its lock` : ''}`}
             aria-orientation="vertical"
             aria-valuemin={bipolar ? -64 : 0}
             aria-valuemax={bipolar ? 63 : 127}

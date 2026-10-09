@@ -5,9 +5,10 @@
  * constantes de theme.ts. Le chassis en coin (faces avant et droite, leurs
  * chanfreins), le panneau incline (tranche et dessus), la serigraphie,
  * l'ecran OLED (MM-808, le tempo, READY), les 16 LED (le motif par defaut),
- * puis les volumes du plus lointain au plus proche : MASTER, TEMPO et les huit
- * potards de page (les six touches de page dessous, 2026-10-08), les
- * 12 pads (les pages en jaune faible), RUN, CLEAR, les 16 touches trig.
+ * puis les volumes du plus lointain au plus proche : MASTER et TEMPO en
+ * aluminium au-dessus des voix, les six touches de page sous l'ecran et les
+ * huit potards de page dessous (2026-10-09 ; au telephone, sans potards de
+ * page), les pads, RUN, CLEAR, les 16 touches trig.
  * Aucune animation ; calcule une fois au chargement du module.
  */
 
@@ -17,6 +18,9 @@ import {
   BODY,
   ENCODER,
   FACE_KNOBS,
+  POT,
+  SILK_MARKS,
+  isPageKnob,
   HEX,
   KEYS,
   OLED,
@@ -146,6 +150,10 @@ const C = {
   runSide: '#7d2a1d',
   clearSide: '#121215',
   encSide: '#0b0b0c',
+  /** MASTER et TEMPO (2026-10-09) : l'aluminium du flanc, du dessus, le trait grave */
+  potSide: '#8d9196',
+  potTop: '#b9bdc2',
+  potMark: '#141416',
   bone85: 'rgba(246, 241, 231, 0.85)',
 } as const;
 
@@ -185,6 +193,10 @@ function panelTop(): React.ReactNode {
             stroke={`rgba(246, 241, 231, ${SILK.lineAlpha})`}
             strokeWidth={SILK.lineWidth}
           />
+        ))}
+        {/* L'echelle de MASTER et TEMPO (2026-10-09) */}
+        {SILK_MARKS.map((m, i) => (
+          <path key={`mark-${i}`} d={polyline(m.pts)} fill="none" stroke={`rgba(246, 241, 231, ${m.alpha})`} strokeWidth={m.w} strokeLinecap="round" />
         ))}
         {union.map((on, i) => (
           <rect
@@ -264,18 +276,20 @@ function box(key: string, x: number, z: number, hx: number, hz: number, h: numbe
   };
 }
 
-/** Encodeur : flanc (enveloppe des deux cercles), dessus, repere bone. */
+/** Encodeur : flanc (enveloppe des deux cercles), dessus, repere bone ; MASTER et TEMPO en aluminium, leur trait noir (2026-10-09). */
 function encoder(i: number, angleDeg: number): Solid {
-  const { x, z, s } = FACE_KNOBS[i];
+  const { id, x, z, s } = FACE_KNOBS[i];
+  const pot = !isPageKnob(id);
+  const E = pot ? { r: POT.r, rTop: POT.topR, h: POT.base.h + POT.h + POT.chamferH, markD: POT.mark.r1, markW: POT.mark.w } : { r: ENCODER.r, rTop: ENCODER.rTop, h: ENCODER.h, markD: ENCODER.mark.d, markW: ENCODER.mark.w };
   const ring = (r: number, y: number): V2[] =>
     Array.from({ length: 24 }, (_, k) => {
       const a = (k / 24) * Math.PI * 2;
       return P(panel(x + Math.cos(a) * r, y, z + Math.sin(a) * r));
     });
   // A son echelle (les potards du telephone sont plus gros)
-  const topY = ENCODER.h * s;
-  const bottom = ring(ENCODER.r * s, 0);
-  const top = ring(ENCODER.rTop * s, topY);
+  const topY = E.h * s;
+  const bottom = ring(E.r * s, 0);
+  const top = ring(E.rTop * s, topY);
   const all = [...bottom, ...top].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   // Enveloppe convexe (chaine monotone) du flanc
   const cross = (o: V2, a: V2, b: V2): number => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
@@ -291,13 +305,13 @@ function encoder(i: number, angleDeg: number): Solid {
   const hull = [...half(all), ...half([...all].reverse())];
   const a = angleDeg * DEG;
   const m0 = P(panel(x, topY, z));
-  const m1 = P(panel(x - Math.sin(a) * ENCODER.mark.d * s, topY, z - Math.cos(a) * ENCODER.mark.d * s));
+  const m1 = P(panel(x - Math.sin(a) * E.markD * s, topY, z - Math.cos(a) * E.markD * s));
   return {
     depth: dot(Z, panel(x, topY / 2, z)),
     nodes: [
-      <path key={`enc-${i}-s`} d={pathOf(hull)} fill={C.encSide} />,
-      <path key={`enc-${i}-t`} d={pathOf(top)} fill={HEX.encoder} />,
-      <line key={`enc-${i}-m`} x1={m0[0]} y1={m0[1]} x2={m1[0]} y2={m1[1]} stroke={HEX.bone} strokeWidth={r1(ENCODER.mark.w * S)} strokeLinecap="round" />,
+      <path key={`enc-${i}-s`} d={pathOf(hull)} fill={pot ? C.potSide : C.encSide} />,
+      <path key={`enc-${i}-t`} d={pathOf(top)} fill={pot ? C.potTop : HEX.encoder} />,
+      <line key={`enc-${i}-m`} x1={m0[0]} y1={m0[1]} x2={m1[0]} y2={m1[1]} stroke={pot ? C.potMark : HEX.bone} strokeWidth={r1(E.markW * S)} strokeLinecap="round" />,
     ],
   };
 }
@@ -314,7 +328,7 @@ const START: Record<string, number> = { tempo: (BPM.initial - BPM.min) / (BPM.ma
 function solids(): React.ReactNode[] {
   const items: Solid[] = [];
   FACE_KNOBS.forEach((e, i) => items.push(encoder(i, potDeg(START[e.id] ?? 0))));
-  // Les touches de page (2026-10-08), sous les potards de page
+  // Les touches de page (2026-10-08), juste sous l'ecran depuis le 2026-10-09
   RYTM_PAGE_KEYS.forEach((p, i) =>
     items.push(box(`pkey-${p.id}`, pageKeyX(i), PAGE_KEYS.z, PAGE_KEYS.w / 2, PAGE_KEYS.d / 2, PAGE_KEYS.h, HEX.graphiteHi, C.clearSide, C.clearSide))
   );
@@ -379,7 +393,7 @@ const DRAWING = (
 export const StaticMachine: React.FC = () => (
   <svg className="v4-fallback-machine" viewBox={`0 0 ${VB_W} ${VB_H}`} role="img" aria-labelledby="v4-machine-title v4-machine-desc">
     <title id="v4-machine-title">MM-RYTM drum machine</title>
-    <desc id="v4-machine-desc">A black drum machine: a screen, eight page encoders with six page keys, master and tempo, ten pads, sixteen trig keys with a red RUN button.</desc>
+    <desc id="v4-machine-desc">A black drum machine: a screen with six page keys under it and eight page encoders, aluminium master and tempo knobs above the ten pads, sixteen trig keys with a red RUN button.</desc>
     {DRAWING}
   </svg>
 );

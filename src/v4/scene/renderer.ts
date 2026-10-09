@@ -74,6 +74,7 @@ import { voices } from '../state/voices';
 import {
   BACKDROP,
   BODY,
+  BLOCKS_ARE_KNOBS,
   BTN_LED,
   CHIP,
   BOARD_CHIPS,
@@ -110,6 +111,7 @@ import {
   PANEL_D,
   PCB,
   PAGE_KNOB_IDS,
+  PAGE_KNOBS_ON_FACE,
   RYTM_PAGE_KEYS,
   PORTRAIT,
   PLATEAU_W,
@@ -700,9 +702,10 @@ export class Stage {
     // Bas : touches trig, RUN/STOP, CLEAR, LED ; moitie gauche : les six encodeurs
     this.seq = new Sequencer3D({ mobile });
     this.encoders = new Encoders({ mobile, castShadow: !mobile });
-    // Les touches de page (2026-10-08, la refonte facon Digitakt) : sous les potards de page
+    // Les touches de page (2026-10-08, la refonte facon Digitakt) : juste sous l'ecran depuis le 2026-10-09
     this.pageKeys = new RytmPageKeys({ mobile });
-    plateau.add(this.pads.mesh, this.pads.halos, this.seq.keys, this.seq.frames, this.seq.buttons, this.seq.leds, this.seq.btnLeds, this.encoders.mesh, this.encoders.skirts, ...this.pageKeys.objects());
+    // MASTER et TEMPO en aluminium au-dessus des voix (2026-10-09) ; au telephone, plus de potards de page (encoders.objects)
+    plateau.add(this.pads.mesh, this.pads.halos, this.seq.keys, this.seq.frames, this.seq.buttons, this.seq.leds, this.seq.btnLeds, ...this.encoders.objects(), ...this.pageKeys.objects());
     // L'ecran (redessine 4 fois par seconde au plus, jamais par frame) ; il
     // ne s'abonne a state/lcd.ts qu'avec les autres ecouteurs
     this.screen = new Screen(
@@ -809,7 +812,8 @@ export class Stage {
         this.infoAt = { off: { x: xAt(ik.u), z: zAt(ik.v * TH) }, blocks: { x: xAt(ib.u), z: zAt(ib.v * TH) } };
       }
       // Les onglets du pied de la vue PAGE (scene/screen.ts paintFoot) : une touche de page chacun,
-      // allumes seulement quand l'ecran les dessine (syncScreenTabs)
+      // allumes seulement quand l'ecran les dessine (syncScreenTabs ; plus jamais depuis le 2026-10-09, les touches de page
+      // sont sous le verre : screen.ts BLOCK_TYPE tabs)
       const P = OLED_PAGE_ZONES;
       const n = RYTM_PAGE_KEYS.length;
       const u0 = OLED_BAR_PAGE.u0;
@@ -992,6 +996,7 @@ export class Stage {
         lcd.subscribe(this.syncSeek),
         rytmPage.subscribe(this.syncSeek),
         editor.subscribe(this.syncSeek),
+        rytmLock.subscribe(this.syncSeek),
         rytmPage.subscribe(this.syncPageKeys),
         rytmPage.subscribe(this.syncMix),
         // Le LOCK (2026-10-08) : les potards de page montrent les verrous du pas, les touches leurs lueurs
@@ -1171,7 +1176,10 @@ export class Stage {
    */
   private syncSeek = (): void => {
     const on = lcd.get().bar !== null;
-    const paged = rytmPage.get().view === 'page' && editor.get() !== 'mm808';
+    // La vue que l'ecran dessine (scene/screen.ts paint) : le LOCK se montre toujours sur la vue PAGE, meme entre par un
+    // chemin qui ne passe pas par rytmLockEnter (un potard tourne un pas tenu, le MIDI ; revue du 2026-10-09 : la zone
+    // de HOME couvrait alors le haut des blocs B et C au telephone)
+    const paged = editor.get() !== 'mm808' && (rytmPage.get().view === 'page' || rytmLock.get().step >= 0);
     const band = seekBox(paged ? OLED_BAR_PAGE : OLED_BAR);
     // En vue PAGE, la barre est a droite des seize pas du pied (scene/screen.ts PAGE_FOOT) : la bande aussi
     const u0 = paged ? OLED_BAR_PAGE.u0 : 0;
@@ -1212,14 +1220,19 @@ export class Stage {
         changed = true;
       }
     }
-    // Les blocs (R4) : INFOS allume et la vue PAGE dessinee (pas HOME, EDIT, les presets)
-    const blk = rytmInfos.isOn() && this.screen.info.view === 'page';
+    // Les blocs (R4) : INFOS allume et la vue PAGE dessinee (pas HOME, EDIT, les presets) ; au telephone, tout le temps en vue
+    // PAGE depuis le 2026-10-09 (Mika : "on change dans l'ecran directement") : ils sont les potards de page
+    const blk = (BLOCKS_ARE_KNOBS || rytmInfos.isOn()) && this.screen.info.view === 'page';
+    // La liste des sons a leur place (revue du 2026-10-09) : seul le bloc qui l'a ouverte garde sa zone, une tape sur
+    // un nom de la liste ne tombe pas sur un bloc qu'on ne voit pas
+    const list = this.screen.listBlock;
     let gone = false;
     for (const d of this.blockDefs) {
-      if (d.enabled !== blk) {
-        d.enabled = blk;
+      const on = blk && (list === null || d.index === list);
+      if (d.enabled !== on) {
+        d.enabled = on;
         changed = true;
-        gone = !blk;
+        gone = gone || !on;
       }
     }
     const at = blk ? this.infoAt.blocks : this.infoAt.off;
@@ -1232,7 +1245,7 @@ export class Stage {
     // Les blocs partis (H, EDIT, les presets ; revue de R4) : la carte d'un bloc ne reste pas sur une vue qui ne le montre plus
     // (la souris immobile ne repasse pas par le survol)
     const shown = rytmInfos.get().id;
-    if (gone && shown !== null && shown.startsWith('lcd-blk-')) rytmInfos.hide();
+    if (gone && shown !== null && shown.startsWith('lcd-blk-') && !this.blockDefs.some((d) => d.id === shown && d.enabled)) rytmInfos.hide();
   }
 
   /**
@@ -2736,10 +2749,12 @@ export class Stage {
   private syncMix = (): void => {
     const e = this.encoders;
     let changed = e.setValue('level', mix.level);
-    PAGE_KNOB_IDS.forEach((id, k) => {
-      // Un bloc vide, ou rien a regler (pas de voix, pas de pas choisi) : le repere en bas, comme le MIDI
-      if (e.setValue(id, pageKnobCourse(k))) changed = true;
-    });
+    // Au telephone (2026-10-09) plus de potards de page sur la face : rien a calculer (les blocs de l'ecran ont leur dessin)
+    if (PAGE_KNOBS_ON_FACE)
+      PAGE_KNOB_IDS.forEach((id, k) => {
+        // Un bloc vide, ou rien a regler (pas de voix, pas de pas choisi) : le repere en bas, comme le MIDI
+        if (e.setValue(id, pageKnobCourse(k))) changed = true;
+      });
     if (changed) this.encodersMoved();
   };
 
