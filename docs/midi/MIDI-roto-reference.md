@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 9 octobre 2026 depuis le code du site (`npm run docs:midi`) : 593 cibles, 8 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 9 octobre 2026 depuis le code du site (`npm run docs:midi`) : 684 cibles, 8 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -666,12 +666,12 @@ Le setup conseille sur le Roto (SETUP 11 a 18) laisse les premiers a toi. Un pot
 | 5 | 1.6 | 15 | 19 | STEP 6/14 | orange | rytm:seq:6 | SEQ STEP 6/14 (TAP, HOLD + TURN) | maintenu |
 | 6 | 1.7 | 15 | 20 | STEP 7/15 | orange | rytm:seq:7 | SEQ STEP 7/15 (TAP, HOLD + TURN) | maintenu |
 | 7 | 1.8 | 15 | 21 | STEP 8/16 | orange | rytm:seq:8 | SEQ STEP 8/16 (TAP, HOLD + TURN) | maintenu |
-| 8 | 2.1 | 15 | 22 | TRIG | jaune | rytm:page:trig | PAGE TRIG | appui |
-| 9 | 2.2 | 15 | 23 | SRC | jaune | rytm:page:src | PAGE SRC | appui |
-| 10 | 2.3 | 15 | 24 | SMPL | jaune | rytm:page:smpl | PAGE SMPL | appui |
-| 11 | 2.4 | 15 | 25 | FLTR | jaune | rytm:page:fltr | PAGE FLTR | appui |
-| 12 | 2.5 | 15 | 26 | AMP | jaune | rytm:page:amp | PAGE AMP | appui |
-| 13 | 2.6 | 15 | 27 | FX | jaune | rytm:page:fx | PAGE FX | appui |
+| 8 | 2.1 | 15 | 3 | VOICE | jaune | rytm:page:voice | PAGE VOICE | appui |
+| 9 | 2.2 | 15 | 25 | FLTR | jaune | rytm:page:fltr | PAGE FLTR | appui |
+| 10 | 2.3 | 15 | 9 | ENV | jaune | rytm:page:env | PAGE ENV | appui |
+| 11 | 2.4 | 15 | 27 | FX | jaune | rytm:page:fx | PAGE FX | appui |
+| 12 | 2.5 | 15 | 85 | MUTE | rouge | rytm:mute | MUTE | appui |
+| 13 | 2.6 | 15 | 86 | SOLO | bleu | rytm:solo | SOLO | appui |
 | 14 | 2.7 | 15 | 28 | STEPS 9-16 | cyan | rytm:seq:window | SEQ STEPS 1-8 / 9-16 | appui |
 | 15 | 2.8 | 15 | 29 | STEP FOLLOW | vert | rytm:seq:follow | SEQ STEP FOLLOW (THE STEPS FOLLOW THE PLAYHEAD) | bascule (la LED suit le site) |
 | 16 | 3.1 | 15 | 30 | BD | or | rytm:seq:voice:BD | SEQ VOICE BD (SELECT, SILENT) | appui |
@@ -771,7 +771,7 @@ Le setup conseille sur le Roto (SETUP 11 a 18) laisse les premiers a toi. Un pot
 
 Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI LEARN, ou le fichier d'assignations du chapitre 5). La colonne « Dans » dit dans quels setups du Roto elle est deja placee. La cible d'un id est dans la machine de son prefixe : `rytm:` MM-RYTM (scope `mm808`), `voy:` MM-ARP (`voy`), `bass:` MM-BASS (`bass`), `dj:` MM-DECKS (`dj`, `dj:smpl:<platine>:` pour le sampler de chaque platine), `nav:` navigation (`global`).
 
-### MM-RYTM (scope `mm808`, 246 cibles)
+### MM-RYTM (scope `mm808`, 337 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -791,9 +791,20 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:enc:vchorus` | CHORUS (SELECTED VOICE) | valeur 0 a 127 |  | RYTM |
 | `rytm:enc:vdelay` | DELAY (SELECTED VOICE) | valeur 0 a 127 |  | RYTM |
 | `rytm:enc:vreverb` | REVERB (SELECTED VOICE) | valeur 0 a 127 |  | RYTM |
-| `rytm:enc:vtune` | TUNE (SELECTED VOICE) | valeur 0 a 127 | 49 |  |
+| `rytm:enc:vtune` | PITCH (SELECTED VOICE) | valeur 0 a 127 | 49 |  |
 | `rytm:enc:vpan` | PAN (SELECTED VOICE) | valeur 0 a 127 |  |  |
 | `rytm:enc:vstart` | START (SELECTED VOICE) | valeur 0 a 127 |  |  |
+| `rytm:enc:vatk` | ATK (SELECTED VOICE) | valeur 0 a 127 |  |  |
+| `rytm:enc:vhold` | HOLD (SELECTED VOICE) | valeur 0 a 127 |  |  |
+| `rytm:enc:vfine` | FINE (SELECTED VOICE) | valeur 0 a 127 | 129 |  |
+| `rytm:enc:vftype` | TYPE (SELECTED VOICE) | valeur 0 a 127 | 3 |  |
+| `rytm:enc:vfcut` | FREQ (SELECTED VOICE) | valeur 0 a 127 |  |  |
+| `rytm:enc:vfreso` | RESO (SELECTED VOICE) | valeur 0 a 127 |  |  |
+| `rytm:enc:vfenv` | ENV (SELECTED VOICE) | valeur 0 a 127 |  |  |
+| `rytm:enc:vfatk` | F.ATK (SELECTED VOICE) | valeur 0 a 127 |  |  |
+| `rytm:enc:vfdec` | F.DEC (SELECTED VOICE) | valeur 0 a 127 |  |  |
+| `rytm:enc:dtime` | DLY TIME | valeur 0 a 127 | 6 |  |
+| `rytm:enc:dfb` | DLY FB | valeur 0 a 127 |  |  |
 | `rytm:voice:BD:tone` | BD TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:BD:decay` | BD DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:BD:level` | BD VOLUME | valeur 0 a 127 |  | RYTM, RSEQ |
@@ -804,6 +815,15 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:BD:tune` | BD TUNE | valeur 0 a 127 | 49 |  |
 | `rytm:voice:BD:pan` | BD PAN | valeur 0 a 127 |  |  |
 | `rytm:voice:BD:start` | BD START | valeur 0 a 127 |  |  |
+| `rytm:voice:BD:atk` | BD ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:BD:hold` | BD HOLD | valeur 0 a 127 |  |  |
+| `rytm:voice:BD:fine` | BD FINE | valeur 0 a 127 | 129 |  |
+| `rytm:voice:BD:ftype` | BD FILTER TYPE | valeur 0 a 127 | 3 |  |
+| `rytm:voice:BD:fcut` | BD FILTER FREQ | valeur 0 a 127 |  |  |
+| `rytm:voice:BD:freso` | BD FILTER RESO | valeur 0 a 127 |  |  |
+| `rytm:voice:BD:fenv` | BD FILTER ENV | valeur 0 a 127 |  |  |
+| `rytm:voice:BD:fatk` | BD FILTER ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:BD:fdec` | BD FILTER DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:SD:tone` | SD TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:SD:decay` | SD DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:SD:level` | SD VOLUME | valeur 0 a 127 |  | RYTM, RSEQ |
@@ -814,6 +834,15 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:SD:tune` | SD TUNE | valeur 0 a 127 | 49 |  |
 | `rytm:voice:SD:pan` | SD PAN | valeur 0 a 127 |  |  |
 | `rytm:voice:SD:start` | SD START | valeur 0 a 127 |  |  |
+| `rytm:voice:SD:atk` | SD ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:SD:hold` | SD HOLD | valeur 0 a 127 |  |  |
+| `rytm:voice:SD:fine` | SD FINE | valeur 0 a 127 | 129 |  |
+| `rytm:voice:SD:ftype` | SD FILTER TYPE | valeur 0 a 127 | 3 |  |
+| `rytm:voice:SD:fcut` | SD FILTER FREQ | valeur 0 a 127 |  |  |
+| `rytm:voice:SD:freso` | SD FILTER RESO | valeur 0 a 127 |  |  |
+| `rytm:voice:SD:fenv` | SD FILTER ENV | valeur 0 a 127 |  |  |
+| `rytm:voice:SD:fatk` | SD FILTER ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:SD:fdec` | SD FILTER DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:CH:tone` | CH TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:CH:decay` | CH DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:CH:level` | CH VOLUME | valeur 0 a 127 |  | RYTM, RSEQ |
@@ -824,6 +853,15 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:CH:tune` | CH TUNE | valeur 0 a 127 | 49 |  |
 | `rytm:voice:CH:pan` | CH PAN | valeur 0 a 127 |  |  |
 | `rytm:voice:CH:start` | CH START | valeur 0 a 127 |  |  |
+| `rytm:voice:CH:atk` | CH ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:CH:hold` | CH HOLD | valeur 0 a 127 |  |  |
+| `rytm:voice:CH:fine` | CH FINE | valeur 0 a 127 | 129 |  |
+| `rytm:voice:CH:ftype` | CH FILTER TYPE | valeur 0 a 127 | 3 |  |
+| `rytm:voice:CH:fcut` | CH FILTER FREQ | valeur 0 a 127 |  |  |
+| `rytm:voice:CH:freso` | CH FILTER RESO | valeur 0 a 127 |  |  |
+| `rytm:voice:CH:fenv` | CH FILTER ENV | valeur 0 a 127 |  |  |
+| `rytm:voice:CH:fatk` | CH FILTER ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:CH:fdec` | CH FILTER DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:OH:tone` | OH TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:OH:decay` | OH DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:OH:level` | OH VOLUME | valeur 0 a 127 |  | RYTM, RSEQ |
@@ -834,6 +872,15 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:OH:tune` | OH TUNE | valeur 0 a 127 | 49 |  |
 | `rytm:voice:OH:pan` | OH PAN | valeur 0 a 127 |  |  |
 | `rytm:voice:OH:start` | OH START | valeur 0 a 127 |  |  |
+| `rytm:voice:OH:atk` | OH ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:OH:hold` | OH HOLD | valeur 0 a 127 |  |  |
+| `rytm:voice:OH:fine` | OH FINE | valeur 0 a 127 | 129 |  |
+| `rytm:voice:OH:ftype` | OH FILTER TYPE | valeur 0 a 127 | 3 |  |
+| `rytm:voice:OH:fcut` | OH FILTER FREQ | valeur 0 a 127 |  |  |
+| `rytm:voice:OH:freso` | OH FILTER RESO | valeur 0 a 127 |  |  |
+| `rytm:voice:OH:fenv` | OH FILTER ENV | valeur 0 a 127 |  |  |
+| `rytm:voice:OH:fatk` | OH FILTER ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:OH:fdec` | OH FILTER DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:CP:tone` | CP TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:CP:decay` | CP DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:CP:level` | CP VOLUME | valeur 0 a 127 |  | RYTM, RSEQ |
@@ -844,6 +891,15 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:CP:tune` | CP TUNE | valeur 0 a 127 | 49 |  |
 | `rytm:voice:CP:pan` | CP PAN | valeur 0 a 127 |  |  |
 | `rytm:voice:CP:start` | CP START | valeur 0 a 127 |  |  |
+| `rytm:voice:CP:atk` | CP ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:CP:hold` | CP HOLD | valeur 0 a 127 |  |  |
+| `rytm:voice:CP:fine` | CP FINE | valeur 0 a 127 | 129 |  |
+| `rytm:voice:CP:ftype` | CP FILTER TYPE | valeur 0 a 127 | 3 |  |
+| `rytm:voice:CP:fcut` | CP FILTER FREQ | valeur 0 a 127 |  |  |
+| `rytm:voice:CP:freso` | CP FILTER RESO | valeur 0 a 127 |  |  |
+| `rytm:voice:CP:fenv` | CP FILTER ENV | valeur 0 a 127 |  |  |
+| `rytm:voice:CP:fatk` | CP FILTER ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:CP:fdec` | CP FILTER DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:TOM:tone` | TOM TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:TOM:decay` | TOM DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:TOM:level` | TOM VOLUME | valeur 0 a 127 |  | RYTM, RSEQ |
@@ -854,6 +910,15 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:TOM:tune` | TOM TUNE | valeur 0 a 127 | 49 |  |
 | `rytm:voice:TOM:pan` | TOM PAN | valeur 0 a 127 |  |  |
 | `rytm:voice:TOM:start` | TOM START | valeur 0 a 127 |  |  |
+| `rytm:voice:TOM:atk` | TOM ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:TOM:hold` | TOM HOLD | valeur 0 a 127 |  |  |
+| `rytm:voice:TOM:fine` | TOM FINE | valeur 0 a 127 | 129 |  |
+| `rytm:voice:TOM:ftype` | TOM FILTER TYPE | valeur 0 a 127 | 3 |  |
+| `rytm:voice:TOM:fcut` | TOM FILTER FREQ | valeur 0 a 127 |  |  |
+| `rytm:voice:TOM:freso` | TOM FILTER RESO | valeur 0 a 127 |  |  |
+| `rytm:voice:TOM:fenv` | TOM FILTER ENV | valeur 0 a 127 |  |  |
+| `rytm:voice:TOM:fatk` | TOM FILTER ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:TOM:fdec` | TOM FILTER DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:HT:tone` | HT TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:HT:decay` | HT DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:HT:level` | HT VOLUME | valeur 0 a 127 |  | RYTM, RSEQ |
@@ -864,6 +929,15 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:HT:tune` | HT TUNE | valeur 0 a 127 | 49 |  |
 | `rytm:voice:HT:pan` | HT PAN | valeur 0 a 127 |  |  |
 | `rytm:voice:HT:start` | HT START | valeur 0 a 127 |  |  |
+| `rytm:voice:HT:atk` | HT ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:HT:hold` | HT HOLD | valeur 0 a 127 |  |  |
+| `rytm:voice:HT:fine` | HT FINE | valeur 0 a 127 | 129 |  |
+| `rytm:voice:HT:ftype` | HT FILTER TYPE | valeur 0 a 127 | 3 |  |
+| `rytm:voice:HT:fcut` | HT FILTER FREQ | valeur 0 a 127 |  |  |
+| `rytm:voice:HT:freso` | HT FILTER RESO | valeur 0 a 127 |  |  |
+| `rytm:voice:HT:fenv` | HT FILTER ENV | valeur 0 a 127 |  |  |
+| `rytm:voice:HT:fatk` | HT FILTER ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:HT:fdec` | HT FILTER DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:CY:tone` | CY TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:CY:decay` | CY DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:CY:level` | CY VOLUME | valeur 0 a 127 |  | RYTM, RSEQ |
@@ -874,6 +948,15 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:CY:tune` | CY TUNE | valeur 0 a 127 | 49 |  |
 | `rytm:voice:CY:pan` | CY PAN | valeur 0 a 127 |  |  |
 | `rytm:voice:CY:start` | CY START | valeur 0 a 127 |  |  |
+| `rytm:voice:CY:atk` | CY ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:CY:hold` | CY HOLD | valeur 0 a 127 |  |  |
+| `rytm:voice:CY:fine` | CY FINE | valeur 0 a 127 | 129 |  |
+| `rytm:voice:CY:ftype` | CY FILTER TYPE | valeur 0 a 127 | 3 |  |
+| `rytm:voice:CY:fcut` | CY FILTER FREQ | valeur 0 a 127 |  |  |
+| `rytm:voice:CY:freso` | CY FILTER RESO | valeur 0 a 127 |  |  |
+| `rytm:voice:CY:fenv` | CY FILTER ENV | valeur 0 a 127 |  |  |
+| `rytm:voice:CY:fatk` | CY FILTER ATTACK | valeur 0 a 127 |  |  |
+| `rytm:voice:CY:fdec` | CY FILTER DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:BD:mute` | MUTE BD | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
 | `rytm:voice:SD:mute` | MUTE SD | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
 | `rytm:voice:CH:mute` | MUTE CH | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
@@ -930,13 +1013,21 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:knob:6` | KNOB F (PAGE) | valeur 0 a 127 | selon la page | RSEQ |
 | `rytm:knob:7` | KNOB G (PAGE) | valeur 0 a 127 | selon la page | RSEQ |
 | `rytm:knob:8` | KNOB H (PAGE) | valeur 0 a 127 | selon la page | RSEQ |
-| `rytm:page:trig` | PAGE TRIG | appui |  | RSEQ |
-| `rytm:page:src` | PAGE SRC | appui |  | RSEQ |
-| `rytm:page:smpl` | PAGE SMPL | appui |  | RSEQ |
+| `rytm:page:voice` | PAGE VOICE | appui |  | RSEQ |
 | `rytm:page:fltr` | PAGE FLTR | appui |  | RSEQ |
-| `rytm:page:amp` | PAGE AMP | appui |  | RSEQ |
+| `rytm:page:env` | PAGE ENV | appui |  | RSEQ |
 | `rytm:page:fx` | PAGE FX | appui |  | RSEQ |
-| `rytm:page` | PAGE (TRIG TO FX) | valeur 0 a 127 | 6 |  |
+| `rytm:page:trig` | PAGE TRIG (NOW VOICE) | appui |  |  |
+| `rytm:page:src` | PAGE SRC (NOW VOICE) | appui |  |  |
+| `rytm:page:smpl` | PAGE SMPL (NOW VOICE) | appui |  |  |
+| `rytm:page:amp` | PAGE AMP (NOW ENV) | appui |  |  |
+| `rytm:screen:voice` | SCREEN VOICE | appui |  |  |
+| `rytm:screen:synth` | SCREEN VOICE SYNTH | appui |  |  |
+| `rytm:screen:fltr` | SCREEN FLTR | appui |  |  |
+| `rytm:screen:env` | SCREEN ENV | appui |  |  |
+| `rytm:screen:fxv` | SCREEN VOICE FX | appui |  |  |
+| `rytm:screen:fxg` | SCREEN GLOBAL FX | appui |  |  |
+| `rytm:page` | PAGE (VOICE TO FX) | valeur 0 a 127 | 4 |  |
 | `rytm:home` | HOME / PAGE SCREEN | appui |  |  |
 | `rytm:pad:BD` | PAD BD | appui |  | RYTM |
 | `rytm:pad:SD` | PAD SD | appui |  | RYTM |
@@ -982,8 +1073,8 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:run` | RUN/STOP | appui |  |  |
 | `rytm:clear` | CLEAR | appui |  | RYTM, RSEQ |
 | `rytm:random` | RANDOM | appui |  | RYTM, RSEQ |
-| `rytm:mute` | MUTE | appui |  |  |
-| `rytm:solo` | SOLO | appui |  |  |
+| `rytm:mute` | MUTE | appui |  | RSEQ |
+| `rytm:solo` | SOLO | appui |  | RSEQ |
 | `rytm:edit` | EDIT | appui |  | RYTM, RSEQ |
 | `rytm:open` | OPEN | appui |  | RYTM |
 | `rytm:infos` | INFOS (HELP ON HOVER) | appui |  |  |
