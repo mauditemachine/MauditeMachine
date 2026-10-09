@@ -35,14 +35,33 @@
  *   LOCK tout de suite (sans attendre les 350 ms), comme sur une Elektron ;
  * - les touches de page ; la touche "i" de l'ecran (bass-key-i) allume ou
  *   eteint INFOS, meme au doigt en INFOS.
+ * Au telephone, plus d'encodeurs (2026-10-09, Mika : "on change dans l'ecran
+ * directement") : les blocs de l'ecran sont les commandes, les memes gestes
+ * (un doigt qui glisse : relatif, 150 px la course ; deux tapes : la valeur
+ * de depart, en LOCK le verrou s'en va ; INFOS : la carte, un glisser tourne
+ * encore). Le bloc tenu est cerne a l'ecran (le rig, holdBlock), desktop
+ * aussi pour l'encodeur tenu. Deux doigts : le doigt du pas leve avant celui
+ * du bloc, le LOCK attend le lacher du bloc (sinon la fin du geste aurait
+ * regle le son de tous les pas).
+ * La revue du 2026-10-09 :
+ * - deux tapes : deux appuis lache sans bouger, la valeur de depart au lacher
+ *   du second (deux petits glisser de suite la remettaient : au telephone on
+ *   pousse un bloc plusieurs fois) ; au telephone une tape seule sur un bloc
+ *   dit le geste a l'ecran (DRAG UP OR DOWN  2X: RESET) ;
+ * - le LOCK en attente du lacher du bloc ne sort plus s'il a ete repris
+ *   entre-temps (le meme pas tenu de nouveau, sa touche LOCK, le MIDI :
+ *   bassLockGen) ni si un doigt est revenu sur le pas ;
+ * - les onglets de l'en-tete de l'ecran du telephone (bass-tab-voice a fx) :
+ *   la touche de page qu'ils portent (h.bass).
  */
 
 import type { HotspotView } from '../scene/hit';
 import type { Stage } from '../scene/renderer';
 import { openToggle, presetKey } from '../actions';
 import { bassInfos } from '../state/bassInfos';
-import { bassAccent, bassClear, bassDial, bassDialReset, bassEditToggle, bassEditing, bassEncParam, bassGenerate, bassKnobValue, bassLockEnter, bassLockOff, bassLockTap, bassLockTurns, bassMutate, bassNote, bassOct, bassPageSet, bassPatternHold, bassRun, bassSlide, bassStepDeg, bassStepTap } from './actions';
-import { bassPage, type BassPageId } from './pages';
+import { PORTRAIT } from '../theme';
+import { bassAccent, bassClear, bassDial, bassDialReset, bassEditToggle, bassEditing, bassEncParam, bassGenerate, bassKnobValue, bassLockEnter, bassLockGen, bassLockOff, bassLockTap, bassLockTurns, bassMutate, bassNote, bassOct, bassPageSet, bassPatternHold, bassRun, bassSlide, bassStepDeg, bassStepTap } from './actions';
+import { bassPage, isBassGlobal, type BassPageId } from './pages';
 import { bassKnob, type BassKnobId } from './params';
 import { bassState } from './state';
 import type { BassKeyKind } from './theme';
@@ -104,12 +123,25 @@ interface Grip {
   /** un encodeur : son rang (-1 : un potard dedie) et la page ou il a pris son reglage */
   enc: number;
   page: BassPageId;
+  /** un bloc (ou un encodeur) cerne a l'ecran tant qu'il est tenu (2026-10-09) */
+  ring: boolean;
+  /** un potard : l'instant de l'appui, et s'il suit de pres une tape sur la meme commande (la seconde d'une double tape) */
+  t0: number;
+  dbl: boolean;
+  /** un potard : l'appui compte pour une double tape (pas au doigt en INFOS : on lit) */
+  taps: boolean;
 }
 
 export class BassGestures {
   private grips = new Map<number, Grip>();
   private lastTap = new Map<string, number>();
   private wheelAcc = new Map<string, number>();
+  /**
+   * Deux doigts (2026-10-09) : le pas tenu leve alors qu'un bloc tourne encore ; son LOCK momentane ne sort qu'au
+   * lacher du dernier bloc, s'il n'a pas ete repris entre-temps (la revue : le meme pas tenu de nouveau, sa touche
+   * LOCK, le MIDI ; gen : bassLockGen au moment du lever) ; null : rien en attente.
+   */
+  private lockOffAfter: { step: number; gen: number } | null = null;
 
   constructor(private stage: Stage) {}
 
@@ -122,7 +154,7 @@ export class BassGestures {
   }
 
   down(pointerId: number, h: HotspotView, x: number, y: number, touch = false): void {
-    const g: Grip = { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, infoOnly: false, lock: -1, enc: -1, page: bassPage.get() };
+    const g: Grip = { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, infoOnly: false, lock: -1, enc: -1, page: bassPage.get(), ring: false, t0: performance.now(), dbl: false, taps: false };
     // La touche "i" de l'ecran : INFOS, toujours (au doigt en INFOS aussi : c'est elle qui l'eteint)
     if (h.id === 'bass-key-i') {
       bassInfos.toggle();
@@ -167,14 +199,18 @@ export class BassGestures {
       }
       g.v0 = bassKnobValue(g.knob);
       g.lock = bassState.get().lock;
-      // Deux tapes : la valeur de depart (en LOCK : le verrou s'en va) ; pas en INFOS au doigt (on lit)
-      const now = performance.now();
-      if (touch && bassInfos.isOn()) this.lastTap.delete(h.id);
-      else if (now - (this.lastTap.get(h.id) ?? -Infinity) < TAP_MS) {
-        bassDialReset(g.knob);
-        g.v0 = bassKnobValue(g.knob);
-        this.lastTap.delete(h.id);
-      } else this.lastTap.set(h.id, now);
+      // Le bloc tenu se cerne a l'ecran (2026-10-09) : on voit ce que le doigt regle avant que la valeur bouge
+      if (enc >= 0) {
+        g.ring = true;
+        this.stage.bass?.holdBlock(enc, true);
+      }
+      // Deux tapes : la valeur de depart (en LOCK : le verrou s'en va), au lacher de la seconde (2026-10-09, la revue :
+      // deux petits glisser vite l'un apres l'autre comptaient pour deux tapes et remettaient la valeur de depart ;
+      // au telephone les blocs sont la seule commande, on les pousse plusieurs fois de suite) ; seul un appui lache
+      // sans bouger est une tape. Pas en INFOS au doigt (on lit)
+      g.taps = !(touch && bassInfos.isOn());
+      if (!g.taps) this.lastTap.delete(h.id);
+      else g.dbl = g.t0 - (this.lastTap.get(h.id) ?? -Infinity) < TAP_MS;
     } else if (h.kind === 'basstrig') {
       g.kind = 'trig';
       g.step = Number(h.id.slice('bass-trig-'.length)) - 1;
@@ -201,7 +237,8 @@ export class BassGestures {
     } else {
       g.kind = 'key';
       this.press(h.id, true);
-      bassKeyAction(h.id.slice('bass-key-'.length) as BassKeyKind);
+      // La touche dans h.bass (les onglets de l'ecran du telephone, bass-tab-*, 2026-10-09 : ceux des touches de page)
+      bassKeyAction((h.bass ?? h.id.slice('bass-key-'.length)) as BassKeyKind);
     }
     this.grips.set(pointerId, g);
   }
@@ -260,10 +297,65 @@ export class BassGestures {
     if (g.kind === 'trig') {
       this.press(g.id, false);
       window.clearTimeout(g.hold);
-      // Un pas tenu pour LOCK, un potard tourne pendant l'appui : le lacher sort (LOCK momentane)
-      if (g.lockHold && bassLockTurns() > 0) bassLockOff();
+      // Un pas tenu pour LOCK, un potard tourne pendant l'appui : le lacher sort (LOCK momentane) ; un bloc encore tenu
+      // d'un autre doigt (2026-10-09) : il continue d'ecrire sur ce pas, le LOCK sort a son lacher
+      if (g.lockHold && bassLockTurns() > 0) {
+        if (this.knobHeld()) this.lockOffAfter = { step: g.step, gen: bassLockGen() };
+        else bassLockOff();
+      }
       if (!g.dragged && !g.held && overId === g.id) bassStepTap(g.step);
     } else if (g.kind === 'key') this.press(g.id, false);
+    else if (g.kind === 'knob') {
+      if (g.ring) this.stage.bass?.holdBlock(g.enc, false);
+      if (g.taps) this.tapUp(g);
+      this.flushLockOff();
+    }
+  }
+
+  /**
+   * Un potard lache (2026-10-09) : sans avoir bouge, c'est une tape ; la seconde d'une double tape remet la valeur de
+   * depart (en LOCK : le verrou s'en va). Au telephone, une tape seule sur un bloc dit le geste (la revue : rien ne
+   * disait qu'un bloc se glisse, une tape ne faisait rien).
+   */
+  private tapUp(g: Grip): void {
+    const id = g.knob;
+    if (!id) return;
+    if (g.moved) {
+      this.lastTap.delete(g.id);
+      return;
+    }
+    const label = bassKnob(id).label;
+    const locking = bassState.get().lock >= 0;
+    if (g.dbl) {
+      this.lastTap.delete(g.id);
+      const was = bassKnobValue(id);
+      bassDialReset(id);
+      // Deja a sa valeur de depart : l'ecran le dit quand meme (sinon le conseil de la premiere tape restait affiche)
+      if (PORTRAIT && g.enc >= 0 && !locking && bassKnobValue(id) === was) bassState.say(`${label}: DEFAULT`, 1200);
+      return;
+    }
+    this.lastTap.set(g.id, g.t0);
+    if (!PORTRAIT || g.enc < 0) return;
+    bassState.say(locking && isBassGlobal(id) ? `${label}: GLOBAL, NOT PER STEP` : `${label}: DRAG UP OR DOWN  2X: ${locking ? 'UNLOCK' : 'RESET'}`, 1600);
+  }
+
+  /** Un potard, un encodeur ou un bloc tenu (un doigt, la souris) ? */
+  private knobHeld(): boolean {
+    for (const o of this.grips.values()) if (o.kind === 'knob' && !o.infoOnly) return true;
+    return false;
+  }
+
+  /**
+   * Le dernier bloc lache : le LOCK momentane en attente sort, s'il est encore celui du pas leve, sans avoir ete repris
+   * depuis (bassLockGen) et si aucun doigt n'est revenu sur ce pas.
+   */
+  private flushLockOff(): void {
+    const w = this.lockOffAfter;
+    if (!w || this.knobHeld()) return;
+    this.lockOffAfter = null;
+    if (bassState.get().lock !== w.step || bassLockGen() !== w.gen) return;
+    for (const o of this.grips.values()) if (o.kind === 'trig' && o.step === w.step) return;
+    bassLockOff();
   }
 
   /**
@@ -313,8 +405,10 @@ export class BassGestures {
     for (const g of this.grips.values()) {
       window.clearTimeout(g.hold);
       if (g.kind !== 'knob') this.press(g.id, false);
+      else if (g.ring) this.stage.bass?.holdBlock(g.enc, false);
     }
     this.grips.clear();
+    this.lockOffAfter = null;
   }
 }
 

@@ -17,6 +17,7 @@
 
 import type { Stage } from '../scene/renderer';
 import { bassInfos } from '../state/bassInfos';
+import { PORTRAIT } from '../theme';
 import { bassLockOff, bassLockToggle, bassPageStep, bassStepTap } from './actions';
 import { bassPage } from './pages';
 import { bassKeyAction } from './gestures';
@@ -45,8 +46,9 @@ export const BASS_KEY_LEGEND: readonly { keys: string; what: string }[] = [
   { keys: 'Space', what: 'Run or stop, in time with the MM-RYTM' },
   { keys: 'E', what: 'Edit: the sixteen patterns on the steps' },
   { keys: 'O  /  I', what: 'Open the machine (fine settings)  /  INFOS: hover a control to read what it does' },
-  { keys: '[  ]', what: 'Previous or next page (VOICE, FILTER, ENV, FX): the eight encoders follow it' },
-  { keys: 'L  /  Esc', what: 'Lock the chosen step (or hold a step): the encoders change only it  /  out of lock' },
+  // Au telephone (2026-10-09) les blocs de l'ecran tiennent lieu d'encodeurs
+  { keys: '[  ]', what: `Previous or next page (VOICE, FILTER, ENV, FX): the eight ${PORTRAIT ? 'screen values' : 'encoders'} follow it` },
+  { keys: 'L  /  Esc', what: `Lock the chosen step (or hold a step): the ${PORTRAIT ? 'screen values' : 'encoders'} change only it  /  out of lock` },
   { keys: 'G  /  M', what: 'Generate a new line  /  mutate a few steps' },
   { keys: 'A  /  S', what: 'Accent  /  slide on the chosen step' },
   { keys: 'Up  Down', what: 'Chosen step one note up or down in the scale' },

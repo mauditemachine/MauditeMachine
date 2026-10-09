@@ -54,6 +54,8 @@ import { pattern } from '../audio/pattern';
 import { sc } from '../audio/soundcloud';
 import { editor } from '../state/editor';
 import { focus } from '../state/focus';
+import { presetMode } from '../state/presetMode';
+import { PORTRAIT } from '../theme';
 import { bassEngine } from './engine';
 import { generate, mutate, type GenOpts } from './gen';
 import type { BassStep } from './state';
@@ -64,6 +66,8 @@ import { bassSeq, gateOf, midiOf } from './seq';
 import { BASS_STEPS, bassState, emptyStep, isLockable } from './state';
 
 const two = (i: number): string => String(i + 1).padStart(2, '0');
+/** Le geste qui regle un verrou : au telephone on glisse un bloc de l'ecran (2026-10-09, plus d'encodeurs). */
+const TURN = PORTRAIT ? 'DRAG A VALUE' : 'TURN A KNOB';
 
 /** EDIT est ouvert sur le MM-BASS : les pas sont les patterns. */
 export const bassEditing = (): boolean => editor.get() === 'bass';
@@ -313,6 +317,13 @@ bassState.subscribe(() => {
 /** Les potards tournes en LOCK depuis le debut d'un appui tenu (un pas tenu qu'on lache apres un reglage sort du LOCK). */
 let lockTurns = 0;
 export const bassLockTurns = (): number => lockTurns;
+/**
+ * Chaque entree en LOCK et chaque sortie (2026-10-09, la revue) : un geste qui a remis sa sortie a plus tard (le pas
+ * leve avant le bloc) sait si le LOCK a ete repris entre-temps (le meme pas tenu de nouveau, sa touche LOCK, le MIDI,
+ * le clavier, le Roto) ; il ne sort alors plus rien.
+ */
+let lockGen = 0;
+export const bassLockGen = (): number => lockGen;
 let lockAudition = 0;
 
 /** Un potard (0 a 1) ; l'ecran dit sa valeur. En LOCK, un potard du son verrouille le pas. */
@@ -418,6 +429,9 @@ export function bassEncReset(k: number): void {
  */
 export function bassPageSet(p: BassPageId): void {
   gesture();
+  // PRESETS ouvert (2026-10-09, la revue) : une touche de page le referme et montre sa page, comme une touche de page
+  // quitte le menu d'une Elektron (sinon la page changeait derriere le navigateur, sans que rien ne se voie)
+  if (presetMode.on('bass')) presetMode.close();
   if (p === bassPage.get()) return;
   // La page change : l'echo du dernier reglage tourne s'en va avant (sinon l'ecran le montrerait en plein, hors de la page)
   if (bassState.get().touched) bassState.set({ touched: null });
@@ -426,7 +440,7 @@ export function bassPageSet(p: BassPageId): void {
   if (st.lock < 0) return;
   const locks = st.steps[st.lock]?.locks ?? {};
   const n = BASS_PAGE_SLOTS[p].filter((id) => id !== null && isLockable(id) && locks[id] !== undefined).length;
-  bassState.say(`LOCK ${two(st.lock)}  ${bassPageDef(p).label}: ${n ? `${n} LOCKED` : 'TURN A KNOB'}`, 1400);
+  bassState.say(`LOCK ${two(st.lock)}  ${bassPageDef(p).label}: ${n ? `${n} LOCKED` : TURN}`, 1400);
 }
 
 /** Les touches [ et ] : la page d'a cote (un seul changement, l'echo efface avant). */
@@ -457,6 +471,7 @@ export function bassLockEnter(i: number): void {
   }
   const st = bassState.get();
   lockTurns = 0;
+  lockGen += 1;
   // Un pas vide : une note (la tonique), sinon son verrou ne s'entendrait jamais ; elle repart si on quitte
   // le pas sans rien y verrouiller (2026-10-08 : promener le LOCK sur des pas vides remplissait la ligne)
   const empty = st.steps[i].kind === 'off';
@@ -466,7 +481,7 @@ export function bassLockEnter(i: number): void {
     lockNote = i;
   }
   const n = Object.keys(st.steps[i].locks ?? {}).length;
-  bassState.say(`LOCK ${two(i)}  ${empty ? 'NEW NOTE, TURN A KNOB' : n ? `${n} LOCKED` : 'TURN A KNOB'}`, 2000);
+  bassState.say(`LOCK ${two(i)}  ${empty ? `NEW NOTE, ${TURN}` : n ? `${n} LOCKED` : TURN}`, 2000);
   audition(i);
 }
 
@@ -477,6 +492,7 @@ export function bassLockToggle(): void {
 
 export function bassLockOff(): void {
   if (bassState.get().lock < 0) return;
+  lockGen += 1;
   bassState.set({ lock: -1 });
   bassState.say('LOCK OFF', 1200);
 }

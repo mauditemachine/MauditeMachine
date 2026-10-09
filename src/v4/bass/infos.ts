@@ -16,8 +16,14 @@
  * encodeur montre la carte du reglage qu'il tient sur la page allumee (enc
  * pour une case vide), les touches de page la leur, la touche "i" (ikey) la
  * sienne ; la section d'un reglage d'une page dit ou le trouver (FILTER B).
+ * Au telephone, plus d'encodeurs (2026-10-09, Mika : "on change dans l'ecran
+ * directement") : les cartes qui parlaient d'encodeurs parlent des blocs de
+ * l'ecran (PHONE, par-dessus RAW), sans les touches du clavier (keys : le
+ * raccourci, ajoute au texte au desktop seulement ; la revue du meme jour :
+ * "Touche A." se lisait au telephone comme le bloc A).
  */
 
+import { PORTRAIT } from '../theme';
 import { ENC_LETTERS, bassPage, bassPageDef, bassSlotOf } from './pages';
 import { BASS_KNOBS, type BassKnobId } from './params';
 import type { BassKeyKind } from './theme';
@@ -33,6 +39,9 @@ export interface BassInfo {
   tip?: string;
 }
 
+/** Une carte a la source : son raccourci clavier a part (keys, la fin du texte au desktop ; aucun au telephone). */
+type RawInfo = BassInfo & { keys?: string };
+
 /** Les espaces insecables du francais (Quebec) et l'apostrophe typographique. */
 const fr = (s: string): string =>
   s
@@ -40,7 +49,7 @@ const fr = (s: string): string =>
     .replace(/ :/g, ' :')
     .replace(/(\d) (ms|s|Hz|kHz|dB|dBFS|%|cents|octaves?|pas|mesures?|BPM)(?![A-Za-zÀ-ÿ])/g, '$1 $2');
 
-const RAW: Record<BassInfoId, BassInfo> = {
+const RAW: Record<BassInfoId, RawInfo> = {
   /* ---------- GENERATOR (a cote de l'ecran) ---------- */
   style: {
     section: 'GENERATOR',
@@ -57,13 +66,13 @@ const RAW: Record<BassInfoId, BassInfo> = {
   gen: {
     section: 'GENERATOR',
     title: 'GEN',
-    text: "Écrit une nouvelle ligne de 16 pas avec STYLE et DENSITY, dans la gamme de ROOT et SCALE (sous le capot, OPEN). Si rien ne joue, la ligne part tout de suite. Touche G.",
+    text: "Écrit une nouvelle ligne de 16 pas avec STYLE et DENSITY, dans la gamme de ROOT et SCALE (sous le capot, OPEN). Si rien ne joue, la ligne part tout de suite.", keys: "Touche G.",
     tip: "Appuie jusqu'à ce qu'une ligne t'accroche, puis garde-la dans un pattern avec EDIT.",
   },
   mutate: {
     section: 'GENERATOR',
     title: 'MUTATE',
-    text: "Change 2 à 4 pas : une note, un accent, un slide, une octave, un pas qui apparaît ou disparaît ; le reste ne bouge pas. Touche M.",
+    text: "Change 2 à 4 pas : une note, un accent, un slide, une octave, un pas qui apparaît ou disparaît ; le reste ne bouge pas.", keys: "Touche M.",
     tip: "Une mutation toutes les 8 mesures garde la ligne vivante en live.",
   },
 
@@ -318,7 +327,7 @@ const RAW: Record<BassInfoId, BassInfo> = {
   run: {
     section: 'KEYS',
     title: 'RUN',
-    text: "Lance ou arrête la ligne, calée sur le MM-RYTM s'il joue (sinon le MM-ARP, sinon le tempo). Touche Espace.",
+    text: "Lance ou arrête la ligne, calée sur le MM-RYTM s'il joue (sinon le MM-ARP, sinon le tempo).", keys: "Touche Espace.",
   },
   clear: {
     section: 'KEYS',
@@ -328,42 +337,42 @@ const RAW: Record<BassInfoId, BassInfo> = {
   accentkey: {
     section: 'KEYS',
     title: 'ACCENT',
-    text: "Met ou enlève l'accent sur le pas choisi ; le potard ACCENT règle sa force. Touche A.",
+    text: "Met ou enlève l'accent sur le pas choisi ; le potard ACCENT règle sa force.", keys: "Touche A.",
   },
   slide: {
     section: 'KEYS',
     title: 'SLIDE',
-    text: "Fait glisser la note du pas choisi vers la suivante, sans la relâcher ; GLIDE règle la durée. Touche S.",
+    text: "Fait glisser la note du pas choisi vers la suivante, sans la relâcher ; GLIDE règle la durée.", keys: "Touche S.",
   },
   notedn: {
     section: 'KEYS',
     title: 'NOTE -',
-    text: "Un degré de la gamme plus bas sur le pas choisi ; tu peux aussi glisser sur le pas. Flèche du bas.",
+    text: "Un degré de la gamme plus bas sur le pas choisi ; tu peux aussi glisser sur le pas.", keys: "Flèche du bas.",
   },
   noteup: {
     section: 'KEYS',
     title: 'NOTE +',
-    text: "Un degré de la gamme plus haut sur le pas choisi ; tu peux aussi glisser sur le pas. Flèche du haut.",
+    text: "Un degré de la gamme plus haut sur le pas choisi ; tu peux aussi glisser sur le pas.", keys: "Flèche du haut.",
   },
   octdn: {
     section: 'KEYS',
     title: 'OCT -',
-    text: "Une octave plus bas sur le pas choisi (de -1 à +2). Touche Z.",
+    text: "Une octave plus bas sur le pas choisi (de -1 à +2).", keys: "Touche Z.",
   },
   octup: {
     section: 'KEYS',
     title: 'OCT +',
-    text: "Une octave plus haut sur le pas choisi (de -1 à +2). Touche X.",
+    text: "Une octave plus haut sur le pas choisi (de -1 à +2).", keys: "Touche X.",
   },
   edit: {
     section: 'KEYS',
     title: 'EDIT',
-    text: "Les 16 pas deviennent 16 patterns : touche un pas pour jouer son pattern à la mesure, plusieurs à la suite pour les enchaîner, tiens un vide pour y copier la ligne. L'écran montre la ligne en rouleau et, dessous, les verrous de la page allumée, pas par pas (change de page pour voir les autres). Touche E.",
+    text: "Les 16 pas deviennent 16 patterns : touche un pas pour jouer son pattern à la mesure, plusieurs à la suite pour les enchaîner, tiens un vide pour y copier la ligne. L'écran montre la ligne en rouleau et, dessous, les verrous de la page allumée, pas par pas (change de page pour voir les autres).", keys: "Touche E.",
   },
   open: {
     section: 'KEYS',
     title: 'OPEN',
-    text: "Soulève le capot : les règles du générateur, les réglages fins de la voix et INFOS. Touche O.",
+    text: "Soulève le capot : les règles du générateur, les réglages fins de la voix et INFOS.", keys: "Touche O.",
   },
 
   /* ---------- les pas ---------- */
@@ -398,6 +407,45 @@ const RAW: Record<BassInfoId, BassInfo> = {
   },
 };
 
+/**
+ * Au telephone (2026-10-09) : plus d'encodeurs, les huit blocs de l'ecran en tiennent lieu (on les glisse), les
+ * touches de page sont sous l'ecran ; pas de clavier (ni [ ], ni Echap).
+ */
+const PHONE: Partial<Record<BassInfoId, Partial<BassInfo>>> = {
+  decay: {
+    text: "Le temps que met le filtre à se refermer après chaque note, de 120 ms à 2,5 s : court pour des notes sèches, long pour des notes qui respirent. Une note accentuée garde sa décroissance courte (ACC DECAY, le bloc voisin), comme sur la 303, sauf si DECAY est verrouillé sur son pas.",
+  },
+  accent: {
+    text: "La force des pas accentués (touche ACCENT, pas orange vif) : plus de volume, un filtre qui s'ouvre plus haut et plus court. Les accents qui se suivent s'additionnent et le filtre monte encore, le fameux wow de la 303 (SWEEP, deux blocs plus loin). Verrouillé sur un pas sans accent, il lui donne l'accent.",
+  },
+  pvoice: { text: "Les huit blocs de l'écran règlent la voix : WAVE, PW, SUB, SUB OCT, OCTAVE, TUNE et GLIDE. La LED dit la page allumée, l'onglet de l'écran aussi." },
+  pfilter: { text: "Les huit blocs de l'écran règlent le filtre de la 303 : CUTOFF, RESO, ENV MOD, DECAY, ACCENT, ACC DECAY, SWEEP et KEY TRK. C'est la page de départ." },
+  penv: { text: "Les huit blocs de l'écran règlent l'enveloppe de l'ampli : ATTACK, AMP DECAY, SUSTAIN, RELEASE, la longueur des notes (LENGTH) et VOLUME." },
+  pfx: { text: "Les huit blocs de l'écran règlent les effets : DRIVE, l'envoi DELAY avec son temps et son retour, l'envoi REVERB avec sa durée et sa couleur. Les envois se verrouillent pas par pas ; le temps, le retour, la durée et la couleur sont globaux." },
+  cutoff: {
+    text: "La fréquence où le filtre de la 303 commence à couper les aigus, de 60 Hz à 6 kHz : à gauche sombre, à droite ouvert et brillant. C'est le geste principal de la machine, glisse son bloc pendant que ça joue.",
+  },
+  accents: { text: "La chance qu'une note soit accentuée quand tu appuies sur GEN. Ce n'est pas le bloc ACCENT (page FILTER, E), qui règle la force de l'accent." },
+  accentkey: { text: "Met ou enlève l'accent sur le pas choisi ; le bloc ACCENT de l'écran (page FILTER, E) règle sa force." },
+  enc: {
+    section: 'SCREEN',
+    title: 'VALUE',
+    text: "Les huit blocs de l'écran règlent la page allumée (VOICE, FILTER, ENV, FX, les touches sous l'écran) : glisse un bloc vers le haut ou le bas pour changer sa valeur, de 0 à 127 ; deux tapes la remettent à sa valeur de départ. Cette case est vide sur cette page.",
+  },
+  ikey: { text: "Allume l'aide : touche n'importe quelle commande du MM-BASS pour lire ce qu'elle fait, sans la changer ; un bloc de l'écran montre le réglage qu'il tient sur la page allumée. Le i se remplit tant que c'est allumé ; touche-le encore pour l'éteindre." },
+  lock: {
+    text: "Ce pas passe en LOCK : sa LED clignote, l'écran affiche en négatif LOCK suivi du numéro du pas. Choisis la partie à changer avec une touche de page (VOICE, FILTER, ENV, FX, sous l'écran), puis glisse un bloc de l'écran : ce réglage ne change plus que sur ce pas, son bloc passe en négatif. Deux tapes sur le bloc enlèvent ce verrou, CLEAR tous ceux du pas ; réappuie sur LOCK pour sortir.",
+  },
+  trig: {
+    text: "Touche un pas : vide, note, liaison, vide ; glisse dessus pour changer sa note. Tiens-le d'un doigt et glisse un bloc de l'écran d'un autre : ce réglage est verrouillé sur ce pas, comme sur une Elektron (un appui long seul garde le LOCK). Quand la lecture passe sur un pas verrouillé, ses blocs passent en négatif à l'écran.",
+    tip: "Lâche le pas avant le bloc si tu veux : le verrou s'écrit jusqu'au lâcher du bloc.",
+  },
+  screen: {
+    text: "Les huit blocs sont les commandes : glisse un bloc vers le haut pour monter sa valeur (de 0 à 127, son unité dessous), deux tapes pour sa valeur de départ ; le bloc que ton doigt tient est cerné. En LOCK, les réglages verrouillés sur le pas sont en négatif ; en lecture, ceux du pas qui joue s'allument le temps du pas. Dessous, les 16 pas : un point sur chaque pas verrouillé (plein : sur cette page). En haut, touche un onglet pour sa page, le pattern (A01) pour les presets, le petit i pour INFOS.",
+  },
+  infos: { text: "Allume l'aide : touche un bloc de l'écran, un potard ou une touche du MM-BASS pour lire ce qu'il fait, sans le changer. Le petit i dans le coin de l'écran fait la même chose. Réappuie, ou touche la pastille, pour l'éteindre." },
+};
+
 const KNOBS: ReadonlySet<string> = new Set(BASS_KNOBS.map((k) => k.id));
 
 /** La section d'un reglage d'une page : ou le trouver (FILTER B), et sous le capot s'il y est aussi (2026-10-08). */
@@ -410,7 +458,11 @@ function sectionOf(id: string, raw: string): string {
 }
 
 export const BASS_INFOS: Record<BassInfoId, BassInfo> = Object.fromEntries(
-  Object.entries(RAW).map(([id, x]) => [id, { section: sectionOf(id, x.section), title: x.title, text: fr(x.text), ...(x.tip ? { tip: fr(x.tip) } : {}) }])
+  Object.entries(RAW).map(([id, raw]) => {
+    const x: RawInfo = PORTRAIT ? { ...raw, ...PHONE[id as BassInfoId] } : raw;
+    const text = !PORTRAIT && x.keys ? `${x.text} ${x.keys}` : x.text;
+    return [id, { section: sectionOf(id, x.section), title: x.title, text: fr(text), ...(x.tip ? { tip: fr(x.tip) } : {}) }];
+  })
 ) as Record<BassInfoId, BassInfo>;
 
 /** Un potard ? (sa valeur se lit, son dessin la suit). */
@@ -440,6 +492,11 @@ export function bassInfoIdOf(hotspotId: string): BassInfoId | null {
     const kind = hotspotId.slice(9);
     if (kind === 'accent') return 'accentkey';
     return kind in RAW && !KNOBS.has(kind) ? (kind as BassInfoId) : null;
+  }
+  // Un onglet de l'en-tete (le telephone, 2026-10-09) : la carte de sa touche de page
+  if (hotspotId.startsWith('bass-tab-')) {
+    const kind = `p${hotspotId.slice(9)}`;
+    return kind in RAW ? (kind as BassInfoId) : null;
   }
   if (hotspotId.startsWith('bass-trig-')) return 'trig';
   if (hotspotId.startsWith('bass-lock-')) return 'lock';
