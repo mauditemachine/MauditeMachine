@@ -31,7 +31,7 @@
 
 import { bassFactory } from '../state/factory';
 import { PORTRAIT } from '../theme';
-import { generate, isFreeStep, mutate, type GenOpts } from './gen';
+import { generate, isFreeStep, type GenOpts } from './gen';
 import type { BassInfoId } from './infos';
 import { BASS_FEET, BASS_MODES, BASS_ROOTS, BASS_SCALES, BASS_STYLES, BASS_KNOBS, DTIME_STEPS, LOAD_MAKEUP, OSC2_WAVES, OSC3_WAVES, SCALE_TONES, accDecayMs, adecayMs, attackMs, bassBig, bassKnob, bassValueText, cutoffHz, decayMs, dfbPct, driveGain, emphOf, envOct, fineCt, glideMs, ladderMag, lengthPct, loadDb, loadGain, modeName, noiseDb, pwPct, rangeOct, releaseMs, rsizeS, rtoneHz, semiName, semiSt, stepOf, sweepOct, tuneCents, type BassKnobId, type BassMode, type BassStyle, type BassValues } from './params';
 import { BASS_SCREEN_SLOTS, PAGE_TABS, SCREEN_LABEL, SCREEN_PAGE, bassSlotOf, type BassScreenId } from './pages';
@@ -560,6 +560,155 @@ function seriesPts(ys: readonly number[], i0: number, i1: number, xOf: (i: numbe
   return pts;
 }
 
+/* ---------------- le GENERATOR : les seize cases (2026-10-09) ---------------- */
+
+/**
+ * Une case de l'image du generateur (2026-10-09, Mika : "j'aime bien l'image qu'il y a dans density" : elle devient
+ * L'image du generateur, a l'ecran et sur les cartes de STYLE, NOTES, GEN et MUTATE) : ce que joue le pas, s'il est a
+ * toi (pin), verrouille (locked), en P-LOCK (latched), venu ou parti au dernier geste, celui que NOTES + 1 remplirait
+ * (plus) ou que NOTES - 1 retirerait (minus), sous la tete de lecture (playing).
+ */
+export interface BassGenCell {
+  kind: 'off' | 'note' | 'tie';
+  acc: boolean;
+  slide: boolean;
+  pin: boolean;
+  locked: boolean;
+  latched: boolean;
+  added: boolean;
+  removed: boolean;
+  plus: boolean;
+  minus: boolean;
+  playing: boolean;
+}
+
+/** Une forme de l'image : son role (l'ecran a son encre pour chacun, la carte INFOS un role de trait) et son chemin. */
+export interface BassGenShape {
+  kind: 'empty' | 'emptyBeat' | 'note' | 'acc' | 'hot' | 'tie' | 'slide' | 'gone' | 'pin' | 'plus' | 'latch' | 'head';
+  d: string;
+}
+export interface BassGenText {
+  text: string;
+  x: number;
+  y: number;
+  size: number;
+  /** num : le numero d'un temps ; mark : P, +, - */
+  role: 'num' | 'mark';
+}
+
+/** Les cases a partir d'une ligne seule (une carte INFOS : pas d'echelle, ni plus ni minus). */
+export function genCellsOf(steps: readonly BassStep[], prev?: readonly BassStep[], lock = -1): BassGenCell[] {
+  return Array.from({ length: BASS_STEPS }, (_, i): BassGenCell => {
+    const s = steps[i] ?? { kind: 'off', deg: 0, oct: 0, acc: false, slide: false };
+    const q = prev?.[i];
+    const note = s.kind === 'note';
+    return {
+      kind: s.kind,
+      acc: note && s.acc,
+      slide: s.kind !== 'off' && s.slide && i < BASS_STEPS - 1 && steps[i + 1]?.kind === 'note',
+      pin: s.kind !== 'off' && !isFreeStep(s),
+      locked: !!s.locks,
+      latched: i === lock,
+      added: !!prev && note && q?.kind !== 'note',
+      removed: !!prev && !note && q?.kind === 'note',
+      plus: false,
+      minus: false,
+      playing: false,
+    };
+  });
+}
+
+/**
+ * Le dessin des seize cases dans la boite (x0, y0, w, h) : une rangee de seize (desktop, la carte) ou deux de huit (le
+ * telephone, comme ses rangees de pas), un ecart plus large entre les temps. Vide : un contour (les temps plus
+ * marques) ; une note pleine (accentuee : a l'encre entiere) ; une liaison : une barre a mi-hauteur qui rejoint la case
+ * d'avant ; un slide : un petit trait vers la suivante ; venue : pleine, cernee ; partie : un pointille ; a toi : un
+ * point au-dessus (un P si elle est verrouillee) ; en P-LOCK : un cadre epais ; la suivante de NOTES + 1 : un pointille
+ * et un + ; celle de NOTES - 1 : un - dessous ; la tete de lecture soulignee. Le meme dessin a l'ecran (screen.ts) et
+ * sur la carte (Pic) : les memes formes, deux encres.
+ */
+export function genShapes(cells: readonly BassGenCell[], x0: number, y0: number, w: number, h: number, rows: 1 | 2): { shapes: BassGenShape[]; texts: BassGenText[] } {
+  const per = rows === 1 ? BASS_STEPS : 8;
+  const gap = rows === 1 ? 1.4 : 1.8;
+  const beatGap = rows === 1 ? 4.6 : 5.2;
+  const beats = per / 4;
+  const cw = (w - (per - beats) * gap - (beats - 1) * beatGap) / per;
+  // Par rangee : les marques au-dessus (6), les cases, le - et les numeros dessous (12)
+  const rowH = rows === 1 ? h : (h - 4) / 2;
+  const cellH = rowH - 18;
+  const shapes: BassGenShape[] = [];
+  const texts: BassGenText[] = [];
+  const box = (x: number, y: number, ww: number, hh: number): string => rbox(x, y, ww, hh, Math.min(2, ww / 6));
+  const xOf = (k: number): number => x0 + k * cw + (k - Math.floor(k / 4)) * gap + Math.floor(k / 4) * (beatGap - gap);
+  const markSize = Math.max(6.6, cw * 0.36);
+  for (let i = 0; i < BASS_STEPS; i += 1) {
+    const c = cells[i];
+    const row = rows === 1 ? 0 : Math.floor(i / 8);
+    const k = i % per;
+    const x = xOf(k);
+    const top = y0 + row * (rowH + 4) + 7;
+    const y = top;
+    const beat = i % 4 === 0;
+    if (c.kind === 'note') {
+      if (c.added) shapes.push({ kind: 'hot', d: box(x, y, cw, cellH) });
+      else shapes.push({ kind: c.acc ? 'acc' : 'note', d: box(x, y, cw, cellH) });
+    } else {
+      shapes.push({ kind: beat ? 'emptyBeat' : 'empty', d: box(x + 0.4, y + 0.4, cw - 0.8, cellH - 0.8) });
+      if (c.kind === 'tie') {
+        // La liaison : une barre a mi-hauteur, depuis la case d'avant (a travers l'ecart), sur la rangee
+        const from = k > 0 ? xOf(k - 1) + cw : x;
+        shapes.push({ kind: 'tie', d: box(from - 0.5, y + cellH * 0.3, x + cw - from + 0.5, cellH * 0.4) });
+      }
+      if (c.removed) shapes.push({ kind: 'gone', d: box(x + 1.4, y + 1.4, cw - 2.8, cellH - 2.8) });
+      if (c.plus) {
+        shapes.push({ kind: 'plus', d: box(x + 1.6, y + 1.6, cw - 3.2, cellH - 3.2) });
+        texts.push({ text: '+', x: x + cw / 2, y: y + cellH / 2 + markSize * 0.36, size: markSize * 1.2, role: 'mark' });
+      }
+    }
+    if (c.slide && k < per - 1) shapes.push({ kind: 'slide', d: seg(x + cw - 2, y + 2.5, xOf(k + 1) + 2, y - 2.5) });
+    if (c.latched) shapes.push({ kind: 'latch', d: box(x - 1.6, y - 1.6, cw + 3.2, cellH + 3.2) });
+    if (c.locked) texts.push({ text: 'P', x: x + cw / 2, y: y - (c.latched ? 3.2 : 1.6), size: markSize, role: 'mark' });
+    else if (c.pin) shapes.push({ kind: 'pin', d: dot(x + cw / 2, y - (c.latched ? 5.2 : 3.6), 1.6) });
+    if (c.minus) texts.push({ text: '-', x: x + cw / 2, y: y + cellH + markSize * 0.95, size: markSize * 1.15, role: 'mark' });
+    if (c.playing) shapes.push({ kind: 'head', d: box(x, y + cellH + 1.6, cw, 1.4) });
+    if (beat) texts.push({ text: String(i + 1), x: x + 0.5, y: y + cellH + 10.5, size: 7, role: 'num' });
+  }
+  return { shapes, texts };
+}
+
+
+/** Les roles de trait de la carte INFOS pour l'image du generateur. */
+const GEN_ROLE: Readonly<Record<BassGenShape['kind'], { role: Role; fill: boolean }>> = {
+  empty: { role: 'grid', fill: false },
+  emptyBeat: { role: 'ghost', fill: false },
+  note: { role: 'main', fill: true },
+  acc: { role: 'hot', fill: true },
+  hot: { role: 'hot', fill: true },
+  tie: { role: 'main', fill: true },
+  slide: { role: 'hot', fill: false },
+  gone: { role: 'dash', fill: false },
+  pin: { role: 'main', fill: true },
+  plus: { role: 'dash', fill: false },
+  latch: { role: 'hot', fill: false },
+  head: { role: 'main', fill: true },
+};
+
+/** L'image du generateur sur une carte (la ligne qui joue, ou la prise 01 du style sans ligne) ; top, bot : ses deux lignes. */
+function genCard(steps: readonly BassStep[], top: string, bot: string, prev?: readonly BassStep[]): Pic {
+  const p = new Pic();
+  const g = genShapes(genCellsOf(steps, prev), X0, 28, X1 - X0, 70, 1);
+  for (const s of g.shapes) p.p(s.d, GEN_ROLE[s.kind].role, GEN_ROLE[s.kind].fill);
+  for (const t of g.texts) p.label(t.text, t.x, t.y, t.role === 'mark' ? 'middle' : 'start');
+  p.label(top, X0, TOP);
+  if (bot) p.label(bot, X0, BOT);
+  return p;
+}
+const countLine = (steps: readonly BassStep[]): string => {
+  const n = countNotes(steps);
+  const y = steps.filter((s) => s.kind === 'note' && !isFreeStep(s)).length;
+  return `${n} NOTE${n === 1 ? '' : 'S'}${y ? `  ·  ${y} YOURS` : ''}`;
+};
+
 /* ---------------- les dessins, un par commande ---------------- */
 
 /**
@@ -850,34 +999,16 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
   },
 
   /* ----- GENERATOR ----- */
-  // La vraie ligne (2026-10-09, Mika : "je ne vois pas ce que STYLE et DENSITY font ; j'aime bien l'image qu'il y a dans
-  // DENSITY") : les seize pas qui jouent, ce que le dernier cran a ajoute en plein (hot), ce qu'il a retire en
-  // pointille ; sans ligne (une carte sans etat), une ligne typique du generateur comme avant
+  // L'image du generateur (2026-10-09, Mika : "j'aime bien l'image qu'il y a dans density") : les seize pas qui jouent,
+  // tes notes marquees d'un point ; sans ligne (une carte sans etat), la prise 01 du style (sa ligne d'usine)
   style(values, c) {
-    const p = new Pic();
     const st = styleOf(values);
     const line = c.steps ?? styleLine(st);
-    beats(p);
-    roll(p, line, SCALE_TONES.MINOR, gateOf(values), Y0, Y1, changedSteps(line, c.prev));
-    p.label(`GATE ${Math.round(gateOf(values) * 100)} %  ${rhythmOf(line)}`, X0, TOP);
-    p.label(c.steps ? lineNote(line, c.prev) : 'FACTORY LINE', X0, BOT);
-    return valueOf(p, 'style', values).done();
+    return genCard(line, `${st}: ITS TYPICAL LINE`, countLine(line), c.prev).done();
   },
   density(values, c) {
-    const p = new Pic();
-    const line = c.steps ?? typical(values, countNotes).line;
-    const prev = c.prev;
-    const n = countNotes(line);
-    // Les notes en plein, comme l'image d'avant (Mika l'aime) ; apres un cran, celles qui viennent d'arriver seules
-    const added = prev ? line.map((s, i) => s.kind === 'note' && prev[i]?.kind !== 'note') : [];
-    const any = added.some(Boolean) || (!!prev && prev.some((q, i) => q.kind === 'note' && line[i]?.kind !== 'note'));
-    cells(p, line, 42, 34, (_s, i) => !any || !!added[i]);
-    // Ce qui vient de partir : la case en pointille
-    if (prev) for (let i = 0; i < BASS_STEPS; i += 1) if (prev[i]?.kind === 'note' && line[i]?.kind !== 'note') p.p(rbox(X0 + i * PITCH + 2, 43, PITCH - 4, 32, 2), 'dash');
-    const diff = prev ? n - countNotes(prev) : 0;
-    p.label(`${n} ${styleOf(values) === 'SUB' ? 'CHANGES' : 'NOTES'} / BAR${diff ? `  ${diff > 0 ? '+' : ''}${diff}` : ''}`, X0, TOP);
-    p.label(c.steps ? lineNote(line, prev) : 'A TYPICAL GEN LINE', X0, BOT);
-    return valueOf(p, 'density', values).done();
+    const line = c.steps ?? styleLine(styleOf(values));
+    return genCard(line, 'ONE NOTCH = ONE NOTE, SAME ORDER', countLine(line), c.prev).done();
   },
   slides(values, c) {
     const p = new Pic();
@@ -1104,45 +1235,12 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
     return p.value(`${Math.round(c.bpm)} BPM`).done();
   },
   gen(values, c) {
-    const p = new Pic();
-    p.p(rbox(X0, 38, 44, 44, 8), 'main');
-    for (const [dx, dy] of [
-      [11, 11],
-      [33, 11],
-      [22, 22],
-      [11, 33],
-      [33, 33],
-    ] as const)
-      p.p(dot(X0 + dx, 38 + dy, 3), 'main', true);
-    p.p(arrow(64, 60, 92, 60, 6), 'main');
-    const steps = c.steps ?? [];
-    const pitch = (X1 - 100) / 8;
-    for (let i = 0; i < BASS_STEPS; i += 1) {
-      const s = steps[i];
-      const x = 100 + (i % 8) * pitch + 1;
-      const y = i < 8 ? 38 : 64;
-      if (!s || s.kind === 'off') p.p(rbox(x, y, pitch - 2, 18, 2), 'grid');
-      else if (s.kind === 'tie') p.p(rbox(x, y + 5, pitch - 2, 8, 1.5), 'ghost', true);
-      else p.p(rbox(x, y, pitch - 2, 18, 2), 'hot', true);
-    }
-    p.label(`${styleOf(values)}, DENSITY ${Math.round(values.density * 100)}`, X0, TOP);
-    p.label('16 NEW STEPS', 100, BOT - 8);
-    return p.done();
+    const line = c.steps ?? styleLine(styleOf(values));
+    return genCard(line, `NEXT TAKE, SAME ${countNotes(line)} NOTES`, 'HOLD GEN: THE TAKE BEFORE', c.prev).done();
   },
   mutate(values, c) {
-    const p = new Pic();
-    const steps = c.steps ?? [];
-    const next = steps.length === BASS_STEPS ? mutate(steps, genOf(values, mulberry(29))) : [];
-    cells(p, steps, 42, 32, () => false);
-    let n = 0;
-    next.forEach((s, i) => {
-      const o = steps[i];
-      if (!o || (s.kind === o.kind && s.deg === o.deg && s.oct === o.oct && s.acc === o.acc && s.slide === o.slide)) return;
-      n += 1;
-      p.p(rbox(X0 + i * PITCH - 1, 38, PITCH + 2, 40, 3), 'hot');
-    });
-    p.label(n ? `${n} STEPS CHANGE` : '2 TO 4 STEPS CHANGE', X0, TOP);
-    return p.done();
+    const line = c.steps ?? styleLine(styleOf(values));
+    return genCard(line, '2 OR 3 MACHINE NOTES CHANGE', 'HOLD MUTATE: UNDO', c.prev).done();
   },
   accentkey(values, c) {
     const p = new Pic();

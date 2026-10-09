@@ -240,6 +240,8 @@ export interface PageInput {
   pattern: string;
   /** le preset qui sonne tel quel (charge, rien n'a bouge depuis), null : aucun */
   preset?: string | null;
+  /** la prise de la ligne (2026-10-09) : ACID 07, ACID 07* (mutee) ; absente : le style seul */
+  take?: string;
   message: string | null;
   infos: boolean;
   /** le reglage qu'on vient de tourner (l'echo), null : aucun */
@@ -416,7 +418,8 @@ export function bassPageModel(inp: PageInput): BassPageModel {
     running: inp.running,
     bpm: inp.bpm,
     pattern: inp.pattern,
-    style: inp.preset ? inp.preset.toUpperCase() : BASS_STYLES[stepOf('style', v.style)],
+    // La prise (2026-10-09) : ACID 07  A01 ; le preset charge le nomme tant que rien n'a bouge
+    style: inp.preset ? inp.preset.toUpperCase() : inp.take ?? BASS_STYLES[stepOf('style', v.style)],
     key: `${BASS_ROOTS[stepOf('root', v.root)]} ${BASS_SCALES[stepOf('scale', v.scale)]}`,
     lock,
     count: lock ? (n ? `${n} P-LOCK${n > 1 ? 'S' : ''}` : 'NO P-LOCK YET') : lockedSteps ? `P-LOCKS ON ${lockedSteps} STEP${lockedSteps > 1 ? 'S' : ''}` : '',

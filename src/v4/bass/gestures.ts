@@ -72,6 +72,13 @@
  *   souris, un degre de la gamme par cran (l'octave suit) ;
  * - un potard dedie tenu (STYLE, DENSITY...) garde son echo a l'ecran
  *   (holdPot), comme la bulle d'un encodeur.
+ * Le generateur (2026-10-09, Mika : "Je trouve Style et Density complexe a
+ * utiliser") : NOTES (l'ancien DENSITY) compte les notes, un cran de molette
+ * = une note, un glisser de 12 px a la souris (16 au doigt) = une note, depuis
+ * le compte au debut de l'appui (un pattern qui change sous le doigt : le
+ * compte repart de la nouvelle ligne) ; STYLE garde ses 150 px pour ses onze
+ * crans. GEN et MUTATE agissent au lacher (avant 500 ms) ; tenus 500 ms, la
+ * prise d'avant et l'annulation tombent a 500 ms, sans attendre le lacher.
  * Les onglets (2026-10-09, le moteur MONARK) : une touche de page pressee
  * sur la page allumee passe a son onglet suivant (bassPagePress) ; une puce
  * de l'en-tete (bass-scr-<ecran>, h.bass = screen:<ecran>) va a son onglet ;
@@ -84,7 +91,8 @@ import { quadToUnit } from '../scene/quad';
 import { openToggle, presetKey } from '../actions';
 import { bassInfos } from '../state/bassInfos';
 import { PORTRAIT } from '../theme';
-import { bassAccent, bassClear, bassDegStep, bassDial, bassDialReset, bassEditCycle, bassEditNote, bassEditToggle, bassEditing, bassEmptySay, bassEncParam, bassFxDial, bassFxParam, bassFxReset, bassGenerate, bassKnobValue, bassLockEnter, bassLockGen, bassLockOff, bassLockRestore, bassLockTap, bassLockTurns, bassMutate, bassNote, bassNoteName, bassOct, bassPagePress, bassPatternHold, bassPitchAt, bassRun, bassScreenSet, bassSlide, bassStepDeg, bassStepTap } from './actions';
+import { bassAccent, bassClear, bassDegStep, bassDial, bassDialReset, bassEditCycle, bassEditNote, bassEditToggle, bassEditing, bassEmptySay, bassEncParam, bassFxDial, bassFxParam, bassFxReset, bassGenBack, bassGenerate, bassKnobValue, bassLockEnter, bassLockGen, bassLockOff, bassLockRestore, bassLockTap, bassLockTurns, bassMutate, bassMutateUndo, bassNote, bassNoteName, bassNotesTo, bassOct, bassPagePress, bassPatternHold, bassPitchAt, bassRun, bassScreenSet, bassSlide, bassStepDeg, bassStepTap } from './actions';
+import { bassLine } from './line';
 import { bassPage, isBassGlobal, isBassScreen, type BassScreenId } from './pages';
 import { bassKnob, bassParams, type BassKnobId } from './params';
 import { BASS_PLOCK_ID, BASS_ROLL_ID } from './rig';
@@ -128,6 +136,10 @@ const STEP_DRAG_PX = { mouse: 6, touch: 15 } as const;
 const HOLD_MS = 500;
 /** Hors EDIT (2026-10-08) : tenir un pas autant le verrouille (LOCK, facon Elektron). */
 const LOCK_HOLD_MS = 350;
+/** GEN et MUTATE tenus (2026-10-09) : la prise d'avant, l'annulation, a ce moment-la. */
+export const GEN_HOLD_MS = 500;
+/** NOTES (2026-10-09) : les pixels d'une note en glissant (souris, doigt). */
+const NOTE_PX = { mouse: 12, touch: 16 } as const;
 
 /** Le potard d'une cible : sur la face (bass-knob-<id>) ou sur la plaque (bass-tw-<id>), son id dans h.bass. */
 const knobOf = (h: HotspotView): BassKnobId => (h.bass ?? h.id.replace(/^bass-(knob|tw)-/, '')) as BassKnobId;
@@ -186,6 +198,9 @@ interface Grip {
   touch: boolean;
   /** un potard dedie (STYLE, DENSITY..., la plaque) tenu : son echo reste a l'ecran (le rig, holdPot) */
   pot: boolean;
+  /** NOTES (2026-10-09) : le compte au debut du glisser, et la ligne d'alors (bassLine.version : un pattern qui change) */
+  notes0: number;
+  ver: number;
 }
 
 export class BassGestures {
@@ -216,7 +231,7 @@ export class BassGestures {
   }
 
   private grip(h: HotspotView, x: number, y: number, touch: boolean): Grip {
-    return { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, slop: touch ? STEP_DRAG_PX.touch : STEP_DRAG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, prevLock: -1, infoOnly: false, info: false, lock: -1, enc: -1, fx: false, page: bassPage.screen(), ring: false, t0: performance.now(), dbl: false, taps: false, lo: 0, hi: 0, oct0: 0, empty: false, near: -1, touch, pot: false };
+    return { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, slop: touch ? STEP_DRAG_PX.touch : STEP_DRAG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, prevLock: -1, infoOnly: false, info: false, lock: -1, enc: -1, fx: false, page: bassPage.screen(), ring: false, t0: performance.now(), dbl: false, taps: false, lo: 0, hi: 0, oct0: 0, empty: false, near: -1, touch, pot: false, notes0: 0, ver: 0 };
   }
 
   down(pointerId: number, h: HotspotView, x: number, y: number, touch = false): void {
@@ -286,6 +301,8 @@ export class BassGestures {
         }
       }
       g.v0 = g.fx ? bassParams.of(g.knob) : bassKnobValue(g.knob);
+      g.notes0 = bassLine.count();
+      g.ver = bassLine.version();
       g.lock = bassState.get().lock;
       // Le bloc tenu se cerne a l'ecran (2026-10-09) : on voit ce que le doigt regle avant que la valeur bouge
       // (un encodeur de la face : sa bulle reste a l'ecran tant qu'il est tenu)
@@ -333,7 +350,16 @@ export class BassGestures {
       g.kind = 'key';
       this.press(h.id, true);
       // La touche dans h.bass (les onglets de l'ecran du telephone, bass-tab-*, 2026-10-09 : ceux des touches de page)
-      bassKeyAction((h.bass ?? h.id.slice('bass-key-'.length)) as BassKeyKind);
+      const kind = (h.bass ?? h.id.slice('bass-key-'.length)) as BassKeyKind;
+      // GEN et MUTATE (2026-10-09) : au lacher avant 500 ms ; tenus 500 ms, la prise d'avant ou l'annulation, tout de suite
+      if ((kind === 'gen' || kind === 'mutate') && !infos) {
+        g.step = kind === 'gen' ? 1 : 2;
+        g.hold = window.setTimeout(() => {
+          g.held = true;
+          if (kind === 'gen') bassGenBack();
+          else bassMutateUndo();
+        }, GEN_HOLD_MS);
+      } else bassKeyAction(kind);
     }
     this.grips.set(pointerId, g);
   }
@@ -385,6 +411,17 @@ export class BassGestures {
         g.fine = shift;
         g.lock = lock;
       }
+      if (g.knob === 'density' && g.enc < 0) {
+        // NOTES : une note tous les 12 px (16 au doigt), depuis le compte du debut ; une autre ligne posee sous le doigt
+        // (un pattern de la chaine) : le compte repart d'elle
+        if (bassLine.version() !== g.ver) {
+          g.ver = bassLine.version();
+          g.notes0 = bassLine.count();
+          g.a = travel;
+        }
+        bassNotesTo(g.notes0 + Math.round((travel - g.a) / (g.touch ? NOTE_PX.touch : NOTE_PX.mouse)));
+        return;
+      }
       bassDial(g.knob, g.v0 + ((travel - g.a) / KNOB_PX) * (shift ? FINE : 1));
     } else if (g.kind === 'trig') {
       // EDIT : un pattern ne glisse pas ; INFOS au doigt : on lit, la note ne bouge pas
@@ -423,8 +460,17 @@ export class BassGestures {
       }
       // INFOS au doigt : la tape montre la carte (deja montree a l'appui), le pas ne change pas
       if (!g.dragged && !g.held && !g.info && overId === g.id) bassStepTap(g.step);
-    } else if (g.kind === 'key') this.press(g.id, false);
-    else if (g.kind === 'knob') {
+    } else if (g.kind === 'key') {
+      this.press(g.id, false);
+      // GEN, MUTATE : une tape (lache avant 500 ms)
+      if (g.step === 1 || g.step === 2) {
+        window.clearTimeout(g.hold);
+        if (!g.held) {
+          if (g.step === 1) bassGenerate();
+          else bassMutate();
+        }
+      }
+    } else if (g.kind === 'knob') {
       if (g.ring) this.stage.bass?.holdBlock(g.enc, false, g.fx);
       if (g.pot && g.knob) this.stage.bass?.holdPot(g.knob, false);
       if (g.taps) this.tapUp(g, quick);

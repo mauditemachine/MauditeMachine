@@ -2,9 +2,9 @@
  * Ce que font les commandes du MM-BASS (2026-10-07), pour la machine 3D, ses
  * jumeaux, le clavier et le MIDI :
  * - RUN : la sequence part sur la grille du MM-RYTM (ou du MM-ARP), ou s'arrete ;
- * - GEN : une nouvelle ligne du generateur (STYLE, DENSITY, SLIDES, ACCENTS,
- *   RANGE ; la gamme) ; elle part si rien ne jouait ;
- * - MUTATE : quelques pas changent ; CLEAR : plus rien ;
+ * - GEN : la prise suivante du style (bass/line.ts), le meme nombre de
+ *   notes ; elle part si rien ne jouait ; tenu : la prise d'avant ;
+ * - MUTATE : 2 ou 3 notes de la machine ; tenu : annule ; CLEAR : plus rien ;
  * - un pas (TRIG) : il est choisi ; taper le fait passer de vide a note, de
  *   note a liaison (TIE, s'il suit une note), de liaison a vide ; a l'arret,
  *   on entend sa note ;
@@ -66,8 +66,13 @@
  *   DENSITY ne fait qu'ajouter des notes en montant, qu'en retirer en
  *   descendant ; sur une ligne faite a la main, des notes generees s'ajoutent
  *   autour des tiennes, l'ecran le dit (YOUR NOTES KEPT), jamais PRESS GEN ;
- * - GEN garde les P-locks des pas qui restent des notes, ou dit P-LOCKS
- *   CLEARED.
+ * - GEN garde les P-locks des pas qui restent des notes.
+ * Les prises et NOTES (2026-10-09, Mika : "Je trouve Style et Density
+ * complexe a utiliser") : STYLE joue la prise 01 de chaque style, DENSITY
+ * devient NOTES (0 a 16, un cran une note), GEN donne des prises numerotees
+ * (tenu : la precedente), MUTATE s'annule (tenu) ; tout passe par bass/line.ts,
+ * le seul a ecrire la ligne pour le generateur ; tes notes (une tape, un
+ * glisser, un P-lock) restent, toujours. Plus de regen ni de MORE AT 82.
  * La revue de l'etape 2 (le meme jour) :
  * - le P-LOCK d'une tape (bassTapLocked) ne change ni le Roto (sa tape pose
  *   ou retire une note) ni les potards MIDI d'un reglage (le son de toute la
@@ -89,12 +94,13 @@ import { focus } from '../state/focus';
 import { presetMode } from '../state/presetMode';
 import { PORTRAIT } from '../theme';
 import { bassEngine } from './engine';
-import { generate, isFreeStep, mutate, regenerate, type GenOpts, type RegenOpts } from './gen';
-import type { BassRecipe, BassStep } from './state';
-import { BASS_SCALES, BASS_STYLES, SCALE_TONES, bassKnob, bassParams, bassValueText, stepOf, type BassKnobId } from './params';
+import { isFreeStep } from './gen';
+import { bassLine, styleName, takeLadder, type GenResult } from './line';
+import type { BassState, BassStep } from './state';
+import { BASS_SCALES, SCALE_TONES, bassKnob, bassParams, bassValueText, stepOf, type BassKnobId } from './params';
 import { BASS_FX_KNOBS, BASS_PAGES, BASS_SCREEN_SLOTS, PAGE_TABS, SCREEN_LABEL, bassFxEncOf, bassPage, bassPageDef, isBassGlobal, screenTitle, type BassPageId, type BassScreenId } from './pages';
 import { bassPatterns, bassSlotName } from './patterns';
-import { GATE, bassSeq, gateOf, midiOf } from './seq';
+import { bassSeq, gateOf, midiOf } from './seq';
 import { BASS_STEPS, bassState, emptyStep, isLockable } from './state';
 
 const two = (i: number): string => String(i + 1).padStart(2, '0');
@@ -103,26 +109,6 @@ const TURN = 'DRAG A VALUE';
 
 /** EDIT est ouvert sur le MM-BASS : les pas sont les patterns. */
 export const bassEditing = (): boolean => editor.get() === 'bass';
-
-const genOpts = (): GenOpts => {
-  const v = bassParams.get();
-  return {
-    style: BASS_STYLES[stepOf('style', v.style)],
-    density: v.density,
-    slides: v.slides,
-    accents: v.accents,
-    range: stepOf('range', v.range) + 1,
-    degrees: SCALE_TONES[BASS_SCALES[stepOf('scale', v.scale)]].length,
-  };
-};
-
-/** Les regles du generateur du moment, telles que la recette les garde (0 a 1). */
-const genSnap = (): NonNullable<BassRecipe['gen']> => {
-  const v = bassParams.get();
-  return { style: v.style, density: v.density, slides: v.slides, accents: v.accents, range: v.range };
-};
-
-const newSeed = (): number => Math.floor(Math.random() * 4294967296) >>> 0;
 
 export function bassRun(): void {
   gesture();
@@ -133,67 +119,196 @@ export function bassRun(): void {
   void bassEngine.ensure().then(() => bassSeq.start());
 }
 
-/** Les potards du generateur : chaque cran reecrit les pas du generateur de la ligne (2026-10-09). */
-const GEN_LIVE: readonly BassKnobId[] = ['style', 'density', 'slides', 'accents', 'range'];
-/** La ligne suit-elle STYLE et DENSITY ? Toujours depuis le 2026-10-09 (la recette ; une ligne sans graine en recoit une). */
-export const bassGenLive = (): boolean => true;
+/* ---------------- le generateur : STYLE, NOTES, GEN, MUTATE, CLEAR (2026-10-09) ---------------- */
 
-/** Les notes de la ligne qui sont a toi (ni du generateur ni libres) : STYLE et DENSITY n'y touchent pas. */
-const handNotes = (steps: readonly BassStep[]): number => steps.filter((s) => s.kind === 'note' && !isFreeStep(s)).length;
-const noteCount = (steps: readonly BassStep[]): number => steps.filter((s) => s.kind === 'note').length;
+/** L'ecran GENERATOR apres GEN, MUTATE, leurs tenues, CLEAR (1.6 s ; STYLE et NOTES : tant qu'on les tient, puis 1.2 s). */
+const GEN_MS = 1600;
+const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+/** Le nom de la prise : DARK DISCO 02, ACID 07* (mutee), ACID 00 (une ligne d'avant les prises). */
+export const bassTakeName = (): string => {
+  const r = bassLine.get();
+  return `${styleName(r.style)} ${String(r.take).padStart(2, '0')}${r.mutated ? '*' : ''}`;
+};
 
-/** GEN : une ligne neuve (une graine neuve) ; les P-locks des pas qui restent des notes sont gardes. Rend ce qu'il dit. */
-function writeGen(): { style: string; kept: number; cleared: number } {
-  const o = genOpts();
-  const seed = newSeed();
-  const fresh = generate({ ...o, seed });
-  const old = bassState.get().steps;
-  let kept = 0;
-  let cleared = 0;
-  const steps = fresh.map((s, i): BassStep => {
-    const l = old[i]?.locks;
-    if (!l) return s;
-    if (s.kind === 'note') {
-      kept += 1;
-      return { ...s, locks: l };
-    }
-    cleared += 1;
-    return s;
-  });
-  bassState.set({ steps, gen: bassState.get().gen + 1, recipe: { seed, base: null, gen: genSnap() } });
-  return { style: o.style, kept, cleared };
+/** Tes notes, quand rien de plus urgent n'est a dire (desktop : la place ; le telephone garde la ligne courte). */
+function withYours(text: string): string {
+  const n = bassLine.yours();
+  if (!n || PORTRAIT) return text;
+  return `${text} · YOUR ${n === 1 ? 'NOTE STAYS' : `${n} NOTES STAY`}`;
 }
 
-/** GEN : une ligne neuve ; elle part si la basse ne jouait pas. */
+/** Ce que dit l'ecran GENERATOR quand le generateur ne peut rien faire (why). */
+function refusal(res: Extract<GenResult, { ok: false }>): string {
+  const st = bassState.get();
+  switch (res.why) {
+    case 'yours':
+      return 'ALL 16 NOTES ARE YOURS · CLEAR TO START OVER';
+    case 'ceiling':
+      return `${plural(res.count, 'NOTE', 'NOTES')} · NO FREE STEP LEFT`;
+    case 'floor': {
+      const y = bassLine.yours();
+      if (res.count === 0) return '0 NOTES · TURN UP: THE TAKE COMES BACK';
+      if (y < res.count && st.lock >= 0) return `P-LOCK ${two(st.lock)} STAYS`;
+      return y === 1 ? '1 NOTE IS YOURS · TAP IT OFF TO GO LOWER' : `${y} NOTES ARE YOURS · TAP ONE OFF TO GO LOWER`;
+    }
+    case 'first':
+      return 'TAKE 01 IS THE FIRST';
+    case 'old':
+      return 'YOUR OLD LINE · GEN: TAKE 01';
+    case 'none':
+      return 'NO MACHINE NOTE TO MUTATE';
+    case 'nothing':
+      return 'NOTHING TO UNDO';
+    default:
+      return '';
+  }
+}
+
+/** L'ecran GENERATOR montre ce geste : la ligne d'avant (les pas venus et partis), la ligne du bas ; gen : GEN, MUTATE, CLEAR. */
+function showGen(id: BassKnobId, before: readonly BassStep[], note: string, gen = false): void {
+  const touched: NonNullable<BassState['touched']> = { id, at: performance.now(), before, note, ...(gen ? { gen: true, ms: GEN_MS } : {}) };
+  bassState.say(note || null, gen ? GEN_MS + 400 : 1800, { touched });
+}
+
+/** STYLE au cran s : sa prise 01 a son compte, ou ou tu l'avais laisse sur cette ligne ; un potard ne lance jamais la basse. */
+export function bassStyleTo(s: number): void {
+  const before = bassState.get().steps;
+  const res = bassLine.style(s);
+  const name = styleName(bassLine.get().style);
+  let note: string;
+  if (!res.ok) {
+    // Le meme cran (un glisser entre deux crans) : l'ecran reste, rien ne change
+    if (res.why === 'same') {
+      const t = bassState.get().touched;
+      bassState.set({ touched: { id: 'style', at: performance.now(), before: t?.before ?? before, note: t?.note ?? '' } });
+      return;
+    }
+    note = refusal(res);
+  } else note = withYours(res.first ? `THE TYPICAL ${name} LINE · GEN: ANOTHER TAKE` : `YOUR ${bassTakeName()} IS BACK`);
+  showGen('style', before, note);
+}
+
+/** NOTES a n (un potard, le MIDI) : une note a la fois, jusqu'a n ou une limite (le plancher, le plafond). */
+export function bassNotesTo(n: number): void {
+  const before = bassState.get().steps;
+  const target = Math.max(0, Math.min(BASS_STEPS, Math.round(n)));
+  const c0 = bassLine.count();
+  if (target === c0) {
+    const t = bassState.get().touched;
+    bassState.set({ touched: { id: 'density', at: performance.now(), before: t?.id === 'density' ? t.before ?? before : before, note: t?.id === 'density' ? t.note ?? '' : '' } });
+    return;
+  }
+  const res = bassLine.notesTo(target);
+  showGen('density', before, notesNote(res, bassLine.count() - c0));
+}
+
+/** La ligne du bas d'un cran de NOTES : +1 NOTE ON STEP 15, -1 NOTE (STEP 14), +3 NOTES ; ou pourquoi rien. */
+function notesNote(res: GenResult, diff: number): string {
+  if (!res.ok && diff === 0) return refusal(res);
+  if (bassLine.count() === 0) return '0 NOTES · TURN UP: THE TAKE COMES BACK';
+  if (Math.abs(diff) === 1 && res.ok && res.step !== undefined && res.step >= 0) return withYours(diff > 0 ? `+1 NOTE ON STEP ${res.step + 1}` : `-1 NOTE (STEP ${res.step + 1})`);
+  return withYours(`${diff > 0 ? '+' : ''}${diff} NOTES`);
+}
+
+/** NOTES d'un cran (MIDI bass:notes:up / down). */
+export function bassNotesStep(dir: 1 | -1): void {
+  bassNotesTo(bassLine.count() + dir);
+}
+
+/** Le pied de la PAGE apres GEN, une fois l'ecran GENERATOR parti : ACID 08  9 NOTES (une fois). */
+let footTimer = 0;
+function footLater(): void {
+  window.clearTimeout(footTimer);
+  footTimer = window.setTimeout(() => bassState.say(`${bassTakeName()}  ${plural(bassLine.count(), 'NOTE', 'NOTES')}`, 2000), GEN_MS + 60);
+}
+
+/** GEN (une tape) : la prise suivante, le meme nombre de notes, P-LOCK quitte ; elle part si la basse ne jouait pas. */
 export function bassGenerate(): void {
   gesture();
-  const r = writeGen();
-  bassState.set({ sel: 0, lock: -1 });
-  const tail = r.cleared ? `  P-LOCKS CLEARED${r.kept ? `, ${r.kept} KEPT` : ''}` : r.kept ? `  ${r.kept} P-LOCK STEP${r.kept > 1 ? 'S' : ''} KEPT` : '';
-  bassState.say(`${r.style} LINE${tail}`, tail ? 2400 : 1600);
+  const before = bassState.get().steps;
+  const res = bassLine.gen(1, { lock: -1 });
+  showGen('density', before, res.ok ? withYours(`NEW TAKE · SAME ${plural(res.count, 'NOTE', 'NOTES')} · HOLD GEN: BACK`) : refusal(res), true);
+  if (res.ok) footLater();
   if (!bassSeq.running) void bassEngine.ensure().then(() => bassSeq.start());
 }
 
+/** GEN tenu 500 ms : la prise d'avant (arret a 01), le meme nombre de notes. */
+export function bassGenBack(): void {
+  gesture();
+  const before = bassState.get().steps;
+  const res = bassLine.gen(-1, { lock: -1 });
+  showGen('density', before, res.ok ? withYours(`BACK TO TAKE ${String(bassLine.get().take).padStart(2, '0')}`) : refusal(res), true);
+}
+
+/** MUTATE (une tape) : 2 ou 3 notes de la machine, le meme compte ; la prise prend une etoile. */
 export function bassMutate(): void {
   gesture();
-  bassState.set({ steps: mutate(bassState.get().steps, genOpts()), gen: bassState.get().gen + 1 });
-  bassState.say('MUTATED', 1200);
+  const before = bassState.get().steps;
+  const res = bassLine.mutate();
+  showGen('density', before, res.ok ? `${plural(res.mutated ?? 2, 'NOTE', 'NOTES')} CHANGED · HOLD MUTATE: UNDO` : refusal(res), true);
+}
+
+/** MUTATE tenu 500 ms : la derniere mutation s'annule. */
+export function bassMutateUndo(): void {
+  gesture();
+  const before = bassState.get().steps;
+  const res = bassLine.undo();
+  showGen('density', before, res.ok ? 'MUTATION UNDONE' : refusal(res), true);
+}
+
+/** Une mutation a annuler (la LED de MUTATE, le MIDI). */
+export const bassCanUndo = (): boolean => bassLine.canUndo();
+
+/** Deux tapes sur STYLE : la ligne typique du style (sa prise 01, a son compte). */
+function bassStyleHome(): void {
+  const before = bassState.get().steps;
+  const r = bassLine.get();
+  if (r.take === 1 && !r.mutated) {
+    const own = takeLadder(r.style, 1).on;
+    if (r.on === own) {
+      showGen('style', before, withYours(`THE TYPICAL ${styleName(r.style)} LINE · GEN: ANOTHER TAKE`));
+      return;
+    }
+  }
+  // Une autre prise : la 01 a son compte (GEN en arriere jusqu'a 01, puis son compte)
+  const res = bassLine.home();
+  showGen('style', before, res.ok ? withYours(`THE TYPICAL ${styleName(r.style)} LINE · GEN: ANOTHER TAKE`) : refusal(res));
+}
+
+/** Deux tapes sur NOTES : le nombre de notes de la prise. */
+function bassNotesHome(): void {
+  const r = bassLine.get();
+  const t = takeLadder(r.style, Math.max(1, r.take));
+  bassNotesTo(r.take === 0 ? bassLine.count() : bassLine.countAt(t.on));
 }
 
 export function bassClear(): void {
-  // En P-LOCK : les verrous du pas seulement
+  // En P-LOCK : les verrous du pas seulement (une note de la machine qui n'avait que des verrous lui revient et joue)
   const st = bassState.get();
   if (st.lock >= 0) {
     // L'accent pose par un verrou d'ACCENT s'en va avec les verrous
-    bassState.setStep(st.lock, { ...(accByLock.delete(st.lock) ? { acc: false } : {}), locks: undefined });
+    bassLine.edit(st.lock, { ...(accByLock.delete(st.lock) ? { acc: false } : {}), locks: undefined });
     bassState.say(`P-LOCK ${two(st.lock)} CLEARED`, 1400);
     return;
   }
-  // Une ligne vide (2026-10-09) : tous ses pas sont libres, DENSITY en remontant y remet des notes une a une (la recette
-  // garde sa graine, ancree a la DENSITY du moment : a ce cran, la ligne est vide)
-  const seed = st.recipe?.seed ?? newSeed();
-  bassState.set({ steps: Array.from({ length: BASS_STEPS }, emptyStep), recipe: { seed, base: bassParams.of('density'), gen: genSnap() } });
-  bassState.say('CLEARED  DENSITY UP: NEW NOTES', 1600);
+  // Tout s'efface, tes notes comprises : NOTES a 0 ; l'echelle, la prise et le style restent (NOTES remonte la prise)
+  const before = st.steps;
+  bassLine.clear();
+  showGen('density', before, 'CLEARED · TURN NOTES UP: THE TAKE COMES BACK', true);
+}
+
+/**
+ * Un geste a la main qui change le compte pendant que l'ecran GENERATOR est la (2026-10-09) : il reste 1.6 s, il
+ * montre la note venue ou partie (NOTES bouge tout seul, le miroir de la ligne).
+ */
+function afterEdit(before: readonly BassStep[]): void {
+  const st = bassState.get();
+  const t = st.touched;
+  if (!t || (t.id !== 'style' && t.id !== 'density') || performance.now() - t.at > (t.ms ?? 1200)) return;
+  const n0 = before.filter((x) => x.kind === 'note').length;
+  const n = bassLine.count();
+  if (n === n0) return;
+  bassState.set({ touched: { id: 'density', at: performance.now(), before, note: withYours(`${n > n0 ? '+' : ''}${n - n0} NOTE${Math.abs(n - n0) > 1 ? 'S' : ''} · ${plural(n, 'NOTE', 'NOTES')}`), gen: true, ms: GEN_MS } });
 }
 
 /** A l'arret : on entend la note d'un pas qu'on regle. */
@@ -243,8 +358,9 @@ export function bassStepTap(i: number): void {
   const s = st.steps[i];
   if (s.kind === 'off') {
     // Un pas vide : une note, et le P-LOCK dessus (ajouter des notes : une tape par note, comme avant)
-    bassState.setStep(i, hand({ kind: 'note', deg: 0, oct: 0, acc: false, slide: false }));
+    bassLine.edit(i, hand({ kind: 'note', deg: 0, oct: 0, acc: false, slide: false }));
     latch(i, 'NEW NOTE');
+    afterEdit(st.steps);
     audition(i);
     return;
   }
@@ -256,7 +372,8 @@ export function bassStepTap(i: number): void {
   // Le pas en P-LOCK : il change (note, liaison, vide), comme une tape d'avant
   const prev = st.steps[(i + BASS_STEPS - 1) % BASS_STEPS];
   const kind = s.kind === 'note' && prev.kind !== 'off' ? 'tie' : 'off';
-  bassState.setStep(i, hand({ kind }));
+  bassLine.edit(i, hand({ kind }));
+  afterEdit(st.steps);
   if (kind === 'off') {
     lockGen += 1;
     bassState.set({ lock: -1, sel: i });
@@ -317,10 +434,12 @@ export function bassStepToggle(i: number): void {
     return;
   }
   gesture();
-  const s = bassState.get().steps[i];
+  const before = bassState.get().steps;
+  const s = before[i];
   if (!s) return;
   const on = s.kind === 'off';
-  bassState.setStep(i, hand(on ? { kind: 'note', deg: 0, oct: 0 } : { kind: 'off' }), { sel: i });
+  bassLine.edit(i, hand(on ? { kind: 'note', deg: 0, oct: 0 } : { kind: 'off' }), { sel: i });
+  afterEdit(before);
   // L'ecran dit la suite sur le Roto (la revue du 2026-10-09) : la note se regle a la page 3, la tenue met le LOCK
   sayStep(i, on ? '  P3: NOTE OCT  HOLD: LOCK' : '  HOLD: LOCK');
   if (on) audition(i);
@@ -333,7 +452,8 @@ export function bassStepDeg(i: number, deg: number): void {
   if (!s) return;
   const d = Math.max(0, Math.min(20, deg));
   if (s.kind === 'note' && s.deg === d && st.lock === i) return;
-  bassState.setStep(i, hand({ kind: 'note', deg: d }));
+  bassLine.edit(i, hand({ kind: 'note', deg: d }));
+  afterEdit(st.steps);
   if (st.lock !== i && !bassEditing()) {
     lockTurns = 0;
     lockGen += 1;
@@ -351,7 +471,7 @@ export function bassAccent(): void {
     bassState.say('PICK A NOTE STEP FIRST', 1400);
     return;
   }
-  bassState.setStep(st.sel, hand({ acc: !s.acc }));
+  bassLine.edit(st.sel, hand({ acc: !s.acc }));
   sayStep(st.sel);
 }
 
@@ -362,7 +482,7 @@ export function bassSlide(): void {
     bassState.say('PICK A NOTE STEP FIRST', 1400);
     return;
   }
-  bassState.setStep(st.sel, hand({ slide: !s.slide }));
+  bassLine.edit(st.sel, hand({ slide: !s.slide }));
   sayStep(st.sel);
 }
 
@@ -374,7 +494,7 @@ export function bassNote(dir: -1 | 1): void {
     bassState.say('PICK A NOTE STEP FIRST', 1400);
     return;
   }
-  bassState.setStep(st.sel, hand({ deg: Math.max(0, Math.min(20, s.deg + dir)) }));
+  bassLine.edit(st.sel, hand({ deg: Math.max(0, Math.min(20, s.deg + dir)) }));
   sayStep(st.sel);
   audition(st.sel);
 }
@@ -386,7 +506,7 @@ export function bassOct(dir: -1 | 1): void {
     bassState.say('PICK A NOTE STEP FIRST', 1400);
     return;
   }
-  bassState.setStep(st.sel, hand({ oct: Math.max(-1, Math.min(2, s.oct + dir)) }));
+  bassLine.edit(st.sel, hand({ oct: Math.max(-1, Math.min(2, s.oct + dir)) }));
   sayStep(st.sel);
   audition(st.sel);
 }
@@ -404,7 +524,7 @@ export function bassEditNote(i: number, deg: number, oct: number): void {
   const d = Math.max(0, Math.min(20, Math.round(deg)));
   const o = Math.max(-1, Math.min(2, Math.round(oct)));
   if (s.kind === 'note' && s.deg === d && s.oct === o) return;
-  bassState.setStep(i, hand({ kind: 'note', deg: d, oct: o }), { sel: i });
+  bassLine.edit(i, hand({ kind: 'note', deg: d, oct: o }), { sel: i });
   const now = bassState.get().steps[i];
   bassState.say(`STEP ${two(i)}  ${noteName(midiOf(now))}`, 1400);
   audition(i);
@@ -417,7 +537,7 @@ export function bassEditCycle(i: number): void {
   if (!s || s.kind === 'off') return;
   const prev = st.steps[(i + BASS_STEPS - 1) % BASS_STEPS];
   const kind = s.kind === 'note' && prev.kind !== 'off' ? 'tie' : 'off';
-  bassState.setStep(i, hand({ kind }), { sel: i });
+  bassLine.edit(i, hand({ kind }), { sel: i });
   bassState.say(`STEP ${two(i)}  ${kind === 'tie' ? 'TIE' : 'OFF'}`, 1400);
 }
 
@@ -508,7 +628,7 @@ bassState.subscribe(() => {
   const i = lockNote;
   lockNote = -1;
   const s = st.steps[i];
-  if (s && s.kind === 'note' && !s.locks && s.deg === 0 && s.oct === 0 && !s.acc && !s.slide && s.src === undefined) bassState.setStep(i, emptyStep());
+  if (s && s.kind === 'note' && !s.locks && s.deg === 0 && s.oct === 0 && !s.acc && !s.slide && s.src === undefined) bassLine.edit(i, emptyStep());
 });
 
 /** Les potards tournes en LOCK depuis le debut d'un appui tenu (un pas tenu qu'on lache apres un reglage sort du LOCK). */
@@ -550,6 +670,14 @@ function sayGlobal(id: BassKnobId, also: Partial<import('./state').BassState> = 
 
 /** Un potard (0 a 1) ; l'ecran dit sa valeur. En LOCK, un potard du son verrouille le pas. */
 export function bassDial(id: BassKnobId, v: number): void {
+  // STYLE et NOTES (2026-10-09) : le generateur, jamais un verrou ; le potard est le miroir de la ligne
+  if (id === 'style' || id === 'density') {
+    if (typeof v !== 'number' || !Number.isFinite(v)) return;
+    const c = Math.min(1, Math.max(0, v));
+    if (id === 'style') bassStyleTo(stepOf('style', c));
+    else bassNotesTo(Math.round(c * BASS_STEPS));
+    return;
+  }
   const st = bassState.get();
   // En LOCK, un reglage GLOBAL d'une page (2026-10-08) : il ne bouge pas, l'ecran dit pourquoi
   if (st.lock >= 0 && isBassGlobal(id)) {
@@ -569,7 +697,7 @@ export function bassDial(id: BassKnobId, v: number): void {
     // ACCENT verrouille sur un pas sans accent : il le prend (sinon le verrou ne servirait a rien)
     const acc = id === 'accent' && s.kind === 'note' && !s.acc ? { acc: true } : {};
     if ('acc' in acc) accByLock.add(st.lock);
-    bassState.setStep(st.lock, { ...acc, locks: { ...(s.locks ?? {}), [id]: x } }, { touched: { id, at: performance.now() } });
+    bassLine.edit(st.lock, { ...acc, locks: { ...(s.locks ?? {}), [id]: x } }, { touched: { id, at: performance.now() } });
     bassState.say(`P-LOCK ${two(st.lock)}  ${bassKnob(id).label} ${bassValueText(id, x)}${'acc' in acc ? '  +ACC' : ''}`, 1400);
     // A l'arret, on entend le pas une fois le potard pose
     if (!bassSeq.running) {
@@ -591,9 +719,12 @@ function dialLine(id: BassKnobId, v: number, tail = ''): void {
   // L'echo et la ligne du bas dans la meme notification (2026-10-08, la revue : un dessin de l'ecran de moins par geste)
   const touched = { id, at: performance.now() };
   const label = `${bassKnob(id).label} ${bassValueText(id, bassParams.of(id))}`;
-  // Le generateur (2026-10-09) : ses pas de la ligne se reecrivent a chaque cran
-  if (GEN_LIVE.includes(id)) {
-    regen(id, was, label);
+  // SLIDE PROB, ACC PROB, RANGE (2026-10-09) : les notes de la machine suivent a chaque cran (leurs tirages), les
+  // tiennes et les notes ecrites d'un preset gardent les leurs
+  if (id === 'slides' || id === 'accents' || id === 'range') {
+    const before = bassState.get().steps;
+    bassLine.rerender();
+    bassState.say(`${label}${tail}`, 1400, { touched: { ...touched, before, note: 'MACHINE NOTES FOLLOW · YOURS STAY' } });
     return;
   }
   bassState.say(`${label}${tail}`, 1400, { touched });
@@ -616,89 +747,16 @@ export function bassKnobDial(id: BassKnobId, v: number): void {
 /** Ce que montre un potard MIDI d'un reglage (ses moteurs) : le son de la ligne en P-LOCK d'une tape, sinon bassKnobValue. */
 export const bassKnobDialValue = (id: BassKnobId): number => (bassTapLocked() ? bassParams.of(id) : bassKnobValue(id));
 
-/**
- * Ou DENSITY change le compte des notes, au-dessus et au-dessous du cran (2026-10-09, la revue : entre deux seuils, des
- * crans de suite semblaient ne rien faire) : MORE AT 82 · FEWER AT 70 ; les seuils sondes au centieme, depuis la ligne
- * telle qu'elle est (les memes pas libres, la meme recette).
- */
-function densityMarks(line: readonly BassStep[], seed: number, base: number | null, opts: RegenOpts, n: number): string {
-  const d = Math.round(bassParams.of('density') * 100);
-  const o = genOpts();
-  const count = (k: number): number => noteCount(regenerate(line, { ...o, density: k / 100, seed }, base, opts));
-  let up = -1;
-  for (let k = d + 1; k <= 100; k += 1) {
-    if (count(k) > n) {
-      up = k;
-      break;
-    }
-  }
-  let down = -1;
-  for (let k = d - 1; k >= 0; k -= 1) {
-    if (count(k) < n) {
-      down = k;
-      break;
-    }
-  }
-  return `${up >= 0 ? `MORE AT ${up}` : 'THE MOST'} · ${down >= 0 ? `FEWER AT ${down}` : 'THE FEWEST'}`;
-}
-
-/** Deux suites qui jouent pareil (le contenu des pas, pas leur src ni leurs verrous). */
-const sameLine = (a: readonly BassStep[], b: readonly BassStep[]): boolean =>
-  a.every((s, i) => s.kind === b[i].kind && (s.kind === 'off' || (s.deg === b[i].deg && s.oct === b[i].oct && s.acc === b[i].acc && s.slide === b[i].slide)));
-
-/**
- * Un cran de STYLE, DENSITY, SLIDE PROB, ACC PROB ou RANGE (2026-10-09) : les pas du generateur de la ligne se
- * reecrivent depuis sa graine (bass/gen.ts regenerate), les autres restent avec leurs P-locks. Une ligne sans recette
- * (une ligne d'avant) en recoit une, ancree ou elle est : son premier cran de DENSITY vers le haut y ajoute des notes,
- * vers le bas ne lui enleve rien. L'echo garde la ligne d'avant (before) : l'ecran montre ce qui est venu et parti.
- * La revue du meme jour :
- * - le pas en P-LOCK n'est jamais reecrit (ses verrous a venir tomberaient sur un vide, que DENSITY ne remplirait
- *   plus) ;
- * - un preset d'usine (recipe.anchor) : a son STYLE, sa ligne telle qu'ecrite a sa DENSITY, eclaircie au-dessous,
- *   des notes du style au-dessus ; a un autre STYLE, une ligne de ce style depuis sa graine ; l'ecran ne dit jamais
- *   YOUR NOTES pour des notes du preset ;
- * - le bas de l'echo dit ce que fait le cran (note) : la ligne suit, ou pourquoi elle ne bouge pas.
- */
-function regen(id: BassKnobId, was: number, label: string): void {
-  const st = bassState.get();
-  const before = st.steps;
-  const recipe: BassRecipe = st.recipe ?? { seed: newSeed(), base: id === 'density' ? was : bassParams.of('density') };
-  const style = stepOf('style', bassParams.of('style'));
-  const atPreset = !!recipe.anchor && stepOf('style', recipe.anchor.style) === style;
-  // Un preset joue a un autre STYLE : la ligne du generateur de ce style (base null), depuis la graine du preset
-  const base = recipe.anchor && !atPreset ? null : recipe.base;
-  const regenOpts: RegenOpts = { keep: st.lock >= 0 ? [st.lock] : [], anchor: atPreset ? recipe.anchor?.steps : null };
-  const steps = regenerate(before, { ...genOpts(), seed: recipe.seed }, base, regenOpts);
-  // Rien n'a bouge : la ligne garde son objet (un preset nomme reste nomme, les patterns ne re-ecrivent rien)
-  const same = sameLine(steps, before);
-  const next = { ...recipe, gen: genSnap() };
-  const line = same ? before : steps;
-  const mine = handNotes(line);
-  const n = noteCount(line);
-  const sub = genOpts().style === 'SUB';
-  const preset = atPreset && !!recipe.anchor && sameLine(line, recipe.anchor.steps);
-  let text = label;
-  if (id === 'density') text = `${label}  ${n} ${sub ? 'CHANGES' : 'NOTES'} / BAR`;
-  else if (id === 'style') text = `STYLE ${BASS_STYLES[style]}  GATE ${Math.round(GATE[BASS_STYLES[style]] * 100)} %`;
-  if (preset) text += '  THE PRESET LINE';
-  else if (mine > 0) text += '  YOUR NOTES KEPT';
-  // Le bas de l'echo : ce que fait le cran. Une ligne a toi sous sa DENSITY : ce qui y ajoute des notes ; DENSITY : ou la
-  // ligne gagne et perd sa prochaine note (la course entre deux notes se lit, plus de cran qui semble ne rien faire) ;
-  // les autres : la ligne suit, ou ne bouge pas a ce cran
-  const d = bassParams.of('density');
-  let note: string;
-  if (base !== null && !recipe.anchor && d <= base + 1e-6 && (id === 'density' || id === 'style')) note = `YOUR LINE: DENSITY ABOVE ${Math.round(base * 100)} ADDS NOTES`;
-  else if (id === 'density') note = densityMarks(line, recipe.seed, base, regenOpts, n);
-  else if (!same) note = 'THE LINE FOLLOWS EACH NOTCH';
-  else if (id === 'slides' || id === 'accents' || id === 'range') note = 'SAME LINE: ONLY ADDED NOTES FOLLOW IT';
-  else note = 'SAME LINE AT THIS NOTCH';
-  const touched = { id, at: performance.now(), before, note };
-  if (same) bassState.say(text, 1800, { touched, recipe: next });
-  else bassState.say(text, 1800, { steps, touched, recipe: next, gen: st.gen + 1 });
-}
-
 /** Deux tapes sur un potard : en LOCK, son verrou s'en va ; sinon, sa valeur de depart. */
 export function bassDialReset(id: BassKnobId): void {
+  if (id === 'style') {
+    bassStyleHome();
+    return;
+  }
+  if (id === 'density') {
+    bassNotesHome();
+    return;
+  }
   const st = bassState.get();
   if (st.lock >= 0 && isBassGlobal(id)) {
     sayGlobal(id);
@@ -713,7 +771,7 @@ export function bassDialReset(id: BassKnobId): void {
     const { [id]: _gone, ...rest } = s.locks;
     // L'accent que ce verrou avait pose s'en va avec lui
     const acc = id === 'accent' && accByLock.delete(st.lock) ? { acc: false } : {};
-    bassState.setStep(st.lock, { ...acc, locks: Object.keys(rest).length ? rest : undefined });
+    bassLine.edit(st.lock, { ...acc, locks: Object.keys(rest).length ? rest : undefined });
     bassState.say(`P-LOCK ${two(st.lock)}  ${bassKnob(id).label} UNLOCKED`, 1400);
     return;
   }
@@ -887,7 +945,7 @@ export function bassLockEnter(i: number): void {
   const empty = st.steps[i].kind === 'off';
   bassState.set({ lock: i, sel: i });
   if (empty) {
-    bassState.setStep(i, { kind: 'note', deg: 0, oct: 0, acc: false, slide: false, src: undefined });
+    bassLine.edit(i, { kind: 'note', deg: 0, oct: 0, acc: false, slide: false, src: undefined });
     lockNote = i;
   }
   const n = Object.keys(st.steps[i].locks ?? {}).length;

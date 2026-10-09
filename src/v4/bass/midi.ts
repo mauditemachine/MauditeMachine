@@ -38,14 +38,25 @@
  * devient pas le verrou du dernier pas tape) ; un LOCK pose par un geste de
  * LOCK (tenir le pas, sa touche LOCK, bass:lock, le Roto tenu) reste ce qu'il
  * etait. bass:knob:1 a 8 suivent le P-LOCK de l'ecran, quel qu'il soit.
+ * Le generateur (2026-10-09, Mika : "Je trouve Style et Density complexe a
+ * utiliser") : bass:knob:density devient NOTES (0 a 16, dix-sept crans ; set
+ * demande round(v x 16) notes, une a la fois, dans les limites ; get = le
+ * compte / 16 : une tape fait bouger le moteur) ; bass:knob:style suit la
+ * ligne (pattern, preset). Nouvelles cibles : bass:gen:back et
+ * bass:mutate:undo (une pression : la prise d'avant, annuler), bass:gen et
+ * bass:mutate (tenir : une tape = la suivante / muter, 500 ms = la prise
+ * d'avant / annuler, pour les boutons du Roto), bass:notes:up et
+ * bass:notes:down (une note de plus ou de moins). LED bass:mutate : une
+ * mutation a annuler. Les ids d'avant restent.
  */
 
 import { registerTargets, type MidiTarget } from '../midi/targets';
 import { seqFollow, seqPress, seqRegister, seqRelease, seqSetFollow, seqWindow, type SeqMachine } from '../midi/seqlink';
 import { bassInfos } from '../state/bassInfos';
 import { editor } from '../state/editor';
-import { bassEditing, bassEncDial, bassEncParam, bassEncValue, bassFxDial, bassKnobDial, bassKnobDialValue, bassLockEnter, bassLockOff, bassLockTap, bassLockToggle, bassPagePress, bassPageSet, bassPatternHold, bassPatternTap, bassRun, bassScreenSet, bassStepTap, bassStepToggle } from './actions';
-import { bassKeyAction } from './gestures';
+import { bassCanUndo, bassEditing, bassEncDial, bassEncParam, bassEncValue, bassFxDial, bassGenBack, bassGenerate, bassKnobDial, bassKnobDialValue, bassLockEnter, bassLockOff, bassLockTap, bassLockToggle, bassMutate, bassMutateUndo, bassNotesStep, bassPagePress, bassPageSet, bassPatternHold, bassPatternTap, bassRun, bassScreenSet, bassStepTap, bassStepToggle } from './actions';
+import { GEN_HOLD_MS, bassKeyAction } from './gestures';
+import { bassLine } from './line';
 import { BASS_FX_KNOBS, BASS_PAGES, BASS_SCREENS, ENC_LETTERS, SCREEN_LABEL, SCREEN_PAGE, bassPage, bassPageDef } from './pages';
 import { BASS_KNOBS, bassKnob, bassParams } from './params';
 import { bassPatterns } from './patterns';
@@ -58,8 +69,15 @@ function all(): MidiTarget[] {
   for (const k of BASS_KNOBS) {
     // En P-LOCK pose par une tape sur l'ecran : le son de toute la ligne (la revue du 2026-10-09, bassKnobDial) ; en LOCK
     // pose par un geste de LOCK (le pas du Roto tenu, sa touche LOCK) : le verrou du pas
-    out.push({ id: `bass:knob:${k.id}`, scope: 'bass', label: k.label, kind: 'value', steps: k.steps ?? 0, get: () => bassKnobDialValue(k.id), set: (v) => bassKnobDial(k.id, v) });
+    out.push({ id: `bass:knob:${k.id}`, scope: 'bass', label: k.id === 'density' ? 'NOTES (0 TO 16)' : k.label, kind: 'value', steps: k.steps ?? 0, get: () => bassKnobDialValue(k.id), set: (v) => bassKnobDial(k.id, v) });
   }
+  // Le generateur (2026-10-09) : la prise d'avant, annuler, tenir GEN et MUTATE (le Roto), une note de plus ou de moins
+  out.push({ id: 'bass:gen:back', scope: 'bass', label: 'GEN BACK (THE TAKE BEFORE)', kind: 'press', down: () => bassGenBack() });
+  out.push({ id: 'bass:mutate:undo', scope: 'bass', label: 'MUTATE UNDO', kind: 'press', down: () => bassMutateUndo() });
+  out.push(holdKey('bass:gen', 'GEN (TAP: NEXT TAKE, HOLD: THE TAKE BEFORE)', bassGenerate, bassGenBack));
+  out.push(holdKey('bass:mutate', 'MUTATE (TAP: MUTATE, HOLD: UNDO)', bassMutate, bassMutateUndo));
+  out.push({ id: 'bass:notes:up', scope: 'bass', label: 'NOTES +1', kind: 'press', down: () => bassNotesStep(1) });
+  out.push({ id: 'bass:notes:down', scope: 'bass', label: 'NOTES -1', kind: 'press', down: () => bassNotesStep(-1) });
   // Les blocs de la page a l'ecran (les encodeurs de page d'avant le 2026-10-09) : leurs crans suivent le reglage qu'ils tiennent
   for (let i = 0; i < 8; i += 1) {
     out.push({
@@ -124,6 +142,34 @@ function all(): MidiTarget[] {
 const two = (i: number): string => String(i + 1).padStart(2, '0');
 
 /**
+ * Une touche tenue (2026-10-09, GEN et MUTATE sur un bouton du Roto) : lachee avant 500 ms, tap ; tenue 500 ms, hold,
+ * a ce moment-la (sans attendre le lacher). L'heure de l'appui, comme midi/seqlink.ts.
+ */
+function holdKey(id: string, label: string, tap: () => void, hold: () => void): MidiTarget {
+  let timer = 0;
+  let fired = true;
+  return {
+    id,
+    scope: 'bass',
+    label,
+    kind: 'hold',
+    down: () => {
+      window.clearTimeout(timer);
+      fired = false;
+      timer = window.setTimeout(() => {
+        fired = true;
+        hold();
+      }, GEN_HOLD_MS);
+    },
+    up: () => {
+      window.clearTimeout(timer);
+      if (!fired) tap();
+      fired = true;
+    },
+  };
+}
+
+/**
  * TIE (2026-10-09, le Roto en sequenceur) : le pas choisi (le pas en LOCK)
  * continue la note d'avant, comme le mode TIME de la 303 ; encore : il redevient
  * une note. Sur le Roto, une tape ne fait que vide ou note : la liaison passe
@@ -142,7 +188,7 @@ function bassTie(): void {
     return;
   }
   const kind = s.kind === 'tie' ? 'note' : 'tie';
-  bassState.setStep(i, { kind, src: 'hand' });
+  bassLine.edit(i, { kind, src: 'hand' });
   bassState.say(`STEP ${two(i)}  ${kind === 'tie' ? 'TIE' : 'NOTE'}`, 1400);
 }
 
@@ -198,6 +244,8 @@ const seq: SeqMachine = {
     if (id === 'bass:key:accent') return focusStep()?.kind === 'note' && focusStep()?.acc ? 1 : 0;
     if (id === 'bass:key:slide') return focusStep()?.kind !== 'off' && focusStep()?.slide ? 1 : 0;
     if (id === 'bass:seq:tie') return focusStep()?.kind === 'tie' ? 1 : 0;
+    // MUTATE (2026-10-09) : allumee tant qu'une mutation peut s'annuler
+    if (id === 'bass:mutate' || id === 'bass:key:mutate') return bassCanUndo() ? 1 : 0;
     return null;
   },
   say: (t) => bassState.say(t, 1400),

@@ -95,7 +95,9 @@ import { TOP_M, bezel, dc, partDj, power, rca, roundSlab, usb, wedge } from '../
 import { DJ_GLOW, keyGeometry, knobGeometry } from '../dj/controls';
 import { DjSilk, headTexts, type Bracket, type Line, type Text } from '../dj/silk';
 import { DJ_BEZEL, DJ_BODY, DJ_KEY, DJ_KNOB, DJ_TILT, DJ_TOP_Y, DJ_UNIT } from '../dj/theme';
-import { bassGenLive, bassKnobValue, noteName } from './actions';
+import { bassCanUndo, bassKnobValue, bassTakeName, noteName } from './actions';
+import { genCellsOf } from './diagrams';
+import { bassLine, styleName } from './line';
 import { BASS_FX_KNOBS } from './pages';
 import { BASS_SLOTS, bassPatterns } from './patterns';
 import { BASS_FACE_KNOBS as BASS_KNOBS, BASS_PLATE_KNOBS, bassKnob, bassParams, type BassKnobId } from './params';
@@ -305,13 +307,20 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
     const a = (deg * Math.PI) / 180;
     lines.push([x + Math.cos(a) * r0, z - Math.sin(a) * r0, x + Math.cos(a) * r1, z - Math.sin(a) * r1]);
   };
-  // STYLE et DENSITY : le nom au-dessus, en orange (le generateur) ; STYLE ses crans, DENSITY ses butees
+  // STYLE et NOTES : le nom au-dessus, en orange (le generateur) ; STYLE ses onze crans, NOTES (2026-10-09, l'ancien
+  // DENSITY, la meme taille) ses dix-sept, et au desktop un petit 0 et 16 au bout de l'arc
   for (const p of BASS_KNOB_PLACES) {
     const def = BASS_KNOBS.find((k) => k.id === p.id);
     const r = DJ_KNOB.skirt.r * p.s;
     texts.push({ text: def?.label ?? p.id, x: p.x, z: knobLabelZ(p.z, p.s), cap: (p.id === 'style' ? 0.07 : 0.058) * INK_K, weight: 700, maxW: PORTRAIT ? 1.7 : 1.1, group: 'gen', ink: 'orange', alpha: 1 });
-    if (def?.steps) for (let t = 0; t < def.steps; t += 1) tick(p.x, p.z, 225 - (t * 270) / (def.steps - 1), r + 0.03, r + 0.09);
+    if (def?.steps) for (let t = 0; t < def.steps; t += 1) tick(p.x, p.z, 225 - (t * 270) / (def.steps - 1), r + 0.03, r + (p.id === 'density' && t % 4 !== 0 ? 0.065 : 0.09));
     else for (const deg of [225, -45]) tick(p.x, p.z, deg, r + 0.03, r + 0.08);
+    if (p.id === 'density' && !PORTRAIT) {
+      const R = r + 0.17;
+      const c = Math.SQRT1_2;
+      texts.push({ text: '0', x: p.x - c * R, z: p.z + c * R + 0.03, cap: 0.045 * INK_K, weight: 700, alpha: 0.8, group: 'gen' });
+      texts.push({ text: '16', x: p.x + c * R, z: p.z + c * R + 0.03, cap: 0.045 * INK_K, weight: 700, alpha: 0.8, group: 'gen' });
+    }
   }
   // Les encodeurs (2026-10-08) ; pas de graduation (ils sont sans fin). L'etape 2 (2026-10-09, Mika : "ils ne servent
   // qu'a faire les modifs des FX globaux de la machine") : chacun tient pour de bon un FX global, son nom au-dessus
@@ -951,8 +960,9 @@ export class BassRig {
       }
       const hood = bassExplode.get();
       const on = held || (k.kind === 'edit' && editing) || (k.kind === 'open' && (hood === 'opening' || hood === 'open')) || (k.kind === 'accent' && sel.kind === 'note' && sel.acc) || (k.kind === 'slide' && sel.kind !== 'off' && sel.slide);
-      // EDIT, OPEN et GEN : toujours un peu allumes (on les voit tout de suite), vifs quand ils sont pris
-      const idle = k.kind === 'edit' || k.kind === 'open' || k.kind === 'gen' ? scale(DJ_GLOW.orange, 0.16) : DJ_GLOW.dim;
+      // EDIT, OPEN et GEN : toujours un peu allumes (on les voit tout de suite), vifs quand ils sont pris ; MUTATE
+      // (2026-10-09) : orange a demi tant qu'une mutation peut s'annuler (le tenir)
+      const idle = k.kind === 'edit' || k.kind === 'open' || k.kind === 'gen' ? scale(DJ_GLOW.orange, 0.16) : k.kind === 'mutate' && bassCanUndo() ? scale(DJ_GLOW.orange, 0.42) : DJ_GLOW.dim;
       set(this.keyEm, i, on ? DJ_GLOW.orange : idle);
     });
     // Les LOCK : pale si le pas a des verrous, or celui qu'on regle (il clignote avec son pas) ; eteints en EDIT
@@ -1042,7 +1052,8 @@ export class BassRig {
     // L'echo (1.2 s) : sur la page, son bloc se cerne ; hors de la page, l'ecran entier un instant ; un encodeur de la
     // face (2026-10-09, les FX globaux) : sa bulle par-dessus la page, qui reste
     const t = s.touched;
-    let left = t ? ECHO_MS - (performance.now() - t.at) : 0;
+    // L'ecran GENERATOR (2026-10-09) : 1.6 s apres GEN, MUTATE, CLEAR et leurs tenues (ms), 1.2 s apres STYLE et NOTES
+    let left = t ? (t.ms ?? ECHO_MS) - (performance.now() - t.at) : 0;
     // Un potard dedie tenu (2026-10-09, la revue : l'image de DENSITY partait 1.2 s apres le dernier cran, le doigt
     // encore dessus) : son echo reste tant qu'on le tient, puis 1.2 s apres le lacher, comme la bulle d'un encodeur
     if (t && this.heldPots.has(t.id)) left = Math.max(left, ECHO_MS);
@@ -1081,6 +1092,20 @@ export class BassRig {
     }
     let echo: BassKnobId | null = null;
     let pop: { k: number; id: BassKnobId } | null = null;
+    if (t && fresh && (t.gen || t.id === 'style' || t.id === 'density')) {
+      // L'ecran GENERATOR (2026-10-09, Mika : "j'aime bien l'image qu'il y a dans density") : la prise, le compte, les
+      // seize cases (ce qui vient d'arriver, de partir, tes notes, la suivante de NOTES + 1 et - 1), la ligne du bas
+      const r = bassLine.get();
+      const nx = bassLine.nextSteps();
+      const cells = genCellsOf(s.steps, t.before, s.lock).map((c, i) => ({ ...c, plus: i === nx.plus, minus: i === nx.minus, playing: s.running && i === this.stepAt }));
+      return {
+        view: 'gen',
+        g: { style: styleName(r.style), take: bassTakeName().slice(styleName(r.style).length + 1), count: bassLine.count(), yours: bassLine.yours(), cells, note: t.note ?? '', lock: s.lock },
+        running: s.running,
+        bpm,
+        infos,
+      };
+    }
     if (t && fresh) {
       // Sur l'onglet allume (VOLUME est sur VOICE et sur FX, la revue du 2026-10-09 ; DECAY, ENV MOD, SUB, DRIVE sur deux
       // onglets) : son bloc se cerne ; ailleurs l'echo plein ecran
@@ -1093,7 +1118,7 @@ export class BassRig {
         const lockV = s.lock >= 0 && isLockable(t.id) ? s.steps[s.lock]?.locks?.[t.id] : undefined;
         return {
           view: 'knob',
-          k: { id: t.id, v: bassKnobValue(t.id), locked: lockV !== undefined, live: bassGenLive(), lock: s.lock },
+          k: { id: t.id, v: bassKnobValue(t.id), locked: lockV !== undefined, lock: s.lock },
           running: s.running,
           bpm,
           values: s.lock >= 0 && s.steps[s.lock]?.locks ? { ...values, ...s.steps[s.lock].locks } : values,
@@ -1121,6 +1146,7 @@ export class BassRig {
       bpm,
       pattern: `A${String(p.cur + 1).padStart(2, '0')}`,
       preset: presets.current('bass'),
+      take: bassTakeName(),
       message: s.message,
       infos,
       echo,

@@ -25,33 +25,21 @@
  * leurs chances ; RANGE : l'etendue en octaves. Fonctions pures (le hasard
  * se passe en argument : elles se testent hors du navigateur).
  *
- * STYLE et DENSITY qui font vraiment quelque chose (2026-10-09, Mika : "je ne
- * vois pas ce que STYLE et DENSITY font") : une ligne a sa recette (une
- * graine, bass/state.ts), et le generateur rend de cette graine seize
- * candidats, chacun avec son seuil de DENSITY (rank : le pas sonne des que
- * DENSITY l'atteint ; 0, il sonne toujours, le squelette du style). Tous les
- * tirages se font dans le meme ordre quelle que soit DENSITY (deux suites,
- * une pour le contenu des pas, une pour leurs seuils) : monter DENSITY ne
- * fait qu'ajouter des notes, la baisser ne fait qu'en retirer, jamais une
- * note qui change de hauteur. Une liaison n'a jamais un seuil plus bas que
- * la note qu'elle continue. regenerate() ne reecrit que les pas libres (ceux
- * du generateur) et garde les pas faits a la main et tous les P-locks.
- * Ce module n'importe rien de bass/state.ts a l'execution (des types
- * seulement) ; state.ts ecrit sa ligne de depart telle que generate la rend
- * (START_LINE), sans l'importer.
- * La revue du meme jour :
- * - les seuils d'une graine sont repartis a egale distance sur la course
- *   (DENSITY change la ligne a chaque 1/(n+1) de sa course, plus de moitie
- *   de course a plat) ; DARK DISCO, ELECTRO et EBM ont plus de pas qui
- *   dependent de DENSITY ;
- * - SUB ne se tait plus sous ses seuils (ses liaisons suivent le repli) ;
- * - le pas en P-LOCK n'est jamais reecrit (RegenOpts keep) ;
- * - une ligne d'usine (RegenOpts anchor) : telle qu'ecrite a sa DENSITY,
- *   eclaircie au-dessous, des notes du style au-dessus.
+ * Les candidats (2026-10-09) : une graine rend seize candidats, chacun avec son
+ * rang (0, il sonne toujours, le squelette du style ; puis ses seuils, dans
+ * leur ordre). Tous les tirages se font dans le meme ordre : le meme style et
+ * la meme graine rendent toujours les memes notes. Une liaison n'a jamais un
+ * rang plus bas que la note qu'elle continue.
+ * Les prises et NOTES (2026-10-09, Mika : "Je trouve Style et Density
+ * complexe a utiliser") : plus de DENSITY continue ni de regenerate ; une
+ * ligne est une prise numerotee et une echelle de seize barreaux (voir plus
+ * bas, genLadder, curatedLadder, render), NOTES compte les notes, un cran
+ * pour une note. Ce module n'importe rien de bass/state.ts a l'execution
+ * (des types seulement).
  */
 
 import type { BassStyle } from './params';
-import type { BassStep } from './state';
+import type { BassLadder, BassRung, BassStep } from './state';
 
 /** Les seize pas (bass/state.ts BASS_STEPS, recopie : pas d'import a l'execution, voir plus haut). */
 const N = 16;
@@ -115,7 +103,7 @@ const NEVER = 2;
  * (fallback off) ou continue la note d'avant (tie : les changements de SUB qui ne sont pas encore la). slideU : son
  * tirage pour SLIDE PROB.
  */
-interface Cand {
+export interface Cand {
   step: BassStep;
   rank: number;
   fallback: 'off' | 'tie';
@@ -131,7 +119,7 @@ function gate(u: number, a: number, b: number): number {
 }
 
 /** Les slides : l'acid et le sub glissent le plus. */
-const slideK = (style: BassStyle): number => (style === 'ACID' ? 0.6 : style === 'SUB' ? 0.5 : style === 'HOUSE' ? 0.4 : style === 'EBM' || style === 'PSY PROG' ? 0.05 : 0.18);
+export const slideK = (style: BassStyle): number => (style === 'ACID' ? 0.6 : style === 'SUB' ? 0.5 : style === 'HOUSE' ? 0.4 : style === 'EBM' || style === 'PSY PROG' ? 0.05 : 0.18);
 
 /** La graine des options (absente : tiree de rnd, ou du hasard). */
 const seedOf = (o: GenOpts): number => (o.seed !== undefined ? o.seed >>> 0 : Math.floor((o.rnd ?? Math.random)() * 4294967296) >>> 0);
@@ -140,7 +128,7 @@ const seedOf = (o: GenOpts): number => (o.seed !== undefined ? o.seed >>> 0 : Ma
  * Les seize candidats d'une graine et d'un style (DENSITY n'y entre pas : elle ne fait que choisir lesquels sonnent).
  * Deux suites : R pour le contenu (huit tirages par pas, seize pour la mesure, toujours tous tires), U pour les seuils.
  */
-function candidates(o: GenOpts, seed: number): Cand[] {
+export function candidates(o: GenOpts, seed: number): Cand[] {
   const R = seeded(seed);
   const U = seeded((seed ^ 0x51ed270b) >>> 0);
   const r: number[][] = Array.from({ length: N }, () => Array.from({ length: 8 }, R));
@@ -363,108 +351,300 @@ export function generate(o: GenOpts): BassStep[] {
   return finish(out, cands, out.map(() => true), o);
 }
 
-/** Ce que regenerate garde ou suit en plus de la ligne (2026-10-09, la revue). */
-export interface RegenOpts {
-  /** des pas a ne pas reecrire meme libres (le pas en P-LOCK : ses verrous a venir tomberaient sur un vide) */
-  keep?: readonly number[];
-  /**
-   * la ligne d'usine du preset (sa recette, bass/state.ts BassRecipe anchor), au STYLE du preset (l'appelant le
-   * verifie ; un autre STYLE : null, et base null) : a sa DENSITY (base) elle est telle qu'ecrite ; au-dessous ses
-   * notes s'en vont une a une (les temps en dernier) ; au-dessus des notes du style s'ajoutent sur ses pas vides
-   */
-  anchor?: readonly BassStep[] | null;
+/* ---------------- les prises, l'echelle des notes (2026-10-09) ---------------- */
+
+/*
+ * STYLE et NOTES simples (2026-10-09, Mika : "je ne vois pas ce que Style et density font", puis "Je trouve Style et
+ * Density complexe a utiliser") : une ligne est une PRISE d'un style (ACID 07), et une ECHELLE de seize barreaux, un
+ * par pas, dans un ordre fixe (le squelette du style d'abord, les ornements a la fin). NOTES = n : les premiers
+ * barreaux jouent jusqu'a ce que la mesure ait n notes ; un cran de plus, le barreau suivant entre ; un cran de moins,
+ * le dernier qui joue sort. Un barreau ne change jamais de hauteur quand NOTES bouge. Tes notes (pins : une tape, un
+ * glisser, ACCENT, SLIDE, NOTE, OCT, un P-lock) restent par-dessus, telles quelles. Les prises 01 a k d'un style sont
+ * les lignes de ses presets d'usine (state/factory.ts bassCuratedLines, dans leur ordre), les suivantes viennent du
+ * generateur (la graine STYLE#n). Fonctions pures, sans etat : bass/line.ts les applique a la ligne qui joue.
+ */
+
+/** La classe d'un pas : le 1, puis les temps (5, 9, 13), les "et" (3, 7, 11, 15), les autres. */
+export const beatClass = (i: number): number => (i === 0 ? 0 : i % 4 === 0 ? 1 : i % 2 === 0 ? 2 : 3);
+
+/** Un style lie (SUB) : un pas libre apres un pas qui sonne le continue, sauf un silence ecrit. */
+export const isLegato = (style: BassStyle): boolean => style === 'SUB';
+
+/** FNV-1a, le hachage de state/factory.ts seedOfName. */
+export function fnv1a(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i += 1) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193) >>> 0;
+  return h >>> 0;
 }
 
-/**
- * Les notes de la ligne d'usine qui restent a DENSITY d (sous base) : au moins 30 % d'entre elles ; elles s'en vont dans
- * l'ordre de la graine, les doubles croches d'abord, puis les contretemps, puis les temps, le premier pas en dernier.
- */
-function anchorKept(anchor: readonly BassStep[], free: readonly boolean[], seed: number, d: number, base: number): boolean[] {
-  const U = seeded((seed ^ 0x2545f491) >>> 0);
-  const u = Array.from({ length: N }, U);
-  const cls = (i: number): number => (i === 0 ? 0 : i % 4 === 0 ? 1 : i % 2 === 0 ? 2 : 3);
-  const notes = anchor
-    .map((s, i) => ({ s, i }))
-    .filter((x) => x.s.kind === 'note' && free[x.i])
-    .sort((a, b) => cls(a.i) - cls(b.i) || u[a.i] - u[b.i]);
-  const n = notes.length;
-  const min = Math.min(n, Math.max(1, Math.round(n * 0.3)));
-  const k = d >= base ? n : min + Math.round((Math.max(0, d) / Math.max(0.02, base)) * (n - min));
-  const kept = anchor.map(() => false);
-  for (const x of notes.slice(0, k)) kept[x.i] = true;
-  return kept;
+/** La graine d'une prise (ACID 07 : ACID#7), la meme pour tout le monde, a chaque visite. */
+export const takeSeed = (style: BassStyle, take: number): number => fnv1a(`${style}#${take}`);
+
+/** Ce qui joue sur une echelle : le style (ses slides), SLIDE PROB et ACC PROB (0 a 1), RANGE (1 a 3 octaves). */
+export interface LineOpts {
+  style: BassStyle;
+  slides: number;
+  accents: number;
+  range: number;
 }
 
+/** Tes pas (pins), par pas ; null : un pas libre (la machine y joue). */
+export type Pins = readonly (BassStep | null)[];
+export const pinsOf = (steps: readonly BassStep[]): (BassStep | null)[] => steps.map((s) => (isFreeStep(s) ? null : s));
+
+/** La resolution du tirage d'ACC PROB garde sur un barreau (accU) : 1/32 de la course. */
+const ACC_GRID = 32;
+
 /**
- * STYLE, DENSITY et les regles du generateur sur une ligne qui a sa recette (2026-10-09) : seuls les pas libres
- * changent (isFreeStep, hors opts.keep), les autres restent tels quels avec leurs P-locks. base null (une ligne de GEN)
- * : un pas libre sonne des que DENSITY atteint son seuil. base, un nombre (une ligne faite a la main) : a cette DENSITY
- * la ligne est telle qu'on l'a ecrite (aucune note generee) ; au-dessus, les pas libres recoivent des notes du style,
- * le squelette d'abord, jusqu'a tous a DENSITY 100 ; au-dessous, rien ne s'enleve (les notes sont les tiennes). Une
- * ligne d'usine (opts.anchor, la revue du meme jour : sur un preset, STYLE et DENSITY ne faisaient rien) : la ligne
- * ecrite a base, eclaircie au-dessous, des notes du style en plus au-dessus.
+ * Les seize barreaux d'une graine et leur cle d'ordre : le rang du candidat (0, le squelette ; puis ses seuils), puis
+ * la classe du pas, puis le pas ; les pas ou le style ne joue jamais en dernier (la tonique, sans accent). Chaque note
+ * du generateur garde ses tirages (slideU, accU : le seuil d'ACC PROB au-dessus duquel elle est accentuee, octR : son
+ * octave a RANGE 1, 2, 3) : SLIDE PROB, ACC PROB et RANGE agissent en direct sur les notes de la machine.
  */
-export function regenerate(steps: readonly BassStep[], o: GenOpts & { seed: number }, base: number | null, opts: RegenOpts = {}): BassStep[] {
-  const cands = candidates(o, o.seed >>> 0);
-  const d = Math.min(1, Math.max(0, o.density));
-  const free = steps.map((s, i) => isFreeStep(s) && !opts.keep?.includes(i));
-  const anchor = opts.anchor && opts.anchor.length === N ? opts.anchor : null;
-  // La ligne d'usine, eclaircie sous sa DENSITY
-  const kept = anchor && base !== null ? anchorKept(anchor, free, o.seed >>> 0, d, base) : null;
-  /** un pas libre ou la ligne d'usine a quelque chose (une note, une liaison) : il ne recoit pas de note du style */
-  const taken = (i: number): boolean => !!anchor && anchor[i].kind !== 'off';
-  let on: boolean[];
-  if (base === null) on = cands.map((c) => c.rank <= d);
-  else {
-    const order = cands
-      .map((c, i) => ({ c, i }))
-      .filter((x) => free[x.i] && !taken(x.i) && x.c.rank <= 1)
-      .sort((a, b) => a.c.rank - b.c.rank || a.i - b.i);
-    const k = d <= base ? 0 : Math.round(((d - base) / Math.max(0.02, 1 - base)) * order.length);
-    on = steps.map(() => false);
-    for (const x of order.slice(0, Math.min(order.length, k))) on[x.i] = true;
+function seedRungs(style: BassStyle, degrees: number, seed: number): { rungs: BassRung[]; key: number[] } {
+  const o = (range: number, accents: number): GenOpts => ({ style, density: 1, slides: 0, accents, range, degrees });
+  const c = candidates(o(2, 0), seed);
+  const octs = [1, 2, 3].map((r) => candidates(o(r, 0), seed));
+  const accU: number[] = Array.from({ length: N }, () => 2);
+  for (let k = ACC_GRID; k >= 0; k -= 1) {
+    const a = candidates(o(2, k / ACC_GRID), seed);
+    for (let i = 0; i < N; i += 1) if (a[i].step.kind === 'note' && a[i].step.acc) accU[i] = k === 0 ? -1 : (k - 0.5) / ACC_GRID;
   }
-  const fromCand = steps.map(() => false);
-  const out = steps.map((s, i): BassStep => {
-    if (!free[i]) return s;
-    if (anchor && kept && taken(i)) {
-      // Une note de la ligne d'usine (gardee ou partie) ; une liaison suit sa note (finish la tait apres un vide)
-      const a = anchor[i];
-      if (a.kind === 'tie') return { ...a, src: 'gen' };
-      return kept[i] ? { ...a, src: 'gen' } : { ...rest(), src: 'gen' };
+  const fill = style === 'SUB' ? -1 : 0;
+  const key: number[] = [];
+  const rungs: BassRung[] = [];
+  for (let i = 0; i < N; i += 1) {
+    const s = c[i].step;
+    if (s.kind === 'note') {
+      const holds: number[] = [];
+      for (let j = i + 1; j < N && c[j].step.kind === 'tie'; j += 1) holds.push(j);
+      rungs.push({ step: i, deg: s.deg, oct: s.oct, acc: false, slide: false, holds, slideU: c[i].slideU, accU: accU[i], octR: [octs[0][i].step.oct, octs[1][i].step.oct, octs[2][i].step.oct] });
+      key.push(c[i].rank <= 1 ? c[i].rank : 3 + beatClass(i) * 0.1);
+    } else {
+      rungs.push({ step: i, deg: 0, oct: fill, acc: false, slide: false, holds: [] });
+      key.push(3 + beatClass(i) * 0.1);
     }
-    if (on[i]) {
-      fromCand[i] = true;
-      return candStep(cands[i]);
-    }
-    // Une ligne a la main : un pas libre qui n'a pas sa note reste vide (le repli en liaison de SUB n'y est pas)
-    return base === null ? fallbackStep(cands[i]) : { ...rest(), src: 'gen' };
-  });
-  return finish(out, cands, free, o, base === null ? free : fromCand);
+  }
+  rungs.sort((a, b) => key[a.step] - key[b.step] || beatClass(a.step) - beatClass(b.step) || a.step - b.step);
+  return { rungs, key };
 }
 
-/** MUTATE : quelques pas changent (un degre, un accent, un slide, une note qui apparait ou s'efface). */
-export function mutate(steps: readonly BassStep[], o: GenOpts): BassStep[] {
-  const rnd = o.rnd ?? Math.random;
-  const out = steps.map((s) => ({ ...s }));
-  const W = o.degrees === 5 ? W5 : W7;
-  const count = 2 + Math.floor(rnd() * 3);
-  for (let k = 0; k < count; k += 1) {
-    const i = 1 + Math.floor(rnd() * (N - 1));
-    const s = out[i];
-    const r = rnd();
-    if (s.kind === 'note') {
-      if (r < 0.45) s.deg = pickV(W, rnd());
-      else if (r < 0.65) s.acc = !s.acc;
-      else if (r < 0.8) s.slide = !s.slide;
-      else if (r < 0.9) s.oct = s.oct === 0 ? 1 : 0;
-      else out[i] = rest();
-    } else if (s.kind === 'off' && r < 0.6) out[i] = note(pickV(W, rnd()), rnd() < 0.25 ? 1 : 0, rnd() < o.accents * 0.5);
-    // Une note que MUTATE a posee ou changee est desormais a toi (2026-10-09) : STYLE et DENSITY ne la reecrivent plus ;
-    // une note qu'il a effacee laisse un pas libre s'il l'etait (la revue : DENSITY ne pouvait plus jamais le remplir)
-    const a = out[i];
-    const b = steps[i];
-    if (a.kind !== b.kind || a.deg !== b.deg || a.acc !== b.acc || a.slide !== b.slide || a.oct !== b.oct) out[i] = { ...a, src: a.kind === 'off' && isFreeStep(b) ? 'gen' : 'hand' };
+/** L'echelle d'une prise generee (ACID 04 et plus, 2026-10-09). */
+export function genLadder(style: BassStyle, take: number, degrees: number): BassLadder {
+  return { rungs: seedRungs(style, degrees, takeSeed(style, take)).rungs, rests: [], legato: isLegato(style) };
+}
+
+/**
+ * L'echelle d'une prise ecrite (une ligne d'usine) : ses notes d'abord (le rang du style a ce pas, accentuees avant les
+ * autres, la classe, le pas), puis les candidats du style sur les autres pas (la graine de la prise), puis les pas ou il
+ * ne joue jamais ; ses silences ecrits restent des silences (rests). A son compte (on), la ligne est telle qu'ecrite.
+ */
+export function curatedLadder(style: BassStyle, line: readonly BassStep[], take: number, degrees: number): { ladder: BassLadder; on: number } {
+  const { rungs, key } = seedRungs(style, degrees, takeSeed(style, take));
+  const written: BassRung[] = [];
+  for (let i = 0; i < N; i += 1) {
+    const w = line[i];
+    if (!w || w.kind !== 'note') continue;
+    const holds: number[] = [];
+    for (let j = i + 1; j < N && line[j]?.kind === 'tie'; j += 1) holds.push(j);
+    written.push({ step: i, deg: w.deg, oct: w.oct, acc: w.acc, slide: w.slide, holds });
+  }
+  written.sort((a, b) => key[a.step] - key[b.step] || Number(b.acc) - Number(a.acc) || beatClass(a.step) - beatClass(b.step) || a.step - b.step);
+  const used = new Set(written.map((r) => r.step));
+  const rests: number[] = [];
+  for (let i = 0; i < N; i += 1) if (line[i]?.kind === 'off') rests.push(i);
+  return { ladder: { rungs: [...written, ...rungs.filter((r) => !used.has(r.step))], rests, legato: isLegato(style) }, on: written.length };
+}
+
+/** Ce que joue un barreau actif (ses tirages lus au reglage du moment ; ses slides tires apres, render). */
+function play(r: BassRung, o: LineOpts): BassStep {
+  const range = Math.max(1, Math.min(3, Math.round(o.range)));
+  return { kind: 'note', deg: r.deg, oct: r.octR ? r.octR[range - 1] : r.oct, acc: r.accU !== undefined ? r.accU < o.accents : r.acc, slide: r.slideU !== undefined ? false : r.slide, src: 'gen' };
+}
+
+/**
+ * La ligne qui joue (2026-10-09) : tes pas copies tels quels ; un barreau actif (les on premiers) joue sa note ; un pas
+ * libre juste apres un pas qui sonne est une liaison s'il est tenu par un barreau actif (holds), ou si le style est lie
+ * et que ce n'est pas un silence ecrit ; sinon un vide. Une liaison ne passe jamais du pas 16 au pas 1. Les slides des
+ * notes de la machine : leur tirage sous SLIDE PROB x le style, vers une note (comme finish).
+ */
+export function render(L: BassLadder, on: number, pins: Pins, o: LineOpts): BassStep[] {
+  const act = new Map<number, BassRung>();
+  for (const r of L.rungs.slice(0, Math.max(0, Math.min(N, on)))) act.set(r.step, r);
+  const owner = new Set<number>();
+  for (const r of act.values()) for (const t of r.holds) owner.add(t);
+  const rests = new Set(L.rests);
+  const out: BassStep[] = [];
+  for (let i = 0; i < N; i += 1) {
+    const pin = pins[i];
+    if (pin) {
+      out.push(pin);
+      continue;
+    }
+    const r = act.get(i);
+    if (r) {
+      out.push(play(r, o));
+      continue;
+    }
+    const sounding = i > 0 && out[i - 1].kind !== 'off';
+    if (sounding && (owner.has(i) || (L.legato && !rests.has(i)))) out.push({ kind: 'tie', deg: 0, oct: 0, acc: false, slide: false, src: 'gen' });
+    else out.push({ kind: 'off', deg: 0, oct: 0, acc: false, slide: false, src: 'gen' });
+  }
+  const k = slideK(o.style);
+  for (const r of act.values()) {
+    if (r.slideU === undefined || pins[r.step]) continue;
+    const i = r.step;
+    if (i < N - 1 && out[i + 1].kind === 'note' && r.slideU < o.slides * k) out[i] = { ...out[i], slide: true };
   }
   return out;
+}
+
+/** Le nombre de notes de la mesure (ce qu'on entend : les liaisons ne comptent pas). */
+export const noteCount = (steps: readonly BassStep[]): number => steps.reduce((n, s) => n + (s.kind === 'note' ? 1 : 0), 0);
+
+/** NOTES + 1 : le on qui ajoute exactement une note (les barreaux sur tes pas passent) ; null au plafond. */
+export function notesUp(L: BassLadder, on: number, pins: Pins, o: LineOpts): number | null {
+  const c0 = noteCount(render(L, on, pins, o));
+  for (let k = on + 1; k <= N; k += 1) if (noteCount(render(L, k, pins, o)) > c0) return k;
+  return null;
+}
+
+/**
+ * NOTES - 1 : le on qui retire exactement une note ; le pas en P-LOCK (lock, une note de la machine) ne sort pas : son
+ * barreau change de place avec celui d'avant (sortir du P-LOCK ne change rien a l'oreille). null au plancher.
+ */
+export function notesDown(L: BassLadder, on: number, pins: Pins, o: LineOpts, lock = -1): { on: number; ladder: BassLadder } | null {
+  const c0 = noteCount(render(L, on, pins, o));
+  const rungs = L.rungs.slice();
+  let k = Math.min(N, on);
+  while (k > 0) {
+    if (lock >= 0 && !pins[lock] && rungs[k - 1].step === lock) {
+      if (k < 2) return null;
+      [rungs[k - 1], rungs[k - 2]] = [rungs[k - 2], rungs[k - 1]];
+    }
+    k -= 1;
+    const next = { ...L, rungs };
+    const c = noteCount(render(next, k, pins, o));
+    if (c < c0) {
+      // Le plus petit on de ce compte (les barreaux sur tes pas passent aussi en descendant) : la ligne a n notes est
+      // la meme en montant et en descendant
+      while (k > 0 && rungs[k - 1].step !== lock && noteCount(render(next, k - 1, pins, o)) === c) k -= 1;
+      return { on: k, ladder: next };
+    }
+  }
+  return null;
+}
+
+/** Le plancher (tes notes) et le plafond (tout ce que l'echelle peut jouer autour de tes pas). */
+export const notesFloor = (L: BassLadder, pins: Pins, o: LineOpts): number => noteCount(render(L, 0, pins, o));
+export const notesCeiling = (L: BassLadder, pins: Pins, o: LineOpts): number => noteCount(render(L, N, pins, o));
+
+/** Le plus petit on qui donne n notes (ou le plus proche par en dessous, au plafond) : GEN garde le compte. */
+export function onForCount(L: BassLadder, n: number, pins: Pins, o: LineOpts): number {
+  let best = 0;
+  for (let k = 0; k <= N; k += 1) {
+    const c = noteCount(render(L, k, pins, o));
+    if (c === n) return k;
+    if (c < n) best = k;
+  }
+  return best;
+}
+
+/**
+ * Adopter une ligne (2026-10-09, une ligne d'avant les prises, une ligne reparee) : ses notes de la machine (src gen,
+ * sans P-lock) deviennent les premiers barreaux, dans l'ordre de base (une prise ecrite) ou de l'echelle du style ; ses
+ * liaisons de la machine suivent la note qu'elles continuent (une note a toi aussi : son barreau joue, sans compter) ;
+ * les autres pas gardent les barreaux de l'echelle du style ; un style lie garde ses vides. La ligne rendue est celle
+ * d'entree.
+ */
+export function adopt(steps: readonly BassStep[], style: BassStyle, degrees: number, seed: number, base?: BassLadder): { ladder: BassLadder; on: number } {
+  const ref = base ?? { rungs: seedRungs(style, degrees, seed).rungs, rests: [], legato: isLegato(style) };
+  const order = new Map(ref.rungs.map((r, i) => [r.step, i]));
+  const holds = new Map<number, number[]>();
+  for (let i = 1; i < N; i += 1) {
+    const s = steps[i];
+    if (s.kind !== 'tie' || !isFreeStep(s)) continue;
+    let j = i - 1;
+    while (j > 0 && steps[j].kind === 'tie') j -= 1;
+    if (steps[j].kind !== 'note') continue;
+    let list = holds.get(j);
+    if (!list) {
+      list = [];
+      holds.set(j, list);
+    }
+    list.push(i);
+  }
+  const of = (i: number): BassRung => ({ step: i, deg: steps[i].deg, oct: steps[i].oct, acc: steps[i].acc, slide: steps[i].slide, holds: holds.get(i) ?? [] });
+  const free = steps.map((s, i) => (s.kind === 'note' && isFreeStep(s) ? i : -1)).filter((i) => i >= 0);
+  const pinned = [...holds.keys()].filter((j) => !isFreeStep(steps[j]));
+  free.sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
+  const used = new Set([...free, ...pinned]);
+  const rungs = [...pinned.map(of), ...free.map(of), ...ref.rungs.filter((r) => !used.has(r.step))];
+  const rests = new Set(ref.rests);
+  if (ref.legato) steps.forEach((s, i) => s.kind === 'off' && isFreeStep(s) && rests.add(i));
+  return { ladder: { rungs, rests: [...rests].sort((a, b) => a - b), legato: ref.legato }, on: pinned.length + free.length };
+}
+
+/**
+ * MUTATE (2026-10-09) : 2 ou 3 notes de la machine qui jouent (jamais les tiennes, jamais le pas en P-LOCK) changent :
+ * une autre hauteur de la gamme (45 %, les poids de W7 / W5, jamais le meme degre, jamais celle du pas 1), l'octave
+ * (15 %), l'accent (15 %), le slide (10 %, vers une note), un pas vers un voisin libre du meme temps (15 %). Le compte
+ * ne change pas, chaque barreau garde sa place. null : aucune note de la machine.
+ */
+export function mutateLadder(L: BassLadder, on: number, pins: Pins, o: LineOpts, degrees: number, lock: number, rnd: () => number): { ladder: BassLadder; changed: number } | null {
+  const out = render(L, on, pins, o);
+  const c0 = noteCount(out);
+  const pool: number[] = [];
+  for (let k = 0; k < Math.min(on, L.rungs.length); k += 1) {
+    const s = L.rungs[k].step;
+    if (!pins[s] && s !== lock && out[s].kind === 'note') pool.push(k);
+  }
+  if (!pool.length) return null;
+  const W = degrees === 5 ? W5 : W7;
+  for (let tries = 0; tries < 6; tries += 1) {
+    const rungs = L.rungs.map((r) => ({ ...r }));
+    const pick = pool.slice();
+    const n = Math.min(pick.length, rnd() < 0.5 ? 2 : 3);
+    for (let m = 0; m < n; m += 1) {
+      const ri = pick.splice(Math.floor(rnd() * pick.length), 1)[0];
+      const r = rungs[ri];
+      const cur = out[r.step];
+      const x = rnd();
+      const acc = (): void => {
+        r.acc = !cur.acc;
+        delete r.accU;
+      };
+      if (x < 0.45 && r.step !== 0) {
+        const d0 = ((cur.deg % degrees) + degrees) % degrees;
+        let d = d0;
+        for (let t = 0; t < 12 && d === d0; t += 1) d = pickV(W, rnd());
+        if (d === d0) d = (d0 + 1) % degrees;
+        r.deg = d + degrees * Math.floor(cur.deg / degrees);
+      } else if (x < 0.6) {
+        r.oct = cur.oct >= 1 ? cur.oct - 1 : cur.oct + 1;
+        delete r.octR;
+      } else if (x < 0.75) acc();
+      else if (x < 0.85) {
+        if (r.step < N - 1 && out[r.step + 1].kind === 'note') {
+          r.slide = !cur.slide;
+          delete r.slideU;
+        } else acc();
+      } else {
+        const s = r.step;
+        const near = [s - 1, s + 1].filter((t) => s !== 0 && t > 0 && t < N && Math.floor(t / 4) === Math.floor(s / 4) && !pins[t] && t !== lock && out[t].kind === 'off');
+        if (!near.length) {
+          acc();
+          continue;
+        }
+        const t = near[Math.floor(rnd() * near.length)];
+        const ti = rungs.findIndex((q) => q.step === t);
+        if (ti >= 0) rungs[ti] = { ...rungs[ti], step: s, holds: [] };
+        r.step = t;
+        r.holds = [];
+      }
+    }
+    const ladder = { ...L, rungs };
+    if (noteCount(render(ladder, on, pins, o)) === c0) return { ladder, changed: n };
+  }
+  return null;
 }

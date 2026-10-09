@@ -4,7 +4,8 @@
  * (scene/tweakplate.ts, celle du MM-RYTM et du MM-ARP) porte ce qu'on regle
  * une fois par morceau, pour que la face reste simple :
  * - GENERATOR : SLIDE PROB, ACC PROB (les chances qu'une
- *   note glisse ou soit accentuee quand GEN ecrit une ligne), RANGE (un
+ *   note de la machine glisse ou soit accentuee, en direct depuis le
+ *   2026-10-09 : ses tirages sont gardes sur son barreau), RANGE (un
  *   commutateur a trois crans, l'etendue en octaves), ROOT (la tonique, ou
  *   ARP, un selecteur a treize crans), SCALE (cinq crans) ;
  * - VOICE : LENGTH (la longueur des notes, AUTO : celle du style), ACC DECAY,

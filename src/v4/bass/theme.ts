@@ -185,8 +185,9 @@ const COPY: readonly KeyCopy[] = [
   { kind: 'run', label: 'RUN', aria: 'Run or stop the bassline, in time with the MM-RYTM, key Space', orange: true },
   { kind: 'edit', label: 'EDIT', aria: 'Edit: the sixteen steps become sixteen patterns, key E', orange: true },
   { kind: 'open', label: 'OPEN', aria: 'Open the machine: the fine settings and INFOS, key O', orange: true },
-  { kind: 'gen', label: 'GEN', aria: 'Generate a new bassline with STYLE and DENSITY, key G', orange: true },
-  { kind: 'mutate', label: 'MUTATE', aria: 'Change a few steps, key M' },
+  // Les prises (2026-10-09) : GEN la suivante, tenu la precedente ; MUTATE, tenu : annule
+  { kind: 'gen', label: 'GEN', aria: 'GEN: the next take of this style, same number of notes; hold: the previous take; key G', orange: true },
+  { kind: 'mutate', label: 'MUTATE', aria: "Mutate: change two or three of the machine's notes, same number of notes; hold: undo; key M" },
   { kind: 'clear', label: 'CLEAR', aria: 'Clear the bassline; while a step is locked, clear its locks' },
   { kind: 'accent', label: 'ACCENT', aria: 'Accent on the chosen step, key A' },
   { kind: 'slide', label: 'SLIDE', aria: 'Slide from the chosen step to the next, key S' },

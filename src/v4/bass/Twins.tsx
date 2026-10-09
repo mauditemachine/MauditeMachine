@@ -33,8 +33,8 @@ import { bassInfos } from '../state/bassInfos';
 import { focus } from '../state/focus';
 import { PRESET_KEYS_OFF, PRESET_KEYS_ON, PRESET_KEY_ARIA, presetMode } from '../state/presetMode';
 import { presetKey } from '../actions';
-import { bassDial, bassDialReset, bassFxDial, bassFxReset, bassKnobValue, bassLockTap, bassScreenSet, bassStepTap, noteName } from './actions';
-import { bassKeyAction } from './gestures';
+import { bassDial, bassDialReset, bassFxDial, bassFxReset, bassGenBack, bassKnobValue, bassLockTap, bassMutateUndo, bassScreenSet, bassStepTap, noteName } from './actions';
+import { GEN_HOLD_MS, bassKeyAction } from './gestures';
 import { listenBassKeys } from './keys';
 import { BASS_FX_KNOBS, BASS_SCREENS, ENC_LETTERS, PAGE_TABS, SCREEN_LABEL, SCREEN_PAGE, bassPage, bassPageDef, isBassGlobal } from './pages';
 import { BASS_FACE_KNOBS, BASS_PLATE_KNOBS, bassCC, bassKnob, bassParams, bassUnit, bassValueText, type BassKnobDef } from './params';
@@ -93,6 +93,8 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const placeRef = useRef<((force: boolean) => void) | null>(null);
   const off = f !== 'bass';
   const onRef = useRef(!off);
+  /** GEN et MUTATE tenus au clavier (2026-10-09) : le minuteur des 500 ms, et s'il a deja agi */
+  const holdRef = useRef<{ t: number; fired: boolean }>({ t: 0, fired: true });
   onRef.current = !off;
   // Le rig arrive apres la scene (chargement a part) : on attend qu'il soit accroche
   const [ready, setReady] = useState(!!stage?.bass);
@@ -285,9 +287,9 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
             aria-label={k.aria}
             aria-orientation="vertical"
             aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={pct(val)}
-            aria-valuetext={bassValueText(k.id, val)}
+            aria-valuemax={k.id === 'density' ? 16 : 100}
+            aria-valuenow={k.id === 'density' ? Math.round(val * 16) : pct(val)}
+            aria-valuetext={k.id === 'density' ? `${Math.round(val * 16)} ${Math.round(val * 16) === 1 ? 'note' : 'notes'}` : bassValueText(k.id, val)}
             onKeyDown={(e) => {
               if (e.altKey || e.ctrlKey || e.metaKey) return;
               if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -323,7 +325,28 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
               e.preventDefault();
               e.stopPropagation();
               if (e.repeat) return;
+              // GEN et MUTATE (2026-10-09) : au lacher avant 500 ms ; tenus 500 ms, la prise d'avant ou l'annulation
+              if (k.kind === 'gen' || k.kind === 'mutate') {
+                const kind = k.kind;
+                window.clearTimeout(holdRef.current.t);
+                holdRef.current = {
+                  t: window.setTimeout(() => {
+                    holdRef.current.fired = true;
+                    if (kind === 'gen') bassGenBack();
+                    else bassMutateUndo();
+                  }, GEN_HOLD_MS),
+                  fired: false,
+                };
+                return;
+              }
               press(id, () => bassKeyAction(k.kind));
+            }}
+            onKeyUp={(e) => {
+              if ((e.key !== 'Enter' && e.key !== ' ') || (k.kind !== 'gen' && k.kind !== 'mutate')) return;
+              e.preventDefault();
+              window.clearTimeout(holdRef.current.t);
+              if (!holdRef.current.fired) press(id, () => bassKeyAction(k.kind));
+              holdRef.current = { t: 0, fired: true };
             }}
             onClick={(e) => {
               // Lecteur d'ecran (clic sans pointeur) : un appui complet

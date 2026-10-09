@@ -85,30 +85,32 @@ const fr = (s: string): string =>
 
 const RAW: Record<BassInfoId, RawInfo> = {
   /* ---------- GENERATOR (a cote de l'ecran) ---------- */
+  // Les prises et NOTES (2026-10-09, Mika : "Je trouve Style et Density complexe a utiliser")
   style: {
     section: 'GENERATOR',
     title: 'STYLE',
-    text: "La famille de basse du générateur : ACID, DARK DISCO, INDIE DANCE, MINIMAL, PSY PROG, TECHNO, HOUSE, ELECTRO, EBM, ITALO ou SUB. À chaque cran, les notes du générateur se réécrivent dans ce style, tout de suite ; tes notes à toi (une tape, un glisser, ACCENT, NOTE…) et tes P-locks restent. Le style règle aussi la longueur des notes (tant que LENGTH, sous le capot, est sur AUTO) : courtes en MINIMAL, tenues en SUB. L'écran montre la ligne qui joue, en plein les pas qui viennent de changer.",
-    tip: "Sur un preset d'usine, un autre style réécrit sa ligne dans ce style (depuis la graine du preset) ; reviens à son style, la ligne écrite revient. Sur une ligne faite à la main, STYLE change la longueur des notes et les notes générées autour des tiennes.",
+    text: "Le genre de la ligne : ACID, DARK DISCO, INDIE DANCE, MINIMAL, PSY PROG, TECHNO, HOUSE, ELECTRO, EBM, ITALO ou SUB. Chaque cran joue tout de suite la ligne typique du style (sa prise 01, avec son nombre de notes) ; l'écran montre son nom et ses 16 pas en grand. Tes notes à toi et tes P-locks restent. STYLE change les notes, pas le son : le son, ce sont les pages VOICE, FILTER, ENV et FX.",
+    tip: "Chaque style garde la prise où tu l'as laissé : d'ACID 07 à DARK DISCO 03 et retour, ACID 07 revient tel quel. Deux tapes sur STYLE : la ligne typique, prise 01.",
   },
   density: {
     section: 'GENERATOR',
-    title: 'DENSITY',
-    text: "Combien de notes dans la ligne, à chaque cran : en montant, des notes s'ajoutent (d'abord celles qui font le style), en descendant elles s'en vont, jamais une note qui change de hauteur. Tes notes à toi, le pas en P-LOCK et tes P-locks restent toujours. Sur une ligne faite à la main, DENSITY ajoute des notes générées autour des tiennes, et les retire en redescendant. Sur un preset d'usine, sa ligne est telle qu'écrite à sa DENSITY ; en dessous, ses notes s'en vont une à une (les temps en dernier) et reviennent en remontant ; au-dessus, des notes du style s'ajoutent. En SUB, c'est le nombre de changements de note par mesure, de 1 à 4. L'écran montre la vraie ligne : en plein les notes qui arrivent, en pointillé celles qui partent, et le compte par mesure.",
-    tip: "Vers 60 % pour l'indie dance, 80 % et plus pour une acid qui roule ; redescends pour retrouver la ligne de départ.",
+    title: 'NOTES',
+    text: "Le nombre de notes dans la mesure, de 0 à 16 : un cran, une note de plus ou de moins, toujours dans le même ordre (d'abord celles qui font le style, en dernier les ornements). Revenir au même cran rend exactement la même ligne. Tes notes à toi restent : NOTES ne descend pas sous leur nombre. À l'écran, le compte en grand et les 16 pas : en plein les notes, un point sur les tiennes, en pointillé celle qui viendra au cran suivant.",
+    tip: "Descends à 0 pour un break, remonte : la ligne revient telle quelle. Deux tapes sur NOTES : le nombre de notes de la prise.",
   },
   gen: {
     section: 'GENERATOR',
     title: 'GEN',
-    text: "Écrit une nouvelle ligne de 16 pas (une nouvelle graine) avec STYLE et DENSITY, dans la gamme de ROOT et SCALE (sous le capot, OPEN). Les P-locks des pas qui restent des notes sont gardés, sinon l'écran dit P-LOCKS CLEARED. Si rien ne joue, la ligne part tout de suite.", keys: "Touche G.",
+    text: "Une nouvelle prise du même style, avec le même nombre de notes : ACID 07, puis ACID 08. Tes notes et tes P-locks restent. Tiens GEN une demi-seconde : la prise d'avant revient. Les premières prises de chaque style sont les lignes de ses presets d'usine, les suivantes viennent du générateur. Si rien ne joue, la ligne part.", keys: "Touche G (Maj + G : la prise d'avant).",
     tip: "Appuie jusqu'à ce qu'une ligne t'accroche, puis garde-la dans un pattern avec EDIT.",
   },
   mutate: {
     section: 'GENERATOR',
     title: 'MUTATE',
-    text: "Change 2 à 4 pas : une note, un accent, un slide, une octave, un pas qui apparaît ou disparaît ; le reste ne bouge pas. Les notes changées deviennent les tiennes : STYLE et DENSITY n'y touchent plus ; un pas que MUTATE vide reste au générateur, DENSITY peut y remettre une note.", keys: "Touche M.",
+    text: "Change 2 ou 3 notes de la machine : une hauteur, une octave, un accent, un slide, ou une note qui avance ou recule d'un pas. Le nombre de notes ne bouge pas, tes notes à toi non plus. La prise prend une étoile (ACID 07*) et la LED de MUTATE reste allumée. Tiens MUTATE : la dernière mutation s'annule.", keys: "Touche M (Maj + M : annule).",
     tip: "Une mutation toutes les 8 mesures garde la ligne vivante en live.",
   },
+
 
   /* ---------- OSC ---------- */
   octave: {
@@ -190,19 +192,19 @@ const RAW: Record<BassInfoId, RawInfo> = {
   slides: {
     section: 'TWEAKS / GENERATOR',
     title: 'SLIDE PROB',
-    text: "La chance qu'une note du générateur glisse vers la suivante ; la ligne suit le potard à chaque cran (tes notes restent). Le style la module : beaucoup en ACID et en SUB, presque jamais en EBM et en PSY PROG. GLIDE, page VOICE, règle la durée du glissement.",
+    text: "La chance qu'une note du générateur glisse vers la suivante ; les notes de la machine suivent le potard à chaque cran ; tes notes et les notes écrites d'un preset gardent les leurs. Le style la module : beaucoup en ACID et en SUB, presque jamais en EBM et en PSY PROG. GLIDE, page VOICE, règle la durée du glissement.",
     tip: "Vers 40 % pour une acid bavarde, 10 % pour une dark disco qui reste droite.",
   },
   accents: {
     section: 'TWEAKS / GENERATOR',
     title: 'ACC PROB',
-    text: "La chance qu'une note du générateur soit accentuée ; la ligne suit le potard à chaque cran (tes notes restent). Ce n'est pas ACCENT (page FILTER), qui règle la force de l'accent.",
+    text: "La chance qu'une note du générateur soit accentuée ; les notes de la machine suivent le potard à chaque cran ; tes notes et les notes écrites d'un preset gardent les leurs. Ce n'est pas ACCENT (page FILTER), qui règle la force de l'accent.",
     tip: "30 à 45 % en acid, 20 % pour une house plus égale.",
   },
   range: {
     section: 'TWEAKS / GENERATOR',
     title: 'RANGE',
-    text: "Jusqu'où les notes générées peuvent monter : 1 octave pour une ligne serrée et hypnotique, 3 pour des sauts plus fous. La ligne suit le potard à chaque cran ; tes notes à toi restent.",
+    text: "Jusqu'où les notes générées peuvent monter : 1 octave pour une ligne serrée et hypnotique, 3 pour des sauts plus fous. Les notes de la machine suivent le potard à chaque cran ; tes notes et les notes écrites d'un preset gardent les leurs.",
     tip: "1 pour le minimal et la psy prog, 2 pour la dark disco et l'acid.",
   },
   root: {
@@ -504,7 +506,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   clear: {
     section: 'KEYS',
     title: 'CLEAR',
-    text: "Efface la ligne ; DENSITY, en remontant, y remet des notes une à une. En P-LOCK, seulement les verrous du pas (toutes les pages).",
+    text: "Efface toute la ligne, tes notes et leurs P-locks compris : NOTES tombe à 0. Remonte NOTES : les notes de la prise reviennent une à une, dans leur ordre. En P-LOCK, seulement les verrous du pas (toutes les pages).",
   },
   accentkey: {
     section: 'KEYS',
@@ -557,7 +559,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   trig: {
     section: 'STEPS',
     title: 'STEPS',
-    text: "Touche un pas : il passe en P-LOCK (un pas vide reçoit une note), l'écran règle alors ce pas seul. Touche-le encore : liaison (TIE), puis vide, et le P-LOCK s'en va. Glisse dessus pour changer sa note. Quand la lecture passe sur un pas verrouillé, la puce P-LOCK de l'écran s'allume et ses blocs passent en négatif.",
+    text: "Touche un pas : il passe en P-LOCK (un pas vide reçoit une note), l'écran règle alors ce pas seul. Touche-le encore : liaison (TIE), puis vide, et le P-LOCK s'en va. Glisse dessus pour changer sa note. Quand la lecture passe sur un pas verrouillé, la puce P-LOCK de l'écran s'allume et ses blocs passent en négatif. Une note que tu poses, que tu changes (hauteur, ACCENT, SLIDE, OCT) ou que tu verrouilles devient la tienne : STYLE, NOTES, GEN et MUTATE n'y touchent plus, et l'écran du générateur la marque d'un point. Pour la rendre à la machine, remets-la à vide.",
     tip: "Pour ajouter des notes vite : une tape par pas vide.",
   },
   screen: {
@@ -601,7 +603,7 @@ const PHONE: Partial<Record<BassInfoId, Partial<BassInfo>>> = {
   drift: {
     text: "La dérive analogique, pour toute la machine : les trois oscillateurs bougent de quelques cents chacun (vers 3 cents au plus), la coupure respire un peu, chaque note démarre sur une phase un peu différente. À 0 (STABLE), tout est exact, chaque note identique. Global : il ne se verrouille pas sur un pas (en P-LOCK, son bloc dit GLB).",
   },
-  accents: { text: "La chance qu'une note soit accentuée quand tu appuies sur GEN. Ce n'est pas le bloc ACCENT (page FILTER, E), qui règle la force de l'accent." },
+  accents: { text: "La chance qu'une note de la machine soit accentuée. Ce n'est pas le bloc ACCENT (page FILTER, E), qui règle la force de l'accent." },
   accentkey: { text: "Met ou enlève l'accent sur le pas choisi ; le bloc ACCENT de l'écran (page FILTER, E) règle sa force." },
   enc: {
     section: 'SCREEN',
@@ -624,7 +626,7 @@ const PHONE: Partial<Record<BassInfoId, Partial<BassInfo>>> = {
     text: "P-LOCK sur ce pas, comme une tape sur le pas (sans changer sa note ; un pas vide reçoit une note) : sa LED clignote, l'en-tête de l'écran passe en négatif, P-LOCK 05, chaque page dit ses verrous (AMP ENV · P-LOCKS, 3 P-LOCKS). Choisis la page sous l'écran, puis glisse un bloc : ce réglage ne change plus que sur ce pas, son bloc passe en négatif avec un P. Deux tapes sur le bloc enlèvent ce verrou, CLEAR tous ceux du pas ; réappuie sur LOCK, ou touche la pastille P-LOCK, pour sortir.",
   },
   trig: {
-    text: "Touche un pas : il passe en P-LOCK (un pas vide reçoit une note), les blocs de l'écran règlent alors ce pas seul. Touche-le encore : liaison (TIE), puis vide, et le P-LOCK s'en va. Glisse dessus pour changer sa note. Tu peux aussi tenir un pas d'un doigt et glisser un bloc d'un autre : le verrou se pose le temps du geste. Quand la lecture passe sur un pas verrouillé, la puce P-LOCK s'allume et ses blocs passent en négatif.",
+    text: "Touche un pas : il passe en P-LOCK (un pas vide reçoit une note), les blocs de l'écran règlent alors ce pas seul. Touche-le encore : liaison (TIE), puis vide, et le P-LOCK s'en va. Glisse dessus pour changer sa note. Tu peux aussi tenir un pas d'un doigt et glisser un bloc d'un autre : le verrou se pose le temps du geste. Quand la lecture passe sur un pas verrouillé, la puce P-LOCK s'allume et ses blocs passent en négatif. Une note que tu poses, que tu changes (hauteur, ACCENT, SLIDE, OCT) ou que tu verrouilles devient la tienne : STYLE, NOTES, GEN et MUTATE n'y touchent plus, et l'écran du générateur la marque d'un point. Pour la rendre à la machine, remets-la à vide.",
     tip: "Pour régler toute la ligne, sors du P-LOCK : touche la pastille P-LOCK de l'écran.",
   },
   screen: {

@@ -37,25 +37,59 @@ export interface BassStep {
 }
 
 /**
- * La recette d'une ligne (2026-10-09, Mika : "je ne vois pas ce que STYLE et DENSITY font") : sa graine, d'ou STYLE et
- * DENSITY reecrivent les pas du generateur a chaque cran (bass/gen.ts regenerate) ; base : null pour une ligne de GEN
- * (DENSITY la regle toute), sinon la DENSITY a laquelle la ligne est telle qu'on l'a ecrite (une ligne d'usine, une ligne
- * a la main : au-dessus, des notes generees s'ajoutent autour des tiennes) ; gen : les regles du generateur au dernier
- * calcul (STYLE, DENSITY, SLIDE PROB, ACC PROB, RANGE, de 0 a 1). Gardee avec la ligne (ici, dans les patterns, dans
- * les presets).
+ * La recette d'avant (v1, 2026-10-09 au matin : une graine, base, gen, anchor) : seulement lue, pour la migration
+ * (bass/line.ts l'adopte, la ligne ne change pas).
  */
-export interface BassRecipe {
+export interface BassRecipeV1 {
   seed: number;
   base: number | null;
   gen?: { style: number; density: number; slides: number; accents: number; range: number };
-  /**
-   * la ligne d'usine d'un preset (2026-10-09, la revue : sur les presets, STYLE et DENSITY ne faisaient rien, leurs
-   * notes etaient prises pour les tiennes) : telle qu'ecrite, et le STYLE du preset (0 a 1). A ce STYLE, elle est la
-   * ligne a la DENSITY base, s'eclaircit au-dessous (ses notes reviennent en remontant), recoit des notes du style
-   * au-dessus ; a un autre STYLE, la ligne est celle du generateur depuis la graine du preset (revenir a son STYLE rend
-   * la ligne ecrite). Absente : une ligne de GEN, une ligne a la main.
-   */
   anchor?: { steps: readonly BassStep[]; style: number };
+}
+
+/**
+ * Un barreau de l'echelle (2026-10-09, NOTES : bass/gen.ts) : un pas et ce qu'il y joue (degres, comme BassStep), les
+ * liaisons qui le suivent (holds) ; les tirages du generateur (absents sur une note ecrite, ou changee par MUTATE) :
+ * slideU (le slide sous SLIDE PROB x le style), accU (accentuee si ACC PROB le passe), octR (l'octave a RANGE 1, 2, 3).
+ */
+export interface BassRung {
+  step: number;
+  deg: number;
+  oct: number;
+  acc: boolean;
+  slide: boolean;
+  holds: number[];
+  slideU?: number;
+  accU?: number;
+  octR?: [number, number, number];
+}
+/** L'echelle d'une ligne : seize barreaux dans leur ordre ; rests, les silences ecrits (une prise d'usine) ; legato (SUB). */
+export interface BassLadder {
+  rungs: BassRung[];
+  rests: number[];
+  legato: boolean;
+}
+/** Ou un style a ete laisse sur cette ligne : sa prise, son nombre de barreaux actifs, son echelle si elle a mute. */
+export interface BassTakeMem {
+  take: number;
+  on: number;
+  ladder?: BassLadder;
+}
+/**
+ * La recette d'une ligne (v2, 2026-10-09, Mika : "Je trouve Style et Density complexe a utiliser") : son style (0 a 10,
+ * BASS_STYLES), sa prise (01 a 99 ; 0, une ligne d'avant les prises), combien de barreaux jouent (on : NOTES s'en deduit,
+ * le compte des notes), son echelle (toujours gardee : un generateur change plus tard ne change jamais une ligne
+ * gardee), mutated (MUTATE y est passe : ACID 07*), mem (ou chaque autre style a ete laisse sur cette ligne). Gardee
+ * avec la ligne (ici, dans chaque pattern, dans chaque preset) ; bass/line.ts est le seul a l'ecrire.
+ */
+export interface BassRecipe {
+  v: 2;
+  style: number;
+  take: number;
+  on: number;
+  ladder: BassLadder;
+  mutated: boolean;
+  mem: Partial<Record<number, BassTakeMem>>;
 }
 
 export const BASS_STEPS = 16;
@@ -129,11 +163,15 @@ export interface BassState {
   /**
    * le dernier potard tourne et quand (performance.now) : l'ecran le montre un instant, facon Elektron (2026-10-08) ;
    * enc (2026-10-09) : tourne par un encodeur de la face (les FX globaux), l'ecran le montre dans une bulle sans quitter
-   * la page ; before : la ligne d'avant un cran de STYLE ou de DENSITY (l'echo montre les pas ajoutes et retires) ;
-   * note : ce que fait le cran, en bas de l'echo (la revue du 2026-10-09 : la ligne suit, ou pourquoi elle ne bouge pas)
+   * la page ; before : la ligne d'avant un geste du generateur (l'ecran GENERATOR montre les pas venus et partis) ;
+   * note : la ligne du bas de l'ecran GENERATOR ; gen : GEN, MUTATE, CLEAR, leurs tenues (l'ecran GENERATOR, ms : son
+   * temps, 1.6 s)
    */
-  touched: { id: BassKnobId; at: number; enc?: number; before?: readonly BassStep[]; note?: string } | null;
-  /** la recette de la ligne (null : une ligne sans graine, d'avant le 2026-10-09 ; le premier cran de STYLE ou DENSITY en donne une) */
+  touched: { id: BassKnobId; at: number; enc?: number; before?: readonly BassStep[]; note?: string; gen?: boolean; ms?: number } | null;
+  /**
+   * la recette de la ligne (v2, 2026-10-09) ; null le temps du chargement seulement : bass/line.ts en donne une a toute
+   * ligne (une ligne d'avant : adoptee, ses pas ne changent pas)
+   */
   recipe: BassRecipe | null;
 }
 
@@ -143,23 +181,21 @@ const RECIPE_KEY = 'mm.v4.bass.recipe';
 const off = (): BassStep => ({ kind: 'off', deg: 0, oct: 0, acc: false, slide: false });
 
 /**
- * La ligne de depart d'une premiere visite (2026-10-09) : une ligne acid du generateur (sa graine, les reglages de
- * depart des potards : ACID, DENSITY 60, SLIDE PROB 30, ACC PROB 35, deux octaves, la gamme mineure), chaque pas a lui :
- * STYLE et DENSITY la reecrivent des le premier cran, dans les deux sens. La graine choisie hors ligne : la tonique
- * accentuee sur le 1, des octaves, des slides, douze notes (huit a DENSITY 0, quinze a 100).
- * Ecrite ici telle que bass/gen.ts generate la rend pour cette graine (la revue du meme jour : l'importer pour la
- * calculer sortait tout le generateur du morceau du MM-BASS charge a la demande ; un test hors ligne verifie qu'elles
- * sont egales) : un degre, + une octave, A l'accent, S le slide, - une liaison, . un vide.
+ * La ligne de depart d'une premiere visite (2026-10-09, la prise 01 de DARK DISCO a son compte, 12 notes : la ligne du
+ * preset d'usine A01, le genre de Mika d'abord ; elle joue le patch de depart du moteur). Ecrite ici telle que
+ * bass/gen.ts render la rend (un test hors ligne verifie qu'elle est la ligne de DARK DISCO 01 et celle du preset 0) ;
+ * bass/line.ts lui donne sa recette au chargement : un degre, + une octave, A l'accent, S le slide, - une liaison, .
+ * un vide.
  */
-export const START_SEED = 0x339217fd;
-export const START_RECIPE: BassRecipe = { seed: START_SEED, base: null, gen: { style: 0, density: 0.6, slides: 0.3, accents: 0.35, range: 0.5 } };
-export const START_LINE = '0A 2A . 2 0A . 4 4 0 0+AS 0+ . 0 - 4S 4A';
+export const START_LINE = '0A . 0 0+ 0 . 0 0+ 0A . 0 0+ 0 . 6 4';
+/** Rien de retenu au chargement (une premiere visite) : bass/line.ts y pose DARK DISCO 01. */
+export let bassFresh = false;
 function initial(): BassStep[] {
   return START_LINE.split(' ').map((t): BassStep => {
     if (t === '.') return { ...off(), src: 'gen' };
     if (t === '-') return { kind: 'tie', deg: 0, oct: 0, acc: false, slide: false, src: 'gen' };
-    const m = /^(\d+)(\+?)(A?)(S?)$/.exec(t);
-    return { kind: 'note', deg: Number(m?.[1] ?? 0), oct: m?.[2] ? 1 : 0, acc: !!m?.[3], slide: !!m?.[4], src: 'gen' };
+    const m = /^(\d+)(\+{1,2}|_?)(A?)(S?)$/.exec(t);
+    return { kind: 'note', deg: Number(m?.[1] ?? 0), oct: m?.[2] === '_' ? -1 : (m?.[2] ?? '').length, acc: !!m?.[3], slide: !!m?.[4], src: 'gen' };
   });
 }
 
@@ -176,22 +212,69 @@ function clean(o: unknown): BassStep | null {
   return out;
 }
 
-/** Une recette lue (stockage, pattern, preset) ; null si elle n'en est pas une. */
+const num = (x: unknown, lo: number, hi: number, d: number): number => (typeof x === 'number' && Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d);
+const int = (x: unknown, lo: number, hi: number, d: number): number => Math.round(num(x, lo, hi, d));
+
+/** Une echelle lue : seize barreaux, un par pas ; null sinon. */
+export function cleanLadder(o: unknown): BassLadder | null {
+  if (!o || typeof o !== 'object') return null;
+  const l = o as Partial<BassLadder>;
+  if (!Array.isArray(l.rungs) || l.rungs.length !== BASS_STEPS) return null;
+  const seen = new Set<number>();
+  const rungs: BassRung[] = [];
+  for (const x of l.rungs as unknown[]) {
+    if (!x || typeof x !== 'object') return null;
+    const r = x as Partial<BassRung>;
+    const step = int(r.step, -1, BASS_STEPS, -1);
+    if (step < 0 || step >= BASS_STEPS || seen.has(step)) return null;
+    seen.add(step);
+    const out: BassRung = { step, deg: int(r.deg, 0, 20, 0), oct: int(r.oct, -1, 2, 0), acc: !!r.acc, slide: !!r.slide, holds: Array.isArray(r.holds) ? r.holds.filter((h): h is number => Number.isInteger(h) && h > step && h < BASS_STEPS) : [] };
+    if (typeof r.slideU === 'number' && Number.isFinite(r.slideU)) out.slideU = r.slideU;
+    if (typeof r.accU === 'number' && Number.isFinite(r.accU)) out.accU = r.accU;
+    if (Array.isArray(r.octR) && r.octR.length === 3) out.octR = [int(r.octR[0], -1, 2, 0), int(r.octR[1], -1, 2, 0), int(r.octR[2], -1, 2, 0)];
+    rungs.push(out);
+  }
+  const rests = Array.isArray(l.rests) ? l.rests.filter((h): h is number => Number.isInteger(h) && h >= 0 && h < BASS_STEPS) : [];
+  return { rungs, rests, legato: !!l.legato };
+}
+
+/** Une recette lue (stockage, pattern, preset) : v2 seulement ; null sinon (une v1 : cleanRecipeV1, la migration). */
 export function cleanRecipe(o: unknown): BassRecipe | null {
   if (!o || typeof o !== 'object') return null;
   const r = o as Partial<BassRecipe>;
+  if (r.v !== 2) return null;
+  const ladder = cleanLadder(r.ladder);
+  if (!ladder) return null;
+  const mem: Partial<Record<number, BassTakeMem>> = {};
+  if (r.mem && typeof r.mem === 'object') {
+    for (const [k, m] of Object.entries(r.mem as Record<string, unknown>)) {
+      const st = Number(k);
+      if (!Number.isInteger(st) || st < 0 || st > 10 || !m || typeof m !== 'object') continue;
+      const x = m as Partial<BassTakeMem>;
+      const one: BassTakeMem = { take: int(x.take, 0, 99, 1), on: int(x.on, 0, BASS_STEPS, 0) };
+      const lad = x.ladder ? cleanLadder(x.ladder) : null;
+      if (lad) one.ladder = lad;
+      mem[st] = one;
+    }
+  }
+  return { v: 2, style: int(r.style, 0, 10, 1), take: int(r.take, 0, 99, 1), on: int(r.on, 0, BASS_STEPS, 0), ladder, mutated: !!r.mutated, mem };
+}
+
+/** Une recette d'avant (v1 : une graine), pour la migration ; null si elle n'en est pas une. */
+export function cleanRecipeV1(o: unknown): BassRecipeV1 | null {
+  if (!o || typeof o !== 'object') return null;
+  const r = o as Partial<BassRecipeV1>;
   if (typeof r.seed !== 'number' || !Number.isFinite(r.seed)) return null;
   const base = typeof r.base === 'number' && Number.isFinite(r.base) ? Math.min(1, Math.max(0, r.base)) : null;
-  const out: BassRecipe = { seed: r.seed >>> 0, base };
+  const out: BassRecipeV1 = { seed: r.seed >>> 0, base };
   const g = r.gen as Record<string, unknown> | undefined;
   if (g && typeof g === 'object') {
-    const n = (k: string): number => (typeof g[k] === 'number' && Number.isFinite(g[k]) ? Math.min(1, Math.max(0, g[k] as number)) : 0);
+    const n = (k: string): number => num(g[k], 0, 1, 0);
     out.gen = { style: n('style'), density: n('density'), slides: n('slides'), accents: n('accents'), range: n('range') };
   }
-  // La ligne d'usine (2026-10-09) : seize pas valides et un STYLE, sinon rien (la ligne garde sa graine)
   const a = r.anchor as { steps?: unknown; style?: unknown } | undefined;
   const steps = a && typeof a === 'object' ? cleanSteps(a.steps) : null;
-  if (steps && base !== null && typeof a?.style === 'number' && Number.isFinite(a.style)) out.anchor = { steps, style: Math.min(1, Math.max(0, a.style)) };
+  if (steps && typeof a?.style === 'number' && Number.isFinite(a.style)) out.anchor = { steps, style: Math.min(1, Math.max(0, a.style)) };
   return out;
 }
 
@@ -247,27 +330,35 @@ export function cleanSteps(o: unknown): BassStep[] | null {
   return steps.every((x) => x) ? (steps as BassStep[]) : null;
 }
 
-/** La ligne retenue et sa recette ; une premiere visite (rien de retenu, ou illisible) : la ligne de depart et sa graine. */
-function load(): { steps: BassStep[]; recipe: BassRecipe | null } {
+/**
+ * La recette lue au chargement telle quelle (2026-10-09) : bass/line.ts la lit (une v2, une v1 a migrer, rien) puis
+ * l'oublie.
+ */
+export let bassLoadedRecipe: unknown = null;
+
+/** La ligne retenue ; une premiere visite (rien de retenu, ou illisible) : la ligne de depart (bassFresh). */
+function load(): BassStep[] {
   try {
     const raw = window.localStorage.getItem(KEY);
     const steps = raw ? cleanSteps(JSON.parse(raw) as unknown) : null;
-    if (!steps) return { steps: initial(), recipe: START_RECIPE };
-    // Une ligne d'avant la recette (2026-10-09) : sans graine, ses notes a la main ; le premier cran en donne une
-    let recipe: BassRecipe | null = null;
-    try {
-      recipe = cleanRecipe(JSON.parse(window.localStorage.getItem(RECIPE_KEY) ?? 'null') as unknown);
-    } catch {
-      recipe = null;
+    if (!steps) {
+      bassFresh = true;
+      return initial();
     }
-    return { steps, recipe };
+    try {
+      bassLoadedRecipe = JSON.parse(window.localStorage.getItem(RECIPE_KEY) ?? 'null') as unknown;
+    } catch {
+      bassLoadedRecipe = null;
+    }
+    return steps;
   } catch {
-    return { steps: initial(), recipe: START_RECIPE };
+    bassFresh = true;
+    return initial();
   }
 }
 
-const loaded = typeof window === 'undefined' ? { steps: initial(), recipe: START_RECIPE } : load();
-let state: BassState = { steps: loaded.steps, sel: 0, running: false, message: null, gen: 0, lock: -1, touched: null, recipe: loaded.recipe };
+const loaded = typeof window === 'undefined' ? initial() : load();
+let state: BassState = { steps: loaded, sel: 0, running: false, message: null, gen: 0, lock: -1, touched: null, recipe: null };
 const listeners = new Set<() => void>();
 let msgTimer = 0;
 let saveTimer = 0;

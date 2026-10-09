@@ -595,4 +595,10 @@ export const ROTO_KEYS: readonly RotoKey[] = [
   ['BASS', 5, 113, 'bass:knob:fattack'],
   ['BASS', 5, 114, 'bass:knob:fsustain'],
   ['BASS', 5, 115, 'bass:knob:fmode'],
+  // 2026-10-09 (le generateur du MM-BASS) : GEN et MUTATE tenus (tape : la suivante, muter ; 500 ms : la prise d'avant,
+  // annuler), BASS page 1, BSEQ page 3 (MUTATE) et 4 (GEN) ; les adresses d'avant restent a bass:key:gen et bass:key:mutate
+  ['BASS', 13, 3, 'bass:gen'],
+  ['BASS', 13, 9, 'bass:mutate'],
+  ['BSEQ', 16, 3, 'bass:mutate'],
+  ['BSEQ', 16, 9, 'bass:gen'],
 ];

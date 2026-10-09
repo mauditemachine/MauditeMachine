@@ -485,7 +485,9 @@ function buildSetups(): RotoSetup[] {
       bs('glide', 'GLIDE', C.gold),
       bs('octave', 'OCTAVE', C.gold),
       bs('style', 'STYLE', C.yellow),
-      bs('density', 'DENSITY', C.yellow),
+      // NOTES (2026-10-09, l'ancien DENSITY, la meme cible et la meme adresse) : 17 valeurs, plus que les 16 crans nommes
+      // d'un setup, donc sans crans (le moteur et l'ecran donnent le compte)
+      k('bass:knob:density', 'NOTES', C.yellow),
       // 2026-10-08 : les noms de la machine refaite (SLIDE PROB, ACC PROB), meme adresse
       bs('slides', 'SLIDE PROB', C.yellow),
       bs('accents', 'ACC PROB', C.yellow),
@@ -515,8 +517,10 @@ function buildSetups(): RotoSetup[] {
     buttons: [
       // 1 : jouer
       tog('bass:running', 'RUN', C.red),
-      b('bass:key:gen', 'GEN', C.orange),
-      b('bass:key:mutate', 'MUTATE', C.orange),
+      // GEN et MUTATE tenus (2026-10-09) : la prise d'avant, annuler ; nouvelles adresses (les anciennes restent a
+      // bass:key:gen et bass:key:mutate : un Roto charge de l'ancien setup marche encore, en tape)
+      b('bass:gen', 'GEN', C.orange),
+      b('bass:mutate', 'MUTATE', C.orange),
       b('bass:key:clear', 'CLEAR', C.orange),
       b('bass:key:accent', 'ACCENT', C.red),
       b('bass:key:slide', 'SLIDE', C.yellow),
@@ -615,7 +619,7 @@ function buildSetups(): RotoSetup[] {
       ...ENC('bass'),
       // 3 : le generateur et la gamme, au-dessus des notes et de MUTATE
       bs('style', 'STYLE', C.yellow),
-      bs('density', 'DENSITY', C.yellow),
+      k('bass:knob:density', 'NOTES', C.yellow),
       bs('slides', 'SLIDE PROB', C.yellow),
       bs('accents', 'ACC PROB', C.yellow),
       bs('range', 'RANGE', C.yellow),
@@ -652,13 +656,13 @@ function buildSetups(): RotoSetup[] {
       b('bass:key:octdn', 'OCT -', C.cyan),
       b('bass:key:octup', 'OCT +', C.cyan),
       b('bass:seq:tie', 'TIE', C.peach),
-      b('bass:key:mutate', 'MUTATE', C.orange),
+      b('bass:mutate', 'MUTATE', C.orange),
       b('bass:key:accent', 'ACCENT', C.red),
       b('bass:key:slide', 'SLIDE', C.yellow),
       // 4 : jouer
       tog('bass:running', 'RUN', C.red),
       b('bass:key:clear', 'CLEAR', C.orange),
-      b('bass:key:gen', 'GEN', C.orange),
+      b('bass:gen', 'GEN', C.orange),
       b('bass:lock', 'LOCK', C.yellow),
       b('bass:key:edit', 'EDIT', C.yellow),
       b('nav:prev', 'PREV MACHINE', C.white),
@@ -694,8 +698,11 @@ export function rotoSetupOfChannel(ch: number): RotoSetup | null {
  * Le meme jour, le moteur MONARK : la page 4 du setup BASS (huit potards
  * ajoutes, CC 108 a 115 du canal 5), la deuxieme version du jour (1009.2,
  * MIXER 1009.2 tient dans les 12 lettres).
+ * Le generateur du MM-BASS (2026-10-09) : NOTES au lieu de DENSITY (BASS page
+ * 2, BSEQ page 3), GEN et MUTATE tenus sur de nouvelles adresses (BASS page 1,
+ * BSEQ pages 3 et 4) : 1009.3. A reimporter : BASS (15) et BSEQ (18).
  */
-export const ROTO_VERSION = '2026-10-09.2';
+export const ROTO_VERSION = '2026-10-09.3';
 const ROTO_TAG = ROTO_VERSION.slice(5).replace('-', '');
 /** Le nom du setup sur l'ecran du Roto : RYTM 1008. */
 export const rotoSetupLabel = (s: RotoSetup): string => `${s.name} ${ROTO_TAG}`.slice(0, 12);

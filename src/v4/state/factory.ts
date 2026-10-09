@@ -105,6 +105,7 @@ import { lenOfDecay } from '../audio/sampledsp';
 import type { Inst } from '../theme';
 import { VOY_KNOB_IDS, voyKnob, type VoyKnobId } from '../voyager/params';
 import { BASS_KNOBS, BASS_POLS, BASS_ROOTS, BASS_SCALES, BASS_STYLES, attackOfMs, cutoffOf, decayOfTau, fineOf, glideOfMs, legacyOf, modeOf, polOf, rangeOf, resoOfEmph, semiOf, waveOf, type BassKnobId, type BassMode, type BassStyle } from '../bass/params';
+import { curatedLadder } from '../bass/gen';
 import type { BassRecipe, BassStep } from '../bass/state';
 
 /* ---------------- MM-RYTM ---------------- */
@@ -788,21 +789,12 @@ export interface BassFactory {
   params: Record<BassKnobId, number>;
   steps: BassStep[];
   /**
-   * la recette (2026-10-09, STYLE et DENSITY qui agissent) : une graine tiree du nom (la meme a chaque visite), ancree
-   * a la DENSITY du preset, et la ligne ecrite (anchor, la revue du meme jour : ses notes ne sont pas les tiennes, elles
-   * sont du preset, src gen) : au STYLE du preset la ligne est telle qu'ecrite a sa DENSITY, s'eclaircit au-dessous
-   * (les temps en dernier, elles reviennent en remontant), recoit des notes du style au-dessus ; un autre STYLE rend une
-   * ligne de ce style depuis la graine du preset, revenir au sien rend la ligne ecrite. Les notes et le son ne changent
-   * pas (la ligne d'usine reste celle du couloir des presets)
+   * la recette (v2, 2026-10-09, Mika : "Je trouve Style et Density complexe a utiliser") : le style du preset, sa prise
+   * (son rang parmi les lignes de ce style, dans l'ordre de BASS : BERLIN ACID est ACID 02), tous ses barreaux ecrits
+   * actifs (on : son compte) et son echelle (bass/gen.ts curatedLadder) : charge, il sonne tel qu'ecrit, NOTES le
+   * rend note a note, STYLE et GEN en partent. Les notes et le son ne changent pas
    */
   recipe: BassRecipe;
-}
-
-/** La graine d'un preset d'usine : son nom hache (FNV-1a), la meme a chaque visite. */
-function seedOfName(name: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < name.length; i += 1) h = Math.imul(h ^ name.charCodeAt(i), 0x01000193) >>> 0;
-  return h >>> 0;
 }
 
 /**
@@ -820,7 +812,24 @@ export function bassFactory(): { name: string; data: BassFactory }[] {
     params.scale = BASS_SCALES.indexOf(g.scale) / (BASS_SCALES.length - 1);
     params.root = BASS_ROOTS.indexOf(g.root) / (BASS_ROOTS.length - 1);
     const steps = parseLine(g.line).map((x): BassStep => ({ ...x, src: 'gen' }));
-    const recipe: BassRecipe = { seed: seedOfName(g.name), base: params.density, gen: { style: params.style, density: params.density, slides: params.slides, accents: params.accents, range: params.range }, anchor: { steps, style: params.style } };
+    // La prise : le rang de ce preset parmi les lignes de son style (2026-10-09, les numeros suivent l'ordre de BASS)
+    const take = BASS.filter((x) => x.style === g.style).indexOf(g) + 1;
+    const c = curatedLadder(g.style, steps, take, SCALE_DEGREES[g.scale] ?? 7);
+    const recipe: BassRecipe = { v: 2, style: BASS_STYLES.indexOf(g.style), take, on: c.on, ladder: c.ladder, mutated: false, mem: {} };
+    // NOTES suit la ligne (2026-10-09) : le compte ecrit, pour que l'en-tete nomme le preset une fois charge
+    params.density = c.on / 16;
     return { name: g.name, data: { params, steps, recipe } };
   });
+}
+
+/** Le nombre de degres de chaque gamme (bass/params.ts SCALE_TONES : 5 en pentatonique). */
+const SCALE_DEGREES: Readonly<Record<string, number>> = { MINOR: 7, PHRYGIAN: 7, DORIAN: 7, HARMONIC: 7, PENTA: 5 };
+
+/**
+ * Les lignes ecrites, une par preset d'usine, dans l'ordre de BASS (2026-10-09) : les prises 01 a k de chaque style
+ * (bass/line.ts), la meme source que les presets (une prise et son preset ne divergent jamais). Nouvelle ligne : a la
+ * suite de son style, jamais avant (les numeros des prises ne bougent pas).
+ */
+export function bassCuratedLines(): { name: string; style: BassStyle; line: string }[] {
+  return BASS.map((g) => ({ name: g.name, style: g.style, line: g.line }));
 }

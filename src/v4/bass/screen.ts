@@ -68,7 +68,7 @@ import { makeCanvasTexture } from '../scene/silk';
 import { DJ_BEZEL } from '../dj/theme';
 import { FONT_DISPLAY, HEX, PORTRAIT } from '../theme';
 import type { PresetCell, PresetView } from '../state/presetMode';
-import { bassDiagram, bassReadout, type BassDiagram } from './diagrams';
+import { bassDiagram, bassReadout, genShapes, type BassDiagram, type BassGenCell, type BassGenShape } from './diagrams';
 import { BASS_INFOS } from './infos';
 import { BASS_FEET, attackMs, bassBig, bassKnob, decayMs, emphOf, ladderMag, releaseMs, stepOf, type BassKnobId, type BassMode, type BassValues } from './params';
 import { PAGE_TABS, type BassPageId, type BassScreenId } from './pages';
@@ -98,8 +98,36 @@ const DIAGRAM_INK: Readonly<Record<BassDiagram['paths'][number]['role'], { strok
   dash: { stroke: HALF, fill: HALF, lw: 0.9 },
 };
 
-/** Les regles du generateur : la ligne les suit a chaque cran (2026-10-09, bass/gen.ts regenerate). */
-const GEN_RULES: ReadonlySet<BassKnobId> = new Set<BassKnobId>(['style', 'density', 'slides', 'accents', 'range']);
+/** Les regles du generateur sous le capot (SLIDE PROB, ACC PROB, RANGE) : les notes de la machine les suivent (2026-10-09). */
+const GEN_RULES: ReadonlySet<BassKnobId> = new Set<BassKnobId>(['slides', 'accents', 'range']);
+/** L'encre de chaque forme de l'image du generateur (2026-10-09) : os et noir, les trois intensites de l'ecran. */
+const BONE72 = 'rgba(246, 241, 231, 0.72)';
+const GEN_INK: Readonly<Record<BassGenShape['kind'], { fill?: string; stroke?: string; lw?: number; dash?: number[] }>> = {
+  empty: { stroke: FAINT, lw: 0.8 },
+  emptyBeat: { stroke: HALF, lw: 0.8 },
+  note: { fill: BONE72 },
+  acc: { fill: INK },
+  hot: { fill: INK, stroke: INK, lw: 1.5 },
+  tie: { fill: BONE72 },
+  slide: { stroke: INK, lw: 1.2 },
+  gone: { stroke: HALF, lw: 1, dash: [2.2, 1.8] },
+  pin: { fill: INK },
+  plus: { stroke: HALF, lw: 0.9, dash: [1, 1.6] },
+  latch: { stroke: INK, lw: 2.2 },
+  head: { fill: INK },
+};
+
+/** L'ecran GENERATOR (2026-10-09) : la prise, le compte, tes notes, les seize cases, la ligne du bas. */
+export interface BassGenView {
+  style: string;
+  /** 02, 07*, 00 */
+  take: string;
+  count: number;
+  yours: number;
+  cells: BassGenCell[];
+  note: string;
+  lock: number;
+}
 
 /**
  * La mise en page, en unites de l'ecran : desktop 300 de large (5.5 x 3.5,
@@ -185,7 +213,8 @@ export type BassScreenView =
   | { view: 'page'; m: BassPageModel; hoverTab?: BassScreenId | null }
   | { view: 'edit'; m: BassEditModel }
   | { view: 'presets'; p: PresetView; note?: string }
-  | { view: 'knob'; k: BassKnobEcho; running: boolean; bpm: number; values: BassValues; steps: readonly BassStep[]; before?: readonly BassStep[]; note?: string; infos: boolean };
+  | { view: 'knob'; k: BassKnobEcho; running: boolean; bpm: number; values: BassValues; steps: readonly BassStep[]; before?: readonly BassStep[]; note?: string; infos: boolean }
+  | { view: 'gen'; g: BassGenView; running: boolean; bpm: number; infos: boolean };
 
 export class BassScreen {
   readonly mesh: Mesh;
@@ -307,6 +336,7 @@ export class BassScreen {
     if (sv.view === 'presets') this.drawPresets(sv.p, sv.note ?? '');
     else if (sv.view === 'edit') this.drawEdit(sv.m);
     else if (sv.view === 'knob') this.drawKnob(sv);
+    else if (sv.view === 'gen') this.drawGen(sv);
     else {
       this.hoverTab = sv.hoverTab ?? null;
       this.drawPage(sv.m);
@@ -1729,7 +1759,7 @@ export class BassScreen {
     // STYLE, DENSITY (2026-10-09) : le dessin est la vraie ligne, ce qui vient d'arriver et de partir (before)
     const d = bassDiagram(k.id, { v: k.v, values: sv.values, bpm: sv.bpm, steps: sv.steps, prev: sv.before });
     // Ce que fait le cran (la revue du 2026-10-09 : THE LINE FOLLOWS EACH NOTCH restait affiche sur une ligne immobile)
-    const rule = GEN_RULES.has(k.id) ? sv.note ?? 'THE LINE FOLLOWS EACH NOTCH' : '';
+    const rule = GEN_RULES.has(k.id) ? sv.note ?? 'MACHINE NOTES FOLLOW · YOURS STAY' : '';
     if (PORTRAIT) {
       // Au telephone (2026-10-09, l'ecran plus haut que large) : le nom et la valeur en haut, le dessin dessous sur toute
       // la largeur (1.6 fois plus grand qu'a droite de la valeur)
@@ -1757,6 +1787,81 @@ export class BassScreen {
     this.text(value, P - 1, y0 + ls + 4 + vs * 1.02, vs, INK, 300);
     if (rule) this.text(rule, P, UH - 6, LAY.line * 0.9, HALF, 700);
     if (d) this.drawDiagram(d, UW * 0.44, LAY.hd, UW * 0.56 - P, UH - LAY.hd - P);
+  }
+
+  /* ---------------- le GENERATOR (2026-10-09) ---------------- */
+
+  /**
+   * L'ecran du generateur (2026-10-09, Mika : "je ne vois pas ce que Style et density font.. j'aime bien l'image qu'il y
+   * a dans density") : tant qu'on tient STYLE ou NOTES, 1.2 s apres, 1.6 s apres GEN, MUTATE, CLEAR. En haut la
+   * lecture, GENERATOR, la pastille P-LOCK, le tempo, la touche i ; le style en gras et sa prise en maigre (DARK DISCO
+   * 02, ACID 07*) ; le compte en grand (9 NOTES, 3 YOURS dessous) ; les seize cases (bass/diagrams.ts genShapes, le
+   * meme dessin que les cartes INFOS) ; une ligne en bas.
+   */
+  private drawGen(sv: Extract<BassScreenView, { view: 'gen' }>): void {
+    const UW = this.UW;
+    const UH = this.UH;
+    const P = LAY.pad;
+    const hy = LAY.hy;
+    const g = sv.g;
+    this.transport(sv.running, P, hy, LAY.tab * 1.05);
+    let x = P + LAY.tab + 4;
+    if (g.lock >= 0) x += this.pill(`P-LOCK ${two(g.lock)}`, x, hy, LAY.tab, true) + 5;
+    this.text('GENERATOR', x, hy, LAY.tab, HALF, 700);
+    this.tempo(sv.bpm);
+    this.iKey(sv.infos);
+    const c = this.ctx;
+    // Le titre : le style en gras (60 % de la largeur au plus), la prise en maigre ; le compte a droite
+    const countW = PORTRAIT ? 70 : 92;
+    const ts = this.fit(g.style, 700, PORTRAIT ? 15 : 16, UW * 0.6 - P);
+    const ty = LAY.hd + (PORTRAIT ? 6 : 4) + ts * 0.8;
+    const sw = this.text(g.style, P, ty, ts, INK, 700);
+    const take = g.take;
+    this.text(take, P + sw + ts * 0.32, ty, this.fit(take, 300, ts, UW - P - countW - (P + sw + ts * 0.32)), INK, 300);
+    const word = g.count === 1 ? 'NOTE' : 'NOTES';
+    const cs = PORTRAIT ? 26 : 30;
+    const ws = PORTRAIT ? 7.4 : 7.2;
+    c.font = font(600, ws);
+    const wordW = c.measureText(word).width;
+    const cy = ty + cs * 0.12;
+    this.text(word, UW - P, cy, ws, INK, 600, 'right');
+    this.text(String(g.count), UW - P - wordW - 3, cy, cs, INK, 300, 'right');
+    if (g.yours) this.text(`${g.yours} YOURS`, UW - P, cy + ws + 3.2, ws, HALF, 700, 'right');
+    // Les seize cases : une rangee (desktop), deux de huit (le telephone)
+    const lineY = UH - LINE_DY;
+    const top = PORTRAIT ? cy + ws + 6 : cy + ws + 10;
+    const bottom = lineY - LAY.line - (PORTRAIT ? 2 : 4);
+    // Desktop : 48 unites de haut par case (26 x 77 px), le bloc au milieu de la place ; le telephone : toute la place
+    const h = PORTRAIT ? bottom - top : Math.min(66, bottom - top);
+    const shapes = genShapes(g.cells, P, top + (bottom - top - h) / 2, UW - 2 * P, h, PORTRAIT ? 2 : 1);
+    c.save();
+    c.lineCap = 'round';
+    c.lineJoin = 'round';
+    for (const s of shapes.shapes) {
+      const ink = GEN_INK[s.kind];
+      const path = new Path2D(s.d);
+      if (ink.fill) {
+        c.fillStyle = ink.fill;
+        c.fill(path);
+      }
+      if (ink.stroke) {
+        c.strokeStyle = ink.stroke;
+        c.lineWidth = ink.lw ?? 1;
+        c.setLineDash(ink.dash ?? []);
+        c.stroke(path);
+      }
+    }
+    c.setLineDash([]);
+    c.restore();
+    for (const t of shapes.texts) {
+      if (t.role === 'num') this.text(t.text, t.x, t.y, Math.max(PORTRAIT ? 7 : 6.4, t.size), HALF, 600);
+      else this.text(t.text, t.x, t.y, Math.max(PORTRAIT ? 7 : 6, t.size), INK, 700, 'center');
+    }
+    // La ligne du bas : ce que vient de faire le geste
+    if (g.note) {
+      const ls = this.fitLine(g.note, LAY.line, UW - 2 * P);
+      this.lineText(g.note, P, lineY, ls, INK, 700);
+    }
   }
 
   /* ---------------- PRESETS ---------------- */
