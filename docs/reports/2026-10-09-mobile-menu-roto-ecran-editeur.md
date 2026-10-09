@@ -128,3 +128,30 @@ Méthode : un cahier des charges commun par étape, puis une lane par sujet dans
 - Panneau MIDI : « DOWNLOAD THE 8 SETUPS » et l'option « Step keys in TOGGLE mode ».
 - Clavier MM-RYTM : M (MUTE), Shift+M (SOLO), tenir = tout rallumer, Esc = sortir du mode.
 - Scripts de test muets (scratchpad de la session, non versionnés) : faux port Web MIDI pour le Roto, rendus hors ligne du worklet BASS, CDP multi-touch.
+
+## Suite du 2026-10-09 (soir) : DRIVE, son Monark, presets, générateur simple
+
+Le message de Mika : DRIVE au minimum coupe le son du BASS ; STYLE et DENSITY trop complexes ; un vrai son « à la MONARK de Native Instruments » et des presets vraiment excellents. Puis : « beaucoup trop long », « tu as rendu les choses beaucoup trop complexes ».
+
+### Ce qui a été fait
+
+- **DRIVE** (R14-238, déployé) : la saturation de sortie est toujours appliquée (sautée à DRIVE 0, elle laissait le son sans limite ou sans ses harmoniques). Le moteur refuse toute valeur non finie et se répare seul. Les verrous et les réglages sont filtrés en amont.
+- **Moteur Monark** (R14-239, déployé) : voix Minimoog à 3 oscillateurs, DRIVE = LOAD dans un filtre ladder 24 dB avec saturation par étage, modes LP24, LP12, LP6, BP et 303, enveloppes Model D, glide, dérive. Onglets OSC, MIX et CONTOUR.
+- **Presets** (R14-240, déployé) : 32 patchs Monark, les 3 ACID en 303, niveaux mesurés hors ligne.
+- **Générateur** (R14-241, déployé) : STYLE joue tout de suite, NOTES de 0 à 16 (un cran = une note), GEN prises numérotées, MUTATE avec annulation, tes notes jamais touchées.
+- **docs/midi** régénéré (715 cibles, setups 1009.3). Texte d'aide de la vue d'ensemble mis à jour.
+
+### Décisions prises et pourquoi
+
+- Le bug du DRIVE a été corrigé directement, sans attendre la chasse au bug (Mika : « corrige ça rapidement »). Aucun agent n'a reproduit un silence total ; la cassure à DRIVE 0 (grave seul, inaudible sur haut-parleurs de portable) est l'explication retenue.
+- Les relectures des chantiers Monark, presets et générateur ont été coupées pour livrer plus vite. Chaque fusion a été vérifiée en muet (son réel mesuré sur la sortie du BASS, pas d'erreur, tsc 15, build).
+- Méthode à partir de maintenant : petites corrections directes, pas de fonctions non demandées, demander avant une refonte.
+
+### Ce qui reste à faire / points en suspens
+
+- Mika : écouter le nouveau BASS et les presets (jamais écoutés, règle du muet) ; ré-importer les setups du Roto (1009.3).
+- Connus : énergie sous 25 Hz sur 15 presets (un passe-haut 25-28 Hz en sortie du moteur l'enlèverait) ; décalage DC de la pulse de l'OSC 1 ; MINIMAL, THREE STEP et GHOST NOTES proches à l'oreille ; les cartes INFOS du générateur sans les marques +/-.
+
+### Commandes utiles ajoutées
+
+- Aucune nouvelle commande npm. Serveur local : `npx vite --config .vite-claude.config.ts` (config non versionnée avec son propre cache, pour ne pas casser React quand plusieurs serveurs tournent).
