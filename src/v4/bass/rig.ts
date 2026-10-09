@@ -830,14 +830,20 @@ export class BassRig {
         changed = true;
       }
     }
-    const put = (d: HotspotDef, span: { u0: number; u1: number } | null | undefined): void => {
+    const put = (d: HotspotDef, span: { u0: number; u1: number; v0?: number; v1?: number } | null | undefined): void => {
       const live = !on && !!span;
       if (span) {
         const x = S.x - S.w / 2 + ((span.u0 + span.u1) / 2) * S.w;
         const hx = ((span.u1 - span.u0) / 2) * S.w;
-        if (Math.abs(d.x - x) > 1e-4 || Math.abs(d.hx - hx) > 1e-4) {
+        // Une hauteur donnee (2026-10-09, la pastille de la page au telephone : 44 px comme les puces)
+        const tall = typeof span.v0 === 'number' && typeof span.v1 === 'number';
+        const z = tall ? S.z - S.d / 2 + (((span.v0 as number) + (span.v1 as number)) / 2) * S.d : d.z;
+        const hzz = tall ? (((span.v1 as number) - (span.v0 as number)) / 2) * S.d : d.hz;
+        if (Math.abs(d.x - x) > 1e-4 || Math.abs(d.hx - hx) > 1e-4 || Math.abs(d.z - z) > 1e-4 || Math.abs(d.hz - hzz) > 1e-4) {
           d.x = x;
           d.hx = hx;
+          d.z = z;
+          d.hz = hzz;
           changed = true;
         }
       }

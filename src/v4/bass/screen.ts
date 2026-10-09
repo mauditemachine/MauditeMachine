@@ -128,6 +128,8 @@ const LINE_DY = PORTRAIT ? 4.4 : 6.5;
  * unites, 45 px sous le doigt ; toute la hauteur de l'en-tete, 45 px aussi).
  */
 const PH_CHIP = 35;
+/** Au telephone, la zone de la pastille de la page, au moins (45 px sous le doigt). */
+const PH_PILL = 33;
 /** Les dessins d'un bloc a nom de cran qui se lisent mieux a droite du nom (desktop, un nom court : 2026-10-09). */
 const SIDE_NAMED: ReadonlySet<string> = new Set(['osc', 'feet', 'mode', 'pol']);
 
@@ -152,7 +154,8 @@ export interface BassKnobEcho {
  * null hors P-LOCK.
  */
 export interface BassHeadZones {
-  tabs: readonly { id: BassPageId; u0: number; u1: number }[];
+  /** v0 v1 : au telephone, la hauteur de la zone (la pastille de la page, 2026-10-09 : comme les puces) */
+  tabs: readonly { id: BassPageId; u0: number; u1: number; v0?: number; v1?: number }[];
   open: { u0: number; u1: number } | null;
   still: readonly [{ u0: number; u1: number } | null, { u0: number; u1: number } | null, { u0: number; u1: number } | null];
   pill: { u0: number; u1: number } | null;
@@ -626,9 +629,9 @@ export class BassScreen {
       c.closePath();
       c.fill();
     }
-    const tabs: { id: BassPageId; u0: number; u1: number }[] = [];
+    const tabs: { id: BassPageId; u0: number; u1: number; v0?: number; v1?: number }[] = [];
     const chips: { id: BassScreenId; u0: number; u1: number; v0: number; v1: number }[] = [];
-    // Les puces debordent un peu sur la ligne du titre (un verre qui ne fait rien) : 44 px de haut sous le doigt au moins
+    // Les puces (et la pastille de la page) debordent un peu sur la ligne du titre (un verre qui ne fait rien) : 44 px de haut sous le doigt au moins
     // (la mesure du 2026-10-09 : l'en-tete seul en donnait 41)
     const hv1 = (LAY.hd + LAY.gap / 2) / UH;
     const x0 = x - 2;
@@ -638,14 +641,15 @@ export class BassScreen {
       const w = this.pill(label, x, hy, LAY.tab, !m.tabs.length, 'left', ink);
       const locks = m.pages.find((q) => q.id === m.page)?.locks ?? 0;
       if (locks > 0) this.circle(x + w + 0.8, hy - LAY.tab * 1.02, 0.95, ink);
-      const x1 = x + Math.max(w, PH_CHIP) + 3;
-      tabs.push({ id: m.page, u0: x0 / UW, u1: x1 / UW });
-      x = x1 + 1;
+      // Sa zone : 45 px au moins (PH_PILL), le reste aux puces (la mesure du 2026-10-09 : trois puces en 38 px)
+      const x1 = x + Math.max(w + 1, PH_PILL);
+      tabs.push({ id: m.page, u0: x0 / UW, u1: x1 / UW, v0: 0, v1: hv1 });
+      x = x1;
     }
     // Les puces : PH_CHIP au moins chacune (44 px), jusqu'au pattern
     let end = x - 1;
     if (m.tabs.length) {
-      const room = (m.lock ? rightStart - 4 : rightStart - 6) - x;
+      const room = (m.lock ? rightStart - 3 : rightStart - 3.5) - x;
       const want = m.tabs.map((t) => Math.max(PH_CHIP, this.measure(t.label, LAY.tab, 700) + LAY.tab * 1.5));
       const sum = want.reduce((u, v) => u + v, 0);
       const k = sum > room ? room / sum : 1;
