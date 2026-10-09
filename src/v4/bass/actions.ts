@@ -302,12 +302,31 @@ export function bassKnobValue(id: BassKnobId): number {
 const accByLock = new Set<number>();
 /** Le pas vide qui a recu une note en entrant en LOCK (-1 : aucun) : sans verrou ni retouche, il redevient vide. */
 let lockNote = -1;
+/** La suite vue a la derniere notification (pour reconnaitre une ligne remplacee d'un bloc). */
+let seenSteps: readonly BassStep[] = bassState.get().steps;
+
+/**
+ * La ligne entiere a ete remplacee (un preset, un pattern, GEN, CLEAR) et non un pas retouche (setStep ne change que
+ * le sien) : le pas i a change, et un autre aussi.
+ */
+function lineReplaced(prev: readonly BassStep[], next: readonly BassStep[], i: number): boolean {
+  return next[i] !== prev[i] && next.some((s, k) => k !== i && s !== prev[k]);
+}
 
 bassState.subscribe(() => {
   const st = bassState.get();
   // Un verrou d'ACCENT parti (GEN, CLEAR, un pattern) : son accent n'est plus a reprendre
   for (const i of accByLock) if (st.steps[i]?.locks?.accent === undefined) accByLock.delete(i);
-  if (lockNote < 0 || st.lock === lockNote) return;
+  const prev = seenSteps;
+  seenSteps = st.steps;
+  if (lockNote < 0) return;
+  // Une autre ligne a pris la place (2026-10-09, la revue : un preset charge en LOCK perdait sa note a ce pas, la
+  // tonique toute simple qu'on croyait la notre) : la note posee en entrant en LOCK n'est plus la, rien a reprendre
+  if (prev !== st.steps && lineReplaced(prev, st.steps, lockNote)) {
+    lockNote = -1;
+    return;
+  }
+  if (st.lock === lockNote) return;
   const i = lockNote;
   lockNote = -1;
   const s = st.steps[i];
