@@ -20,7 +20,10 @@
  *   la couche SYNTH seule).
  * - MM-BASS (2026-10-07) : tous ses potards et sa ligne (les pas et leurs
  *   verrous) ; recharger ne lance ni n'arrete la basse ; tant que rien n'a
- *   bouge depuis, son ecran nomme le preset (current, 2026-10-09).
+ *   bouge depuis, son ecran nomme le preset (current, 2026-10-09) ; la
+ *   recette de la ligne aussi (2026-10-09, bass/state.ts BassRecipe : sa
+ *   graine, STYLE et DENSITY la reecrivent ; un preset d'avant n'en a pas,
+ *   ses notes sont a la main).
  * Gardes dans ce navigateur (localStorage), 60 par machine au plus. Les
  * presets d'usine (state/factory.ts, des styles de musique electronique)
  * suivent ceux de Mika ; ils se chargent, ne se renomment ni ne s'effacent.
@@ -37,7 +40,7 @@ import { arp } from '../voyager/arp';
 import { VOY_KNOB_IDS, migrateKnobs, voyKnob, voyParams, type VoyValues } from '../voyager/params';
 import { SEQ_MAX, seq, type SeqState } from '../voyager/seq';
 import { BASS_KNOBS, bassParams } from '../bass/params';
-import { bassState, cleanSteps, type BassStep } from '../bass/state';
+import { bassState, cleanRecipe, cleanSteps, type BassRecipe, type BassStep } from '../bass/state';
 import { arpFactory, bassFactory, rytmFactory } from './factory';
 
 export type PresetMachine = 'voy' | 'mm808' | 'bass';
@@ -45,6 +48,8 @@ export type PresetMachine = 'voy' | 'mm808' | 'bass';
 interface BassData {
   params: Record<string, number>;
   steps: readonly BassStep[];
+  /** la recette de la ligne (2026-10-09), absente d'un preset d'avant */
+  recipe?: BassRecipe;
 }
 
 interface VoyData {
@@ -181,7 +186,10 @@ function commit(next: All): void {
 
 /** L'etat de la machine, tel qu'il est. */
 function capture(m: PresetMachine): VoyData | RytmData | BassData {
-  if (m === 'bass') return { params: { ...bassParams.get() }, steps: bassState.get().steps.map((x) => ({ ...x })) };
+  if (m === 'bass') {
+    const recipe = bassState.get().recipe;
+    return { params: { ...bassParams.get() }, steps: bassState.get().steps.map((x) => ({ ...x })), ...(recipe ? { recipe: { ...recipe } } : {}) };
+  }
   if (m === 'voy') {
     return { knobs: { ...voyParams.get() }, seq: { ...seq.get(), buf: [...seq.get().buf] }, prog: [...arp.get().prog] };
   }
@@ -211,7 +219,7 @@ function apply(m: PresetMachine, d: VoyData | RytmData | BassData): void {
       bassParams.set(k.id, typeof v === 'number' ? v : k.def);
     }
     const steps = cleanSteps(b.steps);
-    if (steps) bassState.set({ steps, lock: -1 });
+    if (steps) bassState.set({ steps, lock: -1, recipe: cleanRecipe(b.recipe) });
     return;
   }
   if (m === 'voy') {

@@ -28,6 +28,34 @@ export interface BassStep {
   slide: boolean;
   /** les valeurs verrouillees de ce pas (0 a 1), absentes : celles des potards */
   locks?: BassLocks;
+  /**
+   * qui a ecrit ce pas (2026-10-09, STYLE et DENSITY qui agissent vraiment, bass/gen.ts) : gen, le generateur (STYLE et
+   * DENSITY le reecrivent) ; hand, la main (une tape, un glisser, ACCENT, SLIDE, NOTE, OCT, MUTATE : ils n'y touchent
+   * plus) ; absent (une ligne d'avant, une ligne d'usine) : une note ou une liaison est a la main, un vide est libre
+   */
+  src?: 'gen' | 'hand';
+}
+
+/**
+ * La recette d'une ligne (2026-10-09, Mika : "je ne vois pas ce que STYLE et DENSITY font") : sa graine, d'ou STYLE et
+ * DENSITY reecrivent les pas du generateur a chaque cran (bass/gen.ts regenerate) ; base : null pour une ligne de GEN
+ * (DENSITY la regle toute), sinon la DENSITY a laquelle la ligne est telle qu'on l'a ecrite (une ligne d'usine, une ligne
+ * a la main : au-dessus, des notes generees s'ajoutent autour des tiennes) ; gen : les regles du generateur au dernier
+ * calcul (STYLE, DENSITY, SLIDE PROB, ACC PROB, RANGE, de 0 a 1). Gardee avec la ligne (ici, dans les patterns, dans
+ * les presets).
+ */
+export interface BassRecipe {
+  seed: number;
+  base: number | null;
+  gen?: { style: number; density: number; slides: number; accents: number; range: number };
+  /**
+   * la ligne d'usine d'un preset (2026-10-09, la revue : sur les presets, STYLE et DENSITY ne faisaient rien, leurs
+   * notes etaient prises pour les tiennes) : telle qu'ecrite, et le STYLE du preset (0 a 1). A ce STYLE, elle est la
+   * ligne a la DENSITY base, s'eclaircit au-dessous (ses notes reviennent en remontant), recoit des notes du style
+   * au-dessus ; a un autre STYLE, la ligne est celle du generateur depuis la graine du preset (revenir a son STYLE rend
+   * la ligne ecrite). Absente : une ligne de GEN, une ligne a la main.
+   */
+  anchor?: { steps: readonly BassStep[]; style: number };
 }
 
 export const BASS_STEPS = 16;
@@ -77,18 +105,41 @@ export interface BassState {
   gen: number;
   /** le pas dont on regle les verrous (-1 : aucun) */
   lock: number;
-  /** le dernier potard tourne et quand (performance.now) : l'ecran le montre un instant, facon Elektron (2026-10-08) */
-  touched: { id: BassKnobId; at: number } | null;
+  /**
+   * le dernier potard tourne et quand (performance.now) : l'ecran le montre un instant, facon Elektron (2026-10-08) ;
+   * enc (2026-10-09) : tourne par un encodeur de la face (les FX globaux), l'ecran le montre dans une bulle sans quitter
+   * la page ; before : la ligne d'avant un cran de STYLE ou de DENSITY (l'echo montre les pas ajoutes et retires) ;
+   * note : ce que fait le cran, en bas de l'echo (la revue du 2026-10-09 : la ligne suit, ou pourquoi elle ne bouge pas)
+   */
+  touched: { id: BassKnobId; at: number; enc?: number; before?: readonly BassStep[]; note?: string } | null;
+  /** la recette de la ligne (null : une ligne sans graine, d'avant le 2026-10-09 ; le premier cran de STYLE ou DENSITY en donne une) */
+  recipe: BassRecipe | null;
 }
 
 const KEY = 'mm.v4.bass.state';
+/** La recette de la ligne (2026-10-09), a part : une sauvegarde d'avant (la suite seule sous KEY) se lit toujours. */
+const RECIPE_KEY = 'mm.v4.bass.recipe';
 const off = (): BassStep => ({ kind: 'off', deg: 0, oct: 0, acc: false, slide: false });
 
-/** La suite de depart : une ligne acid en fa diese mineur. */
+/**
+ * La ligne de depart d'une premiere visite (2026-10-09) : une ligne acid du generateur (sa graine, les reglages de
+ * depart des potards : ACID, DENSITY 60, SLIDE PROB 30, ACC PROB 35, deux octaves, la gamme mineure), chaque pas a lui :
+ * STYLE et DENSITY la reecrivent des le premier cran, dans les deux sens. La graine choisie hors ligne : la tonique
+ * accentuee sur le 1, des octaves, des slides, douze notes (huit a DENSITY 0, quinze a 100).
+ * Ecrite ici telle que bass/gen.ts generate la rend pour cette graine (la revue du meme jour : l'importer pour la
+ * calculer sortait tout le generateur du morceau du MM-BASS charge a la demande ; un test hors ligne verifie qu'elles
+ * sont egales) : un degre, + une octave, A l'accent, S le slide, - une liaison, . un vide.
+ */
+export const START_SEED = 0x339217fd;
+export const START_RECIPE: BassRecipe = { seed: START_SEED, base: null, gen: { style: 0, density: 0.6, slides: 0.3, accents: 0.35, range: 0.5 } };
+export const START_LINE = '0A 2A . 2 0A . 4 4 0 0+AS 0+ . 0 - 4S 4A';
 function initial(): BassStep[] {
-  const n = (deg: number, oct = 0, acc = false, slide = false): BassStep => ({ kind: 'note', deg, oct, acc, slide });
-  const t = (): BassStep => ({ kind: 'tie', deg: 0, oct: 0, acc: false, slide: false });
-  return [n(0, 0, true), n(0), n(0, 1, false, true), n(4), n(0, 0, true), off(), n(2, 0, false, true), n(3), n(0), n(0, 1, true), n(6, 0, false, true), n(4), t(), n(0, 0, true), n(4, 0, false, true), n(0, 1)];
+  return START_LINE.split(' ').map((t): BassStep => {
+    if (t === '.') return { ...off(), src: 'gen' };
+    if (t === '-') return { kind: 'tie', deg: 0, oct: 0, acc: false, slide: false, src: 'gen' };
+    const m = /^(\d+)(\+?)(A?)(S?)$/.exec(t);
+    return { kind: 'note', deg: Number(m?.[1] ?? 0), oct: m?.[2] ? 1 : 0, acc: !!m?.[3], slide: !!m?.[4], src: 'gen' };
+  });
 }
 
 function clean(o: unknown): BassStep | null {
@@ -100,6 +151,26 @@ function clean(o: unknown): BassStep | null {
   const out: BassStep = { kind, deg, oct, acc: !!s.acc, slide: !!s.slide };
   const locks = cleanLocks(s.locks);
   if (locks) out.locks = locks;
+  if (s.src === 'gen' || s.src === 'hand') out.src = s.src;
+  return out;
+}
+
+/** Une recette lue (stockage, pattern, preset) ; null si elle n'en est pas une. */
+export function cleanRecipe(o: unknown): BassRecipe | null {
+  if (!o || typeof o !== 'object') return null;
+  const r = o as Partial<BassRecipe>;
+  if (typeof r.seed !== 'number' || !Number.isFinite(r.seed)) return null;
+  const base = typeof r.base === 'number' && Number.isFinite(r.base) ? Math.min(1, Math.max(0, r.base)) : null;
+  const out: BassRecipe = { seed: r.seed >>> 0, base };
+  const g = r.gen as Record<string, unknown> | undefined;
+  if (g && typeof g === 'object') {
+    const n = (k: string): number => (typeof g[k] === 'number' && Number.isFinite(g[k]) ? Math.min(1, Math.max(0, g[k] as number)) : 0);
+    out.gen = { style: n('style'), density: n('density'), slides: n('slides'), accents: n('accents'), range: n('range') };
+  }
+  // La ligne d'usine (2026-10-09) : seize pas valides et un STYLE, sinon rien (la ligne garde sa graine)
+  const a = r.anchor as { steps?: unknown; style?: unknown } | undefined;
+  const steps = a && typeof a === 'object' ? cleanSteps(a.steps) : null;
+  if (steps && base !== null && typeof a?.style === 'number' && Number.isFinite(a.style)) out.anchor = { steps, style: Math.min(1, Math.max(0, a.style)) };
   return out;
 }
 
@@ -155,17 +226,27 @@ export function cleanSteps(o: unknown): BassStep[] | null {
   return steps.every((x) => x) ? (steps as BassStep[]) : null;
 }
 
-function load(): BassStep[] {
+/** La ligne retenue et sa recette ; une premiere visite (rien de retenu, ou illisible) : la ligne de depart et sa graine. */
+function load(): { steps: BassStep[]; recipe: BassRecipe | null } {
   try {
     const raw = window.localStorage.getItem(KEY);
-    if (!raw) return initial();
-    return cleanSteps(JSON.parse(raw) as unknown) ?? initial();
+    const steps = raw ? cleanSteps(JSON.parse(raw) as unknown) : null;
+    if (!steps) return { steps: initial(), recipe: START_RECIPE };
+    // Une ligne d'avant la recette (2026-10-09) : sans graine, ses notes a la main ; le premier cran en donne une
+    let recipe: BassRecipe | null = null;
+    try {
+      recipe = cleanRecipe(JSON.parse(window.localStorage.getItem(RECIPE_KEY) ?? 'null') as unknown);
+    } catch {
+      recipe = null;
+    }
+    return { steps, recipe };
   } catch {
-    return initial();
+    return { steps: initial(), recipe: START_RECIPE };
   }
 }
 
-let state: BassState = { steps: typeof window === 'undefined' ? initial() : load(), sel: 0, running: false, message: null, gen: 0, lock: -1, touched: null };
+const loaded = typeof window === 'undefined' ? { steps: initial(), recipe: START_RECIPE } : load();
+let state: BassState = { steps: loaded.steps, sel: 0, running: false, message: null, gen: 0, lock: -1, touched: null, recipe: loaded.recipe };
 const listeners = new Set<() => void>();
 let msgTimer = 0;
 let saveTimer = 0;
@@ -176,6 +257,8 @@ function save(): void {
   saveTimer = window.setTimeout(() => {
     try {
       window.localStorage.setItem(KEY, JSON.stringify(state.steps));
+      if (state.recipe) window.localStorage.setItem(RECIPE_KEY, JSON.stringify(state.recipe));
+      else window.localStorage.removeItem(RECIPE_KEY);
     } catch {
       /* stockage indisponible : la suite vit pour la visite */
     }
@@ -185,7 +268,7 @@ function save(): void {
 export const bassState = {
   get: (): BassState => state,
   set(patch: Partial<BassState>): void {
-    const keep = patch.steps !== undefined && patch.steps !== state.steps;
+    const keep = (patch.steps !== undefined && patch.steps !== state.steps) || (patch.recipe !== undefined && patch.recipe !== state.recipe);
     state = { ...state, ...patch };
     if (keep) save();
     listeners.forEach((fn) => fn());

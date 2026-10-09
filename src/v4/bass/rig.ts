@@ -51,6 +51,21 @@
  * du meme jour : les onglets de l'en-tete tournent leur page (bass-tab-*), le
  * pattern seul ouvre les presets, le reste de l'en-tete ne fait rien ; ces
  * zones suivent ce que l'ecran dessine (syncHead).
+ *
+ * L'etape 2 (2026-10-09, Mika : "en desktop tu les laisses, mais ils ne
+ * servent qu'a faire les modifs des FX globaux de la machine ; les FX des
+ * parameters lock se font dans l'ecran ; dans EDIT, editer la hauteur des
+ * notes a la souris sur l'ecran") :
+ * - les huit encodeurs tiennent pour de bon les FX globaux (bass/pages.ts
+ *   BASS_FX_KNOBS) : leur nom serigraphie au-dessus (DRIVE, DELAY...), le
+ *   crochet GLOBAL FX ; ils tournent avec leur reglage global ; leur MIDI
+ *   LEARN donne bass:global:<id> (bass/midi.ts) ;
+ * - l'ecran se regle a la souris aussi : le bloc survole se cerne a peine,
+ *   le curseur dit qu'on le glisse (cursor) ; la pastille P-LOCK 05 de
+ *   l'en-tete (bass-lcd-plock) sort du P-LOCK ; la ligne du titre est un
+ *   verre qui ne fait rien (bass-lcd-title) ;
+ * - EDIT : le rouleau de l'ecran (bass-roll) ou l'on glisse les notes, pose
+ *   ou l'ecran le dessine (syncRoll).
  */
 
 import { BoxGeometry, BufferGeometry, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, Group, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Quaternion, Vector3, type Texture } from 'three';
@@ -73,8 +88,9 @@ import { DJ_GLOW, keyGeometry, knobGeometry } from '../dj/controls';
 import { DjSilk, headTexts, type Bracket, type Line, type Text } from '../dj/silk';
 import { DJ_BEZEL, DJ_BODY, DJ_KEY, DJ_KNOB, DJ_TILT, DJ_TOP_Y, DJ_UNIT } from '../dj/theme';
 import { bassGenLive, bassKnobValue, noteName } from './actions';
+import { BASS_FX_KNOBS } from './pages';
 import { BASS_SLOTS, bassPatterns } from './patterns';
-import { BASS_FACE_KNOBS as BASS_KNOBS, BASS_PLATE_KNOBS, bassParams, type BassKnobId } from './params';
+import { BASS_FACE_KNOBS as BASS_KNOBS, BASS_PLATE_KNOBS, bassKnob, bassParams, type BassKnobId } from './params';
 import { BASS_PAGE_SLOTS, ENC_LETTERS, bassPage, bassSlotOf, type BassPageId } from './pages';
 import { bassEditModel, bassPageModel, type BassEditModel, type BassPageModel } from './pageView';
 import { BassTweaks } from './tweaks';
@@ -145,6 +161,10 @@ export const bassEncId = (k: number): string => `bass-enc-${k + 1}`;
 export const bassKeyId = (k: BassKeyKind): string => `bass-key-${k}`;
 /** La touche "i" de l'ecran (2026-10-08). */
 export const BASS_I_ID = 'bass-key-i';
+/** La pastille P-LOCK 05 de l'en-tete de l'ecran (2026-10-09) : la toucher sort du P-LOCK. */
+export const BASS_PLOCK_ID = 'bass-lcd-plock';
+/** Le rouleau d'EDIT (2026-10-09) : on y glisse la hauteur des notes. */
+export const BASS_ROLL_ID = 'bass-roll';
 /** Un bloc de l'ecran (2026-10-08, la revue) : k de 0 a 7, bass-blk-1 a 8, il repond comme son encodeur. */
 export const bassBlockId = (k: number): string => `bass-blk-${k + 1}`;
 export const bassTrigId = (i: number): string => `bass-trig-${i + 1}`;
@@ -283,12 +303,21 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
     if (def?.steps) for (let t = 0; t < def.steps; t += 1) tick(p.x, p.z, 225 - (t * 270) / (def.steps - 1), r + 0.03, r + 0.09);
     else for (const deg of [225, -45]) tick(p.x, p.z, deg, r + 0.03, r + 0.08);
   }
-  // Les encodeurs (2026-10-08) : leur lettre au-dessus, comme les blocs de l'ecran ; pas de graduation (ils sont sans fin).
+  // Les encodeurs (2026-10-08) ; pas de graduation (ils sont sans fin). L'etape 2 (2026-10-09, Mika : "ils ne servent
+  // qu'a faire les modifs des FX globaux de la machine") : chacun tient pour de bon un FX global, son nom au-dessus
+  // (DRIVE, DELAY...), le crochet GLOBAL FX au-dessus de la rangee du haut ; la boite ne change pas, seulement ses mots.
   // Au telephone, aucun (2026-10-09) : les lettres sont dans les blocs de l'ecran
   const er = DJ_KNOB.skirt.r * BASS_ENC_S;
   for (let k = 0; k < BASS_ENC_N; k += 1) {
     const p = bassEncAt(k);
-    texts.push({ text: ENC_LETTERS[k], x: p.x, z: p.z - er - (PORTRAIT ? 0.17 : 0.14), cap: (PORTRAIT ? 0.07 : 0.064) * INK_K, weight: 700, alpha: 0.7, group: 'enc' });
+    const id = BASS_FX_KNOBS[k];
+    const label = id ? bassKnob(id).label : ENC_LETTERS[k];
+    texts.push({ text: label, x: p.x, z: p.z - er - 0.14, cap: 0.06 * INK_K, weight: 700, alpha: 0.85, maxW: 0.92, group: 'enc' });
+  }
+  if (BASS_ENC_N > 0) {
+    const a = bassEncAt(0);
+    const d = bassEncAt(3);
+    brackets.push({ text: 'GLOBAL FX', x0: a.x - er - 0.04, x1: d.x + er + 0.04, z: a.z - er - 0.4, down: true });
   }
   // Les touches : leur nom au-dessus (RUN, EDIT, OPEN, GEN en orange) ; un filet entre les groupes de la rangee de jeu (desktop)
   for (const k of BASS_KEYS) {
@@ -335,9 +364,10 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
     texts.push({ text, x: mid, z, cap, weight: 700, alpha: 0.9, group: 'legend' });
     lines.push([x0, t, x0, z, mid - half, z], [mid + half, z, x1, z, x1, t]);
   };
-  const how = 'HOLD A STEP (OR LOCK) + TURN AN ENCODER: THAT STEP ONLY  /  TAP A STEP: NOTE, TIE, OFF';
-  // Au telephone, plus d'encodeur (2026-10-09) : on glisse un bloc de l'ecran
-  if (PORTRAIT) legend('HOLD A STEP OR ITS LOCK + DRAG A VALUE: P-LOCK', t0, t1, bassTrigAt(15).z + T.d / 2 + 0.36, 0.105, false);
+  // L'etape 2 (2026-10-09, Mika : "quand on selectionne un step on rentre en parameters lock") : une tape choisit le
+  // pas en P-LOCK, l'ecran regle alors ce pas seul ; au telephone, le meme geste au doigt
+  const how = 'TAP A STEP: P-LOCK, THEN DRAG A VALUE ON THE SCREEN: THAT STEP ONLY  /  TAP IT AGAIN: TIE, OFF';
+  if (PORTRAIT) legend('TAP A STEP: P-LOCK  +  DRAG A VALUE: THAT STEP', t0, t1, bassTrigAt(15).z + T.d / 2 + 0.36, 0.105, false);
   else brackets.push({ text: how, x0: t0, x1: t1, z: bassTrigAt(15).z + T.d / 2 + 0.42 });
   // Le filet LOCK au-dessus des boutons LOCK (2026-10-08, la revue : la rangee n'avait pas de nom, et le "(OR LOCK)"
   // du filet du bas ne montrait rien) ; au telephone, un par rangee
@@ -347,7 +377,7 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
     const lb = bassLockAt(b);
     const z = la.z - BASS_LOCK_LEGEND_DZ;
     if (PORTRAIT) legend(a === 0 ? 'LOCK  STEPS 1-8' : 'LOCK  STEPS 9-16', la.x - Lk.w / 2, lb.x + Lk.w / 2, z, 0.095, true);
-    else brackets.push({ text: 'LOCK: THIS STEP ONLY', x0: la.x - Lk.w / 2, x1: lb.x + Lk.w / 2, z, down: true });
+    else brackets.push({ text: 'LOCK: P-LOCK THIS STEP  /  AGAIN: OUT', x0: la.x - Lk.w / 2, x1: lb.x + Lk.w / 2, z, down: true });
   }
   return { texts, lines, brackets };
 }
@@ -403,6 +433,15 @@ export class BassRig {
   private tabDefs: HotspotDef[] = [];
   private openDef: HotspotDef | null = null;
   private stillDefs: HotspotDef[] = [];
+  /** la pastille P-LOCK 05, la ligne du titre et le rouleau d'EDIT (2026-10-09) : poses ou l'ecran les dessine */
+  private plockDef: HotspotDef | null = null;
+  private titleDef: HotspotDef | null = null;
+  private rollDef: HotspotDef | null = null;
+  /** le bloc de l'ecran sous la souris (desktop, 2026-10-09), -1 : aucun ; la colonne du rouleau d'EDIT sous la souris */
+  private hoverBlock = -1;
+  private hoverRoll = -1;
+  /** la note qu'on glisse au rouleau d'EDIT (2026-10-09) : son pas et son nom ; null : aucune */
+  private rollDrag: { step: number; name: string; lo?: number; hi?: number } | null = null;
   /** un dessin de l'ecran demande (les notifications d'un meme geste n'en font qu'un) */
   private drawQueued = false;
   private defs: HotspotDef[];
@@ -420,6 +459,11 @@ export class BassRig {
   private shown: BassScreenView | null = null;
   /** les blocs de l'ecran tenus (2026-10-09) : rang 0 a 7, le nombre de pointeurs qui le tiennent ; cernes a l'ecran */
   private heldBlocks = new Map<number, number>();
+  /** les encodeurs de la face tenus (desktop, les FX globaux) : leur bulle reste tant qu'on les tient */
+  private heldFx = new Map<number, number>();
+  /** les potards dedies tenus (STYLE, DENSITY..., la plaque) : leur echo reste ; le dernier lache et quand */
+  private heldPots = new Map<BassKnobId, number>();
+  private potUp: { id: BassKnobId; at: number } | null = null;
 
   constructor(private opts: BassRigOpts) {
     this.root.name = 'bassRoot';
@@ -577,11 +621,12 @@ export class BassRig {
       const r = DJ_KNOB.skirt.r * p.s + 0.07;
       out.push({ id: bassKnobId(k.id), kind: 'bassknob', layer: top, shape: 'disc', x: p.x, z: p.z, hx: r, hz: r, y0: 0, y1: (DJ_KNOB.skirt.h + DJ_KNOB.h) * p.s, enabled: true, bass: k.id });
     }
-    // Les encodeurs : bass.bass = '1' a '8' (MIDI LEARN : bass:knob:1 a 8, la page courante) ; aucun au telephone
+    // Les encodeurs : les FX globaux (2026-10-09), bass.bass = global:<id> (MIDI LEARN : bass:global:drive... ; les blocs
+    // de l'ecran gardent bass:knob:1 a 8, la page a l'ecran) ; aucun au telephone
     for (let k = 0; k < BASS_ENC_N; k += 1) {
       const p = bassEncAt(k);
       const r = DJ_KNOB.skirt.r * p.s + (PORTRAIT ? 0.16 : 0.08);
-      out.push({ id: bassEncId(k), kind: 'bassknob', layer: top, shape: 'disc', x: p.x, z: p.z, hx: r, hz: r, y0: 0, y1: (DJ_KNOB.skirt.h + DJ_KNOB.h) * p.s * 0.82, enabled: true, bass: String(k + 1) });
+      out.push({ id: bassEncId(k), kind: 'bassknob', layer: top, shape: 'disc', x: p.x, z: p.z, hx: r, hz: r, y0: 0, y1: (DJ_KNOB.skirt.h + DJ_KNOB.h) * p.s * 0.82, enabled: true, bass: `global:${BASS_FX_KNOBS[k]}` });
     }
     for (const k of BASS_KEYS) {
       // Une touche de page au telephone (2026-10-09) : sa zone prend son nom et le jour sous l'ecran (BASS_PAGE_HIT)
@@ -639,21 +684,31 @@ export class BassRig {
     // La touche "i" (2026-10-08) : dans le coin de l'ecran, un peu au-dessus du verre (elle passe avant les presets)
     const ir = this.screen.iRect();
     const iKey: HotspotDef = { id: BASS_I_ID, kind: 'basskey', layer: top, shape: 'box', ...area(ir.u0, ir.u1, ir.v0, ir.v1, DJ_BEZEL.h + 0.06), enabled: true, bass: 'i' };
+    // L'etape 2 (2026-10-09) : la pastille P-LOCK 05 de l'en-tete (la toucher sort du P-LOCK), un peu au-dessus du verre
+    // comme la touche "i" (elle passe avant les presets), posee ou l'ecran la dessine (syncHead) ; la ligne du titre, un
+    // verre qui ne fait rien ; le rouleau d'EDIT, ou l'on glisse les notes (syncRoll)
+    const plock: HotspotDef = { id: BASS_PLOCK_ID, kind: 'basslcd', layer: top, shape: 'box', ...area(hr.u0, hr.u0, hr.v0, hr.v1, DJ_BEZEL.h + 0.1), enabled: false };
+    const tr = this.screen.titleRect();
+    const title: HotspotDef = { id: 'bass-lcd-title', kind: 'basslcd', layer: top, shape: 'box', ...area(tr.u0, tr.u1, tr.v0, tr.v1, DJ_BEZEL.h + 0.03), enabled: true };
+    const roll: HotspotDef = { id: BASS_ROLL_ID, kind: 'basslcd', layer: top, shape: 'box', ...area(0, 0, 0, 0, DJ_BEZEL.h + 0.12), enabled: false };
     // Au telephone (2026-10-09, la revue : toucher l'onglet FILTER ouvrait les presets) : chaque onglet tourne sa page
     // (bass.bass : la touche de page, MIDI LEARN bass:key:pfilter...), le pattern seul ouvre les presets (bass-lcd-open),
     // a gauche (la lecture, LOCK 05) et a droite (le tempo) un verre qui ne fait rien (le geste ne passe pas a
-    // l'orbite) ; tous poses ou l'ecran les dessine (syncHead)
-    const head: HotspotDef[] = PORTRAIT
-      ? [
-          ...BASS_PAGE_KEYS.map((k): HotspotDef => ({ id: bassTabId(PAGE_OF[k]), kind: 'basskey', layer: top, shape: 'box', ...area(hr.u0, hr.u0, hr.v0, hr.v1, DJ_BEZEL.h + 0.03), enabled: false, bass: k })),
-          ...['l', 'r'].map((k): HotspotDef => ({ id: `bass-lcd-head-${k}`, kind: 'basslcd', layer: top, shape: 'box', ...area(hr.u0, hr.u0, hr.v0, hr.v1, DJ_BEZEL.h + 0.03), enabled: false })),
-        ]
-      : [];
+    // l'orbite) ; tous poses ou l'ecran les dessine (syncHead). Au desktop aussi depuis la seconde revue du meme jour
+    // (l'ecran y est l'editeur : un clic sur l'onglet ENV ouvrait les presets), plus le verre entre les onglets et le
+    // pattern (bass-lcd-head-m)
+    const head: HotspotDef[] = [
+      ...BASS_PAGE_KEYS.map((k): HotspotDef => ({ id: bassTabId(PAGE_OF[k]), kind: 'basskey', layer: top, shape: 'box', ...area(hr.u0, hr.u0, hr.v0, hr.v1, DJ_BEZEL.h + 0.03), enabled: false, bass: k })),
+      ...['l', 'm', 'r'].map((k): HotspotDef => ({ id: `bass-lcd-head-${k}`, kind: 'basslcd', layer: top, shape: 'box', ...area(hr.u0, hr.u0, hr.v0, hr.v1, DJ_BEZEL.h + 0.03), enabled: false })),
+    ];
     // La plaque sous le capot : ses potards, vivants capot ouvert (syncHood)
-    const all = [...out, iKey, ...blocks, ...lcd, ...head, glass, glassEdit, ...this.tweaks.hotspots()].map((d) => ({ ...d, machine: 'bass' as const }));
-    this.lcdDefs = all.filter((d) => d.kind === 'basslcd');
+    const all = [...out, iKey, plock, ...blocks, ...lcd, ...head, title, roll, glass, glassEdit, ...this.tweaks.hotspots()].map((d) => ({ ...d, machine: 'bass' as const }));
+    this.plockDef = all.find((d) => d.id === BASS_PLOCK_ID) ?? null;
+    this.rollDef = all.find((d) => d.id === BASS_ROLL_ID) ?? null;
+    this.titleDef = all.find((d) => d.id === 'bass-lcd-title') ?? null;
+    this.lcdDefs = all.filter((d) => d.kind === 'basslcd' && d !== this.plockDef && d !== this.rollDef && d !== this.titleDef);
     this.tabDefs = all.filter((d) => d.id.startsWith('bass-tab-'));
-    this.openDef = PORTRAIT ? all.find((d) => d.id === bassLcdId('open')) ?? null : null;
+    this.openDef = all.find((d) => d.id === bassLcdId('open')) ?? null;
     this.stillDefs = all.filter((d) => d.id.startsWith('bass-lcd-head-'));
     this.iDef = all.find((d) => d.id === BASS_I_ID) ?? null;
     this.blockDefs = all.filter((d) => d.id.startsWith('bass-blk-'));
@@ -686,20 +741,75 @@ export class BassRig {
     }
     if (this.iDef) want(this.iDef, !on);
     for (const d of this.blockDefs) want(d, blocks);
-    return this.syncHead() || changed;
+    if (this.titleDef) want(this.titleDef, blocks);
+    const head = this.syncHead();
+    return this.syncRoll() || head || changed;
   }
 
   /**
-   * Au telephone (2026-10-09) : les onglets et le pattern ou l'ecran les a dessines (BassScreen.headZones, ils bougent
-   * quand LOCK 05 entre dans l'en-tete) ; eteints quand il ne les montre pas (PRESETS, EDIT, l'echo : la, l'en-tete
-   * entier ouvre les presets, comme avant) ; true si ca change.
+   * Le rouleau d'EDIT (2026-10-09) : sa zone ou l'ecran l'a dessine (BassScreen.editRoll ; il grandit ou retrecit avec
+   * les pistes des verrous), eteinte hors EDIT ; true si ca change.
+   */
+  private syncRoll(): boolean {
+    const d = this.rollDef;
+    if (!d) return false;
+    const g = this.screen.editRoll();
+    const live = !!g && !presetMode.on('bass') && editor.get() === 'bass';
+    let changed = false;
+    if (g) {
+      const S = BASS.screen;
+      const u0 = g.x0 / g.UW;
+      const u1 = g.x1 / g.UW;
+      const v0 = g.y0 / g.UH;
+      const v1 = g.y1 / g.UH;
+      const x = S.x - S.w / 2 + ((u0 + u1) / 2) * S.w;
+      const z = S.z - S.d / 2 + ((v0 + v1) / 2) * S.d;
+      const hx = ((u1 - u0) / 2) * S.w;
+      const hz = ((v1 - v0) / 2) * S.d;
+      if (Math.abs(d.x - x) > 1e-4 || Math.abs(d.z - z) > 1e-4 || Math.abs(d.hx - hx) > 1e-4 || Math.abs(d.hz - hz) > 1e-4) {
+        d.x = x;
+        d.z = z;
+        d.hx = hx;
+        d.hz = hz;
+        changed = true;
+      }
+    }
+    if (d.enabled !== live) {
+      d.enabled = live;
+      changed = true;
+    }
+    return changed;
+  }
+
+  /**
+   * Au telephone (2026-10-09), et au desktop depuis la seconde revue du meme jour : les onglets et le pattern ou l'ecran
+   * les a dessines (BassScreen.headZones, ils bougent quand LOCK 05 entre dans l'en-tete) ; eteints quand il ne les
+   * montre pas (PRESETS, EDIT, l'echo : la, l'en-tete entier ouvre les presets, comme avant) ; true si ca change.
    */
   private syncHead(): boolean {
-    if (!PORTRAIT) return false;
     const S = BASS.screen;
     const hz = this.screen.headZones();
     const on = presetMode.on('bass');
     let changed = false;
+    // La pastille P-LOCK 05 (2026-10-09, desktop et telephone) : la ou elle est dessinee, seulement en P-LOCK
+    const pd = this.plockDef;
+    if (pd) {
+      const span = hz.pill;
+      const live = !on && !!span && editor.get() !== 'bass';
+      if (span) {
+        const x = S.x - S.w / 2 + ((span.u0 + span.u1) / 2) * S.w;
+        const hx = ((span.u1 - span.u0) / 2) * S.w;
+        if (Math.abs(pd.x - x) > 1e-4 || Math.abs(pd.hx - hx) > 1e-4) {
+          pd.x = x;
+          pd.hx = hx;
+          changed = true;
+        }
+      }
+      if (pd.enabled !== live) {
+        pd.enabled = live;
+        changed = true;
+      }
+    }
     const put = (d: HotspotDef, span: { u0: number; u1: number } | null | undefined): void => {
       const live = !on && !!span;
       if (span) {
@@ -842,20 +952,19 @@ export class BassRig {
 
   /**
    * Les encodeurs (2026-10-08) : un encodeur tourne de ce que son reglage a
-   * bouge (le geste, une molette, le MIDI) ; quand la page ou le pas en LOCK
-   * change, il ne saute pas (un encodeur sans fin n'a pas de position).
+   * bouge (le geste, une molette, le MIDI) ; il ne saute pas (un encodeur
+   * sans fin n'a pas de position). L'etape 2 (2026-10-09) : son reglage est
+   * le FX global qu'il tient, la page et le P-LOCK n'y changent rien.
    */
   private syncEncs(): boolean {
     if (!this.encs) return false;
-    const s = bassState.get();
-    const page = bassPage.get();
-    const fresh = `${page}|${s.lock}`;
+    const fresh = 'fx';
     const same = fresh === this.encFor;
     this.encFor = fresh;
     let moved = false;
     for (let k = 0; k < BASS_ENC_N; k += 1) {
-      const id = bassPage.slot(k, page);
-      const v = id ? bassKnobValue(id) : 0;
+      const id = BASS_FX_KNOBS[k];
+      const v = id ? bassParams.of(id) : 0;
       const was = this.encShown[k];
       this.encShown[k] = v;
       if (!same || !Number.isFinite(was) || v === was) continue;
@@ -876,6 +985,21 @@ export class BassRig {
     if (pv) return { view: 'presets', p: pv };
     const page = bassPage.get();
     const p = bassPatterns.get();
+    // L'echo (1.2 s) : sur la page, son bloc se cerne ; hors de la page, l'ecran entier un instant ; un encodeur de la
+    // face (2026-10-09, les FX globaux) : sa bulle par-dessus la page, qui reste
+    const t = s.touched;
+    let left = t ? ECHO_MS - (performance.now() - t.at) : 0;
+    // Un potard dedie tenu (2026-10-09, la revue : l'image de DENSITY partait 1.2 s apres le dernier cran, le doigt
+    // encore dessus) : son echo reste tant qu'on le tient, puis 1.2 s apres le lacher, comme la bulle d'un encodeur
+    if (t && this.heldPots.has(t.id)) left = Math.max(left, ECHO_MS);
+    else if (t && this.potUp && this.potUp.id === t.id) left = Math.max(left, ECHO_MS - (performance.now() - this.potUp.at));
+    window.clearTimeout(this.echoTimer);
+    if (t && left > 0) {
+      this.echoTimer = window.setTimeout(() => {
+        if (this.drawScreen()) this.opts.repaint();
+      }, left + 16);
+    }
+    const fresh = !!t && left > 0;
     if (editor.get() === 'bass') {
       const m: BassEditModel = bassEditModel({
         steps: s.steps,
@@ -894,20 +1018,21 @@ export class BassRig {
         midiOf: (st) => midiOf(st),
         // Au telephone trois pistes depuis l'ecran plus grand (2026-10-09)
         maxLanes: 3,
+        drag: this.rollDrag,
+        hover: this.hoverRoll,
+        phone: PORTRAIT,
       });
       return { view: 'edit', m };
     }
-    // L'echo (1.2 s) : sur la page, son bloc se cerne ; hors de la page, l'ecran entier un instant
-    const t = s.touched;
-    const left = t ? ECHO_MS - (performance.now() - t.at) : 0;
-    window.clearTimeout(this.echoTimer);
     let echo: BassKnobId | null = null;
-    if (t && left > 0) {
-      this.echoTimer = window.setTimeout(() => {
-        if (this.drawScreen()) this.opts.repaint();
-      }, left + 16);
-      const at = bassSlotOf(t.id);
-      if (at && at.page === page) echo = t.id;
+    let pop: { k: number; id: BassKnobId } | null = null;
+    if (t && fresh) {
+      // Sur la page allumee (VOLUME est sur VOICE et sur FX, la revue du 2026-10-09) : son bloc se cerne
+      const at = BASS_PAGE_SLOTS[page].includes(t.id) ? { page } : bassSlotOf(t.id);
+      // La bulle d'un encodeur de la face : au desktop seulement (la revue : au telephone, sans encodeurs, le MIDI
+      // bass:global:<id> nommait un KNOB A qui n'y est pas ; l'echo d'un reglage, comme un autre)
+      if (t.enc !== undefined && t.enc >= 0 && !PORTRAIT) pop = { k: t.enc, id: t.id };
+      else if (at && at.page === page) echo = t.id;
       else {
         const lockV = s.lock >= 0 && isLockable(t.id) ? s.steps[s.lock]?.locks?.[t.id] : undefined;
         return {
@@ -917,9 +1042,16 @@ export class BassRig {
           bpm,
           values: s.lock >= 0 && s.steps[s.lock]?.locks ? { ...values, ...s.steps[s.lock].locks } : values,
           steps: s.steps,
+          ...(t.before ? { before: t.before } : {}),
+          ...(t.note ? { note: t.note } : {}),
           infos,
         };
       }
+    }
+    // Un encodeur tenu sans tourner (2026-10-09) : sa bulle reste apres l'echo, on lit sa valeur tant qu'on le tient
+    if (!pop && this.heldFx.size) {
+      const k = [...this.heldFx.keys()][0];
+      pop = { k, id: BASS_FX_KNOBS[k] };
     }
     const m: BassPageModel = bassPageModel({
       steps: s.steps,
@@ -938,6 +1070,8 @@ export class BassRig {
       noteName: (st) => noteName(midiOf(st)),
       midiOf: (st) => midiOf(st),
       held: [...this.heldBlocks.keys()],
+      hover: this.hoverBlock,
+      pop,
       phone: PORTRAIT,
     });
     return { view: 'page', m };
@@ -948,8 +1082,12 @@ export class BassRig {
     const sv = this.screenView();
     this.shown = sv;
     const drawn = this.screen.draw(sv);
-    // Au telephone, les zones de l'en-tete suivent ce qui vient d'etre dessine (2026-10-09)
-    if (drawn && this.syncHead()) this.opts.hitChanged();
+    // Les zones de l'en-tete (la pastille P-LOCK, au telephone les onglets) et le rouleau d'EDIT suivent ce qui vient
+    // d'etre dessine (2026-10-09)
+    if (drawn) {
+      const head = this.syncHead();
+      if (this.syncRoll() || head) this.opts.hitChanged();
+    }
     return drawn;
   }
 
@@ -970,11 +1108,23 @@ export class BassRig {
    * Un bloc de l'ecran (ou son encodeur, desktop) pris ou lache par un pointeur (2026-10-09, la machine sans encodeurs
    * du telephone) : tant qu'il est tenu, l'ecran le cerne, on voit ce que le doigt regle avant meme que la valeur bouge.
    */
-  holdBlock(k: number, down: boolean): void {
+  /** Un potard dedie pris ou lache (2026-10-09, la revue) : son echo reste a l'ecran tant qu'il est tenu. */
+  holdPot(id: BassKnobId, down: boolean): void {
+    const n = (this.heldPots.get(id) ?? 0) + (down ? 1 : -1);
+    if (n > 0) this.heldPots.set(id, n);
+    else {
+      this.heldPots.delete(id);
+      if (!down) this.potUp = { id, at: performance.now() };
+    }
+    this.queueDraw();
+  }
+
+  holdBlock(k: number, down: boolean, fx = false): void {
     if (k < 0 || k > 7) return;
-    const n = (this.heldBlocks.get(k) ?? 0) + (down ? 1 : -1);
-    if (n > 0) this.heldBlocks.set(k, n);
-    else this.heldBlocks.delete(k);
+    const held = fx ? this.heldFx : this.heldBlocks;
+    const n = (held.get(k) ?? 0) + (down ? 1 : -1);
+    if (n > 0) held.set(k, n);
+    else held.delete(k);
     this.queueDraw();
   }
 
@@ -1134,10 +1284,69 @@ export class BassRig {
     this.opts.repaint();
   }
 
-  /** Le survol : INFOS (2026-10-08) montre la carte de la commande survolee. */
+  /**
+   * Le survol : INFOS (2026-10-08) montre la carte de la commande survolee ; desktop (2026-10-09, l'etape 2 : l'ecran se
+   * regle a la souris) le bloc de l'ecran survole se cerne a peine, comme la colonne du rouleau d'EDIT (rollHover).
+   */
   setHover(id: string | null): boolean {
     bassInfos.hover(id && id.startsWith('bass-') ? id : null);
+    const m = id ? /^bass-blk-(\d)$/.exec(id) : null;
+    const k = m ? Number(m[1]) - 1 : -1;
+    if (k !== this.hoverBlock) {
+      this.hoverBlock = k;
+      this.queueDraw();
+    }
+    if (id !== BASS_ROLL_ID && this.hoverRoll >= 0) {
+      this.hoverRoll = -1;
+      this.queueDraw();
+    }
     return false;
+  }
+
+  /** La colonne du rouleau d'EDIT sous la souris (bass/gestures.ts la calcule du pointeur), -1 : aucune. */
+  rollHover(step: number): void {
+    if (step === this.hoverRoll) return;
+    this.hoverRoll = step;
+    this.queueDraw();
+  }
+
+  /** La note qu'on glisse au rouleau d'EDIT (2026-10-09) : l'ecran la cerne et la nomme ; null au lacher. */
+  rollDragging(d: { step: number; name: string; lo?: number; hi?: number } | null): void {
+    if (d?.step === this.rollDrag?.step && d?.name === this.rollDrag?.name) return;
+    this.rollDrag = d;
+    this.queueDraw();
+  }
+
+  /**
+   * Le curseur d'une zone du MM-BASS (2026-10-09, l'etape 2 : l'ecran se regle a la souris) : un bloc de l'ecran qui
+   * porte un reglage et le rouleau d'EDIT se glissent de haut en bas (ns-resize) ; null : le curseur ordinaire (le
+   * doigt). Les encodeurs gardent le doigt (2026-10-03, Mika : pas de doubles fleches sur un potard).
+   */
+  cursor(id: string): string | null {
+    if (id === BASS_ROLL_ID) return 'ns-resize';
+    // Le verre qui ne fait rien (l'en-tete autour des onglets, la ligne du titre, sous les blocs) : le curseur ordinaire
+    // (la revue du 2026-10-09 : l'en-tete du desktop a ses zones)
+    if (id.startsWith('bass-lcd-head-') || id === 'bass-lcd-title' || id === 'bass-lcd-glass' || id === 'bass-lcd-glass-edit') return 'default';
+    const m = /^bass-blk-(\d)$/.exec(id);
+    if (!m) return null;
+    const shown = this.shown;
+    if (!shown || shown.view !== 'page') return null;
+    const b = shown.m.blocks[Number(m[1]) - 1];
+    return b && b.id ? 'ns-resize' : null;
+  }
+
+  /** L'ecran : le verre et ses zones (bass/gestures.ts y projette un pointeur, le rouleau d'EDIT). */
+  screenCorners(): number[][] {
+    const S = BASS.screen;
+    const y = DJ_BEZEL.h + 0.003;
+    const x0 = S.x - S.w / 2;
+    const z0 = S.z - S.d / 2;
+    return [
+      [x0, y, z0],
+      [x0 + S.w, y, z0],
+      [x0 + S.w, y, z0 + S.d],
+      [x0, y, z0 + S.d],
+    ];
   }
 
   info(): { knobs: number; encoders: number; plate: number; keys: number; trigs: number; locks: number; screenDraws: number; silkDraws: number; encAngleDeg: number[]; screen: BassScreenView | null; explode: ExplodeInfo } {

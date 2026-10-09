@@ -21,14 +21,23 @@
  * l'ecran (PHONE, par-dessus RAW), sans les touches du clavier (keys : le
  * raccourci, ajoute au texte au desktop seulement ; la revue du meme jour :
  * "Touche A." se lisait au telephone comme le bloc A).
+ * L'etape 2 (2026-10-09, Mika : "quand on selectionne un step on rentre en
+ * parameters lock ; les encoders ne servent qu'a faire les modifs des FX
+ * globaux ; dans EDIT pouvoir editer la hauteur des notes a la souris ; je
+ * ne vois pas ce que STYLE et DENSITY font") : les cartes disent ce qui est
+ * vraiment la (une tape sur un pas = P-LOCK, l'ecran se regle a la souris
+ * comme au doigt, les encodeurs = les FX globaux, VOLUME dans VOICE, AMP ENV
+ * et son grand dessin, le rouleau d'EDIT, STYLE et DENSITY qui reecrivent
+ * les notes du generateur et gardent les tiennes) ; la pastille P-LOCK de
+ * l'ecran a sa carte (plock).
  */
 
 import { PORTRAIT } from '../theme';
-import { ENC_LETTERS, bassPage, bassPageDef, bassSlotOf } from './pages';
+import { BASS_FX_KNOBS, ENC_LETTERS, bassPage, bassPageDef, bassSlotOf } from './pages';
 import { BASS_KNOBS, type BassKnobId } from './params';
 import type { BassKeyKind } from './theme';
 
-export type BassInfoId = BassKnobId | Exclude<BassKeyKind, 'accent'> | 'accentkey' | 'trig' | 'lock' | 'screen' | 'infos' | 'close' | 'enc' | 'ikey';
+export type BassInfoId = BassKnobId | Exclude<BassKeyKind, 'accent'> | 'accentkey' | 'trig' | 'lock' | 'screen' | 'infos' | 'close' | 'enc' | 'ikey' | 'plock';
 
 export interface BassInfo {
   /** la section du panneau (OSC, FILTER...), en petites capitales sur la carte */
@@ -54,25 +63,25 @@ const RAW: Record<BassInfoId, RawInfo> = {
   style: {
     section: 'GENERATOR',
     title: 'STYLE',
-    text: "Choisis la famille de basse que GEN va écrire : ACID, DARK DISCO, INDIE DANCE, MINIMAL, PSY PROG, TECHNO, HOUSE, ELECTRO, EBM, ITALO ou SUB. Le style règle aussi la longueur des notes qui jouent déjà (tant que LENGTH, sous le capot, est sur AUTO) : courtes en MINIMAL, tenues en SUB.",
-    tip: "En DARK DISCO, l'octave saute sur le contretemps ; enchaîne avec MUTATE pour varier sans perdre le groove.",
+    text: "La famille de basse du générateur : ACID, DARK DISCO, INDIE DANCE, MINIMAL, PSY PROG, TECHNO, HOUSE, ELECTRO, EBM, ITALO ou SUB. À chaque cran, les notes du générateur se réécrivent dans ce style, tout de suite ; tes notes à toi (une tape, un glisser, ACCENT, NOTE…) et tes P-locks restent. Le style règle aussi la longueur des notes (tant que LENGTH, sous le capot, est sur AUTO) : courtes en MINIMAL, tenues en SUB. L'écran montre la ligne qui joue, en plein les pas qui viennent de changer.",
+    tip: "Sur un preset d'usine, un autre style réécrit sa ligne dans ce style (depuis la graine du preset) ; reviens à son style, la ligne écrite revient. Sur une ligne faite à la main, STYLE change la longueur des notes et les notes générées autour des tiennes.",
   },
   density: {
     section: 'GENERATOR',
     title: 'DENSITY',
-    text: "Combien de notes GEN écrit : à gauche une ligne aérée, à droite une ligne qui remplit la mesure. En SUB, c'est le nombre de changements de note par mesure, de 1 à 4. Le potard change la recette. Juste après un GEN, la ligne suit le potard en direct ; une fois la ligne retouchée à la main, il faut un nouveau GEN.",
-    tip: "Vers 60 % pour l'indie dance, 80 % et plus pour une acid qui roule.",
+    text: "Combien de notes dans la ligne, à chaque cran : en montant, des notes s'ajoutent (d'abord celles qui font le style), en descendant elles s'en vont, jamais une note qui change de hauteur. Tes notes à toi, le pas en P-LOCK et tes P-locks restent toujours. Sur une ligne faite à la main, DENSITY ajoute des notes générées autour des tiennes, et les retire en redescendant. Sur un preset d'usine, sa ligne est telle qu'écrite à sa DENSITY ; en dessous, ses notes s'en vont une à une (les temps en dernier) et reviennent en remontant ; au-dessus, des notes du style s'ajoutent. En SUB, c'est le nombre de changements de note par mesure, de 1 à 4. L'écran montre la vraie ligne : en plein les notes qui arrivent, en pointillé celles qui partent, et le compte par mesure.",
+    tip: "Vers 60 % pour l'indie dance, 80 % et plus pour une acid qui roule ; redescends pour retrouver la ligne de départ.",
   },
   gen: {
     section: 'GENERATOR',
     title: 'GEN',
-    text: "Écrit une nouvelle ligne de 16 pas avec STYLE et DENSITY, dans la gamme de ROOT et SCALE (sous le capot, OPEN). Si rien ne joue, la ligne part tout de suite.", keys: "Touche G.",
+    text: "Écrit une nouvelle ligne de 16 pas (une nouvelle graine) avec STYLE et DENSITY, dans la gamme de ROOT et SCALE (sous le capot, OPEN). Les P-locks des pas qui restent des notes sont gardés, sinon l'écran dit P-LOCKS CLEARED. Si rien ne joue, la ligne part tout de suite.", keys: "Touche G.",
     tip: "Appuie jusqu'à ce qu'une ligne t'accroche, puis garde-la dans un pattern avec EDIT.",
   },
   mutate: {
     section: 'GENERATOR',
     title: 'MUTATE',
-    text: "Change 2 à 4 pas : une note, un accent, un slide, une octave, un pas qui apparaît ou disparaît ; le reste ne bouge pas.", keys: "Touche M.",
+    text: "Change 2 à 4 pas : une note, un accent, un slide, une octave, un pas qui apparaît ou disparaît ; le reste ne bouge pas. Les notes changées deviennent les tiennes : STYLE et DENSITY n'y touchent plus ; un pas que MUTATE vide reste au générateur, DENSITY peut y remettre une note.", keys: "Touche M.",
     tip: "Une mutation toutes les 8 mesures garde la ligne vivante en live.",
   },
 
@@ -120,7 +129,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   decay: {
     section: 'ENVELOPE',
     title: 'DECAY',
-    text: "Le temps que met le filtre à se refermer après chaque note, de 120 ms à 2,5 s : court pour des notes sèches, long pour des notes qui respirent. Une note accentuée garde sa décroissance courte (ACC DECAY, l'encodeur voisin), comme sur la 303, sauf si DECAY est verrouillé sur son pas.",
+    text: "Le temps que met le filtre à se refermer après chaque note, de 120 ms à 2,5 s : court pour des notes sèches, long pour des notes qui respirent. Une note accentuée garde sa décroissance courte (ACC DECAY, le bloc voisin), comme sur la 303, sauf si DECAY est verrouillé sur son pas.",
     tip: "Moins de 250 ms en EBM et en psy prog, plus long en house.",
   },
 
@@ -128,7 +137,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   accent: {
     section: 'ACCENT / SLIDE',
     title: 'ACCENT',
-    text: "La force des pas accentués (touche ACCENT, pas orange vif) : plus de volume, un filtre qui s'ouvre plus haut et plus court. Les accents qui se suivent s'additionnent et le filtre monte encore, le fameux wow de la 303 (SWEEP, deux encodeurs plus loin). Verrouillé sur un pas sans accent, il lui donne l'accent.",
+    text: "La force des pas accentués (touche ACCENT, pas orange vif) : plus de volume, un filtre qui s'ouvre plus haut et plus court. Les accents qui se suivent s'additionnent et le filtre monte encore, le fameux wow de la 303 (SWEEP, deux blocs plus loin). Verrouillé sur un pas sans accent, il lui donne l'accent.",
     tip: "Place-les sur les contretemps en acid ; à 0, les accents ne font plus rien.",
   },
   glide: {
@@ -148,27 +157,27 @@ const RAW: Record<BassInfoId, RawInfo> = {
   volume: {
     section: 'OUTPUT',
     title: 'VOLUME',
-    text: "Le niveau du MM-BASS vers le master (la voie 2 du MIXER). Le réglage d'usine crête vers -11 dBFS, environ 2 dB sous le kick du MM-RYTM (vers -9 dBFS), qui sert de référence.",
-    tip: "Règle d'abord le kick, puis monte la basse juste sous lui.",
+    text: "Le niveau du MM-BASS vers le master (la voie 2 du MIXER), sur les pages VOICE (H) et FX (E). En P-LOCK, le volume du pas choisi seulement : une note plus forte ou plus douce. Le réglage d'usine crête vers -11 dBFS, environ 2 dB sous le kick du MM-RYTM (vers -9 dBFS), qui sert de référence.",
+    tip: "Aussi sur la page FX (E). Au desktop, l'encodeur VOLUME de la face le règle aussi, toujours pour toute la ligne, jamais un P-lock.",
   },
 
   /* ---------- TWEAKS, sous le capot : les regles du generateur ---------- */
   slides: {
     section: 'TWEAKS / GENERATOR',
     title: 'SLIDE PROB',
-    text: "La chance qu'une note glisse vers la suivante quand tu appuies sur GEN. Le style la module : beaucoup en ACID et en SUB, presque jamais en EBM et en PSY PROG. GLIDE, sur la face, règle la durée du glissement.",
+    text: "La chance qu'une note du générateur glisse vers la suivante ; la ligne suit le potard à chaque cran (tes notes restent). Le style la module : beaucoup en ACID et en SUB, presque jamais en EBM et en PSY PROG. GLIDE, page VOICE, règle la durée du glissement.",
     tip: "Vers 40 % pour une acid bavarde, 10 % pour une dark disco qui reste droite.",
   },
   accents: {
     section: 'TWEAKS / GENERATOR',
     title: 'ACC PROB',
-    text: "La chance qu'une note soit accentuée quand tu appuies sur GEN. Ce n'est pas le potard ACCENT, qui règle la force de l'accent.",
+    text: "La chance qu'une note du générateur soit accentuée ; la ligne suit le potard à chaque cran (tes notes restent). Ce n'est pas ACCENT (page FILTER), qui règle la force de l'accent.",
     tip: "30 à 45 % en acid, 20 % pour une house plus égale.",
   },
   range: {
     section: 'TWEAKS / GENERATOR',
     title: 'RANGE',
-    text: "Jusqu'où les notes générées peuvent monter : 1 octave pour une ligne serrée et hypnotique, 3 pour des sauts plus fous. Juste après un GEN, la ligne suit le potard en direct ; une fois la ligne retouchée à la main, il faut un nouveau GEN.",
+    text: "Jusqu'où les notes générées peuvent monter : 1 octave pour une ligne serrée et hypnotique, 3 pour des sauts plus fous. La ligne suit le potard à chaque cran ; tes notes à toi restent.",
     tip: "1 pour le minimal et la psy prog, 2 pour la dark disco et l'acid.",
   },
   root: {
@@ -226,7 +235,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   pw: {
     section: 'VOICE',
     title: 'PW',
-    text: "La largeur du carré de WAVE, de 50 % (le carré rond et creux) à 95 % (une impulsion fine et nasillarde, façon SH-101). Sans effet sur la dent de scie : monte WAVE pour l'entendre. Se verrouille pas par pas.",
+    text: "La largeur du carré de WAVE, de 50 % (le carré rond et creux) à 95 % (une impulsion fine et nasillarde, façon SH-101). Sans effet sur la dent de scie : monte WAVE pour l'entendre (le bloc dit SAW: NO PW tant qu'il ne s'entend pas). Se verrouille pas par pas.",
     tip: "Un PW différent verrouillé sur deux ou trois pas : la ligne change de couleur sans changer de note.",
   },
   keytrack: {
@@ -244,7 +253,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   adecay: {
     section: 'ENV',
     title: 'AMP DECAY',
-    text: "Après la montée, le volume descend vers SUSTAIN en ce temps-là, de 20 ms à 4 s. Avec SUSTAIN au maximum (réglage d'usine), il ne se passe rien : la note reste pleine tant qu'elle est tenue.",
+    text: "Après la montée, le volume descend vers SUSTAIN en ce temps-là, de 20 ms à 4 s. Avec SUSTAIN au maximum (réglage d'usine), il ne se passe rien : la note reste pleine tant qu'elle est tenue, et le bloc dit SUSTAIN FULL. Le grand dessin d'AMP ENV le montre : la note telle qu'elle joue, en pointillé la même note tenue.",
     tip: "SUSTAIN à 0 et AMP DECAY court : des notes pincées, très percussives, même avec une LENGTH longue.",
   },
   sustain: {
@@ -294,33 +303,39 @@ const RAW: Record<BassInfoId, RawInfo> = {
   pvoice: {
     section: 'PAGES',
     title: 'VOICE',
-    text: "Les huit encodeurs règlent la voix : WAVE, PW, SUB, SUB OCT, OCTAVE, TUNE et GLIDE. La LED dit la page allumée ; les touches [ et ] passent d'une page à l'autre.",
-    tip: "En LOCK, une touche de page à demi allumée porte déjà des verrous sur ce pas.",
+    text: "Les huit blocs de l'écran règlent la voix : WAVE, PW, SUB, SUB OCT, OCTAVE, TUNE, GLIDE et VOLUME (en P-LOCK, le volume du pas choisi). Glisse un bloc à la souris, vers le haut ou le bas. La LED dit la page allumée ; les touches [ et ] passent d'une page à l'autre.",
+    tip: "En P-LOCK, une touche de page à demi allumée porte déjà des verrous sur ce pas.",
   },
   pfilter: {
     section: 'PAGES',
     title: 'FILTER',
-    text: "Les huit encodeurs règlent le filtre de la 303 : CUTOFF, RESO, ENV MOD, DECAY, ACCENT, ACC DECAY, SWEEP et KEY TRK. C'est la page de départ.",
+    text: "Les huit blocs de l'écran règlent le filtre de la 303 : CUTOFF, RESO, ENV MOD, DECAY, ACCENT, ACC DECAY, SWEEP et KEY TRK. C'est la page de départ.",
   },
   penv: {
     section: 'PAGES',
     title: 'ENV',
-    text: "Les huit encodeurs règlent l'enveloppe de l'ampli : ATTACK, AMP DECAY, SUSTAIN, RELEASE, la longueur des notes (LENGTH) et VOLUME.",
+    text: "AMP ENV : les blocs règlent l'enveloppe de l'ampli (ATTACK, AMP DECAY, SUSTAIN, RELEASE) et la longueur des notes (LENGTH). À droite, l'enveloppe en grand, telle qu'elle sonne : la note qui joue jusqu'à NOTE OFF, en pointillé la même note tenue, le segment que tu règles en trait épais. En P-LOCK, l'écran dit AMP ENV · P-LOCKS et montre l'enveloppe du pas.",
   },
   pfx: {
     section: 'PAGES',
     title: 'FX',
-    text: "Les huit encodeurs règlent les effets : DRIVE, l'envoi DELAY avec son temps et son retour, l'envoi REVERB avec sa durée et sa couleur. Les envois se verrouillent pas par pas ; le temps, le retour, la durée et la couleur sont globaux.",
+    text: "Les blocs de l'écran règlent les effets et le volume : DRIVE, l'envoi DELAY, VOLUME et l'envoi REVERB se verrouillent pas par pas ; DLY TIME, DLY FB, REV SIZE et REV TONE sont globaux (les mêmes pour tous les pas : en P-LOCK, leur bloc dit GLOBAL). Au desktop, les huit encodeurs de la face, dans le même ordre, règlent ces réglages pour toute la machine, jamais un P-lock.",
   },
   enc: {
-    section: 'ENCODERS',
-    title: 'ENCODER',
-    text: "Les huit encodeurs A à H règlent la page allumée (VOICE, FILTER, ENV, FX) ; leur valeur est à l'écran, de 0 à 127, dans le bloc à leur place. Ils sont sans fin : rien ne saute quand tu changes de page. Cette case est vide sur cette page.",
+    section: 'SCREEN',
+    title: 'VALUE',
+    text: "Les huit blocs de l'écran règlent la page allumée (VOICE, FILTER, ENV, FX) : glisse-les à la souris, ou la molette (plus elle tourne vite, plus elle va loin ; Maj : fin). Les huit encodeurs de la face, eux, tiennent les FX globaux. Cette case est vide sur cette page.",
   },
   ikey: {
     section: 'SCREEN',
     title: 'INFOS',
-    text: "Allume l'aide : survole n'importe quelle commande du MM-BASS (au téléphone, touche-la, sans la changer) pour lire ce qu'elle fait ; un encodeur montre le réglage qu'il tient sur la page allumée. Le i se remplit tant que c'est allumé ; touche-le encore, ou Échap, pour l'éteindre.",
+    text: "Allume l'aide : survole n'importe quelle commande du MM-BASS (au téléphone, touche-la, sans la changer) pour lire ce qu'elle fait ; un bloc de l'écran montre le réglage qu'il tient sur la page allumée, un encodeur son FX global. Le i se remplit tant que c'est allumé ; touche-le encore, ou Échap, pour l'éteindre.",
+  },
+  plock: {
+    section: 'SCREEN',
+    title: 'P-LOCK',
+    text: "Le pas choisi est en P-LOCK : tout ce que tu glisses sur l'écran ne change que lui, l'en-tête est en négatif et chaque bloc verrouillé porte un P. Touche cette pastille pour sortir : les blocs règlent de nouveau toute la ligne.",
+    tip: "Échap, ou la touche LOCK du pas, sortent aussi.",
   },
 
   /* ---------- les touches ---------- */
@@ -332,12 +347,12 @@ const RAW: Record<BassInfoId, RawInfo> = {
   clear: {
     section: 'KEYS',
     title: 'CLEAR',
-    text: "Efface la ligne ; en LOCK, seulement les verrous du pas (toutes les pages).",
+    text: "Efface la ligne ; DENSITY, en remontant, y remet des notes une à une. En P-LOCK, seulement les verrous du pas (toutes les pages).",
   },
   accentkey: {
     section: 'KEYS',
     title: 'ACCENT',
-    text: "Met ou enlève l'accent sur le pas choisi ; le potard ACCENT règle sa force.", keys: "Touche A.",
+    text: "Met ou enlève l'accent sur le pas choisi (celui en P-LOCK) ; ACCENT, page FILTER, règle sa force.", keys: "Touche A.",
   },
   slide: {
     section: 'KEYS',
@@ -367,7 +382,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   edit: {
     section: 'KEYS',
     title: 'EDIT',
-    text: "Les 16 pas deviennent 16 patterns : touche un pas pour jouer son pattern à la mesure, plusieurs à la suite pour les enchaîner, tiens un vide pour y copier la ligne. L'écran montre la ligne en rouleau et, dessous, les verrous de la page allumée, pas par pas (change de page pour voir les autres).", keys: "Touche E.",
+    text: "Les 16 pas deviennent 16 patterns : touche un pas pour jouer son pattern à la mesure, plusieurs à la suite pour les enchaîner, tiens un vide pour y copier la ligne. À l'écran, la ligne en rouleau : glisse une note vers le haut ou le bas pour changer sa hauteur (son nom s'affiche), clique un pas vide pour y poser une note à cette hauteur, clique une note pour la lier (TIE) puis l'effacer ; le pattern le garde, tu l'entends au tour suivant. Dessous, les P-locks de la page allumée. Une touche LOCK ferme EDIT et met le P-LOCK sur son pas.", keys: "Touche E.",
   },
   open: {
     section: 'KEYS',
@@ -379,26 +394,26 @@ const RAW: Record<BassInfoId, RawInfo> = {
   lock: {
     section: 'STEPS',
     title: 'LOCK',
-    text: "Ce pas passe en LOCK : sa LED clignote, l'écran affiche en négatif LOCK suivi du numéro du pas. Choisis la partie à changer avec une touche de page (VOICE, FILTER, ENV, FX), puis tourne un encodeur : ce réglage ne change plus que sur ce pas, son bloc passe en négatif. Double tape sur l'encodeur pour enlever ce verrou, CLEAR pour tous ceux du pas ; réappuie sur LOCK, ou Échap, pour sortir.",
+    text: "P-LOCK sur ce pas, comme une tape sur le pas (sans changer sa note ; un pas vide reçoit une note) : sa LED clignote, l'en-tête de l'écran passe en négatif, P-LOCK STEP 05, chaque page dit ses verrous (AMP ENV · P-LOCKS, 3 P-LOCKS). Choisis la page, puis glisse un bloc de l'écran : ce réglage ne change plus que sur ce pas, son bloc passe en négatif avec un P. Double tape sur le bloc pour enlever ce verrou, CLEAR pour tous ceux du pas ; réappuie sur LOCK, Échap, ou touche la pastille P-LOCK pour sortir. EDIT ouvert : LOCK le ferme et met le P-LOCK, d'un geste.",
     tip: "Un CUTOFF plus ouvert sur le pas 16, c'est une relance acid instantanée.",
   },
   trig: {
     section: 'STEPS',
     title: 'STEPS',
-    text: "Touche un pas : vide, note, liaison, vide ; glisse dessus pour changer sa note. Tiens-le et tourne un encodeur : ce réglage est verrouillé sur ce pas, comme sur une Elektron (un appui long seul garde le LOCK). Quand la lecture passe sur un pas verrouillé, ses blocs passent en négatif à l'écran.",
-    tip: "Au téléphone, un doigt tient le pas, un autre tourne l'encodeur.",
+    text: "Touche un pas : il passe en P-LOCK (un pas vide reçoit une note), l'écran règle alors ce pas seul. Touche-le encore : liaison (TIE), puis vide, et le P-LOCK s'en va. Glisse dessus pour changer sa note. Quand la lecture passe sur un pas verrouillé, la puce P-LOCK de l'écran s'allume et ses blocs passent en négatif.",
+    tip: "Pour ajouter des notes vite : une tape par pas vide.",
   },
   screen: {
     section: 'SCREEN',
     title: 'SCREEN',
-    text: "La page des huit encodeurs : chaque bloc est à la place de son encodeur (A en haut à gauche, H en bas à droite), avec sa valeur de 0 à 127 et son unité. En LOCK, les réglages verrouillés sur le pas sont en négatif ; en lecture, ceux du pas qui joue s'allument le temps du pas. Dessous, les 16 pas : un point sur chaque pas verrouillé (plein : sur cette page). Glisse sur un bloc : c'est son encodeur. Touche l'en-tête (le pattern, A01) pour les presets, le petit i pour INFOS.",
+    text: "Les huit blocs sont les commandes : glisse un bloc vers le haut ou le bas (de 0 à 127, son unité dessous), ou la molette (plus elle tourne vite, plus elle va loin ; Maj : fin), deux clics pour sa valeur de départ. Hors P-LOCK ils règlent toute la ligne ; en P-LOCK seulement le pas choisi (un P sur ce qui est verrouillé, GLOBAL sur ce qui ne se verrouille pas). Un verrou qui ne s'entendrait pas le dit (SUSTAIN FULL, SAW: NO PW, ACCENT STEPS, SLIDE STEPS, ROOT NOTE). Dessous, les 16 pas. En haut, clique un onglet (VOICE, FILTER, ENV, FX) pour sa page, le preset et le pattern (A01) pour les presets, le petit i pour INFOS.",
   },
 
   /* ---------- sous le capot ---------- */
   infos: {
     section: 'TWEAKS',
     title: 'INFOS',
-    text: "Allume l'aide : survole un potard, un encodeur ou une touche du MM-BASS ; au téléphone, touche-le, sans le changer. Le petit i dans le coin de l'écran fait la même chose. Réappuie, ou touche la pastille, pour l'éteindre.",
+    text: "Allume l'aide : survole un potard, un encodeur, un bloc de l'écran ou une touche du MM-BASS ; au téléphone, touche-le, sans le changer. Le petit i dans le coin de l'écran fait la même chose. Réappuie, ou touche la pastille, pour l'éteindre.",
   },
   close: {
     section: 'TWEAKS',
@@ -418,10 +433,10 @@ const PHONE: Partial<Record<BassInfoId, Partial<BassInfo>>> = {
   accent: {
     text: "La force des pas accentués (touche ACCENT, pas orange vif) : plus de volume, un filtre qui s'ouvre plus haut et plus court. Les accents qui se suivent s'additionnent et le filtre monte encore, le fameux wow de la 303 (SWEEP, deux blocs plus loin). Verrouillé sur un pas sans accent, il lui donne l'accent.",
   },
-  pvoice: { text: "Les huit blocs de l'écran règlent la voix : WAVE, PW, SUB, SUB OCT, OCTAVE, TUNE et GLIDE. La LED dit la page allumée, l'onglet de l'écran aussi." },
+  pvoice: { text: "Les huit blocs de l'écran règlent la voix : WAVE, PW, SUB, SUB OCT, OCTAVE, TUNE, GLIDE et VOLUME (en P-LOCK, le volume du pas choisi). Glisse un bloc du doigt. La LED dit la page allumée, l'onglet de l'écran aussi." },
   pfilter: { text: "Les huit blocs de l'écran règlent le filtre de la 303 : CUTOFF, RESO, ENV MOD, DECAY, ACCENT, ACC DECAY, SWEEP et KEY TRK. C'est la page de départ." },
-  penv: { text: "Les huit blocs de l'écran règlent l'enveloppe de l'ampli : ATTACK, AMP DECAY, SUSTAIN, RELEASE, la longueur des notes (LENGTH) et VOLUME." },
-  pfx: { text: "Les huit blocs de l'écran règlent les effets : DRIVE, l'envoi DELAY avec son temps et son retour, l'envoi REVERB avec sa durée et sa couleur. Les envois se verrouillent pas par pas ; le temps, le retour, la durée et la couleur sont globaux." },
+  penv: { text: "AMP ENV : les blocs règlent l'enveloppe de l'ampli (ATTACK, AMP DECAY, SUSTAIN, RELEASE) et la longueur des notes (LENGTH). À droite, l'enveloppe en grand, telle qu'elle sonne : la note qui joue jusqu'à NOTE OFF, en pointillé la même note tenue. En P-LOCK, l'écran dit AMP ENV · P-LOCKS et montre l'enveloppe du pas." },
+  pfx: { text: "Les blocs de l'écran règlent les effets et le volume : DRIVE, l'envoi DELAY, VOLUME et l'envoi REVERB se verrouillent pas par pas ; DLY TIME, DLY FB, REV SIZE et REV TONE sont globaux, les FX de toute la machine : sors du P-LOCK pour les régler (en P-LOCK, leur bloc dit GLB)." },
   cutoff: {
     text: "La fréquence où le filtre de la 303 commence à couper les aigus, de 60 Hz à 6 kHz : à gauche sombre, à droite ouvert et brillant. C'est le geste principal de la machine, glisse son bloc pendant que ça joue.",
   },
@@ -432,16 +447,27 @@ const PHONE: Partial<Record<BassInfoId, Partial<BassInfo>>> = {
     title: 'VALUE',
     text: "Les huit blocs de l'écran règlent la page allumée (VOICE, FILTER, ENV, FX, les touches sous l'écran) : glisse un bloc vers le haut ou le bas pour changer sa valeur, de 0 à 127 ; deux tapes la remettent à sa valeur de départ. Cette case est vide sur cette page.",
   },
+  volume: {
+    text: "Le niveau du MM-BASS vers le master (la voie 2 du MIXER), sur les pages VOICE (H) et FX (E). En P-LOCK, le volume du pas choisi seulement : une note plus forte ou plus douce. Le réglage d'usine crête vers -11 dBFS, environ 2 dB sous le kick du MM-RYTM (vers -9 dBFS), qui sert de référence.",
+    tip: "Règle d'abord le kick, puis monte la basse juste sous lui.",
+  },
+  edit: {
+    text: "Les 16 pas deviennent 16 patterns : touche un pas pour jouer son pattern à la mesure, plusieurs à la suite pour les enchaîner, tiens un vide pour y copier la ligne. À l'écran, la ligne en rouleau : glisse une note du doigt pour changer sa hauteur (son nom s'affiche), touche un pas vide pour y poser une note à cette hauteur, touche une note pour la lier (TIE) puis l'effacer ; le pattern le garde. Une touche LOCK ferme EDIT et met le P-LOCK sur son pas.",
+  },
+  plock: {
+    text: "Le pas choisi est en P-LOCK : tout ce que tu glisses sur l'écran ne change que lui, l'en-tête est en négatif et chaque bloc verrouillé porte un P. Touche cette pastille pour sortir : les blocs règlent de nouveau toute la ligne (le son de tous les pas, les FX globaux).",
+    tip: "La touche LOCK du pas sort aussi.",
+  },
   ikey: { text: "Allume l'aide : touche n'importe quelle commande du MM-BASS pour lire ce qu'elle fait, sans la changer ; un bloc de l'écran montre le réglage qu'il tient sur la page allumée. Le i se remplit tant que c'est allumé ; touche-le encore pour l'éteindre." },
   lock: {
-    text: "Ce pas passe en LOCK : sa LED clignote, l'écran affiche en négatif LOCK suivi du numéro du pas. Choisis la partie à changer avec une touche de page (VOICE, FILTER, ENV, FX, sous l'écran), puis glisse un bloc de l'écran : ce réglage ne change plus que sur ce pas, son bloc passe en négatif. Deux tapes sur le bloc enlèvent ce verrou, CLEAR tous ceux du pas ; réappuie sur LOCK pour sortir.",
+    text: "P-LOCK sur ce pas, comme une tape sur le pas (sans changer sa note ; un pas vide reçoit une note) : sa LED clignote, l'en-tête de l'écran passe en négatif, P-LOCK 05, chaque page dit ses verrous (AMP ENV · P-LOCKS, 3 P-LOCKS). Choisis la page sous l'écran, puis glisse un bloc : ce réglage ne change plus que sur ce pas, son bloc passe en négatif avec un P. Deux tapes sur le bloc enlèvent ce verrou, CLEAR tous ceux du pas ; réappuie sur LOCK, ou touche la pastille P-LOCK, pour sortir.",
   },
   trig: {
-    text: "Touche un pas : vide, note, liaison, vide ; glisse dessus pour changer sa note. Tiens-le d'un doigt et glisse un bloc de l'écran d'un autre : ce réglage est verrouillé sur ce pas, comme sur une Elektron (un appui long seul garde le LOCK). Quand la lecture passe sur un pas verrouillé, ses blocs passent en négatif à l'écran.",
-    tip: "Lâche le pas avant le bloc si tu veux : le verrou s'écrit jusqu'au lâcher du bloc.",
+    text: "Touche un pas : il passe en P-LOCK (un pas vide reçoit une note), les blocs de l'écran règlent alors ce pas seul. Touche-le encore : liaison (TIE), puis vide, et le P-LOCK s'en va. Glisse dessus pour changer sa note. Tu peux aussi tenir un pas d'un doigt et glisser un bloc d'un autre : le verrou se pose le temps du geste. Quand la lecture passe sur un pas verrouillé, la puce P-LOCK s'allume et ses blocs passent en négatif.",
+    tip: "Pour régler toute la ligne, sors du P-LOCK : touche la pastille P-LOCK de l'écran.",
   },
   screen: {
-    text: "Les huit blocs sont les commandes : glisse un bloc vers le haut pour monter sa valeur (de 0 à 127, son unité dessous), deux tapes pour sa valeur de départ ; le bloc que ton doigt tient est cerné. En LOCK, les réglages verrouillés sur le pas sont en négatif ; en lecture, ceux du pas qui joue s'allument le temps du pas. Dessous, les 16 pas : un point sur chaque pas verrouillé (plein : sur cette page). En haut, touche un onglet pour sa page, le pattern (A01) pour les presets, le petit i pour INFOS.",
+    text: "Les huit blocs sont les commandes : glisse un bloc vers le haut pour monter sa valeur (de 0 à 127, son unité dessous), deux tapes pour sa valeur de départ ; le bloc que ton doigt tient est cerné. Hors P-LOCK ils règlent toute la ligne ; en P-LOCK seulement le pas choisi (un P sur ce qui est verrouillé, GLB sur ce qui ne se verrouille pas). Un verrou qui ne s'entendrait pas le dit (SUSTAIN FULL, SAW: NO PW…). Dessous, les 16 pas. En haut, touche un onglet pour sa page, le pattern (A01) pour les presets, le petit i pour INFOS.",
   },
   infos: { text: "Allume l'aide : touche un bloc de l'écran, un potard ou une touche du MM-BASS pour lire ce qu'il fait, sans le changer. Le petit i dans le coin de l'écran fait la même chose. Réappuie, ou touche la pastille, pour l'éteindre." },
 };
@@ -475,10 +501,19 @@ export const isBassInfoKnob = (id: BassInfoId): id is BassKnobId => KNOBS.has(id
  * bass-tw-infos et bass-tw-close INFOS et CLOSE ; null sinon.
  */
 export function bassInfoIdOf(hotspotId: string): BassInfoId | null {
-  // Un encodeur (2026-10-08) : le reglage qu'il tient sur la page allumee ; un bloc de l'ecran, celui de son encodeur
+  // Un encodeur de la face (2026-10-09) : le FX global qu'il tient pour de bon ; un bloc de l'ecran, le reglage de la page
   const enc = /^bass-(enc|blk)-(\d)$/.exec(hotspotId);
-  if (enc) return bassPage.slot(Number(enc[2]) - 1) ?? 'enc';
+  if (enc) {
+    if (enc[1] === 'enc') return BASS_FX_KNOBS[Number(enc[2]) - 1] ?? 'enc';
+    const k = Number(enc[2]) - 1;
+    // Les cases F G H d'ENV portent le grand dessin de l'enveloppe (la revue du 2026-10-09 : la carte disait la case vide)
+    if (bassPage.get() === 'env' && k >= 5 && !bassPage.slot(k)) return 'penv';
+    return bassPage.slot(k) ?? 'enc';
+  }
   if (hotspotId === 'bass-key-i') return 'ikey';
+  // La pastille P-LOCK de l'ecran, le rouleau d'EDIT (2026-10-09)
+  if (hotspotId === 'bass-lcd-plock') return 'plock';
+  if (hotspotId === 'bass-roll') return 'edit';
   if (hotspotId.startsWith('bass-knob-')) {
     const id = hotspotId.slice(10);
     return KNOBS.has(id) ? (id as BassKnobId) : null;

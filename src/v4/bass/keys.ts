@@ -17,6 +17,8 @@
 
 import type { Stage } from '../scene/renderer';
 import { bassInfos } from '../state/bassInfos';
+import { presetMode } from '../state/presetMode';
+import { section } from '../state/section';
 import { PORTRAIT } from '../theme';
 import { bassLockOff, bassLockToggle, bassPageStep, bassStepTap } from './actions';
 import { bassPage } from './pages';
@@ -42,13 +44,14 @@ const KEY_OF: Readonly<Record<string, BassKeyKind>> = {
 };
 
 export const BASS_KEY_LEGEND: readonly { keys: string; what: string }[] = [
-  { keys: '1 to 8  /  Shift + 1 to 8', what: 'Steps 1 to 16: pick, then note, tie, off (in EDIT: the patterns)' },
+  // L'etape 2 (2026-10-09) : une tape sur un pas le met en P-LOCK, la suivante le change
+  { keys: '1 to 8  /  Shift + 1 to 8', what: 'Steps 1 to 16: P-LOCK (an empty step gets a note), again: tie, off (in EDIT: the patterns)' },
   { keys: 'Space', what: 'Run or stop, in time with the MM-RYTM' },
   { keys: 'E', what: 'Edit: the sixteen patterns on the steps' },
   { keys: 'O  /  I', what: 'Open the machine (fine settings)  /  INFOS: hover a control to read what it does' },
   // Au telephone (2026-10-09) les blocs de l'ecran tiennent lieu d'encodeurs
-  { keys: '[  ]', what: `Previous or next page (VOICE, FILTER, ENV, FX): the eight ${PORTRAIT ? 'screen values' : 'encoders'} follow it` },
-  { keys: 'L  /  Esc', what: `Lock the chosen step (or hold a step): the ${PORTRAIT ? 'screen values' : 'encoders'} change only it  /  out of lock` },
+  { keys: '[  ]', what: `Previous or next page (VOICE, FILTER, ENV, FX): the eight screen values follow it${PORTRAIT ? '' : ', the knobs stay on the global FX'}` },
+  { keys: 'L  /  Esc', what: 'P-LOCK the chosen step: the screen values change only it  /  out of P-LOCK' },
   { keys: 'G  /  M', what: 'Generate a new line  /  mutate a few steps' },
   { keys: 'A  /  S', what: 'Accent  /  slide on the chosen step' },
   { keys: 'Up  Down', what: 'Chosen step one note up or down in the scale' },
@@ -77,9 +80,11 @@ export function listenBassKeys(getStage: () => Stage | null, active: () => boole
     const twin = e.target instanceof HTMLElement && e.target.classList.contains('v4-twin');
     if (twin && /^(Arrow|Page|Home|End|Space|Enter)/.test(e.code)) return;
     if ((e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter') && ownsPress(e.target)) return;
-    // Echap : d'abord le LOCK (le reste, EDIT compris, est a hooks/useKeys.ts)
+    // Echap : d'abord le LOCK (le reste, EDIT compris, est a hooks/useKeys.ts) ; une page du site ou PRESETS ouverts
+    // par-dessus passent avant (la revue du 2026-10-09 : une tape sur un pas met le P-LOCK, le premier Echap le
+    // retirait derriere PRESETS sans que rien ne se voie ; actions.ts escape les ferme dans cet ordre)
     if (e.code === 'Escape') {
-      if (bassState.get().lock < 0) return;
+      if (bassState.get().lock < 0 || section.get() !== null || presetMode.get().machine) return;
       e.preventDefault();
       e.stopPropagation();
       bassLockOff();

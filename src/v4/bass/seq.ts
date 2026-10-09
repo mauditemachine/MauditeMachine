@@ -48,8 +48,8 @@ const MIDI_MAX = 84;
 /** La tonique de depart : fa diese 2 (92 Hz), la tonalite du site. */
 const BASE = 42;
 
-/** La duree d'une note (en part du pas) selon le style. */
-const GATE: Readonly<Record<(typeof BASS_STYLES)[number], number>> = {
+/** La duree d'une note (en part du pas) selon le style (2026-10-09 : l'ecran de STYLE la dit, bass/actions.ts). */
+export const GATE: Readonly<Record<(typeof BASS_STYLES)[number], number>> = {
   ACID: 0.52,
   'DARK DISCO': 0.45,
   'INDIE DANCE': 0.45,

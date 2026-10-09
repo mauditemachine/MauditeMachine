@@ -21,7 +21,7 @@
  *   point au-dessus de chaque pas verrouille (plein : sur cette page), le pas
  *   en LOCK en negatif ;
  * - la ligne du bas : le message du moment, en LOCK les gestes
- *   (TURN A KNOB: STEP 05 ONLY  2X: UNLOCK  CLEAR: ALL).
+ *   (DRAG A VALUE: STEP 05 ONLY  2X: UNLOCK  CLEAR: ITS P-LOCKS  ESC: P-LOCK OFF).
  * EDIT (le meme jour, "ne fais juste que voir les patterns et les
  * changements") : le rouleau de la ligne, les pistes des verrous de la page,
  * les seize patterns (bass/pageView.ts). PRESETS comme le MM-RYTM. L'echo
@@ -42,6 +42,15 @@
  * onglets en cases egales (chacun tourne sa page, headZones), le pattern
  * seul ouvre les presets ; l'echo d'un reglage d'une page dit le nombre de
  * son bloc (bassReadout, comme la carte INFOS).
+ * La revue de l'etape 2 (2026-10-09) : le desktop a les memes zones
+ * d'en-tete (un clic sur un onglet tourne sa page) ; en P-LOCK, un bloc a
+ * regler garde son contraste, un reglage GLOBAL est le plus attenue avec une
+ * seule etiquette (son unite reste) ; les lettres des blocs a peine (au
+ * desktop les encodeurs n'en ont plus) ; le grand dessin d'ENV a l'echelle
+ * de la note qui joue, chaque temps sous son segment, NOTE OFF hors des
+ * courbes ; la bulle des FX globaux dit ALL STEPS, plus KNOB C ; la ligne du
+ * P-LOCK dit CLEAR: ITS P-LOCKS, ESC: P-LOCK OFF ; l'echo du generateur dit
+ * en bas ce que fait le cran.
  */
 
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
@@ -65,6 +74,8 @@ const GHOST: string = 'rgba(246, 241, 231, 0.07)';
 const BLACK: string = '#050506';
 
 const font = (weight: number, size: number): string => `${weight} ${size}px ${FONT_DISPLAY}`;
+/** Une duree courte et lisible (les quatre temps de l'enveloppe en grand). */
+const msShort = (s: number): string => (s < 0.01 ? `${(s * 1000).toFixed(1)} MS` : s < 1 ? `${Math.round(s * 1000)} MS` : `${s.toFixed(2)} S`);
 const two = (i: number): string => String(i + 1).padStart(2, '0');
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
 
@@ -77,7 +88,7 @@ const DIAGRAM_INK: Readonly<Record<BassDiagram['paths'][number]['role'], { strok
   dash: { stroke: HALF, fill: HALF, lw: 0.9 },
 };
 
-/** Les regles du generateur : on les entend au prochain GEN (l'echo le dit). */
+/** Les regles du generateur : la ligne les suit a chaque cran (2026-10-09, bass/gen.ts regenerate). */
 const GEN_RULES: ReadonlySet<BassKnobId> = new Set<BassKnobId>(['style', 'density', 'slides', 'accents', 'range']);
 
 /**
@@ -89,10 +100,17 @@ const GEN_RULES: ReadonlySet<BassKnobId> = new Set<BassKnobId>(['style', 'densit
  * L'en-tete du telephone plus haut (la revue du 2026-10-09 : ses onglets, le
  * pattern et la touche "i" se touchent, 26 px de haut c'etait peu) : 34.5 au
  * lieu de 22, les blocs gardent plus de 70 px.
+ * L'etape 2 (2026-10-09) : sous l'en-tete (hd, sa hauteur d'avant : EDIT,
+ * l'echo et PRESETS s'y calent toujours), la ligne du titre de la page (ty,
+ * sa ligne de base : AMP ENV, en P-LOCK AMP ENV · P-LOCKS, a droite le
+ * compte des verrous) ; les blocs de la PAGE commencent dessous (by0) ; ils
+ * gardent 55 unites de haut (88 px au desktop, 71 au telephone).
  */
 const LAY = PORTRAIT
-  ? { UW: 230, pad: 6, hy: 20.5, tab: 7.2, small: 6.5, bpm: 10.6, i: 6.4, by0: 36, gap: 3, label: 7.4, letter: 6, big: 25, unit: 6.6, stripH: 16, line: 6.6, lanes: 3 }
-  : { UW: 300, pad: 10, hy: 15, tab: 7.4, small: 6.6, bpm: 11, i: 5.4, by0: 23, gap: 4, label: 7, letter: 5.4, big: 23, unit: 6.1, stripH: 19, line: 7, lanes: 4 };
+  ? { UW: 230, pad: 6, hy: 20.5, tab: 7.2, small: 6.5, bpm: 10.6, i: 6.4, hd: 36, ty: 43.4, title: 7.4, by0: 48, gap: 3, label: 7.4, letter: 6, big: 25, unit: 6.6, stripH: 16, line: 6.6, lanes: 3 }
+  : { UW: 300, pad: 10, hy: 15, tab: 7.4, small: 6.6, bpm: 11, i: 5.4, hd: 23, ty: 29.6, title: 7.4, by0: 35, gap: 4, label: 7, letter: 5.4, big: 23, unit: 6.1, stripH: 19, line: 7, lanes: 4 };
+/** L'encre noire a demi (le texte attenue dans l'en-tete en negatif, sur un bloc en negatif). */
+const SOFT_BLACK = 'rgba(5, 5, 6, 0.55)';
 /** La ligne du bas : sa ligne de base depuis le bas du verre. */
 const LINE_DY = PORTRAIT ? 4.4 : 6.5;
 /** Au telephone, la case d'un onglet de l'en-tete, au plus (2026-10-09 : 41 px sous le doigt). */
@@ -111,13 +129,35 @@ export interface BassKnobEcho {
  * Les zones de l'en-tete telles que dessinees (2026-10-09, le telephone ; de 0 a 1 en u) : les onglets de la PAGE
  * (chacun tourne sa page), le pattern qui ouvre les presets ; open null : rien ne les ouvre (en LOCK la droite de
  * l'en-tete dit le pas, PRESETS est deja ouvert) ; ailleurs (EDIT, l'echo) l'en-tete entier les ouvre, comme avant.
- * still : a gauche (la lecture, LOCK 05) et a droite (le tempo, ce que dit le LOCK) le verre qui ne fait rien, jusqu'a
- * la touche "i" : l'en-tete est pave sans que deux zones se chevauchent.
+ * still : a gauche (la lecture, LOCK 05), au milieu (desktop : entre les onglets et le pattern) et a droite (le tempo,
+ * ce que dit le LOCK) le verre qui ne fait rien, jusqu'a la touche "i" : l'en-tete est pave sans que deux zones se
+ * chevauchent. Le desktop a les memes zones depuis la revue du 2026-10-09 (son ecran est l'editeur : un clic sur
+ * l'onglet ENV ouvrait les presets).
+ * pill (2026-10-09, l'etape 2, desktop et telephone) : la pastille P-LOCK 05 de l'en-tete, la toucher sort du P-LOCK ;
+ * null hors P-LOCK.
  */
 export interface BassHeadZones {
   tabs: readonly { id: BassPageId; u0: number; u1: number }[];
   open: { u0: number; u1: number } | null;
-  still: readonly [{ u0: number; u1: number } | null, { u0: number; u1: number } | null];
+  still: readonly [{ u0: number; u1: number } | null, { u0: number; u1: number } | null, { u0: number; u1: number } | null];
+  pill: { u0: number; u1: number } | null;
+}
+
+/**
+ * Le rouleau d'EDIT tel que dessine (2026-10-09, la hauteur des notes a la souris) : sa place en unites de l'ecran, la
+ * largeur d'un pas, et l'echelle des hauteurs (lo, hi : les notes MIDI du bas et du haut) ; null hors EDIT.
+ */
+export interface BassRollGeom {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+  cw: number;
+  lo: number;
+  hi: number;
+  /** la hauteur MIDI d'une ordonnee (unites de l'ecran), et l'inverse */
+  UW: number;
+  UH: number;
 }
 
 /** Ce que l'ecran dessine (la priorite est au rig : PRESETS, EDIT, l'echo hors page, la PAGE). */
@@ -125,7 +165,7 @@ export type BassScreenView =
   | { view: 'page'; m: BassPageModel }
   | { view: 'edit'; m: BassEditModel }
   | { view: 'presets'; p: PresetView }
-  | { view: 'knob'; k: BassKnobEcho; running: boolean; bpm: number; values: BassValues; steps: readonly BassStep[]; infos: boolean };
+  | { view: 'knob'; k: BassKnobEcho; running: boolean; bpm: number; values: BassValues; steps: readonly BassStep[]; before?: readonly BassStep[]; note?: string; infos: boolean };
 
 export class BassScreen {
   readonly mesh: Mesh;
@@ -136,7 +176,8 @@ export class BassScreen {
   private UH: number;
   private scale: number;
   private key = '';
-  private head: BassHeadZones = { tabs: [], open: null, still: [null, null] };
+  private head: BassHeadZones = { tabs: [], open: null, still: [null, null, null], pill: null };
+  private roll: BassRollGeom | null = null;
   draws = 0;
 
   constructor(anisotropy: number, mobile: boolean) {
@@ -170,7 +211,7 @@ export class BassScreen {
     const c = this.iCenter();
     // Au telephone (2026-10-09) : tout l'en-tete en hauteur, du bord du verre jusqu'au tempo (plus de 40 px sous le
     // doigt), sans descendre sur les blocs
-    if (PORTRAIT) return { u0: (c.x - LAY.i - 9) / this.UW, u1: 1, v0: 0, v1: (LAY.by0 - LAY.gap / 2) / this.UH };
+    if (PORTRAIT) return { u0: (c.x - LAY.i - 9) / this.UW, u1: 1, v0: 0, v1: (LAY.hd - LAY.gap / 2) / this.UH };
     const r = LAY.i + 6;
     return { u0: (c.x - r) / this.UW, u1: Math.min(1, (c.x + r) / this.UW), v0: Math.max(0, (c.y - r) / this.UH), v1: (c.y + r) / this.UH };
   }
@@ -202,12 +243,22 @@ export class BassScreen {
   }
 
   headRect(): { u0: number; u1: number; v0: number; v1: number } {
-    return { u0: 0, u1: this.iRect().u0, v0: 0, v1: (LAY.by0 - LAY.gap / 2) / this.UH };
+    return { u0: 0, u1: this.iRect().u0, v0: 0, v1: (LAY.hd - LAY.gap / 2) / this.UH };
   }
 
   /** L'en-tete du dernier dessin : ses onglets et son pattern (le rig y pose ses zones au telephone, 2026-10-09). */
   headZones(): BassHeadZones {
     return this.head;
+  }
+
+  /** La ligne du titre de la PAGE (2026-10-09), sous l'en-tete : un verre qui ne fait rien (le geste ne passe pas a l'orbite). */
+  titleRect(): { u0: number; u1: number; v0: number; v1: number } {
+    return { u0: 0, u1: 1, v0: (LAY.hd - LAY.gap / 2) / this.UH, v1: (LAY.by0 - LAY.gap / 2) / this.UH };
+  }
+
+  /** Le rouleau d'EDIT du dernier dessin (2026-10-09) ; null hors EDIT. */
+  editRoll(): BassRollGeom | null {
+    return this.roll;
   }
 
   /** Le verre sous les blocs (la bande des pas, la ligne du bas). */
@@ -226,7 +277,8 @@ export class BassScreen {
     c.fillRect(0, 0, this.canvas.width, this.canvas.height);
     c.setTransform(this.scale, 0, 0, this.scale, 0, 0);
     // L'en-tete entier ouvre les presets, sauf la PAGE qui dit ses onglets (drawPage) et PRESETS deja ouvert
-    this.head = { tabs: [], open: sv.view === 'presets' ? null : { u0: 0, u1: this.iRect().u0 }, still: [null, null] };
+    this.head = { tabs: [], open: sv.view === 'presets' ? null : { u0: 0, u1: this.iRect().u0 }, still: [null, null, null], pill: null };
+    this.roll = null;
     if (sv.view === 'presets') this.drawPresets(sv.p);
     else if (sv.view === 'edit') this.drawEdit(sv.m);
     else if (sv.view === 'knob') this.drawKnob(sv);
@@ -312,7 +364,7 @@ export class BassScreen {
     }
   }
 
-  /** Une pastille : pleine (le texte en noir) ou cernee ; rend sa largeur. */
+  /** Une pastille : pleine (le texte en noir ; pleine de noir, le texte en os : l'en-tete en negatif) ou cernee ; rend sa largeur. */
   private pill(text: string, x: number, y: number, size: number, full: boolean, align: 'left' | 'center' | 'right' = 'left', ink = INK): number {
     const c = this.ctx;
     c.font = font(700, size);
@@ -321,7 +373,7 @@ export class BassScreen {
     const h = size * 1.5;
     const x0 = align === 'left' ? x : align === 'right' ? x - w : x - w / 2;
     this.bar(x0, y - h + size * 0.36, w, h, full ? ink : null, full ? null : ink);
-    this.text(text, x0 + w / 2, y, size, full ? BLACK : ink, 700, 'center');
+    this.text(text, x0 + w / 2, y, size, full ? (ink === BLACK ? INK : BLACK) : ink, 700, 'center');
     return w;
   }
 
@@ -377,9 +429,9 @@ export class BassScreen {
   }
 
   /** La lecture : un triangle, un carre a l'arret. */
-  private transport(running: boolean, x: number, hy: number, s: number): void {
+  private transport(running: boolean, x: number, hy: number, s: number, ink: string = INK): void {
     const c = this.ctx;
-    c.fillStyle = INK;
+    c.fillStyle = ink;
     if (running) {
       c.beginPath();
       c.moveTo(x, hy - s);
@@ -390,12 +442,14 @@ export class BassScreen {
     } else c.fillRect(x, hy - s * 0.92, s * 0.86, s * 0.86);
   }
 
-  /** La touche "i" (2026-10-08) : un i cercle, plein quand INFOS est allume. */
-  private iKey(on: boolean): void {
+  /** La touche "i" (2026-10-08) : un i cercle, plein quand INFOS est allume ; neg : sur l'en-tete en negatif (P-LOCK). */
+  private iKey(on: boolean, neg = false): void {
     const { x, y } = this.iCenter();
     const r = LAY.i;
-    this.circle(x, y, r, on ? INK : null, on ? null : HALF, 0.9);
-    const ink = on ? BLACK : INK;
+    const fg = neg ? BLACK : INK;
+    const bg = neg ? INK : BLACK;
+    this.circle(x, y, r, on ? fg : null, on ? null : neg ? SOFT_BLACK : HALF, 0.9);
+    const ink = on ? bg : fg;
     this.circle(x, y - r * 0.45, r * 0.16, ink);
     this.ctx.fillStyle = ink;
     this.ctx.fillRect(x - r * 0.12, y - r * 0.18, r * 0.24, r * 0.72);
@@ -411,41 +465,56 @@ export class BassScreen {
 
   /* ---------------- la PAGE ---------------- */
 
-  /** L'en-tete de la PAGE au desktop (inchange le 2026-10-09). */
+  /**
+   * L'en-tete de la PAGE au desktop : la lecture, les onglets ; a droite le style, le pattern (l'en-tete ouvre les
+   * presets), le tempo, "i". En P-LOCK (2026-10-09, l'etape 2, Mika : "quand on selectionne un step on rentre en
+   * parameters lock, ca doit s'afficher que nous sommes en P-LOCKS") : tout l'en-tete en negatif, la pastille P-LOCK
+   * STEP 05 (la toucher sort du P-LOCK, this.head.pill), a droite la note du pas.
+   */
   private headDesk(m: BassPageModel): void {
     const UW = this.UW;
     const P = LAY.pad;
     const hy = LAY.hy;
-    // L'en-tete : la lecture, LOCK 05, les onglets ; a droite le style, le pattern (l'en-tete ouvre les presets), le
-    // tempo, "i". En LOCK (2026-10-08, la revue) : le tempo laisse sa place a la note du pas et a son compte de
-    // verrous, toujours a la taille du reste, apres un jour
-    this.transport(m.running, P, hy, LAY.tab * 1.05);
+    const neg = !!m.lock;
+    const ink = neg ? BLACK : INK;
+    const half = neg ? SOFT_BLACK : HALF;
+    this.transport(m.running, P, hy, LAY.tab * 1.05, ink);
     let x = P + LAY.tab + 4;
-    if (m.lock) x += this.pill(`LOCK ${two(m.lock.step)}`, x, hy, LAY.tab, true) + 6;
+    let pill: { u0: number; u1: number } | null = null;
+    if (m.lock) {
+      const w = this.pill(`P-LOCK STEP ${two(m.lock.step)}`, x, hy, LAY.tab, true, 'left', BLACK);
+      pill = { u0: (x - 2) / UW, u1: (x + w + 2) / UW };
+      x += w + 6;
+    }
+    // Les onglets (2026-10-09, la revue : l'ecran est l'editeur, un clic sur l'onglet ENV ouvrait les presets) :
+    // chacun tourne sa page, leurs zones se touchent sans se chevaucher (this.head.tabs)
+    const tabs: { id: BassPageId; u0: number; u1: number }[] = [];
+    const tabsX0 = pill ? pill.u1 * UW : x - 1;
     for (const p of m.pages) {
       const on = p.id === m.page;
-      if (on) x += this.pill(p.label, x, hy, LAY.tab, true) + 2;
+      const x0 = x;
+      if (on) x += this.pill(p.label, x, hy, LAY.tab, !neg, 'left', ink) + 2;
       else {
-        const w = this.text(p.label, x + LAY.tab * 0.65, hy, LAY.tab, HALF, 700);
+        const w = this.text(p.label, x + LAY.tab * 0.65, hy, LAY.tab, half, 700);
         x += w + LAY.tab * 1.3 + 2;
       }
+      tabs.push({ id: p.id, u0: (tabs.length ? x0 : tabsX0) / UW, u1: x / UW });
       // Un point : cette page porte des verrous dans la ligne
-      if (p.locks > 0) this.circle(x - 1.5, hy - LAY.tab * 1.02, 1.15, on ? INK : HALF);
+      if (p.locks > 0) this.circle(x - 1.5, hy - LAY.tab * 1.02, 1.15, on ? ink : half);
     }
+    const tabsX1 = x;
+    let open: { u0: number; u1: number } | null = null;
     const iLeft = UW - P - LAY.i * 2 - 7;
     const left = x + 8;
     if (m.lock) {
-      const n = m.lock.n;
-      const count = n ? `${n} LOCK${n > 1 ? 'S' : ''}` : 'NO LOCK';
+      // La note du pas, du plus detaille au plus court
       const note = m.lock.what.split(' ')[0];
-      // Du plus detaille au plus court : la note, ACC et SLD, puis la note seule, puis le compte seul
-      const tries = [`${m.lock.what}  ${count}`, `${note}  ${count}`, count];
+      const tries = [m.lock.what, note];
       const avail = iLeft - left;
-      const min = LAY.small * 0.85;
-      const pick = tries.find((t) => this.lineText(t, 0, 0, min, INK, 600, false) <= avail);
+      const pick = tries.find((t) => this.lineText(t, 0, 0, LAY.small * 0.85, ink, 600, false) <= avail);
       if (pick) {
-        const sz = this.fitLine(pick, LAY.small, avail, min);
-        this.lineText(pick, iLeft - this.lineText(pick, 0, 0, sz, INK, 600, false), hy, sz, INK, 600);
+        const sz = this.fitLine(pick, LAY.small * 1.05, avail, LAY.small * 0.85);
+        this.lineText(pick, iLeft - this.lineText(pick, 0, 0, sz, ink, 700, false), hy, sz, ink, 700);
       }
     } else {
       const used = this.tempo(m.bpm);
@@ -457,7 +526,10 @@ export class BassScreen {
       if (avail > 12) {
         const sz = this.fitLine(status, LAY.small, avail, 4);
         const tx = right - tri * 2.2;
-        this.lineText(status, tx - this.lineText(status, 0, 0, sz, HALF, 600, false), hy, sz, HALF, 600);
+        const sw = this.lineText(status, 0, 0, sz, HALF, 600, false);
+        this.lineText(status, tx - sw, hy, sz, HALF, 600);
+        // Le preset et le pattern seuls ouvrent les presets (la revue du 2026-10-09)
+        open = { u0: Math.max(tabsX1, tx - sw - 3) / UW, u1: (tx + tri * 2.2 + 1) / UW };
         const c = this.ctx;
         c.fillStyle = HALF;
         c.beginPath();
@@ -468,31 +540,49 @@ export class BassScreen {
         c.fill();
       }
     }
-    this.iKey(m.infos);
+    // Le verre qui ne fait rien : la lecture a gauche, entre les onglets et le pattern, le tempo a droite
+    const iu = this.iRect().u0;
+    const leftU = pill ? pill.u0 : tabsX0 / UW;
+    const midU1 = open ? open.u0 : iu;
+    const rightU0 = open ? open.u1 : iu;
+    this.head = {
+      tabs,
+      open,
+      still: [leftU > 0.002 ? { u0: 0, u1: leftU } : null, midU1 - tabsX1 / UW > 0.002 ? { u0: tabsX1 / UW, u1: midU1 } : null, iu - rightU0 > 0.002 ? { u0: rightU0, u1: iu } : null],
+      pill,
+    };
+    this.iKey(m.infos, neg);
   }
 
   /**
    * L'en-tete de la PAGE au telephone (2026-10-09, la revue : toucher un onglet ouvrait les presets, et ses onglets
-   * se touchent desormais du doigt) : la lecture, LOCK 05, quatre onglets en cases egales (chacun tourne sa page,
-   * 40 px sous le doigt ; ENV et FX, courts, n'avaient que 26 a 33 px), a droite le pattern (seul il ouvre les
-   * presets) et le tempo, ou en LOCK le compte des verrous du pas ; la touche "i". Les zones : this.head.
+   * se touchent desormais du doigt) : la lecture, P-LOCK 05 (l'etape 2 : la pastille sort du P-LOCK), quatre onglets
+   * en cases egales (chacun tourne sa page, 40 px sous le doigt ; ENV et FX, courts, n'avaient que 26 a 33 px), a
+   * droite le pattern (seul il ouvre les presets) et le tempo ; la touche "i". En P-LOCK, l'en-tete entier en negatif.
+   * Les zones : this.head.
    */
   private headPhone(m: BassPageModel): void {
     const UW = this.UW;
     const P = LAY.pad;
     const hy = LAY.hy;
-    this.transport(m.running, P, hy, LAY.tab * 1.05);
+    const neg = !!m.lock;
+    const ink = neg ? BLACK : INK;
+    const half = neg ? SOFT_BLACK : HALF;
+    this.transport(m.running, P, hy, LAY.tab * 1.05, ink);
     let x = P + LAY.tab + 4;
-    if (m.lock) x += this.pill(`LOCK ${two(m.lock.step)}`, x, hy, LAY.tab, true) + 4;
+    let pill: { u0: number; u1: number } | null = null;
+    if (m.lock) {
+      const w = this.pill(`P-LOCK ${two(m.lock.step)}`, x, hy, LAY.tab, true, 'left', BLACK);
+      // La pastille se touche du doigt (2026-10-09) : sa zone prend tout l'en-tete en hauteur et un peu de cote
+      pill = { u0: (x - 4) / UW, u1: (x + w + 2) / UW };
+      x += w + 4;
+    }
     const iLeft = UW - P - LAY.i * 2 - 5;
     // La droite d'abord : ce qu'elle dit fixe ou les onglets s'arretent
     let rightStart: number;
     let right = 0;
-    if (m.lock) {
-      const n = m.lock.n;
-      const count = n ? `${n} LOCK${n > 1 ? 'S' : ''}` : 'NO LOCK';
-      rightStart = iLeft - this.text(count, iLeft, hy, LAY.small * 0.92, INK, 600, 'right');
-    } else {
+    if (m.lock) rightStart = iLeft;
+    else {
       right = UW - this.tempo(m.bpm) - 5;
       const tri = LAY.small * 0.5;
       const tx = right - tri * 2.2;
@@ -506,55 +596,251 @@ export class BassScreen {
       c.closePath();
       c.fill();
     }
-    // Les onglets : quatre cases egales jusqu'au pattern (31.5 au plus, 41 px), le reste est au pattern ; en LOCK
-    // jusqu'au compte des verrous
+    // Les onglets : quatre cases egales jusqu'au pattern (31.5 au plus, 41 px), le reste est au pattern ; en P-LOCK
+    // jusqu'a la touche "i"
     const x0 = x - 2;
     const end = m.lock ? rightStart - 4 : Math.min(x0 + 4 * PH_TAB, rightStart - 8);
     const cell = (end - x0) / m.pages.length;
     const tabs = m.pages.map((p, i) => {
       const cx = x0 + cell * (i + 0.5);
       const on = p.id === m.page;
-      const w = on ? this.pill(p.label, cx, hy, LAY.tab, true, 'center') : this.text(p.label, cx, hy, LAY.tab, HALF, 700, 'center') + LAY.tab * 1.3;
+      const w = on ? this.pill(p.label, cx, hy, LAY.tab, !neg, 'center', ink) : this.text(p.label, cx, hy, LAY.tab, half, 700, 'center') + LAY.tab * 1.3;
       // Un point : cette page porte des verrous dans la ligne
-      if (p.locks > 0) this.circle(cx + w / 2 + 0.5, hy - LAY.tab * 1.02, 0.95, on ? INK : HALF);
+      if (p.locks > 0) this.circle(cx + w / 2 + 0.5, hy - LAY.tab * 1.02, 0.95, on ? ink : half);
       return { id: p.id, u0: (x0 + cell * i) / UW, u1: (x0 + cell * (i + 1)) / UW };
     });
     const open = m.lock ? null : { u0: end / UW, u1: (right + 1.5) / UW };
     const iu = this.iRect().u0;
     const after = open ? open.u1 : end / UW;
-    this.head = { tabs, open, still: [{ u0: 0, u1: x0 / UW }, after < iu ? { u0: after, u1: iu } : null] };
-    this.iKey(m.infos);
+    const leftU = pill ? pill.u0 : x0 / UW;
+    this.head = { tabs, open, still: [leftU > 0.002 ? { u0: 0, u1: leftU } : null, null, after < iu ? { u0: after, u1: iu } : null], pill };
+    this.iKey(m.infos, neg);
+  }
+
+  /**
+   * La ligne du titre (2026-10-09, l'etape 2, Mika : "quand on appuie sur ENV on voit AMP ENV, c'est parfait ; quand
+   * on selectionne un step, ca doit s'afficher dans ENV que nous sommes en P-LOCKS") : le titre de la page en gras (en
+   * P-LOCK : AMP ENV · P-LOCKS, en negatif avec l'en-tete), a droite le compte des verrous du pas (3 P-LOCKS) ou, hors
+   * P-LOCK, les pas verrouilles de la ligne ; en lecture, la puce P-LOCK quand le pas qui joue porte des verrous.
+   */
+  private titleRow(m: BassPageModel): void {
+    const UW = this.UW;
+    const P = LAY.pad;
+    const ty = LAY.ty;
+    const neg = !!m.lock;
+    const ink = neg ? BLACK : INK;
+    const half = neg ? SOFT_BLACK : HALF;
+    // Le compte, a droite (au telephone, avec la note du pas en P-LOCK : la droite de l'en-tete n'a pas la place)
+    const count = neg && PORTRAIT && m.lock ? `${m.lock.what.split(' ')[0]}  ${m.count}` : m.count;
+    const cs = LAY.small * (neg ? 1 : 0.92);
+    const cw = count ? this.lineText(count, 0, 0, cs, ink, 700, false) : 0;
+    if (count) this.lineText(count, UW - P - cw, ty, cs, neg ? ink : half, 700);
+    const title = neg ? `${m.title} · P-LOCKS` : m.title;
+    const avail = UW - 2 * P - cw - 8 - (m.chip ? 30 : 0);
+    const ts = this.fit(title, 700, LAY.title, avail, 5.5);
+    const tw = this.text(title, P, ty, ts, ink, 700);
+    // La puce P-LOCK : le pas qui joue porte des verrous (le temps du pas, comme le negatif des blocs)
+    if (m.chip) this.pill('P-LOCK', P + tw + 5, ty, LAY.small * 0.9, true, 'left', neg ? BLACK : INK);
+    else if (!neg && m.running) this.pill('P-LOCK', P + tw + 5, ty, LAY.small * 0.9, false, 'left', GHOST);
   }
 
   private drawPage(m: BassPageModel): void {
     const UW = this.UW;
     const UH = this.UH;
     const P = LAY.pad;
+    // En P-LOCK, l'en-tete et la ligne du titre en negatif, d'un bord a l'autre (2026-10-09)
+    if (m.lock) this.box(0.6, 0.6, UW - 1.2, LAY.by0 - LAY.gap / 2 - 1.2, INK, null, 1, 3);
     if (PORTRAIT) this.headPhone(m);
     else this.headDesk(m);
+    this.titleRow(m);
 
-    // Les huit blocs
+    // Les huit blocs ; ENV : ses cases libres portent l'enveloppe en grand (2026-10-09)
     const stripH = LAY.stripH;
     const by1 = UH - LAY.line * 2.2 - stripH - (PORTRAIT ? 4 : 8);
+    const big = m.page === 'env';
     for (const b of m.blocks) {
+      if (big && b.k >= 5 && !b.id) continue;
       const bb = this.blockBox(b.k);
       this.block(b, bb.x, bb.y, bb.w, bb.h, m.env);
+    }
+    if (big) {
+      const a = this.blockBox(5);
+      const z = this.blockBox(7);
+      this.envBig(m, a.x, a.y, z.x + z.w - a.x, a.h);
     }
 
     // La bande des seize pas
     this.strip(m, P, by1 + (PORTRAIT ? 3 : 6), UW - 2 * P, stripH);
 
-    // La ligne du bas ; a droite, le geste du LOCK (2026-10-08, la revue : au telephone c'est le seul texte lisible),
-    // tant qu'il tient a cote du message
+    // La ligne du bas ; a droite, le geste (2026-10-08, la revue : au telephone c'est le seul texte lisible), tant qu'il
+    // tient a cote du message
     const ly = UH - LINE_DY;
     // Au telephone le geste du P-LOCK a la taille de la ligne (2026-10-09, la revue : 7 px, c'est lui qui le fait decouvrir)
     const as = PORTRAIT ? LAY.line : LAY.line * 0.86;
-    const asideW = m.aside ? this.measure(m.aside, as, 700) + LAY.line * 2 : 0;
+    const asideW = m.aside ? this.lineText(m.aside, 0, 0, as, HALF, 700, false) + LAY.line * 2 : 0;
     const lineW = this.lineText(m.line, 0, 0, LAY.line, INK, 600, false);
     const aside = m.aside && lineW + asideW <= UW - 2 * P ? m.aside : '';
-    const ls = this.fitLine(m.line, LAY.line, UW - 2 * P - (aside ? asideW : 0), 4);
+    const ls = this.fitLine(m.line, LAY.line, UW - 2 * P - (aside ? asideW : 0), PORTRAIT ? 5.6 : 4);
     this.lineText(m.line, P, ly, ls, m.lineHot ? INK : HALF, 600);
-    if (aside) this.text(aside, UW - P, ly, as, HALF, 700, 'right');
+    if (aside) this.lineText(aside, UW - P - asideW + LAY.line * 2, ly, as, HALF, 700);
+
+    // La bulle d'un encodeur de la face (desktop) : par-dessus les blocs, la page reste
+    if (m.pop) this.popBox(m.pop, m.env);
+  }
+
+  /**
+   * L'enveloppe de l'ampli en grand (2026-10-09, l'etape 2 : "ENV doit etre plus complet") sur les trois cases libres
+   * d'ENV : la loi du worklet (ATTACK vers le plein, AMP DECAY vers SUSTAIN une fois monte, RELEASE au relachement), la
+   * note telle qu'elle joue (sa longueur : LENGTH ou le style, en part du pas, la ligne NOTE OFF), et en pointille la
+   * meme note tenue (ce que feraient AMP DECAY et SUSTAIN sur une note longue). Le segment qu'on regle en trait plein.
+   * La revue du meme jour : le temps a l'echelle de la note qui joue et de son relachement (la note tenue, coupee au
+   * bord ; avant, une longue AMP DECAY faisait de la note un trait de 5 % de la boite), chaque temps (A D S R) sous son
+   * segment, NOTE OFF la ou aucune des deux courbes ne passe.
+   */
+  private envBig(m: BassPageModel, x: number, y: number, w: number, h: number): void {
+    const [a, d, s, r] = m.env;
+    const step = 60 / Math.max(20, m.bpm) / 4;
+    const att = 0.5 * Math.pow(2000, a) / 1000;
+    const dec = 20 * Math.pow(200, d) / 1000;
+    const rel = 6 * Math.pow(400 / 6, r) / 1000;
+    const gate = Math.max(0.05, m.envGate) * step;
+    // La note et son relachement remplissent la boite (deux pas au moins : la grille des pas se lit)
+    const span = Math.min(3, Math.max(2 * step, (gate + rel * 1.3) * 1.08));
+    this.box(x, y, w, h, 'rgba(246, 241, 231, 0.035)', DIM, 0.8, PORTRAIT ? 3.4 : 3);
+    const p = PORTRAIT ? 4 : 5;
+    const ly = y + LAY.label + (PORTRAIT ? 1.6 : 3);
+    this.text('AMP ENV', x + p, ly, LAY.label, INK, 700);
+    const hint = s >= 0.999 ? 'SUSTAIN FULL: AMP DECAY DOES NOTHING' : `NOTE ${Math.round(m.envGate * 100)} % OF A STEP`;
+    const hs = this.fit(hint, 600, LAY.unit, w - p * 2 - this.measure('AMP ENV', LAY.label, 700) - 8, 4);
+    this.text(hint, x + w - p, ly, hs, HALF, 600, 'right');
+    const x0 = x + p;
+    const x1 = x + w - p;
+    const y0 = ly + (PORTRAIT ? 4 : 5);
+    const y1 = y + h - (PORTRAIT ? 9 : 10.5);
+    const tx = (t: number): number => x0 + ((x1 - x0) * t) / span;
+    const ay = (v: number): number => y1 - v * (y1 - y0);
+    // La grille : un trait par pas, la ligne de base, SUSTAIN en pointille
+    for (let t = step; t < span; t += step) this.stroke([[tx(t), y0], [tx(t), y1]], GHOST, 0.5);
+    this.stroke([[x0, y1], [x1, y1]], FAINT, 0.7);
+    this.stroke([[x0, ay(s)], [x1, ay(s)]], FAINT, 0.7, [1.4, 1.6]);
+    // Le segment touche : celui du bloc tenu, survole ou qu'on vient de tourner
+    const hot = m.blocks.find((b) => b.k < 4 && (b.held || b.echo || b.hover))?.k ?? -1;
+    const N = 160;
+    const dt = span / N;
+    const run = (held: boolean): { pts: [number, number][]; vs: number[]; seg: number[] } => {
+      let vca = 0;
+      let lvl = 1;
+      let decaying = false;
+      const pts: [number, number][] = [];
+      const vs: number[] = [];
+      const seg: number[] = [];
+      for (let k = 0; k <= N; k += 1) {
+        const t = k * dt;
+        if (held || t < gate) {
+          vca += ((decaying ? lvl : 1) - vca) * (1 - Math.exp(-dt / Math.max(1e-4, att)));
+          if (!decaying && vca >= 0.99) decaying = true;
+          if (decaying) lvl = s + (lvl - s) * Math.exp(-dt / dec);
+          seg.push(!decaying ? 0 : Math.abs(lvl - s) > 0.02 ? 1 : 2);
+        } else {
+          vca += (0 - vca) * (1 - Math.exp(-dt / rel));
+          seg.push(3);
+        }
+        vs.push(vca);
+        pts.push([tx(t), ay(vca)]);
+      }
+      return { pts, vs, seg };
+    };
+    const ghost = run(true);
+    this.stroke(ghost.pts, HALF, 0.8, [1.6, 1.8]);
+    const real = run(false);
+    // La note qui joue : un trait par segment (le segment touche plus epais)
+    let from = 0;
+    for (let k = 1; k <= N; k += 1) {
+      if (k < N && real.seg[k] === real.seg[from]) continue;
+      const sg = real.seg[from];
+      this.stroke(real.pts.slice(from, k + 1), INK, sg === hot ? 2.2 : 1.3);
+      from = k;
+    }
+    // NOTE OFF : la longueur de la note ; son nom la ou aucune courbe ne passe (en haut ou en bas, a droite ou a gauche)
+    const gx = tx(Math.min(span, gate));
+    this.stroke([[gx, y0 - 1], [gx, y1]], HALF, 0.7, [1, 1.4]);
+    const ns = LAY.unit * 0.85;
+    const nw = this.measure('NOTE OFF', ns, 600);
+    const free = (xa: number, xb: number, ya: number, yb: number): boolean => {
+      // Les deux courbes, la ou elles passent entre xa et xb : leurs hauteurs hors de la bande du texte (un peu de marge)
+      for (let k = 0; k <= N; k += 1) {
+        const px = real.pts[k][0];
+        if (px < xa - 1 || px > xb + 1) continue;
+        for (const py of [real.pts[k][1], ghost.pts[k][1]]) if (py > ya - 1.5 && py < yb + 1.5) return false;
+      }
+      return true;
+    };
+    const spots: [number, number][] = [
+      [gx + 2, y0 + ns * 0.9],
+      [gx - 2 - nw, y0 + ns * 0.9],
+      [gx + 2, y1 - 1.5],
+      [gx - 2 - nw, y1 - 1.5],
+    ];
+    const spot = spots.find(([sx, sy]) => sx >= x0 && sx + nw <= x1 && free(sx, sx + nw, sy - ns, sy)) ?? null;
+    if (spot) this.text('NOTE OFF', spot[0], spot[1], ns, HALF, 600);
+    // Les quatre temps, en bas, chacun sous son segment (celui de la note qui joue, sinon de la note tenue), sans se
+    // chevaucher
+    const labs = [`A ${msShort(att)}`, `D ${msShort(dec)}`, `S ${s >= 0.999 ? 'FULL' : `${Math.round(s * 100)} %`}`, `R ${msShort(rel)}`];
+    const ls = this.fit(labs.reduce((u, t) => (t.length > u.length ? t : u), ''), 600, LAY.unit, (x1 - x0) / 4 - 3, 4);
+    const ws = labs.map((t) => this.measure(t, ls, 600));
+    // La part visible d'un segment (RELEASE : tant que la note s'entend encore, pas la ligne de base qui suit)
+    const span0 = (r: { seg: number[]; vs: number[] }, g: number): [number, number] | null => {
+      const ks = r.seg.map((v, k) => (v === g && (g !== 3 || r.vs[k] > 0.02 || r.seg[k - 1] !== 3) ? k : -1)).filter((k) => k >= 0);
+      return ks.length ? [real.pts[ks[0]][0], real.pts[ks[ks.length - 1]][0]] : null;
+    };
+    const want = labs.map((_, g) => {
+      const sp = span0(real, g) ?? span0(ghost, g);
+      return sp ? (sp[0] + sp[1]) / 2 : NaN;
+    });
+    const lx: number[] = [];
+    let edge = x0;
+    for (let g = 0; g < 4; g += 1) {
+      const c = Number.isFinite(want[g]) ? want[g] - ws[g] / 2 : edge;
+      lx.push(Math.max(edge, c));
+      edge = lx[g] + ws[g] + 3;
+    }
+    // Trop a droite : on recule depuis le bord, chacun garde sa place
+    let right = x1;
+    for (let g = 3; g >= 0; g -= 1) {
+      if (lx[g] + ws[g] > right) lx[g] = right - ws[g];
+      right = lx[g] - 3;
+    }
+    labs.forEach((t, i) => this.text(t, Math.max(x0, lx[i]), y + h - (PORTRAIT ? 3 : 4), ls, i === hot ? INK : HALF, 600));
+  }
+
+  /**
+   * La bulle d'un encodeur de la face (2026-10-09, desktop : les FX globaux, Mika : "en desktop tu les laisses, mais
+   * ils ne servent qu'a faire les modifs des FX globaux") : au milieu des blocs, la lettre de l'encodeur et GLOBAL FX,
+   * le nom, le nombre de 0 a 127 en grand, l'unite, le petit dessin ; la page reste derriere.
+   */
+  private popBox(pp: NonNullable<BassPageModel['pop']>, env: BassPageModel['env']): void {
+    const a = this.blockBox(1);
+    const z = this.blockBox(6);
+    const w = z.x + z.w - a.x;
+    const h = z.y + z.h - a.y;
+    const x = a.x;
+    const y = a.y;
+    this.box(x - 1.5, y - 1.5, w + 3, h + 3, BLACK, null, 1, 5);
+    this.box(x, y, w, h, 'rgba(246, 241, 231, 0.06)', INK, 1.4, 4);
+    const p = 7;
+    // Le potard par son nom (la revue du 2026-10-09 : KNOB C se lisait comme le bloc C de la page) : un FX de toute la
+    // machine, jamais un verrou du pas
+    this.text('ALL STEPS', x + p, y + p + LAY.small, LAY.small, HALF, 700);
+    this.pill('GLOBAL FX', x + w - p, y + p + LAY.small, LAY.small * 0.92, true, 'right');
+    const ls = this.fit(pp.label, 700, LAY.label * 1.5, w * 0.5 - p, 6);
+    this.text(pp.label, x + p, y + p + LAY.small + 6 + ls, ls, INK, 700);
+    const named = !/^[+-]?\d+$/.test(pp.big);
+    const bs = this.fit(pp.big, named ? 500 : 300, LAY.big * (named ? 1.1 : 1.6), w * 0.5 - p, 8);
+    const by = y + h - p - LAY.unit - 4;
+    this.text(pp.big, x + p - 1, by, bs, INK, named ? 600 : 300);
+    this.text(pp.unit, x + p, y + h - p, this.fit(pp.unit, 600, LAY.unit * 1.2, w * 0.5 - p, 4), HALF, 600);
+    const b: BassBlock = { k: pp.k, letter: pp.letter, id: pp.id, label: pp.label, big: pp.big, unit: pp.unit, v: pp.v, state: 'live', echo: false, held: false, hover: false, mark: false, global: true, hint: '', draw: pp.draw, notches: pp.notches, notch: pp.notch, seg: -1 };
+    this.glyph(b, x + w * 0.54, y + p + LAY.small + 10, x + w - p, y + h - p - 2, INK, FAINT, env);
   }
 
   /**
@@ -564,6 +850,24 @@ export class BassScreen {
   private heldRing(x: number, y: number, w: number, h: number): void {
     const o = PORTRAIT ? 1.3 : 1.6;
     this.box(x - o, y - o, w + 2 * o, h + 2 * o, null, INK, PORTRAIT ? 1.2 : 1.4, 4);
+  }
+
+  /** Le bloc sous la souris (desktop, 2026-10-09) : un cadre discret, juste au-dehors (il se glisse). */
+  private hoverRing(x: number, y: number, w: number, h: number): void {
+    const o = 1.1;
+    this.box(x - o, y - o, w + 2 * o, h + 2 * o, null, HALF, 0.7, 4);
+  }
+
+  /**
+   * La marque d'un bloc verrouille sur le pas (2026-10-09) : un petit P en negatif dans le coin, a la place de la
+   * lettre ; rend sa largeur.
+   */
+  private markTag(xr: number, ly: number, size: number, onInk: boolean): number {
+    const w = size * 1.55;
+    const h = size * 1.3;
+    this.box(xr - w, ly - h + size * 0.22, w, h, onInk ? BLACK : INK, null, 1, 1.2);
+    this.text('P', xr - w / 2, ly, size, onInk ? INK : BLACK, 800, 'center');
+    return w;
   }
 
   /** Un bloc : le nom et la lettre, le nombre, l'unite, son dessin. */
@@ -578,34 +882,45 @@ export class BassScreen {
       if (b.held) this.heldRing(x, y, w, h);
       return;
     }
+    // En P-LOCK (la revue du 2026-10-09) : un bloc a regler sur le pas (lockOff) garde son contraste, celui qui porte
+    // le verrou passe en negatif ; un reglage GLOBAL, qu'on ne regle pas la, est le plus attenue, une seule etiquette
     const inv = b.state === 'lockOn' || b.state === 'flash';
-    const dim = b.state === 'lockOff' || b.state === 'global';
+    const dim = b.state === 'global';
     if (inv) this.box(x, y, w, h, INK, null);
-    else this.box(x, y, w, h, b.state === 'global' ? null : b.held ? 'rgba(246, 241, 231, 0.08)' : 'rgba(246, 241, 231, 0.035)', b.echo ? INK : dim ? FAINT : DIM, b.echo ? 1.5 : 0.8);
+    else this.box(x, y, w, h, dim ? null : b.held || b.hover ? 'rgba(246, 241, 231, 0.08)' : 'rgba(246, 241, 231, 0.035)', b.echo ? INK : dim ? GHOST : DIM, b.echo ? 1.5 : 0.8);
     if (b.held) this.heldRing(x, y, w, h);
-    const ink = inv ? BLACK : dim ? HALF : INK;
-    const soft = inv ? 'rgba(5, 5, 6, 0.55)' : dim ? FAINT : HALF;
+    else if (b.hover) this.hoverRing(x, y, w, h);
+    const ink = inv ? BLACK : dim ? DIM : INK;
+    const soft = inv ? SOFT_BLACK : dim ? GHOST : HALF;
     const p = PORTRAIT ? 3.2 : 5;
     const ly = y + LAY.label + (PORTRAIT ? 1.6 : 3);
-    const ls = this.fit(b.label, 700, LAY.label, w - p * 2 - LAY.letter - 3, 4);
+    // A droite du nom : la marque P (verrouille sur le pas), GLOBAL (en P-LOCK, un reglage qui ne se verrouille pas), sinon
+    // la lettre, a peine (la revue : au desktop les encodeurs de la face n'ont plus de lettre, celle du bloc ne sert qu'au
+    // MIDI bass:knob:1 a 8)
+    let tagW: number;
+    if (b.mark) tagW = this.markTag(x + w - p, ly, LAY.letter, inv);
+    else if (b.state === 'global') tagW = this.text('GLOBAL', x + w - p, ly, LAY.letter, DIM, 700, 'right');
+    else tagW = this.text(b.letter, x + w - p, ly, LAY.letter, inv ? SOFT_BLACK : FAINT, 700, 'right');
+    const ls = this.fit(b.label, 700, LAY.label, w - p * 2 - tagW - 3, 4);
     this.text(b.label, x + p, ly, ls, ink, 700);
-    this.text(b.letter, x + w - p, ly, LAY.letter, soft, 700, 'right');
     // Le nombre (ou le nom du cran) a gauche, le dessin a droite
     const named = !/^[+-]?\d+$/.test(b.big);
     const bigMax = named ? w - p * 2 : w * 0.5;
     const bs = this.fit(b.big, named ? 500 : 300, named ? LAY.big * 0.62 : LAY.big, bigMax, 6);
-    const bigY = PORTRAIT ? y + h * 0.69 : y + h * 0.63;
+    const bigY = y + h * 0.63;
     const bw = this.text(b.big, x + p - (named ? 0 : 0.6), bigY, bs, ink, named ? 600 : 300);
-    const uy = y + h - (PORTRAIT ? 2.4 : 4.6);
-    const us = this.fit(b.unit, 600, LAY.unit, w - p * 2, 3.6);
-    this.text(b.unit, x + p, uy, us, b.state === 'global' ? HALF : soft, 600);
+    const uy = y + h - 4.6;
+    // L'unite ; un verrou qui ne s'entendrait pas le dit a sa place, attenue (2026-10-09)
+    const unit = b.hint || b.unit;
+    const us = this.fit(unit, 600, LAY.unit, w - p * 2, 3.6);
+    this.text(unit, x + p, uy, us, b.hint ? (inv ? SOFT_BLACK : FAINT) : dim ? FAINT : soft, b.hint ? 700 : 600);
     // Le dessin : a droite du nombre (un nom de cran prend la largeur : ses crans au-dessus de l'unite) ; un nombre a
     // trois chiffres (100 a 127, 2026-10-09, la revue : ACCENT 108, RESO 112, WAVE 127) le pousse, sans le chevaucher
-    const dx0 = named ? x + p : Math.max(x + w * 0.52, x + p - 0.6 + bw + (PORTRAIT ? 1.5 : 2.5));
+    const dx0 = named ? x + p : Math.max(x + w * 0.52, x + p - 0.6 + bw + 2.5);
     const dx1 = x + w - p;
-    const dy0 = named ? bigY + 1.5 : ly + (PORTRAIT ? 2.4 : 5);
-    const dy1 = named ? uy - us - (PORTRAIT ? 1.2 : 2.5) : bigY;
-    if (dy1 - dy0 > 2) this.glyph(b, dx0, dy0, dx1, dy1, inv ? BLACK : dim ? DIM : INK, inv ? 'rgba(5, 5, 6, 0.3)' : FAINT, env);
+    const dy0 = named ? bigY + 1.5 : ly + 5;
+    const dy1 = named ? uy - us - 2.5 : bigY;
+    if (dy1 - dy0 > 2) this.glyph(b, dx0, dy0, dx1, dy1, inv ? BLACK : dim ? FAINT : INK, inv ? 'rgba(5, 5, 6, 0.3)' : dim ? GHOST : FAINT, env);
   }
 
   /**
@@ -614,30 +929,33 @@ export class BassScreen {
    * largeur, l'unite en bas.
    */
   private blockTall(b: BassBlock, x: number, y: number, w: number, h: number, env: BassPageModel['env']): void {
+    // En P-LOCK (la revue du 2026-10-09) : lockOff garde son contraste, GLOBAL est le plus attenue
     const inv = b.state === 'lockOn' || b.state === 'flash';
-    const dim = b.state === 'lockOff' || b.state === 'global';
+    const dim = b.state === 'global';
     if (inv) this.box(x, y, w, h, INK, null, 1, 3.4);
-    else this.box(x, y, w, h, b.state === 'global' ? null : b.held ? 'rgba(246, 241, 231, 0.08)' : 'rgba(246, 241, 231, 0.035)', b.echo ? INK : dim ? FAINT : DIM, b.echo ? 1.4 : 0.8, 3.4);
-    const ink = inv ? BLACK : dim ? HALF : INK;
-    const soft = inv ? 'rgba(5, 5, 6, 0.55)' : dim ? FAINT : HALF;
+    else this.box(x, y, w, h, dim ? null : b.held ? 'rgba(246, 241, 231, 0.08)' : 'rgba(246, 241, 231, 0.035)', b.echo ? INK : dim ? FAINT : DIM, b.echo ? 1.4 : 0.8, 3.4);
+    const ink = inv ? BLACK : dim ? DIM : INK;
+    const soft = inv ? SOFT_BLACK : dim ? FAINT : HALF;
     const p = 4;
     const ly = y + p + LAY.label * 0.8 + 0.6;
-    const lw = this.measure(b.letter, LAY.letter, 700);
-    const ls = this.fit(b.label, 700, LAY.label, w - p * 2 - lw - 2.5, 4.4);
+    let tagW: number;
+    if (b.mark) tagW = this.markTag(x + w - p, ly, LAY.letter, inv);
+    else if (b.state === 'global') tagW = this.text('GLB', x + w - p, ly, LAY.letter, DIM, 700, 'right');
+    else tagW = this.text(b.letter, x + w - p, ly, LAY.letter, soft, 700, 'right');
+    const ls = this.fit(b.label, 700, LAY.label, w - p * 2 - tagW - 2.5, 5.6);
     this.text(b.label, x + p, ly, ls, ink, 700);
-    this.text(b.letter, x + w - p, ly, LAY.letter, soft, 700, 'right');
     const named = !/^[+-]?\d+$/.test(b.big);
     const bs = this.fit(b.big, named ? 600 : 300, named ? LAY.big * 0.6 : LAY.big, w - p * 2 + 1, 7);
-    const bigY = ly + 5.4 + bs * 0.72;
+    const bigY = ly + 5 + bs * 0.72;
     this.text(b.big, x + p - (named ? 0 : 0.8), bigY, bs, ink, named ? 600 : 300);
     const uy = y + h - p + 0.4;
-    const us = this.fit(b.unit, 600, LAY.unit, w - p * 2, 4);
-    this.text(b.unit, x + p, uy, us, b.state === 'global' ? HALF : soft, 600);
-    const dy0 = bigY + 4.4;
-    const dy1 = uy - us - 2.6;
-    if (dy1 - dy0 > 3) this.glyph(b, x + p, dy0, x + w - p, dy1, inv ? BLACK : dim ? DIM : INK, inv ? 'rgba(5, 5, 6, 0.3)' : FAINT, env);
+    const unit = b.hint || b.unit;
+    const us = this.fit(unit, b.hint ? 700 : 600, LAY.unit, w - p * 2, 5.6);
+    this.text(unit, x + p, uy, us, b.hint ? (inv ? SOFT_BLACK : HALF) : soft, b.hint ? 700 : 600);
+    const dy0 = bigY + 3.6;
+    const dy1 = uy - us - 2.4;
+    if (dy1 - dy0 > 3) this.glyph(b, x + p, dy0, x + w - p, dy1, inv ? BLACK : dim ? FAINT : INK, inv ? 'rgba(5, 5, 6, 0.3)' : dim ? GHOST : FAINT, env);
   }
-
   /** Le petit dessin d'un bloc, dans la boite donnee. */
   private glyph(b: BassBlock, x0: number, y0: number, x1: number, y1: number, ink: string, faint: string, env: BassPageModel['env']): void {
     const w = x1 - x0;
@@ -791,10 +1109,13 @@ export class BassScreen {
     const yOf = (hh: number): number => bot - 1 - hh * (bot - top - 3);
     S.cells.forEach((cell, i) => {
       const x = x0 + i * cw;
-      const locking = S.lock === i;
       const playing = S.play === i;
+      // Le pas en P-LOCK en negatif ; en lecture, le pas qui joue aussi quand il porte des verrous (2026-10-09, la puce
+      // P-LOCK de l'en-tete clignote avec lui), sinon a peine
+      const locking = S.lock === i || (playing && S.flash);
       if (locking) this.box(x + 0.8, top - 1.5, cw - 1.6, bot - top + 3, INK, null, 1, 1.5);
       else if (playing) this.box(x + 0.8, top - 1.5, cw - 1.6, bot - top + 3, 'rgba(246, 241, 231, 0.2)', null, 1, 1.5);
+      if (S.lock === i && playing) this.box(x + 0.2, top - 2.1, cw - 0.4, bot - top + 4.2, null, INK, 0.8, 1.8);
       const ink = locking ? BLACK : cell.acc ? INK : HALF;
       if (cell.kind === 'off') this.circle(x + cw / 2, bot - 0.5, PORTRAIT ? 0.75 : 0.8, locking ? BLACK : i % 4 === 0 ? HALF : FAINT);
       else {
@@ -851,19 +1172,32 @@ export class BassScreen {
     const lx0 = PORTRAIT ? 46 : 58;
     const rx0 = lx0;
     const rx1 = UW - P;
-    const ry0 = LAY.by0 - (PORTRAIT ? 1 : 0);
+    const ry0 = LAY.hd - (PORTRAIT ? 1 : 0);
     const ry1 = laneTop - LAY.small - (PORTRAIT ? 3.5 : 6);
     const cw = (rx1 - rx0) / BASS_STEPS;
     const c = this.ctx;
     const notes = m.midis.filter((n): n is number => n !== null);
-    let lo = notes.length ? Math.min(...notes) : 36;
-    let hi = notes.length ? Math.max(...notes) : 48;
-    if (hi - lo < 12) {
+    // L'echelle des hauteurs (2026-10-09, le rouleau se glisse) : la ligne et un peu d'air dessus et dessous, au moins
+    // une octave et demie, pour qu'une note glissee ait ou aller et qu'un clic dans le vide tombe a une hauteur juste
+    let lo = notes.length ? Math.min(...notes) - 4 : 33;
+    let hi = notes.length ? Math.max(...notes) + 4 : 57;
+    if (hi - lo < 24) {
       const mid = (hi + lo) / 2;
-      lo = Math.floor(mid - 6);
-      hi = Math.ceil(mid + 6);
+      lo = Math.floor(mid - 12);
+      hi = Math.ceil(mid + 12);
+    }
+    // Pendant un glisser, l'echelle du depart (sinon la note qui monte ferait monter le haut du rouleau sous le pointeur)
+    if (m.drag && m.drag.lo !== undefined && m.drag.hi !== undefined) {
+      lo = m.drag.lo;
+      hi = m.drag.hi;
     }
     const yOf = (n: number): number => ry1 - 3 - ((n - lo) / Math.max(1, hi - lo)) * (ry1 - ry0 - 6);
+    this.roll = { x0: rx0, x1: rx1, y0: ry0, y1: ry1, cw, lo, hi, UW, UH };
+    // La colonne sous la souris (desktop) : on voit le pas qu'on va toucher
+    if (m.hover >= 0 && !m.drag) {
+      c.fillStyle = 'rgba(246, 241, 231, 0.06)';
+      c.fillRect(rx0 + m.hover * cw, ry0, cw, ry1 - ry0);
+    }
     // A gauche du rouleau : la note la plus haute et la plus basse de la ligne, sous l'en-tete (2026-10-08, la revue :
     // au telephone la plus haute touchait la pastille EDIT) ; LINE au milieu
     const ns = LAY.small * 0.9;
@@ -900,7 +1234,21 @@ export class BassScreen {
       }
       const xa = tieIn ? xx - 0.5 : xx + 1;
       const xb = tieOut ? xx + cw + 0.5 : xx + cw - 1;
-      this.bar(xa, yy - nh / 2, xb - xa, nh, accent ? INK : HALF);
+      const dragged = m.drag?.step === i;
+      this.bar(xa, yy - nh / 2, xb - xa, nh, accent || dragged ? INK : HALF);
+      // La note qu'on glisse (2026-10-09) : cernee, son nom au-dessus
+      if (dragged) {
+        this.box(xa - 1.2, yy - nh / 2 - 1.2, xb - xa + 2.4, nh + 2.4, null, INK, 0.9, 2);
+        const name = m.drag?.name ?? '';
+        const nsz = LAY.small * 1.1;
+        const tw = this.measure(name, nsz, 700) + 3;
+        const lx = Math.max(rx0, Math.min(rx1 - tw, xx + cw / 2 - tw / 2));
+        // Au-dessus de la note, ou dessous quand elle touche le haut du rouleau (le nom ne la cache jamais)
+        const above = yy - nh / 2 - 3;
+        const ly = above - nsz - 0.5 >= ry0 ? above : yy + nh / 2 + 3 + nsz;
+        this.box(lx - 0.5, ly - nsz - 0.4, tw + 1, nsz + 2.6, INK, null, 1, 1.5);
+        this.text(name, lx + tw / 2 + 0.5, ly + 0.6, nsz, BLACK, 700, 'center');
+      }
       if (st.locks) this.circle(xx + cw / 2, ry0 + (PORTRAIT ? 1 : 1.5), PORTRAIT ? 0.8 : 1.1, INK);
       if (st.slide && nx.kind === 'note' && i < BASS_STEPS - 1) {
         const n2 = m.midis[i + 1];
@@ -910,13 +1258,13 @@ export class BassScreen {
 
     // Les verrous de la page : une piste par reglage verrouille, une barre par pas, sur la grille du rouleau
     const lh = PORTRAIT ? 7.4 : 8;
-    const head = `LOCKS  ${m.pageLabel}`;
+    const head = `P-LOCKS  ${m.pageLabel}`;
     this.text(head, P, laneTop, LAY.small * 0.92, INK, 700);
     const others = m.others.map((o) => `${o.label} ${o.n}`).join('   ');
     this.text(others, UW - P, laneTop, LAY.small * 0.86, m.others.some((o) => o.n > 0) ? HALF : FAINT, 600, 'right');
     if (!m.lanes.length) {
-      // Au telephone (2026-10-09) : plus d'encodeur, on glisse un bloc
-      const how = `NO LOCK ON THIS PAGE   HOLD A STEP + ${PORTRAIT ? 'DRAG A VALUE' : 'TURN AN ENCODER'}`;
+      // Dans EDIT (2026-10-09, l'etape 2) : une touche LOCK ferme EDIT et met le P-LOCK sur son pas
+      const how = `NO P-LOCK ON THIS PAGE   A LOCK KEY: CLOSE EDIT, P-LOCK ITS STEP`;
       this.text(how, (lx0 + rx1) / 2, (lanesY0 + lanesY1) / 2 + 2, this.fit(how, 600, LAY.small * 0.92, rx1 - lx0, 4), HALF, 600, 'center');
     }
     const lcw = (rx1 - lx0) / BASS_STEPS;
@@ -1021,22 +1369,24 @@ export class BassScreen {
     const k = sv.k;
     this.transport(sv.running, P, hy, LAY.tab * 1.05);
     let x = P + LAY.tab + 4;
-    if (k.lock >= 0) x += this.pill(`LOCK ${two(k.lock)}`, x, hy, LAY.tab, true) + 5;
+    if (k.lock >= 0) x += this.pill(`P-LOCK ${two(k.lock)}`, x, hy, LAY.tab, true) + 5;
     this.text(BASS_INFOS[k.id].section, x, hy, LAY.tab, HALF, 700);
-    if (k.locked) this.pill('LOCKED', UW - P - LAY.i * 2 - 8, hy, LAY.tab * 0.95, true, 'right');
+    if (k.locked) this.pill('P-LOCKED', UW - P - LAY.i * 2 - 8, hy, LAY.tab * 0.95, true, 'right');
     else this.tempo(sv.bpm);
     this.iKey(sv.infos);
     const label = bassKnob(k.id).label;
     // Le nombre de son bloc pour un reglage d'une page (2026-10-09, comme la carte INFOS)
     const value = bassReadout(k.id, k.v);
-    const d = bassDiagram(k.id, { v: k.v, values: sv.values, bpm: sv.bpm, steps: sv.steps });
-    const rule = GEN_RULES.has(k.id) ? (k.live ? 'THE LINE FOLLOWS LIVE' : 'PRESS GEN TO HEAR IT') : '';
+    // STYLE, DENSITY (2026-10-09) : le dessin est la vraie ligne, ce qui vient d'arriver et de partir (before)
+    const d = bassDiagram(k.id, { v: k.v, values: sv.values, bpm: sv.bpm, steps: sv.steps, prev: sv.before });
+    // Ce que fait le cran (la revue du 2026-10-09 : THE LINE FOLLOWS EACH NOTCH restait affiche sur une ligne immobile)
+    const rule = GEN_RULES.has(k.id) ? sv.note ?? 'THE LINE FOLLOWS EACH NOTCH' : '';
     if (PORTRAIT) {
       // Au telephone (2026-10-09, l'ecran plus haut que large) : le nom et la valeur en haut, le dessin dessous sur toute
       // la largeur (1.6 fois plus grand qu'a droite de la valeur)
       const ls = this.fit(label, 700, 12, UW - 2 * P);
       const vs = this.fit(value, 300, 30, UW - 2 * P, 8);
-      const ly = LAY.by0 + 2 + ls * 0.8;
+      const ly = LAY.hd + 2 + ls * 0.8;
       const vy = ly + 4 + vs * 0.74;
       this.text(label, P, ly, ls, INK, 700);
       this.text(value, P - 1, vy, vs, INK, 300);
@@ -1047,7 +1397,7 @@ export class BassScreen {
       return;
     }
     const colW = UW * 0.42 - P;
-    const top = LAY.by0 + 2;
+    const top = LAY.hd + 2;
     const bot = UH - P;
     const band = bot - top;
     const ls = this.fit(label, 700, Math.min(15, band * 0.2), colW);
@@ -1057,7 +1407,7 @@ export class BassScreen {
     this.text(label, P, y0 + ls, ls, INK, 700);
     this.text(value, P - 1, y0 + ls + 4 + vs * 1.02, vs, INK, 300);
     if (rule) this.text(rule, P, UH - 6, LAY.line * 0.9, HALF, 700);
-    if (d) this.drawDiagram(d, UW * 0.44, LAY.by0, UW * 0.56 - P, UH - LAY.by0 - P);
+    if (d) this.drawDiagram(d, UW * 0.44, LAY.hd, UW * 0.56 - P, UH - LAY.hd - P);
   }
 
   /* ---------------- PRESETS ---------------- */

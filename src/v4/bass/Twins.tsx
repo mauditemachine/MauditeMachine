@@ -17,6 +17,10 @@
  *   sur les blocs de l'ecran (bass-blk-1 a 8), qui en tiennent lieu ; en
  *   PRESETS et en EDIT, ou les blocs ne sont pas dessines, ils sont eteints
  *   comme leurs zones (la revue : on reglait une valeur que personne ne voit).
+ * - L'etape 2 (2026-10-09) : huit curseurs pour les blocs de l'ecran (la page
+ *   a l'ecran, en P-LOCK le verrou du pas), au desktop comme au telephone ;
+ *   au desktop, huit de plus pour les encodeurs de la face, les FX globaux
+ *   (DRIVE, DELAY...), jamais un verrou.
  * Inertes tant qu'on n'utilise pas le MM-BASS. Le clavier de la machine
  * (bass/keys.ts) s'ecoute ici.
  */
@@ -29,10 +33,10 @@ import { bassInfos } from '../state/bassInfos';
 import { focus } from '../state/focus';
 import { PRESET_KEYS_OFF, PRESET_KEYS_ON, PRESET_KEY_ARIA, presetMode } from '../state/presetMode';
 import { presetKey } from '../actions';
-import { bassDial, bassDialReset, bassKnobValue, bassLockTap, bassStepTap, noteName } from './actions';
+import { bassDial, bassDialReset, bassFxDial, bassFxReset, bassKnobValue, bassLockTap, bassStepTap, noteName } from './actions';
 import { bassKeyAction } from './gestures';
 import { listenBassKeys } from './keys';
-import { ENC_LETTERS, bassPage, isBassGlobal } from './pages';
+import { BASS_FX_KNOBS, ENC_LETTERS, bassPage, isBassGlobal } from './pages';
 import { BASS_FACE_KNOBS, BASS_PLATE_KNOBS, bassCC, bassKnob, bassParams, bassUnit, bassValueText, type BassKnobDef } from './params';
 import { bassTweakId } from './tweaks';
 import { BASS_I_ID, bassBlockId, bassEncId, bassKeyId, bassKnobId, bassLcdId, bassLockId, bassTrigId } from './rig';
@@ -182,14 +186,51 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
 
   return (
     <div ref={groupRef} className="v4-twins" role="group" aria-label="MM-BASS bass synth and sequencer" aria-hidden={off || undefined}>
+      {BASS_FX_KNOBS.slice(0, BASS_ENC_N).map((param, i) => {
+        // Les encodeurs de la face (2026-10-09, desktop) : les FX globaux, toujours le son de toute la ligne
+        const id = bassEncId(i);
+        const def = bassKnob(param);
+        const val = bassParams.of(param);
+        const notch = def.steps && def.steps > 1 ? 1 / (def.steps - 1) : 0;
+        return (
+          <div
+            key={id}
+            ref={refFor(id)}
+            className="v4-twin"
+            data-twin="bassenc"
+            data-hotspot={id}
+            role="slider"
+            tabIndex={0}
+            aria-label={`${def.label} knob: global effect, all steps`}
+            aria-orientation="vertical"
+            aria-valuemin={0}
+            aria-valuemax={127}
+            aria-valuenow={bassCC(param, val)}
+            aria-valuetext={`${def.names ? bassValueText(param, val) : bassCC(param, val)}, ${bassUnit(param, val)}`}
+            onKeyDown={(e) => {
+              if (e.altKey || e.ctrlKey || e.metaKey) return;
+              if (e.key === 'Delete' || e.key === 'Backspace') {
+                e.preventDefault();
+                e.stopPropagation();
+                bassFxReset(i);
+                return;
+              }
+              const next = stepValue(e, bassParams.of(param), def.def, notch || 1 / 127, notch || 8 / 127);
+              if (next === null) return;
+              e.preventDefault();
+              e.stopPropagation();
+              bassFxDial(i, Math.max(0, Math.min(1, notch ? next : Math.round(next * 127) / 127)));
+            }}
+          />
+        );
+      })}
       {ENC_LETTERS.map((letter, i) => {
-        // Les encodeurs (2026-10-08) : le reglage de la page allumee, son verrou en LOCK ; au telephone (2026-10-09) les
-        // blocs de l'ecran, a leur place
-        const id = BASS_ENC_N > 0 ? bassEncId(i) : bassBlockId(i);
-        const what = BASS_ENC_N > 0 ? 'Encoder' : 'Screen value';
+        // Les blocs de l'ecran : le reglage de la page allumee, son verrou en P-LOCK (desktop et telephone, 2026-10-09)
+        const id = bassBlockId(i);
+        const what = 'Screen value';
         const param = bassPage.slot(i, page);
-        // Les blocs (le telephone) ne sont pas dessines en PRESETS ni en EDIT : leur curseur s'eteint avec eux
-        const hidden = BASS_ENC_N === 0 && (pm.machine === 'bass' || ed === 'bass');
+        // Les blocs ne sont pas dessines en PRESETS ni en EDIT : leur curseur s'eteint avec eux
+        const hidden = pm.machine === 'bass' || ed === 'bass';
         if (!param || hidden) return <div key={id} ref={refFor(id)} className="v4-twin" data-twin="bassenc" data-hotspot={id} role="slider" tabIndex={-1} aria-disabled="true" aria-label={`${what} ${letter}: ${param ? 'not on the screen now' : 'empty on this page'}`} aria-valuemin={0} aria-valuemax={127} aria-valuenow={0} />;
         const def = bassKnob(param);
         const val = bassKnobValue(param);

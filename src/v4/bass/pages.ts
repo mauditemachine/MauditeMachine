@@ -17,6 +17,27 @@
  * - FX : DRIVE et le DELAY en haut (envoi, temps, retour), la REVERB
  *   dessous (envoi, taille, couleur), colonne par colonne.
  * La page est retenue sous mm.v4.bass.page.
+ *
+ * L'etape 2 (2026-10-09, Mika : "le VOLUME du voice ou du step selectionne
+ * doit se retrouver dans Voice ; quand on appuie sur ENV on voit AMP ENV,
+ * c'est parfait ; les encoders ne servent qu'a faire les modifs des FX
+ * globaux de la machine") :
+ * - VOICE recoit VOLUME (H) : le niveau de la voix, ou celui du pas en
+ *   P-LOCK ;
+ * - ENV garde l'ampli entier (ATTACK, AMP DECAY, SUSTAIN, RELEASE) et
+ *   LENGTH ; ses trois cases libres (F G H) portent le grand dessin de
+ *   l'enveloppe, en direct (bass/screen.ts) ; son titre : AMP ENV ;
+ * - FX : DRIVE, l'envoi DELAY et l'envoi REVERB se verrouillent, DLY TIME,
+ *   DLY FB, REV SIZE, REV TONE sont GLOBAL ; E, VOLUME (la revue du meme
+ *   jour), comme l'encodeur E de la face : la page FX est la rangee des
+ *   encodeurs ;
+ * - les huit encodeurs de la face (desktop) ne suivent plus la page : ils
+ *   tiennent pour de bon les FX globaux de la machine (BASS_FX_KNOBS), et
+ *   ne posent jamais de P-lock. La page se regle a l'ecran (ses blocs), au
+ *   telephone comme au desktop ; le MIDI bass:knob:1 a 8 (et le Roto)
+ *   reste "le bloc k de la page a l'ecran".
+ * Les ids de page ne changent pas : une page retenue d'avant se relit ; une
+ * page inconnue redevient FILTER.
  */
 
 import type { BassKnobId } from './params';
@@ -35,17 +56,29 @@ export interface BassPageDef {
 export const BASS_PAGES: readonly BassPageDef[] = [
   { id: 'voice', label: 'VOICE', title: 'VOICE' },
   { id: 'filter', label: 'FILTER', title: 'FILTER 303' },
-  { id: 'env', label: 'ENV', title: 'AMP ENVELOPE' },
-  { id: 'fx', label: 'FX', title: 'DRIVE DELAY REVERB' },
+  { id: 'env', label: 'ENV', title: 'AMP ENV' },
+  { id: 'fx', label: 'FX', title: 'FX' },
 ];
 
 /** Les huit cases de chaque page, A a H. */
 export const BASS_PAGE_SLOTS: Readonly<Record<BassPageId, readonly (BassKnobId | null)[]>> = {
-  voice: ['wave', 'pw', 'sub', 'suboct', 'octave', 'tune', 'glide', null],
+  voice: ['wave', 'pw', 'sub', 'suboct', 'octave', 'tune', 'glide', 'volume'],
   filter: ['cutoff', 'reso', 'envmod', 'decay', 'accent', 'accdecay', 'sweep', 'keytrack'],
-  env: ['attack', 'adecay', 'sustain', 'release', 'length', null, null, 'volume'],
-  fx: ['drive', 'delay', 'dtime', 'dfb', null, 'reverb', 'rsize', 'rtone'],
+  env: ['attack', 'adecay', 'sustain', 'release', 'length', null, null, null],
+  // E : VOLUME, comme l'encodeur E de la face (la revue du 2026-10-09 : la case vide faisait la page inachevee) ; le
+  // meme reglage que VOICE H, verrouillable de meme
+  fx: ['drive', 'delay', 'dtime', 'dfb', 'volume', 'reverb', 'rsize', 'rtone'],
 };
+
+/**
+ * Les encodeurs A a H de la face, desktop (2026-10-09, Mika : "en desktop tu les laisses, mais ils ne servent qu'a
+ * faire les modifs des FX globaux de la machine") : une fois pour toutes, dans l'ordre de la page FX (A DRIVE, B DELAY,
+ * C DLY TIME, D DLY FB ; F REVERB, G REV SIZE, H REV TONE), E le niveau de la machine (VOLUME, la ou FX n'a rien). Ils
+ * reglent toujours le son global, jamais un P-lock, meme en P-LOCK.
+ */
+export const BASS_FX_KNOBS: readonly BassKnobId[] = ['drive', 'delay', 'dtime', 'dfb', 'volume', 'reverb', 'rsize', 'rtone'];
+/** L'encodeur de la face qui tient ce reglage (0 a 7), -1 s'il n'est pas sur un encodeur. */
+export const bassFxEncOf = (id: BassKnobId): number => BASS_FX_KNOBS.indexOf(id);
 
 export const ENC_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
 export const isBassPage = (v: unknown): v is BassPageId => BASS_PAGES.some((p) => p.id === v);

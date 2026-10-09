@@ -21,7 +21,7 @@
 
 import { bassFactory } from '../state/factory';
 import { PORTRAIT } from '../theme';
-import { generate, mutate, type GenOpts } from './gen';
+import { generate, isFreeStep, mutate, type GenOpts } from './gen';
 import type { BassInfoId } from './infos';
 import { BASS_ROOTS, BASS_SCALES, BASS_STYLES, BASS_KNOBS, DTIME_STEPS, SCALE_TONES, accDecayMs, adecayMs, attackMs, bassBig, bassKnob, bassValueText, dfbPct, lengthPct, pwPct, releaseMs, rsizeS, rtoneHz, stepOf, sweepOct, tuneCents, type BassKnobId, type BassStyle, type BassValues } from './params';
 import { BASS_PAGE_SLOTS, bassSlotOf, type BassPageId } from './pages';
@@ -44,6 +44,8 @@ export interface BassDiagramCtx {
   step?: number;
   /** ROOT sur ARP : les toniques des accords du MM-ARP (F#, D, E...), dans l'ordre de la progression */
   arpRoots?: readonly string[];
+  /** la ligne d'avant le dernier cran de STYLE ou de DENSITY (2026-10-09) : le dessin montre ce qui est venu et parti */
+  prev?: readonly BassStep[];
 }
 
 type Role = BassDiagram['paths'][number]['role'];
@@ -279,8 +281,34 @@ function semisOf(steps: readonly BassStep[], tones: readonly number[]): (number 
   });
 }
 
-/** Le rouleau de l'ecran : une barre par note a sa hauteur, longue de gate (liaison, SLIDE : jusqu'a la suivante). */
-function roll(p: Pic, steps: readonly BassStep[], tones: readonly number[], gate: number, y0: number, y1: number): void {
+/** Les pas changes par le dernier cran (2026-10-09) : venus, partis, ou une autre note ; aucun sans ligne d'avant. */
+function changedSteps(line: readonly BassStep[], prev: readonly BassStep[] | undefined): ReadonlySet<number> {
+  const out = new Set<number>();
+  if (!prev) return out;
+  line.forEach((s, i) => {
+    const q = prev[i];
+    if (!q || s.kind !== q.kind || (s.kind === 'note' && (s.deg !== q.deg || s.oct !== q.oct))) out.add(i);
+  });
+  return out;
+}
+
+/** Ce que dit le bas d'un dessin du generateur sur la vraie ligne : tes notes gardees, ou ce qui a change. */
+function lineNote(line: readonly BassStep[], prev: readonly BassStep[] | undefined): string {
+  // Une note a toi : un pas que STYLE et DENSITY ne reecrivent pas (bass/gen.ts isFreeStep)
+  const mine = line.filter((s) => s.kind === 'note' && !isFreeStep(s)).length;
+  const changed = changedSteps(line, prev).size;
+  if (mine) return `YOUR ${mine} NOTE${mine > 1 ? 'S' : ''} KEPT${changed ? `, ${changed} STEP${changed > 1 ? 'S' : ''} CHANGED` : ''}`;
+  return changed ? `THE LINE THAT PLAYS, ${changed} STEP${changed > 1 ? 'S' : ''} CHANGED` : 'THE LINE THAT PLAYS';
+}
+
+/** Le rythme d'une ligne, lisible : ses notes et ses silences par temps (x . -), quatre groupes. */
+function rhythmOf(line: readonly BassStep[]): string {
+  const g = line.map((s) => (s.kind === 'note' ? 'X' : s.kind === 'tie' ? '-' : '.')).join('');
+  return `${g.slice(0, 4)} ${g.slice(4, 8)} ${g.slice(8, 12)} ${g.slice(12, 16)}`;
+}
+
+/** Le rouleau de l'ecran : une barre par note a sa hauteur, longue de gate (liaison, SLIDE : jusqu'a la suivante) ; hot : les pas a montrer en plein. */
+function roll(p: Pic, steps: readonly BassStep[], tones: readonly number[], gate: number, y0: number, y1: number, hot: ReadonlySet<number> = new Set()): void {
   const semis = semisOf(steps, tones);
   const ns = semis.filter((m): m is number => m !== null);
   let lo = ns.length ? Math.min(...ns) : 0;
@@ -305,7 +333,7 @@ function roll(p: Pic, steps: readonly BassStep[], tones: readonly number[], gate
       acc = steps[k].acc;
       break;
     }
-    p.p(rbox(xa, yOf(m) - 3.5, xb - xa, 7, 2), acc ? 'hot' : 'main', true);
+    p.p(rbox(xa, yOf(m) - 3.5, xb - xa, 7, 2), (hot.size ? hot.has(i) : acc) ? 'hot' : 'main', true);
     const m2 = semis[i + 1];
     if (s.slide && nx.kind === 'note' && i < BASS_STEPS - 1 && m2 !== null && m2 !== undefined) p.p(seg(xb - 1, yOf(m), x + PITCH + 2, yOf(m2)), 'ghost');
   }
@@ -710,47 +738,59 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
   },
 
   /* ----- GENERATOR ----- */
-  style(values) {
+  // La vraie ligne (2026-10-09, Mika : "je ne vois pas ce que STYLE et DENSITY font ; j'aime bien l'image qu'il y a dans
+  // DENSITY") : les seize pas qui jouent, ce que le dernier cran a ajoute en plein (hot), ce qu'il a retire en
+  // pointille ; sans ligne (une carte sans etat), une ligne typique du generateur comme avant
+  style(values, c) {
     const p = new Pic();
     const st = styleOf(values);
+    const line = c.steps ?? styleLine(st);
     beats(p);
-    roll(p, styleLine(st), SCALE_TONES.MINOR, GATE[st], Y0, Y1);
-    p.label(`GATE ${Math.round(GATE[st] * 100)} %`, X0, TOP);
-    p.label('FACTORY LINE', X0, BOT);
+    roll(p, line, SCALE_TONES.MINOR, gateOf(values), Y0, Y1, changedSteps(line, c.prev));
+    p.label(`GATE ${Math.round(gateOf(values) * 100)} %  ${rhythmOf(line)}`, X0, TOP);
+    p.label(c.steps ? lineNote(line, c.prev) : 'FACTORY LINE', X0, BOT);
     return valueOf(p, 'style', values).done();
   },
-  density(values) {
+  density(values, c) {
     const p = new Pic();
-    const t = typical(values, countNotes);
-    cells(p, t.line, 42, 34, () => true);
-    p.label(styleOf(values) === 'SUB' ? `${about(t.mean)} CHANGES / BAR` : `${about(t.mean)} NOTES / BAR`, X0, TOP);
-    p.label('A TYPICAL GEN LINE', X0, BOT);
+    const line = c.steps ?? typical(values, countNotes).line;
+    const prev = c.prev;
+    const n = countNotes(line);
+    // Les notes en plein, comme l'image d'avant (Mika l'aime) ; apres un cran, celles qui viennent d'arriver seules
+    const added = prev ? line.map((s, i) => s.kind === 'note' && prev[i]?.kind !== 'note') : [];
+    const any = added.some(Boolean) || (!!prev && prev.some((q, i) => q.kind === 'note' && line[i]?.kind !== 'note'));
+    cells(p, line, 42, 34, (_s, i) => !any || !!added[i]);
+    // Ce qui vient de partir : la case en pointille
+    if (prev) for (let i = 0; i < BASS_STEPS; i += 1) if (prev[i]?.kind === 'note' && line[i]?.kind !== 'note') p.p(rbox(X0 + i * PITCH + 2, 43, PITCH - 4, 32, 2), 'dash');
+    const diff = prev ? n - countNotes(prev) : 0;
+    p.label(`${n} ${styleOf(values) === 'SUB' ? 'CHANGES' : 'NOTES'} / BAR${diff ? `  ${diff > 0 ? '+' : ''}${diff}` : ''}`, X0, TOP);
+    p.label(c.steps ? lineNote(line, prev) : 'A TYPICAL GEN LINE', X0, BOT);
     return valueOf(p, 'density', values).done();
   },
-  slides(values) {
+  slides(values, c) {
     const p = new Pic();
-    const t = typical(values, countSlides);
-    cells(p, t.line, 44, 30, () => false);
-    slideMarks(p, t.line, 44, 30, 'hot');
-    p.label(`${about(t.mean)} SLIDES / BAR, ${styleOf(values)}`, X0, TOP);
-    p.label('A TYPICAL GEN LINE', X0, BOT);
+    const line = c.steps ?? typical(values, countSlides).line;
+    cells(p, line, 44, 30, () => false);
+    slideMarks(p, line, 44, 30, 'hot');
+    p.label(`${countSlides(line)} SLIDES / BAR, ${styleOf(values)}`, X0, TOP);
+    p.label(c.steps ? lineNote(line, c.prev) : 'A TYPICAL GEN LINE', X0, BOT);
     return valueOf(p, 'slides', values).done();
   },
-  accents(values) {
+  accents(values, c) {
     const p = new Pic();
-    const t = typical(values, countAccents);
+    const line = c.steps ?? typical(values, countAccents).line;
     for (let i = 0; i < BASS_STEPS; i += 1) {
-      const s = t.line[i];
+      const s = line[i];
       const x = X0 + i * PITCH + 1;
       if (s.kind === 'off') p.p(rbox(x, 42, PITCH - 2, 34, 2), 'grid');
       else if (s.kind === 'tie') p.p(rbox(x, 52, PITCH - 2, 14, 1.5), 'ghost', true);
       else p.p(rbox(x, 42, PITCH - 2, 34, 2), s.acc ? 'hot' : 'ghost', true);
     }
-    p.label(`${about(t.mean)} ACCENTS / BAR`, X0, TOP);
-    p.label('A TYPICAL GEN LINE', X0, BOT);
+    p.label(`${countAccents(line)} ACCENTS / BAR`, X0, TOP);
+    p.label(c.steps ? lineNote(line, c.prev) : 'A TYPICAL GEN LINE', X0, BOT);
     return valueOf(p, 'accents', values).done();
   },
-  range(values) {
+  range(values, c) {
     const p = new Pic();
     const range = stepOf('range', values.range) + 1;
     const top = 39;
@@ -760,13 +800,13 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
       p.p(seg(X0, sy(12 * o), X1, sy(12 * o)), o === range ? 'hot' : 'grid');
       p.label(`${o} OCT`, X1, sy(12 * o) - 3, 'end');
     }
-    const line = generate(genOf(values, mulberry(11)));
+    const line = c.steps ?? generate(genOf(values, mulberry(11)));
     const semis = semisOf(line, SCALE_TONES[BASS_SCALES[stepOf('scale', values.scale)]]);
     semis.forEach((m, i) => {
       if (m === null || line[i].kind !== 'note') return;
       p.p(rbox(X0 + i * PITCH + 1, sy(m) - 2.5, PITCH - 2, 5, 1.5), 'main', true);
     });
-    p.label('A TYPICAL GEN LINE', X0, BOT);
+    p.label(c.steps ? lineNote(line, c.prev) : 'A TYPICAL GEN LINE', X0, BOT);
     return valueOf(p, 'range', values).done();
   },
   root(values, c) {
@@ -1077,8 +1117,10 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
     p.p(arrow(68, 48, 94, 48, 5), 'main').p(arrow(146, 48, 172, 48, 5), 'main');
     p.p('M198 90Q120 112 42 90', 'main').p(tip(50, 94, 42, 90, 5), 'main');
     p.label('OFF', 42, 82, 'middle').label('NOTE', 120, 82, 'middle').label('TIE', 198, 82, 'middle');
-    p.label('TAP', X0, TOP);
-    p.label(PORTRAIT ? 'HOLD + DRAG A VALUE: LOCK' : 'HOLD + TURN A KNOB: LOCK', X1, TOP, 'end');
+    // 2026-10-09 (l'etape 2) : la tape met le pas en P-LOCK, la suivante fait le tour NOTE, TIE, OFF ; les encodeurs de
+    // la face ne verrouillent plus rien (les FX globaux)
+    p.label('TAP: P-LOCK', X0, TOP);
+    p.label('AGAIN: NOTE, TIE, OFF', X1, TOP, 'end');
     return p.done();
   },
   clear(_values, c) {
@@ -1294,7 +1336,7 @@ function pageGrid(page: BassPageId): BassDiagram {
       p.label(words.slice(1).join(' '), x + 4, y + bh - 6);
     } else p.label(words[0], x + 4, y + bh - 7);
   });
-  p.label('ENCODERS A TO H', X0, TOP);
+  p.label(page === 'env' ? 'SCREEN VALUES A TO E, THE ENVELOPE IN F G H' : 'SCREEN VALUES A TO H', X0, TOP);
   return p.done();
 }
 
