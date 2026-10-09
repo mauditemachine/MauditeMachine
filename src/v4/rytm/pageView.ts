@@ -23,11 +23,25 @@
  *   verrouillable : NO LOCK) ;
  * - en lecture hors LOCK, flash : le pas qui joue a un verrou pour ce bloc,
  *   le bloc montre sa valeur verrouillee en negatif le temps du pas.
+ *
+ * Les deux couches (2026-10-08, l'etape R3) : un bloc d'une couche qui ne
+ * joue pas (la couche SYNTH a LEVEL 0, la couche SAMPLE sur OFF ou a 0) est
+ * en retrait (quiet), sauf MACHINE, SAMPLE et les LEVEL (ils la rallument) ;
+ * ATTACK et DRIVE du kick, SNAPPY de la caisse claire, qui reglent les deux
+ * couches, portent BOTH. Le pas verrouille compte : une couche rallumee sur
+ * ce pas n'est pas en retrait.
+ * Revue de R3 (2026-10-08) : MACHINE se met en retrait avec sa couche, BOTH
+ * quand la voix se tait (ses deux couches muettes) ; un sample emprunte a une
+ * autre famille par un verrou joue seul (sa synthese en retrait sur ce pas) ;
+ * les blocs de couche des charleys et des toms, partages par CH et OH, TOM et
+ * HT, portent CH+OH ou TOM+HT (hors LOCK : un verrou n'est qu'a sa voix) ;
+ * CY, sans couches, ne le dit qu'une fois (MACHINE : ONE SOUND, SAMPLE : LOCK
+ * ANY, un sample d'une autre voix se verrouille).
  */
 
-import { anyDialValue, dialRange, dialSteps, dialUnit, dialValueText, kitIdOf, pageLockView, stepVelocityOf, type DialId } from '../actions';
-import type { StepLock } from '../audio/locks';
-import { familyOf, isFamily, kitSoundIndex, kitSteps } from '../audio/kit';
+import { anyDialValue, dialRange, dialSteps, dialUnit, dialValueText, kitIdOf, layerIdOf, pageLockView, stepPlays, stepVelocityOf, type DialId } from '../actions';
+import { lockOf, type StepLock } from '../audio/locks';
+import { familyOf, isFamily, kitSoundIndex, kitSteps, type KitFamily } from '../audio/kit';
 import { pattern } from '../audio/pattern';
 import type { ShotId } from '../audio/shotsdsp';
 import type { RytmPageState } from '../state/rytmPage';
@@ -72,6 +86,8 @@ export interface Block {
   lock: BlockLock;
   /** en lecture : la valeur verrouillee du pas qui joue */
   flash: boolean;
+  /** sa couche ne joue pas (R3) : en retrait */
+  quiet: boolean;
 }
 
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
@@ -80,12 +96,19 @@ const clamp01 = (v: number): number => Math.max(0, Math.min(1, v));
 /** Le bloc d'un emplacement (k : son rang), pour la voix choisie et le pas choisi. */
 export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, sel: number, echo = false, mode: BlockMode | null = null): Block {
   const b = baseBlock(slot, k, inst, sel, echo);
+  if (b.state === 'live' && inst) {
+    if (slot.both) b.quiet = layerQuiet('synth', inst, mode) && layerQuiet('sample', inst, mode);
+    else if (slot.layer && !slot.level) b.quiet = layerQuiet(slot.layer, inst, mode);
+  }
+  // Le reglage partage par la famille (CH+OH) ne vaut, en LOCK, que pour le pas de cette voix
+  if (mode?.kind === 'lock' && b.tag && b.tag === SHARED_TAG[inst ? (familyOf(inst as ShotId) ?? '') : '']) b.tag = '';
   if (!mode || b.state === 'empty' || b.state === 'soon') return b;
-  // SOUND d'une voix a un seul son (CY) : sans choix de son a elle, mais un son d'une autre famille se verrouille
-  if (b.state === 'off' && inst && slot.lock === 'snd' && slot.target === 'vsound' && (mode.kind === 'lock' || !!mode.lock?.snd)) {
+  // SOUND (R2) ou SAMPLE (R3) d'une voix sans choix de son a elle (CY), ou sans sample a elle : un sample d'une autre
+  // famille se verrouille (le sample lock)
+  if (b.state === 'off' && inst && slot.lock === 'snd' && (slot.target === 'vsound' || slot.target === 'smpl:sample') && (mode.kind === 'lock' || !!mode.lock?.snd)) {
     b.state = 'live';
-    b.text = inst;
-    b.unit = 'OWN';
+    b.text = slot.target === 'vsound' ? inst : 'OFF';
+    b.unit = slot.target === 'vsound' ? 'OWN' : 'LOCK ANY';
     b.notches = 0;
   }
   if (mode.kind === 'lock') {
@@ -127,6 +150,20 @@ export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, sel: num
   return b;
 }
 
+/**
+ * Une couche muette (R3) : la couche SYNTH a 0, la couche SAMPLE sur OFF ou
+ * a 0 ; le pas montre (LOCK, flash) compte avec ses verrous (sa MACHINE n'y
+ * change rien, son LEVEL ou son SAMPLE si).
+ */
+function layerQuiet(layer: 'synth' | 'sample', inst: Inst, mode: BlockMode | null): boolean {
+  const lk = mode ? (mode.kind === 'lock' ? lockOf(pattern.get().locks, inst, mode.step) : mode.lock) : null;
+  const p = stepPlays(inst, lk);
+  return layer === 'synth' ? !p.synth : !p.smp;
+}
+
+/** L'etiquette des reglages de couche partages par deux voix (les couches sont celles de la famille, audio/kit.ts). */
+const SHARED_TAG: Readonly<Record<string, string>> = { hh: 'CH+OH', tom: 'TOM+HT' };
+
 /** Le bloc d'un emplacement, valeurs de la voix (hors verrous). */
 function baseBlock(slot: PageSlot, k: number, inst: Inst | null, sel: number, echo: boolean): Block {
   const b: Block = {
@@ -146,13 +183,17 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, sel: number, ec
     echo,
     lock: 'none',
     flash: false,
+    quiet: false,
   };
   if (!slot.label) {
     b.state = 'empty';
     b.text = '';
     return b;
   }
-  b.tag = b.noBd ? 'NO BD' : b.all ? 'ALL' : slot.voiceTag && inst ? inst : '';
+  const fam: KitFamily | null = inst ? familyOf(inst as ShotId) : null;
+  // BOTH : les deux couches (une voix sans couches, CY, n'en a qu'une) ; CH+OH, TOM+HT : la couche de deux voix
+  const shared = slot.layer && fam ? (SHARED_TAG[fam] ?? '') : '';
+  b.tag = b.noBd ? 'NO BD' : b.all ? 'ALL' : slot.voiceTag && inst ? inst : slot.both && fam ? 'BOTH' : shared;
   const t = slot.target;
   if (t === null) {
     b.unit = 'SOON';
@@ -188,6 +229,8 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, sel: number, ec
     b.unit = dialUnit(pk);
     if (text === '--') {
       b.state = 'off';
+      // Une voix sans couches (CY) : un sample d'une autre voix se verrouille quand meme (le sample lock)
+      if (!fam) b.unit = 'LOCK ANY';
       return b;
     }
     const [lo, hi] = dialRange(pk);
@@ -203,7 +246,21 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, sel: number, ec
   const text = dialValueText(id);
   if (text === '--') {
     b.state = 'off';
-    b.unit = inst ? `${inst} HAS ONE SOUND` : 'PICK A VOICE';
+    // CY (revue de R3) : ONE SOUND une fois (MACHINE), les autres blocs de couche juste en retrait
+    b.unit = !inst ? 'PICK A VOICE' : layerIdOf(id) && layerIdOf(id) !== 'mach' ? '' : 'ONE SOUND';
+    return b;
+  }
+  // Un reglage de couche (R3) : son nombre et son unite tels que actions.ts les ecrit (909, +5, 216 MS, -3.2 DB)
+  if (layerIdOf(id)) {
+    const [lo, hi] = dialRange(id);
+    const v = anyDialValue(id);
+    b.state = 'live';
+    b.text = text;
+    b.unit = dialUnit(id);
+    b.value = v;
+    b.course = hi > lo ? clamp01((v - lo) / (hi - lo)) : 0;
+    b.bipolar = lo < 0;
+    b.notches = dialSteps(id);
     return b;
   }
   const [lo, hi] = dialRange(id);

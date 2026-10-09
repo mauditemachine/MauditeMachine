@@ -67,6 +67,7 @@ import { playhead } from '../state/playhead';
 import { lcd } from '../state/lcd';
 import { rytmPage } from '../state/rytmPage';
 import { rytmLock } from '../state/rytmLock';
+import { rytmInfos } from '../state/rytmInfos';
 import { lockMask } from '../audio/locks';
 import { section } from '../state/section';
 import { voices } from '../state/voices';
@@ -134,7 +135,7 @@ import { Orbit } from './orbit';
 import { Pads } from './pads';
 import { Pcb } from './pcb';
 import { RYTM_OPEN_FRAME, RytmTweaks, rytmTweakClear } from './rytmTweaks';
-import { Screen } from './screen';
+import { Screen, blockSpot, infoKeySpot } from './screen';
 import { BackPlate } from './backplate';
 import { BUTTON_INDEX, Sequencer3D, type TransportButton } from './sequencer3d';
 import { PanelSilk, fontsReady, makeBrushTexture, whenFonts, whenLogos } from './silk';
@@ -480,6 +481,12 @@ export class Stage {
   private seekDef!: HotspotDef;
   /** les touches de l'ecran (mode presets, 2026-10-04) */
   private lcdDefs: HotspotDef[] = [];
+  /** La touche i de l'ecran du MM-RYTM (R4, 2026-10-08) : INFOS */
+  private infoDef!: HotspotDef;
+  /** le centre de sa zone, blocs eteints et blocs vivants (INFOS allume, vue PAGE : au telephone, il s'ecarte du bloc D) */
+  private infoAt = { off: { x: 0, z: 0 }, blocks: { x: 0, z: 0 } };
+  /** Les huit blocs de la vue PAGE (R4) : vivants seulement INFOS allume, leur carte au survol ou au toucher */
+  private blockDefs: HotspotDef[] = [];
   /** les six onglets de page du pied de l'ecran en vue PAGE (desktop, 2026-10-08) : des touches de page */
   private tabDefs: HotspotDef[] = [];
   private unsubPresets: () => void = () => undefined;
@@ -789,6 +796,18 @@ export class Stage {
         ...(['save', 'name', 'del', 'exit'] as const).map((k, i) => box(k, i / 4, (i + 1) / 4, band, TH, false)),
       ];
       this.hit.add(this.lcdDefs);
+      // La touche i de l'ecran (R4, 2026-10-08, state/rytmInfos.ts) : un disque sur son coin, un peu plus haut que
+      // l'ecran (il passe devant lcd-open et les presets) ; toujours la, sur toutes les vues (scene/screen.ts INFO_KEY)
+      {
+        const ik = infoKeySpot(mobile);
+        const r = ik.r * OLED.w;
+        this.infoDef = { id: 'lcd-i', kind: 'rinfo', layer: plateau, shape: 'disc', x: xAt(ik.u), z: zAt(ik.v * TH), hx: r, hz: r, y0: OLED.y - 0.005, y1: OLED.y + 0.045, enabled: true };
+        this.hit.add([this.infoDef]);
+        // Au telephone, INFOS allume, les blocs ont leur zone : le disque monte dans le coin du verre (revue de R4 : il mordait
+        // le coin du bloc D, une tape la eteignait INFOS au lieu de montrer la carte du bloc) ; syncScreenTabs passe de l'un a l'autre
+        const ib = infoKeySpot(mobile, true);
+        this.infoAt = { off: { x: xAt(ik.u), z: zAt(ik.v * TH) }, blocks: { x: xAt(ib.u), z: zAt(ib.v * TH) } };
+      }
       // Les onglets du pied de la vue PAGE (scene/screen.ts paintFoot) : une touche de page chacun,
       // allumes seulement quand l'ecran les dessine (syncScreenTabs)
       const P = OLED_PAGE_ZONES;
@@ -810,6 +829,26 @@ export class Stage {
         enabled: false,
       }));
       this.hit.add(this.tabDefs);
+      // Les huit blocs de la vue PAGE (R4, 2026-10-08) : INFOS allume (syncScreenTabs), survoler ou toucher un bloc montre
+      // la carte de son encodeur ; eteint, l'ecran ne prend aucun pointeur de plus
+      this.blockDefs = Array.from({ length: 8 }, (_, k) => {
+        const b = blockSpot(k);
+        return {
+          id: `lcd-blk-${k}`,
+          kind: 'rblock' as const,
+          index: k,
+          layer: plateau,
+          shape: 'box' as const,
+          x: (xAt(b.u0) + xAt(b.u1)) / 2,
+          z: (zAt(b.v0 * TH) + zAt(b.v1 * TH)) / 2,
+          hx: (xAt(b.u1) - xAt(b.u0)) / 2,
+          hz: (zAt(b.v1 * TH) - zAt(b.v0 * TH)) / 2,
+          y0: OLED.y - 0.005,
+          y1: OLED.y + 0.03,
+          enabled: false,
+        };
+      });
+      this.hit.add(this.blockDefs);
     }
     // Les volumes pleins de la machine : ils cachent ce qui est derriere eux
     // (picking, ancre de la trace) et dessinent sa silhouette (fond ou machine)
@@ -824,7 +863,7 @@ export class Stage {
     // Le MM-VOYAGER (2026-10-03) : a droite de la 808 sur la meme table ;
     // ses objets et ses volumes apres ceux de la 808, chacun marque de sa machine
     if (VOYAGER) {
-      for (const d of [...padDefs, ...this.chipDefs, ...this.tweakDefs, ...encDefs, ...seqDefs, this.seekDef, ...this.lcdDefs, ...this.tabDefs]) d.machine = 'mm808';
+      for (const d of [...padDefs, ...this.chipDefs, ...this.tweakDefs, ...encDefs, ...seqDefs, this.seekDef, ...this.lcdDefs, this.infoDef, ...this.tabDefs, ...this.blockDefs]) d.machine = 'mm808';
       const voy = new VoyagerRig({
         mobile,
         anisotropy: aniso,
@@ -1173,7 +1212,27 @@ export class Stage {
         changed = true;
       }
     }
+    // Les blocs (R4) : INFOS allume et la vue PAGE dessinee (pas HOME, EDIT, les presets)
+    const blk = rytmInfos.isOn() && this.screen.info.view === 'page';
+    let gone = false;
+    for (const d of this.blockDefs) {
+      if (d.enabled !== blk) {
+        d.enabled = blk;
+        changed = true;
+        gone = !blk;
+      }
+    }
+    const at = blk ? this.infoAt.blocks : this.infoAt.off;
+    if (this.infoDef && (this.infoDef.x !== at.x || this.infoDef.z !== at.z)) {
+      this.infoDef.x = at.x;
+      this.infoDef.z = at.z;
+      changed = true;
+    }
     if (changed) this.hit.invalidate();
+    // Les blocs partis (H, EDIT, les presets ; revue de R4) : la carte d'un bloc ne reste pas sur une vue qui ne le montre plus
+    // (la souris immobile ne repasse pas par le survol)
+    const shown = rytmInfos.get().id;
+    if (gone && shown !== null && shown.startsWith('lcd-blk-')) rytmInfos.hide();
   }
 
   /**
@@ -2460,6 +2519,8 @@ export class Stage {
     if (this.voy && this.voy.setHover(id !== null && id.startsWith('v') ? id : null)) changed = true;
     if (this.dj && this.dj.setHover(id !== null && id.startsWith('dj-') ? id : null)) changed = true;
     if (this.bass && this.bass.setHover(id !== null && id.startsWith('bass-') ? id : null)) changed = true;
+    // INFOS du MM-RYTM (R4, 2026-10-08) : la carte de la commande survolee (le store ne garde que les siennes)
+    rytmInfos.hover(id);
     const pad = id !== null && id.startsWith('pad-') ? (id.slice(4) as PadId) : null;
     if (this.pads.setHover(pad)) changed = true;
     // Puce du PCB (vue ouverte)

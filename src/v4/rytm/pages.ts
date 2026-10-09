@@ -37,6 +37,25 @@
  * TUNE (SRC), PAN (AMP) et START (SMPL) arrivent avec, pour toutes les voix ;
  * depuis la revue de R2, les potards de la machine (K.TUNE ATTACK DECAY
  * DRIVE, SNAPPY, GATE) et les envois DELAY et REVERB de la voix aussi.
+ *
+ * Les deux couches (2026-10-08, l'etape R3, Mika : "une machine pour la
+ * configuration a la main du Voice pour avoir des samples et aussi une
+ * configuration digitale du BD ou SD.. comme la ANALOG Rytm") : SRC est la
+ * couche SYNTH de la voix, SMPL sa couche SAMPLE, chacune son LEVEL en H,
+ * dans l'ordre de l'Analog Rytm :
+ * - SRC : A MACHINE (909, 808, MM), puis ses potards (le KICK : TUNE ATTACK
+ *   SWEEP / DECAY DRIVE ; la caisse claire : TUNE SNAPPY TONE / DECAY GATE ;
+ *   le clap : GATE ; les autres : le TUNE de la voix en B), H LEVEL. ATTACK et
+ *   DRIVE du kick, SNAPPY et GATE de la caisse claire reglent aussi la couche
+ *   SAMPLE (both : BOTH a l'ecran) ; G, pour BD et SD : PITCH, la hauteur de
+ *   toute la voix (le TUNE de R2, revue de R3) ;
+ * - SMPL : A TUNE, B FINE, C REV / D SAMPLE (OFF ou un echantillon), E START,
+ *   F LEN, H LEVEL ;
+ * - STRETCH (toute la machine) passe sur TRIG, a cote de SWING ;
+ * - AMP D : START, le debut de tout le coup (le START de R2, revue de R3).
+ * Une couche muette (LEVEL 0, SAMPLE OFF) : ses blocs en retrait (layer) ;
+ * BOTH en retrait quand la voix se tait. Les couches sont celles de la
+ * famille : CH et OH, TOM et HT les partagent (l'ecran le dit, CH+OH).
  */
 
 import type { DialId } from '../actions';
@@ -75,6 +94,9 @@ export const FOLLOW_TOUCH = false;
  */
 export type SlotTarget = DialId | 'step:vel' | 'smpl:sample';
 
+/** La couche d'un bloc (R3) : ses blocs se mettent en retrait quand elle ne joue pas. */
+export type SlotLayer = 'synth' | 'sample';
+
 /**
  * Le dessin d'un bloc : les images des cartes de l'ecran (level, tone,
  * decay, swing, stretch), des crans (notch), un petit potard (bar), un
@@ -95,6 +117,11 @@ export interface PageSlot {
   voiceTag?: boolean;
   /** ce qu'il verrouille sur le pas en LOCK (2026-10-08) ; absent : pas verrouillable (encore) */
   lock?: LockKey | 'vel';
+  /** la couche qu'il regle (R3) ; both : les deux (ATTACK et DRIVE du kick, SNAPPY de la caisse claire) */
+  layer?: SlotLayer;
+  both?: boolean;
+  /** le LEVEL de sa couche (R3) : jamais en retrait, il la rallume */
+  level?: boolean;
 }
 
 export const isRytmPage = (v: unknown): v is RytmPageId => RYTM_PAGES.some((p) => p.id === v);
@@ -114,6 +141,10 @@ const voiceFxSlot = (label: string, target: SlotTarget, lock?: LockKey): PageSlo
 /** Un reglage de voix verrouillable pas par pas (2026-10-08). */
 const lockable = (label: string, target: SlotTarget, draw: SlotDraw, lock: LockKey | 'vel'): PageSlot => ({ ...live(label, target, draw), lock });
 
+/** Un reglage d'une couche (R3), verrouillable. */
+const layered = (label: string, target: SlotTarget, draw: SlotDraw, lock: LockKey, layer: SlotLayer, extra: Partial<PageSlot> = {}): PageSlot => ({ ...lockable(label, target, draw, lock), layer, ...extra });
+
+/** TRIG ; STRETCH (toute la machine) y vient de SRC en R3, a cote de SWING. */
 const TRIG: readonly PageSlot[] = [
   lockable('VEL', 'step:vel', 'level', 'vel'),
   soon('PROB'),
@@ -121,16 +152,43 @@ const TRIG: readonly PageSlot[] = [
   soon('COND'),
   soon('RTRG'),
   soon('RTIM'),
-  EMPTY,
+  live('STRETCH', 'stretch', 'stretch', 'all'),
   live('SWING', 'swing', 'swing', 'all'),
 ];
 
-/** SMPL, dans l'ordre de l'Analog Rytm : TUNE FINE BR SAMPLE, START END LOOP LEVEL. */
-const SMPL: readonly PageSlot[] = [soon('TUNE'), soon('FINE'), soon('BR'), lockable('SAMPLE', 'smpl:sample', 'notch', 'snd'), lockable('START', 'vstart', 'start', 'start'), soon('END'), soon('LOOP'), soon('LEVEL')];
+/**
+ * SMPL, la couche SAMPLE (R3), dans l'ordre de l'Analog Rytm : TUNE FINE REV
+ * SAMPLE, START LEN (LOOP plus tard) LEVEL ; REV a la place de BR.
+ */
+const SMPL: readonly PageSlot[] = [
+  layered('TUNE', 'l:tune', 'barc', 'stune', 'sample'),
+  layered('FINE', 'l:fine', 'barc', 'sfine', 'sample'),
+  layered('REV', 'l:rev', 'notch', 'srev', 'sample'),
+  { ...lockable('SAMPLE', 'smpl:sample', 'notch', 'snd'), layer: 'sample', level: true },
+  layered('START', 'l:start', 'start', 'sstart', 'sample'),
+  layered('LEN', 'l:len', 'decay', 'slen', 'sample'),
+  soon('LOOP'),
+  layered('LEVEL', 'l:lev', 'level', 'slev', 'sample', { level: true }),
+];
 
 const FLTR: readonly PageSlot[] = [soon('ATK'), soon('DEC'), EMPTY, EMPTY, live('TONE', 'tone', 'tone'), soon('RESO'), soon('TYPE'), soon('ENV')];
 
-const AMP: readonly PageSlot[] = [soon('ATK'), soon('HOLD'), lockable('DEC', 'vdecay', 'decay', 'decay'), EMPTY, EMPTY, EMPTY, lockable('PAN', 'vpan', 'barc', 'pan'), lockable('VOL', 'vol', 'level', 'level')];
+/**
+ * AMP ; D : START, le debut de tout le coup de la voix (R2, les deux couches :
+ * BOTH), revenu sur la face a la revue de R3 (2026-10-08 : sans bloc, son
+ * verrou de R2 et sa valeur d'un preset jouaient sans se voir) ; START de
+ * SMPL n'est que celui de la couche SAMPLE.
+ */
+const AMP: readonly PageSlot[] = [
+  soon('ATK'),
+  soon('HOLD'),
+  lockable('DEC', 'vdecay', 'decay', 'decay'),
+  { ...lockable('START', 'vstart', 'start', 'start'), both: true },
+  EMPTY,
+  EMPTY,
+  lockable('PAN', 'vpan', 'barc', 'pan'),
+  lockable('VOL', 'vol', 'level', 'level'),
+];
 
 /** En haut les effets de la voix, dessous ceux de toute la machine, colonne par colonne. */
 const FX: readonly PageSlot[] = [
@@ -144,13 +202,41 @@ const FX: readonly PageSlot[] = [
   live('REVERB', 'reverb', 'bar', 'all', true),
 ];
 
-/** SRC : C a F selon la famille de la voix (le KICK, la caisse claire, le clap ; rien pour les autres). */
+const synth = (label: string, target: SlotTarget, draw: SlotDraw, lock: LockKey, both = false): PageSlot => layered(label, target, draw, lock, 'synth', both ? { both } : {});
+
+/**
+ * SRC, la couche SYNTH (R3) : B a G selon la famille de la voix, comme les
+ * machines de l'Analog Rytm (le KICK, la caisse claire, le clap ; les autres
+ * le TUNE de la voix en B). Les potards de la machine se verrouillent pas par
+ * pas (revue de R2, Mika : "le kick peut etre parametre comme une machine").
+ */
 function srcMiddle(f: KitFamily | null): readonly PageSlot[] {
-  // Les potards de la machine se verrouillent pas par pas (revue de R2, Mika : "le kick peut etre parametre comme une machine")
-  if (f === 'bd') return [lockable('K.TUNE', 'r:tune', 'barc', 'ktune'), lockable('ATTACK', 'r:attack', 'bar', 'kattack'), lockable('DECAY', 'r:decay', 'decay', 'kdecay'), lockable('DRIVE', 'r:drive', 'bar', 'kdrive')];
-  if (f === 'sd') return [lockable('SNAPPY', 'r:snappy', 'bar', 'snappy'), lockable('GATE', 'r:gate', 'notch', 'gate'), EMPTY, EMPTY];
-  if (f === 'cp') return [EMPTY, lockable('GATE', 'r:gate', 'notch', 'gate'), EMPTY, EMPTY];
-  return [EMPTY, EMPTY, EMPTY, EMPTY];
+  // G (revue de R3) : PITCH, la hauteur de toute la voix (le TUNE de R2, coup par coup, les deux couches) ; B est le
+  // TUNE de la machine du KICK et de la caisse claire
+  const pitch: PageSlot = { ...lockable('PITCH', 'vtune', 'barc', 'tune'), both: true };
+  if (f === 'bd')
+    return [
+      synth('TUNE', 'r:tune', 'barc', 'ktune'),
+      synth('ATTACK', 'r:attack', 'bar', 'kattack', true),
+      synth('SWEEP', 'r:sweep', 'bar', 'ksweep'),
+      synth('DECAY', 'r:decay', 'decay', 'kdecay'),
+      synth('DRIVE', 'r:drive', 'bar', 'kdrive', true),
+      pitch,
+    ];
+  // GATE passe aussi sur le sample de la caisse claire depuis la revue de R3 (BOTH)
+  if (f === 'sd')
+    return [
+      synth('TUNE', 'r:sdtune', 'barc', 'sdtune'),
+      synth('SNAPPY', 'r:snappy', 'bar', 'snappy', true),
+      synth('TONE', 'r:sdtone', 'barc', 'sdtone'),
+      synth('DECAY', 'r:sddecay', 'decay', 'sddecay'),
+      synth('GATE', 'r:gate', 'notch', 'gate', true),
+      pitch,
+    ];
+  // Le TUNE de la voix (2026-10-08, R2) : toute la voix, au demi-ton ; le clap garde GATE
+  const tune = lockable('TUNE', 'vtune', 'barc', 'tune');
+  if (f === 'cp') return [tune, EMPTY, synth('GATE', 'r:gate', 'notch', 'gate'), EMPTY, EMPTY, EMPTY];
+  return [tune, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY];
 }
 
 const SRC_CACHE = new Map<KitFamily | 'none', readonly PageSlot[]>();
@@ -160,8 +246,11 @@ function src(inst: Inst | null): readonly PageSlot[] {
   const key = f ?? 'none';
   let slots = SRC_CACHE.get(key);
   if (!slots) {
-    // A : le son de la famille (le choix de son du kit), B : TUNE (toutes les voix, au demi-ton, 2026-10-08), G : vide (START est sur SMPL)
-    slots = [lockable('SOUND', 'vsound', 'notch', 'snd'), lockable('TUNE', 'vtune', 'barc', 'tune'), ...srcMiddle(f), EMPTY, live('STRETCH', 'stretch', 'stretch', 'all')];
+    // A : la MACHINE de la couche SYNTH (909, 808, MM ; CY : sa synthese a elle, sans choix), H : son LEVEL. La MACHINE
+    // se met en retrait avec sa couche (revue de R3 : un grand 909 brillant sur le kit de depart, ou le sample joue seul)
+    const machine: PageSlot = { ...lockable('MACHINE', 'l:mach', 'notch', 'mach'), layer: 'synth' };
+    const level = f ? synth('LEVEL', 'l:syn', 'level', 'syn') : EMPTY;
+    slots = [machine, ...srcMiddle(f), f ? { ...level, level: true } : EMPTY];
     SRC_CACHE.set(key, slots);
   }
   return slots;
@@ -212,8 +301,9 @@ export function pageSlots(page: RytmPageId, inst: Inst | null): readonly PageSlo
 export function slotOf(t: SlotTarget, inst: Inst | null, page?: RytmPageId): { page: RytmPageId; k: number } | null {
   const f = inst ? familyOf(inst as ShotId) : null;
   const target: SlotTarget = t.startsWith('r:') && f !== null && t.slice(2) === f ? 'vsound' : t;
-  // Le choix du son : SOUND (SRC) et SAMPLE (SMPL) en sont deux vues
-  const same = (s: PageSlot): boolean => s.target === target || (target === 'vsound' && s.target === 'smpl:sample') || (target === 'smpl:sample' && s.target === 'vsound');
+  // Le choix du son (SOUND, la plaque, R3) : MACHINE (SRC) et SAMPLE (SMPL) en sont les deux couches
+  const same = (s: PageSlot): boolean =>
+    s.target === target || (target === 'vsound' && (s.target === 'smpl:sample' || s.target === 'l:mach')) || (target === 'smpl:sample' && s.target === 'vsound');
   const order = page ? [page, ...RYTM_PAGES.map((p) => p.id).filter((id) => id !== page)] : RYTM_PAGES.map((p) => p.id);
   for (const id of order) {
     const k = pageSlots(id, inst).findIndex(same);

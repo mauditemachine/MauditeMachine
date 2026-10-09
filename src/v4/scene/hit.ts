@@ -66,6 +66,10 @@ export type HotspotKind =
   | 'vinfo'
   // MM-RYTM (2026-10-04) : les TWEAKS sous le capot (audio/kit.ts)
   | 'rknob'
+  // MM-RYTM (2026-10-08, l'etape R4) : la touche i de l'ecran, INFOS (state/rytmInfos.ts) ; les huit blocs de la vue
+  // PAGE, vivants seulement INFOS allume (leur carte)
+  | 'rinfo'
+  | 'rblock'
   // MM-RYTM (2026-10-08, facon Digitakt) : les huit potards de page (index 0 a 7), les six touches de page (rpage)
   | 'penc'
   | 'pkey'

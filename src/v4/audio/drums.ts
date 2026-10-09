@@ -36,6 +36,12 @@
  * le rendu hors ligne (renderOffline({ locks })). Sans verrou et aux
  * valeurs de depart de TUNE, PAN et START, chaque coup est exactement celui
  * d'avant (memes noeuds, memes valeurs).
+ *
+ * Les deux couches (2026-10-08, l'etape R3, audio/kit.ts) : le son d'un coup
+ * est sa couche SYNTH et sa couche SAMPLE, calculees ensemble (shotsdsp.ts
+ * renderLayers) ; le reste de la voix ne change pas (DECAY, VOL, PAN, la
+ * tranche, le kick monophonique, son bus). Un verrou de MACHINE, d'un
+ * potard, d'un echantillon ou d'une couche donne un ShotOverride (kitOverride).
  */
 
 import limiterUrl from './limiter.worklet.js?url';
@@ -44,9 +50,9 @@ import type { Inst } from '../theme';
 import { buildChorus, loadChorus, type ChorusInfo, type ChorusStage } from './chorus';
 import { buildDrive, buildFx, glide, type DriveStage, type FxChain } from './fx';
 import { pattern, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
-import { familyOf, kit, type KitFamily, type KitKnob, type KitKnobs } from './kit';
+import { kit, type KitKnob, type KitKnobs, type KitModel, type KitOverride, type Layer } from './kit';
 import { sampleByKey } from './samples';
-import { KIT_LOCK_IDS, lockOf, parseSnd, type KitLockId, type Locks, type StepLock } from './locks';
+import { KIT_LOCK_IDS, LAYER_LOCK_IDS, lockOf, parseSnd, type KitLockId, type LayerLockId, type Locks, type StepLock } from './locks';
 import { buildDelayBus, buildReverbBus, type BusInfo, type DelayBus, type LockSend, type Send, type SendBus, type SendInfo } from './sends';
 import { hitTime, snapTime } from './time';
 import { buildTone, pitchFactor, snapTone, type ToneInfo, type ToneStage } from './tone';
@@ -658,9 +664,6 @@ function chokeOH(when: number): void {
 
 /* ---------------- un coup et ses verrous (2026-10-08) ---------------- */
 
-/** Le son principal de chaque famille : celui d'un son verrouille d'une autre famille (bd BD, hh CH, tom TOM...). */
-const MAIN_SHOT: Readonly<Record<KitFamily, ShotId | null>> = { bd: 'BD', sd: 'SD', hh: 'CH', cp: 'CP', tom: 'TOM', rs: null };
-
 /**
  * Ce que joue un coup (2026-10-08, l'etape R2 des parameter locks) : son
  * son calcule (id, et son ShotOverride s'il vient d'un verrou), sa hauteur
@@ -673,6 +676,8 @@ const MAIN_SHOT: Readonly<Record<KitFamily, ShotId | null>> = { bd: 'BD', sd: 'S
 export interface HitParams {
   id: ShotId;
   ov: ShotOverride | null;
+  /** un coup de kick (la voie BD qui joue un kick : le SIDECHAIN du MM-ARP s'y cale) */
+  kick: boolean;
   pf: number;
   ts: number;
   decay: number;
@@ -681,11 +686,32 @@ export interface HitParams {
   start: number;
 }
 
-/** Le potard du kit de chaque verrou de la machine (revue de R2). */
-const KNOB_OF: Readonly<Record<KitLockId, KitKnob>> = { ktune: 'tune', kattack: 'attack', kdecay: 'decay', kdrive: 'drive', snappy: 'snappy', gate: 'gate' };
+/** Le potard du kit de chaque verrou de la machine (revue de R2 ; SWEEP et la caisse claire depuis R3). */
+const KNOB_OF: Readonly<Record<KitLockId, KitKnob>> = {
+  ktune: 'tune',
+  kattack: 'attack',
+  kdecay: 'decay',
+  kdrive: 'drive',
+  snappy: 'snappy',
+  gate: 'gate',
+  ksweep: 'sweep',
+  sdtune: 'sdtune',
+  sddecay: 'sddecay',
+  sdtone: 'sdtone',
+};
+/** Le reglage de couche de chaque verrou de couche (R3). */
+const LAYER_OF: Readonly<Record<LayerLockId, keyof Layer>> = { syn: 'syn', slev: 'lev', stune: 'tune', sfine: 'fine', sstart: 'start', slen: 'len', srev: 'rev' };
+const MACHINES: readonly string[] = ['909', '808', 'mm'];
 
-/** Les potards de la machine verrouilles sur un pas (K.TUNE, ATTACK, DECAY, DRIVE, SNAPPY, GATE) ; null : aucun. */
-function kitKnobsOf(lock: Readonly<StepLock>): KitKnobs | null {
+/**
+ * Ce qu'un pas change au kit de sa voix (R2, R3) : la MACHINE, des potards,
+ * l'echantillon de la couche SAMPLE (un sample lock ; off : muette), des
+ * reglages de couche ; null : rien (le coup du kit, ou seulement des verrous
+ * joues par la voix : VOL, DEC, PAN...).
+ */
+export function kitOverride(lock: Readonly<StepLock>): KitOverride | null {
+  let ov: KitOverride | null = null;
+  if (lock.mach && MACHINES.includes(lock.mach)) ov = { model: lock.mach as KitModel };
   let kn: KitKnobs | null = null;
   for (const id of KIT_LOCK_IDS) {
     const v = lock[id];
@@ -693,40 +719,36 @@ function kitKnobsOf(lock: Readonly<StepLock>): KitKnobs | null {
     kn = kn ?? {};
     kn[KNOB_OF[id]] = v;
   }
-  return kn;
-}
-
-/** Le son verrouille d'un pas, s'il existe encore (un echantillon parti du dossier : le son de la voix). */
-function lockedShot(base: ShotId, snd: string | undefined, kn: KitKnobs | null = null): { id: ShotId; ov: ShotOverride } | null {
-  if (!snd) return null;
-  const p = parseSnd(snd);
-  if (!p) return null;
-  const f = p.family as KitFamily;
-  if (!(f in MAIN_SHOT)) return null;
-  const isModel = p.sound === '909' || p.sound === '808' || p.sound === 'mm';
-  if (!isModel && sampleByKey(p.sound)?.family !== f) return null;
-  // La meme famille : le son de la voix (OH reste OH) ; une autre : son son principal, joue par la voix
-  const id = familyOf(base) === f ? base : MAIN_SHOT[f];
-  if (!id) return null;
-  return { id, ov: { tw: kit.tweakWith(id, p.sound, kn), sig: kit.sigWith(id, p.sound, kn) } };
+  if (kn) ov = { ...(ov ?? {}), knobs: kn };
+  let ly: Partial<Layer> | null = null;
+  for (const id of LAYER_LOCK_IDS) {
+    const v = lock[id];
+    if (v === undefined) continue;
+    ly = ly ?? {};
+    ly[LAYER_OF[id]] = v;
+  }
+  if (ly) ov = { ...(ov ?? {}), layer: ly };
+  if (lock.snd) {
+    const p = parseSnd(lock.snd);
+    // Un echantillon parti du dossier : le pas joue celui de la voix (le verrou reste, il reviendra avec lui)
+    if (p && p.sound === 'off') ov = { ...(ov ?? {}), sample: null };
+    else if (p && sampleByKey(p.sound)) ov = { ...(ov ?? {}), sample: p.sound };
+  }
+  return ov;
 }
 
 export function hitParams(inst: Inst, open: boolean, lock: Readonly<StepLock> | null, globalTone: number, globalStretch: number, fx: Readonly<VoiceFx>): HitParams {
   const base: ShotId = inst === 'CH' && open ? 'CHopen' : inst;
   const tune = lock?.tune ?? fx.tune;
   const pf = voicePitch(inst, globalTone, fx.tone) * tuneFactor(tune);
-  const hp: HitParams = { id: base, ov: null, pf, ts: voiceTime(globalStretch), decay: lock?.decay ?? fx.decay, gain: 1, pan: lock?.pan ?? fx.pan, start: lock?.start ?? fx.start };
+  const hp: HitParams = { id: base, ov: null, kick: inst === 'BD', pf, ts: voiceTime(globalStretch), decay: lock?.decay ?? fx.decay, gain: 1, pan: lock?.pan ?? fx.pan, start: lock?.start ?? fx.start };
   if (!lock) return withPanGain(hp);
-  // Les potards de la machine du pas (revue de R2) : le coup se calcule avec eux (la variante 0, prepare a l'avance)
-  const kn = kitKnobsOf(lock);
-  const snd = lockedShot(base, lock.snd, kn);
-  if (snd) {
-    hp.id = snd.id;
-    hp.ov = snd.ov;
-  } else if (kn) {
-    const f = familyOf(base);
-    const sound = f ? kit.sound(f) : 'mm';
-    hp.ov = { tw: kit.tweakWith(base, sound, kn), sig: kit.sigWith(base, sound, kn) };
+  // Ce que le pas change au kit (R2, R3) : le coup se calcule avec (la variante 0, prepare a l'avance)
+  const ko = kitOverride(lock);
+  if (ko) {
+    hp.ov = { tw: kit.tweakWith(base, ko), sig: kit.sigWith(base, ko) };
+    // Un echantillon d'une autre famille, seul, sur la voie du kick n'est pas un kick (2026-10-08, R2)
+    if (inst === 'BD') hp.kick = kit.kickWith(ko);
   } else if (lock.tune !== undefined) {
     // Une hauteur verrouillee : la variante 0 (le calcul prepare a l'avance est celui-la)
     hp.ov = { tw: kit.tweak(base), sig: kit.sig(base) };
@@ -843,7 +865,7 @@ function voice(g: Graph, inst: Inst, when: number, dest: AudioNode, hp: HitParam
   if (stopAt > 0) src.stop(stopAt);
   // Un kick : son enveloppe, a sa vitesse, avec son DECAY (le SIDECHAIN du MM-ARP) ; un son verrouille d'une
   // autre famille sur la voie du kick n'en est pas un (2026-10-08 : le SIDECHAIN suit les kicks, pas la voie)
-  const kick = inst === 'BD' && hp.id === 'BD' ? { env: kickEnvelope(shot.buf), rate: shot.rate, hold: DECAY_HOLD_S, tau, vel: 1, ...(off > 0 ? { off } : {}) } : undefined;
+  const kick = inst === 'BD' && hp.kick ? { env: kickEnvelope(shot.buf), rate: shot.rate, hold: DECAY_HOLD_S, tau, vel: 1, ...(off > 0 ? { off } : {}) } : undefined;
   return { when, srcs: [src], nodes, kick, choked, gate: ownGate, bdChoked, bdGate: ownBd };
 }
 
@@ -928,7 +950,7 @@ function prepareLocks(): void {
       if (!row) continue;
       const fx = voiceFx.of(inst);
       for (const l of Object.values(row)) {
-        if (!l.snd && l.tune === undefined && !kitKnobsOf(l)) continue;
+        if (l.tune === undefined && !kitOverride(l)) continue;
         const hp = hitParams(inst, false, l, tone, stretch, fx);
         shots.prepare(hp.id, hp.ts, hp.pf, c.sampleRate, hp.ov);
       }

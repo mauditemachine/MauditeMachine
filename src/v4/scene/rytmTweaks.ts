@@ -155,13 +155,22 @@ export function rytmTweakClear(): { x0: number; x1: number; z0: number; z1: numb
  */
 export const RYTM_CLOSE_KEY = RYTM_TWEAK_LAYOUT.close;
 
+/**
+ * Les noms de la plaque qui changent avec les deux couches (2026-10-08, l'etape
+ * R3) : TUNE et DECAY du KICK ne reglent plus que sa couche SYNTH (le sample a
+ * son TUNE et son LEN, page SMPL) ; ATTACK, DRIVE et SNAPPY reglent les deux.
+ * Le selecteur KICK (SNARE, CLAP...) reste le raccourci vers une couche : un
+ * modele joue seul, un sample joue seul.
+ */
+const PLATE_LABEL: Partial<Record<KitId, string>> = { tune: 'SYN TUNE', decay: 'SYN DECAY' };
+
 function items(): TweakItem[] {
   return KIT_IDS.map((id) => {
     const slot: RytmTweakSlot = RYTM_TWEAK_LAYOUT.slots.find((s) => s.id === id) ?? { id, x: 0, z: 0 };
     const sw = kitSteps(id) > 1;
     return {
       hotspot: `rk-${id}`,
-      label: slot.label ?? KIT_LABEL[id],
+      label: slot.label ?? PLATE_LABEL[id] ?? KIT_LABEL[id],
       x: slot.x,
       z: slot.z,
       // Un choix de son : 909, 808, MM, puis le nom de chaque echantillon de Mika (audio/samples.ts)

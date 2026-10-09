@@ -1,0 +1,107 @@
+/*
+ * La carte INFOS du MM-RYTM (2026-10-08, l'etape R4, rytm/InfosCard.tsx). Les
+ * classes v4-binfo de bass/infos.css font la carte et la pastille ; ici
+ * seulement ce qui est au MM-RYTM :
+ * - la feuille du telephone, au-dessus de la commande touchee (data-place
+ *   top : flottante, arrondie partout) ou dessous (bottom : posee sur le bas,
+ *   sa hauteur bornee par le JS), comme celle du MM-ARP ;
+ * - la pastille eteinte (capot ouvert, l'ecran et son i hors champ) : INFOS
+ *   et un i cerne, sans le point orange ni la croix ;
+ * - BIENTOT, un reglage a venir.
+ */
+
+.v4-root .v4-rinfo[data-mode='sheet'][data-place='top'] {
+  left: 8px;
+  right: 8px;
+  border-radius: 16px;
+  padding-bottom: 12px;
+  animation: v4-rinfo-down 180ms ease-out;
+}
+
+@keyframes v4-rinfo-down {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
+.v4-root .v4-rinfo[data-mode='sheet'][data-place='top'] .v4-binfo-grab {
+  display: none;
+}
+
+.v4-root .v4-rinfo[data-mode='sheet'][data-place='top'] .v4-binfo-svg,
+.v4-root .v4-rinfo[data-mode='sheet'][data-place='bottom'] .v4-binfo-svg {
+  width: auto;
+  max-width: 100%;
+  height: 96px;
+}
+
+/*
+ * Trop haute pour sa place (revue de R4, le Dock KNOBS) : le dessin rapetisse
+ * (data-tight), puis un fondu en bas dit que le texte defile (data-more,
+ * retire au bout du defilement).
+ */
+.v4-root .v4-rinfo[data-mode='sheet'][data-tight='1'] .v4-binfo-svg {
+  height: 60px;
+}
+
+.v4-root .v4-rinfo[data-mode='sheet'][data-more='1'] {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
+}
+
+/* La recette en trois gestes (le LOCK, revue de R4) : numerotee, avant le texte */
+.v4-root .v4-rinfo-steps {
+  margin: 6px 0 2px;
+  padding: 0 0 0 18px;
+  color: #f6f1e7;
+  font-weight: 600;
+}
+
+.v4-root .v4-rinfo-steps li {
+  margin: 0 0 3px;
+}
+
+.v4-root .v4-rinfo-steps li::marker {
+  color: var(--bi-orange, #ff6a13);
+  font-weight: 700;
+}
+
+/* La pastille eteinte : un i cerne, comme celui de l'ecran */
+.v4-root .v4-rinfo-chip[data-on='0'] {
+  padding: 0 13px 0 9px;
+  box-shadow:
+    inset 0 0 0 1px rgba(246, 241, 231, 0.28),
+    0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.v4-root .v4-rinfo-chip[data-on='0']:hover {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 106, 19, 0.7),
+    0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.v4-root .v4-rinfo-i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.4px #f6f1e7;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 11px;
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: 0;
+  line-height: 16px;
+}
+
+.v4-root .v4-rinfo-soon {
+  background: rgba(246, 241, 231, 0.16);
+  color: #f6f1e7;
+}
+
+.v4-root[data-v4-motion='reduced'] .v4-rinfo[data-mode='sheet'][data-place='top'] {
+  animation: none;
+}

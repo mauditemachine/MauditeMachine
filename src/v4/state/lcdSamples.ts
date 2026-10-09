@@ -13,7 +13,16 @@
 /** Duree d'affichage apres le dernier reglage (ou le dernier pad). */
 export const LCD_SAMPLES_MS = 2400;
 
+/**
+ * La liste montree (2026-10-08, l'etape R3, les deux couches) : sound, le
+ * choix de son d'avant (909, 808, MM, les samples : SOUND, la plaque) ;
+ * machine, les machines de la couche SYNTH (MACHINE de SRC) ; sample, la
+ * couche SAMPLE (OFF puis les samples : SAMPLE de SMPL).
+ */
+export type LcdSamplesKind = 'sound' | 'machine' | 'sample';
+
 let until = 0;
+let kind: LcdSamplesKind = 'sound';
 const listeners = new Set<() => void>();
 
 export const lcdSamples = {
@@ -21,8 +30,13 @@ export const lcdSamples = {
   get(now: number = performance.now()): boolean {
     return now < until;
   },
-  show(ms: number = LCD_SAMPLES_MS): void {
+  /** Ce que montre la liste ouverte. */
+  kind(): LcdSamplesKind {
+    return kind;
+  },
+  show(ms: number = LCD_SAMPLES_MS, k: LcdSamplesKind = 'sound'): void {
     until = performance.now() + ms;
+    kind = k;
     listeners.forEach((fn) => fn());
   },
   /** Fermee tout de suite (un autre message prend l'ecran). */

@@ -25,9 +25,25 @@
  *   il passe avant la table d'ici (celle de l'etape R2), au cas ou une etape
  *   rende un reglage verrouillable ; sauf pour une voix qui n'a rien a y
  *   verrouiller (SAMPLE sur une voix sans echantillon : pas de phrase).
- * Les reglages a venir (avail soon) et les couches de l'etape R3 (avail r3)
- * ont leur carte, marquee : la carte peut ecrire BIENTOT, R3 n'a qu'a
- * relire leur texte une fois branches.
+ * Les reglages a venir (avail soon) ont leur carte, marquee (la carte ecrit
+ * BIENTOT) ; tant que leur bloc reste vide a l'ecran, leur potard montre la
+ * carte d'une case vide (enc), comme l'ecran. Les couches de l'etape R3
+ * (r3:*) sont branchees : leurs textes suivent R3 et sa revue.
+ *
+ * Branche a l'etape R4 (2026-10-08) : la carte (rytm/InfosCard.tsx) remplit
+ * ctx depuis les stores (la voix, la page, pageTarget, le verrou du bloc,
+ * le pas en LOCK) ; les textes ont ete relus contre R3 (le raccourci SOUND
+ * et la plaque prennent une couche a fond, le sample emprunte d'une autre
+ * voix joue seul sur son pas, MACHINE et SAMPLE se verrouillent, les noms
+ * des blocs LEN, REV, LEVEL) ; aucun nom de fichier de sample dans les
+ * textes : Mika va remplacer les siens (npm run samples:import).
+ *
+ * Revue de R4 : le LOCK ouvre sur sa recette en trois gestes (steps, la
+ * carte la numerote avant le dessin), son texte raccourci ; la touche du
+ * clavier d'un pad, de RUN, d'OPEN est a part (key : la carte ne l'ecrit
+ * qu'au desktop, un telephone n'a pas de touche S) ; les pads disent ce que
+ * fait le pad (il choisit la voix, a l'arret il la joue) et ont leur astuce,
+ * comme FLTR, CLAP, TOMS, DECAY de la caisse claire, FINE et LEVEL du sample.
  */
 
 import type { Inst } from '../theme';
@@ -61,9 +77,13 @@ export interface RytmInfo {
   section: string;
   /** le nom, tel qu'a l'ecran ou serigraphie */
   title: string;
+  /** la recette en trois gestes, avant le texte (revue de R4 : le LOCK etait un paragraphe de 750 signes) */
+  steps?: string[];
   text: string;
+  /** la touche du clavier (Au clavier : S.) ; la carte ne l'ecrit qu'au desktop (revue de R4 : un telephone n'a pas de touche S) */
+  key?: string;
   tip?: string;
-  /** live : branche ; soon : un reglage a venir ; r3 : les couches SYNTH et SAMPLE de l'etape R3 */
+  /** live : branche ; soon : un reglage a venir (son bloc reste vide) */
   avail: RytmInfoAvail;
   /** pour un reglage des pages : son verrou */
   lock?: RytmLockable;
@@ -84,7 +104,10 @@ type Words = Partial<Pick<Raw, 'title' | 'text' | 'tip'>> & { lock?: RytmLockabl
 interface Raw {
   section: string;
   title: string;
+  steps?: string[];
   text: string;
+  /** la touche du clavier, sans phrase (S, Espace) */
+  key?: string;
   tip?: string;
   lock?: RytmLockable;
   /** sur la plaque TWEAKS : son nom serigraphie et sa section */
@@ -115,36 +138,37 @@ const RAW: Record<RytmInfoId, Raw> = {
   trig: {
     section: 'PAGES',
     title: 'TRIG',
-    text: "La page des pas : VEL, la vélocité du pas choisi (le dernier touché, ou celui en LOCK), et SWING, le retard des doubles croches paires de tout le MM-RYTM. PROB, MICRO, COND, RTRG et RTIM viendront ici. La LED montre la page affichée ; [ et ] passent d'une page à l'autre ; un nouvel appui sur la touche allumée montre HOME.",
+    text: "La page des pas : VEL, la vélocité du pas choisi (le dernier touché, ou celui en LOCK) ; STRETCH et SWING, en bas à droite, pour tout le MM-RYTM : la longueur des coups et le retard des doubles croches paires. PROB, MICRO, COND, RTRG et RTIM viendront ici. La LED montre la page affichée ; [ et ] passent d'une page à l'autre ; un nouvel appui sur la touche allumée montre HOME.",
     tip: 'En LOCK, VEL change la force d’un seul pas : un charley plus doux sur un contretemps, les autres ne bougent pas.',
   },
   src: {
     section: 'PAGES',
     title: 'SRC',
-    text: "La source de la voix choisie : SOUND (909, 808, MM ou un sample de sa famille) et TUNE, pour toutes les voix ; puis ce que sa famille a de plus : le kick ses K.TUNE, ATTACK, DECAY et DRIVE, la caisse claire SNAPPY et GATE, le clap GATE. STRETCH, en bas à droite, étire les coups de tout le MM-RYTM. C'est la page de départ.",
-    tip: 'Choisis BD, puis SRC : tout le kick se construit sur cette page.',
+    text: "La couche SYNTH de la voix choisie, comme une machine de l'Analog Rytm : MACHINE (909, 808 ou MM, le son calculé), puis ses réglages, et son LEVEL en H. Le kick a TUNE, ATTACK, SWEEP, DECAY et DRIVE ; la caisse claire TUNE, SNAPPY, TONE, DECAY et GATE ; le clap le TUNE de la voix et GATE ; les autres voix le TUNE de la voix. La couche SAMPLE est sur SMPL : les deux jouent ensemble, chacune à son niveau, puis passent par la même voix (AMP, FX). Pour BD et SD, PITCH (G) accorde toute la voix d'un coup, les deux couches ensemble. Dans l'en-tête, SYN et SMP disent ce que joue chaque couche et à quel niveau (le pas montré compte, en LOCK et quand il joue). C'est la page de départ.",
+    tip: "Pour BD et SD, le sample de Mika joue seul au départ : monte LEVEL (H) pour glisser un 909 sous le kick, puis accorde-le avec TUNE.",
   },
   smpl: {
     section: 'PAGES',
     title: 'SMPL',
-    text: "L'échantillon de la voix : SAMPLE (OFF, et c'est le son de synthèse de sa famille qui joue ; sinon l'un de ses samples) et START, l'endroit où le coup commence. Aujourd'hui, seuls BD et SD ont des samples. TUNE, FINE, BR, END, LOOP et LEVEL viendront avec la couche SAMPLE.",
-    tip: 'Choisis un kick de Mika ici, puis règle-le sur SRC (K.TUNE, ATTACK, DECAY, DRIVE) : le grain du fichier, réglé comme une machine.',
+    text: "La couche SAMPLE de la voix choisie : SAMPLE (OFF, ou l'un des samples de sa famille), TUNE et FINE (sa hauteur, au demi-ton et au cent), REV (à l'envers), START (où il commence), LEN (la part gardée, sa fin en fondu) et LEVEL (H). Elle joue avec la couche SYNTH de SRC. Au départ, BD et SD jouent le premier sample de Mika de leur famille, leur synthèse à 0.",
+    tip: "Un kick de Mika sur SMPL et le 909 de SRC à 40 : le grain du sample, le grave d'une machine accordée.",
   },
   fltr: {
     section: 'PAGES',
     title: 'FLTR',
     text: "Le filtre de la voix : TONE, un passe-bas vers la gauche, un passe-haut vers la droite, qui transpose aussi le coup. L'enveloppe du filtre (ATK, DEC), RESO, TYPE et ENV viendront.",
+    tip: "TONE un peu à droite sur CH, OH et CP : le grave reste au kick et à la basse, le groove d'indie dance respire.",
   },
   amp: {
     section: 'PAGES',
     title: 'AMP',
-    text: "L'enveloppe et le niveau de la voix : DEC (la queue du coup), PAN (sa place entre gauche et droite) et VOL (son niveau), tous verrouillables pas par pas. ATK et HOLD viendront.",
+    text: "L'enveloppe et le niveau de la voix : DEC (la queue du coup), START (où commence tout le coup, ses deux couches), PAN (sa place entre gauche et droite) et VOL (son niveau), tous verrouillables pas par pas. ATK et HOLD viendront.",
     tip: 'La page des ghost notes : en LOCK, un VOL plus bas et un DEC plus court sur quelques pas de caisse claire.',
   },
   fx: {
     section: 'PAGES',
     title: 'FX',
-    text: "Les effets, en deux rangées, colonne par colonne : en haut ceux de la voix choisie (son nom en étiquette), dessous ceux de tout le MM-RYTM, sauf le kick : il a sa propre voie (NO BD quand BD est choisi). Ses effets à lui sont donc ceux du haut.",
+    text: "Les effets, en deux rangées, colonne par colonne : en haut ceux de la voix choisie (son nom en étiquette), dessous ceux de tout le MM-RYTM, sauf le kick : il a sa propre voie (NO BD quand BD est choisi). Ses effets à lui sont donc ceux du haut. DELAY et REVERB de la voix se verrouillent pas par pas ; DIST et CHORUS de la voix pas encore, ceux du bas jamais (GLOBAL).",
     tip: 'En dark disco, un DELAY sur la seule caisse claire (rangée du haut, SD) : l’écho reste derrière le kick.',
   },
 
@@ -172,31 +196,30 @@ const RAW: Record<RytmInfoId, Raw> = {
   vsound: {
     section: 'SRC',
     title: 'SOUND',
-    lock: 'yes',
-    text: "Le son de la voix choisie : 909, 808 ou MM (des sons de synthèse calculés par la machine), puis les samples de sa famille. CH et OH partagent le même choix, TOM et HT aussi ; CY n'a qu'un son. La liste s'ouvre à l'écran quand tu le tournes, et chaque son est recalé à son niveau : en changer ne fait pas sauter le volume. En LOCK, c'est un sample lock : ce pas joue un autre son, de sa famille ou d'une autre (CP 909 sur un pas de BD), par la voie de la voix.",
+    text: "Le raccourci vers UNE couche, en un geste : 909, 808 ou MM (la couche SYNTH seule, remise à fond, le sample coupé), puis les samples de la famille (le sample seul, à fond, la synthèse à 0). C'est le sélecteur de son de la plaque TWEAKS (OPEN) et du MIDI ; sur les pages, MACHINE (SRC A) et SAMPLE (SMPL D) règlent chacune sa couche, pour les faire jouer ensemble, et ce sont elles qui se verrouillent pas par pas. CH et OH partagent le même choix, TOM et HT aussi ; CY n'a qu'un son. Chaque son est recalé à son niveau : en changer ne fait pas sauter le volume.",
     voice: {
       bd: {
-        text: "Le son du kick : 909, 808 ou MM (calculés par la machine), puis les samples de Mika, chacun à son nom ; K.TUNE, ATTACK, DECAY et DRIVE les règlent tous. Tous sortent à la même crête : le kick est la référence du mix. En LOCK, c'est un sample lock : ce pas joue un autre kick, ou le son d'une autre famille (CP 909) par la voie du kick.",
+        text: "Le son du kick, en un geste : 909, 808 ou MM (la synthèse seule, à fond), puis les samples de Mika, chacun à son nom (le sample seul). TUNE, SWEEP et DECAY (SRC) règlent la synthèse ; ATTACK et DRIVE la synthèse et le sample. Tous sortent à la même crête : le kick est la référence du mix. Pour un sample ET une machine ensemble : MACHINE (SRC A), SAMPLE (SMPL D) et leurs deux LEVEL.",
         tip: '909 pour une techno qui claque, 808 pour un minimal rond et long, un sample de Mika pour l’indie dance.',
       },
       sd: {
-        text: "Le son de la caisse claire : 909, 808 ou MM, puis les samples de Mika. SNAPPY, sur cette page, règle son timbre ; GATE n'agit que sur la caisse claire MM. En LOCK, c'est un sample lock : ce pas joue un autre son (une autre caisse claire, un clap...).",
+        text: "Le son de la caisse claire, en un geste : 909, 808 ou MM (la synthèse seule, à fond), puis les samples de Mika (le sample seul). SNAPPY et GATE (SRC) règlent aussi le sample ; TUNE, TONE et DECAY la synthèse. Pour les deux couches ensemble : MACHINE (SRC A), SAMPLE (SMPL D) et leurs LEVEL.",
         tip: 'MM avec GATE sur ON pour la dark disco des années 80 ; un sample sec pour l’indie dance.',
       },
       hh: {
-        text: "Le son des charleys : 909, 808 ou MM, le même pour CH et OH. 808 : six carrés métalliques ; 909 : plus de souffle que de métal. En LOCK, ce pas peut jouer le son d'une autre famille.",
+        text: "Le son des charleys : 909, 808 ou MM, le même pour CH et OH ; c'est leur MACHINE (SRC A), remise à fond. 808 : six carrés métalliques ; 909 : plus de souffle que de métal. En LOCK, un pas peut prendre une autre MACHINE, ou le sample d'une autre voix (SMPL D).",
         tip: '808 pour un minimal métallique, 909 pour une house qui respire.',
       },
       cp: {
-        text: "Le son du clap : 909, 808 ou MM ; GATE (SRC D) lui ajoute sa petite pièce en MM et en 909. En LOCK, ce pas peut jouer le son d'une autre famille.",
+        text: "Le son du clap : 909, 808 ou MM, sa MACHINE (SRC A), remise à fond ; GATE (SRC D) lui ajoute sa petite pièce en MM et en 909. En LOCK, un pas peut prendre une autre MACHINE, ou le sample d'une autre voix (SMPL D).",
         tip: 'Un clap 808 un pas après la caisse claire : le flam de la dark disco.',
       },
       tom: {
-        text: "Le son des toms : 909, 808 ou MM, le même pour TOM (le grave) et HT (l'aigu). En LOCK, ce pas peut jouer le son d'une autre famille.",
+        text: "Le son des toms : 909, 808 ou MM, le même pour TOM (le grave) et HT (l'aigu) ; c'est leur MACHINE (SRC A), remise à fond. En LOCK, un pas peut prendre une autre MACHINE, ou le sample d'une autre voix (SMPL D).",
         tip: 'Toms 808 et TUNE verrouillé pas par pas : une ligne de percussions pour le minimal.',
       },
       cy: {
-        text: "CY n'a qu'un son à elle, calculé par la machine : le bloc affiche --. En LOCK, un pas de CY peut quand même jouer le son d'une autre famille (un sample lock).",
+        text: "CY n'a qu'un son à elle, calculé par la machine, sans choix. En LOCK, un pas de CY peut quand même prendre le sample d'une autre voix (SAMPLE, SMPL D), joué seul sur ce pas.",
       },
       none: { text: "Le son de la voix choisie : 909, 808, MM ou un sample de sa famille. Touche d'abord un pad." },
     },
@@ -208,59 +231,68 @@ const RAW: Record<RytmInfoId, Raw> = {
     text: "La hauteur de la voix, au demi-ton, de -24 à +24 (deux octaves de chaque côté) ; la ligne du dessous nomme l'intervalle (5TH, OCTAVE). Le coup est recalculé à sa hauteur, comme un sampler : plus aigu, il est aussi plus court. TONE (FLTR E) transpose aussi, de ±7 demi-tons.",
     tip: 'Verrouille +5, +7 ou +12 sur deux ou trois pas de TOM : une petite mélodie de toms façon minimal, sans changer de son.',
     voice: {
-      bd: { tip: 'Pour accorder le kick, K.TUNE (SRC C) ; TUNE sert aux sauts d’un pas à l’autre, en LOCK.' },
+      bd: {
+        title: 'PITCH',
+        text: "La hauteur de tout le kick, ses deux couches ensemble (BOTH), au demi-ton, de -24 à +24 (SRC G). Le coup est recalculé à sa hauteur, comme un sampler : plus aigu, il est aussi plus court. TUNE (SRC B) n'accorde que la synthèse, TUNE (SMPL A) que le sample.",
+        tip: 'Verrouille -2 sur le dernier kick de la mesure : il retombe sans changer de son.',
+      },
+      sd: {
+        title: 'PITCH',
+        text: "La hauteur de toute la caisse claire, ses deux couches ensemble (BOTH), au demi-ton, de -24 à +24 (SRC G). Le coup est recalculé à sa hauteur : plus aigu, il est aussi plus court. TUNE (SRC B) n'accorde que la synthèse, TUNE (SMPL A) que le sample.",
+        tip: 'Un +3 verrouillé sur une ghost note : la caisse claire répond plus haut, sans changer de son.',
+      },
     },
   },
   'r:tune': {
     section: 'SRC / BD',
-    title: 'K.TUNE',
-    lock: 'no',
-    plate: { title: 'TUNE', section: 'TWEAKS / KICK' },
-    text: "La hauteur du kick lui-même. Sur un son de synthèse, une octave de course autour de sa note : 52 Hz au milieu en 909 et en MM (de 37 à 74 Hz), 49 Hz en 808 ; la ligne du dessous donne les Hz. Sur un sample, ±12 demi-tons, le milieu garde le fichier à sa hauteur. Le kick est recalculé en fond à chaque cran.",
+    title: "TUNE",
+    lock: "yes",
+    plate: { title: 'SYN TUNE', section: 'TWEAKS / KICK' },
+    text: "La hauteur du kick de synthèse (SRC B), une octave de course autour de sa note : 52 Hz au milieu en 909 et en MM (de 37 à 74 Hz), 49 Hz en 808 ; la ligne du dessous donne les Hz. Il ne règle que la couche SYNTH : le sample a son TUNE (SMPL A). À LEVEL 0, l'écran le dit. Le kick est recalculé en fond à chaque cran.",
     tip: 'Accorde le kick sur la tonique : vers 46 Hz pour un fa dièse, la tonalité du site, sous la basse du MM-BASS.',
   },
   'r:attack': {
     section: 'SRC / BD',
     title: 'ATTACK',
-    lock: 'no',
+    lock: 'yes',
     plate: { title: 'ATTACK', section: 'TWEAKS / KICK' },
-    text: "La frappe du kick, le clic du début. En 909, le front du déclencheur vers 3,2 kHz et un souffle de 3 ms ; en 808, un petit tic vers 1,1 kHz ; en MM, un clic feutré vers 1,6 kHz. À 0, plus de clic. Sur un sample, le milieu (64) garde sa frappe ; plus haut elle claque (jusqu'à +6 dB sur ses 4 premières ms), plus bas elle s'adoucit.",
+    text: "La frappe du kick, sur ses deux couches (BOTH à l'écran). Sur la synthèse : le front du déclencheur vers 3,2 kHz et un souffle de 3 ms en 909, un petit tic vers 1,1 kHz en 808, un clic feutré vers 1,6 kHz en MM ; à 0, plus de clic. Sur le sample : le milieu (64) garde sa frappe ; plus haut elle claque (jusqu'à +6 dB sur ses 4 premières ms), plus bas elle s'adoucit.",
     tip: 'Plus d’ATTACK pour un kick qui perce sur un petit système ; moins pour un kick d’indie dance rond qui laisse la place à la basse.',
   },
   'r:decay': {
     section: 'SRC / BD',
     title: 'DECAY',
-    lock: 'no',
-    plate: { title: 'DECAY', section: 'TWEAKS / KICK' },
-    text: "La longueur du kick, la queue de son boum ; la ligne du dessous donne sa constante de temps : de 90 à 630 ms en 909 (216 ms au départ), de 160 ms à 1,28 s en 808, de 60 à 240 ms en MM. Sur un sample, à partir de 57 (un peu sous le milieu) le fichier entier ; dessous, une fin en fondu de plus en plus tôt, jusqu'à 12 % de sa durée. AMP DEC (AMP C) coupe en plus la queue, après coup.",
+    lock: 'yes',
+    plate: { title: 'SYN DECAY', section: 'TWEAKS / KICK' },
+    text: "La longueur du kick de synthèse, la queue de son boum ; la ligne du dessous donne sa constante de temps : de 90 à 630 ms en 909 (216 ms au départ), de 160 ms à 1,28 s en 808, de 60 à 240 ms en MM. Il ne règle que la couche SYNTH : le sample a son LEN (SMPL F). AMP DEC (AMP C) coupe en plus la queue des deux, après coup.",
     tip: 'Court (909 vers 150 ms) pour une techno serrée ; long en 808 pour un minimal où le kick tient aussi le grave.',
   },
   'r:drive': {
     section: 'SRC / BD',
     title: 'DRIVE',
-    lock: 'no',
+    lock: 'yes',
     plate: { title: 'DRIVE', section: 'TWEAKS / KICK' },
-    text: "La saturation du kick, du rond vers le chaud et le compressé : tanh de 1,2 à 5,2 en 909, de 0,6 à 3,6 en 808, de 0,6 à 4,2 en MM ; sur un sample, propre jusqu'au quart (32), puis de plus en plus saturé. Le kick est ensuite recalé sur sa crête : DRIVE change son corps et sa couleur, pas son niveau de crête.",
+    text: "La saturation du kick, sur ses deux couches (BOTH à l'écran), du rond vers le chaud et le compressé : tanh de 1,2 à 5,2 en 909, de 0,6 à 3,6 en 808, de 0,6 à 4,2 en MM ; sur le sample, propre jusqu'au quart (32), puis de plus en plus saturé. Le kick est ensuite recalé sur sa crête : DRIVE change son corps et sa couleur, pas son niveau de crête.",
     tip: '30 à 50 pour l’indie dance et la dark disco : le kick s’épaissit sans écraser la basse.',
   },
   'r:snappy': {
     section: 'SRC / SD',
     title: 'SNAPPY',
-    lock: 'no',
+    lock: 'yes',
     plate: { title: 'SNAPPY', section: 'TWEAKS / SNARE' },
-    text: "Le claquant de la caisse claire : la part de son timbre (le bruit des cordes sous la caisse) face à sa peau. En 909, la part du bruit va de 0,3 à 2,1 ; en 808, de 0,2 à 1,6 ; en MM, de rien à deux fois le réglage d'usine (64). Sur un sample, 64 garde le fichier ; plus haut, plus de claquant au-dessus de 2 kHz ; plus bas, plus sourd.",
+    text: "Le claquant de la caisse claire, sur ses deux couches (BOTH à l'écran) : la part de son timbre (le bruit des cordes sous la caisse) face à sa peau. En 909, la part du bruit va de 0,3 à 2,1 ; en 808, de 0,2 à 1,6 ; en MM, de rien à deux fois le réglage d'usine (64). Sur le sample, 64 garde le fichier ; plus haut, plus de claquant au-dessus de 2 kHz ; plus bas, plus sourd.",
     tip: 'Plus de SNAPPY pour une caisse claire qui perce en indie dance ; moins pour une dark disco sourde et ronde.',
   },
   'r:gate': {
     section: 'SRC / SD + CP',
     title: 'GATE',
-    lock: 'no',
+    lock: 'yes',
     plate: { title: 'GATE', section: 'TWEAKS / SNARE + CLAP' },
-    text: "La réverbe à porte, OFF ou ON, pour la caisse claire et le clap à la fois (SD + CP). ON : la caisse claire MM reçoit une pièce claire ouverte 130 ms puis fermée en 40 ms, le clap MM et le clap 909 une petite pièce. Rien sur les caisses claires 909 et 808, le clap 808, ni sur un sample.",
+    text: "La réverbe à porte, OFF ou ON, pour la caisse claire et le clap à la fois (SD + CP). ON : la caisse claire MM et le sample de la caisse claire (BOTH, le kit de départ joue celui de Mika) reçoivent une pièce claire ouverte 130 ms puis fermée en 40 ms, le clap MM et le clap 909 une petite pièce. Rien sur les caisses claires de synthèse 909 et 808 ni sur le clap 808.",
     tip: 'ON sur une caisse claire MM : la dark disco des années 80 ; OFF pour un minimal sec.',
   },
   stretch: {
-    section: 'SRC',
+    section: "TRIG",
     title: 'STRETCH',
     lock: 'global',
     text: "Raccourcit (à gauche) ou allonge (à droite) tous les coups du MM-RYTM, à la même hauteur, comme le Time d'Impulse : de x0.25 à x4, x1.00 au centre (-64 à +63 à l'écran, il colle au centre). Le coup est étiré en grains : l'attaque reste, les grains s'entendent aux extrêmes.",
@@ -272,40 +304,43 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'SMPL',
     title: 'SAMPLE',
     lock: 'yes',
-    text: "L'échantillon de la voix : OFF, et c'est le son de synthèse de sa famille qui joue (la ligne du dessous le nomme : SYNTH 909) ; un cran plus loin, l'un de ses samples (la ligne dit son rang : 2 OF 6). Le même choix que SOUND (SRC A), sans ses trois sons de synthèse. Aujourd'hui, seuls BD et SD ont des samples ; les autres voix affichent --. En LOCK, un pas peut jouer un autre sample de la famille, ou OFF.",
+    text: "Le sample de la couche SAMPLE : OFF (la couche se tait ; la synthèse de SRC joue seule, ou rien si son LEVEL est à 0 : l'écran le dit), ou l'un des samples de la famille (la ligne dit son rang : 2 OF 6). La couche SYNTH ne bouge pas. En LOCK, c'est le sample lock de l'Analog Rytm : un pas joue un autre sample de la voix (avec sa synthèse, à son niveau), le sample d'une autre voix (un SD sur un pas de BD : il y joue seul, calé comme une caisse claire, sauf si le pas verrouille aussi LEVEL en SRC H), ou OFF.",
     tip: 'Deux kicks de Mika qui alternent : le premier sur 1 et 9, le second verrouillé sur 5 et 13, la boucle respire.',
     voice: {
       sd: { tip: 'Deux caisses claires de Mika qui alternent : verrouille la seconde sur le pas 13, la mesure respire.' },
       hh: {
-        text: "L'échantillon de la voix. Les charleys n'ont pas encore de sample : le bloc affiche -- et NO SAMPLES, et l'écran le dit si tu le tournes, en LOCK aussi. Aujourd'hui, seuls BD et SD en ont.",
-        tip: 'SOUND (SRC A) choisit le son des charleys : 909, 808 ou MM.',
-        lock: null,
+        text: "La couche SAMPLE des charleys. Ils n'ont pas encore de sample à eux : le bloc affiche -- et NO SAMPLES. En LOCK, un pas peut quand même prendre le sample d'une autre voix (un sample lock), joué seul sur ce pas (leur synthèse s'y tait, sauf si le pas verrouille aussi LEVEL en SRC H).",
+        tip: 'MACHINE (SRC A) choisit leur synthèse : 909, 808 ou MM.',
       },
       cp: {
-        text: "L'échantillon de la voix. Le clap n'a pas encore de sample : le bloc affiche -- et NO SAMPLES, et l'écran le dit si tu le tournes, en LOCK aussi. Aujourd'hui, seuls BD et SD en ont.",
-        tip: 'SOUND (SRC A) choisit le son du clap : 909, 808 ou MM.',
-        lock: null,
+        text: "La couche SAMPLE du clap. Il n'a pas encore de sample à lui : le bloc affiche -- et NO SAMPLES. En LOCK, un pas peut quand même prendre le sample d'une autre voix (un sample lock), joué seul sur ce pas (sa synthèse s'y tait, sauf si le pas verrouille aussi LEVEL en SRC H).",
+        tip: 'MACHINE (SRC A) choisit sa synthèse : 909, 808 ou MM.',
       },
       tom: {
-        text: "L'échantillon de la voix. Les toms n'ont pas encore de sample : le bloc affiche -- et NO SAMPLES, et l'écran le dit si tu le tournes, en LOCK aussi. Aujourd'hui, seuls BD et SD en ont.",
-        tip: 'SOUND (SRC A) choisit le son des toms : 909, 808 ou MM.',
-        lock: null,
+        text: "La couche SAMPLE des toms. Ils n'ont pas encore de sample à eux : le bloc affiche -- et NO SAMPLES. En LOCK, un pas peut quand même prendre le sample d'une autre voix (un sample lock), joué seul sur ce pas (leur synthèse s'y tait, sauf si le pas verrouille aussi LEVEL en SRC H).",
+        tip: 'MACHINE (SRC A) choisit leur synthèse : 909, 808 ou MM.',
       },
       cy: {
-        text: "L'échantillon de la voix. CY n'a qu'un son, calculé par la machine, et pas de sample : le bloc affiche --, et l'écran le dit si tu le tournes. Aujourd'hui, seuls BD et SD en ont.",
-        lock: null,
+        text: "CY n'a qu'un son, calculé par la machine, et pas de sample à elle : le bloc affiche -- et LOCK ANY. En LOCK, un pas peut quand même prendre le sample d'une autre voix (un sample lock), joué seul sur ce pas : la cymbale s'y tait.",
       },
     },
   },
-  vstart: {
+  'r3:sstart': {
     section: 'SMPL',
     title: 'START',
     lock: 'yes',
-    text: "Où le coup commence dans son échantillon, de 0 (FROM TOP, le début) à 90 % (90% IN) ; il finit au même endroit, il est donc d'autant plus court. Marche aussi sur les sons de synthèse : la machine les joue comme des échantillons.",
+    text: "Où le sample commence dans son fichier, de 0 (FROM TOP, le début) à 90 % (90% IN) ; LEN se compte depuis là. Ce qui reste du fichier joue à son niveau : plus loin, le coup est plus doux. Il ne règle que la couche SAMPLE (la synthèse part toujours du début).",
     tip: 'Un START vers 20 % verrouillé sur un pas de caisse claire : il perd son attaque, une note fantôme sans changer de son.',
     voice: {
       bd: { tip: 'Sur BD, un START verrouillé un peu plus loin saute la frappe : un kick plus mou, un pas sur deux, en minimal.' },
     },
+  },
+  vstart: {
+    section: 'AMP',
+    title: 'START',
+    lock: 'yes',
+    text: "Où commence tout le coup de la voix, ses deux couches ensemble (BOTH), de 0 (le début) à 90 % de sa longueur. START de SMPL (E) ne règle que la couche SAMPLE.",
+    tip: 'Verrouillé sur quelques pas de charley : la frappe disparaît, il ne reste que le souffle.',
   },
 
   /* ---------- FLTR ---------- */
@@ -368,14 +403,14 @@ const RAW: Record<RytmInfoId, Raw> = {
   vdelay: {
     section: 'FX',
     title: 'DELAY',
-    lock: 'no',
+    lock: 'yes',
     text: "Envoie la voix choisie dans le DELAY du MM-RYTM : des répétitions à la croche pointée (3 pas, calées sur le tempo), chacune à 58 % de la précédente, qui s'assombrissent (entre 180 Hz et 4,5 kHz). L'envoi part après MASTER : baisser MASTER baisse aussi l'écho.",
     tip: 'Un DELAY sur la caisse claire en dark disco, ou sur un tom en minimal : la croche pointée remplit les trous sans rien programmer.',
   },
   vreverb: {
     section: 'FX',
     title: 'REVERB',
-    lock: 'no',
+    lock: 'yes',
     text: "Envoie la voix choisie dans la REVERB du MM-RYTM : une salle de 2,4 s (-60 dB au bout), aux aigus qui s'éteignent avant les graves. Comme le DELAY, l'envoi part après MASTER.",
     tip: 'Peu de REVERB, et seulement sur la caisse claire, le clap ou la cymbale : le kick reste sec et devant.',
   },
@@ -418,30 +453,32 @@ const RAW: Record<RytmInfoId, Raw> = {
   'r:bd': {
     section: 'TWEAKS / KICK',
     title: 'KICK',
-    text: "Le son du kick, sous le capot : 909, 808, MM, puis les samples de Mika, chacun à son cran et à son nom. Le même réglage que SOUND (SRC A) quand BD est choisi. Tous sortent à la même crête : changer de kick ne change pas le niveau.",
+    text: "Le son du kick en un geste, sous le capot : 909, 808 ou MM (la synthèse seule, remise à fond, le sample coupé), puis les samples de Mika, chacun à son cran et à son nom (le sample seul, la synthèse à 0). Pour un sample et une machine ensemble, les pages : MACHINE (SRC A), SAMPLE (SMPL D) et leurs deux LEVEL. Tous sortent à la même crête : changer de kick ne change pas le niveau.",
     tip: '909 pour une techno qui claque, 808 pour un minimal rond et long, un sample de Mika pour l’indie dance.',
   },
   'r:sd': {
     section: 'TWEAKS / SNARE',
     title: 'SNARE',
-    text: "Le son de la caisse claire : 909, 808, MM, puis les samples de Mika. Le même réglage que SOUND (SRC A) quand SD est choisi ; SNAPPY, à côté, règle son timbre.",
+    text: "Le son de la caisse claire en un geste : 909, 808 ou MM (la synthèse seule, à fond), puis les samples de Mika (le sample seul). SNAPPY, à côté, règle son timbre, synthèse et sample ; pour les deux couches ensemble, MACHINE (SRC A) et SAMPLE (SMPL D) sur les pages.",
     tip: 'MM avec GATE sur ON pour la dark disco des années 80.',
   },
   'r:cp': {
     section: 'TWEAKS / CLAP',
     title: 'CLAP',
-    text: "Le son du clap : 909, 808 ou MM. Le même réglage que SOUND (SRC A) quand CP est choisi ; GATE lui donne sa petite pièce en MM et en 909.",
+    text: "Le son du clap : 909, 808 ou MM, sa MACHINE (SRC A quand CP est choisi), remise à fond. GATE lui donne sa petite pièce en MM et en 909.",
+    tip: '909 avec GATE sur ON : le clap large de la dark disco ; 808, sec et court, pour un minimal.',
   },
   'r:hh': {
     section: 'TWEAKS / HATS',
     title: 'HATS',
-    text: "Le son des deux charleys, CH et OH : 909, 808 ou MM. Le même réglage que SOUND (SRC A) quand CH ou OH est choisi.",
+    text: "Le son des deux charleys, CH et OH : 909, 808 ou MM, leur MACHINE (SRC A quand CH ou OH est choisi), remise à fond.",
     tip: '808 pour un minimal métallique, 909 pour une house qui respire.',
   },
   'r:tom': {
     section: 'TWEAKS / TOMS',
     title: 'TOMS',
-    text: "Le son des deux toms, TOM (le grave) et HT (l'aigu) : 909, 808 ou MM. Le même réglage que SOUND (SRC A) quand TOM ou HT est choisi.",
+    text: "Le son des deux toms, TOM (le grave) et HT (l'aigu) : 909, 808 ou MM, leur MACHINE (SRC A quand TOM ou HT est choisi), remise à fond.",
+    tip: '808 pour des toms ronds de dark disco ; MM, plus courts, pour une ligne de percussions minimal accordée en LOCK.',
   },
 
   /* ---------- les reglages a venir (l'etude, leur bloc reste vide) ---------- */
@@ -528,101 +565,145 @@ const RAW: Record<RytmInfoId, Raw> = {
   'r3:machine': {
     section: 'SRC',
     title: 'MACHINE',
-    text: "Bientôt : le type de la couche SYNTH, 909, 808 ou MM. Comme sur l'Analog Rytm, le son de synthèse et le sample jouent ensemble, chacun à son niveau, puis passent par la même voix (AMP, effets).",
+    lock: 'yes',
+    voice: {
+      hh: { tip: 'CH et OH partagent leur MACHINE : un 808 pour les deux, ou un 909 verrouillé sur les seuls contretemps.' },
+      cy: {
+        text: "CY n'a qu'une synthèse à elle, sans choix : le bloc dit ONE SOUND. Ses autres blocs sont en retrait. En LOCK, un pas de CY peut prendre le sample d'une autre voix (SAMPLE, SMPL D).",
+        tip: 'Un kick de Mika verrouillé sur le dernier pas de CY : un coup sourd à la place du crash.',
+        lock: null,
+      },
+    },
+    tip: "Un 808 sur les pas 4 et 12 seulement (LOCK) : un kick long qui répond au 909 du reste de la mesure.",
+    text: "Le type de la couche SYNTH de la voix : 909, 808 ou MM, calculé par la machine (pas un sample). Comme sur l'Analog Rytm, cette synthèse et le sample (SMPL) jouent ensemble, chacun à son niveau, puis passent par la même voix (AMP, FX). Changer de MACHINE ne touche ni au sample ni aux niveaux ; à LEVEL 0 (H), l'écran le rappelle. En LOCK, un pas peut jouer une autre machine.",
   },
   'r3:synlevel': {
     section: 'SRC',
-    title: 'SYNTH LEVEL',
-    text: "Bientôt : le niveau de la couche SYNTH (le kick ou la caisse claire calculés par la machine) ; à 0, seul le sample joue.",
+    title: 'LEVEL',
+    lock: 'yes',
+    tip: "Le kick de Mika à 127 et le 909 vers 50 : le grave de la machine sous l'attaque du sample.",
+    text: "Le niveau de la couche SYNTH, de 0 (OFF, seul le sample joue) à 127 (la synthèse calée à son niveau). Les deux couches à fond peuvent dépasser la crête de la voix : elles sont alors ramenées dessous, jamais remontées ; le kick reste la référence du mix. Au départ, BD et SD sont à 0 : leur sample joue seul.",
   },
   'r3:sweep': {
     section: 'SRC',
     title: 'SWEEP',
-    text: 'Bientôt : la descente de hauteur du kick de synthèse, sa profondeur et son temps : court et profond, il claque ; plus long, il fait boum.',
+    lock: 'yes',
+    tip: "Plus de SWEEP pour une techno qui claque ; presque rien pour un kick rond de dark disco qui laisse le grave à la basse.",
+    text: "La descente de hauteur du kick de synthèse, sa profondeur : de rien (un sinus qui ne descend pas) à deux fois celle d'origine (64) ; la ligne du dessous dit de combien d'octaves il tombe. En 909 la descente est rapide et profonde, en 808 courte, en MM entre les deux.",
   },
   'r3:sdtune': {
     section: 'SRC',
     title: 'TUNE',
-    text: 'Bientôt : la hauteur de la peau de la caisse claire de synthèse.',
+    lock: 'yes',
+    tip: "Une caisse claire un peu plus grave pour la dark disco ; plus aiguë pour une électro sèche.",
+    text: "La hauteur de la peau de la caisse claire de synthèse, ±12 demi-tons autour de sa note (185 Hz en MM, 175 Hz en 909, 238 Hz en 808) ; la ligne du dessous donne les Hz. Le timbre (le bruit) ne bouge pas.",
   },
   'r3:sddecay': {
     section: 'SRC',
     title: 'DECAY',
-    text: 'Bientôt : la longueur de la caisse claire de synthèse.',
+    lock: 'yes',
+    text: "La longueur de la caisse claire de synthèse : sa peau et son timbre ensemble, de 0,42 à 2,4 fois celle d'origine (64) ; la ligne du dessous donne sa tenue. AMP DEC (AMP C) peut encore la couper après coup.",
+    tip: 'Courte (vers 40) pour un minimal sec ; longue (vers 90) avec GATE sur ON pour la dark disco.',
   },
   'r3:sdtone': {
     section: 'SRC',
     title: 'TONE',
-    text: 'Bientôt : la couleur de la caisse claire de synthèse, de sourde à brillante.',
+    lock: 'yes',
+    tip: "Un TONE un peu haut et SNAPPY à 80 : la caisse claire qui perce en indie dance.",
+    text: "La couleur du timbre de la caisse claire de synthèse : son passe-haut, une octave plus bas (plus sourde) ou plus haut (plus brillante) ; la ligne du dessous donne sa fréquence.",
   },
   'r3:stune': {
     section: 'SMPL',
     title: 'TUNE',
-    text: 'Bientôt : la hauteur de la couche SAMPLE, au demi-ton.',
+    lock: 'yes',
+    tip: "Accorde le kick de Mika sur la tonique du morceau, puis la synthèse sur la même note.",
+    text: "La hauteur de la couche SAMPLE, au demi-ton, de -24 à +24 ; la ligne du dessous nomme l'intervalle. Le sample est relu plus vite ou plus lentement : plus aigu, il est aussi plus court. FINE (B) règle entre deux demi-tons ; la synthèse a son TUNE à elle (SRC B).",
   },
   'r3:sfine': {
     section: 'SMPL',
     title: 'FINE',
-    text: "Bientôt : l'accord fin de la couche SAMPLE, entre deux demi-tons.",
+    lock: 'yes',
+    text: "L'accord fin de la couche SAMPLE, de -64 à +64 cents (100 cents font un demi-ton), ajouté à TUNE (A).",
+    tip: 'Quelques cents pour caler le kick de Mika juste sur la note du MM-BASS : en minimal, le grave ne bat plus.',
   },
   'r3:send': {
     section: 'SMPL',
-    title: 'END',
-    text: "Bientôt : l'endroit où le sample s'arrête, sa longueur.",
+    title: 'LEN',
+    lock: 'yes',
+    tip: "Un LEN court sur le kick : la queue du sample s'arrête juste avant la basse.",
+    text: "La part du sample gardée après START, de 12 % à tout le fichier (FULL) ; sa fin s'éteint en fondu sur la seconde moitié de cette part. La ligne du dessous donne ce qui sonne vraiment, en ms.",
   },
   'r3:smplevel': {
     section: 'SMPL',
     title: 'LEVEL',
-    text: 'Bientôt : le niveau de la couche SAMPLE ; SAMPLE sur OFF ou LEVEL à 0 : seul le son de synthèse joue.',
+    lock: 'yes',
+    text: "Le niveau de la couche SAMPLE, de 0 (OFF) à 127 (le sample calé à son niveau). SAMPLE sur OFF ou LEVEL à 0 : seule la synthèse joue. Les deux couches à fond sont ramenées sous la crête de la voix.",
+    tip: "Le sample vers 100 et la synthèse dessous : l'attaque du fichier, le corps de la machine, pour l'indie dance.",
   },
   'r3:reverse': {
     section: 'SMPL',
-    title: 'REVERSE',
-    text: "Bientôt : le sample joué à l'envers.",
+    title: 'REV',
+    lock: 'yes',
+    tip: "Un pas de caisse claire à l'envers (LOCK) juste avant le temps : le souffle qui aspire la mesure.",
+    text: "La couche SAMPLE jouée à l'envers (ON) : le fichier part de sa fin ; START et LEN se comptent alors depuis là.",
   },
 
   /* ---------- les pads des voix ---------- */
   'pad:BD': {
     section: 'VOICES',
     title: 'BD',
-    text: "Le kick, la référence du mix : il sort le plus fort, les autres voix sont calées sous sa crête. Il a sa propre voie (les effets du bas de FX ne le touchent pas) et il est monophonique : un nouveau coup coupe la queue du précédent en 3 ms. Touche le pad : il sonne (à l'arrêt) et devient la voix choisie. Touche A.",
+    text: "Le kick, la référence du mix : il sort le plus fort, les autres voix sont calées sous sa crête. Il a sa propre voie (les effets du bas de FX ne le touchent pas) et il est monophonique : un nouveau coup coupe la queue du précédent en 3 ms. Le pad le choisit : les pas, les encodeurs et l'écran le règlent ; à l'arrêt, il le joue aussi. Le dessin montre ce qu'il joue et ses 16 pas.",
+    key: 'A',
     tip: 'Choisis la voix avant de toucher les pas : ils montrent et changent sa rangée.',
   },
   'pad:SD': {
     section: 'VOICES',
     title: 'SD',
-    text: "La caisse claire : sa crête reste au moins 1,5 dB sous celle du kick. Touche le pad : elle sonne (à l'arrêt) et devient la voix choisie ; les pas, les encodeurs et l'écran la règlent. Touche S.",
+    text: "La caisse claire : sa crête reste au moins 1,5 dB sous celle du kick. Le pad la choisit : les pas, les encodeurs et l'écran la règlent ; à l'arrêt, il la joue aussi.",
+    key: 'S',
+    tip: 'Sur 5 et 13 pour l’indie dance ; une ghost note plus douce (VOL verrouillé) sur le 15 fait rouler la mesure.',
   },
   'pad:CH': {
     section: 'VOICES',
     title: 'CH',
-    text: "Le charley fermé : il coupe le charley ouvert qui sonne encore, en 8 ms, comme une 808. Touche le pad : il sonne (à l'arrêt) et devient la voix choisie. Touche D.",
+    text: "Le charley fermé : il coupe le charley ouvert qui sonne encore, en 8 ms, comme une 808. Le pad le choisit ; à l'arrêt, il le joue aussi.",
+    key: 'D',
+    tip: 'Des doubles croches à 85 et un 127 sur chaque temps : le moteur de l’indie dance.',
   },
   'pad:OH': {
     section: 'VOICES',
     title: 'OH',
-    text: "Le charley ouvert ; le prochain charley, fermé ou ouvert, le coupe en 8 ms. Touche le pad : il sonne (à l'arrêt) et devient la voix choisie. Touche F.",
+    text: "Le charley ouvert ; le prochain charley, fermé ou ouvert, le coupe en 8 ms. Le pad le choisit ; à l'arrêt, il le joue aussi.",
+    key: 'F',
     tip: 'OH sur les contretemps et CH partout ailleurs : le charley ouvert se ferme tout seul, la house classique.',
   },
   'pad:CP': {
     section: 'VOICES',
     title: 'CP',
-    text: "Le clap : sa crête reste au moins 3,5 dB sous celle du kick. Touche le pad : il sonne (à l'arrêt) et devient la voix choisie. Touche Z.",
+    text: "Le clap : sa crête reste au moins 3,5 dB sous celle du kick. Le pad le choisit ; à l'arrêt, il le joue aussi.",
+    key: 'Z',
+    tip: 'Avec la caisse claire sur 5 et 13 : la dark disco ; seul et plus bas, il suffit à un minimal.',
   },
   'pad:TOM': {
     section: 'VOICES',
     title: 'TOM',
-    text: "Le tom grave ; TOM et HT partagent leur son (TOMS). Touche le pad : il sonne (à l'arrêt) et devient la voix choisie. Touche X.",
+    text: "Le tom grave ; TOM et HT partagent leur son (TOMS). Le pad le choisit ; à l'arrêt, il le joue aussi.",
+    key: 'X',
+    tip: 'Deux ou trois coups accordés en LOCK (TUNE) : une ligne de percussions pour le minimal.',
   },
   'pad:HT': {
     section: 'VOICES',
     title: 'HT',
-    text: "Le tom aigu ; TOM et HT partagent leur son (TOMS). Touche le pad : il sonne (à l'arrêt) et devient la voix choisie. Touche C.",
+    text: "Le tom aigu ; TOM et HT partagent leur son (TOMS). Le pad le choisit ; à l'arrêt, il le joue aussi.",
+    key: 'C',
+    tip: 'HT sur le dernier temps, en réponse au TOM : le petit roulement de la dark disco.',
   },
   'pad:CY': {
     section: 'VOICES',
     title: 'CY',
-    text: "La cymbale, en stéréo large (sa gauche et sa droite ont leurs propres phases), la voix la plus basse du kit ; un seul son. Touche le pad : elle sonne (à l'arrêt) et devient la voix choisie. Touche V.",
+    text: "La cymbale, en stéréo large (sa gauche et sa droite ont leurs propres phases), la plus discrète du kit (sa crête est la plus basse) ; un seul son. Le pad la choisit ; à l'arrêt, il la joue aussi.",
+    key: 'V',
+    tip: 'Une CY au début de chaque phrase seulement : l’indie dance garde son souffle.',
   },
 
   /* ---------- les pas et le LOCK ---------- */
@@ -638,15 +719,21 @@ const RAW: Record<RytmInfoId, Raw> = {
   lock: {
     section: 'STEPS',
     title: 'LOCK',
-    text: "Le parameter lock, comme sur une Elektron : un pas garde sa propre valeur d'un réglage. Tiens un pas 350 ms (ou L sur le pas choisi) : il passe en LOCK, il clignote, l'écran affiche LOCK 05 en négatif. Choisis la page, tourne un encodeur : ce réglage ne change que sur ce pas, son bloc passe en négatif. Deux tapes sur l'encodeur enlèvent ce verrou, CLEAR tous ceux du pas ; le même pas, Échap ou EDIT pour sortir, un autre pas pour y déplacer le LOCK. Lâché sans rien tourner, le LOCK reste ; lâché après avoir tourné, il s'en va. Verrouiller un pas vide y pose un coup. En lecture, les blocs verrouillés passent en négatif le temps de leur pas. Dans le Dock du téléphone, un appui long sur un pas le met en LOCK, et la page KNOBS règle ses verrous.",
-    tip: 'Un sample lock : en LOCK sur le pas 16 de BD, tourne SOUND (SRC A) jusqu’à CP 909 ; le kick laisse la place à un clap en fin de mesure.',
+    steps: [
+      "Tiens un pas 350 ms (ou L) : il passe en LOCK, l'écran affiche LOCK 05.",
+      'Choisis la page, tourne un encodeur : ce réglage ne change que sur ce pas, son bloc passe en négatif.',
+      'Retape le pas (ou Échap) pour sortir.',
+    ],
+    text: "Le parameter lock d'une Elektron : un pas garde sa propre valeur d'un réglage, et l'écran la montre quand le pas joue. Deux tapes sur un encodeur enlèvent son verrou, CLEAR tous ceux du pas. Au téléphone : un doigt sur le pas, un autre sur l'encodeur ; dans le Dock, un appui long sur le pas, puis KNOBS.",
+    tip: 'Un sample lock : en LOCK sur le pas 16 de BD, tourne SAMPLE (SMPL D) jusqu’à une caisse claire de Mika ; la mesure finit sur elle, calée à son niveau.',
   },
 
   /* ---------- le transport ---------- */
   run: {
     section: 'TRANSPORT',
     title: 'RUN/STOP',
-    text: "Lance ou arrête le séquenceur du MM-RYTM ; une piste SoundCloud qui joue passe en pause. Le MM-BASS et le MM-ARP se calent sur sa grille quand ils jouent. En lecture, toucher un pad choisit sa voix sans la jouer. Touche Espace.",
+    text: "Lance ou arrête le séquenceur du MM-RYTM ; une piste SoundCloud qui joue passe en pause. Le MM-BASS et le MM-ARP se calent sur sa grille quand ils jouent. En lecture, toucher un pad choisit sa voix sans la jouer.",
+    key: 'Espace',
   },
   clear: {
     section: 'TRANSPORT',
@@ -681,12 +768,14 @@ const RAW: Record<RytmInfoId, Raw> = {
   open: {
     section: 'KEYS',
     title: 'OPEN',
-    text: "Soulève le capot : la plaque TWEAKS règle le kit (le son du KICK et ses TUNE, ATTACK, DECAY, DRIVE ; la caisse claire et son SNAPPY ; le clap ; GATE ; les charleys ; les toms). La musique continue. Touche O.",
+    text: "Soulève le capot : la plaque TWEAKS règle le kit (le son du KICK, sa synthèse SYN TUNE et SYN DECAY, ATTACK et DRIVE ; la caisse claire et son SNAPPY ; le clap ; GATE ; les charleys ; les toms). Un choix de son y prend une couche à fond : 909, 808 ou MM, la synthèse seule ; un sample de Mika, le sample seul. La musique continue. Capot ouvert, l'écran part avec le panneau : la pastille INFOS, en haut à gauche, allume l'aide pour lire la plaque.",
+    key: 'O',
   },
   close: {
     section: 'TWEAKS',
     title: 'CLOSE',
-    text: 'Referme le capot du MM-RYTM. Touche O, ou Échap.',
+    text: 'Referme le capot du MM-RYTM.',
+    key: 'O ou Échap',
   },
 
   /* ---------- MASTER et TEMPO ---------- */
@@ -707,7 +796,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   screen: {
     section: 'SCREEN',
     title: 'SCREEN',
-    text: "La vue PAGE, toujours là. En haut, la lecture, la page en pastille, la voix et son son, le pattern et le tempo ; puis huit blocs à la place des huit encodeurs (A B C D en haut, E F G H dessous), chacun avec sa valeur de 0 à 127 (de -64 à +63 pour un réglage centré, les demi-tons pour TUNE, le nom du cran pour un choix), son unité et son petit dessin. Dessous, les 16 pas de la voix et la tête de lecture, un point sous chaque pas verrouillé. Touche l'en-tête pour les presets ; la touche de page allumée, ou H, montre HOME.",
+    text: "La vue PAGE, toujours là. En haut, la lecture, la page en pastille, la voix et ce qu'elle joue (sur SRC et SMPL, ses deux couches : SYN et SMP, chacune son niveau), le pattern, le tempo et le i des INFOS ; puis huit blocs à la place des huit encodeurs (A B C D en haut, E F G H dessous), chacun avec sa valeur de 0 à 127 (de -64 à +63 pour un réglage centré, les demi-tons pour TUNE, le nom du cran pour un choix), son unité et son petit dessin. Dessous, les 16 pas de la voix et la tête de lecture, un point sous chaque pas verrouillé. L'en-tête ouvre les presets ; la touche de page allumée (ou H) montre HOME.",
   },
   presets: {
     section: 'SCREEN',
@@ -722,7 +811,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   ikey: {
     section: 'SCREEN',
     title: 'INFOS',
-    text: "Allume l'aide : survole n'importe quelle commande du MM-RYTM (au téléphone, touche-la : sa carte s'affiche, la commande n'agit pas) pour lire ce qu'elle fait ; un encodeur montre le réglage qu'il tient sur la page allumée, pour la voix choisie. Le i se remplit tant que c'est allumé ; touche-le encore, ou Échap, pour l'éteindre.",
+    text: "Allume l'aide : survole n'importe quelle commande du MM-RYTM (au téléphone, touche-la : sa carte s'affiche, la commande n'agit pas ; un glisser tourne toujours un encodeur) pour lire ce qu'elle fait ; un encodeur montre le réglage qu'il tient sur la page allumée, pour la voix choisie, et l'écran marque son bloc de quatre coins. Le i se remplit tant que c'est allumé ; touche-le encore, la croix de la pastille INFOS, I ou Échap pour l'éteindre. Au téléphone, le i du Dock fait de même.",
   },
   home: {
     section: 'SCREEN',
@@ -779,7 +868,9 @@ export function infoOf(id: string, ctx: RytmInfoCtx = {}): RytmInfo | null {
     id: rid,
     section: sectionOf(rid, r, ctx),
     title,
+    ...(r.steps ? { steps: r.steps.map(fr) } : {}),
     text: fr(text),
+    ...(r.key ? { key: fr(`Au clavier : ${r.key}.`) } : {}),
     ...(tip ? { tip: fr(tip) } : {}),
     avail: rytmAvail(rid),
     ...(lock ? { lock } : {}),

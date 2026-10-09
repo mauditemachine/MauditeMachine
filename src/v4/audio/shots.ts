@@ -36,11 +36,17 @@
  *   et ses calculs en attente ne sont jamais purges par un reglage du kit
  *   qui tourne (ils ne sont pas a lui). drums.ts les prepare a l'avance
  *   (prepare), un coup verrouille arrive donc deja calcule.
+ * - Les deux couches (2026-10-08, l'etape R3, Mika : "comme la ANALOG Rytm
+ *   ou on peut mettre des samples mais le kick peut etre parametre comme une
+ *   machine") : un coup est sa couche SYNTH et sa couche SAMPLE ensemble
+ *   (shotsdsp.ts renderLayers), calcule d'un bloc dans le worker ;
+ *   l'echantillon decode lui est envoye une fois (pcmSent). Sans worker, le
+ *   meme calcul sur le fil principal, en tache de fond.
  */
 
 import { KIT_FAMILIES, familyOf, kit, shotsOf } from './kit';
 import { loadSample, onSampleLoaded, samplePcm } from './samples';
-import { renderSampleShot, renderShot, VARIANTS, type ShotId, type ShotTweak } from './shotsdsp';
+import { renderLayers, VARIANTS, type ShotId, type ShotTweak } from './shotsdsp';
 
 export type { ShotId } from './shotsdsp';
 
@@ -100,10 +106,14 @@ const stats = { rendered: 0, ms: 0, sync: 0, nearest: 0, inWorker: 0, skipped: 0
 /** La derniere variante jouee de chaque son. */
 const lastVar = new Map<ShotId, number>();
 
-/** Les variantes d'un son : une seule quand sa famille joue un echantillon (toutes seraient le meme). */
+/**
+ * Les variantes d'un son : une seule quand sa famille ne joue que son
+ * echantillon (toutes seraient le meme) ; la couche SYNTH a son niveau garde
+ * les siennes (le bruit de la caisse claire change d'un coup a l'autre).
+ */
 const variantsOf = (id: ShotId): number => {
   const f = familyOf(id);
-  return f && kit.get().sample[f] ? 1 : VARIANTS[id];
+  return f && kit.get().sample[f] && kit.get().layer[f].syn <= 0 ? 1 : VARIANTS[id];
 };
 
 /** La cle d'un echantillon : son, STRETCH, variante, frequence, hauteur, et la signature du kit (audio/kit.ts, 2026-10-04). */
@@ -148,26 +158,38 @@ function put(key: string, b: AudioBuffer): void {
 }
 
 /**
- * Calcul sur le fil principal (sans worker, un echantillon, ou un coup qui
- * ne peut pas attendre). Un echantillon pas encore telecharge : le son
- * calcule de la voix, non garde (le bon le remplacera).
+ * Calcul sur le fil principal (sans worker, ou un coup qui ne peut pas
+ * attendre : le rendu hors ligne). Un echantillon pas encore telecharge : la
+ * couche SYNTH seule, au moins a son niveau plein (le son calcule de la voix
+ * le remplace en attendant, 2026-10-05), non gardee (le bon la remplacera).
  */
 function makeNow(j: Job): AudioBuffer {
   const t0 = performance.now();
   const pcm = j.tw.sample ? samplePcm(j.tw.sample) : undefined;
-  const s = pcm ? renderSampleShot(j.id, j.sr / keyPf(j.pk), j.ts, pcm, j.tw) : renderShot(j.id, j.sr / keyPf(j.pk), j.ts, j.v, { ...j.tw, sample: undefined });
+  const missing = !!j.tw.sample && !pcm;
+  const tw: ShotTweak = missing ? { ...j.tw, sample: undefined, syn: Math.max(j.tw.syn ?? 1, 1) } : j.tw;
+  const s = renderLayers(j.id, j.sr / keyPf(j.pk), j.ts, j.v, tw, pcm);
   const b = toBuffer(s.L, s.L === s.R ? null : s.R, j.sr);
   stats.ms += performance.now() - t0;
   stats.rendered += 1;
-  if (pcm || !j.tw.sample) put(j.key, b);
-  else void loadSample(j.tw.sample);
+  if (!missing) put(j.key, b);
+  else void loadSample(j.tw.sample as string);
   return b;
 }
 
-function onDone(e: MessageEvent<{ key: string; L: Float32Array; R: Float32Array | null; ms: number }>): void {
+/** Les echantillons deja envoyes au worker (il les garde) ; un nouveau worker repart de rien. */
+let pcmSent = new Set<string>();
+
+function onDone(e: MessageEvent<{ key: string; L: Float32Array; R: Float32Array | null; ms: number; missing?: boolean }>): void {
   const d = e.data;
   const j = busy;
   busy = null;
+  // Le worker n'avait pas l'echantillon (jamais : il part avec la commande) : il le recevra avec la prochaine
+  if (d.missing) {
+    if (j?.tw.sample) pcmSent.delete(j.tw.sample);
+    pump();
+    return;
+  }
   if (j && j.key === d.key && !cache.has(d.key)) {
     put(d.key, toBuffer(d.L, d.R, j.sr));
     stats.rendered += 1;
@@ -186,6 +208,7 @@ function getWorker(): Worker | null {
       // Le worker ne demarre pas (ou plante) : tout se calcule sur le fil principal
       w.terminate();
       worker = null;
+      pcmSent = new Set();
       const j = busy;
       busy = null;
       if (j) queue.unshift(j);
@@ -215,11 +238,15 @@ function pump(): void {
     pump();
     return;
   }
-  const w = j.tw.sample ? null : getWorker();
+  const w = getWorker();
   busy = j;
   if (w) {
-    // Le worker calcule a la frequence de rendu (sr / pf) ; le buffer gardera sr
-    w.postMessage({ key: j.key, id: j.id, sr: j.sr / keyPf(j.pk), ts: j.ts, v: j.v, tw: j.tw });
+    // Le worker calcule a la frequence de rendu (sr / pf) ; le buffer gardera sr. L'echantillon de la couche
+    // SAMPLE part avec la premiere commande qui en a besoin (une copie : le fil principal garde le sien)
+    const key = j.tw.sample;
+    const pcm = key && !pcmSent.has(key) ? samplePcm(key) : undefined;
+    if (key && pcm) pcmSent.add(key);
+    w.postMessage({ key: j.key, id: j.id, sr: j.sr / keyPf(j.pk), ts: j.ts, v: j.v, tw: j.tw, ...(pcm && key ? { pcm: { key, L: pcm.L, R: pcm.R, sr: pcm.sr } } : {}) });
     return;
   }
   setTimeout(() => {

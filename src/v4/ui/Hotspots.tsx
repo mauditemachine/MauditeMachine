@@ -45,6 +45,19 @@
  *   verrou ne le change pas ;
  * - en LOCK, une tape sur un pas deplace le LOCK (le meme pas : il en sort),
  *   deux tapes sur un potard de page retirent son verrou.
+ *
+ * INFOS du MM-RYTM (2026-10-08, l'etape R4, state/rytmInfos.ts) : la touche i
+ * de l'ecran (lcd-i) l'allume ou l'eteint ; allume, la souris survole (le
+ * Stage passe la commande au store) et agit comme toujours ; au doigt, une
+ * tape montre la carte de la commande au lieu de la jouer (un pad ne sonne
+ * pas, un pas ne change pas), un glisser tourne toujours un potard (sa carte
+ * suit), la tenue d'un pas ne met pas le LOCK (elle montre la carte du
+ * pas) et un glisser sur un pas ne change pas sa velocite ; le pas reste
+ * tenu pourtant : un encodeur tourne d'un autre doigt le verrouille (revue de
+ * R4, la carte des pas le promet) ; pour naviguer, une touche de page tourne
+ * quand meme la page et un pad choisit sa voix, sans un son (actions.ts
+ * rytmInfoTap, la feuille de la carte et le Dock aussi : sinon les reglages
+ * des autres pages et des autres voix ne se liraient pas au doigt).
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
@@ -86,6 +99,7 @@ import {
   stepVelocity,
   stepVelocityOf,
   stepToggle,
+  rytmInfoTap,
   voyClear,
   voyPad,
   voyRandom,
@@ -127,6 +141,8 @@ import { voyKnob, type VoyKnobId } from '../voyager/params';
 import { voyEcho } from '../voyager/echo';
 import { voyInfoIdOf } from '../voyager/infoIds';
 import { voyInfos } from '../state/voyInfos';
+import { rytmInfos } from '../state/rytmInfos';
+import { isRytmInfoHotspot } from '../rytm/infoIds';
 import { isSwitch } from '../voyager/theme';
 import { EXTERNAL_REL } from './ExternalLink';
 import {
@@ -214,6 +230,12 @@ interface Down {
    */
   held: boolean;
   lockHold: boolean;
+  /**
+   * INFOS du MM-RYTM allume, un doigt sur une de ses commandes (R4) : une tape
+   * montre sa carte ; sur un pas, ni LOCK a la tenue ni velocite au glisser
+   * (revue de R4), mais le pas reste tenu : deux doigts verrouillent toujours
+   */
+  info: boolean;
   writes0: number;
   prevLock: number;
   /** un potard : le LOCK au debut de son glisser (un changement le fait repartir de la valeur du moment) */
@@ -227,6 +249,9 @@ const lockKeyNow = (): string => {
   const l = rytmLock.get();
   return `${l.step}|${l.held.join(',')}`;
 };
+
+/** INFOS du MM-RYTM allume (R4) et une de ses commandes, sur lui : au doigt, elle montre sa carte. */
+const rytmInfoTouch = (id: string): boolean => rytmInfos.isOn() && focus.get() === 'mm808' && isRytmInfoHotspot(id);
 
 /** La velocite d'un pas au glisser : un cran tous les 12 px (souris), 16 px (doigt) ; vers le haut, plus fort. */
 const VEL_PX = { mouse: 12, touch: 16 } as const;
@@ -477,6 +502,15 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         voyInfos.show(d.id);
         return d.id;
       }
+      // MM-RYTM (R4, 2026-10-08) : la touche i de son ecran ; INFOS allume, au doigt, une tape montre la carte
+      if (d.kind === 'rinfo') {
+        rytmInfos.toggle();
+        return d.id;
+      }
+      // Un pas tenu qui a recu un verrou (deux doigts, INFOS allume aussi) : ni change ni tape, la carte reste celle de l'encodeur
+      if (d.kind === 'step' && d.lockHold) return d.id;
+      // La carte, et la navigation sans un son (une touche de page tourne la page, un pad choisit sa voix : actions.ts)
+      if (!d.mouse && d.id && rytmInfoTouch(d.id) && rytmInfoTap(d.id)) return d.id;
       if (d.kind === 'pad' && d.inst) padHit(d.inst, stage);
       else if (d.kind === 'page' && d.section && isPage(d.section)) page(d.section, stage);
       else if (d.kind === 'open') openToggle(stage, 'mm808');
@@ -537,6 +571,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       const d = downs.get(pointerId);
       // Un glisser parti d'un pas : sa velocite (2026-10-05), jamais l'orbite
       if (d && d.kind === 'step' && d.index !== undefined) {
+        // INFOS du MM-RYTM, au doigt (revue de R4) : une tape un peu glissee montre la carte du pas, sans rien y changer
+        if (d.info) {
+          if (d.id) rytmInfos.show(d.id);
+          return false;
+        }
         d.velDrag = true;
         dragVelocity(d, dy);
         return false;
@@ -605,6 +644,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         // INFOS allume, au doigt : la carte passe au potard qu'on prend, qu'on le tape ou qu'on le tourne (la carte suit)
         if (h && e.pointerType !== 'mouse' && voyInfos.isOn() && voyInfoIdOf(h.id)) voyInfos.show(h.id);
       }
+      // INFOS du MM-RYTM (R4), au doigt : la carte passe au potard qu'on prend (page, MASTER, TEMPO, TWEAKS), qu'on le
+      // tape ou qu'on le tourne (la carte suit)
+      if (encoder && h && e.pointerType !== 'mouse' && rytmInfoTouch(h.id)) rytmInfos.show(h.id);
       // Un deuxieme doigt : ni l'un ni l'autre ne glisse d'une machine a l'autre
       const multi = downs.size > 0;
       if (multi) for (const o of downs.values()) o.multi = true;
@@ -635,6 +677,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         velDrag: false,
         held: false,
         lockHold: false,
+        info: !!h && e.pointerType !== 'mouse' && rytmInfoTouch(h.id),
         writes0: rytmLock.get().writes,
         prevLock: rytmLock.get().latched ? rytmLock.get().step : -1,
         lockKey: lockKeyNow(),
@@ -644,6 +687,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (h && (h.kind === 'step' || h.kind === 'penc')) stage.orbit.claim(e.pointerId);
       // Un pas tenu (2026-10-05) : l'ecran dit sa velocite et qu'un glisser la change ; depuis le 2026-10-08,
       // hors EDIT et une voix choisie, 350 ms de tenue sans glisser : le LOCK (les parameter locks)
+      // INFOS du MM-RYTM (R4), au doigt : la tenue d'un pas ne met pas le LOCK, sa tape montre la carte du pas ; il reste
+      // tenu pourtant (revue de R4) : un encodeur tourne d'un autre doigt le verrouille, comme sa carte le dit
       if (h?.kind === 'step' && h.index !== undefined) {
         const idx = h.index;
         const pid = e.pointerId;
@@ -651,12 +696,13 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         // La pression de CE pointerdown (revue de R2) : une souris a toujours le pointerId 1, la minuterie d'un
         // clic d'avant ne doit pas prendre le clic suivant pour une tenue (trois clics a la seconde latchaient le LOCK)
         const d0 = downs.get(pid);
+        const info = !!d0?.info;
         if (lockable) {
           if (d0) d0.held = true;
           rytmLock.hold(idx);
           window.setTimeout(() => {
             const d = downs.get(pid);
-            if (!d || d !== d0 || d.velDrag || d.index !== idx || disposed) return;
+            if (!d || d !== d0 || d.velDrag || d.info || d.index !== idx || disposed) return;
             // Deja passe en LOCK par un potard tourne pendant la tenue : il y reste jusqu'au lacher
             if (rytmLock.get().writes > d.writes0) {
               d.lockHold = true;
@@ -664,7 +710,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
             }
             if (rytmLockEnter(idx, false)) d.lockHold = true;
           }, LOCK_HOLD_MS);
-        } else {
+        } else if (!info) {
           window.setTimeout(() => {
             const d = downs.get(pid);
             if (d && d === d0 && !d.velDrag && d.index === idx && !disposed) stepHoldHint(idx);
@@ -689,7 +735,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       const turned = rytmLock.get().writes > d.writes0;
       // Une tenue dont la minuterie n'a pas encore parle (revue de R2 : le fil principal gele, le pointerup passe
       // avant elle) : mesuree d'un evenement a l'autre, 350 ms ou plus, c'est la tenue, le LOCK fixe
-      if (!d.lockHold && !turned && !d.velDrag && upTs >= 0 && upTs - d.ts >= LOCK_HOLD_MS) {
+      // INFOS allume, au doigt : jamais (la tenue montre la carte du pas)
+      if (!d.lockHold && !turned && !d.velDrag && !d.info && upTs >= 0 && upTs - d.ts >= LOCK_HOLD_MS) {
         if (rytmLockEnter(d.index, true)) {
           d.lockHold = true;
           return true;
@@ -1197,6 +1244,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const rytmEdit = useSyncExternalStore(editor.subscribe, editor.get, editor.get) === 'mm808';
   const running = useSyncExternalStore(clock.subscribe, () => clock.running, () => clock.running);
   const v = useSyncExternalStore(voices.subscribe, voices.get, voices.get);
+  // INFOS du MM-RYTM (R4) : la touche i de l'ecran
+  const rytmInfosOn = useSyncExternalStore(rytmInfos.subscribe, rytmInfos.isOn, rytmInfos.isOn);
   const muteOn = v.muteMode || v.muted.length > 0;
   const open = useSyncExternalStore(section.subscribe, section.get, section.get);
   const stretch = useSyncExternalStore(mix.subscribe, () => mix.stretch, () => mix.stretch);
@@ -1466,6 +1515,18 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
           onClick={() => presetKey('mm808', k)}
         />
       ))}
+      {/* La touche i de l'ecran (R4, 2026-10-08) : INFOS, l'aide au survol */}
+      <button
+        ref={refFor('lcd-i')}
+        type="button"
+        className="v4-twin"
+        data-twin="rinfo"
+        data-hotspot="lcd-i"
+        aria-label={rytmInfosOn ? 'INFOS on: hover a control of the MM-RYTM (tap on a phone) to read what it does. Press to turn off' : 'INFOS: hover a control of the MM-RYTM (tap on a phone) to read what it does'}
+        aria-pressed={rytmInfosOn}
+        onKeyDown={noRepeat}
+        onClick={() => rytmInfos.toggle()}
+      />
       {chips}
       {showChips &&
         KIT_IDS.map((k) => {

@@ -17,7 +17,10 @@
  *   leurs valeurs repartent vers les potards motorises), rytm:page:<page>,
  *   rytm:page (six crans) et rytm:home ; les verrous (2026-10-08, l'etape R2)
  *   rytm:lock:<0-15> (le LOCK sur ce pas, encore : hors LOCK) et rytm:lock
- *   (le pas choisi) ; en LOCK, rytm:knob regle les verrous du pas ;
+ *   (le pas choisi) ; en LOCK, rytm:knob regle les verrous du pas ; les
+ *   couches (revue de R3) rytm:layer:<famille>:<reglage> (mach, syn, sample,
+ *   lev, tune, fine, start, len, rev : la couche d'une famille sans choisir
+ *   sa voix) ; rytm:infos (la touche i de l'ecran, l'etape R4) ;
  * - MM-ARP : voy:knob:<potard>, voy:pad:<0-7>, voy:run, clear, random,
  *   edit, open ; voy:running ; voy:infos (la touche i du grand ecran,
  *   2026-10-08) ;
@@ -32,13 +35,15 @@
  *   (state/bassload.ts, bass/midi.ts).
  */
 
-import { anyDial, anyDialValue, clearPattern, dialRange, dialSteps, editToggle, focusMachine, kitDial, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmShowPage, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
+import { LAYER_TARGET_FAMS, anyDial, anyDialValue, clearPattern, dialRange, dialSteps, editToggle, focusMachine, kitDial, kitLayerDial, layerTargetSteps, layerTargetValue, machinesToggle, muteToggle, openToggle, padHit, pageKnobCourse, patternTap, randomPattern, rytmHome, rytmLockToggle, rytmPageKey, rytmShowPage, runToggle, soloToggle, stepMachine, stepToggle, voiceMute, voyClear, voyDial, voyPad, voyRandom, voyRun, type DialId } from '../actions';
 import { rytmPage } from '../state/rytmPage';
 import { clock } from '../audio/clock';
 import { voices as voiceState } from '../state/voices';
 import { arp } from '../voyager/arp';
 import { voyInfos } from '../state/voyInfos';
-import { KIT_IDS, KIT_LABEL, kit, kitSteps } from '../audio/kit';
+import { rytmInfos } from '../state/rytmInfos';
+import { KIT_IDS, KIT_LABEL, KIT_MORE, kit, kitSteps, type KitKnob } from '../audio/kit';
+import { samplesOf } from '../audio/samples';
 import { setVoiceFx } from '../audio/drums';
 import { VOICE_PARAMS, voiceFx, type VoiceParam } from '../audio/voicefx';
 import type { Stage } from '../scene/renderer';
@@ -149,12 +154,13 @@ function coreTargets(): MidiTarget[] {
       if (v >= 0.5 !== clock.running) void runToggle(getStage());
     },
   });
-  for (const k of KIT_IDS) {
+  // Les potards de la machine ajoutes par R3 (2026-10-08 : SWEEP du kick, TUNE DECAY TONE de la caisse claire) suivent la plaque
+  for (const k of [...KIT_IDS, ...KIT_MORE]) {
     // Ses crans suivent les echantillons du site (audio/samples.ts) : lus a chaque fois
     out.push({
       id: `rytm:kit:${k}`,
       scope: 'mm808',
-      label: `TWEAK ${KIT_LABEL[k]}`,
+      label: `TWEAK ${KIT_MORE.includes(k as KitKnob) ? (k === 'sweep' ? 'KICK ' : 'SNARE ') : ''}${KIT_LABEL[k]}`,
       kind: 'value',
       get steps() {
         return kitSteps(k);
@@ -162,6 +168,38 @@ function coreTargets(): MidiTarget[] {
       get: () => kit.value(k),
       set: (v) => kitDial(k, v),
     });
+  }
+  // Les couches de R3 (revue de R3, 2026-10-08) : chaque reglage de couche d'une famille, sans choisir sa voix. Le
+  // kit de depart joue les samples de Mika (la synthese a 0) : KICK TUNE et KICK DECAY (rytm:kit:tune, decay) ne
+  // reglent plus que la synthese ; le TUNE et le LEN du sample du kick ont leur cible ici (rytm:layer:bd:tune, len).
+  // Toutes les familles : la MACHINE et le niveau de la synthese ; celles qui ont des samples, toute la couche SAMPLE.
+  const LAYER_LABEL: Readonly<Record<string, string>> = {
+    mach: 'SYN MACHINE',
+    syn: 'SYN LEVEL',
+    sample: 'SAMPLE',
+    lev: 'SMP LEVEL',
+    tune: 'SMP TUNE',
+    fine: 'SMP FINE',
+    start: 'SMP START',
+    len: 'SMP LEN',
+    rev: 'SMP REV',
+  };
+  for (const f of LAYER_TARGET_FAMS) {
+    const params = samplesOf(f).length > 0 ? (['mach', 'syn', 'sample', 'lev', 'tune', 'fine', 'start', 'len', 'rev'] as const) : (['mach', 'syn'] as const);
+    for (const lp of params) {
+      out.push({
+        id: `rytm:layer:${f}:${lp}`,
+        scope: 'mm808',
+        label: `${KIT_LABEL[f]} ${LAYER_LABEL[lp]}`,
+        kind: 'value',
+        get steps() {
+          const n = layerTargetSteps(f, lp);
+          return n > 1 ? n : 0;
+        },
+        get: () => layerTargetValue(f, lp),
+        set: (v) => kitLayerDial(f, lp, v),
+      });
+    }
   }
   // Les potards de page (2026-10-08) : relatifs a la page, leur course, leurs crans et leur nom suivent la page
   PAGE_KNOB_LETTERS.forEach((letter, k) => {
@@ -208,6 +246,8 @@ function coreTargets(): MidiTarget[] {
   out.push(press('rytm:solo', 'mm808', 'SOLO', () => void soloToggle(getStage())));
   out.push(press('rytm:edit', 'mm808', 'EDIT', () => editToggle('mm808', getStage())));
   out.push(press('rytm:open', 'mm808', 'OPEN', () => void openToggle(getStage(), 'mm808')));
+  // La touche i de l'ecran (R4, 2026-10-08) : INFOS, l'aide au survol
+  out.push(press('rytm:infos', 'mm808', 'INFOS (HELP ON HOVER)', () => void rytmInfos.toggle()));
   // Les seize patterns (2026-10-05, state/patterns.ts) : comme un step en EDIT (d'autres dans les deux secondes : la chaine)
   for (let i = 0; i < PATTERN_SLOTS; i += 1) out.push(press(`rytm:ptn:${i}`, 'mm808', `PATTERN ${slotName(i)}`, () => patternTap(i, getStage())));
   // MM-ARP
@@ -318,6 +358,12 @@ export function targetIdOfHotspot(h: { kind: string; param?: string; rknob?: str
       return h.rpage ? `rytm:page:${h.rpage}` : null;
     case 'rknob':
       return h.rknob ? `rytm:kit:${h.rknob}` : null;
+    // La touche i de l'ecran du MM-RYTM (R4) : MIDI LEARN l'apprend aussi
+    case 'rinfo':
+      return 'rytm:infos';
+    // Un bloc de l'ecran (INFOS allume) : son potard de page
+    case 'rblock':
+      return typeof h.index === 'number' ? `rytm:knob:${h.index + 1}` : null;
     case 'pad':
       return h.inst ? `rytm:pad:${h.inst}` : null;
     case 'step':

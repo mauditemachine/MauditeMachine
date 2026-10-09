@@ -53,6 +53,7 @@ import {
   dialValueText,
   lockSummary,
   pageKnobReset,
+  rytmInfoTap,
   rytmLockClear,
   rytmLockToggle,
   rytmPageKey,
@@ -61,6 +62,7 @@ import {
   type DialId,
 } from '../actions';
 import { rytmLock } from '../state/rytmLock';
+import { rytmInfos } from '../state/rytmInfos';
 import { INSTRUMENTS, pattern } from '../audio/pattern';
 import { stageNow } from '../midi/targets';
 import { pageSlots } from '../rytm/pages';
@@ -182,6 +184,13 @@ export interface KnobSpec {
   onReset?(): void;
   /** en LOCK (2026-10-08) : locked (en negatif), base, global, nolock ; absent hors LOCK */
   lockState?: string;
+  /** sa couche ne s'entend pas (R3, revue) : en retrait, comme le bloc de l'ecran */
+  quiet?: boolean;
+  /**
+   * INFOS du MM-RYTM (R4, 2026-10-08) : pris, il montre sa carte (true : INFOS
+   * allume) ; une tape ne fait alors que la montrer, un glisser le tourne
+   */
+  info?(): boolean;
 }
 
 /** Un potard : glisser, taper (cran suivant), deux tapes (valeur de depart), clavier. */
@@ -220,6 +229,7 @@ export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean }> = ({ spec
       /* pas de capture : le geste reste sur le potard tant qu'on y est */
     }
     drag.current = { y: ev.clientY, x: ev.clientX, k0: k, moved: false };
+    spec.info?.();
   };
   const onMove = (ev: React.PointerEvent<HTMLDivElement>): void => {
     const d = drag.current;
@@ -233,6 +243,8 @@ export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean }> = ({ spec
     const d = drag.current;
     drag.current = null;
     if (!d || d.moved) return;
+    // INFOS du MM-RYTM allume (R4) : la tape montre sa carte, rien de plus
+    if (spec.info?.()) return;
     // Une tape : un selecteur passe au cran suivant (et reboucle) ; deux tapes : la valeur de depart
     if (tapNext) {
       const i = Math.round(k * (steps - 1));
@@ -273,6 +285,7 @@ export const KnobView: React.FC<{ spec: KnobSpec; compact?: boolean }> = ({ spec
       className={compact ? 'v4-knob v4-knob-page' : 'v4-knob'}
       data-soon={spec.soon ? '1' : undefined}
       data-lock={spec.lockState}
+      data-quiet={spec.quiet ? '1' : undefined}
       role="slider"
       tabIndex={0}
       aria-label={spec.letter ? `Knob ${spec.letter}, ${spec.tag ? `${spec.tag} ` : ''}${spec.label}${spec.soon ? ', coming soon' : ''}` : spec.label}
@@ -330,8 +343,12 @@ const PageKnob: React.FC<{ k: number }> = ({ k }) => {
   const slot = pageSlots(rp.page, p.instrument)[k];
   const letter = PAGE_KNOB_LETTERS[k];
   const block = slot && slot.label ? slotBlock(slot, k, p.instrument, rp.sel, false, lk.step >= 0 ? { kind: 'lock', step: lk.step } : null) : null;
-  // Le meme bloc que l'ecran : son etiquette (la voix sur la rangee du haut de FX, ALL ou NO BD dessous ; en LOCK GLOBAL, NO LOCK)
-  const tag = block ? block.tag : '';
+  // Le meme bloc que l'ecran : son etiquette (la voix sur la rangee du haut de FX, ALL ou NO BD dessous ; en LOCK GLOBAL, NO LOCK ;
+  // R3, 2026-10-08 : sa couche muette, SYN OFF ou SMP OFF, comme le bloc en retrait de l'ecran)
+  // (revue de R3 : BOTH en retrait, la voix muette, SILENT ; le potard en retrait comme le bloc)
+  // MACHINE dit deja SYNTH OFF sur sa ligne d'unite : pas d'etiquette en double
+  const quietTag = slot?.target === 'l:mach' ? '' : slot?.both ? 'SILENT' : slot?.layer === 'synth' ? 'SYN OFF' : 'SMP OFF';
+  const tag = block ? (block.quiet ? quietTag : block.tag) : '';
   if (!slot || !slot.label) {
     return (
       <div className="v4-knob v4-knob-page v4-knob-empty" aria-hidden="true">
@@ -362,7 +379,9 @@ const PageKnob: React.FC<{ k: number }> = ({ k }) => {
     selector: slot.target !== 'step:vel',
     tag,
     onReset: () => pageKnobReset(k),
+    info: () => rytmInfos.dock(`penc-${k}`),
     lockState: block && block.lock !== 'none' ? block.lock : undefined,
+    quiet: !!block?.quiet && (!block.lock || block.lock === 'none' || block.lock === 'base'),
   };
   return <KnobView spec={spec} compact />;
 };
@@ -388,10 +407,11 @@ const LockBar: React.FC = () => {
         </span>
       </span>
       {/* CLR LOCKS (revue de R2) : CLEAR seul se lisait comme effacer le pattern */}
-      <button type="button" className="v4-knobs-lockkey" aria-label={`Clear the locks of step ${n}`} onClick={() => rytmLockClear()}>
+      {/* INFOS allume (revue de R4) : la carte de CLEAR (en LOCK, les verrous du pas) et celle du LOCK, comme sur la face ; rien n'agit */}
+      <button type="button" className="v4-knobs-lockkey" aria-label={`Clear the locks of step ${n}`} onClick={() => rytmInfos.dock('clear') || rytmLockClear()}>
         CLR LOCKS
       </button>
-      <button type="button" className="v4-knobs-lockkey" aria-label="Leave lock mode" onClick={() => rytmLockToggle(lk.step)}>
+      <button type="button" className="v4-knobs-lockkey" aria-label="Leave lock mode" onClick={() => rytmInfos.dock(`step-${lk.step + 1}`) || rytmLockToggle(lk.step)}>
         EXIT
       </button>
     </div>
@@ -413,7 +433,7 @@ const PageKeys: React.FC = () => {
             data-lit={on ? (rp.view === 'page' ? '1' : 'dim') : '0'}
             aria-pressed={on && rp.view === 'page'}
             aria-label={`${pk.label} page${on ? (rp.view === 'page' ? ', shown, press again for home' : ', press for the page view') : ''}`}
-            onClick={() => rytmPageKey(pk.id, stageNow())}
+            onClick={() => rytmInfoTap(`pkey-${pk.id}`, true) || rytmPageKey(pk.id, stageNow())}
           >
             {pk.label}
           </button>
@@ -423,8 +443,11 @@ const PageKeys: React.FC = () => {
   );
 };
 
+/** INFOS du MM-RYTM (R4) : la jumelle sur la face de MASTER et TEMPO (la page MASTER du Dock). */
+const RYTM_BIG_INFO: Partial<Record<string, string>> = { level: 'enc-level', tempo: 'enc-tempo' };
+
 /** Un potard d'une machine (DialId) : les memes actions et stores que la machine. */
-const BigKnob: React.FC<Dial> = ({ id, label }) => {
+const BigKnob: React.FC<Dial & { machine?: 'mm808' | 'voy' }> = ({ id, label, machine }) => {
   const spec = useMemo<KnobSpec>(() => {
     const range = dialRange(id);
     return {
@@ -439,8 +462,9 @@ const BigKnob: React.FC<Dial> = ({ id, label }) => {
       valueText: () => dialValueText(id),
       subscribe: subscribeDials,
       whole: id === 'tempo',
+      ...(machine === 'mm808' && RYTM_BIG_INFO[id] ? { info: () => rytmInfos.dock(RYTM_BIG_INFO[id] ?? '') } : {}),
     };
-  }, [id, label]);
+  }, [id, label, machine]);
   return <KnobView spec={spec} />;
 };
 
@@ -476,14 +500,23 @@ export const KnobPanel: React.FC<Props> = ({ machine }) => {
       {g.voices && !(g.pages && locking) && (
         <div className="v4-knobs-voices" role="group" aria-label="Voice to tune">
           {INSTRUMENTS.map((inst) => (
-            <button key={inst} type="button" className="v4-knobs-voice" aria-pressed={p.instrument === inst} onClick={() => tuneVoice(inst)}>
+            <button
+              key={inst}
+              type="button"
+              className="v4-knobs-voice"
+              aria-pressed={p.instrument === inst}
+              onClick={() => {
+                // INFOS du MM-RYTM (R4) : la carte de la voix, choisie quand meme (la navigation, actions.ts rytmInfoTap), jamais deselectionnee
+                if (!(machine === 'mm808' && rytmInfoTap(`pad-${inst}`, true))) tuneVoice(inst);
+              }}
+            >
               {inst}
             </button>
           ))}
         </div>
       )}
       <div className="v4-knobs-grid" role="tabpanel" aria-label={g.label}>
-        {g.pages ? PAGE_KNOB_IDS.map((pk, k) => <PageKnob key={pk} k={k} />) : g.dials.map((d) => <BigKnob key={d.id} id={d.id} label={d.label} />)}
+        {g.pages ? PAGE_KNOB_IDS.map((pk, k) => <PageKnob key={pk} k={k} />) : g.dials.map((d) => <BigKnob key={d.id} id={d.id} label={d.label} machine={machine} />)}
       </div>
     </div>
   );
@@ -535,8 +568,8 @@ export function useDockPage(key: string): [DockPage, (p: DockPage) => void] {
   return [page, choose];
 }
 
-/** Les deux pages d'un Dock, en haut : la sienne, KNOBS. */
-export const DockPages: React.FC<{ page: DockPage; onPage: (p: DockPage) => void; first: string }> = ({ page, onPage, first }) => (
+/** Les deux pages d'un Dock, en haut : la sienne, KNOBS ; extra : une touche au bout (INFOS du MM-RYTM, R4). */
+export const DockPages: React.FC<{ page: DockPage; onPage: (p: DockPage) => void; first: string; extra?: React.ReactNode }> = ({ page, onPage, first, extra }) => (
   <div className="v4-dock-pages" role="tablist" aria-label="Dock page">
     <button type="button" role="tab" aria-selected={page === 'main'} className="v4-dock-page" onClick={() => onPage('main')}>
       {first}
@@ -544,6 +577,7 @@ export const DockPages: React.FC<{ page: DockPage; onPage: (p: DockPage) => void
     <button type="button" role="tab" aria-selected={page === 'knobs'} className="v4-dock-page" onClick={() => onPage('knobs')}>
       KNOBS
     </button>
+    {extra}
   </div>
 );
 

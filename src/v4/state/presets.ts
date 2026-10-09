@@ -12,7 +12,12 @@
  *   preset ne fait jamais sauter le niveau), et le kit des TWEAKS (les sons
  *   et le kick, audio/kit.ts, 2026-10-04 ; un preset d'avant ne le touche pas),
  *   et depuis le 2026-10-08 les verrous des pas (audio/locks.ts ; un preset
- *   d'avant n'en a pas : le motif recharge n'en garde aucun).
+ *   d'avant n'en a pas : le motif recharge n'en garde aucun), et les deux
+ *   couches de chaque voix (l'etape R3 : la MACHINE de la couche SYNTH,
+ *   l'echantillon de la couche SAMPLE, leurs niveaux et reglages, audio/kit.ts) ;
+ *   un preset d'avant R3 se traduit au meme son (un echantillon choisi : la
+ *   couche SAMPLE seule, avec le TUNE et le DECAY du kick d'alors ; un modele :
+ *   la couche SYNTH seule).
  * - MM-BASS (2026-10-07) : tous ses potards et sa ligne (les pas et leurs
  *   verrous) ; recharger ne lance ni n'arrete la basse.
  * Gardes dans ce navigateur (localStorage), 60 par machine au plus. Les
@@ -24,7 +29,8 @@ import { INSTRUMENTS, pattern, type Fx, type Steps } from '../audio/pattern';
 import { mix, setStretch } from '../audio/drums';
 import { anyLocks, cleanLocks, type Locks } from '../audio/locks';
 import { VOICE_FX_DEFAULT, voiceFx, VOICE_PARAMS, type VoiceFx } from '../audio/voicefx';
-import { KIT_FAMILIES, KIT_IDS, isFamily, kit, modelAt, type KitFamily, type KitId } from '../audio/kit';
+import { KIT_FAMILIES, KIT_IDS, KIT_KNOBS, LAYER_DEFAULT, LAYER_TUNE_ST, cleanKnob, cleanLayer, kit, kitDefaultCopy, modelAt, resolveSample, type KitFamily, type KitId, type KitModel, type Layer } from '../audio/kit';
+import { lenOfDecay, sampleTuneSt } from '../audio/sampledsp';
 import type { Inst } from '../theme';
 import { arp } from '../voyager/arp';
 import { VOY_KNOB_IDS, migrateKnobs, voyKnob, voyParams, type VoyValues } from '../voyager/params';
@@ -62,6 +68,16 @@ interface RytmData {
   sounds?: Partial<Record<KitFamily, string>>;
   /** les verrous des pas (2026-10-08, audio/locks.ts) ; absent sans verrou */
   locks?: Locks;
+  /**
+   * les deux couches de chaque famille (2026-10-08, l'etape R3) : la MACHINE
+   * de la couche SYNTH, l'echantillon de la couche SAMPLE ('' : OFF), leurs
+   * reglages ; absentes d'un preset d'avant (sounds et kit se traduisent)
+   */
+  machines?: Partial<Record<KitFamily, string>>;
+  samples?: Partial<Record<KitFamily, string>>;
+  layers?: Partial<Record<KitFamily, Partial<Layer>>>;
+  /** tous les potards de la machine (ceux de R3 compris : SWEEP, la caisse claire) */
+  knobs?: Record<string, number>;
 }
 
 export interface Preset {
@@ -167,6 +183,10 @@ function capture(m: PresetMachine): VoyData | RytmData | BassData {
     kit: Object.fromEntries(KIT_IDS.map((id) => [id, kit.value(id)])) as Record<KitId, number>,
     sounds: Object.fromEntries(KIT_FAMILIES.map((f) => [f, kit.sound(f)])) as Record<KitFamily, string>,
     ...(anyLocks(p.locks) ? { locks: p.locks as Locks } : {}),
+    machines: { ...kit.get().model },
+    samples: Object.fromEntries(KIT_FAMILIES.map((f) => [f, kit.get().sample[f] ?? ''])) as Record<KitFamily, string>,
+    layers: Object.fromEntries(KIT_FAMILIES.map((f) => [f, { ...kit.get().layer[f] }])) as Record<KitFamily, Layer>,
+    knobs: { ...kit.get().knob },
   };
 }
 
@@ -207,20 +227,71 @@ function apply(m: PresetMachine, d: VoyData | RytmData | BassData): void {
     // (avant, il gardait la valeur du moment : un preset ne sonnait pas pareil selon ce qui jouait avant lui)
     for (const p of VOICE_PARAMS) voiceFx.set(inst, p, typeof fx[p] === 'number' ? fx[p] : VOICE_FX_DEFAULT[p]);
   }
-  if (r.kit) {
-    for (const id of KIT_IDS) {
-      const v = r.kit[id];
-      if (typeof v !== 'number' || isFamily(id)) continue;
-      kit.set(id, v);
+  applyKit(r);
+}
+
+/**
+ * Le kit d'un preset du MM-RYTM, d'un bloc (un seul recalcul des sons) :
+ * - depuis R3 (layers) : les MACHINES, les echantillons, les couches et tous
+ *   les potards tels qu'enregistres ;
+ * - avant (kit, sounds) : les potards presents (les autres, et ceux de R3, a
+ *   leur depart : le son d'alors), et le son de chaque famille comme une
+ *   couche seule (un echantillon : la couche SAMPLE avec le TUNE et le DECAY
+ *   du kick d'alors, la synthese a 0 ; un modele : la synthese seule) ;
+ * - sans kit (avant le 2026-10-04) : rien ne change.
+ * Un echantillon parti du dossier : celui du meme numero, sinon le premier
+ * de la famille (resolveSample) ; aucun : la synthese joue.
+ */
+function applyKit(r: RytmData): void {
+  if (!r.kit && !r.layers) return;
+  const cur = kit.get();
+  const next = kitDefaultCopy();
+  next.model = { ...cur.model };
+  const knobs = (r.knobs ?? r.kit ?? {}) as Record<string, unknown>;
+  for (const n of KIT_KNOBS) {
+    const v = knobs[n];
+    next.knob[n] = typeof v === 'number' && Number.isFinite(v) ? cleanKnob(n, v) : next.knob[n];
+  }
+  for (const f of KIT_FAMILIES) {
+    if (r.layers) {
+      const m = r.machines?.[f];
+      if (m === '909' || m === '808' || m === 'mm') next.model[f] = m as KitModel;
+      const l = cleanLayer(r.layers[f]);
+      const want = r.samples?.[f];
+      const key = resolveSample(f, want);
+      if (key) next.sample[f] = key;
+      else delete next.sample[f];
+      if (!key && want && l.syn <= 0) l.syn = 1;
+      next.layer[f] = l;
+      continue;
     }
-    // Les sons : par leur nom ; un preset d'avant les echantillons, sur trois crans ; un echantillon parti du dossier : rien ne change
-    for (const f of KIT_FAMILIES) {
-      const snd = r.sounds?.[f];
-      const v = r.kit[f];
-      if (typeof snd === 'string') kit.setSound(f, snd);
-      else if (typeof v === 'number') kit.setSound(f, modelAt(v));
+    // Un preset d'avant R3 : le son de la famille, par son nom ou sur trois crans ; rien : celui du moment
+    const snd = r.sounds?.[f];
+    const v = r.kit?.[f];
+    if (typeof snd !== 'string' && typeof v !== 'number') {
+      next.model[f] = cur.model[f];
+      if (cur.sample[f]) next.sample[f] = cur.sample[f];
+      else delete next.sample[f];
+      next.layer[f] = { ...cur.layer[f] };
+      continue;
+    }
+    const sound = typeof snd === 'string' ? snd : modelAt(v as number);
+    const key = sound === '909' || sound === '808' || sound === 'mm' ? undefined : resolveSample(f, sound);
+    if (key) {
+      next.sample[f] = key;
+      next.layer[f] = {
+        ...LAYER_DEFAULT,
+        syn: 0,
+        tune: f === 'bd' ? sampleTuneSt(next.knob.tune) / LAYER_TUNE_ST : 0,
+        len: f === 'bd' ? lenOfDecay(next.knob.decay) : 1,
+      };
+    } else {
+      if (sound === '909' || sound === '808' || sound === 'mm') next.model[f] = sound;
+      delete next.sample[f];
+      next.layer[f] = { ...LAYER_DEFAULT };
     }
   }
+  kit.replace(next);
 }
 
 export const presets = {

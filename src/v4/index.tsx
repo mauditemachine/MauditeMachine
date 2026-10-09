@@ -352,6 +352,8 @@ const BassTwins = lazy(() => import('./bass/Twins'));
 const BassInfosCard = lazy(() => import('./bass/InfosCard'));
 /** Les INFOS du MM-ARP (2026-10-08, la touche i de son grand ecran) : sa carte et sa pastille */
 const VoyInfosCard = lazy(() => import('./voyager/InfosCard'));
+/** Les INFOS du MM-RYTM (2026-10-08, l'etape R4, la touche i de son ecran) : sa carte, ses textes et ses dessins, a part */
+const RytmInfosCard = lazy(() => import('./rytm/InfosCard'));
 
 const V4Shell: React.FC = () => {
   const stageRef = useRef<Stage | null>(null);
@@ -554,6 +556,10 @@ const V4Shell: React.FC = () => {
               <BassInfosCard stage={stage} />
             </Suspense>
           )}
+          {/* MM-RYTM : la carte INFOS et sa pastille (2026-10-08, l'etape R4), allumees par le i de son ecran */}
+          <Suspense fallback={null}>
+            <RytmInfosCard stage={stage} />
+          </Suspense>
           {/* MM-ARP : la carte INFOS et sa pastille (2026-10-08), allumees par le i de son grand ecran */}
           {VOYAGER && (
             <Suspense fallback={null}>

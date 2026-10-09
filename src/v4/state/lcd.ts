@@ -27,7 +27,8 @@
 import { clock } from '../audio/clock';
 import { INSTRUMENTS, pattern } from '../audio/pattern';
 import { voiceFx } from '../audio/voicefx';
-import { familyOf, kit, kitSoundIndex, kitSoundNames, KIT_LABEL, type KitFamily } from '../audio/kit';
+import { KIT_MODELS, familyOf, kit, kitMachineNames, kitSampleNames, kitSoundIndex, kitSoundNames, KIT_LABEL, type KitFamily } from '../audio/kit';
+import { samplesOf } from '../audio/samples';
 import type { ShotId } from '../audio/shotsdsp';
 import { sc } from '../audio/soundcloud';
 import { fmtTime } from '../data';
@@ -57,7 +58,8 @@ export interface LcdState {
   /** page MIX : la voix reglee et les cinq volumes (0 a 1, ordre BD SD TOM CH OH) ; null : le texte */
   mix: { sel: Inst; insts: Inst[]; levels: number[] } | null;
   /** page SAMPLES (2026-10-05) : la voix choisie, sa famille de sons, leurs noms et le cran du moment ; null : le texte */
-  samples: { inst: Inst; fam: KitFamily; title: string; names: string[]; cur: number } | null;
+  /** rank : son rang a l'ecran (4/6 ; OFF n'est pas un sample : OFF), le meme compte que le bloc SAMPLE (revue de R3) */
+  samples: { inst: Inst; fam: KitFamily; title: string; names: string[]; cur: number; rank: string } | null;
   /** les trois lignes telles qu'affichees (gauche, espaces, droite) */
   text: [string, string, string];
   /** mode presets (2026-10-04) : les quatre touches de la ligne 3, dessinees en negatif ; null : le texte */
@@ -128,17 +130,28 @@ function composeMix(sel: Inst): Omit<LcdState, 'updates'> {
  * Page SAMPLES : les sons de la famille de la voix choisie (909, 808, MM,
  * puis ses echantillons), le son du moment en surbrillance ; le texte pour le
  * jumeau : la voix, le son, son rang. null : la voix n'a qu'un son (CY, PC).
+ * Depuis R3 (2026-10-08, les deux couches) : MACHINE ouvre les machines de la
+ * couche SYNTH, SAMPLE la couche SAMPLE (OFF puis les samples).
  */
 function composeSamples(inst: Inst): Omit<LcdState, 'updates'> | null {
   const fam = familyOf(inst as ShotId);
   if (!fam) return null;
-  const names = kitSoundNames(fam);
-  const cur = Math.max(0, Math.min(names.length - 1, kitSoundIndex(fam)));
-  const title = KIT_LABEL[fam];
-  const line1 = row('SAMPLE', inst);
+  const k = lcdSamples.kind();
+  const g = kit.get();
+  const smp = g.sample[fam];
+  const names = k === 'machine' ? kitMachineNames() : k === 'sample' ? kitSampleNames(fam) : kitSoundNames(fam);
+  const at = k === 'machine' ? KIT_MODELS.indexOf(g.model[fam]) : k === 'sample' ? (smp ? samplesOf(fam).findIndex((x) => x.key === smp) + 1 : 0) : kitSoundIndex(fam);
+  const cur = Math.max(0, Math.min(names.length - 1, at));
+  const title = k === 'machine' ? `${KIT_LABEL[fam]} SYNTH` : k === 'sample' ? `${KIT_LABEL[fam]} SAMPLE` : KIT_LABEL[fam];
+  const line1 = row(k === 'machine' ? 'MACHINE' : 'SAMPLE', inst);
   const l2 = fit(names[cur], COLS);
-  const l3 = fit(`${title} ${cur + 1} OF ${names.length}`, COLS);
-  return { l1: line1.l, r1: line1.r, l2, r2: '', l3, r3: '', bar: null, param: true, mix: null, samples: { inst, fam, title, names, cur }, text: [line1.t, l2, l3], keys: null, tag: false };
+  // La couche SAMPLE : OFF a part, les samples comptes seuls (4 OF 6, comme le bloc SAMPLE de SMPL)
+  const off = k === 'sample' && cur === 0;
+  const of = k === 'sample' ? names.length - 1 : names.length;
+  const nth = k === 'sample' ? cur : cur + 1;
+  const l3 = fit(off ? `${title} OFF` : `${title} ${nth} OF ${of}`, COLS);
+  const rank = off ? 'OFF' : `${nth}/${of}`;
+  return { l1: line1.l, r1: line1.r, l2, r2: '', l3, r3: '', bar: null, param: true, mix: null, samples: { inst, fam, title, names, cur, rank }, text: [line1.t, l2, l3], keys: null, tag: false };
 }
 
 /** Centre s sur n colonnes. */
