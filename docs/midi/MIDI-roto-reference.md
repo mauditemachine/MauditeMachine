@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 9 octobre 2026 depuis le code du site (`npm run docs:midi`) : 556 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 9 octobre 2026 depuis le code du site (`npm run docs:midi`) : 585 cibles, 8 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -9,7 +9,7 @@ Genere le 9 octobre 2026 depuis le code du site (`npm run docs:midi`) : 556 cibl
 **D'ou vient la cible d'une cle**, dans cet ordre :
 
 1. ce que tu as appris (MIDI LEARN, ou un fichier d'assignations importe) pour la machine regardee, puis les assignations de partout ;
-2. sinon la **carte du Roto** (les six setups ci-dessous), si elle est allumee (par defaut oui), pour un message d'une entree dont le nom contient « roto » ;
+2. sinon la **carte du Roto** (les 8 setups ci-dessous), si elle est allumee (par defaut oui), pour un message d'une entree dont le nom contient « roto » ;
 3. sinon ce que tu as appris pour une autre machine (depuis le 2026-10-08 : une vieille assignation d'une autre machine ne vole plus un controle du Roto).
 
 Une assignation apprise ne repond qu'a l'appareil qui l'a apprise. Le panneau MIDI liste celles qui tombent sur une cle de la carte (REMOVE CONFLICTS WITH THE ROTO MAP) et dit, pour chaque message recu, ce qu'il a fait.
@@ -18,7 +18,7 @@ Une assignation apprise ne repond qu'a l'appareil qui l'a apprise. Le panneau MI
 
 - Un setup par machine, chacun sur son canal : potards sur le canal N, boutons sur le canal N + 8.
 - Les adresses sont gelees (2026-10-08, `src/v4/midi/rotoKeys.ts`) : une cible garde son canal et son CC pour toujours, meme deplacee sur une autre page ; une nouvelle cible prend une adresse libre, une adresse retiree n'est jamais redonnee. Au depart, le controle numero n (0 a 31, quatre pages de huit) avait le CC **14 + n** (n de 0 a 17), puis **102 + (n - 18)** (n de 18 a 31) : 0:14, 1:15, 2:16, 3:17, 4:18, 5:19, 6:20, 7:21, 8:22, 9:23, 10:24, 11:25, 12:26, 13:27, 14:28, 15:29, 16:30, 17:31, 18:102, 19:103, 20:104, 21:105, 22:106, 23:107, 24:108, 25:109, 26:110, 27:111, 28:112, 29:113, 30:114, 31:115 ; les colonnes Canal et CC ci-dessous font foi.
-- **Version des setups : 2026-10-08.** Le nom du setup sur l'ecran du Roto la porte (RYTM 1008, ARP 1008, BASS 1008, DECK 1008, MIXER 1008, LIVE 1008) : un Roto qui montre un autre nom a un ancien fichier, reimporte les setups.
+- **Version des setups : 2026-10-09.** Le nom du setup sur l'ecran du Roto la porte (RYTM 1009, ARP 1009, BASS 1009, DECK 1009, MIXER 1009, LIVE 1009, RSEQ 1009, BSEQ 1009) : un Roto qui montre un autre nom a un ancien fichier, reimporte les setups.
 - Ces CC n'ont aucun role reserve dans la norme MIDI (ni 0 bank, 1 modulation, 6 et 38 data, 64 pedale, 96 a 101 RPN/NRPN, 120 a 127 messages de canal).
 - Ce que dit le fichier JSON, c'est seulement **canal + CC + nom + couleur + type**. La **cible** (ce que ca pilote) est dans le site : il retrouve la cible avec le canal et le CC. Changer l'ordre dans le JSON sans changer le site ne deplace donc rien (voir le chapitre 5).
 
@@ -34,9 +34,20 @@ Une assignation apprise ne repond qu'a l'appareil qui l'a apprise. Le panneau MI
 
 **Changer de setup sur le Roto.** Le Roto ne le dit pas : le premier potard touche d'un autre setup qui saute loin de la valeur du site ne compte pas, son moteur y retourne et les potards et LEDs de ce setup sont renvoyes ; tourne-le de nouveau.
 
-**FOLLOW.** Toucher un controle d'un setup montre sa machine : RYTM > MM-RYTM, ARP > MM-ARP, BASS > MM-BASS, DECK et MIXER > MM-DECKS. LIVE ne change pas de machine.
+**FOLLOW.** Toucher un controle d'un setup montre sa machine : RYTM et RSEQ > MM-RYTM, ARP > MM-ARP, BASS et BSEQ > MM-BASS, DECK et MIXER > MM-DECKS. LIVE ne change pas de machine.
 
-**Retenu** dans le navigateur (`mm.v4.midi.1`) : assignations apprises, appareils, ROTO (la carte), FEEDBACK, FOLLOW.
+**Les sequenceurs RSEQ et BSEQ (2026-10-09).** Le Roto en sequenceur facon Elektron, pour le MM-RYTM (RSEQ, SETUP 17) et le MM-BASS (BSEQ, SETUP 18). Page 1 : en haut les huit encodeurs de la page affichee sur la machine (`rytm:knob:1` a `8`, `bass:knob:1` a `8`), en bas huit pas (`rytm:seq:1` a `8`, `bass:seq:1` a `8`) : une fenetre de huit sur les seize pas, 1 a 8 puis 9 a 16, que le site fait defiler (STEPS 9-16 ; STEP FOLLOW, par defaut : elle suit la tete de lecture en marche ; a ne pas confondre avec la case FOLLOW du panneau, qui montre la machine du setup). Page 2 : les memes encodeurs, les touches de page, STEPS 9-16, STEP FOLLOW. Page 3 : RSEQ, les volumes des huit voix au-dessus de leur choix (la voix des pas) ; BSEQ, NOTE -, NOTE +, OCT -, OCT +, TIE, MUTATE, ACCENT et SLIDE du pas tape. Page 4 : RUN, CLEAR, RANDOM ou GEN, LOCK, EDIT, PREV et NEXT MACHINE, MACHINES.
+
+- **Taper** un pas (moins de 350 ms) pose son coup ou le retire (MM-RYTM : la voix choisie a la page 3, fort ; MM-BASS : une note, la tonique ; NOTE, OCT, ACCENT, SLIDE, TIE reglent ensuite le pas tape).
+- **Tenir** un pas 350 ms : LOCK sur ce pas, les moteurs vont a ses valeurs. **Tenir et tourner** un encodeur : un parameter lock sur ce pas seulement (un pas vide recoit un coup), le lacher sort du LOCK. Tenu sans rien tourner, le LOCK reste ; une tape sur le meme pas en sort. Plusieurs pas tenus sur le MM-RYTM : tous verrouilles.
+- Les **LEDs** des pas : allumee un coup, eteinte un pas vide, la tete de lecture en negatif sur son pas, le pas en LOCK qui clignote (4 Hz). Elles partent avec l'heure du pas (MIDIOutput.send avec un timestamp, calees sur la sortie son), deux messages par pas. Les touches de page, de voix, LOCK, EDIT, ACCENT, SLIDE, TIE allument leur LED selon le site.
+- Dans EDIT, les huit pas sont les patterns (taper : le choisir ou le chainer ; tenir un vide : y copier), le pattern qui joue clignote.
+- Changer la note d'un pas deja pose (BSEQ) : le tenir (LOCK), NOTE ou OCT a la page 3, une tape sur le pas (page 1) en sort.
+- Les boutons des pas sont des **PUSH** (127 a l'appui, 0 au lacher) : le site distingue la tape de la tenue. Apres un LOCK, les potards du setup sont ignores 150 ms (les moteurs bougent). Si le Roto n'allume pas ses PUSH depuis le site (les LEDs des pas restent eteintes), la case « Step keys in TOGGLE mode » du panneau MIDI donne des fichiers RSEQ et BSEQ aux pas en TOGGLE : chaque appui est une tape, le LOCK passe par la touche LOCK (page 4).
+- L'echo : une LED renvoyee par le Roto moins de 3 ms apres son heure (l'heure d'arrivee du message) est ignoree ; un Roto qui renverrait tout ce qu'il recoit plus lentement se trahit (un lacher sans appui juste apres une LED) et son retard est appris (30 ms au plus). Garder le Motion Recorder eteint sur ces deux setups.
+- Les canaux 7, 8, 15 et 16 sont pris par RSEQ et BSEQ : un setup a toi (1 a 10) sur ces canaux pilote des cibles de la carte et recoit leurs LEDs et leurs moteurs ; deplace-le.
+
+**Retenu** dans le navigateur (`mm.v4.midi.1`) : assignations apprises, appareils, ROTO (la carte), FEEDBACK, FOLLOW, les pas de RSEQ et BSEQ en TOGGLE.
 
 ## 2. Le fichier ROTO-SETUP (JSON)
 
@@ -46,7 +57,7 @@ Format des exports de ROTO-SETUP (version 1), un fichier par setup, a importer (
 {
   "version": 1,
   "type": "MIDI",
-  "name": "ARP 1008",
+  "name": "ARP 1009",
   "index": 11,
   "knobs": [
     {
@@ -124,7 +135,7 @@ Format des exports de ROTO-SETUP (version 1), un fichier par setup, a importer (
 | Champ | Sens |
 | --- | --- |
 | version, type | 1 et "MIDI" (toujours) |
-| name, index | nom du setup sur l'ecran du Roto, avec la version (RYTM 1008) ; index = numero de SETUP moins 1 (SETUP 12 : 11) |
+| name, index | nom du setup sur l'ecran du Roto, avec la version (RYTM 1009) ; index = numero de SETUP moins 1 (SETUP 12 : 11) |
 | controlIndex | le controle n, de 0 a 31 (page = n div 8 + 1, position = n mod 8 + 1) |
 | controlMode | 0 : CC |
 | controlChannel | canal MIDI 1 a 16 (potards N, boutons N + 8) |
@@ -157,9 +168,9 @@ Couleurs utilisees (palette du Roto, 83 numeros) :
 | peche | 29 |
 | LED eteinte | 70 |
 
-## 3. Les six setups, controle par controle
+## 3. Les 8 setups, controle par controle
 
-Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un potard et un bouton partagent la meme page : ils vont ensemble.
+Le setup conseille sur le Roto (SETUP 11 a 18) laisse les premiers a toi. Un potard et un bouton partagent la meme page : ils vont ensemble.
 
 | Setup | Fichier | SETUP | Canal potards | Canal boutons |
 | --- | --- | --- | --- | --- |
@@ -169,6 +180,8 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | DECK | MM DECK (SETUP 13).json | 13 | 3 | 11 |
 | MIXER | MM MIXER (SETUP 14).json | 14 | 4 | 12 |
 | LIVE | MM LIVE (SETUP 16).json | 16 | 6 | 14 |
+| RSEQ | MM RSEQ (SETUP 17).json | 17 | 7 | 15 |
+| BSEQ | MM BSEQ (SETUP 18).json | 18 | 8 | 16 |
 
 ### RYTM (SETUP 11, potards canal 1, boutons canal 9)
 
@@ -602,22 +615,174 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 | 30 | 4.7 | 14 | 114 | PREV MACHINE | blanc | nav:prev | PREVIOUS MACHINE | appui |
 | 31 | 4.8 | 14 | 115 | NEXT MACHINE | blanc | nav:next | NEXT MACHINE | appui |
 
+### RSEQ (SETUP 17, potards canal 7, boutons canal 15)
+
+**Potards**
+
+| n | Page.pos | Canal | CC | Nom Roto | Couleur | Cible (id) | Ce que ca fait | Type |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1.1 | 7 | 14 | ENC A | jaune | rytm:knob:1 | KNOB A (PAGE) | continu |
+| 1 | 1.2 | 7 | 15 | ENC B | jaune | rytm:knob:2 | KNOB B (PAGE) | continu |
+| 2 | 1.3 | 7 | 16 | ENC C | jaune | rytm:knob:3 | KNOB C (PAGE) | continu |
+| 3 | 1.4 | 7 | 17 | ENC D | jaune | rytm:knob:4 | KNOB D (PAGE) | continu |
+| 4 | 1.5 | 7 | 18 | ENC E | jaune | rytm:knob:5 | KNOB E (PAGE) | continu |
+| 5 | 1.6 | 7 | 19 | ENC F | jaune | rytm:knob:6 | KNOB F (PAGE) | continu |
+| 6 | 1.7 | 7 | 20 | ENC G | jaune | rytm:knob:7 | KNOB G (PAGE) | continu |
+| 7 | 1.8 | 7 | 21 | ENC H | jaune | rytm:knob:8 | KNOB H (PAGE) | continu |
+| 8 | 2.1 | 7 | 22 | ENC A | jaune | rytm:knob:1 | KNOB A (PAGE) | continu |
+| 9 | 2.2 | 7 | 23 | ENC B | jaune | rytm:knob:2 | KNOB B (PAGE) | continu |
+| 10 | 2.3 | 7 | 24 | ENC C | jaune | rytm:knob:3 | KNOB C (PAGE) | continu |
+| 11 | 2.4 | 7 | 25 | ENC D | jaune | rytm:knob:4 | KNOB D (PAGE) | continu |
+| 12 | 2.5 | 7 | 26 | ENC E | jaune | rytm:knob:5 | KNOB E (PAGE) | continu |
+| 13 | 2.6 | 7 | 27 | ENC F | jaune | rytm:knob:6 | KNOB F (PAGE) | continu |
+| 14 | 2.7 | 7 | 28 | ENC G | jaune | rytm:knob:7 | KNOB G (PAGE) | continu |
+| 15 | 2.8 | 7 | 29 | ENC H | jaune | rytm:knob:8 | KNOB H (PAGE) | continu |
+| 16 | 3.1 | 7 | 30 | BD VOL | creme | rytm:voice:BD:level | BD VOLUME | continu |
+| 17 | 3.2 | 7 | 31 | SD VOL | creme | rytm:voice:SD:level | SD VOLUME | continu |
+| 18 | 3.3 | 7 | 102 | CH VOL | creme | rytm:voice:CH:level | CH VOLUME | continu |
+| 19 | 3.4 | 7 | 103 | OH VOL | creme | rytm:voice:OH:level | OH VOLUME | continu |
+| 20 | 3.5 | 7 | 104 | CP VOL | creme | rytm:voice:CP:level | CP VOLUME | continu |
+| 21 | 3.6 | 7 | 105 | TOM VOL | creme | rytm:voice:TOM:level | TOM VOLUME | continu |
+| 22 | 3.7 | 7 | 106 | HT VOL | creme | rytm:voice:HT:level | HT VOLUME | continu |
+| 23 | 3.8 | 7 | 107 | CY VOL | creme | rytm:voice:CY:level | CY VOLUME | continu |
+| 24 | 4.1 | 7 | 108 | MASTER | blanc | rytm:enc:level | MASTER | continu |
+| 25 | 4.2 | 7 | 109 | TEMPO | blanc | rytm:enc:tempo | TEMPO | continu |
+| 26 | 4.3 | 7 | 110 | SWING | orange | rytm:enc:swing | SWING | continu |
+| 27 | 4.4 | 7 | 111 | STRETCH | orange | rytm:enc:stretch | STRETCH | bipolaire, cran au milieu (64) |
+| 28 | 4.5 | 7 | 112 | DIST | violet | rytm:enc:dist | DIST | continu |
+| 29 | 4.6 | 7 | 113 | CHORUS | violet | rytm:enc:chorus | CHORUS | continu |
+| 30 | 4.7 | 7 | 114 | DELAY | violet | rytm:enc:delay | DELAY | continu |
+| 31 | 4.8 | 7 | 115 | REVERB | violet | rytm:enc:reverb | REVERB | continu |
+
+**Boutons**
+
+| n | Page.pos | Canal | CC | Nom Roto | Couleur | Cible (id) | Ce que ca fait | Type |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1.1 | 15 | 14 | STEP 1/9 | orange | rytm:seq:1 | SEQ STEP 1/9 (TAP, HOLD + TURN) | maintenu |
+| 1 | 1.2 | 15 | 15 | STEP 2/10 | orange | rytm:seq:2 | SEQ STEP 2/10 (TAP, HOLD + TURN) | maintenu |
+| 2 | 1.3 | 15 | 16 | STEP 3/11 | orange | rytm:seq:3 | SEQ STEP 3/11 (TAP, HOLD + TURN) | maintenu |
+| 3 | 1.4 | 15 | 17 | STEP 4/12 | orange | rytm:seq:4 | SEQ STEP 4/12 (TAP, HOLD + TURN) | maintenu |
+| 4 | 1.5 | 15 | 18 | STEP 5/13 | orange | rytm:seq:5 | SEQ STEP 5/13 (TAP, HOLD + TURN) | maintenu |
+| 5 | 1.6 | 15 | 19 | STEP 6/14 | orange | rytm:seq:6 | SEQ STEP 6/14 (TAP, HOLD + TURN) | maintenu |
+| 6 | 1.7 | 15 | 20 | STEP 7/15 | orange | rytm:seq:7 | SEQ STEP 7/15 (TAP, HOLD + TURN) | maintenu |
+| 7 | 1.8 | 15 | 21 | STEP 8/16 | orange | rytm:seq:8 | SEQ STEP 8/16 (TAP, HOLD + TURN) | maintenu |
+| 8 | 2.1 | 15 | 22 | TRIG | jaune | rytm:page:trig | PAGE TRIG | appui |
+| 9 | 2.2 | 15 | 23 | SRC | jaune | rytm:page:src | PAGE SRC | appui |
+| 10 | 2.3 | 15 | 24 | SMPL | jaune | rytm:page:smpl | PAGE SMPL | appui |
+| 11 | 2.4 | 15 | 25 | FLTR | jaune | rytm:page:fltr | PAGE FLTR | appui |
+| 12 | 2.5 | 15 | 26 | AMP | jaune | rytm:page:amp | PAGE AMP | appui |
+| 13 | 2.6 | 15 | 27 | FX | jaune | rytm:page:fx | PAGE FX | appui |
+| 14 | 2.7 | 15 | 28 | STEPS 9-16 | cyan | rytm:seq:window | SEQ STEPS 1-8 / 9-16 | appui |
+| 15 | 2.8 | 15 | 29 | STEP FOLLOW | vert | rytm:seq:follow | SEQ STEP FOLLOW (THE STEPS FOLLOW THE PLAYHEAD) | bascule (la LED suit le site) |
+| 16 | 3.1 | 15 | 30 | BD | or | rytm:seq:voice:BD | SEQ VOICE BD (SELECT, SILENT) | appui |
+| 17 | 3.2 | 15 | 31 | SD | or | rytm:seq:voice:SD | SEQ VOICE SD (SELECT, SILENT) | appui |
+| 18 | 3.3 | 15 | 102 | CH | or | rytm:seq:voice:CH | SEQ VOICE CH (SELECT, SILENT) | appui |
+| 19 | 3.4 | 15 | 103 | OH | or | rytm:seq:voice:OH | SEQ VOICE OH (SELECT, SILENT) | appui |
+| 20 | 3.5 | 15 | 104 | CP | or | rytm:seq:voice:CP | SEQ VOICE CP (SELECT, SILENT) | appui |
+| 21 | 3.6 | 15 | 105 | TOM | or | rytm:seq:voice:TOM | SEQ VOICE TOM (SELECT, SILENT) | appui |
+| 22 | 3.7 | 15 | 106 | HT | or | rytm:seq:voice:HT | SEQ VOICE HT (SELECT, SILENT) | appui |
+| 23 | 3.8 | 15 | 107 | CY | or | rytm:seq:voice:CY | SEQ VOICE CY (SELECT, SILENT) | appui |
+| 24 | 4.1 | 15 | 108 | RUN | rouge | rytm:running | RUN (ON / OFF) | bascule (la LED suit le site) |
+| 25 | 4.2 | 15 | 109 | CLEAR | orange | rytm:clear | CLEAR | appui |
+| 26 | 4.3 | 15 | 110 | RANDOM | orange | rytm:random | RANDOM | appui |
+| 27 | 4.4 | 15 | 111 | LOCK | jaune | rytm:lock | LOCK (SELECTED STEP) | appui |
+| 28 | 4.5 | 15 | 112 | EDIT | jaune | rytm:edit | EDIT | appui |
+| 29 | 4.6 | 15 | 113 | PREV MACHINE | blanc | nav:prev | PREVIOUS MACHINE | appui |
+| 30 | 4.7 | 15 | 114 | NEXT MACHINE | blanc | nav:next | NEXT MACHINE | appui |
+| 31 | 4.8 | 15 | 115 | MACHINES | rouge | nav:machines | PLAY/STOP MACHINES | appui |
+
+### BSEQ (SETUP 18, potards canal 8, boutons canal 16)
+
+**Potards**
+
+| n | Page.pos | Canal | CC | Nom Roto | Couleur | Cible (id) | Ce que ca fait | Type |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1.1 | 8 | 14 | ENC A | jaune | bass:knob:1 | ENCODER A (PAGE) | continu |
+| 1 | 1.2 | 8 | 15 | ENC B | jaune | bass:knob:2 | ENCODER B (PAGE) | continu |
+| 2 | 1.3 | 8 | 16 | ENC C | jaune | bass:knob:3 | ENCODER C (PAGE) | continu |
+| 3 | 1.4 | 8 | 17 | ENC D | jaune | bass:knob:4 | ENCODER D (PAGE) | continu |
+| 4 | 1.5 | 8 | 18 | ENC E | jaune | bass:knob:5 | ENCODER E (PAGE) | continu |
+| 5 | 1.6 | 8 | 19 | ENC F | jaune | bass:knob:6 | ENCODER F (PAGE) | continu |
+| 6 | 1.7 | 8 | 20 | ENC G | jaune | bass:knob:7 | ENCODER G (PAGE) | continu |
+| 7 | 1.8 | 8 | 21 | ENC H | jaune | bass:knob:8 | ENCODER H (PAGE) | continu |
+| 8 | 2.1 | 8 | 22 | ENC A | jaune | bass:knob:1 | ENCODER A (PAGE) | continu |
+| 9 | 2.2 | 8 | 23 | ENC B | jaune | bass:knob:2 | ENCODER B (PAGE) | continu |
+| 10 | 2.3 | 8 | 24 | ENC C | jaune | bass:knob:3 | ENCODER C (PAGE) | continu |
+| 11 | 2.4 | 8 | 25 | ENC D | jaune | bass:knob:4 | ENCODER D (PAGE) | continu |
+| 12 | 2.5 | 8 | 26 | ENC E | jaune | bass:knob:5 | ENCODER E (PAGE) | continu |
+| 13 | 2.6 | 8 | 27 | ENC F | jaune | bass:knob:6 | ENCODER F (PAGE) | continu |
+| 14 | 2.7 | 8 | 28 | ENC G | jaune | bass:knob:7 | ENCODER G (PAGE) | continu |
+| 15 | 2.8 | 8 | 29 | ENC H | jaune | bass:knob:8 | ENCODER H (PAGE) | continu |
+| 16 | 3.1 | 8 | 30 | STYLE | jaune | bass:knob:style | STYLE | potard a 11 crans : ACID / DARK DISCO / INDIE DANCE / MINIMAL / PSY PROG / TECHNO / HOUSE / ELECTRO / EBM / ITALO / SUB |
+| 17 | 3.2 | 8 | 31 | DENSITY | jaune | bass:knob:density | DENSITY | continu |
+| 18 | 3.3 | 8 | 102 | SLIDE PROB | jaune | bass:knob:slides | SLIDE PROB | continu |
+| 19 | 3.4 | 8 | 103 | ACC PROB | jaune | bass:knob:accents | ACC PROB | continu |
+| 20 | 3.5 | 8 | 104 | RANGE | jaune | bass:knob:range | RANGE | potard a 3 crans : 1 / 2 / 3 |
+| 21 | 3.6 | 8 | 105 | ROOT | cyan | bass:knob:root | ROOT | potard a 13 crans : ARP / F# / G / G# / A / A# / B / C / C# / D / D# / E / F |
+| 22 | 3.7 | 8 | 106 | SCALE | cyan | bass:knob:scale | SCALE | potard a 5 crans : MINOR / DORIAN / PHRYGIAN / HARMONIC / PENTA |
+| 23 | 3.8 | 8 | 107 | OCTAVE | or | bass:knob:octave | OCTAVE | potard a 4 crans : -2 / -1 / 0 / +1 |
+| 24 | 4.1 | 8 | 108 | TEMPO | blanc | rytm:enc:tempo | TEMPO | continu |
+| 25 | 4.2 | 8 | 109 | SWING | orange | rytm:enc:swing | SWING | continu |
+| 26 | 4.3 | 8 | 110 | CUTOFF | orange | bass:knob:cutoff | CUTOFF | continu |
+| 27 | 4.4 | 8 | 111 | RESO | orange | bass:knob:reso | RESO | continu |
+| 28 | 4.5 | 8 | 112 | ENV MOD | orange | bass:knob:envmod | ENV MOD | continu |
+| 29 | 4.6 | 8 | 113 | DECAY | orange | bass:knob:decay | DECAY | continu |
+| 30 | 4.7 | 8 | 114 | ACCENT | rouge | bass:knob:accent | ACCENT | continu |
+| 31 | 4.8 | 8 | 115 | VOLUME | blanc | bass:knob:volume | VOLUME | continu |
+
+**Boutons**
+
+| n | Page.pos | Canal | CC | Nom Roto | Couleur | Cible (id) | Ce que ca fait | Type |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 0 | 1.1 | 16 | 14 | STEP 1/9 | orange | bass:seq:1 | SEQ STEP 1/9 (TAP, HOLD + TURN) | maintenu |
+| 1 | 1.2 | 16 | 15 | STEP 2/10 | orange | bass:seq:2 | SEQ STEP 2/10 (TAP, HOLD + TURN) | maintenu |
+| 2 | 1.3 | 16 | 16 | STEP 3/11 | orange | bass:seq:3 | SEQ STEP 3/11 (TAP, HOLD + TURN) | maintenu |
+| 3 | 1.4 | 16 | 17 | STEP 4/12 | orange | bass:seq:4 | SEQ STEP 4/12 (TAP, HOLD + TURN) | maintenu |
+| 4 | 1.5 | 16 | 18 | STEP 5/13 | orange | bass:seq:5 | SEQ STEP 5/13 (TAP, HOLD + TURN) | maintenu |
+| 5 | 1.6 | 16 | 19 | STEP 6/14 | orange | bass:seq:6 | SEQ STEP 6/14 (TAP, HOLD + TURN) | maintenu |
+| 6 | 1.7 | 16 | 20 | STEP 7/15 | orange | bass:seq:7 | SEQ STEP 7/15 (TAP, HOLD + TURN) | maintenu |
+| 7 | 1.8 | 16 | 21 | STEP 8/16 | orange | bass:seq:8 | SEQ STEP 8/16 (TAP, HOLD + TURN) | maintenu |
+| 8 | 2.1 | 16 | 22 | VOICE | jaune | bass:page:voice | PAGE VOICE | appui |
+| 9 | 2.2 | 16 | 23 | FILTER | jaune | bass:page:filter | PAGE FILTER | appui |
+| 10 | 2.3 | 16 | 24 | ENV | jaune | bass:page:env | PAGE ENV | appui |
+| 11 | 2.4 | 16 | 25 | FX | jaune | bass:page:fx | PAGE FX | appui |
+| 12 | 2.5 | 16 | 26 | ACCENT | rouge | bass:key:accent | ACCENT | appui |
+| 13 | 2.6 | 16 | 27 | SLIDE | jaune | bass:key:slide | SLIDE | appui |
+| 14 | 2.7 | 16 | 28 | STEPS 9-16 | cyan | bass:seq:window | SEQ STEPS 1-8 / 9-16 | appui |
+| 15 | 2.8 | 16 | 29 | STEP FOLLOW | vert | bass:seq:follow | SEQ STEP FOLLOW (THE STEPS FOLLOW THE PLAYHEAD) | bascule (la LED suit le site) |
+| 16 | 3.1 | 16 | 30 | NOTE - | cyan | bass:key:notedn | NOTE - | appui |
+| 17 | 3.2 | 16 | 31 | NOTE + | cyan | bass:key:noteup | NOTE + | appui |
+| 18 | 3.3 | 16 | 102 | OCT - | cyan | bass:key:octdn | OCT - | appui |
+| 19 | 3.4 | 16 | 103 | OCT + | cyan | bass:key:octup | OCT + | appui |
+| 20 | 3.5 | 16 | 104 | TIE | peche | bass:seq:tie | TIE (THE CHOSEN STEP) | appui |
+| 21 | 3.6 | 16 | 105 | MUTATE | orange | bass:key:mutate | MUTATE | appui |
+| 22 | 3.7 | 16 | 106 | ACCENT | rouge | bass:key:accent | ACCENT | appui |
+| 23 | 3.8 | 16 | 107 | SLIDE | jaune | bass:key:slide | SLIDE | appui |
+| 24 | 4.1 | 16 | 108 | RUN | rouge | bass:running | RUN (ON / OFF) | bascule (la LED suit le site) |
+| 25 | 4.2 | 16 | 109 | CLEAR | orange | bass:key:clear | CLEAR | appui |
+| 26 | 4.3 | 16 | 110 | GEN | orange | bass:key:gen | GEN | appui |
+| 27 | 4.4 | 16 | 111 | LOCK | jaune | bass:lock | LOCK (CHOSEN STEP) | appui |
+| 28 | 4.5 | 16 | 112 | EDIT | jaune | bass:key:edit | EDIT | appui |
+| 29 | 4.6 | 16 | 113 | PREV MACHINE | blanc | nav:prev | PREVIOUS MACHINE | appui |
+| 30 | 4.7 | 16 | 114 | NEXT MACHINE | blanc | nav:next | NEXT MACHINE | appui |
+| 31 | 4.8 | 16 | 115 | MACHINES | rouge | nav:machines | PLAY/STOP MACHINES | appui |
+
 ## 4. Le catalogue complet des cibles
 
 Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI LEARN, ou le fichier d'assignations du chapitre 5). La colonne « Dans » dit dans quels setups du Roto elle est deja placee. La cible d'un id est dans la machine de son prefixe : `rytm:` MM-RYTM (scope `mm808`), `voy:` MM-ARP (`voy`), `bass:` MM-BASS (`bass`), `dj:` MM-DECKS (`dj`, `dj:smpl:<platine>:` pour le sampler de chaque platine), `nav:` navigation (`global`).
 
-### MM-RYTM (scope `mm808`, 228 cibles)
+### MM-RYTM (scope `mm808`, 246 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
-| `rytm:enc:level` | MASTER | valeur 0 a 127 |  | RYTM |
-| `rytm:enc:tempo` | TEMPO | valeur 0 a 127 |  | RYTM |
-| `rytm:enc:swing` | SWING | valeur 0 a 127 |  | RYTM, BASS, LIVE |
-| `rytm:enc:stretch` | STRETCH | valeur 0 a 127 |  | RYTM, LIVE |
-| `rytm:enc:dist` | DIST | valeur 0 a 127 |  | RYTM, LIVE |
-| `rytm:enc:chorus` | CHORUS | valeur 0 a 127 |  | RYTM |
-| `rytm:enc:delay` | DELAY | valeur 0 a 127 |  | RYTM, LIVE |
-| `rytm:enc:reverb` | REVERB | valeur 0 a 127 |  | RYTM, LIVE |
+| `rytm:enc:level` | MASTER | valeur 0 a 127 |  | RYTM, RSEQ |
+| `rytm:enc:tempo` | TEMPO | valeur 0 a 127 |  | RYTM, RSEQ, BSEQ |
+| `rytm:enc:swing` | SWING | valeur 0 a 127 |  | RYTM, BASS, LIVE, RSEQ, BSEQ |
+| `rytm:enc:stretch` | STRETCH | valeur 0 a 127 |  | RYTM, LIVE, RSEQ |
+| `rytm:enc:dist` | DIST | valeur 0 a 127 |  | RYTM, LIVE, RSEQ |
+| `rytm:enc:chorus` | CHORUS | valeur 0 a 127 |  | RYTM, RSEQ |
+| `rytm:enc:delay` | DELAY | valeur 0 a 127 |  | RYTM, LIVE, RSEQ |
+| `rytm:enc:reverb` | REVERB | valeur 0 a 127 |  | RYTM, LIVE, RSEQ |
 | `rytm:enc:vol` | VOLUME (SELECTED VOICE) | valeur 0 a 127 |  | RYTM |
 | `rytm:enc:vsound` | SAMPLE (SELECTED VOICE) | valeur 0 a 127 | 9 | RYTM |
 | `rytm:enc:tone` | TONE (SELECTED VOICE) | valeur 0 a 127 |  | RYTM |
@@ -631,7 +796,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:enc:vstart` | START (SELECTED VOICE) | valeur 0 a 127 |  |  |
 | `rytm:voice:BD:tone` | BD TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:BD:decay` | BD DECAY | valeur 0 a 127 |  |  |
-| `rytm:voice:BD:level` | BD VOLUME | valeur 0 a 127 |  | RYTM |
+| `rytm:voice:BD:level` | BD VOLUME | valeur 0 a 127 |  | RYTM, RSEQ |
 | `rytm:voice:BD:dist` | BD DIST | valeur 0 a 127 |  |  |
 | `rytm:voice:BD:reverb` | BD REVERB | valeur 0 a 127 |  |  |
 | `rytm:voice:BD:delay` | BD DELAY | valeur 0 a 127 |  |  |
@@ -641,7 +806,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:BD:start` | BD START | valeur 0 a 127 |  |  |
 | `rytm:voice:SD:tone` | SD TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:SD:decay` | SD DECAY | valeur 0 a 127 |  |  |
-| `rytm:voice:SD:level` | SD VOLUME | valeur 0 a 127 |  | RYTM |
+| `rytm:voice:SD:level` | SD VOLUME | valeur 0 a 127 |  | RYTM, RSEQ |
 | `rytm:voice:SD:dist` | SD DIST | valeur 0 a 127 |  |  |
 | `rytm:voice:SD:reverb` | SD REVERB | valeur 0 a 127 |  |  |
 | `rytm:voice:SD:delay` | SD DELAY | valeur 0 a 127 |  |  |
@@ -651,7 +816,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:SD:start` | SD START | valeur 0 a 127 |  |  |
 | `rytm:voice:CH:tone` | CH TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:CH:decay` | CH DECAY | valeur 0 a 127 |  |  |
-| `rytm:voice:CH:level` | CH VOLUME | valeur 0 a 127 |  | RYTM |
+| `rytm:voice:CH:level` | CH VOLUME | valeur 0 a 127 |  | RYTM, RSEQ |
 | `rytm:voice:CH:dist` | CH DIST | valeur 0 a 127 |  |  |
 | `rytm:voice:CH:reverb` | CH REVERB | valeur 0 a 127 |  |  |
 | `rytm:voice:CH:delay` | CH DELAY | valeur 0 a 127 |  |  |
@@ -661,7 +826,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:CH:start` | CH START | valeur 0 a 127 |  |  |
 | `rytm:voice:OH:tone` | OH TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:OH:decay` | OH DECAY | valeur 0 a 127 |  |  |
-| `rytm:voice:OH:level` | OH VOLUME | valeur 0 a 127 |  | RYTM |
+| `rytm:voice:OH:level` | OH VOLUME | valeur 0 a 127 |  | RYTM, RSEQ |
 | `rytm:voice:OH:dist` | OH DIST | valeur 0 a 127 |  |  |
 | `rytm:voice:OH:reverb` | OH REVERB | valeur 0 a 127 |  |  |
 | `rytm:voice:OH:delay` | OH DELAY | valeur 0 a 127 |  |  |
@@ -671,7 +836,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:OH:start` | OH START | valeur 0 a 127 |  |  |
 | `rytm:voice:CP:tone` | CP TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:CP:decay` | CP DECAY | valeur 0 a 127 |  |  |
-| `rytm:voice:CP:level` | CP VOLUME | valeur 0 a 127 |  | RYTM |
+| `rytm:voice:CP:level` | CP VOLUME | valeur 0 a 127 |  | RYTM, RSEQ |
 | `rytm:voice:CP:dist` | CP DIST | valeur 0 a 127 |  |  |
 | `rytm:voice:CP:reverb` | CP REVERB | valeur 0 a 127 |  |  |
 | `rytm:voice:CP:delay` | CP DELAY | valeur 0 a 127 |  |  |
@@ -681,7 +846,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:CP:start` | CP START | valeur 0 a 127 |  |  |
 | `rytm:voice:TOM:tone` | TOM TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:TOM:decay` | TOM DECAY | valeur 0 a 127 |  |  |
-| `rytm:voice:TOM:level` | TOM VOLUME | valeur 0 a 127 |  | RYTM |
+| `rytm:voice:TOM:level` | TOM VOLUME | valeur 0 a 127 |  | RYTM, RSEQ |
 | `rytm:voice:TOM:dist` | TOM DIST | valeur 0 a 127 |  |  |
 | `rytm:voice:TOM:reverb` | TOM REVERB | valeur 0 a 127 |  |  |
 | `rytm:voice:TOM:delay` | TOM DELAY | valeur 0 a 127 |  |  |
@@ -691,7 +856,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:TOM:start` | TOM START | valeur 0 a 127 |  |  |
 | `rytm:voice:HT:tone` | HT TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:HT:decay` | HT DECAY | valeur 0 a 127 |  |  |
-| `rytm:voice:HT:level` | HT VOLUME | valeur 0 a 127 |  | RYTM |
+| `rytm:voice:HT:level` | HT VOLUME | valeur 0 a 127 |  | RYTM, RSEQ |
 | `rytm:voice:HT:dist` | HT DIST | valeur 0 a 127 |  |  |
 | `rytm:voice:HT:reverb` | HT REVERB | valeur 0 a 127 |  |  |
 | `rytm:voice:HT:delay` | HT DELAY | valeur 0 a 127 |  |  |
@@ -701,7 +866,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:HT:start` | HT START | valeur 0 a 127 |  |  |
 | `rytm:voice:CY:tone` | CY TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:CY:decay` | CY DECAY | valeur 0 a 127 |  |  |
-| `rytm:voice:CY:level` | CY VOLUME | valeur 0 a 127 |  | RYTM |
+| `rytm:voice:CY:level` | CY VOLUME | valeur 0 a 127 |  | RYTM, RSEQ |
 | `rytm:voice:CY:dist` | CY DIST | valeur 0 a 127 |  |  |
 | `rytm:voice:CY:reverb` | CY REVERB | valeur 0 a 127 |  |  |
 | `rytm:voice:CY:delay` | CY DELAY | valeur 0 a 127 |  |  |
@@ -717,7 +882,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:TOM:mute` | MUTE TOM | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
 | `rytm:voice:HT:mute` | MUTE HT | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
 | `rytm:voice:CY:mute` | MUTE CY | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
-| `rytm:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
+| `rytm:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE, RSEQ |
 | `rytm:kit:bd` | TWEAK KICK | valeur 0 a 127 | 9 | RYTM |
 | `rytm:kit:tune` | TWEAK TUNE | valeur 0 a 127 |  | RYTM, LIVE |
 | `rytm:kit:attack` | TWEAK ATTACK | valeur 0 a 127 |  | RYTM |
@@ -757,20 +922,20 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:layer:cp:syn` | CLAP SYN LEVEL | valeur 0 a 127 |  |  |
 | `rytm:layer:tom:mach` | TOMS SYN MACHINE | valeur 0 a 127 | 3 |  |
 | `rytm:layer:tom:syn` | TOMS SYN LEVEL | valeur 0 a 127 |  |  |
-| `rytm:knob:1` | KNOB A (PAGE) | valeur 0 a 127 | selon la page |  |
-| `rytm:knob:2` | KNOB B (PAGE) | valeur 0 a 127 | selon la page |  |
-| `rytm:knob:3` | KNOB C (PAGE) | valeur 0 a 127 | selon la page |  |
-| `rytm:knob:4` | KNOB D (PAGE) | valeur 0 a 127 | selon la page |  |
-| `rytm:knob:5` | KNOB E (PAGE) | valeur 0 a 127 | selon la page |  |
-| `rytm:knob:6` | KNOB F (PAGE) | valeur 0 a 127 | selon la page |  |
-| `rytm:knob:7` | KNOB G (PAGE) | valeur 0 a 127 | selon la page |  |
-| `rytm:knob:8` | KNOB H (PAGE) | valeur 0 a 127 | selon la page |  |
-| `rytm:page:trig` | PAGE TRIG | appui |  |  |
-| `rytm:page:src` | PAGE SRC | appui |  |  |
-| `rytm:page:smpl` | PAGE SMPL | appui |  |  |
-| `rytm:page:fltr` | PAGE FLTR | appui |  |  |
-| `rytm:page:amp` | PAGE AMP | appui |  |  |
-| `rytm:page:fx` | PAGE FX | appui |  |  |
+| `rytm:knob:1` | KNOB A (PAGE) | valeur 0 a 127 | selon la page | RSEQ |
+| `rytm:knob:2` | KNOB B (PAGE) | valeur 0 a 127 | selon la page | RSEQ |
+| `rytm:knob:3` | KNOB C (PAGE) | valeur 0 a 127 | selon la page | RSEQ |
+| `rytm:knob:4` | KNOB D (PAGE) | valeur 0 a 127 | selon la page | RSEQ |
+| `rytm:knob:5` | KNOB E (PAGE) | valeur 0 a 127 | selon la page | RSEQ |
+| `rytm:knob:6` | KNOB F (PAGE) | valeur 0 a 127 | selon la page | RSEQ |
+| `rytm:knob:7` | KNOB G (PAGE) | valeur 0 a 127 | selon la page | RSEQ |
+| `rytm:knob:8` | KNOB H (PAGE) | valeur 0 a 127 | selon la page | RSEQ |
+| `rytm:page:trig` | PAGE TRIG | appui |  | RSEQ |
+| `rytm:page:src` | PAGE SRC | appui |  | RSEQ |
+| `rytm:page:smpl` | PAGE SMPL | appui |  | RSEQ |
+| `rytm:page:fltr` | PAGE FLTR | appui |  | RSEQ |
+| `rytm:page:amp` | PAGE AMP | appui |  | RSEQ |
+| `rytm:page:fx` | PAGE FX | appui |  | RSEQ |
 | `rytm:page` | PAGE (TRIG TO FX) | valeur 0 a 127 | 6 |  |
 | `rytm:home` | HOME / PAGE SCREEN | appui |  |  |
 | `rytm:pad:BD` | PAD BD | appui |  | RYTM |
@@ -813,13 +978,13 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:lock:13` | LOCK STEP 14 | appui |  |  |
 | `rytm:lock:14` | LOCK STEP 15 | appui |  |  |
 | `rytm:lock:15` | LOCK STEP 16 | appui |  |  |
-| `rytm:lock` | LOCK (SELECTED STEP) | appui |  |  |
+| `rytm:lock` | LOCK (SELECTED STEP) | appui |  | RSEQ |
 | `rytm:run` | RUN/STOP | appui |  |  |
-| `rytm:clear` | CLEAR | appui |  | RYTM |
-| `rytm:random` | RANDOM | appui |  | RYTM |
+| `rytm:clear` | CLEAR | appui |  | RYTM, RSEQ |
+| `rytm:random` | RANDOM | appui |  | RYTM, RSEQ |
 | `rytm:mute` | MUTE | appui |  |  |
 | `rytm:solo` | SOLO | appui |  |  |
-| `rytm:edit` | EDIT | appui |  | RYTM |
+| `rytm:edit` | EDIT | appui |  | RYTM, RSEQ |
 | `rytm:open` | OPEN | appui |  | RYTM |
 | `rytm:infos` | INFOS (HELP ON HOVER) | appui |  |  |
 | `rytm:ptn:0` | PATTERN A01 | appui |  | RYTM |
@@ -838,6 +1003,24 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:ptn:13` | PATTERN A14 | appui |  |  |
 | `rytm:ptn:14` | PATTERN A15 | appui |  |  |
 | `rytm:ptn:15` | PATTERN A16 | appui |  |  |
+| `rytm:seq:1` | SEQ STEP 1/9 (TAP, HOLD + TURN) | maintenu (appui puis relachement) |  | RSEQ |
+| `rytm:seq:2` | SEQ STEP 2/10 (TAP, HOLD + TURN) | maintenu (appui puis relachement) |  | RSEQ |
+| `rytm:seq:3` | SEQ STEP 3/11 (TAP, HOLD + TURN) | maintenu (appui puis relachement) |  | RSEQ |
+| `rytm:seq:4` | SEQ STEP 4/12 (TAP, HOLD + TURN) | maintenu (appui puis relachement) |  | RSEQ |
+| `rytm:seq:5` | SEQ STEP 5/13 (TAP, HOLD + TURN) | maintenu (appui puis relachement) |  | RSEQ |
+| `rytm:seq:6` | SEQ STEP 6/14 (TAP, HOLD + TURN) | maintenu (appui puis relachement) |  | RSEQ |
+| `rytm:seq:7` | SEQ STEP 7/15 (TAP, HOLD + TURN) | maintenu (appui puis relachement) |  | RSEQ |
+| `rytm:seq:8` | SEQ STEP 8/16 (TAP, HOLD + TURN) | maintenu (appui puis relachement) |  | RSEQ |
+| `rytm:seq:window` | SEQ STEPS 1-8 / 9-16 | appui |  | RSEQ |
+| `rytm:seq:follow` | SEQ STEP FOLLOW (THE STEPS FOLLOW THE PLAYHEAD) | valeur 0 a 127 | 2 | RSEQ |
+| `rytm:seq:voice:BD` | SEQ VOICE BD (SELECT, SILENT) | appui |  | RSEQ |
+| `rytm:seq:voice:SD` | SEQ VOICE SD (SELECT, SILENT) | appui |  | RSEQ |
+| `rytm:seq:voice:CH` | SEQ VOICE CH (SELECT, SILENT) | appui |  | RSEQ |
+| `rytm:seq:voice:OH` | SEQ VOICE OH (SELECT, SILENT) | appui |  | RSEQ |
+| `rytm:seq:voice:CP` | SEQ VOICE CP (SELECT, SILENT) | appui |  | RSEQ |
+| `rytm:seq:voice:TOM` | SEQ VOICE TOM (SELECT, SILENT) | appui |  | RSEQ |
+| `rytm:seq:voice:HT` | SEQ VOICE HT (SELECT, SILENT) | appui |  | RSEQ |
+| `rytm:seq:voice:CY` | SEQ VOICE CY (SELECT, SILENT) | appui |  | RSEQ |
 
 ### MM-ARP (scope `voy`, 67 cibles)
 
@@ -911,28 +1094,28 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:open` | OPEN | appui |  | ARP |
 | `voy:infos` | INFOS (HELP ON HOVER) | appui |  |  |
 
-### MM-BASS (scope `bass`, 100 cibles)
+### MM-BASS (scope `bass`, 111 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
-| `bass:knob:cutoff` | CUTOFF | valeur 0 a 127 |  | BASS |
-| `bass:knob:reso` | RESO | valeur 0 a 127 |  | BASS |
-| `bass:knob:envmod` | ENV MOD | valeur 0 a 127 |  | BASS |
-| `bass:knob:decay` | DECAY | valeur 0 a 127 |  | BASS |
-| `bass:knob:accent` | ACCENT | valeur 0 a 127 |  | BASS |
+| `bass:knob:cutoff` | CUTOFF | valeur 0 a 127 |  | BASS, BSEQ |
+| `bass:knob:reso` | RESO | valeur 0 a 127 |  | BASS, BSEQ |
+| `bass:knob:envmod` | ENV MOD | valeur 0 a 127 |  | BASS, BSEQ |
+| `bass:knob:decay` | DECAY | valeur 0 a 127 |  | BASS, BSEQ |
+| `bass:knob:accent` | ACCENT | valeur 0 a 127 |  | BASS, BSEQ |
 | `bass:knob:wave` | WAVE | valeur 0 a 127 |  | BASS |
 | `bass:knob:sub` | SUB | valeur 0 a 127 |  | BASS |
 | `bass:knob:drive` | DRIVE | valeur 0 a 127 |  | BASS |
 | `bass:knob:glide` | GLIDE | valeur 0 a 127 |  | BASS |
-| `bass:knob:volume` | VOLUME | valeur 0 a 127 |  | BASS |
-| `bass:knob:octave` | OCTAVE | valeur 0 a 127 | 4 | BASS |
-| `bass:knob:style` | STYLE | valeur 0 a 127 | 11 | BASS |
-| `bass:knob:density` | DENSITY | valeur 0 a 127 |  | BASS |
-| `bass:knob:slides` | SLIDE PROB | valeur 0 a 127 |  | BASS |
-| `bass:knob:accents` | ACC PROB | valeur 0 a 127 |  | BASS |
-| `bass:knob:range` | RANGE | valeur 0 a 127 | 3 | BASS |
-| `bass:knob:root` | ROOT | valeur 0 a 127 | 13 | BASS |
-| `bass:knob:scale` | SCALE | valeur 0 a 127 | 5 | BASS |
+| `bass:knob:volume` | VOLUME | valeur 0 a 127 |  | BASS, BSEQ |
+| `bass:knob:octave` | OCTAVE | valeur 0 a 127 | 4 | BASS, BSEQ |
+| `bass:knob:style` | STYLE | valeur 0 a 127 | 11 | BASS, BSEQ |
+| `bass:knob:density` | DENSITY | valeur 0 a 127 |  | BASS, BSEQ |
+| `bass:knob:slides` | SLIDE PROB | valeur 0 a 127 |  | BASS, BSEQ |
+| `bass:knob:accents` | ACC PROB | valeur 0 a 127 |  | BASS, BSEQ |
+| `bass:knob:range` | RANGE | valeur 0 a 127 | 3 | BASS, BSEQ |
+| `bass:knob:root` | ROOT | valeur 0 a 127 | 13 | BASS, BSEQ |
+| `bass:knob:scale` | SCALE | valeur 0 a 127 | 5 | BASS, BSEQ |
 | `bass:knob:length` | LENGTH | valeur 0 a 127 |  | BASS |
 | `bass:knob:accdecay` | ACC DECAY | valeur 0 a 127 |  | BASS |
 | `bass:knob:sweep` | SWEEP | valeur 0 a 127 |  | BASS |
@@ -950,37 +1133,37 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:knob:reverb` | REVERB | valeur 0 a 127 |  |  |
 | `bass:knob:rsize` | REV SIZE | valeur 0 a 127 |  |  |
 | `bass:knob:rtone` | REV TONE | valeur 0 a 127 |  |  |
-| `bass:knob:1` | ENCODER A (PAGE) | valeur 0 a 127 |  |  |
-| `bass:knob:2` | ENCODER B (PAGE) | valeur 0 a 127 |  |  |
-| `bass:knob:3` | ENCODER C (PAGE) | valeur 0 a 127 |  |  |
-| `bass:knob:4` | ENCODER D (PAGE) | valeur 0 a 127 |  |  |
-| `bass:knob:5` | ENCODER E (PAGE) | valeur 0 a 127 |  |  |
-| `bass:knob:6` | ENCODER F (PAGE) | valeur 0 a 127 |  |  |
-| `bass:knob:7` | ENCODER G (PAGE) | valeur 0 a 127 |  |  |
-| `bass:knob:8` | ENCODER H (PAGE) | valeur 0 a 127 |  |  |
-| `bass:page:voice` | PAGE VOICE | appui |  |  |
-| `bass:page:filter` | PAGE FILTER | appui |  |  |
-| `bass:page:env` | PAGE ENV | appui |  |  |
-| `bass:page:fx` | PAGE FX | appui |  |  |
+| `bass:knob:1` | ENCODER A (PAGE) | valeur 0 a 127 |  | BSEQ |
+| `bass:knob:2` | ENCODER B (PAGE) | valeur 0 a 127 |  | BSEQ |
+| `bass:knob:3` | ENCODER C (PAGE) | valeur 0 a 127 |  | BSEQ |
+| `bass:knob:4` | ENCODER D (PAGE) | valeur 0 a 127 |  | BSEQ |
+| `bass:knob:5` | ENCODER E (PAGE) | valeur 0 a 127 |  | BSEQ |
+| `bass:knob:6` | ENCODER F (PAGE) | valeur 0 a 127 |  | BSEQ |
+| `bass:knob:7` | ENCODER G (PAGE) | valeur 0 a 127 |  | BSEQ |
+| `bass:knob:8` | ENCODER H (PAGE) | valeur 0 a 127 |  | BSEQ |
+| `bass:page:voice` | PAGE VOICE | appui |  | BSEQ |
+| `bass:page:filter` | PAGE FILTER | appui |  | BSEQ |
+| `bass:page:env` | PAGE ENV | appui |  | BSEQ |
+| `bass:page:fx` | PAGE FX | appui |  | BSEQ |
 | `bass:page` | PAGE (VOICE FILTER ENV FX) | valeur 0 a 127 | 4 |  |
 | `bass:key:i` | INFOS (THE i OF THE SCREEN) | appui |  |  |
 | `bass:key:run` | RUN/STOP | appui |  |  |
-| `bass:key:edit` | EDIT | appui |  | BASS |
+| `bass:key:edit` | EDIT | appui |  | BASS, BSEQ |
 | `bass:key:open` | OPEN | appui |  |  |
-| `bass:key:gen` | GEN | appui |  | BASS |
-| `bass:key:mutate` | MUTATE | appui |  | BASS |
-| `bass:key:clear` | CLEAR | appui |  | BASS |
-| `bass:key:accent` | ACCENT | appui |  | BASS |
-| `bass:key:slide` | SLIDE | appui |  | BASS |
-| `bass:key:notedn` | NOTE - | appui |  | BASS |
-| `bass:key:noteup` | NOTE + | appui |  | BASS |
-| `bass:key:octdn` | OCT - | appui |  | BASS |
-| `bass:key:octup` | OCT + | appui |  | BASS |
+| `bass:key:gen` | GEN | appui |  | BASS, BSEQ |
+| `bass:key:mutate` | MUTATE | appui |  | BASS, BSEQ |
+| `bass:key:clear` | CLEAR | appui |  | BASS, BSEQ |
+| `bass:key:accent` | ACCENT | appui |  | BASS, BSEQ |
+| `bass:key:slide` | SLIDE | appui |  | BASS, BSEQ |
+| `bass:key:notedn` | NOTE - | appui |  | BASS, BSEQ |
+| `bass:key:noteup` | NOTE + | appui |  | BASS, BSEQ |
+| `bass:key:octdn` | OCT - | appui |  | BASS, BSEQ |
+| `bass:key:octup` | OCT + | appui |  | BASS, BSEQ |
 | `bass:key:pvoice` | VOICE | appui |  |  |
 | `bass:key:pfilter` | FILTER | appui |  |  |
 | `bass:key:penv` | ENV | appui |  |  |
 | `bass:key:pfx` | FX | appui |  |  |
-| `bass:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | BASS, MIXER, LIVE |
+| `bass:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | BASS, MIXER, LIVE, BSEQ |
 | `bass:trig:0` | STEP 1 | appui |  | BASS |
 | `bass:trig:1` | STEP 2 | appui |  | BASS |
 | `bass:trig:2` | STEP 3 | appui |  | BASS |
@@ -1013,8 +1196,19 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:lock:13` | LOCK 14 | appui |  |  |
 | `bass:lock:14` | LOCK 15 | appui |  |  |
 | `bass:lock:15` | LOCK 16 | appui |  |  |
-| `bass:lock` | LOCK (CHOSEN STEP) | appui |  | BASS |
+| `bass:lock` | LOCK (CHOSEN STEP) | appui |  | BASS, BSEQ |
 | `bass:infos` | INFOS (HELP ON HOVER) | appui |  |  |
+| `bass:seq:1` | SEQ STEP 1/9 (TAP, HOLD + TURN) | maintenu (appui puis relachement) |  | BSEQ |
+| `bass:seq:2` | SEQ STEP 2/10 (TAP, HOLD + TURN) | maintenu (appui puis relachement) |  | BSEQ |
+| `bass:seq:3` | SEQ STEP 3/11 (TAP, HOLD + TURN) | maintenu (appui puis relachement) |  | BSEQ |
+| `bass:seq:4` | SEQ STEP 4/12 (TAP, HOLD + TURN) | maintenu (appui puis relachement) |  | BSEQ |
+| `bass:seq:5` | SEQ STEP 5/13 (TAP, HOLD + TURN) | maintenu (appui puis relachement) |  | BSEQ |
+| `bass:seq:6` | SEQ STEP 6/14 (TAP, HOLD + TURN) | maintenu (appui puis relachement) |  | BSEQ |
+| `bass:seq:7` | SEQ STEP 7/15 (TAP, HOLD + TURN) | maintenu (appui puis relachement) |  | BSEQ |
+| `bass:seq:8` | SEQ STEP 8/16 (TAP, HOLD + TURN) | maintenu (appui puis relachement) |  | BSEQ |
+| `bass:seq:window` | SEQ STEPS 1-8 / 9-16 | appui |  | BSEQ |
+| `bass:seq:follow` | SEQ STEP FOLLOW (THE STEPS FOLLOW THE PLAYHEAD) | valeur 0 a 127 | 2 | BSEQ |
+| `bass:seq:tie` | TIE (THE CHOSEN STEP) | appui |  | BSEQ |
 
 ### MM-DECKS (table, platines, samplers, effets) (scope `dj`, 153 cibles)
 
@@ -1183,13 +1377,13 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `nav:bass` | GO TO MM-BASS | appui |  |  |
 | `nav:voy` | GO TO MM-ARP | appui |  |  |
 | `nav:dj` | GO TO MM-DECKS | appui |  |  |
-| `nav:prev` | PREVIOUS MACHINE | appui |  | RYTM, ARP, BASS, MIXER, LIVE |
-| `nav:next` | NEXT MACHINE | appui |  | RYTM, ARP, BASS, MIXER, LIVE |
-| `nav:machines` | PLAY/STOP MACHINES | appui |  | RYTM, ARP, BASS, MIXER, LIVE |
+| `nav:prev` | PREVIOUS MACHINE | appui |  | RYTM, ARP, BASS, MIXER, LIVE, RSEQ, BSEQ |
+| `nav:next` | NEXT MACHINE | appui |  | RYTM, ARP, BASS, MIXER, LIVE, RSEQ, BSEQ |
+| `nav:machines` | PLAY/STOP MACHINES | appui |  | RYTM, ARP, BASS, MIXER, LIVE, RSEQ, BSEQ |
 
 ## 5. Faire ton propre fichier
 
-**Voie 1, la plus simple : partir d'un setup fait.** Panneau MIDI > DOWNLOAD THE 6 SETUPS, tu changes les noms et les couleurs dans le JSON (`controlName`, `colorScheme`), tu importes dans ROTO-SETUP. Ne change pas le canal ni le CC : c'est eux que le site reconnait. (Apres l'ajout des samples, retelecharge « MM RYTM (SETUP 11).json » : KICK SOUND a maintenant 9 crans, SNARE SOUND 7.)
+**Voie 1, la plus simple : partir d'un setup fait.** Panneau MIDI > DOWNLOAD THE 8 SETUPS, tu changes les noms et les couleurs dans le JSON (`controlName`, `colorScheme`), tu importes dans ROTO-SETUP. Ne change pas le canal ni le CC : c'est eux que le site reconnait. (Apres l'ajout des samples, retelecharge « MM RYTM (SETUP 11).json » : KICK SOUND a maintenant 9 crans, SNARE SOUND 7.)
 
 **Voie 2, ta propre disposition.** Deux fichiers : celui du Roto (canal, CC, nom, couleur : tu l'ecris comme au chapitre 2) et le fichier d'assignations du site, qui dit quelle cible va avec quel canal et quel CC.
 
@@ -1220,7 +1414,7 @@ Le fichier d'assignations (panneau MIDI > EXPORT ou IMPORT) :
 - La machine d'une ligne est celle du prefixe de la cible (`rytm:` dans `mm808`, `voy:` dans `voy`, `bass:` dans `bass`, `dj:` dans `dj`, `nav:` dans `global`).
 - Une cle vise une seule cible par machine, et une cible n'a qu'une seule cle : ne la mets pas deux fois.
 - IMPORT **remplace** toutes les assignations du navigateur : exporte d'abord les tiennes.
-- Ce que tu as appris passe avant la carte du Roto : ta disposition l'emporte sur les six setups, mais des canaux libres (7, 8, 15, 16) evitent tout melange. Tu peux aussi eteindre la carte (la case « ROTO-CONTROL map » du panneau MIDI).
+- Ce que tu as appris passe avant la carte du Roto : ta disposition l'emporte sur les setups de la carte. Depuis les sequenceurs RSEQ et BSEQ (2026-10-09), la carte prend les seize canaux : sur le Roto, le panneau MIDI liste les assignations qui tombent sur une cle de la carte (REMOVE CONFLICTS WITH THE ROTO MAP) ; un autre appareil (pas « roto ») n'est jamais pris par la carte. Tu peux aussi eteindre la carte (la case « ROTO-CONTROL map » du panneau MIDI).
 - Dans le JSON du Roto, reutilise ce que fait la carte : potard a crans quand la cible a des crans (colonne Crans), bouton bascule pour un etat (RUN, mutes, OSC ON), cran au milieu (`hapticIndent1: 64`) pour un potard bipolaire.
 
 **Pour qu'un potard motorise suive le site**, la cle doit etre apprise ou dans la carte ; le retour part sur le meme canal et le meme CC, vers une sortie dont le nom contient « roto ».

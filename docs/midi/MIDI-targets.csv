@@ -1,12 +1,12 @@
 id,scope,machine,nom,type,crans,dans_les_setups
-rytm:enc:level,mm808,MM-RYTM,MASTER,value,,RYTM
-rytm:enc:tempo,mm808,MM-RYTM,TEMPO,value,,RYTM
-rytm:enc:swing,mm808,MM-RYTM,SWING,value,,RYTM BASS LIVE
-rytm:enc:stretch,mm808,MM-RYTM,STRETCH,value,,RYTM LIVE
-rytm:enc:dist,mm808,MM-RYTM,DIST,value,,RYTM LIVE
-rytm:enc:chorus,mm808,MM-RYTM,CHORUS,value,,RYTM
-rytm:enc:delay,mm808,MM-RYTM,DELAY,value,,RYTM LIVE
-rytm:enc:reverb,mm808,MM-RYTM,REVERB,value,,RYTM LIVE
+rytm:enc:level,mm808,MM-RYTM,MASTER,value,,RYTM RSEQ
+rytm:enc:tempo,mm808,MM-RYTM,TEMPO,value,,RYTM RSEQ BSEQ
+rytm:enc:swing,mm808,MM-RYTM,SWING,value,,RYTM BASS LIVE RSEQ BSEQ
+rytm:enc:stretch,mm808,MM-RYTM,STRETCH,value,,RYTM LIVE RSEQ
+rytm:enc:dist,mm808,MM-RYTM,DIST,value,,RYTM LIVE RSEQ
+rytm:enc:chorus,mm808,MM-RYTM,CHORUS,value,,RYTM RSEQ
+rytm:enc:delay,mm808,MM-RYTM,DELAY,value,,RYTM LIVE RSEQ
+rytm:enc:reverb,mm808,MM-RYTM,REVERB,value,,RYTM LIVE RSEQ
 rytm:enc:vol,mm808,MM-RYTM,VOLUME (SELECTED VOICE),value,,RYTM
 rytm:enc:vsound,mm808,MM-RYTM,SAMPLE (SELECTED VOICE),value,9,RYTM
 rytm:enc:tone,mm808,MM-RYTM,TONE (SELECTED VOICE),value,,RYTM
@@ -20,7 +20,7 @@ rytm:enc:vpan,mm808,MM-RYTM,PAN (SELECTED VOICE),value,,
 rytm:enc:vstart,mm808,MM-RYTM,START (SELECTED VOICE),value,,
 rytm:voice:BD:tone,mm808,MM-RYTM,BD TONE,value,,
 rytm:voice:BD:decay,mm808,MM-RYTM,BD DECAY,value,,
-rytm:voice:BD:level,mm808,MM-RYTM,BD VOLUME,value,,RYTM
+rytm:voice:BD:level,mm808,MM-RYTM,BD VOLUME,value,,RYTM RSEQ
 rytm:voice:BD:dist,mm808,MM-RYTM,BD DIST,value,,
 rytm:voice:BD:reverb,mm808,MM-RYTM,BD REVERB,value,,
 rytm:voice:BD:delay,mm808,MM-RYTM,BD DELAY,value,,
@@ -30,7 +30,7 @@ rytm:voice:BD:pan,mm808,MM-RYTM,BD PAN,value,,
 rytm:voice:BD:start,mm808,MM-RYTM,BD START,value,,
 rytm:voice:SD:tone,mm808,MM-RYTM,SD TONE,value,,
 rytm:voice:SD:decay,mm808,MM-RYTM,SD DECAY,value,,
-rytm:voice:SD:level,mm808,MM-RYTM,SD VOLUME,value,,RYTM
+rytm:voice:SD:level,mm808,MM-RYTM,SD VOLUME,value,,RYTM RSEQ
 rytm:voice:SD:dist,mm808,MM-RYTM,SD DIST,value,,
 rytm:voice:SD:reverb,mm808,MM-RYTM,SD REVERB,value,,
 rytm:voice:SD:delay,mm808,MM-RYTM,SD DELAY,value,,
@@ -40,7 +40,7 @@ rytm:voice:SD:pan,mm808,MM-RYTM,SD PAN,value,,
 rytm:voice:SD:start,mm808,MM-RYTM,SD START,value,,
 rytm:voice:CH:tone,mm808,MM-RYTM,CH TONE,value,,
 rytm:voice:CH:decay,mm808,MM-RYTM,CH DECAY,value,,
-rytm:voice:CH:level,mm808,MM-RYTM,CH VOLUME,value,,RYTM
+rytm:voice:CH:level,mm808,MM-RYTM,CH VOLUME,value,,RYTM RSEQ
 rytm:voice:CH:dist,mm808,MM-RYTM,CH DIST,value,,
 rytm:voice:CH:reverb,mm808,MM-RYTM,CH REVERB,value,,
 rytm:voice:CH:delay,mm808,MM-RYTM,CH DELAY,value,,
@@ -50,7 +50,7 @@ rytm:voice:CH:pan,mm808,MM-RYTM,CH PAN,value,,
 rytm:voice:CH:start,mm808,MM-RYTM,CH START,value,,
 rytm:voice:OH:tone,mm808,MM-RYTM,OH TONE,value,,
 rytm:voice:OH:decay,mm808,MM-RYTM,OH DECAY,value,,
-rytm:voice:OH:level,mm808,MM-RYTM,OH VOLUME,value,,RYTM
+rytm:voice:OH:level,mm808,MM-RYTM,OH VOLUME,value,,RYTM RSEQ
 rytm:voice:OH:dist,mm808,MM-RYTM,OH DIST,value,,
 rytm:voice:OH:reverb,mm808,MM-RYTM,OH REVERB,value,,
 rytm:voice:OH:delay,mm808,MM-RYTM,OH DELAY,value,,
@@ -60,7 +60,7 @@ rytm:voice:OH:pan,mm808,MM-RYTM,OH PAN,value,,
 rytm:voice:OH:start,mm808,MM-RYTM,OH START,value,,
 rytm:voice:CP:tone,mm808,MM-RYTM,CP TONE,value,,
 rytm:voice:CP:decay,mm808,MM-RYTM,CP DECAY,value,,
-rytm:voice:CP:level,mm808,MM-RYTM,CP VOLUME,value,,RYTM
+rytm:voice:CP:level,mm808,MM-RYTM,CP VOLUME,value,,RYTM RSEQ
 rytm:voice:CP:dist,mm808,MM-RYTM,CP DIST,value,,
 rytm:voice:CP:reverb,mm808,MM-RYTM,CP REVERB,value,,
 rytm:voice:CP:delay,mm808,MM-RYTM,CP DELAY,value,,
@@ -70,7 +70,7 @@ rytm:voice:CP:pan,mm808,MM-RYTM,CP PAN,value,,
 rytm:voice:CP:start,mm808,MM-RYTM,CP START,value,,
 rytm:voice:TOM:tone,mm808,MM-RYTM,TOM TONE,value,,
 rytm:voice:TOM:decay,mm808,MM-RYTM,TOM DECAY,value,,
-rytm:voice:TOM:level,mm808,MM-RYTM,TOM VOLUME,value,,RYTM
+rytm:voice:TOM:level,mm808,MM-RYTM,TOM VOLUME,value,,RYTM RSEQ
 rytm:voice:TOM:dist,mm808,MM-RYTM,TOM DIST,value,,
 rytm:voice:TOM:reverb,mm808,MM-RYTM,TOM REVERB,value,,
 rytm:voice:TOM:delay,mm808,MM-RYTM,TOM DELAY,value,,
@@ -80,7 +80,7 @@ rytm:voice:TOM:pan,mm808,MM-RYTM,TOM PAN,value,,
 rytm:voice:TOM:start,mm808,MM-RYTM,TOM START,value,,
 rytm:voice:HT:tone,mm808,MM-RYTM,HT TONE,value,,
 rytm:voice:HT:decay,mm808,MM-RYTM,HT DECAY,value,,
-rytm:voice:HT:level,mm808,MM-RYTM,HT VOLUME,value,,RYTM
+rytm:voice:HT:level,mm808,MM-RYTM,HT VOLUME,value,,RYTM RSEQ
 rytm:voice:HT:dist,mm808,MM-RYTM,HT DIST,value,,
 rytm:voice:HT:reverb,mm808,MM-RYTM,HT REVERB,value,,
 rytm:voice:HT:delay,mm808,MM-RYTM,HT DELAY,value,,
@@ -90,7 +90,7 @@ rytm:voice:HT:pan,mm808,MM-RYTM,HT PAN,value,,
 rytm:voice:HT:start,mm808,MM-RYTM,HT START,value,,
 rytm:voice:CY:tone,mm808,MM-RYTM,CY TONE,value,,
 rytm:voice:CY:decay,mm808,MM-RYTM,CY DECAY,value,,
-rytm:voice:CY:level,mm808,MM-RYTM,CY VOLUME,value,,RYTM
+rytm:voice:CY:level,mm808,MM-RYTM,CY VOLUME,value,,RYTM RSEQ
 rytm:voice:CY:dist,mm808,MM-RYTM,CY DIST,value,,
 rytm:voice:CY:reverb,mm808,MM-RYTM,CY REVERB,value,,
 rytm:voice:CY:delay,mm808,MM-RYTM,CY DELAY,value,,
@@ -106,7 +106,7 @@ rytm:voice:CP:mute,mm808,MM-RYTM,MUTE CP,value,2,RYTM MIXER LIVE
 rytm:voice:TOM:mute,mm808,MM-RYTM,MUTE TOM,value,2,RYTM MIXER LIVE
 rytm:voice:HT:mute,mm808,MM-RYTM,MUTE HT,value,2,RYTM MIXER LIVE
 rytm:voice:CY:mute,mm808,MM-RYTM,MUTE CY,value,2,RYTM MIXER LIVE
-rytm:running,mm808,MM-RYTM,RUN (ON / OFF),value,2,RYTM MIXER LIVE
+rytm:running,mm808,MM-RYTM,RUN (ON / OFF),value,2,RYTM MIXER LIVE RSEQ
 rytm:kit:bd,mm808,MM-RYTM,TWEAK KICK,value,9,RYTM
 rytm:kit:tune,mm808,MM-RYTM,TWEAK TUNE,value,,RYTM LIVE
 rytm:kit:attack,mm808,MM-RYTM,TWEAK ATTACK,value,,RYTM
@@ -146,20 +146,20 @@ rytm:layer:cp:mach,mm808,MM-RYTM,CLAP SYN MACHINE,value,3,
 rytm:layer:cp:syn,mm808,MM-RYTM,CLAP SYN LEVEL,value,,
 rytm:layer:tom:mach,mm808,MM-RYTM,TOMS SYN MACHINE,value,3,
 rytm:layer:tom:syn,mm808,MM-RYTM,TOMS SYN LEVEL,value,,
-rytm:knob:1,mm808,MM-RYTM,KNOB A (PAGE),value,selon la page,
-rytm:knob:2,mm808,MM-RYTM,KNOB B (PAGE),value,selon la page,
-rytm:knob:3,mm808,MM-RYTM,KNOB C (PAGE),value,selon la page,
-rytm:knob:4,mm808,MM-RYTM,KNOB D (PAGE),value,selon la page,
-rytm:knob:5,mm808,MM-RYTM,KNOB E (PAGE),value,selon la page,
-rytm:knob:6,mm808,MM-RYTM,KNOB F (PAGE),value,selon la page,
-rytm:knob:7,mm808,MM-RYTM,KNOB G (PAGE),value,selon la page,
-rytm:knob:8,mm808,MM-RYTM,KNOB H (PAGE),value,selon la page,
-rytm:page:trig,mm808,MM-RYTM,PAGE TRIG,press,,
-rytm:page:src,mm808,MM-RYTM,PAGE SRC,press,,
-rytm:page:smpl,mm808,MM-RYTM,PAGE SMPL,press,,
-rytm:page:fltr,mm808,MM-RYTM,PAGE FLTR,press,,
-rytm:page:amp,mm808,MM-RYTM,PAGE AMP,press,,
-rytm:page:fx,mm808,MM-RYTM,PAGE FX,press,,
+rytm:knob:1,mm808,MM-RYTM,KNOB A (PAGE),value,selon la page,RSEQ
+rytm:knob:2,mm808,MM-RYTM,KNOB B (PAGE),value,selon la page,RSEQ
+rytm:knob:3,mm808,MM-RYTM,KNOB C (PAGE),value,selon la page,RSEQ
+rytm:knob:4,mm808,MM-RYTM,KNOB D (PAGE),value,selon la page,RSEQ
+rytm:knob:5,mm808,MM-RYTM,KNOB E (PAGE),value,selon la page,RSEQ
+rytm:knob:6,mm808,MM-RYTM,KNOB F (PAGE),value,selon la page,RSEQ
+rytm:knob:7,mm808,MM-RYTM,KNOB G (PAGE),value,selon la page,RSEQ
+rytm:knob:8,mm808,MM-RYTM,KNOB H (PAGE),value,selon la page,RSEQ
+rytm:page:trig,mm808,MM-RYTM,PAGE TRIG,press,,RSEQ
+rytm:page:src,mm808,MM-RYTM,PAGE SRC,press,,RSEQ
+rytm:page:smpl,mm808,MM-RYTM,PAGE SMPL,press,,RSEQ
+rytm:page:fltr,mm808,MM-RYTM,PAGE FLTR,press,,RSEQ
+rytm:page:amp,mm808,MM-RYTM,PAGE AMP,press,,RSEQ
+rytm:page:fx,mm808,MM-RYTM,PAGE FX,press,,RSEQ
 rytm:page,mm808,MM-RYTM,PAGE (TRIG TO FX),value,6,
 rytm:home,mm808,MM-RYTM,HOME / PAGE SCREEN,press,,
 rytm:pad:BD,mm808,MM-RYTM,PAD BD,press,,RYTM
@@ -202,13 +202,13 @@ rytm:lock:12,mm808,MM-RYTM,LOCK STEP 13,press,,
 rytm:lock:13,mm808,MM-RYTM,LOCK STEP 14,press,,
 rytm:lock:14,mm808,MM-RYTM,LOCK STEP 15,press,,
 rytm:lock:15,mm808,MM-RYTM,LOCK STEP 16,press,,
-rytm:lock,mm808,MM-RYTM,LOCK (SELECTED STEP),press,,
+rytm:lock,mm808,MM-RYTM,LOCK (SELECTED STEP),press,,RSEQ
 rytm:run,mm808,MM-RYTM,RUN/STOP,press,,
-rytm:clear,mm808,MM-RYTM,CLEAR,press,,RYTM
-rytm:random,mm808,MM-RYTM,RANDOM,press,,RYTM
+rytm:clear,mm808,MM-RYTM,CLEAR,press,,RYTM RSEQ
+rytm:random,mm808,MM-RYTM,RANDOM,press,,RYTM RSEQ
 rytm:mute,mm808,MM-RYTM,MUTE,press,,
 rytm:solo,mm808,MM-RYTM,SOLO,press,,
-rytm:edit,mm808,MM-RYTM,EDIT,press,,RYTM
+rytm:edit,mm808,MM-RYTM,EDIT,press,,RYTM RSEQ
 rytm:open,mm808,MM-RYTM,OPEN,press,,RYTM
 rytm:infos,mm808,MM-RYTM,INFOS (HELP ON HOVER),press,,
 rytm:ptn:0,mm808,MM-RYTM,PATTERN A01,press,,RYTM
@@ -227,6 +227,24 @@ rytm:ptn:12,mm808,MM-RYTM,PATTERN A13,press,,
 rytm:ptn:13,mm808,MM-RYTM,PATTERN A14,press,,
 rytm:ptn:14,mm808,MM-RYTM,PATTERN A15,press,,
 rytm:ptn:15,mm808,MM-RYTM,PATTERN A16,press,,
+rytm:seq:1,mm808,MM-RYTM,"SEQ STEP 1|9 (TAP, HOLD + TURN)",hold,,RSEQ
+rytm:seq:2,mm808,MM-RYTM,"SEQ STEP 2|10 (TAP, HOLD + TURN)",hold,,RSEQ
+rytm:seq:3,mm808,MM-RYTM,"SEQ STEP 3|11 (TAP, HOLD + TURN)",hold,,RSEQ
+rytm:seq:4,mm808,MM-RYTM,"SEQ STEP 4|12 (TAP, HOLD + TURN)",hold,,RSEQ
+rytm:seq:5,mm808,MM-RYTM,"SEQ STEP 5|13 (TAP, HOLD + TURN)",hold,,RSEQ
+rytm:seq:6,mm808,MM-RYTM,"SEQ STEP 6|14 (TAP, HOLD + TURN)",hold,,RSEQ
+rytm:seq:7,mm808,MM-RYTM,"SEQ STEP 7|15 (TAP, HOLD + TURN)",hold,,RSEQ
+rytm:seq:8,mm808,MM-RYTM,"SEQ STEP 8|16 (TAP, HOLD + TURN)",hold,,RSEQ
+rytm:seq:window,mm808,MM-RYTM,SEQ STEPS 1-8 / 9-16,press,,RSEQ
+rytm:seq:follow,mm808,MM-RYTM,SEQ STEP FOLLOW (THE STEPS FOLLOW THE PLAYHEAD),value,2,RSEQ
+rytm:seq:voice:BD,mm808,MM-RYTM,"SEQ VOICE BD (SELECT, SILENT)",press,,RSEQ
+rytm:seq:voice:SD,mm808,MM-RYTM,"SEQ VOICE SD (SELECT, SILENT)",press,,RSEQ
+rytm:seq:voice:CH,mm808,MM-RYTM,"SEQ VOICE CH (SELECT, SILENT)",press,,RSEQ
+rytm:seq:voice:OH,mm808,MM-RYTM,"SEQ VOICE OH (SELECT, SILENT)",press,,RSEQ
+rytm:seq:voice:CP,mm808,MM-RYTM,"SEQ VOICE CP (SELECT, SILENT)",press,,RSEQ
+rytm:seq:voice:TOM,mm808,MM-RYTM,"SEQ VOICE TOM (SELECT, SILENT)",press,,RSEQ
+rytm:seq:voice:HT,mm808,MM-RYTM,"SEQ VOICE HT (SELECT, SILENT)",press,,RSEQ
+rytm:seq:voice:CY,mm808,MM-RYTM,"SEQ VOICE CY (SELECT, SILENT)",press,,RSEQ
 voy:knob:rate,voy,MM-ARP,RATE,value,4,ARP LIVE
 voy:knob:mode,voy,MM-ARP,MODE,value,4,ARP
 voy:knob:range,voy,MM-ARP,RANGE,value,3,ARP
@@ -294,24 +312,24 @@ voy:random,voy,MM-ARP,RANDOM,press,,ARP
 voy:edit,voy,MM-ARP,EDIT,press,,ARP
 voy:open,voy,MM-ARP,OPEN,press,,ARP
 voy:infos,voy,MM-ARP,INFOS (HELP ON HOVER),press,,
-bass:knob:cutoff,bass,MM-BASS,CUTOFF,value,,BASS
-bass:knob:reso,bass,MM-BASS,RESO,value,,BASS
-bass:knob:envmod,bass,MM-BASS,ENV MOD,value,,BASS
-bass:knob:decay,bass,MM-BASS,DECAY,value,,BASS
-bass:knob:accent,bass,MM-BASS,ACCENT,value,,BASS
+bass:knob:cutoff,bass,MM-BASS,CUTOFF,value,,BASS BSEQ
+bass:knob:reso,bass,MM-BASS,RESO,value,,BASS BSEQ
+bass:knob:envmod,bass,MM-BASS,ENV MOD,value,,BASS BSEQ
+bass:knob:decay,bass,MM-BASS,DECAY,value,,BASS BSEQ
+bass:knob:accent,bass,MM-BASS,ACCENT,value,,BASS BSEQ
 bass:knob:wave,bass,MM-BASS,WAVE,value,,BASS
 bass:knob:sub,bass,MM-BASS,SUB,value,,BASS
 bass:knob:drive,bass,MM-BASS,DRIVE,value,,BASS
 bass:knob:glide,bass,MM-BASS,GLIDE,value,,BASS
-bass:knob:volume,bass,MM-BASS,VOLUME,value,,BASS
-bass:knob:octave,bass,MM-BASS,OCTAVE,value,4,BASS
-bass:knob:style,bass,MM-BASS,STYLE,value,11,BASS
-bass:knob:density,bass,MM-BASS,DENSITY,value,,BASS
-bass:knob:slides,bass,MM-BASS,SLIDE PROB,value,,BASS
-bass:knob:accents,bass,MM-BASS,ACC PROB,value,,BASS
-bass:knob:range,bass,MM-BASS,RANGE,value,3,BASS
-bass:knob:root,bass,MM-BASS,ROOT,value,13,BASS
-bass:knob:scale,bass,MM-BASS,SCALE,value,5,BASS
+bass:knob:volume,bass,MM-BASS,VOLUME,value,,BASS BSEQ
+bass:knob:octave,bass,MM-BASS,OCTAVE,value,4,BASS BSEQ
+bass:knob:style,bass,MM-BASS,STYLE,value,11,BASS BSEQ
+bass:knob:density,bass,MM-BASS,DENSITY,value,,BASS BSEQ
+bass:knob:slides,bass,MM-BASS,SLIDE PROB,value,,BASS BSEQ
+bass:knob:accents,bass,MM-BASS,ACC PROB,value,,BASS BSEQ
+bass:knob:range,bass,MM-BASS,RANGE,value,3,BASS BSEQ
+bass:knob:root,bass,MM-BASS,ROOT,value,13,BASS BSEQ
+bass:knob:scale,bass,MM-BASS,SCALE,value,5,BASS BSEQ
 bass:knob:length,bass,MM-BASS,LENGTH,value,,BASS
 bass:knob:accdecay,bass,MM-BASS,ACC DECAY,value,,BASS
 bass:knob:sweep,bass,MM-BASS,SWEEP,value,,BASS
@@ -329,37 +347,37 @@ bass:knob:dfb,bass,MM-BASS,DLY FB,value,,
 bass:knob:reverb,bass,MM-BASS,REVERB,value,,
 bass:knob:rsize,bass,MM-BASS,REV SIZE,value,,
 bass:knob:rtone,bass,MM-BASS,REV TONE,value,,
-bass:knob:1,bass,MM-BASS,ENCODER A (PAGE),value,,
-bass:knob:2,bass,MM-BASS,ENCODER B (PAGE),value,,
-bass:knob:3,bass,MM-BASS,ENCODER C (PAGE),value,,
-bass:knob:4,bass,MM-BASS,ENCODER D (PAGE),value,,
-bass:knob:5,bass,MM-BASS,ENCODER E (PAGE),value,,
-bass:knob:6,bass,MM-BASS,ENCODER F (PAGE),value,,
-bass:knob:7,bass,MM-BASS,ENCODER G (PAGE),value,,
-bass:knob:8,bass,MM-BASS,ENCODER H (PAGE),value,,
-bass:page:voice,bass,MM-BASS,PAGE VOICE,press,,
-bass:page:filter,bass,MM-BASS,PAGE FILTER,press,,
-bass:page:env,bass,MM-BASS,PAGE ENV,press,,
-bass:page:fx,bass,MM-BASS,PAGE FX,press,,
+bass:knob:1,bass,MM-BASS,ENCODER A (PAGE),value,,BSEQ
+bass:knob:2,bass,MM-BASS,ENCODER B (PAGE),value,,BSEQ
+bass:knob:3,bass,MM-BASS,ENCODER C (PAGE),value,,BSEQ
+bass:knob:4,bass,MM-BASS,ENCODER D (PAGE),value,,BSEQ
+bass:knob:5,bass,MM-BASS,ENCODER E (PAGE),value,,BSEQ
+bass:knob:6,bass,MM-BASS,ENCODER F (PAGE),value,,BSEQ
+bass:knob:7,bass,MM-BASS,ENCODER G (PAGE),value,,BSEQ
+bass:knob:8,bass,MM-BASS,ENCODER H (PAGE),value,,BSEQ
+bass:page:voice,bass,MM-BASS,PAGE VOICE,press,,BSEQ
+bass:page:filter,bass,MM-BASS,PAGE FILTER,press,,BSEQ
+bass:page:env,bass,MM-BASS,PAGE ENV,press,,BSEQ
+bass:page:fx,bass,MM-BASS,PAGE FX,press,,BSEQ
 bass:page,bass,MM-BASS,PAGE (VOICE FILTER ENV FX),value,4,
 bass:key:i,bass,MM-BASS,INFOS (THE i OF THE SCREEN),press,,
 bass:key:run,bass,MM-BASS,RUN/STOP,press,,
-bass:key:edit,bass,MM-BASS,EDIT,press,,BASS
+bass:key:edit,bass,MM-BASS,EDIT,press,,BASS BSEQ
 bass:key:open,bass,MM-BASS,OPEN,press,,
-bass:key:gen,bass,MM-BASS,GEN,press,,BASS
-bass:key:mutate,bass,MM-BASS,MUTATE,press,,BASS
-bass:key:clear,bass,MM-BASS,CLEAR,press,,BASS
-bass:key:accent,bass,MM-BASS,ACCENT,press,,BASS
-bass:key:slide,bass,MM-BASS,SLIDE,press,,BASS
-bass:key:notedn,bass,MM-BASS,NOTE -,press,,BASS
-bass:key:noteup,bass,MM-BASS,NOTE +,press,,BASS
-bass:key:octdn,bass,MM-BASS,OCT -,press,,BASS
-bass:key:octup,bass,MM-BASS,OCT +,press,,BASS
+bass:key:gen,bass,MM-BASS,GEN,press,,BASS BSEQ
+bass:key:mutate,bass,MM-BASS,MUTATE,press,,BASS BSEQ
+bass:key:clear,bass,MM-BASS,CLEAR,press,,BASS BSEQ
+bass:key:accent,bass,MM-BASS,ACCENT,press,,BASS BSEQ
+bass:key:slide,bass,MM-BASS,SLIDE,press,,BASS BSEQ
+bass:key:notedn,bass,MM-BASS,NOTE -,press,,BASS BSEQ
+bass:key:noteup,bass,MM-BASS,NOTE +,press,,BASS BSEQ
+bass:key:octdn,bass,MM-BASS,OCT -,press,,BASS BSEQ
+bass:key:octup,bass,MM-BASS,OCT +,press,,BASS BSEQ
 bass:key:pvoice,bass,MM-BASS,VOICE,press,,
 bass:key:pfilter,bass,MM-BASS,FILTER,press,,
 bass:key:penv,bass,MM-BASS,ENV,press,,
 bass:key:pfx,bass,MM-BASS,FX,press,,
-bass:running,bass,MM-BASS,RUN (ON / OFF),value,2,BASS MIXER LIVE
+bass:running,bass,MM-BASS,RUN (ON / OFF),value,2,BASS MIXER LIVE BSEQ
 bass:trig:0,bass,MM-BASS,STEP 1,press,,BASS
 bass:trig:1,bass,MM-BASS,STEP 2,press,,BASS
 bass:trig:2,bass,MM-BASS,STEP 3,press,,BASS
@@ -392,8 +410,19 @@ bass:lock:12,bass,MM-BASS,LOCK 13,press,,
 bass:lock:13,bass,MM-BASS,LOCK 14,press,,
 bass:lock:14,bass,MM-BASS,LOCK 15,press,,
 bass:lock:15,bass,MM-BASS,LOCK 16,press,,
-bass:lock,bass,MM-BASS,LOCK (CHOSEN STEP),press,,BASS
+bass:lock,bass,MM-BASS,LOCK (CHOSEN STEP),press,,BASS BSEQ
 bass:infos,bass,MM-BASS,INFOS (HELP ON HOVER),press,,
+bass:seq:1,bass,MM-BASS,"SEQ STEP 1|9 (TAP, HOLD + TURN)",hold,,BSEQ
+bass:seq:2,bass,MM-BASS,"SEQ STEP 2|10 (TAP, HOLD + TURN)",hold,,BSEQ
+bass:seq:3,bass,MM-BASS,"SEQ STEP 3|11 (TAP, HOLD + TURN)",hold,,BSEQ
+bass:seq:4,bass,MM-BASS,"SEQ STEP 4|12 (TAP, HOLD + TURN)",hold,,BSEQ
+bass:seq:5,bass,MM-BASS,"SEQ STEP 5|13 (TAP, HOLD + TURN)",hold,,BSEQ
+bass:seq:6,bass,MM-BASS,"SEQ STEP 6|14 (TAP, HOLD + TURN)",hold,,BSEQ
+bass:seq:7,bass,MM-BASS,"SEQ STEP 7|15 (TAP, HOLD + TURN)",hold,,BSEQ
+bass:seq:8,bass,MM-BASS,"SEQ STEP 8|16 (TAP, HOLD + TURN)",hold,,BSEQ
+bass:seq:window,bass,MM-BASS,SEQ STEPS 1-8 / 9-16,press,,BSEQ
+bass:seq:follow,bass,MM-BASS,SEQ STEP FOLLOW (THE STEPS FOLLOW THE PLAYHEAD),value,2,BSEQ
+bass:seq:tie,bass,MM-BASS,TIE (THE CHOSEN STEP),press,,BSEQ
 dj:dj-ch1-gain,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) GAIN,value,,
 dj:dj-ch1-hi,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) EQ HI,value,,MIXER
 dj:dj-ch1-mid,dj,"MM-DECKS (table, platines, samplers, effets)",CHANNEL 1 (MM-RYTM) EQ MID,value,,
@@ -552,6 +581,6 @@ nav:mm808,global,Partout (navigation),GO TO MM-RYTM,press,,
 nav:bass,global,Partout (navigation),GO TO MM-BASS,press,,
 nav:voy,global,Partout (navigation),GO TO MM-ARP,press,,
 nav:dj,global,Partout (navigation),GO TO MM-DECKS,press,,
-nav:prev,global,Partout (navigation),PREVIOUS MACHINE,press,,RYTM ARP BASS MIXER LIVE
-nav:next,global,Partout (navigation),NEXT MACHINE,press,,RYTM ARP BASS MIXER LIVE
-nav:machines,global,Partout (navigation),PLAY/STOP MACHINES,press,,RYTM ARP BASS MIXER LIVE
+nav:prev,global,Partout (navigation),PREVIOUS MACHINE,press,,RYTM ARP BASS MIXER LIVE RSEQ BSEQ
+nav:next,global,Partout (navigation),NEXT MACHINE,press,,RYTM ARP BASS MIXER LIVE RSEQ BSEQ
+nav:machines,global,Partout (navigation),PLAY/STOP MACHINES,press,,RYTM ARP BASS MIXER LIVE RSEQ BSEQ
