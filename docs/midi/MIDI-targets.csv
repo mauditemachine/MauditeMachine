@@ -408,7 +408,7 @@ bass:knob:reso,bass,MM-BASS,RESO,value,,BASS BSEQ
 bass:knob:envmod,bass,MM-BASS,ENV MOD,value,,BASS BSEQ
 bass:knob:decay,bass,MM-BASS,DECAY,value,,BASS BSEQ
 bass:knob:accent,bass,MM-BASS,ACCENT,value,,BASS BSEQ
-bass:knob:wave,bass,MM-BASS,WAVE,value,,BASS
+bass:knob:wave,bass,MM-BASS,OSC 1 WAVE,value,,BASS
 bass:knob:sub,bass,MM-BASS,SUB,value,,BASS
 bass:knob:drive,bass,MM-BASS,DRIVE,value,,BASS
 bass:knob:glide,bass,MM-BASS,GLIDE,value,,BASS
@@ -427,7 +427,7 @@ bass:knob:sweep,bass,MM-BASS,SWEEP,value,,BASS
 bass:knob:release,bass,MM-BASS,RELEASE,value,,BASS
 bass:knob:suboct,bass,MM-BASS,SUB OCT,value,2,
 bass:knob:tune,bass,MM-BASS,TUNE,value,,BASS
-bass:knob:pw,bass,MM-BASS,PW,value,,
+bass:knob:pw,bass,MM-BASS,OSC 1 PW,value,,
 bass:knob:keytrack,bass,MM-BASS,KEY TRK,value,,
 bass:knob:attack,bass,MM-BASS,ATTACK,value,,
 bass:knob:adecay,bass,MM-BASS,AMP DECAY,value,,
@@ -438,6 +438,24 @@ bass:knob:dfb,bass,MM-BASS,DLY FB,value,,
 bass:knob:reverb,bass,MM-BASS,REVERB,value,,
 bass:knob:rsize,bass,MM-BASS,REV SIZE,value,,
 bass:knob:rtone,bass,MM-BASS,REV TONE,value,,
+bass:knob:o1lvl,bass,MM-BASS,OSC 1,value,,
+bass:knob:o2wave,bass,MM-BASS,OSC 2 WAVE,value,6,
+bass:knob:o2range,bass,MM-BASS,OSC 2 RANGE,value,4,
+bass:knob:o2semi,bass,MM-BASS,OSC 2 SEMI,value,15,
+bass:knob:o2fine,bass,MM-BASS,OSC 2 FINE,value,,BASS
+bass:knob:o2lvl,bass,MM-BASS,OSC 2,value,,BASS
+bass:knob:o3wave,bass,MM-BASS,OSC 3 WAVE,value,6,
+bass:knob:o3range,bass,MM-BASS,OSC 3 RANGE,value,4,
+bass:knob:o3semi,bass,MM-BASS,OSC 3 SEMI,value,15,
+bass:knob:o3fine,bass,MM-BASS,OSC 3 FINE,value,,
+bass:knob:o3lvl,bass,MM-BASS,OSC 3,value,,BASS
+bass:knob:noise,bass,MM-BASS,NOISE,value,,BASS
+bass:knob:feedback,bass,MM-BASS,FEEDBACK,value,,BASS
+bass:knob:drift,bass,MM-BASS,DRIFT,value,,
+bass:knob:fmode,bass,MM-BASS,MODE,value,5,BASS
+bass:knob:fattack,bass,MM-BASS,F.ATTACK,value,,BASS
+bass:knob:fsustain,bass,MM-BASS,F.SUSTAIN,value,,BASS
+bass:knob:fpol,bass,MM-BASS,POLARITY,value,2,
 bass:knob:1,bass,MM-BASS,SCREEN VALUE A (PAGE),value,,BSEQ
 bass:knob:2,bass,MM-BASS,SCREEN VALUE B (PAGE),value,,BSEQ
 bass:knob:3,bass,MM-BASS,SCREEN VALUE C (PAGE),value,,BSEQ
@@ -454,10 +472,17 @@ bass:global:volume,bass,MM-BASS,"VOLUME (GLOBAL, KNOB E)",value,,
 bass:global:reverb,bass,MM-BASS,"REVERB (GLOBAL, KNOB F)",value,,
 bass:global:rsize,bass,MM-BASS,"REV SIZE (GLOBAL, KNOB G)",value,,
 bass:global:rtone,bass,MM-BASS,"REV TONE (GLOBAL, KNOB H)",value,,
-bass:page:voice,bass,MM-BASS,PAGE VOICE,press,,BSEQ
-bass:page:filter,bass,MM-BASS,PAGE FILTER,press,,BSEQ
-bass:page:env,bass,MM-BASS,PAGE ENV,press,,BSEQ
-bass:page:fx,bass,MM-BASS,PAGE FX,press,,BSEQ
+bass:page:voice,bass,MM-BASS,PAGE VOICE (AGAIN: NEXT TAB),press,,BSEQ
+bass:page:filter,bass,MM-BASS,PAGE FILTER (AGAIN: NEXT TAB),press,,BSEQ
+bass:page:env,bass,MM-BASS,PAGE ENV (AGAIN: NEXT TAB),press,,BSEQ
+bass:page:fx,bass,MM-BASS,PAGE FX (AGAIN: NEXT TAB),press,,BSEQ
+bass:screen:voice,bass,MM-BASS,SCREEN VOICE MAIN,press,,
+bass:screen:osc,bass,MM-BASS,SCREEN VOICE OSC,press,,
+bass:screen:mix,bass,MM-BASS,SCREEN VOICE MIX,press,,
+bass:screen:filter,bass,MM-BASS,SCREEN FILTER MAIN,press,,
+bass:screen:contour,bass,MM-BASS,SCREEN FILTER CONTOUR,press,,
+bass:screen:env,bass,MM-BASS,SCREEN ENV ENV,press,,
+bass:screen:fx,bass,MM-BASS,SCREEN FX FX,press,,
 bass:page,bass,MM-BASS,PAGE (VOICE FILTER ENV FX),value,4,
 bass:key:i,bass,MM-BASS,INFOS (THE i OF THE SCREEN),press,,
 bass:key:run,bass,MM-BASS,RUN/STOP,press,,

@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 9 octobre 2026 depuis le code du site (`npm run docs:midi`) : 684 cibles, 8 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 9 octobre 2026 depuis le code du site (`npm run docs:midi`) : 709 cibles, 8 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -18,7 +18,7 @@ Une assignation apprise ne repond qu'a l'appareil qui l'a apprise. Le panneau MI
 
 - Un setup par machine, chacun sur son canal : potards sur le canal N, boutons sur le canal N + 8.
 - Les adresses sont gelees (2026-10-08, `src/v4/midi/rotoKeys.ts`) : une cible garde son canal et son CC pour toujours, meme deplacee sur une autre page ; une nouvelle cible prend une adresse libre, une adresse retiree n'est jamais redonnee. Au depart, le controle numero n (0 a 31, quatre pages de huit) avait le CC **14 + n** (n de 0 a 17), puis **102 + (n - 18)** (n de 18 a 31) : 0:14, 1:15, 2:16, 3:17, 4:18, 5:19, 6:20, 7:21, 8:22, 9:23, 10:24, 11:25, 12:26, 13:27, 14:28, 15:29, 16:30, 17:31, 18:102, 19:103, 20:104, 21:105, 22:106, 23:107, 24:108, 25:109, 26:110, 27:111, 28:112, 29:113, 30:114, 31:115 ; les colonnes Canal et CC ci-dessous font foi.
-- **Version des setups : 2026-10-09.** Le nom du setup sur l'ecran du Roto la porte (RYTM 1009, ARP 1009, BASS 1009, DECK 1009, MIXER 1009, LIVE 1009, RSEQ 1009, BSEQ 1009) : un Roto qui montre un autre nom a un ancien fichier, reimporte les setups.
+- **Version des setups : 2026-10-09.2.** Le nom du setup sur l'ecran du Roto la porte (RYTM 1009.2, ARP 1009.2, BASS 1009.2, DECK 1009.2, MIXER 1009.2, LIVE 1009.2, RSEQ 1009.2, BSEQ 1009.2) : un Roto qui montre un autre nom a un ancien fichier, reimporte les setups.
 - Ces CC n'ont aucun role reserve dans la norme MIDI (ni 0 bank, 1 modulation, 6 et 38 data, 64 pedale, 96 a 101 RPN/NRPN, 120 a 127 messages de canal).
 - Ce que dit le fichier JSON, c'est seulement **canal + CC + nom + couleur + type**. La **cible** (ce que ca pilote) est dans le site : il retrouve la cible avec le canal et le CC. Changer l'ordre dans le JSON sans changer le site ne deplace donc rien (voir le chapitre 5).
 
@@ -57,7 +57,7 @@ Format des exports de ROTO-SETUP (version 1), un fichier par setup, a importer (
 {
   "version": 1,
   "type": "MIDI",
-  "name": "ARP 1009",
+  "name": "ARP 1009.2",
   "index": 11,
   "knobs": [
     {
@@ -135,7 +135,7 @@ Format des exports de ROTO-SETUP (version 1), un fichier par setup, a importer (
 | Champ | Sens |
 | --- | --- |
 | version, type | 1 et "MIDI" (toujours) |
-| name, index | nom du setup sur l'ecran du Roto, avec la version (RYTM 1009) ; index = numero de SETUP moins 1 (SETUP 12 : 11) |
+| name, index | nom du setup sur l'ecran du Roto, avec la version (RYTM 1009.2) ; index = numero de SETUP moins 1 (SETUP 12 : 11) |
 | controlIndex | le controle n, de 0 a 31 (page = n div 8 + 1, position = n mod 8 + 1) |
 | controlMode | 0 : CC |
 | controlChannel | canal MIDI 1 a 16 (potards N, boutons N + 8) |
@@ -335,7 +335,7 @@ Le setup conseille sur le Roto (SETUP 11 a 18) laisse les premiers a toi. Un pot
 | 5 | 1.6 | 5 | 19 | DRIVE | violet | bass:knob:drive | DRIVE | continu |
 | 6 | 1.7 | 5 | 20 | SUB | or | bass:knob:sub | SUB | continu |
 | 7 | 1.8 | 5 | 21 | VOLUME | blanc | bass:knob:volume | VOLUME | continu |
-| 8 | 2.1 | 5 | 22 | WAVE | or | bass:knob:wave | WAVE | continu |
+| 8 | 2.1 | 5 | 22 | WAVE | or | bass:knob:wave | OSC 1 WAVE | continu |
 | 9 | 2.2 | 5 | 23 | GLIDE | or | bass:knob:glide | GLIDE | continu |
 | 10 | 2.3 | 5 | 24 | OCTAVE | or | bass:knob:octave | OCTAVE | potard a 4 crans : -2 / -1 / 0 / +1 |
 | 11 | 2.4 | 5 | 25 | STYLE | jaune | bass:knob:style | STYLE | potard a 11 crans : ACID / DARK DISCO / INDIE DANCE / MINIMAL / PSY PROG / TECHNO / HOUSE / ELECTRO / EBM / ITALO / SUB |
@@ -351,6 +351,14 @@ Le setup conseille sur le Roto (SETUP 11 a 18) laisse les premiers a toi. Un pot
 | 21 | 3.6 | 5 | 105 | SWEEP | rouge | bass:knob:sweep | SWEEP | continu |
 | 22 | 3.7 | 5 | 106 | RELEASE | or | bass:knob:release | RELEASE | continu |
 | 23 | 3.8 | 5 | 107 | TUNE | or | bass:knob:tune | TUNE | bipolaire, cran au milieu (64) |
+| 24 | 4.1 | 5 | 108 | OSC 2 | or | bass:knob:o2lvl | OSC 2 | continu |
+| 25 | 4.2 | 5 | 109 | OSC 3 | or | bass:knob:o3lvl | OSC 3 | continu |
+| 26 | 4.3 | 5 | 110 | DETUNE | or | bass:knob:o2fine | OSC 2 FINE | bipolaire, cran au milieu (64) |
+| 27 | 4.4 | 5 | 111 | NOISE | or | bass:knob:noise | NOISE | continu |
+| 28 | 4.5 | 5 | 112 | FEEDBACK | violet | bass:knob:feedback | FEEDBACK | continu |
+| 29 | 4.6 | 5 | 113 | F ATTACK | orange | bass:knob:fattack | F.ATTACK | continu |
+| 30 | 4.7 | 5 | 114 | F SUSTAIN | orange | bass:knob:fsustain | F.SUSTAIN | continu |
+| 31 | 4.8 | 5 | 115 | MODE | orange | bass:knob:fmode | MODE | potard a 5 crans : LP24 / LP12 / LP6 / BP / 303 |
 
 **Boutons**
 
@@ -742,10 +750,10 @@ Le setup conseille sur le Roto (SETUP 11 a 18) laisse les premiers a toi. Un pot
 | 5 | 1.6 | 16 | 19 | STEP 6/14 | orange | bass:seq:6 | SEQ STEP 6/14 (TAP, HOLD + TURN) | maintenu |
 | 6 | 1.7 | 16 | 20 | STEP 7/15 | orange | bass:seq:7 | SEQ STEP 7/15 (TAP, HOLD + TURN) | maintenu |
 | 7 | 1.8 | 16 | 21 | STEP 8/16 | orange | bass:seq:8 | SEQ STEP 8/16 (TAP, HOLD + TURN) | maintenu |
-| 8 | 2.1 | 16 | 22 | VOICE | jaune | bass:page:voice | PAGE VOICE | appui |
-| 9 | 2.2 | 16 | 23 | FILTER | jaune | bass:page:filter | PAGE FILTER | appui |
-| 10 | 2.3 | 16 | 24 | ENV | jaune | bass:page:env | PAGE ENV | appui |
-| 11 | 2.4 | 16 | 25 | FX | jaune | bass:page:fx | PAGE FX | appui |
+| 8 | 2.1 | 16 | 22 | VOICE | jaune | bass:page:voice | PAGE VOICE (AGAIN: NEXT TAB) | appui |
+| 9 | 2.2 | 16 | 23 | FILTER | jaune | bass:page:filter | PAGE FILTER (AGAIN: NEXT TAB) | appui |
+| 10 | 2.3 | 16 | 24 | ENV | jaune | bass:page:env | PAGE ENV (AGAIN: NEXT TAB) | appui |
+| 11 | 2.4 | 16 | 25 | FX | jaune | bass:page:fx | PAGE FX (AGAIN: NEXT TAB) | appui |
 | 12 | 2.5 | 16 | 26 | ACCENT | rouge | bass:key:accent | ACCENT | appui |
 | 13 | 2.6 | 16 | 27 | SLIDE | jaune | bass:key:slide | SLIDE | appui |
 | 14 | 2.7 | 16 | 28 | STEPS 9-16 | cyan | bass:seq:window | SEQ STEPS 1-8 / 9-16 | appui |
@@ -1185,7 +1193,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:open` | OPEN | appui |  | ARP |
 | `voy:infos` | INFOS (HELP ON HOVER) | appui |  |  |
 
-### MM-BASS (scope `bass`, 119 cibles)
+### MM-BASS (scope `bass`, 144 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -1194,7 +1202,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:knob:envmod` | ENV MOD | valeur 0 a 127 |  | BASS, BSEQ |
 | `bass:knob:decay` | DECAY | valeur 0 a 127 |  | BASS, BSEQ |
 | `bass:knob:accent` | ACCENT | valeur 0 a 127 |  | BASS, BSEQ |
-| `bass:knob:wave` | WAVE | valeur 0 a 127 |  | BASS |
+| `bass:knob:wave` | OSC 1 WAVE | valeur 0 a 127 |  | BASS |
 | `bass:knob:sub` | SUB | valeur 0 a 127 |  | BASS |
 | `bass:knob:drive` | DRIVE | valeur 0 a 127 |  | BASS |
 | `bass:knob:glide` | GLIDE | valeur 0 a 127 |  | BASS |
@@ -1213,7 +1221,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:knob:release` | RELEASE | valeur 0 a 127 |  | BASS |
 | `bass:knob:suboct` | SUB OCT | valeur 0 a 127 | 2 |  |
 | `bass:knob:tune` | TUNE | valeur 0 a 127 |  | BASS |
-| `bass:knob:pw` | PW | valeur 0 a 127 |  |  |
+| `bass:knob:pw` | OSC 1 PW | valeur 0 a 127 |  |  |
 | `bass:knob:keytrack` | KEY TRK | valeur 0 a 127 |  |  |
 | `bass:knob:attack` | ATTACK | valeur 0 a 127 |  |  |
 | `bass:knob:adecay` | AMP DECAY | valeur 0 a 127 |  |  |
@@ -1224,6 +1232,24 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:knob:reverb` | REVERB | valeur 0 a 127 |  |  |
 | `bass:knob:rsize` | REV SIZE | valeur 0 a 127 |  |  |
 | `bass:knob:rtone` | REV TONE | valeur 0 a 127 |  |  |
+| `bass:knob:o1lvl` | OSC 1 | valeur 0 a 127 |  |  |
+| `bass:knob:o2wave` | OSC 2 WAVE | valeur 0 a 127 | 6 |  |
+| `bass:knob:o2range` | OSC 2 RANGE | valeur 0 a 127 | 4 |  |
+| `bass:knob:o2semi` | OSC 2 SEMI | valeur 0 a 127 | 15 |  |
+| `bass:knob:o2fine` | OSC 2 FINE | valeur 0 a 127 |  | BASS |
+| `bass:knob:o2lvl` | OSC 2 | valeur 0 a 127 |  | BASS |
+| `bass:knob:o3wave` | OSC 3 WAVE | valeur 0 a 127 | 6 |  |
+| `bass:knob:o3range` | OSC 3 RANGE | valeur 0 a 127 | 4 |  |
+| `bass:knob:o3semi` | OSC 3 SEMI | valeur 0 a 127 | 15 |  |
+| `bass:knob:o3fine` | OSC 3 FINE | valeur 0 a 127 |  |  |
+| `bass:knob:o3lvl` | OSC 3 | valeur 0 a 127 |  | BASS |
+| `bass:knob:noise` | NOISE | valeur 0 a 127 |  | BASS |
+| `bass:knob:feedback` | FEEDBACK | valeur 0 a 127 |  | BASS |
+| `bass:knob:drift` | DRIFT | valeur 0 a 127 |  |  |
+| `bass:knob:fmode` | MODE | valeur 0 a 127 | 5 | BASS |
+| `bass:knob:fattack` | F.ATTACK | valeur 0 a 127 |  | BASS |
+| `bass:knob:fsustain` | F.SUSTAIN | valeur 0 a 127 |  | BASS |
+| `bass:knob:fpol` | POLARITY | valeur 0 a 127 | 2 |  |
 | `bass:knob:1` | SCREEN VALUE A (PAGE) | valeur 0 a 127 |  | BSEQ |
 | `bass:knob:2` | SCREEN VALUE B (PAGE) | valeur 0 a 127 |  | BSEQ |
 | `bass:knob:3` | SCREEN VALUE C (PAGE) | valeur 0 a 127 |  | BSEQ |
@@ -1240,10 +1266,17 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:global:reverb` | REVERB (GLOBAL, KNOB F) | valeur 0 a 127 |  |  |
 | `bass:global:rsize` | REV SIZE (GLOBAL, KNOB G) | valeur 0 a 127 |  |  |
 | `bass:global:rtone` | REV TONE (GLOBAL, KNOB H) | valeur 0 a 127 |  |  |
-| `bass:page:voice` | PAGE VOICE | appui |  | BSEQ |
-| `bass:page:filter` | PAGE FILTER | appui |  | BSEQ |
-| `bass:page:env` | PAGE ENV | appui |  | BSEQ |
-| `bass:page:fx` | PAGE FX | appui |  | BSEQ |
+| `bass:page:voice` | PAGE VOICE (AGAIN: NEXT TAB) | appui |  | BSEQ |
+| `bass:page:filter` | PAGE FILTER (AGAIN: NEXT TAB) | appui |  | BSEQ |
+| `bass:page:env` | PAGE ENV (AGAIN: NEXT TAB) | appui |  | BSEQ |
+| `bass:page:fx` | PAGE FX (AGAIN: NEXT TAB) | appui |  | BSEQ |
+| `bass:screen:voice` | SCREEN VOICE MAIN | appui |  |  |
+| `bass:screen:osc` | SCREEN VOICE OSC | appui |  |  |
+| `bass:screen:mix` | SCREEN VOICE MIX | appui |  |  |
+| `bass:screen:filter` | SCREEN FILTER MAIN | appui |  |  |
+| `bass:screen:contour` | SCREEN FILTER CONTOUR | appui |  |  |
+| `bass:screen:env` | SCREEN ENV ENV | appui |  |  |
+| `bass:screen:fx` | SCREEN FX FX | appui |  |  |
 | `bass:page` | PAGE (VOICE FILTER ENV FX) | valeur 0 a 127 | 4 |  |
 | `bass:key:i` | INFOS (THE i OF THE SCREEN) | appui |  |  |
 | `bass:key:run` | RUN/STOP | appui |  |  |
