@@ -1,7 +1,7 @@
 {
   "version": 1,
   "type": "MIDI",
-  "name": "BASS 1009.2",
+  "name": "BASS 1009.3",
   "index": 14,
   "knobs": [
     {
@@ -408,7 +408,7 @@
       "nrpnAddress": 0,
       "minValue": 0,
       "maxValue": 127,
-      "controlName": "DENSITY",
+      "controlName": "NOTES",
       "colorScheme": 17,
       "hapticMode": 0,
       "hapticIndent1": 255,
@@ -1099,7 +1099,7 @@
       "controlIndex": 1,
       "controlMode": 0,
       "controlChannel": 13,
-      "controlParam": 15,
+      "controlParam": 3,
       "nrpnAddress": 65535,
       "minValue": 0,
       "maxValue": 127,
@@ -1132,7 +1132,7 @@
       "controlIndex": 2,
       "controlMode": 0,
       "controlChannel": 13,
-      "controlParam": 16,
+      "controlParam": 9,
       "nrpnAddress": 65535,
       "minValue": 0,
       "maxValue": 127,

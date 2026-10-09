@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 9 octobre 2026 depuis le code du site (`npm run docs:midi`) : 709 cibles, 8 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 9 octobre 2026 depuis le code du site (`npm run docs:midi`) : 715 cibles, 8 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -18,7 +18,7 @@ Une assignation apprise ne repond qu'a l'appareil qui l'a apprise. Le panneau MI
 
 - Un setup par machine, chacun sur son canal : potards sur le canal N, boutons sur le canal N + 8.
 - Les adresses sont gelees (2026-10-08, `src/v4/midi/rotoKeys.ts`) : une cible garde son canal et son CC pour toujours, meme deplacee sur une autre page ; une nouvelle cible prend une adresse libre, une adresse retiree n'est jamais redonnee. Au depart, le controle numero n (0 a 31, quatre pages de huit) avait le CC **14 + n** (n de 0 a 17), puis **102 + (n - 18)** (n de 18 a 31) : 0:14, 1:15, 2:16, 3:17, 4:18, 5:19, 6:20, 7:21, 8:22, 9:23, 10:24, 11:25, 12:26, 13:27, 14:28, 15:29, 16:30, 17:31, 18:102, 19:103, 20:104, 21:105, 22:106, 23:107, 24:108, 25:109, 26:110, 27:111, 28:112, 29:113, 30:114, 31:115 ; les colonnes Canal et CC ci-dessous font foi.
-- **Version des setups : 2026-10-09.2.** Le nom du setup sur l'ecran du Roto la porte (RYTM 1009.2, ARP 1009.2, BASS 1009.2, DECK 1009.2, MIXER 1009.2, LIVE 1009.2, RSEQ 1009.2, BSEQ 1009.2) : un Roto qui montre un autre nom a un ancien fichier, reimporte les setups.
+- **Version des setups : 2026-10-09.3.** Le nom du setup sur l'ecran du Roto la porte (RYTM 1009.3, ARP 1009.3, BASS 1009.3, DECK 1009.3, MIXER 1009.3, LIVE 1009.3, RSEQ 1009.3, BSEQ 1009.3) : un Roto qui montre un autre nom a un ancien fichier, reimporte les setups.
 - Ces CC n'ont aucun role reserve dans la norme MIDI (ni 0 bank, 1 modulation, 6 et 38 data, 64 pedale, 96 a 101 RPN/NRPN, 120 a 127 messages de canal).
 - Ce que dit le fichier JSON, c'est seulement **canal + CC + nom + couleur + type**. La **cible** (ce que ca pilote) est dans le site : il retrouve la cible avec le canal et le CC. Changer l'ordre dans le JSON sans changer le site ne deplace donc rien (voir le chapitre 5).
 
@@ -57,7 +57,7 @@ Format des exports de ROTO-SETUP (version 1), un fichier par setup, a importer (
 {
   "version": 1,
   "type": "MIDI",
-  "name": "ARP 1009.2",
+  "name": "ARP 1009.3",
   "index": 11,
   "knobs": [
     {
@@ -135,7 +135,7 @@ Format des exports de ROTO-SETUP (version 1), un fichier par setup, a importer (
 | Champ | Sens |
 | --- | --- |
 | version, type | 1 et "MIDI" (toujours) |
-| name, index | nom du setup sur l'ecran du Roto, avec la version (RYTM 1009.2) ; index = numero de SETUP moins 1 (SETUP 12 : 11) |
+| name, index | nom du setup sur l'ecran du Roto, avec la version (RYTM 1009.3) ; index = numero de SETUP moins 1 (SETUP 12 : 11) |
 | controlIndex | le controle n, de 0 a 31 (page = n div 8 + 1, position = n mod 8 + 1) |
 | controlMode | 0 : CC |
 | controlChannel | canal MIDI 1 a 16 (potards N, boutons N + 8) |
@@ -339,7 +339,7 @@ Le setup conseille sur le Roto (SETUP 11 a 18) laisse les premiers a toi. Un pot
 | 9 | 2.2 | 5 | 23 | GLIDE | or | bass:knob:glide | GLIDE | continu |
 | 10 | 2.3 | 5 | 24 | OCTAVE | or | bass:knob:octave | OCTAVE | potard a 4 crans : -2 / -1 / 0 / +1 |
 | 11 | 2.4 | 5 | 25 | STYLE | jaune | bass:knob:style | STYLE | potard a 11 crans : ACID / DARK DISCO / INDIE DANCE / MINIMAL / PSY PROG / TECHNO / HOUSE / ELECTRO / EBM / ITALO / SUB |
-| 12 | 2.5 | 5 | 26 | DENSITY | jaune | bass:knob:density | DENSITY | continu |
+| 12 | 2.5 | 5 | 26 | NOTES | jaune | bass:knob:density | NOTES (0 TO 16) | continu |
 | 13 | 2.6 | 5 | 27 | SLIDE PROB | jaune | bass:knob:slides | SLIDE PROB | continu |
 | 14 | 2.7 | 5 | 28 | ACC PROB | jaune | bass:knob:accents | ACC PROB | continu |
 | 15 | 2.8 | 5 | 29 | RANGE | jaune | bass:knob:range | RANGE | potard a 3 crans : 1 / 2 / 3 |
@@ -365,8 +365,8 @@ Le setup conseille sur le Roto (SETUP 11 a 18) laisse les premiers a toi. Un pot
 | n | Page.pos | Canal | CC | Nom Roto | Couleur | Cible (id) | Ce que ca fait | Type |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 0 | 1.1 | 13 | 14 | RUN | rouge | bass:running | RUN (ON / OFF) | bascule (la LED suit le site) |
-| 1 | 1.2 | 13 | 15 | GEN | orange | bass:key:gen | GEN | appui |
-| 2 | 1.3 | 13 | 16 | MUTATE | orange | bass:key:mutate | MUTATE | appui |
+| 1 | 1.2 | 13 | 3 | GEN | orange | bass:gen | GEN (TAP: NEXT TAKE, HOLD: THE TAKE BEFORE) | maintenu |
+| 2 | 1.3 | 13 | 9 | MUTATE | orange | bass:mutate | MUTATE (TAP: MUTATE, HOLD: UNDO) | maintenu |
 | 3 | 1.4 | 13 | 17 | CLEAR | orange | bass:key:clear | CLEAR | appui |
 | 4 | 1.5 | 13 | 18 | ACCENT | rouge | bass:key:accent | ACCENT | appui |
 | 5 | 1.6 | 13 | 19 | SLIDE | jaune | bass:key:slide | SLIDE | appui |
@@ -722,7 +722,7 @@ Le setup conseille sur le Roto (SETUP 11 a 18) laisse les premiers a toi. Un pot
 | 14 | 2.7 | 8 | 28 | ENC G | jaune | bass:knob:7 | SCREEN VALUE G (PAGE) | continu |
 | 15 | 2.8 | 8 | 29 | ENC H | jaune | bass:knob:8 | SCREEN VALUE H (PAGE) | continu |
 | 16 | 3.1 | 8 | 30 | STYLE | jaune | bass:knob:style | STYLE | potard a 11 crans : ACID / DARK DISCO / INDIE DANCE / MINIMAL / PSY PROG / TECHNO / HOUSE / ELECTRO / EBM / ITALO / SUB |
-| 17 | 3.2 | 8 | 31 | DENSITY | jaune | bass:knob:density | DENSITY | continu |
+| 17 | 3.2 | 8 | 31 | NOTES | jaune | bass:knob:density | NOTES (0 TO 16) | continu |
 | 18 | 3.3 | 8 | 102 | SLIDE PROB | jaune | bass:knob:slides | SLIDE PROB | continu |
 | 19 | 3.4 | 8 | 103 | ACC PROB | jaune | bass:knob:accents | ACC PROB | continu |
 | 20 | 3.5 | 8 | 104 | RANGE | jaune | bass:knob:range | RANGE | potard a 3 crans : 1 / 2 / 3 |
@@ -763,12 +763,12 @@ Le setup conseille sur le Roto (SETUP 11 a 18) laisse les premiers a toi. Un pot
 | 18 | 3.3 | 16 | 102 | OCT - | cyan | bass:key:octdn | OCT - | appui |
 | 19 | 3.4 | 16 | 103 | OCT + | cyan | bass:key:octup | OCT + | appui |
 | 20 | 3.5 | 16 | 104 | TIE | peche | bass:seq:tie | TIE (THE CHOSEN STEP) | appui |
-| 21 | 3.6 | 16 | 105 | MUTATE | orange | bass:key:mutate | MUTATE | appui |
+| 21 | 3.6 | 16 | 3 | MUTATE | orange | bass:mutate | MUTATE (TAP: MUTATE, HOLD: UNDO) | maintenu |
 | 22 | 3.7 | 16 | 106 | ACCENT | rouge | bass:key:accent | ACCENT | appui |
 | 23 | 3.8 | 16 | 107 | SLIDE | jaune | bass:key:slide | SLIDE | appui |
 | 24 | 4.1 | 16 | 108 | RUN | rouge | bass:running | RUN (ON / OFF) | bascule (la LED suit le site) |
 | 25 | 4.2 | 16 | 109 | CLEAR | orange | bass:key:clear | CLEAR | appui |
-| 26 | 4.3 | 16 | 110 | GEN | orange | bass:key:gen | GEN | appui |
+| 26 | 4.3 | 16 | 9 | GEN | orange | bass:gen | GEN (TAP: NEXT TAKE, HOLD: THE TAKE BEFORE) | maintenu |
 | 27 | 4.4 | 16 | 111 | LOCK | jaune | bass:lock | LOCK (CHOSEN STEP) | appui |
 | 28 | 4.5 | 16 | 112 | EDIT | jaune | bass:key:edit | EDIT | appui |
 | 29 | 4.6 | 16 | 113 | PREV MACHINE | blanc | nav:prev | PREVIOUS MACHINE | appui |
@@ -1193,7 +1193,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:open` | OPEN | appui |  | ARP |
 | `voy:infos` | INFOS (HELP ON HOVER) | appui |  |  |
 
-### MM-BASS (scope `bass`, 144 cibles)
+### MM-BASS (scope `bass`, 150 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -1209,7 +1209,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:knob:volume` | VOLUME | valeur 0 a 127 |  | BASS, BSEQ |
 | `bass:knob:octave` | OCTAVE | valeur 0 a 127 | 4 | BASS, BSEQ |
 | `bass:knob:style` | STYLE | valeur 0 a 127 | 11 | BASS, BSEQ |
-| `bass:knob:density` | DENSITY | valeur 0 a 127 |  | BASS, BSEQ |
+| `bass:knob:density` | NOTES (0 TO 16) | valeur 0 a 127 | 17 | BASS, BSEQ |
 | `bass:knob:slides` | SLIDE PROB | valeur 0 a 127 |  | BASS, BSEQ |
 | `bass:knob:accents` | ACC PROB | valeur 0 a 127 |  | BASS, BSEQ |
 | `bass:knob:range` | RANGE | valeur 0 a 127 | 3 | BASS, BSEQ |
@@ -1250,6 +1250,12 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:knob:fattack` | F.ATTACK | valeur 0 a 127 |  | BASS |
 | `bass:knob:fsustain` | F.SUSTAIN | valeur 0 a 127 |  | BASS |
 | `bass:knob:fpol` | POLARITY | valeur 0 a 127 | 2 |  |
+| `bass:gen:back` | GEN BACK (THE TAKE BEFORE) | appui |  |  |
+| `bass:mutate:undo` | MUTATE UNDO | appui |  |  |
+| `bass:gen` | GEN (TAP: NEXT TAKE, HOLD: THE TAKE BEFORE) | maintenu (appui puis relachement) |  | BASS, BSEQ |
+| `bass:mutate` | MUTATE (TAP: MUTATE, HOLD: UNDO) | maintenu (appui puis relachement) |  | BASS, BSEQ |
+| `bass:notes:up` | NOTES +1 | appui |  |  |
+| `bass:notes:down` | NOTES -1 | appui |  |  |
 | `bass:knob:1` | SCREEN VALUE A (PAGE) | valeur 0 a 127 |  | BSEQ |
 | `bass:knob:2` | SCREEN VALUE B (PAGE) | valeur 0 a 127 |  | BSEQ |
 | `bass:knob:3` | SCREEN VALUE C (PAGE) | valeur 0 a 127 |  | BSEQ |
@@ -1282,8 +1288,8 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:key:run` | RUN/STOP | appui |  |  |
 | `bass:key:edit` | EDIT | appui |  | BASS, BSEQ |
 | `bass:key:open` | OPEN | appui |  |  |
-| `bass:key:gen` | GEN | appui |  | BASS, BSEQ |
-| `bass:key:mutate` | MUTATE | appui |  | BASS, BSEQ |
+| `bass:key:gen` | GEN | appui |  |  |
+| `bass:key:mutate` | MUTATE | appui |  |  |
 | `bass:key:clear` | CLEAR | appui |  | BASS, BSEQ |
 | `bass:key:accent` | ACCENT | appui |  | BASS, BSEQ |
 | `bass:key:slide` | SLIDE | appui |  | BASS, BSEQ |

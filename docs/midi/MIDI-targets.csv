@@ -415,7 +415,7 @@ bass:knob:glide,bass,MM-BASS,GLIDE,value,,BASS
 bass:knob:volume,bass,MM-BASS,VOLUME,value,,BASS BSEQ
 bass:knob:octave,bass,MM-BASS,OCTAVE,value,4,BASS BSEQ
 bass:knob:style,bass,MM-BASS,STYLE,value,11,BASS BSEQ
-bass:knob:density,bass,MM-BASS,DENSITY,value,,BASS BSEQ
+bass:knob:density,bass,MM-BASS,NOTES (0 TO 16),value,17,BASS BSEQ
 bass:knob:slides,bass,MM-BASS,SLIDE PROB,value,,BASS BSEQ
 bass:knob:accents,bass,MM-BASS,ACC PROB,value,,BASS BSEQ
 bass:knob:range,bass,MM-BASS,RANGE,value,3,BASS BSEQ
@@ -456,6 +456,12 @@ bass:knob:fmode,bass,MM-BASS,MODE,value,5,BASS
 bass:knob:fattack,bass,MM-BASS,F.ATTACK,value,,BASS
 bass:knob:fsustain,bass,MM-BASS,F.SUSTAIN,value,,BASS
 bass:knob:fpol,bass,MM-BASS,POLARITY,value,2,
+bass:gen:back,bass,MM-BASS,GEN BACK (THE TAKE BEFORE),press,,
+bass:mutate:undo,bass,MM-BASS,MUTATE UNDO,press,,
+bass:gen,bass,MM-BASS,"GEN (TAP: NEXT TAKE, HOLD: THE TAKE BEFORE)",hold,,BASS BSEQ
+bass:mutate,bass,MM-BASS,"MUTATE (TAP: MUTATE, HOLD: UNDO)",hold,,BASS BSEQ
+bass:notes:up,bass,MM-BASS,NOTES +1,press,,
+bass:notes:down,bass,MM-BASS,NOTES -1,press,,
 bass:knob:1,bass,MM-BASS,SCREEN VALUE A (PAGE),value,,BSEQ
 bass:knob:2,bass,MM-BASS,SCREEN VALUE B (PAGE),value,,BSEQ
 bass:knob:3,bass,MM-BASS,SCREEN VALUE C (PAGE),value,,BSEQ
@@ -488,8 +494,8 @@ bass:key:i,bass,MM-BASS,INFOS (THE i OF THE SCREEN),press,,
 bass:key:run,bass,MM-BASS,RUN/STOP,press,,
 bass:key:edit,bass,MM-BASS,EDIT,press,,BASS BSEQ
 bass:key:open,bass,MM-BASS,OPEN,press,,
-bass:key:gen,bass,MM-BASS,GEN,press,,BASS BSEQ
-bass:key:mutate,bass,MM-BASS,MUTATE,press,,BASS BSEQ
+bass:key:gen,bass,MM-BASS,GEN,press,,
+bass:key:mutate,bass,MM-BASS,MUTATE,press,,
 bass:key:clear,bass,MM-BASS,CLEAR,press,,BASS BSEQ
 bass:key:accent,bass,MM-BASS,ACCENT,press,,BASS BSEQ
 bass:key:slide,bass,MM-BASS,SLIDE,press,,BASS BSEQ

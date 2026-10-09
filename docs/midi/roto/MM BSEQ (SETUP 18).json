@@ -1,7 +1,7 @@
 {
   "version": 1,
   "type": "MIDI",
-  "name": "BSEQ 1009.2",
+  "name": "BSEQ 1009.3",
   "index": 17,
   "knobs": [
     {
@@ -573,7 +573,7 @@
       "nrpnAddress": 0,
       "minValue": 0,
       "maxValue": 127,
-      "controlName": "DENSITY",
+      "controlName": "NOTES",
       "colorScheme": 17,
       "hapticMode": 0,
       "hapticIndent1": 255,
@@ -1759,7 +1759,7 @@
       "controlIndex": 21,
       "controlMode": 0,
       "controlChannel": 16,
-      "controlParam": 105,
+      "controlParam": 3,
       "nrpnAddress": 65535,
       "minValue": 0,
       "maxValue": 127,
@@ -1924,7 +1924,7 @@
       "controlIndex": 26,
       "controlMode": 0,
       "controlChannel": 16,
-      "controlParam": 110,
+      "controlParam": 9,
       "nrpnAddress": 65535,
       "minValue": 0,
       "maxValue": 127,
