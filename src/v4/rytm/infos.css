@@ -36,6 +36,37 @@
   height: 96px;
 }
 
+/*
+ * Trop haute pour sa place (revue de R4, le Dock KNOBS) : le dessin rapetisse
+ * (data-tight), puis un fondu en bas dit que le texte defile (data-more,
+ * retire au bout du defilement).
+ */
+.v4-root .v4-rinfo[data-mode='sheet'][data-tight='1'] .v4-binfo-svg {
+  height: 60px;
+}
+
+.v4-root .v4-rinfo[data-mode='sheet'][data-more='1'] {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent);
+}
+
+/* La recette en trois gestes (le LOCK, revue de R4) : numerotee, avant le texte */
+.v4-root .v4-rinfo-steps {
+  margin: 6px 0 2px;
+  padding: 0 0 0 18px;
+  color: #f6f1e7;
+  font-weight: 600;
+}
+
+.v4-root .v4-rinfo-steps li {
+  margin: 0 0 3px;
+}
+
+.v4-root .v4-rinfo-steps li::marker {
+  color: var(--bi-orange, #ff6a13);
+  font-weight: 700;
+}
+
 /* La pastille eteinte : un i cerne, comme celui de l'ecran */
 .v4-root .v4-rinfo-chip[data-on='0'] {
   padding: 0 13px 0 9px;

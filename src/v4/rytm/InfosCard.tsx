@@ -13,13 +13,18 @@
  *   (rytm/infos.ts) ; un encodeur de page montre le reglage qu'il tient sur
  *   la page allumee, pour la voix choisie (pageTarget : la meme table que
  *   l'ecran), et l'ecran marque son bloc de quatre coins ;
- * - desktop : au-dessus de la commande (dessous pour les encodeurs de page,
- *   les touches de page, MASTER, TEMPO et l'ecran : la carte ne cache pas
- *   l'ecran dont elle parle), de cote si elle sortirait ; 250 ms avant
- *   d'apparaitre au survol ;
+ * - desktop : les encodeurs de page et leurs blocs, les touches de page,
+ *   l'ecran (son en-tete, ses onglets, son i) et les pas, LOCK compris : a
+ *   cote de l'ecran entier, jamais dessus (revue de R4 : au-dessus d'une
+ *   touche de page ou d'un pas, sous l'en-tete, elle cachait l'ecran dont
+ *   elle parle), remontee au-dessus de la commande si elle la couvrirait ;
+ *   les autres au-dessus de la commande (dessous pour MASTER et TEMPO), de
+ *   cote si elle sortirait ; 250 ms avant d'apparaitre au survol ;
  * - telephone : une feuille du cote oppose a la commande touchee (en bas
  *   pour l'ecran et les encodeurs, en haut pour les pads, le transport et
- *   les pas ; en haut pour le Dock), qui ne la couvre jamais ; toucher
+ *   les pas ; en haut pour le Dock), qui ne la couvre jamais ; trop haute
+ *   pour sa place, son dessin rapetisse, puis un fondu dit que le texte
+ *   defile (revue de R4 : elle s'arretait au milieu d'une ligne) ; toucher
  *   ailleurs qu'une commande du MM-RYTM (ou la carte) la range ;
  * - la pastille INFOS: HOVER A CONTROL (au telephone : TAP A CONTROL) et sa
  *   croix tant que le mode est allume et le MM-RYTM a l'ecran ; capot ouvert
@@ -30,8 +35,9 @@
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { anyDialValue, dialValue, lockMode, lockSamples, pageLockView, pageSlotOf, stepPlays, subscribeDials, type DialId } from '../actions';
-import { familyOf, kit, kitMachineNames, kitSampleNames, kitSoundIndex, kitSoundNames, type KitFamily, type KitId } from '../audio/kit';
+import { anyDialValue, dialValue, lockMode, lockSamples, pageLockView, pageSlotOf, rytmInfoTap, stepPlays, subscribeDials, type DialId } from '../actions';
+import { KIT_MODEL_LABEL, familyOf, kit, kitMachineNames, kitSampleNames, kitSoundIndex, kitSoundNames, type KitFamily, type KitId } from '../audio/kit';
+import { sampleByKey } from '../audio/samples';
 import { lockMask, lockOf } from '../audio/locks';
 import { pattern } from '../audio/pattern';
 import type { ShotId } from '../audio/shotsdsp';
@@ -44,7 +50,9 @@ import { presetMode } from '../state/presetMode';
 import { rytmInfos } from '../state/rytmInfos';
 import { rytmLock } from '../state/rytmLock';
 import { rytmPage } from '../state/rytmPage';
+import { voices } from '../state/voices';
 import { MOBILE_QUERY, type EncId, type Inst } from '../theme';
+import { v127Text } from './values';
 import { rytmDiagram, rytmInfoHit, type RytmDiagram, type RytmDiagramCtx } from './diagrams';
 import { infoOf, type RytmInfo, type RytmInfoCtx, type RytmLockable } from './infos';
 import '../bass/infos.css';
@@ -61,6 +69,20 @@ const SHEET_MIN = 170;
 
 const clamp = (x: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, x));
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
+
+/**
+ * La feuille du telephone trop haute pour sa place (revue de R4 : sur le Dock
+ * KNOBS, le texte s'arretait au milieu d'une ligne, l'astuce cachee, rien ne
+ * disait qu'elle defile) : son dessin rapetisse (tight), et s'il en reste, un
+ * fondu en bas dit que le texte continue (more).
+ */
+function fitSheet(el: HTMLElement): void {
+  delete el.dataset.tight;
+  delete el.dataset.more;
+  if (el.scrollHeight <= el.clientHeight + 2) return;
+  el.dataset.tight = '1';
+  if (el.scrollHeight > el.clientHeight + 2) el.dataset.more = '1';
+}
 
 const DiagramSvg: React.FC<{ d: RytmDiagram }> = ({ d }) => (
   <svg className="v4-binfo-svg" viewBox={`0 0 ${d.w} ${d.h}`} aria-hidden="true" focusable="false">
@@ -177,6 +199,18 @@ export function modelOf(hotspot: string): Model | null {
     if (presetMode.on('mm808')) id = 'presets';
     else if (editor.get() === 'mm808') id = 'edit';
     else if (rp.view === 'home' && lockStep < 0) id = 'home';
+  } else if (id.startsWith('pad:')) {
+    // Un pad (revue de R4) : ce que joue SA voix (ses couches, ses pas), pas celle qui est choisie
+    const pv = id.slice(4) as Inst;
+    dc.steps = p.steps[pv];
+    dc.lockMask = lockMask(p.locks, pv);
+    dc.muted = voices.get().muted.includes(pv);
+    const pf = familyOf(pv as ShotId);
+    if (pf) {
+      const pl = stepPlays(pv, null);
+      const smp = pl.sample ? `${sampleByKey(pl.sample)?.label ?? 'SAMPLE'} ${pl.lev > 0 ? v127Text(pl.lev) : 'OFF'}` : 'OFF';
+      dc.layers = [`SYN ${KIT_MODEL_LABEL[pl.model]} ${pl.syn > 0 ? v127Text(pl.syn) : 'OFF'}`, `SMP ${smp}`];
+    } else dc.layers = ['ONE SOUND'];
   } else if (id === 'level') dc.v = dialValue('level' as EncId);
   else if (id === 'tempo') dc.v = p.bpm;
   const info = infoOf(id, ctx);
@@ -196,7 +230,7 @@ function useRytmTick(): number {
         setN((x) => x + 1);
       });
     };
-    const offs = [subscribeDials(bump), rytmPage.subscribe(bump), presetMode.subscribe(bump), editor.subscribe(bump)];
+    const offs = [subscribeDials(bump), rytmPage.subscribe(bump), presetMode.subscribe(bump), editor.subscribe(bump), voices.subscribe(bump)];
     return () => {
       if (raf) window.cancelAnimationFrame(raf);
       for (const off of offs) off();
@@ -205,8 +239,14 @@ function useRytmTick(): number {
   return n;
 }
 
-/** Desktop : la carte sous ces commandes (elle ne cache pas l'ecran dont elle parle). */
+/** Desktop : la carte sous ces commandes, quand elle ne tient pas a cote de l'ecran (elle ne cache pas l'ecran dont elle parle). */
 const BELOW = /^(penc-|pkey-|lcd-|enc-)/;
+/** Desktop : la carte a cote de l'ecran entier pour ces commandes (l'ecran montre ce dont elles parlent : blocs, page, LOCK, pas). */
+const BESIDE = /^(penc-|pkey-|lcd-|step-)/;
+
+/** Deux rectangles (x, y, w, h) se couvrent-ils ? */
+const overlaps = (ax: number, ay: number, aw: number, ah: number, bx: number, by: number, bw: number, bh: number): boolean =>
+  ax < bx + bw && bx < ax + aw && ay < by + bh && by < ay + ah;
 
 interface CardProps {
   stage: Stage | null;
@@ -229,9 +269,9 @@ const Card: React.FC<CardProps> = ({ stage, hotspot, sheet, pinned, dock }) => {
     const ids = stage.hit.ids();
     const i = ids.indexOf(hotspot);
     const below = BELOW.test(hotspot);
-    // Un bloc de l'ecran ou son encodeur : la carte a cote de l'ecran entier (les huit blocs), jamais dessus (au-dessus d'un
-    // encodeur du bas, elle cachait l'ecran dont elle parle)
-    const blocks = /^(lcd-blk|penc)-/.test(hotspot) ? Array.from({ length: 8 }, (_, k) => ids.indexOf(`lcd-blk-${k}`)).filter((j) => j >= 0) : [];
+    // Un bloc de l'ecran ou son encodeur, une touche de page, l'ecran, un pas : la carte a cote de l'ecran entier (les huit
+    // blocs), jamais dessus (au-dessus d'un encodeur du bas, d'une touche de page ou d'un pas, elle cachait l'ecran dont elle parle)
+    const blocks = BESIDE.test(hotspot) ? Array.from({ length: 8 }, (_, k) => ids.indexOf(`lcd-blk-${k}`)).filter((j) => j >= 0) : [];
     let cw = el.offsetWidth;
     let ch = el.offsetHeight;
     let last = '';
@@ -258,10 +298,17 @@ const Card: React.FC<CardProps> = ({ stage, hotspot, sheet, pinned, dock }) => {
         }
         const right = sx1 + GAP * 2;
         const leftOf = sx0 - cw - GAP * 2;
-        const beside = seen && Number.isFinite(sx1) && (right + cw <= vw - EDGE || leftOf >= EDGE);
+        let beside = seen && Number.isFinite(sx1) && (right + cw <= vw - EDGE || leftOf >= EDGE);
+        const bLeft = right + cw <= vw - EDGE ? right : leftOf;
+        let bTop = clamp(sy0 - 8, TOP_EDGE, vh - ch - EDGE);
+        // A cote de l'ecran mais sur sa commande (un pas sous une carte haute) : remontee au-dessus d'elle, sinon comme les autres
+        if (beside && overlaps(bLeft, bTop, cw, ch, x, y, w, h)) {
+          const up = y - ch - GAP;
+          if (up >= TOP_EDGE) bTop = up;
+          else beside = false;
+        }
         if (beside) {
-          const left = right + cw <= vw - EDGE ? right : leftOf;
-          t = `translate(${Math.round(left)}px, ${Math.round(clamp(sy0 - 8, TOP_EDGE, vh - ch - EDGE))}px)`;
+          t = `translate(${Math.round(bLeft)}px, ${Math.round(bTop)}px)`;
           el.dataset.side = 'screen';
         } else if (seen) {
           const left0 = clamp(x + w / 2 - cw / 2, EDGE, vw - cw - EDGE);
@@ -361,17 +408,28 @@ const Card: React.FC<CardProps> = ({ stage, hotspot, sheet, pinned, dock }) => {
       el.style.top = where === 'top' ? `${Math.round(top - parent)}px` : '';
       el.style.bottom = where === 'top' ? 'auto' : '';
       el.style.maxHeight = where === 'dock' ? '' : `${Math.floor(max)}px`;
+      fitSheet(el);
     };
     place();
     const a = stage ? stage.onView(place) : null;
     const b = stage ? stage.onIdle(place) : null;
     window.addEventListener('resize', place);
+    // Le Dock change de hauteur (SEQUENCER, KNOBS, LOCK) : la feuille du haut suit son bord
+    const dockEl = dock ? document.querySelector('.v4-dock[data-open="1"]') : null;
+    const ro = dockEl && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(place) : null;
+    if (dockEl) ro?.observe(dockEl);
     return () => {
       a?.();
       b?.();
+      ro?.disconnect();
       window.removeEventListener('resize', place);
     };
   }, [stage, hotspot, sheet, dock]);
+
+  // Telephone : la carte refaite (une valeur, une autre page) se mesure encore contre sa place
+  useLayoutEffect(() => {
+    if (sheet && ref.current) fitSheet(ref.current);
+  });
 
   // Montree au doigt : toucher ailleurs qu'une commande du MM-RYTM la range ; la carte elle-meme attend son clic
   useEffect(() => {
@@ -398,29 +456,48 @@ const Card: React.FC<CardProps> = ({ stage, hotspot, sheet, pinned, dock }) => {
    * Une tape sur la feuille (le telephone) : la commande du MM-RYTM dessous
    * montre sa carte (la feuille ne coute jamais une tape de plus : au
    * telephone elle couvre souvent les pas ou les pads), sinon elle se range.
-   * Au clic seulement : un glisser fait defiler un texte long.
+   * Comme une tape directe (revue de R4) : une touche de page sous la
+   * feuille tourne aussi la page, un pad choisit sa voix (actions.ts
+   * rytmInfoTap). Au clic seulement : un glisser fait defiler un texte long.
    */
   const onSheetClick = (e: React.MouseEvent): void => {
     if (!sheet) return;
     const host = document.querySelector('.v4-canvas-host')?.getBoundingClientRect();
     const h = stage && host ? stage.hit.pick(e.clientX - host.left, e.clientY - host.top, true) : null;
-    if (h && h.id !== hotspot && rytmInfoHit(h.id) && h.kind !== 'rinfo') rytmInfos.show(h.id);
+    if (h && h.id !== hotspot && rytmInfoHit(h.id) && h.kind !== 'rinfo') rytmInfoTap(h.id);
     else if (h && h.kind === 'rinfo') rytmInfos.set(false);
     else rytmInfos.hide();
+  };
+
+  /** La feuille defilee jusqu'au bout : plus de fondu (il cachait la derniere ligne). */
+  const onSheetScroll = (e: React.UIEvent<HTMLDivElement>): void => {
+    const el = e.currentTarget;
+    if (!sheet || !el.dataset.tight) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 2) delete el.dataset.more;
+    else el.dataset.more = '1';
   };
 
   if (!m) return null;
   const { info, diagram, tag } = m;
   return (
-    <div ref={ref} className="v4-binfo v4-rinfo" data-mode={sheet ? 'sheet' : 'float'} data-id={info.id} role="note" aria-live="polite" lang="fr" onClick={onSheetClick}>
+    <div ref={ref} className="v4-binfo v4-rinfo" data-mode={sheet ? 'sheet' : 'float'} data-id={info.id} role="note" aria-live="polite" lang="fr" onClick={onSheetClick} onScroll={onSheetScroll}>
       {sheet && <span className="v4-binfo-grab" aria-hidden="true" />}
       <div className="v4-binfo-head">
         <span className="v4-binfo-sec">{info.section}</span>
         {m.locked ? <span className="v4-binfo-lock">{tag}</span> : info.avail === 'soon' ? <span className="v4-binfo-lock v4-rinfo-soon">BIENTÔT</span> : <span className="v4-binfo-sec">{tag ? `MM-RYTM  ${tag}` : 'MM-RYTM'}</span>}
       </div>
       <div className="v4-binfo-title">{info.title}</div>
+      {/* La recette d'abord (revue de R4 : une carte se lit en deux secondes), le dessin ensuite */}
+      {info.steps && (
+        <ol className="v4-rinfo-steps">
+          {info.steps.map((x) => (
+            <li key={x}>{x}</li>
+          ))}
+        </ol>
+      )}
       {diagram && <DiagramSvg d={diagram} />}
-      <p className="v4-binfo-text">{info.text}</p>
+      {/* La touche du clavier : au desktop seulement (revue de R4) */}
+      <p className="v4-binfo-text">{info.key && !sheet ? `${info.text} ${info.key}` : info.text}</p>
       {info.tip && (
         <p className="v4-binfo-tip">
           <span className="v4-binfo-tipk">Astuce</span>

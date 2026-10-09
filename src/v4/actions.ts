@@ -37,7 +37,7 @@ import type { PresetMachine } from './state/presets';
 import { presskit } from './state/presskit';
 import { rytmPage } from './state/rytmPage';
 import { rytmLock } from './state/rytmLock';
-import { RYTM_PAGES, pageLabel, pageSlots, type PageSlot, type RytmPageId, type SlotTarget } from './rytm/pages';
+import { RYTM_PAGES, isRytmPage, pageLabel, pageSlots, type PageSlot, type RytmPageId, type SlotTarget } from './rytm/pages';
 import { encText, encUnit, kitUnit, kitUnitAt, layerText, layerUnit, v127Text, velTo127, velWord, type LayerDial } from './rytm/values';
 import { section } from './state/section';
 import { voices } from './state/voices';
@@ -190,6 +190,29 @@ export function selectInstrument(inst: Inst): void {
 export function tuneVoice(inst: Inst): void {
   resume();
   selectVoice(pattern.get().instrument === inst ? null : inst);
+}
+
+/**
+ * INFOS du MM-RYTM allume (R4), une commande touchee au doigt (la face, la
+ * feuille de sa carte, le Dock : dock) : sa carte, et la commande n'agit pas ;
+ * sauf pour naviguer, sans un son : une touche de page (sur la face, au pied
+ * de l'ecran, dans le Dock) tourne quand meme la page, un pad choisit sa voix
+ * (jamais deselectionnee, ni MUTE ni SOLO). Au doigt, c'est le seul moyen de
+ * lire les reglages des autres pages et des autres voix ; la revue de R4 :
+ * une tape a travers la feuille sautait cette navigation, les cartes
+ * suivantes parlaient d'une autre page. true : INFOS l'a prise ; eteint,
+ * false (la commande agit).
+ */
+export function rytmInfoTap(hotspot: string, dock = false): boolean {
+  if (!rytmInfos.isOn()) return false;
+  if (dock) rytmInfos.dock(hotspot);
+  else rytmInfos.show(hotspot);
+  const pk = /^(?:pkey|lcd-tab)-([a-z]+)$/.exec(hotspot);
+  if (pk && isRytmPage(pk[1])) rytmPage.setPage(pk[1]);
+  const pad = /^pad-([A-Z]+)$/.exec(hotspot);
+  const inst = pad && (INSTRUMENTS as readonly string[]).includes(pad[1]) ? (pad[1] as Inst) : null;
+  if (inst && pattern.get().instrument !== inst) tuneVoice(inst);
+  return true;
 }
 
 /**

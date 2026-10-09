@@ -482,6 +482,8 @@ export class Stage {
   private lcdDefs: HotspotDef[] = [];
   /** La touche i de l'ecran du MM-RYTM (R4, 2026-10-08) : INFOS */
   private infoDef!: HotspotDef;
+  /** le centre de sa zone, blocs eteints et blocs vivants (INFOS allume, vue PAGE : au telephone, il s'ecarte du bloc D) */
+  private infoAt = { off: { x: 0, z: 0 }, blocks: { x: 0, z: 0 } };
   /** Les huit blocs de la vue PAGE (R4) : vivants seulement INFOS allume, leur carte au survol ou au toucher */
   private blockDefs: HotspotDef[] = [];
   /** les six onglets de page du pied de l'ecran en vue PAGE (desktop, 2026-10-08) : des touches de page */
@@ -800,6 +802,10 @@ export class Stage {
         const r = ik.r * OLED.w;
         this.infoDef = { id: 'lcd-i', kind: 'rinfo', layer: plateau, shape: 'disc', x: xAt(ik.u), z: zAt(ik.v * TH), hx: r, hz: r, y0: OLED.y - 0.005, y1: OLED.y + 0.045, enabled: true };
         this.hit.add([this.infoDef]);
+        // Au telephone, INFOS allume, les blocs ont leur zone : le disque monte dans le coin du verre (revue de R4 : il mordait
+        // le coin du bloc D, une tape la eteignait INFOS au lieu de montrer la carte du bloc) ; syncScreenTabs passe de l'un a l'autre
+        const ib = infoKeySpot(mobile, true);
+        this.infoAt = { off: { x: xAt(ik.u), z: zAt(ik.v * TH) }, blocks: { x: xAt(ib.u), z: zAt(ib.v * TH) } };
       }
       // Les onglets du pied de la vue PAGE (scene/screen.ts paintFoot) : une touche de page chacun,
       // allumes seulement quand l'ecran les dessine (syncScreenTabs)
@@ -1207,13 +1213,25 @@ export class Stage {
     }
     // Les blocs (R4) : INFOS allume et la vue PAGE dessinee (pas HOME, EDIT, les presets)
     const blk = rytmInfos.isOn() && this.screen.info.view === 'page';
+    let gone = false;
     for (const d of this.blockDefs) {
       if (d.enabled !== blk) {
         d.enabled = blk;
         changed = true;
+        gone = !blk;
       }
     }
+    const at = blk ? this.infoAt.blocks : this.infoAt.off;
+    if (this.infoDef && (this.infoDef.x !== at.x || this.infoDef.z !== at.z)) {
+      this.infoDef.x = at.x;
+      this.infoDef.z = at.z;
+      changed = true;
+    }
     if (changed) this.hit.invalidate();
+    // Les blocs partis (H, EDIT, les presets ; revue de R4) : la carte d'un bloc ne reste pas sur une vue qui ne le montre plus
+    // (la souris immobile ne repasse pas par le survol)
+    const shown = rytmInfos.get().id;
+    if (gone && shown !== null && shown.startsWith('lcd-blk-')) rytmInfos.hide();
   }
 
   /**

@@ -38,7 +38,7 @@
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { clearPattern, randomPattern, muteToggle, runToggle, rytmLockToggle, selectInstrument, setTempo, soloToggle, stepToggle, tuneVoice } from '../actions';
+import { clearPattern, randomPattern, muteToggle, runToggle, rytmLockToggle, selectInstrument, setTempo, soloToggle, stepToggle, rytmInfoTap } from '../actions';
 import { lockMask } from '../audio/locks';
 import { rytmLock } from '../state/rytmLock';
 import { rytmInfos } from '../state/rytmInfos';
@@ -105,6 +105,11 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
       /* stockage indisponible : le choix vaut pour la visite */
     }
   }, [shown]);
+  // INFOS (revue de R4) : une autre page du Dock (SEQUENCER, KNOBS) ou le Dock replie, la carte touchee dans le Dock se range :
+  // sa commande n'est plus la, et la feuille se coupait sur le Dock devenu plus haut
+  useEffect(() => {
+    if (rytmInfos.get().dock) rytmInfos.hide();
+  }, [page, shown]);
   // La languette posee sur le bord haut du Dock deplie, a sa hauteur mesuree (revue de R2) : --dock-h-mobile (209 px)
   // datait d'avant les onglets SEQUENCER / KNOBS, elle tombait sur eux ; le Dock change de hauteur avec sa page
   const [dockH, setDockH] = useState(0);
@@ -194,9 +199,8 @@ export const Dock: React.FC<Props> = ({ getStage }) => {
                 aria-label={v.soloMode ? `Solo ${INST_NAMES[k]}` : v.muteMode ? `Mute ${INST_NAMES[k]}` : `Select ${INST_NAMES[k]}${muted ? ', muted' : ''}${solo ? ', solo' : ''}`}
                 onClick={() => {
                   // INFOS (R4) : la carte de la voix, et la voix choisie quand meme (sans un son, sans MUTE ni SOLO, jamais
-                  // deselectionnee : on lit ses reglages)
-                  if (!rytmInfos.dock(`pad-${k}`)) selectInstrument(k);
-                  else if (p.instrument !== k) tuneVoice(k);
+                  // deselectionnee : on lit ses reglages ; actions.ts rytmInfoTap)
+                  if (!rytmInfoTap(`pad-${k}`, true)) selectInstrument(k);
                 }}
               >
                 {k}

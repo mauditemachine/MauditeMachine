@@ -177,11 +177,13 @@ const UH = 120;
  * La touche i (R4, 2026-10-08), en unites : son centre, dans le coin en haut
  * a droite, et son rayon dessine ; hit : le rayon de sa zone de saisie (au
  * telephone 26 unites, 45 px CSS a 390 x 844 : le contrat veut 44 ; elle mord
- * le tempo de l'en-tete, qui ouvre les presets, rien d'autre : les blocs ne
- * se touchent pas, ce sont les encodeurs). scene/renderer.ts pose la zone
- * lcd-i avec.
+ * le tempo de l'en-tete, qui ouvre les presets). INFOS allume, les blocs de
+ * la vue PAGE ont leur zone (lcd-blk) : au telephone, sa zone se centre alors
+ * sur le coin du verre (blocks, revue de R4 : elle mordait le coin du bloc D,
+ * de 236 a 308 sur 24 a 61), toujours aussi large et le i dedans.
+ * scene/renderer.ts pose la zone lcd-i avec.
  */
-export const INFO_KEY = { x: UW - 8, y: 10.5, r: { desk: 5.2, phone: 6.6 }, hit: { desk: 8, phone: 26 } } as const;
+export const INFO_KEY = { x: UW - 8, y: 10.5, r: { desk: 5.2, phone: 6.6 }, hit: { desk: 8, phone: 26 }, blocks: { x: UW, y: 0 } } as const;
 
 /**
  * Le bloc k de la vue PAGE sur le verre (u, v de 0 a 1) : INFOS allume, sa
@@ -194,12 +196,19 @@ export function blockSpot(k: number): { u0: number; u1: number; v0: number; v1: 
   return { u0: x / UW, u1: (x + MATRIX.w) / UW, v0: y / UH, v1: (y + MATRIX.h) / UH };
 }
 
-/** La zone de la touche i sur le verre : son centre (u, v de 0 a 1) et son rayon en part de la largeur de l'ecran. */
-export const infoKeySpot = (mobile: boolean): { u: number; v: number; r: number } => ({
-  u: INFO_KEY.x / UW,
-  v: INFO_KEY.y / UH,
-  r: (mobile ? INFO_KEY.hit.phone : INFO_KEY.hit.desk) / UW,
-});
+/**
+ * La zone de la touche i sur le verre : son centre (u, v de 0 a 1) et son
+ * rayon en part de la largeur de l'ecran ; blocks : les blocs ont leur zone
+ * (au telephone, elle s'ecarte du bloc D ; au desktop, elle ne le touche pas).
+ */
+export const infoKeySpot = (mobile: boolean, blocks = false): { u: number; v: number; r: number } => {
+  const away = mobile && blocks;
+  return {
+    u: (away ? INFO_KEY.blocks.x : INFO_KEY.x) / UW,
+    v: (away ? INFO_KEY.blocks.y : INFO_KEY.y) / UH,
+    r: (mobile ? INFO_KEY.hit.phone : INFO_KEY.hit.desk) / UW,
+  };
+};
 /** Les coordonnees de texture du reste du site (theme OLED.tex, 640 x 240) : deux par unite. */
 const TEX_K = OLED.tex[0] / UW;
 
@@ -363,6 +372,8 @@ export class Screen {
   private flash: { inst: Inst; step: number; lock: Readonly<StepLock>; from: number; end: number } | null = null;
   /** la tete de lecture vue au dernier dessin (un nouveau pas : un nouveau coup) */
   private flashHead = -1;
+  /** INFOS (R4) : allume et l'encodeur dont la carte est montree, au dernier redessin demande */
+  private infoKey = '0|-1';
 
   constructor(
     anisotropy: number,
@@ -422,8 +433,14 @@ export class Screen {
       rytmPage.subscribe(active),
       // Le LOCK (2026-10-08) : la pastille, les blocs en negatif, le pied
       rytmLock.subscribe(active),
-      // INFOS (R4) : la touche i pleine, le bloc de la carte montree
-      rytmInfos.subscribe(() => this.request()),
+      // INFOS (R4) : la touche i pleine, le bloc de la carte montree ; seulement quand l'un des deux change (revue de R4 : le
+      // survol d'un pad ou d'un pas redessinait tout l'ecran et le renvoyait a la carte graphique)
+      rytmInfos.subscribe(() => {
+        const key = `${rytmInfos.isOn() ? 1 : 0}|${this.infoKnob()}`;
+        if (key === this.infoKey) return;
+        this.infoKey = key;
+        this.request();
+      }),
       kit.subscribe(() => active()),
       pattern.fx.subscribe(active),
       // La tete de lecture : l'anneau de HOME, les seize pas du pied de la vue PAGE

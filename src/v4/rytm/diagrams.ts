@@ -32,7 +32,7 @@ import { timeFactor } from '../audio/time';
 import { toneHpHz, toneLpHz, toneSemitones } from '../audio/tone';
 import { DECAY_HOLD_S, START_MAX, TUNE_ST, decayTau, voiceGain } from '../audio/voicefx';
 import { swingRatio, type Inst } from '../theme';
-import { RYTM_INFO_PAGES, RYTM_INFO_PAGE_LABEL, RYTM_INFO_VOICES, RYTM_LETTERS, resolveRytmId, rytmAvail, rytmSlots, type RytmInfoId, type RytmInfoPage, type RytmResolveCtx } from './infoIds';
+import { RYTM_INFO_PAGES, RYTM_INFO_PAGE_LABEL, RYTM_LETTERS, resolveRytmId, rytmAvail, rytmSlots, type RytmInfoId, type RytmInfoPage, type RytmResolveCtx } from './infoIds';
 
 export * from './infoIds';
 
@@ -73,6 +73,9 @@ export interface RytmDiagramCtx extends RytmResolveCtx {
   sounds?: readonly string[];
   synths?: number;
   index?: number;
+  /** un pad (revue de R4) : ce que joue sa voix, une ligne par couche (SYN 909 OFF, SMP BLUEPRINT 127 ; ONE SOUND) ; muted : coupee */
+  layers?: readonly string[];
+  muted?: boolean;
 }
 
 /* ---------------- la boite et les traits ---------------- */
@@ -362,9 +365,10 @@ const drawSounds: Draw = (c, v) => {
     const y = y0 + r * (bh + 10);
     const on = i === cur;
     p.p(rbox(x, y, bw, bh, 3), on ? 'hot' : i < synths ? 'main' : 'ghost', on);
-    // Trop long : sans ses espaces d'abord (PSY 02 : PSY02 ; couper donnait PSY 0, un autre nom), puis coupe
+    // Trop long : sans ses espaces d'abord (PSY 02 : PSY02 ; couper donnait PSY 0, un autre nom), puis coupe d'un point, comme
+    // l'en-tete de l'ecran (BLUEP.) : la revue de R4 lisait BLUEPRI comme un autre nom
     const tight = name.length <= chars ? name : name.replace(/\s+/g, '');
-    p.label(tight.slice(0, chars), x + bw / 2, y + bh / 2 + 3, 'middle');
+    p.label(tight.length <= chars ? tight : `${tight.slice(0, chars - 1)}.`, x + bw / 2, y + bh / 2 + 3, 'middle');
   });
   // Les deux familles de sons : la synthese (909 808 MM, ou OFF pour SAMPLE) et les echantillons
   if (synths > 0) p.label(synths === 1 ? 'OFF: SYNTH' : 'SYNTH', X0, TOP);
@@ -449,13 +453,20 @@ const drawKickAttack: Draw = (c, v) => {
     const gy = (g: number): number => Y1 - (g / 2) * (Y1 - Y0);
     p.p(seg(X0, gy(1), X1, gy(1)), 'dash');
     p.label('X1 THE FILE', X1, gy(1) - 4, 'end');
-    const pts: Pt[] = [];
-    for (let k = 0; k <= 64; k += 1) {
-      const t = (span * k) / 64;
-      const g = d > 0 ? 1 + 2 * d * Math.exp(-t / 0.004) : d < 0 ? Math.min(1, t / (-d * 2 * 0.006)) : 1;
-      pts.push([tx(t), gy(g)]);
-    }
-    p.p(poly(pts), 'hot');
+    const curve = (dd: number): Pt[] => {
+      const pts: Pt[] = [];
+      for (let k = 0; k <= 64; k += 1) {
+        const t = (span * k) / 64;
+        const g = dd > 0 ? 1 + 2 * dd * Math.exp(-t / 0.004) : dd < 0 ? Math.min(1, t / (-dd * 2 * 0.006)) : 1;
+        pts.push([tx(t), gy(g)]);
+      }
+      return pts;
+    };
+    // La course entiere en repere (revue de R4 : au milieu, le kit de depart, il ne restait qu'un trait plat) : 127 claque, 0 monte
+    p.p(poly(curve(0.5)), 'ghost');
+    p.p(poly(curve(-0.5)), 'ghost');
+    p.label('127', tx(0.0016) + 3, gy(1.75), 'start').label('0', tx(0.0024) + 4, gy(0.45), 'start');
+    p.p(poly(curve(d)), 'hot');
     p.label('FIRST 16 MS OF THE SAMPLE', X0, BOT);
     return p.value(d > 0 ? `+${(20 * Math.log10(1 + 2 * d)).toFixed(1)} DB` : d < 0 ? `RISE ${(-d * 12).toFixed(1)} MS` : 'AS IS').done();
   }
@@ -510,9 +521,12 @@ const drawKickDrive: Draw = (c, v) => {
     const m = c.model ?? '909';
     k = m === '909' ? 1.2 + 4 * d : m === '808' ? 0.6 + 3 * d : 1.5 * (0.4 + 2.4 * d);
   }
+  // A fond (revue de R4) : la course en repere, meme quand le reglage est encore propre
+  const kMax = c.sample ? 9 : c.model === '808' ? 3.6 : c.model === 'mm' ? 4.2 : 5.2;
   const yc = 60;
   p.p(seg(X0, yc, X1, yc), 'grid');
   p.p(poly(shaped((x) => x, yc, 32)), 'ghost');
+  p.p(poly(shaped((x) => Math.tanh(kMax * x) / Math.tanh(kMax), yc, 32)), 'ghost');
   p.p(poly(shaped((x) => (clean ? x : Math.tanh(k * x) / Math.tanh(k)), yc, 32)), 'hot');
   p.label('SAME PEAK, MORE BODY', X0, BOT);
   p.label(c.sample ? 'SAMPLE' : `${c.model === 'mm' ? 'MM' : (c.model ?? '909')} KICK`, X0, TOP);
@@ -533,16 +547,23 @@ const drawSnappy: Draw = (c, v) => {
     const yOf = (db: number): number => 60 - clamp(db, -12, 12) * 3;
     p.p(seg(X0, yOf(0), X1, yOf(0)), 'dash');
     p.p(seg(xOf(2000), Y0, xOf(2000), Y1), 'grid');
-    const pts: Pt[] = [];
-    for (let k = 0; k <= 64; k += 1) {
-      const f = lo * Math.pow(hi / lo, k / 64);
-      const r = f / 2000;
-      // |1 + tilt j r / (1 + j r)|
-      const re = 1 + (tilt * r * r) / (1 + r * r);
-      const im = (tilt * r) / (1 + r * r);
-      pts.push([xOf(f), yOf(20 * Math.log10(Math.max(1e-4, Math.hypot(re, im))))]);
-    }
-    p.p(poly(pts), 'hot');
+    const curve = (tl: number): Pt[] => {
+      const pts: Pt[] = [];
+      for (let k = 0; k <= 64; k += 1) {
+        const f = lo * Math.pow(hi / lo, k / 64);
+        const r = f / 2000;
+        // |1 + tilt j r / (1 + j r)|
+        const re = 1 + (tl * r * r) / (1 + r * r);
+        const im = (tl * r) / (1 + r * r);
+        pts.push([xOf(f), yOf(20 * Math.log10(Math.max(1e-4, Math.hypot(re, im))))]);
+      }
+      return pts;
+    };
+    // La course entiere en repere (revue de R4 : au milieu, le kit de depart, il ne restait qu'un trait plat)
+    p.p(poly(curve(1)), 'ghost');
+    p.p(poly(curve(-0.8)), 'ghost');
+    p.label('127', X1, yOf(6) - 4, 'end').label('0', X1, yOf(-12) - 4, 'end');
+    p.p(poly(curve(tilt)), 'hot');
     p.label('2K', xOf(2000), BOT, 'middle').label('SAMPLE TOP END', X0, TOP);
     return p.value(sd === 0 ? 'AS IS' : `${v127(sn)}`).done();
   }
@@ -820,7 +841,22 @@ const drawAmpDecay: Draw = (c, v) => {
   const yOf = (a: number): number => Y1 - a * (Y1 - Y0 - 6);
   p.p(seg(X0, Y1, X1, Y1), 'grid');
   if (tau === null) {
+    // Tout en haut, le son entier ; en repere (revue de R4 : un trait plat, a cote du bloc qui dessine une queue), les queues
+    // qu'il prend plus bas, sur une seconde
+    const span = 1;
+    const tx = (t: number): number => X0 + ((X1 - X0) * t) / span;
+    for (const g of [0.3, 0.6, 0.85]) {
+      const tg = decayTau(g);
+      if (tg === null) continue;
+      const pts: Pt[] = [];
+      for (let k = 0; k <= 80; k += 1) {
+        const t = (span * k) / 80;
+        pts.push([tx(t), yOf(t < DECAY_HOLD_S ? 1 : Math.exp(-(t - DECAY_HOLD_S) / tg))]);
+      }
+      p.p(poly(pts), 'ghost');
+    }
     p.p(seg(X0, yOf(1), X1, yOf(1)), 'hot');
+    p.label('LOWER: A TAIL', X1, yOf(0.5), 'end');
     p.label('THE WHOLE SOUND, NO ENVELOPE', X0, BOT);
     return p.value('FULL').done();
   }
@@ -1059,29 +1095,30 @@ const drawHome: Draw = (c) => {
   return p.done();
 };
 
-/** Un pad : la crete de chaque voix sous celle du kick (shotsdsp.ts SHOT_BELOW), la voix du pad en couleur. */
-function padLevels(voice: Inst): RytmDiagram {
+/**
+ * Un pad : ce que joue sa voix (revue de R4 : un graphique des cretes ne
+ * disait rien a un musicien) : ses couches (SYN et sa MACHINE, SMP et son
+ * sample, chacune a son niveau ; CY, son seul son), ses seize pas (la
+ * velocite, un point sous les pas verrouilles), combien de coups (MUTED,
+ * coupee) ; dessous, sa crete sous celle du kick (shotsdsp.ts SHOT_BELOW).
+ */
+function padVoice(voice: Inst, c: RytmDiagramCtx): RytmDiagram {
   const p = new Pic();
-  const pitch = (X1 - X0) / RYTM_INFO_VOICES.length;
-  const yOf = (db: number): number => Y0 + 6 + (clamp(-db, 0, 8) / 8) * (Y1 - Y0 - 12);
-  p.p(seg(X0, yOf(0), X1, yOf(0)), 'dash');
-  RYTM_INFO_VOICES.forEach((v, i) => {
-    const below = SHOT_BELOW[v];
-    const x = X0 + i * pitch + 4;
-    const y = yOf(-below);
-    p.p(rbox(x, y, pitch - 8, Y1 - y, 2), v === voice ? 'hot' : 'ghost', true);
-    p.label(v, x + (pitch - 8) / 2, BOT, 'middle');
-  });
-  p.label('PEAK CAP UNDER THE KICK', X0, TOP);
+  const layers = c.layers ?? [];
+  layers.slice(0, 2).forEach((l, i) => p.label(l, X0, TOP + i * 13));
+  strip(p, c, 40, 38, -1, false);
   const b = SHOT_BELOW[voice];
-  return p.value(b === 0 ? '0 DB' : `-${b} DB`).done();
+  p.label(voice === 'BD' ? 'THE MIX REFERENCE: THE LOUDEST PEAK' : `PEAK ${b} DB UNDER THE KICK`, X0, BOT);
+  let hits = 0;
+  for (let i = 0; i < 16; i += 1) if (c.steps && c.steps.charCodeAt(i) > 48) hits += 1;
+  return p.value(c.muted ? 'MUTED' : `${hits} ${hits === 1 ? 'HIT' : 'HITS'}`).done();
 }
 
 /** L'ecran en vue PAGE : l'en-tete, les huit blocs, le pied et ses seize pas. */
 const drawScreen: Draw = () => {
   const p = new Pic();
   p.p(rbox(X0, 18, X1 - X0, 12, 2), 'ghost');
-  p.label('HEADER: TAP FOR PRESETS', X0 + 4, 27);
+  p.label('HEADER: PRESETS', X0 + 4, 27);
   const bw = (X1 - X0 - 18) / 4;
   const bh = 26;
   for (let k = 0; k < 8; k += 1) {
@@ -1160,7 +1197,7 @@ export function rytmDiagram(id: string, c: RytmDiagramCtx): RytmDiagram | null {
   const rid = resolveRytmId(id, c);
   if (!rid) return null;
   try {
-    if (rid.startsWith('pad:')) return padLevels(rid.slice(4) as Inst);
+    if (rid.startsWith('pad:')) return padVoice(rid.slice(4) as Inst, c);
     if ((RYTM_INFO_PAGES as readonly string[]).includes(rid)) return pageGrid(rid as RytmInfoPage, c.voice ?? null);
     // Un encodeur sur une case vide de la page (R4) : la page, sa case en couleur
     if (rid === 'enc') {

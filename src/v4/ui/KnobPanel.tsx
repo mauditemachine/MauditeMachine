@@ -53,6 +53,7 @@ import {
   dialValueText,
   lockSummary,
   pageKnobReset,
+  rytmInfoTap,
   rytmLockClear,
   rytmLockToggle,
   rytmPageKey,
@@ -406,10 +407,11 @@ const LockBar: React.FC = () => {
         </span>
       </span>
       {/* CLR LOCKS (revue de R2) : CLEAR seul se lisait comme effacer le pattern */}
-      <button type="button" className="v4-knobs-lockkey" aria-label={`Clear the locks of step ${n}`} onClick={() => rytmLockClear()}>
+      {/* INFOS allume (revue de R4) : la carte de CLEAR (en LOCK, les verrous du pas) et celle du LOCK, comme sur la face ; rien n'agit */}
+      <button type="button" className="v4-knobs-lockkey" aria-label={`Clear the locks of step ${n}`} onClick={() => rytmInfos.dock('clear') || rytmLockClear()}>
         CLR LOCKS
       </button>
-      <button type="button" className="v4-knobs-lockkey" aria-label="Leave lock mode" onClick={() => rytmLockToggle(lk.step)}>
+      <button type="button" className="v4-knobs-lockkey" aria-label="Leave lock mode" onClick={() => rytmInfos.dock(`step-${lk.step + 1}`) || rytmLockToggle(lk.step)}>
         EXIT
       </button>
     </div>
@@ -431,7 +433,7 @@ const PageKeys: React.FC = () => {
             data-lit={on ? (rp.view === 'page' ? '1' : 'dim') : '0'}
             aria-pressed={on && rp.view === 'page'}
             aria-label={`${pk.label} page${on ? (rp.view === 'page' ? ', shown, press again for home' : ', press for the page view') : ''}`}
-            onClick={() => (rytmInfos.dock(`pkey-${pk.id}`) ? rytmPage.setPage(pk.id) : rytmPageKey(pk.id, stageNow()))}
+            onClick={() => rytmInfoTap(`pkey-${pk.id}`, true) || rytmPageKey(pk.id, stageNow())}
           >
             {pk.label}
           </button>
@@ -504,9 +506,8 @@ export const KnobPanel: React.FC<Props> = ({ machine }) => {
               className="v4-knobs-voice"
               aria-pressed={p.instrument === inst}
               onClick={() => {
-                // INFOS du MM-RYTM (R4) : la carte de la voix, choisie quand meme (la navigation), jamais deselectionnee
-                if (!(machine === 'mm808' && rytmInfos.dock(`pad-${inst}`))) tuneVoice(inst);
-                else if (p.instrument !== inst) tuneVoice(inst);
+                // INFOS du MM-RYTM (R4) : la carte de la voix, choisie quand meme (la navigation, actions.ts rytmInfoTap), jamais deselectionnee
+                if (!(machine === 'mm808' && rytmInfoTap(`pad-${inst}`, true))) tuneVoice(inst);
               }}
             >
               {inst}
