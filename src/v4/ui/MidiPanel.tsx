@@ -119,11 +119,11 @@ const SeqHow: React.FC<{ on: boolean; stepsToggle: boolean }> = ({ on, stepsTogg
         <b>P2</b> The same encoders, the page keys, STEPS 9-16, STEP FOLLOW (the 8 steps follow the playhead).
       </li>
       <li>
-        <b>P3</b> RSEQ: the 8 voice levels over the 8 voice keys (the voice the 8 steps play). BSEQ: NOTE, OCT, TIE, ACCENT, SLIDE of the step you just tapped. To change a note already there:{' '}
+        <b>P3</b> RSEQ: the 8 voice levels over the 8 voice keys (the voice the 8 steps play). BSEQ: STYLE, NOTES (0 to 16), SLIDE PROB, ACC PROB, RANGE on the knobs; NOTE, OCT, TIE, ACCENT, SLIDE of the step you just tapped, MUTATE (hold: undo). To change a note already there:{' '}
         {stepsToggle ? 'LOCK (P4; in LOCK a tap moves it to that step), NOTE or OCT here, then LOCK again.' : 'hold its step (LOCK), NOTE or OCT here, then tap the step (P1) to leave.'}
       </li>
       <li>
-        <b>P4</b> RUN, CLEAR, RANDOM or GEN, LOCK, EDIT (the 8 steps become the patterns), PREV and NEXT MACHINE.
+        <b>P4</b> RUN, CLEAR, RANDOM or GEN (BSEQ: hold GEN for the take before), LOCK, EDIT (the 8 steps become the patterns), PREV and NEXT MACHINE.
       </li>
       <li>In ROTO-SETUP, keep the Motion Recorder off on these two setups. They use channels 7, 8, 15 and 16: if your own setups (1 to 10) use them, move those.</li>
     </ul>

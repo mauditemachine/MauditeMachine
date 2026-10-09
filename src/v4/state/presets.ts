@@ -49,7 +49,8 @@ import { SEQ_MAX, seq, type SeqState } from '../voyager/seq';
 import { BASS_KNOBS, ENGINE_IDS, bassKnob, bassParams, legacyOf, type BassKnobId } from '../bass/params';
 import { bassLoad } from './bassload';
 import { focus } from './focus';
-import { bassState, cleanRecipe, cleanSteps, type BassRecipe, type BassStep } from '../bass/state';
+import { bassLine } from '../bass/line';
+import { bassState, cleanSteps, type BassRecipe, type BassStep } from '../bass/state';
 import { arpFactory, bassFactory, rytmFactory } from './factory';
 
 export type PresetMachine = 'voy' | 'mm808' | 'bass';
@@ -268,7 +269,8 @@ function commit(next: All): void {
 function capture(m: PresetMachine): VoyData | RytmData | BassData {
   if (m === 'bass') {
     const recipe = bassState.get().recipe;
-    return { params: { ...bassParams.get() }, steps: bassState.get().steps.map((x) => ({ ...x })), ...(recipe ? { recipe: { ...recipe } } : {}) };
+    // La recette v2 (2026-10-09) : une copie entiere (son echelle et ses memoires de style)
+    return { params: { ...bassParams.get() }, steps: bassState.get().steps.map((x) => ({ ...x })), ...(recipe ? { recipe: JSON.parse(JSON.stringify(recipe)) as BassRecipe } : {}) };
   }
   if (m === 'voy') {
     return { knobs: { ...voyParams.get() }, seq: { ...seq.get(), buf: [...seq.get().buf] }, prog: [...arp.get().prog] };
@@ -303,7 +305,9 @@ function apply(m: PresetMachine, d: VoyData | RytmData | BassData): void {
     }
     bassParams.setMany(next);
     const steps = cleanSteps(b.steps);
-    if (steps) bassState.set({ steps, lock: -1, recipe: cleanRecipe(b.recipe) });
+    // La recette decide STYLE et NOTES (2026-10-09 : params.style et params.density du preset ne comptent pas) ; une
+    // recette d'avant (v1, aucune) est adoptee, les pas ne changent pas
+    if (steps) bassLine.load(steps, b.recipe ?? null, { lock: -1 });
     return;
   }
   if (m === 'voy') {

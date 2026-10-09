@@ -152,6 +152,8 @@ export const SCALE_TONES: Readonly<Record<(typeof BASS_SCALES)[number], readonly
 };
 export const BASS_OCTAVES = ['-2', '-1', '0', '+1'] as const;
 export const BASS_RANGES = ['1', '2', '3'] as const;
+/** NOTES (2026-10-09) : de 0 a 16 notes dans la mesure, un cran par note. */
+export const BASS_NOTES: readonly string[] = Array.from({ length: 17 }, (_, i) => String(i));
 export const BASS_SUBOCTS = ['-1', '-2'] as const;
 /** DLY TIME (2026-10-08) : en pas du tempo, de la double croche a la blanche (3/16 : la croche pointee, l'echo des dub). */
 export const BASS_DTIMES = ['1/16', '1/8', '3/16', '1/4', '3/8', '1/2'] as const;
@@ -288,8 +290,11 @@ export const BASS_KNOBS: readonly BassKnobDef[] = [
   { id: 'glide', label: 'GLIDE', aria: 'Slide time', def: 0.35 },
   { id: 'volume', label: 'VOLUME', aria: 'Volume', def: 0.78 },
   { id: 'octave', label: 'OCTAVE', aria: 'Octave, from minus two to plus one', def: 2 / 3, steps: 4, names: BASS_OCTAVES },
-  { id: 'style', label: 'STYLE', aria: 'Generator style: acid, dark disco, indie dance, minimal, psy prog, techno, house, electro, EBM, italo or sub', def: 0, steps: BASS_STYLES.length, names: BASS_STYLES, face: true },
-  { id: 'density', label: 'DENSITY', aria: 'Generator density: how many notes', def: 0.6, face: true },
+  // STYLE et NOTES (2026-10-09, Mika : "Je trouve Style et Density complexe a utiliser") : les miroirs de la ligne
+  // (bass/line.ts) ; STYLE part sur DARK DISCO (la prise 01, la ligne du preset A01), NOTES compte les notes, 0 a 16
+  // (l'id reste density : les sauvegardes, le MIDI LEARN de Mika)
+  { id: 'style', label: 'STYLE', aria: 'Style: the groove family. Each notch plays its typical line; your own notes stay', def: 1 / (BASS_STYLES.length - 1), steps: BASS_STYLES.length, names: BASS_STYLES, face: true },
+  { id: 'density', label: 'NOTES', aria: 'Notes: how many notes in the bar, 0 to 16. One notch is one note, always in the same order; your own notes stay', def: 12 / 16, steps: 17, names: BASS_NOTES, face: true },
   { id: 'slides', label: 'SLIDE PROB', aria: 'Generator: chance of a slide when GEN writes a line', def: 0.3, plate: true },
   { id: 'accents', label: 'ACC PROB', aria: 'Generator: chance of an accent when GEN writes a line', def: 0.35, plate: true },
   { id: 'range', label: 'RANGE', aria: 'Generator: range in octaves', def: 0.5, steps: 3, names: BASS_RANGES, plate: true },
@@ -471,9 +476,10 @@ export function bassUnit(id: BassKnobId, v: number, bpm = 120): string {
       return v <= 0.001 ? 'OFF' : v < 0.45 ? `WARM ${Math.round(v * 100)} %` : `GRIT ${Math.round(v * 100)} %`;
     case 'drift':
       return v <= 0.001 ? 'STABLE' : `${Math.round(v * 100)} %`;
+    case 'density':
+      return Math.round(v * 16) === 1 ? 'NOTE IN THE BAR' : 'NOTES IN THE BAR';
     case 'reso':
     case 'accent':
-    case 'density':
     case 'slides':
     case 'accents':
       return `${Math.round(v * 100)} %`;

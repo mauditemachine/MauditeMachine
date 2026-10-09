@@ -13,13 +13,18 @@
  * La sequence (bass/seq.ts) previent au premier pas de chaque mesure qu'elle
  * programme (bar) : la ligne suivante est posee a ce moment.
  * Retenu sous mm.v4.bass.patterns (les emplacements, le courant, la chaine).
- * La recette de chaque ligne (2026-10-09, bass/state.ts BassRecipe : sa
- * graine, STYLE et DENSITY la reecrivent) voyage avec elle : recipes, a
- * cote des emplacements (une sauvegarde d'avant n'en a pas : ses lignes
- * sont a la main, le premier cran de STYLE ou DENSITY leur en donne une).
+ * La recette de chaque ligne (2026-10-09, bass/state.ts BassRecipe : son
+ * style, sa prise, ses notes, son echelle) voyage avec elle : recipes, a
+ * cote des emplacements ; une recette d'avant (v1, ou aucune) est adoptee
+ * au chargement (bass/line.ts migrate : les pas ne changent pas). Poser un
+ * pattern pose sa recette : STYLE et NOTES sautent a sa ligne, et le cran
+ * suivant agit dans son style (la revue : A02 en HOUSE ne se regenere plus
+ * en ACID).
  */
 
-import { BASS_STEPS, bassState, cleanRecipe, cleanSteps, emptyStep, type BassRecipe, type BassStep } from './state';
+import { bassLine, migrate, takeRecipe } from './line';
+import { bassParams, stepOf } from './params';
+import { BASS_STEPS, bassState, cleanSteps, emptyStep, type BassRecipe, type BassStep } from './state';
 
 export const BASS_SLOTS = 16;
 /** Taper un autre pattern dans ce delai l'ajoute a la chaine. */
@@ -53,7 +58,10 @@ function load(): BassPatternsState {
     const raw = JSON.parse(window.localStorage.getItem(KEY) ?? 'null') as { slots?: unknown[]; recipes?: unknown[]; cur?: unknown; chain?: unknown[] } | null;
     if (raw && Array.isArray(raw.slots)) {
       for (let i = 0; i < BASS_SLOTS; i += 1) slots[i] = raw.slots[i] ? cleanSteps(raw.slots[i]) : null;
-      if (Array.isArray(raw.recipes)) for (let i = 0; i < BASS_SLOTS; i += 1) recipes[i] = slots[i] ? cleanRecipe(raw.recipes[i]) : null;
+      for (let i = 0; i < BASS_SLOTS; i += 1) {
+        const s = slots[i];
+        recipes[i] = s ? migrate(s, Array.isArray(raw.recipes) ? raw.recipes[i] : null) : null;
+      }
       if (Number.isInteger(raw.cur) && (raw.cur as number) >= 0 && (raw.cur as number) < BASS_SLOTS) cur = raw.cur as number;
       if (Array.isArray(raw.chain)) {
         const c = raw.chain.filter((v): v is number => Number.isInteger(v) && (v as number) >= 0 && (v as number) < BASS_SLOTS).slice(0, BASS_SLOTS);
@@ -95,10 +103,14 @@ function setState(next: BassPatternsState, keep = true): void {
   listeners.forEach((fn) => fn());
 }
 
-/** Pose la ligne i (ses pas et leurs verrous, sa recette ; les potards restent). */
+/**
+ * Pose la ligne i (ses pas et leurs verrous, sa recette ; STYLE et NOTES sautent a elle, 2026-10-09) ; un emplacement
+ * vide : la prise 01 du style du moment, a 0 note (NOTES la fait venir).
+ */
 function apply(i: number): void {
   loading = true;
-  bassState.set({ steps: state.slots[i] ?? emptyLine(), recipe: state.recipes[i] ?? null, lock: -1 });
+  const r = state.recipes[i] ?? { ...takeRecipe(stepOf('style', bassParams.of('style')), 1), on: 0 };
+  bassLine.load(state.slots[i] ?? emptyLine(), r, { lock: -1 });
   loading = false;
 }
 

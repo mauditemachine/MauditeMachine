@@ -22,7 +22,7 @@ import { bassInfos } from '../state/bassInfos';
 import { presetMode } from '../state/presetMode';
 import { section } from '../state/section';
 import { PORTRAIT } from '../theme';
-import { bassLockOff, bassLockToggle, bassPageStep, bassStepTap, bassTabStep } from './actions';
+import { bassGenBack, bassLockOff, bassLockToggle, bassMutateUndo, bassPageStep, bassStepTap, bassTabStep } from './actions';
 import { bassPage } from './pages';
 import { bassKeyAction } from './gestures';
 import { bassKeyId, bassLockId, bassTrigId } from './rig';
@@ -55,7 +55,9 @@ export const BASS_KEY_LEGEND: readonly { keys: string; what: string }[] = [
   { keys: '[  ]', what: `Previous or next page (VOICE, FILTER, ENV, FX): the eight screen values follow it${PORTRAIT ? '' : ', the knobs stay on the global FX'}` },
   { keys: 'Shift + [  ]', what: 'Previous or next tab of the page (VOICE: MAIN, OSC, MIX; FILTER: MAIN, CONTOUR); a page key pressed again does the same' },
   { keys: 'L  /  Esc', what: 'P-LOCK the chosen step: the screen values change only it  /  out of P-LOCK' },
-  { keys: 'G  /  M', what: 'Generate a new line  /  mutate a few steps' },
+  // Les prises (2026-10-09) : Maj + G la prise d'avant, Maj + M annule la mutation
+  { keys: 'G / Shift+G', what: 'Next take / previous take (same number of notes)' },
+  { keys: 'M / Shift+M', what: 'Mutate 2 or 3 notes / undo' },
   { keys: 'A  /  S', what: 'Accent  /  slide on the chosen step' },
   { keys: 'Up  Down', what: 'Chosen step one note up or down in the scale' },
   { keys: 'Z  X', what: 'Chosen step one octave down or up' },
@@ -137,6 +139,8 @@ export function listenBassKeys(getStage: () => Stage | null, active: () => boole
       press(id, true);
     }
     if (step !== undefined) bassStepTap(step);
+    else if (kind === 'gen' && e.shiftKey) bassGenBack();
+    else if (kind === 'mutate' && e.shiftKey) bassMutateUndo();
     else bassKeyAction(kind);
   };
 
