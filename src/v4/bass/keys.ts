@@ -13,6 +13,8 @@
  *   O : OPEN (le capot, 2026-10-08) ; I : INFOS (l'aide au survol)
  *   [ ] : la page d'avant, d'apres (VOICE FILTER ENV FX, la machine Elektron
  *         du 2026-10-08, comme sur le MM-RYTM)
+ *   Maj + [ ] : l'onglet d'avant, d'apres dans la page (2026-10-09 : VOICE
+ *         MAIN, OSC, MIX ; FILTER MAIN, CONTOUR)
  */
 
 import type { Stage } from '../scene/renderer';
@@ -20,7 +22,7 @@ import { bassInfos } from '../state/bassInfos';
 import { presetMode } from '../state/presetMode';
 import { section } from '../state/section';
 import { PORTRAIT } from '../theme';
-import { bassLockOff, bassLockToggle, bassPageStep, bassStepTap } from './actions';
+import { bassLockOff, bassLockToggle, bassPageStep, bassStepTap, bassTabStep } from './actions';
 import { bassPage } from './pages';
 import { bassKeyAction } from './gestures';
 import { bassKeyId, bassLockId, bassTrigId } from './rig';
@@ -51,6 +53,7 @@ export const BASS_KEY_LEGEND: readonly { keys: string; what: string }[] = [
   { keys: 'O  /  I', what: 'Open the machine (fine settings)  /  INFOS: hover a control to read what it does' },
   // Au telephone (2026-10-09) les blocs de l'ecran tiennent lieu d'encodeurs
   { keys: '[  ]', what: `Previous or next page (VOICE, FILTER, ENV, FX): the eight screen values follow it${PORTRAIT ? '' : ', the knobs stay on the global FX'}` },
+  { keys: 'Shift + [  ]', what: 'Previous or next tab of the page (VOICE: MAIN, OSC, MIX; FILTER: MAIN, CONTOUR); a page key pressed again does the same' },
   { keys: 'L  /  Esc', what: 'P-LOCK the chosen step: the screen values change only it  /  out of P-LOCK' },
   { keys: 'G  /  M', what: 'Generate a new line  /  mutate a few steps' },
   { keys: 'A  /  S', what: 'Accent  /  slide on the chosen step' },
@@ -101,7 +104,9 @@ export function listenBassKeys(getStage: () => Stage | null, active: () => boole
     if (e.code === 'BracketLeft' || e.code === 'BracketRight') {
       e.preventDefault();
       e.stopPropagation();
-      bassPageStep(e.code === 'BracketLeft' ? -1 : 1);
+      // Maj : l'onglet d'a cote dans la page (2026-10-09)
+      if (e.shiftKey) bassTabStep(e.code === 'BracketLeft' ? -1 : 1);
+      else bassPageStep(e.code === 'BracketLeft' ? -1 : 1);
       const id = bassKeyId(`p${bassPage.get()}` as BassKeyKind);
       press(id, true);
       window.setTimeout(() => press(id, false), 120);

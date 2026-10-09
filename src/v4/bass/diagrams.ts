@@ -17,14 +17,24 @@
  * Le filtre : la courbe de l'ecran (screen.ts drawFilter : un passe-bas
  * resonant, q = 0.6 + 7 RESO^2), sur la coupure reelle de CUTOFF ; la page
  * de la ligne et l'echo dessinent le meme filtre.
+ * Le moteur MONARK (2026-10-09) : les lois viennent de params.ts (celles du
+ * worklet, selon le MODE global) ; le filtre de l'echelle est son prototype
+ * analogique (ladderMag : LP24, LP12, LP6, BP), la 303 garde sa courbe ;
+ * DECAY, GLIDE, DRIVE (LOAD dans l'echelle, la saturation d'apres le filtre
+ * en 303), ENV MOD (le contour du Model D, son signe), ACCENT (une velocite
+ * sur l'echelle) suivent le MODE ; les dix-huit reglages neufs ont leur
+ * dessin (les formes, les pieds, l'intervalle, les battements de FINE, le
+ * melangeur, le bruit rose, la boucle de FEEDBACK, la marche de DRIFT, les
+ * cinq reponses de MODE, le contour du filtre) ; les touches de page
+ * dessinent leur ecran (posc, pmix), pcontour le contour.
  */
 
 import { bassFactory } from '../state/factory';
 import { PORTRAIT } from '../theme';
 import { generate, isFreeStep, mutate, type GenOpts } from './gen';
 import type { BassInfoId } from './infos';
-import { BASS_ROOTS, BASS_SCALES, BASS_STYLES, BASS_KNOBS, DTIME_STEPS, SCALE_TONES, accDecayMs, adecayMs, attackMs, bassBig, bassKnob, bassValueText, dfbPct, lengthPct, pwPct, releaseMs, rsizeS, rtoneHz, stepOf, sweepOct, tuneCents, type BassKnobId, type BassStyle, type BassValues } from './params';
-import { BASS_PAGE_SLOTS, bassSlotOf, type BassPageId } from './pages';
+import { BASS_FEET, BASS_MODES, BASS_ROOTS, BASS_SCALES, BASS_STYLES, BASS_KNOBS, DTIME_STEPS, LOAD_MAKEUP, OSC2_WAVES, OSC3_WAVES, SCALE_TONES, accDecayMs, adecayMs, attackMs, bassBig, bassKnob, bassValueText, cutoffHz, decayMs, dfbPct, driveGain, emphOf, envOct, fineCt, glideMs, ladderMag, lengthPct, loadDb, loadGain, modeName, noiseDb, pwPct, rangeOct, releaseMs, rsizeS, rtoneHz, semiName, semiSt, stepOf, sweepOct, tuneCents, type BassKnobId, type BassMode, type BassStyle, type BassValues } from './params';
+import { BASS_SCREEN_SLOTS, PAGE_TABS, SCREEN_LABEL, SCREEN_PAGE, bassSlotOf, type BassScreenId } from './pages';
 import { BASS_STEPS, type BassStep } from './state';
 
 export interface BassDiagram {
@@ -130,10 +140,16 @@ const arrow = (x0: number, y0: number, x1: number, y1: number, size = 5): string
 
 /* ---------------- les lois (celles du worklet et de params.ts) ---------------- */
 
-const cutHz = (v: number): number => 60 * Math.pow(100, v);
-const decayS = (v: number): number => 0.12 * Math.pow(2.5 / 0.12, v);
-const glideS = (v: number): number => 0.012 * Math.pow(0.35 / 0.012, v);
-const driveGain = (v: number): number => 1 + 14 * v * v;
+// Le moteur MONARK (2026-10-09) : les lois de params.ts, selon le MODE global (fmode)
+const modeOfV = (values: BassValues): BassMode => modeName(values.fmode);
+const isLadder = (values: BassValues): boolean => modeOfV(values) !== '303';
+const cutHz = cutoffHz;
+/** DECAY en secondes : l'echelle, la constante de temps vers F.SUSTAIN ; la 303, jusqu'en bas. */
+const decayS = (v: number, mode: BassMode): number => decayMs(v, mode) / 1000;
+/** GLIDE en secondes : l'echelle, le temps d'une octave (a vitesse constante) ; la 303, la constante du glisse. */
+const glideS = (v: number): number => glideMs(v) / 1000;
+/** Le contour du filtre et l'ampli du Model D, rejoues (le worklet) : l'attaque vise 1.3 et s'arrete a 1. */
+const ATT_K = 1.466;
 function fastTanh(x: number): number {
   if (x > 3) return 1;
   if (x < -3) return -1;
@@ -403,22 +419,29 @@ const DB_TOP = 24;
 const DB_BOT = -48;
 const dbY = (db: number): number => Y0 + ((DB_TOP - Math.max(DB_BOT, Math.min(DB_TOP, db))) / (DB_TOP - DB_BOT)) * (Y1 - Y0);
 
-/** Le gain (dB) du filtre a f : la formule de l'ecran (screen.ts drawFilter), q = 0.6 + 7 RESO^2. */
-function filterDb(f: number, fc: number, reso: number): number {
-  const q = 0.6 + 7 * reso * reso;
+/**
+ * Le gain (dB) du filtre a f : l'echelle (2026-10-09), le module de son prototype analogique (params.ts ladderMag,
+ * la sortie du MODE) ; la 303, la formule de l'ecran d'avant (screen.ts drawFilter), q = 0.6 + 7 RESO^2.
+ */
+function filterDb(f: number, fc: number, reso: number, mode: BassMode = '303'): number {
   const r = f / fc;
+  if (mode !== '303') return 20 * Math.log10(Math.max(1e-6, ladderMag(r, reso, mode)));
+  const q = 0.6 + 7 * reso * reso;
   const two = 1 / Math.sqrt((1 - r * r) ** 2 + (r / q) ** 2);
   return 20 * Math.log10(two);
 }
 
-function filterCurve(fc: number, reso: number, f0 = F_LO, f1 = F_HI, n = 72): Pt[] {
+function filterCurve(fc: number, reso: number, mode: BassMode, f0 = F_LO, f1 = F_HI, n = 72): Pt[] {
   const pts: Pt[] = [];
   for (let k = 0; k <= n; k += 1) {
     const f = f0 * Math.pow(f1 / f0, k / n);
-    pts.push([fxOf(f), dbY(filterDb(f, fc, reso))]);
+    pts.push([fxOf(f), dbY(filterDb(f, fc, reso, mode))]);
   }
   return pts;
 }
+
+/** Le nom d'un MODE sur un dessin. */
+const MODE_PIC: Readonly<Record<BassMode, string>> = { LP24: 'LADDER LP24, 24 DB / OCT', LP12: 'LADDER LP12, 12 DB / OCT', LP6: 'LADDER LP6, 6 DB / OCT', BP: 'LADDER BAND PASS', 303: 'TB-303 LOW PASS' };
 
 function filterGrid(p: Pic): void {
   for (const f of [100, 1000, 10000]) p.p(seg(fxOf(f), Y0, fxOf(f), Y1), 'grid');
@@ -428,11 +451,11 @@ function filterGrid(p: Pic): void {
 }
 
 /** Le sommet de la courbe (sa frequence, son gain). */
-function filterPeak(fc: number, reso: number): { f: number; db: number } {
+function filterPeak(fc: number, reso: number, mode: BassMode): { f: number; db: number } {
   let best = { f: fc, db: -Infinity };
   for (let k = 0; k <= 96; k += 1) {
     const f = Math.max(F_LO, Math.min(F_HI, (fc / 4) * Math.pow(16, k / 96)));
-    const db = filterDb(f, fc, reso);
+    const db = filterDb(f, fc, reso, mode);
     if (db > best.db) best = { f, db };
   }
   return best;
@@ -444,18 +467,24 @@ function filterPeak(fc: number, reso: number): { f: number; db: number } {
  * Une suite de pas (true : accentue) au tempo, pas de 1 ms : la coupure en
  * octaves au-dessus de CUTOFF (l'enveloppe, plus la charge des accents) et
  * le gain du VCA, comme MMBass.process (ACC DECAY et SWEEP, 2026-10-08).
+ * L'echelle (2026-10-09) : le contour du Model D (F.ATTACK, DECAY vers
+ * F.SUSTAIN, son signe), l'accent en velocite (le volume x(1 + 0.3 ACCENT),
+ * le contour x(1 + 0.6 ACCENT)), la charge plus lente avec l'emphase.
  */
 function accentRun(values: BassValues, bpm: number, accs: readonly boolean[]): { oct: number[]; sweep: number[]; gain: number[]; per: number } {
   const sd = stepS(bpm);
   const dt = 0.001;
   const per = Math.max(1, Math.round(sd / dt));
+  const ladder = isLadder(values);
   const a = values.accent;
-  const envOct = 5 * values.envmod;
-  const dS = decayS(values.decay);
+  const depth = envOct(values.envmod) * (ladder && values.fpol >= 0.5 ? -1 : 1);
+  const dS = decayS(values.decay, ladder ? 'LP24' : '303');
   const accDec = accDecayMs(values.accdecay) / 1000;
   const sw = sweepOct(values.sweep);
-  const kS = 1 - Math.exp(-dt / (0.03 + 0.12 * values.reso));
+  const kS = 1 - Math.exp(-dt / (0.03 + 0.12 * (ladder ? emphOf(values.reso) : values.reso)));
   const kA = Math.exp(-dt / accDec);
+  const kAtt = 1 - Math.exp((-ATT_K * dt) / (attackMs(values.fattack) / 1000));
+  const sus = ladder ? values.fsustain : 0;
   let env = 0;
   let accEnv = 0;
   let accSweep = 0;
@@ -463,20 +492,63 @@ function accentRun(values: BassValues, bpm: number, accs: readonly boolean[]): {
   const sweep: number[] = [];
   const gain: number[] = [];
   for (const on of accs) {
-    env = 1;
     const acc = on ? a : 0;
     if (on) accEnv = 1;
-    const kE = Math.exp(-dt / (on ? accDec : dS));
+    // La 303 : l'enveloppe repart du plein ; l'echelle : le contour remonte d'ou il est (Model D)
+    let rising = ladder;
+    if (!ladder) env = 1;
+    const kE = Math.exp(-dt / (on && !ladder ? accDec : dS));
     for (let j = 0; j < per; j += 1) {
-      env *= kE;
+      if (rising) {
+        env += (1.3 - env) * kAtt;
+        if (env >= 1) {
+          env = 1;
+          rising = false;
+        }
+      } else env = sus + (env - sus) * kE;
       accEnv *= kA;
       accSweep += (accEnv * acc - accSweep) * kS;
-      oct.push(envOct * (1 + 0.6 * acc) * env + sw * accSweep);
+      oct.push(depth * (1 + 0.6 * acc) * env + sw * accSweep);
       sweep.push(sw * accSweep);
-      gain.push(1 + 0.9 * acc * Math.max(env, 0.35));
+      gain.push(ladder ? 1 + 0.3 * acc : 1 + 0.9 * acc * Math.max(env, 0.35));
     }
   }
   return { oct, sweep, gain, per };
+}
+
+/**
+ * Le contour du Model D rejoue (2026-10-09, le worklet) : une note tenue gate secondes sur span, n points ; l'attaque
+ * vers 1.3 jusqu'au plein (atk s), la decroissance vers sus (tau s), le relachement (rel s). Le segment de chaque point
+ * (0 attaque, 1 decroissance, 2 tenue, 3 relachement). La 303 (atk 0, sus 0) : le plein tout de suite, puis la
+ * decroissance jusqu'en bas.
+ */
+function contourRun(atk: number, tau: number, sus: number, rel: number, gate: number, span: number, n: number): { lv: number[]; seg: number[] } {
+  const dt = span / n;
+  const kAtt = atk > 0 ? 1 - Math.exp((-ATT_K * dt) / atk) : 1;
+  const kD = 1 - Math.exp(-dt / Math.max(1e-4, tau));
+  const kR = 1 - Math.exp(-dt / Math.max(1e-4, rel));
+  const lv: number[] = [];
+  const sg: number[] = [];
+  let e = 0;
+  let rising = true;
+  for (let k = 0; k <= n; k += 1) {
+    const t = k * dt;
+    if (t < gate) {
+      if (rising) {
+        e += (1.3 - e) * kAtt;
+        if (e >= 1) {
+          e = 1;
+          rising = false;
+        }
+      } else e += (sus - e) * kD;
+      sg.push(rising ? 0 : Math.abs(e - sus) > 0.02 ? 1 : 2);
+    } else {
+      e -= e * kR;
+      sg.push(3);
+    }
+    lv.push(e);
+  }
+  return { lv, seg: sg };
 }
 
 /** Une courbe echantillonnee (une valeur par ms) en points, de i0 a i1, sur l'echelle donnee. */
@@ -511,17 +583,32 @@ function decays(values: BassValues, bpm: number, hot: 'normal' | 'accent'): Pic 
   const span = 8 * sd;
   sixteenths(p, sd, span);
   p.p(seg(X0, Y1, X1, Y1), 'grid');
-  const tau = decayS(values.decay);
+  // L'echelle (2026-10-09) : le contour du Model D d'une note tenue (F.ATTACK, DECAY vers F.SUSTAIN) ; ACC DECAY y
+  // regle la charge des accents (le pointille, sur la carte d'ACC DECAY seulement) ; la 303 : les deux decroissances
+  const ladder = isLadder(values);
+  const tau = decayS(values.decay, ladder ? 'LP24' : '303');
   const accTau = accDecayMs(values.accdecay) / 1000;
-  p.p(poly(decayPts(tau, span, X0, X1, Y0, Y1)), hot === 'normal' ? 'hot' : 'main');
-  p.p(poly(decayPts(accTau, span, X0, X1, Y0, Y1)), hot === 'accent' ? 'hot' : 'dash');
-  // Les noms au bout de chaque courbe (a mi-chemin du trace)
-  const yAt = (t: number): number => Y1 - (Y1 - Y0) * Math.exp((-span * 0.5) / t);
-  const ya = yAt(accTau);
-  const yn = yAt(tau);
+  let note: Pt[];
+  if (ladder) {
+    const run = contourRun(attackMs(values.fattack) / 1000, tau, values.fsustain, 1, span * 2, span, 64);
+    note = run.lv.map((e, k) => [X0 + ((X1 - X0) * k) / 64, Y1 - (Y1 - Y0) * e] as Pt);
+    const ys = Y1 - (Y1 - Y0) * values.fsustain;
+    if (values.fsustain > 0.01) {
+      p.p(seg(X0, ys, X1, ys), 'grid');
+      p.label('F.SUSTAIN', X1, ys - 3, 'end');
+    }
+  } else note = decayPts(tau, span, X0, X1, Y0, Y1);
+  p.p(poly(note), hot === 'normal' ? 'hot' : 'main');
+  const showAcc = !ladder || hot === 'accent';
+  const acc = decayPts(accTau, span, X0, X1, Y0, Y1);
+  if (showAcc) p.p(poly(acc), hot === 'accent' ? 'hot' : 'dash');
+  // Les noms au milieu de chaque courbe
+  const mid = (pts: readonly Pt[]): number => pts[Math.floor(pts.length / 2)][1];
+  const ya = mid(acc);
+  const yn = mid(note);
   const apart = Math.abs(ya - yn) > 11;
-  p.label('ACC', X0 + (X1 - X0) * 0.5 + 3, Math.max(Y0 + 9, ya - 4));
-  if (apart) p.label('NOTE', X0 + (X1 - X0) * 0.5 + 3, Math.max(Y0 + 9, yn - 4));
+  if (showAcc) p.label(ladder ? 'ACC CHARGE' : 'ACC', X0 + (X1 - X0) * 0.5 + 3, Math.max(Y0 + 9, ya - 4));
+  if (apart || !showAcc) p.label(ladder ? 'CONTOUR' : 'NOTE', X0 + (X1 - X0) * 0.5 + 3, Math.max(Y0 + 9, yn - 4));
   p.label(`1/16 = ${Math.round(sd * 1000)} MS`, X0, BOT);
   return p;
 }
@@ -531,29 +618,37 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
   cutoff(values) {
     const p = new Pic();
     filterGrid(p);
+    const mode = modeOfV(values);
     const fc = cutHz(values.cutoff);
-    p.p(poly(filterCurve(fc, values.reso)), 'main');
+    p.p(poly(filterCurve(fc, values.reso, mode)), 'main');
     p.p(seg(fxOf(fc), Y0 - 4, fxOf(fc), Y1), 'hot');
     p.p(dot(fxOf(fc), Y0 - 4, 2.2), 'hot', true);
-    p.label('LOW PASS', X0, TOP);
+    p.label(MODE_PIC[mode], X0, TOP);
     return valueOf(p, 'cutoff', values).done();
   },
   reso(values) {
     const p = new Pic();
     filterGrid(p);
+    const mode = modeOfV(values);
     const fc = cutHz(values.cutoff);
-    p.p(poly(filterCurve(fc, 0)), 'ghost');
-    p.p(poly(filterCurve(fc, values.reso)), 'main');
-    const pk = filterPeak(fc, values.reso);
-    p.p(poly(filterCurve(fc, values.reso, Math.max(F_LO, pk.f / 1.6), Math.min(F_HI, pk.f * 1.6), 16)), 'hot');
+    p.p(poly(filterCurve(fc, 0, mode)), 'ghost');
+    p.p(poly(filterCurve(fc, values.reso, mode)), 'main');
+    const pk = filterPeak(fc, values.reso, mode);
+    p.p(poly(filterCurve(fc, values.reso, mode, Math.max(F_LO, pk.f / 1.6), Math.min(F_HI, pk.f * 1.6), 16)), 'hot');
     p.p(dot(fxOf(pk.f), dbY(pk.db), 2.4), 'hot', true);
     const db = Math.round(pk.db);
     p.label(`PEAK ${db > 0 ? '+' : ''}${db} DB`, X0, TOP);
+    // L'echelle : les graves s'amincissent quand l'emphase monte (2026-10-09, le Moog), a fc / 8
+    if (mode === 'LP24' || mode === 'LP12' || mode === 'LP6') {
+      const lows = filterDb(fc / 8, fc, values.reso, mode);
+      p.label(`LOWS ${lows >= 0 ? '+' : ''}${lows.toFixed(1)} DB`, X1, BOT, 'end');
+    }
     return valueOf(p, 'reso', values).done();
   },
 
   /* ----- ENVELOPE ----- */
   envmod(values, c) {
+    if (isLadder(values)) return envmodLadder(values, c);
     const p = new Pic();
     const sd = stepS(c.bpm);
     const span = 8 * sd;
@@ -564,7 +659,7 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
     for (let o = 1; o < OCT; o += 1) p.p(seg(X0, oy(o), X0 + 4, oy(o)), 'grid');
     p.p(seg(X0, Y1, X1, Y1), 'dash');
     const depth = 5 * values.envmod;
-    const tau = decayS(values.decay);
+    const tau = decayS(values.decay, '303');
     const accDepth = depth * (1 + 0.6 * values.accent);
     const accTau = accDecayMs(values.accdecay) / 1000;
     const curve = (d: number, t: number): Pt[] => {
@@ -597,8 +692,9 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
     const run = accentRun(values, c.bpm, accs);
     const n = run.oct.length;
     const xOf = (i: number): number => X0 + ((X1 - X0) * i) / n;
-    const top = Math.max(2, ...run.oct);
-    const oy = (o: number): number => 72 - (o / top) * (72 - Y0);
+    // POLARITY NEG (l'echelle) : le contour descend ; dessine en valeur absolue, l'etiquette dit NEG
+    const top = Math.max(2, ...run.oct.map(Math.abs));
+    const oy = (o: number): number => 72 - (Math.abs(o) / top) * (72 - Y0);
     for (let k = 1; k < accs.length; k += 1) p.p(seg(xOf(k * run.per), Y0, xOf(k * run.per), Y1 + 4), 'grid');
     p.p(seg(X0, 72, X1, 72), 'grid');
     accs.forEach((on, k) => {
@@ -609,8 +705,10 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
       p.p(rbox(xOf(k * run.per) + 6, 102 - bh, xOf(run.per) - X0 - 12, bh, 2), on ? 'hot' : 'main', true);
       p.label(on ? 'ACC' : 'NOTE', xOf((k + 0.5) * run.per), BOT + 2, 'middle');
     });
-    const db = 20 * Math.log10(1 + 0.9 * values.accent);
-    p.label(`FILTER  +${db.toFixed(1)} DB`, X0, TOP);
+    // L'echelle (2026-10-09) : une velocite, le volume x(1 + 0.3 ACCENT) ; la 303 : x(1 + 0.9 ACCENT)
+    const ladder = isLadder(values);
+    const db = 20 * Math.log10(1 + (ladder ? 0.3 : 0.9) * values.accent);
+    p.label(`${ladder ? 'VELOCITY' : 'FILTER'}  +${db.toFixed(1)} DB${ladder && values.fpol >= 0.5 ? '  NEG' : ''}`, X0, TOP);
     return valueOf(p, 'accent', values).done();
   },
   glide(values, c) {
@@ -629,12 +727,20 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
     p.p(seg(X0, yA, tx(sd), yA), 'main');
     const tau = glideS(values.glide);
     const pts: Pt[] = [];
+    const ladder = isLadder(values);
     for (let k = 0; k <= 48; k += 1) {
       const t = (2 * sd * k) / 48;
-      pts.push([tx(sd + t), yB + (yA - yB) * Math.exp(-t / tau)]);
+      // L'echelle (2026-10-09) : une octave a vitesse constante en GLIDE secondes, le dernier demi-ton en douceur ;
+      // la 303 : la constante de temps d'avant
+      let y: number;
+      if (ladder) {
+        const lin = 1 - t / tau;
+        y = yB + (yA - yB) * (lin > 1 / 12 ? lin : (1 / 12) * Math.exp(-(t - tau * (11 / 12)) / 0.005));
+      } else y = yB + (yA - yB) * Math.exp(-t / tau);
+      pts.push([tx(sd + t), y]);
     }
     p.p(poly(pts), 'hot');
-    p.label('SLIDE', tx(sd / 2), yA - 8, 'middle');
+    p.label(ladder ? 'SLIDE 1 OCT' : 'SLIDE', tx(sd / 2), yA - 8, 'middle');
     p.label('NOTE', tx(2 * sd), yB - 6, 'middle');
     p.label(`1/16 = ${Math.round(sd * 1000)} MS`, X0, BOT);
     return valueOf(p, 'glide', values).done();
@@ -655,10 +761,12 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
     const v = values.sub;
     const div = stepOf('suboct', values.suboct) === 0 ? 2 : 4;
     p.p(seg(X0, 38, X1, 38), 'grid').p(seg(X0, 86, X1, 86), 'grid');
-    if (v > 0.01) p.p(poly(wavePts(values.wave, X0, X1, 38, 15, 4)), 'ghost');
-    p.p(poly(wavePts(values.wave, X0, X1, 38, 15 * (1 - 0.5 * v), 4)), 'main');
+    // La 303 baisse l'oscillateur quand SUB monte ; l'echelle (2026-10-09) non : le SUB s'ajoute apres elle
+    const ladder = isLadder(values);
+    if (v > 0.01 && !ladder) p.p(poly(wavePts(values.wave, X0, X1, 38, 15, 4)), 'ghost');
+    p.p(poly(wavePts(values.wave, X0, X1, 38, 15 * (ladder ? 1 : 1 - 0.5 * v), 4)), 'main');
     p.p(poly(sinePts(X0, X1, 86, 15 * v, 4 / div)), 'hot');
-    p.label('OSC > FILTER > DRIVE', X0, TOP);
+    p.label(ladder ? 'MIXER > LADDER (LOAD)' : 'OSC > FILTER > DRIVE', X0, TOP);
     p.label(`SUB ${div === 2 ? '-1' : '-2'} OCT, POST FILTER`, X0, 66);
     return valueOf(p, 'sub', values).done();
   },
@@ -693,8 +801,12 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
   /* ----- OUTPUT ----- */
   drive(values) {
     const p = new Pic();
-    const g = driveGain(values.drive);
-    const tf = (x: number): number => (g > 1.001 ? fastTanh(x * g) * Math.pow(g, -0.45) : x);
+    // L'echelle (2026-10-09) : LOAD, le melangeur entre dans la premiere cellule (0.5x a 4x), rattrape en sortie ; la
+    // 303 : la saturation d'apres le filtre (x(1 + 14 DRIVE^2), le volume compense)
+    const ladder = isLadder(values);
+    const g = ladder ? loadGain(values.drive) : driveGain(values.drive);
+    const mk = ladder ? Math.pow(g, -LOAD_MAKEUP) : Math.pow(g, -0.45);
+    const tf = (x: number): number => (ladder ? fastTanh(x * g) * mk : g > 1.001 ? fastTanh(x * g) * mk : x);
     const cx = 58;
     const cy = 62;
     const R = 40;
@@ -711,7 +823,7 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
     p.p(seg(116, cy, X1, cy), 'grid');
     p.p(poly(sinePts(116, X1, cy, 0.9 * 34, 2)), 'ghost');
     p.p(poly(sinePts(116, X1, cy, 34, 2, (s) => tf(0.9 * s))), 'hot');
-    p.label(`GAIN x${g.toFixed(1)}`, X0, TOP);
+    p.label(ladder ? `LOAD +${loadDb(values.drive).toFixed(1)} DB INTO THE LADDER` : `GAIN x${g.toFixed(1)}, POST FILTER`, X0, TOP);
     p.label('IN', 116, BOT).label('OUT', 140, BOT);
     return valueOf(p, 'drive', values).done();
   },
@@ -1192,7 +1304,337 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
   pfilter: () => pageGrid('filter'),
   penv: () => pageGrid('env'),
   pfx: () => pageGrid('fx'),
+
+  /* ----- le moteur MONARK (2026-10-09) ----- */
+  posc: () => pageGrid('osc'),
+  pmix: () => pageGrid('mix'),
+  pcontour: (values, c) => contourPic(values, c, null),
+  o2wave: (values) => oscWave(values, 2),
+  o3wave: (values) => oscWave(values, 3),
+  o2range: (values) => oscRange(values, 2),
+  o3range: (values) => oscRange(values, 3),
+  o2semi: (values) => oscSemi(values, 2),
+  o3semi: (values) => oscSemi(values, 3),
+  o2fine: (values) => oscFine(values, 2),
+  o3fine: (values) => oscFine(values, 3),
+  o1lvl: (values) => mixer(values, 'o1lvl'),
+  o2lvl: (values) => mixer(values, 'o2lvl'),
+  o3lvl: (values) => mixer(values, 'o3lvl'),
+  noise(values) {
+    // Le bruit rose (-3 dB par octave) a son niveau, sous la courbe du filtre (il passe dedans)
+    const p = new Pic();
+    filterGrid(p);
+    const mode = modeOfV(values);
+    const fc = cutHz(values.cutoff);
+    p.p(poly(filterCurve(fc, values.reso, mode)), 'ghost');
+    if (values.noise > 0.001) {
+      const lv = noiseDb(values.noise);
+      const pts: Pt[] = [];
+      for (let k = 0; k <= 24; k += 1) {
+        const f = F_LO * Math.pow(F_HI / F_LO, k / 24);
+        pts.push([fxOf(f), dbY(lv - 3 * Math.log2(f / 1000))]);
+      }
+      p.p(poly(pts), 'hot');
+    }
+    p.label('PINK NOISE, -3 DB / OCT, INTO THE FILTER', X0, TOP);
+    return valueOf(p, 'noise', values).done();
+  },
+  feedback(values) {
+    // Le chemin : MIXER > LADDER > VCA > OUT, et le retour de la sortie vers l'entree, d'autant plus epais
+    const p = new Pic();
+    const v = values.feedback;
+    const y = 66;
+    const box = (x: number, w: number, name: string): void => {
+      p.p(rbox(x, y - 13, w, 26, 4), 'main');
+      p.label(name, x + w / 2, y + 4, 'middle');
+    };
+    box(X0, 46, 'MIXER');
+    box(86, 52, 'LADDER');
+    box(162, 34, 'VCA');
+    p.p(arrow(X0 + 46, y, 84, y, 4), 'main').p(arrow(138, y, 160, y, 4), 'main').p(arrow(196, y, X1, y, 4), 'main');
+    p.label('OUT', X1, y - 8, 'end');
+    const th = v > 0.001 ? 1 + 6 * v : 0;
+    if (th > 0) {
+      // Le retour : de la sortie du VCA, au-dessus, jusqu'avant l'echelle
+      p.p(rbox(76 - th / 2, 28 - th / 2, 208 - 76 + th, th, th / 2), 'hot', true);
+      p.p(rbox(208 - th / 2, 28, th, y - 28, th / 2), 'hot', true);
+      p.p(rbox(76 - th / 2, 28, th, y - 6 - 28, th / 2), 'hot', true);
+      p.p(tip(76, 28, 76, y - 4, 5), 'hot');
+    } else p.p(`M208 ${y}V28H76V${y - 6}`, 'ghost');
+    p.label(v <= 0.001 ? 'NO FEEDBACK' : v < 0.45 ? 'WARM: MORE BODY' : 'GRIT: THE LADDER GROWLS', X0, TOP);
+    p.label('THE OUTPUT BACK INTO THE FILTER', X0, BOT);
+    return valueOf(p, 'feedback', values).done();
+  },
+  drift(values) {
+    // La marche du worklet (walk, un pas par bloc de 128 echantillons a 44.1 kHz), sur 4 s : OSC 1 a 3 en cents
+    const p = new Pic();
+    const dr = values.drift;
+    const lim = 3 * dr;
+    const top = 4;
+    const cy = 60;
+    const yOf = (ct: number): number => cy - (ct / top) * 34;
+    p.p(seg(X0, cy, X1, cy), 'grid');
+    for (const ct of [-3, 3]) p.p(seg(X0, yOf(ct), X0 + 5, yOf(ct)), 'grid');
+    p.label('+3', X0 + 8, yOf(3) + 3).label('-3', X0 + 8, yOf(-3) + 3);
+    const N = 1380;
+    for (let o = 0; o < 3; o += 1) {
+      const rnd = mulberry(101 + o * 37);
+      let x = 0;
+      const pts: Pt[] = [];
+      for (let k = 0; k <= N; k += 1) {
+        x = x * 0.997 + (rnd() - 0.5) * 0.25 * dr;
+        if (x > lim) x = lim;
+        else if (x < -lim) x = -lim;
+        if (k % 20 === 0) pts.push([X0 + ((X1 - X0) * k) / N, yOf(x)]);
+      }
+      p.p(poly(pts), o === 0 ? 'hot' : 'main');
+    }
+    p.label(dr <= 0.001 ? 'STABLE: EXACT PITCH' : `OSC 1 2 3, UP TO ${lim.toFixed(1)} CENTS, CUTOFF ${Math.round((Math.pow(2, 0.03 * dr) - 1) * 100)} %`, X0, TOP);
+    p.label('4 S, CENTS', X0, BOT);
+    return valueOf(p, 'drift', values).done();
+  },
+  fmode(values) {
+    // Les cinq reponses (la coupure a 500 Hz, l'emphase du moment), celle du MODE en plein
+    const p = new Pic();
+    filterGrid(p);
+    const mode = modeOfV(values);
+    const fc = 500;
+    for (const m of BASS_MODES) if (m !== mode) p.p(poly(filterCurve(fc, values.reso, m)), 'ghost');
+    p.p(poly(filterCurve(fc, values.reso, mode)), 'hot');
+    p.label(MODE_PIC[mode], X0, TOP);
+    // En haut a droite du trace (la revue : en bas, CUTOFF 500 HZ chevauchait 10K)
+    p.label('CUTOFF 500 HZ', X1, Y0 + 9, 'end');
+    return valueOf(p, 'fmode', values).done();
+  },
+  fattack: (values, c) => contourPic(values, c, 0),
+  fsustain: (values, c) => contourPic(values, c, 2),
+  fpol: (values, c) => contourPic(values, c, -1),
 };
+
+/**
+ * ENV MOD sur l'echelle (2026-10-09) : le contour du Model D d'une note tenue quatre pas (F.ATTACK, DECAY vers
+ * F.SUSTAIN, RELEASE), en octaves au-dessus de CUTOFF (dessous en NEG : l'axe part du haut) ; l'accent en pointille.
+ */
+function envmodLadder(values: BassValues, c: BassDiagramCtx): BassDiagram {
+  const p = new Pic();
+  const sd = stepS(c.bpm);
+  const span = 8 * sd;
+  const gate = 4 * sd;
+  sixteenths(p, sd, span);
+  const OCT = 6;
+  const neg = values.fpol >= 0.5;
+  const oy = (o: number): number => (neg ? Y0 + (Math.min(OCT, o) / OCT) * (Y1 - Y0) : Y1 - (Math.min(OCT, o) / OCT) * (Y1 - Y0));
+  for (let o = 1; o < OCT; o += 1) p.p(seg(X0, oy(o), X0 + 4, oy(o)), 'grid');
+  p.p(seg(X0, oy(0), X1, oy(0)), 'dash');
+  const depth = envOct(values.envmod);
+  const accDepth = depth * (1 + 0.6 * values.accent);
+  const run = contourRun(attackMs(values.fattack) / 1000, decayS(values.decay, 'LP24'), values.fsustain, releaseMs(values.release) / 1000, gate, span, 96);
+  const curve = (d: number): Pt[] => run.lv.map((e, k) => [X0 + ((X1 - X0) * k) / 96, oy(d * e)] as Pt);
+  if (accDepth > 0.05) p.p(poly(curve(accDepth)), 'dash');
+  p.p(poly(curve(depth)), 'main');
+  p.p(arrow(X0 + 3, oy(0), X0 + 3, oy(depth), depth > 0.6 ? 4 : 0), 'hot');
+  p.p(seg(X0 + ((X1 - X0) * gate) / span, Y0, X0 + ((X1 - X0) * gate) / span, Y1), 'grid');
+  const fc = cutHz(values.cutoff);
+  const peak = Math.min(20000, Math.max(15, fc * Math.pow(2, neg ? -depth : depth)));
+  p.label(`${neg ? '-' : '+'}${depth.toFixed(1)} OCT  ${hzText(peak)}`, X0 + 10, TOP);
+  p.label(`CUTOFF ${hzText(fc)}`, X1, BOT, 'end');
+  p.label('NOTE HELD 4/16', X0, BOT);
+  return valueOf(p, 'envmod', values).done();
+}
+
+/**
+ * Le contour du filtre (2026-10-09, l'onglet CONTOUR) : une note tenue six pas, la loi du worklet ; hot : le segment du
+ * reglage (0 F.ATTACK, 2 F.SUSTAIN, -1 tout le contour : POLARITY ; null : pcontour, tout en trait plein) ; NEG
+ * retourne le dessin ; en MODE 303, l'enveloppe de la 303 (le plein tout de suite, la decroissance jusqu'en bas).
+ */
+function contourPic(values: BassValues, c: BassDiagramCtx, hot: number | null): BassDiagram {
+  const p = new Pic();
+  const sd = stepS(c.bpm);
+  const gate = 6 * sd;
+  const ladder = isLadder(values);
+  const neg = ladder && values.fpol >= 0.5;
+  const rel = releaseMs(values.release) / 1000;
+  const span = gate + Math.max(2 * sd, Math.min(6 * sd, 4 * rel));
+  const N = 200;
+  const run = ladder
+    ? contourRun(attackMs(values.fattack) / 1000, decayS(values.decay, 'LP24'), values.fsustain, rel, gate, span, N)
+    : contourRun(0, decayS(values.decay, '303'), 0, rel, span * 2, span, N);
+  const tx = (t: number): number => X0 + ((X1 - X0) * t) / span;
+  const ay = (a: number): number => (neg ? 26 + a * (96 - 26) : 96 - a * (96 - 26));
+  sixteenths(p, sd, span, 26, 96);
+  p.p(seg(X0, ay(0), X1, ay(0)), 'grid');
+  // Les segments se touchent : chacun reprend le dernier point du precedent
+  const segs: Pt[][] = [[], [], [], []];
+  let last: Pt | null = null;
+  run.lv.forEach((e, k) => {
+    const pt: Pt = [tx((k * span) / N), ay(e)];
+    const s = run.seg[k];
+    if (segs[s].length === 0 && last) segs[s].push(last);
+    segs[s].push(pt);
+    last = pt;
+  });
+  segs.forEach((pts, s) => {
+    if (pts.length < 2) return;
+    const on = hot === -1 || hot === s;
+    p.p(poly(pts), on ? 'hot' : 'main');
+  });
+  if (ladder) p.p(seg(X0, ay(values.fsustain), tx(gate), ay(values.fsustain)), hot === 2 ? 'hot' : 'dash');
+  p.p(seg(tx(gate), 20, tx(gate), 98), 'dash');
+  // A gauche du relachement (la revue : a droite, sous la valeur, les deux se chevauchaient)
+  p.label('NOTE HELD 6/16', tx(gate) - 4, 34, 'end');
+  const amt = envOct(values.envmod);
+  p.label(
+    ladder
+      ? `A ${bassValueText('fattack', values.fattack)}  D ${bassValueText('decay', values.decay)}  S ${bassValueText('fsustain', values.fsustain)}  R ${bassValueText('release', values.release)}`
+      : `MODE 303: NO ATTACK, NO SUSTAIN  D ${bassValueText('decay', values.decay)}`,
+    X0,
+    BOT,
+  );
+  const id: BassKnobId = hot === 0 ? 'fattack' : hot === 2 ? 'fsustain' : hot === -1 ? 'fpol' : 'envmod';
+  return (hot === null ? p.value(`${neg ? '-' : '+'}${amt.toFixed(1)} OCT`) : valueOf(p, id, values)).done();
+}
+
+/** Une forme des oscillateurs 2 et 3 (le worklet shape, sans ses coins adoucis), t de 0 a 1. */
+function shapeAt(w: number, t: number, rev: boolean): number {
+  const tri = 1 - 4 * Math.abs(((t + 0.25) % 1) - 0.5);
+  const saw = 2 * t - 1;
+  if (w === 0) return tri;
+  if (w === 1) return rev ? -saw : 0.5 * tri + 0.5 * saw;
+  if (w === 2) return saw;
+  const d = [0.5, 0.5, 0.5, 0.5, 0.3, 0.12][w] ?? 0.5;
+  return (t < d ? 1 : -1) - (2 * d - 1);
+}
+function shapePts(w: number, rev: boolean, x0: number, x1: number, yc: number, amp: number, periods: number): Pt[] {
+  const pts: Pt[] = [];
+  const n = Math.round(48 * periods);
+  for (let k = 0; k <= n; k += 1) {
+    const t = ((k / n) * periods) % 1;
+    pts.push([x0 + ((x1 - x0) * k) / n, yc - amp * Math.max(-1.3, Math.min(1.3, shapeAt(w, k === n ? 0.9999 : t, rev)))]);
+  }
+  return pts;
+}
+
+/** OSC 2 / OSC 3 WAVE : les six formes en petit (celle du cran en plein), deux cycles de la forme en grand. */
+function oscWave(values: BassValues, o: 2 | 3): BassDiagram {
+  const p = new Pic();
+  const id: BassKnobId = o === 2 ? 'o2wave' : 'o3wave';
+  const names = o === 2 ? OSC2_WAVES : OSC3_WAVES;
+  const sel = stepOf(id, values[id]);
+  const cw = (X1 - X0) / 6;
+  names.forEach((name, i) => {
+    const x = X0 + i * cw;
+    p.p(poly(shapePts(i, o === 3, x + 4, x + cw - 4, 30, 7, 1)), i === sel ? 'hot' : 'ghost');
+    p.label(name === 'REV SAW' ? 'REV' : name === 'NARROW' ? 'NARR' : name, x + cw / 2, 48, 'middle');
+  });
+  p.p(seg(X0, 78, X1, 78), 'grid');
+  p.p(poly(shapePts(sel, o === 3, X0, X1, 78, 18, 2)), 'hot');
+  const lvl = values[o === 2 ? 'o2lvl' : 'o3lvl'];
+  p.label(lvl <= 0.001 ? `OSC ${o} OFF ON MIX: TURN IT UP TO HEAR IT` : `OSC ${o} ${bassValueText(o === 2 ? 'o2lvl' : 'o3lvl', lvl)} IN THE MIX`, X0, TOP);
+  return valueOf(p, id, values).done();
+}
+
+/** La hauteur jouee d'OSC 2 / OSC 3 sur la tonique (RANGE, SEMI, FINE), en MIDI fractionnaire. */
+function oscMidi(values: BassValues, o: 2 | 3): number {
+  const r = values[o === 2 ? 'o2range' : 'o3range'];
+  const s = values[o === 2 ? 'o2semi' : 'o3semi'];
+  const f = values[o === 2 ? 'o2fine' : 'o3fine'];
+  return tonicMidi(values) + 12 * rangeOct(r) + semiSt(s) + fineCt(f) / 100;
+}
+
+/** OSC 2 / OSC 3 RANGE : quatre tuyaux d'orgue (32' le plus long), celui du cran en plein ; la hauteur jouee. */
+function oscRange(values: BassValues, o: 2 | 3): BassDiagram {
+  const p = new Pic();
+  const id: BassKnobId = o === 2 ? 'o2range' : 'o3range';
+  const sel = stepOf(id, values[id]);
+  const gw = (X1 - X0) / 4;
+  const base = 96;
+  BASS_FEET.forEach((ft, i) => {
+    const h = 64 / Math.pow(1.45, i);
+    const bw = 16;
+    const x = X0 + gw * (i + 0.5) - bw / 2;
+    p.p(rbox(x, base - h, bw, h, 3), i === sel ? 'hot' : 'ghost', i === sel);
+    p.p(rbox(x + 3, base - h - 5, bw - 6, 5, 1), i === sel ? 'hot' : 'ghost');
+    p.label(ft, x + bw + 4, base - 4);
+  });
+  p.p(seg(X0, base, X1, base), 'grid');
+  // Sous 16 Hz, le worklet remonte l'oscillateur d'une octave (trois fois au plus)
+  let m = oscMidi(values, o);
+  let up = 0;
+  while (hzOf(m) < 16 && up < 3) {
+    m += 12;
+    up += 1;
+  }
+  p.label(`OSC ${o} ${noteName(Math.round(m))}  ${hzText(hzOf(m))}${up ? '  UP 1 OCT, UNDER 16 HZ' : ''}`, X0, TOP);
+  return valueOf(p, id, values).done();
+}
+
+/** OSC 2 / OSC 3 SEMI : quinze demi-tons autour de la note (noirs et blancs selon la tonique), le cran en plein. */
+function oscSemi(values: BassValues, o: 2 | 3): BassDiagram {
+  const p = new Pic();
+  const id: BassKnobId = o === 2 ? 'o2semi' : 'o3semi';
+  const st = semiSt(values[id]);
+  const t = tonicMidi(values);
+  const cw = (X1 - X0) / 15;
+  for (let i = -7; i <= 7; i += 1) {
+    const pc = (((t + i) % 12) + 12) % 12;
+    const black = [1, 3, 6, 8, 10].includes(pc);
+    const x = X0 + (i + 7) * cw + 1;
+    const on = i === st;
+    p.p(rbox(x, black ? 34 : 42, cw - 2, black ? 34 : 40, 2), on ? 'hot' : i === 0 ? 'main' : black ? 'ghost' : 'grid', on || (black && !on));
+    if (i % 7 === 0 || on) p.label(i > 0 ? `+${i}` : String(i), x + (cw - 2) / 2, 96, 'middle');
+  }
+  p.label('NOTE', X0 + 7 * cw + cw / 2, 30, 'middle');
+  p.label(`${semiName(st)}  ${pcName(t + st)}`, X0, TOP);
+  return valueOf(p, id, values).done();
+}
+
+/** OSC 2 / OSC 3 FINE : les battements avec OSC 1 sur 2 s (l'enveloppe de la somme), a la hauteur jouee. */
+function oscFine(values: BassValues, o: 2 | 3): BassDiagram {
+  const p = new Pic();
+  const id: BassKnobId = o === 2 ? 'o2fine' : 'o3fine';
+  const ct = fineCt(values[id]);
+  const f = hzOf(oscMidi(values, o));
+  const beat = Math.abs(f * (Math.pow(2, ct / 1200) - 1));
+  const span = 2;
+  const cy = 62;
+  p.p(seg(X0, cy, X1, cy), 'grid');
+  p.p(seg(X0, cy - 30, X1, cy - 30), 'ghost');
+  const pts: Pt[] = [];
+  const low: Pt[] = [];
+  for (let k = 0; k <= 96; k += 1) {
+    const tt = (span * k) / 96;
+    const a = Math.abs(Math.cos(Math.PI * beat * tt));
+    pts.push([X0 + ((X1 - X0) * k) / 96, cy - 30 * a]);
+    low.push([X0 + ((X1 - X0) * k) / 96, cy + 30 * a]);
+  }
+  p.p(poly(pts), 'hot').p(poly(low), 'hot');
+  p.label(Math.abs(ct) < 0.5 ? 'IN TUNE: NO BEATING' : `BEATS ${beat < 10 ? beat.toFixed(2) : beat.toFixed(1)} HZ WITH OSC 1`, X0, TOP);
+  p.label('2 S', X0, BOT);
+  return valueOf(p, id, values).done();
+}
+
+/** Le melangeur : OSC 1, OSC 2, OSC 3, NOISE en faders (le reglage montre en plein), leurs dB. */
+function mixer(values: BassValues, hot: BassKnobId): BassDiagram {
+  const p = new Pic();
+  const ids: readonly BassKnobId[] = ['o1lvl', 'o2lvl', 'o3lvl', 'noise'];
+  const names = ['OSC 1', 'OSC 2', 'OSC 3', 'NOISE'];
+  const gw = (X1 - X0) / 4;
+  const y0 = 24;
+  const y1 = 92;
+  ids.forEach((id, i) => {
+    const v = values[id];
+    const cx = X0 + gw * (i + 0.5);
+    const on = id === hot;
+    p.p(rbox(cx - 3, y0, 6, y1 - y0, 3), 'grid');
+    const ly = y1 - (y1 - y0) * v;
+    if (v > 0.002) p.p(rbox(cx - 3, ly, 6, y1 - ly, 3), on ? 'hot' : 'ghost', true);
+    p.p(rbox(cx - 11, ly - 3, 22, 6, 2), on ? 'hot' : 'main', true);
+    p.label(names[i], cx, BOT, 'middle');
+  });
+  const off = ids.filter((id) => values[id] <= 0.001 && id !== 'noise').length;
+  p.label(`MIXER, BEFORE THE FILTER${off ? `  ${off} OFF` : ''}`, X0, TOP);
+  return valueOf(p, hot, values).done();
+}
 
 /**
  * L'ampli (2026-10-08) : une note tenue six pas, la loi du worklet (la montee
@@ -1317,10 +1759,13 @@ function tail(values: BassValues, hot: 'reverb' | 'rsize' | 'rtone'): BassDiagra
   return valueOf(p, hot, values).done();
 }
 
-/** Une touche de page : ses huit blocs, dans l'ordre des encodeurs. */
-function pageGrid(page: BassPageId): BassDiagram {
+/**
+ * Une touche de page, une puce d'onglet : les huit blocs de son ecran, dans l'ordre des encodeurs ; une page a onglets
+ * dit lesquels (2026-10-09, le moteur MONARK).
+ */
+function pageGrid(scr: BassScreenId): BassDiagram {
   const p = new Pic();
-  const ids = BASS_PAGE_SLOTS[page];
+  const ids = BASS_SCREEN_SLOTS[scr];
   const bw = (X1 - X0 - 18) / 4;
   const bh = 34;
   ids.forEach((id, k) => {
@@ -1336,7 +1781,9 @@ function pageGrid(page: BassPageId): BassDiagram {
       p.label(words.slice(1).join(' '), x + 4, y + bh - 6);
     } else p.label(words[0], x + 4, y + bh - 7);
   });
-  p.label(page === 'env' ? 'SCREEN VALUES A TO E, THE ENVELOPE IN F G H' : 'SCREEN VALUES A TO H', X0, TOP);
+  p.label(scr === 'env' ? 'SCREEN VALUES A TO E, THE ENVELOPE IN F G H' : scr === 'contour' ? 'SCREEN VALUES A TO F, THE CONTOUR IN G H' : 'SCREEN VALUES A TO H', X0, TOP);
+  const tabs = PAGE_TABS[SCREEN_PAGE[scr]];
+  if (tabs.length > 1) p.label(`TABS ${tabs.map((s) => (s === scr ? `[${SCREEN_LABEL[s]}]` : SCREEN_LABEL[s])).join(' ')}, PRESS AGAIN: NEXT`, X0, BOT);
   return p.done();
 }
 

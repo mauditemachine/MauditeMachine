@@ -194,9 +194,10 @@ const COPY: readonly KeyCopy[] = [
   { kind: 'noteup', label: 'NOTE +', aria: 'Chosen step one note up in the scale, key Up' },
   { kind: 'octdn', label: 'OCT -', aria: 'Chosen step one octave down, key Z' },
   { kind: 'octup', label: 'OCT +', aria: 'Chosen step one octave up, key X' },
-  // Les pages (2026-10-08, la machine Elektron) : les huit encodeurs reglent la page allumee
-  { kind: 'pvoice', label: 'VOICE', aria: `Page VOICE: ${SETS} the oscillator, the sub and the pitch${PORTRAIT ? '' : ', keys [ and ]'}` },
-  { kind: 'pfilter', label: 'FILTER', aria: `Page FILTER: ${SETS} the 303 filter and the accent` },
+  // Les pages (2026-10-08, la machine Elektron) : les huit encodeurs reglent la page allumee ; le moteur MONARK
+  // (2026-10-09) : VOICE et FILTER ont des onglets, la touche pressee encore passe au suivant
+  { kind: 'pvoice', label: 'VOICE', aria: `Page VOICE: ${SETS} the oscillators, the mixer and the pitch; press again for the next tab, MAIN, OSC, MIX${PORTRAIT ? '' : ', keys [ and ]'}` },
+  { kind: 'pfilter', label: 'FILTER', aria: `Page FILTER: ${SETS} the filter, its mode and its contour; press again for the next tab, MAIN, CONTOUR` },
   { kind: 'penv', label: 'ENV', aria: `Page ENV: ${SETS} the amp envelope, the note length and the volume` },
   { kind: 'pfx', label: 'FX', aria: `Page FX: ${SETS} the drive, the delay and the reverb` },
 ];

@@ -46,16 +46,30 @@
  * - ENV : l'enveloppe de l'ampli en grand sur les cases libres (envGate : la
  *   longueur de la note qui joue, en part du pas) ;
  * - EDIT : la note qu'on glisse au rouleau (drag), son nom.
+ *
+ * Le moteur MONARK (2026-10-09) : l'ecran montre un onglet (screen) de sa
+ * page, ses puces (tabs : MAIN OSC MIX, MAIN CONTOUR, l'onglet allume, les
+ * verrous de chacun) ; des dessins de plus (la forme d'un oscillateur, ses
+ * pieds, un niveau du melangeur, le bruit, la boucle de FEEDBACK, DRIFT, la
+ * reponse de MODE, POLARITY, le contour du filtre) ; le grand dessin du
+ * contour sur CONTOUR G H (contour : F.ATTACK, DECAY, F.SUSTAIN, RELEASE,
+ * son signe, son ampleur, la 303 ou l'echelle) ; un reglage muet le dit
+ * (OSC 2 OFF : son niveau est a 0 ; LADDER ONLY : en MODE 303) ; les
+ * verrous d'une page se comptent sur tous ses onglets.
  */
 
-import { BASS_PAGES, BASS_PAGE_SLOTS, ENC_LETTERS, bassPageDef, isBassGlobal, type BassPageId } from './pages';
-import { BASS_ROOTS, BASS_SCALES, BASS_STYLES, bassBig, bassKnob, bassUnit, lengthPct, stepOf, type BassKnobId, type BassValues } from './params';
+import { BASS_PAGES, BASS_SCREEN_SLOTS, ENC_LETTERS, PAGE_TABS, SCREEN_LABEL, SCREEN_PAGE, bassPageDef, isBassGlobal, pageIds, screenTitle, type BassPageId, type BassScreenId } from './pages';
+import { BASS_ROOTS, BASS_SCALES, BASS_STYLES, bassBig, bassKnob, bassUnit, envOct, lengthPct, modeName, stepOf, type BassKnobId, type BassMode, type BassValues } from './params';
 import { BASS_LOCKABLE, BASS_STEPS, chainLocks, isLockable, type BassLocks, type BassStep } from './state';
 
 export type BlockState = 'empty' | 'live' | 'lockOn' | 'lockOff' | 'global' | 'flash';
 
-/** Le petit dessin d'un bloc. */
-export type BlockDraw = 'bar' | 'center' | 'notch' | 'wave' | 'pulse' | 'lp' | 'peak' | 'decay' | 'adsr' | 'glide' | 'gate' | 'tilt' | 'echo';
+/**
+ * Le petit dessin d'un bloc ; le moteur MONARK (2026-10-09) : osc (un cycle de la forme), feet (les quatre pieds),
+ * level (un fader et ses dB), noise, loop (FEEDBACK : la sortie renvoyee a l'entree), drift (un sinus qui vacille), mode
+ * (la reponse du MODE), pol (le contour vers le haut ou le bas), fadsr (le contour du filtre).
+ */
+export type BlockDraw = 'bar' | 'center' | 'notch' | 'wave' | 'pulse' | 'lp' | 'peak' | 'decay' | 'adsr' | 'glide' | 'gate' | 'tilt' | 'echo' | 'osc' | 'feet' | 'level' | 'noise' | 'loop' | 'drift' | 'mode' | 'pol' | 'fadsr';
 
 export interface BassBlock {
   k: number;
@@ -113,7 +127,18 @@ export interface BassPop {
 
 export interface BassPageModel {
   page: BassPageId;
+  /** l'onglet affiche (2026-10-09) */
+  screen: BassScreenId;
   pages: readonly { id: BassPageId; label: string; locks: number }[];
+  /** les onglets de la page (MAIN OSC MIX...) : leur nom, leurs verrous dans la ligne ; un seul : pas de puces */
+  tabs: readonly { id: BassScreenId; label: string; locks: number }[];
+  /** le MODE du filtre (les dessins du filtre suivent sa reponse) */
+  mode: BassMode;
+  /**
+   * le contour du filtre montre (CONTOUR G H) : F.ATTACK, DECAY, F.SUSTAIN, RELEASE (0 a 1), son signe (POLARITY), son
+   * ampleur en octaves (ENV MOD), la 303 (attaque immediate, sans tenue) ou l'echelle
+   */
+  contour: { a: number; d: number; s: number; r: number; neg: boolean; oct: number; tb: boolean };
   /** le titre de la page (AMP ENV) ; en P-LOCK, plock dit d'ajouter P-LOCKS */
   title: string;
   running: boolean;
@@ -144,6 +169,25 @@ export interface BassPageModel {
 }
 
 const DRAW: Partial<Record<BassKnobId, BlockDraw>> = {
+  // Le moteur MONARK (2026-10-09)
+  o2wave: 'osc',
+  o3wave: 'osc',
+  o2range: 'feet',
+  o3range: 'feet',
+  o2semi: 'center',
+  o3semi: 'center',
+  o2fine: 'center',
+  o3fine: 'center',
+  o1lvl: 'level',
+  o2lvl: 'level',
+  o3lvl: 'level',
+  noise: 'noise',
+  feedback: 'loop',
+  drift: 'drift',
+  fmode: 'mode',
+  fpol: 'pol',
+  fattack: 'fadsr',
+  fsustain: 'fadsr',
   wave: 'wave',
   pw: 'pulse',
   cutoff: 'lp',
@@ -161,20 +205,22 @@ const DRAW: Partial<Record<BassKnobId, BlockDraw>> = {
   rtone: 'tilt',
   dtime: 'echo',
 };
-const SEG: Partial<Record<BassKnobId, number>> = { attack: 0, adecay: 1, sustain: 2, release: 3 };
+const SEG: Partial<Record<BassKnobId, number>> = { attack: 0, adecay: 1, sustain: 2, release: 3, fattack: 0, fsustain: 2 };
 
-export const blockDrawOf = (id: BassKnobId): BlockDraw => DRAW[id] ?? (bassKnob(id).steps ? 'notch' : 'bar');
+/** Le dessin d'un reglage ; sur CONTOUR, DECAY est le segment du contour du filtre. */
+export const blockDrawOf = (id: BassKnobId, screen?: BassScreenId): BlockDraw => (screen === 'contour' && id === 'decay' ? 'fadsr' : DRAW[id] ?? (bassKnob(id).steps ? 'notch' : 'bar'));
+const segOf = (id: BassKnobId, screen?: BassScreenId): number => (screen === 'contour' && id === 'decay' ? 1 : SEG[id] ?? -1);
 
 const two = (i: number): string => String(i + 1).padStart(2, '0');
 
 /** Les verrous qui sonnent au pas i : ceux que le sequenceur envoie au worklet (state.ts chainLocks, la boucle comprise). */
 export const effectiveLocks = (steps: readonly BassStep[], i: number): BassLocks | null => chainLocks(steps, i);
 
-/** Le nombre de pas verrouilles sur une page (au moins un reglage de la page). */
-function pageLockCount(steps: readonly BassStep[], page: BassPageId): number {
-  const ids = BASS_PAGE_SLOTS[page];
+/** Le nombre de pas verrouilles sur des reglages (ceux d'une page : tous ses onglets, 2026-10-09 ; ou d'un onglet). */
+function lockCount(steps: readonly BassStep[], ids: readonly (BassKnobId | null)[]): number {
   return steps.filter((s) => s.locks && ids.some((id) => id !== null && isLockable(id) && s.locks?.[id] !== undefined)).length;
 }
+const pageLockCount = (steps: readonly BassStep[], page: BassPageId): number => lockCount(steps, pageIds(page));
 
 /** La note de reference de KEY TRK (bass.worklet.js KT_REF : fa diese 2) : une note qui la joue ne bouge pas avec lui. */
 const KT_REF_MIDI = 42;
@@ -183,6 +229,8 @@ export interface PageInput {
   steps: readonly BassStep[];
   values: BassValues;
   page: BassPageId;
+  /** l'onglet affiche (2026-10-09) ; absent : le premier de la page */
+  screen?: BassScreenId;
   sel: number;
   lock: number;
   running: boolean;
@@ -216,9 +264,9 @@ function stepWhat(s: BassStep, name: (s: BassStep) => string): string {
   return `${name(s)}${s.acc ? ' ACC' : ''}${s.slide ? ' SLD' : ''}`;
 }
 
-/** La bande des seize pas : la ligne en contour, les verrous de la page. */
+/** La bande des seize pas : la ligne en contour, les verrous de l'onglet affiche. */
 function strip(inp: PageInput, flash: boolean): BassPageModel['strip'] {
-  const ids = BASS_PAGE_SLOTS[inp.page];
+  const ids = BASS_SCREEN_SLOTS[inp.screen ?? inp.page];
   const midis: (number | null)[] = [];
   let last: number | null = null;
   for (const s of inp.steps) {
@@ -243,6 +291,11 @@ function strip(inp: PageInput, flash: boolean): BassPageModel['strip'] {
  */
 function silentHint(id: BassKnobId, v: BassValues, inp: PageInput, step: number): string {
   const steps = inp.steps;
+  // Le moteur MONARK (2026-10-09) : un oscillateur a 0 ne s'entend pas ; le contour du filtre de l'echelle ne joue pas
+  // en MODE 303 (la 303 a son enveloppe, attaque immediate, sans tenue)
+  if (/^o2(wave|range|semi|fine)$/.test(id) && v.o2lvl <= 0.001) return 'OSC 2 OFF';
+  if (/^o3(wave|range|semi|fine)$/.test(id) && v.o3lvl <= 0.001) return 'OSC 3 OFF';
+  if ((id === 'fattack' || id === 'fsustain' || id === 'fpol') && modeName(v.fmode) === '303') return 'LADDER ONLY';
   if (id === 'adecay' && v.sustain >= 0.999) return 'SUSTAIN FULL';
   if (id === 'pw' && v.wave < 0.03) return 'SAW: NO PW';
   if (id === 'accdecay' || id === 'sweep') {
@@ -285,7 +338,8 @@ export function bassPageModel(inp: PageInput): BassPageModel {
     const pv = playLocks && isLockable(id) ? playLocks[id] : undefined;
     return pv !== undefined ? { v: pv, state: 'flash' } : { v: v[id], state: 'live' };
   };
-  const blocks = BASS_PAGE_SLOTS[inp.page].map((id, k): BassBlock => {
+  const screen: BassScreenId = inp.screen ?? PAGE_TABS[inp.page][0];
+  const blocks = BASS_SCREEN_SLOTS[screen].map((id, k): BassBlock => {
     const letter = ENC_LETTERS[k];
     if (id === null) return { k, letter, id: null, label: '', big: '', unit: '', v: 0, state: 'empty', echo: false, held: false, hover: false, mark: false, global: false, hint: '', draw: 'bar', notches: 0, notch: 0, seg: -1 };
     const def = bassKnob(id);
@@ -308,10 +362,10 @@ export function bassPageModel(inp: PageInput): BassPageModel {
       mark: s.state === 'lockOn' || s.state === 'flash',
       global,
       hint: global ? '' : silentHint(id, shownVals, inp, locking ? inp.lock : -1),
-      draw: blockDrawOf(id),
+      draw: blockDrawOf(id, screen),
       notches,
       notch: notches ? stepOf(id, s.v) : 0,
-      seg: SEG[id] ?? -1,
+      seg: segOf(id, screen),
     };
   });
   // L'enveloppe dessinee : celle du pas en LOCK, ou du pas qui joue
@@ -338,10 +392,27 @@ export function bassPageModel(inp: PageInput): BassPageModel {
   // glisser une valeur de l'ecran ; au desktop, les encodeurs de la face sont les FX globaux)
   if (!lock) aside = inp.phone ? 'TAP A STEP: P-LOCK  DRAG A VALUE' : 'TAP A STEP: P-LOCK  DRAG A VALUE  KNOBS = GLOBAL FX';
   const pop = inp.pop ? popOf(inp.pop.k, inp.pop.id, v, inp.bpm) : null;
+  // Le contour du filtre montre (2026-10-09) : celui du pas en P-LOCK, ou du pas qui joue
+  const fOf = (id: 'fattack' | 'decay' | 'fsustain' | 'release' | 'envmod' | 'fpol'): number => (locking ? lockVals[id] ?? v[id] : playLocks?.[id] ?? v[id]);
+  const mode = modeName(v.fmode);
+  const tabIds = PAGE_TABS[inp.page];
   return {
     page: inp.page,
+    screen,
     pages: BASS_PAGES.map((p) => ({ id: p.id, label: p.label, locks: pageLockCount(inp.steps, p.id) })),
-    title: bassPageDef(inp.page).title,
+    // Les puces : en P-LOCK, les verrous du pas sur chaque onglet (ou chercher ce qui est verrouille) ; sinon, comme les
+    // touches de page, les pas qui ont des verrous sur cet onglet
+    tabs:
+      tabIds.length > 1
+        ? tabIds.map((t) => ({
+            id: t,
+            label: SCREEN_LABEL[t],
+            locks: locking ? new Set(BASS_SCREEN_SLOTS[t].filter((id): id is BassKnobId => id !== null && isLockable(id) && lockVals[id] !== undefined)).size : lockCount(inp.steps, BASS_SCREEN_SLOTS[t]),
+          }))
+        : [],
+    mode,
+    contour: { a: fOf('fattack'), d: fOf('decay'), s: fOf('fsustain'), r: fOf('release'), neg: mode !== '303' && fOf('fpol') >= 0.5, oct: envOct(fOf('envmod')), tb: mode === '303' },
+    title: screenTitle(screen),
     running: inp.running,
     bpm: inp.bpm,
     pattern: inp.pattern,
@@ -383,6 +454,9 @@ function popOf(k: number, id: BassKnobId, v: BassValues, bpm: number): BassPop {
   const notches = def.steps ?? 0;
   return { k, letter: ENC_LETTERS[k] ?? '', id, label: def.label, big: bassBig(id, v[id]), unit: bassUnit(id, v[id], bpm), v: v[id], draw: blockDrawOf(id), notches, notch: notches ? stepOf(id, v[id]) : 0 };
 }
+
+/** La page et l'onglet d'un ecran (les puces du telephone). */
+export const screenPageOf = (s: BassScreenId): BassPageId => SCREEN_PAGE[s];
 
 /** La ligne d'un bloc tenu (2026-10-09) : son nom, son nombre et son unite ; en LOCK, le pas d'abord. */
 function heldLine(b: BassBlock, lock: number): string {
@@ -433,6 +507,8 @@ export interface EditInput {
   steps: readonly BassStep[];
   values: BassValues;
   page: BassPageId;
+  /** l'onglet affiche (2026-10-09) : ses verrous font les pistes */
+  screen?: BassScreenId;
   running: boolean;
   playing: number;
   sel: number;
@@ -462,7 +538,8 @@ export function bassEditModel(inp: EditInput): BassEditModel {
     midis.push(s.kind === 'off' ? null : last);
     if (s.kind === 'off') last = null;
   }
-  const ids = BASS_PAGE_SLOTS[inp.page].filter((id): id is BassKnobId => id !== null && isLockable(id));
+  const screen = inp.screen ?? PAGE_TABS[inp.page][0];
+  const ids = BASS_SCREEN_SLOTS[screen].filter((id): id is BassKnobId => id !== null && isLockable(id));
   const all = ids
     .map((id): BassLane => ({ id, label: bassKnob(id).label, base: inp.values[id], cells: inp.steps.map((s) => s.locks?.[id as (typeof BASS_LOCKABLE)[number]] ?? null) }))
     .filter((l) => l.cells.some((c) => c !== null));
@@ -480,7 +557,7 @@ export function bassEditModel(inp: EditInput): BassEditModel {
     running: inp.running,
     bpm: inp.bpm,
     page: inp.page,
-    pageLabel: bassPageDef(inp.page).label,
+    pageLabel: PAGE_TABS[inp.page].length > 1 ? `${bassPageDef(inp.page).label} ${SCREEN_LABEL[screen]}` : bassPageDef(inp.page).label,
     pattern: slotName(inp.cur),
     chain,
     slots: inp.filled.map((filled, i) => ({ filled, cur: i === inp.cur, next: i === inp.next, chain: chainOn ? inp.chain.indexOf(i) : -1 })),

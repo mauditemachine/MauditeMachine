@@ -65,6 +65,8 @@ export const BASS_STEPS = 16;
  * La machine Elektron (2026-10-08, Mika : "on tourne un encodeur sur ce step et donc ce step a une valeur differente") : tout
  * le son de chaque page se verrouille, les crans compris (SUB OCT) ; restent globaux OCTAVE (le pas a son OCT) et les
  * reglages des effets eux-memes (DLY TIME, DLY FB, REV SIZE, REV TONE : une seule unite par effet, comme une Elektron).
+ * Le moteur MONARK (2026-10-09) : les seize reglages de la voix de Minimoog se verrouillent aussi (les oscillateurs, le
+ * melangeur, le contour du filtre) ; MODE et DRIFT restent globaux (une machine a un seul filtre, une seule usure).
  */
 export type BassLockId =
   | 'cutoff'
@@ -89,8 +91,27 @@ export type BassLockId =
   | 'sustain'
   | 'release'
   | 'delay'
-  | 'reverb';
-export const BASS_LOCKABLE: readonly BassLockId[] = ['cutoff', 'reso', 'envmod', 'decay', 'accent', 'wave', 'sub', 'drive', 'glide', 'volume', 'length', 'accdecay', 'sweep', 'keytrack', 'pw', 'suboct', 'tune', 'attack', 'adecay', 'sustain', 'release', 'delay', 'reverb'];
+  | 'reverb'
+  | 'o1lvl'
+  | 'o2wave'
+  | 'o2range'
+  | 'o2semi'
+  | 'o2fine'
+  | 'o2lvl'
+  | 'o3wave'
+  | 'o3range'
+  | 'o3semi'
+  | 'o3fine'
+  | 'o3lvl'
+  | 'noise'
+  | 'feedback'
+  | 'fattack'
+  | 'fsustain'
+  | 'fpol';
+export const BASS_LOCKABLE: readonly BassLockId[] = [
+  'cutoff', 'reso', 'envmod', 'decay', 'accent', 'wave', 'sub', 'drive', 'glide', 'volume', 'length', 'accdecay', 'sweep', 'keytrack', 'pw', 'suboct', 'tune', 'attack', 'adecay', 'sustain', 'release', 'delay', 'reverb',
+  'o1lvl', 'o2wave', 'o2range', 'o2semi', 'o2fine', 'o2lvl', 'o3wave', 'o3range', 'o3semi', 'o3fine', 'o3lvl', 'noise', 'feedback', 'fattack', 'fsustain', 'fpol',
+];
 export const isLockable = (id: string): id is BassLockId => (BASS_LOCKABLE as readonly string[]).includes(id);
 export type BassLocks = Partial<Record<BassLockId, number>>;
 

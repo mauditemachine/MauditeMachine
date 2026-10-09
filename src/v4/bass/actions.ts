@@ -92,7 +92,7 @@ import { bassEngine } from './engine';
 import { generate, isFreeStep, mutate, regenerate, type GenOpts, type RegenOpts } from './gen';
 import type { BassRecipe, BassStep } from './state';
 import { BASS_SCALES, BASS_STYLES, SCALE_TONES, bassKnob, bassParams, bassValueText, stepOf, type BassKnobId } from './params';
-import { BASS_FX_KNOBS, BASS_PAGES, BASS_PAGE_SLOTS, bassFxEncOf, bassPage, bassPageDef, isBassGlobal, type BassPageId } from './pages';
+import { BASS_FX_KNOBS, BASS_PAGES, BASS_SCREEN_SLOTS, PAGE_TABS, SCREEN_LABEL, bassFxEncOf, bassPage, bassPageDef, isBassGlobal, screenTitle, type BassPageId, type BassScreenId } from './pages';
 import { bassPatterns, bassSlotName } from './patterns';
 import { GATE, bassSeq, gateOf, midiOf } from './seq';
 import { BASS_STEPS, bassState, emptyStep, isLockable } from './state';
@@ -715,7 +715,8 @@ export function bassDialReset(id: BassKnobId): void {
     bassState.say(`P-LOCK ${two(st.lock)}  ${bassKnob(id).label} UNLOCKED`, 1400);
     return;
   }
-  bassDial(id, bassParams.def(id));
+  // Le defaut du moteur qui sonne (2026-10-09) : celui de l'echelle, ou celui d'avant en MODE 303
+  bassDial(id, bassParams.reset(id));
 }
 
 /* ---------------- les blocs de l'ecran et le MIDI bass:knob:1 a 8 (la page a l'ecran) ---------------- */
@@ -731,12 +732,20 @@ export const bassEncValue = (k: number): number => {
 
 /** Le grand dessin d'ENV (ses cases F G H) : ce qui le change, les cinq blocs a sa gauche (la revue : E, LENGTH, aussi). */
 export const ENV_PICTURE = 'AMP ENV PICTURE: DRAG A B C D E';
+/** Le grand dessin du contour du filtre (CONTOUR G H, 2026-10-09) : les six blocs a sa gauche le changent. */
+export const CONTOUR_PICTURE = 'CONTOUR PICTURE: DRAG A TO F';
+
+/** Ce que dit une case sans reglage (le grand dessin d'ENV ou de CONTOUR, une case vide). */
+export function bassEmptySay(k: number): void {
+  const s = bassPage.screen();
+  bassState.say(s === 'env' && k >= 5 ? ENV_PICTURE : s === 'contour' && k >= 6 ? CONTOUR_PICTURE : `${'ABCDEFGH'[k] ?? ''}: EMPTY ON ${screenTitle(s)}`, 1200);
+}
 
 /** Le bloc k regle (0 a 1, la valeur voulue) : le reglage de la page, ou son verrou en P-LOCK. */
 export function bassEncDial(k: number, v: number): void {
   const id = bassEncParam(k);
   if (!id) {
-    bassState.say(bassPage.get() === 'env' && k >= 5 ? ENV_PICTURE : `${'ABCDEFGH'[k] ?? ''}: EMPTY ON ${bassPageDef(bassPage.get()).label}`, 1200);
+    bassEmptySay(k);
     return;
   }
   bassDial(id, v);
@@ -769,10 +778,10 @@ export function bassFxDial(k: number, v: number): void {
   bassState.say(`${bassKnob(id).label} ${bassValueText(id, bassParams.of(id))}  GLOBAL`, 1400, { touched });
 }
 
-/** Deux tapes sur un encodeur de la face : sa valeur de depart (globale). */
+/** Deux tapes sur un encodeur de la face : sa valeur de depart (globale, celle du moteur qui sonne). */
 export function bassFxReset(k: number): void {
   const id = bassFxParam(k);
-  if (id) bassFxDial(k, bassParams.def(id));
+  if (id) bassFxDial(k, bassParams.reset(id));
 }
 
 /**
@@ -789,11 +798,46 @@ export function bassPageSet(p: BassPageId): void {
   // La page change : l'echo du dernier reglage tourne s'en va avant (sinon l'ecran le montrerait en plein, hors de la page)
   if (bassState.get().touched) bassState.set({ touched: null });
   bassPage.set(p);
+  sayScreenLocks();
+}
+
+/** En P-LOCK, l'ecran qui s'affiche dit ses verrous sur le pas (ou le geste pour en poser). */
+function sayScreenLocks(): void {
   const st = bassState.get();
   if (st.lock < 0) return;
+  const s = bassPage.screen();
   const locks = st.steps[st.lock]?.locks ?? {};
-  const n = BASS_PAGE_SLOTS[p].filter((id) => id !== null && isLockable(id) && locks[id] !== undefined).length;
-  bassState.say(`P-LOCK ${two(st.lock)}  ${bassPageDef(p).label}: ${n ? `${n} P-LOCK${n > 1 ? 'S' : ''}` : TURN}`, 1400);
+  const n = BASS_SCREEN_SLOTS[s].filter((id) => id !== null && isLockable(id) && locks[id] !== undefined).length;
+  const name = PAGE_TABS[bassPage.get()].length > 1 ? `${bassPageDef(bassPage.get()).label} ${SCREEN_LABEL[s]}` : bassPageDef(bassPage.get()).label;
+  bassState.say(`P-LOCK ${two(st.lock)}  ${name}: ${n ? `${n} P-LOCK${n > 1 ? 'S' : ''}` : TURN}`, 1400);
+}
+
+/**
+ * Une touche de page PRESSEE (2026-10-09, les onglets : la touche 3D, sa jumelle sous l'ecran du telephone, son onglet
+ * de l'en-tete, bass:page:<id>, les touches de page du Roto) : une autre page s'affiche sur son onglet retenu ; la page
+ * allumee pressee encore passe a son onglet suivant (VOICE : MAIN, OSC, MIX ; FILTER : MAIN, CONTOUR), en boucle, comme
+ * les sous-pages d'une Digitakt II. La valeur MIDI bass:page (un flot de CC) passe par bassPageSet, jamais par ici.
+ */
+export function bassPagePress(p: BassPageId): void {
+  gesture();
+  if (presetMode.on('bass')) presetMode.close();
+  const before = bassPage.screen();
+  if (bassState.get().touched) bassState.set({ touched: null });
+  const s = bassPage.press(p);
+  if (s === before) return;
+  // L'onglet nomme un instant quand il change sur la meme page (la puce de l'en-tete le montre aussi)
+  if (bassState.get().lock >= 0) sayScreenLocks();
+  else if (p === bassPage.get() && PAGE_TABS[p].length > 1) bassState.say(`${bassPageDef(p).label}  ${SCREEN_LABEL[s]}: ${screenTitle(s)}`, 1000);
+}
+
+/** Un ecran (une puce de l'en-tete, le MIDI bass:screen:<id>) : sa page s'affiche, sur lui. */
+export function bassScreenSet(s: BassScreenId): void {
+  gesture();
+  if (presetMode.on('bass')) presetMode.close();
+  if (s === bassPage.screen()) return;
+  if (bassState.get().touched) bassState.set({ touched: null });
+  bassPage.setScreen(s);
+  sayScreenLocks();
 }
 
 /** Les touches [ et ] : la page d'a cote (un seul changement, l'echo efface avant). */
@@ -801,6 +845,15 @@ export function bassPageStep(dir: -1 | 1): void {
   const n = BASS_PAGES.length;
   const i = BASS_PAGES.findIndex((x) => x.id === bassPage.get());
   bassPageSet(BASS_PAGES[(((i < 0 ? 0 : i) + dir) % n + n) % n].id);
+}
+
+/** Maj + [ et ] (2026-10-09) : l'onglet d'a cote dans la page, en boucle. */
+export function bassTabStep(dir: -1 | 1): void {
+  gesture();
+  if (bassState.get().touched) bassState.set({ touched: null });
+  const before = bassPage.screen();
+  bassPage.tabStep(dir);
+  if (bassPage.screen() !== before) sayScreenLocks();
 }
 
 /* ---------------- LOCK : les boutons au-dessus des pas ---------------- */

@@ -66,6 +66,14 @@
  *   verre qui ne fait rien (bass-lcd-title) ;
  * - EDIT : le rouleau de l'ecran (bass-roll) ou l'on glisse les notes, pose
  *   ou l'ecran le dessine (syncRoll).
+ *
+ * Les onglets (2026-10-09, le moteur MONARK) : les puces de l'en-tete
+ * (bass-scr-<ecran> : VOICE MAIN, OSC, MIX ; FILTER MAIN, CONTOUR), posees ou
+ * l'ecran les dessine (desktop : sur la ligne du titre, un cadre au survol ;
+ * telephone : dans l'en-tete, toute sa hauteur, 44 px au doigt, a cote de la
+ * pastille de la page qui est son onglet bass-tab-<page>, les autres pages
+ * passent par leurs touches sous l'ecran) ; les LED des touches de page
+ * comptent les verrous de tous les onglets de leur page.
  */
 
 import { BoxGeometry, BufferGeometry, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, Group, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Quaternion, Vector3, type Texture } from 'three';
@@ -91,7 +99,7 @@ import { bassGenLive, bassKnobValue, noteName } from './actions';
 import { BASS_FX_KNOBS } from './pages';
 import { BASS_SLOTS, bassPatterns } from './patterns';
 import { BASS_FACE_KNOBS as BASS_KNOBS, BASS_PLATE_KNOBS, bassKnob, bassParams, type BassKnobId } from './params';
-import { BASS_PAGE_SLOTS, ENC_LETTERS, bassPage, bassSlotOf, type BassPageId } from './pages';
+import { BASS_SCREENS, BASS_SCREEN_SLOTS, ENC_LETTERS, bassPage, pageIds, type BassPageId, type BassScreenId } from './pages';
 import { bassEditModel, bassPageModel, type BassEditModel, type BassPageModel } from './pageView';
 import { BassTweaks } from './tweaks';
 import { bassInfos } from '../state/bassInfos';
@@ -175,6 +183,8 @@ export const bassLcdId = (k: PresetKey): string => `bass-lcd-${k}`;
  * bass-tab-voice a bass-tab-fx, il tourne sa page comme la touche de page dessous (MIDI LEARN : la meme cible).
  */
 export const bassTabId = (p: BassPageId): string => `bass-tab-${p}`;
+/** Une puce d'onglet de l'en-tete (2026-10-09) : bass-scr-voice, osc, mix, filter, contour, env, fx (MIDI LEARN : bass:screen:<ecran>). */
+export const bassScrId = (s: BassScreenId): string => `bass-scr-${s}`;
 
 /* ---------------- le corps ---------------- */
 
@@ -431,6 +441,10 @@ export class BassRig {
    * droite, poses ou l'ecran les dessine (syncHead)
    */
   private tabDefs: HotspotDef[] = [];
+  /** les puces des onglets (2026-10-09) */
+  private chipDefs: HotspotDef[] = [];
+  /** la puce sous la souris (desktop), null : aucune */
+  private hoverChip: BassScreenId | null = null;
   private openDef: HotspotDef | null = null;
   private stillDefs: HotspotDef[] = [];
   /** la pastille P-LOCK 05, la ligne du titre et le rouleau d'EDIT (2026-10-09) : poses ou l'ecran les dessine */
@@ -444,6 +458,8 @@ export class BassRig {
   private rollDrag: { step: number; name: string; lo?: number; hi?: number } | null = null;
   /** un dessin de l'ecran demande (les notifications d'un meme geste n'en font qu'un) */
   private drawQueued = false;
+  /** l'ecran a ete dessine une fois (le message de la migration attend ce moment, 2026-10-09) */
+  private screenUp = false;
   private defs: HotspotDef[];
   private unsubs: (() => void)[] = [];
   private held = new Set<string>();
@@ -700,6 +716,9 @@ export class BassRig {
     const head: HotspotDef[] = [
       ...BASS_PAGE_KEYS.map((k): HotspotDef => ({ id: bassTabId(PAGE_OF[k]), kind: 'basskey', layer: top, shape: 'box', ...area(hr.u0, hr.u0, hr.v0, hr.v1, DJ_BEZEL.h + 0.03), enabled: false, bass: k })),
       ...['l', 'm', 'r'].map((k): HotspotDef => ({ id: `bass-lcd-head-${k}`, kind: 'basslcd', layer: top, shape: 'box', ...area(hr.u0, hr.u0, hr.v0, hr.v1, DJ_BEZEL.h + 0.03), enabled: false })),
+      // Les puces des onglets (2026-10-09) : un peu au-dessus du verre (elles passent avant la ligne du titre), posees ou
+      // l'ecran les dessine (syncHead)
+      ...BASS_SCREENS.map((s): HotspotDef => ({ id: bassScrId(s), kind: 'basskey', layer: top, shape: 'box', ...area(hr.u0, hr.u0, hr.v0, hr.v1, DJ_BEZEL.h + 0.06), enabled: false, bass: `screen:${s}` })),
     ];
     // La plaque sous le capot : ses potards, vivants capot ouvert (syncHood)
     const all = [...out, iKey, plock, ...blocks, ...lcd, ...head, title, roll, glass, glassEdit, ...this.tweaks.hotspots()].map((d) => ({ ...d, machine: 'bass' as const }));
@@ -708,6 +727,7 @@ export class BassRig {
     this.titleDef = all.find((d) => d.id === 'bass-lcd-title') ?? null;
     this.lcdDefs = all.filter((d) => d.kind === 'basslcd' && d !== this.plockDef && d !== this.rollDef && d !== this.titleDef);
     this.tabDefs = all.filter((d) => d.id.startsWith('bass-tab-'));
+    this.chipDefs = all.filter((d) => d.id.startsWith('bass-scr-'));
     this.openDef = all.find((d) => d.id === bassLcdId('open')) ?? null;
     this.stillDefs = all.filter((d) => d.id.startsWith('bass-lcd-head-'));
     this.iDef = all.find((d) => d.id === BASS_I_ID) ?? null;
@@ -829,6 +849,28 @@ export class BassRig {
     for (const d of this.tabDefs) put(d, hz.tabs.find((t) => bassTabId(t.id) === d.id));
     if (this.openDef) put(this.openDef, hz.open);
     this.stillDefs.forEach((d, i) => put(d, hz.still[i]));
+    // Les puces des onglets (2026-10-09) : leur rectangle entier (desktop : la ligne du titre ; telephone : l'en-tete)
+    for (const d of this.chipDefs) {
+      const c = hz.chips.find((t) => bassScrId(t.id) === d.id);
+      const live = !on && !!c && editor.get() !== 'bass';
+      if (c) {
+        const x = S.x - S.w / 2 + ((c.u0 + c.u1) / 2) * S.w;
+        const z = S.z - S.d / 2 + ((c.v0 + c.v1) / 2) * S.d;
+        const hx = ((c.u1 - c.u0) / 2) * S.w;
+        const hzz = ((c.v1 - c.v0) / 2) * S.d;
+        if (Math.abs(d.x - x) > 1e-4 || Math.abs(d.z - z) > 1e-4 || Math.abs(d.hx - hx) > 1e-4 || Math.abs(d.hz - hzz) > 1e-4) {
+          d.x = x;
+          d.z = z;
+          d.hx = hx;
+          d.hz = hzz;
+          changed = true;
+        }
+      }
+      if (d.enabled !== live) {
+        d.enabled = live;
+        changed = true;
+      }
+    }
     return changed;
   }
 
@@ -887,6 +929,7 @@ export class BassRig {
     const editing = editor.get() === 'bass';
     const page = bassPage.get();
     const lockLocks = s.lock >= 0 ? s.steps[s.lock]?.locks : undefined;
+    // Les verrous du pas sur tous les onglets d'une page (2026-10-09)
     BASS_KEYS.forEach((k, i) => {
       const held = this.held.has(bassKeyId(k.kind));
       if (k.kind === 'run') {
@@ -896,7 +939,7 @@ export class BassRig {
       // Les pages (2026-10-08) : la LED de la page allumee ; en LOCK, a demi celles qui portent un verrou sur le pas
       if (isPageKey(k.kind)) {
         const p = PAGE_OF[k.kind];
-        const has = !!lockLocks && BASS_PAGE_SLOTS[p].some((id) => id !== null && isLockable(id) && (lockLocks as Record<string, number>)[id] !== undefined);
+        const has = !!lockLocks && pageIds(p).some((id) => isLockable(id) && (lockLocks as Record<string, number>)[id] !== undefined);
         set(this.keyEm, i, held || p === page ? DJ_GLOW.orange : has ? scale(DJ_GLOW.orange, 0.32) : DJ_GLOW.dim);
         return;
       }
@@ -982,8 +1025,13 @@ export class BassRig {
     const bpm = pattern.get().bpm;
     const infos = bassInfos.isOn();
     const pv = presetMode.view('bass');
-    if (pv) return { view: 'presets', p: pv };
+    // Un preset garde avant le moteur MONARK (2026-10-09) : l'ecran des presets le dit (SAVED IN 303 MODE)
+    if (pv) {
+      const note = presets.bassNote();
+      return note ? { view: 'presets', p: pv, note } : { view: 'presets', p: pv };
+    }
     const page = bassPage.get();
+    const screen = bassPage.screen();
     const p = bassPatterns.get();
     // L'echo (1.2 s) : sur la page, son bloc se cerne ; hors de la page, l'ecran entier un instant ; un encodeur de la
     // face (2026-10-09, les FX globaux) : sa bulle par-dessus la page, qui reste
@@ -1005,6 +1053,7 @@ export class BassRig {
         steps: s.steps,
         values,
         page,
+        screen,
         running: s.running,
         playing: this.stepAt,
         sel: s.sel,
@@ -1027,8 +1076,9 @@ export class BassRig {
     let echo: BassKnobId | null = null;
     let pop: { k: number; id: BassKnobId } | null = null;
     if (t && fresh) {
-      // Sur la page allumee (VOLUME est sur VOICE et sur FX, la revue du 2026-10-09) : son bloc se cerne
-      const at = BASS_PAGE_SLOTS[page].includes(t.id) ? { page } : bassSlotOf(t.id);
+      // Sur l'onglet allume (VOLUME est sur VOICE et sur FX, la revue du 2026-10-09 ; DECAY, ENV MOD, SUB, DRIVE sur deux
+      // onglets) : son bloc se cerne ; ailleurs l'echo plein ecran
+      const at = BASS_SCREEN_SLOTS[screen].includes(t.id) ? { page } : null;
       // La bulle d'un encodeur de la face : au desktop seulement (la revue : au telephone, sans encodeurs, le MIDI
       // bass:global:<id> nommait un KNOB A qui n'y est pas ; l'echo d'un reglage, comme un autre)
       if (t.enc !== undefined && t.enc >= 0 && !PORTRAIT) pop = { k: t.enc, id: t.id };
@@ -1057,6 +1107,7 @@ export class BassRig {
       steps: s.steps,
       values,
       page,
+      screen,
       sel: s.sel,
       lock: s.lock,
       running: s.running,
@@ -1074,7 +1125,7 @@ export class BassRig {
       pop,
       phone: PORTRAIT,
     });
-    return { view: 'page', m };
+    return { view: 'page', m, hoverTab: this.hoverChip };
   }
 
   private drawScreen(): boolean {
@@ -1082,6 +1133,12 @@ export class BassRig {
     const sv = this.screenView();
     this.shown = sv;
     const drawn = this.screen.draw(sv);
+    // L'ecran existe pour de bon (2026-10-09, la revue : le message de la migration du son d'avant passait pendant le
+    // chargement de la scene) : state/presets.ts peut le dire, au premier coup d'oeil sur le MM-BASS
+    if (drawn && !this.screenUp) {
+      this.screenUp = true;
+      presets.bassScreenUp();
+    }
     // Les zones de l'en-tete (la pastille P-LOCK, au telephone les onglets) et le rouleau d'EDIT suivent ce qui vient
     // d'etre dessine (2026-10-09)
     if (drawn) {
@@ -1294,6 +1351,13 @@ export class BassRig {
     const k = m ? Number(m[1]) - 1 : -1;
     if (k !== this.hoverBlock) {
       this.hoverBlock = k;
+      this.queueDraw();
+    }
+    // Une puce d'onglet survolee (2026-10-09, desktop) : un cadre a peine
+    const c = id ? /^bass-scr-([a-z]+)$/.exec(id) : null;
+    const chip = c && (BASS_SCREENS as readonly string[]).includes(c[1]) ? (c[1] as BassScreenId) : null;
+    if (chip !== this.hoverChip) {
+      this.hoverChip = chip;
       this.queueDraw();
     }
     if (id !== BASS_ROLL_ID && this.hoverRoll >= 0) {

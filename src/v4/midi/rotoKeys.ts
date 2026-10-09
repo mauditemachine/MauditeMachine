@@ -586,4 +586,13 @@ export const ROTO_KEYS: readonly RotoKey[] = [
   ['RSEQ', 15, 9, 'rytm:page:env'],
   ['RSEQ', 15, 85, 'rytm:mute'],
   ['RSEQ', 15, 86, 'rytm:solo'],
+  // 2026-10-09 (le moteur MONARK) : BASS (setup 15), potards canal 5, page 4 : le melangeur et le contour du Minimoog
+  ['BASS', 5, 108, 'bass:knob:o2lvl'],
+  ['BASS', 5, 109, 'bass:knob:o3lvl'],
+  ['BASS', 5, 110, 'bass:knob:o2fine'],
+  ['BASS', 5, 111, 'bass:knob:noise'],
+  ['BASS', 5, 112, 'bass:knob:feedback'],
+  ['BASS', 5, 113, 'bass:knob:fattack'],
+  ['BASS', 5, 114, 'bass:knob:fsustain'],
+  ['BASS', 5, 115, 'bass:knob:fmode'],
 ];
