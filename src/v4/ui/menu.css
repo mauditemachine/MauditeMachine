@@ -41,7 +41,10 @@
   --look-s: 0.92;
 }
 
-.v4-root .v4-look:focus-visible {
+/* (0,4,0) : passe devant .v4-root .v4-mmenu button:focus-visible de v4.css (0,3,1), qui
+   ramenait l'ecart a 2 px (revue du 2026-10-09) */
+.v4-root .v4-look:focus-visible,
+.v4-root .v4-mmenu .v4-look:focus-visible {
   outline: 2px solid var(--yellow);
   outline-offset: 3px;
 }
@@ -51,11 +54,13 @@
   inset: 0;
   border-radius: inherit;
   overflow: hidden;
-  background: linear-gradient(180deg, #040403 0%, #17160f 100%);
+  /* Sombre : la piste un peu soulevee du fond (#0c0b09) et cerclee d'os, la pilule se lit d'un
+     coup d'oeil au telephone (revue du 2026-10-09 : a 12 %, son bord se perdait dans la page) */
+  background: linear-gradient(180deg, #0b0a08 0%, #221f18 100%);
   box-shadow:
-    inset 0 2px 5px rgba(0, 0, 0, 0.75),
-    inset 0 0 0 1px rgba(246, 241, 231, 0.12),
-    0 1px 0 rgba(246, 241, 231, 0.06);
+    inset 0 2px 5px rgba(0, 0, 0, 0.7),
+    inset 0 0 0 1px rgba(246, 241, 231, 0.3),
+    0 1px 0 rgba(246, 241, 231, 0.1);
   transition: box-shadow 260ms ease;
 }
 
@@ -386,48 +391,73 @@
   gap: 28px;
 }
 
-/* Le mot de Mika sur toute la largeur de droite : la bio a gauche, le mot signe a droite */
+/* Des 1200 px, trois colonnes : les pages ; la bio puis le hoodie ; le mot
+   signe puis Under the hood, Follow et le pied. Chaque colonne de droite
+   s'empile sans trou (revue du 2026-10-09 : la bio finissait 105 px avant le
+   hoodie, le mot etait 14 px a gauche de Under the hood). Le bloc du mot
+   (.v4-mm-about) se defait (display: contents) : son titre, la bio et le mot
+   sont des cases de la grille, le mot dans la colonne de Under the hood.
+   Les rangees : 1 l'interrupteur et le titre ; 2 la bio (sa hauteur) ; 3 ce
+   qui manque au mot ou au hoodie (le mot et le hoodie la chevauchent, le
+   plus long des deux la fixe) ; 4 le cote ; 5 (0fr) : les pages, plus hautes
+   que tout le reste, ne grandissent qu'elle (une case qui traverse une piste
+   fr ne pousse que celle-ci), jamais les rangees du haut. Les ecarts sont
+   des marges (row-gap 0) : bio et mot, 28 px dessous. */
 @media (min-width: 1200px) {
   .v4-mmenu[data-variant='desk'] {
     grid-template-columns: minmax(0, 1.3fr) minmax(300px, 1fr) minmax(290px, 0.92fr);
     grid-template-areas:
-      'look  about   about'
-      'pages about   about'
-      'pages feature side';
-    grid-template-rows: auto auto auto;
+      'look  kicker  kicker'
+      'pages bio     word'
+      'pages feature word'
+      'pages feature side'
+      'pages .       .';
+    grid-template-rows: auto auto auto auto 0fr;
+    row-gap: 0;
     align-content: start;
     align-content: safe center;
     column-gap: clamp(32px, 3.6vw, 64px);
   }
 
-  .v4-mmenu[data-variant='desk'] .v4-mm-about {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-areas:
-      'kicker kicker'
-      'bio    word';
-    column-gap: clamp(32px, 3.6vw, 64px);
+  .v4-mmenu[data-variant='desk'] .v4-mm-pages {
+    margin-top: 28px;
   }
 
+  .v4-mmenu[data-variant='desk'] .v4-mm-about {
+    display: contents;
+  }
+
+  /* Le bloc defait n'a plus de boite : ses cases arrivent elles-memes (--i herite du bloc) */
+  .v4-mmenu[data-variant='desk'] .v4-mm-about > * {
+    animation: v4-mm-row 320ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation-delay: calc(var(--i, 0) * 35ms + 40ms);
+  }
+
+  /* Le titre a hauteur de l'interrupteur */
   .v4-mmenu[data-variant='desk'] .v4-mm-about > .v4-mm-kicker {
     grid-area: kicker;
+    align-self: center;
+    margin: 0;
   }
 
   /* La bio en chapeau : sa colonne descend a peu pres comme celle du mot */
   .v4-mmenu[data-variant='desk'] .v4-mm-bio {
     grid-area: bio;
+    align-self: start;
+    margin: 14px 0 28px;
     font-size: 18px;
     line-height: 1.5;
+  }
+
+  .v4-mmenu[data-variant='desk'] .v4-mm-word {
+    grid-area: word;
+    align-self: start;
+    margin: 14px 0 28px;
   }
 
   /* Le hoodie un peu moins haut : tout le menu tient dans 1440 x 900 */
   .v4-mmenu[data-variant='desk'] .v4-hoodie-stage {
     aspect-ratio: 4 / 3;
-  }
-
-  .v4-mmenu[data-variant='desk'] .v4-mm-word {
-    grid-area: word;
-    margin-top: 0;
   }
 
   /* Trois colonnes : les titres des pages un peu moins grands (MIXTAPES tient avec sa fleche) */
@@ -461,7 +491,10 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 22px 44px -24px rgba(67, 67, 67, 0.55);
 }
 
-.v4-root .v4-hoodie :focus-visible {
+/* L'anneau de focus a l'encre sur le jaune ; (0,4,0) dans le menu : la regle jaune des boutons du
+   menu (v4.css, 0,3,1) le rendait invisible sur l'encart jaune (revue du 2026-10-09) */
+.v4-root .v4-hoodie :focus-visible,
+.v4-root .v4-mmenu .v4-hoodie :focus-visible {
   outline: 2px solid var(--hz-ink);
   outline-offset: 2px;
 }
@@ -590,6 +623,16 @@
   filter: drop-shadow(0 10px 12px rgba(70, 42, 0, 0.18)) brightness(0.93);
 }
 
+/* Une seule vue active (l'autre retiree dans l'admin) : au centre, rien a retourner */
+.v4-hoodie-pic[data-slot='solo'] {
+  z-index: 3;
+  transform: translateX(-50%);
+}
+
+.v4-hoodie-stage[data-solo='1'] {
+  cursor: default;
+}
+
 @media (hover: hover) {
   .v4-hoodie-stage:hover .v4-hoodie-pic[data-slot='side'] {
     transform: translateX(-104%) scale(0.82) rotate(-2deg);
@@ -696,6 +739,23 @@
   text-transform: uppercase;
 }
 
+/* Le menu : les tailles en texte (S · M · L · XL), sans cases : elles se choisissent dans MERCH */
+.v4-hoodie-sizelist {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--hz-ink);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.06em;
+}
+
+.v4-hoodie-dot {
+  color: var(--hz-ink-70);
+  font-weight: 400;
+}
+
 .v4-hoodie-chips {
   display: flex;
   flex-wrap: wrap;
@@ -789,6 +849,11 @@
   transition: transform 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
+/* Le prix sur ORDER : seulement dans la tete compacte du telephone (plus bas) */
+.v4-hoodie-cta-price {
+  display: none;
+}
+
 @media (hover: hover) {
   .v4-root .v4-hoodie-cta:hover {
     background: #22201a;
@@ -812,6 +877,140 @@
   margin: 4px 0 22px;
 }
 
+/* ---------- MERCH au telephone : la tete compacte ---------- */
+
+/* La feuille de MERCH ne fait que 45 % de l'ecran (318 px de contenu a
+   390 x 844) : l'encart en hauteur (483 px) n'y montrait que le haut de la
+   photo, jamais photo, taille et ORDER ensemble (revue du 2026-10-09). Au
+   telephone, la photo a gauche (une vignette sur le jaune), a droite HOODIE
+   et FRONT / BACK, le titre, les tailles ; ORDER dessous sur toute la
+   largeur, le prix dessus. Le corps de l'encart se defait (display:
+   contents) : ses lignes sont des cases de la grille de l'encart. Environ
+   240 px : tout tient sous le titre de la section. */
+@media (max-width: 767px) {
+  .v4-hoodie[data-variant='merch'] {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 190px;
+    grid-template-rows: auto auto 1fr auto;
+    grid-template-areas:
+      'stage head'
+      'stage title'
+      'stage pick'
+      'cta   cta';
+    column-gap: 12px;
+    padding-right: 12px;
+  }
+
+  .v4-hoodie[data-variant='merch'] .v4-hoodie-body {
+    display: contents;
+  }
+
+  .v4-hoodie[data-variant='merch'] .v4-hoodie-stage {
+    grid-area: stage;
+    aspect-ratio: auto;
+    min-height: 0;
+    margin: 8px 0 0 8px;
+    border-radius: 14px;
+  }
+
+  /* Le prix passe sur ORDER : la vignette garde NEW DROP */
+  .v4-hoodie[data-variant='merch'] .v4-hoodie-price {
+    display: none;
+  }
+
+  .v4-hoodie[data-variant='merch'] .v4-hoodie-kicker {
+    top: 12px;
+    left: 12px;
+    gap: 7px;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+  }
+
+  /* Les deux vues dans une vignette plus haute que large */
+  .v4-hoodie[data-variant='merch'] .v4-hoodie-pic {
+    bottom: 5%;
+    height: 77%;
+  }
+
+  .v4-hoodie[data-variant='merch'] .v4-hoodie-pic[data-slot='main'] {
+    transform: translateX(-36%);
+  }
+
+  .v4-hoodie[data-variant='merch'] .v4-hoodie-pic[data-slot='side'] {
+    transform: translateX(-92%) scale(0.78);
+  }
+
+  .v4-hoodie[data-variant='merch'] .v4-hoodie-head {
+    grid-area: head;
+    gap: 8px;
+    margin: 12px 0 0;
+  }
+
+  .v4-root .v4-hoodie[data-variant='merch'] .v4-hoodie-face {
+    padding: 0 8px;
+  }
+
+  .v4-root .v4-hoodie[data-variant='merch'] .v4-hoodie-title {
+    grid-area: title;
+    margin-top: 10px;
+  }
+
+  .v4-hoodie[data-variant='merch'] .v4-hoodie-line {
+    font-size: 19px;
+  }
+
+  .v4-hoodie[data-variant='merch'] .v4-hoodie-pick {
+    grid-area: pick;
+    align-content: start;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .v4-hoodie[data-variant='merch'] .v4-hoodie-pick > .v4-hoodie-sizes-label {
+    flex-basis: 100%;
+  }
+
+  .v4-hoodie[data-variant='merch'] .v4-hoodie-chips {
+    gap: 4px;
+  }
+
+  .v4-root .v4-hoodie[data-variant='merch'] button.v4-hoodie-chip {
+    min-width: 44px;
+    padding: 0;
+  }
+
+  /* ORDER sans taille : la demande prend la place de ALL SIZES (la hauteur ne bouge pas) */
+  .v4-hoodie[data-variant='merch'] .v4-hoodie-pick[data-ask='1'] > .v4-hoodie-sizes-label {
+    display: none;
+  }
+
+  .v4-hoodie[data-variant='merch'] .v4-hoodie-pick .v4-hoodie-hint {
+    order: -1;
+    min-height: 0;
+    font-size: 12px;
+    line-height: 11px;
+  }
+
+  .v4-root .v4-hoodie[data-variant='merch'] .v4-hoodie-cta,
+  .v4-hoodie[data-variant='merch'] .v4-merch-sold-line {
+    grid-area: cta;
+    width: auto;
+    margin: 12px 0 12px 12px;
+  }
+
+  .v4-root .v4-hoodie[data-variant='merch'] .v4-hoodie-cta {
+    justify-content: flex-start;
+    height: 48px;
+  }
+
+  .v4-hoodie[data-variant='merch'] .v4-hoodie-cta-price {
+    display: block;
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.06em;
+  }
+}
+
 /* ---------- mouvement reduit ---------- */
 
 .v4-root[data-v4-motion='reduced'] .v4-look *,
@@ -819,6 +1018,7 @@
 .v4-root[data-v4-motion='reduced'] .v4-look-knob::before,
 .v4-root[data-v4-motion='reduced'] .v4-mm-look,
 .v4-root[data-v4-motion='reduced'] .v4-mm-about,
+.v4-root[data-v4-motion='reduced'] .v4-mm-about > *,
 .v4-root[data-v4-motion='reduced'] .v4-mm-feature,
 .v4-root[data-v4-motion='reduced'] .v4-hoodie * {
   animation: none;
@@ -831,6 +1031,7 @@
   .v4-look-knob::before,
   .v4-mm-look,
   .v4-mm-about,
+  .v4-mm-about > *,
   .v4-mm-feature,
   .v4-hoodie * {
     animation: none;

@@ -58,6 +58,22 @@ const BANDCAMP = SOCIALS.find((x) => x.id === 'bandcamp');
 /** Le store.json du hoodie se lit quand la page respire, pour que l'encart soit la a la premiere ouverture. */
 const PREFETCH_MS = 2500;
 
+/**
+ * Ses deux photos (47 Ko chacune) aussi, dans le meme temps calme, en basse priorite : sans elles, la
+ * premiere ouverture montrait un moment l'encart jaune vide (revue du 2026-10-09). Pas en economie de
+ * donnees ; les <img> du menu (loading=lazy) les trouvent ensuite dans le cache.
+ */
+function warmPhotos(srcs: readonly string[]): void {
+  const c = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+  if (c?.saveData) return;
+  for (const src of srcs) {
+    const img = new Image();
+    img.decoding = 'async';
+    img.setAttribute('fetchpriority', 'low');
+    img.src = src;
+  }
+}
+
 const Icon: React.FC<{ name: string }> = ({ name }) => <i className={`${name} v4-fa`} aria-hidden="true" />;
 
 interface Props {
@@ -76,7 +92,15 @@ export const MenuSheet: React.FC<Props> = ({ getStage, open, onClose, variant })
   const [seen, setSeen] = useState(open);
   if (open && !seen) setSeen(true);
   const [load, setLoad] = useState(false);
-  const featured = useFeaturedMerch(load || seen);
+  // Relue a chaque ouverture tant qu'elle manque (une lecture ratee ne cache plus l'encart pour la visite)
+  const featured = useFeaturedMerch(load || seen, open);
+  const warmed = useRef(false);
+
+  useEffect(() => {
+    if (!featured || warmed.current) return;
+    warmed.current = true;
+    if (!seen) warmPhotos(featured.views.map((v) => v.src));
+  }, [featured, seen]);
 
   useEffect(() => {
     const ric = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;

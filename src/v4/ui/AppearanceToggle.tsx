@@ -37,15 +37,23 @@ export const AppearanceToggle: React.FC = () => {
   // La position du bouton : en avance sur l'apparence pendant le ressort
   const [shown, setShown] = useState<Appearance>(look);
   const timer = useRef<number | null>(null);
+  /** l'apparence promise par le ressort en cours */
+  const pending = useRef<Appearance | null>(null);
 
   // L'apparence changee ailleurs (ou celle du ressort, arrivee) : le bouton la suit
   useEffect(() => {
     if (timer.current === null) setShown(look);
   }, [look]);
 
+  // Demonte pendant le ressort (le menu passe de Header a MobileHeader, telephone tourne) : le
+  // changement part tout de suite au lieu de se perdre (revue du 2026-10-09)
   useEffect(
     () => () => {
-      if (timer.current !== null) window.clearTimeout(timer.current);
+      if (timer.current === null) return;
+      window.clearTimeout(timer.current);
+      timer.current = null;
+      if (pending.current) appearance.set(pending.current);
+      pending.current = null;
     },
     []
   );
@@ -55,12 +63,15 @@ export const AppearanceToggle: React.FC = () => {
     setShown(next);
     if (timer.current !== null) window.clearTimeout(timer.current);
     timer.current = null;
+    pending.current = null;
     if (reduced) {
       appearance.set(next);
       return;
     }
+    pending.current = next;
     timer.current = window.setTimeout(() => {
       timer.current = null;
+      pending.current = null;
       appearance.set(next);
     }, SETTLE_MS);
   };

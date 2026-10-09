@@ -383,8 +383,12 @@ let merchPromise: Promise<MerchProduct[]> | null = null;
 /** Une lecture par page (cache) ; un echec rend [] et laisse le prochain montage reessayer. */
 export function fetchMerch(): Promise<MerchProduct[]> {
   if (!merchPromise) {
+    // Une reponse en erreur (404, 500) est un echec comme le reseau coupe : le cache se vide, on relira
     const p: Promise<MerchProduct[]> = fetch('/store.json', { cache: 'no-cache' })
-      .then((r) => (r.ok ? r.json() : []))
+      .then((r) => {
+        if (!r.ok) throw new Error(`store.json ${r.status}`);
+        return r.json();
+      })
       .then(groupMerch, () => {
         if (merchPromise === p) merchPromise = null;
         return [];

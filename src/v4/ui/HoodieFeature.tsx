@@ -13,7 +13,8 @@
  * gauche ; un toucher sur la scene (ou FRONT / BACK, pour le clavier et les
  * lecteurs d'ecran) les fait passer l'un devant l'autre avec un petit
  * ressort. Les deux restent visibles : on voit d'un coup d'oeil qu'il y a
- * un devant et un dos. Les photos (public/images/Merch_Hoodie-WAMM-*.webp,
+ * un devant et un dos (une seule vue active dans l'admin : une seule photo,
+ * sans FRONT / BACK). Au telephone, la tete de MERCH est compacte (menu.css). Les photos (public/images/Merch_Hoodie-WAMM-*.webp,
  * detourees, fond transparent) n'arrivent qu'avec seen (menu ouvert une
  * fois, section MERCH ouverte une fois). Le produit vient de
  * public/store.json (prix, tailles, stock) : rien d'ecrit en dur ici que
@@ -29,12 +30,17 @@ import './menu.css';
 /**
  * Le produit mis en avant, lu dans public/store.json (une lecture par page,
  * data.ts fetchMerch) : undefined en attendant, null s'il n'y est pas ou
- * plus (retire ou inactif dans l'admin, lecture en echec).
+ * plus (retire ou inactif dans l'admin, lecture en echec). retry : une
+ * valeur qui change (le menu qui s'ouvre) ; tant que le produit n'est pas
+ * la, chaque changement relit (revue du 2026-10-09 : une lecture ratee
+ * laissait l'encart absent toute la visite). Une lecture reussie reste en
+ * cache : relire ne coute rien.
  */
-export function useFeaturedMerch(load: boolean): MerchProduct | null | undefined {
+export function useFeaturedMerch(load: boolean, retry?: unknown): MerchProduct | null | undefined {
   const [product, setProduct] = useState<MerchProduct | null | undefined>(undefined);
+  const found = !!product;
   useEffect(() => {
-    if (!load) return undefined;
+    if (!load || found) return undefined;
     let alive = true;
     fetchMerch().then((list) => {
       if (alive) setProduct(list.find((p) => p.id === FEATURED_MERCH.id) ?? null);
@@ -42,7 +48,7 @@ export function useFeaturedMerch(load: boolean): MerchProduct | null | undefined
     return () => {
       alive = false;
     };
-  }, [load]);
+  }, [load, retry, found]);
   return product;
 }
 
@@ -69,7 +75,8 @@ interface Props {
 
 export const HoodieFeature: React.FC<Props> = ({ product, seen, variant, tab = 0, onShop }) => {
   const front: MerchView = product.views.find((v) => v.label === 'Front') ?? product.views[0];
-  const back: MerchView = product.views.find((v) => v.label === 'Back') ?? product.views[1] ?? front;
+  // Une seule vue active dans l'admin : une seule photo, sans FRONT / BACK (revue du 2026-10-09)
+  const back: MerchView | null = product.views.find((v) => v.label === 'Back' && v !== front) ?? product.views.find((v) => v !== front) ?? null;
   // Le dos devant d'abord : c'est lui qui porte WE ARE MUSIC MAKERS
   const [face, setFace] = useState<Face>('Back');
   const [size, setSize] = useState<string | null>(null);
@@ -82,6 +89,8 @@ export const HoodieFeature: React.FC<Props> = ({ product, seen, variant, tab = 0
   const titleId = `v4-hoodie-${variant}-title`;
   const Title = variant === 'merch' ? 'h3' : 'p';
   const turn = (): void => setFace((f) => (f === 'Back' ? 'Front' : 'Back'));
+  /** Le texte alternatif de la vue montree (pas de la place qu'elle occupe) */
+  const altOf = (v: MerchView): string => FEATURED_MERCH.alt[v.label] ?? v.alt;
 
   const order = (): void => {
     if (sizes.length > 0 && size === null) {
@@ -92,13 +101,13 @@ export const HoodieFeature: React.FC<Props> = ({ product, seen, variant, tab = 0
     openContact('merch', d.subject, d.message);
   };
 
-  const pic = (v: MerchView, f: Face): React.ReactNode => (
+  const pic = (v: MerchView, f: Face | null): React.ReactNode => (
     <img
-      key={f}
+      key={f ?? 'solo'}
       className="v4-hoodie-pic"
-      data-slot={face === f ? 'main' : 'side'}
+      data-slot={f === null ? 'solo' : face === f ? 'main' : 'side'}
       src={v.src}
-      alt={FEATURED_MERCH.alt[f] ?? v.alt}
+      alt={altOf(v)}
       width={FEATURED_MERCH.w}
       height={FEATURED_MERCH.h}
       loading="lazy"
@@ -110,19 +119,22 @@ export const HoodieFeature: React.FC<Props> = ({ product, seen, variant, tab = 0
   return (
     <article className="v4-hoodie" data-variant={variant} data-out={product.available ? '0' : '1'} aria-labelledby={titleId}>
       {/* La scene : un toucher retourne le hoodie (FRONT / BACK font de meme au clavier) */}
-      <div className="v4-hoodie-stage" data-face={face} onClick={turn}>
+      <div className="v4-hoodie-stage" data-face={face} data-solo={back ? '0' : '1'} onClick={back ? turn : undefined}>
         <AMark className="v4-hoodie-mark" />
         <p className="v4-hoodie-kicker">
           <i className="v4-hoodie-led" aria-hidden="true" />
           {FEATURED_MERCH.kicker}
         </p>
         <p className="v4-hoodie-price">{product.available ? product.price : 'Sold out'}</p>
-        {seen && (
-          <>
-            {pic(front, 'Front')}
-            {pic(back, 'Back')}
-          </>
-        )}
+        {seen &&
+          (back ? (
+            <>
+              {pic(front, 'Front')}
+              {pic(back, 'Back')}
+            </>
+          ) : (
+            pic(front, null)
+          ))}
       </div>
 
       <div className="v4-hoodie-body">
@@ -131,27 +143,36 @@ export const HoodieFeature: React.FC<Props> = ({ product, seen, variant, tab = 0
           <span className="v4-hoodie-name" aria-hidden="true">
             {FEATURED_MERCH.name}
           </span>
-          <div className="v4-hoodie-faces" role="group" aria-label="Hoodie views">
-            {FACES.map((f) => (
-              <button key={f} type="button" className="v4-hoodie-face" aria-pressed={face === f} tabIndex={tab} onClick={() => setFace(f)}>
-                {f}
-              </button>
-            ))}
-          </div>
+          {back && (
+            <div className="v4-hoodie-faces" role="group" aria-label="Hoodie views">
+              {FACES.map((f) => (
+                <button key={f} type="button" className="v4-hoodie-face" aria-pressed={face === f} tabIndex={tab} onClick={() => setFace(f)}>
+                  {f}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         <Title className="v4-hoodie-title" id={titleId}>
           <span className="v4-sr">{FEATURED_MERCH.name} </span>
           <span className="v4-hoodie-line">{FEATURED_MERCH.line}</span>
         </Title>
 
+        {/* Dans le menu, les tailles se lisent, elles ne se choisissent pas (MERCH le fait) : du texte,
+            pas des cases qui ont l'air de boutons (revue du 2026-10-09 : on tapait M, rien ne se passait) */}
         {variant === 'menu' && inStock.length > 0 && (
           <p className="v4-hoodie-sizes">
             <span className="v4-hoodie-sizes-label">{allSizes ? 'All sizes' : 'Sizes'}</span>
-            <span className="v4-hoodie-chips">
-              {inStock.map((z) => (
-                <span key={z.size} className="v4-hoodie-chip">
-                  {z.size}
-                </span>
+            <span className="v4-hoodie-sizelist">
+              {inStock.map((z, i) => (
+                <React.Fragment key={z.size}>
+                  {i > 0 && (
+                    <span className="v4-hoodie-dot" aria-hidden="true">
+                      ·
+                    </span>
+                  )}
+                  <span>{z.size}</span>
+                </React.Fragment>
               ))}
             </span>
           </p>
@@ -194,6 +215,11 @@ export const HoodieFeature: React.FC<Props> = ({ product, seen, variant, tab = 0
           (product.available ? (
             <button type="button" className="v4-hoodie-cta" aria-controls="v4-section-contact" tabIndex={tab} onClick={order}>
               <span>{size ? `Order, size ${size}` : 'Order'}</span>
+              {/* Au telephone, le prix passe sur le bouton (menu.css, la tete compacte de MERCH) */}
+              <span className="v4-hoodie-cta-price">
+                <span className="v4-sr">, </span>
+                {product.price}
+              </span>
               <Arrow />
             </button>
           ) : (
