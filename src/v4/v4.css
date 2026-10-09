@@ -587,9 +587,10 @@ html:has(body.v4-active) {
   text-align: left;
 }
 
+/* 2026-10-09 : le texte du panneau clair suit --bone (#434343) ; --ink y est le creme de la page (texte creme sur creme) */
 .v4-root[data-v4-theme='light'] .v4-midi-panel {
   background: rgba(250, 247, 241, 0.97);
-  color: var(--ink);
+  color: var(--bone);
 }
 
 .v4-root .v4-midi-head {
