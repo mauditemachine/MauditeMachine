@@ -35,12 +35,18 @@ export interface RytmPageState {
   readonly echo: RytmEcho | null;
   /** le dernier pas touche, -1 a 15 */
   readonly sel: number;
+  /**
+   * le bloc tenu au doigt (0 a 7, -1 aucun) : au telephone les blocs sont
+   * les potards de page (2026-10-09), il reste cerne tant qu'on le tient,
+   * meme immobile (l'echo s'eteint POT_UI.readoutMs apres le dernier cran)
+   */
+  readonly held: number;
 }
 
 const KEY = 'mm.v4.rytm.page.2';
 const SAVE_MS = 300;
 
-const DEFAULT: RytmPageState = { page: DEFAULT_PAGE, view: 'page', echo: null, sel: -1 };
+const DEFAULT: RytmPageState = { page: DEFAULT_PAGE, view: 'page', echo: null, sel: -1, held: -1 };
 
 function load(): RytmPageState {
   const out = { ...DEFAULT };
@@ -135,6 +141,15 @@ export const rytmPage = {
   /** L'echo direct d'un potard de page (k, 0 a 7) sur la page affichee. */
   echo(k: number, now: number = performance.now()): void {
     set({ echo: { page: state.page, k, until: now + POT_UI.readoutMs } });
+  },
+  /** Un bloc pris au doigt (le telephone, 2026-10-09) : cerne jusqu'a release(). */
+  hold(k: number): void {
+    const held = Math.max(-1, Math.min(7, Math.round(k)));
+    if (held !== state.held) set({ held });
+  },
+  /** Le bloc lache : plus cerne (sauf l'echo de son dernier cran, qui s'eteint a son heure). */
+  release(): void {
+    if (state.held !== -1) set({ held: -1 });
   },
   /** Le dernier pas touche (-1 : aucun). */
   select(i: number): void {

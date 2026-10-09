@@ -31,7 +31,7 @@ import { KICK_SWEEP, SD_BODY_HZ, SD_DECAY_S, SD_TONE_HZ, SHOT_BELOW, kickDecayS,
 import { timeFactor } from '../audio/time';
 import { toneHpHz, toneLpHz, toneSemitones } from '../audio/tone';
 import { DECAY_HOLD_S, START_MAX, TUNE_ST, decayTau, voiceGain } from '../audio/voicefx';
-import { swingRatio, type Inst } from '../theme';
+import { BLOCKS_ARE_KNOBS, swingRatio, type Inst } from '../theme';
 import { RYTM_INFO_PAGES, RYTM_INFO_PAGE_LABEL, RYTM_LETTERS, resolveRytmId, rytmAvail, rytmSlots, type RytmInfoId, type RytmInfoPage, type RytmResolveCtx } from './infoIds';
 
 export * from './infoIds';
@@ -1052,7 +1052,9 @@ function pageGrid(page: RytmInfoPage, voice: Inst | null, hot = -1): RytmDiagram
     // Le nom centre : STRETCH et SNAPPY tiennent dans le bloc (a gauche, ils debordaient)
     if (sl && live) p.label(sl.label, x + bw / 2, y + bh - 7, 'middle');
   });
-  p.label(page === 'src' && voice ? `ENCODERS A TO H, ${voice}` : 'ENCODERS A TO H', X0, TOP);
+  // Au telephone (2026-10-09) les blocs de l'ecran sont les encodeurs : la carte dit VALUES
+  const what = BLOCKS_ARE_KNOBS ? 'VALUES A TO H' : 'ENCODERS A TO H';
+  p.label(page === 'src' && voice ? `${what}, ${voice}` : what, X0, TOP);
   // Un encodeur sur une case vide (R4) : sa case en couleur, la page dite
   return hot >= 0 ? p.value(`${RYTM_INFO_PAGE_LABEL[page]} ${RYTM_LETTERS[hot]}: EMPTY`).done() : p.done();
 }

@@ -450,9 +450,23 @@ export const BACKDROP: { transparent: boolean; readonly page: string } = { trans
  * colonne a droite de l'ecran est a lui. Les proportions de la texture (640
  * x 240) ne changent pas. Ses quatre colonnes de blocs (vue PAGE,
  * scene/screen.ts) tombent au-dessus des huit potards de page (pageKnobX).
+ *
+ * Au telephone, plus grand encore depuis le 2026-10-09 (Mika : "en mobile
+ * c'est mieux si tu ne mets pas d'encoders ; on change dans l'ecran
+ * directement ; forcement donne-moi un ecran plus grand") : les potards de
+ * page ont quitte la face, l'ecran prend leur place, toute la largeur du
+ * panneau (le cadre aligne sur le logo et le logotype, 7.5) et plus haut :
+ * 7.28 x 3.504, une texture de 640 x 308 (OLED_UH = 154 unites de haut au
+ * lieu de 120, deux pixels l'unite comme au desktop). La vue PAGE s'y etale
+ * (scene/screen.ts, la mise en page haute) ; HOME, EDIT et les presets
+ * gardent leur dessin de 120, centre (OLED_DY).
  */
+/** La hauteur du dessin de l'ecran, en unites (sa largeur : 320) ; 120 au desktop, 154 au telephone (2026-10-09). */
+export const OLED_UH = PORTRAIT ? 154 : 120;
+/** Le decalage vertical (unites) du dessin de 120 de haut (HOME, EDIT, les presets) dans un ecran plus haut : centre. */
+export const OLED_DY = (OLED_UH - 120) / 2;
 export const OLED = PORTRAIT
-  ? ({ x: -0.16, z: -4.996, w: 6.9, d: 2.5875, y: 0.025, tex: [640, 240], bezel: { w: 7.12, d: 2.8075, h: 0.02 } } as const)
+  ? ({ x: 0, z: -4.548, w: 7.28, d: (7.28 * OLED_UH) / 320, y: 0.025, tex: [640, OLED_UH * 2], bezel: { w: 7.5, d: (7.28 * OLED_UH) / 320 + 0.22, h: 0.02 } } as const)
   : ({ x: -3.25, z: -1.88, w: 5.0, d: 1.875, y: 0.025, tex: [640, 240], bezel: { w: 5.26, d: 2.135, h: 0.02 } } as const);
 
 /**
@@ -468,7 +482,7 @@ export const OLED_DRAW = { font: `400 40px ${FONT_MONO}`, pad: 24, baselines: [6
  * temps ; contour de 2, remplissage en retrait de 4. Un clic dessus (et sur
  * toute la bande de la ligne 3) fait avancer la piste.
  */
-export const OLED_BAR = { h: 22, lift: 3, gap: 14, stroke: 2, inset: 4, bandY0: 160, bandY1: 236 } as const;
+export const OLED_BAR = { h: 22, lift: 3, gap: 14, stroke: 2, inset: 4, bandY0: 160 + 2 * OLED_DY, bandY1: 236 + 2 * OLED_DY } as const;
 
 /**
  * La meme bande en vue PAGE du MM-RYTM (2026-10-08, rytm/pages.ts) : la
@@ -477,8 +491,10 @@ export const OLED_BAR = { h: 22, lift: 3, gap: 14, stroke: 2, inset: 4, bandY0: 
  * piste. Depuis le 2026-10-08 le pied montre aussi les seize pas a gauche :
  * la bande ne couvre que sa droite (u0 a u1 de la largeur, 132 a 312 des 320
  * unites), une touche sur les pas ne ramene pas la piste au debut.
+ * Au telephone (2026-10-09, l'ecran plus haut) : le pied est en bas du
+ * dessin de 154, la bande aussi (les 17 dernieres unites).
  */
-export const OLED_BAR_PAGE = { bandY0: 206, bandY1: 240, u0: 132 / 320, u1: 312 / 320 } as const;
+export const OLED_BAR_PAGE = { bandY0: 2 * OLED_UH - 34, bandY1: 2 * OLED_UH, u0: 132 / 320, u1: 312 / 320 } as const;
 
 /**
  * Le reste de l'ecran en vue PAGE (2026-10-08, revue de R1), px de la
@@ -487,7 +503,7 @@ export const OLED_BAR_PAGE = { bandY0: 206, bandY1: 240, u0: 132 / 320, u1: 312 
  * a la surprise de tous) ; les six onglets du pied (desktop) sont six
  * touches de page, de tabY0 a tabY1, sur la largeur u0 a u1 du pied.
  */
-export const OLED_PAGE_ZONES = { openY1: 44, tabY0: 204, tabY1: 236 } as const;
+export const OLED_PAGE_ZONES = { openY1: 44, tabY0: 2 * OLED_UH - 36, tabY1: 2 * OLED_UH - 4 } as const;
 
 /**
  * Page MIX de l'ecran (2026-10-01, facon Elektron), px de la texture
@@ -653,12 +669,15 @@ export const encLabel = (id: EncId): string => ENCODERS.find((e) => e.id === id)
  * a la place de la rangee VOICE FX ; au telephone, sous les pads, un peu
  * plus petits.
  */
+/*
+ * Desktop : 0.25 plus bas le 2026-10-09 avec les pads (MASTER et TEMPO au-dessus des voix, MASTER_POTS).
+ */
 export const TRANSPORT = {
   size: PORTRAIT ? 0.74 : 0.8,
   h: 0.1,
   radius: 0.04,
-  z: PORTRAIT ? 2.62 : 0.58,
-  labelZ: PORTRAIT ? 3.12 : 1.16,
+  z: PORTRAIT ? 2.62 : 0.83,
+  labelZ: PORTRAIT ? 3.12 : 1.41,
   run: { x: PORTRAIT ? -2.6 : 0.37 },
   clear: { x: PORTRAIT ? -1.3 : 1.62 },
   random: { x: PORTRAIT ? 0 : 2.87 },
@@ -715,8 +734,10 @@ export const PAD = {
   // Huit voix (2026-10-05) : quatre colonnes et EDIT/OPEN sur la largeur des six d'avant, des pads un peu plus grands
   pitch: PORTRAIT ? 1.4 : 1.25,
   // Portrait : plus bas le 2026-10-08 (l'ecran plus grand, les potards et les touches de page au-dessus),
-  // encore un peu (revue de R1 : les noms des touches de page touchaient les pads, 39 px entre leurs centres)
-  rowZ: PORTRAIT ? [0.2, 1.46] : [-2.05, -0.75],
+  // encore un peu (revue de R1 : les noms des touches de page touchaient les pads, 39 px entre leurs centres) ;
+  // desktop : 0.25 plus bas le 2026-10-09 (Mika : "Master et Tempo des knobs differents au dessus des voices"),
+  // la bande sous l'en-tete leur revient (MASTER_POTS)
+  rowZ: PORTRAIT ? [0.2, 1.46] : [-1.8, -0.5],
   /** serigraphie sous chaque pad (portrait : un rien plus pres, la rangee du bas garde son jour sur le transport) */
   labelDz: PORTRAIT ? 0.6 : 0.64,
   press: 0.06,
@@ -942,23 +963,38 @@ export const keyDz = (i: number): number => KEYS.rowDz * Math.floor(i / KEYS.per
  * valeurs des knobs sont a l'ecran, pas sur les encodeurs ; RYTM : je ne
  * vois AUCUN changement de ce que j'ai demande") : les rangees GLOBAL FX et
  * VOICE FX ont quitte la face (leurs reglages sont sur les pages, la page FX
- * les empile colonne par colonne). Restent :
- * - MASTER au-dessus de TEMPO, a droite de l'ecran, centres entre son
- *   cadre et les pads, libelles 0.45 sous leur centre ;
- * - les huit potards de page A a H en 2 x 4 sous l'ecran : le potard k
- *   exactement sous le bloc k de la vue PAGE (pageKnobX : le centre de la
- *   colonne du bloc, 44 + 76 c sur les 320 unites de l'ecran) ; leur nom et
- *   leur valeur sont a l'ecran, la serigraphie ne porte que leur lettre, en
- *   haut a gauche de la collerette (letterDx, letterDz).
- * Au telephone : MASTER et TEMPO l'un sous l'autre a droite de l'ecran
- * (comme au desktop), les potards de page sur les colonnes des pads (et
- * celles des blocs de l'ecran, OLED), plus gros au doigt.
+ * les empile colonne par colonne). Depuis le 2026-10-09 (Mika : "j'aimerais
+ * que Master et Tempo soient des knobs differents au dessus des voices pour
+ * me separer des 8 encoders ; TRIG, je veux ces boutons en dessous de
+ * l'ecran") :
+ * - sous l'ecran, les six touches de page sur toute sa largeur (PAGE_KEYS),
+ *   puis les huit potards de page A a H en 2 x 4 : le potard k exactement
+ *   sous le bloc k de la vue PAGE (pageKnobX : le centre de la colonne du
+ *   bloc, 44 + 76 c sur les 320 unites de l'ecran) ; leur nom et leur valeur
+ *   sont a l'ecran, la serigraphie ne porte que leur lettre, en haut a gauche
+ *   de la collerette (letterDx, letterDz) ;
+ * - MASTER et TEMPO au-dessus des voix (MASTER_POTS), une autre famille de
+ *   potards : des capuchons d'aluminium (POT), plus petits, leur echelle
+ *   imprimee autour, leur nom dessous.
+ * Au telephone (2026-10-09, Mika : "en mobile c'est mieux si tu ne mets pas
+ * d'encoders, enleve-les pour RYTM ; on change dans l'ecran directement") :
+ * plus de potards de page sur la face, les blocs de l'ecran les remplacent
+ * (scene/renderer.ts, lcd-blk) ; MASTER et TEMPO restent, au-dessus des voix.
  */
 export type PageKnobId = 'p0' | 'p1' | 'p2' | 'p3' | 'p4' | 'p5' | 'p6' | 'p7';
 export type FaceKnobId = 'level' | 'tempo' | PageKnobId;
 export const PAGE_KNOB_IDS: readonly PageKnobId[] = ['p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7'];
 /** Les lettres des potards de page (serigraphie, ecran, jumeaux, MIDI). */
 export const PAGE_KNOB_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const;
+
+/**
+ * Les potards de page sont-ils sur la face (2026-10-09) ? Au desktop oui ; au
+ * telephone non, les huit blocs de l'ecran sont les commandes (un glisser
+ * vertical, deux tapes, le LOCK a deux doigts, comme un potard).
+ */
+export const PAGE_KNOBS_ON_FACE = !PORTRAIT;
+/** Les huit blocs de l'ecran sont-ils les potards de page (le telephone, 2026-10-09) : leur zone toujours la en vue PAGE. */
+export const BLOCKS_ARE_KNOBS = !PAGE_KNOBS_ON_FACE;
 
 export interface EncPlace {
   x: number;
@@ -968,63 +1004,98 @@ export interface EncPlace {
   s: number;
 }
 
-const ENC_SIDE = { labelDz: 0.45 } as const;
-
 /**
  * Les deux rangees des potards de page (z de leur centre), leur echelle, la
- * lettre en haut a gauche de la collerette. Les rangees un peu plus espacees
- * depuis la revue de l'etape R1 (2026-10-08 : 40 px au telephone, sous les
- * 44 px d'une cible au doigt) ; au telephone la lettre glisse sur le cote
- * (elle ne prend plus de hauteur, l'ecran en a gagne).
+ * lettre en haut a gauche de la collerette. Desktop : sous les touches de
+ * page depuis le 2026-10-09 (0.5 et 1.36 ; -0.23 et 0.67 quand les touches
+ * etaient dessous). Le telephone n'en a plus (PAGE_KNOBS_ON_FACE) : ses
+ * valeurs ne servent qu'au type.
  */
 export const PAGE_KNOBS = PORTRAIT
   ? ({ rowZ: [-3.08, -1.96], s: 1.15, letterDx: -0.5, letterDz: -0.26, cap: 0.085 } as const)
-  : ({ rowZ: [-0.23, 0.67], s: 1, letterDx: -0.34, letterDz: -0.33, cap: 0.075 } as const);
+  : ({ rowZ: [0.5, 1.36], s: 1, letterDx: -0.34, letterDz: -0.33, cap: 0.075 } as const);
 
 /** x de la colonne c (0 a 3) des potards de page : sous le centre de la colonne de blocs de l'ecran. */
 export const pageKnobX = (c: number): number => OLED.x + ((44 + 76 * c - 160) * OLED.w) / 320;
 
 /**
- * MASTER et TEMPO (2026-10-08, revue de R1, Mika : "plus gros, plus de
- * detail ! fais de la place") : une cinquieme colonne a droite des potards
- * de page, MASTER sur la rangee du haut, TEMPO dessous, un peu plus petits ;
- * la colonne a droite de l'ecran revient a l'ecran. Au desktop entre le
- * potard D et les pads, au telephone entre D et le bord.
+ * MASTER et TEMPO (2026-10-09, Mika : "des knobs differents au dessus des
+ * voices pour me separer des 8 encoders") : une autre famille que les
+ * encodeurs noirs, celle d'un potard de niveau ou de tempo d'une boite a
+ * rythmes haut de gamme : un capuchon d'aluminium tourne (son flanc moletee,
+ * son dessus aux cercles concentriques, un chanfrein brillant), un trait noir
+ * grave du centre au bord, une rondelle noire a la base ; plus petit (0.2 de
+ * rayon, 0.27 pour un encodeur). Dimensions a l'echelle 1 (scene/encoders.ts).
  */
-const ENC_SIDE_COL = PORTRAIT ? ({ x: 3.36, s: 1.0 } as const) : ({ x: -0.66, s: 0.9 } as const);
+export const POT = {
+  /** le capuchon : rayon du bas, du haut (avant le chanfrein), hauteur du flanc */
+  r: 0.2,
+  rTop: 0.193,
+  h: 0.2,
+  /** le chanfrein : il monte de chamferH en rentrant jusqu'a topR (le dessus plat) */
+  chamferH: 0.022,
+  topR: 0.172,
+  /** la rondelle de la base */
+  base: { r: 0.236, h: 0.024 },
+  /** le trait grave : du rayon r0 au rayon r1, sa largeur */
+  mark: { r0: 0.035, r1: 0.162, w: 0.03 },
+  /** les cannelures du flanc et les cercles du dessus */
+  flutes: { desktop: 48, mobile: 32 },
+  rings: 7,
+} as const;
 
-function sidePlaces(): { level: EncPlace; tempo: EncPlace } {
-  const { x, s } = ENC_SIDE_COL;
-  const [masterZ, tempoZ] = PAGE_KNOBS.rowZ;
-  // Le libelle suit le bord de la collerette a l'echelle s
-  const dz = ENC_SIDE.labelDz + ENCODER.collar.r * (s - 1);
-  return {
-    level: { x, z: masterZ, labelZ: masterZ + dz, s },
-    tempo: { x, z: tempoZ, labelZ: tempoZ + dz, s },
-  };
+/**
+ * L'echelle imprimee autour de MASTER et TEMPO (2026-10-09, la serigraphie,
+ * SILK_MARKS) : onze traits sur les 270 deg de la course, plus longs aux deux
+ * bouts et au milieu ; ses chiffres au bout (MASTER : -INF et 0 dB, le gain au
+ * carre ; TEMPO : 100 et 150 BPM, sa course) ; le nom sous le potard. Rayons a
+ * l'echelle 1.
+ */
+export const POT_SCALE = {
+  ticks: 11,
+  minor: { r0: 0.282, r1: 0.318, w: 0.014 },
+  major: { r0: 0.268, r1: 0.336, w: 0.02 },
+  alpha: 0.7,
+  /** les chiffres des bouts : leur rayon (le long du bout de la course), leur corps */
+  numR: 0.4,
+  numCap: 0.055,
+  /** le nom, sous le centre */
+  labelDz: 0.44,
+  labelCap: 0.075,
+} as const;
+
+/**
+ * La place de MASTER et TEMPO : au-dessus des voix (desktop : sur les
+ * colonnes CH et OH, sous l'en-tete, leur nom sur la ligne de VOICES ; au
+ * telephone : de meme, entre les touches de page et les pads, plus gros au
+ * doigt), loin des huit potards de page.
+ */
+export const MASTER_POTS = PORTRAIT ? ({ x: { level: 0, tempo: 1.4 }, z: -1.03, s: 1.3 } as const) : ({ x: { level: 2.87, tempo: 4.12 }, z: -2.96, s: 1 } as const);
+
+function potPlace(id: 'level' | 'tempo'): EncPlace {
+  const { x, z, s } = MASTER_POTS;
+  return { x: x[id], z, labelZ: z + POT_SCALE.labelDz * s, s };
 }
 
-/** Les dix potards de la face, dans l'ordre des instances (scene/encoders.ts) et des jumeaux. */
-export const FACE_KNOBS: readonly ({ id: FaceKnobId } & EncPlace)[] = (() => {
-  const side = sidePlaces();
-  return [
-    { id: 'level', ...side.level },
-    { id: 'tempo', ...side.tempo },
-    ...PAGE_KNOB_IDS.map((id, k) => ({ id, x: pageKnobX(k % 4), z: PAGE_KNOBS.rowZ[k >> 2], labelZ: PAGE_KNOBS.rowZ[k >> 2], s: PAGE_KNOBS.s })),
-  ];
-})();
+/** Les potards de page sur la face (desktop), dans l'ordre A a H ; aucun au telephone (2026-10-09). */
+const PAGE_FACE_KNOBS: readonly ({ id: PageKnobId } & EncPlace)[] = PAGE_KNOBS_ON_FACE
+  ? PAGE_KNOB_IDS.map((id, k) => ({ id, x: pageKnobX(k % 4), z: PAGE_KNOBS.rowZ[k >> 2], labelZ: PAGE_KNOBS.rowZ[k >> 2], s: PAGE_KNOBS.s }))
+  : [];
+
+/** Les potards de la face, dans l'ordre des jumeaux : MASTER, TEMPO, puis les potards de page (desktop). */
+export const FACE_KNOBS: readonly ({ id: FaceKnobId } & EncPlace)[] = [{ id: 'level', ...potPlace('level') }, { id: 'tempo', ...potPlace('tempo') }, ...PAGE_FACE_KNOBS];
 export const isPageKnob = (id: string): id is PageKnobId => (PAGE_KNOB_IDS as readonly string[]).includes(id);
 /** Le rang (0 a 7) d'un potard de page. */
 export const pageKnobIndex = (id: PageKnobId): number => PAGE_KNOB_IDS.indexOf(id);
 
 /**
  * Les six touches de page (2026-10-08, l'ordre de l'Analog Rytm : TRIG SRC
- * SMPL FLTR AMP FX ; rytm/pages.ts) : de petites touches a LED sous les
- * potards de page, sur la largeur de la grille des potards au desktop (du
- * bord de la collerette A a celui de D, revue de R1 : sur la grille des pas
- * elles se lisaient comme une rangee de pas), sur toute la largeur au
- * telephone ; leur nom serigraphie dessous. La LED de la page choisie est
- * allumee (a peine en vue HOME : l'appui la rallume) ; la touche allumee
+ * SMPL FLTR AMP FX ; rytm/pages.ts) : de petites touches a LED, leur nom
+ * serigraphie dessous. Juste sous l'ecran depuis le 2026-10-09 (Mika :
+ * "TRIG, je veux ces boutons en dessous de l'ecran"), six touches egales sur
+ * toute la largeur du verre, comme celles d'une Digitakt sous son ecran ; au
+ * telephone plus hautes (le doigt) et plus larges. La LED de la page choisie
+ * est allumee (a peine en vue HOME : l'appui la rallume) ; la touche allumee
  * pressee encore : HOME.
  */
 export const RYTM_PAGE_KEYS = [
@@ -1036,13 +1107,12 @@ export const RYTM_PAGE_KEYS = [
   { id: 'fx', label: 'FX' },
 ] as const;
 export const PAGE_KEYS = PORTRAIT
-  ? ({ w: 0.9, d: 0.42, h: 0.1, radius: 0.04, z: -0.96, labelZ: -0.56, cap: 0.085, led: { w: 0.5, d: 0.045, back: 0.1 } } as const)
-  : ({ w: 0.6, d: 0.36, h: 0.1, radius: 0.04, z: 1.31, labelZ: 1.69, cap: 0.075, led: { w: 0.36, d: 0.04, back: 0.085 } } as const);
-/** x de la touche de page k (0 a 5) : au desktop, de la collerette A a la collerette D. */
+  ? ({ w: 1.06, d: 0.44, h: 0.1, radius: 0.05, z: -2.31, labelZ: -1.9, cap: 0.09, led: { w: 0.6, d: 0.05, back: 0.11 } } as const)
+  : ({ w: 0.74, d: 0.38, h: 0.1, radius: 0.04, z: -0.5, labelZ: -0.09, cap: 0.075, led: { w: 0.44, d: 0.042, back: 0.09 } } as const);
+/** x de la touche de page k (0 a 5) : six touches egales sur la largeur du verre de l'ecran (2026-10-09). */
 export const pageKeyX = (k: number): number => {
-  if (PORTRAIT) return -2.9 + 1.16 * k;
-  const x0 = pageKnobX(0) - ENCODER.collar.r * PAGE_KNOBS.s + PAGE_KEYS.w / 2;
-  const x1 = pageKnobX(3) + ENCODER.collar.r * PAGE_KNOBS.s - PAGE_KEYS.w / 2;
+  const x0 = OLED.x - OLED.w / 2 + PAGE_KEYS.w / 2;
+  const x1 = OLED.x + OLED.w / 2 - PAGE_KEYS.w / 2;
   return x0 + ((x1 - x0) * k) / (RYTM_PAGE_KEYS.length - 1);
 };
 
@@ -1271,14 +1341,45 @@ const padLabel = (p: PadSpec): SilkText =>
       ? { text: p.label, x: p.x, z: p.z + PAD.labelDz, cap: PAD_CAP, maxW: 0.94, group: 'pads', weight: 700 }
       : { text: p.label, x: p.x, z: p.z + PAD.labelDz, cap: PAD_CAP, maxW: 0.94, group: 'pads', weight: 700, ink: 'orange', alpha: 1 };
 
+/**
+ * L'echelle de MASTER et TEMPO (2026-10-09) : la direction d'une course t (0 a
+ * 1) sur le panneau, vue de dessus ; le bas de la course en bas a gauche, le
+ * haut en bas a droite, le milieu vers l'arriere (comme le trait du potard,
+ * scene/encoders.ts potAngle).
+ */
+export const potDir = (t: number): { dx: number; dz: number } => {
+  const a = ((TEMPO_UI.sweepDeg / 2 - TEMPO_UI.sweepDeg * t) * Math.PI) / 180;
+  return { dx: -Math.sin(a), dz: -Math.cos(a) };
+};
+
+/** Les chiffres des deux bouts de l'echelle : MASTER du silence (le gain au carre) a 0 dB, TEMPO de 100 a 150 BPM. */
+const POT_ENDS: Readonly<Record<'level' | 'tempo', readonly [string, string]>> = { level: ['-∞', '0 dB'], tempo: ['100', '150'] };
+
+/** Le nom d'un potard MASTER ou TEMPO sous lui, et les chiffres de son echelle (serigraphie). */
+function potTexts(id: 'level' | 'tempo', k: EncPlace): SilkText[] {
+  const s = k.s;
+  const lo = potDir(0);
+  const hi = potDir(1);
+  const r = POT_SCALE.numR * s;
+  const cap = POT_SCALE.numCap * s;
+  return [
+    { text: id === 'level' ? 'MASTER' : 'TEMPO', x: k.x, z: k.labelZ, cap: POT_SCALE.labelCap * s, maxW: 0.7 * s, group: 'pot', weight: 600 },
+    // Les chiffres poses au bout de la course, alignes vers l'exterieur (ils ne mordent pas le nom)
+    { text: POT_ENDS[id][0], x: k.x + lo.dx * r + 0.04 * s, z: k.z + lo.dz * r, cap, align: 'right', weight: 600, alpha: 0.6 },
+    { text: POT_ENDS[id][1], x: k.x + hi.dx * r - 0.04 * s, z: k.z + hi.dz * r, cap, align: 'left', weight: 600, alpha: 0.6 },
+  ];
+}
+
 export const SILK_TEXTS: readonly SilkText[] = [
   { text: 'MAUDITE MACHINE', x: HEAD.word.x, z: HEAD.z, cap: 0.2, align: 'left', weight: SILK.strongWeight, fallbackFor: 'wordmark' },
   { text: 'MM-RYTM', x: HEAD.model, z: HEAD.z, cap: 0.13, align: 'left' },
   { text: 'FIRMWARE V.3.0 / 2026', x: HEAD.firmware, z: HEAD.z, cap: PORTRAIT ? 0.06 : 0.07, align: 'right', alpha: 0.45 },
-  // VOICES au-dessus des pads (desktop ; au telephone les noms des touches de page sont juste au-dessus)
-  ...(PORTRAIT ? [] : [{ text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: PAD.rowZ[0] - 0.72, cap: 0.06, align: 'left' as const }]),
-  // MASTER et TEMPO sous leur potard ; les potards de page n'ont que leur lettre (leur nom est a l'ecran, 2026-10-08)
-  ...FACE_KNOBS.filter((k) => !isPageKnob(k.id)).map((k) => ({ text: k.id === 'level' ? 'MASTER' : 'TEMPO', x: k.x, z: k.labelZ, cap: 0.085, maxW: 0.66, group: 'enc' })),
+  // VOICES au-dessus des pads, sur la ligne des noms de MASTER et TEMPO (2026-10-09 ; au telephone aussi depuis, la
+  // rangee de MASTER et TEMPO lui fait sa place)
+  { text: 'VOICES', x: PAD.x0 - PAD.size / 2, z: MASTER_POTS.z + POT_SCALE.labelDz * MASTER_POTS.s, cap: PORTRAIT ? 0.075 : 0.06, align: 'left' as const },
+  // MASTER et TEMPO sous leur potard, les chiffres de leur echelle aux deux bouts (2026-10-09) ; les potards de page
+  // n'ont que leur lettre (leur nom est a l'ecran, 2026-10-08)
+  ...FACE_KNOBS.filter((k) => !isPageKnob(k.id)).flatMap((k) => potTexts(k.id === 'level' ? 'level' : 'tempo', k)),
   ...FACE_KNOBS.filter((k) => isPageKnob(k.id)).map((k, i) => ({
     text: PAGE_KNOB_LETTERS[i],
     x: k.x + PAGE_KNOBS.letterDx,
@@ -1321,6 +1422,29 @@ export const SILK_LINES: readonly (readonly number[])[] = [
     return [a, t, a, z, b, z, b, t];
   }),
 ];
+
+/**
+ * Les traits de l'echelle de MASTER et TEMPO (2026-10-09) : des filets plus
+ * marques que SILK_LINES (leur epaisseur et leur encre a eux), onze traits sur
+ * la course, ceux des bouts et du milieu plus longs. scene/silk.ts et le repli
+ * SVG les dessinent.
+ */
+export interface SilkMark {
+  /** polyligne [x0, z0, x1, z1, ...] */
+  pts: readonly number[];
+  /** epaisseur (unites) */
+  w: number;
+  alpha: number;
+}
+export const SILK_MARKS: readonly SilkMark[] = FACE_KNOBS.filter((k) => !isPageKnob(k.id)).flatMap((k) =>
+  Array.from({ length: POT_SCALE.ticks }, (_, i) => {
+    const t = i / (POT_SCALE.ticks - 1);
+    const big = i === 0 || i === POT_SCALE.ticks - 1 || i * 2 === POT_SCALE.ticks - 1;
+    const m = big ? POT_SCALE.major : POT_SCALE.minor;
+    const d = potDir(t);
+    return { pts: [k.x + d.dx * m.r0 * k.s, k.z + d.dz * m.r0 * k.s, k.x + d.dx * m.r1 * k.s, k.z + d.dz * m.r1 * k.s], w: m.w * k.s, alpha: POT_SCALE.alpha };
+  })
+);
 
 /* ---------- camera, orbite et cadrage (spec 20.2) ---------- */
 

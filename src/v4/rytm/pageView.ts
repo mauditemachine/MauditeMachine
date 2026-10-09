@@ -298,7 +298,8 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, sel: number, ec
 /** Les blocs de la page courante pour la voix choisie (null : aucune). */
 export function pageBlocks(s: RytmPageState, inst: Inst | null, now: number, mode: BlockMode | null = null): Block[] {
   const echoK = s.echo && s.echo.page === s.page && now < s.echo.until ? s.echo.k : -1;
-  return pageSlots(s.page, inst).map((slot, k) => slotBlock(slot, k, inst, s.sel, k === echoK, mode));
+  // Un bloc tenu au doigt (le telephone, 2026-10-09 : les blocs sont les potards) reste cerne tant qu'on le tient
+  return pageSlots(s.page, inst).map((slot, k) => slotBlock(slot, k, inst, s.sel, k === echoK || k === s.held, mode));
 }
 
 /** La voix des blocs : celle du pattern (BD par defaut). */

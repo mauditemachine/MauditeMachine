@@ -74,6 +74,7 @@ import { voices } from '../state/voices';
 import {
   BACKDROP,
   BODY,
+  BLOCKS_ARE_KNOBS,
   BTN_LED,
   CHIP,
   BOARD_CHIPS,
@@ -700,9 +701,10 @@ export class Stage {
     // Bas : touches trig, RUN/STOP, CLEAR, LED ; moitie gauche : les six encodeurs
     this.seq = new Sequencer3D({ mobile });
     this.encoders = new Encoders({ mobile, castShadow: !mobile });
-    // Les touches de page (2026-10-08, la refonte facon Digitakt) : sous les potards de page
+    // Les touches de page (2026-10-08, la refonte facon Digitakt) : juste sous l'ecran depuis le 2026-10-09
     this.pageKeys = new RytmPageKeys({ mobile });
-    plateau.add(this.pads.mesh, this.pads.halos, this.seq.keys, this.seq.frames, this.seq.buttons, this.seq.leds, this.seq.btnLeds, this.encoders.mesh, this.encoders.skirts, ...this.pageKeys.objects());
+    // MASTER et TEMPO en aluminium au-dessus des voix (2026-10-09) ; au telephone, plus de potards de page (encoders.objects)
+    plateau.add(this.pads.mesh, this.pads.halos, this.seq.keys, this.seq.frames, this.seq.buttons, this.seq.leds, this.seq.btnLeds, ...this.encoders.objects(), ...this.pageKeys.objects());
     // L'ecran (redessine 4 fois par seconde au plus, jamais par frame) ; il
     // ne s'abonne a state/lcd.ts qu'avec les autres ecouteurs
     this.screen = new Screen(
@@ -1212,8 +1214,9 @@ export class Stage {
         changed = true;
       }
     }
-    // Les blocs (R4) : INFOS allume et la vue PAGE dessinee (pas HOME, EDIT, les presets)
-    const blk = rytmInfos.isOn() && this.screen.info.view === 'page';
+    // Les blocs (R4) : INFOS allume et la vue PAGE dessinee (pas HOME, EDIT, les presets) ; au telephone, tout le temps en vue
+    // PAGE depuis le 2026-10-09 (Mika : "on change dans l'ecran directement") : ils sont les potards de page
+    const blk = (BLOCKS_ARE_KNOBS || rytmInfos.isOn()) && this.screen.info.view === 'page';
     let gone = false;
     for (const d of this.blockDefs) {
       if (d.enabled !== blk) {

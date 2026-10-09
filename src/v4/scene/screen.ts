@@ -91,6 +91,16 @@
  * sa gauche. Sa zone de saisie (lcd-i, scene/renderer.ts) est posee sur
  * INFO_KEY. INFOS allume, le bloc de l'encodeur dont la carte est montree
  * porte quatre coins (la carte et l'ecran parlent du meme bloc).
+ *
+ * Le telephone (2026-10-09, Mika : "en mobile c'est mieux si tu ne mets pas
+ * d'encoders ; on change dans l'ecran directement ; forcement donne-moi un
+ * ecran plus grand") : les potards de page ont quitte la face, l'ecran prend
+ * toute la largeur et plus de hauteur (theme.ts OLED_UH, 154 unites) ; la vue
+ * PAGE y a sa mise en page haute (TALL : blocs de 52.5, corps plus gros, le
+ * pied en bas) et ses huit blocs sont les commandes (scene/renderer.ts
+ * lcd-blk, ui/Hotspots.tsx : glisser, deux tapes, le LOCK a deux doigts) ; le
+ * bloc tenu au doigt reste cerne (state/rytmPage.ts held) ; les aides disent
+ * DRAG A VALUE. HOME, EDIT et les presets gardent leur dessin de 120, centre.
  */
 
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
@@ -113,7 +123,7 @@ import { playhead } from '../state/playhead';
 import { rytmInfos } from '../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
-import { FONT_DISPLAY, HEX, OLED, PAGE_KNOB_LETTERS, type Inst } from '../theme';
+import { BLOCKS_ARE_KNOBS, FONT_DISPLAY, HEX, OLED, OLED_DY, OLED_UH, PAGE_KNOB_LETTERS, type Inst } from '../theme';
 import { RYTM_PAGES, pageLabel, type RytmPageId } from '../rytm/pages';
 import { pageBlocks, type Block, type BlockMode } from '../rytm/pageView';
 import { v127Text } from '../rytm/values';
@@ -169,9 +179,17 @@ const PULSE_MS = 260;
 const IDLE_MS = 15000;
 const WAVE_MS = 7000;
 
-/** La mise en page, en unites. */
+/**
+ * La mise en page, en unites : 320 de large ; 120 de haut au desktop, 156 au
+ * telephone depuis le 2026-10-09 (theme.ts OLED_UH, Mika : "forcement
+ * donne-moi un ecran plus grand") : la vue PAGE y a sa mise en page haute
+ * (TALL : des blocs de 55 au lieu de 37, de plus gros corps), les autres vues
+ * (HOME, EDIT, les presets) gardent leur dessin de 120, centre (OLED_DY).
+ */
 const UW = 320;
-const UH = 120;
+const UH = OLED_UH;
+const TALL = UH > 120;
+const DY = OLED_DY;
 
 /**
  * La touche i (R4, 2026-10-08), en unites : son centre, dans le coin en haut
@@ -264,13 +282,22 @@ interface Col {
  * et 9 pour tenir), la ligne d'unite dessous, l'image a droite de la
  * valeur, l'etiquette ALL ou NO BD au bout de la ligne d'unite.
  */
-const MATRIX = { x0: 8, pitch: 76, w: 72, h: 37, rows: [24, 63], r: 3.5 } as const;
-const BLOCK = {
-  padX: 5,
-  /** la largeur de la valeur avant l'image */
-  valueW: 34,
-  draw: { dx0: 42, dx1: 67, dy0: 13, dy1: 29 },
-} as const;
+/*
+ * Au telephone (TALL, 2026-10-09) : des blocs de 72 x 52.5 (37 avant), 44 px
+ * de haut a 390 x 844, assez pour un doigt (ils sont les potards de page) ;
+ * la valeur plus grande, l'image un peu plus petite a sa droite.
+ */
+const MATRIX: { x0: number; pitch: number; w: number; h: number; rows: readonly [number, number]; r: number } = TALL
+  ? { x0: 8, pitch: 76, w: 72, h: 52.5, rows: [24, 80.5], r: 4.5 }
+  : { x0: 8, pitch: 76, w: 72, h: 37, rows: [24, 63], r: 3.5 };
+const BLOCK: { padX: number; valueW: number; draw: { dx0: number; dx1: number; dy0: number; dy1: number } } = TALL
+  ? { padX: 6, valueW: 42, draw: { dx0: 49, dx1: 67, dy0: 20, dy1: 37 } }
+  : {
+      padX: 5,
+      /** la largeur de la valeur avant l'image */
+      valueW: 34,
+      draw: { dx0: 42, dx1: 67, dy0: 13, dy1: 29 },
+    };
 /**
  * Les corps de la vue PAGE (2026-10-08, revue de R1, Mika : "plus gros, plus
  * de detail ; super responsive en mobile") : l'ecran fait 465 px de large au
@@ -297,6 +324,12 @@ const BLOCK_TYPE = {
     foot: 8,
     head: { pill: 7.5, pillH: 12, voice: 12, sound: 7.5, bpm: 6.5, num: 12 },
     selR: 0.9,
+    /** le panneau des verrous : son corps, son interligne ; le cadenas d'un bloc verrouille, sa place */
+    panelSize: 6.8,
+    panelLh: 8.2,
+    lockS: 4.6,
+    lockW: 7,
+    lockDx: 5.5,
   },
   phone: {
     nameSize: 10,
@@ -314,14 +347,48 @@ const BLOCK_TYPE = {
     foot: 9.5,
     head: { pill: 9, pillH: 13.5, voice: 13, sound: 9, bpm: 8, num: 13 },
     selR: 1.3,
+    panelSize: 9,
+    panelLh: 10.4,
+    lockS: 6,
+    lockW: 7,
+    lockDx: 5.5,
+  },
+  /*
+   * L'ecran haut du telephone (2026-10-09, Mika : "donne-moi un ecran plus
+   * grand") : 293 px de large et 129 de haut a 390 x 844 (280 x 105 avant),
+   * des blocs de 66 x 44 px (62 x 31 avant) ; le nom a 11.5 (10 px a
+   * l'ecran), la valeur a 26 (24 px), l'unite a 9.5 ; l'en-tete et le pied un
+   * rien plus gros aussi.
+   */
+  tall: {
+    nameSize: 11.5,
+    letterSize: 0,
+    unitSize: 9.5,
+    valueSizes: [26, 23, 19, 15],
+    nameDy: 12.5,
+    valueDy: 36.5,
+    unitDy: 47.3,
+    letters: false,
+    notchRow: false,
+    tabs: false,
+    tabSize: 0,
+    foot: 10.5,
+    head: { pill: 10, pillH: 14.5, voice: 14.5, sound: 10, bpm: 9, num: 14.5 },
+    selR: 1.4,
+    panelSize: 10,
+    panelLh: 12,
+    lockS: 7,
+    lockW: 8.5,
+    lockDx: 6.5,
   },
 } as const;
 /** right : le bord droit du pattern et du tempo, a gauche de la touche i (R4 ; 312 avant) ; gap : l'air entre le son, le pattern et le tempo (R4 : 8 et 10 avant, la place rendue au son). */
-const PAGE_HEAD = { y: 15.5, iconX: 10, pillX: 23, pillY: 4.5, right: 301, rule: 21.5, gap: 7 } as const;
-/** Les seize pas du pied (a gauche) et le reste du pied (a droite). */
-const PAGE_STRIP = { x0: 10, y: 105.5, size: 5.5, pitch: 7 } as const;
-const PAGE_FOOT = { x0: 132, x1: 312, y: 112.5 } as const;
-/**
+const PAGE_HEAD: { y: number; iconX: number; pillX: number; pillY: number; right: number; rule: number; gap: number } = TALL
+  ? { y: 16.5, iconX: 10, pillX: 23, pillY: 4, right: 299, rule: 22.5, gap: 7 }
+  : { y: 15.5, iconX: 10, pillX: 23, pillY: 4.5, right: 301, rule: 21.5, gap: 7 };
+/** Les seize pas du pied (a gauche) et le reste du pied (a droite) ; au telephone (2026-10-09), en bas de l'ecran haut. */
+const PAGE_STRIP: { x0: number; y: number; size: number; pitch: number } = TALL ? { x0: 10, y: UH - 14, size: 6, pitch: 7 } : { x0: 10, y: 105.5, size: 5.5, pitch: 7 };
+const PAGE_FOOT: { x0: number; x1: number; y: number } = TALL ? { x0: 132, x1: 312, y: UH - 5.5 } : { x0: 132, x1: 312, y: 112.5 };/**
  * Le flash d'un pas verrouille qui joue (revue de R2 : un seizieme, 115 ms a
  * 130 BPM, ne se lisait pas) : il tient jusqu'au coup suivant de la voix, au
  * moins min, au plus max (ms).
@@ -329,6 +396,12 @@ const PAGE_FOOT = { x0: 132, x1: 312, y: 112.5 } as const;
 const FLASH = { min: 280, max: 900 } as const;
 /** Le pied du LOCK au telephone : ses deux aides alternent (ms). */
 const TIP_MS = 2400;
+/**
+ * Le geste qui regle un bloc, dans les aides : TURN A KNOB ; au telephone
+ * DRAG A VALUE depuis le 2026-10-09 (les potards de page ont quitte la face,
+ * on glisse le bloc lui-meme).
+ */
+const TURN = BLOCKS_ARE_KNOBS ? 'DRAG A VALUE' : 'TURN A KNOB';
 /** La liste des sons (SAMPLES) sur toute la largeur. */
 const PAGE_COL: Col = { x0: 10, x1: 310 };
 
@@ -385,7 +458,8 @@ export class Screen {
     const W = mobile ? 1024 : 1280;
     const H = Math.round((W * UH) / UW);
     this.scale = W / UW;
-    this.bt = mobile ? BLOCK_TYPE.phone : BLOCK_TYPE.desk;
+    // L'ecran haut du telephone (2026-10-09) a ses corps a lui ; une tablette (mobile, l'ecran du desktop) garde ceux du telephone
+    this.bt = TALL ? BLOCK_TYPE.tall : mobile ? BLOCK_TYPE.phone : BLOCK_TYPE.desk;
     this.info = { draws: 0, text: ['', '', ''], lastDrawAt: -Infinity, minGapMs: Infinity, font: 'vector op-1', size: [W, H], view: 'home', page: rytmPage.get().page, blocks: [], echo: -1, lock: -1, flash: [], strip: '', foot: [], panel: [], footText: '', layers: '', infos: false, infoBlock: -1 };
     this.canvas = document.createElement('canvas');
     this.canvas.width = W;
@@ -657,6 +731,8 @@ export class Screen {
     this.info.footText = '';
     this.info.layers = '';
     this.info.infoBlock = -1;
+    // L'ecran haut du telephone (2026-10-09) : le dessin de 120 de HOME, EDIT et des presets, centre (la vue PAGE a le sien)
+    if (!paged && DY > 0) c.setTransform(this.scale, 0, 0, this.scale, 0, this.scale * DY);
     if (s.keys) this.paintPresets(s);
     else if (paged) this.armEcho(this.paintPage(s, rp, p.instrument, ptn.cur, now, lockStep));
     else {
@@ -669,6 +745,7 @@ export class Screen {
       else this.paintCards(p.instrument);
       this.paintLine(s, rytmEdit);
     }
+    c.setTransform(this.scale, 0, 0, this.scale, 0, 0);
     // La touche i (R4) : par-dessus tout, sur toutes les vues
     this.paintInfoKey(rytmInfos.isOn());
     if (this.blinkUntil > now || (rytmEdit && ptn.next >= 0) || this.waveFrom > 0) next = ANIM_MS;
@@ -1148,10 +1225,9 @@ export class Screen {
       this.info.blocks = blocks.map((b) => `${b.label}=${b.text}:${b.state}${b.lock !== 'none' ? `/${b.lock}` : ''}${b.flash ? '!' : ''}${b.quiet ? '~' : ''}`);
       this.info.flash = blocks.filter((b) => b.flash).map((b) => b.k);
       const echo = blocks.find((b) => b.echo);
-      if (echo && rp.echo) {
-        this.info.echo = echo.k;
-        next = Math.max(1, rp.echo.until - now + 1);
-      }
+      if (echo) this.info.echo = echo.k;
+      // La fin de l'echo a son heure ; un bloc tenu au doigt (2026-10-09) reste cerne sans minuteur, son lacher redessine
+      if (echo && rp.echo && rp.echo.page === rp.page && now < rp.echo.until) next = Math.max(1, rp.echo.until - now + 1);
     }
     this.paintStrip(inst, rp.sel, lockStep);
     const more = this.paintFoot(s, rp.page, lockStep, now, mode && mode.kind === 'flash' ? mode : null);
@@ -1233,13 +1309,13 @@ export class Screen {
     // Le titre : le pas, et ce qu'il fait (LOCKS en LOCK, PLAYS quand il joue)
     const title = `STEP ${two(step + 1)} ${lockArg !== undefined ? 'PLAYS' : 'LOCKS'}`;
     this.text(this.fitText(title, x1 - x0 - 2 * pad, T.nameSize, 0.7, 700), x0 + pad, y0 + T.nameDy, T.nameSize, HALF, 700, 'left', 0.7);
-    const size = this.mobile ? 9 : 6.8;
-    const lh = this.mobile ? 10.4 : 8.2;
+    const size = T.panelSize;
+    const lh = T.panelLh;
     let y = y0 + T.nameDy + lh + 0.6;
     const bottom = y1 - 3;
     const out: string[] = [];
     if (lines.length === 0) {
-      this.text(this.fitText('NONE YET: TURN A KNOB', x1 - x0 - 2 * pad, size, 0.5, 600), x0 + pad, y, size, FAINT, 600, 'left', 0.5);
+      this.text(this.fitText(`NONE YET: ${TURN}`, x1 - x0 - 2 * pad, size, 0.5, 600), x0 + pad, y, size, FAINT, 600, 'left', 0.5);
       this.info.panel = ['NONE'];
       return;
     }
@@ -1486,7 +1562,7 @@ export class Screen {
     const P = this.pal;
     const T = this.bt;
     // Le nom ; au desktop la lettre du potard au bout (au telephone elle est imprimee a cote du potard) ; un cadenas en negatif
-    const lockW = neg ? 7 : 0;
+    const lockW = neg ? T.lockW : 0;
     // Un bloc a crans au desktop (MACHINE, GATE) : ses crans tiennent le bout de la ligne d'unite, son etiquette (BOTH,
     // CH+OH) monte sur la ligne du nom, avant la lettre (revue de R3 : elles se chevauchaient)
     const tagName = alive && !!b.tag && b.draw === 'notch' && T.notchRow && b.lock !== 'global' && b.lock !== 'nolock';
@@ -1495,7 +1571,7 @@ export class Screen {
     this.text(this.fitText(b.label, nameW, T.nameSize, 0.7, 700), bx + B.padX, by + T.nameDy, T.nameSize, alive ? P.half : P.faint, 700, 'left', 0.7);
     if (tagName) this.text(b.tag, bx + M.w - B.padX - (T.letters ? 8 : 0) - lockW, by + T.nameDy, T.unitSize * 0.92, P.half, 700, 'right', 0.5);
     if (T.letters) this.text(PAGE_KNOB_LETTERS[b.k], bx + M.w - B.padX, by + T.nameDy, T.letterSize, neg ? P.half : b.echo ? HALF : FAINT, 700, 'right');
-    if (neg) this.padlock(bx + M.w - B.padX - (T.letters ? 8 : 0) - 5.5, by + T.nameDy + 0.2, this.mobile ? 6 : 4.6, P.ink);
+    if (neg) this.padlock(bx + M.w - B.padX - (T.letters ? 8 : 0) - T.lockDx, by + T.nameDy + 0.2, T.lockS, P.ink);
     if (!alive) {
       this.text('--', bx + B.padX, by + T.valueDy, T.valueSizes[1], P.faint, 300);
       if (b.unit) this.text(this.fitText(b.unit, M.w - 2 * B.padX, T.unitSize), bx + B.padX, by + T.unitDy, T.unitSize, P.faint, 600, 'left', 0.4);
@@ -1673,12 +1749,12 @@ export class Screen {
       const used = held && lk.writes > lk.since;
       const names = lockSummary(lockStep);
       // Plus gros au telephone (revue de R2 : 5 a 6 px a l'ecran) : 10 et 8.6, comme les noms et les unites des blocs
-      const s1 = this.mobile ? 10 : fs - 1.2;
-      const s2 = this.mobile ? 8.6 : 5.8;
+      const s1 = TALL ? 11 : this.mobile ? 10 : fs - 1.2;
+      const s2 = TALL ? 9.4 : this.mobile ? 8.6 : 5.8;
       // Les verrous du pas ; trop pour la ligne : combien, et sur quelles pages
       const full = `STEP ${two(lockStep + 1)} LOCKS: ${names.join(' ')}`;
       const list = this.textWidth(full, s1, 600, 0.5) <= x1 - x0 ? full : `STEP ${two(lockStep + 1)}: ${names.length} LOCKS ON ${lockPages(lockStep).join(' ')}`;
-      const top = s.l3 && !s.mix ? s.l3 : names.length > 0 ? list : `TURN A KNOB: STEP ${two(lockStep + 1)} ONLY`;
+      const top = s.l3 && !s.mix ? s.l3 : names.length > 0 ? list : `${TURN}: STEP ${two(lockStep + 1)} ONLY`;
       // Le telephone n'a la place que d'une aide a la fois : elles alternent (comment enlever, comment sortir)
       const phase = this.mobile ? Math.floor(now / TIP_MS) % 2 : 0;
       const tip = used
@@ -1690,8 +1766,9 @@ export class Screen {
             : phase === 0
               ? '2X: UNLOCK  CLEAR: ALL'
               : `TAP STEP ${two(lockStep + 1)} AGAIN: EXIT`;
-      const y1 = this.mobile ? 108.7 : 106.8;
-      const y2 = this.mobile ? 118 : 114.8;
+      // L'ecran haut du telephone (2026-10-09) : les deux lignes en bas de ses 156 unites
+      const y1 = TALL ? UH - 10 : this.mobile ? 108.7 : 106.8;
+      const y2 = TALL ? UH - 1.8 : this.mobile ? 118 : 114.8;
       const t1 = this.fitText(top, x1 - x0, s1, 0.5, 600);
       const t2 = this.fitText(tip, x1 - x0, s2, 0.6, 700);
       this.text(t1, x0, y1, s1, INK, 600, 'left', 0.5);
@@ -1733,7 +1810,16 @@ export class Screen {
     if (!this.bt.tabs) {
       // Au telephone, sans onglets : le pas qui joue et ses verrous ; sinon, toujours, le geste des verrous
       // (revue de R2 : seul un message de 800 ms le disait, la face n'a pas la place de l'ecrire)
-      const t = flash && fl.length > 0 ? this.flashLine(flash.step, fl, x1 - x0, fs) : this.fitText('HOLD A STEP + TURN A KNOB: LOCK', x1 - x0, fs - 0.5, 0.5, 700);
+      // L'ecran haut (2026-10-09) : le geste sur deux lignes, en entier (sur une, DRAG A VALUE ne tenait pas)
+      if (TALL && !(flash && fl.length > 0)) {
+        const a = this.fitText(`HOLD A STEP + ${TURN}`, x1 - x0, fs - 1, 0.5, 700);
+        const b = this.fitText('LOCKS THAT STEP ONLY', x1 - x0, fs - 1.6, 0.6, 700);
+        this.text(a, x0, UH - 10, fs - 1, HALF, 700, 'left', 0.5);
+        this.text(b, x0, UH - 1.8, fs - 1.6, FAINT, 700, 'left', 0.6);
+        this.info.footText = `${a} / ${b}`;
+        return 0;
+      }
+      const t = flash && fl.length > 0 ? this.flashLine(flash.step, fl, x1 - x0, fs) : this.fitText(`HOLD A STEP + ${TURN}: LOCK`, x1 - x0, fs - 0.5, 0.5, 700);
       this.text(t, x0, y, flash && fl.length > 0 ? fs : fs - 0.5, flash && fl.length > 0 ? INK : HALF, flash && fl.length > 0 ? 600 : 700, 'left', flash && fl.length > 0 ? 0.4 : 0.5);
       this.info.footText = t;
       return 0;
