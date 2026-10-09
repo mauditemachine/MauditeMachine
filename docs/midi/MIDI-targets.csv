@@ -470,14 +470,21 @@ bass:knob:5,bass,MM-BASS,SCREEN VALUE E (PAGE),value,,BSEQ
 bass:knob:6,bass,MM-BASS,SCREEN VALUE F (PAGE),value,,BSEQ
 bass:knob:7,bass,MM-BASS,SCREEN VALUE G (PAGE),value,,BSEQ
 bass:knob:8,bass,MM-BASS,SCREEN VALUE H (PAGE),value,,BSEQ
-bass:global:drive,bass,MM-BASS,"DRIVE (GLOBAL, KNOB A)",value,,
-bass:global:delay,bass,MM-BASS,"DELAY (GLOBAL, KNOB B)",value,,
-bass:global:dtime,bass,MM-BASS,"DLY TIME (GLOBAL, KNOB C)",value,6,
-bass:global:dfb,bass,MM-BASS,"DLY FB (GLOBAL, KNOB D)",value,,
-bass:global:volume,bass,MM-BASS,"VOLUME (GLOBAL, KNOB E)",value,,
-bass:global:reverb,bass,MM-BASS,"REVERB (GLOBAL, KNOB F)",value,,
-bass:global:rsize,bass,MM-BASS,"REV SIZE (GLOBAL, KNOB G)",value,,
-bass:global:rtone,bass,MM-BASS,"REV TONE (GLOBAL, KNOB H)",value,,
+bass:global:cutoff,bass,MM-BASS,"CUTOFF (GLOBAL, KNOB A)",value,,
+bass:global:reso,bass,MM-BASS,"RESO (GLOBAL, KNOB B)",value,,
+bass:global:envmod,bass,MM-BASS,"ENV MOD (GLOBAL, KNOB C)",value,,
+bass:global:drive,bass,MM-BASS,"DRIVE (GLOBAL, KNOB D)",value,,
+bass:global:fattack,bass,MM-BASS,"F.ATTACK (GLOBAL, KNOB E)",value,,
+bass:global:decay,bass,MM-BASS,"DECAY (GLOBAL, KNOB F)",value,,
+bass:global:fsustain,bass,MM-BASS,"F.SUSTAIN (GLOBAL, KNOB G)",value,,
+bass:global:release,bass,MM-BASS,"RELEASE (GLOBAL, KNOB H)",value,,
+bass:global:delay,bass,MM-BASS,DELAY (GLOBAL),value,,
+bass:global:dtime,bass,MM-BASS,DLY TIME (GLOBAL),value,6,
+bass:global:dfb,bass,MM-BASS,DLY FB (GLOBAL),value,,
+bass:global:volume,bass,MM-BASS,VOLUME (GLOBAL),value,,
+bass:global:reverb,bass,MM-BASS,REVERB (GLOBAL),value,,
+bass:global:rsize,bass,MM-BASS,REV SIZE (GLOBAL),value,,
+bass:global:rtone,bass,MM-BASS,REV TONE (GLOBAL),value,,
 bass:page:voice,bass,MM-BASS,PAGE VOICE (AGAIN: NEXT TAB),press,,BSEQ
 bass:page:filter,bass,MM-BASS,PAGE FILTER (AGAIN: NEXT TAB),press,,BSEQ
 bass:page:env,bass,MM-BASS,PAGE ENV (AGAIN: NEXT TAB),press,,BSEQ

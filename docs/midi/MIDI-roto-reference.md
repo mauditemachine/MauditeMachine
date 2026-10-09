@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 9 octobre 2026 depuis le code du site (`npm run docs:midi`) : 715 cibles, 8 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 9 octobre 2026 depuis le code du site (`npm run docs:midi`) : 722 cibles, 8 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -1193,7 +1193,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:open` | OPEN | appui |  | ARP |
 | `voy:infos` | INFOS (HELP ON HOVER) | appui |  |  |
 
-### MM-BASS (scope `bass`, 150 cibles)
+### MM-BASS (scope `bass`, 157 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -1264,14 +1264,21 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:knob:6` | SCREEN VALUE F (PAGE) | valeur 0 a 127 |  | BSEQ |
 | `bass:knob:7` | SCREEN VALUE G (PAGE) | valeur 0 a 127 |  | BSEQ |
 | `bass:knob:8` | SCREEN VALUE H (PAGE) | valeur 0 a 127 |  | BSEQ |
-| `bass:global:drive` | DRIVE (GLOBAL, KNOB A) | valeur 0 a 127 |  |  |
-| `bass:global:delay` | DELAY (GLOBAL, KNOB B) | valeur 0 a 127 |  |  |
-| `bass:global:dtime` | DLY TIME (GLOBAL, KNOB C) | valeur 0 a 127 | 6 |  |
-| `bass:global:dfb` | DLY FB (GLOBAL, KNOB D) | valeur 0 a 127 |  |  |
-| `bass:global:volume` | VOLUME (GLOBAL, KNOB E) | valeur 0 a 127 |  |  |
-| `bass:global:reverb` | REVERB (GLOBAL, KNOB F) | valeur 0 a 127 |  |  |
-| `bass:global:rsize` | REV SIZE (GLOBAL, KNOB G) | valeur 0 a 127 |  |  |
-| `bass:global:rtone` | REV TONE (GLOBAL, KNOB H) | valeur 0 a 127 |  |  |
+| `bass:global:cutoff` | CUTOFF (GLOBAL, KNOB A) | valeur 0 a 127 |  |  |
+| `bass:global:reso` | RESO (GLOBAL, KNOB B) | valeur 0 a 127 |  |  |
+| `bass:global:envmod` | ENV MOD (GLOBAL, KNOB C) | valeur 0 a 127 |  |  |
+| `bass:global:drive` | DRIVE (GLOBAL, KNOB D) | valeur 0 a 127 |  |  |
+| `bass:global:fattack` | F.ATTACK (GLOBAL, KNOB E) | valeur 0 a 127 |  |  |
+| `bass:global:decay` | DECAY (GLOBAL, KNOB F) | valeur 0 a 127 |  |  |
+| `bass:global:fsustain` | F.SUSTAIN (GLOBAL, KNOB G) | valeur 0 a 127 |  |  |
+| `bass:global:release` | RELEASE (GLOBAL, KNOB H) | valeur 0 a 127 |  |  |
+| `bass:global:delay` | DELAY (GLOBAL) | valeur 0 a 127 |  |  |
+| `bass:global:dtime` | DLY TIME (GLOBAL) | valeur 0 a 127 | 6 |  |
+| `bass:global:dfb` | DLY FB (GLOBAL) | valeur 0 a 127 |  |  |
+| `bass:global:volume` | VOLUME (GLOBAL) | valeur 0 a 127 |  |  |
+| `bass:global:reverb` | REVERB (GLOBAL) | valeur 0 a 127 |  |  |
+| `bass:global:rsize` | REV SIZE (GLOBAL) | valeur 0 a 127 |  |  |
+| `bass:global:rtone` | REV TONE (GLOBAL) | valeur 0 a 127 |  |  |
 | `bass:page:voice` | PAGE VOICE (AGAIN: NEXT TAB) | appui |  | BSEQ |
 | `bass:page:filter` | PAGE FILTER (AGAIN: NEXT TAB) | appui |  | BSEQ |
 | `bass:page:env` | PAGE ENV (AGAIN: NEXT TAB) | appui |  | BSEQ |
