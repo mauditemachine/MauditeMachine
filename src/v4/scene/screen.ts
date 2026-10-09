@@ -95,7 +95,7 @@
  * Le telephone (2026-10-09, Mika : "en mobile c'est mieux si tu ne mets pas
  * d'encoders ; on change dans l'ecran directement ; forcement donne-moi un
  * ecran plus grand") : les potards de page ont quitte la face, l'ecran prend
- * toute la largeur et plus de hauteur (theme.ts OLED_UH, 154 unites) ; la vue
+ * toute la largeur et plus de hauteur (theme.ts OLED_UH, 158 unites) ; la vue
  * PAGE y a sa mise en page haute (TALL : blocs de 52.5, corps plus gros, le
  * pied en bas) et ses huit blocs sont les commandes (scene/renderer.ts
  * lcd-blk, ui/Hotspots.tsx : glisser, deux tapes, le LOCK a deux doigts) ; le
@@ -118,13 +118,14 @@ import { voiceFx } from '../audio/voicefx';
 import { editor } from '../state/editor';
 import { focus } from '../state/focus';
 import { lcd, type LcdState } from '../state/lcd';
+import { lcdSamples } from '../state/lcdSamples';
 import { PATTERN_SLOTS, patterns, slotName } from '../state/patterns';
 import { playhead } from '../state/playhead';
 import { rytmInfos } from '../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
 import { BLOCKS_ARE_KNOBS, FONT_DISPLAY, HEX, OLED, OLED_DY, OLED_UH, PAGE_KNOB_LETTERS, type Inst } from '../theme';
-import { RYTM_PAGES, pageLabel, type RytmPageId } from '../rytm/pages';
+import { RYTM_PAGES, pageLabel, slotOf, type RytmPageId } from '../rytm/pages';
 import { pageBlocks, type Block, type BlockMode } from '../rytm/pageView';
 import { v127Text } from '../rytm/values';
 import { makeCanvasTexture } from './silk';
@@ -180,11 +181,12 @@ const IDLE_MS = 15000;
 const WAVE_MS = 7000;
 
 /**
- * La mise en page, en unites : 320 de large ; 120 de haut au desktop, 156 au
+ * La mise en page, en unites : 320 de large ; 120 de haut au desktop, 158 au
  * telephone depuis le 2026-10-09 (theme.ts OLED_UH, Mika : "forcement
  * donne-moi un ecran plus grand") : la vue PAGE y a sa mise en page haute
- * (TALL : des blocs de 55 au lieu de 37, de plus gros corps), les autres vues
- * (HOME, EDIT, les presets) gardent leur dessin de 120, centre (OLED_DY).
+ * (TALL : des blocs de 52.5 au lieu de 37, de plus gros corps, un pied de 26),
+ * les autres vues (HOME, EDIT, les presets) gardent leur dessin de 120,
+ * centre (OLED_DY).
  */
 const UW = 320;
 const UH = OLED_UH;
@@ -275,6 +277,14 @@ interface Col {
   x1: number;
 }
 
+/** La place du panneau des verrous dans la matrice : sa premiere colonne, combien, sa premiere rangee, combien. */
+interface PanelArea {
+  c0: number;
+  n: number;
+  r0: number;
+  rows: number;
+}
+
 /*
  * La vue PAGE (2026-10-08) : huit blocs de 72 x 37 en 2 x 4, les centres des
  * colonnes (44, 120, 196, 272) au-dessus des potards de page ; dans un bloc
@@ -285,10 +295,12 @@ interface Col {
 /*
  * Au telephone (TALL, 2026-10-09) : des blocs de 72 x 52.5 (37 avant), 44 px
  * de haut a 390 x 844, assez pour un doigt (ils sont les potards de page) ;
- * la valeur plus grande, l'image un peu plus petite a sa droite.
+ * la valeur plus grande, l'image un peu plus petite a sa droite. Les deux
+ * rangees a 3 l'une de l'autre (4 avant la revue du meme jour : le pied y
+ * gagne sa place, 132 a 158).
  */
 const MATRIX: { x0: number; pitch: number; w: number; h: number; rows: readonly [number, number]; r: number } = TALL
-  ? { x0: 8, pitch: 76, w: 72, h: 52.5, rows: [24, 80.5], r: 4.5 }
+  ? { x0: 8, pitch: 76, w: 72, h: 52.5, rows: [24, 79.5], r: 4.5 }
   : { x0: 8, pitch: 76, w: 72, h: 37, rows: [24, 63], r: 3.5 };
 const BLOCK: { padX: number; valueW: number; draw: { dx0: number; dx1: number; dy0: number; dy1: number } } = TALL
   ? { padX: 6, valueW: 42, draw: { dx0: 49, dx1: 67, dy0: 20, dy1: 37 } }
@@ -319,7 +331,15 @@ const BLOCK_TYPE = {
     unitDy: 34.6,
     letters: true,
     notchRow: true,
-    tabs: true,
+    /*
+     * Plus d'onglets au pied depuis la revue du 2026-10-09 : les six touches de
+     * page sont juste sous le verre, sur sa largeur (Mika : "TRIG, je veux ces
+     * boutons en dessous de l'ecran") ; leurs six noms repetes dans le pied, sur
+     * sa droite seulement, ne tombaient sur aucune touche. Le pied dit ce que
+     * dit celui du telephone (le pas verrouille qui joue, le geste des verrous).
+     * Le dessin et les zones des onglets (lcd-tab-*) restent : tabs les rallume.
+     */
+    tabs: false,
     tabSize: 6.5,
     foot: 8,
     head: { pill: 7.5, pillH: 12, voice: 12, sound: 7.5, bpm: 6.5, num: 12 },
@@ -386,14 +406,26 @@ const BLOCK_TYPE = {
 const PAGE_HEAD: { y: number; iconX: number; pillX: number; pillY: number; right: number; rule: number; gap: number } = TALL
   ? { y: 16.5, iconX: 10, pillX: 23, pillY: 4, right: 299, rule: 22.5, gap: 7 }
   : { y: 15.5, iconX: 10, pillX: 23, pillY: 4.5, right: 301, rule: 21.5, gap: 7 };
-/** Les seize pas du pied (a gauche) et le reste du pied (a droite) ; au telephone (2026-10-09), en bas de l'ecran haut. */
-const PAGE_STRIP: { x0: number; y: number; size: number; pitch: number } = TALL ? { x0: 10, y: UH - 14, size: 6, pitch: 7 } : { x0: 10, y: 105.5, size: 5.5, pitch: 7 };
-const PAGE_FOOT: { x0: number; x1: number; y: number } = TALL ? { x0: 132, x1: 312, y: UH - 5.5 } : { x0: 132, x1: 312, y: 112.5 };/**
+/**
+ * Les seize pas du pied (a gauche) et le reste du pied (a droite) ; au
+ * telephone (2026-10-09), en bas de l'ecran haut. Revue du meme jour (les
+ * deux lignes de l'aide collaient au bas du verre, la seconde a peine
+ * lisible) : le pied du telephone va de 132 a 158, ses lignes au milieu ; une
+ * ligne a y, deux a y1 et y2 (3.7 d'air entre elles, 5 sous la seconde), les
+ * pas centres sur elles.
+ */
+const PAGE_STRIP: { x0: number; y: number; size: number; pitch: number } = TALL ? { x0: 10, y: UH - 16, size: 6, pitch: 7 } : { x0: 10, y: 105.5, size: 5.5, pitch: 7 };
+const PAGE_FOOT: { x0: number; x1: number; y: number; y1: number; y2: number } = TALL
+  ? { x0: 132, x1: 312, y: UH - 9.5, y1: UH - 15, y2: UH - 5 }
+  : { x0: 132, x1: 312, y: 112.5, y1: 106.8, y2: 114.8 };
+/**
  * Le flash d'un pas verrouille qui joue (revue de R2 : un seizieme, 115 ms a
  * 130 BPM, ne se lisait pas) : il tient jusqu'au coup suivant de la voix, au
  * moins min, au plus max (ms).
  */
 const FLASH = { min: 280, max: 900 } as const;
+/** La largeur des deux plaques de BOTH (layersGlyph), en unites. */
+const LAYERS_GLYPH_W = 8.6;
 /** Le pied du LOCK au telephone : ses deux aides alternent (ms). */
 const TIP_MS = 2400;
 /**
@@ -404,6 +436,29 @@ const TIP_MS = 2400;
 const TURN = BLOCKS_ARE_KNOBS ? 'DRAG A VALUE' : 'TURN A KNOB';
 /** La liste des sons (SAMPLES) sur toute la largeur. */
 const PAGE_COL: Col = { x0: 10, x1: 310 };
+/**
+ * La liste des sons, en unites : la ligne du son du moment (y, sa pastille),
+ * l'ecart des lignes, les corps, le rang a droite, le titre dessous. Sur
+ * l'ecran haut du telephone (2026-10-09, revue : elle gardait le haut du
+ * dessin de 120, le bas de l'ecran restait vide) : au milieu de la place des
+ * blocs (24 a 132), en plus gros.
+ */
+interface ListLayout {
+  y: number;
+  row: number;
+  pillDy: number;
+  pillH: number;
+  cur: number;
+  other: number;
+  rank: number;
+  /** le rang : sa ligne de base sous celle du son du moment (l'ecran haut : centre sur la pastille) */
+  rankDy: number;
+  rankW: number;
+  title: number;
+  titleY: number;
+}
+const LIST: ListLayout = { y: 58, row: 18, pillDy: 10.5, pillH: 14, cur: 10, other: 9, rank: 8, rankDy: 4, rankW: 24, title: 7, titleY: 96 };
+const LIST_TALL: ListLayout = { y: 70, row: 23, pillDy: 13, pillH: 17.5, cur: 12.5, other: 11, rank: 10, rankDy: -0.8, rankW: 30, title: 9, titleY: 118 };
 
 const two = (n: number): string => (n < 10 ? `0${n}` : String(n));
 
@@ -578,6 +633,14 @@ export class Screen {
    * de page chacun, 2026-10-08, revue de R1 : dessines, ils ne faisaient rien).
    */
   tabsShown = false;
+  /**
+   * La liste des sons a la place des blocs de la vue PAGE (2026-10-09, revue :
+   * les huit zones des blocs restaient vivantes sous elle, une tape sur un nom
+   * tombait sur un bloc cache) : null quand les blocs sont la ; sinon le bloc
+   * qui l'a ouverte (SAMPLE, MACHINE ; -1 : aucun sur cette page), le seul
+   * que le Stage garde (on le reprend au doigt pour continuer).
+   */
+  listBlock: number | null = null;
 
   /* ---------------- le dessin ---------------- */
 
@@ -719,6 +782,7 @@ export class Screen {
 
     this.bar = null;
     this.tabsShown = false;
+    this.listBlock = null;
     this.info.view = view;
     this.info.page = rp.page;
     this.info.blocks = [];
@@ -1101,24 +1165,23 @@ export class Screen {
   }
 
   /** Page SAMPLES : le son precedent, le son du moment en pastille, le suivant ; leur rang. */
-  private paintSamples(m: NonNullable<LcdState['samples']>, col: Col = COL): void {
+  private paintSamples(m: NonNullable<LcdState['samples']>, col: Col = COL, L: ListLayout = LIST): void {
     const n = m.names.length;
     const x = col.x0;
-    const ROW = 18;
     for (let k = -1; k <= 1; k += 1) {
       const i = m.cur + k;
       if (i < 0 || i >= n) continue;
-      const y = 58 + k * ROW;
+      const y = L.y + k * L.row;
       const name = fit(m.names[i], 18);
       if (k === 0) {
-        const w = col.x1 - x - 24;
-        this.pill(x, y - 10.5, w, 14, INK);
-        this.text(name, x + 7, y, 10, BLACK, 600);
-      } else this.text(name, x + 7, y, 9, HALF, 500);
+        const w = col.x1 - x - L.rankW;
+        this.pill(x, y - L.pillDy, w, L.pillH, INK);
+        this.text(name, x + 7, y, L.cur, BLACK, 600);
+      } else this.text(name, x + 7, y, L.other, HALF, 500);
     }
-    this.text(m.rank, col.x1, 62, 8, HALF, 600, 'right');
+    this.text(m.rank, col.x1, L.y + L.rankDy, L.rank, HALF, 600, 'right');
     // Le titre : KICK SOUND (le choix de son d'avant), KICK SAMPLE ou KICK SYNTH (les couches de R3, 2026-10-08)
-    this.text(/ (SAMPLE|SYNTH)$/.test(m.title) ? m.title : `${m.title} SOUND`, x, 96, 7, HALF, 700, 'left', 0.9);
+    this.text(/ (SAMPLE|SYNTH)$/.test(m.title) ? m.title : `${m.title} SOUND`, x, L.titleY, L.title, HALF, 700, 'left', 0.9);
   }
 
   /** Mode presets : le titre, le nom en grand entre ses fleches, les quatre touches en pastilles. */
@@ -1213,15 +1276,22 @@ export class Screen {
     // blocs montraient le pas)
     const shownLock = !inst || !mode ? null : mode.kind === 'lock' ? lockOf(pattern.get().locks, inst, mode.step) : mode.lock;
     this.paintPageHead(rp.page, inst, cur, now, lockStep, shownLock);
-    if (s.samples && lockStep < 0) this.paintSamples(s.samples, PAGE_COL);
-    else {
+    if (s.samples && lockStep < 0) {
+      // Le bloc qui a ouvert la liste : celui du reglage qu'elle montre, sur cette page
+      const at = slotOf(lcdSamples.kind() === 'sample' ? 'smpl:sample' : lcdSamples.kind() === 'machine' ? 'l:mach' : 'vsound', inst, rp.page);
+      this.listBlock = at && at.page === rp.page ? at.k : -1;
+      // L'ecran haut du telephone : la liste au milieu de la place des blocs, plus grande (elle gardait le haut du dessin de 120)
+      this.paintSamples(s.samples, PAGE_COL, TALL ? LIST_TALL : LIST);
+    } else {
       const blocks = pageBlocks(rp, inst, now, mode);
       this.paintMatrix(blocks);
       // INFOS (R4) : le bloc de l'encodeur dont la carte est montree, ses quatre coins
       const ik = this.infoKnob();
       if (ik >= 0 && blocks[ik] && blocks[ik].state !== 'empty') this.infoMarks(ik);
       // Les verrous du pas, toutes pages, dans la place que la page laisse vide (revue de R2)
-      if (mode) this.paintLockPanel(blocks, mode.step, mode.kind === 'flash' ? mode.lock : undefined);
+      const panel = mode ? this.paintLockPanel(blocks, mode.step, mode.kind === 'flash' ? mode.lock : undefined) : null;
+      // Au telephone les blocs sont les potards : les cases vides gardent leur place (revue du 2026-10-09)
+      if (BLOCKS_ARE_KNOBS) this.paintGhosts(blocks, panel);
       this.info.blocks = blocks.map((b) => `${b.label}=${b.text}:${b.state}${b.lock !== 'none' ? `/${b.lock}` : ''}${b.flash ? '!' : ''}${b.quiet ? '~' : ''}`);
       this.info.flash = blocks.filter((b) => b.flash).map((b) => b.k);
       const echo = blocks.find((b) => b.echo);
@@ -1274,7 +1344,7 @@ export class Screen {
    * vide (deux rangees si les deux sont libres) ; rien si la page est pleine
    * (le pied les dit alors).
    */
-  private paintLockPanel(blocks: readonly Block[], step: number, lockArg?: Readonly<StepLock> | null): void {
+  private paintLockPanel(blocks: readonly Block[], step: number, lockArg?: Readonly<StepLock> | null): PanelArea | null {
     const M = MATRIX;
     const empty = (k: number): boolean => blocks[k]?.state === 'empty';
     // La plus grande place : colonnes contigues vides sur les deux rangees, sinon sur une seule (deux colonnes au moins)
@@ -1296,8 +1366,8 @@ export class Screen {
         }
       }
     }
-    const b = best as { c0: number; n: number; r0: number; rows: number } | null;
-    if (!b) return;
+    const b = best as PanelArea | null;
+    if (!b) return null;
     const lines: LockLine[] = lockList(step, lockArg);
     const x0 = M.x0 + M.pitch * b.c0;
     const x1 = x0 + M.pitch * (b.n - 1) + M.w;
@@ -1317,7 +1387,7 @@ export class Screen {
     if (lines.length === 0) {
       this.text(this.fitText(`NONE YET: ${TURN}`, x1 - x0 - 2 * pad, size, 0.5, 600), x0 + pad, y, size, FAINT, 600, 'left', 0.5);
       this.info.panel = ['NONE'];
-      return;
+      return b;
     }
     for (let i = 0; i < lines.length; i += 1) {
       // La derniere ligne qui tient dit combien il en reste
@@ -1338,6 +1408,29 @@ export class Screen {
       if (y > bottom + 0.01) break;
     }
     this.info.panel = out;
+    return b;
+  }
+
+  /**
+   * Les cases vides de la vue PAGE au telephone (revue du 2026-10-09 : sur
+   * une page creuse, FLTR de BD, un seul bloc sur un ecran noir, la grille de
+   * 2 x 4 disparaissait, alors que les blocs y sont les potards) : un cadre en
+   * pointilles a peine marque, sauf la ou le panneau des verrous a pris la
+   * place.
+   */
+  private paintGhosts(blocks: readonly Block[], panel: PanelArea | null): void {
+    const M = MATRIX;
+    const c = this.ctx;
+    c.save();
+    c.setLineDash([2.4, 2.2]);
+    blocks.forEach((b, k) => {
+      if (b.state !== 'empty') return;
+      const col = k % 4;
+      const row = k >> 2;
+      if (panel && col >= panel.c0 && col < panel.c0 + panel.n && row >= panel.r0 && row < panel.r0 + panel.rows) return;
+      this.roundRect(M.x0 + M.pitch * col + 0.5, M.rows[row] + 0.5, M.w - 1, M.h - 1, M.r, null, FRAME, 0.7);
+    });
+    c.restore();
   }
 
   /** Un petit cadenas (x : son bord gauche, y : le bas de son corps), plein. */
@@ -1567,7 +1660,11 @@ export class Screen {
     // CH+OH) monte sur la ligne du nom, avant la lettre (revue de R3 : elles se chevauchaient)
     const tagName = alive && !!b.tag && b.draw === 'notch' && T.notchRow && b.lock !== 'global' && b.lock !== 'nolock';
     const tnW = tagName ? this.textWidth(b.tag, T.unitSize * 0.92, 700, 0.5) + 4 : 0;
-    const nameW = M.w - 2 * B.padX - (T.letters ? 8 : 0) - lockW - (b.tag === 'BOTH' && !T.letters ? 10 : 0) - tnW;
+    // BOTH (R3, les deux couches) sans lettre : deux petites plaques, en haut a droite ; sur l'ecran haut du telephone, au
+    // bout de la ligne d'unite (revue du 2026-10-09 : ATTACK, au corps de 11.5, touchait les plaques ; dessous, l'image
+    // s'arrete au-dessus de la ligne d'unite)
+    const glyph: 'top' | 'unit' | null = b.tag === 'BOTH' && !T.letters ? (TALL ? 'unit' : 'top') : null;
+    const nameW = M.w - 2 * B.padX - (T.letters ? 8 : 0) - lockW - (glyph === 'top' ? 10 : 0) - tnW;
     this.text(this.fitText(b.label, nameW, T.nameSize, 0.7, 700), bx + B.padX, by + T.nameDy, T.nameSize, alive ? P.half : P.faint, 700, 'left', 0.7);
     if (tagName) this.text(b.tag, bx + M.w - B.padX - (T.letters ? 8 : 0) - lockW, by + T.nameDy, T.unitSize * 0.92, P.half, 700, 'right', 0.5);
     if (T.letters) this.text(PAGE_KNOB_LETTERS[b.k], bx + M.w - B.padX, by + T.nameDy, T.letterSize, neg ? P.half : b.echo ? HALF : FAINT, 700, 'right');
@@ -1583,10 +1680,10 @@ export class Screen {
     // La ligne d'unite, et l'etiquette au bout : NO BD, ALL, la voix (la rangee du haut de FX) ; en LOCK GLOBAL, NO LOCK
     // BOTH (R3, les deux couches) au telephone : en haut a droite, ou la lettre du potard n'est pas (sur la ligne
     // d'unite il touchait l'arc du petit potard)
-    const tagTop = b.tag === 'BOTH' && !T.letters;
-    if (tagTop) this.layersGlyph(bx + M.w - B.padX, by + T.nameDy, P.half);
-    const tag = tagTop || tagName ? '' : b.tag;
-    const tw = tag ? this.text(tag, bx + M.w - B.padX, by + T.unitDy, T.unitSize, b.noBd || b.all ? P.faint : P.half, 700, 'right', 0.5) + 4 : 0;
+    if (glyph === 'top') this.layersGlyph(bx + M.w - B.padX, by + T.nameDy, P.half);
+    if (glyph === 'unit') this.layersGlyph(bx + M.w - B.padX, by + T.unitDy + 0.8, P.half);
+    const tag = glyph || tagName ? '' : b.tag;
+    const tw = tag ? this.text(tag, bx + M.w - B.padX, by + T.unitDy, T.unitSize, b.noBd || b.all ? P.faint : P.half, 700, 'right', 0.5) + 4 : glyph === 'unit' ? LAYERS_GLYPH_W + 4 : 0;
     const notchRow = stepped && T.notchRow;
     const unitW = M.w - 2 * B.padX - tw - (notchRow ? 26 : 0);
     // En LOCK, un bloc GLOBAL ou NO LOCK : ni image ni crans (revue de R2 : l'etiquette passait sur la courbe, les
@@ -1639,6 +1736,7 @@ export class Screen {
    * y : la ligne du nom.
    */
   private layersGlyph(x: number, y: number, color: string): void {
+    // LAYERS_GLYPH_W de large en tout : la plaque (6.2) et son decalage (2.4)
     const w = 6.2;
     const h = 4.4;
     this.roundRect(x - w - 2.4, y - h - 3.6, w, h, 1, null, color, 0.9);
@@ -1749,8 +1847,8 @@ export class Screen {
       const used = held && lk.writes > lk.since;
       const names = lockSummary(lockStep);
       // Plus gros au telephone (revue de R2 : 5 a 6 px a l'ecran) : 10 et 8.6, comme les noms et les unites des blocs
-      const s1 = TALL ? 11 : this.mobile ? 10 : fs - 1.2;
-      const s2 = TALL ? 9.4 : this.mobile ? 8.6 : 5.8;
+      const s1 = TALL ? 10 : this.mobile ? 10 : fs - 1.2;
+      const s2 = TALL ? 9.2 : this.mobile ? 8.6 : 5.8;
       // Les verrous du pas ; trop pour la ligne : combien, et sur quelles pages
       const full = `STEP ${two(lockStep + 1)} LOCKS: ${names.join(' ')}`;
       const list = this.textWidth(full, s1, 600, 0.5) <= x1 - x0 ? full : `STEP ${two(lockStep + 1)}: ${names.length} LOCKS ON ${lockPages(lockStep).join(' ')}`;
@@ -1766,9 +1864,9 @@ export class Screen {
             : phase === 0
               ? '2X: UNLOCK  CLEAR: ALL'
               : `TAP STEP ${two(lockStep + 1)} AGAIN: EXIT`;
-      // L'ecran haut du telephone (2026-10-09) : les deux lignes en bas de ses 156 unites
-      const y1 = TALL ? UH - 10 : this.mobile ? 108.7 : 106.8;
-      const y2 = TALL ? UH - 1.8 : this.mobile ? 118 : 114.8;
+      // L'ecran haut du telephone (2026-10-09) : les deux lignes du pied (PAGE_FOOT y1, y2), de l'air dessous
+      const y1 = TALL || !this.mobile ? F.y1 : 108.7;
+      const y2 = TALL || !this.mobile ? F.y2 : 118;
       const t1 = this.fitText(top, x1 - x0, s1, 0.5, 600);
       const t2 = this.fitText(tip, x1 - x0, s2, 0.6, 700);
       this.text(t1, x0, y1, s1, INK, 600, 'left', 0.5);
@@ -1810,12 +1908,13 @@ export class Screen {
     if (!this.bt.tabs) {
       // Au telephone, sans onglets : le pas qui joue et ses verrous ; sinon, toujours, le geste des verrous
       // (revue de R2 : seul un message de 800 ms le disait, la face n'a pas la place de l'ecrire)
-      // L'ecran haut (2026-10-09) : le geste sur deux lignes, en entier (sur une, DRAG A VALUE ne tenait pas)
+      // L'ecran haut (2026-10-09) : le geste sur deux lignes, en entier (sur une, DRAG A VALUE ne tenait pas) ; toutes deux
+      // en demi-teinte (revue du meme jour : la seconde, a peine plus claire que le fond, ne se lisait pas)
       if (TALL && !(flash && fl.length > 0)) {
         const a = this.fitText(`HOLD A STEP + ${TURN}`, x1 - x0, fs - 1, 0.5, 700);
-        const b = this.fitText('LOCKS THAT STEP ONLY', x1 - x0, fs - 1.6, 0.6, 700);
-        this.text(a, x0, UH - 10, fs - 1, HALF, 700, 'left', 0.5);
-        this.text(b, x0, UH - 1.8, fs - 1.6, FAINT, 700, 'left', 0.6);
+        const b = this.fitText('LOCKS THAT STEP ONLY', x1 - x0, fs - 1.5, 0.6, 700);
+        this.text(a, x0, F.y1, fs - 1, HALF, 700, 'left', 0.5);
+        this.text(b, x0, F.y2, fs - 1.5, HALF, 700, 'left', 0.6);
         this.info.footText = `${a} / ${b}`;
         return 0;
       }

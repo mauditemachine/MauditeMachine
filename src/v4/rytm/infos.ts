@@ -126,6 +126,19 @@ interface Raw {
 /** Le telephone : les blocs de l'ecran sont les encodeurs (2026-10-09), les cartes le disent. */
 const PHONE = BLOCKS_ARE_KNOBS;
 
+/**
+ * Les mots d'une carte au telephone (2026-10-09) : les pads disent que
+ * l'ecran regle la voix, et un bloc se glisse, il ne se tourne pas (revue du
+ * meme jour : NO LOCK, GLOBAL et le sample lock disaient encore "tourne").
+ */
+const phoneWords = (x: string): string =>
+  !PHONE
+    ? x
+    : x
+        .replace(/les pas, les encodeurs et l'écran/g, "les pas et l'écran")
+        .replace(/si tu le tournes/g, 'si tu le glisses')
+        .replace(/tourne SAMPLE/g, 'glisse SAMPLE');
+
 /** Les espaces insecables du francais (Quebec) et l'apostrophe typographique (comme bass/infos.ts). */
 const fr = (x: string): string =>
   x
@@ -720,7 +733,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   step: {
     section: 'STEPS',
     title: 'STEPS',
-    text: "Les 16 pas de la voix choisie. Touche un pas : vide, 127 (HIGH), 85 (MID), 42 (LOW), vide. Tiens-le et glisse : sa vélocité. Tiens-le 350 ms sans bouger : LOCK. Au téléphone, tiens un pas d'un doigt et tourne un encodeur d'un autre : le verrou se pose tout de suite. Un pas qui porte des verrous garde une lueur orange pâle sur sa touche, et un point dessous à l'écran. Dans EDIT, les 16 pas sont les 16 patterns.",
+    text: "Les 16 pas de la voix choisie. Touche un pas : vide, 127 (HIGH), 85 (MID), 42 (LOW), vide. Tiens-le et glisse : sa vélocité. Tiens-le 350 ms sans bouger : LOCK. Au doigt, tiens un pas d'un doigt et tourne un encodeur d'un autre (au téléphone, glisse une valeur de l'écran) : le verrou se pose tout de suite. Un pas qui porte des verrous garde une lueur orange pâle sur sa touche, et un point dessous à l'écran. Dans EDIT, les 16 pas sont les 16 patterns.",
     tip: 'Le kick sur 1, 5, 9 et 13 (les pas encadrés), le clap ou la caisse claire sur 5 et 13 : la base du four on the floor.',
     phone: {
       text: "Les 16 pas de la voix choisie. Touche un pas : vide, 127 (HIGH), 85 (MID), 42 (LOW), vide. Tiens-le et glisse : sa vélocité. Tiens-le 350 ms sans bouger : LOCK. Ou tiens un pas d'un doigt et glisse une valeur de l'écran d'un autre : le verrou se pose tout de suite. Un pas qui porte des verrous garde une lueur orange pâle sur sa touche, et un point dessous à l'écran. Dans EDIT, les 16 pas sont les 16 patterns.",
@@ -737,7 +750,7 @@ const RAW: Record<RytmInfoId, Raw> = {
       'Choisis la page, tourne un encodeur : ce réglage ne change que sur ce pas, son bloc passe en négatif.',
       'Retape le pas (ou Échap) pour sortir.',
     ],
-    text: "Le parameter lock d'une Elektron : un pas garde sa propre valeur d'un réglage, et l'écran la montre quand le pas joue. Deux tapes sur un encodeur enlèvent son verrou, CLEAR tous ceux du pas. Au téléphone : un doigt sur le pas, un autre sur l'encodeur ; dans le Dock, un appui long sur le pas, puis KNOBS.",
+    text: "Le parameter lock d'une Elektron : un pas garde sa propre valeur d'un réglage, et l'écran la montre quand le pas joue. Deux tapes sur un encodeur enlèvent son verrou, CLEAR tous ceux du pas. Au doigt : un doigt sur le pas, un autre sur l'encodeur (au téléphone, sur la valeur de l'écran) ; dans le Dock, un appui long sur le pas, puis KNOBS.",
     tip: 'Un sample lock : en LOCK sur le pas 16 de BD, tourne SAMPLE (SMPL D) jusqu’à une caisse claire de Mika ; la mesure finit sur elle, calée à son niveau.',
     phone: {
       steps: [
@@ -819,7 +832,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     title: 'SCREEN',
     text: "La vue PAGE, toujours là. En haut, la lecture, la page en pastille, la voix et ce qu'elle joue (sur SRC et SMPL, ses deux couches : SYN et SMP, chacune son niveau), le pattern, le tempo et le i des INFOS ; puis huit blocs à la place des huit encodeurs (A B C D en haut, E F G H dessous), chacun avec sa valeur de 0 à 127 (de -64 à +63 pour un réglage centré, les demi-tons pour TUNE, le nom du cran pour un choix), son unité et son petit dessin. Dessous, les 16 pas de la voix et la tête de lecture, un point sous chaque pas verrouillé. L'en-tête ouvre les presets ; la touche de page allumée (ou H) montre HOME.",
     phone: {
-      text: "La vue PAGE, toujours là, et tes encodeurs : en haut, la lecture, la page en pastille, la voix et ce qu'elle joue, le pattern, le tempo et le i des INFOS ; puis huit blocs (A B C D en haut, E F G H dessous), chacun avec sa valeur de 0 à 127 (de -64 à +63 pour un réglage centré, le nom du cran pour un choix), son unité et son petit dessin. Glisse un bloc de haut en bas pour régler sa valeur (il se cerne tant que tu le tiens), deux tapes la remettent à son départ. Dessous, les 16 pas de la voix et la tête de lecture. L'en-tête ouvre les presets ; la touche de page allumée montre HOME.",
+      text: "La vue PAGE, toujours là : en haut, la lecture, la page en pastille, la voix et ce qu'elle joue, le pattern, le tempo et le i des INFOS ; puis huit blocs, tes encodeurs A à H (A B C D en haut, E F G H dessous, de gauche à droite ; les cartes et le Dock les nomment ainsi), chacun avec sa valeur de 0 à 127 (de -64 à +63 pour un réglage centré, le nom du cran pour un choix), son unité et son petit dessin. Une case vide n'a que son cadre en pointillés. Glisse un bloc de haut en bas pour régler sa valeur (il se cerne tant que tu le tiens), deux tapes la remettent à son départ. Dessous, les 16 pas de la voix et la tête de lecture. L'en-tête ouvre les presets ; la touche de page allumée montre HOME.",
     },
   },
   presets: {
@@ -835,7 +848,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   ikey: {
     section: 'SCREEN',
     title: 'INFOS',
-    text: "Allume l'aide : survole n'importe quelle commande du MM-RYTM (au téléphone, touche-la : sa carte s'affiche, la commande n'agit pas ; un glisser tourne toujours un encodeur) pour lire ce qu'elle fait ; un encodeur montre le réglage qu'il tient sur la page allumée, pour la voix choisie, et l'écran marque son bloc de quatre coins. Le i se remplit tant que c'est allumé ; touche-le encore, la croix de la pastille INFOS, I ou Échap pour l'éteindre. Au téléphone, le i du Dock fait de même.",
+    text: "Allume l'aide : survole n'importe quelle commande du MM-RYTM (au doigt, touche-la : sa carte s'affiche, la commande n'agit pas ; un glisser tourne toujours un encodeur, au téléphone une valeur de l'écran) pour lire ce qu'elle fait ; un encodeur montre le réglage qu'il tient sur la page allumée, pour la voix choisie, et l'écran marque son bloc de quatre coins. Le i se remplit tant que c'est allumé ; touche-le encore, la croix de la pastille INFOS, I ou Échap pour l'éteindre. Au téléphone, le i du Dock fait de même.",
     phone: {
       text: "Allume l'aide : touche n'importe quelle commande du MM-RYTM, sa carte s'affiche et la commande n'agit pas ; un glisser règle toujours une valeur de l'écran. Un bloc de l'écran montre le réglage qu'il tient sur la page allumée, pour la voix choisie, marqué de quatre coins. Le i se remplit tant que c'est allumé ; touche-le encore ou la croix de la pastille INFOS pour l'éteindre. Le i du Dock fait de même.",
     },
@@ -853,7 +866,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     title: 'ENCODER',
     text: "Les huit encodeurs A à H règlent la page allumée, pour la voix choisie ; leur valeur est à l'écran, de 0 à 127, dans le bloc à leur place. Ils sont sans fin : rien ne saute quand tu changes de page. Deux tapes : la valeur de départ (en LOCK, le verrou s'en va). Cette case est vide sur cette page. Au téléphone, la page KNOBS du Dock (onglet PAGES) a les mêmes huit encodeurs et les six touches de page.",
     phone: {
-      text: "Les huit blocs de l'écran sont tes encodeurs A à H : glisse un bloc de haut en bas (environ 150 px pour toute la course, un cran à la fois pour un choix) pour régler la page allumée, pour la voix choisie. Rien ne saute quand tu changes de page. Deux tapes : la valeur de départ (en LOCK, le verrou s'en va). Cette case est vide sur cette page. La page KNOBS du Dock (onglet PAGES) a les mêmes huit réglages et les six touches de page.",
+      text: "Les huit blocs de l'écran sont tes encodeurs A à H (A B C D en haut, E F G H dessous, de gauche à droite) : glisse un bloc de haut en bas (environ 150 px pour toute la course, un cran à la fois pour un choix) pour régler la page allumée, pour la voix choisie. Rien ne saute quand tu changes de page. Deux tapes : la valeur de départ (en LOCK, le verrou s'en va). Cette case est vide sur cette page. La page KNOBS du Dock (onglet PAGES) a les mêmes huit réglages et les six touches de page.",
     },
   },
 };
@@ -895,10 +908,8 @@ export function infoOf(id: string, ctx: RytmInfoCtx = {}): RytmInfo | null {
   }
   // La phrase du verrou : pour un reglage des pages (la plaque TWEAKS n'a pas de pas)
   const ph = PHONE ? r.phone : undefined;
-  const raw = w.text ?? ph?.text ?? r.text;
-  // Au telephone, les pads disent que l'ecran regle la voix (plus d'encodeurs sur la face)
-  const base = PHONE ? raw.replace(/les pas, les encodeurs et l'écran/g, "les pas et l'écran") : raw;
-  const text = lock && !ctx.plate ? `${base} ${LOCK_LINE[lock]}` : base;
+  const base = w.text ?? ph?.text ?? r.text;
+  const text = phoneWords(lock && !ctx.plate ? `${base} ${LOCK_LINE[lock]}` : base);
   const tip = w.tip ?? r.tip;
   return {
     id: rid,
@@ -907,7 +918,7 @@ export function infoOf(id: string, ctx: RytmInfoCtx = {}): RytmInfo | null {
     ...(r.steps ? { steps: (ph?.steps ?? r.steps).map(fr) } : {}),
     text: fr(text),
     ...(r.key ? { key: fr(`Au clavier : ${r.key}.`) } : {}),
-    ...(tip ? { tip: fr(tip) } : {}),
+    ...(tip ? { tip: fr(phoneWords(tip)) } : {}),
     avail: rytmAvail(rid),
     ...(lock ? { lock } : {}),
   };

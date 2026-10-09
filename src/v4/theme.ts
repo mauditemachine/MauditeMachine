@@ -456,17 +456,20 @@ export const BACKDROP: { transparent: boolean; readonly page: string } = { trans
  * directement ; forcement donne-moi un ecran plus grand") : les potards de
  * page ont quitte la face, l'ecran prend leur place, toute la largeur du
  * panneau (le cadre aligne sur le logo et le logotype, 7.5) et plus haut :
- * 7.28 x 3.504, une texture de 640 x 308 (OLED_UH = 154 unites de haut au
- * lieu de 120, deux pixels l'unite comme au desktop). La vue PAGE s'y etale
- * (scene/screen.ts, la mise en page haute) ; HOME, EDIT et les presets
- * gardent leur dessin de 120, centre (OLED_DY).
+ * 7.28 x 3.59, une texture de 640 x 316 (OLED_UH = 158 unites de haut au
+ * lieu de 120, deux pixels l'unite comme au desktop ; 154 avant la revue du
+ * 2026-10-09, le pied y tenait mal), son haut a -6.3 (sous l'en-tete), sa
+ * place en bas comptee au plus juste avec celles des touches de page et de
+ * MASTER / TEMPO (PAGE_KEYS, MASTER_POTS : 44 px au doigt chacune). La vue
+ * PAGE s'y etale (scene/screen.ts, la mise en page haute) ; HOME, EDIT et
+ * les presets gardent leur dessin de 120, centre (OLED_DY).
  */
-/** La hauteur du dessin de l'ecran, en unites (sa largeur : 320) ; 120 au desktop, 154 au telephone (2026-10-09). */
-export const OLED_UH = PORTRAIT ? 154 : 120;
+/** La hauteur du dessin de l'ecran, en unites (sa largeur : 320) ; 120 au desktop, 158 au telephone (2026-10-09). */
+export const OLED_UH = PORTRAIT ? 158 : 120;
 /** Le decalage vertical (unites) du dessin de 120 de haut (HOME, EDIT, les presets) dans un ecran plus haut : centre. */
 export const OLED_DY = (OLED_UH - 120) / 2;
 export const OLED = PORTRAIT
-  ? ({ x: 0, z: -4.548, w: 7.28, d: (7.28 * OLED_UH) / 320, y: 0.025, tex: [640, OLED_UH * 2], bezel: { w: 7.5, d: (7.28 * OLED_UH) / 320 + 0.22, h: 0.02 } } as const)
+  ? ({ x: 0, z: -6.3 + (7.28 * OLED_UH) / 640, w: 7.28, d: (7.28 * OLED_UH) / 320, y: 0.025, tex: [640, OLED_UH * 2], bezel: { w: 7.5, d: (7.28 * OLED_UH) / 320 + 0.22, h: 0.02 } } as const)
   : ({ x: -3.25, z: -1.88, w: 5.0, d: 1.875, y: 0.025, tex: [640, 240], bezel: { w: 5.26, d: 2.135, h: 0.02 } } as const);
 
 /**
@@ -492,7 +495,7 @@ export const OLED_BAR = { h: 22, lift: 3, gap: 14, stroke: 2, inset: 4, bandY0: 
  * la bande ne couvre que sa droite (u0 a u1 de la largeur, 132 a 312 des 320
  * unites), une touche sur les pas ne ramene pas la piste au debut.
  * Au telephone (2026-10-09, l'ecran plus haut) : le pied est en bas du
- * dessin de 154, la bande aussi (les 17 dernieres unites).
+ * dessin de 158, la bande aussi (les 17 dernieres unites).
  */
 export const OLED_BAR_PAGE = { bandY0: 2 * OLED_UH - 34, bandY1: 2 * OLED_UH, u0: 132 / 320, u1: 312 / 320 } as const;
 
@@ -1007,13 +1010,15 @@ export interface EncPlace {
 /**
  * Les deux rangees des potards de page (z de leur centre), leur echelle, la
  * lettre en haut a gauche de la collerette. Desktop : sous les touches de
- * page depuis le 2026-10-09 (0.5 et 1.36 ; -0.23 et 0.67 quand les touches
- * etaient dessous). Le telephone n'en a plus (PAGE_KNOBS_ON_FACE) : ses
- * valeurs ne servent qu'au type.
+ * page depuis le 2026-10-09 (-0.23 et 0.67 quand les touches etaient
+ * dessous) ; 0.56 et 1.42 depuis la revue du meme jour (0.5 et 1.36 : les
+ * noms des touches, a 20 px de A B C D, se lisaient comme ceux des potards ;
+ * un filet les separe, SILK_LINES). Le telephone n'en a plus
+ * (PAGE_KNOBS_ON_FACE) : ses valeurs ne servent qu'au type.
  */
 export const PAGE_KNOBS = PORTRAIT
   ? ({ rowZ: [-3.08, -1.96], s: 1.15, letterDx: -0.5, letterDz: -0.26, cap: 0.085 } as const)
-  : ({ rowZ: [0.5, 1.36], s: 1, letterDx: -0.34, letterDz: -0.33, cap: 0.075 } as const);
+  : ({ rowZ: [0.56, 1.42], s: 1, letterDx: -0.34, letterDz: -0.33, cap: 0.075 } as const);
 
 /** x de la colonne c (0 a 3) des potards de page : sous le centre de la colonne de blocs de l'ecran. */
 export const pageKnobX = (c: number): number => OLED.x + ((44 + 76 * c - 160) * OLED.w) / 320;
@@ -1050,27 +1055,43 @@ export const POT = {
  * bouts et au milieu ; ses chiffres au bout (MASTER : -INF et 0 dB, le gain au
  * carre ; TEMPO : 100 et 150 BPM, sa course) ; le nom sous le potard. Rayons a
  * l'echelle 1.
+ * Revue du 2026-10-09 : les chiffres faisaient 5 px au desktop (4 au
+ * telephone), illisibles, et le signe infini de la police sortait petit et
+ * decolle du moins. Au desktop ils passent a 7 px (numCap), le moins et
+ * l'infini dessines en traits (SILK_MARKS, infinityMarks) ; au telephone, ou
+ * 7 px depasseraient tous les noms de la face, plus de chiffres (numbers) :
+ * les traits et le nom suffisent.
  */
 export const POT_SCALE = {
   ticks: 11,
   minor: { r0: 0.282, r1: 0.318, w: 0.014 },
   major: { r0: 0.268, r1: 0.336, w: 0.02 },
   alpha: 0.7,
-  /** les chiffres des bouts : leur rayon (le long du bout de la course), leur corps */
-  numR: 0.4,
-  numCap: 0.055,
-  /** le nom, sous le centre */
-  labelDz: 0.42,
+  /** les chiffres des bouts (desktop) : leur rayon (le long du bout de la course), leur corps */
+  numbers: !PORTRAIT,
+  numR: 0.42,
+  numCap: 0.078,
+  numAlpha: 0.62,
+  /** le nom, sous le centre (desktop : un rien plus bas, sous les chiffres plus gros ; telephone : plus pres, sans chiffres) */
+  labelDz: PORTRAIT ? 0.36 : 0.45,
   labelCap: 0.075,
 } as const;
 
 /**
  * La place de MASTER et TEMPO : au-dessus des voix (desktop : sur les
  * colonnes CH et OH, sous l'en-tete, leur nom sur la ligne de VOICES ; au
- * telephone : de meme, entre les touches de page et les pads, plus gros au
- * doigt), loin des huit potards de page.
+ * telephone : entre les touches de page et les pads), loin des huit potards
+ * de page. hitR : le rayon de leur zone (la rondelle au desktop) ; flatHit :
+ * une zone a plat (sa hauteur ne la fait pas monter a l'ecran).
+ * Au telephone, revue du 2026-10-09 (leur nom touchait presque les pads CH
+ * et OH, a 3 px, et la bande restait vide a gauche) : ranges a droite, sur
+ * les colonnes OH et EDIT (VOICES a gauche sur la meme ligne), un rien plus
+ * petits (1.25), leur nom plus pres d'eux et a 8 px des pads ; leur zone fait
+ * 44 px (hitR, a plat), du bas des zones des touches de page au nom compris.
  */
-export const MASTER_POTS = PORTRAIT ? ({ x: { level: 0, tempo: 1.4 }, z: -0.99, s: 1.3 } as const) : ({ x: { level: 2.87, tempo: 4.12 }, z: -2.96, s: 1 } as const);
+export const MASTER_POTS = PORTRAIT
+  ? ({ x: { level: 1.4, tempo: 2.8 }, z: -1.0, s: 1.25, hitR: 0.565, flatHit: true } as const)
+  : ({ x: { level: 2.87, tempo: 4.12 }, z: -2.96, s: 1, hitR: 0.236, flatHit: false } as const);
 
 function potPlace(id: 'level' | 'tempo'): EncPlace {
   const { x, z, s } = MASTER_POTS;
@@ -1106,9 +1127,28 @@ export const RYTM_PAGE_KEYS = [
   { id: 'amp', label: 'AMP' },
   { id: 'fx', label: 'FX' },
 ] as const;
+/*
+ * Revue du 2026-10-09 : au telephone la zone d'une touche (hitZ0 a hitZ1)
+ * descend du bas du verre jusqu'a la zone de MASTER et TEMPO, son nom compris :
+ * 44 px de haut (18 avant, la touche seule). Au desktop le nom remonte vers sa
+ * touche (-0.18 ; -0.09 avant, il touchait presque A B C D) et la zone reste la
+ * touche (la souris).
+ */
+const PAGE_KEYS_PHONE_Z = -2.275;
 export const PAGE_KEYS = PORTRAIT
-  ? ({ w: 1.06, d: 0.44, h: 0.1, radius: 0.05, z: -2.33, labelZ: -1.92, cap: 0.09, led: { w: 0.6, d: 0.05, back: 0.11 } } as const)
-  : ({ w: 0.74, d: 0.38, h: 0.1, radius: 0.04, z: -0.5, labelZ: -0.09, cap: 0.075, led: { w: 0.44, d: 0.042, back: 0.09 } } as const);
+  ? ({
+      w: 1.1,
+      d: 0.44,
+      h: 0.1,
+      radius: 0.05,
+      z: PAGE_KEYS_PHONE_Z,
+      labelZ: PAGE_KEYS_PHONE_Z + 0.41,
+      cap: 0.09,
+      led: { w: 0.6, d: 0.05, back: 0.11 },
+      hitZ0: OLED.z + OLED.d / 2 + 0.002,
+      hitZ1: MASTER_POTS.z - MASTER_POTS.hitR,
+    } as const)
+  : ({ w: 0.74, d: 0.38, h: 0.1, radius: 0.04, z: -0.53, labelZ: -0.18, cap: 0.075, led: { w: 0.44, d: 0.042, back: 0.09 }, hitZ0: -0.53 - 0.19, hitZ1: -0.53 + 0.19 } as const);
 /** x de la touche de page k (0 a 5) : six touches egales sur la largeur du verre de l'ecran (2026-10-09). */
 export const pageKeyX = (k: number): number => {
   const x0 = OLED.x - OLED.w / 2 + PAGE_KEYS.w / 2;
@@ -1352,22 +1392,34 @@ export const potDir = (t: number): { dx: number; dz: number } => {
   return { dx: -Math.sin(a), dz: -Math.cos(a) };
 };
 
-/** Les chiffres des deux bouts de l'echelle : MASTER du silence (le gain au carre) a 0 dB, TEMPO de 100 a 150 BPM. */
-const POT_ENDS: Readonly<Record<'level' | 'tempo', readonly [string, string]>> = { level: ['-∞', '0 dB'], tempo: ['100', '150'] };
+/**
+ * Les chiffres des deux bouts de l'echelle : MASTER du silence (le gain au
+ * carre) a 0 dB, TEMPO de 100 a 150 BPM. Le silence n'est pas un texte : le
+ * moins et l'infini sont dessines (infinityMarks ; la police n'a pas le signe,
+ * il sortait petit et decolle, revue du 2026-10-09).
+ */
+const POT_ENDS: Readonly<Record<'level' | 'tempo', readonly [string | null, string]>> = { level: [null, '0 dB'], tempo: ['100', '150'] };
 
-/** Le nom d'un potard MASTER ou TEMPO sous lui, et les chiffres de son echelle (serigraphie). */
+/** Le bout bas (lo) ou haut (hi) de l'echelle d'un potard : le point ou s'accroche son chiffre, et son corps. */
+function potEnd(k: EncPlace, hi: boolean): { x: number; z: number; cap: number } {
+  const d = potDir(hi ? 1 : 0);
+  const r = POT_SCALE.numR * k.s;
+  // Accroche vers l'exterieur : a gauche du bout bas (le texte s'y aligne a droite), a droite du bout haut
+  return { x: k.x + d.dx * r + (hi ? -0.04 : 0.04) * k.s, z: k.z + d.dz * r, cap: POT_SCALE.numCap * k.s };
+}
+
+/** Le nom d'un potard MASTER ou TEMPO sous lui, et les chiffres de son echelle (serigraphie ; au desktop seulement). */
 function potTexts(id: 'level' | 'tempo', k: EncPlace): SilkText[] {
   const s = k.s;
-  const lo = potDir(0);
-  const hi = potDir(1);
-  const r = POT_SCALE.numR * s;
-  const cap = POT_SCALE.numCap * s;
-  return [
-    { text: id === 'level' ? 'MASTER' : 'TEMPO', x: k.x, z: k.labelZ, cap: POT_SCALE.labelCap * s, maxW: 0.7 * s, group: 'pot', weight: 600 },
-    // Les chiffres poses au bout de la course, alignes vers l'exterieur (ils ne mordent pas le nom)
-    { text: POT_ENDS[id][0], x: k.x + lo.dx * r + 0.04 * s, z: k.z + lo.dz * r, cap, align: 'right', weight: 600, alpha: 0.6 },
-    { text: POT_ENDS[id][1], x: k.x + hi.dx * r - 0.04 * s, z: k.z + hi.dz * r, cap, align: 'left', weight: 600, alpha: 0.6 },
-  ];
+  const out: SilkText[] = [{ text: id === 'level' ? 'MASTER' : 'TEMPO', x: k.x, z: k.labelZ, cap: POT_SCALE.labelCap * s, maxW: 0.7 * s, group: 'pot', weight: 600 }];
+  if (!POT_SCALE.numbers) return out;
+  // Les chiffres poses au bout de la course, alignes vers l'exterieur (ils ne mordent pas le nom)
+  const [a, b] = POT_ENDS[id];
+  const lo = potEnd(k, false);
+  const hi = potEnd(k, true);
+  if (a !== null) out.push({ text: a, x: lo.x, z: lo.z, cap: lo.cap, align: 'right', weight: 600, alpha: POT_SCALE.numAlpha });
+  out.push({ text: b, x: hi.x, z: hi.z, cap: hi.cap, align: 'left', weight: 600, alpha: POT_SCALE.numAlpha });
+  return out;
 }
 
 export const SILK_TEXTS: readonly SilkText[] = [
@@ -1414,6 +1466,9 @@ export const OPEN_SILK_INDEX = SILK_TEXTS.findIndex((t) => t.text === 'OPEN');
 export const SILK_LINES: readonly (readonly number[])[] = [
   // la colonne d'OPEN a part (les deux rangees sont des voix depuis le 2026-10-03)
   [PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[0] - 0.5, PAD.x0 + (VOICE_COLS - 0.5) * PAD.pitch, PAD.rowZ[1] + 0.72],
+  // Desktop (revue du 2026-10-09) : un filet sous les noms des touches de page, de la largeur du verre ; les touches
+  // et l'ecran d'un cote, les huit potards de l'autre (les noms se lisaient comme ceux des potards)
+  ...(PAGE_KNOBS_ON_FACE ? [[OLED.x - OLED.w / 2, PAGE_KEYS.labelZ + 0.2, OLED.x + OLED.w / 2, PAGE_KEYS.labelZ + 0.2]] : []),
   ...[0, 1, 2, 3].map((g) => {
     const a = keyX(4 * g) - KEYS.w / 2;
     const b = keyX(4 * g + 3) + KEYS.w / 2;
@@ -1436,15 +1491,44 @@ export interface SilkMark {
   w: number;
   alpha: number;
 }
-export const SILK_MARKS: readonly SilkMark[] = FACE_KNOBS.filter((k) => !isPageKnob(k.id)).flatMap((k) =>
-  Array.from({ length: POT_SCALE.ticks }, (_, i) => {
+/**
+ * Le moins et l'infini du bas de MASTER (2026-10-09, revue : le signe de la
+ * police sortait petit et decolle) : un trait et une lemniscate, du corps des
+ * chiffres, alignes a droite sur x et centres sur z comme eux (un rien plus
+ * bas : l'infini et le moins se tiennent a mi-hauteur des minuscules).
+ */
+function infinityMarks(x: number, z: number, cap: number): SilkMark[] {
+  const w = cap * 0.135;
+  const alpha = POT_SCALE.numAlpha;
+  const a = cap * 0.64;
+  const cx = x - a;
+  const cz = z + cap * 0.06;
+  const pts: number[] = [];
+  for (let i = 0; i <= 40; i += 1) {
+    const t = (i / 40) * Math.PI * 2;
+    const q = 1 + Math.sin(t) ** 2;
+    pts.push(cx + (a * Math.cos(t)) / q, cz + (1.45 * a * Math.sin(t) * Math.cos(t)) / q);
+  }
+  const m1 = cx - a - cap * 0.2;
+  return [
+    { pts, w, alpha },
+    { pts: [m1 - cap * 0.5, cz, m1, cz], w, alpha },
+  ];
+}
+
+export const SILK_MARKS: readonly SilkMark[] = FACE_KNOBS.filter((k) => !isPageKnob(k.id)).flatMap((k) => [
+  ...Array.from({ length: POT_SCALE.ticks }, (_, i) => {
     const t = i / (POT_SCALE.ticks - 1);
     const big = i === 0 || i === POT_SCALE.ticks - 1 || i * 2 === POT_SCALE.ticks - 1;
     const m = big ? POT_SCALE.major : POT_SCALE.minor;
     const d = potDir(t);
     return { pts: [k.x + d.dx * m.r0 * k.s, k.z + d.dz * m.r0 * k.s, k.x + d.dx * m.r1 * k.s, k.z + d.dz * m.r1 * k.s], w: m.w * k.s, alpha: POT_SCALE.alpha };
-  })
-);
+  }),
+  ...(POT_SCALE.numbers && k.id === 'level' ? (() => {
+    const lo = potEnd(k, false);
+    return infinityMarks(lo.x, lo.z, lo.cap);
+  })() : []),
+]);
 
 /* ---------- camera, orbite et cadrage (spec 20.2) ---------- */
 

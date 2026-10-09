@@ -139,7 +139,12 @@ export class RytmPageKeys {
     }
   }
 
-  /** Les zones des touches : pkey-trig ... pkey-fx (kind pkey, rpage). */
+  /**
+   * Les zones des touches : pkey-trig ... pkey-fx (kind pkey, rpage). De
+   * hitZ0 a hitZ1 (theme.ts PAGE_KEYS) : la touche au desktop ; au telephone
+   * (revue du 2026-10-09) du bas du verre a MASTER et TEMPO, son nom compris,
+   * 44 px de haut.
+   */
   hotspots(layer: Object3D): HotspotDef[] {
     return RYTM_PAGE_KEYS.map((p, i) => ({
       id: `pkey-${p.id}`,
@@ -147,9 +152,9 @@ export class RytmPageKeys {
       layer,
       shape: 'box' as const,
       x: pageKeyX(i),
-      z: PAGE_KEYS.z,
+      z: (PAGE_KEYS.hitZ0 + PAGE_KEYS.hitZ1) / 2,
       hx: PAGE_KEYS.w / 2,
-      hz: PAGE_KEYS.d / 2,
+      hz: (PAGE_KEYS.hitZ1 - PAGE_KEYS.hitZ0) / 2,
       y0: 0,
       y1: PAGE_KEYS.h,
       enabled: true,

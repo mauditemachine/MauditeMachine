@@ -243,9 +243,10 @@ interface Down {
   /** un potard : le LOCK au debut de son glisser (un changement le fait repartir de la valeur du moment) */
   lockKey: string;
   /**
-   * un bloc de l'ecran du telephone (2026-10-09) glisse a l'horizontale au
-   * seuil : ce n'est pas un reglage (il se regle de haut en bas), c'est le
-   * glisser d'une machine a l'autre ; il le reste jusqu'au lacher
+   * un bloc de l'ecran du telephone (2026-10-09), au doigt, glisse a
+   * l'horizontale : ce n'est pas encore un reglage (il se regle de haut en
+   * bas), peut-etre le glisser d'une machine a l'autre ; il le reste tant
+   * qu'il va de cote dans le temps d'un glisser (la garde de l'orbite)
    */
   swipe: boolean;
 }
@@ -255,10 +256,16 @@ const BLOCK_SWIPE_RATIO = 1.4;
 
 /** Tenir un pas du MM-RYTM (2026-10-08) : le LOCK, comme un trig tenu d'une Elektron (et le MM-BASS). */
 const LOCK_HOLD_MS = 350;
-/** Le LOCK du moment, pour les potards qui tournent (lu a chaque mouvement). */
+/**
+ * Ce que regle un potard de page en ce moment, pour ceux qui tournent (lu a
+ * chaque mouvement) : le LOCK, et depuis la revue du 2026-10-09 la page et la
+ * voix (un bloc tenu au telephone pendant qu'un autre doigt, ], le MIDI
+ * changent de page ou de voix : il repart de la valeur du nouveau reglage, il
+ * ne saute pas a celle de l'ancien plus la course).
+ */
 const lockKeyNow = (): string => {
   const l = rytmLock.get();
-  return `${l.step}|${l.held.join(',')}`;
+  return `${l.step}|${l.held.join(',')}|${rytmPage.get().page}|${pattern.get().instrument ?? '-'}`;
 };
 
 /** INFOS du MM-RYTM allume (R4) et une de ses commandes, sur lui : au doigt, elle montre sa carte. */
@@ -595,12 +602,20 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         return false;
       }
       if (!d || !d.dial) return true;
-      // Un bloc de l'ecran du telephone (2026-10-09) : de haut en bas seulement, comme un potard ; parti a l'horizontale,
-      // c'est le glisser d'une machine a l'autre (le grand ecran couvre le haut de la face, il ne doit pas le bloquer)
-      if (d.kind === 'rblock') {
-        if (d.swipe || (!d.multi && Math.abs(dx) > BLOCK_SWIPE_RATIO * Math.abs(dy))) {
+      // Un bloc de l'ecran du telephone (2026-10-09) : de haut en bas seulement, comme un potard ; parti a l'horizontale
+      // au doigt, c'est peut-etre le glisser d'une machine a l'autre (le grand ecran couvre le haut de la face, il ne doit
+      // pas le bloquer). Revue du 2026-10-09 : la garde le laisse faire tant qu'il reste a l'horizontale et dans le temps
+      // d'un glisser (SWIPE.ms) ; sinon il redevient le reglage, repris de la valeur du moment (rien ne saute, et le geste
+      // ne se perd plus). A la souris (une fenetre etroite), le chemin des encodeurs plus bas : son axe, son curseur.
+      if (d.kind === 'rblock' && !d.mouse) {
+        if (!d.multi && Math.abs(dx) > BLOCK_SWIPE_RATIO * Math.abs(dy) && performance.now() - d.t < SWIPE.ms) {
           d.swipe = true;
           return true;
+        }
+        if (d.swipe) {
+          d.swipe = false;
+          d.v0 = anyDialValue(d.dial);
+          d.a = -dy;
         }
         d.turning = true;
         d.axis = 'y';

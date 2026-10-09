@@ -40,11 +40,11 @@ import {
   Quaternion,
   RingGeometry,
   Vector3,
-  type BufferGeometry,
+  BufferGeometry,
   type Object3D,
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { ENCODER, FACE_KNOBS, LIT, MATERIAL, POT, TEMPO_UI, isPageKnob, pageKnobIndex, type FaceKnobId } from '../theme';
+import { ENCODER, FACE_KNOBS, LIT, MASTER_POTS, MATERIAL, POT, TEMPO_UI, isPageKnob, pageKnobIndex, type FaceKnobId } from '../theme';
 import type { HotspotDef } from './hit';
 import { paintLinear, paintSolid } from './materials';
 
@@ -213,8 +213,9 @@ export class Encoders {
     this.slots = FACE_KNOBS.map((k) => (isPageKnob(k.id) ? { pot: false, i: nk++ } : { pot: true, i: np++ }));
     this.material = new MeshStandardMaterial({ vertexColors: true, ...MATERIAL.encoder });
     this.material.name = 'encoder';
-    // Au moins une instance (un tampon vide n'est pas sur partout) ; count dit combien sont dessinees
-    this.mesh = new InstancedMesh(buildGeometry(opts.mobile), this.material, Math.max(1, nk));
+    // Au moins une instance (un tampon vide n'est pas sur partout) ; count dit combien sont dessinees. Sans potard de page
+    // (le telephone, 2026-10-09) ni le capuchon ni la jupe ne sont construits : une geometrie vide, jamais posee
+    this.mesh = new InstancedMesh(nk > 0 ? buildGeometry(opts.mobile) : new BufferGeometry(), this.material, Math.max(1, nk));
     this.mesh.count = nk;
     this.mesh.visible = nk > 0;
     this.mesh.name = 'encoders';
@@ -224,7 +225,7 @@ export class Encoders {
     // La jupe : la matiere de celle du MM-VOYAGER (voyager/knobs.ts)
     this.skirtMat = new MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.28 });
     this.skirtMat.name = 'encoderSkirt';
-    this.skirts = new InstancedMesh(skirtGeometry(opts.mobile), this.skirtMat, Math.max(1, nk));
+    this.skirts = new InstancedMesh(nk > 0 ? skirtGeometry(opts.mobile) : new BufferGeometry(), this.skirtMat, Math.max(1, nk));
     this.skirts.count = nk;
     this.skirts.visible = nk > 0;
     this.skirts.name = 'encoderSkirts';
@@ -301,11 +302,12 @@ export class Encoders {
       shape: 'disc',
       x: p.x,
       z: p.z,
-      // La rondelle comprise : la cible du doigt et de la souris un rien plus large que le capuchon
-      hx: POT.base.r * p.s,
-      hz: POT.base.r * p.s,
+      // La rondelle comprise : la cible de la souris un rien plus large que le capuchon ; au telephone 44 px (revue du
+      // 2026-10-09 : 26 px, le capuchon et sa rondelle), son echelle et son nom compris (theme.ts MASTER_POTS)
+      hx: MASTER_POTS.hitR,
+      hz: MASTER_POTS.hitR,
       y0: 0,
-      y1: POT_TOP * p.s,
+      y1: MASTER_POTS.flatHit ? 0.02 : POT_TOP * p.s,
       enabled: true,
       param: id,
     };
