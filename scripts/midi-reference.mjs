@@ -5,12 +5,12 @@
  * fichier json pour le Roto"). Lit le VRAI code (midi/targets.ts, midi/roto.ts,
  * les machines chargees a part) dans le site en developpement, et ecrit :
  *
- *   docs/midi/MIDI-roto-reference.md   les regles, les formats, les six setups, tout le catalogue
+ *   docs/midi/MIDI-roto-reference.md   les regles, les formats, les huit setups, tout le catalogue
  *   docs/midi/MIDI-roto-setups.csv     un controle du Roto par ligne (canal, CC, nom, cible)
  *   docs/midi/MIDI-targets.csv         une cible du site par ligne (id, machine, type, crans)
  *   docs/midi/roto/MM <SETUP> (SETUP n).json   les setups pour ROTO-SETUP (2026-10-05, Mika :
  *                                      "donne-moi un json parfait pour mon Roto-Control"), les memes
- *                                      que DOWNLOAD THE 6 SETUPS du panneau MIDI
+ *                                      que DOWNLOAD THE 8 SETUPS du panneau MIDI
  *
  *   npm run docs:midi
  *
@@ -157,7 +157,7 @@ function build(data, date) {
   L.push('**Le principe.** Le site ecoute le MIDI du navigateur (Web MIDI : Chrome, Edge, Opera, Firefox ; pas Safari). Panneau MIDI > CONNECT. Chaque message est reconnu par une cle `type:canal:numero` (`cc:1:14` : CC 14 sur le canal 1 ; `note:10:36` ; `pb:2:0` pour le pitch bend). Une cle vise une **cible** du site (un potard, un bouton) par son id (`voy:knob:cutoff`).', '');
   L.push('**D\'ou vient la cible d\'une cle**, dans cet ordre :', '');
   L.push('1. ce que tu as appris (MIDI LEARN, ou un fichier d\'assignations importe) pour la machine regardee, puis les assignations de partout ;');
-  L.push('2. sinon la **carte du Roto** (les six setups ci-dessous), si elle est allumee (par defaut oui), pour un message d\'une entree dont le nom contient « roto » ;');
+  L.push(`2. sinon la **carte du Roto** (les ${data.setups.length} setups ci-dessous), si elle est allumee (par defaut oui), pour un message d'une entree dont le nom contient « roto » ;`);
   L.push('3. sinon ce que tu as appris pour une autre machine (depuis le 2026-10-08 : une vieille assignation d\'une autre machine ne vole plus un controle du Roto).', '');
   L.push('Une assignation apprise ne repond qu\'a l\'appareil qui l\'a apprise. Le panneau MIDI liste celles qui tombent sur une cle de la carte (REMOVE CONFLICTS WITH THE ROTO MAP) et dit, pour chaque message recu, ce qu\'il a fait.', '');
   L.push('**La carte du Roto.**', '');
@@ -174,8 +174,18 @@ function build(data, date) {
   L.push('- Un **etat** (RUN, un mute, OSC ON) est une valeur 0 ou 1 : sur le Roto un bouton **bascule** (TOGGLE) dont la LED suit le site. Depuis le 2026-10-08, chaque message d\'un bouton TOGGLE de la carte fait basculer sa cible (127 ou 0, peu importe : apres un changement fait sur la page, le premier appui marche). Une note fait basculer un parametre.', '');
   L.push('**Le retour vers le Roto.** Les potards motorises et les LEDs recoivent la valeur du site (meme canal, meme CC) toutes les 50 ms quand elle change (souris, preset, RANDOM), 48 messages au plus par tick, jamais pendant 300 ms apres un geste sur le potard, et un echo qui revient aussitot est ignore. La carte part seulement vers une sortie dont le nom contient « roto », une assignation apprise seulement vers son appareil. Pas de retour pour les boutons d\'action. Un seul onglet du site pilote le Roto : le dernier montre ou clique.', '');
   L.push('**Changer de setup sur le Roto.** Le Roto ne le dit pas : le premier potard touche d\'un autre setup qui saute loin de la valeur du site ne compte pas, son moteur y retourne et les potards et LEDs de ce setup sont renvoyes ; tourne-le de nouveau.', '');
-  L.push('**FOLLOW.** Toucher un controle d\'un setup montre sa machine : RYTM > MM-RYTM, ARP > MM-ARP, BASS > MM-BASS, DECK et MIXER > MM-DECKS. LIVE ne change pas de machine.', '');
-  L.push('**Retenu** dans le navigateur (`mm.v4.midi.1`) : assignations apprises, appareils, ROTO (la carte), FEEDBACK, FOLLOW.', '');
+  L.push('**FOLLOW.** Toucher un controle d\'un setup montre sa machine : RYTM et RSEQ > MM-RYTM, ARP > MM-ARP, BASS et BSEQ > MM-BASS, DECK et MIXER > MM-DECKS. LIVE ne change pas de machine.', '');
+  // 2026-10-09 : les sequenceurs du Roto (src/v4/midi/seqlink.ts)
+  L.push('**Les sequenceurs RSEQ et BSEQ (2026-10-09).** Le Roto en sequenceur facon Elektron, pour le MM-RYTM (RSEQ, SETUP 17) et le MM-BASS (BSEQ, SETUP 18). Page 1 : en haut les huit encodeurs de la page affichee sur la machine (`rytm:knob:1` a `8`, `bass:knob:1` a `8`), en bas huit pas (`rytm:seq:1` a `8`, `bass:seq:1` a `8`) : une fenetre de huit sur les seize pas, 1 a 8 puis 9 a 16, que le site fait defiler (STEPS 9-16 ; STEP FOLLOW, par defaut : elle suit la tete de lecture en marche ; a ne pas confondre avec la case FOLLOW du panneau, qui montre la machine du setup). Page 2 : les memes encodeurs, les touches de page, STEPS 9-16, STEP FOLLOW. Page 3 : RSEQ, les volumes des huit voix au-dessus de leur choix (la voix des pas) ; BSEQ, NOTE -, NOTE +, OCT -, OCT +, TIE, MUTATE, ACCENT et SLIDE du pas tape. Page 4 : RUN, CLEAR, RANDOM ou GEN, LOCK, EDIT, PREV et NEXT MACHINE, MACHINES.', '');
+  L.push('- **Taper** un pas (moins de 350 ms) pose son coup ou le retire (MM-RYTM : la voix choisie a la page 3, fort ; MM-BASS : une note, la tonique ; NOTE, OCT, ACCENT, SLIDE, TIE reglent ensuite le pas tape).');
+  L.push('- **Tenir** un pas 350 ms : LOCK sur ce pas, les moteurs vont a ses valeurs. **Tenir et tourner** un encodeur : un parameter lock sur ce pas seulement (un pas vide recoit un coup), le lacher sort du LOCK. Tenu sans rien tourner, le LOCK reste ; une tape sur le meme pas en sort. Plusieurs pas tenus sur le MM-RYTM : tous verrouilles.');
+  L.push('- Les **LEDs** des pas : allumee un coup, eteinte un pas vide, la tete de lecture en negatif sur son pas, le pas en LOCK qui clignote (4 Hz). Elles partent avec l\'heure du pas (MIDIOutput.send avec un timestamp, calees sur la sortie son), deux messages par pas. Les touches de page, de voix, LOCK, EDIT, ACCENT, SLIDE, TIE allument leur LED selon le site.');
+  L.push('- Dans EDIT, les huit pas sont les patterns (taper : le choisir ou le chainer ; tenir un vide : y copier), le pattern qui joue clignote.');
+  L.push('- Changer la note d\'un pas deja pose (BSEQ) : le tenir (LOCK), NOTE ou OCT a la page 3, une tape sur le pas (page 1) en sort.');
+  L.push('- Les boutons des pas sont des **PUSH** (127 a l\'appui, 0 au lacher) : le site distingue la tape de la tenue. Apres un LOCK, les potards du setup sont ignores 150 ms (les moteurs bougent). Si le Roto n\'allume pas ses PUSH depuis le site (les LEDs des pas restent eteintes), la case « Step keys in TOGGLE mode » du panneau MIDI donne des fichiers RSEQ et BSEQ aux pas en TOGGLE : chaque appui est une tape, le LOCK passe par la touche LOCK (page 4).');
+  L.push('- L\'echo : une LED renvoyee par le Roto moins de 3 ms apres son heure (l\'heure d\'arrivee du message) est ignoree ; un Roto qui renverrait tout ce qu\'il recoit plus lentement se trahit (un lacher sans appui juste apres une LED) et son retard est appris (30 ms au plus). Garder le Motion Recorder eteint sur ces deux setups.');
+  L.push('- Les canaux 7, 8, 15 et 16 sont pris par RSEQ et BSEQ : un setup a toi (1 a 10) sur ces canaux pilote des cibles de la carte et recoit leurs LEDs et leurs moteurs ; deplace-le.', '');
+  L.push('**Retenu** dans le navigateur (`mm.v4.midi.1`) : assignations apprises, appareils, ROTO (la carte), FEEDBACK, FOLLOW, les pas de RSEQ et BSEQ en TOGGLE.', '');
 
   L.push('## 2. Le fichier ROTO-SETUP (JSON)', '');
   L.push('Format des exports de ROTO-SETUP (version 1), un fichier par setup, a importer (File > Import) sur le setup choisi avec SEL. Le panneau MIDI du site les telecharge tout faits (DOWNLOAD THE SETUPS), et ils sont aussi dans ce dossier : `docs/midi/roto/` (`MM RYTM (SETUP 11).json`...).', '');
@@ -188,7 +198,7 @@ function build(data, date) {
       ['Champ', 'Sens'],
       [
         ['version, type', '1 et "MIDI" (toujours)'],
-        ['name, index', 'nom du setup sur l\'ecran du Roto, avec la version (RYTM 1008) ; index = numero de SETUP moins 1 (SETUP 12 : 11)'],
+        ['name, index', `nom du setup sur l'ecran du Roto, avec la version (${data.setups[0].label}) ; index = numero de SETUP moins 1 (SETUP 12 : 11)`],
         ['controlIndex', 'le controle n, de 0 a 31 (page = n div 8 + 1, position = n mod 8 + 1)'],
         ['controlMode', '0 : CC'],
         ['controlChannel', 'canal MIDI 1 a 16 (potards N, boutons N + 8)'],
@@ -207,8 +217,8 @@ function build(data, date) {
   );
   L.push('Couleurs utilisees (palette du Roto, 83 numeros) :', '', table(['Couleur', 'colorScheme'], COLORS.map((c) => [c[0], c[1]])), '');
 
-  L.push('## 3. Les six setups, controle par controle', '');
-  L.push('Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un potard et un bouton partagent la meme page : ils vont ensemble.', '');
+  L.push(`## 3. Les ${data.setups.length} setups, controle par controle`, '');
+  L.push(`Le setup conseille sur le Roto (SETUP ${Math.min(...data.setups.map((s) => s.slot))} a ${Math.max(...data.setups.map((s) => s.slot))}) laisse les premiers a toi. Un potard et un bouton partagent la meme page : ils vont ensemble.`, '');
   L.push(table(['Setup', 'Fichier', 'SETUP', 'Canal potards', 'Canal boutons'], data.setups.map((s) => [s.name, s.file, s.slot, s.ch, s.ch + 8])), '');
   for (const s of data.setups) {
     L.push(`### ${s.name} (SETUP ${s.slot}, potards canal ${s.ch}, boutons canal ${s.ch + 8})`, '');
@@ -231,7 +241,7 @@ function build(data, date) {
   }
 
   L.push('## 5. Faire ton propre fichier', '');
-  L.push('**Voie 1, la plus simple : partir d\'un setup fait.** Panneau MIDI > DOWNLOAD THE 6 SETUPS, tu changes les noms et les couleurs dans le JSON (`controlName`, `colorScheme`), tu importes dans ROTO-SETUP. Ne change pas le canal ni le CC : c\'est eux que le site reconnait. (Apres l\'ajout des samples, retelecharge « MM RYTM (SETUP 11).json » : KICK SOUND a maintenant 9 crans, SNARE SOUND 7.)', '');
+  L.push('**Voie 1, la plus simple : partir d\'un setup fait.** Panneau MIDI > DOWNLOAD THE ' + data.setups.length + ' SETUPS, tu changes les noms et les couleurs dans le JSON (`controlName`, `colorScheme`), tu importes dans ROTO-SETUP. Ne change pas le canal ni le CC : c\'est eux que le site reconnait. (Apres l\'ajout des samples, retelecharge « MM RYTM (SETUP 11).json » : KICK SOUND a maintenant 9 crans, SNARE SOUND 7.)', '');
   L.push('**Voie 2, ta propre disposition.** Deux fichiers : celui du Roto (canal, CC, nom, couleur : tu l\'ecris comme au chapitre 2) et le fichier d\'assignations du site, qui dit quelle cible va avec quel canal et quel CC.', '');
   L.push('Le fichier d\'assignations (panneau MIDI > EXPORT ou IMPORT) :', '');
   L.push(
@@ -256,7 +266,8 @@ function build(data, date) {
   L.push('- La machine d\'une ligne est celle du prefixe de la cible (`rytm:` dans `mm808`, `voy:` dans `voy`, `bass:` dans `bass`, `dj:` dans `dj`, `nav:` dans `global`).');
   L.push('- Une cle vise une seule cible par machine, et une cible n\'a qu\'une seule cle : ne la mets pas deux fois.');
   L.push('- IMPORT **remplace** toutes les assignations du navigateur : exporte d\'abord les tiennes.');
-  L.push('- Ce que tu as appris passe avant la carte du Roto : ta disposition l\'emporte sur les six setups, mais des canaux libres (7, 8, 15, 16) evitent tout melange. Tu peux aussi eteindre la carte (la case « ROTO-CONTROL map » du panneau MIDI).');
+  // 2026-10-09 : les sequenceurs prennent les canaux 7, 8, 15 et 16 (ils etaient libres) : les seize canaux sont a la carte
+  L.push('- Ce que tu as appris passe avant la carte du Roto : ta disposition l\'emporte sur les setups de la carte. Depuis les sequenceurs RSEQ et BSEQ (2026-10-09), la carte prend les seize canaux : sur le Roto, le panneau MIDI liste les assignations qui tombent sur une cle de la carte (REMOVE CONFLICTS WITH THE ROTO MAP) ; un autre appareil (pas « roto ») n\'est jamais pris par la carte. Tu peux aussi eteindre la carte (la case « ROTO-CONTROL map » du panneau MIDI).');
   L.push('- Dans le JSON du Roto, reutilise ce que fait la carte : potard a crans quand la cible a des crans (colonne Crans), bouton bascule pour un etat (RUN, mutes, OSC ON), cran au milieu (`hapticIndent1: 64`) pour un potard bipolaire.', '');
   L.push('**Pour qu\'un potard motorise suive le site**, la cle doit etre apprise ou dans la carte ; le retour part sur le meme canal et le meme CC, vers une sortie dont le nom contient « roto ».', '');
   L.push('Si tu veux, donne-moi ta disposition (page par page, ce que tu veux sur chaque potard et bouton) : je te genere les deux fichiers, prets a importer.', '');

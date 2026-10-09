@@ -163,10 +163,10 @@ function audition(i: number): void {
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
 export const noteName = (midi: number): string => `${NOTE_NAMES[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}`;
 
-function sayStep(i: number): void {
+function sayStep(i: number, tail = ''): void {
   const s = bassState.get().steps[i];
   const what = s.kind === 'off' ? 'OFF' : s.kind === 'tie' ? 'TIE' : `${noteName(midiOf(s))}${s.acc ? '  ACC' : ''}${s.slide ? '  SLIDE' : ''}`;
-  bassState.say(`STEP ${String(i + 1).padStart(2, '0')}  ${what}`, 1600);
+  bassState.say(`STEP ${String(i + 1).padStart(2, '0')}  ${what}${tail}`, tail ? 2400 : 1600);
 }
 
 /** Taper un pas : choisi ; vide, note, liaison (apres une note), vide. En EDIT : son pattern. En LOCK : le verrou y va. */
@@ -198,6 +198,30 @@ export function bassStepTap(i: number): void {
   bassState.setStep(i, { kind, ...(kind === 'note' && s.kind === 'off' ? { deg: 0, oct: 0 } : {}) });
   sayStep(i);
   audition(i);
+}
+
+/**
+ * Un pas tape sur le Roto-Control (2026-10-09, midi/seqlink.ts, Mika : "j'ajoute
+ * mes steps") : un geste, un etat, comme un trig d'Elektron : vide, une note (la
+ * tonique, comme une tape sur un pas vide) ; une note ou une liaison, vide. Il
+ * est choisi (NOTE, OCT, ACCENT, SLIDE de la page 3 du setup BSEQ le reglent
+ * ensuite, l'ecran le dit) et on l'entend a l'arret. Changer la note d'un pas
+ * deja pose : le tenir (LOCK), NOTE ou OCT, une tape sur le pas en sort. En
+ * EDIT et en LOCK : comme une tape sur la face.
+ */
+export function bassStepToggle(i: number): void {
+  if (bassEditing() || bassState.get().lock >= 0) {
+    bassStepTap(i);
+    return;
+  }
+  gesture();
+  const s = bassState.get().steps[i];
+  if (!s) return;
+  const on = s.kind === 'off';
+  bassState.setStep(i, on ? { kind: 'note', deg: 0, oct: 0 } : { kind: 'off' }, { sel: i });
+  // L'ecran dit la suite sur le Roto (la revue du 2026-10-09) : la note se regle a la page 3, la tenue met le LOCK
+  sayStep(i, on ? '  P3: NOTE OCT  HOLD: LOCK' : '  HOLD: LOCK');
+  if (on) audition(i);
 }
 
 /** Glisser sur un pas : sa note dans la gamme (un pas vide devient une note). */

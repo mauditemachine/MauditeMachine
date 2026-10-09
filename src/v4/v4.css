@@ -587,9 +587,10 @@ html:has(body.v4-active) {
   text-align: left;
 }
 
+/* 2026-10-09 : le texte du panneau clair suit --bone (#434343) ; --ink y est le creme de la page (texte creme sur creme) */
 .v4-root[data-v4-theme='light'] .v4-midi-panel {
   background: rgba(250, 247, 241, 0.97);
-  color: var(--ink);
+  color: var(--bone);
 }
 
 .v4-root .v4-midi-head {
@@ -839,6 +840,12 @@ html:has(body.v4-active) {
   padding: 0 4px;
 }
 
+/* Les huit setups (2026-10-09, les sequenceurs RSEQ et BSEQ) : deux rangees de quatre, dans l'ordre des SETUP 11 a 18 */
+.v4-root .v4-midi-roto-files {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .v4-root .v4-midi-slot {
   margin-left: 3px;
   opacity: 0.55;
@@ -854,6 +861,46 @@ html:has(body.v4-active) {
 
 .v4-root .v4-midi-roto-how li + li {
   margin-top: 4px;
+}
+
+/* RSEQ et BSEQ (2026-10-09, la revue) : une ligne par page, sous leurs fichiers ; P1 a P4 en tete de ligne */
+.v4-root .v4-midi-seq {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.v4-root .v4-midi-seq-title {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+
+.v4-root .v4-midi-seq-pages {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  opacity: 0.8;
+}
+
+.v4-root .v4-midi-seq-pages li + li {
+  margin-top: 3px;
+}
+
+.v4-root .v4-midi-seq-pages b {
+  display: inline-block;
+  min-width: 20px;
+}
+
+.v4-root .v4-midi-seq .v4-midi-check {
+  align-items: flex-start;
+  margin-top: 8px;
+}
+
+.v4-root .v4-midi-seq .v4-midi-check input {
+  margin-top: 1px;
+  flex: none;
 }
 
 .v4-root .v4-midi-layer {

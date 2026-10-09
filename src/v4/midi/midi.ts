@@ -65,6 +65,22 @@
  *   les cles qui dependent de la machine sont renvoyees, 48 messages au plus
  *   par tick ;
  * - le panneau dit ce que chaque message a fait (une fois par image).
+ *
+ * Le Roto en sequenceur (2026-10-09, les setups RSEQ et BSEQ, midi/seqlink.ts) :
+ * les LEDs de ses pas partent de seqlink, a l'heure du pas (seqAttach : les
+ * sorties Roto seulement) ; ses autres touches (une page, une voix, LOCK,
+ * EDIT) ont une LED qui suit le site (seqLed, par le tick) ; un bouton de ces
+ * setups qui parle voit sa LED renvoyee (un PUSH s'allume sous le doigt) ;
+ * leurs potards attendent les moteurs 150 ms apres un LOCK. Leur echo (la
+ * revue du 2026-10-09) : chaque LED partie vers un de ces boutons est notee
+ * avec l'heure ou elle joue (seqOut, les 16 dernieres) et un message qui revient est
+ * compare a l'heure de son arrivee (MIDIMessageEvent.timeStamp, pas celle du
+ * traitement) : la meme valeur moins de 3 ms apres est un echo (une tape sur
+ * la lumiere qui passe compte). Un Roto qui renverrait ce qu'il recoit se
+ * trahit (un lacher sans appui, un appui sans lacher, juste apres une LED de
+ * meme valeur) : son retard est appris (au plus 30 ms), le filtre s'elargit
+ * et les appuis qui n'etaient que des echos remontent sans jouer. Les pas en
+ * TOGGLE (la case du panneau, view.seqToggle) : chaque message est une tape.
  */
 
 import { context } from '../audio/drums';
@@ -73,7 +89,8 @@ import { djLoad } from '../state/djload';
 import { MACHINES, focus, type Focus, type MachineId } from '../state/focus';
 import { lcdMessage } from '../state/lcdMessage';
 import { midiLeader } from './leader';
-import { rotoFeedbackKeys, rotoIsToggle, rotoKeyInfo, rotoKeysOfSetup, rotoTarget, type RotoKeyInfo, type RotoSetupName } from './roto';
+import { isSeqSetup, rotoFeedbackKeys, rotoIsToggle, rotoKeyInfo, rotoKeysOfSetup, rotoKnownCc, rotoTarget, type RotoKeyInfo, type RotoSetupName } from './roto';
+import { seqAttach, seqCancelAll, seqDrop, seqDropAll, seqInvalidate, seqIsStep, seqKnobGuard, seqKnobTurn, seqLed, seqMsgAt, seqOwns, seqResendAll, seqSeen, seqStepOf } from './seqlink';
 import { MACHINE_NAME, prefixOf, targetOf, type MidiTarget, type TargetScope } from './targets';
 
 export type MidiKind = 'cc' | 'note' | 'pb';
@@ -89,6 +106,8 @@ export interface MidiMsg {
   on?: boolean;
   /** l'appareil d'ou il vient */
   device?: string;
+  /** son heure d'arrivee (performance.now, MIDIMessageEvent.timeStamp) : une tape reste une tape quand le fil principal gele */
+  at?: number;
 }
 
 export type MidiStatus = 'off' | 'asking' | 'on' | 'denied' | 'unsupported';
@@ -116,6 +135,8 @@ export interface MidiView {
   roto: boolean;
   /** le site montre la machine du setup du Roto qu'on touche (pas LIVE) */
   follow: boolean;
+  /** les huit pas de RSEQ et BSEQ en TOGGLE (2026-10-09 : si le Roto n'allume pas ses PUSH depuis le site) : chaque appui est une tape */
+  seqToggle: boolean;
   /** l'autorisation du navigateur */
   permission: MidiPermission;
   /** les sorties qui recoivent le retour (Roto-Control (Roto map)) */
@@ -177,6 +198,7 @@ interface Saved {
   feedback: boolean;
   roto: boolean;
   follow: boolean;
+  seqToggle: boolean;
 }
 
 const KEY_RE = /^(cc|note|pb):\d{1,2}:\d{1,3}$/;
@@ -189,7 +211,7 @@ function cleanFrom(raw: unknown): Record<string, string> {
 }
 
 function readSaved(): Saved {
-  const empty: Saved = { on: false, maps: {}, devices: [], from: {}, feedback: true, roto: true, follow: true };
+  const empty: Saved = { on: false, maps: {}, devices: [], from: {}, feedback: true, roto: true, follow: true, seqToggle: false };
   try {
     const raw = JSON.parse(window.localStorage.getItem(STORE_KEY) ?? 'null') as Partial<Saved> | null;
     if (!raw || typeof raw !== 'object') return empty;
@@ -201,6 +223,7 @@ function readSaved(): Saved {
       feedback: raw.feedback !== false,
       roto: raw.roto !== false,
       follow: raw.follow !== false,
+      seqToggle: raw.seqToggle === true,
     };
   } catch {
     return empty;
@@ -220,7 +243,7 @@ function cleanMaps(raw: unknown): MidiMaps {
   return out;
 }
 
-const saved: Saved = typeof window === 'undefined' ? { on: false, maps: {}, devices: [], from: {}, feedback: true, roto: true, follow: true } : readSaved();
+const saved: Saved = typeof window === 'undefined' ? { on: false, maps: {}, devices: [], from: {}, feedback: true, roto: true, follow: true, seqToggle: false } : readSaved();
 let view: MidiView = {
   status: 'off',
   inputs: [],
@@ -233,6 +256,7 @@ let view: MidiView = {
   feedback: saved.feedback,
   roto: saved.roto,
   follow: saved.follow,
+  seqToggle: saved.seqToggle,
   permission: 'unknown',
   outputs: [],
   leader: midiLeader.leads(),
@@ -249,7 +273,7 @@ function set(next: Partial<MidiView>): void {
 
 function save(): void {
   try {
-    window.localStorage.setItem(STORE_KEY, JSON.stringify({ on: wantOn, maps: view.maps, devices: [...view.devices], from: { ...view.from }, feedback: view.feedback, roto: view.roto, follow: view.follow } satisfies Saved));
+    window.localStorage.setItem(STORE_KEY, JSON.stringify({ on: wantOn, maps: view.maps, devices: [...view.devices], from: { ...view.from }, feedback: view.feedback, roto: view.roto, follow: view.follow, seqToggle: view.seqToggle } satisfies Saved));
   } catch {
     /* stockage plein ou refuse : les assignations valent pour la visite */
   }
@@ -291,7 +315,8 @@ function onMessage(this: MIDIInput, e: MIDIMessageEvent): void {
   const st = d[0] & 0xf0;
   const ch = (d[0] & 0x0f) + 1;
   const device = this.name ?? '';
-  if (st === 0xb0) handle({ kind: 'cc', ch, num: d[1], value: (d[2] ?? 0) / 127, device });
+  const at = Number.isFinite(e.timeStamp) && e.timeStamp > 0 ? e.timeStamp : undefined;
+  if (st === 0xb0) handle({ kind: 'cc', ch, num: d[1], value: (d[2] ?? 0) / 127, device, at });
   else if (st === 0x90) handle({ kind: 'note', ch, num: d[1], value: (d[2] ?? 0) / 127, on: (d[2] ?? 0) > 0, device });
   else if (st === 0x80) handle({ kind: 'note', ch, num: d[1], value: 0, on: false, device });
   else if (st === 0xe0) handle({ kind: 'pb', ch, num: 0, value: (((d[2] ?? 0) << 7) | d[1]) / 16383, device });
@@ -491,7 +516,7 @@ function route(key: string, device?: string): Route | null {
 }
 
 /** La machine que montre un setup du Roto (LIVE les pilote toutes : aucune). */
-const SETUP_MACHINE: Readonly<Record<RotoSetupName, MachineId | null>> = { RYTM: 'mm808', ARP: 'voy', BASS: 'bass', DECK: 'dj', MIXER: 'dj', LIVE: null };
+const SETUP_MACHINE: Readonly<Record<RotoSetupName, MachineId | null>> = { RYTM: 'mm808', ARP: 'voy', BASS: 'bass', DECK: 'dj', MIXER: 'dj', LIVE: null, RSEQ: 'mm808', BSEQ: 'bass' };
 
 /**
  * FOLLOW (2026-10-05) : un controle d'un setup du Roto (resolu par sa carte)
@@ -575,14 +600,46 @@ const ECHO_MS = 250;
  * moins de 15 ms est un echo (garde-fou si le Roto renvoyait ce qu'il recoit).
  */
 const TOGGLE_ECHO_MS = 15;
+/**
+ * Un bouton d'un sequenceur (2026-10-09) : sa LED change a chaque pas (la tete
+ * de lecture) ; on tape justement sur la lumiere qui passe. Seul un retour en
+ * moins de 3 ms de l'heure ou la LED a joue est un echo (un vrai echo USB
+ * revient en 1 a 2 ms), mesure a l'heure d'arrivee du message : une tape sur
+ * la lumiere compte. Un echo plus lent se trahit et s'apprend (seqEchoLag).
+ */
+const SEQ_ECHO_MS = 3;
+/**
+ * Les LEDs parties vers les boutons des sequenceurs, par cle : leur valeur et
+ * l'heure ou elles jouent, les 16 dernieres (pas une duree : un message traite
+ * tard, une image lourde de la scene, se compare a l'heure de son arrivee et
+ * doit encore trouver sa LED ; 16 couvrent deux secondes de clignotement).
+ */
+const seqOut = new Map<string, { v: number; at: number }[]>();
+const SEQ_OUT_N = 16;
+/** Un echo se cherche jusqu'a 50 ms apres sa LED ; un retard appris va jusqu'a 30 ms, apres trois preuves. */
+const SEQ_LOOK_MS = 50;
+const SEQ_LAG_MAX = 30;
+const SEQ_PROOFS = 3;
+/** Le retard appris des echos du Roto (0 : il n'en renvoie pas) ; les preuves vues, la plus lente. */
+let seqEchoLag = 0;
+let seqEchoSeen = 0;
+let seqEchoMax = 0;
+/** L'appui accepte de chaque bouton de ces setups : son ecart a la derniere LED de meme valeur (un echo appris apres coup l'annule). */
+const seqPressLag = new Map<string, number>();
 /** Le dernier message par cle (un meme message d'une deuxieme entree), et le dernier geste par cle (un potard au repos). */
 const lastIn = new Map<string, { device: string; sig: string; t: number }>();
 const lastAt = new Map<string, number>();
 /** Le setup du Roto du dernier message de la carte (le Roto ne dit pas quand on en change). */
 let lastSetup: RotoSetupName | null = null;
 
-function apply(t: MidiTarget, m: MidiMsg, key: string, sk: string, toggle: boolean): void {
+function apply(t: MidiTarget, m: MidiMsg, key: string, sk: string, toggle: boolean, tap = false): void {
   const isOn = m.kind === 'note' ? m.on === true : m.value > 0.5;
+  // Un pas de RSEQ ou BSEQ en TOGGLE (la case du panneau, 2026-10-09) : un message par appui, chacun est une tape
+  if (tap) {
+    t.down?.();
+    t.up?.();
+    return;
+  }
   if (t.kind === 'value') {
     if (toggle) {
       // TOGGLE du Roto (2026-10-08) : chaque message bascule, le tick suivant renvoie le vrai etat a la LED
@@ -611,6 +668,8 @@ function apply(t: MidiTarget, m: MidiMsg, key: string, sk: string, toggle: boole
 
 /** Tout relacher (deconnexion, un autre onglet prend la main) : CUE et les pads tenus remontent. */
 function releaseAll(): void {
+  // Les pas tenus du Roto en sequenceur remontent sans jouer (ni tape, ni LOCK qui reste)
+  seqCancelAll();
   for (const [key, p] of pressedBy) {
     if (pressed.get(key)) {
       const t = targetOf(p.id);
@@ -620,10 +679,12 @@ function releaseAll(): void {
   pressed.clear();
   pressedBy.clear();
   touchedAt.clear();
+  seqPressLag.clear();
 }
 
 /** Un appareil debranche : ce qu'il tenait remonte, ses potards ne retiennent plus le retour. */
 function releaseDevice(name: string): void {
+  if ([...pressedBy.values()].some((p) => sameDevice(p.device, name))) seqCancelAll();
   for (const [key, p] of [...pressedBy]) {
     if (!sameDevice(p.device, name)) continue;
     if (pressed.get(key)) {
@@ -673,7 +734,9 @@ const scopeName = (s: TargetScope | undefined): string => (!s ? 'UNKNOWN' : s ==
 function describe(key: string, r: Route, ri: RotoKeyInfo | null): string {
   const t = targetOf(r.id);
   const where = scopeName(t?.scope ?? SCOPE_OF_PREFIX[prefixOf(r.id)]);
-  if (r.src === 'roto') return `${keyText(key)} -> ${ri?.ctl?.n ?? t?.label ?? r.id} (${where}, Roto map ${ri?.setup ?? ''})`;
+  // Un pas d'un sequenceur : le pas vraiment pris (STEP 3|11 -> le 11 : la fenetre 9-16), la revue du 2026-10-09
+  const hit = r.src === 'roto' ? seqStepOf(key) : null;
+  if (r.src === 'roto') return `${keyText(key)} -> ${ri?.ctl?.n ?? t?.label ?? r.id}${hit ? ` = STEP ${hit}` : ''} (${where}, Roto map ${ri?.setup ?? ''})`;
   const label = t?.label ?? r.id;
   if (rotoTarget(key) && view.roto) return `${keyText(key)} -> ${label} (learned, overrides the Roto map)`;
   return `${keyText(key)} -> ${label} (learned, ${where})`;
@@ -686,8 +749,10 @@ function nothing(key: string, device?: string): string {
   if (rotoTarget(key) && !view.roto) why = 'the ROTO-CONTROL map is off';
   else if (rotoTarget(key) && device !== undefined && !ROTO_NAME.test(device)) why = `not from a Roto input: ${device}`;
   else if (SCOPES.some((s) => view.maps[s]?.[key])) why = 'learned with another device';
-  else if (key.startsWith('cc:') && ((ch >= 1 && ch <= 6) || (ch >= 9 && ch <= 14))) why = 'not in the Roto setups of this version: re-import them?';
-  else if (key.startsWith('cc:')) why = 'Roto in MIDI mode, on setups 11 to 16?';
+  // 2026-10-09 : les huit setups prennent les seize canaux (RSEQ 7 et 15, BSEQ 8 et 16) ; un CC hors de leurs CC : un Roto
+  // pas en mode MIDI sur ces setups (un mode DAW ou plugin), la revue du 2026-10-09
+  else if (key.startsWith('cc:') && ch >= 1 && ch <= 16 && rotoKnownCc(Number(key.split(':')[2]))) why = 'not in the Roto setups of this version (setups 11 to 18): re-import them?';
+  else if (key.startsWith('cc:')) why = 'Roto in MIDI mode, on setups 11 to 18?';
   return `${keyText(key)} -> nothing${why ? ` (${why})` : ''}`;
 }
 
@@ -713,7 +778,87 @@ function rotoOut(): boolean {
 /** Les potards et LEDs d'un setup du Roto repartent au tick suivant (on vient d'y passer). */
 function refreshSetup(name: RotoSetupName): void {
   for (const k of rotoKeysOfSetup(name)) sent.delete(skey('roto', k));
+  // Les LEDs des pas d'un sequenceur (midi/seqlink.ts) aussi
+  seqInvalidate(name);
 }
+
+/* ---------------- l'echo des boutons des sequenceurs (2026-10-09, la revue) ---------------- */
+
+/** Une cle d'un bouton de RSEQ ou BSEQ (leurs LEDs sont notees : seqOut). */
+const isSeqBtnKey = (key: string): boolean => {
+  const inf = rotoKeyInfo(key);
+  return !!inf && inf.button && isSeqSetup(inf.setup);
+};
+
+/** Une LED partie vers un bouton d'un sequenceur : sa valeur et l'heure ou elle joue. */
+function seqOutPush(sk: string, v7: number, at: number): void {
+  const h = seqOut.get(sk) ?? [];
+  h.push({ v: v7, at });
+  if (h.length > SEQ_OUT_N) h.shift();
+  seqOut.set(sk, h);
+}
+
+/** L'ecart (ms) entre l'arrivee t d'un message et la derniere LED de meme valeur partie vers ce bouton ; null : aucune dans les 50 ms. */
+function seqLagOf(sk: string, v7: number, t: number): number | null {
+  const h = seqOut.get(sk);
+  if (!h) return null;
+  let best: number | null = null;
+  for (const e of h) {
+    const d = t - e.at;
+    // Une LED partie d'avance ne compte qu'a son heure (a 1 ms pres)
+    if (e.v === v7 && d >= -1 && d < SEQ_LOOK_MS && (best === null || d < best)) best = d;
+  }
+  return best === null ? null : Math.max(0, best);
+}
+
+/**
+ * Une preuve que le Roto renvoie ce qu'il recoit (un message qu'un PUSH ne
+ * fait pas, juste apres une LED de meme valeur) : apres trois, son retard
+ * est appris, le filtre s'elargit, et les appuis acceptes qui n'etaient que
+ * des echos remontent sans jouer (un pas ne reste pas tenu, son LOCK s'en va).
+ */
+function learnEcho(lag: number): void {
+  if (lag > SEQ_LAG_MAX) return;
+  seqEchoSeen += 1;
+  seqEchoMax = Math.max(seqEchoMax, lag);
+  if (seqEchoSeen < SEQ_PROOFS || seqEchoMax <= seqEchoLag) return;
+  seqEchoLag = Math.max(0.5, seqEchoMax);
+  const win = seqEchoLag + 3;
+  for (const [k, l] of [...seqPressLag]) {
+    if (l >= win || pressed.get(k) !== true) continue;
+    seqDrop(k);
+    pressed.delete(k);
+    pressedBy.delete(k);
+    seqPressLag.delete(k);
+  }
+  note(`The Roto sends back the LEDs it receives (${Math.round(seqEchoLag)} ms late): these echoes are ignored`);
+}
+
+/**
+ * Un message d'un bouton de RSEQ ou BSEQ (t : son heure d'arrivee) : true,
+ * c'est l'echo d'une LED (la meme valeur moins de 3 ms apres son heure, ou
+ * moins que le retard appris) ; il ne joue pas. Un PUSH envoie 127 a l'appui
+ * et 0 au lacher, jamais deux fois de suite la meme : un message qui le fait
+ * juste apres une LED de meme valeur est une preuve d'echo (learnEcho).
+ */
+function seqEcho(key: string, sk: string, v7: number, t: number, toggle: boolean): boolean {
+  const lag = seqLagOf(sk, v7, t);
+  const win = Math.max(toggle ? TOGGLE_ECHO_MS : SEQ_ECHO_MS, seqEchoLag > 0 ? seqEchoLag + 3 : 0);
+  if (lag !== null && lag < win) return true;
+  if (toggle) return false;
+  const down = v7 > 63;
+  if (down === (pressed.get(key) === true)) {
+    if (lag === null) return false;
+    learnEcho(lag);
+    return true;
+  }
+  if (down) seqPressLag.set(key, lag ?? Infinity);
+  else seqPressLag.delete(key);
+  return false;
+}
+
+/** Pour les tests : le filtre d'echo des sequenceurs (le retard appris, les preuves vues). */
+export const seqEchoDebug = (): { lag: number; seen: number; max: number } => ({ lag: seqEchoLag, seen: seqEchoSeen, max: seqEchoMax });
 
 /** Un message MIDI (Web MIDI, ou un test) : appris en LEARN, sinon joue. */
 export function handle(m: MidiMsg): void {
@@ -744,11 +889,25 @@ export function handle(m: MidiMsg): void {
     return;
   }
   const ri = r.src === 'roto' ? rotoKeyInfo(key) : null;
-  const toggle = r.src === 'roto' && rotoIsToggle(key);
+  // Un bouton d'un sequenceur (2026-10-09) : sa LED change a chaque pas, son filtre d'echo a lui (seqEcho)
+  const seqBtn = !!ri && ri.button && isSeqSetup(ri.setup);
+  // Un pas de RSEQ ou BSEQ en TOGGLE (la case du panneau) : chaque message est une tape
+  const seqTap = seqBtn && view.seqToggle && seqIsStep(key);
+  const toggle = r.src === 'roto' && (rotoIsToggle(key) || seqTap);
   const sk = skey(destOf(dev), key);
   const v7 = Math.round(m.value * 127);
-  // Un echo de ce qu'on vient d'envoyer aux potards motorises : ni joue, ni suivi
-  if (m.kind === 'cc' && sent.get(sk) === v7 && now - (echoAt.get(sk) ?? -Infinity) < (toggle ? TOGGLE_ECHO_MS : ECHO_MS)) return;
+  if (seqBtn && m.kind === 'cc') {
+    // L'echo d'une LED d'un sequenceur, a l'heure d'arrivee du message (pas celle du traitement) : ni joue, ni suivi
+    if (seqEcho(key, sk, v7, m.at ?? now, toggle)) return;
+  } else if (m.kind === 'cc' && sent.get(sk) === v7 && now - (echoAt.get(sk) ?? -Infinity) < (toggle ? TOGGLE_ECHO_MS : ECHO_MS)) {
+    // Un echo de ce qu'on vient d'envoyer aux potards motorises : ni joue, ni suivi
+    return;
+  }
+  // Un potard d'un sequenceur juste apres un LOCK (2026-10-09) : les moteurs vont aux valeurs du pas, on attend
+  if (ri && !ri.button && m.kind === 'cc' && !seqKnobGuard(ri.setup, key)) {
+    note(`${keyText(key)} -> ${ri.ctl?.n ?? r.id}: ignored for 150 ms, the motors go to the LOCK values`);
+    return;
+  }
   const idle = now - (lastAt.get(key) ?? -Infinity) > IDLE_MS;
   lastAt.set(key, now);
   let jump: number | null = null;
@@ -768,7 +927,14 @@ export function handle(m: MidiMsg): void {
     note(`${keyText(key)} -> ${ri?.ctl?.n ?? r.id}: the knob jumped (${v7}, the site is at ${jump}), its motor goes back. Turn it again.`);
     return;
   }
-  withTarget(r.id, key, !!ri && !ri.button && m.kind === 'cc', (t) => apply(t, m, key, sk, toggle));
+  // Un potard d'un sequenceur qui tourne : un pas tenu le prend (le MM-BASS passe en LOCK avant, midi/seqlink.ts)
+  if (ri && !ri.button && m.kind === 'cc') seqKnobTurn(ri.setup, key, r.id);
+  // L'heure d'arrivee du message : un pas du sequenceur mesure sa tenue d'un message a l'autre
+  if (seqBtn) seqMsgAt(m.at);
+  withTarget(r.id, key, !!ri && !ri.button && m.kind === 'cc', (t) => apply(t, m, key, sk, toggle, seqTap));
+  if (seqBtn) seqMsgAt(undefined);
+  // Un bouton d'un sequenceur a parle : le Roto a peut-etre change sa LED tout seul (un PUSH sous le doigt), elle repart
+  if (seqBtn && !seqSeen(key)) sent.delete(sk);
   soundCheck(r.id);
   note(describe(key, r, ri));
 }
@@ -941,6 +1107,43 @@ function sendNow(sk: string, key: string, v7: number): void {
   sendValue(d.outs, key, v7);
 }
 
+/**
+ * Le Roto en sequenceur (2026-10-09, midi/seqlink.ts) : un CC vers les sorties
+ * Roto seulement (jamais un autre appareil), de l'onglet qui pilote, la carte
+ * et le retour allumes ; at : l'heure ou il doit partir (performance.now, le
+ * pas de la tete de lecture), la file MIDI du navigateur l'y joue. false :
+ * rien n'est parti (pas de Roto).
+ */
+function rotoSendAt(key: string, v7: number, at?: number): boolean {
+  if (!access || !view.feedback || !view.roto || !midiLeader.leads()) return false;
+  const outs: MIDIOutput[] = [];
+  access.outputs.forEach((o) => {
+    if (o.name && o.state !== 'disconnected' && ROTO_NAME.test(o.name)) outs.push(o);
+  });
+  if (outs.length === 0) return false;
+  const [kind, chS, numS] = key.split(':');
+  if (kind !== 'cc') return false;
+  const data = [0xb0 | Math.max(0, Math.min(15, Number(chS) - 1)), Number(numS) & 0x7f, v7 & 0x7f];
+  const now = performance.now();
+  const later = at !== undefined && at > now;
+  // Notee avec l'heure ou elle joue : son echo se reconnait (seqEcho)
+  seqOutPush(skey('roto', key), v7, later ? (at as number) : now);
+  for (const o of outs) {
+    try {
+      if (later) o.send(data, at);
+      else o.send(data);
+    } catch {
+      /* sortie partie entre-temps */
+    }
+  }
+  return true;
+}
+
+/** Les potards d'un setup repartent vers les moteurs au tick suivant (apres un LOCK, midi/seqlink.ts). */
+function refreshKnobs(name: RotoSetupName): void {
+  for (const k of rotoKeysOfSetup(name)) if (!rotoKeyInfo(k)?.button) sent.delete(skey('roto', k));
+}
+
 /** Les valeurs des parametres assignes qui ont change (vers les potards motorises), 48 messages au plus. */
 function feedbackTick(): void {
   if (!midiLeader.leads()) return;
@@ -953,15 +1156,28 @@ function feedbackTick(): void {
       if (key.startsWith('note:')) continue;
       const sk = skey(d.id, key);
       if (now - (touchedAt.get(sk) ?? -Infinity) < TOUCH_HOLD_MS) continue;
+      // Les pas d'un sequenceur du Roto : leurs LEDs partent de midi/seqlink.ts, a l'heure du pas
+      if (d.id === 'roto' && seqOwns(key)) continue;
       const r = route(key, d.device);
       const t = r ? targetOf(r.id) : undefined;
-      if (!t || t.kind !== 'value' || !t.get) continue;
-      const v7 = Math.max(0, Math.min(127, Math.round(t.get() * 127)));
+      if (!t || !r) continue;
+      let v7: number;
+      if (t.kind === 'value' && t.get) v7 = Math.max(0, Math.min(127, Math.round(t.get() * 127)));
+      else {
+        // Une touche d'un sequenceur (2026-10-09) : sa LED dit l'etat du site (la page, la voix, LOCK, EDIT)
+        const led = d.id === 'roto' && r.src === 'roto' ? seqLed(key, r.id) : null;
+        if (led === null) continue;
+        v7 = led ? 127 : 0;
+      }
       if (sent.get(sk) === v7) continue;
       if (budget <= 0) return;
       budget -= 1;
       sent.set(sk, v7);
-      echoAt.set(sk, now);
+      // L'heure du depart, pas celle du debut du tick (la revue du 2026-10-09 : sous charge, le tick met 20 ms a
+      // arriver a une cle, son echo paraissait en retard et passait pour un appui)
+      const at = performance.now();
+      echoAt.set(sk, at);
+      if (d.id === 'roto' && isSeqBtnKey(key)) seqOutPush(sk, v7, at);
       sendValue(d.outs, key, v7);
     }
   }
@@ -970,6 +1186,8 @@ function feedbackTick(): void {
 /** Tout renvoyer (un controleur rebranche, l'onglet qui revient) : les potards prennent les valeurs du site. */
 function resendAll(): void {
   sent.clear();
+  // Les LEDs des sequenceurs deux fois : celles parties d'avance d'un autre onglet jouent encore 150 ms (seqResendAll)
+  seqResendAll();
 }
 
 /**
@@ -1005,6 +1223,23 @@ export function rotoToggle(on = !view.roto): void {
   set({ outputs: outputNames() });
   save();
   resendAll();
+}
+
+/**
+ * Les huit pas de RSEQ et BSEQ en TOGGLE (2026-10-09) : si le Roto n'allume
+ * pas ses boutons PUSH depuis le site (la lumiere ne suit pas), les fichiers
+ * RSEQ et BSEQ se telechargent avec des pas en TOGGLE et chaque message d'un
+ * pas est une tape ; la tenue n'existe plus (LOCK : la touche LOCK, page 4).
+ */
+export function seqToggleSet(on = !view.seqToggle): void {
+  set({ seqToggle: on });
+  save();
+  // Un pas tenu en PUSH ne recevra pas son lacher : il remonte sans jouer
+  seqDropAll();
+  pressed.clear();
+  pressedBy.clear();
+  seqPressLag.clear();
+  seqInvalidate(null);
 }
 
 export function feedbackToggle(on = !view.feedback): void {
@@ -1073,6 +1308,8 @@ if (typeof window !== 'undefined') {
     if (lead) resendAll();
     else releaseAll();
   });
+  // Le Roto en sequenceur (2026-10-09) : ses LEDs passent par ici, vers les sorties Roto seulement
+  seqAttach({ send: rotoSendAt, ready: () => !!access && view.feedback && view.roto && midiLeader.leads() && rotoOut(), refresh: refreshKnobs });
   if (!supported()) view = { ...view, status: 'unsupported' };
   else {
     watchPermission();

@@ -14,7 +14,9 @@
  *   fichier JSON, pour garder ou partager ses assignations) ;
  * - SEND VALUES BACK : les potards motorises du Roto-Control suivent.
  * - ROTO-CONTROL (2026-10-05) : la carte toute faite (les setups RYTM,
- *   ARP, BASS, DECK, MIXER, LIVE, midi/roto.ts), allumee ou non ; ses fichiers
+ *   ARP, BASS, DECK, MIXER, LIVE, et depuis le 2026-10-09 les sequenceurs
+ *   RSEQ et BSEQ, midi/roto.ts, leur mode d'emploi page par page et leurs
+ *   pas en TOGGLE si besoin), allumee ou non ; ses fichiers
  *   pour ROTO-SETUP a telecharger (tous en .zip, ou un par un) et
  *   comment les importer.
  * - 2026-10-08 (Mika : "Roto control : des fois ca fonctionne, des fois ca
@@ -28,7 +30,7 @@
  */
 
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { clearScope, exportMaps, feedbackToggle, followToggle, importMaps, keyOfTarget, keyText, learnPick, learnToggle, midi, midiClaim, midiDisable, midiEnable, midiRescan, removeRotoConflicts, rotoConflicts, rotoToggle, unbind, type MidiView } from '../midi/midi';
+import { clearScope, exportMaps, feedbackToggle, followToggle, importMaps, keyOfTarget, keyText, learnPick, learnToggle, midi, midiClaim, midiDisable, midiEnable, midiRescan, removeRotoConflicts, rotoConflicts, rotoToggle, seqToggleSet, unbind, type MidiView } from '../midi/midi';
 import { ROTO_SETUPS, ROTO_VERSION, rotoFileName, rotoSetupJson, rotoSetupLabel, rotoSetups, zipFiles, type RotoSetup } from '../midi/roto';
 import { MACHINE_NAME, onTargetsRegistered, targetIdOfHotspot, targetOf, targetsOf, type TargetScope } from '../midi/targets';
 import type { Stage } from '../scene/renderer';
@@ -94,39 +96,73 @@ function download(blob: Blob, name: string): void {
   window.setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 
-/** Un setup tel qu'a l'instant (le choix de son du kit compte tes samples). */
+/** Un setup tel qu'a l'instant (le choix de son du kit compte tes samples) ; stepsToggle : les pas de RSEQ et BSEQ en TOGGLE. */
 const fresh = (r: RotoSetup): RotoSetup => rotoSetups().find((x) => x.name === r.name) ?? r;
-const rotoFile = (r: RotoSetup): void => download(new Blob([rotoSetupJson(fresh(r))], { type: 'application/json' }), rotoFileName(r));
-const rotoZip = (): void => download(zipFiles(rotoSetups().map((r) => ({ name: rotoFileName(r), text: rotoSetupJson(r) }))), 'Maudite Machine ROTO-CONTROL.zip');
+const rotoFile = (r: RotoSetup, stepsToggle: boolean): void => download(new Blob([rotoSetupJson(fresh(r), { stepsToggle })], { type: 'application/json' }), rotoFileName(r));
+const rotoZip = (stepsToggle: boolean): void => download(zipFiles(rotoSetups().map((r) => ({ name: rotoFileName(r), text: rotoSetupJson(r, { stepsToggle }) }))), 'Maudite Machine ROTO-CONTROL.zip');
+
+/**
+ * RSEQ et BSEQ, les sequenceurs (2026-10-09, la revue : le panneau ne disait
+ * que la page 1, tout en bas) : une ligne par page, juste sous leurs
+ * fichiers, le Motion Recorder, les canaux qu'ils prennent, et les pas en
+ * TOGGLE si le Roto n'allume pas ses PUSH depuis le site.
+ */
+const SeqHow: React.FC<{ on: boolean; stepsToggle: boolean }> = ({ on, stepsToggle }) => (
+  <div className="v4-midi-seq" role="group" aria-label="RSEQ and BSEQ, the step sequencers">
+    <p className="v4-midi-seq-title">RSEQ (17) and BSEQ (18): step sequencers for the MM-RYTM and the MM-BASS</p>
+    <ul className="v4-midi-seq-pages">
+      <li>
+        <b>P1</b> The 8 encoders of the page shown on the machine, and 8 steps (1-8, then 9-16).{' '}
+        {stepsToggle ? 'Tap a step to add or remove it.' : 'Tap a step to add or remove it. Hold a step and turn an encoder: a lock on that step only. Hold it without turning: LOCK stays, tap it to leave.'}
+      </li>
+      <li>
+        <b>P2</b> The same encoders, the page keys, STEPS 9-16, STEP FOLLOW (the 8 steps follow the playhead).
+      </li>
+      <li>
+        <b>P3</b> RSEQ: the 8 voice levels over the 8 voice keys (the voice the 8 steps play). BSEQ: NOTE, OCT, TIE, ACCENT, SLIDE of the step you just tapped. To change a note already there:{' '}
+        {stepsToggle ? 'LOCK (P4; in LOCK a tap moves it to that step), NOTE or OCT here, then LOCK again.' : 'hold its step (LOCK), NOTE or OCT here, then tap the step (P1) to leave.'}
+      </li>
+      <li>
+        <b>P4</b> RUN, CLEAR, RANDOM or GEN, LOCK, EDIT (the 8 steps become the patterns), PREV and NEXT MACHINE.
+      </li>
+      <li>In ROTO-SETUP, keep the Motion Recorder off on these two setups. They use channels 7, 8, 15 and 16: if your own setups (1 to 10) use them, move those.</li>
+    </ul>
+    <label className="v4-midi-check">
+      <input type="checkbox" checked={stepsToggle} disabled={!on} onChange={(e) => seqToggleSet(e.target.checked)} />
+      <span>Step keys in TOGGLE mode: only if the 8 step LEDs stay dark. Download RSEQ and BSEQ again and re-import them. Tap only; LOCK with the LOCK key (P4), then tap a step.</span>
+    </label>
+  </div>
+);
 
 /** La carte du Roto-Control : allumee ou non, ses setups a telecharger, comment les importer, FOLLOW. */
-const RotoSection: React.FC<{ on: boolean; follow: boolean }> = ({ on, follow }) => (
+const RotoSection: React.FC<{ on: boolean; follow: boolean; stepsToggle: boolean }> = ({ on, follow, stepsToggle }) => (
   <section className="v4-midi-roto" aria-label="Roto-Control">
     <p className="v4-midi-last v4-midi-version">Roto setups version {ROTO_VERSION}: if your Roto shows another version, re-import the setups.</p>
     <label className="v4-midi-check">
       <input type="checkbox" checked={on} onChange={(e) => rotoToggle(e.target.checked)} />
-      <span>ROTO-CONTROL map: six ready setups, no MIDI LEARN needed</span>
+      <span>ROTO-CONTROL map: {ROTO_SETUPS.length} ready setups, no MIDI LEARN needed</span>
     </label>
     <label className="v4-midi-check">
       <input type="checkbox" checked={follow} disabled={!on} onChange={(e) => followToggle(e.target.checked)} />
       <span>FOLLOW: the site shows the machine of the setup you play (not LIVE)</span>
     </label>
     <div className="v4-midi-row">
-      <button type="button" className="v4-midi-key v4-midi-key-main" onClick={rotoZip}>
-        DOWNLOAD THE 6 SETUPS
+      <button type="button" className="v4-midi-key v4-midi-key-main" onClick={() => rotoZip(stepsToggle)}>
+        DOWNLOAD THE {ROTO_SETUPS.length} SETUPS
       </button>
     </div>
     <div className="v4-midi-row v4-midi-roto-files" role="group" aria-label="One setup file">
-      {ROTO_SETUPS.map((r) => (
-        <button key={r.name} type="button" className="v4-midi-key" aria-label={`Download the ${r.name} setup (setup ${r.slot})`} onClick={() => rotoFile(r)}>
+      {[...ROTO_SETUPS].sort((a, b) => a.slot - b.slot).map((r) => (
+        <button key={r.name} type="button" className="v4-midi-key" aria-label={`Download the ${r.name} setup (setup ${r.slot})`} onClick={() => rotoFile(r, stepsToggle)}>
           {r.name} <span className="v4-midi-slot">{r.slot}</span>
         </button>
       ))}
     </div>
+    <SeqHow on={on} stepsToggle={stepsToggle} />
     <ol className="v4-midi-roto-how">
       <li>In ROTO-SETUP 3.3.0, accept the firmware update it asks for, then back up with File &gt; Export All.</li>
       <li>Put the Roto in MIDI mode. Press SEL and pick SETUP 11, then File &gt; Import (Cmd+I): MM RYTM (SETUP 11).json. The Roto then shows {rotoSetupLabel(ROTO_SETUPS[0])}.</li>
-      <li>Same for ARP on 12, DECK on 13, MIXER on 14, BASS on 15, LIVE on 16 (your setups 1 to 10 stay as they are).</li>
+      <li>Same for ARP on 12, DECK on 13, MIXER on 14, BASS on 15, LIVE on 16, RSEQ on 17, BSEQ on 18 (your setups 1 to 10 stay as they are).</li>
       <li>Here: CONNECT. Every knob goes from 0 to 127, the motor knobs and the LEDs follow the site. LIVE plays all the machines without changing setup.</li>
     </ol>
   </section>
@@ -293,7 +329,7 @@ const MidiPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         <input type="checkbox" checked={m.feedback} onChange={(e) => feedbackToggle(e.target.checked)} />
         <span>Send values back (motorised knobs follow the machine)</span>
       </label>
-      <RotoSection on={m.roto} follow={m.follow} />
+      <RotoSection on={m.roto} follow={m.follow} stepsToggle={m.seqToggle} />
       <div className="v4-midi-row">
         <button type="button" className="v4-midi-key" onClick={doExport}>
           EXPORT
