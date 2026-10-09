@@ -85,6 +85,14 @@ const editable = (t: EventTarget | null): boolean =>
   t instanceof HTMLElement && (t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
 
 /**
+ * Un bouton, un lien ou un interrupteur du DOM qui a le focus (le menu, MERCH, CONTACT...) : Espace et
+ * Entree sont a lui, comme ownsSpace de hooks/useKeys.ts pour le MM-RYTM (revue du 2026-10-09 : sur le
+ * MM-BASS, Espace sur l'interrupteur Dark / Light lancait la machine ; ici, la platine chargee jouait).
+ */
+const ownsPress = (t: EventTarget | null): boolean =>
+  t instanceof Element && t.closest('button, a[href], [role="button"], [role="switch"], [role="checkbox"], summary') !== null;
+
+/**
  * Pose l'ecoute du clavier (phase de capture : avant les raccourcis des
  * autres machines, qui ignorent un evenement deja pris) ; rend de quoi
  * l'oter. Une touche tenue se relache si la fenetre perd le focus.
@@ -98,6 +106,7 @@ export function listenDjKeys(getStage: () => Stage | null, active: () => boolean
     // (dj/Twins.tsx), un potard du sampler (Retour arriere le remet a sa valeur, relecture du 2026-10-08)
     const own = e.target instanceof HTMLElement && e.target.closest('.v4-twin, [role="slider"], [role="spinbutton"]') !== null;
     if (own && /^(Arrow|Page|Home|End|Space|Enter|Delete|Backspace)/.test(e.code)) return;
+    if ((e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter') && ownsPress(e.target)) return;
     const s = djState.get();
     // Le zoom : la repetition du clavier est permise
     if (e.code === 'Minus' || e.code === 'Equal') {
