@@ -155,3 +155,8 @@ Le message de Mika : DRIVE au minimum coupe le son du BASS ; STYLE et DENSITY tr
 ### Commandes utiles ajoutées
 
 - Aucune nouvelle commande npm. Serveur local : `npx vite --config .vite-claude.config.ts` (config non versionnée avec son propre cache, pour ne pas casser React quand plusieurs serveurs tournent).
+
+### Retouches du soir (après le test de Mika)
+
+- Encodeurs du BASS : de vrais potards 0-127 (270°, échelle à 11 crans) qui tiennent le filtre (CUTOFF, RESO, ENV MOD, DRIVE, F.ATTACK, DECAY, F.SUSTAIN, RELEASE) ; les FX restent sur l'écran (R14-242).
+- Rangée LOCK retirée du BASS (toucher ou tenir un pas fait le P-LOCK) ; au téléphone, les pas plus grands. Le RYTM n'a pas de touches LOCK : les traits au-dessus de ses pas sont les LED de vélocité.
