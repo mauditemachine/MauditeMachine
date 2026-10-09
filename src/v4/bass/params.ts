@@ -329,6 +329,8 @@ export const bassParams = {
   def: (id: BassKnobId): number => bassKnob(id).def,
   /** Une valeur (0 a 1, au cran pres) ; true si elle change. */
   set(id: BassKnobId, v: number): boolean {
+    // Jamais NaN ni Infinity (2026-10-09) : Math.min et Math.max laissent passer NaN, qui faisait taire le worklet
+    if (typeof v !== 'number' || !Number.isFinite(v)) return false;
     const k = bassKnob(id);
     let x = Math.min(1, Math.max(0, v));
     if (k.steps && k.steps > 1) x = Math.round(x * (k.steps - 1)) / (k.steps - 1);

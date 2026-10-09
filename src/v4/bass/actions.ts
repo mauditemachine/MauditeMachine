@@ -557,6 +557,8 @@ export function bassDial(id: BassKnobId, v: number): void {
     return;
   }
   if (st.lock >= 0 && isLockable(id)) {
+    // Jamais un verrou NaN (2026-10-09, la meme garde que bassParams.set)
+    if (!Number.isFinite(v)) return;
     // Un reglage a crans se verrouille sur un cran entier (SUB OCT)
     const n = bassKnob(id).steps ?? 0;
     const c = Math.min(1, Math.max(0, v));

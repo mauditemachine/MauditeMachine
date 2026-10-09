@@ -650,7 +650,10 @@ class MMBass extends AudioWorkletProcessor {
         if (t2 >= 1) t2 -= 1;
         const sq = (t < this.pwFrac ? 1 : -1) + blep(t, dt) - blep(t2, dt);
         let y = ladder.run((saw + (sq - saw) * wave) * 0.9);
-        if (drive > 1.001) y = fastTanh(y * drive) * dNorm;
+        // La saturation de sortie toujours la (2026-10-09, Mika : "je baisse DRIVE au max et plus de son dans BASS") : sautee
+        // a DRIVE 0, elle laissait le filtre sans limite (+5 a +22 dB sur certains reglages) ou sans ses harmoniques (jusqu'a
+        // -6 dB, le grave seul, inaudible sur un haut-parleur de portable ou de telephone) ; a 0 elle vaut tanh(y), le cran d'a cote
+        y = fastTanh(y * drive) * dNorm;
         acc += y;
       }
       // Le SUB : un sinus une octave dessous (ou deux : SUB OCT), propre (a la cadence du contexte)
