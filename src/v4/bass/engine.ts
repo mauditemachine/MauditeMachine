@@ -68,9 +68,16 @@ function params(): Record<string, number> {
 /** Les verrous du son d'un pas, sans LENGTH (la duree de sa note, seq.ts) : null s'il n'en reste aucun. */
 export function soundLocks(l: BassLocks | null | undefined): BassLocks | null {
   if (!l) return null;
-  if (l.length === undefined) return l;
-  const { length: _len, ...rest } = l;
-  return Object.keys(rest).length ? rest : null;
+  // Seulement des nombres finis (2026-10-09, Mika : "je baisse DRIVE au max et plus de son dans BASS") : une valeur
+  // undefined ou NaN dans un verrou faisait taire le worklet jusqu'au rechargement ; LENGTH n'est pas un reglage du son
+  const out: BassLocks = {};
+  let n = 0;
+  for (const [k, v] of Object.entries(l)) {
+    if (k === 'length' || typeof v !== 'number' || !Number.isFinite(v)) continue;
+    (out as Record<string, number>)[k] = v;
+    n += 1;
+  }
+  return n ? out : null;
 }
 
 function ensure(): Promise<Graph | null> {

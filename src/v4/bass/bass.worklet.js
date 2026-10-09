@@ -189,6 +189,9 @@ function blep(t, dt) {
   return 0;
 }
 
+/** Un nombre fini (les reglages et les verrous qui arrivent : jamais undefined, NaN ni Infinity dans le son). */
+const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
+
 const expMap = (v, lo, hi) => lo * Math.pow(hi / lo, Math.min(1, Math.max(0, v)));
 /** Des ms en secondes, a la microseconde pres (le defaut retombe pile sur l'ancienne constante : 0.2, 0.014). */
 const msToS = (ms) => Math.round(ms * 1000) / 1e6;
@@ -449,14 +452,21 @@ class MMBass extends AudioWorkletProcessor {
 
   /** Les potards, puis les verrous du pas qui joue. */
   mix() {
-    this.p = this.lock ? { ...this.base, ...this.lock } : { ...this.base };
+    // Un verrou ne prend que des nombres (2026-10-09, Mika : "je baisse DRIVE au max et plus de son dans BASS") : une
+    // cle undefined ou NaN d'un verrou ecrasait la valeur de base et le filtre passait a NaN pour de bon
+    const p = { ...this.base };
+    const l = this.lock;
+    if (l) for (const k in l) if (k in p && isNum(l[k])) p[k] = l[k];
+    this.p = p;
     this.derive();
   }
 
   onMsg(m) {
     if (!m) return;
     if (m.type === 'params') {
-      Object.assign(this.base, m.p);
+      // Seulement des nombres finis (meme garde que mix)
+      const src = m.p || {};
+      for (const k in src) if (k in this.base && isNum(src[k])) this.base[k] = src[k];
       this.mix();
     } else if (m.type === 'tempo') {
       if (m.step > 0 && m.step !== this.stepS) {
@@ -527,6 +537,30 @@ class MMBass extends AudioWorkletProcessor {
     if (ev.acc) this.accEnv = 1;
   }
 
+  /** La voix remise au repos apres un etat non fini (2026-10-09) : jamais un silence jusqu'au rechargement de la page. */
+  heal() {
+    this.ladder.reset();
+    this.vca = 0;
+    this.env = 0;
+    this.accEnv = 0;
+    this.accSweep = 0;
+    this.ampLvl = 1;
+    this.ampDecaying = false;
+    this.phase = 0;
+    this.subPhase = 0;
+    if (!isNum(this.logF)) this.logF = Math.log(55);
+    if (!isNum(this.logT)) this.logT = this.logF;
+    this.glideOn = false;
+    this.dc.x = 0;
+    this.dc.y = 0;
+    this.dt = 0.001;
+    this.gainAcc = 1;
+    this.dly.clear();
+    this.rev.clear();
+    this.dS = 0;
+    this.rS = 0;
+  }
+
   process(_inputs, outputs) {
     const out = outputs[0];
     const L = out[0];
@@ -572,6 +606,7 @@ class MMBass extends AudioWorkletProcessor {
     const dNorm = this.driveNorm;
     const ladder = this.ladder;
     let peak = 0;
+    let bad = false;
     let dt = this.dt || 0.001;
     let gainAcc = this.gainAcc || 1;
     const f0 = currentFrame;
@@ -627,6 +662,11 @@ class MMBass extends AudioWorkletProcessor {
         if (!this.ampDecaying && this.vca >= 0.99) this.ampDecaying = true;
       } else this.vca += (0 - this.vca) * kRel;
       let v = ((acc / OS) * oscK + sin(TWO_PI * this.subPhase) * sub) * this.vca * gainAcc * vol;
+      // Le filet (2026-10-09) : un echantillon non fini ou hors d'echelle ne sort jamais, la voix se remet a zero en fin de bloc
+      if (!(v > -16 && v < 16)) {
+        v = 0;
+        bad = true;
+      }
       // Un coupe-continu tres bas (20 Hz : les subs restent)
       const yv = v - this.dc.x + 0.9974 * this.dc.y;
       this.dc.x = v;
@@ -662,11 +702,19 @@ class MMBass extends AudioWorkletProcessor {
         if (e < FX_IDLE.level && this.rSend === 0) this.revQuiet += 1;
         else this.revQuiet = 0;
       }
+      // Le meme filet pour les retours d'effets
+      if (!(l > -16 && l < 16) || !(r > -16 && r < 16)) {
+        l = 0;
+        r = 0;
+        bad = true;
+      }
       L[i] = l;
       if (Rch !== L) Rch[i] = r;
     }
-    this.dt = dt;
-    this.gainAcc = gainAcc;
+    this.dt = isNum(dt) ? dt : 0.001;
+    this.gainAcc = isNum(gainAcc) ? gainAcc : 1;
+    // Un etat non fini (filtre, ampli, enveloppes, hauteur, effets) : tout revient au repos, le son repart a la note suivante
+    if (bad || !isNum(this.vca) || !isNum(this.env) || !isNum(this.logF) || !isNum(this.accSweep) || !isNum(this.dc.y)) this.heal();
     // Un effet a zero dont la queue s'est eteinte : il s'endort, ses lignes videes (rien ne traine au reveil). Le DELAY :
     // rien d'ecrit depuis au moins son temps (dly.d), la partie de la ligne qui sortira encore est vide (2026-10-08, revue :
     // un verrou de DELAY en 3/8 ou 1/2 perdait sa repetition, la ligne videe avant qu'elle sorte)
