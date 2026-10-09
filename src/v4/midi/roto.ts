@@ -534,17 +534,19 @@ function buildSetups(): RotoSetup[] {
    * Elektron, tenu par le site (midi/seqlink.ts). La page 1 est celle qu'on
    * joue : en haut les huit encodeurs de la page affichee sur la machine (en
    * LOCK, ceux du pas, les moteurs y vont), en bas huit pas d'une fenetre que
-   * le site fait defiler (1 a 8 puis 9 a 16 ; FOLLOW : elle suit la tete de
+   * le site fait defiler (1 a 8 puis 9 a 16 ; STEP FOLLOW : elle suit la tete de
    * lecture, la lumiere court sur les seize pas). Taper un pas pose ou retire
    * son coup ; le tenir le met en LOCK, tourner un encodeur pendant la tenue
    * le verrouille (un P-lock), le lacher en sort ; tenu sans rien tourner, le
    * LOCK reste (une tape sur le meme pas en sort). La page 2 garde les memes
    * encodeurs (deux lignes du registre) sous les touches de page, la fenetre
-   * et FOLLOW ; la page 3 choisit la voix des pas (RSEQ) ou regle la note du
-   * pas (BSEQ) ; la page 4 joue. Les boutons des pas sont des PUSH (127 a
-   * l'appui, 0 au lacher) : le site distingue la tape de la tenue, et allume
-   * leurs LEDs (le coup, la tete de lecture en negatif, le pas en LOCK qui
-   * clignote).
+   * et STEP FOLLOW ; la page 3 choisit la voix des pas (RSEQ) ou regle le
+   * pas choisi (BSEQ : note, octave, liaison, ACCENT, SLIDE) ; la page 4
+   * joue. Les boutons des pas sont des PUSH (127 a l'appui, 0 au lacher) : le
+   * site distingue la tape de la tenue, et allume leurs LEDs (le coup, la
+   * tete de lecture en negatif, le pas en LOCK qui clignote) ; ou des TOGGLE
+   * si le Roto n'allume pas ses PUSH depuis le site (la case du panneau MIDI,
+   * rotoSetupJson stepsToggle : chaque appui est une tape).
    */
   const ENC = (m: 'rytm' | 'bass'): Ctl[] => PAGE_LETTERS.map((l, i) => k(`${m}:knob:${i + 1}`, `ENC ${l}`, C.yellow));
   const STEPS8 = (m: 'rytm' | 'bass'): Ctl[] => Array.from({ length: 8 }, (_, i) => b(`${m}:seq:${i + 1}`, `STEP ${i + 1}|${i + 9}`, C.orange));
@@ -571,10 +573,11 @@ function buildSetups(): RotoSetup[] {
     buttons: [
       // 1 : les pas
       ...STEPS8('rytm'),
-      // 2 : les pages des encodeurs, la fenetre, FOLLOW
+      // 2 : les pages des encodeurs, la fenetre, STEP FOLLOW
       ...RYTM_PAGES8.map(([id, n]) => b(`rytm:page:${id}`, n, C.yellow)),
       b('rytm:seq:window', 'STEPS 9-16', C.cyan),
-      tog('rytm:seq:follow', 'FOLLOW', C.green),
+      // STEP FOLLOW, pas FOLLOW (la revue du 2026-10-09) : la case FOLLOW du panneau MIDI montre la machine du setup, autre chose
+      tog('rytm:seq:follow', 'STEP FOLLOW', C.green),
       // 3 : la voix des pas (sans la jouer ; sa LED : la voix choisie)
       ...VOICES8.map((i) => b(`rytm:seq:voice:${i}`, i, C.gold)),
       // 4 : jouer (CLEAR en LOCK : les verrous du pas ; LOCK : le pas choisi, sa LED : en LOCK ; EDIT : les patterns sur les pas)
@@ -619,7 +622,7 @@ function buildSetups(): RotoSetup[] {
     buttons: [
       // 1 : les pas
       ...STEPS8('bass'),
-      // 2 : les pages des encodeurs, ACCENT et SLIDE du pas, la fenetre, FOLLOW
+      // 2 : les pages des encodeurs, ACCENT et SLIDE du pas, la fenetre, STEP FOLLOW
       b('bass:page:voice', 'VOICE', C.yellow),
       b('bass:page:filter', 'FILTER', C.yellow),
       b('bass:page:env', 'ENV', C.yellow),
@@ -627,16 +630,18 @@ function buildSetups(): RotoSetup[] {
       b('bass:key:accent', 'ACCENT', C.red),
       b('bass:key:slide', 'SLIDE', C.yellow),
       b('bass:seq:window', 'STEPS 9-16', C.cyan),
-      tog('bass:seq:follow', 'FOLLOW', C.green),
-      // 3 : la note du pas choisi (celui qu'on vient de taper, ou le pas en LOCK), la liaison, MUTATE
+      tog('bass:seq:follow', 'STEP FOLLOW', C.green),
+      // 3 : le pas choisi (celui qu'on vient de taper, ou le pas en LOCK) sur une seule page : sa note, son octave, la
+      // liaison, MUTATE, et ACCENT et SLIDE encore (la revue du 2026-10-09 : regler un pas prenait deux pages ; la meme
+      // cible deux fois dans le setup, deux lignes du registre)
       b('bass:key:notedn', 'NOTE -', C.cyan),
       b('bass:key:noteup', 'NOTE +', C.cyan),
       b('bass:key:octdn', 'OCT -', C.cyan),
       b('bass:key:octup', 'OCT +', C.cyan),
       b('bass:seq:tie', 'TIE', C.peach),
       b('bass:key:mutate', 'MUTATE', C.orange),
-      null,
-      null,
+      b('bass:key:accent', 'ACCENT', C.red),
+      b('bass:key:slide', 'SLIDE', C.yellow),
       // 4 : jouer
       tog('bass:running', 'RUN', C.red),
       b('bass:key:clear', 'CLEAR', C.orange),
@@ -694,9 +699,16 @@ export interface RotoAddress {
  */
 const FREE_CC: readonly number[] = [...Array.from({ length: 32 }, (_, n) => rotoCc(n)), 3, 9, 85, 86, 87, 88, 89, 90, ...Array.from({ length: 18 }, (_, i) => 46 + i)];
 
+/** Un pas d'un sequenceur (rytm:seq:1 a 8, bass:seq:1 a 8) : PUSH, ou TOGGLE avec la case du panneau MIDI. */
+export const isSeqStepTarget = (t: string): boolean => /^(rytm|bass):seq:[1-8]$/.test(t);
+
 /** Les CC deja donnes, par canal (toutes les lignes du registre : une adresse retiree n'est jamais redonnee). */
 const takenCc = new Map<number, Set<number>>();
 for (const [, ch, cc] of ROTO_KEYS) (takenCc.get(ch) ?? takenCc.set(ch, new Set()).get(ch)!).add(cc);
+
+/** Un CC de la carte (sur un canal ou un autre) : un message hors de ces CC vient d'un Roto qui n'est pas en mode MIDI sur ces setups. */
+const knownCc = new Set<number>(ROTO_KEYS.map((r) => r[2]));
+export const rotoKnownCc = (cc: number): boolean => knownCc.has(cc);
 
 /** Les lignes manquantes du registre (une nouvelle cible), une fois par session. */
 const missing = new Set<string>();
@@ -791,8 +803,10 @@ const clip = (s: string): string => s.replace(/[^\x20-\x7e]/g, '').slice(0, 12);
  * Le setup au format des exports de ROTO-SETUP (un .json par setup, a importer
  * sur le setup choisi). Canal et CC : ceux du registre (2026-10-08,
  * midi/rotoKeys.ts), plus la place du controle ; le nom porte la version.
+ * stepsToggle (2026-10-09) : les huit pas de RSEQ et BSEQ en TOGGLE (la case
+ * du panneau MIDI, si le Roto n'allume pas ses PUSH depuis le site).
  */
-export function rotoSetupJson(s: RotoSetup): string {
+export function rotoSetupJson(s: RotoSetup, opts: { stepsToggle?: boolean } = {}): string {
   const ad = rotoAddresses(s);
   const knobs = s.knobs.flatMap((c, i) => {
     const a = ad.knobs[i];
@@ -833,7 +847,7 @@ export function rotoSetupJson(s: RotoSetup): string {
         colorScheme: c.c,
         ledOnColor: c.c,
         ledOffColor: C.off,
-        hapticMode: c.toggle ? 1 : 0,
+        hapticMode: c.toggle || (opts.stepsToggle && isSeqStepTarget(c.t)) ? 1 : 0,
         hapticSteps: 0,
         stepNames: EMPTY_NAMES,
       },

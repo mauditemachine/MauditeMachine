@@ -863,6 +863,46 @@ html:has(body.v4-active) {
   margin-top: 4px;
 }
 
+/* RSEQ et BSEQ (2026-10-09, la revue) : une ligne par page, sous leurs fichiers ; P1 a P4 en tete de ligne */
+.v4-root .v4-midi-seq {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 11px;
+}
+
+.v4-root .v4-midi-seq-title {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+
+.v4-root .v4-midi-seq-pages {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  opacity: 0.8;
+}
+
+.v4-root .v4-midi-seq-pages li + li {
+  margin-top: 3px;
+}
+
+.v4-root .v4-midi-seq-pages b {
+  display: inline-block;
+  min-width: 20px;
+}
+
+.v4-root .v4-midi-seq .v4-midi-check {
+  align-items: flex-start;
+  margin-top: 8px;
+}
+
+.v4-root .v4-midi-seq .v4-midi-check input {
+  margin-top: 1px;
+  flex: none;
+}
+
 .v4-root .v4-midi-layer {
   position: absolute;
   inset: 0;

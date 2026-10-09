@@ -80,12 +80,12 @@ function all(): MidiTarget[] {
   out.push({ id: 'bass:lock', scope: 'bass', label: 'LOCK (CHOSEN STEP)', kind: 'press', down: () => bassLockToggle() });
   out.push({ id: 'bass:infos', scope: 'bass', label: 'INFOS (HELP ON HOVER)', kind: 'press', down: () => void bassInfos.toggle() });
   // Le sequenceur du Roto-Control (2026-10-09, midi/seqlink.ts) : les huit pas d'une fenetre (taper, tenir, tourner),
-  // la fenetre 1-8 / 9-16, FOLLOW, la liaison du pas choisi
+  // la fenetre 1-8 / 9-16, STEP FOLLOW, la liaison du pas choisi
   for (let b = 0; b < 8; b += 1) {
     out.push({ id: `bass:seq:${b + 1}`, scope: 'bass', label: `SEQ STEP ${b + 1}|${b + 9} (TAP, HOLD + TURN)`, kind: 'hold', down: () => seqPress('bass', b), up: () => seqRelease('bass', b) });
   }
   out.push({ id: 'bass:seq:window', scope: 'bass', label: 'SEQ STEPS 1-8 / 9-16', kind: 'press', down: () => seqWindow('bass') });
-  out.push({ id: 'bass:seq:follow', scope: 'bass', label: 'SEQ FOLLOW (THE STEPS FOLLOW THE PLAYHEAD)', kind: 'value', steps: 2, get: () => (seqFollow('bass') ? 1 : 0), set: (v) => seqSetFollow('bass', v >= 0.5) });
+  out.push({ id: 'bass:seq:follow', scope: 'bass', label: 'SEQ STEP FOLLOW (THE STEPS FOLLOW THE PLAYHEAD)', kind: 'value', steps: 2, get: () => (seqFollow('bass') ? 1 : 0), set: (v) => seqSetFollow('bass', v >= 0.5) });
   out.push({ id: 'bass:seq:tie', scope: 'bass', label: 'TIE (THE CHOSEN STEP)', kind: 'press', down: () => bassTie() });
   return out;
 }

@@ -577,4 +577,7 @@ export const ROTO_KEYS: readonly RotoKey[] = [
   ['BSEQ', 16, 113, 'nav:prev'],
   ['BSEQ', 16, 114, 'nav:next'],
   ['BSEQ', 16, 115, 'nav:machines'],
+  // 2026-10-09 (la revue) : BSEQ page 3, ACCENT et SLIDE une deuxieme fois (le pas choisi se regle sur une seule page)
+  ['BSEQ', 16, 106, 'bass:key:accent'],
+  ['BSEQ', 16, 107, 'bass:key:slide'],
 ];

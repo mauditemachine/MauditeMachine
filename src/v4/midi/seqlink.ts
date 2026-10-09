@@ -7,23 +7,33 @@
  * RSEQ (MM-RYTM) et BSEQ (MM-BASS) de midi/roto.ts : huit boutons de pas, une
  * fenetre de huit sur les seize pas, que le site fait defiler (le Roto ne
  * dit pas sa page et le site ne peut pas la changer). Ici :
- * - la fenetre (1 a 8, 9 a 16) : STEPS 9-16 la change ; FOLLOW (par defaut)
- *   la fait suivre la tete de lecture en marche, comme le page follow d'une
- *   Elektron : la lumiere court sur les seize pas avec huit boutons. Elle
- *   s'arrete sur place tant qu'un pas est tenu (le bouton garde son pas), en
- *   LOCK (elle montre le pas en LOCK, meme pose sur la face) et dans EDIT ;
- *   STEPS 9-16 en marche coupe FOLLOW (sinon elle repartirait aussitot) ;
+ * - la fenetre (1 a 8, 9 a 16) : STEPS 9-16 la change ; STEP FOLLOW (par
+ *   defaut) la fait suivre la tete de lecture en marche, comme le page follow
+ *   d'une Elektron : la lumiere court sur les seize pas avec huit boutons
+ *   (STEP FOLLOW, pas FOLLOW : la case FOLLOW du panneau MIDI est autre
+ *   chose, la revue du 2026-10-09). Elle s'arrete sur place tant qu'un pas
+ *   est tenu (le bouton garde son pas), en LOCK (elle montre le pas en LOCK,
+ *   meme pose sur la face) et dans EDIT (elle s'y ouvre sur le pattern qui
+ *   joue, puis ne bouge plus quand la chaine avance) ; STEPS 9-16 en marche
+ *   coupe STEP FOLLOW (sinon elle repartirait aussitot). Un appui se lit dans
+ *   la fenetre de son heure (MIDIMessageEvent.timeStamp) : la tete de
+ *   lecture garde ses 250 dernieres ms, un appui fait juste avant le passage
+ *   a 9-16 mais traite apres (une image lourde) reste sur 1 a 8 ;
  * - les gestes d'un pas (des PUSH : 127 a l'appui, 0 au lacher), ceux de la
  *   face : la tape (moins de 350 ms, rien tourne) pose un coup ou le retire
  *   (MM-RYTM : la voix choisie, fort comme une tape ; MM-BASS : une note, la
  *   tonique) ; la tenue (350 ms) met le LOCK sur le pas, les moteurs vont a
  *   ses valeurs ; un encodeur tourne pendant la tenue le verrouille (un pas
  *   vide recoit un coup, comme sur la face), le lacher sort alors du LOCK
- *   (momentane, le LOCK fixe d'avant revient) ; lache sans rien tourner, le
- *   LOCK reste (une tape sur le meme pas en sort, une tape sur un autre l'y
- *   deplace) ; plusieurs pas tenus sur le MM-RYTM : un encodeur les
- *   verrouille tous. Dans EDIT, les pas sont les patterns (la tape le choisit
- *   ou le chaine, la tenue d'un vide y copie), comme sur la face ;
+ *   (momentane, le LOCK fixe d'avant la premiere tenue revient) ; un encodeur
+ *   vide de la page tourne compte aussi (le geste est momentane) ; lache sans
+ *   rien tourner, le LOCK reste (une tape sur le meme pas en sort, une tape
+ *   sur un autre l'y deplace) ; plusieurs pas tenus sur le MM-RYTM : un
+ *   encodeur les verrouille tous. Dans EDIT, les pas sont les patterns (la
+ *   tape le choisit ou le chaine, la tenue d'un vide y copie), comme sur la
+ *   face ; EDIT ouvert ou ferme pendant une tenue : le lacher ne joue rien.
+ *   Les boutons en TOGGLE (la case du panneau MIDI, si les LEDs des PUSH ne
+ *   suivent pas le site) : chaque message est une tape (seqTap) ;
  * - les LEDs des pas : allumee un coup, eteinte un pas vide, la tete de
  *   lecture en negatif sur son pas (deux etats par LED, ses deux couleurs
  *   fixees dans le setup), le pas en LOCK qui clignote (4 Hz), un pas tenu
@@ -48,7 +58,6 @@
 import { clock } from '../audio/clock';
 import { context } from '../audio/drums';
 import { INSTRUMENTS, VEL_MAX, VEL_NAMES, pattern, velocity } from '../audio/pattern';
-import { GUARD_S } from '../audio/sched';
 import { gesture, patternHold, patternTap, rytmLockEnter, rytmLockTap, tuneVoice } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
@@ -76,8 +85,12 @@ export interface SeqMachine {
   running(): boolean;
   /** ce qui change les LEDs : les pas, la voix, le LOCK, EDIT, RUN */
   subscribe(fn: () => void): () => void;
-  /** chaque pas programme : son rang et son heure (temps du contexte audio) ; un pas re-programme previent de nouveau */
-  onStep(fn: (step: number, when: number) => void): () => void;
+  /**
+   * chaque pas programme : son rang, son heure (temps du contexte audio, swing
+   * compris) et sa grille (la meme sans le swing) ; un pas re-programme
+   * previent de nouveau, a partir du premier pas annule
+   */
+  onStep(fn: (step: number, when: number, grid: number) => void): () => void;
   /** elle change : les huit LEDs repartent (la voix, EDIT, le pattern) */
   context(): string;
   /** les verrous poses (un compteur) ; absent : les encodeurs tournes pendant la tenue comptent */
@@ -114,7 +127,6 @@ export interface SeqLink {
   refresh(setup: RotoSetupName): void;
 }
 
-const STEPS = 16;
 /** les huit pas, puis la touche STEPS 9-16 */
 const N = 9;
 /** La tenue qui met le LOCK (comme la face), celle qui copie un pattern dans EDIT. */
@@ -127,7 +139,10 @@ const EDIT_HOLD_MS = 500;
  * ce qui change entre-temps.
  */
 const AHEAD_MS = 150;
-const TICK_MS = 10;
+/** Le reveil : 25 ms suffisent, les messages partent 150 ms devant (la revue : 100 reveils par seconde pour rien) */
+const TICK_MS = 25;
+/** La tete de lecture garde ses pas joues depuis moins que ca : un appui traite en retard se lit a son heure. */
+const HISTORY_MS = 250;
 /** Le pas en LOCK clignote a 4 Hz (125 ms allume, 125 eteint). */
 const BLINK_MS = 125;
 /** Apres un changement de LOCK : les potards ignores (les moteurs bougent). */
@@ -142,6 +157,8 @@ interface Head {
   at: number;
   /** son heure audio */
   when: number;
+  /** sa grille (l'heure audio sans le swing) : une re-programmation annule les pas a partir de la sienne */
+  grid: number;
   step: number;
 }
 
@@ -160,9 +177,8 @@ interface Down {
   lockHold: boolean;
   timerLock: boolean;
   writes0: number;
+  /** les potards du setup tournes pendant la tenue (un encodeur vide compte : le geste est momentane) */
   turns: number;
-  /** le LOCK fixe d'avant la tenue */
-  prev: number;
   /** dans EDIT (un pattern) */
   edit: boolean;
   /** EDIT : la tenue a copie */
@@ -184,7 +200,17 @@ interface Lane {
   following: boolean;
   lock: number;
   ctx: string;
+  /** EDIT au dernier passage : la fenetre s'y ouvre sur le pattern qui joue, une fois */
+  edit: boolean;
   run: boolean;
+  /**
+   * le LOCK fixe d'avant la premiere tenue (pris quand aucun pas n'est tenu) :
+   * le dernier pas lache d'un geste momentane le rend, meme si une autre
+   * tenue a deplace le LOCK entre-temps
+   */
+  prev: number;
+  /** le pas (0 a 15) que chaque bouton a pris a son dernier appui : le panneau MIDI le dit */
+  hit: number[];
   heads: Head[];
   future: Future[];
   /** l'etat des LEDs du Roto a l'instant (-1 : inconnu, a renvoyer) */
@@ -225,7 +251,10 @@ function makeLane(id: SeqId, setup: RotoSetupName): Lane {
     following: false,
     lock: -1,
     ctx: '',
+    edit: false,
     run: false,
+    prev: -1,
+    hit: Array.from({ length: 8 }, (_, b) => b),
     heads: [],
     future: [],
     shown: Array.from({ length: N }, () => -1),
@@ -382,9 +411,11 @@ function pass(l: Lane, now: number): void {
     const f = l.future.shift() as Future;
     for (const [b, v] of f.msgs) l.shown[b] = v;
   }
-  // La tete de lecture : le dernier pas joue reste (il dit ou elle est), les plus vieux partent
+  // La tete de lecture : le pas qui jouait il y a 250 ms et les suivants restent (un appui traite en retard, une image
+  // lourde, se lit a l'heure de son message : la fenetre qu'il voyait, revue du 2026-10-09), les plus vieux partent
+  const old = now - HISTORY_MS;
   let k = 0;
-  while (k + 1 < l.heads.length && l.heads[k + 1].at <= now) k += 1;
+  while (k + 1 < l.heads.length && l.heads[k + 1].at <= old) k += 1;
   if (k > 0) l.heads.splice(0, k);
 }
 
@@ -426,9 +457,15 @@ function resync(l: Lane): void {
   const ctx = m.context();
   if (ctx !== l.ctx) {
     l.ctx = ctx;
-    // Une autre voix, EDIT, un autre pattern : les huit LEDs repartent ; EDIT montre la fenetre du pattern qui joue
+    // Une autre voix, EDIT, un autre pattern : les huit LEDs repartent
     l.shown.fill(-1);
-    if (m.editing()) l.win = m.current() >> 3;
+  }
+  const ed = m.editing();
+  if (ed !== l.edit) {
+    l.edit = ed;
+    // EDIT s'ouvre sur la fenetre du pattern qui joue, une fois : ensuite la chaine qui avance (A01 > A10) ne la tire
+    // plus d'une moitie a l'autre a chaque mesure (sous un doigt qui tient un pattern pour la copie), revue du 2026-10-09
+    if (ed) l.win = m.current() >> 3;
   }
   const run = m.running();
   if (run !== l.run) {
@@ -512,19 +549,22 @@ function arm(): void {
   }
 }
 
-/** Un pas programme (l'horloge du MM-RYTM, la sequence du MM-BASS). */
-function onHead(l: Lane, step: number, when: number): void {
+/**
+ * Un pas programme (l'horloge du MM-RYTM, la sequence du MM-BASS). Une
+ * re-programmation (un pas edite, le tempo, le swing) repart du premier pas
+ * annule, avec sa grille : les pas d'avant sonnent encore et restent, ceux a
+ * partir de cette grille s'en vont. La grille et pas l'heure swinguee (la
+ * revue du 2026-10-09 : le MM-BASS decide sur la grille ; un pas impair
+ * dont la grille est sous la garde de 30 ms mais l'heure swinguee au-dela
+ * sonnait encore et perdait sa lumiere, la tete de lecture sautait un pas).
+ */
+function onHead(l: Lane, step: number, when: number, grid: number): void {
   const at = seqPerfOf(when);
   const last = l.heads[l.heads.length - 1];
-  if (last && (step !== (last.step + 1) % STEPS || when <= last.when + 1e-6)) {
-    // Une re-programmation (un pas, un tempo, le swing) : ce qu'elle a annule (au-dela de 30 ms) repart d'ici
-    const c = context();
-    const edge = c ? c.currentTime + GUARD_S : Infinity;
-    l.heads = l.heads.filter((h) => !(h.when > edge || h.when >= when - 1e-4));
-  }
+  if (last && last.grid >= grid - 1e-4) l.heads = l.heads.filter((h) => h.grid < grid - 1e-4);
   let i = l.heads.length;
   while (i > 0 && l.heads[i - 1].at > at) i -= 1;
-  l.heads.splice(i, 0, { at, when, step });
+  l.heads.splice(i, 0, { at, when, grid, step });
   queue(l);
 }
 
@@ -554,32 +594,44 @@ export function seqMsgAt(t: number | undefined): void {
 }
 const eventNow = (): number => msgAt ?? performance.now();
 
+/** Les pas tenus qui comptent (hors EDIT, pas annules). */
+const active = (l: Lane): Down[] => [...l.downs.values()].filter((x) => !x.edit && !x.cancelled);
+
+/** Un potard tourne pendant la tenue (un verrou pose, ou un encodeur vide de la page) : le geste est momentane. */
+const turnedOf = (m: SeqMachine, d: Down): boolean => d.turns > 0 || (!!m.writes && m.writes() > d.writes0);
+
 /** Un bouton de pas enfonce (b : 0 a 7, sa place dans la fenetre). */
 export function seqPress(id: SeqId, b: number): void {
   const l = lanes[id];
   const m = l.m;
   if (!m || b < 0 || b > 7 || l.downs.has(b)) return;
   const now = eventNow();
-  // Le pas de la fenetre de cet instant ; elle s'arrete tant que le bouton est tenu (il garde son pas)
+  // Le pas de la fenetre a l'heure du message (la tete de lecture garde ses 250 dernieres ms) ; elle s'arrete tant que
+  // le bouton est tenu (il garde son pas)
   const w = winAt(l, now);
   l.win = w;
   l.following = false;
   const i = w * 8 + b;
+  l.hit[b] = i;
   const ed = m.editing();
-  const d: Down = { i, t0: now, timer: 0, lockHold: false, timerLock: false, writes0: m.writes?.() ?? 0, turns: 0, prev: m.latched(), edit: ed, held: false, cancelled: false };
+  // Le LOCK fixe d'avant le geste : pris au premier pas tenu, rendu par le dernier lache (revue du 2026-10-09 : chaque
+  // tenue prenait le sien, une deuxieme tenue apres le LOCK momentane de la premiere perdait le LOCK fixe)
+  if (!ed && active(l).length === 0) l.prev = m.latched();
+  const d: Down = { i, t0: now, timer: 0, lockHold: false, timerLock: false, writes0: m.writes?.() ?? 0, turns: 0, edit: ed, held: false, cancelled: false };
   l.downs.set(b, d);
   if (ed) {
     d.timer = window.setTimeout(() => {
-      if (l.downs.get(b) !== d || d.cancelled) return;
+      // EDIT ferme pendant la tenue : rien a copier
+      if (l.downs.get(b) !== d || d.cancelled || !m.editing()) return;
       d.held = true;
       m.patternHold(i);
     }, EDIT_HOLD_MS);
   } else {
     m.press?.(i);
     d.timer = window.setTimeout(() => {
-      if (l.downs.get(b) !== d || d.lockHold || d.cancelled) return;
+      if (l.downs.get(b) !== d || d.lockHold || d.cancelled || m.editing()) return;
       // Deja en LOCK par un encodeur tourne pendant la tenue : il y reste jusqu'au lacher
-      if (m.writes ? m.writes() > d.writes0 : d.turns > 0) {
+      if (turnedOf(m, d)) {
         d.lockHold = true;
         return;
       }
@@ -606,15 +658,18 @@ export function seqRelease(id: SeqId, b: number, stage: Stage | null = null): vo
     return;
   }
   m.unpress?.(d.i);
-  const turned = m.writes ? m.writes() > d.writes0 : d.turns > 0;
+  const turned = turnedOf(m, d);
+  // Le dernier pas tenu du geste : c'est lui qui rend le LOCK fixe d'avant
+  const last = active(l).length === 0;
   // La minuterie a mis le LOCK pendant que le fil principal gelait, mais le lacher etait arrive avant les 350 ms
   // (l'heure des messages le dit) : c'etait une tape
   const stalled = d.timerLock && !turned && msgAt !== null && eventNow() - d.t0 < HOLD_MS;
-  if (d.cancelled) {
-    // Rien ne joue ; un LOCK de la tenue s'en va
-    if (d.lockHold || turned) m.restore(d.prev);
+  if (d.cancelled || m.editing()) {
+    // Rien ne joue (un appareil debranche, un autre onglet ; EDIT ouvert pendant la tenue : une tape y poserait un coup
+    // dans le pattern, revue du 2026-10-09) ; un LOCK de la tenue s'en va
+    if ((d.lockHold || turned) && last) m.restore(l.prev);
   } else if (stalled) {
-    m.restore(d.prev);
+    m.restore(l.prev);
     m.tap(d.i, stage);
   } else if (!d.lockHold && !turned && eventNow() - d.t0 >= HOLD_MS) {
     // Une tenue dont la minuterie n'a pas parle (le fil principal gele) : mesuree d'un message a l'autre, le LOCK fixe
@@ -622,12 +677,25 @@ export function seqRelease(id: SeqId, b: number, stage: Stage | null = null): vo
   } else if (!d.lockHold && !turned) m.tap(d.i, stage);
   else if (turned) {
     // Momentane : le LOCK fixe d'avant revient, ou plus de LOCK ; d'autres pas tenus continuent (le dernier lache decide)
-    if (![...l.downs.values()].some((x) => !x.edit && !x.cancelled)) m.restore(d.prev);
-  } else m.latch();
+    if (last) m.restore(l.prev);
+  } else if (last) m.latch();
+  // Une tenue lachee pendant qu'un autre pas reste tenu ne fixe rien : le dernier lache decide (sinon le LOCK fixe
+  // ainsi bloquait le retour du LOCK d'avant quand on tourne ensuite avec l'autre pas, la revue du 2026-10-09)
   queue(l);
 }
 
-/** STEPS 9-16 : l'autre fenetre (en marche avec FOLLOW, FOLLOW se coupe : sinon elle repartirait aussitot). */
+/**
+ * Un pas tape d'un coup (2026-10-09, les boutons des pas en TOGGLE : la case
+ * du panneau MIDI, si les LEDs des PUSH ne suivent pas le site) : un bouton
+ * TOGGLE envoie un message par appui (127 puis 0 a l'appui suivant), chacun
+ * est une tape ; la tenue n'existe plus (LOCK : la touche LOCK, page 4).
+ */
+export function seqTap(id: SeqId, b: number, stage: Stage | null = null): void {
+  seqPress(id, b);
+  seqRelease(id, b, stage);
+}
+
+/** STEPS 9-16 : l'autre fenetre (en marche avec STEP FOLLOW, il se coupe : sinon elle repartirait aussitot). */
 export function seqWindow(id: SeqId): void {
   const l = lanes[id];
   const m = l.m;
@@ -639,25 +707,26 @@ export function seqWindow(id: SeqId): void {
   l.win = w;
   l.following = false;
   l.shown.fill(-1);
-  m.say(`ROTO STEPS ${w ? '9-16' : '1-8'}${stop ? '  FOLLOW OFF' : ''}`);
+  m.say(`ROTO STEPS ${w ? '9-16' : '1-8'}${stop ? '  STEP FOLLOW OFF' : ''}`);
   queue(l);
 }
 
 export const seqFollow = (id: SeqId): boolean => lanes[id].follow;
 
-/** FOLLOW (une bascule du Roto, sa LED suit) : la fenetre suit la tete de lecture. */
+/** STEP FOLLOW (une bascule du Roto, sa LED suit) : la fenetre suit la tete de lecture. */
 export function seqSetFollow(id: SeqId, on: boolean): void {
   const l = lanes[id];
   if (l.follow === on) return;
   l.follow = on;
-  l.m?.say(`ROTO FOLLOW ${on ? 'ON' : 'OFF'}`);
+  l.m?.say(`ROTO STEP FOLLOW ${on ? 'ON' : 'OFF'}`);
   queue(l);
 }
 
-/** La voix des pas (RSEQ, page 3) : choisie sans la jouer, jamais retiree (la meme : l'ecran le redit). */
+/** La voix des pas (RSEQ, page 3) : choisie sans la jouer, jamais retiree ; l'ecran dit ce qu'elle change sur le Roto : ses huit pas. */
 export function seqVoice(inst: Inst): void {
   if (pattern.get().instrument !== inst) tuneVoice(inst);
-  else lcdMessage.show(`KNOBS > ${inst}`);
+  // 1.6 s (pas les 0.8 s d'un message) : la touche se presse sur le Roto, les yeux y sont, l'ecran doit encore le dire
+  lcdMessage.show(`ROTO STEPS > ${inst}`, 1600);
 }
 
 /* ---------------- ce que midi/midi.ts appelle ---------------- */
@@ -697,20 +766,27 @@ export function seqKnobGuard(setup: RotoSetupName, key: string): boolean {
   return !(performance.now() < l.guard && !l.exempt.has(key));
 }
 
-/** Un potard d'un setup sequenceur va tourner : un pas tenu le prend (le MM-BASS passe en LOCK dessus avant). */
+/**
+ * Un potard d'un setup sequenceur va tourner : un pas tenu le prend (le
+ * MM-BASS passe en LOCK dessus avant ; le MM-RYTM verrouille les pas tenus
+ * lui-meme, rytmLock.held). Un encodeur vide de la page (C sur FLTR) compte
+ * aussi : on a tourne, le lacher sort du LOCK (la revue du 2026-10-09 : il
+ * laissait le LOCK fixe, alors que le panneau promet un verrou momentane).
+ */
 export function seqKnobTurn(setup: RotoSetupName, key: string, id: string): void {
   const l = laneOf(setup);
-  if (!l || !l.m) return;
+  const m = l?.m;
+  if (!l || !m) return;
   const now = performance.now();
   l.knobAt.set(key, now);
   l.knobT = now;
-  let d: Down | null = null;
-  for (const x of l.downs.values()) if (!x.edit && !x.cancelled) d = d ?? x;
-  if (!d || !l.m.knobHeld) return;
-  if (l.m.knobHeld(d.i, id)) {
-    for (const x of l.downs.values()) x.turns += 1;
-    d.lockHold = true;
+  const downs = active(l);
+  if (downs.length === 0) return;
+  if (m.knobHeld) {
+    if (!m.knobHeld(downs[0].i, id)) return;
+    downs[0].lockHold = true;
   }
+  for (const x of downs) x.turns += 1;
 }
 
 /**
@@ -735,9 +811,54 @@ export function seqInvalidate(setup: RotoSetupName | null = null): void {
   }
 }
 
-/** Un appareil debranche, un autre onglet prend le MIDI : les pas tenus remontent sans jouer. */
+let againTimer = 0;
+/**
+ * Tout renvoyer, deux fois (l'onglet qui prend la main, le retour rallume) :
+ * les LEDs parties d'avance d'un autre onglet, ou de celui-ci avant qu'il
+ * perde la main, jouent encore jusqu'a 150 ms et ecraseraient le renvoi
+ * (Chrome n'a pas MIDIOutput.clear) ; la deuxieme fois les recouvre (la
+ * revue du 2026-10-09).
+ */
+export function seqResendAll(): void {
+  seqInvalidate(null);
+  if (typeof window === 'undefined') return;
+  window.clearTimeout(againTimer);
+  againTimer = window.setTimeout(() => seqInvalidate(null), AHEAD_MS + 20);
+}
+
+/** Une cle d'un des huit pas (pas STEPS 9-16). */
+export const seqIsStep = (key: string): boolean => (owned.get(key)?.b ?? 8) < 8;
+
+/** Le pas (1 a 16) que ce bouton a pris a son dernier appui (le panneau MIDI le dit) ; null : pas un bouton de pas. */
+export function seqStepOf(key: string): number | null {
+  const o = owned.get(key);
+  // Dans EDIT le bouton est un pattern, pas un pas
+  return o && o.b < 8 && !o.lane.m?.editing() ? o.lane.hit[o.b] + 1 : null;
+}
+
+/** Un appui qui etait un echo du Roto (midi.ts l'apprend apres coup) : le pas remonte sans jouer, le LOCK de sa tenue s'en va. */
+export function seqDrop(key: string): void {
+  const o = owned.get(key);
+  if (!o || o.b > 7) return;
+  const d = o.lane.downs.get(o.b);
+  if (!d) return;
+  d.cancelled = true;
+  seqRelease(o.lane.id, o.b);
+}
+
+/** Un appareil debranche, un autre onglet prend le MIDI : les pas tenus remontent sans jouer (a leur lacher, que midi.ts fait). */
 export function seqCancelAll(): void {
   for (const l of LANES) for (const d of l.downs.values()) d.cancelled = true;
+}
+
+/** Les pas tenus remontent tout de suite, sans jouer (les pas passent en TOGGLE : leur lacher ne viendra pas). */
+export function seqDropAll(): void {
+  for (const l of LANES) {
+    for (const [b, d] of [...l.downs]) {
+      d.cancelled = true;
+      seqRelease(l.id, b);
+    }
+  }
 }
 
 /** Une machine s'inscrit (le MM-RYTM ici, le MM-BASS a l'arrivee de son code). */
@@ -746,12 +867,13 @@ export function seqRegister(id: SeqId, m: SeqMachine): void {
   l.off?.();
   l.m = m;
   const a = m.subscribe(() => queue(l));
-  const b = m.onStep((step, when) => onHead(l, step, when));
+  const b = m.onStep((step, when, grid) => onHead(l, step, when, grid));
   l.off = () => {
     a();
     b();
   };
   l.ctx = '';
+  l.edit = m.editing();
   l.lock = m.lockStep();
   l.run = m.running();
   queue(l);
@@ -770,6 +892,8 @@ export function seqDebug(id: SeqId): {
   shown: readonly number[];
   downs: readonly { i: number; lockHold: boolean; turns: number }[];
   guard: number;
+  prev: number;
+  hit: readonly number[];
 } {
   const l = lanes[id];
   const now = performance.now();
@@ -785,6 +909,8 @@ export function seqDebug(id: SeqId): {
     shown: [...l.shown],
     downs: [...l.downs.values()].map((d) => ({ i: d.i, lockHold: d.lockHold, turns: d.turns })),
     guard: l.guard,
+    prev: l.prev,
+    hit: [...l.hit],
   };
 }
 
@@ -809,7 +935,7 @@ const rytm: SeqMachine = {
     const offs = [pattern.subscribe(fn), rytmLock.subscribe(fn), editor.subscribe(fn), patterns.subscribe(fn), clock.subscribe(fn)];
     return () => offs.forEach((o) => o());
   },
-  onStep: (fn) => clock.onStep((e) => fn(e.step, e.when)),
+  onStep: (fn) => clock.onStep((e) => fn(e.step, e.when, e.when - e.off)),
   context: () => `${pattern.get().instrument ?? '-'}|${rytmEditing() ? 'E' : ''}${patterns.get().cur}`,
   writes: () => rytmLock.get().writes,
   // Tenu (comme un doigt sur la face) : un encodeur de page tourne pendant la tenue le verrouille tout de suite

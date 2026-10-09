@@ -255,12 +255,12 @@ function coreTargets(): MidiTarget[] {
   // Les seize patterns (2026-10-05, state/patterns.ts) : comme un step en EDIT (d'autres dans les deux secondes : la chaine)
   for (let i = 0; i < PATTERN_SLOTS; i += 1) out.push(press(`rytm:ptn:${i}`, 'mm808', `PATTERN ${slotName(i)}`, () => patternTap(i, getStage())));
   // Le Roto en sequenceur (2026-10-09, le setup RSEQ, midi/seqlink.ts) : les huit pas d'une fenetre (taper, tenir,
-  // tourner : appui et lacher), la fenetre 1-8 / 9-16, FOLLOW (une bascule), la voix des pas (sans la jouer)
+  // tourner : appui et lacher), la fenetre 1-8 / 9-16, STEP FOLLOW (une bascule), la voix des pas (sans la jouer)
   for (let b = 0; b < 8; b += 1) {
     out.push({ id: `rytm:seq:${b + 1}`, scope: 'mm808', label: `SEQ STEP ${b + 1}|${b + 9} (TAP, HOLD + TURN)`, kind: 'hold', down: () => seqPress('rytm', b), up: () => seqRelease('rytm', b, getStage()) });
   }
   out.push(press('rytm:seq:window', 'mm808', 'SEQ STEPS 1-8 / 9-16', () => seqWindow('rytm')));
-  out.push({ id: 'rytm:seq:follow', scope: 'mm808', label: 'SEQ FOLLOW (THE STEPS FOLLOW THE PLAYHEAD)', kind: 'value', steps: 2, get: () => (seqFollow('rytm') ? 1 : 0), set: (v) => seqSetFollow('rytm', v >= 0.5) });
+  out.push({ id: 'rytm:seq:follow', scope: 'mm808', label: 'SEQ STEP FOLLOW (THE STEPS FOLLOW THE PLAYHEAD)', kind: 'value', steps: 2, get: () => (seqFollow('rytm') ? 1 : 0), set: (v) => seqSetFollow('rytm', v >= 0.5) });
   for (const inst of voices) out.push(press(`rytm:seq:voice:${inst}`, 'mm808', `SEQ VOICE ${inst} (SELECT, SILENT)`, () => seqVoice(inst)));
   // MM-ARP
   if (VOYAGER) {
