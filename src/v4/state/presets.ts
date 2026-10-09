@@ -19,7 +19,8 @@
  *   couche SAMPLE seule, avec le TUNE et le DECAY du kick d'alors ; un modele :
  *   la couche SYNTH seule).
  * - MM-BASS (2026-10-07) : tous ses potards et sa ligne (les pas et leurs
- *   verrous) ; recharger ne lance ni n'arrete la basse.
+ *   verrous) ; recharger ne lance ni n'arrete la basse ; tant que rien n'a
+ *   bouge depuis, son ecran nomme le preset (current, 2026-10-09).
  * Gardes dans ce navigateur (localStorage), 60 par machine au plus. Les
  * presets d'usine (state/factory.ts, des styles de musique electronique)
  * suivent ceux de Mika ; ils se chargent, ne se renomment ni ne s'effacent.
@@ -155,6 +156,18 @@ function factoryOf(m: PresetMachine): readonly Preset[] {
   return factory[m];
 }
 const listeners = new Set<() => void>();
+
+/**
+ * Ce que le dernier preset du MM-BASS a laisse, charge ou garde (2026-10-09, la revue : deux a six presets par
+ * style, le premier au nom du style ; l'en-tete disait DARK DISCO quand NIGHT DRIVE jouait, et rien ne nommait le
+ * preset une fois le mode presets ferme) : son nom, sa ligne et ses potards. Tant que rien n'a bouge, l'ecran le
+ * nomme (presets.current).
+ */
+let bassMark: { id: string; name: string; steps: readonly BassStep[]; params: Record<string, number> } | null = null;
+
+function markBass(p: Preset): void {
+  bassMark = { id: p.id, name: p.name, steps: bassState.get().steps, params: { ...bassParams.get() } };
+}
 
 function commit(next: All): void {
   all = next;
@@ -309,6 +322,7 @@ export const presets = {
   save(m: PresetMachine): Preset {
     const taken = new Set(all[m].map((p) => p.name));
     const p: Preset = { id: `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`, name: funnyName(taken), at: Date.now(), data: capture(m) };
+    if (m === 'bass') markBass(p);
     commit({ ...all, [m]: [p, ...all[m]].slice(0, MAX) });
     return p;
   },
@@ -317,14 +331,32 @@ export const presets = {
     const p = all[m].find((x) => x.id === id) ?? factoryOf(m).find((x) => x.id === id);
     if (!p) return null;
     apply(m, p.data);
+    // Une ligne illisible ne s'est pas chargee : la ligne d'avant joue, ce n'est pas ce preset
+    if (m === 'bass') {
+      if (cleanSteps((p.data as BassData).steps)) markBass(p);
+      else bassMark = null;
+    }
     return p;
   },
   remove(m: PresetMachine, id: string): void {
+    if (m === 'bass' && bassMark?.id === id) bassMark = null;
     commit({ ...all, [m]: all[m].filter((p) => p.id !== id) });
   },
   /** Un autre nom au hasard (le nom ne plait pas). */
   rename(m: PresetMachine, id: string): void {
     const taken = new Set(all[m].map((p) => p.name));
-    commit({ ...all, [m]: all[m].map((p) => (p.id === id ? { ...p, name: funnyName(taken) } : p)) });
+    const next = all[m].map((p) => (p.id === id ? { ...p, name: funnyName(taken) } : p));
+    if (m === 'bass' && bassMark?.id === id) bassMark = { ...bassMark, name: next.find((p) => p.id === id)?.name ?? bassMark.name };
+    commit({ ...all, [m]: next });
+  },
+  /**
+   * Le nom du preset qui sonne tel quel : le dernier charge ou garde, rien n'a bouge depuis (ni un pas, ni un
+   * potard) ; null sinon. Le MM-BASS seulement (2026-10-09, son en-tete).
+   */
+  current(m: PresetMachine): string | null {
+    if (m !== 'bass' || !bassMark || bassState.get().steps !== bassMark.steps) return null;
+    const v = bassParams.get() as Record<string, number>;
+    for (const k of BASS_KNOBS) if (v[k.id] !== bassMark.params[k.id]) return null;
+    return bassMark.name;
   },
 };

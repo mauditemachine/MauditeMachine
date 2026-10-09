@@ -36,7 +36,7 @@ import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'thre
 import { makeCanvasTexture } from '../scene/silk';
 import { DJ_BEZEL } from '../dj/theme';
 import { FONT_DISPLAY, HEX, PORTRAIT } from '../theme';
-import type { PresetView } from '../state/presetMode';
+import type { PresetCell, PresetView } from '../state/presetMode';
 import { bassDiagram, type BassDiagram } from './diagrams';
 import { BASS_INFOS } from './infos';
 import { bassBig, bassKnob, bassValueText, type BassKnobId, type BassValues } from './params';
@@ -471,12 +471,13 @@ export class BassScreen {
     const bigMax = named ? w - p * 2 : w * 0.5;
     const bs = this.fit(b.big, named ? 500 : 300, named ? LAY.big * 0.62 : LAY.big, bigMax, 6);
     const bigY = PORTRAIT ? y + h * 0.69 : y + h * 0.63;
-    this.text(b.big, x + p - (named ? 0 : 0.6), bigY, bs, ink, named ? 600 : 300);
+    const bw = this.text(b.big, x + p - (named ? 0 : 0.6), bigY, bs, ink, named ? 600 : 300);
     const uy = y + h - (PORTRAIT ? 2.4 : 4.6);
     const us = this.fit(b.unit, 600, LAY.unit, w - p * 2, 3.6);
     this.text(b.unit, x + p, uy, us, b.state === 'global' ? HALF : soft, 600);
-    // Le dessin : a droite du nombre (un nom de cran prend la largeur : ses crans au-dessus de l'unite)
-    const dx0 = named ? x + p : x + w * 0.52;
+    // Le dessin : a droite du nombre (un nom de cran prend la largeur : ses crans au-dessus de l'unite) ; un nombre a
+    // trois chiffres (100 a 127, 2026-10-09, la revue : ACCENT 108, RESO 112, WAVE 127) le pousse, sans le chevaucher
+    const dx0 = named ? x + p : Math.max(x + w * 0.52, x + p - 0.6 + bw + (PORTRAIT ? 1.5 : 2.5));
     const dx1 = x + w - p;
     const dy0 = named ? bigY + 1.5 : ly + (PORTRAIT ? 2.4 : 5);
     const dy1 = named ? uy - us - (PORTRAIT ? 1.2 : 2.5) : bigY;
@@ -894,7 +895,11 @@ export class BassScreen {
     const UH = this.UH;
     const P = LAY.pad;
     this.text(p.title, P, LAY.hy + 2, LAY.tab * 1.2, INK, 700);
-    if (p.count) this.text(p.count, UW - P, LAY.hy + 2, LAY.tab * 1.2, HALF, 600, 'right');
+    // Le rang, et devant lui le style d'un preset d'usine, a l'encre (2026-10-09, la revue : en gris, petit, au
+    // telephone il se lisait mal, et c'est lui qui dit ou l'on est parmi les 35)
+    const cs = LAY.tab * (PORTRAIT ? 1.3 : 1.2);
+    const rw = p.count ? this.text(p.count, UW - P, LAY.hy + 2, cs, HALF, 600, 'right') : 0;
+    if (p.group) this.text(p.group, UW - P - rw - (rw ? cs * 0.6 : 0), LAY.hy + 2, cs, INK, 600, 'right');
     // Le nom en grand entre les fleches (gauche : le precedent, droite : le suivant)
     const band = UH * 0.74;
     const my = band * 0.58 + 6;
@@ -920,12 +925,45 @@ export class BassScreen {
       c.font = font(400, size);
     }
     this.text(p.name, UW / 2, my + size * 0.35, size, INK, 400, 'center');
+    if (p.line) this.presetLine(p.line, P + 14, my + size * 0.35 + (PORTRAIT ? 6 : 9), UW - 2 * P - 28);
     // Les quatre touches du bas
     const kw = UW / 4;
     p.keys.forEach((k, i) => {
       if (!k) return;
       this.pill(k, i * kw + kw / 2, UH - (PORTRAIT ? 6 : 10), PORTRAIT ? 7 : 9, k === 'EXIT', 'center');
     });
+  }
+
+  /**
+   * La ligne du preset montre, sous son nom (2026-10-09, la revue : Mika demande des "placements de notes
+   * differents", on les voit en parcourant) : seize pas comme un rouleau, chaque note un trait a sa hauteur dans la
+   * ligne, prolonge par ses liaisons, l'accent a l'encre, le slide qui monte ou descend vers la suivante, un point
+   * sur chaque pas vide (plus marque sur les temps).
+   */
+  private presetLine(line: readonly PresetCell[], x0: number, y0: number, w: number): void {
+    const h = Math.max(4, Math.min(PORTRAIT ? 15 : 24, this.UH * 0.82 - (PORTRAIT ? 2 : 6) - y0));
+    const n = line.length;
+    const cw = w / n;
+    const nh = PORTRAIT ? 2.6 : 3.4;
+    const yOf = (y: number): number => y0 + (1 - y) * (h - nh);
+    const covered = new Set<number>();
+    for (let i = 0; i < n; i += 1) {
+      const cell = line[i];
+      if (cell.kind !== 'note') continue;
+      let len = 1;
+      while (i + len < n && line[i + len].kind === 'tie') covered.add(i + len++);
+      const xa = x0 + i * cw + 0.6;
+      const xb = x0 + (i + len) * cw - 0.6;
+      this.bar(xa, yOf(cell.y), xb - xa, nh, cell.acc ? INK : HALF);
+      const next = line[(i + len) % n];
+      if (cell.slide && next.kind === 'note') this.stroke([[xb - 0.6, yOf(cell.y) + nh / 2], [xb + 1.8, yOf(next.y) + nh / 2]], cell.acc ? INK : HALF, PORTRAIT ? 0.9 : 1.1);
+    }
+    for (let i = 0; i < n; i += 1) {
+      const cell = line[i];
+      // Une liaison en tete de ligne tient la note du pas 16 : un trait a sa hauteur
+      if (cell.kind === 'tie' && !covered.has(i)) this.bar(x0 + i * cw + 0.6, yOf(cell.y), cw - 1.2, nh, HALF);
+      if (cell.kind === 'off') this.circle(x0 + i * cw + cw / 2, y0 + h - nh / 2, PORTRAIT ? 0.65 : 0.9, i % 4 === 0 ? HALF : FAINT);
+    }
   }
 
   dispose(): void {

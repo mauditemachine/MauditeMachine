@@ -69,6 +69,7 @@ export interface BassPageModel {
   running: boolean;
   bpm: number;
   pattern: string;
+  /** l'en-tete : le preset charge tant que rien n'a bouge (2026-10-09, presets.current), sinon le style */
   style: string;
   key: string;
   lock: { step: number; what: string; n: number } | null;
@@ -127,6 +128,8 @@ export interface PageInput {
   playing: number;
   bpm: number;
   pattern: string;
+  /** le preset qui sonne tel quel (charge, rien n'a bouge depuis), null : aucun */
+  preset?: string | null;
   message: string | null;
   infos: boolean;
   /** le reglage qu'on vient de tourner (l'echo), null : aucun */
@@ -222,7 +225,7 @@ export function bassPageModel(inp: PageInput): BassPageModel {
     running: inp.running,
     bpm: inp.bpm,
     pattern: inp.pattern,
-    style: BASS_STYLES[stepOf('style', v.style)],
+    style: inp.preset ? inp.preset.toUpperCase() : BASS_STYLES[stepOf('style', v.style)],
     key: `${BASS_ROOTS[stepOf('root', v.root)]} ${BASS_SCALES[stepOf('scale', v.scale)]}`,
     lock,
     infos: inp.infos,

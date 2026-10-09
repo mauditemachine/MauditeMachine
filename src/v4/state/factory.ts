@@ -545,10 +545,16 @@ export function arpFactory(seqMax: number): { name: string; data: ArpFactory }[]
  *
  * Les tonalites : fa diese mineur presque partout (les kicks y sont
  * accordes, le MM-ARP y joue) ; ARP sur les lignes qui tiennent sur la
- * tonique (elles suivent les accords) ; quelques couleurs de gamme la ou la
- * ligne joue la note qui change (PHRYGIAN : le sol bequarre de CURSED KISS
- * et STEEL BOOTS ; DORIAN : le re diese de WAREHOUSE ; HARMONIC : le mi
- * diese qui remonte vers la tonique dans COSMIC LOVE) ; quatre lignes sur une
+ * tonique (elles suivent les accords) ; la couleur phrygienne la ou la ligne
+ * joue la note qui change (le sol bequarre de CURSED KISS et STEEL BOOTS).
+ * Une couleur de gamme sur une tonique fixe frotte contre les accords du
+ * MM-ARP de son style (un accord par mesure ; 2026-10-09, la revue : le re
+ * diese dorien de WAREHOUSE contre le re de Dmaj7 et de Bm, le mi diese
+ * harmonique de COSMIC LOVE contre le mi de A et de E, le sol de CURSED KISS
+ * contre le sol diese de E) : ces trois-la suivent les accords (ARP), en
+ * mineur ou en phrygien, les deux seules gammes ou ARP tombe toujours sur la
+ * racine de l'accord (en DORIAN, la racine re donnerait do diese ; en
+ * HARMONIC, mi donnerait re). Quatre lignes sur une
  * autre tonique, toujours dans les notes de fa diese mineur (une pedale :
  * GHOST NOTES sur la, DEEP CUT sur do diese, DUB CHAMBER sur re, SUB PULSE
  * sur si ; leurs lignes n'y jouent que la tonique et la quinte).
@@ -611,8 +617,10 @@ const BASS: readonly BassGenre[] = [
   // la quarte qui glisse vers le temps suivant ; un carre etroit, doux, peu de resonance, une pointe de reverbe
   { name: 'VELVET DISCO', style: 'DARK DISCO', p: { cutoff: 0.36, reso: 0.22, envmod: 0.3, decay: 0.5, accent: 0.3, wave: 0.7, pw: BU.pw(62), sub: 0.5, drive: 0.15, glide: 0.55, keytrack: 0.3, attack: BU.atk(4), release: BU.rel(60), reverb: 0.06, rsize: BU.rsize(1.6), volume: 0.87, density: 0.45, slides: 0.35, accents: 0.15 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0 - - 0+  . 0 2 -  - 0 - 0+  . 4 - 3S' },
   // La menace phrygienne : la seconde mineure (sol) qui frotte contre la tonique, l'octave a contretemps, la
-  // quinte grave et le sol qui redescend en glissant sur le temps ; scie saturee, resonance haute, accents secs
-  { name: 'CURSED KISS', style: 'DARK DISCO', p: { cutoff: 0.27, reso: 0.66, envmod: 0.6, decay: 0.26, accent: 0.75, wave: 0, sub: 0.3, drive: 0.55, glide: 0.3, keytrack: 0.15, accdecay: BU.accd(160), sweep: 0.6, volume: 0.73, density: 0.6, slides: 0.2, accents: 0.45 }, octave: 0, range: 2, scale: 'PHRYGIAN', root: 'F#', line: '0A . 1 0  . 0 0+ .  0A . 1 0  . 0+ 4_ 1S' },
+  // quinte grave et le sol qui redescend en glissant sur le temps ; scie saturee, resonance haute, accents secs.
+  // ARP (2026-10-09, la revue : en fa diese fixe, le sol frottait contre le sol diese de l'accord de mi) : la ligne
+  // suit les accords, le sol ne sonne que sur l'accord de fa diese, sur re et mi la seconde est un ton (mi, fa diese)
+  { name: 'CURSED KISS', style: 'DARK DISCO', p: { cutoff: 0.27, reso: 0.66, envmod: 0.6, decay: 0.26, accent: 0.75, wave: 0, sub: 0.3, drive: 0.55, glide: 0.3, keytrack: 0.15, accdecay: BU.accd(160), sweep: 0.6, volume: 0.73, density: 0.6, slides: 0.2, accents: 0.45 }, octave: 0, range: 2, scale: 'PHRYGIAN', root: 'ARP', line: '0A . 1 0  . 0 0+ .  0A . 1 0  . 0+ 4_ 1S' },
   // La cadence andalouse qui descend, un accord par temps (fa diese, mi, re, do diese) : le grave sur le temps,
   // l'octave sur sa derniere double croche ; scie et carre meles, un echo pointe
   { name: 'DESCENT', style: 'DARK DISCO', p: { cutoff: 0.37, reso: 0.32, envmod: 0.42, decay: 0.3, accent: 0.55, wave: 0.5, sub: 0.45, drive: 0.3, glide: 0.2, keytrack: 0.35, delay: 0.1, dtime: BU.dt['3/16'], dfb: BU.fb(30), volume: 0.73, density: 0.55, slides: 0.1, accents: 0.35 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '0A . . 0+  6_A . . 6  5_A . . 5  4_A . 4 4_' },
@@ -666,9 +674,10 @@ const BASS: readonly BassGenre[] = [
   // Munich, 1977 : des croches (grave, octave) que l'echo en double croche fait galoper ; fa diese deux temps, puis
   // re et mi graves, un accent au debut de chaque moitie
   { name: 'MUNICH 77', style: 'ITALO', p: { cutoff: 0.45, reso: 0.3, envmod: 0.45, decay: 0.26, accent: 0.45, wave: 0.3, sub: 0.35, drive: 0.15, glide: 0.12, keytrack: 0.3, length: BU.len(40), delay: 0.32, dtime: BU.dt['1/16'], dfb: BU.fb(18), volume: 0.95, density: 0.7, slides: 0.05, accents: 0.2 }, octave: 0, range: 2, scale: 'MINOR', root: 'F#', line: '0A . 0+ .  0 . 0+ .  5_A . 5 .  6_ . 6 .' },
-  // L'octave en croches, poussee par une double croche aux temps 2 et 4 ; la sensible (mi diese, la gamme
-  // harmonique) qui remonte vers la tonique ; brillant, une pointe de reverbe
-  { name: 'COSMIC LOVE', style: 'ITALO', p: { cutoff: 0.5, reso: 0.25, envmod: 0.32, decay: 0.3, accent: 0.35, wave: 0.55, pw: BU.pw(58), sub: 0.35, drive: 0.12, glide: 0.15, keytrack: 0.45, delay: 0.06, dtime: BU.dt['1/8'], dfb: BU.fb(20), reverb: 0.08, rsize: BU.rsize(1.8), volume: 0.93, density: 0.75, slides: 0.05, accents: 0.2 }, octave: 0, range: 2, scale: 'HARMONIC', root: 'F#', line: '0 . 0+ .  0 0+ . 0  0 . 0+ .  0 0+ . 6_' },
+  // L'octave en croches, poussee par une double croche aux temps 2 et 4 ; la note sous la tonique qui y remonte,
+  // sur chaque accord (ARP : 2026-10-09, la revue : le mi diese de la gamme harmonique, en fa diese fixe, frottait
+  // contre le mi des accords de la et de mi) ; brillant, une pointe de reverbe
+  { name: 'COSMIC LOVE', style: 'ITALO', p: { cutoff: 0.5, reso: 0.25, envmod: 0.32, decay: 0.3, accent: 0.35, wave: 0.55, pw: BU.pw(58), sub: 0.35, drive: 0.12, glide: 0.15, keytrack: 0.45, delay: 0.06, dtime: BU.dt['1/8'], dfb: BU.fb(20), reverb: 0.08, rsize: BU.rsize(1.8), volume: 0.93, density: 0.75, slides: 0.05, accents: 0.2 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '0 . 0+ .  0 0+ . 0  0 . 0+ .  0 0+ . 6_' },
 
   /* ---- EBM (124 BPM) : l'Electronic Body Music, carre et martial, aucun swing ---- */
   // Le sequenceur qui martele : trois doubles croches et un trou par temps, l'octave sur la troisieme, sature
@@ -705,9 +714,10 @@ const BASS: readonly BassGenre[] = [
   /* ---- HOUSE (124 BPM) : de Chicago a la deep house ---- */
   // La deep house : des notes tenues sur l'accord, l'octave, la quinte et la septieme pour tourner
   { name: 'HOUSE', style: 'HOUSE', p: { cutoff: 0.36, reso: 0.25, envmod: 0.25, decay: 0.5, accent: 0.35, wave: 0.8, sub: 0.5, drive: 0.12, glide: 0.4, volume: 0.79, density: 0.55, slides: 0.3, accents: 0.2 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '. . 0 -  . 0 . 0+  . . 0 -  . 4 . 6' },
-  // Chicago qui jacke : la basse evite le premier temps, saute a l'octave sur les "a", l'accent sur le 3, la sixte
-  // doriene (re diese) au bout ; scie et carre, des notes un peu plus longues
-  { name: 'WAREHOUSE', style: 'HOUSE', p: { cutoff: 0.35, reso: 0.45, envmod: 0.45, decay: 0.3, accent: 0.5, wave: 0.5, sub: 0.4, drive: 0.3, glide: 0.25, keytrack: 0.2, length: BU.len(55), volume: 0.77, density: 0.6, slides: 0.15, accents: 0.3 }, octave: 0, range: 2, scale: 'DORIAN', root: 'F#', line: '. . 0 0+  . 0 . .  0A - 0 0+  . 0 . 5' },
+  // Chicago qui jacke : la basse evite le premier temps, saute a l'octave sur les "a", l'accent sur le 3, la
+  // septieme de l'accord au bout ; scie et carre, des notes un peu plus longues. ARP (2026-10-09, la revue : en fa
+  // diese fixe, la sixte doriene, re diese, frottait contre le re des accords de re et de si) : elle suit les accords
+  { name: 'WAREHOUSE', style: 'HOUSE', p: { cutoff: 0.35, reso: 0.45, envmod: 0.45, decay: 0.3, accent: 0.5, wave: 0.5, sub: 0.4, drive: 0.3, glide: 0.25, keytrack: 0.2, length: BU.len(55), volume: 0.77, density: 0.6, slides: 0.15, accents: 0.3 }, octave: 0, range: 2, scale: 'MINOR', root: 'ARP', line: '. . 0 0+  . 0 . .  0A - 0 0+  . 0 . 6' },
 
   /* ---- SUB (basse seule) : les grandes notes graves ---- */
   // De longues notes de sub liees : la tonique, la quinte, la tierce qui glisse vers la tonique

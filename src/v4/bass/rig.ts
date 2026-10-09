@@ -834,6 +834,7 @@ export class BassRig {
       playing: this.stepAt,
       bpm,
       pattern: `A${String(p.cur + 1).padStart(2, '0')}`,
+      preset: presets.current('bass'),
       message: s.message,
       infos,
       echo,
