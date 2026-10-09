@@ -104,7 +104,7 @@ import { kickHz } from '../audio/shotsdsp';
 import { lenOfDecay } from '../audio/sampledsp';
 import type { Inst } from '../theme';
 import { VOY_KNOB_IDS, voyKnob, type VoyKnobId } from '../voyager/params';
-import { BASS_KNOBS, BASS_ROOTS, BASS_SCALES, BASS_STYLES, type BassKnobId, type BassStyle } from '../bass/params';
+import { BASS_KNOBS, BASS_POLS, BASS_ROOTS, BASS_SCALES, BASS_STYLES, attackOfMs, cutoffOf, decayOfTau, fineOf, glideOfMs, legacyOf, modeOf, polOf, rangeOf, resoOfEmph, semiOf, waveOf, type BassKnobId, type BassMode, type BassStyle } from '../bass/params';
 import type { BassRecipe, BassStep } from '../bass/state';
 
 /* ---------------- MM-RYTM ---------------- */
@@ -583,9 +583,11 @@ interface BassGenre {
 
 /** Les reglages fins en unites (bass/params.ts, les memes lois) : un preset se lit en ms, en %, en pas. */
 const lawOf = (lo: number, hi: number, x: number): number => Math.round((Math.log(x / lo) / Math.log(hi / lo)) * 1000) / 1000;
+/** Au millieme (un preset se lit, et ses valeurs retombent sur les crans du store). */
+const r3 = (v: number): number => Math.round(v * 1000) / 1000;
 const BU = {
-  /** ATTACK, 0.5 ms a 1 s (2.5 ms : le depart) */
-  atk: (ms: number): number => lawOf(0.5, 1000, ms),
+  /** ATTACK et F.ATTACK, 0.5 ms a 1 s (2.5 ms : le depart d'avant ; l'echelle : le temps du plein, la meme loi) */
+  atk: (ms: number): number => r3(attackOfMs(ms)),
   /** AMP DECAY vers SUSTAIN, 20 ms a 4 s */
   adec: (ms: number): number => lawOf(20, 4000, ms),
   /** RELEASE, 6 a 400 ms (14 ms : le depart) */
@@ -604,6 +606,27 @@ const BU = {
   rtone: (hz: number): number => lawOf(800, 12000, hz),
   /** DLY TIME, en pas du tempo */
   dt: { '1/16': 0, '1/8': 0.2, '3/16': 0.4, '1/4': 0.6, '3/8': 0.8, '1/2': 1 },
+  /* Le moteur MONARK (2026-10-09) : les lois de bass/params.ts, en unites reelles (le chantier des presets les ecrit) */
+  /** CUTOFF en Hz (60 Hz a 6 kHz) */
+  cut: (hz: number): number => r3(cutoffOf(hz)),
+  /** RESO par l'emphase de l'echelle (0 a 1 ; k = 4.3 EMPH) */
+  emph: (e: number): number => r3(resoOfEmph(e)),
+  /** DECAY de l'echelle, sa constante de temps en ms (10 ms a 2.5 s) */
+  tau: (ms: number): number => r3(decayOfTau(ms, 'LP24')),
+  /** GLIDE en ms (par octave sur l'echelle) */
+  glide: (ms: number): number => r3(glideOfMs(ms)),
+  /** la forme d'OSC 2 ou OSC 3 par son nom (TRI SHARK SAW SQR WIDE NARROW, REV SAW pour OSC 3) */
+  wave: (name: string): number => r3(waveOf(name)),
+  /** RANGE en pieds (32' 16' 8' 4') */
+  range: (ft: string): number => r3(rangeOf(ft)),
+  /** SEMI en demi-tons (-7 a +7) */
+  semi: (st: number): number => r3(semiOf(st)),
+  /** FINE en cents (-50 a +50) */
+  fine: (ct: number): number => r3(fineOf(ct)),
+  /** MODE par son nom (LP24 LP12 LP6 BP 303) */
+  mode: (name: BassMode): number => r3(modeOf(name)),
+  /** POLARITY par son nom (POS NEG) */
+  pol: (name: (typeof BASS_POLS)[number]): number => polOf(name),
 } as const;
 
 const BASS: readonly BassGenre[] = [
@@ -782,9 +805,15 @@ function seedOfName(name: string): number {
   return h >>> 0;
 }
 
+/**
+ * Les presets d'usine du MM-BASS. Le remplissage (2026-10-09, le moteur MONARK) : un preset qui pose MODE (fmode) est
+ * ecrit pour le moteur d'aujourd'hui, ce qu'il ne pose pas prend def (le patch de depart) ; un preset sans MODE est
+ * d'avant, ce qu'il ne pose pas prend legacy ?? def (MODE 303 : son son d'avant, a l'echantillon pres).
+ */
 export function bassFactory(): { name: string; data: BassFactory }[] {
   return BASS.map((g) => {
-    const params = Object.fromEntries(BASS_KNOBS.map((k) => [k.id, g.p[k.id] ?? k.def])) as Record<BassKnobId, number>;
+    const monark = typeof g.p.fmode === 'number';
+    const params = Object.fromEntries(BASS_KNOBS.map((k) => [k.id, g.p[k.id] ?? (monark ? k.def : legacyOf(k))])) as Record<BassKnobId, number>;
     params.style = BASS_STYLES.indexOf(g.style) / (BASS_STYLES.length - 1);
     params.octave = (g.octave + 2) / 3;
     params.range = (g.range - 1) / 2;

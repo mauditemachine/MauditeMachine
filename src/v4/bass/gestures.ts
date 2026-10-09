@@ -72,6 +72,10 @@
  *   souris, un degre de la gamme par cran (l'octave suit) ;
  * - un potard dedie tenu (STYLE, DENSITY...) garde son echo a l'ecran
  *   (holdPot), comme la bulle d'un encodeur.
+ * Les onglets (2026-10-09, le moteur MONARK) : une touche de page pressee
+ * sur la page allumee passe a son onglet suivant (bassPagePress) ; une puce
+ * de l'en-tete (bass-scr-<ecran>, h.bass = screen:<ecran>) va a son onglet ;
+ * un bloc qu'on tient suit l'ecran qui change (comme une page).
  */
 
 import type { HotspotView } from '../scene/hit';
@@ -80,8 +84,8 @@ import { quadToUnit } from '../scene/quad';
 import { openToggle, presetKey } from '../actions';
 import { bassInfos } from '../state/bassInfos';
 import { PORTRAIT } from '../theme';
-import { ENV_PICTURE, bassAccent, bassClear, bassDegStep, bassDial, bassDialReset, bassEditCycle, bassEditNote, bassEditToggle, bassEditing, bassEncParam, bassFxDial, bassFxParam, bassFxReset, bassGenerate, bassKnobValue, bassLockEnter, bassLockGen, bassLockOff, bassLockRestore, bassLockTap, bassLockTurns, bassMutate, bassNote, bassNoteName, bassOct, bassPageSet, bassPatternHold, bassPitchAt, bassRun, bassSlide, bassStepDeg, bassStepTap } from './actions';
-import { bassPage, isBassGlobal, type BassPageId } from './pages';
+import { bassAccent, bassClear, bassDegStep, bassDial, bassDialReset, bassEditCycle, bassEditNote, bassEditToggle, bassEditing, bassEmptySay, bassEncParam, bassFxDial, bassFxParam, bassFxReset, bassGenerate, bassKnobValue, bassLockEnter, bassLockGen, bassLockOff, bassLockRestore, bassLockTap, bassLockTurns, bassMutate, bassNote, bassNoteName, bassOct, bassPagePress, bassPatternHold, bassPitchAt, bassRun, bassScreenSet, bassSlide, bassStepDeg, bassStepTap } from './actions';
+import { bassPage, isBassGlobal, isBassScreen, type BassScreenId } from './pages';
 import { bassKnob, bassParams, type BassKnobId } from './params';
 import { BASS_PLOCK_ID, BASS_ROLL_ID } from './rig';
 import { midiOf } from './seq';
@@ -157,10 +161,10 @@ interface Grip {
   info: boolean;
   /** un potard : le pas en LOCK quand sa valeur de depart a ete prise (-1 : le son global) */
   lock: number;
-  /** un bloc ou un encodeur : son rang (-1 : un potard dedie) ; fx : un encodeur de la face (les FX globaux) ; la page */
+  /** un bloc ou un encodeur : son rang (-1 : un potard dedie) ; fx : un encodeur de la face (les FX globaux) ; l'ecran */
   enc: number;
   fx: boolean;
-  page: BassPageId;
+  page: BassScreenId;
   /** un bloc (ou un encodeur) cerne a l'ecran tant qu'il est tenu (2026-10-09) */
   ring: boolean;
   /** l'instant de l'appui, et s'il suit de pres une tape sur la meme commande (la seconde d'une double tape) */
@@ -212,7 +216,7 @@ export class BassGestures {
   }
 
   private grip(h: HotspotView, x: number, y: number, touch: boolean): Grip {
-    return { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, slop: touch ? STEP_DRAG_PX.touch : STEP_DRAG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, prevLock: -1, infoOnly: false, info: false, lock: -1, enc: -1, fx: false, page: bassPage.get(), ring: false, t0: performance.now(), dbl: false, taps: false, lo: 0, hi: 0, oct0: 0, empty: false, near: -1, touch, pot: false };
+    return { kind: 'key', id: h.id, x0: x, y0: y, moved: false, knob: null, v0: 0, a: 0, axis: null, fine: false, step: -1, deg0: 0, px: touch ? DEG_PX.touch : DEG_PX.mouse, slop: touch ? STEP_DRAG_PX.touch : STEP_DRAG_PX.mouse, dragged: false, hold: 0, held: false, lockHold: false, prevLock: -1, infoOnly: false, info: false, lock: -1, enc: -1, fx: false, page: bassPage.screen(), ring: false, t0: performance.now(), dbl: false, taps: false, lo: 0, hi: 0, oct0: 0, empty: false, near: -1, touch, pot: false };
   }
 
   down(pointerId: number, h: HotspotView, x: number, y: number, touch = false): void {
@@ -228,7 +232,7 @@ export class BassGestures {
     // touches LOCK, les touches de page et la pastille P-LOCK font aussi leur geste (2026-10-09, comme le MM-RYTM R4)
     if (infos) {
       bassInfos.show(h.id);
-      const acts = h.kind === 'bassknob' || h.kind === 'basstrig' || h.kind === 'basslock' || h.id === BASS_PLOCK_ID || /^bass-(key-p|tab-)/.test(h.id);
+      const acts = h.kind === 'bassknob' || h.kind === 'basstrig' || h.kind === 'basslock' || h.id === BASS_PLOCK_ID || /^bass-(key-p|tab-|scr-)/.test(h.id);
       if (!acts) {
         g.infoOnly = true;
         this.grips.set(pointerId, g);
@@ -260,7 +264,7 @@ export class BassGestures {
       // dit, rien ne tourne) ; un potard dedie : le sien
       g.knob = !slot ? knobOf(h) : slot.enc ? bassFxParam(slot.k) : bassEncParam(slot.k);
       if (!g.knob) {
-        bassState.say(bassPage.get() === 'env' && g.enc >= 5 ? ENV_PICTURE : `${'ABCDEFGH'[g.enc] ?? ''}: EMPTY ON THIS PAGE`, 1200);
+        bassEmptySay(g.enc);
         this.grips.set(pointerId, g);
         return;
       }
@@ -320,6 +324,11 @@ export class BassGestures {
       g.kind = 'key';
       this.press(h.id, true);
       bassLockTap(Number(h.id.slice('bass-lock-'.length)) - 1);
+    } else if (h.bass?.startsWith('screen:')) {
+      // Une puce de l'en-tete (bass-scr-<ecran>, 2026-10-09) : son onglet
+      g.kind = 'key';
+      const s = h.bass.slice('screen:'.length);
+      if (isBassScreen(s)) bassScreenSet(s);
     } else {
       g.kind = 'key';
       this.press(h.id, true);
@@ -339,10 +348,10 @@ export class BassGestures {
       this.rollMove(g, x, y);
       return;
     }
-    if (g.kind === 'knob' && g.enc >= 0 && !g.fx && bassPage.get() !== g.page) {
-      // La page a change pendant qu'un bloc tourne (2026-10-08, la revue : [ ], le MIDI, une touche de page d'un autre
-      // doigt) : comme sur une Elektron, il regle desormais la page allumee, depuis la valeur qu'il y trouve
-      g.page = bassPage.get();
+    if (g.kind === 'knob' && g.enc >= 0 && !g.fx && bassPage.screen() !== g.page) {
+      // La page (ou l'onglet) a change pendant qu'un bloc tourne (2026-10-08, la revue : [ ], le MIDI, une touche de page
+      // d'un autre doigt) : comme sur une Elektron, il regle desormais l'ecran allume, depuis la valeur qu'il y trouve
+      g.page = bassPage.screen();
       g.knob = bassEncParam(g.enc);
       if (g.knob) {
         g.v0 = bassKnobValue(g.knob);
@@ -750,8 +759,9 @@ export function bassKeyAction(k: BassKeyKind): void {
   else if (k === 'noteup') bassNote(1);
   else if (k === 'octdn') bassOct(-1);
   else if (k === 'octup') bassOct(1);
-  else if (k === 'pvoice') bassPageSet('voice');
-  else if (k === 'pfilter') bassPageSet('filter');
-  else if (k === 'penv') bassPageSet('env');
-  else if (k === 'pfx') bassPageSet('fx');
+  // Une touche de page pressee (2026-10-09) : la page allumee passe a son onglet suivant
+  else if (k === 'pvoice') bassPagePress('voice');
+  else if (k === 'pfilter') bassPagePress('filter');
+  else if (k === 'penv') bassPagePress('env');
+  else if (k === 'pfx') bassPagePress('fx');
 }

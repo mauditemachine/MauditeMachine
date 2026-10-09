@@ -10,7 +10,7 @@
 import workletUrl from './bass.worklet.js?url';
 import { synthPort } from '../audio/drums';
 import { pattern } from '../audio/pattern';
-import { bassParams } from './params';
+import { ENGINE_IDS, bassParams } from './params';
 import type { BassLocks } from './state';
 
 /** La duree d'un pas (une double croche) au tempo du motif. */
@@ -31,38 +31,15 @@ const liveListeners = new Set<() => void>();
 
 /**
  * Les reglages du worklet ; les reglages fins de la voix aussi (2026-10-08 ; LENGTH n'en est pas un : la duree des notes, seq.ts),
- * et ceux des pages de la machine Elektron (le meme jour : PW, KEY TRK, l'ampli, le DELAY, la REVERB).
+ * et ceux des pages de la machine Elektron (le meme jour : PW, KEY TRK, l'ampli, le DELAY, la REVERB). Depuis le moteur
+ * MONARK (2026-10-09) : la liste vient de bass/params.ts ENGINE_IDS (les 44, toujours tous : un reglage jamais envoye
+ * sonnerait sur la valeur d'heritage du worklet).
  */
 function params(): Record<string, number> {
   const v = bassParams.get();
-  return {
-    pw: v.pw,
-    keytrack: v.keytrack,
-    attack: v.attack,
-    adecay: v.adecay,
-    sustain: v.sustain,
-    delay: v.delay,
-    dtime: v.dtime,
-    dfb: v.dfb,
-    reverb: v.reverb,
-    rsize: v.rsize,
-    rtone: v.rtone,
-    cutoff: v.cutoff,
-    reso: v.reso,
-    envmod: v.envmod,
-    decay: v.decay,
-    accent: v.accent,
-    wave: v.wave,
-    sub: v.sub,
-    drive: v.drive,
-    glide: v.glide,
-    volume: v.volume,
-    accdecay: v.accdecay,
-    sweep: v.sweep,
-    release: v.release,
-    suboct: v.suboct,
-    tune: v.tune,
-  };
+  const out: Record<string, number> = {};
+  for (const id of ENGINE_IDS) out[id] = v[id];
+  return out;
 }
 
 /** Les verrous du son d'un pas, sans LENGTH (la duree de sa note, seq.ts) : null s'il n'en reste aucun. */

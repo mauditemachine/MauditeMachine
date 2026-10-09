@@ -51,6 +51,16 @@
  * courbes ; la bulle des FX globaux dit ALL STEPS, plus KNOB C ; la ligne du
  * P-LOCK dit CLEAR: ITS P-LOCKS, ESC: P-LOCK OFF ; l'echo du generateur dit
  * en bas ce que fait le cran.
+ *
+ * Le moteur MONARK (2026-10-09) : les onglets de la page en puces (MAIN OSC
+ * MIX, MAIN CONTOUR ; l'onglet allume en negatif) : au desktop sur la ligne
+ * du titre (un cadre au survol), au telephone dans l'en-tete, toute sa
+ * hauteur sous le doigt, derriere la pastille de la page (les autres pages :
+ * leurs touches sous l'ecran) ; les dessins de la voix de Minimoog (un cycle
+ * de chaque forme, les tuyaux d'orgue de RANGE, le fader d'un niveau, le
+ * bruit, la boucle de FEEDBACK, DRIFT qui vacille, la reponse de MODE,
+ * POLARITY) ; la courbe du filtre est celle du MODE (la sortie de l'echelle,
+ * ou la 303) ; le grand dessin du contour du filtre sur CONTOUR G H.
  */
 
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
@@ -60,8 +70,8 @@ import { FONT_DISPLAY, HEX, PORTRAIT } from '../theme';
 import type { PresetCell, PresetView } from '../state/presetMode';
 import { bassDiagram, bassReadout, type BassDiagram } from './diagrams';
 import { BASS_INFOS } from './infos';
-import { bassBig, bassKnob, type BassKnobId, type BassValues } from './params';
-import type { BassPageId } from './pages';
+import { BASS_FEET, attackMs, bassBig, bassKnob, decayMs, emphOf, ladderMag, releaseMs, stepOf, type BassKnobId, type BassMode, type BassValues } from './params';
+import { PAGE_TABS, type BassPageId, type BassScreenId } from './pages';
 import type { BassBlock, BassEditModel, BassPageModel } from './pageView';
 import { BASS_STEPS, type BassStep } from './state';
 import { BASS } from './theme';
@@ -113,8 +123,15 @@ const LAY = PORTRAIT
 const SOFT_BLACK = 'rgba(5, 5, 6, 0.55)';
 /** La ligne du bas : sa ligne de base depuis le bas du verre. */
 const LINE_DY = PORTRAIT ? 4.4 : 6.5;
-/** Au telephone, la case d'un onglet de l'en-tete, au plus (2026-10-09 : 41 px sous le doigt). */
-const PH_TAB = 31.5;
+/**
+ * Au telephone, la case d'une puce d'onglet et de la pastille de la page, au moins (2026-10-09, le moteur MONARK : 35
+ * unites, 45 px sous le doigt ; toute la hauteur de l'en-tete, 45 px aussi).
+ */
+const PH_CHIP = 35;
+/** Au telephone, la zone de la pastille de la page, au moins (45 px sous le doigt). */
+const PH_PILL = 33;
+/** Les dessins d'un bloc a nom de cran qui se lisent mieux a droite du nom (desktop, un nom court : 2026-10-09). */
+const SIDE_NAMED: ReadonlySet<string> = new Set(['osc', 'feet', 'mode', 'pol']);
 
 /** Le potard echo : son id, sa valeur, verrouille ou non, la ligne qui suit en direct. */
 export interface BassKnobEcho {
@@ -137,10 +154,13 @@ export interface BassKnobEcho {
  * null hors P-LOCK.
  */
 export interface BassHeadZones {
-  tabs: readonly { id: BassPageId; u0: number; u1: number }[];
+  /** v0 v1 : au telephone, la hauteur de la zone (la pastille de la page, 2026-10-09 : comme les puces) */
+  tabs: readonly { id: BassPageId; u0: number; u1: number; v0?: number; v1?: number }[];
   open: { u0: number; u1: number } | null;
   still: readonly [{ u0: number; u1: number } | null, { u0: number; u1: number } | null, { u0: number; u1: number } | null];
   pill: { u0: number; u1: number } | null;
+  /** les puces des onglets (2026-10-09) : leur rectangle entier (desktop : la ligne du titre, telephone : l'en-tete) */
+  chips: readonly { id: BassScreenId; u0: number; u1: number; v0: number; v1: number }[];
 }
 
 /**
@@ -162,9 +182,9 @@ export interface BassRollGeom {
 
 /** Ce que l'ecran dessine (la priorite est au rig : PRESETS, EDIT, l'echo hors page, la PAGE). */
 export type BassScreenView =
-  | { view: 'page'; m: BassPageModel }
+  | { view: 'page'; m: BassPageModel; hoverTab?: BassScreenId | null }
   | { view: 'edit'; m: BassEditModel }
-  | { view: 'presets'; p: PresetView }
+  | { view: 'presets'; p: PresetView; note?: string }
   | { view: 'knob'; k: BassKnobEcho; running: boolean; bpm: number; values: BassValues; steps: readonly BassStep[]; before?: readonly BassStep[]; note?: string; infos: boolean };
 
 export class BassScreen {
@@ -176,7 +196,12 @@ export class BassScreen {
   private UH: number;
   private scale: number;
   private key = '';
-  private head: BassHeadZones = { tabs: [], open: null, still: [null, null, null], pill: null };
+  private head: BassHeadZones = { tabs: [], open: null, still: [null, null, null], pill: null, chips: [] };
+  /** le MODE et le contour du filtre de la PAGE en cours de dessin (les dessins du filtre les suivent) */
+  private mode: BassMode = 'LP24';
+  private contour: BassPageModel['contour'] = { a: 0, d: 0.3, s: 0.15, r: 0.3, neg: false, oct: 2.6, tb: false };
+  /** la puce survolee (desktop) */
+  private hoverTab: BassScreenId | null = null;
   private roll: BassRollGeom | null = null;
   draws = 0;
 
@@ -277,12 +302,15 @@ export class BassScreen {
     c.fillRect(0, 0, this.canvas.width, this.canvas.height);
     c.setTransform(this.scale, 0, 0, this.scale, 0, 0);
     // L'en-tete entier ouvre les presets, sauf la PAGE qui dit ses onglets (drawPage) et PRESETS deja ouvert
-    this.head = { tabs: [], open: sv.view === 'presets' ? null : { u0: 0, u1: this.iRect().u0 }, still: [null, null, null], pill: null };
+    this.head = { tabs: [], open: sv.view === 'presets' ? null : { u0: 0, u1: this.iRect().u0 }, still: [null, null, null], pill: null, chips: [] };
     this.roll = null;
-    if (sv.view === 'presets') this.drawPresets(sv.p);
+    if (sv.view === 'presets') this.drawPresets(sv.p, sv.note ?? '');
     else if (sv.view === 'edit') this.drawEdit(sv.m);
     else if (sv.view === 'knob') this.drawKnob(sv);
-    else this.drawPage(sv.m);
+    else {
+      this.hoverTab = sv.hoverTab ?? null;
+      this.drawPage(sv.m);
+    }
     this.texture.needsUpdate = true;
     this.draws += 1;
     return true;
@@ -550,19 +578,24 @@ export class BassScreen {
       open,
       still: [leftU > 0.002 ? { u0: 0, u1: leftU } : null, midU1 - tabsX1 / UW > 0.002 ? { u0: tabsX1 / UW, u1: midU1 } : null, iu - rightU0 > 0.002 ? { u0: rightU0, u1: iu } : null],
       pill,
+      chips: [],
     };
     this.iKey(m.infos, neg);
   }
 
   /**
    * L'en-tete de la PAGE au telephone (2026-10-09, la revue : toucher un onglet ouvrait les presets, et ses onglets
-   * se touchent desormais du doigt) : la lecture, P-LOCK 05 (l'etape 2 : la pastille sort du P-LOCK), quatre onglets
-   * en cases egales (chacun tourne sa page, 40 px sous le doigt ; ENV et FX, courts, n'avaient que 26 a 33 px), a
-   * droite le pattern (seul il ouvre les presets) et le tempo ; la touche "i". En P-LOCK, l'en-tete entier en negatif.
-   * Les zones : this.head.
+   * se touchent desormais du doigt) : la lecture, P-LOCK 05 (l'etape 2 : la pastille sort du P-LOCK), a droite le
+   * pattern (seul il ouvre les presets) et le tempo ; la touche "i". En P-LOCK, l'en-tete entier en negatif.
+   * Le moteur MONARK (le meme jour, les onglets ; comme l'en-tete du MM-RYTM) : la pastille de la page (sa zone :
+   * bass-tab-<page>, la touche de page : pressee, l'onglet suivant), puis les puces de ses onglets (MAIN OSC MIX, MAIN
+   * CONTOUR), celle de l'ecran en negatif, chacune 44 px au moins sous le doigt, toute la hauteur de l'en-tete ; les
+   * autres pages : leurs touches sous l'ecran. En P-LOCK la pastille de la page cede la place (la ligne du titre la
+   * dit). Les zones : this.head.
    */
   private headPhone(m: BassPageModel): void {
     const UW = this.UW;
+    const UH = this.UH;
     const P = LAY.pad;
     const hy = LAY.hy;
     const neg = !!m.lock;
@@ -578,7 +611,7 @@ export class BassScreen {
       x += w + 4;
     }
     const iLeft = UW - P - LAY.i * 2 - 5;
-    // La droite d'abord : ce qu'elle dit fixe ou les onglets s'arretent
+    // La droite d'abord : ce qu'elle dit fixe ou les puces s'arretent
     let rightStart: number;
     let right = 0;
     if (m.lock) rightStart = iLeft;
@@ -596,24 +629,50 @@ export class BassScreen {
       c.closePath();
       c.fill();
     }
-    // Les onglets : quatre cases egales jusqu'au pattern (31.5 au plus, 41 px), le reste est au pattern ; en P-LOCK
-    // jusqu'a la touche "i"
+    const tabs: { id: BassPageId; u0: number; u1: number; v0?: number; v1?: number }[] = [];
+    const chips: { id: BassScreenId; u0: number; u1: number; v0: number; v1: number }[] = [];
+    // Les puces (et la pastille de la page) debordent un peu sur la ligne du titre (un verre qui ne fait rien) : 44 px de haut sous le doigt au moins
+    // (la mesure du 2026-10-09 : l'en-tete seul en donnait 41)
+    const hv1 = (LAY.hd + LAY.gap / 2) / UH;
     const x0 = x - 2;
-    const end = m.lock ? rightStart - 4 : Math.min(x0 + 4 * PH_TAB, rightStart - 8);
-    const cell = (end - x0) / m.pages.length;
-    const tabs = m.pages.map((p, i) => {
-      const cx = x0 + cell * (i + 0.5);
-      const on = p.id === m.page;
-      const w = on ? this.pill(p.label, cx, hy, LAY.tab, !neg, 'center', ink) : this.text(p.label, cx, hy, LAY.tab, half, 700, 'center') + LAY.tab * 1.3;
-      // Un point : cette page porte des verrous dans la ligne
-      if (p.locks > 0) this.circle(cx + w / 2 + 0.5, hy - LAY.tab * 1.02, 0.95, on ? ink : half);
-      return { id: p.id, u0: (x0 + cell * i) / UW, u1: (x0 + cell * (i + 1)) / UW };
-    });
-    const open = m.lock ? null : { u0: end / UW, u1: (right + 1.5) / UW };
+    // La pastille de la page (hors P-LOCK) : la touche de la page, sa zone jusqu'aux puces
+    if (!m.lock) {
+      const label = m.pages.find((q) => q.id === m.page)?.label ?? '';
+      const w = this.pill(label, x, hy, LAY.tab, !m.tabs.length, 'left', ink);
+      const locks = m.pages.find((q) => q.id === m.page)?.locks ?? 0;
+      if (locks > 0) this.circle(x + w + 0.8, hy - LAY.tab * 1.02, 0.95, ink);
+      // Sa zone : 45 px au moins (PH_PILL), le reste aux puces (la mesure du 2026-10-09 : trois puces en 38 px)
+      const x1 = x + Math.max(w + 1, PH_PILL);
+      tabs.push({ id: m.page, u0: x0 / UW, u1: x1 / UW, v0: 0, v1: hv1 });
+      x = x1;
+    }
+    // Les puces : PH_CHIP au moins chacune (44 px), jusqu'au pattern
+    let end = x - 1;
+    if (m.tabs.length) {
+      const room = (m.lock ? rightStart - 3 : rightStart - 3.5) - x;
+      const want = m.tabs.map((t) => Math.max(PH_CHIP, this.measure(t.label, LAY.tab, 700) + LAY.tab * 1.5));
+      const sum = want.reduce((u, v) => u + v, 0);
+      const k = sum > room ? room / sum : 1;
+      let cx = x;
+      m.tabs.forEach((t, i) => {
+        const cw = want[i] * k;
+        const on = t.id === m.screen;
+        const mid = cx + cw / 2;
+        if (on) this.pill(t.label, mid, hy, LAY.tab, !neg, 'center', ink);
+        else this.text(t.label, mid, hy, LAY.tab, half, 700, 'center');
+        if (t.locks > 0) this.circle(mid + this.measure(t.label, LAY.tab, 700) / 2 + LAY.tab * 0.75, hy - LAY.tab * 1.02, 0.95, on ? ink : half);
+        chips.push({ id: t.id, u0: cx / UW, u1: (cx + cw) / UW, v0: 0, v1: hv1 });
+        cx += cw;
+      });
+      end = cx;
+    }
+    const open = m.lock ? null : { u0: Math.max(end + 1, rightStart - 3) / UW, u1: (right + 1.5) / UW };
     const iu = this.iRect().u0;
     const after = open ? open.u1 : end / UW;
     const leftU = pill ? pill.u0 : x0 / UW;
-    this.head = { tabs, open, still: [leftU > 0.002 ? { u0: 0, u1: leftU } : null, null, after < iu ? { u0: after, u1: iu } : null], pill };
+    const midU0 = end / UW;
+    const midU1 = open ? open.u0 : iu;
+    this.head = { tabs, open, still: [leftU > 0.002 ? { u0: 0, u1: leftU } : null, midU1 - midU0 > 0.002 ? { u0: midU0, u1: midU1 } : null, after < iu - 0.002 ? { u0: after, u1: iu } : null], pill, chips };
     this.iKey(m.infos, neg);
   }
 
@@ -622,9 +681,12 @@ export class BassScreen {
    * on selectionne un step, ca doit s'afficher dans ENV que nous sommes en P-LOCKS") : le titre de la page en gras (en
    * P-LOCK : AMP ENV · P-LOCKS, en negatif avec l'en-tete), a droite le compte des verrous du pas (3 P-LOCKS) ou, hors
    * P-LOCK, les pas verrouilles de la ligne ; en lecture, la puce P-LOCK quand le pas qui joue porte des verrous.
+   * Le moteur MONARK (le meme jour) : au desktop, les puces des onglets suivent le titre (MAIN OSC MIX, l'onglet allume
+   * en negatif, un cadre au survol ; un point : il porte des verrous dans la ligne).
    */
   private titleRow(m: BassPageModel): void {
     const UW = this.UW;
+    const UH = this.UH;
     const P = LAY.pad;
     const ty = LAY.ty;
     const neg = !!m.lock;
@@ -635,31 +697,61 @@ export class BassScreen {
     const cs = LAY.small * (neg ? 1 : 0.92);
     const cw = count ? this.lineText(count, 0, 0, cs, ink, 700, false) : 0;
     if (count) this.lineText(count, UW - P - cw, ty, cs, neg ? ink : half, 700);
+    const desk = !PORTRAIT && m.tabs.length > 0;
+    const chipSize = LAY.small * 0.92;
+    const chipW = desk ? m.tabs.reduce((u, t) => u + this.measure(t.label, chipSize, 700) + chipSize * 1.4 + 2, 0) + 6 : 0;
     const title = neg ? `${m.title} · P-LOCKS` : m.title;
-    const avail = UW - 2 * P - cw - 8 - (m.chip ? 30 : 0);
+    const avail = UW - 2 * P - cw - 8 - (m.chip ? 30 : 0) - chipW;
     const ts = this.fit(title, 700, LAY.title, avail, 5.5);
     const tw = this.text(title, P, ty, ts, ink, 700);
+    let x = P + tw + 5;
+    if (desk) {
+      // Les puces des onglets (desktop) : toute la hauteur de la ligne du titre
+      const v0 = (LAY.hd - LAY.gap / 2) / UH;
+      const v1 = (LAY.by0 - LAY.gap / 2) / UH;
+      x += 1;
+      const chips: { id: BassScreenId; u0: number; u1: number; v0: number; v1: number }[] = [];
+      for (const t of m.tabs) {
+        const on = t.id === m.screen;
+        const w = this.measure(t.label, chipSize, 700) + chipSize * 1.4;
+        const h = chipSize * 1.5;
+        const y0 = ty - h + chipSize * 0.36;
+        if (on) this.bar(x, y0, w, h, ink);
+        else if (this.hoverTab === t.id) this.bar(x, y0, w, h, null, half);
+        this.text(t.label, x + w / 2, ty, chipSize, on ? (neg ? INK : BLACK) : half, 700, 'center');
+        if (t.locks > 0) this.circle(x + w - 1.4, y0 + 1.2, 0.9, on ? (neg ? INK : BLACK) : half);
+        chips.push({ id: t.id, u0: (x - 1) / UW, u1: (x + w + 1) / UW, v0, v1 });
+        x += w + 2;
+      }
+      this.head = { ...this.head, chips };
+      x += 3;
+    }
     // La puce P-LOCK : le pas qui joue porte des verrous (le temps du pas, comme le negatif des blocs)
-    if (m.chip) this.pill('P-LOCK', P + tw + 5, ty, LAY.small * 0.9, true, 'left', neg ? BLACK : INK);
-    else if (!neg && m.running) this.pill('P-LOCK', P + tw + 5, ty, LAY.small * 0.9, false, 'left', GHOST);
+    if (m.chip) this.pill('P-LOCK', x, ty, LAY.small * 0.9, true, 'left', neg ? BLACK : INK);
+    else if (!neg && m.running) this.pill('P-LOCK', x, ty, LAY.small * 0.9, false, 'left', GHOST);
   }
 
   private drawPage(m: BassPageModel): void {
     const UW = this.UW;
     const UH = this.UH;
     const P = LAY.pad;
+    this.mode = m.mode;
+    this.contour = m.contour;
     // En P-LOCK, l'en-tete et la ligne du titre en negatif, d'un bord a l'autre (2026-10-09)
     if (m.lock) this.box(0.6, 0.6, UW - 1.2, LAY.by0 - LAY.gap / 2 - 1.2, INK, null, 1, 3);
     if (PORTRAIT) this.headPhone(m);
     else this.headDesk(m);
     this.titleRow(m);
 
-    // Les huit blocs ; ENV : ses cases libres portent l'enveloppe en grand (2026-10-09)
+    // Les huit blocs ; ENV : ses cases libres portent l'enveloppe en grand (2026-10-09) ; CONTOUR : le contour du filtre
+    // en grand sur G H (le moteur MONARK)
     const stripH = LAY.stripH;
     const by1 = UH - LAY.line * 2.2 - stripH - (PORTRAIT ? 4 : 8);
-    const big = m.page === 'env';
+    const big = m.screen === 'env';
+    const fbig = m.screen === 'contour';
     for (const b of m.blocks) {
       if (big && b.k >= 5 && !b.id) continue;
+      if (fbig && b.k >= 6 && !b.id) continue;
       const bb = this.blockBox(b.k);
       this.block(b, bb.x, bb.y, bb.w, bb.h, m.env);
     }
@@ -667,6 +759,11 @@ export class BassScreen {
       const a = this.blockBox(5);
       const z = this.blockBox(7);
       this.envBig(m, a.x, a.y, z.x + z.w - a.x, a.h);
+    }
+    if (fbig) {
+      const a = this.blockBox(6);
+      const z = this.blockBox(7);
+      this.contourBig(m, a.x, a.y, z.x + z.w - a.x, a.h);
     }
 
     // La bande des seize pas
@@ -689,6 +786,85 @@ export class BassScreen {
   }
 
   /**
+   * Le contour du filtre en grand (2026-10-09, le moteur MONARK) sur CONTOUR G H : la loi du worklet (l'attaque de
+   * condensateur jusqu'au plein en F.ATTACK, DECAY vers F.SUSTAIN, RELEASE au relachement), son ampleur en octaves
+   * (ENV MOD) et son signe (POLARITY NEG : la coupure plonge puis remonte, la courbe sous la ligne), la note qui joue
+   * jusqu'a NOTE OFF ; en 303, l'enveloppe de la 303 (attaque immediate, DECAY, sans tenue). Le segment qu'on regle
+   * (le bloc tenu, survole ou tourne) en trait plein.
+   */
+  private contourBig(m: BassPageModel, x: number, y: number, w: number, h: number): void {
+    const c = m.contour;
+    const step = 60 / Math.max(20, m.bpm) / 4;
+    const tb = c.tb;
+    const att = tb ? 0 : attackMs(c.a) / 1000;
+    const dec = decayMs(c.d, tb ? '303' : 'LP24') / 1000;
+    const rel = releaseMs(c.r) / 1000;
+    const sus = tb ? 0 : c.s;
+    const gate = Math.max(0.05, m.envGate) * step;
+    const span = Math.min(3, Math.max(2 * step, (gate + rel * 1.3) * 1.08, tb ? dec * 2.2 : 0));
+    this.box(x, y, w, h, 'rgba(246, 241, 231, 0.035)', DIM, 0.8, PORTRAIT ? 3.4 : 3);
+    const p = PORTRAIT ? 4 : 5;
+    const ly = y + LAY.label + (PORTRAIT ? 1.6 : 3);
+    const head = tb ? '303 ENV' : 'CONTOUR';
+    this.text(head, x + p, ly, LAY.label, INK, 700);
+    const amt = `${c.neg ? '-' : '+'}${c.oct.toFixed(1)} OCT`;
+    const hs = this.fit(amt, 700, LAY.unit * 1.1, w - p * 2 - this.measure(head, LAY.label, 700) - 6, 4);
+    this.text(amt, x + w - p, ly, hs, INK, 700, 'right');
+    const x0 = x + p;
+    const x1 = x + w - p;
+    const y0 = ly + (PORTRAIT ? 4 : 4.5);
+    const y1 = y + h - (PORTRAIT ? 8.5 : 9.5);
+    const tx = (t: number): number => x0 + ((x1 - x0) * t) / span;
+    // Le signe : vers le haut (la coupure s'ouvre) ou vers le bas depuis la ligne du haut (elle plonge)
+    const ay = (v: number): number => (c.neg ? y0 + v * (y1 - y0) : y1 - v * (y1 - y0));
+    for (let t = step; t < span; t += step) this.stroke([[tx(t), y0], [tx(t), y1]], GHOST, 0.5);
+    this.stroke([[x0, ay(0)], [x1, ay(0)]], FAINT, 0.7);
+    if (!tb && sus > 0.001) this.stroke([[x0, ay(sus)], [x1, ay(sus)]], FAINT, 0.7, [1.4, 1.6]);
+    const hot = m.blocks.find((b) => (b.id === 'fattack' || b.id === 'decay' || b.id === 'fsustain') && (b.held || b.echo || b.hover))?.seg ?? -1;
+    const N = 160;
+    const dt = span / N;
+    const fs = 1 / dt;
+    const kA = att > 0 ? 1 - Math.exp(-1.466 / (att * fs)) : 1;
+    const kD = 1 - Math.exp(-1 / (dec * fs));
+    const kR = 1 - Math.exp(-1 / (rel * fs));
+    let e = tb ? 1 : 0;
+    let stg = tb ? 2 : 1;
+    const pts: [number, number][] = [];
+    const seg: number[] = [];
+    for (let k = 0; k <= N; k += 1) {
+      const t = k * dt;
+      if (t >= gate && stg < 3) stg = 3;
+      if (stg === 1) {
+        e += (1.3 - e) * kA;
+        if (e >= 1) {
+          e = 1;
+          stg = 2;
+        }
+      } else if (stg === 2) e += (sus - e) * kD;
+      else e -= e * kR;
+      seg.push(stg === 1 ? 0 : stg === 2 ? (Math.abs(e - sus) > 0.02 ? 1 : 2) : 3);
+      pts.push([tx(t), ay(Math.min(1, e))]);
+    }
+    let from = 0;
+    for (let k = 1; k <= N; k += 1) {
+      if (k < N && seg[k] === seg[from]) continue;
+      this.stroke(pts.slice(from, k + 1), INK, seg[from] === hot ? 2.2 : 1.3);
+      from = k;
+    }
+    const gx = tx(Math.min(span, gate));
+    this.stroke([[gx, y0 - 1], [gx, y1]], HALF, 0.7, [1, 1.4]);
+    // Les temps en bas : A, D, S, R (la 303 : son DECAY seul)
+    const ms = (s: number): string => (s < 0.01 ? `${(s * 1000).toFixed(1)}` : s < 1 ? `${Math.round(s * 1000)}` : `${s.toFixed(1)} S`);
+    const labs = tb ? [`D ${ms(dec)}${dec < 1 ? ' MS' : ''}`, 'NO SUSTAIN'] : [`A ${ms(Math.max(0.0005, att))}`, `D ${ms(dec)}`, `S ${Math.round(sus * 100)} %`, `R ${ms(rel)}`];
+    const lsz = this.fit(labs.join('   '), 600, LAY.unit, x1 - x0, 3.8);
+    const gap = (x1 - x0 - labs.reduce((u, t) => u + this.measure(t, lsz, 600), 0)) / Math.max(1, labs.length - 1);
+    let lx = x0;
+    labs.forEach((t, i) => {
+      lx += this.text(t, lx, y + h - (PORTRAIT ? 3 : 3.6), lsz, (tb ? i === 0 && hot === 1 : i === hot) ? INK : HALF, 600) + gap;
+    });
+  }
+
+  /**
    * L'enveloppe de l'ampli en grand (2026-10-09, l'etape 2 : "ENV doit etre plus complet") sur les trois cases libres
    * d'ENV : la loi du worklet (ATTACK vers le plein, AMP DECAY vers SUSTAIN une fois monte, RELEASE au relachement), la
    * note telle qu'elle joue (sa longueur : LENGTH ou le style, en part du pas, la ligne NOTE OFF), et en pointille la
@@ -700,6 +876,8 @@ export class BassScreen {
   private envBig(m: BassPageModel, x: number, y: number, w: number, h: number): void {
     const [a, d, s, r] = m.env;
     const step = 60 / Math.max(20, m.bpm) / 4;
+    // L'echelle (2026-10-09) : l'attaque de condensateur atteint le plein en ATTACK (la 303 : une constante de temps)
+    const ladder = m.mode !== '303';
     const att = 0.5 * Math.pow(2000, a) / 1000;
     const dec = 20 * Math.pow(200, d) / 1000;
     const rel = 6 * Math.pow(400 / 6, r) / 1000;
@@ -736,7 +914,17 @@ export class BassScreen {
       const seg: number[] = [];
       for (let k = 0; k <= N; k += 1) {
         const t = k * dt;
-        if (held || t < gate) {
+        if ((held || t < gate) && ladder) {
+          // Le contour du Model D : vers 1.3 jusqu'au plein, puis vers SUSTAIN
+          if (!decaying) {
+            vca += (1.3 - vca) * (1 - Math.exp(-(1.466 * dt) / Math.max(1e-4, att)));
+            if (vca >= 1) {
+              vca = 1;
+              decaying = true;
+            }
+          } else vca += (s - vca) * (1 - Math.exp(-dt / dec));
+          seg.push(!decaying ? 0 : Math.abs(vca - s) > 0.02 ? 1 : 2);
+        } else if (held || t < gate) {
           vca += ((decaying ? lvl : 1) - vca) * (1 - Math.exp(-dt / Math.max(1e-4, att)));
           if (!decaying && vca >= 0.99) decaying = true;
           if (decaying) lvl = s + (lvl - s) * Math.exp(-dt / dec);
@@ -907,7 +1095,9 @@ export class BassScreen {
     const named = !/^[+-]?\d+$/.test(b.big);
     const bigMax = named ? w - p * 2 : w * 0.5;
     const bs = this.fit(b.big, named ? 500 : 300, named ? LAY.big * 0.62 : LAY.big, bigMax, 6);
-    const bigY = y + h * 0.63;
+    // Un nom de cran (plus petit qu'un nombre) un peu plus haut (2026-10-09, la revue : les crans de -1 OCT, 0 OCT
+    // touchaient le nom) : sa bande de dessin respire
+    const bigY = y + h * (named ? 0.585 : 0.63);
     const bw = this.text(b.big, x + p - (named ? 0 : 0.6), bigY, bs, ink, named ? 600 : 300);
     const uy = y + h - 4.6;
     // L'unite ; un verrou qui ne s'entendrait pas le dit a sa place, attenue (2026-10-09)
@@ -916,10 +1106,13 @@ export class BassScreen {
     this.text(unit, x + p, uy, us, b.hint ? (inv ? SOFT_BLACK : FAINT) : dim ? FAINT : soft, b.hint ? 700 : 600);
     // Le dessin : a droite du nombre (un nom de cran prend la largeur : ses crans au-dessus de l'unite) ; un nombre a
     // trois chiffres (100 a 127, 2026-10-09, la revue : ACCENT 108, RESO 112, WAVE 127) le pousse, sans le chevaucher
-    const dx0 = named ? x + p : Math.max(x + w * 0.52, x + p - 0.6 + bw + 2.5);
+    // Le moteur MONARK (2026-10-09, la revue) : un nom court (SAW, 16', LP24, POS) garde son dessin a sa droite, assez
+    // haut pour se lire (une forme, des tuyaux) ; un nom long (NARROW, REV SAW) prend la bande sous lui
+    const side = !named || (SIDE_NAMED.has(b.draw) && bw <= w * 0.5);
+    const dx0 = side ? Math.max(x + w * (named ? 0.4 : 0.52), x + p - 0.6 + bw + (named ? 4 : 2.5)) : x + p;
     const dx1 = x + w - p;
-    const dy0 = named ? bigY + 1.5 : ly + 5;
-    const dy1 = named ? uy - us - 2.5 : bigY;
+    const dy0 = side ? ly + 5 : bigY + 1.5;
+    const dy1 = side ? bigY + (named ? 1 : 0) : uy - us - 2.5;
     if (dy1 - dy0 > 2) this.glyph(b, dx0, dy0, dx1, dy1, inv ? BLACK : dim ? FAINT : INK, inv ? 'rgba(5, 5, 6, 0.3)' : dim ? GHOST : FAINT, env);
   }
 
@@ -967,7 +1160,8 @@ export class BassScreen {
     switch (b.draw) {
       case 'notch': {
         const n = Math.max(2, b.notches);
-        const r = Math.min(PORTRAIT ? 2.1 : 2.2, (w / n) * 0.3);
+        // Le rayon suit aussi la hauteur de la bande (2026-10-09, la revue : sous -1 OCT, le cran plein touchait le nom)
+        const r = Math.min(PORTRAIT ? 2.1 : 2.2, (w / n) * 0.3, Math.max(1.2, h * 0.3));
         for (let i = 0; i < n; i += 1) {
           const cx = x0 + r + ((w - 2 * r) * i) / (n - 1);
           if (i === b.notch) this.circle(cx, mid, r * 1.15, ink);
@@ -1005,21 +1199,176 @@ export class BassScreen {
         return;
       }
       case 'lp':
-      case 'peak': {
-        // Le passe-bas : la coupure (CUTOFF) et la bosse (RESO), sur la courbe de l'ecran d'avant
+      case 'peak':
+      case 'mode': {
+        // Le filtre : la coupure (CUTOFF), la bosse (RESO), sur la reponse du MODE (2026-10-09 : la sortie de l'echelle,
+        // le prototype analogique du worklet ; la 303 : la courbe de l'ecran d'avant) ; MODE : sa reponse a mi-course
+        const mode = b.draw === 'mode' ? (['LP24', 'LP12', 'LP6', 'BP', '303'] as const)[b.notch] : this.mode;
         const cut = b.draw === 'lp' ? v : 0.5;
         const reso = b.draw === 'peak' ? v : 0.35;
         const fc = Math.log2(60 * Math.pow(100, cut));
         const q = 0.6 + 7 * reso * reso;
-        for (let k = 0; k <= 40; k += 1) {
-          const f = Math.log2(30) + (k / 40) * (Math.log2(16000) - Math.log2(30));
+        for (let k = 0; k <= 48; k += 1) {
+          const f = Math.log2(30) + (k / 48) * (Math.log2(16000) - Math.log2(30));
           const r = Math.pow(2, f - fc);
-          const mag = 1 / Math.sqrt((1 - r * r) ** 2 + (r / q) ** 2);
-          const db = 20 * Math.log10(mag * mag) * 0.5;
+          let db: number;
+          if (mode === '303') {
+            const mag = 1 / Math.sqrt((1 - r * r) ** 2 + (r / q) ** 2);
+            db = 20 * Math.log10(mag * mag) * 0.5;
+          } else db = 20 * Math.log10(Math.max(1e-6, ladderMag(r, reso, mode)));
           const yy = y0 + h * (0.42 - (Math.max(-40, Math.min(16, db)) / 56) * 1.0);
-          pts.push([x0 + (k / 40) * w, Math.min(y1, Math.max(y0, yy))]);
+          pts.push([x0 + (k / 48) * w, Math.min(y1, Math.max(y0, yy))]);
         }
         this.stroke(pts, ink, lw);
+        return;
+      }
+      case 'osc': {
+        // Un oscillateur du Model D : deux cycles de sa forme (OSC 3 : REV SAW au rang 1)
+        const wv = b.notch;
+        const rev = b.id === 'o3wave' && wv === 1;
+        const top = y0 + h * 0.1;
+        const bot = y1 - h * 0.1;
+        const yv = (s: number): number => bot - ((s + 1) / 2) * (bot - top);
+        const duty = [0, 0, 0, 0.5, 0.3, 0.12][wv] ?? 0.5;
+        const N = 96;
+        for (let k = 0; k <= N; k += 1) {
+          const t = (k / N) * 2;
+          const ph = t % 1;
+          const tri = 1 - 4 * Math.abs(((ph + 0.25) % 1) - 0.5);
+          const saw = 2 * ph - 1;
+          const s = wv === 0 ? tri : wv === 1 ? (rev ? -saw : 0.5 * tri + 0.5 * saw) : wv === 2 ? saw : ph < duty ? 1 : -1;
+          pts.push([x0 + (t / 2) * w, yv(s)]);
+        }
+        this.stroke([[x0, (top + bot) / 2], [x1, (top + bot) / 2]], faint, lw * 0.6);
+        this.stroke(pts, ink, lw);
+        return;
+      }
+      case 'feet': {
+        // RANGE : quatre tuyaux d'orgue (32' le plus long), celui du reglage plein
+        const n = BASS_FEET.length;
+        const gw = w / n;
+        for (let i = 0; i < n; i += 1) {
+          const ph = (y1 - y0) * (1 - i * 0.22);
+          const bw = Math.min(gw * 0.42, PORTRAIT ? 5 : 4.6);
+          const bx = x0 + gw * (i + 0.5) - bw / 2;
+          if (i === b.notch) this.box(bx, y1 - ph, bw, ph, ink, null, 1, 0.8);
+          else this.box(bx, y1 - ph, bw, ph, null, faint, lw * 0.8, 0.8);
+        }
+        return;
+      }
+      case 'level': {
+        // Un niveau du melangeur : une barre de niveau (2026-10-09, la revue : un fader et son capuchon faisaient un T a
+        // fond) : sa gaine, le plein jusqu'au niveau, les reperes 0 et -12 dB ; debout au desktop (la case a droite du
+        // nombre), couchee dans une bande plus large que haute (le telephone)
+        const flat = w > h * 3;
+        const along = flat ? Math.min(w - 3, 120) : Math.max(4, h - 2);
+        const thick = flat ? Math.min(Math.max(3, h * 0.5), 5) : Math.min(Math.max(4, w * 0.14), 6);
+        const fill = Math.max(0, Math.min(1, v)) * along;
+        if (flat) {
+          const bx = x0 + 1.5;
+          const by = mid - thick / 2;
+          this.box(bx, by, along, thick, null, faint, lw * 0.8, 1.2);
+          if (v > 0.002) this.box(bx, by, Math.max(1.2, fill), thick, ink, null, 1, 1.2);
+          for (const g of [1, 0.25]) this.stroke([[bx + along * g, by + thick + 1], [bx + along * g, Math.min(y1, by + thick + 3)]], faint, lw * 0.8);
+          return;
+        }
+        const bx = x0 + w * 0.62 - thick / 2;
+        const by = y0 + 1;
+        this.box(bx, by, thick, along, null, faint, lw * 0.8, 1.2);
+        if (v > 0.002) this.box(bx, by + along - fill, thick, Math.max(1.2, fill), ink, null, 1, 1.2);
+        for (const g of [1, 0.25]) this.stroke([[bx - 4, by + along - along * g], [bx - 1.6, by + along - along * g]], faint, lw * 0.8);
+        return;
+      }
+      case 'noise': {
+        // NOISE : un bruit (toujours le meme dessin) d'autant plus haut que le niveau
+        const amp = (h / 2 - 0.5) * Math.min(1, v * v * 1.6 + (v > 0 ? 0.08 : 0));
+        let s = 0x2545f491;
+        const N = 44;
+        for (let k = 0; k <= N; k += 1) {
+          s ^= s << 13;
+          s ^= s >>> 17;
+          s ^= s << 5;
+          pts.push([x0 + (k / N) * w, mid + (s / 2147483648) * amp]);
+        }
+        this.stroke([[x0, mid], [x1, mid]], faint, lw * 0.6);
+        if (v > 0.001) this.stroke(pts, ink, lw * 0.9);
+        return;
+      }
+      case 'loop': {
+        // FEEDBACK : la sortie renvoyee a l'entree, la boucle d'autant plus epaisse que le reglage
+        const bx0 = x0 + w * 0.28;
+        const bx1 = x1 - w * 0.28;
+        const by0 = mid - h * 0.16;
+        const by1 = mid + h * 0.22;
+        this.box(bx0, by0, bx1 - bx0, by1 - by0, null, ink, lw, 1.2);
+        this.stroke([[x0, mid + h * 0.03], [bx0, mid + h * 0.03]], ink, lw);
+        this.stroke([[bx1, mid + h * 0.03], [x1, mid + h * 0.03]], ink, lw);
+        const top = y0 + h * 0.06;
+        const lt = v > 0.001 ? lw * (0.7 + 2.2 * v) : lw * 0.6;
+        const col = v > 0.001 ? ink : faint;
+        this.stroke([[x1 - w * 0.12, mid + h * 0.03], [x1 - w * 0.12, top], [x0 + w * 0.12, top], [x0 + w * 0.12, mid - h * 0.04]], col, lt);
+        const c = this.ctx;
+        c.fillStyle = col;
+        c.beginPath();
+        c.moveTo(x0 + w * 0.12 - 2, mid - h * 0.12);
+        c.lineTo(x0 + w * 0.12 + 2, mid - h * 0.12);
+        c.lineTo(x0 + w * 0.12, mid - h * 0.0);
+        c.closePath();
+        c.fill();
+        return;
+      }
+      case 'drift': {
+        // DRIFT : deux periodes d'un sinus qui vacille d'autant plus (la hauteur et la forme qui bougent)
+        const N = 64;
+        for (let k = 0; k <= N; k += 1) {
+          const t = k / N;
+          const wob = v * (0.18 * Math.sin(2 * Math.PI * (t * 1.7 + 0.2)) + 0.1 * Math.sin(2 * Math.PI * t * 5.3));
+          pts.push([x0 + t * w, mid - (h / 2 - 1) * (0.86 + 0.14 * Math.sin(9 * t) * v) * Math.sin(2 * Math.PI * (2 * t + wob))]);
+        }
+        this.stroke(pts, ink, lw);
+        if (v > 0.001) {
+          const ghost: [number, number][] = [];
+          for (let k = 0; k <= N; k += 1) {
+            const t = k / N;
+            ghost.push([x0 + t * w, mid - (h / 2 - 1) * Math.sin(2 * Math.PI * 2 * t)]);
+          }
+          this.stroke(ghost, faint, lw * 0.7);
+        }
+        return;
+      }
+      case 'pol': {
+        // POLARITY : le contour du filtre, vers le haut (il ouvre) ou vers le bas (il ferme, puis remonte)
+        const neg = b.notch === 1;
+        const base = neg ? y0 + 1 : y1 - 1;
+        const peak = neg ? y1 - 1 : y0 + 1;
+        const N = 40;
+        this.stroke([[x0, base], [x1, base]], faint, lw * 0.7);
+        pts.push([x0, base]);
+        pts.push([x0 + w * 0.08, peak]);
+        for (let k = 0; k <= N; k += 1) {
+          const t = k / N;
+          pts.push([x0 + w * (0.08 + 0.86 * t), base + (peak - base) * (0.2 + 0.8 * Math.exp(-t * 4))]);
+        }
+        this.stroke(pts, ink, lw * 1.2);
+        return;
+      }
+      case 'fadsr': {
+        // Le contour du filtre (F.ATTACK, DECAY, F.SUSTAIN, RELEASE), le segment de ce bloc en trait plein ; son signe
+        const c = this.contour;
+        const wa = c.tb ? 0.02 : 0.06 + 0.26 * c.a;
+        const wd = 0.06 + 0.26 * c.d;
+        const wr = 0.06 + 0.26 * c.r;
+        const ws = Math.max(0.08, 1 - wa - wd - wr);
+        const s = c.tb ? 0 : c.s;
+        const ya = (lv: number): number => (c.neg ? y0 + 1 + (y1 - y0 - 1) * lv : y1 - (y1 - y0 - 1) * lv);
+        const X = [x0, x0 + w * wa, x0 + w * (wa + wd), x0 + w * (wa + wd + ws), x1];
+        const segs: [number, number][][] = [
+          [[X[0], ya(0)], [X[1], ya(1)]],
+          [[X[1], ya(1)], [X[2], ya(s)]],
+          [[X[2], ya(s)], [X[3], ya(s)]],
+          [[X[3], ya(s)], [X[4], ya(0)]],
+        ];
+        segs.forEach((sg, i) => this.stroke(sg, i === b.seg ? ink : faint, i === b.seg ? lw * 1.8 : lw));
         return;
       }
       case 'decay':
@@ -1413,11 +1762,13 @@ export class BassScreen {
   /* ---------------- PRESETS ---------------- */
 
   /** PRESETS : comme l'ecran du MM-RYTM. */
-  private drawPresets(p: PresetView): void {
+  private drawPresets(p: PresetView, note = ''): void {
     const UW = this.UW;
     const UH = this.UH;
     const P = LAY.pad;
     this.text(p.title, P, LAY.hy + 2, LAY.tab * 1.2, INK, 700);
+    // Un preset garde avant le moteur MONARK (2026-10-09) : il sonne en 303, l'ecran le dit sous le titre
+    if (note) this.pill(note, P, LAY.hy + 2 + LAY.tab * 2.1, LAY.small * 0.92, true, 'left');
     // Le rang, et devant lui le style d'un preset d'usine, a l'encre (2026-10-09, la revue : en gris, petit, au
     // telephone il se lisait mal, et c'est lui qui dit ou l'on est parmi les 35)
     const cs = LAY.tab * (PORTRAIT ? 1.3 : 1.2);

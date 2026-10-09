@@ -33,13 +33,13 @@ import { bassInfos } from '../state/bassInfos';
 import { focus } from '../state/focus';
 import { PRESET_KEYS_OFF, PRESET_KEYS_ON, PRESET_KEY_ARIA, presetMode } from '../state/presetMode';
 import { presetKey } from '../actions';
-import { bassDial, bassDialReset, bassFxDial, bassFxReset, bassKnobValue, bassLockTap, bassStepTap, noteName } from './actions';
+import { bassDial, bassDialReset, bassFxDial, bassFxReset, bassKnobValue, bassLockTap, bassScreenSet, bassStepTap, noteName } from './actions';
 import { bassKeyAction } from './gestures';
 import { listenBassKeys } from './keys';
-import { BASS_FX_KNOBS, ENC_LETTERS, bassPage, isBassGlobal } from './pages';
+import { BASS_FX_KNOBS, BASS_SCREENS, ENC_LETTERS, PAGE_TABS, SCREEN_LABEL, SCREEN_PAGE, bassPage, bassPageDef, isBassGlobal } from './pages';
 import { BASS_FACE_KNOBS, BASS_PLATE_KNOBS, bassCC, bassKnob, bassParams, bassUnit, bassValueText, type BassKnobDef } from './params';
 import { bassTweakId } from './tweaks';
-import { BASS_I_ID, bassBlockId, bassEncId, bassKeyId, bassKnobId, bassLcdId, bassLockId, bassTrigId } from './rig';
+import { BASS_I_ID, bassBlockId, bassEncId, bassKeyId, bassKnobId, bassLcdId, bassLockId, bassScrId, bassTrigId } from './rig';
 import { midiOf } from './seq';
 import { BASS_STEPS, bassState, isLockable } from './state';
 import { BASS_ENC_N, BASS_KEYS, BASS_PAGE_KEYS } from './theme';
@@ -80,6 +80,8 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const pm = useSyncExternalStore(presetMode.subscribe, presetMode.get, presetMode.get);
   const hood = useSyncExternalStore(bassExplode.subscribe, bassExplode.get, bassExplode.get);
   const page = useSyncExternalStore(bassPage.subscribe, bassPage.get, bassPage.get);
+  // L'onglet de la page (2026-10-09, le moteur MONARK) : les blocs suivent l'ecran affiche
+  const screen = useSyncExternalStore(bassPage.subscribe, bassPage.screen, bassPage.screen);
   const infosOn = useSyncExternalStore(bassInfos.subscribe, bassInfos.isOn, bassInfos.isOn);
   const ed = useSyncExternalStore(editor.subscribe, editor.get, editor.get);
   const els = useRef(new Map<string, HTMLElement>());
@@ -228,7 +230,7 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         // Les blocs de l'ecran : le reglage de la page allumee, son verrou en P-LOCK (desktop et telephone, 2026-10-09)
         const id = bassBlockId(i);
         const what = 'Screen value';
-        const param = bassPage.slot(i, page);
+        const param = bassPage.slot(i, screen);
         // Les blocs ne sont pas dessines en PRESETS ni en EDIT : leur curseur s'eteint avec eux
         const hidden = pm.machine === 'bass' || ed === 'bass';
         if (!param || hidden) return <div key={id} ref={refFor(id)} className="v4-twin" data-twin="bassenc" data-hotspot={id} role="slider" tabIndex={-1} aria-disabled="true" aria-label={`${what} ${letter}: ${param ? 'not on the screen now' : 'empty on this page'}`} aria-valuemin={0} aria-valuemax={127} aria-valuenow={0} />;
@@ -327,6 +329,33 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
               // Lecteur d'ecran (clic sans pointeur) : un appui complet
               if (e.detail !== 0) return;
               press(id, () => bassKeyAction(k.kind));
+            }}
+          />
+        );
+      })}
+      {BASS_SCREENS.filter((sc) => PAGE_TABS[SCREEN_PAGE[sc]].length > 1).map((sc) => {
+        // Les puces des onglets (2026-10-09, le moteur MONARK) : MAIN OSC MIX de VOICE, MAIN CONTOUR de FILTER
+        const id = bassScrId(sc);
+        const pg = SCREEN_PAGE[sc];
+        return (
+          <button
+            key={id}
+            ref={refFor(id)}
+            type="button"
+            className="v4-twin"
+            data-twin="basskey"
+            data-hotspot={id}
+            aria-label={`Tab ${SCREEN_LABEL[sc]} of page ${bassPageDef(pg).label}`}
+            aria-pressed={screen === sc}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter' && e.key !== ' ') return;
+              e.preventDefault();
+              e.stopPropagation();
+              if (!e.repeat) bassScreenSet(sc);
+            }}
+            onClick={(e) => {
+              if (e.detail !== 0) return;
+              bassScreenSet(sc);
             }}
           />
         );

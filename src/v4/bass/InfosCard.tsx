@@ -250,8 +250,8 @@ const Chip: React.FC<{ stage: Stage | null; sheet: boolean }> = ({ stage, sheet 
 export const BassInfosCard: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const st = useSyncExternalStore(bassInfos.subscribe, bassInfos.get, bassInfos.get);
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
-  // Un bloc de l'ecran montre le reglage de la page allumee : la carte suit la page (2026-10-08)
-  const page = useSyncExternalStore(bassPage.subscribe, bassPage.get, bassPage.get);
+  // Un bloc de l'ecran montre le reglage de la page allumee : la carte suit la page (2026-10-08), et son onglet (2026-10-09)
+  const page = useSyncExternalStore(bassPage.subscribe, bassPage.screen, bassPage.screen);
   const sheet = useMedia(MOBILE_QUERY);
   const want = st.on && st.id && bassInfoIdOf(st.id) ? st.id : null;
   const [shown, setShown] = useState<string | null>(null);

@@ -23,7 +23,14 @@
  *   bouge depuis, son ecran nomme le preset (current, 2026-10-09) ; la
  *   recette de la ligne aussi (2026-10-09, bass/state.ts BassRecipe : sa
  *   graine, STYLE et DENSITY la reecrivent ; un preset d'avant n'en a pas,
- *   ses notes sont a la main).
+ *   ses notes sont a la main). Le moteur MONARK (2026-10-09) : un reglage
+ *   absent d'un preset prend sa valeur d'heritage (legacy ?? def) ; un preset
+ *   garde avant lui revient donc en MODE 303, a son son d'alors, et l'ecran le
+ *   dit (SAVED IN 303 MODE : MODE se change sur FILTER CONTOUR). Au premier
+ *   reveil apres la mise a jour, le son retenu d'avant (bass/params.ts
+ *   legacy) passe une fois au moteur d'aujourd'hui (migrateBass : celui du
+ *   preset d'usine qu'il etait, ou MM CLASSIC), sauf l'ACID et ce qui est
+ *   encore 303.
  * Gardes dans ce navigateur (localStorage), 60 par machine au plus. Les
  * presets d'usine (state/factory.ts, des styles de musique electronique)
  * suivent ceux de Mika ; ils se chargent, ne se renomment ni ne s'effacent.
@@ -39,7 +46,9 @@ import type { Inst } from '../theme';
 import { arp } from '../voyager/arp';
 import { VOY_KNOB_IDS, migrateKnobs, voyKnob, voyParams, type VoyValues } from '../voyager/params';
 import { SEQ_MAX, seq, type SeqState } from '../voyager/seq';
-import { BASS_KNOBS, bassParams } from '../bass/params';
+import { BASS_KNOBS, ENGINE_IDS, bassKnob, bassParams, legacyOf, type BassKnobId } from '../bass/params';
+import { bassLoad } from './bassload';
+import { focus } from './focus';
 import { bassState, cleanRecipe, cleanSteps, type BassRecipe, type BassStep } from '../bass/state';
 import { arpFactory, bassFactory, rytmFactory } from './factory';
 
@@ -174,6 +183,77 @@ function markBass(p: Preset): void {
   bassMark = { id: p.id, name: p.name, steps: bassState.get().steps, params: { ...bassParams.get() } };
 }
 
+/* ---------------- le moteur MONARK : les sons d'avant (2026-10-09) ---------------- */
+
+/** Le temps des messages de la migration et d'un preset en 303. */
+const NOTICE_MS = 3000;
+const SAVED_303 = 'SAVED IN 303 MODE';
+/** Ce que dit l'ecran du preset charge (un preset en 303), jusqu'a quand. */
+let bassNote: { text: string; until: number } | null = null;
+/** Ce que l'ecran dira au premier coup d'oeil sur le MM-BASS (la migration faite avant qu'on le regarde). */
+let bassNotice: string | null = null;
+/** Ce que garde le son d'avant quand il passe a MM CLASSIC : le niveau, les envois et les reglages des effets. */
+const KEEP_ON_CLASSIC: ReadonlySet<BassKnobId> = new Set<BassKnobId>(['volume', 'delay', 'reverb', 'dtime', 'dfb', 'rsize', 'rtone']);
+
+/**
+ * Le son retenu d'avant le moteur MONARK (bass/params.ts legacy : un enregistrement sans MODE), au premier reveil
+ * (2026-10-09, Mika : "je veux vraiment un son a la MONARK" ; la consigne de Claude du meme jour) :
+ * - il est celui d'un preset d'usine d'avant : le son d'aujourd'hui de ce preset (ses reglages du worklet, jamais sa
+ *   ligne) s'il n'est plus en 303 ; s'il l'est encore (l'ACID, ou avant que ses presets soient reecrits), rien ne
+ *   s'ecrit : l'enregistrement reste d'avant jusqu'au premier potard tourne, et la migration se refera ;
+ * - il n'est celui d'aucun preset (un son retouche) : le moteur d'aujourd'hui, MM CLASSIC, en gardant VOLUME, les
+ *   envois DELAY et REVERB et les reglages des effets ; la ligne, ses verrous et le generateur ne bougent pas.
+ * L'ecran le dit trois secondes au premier coup d'oeil sur le MM-BASS (<NAME>: NEW ENGINE, NEW ENGINE · MM CLASSIC).
+ */
+export function migrateBass(): string | null {
+  const rec = bassParams.legacy();
+  if (!rec.legacy) return null;
+  if (rec.match) {
+    const fac = factoryOf('bass').find((x) => x.name === rec.match);
+    const fp = (fac?.data as BassData | undefined)?.params;
+    if (!fp || fp.fmode === 1) return null;
+    const next: Partial<Record<BassKnobId, number>> = {};
+    for (const id of ENGINE_IDS) next[id] = fp[id];
+    bassParams.setMany(next);
+    bassParams.legacyDone();
+    return `${rec.match}: NEW ENGINE`;
+  }
+  const next: Partial<Record<BassKnobId, number>> = {};
+  for (const id of ENGINE_IDS) if (!KEEP_ON_CLASSIC.has(id)) next[id] = bassKnob(id).def;
+  bassParams.setMany(next);
+  bassParams.legacyDone();
+  return 'NEW ENGINE · MM CLASSIC';
+}
+
+/**
+ * L'ecran du MM-BASS dit la migration au premier coup d'oeil, trois secondes : le MM-BASS regarde (focus), sa machine
+ * arrivee (state/bassload.ts) et son ecran dessine pour de bon (bass/rig.ts, presets.bassScreenUp ; la revue du
+ * 2026-10-09 : sans lui, le message passait pendant le chargement de la scene), un instant apres (l'arrivee de la
+ * camera).
+ */
+let noticeTimer = 0;
+let screenUp = false;
+const NOTICE_DELAY_MS = 1200;
+function showNotice(): void {
+  if (!bassNotice || !screenUp || focus.machine() !== 'bass' || !bassLoad.get() || noticeTimer) return;
+  noticeTimer = window.setTimeout(() => {
+    noticeTimer = 0;
+    if (!bassNotice || focus.machine() !== 'bass') return;
+    const text = bassNotice;
+    bassNotice = null;
+    bassState.say(text, NOTICE_MS);
+  }, NOTICE_DELAY_MS);
+}
+
+if (typeof window !== 'undefined') {
+  bassNotice = migrateBass();
+  if (bassNotice) {
+    focus.subscribe(showNotice);
+    bassLoad.subscribe(showNotice);
+    showNotice();
+  }
+}
+
 function commit(next: All): void {
   all = next;
   try {
@@ -214,10 +294,14 @@ function capture(m: PresetMachine): VoyData | RytmData | BassData {
 function apply(m: PresetMachine, d: VoyData | RytmData | BassData): void {
   if (m === 'bass') {
     const b = d as BassData;
+    // Un reglage absent : sa valeur d'heritage (2026-10-09 ; avant, def : un preset d'avant le moteur MONARK revient en
+    // 303 a son son d'alors) ; d'un bloc (un seul message au worklet)
+    const next: Partial<Record<BassKnobId, number>> = {};
     for (const k of BASS_KNOBS) {
       const v = b.params?.[k.id];
-      bassParams.set(k.id, typeof v === 'number' ? v : k.def);
+      next[k.id] = typeof v === 'number' && Number.isFinite(v) ? v : legacyOf(k);
     }
+    bassParams.setMany(next);
     const steps = cleanSteps(b.steps);
     if (steps) bassState.set({ steps, lock: -1, recipe: cleanRecipe(b.recipe) });
     return;
@@ -343,8 +427,22 @@ export const presets = {
     if (m === 'bass') {
       if (cleanSteps((p.data as BassData).steps)) markBass(p);
       else bassMark = null;
+      // Un preset garde avant le moteur MONARK (sans MODE) : il sonne en 303, l'ecran le dit (2026-10-09)
+      const old = !p.factory && typeof (p.data as BassData).params?.fmode !== 'number';
+      bassNote = old ? { text: SAVED_303, until: performance.now() + NOTICE_MS } : null;
+      if (old) bassState.say(SAVED_303, NOTICE_MS);
     }
     return p;
+  },
+  /** L'ecran du MM-BASS est dessine (bass/rig.ts) : le message de la migration peut passer (2026-10-09). */
+  bassScreenUp(): void {
+    if (screenUp) return;
+    screenUp = true;
+    showNotice();
+  },
+  /** Ce que l'ecran du MM-BASS dit du preset charge (SAVED IN 303 MODE), le temps de le lire ; '' : rien. */
+  bassNote(now: number = performance.now()): string {
+    return bassNote && now < bassNote.until ? bassNote.text : '';
   },
   remove(m: PresetMachine, id: string): void {
     if (m === 'bass' && bassMark?.id === id) bassMark = null;

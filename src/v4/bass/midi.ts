@@ -25,6 +25,12 @@
  * page a l'ecran" (en P-LOCK, le verrou du pas : le Roto tient un pas et
  * tourne), bass:knob:<id> le reglage (en P-LOCK, son verrou). Aucune cible
  * d'avant ne change.
+ * Le moteur MONARK (2026-10-09) : les dix-huit reglages nouveaux ont leur
+ * bass:knob:<id> d'eux-memes (OSC 2, OSC 3, le melangeur, MODE, le contour) ;
+ * bass:screen:<ecran> (une pression : voice osc mix filter contour env fx)
+ * va a un onglet ; bass:page:<id> est une touche pressee (la page allumee
+ * passe a son onglet suivant) ; bass:page (un flot de CC, quatre crans) ne
+ * change jamais d'onglet.
  * La revue du meme jour : une tape sur un pas de l'ecran met le P-LOCK ;
  * tant qu'il ne vient que d'une tape (bassTapLocked), une tape du Roto sur un
  * pas pose ou retire sa note comme avant (le P-LOCK de l'ecran s'en va) et
@@ -38,9 +44,9 @@ import { registerTargets, type MidiTarget } from '../midi/targets';
 import { seqFollow, seqPress, seqRegister, seqRelease, seqSetFollow, seqWindow, type SeqMachine } from '../midi/seqlink';
 import { bassInfos } from '../state/bassInfos';
 import { editor } from '../state/editor';
-import { bassEditing, bassEncDial, bassEncParam, bassEncValue, bassFxDial, bassKnobDial, bassKnobDialValue, bassLockEnter, bassLockOff, bassLockTap, bassLockToggle, bassPageSet, bassPatternHold, bassPatternTap, bassRun, bassStepTap, bassStepToggle } from './actions';
+import { bassEditing, bassEncDial, bassEncParam, bassEncValue, bassFxDial, bassKnobDial, bassKnobDialValue, bassLockEnter, bassLockOff, bassLockTap, bassLockToggle, bassPagePress, bassPageSet, bassPatternHold, bassPatternTap, bassRun, bassScreenSet, bassStepTap, bassStepToggle } from './actions';
 import { bassKeyAction } from './gestures';
-import { BASS_FX_KNOBS, BASS_PAGES, ENC_LETTERS, bassPage } from './pages';
+import { BASS_FX_KNOBS, BASS_PAGES, BASS_SCREENS, ENC_LETTERS, SCREEN_LABEL, SCREEN_PAGE, bassPage, bassPageDef } from './pages';
 import { BASS_KNOBS, bassKnob, bassParams } from './params';
 import { bassPatterns } from './patterns';
 import { bassSeq } from './seq';
@@ -74,7 +80,10 @@ function all(): MidiTarget[] {
     const def = bassKnob(id);
     out.push({ id: `bass:global:${id}`, scope: 'bass', label: `${def.label} (GLOBAL, KNOB ${ENC_LETTERS[k]})`, kind: 'value', steps: def.steps ?? 0, get: () => bassParams.of(id), set: (v) => bassFxDial(k, v) });
   });
-  for (const p of BASS_PAGES) out.push({ id: `bass:page:${p.id}`, scope: 'bass', label: `PAGE ${p.label}`, kind: 'press', down: () => bassPageSet(p.id) });
+  // Une touche de page pressee (2026-10-09) : la page allumee passe a son onglet suivant
+  for (const p of BASS_PAGES) out.push({ id: `bass:page:${p.id}`, scope: 'bass', label: `PAGE ${p.label} (AGAIN: NEXT TAB)`, kind: 'press', down: () => bassPagePress(p.id) });
+  // Un onglet (2026-10-09) : VOICE MAIN, OSC, MIX ; FILTER MAIN, CONTOUR ; ENV ; FX
+  for (const s of BASS_SCREENS) out.push({ id: `bass:screen:${s}`, scope: 'bass', label: `SCREEN ${bassPageDef(SCREEN_PAGE[s]).label} ${SCREEN_LABEL[s]}`, kind: 'press', down: () => bassScreenSet(s) });
   out.push({
     id: 'bass:page',
     scope: 'bass',
@@ -182,6 +191,7 @@ const seq: SeqMachine = {
   },
   led(id) {
     if (id.startsWith('bass:page:')) return bassPage.get() === id.slice('bass:page:'.length) ? 1 : 0;
+    if (id.startsWith('bass:screen:')) return bassPage.screen() === id.slice('bass:screen:'.length) ? 1 : 0;
     if (id === 'bass:lock') return !bassEditing() && bassState.get().lock >= 0 ? 1 : 0;
     if (id === 'bass:key:edit') return bassEditing() ? 1 : 0;
     // ACCENT, SLIDE, TIE : ce qu'a le pas choisi

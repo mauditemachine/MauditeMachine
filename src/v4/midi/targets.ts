@@ -446,7 +446,8 @@ export function targetIdOfHotspot(h: { id?: string; kind: string; param?: string
       // Un encodeur de la face du MM-BASS (2026-10-09) : son FX global (bass:global:drive...), jamais un P-lock
       return h.bass ? (h.bass.startsWith('global:') ? `bass:${h.bass}` : `bass:knob:${h.bass}`) : null;
     case 'basskey':
-      return h.bass ? `bass:key:${h.bass}` : null;
+      // Une puce d'onglet de l'ecran (2026-10-09, le moteur MONARK) : bass:screen:<ecran> ; les touches, bass:key:<touche>
+      return h.bass ? (h.bass.startsWith('screen:') ? `bass:${h.bass}` : `bass:key:${h.bass}`) : null;
     case 'basstrig':
       return h.bass ? `bass:trig:${h.bass}` : null;
     case 'basslock':

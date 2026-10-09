@@ -501,6 +501,16 @@ function buildSetups(): RotoSetup[] {
       bs('release', 'RELEASE', C.gold),
       // TUNE est bipolaire (2026-10-08) : un cran au milieu, comme KICK TUNE
       mid(bs('tune', 'TUNE', C.gold)),
+      // 4 (2026-10-09, le moteur MONARK, Mika : "un son a la MONARK") : le melangeur et le contour du Minimoog ; DETUNE
+      // (OSC 2 FINE) au cran du milieu comme TUNE, MODE a ses cinq crans
+      bs('o2lvl', 'OSC 2', C.gold),
+      bs('o3lvl', 'OSC 3', C.gold),
+      mid(bs('o2fine', 'DETUNE', C.gold)),
+      bs('noise', 'NOISE', C.gold),
+      bs('feedback', 'FEEDBACK', C.purple),
+      bs('fattack', 'F ATTACK', C.orange),
+      bs('fsustain', 'F SUSTAIN', C.orange),
+      bs('fmode', 'MODE', C.orange),
     ],
     buttons: [
       // 1 : jouer
@@ -681,8 +691,11 @@ export function rotoSetupOfChannel(ch: number): RotoSetup | null {
  * ajoute) : les adresses, elles, ne bougent plus (midi/rotoKeys.ts).
  * 2026-10-09 : les sequenceurs RSEQ et BSEQ (SETUP 17 et 18) ; les six
  * setups d'avant gardent canal, CC et mode, seul leur nom change (1009).
+ * Le meme jour, le moteur MONARK : la page 4 du setup BASS (huit potards
+ * ajoutes, CC 108 a 115 du canal 5), la deuxieme version du jour (1009.2,
+ * MIXER 1009.2 tient dans les 12 lettres).
  */
-export const ROTO_VERSION = '2026-10-09';
+export const ROTO_VERSION = '2026-10-09.2';
 const ROTO_TAG = ROTO_VERSION.slice(5).replace('-', '');
 /** Le nom du setup sur l'ecran du Roto : RYTM 1008. */
 export const rotoSetupLabel = (s: RotoSetup): string => `${s.name} ${ROTO_TAG}`.slice(0, 12);
