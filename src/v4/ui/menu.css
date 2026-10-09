@@ -1,0 +1,839 @@
+/*
+ * Le menu du 2026-10-09 (ui/MenuSheet.tsx, ui/AppearanceToggle.tsx,
+ * ui/HoodieFeature.tsx) : l'interrupteur Dark / Light a la Maudite Machine,
+ * le mot de Mika au-dessus de Under the hood, l'encart du hoodie WE ARE
+ * MUSIC MAKERS (dans le menu et en tete de MERCH), et leur place dans la
+ * grille du menu desktop. Le reste du menu (pages, pastilles, reseaux, pied,
+ * grille de base) est dans v4.css. Selecteurs sous .v4-root : l'ordre de
+ * chargement des deux feuilles ne compte pas.
+ */
+
+/* ---------- l'interrupteur Dark / Light ---------- */
+
+/* Une piste en pilule et un bouton rond qui glisse (l'image 4 de Mika), le
+   "A" des machines sur le bouton, le nom de l'apparence en Robot Radicals
+   et sa LED. Sombre : piste noire, bouton jaune a gauche, LED jaune ; clair :
+   piste creme, bouton noir a droite, LED orange. Les couleurs sont celles
+   de l'interrupteur lui-meme (data-look), pas celles de la page : il glisse
+   avant que la page ne change (ressort de 280 ms). 112 x 44 px au doigt. */
+.v4-root .v4-look {
+  --look-w: 112px;
+  --look-h: 44px;
+  --look-knob: 36px;
+  --look-pad: 4px;
+  --look-x: 0px;
+  --look-s: 1;
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: var(--look-w);
+  height: var(--look-h);
+  border-radius: 999px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.v4-root .v4-look[data-look='light'] {
+  --look-x: calc(var(--look-w) - var(--look-knob) - 2 * var(--look-pad));
+}
+
+.v4-root .v4-look:active {
+  --look-s: 0.92;
+}
+
+.v4-root .v4-look:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 3px;
+}
+
+.v4-look-track {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  background: linear-gradient(180deg, #040403 0%, #17160f 100%);
+  box-shadow:
+    inset 0 2px 5px rgba(0, 0, 0, 0.75),
+    inset 0 0 0 1px rgba(246, 241, 231, 0.12),
+    0 1px 0 rgba(246, 241, 231, 0.06);
+  transition: box-shadow 260ms ease;
+}
+
+/* La piste claire : une couche creme qui apparait (un degrade ne se fond pas) */
+.v4-look-track::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, #e2dbcc 0%, #f5f0e6 100%);
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+
+.v4-root .v4-look[data-look='light'] .v4-look-track {
+  box-shadow:
+    inset 0 2px 5px rgba(67, 67, 67, 0.3),
+    inset 0 0 0 1px rgba(67, 67, 67, 0.18),
+    0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.v4-root .v4-look[data-look='light'] .v4-look-track::before {
+  opacity: 1;
+}
+
+/* DARK a droite du bouton, LIGHT a gauche : le nom de l'apparence en cours */
+.v4-look-word {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: 'Robot Radicals', 'SF Pro Display', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: opacity 220ms ease, transform 360ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.v4-look-word[data-word='dark'] {
+  right: 13px;
+  color: #f2c230;
+}
+
+.v4-look-word[data-word='light'] {
+  left: 13px;
+  color: #191919;
+  opacity: 0;
+  transform: translateX(-8px);
+}
+
+.v4-root .v4-look[data-look='light'] .v4-look-word[data-word='dark'] {
+  opacity: 0;
+  transform: translateX(8px);
+}
+
+.v4-root .v4-look[data-look='light'] .v4-look-word[data-word='light'] {
+  opacity: 1;
+  transform: none;
+}
+
+/* La LED des touches des machines : jaune la nuit, orange le jour */
+.v4-look-led {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffd75e;
+  box-shadow: 0 0 0 1px rgba(242, 194, 48, 0.25), 0 0 8px 1px rgba(242, 194, 48, 0.75);
+}
+
+.v4-look-word[data-word='light'] .v4-look-led {
+  background: #ff6a13;
+  box-shadow: 0 0 0 1px rgba(255, 106, 19, 0.2), 0 0 8px 1px rgba(255, 106, 19, 0.6);
+}
+
+/* Le bouton : jaune du logo, le A noir grave ; clair : noir, le A creme */
+.v4-look-knob {
+  position: absolute;
+  top: var(--look-pad);
+  left: var(--look-pad);
+  display: grid;
+  place-items: center;
+  width: var(--look-knob);
+  height: var(--look-knob);
+  border-radius: 50%;
+  color: #0c0b09;
+  background: radial-gradient(circle at 34% 26%, #ffe68f 0%, #f6c935 44%, #dda515 100%);
+  box-shadow:
+    0 3px 8px rgba(0, 0, 0, 0.55),
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.6),
+    inset 0 -2px 3px rgba(110, 70, 0, 0.35);
+  transform: translateX(var(--look-x)) scale(var(--look-s));
+  transition: transform 460ms cubic-bezier(0.3, 1.45, 0.5, 1), color 260ms ease, box-shadow 260ms ease;
+}
+
+.v4-look-knob::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at 34% 26%, #55534e 0%, #1f1e1b 48%, #0a0a09 100%);
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+
+.v4-root .v4-look[data-look='light'] .v4-look-knob {
+  color: #f6f1e7;
+  box-shadow:
+    0 3px 8px rgba(25, 25, 25, 0.35),
+    0 1px 2px rgba(25, 25, 25, 0.3),
+    inset 0 1px 1px rgba(255, 255, 255, 0.22),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.5);
+}
+
+.v4-root .v4-look[data-look='light'] .v4-look-knob::before {
+  opacity: 1;
+}
+
+.v4-look-a {
+  position: relative;
+  display: block;
+  width: 17px;
+  height: auto;
+  aspect-ratio: 1891 / 1612;
+  /* Le A se pose d'un pixel a droite : son eclat en haut a gauche l'allege */
+  margin-left: 1px;
+}
+
+@media (hover: hover) {
+  .v4-root .v4-look:hover .v4-look-knob {
+    box-shadow:
+      0 4px 12px rgba(0, 0, 0, 0.6),
+      0 1px 2px rgba(0, 0, 0, 0.5),
+      inset 0 1px 1px rgba(255, 255, 255, 0.6),
+      inset 0 -2px 3px rgba(110, 70, 0, 0.35),
+      0 0 0 3px rgba(242, 194, 48, 0.22);
+  }
+
+  .v4-root .v4-look[data-look='light']:hover .v4-look-knob {
+    box-shadow:
+      0 4px 12px rgba(25, 25, 25, 0.35),
+      0 1px 2px rgba(25, 25, 25, 0.3),
+      inset 0 1px 1px rgba(255, 255, 255, 0.22),
+      inset 0 -2px 3px rgba(0, 0, 0, 0.5),
+      0 0 0 3px rgba(255, 106, 19, 0.22);
+  }
+}
+
+/* ---------- la place des blocs dans le menu ---------- */
+
+/* Au telephone : l'interrupteur tout en haut a gauche, au-dessus des pages */
+.v4-mm-look {
+  display: flex;
+  align-items: center;
+  margin: 10px 0 -6px;
+}
+
+/* Capot, reseaux et pied : une seule colonne a droite sur desktop ; au telephone ils restent des lignes du menu */
+.v4-mm-side {
+  display: contents;
+}
+
+.v4-mm-look,
+.v4-mm-about,
+.v4-mm-feature {
+  animation: v4-mm-row 320ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 35ms + 40ms);
+}
+
+/* ---------- Behind the machines : la bio, le mot de Mika, SHOP et BANDCAMP ---------- */
+
+.v4-mm-about {
+  display: flex;
+  flex-direction: column;
+}
+
+.v4-mm-bio {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--bone-70);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+/* Le mot, a la premiere personne : un filet jaune, la signature et le A */
+.v4-mm-word {
+  margin-top: 18px;
+  padding-left: 16px;
+  border-left: 2px solid var(--yellow);
+}
+
+.v4-mm-note {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--mm-ink);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.v4-mm-sign {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+  color: var(--yellow);
+  font-family: 'Robot Radicals', 'SF Pro Display', system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.v4-mm-sign-a {
+  width: 18px;
+  height: auto;
+  aspect-ratio: 1891 / 1612;
+}
+
+/* Clair : le nom a l'encre (l'orange sur le creme ne se lit pas assez en petit), le A reste orange */
+.v4-root[data-v4-theme='light'] .v4-mm-sign {
+  color: #191919;
+}
+
+.v4-root[data-v4-theme='light'] .v4-mm-sign-a {
+  color: var(--orange);
+}
+
+.v4-mm-cta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.v4-root .v4-mm-shop,
+.v4-root .v4-mm-bandcamp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-width: 0;
+  height: 48px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-indent: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease, color 160ms ease;
+}
+
+.v4-root .v4-mm-shop {
+  background: var(--orange);
+  color: #0c0b09;
+}
+
+.v4-root .v4-mm-shop .v4-fa {
+  font-size: 14px;
+}
+
+.v4-root .v4-mm-bandcamp {
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--mm-ink);
+}
+
+.v4-root .v4-mm-bandcamp svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+.v4-root .v4-mm-bandcamp .v4-ext {
+  width: 10px;
+  height: 10px;
+  opacity: 0.7;
+}
+
+@media (hover: hover) {
+  .v4-root .v4-mm-shop:hover {
+    background: #ff7c2e;
+    transform: translateY(-1px);
+  }
+
+  .v4-root .v4-mm-bandcamp:hover {
+    color: var(--brand);
+    box-shadow: inset 0 0 0 1.5px var(--brand);
+  }
+}
+
+.v4-root .v4-mm-shop:active,
+.v4-root .v4-mm-bandcamp:active {
+  transform: scale(0.98);
+}
+
+/* ---------- desktop : trois colonnes des 1200 px ---------- */
+
+.v4-mmenu[data-variant='desk'] .v4-mm-look {
+  grid-area: look;
+  align-self: start;
+  margin: 0;
+}
+
+.v4-mmenu[data-variant='desk'] .v4-mm-about {
+  grid-area: about;
+  align-self: start;
+}
+
+.v4-mmenu[data-variant='desk'] .v4-mm-feature {
+  grid-area: feature;
+  align-self: start;
+}
+
+.v4-mmenu[data-variant='desk'] .v4-mm-side {
+  grid-area: side;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+/* Le mot de Mika sur toute la largeur de droite : la bio a gauche, le mot signe a droite */
+@media (min-width: 1200px) {
+  .v4-mmenu[data-variant='desk'] {
+    grid-template-columns: minmax(0, 1.3fr) minmax(300px, 1fr) minmax(290px, 0.92fr);
+    grid-template-areas:
+      'look  about   about'
+      'pages about   about'
+      'pages feature side';
+    grid-template-rows: auto auto auto;
+    align-content: start;
+    align-content: safe center;
+    column-gap: clamp(32px, 3.6vw, 64px);
+  }
+
+  .v4-mmenu[data-variant='desk'] .v4-mm-about {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      'kicker kicker'
+      'bio    word';
+    column-gap: clamp(32px, 3.6vw, 64px);
+  }
+
+  .v4-mmenu[data-variant='desk'] .v4-mm-about > .v4-mm-kicker {
+    grid-area: kicker;
+  }
+
+  /* La bio en chapeau : sa colonne descend a peu pres comme celle du mot */
+  .v4-mmenu[data-variant='desk'] .v4-mm-bio {
+    grid-area: bio;
+    font-size: 18px;
+    line-height: 1.5;
+  }
+
+  /* Le hoodie un peu moins haut : tout le menu tient dans 1440 x 900 */
+  .v4-mmenu[data-variant='desk'] .v4-hoodie-stage {
+    aspect-ratio: 4 / 3;
+  }
+
+  .v4-mmenu[data-variant='desk'] .v4-mm-word {
+    grid-area: word;
+    margin-top: 0;
+  }
+
+  /* Trois colonnes : les titres des pages un peu moins grands (MIXTAPES tient avec sa fleche) */
+  .v4-mmenu[data-variant='desk'] .v4-mm-label {
+    font-size: clamp(40px, min(5.2vw, 9.6vh), 88px);
+  }
+}
+
+/* ---------- l'encart du hoodie WE ARE MUSIC MAKERS ---------- */
+
+/* Sur le jaune du logo dans les deux apparences : le hoodie noir s'y detache
+   (il disparaissait sur le fond sombre), comme le logo jaune sur le noir */
+.v4-hoodie {
+  --hz-ink: #0c0b09;
+  --hz-ink-70: rgba(12, 11, 9, 0.72);
+  --hz-yellow: #f2c230;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-radius: 20px;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--hz-yellow);
+  color: var(--hz-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 22px 50px -26px rgba(0, 0, 0, 0.8);
+  container-type: inline-size;
+}
+
+.v4-root[data-v4-theme='light'] .v4-hoodie {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 22px 44px -24px rgba(67, 67, 67, 0.55);
+}
+
+.v4-root .v4-hoodie :focus-visible {
+  outline: 2px solid var(--hz-ink);
+  outline-offset: 2px;
+}
+
+/* La scene : le jaune s'eclaire derriere le hoodie, le grand A en filigrane */
+.v4-hoodie-stage {
+  position: relative;
+  aspect-ratio: 10 / 9;
+  overflow: hidden;
+  cursor: pointer;
+  background:
+    radial-gradient(64% 58% at 58% 50%, rgba(255, 238, 168, 0.95) 0%, rgba(255, 226, 120, 0) 72%),
+    linear-gradient(165deg, #f8d24c 0%, #f2c230 48%, #e6b01d 100%);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Dans MERCH : plus large que haute, ORDER tient dans le panneau desktop sans defiler */
+.v4-hoodie[data-variant='merch'] .v4-hoodie-stage {
+  aspect-ratio: 16 / 10;
+}
+
+.v4-hoodie-mark {
+  position: absolute;
+  z-index: 0;
+  top: -8%;
+  right: -16%;
+  height: 116%;
+  width: auto;
+  aspect-ratio: 1891 / 1612;
+  color: rgba(12, 11, 9, 0.065);
+  pointer-events: none;
+}
+
+/* Le sol : une ombre douce sous les deux vues */
+.v4-hoodie-stage::after {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  left: 6%;
+  right: 6%;
+  bottom: 2%;
+  height: 9%;
+  background: radial-gradient(closest-side, rgba(90, 56, 0, 0.3), rgba(90, 56, 0, 0));
+  pointer-events: none;
+}
+
+.v4-root .v4-hoodie-kicker {
+  position: absolute;
+  z-index: 4;
+  top: 15px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--hz-ink);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+/* La LED rouge d'une machine qui tourne */
+.v4-hoodie-led {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ff3d14;
+  box-shadow: 0 0 0 2px rgba(255, 61, 20, 0.18), 0 0 10px 2px rgba(255, 61, 20, 0.55);
+  animation: v4-hoodie-led 2.4s ease-in-out infinite;
+}
+
+@keyframes v4-hoodie-led {
+  50% {
+    box-shadow: 0 0 0 2px rgba(255, 61, 20, 0.1), 0 0 4px 1px rgba(255, 61, 20, 0.3);
+    opacity: 0.75;
+  }
+}
+
+.v4-root .v4-hoodie-price {
+  position: absolute;
+  z-index: 4;
+  top: 10px;
+  right: 12px;
+  margin: 0;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: var(--hz-ink);
+  color: var(--hz-yellow);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Les deux vues : celle de devant (main) a droite, l'autre (side) en retrait
+   a gauche ; elles echangent leur place avec un petit ressort */
+.v4-hoodie-pic {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 4%;
+  display: block;
+  height: 86%;
+  width: auto;
+  max-width: none;
+  aspect-ratio: 927 / 1287;
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 12px 14px rgba(70, 42, 0, 0.22));
+  pointer-events: none;
+  transition: transform 560ms cubic-bezier(0.3, 1.3, 0.45, 1), filter 320ms ease, z-index 0s linear 120ms;
+}
+
+.v4-hoodie-pic[data-slot='main'] {
+  z-index: 3;
+  transform: translateX(-27%);
+}
+
+.v4-hoodie-pic[data-slot='side'] {
+  transform: translateX(-98%) scale(0.8);
+  filter: drop-shadow(0 10px 12px rgba(70, 42, 0, 0.18)) brightness(0.93);
+}
+
+@media (hover: hover) {
+  .v4-hoodie-stage:hover .v4-hoodie-pic[data-slot='side'] {
+    transform: translateX(-104%) scale(0.82) rotate(-2deg);
+  }
+}
+
+.v4-hoodie-body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 16px 16px;
+  border-top: 1px solid rgba(12, 11, 9, 0.12);
+}
+
+/* HOODIE a gauche, FRONT / BACK a droite ; le titre a toute la largeur dessous */
+.v4-hoodie-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: -6px;
+}
+
+.v4-root .v4-hoodie-title {
+  min-width: 0;
+  margin: 0;
+  font-weight: 400;
+}
+
+.v4-hoodie-name {
+  color: var(--hz-ink-70);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+/* WE ARE MUSIC MAKERS dans la police du logo, comme sur le dos du hoodie */
+.v4-hoodie-line {
+  display: block;
+  color: var(--hz-ink);
+  font-family: 'Robot Radicals', 'SF Pro Display', system-ui, sans-serif;
+  font-size: clamp(19px, 5.6vw, 24px);
+  /* a la largeur de l'encart : deux lignes d'affiche, ou qu'il soit */
+  font-size: clamp(20px, 8.2cqi, 30px);
+  font-weight: 400;
+  line-height: 1.02;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.v4-hoodie-faces {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(12, 11, 9, 0.1);
+}
+
+.v4-root .v4-hoodie-face {
+  position: relative;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  color: var(--hz-ink-70);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-indent: 0.14em;
+  text-transform: uppercase;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+/* 44 px au doigt autour d'un bouton de 30 */
+.v4-root .v4-hoodie-face::before {
+  content: '';
+  position: absolute;
+  inset: -7px -1px;
+}
+
+.v4-root .v4-hoodie-face[aria-pressed='true'] {
+  background: var(--hz-ink);
+  color: var(--hz-yellow);
+}
+
+.v4-hoodie-sizes {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 0;
+}
+
+.v4-root .v4-hoodie-sizes-label {
+  margin: 0;
+  color: var(--hz-ink-70);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.v4-hoodie-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.v4-root .v4-hoodie-chip {
+  display: inline-grid;
+  place-items: center;
+  min-width: 34px;
+  height: 28px;
+  padding: 0 7px;
+  border-radius: 8px;
+  box-shadow: inset 0 0 0 1.5px rgba(12, 11, 9, 0.78);
+  color: var(--hz-ink);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+/* MERCH : les tailles se choisissent (44 px), la choisie en noir ; le nom de la rangee a gauche */
+.v4-hoodie-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.v4-hoodie-pick .v4-hoodie-hint {
+  flex-basis: 100%;
+}
+
+.v4-root button.v4-hoodie-chip {
+  min-width: 48px;
+  height: 44px;
+  border-radius: 10px;
+  font-size: 14px;
+  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.v4-root button.v4-hoodie-chip[aria-pressed='true'] {
+  background: var(--hz-ink);
+  color: var(--hz-yellow);
+}
+
+.v4-root button.v4-hoodie-chip:disabled {
+  opacity: 0.45;
+  text-decoration: line-through;
+  cursor: default;
+}
+
+/* ORDER sans taille : les tailles le demandent */
+.v4-hoodie-pick[data-ask='1'] button.v4-hoodie-chip:not(:disabled) {
+  box-shadow: inset 0 0 0 2px var(--hz-ink), 0 0 0 3px rgba(255, 61, 20, 0.35);
+}
+
+.v4-hoodie-hint {
+  min-height: 1em;
+  margin: 0;
+  color: var(--hz-ink);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.v4-hoodie-hint:empty {
+  display: none;
+}
+
+.v4-root .v4-hoodie-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  height: 50px;
+  padding: 0 18px 0 20px;
+  border-radius: 14px;
+  background: var(--hz-ink);
+  color: var(--hz-yellow);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  transition: background-color 160ms ease, transform 160ms ease;
+}
+
+.v4-hoodie-arrow {
+  flex: none;
+  transition: transform 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@media (hover: hover) {
+  .v4-root .v4-hoodie-cta:hover {
+    background: #22201a;
+  }
+
+  .v4-root .v4-hoodie-cta:hover .v4-hoodie-arrow {
+    transform: translateX(4px);
+  }
+}
+
+.v4-root .v4-hoodie-cta:active {
+  transform: scale(0.985);
+}
+
+.v4-hoodie .v4-merch-sold-line {
+  color: var(--hz-ink-70);
+}
+
+/* La tete de MERCH : l'encart avant la grille, un peu d'air dessous */
+.v4-merch-hero {
+  margin: 4px 0 22px;
+}
+
+/* ---------- mouvement reduit ---------- */
+
+.v4-root[data-v4-motion='reduced'] .v4-look *,
+.v4-root[data-v4-motion='reduced'] .v4-look-track::before,
+.v4-root[data-v4-motion='reduced'] .v4-look-knob::before,
+.v4-root[data-v4-motion='reduced'] .v4-mm-look,
+.v4-root[data-v4-motion='reduced'] .v4-mm-about,
+.v4-root[data-v4-motion='reduced'] .v4-mm-feature,
+.v4-root[data-v4-motion='reduced'] .v4-hoodie * {
+  animation: none;
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .v4-look *,
+  .v4-look-track::before,
+  .v4-look-knob::before,
+  .v4-mm-look,
+  .v4-mm-about,
+  .v4-mm-feature,
+  .v4-hoodie * {
+    animation: none;
+    transition: none;
+  }
+}
