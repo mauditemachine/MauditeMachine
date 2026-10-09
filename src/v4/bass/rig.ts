@@ -47,7 +47,10 @@
  * plus grand") : ni capuchons, ni lettres, ni zones bass-enc-* ; l'ecran
  * prend leur place (bass/theme.ts), ses huit blocs (bass-blk-1 a 8) sont les
  * commandes, cernes tant qu'un doigt les tient (holdBlock) ; les touches de
- * page juste dessous, leur zone etendue a leur nom (BASS_PAGE_HIT).
+ * page juste dessous, leur zone etendue a leur nom (BASS_PAGE_HIT). La revue
+ * du meme jour : les onglets de l'en-tete tournent leur page (bass-tab-*), le
+ * pattern seul ouvre les presets, le reste de l'en-tete ne fait rien ; ces
+ * zones suivent ce que l'ecran dessine (syncHead).
  */
 
 import { BoxGeometry, BufferGeometry, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, Group, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Quaternion, Vector3, type Texture } from 'three';
@@ -147,6 +150,11 @@ export const bassBlockId = (k: number): string => `bass-blk-${k + 1}`;
 export const bassTrigId = (i: number): string => `bass-trig-${i + 1}`;
 export const bassLockId = (i: number): string => `bass-lock-${i + 1}`;
 export const bassLcdId = (k: PresetKey): string => `bass-lcd-${k}`;
+/**
+ * Un onglet de l'en-tete de l'ecran, au telephone seulement (2026-10-09, la revue : le toucher ouvrait les presets) :
+ * bass-tab-voice a bass-tab-fx, il tourne sa page comme la touche de page dessous (MIDI LEARN : la meme cible).
+ */
+export const bassTabId = (p: BassPageId): string => `bass-tab-${p}`;
 
 /* ---------------- le corps ---------------- */
 
@@ -286,8 +294,9 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   for (const k of BASS_KEYS) {
     const big = k.kind === 'edit' || k.kind === 'open';
     const page = isPageKey(k.kind);
-    // Au telephone les noms des pages un peu plus grands (2026-10-09) : sous l'ecran, ce sont eux qui menent
-    const pageCap = PORTRAIT ? 0.07 : 0.062;
+    // Au telephone les noms des pages plus grands (2026-10-09) : sous l'ecran, ce sont eux qui menent (la revue : 4 px de
+    // haut, 0.07 -> 0.1, ils tiennent encore entre le cadre de l'ecran et leur touche)
+    const pageCap = PORTRAIT ? 0.1 : 0.062;
     texts.push({ text: k.label, x: k.x, z: k.z - k.d / 2 - (page ? 0.12 : 0.15), cap: (big ? 0.072 : page ? pageCap : 0.058) * INK_K, weight: 700, group: page ? 'pages' : 'keys', maxW: k.w + 0.2, ...(k.orange ? { ink: 'orange' as const, alpha: 1 } : {}) });
   }
   for (const [a, b] of BASS_KEY_SEPS) {
@@ -387,6 +396,13 @@ export class BassRig {
   private iDef: HotspotDef | null = null;
   private blockDefs: HotspotDef[] = [];
   private tweakDefs: HotspotDef[] = [];
+  /**
+   * au telephone (2026-10-09) : les onglets de l'en-tete, le pattern (bass-lcd-open) et le verre inerte a gauche et a
+   * droite, poses ou l'ecran les dessine (syncHead)
+   */
+  private tabDefs: HotspotDef[] = [];
+  private openDef: HotspotDef | null = null;
+  private stillDefs: HotspotDef[] = [];
   /** un dessin de l'ecran demande (les notifications d'un meme geste n'en font qu'un) */
   private drawQueued = false;
   private defs: HotspotDef[];
@@ -623,9 +639,22 @@ export class BassRig {
     // La touche "i" (2026-10-08) : dans le coin de l'ecran, un peu au-dessus du verre (elle passe avant les presets)
     const ir = this.screen.iRect();
     const iKey: HotspotDef = { id: BASS_I_ID, kind: 'basskey', layer: top, shape: 'box', ...area(ir.u0, ir.u1, ir.v0, ir.v1, DJ_BEZEL.h + 0.06), enabled: true, bass: 'i' };
+    // Au telephone (2026-10-09, la revue : toucher l'onglet FILTER ouvrait les presets) : chaque onglet tourne sa page
+    // (bass.bass : la touche de page, MIDI LEARN bass:key:pfilter...), le pattern seul ouvre les presets (bass-lcd-open),
+    // a gauche (la lecture, LOCK 05) et a droite (le tempo) un verre qui ne fait rien (le geste ne passe pas a
+    // l'orbite) ; tous poses ou l'ecran les dessine (syncHead)
+    const head: HotspotDef[] = PORTRAIT
+      ? [
+          ...BASS_PAGE_KEYS.map((k): HotspotDef => ({ id: bassTabId(PAGE_OF[k]), kind: 'basskey', layer: top, shape: 'box', ...area(hr.u0, hr.u0, hr.v0, hr.v1, DJ_BEZEL.h + 0.03), enabled: false, bass: k })),
+          ...['l', 'r'].map((k): HotspotDef => ({ id: `bass-lcd-head-${k}`, kind: 'basslcd', layer: top, shape: 'box', ...area(hr.u0, hr.u0, hr.v0, hr.v1, DJ_BEZEL.h + 0.03), enabled: false })),
+        ]
+      : [];
     // La plaque sous le capot : ses potards, vivants capot ouvert (syncHood)
-    const all = [...out, iKey, ...blocks, ...lcd, glass, glassEdit, ...this.tweaks.hotspots()].map((d) => ({ ...d, machine: 'bass' as const }));
+    const all = [...out, iKey, ...blocks, ...lcd, ...head, glass, glassEdit, ...this.tweaks.hotspots()].map((d) => ({ ...d, machine: 'bass' as const }));
     this.lcdDefs = all.filter((d) => d.kind === 'basslcd');
+    this.tabDefs = all.filter((d) => d.id.startsWith('bass-tab-'));
+    this.openDef = PORTRAIT ? all.find((d) => d.id === bassLcdId('open')) ?? null : null;
+    this.stillDefs = all.filter((d) => d.id.startsWith('bass-lcd-head-'));
     this.iDef = all.find((d) => d.id === BASS_I_ID) ?? null;
     this.blockDefs = all.filter((d) => d.id.startsWith('bass-blk-'));
     this.tweakDefs = all.filter((d) => d.id.startsWith('bass-tw-'));
@@ -650,9 +679,46 @@ export class BassRig {
     };
     // Les touches des presets en mode presets ; hors presets, l'en-tete (open) et le verre (sans touche ; celui des
     // blocs en EDIT seulement, ou les blocs ne sont pas dessines)
-    for (const d of this.lcdDefs) want(d, d.id === 'bass-lcd-glass-edit' ? !on && !blocks : d.lcd === 'open' || !d.lcd ? !on : on);
+    for (const d of this.lcdDefs) {
+      // Au telephone, le pattern et le verre de l'en-tete suivent ce qui est dessine (syncHead)
+      if (d === this.openDef || this.stillDefs.includes(d)) continue;
+      want(d, d.id === 'bass-lcd-glass-edit' ? !on && !blocks : d.lcd === 'open' || !d.lcd ? !on : on);
+    }
     if (this.iDef) want(this.iDef, !on);
     for (const d of this.blockDefs) want(d, blocks);
+    return this.syncHead() || changed;
+  }
+
+  /**
+   * Au telephone (2026-10-09) : les onglets et le pattern ou l'ecran les a dessines (BassScreen.headZones, ils bougent
+   * quand LOCK 05 entre dans l'en-tete) ; eteints quand il ne les montre pas (PRESETS, EDIT, l'echo : la, l'en-tete
+   * entier ouvre les presets, comme avant) ; true si ca change.
+   */
+  private syncHead(): boolean {
+    if (!PORTRAIT) return false;
+    const S = BASS.screen;
+    const hz = this.screen.headZones();
+    const on = presetMode.on('bass');
+    let changed = false;
+    const put = (d: HotspotDef, span: { u0: number; u1: number } | null | undefined): void => {
+      const live = !on && !!span;
+      if (span) {
+        const x = S.x - S.w / 2 + ((span.u0 + span.u1) / 2) * S.w;
+        const hx = ((span.u1 - span.u0) / 2) * S.w;
+        if (Math.abs(d.x - x) > 1e-4 || Math.abs(d.hx - hx) > 1e-4) {
+          d.x = x;
+          d.hx = hx;
+          changed = true;
+        }
+      }
+      if (d.enabled !== live) {
+        d.enabled = live;
+        changed = true;
+      }
+    };
+    for (const d of this.tabDefs) put(d, hz.tabs.find((t) => bassTabId(t.id) === d.id));
+    if (this.openDef) put(this.openDef, hz.open);
+    this.stillDefs.forEach((d, i) => put(d, hz.still[i]));
     return changed;
   }
 
@@ -880,7 +946,10 @@ export class BassRig {
     this.drawQueued = false;
     const sv = this.screenView();
     this.shown = sv;
-    return this.screen.draw(sv);
+    const drawn = this.screen.draw(sv);
+    // Au telephone, les zones de l'en-tete suivent ce qui vient d'etre dessine (2026-10-09)
+    if (drawn && this.syncHead()) this.opts.hitChanged();
+    return drawn;
   }
 
   /**

@@ -24,7 +24,9 @@
  * Au telephone, sans encodeurs (2026-10-09, Mika : "on change dans l'ecran
  * directement") : un bloc tenu par un doigt est cerne (held), et les gestes
  * que l'ecran rappelle parlent de glisser une valeur (DRAG A VALUE), plus de
- * potard a tourner.
+ * potard a tourner. La revue du meme jour : tant qu'un doigt tient un bloc,
+ * la ligne du bas repete son nom, son nombre et son unite (le doigt cache le
+ * bloc), en LOCK avec son pas ; la ligne du LOCK dit aussi comment sortir.
  */
 
 import { BASS_PAGES, BASS_PAGE_SLOTS, ENC_LETTERS, bassPageDef, isBassGlobal, type BassPageId } from './pages';
@@ -218,10 +220,15 @@ export function bassPageModel(inp: PageInput): BassPageModel {
   const envOf = (id: 'attack' | 'adecay' | 'sustain' | 'release'): number => (locking ? lockVals[id] ?? v[id] : playLocks?.[id] ?? v[id]);
   const lock = locking && lockStep ? { step: inp.lock, what: stepWhat(lockStep, inp.noteName), n: Object.keys(lockStep.locks ?? {}).length } : null;
   const sel = inp.steps[inp.sel];
+  // Au telephone, un bloc tenu (2026-10-09, la revue : le doigt cache le nombre qu'il regle) : la ligne du bas le
+  // repete tant que le doigt est la, en LOCK avec son pas
+  const hb = inp.phone ? blocks.find((b) => b.held && b.id) : undefined;
   let line: string;
   let aside = '';
-  if (inp.message) line = inp.message;
-  else if (lock) line = `${inp.phone ? 'DRAG A VALUE' : 'TURN A KNOB'}: STEP ${two(lock.step)} ONLY  2X: UNLOCK  CLEAR: ALL`;
+  if (hb) line = heldLine(hb, lock?.step ?? -1);
+  else if (inp.message) line = inp.message;
+  // Au telephone, la ligne dit aussi comment sortir (2026-10-09, la revue : seule la carte INFOS du LOCK le disait)
+  else if (lock) line = inp.phone ? `DRAG A VALUE: STEP ${two(lock.step)} ONLY  2X: UNLOCK  CLEAR: ALL  TAP ${two(lock.step)}: EXIT` : `TURN A KNOB: STEP ${two(lock.step)} ONLY  2X: UNLOCK  CLEAR: ALL`;
   else line = sel ? `STEP ${two(inp.sel)}  ${stepWhat(sel, inp.noteName)}` : '';
   // Le geste du LOCK, a droite de la ligne tant qu'on n'est pas en LOCK (2026-10-08, la revue : au telephone, la
   // serigraphie sous les pas ne se lit pas, l'ecran oui ; l'ecran le dit aussi apres un pas touche) ; au telephone
@@ -242,9 +249,16 @@ export function bassPageModel(inp: PageInput): BassPageModel {
     env: [envOf('attack'), envOf('adecay'), envOf('sustain'), envOf('release')],
     strip: strip(inp),
     line,
-    lineHot: !!inp.message || !!lock,
+    lineHot: !!hb || !!inp.message || !!lock,
     aside,
   };
+}
+
+/** La ligne d'un bloc tenu (2026-10-09) : son nom, son nombre et son unite ; en LOCK, le pas d'abord. */
+function heldLine(b: BassBlock, lock: number): string {
+  if (b.state === 'global') return `${b.label}: GLOBAL, NOT PER STEP`;
+  const unit = b.unit && b.unit !== b.big ? `  ${b.unit}` : '';
+  return `${lock >= 0 ? `STEP ${two(lock)}  ` : ''}${b.label} ${b.big}${unit}`;
 }
 
 /* ---------------- EDIT ---------------- */

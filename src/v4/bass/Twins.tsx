@@ -14,13 +14,16 @@
  *   en LOCK ils reglent le verrou du pas, Suppr l'enleve), les quatre
  *   touches de page, la touche "i" de l'ecran.
  * - Au telephone, plus d'encodeurs (2026-10-09) : les huit curseurs se posent
- *   sur les blocs de l'ecran (bass-blk-1 a 8), qui en tiennent lieu.
+ *   sur les blocs de l'ecran (bass-blk-1 a 8), qui en tiennent lieu ; en
+ *   PRESETS et en EDIT, ou les blocs ne sont pas dessines, ils sont eteints
+ *   comme leurs zones (la revue : on reglait une valeur que personne ne voit).
  * Inertes tant qu'on n'utilise pas le MM-BASS. Le clavier de la machine
  * (bass/keys.ts) s'ecoute ici.
  */
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Stage } from '../scene/renderer';
+import { editor } from '../state/editor';
 import { bassExplode } from '../state/explode';
 import { bassInfos } from '../state/bassInfos';
 import { focus } from '../state/focus';
@@ -74,6 +77,7 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const hood = useSyncExternalStore(bassExplode.subscribe, bassExplode.get, bassExplode.get);
   const page = useSyncExternalStore(bassPage.subscribe, bassPage.get, bassPage.get);
   const infosOn = useSyncExternalStore(bassInfos.subscribe, bassInfos.isOn, bassInfos.isOn);
+  const ed = useSyncExternalStore(editor.subscribe, editor.get, editor.get);
   const els = useRef(new Map<string, HTMLElement>());
   const refs = useRef(new Map<string, (el: HTMLElement | null) => void>());
   const stageRef = useRef(stage);
@@ -184,7 +188,9 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
         const id = BASS_ENC_N > 0 ? bassEncId(i) : bassBlockId(i);
         const what = BASS_ENC_N > 0 ? 'Encoder' : 'Screen value';
         const param = bassPage.slot(i, page);
-        if (!param) return <div key={id} ref={refFor(id)} className="v4-twin" data-twin="bassenc" data-hotspot={id} role="slider" tabIndex={-1} aria-disabled="true" aria-label={`${what} ${letter}: empty on this page`} aria-valuemin={0} aria-valuemax={127} aria-valuenow={0} />;
+        // Les blocs (le telephone) ne sont pas dessines en PRESETS ni en EDIT : leur curseur s'eteint avec eux
+        const hidden = BASS_ENC_N === 0 && (pm.machine === 'bass' || ed === 'bass');
+        if (!param || hidden) return <div key={id} ref={refFor(id)} className="v4-twin" data-twin="bassenc" data-hotspot={id} role="slider" tabIndex={-1} aria-disabled="true" aria-label={`${what} ${letter}: ${param ? 'not on the screen now' : 'empty on this page'}`} aria-valuemin={0} aria-valuemax={127} aria-valuenow={0} />;
         const def = bassKnob(param);
         const val = bassKnobValue(param);
         const notch = def.steps && def.steps > 1 ? 1 / (def.steps - 1) : 0;

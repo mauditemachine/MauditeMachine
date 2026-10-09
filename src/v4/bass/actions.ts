@@ -54,6 +54,7 @@ import { pattern } from '../audio/pattern';
 import { sc } from '../audio/soundcloud';
 import { editor } from '../state/editor';
 import { focus } from '../state/focus';
+import { presetMode } from '../state/presetMode';
 import { PORTRAIT } from '../theme';
 import { bassEngine } from './engine';
 import { generate, mutate, type GenOpts } from './gen';
@@ -292,6 +293,13 @@ bassState.subscribe(() => {
 /** Les potards tournes en LOCK depuis le debut d'un appui tenu (un pas tenu qu'on lache apres un reglage sort du LOCK). */
 let lockTurns = 0;
 export const bassLockTurns = (): number => lockTurns;
+/**
+ * Chaque entree en LOCK et chaque sortie (2026-10-09, la revue) : un geste qui a remis sa sortie a plus tard (le pas
+ * leve avant le bloc) sait si le LOCK a ete repris entre-temps (le meme pas tenu de nouveau, sa touche LOCK, le MIDI,
+ * le clavier, le Roto) ; il ne sort alors plus rien.
+ */
+let lockGen = 0;
+export const bassLockGen = (): number => lockGen;
 let lockAudition = 0;
 
 /** Un potard (0 a 1) ; l'ecran dit sa valeur. En LOCK, un potard du son verrouille le pas. */
@@ -397,6 +405,9 @@ export function bassEncReset(k: number): void {
  */
 export function bassPageSet(p: BassPageId): void {
   gesture();
+  // PRESETS ouvert (2026-10-09, la revue) : une touche de page le referme et montre sa page, comme une touche de page
+  // quitte le menu d'une Elektron (sinon la page changeait derriere le navigateur, sans que rien ne se voie)
+  if (presetMode.on('bass')) presetMode.close();
   if (p === bassPage.get()) return;
   // La page change : l'echo du dernier reglage tourne s'en va avant (sinon l'ecran le montrerait en plein, hors de la page)
   if (bassState.get().touched) bassState.set({ touched: null });
@@ -436,6 +447,7 @@ export function bassLockEnter(i: number): void {
   }
   const st = bassState.get();
   lockTurns = 0;
+  lockGen += 1;
   // Un pas vide : une note (la tonique), sinon son verrou ne s'entendrait jamais ; elle repart si on quitte
   // le pas sans rien y verrouiller (2026-10-08 : promener le LOCK sur des pas vides remplissait la ligne)
   const empty = st.steps[i].kind === 'off';
@@ -456,6 +468,7 @@ export function bassLockToggle(): void {
 
 export function bassLockOff(): void {
   if (bassState.get().lock < 0) return;
+  lockGen += 1;
   bassState.set({ lock: -1 });
   bassState.say('LOCK OFF', 1200);
 }

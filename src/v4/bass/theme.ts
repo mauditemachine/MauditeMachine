@@ -179,6 +179,8 @@ export interface BassKeyDef {
 }
 
 type KeyCopy = Pick<BassKeyDef, 'kind' | 'label' | 'aria' | 'orange'>;
+/** Ce qui regle une page : les encodeurs, au telephone les blocs de l'ecran (2026-10-09, la revue : les jumeaux le lisent). */
+const SETS = PORTRAIT ? 'the eight values of the screen set' : 'the eight encoders set';
 const COPY: readonly KeyCopy[] = [
   { kind: 'run', label: 'RUN', aria: 'Run or stop the bassline, in time with the MM-RYTM, key Space', orange: true },
   { kind: 'edit', label: 'EDIT', aria: 'Edit: the sixteen steps become sixteen patterns, key E', orange: true },
@@ -193,10 +195,10 @@ const COPY: readonly KeyCopy[] = [
   { kind: 'octdn', label: 'OCT -', aria: 'Chosen step one octave down, key Z' },
   { kind: 'octup', label: 'OCT +', aria: 'Chosen step one octave up, key X' },
   // Les pages (2026-10-08, la machine Elektron) : les huit encodeurs reglent la page allumee
-  { kind: 'pvoice', label: 'VOICE', aria: 'Page VOICE: the eight encoders set the oscillator, the sub and the pitch, keys [ and ]' },
-  { kind: 'pfilter', label: 'FILTER', aria: 'Page FILTER: the eight encoders set the 303 filter and the accent' },
-  { kind: 'penv', label: 'ENV', aria: 'Page ENV: the eight encoders set the amp envelope, the note length and the volume' },
-  { kind: 'pfx', label: 'FX', aria: 'Page FX: the eight encoders set the drive, the delay and the reverb' },
+  { kind: 'pvoice', label: 'VOICE', aria: `Page VOICE: ${SETS} the oscillator, the sub and the pitch${PORTRAIT ? '' : ', keys [ and ]'}` },
+  { kind: 'pfilter', label: 'FILTER', aria: `Page FILTER: ${SETS} the 303 filter and the accent` },
+  { kind: 'penv', label: 'ENV', aria: `Page ENV: ${SETS} the amp envelope, the note length and the volume` },
+  { kind: 'pfx', label: 'FX', aria: `Page FX: ${SETS} the drive, the delay and the reverb` },
 ];
 
 /**

@@ -23,8 +23,8 @@ import { bassFactory } from '../state/factory';
 import { PORTRAIT } from '../theme';
 import { generate, mutate, type GenOpts } from './gen';
 import type { BassInfoId } from './infos';
-import { BASS_ROOTS, BASS_SCALES, BASS_STYLES, BASS_KNOBS, DTIME_STEPS, SCALE_TONES, accDecayMs, adecayMs, attackMs, bassKnob, bassValueText, dfbPct, lengthPct, pwPct, releaseMs, rsizeS, rtoneHz, stepOf, sweepOct, tuneCents, type BassKnobId, type BassStyle, type BassValues } from './params';
-import { BASS_PAGE_SLOTS, type BassPageId } from './pages';
+import { BASS_ROOTS, BASS_SCALES, BASS_STYLES, BASS_KNOBS, DTIME_STEPS, SCALE_TONES, accDecayMs, adecayMs, attackMs, bassBig, bassKnob, bassValueText, dfbPct, lengthPct, pwPct, releaseMs, rsizeS, rtoneHz, stepOf, sweepOct, tuneCents, type BassKnobId, type BassStyle, type BassValues } from './params';
+import { BASS_PAGE_SLOTS, bassSlotOf, type BassPageId } from './pages';
 import { BASS_STEPS, type BassStep } from './state';
 
 export interface BassDiagram {
@@ -462,8 +462,19 @@ function seriesPts(ys: readonly number[], i0: number, i1: number, xOf: (i: numbe
 
 /* ---------------- les dessins, un par commande ---------------- */
 
+/**
+ * La valeur lue d'un reglage (la carte INFOS, l'echo de l'ecran) : un reglage d'une page dont la valeur lisible n'est
+ * qu'un nombre (un pourcentage sans unite) dit le nombre de son bloc, 0 a 127 (2026-10-09, la revue : la carte
+ * disait ENV MOD 55, son bloc juste dessus 70) ; une valeur avec son unite (262 HZ, 430 MS, SAW) est deja celle du
+ * bloc, elle reste ; hors des pages (STYLE, DENSITY, la plaque) rien ne change.
+ */
+export function bassReadout(id: BassKnobId, v: number): string {
+  const t = bassValueText(id, v);
+  return bassSlotOf(id) && /^[+-]?\d+$/.test(t) ? bassBig(id, v) : t;
+}
+
 type Draw = (values: BassValues, c: BassDiagramCtx) => BassDiagram;
-const valueOf = (p: Pic, id: BassKnobId, values: BassValues): Pic => p.value(bassValueText(id, values[id]));
+const valueOf = (p: Pic, id: BassKnobId, values: BassValues): Pic => p.value(bassReadout(id, values[id]));
 
 /** ENVELOPE, ACC DECAY : deux decroissances sur la grille des doubles croches. */
 function decays(values: BassValues, bpm: number, hot: 'normal' | 'accent'): Pic {
@@ -542,7 +553,8 @@ const DRAW: Partial<Record<BassInfoId, Draw>> = {
     const fc = cutHz(values.cutoff);
     p.label(`+${depth.toFixed(1)} OCT  ${hzText(Math.min(20000, fc * Math.pow(2, depth)))}`, X0 + 10, TOP);
     if (accDepth > 0.05) p.label('ACC', X0 + 10, Math.max(Y0 + 9, oy(accDepth) + 3));
-    p.label(`CUTOFF ${hzText(fc)}`, X1, Y1 - 4, 'end');
+    // Sous la ligne du CUTOFF, a droite (2026-10-09, la revue : au-dessus, la fin de la courbe passait dessus)
+    p.label(`CUTOFF ${hzText(fc)}`, X1, BOT, 'end');
     p.label(`1/16 = ${Math.round(sd * 1000)} MS`, X0, BOT);
     return valueOf(p, 'envmod', values).done();
   },

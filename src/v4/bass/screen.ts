@@ -38,6 +38,10 @@
  * lettre, le nombre en grand, le dessin sur toute la largeur, l'unite) ; un
  * bloc tenu par un doigt est cerne d'un trait plein (held), on voit ce
  * qu'on regle avant meme que la valeur bouge (desktop : son encodeur tenu).
+ * La revue du meme jour : l'en-tete du telephone plus haut, ses quatre
+ * onglets en cases egales (chacun tourne sa page, headZones), le pattern
+ * seul ouvre les presets ; l'echo d'un reglage d'une page dit le nombre de
+ * son bloc (bassReadout, comme la carte INFOS).
  */
 
 import { Mesh, MeshBasicMaterial, PlaneGeometry, type CanvasTexture } from 'three';
@@ -45,9 +49,10 @@ import { makeCanvasTexture } from '../scene/silk';
 import { DJ_BEZEL } from '../dj/theme';
 import { FONT_DISPLAY, HEX, PORTRAIT } from '../theme';
 import type { PresetView } from '../state/presetMode';
-import { bassDiagram, type BassDiagram } from './diagrams';
+import { bassDiagram, bassReadout, type BassDiagram } from './diagrams';
 import { BASS_INFOS } from './infos';
-import { bassBig, bassKnob, bassValueText, type BassKnobId, type BassValues } from './params';
+import { bassBig, bassKnob, type BassKnobId, type BassValues } from './params';
+import type { BassPageId } from './pages';
 import type { BassBlock, BassEditModel, BassPageModel } from './pageView';
 import { BASS_STEPS, type BassStep } from './state';
 import { BASS } from './theme';
@@ -80,13 +85,18 @@ const GEN_RULES: ReadonlySet<BassKnobId> = new Set<BassKnobId>(['style', 'densit
  * 191 de haut) ; au telephone 230 (7.6 x 6.4 : 194 de haut depuis le
  * 2026-10-09, la place des encodeurs ; une unite y vaut 1.3 px CSS, 1.6 au
  * desktop), tout plus gros pour le doigt et l'oeil : le nombre d'un bloc a
- * 25 (19 avant, 14.5), son nom a 7.4, l'unite a 6.2, la bande des pas a 16.
+ * 25 (19 avant, 14.5), son nom a 7.4, l'unite a 6.6, la bande des pas a 16.
+ * L'en-tete du telephone plus haut (la revue du 2026-10-09 : ses onglets, le
+ * pattern et la touche "i" se touchent, 26 px de haut c'etait peu) : 34.5 au
+ * lieu de 22, les blocs gardent plus de 70 px.
  */
 const LAY = PORTRAIT
-  ? { UW: 230, pad: 6, hy: 15.5, tab: 6.9, small: 6.3, bpm: 10.2, i: 5.6, by0: 23.5, gap: 3, label: 7.4, letter: 5.4, big: 25, unit: 6.2, stripH: 16, line: 6.6, lanes: 3 }
+  ? { UW: 230, pad: 6, hy: 20.5, tab: 7.2, small: 6.5, bpm: 10.6, i: 6.4, by0: 36, gap: 3, label: 7.4, letter: 6, big: 25, unit: 6.6, stripH: 16, line: 6.6, lanes: 3 }
   : { UW: 300, pad: 10, hy: 15, tab: 7.4, small: 6.6, bpm: 11, i: 5.4, by0: 23, gap: 4, label: 7, letter: 5.4, big: 23, unit: 6.1, stripH: 19, line: 7, lanes: 4 };
 /** La ligne du bas : sa ligne de base depuis le bas du verre. */
 const LINE_DY = PORTRAIT ? 4.4 : 6.5;
+/** Au telephone, la case d'un onglet de l'en-tete, au plus (2026-10-09 : 41 px sous le doigt). */
+const PH_TAB = 31.5;
 
 /** Le potard echo : son id, sa valeur, verrouille ou non, la ligne qui suit en direct. */
 export interface BassKnobEcho {
@@ -95,6 +105,19 @@ export interface BassKnobEcho {
   locked: boolean;
   live?: boolean;
   lock: number;
+}
+
+/**
+ * Les zones de l'en-tete telles que dessinees (2026-10-09, le telephone ; de 0 a 1 en u) : les onglets de la PAGE
+ * (chacun tourne sa page), le pattern qui ouvre les presets ; open null : rien ne les ouvre (en LOCK la droite de
+ * l'en-tete dit le pas, PRESETS est deja ouvert) ; ailleurs (EDIT, l'echo) l'en-tete entier les ouvre, comme avant.
+ * still : a gauche (la lecture, LOCK 05) et a droite (le tempo, ce que dit le LOCK) le verre qui ne fait rien, jusqu'a
+ * la touche "i" : l'en-tete est pave sans que deux zones se chevauchent.
+ */
+export interface BassHeadZones {
+  tabs: readonly { id: BassPageId; u0: number; u1: number }[];
+  open: { u0: number; u1: number } | null;
+  still: readonly [{ u0: number; u1: number } | null, { u0: number; u1: number } | null];
 }
 
 /** Ce que l'ecran dessine (la priorite est au rig : PRESETS, EDIT, l'echo hors page, la PAGE). */
@@ -113,6 +136,7 @@ export class BassScreen {
   private UH: number;
   private scale: number;
   private key = '';
+  private head: BassHeadZones = { tabs: [], open: null, still: [null, null] };
   draws = 0;
 
   constructor(anisotropy: number, mobile: boolean) {
@@ -144,10 +168,11 @@ export class BassScreen {
   /** La touche "i" (2026-10-08) : sa place sur le verre, de 0 a 1 (u vers la droite, v vers le bas), un peu plus large que son dessin. */
   iRect(): { u0: number; u1: number; v0: number; v1: number } {
     const c = this.iCenter();
-    // Au telephone plus large (2026-10-09 : 40 px sous le doigt), sans descendre sur les blocs
-    const r = LAY.i + (PORTRAIT ? 10 : 6);
-    const v1 = (c.y + r) / this.UH;
-    return { u0: (c.x - r) / this.UW, u1: Math.min(1, (c.x + r) / this.UW), v0: Math.max(0, (c.y - r) / this.UH), v1: PORTRAIT ? Math.min(v1, (LAY.by0 - LAY.gap / 2) / this.UH) : v1 };
+    // Au telephone (2026-10-09) : tout l'en-tete en hauteur, du bord du verre jusqu'au tempo (plus de 40 px sous le
+    // doigt), sans descendre sur les blocs
+    if (PORTRAIT) return { u0: (c.x - LAY.i - 9) / this.UW, u1: 1, v0: 0, v1: (LAY.by0 - LAY.gap / 2) / this.UH };
+    const r = LAY.i + 6;
+    return { u0: (c.x - r) / this.UW, u1: Math.min(1, (c.x + r) / this.UW), v0: Math.max(0, (c.y - r) / this.UH), v1: (c.y + r) / this.UH };
   }
 
   private iCenter(): { x: number; y: number } {
@@ -180,6 +205,11 @@ export class BassScreen {
     return { u0: 0, u1: this.iRect().u0, v0: 0, v1: (LAY.by0 - LAY.gap / 2) / this.UH };
   }
 
+  /** L'en-tete du dernier dessin : ses onglets et son pattern (le rig y pose ses zones au telephone, 2026-10-09). */
+  headZones(): BassHeadZones {
+    return this.head;
+  }
+
   /** Le verre sous les blocs (la bande des pas, la ligne du bas). */
   lowRect(): { u0: number; u1: number; v0: number; v1: number } {
     return { u0: 0, u1: 1, v0: this.blockRect(4).v1, v1: 1 };
@@ -195,6 +225,8 @@ export class BassScreen {
     c.fillStyle = BLACK;
     c.fillRect(0, 0, this.canvas.width, this.canvas.height);
     c.setTransform(this.scale, 0, 0, this.scale, 0, 0);
+    // L'en-tete entier ouvre les presets, sauf la PAGE qui dit ses onglets (drawPage) et PRESETS deja ouvert
+    this.head = { tabs: [], open: sv.view === 'presets' ? null : { u0: 0, u1: this.iRect().u0 }, still: [null, null] };
     if (sv.view === 'presets') this.drawPresets(sv.p);
     else if (sv.view === 'edit') this.drawEdit(sv.m);
     else if (sv.view === 'knob') this.drawKnob(sv);
@@ -379,17 +411,17 @@ export class BassScreen {
 
   /* ---------------- la PAGE ---------------- */
 
-  private drawPage(m: BassPageModel): void {
+  /** L'en-tete de la PAGE au desktop (inchange le 2026-10-09). */
+  private headDesk(m: BassPageModel): void {
     const UW = this.UW;
-    const UH = this.UH;
     const P = LAY.pad;
     const hy = LAY.hy;
-    // L'en-tete : la lecture, LOCK 05, les onglets ; a droite le style, le pattern (il ouvre les presets), le tempo, "i".
-    // En LOCK (2026-10-08, la revue : au telephone le pas et ses verrous, minuscules, mordaient sur l'onglet FX) : le
-    // tempo laisse sa place a la note du pas et a son compte de verrous, toujours a la taille du reste, apres un jour
+    // L'en-tete : la lecture, LOCK 05, les onglets ; a droite le style, le pattern (l'en-tete ouvre les presets), le
+    // tempo, "i". En LOCK (2026-10-08, la revue) : le tempo laisse sa place a la note du pas et a son compte de
+    // verrous, toujours a la taille du reste, apres un jour
     this.transport(m.running, P, hy, LAY.tab * 1.05);
     let x = P + LAY.tab + 4;
-    if (m.lock) x += this.pill(`LOCK ${two(m.lock.step)}`, x, hy, LAY.tab, true) + (PORTRAIT ? 4 : 6);
+    if (m.lock) x += this.pill(`LOCK ${two(m.lock.step)}`, x, hy, LAY.tab, true) + 6;
     for (const p of m.pages) {
       const on = p.id === m.page;
       if (on) x += this.pill(p.label, x, hy, LAY.tab, true) + 2;
@@ -398,10 +430,10 @@ export class BassScreen {
         x += w + LAY.tab * 1.3 + 2;
       }
       // Un point : cette page porte des verrous dans la ligne
-      if (p.locks > 0) this.circle(x - 1.5, hy - LAY.tab * 1.02, PORTRAIT ? 0.95 : 1.15, on ? INK : HALF);
+      if (p.locks > 0) this.circle(x - 1.5, hy - LAY.tab * 1.02, 1.15, on ? INK : HALF);
     }
-    const iLeft = UW - P - LAY.i * 2 - (PORTRAIT ? 5 : 7);
-    const left = x + (PORTRAIT ? 5 : 8);
+    const iLeft = UW - P - LAY.i * 2 - 7;
+    const left = x + 8;
     if (m.lock) {
       const n = m.lock.n;
       const count = n ? `${n} LOCK${n > 1 ? 'S' : ''}` : 'NO LOCK';
@@ -417,10 +449,10 @@ export class BassScreen {
       }
     } else {
       const used = this.tempo(m.bpm);
-      const right = UW - used - (PORTRAIT ? 5 : 8);
+      const right = UW - used - 8;
       // Le pattern et un petit triangle : toucher l'en-tete ouvre les presets
       const tri = LAY.small * 0.5;
-      const status = PORTRAIT ? m.pattern : `${m.style}  ${m.pattern}`;
+      const status = `${m.style}  ${m.pattern}`;
       const avail = right - left - tri * 2.2;
       if (avail > 12) {
         const sz = this.fitLine(status, LAY.small, avail, 4);
@@ -437,6 +469,69 @@ export class BassScreen {
       }
     }
     this.iKey(m.infos);
+  }
+
+  /**
+   * L'en-tete de la PAGE au telephone (2026-10-09, la revue : toucher un onglet ouvrait les presets, et ses onglets
+   * se touchent desormais du doigt) : la lecture, LOCK 05, quatre onglets en cases egales (chacun tourne sa page,
+   * 40 px sous le doigt ; ENV et FX, courts, n'avaient que 26 a 33 px), a droite le pattern (seul il ouvre les
+   * presets) et le tempo, ou en LOCK le compte des verrous du pas ; la touche "i". Les zones : this.head.
+   */
+  private headPhone(m: BassPageModel): void {
+    const UW = this.UW;
+    const P = LAY.pad;
+    const hy = LAY.hy;
+    this.transport(m.running, P, hy, LAY.tab * 1.05);
+    let x = P + LAY.tab + 4;
+    if (m.lock) x += this.pill(`LOCK ${two(m.lock.step)}`, x, hy, LAY.tab, true) + 4;
+    const iLeft = UW - P - LAY.i * 2 - 5;
+    // La droite d'abord : ce qu'elle dit fixe ou les onglets s'arretent
+    let rightStart: number;
+    let right = 0;
+    if (m.lock) {
+      const n = m.lock.n;
+      const count = n ? `${n} LOCK${n > 1 ? 'S' : ''}` : 'NO LOCK';
+      rightStart = iLeft - this.text(count, iLeft, hy, LAY.small * 0.92, INK, 600, 'right');
+    } else {
+      right = UW - this.tempo(m.bpm) - 5;
+      const tri = LAY.small * 0.5;
+      const tx = right - tri * 2.2;
+      rightStart = tx - this.text(m.pattern, tx, hy, LAY.small, HALF, 600, 'right');
+      const c = this.ctx;
+      c.fillStyle = HALF;
+      c.beginPath();
+      c.moveTo(tx + tri * 0.6, hy - LAY.small * 0.62);
+      c.lineTo(tx + tri * 1.8, hy - LAY.small * 0.62);
+      c.lineTo(tx + tri * 1.2, hy - LAY.small * 0.62 + tri);
+      c.closePath();
+      c.fill();
+    }
+    // Les onglets : quatre cases egales jusqu'au pattern (31.5 au plus, 41 px), le reste est au pattern ; en LOCK
+    // jusqu'au compte des verrous
+    const x0 = x - 2;
+    const end = m.lock ? rightStart - 4 : Math.min(x0 + 4 * PH_TAB, rightStart - 8);
+    const cell = (end - x0) / m.pages.length;
+    const tabs = m.pages.map((p, i) => {
+      const cx = x0 + cell * (i + 0.5);
+      const on = p.id === m.page;
+      const w = on ? this.pill(p.label, cx, hy, LAY.tab, true, 'center') : this.text(p.label, cx, hy, LAY.tab, HALF, 700, 'center') + LAY.tab * 1.3;
+      // Un point : cette page porte des verrous dans la ligne
+      if (p.locks > 0) this.circle(cx + w / 2 + 0.5, hy - LAY.tab * 1.02, 0.95, on ? INK : HALF);
+      return { id: p.id, u0: (x0 + cell * i) / UW, u1: (x0 + cell * (i + 1)) / UW };
+    });
+    const open = m.lock ? null : { u0: end / UW, u1: (right + 1.5) / UW };
+    const iu = this.iRect().u0;
+    const after = open ? open.u1 : end / UW;
+    this.head = { tabs, open, still: [{ u0: 0, u1: x0 / UW }, after < iu ? { u0: after, u1: iu } : null] };
+    this.iKey(m.infos);
+  }
+
+  private drawPage(m: BassPageModel): void {
+    const UW = this.UW;
+    const UH = this.UH;
+    const P = LAY.pad;
+    if (PORTRAIT) this.headPhone(m);
+    else this.headDesk(m);
 
     // Les huit blocs
     const stripH = LAY.stripH;
@@ -452,7 +547,8 @@ export class BassScreen {
     // La ligne du bas ; a droite, le geste du LOCK (2026-10-08, la revue : au telephone c'est le seul texte lisible),
     // tant qu'il tient a cote du message
     const ly = UH - LINE_DY;
-    const as = LAY.line * 0.86;
+    // Au telephone le geste du P-LOCK a la taille de la ligne (2026-10-09, la revue : 7 px, c'est lui qui le fait decouvrir)
+    const as = PORTRAIT ? LAY.line : LAY.line * 0.86;
     const asideW = m.aside ? this.measure(m.aside, as, 700) + LAY.line * 2 : 0;
     const lineW = this.lineText(m.line, 0, 0, LAY.line, INK, 600, false);
     const aside = m.aside && lineW + asideW <= UW - 2 * P ? m.aside : '';
@@ -930,7 +1026,8 @@ export class BassScreen {
     else this.tempo(sv.bpm);
     this.iKey(sv.infos);
     const label = bassKnob(k.id).label;
-    const value = bassValueText(k.id, k.v);
+    // Le nombre de son bloc pour un reglage d'une page (2026-10-09, comme la carte INFOS)
+    const value = bassReadout(k.id, k.v);
     const d = bassDiagram(k.id, { v: k.v, values: sv.values, bpm: sv.bpm, steps: sv.steps });
     const rule = GEN_RULES.has(k.id) ? (k.live ? 'THE LINE FOLLOWS LIVE' : 'PRESS GEN TO HEAR IT') : '';
     if (PORTRAIT) {
