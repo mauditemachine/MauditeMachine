@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 9 octobre 2026 depuis le code du site (`npm run docs:midi`) : 585 cibles, 8 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 9 octobre 2026 depuis le code du site (`npm run docs:midi`) : 593 cibles, 8 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -697,22 +697,22 @@ Le setup conseille sur le Roto (SETUP 11 a 18) laisse les premiers a toi. Un pot
 
 | n | Page.pos | Canal | CC | Nom Roto | Couleur | Cible (id) | Ce que ca fait | Type |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 0 | 1.1 | 8 | 14 | ENC A | jaune | bass:knob:1 | ENCODER A (PAGE) | continu |
-| 1 | 1.2 | 8 | 15 | ENC B | jaune | bass:knob:2 | ENCODER B (PAGE) | continu |
-| 2 | 1.3 | 8 | 16 | ENC C | jaune | bass:knob:3 | ENCODER C (PAGE) | continu |
-| 3 | 1.4 | 8 | 17 | ENC D | jaune | bass:knob:4 | ENCODER D (PAGE) | continu |
-| 4 | 1.5 | 8 | 18 | ENC E | jaune | bass:knob:5 | ENCODER E (PAGE) | continu |
-| 5 | 1.6 | 8 | 19 | ENC F | jaune | bass:knob:6 | ENCODER F (PAGE) | continu |
-| 6 | 1.7 | 8 | 20 | ENC G | jaune | bass:knob:7 | ENCODER G (PAGE) | continu |
-| 7 | 1.8 | 8 | 21 | ENC H | jaune | bass:knob:8 | ENCODER H (PAGE) | continu |
-| 8 | 2.1 | 8 | 22 | ENC A | jaune | bass:knob:1 | ENCODER A (PAGE) | continu |
-| 9 | 2.2 | 8 | 23 | ENC B | jaune | bass:knob:2 | ENCODER B (PAGE) | continu |
-| 10 | 2.3 | 8 | 24 | ENC C | jaune | bass:knob:3 | ENCODER C (PAGE) | continu |
-| 11 | 2.4 | 8 | 25 | ENC D | jaune | bass:knob:4 | ENCODER D (PAGE) | continu |
-| 12 | 2.5 | 8 | 26 | ENC E | jaune | bass:knob:5 | ENCODER E (PAGE) | continu |
-| 13 | 2.6 | 8 | 27 | ENC F | jaune | bass:knob:6 | ENCODER F (PAGE) | continu |
-| 14 | 2.7 | 8 | 28 | ENC G | jaune | bass:knob:7 | ENCODER G (PAGE) | continu |
-| 15 | 2.8 | 8 | 29 | ENC H | jaune | bass:knob:8 | ENCODER H (PAGE) | continu |
+| 0 | 1.1 | 8 | 14 | ENC A | jaune | bass:knob:1 | SCREEN VALUE A (PAGE) | continu |
+| 1 | 1.2 | 8 | 15 | ENC B | jaune | bass:knob:2 | SCREEN VALUE B (PAGE) | continu |
+| 2 | 1.3 | 8 | 16 | ENC C | jaune | bass:knob:3 | SCREEN VALUE C (PAGE) | continu |
+| 3 | 1.4 | 8 | 17 | ENC D | jaune | bass:knob:4 | SCREEN VALUE D (PAGE) | continu |
+| 4 | 1.5 | 8 | 18 | ENC E | jaune | bass:knob:5 | SCREEN VALUE E (PAGE) | continu |
+| 5 | 1.6 | 8 | 19 | ENC F | jaune | bass:knob:6 | SCREEN VALUE F (PAGE) | continu |
+| 6 | 1.7 | 8 | 20 | ENC G | jaune | bass:knob:7 | SCREEN VALUE G (PAGE) | continu |
+| 7 | 1.8 | 8 | 21 | ENC H | jaune | bass:knob:8 | SCREEN VALUE H (PAGE) | continu |
+| 8 | 2.1 | 8 | 22 | ENC A | jaune | bass:knob:1 | SCREEN VALUE A (PAGE) | continu |
+| 9 | 2.2 | 8 | 23 | ENC B | jaune | bass:knob:2 | SCREEN VALUE B (PAGE) | continu |
+| 10 | 2.3 | 8 | 24 | ENC C | jaune | bass:knob:3 | SCREEN VALUE C (PAGE) | continu |
+| 11 | 2.4 | 8 | 25 | ENC D | jaune | bass:knob:4 | SCREEN VALUE D (PAGE) | continu |
+| 12 | 2.5 | 8 | 26 | ENC E | jaune | bass:knob:5 | SCREEN VALUE E (PAGE) | continu |
+| 13 | 2.6 | 8 | 27 | ENC F | jaune | bass:knob:6 | SCREEN VALUE F (PAGE) | continu |
+| 14 | 2.7 | 8 | 28 | ENC G | jaune | bass:knob:7 | SCREEN VALUE G (PAGE) | continu |
+| 15 | 2.8 | 8 | 29 | ENC H | jaune | bass:knob:8 | SCREEN VALUE H (PAGE) | continu |
 | 16 | 3.1 | 8 | 30 | STYLE | jaune | bass:knob:style | STYLE | potard a 11 crans : ACID / DARK DISCO / INDIE DANCE / MINIMAL / PSY PROG / TECHNO / HOUSE / ELECTRO / EBM / ITALO / SUB |
 | 17 | 3.2 | 8 | 31 | DENSITY | jaune | bass:knob:density | DENSITY | continu |
 | 18 | 3.3 | 8 | 102 | SLIDE PROB | jaune | bass:knob:slides | SLIDE PROB | continu |
@@ -1094,7 +1094,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:open` | OPEN | appui |  | ARP |
 | `voy:infos` | INFOS (HELP ON HOVER) | appui |  |  |
 
-### MM-BASS (scope `bass`, 111 cibles)
+### MM-BASS (scope `bass`, 119 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -1133,14 +1133,22 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:knob:reverb` | REVERB | valeur 0 a 127 |  |  |
 | `bass:knob:rsize` | REV SIZE | valeur 0 a 127 |  |  |
 | `bass:knob:rtone` | REV TONE | valeur 0 a 127 |  |  |
-| `bass:knob:1` | ENCODER A (PAGE) | valeur 0 a 127 |  | BSEQ |
-| `bass:knob:2` | ENCODER B (PAGE) | valeur 0 a 127 |  | BSEQ |
-| `bass:knob:3` | ENCODER C (PAGE) | valeur 0 a 127 |  | BSEQ |
-| `bass:knob:4` | ENCODER D (PAGE) | valeur 0 a 127 |  | BSEQ |
-| `bass:knob:5` | ENCODER E (PAGE) | valeur 0 a 127 |  | BSEQ |
-| `bass:knob:6` | ENCODER F (PAGE) | valeur 0 a 127 |  | BSEQ |
-| `bass:knob:7` | ENCODER G (PAGE) | valeur 0 a 127 |  | BSEQ |
-| `bass:knob:8` | ENCODER H (PAGE) | valeur 0 a 127 |  | BSEQ |
+| `bass:knob:1` | SCREEN VALUE A (PAGE) | valeur 0 a 127 |  | BSEQ |
+| `bass:knob:2` | SCREEN VALUE B (PAGE) | valeur 0 a 127 |  | BSEQ |
+| `bass:knob:3` | SCREEN VALUE C (PAGE) | valeur 0 a 127 |  | BSEQ |
+| `bass:knob:4` | SCREEN VALUE D (PAGE) | valeur 0 a 127 |  | BSEQ |
+| `bass:knob:5` | SCREEN VALUE E (PAGE) | valeur 0 a 127 |  | BSEQ |
+| `bass:knob:6` | SCREEN VALUE F (PAGE) | valeur 0 a 127 |  | BSEQ |
+| `bass:knob:7` | SCREEN VALUE G (PAGE) | valeur 0 a 127 |  | BSEQ |
+| `bass:knob:8` | SCREEN VALUE H (PAGE) | valeur 0 a 127 |  | BSEQ |
+| `bass:global:drive` | DRIVE (GLOBAL, KNOB A) | valeur 0 a 127 |  |  |
+| `bass:global:delay` | DELAY (GLOBAL, KNOB B) | valeur 0 a 127 |  |  |
+| `bass:global:dtime` | DLY TIME (GLOBAL, KNOB C) | valeur 0 a 127 | 6 |  |
+| `bass:global:dfb` | DLY FB (GLOBAL, KNOB D) | valeur 0 a 127 |  |  |
+| `bass:global:volume` | VOLUME (GLOBAL, KNOB E) | valeur 0 a 127 |  |  |
+| `bass:global:reverb` | REVERB (GLOBAL, KNOB F) | valeur 0 a 127 |  |  |
+| `bass:global:rsize` | REV SIZE (GLOBAL, KNOB G) | valeur 0 a 127 |  |  |
+| `bass:global:rtone` | REV TONE (GLOBAL, KNOB H) | valeur 0 a 127 |  |  |
 | `bass:page:voice` | PAGE VOICE | appui |  | BSEQ |
 | `bass:page:filter` | PAGE FILTER | appui |  | BSEQ |
 | `bass:page:env` | PAGE ENV | appui |  | BSEQ |

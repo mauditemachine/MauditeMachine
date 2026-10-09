@@ -347,14 +347,22 @@ bass:knob:dfb,bass,MM-BASS,DLY FB,value,,
 bass:knob:reverb,bass,MM-BASS,REVERB,value,,
 bass:knob:rsize,bass,MM-BASS,REV SIZE,value,,
 bass:knob:rtone,bass,MM-BASS,REV TONE,value,,
-bass:knob:1,bass,MM-BASS,ENCODER A (PAGE),value,,BSEQ
-bass:knob:2,bass,MM-BASS,ENCODER B (PAGE),value,,BSEQ
-bass:knob:3,bass,MM-BASS,ENCODER C (PAGE),value,,BSEQ
-bass:knob:4,bass,MM-BASS,ENCODER D (PAGE),value,,BSEQ
-bass:knob:5,bass,MM-BASS,ENCODER E (PAGE),value,,BSEQ
-bass:knob:6,bass,MM-BASS,ENCODER F (PAGE),value,,BSEQ
-bass:knob:7,bass,MM-BASS,ENCODER G (PAGE),value,,BSEQ
-bass:knob:8,bass,MM-BASS,ENCODER H (PAGE),value,,BSEQ
+bass:knob:1,bass,MM-BASS,SCREEN VALUE A (PAGE),value,,BSEQ
+bass:knob:2,bass,MM-BASS,SCREEN VALUE B (PAGE),value,,BSEQ
+bass:knob:3,bass,MM-BASS,SCREEN VALUE C (PAGE),value,,BSEQ
+bass:knob:4,bass,MM-BASS,SCREEN VALUE D (PAGE),value,,BSEQ
+bass:knob:5,bass,MM-BASS,SCREEN VALUE E (PAGE),value,,BSEQ
+bass:knob:6,bass,MM-BASS,SCREEN VALUE F (PAGE),value,,BSEQ
+bass:knob:7,bass,MM-BASS,SCREEN VALUE G (PAGE),value,,BSEQ
+bass:knob:8,bass,MM-BASS,SCREEN VALUE H (PAGE),value,,BSEQ
+bass:global:drive,bass,MM-BASS,"DRIVE (GLOBAL, KNOB A)",value,,
+bass:global:delay,bass,MM-BASS,"DELAY (GLOBAL, KNOB B)",value,,
+bass:global:dtime,bass,MM-BASS,"DLY TIME (GLOBAL, KNOB C)",value,6,
+bass:global:dfb,bass,MM-BASS,"DLY FB (GLOBAL, KNOB D)",value,,
+bass:global:volume,bass,MM-BASS,"VOLUME (GLOBAL, KNOB E)",value,,
+bass:global:reverb,bass,MM-BASS,"REVERB (GLOBAL, KNOB F)",value,,
+bass:global:rsize,bass,MM-BASS,"REV SIZE (GLOBAL, KNOB G)",value,,
+bass:global:rtone,bass,MM-BASS,"REV TONE (GLOBAL, KNOB H)",value,,
 bass:page:voice,bass,MM-BASS,PAGE VOICE,press,,BSEQ
 bass:page:filter,bass,MM-BASS,PAGE FILTER,press,,BSEQ
 bass:page:env,bass,MM-BASS,PAGE ENV,press,,BSEQ
