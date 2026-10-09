@@ -133,10 +133,14 @@ function endNote(when: number, gate: number): void {
   }
 }
 
+/** Chaque pas programme (2026-10-09, le sequenceur du Roto, midi/seqlink.ts : ses LEDs partent a l'heure du pas). */
+const stepFns = new Set<(step: number, when: number) => void>();
+
 function scheduleStep(): void {
   const when = nextTime + ((stepIdx & 1) === 1 ? pattern.fx.get().swing * SWING.maxDelay * stepDur : 0);
   ring.push({ when, step: stepIdx });
   if (ring.length > RING) ring.shift();
+  for (const fn of stepFns) fn(stepIdx, when);
   if (stepIdx === 0) {
     switching = true;
     bassPatterns.bar(nextTime, firstBar);
@@ -317,4 +321,11 @@ export const bassSeq = {
     return best ? best.step : -1;
   },
   now: (): number => context()?.currentTime ?? 0,
+  /** Chaque pas programme : son rang et son heure (temps du contexte) ; un pas re-programme previent de nouveau. */
+  onStep(fn: (step: number, when: number) => void): () => void {
+    stepFns.add(fn);
+    return () => {
+      stepFns.delete(fn);
+    };
+  },
 };

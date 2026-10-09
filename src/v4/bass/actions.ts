@@ -200,6 +200,27 @@ export function bassStepTap(i: number): void {
   audition(i);
 }
 
+/**
+ * Un pas tape sur le Roto-Control (2026-10-09, midi/seqlink.ts, Mika : "j'ajoute
+ * mes steps") : un geste, un etat, comme un trig d'Elektron : vide, une note (la
+ * tonique, comme une tape sur un pas vide) ; une note ou une liaison, vide. Il
+ * est choisi (NOTE, OCT, ACCENT, SLIDE le reglent ensuite) et on l'entend a
+ * l'arret. En EDIT et en LOCK : comme une tape sur la face.
+ */
+export function bassStepToggle(i: number): void {
+  if (bassEditing() || bassState.get().lock >= 0) {
+    bassStepTap(i);
+    return;
+  }
+  gesture();
+  const s = bassState.get().steps[i];
+  if (!s) return;
+  const on = s.kind === 'off';
+  bassState.setStep(i, on ? { kind: 'note', deg: 0, oct: 0 } : { kind: 'off' }, { sel: i });
+  sayStep(i);
+  if (on) audition(i);
+}
+
 /** Glisser sur un pas : sa note dans la gamme (un pas vide devient une note). */
 export function bassStepDeg(i: number, deg: number): void {
   const st = bassState.get();

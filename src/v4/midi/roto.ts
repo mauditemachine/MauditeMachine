@@ -12,7 +12,8 @@
  * sans changer de setup :
  * - chacun sur son canal : les potards sur 1 (RYTM), 2 (ARP), 3 (DECK),
  *   4 (MIXER), 5 (BASS, le MM-BASS du 2026-10-07, a la place du MM-SMPL),
- *   6 (LIVE), ses boutons sur le canal + 8 (9 a 14) ;
+ *   6 (LIVE), 7 (RSEQ) et 8 (BSEQ), les sequenceurs du 2026-10-09
+ *   (midi/seqlink.ts), ses boutons sur le canal + 8 (9 a 16) ;
  * - une page du Roto montre huit potards et huit boutons : ils vont
  *   ensemble (la voix choisie et ses boutons de choix, les volumes et leurs
  *   mutes, le filtre et les accords) ;
@@ -47,9 +48,13 @@ import { KIT_MODELS, KIT_MODEL_LABEL, type KitFamily } from '../audio/kit';
 import { samplesOf } from '../audio/samples';
 import { voyKnob, type VoyKnobId } from '../voyager/params';
 import { bassKnob, type BassKnobId } from '../bass/params';
+import { PAGE_KNOB_LETTERS, RYTM_PAGE_KEYS } from '../theme';
 import { ROTO_KEYS, type RotoKey } from './rotoKeys';
 
-export type RotoSetupName = 'RYTM' | 'ARP' | 'BASS' | 'DECK' | 'MIXER' | 'LIVE';
+export type RotoSetupName = 'RYTM' | 'ARP' | 'BASS' | 'DECK' | 'MIXER' | 'LIVE' | 'RSEQ' | 'BSEQ';
+/** Les setups sequenceurs (2026-10-09, midi/seqlink.ts) : leurs pas et leurs LEDs sont tenus par le site. */
+export const SEQ_SETUPS: readonly RotoSetupName[] = ['RSEQ', 'BSEQ'];
+export const isSeqSetup = (name: RotoSetupName | null | undefined): boolean => name === 'RSEQ' || name === 'BSEQ';
 
 /** Les couleurs de la palette du Roto utilisees ici (son numero). */
 const C = {
@@ -84,7 +89,7 @@ export interface Ctl {
 
 export interface RotoSetup {
   name: RotoSetupName;
-  /** le setup conseille sur le Roto (SETUP 11 a 16 : les premiers restent a toi) */
+  /** le setup conseille sur le Roto (SETUP 11 a 18 : les premiers restent a toi) */
   slot: number;
   /** le canal des potards ; les boutons : + 8 */
   ch: number;
@@ -121,6 +126,9 @@ const bs = (id: BassKnobId, n: string, c: number): Ctl => k(`bass:knob:${id}`, n
 /** Les huit voix (2026-10-05 : plus de RS ni de PC), dans l'ordre des pads : une page du Roto les tient toutes. */
 const VOICES8 = ['BD', 'SD', 'CH', 'OH', 'CP', 'TOM', 'HT', 'CY'] as const;
 const LIVE_MUTES = VOICES8;
+/** Les encodeurs de page A a H et les six pages du MM-RYTM (les sequenceurs, 2026-10-09). */
+const PAGE_LETTERS = PAGE_KNOB_LETTERS;
+const RYTM_PAGES8: readonly (readonly [string, string])[] = RYTM_PAGE_KEYS.map((p) => [p.id, p.label] as const);
 const CHORD_NAMES = ['F#m', 'D', 'E', 'C#m', 'Bm', 'A', 'F#m7', 'Dmaj7'] as const;
 
 /** Un potard au cran du milieu. */
@@ -518,7 +526,130 @@ function buildSetups(): RotoSetup[] {
     ],
   };
 
-  return [RYTM, ARP, BASS, DECK, MIXER, LIVE];
+  /*
+   * RSEQ et BSEQ (2026-10-09, Mika : "on fait le sequenceur sur le Roto
+   * maintenant" ; le 2026-10-08 : "un sequenceur qui se suit, comme un vrai
+   * sequenceur, et j'ajoute mes steps ... pour les parameter locks, j'appuie
+   * sur une touche et je tourne un encoder") : le Roto en sequenceur facon
+   * Elektron, tenu par le site (midi/seqlink.ts). La page 1 est celle qu'on
+   * joue : en haut les huit encodeurs de la page affichee sur la machine (en
+   * LOCK, ceux du pas, les moteurs y vont), en bas huit pas d'une fenetre que
+   * le site fait defiler (1 a 8 puis 9 a 16 ; FOLLOW : elle suit la tete de
+   * lecture, la lumiere court sur les seize pas). Taper un pas pose ou retire
+   * son coup ; le tenir le met en LOCK, tourner un encodeur pendant la tenue
+   * le verrouille (un P-lock), le lacher en sort ; tenu sans rien tourner, le
+   * LOCK reste (une tape sur le meme pas en sort). La page 2 garde les memes
+   * encodeurs (deux lignes du registre) sous les touches de page, la fenetre
+   * et FOLLOW ; la page 3 choisit la voix des pas (RSEQ) ou regle la note du
+   * pas (BSEQ) ; la page 4 joue. Les boutons des pas sont des PUSH (127 a
+   * l'appui, 0 au lacher) : le site distingue la tape de la tenue, et allume
+   * leurs LEDs (le coup, la tete de lecture en negatif, le pas en LOCK qui
+   * clignote).
+   */
+  const ENC = (m: 'rytm' | 'bass'): Ctl[] => PAGE_LETTERS.map((l, i) => k(`${m}:knob:${i + 1}`, `ENC ${l}`, C.yellow));
+  const STEPS8 = (m: 'rytm' | 'bass'): Ctl[] => Array.from({ length: 8 }, (_, i) => b(`${m}:seq:${i + 1}`, `STEP ${i + 1}|${i + 9}`, C.orange));
+  const RSEQ: RotoSetup = {
+    name: 'RSEQ',
+    slot: 17,
+    ch: 7,
+    knobs: [
+      // 1 et 2 : les huit encodeurs de la page de la machine (TRIG, SRC, SMPL, FLTR, AMP, FX)
+      ...ENC('rytm'),
+      ...ENC('rytm'),
+      // 3 : les volumes des voix, au-dessus de leur choix
+      ...VOICES8.map((i) => k(`rytm:voice:${i}:level`, `${i} VOL`, C.cream)),
+      // 4 : la machine (MASTER, TEMPO, le groove, les effets), au-dessus de RUN
+      k('rytm:enc:level', 'MASTER', C.white),
+      k('rytm:enc:tempo', 'TEMPO', C.white),
+      k('rytm:enc:swing', 'SWING', C.orange),
+      mid(k('rytm:enc:stretch', 'STRETCH', C.orange)),
+      k('rytm:enc:dist', 'DIST', C.purple),
+      k('rytm:enc:chorus', 'CHORUS', C.purple),
+      k('rytm:enc:delay', 'DELAY', C.purple),
+      k('rytm:enc:reverb', 'REVERB', C.purple),
+    ],
+    buttons: [
+      // 1 : les pas
+      ...STEPS8('rytm'),
+      // 2 : les pages des encodeurs, la fenetre, FOLLOW
+      ...RYTM_PAGES8.map(([id, n]) => b(`rytm:page:${id}`, n, C.yellow)),
+      b('rytm:seq:window', 'STEPS 9-16', C.cyan),
+      tog('rytm:seq:follow', 'FOLLOW', C.green),
+      // 3 : la voix des pas (sans la jouer ; sa LED : la voix choisie)
+      ...VOICES8.map((i) => b(`rytm:seq:voice:${i}`, i, C.gold)),
+      // 4 : jouer (CLEAR en LOCK : les verrous du pas ; LOCK : le pas choisi, sa LED : en LOCK ; EDIT : les patterns sur les pas)
+      tog('rytm:running', 'RUN', C.red),
+      b('rytm:clear', 'CLEAR', C.orange),
+      b('rytm:random', 'RANDOM', C.orange),
+      b('rytm:lock', 'LOCK', C.yellow),
+      b('rytm:edit', 'EDIT', C.yellow),
+      b('nav:prev', 'PREV MACHINE', C.white),
+      b('nav:next', 'NEXT MACHINE', C.white),
+      b('nav:machines', 'MACHINES', C.red),
+    ],
+  };
+
+  const BSEQ: RotoSetup = {
+    name: 'BSEQ',
+    slot: 18,
+    ch: 8,
+    knobs: [
+      // 1 et 2 : les huit encodeurs de la page de la machine (VOICE, FILTER, ENV, FX)
+      ...ENC('bass'),
+      ...ENC('bass'),
+      // 3 : le generateur et la gamme, au-dessus des notes et de MUTATE
+      bs('style', 'STYLE', C.yellow),
+      bs('density', 'DENSITY', C.yellow),
+      bs('slides', 'SLIDE PROB', C.yellow),
+      bs('accents', 'ACC PROB', C.yellow),
+      bs('range', 'RANGE', C.yellow),
+      bs('root', 'ROOT', C.cyan),
+      bs('scale', 'SCALE', C.cyan),
+      bs('octave', 'OCTAVE', C.gold),
+      // 4 : le tempo et le groove du MM-RYTM, le coeur de la 303 sans changer de page (en LOCK : le pas), le volume
+      k('rytm:enc:tempo', 'TEMPO', C.white),
+      k('rytm:enc:swing', 'SWING', C.orange),
+      bs('cutoff', 'CUTOFF', C.orange),
+      bs('reso', 'RESO', C.orange),
+      bs('envmod', 'ENV MOD', C.orange),
+      bs('decay', 'DECAY', C.orange),
+      bs('accent', 'ACCENT', C.red),
+      bs('volume', 'VOLUME', C.white),
+    ],
+    buttons: [
+      // 1 : les pas
+      ...STEPS8('bass'),
+      // 2 : les pages des encodeurs, ACCENT et SLIDE du pas, la fenetre, FOLLOW
+      b('bass:page:voice', 'VOICE', C.yellow),
+      b('bass:page:filter', 'FILTER', C.yellow),
+      b('bass:page:env', 'ENV', C.yellow),
+      b('bass:page:fx', 'FX', C.yellow),
+      b('bass:key:accent', 'ACCENT', C.red),
+      b('bass:key:slide', 'SLIDE', C.yellow),
+      b('bass:seq:window', 'STEPS 9-16', C.cyan),
+      tog('bass:seq:follow', 'FOLLOW', C.green),
+      // 3 : la note du pas choisi (celui qu'on vient de taper, ou le pas en LOCK), la liaison, MUTATE
+      b('bass:key:notedn', 'NOTE -', C.cyan),
+      b('bass:key:noteup', 'NOTE +', C.cyan),
+      b('bass:key:octdn', 'OCT -', C.cyan),
+      b('bass:key:octup', 'OCT +', C.cyan),
+      b('bass:seq:tie', 'TIE', C.peach),
+      b('bass:key:mutate', 'MUTATE', C.orange),
+      null,
+      null,
+      // 4 : jouer
+      tog('bass:running', 'RUN', C.red),
+      b('bass:key:clear', 'CLEAR', C.orange),
+      b('bass:key:gen', 'GEN', C.orange),
+      b('bass:lock', 'LOCK', C.yellow),
+      b('bass:key:edit', 'EDIT', C.yellow),
+      b('nav:prev', 'PREV MACHINE', C.white),
+      b('nav:next', 'NEXT MACHINE', C.white),
+      b('nav:machines', 'MACHINES', C.red),
+    ],
+  };
+
+  return [RYTM, ARP, BASS, DECK, MIXER, LIVE, RSEQ, BSEQ];
 }
 
 /** Les setups (au chargement ; refaits au telechargement : rotoSetups). */
@@ -540,8 +671,10 @@ export function rotoSetupOfChannel(ch: number): RotoSetup | null {
  * la dit ; un Roto qui montre une autre version a un ancien fichier. A
  * changer a chaque setup modifie (un nom, un mode, des crans, un controle
  * ajoute) : les adresses, elles, ne bougent plus (midi/rotoKeys.ts).
+ * 2026-10-09 : les sequenceurs RSEQ et BSEQ (SETUP 17 et 18) ; les six
+ * setups d'avant gardent canal, CC et mode, seul leur nom change (1009).
  */
-export const ROTO_VERSION = '2026-10-08';
+export const ROTO_VERSION = '2026-10-09';
 const ROTO_TAG = ROTO_VERSION.slice(5).replace('-', '');
 /** Le nom du setup sur l'ecran du Roto : RYTM 1008. */
 export const rotoSetupLabel = (s: RotoSetup): string => `${s.name} ${ROTO_TAG}`.slice(0, 12);
@@ -709,7 +842,7 @@ export function rotoSetupJson(s: RotoSetup): string {
   return JSON.stringify({ version: 1, type: 'MIDI', name: rotoSetupLabel(s), index: s.slot - 1, knobs, buttons }, null, 2);
 }
 
-/* ---------------- un .zip des cinq (sans compression) ---------------- */
+/* ---------------- un .zip des huit (sans compression) ---------------- */
 
 const CRC = (() => {
   const t = new Uint32Array(256);

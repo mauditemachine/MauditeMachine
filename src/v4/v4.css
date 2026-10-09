@@ -839,6 +839,12 @@ html:has(body.v4-active) {
   padding: 0 4px;
 }
 
+/* Les huit setups (2026-10-09, les sequenceurs RSEQ et BSEQ) : deux rangees de quatre, dans l'ordre des SETUP 11 a 18 */
+.v4-root .v4-midi-roto-files {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .v4-root .v4-midi-slot {
   margin-left: 3px;
   opacity: 0.55;
