@@ -20,11 +20,15 @@
  * chorus.ts buildChorus).
  */
 
-/** Ce qu'il faut a l'insert : tenue, valeur a un instant, sa valeur a lui. */
+import { GLIDE_S } from './glide';
+
+/** Ce qu'il faut a l'insert : tenue, valeur a un instant, sa valeur a lui, et l'avis de ses rampes. */
 export interface LockableInsert {
   lockHold?(on: boolean): void;
   lockAt?(when: number, v: number): void;
   value(): number;
+  /** l'insert l'appelle apres chaque rampe qui efface ce qui etait programme (set, arrivee du worklet) */
+  onRetime?: (() => void) | null;
 }
 
 interface Point {
@@ -41,7 +45,10 @@ export class InsertLocks {
   constructor(
     private c: BaseAudioContext,
     private stage: LockableInsert
-  ) {}
+  ) {
+    // Chaque rampe de l'insert (un reglage de la voix tourne, le worklet arrive) : les points a venir reviennent
+    stage.onRetime = () => this.rebase();
+  }
 
   /** La voix a-t-elle un verrou de cet insert dans le motif ? Tenu engage tant qu'oui. */
   hold(on: boolean): void {
@@ -85,7 +92,9 @@ export class InsertLocks {
     if (v === null && this.pts.length === 0) return false;
     this.prune();
     const eff = v ?? this.stage.value();
-    if (eff === this.valueAt(when)) return false;
+    // Un coup libre qui ne change rien : pas de point. Un coup verrouille pose toujours le sien (revue du
+    // 2026-10-09 : un modele en retard sur les gains sautait un verrou egal au precedent)
+    if (v === null && eff === this.valueAt(when)) return false;
     this.stage.lockAt?.(when, eff);
     let i = this.pts.length;
     while (i > 0 && this.pts[i - 1].when > when) i -= 1;
@@ -106,11 +115,19 @@ export class InsertLocks {
     for (const p of this.pts) if (p.when > from) this.stage.lockAt?.(p.when, p.v ?? this.stage.value());
   }
 
-  /** Un reglage de la voix vient de tourner (sa rampe a efface la suite) : les points a venir sont reposes. */
+  /**
+   * Une rampe de l'insert vient d'effacer la suite (un reglage de la voix
+   * tourne) : les gains valent maintenant la valeur de la voix, les points
+   * passes ne disent plus rien (revue du 2026-10-09 : gardes, ils faisaient
+   * croire a hit() que l'insert tenait encore le dernier verrou) ; les
+   * points a venir sont reposes, apres la rampe (avant sa fin, elle les
+   * ecraserait).
+   */
   rebase(): void {
     if (!this.held || this.pts.length === 0) return;
     const now = this.c.currentTime;
-    for (const p of this.pts) if (p.when > now) this.stage.lockAt?.(p.when, p.v ?? this.stage.value());
+    this.pts = this.pts.filter((p) => p.when > now);
+    for (const p of this.pts) this.stage.lockAt?.(Math.max(p.when, now + GLIDE_S), p.v ?? this.stage.value());
   }
 
   info(): { held: boolean; points: number } {

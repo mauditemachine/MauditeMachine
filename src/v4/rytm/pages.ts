@@ -75,6 +75,13 @@ export const SCREEN_LABEL: Readonly<Record<RytmScreenId, string>> = { voice: 'MA
 export const SCREEN_TITLE: Readonly<Record<RytmScreenId, string>> = { voice: 'VOICE', synth: 'VOICE SYNTH', fltr: 'FLTR', env: 'ENV', fxv: 'VOICE FX', fxg: 'GLOBAL FX' };
 
 /**
+ * Un onglet dans une phrase (revue du 2026-10-09, le pied et les messages des
+ * touches de page : SYNTH · VOICE AGAIN: MAIN) : MAIN, SYNTH, BD FX, GLOBAL FX ;
+ * une page sans onglet, son nom.
+ */
+export const tabWord = (t: RytmScreenId, inst: string | null): string => (t === 'fxv' ? (inst ? `${inst} FX` : 'VOICE FX') : t === 'fxg' ? 'GLOBAL FX' : SCREEN_LABEL[t]);
+
+/**
  * Les anciens noms de page (TRIG SRC SMPL FLTR AMP FX jusqu'au 2026-10-09) :
  * une page retenue, le MIDI rytm:page:<ancien>, l'INFOS d'avant. TRIG, SRC et
  * SMPL ouvrent VOICE, AMP ouvre ENV.
@@ -201,7 +208,9 @@ const PITCH: PageSlot = lockable('PITCH', 'vtune', 'barc', 'tune');
 const FINE: PageSlot = lockable('FINE', 'vfine', 'barc', 'fine');
 const LEN = layered('LEN', 'l:len', 'decay', 'slen', 'sample', { lockName: 'S.LEN' });
 const REV = layered('REV', 'l:rev', 'notch', 'srev', 'sample', { lockName: 'S.REV' });
-const MIX: PageSlot = { ...lockable('MIX', 'voice:mix', 'mix', 'syn', { locks: ['syn', 'slev'], level: true }) };
+// MIX sur deux cases (revue du 2026-10-09 : sur une seule, au telephone, SYN 0 SMP 127 se coupait et les mots SYN et
+// SMP du curseur se chevauchaient) ; SYNTH remplit ainsi ses huit cases (MACHINE, MIX, TUNE puis les quatre potards)
+const MIX: PageSlot = { ...lockable('MIX', 'voice:mix', 'mix', 'syn', { locks: ['syn', 'slev'], level: true }), w: 2 };
 // Sans l'etiquette MACHINE : le bloc est la machine elle-meme (la revue du 2026-10-09 : MACHINE et ses crans se chevauchaient)
 const MACHINE: PageSlot = { ...lockable('MACHINE', 'l:mach', 'notch', 'mach'), layer: 'synth' };
 

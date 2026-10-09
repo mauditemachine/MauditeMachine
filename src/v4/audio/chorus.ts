@@ -116,6 +116,8 @@ export interface ChorusStage {
    */
   lockHold?(on: boolean): void;
   lockAt?(when: number, v: number): void;
+  /** Appele apres une rampe de set() ou de l'arrivee du worklet : audio/lockfx.ts repose ses points. */
+  onRetime?: (() => void) | null;
 }
 
 /** cfg : le chorus de la boite a rythmes par defaut ; le MM-VOYAGER a le sien (audio/synth.ts). */
@@ -193,21 +195,23 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
       teardown();
       build();
       apply(value);
+      stage.onRetime?.();
     }, UNLINK_MS);
   }
 
-  return {
+  const stage: ChorusStage = {
     input,
+    onRetime: null,
     set(v: number) {
       const t = Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;
       if (t === value) return;
       value = t;
-      if (t === 0) {
-        insert.release();
-        return;
+      if (t === 0) insert.release();
+      else {
+        if (!branch) build();
+        apply(t);
       }
-      if (!branch) build();
-      apply(t);
+      stage.onRetime?.();
     },
     value: () => value,
     reset() {
@@ -225,6 +229,7 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
       insert.at(when, 1 - cfg.dry * t, cfg.wet * t);
     },
   };
+  return stage;
 }
 
 /**

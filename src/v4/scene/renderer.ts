@@ -2876,7 +2876,8 @@ export class Stage {
   private syncVoices = (): void => {
     const v = voices.get();
     // Les pads aussi : rouge LED pour une voix coupee, bleu pour le solo
-    const pads = this.pads.setVoiceState(v.muted, v.solo);
+    // (revue du 2026-10-09 : le mode MUTE ferme, les voix gardees coupees ont leur LED a peine, comme la touche MUTE)
+    const pads = this.pads.setVoiceState(v.muted, v.solo, v.muteMode);
     if (this.syncVoiceKeys() || pads) this.repaint();
     // Le clignotement a besoin de la boucle tant qu'un mode attend une voix
     if (voices.led('mute') === 'blink' || voices.led('solo') === 'blink') this.kick();

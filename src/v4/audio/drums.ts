@@ -428,13 +428,9 @@ function applyVoice(g: Graph, inst: Inst, v: Readonly<VoiceFx>): void {
   const gain = voiceGain(v.level);
   if (t.input.gain.value !== gain) glide(t.input.gain, gain, g.ctx);
   t.tone.set(v.tone);
-  const d0 = t.drive.value();
-  const c0 = t.chorus.value();
+  // Un reglage tourne efface ce qui etait programme sur l'insert : ses verrous a venir reviennent d'eux-memes (onRetime, audio/lockfx.ts)
   t.drive.set(v.dist);
   t.chorus.set(v.chorus);
-  // Un reglage tourne efface ce qui etait programme sur l'insert : les verrous a venir reviennent (audio/lockfx.ts)
-  if (t.drive.value() !== d0) t.distLocks.rebase();
-  if (t.chorus.value() !== c0) t.chorusLocks.rebase();
   t.reverb.set(v.reverb);
   t.delay.set(v.delay);
 }

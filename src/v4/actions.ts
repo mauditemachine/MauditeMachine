@@ -38,7 +38,7 @@ import type { PresetMachine } from './state/presets';
 import { presskit } from './state/presskit';
 import { rytmPage } from './state/rytmPage';
 import { rytmLock } from './state/rytmLock';
-import { RYTM_PAGES, SCREEN_PAGE, SCREEN_TITLE, allScreens, isRytmPage, pageLabel, pageOfAlias, pageSlots, screensOf, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './rytm/pages';
+import { RYTM_PAGES, SCREEN_PAGE, SCREEN_TITLE, allScreens, isRytmPage, pageLabel, pageOfAlias, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './rytm/pages';
 import { encText, encUnit, kitUnit, kitUnitAt, layerText, layerUnit, v127Text, velTo127, velWord, type LayerDial } from './rytm/values';
 import { section } from './state/section';
 import { voices } from './state/voices';
@@ -549,7 +549,7 @@ function screenHome(): boolean {
  * principal (jamais le master du site, ?mute=1 tient). SWING, DIST, REVERB,
  * DELAY et CHORUS du pattern persistent avec le motif.
  */
-export function dial(id: EncId, v: number): void {
+export function dial(id: EncId, v: number, popup = false): void {
   resume();
   if (id === 'tempo') {
     pattern.setBpm(v);
@@ -586,7 +586,10 @@ export function dial(id: EncId, v: number): void {
   else if (id === 'dtime') pattern.fx.set({ dtime: Math.round(Math.max(0, Math.min(1, v)) * (DELAY_DIVS.length - 1)) / (DELAY_DIVS.length - 1) });
   else if (id === 'dfb') pattern.fx.set({ dfb: v });
   else setChorus(v);
-  lcdMessage.show(readout(id, dialValue(id), null), POT_UI.readoutMs, true);
+  // popup : un encodeur du desktop, son popup dit la valeur, seul (revue du 2026-10-09 : la ligne du pied en disait une
+  // autre au meme instant, a la place des verrous du pas en P-LOCK)
+  if (popup) rytmPage.popup(id);
+  else lcdMessage.show(readout(id, dialValue(id), null), POT_UI.readoutMs, true);
   touchPage(id, pattern.get().instrument);
 }
 
@@ -600,8 +603,7 @@ export function dial(id: EncId, v: number): void {
 export function globalDial(k: number, v: number): void {
   const id = GLOBAL_ENCODERS[k];
   if (!id) return;
-  dial(id, v);
-  rytmPage.popup(id);
+  dial(id, v, true);
 }
 
 /** La cible fixe de l'encodeur k du desktop (2026-10-09) : son FX global. */
@@ -737,9 +739,10 @@ export function escape(): boolean {
     lcdMessage.show('P-LOCK OFF');
     return true;
   }
-  // MUTE et SOLO (2026-10-09) : Echap sort du mode, les voix coupees (en solo) le restent
+  // MUTE et SOLO (2026-10-09) : Echap sort du mode, les voix coupees (en solo) le restent ; seulement devant le MM-RYTM
+  // (revue : depuis le MM-BASS, la premiere Echap desarmait le RYTM au lieu d'eteindre BASS INFOS)
   const vm = voices.get();
-  if (vm.muteMode || vm.soloMode) {
+  if ((vm.muteMode || vm.soloMode) && focus.get() === 'mm808') {
     const k = vm.muteMode ? 'mute' : 'solo';
     voices.disarm(k);
     lcdMessage.show(`${k === 'mute' ? 'MUTE' : 'SOLO'} OFF`);
@@ -1341,15 +1344,19 @@ export function mixValueOf(p: Readonly<Plays>): number {
   return p.sample ? mixOf(p.syn, p.lev) : 0;
 }
 
-/** MIX ecrit : SYN, SMP, BOTH, ou le penchant de -63 a +63. */
-export function mixText(m: number): string {
-  if (m <= 0.002) return 'SYN';
-  if (m >= 0.998) return 'SMP';
-  if (Math.abs(m - 0.5) < 0.004) return 'BOTH';
-  return v127Text(m, true);
+/**
+ * MIX ecrit (revue du 2026-10-09 : SYN, +43 et BOTH, trois facons pour un
+ * meme reglage) : toujours le penchant, de -64 (la synthese seule) a +63 (le
+ * sample seul), 0 les deux pleins, comme les autres reglages bipolaires ;
+ * OFF quand la voix se tait (les deux couches a 0).
+ */
+export function mixText(p: Readonly<Plays>): string {
+  if (!p.synth && !p.smp) return 'OFF';
+  return v127Text(mixValueOf(p), true);
 }
-/** Sa ligne d'unite : les deux niveaux, 0 a 127. */
-export const mixUnit = (p: Readonly<Plays>): string => (p.sample ? `SYN ${v127Text(p.syn)} SMP ${v127Text(p.lev)}` : 'NO SAMPLE: SMP ADDS ONE');
+/** Sa ligne d'unite : les deux niveaux, 0 a 127 ; la voix muette le dit. */
+export const mixUnit = (p: Readonly<Plays>): string =>
+  !p.synth && !p.smp ? 'VOICE SILENT' : p.sample ? `SYN ${v127Text(p.syn)} SMP ${v127Text(p.lev)}` : 'NO SAMPLE: SMP ADDS ONE';
 
 /** Le premier sample de la famille, celui du kit de depart d'abord (MIX qui pose un sample sous une machine seule). */
 function firstSampleOf(f: KitFamily): string | undefined {
@@ -1375,7 +1382,7 @@ function voiceMixDial(v: number): void {
   const sample = !k.sample[f] && m > 0 ? firstSampleOf(f) : undefined;
   kit.setVoice(f, { syn: lv.syn, lev: lv.lev, ...(sample ? { sample } : {}) });
   const p = kit.playsWith(inst as ShotId, null);
-  lcdMessage.show(`${inst} MIX ${mixText(mixValueOf(p))}  ${voiceSoundText(inst, p)}`, POT_UI.readoutMs, true);
+  lcdMessage.show(`${inst} MIX ${mixText(p)}  ${voiceSoundText(inst, p)}`, POT_UI.readoutMs, true);
   touchPage('voice:mix', inst);
 }
 
@@ -1604,7 +1611,7 @@ export function dialSteps(id: DialId): number {
  * cinquantieme, le centre accrocheur de TONE et STRETCH) est repris un cran
  * plus loin, jusqu'a ce que la valeur bouge : jamais un geste sans effet.
  */
-export function dialNudge(id: DialId, n: number): void {
+export function dialNudge(id: DialId, n: number, set: (v: number) => void = (v) => anyDial(id, v)): void {
   if (n === 0) return;
   const [lo, hi] = dialRange(id);
   const steps = dialSteps(id);
@@ -1612,7 +1619,7 @@ export function dialNudge(id: DialId, n: number): void {
   const v0 = anyDialValue(id);
   for (let m = 1; m <= 8; m += 1) {
     const v = Math.min(hi, Math.max(lo, v0 + n * notch * m));
-    anyDial(id, Math.round(v * 10000) / 10000);
+    set(Math.round(v * 10000) / 10000);
     if (anyDialValue(id) !== v0 || v === lo || v === hi) return;
   }
 }
@@ -1648,7 +1655,7 @@ export function dialReadout(id: DialId): string {
     if (t === 'voice:sound' || t === 'voice:mix') {
       if (!inst) return 'TAP A VOICE';
       const p = kit.playsWith(inst as ShotId, null);
-      return t === 'voice:sound' ? `SOUND ${voiceSoundText(inst, p)}, ${voiceSoundUnit(inst, p).toLowerCase()}` : `MIX ${mixText(mixValueOf(p))}, ${mixUnit(p).toLowerCase()}`;
+      return t === 'voice:sound' ? `SOUND ${voiceSoundText(inst, p)}, ${voiceSoundUnit(inst, p).toLowerCase()}` : `MIX ${mixText(p)}, ${mixUnit(p).toLowerCase()}`;
     }
     return dialReadout(t);
   }
@@ -1696,7 +1703,7 @@ export function dialValueText(id: DialId): string {
     if (t === 'step:vel') return inst ? String(velTo127(rytmPage.tapVel(inst))) : '--';
     if (t === 'smpl:sample') return sampleText();
     if (t === 'voice:sound') return inst ? (soundFamily() || ls >= 0 ? voiceSoundText(inst, kit.playsWith(inst as ShotId, null)) : '--') : '--';
-    if (t === 'voice:mix') return inst && soundFamily() ? mixText(mixValueOf(kit.playsWith(inst as ShotId, null))) : '--';
+    if (t === 'voice:mix') return inst && soundFamily() ? mixText(kit.playsWith(inst as ShotId, null)) : '--';
     return dialValueText(t);
   }
   const r = kitIdOf(id);
@@ -1798,8 +1805,9 @@ export function rytmPageKey(id: RytmPageId, stage: Stage | null = null): void {
   // HOME le dit (et comment revenir) ; un onglet dit le suivant
   if (r.view === 'home') lcdMessage.show(`HOME  ${pageLabel(id)} AGAIN: PAGE`, 1600);
   else if (r.tabs > 1) {
+    // SYNTH · VOICE AGAIN: MAIN (revue du 2026-10-09 : VOICE SYNTH  VOICE AGAIN: VOI. au telephone)
     const next = screensOf(id, inst)[(r.tab + 1) % r.tabs];
-    lcdMessage.show(`${SCREEN_TITLE[curScreen()]}  ${pageLabel(id)} AGAIN: ${SCREEN_TITLE[next]}`, 1600);
+    lcdMessage.show(`${tabWord(curScreen(), inst)} · ${pageLabel(id)} AGAIN: ${tabWord(next, inst)}`, 1600);
   } else if (was === 'home') lcdMessage.show(`${pageLabel(id)} PAGE`);
 }
 
@@ -2021,7 +2029,7 @@ function slotLockView(slot: PageSlot, inst: Inst, step: number, lockArg?: Readon
   if (slot.target === 'voice:mix') {
     const p = stepPlays(inst, l);
     const m = mixValueOf(p);
-    return { text: mixText(m), unit: mixUnit(p), course: m, value: m };
+    return { text: mixText(p), unit: mixUnit(p), course: m, value: m };
   }
   if (slot.lock === 'mach') {
     if (!l.mach) return null;

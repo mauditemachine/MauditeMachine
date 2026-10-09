@@ -106,7 +106,9 @@ export class Insert {
   /**
    * Tenu engage ou non (audio/lockfx.ts) : tenu, l'insert au repos passe par
    * ses gains (sec 1, mouille 0) ; lache, il revient au lien direct s'il est
-   * au repos.
+   * au repos, sinon ses gains reviennent a la valeur de la voix (revue du
+   * 2026-10-09 : le dernier verrou retire laissait l'insert a la valeur du
+   * dernier coup verrouille, les points programmes compris).
    */
   hold(on: boolean): void {
     if (on === this.held) return;
@@ -117,6 +119,7 @@ export class Insert {
       this.timer = undefined;
       if (this.direct) this.engage(1, 0);
     } else if (this.dry === 1 && this.wet === 0) this.release();
+    else this.engage(this.dry, this.wet);
   }
 
   get isHeld(): boolean {

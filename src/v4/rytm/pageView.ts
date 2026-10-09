@@ -42,8 +42,12 @@ import { pageSlots, screenOf, slotCells, type PageSlot, type RytmScreenId, type 
 import { encText, encUnit, kitUnit, v127Text, velTo127, velWord } from './values';
 
 export type BlockState = 'live' | 'soon' | 'off' | 'empty';
-/** Le bloc pour le pas en P-LOCK (2026-10-08) : none hors P-LOCK. */
-export type BlockLock = 'none' | 'locked' | 'base' | 'global' | 'nolock';
+/**
+ * Le bloc pour le pas en P-LOCK (2026-10-08) : none hors P-LOCK. step
+ * (revue du 2026-10-09) : VEL, la velocite du pas lui-meme, pas un verrou (ni
+ * negatif ni coin P : les marques suivent le compte des P-LOCKS).
+ */
+export type BlockLock = 'none' | 'locked' | 'base' | 'global' | 'nolock' | 'step';
 
 /** Les verrous a montrer : le pas en P-LOCK, ou le pas qui joue et ses verrous (flash). */
 export type BlockMode = { kind: 'lock'; step: number } | { kind: 'flash'; step: number; lock: Readonly<StepLock> | null };
@@ -64,6 +68,12 @@ export interface Block {
   noBd: boolean;
   /** l'etiquette au bout de la ligne d'unite : NO BD, ALL, la voix (VOICE FX), BOTH, MACHINE ; '' */
   tag: string;
+  /**
+   * l'en-tete de l'ecran la dit deja (revue du 2026-10-09) : MACHINE (l'onglet
+   * SYNTH), ALL (GLOBAL), la voix (BD FX) ; le telephone ne la repete pas
+   * dans le bloc, la place va a l'unite entiere
+   */
+  tagHeader: boolean;
   /** la valeur du reglage (son domaine : -1 a 1 pour TONE et STRETCH) */
   value: number;
   /** sa place sur la course, 0 a 1 */
@@ -111,23 +121,30 @@ export function slotBlock(slot: PageSlot, k: number, inst: Inst | null, echo = f
     if (slot.scope === 'all') {
       b.lock = 'global';
       b.tag = 'GLOBAL';
+      b.tagHeader = false;
       return b;
     }
     if (!slot.lock) {
       b.lock = 'nolock';
       b.tag = 'NO LOCK';
+      b.tagHeader = false;
       return b;
     }
     const lv = pageLockView(k, mode.step);
+    // VEL : le pas lui-meme (sa velocite, OFF pour un pas vide : le tourner y pose un coup), en clair avec STEP
+    if (slot.lock === 'vel') {
+      b.lock = 'step';
+      b.tag = 'STEP';
+      b.tagHeader = false;
+      b.text = lv ? lv.text : 'OFF';
+      b.unit = lv ? lv.unit : 'EMPTY STEP';
+      b.unitShort = undefined;
+      b.course = lv ? lv.course : 0;
+      b.value = lv ? lv.value : 0;
+      return b;
+    }
     if (!lv) {
       b.lock = 'base';
-      // VEL d'un pas vide : rien a jouer (le tourner y pose un coup)
-      if (slot.lock === 'vel') {
-        b.text = 'OFF';
-        b.unit = 'EMPTY STEP';
-        b.course = 0;
-        b.value = 0;
-      }
       return b;
     }
     b.lock = 'locked';
@@ -173,6 +190,7 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
     all: slot.scope === 'all',
     noBd: !!slot.noBd && inst === 'BD',
     tag: '',
+    tagHeader: false,
     value: 0,
     course: 0,
     bipolar: false,
@@ -201,6 +219,7 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
   // BOTH : les deux couches ; CH+OH, TOM+HT : la couche de deux voix ; MACHINE : un potard de la machine de synthese
   const shared = slot.layer && fam ? (SHARED_TAG[fam] ?? '') : '';
   b.tag = b.noBd ? 'NO BD' : b.all ? 'ALL' : slot.voiceTag && inst ? inst : slot.both && fam ? 'BOTH' : shared;
+  b.tagHeader = !b.noBd && (b.all || (!!slot.voiceTag && !!inst));
   const t = slot.target;
   if (t === null) {
     b.unit = 'SOON';
@@ -243,11 +262,13 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
     const p = stepPlays(inst, null);
     const m = mixValueOf(p);
     b.state = fam ? 'live' : 'off';
-    b.text = mixText(m);
+    b.text = mixText(p);
     b.unit = mixUnit(p);
     b.value = m;
     b.course = m;
     b.bipolar = true;
+    // La voix muette (SOUND sur OFF) : en retrait, sans curseur
+    b.quiet = !p.synth && !p.smp;
     return b;
   }
   if (t === 'smpl:sample' || t === 'voice:sound' || t === 'voice:mix') return b;
@@ -269,7 +290,10 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
     b.course = hi > lo ? clamp01((v - lo) / (hi - lo)) : 0;
     b.bipolar = lo < 0;
     b.notches = dialSteps(id);
-    if (slot.machine && !b.tag) b.tag = 'MACHINE';
+    if (slot.machine && !b.tag) {
+      b.tag = 'MACHINE';
+      b.tagHeader = true;
+    }
     return b;
   }
   const [lo, hi] = dialRange(id);
@@ -295,7 +319,10 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
       b.text = v127Text(b.course);
       b.unit = kitUnit(r);
     }
-    if (slot.machine && !b.tag) b.tag = 'MACHINE';
+    if (slot.machine && !b.tag) {
+      b.tag = 'MACHINE';
+      b.tagHeader = true;
+    }
   } else {
     const e = id as Exclude<EncId, 'tempo' | 'vsound'>;
     b.text = encText(e, v, b.course, b.bipolar);

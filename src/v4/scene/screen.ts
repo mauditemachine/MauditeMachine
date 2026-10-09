@@ -126,7 +126,7 @@ import { KIT_MODEL_LABEL, familyOf, kit, type KitFamily, type Plays } from '../a
 import { sampleByKey } from '../audio/samples';
 import { INSTRUMENTS, STEP_COUNT, VEL_BARS, pattern, velocity } from '../audio/pattern';
 import { lockMask, lockOf, type StepLock } from '../audio/locks';
-import { anyDialValue, dialRange, dialUnit, dialValueText, lockCountOf, lockList, lockPages, lockSummary, stepPlays, type DialId, type LockLine } from '../actions';
+import { anyDialValue, dialRange, dialUnit, dialValueText, lockCountOf, lockList, lockPages, lockSummary, stepPlays, voiceSoundText, type DialId, type LockLine } from '../actions';
 import { rytmLock } from '../state/rytmLock';
 import type { ShotId } from '../audio/shotsdsp';
 import { sc } from '../audio/soundcloud';
@@ -141,7 +141,7 @@ import { rytmInfos } from '../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
 import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_DY, OLED_UH, type EncId, type Inst } from '../theme';
-import { SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, pageLabel, pageSlots, screensOf, slotCells, slotOf, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
+import { SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, pageLabel, pageSlots, screensOf, slotCells, slotOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../rytm/pageView';
 import { v127Text } from '../rytm/values';
 import { makeCanvasTexture } from './silk';
@@ -197,6 +197,8 @@ export interface ScreenInfo {
   lockCount: number;
   /** M ou S quand MUTE ou SOLO est arme (M+ : MULTI) ; '' sinon */
   badge: string;
+  /** ce que chaque bloc dessine sous sa valeur (revue du 2026-10-09) : NOM:unite|etiquette@name ou @unit */
+  tags: string[];
   /** le dessin d'un ecran (ENV : AHD ..., FLTR : FILTER ...) ; '' aucun */
   graph: string;
 }
@@ -334,8 +336,9 @@ interface PanelArea {
 const MATRIX: { x0: number; pitch: number; w: number; h: number; rows: readonly [number, number]; r: number } = TALL
   ? { x0: 8, pitch: 76, w: 72, h: 52.5, rows: [24, 79.5], r: 4.5 }
   : { x0: 8, pitch: 76, w: 72, h: 37, rows: [24, 63], r: 3.5 };
+// valueW au telephone 39 (revue du 2026-10-09 : 127 touchait le dessin a 42 ; a trois chiffres la valeur prend le corps d'en dessous)
 const BLOCK: { padX: number; valueW: number; draw: { dx0: number; dx1: number; dy0: number; dy1: number } } = TALL
-  ? { padX: 6, valueW: 42, draw: { dx0: 49, dx1: 67, dy0: 20, dy1: 37 } }
+  ? { padX: 6, valueW: 39, draw: { dx0: 49, dx1: 67, dy0: 20, dy1: 37 } }
   : {
       padX: 5,
       /** la largeur de la valeur avant l'image */
@@ -357,6 +360,9 @@ const BLOCK_TYPE = {
     nameSize: 7,
     letterSize: 5.5,
     unitSize: 6,
+    /** l'etiquette d'un bloc (BOTH, MACHINE, NO BD...) : sa place (le bout de la ligne du nom ou de l'unite) et son corps */
+    tagAt: 'name' as 'name' | 'unit',
+    tagSize: 5.2,
     valueSizes: [17, 14, 12, 10],
     nameDy: 9.5,
     valueDy: 27.5,
@@ -387,6 +393,8 @@ const BLOCK_TYPE = {
     nameSize: 10,
     letterSize: 0,
     unitSize: 8.6,
+    tagAt: 'unit' as 'name' | 'unit',
+    tagSize: 8.6,
     valueSizes: [17, 14.5, 12, 10],
     nameDy: 10.2,
     // L'unite plus haut (revue de R2 : CENTER, -8.2 DB touchaient le bord du bloc)
@@ -415,7 +423,10 @@ const BLOCK_TYPE = {
   tall: {
     nameSize: 11.5,
     letterSize: 0,
-    unitSize: 9.5,
+    // L'unite et l'etiquette a 10 (revue du 2026-10-09 : 9.5 faisaient moins de 9 px a l'ecran, 69-common2 point 6)
+    unitSize: 10,
+    tagAt: 'unit' as 'name' | 'unit',
+    tagSize: 10,
     valueSizes: [26, 23, 19, 15],
     nameDy: 12.5,
     valueDy: 36.5,
@@ -425,7 +436,7 @@ const BLOCK_TYPE = {
     tabs: false,
     tabSize: 0,
     foot: 10.5,
-    head: { pill: 10, pillH: 14.5, voice: 14.5, sound: 10, bpm: 9, num: 14.5 },
+    head: { pill: 10, pillH: 14.5, voice: 14.5, sound: 10, bpm: 9.8, num: 14.5 },
     selR: 1.4,
     panelSize: 10,
     panelLh: 12,
@@ -456,6 +467,8 @@ const PAGE_FOOT: { x0: number; x1: number; y: number; y1: number; y2: number } =
  * moins min, au plus max (ms).
  */
 const FLASH = { min: 280, max: 900 } as const;
+/** La valeur d'un bloc haut (VOICE FX, deux rangees) : un corps plus gros (revue du 2026-10-09 : son milieu restait vide). */
+const TALL_VALUE = 1.45;
 /** La largeur des deux plaques de BOTH (layersGlyph), en unites. */
 const LAYERS_GLYPH_W = 8.6;
 /** Le pied du LOCK au telephone : ses deux aides alternent (ms). */
@@ -617,6 +630,7 @@ export class Screen {
       lockCount: -1,
       badge: '',
       graph: '',
+      tags: [],
     };
     this.canvas = document.createElement('canvas');
     this.canvas.width = W;
@@ -907,6 +921,7 @@ export class Screen {
     this.info.infoBlock = -1;
     this.info.cells = [];
     this.info.graph = '';
+    this.info.tags = [];
     if (!paged) {
       this.blockRects = [];
       this.tabSpots = [];
@@ -1675,8 +1690,9 @@ export class Screen {
         const tw = this.textWidth(name, T.pill * 0.92, 700, 0.7) + 9;
         if (on) this.roundRect(x, H.pillY + 0.6, tw, T.pillH - 1.2, 2.2, null, INK, 1.1);
         this.text(name, x + tw / 2, ty, T.pill * 0.92, on ? INK : FAINT, 700, 'center', 0.7);
-        // La zone de l'onglet : toute la hauteur de l'en-tete (la touche de la page la double, 44 px au doigt)
-        this.tabSpots.push({ screen: t, ...this.spot({ x: x - 2, y: 0, w: tw + 4, h: H.rule }) });
+        // La zone de l'onglet : toute la hauteur de l'en-tete (la touche de la page la double, 44 px au doigt) ; deux unites
+        // d'air avec la voisine, la perspective des zones 3D comprise (revue : 4 px communs a MAIN et SYNTH)
+        this.tabSpots.push({ screen: t, ...this.spot({ x: x - 0.5, y: 0, w: tw + 1, h: H.rule }) });
         heads += `|${on ? '[' : ''}${name}${on ? ']' : ''}`;
         x += tw + 3;
       }
@@ -1712,9 +1728,15 @@ export class Screen {
           x += w + 5;
         }
       }
-      // Ce que joue la voix, a la place qui reste (VOICE le montre en grand dans SOUND : rien ici)
+      // Ce que joue la voix, a la place qui reste (VOICE le montre en grand dans SOUND : rien ici) ; ecrit comme SOUND
+      // (revue du 2026-10-09 : 909+BLUEPRINT ici, BLUEPRINT + 909 dans SOUND), jamais coupe au milieu d'un nom (BLUEP.) :
+      // le sample seul s'il n'y a pas la place des deux, sinon rien
       const room = rightX - x;
-      if (rp.page !== 'voice' && room > 18) this.text(this.fitText(kit.playsText(stepPlays(inst, lock)), room, T.sound, 0.6, 600), x, y, T.sound, HALF, 600, 'left', 0.6);
+      if (rp.page !== 'voice' && room > 18) {
+        const plays = voiceSoundText(inst, stepPlays(inst, lock));
+        const shown = plays === inst ? '' : ([plays, plays.split(' + ')[0]].find((t) => this.textWidth(t, T.sound, 600, 0.6) <= room) ?? '');
+        if (shown) this.text(shown, x, y, T.sound, HALF, 600, 'left', 0.6);
+      }
     } else {
       const aw = this.text('ALL', x, y, T.voice, HALF, 600);
       this.text('PICK A VOICE', x + aw + 6, y, T.sound * 0.85, FAINT, 600, 'left', 0.5);
@@ -1821,42 +1843,67 @@ export class Screen {
     const T = this.bt;
     const wide = b.cell.w > 1;
     const tall = b.cell.h > 1;
-    // Le nom ; l'etiquette (BOTH, MACHINE, NO BD, la voix) a droite sur la ligne du nom quand elle tient, sinon au bout de l'unite
+    // L'etiquette (BOTH, MACHINE, NO BD, ALL, la voix, STEP) : une seule place par ecran (revue du 2026-10-09 : elle sautait
+    // de la ligne du nom a celle de l'unite d'un bloc a l'autre, et l'unite rognee pour elle se lisait 5. ou H.) : au desktop
+    // a droite du nom ; au telephone au bout de la ligne d'unite (le nom y prend la largeur), sans celles que l'en-tete dit
+    // deja (MACHINE : l'onglet SYNTH ; ALL : GLOBAL ; la voix : BD FX). Elle s'efface plutot que de couper l'unite. En
+    // P-LOCK, un bloc qu'on ne verrouille pas dit GLOBAL ou NO LOCK a la place de son unite.
+    const muted = b.lock === 'global' || b.lock === 'nolock';
+    const onName = T.tagAt === 'name';
+    const tag = muted || !b.tag || (!onName && b.tagHeader) ? '' : b.tag;
+    const tagColor = b.noBd || b.all ? P.faint : P.half;
+    const tagSp = onName ? 0.5 : 0.2;
+    const tagW = (t: string): number => this.textWidth(t, T.tagSize, 700, tagSp);
     const cornerW = neg ? (TALL ? 12 : 10) : 0;
-    const tag = b.lock === 'global' || b.lock === 'nolock' ? b.tag : b.tag;
-    const tagSize = T.unitSize * 0.86;
-    const tagW = tag ? this.textWidth(tag, tagSize, 700, 0.5) : 0;
     const nameRoom = bw - 2 * B.padX - cornerW;
     const nameW = this.textWidth(b.label, T.nameSize, 700, 0.7);
-    const tagOnName = !!tag && nameW + tagW + 5 <= nameRoom;
-    this.text(this.fitText(b.label, tagOnName ? nameRoom - tagW - 5 : nameRoom, T.nameSize, 0.7, 700), bx + B.padX, by + T.nameDy, T.nameSize, alive ? P.half : P.faint, 700, 'left', 0.7);
-    if (tagOnName) this.text(tag, bx + bw - B.padX - cornerW, by + T.nameDy, tagSize, b.noBd || b.all || b.lock === 'global' ? P.faint : P.half, 700, 'right', 0.5);
+    const nameTag = tag && onName && nameW + tagW(tag) + 5 <= nameRoom ? tag : '';
+    const ntw = nameTag ? tagW(nameTag) + 5 : 0;
+    this.text(this.fitText(b.label, nameRoom - ntw, T.nameSize, 0.7, 700), bx + B.padX, by + T.nameDy, T.nameSize, alive ? P.half : P.faint, 700, 'left', 0.7);
+    if (nameTag) this.text(nameTag, bx + bw - B.padX - cornerW, by + T.nameDy, T.tagSize, tagColor, 700, 'right', tagSp);
     if (!alive) {
       // Une voix a un seul son (CY) : son nom quand meme, a peine
       const t = b.text && b.text !== '--' ? b.text : '--';
       this.text(this.fitText(t, bw - 2 * B.padX, T.valueSizes[1], 0, 300), bx + B.padX, by + T.valueDy, T.valueSizes[1], P.faint, 300);
       if (b.unit) this.text(this.fitText(b.unit, bw - 2 * B.padX, T.unitSize), bx + B.padX, by + T.unitDy, T.unitSize, P.faint, 600, 'left', 0.4);
+      this.info.tags.push(`${b.label}:${b.unit}|${nameTag ? `${nameTag}@name` : ''}`);
       return;
     }
-    const muted = b.lock === 'global' || b.lock === 'nolock';
-    // La place de l'image : a droite pour un bloc simple ; un grand bloc (SOUND) garde la largeur au nom du son
+    // La place de l'image : a droite pour un bloc simple ; un grand bloc (SOUND) garde la largeur au nom du son ; un bloc
+    // haut l'a sous l'unite, sa valeur prend la largeur
     const drawW = tall ? 0 : wide ? Math.min(54, bw * 0.34) : bw - B.draw.dx0 + 1;
     const stepped = b.draw === 'notch' || b.draw === 'ftype' || b.draw === 'time';
-    const valueRoom = muted || stepped ? bw - 2 * B.padX : wide ? bw - 2 * B.padX - drawW - 4 : B.valueW;
-    const v = this.fitValue(b.text, valueRoom, wide ? 1 : 0);
-    const valueY = by + (tall ? T.valueDy + 2 : T.valueDy);
+    const valueRoom = muted || stepped || tall ? bw - 2 * B.padX : wide ? bw - 2 * B.padX - drawW - 4 : B.valueW;
+    const v = this.fitValue(b.text, valueRoom, wide ? 1 : 0, tall ? TALL_VALUE : 1);
+    // Un bloc haut : la valeur plus grosse descend d'autant, l'unite la suit
+    const drop = tall ? T.valueSizes[0] * (TALL_VALUE - 1) * 0.72 + 2 : 0;
+    const valueY = by + T.valueDy + drop;
     this.text(v.text, bx + B.padX, valueY, v.size, P.ink, neg ? 400 : 300);
-    const unitY = by + (tall ? T.unitDy + 2 : T.unitDy);
-    const tailTag = tag && !tagOnName ? tag : '';
-    const tw = tailTag ? this.text(tailTag, bx + bw - B.padX, unitY, T.unitSize, b.noBd || b.all ? P.faint : P.half, 700, 'right', 0.5) + 4 : 0;
-    if (b.unit) {
-      // La forme courte quand la ligne ne tient pas (NEW STEPS HIGH : NEW: HIGH au telephone)
-      const room = bw - 2 * B.padX - tw;
-      const unit = b.unitShort && this.textWidth(b.unit, T.unitSize, 600, 0.4) > room ? b.unitShort : b.unit;
-      const u = this.fitText(unit, room, T.unitSize);
-      this.text(u, bx + B.padX, unitY, T.unitSize, P.half, 600, 'left', 0.4);
+    const unitY = by + T.unitDy + drop;
+    // Au desktop, les crans d'un reglage a crans tiennent le bout de la ligne d'unite
+    const notchW = T.notchRow && stepped && !wide && !muted ? 24 : 0;
+    const room = bw - 2 * B.padX - notchW;
+    if (muted) {
+      this.text(this.fitText(b.tag, room, T.unitSize, 0.5, 700), bx + B.padX, unitY, T.unitSize, P.half, 700, 'left', 0.5);
+      this.info.tags.push(`${b.label}:${b.tag}|`);
+      return;
     }
-    if (muted) return;
+    const uw = (u: string): number => this.textWidth(u, T.unitSize, 600, 0.4);
+    let tail = onName ? '' : tag;
+    const tailW = tail ? tagW(tail) + 3 : 0;
+    let unit = b.unit;
+    if (unit && uw(unit) > room - tailW) {
+      // La forme courte de l'unite (NEW STEPS HIGH : NEW: HIGH) ; sinon l'unite entiere d'abord, l'etiquette s'efface
+      if (b.unitShort && uw(b.unitShort) <= room - tailW) unit = b.unitShort;
+      else {
+        tail = '';
+        if (b.unitShort && uw(unit) > room) unit = b.unitShort;
+      }
+    }
+    if (tail) this.text(tail, bx + bw - B.padX - notchW, unitY, T.tagSize, tagColor, 700, 'right', tagSp);
+    const u = unit ? this.fitText(unit, room - (tail ? tailW : 0), T.unitSize) : '';
+    if (u) this.text(u, bx + B.padX, unitY, T.unitSize, P.half, 600, 'left', 0.4);
+    this.info.tags.push(`${b.label}:${u}|${nameTag ? `${nameTag}@name` : tail ? `${tail}@unit` : ''}`);
     // L'image : un grand bloc (deux de haut) sous l'unite, sur toute sa largeur ; sinon a droite de la valeur
     let r: Rect;
     if (tall) {
@@ -1896,7 +1943,7 @@ export class Screen {
         this.drawSoundList(r, b.notches, b.value);
         break;
       case 'mix':
-        this.drawMix(r, b.course);
+        this.drawMix(r, b.course, !b.quiet);
         break;
       case 'atk':
         this.drawAtk(r, b.course);
@@ -1934,19 +1981,25 @@ export class Screen {
     }
   }
 
-  /** MIX (2026-10-09) : un crossfader, SYN a gauche, SMP a droite, le curseur ou la part tombe. */
-  private drawMix(r: Rect, m: number): void {
-    const y = (r.y0 + r.y1) / 2 + 1;
+  /**
+   * MIX (2026-10-09) : un crossfader, SYN a gauche, SMP a droite, le curseur ou
+   * la part tombe ; la voix muette : pas de curseur. Les deux mots seulement
+   * s'ils tiennent separes (revue : SYSMP).
+   */
+  private drawMix(r: Rect, m: number, cursor = true): void {
+    const w = TALL ? 4.4 : 3.6;
+    const h = TALL ? 9 : 7.5;
+    // Le rail au bas de la place, les mots au-dessus : le curseur a un bout ne touche pas SMP
+    const y = r.y1 - h / 2;
     const x = r.x0 + (r.x1 - r.x0) * clamp01(m);
     this.line([r.x0, y, r.x1, y], this.pal.faint, 1.4);
     this.line([(r.x0 + r.x1) / 2, y - 2.6, (r.x0 + r.x1) / 2, y + 2.6], this.pal.half, 0.7);
-    this.ctx.fillStyle = this.pal.ink;
-    const w = TALL ? 4.4 : 3.6;
-    const h = TALL ? 9 : 7.5;
-    this.roundRect(x - w / 2, y - h / 2, w, h, 1, this.pal.ink);
-    const ts = TALL ? 5.2 : 4.4;
-    this.text('SYN', r.x0, r.y0 + ts * 0.9, ts, this.pal.half, 700, 'left', 0.3);
-    this.text('SMP', r.x1, r.y0 + ts * 0.9, ts, this.pal.half, 700, 'right', 0.3);
+    if (cursor) this.roundRect(x - w / 2, y - h / 2, w, h, 1, this.pal.ink);
+    // Au telephone a 9.8 (9 px a l'ecran, 69-common2 point 6)
+    const ts = TALL ? 9.8 : 5.5;
+    if (2 * this.textWidth('SYN', ts, 700, 0.3) + 6 > r.x1 - r.x0) return;
+    this.text('SYN', r.x0, r.y0 + ts * 0.7, ts, this.pal.half, 700, 'left', 0.3);
+    this.text('SMP', r.x1, r.y0 + ts * 0.7, ts, this.pal.half, 700, 'right', 0.3);
   }
 
   /** ATK (2026-10-09) : la rampe d'attaque, plus couchee avec la valeur, puis le plateau. */
@@ -2083,7 +2136,7 @@ export class Screen {
     this.line(pts, INK, TALL ? 2 : 1.7);
     // Les reperes : la fin de l'attaque, de la tenue
     for (const t of [a, a + h]) this.line([X(t), base, X(t), base - 2.4], HALF, 0.8);
-    const ls = this.bt.unitSize * 0.92;
+    const ls = TALL ? this.bt.unitSize : this.bt.unitSize * 0.92;
     const ms = (s: number): string => (s >= 1 ? `${s.toFixed(1)}S` : `${Math.round(s * 1000)}MS`);
     const parts = [`A ${a <= 0 ? 'SNAP' : ms(a)}`, `H ${ms(h)}`, `D ${Number.isFinite(d) ? ms(d) : 'FULL'}`];
     const cw = (r.x1 - r.x0) / 3;
@@ -2121,7 +2174,7 @@ export class Screen {
       this.ctx.restore();
     }
     this.line(curve(cut), INK, TALL ? 2 : 1.7);
-    const ls = this.bt.unitSize * 0.92;
+    const ls = TALL ? this.bt.unitSize : this.bt.unitSize * 0.92;
     const type3 = ['LP', 'HP', 'BP'][t];
     this.text(`${type3} ${hzShort(cutHz(cut))}`, r.x0, labelY, ls, HALF, 700, 'left', 0.4);
   }
@@ -2231,7 +2284,8 @@ export class Screen {
       const used = held && lk.writes > lk.since;
       const names = lockSummary(lockStep);
       const s1 = TALL ? 10 : this.mobile ? 10 : fs - 1.2;
-      const s2 = TALL ? 9.2 : this.mobile ? 8.6 : 5.8;
+      // La seconde ligne a 10 au telephone (revue du 2026-10-09 : 9.2 faisait moins de 9 px)
+      const s2 = TALL ? 10 : this.mobile ? 8.6 : 5.8;
       const full = `STEP ${two(lockStep + 1)}: ${names.join(' ')}`;
       const list = this.textWidth(full, s1, 600, 0.5) <= x1 - x0 ? full : `STEP ${two(lockStep + 1)}: ${names.length} P-LOCKS ON ${lockPages(lockStep).join(' ')}`;
       const top = s.l3 && !s.mix ? s.l3 : names.length > 0 ? list : `${TURN}: STEP ${two(lockStep + 1)} ONLY`;
@@ -2278,7 +2332,9 @@ export class Screen {
       this.info.footText = t;
       return 0;
     }
-    if (TALL ? this.paintMode2(x0, x1) : this.paintMode(x0, x1, y, fs + 0.5, this.mobile ? 7.5 : 6.5)) return 0;
+    // MUTE et SOLO : sur deux lignes, le desktop aussi (revue du 2026-10-09 : sur une, MULTI MUTE n'avait pas la place de
+    // dire MUTE: DONE)
+    if (this.paintMode2(x0, x1)) return 0;
     const fl = flash ? lockList(flash.step, flash.lock) : [];
     if (flash && fl.length > 0) {
       const t = this.flashLine(flash.step, fl, x1 - x0, fs);
@@ -2292,9 +2348,14 @@ export class Screen {
       const fits = (s: string, size: number, sp: number): boolean => this.textWidth(s, size, 700, sp) <= x1 - x0;
       const aText = [`${TURN}  ·  HOLD A STEP: P-LOCK`, `${TURN} · HOLD A STEP: P-LOCK`, `${TURN} · HOLD STEP: P-LOCK`].find((s) => fits(s, fs - 1, 0.5)) ?? `${TURN} · HOLD STEP: P-LOCK`;
       const a = this.fitText(aText, x1 - x0, fs - 1, 0.5, 700);
-      const b = this.fitText(screen === 'fxg' ? 'GLOBAL FX: NEVER P-LOCKED' : `${pageLabel(SCREEN_PAGE[screen])} AGAIN: NEXT VIEW`, x1 - x0, fs - 1.5, 0.6, 700);
+      // La touche de la page allumee encore : l'onglet suivant, nomme ; une page sans onglet : HOME (revue du 2026-10-09)
+      const inst = pattern.get().instrument;
+      const page = SCREEN_PAGE[screen];
+      const tabs = screensOf(page, inst);
+      const next = tabs.length > 1 ? tabWord(tabs[(tabs.indexOf(screen) + 1) % tabs.length], inst) : 'HOME';
+      const b = this.fitText(screen === 'fxg' ? 'GLOBAL FX: NEVER P-LOCKED' : `${pageLabel(page)} AGAIN: ${next}`, x1 - x0, fs - 0.5, 0.6, 700);
       this.text(a, x0, F.y1, fs - 1, HALF, 700, 'left', 0.5);
-      this.text(b, x0, F.y2, fs - 1.5, HALF, 700, 'left', 0.6);
+      this.text(b, x0, F.y2, fs - 0.5, HALF, 700, 'left', 0.6);
       this.info.footText = `${a} / ${b}`;
       return 0;
     }
@@ -2304,16 +2365,24 @@ export class Screen {
     return 0;
   }
 
-  /** MUTE et SOLO sur deux lignes (l'ecran haut du telephone, 2026-10-09) : le mode et ses voix, puis le geste. */
+  /**
+   * MUTE et SOLO sur deux lignes (l'ecran haut du telephone, 2026-10-09 ; le
+   * desktop aussi depuis la revue du meme jour) : le mode et ses voix, puis le
+   * geste ; aux corps du pied du P-LOCK.
+   */
   private paintMode2(x0: number, x1: number): boolean {
     const m = modeLines();
     if (!m) return false;
     const F = PAGE_FOOT;
     const fs = this.bt.foot;
-    const a = this.fitText(m.left, x1 - x0, fs, 0.5, 700);
-    const b = this.fitText(m.tip, x1 - x0, fs - 1.5, 0.6, 700);
-    this.text(a, x0, F.y1, fs, INK, 700, 'left', 0.5);
-    this.text(b, x0, F.y2, fs - 1.5, HALF, 700, 'left', 0.6);
+    const s1 = TALL ? fs : this.mobile ? 10 : fs - 1;
+    const s2 = TALL ? fs - 0.5 : this.mobile ? 8.6 : 6;
+    const y1 = TALL || !this.mobile ? F.y1 : 108.7;
+    const y2 = TALL || !this.mobile ? F.y2 : 118;
+    const a = this.fitText(m.left, x1 - x0, s1, 0.5, 700);
+    const b = this.fitText(m.tip, x1 - x0, s2, 0.6, 700);
+    this.text(a, x0, y1, s1, INK, 700, 'left', 0.5);
+    this.text(b, x0, y2, s2, HALF, 700, 'left', 0.6);
     this.info.footText = `${a} / ${b}`;
     return true;
   }
@@ -2372,8 +2441,8 @@ export class Screen {
   }
 
   /** La valeur d'un bloc dans sa largeur : 16, sinon 13, 11 puis 9 et coupee ; up : un cran plus gros (le grand bloc SOUND). */
-  private fitValue(s: string, maxW: number, up = 0): { text: string; size: number } {
-    const sizes = up ? [this.bt.valueSizes[0] * 1.12, ...this.bt.valueSizes] : this.bt.valueSizes;
+  private fitValue(s: string, maxW: number, up = 0, scale = 1): { text: string; size: number } {
+    const sizes = (up ? [this.bt.valueSizes[0] * 1.12, ...this.bt.valueSizes] : this.bt.valueSizes).map((x) => x * scale);
     for (const size of sizes) if (this.textWidth(s, size, 300) <= maxW) return { text: s, size };
     const size = sizes[sizes.length - 1];
     let n = s.length - 1;

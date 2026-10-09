@@ -133,8 +133,8 @@ const fr = (x: string): string =>
 /** La phrase du verrou, ajoutee au texte d'un reglage des ecrans. */
 const LOCK_LINE: Readonly<Record<RytmLockable, string>> = {
   yes: 'Se verrouille pas par pas (P-LOCK) : un pas peut garder sa propre valeur.',
-  no: "Pas verrouillable : en P-LOCK, son bloc affiche NO LOCK et l'écran le dit si tu le glisses.",
-  global: "Global : tout le MM-RYTM, jamais verrouillé sur un pas ; en P-LOCK, l'écran le dit (GLOBAL: NO P-LOCK).",
+  no: "Pas verrouillable : en P-LOCK, son bloc affiche NO LOCK à la place de son unité, et l'écran le dit si tu le glisses.",
+  global: "Global : tout le MM-RYTM, jamais verrouillé sur un pas ; en P-LOCK, son bloc dit GLOBAL à la place de son unité, et l'écran le rappelle si tu le glisses (IS GLOBAL: NO P-LOCK).",
   vel: "En P-LOCK, c'est la vélocité du pas lui-même, comme sur une Elektron.",
 };
 
@@ -154,8 +154,8 @@ const RAW: Record<RytmInfoId, Raw> = {
   synth: {
     section: 'PAGES',
     title: 'VOICE SYNTH',
-    text: "L'onglet SYNTH de VOICE (BD et SD) : la couche de synthèse, comme une machine de l'Analog Rytm. MACHINE (909, 808 ou MM, le son calculé), MIX (la synthèse et le sample comme un crossfader : SYN, BOTH au milieu, SMP), puis ses réglages : TUNE, ATTACK, SWEEP, DECAY et DRIVE pour le kick ; TUNE, SNAPPY, TONE, DECAY et GATE pour la caisse claire. Les deux couches passent ensuite par la même voix (FLTR, ENV, FX). La touche VOICE encore, ou MAIN dans l'en-tête, ramène l'onglet principal.",
-    tip: 'MIX vers BOTH sur un kick de Mika : le grave d’un 909 accordé sous l’attaque du sample.',
+    text: "L'onglet SYNTH de VOICE (BD et SD) : la couche de synthèse, comme une machine de l'Analog Rytm. MACHINE (909, 808 ou MM, le son calculé), MIX (la synthèse et le sample comme un crossfader, de -64 la synthèse seule à +63 le sample seul, 0 les deux à fond), puis ses réglages : TUNE, ATTACK, SWEEP, DECAY et DRIVE pour le kick ; TUNE, SNAPPY, TONE, DECAY et GATE pour la caisse claire. Chaque réglage dit la couche qu'il touche : MACHINE, la synthèse seule (au téléphone, l'onglet SYNTH le dit pour tous) ; BOTH, les deux. Les deux couches passent ensuite par la même voix (FLTR, ENV, FX). La touche VOICE encore, ou MAIN dans l'en-tête, ramène l'onglet principal.",
+    tip: 'MIX vers 0 sur un kick de Mika : le grave d’un 909 accordé sous l’attaque du sample.',
   },
   fltr: {
     section: 'PAGES',
@@ -172,21 +172,21 @@ const RAW: Record<RytmInfoId, Raw> = {
   fx: {
     section: 'PAGES',
     title: 'FX',
-    text: "Deux onglets. VOICE FX : les effets de la voix choisie (DIST, CHORUS, DELAY, REVERB, en quatre grands blocs, son nom en étiquette), tous verrouillables pas par pas. GLOBAL FX (la touche FX encore, ou GLOBAL dans l'en-tête) : les huit effets de tout le MM-RYTM, DIST, CHORUS, DELAY et REVERB (sauf le kick, il a sa propre voie), STRETCH, SWING, DLY TIME et DLY FB ; ceux-là ne se verrouillent jamais. Au desktop, ce sont aussi les huit encodeurs, dans le même ordre.",
+    text: "Deux onglets. VOICE FX : les effets de la voix choisie (DIST, CHORUS, DELAY, REVERB, en quatre grands blocs, son nom en étiquette, au téléphone dans l'onglet de l'en-tête), tous verrouillables pas par pas. GLOBAL FX (la touche FX encore, ou GLOBAL dans l'en-tête) : les huit effets de tout le MM-RYTM, DIST, CHORUS, DELAY et REVERB (sauf le kick, il a sa propre voie), STRETCH, SWING, DLY TIME et DLY FB ; ceux-là ne se verrouillent jamais. Au desktop, ce sont aussi les huit encodeurs, dans le même ordre.",
     tip: 'En dark disco, un DELAY sur la seule caisse claire (VOICE FX, SD) : l’écho reste derrière le kick.',
   },
   fxv: {
     section: 'PAGES',
     title: 'VOICE FX',
-    text: "Les effets de la voix choisie, son nom en étiquette : DIST (la saturation parallèle), CHORUS (l'élargissement), DELAY et REVERB (leurs envois). Tous se verrouillent pas par pas : un pas garde sa DIST, l'effet tient jusqu'au coup suivant de la voix, comme sur une Elektron. Pour le kick, ce sont ses seuls effets : les FX globaux ne le touchent pas.",
+    text: "Les effets de la voix choisie, son nom en étiquette (au téléphone, l'onglet BD FX de l'en-tête le dit) : DIST (la saturation parallèle), CHORUS (l'élargissement), DELAY et REVERB (leurs envois). Tous se verrouillent pas par pas : un pas garde sa DIST, l'effet tient jusqu'au coup suivant de la voix, comme sur une Elektron. Pour le kick, ce sont ses seuls effets : les FX globaux ne le touchent pas.",
     tip: 'Une REVERB verrouillée sur le dernier clap de la mesure seulement : l’espace s’ouvre une fois, puis se referme.',
   },
   fxg: {
     section: 'PAGES',
     title: 'GLOBAL FX',
-    text: "Les huit effets de tout le MM-RYTM, dans l'ordre des encodeurs du desktop : DIST, CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, DLY TIME (le temps du DELAY, calé sur le tempo) et DLY FB (ses répétitions). Jamais verrouillés sur un pas : en P-LOCK, l'écran le dit (GLOBAL: NO P-LOCK).",
+    text: "Les huit effets de tout le MM-RYTM, dans l'ordre des encodeurs du desktop : DIST, CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, DLY TIME (le temps du DELAY, calé sur le tempo) et DLY FB (ses répétitions). Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
     phone: {
-      text: "Les huit effets de tout le MM-RYTM : DIST, CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, DLY TIME (le temps du DELAY, calé sur le tempo) et DLY FB (ses répétitions). Jamais verrouillés sur un pas : en P-LOCK, l'écran le dit (GLOBAL: NO P-LOCK).",
+      text: "Les huit effets de tout le MM-RYTM : DIST, CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, DLY TIME (le temps du DELAY, calé sur le tempo) et DLY FB (ses répétitions). Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
     },
     tip: 'DLY TIME sur 1/8D et DLY FB vers 70 % : le rebond de l’indie dance ; un peu de DELAY global suffit.',
   },
@@ -234,7 +234,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'VOICE',
     title: 'VEL',
     lock: 'vel',
-    text: "Hors P-LOCK, la vélocité des nouveaux pas de la voix (NEW STEPS à l'écran) : un pas vide touché la prend, un pad joué à l'arrêt aussi. En P-LOCK, celle du pas lui-même. Neuf niveaux de 14 à 127 à l'écran : 127 (HIGH) joue le coup plein, 85 (MID) à 60 % du gain, 42 (LOW) à 32 % ; en P-LOCK, 0 (OFF) vide le pas (ses verrous restent).",
+    text: "Hors P-LOCK, la vélocité des nouveaux pas de la voix (NEW STEPS à l'écran) : un pas vide touché la prend, un pad joué à l'arrêt aussi. En P-LOCK, celle du pas lui-même (STEP à l'écran : ce n'est pas un verrou, son bloc reste en clair et ne compte pas dans les P-LOCKS). Neuf niveaux de 14 à 127 à l'écran : 127 (HIGH) joue le coup plein, 85 (MID) à 60 % du gain, 42 (LOW) à 32 % ; en P-LOCK, 0 (OFF) vide le pas (ses verrous restent).",
     tip: 'VEL sur 85 pour poser les charleys, puis un 127 juste avant le temps : le roulement qui fait avancer l’indie dance.',
     voice: {
       bd: { tip: 'Sur BD, la vélocité dose aussi le SIDECHAIN du MM-ARP : un kick plus doux le creuse moins.' },
@@ -269,8 +269,8 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'VOICE SYNTH',
     title: 'MIX',
     lock: 'yes',
-    text: "Les deux couches de la voix comme un crossfader : à gauche la synthèse seule (SYN), au milieu les deux à fond (BOTH), à droite le sample seul (SMP) ; la ligne du dessous donne leurs deux niveaux, de 0 à 127. La couche la plus forte garde le niveau du moment ; les deux à fond sont ramenées sous la crête de la voix, jamais remontées. Sans sample, glisser vers SMP en pose un (le premier de la famille).",
-    tip: 'Un kick de Mika et un 909 vers BOTH, verrouillé (P-LOCK) sur les pas 4 et 12 seulement : le grave de la machine répond au sample.',
+    text: "Les deux couches de la voix comme un crossfader, en un seul nombre : -64 à gauche, la synthèse seule (SYN), 0 au milieu, les deux à fond, +63 à droite, le sample seul (SMP) ; la ligne du dessous donne leurs deux niveaux, de 0 à 127, et OFF dit une voix qui se tait (SOUND sur OFF). La couche la plus forte garde le niveau du moment ; les deux à fond sont ramenées sous la crête de la voix, jamais remontées. Sans sample, glisser vers SMP en pose un (le premier de la famille).",
+    tip: 'Un kick de Mika et un 909 vers 0, verrouillé (P-LOCK) sur les pas 4 et 12 seulement : le grave de la machine répond au sample.',
   },
   vsound: {
     section: 'VOICE',
@@ -288,7 +288,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     title: 'TUNE',
     lock: 'yes',
     plate: { title: 'SYN TUNE', section: 'TWEAKS / KICK' },
-    text: "La hauteur du kick de synthèse, une octave de course autour de sa note : 52 Hz au milieu en 909 et en MM (de 37 à 74 Hz), 49 Hz en 808 ; la ligne du dessous donne les Hz. Il ne règle que la couche SYNTH : PITCH (VOICE) accorde tout le kick, le sample compris. Quand la synthèse se tait (MIX sur SMP), l'écran le dit. Le kick est recalculé en fond à chaque cran.",
+    text: "La hauteur du kick de synthèse, une octave de course autour de sa note : 52 Hz au milieu en 909 et en MM (de 37 à 74 Hz), 49 Hz en 808 ; la ligne du dessous donne les Hz. Il ne règle que la couche SYNTH : PITCH (VOICE) accorde tout le kick, le sample compris. Quand la synthèse se tait (MIX à +63), l'écran le dit. Le kick est recalculé en fond à chaque cran.",
     tip: 'Accorde le kick sur la tonique : vers 46 Hz pour un fa dièse, la tonalité du site, sous la basse du MM-BASS.',
   },
   'r:attack': {
@@ -619,7 +619,7 @@ const RAW: Record<RytmInfoId, Raw> = {
       },
     },
     tip: 'Un 808 sur les pas 4 et 12 seulement (P-LOCK) : un kick long qui répond au 909 du reste de la mesure.',
-    text: "Le type de la couche SYNTH de la voix : 909, 808 ou MM, calculé par la machine (pas un sample). Comme sur l'Analog Rytm, cette synthèse et le sample jouent ensemble, chacun à son niveau (MIX, à côté), puis passent par la même voix (FLTR, ENV, FX). Changer de MACHINE ne touche ni au sample ni aux niveaux ; quand la synthèse se tait (MIX sur SMP), l'écran le rappelle. En P-LOCK, un pas peut jouer une autre machine.",
+    text: "Le type de la couche SYNTH de la voix : 909, 808 ou MM, calculé par la machine (pas un sample). Comme sur l'Analog Rytm, cette synthèse et le sample jouent ensemble, chacun à son niveau (MIX, à côté), puis passent par la même voix (FLTR, ENV, FX). Changer de MACHINE ne touche ni au sample ni aux niveaux ; quand la synthèse se tait (MIX à +63), l'écran le rappelle. En P-LOCK, un pas peut jouer une autre machine.",
   },
   'r3:synlevel': {
     section: 'VOICE SYNTH',

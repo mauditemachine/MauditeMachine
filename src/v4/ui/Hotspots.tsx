@@ -543,8 +543,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
     };
 
-    /** Deux tapes sur un encodeur en moins de 350 ms : sa valeur de depart. */
-    const tapDial = (k: DialId, pressMs = 0): void => {
+    /** Deux tapes sur un encodeur en moins de 350 ms : sa valeur de depart (penc : l'encodeur k du desktop, son FX global). */
+    const tapDial = (k: DialId, pressMs = 0, penc = -1): void => {
       // Un commutateur (MODE du filtre) passe au cran suivant a chaque tape, et reboucle
       if ((isVoy(k) && isSwitch(k.slice(2) as VoyKnobId)) || (isKit(k) && voySteps(k) > 1)) {
         const n = voySteps(k);
@@ -563,6 +563,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         // Un potard de page (2026-10-08) : en LOCK, son verrou s'en va ; sinon sa valeur de depart
         const pk = pageKnobOf(k);
         if (pk >= 0) pageKnobReset(pk);
+        // Un encodeur du desktop (revue du 2026-10-09) : remis comme il tourne, avec son popup GLOBAL a l'ecran
+        else if (penc >= 0) globalDial(penc, anyDialReset(k));
         else anyDial(k, anyDialReset(k));
       } else {
         lastTap.set(k, t);
@@ -615,10 +617,11 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       else if (d.kind === 'vbtn' && d.vbtn === 'edit') editToggle('voy', stage);
       else if (d.kind === 'edit') editToggle('mm808', stage);
       else if ((d.kind === 'lcd' || d.kind === 'vlcd') && d.lcd) presetKey(d.kind === 'lcd' ? 'mm808' : 'voy', d.lcd);
+      // Un onglet de l'en-tete de l'ecran (2026-10-09) : son ecran, avant les touches de page (revue : l'onglet MAIN porte
+      // l'id voice, qui est aussi une page ; pris pour la touche VOICE, il passait a SYNTH)
+      else if (d.kind === 'pkey' && d.rpage && d.id?.startsWith('lcd-tab-') && isRytmScreen(d.rpage)) rytmScreenTab(d.rpage);
       else if (d.kind === 'pkey' && d.rpage && isRytmPage(d.rpage)) rytmPageKey(d.rpage, stage);
-      // Un onglet de l'en-tete de l'ecran (2026-10-09) : son ecran
-      else if (d.kind === 'pkey' && d.rpage && isRytmScreen(d.rpage)) rytmScreenTab(d.rpage);
-      else if (d.dial) tapDial(d.dial, performance.now() - d.t);
+      else if (d.dial) tapDial(d.dial, performance.now() - d.t, d.kind === 'penc' && d.index !== undefined ? d.index : -1);
       else return null;
       return d.id;
     };
@@ -793,8 +796,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       if (h && (h.kind === 'step' || h.kind === 'penc' || blockKnob)) stage.orbit.claim(e.pointerId);
       // Le bloc pris au doigt reste cerne tant qu'on le tient (2026-10-09), meme immobile : on voit ce qu'on regle
       if (blockKnob && h && h.index !== undefined) rytmPage.hold(h.index);
-      // MUTE ou SOLO tenu (2026-10-09) : MODE_HOLD_MS sans lacher, toutes les voix reviennent (le lacher ne fait rien de plus)
-      if (h && (h.kind === 'mute' || h.kind === 'solo')) {
+      // MUTE ou SOLO tenu (2026-10-09) : MODE_HOLD_MS sans lacher, toutes les voix reviennent (le lacher ne fait rien de plus) ;
+      // INFOS allume, au doigt, la tenue lit la carte et ne rend aucune voix (revue : comme la touche du Dock)
+      if (h && (h.kind === 'mute' || h.kind === 'solo') && !downs.get(e.pointerId)?.info) {
         const pid = e.pointerId;
         const d0 = downs.get(pid);
         const k = h.kind;
@@ -1118,8 +1122,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         const now = e.timeStamp || performance.now();
         const gain = wheelGain(now - wheelAt, e.shiftKey);
         wheelAt = now;
-        dialNudge(k, steps * gain);
-        if (pencK >= 0) rytmPage.popup(GLOBAL_ENCODERS[pencK]);
+        // Un encodeur du desktop : son FX global, son popup seul le dit (globalDial)
+        if (pencK >= 0) dialNudge(k, steps * gain, (v) => globalDial(pencK, v));
+        else dialNudge(k, steps * gain);
       } else if (steps !== 0) {
         wheelAcc -= steps * px;
         // Maj : reglage fin, 1 % le cran (TEMPO reste a 1 BPM)
@@ -1257,32 +1262,33 @@ const onDialKey =
 /**
  * Les fleches sur un potard de page (2026-10-08) : un cran de 1 sur 127 (Maj
  * ou Page : 10), un cran du reglage s'il en a ; Debut et Fin aux butees.
+ * set : ce qui pose la valeur (un encodeur du desktop : son FX global et son popup).
  */
 const onPageKnobKey =
-  (d: DialId) =>
+  (d: DialId, set: (v: number) => void = (v) => anyDial(d, v)) =>
   (e: React.KeyboardEvent<HTMLElement>): void => {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
     const big = e.shiftKey ? 10 : 1;
     switch (e.key) {
       case 'ArrowUp':
       case 'ArrowRight':
-        dialNudge(d, big);
+        dialNudge(d, big, set);
         break;
       case 'ArrowDown':
       case 'ArrowLeft':
-        dialNudge(d, -big);
+        dialNudge(d, -big, set);
         break;
       case 'PageUp':
-        dialNudge(d, 10);
+        dialNudge(d, 10, set);
         break;
       case 'PageDown':
-        dialNudge(d, -10);
+        dialNudge(d, -10, set);
         break;
       case 'Home':
-        anyDial(d, dialRange(d)[0]);
+        set(dialRange(d)[0]);
         break;
       case 'End':
-        anyDial(d, dialRange(d)[1]);
+        set(dialRange(d)[1]);
         break;
       default:
         return;
@@ -1763,9 +1769,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
                 globalDial(k, anyDialReset(d));
                 return;
               }
-              const before = anyDialValue(d);
-              onPageKnobKey(d)(e);
-              if (anyDialValue(d) !== before) rytmPage.popup(g);
+              onPageKnobKey(d, (v) => globalDial(k, v))(e);
             }}
           />
         );

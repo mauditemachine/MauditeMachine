@@ -57,7 +57,7 @@
 
 import { clock } from '../audio/clock';
 import { context } from '../audio/drums';
-import { INSTRUMENTS, VEL_MAX, VEL_NAMES, pattern, velocity } from '../audio/pattern';
+import { INSTRUMENTS, VEL_NAMES, pattern, velocity } from '../audio/pattern';
 import { gesture, patternHold, patternTap, rytmLockEnter, rytmLockTap, tuneVoice } from '../actions';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
@@ -956,12 +956,14 @@ const rytm: SeqMachine = {
       rytmLockTap(i);
       return;
     }
-    // Un geste, un etat (un trig d'Elektron) : vide, un coup fort ; un coup, vide
+    // Un geste, un etat (un trig d'Elektron) : vide, un coup a la VEL des nouveaux pas de la voix (VOICE VEL,
+    // 2026-10-09, comme la face, le Dock et le clavier) ; un coup, vide
     const on = velocity(pattern.get().steps, inst, i) === 0;
-    if (on) pattern.set(inst, i, VEL_MAX);
+    const vel = rytmPage.tapVel(inst);
+    if (on) pattern.set(inst, i, vel);
     else pattern.clearStep(inst, i);
     rytmPage.select(i);
-    lcdMessage.show(`STEP ${two(i + 1)} ${inst} ${VEL_NAMES[on ? VEL_MAX : 0]}  HOLD: LOCK`);
+    lcdMessage.show(`STEP ${two(i + 1)} ${inst} ${VEL_NAMES[on ? vel : 0]}  HOLD: LOCK`);
   },
   enter: (i, latched) => rytmLockEnter(i, latched),
   restore(prev) {

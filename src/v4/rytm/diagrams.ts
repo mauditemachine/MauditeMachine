@@ -1110,7 +1110,8 @@ const drawMix: Draw = (c, v) => {
   bar(X0 + 40, lv.syn, 'SYN');
   bar(X1 - 80, lv.lev, 'SMP');
   if (!lv.sample) p.label('NO SAMPLE YET', 120, y - 14, 'middle');
-  return p.value(m <= 0.002 ? 'SYN' : m >= 0.998 ? 'SMP' : Math.abs(m - 0.5) < 0.004 ? 'BOTH' : `${v127(m) - 64 > 0 ? '+' : ''}${v127(m) - 64}`).done();
+  // Le nombre de l'ecran, toujours (revue du 2026-10-09 : SYN, BOTH, +43 trois facons) ; OFF, la voix muette
+  return p.value(lv.syn <= 0 && lv.lev <= 0 ? 'OFF' : `${v127(m) - 64 > 0 ? '+' : ''}${v127(m) - 64}`).done();
 };
 
 /** Un hasard fixe (le dessin ne tremble pas). */

@@ -184,6 +184,8 @@ export interface DriveStage {
    */
   lockHold(on: boolean): void;
   lockAt(when: number, d: number): void;
+  /** Appele apres une rampe de set() (elle efface ce qui etait programme) : audio/lockfx.ts repose ses points. */
+  onRetime: (() => void) | null;
 }
 
 export function buildDrive(c: BaseAudioContext, out: AudioNode): DriveStage {
@@ -198,23 +200,26 @@ export function buildDrive(c: BaseAudioContext, out: AudioNode): DriveStage {
   const insert = new Insert(c, input, out);
   insert.setBranch(pre, shaper);
   let drive = 0;
-  return {
+  const stage: DriveStage = {
     input,
+    onRetime: null,
     set(d: number) {
       const t = Number.isFinite(d) ? Math.min(1, Math.max(0, d)) : 0;
       if (t === drive) return;
       drive = t;
-      if (t === 0) {
-        insert.release();
-        return;
+      if (t === 0) insert.release();
+      else {
+        glide(pre.gain, (1 + DRIVE.gain * t) / DRIVE.k, c);
+        const m = DRIVE.mix * t;
+        insert.engage(1 - m, m);
       }
-      glide(pre.gain, (1 + DRIVE.gain * t) / DRIVE.k, c);
-      const m = DRIVE.mix * t;
-      insert.engage(1 - m, m);
+      stage.onRetime?.();
     },
     value: () => drive,
     lockHold(on: boolean) {
       insert.hold(on);
+      // Lache (le dernier verrou DIST retire, revue du 2026-10-09) : l'entree revient a celle de la voix, les points s'effacent
+      if (!on) glide(pre.gain, (1 + DRIVE.gain * drive) / DRIVE.k, c);
     },
     lockAt(when: number, d: number) {
       const t = Number.isFinite(d) ? Math.min(1, Math.max(0, d)) : 0;
@@ -222,4 +227,5 @@ export function buildDrive(c: BaseAudioContext, out: AudioNode): DriveStage {
       if (insert.at(when, 1 - m, m)) pre.gain.setValueAtTime((1 + DRIVE.gain * t) / DRIVE.k, Math.max(when, c.currentTime));
     },
   };
+  return stage;
 }
