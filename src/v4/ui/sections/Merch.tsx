@@ -8,10 +8,20 @@
  * aucun bloc sinon. Commande : le formulaire de CONTACT, objet et
  * commande (taille et couleur choisies) deja ecrits (data.ts orderDraft).
  * Les photos ne se chargent qu'a la premiere ouverture de la section.
+ *
+ * 2026-10-09 (Mika : "faut mettre ces hoodies en avant") : le hoodie WE ARE
+ * MUSIC MAKERS en tete, avant la grille (ui/HoodieFeature.tsx, le meme
+ * encart que dans le menu : ses deux vues, la taille a choisir, ORDER) ; il
+ * n'est pas repete dans la grille. Absent de store.json : pas de tete.
+ * L'encart d'abord, le texte de la boutique ensuite (revue du 2026-10-09 :
+ * au telephone, la feuille de 45 % montre ainsi photo, taille et ORDER
+ * d'un coup). Une lecture de store.json ratee se refait a l'ouverture
+ * suivante.
  */
 
 import React, { useEffect, useState } from 'react';
 import {
+  FEATURED_MERCH,
   MERCH_EMPTY,
   MERCH_NOTE,
   MERCH_TEXT,
@@ -22,6 +32,7 @@ import {
   type StickerPack,
 } from '../../data';
 import { openContact } from '../../actions';
+import { HoodieFeature } from '../HoodieFeature';
 import { SectionFrame, tabOf, type SectionProps } from './common';
 
 /** Commander : ouvre CONTACT, objet et commande deja ecrits. */
@@ -142,12 +153,25 @@ export const Merch: React.FC<SectionProps> = ({ active, focusable }) => {
   const [seen, setSeen] = useState(active);
   if (active && !seen) setSeen(true);
   const tab = tabOf(focusable);
+  // Le hoodie mis en avant a sa tete ; la grille garde les autres pieces
+  const featured = items?.find((p) => p.id === FEATURED_MERCH.id) ?? null;
+  const grid = items ? items.filter((p) => p !== featured) : [];
 
+  // Rien encore, ou une lecture ratee (fetchMerch rend [] et vide son cache) : on relit a chaque ouverture
+  const want = items === null || items.length === 0;
   useEffect(() => {
+    if (!want) return undefined;
     let alive = true;
     fetchMerch().then((list) => {
       if (alive) setItems(list);
     });
+    return () => {
+      alive = false;
+    };
+  }, [want, active]);
+
+  useEffect(() => {
+    let alive = true;
     fetchStickers().then((list) => {
       if (alive) setPacks(list);
     });
@@ -158,11 +182,16 @@ export const Merch: React.FC<SectionProps> = ({ active, focusable }) => {
 
   return (
     <SectionFrame id="merch" active={active}>
+      {featured && (
+        <div className="v4-merch-hero">
+          <HoodieFeature product={featured} seen={seen} variant="merch" tab={tab} />
+        </div>
+      )}
       <p className="v4-sec-text">{MERCH_TEXT}</p>
       {items !== null && items.length === 0 && <p className="v4-sec-text">{MERCH_EMPTY}</p>}
-      {items !== null && items.length > 0 && (
+      {grid.length > 0 && (
         <ul className="v4-merch">
-          {items.map((p) => (
+          {grid.map((p) => (
             <ProductCard key={p.id} p={p} seen={seen} tab={tab} />
           ))}
         </ul>

@@ -1223,6 +1223,7 @@ const Admin: React.FC = () => {
                           const categoryNames: Record<string, string> = {
                             'sweatshirt': 'Sweatshirt',
                             'hoodie': 'Hoodie',
+                            'hoodie-wamm': 'Hoodie We Are Music Makers',
                             'tshirt': 'T-shirt',
                             'bag': 'Hip Bag',
                             'other': 'Autre'
@@ -1273,6 +1274,7 @@ const Admin: React.FC = () => {
                                       >
                                         <option value="sweatshirt">Sweatshirt</option>
                                         <option value="hoodie">Hoodie</option>
+                                        <option value="hoodie-wamm">Hoodie We Are Music Makers</option>
                                         <option value="tshirt">T-shirt</option>
                                         <option value="bag">Hip Bag</option>
                                         <option value="other">Autre</option>

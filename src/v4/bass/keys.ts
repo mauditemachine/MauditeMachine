@@ -56,6 +56,14 @@ export const BASS_KEY_LEGEND: readonly { keys: string; what: string }[] = [
 const editable = (t: EventTarget | null): boolean =>
   t instanceof HTMLElement && (t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT');
 
+/**
+ * Un bouton, un lien ou un interrupteur du DOM qui a le focus (le menu, MERCH, CONTACT...) : Espace et
+ * Entree sont a lui, comme ownsSpace de hooks/useKeys.ts pour le MM-RYTM (revue du 2026-10-09 : Espace
+ * sur l'interrupteur Dark / Light lancait le MM-BASS au lieu de changer l'apparence).
+ */
+const ownsPress = (t: EventTarget | null): boolean =>
+  t instanceof Element && t.closest('button, a[href], [role="button"], [role="switch"], [role="checkbox"], summary') !== null;
+
 /** Pose l'ecoute (phase de capture, avant les raccourcis des autres machines) ; rend de quoi l'oter. */
 export function listenBassKeys(getStage: () => Stage | null, active: () => boolean): () => void {
   const held = new Map<string, string>();
@@ -66,6 +74,7 @@ export function listenBassKeys(getStage: () => Stage | null, active: () => boole
     // Un jumeau qui a le focus garde ses fleches, Espace et Entree
     const twin = e.target instanceof HTMLElement && e.target.classList.contains('v4-twin');
     if (twin && /^(Arrow|Page|Home|End|Space|Enter)/.test(e.code)) return;
+    if ((e.code === 'Space' || e.code === 'Enter' || e.code === 'NumpadEnter') && ownsPress(e.target)) return;
     // Echap : d'abord le LOCK (le reste, EDIT compris, est a hooks/useKeys.ts)
     if (e.code === 'Escape') {
       if (bassState.get().lock < 0) return;

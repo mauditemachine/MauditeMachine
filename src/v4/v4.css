@@ -1289,7 +1289,7 @@ html:has(body.v4-active) {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 40px;
+  height: 44px;
   padding: 0 4px;
   color: var(--mm-ink);
   font-size: 12px;
@@ -1303,45 +1303,31 @@ html:has(body.v4-active) {
   font-size: 14px;
 }
 
-.v4-mmenu .v4-look-btn {
-  height: 36px;
-  padding: 0 14px;
-}
-
-/* Desktop (2026-10-04) : les pages a gauche en tres grand, le capot, les
-   reseaux et le pied en colonne a droite ; centre, 1320 px au plus. */
+/* Desktop (2026-10-04, 2026-10-09) : l'interrupteur Dark / Light en haut a
+   gauche, les pages dessous en tres grand ; a droite le mot de Mika en
+   haut, puis le hoodie et le reste (capot, reseaux, pied). Deux colonnes
+   sous 1200 px, trois au-dela (ui/menu.css) ; centre, 1320 px au plus. */
 .v4-mmenu[data-variant='desk'] {
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(300px, 1fr);
-  /* Les deux colonnes centrees ensemble : un vide egal au-dessus et au-dessous */
-  grid-template-rows: 1fr auto auto auto 1fr;
+  grid-template-columns: minmax(0, 1.25fr) minmax(300px, 1fr);
   grid-template-areas:
-    '. .'
-    'pages hood'
-    'pages follow'
-    'pages foot'
-    '. .';
-  column-gap: clamp(48px, 7vw, 120px);
-  row-gap: 32px;
+    'look  about'
+    'pages about'
+    'pages feature'
+    'pages side';
+  grid-template-rows: auto auto auto 1fr;
+  align-content: start;
+  column-gap: clamp(40px, 5vw, 80px);
+  row-gap: 28px;
   padding: clamp(24px, 5vh, 64px) max(clamp(28px, 6vw, 96px), calc((100% - 1320px) / 2)) clamp(28px, 6vh, 72px);
 }
 
 .v4-mmenu[data-variant='desk'] .v4-mm-pages {
   grid-area: pages;
-  align-self: center;
-}
-
-.v4-mmenu[data-variant='desk'] .v4-mm-hood {
-  grid-area: hood;
-}
-
-.v4-mmenu[data-variant='desk'] .v4-mm-follow {
-  grid-area: follow;
+  align-self: start;
 }
 
 .v4-mmenu[data-variant='desk'] .v4-mm-foot {
-  grid-area: foot;
-  align-self: end;
   margin-top: 0;
 }
 
@@ -3039,49 +3025,10 @@ html:has(body.v4-active) {
   animation: none;
 }
 
-/* ---------- apparence : Dark / Light (2026-10-01) ---------- */
+/* ---------- apparence : Dark / Light ---------- */
 
-/* Le bouton : deux segments, l'apparence en cours pleine. Desktop : au bout
-   du menu ; mobile : en haut a droite de la zone de la machine. */
-.v4-look {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 2px;
-  padding: 2px;
-  border-radius: 10px;
-  background: rgba(246, 241, 231, 0.07);
-}
-
-.v4-root .v4-look-btn {
-  height: 30px;
-  padding: 0 10px;
-  border-radius: 8px;
-  color: var(--bone-60);
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-indent: 0.16em;
-  text-transform: uppercase;
-  transition: color 160ms ease, background-color 160ms ease;
-}
-
-.v4-root .v4-look-btn:hover {
-  color: var(--bone);
-}
-
-.v4-root .v4-look-btn[aria-pressed='true'] {
-  background: var(--bone);
-  color: var(--ink);
-}
-
-.v4-root .v4-look-btn:focus-visible {
-  outline: 2px solid var(--yellow);
-  outline-offset: 2px;
-}
-
-.v4-root[data-v4-motion='reduced'] .v4-look-btn {
-  transition: none;
-}
+/* L'interrupteur (2026-10-09, en haut a gauche du menu) a ses regles dans
+   ui/menu.css, avec le reste du menu de cette date. */
 
 /* La page claire : les couleurs du press kit. Papier creme, texte #434343,
    gris secondaire #6E6E6E, filets #D8D4CC, orange #FF6A13 pour les accents
@@ -3121,15 +3068,6 @@ html:has(body.v4-active.v4-light) {
 .v4-root[data-v4-theme='light'] .v4-panel-close:hover,
 .v4-root[data-v4-theme='light'] a.v4-show:hover {
   background: rgba(67, 67, 67, 0.06);
-}
-
-.v4-root[data-v4-theme='light'] .v4-look {
-  background: rgba(67, 67, 67, 0.07);
-}
-
-.v4-root[data-v4-theme='light'] .v4-look-btn[aria-pressed='true'] {
-  background: #434343;
-  color: #faf8f4;
 }
 
 /* La feuille des sections : papier blanc, ombre douce */

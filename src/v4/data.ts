@@ -272,6 +272,48 @@ export interface MerchProduct {
   available: boolean;
 }
 
+/**
+ * Le produit mis en avant (2026-10-09, Mika : "faut mettre ces hoodies en
+ * avant... toute taille et ca coute 50$") : le hoodie WE ARE MUSIC MAKERS,
+ * le "A" des machines devant, WE ARE MUSIC MAKERS, le grand A et MAUDITE
+ * MACHINE dans le dos. Son encart est dans le menu (ui/MenuSheet.tsx) et en
+ * tete de MERCH (sections/Merch.tsx), ui/HoodieFeature.tsx pour les deux.
+ * Le produit lui-meme (photos, prix, tailles, stock) vient de
+ * public/store.json comme les autres : id est sa category la-bas
+ * ('hoodie-wamm', a part de 'hoodie' : toutes les boutiques et l'admin
+ * regroupent les vues par category, le meme mot aurait fondu les deux
+ * hoodies en un). Retire ou inactif dans l'admin : plus d'encart nulle part.
+ */
+export const FEATURED_MERCH = {
+  id: 'hoodie-wamm',
+  kicker: 'New drop',
+  name: 'Hoodie',
+  line: 'We Are Music Makers',
+  /** les photos detourees : 927 x 1287 (fond transparent, ombre de contact gardee) */
+  w: 927,
+  h: 1287,
+  alt: {
+    Front: 'Black hoodie, front: the A of the machines on the chest',
+    Back: 'Black hoodie, back: WE ARE MUSIC MAKERS, the big A and MAUDITE MACHINE',
+  } as Readonly<Record<string, string>>,
+} as const;
+
+/**
+ * Le mot de Mika dans le menu, au-dessus de Under the hood (2026-10-09,
+ * Mika : "ma description de Maudite Machine et un petit texte disant que je
+ * suis l'auteur de ce site web et de ces machines, donc ce serait bien qu'il
+ * fasse un tour dans la boutique ou dans mon bandcamp pour me supporter,
+ * faire la promo des t-shirts"). La bio est celle du press kit 2027
+ * (docs/presskit-2027/content.mjs), raccourcie ; le mot est a la premiere
+ * personne, signe.
+ */
+export const MENU_ABOUT = {
+  kicker: 'Behind the machines',
+  bio: 'Maudite Machine is a DJ and producer based between Canada, France and Spain, after fifteen years in the Montréal underground. He plays indie dance and psy prog: deep, rolling, made for the second half of the night.',
+  note: 'I built this website and every machine on it myself. If you like playing with them, you can support me: grab a tee or the new hoodie in the shop, or pick up some music on Bandcamp. Thank you!',
+  sign: 'Mika',
+} as const;
+
 export const MERCH_TEXT = 'Small runs, first come first served. No online payment: pick a piece, your order is written for you in the contact form.';
 export const MERCH_EMPTY = 'The store is being restocked. Check back soon.';
 export const MERCH_NOTE = 'Payment details and shipping cost sent by reply.';
@@ -341,8 +383,12 @@ let merchPromise: Promise<MerchProduct[]> | null = null;
 /** Une lecture par page (cache) ; un echec rend [] et laisse le prochain montage reessayer. */
 export function fetchMerch(): Promise<MerchProduct[]> {
   if (!merchPromise) {
+    // Une reponse en erreur (404, 500) est un echec comme le reseau coupe : le cache se vide, on relira
     const p: Promise<MerchProduct[]> = fetch('/store.json', { cache: 'no-cache' })
-      .then((r) => (r.ok ? r.json() : []))
+      .then((r) => {
+        if (!r.ok) throw new Error(`store.json ${r.status}`);
+        return r.json();
+      })
       .then(groupMerch, () => {
         if (merchPromise === p) merchPromise = null;
         return [];

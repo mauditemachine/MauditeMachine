@@ -276,6 +276,7 @@ const AdminEvents: React.FC = () => {
                     <option value="tshirt">T-shirt</option>
                     <option value="sweatshirt">Sweatshirt</option>
                     <option value="hoodie">Hoodie</option>
+                    <option value="hoodie-wamm">Hoodie We Are Music Makers</option>
                     <option value="bag">Bag</option>
                     <option value="other">Other</option>
                   </select>
