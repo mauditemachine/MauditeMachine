@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 8 octobre 2026 depuis le code du site (`npm run docs:midi`) : 437 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 9 octobre 2026 depuis le code du site (`npm run docs:midi`) : 556 cibles, 6 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -606,7 +606,7 @@ Le setup conseille sur le Roto (SETUP 11 a 16) laisse les premiers a toi. Un pot
 
 Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI LEARN, ou le fichier d'assignations du chapitre 5). La colonne « Dans » dit dans quels setups du Roto elle est deja placee. La cible d'un id est dans la machine de son prefixe : `rytm:` MM-RYTM (scope `mm808`), `voy:` MM-ARP (`voy`), `bass:` MM-BASS (`bass`), `dj:` MM-DECKS (`dj`, `dj:smpl:<platine>:` pour le sampler de chaque platine), `nav:` navigation (`global`).
 
-### MM-RYTM (scope `mm808`, 139 cibles)
+### MM-RYTM (scope `mm808`, 228 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -626,6 +626,9 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:enc:vchorus` | CHORUS (SELECTED VOICE) | valeur 0 a 127 |  | RYTM |
 | `rytm:enc:vdelay` | DELAY (SELECTED VOICE) | valeur 0 a 127 |  | RYTM |
 | `rytm:enc:vreverb` | REVERB (SELECTED VOICE) | valeur 0 a 127 |  | RYTM |
+| `rytm:enc:vtune` | TUNE (SELECTED VOICE) | valeur 0 a 127 | 49 |  |
+| `rytm:enc:vpan` | PAN (SELECTED VOICE) | valeur 0 a 127 |  |  |
+| `rytm:enc:vstart` | START (SELECTED VOICE) | valeur 0 a 127 |  |  |
 | `rytm:voice:BD:tone` | BD TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:BD:decay` | BD DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:BD:level` | BD VOLUME | valeur 0 a 127 |  | RYTM |
@@ -633,6 +636,9 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:BD:reverb` | BD REVERB | valeur 0 a 127 |  |  |
 | `rytm:voice:BD:delay` | BD DELAY | valeur 0 a 127 |  |  |
 | `rytm:voice:BD:chorus` | BD CHORUS | valeur 0 a 127 |  |  |
+| `rytm:voice:BD:tune` | BD TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:voice:BD:pan` | BD PAN | valeur 0 a 127 |  |  |
+| `rytm:voice:BD:start` | BD START | valeur 0 a 127 |  |  |
 | `rytm:voice:SD:tone` | SD TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:SD:decay` | SD DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:SD:level` | SD VOLUME | valeur 0 a 127 |  | RYTM |
@@ -640,6 +646,9 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:SD:reverb` | SD REVERB | valeur 0 a 127 |  |  |
 | `rytm:voice:SD:delay` | SD DELAY | valeur 0 a 127 |  |  |
 | `rytm:voice:SD:chorus` | SD CHORUS | valeur 0 a 127 |  |  |
+| `rytm:voice:SD:tune` | SD TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:voice:SD:pan` | SD PAN | valeur 0 a 127 |  |  |
+| `rytm:voice:SD:start` | SD START | valeur 0 a 127 |  |  |
 | `rytm:voice:CH:tone` | CH TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:CH:decay` | CH DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:CH:level` | CH VOLUME | valeur 0 a 127 |  | RYTM |
@@ -647,6 +656,9 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:CH:reverb` | CH REVERB | valeur 0 a 127 |  |  |
 | `rytm:voice:CH:delay` | CH DELAY | valeur 0 a 127 |  |  |
 | `rytm:voice:CH:chorus` | CH CHORUS | valeur 0 a 127 |  |  |
+| `rytm:voice:CH:tune` | CH TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:voice:CH:pan` | CH PAN | valeur 0 a 127 |  |  |
+| `rytm:voice:CH:start` | CH START | valeur 0 a 127 |  |  |
 | `rytm:voice:OH:tone` | OH TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:OH:decay` | OH DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:OH:level` | OH VOLUME | valeur 0 a 127 |  | RYTM |
@@ -654,6 +666,9 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:OH:reverb` | OH REVERB | valeur 0 a 127 |  |  |
 | `rytm:voice:OH:delay` | OH DELAY | valeur 0 a 127 |  |  |
 | `rytm:voice:OH:chorus` | OH CHORUS | valeur 0 a 127 |  |  |
+| `rytm:voice:OH:tune` | OH TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:voice:OH:pan` | OH PAN | valeur 0 a 127 |  |  |
+| `rytm:voice:OH:start` | OH START | valeur 0 a 127 |  |  |
 | `rytm:voice:CP:tone` | CP TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:CP:decay` | CP DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:CP:level` | CP VOLUME | valeur 0 a 127 |  | RYTM |
@@ -661,6 +676,9 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:CP:reverb` | CP REVERB | valeur 0 a 127 |  |  |
 | `rytm:voice:CP:delay` | CP DELAY | valeur 0 a 127 |  |  |
 | `rytm:voice:CP:chorus` | CP CHORUS | valeur 0 a 127 |  |  |
+| `rytm:voice:CP:tune` | CP TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:voice:CP:pan` | CP PAN | valeur 0 a 127 |  |  |
+| `rytm:voice:CP:start` | CP START | valeur 0 a 127 |  |  |
 | `rytm:voice:TOM:tone` | TOM TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:TOM:decay` | TOM DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:TOM:level` | TOM VOLUME | valeur 0 a 127 |  | RYTM |
@@ -668,6 +686,9 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:TOM:reverb` | TOM REVERB | valeur 0 a 127 |  |  |
 | `rytm:voice:TOM:delay` | TOM DELAY | valeur 0 a 127 |  |  |
 | `rytm:voice:TOM:chorus` | TOM CHORUS | valeur 0 a 127 |  |  |
+| `rytm:voice:TOM:tune` | TOM TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:voice:TOM:pan` | TOM PAN | valeur 0 a 127 |  |  |
+| `rytm:voice:TOM:start` | TOM START | valeur 0 a 127 |  |  |
 | `rytm:voice:HT:tone` | HT TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:HT:decay` | HT DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:HT:level` | HT VOLUME | valeur 0 a 127 |  | RYTM |
@@ -675,6 +696,9 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:HT:reverb` | HT REVERB | valeur 0 a 127 |  |  |
 | `rytm:voice:HT:delay` | HT DELAY | valeur 0 a 127 |  |  |
 | `rytm:voice:HT:chorus` | HT CHORUS | valeur 0 a 127 |  |  |
+| `rytm:voice:HT:tune` | HT TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:voice:HT:pan` | HT PAN | valeur 0 a 127 |  |  |
+| `rytm:voice:HT:start` | HT START | valeur 0 a 127 |  |  |
 | `rytm:voice:CY:tone` | CY TONE | valeur 0 a 127 |  |  |
 | `rytm:voice:CY:decay` | CY DECAY | valeur 0 a 127 |  |  |
 | `rytm:voice:CY:level` | CY VOLUME | valeur 0 a 127 |  | RYTM |
@@ -682,6 +706,9 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:voice:CY:reverb` | CY REVERB | valeur 0 a 127 |  |  |
 | `rytm:voice:CY:delay` | CY DELAY | valeur 0 a 127 |  |  |
 | `rytm:voice:CY:chorus` | CY CHORUS | valeur 0 a 127 |  |  |
+| `rytm:voice:CY:tune` | CY TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:voice:CY:pan` | CY PAN | valeur 0 a 127 |  |  |
+| `rytm:voice:CY:start` | CY START | valeur 0 a 127 |  |  |
 | `rytm:voice:BD:mute` | MUTE BD | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
 | `rytm:voice:SD:mute` | MUTE SD | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
 | `rytm:voice:CH:mute` | MUTE CH | valeur 0 a 127 | 2 | RYTM, MIXER, LIVE |
@@ -702,6 +729,50 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:kit:gate` | TWEAK GATE | valeur 0 a 127 | 2 |  |
 | `rytm:kit:hh` | TWEAK HATS | valeur 0 a 127 | 3 | RYTM |
 | `rytm:kit:tom` | TWEAK TOMS | valeur 0 a 127 | 3 |  |
+| `rytm:kit:sweep` | TWEAK KICK SWEEP | valeur 0 a 127 |  |  |
+| `rytm:kit:sdtune` | TWEAK SNARE TUNE | valeur 0 a 127 |  |  |
+| `rytm:kit:sddecay` | TWEAK SNARE DECAY | valeur 0 a 127 |  |  |
+| `rytm:kit:sdtone` | TWEAK SNARE TONE | valeur 0 a 127 |  |  |
+| `rytm:layer:bd:mach` | KICK SYN MACHINE | valeur 0 a 127 | 3 |  |
+| `rytm:layer:bd:syn` | KICK SYN LEVEL | valeur 0 a 127 |  |  |
+| `rytm:layer:bd:sample` | KICK SAMPLE | valeur 0 a 127 | 7 |  |
+| `rytm:layer:bd:lev` | KICK SMP LEVEL | valeur 0 a 127 |  |  |
+| `rytm:layer:bd:tune` | KICK SMP TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:layer:bd:fine` | KICK SMP FINE | valeur 0 a 127 | 129 |  |
+| `rytm:layer:bd:start` | KICK SMP START | valeur 0 a 127 |  |  |
+| `rytm:layer:bd:len` | KICK SMP LEN | valeur 0 a 127 |  |  |
+| `rytm:layer:bd:rev` | KICK SMP REV | valeur 0 a 127 | 2 |  |
+| `rytm:layer:sd:mach` | SNARE SYN MACHINE | valeur 0 a 127 | 3 |  |
+| `rytm:layer:sd:syn` | SNARE SYN LEVEL | valeur 0 a 127 |  |  |
+| `rytm:layer:sd:sample` | SNARE SAMPLE | valeur 0 a 127 | 5 |  |
+| `rytm:layer:sd:lev` | SNARE SMP LEVEL | valeur 0 a 127 |  |  |
+| `rytm:layer:sd:tune` | SNARE SMP TUNE | valeur 0 a 127 | 49 |  |
+| `rytm:layer:sd:fine` | SNARE SMP FINE | valeur 0 a 127 | 129 |  |
+| `rytm:layer:sd:start` | SNARE SMP START | valeur 0 a 127 |  |  |
+| `rytm:layer:sd:len` | SNARE SMP LEN | valeur 0 a 127 |  |  |
+| `rytm:layer:sd:rev` | SNARE SMP REV | valeur 0 a 127 | 2 |  |
+| `rytm:layer:hh:mach` | HATS SYN MACHINE | valeur 0 a 127 | 3 |  |
+| `rytm:layer:hh:syn` | HATS SYN LEVEL | valeur 0 a 127 |  |  |
+| `rytm:layer:cp:mach` | CLAP SYN MACHINE | valeur 0 a 127 | 3 |  |
+| `rytm:layer:cp:syn` | CLAP SYN LEVEL | valeur 0 a 127 |  |  |
+| `rytm:layer:tom:mach` | TOMS SYN MACHINE | valeur 0 a 127 | 3 |  |
+| `rytm:layer:tom:syn` | TOMS SYN LEVEL | valeur 0 a 127 |  |  |
+| `rytm:knob:1` | KNOB A (PAGE) | valeur 0 a 127 | selon la page |  |
+| `rytm:knob:2` | KNOB B (PAGE) | valeur 0 a 127 | selon la page |  |
+| `rytm:knob:3` | KNOB C (PAGE) | valeur 0 a 127 | selon la page |  |
+| `rytm:knob:4` | KNOB D (PAGE) | valeur 0 a 127 | selon la page |  |
+| `rytm:knob:5` | KNOB E (PAGE) | valeur 0 a 127 | selon la page |  |
+| `rytm:knob:6` | KNOB F (PAGE) | valeur 0 a 127 | selon la page |  |
+| `rytm:knob:7` | KNOB G (PAGE) | valeur 0 a 127 | selon la page |  |
+| `rytm:knob:8` | KNOB H (PAGE) | valeur 0 a 127 | selon la page |  |
+| `rytm:page:trig` | PAGE TRIG | appui |  |  |
+| `rytm:page:src` | PAGE SRC | appui |  |  |
+| `rytm:page:smpl` | PAGE SMPL | appui |  |  |
+| `rytm:page:fltr` | PAGE FLTR | appui |  |  |
+| `rytm:page:amp` | PAGE AMP | appui |  |  |
+| `rytm:page:fx` | PAGE FX | appui |  |  |
+| `rytm:page` | PAGE (TRIG TO FX) | valeur 0 a 127 | 6 |  |
+| `rytm:home` | HOME / PAGE SCREEN | appui |  |  |
 | `rytm:pad:BD` | PAD BD | appui |  | RYTM |
 | `rytm:pad:SD` | PAD SD | appui |  | RYTM |
 | `rytm:pad:CH` | PAD CH | appui |  | RYTM |
@@ -726,6 +797,23 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:step:13` | STEP 14 | appui |  |  |
 | `rytm:step:14` | STEP 15 | appui |  |  |
 | `rytm:step:15` | STEP 16 | appui |  |  |
+| `rytm:lock:0` | LOCK STEP 1 | appui |  |  |
+| `rytm:lock:1` | LOCK STEP 2 | appui |  |  |
+| `rytm:lock:2` | LOCK STEP 3 | appui |  |  |
+| `rytm:lock:3` | LOCK STEP 4 | appui |  |  |
+| `rytm:lock:4` | LOCK STEP 5 | appui |  |  |
+| `rytm:lock:5` | LOCK STEP 6 | appui |  |  |
+| `rytm:lock:6` | LOCK STEP 7 | appui |  |  |
+| `rytm:lock:7` | LOCK STEP 8 | appui |  |  |
+| `rytm:lock:8` | LOCK STEP 9 | appui |  |  |
+| `rytm:lock:9` | LOCK STEP 10 | appui |  |  |
+| `rytm:lock:10` | LOCK STEP 11 | appui |  |  |
+| `rytm:lock:11` | LOCK STEP 12 | appui |  |  |
+| `rytm:lock:12` | LOCK STEP 13 | appui |  |  |
+| `rytm:lock:13` | LOCK STEP 14 | appui |  |  |
+| `rytm:lock:14` | LOCK STEP 15 | appui |  |  |
+| `rytm:lock:15` | LOCK STEP 16 | appui |  |  |
+| `rytm:lock` | LOCK (SELECTED STEP) | appui |  |  |
 | `rytm:run` | RUN/STOP | appui |  |  |
 | `rytm:clear` | CLEAR | appui |  | RYTM |
 | `rytm:random` | RANDOM | appui |  | RYTM |
@@ -733,6 +821,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:solo` | SOLO | appui |  |  |
 | `rytm:edit` | EDIT | appui |  | RYTM |
 | `rytm:open` | OPEN | appui |  | RYTM |
+| `rytm:infos` | INFOS (HELP ON HOVER) | appui |  |  |
 | `rytm:ptn:0` | PATTERN A01 | appui |  | RYTM |
 | `rytm:ptn:1` | PATTERN A02 | appui |  | RYTM |
 | `rytm:ptn:2` | PATTERN A03 | appui |  | RYTM |
@@ -750,7 +839,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `rytm:ptn:14` | PATTERN A15 | appui |  |  |
 | `rytm:ptn:15` | PATTERN A16 | appui |  |  |
 
-### MM-ARP (scope `voy`, 66 cibles)
+### MM-ARP (scope `voy`, 67 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -820,8 +909,9 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:random` | RANDOM | appui |  | ARP |
 | `voy:edit` | EDIT | appui |  | ARP |
 | `voy:open` | OPEN | appui |  | ARP |
+| `voy:infos` | INFOS (HELP ON HOVER) | appui |  |  |
 
-### MM-BASS (scope `bass`, 71 cibles)
+### MM-BASS (scope `bass`, 100 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -849,6 +939,31 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:knob:release` | RELEASE | valeur 0 a 127 |  | BASS |
 | `bass:knob:suboct` | SUB OCT | valeur 0 a 127 | 2 |  |
 | `bass:knob:tune` | TUNE | valeur 0 a 127 |  | BASS |
+| `bass:knob:pw` | PW | valeur 0 a 127 |  |  |
+| `bass:knob:keytrack` | KEY TRK | valeur 0 a 127 |  |  |
+| `bass:knob:attack` | ATTACK | valeur 0 a 127 |  |  |
+| `bass:knob:adecay` | AMP DECAY | valeur 0 a 127 |  |  |
+| `bass:knob:sustain` | SUSTAIN | valeur 0 a 127 |  |  |
+| `bass:knob:delay` | DELAY | valeur 0 a 127 |  |  |
+| `bass:knob:dtime` | DLY TIME | valeur 0 a 127 | 6 |  |
+| `bass:knob:dfb` | DLY FB | valeur 0 a 127 |  |  |
+| `bass:knob:reverb` | REVERB | valeur 0 a 127 |  |  |
+| `bass:knob:rsize` | REV SIZE | valeur 0 a 127 |  |  |
+| `bass:knob:rtone` | REV TONE | valeur 0 a 127 |  |  |
+| `bass:knob:1` | ENCODER A (PAGE) | valeur 0 a 127 |  |  |
+| `bass:knob:2` | ENCODER B (PAGE) | valeur 0 a 127 |  |  |
+| `bass:knob:3` | ENCODER C (PAGE) | valeur 0 a 127 |  |  |
+| `bass:knob:4` | ENCODER D (PAGE) | valeur 0 a 127 |  |  |
+| `bass:knob:5` | ENCODER E (PAGE) | valeur 0 a 127 |  |  |
+| `bass:knob:6` | ENCODER F (PAGE) | valeur 0 a 127 |  |  |
+| `bass:knob:7` | ENCODER G (PAGE) | valeur 0 a 127 |  |  |
+| `bass:knob:8` | ENCODER H (PAGE) | valeur 0 a 127 |  |  |
+| `bass:page:voice` | PAGE VOICE | appui |  |  |
+| `bass:page:filter` | PAGE FILTER | appui |  |  |
+| `bass:page:env` | PAGE ENV | appui |  |  |
+| `bass:page:fx` | PAGE FX | appui |  |  |
+| `bass:page` | PAGE (VOICE FILTER ENV FX) | valeur 0 a 127 | 4 |  |
+| `bass:key:i` | INFOS (THE i OF THE SCREEN) | appui |  |  |
 | `bass:key:run` | RUN/STOP | appui |  |  |
 | `bass:key:edit` | EDIT | appui |  | BASS |
 | `bass:key:open` | OPEN | appui |  |  |
@@ -861,6 +976,10 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:key:noteup` | NOTE + | appui |  | BASS |
 | `bass:key:octdn` | OCT - | appui |  | BASS |
 | `bass:key:octup` | OCT + | appui |  | BASS |
+| `bass:key:pvoice` | VOICE | appui |  |  |
+| `bass:key:pfilter` | FILTER | appui |  |  |
+| `bass:key:penv` | ENV | appui |  |  |
+| `bass:key:pfx` | FX | appui |  |  |
 | `bass:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | BASS, MIXER, LIVE |
 | `bass:trig:0` | STEP 1 | appui |  | BASS |
 | `bass:trig:1` | STEP 2 | appui |  | BASS |
