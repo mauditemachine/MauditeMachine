@@ -404,7 +404,8 @@ export function targetIdOfHotspot(h: { kind: string; param?: string; rknob?: str
     case 'djkey':
       return h.dj ? `dj:${h.dj}` : null;
     case 'bassknob':
-      return h.bass ? `bass:knob:${h.bass}` : null;
+      // Un encodeur de la face du MM-BASS (2026-10-09) : son FX global (bass:global:drive...), jamais un P-lock
+      return h.bass ? (h.bass.startsWith('global:') ? `bass:${h.bass}` : `bass:knob:${h.bass}`) : null;
     case 'basskey':
       return h.bass ? `bass:key:${h.bass}` : null;
     case 'basstrig':

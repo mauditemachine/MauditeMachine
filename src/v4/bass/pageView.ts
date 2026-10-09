@@ -27,10 +27,29 @@
  * potard a tourner. La revue du meme jour : tant qu'un doigt tient un bloc,
  * la ligne du bas repete son nom, son nombre et son unite (le doigt cache le
  * bloc), en LOCK avec son pas ; la ligne du LOCK dit aussi comment sortir.
+ *
+ * L'etape 2 (2026-10-09, Mika : "quand on selectionne un step on rentre en
+ * parameters lock et la dans ce cas ca doit s'afficher dans ENV que nous
+ * sommes en P-LOCKS ; j'aimerais autant en mobile qu'en desktop pouvoir
+ * modifier les choses directement sur l'ecran") :
+ * - le titre de la page s'ecrit (AMP ENV, FILTER 303...), en P-LOCK suivi de
+ *   P-LOCKS, et l'en-tete entier passe en negatif (P-LOCK STEP 05) ; le
+ *   compte des verrous du pas (3 P-LOCKS) sur chaque page ;
+ * - un bloc verrouille sur le pas porte sa marque (P, mark) ; un reglage qui
+ *   ne se verrouille pas dit GLOBAL (global) ; un verrou qui ne s'entendrait
+ *   pas le dit, attenue (hint : SUSTAIN FULL, SAW: NO PW, ACCENT STEPS,
+ *   SLIDE STEPS, ROOT NOTE) ;
+ * - en lecture, le pas qui joue porte des verrous (n'importe quelle page) :
+ *   la puce P-LOCK de l'en-tete et sa case de la bande clignotent avec lui ;
+ * - desktop : le bloc sous la souris (hover) se cerne a peine ; un encodeur
+ *   de la face (les FX globaux) montre son reglage dans une bulle (pop) ;
+ * - ENV : l'enveloppe de l'ampli en grand sur les cases libres (envGate : la
+ *   longueur de la note qui joue, en part du pas) ;
+ * - EDIT : la note qu'on glisse au rouleau (drag), son nom.
  */
 
 import { BASS_PAGES, BASS_PAGE_SLOTS, ENC_LETTERS, bassPageDef, isBassGlobal, type BassPageId } from './pages';
-import { BASS_ROOTS, BASS_SCALES, BASS_STYLES, bassBig, bassKnob, bassUnit, stepOf, type BassKnobId, type BassValues } from './params';
+import { BASS_ROOTS, BASS_SCALES, BASS_STYLES, bassBig, bassKnob, bassUnit, lengthPct, stepOf, type BassKnobId, type BassValues } from './params';
 import { BASS_LOCKABLE, BASS_STEPS, chainLocks, isLockable, type BassLocks, type BassStep } from './state';
 
 export type BlockState = 'empty' | 'live' | 'lockOn' | 'lockOff' | 'global' | 'flash';
@@ -52,6 +71,14 @@ export interface BassBlock {
   echo: boolean;
   /** un pointeur le tient (2026-10-09) : l'ecran le cerne */
   held: boolean;
+  /** la souris le survole (desktop, 2026-10-09) : un cadre discret */
+  hover: boolean;
+  /** il porte un verrou sur le pas (en P-LOCK) ou sur le pas qui joue : la marque P (2026-10-09) */
+  mark: boolean;
+  /** un reglage qui ne se verrouille jamais (DLY TIME, OCTAVE...) : l'etiquette GLOBAL */
+  global: boolean;
+  /** ce verrou ne s'entendrait pas, et pourquoi (SUSTAIN FULL...) ; '' : rien a dire */
+  hint: string;
   draw: BlockDraw;
   /** ses crans (0 : continu) et le cran courant */
   notches: number;
@@ -70,9 +97,24 @@ export interface BassStripCell {
   lock: 0 | 1 | 2;
 }
 
+/** La bulle d'un encodeur de la face (2026-10-09) : son reglage global, sans quitter la page. */
+export interface BassPop {
+  k: number;
+  letter: string;
+  id: BassKnobId;
+  label: string;
+  big: string;
+  unit: string;
+  v: number;
+  draw: BlockDraw;
+  notches: number;
+  notch: number;
+}
+
 export interface BassPageModel {
   page: BassPageId;
   pages: readonly { id: BassPageId; label: string; locks: number }[];
+  /** le titre de la page (AMP ENV) ; en P-LOCK, plock dit d'ajouter P-LOCKS */
   title: string;
   running: boolean;
   bpm: number;
@@ -80,16 +122,25 @@ export interface BassPageModel {
   /** l'en-tete : le preset charge tant que rien n'a bouge (2026-10-09, presets.current), sinon le style */
   style: string;
   key: string;
+  /** le pas en P-LOCK : son rang, sa note, ses verrous (toutes pages) */
   lock: { step: number; what: string; n: number } | null;
+  /** la ligne de titre, a droite : en P-LOCK le compte des verrous du pas, sinon les pas verrouilles de la ligne */
+  count: string;
+  /** en lecture, le pas qui joue porte des verrous (n'importe quelle page) : la puce P-LOCK clignote */
+  chip: boolean;
   infos: boolean;
   blocks: BassBlock[];
   /** les quatre temps de l'ampli montres (ATTACK, AMP DECAY, SUSTAIN, RELEASE, 0 a 1) : le dessin ADSR */
   env: readonly [number, number, number, number];
-  strip: { cells: BassStripCell[]; play: number; sel: number; lock: number };
+  /** la longueur de la note montree, en part du pas (LENGTH ou le style) : le grand dessin d'ENV la marque */
+  envGate: number;
+  strip: { cells: BassStripCell[]; play: number; sel: number; lock: number; flash: boolean };
   line: string;
   lineHot: boolean;
   /** a droite de la ligne du bas, discret */
   aside: string;
+  /** la bulle d'un encodeur de la face, null : aucune */
+  pop: BassPop | null;
 }
 
 const DRAW: Partial<Record<BassKnobId, BlockDraw>> = {
@@ -125,6 +176,9 @@ function pageLockCount(steps: readonly BassStep[], page: BassPageId): number {
   return steps.filter((s) => s.locks && ids.some((id) => id !== null && isLockable(id) && s.locks?.[id] !== undefined)).length;
 }
 
+/** La note de reference de KEY TRK (bass.worklet.js KT_REF : fa diese 2) : une note qui la joue ne bouge pas avec lui. */
+const KT_REF_MIDI = 42;
+
 export interface PageInput {
   steps: readonly BassStep[];
   values: BassValues;
@@ -148,6 +202,10 @@ export interface PageInput {
   midiOf: (s: BassStep) => number;
   /** les blocs tenus par un pointeur, rang 0 a 7 (2026-10-09) */
   held?: readonly number[];
+  /** le bloc sous la souris (desktop, 2026-10-09), -1 : aucun */
+  hover?: number;
+  /** l'encodeur de la face qu'on vient de tourner et son reglage (2026-10-09), null : aucun */
+  pop?: { k: number; id: BassKnobId } | null;
   /** le telephone : pas d'encodeurs, les gestes rappeles parlent des blocs */
   phone?: boolean;
 }
@@ -159,7 +217,7 @@ function stepWhat(s: BassStep, name: (s: BassStep) => string): string {
 }
 
 /** La bande des seize pas : la ligne en contour, les verrous de la page. */
-function strip(inp: PageInput): BassPageModel['strip'] {
+function strip(inp: PageInput, flash: boolean): BassPageModel['strip'] {
   const ids = BASS_PAGE_SLOTS[inp.page];
   const midis: (number | null)[] = [];
   let last: number | null = null;
@@ -176,7 +234,36 @@ function strip(inp: PageInput): BassPageModel['strip'] {
     const m = midis[i];
     return { kind: s.kind, acc: s.kind === 'note' && s.acc, slide: s.kind !== 'off' && s.slide, h: m === null || hi === lo ? 0.5 : (m - lo) / (hi - lo), lock: here ? 2 : s.locks ? 1 : 0 };
   });
-  return { cells, play: inp.running ? inp.playing : -1, sel: inp.sel, lock: inp.lock };
+  return { cells, play: inp.running ? inp.playing : -1, sel: inp.sel, lock: inp.lock, flash };
+}
+
+/**
+ * Pourquoi un reglage ne s'entendrait pas (2026-10-09, l'enquete : des verrous exactement muets avec le patch de depart)
+ * ; v : les valeurs montrees (en P-LOCK, celles du pas), step : le pas en P-LOCK (null : toute la ligne).
+ */
+function silentHint(id: BassKnobId, v: BassValues, inp: PageInput, step: number): string {
+  const steps = inp.steps;
+  if (id === 'adecay' && v.sustain >= 0.999) return 'SUSTAIN FULL';
+  if (id === 'pw' && v.wave < 0.03) return 'SAW: NO PW';
+  if (id === 'accdecay' || id === 'sweep') {
+    if (step >= 0) {
+      const s = steps[step];
+      return s.kind === 'note' && !s.acc ? 'ACCENT STEPS' : '';
+    }
+    return steps.some((s) => s.kind === 'note' && s.acc) ? '' : 'ACCENT STEPS';
+  }
+  if (id === 'glide') {
+    if (step >= 0) {
+      const prev = steps[(step + BASS_STEPS - 1) % BASS_STEPS];
+      return steps[step].kind === 'note' && prev.kind !== 'off' && prev.slide ? '' : 'SLIDE STEPS';
+    }
+    return steps.some((s, i) => s.kind !== 'off' && s.slide && steps[(i + 1) % BASS_STEPS].kind === 'note') ? '' : 'SLIDE STEPS';
+  }
+  if (id === 'keytrack' && step >= 0) {
+    const s = steps[step];
+    return s.kind === 'note' && inp.midiOf(s) === KT_REF_MIDI ? 'ROOT NOTE' : '';
+  }
+  return '';
 }
 
 /** La PAGE : l'en-tete, les huit blocs, la bande, la ligne du bas. */
@@ -185,8 +272,10 @@ export function bassPageModel(inp: PageInput): BassPageModel {
   const locking = inp.lock >= 0 && inp.lock < BASS_STEPS;
   const lockStep = locking ? inp.steps[inp.lock] : null;
   const lockVals = lockStep?.locks ?? {};
-  // En lecture (hors LOCK) : les valeurs du pas qui joue
-  const playLocks = !locking && inp.running && inp.playing >= 0 ? effectiveLocks(inp.steps, inp.playing) : null;
+  // En lecture : les valeurs du pas qui joue (hors P-LOCK, les blocs les montrent ; toujours, la puce P-LOCK)
+  const nowLocks = inp.running && inp.playing >= 0 ? effectiveLocks(inp.steps, inp.playing) : null;
+  const playLocks = !locking ? nowLocks : null;
+  const shownVals: BassValues = locking ? { ...v, ...lockVals } : v;
   const shown = (id: BassKnobId): { v: number; state: BlockState } => {
     if (locking) {
       if (isBassGlobal(id)) return { v: v[id], state: 'global' };
@@ -198,10 +287,11 @@ export function bassPageModel(inp: PageInput): BassPageModel {
   };
   const blocks = BASS_PAGE_SLOTS[inp.page].map((id, k): BassBlock => {
     const letter = ENC_LETTERS[k];
-    if (id === null) return { k, letter, id: null, label: '', big: '', unit: '', v: 0, state: 'empty', echo: false, held: false, draw: 'bar', notches: 0, notch: 0, seg: -1 };
+    if (id === null) return { k, letter, id: null, label: '', big: '', unit: '', v: 0, state: 'empty', echo: false, held: false, hover: false, mark: false, global: false, hint: '', draw: 'bar', notches: 0, notch: 0, seg: -1 };
     const def = bassKnob(id);
     const s = shown(id);
     const notches = def.steps ?? 0;
+    const global = isBassGlobal(id);
     return {
       k,
       letter,
@@ -213,6 +303,10 @@ export function bassPageModel(inp: PageInput): BassPageModel {
       state: s.state,
       echo: inp.echo === id,
       held: !!inp.held?.includes(k),
+      hover: inp.hover === k,
+      mark: s.state === 'lockOn' || s.state === 'flash',
+      global,
+      hint: global ? '' : silentHint(id, shownVals, inp, locking ? inp.lock : -1),
       draw: blockDrawOf(id),
       notches,
       notch: notches ? stepOf(id, s.v) : 0,
@@ -221,8 +315,13 @@ export function bassPageModel(inp: PageInput): BassPageModel {
   });
   // L'enveloppe dessinee : celle du pas en LOCK, ou du pas qui joue
   const envOf = (id: 'attack' | 'adecay' | 'sustain' | 'release'): number => (locking ? lockVals[id] ?? v[id] : playLocks?.[id] ?? v[id]);
-  const lock = locking && lockStep ? { step: inp.lock, what: stepWhat(lockStep, inp.noteName), n: Object.keys(lockStep.locks ?? {}).length } : null;
+  const lenOf = locking ? lockVals.length ?? v.length : playLocks?.length ?? v.length;
+  const pct = lengthPct(lenOf);
+  const envGate = pct === null ? STYLE_GATE[BASS_STYLES[stepOf('style', v.style)]] : pct / 100;
+  const n = Object.keys(lockStep?.locks ?? {}).length;
+  const lock = locking && lockStep ? { step: inp.lock, what: stepWhat(lockStep, inp.noteName), n } : null;
   const sel = inp.steps[inp.sel];
+  const lockedSteps = inp.steps.filter((s) => s.locks).length;
   // Au telephone, un bloc tenu (2026-10-09, la revue : le doigt cache le nombre qu'il regle) : la ligne du bas le
   // repete tant que le doigt est la, en LOCK avec son pas
   const hb = inp.phone ? blocks.find((b) => b.held && b.id) : undefined;
@@ -230,13 +329,13 @@ export function bassPageModel(inp: PageInput): BassPageModel {
   let aside = '';
   if (hb) line = heldLine(hb, lock?.step ?? -1);
   else if (inp.message) line = inp.message;
-  // Au telephone, la ligne dit aussi comment sortir (2026-10-09, la revue : seule la carte INFOS du LOCK le disait)
-  else if (lock) line = inp.phone ? `DRAG A VALUE: STEP ${two(lock.step)} ONLY  2X: UNLOCK  CLEAR: ALL  TAP ${two(lock.step)}: EXIT` : `TURN A KNOB: STEP ${two(lock.step)} ONLY  2X: UNLOCK  CLEAR: ALL`;
+  // La ligne du P-LOCK dit aussi comment sortir (2026-10-09, la revue : seule la carte INFOS du LOCK le disait)
+  else if (lock) line = inp.phone ? `DRAG A VALUE: STEP ${two(lock.step)} ONLY  2X: UNLOCK  TAP P-LOCK: EXIT` : `DRAG A VALUE: STEP ${two(lock.step)} ONLY  2X: UNLOCK  CLEAR: ALL  ESC: EXIT`;
   else line = sel ? `STEP ${two(inp.sel)}  ${stepWhat(sel, inp.noteName)}` : '';
-  // Le geste du LOCK, a droite de la ligne tant qu'on n'est pas en LOCK (2026-10-08, la revue : au telephone, la
-  // serigraphie sous les pas ne se lit pas, l'ecran oui ; l'ecran le dit aussi apres un pas touche) ; au telephone
-  // (2026-10-09) on glisse un bloc, on ne tourne plus rien
-  if (!lock) aside = inp.phone ? 'HOLD A STEP + DRAG A VALUE: P-LOCK' : 'HOLD A STEP + TURN: P-LOCK';
+  // Le geste, a droite de la ligne tant qu'on n'est pas en P-LOCK (2026-10-09, l'etape 2 : une tape sur un pas, puis
+  // glisser une valeur de l'ecran ; au desktop, les encodeurs de la face sont les FX globaux)
+  if (!lock) aside = inp.phone ? 'TAP A STEP: P-LOCK  DRAG A VALUE' : 'TAP A STEP: P-LOCK  DRAG A VALUE  KNOBS = GLOBAL FX';
+  const pop = inp.pop ? popOf(inp.pop.k, inp.pop.id, v, inp.bpm) : null;
   return {
     page: inp.page,
     pages: BASS_PAGES.map((p) => ({ id: p.id, label: p.label, locks: pageLockCount(inp.steps, p.id) })),
@@ -247,21 +346,47 @@ export function bassPageModel(inp: PageInput): BassPageModel {
     style: inp.preset ? inp.preset.toUpperCase() : BASS_STYLES[stepOf('style', v.style)],
     key: `${BASS_ROOTS[stepOf('root', v.root)]} ${BASS_SCALES[stepOf('scale', v.scale)]}`,
     lock,
+    count: lock ? (n ? `${n} P-LOCK${n > 1 ? 'S' : ''}` : 'NO P-LOCK YET') : lockedSteps ? `P-LOCKS ON ${lockedSteps} STEP${lockedSteps > 1 ? 'S' : ''}` : '',
+    chip: !!nowLocks,
     infos: inp.infos,
     blocks,
     env: [envOf('attack'), envOf('adecay'), envOf('sustain'), envOf('release')],
-    strip: strip(inp),
+    envGate,
+    strip: strip(inp, !!nowLocks),
     line,
     lineHot: !!hb || !!inp.message || !!lock,
     aside,
+    pop,
   };
+}
+
+/** La longueur d'une note en AUTO selon le style (seq.ts GATE, recopiee : pageView reste sans etat ni audio). */
+const STYLE_GATE: Readonly<Record<(typeof BASS_STYLES)[number], number>> = {
+  ACID: 0.52,
+  'DARK DISCO': 0.45,
+  'INDIE DANCE': 0.45,
+  MINIMAL: 0.32,
+  'PSY PROG': 0.38,
+  TECHNO: 0.42,
+  HOUSE: 0.62,
+  ELECTRO: 0.42,
+  EBM: 0.36,
+  ITALO: 0.4,
+  SUB: 0.92,
+};
+
+/** La bulle d'un encodeur : le reglage global (jamais un verrou). */
+function popOf(k: number, id: BassKnobId, v: BassValues, bpm: number): BassPop {
+  const def = bassKnob(id);
+  const notches = def.steps ?? 0;
+  return { k, letter: ENC_LETTERS[k] ?? '', id, label: def.label, big: bassBig(id, v[id]), unit: bassUnit(id, v[id], bpm), v: v[id], draw: blockDrawOf(id), notches, notch: notches ? stepOf(id, v[id]) : 0 };
 }
 
 /** La ligne d'un bloc tenu (2026-10-09) : son nom, son nombre et son unite ; en LOCK, le pas d'abord. */
 function heldLine(b: BassBlock, lock: number): string {
-  if (b.state === 'global') return `${b.label}: GLOBAL, NOT PER STEP`;
+  if (b.state === 'global') return `${b.label} IS GLOBAL  EXIT P-LOCK TO SET IT`;
   const unit = b.unit && b.unit !== b.big ? `  ${b.unit}` : '';
-  return `${lock >= 0 ? `STEP ${two(lock)}  ` : ''}${b.label} ${b.big}${unit}`;
+  return `${lock >= 0 ? `P-LOCK ${two(lock)}  ` : ''}${b.label} ${b.big}${unit}`;
 }
 
 /* ---------------- EDIT ---------------- */
@@ -296,6 +421,10 @@ export interface BassEditModel {
   infos: boolean;
   line: string;
   lineHot: boolean;
+  /** la note qu'on glisse au rouleau (2026-10-09) : son pas et son nom ; null : aucune */
+  drag: { step: number; name: string; lo?: number; hi?: number } | null;
+  /** le pas du rouleau sous la souris (desktop), -1 : aucun */
+  hover: number;
 }
 
 export interface EditInput {
@@ -315,6 +444,10 @@ export interface EditInput {
   midiOf: (s: BassStep) => number;
   /** combien de pistes tiennent */
   maxLanes: number;
+  /** la note glissee au rouleau, null : aucune */
+  drag?: { step: number; name: string; lo?: number; hi?: number } | null;
+  hover?: number;
+  phone?: boolean;
 }
 
 const slotName = (i: number): string => `A${String(i + 1).padStart(2, '0')}`;
@@ -338,6 +471,9 @@ export function bassEditModel(inp: EditInput): BassEditModel {
   const chainOn = inp.chain.length > 1;
   // PLAYING seulement en lecture (2026-10-08, la revue : il s'affichait a cote du carre de l'arret)
   const chain = chainOn ? inp.chain.map(slotName).join(' > ') : inp.next >= 0 ? `NEXT ${slotName(inp.next)}` : !inp.filled[inp.cur] ? 'EMPTY' : inp.running ? 'PLAYING' : 'READY';
+  const drag = inp.drag ?? null;
+  // Le rouleau se glisse (2026-10-09) : la ligne du bas dit le geste, pendant le glisser la note qui sonne
+  const how = inp.phone ? 'DRAG A NOTE: PITCH  TAP: ADD, TIE, OFF' : 'DRAG A NOTE UP OR DOWN: PITCH  CLICK: ADD, TIE, OFF  STEP KEYS: PATTERNS';
   return {
     running: inp.running,
     bpm: inp.bpm,
@@ -354,7 +490,9 @@ export function bassEditModel(inp: EditInput): BassEditModel {
     play: inp.running ? inp.playing : -1,
     sel: inp.sel,
     infos: inp.infos,
-    line: inp.message ?? 'TAP A STEP: PATTERN  TAP MORE: CHAIN  HOLD AN EMPTY ONE: COPY',
-    lineHot: !!inp.message,
+    line: drag ? `STEP ${two(drag.step)}  ${drag.name}` : inp.message ?? how,
+    lineHot: !!inp.message || !!drag,
+    drag,
+    hover: inp.hover ?? -1,
   };
 }

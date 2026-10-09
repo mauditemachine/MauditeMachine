@@ -17,16 +17,24 @@
  * bass:seq:<1-8> (les huit pas de la fenetre : taper, tenir, tourner),
  * bass:seq:window, bass:seq:follow, bass:seq:tie (la liaison du pas choisi) ;
  * le MM-BASS s'y inscrit ici (ses pas, son LOCK, les LEDs de ses touches).
+ * L'etape 2 (2026-10-09, Mika : "en desktop les encoders ne servent qu'a
+ * faire les modifs des FX globaux") : huit cibles de plus, bass:global:<id>
+ * (DRIVE, DELAY, DLY TIME, DLY FB, VOLUME, REVERB, REV SIZE, REV TONE), le
+ * reglage global, jamais un P-lock, meme en P-LOCK : MIDI LEARN sur un
+ * encodeur de la face les donne. bass:knob:1 a 8 restent "le bloc k de la
+ * page a l'ecran" (en P-LOCK, le verrou du pas : le Roto tient un pas et
+ * tourne), bass:knob:<id> le reglage (en P-LOCK, son verrou). Aucune cible
+ * d'avant ne change.
  */
 
 import { registerTargets, type MidiTarget } from '../midi/targets';
 import { seqFollow, seqPress, seqRegister, seqRelease, seqSetFollow, seqWindow, type SeqMachine } from '../midi/seqlink';
 import { bassInfos } from '../state/bassInfos';
 import { editor } from '../state/editor';
-import { bassDial, bassEditing, bassEncDial, bassEncParam, bassEncValue, bassKnobValue, bassLockEnter, bassLockOff, bassLockTap, bassLockToggle, bassPageSet, bassPatternHold, bassPatternTap, bassRun, bassStepTap, bassStepToggle } from './actions';
+import { bassDial, bassEditing, bassEncDial, bassEncParam, bassEncValue, bassFxDial, bassKnobValue, bassLockEnter, bassLockOff, bassLockTap, bassLockToggle, bassPageSet, bassPatternHold, bassPatternTap, bassRun, bassStepTap, bassStepToggle } from './actions';
 import { bassKeyAction } from './gestures';
-import { BASS_PAGES, ENC_LETTERS, bassPage } from './pages';
-import { BASS_KNOBS, bassKnob } from './params';
+import { BASS_FX_KNOBS, BASS_PAGES, ENC_LETTERS, bassPage } from './pages';
+import { BASS_KNOBS, bassKnob, bassParams } from './params';
 import { bassPatterns } from './patterns';
 import { bassSeq } from './seq';
 import { BASS_STEPS, bassState, isLockable } from './state';
@@ -37,12 +45,12 @@ function all(): MidiTarget[] {
   for (const k of BASS_KNOBS) {
     out.push({ id: `bass:knob:${k.id}`, scope: 'bass', label: k.label, kind: 'value', steps: k.steps ?? 0, get: () => bassKnobValue(k.id), set: (v) => bassDial(k.id, v) });
   }
-  // Les encodeurs de la page allumee : leurs crans suivent le reglage qu'ils tiennent
+  // Les blocs de la page a l'ecran (les encodeurs de page d'avant le 2026-10-09) : leurs crans suivent le reglage qu'ils tiennent
   for (let i = 0; i < 8; i += 1) {
     out.push({
       id: `bass:knob:${i + 1}`,
       scope: 'bass',
-      label: `ENCODER ${ENC_LETTERS[i]} (PAGE)`,
+      label: `SCREEN VALUE ${ENC_LETTERS[i]} (PAGE)`,
       kind: 'value',
       get steps() {
         const id = bassEncParam(i);
@@ -52,6 +60,11 @@ function all(): MidiTarget[] {
       set: (v) => bassEncDial(i, v),
     });
   }
+  // Les encodeurs de la face (2026-10-09) : les FX globaux de la machine, jamais un P-lock
+  BASS_FX_KNOBS.forEach((id, k) => {
+    const def = bassKnob(id);
+    out.push({ id: `bass:global:${id}`, scope: 'bass', label: `${def.label} (GLOBAL, KNOB ${ENC_LETTERS[k]})`, kind: 'value', steps: def.steps ?? 0, get: () => bassParams.of(id), set: (v) => bassFxDial(k, v) });
+  });
   for (const p of BASS_PAGES) out.push({ id: `bass:page:${p.id}`, scope: 'bass', label: `PAGE ${p.label}`, kind: 'press', down: () => bassPageSet(p.id) });
   out.push({
     id: 'bass:page',
@@ -111,7 +124,7 @@ function bassTie(): void {
     return;
   }
   const kind = s.kind === 'tie' ? 'note' : 'tie';
-  bassState.setStep(i, { kind });
+  bassState.setStep(i, { kind, src: 'hand' });
   bassState.say(`STEP ${two(i)}  ${kind === 'tie' ? 'TIE' : 'NOTE'}`, 1400);
 }
 

@@ -451,7 +451,9 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
      * Mika : "comme quand on hover un lien, je veux pas les deux fleches").
      */
     const setCursor = (): void => {
-      el.style.cursor = turnAxis !== null ? 'pointer' : stage.orbit.dragging ? 'grabbing' : hover === null ? (hoverMachine ? 'pointer' : overLocked ? 'default' : '') : 'pointer';
+      // L'ecran du MM-BASS se glisse (2026-10-09, l'etape 2 : un bloc qui porte un reglage, le rouleau d'EDIT) : ns-resize
+      const own = hover !== null && hover.startsWith('bass-') ? stage.bass?.cursor(hover) : null;
+      el.style.cursor = turnAxis !== null ? 'pointer' : stage.orbit.dragging ? 'grabbing' : hover === null ? (hoverMachine ? 'pointer' : overLocked ? 'default' : '') : own ?? 'pointer';
     };
     const setHover = (h: HotspotView | null): void => {
       const id = h ? h.id : null;
@@ -855,6 +857,8 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       overviewHover.set(focus.get() === 'all' ? mh : null);
       overLocked = !h && !hoverMachine && stage.orbit.lock(e.clientX, e.clientY, true);
       setPeek(hoverMachine && focus.get() !== 'all');
+      // Le rouleau d'EDIT du MM-BASS (2026-10-09) : la colonne sous la souris s'eclaire
+      if (h?.id === 'bass-roll' || hover === 'bass-roll') bassGestures()?.hover(h, e.clientX - rect.left, e.clientY - rect.top);
       setHover(h);
     };
 

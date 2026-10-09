@@ -42,13 +42,14 @@ const KEY_OF: Readonly<Record<string, BassKeyKind>> = {
 };
 
 export const BASS_KEY_LEGEND: readonly { keys: string; what: string }[] = [
-  { keys: '1 to 8  /  Shift + 1 to 8', what: 'Steps 1 to 16: pick, then note, tie, off (in EDIT: the patterns)' },
+  // L'etape 2 (2026-10-09) : une tape sur un pas le met en P-LOCK, la suivante le change
+  { keys: '1 to 8  /  Shift + 1 to 8', what: 'Steps 1 to 16: P-LOCK (an empty step gets a note), again: tie, off (in EDIT: the patterns)' },
   { keys: 'Space', what: 'Run or stop, in time with the MM-RYTM' },
   { keys: 'E', what: 'Edit: the sixteen patterns on the steps' },
   { keys: 'O  /  I', what: 'Open the machine (fine settings)  /  INFOS: hover a control to read what it does' },
   // Au telephone (2026-10-09) les blocs de l'ecran tiennent lieu d'encodeurs
-  { keys: '[  ]', what: `Previous or next page (VOICE, FILTER, ENV, FX): the eight ${PORTRAIT ? 'screen values' : 'encoders'} follow it` },
-  { keys: 'L  /  Esc', what: `Lock the chosen step (or hold a step): the ${PORTRAIT ? 'screen values' : 'encoders'} change only it  /  out of lock` },
+  { keys: '[  ]', what: `Previous or next page (VOICE, FILTER, ENV, FX): the eight screen values follow it${PORTRAIT ? '' : ', the knobs stay on the global FX'}` },
+  { keys: 'L  /  Esc', what: 'P-LOCK the chosen step: the screen values change only it  /  out of P-LOCK' },
   { keys: 'G  /  M', what: 'Generate a new line  /  mutate a few steps' },
   { keys: 'A  /  S', what: 'Accent  /  slide on the chosen step' },
   { keys: 'Up  Down', what: 'Chosen step one note up or down in the scale' },

@@ -105,7 +105,7 @@ import { lenOfDecay } from '../audio/sampledsp';
 import type { Inst } from '../theme';
 import { VOY_KNOB_IDS, voyKnob, type VoyKnobId } from '../voyager/params';
 import { BASS_KNOBS, BASS_ROOTS, BASS_SCALES, BASS_STYLES, type BassKnobId, type BassStyle } from '../bass/params';
-import type { BassStep } from '../bass/state';
+import type { BassRecipe, BassStep } from '../bass/state';
 
 /* ---------------- MM-RYTM ---------------- */
 
@@ -764,6 +764,19 @@ export function parseLine(line: string): BassStep[] {
 export interface BassFactory {
   params: Record<BassKnobId, number>;
   steps: BassStep[];
+  /**
+   * la recette (2026-10-09, STYLE et DENSITY qui agissent) : une graine tiree du nom (la meme a chaque visite), ancree
+   * a la DENSITY du preset ; la ligne ecrite reste la ligne, ses notes a la main (sans src) : au-dessus de cette
+   * DENSITY, des notes du style s'ajoutent sur ses pas vides, au-dessous rien ne s'enleve
+   */
+  recipe: BassRecipe;
+}
+
+/** La graine d'un preset d'usine : son nom hache (FNV-1a), la meme a chaque visite. */
+function seedOfName(name: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < name.length; i += 1) h = Math.imul(h ^ name.charCodeAt(i), 0x01000193) >>> 0;
+  return h >>> 0;
 }
 
 export function bassFactory(): { name: string; data: BassFactory }[] {
@@ -774,6 +787,7 @@ export function bassFactory(): { name: string; data: BassFactory }[] {
     params.range = (g.range - 1) / 2;
     params.scale = BASS_SCALES.indexOf(g.scale) / (BASS_SCALES.length - 1);
     params.root = BASS_ROOTS.indexOf(g.root) / (BASS_ROOTS.length - 1);
-    return { name: g.name, data: { params, steps: parseLine(g.line) } };
+    const recipe: BassRecipe = { seed: seedOfName(g.name), base: params.density, gen: { style: params.style, density: params.density, slides: params.slides, accents: params.accents, range: params.range } };
+    return { name: g.name, data: { params, steps: parseLine(g.line), recipe } };
   });
 }

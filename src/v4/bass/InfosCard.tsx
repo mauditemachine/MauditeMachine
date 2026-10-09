@@ -16,6 +16,9 @@
  *   l'ecran (2026-10-08) elle dit quoi faire : INFOS: HOVER A CONTROL (au
  *   telephone : TAP A CONTROL) ; un encodeur montre la carte du reglage
  *   qu'il tient sur la page allumee.
+ * L'etape 2 (2026-10-09) : un encodeur de la face montre la carte du FX
+ * global qu'il tient pour de bon (sa section : KNOB A · GLOBAL FX, sa valeur
+ * globale, jamais un verrou).
  * La carte reste sombre dans les deux apparences, comme les ecrans des
  * machines. Eteint, rien n'ecoute la vue (pas de cout par image).
  * Montee par index.tsx hors de .v4-stage (la pastille ne lance pas
@@ -81,13 +84,15 @@ const Card: React.FC<CardProps> = ({ stage, hotspot, id, sheet, pinned }) => {
   const ref = useRef<HTMLDivElement>(null);
   const info = BASS_INFOS[id];
   const knob = isBassInfoKnob(id) ? id : null;
-  const lockStep = s.lock >= 0 ? s.steps[s.lock] : undefined;
+  // Un encodeur de la face (2026-10-09) : son FX global, la valeur de toute la ligne meme en P-LOCK
+  const encM = /^bass-enc-(\d)$/.exec(hotspot);
+  const lockStep = s.lock >= 0 && !encM ? s.steps[s.lock] : undefined;
   const locked = !!knob && !!lockStep && isLockable(knob) && lockStep.locks?.[knob] !== undefined;
   // Un bouton LOCK ou un pas : la carte parle de celui-la (2026-10-08, la revue : elle montrait toujours le pas 1)
   const stepM = /^bass-(lock|trig)-(\d+)$/.exec(hotspot);
   const step = stepM ? Number(stepM[2]) - 1 : undefined;
   const diagram = bassDiagram(id, {
-    v: knob ? bassKnobValue(knob) : 0,
+    v: knob ? (encM ? values[knob] : bassKnobValue(knob)) : 0,
     values: lockStep?.locks ? { ...values, ...lockStep.locks } : values,
     bpm,
     steps: s.steps,
@@ -185,8 +190,8 @@ const Card: React.FC<CardProps> = ({ stage, hotspot, id, sheet, pinned }) => {
     <div ref={ref} className="v4-binfo" data-mode={sheet ? 'sheet' : 'float'} role="note" aria-live="polite" lang="fr">
       {sheet && <span className="v4-binfo-grab" aria-hidden="true" />}
       <div className="v4-binfo-head">
-        <span className="v4-binfo-sec">{info.section}</span>
-        {locked && <span className="v4-binfo-lock">LOCK {String(s.lock + 1).padStart(2, '0')}</span>}
+        <span className="v4-binfo-sec">{encM ? `KNOB ${'ABCDEFGH'[Number(encM[1]) - 1]} · GLOBAL FX` : info.section}</span>
+        {locked && <span className="v4-binfo-lock">P-LOCK {String(s.lock + 1).padStart(2, '0')}</span>}
       </div>
       <div className="v4-binfo-title">{title}</div>
       {diagram && <DiagramSvg d={diagram} />}
@@ -245,7 +250,7 @@ const Chip: React.FC<{ stage: Stage | null; sheet: boolean }> = ({ stage, sheet 
 export const BassInfosCard: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const st = useSyncExternalStore(bassInfos.subscribe, bassInfos.get, bassInfos.get);
   const f = useSyncExternalStore(focus.subscribe, focus.get, focus.get);
-  // Un encodeur montre le reglage de la page allumee : la carte suit la page (2026-10-08)
+  // Un bloc de l'ecran montre le reglage de la page allumee : la carte suit la page (2026-10-08)
   const page = useSyncExternalStore(bassPage.subscribe, bassPage.get, bassPage.get);
   const sheet = useMedia(MOBILE_QUERY);
   const want = st.on && st.id && bassInfoIdOf(st.id) ? st.id : null;
