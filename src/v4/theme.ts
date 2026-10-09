@@ -1060,7 +1060,7 @@ export const POT_SCALE = {
   numR: 0.4,
   numCap: 0.055,
   /** le nom, sous le centre */
-  labelDz: 0.44,
+  labelDz: 0.42,
   labelCap: 0.075,
 } as const;
 
@@ -1070,7 +1070,7 @@ export const POT_SCALE = {
  * telephone : de meme, entre les touches de page et les pads, plus gros au
  * doigt), loin des huit potards de page.
  */
-export const MASTER_POTS = PORTRAIT ? ({ x: { level: 0, tempo: 1.4 }, z: -1.03, s: 1.3 } as const) : ({ x: { level: 2.87, tempo: 4.12 }, z: -2.96, s: 1 } as const);
+export const MASTER_POTS = PORTRAIT ? ({ x: { level: 0, tempo: 1.4 }, z: -0.99, s: 1.3 } as const) : ({ x: { level: 2.87, tempo: 4.12 }, z: -2.96, s: 1 } as const);
 
 function potPlace(id: 'level' | 'tempo'): EncPlace {
   const { x, z, s } = MASTER_POTS;
@@ -1107,7 +1107,7 @@ export const RYTM_PAGE_KEYS = [
   { id: 'fx', label: 'FX' },
 ] as const;
 export const PAGE_KEYS = PORTRAIT
-  ? ({ w: 1.06, d: 0.44, h: 0.1, radius: 0.05, z: -2.31, labelZ: -1.9, cap: 0.09, led: { w: 0.6, d: 0.05, back: 0.11 } } as const)
+  ? ({ w: 1.06, d: 0.44, h: 0.1, radius: 0.05, z: -2.33, labelZ: -1.92, cap: 0.09, led: { w: 0.6, d: 0.05, back: 0.11 } } as const)
   : ({ w: 0.74, d: 0.38, h: 0.1, radius: 0.04, z: -0.5, labelZ: -0.09, cap: 0.075, led: { w: 0.44, d: 0.042, back: 0.09 } } as const);
 /** x de la touche de page k (0 a 5) : six touches egales sur la largeur du verre de l'ecran (2026-10-09). */
 export const pageKeyX = (k: number): number => {
