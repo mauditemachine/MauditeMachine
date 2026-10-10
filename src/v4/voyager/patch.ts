@@ -21,12 +21,18 @@
 
 import { presetMode } from '../state/presetMode';
 import { presets } from '../state/presets';
-import { VOY_KNOB_IDS, voyParams } from './params';
+import { VOY_KNOB_IDS, voyParams, type VoyKnobId } from './params';
 import { seq } from './seq';
 
 const KEY = 'mm.v4.voyager.preset';
+/**
+ * Les potards ajoutes apres l'empreinte (SUB, 2026-10-10) : hors de la liste
+ * d'origine, ils ne s'y ajoutent que s'ils quittent leur valeur de depart ;
+ * une empreinte gardee avant eux reste donc valable (pas d'etoile pour rien).
+ */
+const ADDED_IDS: readonly VoyKnobId[] = ['sub', 'subOct', 'subWave'];
 /** Le niveau de sortie n'est pas le son : VOLUME tourne ne marque pas le patch (RANDOM le garde aussi). */
-const SOUND_IDS = VOY_KNOB_IDS.filter((id) => id !== 'volume');
+const SOUND_IDS = VOY_KNOB_IDS.filter((id) => id !== 'volume' && !ADDED_IDS.includes(id));
 
 interface Origin {
   /** l'id du preset (presets.list), null : RANDOM */
@@ -39,7 +45,8 @@ interface Origin {
 function sigNow(): string {
   const v = voyParams.get();
   const s = seq.get();
-  return JSON.stringify([SOUND_IDS.map((id) => v[id]), s.edit ? [s.len, s.buf] : 0]);
+  const added = ADDED_IDS.some((id) => v[id] !== voyParams.def(id)) ? [ADDED_IDS.map((id) => v[id])] : [];
+  return JSON.stringify([SOUND_IDS.map((id) => v[id]), s.edit ? [s.len, s.buf] : 0, ...added]);
 }
 
 /** L'empreinte du son de depart (INIT). */

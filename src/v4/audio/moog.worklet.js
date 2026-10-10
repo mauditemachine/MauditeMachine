@@ -53,7 +53,7 @@
  * sub (lisse). Il suit la note (pas RANGE ni SEMI d'OSC 1), mais prend le
  * FINE et la derive d'OSC 1 : cale sur lui, il ne bat pas contre lui ; pas
  * de FM ni de SYNC (des graves propres) ; il passe par le filtre, comme les
- * autres. A 0, rien n'est calcule (le son d'avant, au bit pres).
+ * autres. A 0, ni forme ni phase calculees (le son d'avant, au bit pres).
  * Jusqu'a 12 notes en meme temps (les queues de RELEASE se chevauchent) ;
  * au-dela, la plus ancienne repart de son niveau.
  * Notes recues avec leur instant (temps du contexte), jouees a
@@ -674,8 +674,8 @@ class MMVoyager extends AudioWorkletProcessor {
           const f = Math.exp(v.logf);
           v.d1 = (f * ratio1 * Math.pow(2, (v.drift[0] * drift + fine1 + v.vTune + pitchMod) / 1200)) / sr;
           v.d2 = (f * ratio2 * Math.pow(2, (v.drift[1] * drift + fine2 + v.vTune + pitchMod) / 1200)) / sr;
-          // SUB : la note, une ou deux octaves dessous, avec le FINE et la derive d'OSC 1
-          v.d3 = (f * subDiv * Math.pow(2, (v.drift[0] * drift + fine1 + v.vTune + pitchMod) / 1200)) / sr;
+          // SUB : la note, une ou deux octaves dessous, avec le FINE et la derive d'OSC 1 (le pas d'OSC 1 sans son RANGE ni son SEMI)
+          v.d3 = (v.d1 * subDiv) / ratio1;
         }
         const d1 = v.d1;
         const d2 = v.d2;
@@ -693,9 +693,12 @@ class MMVoyager extends AudioWorkletProcessor {
         let o1 = shape1(i1, p1, d1, ph[0], o2, pm);
         if (f1m > 1e-4) o1 += (shape1(i1 + 1, p1, d1, ph[0], o2, pm) - o1) * f1m;
         let o = g1 * o1 + g2 * o2;
-        if (g3 > 1e-6) o += g3 * shape(ph[3], v.d3, subW);
-        ph[3] += v.d3;
-        if (ph[3] >= 1) ph[3] -= Math.floor(ph[3]);
+        // SUB coupe : sa phase s'arrete (il revient en fondu depuis 0, pas de clic)
+        if (g3 > 1e-6) {
+          o += g3 * shape(ph[3], v.d3, subW);
+          ph[3] += v.d3;
+          if (ph[3] >= 1) ph[3] -= Math.floor(ph[3]);
+        }
         if (nGain > 1e-6) {
           if (newNoise) {
             let x = v.seed;
