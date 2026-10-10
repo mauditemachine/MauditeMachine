@@ -2570,3 +2570,10 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 
 - Mika: "quand j'ajuste le BD LENGTH ce n'est pas vraiment super precis". The resolution was fine (one notch about 3 ms on his kicks), but LEN faded the sample over the whole second half of the kept part, so the hit dropped from its middle and the ear could not find where it stopped (on Carassi, LEN 76 showed 319 ms and fell under -20 dB at 235 ms).
 - Now the hit keeps its full body up to the cut and fades in a short cosine just before it: 12 % of the kept part, 6 to 25 ms, never more than half (audio/sampledsp.ts SAMPLE_LEN_FADE, sampleLenFadeS). Measured offline (no audio): the -40 dB point lands within 5 to 30 ms of the displayed duration. LEN FULL is unchanged to the sample. Same for SD and for S.LEN p-locks; the LEN drawing and INFOS card follow.
+
+### R14-258 Machine levels on the MIXER: MM-RYTM and MM-ARP read the same (2026-10-10)
+
+- Mika (MIXER VU screenshot): same volume on both machines, but MM-RYTM much louder and into the red; the kick a bit too loud against the other voices.
+- Measured live on the MIXER channels in a muted headless browser (default pattern and patch, nothing audible): RYTM peaked at -2.7 dBFS (p90 -6.4, median -10.6), ARP at -13.4 (p90 -16.2, median -18.4); ARP factory presets all peak 13.6 to 16.3 dB under 0 offline.
+- Changes: RYTM_TRIM 0.71 -> 0.53 (-2.5 dB, audio/drums.ts); the kick 1.5 dB under the reference (shotsdsp.ts SHOT_BELOW.BD 0 -> 1.5, other voices keep their ceilings from SHOT_KICK_PEAK); ARP VOLUME_K 0.37 -> 0.66 (+5 dB, audio/synth.ts).
+- After: RYTM peak -5.7 (p90 -9, median -13.9), ARP peak -8.8 (p90 -11, median -13.4): same median, both well under the red segment (-0.5 dBFS).

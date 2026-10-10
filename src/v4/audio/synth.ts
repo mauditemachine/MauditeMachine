@@ -49,7 +49,8 @@ const engineOs = (): number => (typeof window !== 'undefined' && window.matchMed
  * (son gain de compensation gonflait le kick), l'ARP reste 3 a 5 dB sous lui,
  * avec le rattrapage de -3 dB des trois machines (drums.ts RYTM_TRIM).
  */
-const VOLUME_K = 0.37;
+// 0.66 le 2026-10-10 (+5 dB, le VU du MIXER : l'ARP cretait 10 dB sous le MM-RYTM, drums.ts RYTM_TRIM)
+const VOLUME_K = 0.66;
 const MAKEUP = { delay: 0.35, reverb: 0.5 } as const;
 /** REVERB : envoi renforce vers la reverbe partagee. */
 const REVERB_BOOST = 1.25;

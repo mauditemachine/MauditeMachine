@@ -327,7 +327,13 @@ function softClipCurve(): Float32Array {
  * le kick sort vers -9 dBFS, le mix le plus dense crete vers -1,7 dBFS, sous
  * le plafond du limiteur (-0,3 dBFS), qui ne touche plus au kick.
  */
-const RYTM_TRIM = 0.71;
+/*
+ * 2026-10-10 (Mika, le VU du MIXER : "le volume de RYTM et ARP sont pareils mais RYTM est bien plus fort ; je ne
+ * veux pas que ca monte dans le rouge") : mesure sur la voie du MIXER (motif et patch de depart, sans son), le
+ * MM-RYTM cretait a -2.7 dBFS, l'ARP a -13.4. Le MM-RYTM descend de 2.5 dB (0.71 avant), le kick de 1.5 dB de
+ * plus (shotsdsp.ts SHOT_BELOW.BD), l'ARP monte de 5 dB (synth.ts VOLUME_K) : les deux se lisent pareil, loin du rouge.
+ */
+const RYTM_TRIM = 0.53;
 
 function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   const bus = c.createGain();

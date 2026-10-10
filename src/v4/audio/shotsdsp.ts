@@ -168,8 +168,10 @@ export const SHOT_LOUD: Readonly<Record<ShotId, number>> = {
   CP: -7.5,
   CY: -12,
 };
+// BD 1.5 (2026-10-10, Mika : "le kick est un peu trop fort par rapport aux autres voix, reduis un peu") : le kick
+// passe 1.5 dB sous la reference, les autres voix gardent la leur (leur plafond reste compte depuis SHOT_KICK_PEAK)
 export const SHOT_BELOW: Readonly<Record<ShotId, number>> = {
-  BD: 0,
+  BD: 1.5,
   SD: 0.5,
   TOM: 1.5,
   HT: 2,
