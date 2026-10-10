@@ -579,7 +579,18 @@ export type EncId =
   | 'dfb'
   // BIT et COMP (2026-10-10, Mika : "on a deja DELAY, remplace par bit reduction et compressor") : les encodeurs G et H
   | 'bits'
-  | 'comp';
+  | 'comp'
+  // Les reglages de chaque FX global (2026-10-10, audio/pattern.ts FX_SETTINGS) : sur la page de leur FX
+  | 'dtone'
+  | 'rsize'
+  | 'rtone'
+  | 'rpre'
+  | 'xtone'
+  | 'crate'
+  | 'cdepth'
+  | 'brate'
+  | 'catk'
+  | 'crel';
 
 /**
  * Les potards de la rangee VOICE et le parametre de voix qu'ils reglent
@@ -710,6 +721,16 @@ export const ENCODERS: readonly { id: EncId; label: string; aria: string }[] = [
   { id: 'dfb', label: 'DLY FB', aria: 'Global delay feedback' },
   { id: 'bits', label: 'BIT', aria: 'Global bit reduction' },
   { id: 'comp', label: 'COMP', aria: 'Global compressor' },
+  { id: 'dtone', label: 'DLY TONE', aria: 'Delay tone, the low pass of the echoes' },
+  { id: 'rsize', label: 'REV SIZE', aria: 'Reverb size, the length of its tail' },
+  { id: 'rtone', label: 'REV TONE', aria: 'Reverb tone, the brightness of its tail' },
+  { id: 'rpre', label: 'REV PRE', aria: 'Reverb pre-delay' },
+  { id: 'xtone', label: 'DIST TONE', aria: 'Distortion tone, the low pass after the drive' },
+  { id: 'crate', label: 'CHO RATE', aria: 'Chorus rate' },
+  { id: 'cdepth', label: 'CHO DEPTH', aria: 'Chorus depth' },
+  { id: 'brate', label: 'BIT RATE', aria: 'Bit reduction sample rate divider' },
+  { id: 'catk', label: 'COMP ATK', aria: 'Compressor attack' },
+  { id: 'crel', label: 'COMP REL', aria: 'Compressor release' },
 ];
 
 /** Libelle serigraphie d'un encodeur (l'ecran l'affiche aussi : VOLUME 80%). */
@@ -1355,6 +1376,17 @@ export const POT_UI = {
     dfb: 2 / 3,
     bits: 0,
     comp: 0,
+    // Les reglages des FX (2026-10-10) : deux tapes, le son d'avant (audio/pattern.ts FX_SETTINGS)
+    dtone: 0.638,
+    rsize: 0.566,
+    rtone: 0.442,
+    rpre: 0.167,
+    xtone: 1,
+    crate: 0.624,
+    cdepth: 0.5,
+    brate: 0,
+    catk: 0.547,
+    crel: 0.486,
   },
 } as const;
 

@@ -118,7 +118,7 @@ import { targetIdOfHotspot } from '../midi/targets';
 import { KIT_ARIA, KIT_IDS, isFamily, kit, kitSteps, type KitId } from '../audio/kit';
 import { mix } from '../audio/drums';
 import { VOICE_FX_DEFAULT, voiceFx } from '../audio/voicefx';
-import { BPM, STEP_COUNT, isOn, pattern } from '../audio/pattern';
+import { BPM, FX_SETTING_IDS, STEP_COUNT, isOn, pattern } from '../audio/pattern';
 import type { HotspotKind, HotspotView } from '../scene/hit';
 import { quadToUnit } from '../scene/quad';
 import type { Stage } from '../scene/renderer';
@@ -1443,7 +1443,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
   const pressed = s === 'opening' || s === 'open';
   const inst = p.instrument;
   const sel = p.instrument ? vfx[p.instrument] : VOICE_FX_DEFAULT;
-  const values: Record<EncId, number> = {
+  const values = {
     tempo: p.bpm,
     level,
     swing,
@@ -1480,7 +1480,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
     dfb: pattern.fx.get().dfb,
     bits: pattern.fx.get().bits,
     comp: pattern.fx.get().comp,
-  };
+    ...Object.fromEntries(FX_SETTING_IDS.map((k) => [k, pattern.fx.get()[k]])),
+  } as Record<EncId, number>;
 
   /** Ref stable par id : l'element entre et sort des deux registres. */
   const refFor = (id: string): ((el: HTMLElement | null) => void) => {

@@ -88,7 +88,52 @@ export interface Fx {
   /** BIT et COMP (2026-10-10, les encodeurs G et H a la place de DLY TIME et DLY FB) : 0, rien ne change */
   bits: number;
   comp: number;
+  /** Les reglages de chaque FX global (2026-10-10, FX_SETTINGS : leur page a l'ecran) */
+  dtone: number;
+  rsize: number;
+  rtone: number;
+  rpre: number;
+  xtone: number;
+  crate: number;
+  cdepth: number;
+  brate: number;
+  catk: number;
+  crel: number;
 }
+
+/**
+ * Les reglages des FX globaux du MM-RYTM (2026-10-10, Mika : "quand je touche a un FX, par exemple DELAY, l'ecran
+ * affiche les configurations de ce FX, pareil pour tous les autres") : 0 a 1, leur valeur de depart rend le son
+ * d'avant (le delay filtre a 4.5 kHz, la reverbe de 2.4 s, son pre-delay de 20 ms, etc.). Leurs lois : fxLaw.
+ */
+export const FX_SETTINGS = { dtone: 0.638, rsize: 0.566, rtone: 0.442, rpre: 0.167, xtone: 1, crate: 0.624, cdepth: 0.5, brate: 0, catk: 0.547, crel: 0.486 } as const;
+export type FxSettingId = keyof typeof FX_SETTINGS;
+export const FX_SETTING_IDS = Object.keys(FX_SETTINGS) as FxSettingId[];
+export const isFxSetting = (id: string): id is FxSettingId => Object.prototype.hasOwnProperty.call(FX_SETTINGS, id);
+const lawClamp = (v: number): number => (Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0);
+/** Les lois des reglages (la meme source pour le son et l'ecran) : Hz, secondes, un facteur, un diviseur. */
+export const fxLaw = {
+  /** DELAY TONE : le passe-bas des echos, 800 Hz a 12 kHz */
+  dtone: (v: number): number => 800 * Math.pow(15, lawClamp(v)),
+  /** REVERB SIZE : la duree de la queue (RT60), 0.5 a 8 s */
+  rsize: (v: number): number => 0.5 * Math.pow(16, lawClamp(v)),
+  /** REVERB TONE : les aigus de la queue (ou elle s'assombrit), 1 a 12 kHz */
+  rtone: (v: number): number => 1000 * Math.pow(12, lawClamp(v)),
+  /** REVERB PRE : le pre-delay, 0 a 120 ms */
+  rpre: (v: number): number => 0.12 * lawClamp(v),
+  /** DIST TONE : le passe-bas apres la saturation, 1 a 16 kHz (16 kHz : ouvert) */
+  xtone: (v: number): number => 1000 * Math.pow(16, lawClamp(v)),
+  /** CHORUS RATE : la vitesse des LFO, x0.1 a x4 de celle d'avant */
+  crate: (v: number): number => 0.1 * Math.pow(40, lawClamp(v)),
+  /** CHORUS DEPTH : la profondeur des LFO, 0 a 14 ms (7 ms : celle d'avant) */
+  cdepth: (v: number): number => 0.014 * lawClamp(v),
+  /** BIT RATE : l'echantillonnage divise par 1 a 16 */
+  brate: (v: number): number => 1 + Math.round(lawClamp(v) * 15),
+  /** COMP ATTACK : 0.1 a 50 ms */
+  catk: (v: number): number => 0.0001 * Math.pow(500, lawClamp(v)),
+  /** COMP RELEASE : 20 a 800 ms */
+  crel: (v: number): number => 0.02 * Math.pow(40, lawClamp(v)),
+} as const satisfies Record<FxSettingId, (v: number) => number>;
 
 /** Les divisions du DELAY, en doubles croches (pas) : 1/16, 1/8, 1/8 pointee (le depart), 1/4, 1/4 pointee, 1/2. */
 export const DELAY_DIVS: readonly { steps: number; label: string }[] = [
@@ -107,8 +152,8 @@ export const delayFb = (v: number): number => DELAY_FB_MAX * Math.max(0, Math.mi
 export const DTIME_DEFAULT = 2 / (DELAY_DIVS.length - 1);
 export const DFB_DEFAULT = 2 / 3;
 
-export const NEUTRAL_FX: Readonly<Fx> = { swing: 0, drive: 0, reverb: 0, delay: 0, chorus: 0, dtime: DTIME_DEFAULT, dfb: DFB_DEFAULT, bits: 0, comp: 0 };
-const FX_KEYS: readonly (keyof Fx)[] = ['swing', 'drive', 'reverb', 'delay', 'chorus', 'dtime', 'dfb', 'bits', 'comp'];
+export const NEUTRAL_FX: Readonly<Fx> = { swing: 0, drive: 0, reverb: 0, delay: 0, chorus: 0, dtime: DTIME_DEFAULT, dfb: DFB_DEFAULT, bits: 0, comp: 0, ...FX_SETTINGS };
+const FX_KEYS: readonly (keyof Fx)[] = ['swing', 'drive', 'reverb', 'delay', 'chorus', 'dtime', 'dfb', 'bits', 'comp', ...FX_SETTING_IDS];
 
 /**
  * Forme stockee (et celle de window.__v4.state.pattern). fx vient de la
@@ -176,7 +221,7 @@ export const VEL_BARS: readonly number[] = [0, 1, 1, 1, 2, 2, 2, 3, 3, 3];
  * doubles croches roulent, DIST et REVERB neutres. Un motif stocke garde
  * les siens.
  */
-export const DEFAULT_FX: Readonly<Fx> = { swing: 0.3, drive: 0, reverb: 0, delay: 0, chorus: 0, dtime: DTIME_DEFAULT, dfb: DFB_DEFAULT, bits: 0, comp: 0 };
+export const DEFAULT_FX: Readonly<Fx> = { swing: 0.3, drive: 0, reverb: 0, delay: 0, chorus: 0, dtime: DTIME_DEFAULT, dfb: DFB_DEFAULT, bits: 0, comp: 0, ...FX_SETTINGS };
 
 export const defaultPattern = (): Pattern => ({ bpm: BPM.initial, steps: { ...DEFAULT_STEPS } });
 
@@ -248,7 +293,7 @@ export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Reado
     v: 1,
     bpm: p.bpm,
     steps: { ...p.steps },
-    fx: { swing: r3(f.swing), drive: r3(f.drive), reverb: r3(f.reverb), delay: r3(f.delay), chorus: r3(f.chorus), dtime: r3(f.dtime ?? DTIME_DEFAULT), dfb: r3(f.dfb ?? DFB_DEFAULT), bits: r3(f.bits ?? 0), comp: r3(f.comp ?? 0) },
+    fx: { swing: r3(f.swing), drive: r3(f.drive), reverb: r3(f.reverb), delay: r3(f.delay), chorus: r3(f.chorus), dtime: r3(f.dtime ?? DTIME_DEFAULT), dfb: r3(f.dfb ?? DFB_DEFAULT), bits: r3(f.bits ?? 0), comp: r3(f.comp ?? 0), ...(Object.fromEntries(FX_SETTING_IDS.map((k) => [k, r3(f[k] ?? FX_SETTINGS[k])])) as Record<FxSettingId, number>) },
   };
   if (anyLocks(locks)) out.locks = locks as Locks;
   return out;

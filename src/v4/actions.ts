@@ -15,7 +15,7 @@ import { KIT_DEFAULT, KIT_LABEL, KIT_MODELS, KIT_MODEL_LABEL, LAYER_DEFAULT, LAY
 import { lockOf, parseSnd, type LockId, type LockKey, type StepLock } from './audio/locks';
 import { sampleByKey, samplesOf } from './audio/samples';
 import { randomBeat, randomColors, type BeatStyle } from './audio/beats';
-import { BPM, DELAY_DIVS, INSTRUMENTS, VEL_GAIN, VEL_MAX, VEL_NAMES, delayDiv, pattern, velocity } from './audio/pattern';
+import { BPM, DELAY_DIVS, INSTRUMENTS, VEL_GAIN, VEL_MAX, VEL_NAMES, delayDiv, isFxSetting, pattern, velocity } from './audio/pattern';
 import { sc } from './audio/soundcloud';
 import { prepareSynth } from './audio/synth';
 import type { Stage } from './scene/renderer';
@@ -593,6 +593,7 @@ export function dial(id: EncId, v: number, popup = false): void {
   else if (id === 'dfb') pattern.fx.set({ dfb: v });
   else if (id === 'bits') pattern.fx.set({ bits: v });
   else if (id === 'comp') pattern.fx.set({ comp: v });
+  else if (isFxSetting(id)) pattern.fx.set({ [id]: v });
   else setChorus(v);
   // popup : un encodeur du desktop, son popup dit la valeur, seul (revue du 2026-10-09 : la ligne du pied en disait une
   // autre au meme instant, a la place des verrous du pas en P-LOCK)
@@ -659,6 +660,7 @@ export function dialValue(id: EncId): number {
     case 'comp':
       return pattern.fx.get().comp;
     default:
+      if (isFxSetting(id)) return pattern.fx.get()[id];
       return mix.chorus;
   }
 }
