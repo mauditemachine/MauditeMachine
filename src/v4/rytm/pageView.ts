@@ -37,9 +37,9 @@ import { lockOf, type StepLock } from '../audio/locks';
 import { familyOf, isFamily, kit, kitSoundIndex, kitSteps, type KitFamily } from '../audio/kit';
 import { pattern } from '../audio/pattern';
 import type { ShotId } from '../audio/shotsdsp';
-import { rytmPage, type RytmPageState } from '../state/rytmPage';
+import { rytmPage, screenOfState, type RytmPageState } from '../state/rytmPage';
 import type { EncId, Inst } from '../theme';
-import { pageSlots, screenOf, slotCells, type PageSlot, type RytmScreenId, type SlotCell, type SlotDraw, type SlotGraph } from './pages';
+import { pageSlots, slotCells, type PageSlot, type RytmScreenId, type SlotCell, type SlotDraw, type SlotGraph } from './pages';
 import { encText, encUnit, kitUnit, v127Text, velTo127, velWord } from './values';
 
 export type BlockState = 'live' | 'soon' | 'off' | 'empty';
@@ -332,8 +332,8 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
   return b;
 }
 
-/** L'ecran affiche d'un etat de page, pour cette voix. */
-export const screenIn = (s: RytmPageState, inst: Inst | null): RytmScreenId => screenOf(s.page, s.tabs[s.page] ?? 0, inst);
+/** L'ecran affiche d'un etat de page, pour cette voix (sur GLOBAL FX, la page du FX ouverte, 2026-10-10). */
+export const screenIn = (s: RytmPageState, inst: Inst | null): RytmScreenId => screenOfState(s, inst);
 
 /** Les blocs de l'ecran affiche pour la voix choisie (null : aucune). */
 export function pageBlocks(s: RytmPageState, inst: Inst | null, now: number, mode: BlockMode | null = null): Block[] {

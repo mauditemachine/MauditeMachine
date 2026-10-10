@@ -37,9 +37,16 @@
  * etats (une voix, plusieurs, tenu : toutes reviennent). Les renvois d'une
  * carte a l'autre nomment l'ecran (VOICE SYNTH), pas une lettre : les blocs
  * changent de place d'une voix a l'autre.
+ *
+ * Les pages des FX globaux (2026-10-10, Mika : "quand je touche a un FX, par
+ * exemple DELAY, dans l'ecran, ca doit afficher les configurations que je peux
+ * avoir pour DELAY") : une carte par reglage (TONE de DIST, RATE et DEPTH du
+ * CHORUS, TIME FEEDBACK TONE du DELAY, SIZE TONE PRE de la REVERB, RATE de BIT,
+ * ATTACK et RELEASE du COMP), leurs lois dans audio/pattern.ts fxLaw ; GLOBAL FX
+ * dit comment les ouvrir.
  */
 
-import { BLOCKS_ARE_KNOBS, type Inst } from '../theme';
+import { BLOCKS_ARE_KNOBS, GLOBAL_ENCODERS, type Inst } from '../theme';
 import {
   RYTM_INFO_PAGE_LABEL,
   RYTM_LETTERS,
@@ -140,8 +147,12 @@ const LOCK_LINE: Readonly<Record<RytmLockable, string>> = {
 
 const NO_BD = "BD est choisi : ce réglage ne touche pas le kick (NO BD à l'écran) ; pour lui, VOICE FX.";
 
-/** Au desktop, un FX global a aussi son encodeur (2026-10-09) : la phrase ajoutee a sa carte. */
-const ENC_LINE = "Au desktop, c'est aussi l'un des huit encodeurs, toujours le même : tourne-le, sa valeur s'affiche en grand sur l'écran.";
+/**
+ * Au desktop, un FX global a aussi son encodeur (2026-10-09) : la phrase ajoutee a sa carte ; seulement les huit des
+ * encodeurs (2026-10-10 : les reglages de leurs pages, TIME et FEEDBACK compris, n'en ont pas).
+ */
+const ENC_LINE = "Au desktop, c'est aussi l'un des huit encodeurs, toujours le même : tourne-le, l'écran passe sur sa page (GLOBAL FX pour STRETCH et SWING), son bloc cerné.";
+const ENC_IDS: ReadonlySet<string> = new Set(GLOBAL_ENCODERS);
 
 const RAW: Record<RytmInfoId, Raw> = {
   /* ---------- les touches de page et les onglets (2026-10-09) ---------- */
@@ -172,7 +183,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   fx: {
     section: 'PAGES',
     title: 'FX',
-    text: "Deux onglets. VOICE FX : les effets de la voix choisie (DIST, CHORUS, DELAY, REVERB, en quatre grands blocs, son nom en étiquette, au téléphone dans l'onglet de l'en-tête), tous verrouillables pas par pas. GLOBAL FX (la touche FX encore, ou GLOBAL dans l'en-tête) : les huit effets de tout le MM-RYTM, DIST, CHORUS, DELAY et REVERB (sauf le kick, il a sa propre voie), STRETCH, SWING, BIT et COMP ; ceux-là ne se verrouillent jamais. Tourner un encodeur du desktop affiche cette page. Au desktop, ce sont aussi les huit encodeurs, dans le même ordre.",
+    text: "Deux onglets. VOICE FX : les effets de la voix choisie (DIST, CHORUS, DELAY, REVERB, en quatre grands blocs, son nom en étiquette, au téléphone dans l'onglet de l'en-tête), tous verrouillables pas par pas. GLOBAL FX (la touche FX encore, ou GLOBAL dans l'en-tête) : les huit effets de tout le MM-RYTM, DIST, CHORUS, DELAY et REVERB (sauf le kick, il a sa propre voie), STRETCH, SWING, BIT et COMP ; ceux-là ne se verrouillent jamais. Une tape sur DIST, CHORUS, DELAY, REVERB, BIT ou COMP ouvre sa page, avec ses réglages ; la touche FX ramène GLOBAL FX. Au desktop, ce sont aussi les huit encodeurs, dans le même ordre : en tourner un ouvre sa page.",
     tip: 'En dark disco, un DELAY sur la seule caisse claire (VOICE FX, SD) : l’écho reste derrière le kick.',
   },
   fxv: {
@@ -184,11 +195,11 @@ const RAW: Record<RytmInfoId, Raw> = {
   fxg: {
     section: 'PAGES',
     title: 'GLOBAL FX',
-    text: "Les huit effets de tout le MM-RYTM, dans l'ordre des encodeurs du desktop : DIST, CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
+    text: "Les huit effets de tout le MM-RYTM, dans l'ordre des encodeurs du desktop : DIST, CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Clique DIST, CHORUS, DELAY, REVERB, BIT ou COMP (ou tourne son encodeur) : sa page s'ouvre, sa quantité en grand et ses réglages à côté (DELAY : TIME, FEEDBACK, TONE ; REVERB : SIZE, TONE, PRE ; COMP : ATTACK, RELEASE...). GLOBAL dans l'en-tête, la touche FX ou Échap ramènent GLOBAL FX ; deux clics remettent toujours un bloc à son départ. Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
     phone: {
-      text: "Les huit effets de tout le MM-RYTM : DIST, CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
+      text: "Les huit effets de tout le MM-RYTM : DIST, CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Touche DIST, CHORUS, DELAY, REVERB, BIT ou COMP : sa page s'ouvre, sa quantité en grand et ses réglages à côté (DELAY : TIME, FEEDBACK, TONE ; REVERB : SIZE, TONE, PRE ; COMP : ATTACK, RELEASE...). GLOBAL dans l'en-tête ou la touche FX ramènent GLOBAL FX ; deux tapes remettent toujours un bloc à son départ. Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
     },
-    tip: 'DLY TIME sur 1/8D et DLY FB vers 70 % : le rebond de l’indie dance ; un peu de DELAY global suffit.',
+    tip: 'Sur la page DELAY, TIME sur 1/8D et FEEDBACK vers 70 % : le rebond de l’indie dance ; un peu de DELAY global suffit.',
   },
 
   /* ---------- VOICE ---------- */
@@ -460,14 +471,14 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'VOICE FX',
     title: 'DELAY',
     lock: 'yes',
-    text: "Envoie la voix choisie dans le DELAY du MM-RYTM : des répétitions au temps de DLY TIME (la croche pointée au départ, calée sur le tempo), au retour de DLY FB (58 % au départ), qui s'assombrissent (entre 180 Hz et 4,5 kHz). L'envoi part après MASTER : baisser MASTER baisse aussi l'écho.",
+    text: "Envoie la voix choisie dans le DELAY du MM-RYTM, celui de toutes les voix : des répétitions au temps de TIME (la croche pointée au départ, calée sur le tempo), au retour de FEEDBACK (58 % au départ), assombries par TONE (4,5 kHz au départ) ; ces trois réglages sont sur la page DELAY de GLOBAL FX. L'envoi part après MASTER : baisser MASTER baisse aussi l'écho.",
     tip: 'Un DELAY sur la caisse claire en dark disco, ou sur un tom en minimal : l’écho remplit les trous sans rien programmer.',
   },
   vreverb: {
     section: 'VOICE FX',
     title: 'REVERB',
     lock: 'yes',
-    text: "Envoie la voix choisie dans la REVERB du MM-RYTM : une salle de 2,4 s (-60 dB au bout), aux aigus qui s'éteignent avant les graves. Comme le DELAY, l'envoi part après MASTER.",
+    text: "Envoie la voix choisie dans la REVERB du MM-RYTM, celle de toutes les voix : une salle de 2,4 s au départ (-60 dB au bout), aux aigus qui s'éteignent avant les graves ; sa longueur, ses aigus et son pré-delay (SIZE, TONE, PRE) sont sur la page REVERB de GLOBAL FX. Comme le DELAY, l'envoi part après MASTER.",
     tip: 'Peu de REVERB, et seulement sur la caisse claire, le clap ou la cymbale : le kick reste sec et devant.',
   },
 
@@ -476,7 +487,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'GLOBAL FX',
     title: 'DIST',
     lock: 'global',
-    text: "La saturation parallèle de tout le MM-RYTM sauf le kick : la même loi que la DIST d'une voix (une copie saturée jusqu'à 13 fois le gain, 85 % de saturé pour 15 % de sec à fond), sur le bus des autres voix, avant leur CHORUS commun.",
+    text: "La saturation parallèle de tout le MM-RYTM sauf le kick : la même loi que la DIST d'une voix (une copie saturée jusqu'à 13 fois le gain, 85 % de saturé pour 15 % de sec à fond), sur le bus des autres voix, avant leur CHORUS commun. Sa page (une tape sur son bloc de GLOBAL FX) ajoute TONE, le passe-bas après la saturation.",
     tip: '15 à 25 % pour souder charleys, clap et toms en indie dance ; le kick reste propre.',
     voice: { bd: { tip: NO_BD } },
   },
@@ -484,7 +495,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'GLOBAL FX',
     title: 'CHORUS',
     lock: 'global',
-    text: "Le CHORUS de tout le MM-RYTM sauf le kick : le même effet que celui d'une voix (deux retards de 14 et 21 ms qui ondulent), sur le bus des autres voix. Le kick en est sorti exprès : un chorus sur un kick le fait sonner doublé.",
+    text: "Le CHORUS de tout le MM-RYTM sauf le kick : le même effet que celui d'une voix (deux retards de 14 et 21 ms qui ondulent), sur le bus des autres voix. Le kick en est sorti exprès : un chorus sur un kick le fait sonner doublé. Sa page (une tape sur son bloc de GLOBAL FX) règle RATE (la vitesse des ondulations) et DEPTH (leur profondeur).",
     tip: 'Un soupçon (10 à 20 %) élargit charleys et clap en dark disco.',
     voice: { bd: { tip: NO_BD } },
   },
@@ -492,7 +503,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'GLOBAL FX',
     title: 'DELAY',
     lock: 'global',
-    text: "L'envoi de toutes les voix sauf le kick vers le DELAY (son temps : DLY TIME ; ses répétitions : DLY FB) ; il part après MASTER.",
+    text: "L'envoi de toutes les voix sauf le kick vers le DELAY ; il part après MASTER. Sa page (une tape sur son bloc de GLOBAL FX) règle l'écho lui-même, pour toutes les voix : TIME (sa division, calée sur le tempo), FEEDBACK (ses répétitions) et TONE (sa couleur).",
     tip: 'Dosé bas sur tout le kit, il fait rouler un minimal ; pour une seule voix, VOICE FX.',
     voice: { bd: { tip: NO_BD } },
   },
@@ -500,7 +511,7 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'GLOBAL FX',
     title: 'REVERB',
     lock: 'global',
-    text: "L'envoi de toutes les voix sauf le kick vers la REVERB (la salle de 2,4 s) ; il part après MASTER.",
+    text: "L'envoi de toutes les voix sauf le kick vers la REVERB ; il part après MASTER. Sa page (une tape sur son bloc de GLOBAL FX) règle la salle elle-même, pour toutes les voix : SIZE (sa longueur, 2,4 s au départ), TONE (ses aigus) et PRE (son pré-delay).",
     tip: 'Moins de 15 % sur tout le kit : de l’air sans noyer le groove.',
     voice: { bd: { tip: NO_BD } },
   },
@@ -518,16 +529,17 @@ const RAW: Record<RytmInfoId, Raw> = {
     text: "Retarde les doubles croches paires (2, 4... 16) de tout le MM-RYTM, jusqu'à un tiers de pas : de 50 % (droit) à 67 % (le shuffle de triolet), le rapport s'affiche sous la valeur. Une première visite part à 55 % ; deux clics le remettent droit, à 50 %.",
     tip: '55 à 58 % pour l’indie dance et la house, 50 % pour une techno raide, 60 % et plus pour un minimal qui balance.',
   },
+  // TIME et FEEDBACK de la page DELAY (2026-10-10 ; DLY TIME et DLY FB d'avant, au MIDI rytm:enc:dtime et dfb)
   dtime: {
-    section: 'GLOBAL FX',
-    title: 'DLY TIME',
+    section: 'GLOBAL FX · DELAY',
+    title: 'TIME',
     lock: 'global',
     text: "Le temps du DELAY du MM-RYTM, en six divisions calées sur le tempo : 1/16, 1/8, 1/8D (la croche pointée, au départ), 1/4, 1/4D et 1/2 ; la ligne du dessous le donne en ms. Il change le DELAY de toutes les voix, celui de la voix choisie (VOICE FX) compris.",
     tip: '1/8D pour l’indie dance, 1/4 pour une techno hypnotique, 1/16 pour un flam serré sur la caisse claire.',
   },
   dfb: {
-    section: 'GLOBAL FX',
-    title: 'DLY FB',
+    section: 'GLOBAL FX · DELAY',
+    title: 'FEEDBACK',
     lock: 'global',
     text: "Les répétitions du DELAY : la part de chaque écho renvoyée dans le suivant, de 0 (un seul écho) à 87 % (une longue traîne qui ne s'emballe jamais) ; 58 % au départ.",
     tip: 'Vers 30 % pour un écho discret ; au-delà de 75 %, un dub qui s’étire pendant une pause.',
@@ -536,15 +548,87 @@ const RAW: Record<RytmInfoId, Raw> = {
     section: 'GLOBAL FX',
     title: 'BIT',
     lock: 'global',
-    text: "La réduction de bits de tout le MM-RYTM, kick, REVERB et DELAY compris : à 0 (OFF) le son passe tel quel ; en montant, la profondeur tombe de 16 à 4 bits et l'échantillonnage se divise (jusqu'à 8 fois), le grain des vieilles boîtes à rythmes puis la casse franche. Le nombre de bits s'affiche sous la valeur.",
+    text: "La réduction de bits de tout le MM-RYTM, kick, REVERB et DELAY compris : à 0 (OFF) le son passe tel quel ; en montant, la profondeur tombe de 16 à 4 bits, le grain des vieilles boîtes à rythmes puis la casse franche. Le nombre de bits s'affiche sous la valeur. Sa page (une tape sur son bloc de GLOBAL FX) ajoute RATE, l'échantillonnage divisé.",
     tip: 'Un peu (12 à 10 bits) pour salir les charlestons ; à fond pour une pause lo-fi, puis CLEAR remet tout à 0.',
   },
   comp: {
     section: 'GLOBAL FX',
     title: 'COMP',
     lock: 'global',
-    text: "Le compresseur de tout le MM-RYTM, kick compris : à 0 (OFF) rien ne bouge ; en montant, le seuil descend jusqu'à -30 dB et le rapport monte de 1:1 à 8:1 (affiché sous la valeur), attaque 3 ms, retour 120 ms, le niveau rattrapé : le groove se serre, les queues remontent. Sans anticipation : le MM-RYTM reste calé sur le MM-BASS et le MM-ARP.",
+    text: "Le compresseur de tout le MM-RYTM, kick compris : à 0 (OFF) rien ne bouge ; en montant, le seuil descend jusqu'à -30 dB et le rapport monte de 1:1 à 8:1 (affiché sous la valeur), le niveau rattrapé : le groove se serre, les queues remontent. Sa page (une tape sur son bloc de GLOBAL FX) règle son attaque et son retour : ATTACK (3 ms au départ) et RELEASE (120 ms). Sans anticipation : le MM-RYTM reste calé sur le MM-BASS et le MM-ARP.",
     tip: 'Vers 30 à 40 % pour coller le kit ; à fond pour un pompage marqué sur les charlestons et la reverb.',
+  },
+
+  /* ---------- les pages des FX globaux (2026-10-10) : leurs reglages ---------- */
+  xtone: {
+    section: 'GLOBAL FX · DIST',
+    title: 'TONE',
+    lock: 'global',
+    text: "Le passe-bas de la DIST globale, posé après la saturation : de 1 kHz (une saturation sourde et ronde) à 16 kHz ; tout en haut (OPEN, le départ), il ne retire rien. La ligne du dessous donne sa coupure. Sans DIST, il ne fait rien.",
+    tip: 'Vers 4 kHz : la saturation épaissit charleys et clap sans grésiller, la dark disco.',
+  },
+  crate: {
+    section: 'GLOBAL FX · CHORUS',
+    title: 'RATE',
+    lock: 'global',
+    text: "La vitesse des deux ondulations du CHORUS global, de x0.1 à x4 de celle de départ (X1.0 : 0,53 et 0,71 Hz) ; la ligne du dessous donne le facteur. Lent, le son flotte ; rapide, il tremble comme un vibrato.",
+    tip: 'X0.3 à X0.5 pour un chorus lent et large en dark disco ; au-delà de X2, un vibrato marqué sur les charleys.',
+  },
+  cdepth: {
+    section: 'GLOBAL FX · CHORUS',
+    title: 'DEPTH',
+    lock: 'global',
+    text: "De combien ondulent les deux retards du CHORUS global, de 0 (aucune ondulation, un simple doublage) à 14 ms ; 7 ms au départ, en ms sous la valeur. Plus profond, le son s'élargit et se désaccorde.",
+    tip: 'Peu de DEPTH (2 à 4 ms) et un RATE lent : un élargissement discret qui ne désaccorde pas le clap.',
+  },
+  dtone: {
+    section: 'GLOBAL FX · DELAY',
+    title: 'TONE',
+    lock: 'global',
+    text: "Le passe-bas des échos du DELAY, de 800 Hz (des échos sombres, au loin) à 12 kHz (brillants) ; 4,5 kHz au départ, la coupure sous la valeur. Plus bas, les répétitions reculent et laissent la place au kit. Commun à toutes les voix, celle de VOICE FX comprise.",
+    tip: 'Vers 2 kHz pour un écho dub qui reste derrière ; tout en haut pour un rebond qui claque en indie dance.',
+  },
+  rsize: {
+    section: 'GLOBAL FX · REVERB',
+    title: 'SIZE',
+    lock: 'global',
+    text: "La longueur de la queue de la REVERB (jusqu'à -60 dB), de 0,5 s (une petite pièce) à 8 s (une cathédrale) ; 2,4 s au départ, en secondes sous la valeur. Commune à toutes les voix, celle de VOICE FX comprise.",
+    tip: 'Moins d’une seconde pour une caisse claire serrée en minimal ; 4 à 6 s, dosée bas, pour une nappe derrière un break.',
+  },
+  rtone: {
+    section: 'GLOBAL FX · REVERB',
+    title: 'TONE',
+    lock: 'global',
+    text: "Les aigus de la queue de la REVERB : la fréquence au-dessus de laquelle elle s'éteint plus vite, de 1 kHz (une salle sombre et feutrée) à 12 kHz (brillante) ; 3 kHz au départ, en Hz sous la valeur.",
+    tip: 'Sombre (1 à 2 kHz) : la reverbe enveloppe sans siffler sur les charleys ; brillante pour un clap qui s’ouvre.',
+  },
+  rpre: {
+    section: 'GLOBAL FX · REVERB',
+    title: 'PRE',
+    lock: 'global',
+    text: "Le pré-delay : le temps entre le coup et le début de sa REVERB, de 0 à 120 ms ; 20 ms au départ. Un peu de PRE garde la frappe sèche devant, la salle arrive juste après.",
+    tip: '30 à 60 ms sur la caisse claire : elle garde son attaque, la reverbe suit derrière.',
+  },
+  brate: {
+    section: 'GLOBAL FX · BIT',
+    title: 'RATE',
+    lock: 'global',
+    text: "L'échantillonnage du BIT divisé, de /1 (OFF, rien ne change) à /16 : chaque échantillon est tenu plusieurs fois, les aigus se replient en sons métalliques, le grain des vieux samplers. Le diviseur s'affiche sous la valeur. Il n'agit que BIT engagé : BIT à 0, le son passe tel quel.",
+    tip: '/2 à /4 avec BIT vers 12 bits : le grain des samplers des années 80 ; /16 pour une casse franche le temps d’une pause.',
+  },
+  catk: {
+    section: 'GLOBAL FX · COMP',
+    title: 'ATTACK',
+    lock: 'global',
+    text: "Le temps que met le COMP à serrer après un coup, de 0,1 ms (il écrase la frappe) à 50 ms (la frappe passe, le corps est compressé) ; 3 ms au départ, en ms sous la valeur.",
+    tip: '10 à 30 ms : le kick et la caisse claire gardent leur claque, le reste se serre.',
+  },
+  crel: {
+    section: 'GLOBAL FX · COMP',
+    title: 'RELEASE',
+    lock: 'global',
+    text: "Le temps que met le COMP à relâcher, de 20 à 800 ms ; 120 ms au départ, en ms sous la valeur. Court, le niveau remonte entre les coups et les queues gonflent (le pompage) ; long, le kit reste serré et égal.",
+    tip: 'Calé sur une double croche (vers 120 ms à 128 BPM) : le pompage respire avec le groove.',
   },
 
   /* ---------- la plaque TWEAKS (OPEN) : les choix de son ---------- */
@@ -866,7 +950,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   tempo: {
     section: 'TEMPO',
     title: 'TEMPO',
-    text: "Le tempo de tout le studio, de 100 à 150 BPM : le MM-BASS et le MM-ARP le suivent. Glisse vers le haut pour accélérer (100 px = 50 BPM), la molette va de 1 BPM, deux tapes le remettent à 130. Le DELAY suit ce tempo (DLY TIME).",
+    text: "Le tempo de tout le studio, de 100 à 150 BPM : le MM-BASS et le MM-ARP le suivent. Glisse vers le haut pour accélérer (100 px = 50 BPM), la molette va de 1 BPM, deux tapes le remettent à 130. Le DELAY suit ce tempo (TIME, sur sa page de GLOBAL FX).",
     tip: '118 à 124 BPM pour l’indie dance et la dark disco, 124 à 128 pour le minimal et la house, 130 et plus pour la techno.',
   },
 
@@ -953,7 +1037,7 @@ export function infoOf(id: string, ctx: RytmInfoCtx = {}): RytmInfo | null {
   const ph = PHONE ? r.phone : undefined;
   const base = w.text ?? ph?.text ?? r.text;
   const withLock = lock && !ctx.plate ? `${base} ${LOCK_LINE[lock]}` : base;
-  const text = phoneWords(lock === 'global' && !PHONE && !ctx.plate ? `${withLock} ${ENC_LINE}` : withLock);
+  const text = phoneWords(lock === 'global' && !PHONE && !ctx.plate && ENC_IDS.has(rid) ? `${withLock} ${ENC_LINE}` : withLock);
   const tip = w.tip ?? r.tip;
   return {
     id: rid,

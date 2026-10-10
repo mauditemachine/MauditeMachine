@@ -26,7 +26,7 @@
  */
 
 import type { BassDiagram } from '../bass/diagrams';
-import { BPM, DFB_DEFAULT, DTIME_DEFAULT, VEL_GAIN, delayDiv, delayFb } from '../audio/pattern';
+import { BPM, DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, VEL_GAIN, delayDiv, delayFb, fxLaw } from '../audio/pattern';
 import { sampleLenPart } from '../audio/sampledsp';
 import { KICK_SWEEP, SD_BODY_HZ, SD_DECAY_S, SD_TONE_HZ, SHOT_BELOW, kickDecayS, kickHz, sdDecayFactor, sdToneFactor, sdTuneFactor, sweepDepth, type KitModel } from '../audio/shotsdsp';
 import { timeFactor } from '../audio/time';
@@ -97,6 +97,9 @@ export interface RytmDiagramCtx extends RytmResolveCtx {
   /** DLY TIME et DLY FB du MM-RYTM (pattern.fx, 2026-10-09) : le dessin du DELAY les suit */
   dtime?: number;
   dfb?: number;
+  /** BIT et son RATE (pattern.fx, 2026-10-10) : le dessin de l'un lit l'autre */
+  bits?: number;
+  brate?: number;
   /** MIX de la voix (VOICE SYNTH) : ses deux niveaux, 0 a 1 ; sample : la voix a un sample a poser sous la machine */
   mixLv?: { syn: number; lev: number; sample: boolean };
 }
@@ -967,12 +970,17 @@ const delayPic = (hot: 'send' | 'time' | 'fb'): Draw => (c, v) => {
 };
 const drawDelay = delayPic('send');
 
-/** BIT (2026-10-10, audio/glue.worklet.js) : une onde, et ses marches quand les bits tombent. */
-const drawBits: Draw = (_c, v) => {
+/**
+ * BIT (2026-10-10, audio/glue.worklet.js) : une onde, et ses marches quand les bits tombent ; leur largeur, RATE de sa
+ * page (audio/pattern.ts fxLaw.brate, /1 a /16 ; BIT ne divise plus lui-meme), seulement BIT engage. hot : le reglage
+ * de la carte (bits, rate), l'autre lu du motif (c.bits, c.brate).
+ */
+const bitsPic = (hot: 'bits' | 'rate'): Draw => (c, v) => {
   const p = new Pic();
-  const b = clamp(v, 0, 1);
+  const b = clamp(hot === 'bits' ? v : (c.bits ?? 0), 0, 1);
   const q = Math.pow(2, 16 - 12 * b - 1);
-  const fac = 1 + Math.round(b * b * 7);
+  const div = fxLaw.brate(hot === 'rate' ? v : (c.brate ?? FX_SETTINGS.brate));
+  const fac = b > 0 ? div : 1;
   const n = 96;
   const mid = (Y0 + Y1) / 2;
   const amp = (Y1 - Y0) / 2 - 4;
@@ -991,10 +999,13 @@ const drawBits: Draw = (_c, v) => {
       if (nx !== held) p.p(seg(tx(i + 1), mid - held * amp, tx(i + 1), mid - nx * amp), 'hot');
     }
   }
-  p.label(b > 0 ? `${Math.round(16 - 12 * b)} BITS  RATE / ${fac}` : 'OFF: THE SOUND PASSES AS IS', X0, TOP);
+  const rate = div > 1 ? `RATE /${div}` : 'RATE OFF';
+  p.label(b > 0 ? `${Math.round(16 - 12 * b)} BITS  ${rate}` : hot === 'rate' ? `BIT AT 0: ${rate} WAITS FOR IT` : 'OFF: THE SOUND PASSES AS IS', X0, TOP);
   p.label('KICK, REVERB AND DELAY INCLUDED', X0, BOT);
+  if (hot === 'rate') return p.value(div > 1 ? `/${div}` : 'OFF').done();
   return p.value(b > 0 ? `${Math.round(16 - 12 * b)} BIT` : 'OFF').done();
 };
+const drawBits = bitsPic('bits');
 
 /** COMP (2026-10-10) : le niveau qui entre (en bas) et celui qui sort (a gauche), de -48 a 0 dB ; le seuil marque. */
 const drawComp: Draw = (_c, v) => {
@@ -1367,6 +1378,7 @@ const DRAW: Partial<Record<RytmInfoId, Draw>> = {
   dtime: delayPic('time'),
   dfb: delayPic('fb'),
   bits: drawBits,
+  brate: bitsPic('rate'),
   comp: drawComp,
   'smpl:sample': drawSounds,
   'r:bd': drawSounds,

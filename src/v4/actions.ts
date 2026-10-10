@@ -38,7 +38,7 @@ import type { PresetMachine } from './state/presets';
 import { presskit } from './state/presskit';
 import { rytmPage } from './state/rytmPage';
 import { rytmLock } from './state/rytmLock';
-import { RYTM_PAGES, SCREEN_PAGE, SCREEN_TITLE, allScreens, isRytmPage, pageLabel, pageOfAlias, pageSlots, screensOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './rytm/pages';
+import { RYTM_PAGES, SCREEN_PAGE, SCREEN_TITLE, allScreens, fxDetailOf, isFxDetail, isRytmPage, pageLabel, pageOfAlias, pageSlots, screensOf, tabWord, type FxDetailId, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './rytm/pages';
 import { encText, encUnit, kitUnit, kitUnitAt, layerText, layerUnit, v127Text, velTo127, velWord, type LayerDial } from './rytm/values';
 import { section } from './state/section';
 import { voices } from './state/voices';
@@ -598,11 +598,15 @@ export function dial(id: EncId, v: number, popup = false): void {
   // popup : un encodeur du desktop, son popup dit la valeur, seul (revue du 2026-10-09 : la ligne du pied en disait une
   // autre au meme instant, a la place des verrous du pas en P-LOCK)
   // Un FX global tourne (2026-10-10, Mika : "on tombe sur une page d'edition de ces FX, claire") : l'ecran passe sur
-  // GLOBAL FX, le bloc tourne cerne (touchPage plus bas)
+  // GLOBAL FX, le bloc tourne cerne (touchPage plus bas) ; un FX qui a sa page (DIST CHORUS DELAY REVERB BIT COMP, Mika :
+  // "ca doit afficher les configurations que je peux avoir pour DELAY") : sa page, sa quantite cernee ; STRETCH et
+  // SWING : GLOBAL FX
   if (popup) {
     const inst = pattern.get().instrument;
+    const fd = fxDetailOf(id);
     const t = screensOf('fx', inst).indexOf('fxg');
-    if (t >= 0) rytmPage.setTab('fx', t, inst);
+    if (fd) rytmPage.openFx(fd, inst);
+    else if (t >= 0) rytmPage.setTab('fx', t, inst);
     else rytmPage.popup(id);
   }
   else lcdMessage.show(readout(id, dialValue(id), null), POT_UI.readoutMs, true);
@@ -789,6 +793,8 @@ export function escape(): boolean {
     rytmInfos.set(false);
     return true;
   }
+  // La page d'un FX global (2026-10-10) : Echap revient a GLOBAL FX, quand on la voit (devant le MM-RYTM, vue PAGE)
+  if (focus.get() === 'mm808' && rytmFxClose()) return true;
   const hood = hoodOf(hoodMachine());
   if (hood.get() === 'open') return hood.toggle();
   if (pattern.get().instrument !== null && focus.get() !== 'voy' && focus.get() !== 'dj' && focus.get() !== 'bass') {
@@ -1838,9 +1844,51 @@ export function rytmPageKey(id: RytmPageId, stage: Stage | null = null): void {
   } else if (was === 'home') lcdMessage.show(`${pageLabel(id)} PAGE`);
 }
 
-/** Un onglet de l'en-tete de l'ecran touche (2026-10-09) : la page s'affiche sur lui. */
+/**
+ * La page d'un FX global que tient le bloc k de l'ecran affiche (2026-10-10) :
+ * seulement sur GLOBAL FX (DIST CHORUS DELAY REVERB BIT COMP) ; null ailleurs,
+ * pour STRETCH et SWING, sur la page d'un FX elle-meme.
+ */
+export function pageFxDetail(k: number): FxDetailId | null {
+  if (curScreen() !== 'fxg') return null;
+  const t = pageTarget(k);
+  return t ? fxDetailOf(t) : null;
+}
+
+/**
+ * La page d'un FX global (2026-10-10, Mika : "quand je touche a un FX, par
+ * exemple DELAY, dans l'ecran, ca doit afficher les configurations que je peux
+ * avoir pour DELAY ; pareil pour tous les autres") : une tape sur son bloc de
+ * GLOBAL FX (ui/Hotspots.tsx), Entree sur son jumeau, le MIDI
+ * rytm:screen:fxdelay. Sa quantite cernee un instant, le message dit le retour.
+ */
+export function rytmFxOpen(d: FxDetailId): void {
+  const inst = pattern.get().instrument;
+  rytmPage.openFx(d, inst);
+  rytmPage.echo(0, inst);
+  lcdMessage.show(`${tabWord(d, inst)} · FX: BACK`, 1400);
+}
+
+/**
+ * Retour a GLOBAL FX depuis la page d'un FX (Echap ; la touche FX et GLOBAL
+ * dans l'en-tete passent par rytmPage). Seulement quand on la voit : la vue
+ * PAGE, ni EDIT ni les presets par-dessus. true si elle s'est refermee.
+ */
+export function rytmFxClose(): boolean {
+  const s = rytmPage.get();
+  if (!s.detail || s.view !== 'page' || editor.get() === 'mm808' || presetMode.on('mm808')) return false;
+  rytmPage.closeFx();
+  lcdMessage.show(SCREEN_TITLE.fxg, 900);
+  return true;
+}
+
+/** Un onglet de l'en-tete de l'ecran touche (2026-10-09) : la page s'affiche sur lui ; la page d'un FX global (2026-10-10) s'ouvre. */
 export function rytmScreenTab(screen: RytmScreenId): void {
   resume();
+  if (isFxDetail(screen)) {
+    rytmFxOpen(screen);
+    return;
+  }
   const inst = pattern.get().instrument;
   const page = SCREEN_PAGE[screen];
   const i = screensOf(page, inst).indexOf(screen);
@@ -1854,7 +1902,8 @@ export function rytmShowPage(id: RytmPageId | string): void {
   const page = pageOfAlias(id);
   if (!page) return;
   const left = leaveRytmOverlay();
-  const same = page === rytmPage.get().page && rytmPage.get().view === 'page';
+  // La page d'un FX ouverte (2026-10-10) : rytm:page:fx ramene GLOBAL FX, et le dit
+  const same = page === rytmPage.get().page && rytmPage.get().view === 'page' && !rytmPage.get().detail;
   rytmPage.setPage(page);
   if (left || !same) lcdMessage.show(`${SCREEN_TITLE[curScreen()]} PAGE`);
 }

@@ -75,6 +75,8 @@ import {
   pageKnobLive,
   pageKnobOf,
   pageSlotOf,
+  pageFxDetail,
+  rytmFxOpen,
   rytmPageKey,
   rytmScreenTab,
   globalDial,
@@ -545,6 +547,17 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
       }
     };
 
+    /**
+     * La page d'un FX global a ouvrir (2026-10-10, Mika : "quand je touche a un FX, par exemple DELAY, dans l'ecran, ca
+     * doit afficher les configurations que je peux avoir pour DELAY") : une tape seule sur son bloc de GLOBAL FX l'ouvre,
+     * une fois passe le temps d'une deuxieme tape (deux tapes : la remise, sur place) ; un bloc tenu entre-temps l'annule.
+     */
+    let fxOpenTimer = 0;
+    const fxOpenCancel = (): void => {
+      if (fxOpenTimer !== 0) window.clearTimeout(fxOpenTimer);
+      fxOpenTimer = 0;
+    };
+
     /** Deux tapes sur un encodeur en moins de 350 ms : sa valeur de depart (penc : l'encodeur k du desktop, son FX global). */
     const tapDial = (k: DialId, pressMs = 0, penc = -1): void => {
       // Un commutateur (MODE du filtre) passe au cran suivant a chaque tape, et reboucle
@@ -560,16 +573,27 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         return;
       }
       const t = performance.now();
+      const pk = pageKnobOf(k);
       if (t - (lastTap.get(k) ?? -Infinity) <= TEMPO_UI.tapMs) {
         lastTap.delete(k);
+        fxOpenCancel();
         // Un potard de page (2026-10-08) : en LOCK, son verrou s'en va ; sinon sa valeur de depart
-        const pk = pageKnobOf(k);
         if (pk >= 0) pageKnobReset(pk);
         // Un encodeur du desktop (revue du 2026-10-09) : remis comme il tourne, avec son popup GLOBAL a l'ecran
         else if (penc >= 0) globalDial(penc, anyDialReset(k));
         else anyDial(k, anyDialReset(k));
       } else {
         lastTap.set(k, t);
+        // Un FX de GLOBAL FX qui a sa page (2026-10-10) : elle s'ouvre si aucune deuxieme tape ne suit
+        const fd = pk >= 0 ? pageFxDetail(pk) : null;
+        fxOpenCancel();
+        if (fd)
+          fxOpenTimer = window.setTimeout(() => {
+            fxOpenTimer = 0;
+            if (disposed || knobHeld() || pageFxDetail(pk) !== fd) return;
+            lastTap.delete(k);
+            rytmFxOpen(fd);
+          }, TEMPO_UI.tapMs + 10);
       }
     };
 
@@ -1164,6 +1188,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => {
       disposed = true;
+      fxOpenCancel();
       ro.disconnect();
       // Demontee en plein geste : l'echo du MM-ARP ne reste pas tenu par un pointeur parti
       voyEcho.releaseAll();
@@ -1802,7 +1827,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
             data-hotspot={id}
             role="slider"
             tabIndex={0}
-            aria-label={`Screen value ${PAGE_KNOB_LETTERS[k]}, ${SCREEN_TITLE[rytmPage.screen(inst)]}: ${what}${slot.scope === 'track' && inst ? `, ${INST_NAMES[inst]}` : ''}${lockAt >= 0 ? `, P-lock on step ${lockAt + 1}, delete removes its lock` : ''}`}
+            aria-label={`Screen value ${PAGE_KNOB_LETTERS[k]}, ${SCREEN_TITLE[rytmPage.screen(inst)]}: ${what}${slot.scope === 'track' && inst ? `, ${INST_NAMES[inst]}` : ''}${lockAt >= 0 ? `, P-lock on step ${lockAt + 1}, delete removes its lock` : ''}${pageFxDetail(k) ? ', enter opens its settings' : ''}`}
             aria-orientation="vertical"
             aria-valuemin={bipolar ? -64 : 0}
             aria-valuemax={bipolar ? 63 : 127}
@@ -1813,6 +1838,13 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
               if (e.key === 'Delete' || e.key === 'Backspace') {
                 e.preventDefault();
                 pageKnobReset(k);
+                return;
+              }
+              // Entree sur un FX de GLOBAL FX (2026-10-10) : sa page, ses reglages (Echap y revient)
+              const fd = e.key === 'Enter' ? pageFxDetail(k) : null;
+              if (fd) {
+                e.preventDefault();
+                rytmFxOpen(fd);
                 return;
               }
               onPageKnobKey(d)(e);

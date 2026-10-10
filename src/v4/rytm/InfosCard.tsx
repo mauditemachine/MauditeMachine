@@ -142,6 +142,9 @@ export function modelOf(hotspot: string): Model | null {
   }
   dc.dtime = pattern.fx.get().dtime;
   dc.dfb = pattern.fx.get().dfb;
+  // BIT et son RATE (2026-10-10, la page BIT) : l'un se dessine avec l'autre
+  dc.bits = pattern.fx.get().bits;
+  dc.brate = pattern.fx.get().brate;
   let id = hit.id;
   let locked = false;
   let tag = '';

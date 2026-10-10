@@ -141,7 +141,7 @@ import { rytmInfos } from '../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
 import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_DY, OLED_UH, type EncId, type Inst } from '../theme';
-import { SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, pageLabel, pageSlots, screensOf, slotCells, slotOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
+import { SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, isFxDetail, pageLabel, pageSlots, screensOf, slotCells, slotOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../rytm/pageView';
 import { v127Text } from '../rytm/values';
 import { makeCanvasTexture } from './silk';
@@ -1604,6 +1604,8 @@ export class Screen {
    *   P-LOCK un instant quand le pas qui joue a des verrous (n'importe quelle
    *   page) ; M ou S quand le mode est arme ;
    * - a droite le pattern (il clignote quand il change) et le tempo ;
+   * - la page d'un FX global (2026-10-10) : GLOBAL > DELAY a la place de
+   *   l'onglet GLOBAL, le FX cerne, une tape dessus ramene GLOBAL FX ;
    * - en P-LOCK (69-common2, point 3 : "P-LOCK MUST BE OBVIOUS") : toute la
    *   bande en negatif, P-LOCK STEP 05, la page et P-LOCKS (ENV · P-LOCKS), la
    *   voix, le compte des verrous du pas (3 P-LOCKS) sur toutes les pages.
@@ -1683,13 +1685,41 @@ export class Screen {
     // Les onglets de la page (VOICE : MAIN SYNTH ; FX : BD FX, GLOBAL) : celui de l'ecran plein, une tape sur l'autre y passe
     const tabs = screensOf(rp.page, inst);
     let heads = label;
+    // La page d'un FX global (2026-10-10) : GLOBAL, un chevron, le FX cerne (GLOBAL > DELAY) ; le tout est la zone de
+    // GLOBAL (une tape ramene GLOBAL FX) ; BD FX s'efface s'il ne laisse pas la place a la voix (le telephone)
+    const detail = isFxDetail(screen) ? screen : null;
+    const ts = T.pill * 0.92;
+    const tabW = (name: string): number => this.textWidth(name, ts, 700, 0.7) + 9;
+    const chev = ts * 0.62;
+    const crumbW = detail ? tabW(SCREEN_LABEL.fxg) + chev + 4 + tabW(SCREEN_LABEL[detail]) : 0;
+    const voiceRoom = inst ? this.textWidth(inst, T.voice, 600) + 12 : 0;
     if (tabs.length > 1) {
       for (const t of tabs) {
         const name = t === 'fxv' ? (inst ? `${inst} FX` : 'VOICE FX') : SCREEN_LABEL[t];
+        if (detail && t === 'fxv' && x + tabW(name) + 3 + crumbW + 4 + voiceRoom > rightX) continue;
+        if (detail && t === 'fxg') {
+          // GLOBAL en retrait (une tape y revient), le chevron, le FX de la page cerne
+          const x0 = x;
+          const gw = tabW(name);
+          this.text(name, x + gw / 2, ty, ts, FAINT, 700, 'center', 0.7);
+          x += gw;
+          const cy = H.pillY + T.pillH / 2;
+          const ch = chev * 0.55;
+          this.line([x + 1, cy - ch, x + 1 + chev * 0.5, cy, x + 1, cy + ch], HALF, 1);
+          x += chev + 4;
+          const dn = SCREEN_LABEL[detail];
+          const dw = tabW(dn);
+          this.roundRect(x, H.pillY + 0.6, dw, T.pillH - 1.2, 2.2, null, INK, 1.1);
+          this.text(dn, x + dw / 2, ty, ts, INK, 700, 'center', 0.7);
+          this.tabSpots.push({ screen: 'fxg', ...this.spot({ x: x0 - 0.5, y: 0, w: x + dw - x0 + 1, h: H.rule }) });
+          heads += `|${name}>[${dn}]`;
+          x += dw + 3;
+          continue;
+        }
         const on = t === screen;
-        const tw = this.textWidth(name, T.pill * 0.92, 700, 0.7) + 9;
+        const tw = tabW(name);
         if (on) this.roundRect(x, H.pillY + 0.6, tw, T.pillH - 1.2, 2.2, null, INK, 1.1);
-        this.text(name, x + tw / 2, ty, T.pill * 0.92, on ? INK : FAINT, 700, 'center', 0.7);
+        this.text(name, x + tw / 2, ty, ts, on ? INK : FAINT, 700, 'center', 0.7);
         // La zone de l'onglet : toute la hauteur de l'en-tete (la touche de la page la double, 44 px au doigt) ; deux unites
         // d'air avec la voisine, la perspective des zones 3D comprise (revue : 4 px communs a MAIN et SYNTH)
         this.tabSpots.push({ screen: t, ...this.spot({ x: x - 0.5, y: 0, w: tw + 1, h: H.rule }) });
@@ -2353,13 +2383,22 @@ export class Screen {
       const page = SCREEN_PAGE[screen];
       const tabs = screensOf(page, inst);
       const next = tabs.length > 1 ? tabWord(tabs[(tabs.indexOf(screen) + 1) % tabs.length], inst) : 'HOME';
-      const b = this.fitText(screen === 'fxg' ? 'GLOBAL FX: NEVER P-LOCKED' : `${pageLabel(page)} AGAIN: ${next}`, x1 - x0, fs - 0.5, 0.6, 700);
+      // GLOBAL FX et les pages de ses FX (2026-10-10) : une tape sur un FX ouvre sa page ; sur elle, le chemin du retour
+      const pick = (...l: string[]): string => l.find((s) => fits(s, fs - 0.5, 0.6)) ?? l[l.length - 1];
+      const bText = isFxDetail(screen)
+        ? pick('TAP GLOBAL OR FX: BACK TO GLOBAL FX', 'TAP GLOBAL OR FX: BACK')
+        : screen === 'fxg'
+          ? pick('TAP A FX: ITS SETTINGS · NEVER P-LOCKED', 'TAP A FX: ITS SETTINGS')
+          : `${pageLabel(page)} AGAIN: ${next}`;
+      const b = this.fitText(bText, x1 - x0, fs - 0.5, 0.6, 700);
       this.text(a, x0, F.y1, fs - 1, HALF, 700, 'left', 0.5);
       this.text(b, x0, F.y2, fs - 0.5, HALF, 700, 'left', 0.6);
       this.info.footText = `${a} / ${b}`;
       return 0;
     }
-    const t = this.fitText(this.mobile ? `HOLD A STEP + ${TURN}: P-LOCK` : `${TURN}  /  TURN A KNOB = GLOBAL FX`, x1 - x0, fs - 0.5, 0.5, 700);
+    // GLOBAL FX et les pages de ses FX (2026-10-10) : au desktop, le clic qui ouvre une page, et le retour
+    const desk = isFxDetail(screen) ? `${TURN}  /  GLOBAL, FX OR ESC: BACK` : screen === 'fxg' ? `${TURN}  /  CLICK A FX: ITS SETTINGS` : `${TURN}  /  TURN A KNOB = GLOBAL FX`;
+    const t = this.fitText(this.mobile ? `HOLD A STEP + ${TURN}: P-LOCK` : desk, x1 - x0, fs - 0.5, 0.5, 700);
     this.text(t, x0, y, fs - 0.5, HALF, 700, 'left', 0.5);
     this.info.footText = t;
     return 0;

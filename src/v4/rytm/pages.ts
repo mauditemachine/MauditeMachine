@@ -48,6 +48,10 @@
  * Roto ; lcd-blk-k au doigt et a la souris).
  * Une table pure : elle n'importe que des types, familyOf et la liste des
  * touches (theme.ts).
+ *
+ * Les pages des FX globaux (2026-10-10, FX_DETAILS) : DIST, CHORUS, DELAY,
+ * REVERB, BIT et COMP ont chacun la leur, sous GLOBAL FX (sa quantite en grand,
+ * ses reglages a cote : DELAY TIME FEEDBACK TONE, REVERB SIZE TONE PRE...).
  */
 
 import type { DialId } from '../actions';
@@ -58,9 +62,22 @@ import { RYTM_PAGE_KEYS, type Inst } from '../theme';
 
 export type RytmPageId = (typeof RYTM_PAGE_KEYS)[number]['id'];
 
-/** Les ecrans : une page, ou l'un de ses onglets (VOICE et SYNTH ; VOICE FX et GLOBAL FX). */
-export type RytmScreenId = 'voice' | 'synth' | 'fltr' | 'env' | 'fxv' | 'fxg';
-export const RYTM_SCREENS: readonly RytmScreenId[] = ['voice', 'synth', 'fltr', 'env', 'fxv', 'fxg'];
+/**
+ * La page d'un FX global (2026-10-10, Mika : "quand je touche a un FX, par
+ * exemple DELAY, dans l'ecran, ca doit afficher les configurations que je peux
+ * avoir pour DELAY ; pareil pour tous les autres") : un ecran de la page FX,
+ * sous GLOBAL FX, hors du tour de la touche FX (PAGE_TABS) ; une tape sur le
+ * bloc du FX (ou son encodeur du desktop) l'ouvre, GLOBAL dans l'en-tete, la
+ * touche FX ou Echap ramenent GLOBAL FX (state/rytmPage.ts detail). STRETCH et
+ * SWING n'en ont pas.
+ */
+export const FX_DETAILS = ['fxdist', 'fxchorus', 'fxdelay', 'fxreverb', 'fxbit', 'fxcomp'] as const;
+export type FxDetailId = (typeof FX_DETAILS)[number];
+export const isFxDetail = (v: unknown): v is FxDetailId => typeof v === 'string' && (FX_DETAILS as readonly string[]).includes(v);
+
+/** Les ecrans : une page, ou l'un de ses onglets (VOICE et SYNTH ; VOICE FX et GLOBAL FX), ou la page d'un FX global. */
+export type RytmScreenId = 'voice' | 'synth' | 'fltr' | 'env' | 'fxv' | 'fxg' | FxDetailId;
+export const RYTM_SCREENS: readonly RytmScreenId[] = ['voice', 'synth', 'fltr', 'env', 'fxv', 'fxg', ...FX_DETAILS];
 export const isRytmScreen = (v: unknown): v is RytmScreenId => typeof v === 'string' && (RYTM_SCREENS as readonly string[]).includes(v);
 
 /** L'ordre des pages (les touches de page, [ et ] en font le tour). */
@@ -68,19 +85,59 @@ export const RYTM_PAGES: readonly { id: RytmPageId; label: string }[] = RYTM_PAG
 
 /** Les onglets de chaque page, dans l'ordre (la touche de la page allumee pressee encore passe au suivant). */
 export const PAGE_TABS: Readonly<Record<RytmPageId, readonly RytmScreenId[]>> = { voice: ['voice', 'synth'], fltr: ['fltr'], env: ['env'], fx: ['fxv', 'fxg'] };
-/** La page d'un ecran. */
-export const SCREEN_PAGE: Readonly<Record<RytmScreenId, RytmPageId>> = { voice: 'voice', synth: 'voice', fltr: 'fltr', env: 'env', fxv: 'fx', fxg: 'fx' };
-/** Le nom d'un onglet (l'en-tete, ses pastilles) ; celui d'une page sans onglet est le sien. */
-export const SCREEN_LABEL: Readonly<Record<RytmScreenId, string>> = { voice: 'MAIN', synth: 'SYNTH', fltr: 'FLTR', env: 'ENV', fxv: 'VOICE', fxg: 'GLOBAL' };
-/** Le titre d'un ecran, en toutes lettres (le pied, l'en-tete du P-LOCK, l'ecran du MIDI) : VOICE, VOICE SYNTH, GLOBAL FX. */
-export const SCREEN_TITLE: Readonly<Record<RytmScreenId, string>> = { voice: 'VOICE', synth: 'VOICE SYNTH', fltr: 'FLTR', env: 'ENV', fxv: 'VOICE FX', fxg: 'GLOBAL FX' };
+/** La page d'un ecran (les pages des FX globaux, 2026-10-10 : FX). */
+export const SCREEN_PAGE: Readonly<Record<RytmScreenId, RytmPageId>> = {
+  voice: 'voice',
+  synth: 'voice',
+  fltr: 'fltr',
+  env: 'env',
+  fxv: 'fx',
+  fxg: 'fx',
+  fxdist: 'fx',
+  fxchorus: 'fx',
+  fxdelay: 'fx',
+  fxreverb: 'fx',
+  fxbit: 'fx',
+  fxcomp: 'fx',
+};
+/** Le nom d'un onglet (l'en-tete, ses pastilles) ; celui d'une page sans onglet est le sien ; la page d'un FX, son nom. */
+export const SCREEN_LABEL: Readonly<Record<RytmScreenId, string>> = {
+  voice: 'MAIN',
+  synth: 'SYNTH',
+  fltr: 'FLTR',
+  env: 'ENV',
+  fxv: 'VOICE',
+  fxg: 'GLOBAL',
+  fxdist: 'DIST',
+  fxchorus: 'CHORUS',
+  fxdelay: 'DELAY',
+  fxreverb: 'REVERB',
+  fxbit: 'BIT',
+  fxcomp: 'COMP',
+};
+/** Le titre d'un ecran, en toutes lettres (le pied, l'en-tete du P-LOCK, l'ecran du MIDI) : VOICE, VOICE SYNTH, GLOBAL FX, GLOBAL FX · DELAY. */
+export const SCREEN_TITLE: Readonly<Record<RytmScreenId, string>> = {
+  voice: 'VOICE',
+  synth: 'VOICE SYNTH',
+  fltr: 'FLTR',
+  env: 'ENV',
+  fxv: 'VOICE FX',
+  fxg: 'GLOBAL FX',
+  fxdist: 'GLOBAL FX · DIST',
+  fxchorus: 'GLOBAL FX · CHORUS',
+  fxdelay: 'GLOBAL FX · DELAY',
+  fxreverb: 'GLOBAL FX · REVERB',
+  fxbit: 'GLOBAL FX · BIT',
+  fxcomp: 'GLOBAL FX · COMP',
+};
 
 /**
  * Un onglet dans une phrase (revue du 2026-10-09, le pied et les messages des
  * touches de page : SYNTH · VOICE AGAIN: MAIN) : MAIN, SYNTH, BD FX, GLOBAL FX ;
- * une page sans onglet, son nom.
+ * une page sans onglet, son nom ; la page d'un FX global (2026-10-10), GLOBAL DELAY.
  */
-export const tabWord = (t: RytmScreenId, inst: string | null): string => (t === 'fxv' ? (inst ? `${inst} FX` : 'VOICE FX') : t === 'fxg' ? 'GLOBAL FX' : SCREEN_LABEL[t]);
+export const tabWord = (t: RytmScreenId, inst: string | null): string =>
+  t === 'fxv' ? (inst ? `${inst} FX` : 'VOICE FX') : t === 'fxg' ? 'GLOBAL FX' : isFxDetail(t) ? `GLOBAL ${SCREEN_LABEL[t]}` : SCREEN_LABEL[t];
 
 /**
  * Les anciens noms de page (TRIG SRC SMPL FLTR AMP FX jusqu'au 2026-10-09) :
@@ -295,6 +352,39 @@ const FXG: readonly PageSlot[] = [
   live('COMP', 'comp', 'bar', 'all'),
 ];
 
+/*
+ * Les pages des FX globaux (2026-10-10) : toujours la meme grille, la quantite
+ * du FX en grand carre a gauche (2 x 2, son bloc de GLOBAL FX), ses reglages
+ * dans la moitie droite (un seul : 2 x 2 ; deux : deux hauts ; trois : un large
+ * dessus, deux dessous). Toute la machine (ALL), jamais verrouilles (GLOBAL en
+ * P-LOCK) ; le bloc k reste le potard k (rytm:knob:k+1).
+ */
+const fxAmount = (label: string, target: SlotTarget, noBd: boolean): PageSlot => ({ ...live(label, target, 'bar', 'all', noBd), w: 2, h: 2 });
+const fxSet = (label: string, target: SlotTarget, draw: SlotDraw, w: number, h: number): PageSlot => ({ ...live(label, target, draw, 'all'), w, h });
+const FX_DETAIL_SLOTS: Readonly<Record<FxDetailId, readonly PageSlot[]>> = {
+  // DIST : la saturation, puis son passe-bas (TONE, 16 kHz : ouvert)
+  fxdist: [fxAmount('DIST', 'dist', true), fxSet('TONE', 'xtone', 'cut', 2, 2)],
+  // CHORUS : la vitesse et la profondeur de ses LFO
+  fxchorus: [fxAmount('CHORUS', 'chorus', true), fxSet('RATE', 'crate', 'bar', 1, 2), fxSet('DEPTH', 'cdepth', 'bar', 1, 2)],
+  // DELAY : son temps en divisions (large : ses six crans), ses repetitions, le passe-bas des echos
+  fxdelay: [fxAmount('DELAY', 'delay', true), fxSet('TIME', 'dtime', 'time', 2, 1), fxSet('FEEDBACK', 'dfb', 'decay', 1, 1), fxSet('TONE', 'dtone', 'cut', 1, 1)],
+  // REVERB : la longueur de sa queue (large), ses aigus, son pre-delay
+  fxreverb: [fxAmount('REVERB', 'reverb', true), fxSet('SIZE', 'rsize', 'decay', 2, 1), fxSet('TONE', 'rtone', 'cut', 1, 1), fxSet('PRE', 'rpre', 'start', 1, 1)],
+  // BIT : la profondeur, puis l'echantillonnage divise (RATE)
+  fxbit: [fxAmount('BIT', 'bits', false), fxSet('RATE', 'brate', 'bar', 2, 2)],
+  // COMP : le rapport et le seuil, puis son attaque et son retour
+  fxcomp: [fxAmount('COMP', 'comp', false), fxSet('ATTACK', 'catk', 'atk', 1, 2), fxSet('RELEASE', 'crel', 'decay', 1, 2)],
+};
+
+/**
+ * La page du FX global d'un reglage (2026-10-10) : sa quantite (dist) ou l'un
+ * de ses reglages (xtone, dtime) ; null : aucune (STRETCH, SWING, un reglage de voix).
+ */
+export function fxDetailOf(t: SlotTarget | string): FxDetailId | null {
+  for (const d of FX_DETAILS) if (FX_DETAIL_SLOTS[d].some((s) => s.target === t)) return d;
+  return null;
+}
+
 const CACHE = new Map<string, readonly PageSlot[]>();
 
 /** Les blocs d'un ecran pour la voix choisie (null : aucune), tels que l'ecran, le Dock et le MIDI les voient. */
@@ -319,8 +409,11 @@ export function pageSlots(screen: RytmScreenId, inst: Inst | null): readonly Pag
     case 'fxv':
       out = FXV;
       break;
-    default:
+    case 'fxg':
       out = FXG;
+      break;
+    default:
+      out = FX_DETAIL_SLOTS[screen];
   }
   CACHE.set(key, out);
   return out;
@@ -407,7 +500,8 @@ export function slotOf(t: SlotTarget, inst: Inst | null, screen?: RytmScreenId):
   const f = inst ? familyOf(inst as ShotId) : null;
   const sound = (x: SlotTarget): boolean => x === 'vsound' || x === 'smpl:sample' || x === 'voice:sound' || (x.startsWith('r:') && f !== null && x.slice(2) === f);
   const same = (s: PageSlot): boolean => s.target !== null && (s.target === t || (sound(t) && sound(s.target)) || ((t === 'l:syn' || t === 'l:lev') && s.target === 'voice:mix'));
-  const all = allScreens(inst);
+  // Les pages des FX globaux (2026-10-10) apres les onglets : DELAY est d'abord sur GLOBAL FX, DLY TONE sur la sienne
+  const all = [...allScreens(inst), ...FX_DETAILS];
   const order = screen ? [screen, ...all.filter((id) => id !== screen)] : all;
   for (const id of order) {
     const k = pageSlots(id, inst).findIndex(same);

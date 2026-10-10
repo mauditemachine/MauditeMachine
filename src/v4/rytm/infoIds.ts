@@ -21,7 +21,8 @@
  *   amp) et les anciens reglages a venir devenus reels (soon:fatk...) se
  *   rendent sous leur nouveau nom (OLD_IDS) ;
  * - les reglages des ecrans : leur DialId (actions.ts : vdecay, vol, tone,
- *   vfcut, dtime...), step:vel, voice:sound (SOUND), voice:mix (MIX) et
+ *   vfcut, dtime... ; les pages des FX globaux depuis le 2026-10-10 : xtone,
+ *   crate, cdepth, dtone, rsize, rtone, rpre, brate, catk, crel), step:vel, voice:sound (SOUND), voice:mix (MIX) et
  *   smpl:sample (l'ancien SAMPLE, le MIDI le connait encore) ; vsound, le
  *   raccourci SOUND du kit (le MIDI rytm:enc:vsound) ;
  * - les choix de son de la plaque TWEAKS : r:bd r:sd r:cp r:hh r:tom ;
@@ -35,7 +36,7 @@
  */
 
 import { GLOBAL_ENCODERS, type Inst } from '../theme';
-import { RYTM_PAGES, SCREEN_TITLE, allScreens, pageSlots, slotCells, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './pages';
+import { FX_DETAILS, RYTM_PAGES, SCREEN_TITLE, allScreens, pageSlots, slotCells, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './pages';
 
 /* ---------------- les ids ---------------- */
 
@@ -93,6 +94,17 @@ export const RYTM_PARAM_IDS = [
   'dfb',
   'bits',
   'comp',
+  // Les reglages des FX globaux sur leurs pages (2026-10-10, rytm/pages.ts FX_DETAILS)
+  'xtone',
+  'crate',
+  'cdepth',
+  'dtone',
+  'rsize',
+  'rtone',
+  'rpre',
+  'brate',
+  'catk',
+  'crel',
 ] as const;
 export type RytmParamId = (typeof RYTM_PARAM_IDS)[number];
 
@@ -272,7 +284,8 @@ export const screenOfInfo = (id: RytmInfoPage | RytmInfoTab): RytmScreenId => (i
 
 /** L'ecran et le bloc d'un reglage pour cette voix (l'ecran regarde d'abord), null s'il n'est sur aucun ecran. */
 export function rytmSlotOf(id: RytmInfoId, voice: Inst | null, screen?: RytmScreenId): { page: RytmScreenId; k: number } | null {
-  const all = allScreens(voice);
+  // Les pages des FX globaux (2026-10-10) apres les onglets : DLY TONE se lit GLOBAL FX · DELAY D d'ou qu'on le regarde
+  const all = [...allScreens(voice), ...FX_DETAILS];
   const order = screen ? [screen, ...all.filter((x) => x !== screen)] : all;
   for (const p of order) {
     const k = rytmSlots(p, voice).findIndex((x) => !x.graph && x.id === id);

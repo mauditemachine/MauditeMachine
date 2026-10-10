@@ -15,7 +15,7 @@ import { samplePcm } from '../audio/samples';
 import { toneHpHz, toneLpHz } from '../audio/tone';
 import { timeFactor } from '../audio/time';
 import { FENV_OCT, START_MAX, atkS, cutHz, decayTau, fatkS, fdecTau, fineCents, filterType, holdS, resoQ, tuneSt, voiceGain } from '../audio/voicefx';
-import { VEL_GAIN, VEL_MAX, VEL_NAMES, delayDiv, delayFb } from '../audio/pattern';
+import { VEL_GAIN, VEL_MAX, VEL_NAMES, delayDiv, delayFb, fxLaw } from '../audio/pattern';
 import { swingRatio, type EncId } from '../theme';
 
 /** Le nombre 0 a 127 d'une course 0 a 1 ; a zero au centre : -64 a +63 (le centre exact vaut 0). */
@@ -98,6 +98,12 @@ function dur(s: number): string {
   return s < 1 ? `${Math.round(s * 1000)} MS` : `${(Math.round(s * 10) / 10).toFixed(1)} S`;
 }
 
+/** Une duree courte, toujours en ms (2026-10-10, l'attaque et le retour du COMP) : 0.1 MS, 3.0 MS, 120 MS. */
+function ms(s: number): string {
+  const m = s * 1000;
+  return `${m < 10 ? m.toFixed(1) : Math.round(m)} MS`;
+}
+
 /**
  * La ligne d'unite d'un potard de la machine (sa valeur dans son domaine :
  * 0 a 1, -1 a 1 pour TONE et STRETCH) :
@@ -109,7 +115,11 @@ function dur(s: number): string {
  *   (HP 120 HZ), FLAT au centre (la hauteur bascule avec, +/-7 demi-tons) ;
  * - STRETCH : le facteur des durees (x0.25 a x4) ;
  * - SWING : le rapport des doubles croches (50 % droit, 67 % triolet) ;
- * - les effets : la part envoyee, en pour cent.
+ * - les effets : la part envoyee, en pour cent ;
+ * - les reglages des FX globaux (2026-10-10, leurs pages) : les TONE en Hz
+ *   (4.5 KHZ ; celui de DIST, OPEN tout en haut), SIZE en secondes, PRE et
+ *   DEPTH en ms, RATE du CHORUS en facteur (X1.0), RATE de BIT en diviseur
+ *   (OFF, /2 ... /16), ATTACK et RELEASE du COMP en ms.
  */
 export function encUnit(id: Exclude<EncId, 'tempo' | 'vsound'>, v: number): string {
   switch (id) {
@@ -173,6 +183,31 @@ export function encUnit(id: Exclude<EncId, 'tempo' | 'vsound'>, v: number): stri
       return v <= 0 ? 'OFF' : `${Math.round(16 - 12 * Math.min(1, v))} BIT`;
     case 'comp':
       return v <= 0 ? 'OFF' : `${(1 + 7 * Math.min(1, v)).toFixed(1)}:1`;
+    // Les reglages des FX globaux (2026-10-10, leurs pages ; les lois de audio/pattern.ts fxLaw, celles du son)
+    case 'dtone':
+    case 'rtone':
+      return hz(fxLaw[id](v));
+    case 'xtone':
+      // 16 kHz tout en haut : le passe-bas ne s'entend plus, la saturation reste entiere
+      return v >= 1 ? 'OPEN' : hz(fxLaw.xtone(v));
+    case 'rsize':
+      return `${fxLaw.rsize(v).toFixed(1)} S`;
+    case 'rpre':
+      return `${Math.round(fxLaw.rpre(v) * 1000)} MS`;
+    case 'crate': {
+      const f = fxLaw.crate(v);
+      return `X${f < 1 ? f.toFixed(2) : f.toFixed(1)}`;
+    }
+    case 'cdepth':
+      return `${(fxLaw.cdepth(v) * 1000).toFixed(1)} MS`;
+    case 'brate': {
+      // L'echantillonnage divise : /1 n'y touche pas (OFF)
+      const n = fxLaw.brate(v);
+      return n <= 1 ? 'OFF' : `/${n}`;
+    }
+    case 'catk':
+    case 'crel':
+      return ms(fxLaw[id](v));
     default:
       return `${Math.round(Math.max(0, Math.min(1, v)) * 100)}%`;
   }

@@ -29,9 +29,16 @@
  * velocites ; la cle .2 d'avant (TRIG SRC SMPL FLTR AMP FX) se lit encore : une
  * page qui n'existe plus ouvre la sienne d'aujourd'hui (TRIG, SRC, SMPL :
  * VOICE ; AMP : ENV, rytm/pages.ts PAGE_ALIAS), jamais un plantage.
+ *
+ * detail (2026-10-10, Mika : "quand je touche a un FX, par exemple DELAY, dans
+ * l'ecran, ca doit afficher les configurations que je peux avoir pour DELAY") :
+ * la page d'un FX global ouverte sous GLOBAL FX (rytm/pages.ts FX_DETAILS), null
+ * aucune. Elle s'ouvre d'une tape sur son bloc ou de son encodeur du desktop ;
+ * la touche FX (retour a GLOBAL FX), une autre page, [ et ], un onglet de
+ * l'en-tete ou Echap la referment. Pas retenue : une visite repart de GLOBAL FX.
  */
 
-import { DEFAULT_PAGE, FOLLOW_TOUCH, PAGE_TABS, RYTM_PAGES, isRytmPage, pageOfAlias, pageStep, screenOf, screensOf, slotOf, type RytmPageId, type RytmScreenId, type SlotTarget } from '../rytm/pages';
+import { DEFAULT_PAGE, FOLLOW_TOUCH, PAGE_TABS, RYTM_PAGES, isRytmPage, pageOfAlias, pageStep, screenOf, screensOf, slotOf, type FxDetailId, type RytmPageId, type RytmScreenId, type SlotTarget } from '../rytm/pages';
 import { POT_UI, type EncId, type Inst } from '../theme';
 
 export type RytmView = 'home' | 'page';
@@ -72,6 +79,8 @@ export interface RytmPageState {
   readonly popup: RytmPopup | null;
   /** la velocite des nouveaux pas de chaque voix (1 a 9) */
   readonly vel: Readonly<Record<Inst, number>>;
+  /** la page d'un FX global ouverte sous GLOBAL FX (2026-10-10), null : aucune */
+  readonly detail: FxDetailId | null;
 }
 
 const KEY = 'mm.v4.rytm.page.3';
@@ -85,7 +94,16 @@ const fullVel = (): Record<Inst, number> => Object.fromEntries(INSTS.map((i) => 
 
 /** Relire la velocite des nouveaux pas gardee (false depuis le 2026-10-10 : plus de bloc VEL pour la changer). */
 const VEL_FROM_STORE = false;
-const DEFAULT: RytmPageState = { page: DEFAULT_PAGE, tabs: zeroTabs(), view: 'page', echo: null, sel: -1, held: -1, hover: -1, popup: null, vel: fullVel() };
+const DEFAULT: RytmPageState = { page: DEFAULT_PAGE, tabs: zeroTabs(), view: 'page', echo: null, sel: -1, held: -1, hover: -1, popup: null, vel: fullVel(), detail: null };
+
+/**
+ * L'ecran d'un etat de page pour cette voix : la page et son onglet (un onglet
+ * absent pour elle : le premier) ; sur GLOBAL FX, la page du FX ouverte (2026-10-10).
+ */
+export function screenOfState(s: RytmPageState, inst: Inst | null): RytmScreenId {
+  const base = screenOf(s.page, s.tabs[s.page] ?? 0, inst);
+  return s.detail && base === 'fxg' ? s.detail : base;
+}
 
 function load(): RytmPageState {
   const out = { ...DEFAULT, tabs: zeroTabs(), vel: fullVel() };
@@ -162,39 +180,57 @@ function set(next: Partial<RytmPageState>): void {
 
 export const rytmPage = {
   get: (): RytmPageState => state,
-  /** L'ecran affiche pour cette voix (la page et son onglet ; un onglet absent pour elle : le premier). */
+  /** L'ecran affiche pour cette voix (la page et son onglet ; un onglet absent pour elle : le premier ; la page d'un FX). */
   screen(inst: Inst | null): RytmScreenId {
-    return screenOf(state.page, state.tabs[state.page] ?? 0, inst);
+    return screenOfState(state, inst);
   },
-  /** Une page (touche de page, Dock, MIDI) : elle s'affiche, en vue PAGE, sur son onglet retenu. */
+  /** Une page (touche de page, Dock, MIDI) : elle s'affiche, en vue PAGE, sur son onglet retenu (la page d'un FX se referme). */
   setPage(p: RytmPageId): void {
-    if (p === state.page && state.view === 'page') return;
-    set({ page: p, view: 'page', echo: null });
+    if (p === state.page && state.view === 'page' && !state.detail) return;
+    set({ page: p, view: 'page', echo: null, detail: null });
   },
-  /** Un onglet d'une page (une tape sur l'en-tete de l'ecran, le MIDI) : la page s'affiche sur lui. */
+  /** Un onglet d'une page (une tape sur l'en-tete de l'ecran, le MIDI) : la page s'affiche sur lui (GLOBAL : la page d'un FX se referme). */
   setTab(p: RytmPageId, tab: number, inst: Inst | null): void {
     const n = screensOf(p, inst).length;
     const t = Math.max(0, Math.min(n - 1, Math.round(tab)));
-    if (p === state.page && state.view === 'page' && (state.tabs[p] ?? 0) === t) return;
-    set({ page: p, view: 'page', echo: null, tabs: { ...state.tabs, [p]: t } });
+    if (p === state.page && state.view === 'page' && (state.tabs[p] ?? 0) === t && !state.detail) return;
+    set({ page: p, view: 'page', echo: null, detail: null, tabs: { ...state.tabs, [p]: t } });
+  },
+  /**
+   * La page d'un FX global (2026-10-10, une tape sur son bloc de GLOBAL FX, son
+   * encodeur du desktop, le MIDI rytm:screen:fxdelay) : la page FX s'affiche,
+   * sur GLOBAL, et la page du FX par-dessus.
+   */
+  openFx(d: FxDetailId, inst: Inst | null): void {
+    const t = Math.max(0, screensOf('fx', inst).indexOf('fxg'));
+    if (state.page === 'fx' && state.view === 'page' && (state.tabs.fx ?? 0) === t && state.detail === d) return;
+    set({ page: 'fx', view: 'page', echo: null, detail: d, tabs: { ...state.tabs, fx: t } });
+  },
+  /** La page d'un FX refermee : GLOBAL FX revient. true s'il y en avait une. */
+  closeFx(): boolean {
+    if (!state.detail) return false;
+    set({ detail: null, echo: null });
+    return true;
   },
   /**
    * Une touche de page pressee : une autre page s'affiche ; la page deja
    * allumee pressee encore passe a son onglet suivant (VOICE : MAIN, SYNTH ;
    * FX : VOICE, GLOBAL) ; une page sans onglet pour cette voix bascule HOME (et
-   * HOME, PAGE). Rend la vue et l'onglet.
+   * HOME, PAGE). FX sur la page d'un FX global (2026-10-10) : retour a GLOBAL
+   * FX. Rend la vue et l'onglet.
    */
   press(p: RytmPageId, inst: Inst | null): { view: RytmView; tab: number; tabs: number } {
     const n = screensOf(p, inst).length;
-    if (p !== state.page) set({ page: p, view: 'page', echo: null });
-    else if (state.view === 'home') set({ view: 'page' });
+    if (p !== state.page) set({ page: p, view: 'page', echo: null, detail: null });
+    else if (state.view === 'home') set({ view: 'page', detail: null });
+    else if (state.detail) set({ echo: null, detail: null });
     else if (n > 1) set({ echo: null, tabs: { ...state.tabs, [p]: ((Math.min(n - 1, state.tabs[p] ?? 0) + 1) % n) } });
     else set({ view: 'home' });
     return { view: state.view, tab: Math.min(n - 1, state.tabs[p] ?? 0), tabs: n };
   },
   /** [ et ] : la page d'a cote, en vue PAGE. */
   step(dir: -1 | 1): void {
-    set({ page: pageStep(state.page, dir), view: 'page', echo: null });
+    set({ page: pageStep(state.page, dir), view: 'page', echo: null, detail: null });
   },
   /** H : HOME, ou PAGE. */
   toggleView(): void {
