@@ -584,7 +584,7 @@ export const HitLayer: React.FC<Props> = ({ getStage, stage }) => {
         else anyDial(k, anyDialReset(k));
       } else {
         lastTap.set(k, t);
-        // Un FX de GLOBAL FX qui a sa page (2026-10-10) : elle s'ouvre si aucune deuxieme tape ne suit
+        // Un FX de GLOBAL FX qui a sa page (2026-10-10 ; un FX de VOICE FX : sa page sous la voix) : elle s'ouvre si aucune deuxieme tape ne suit
         const fd = pk >= 0 ? pageFxDetail(pk) : null;
         fxOpenCancel();
         if (fd)
@@ -1404,10 +1404,10 @@ function dialText(k: EncId, v: number): string {
  * son objet. Seules les valeurs qui ont change (au dixieme de px) sont
  * reecrites ; le montage ecrit tout, onIdle rattrape un rendu hors boucle.
  */
-/** Ce que les jumeaux lisent de la page du MM-RYTM : la page, la vue, le pas choisi. */
+/** Ce que les jumeaux lisent de la page du MM-RYTM : la page, la vue, le pas choisi ; la page d'un FX ouverte (2026-10-10, ses blocs). */
 const rytmPageKey3 = (): string => {
   const s = rytmPage.get();
-  return `${s.page}|${s.tabs[s.page] ?? 0}|${s.view}|${s.sel}`;
+  return `${s.page}|${s.tabs[s.page] ?? 0}|${s.detail ?? ''}|${s.view}|${s.sel}`;
 };
 /** Ce que les jumeaux lisent du LOCK (2026-10-08) : le pas et s'il est fixe (les verrous poses passent par le motif). */
 const rytmLockKey = (): string => {
@@ -1840,7 +1840,7 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
                 pageKnobReset(k);
                 return;
               }
-              // Entree sur un FX de GLOBAL FX (2026-10-10) : sa page, ses reglages (Echap y revient)
+              // Entree sur un FX de GLOBAL FX (2026-10-10) : sa page, ses reglages (Echap y revient) ; sur VOICE FX, sa page sous la voix
               const fd = e.key === 'Enter' ? pageFxDetail(k) : null;
               if (fd) {
                 e.preventDefault();

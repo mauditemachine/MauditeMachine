@@ -36,9 +36,19 @@
  * aucune. Elle s'ouvre d'une tape sur son bloc ou de son encodeur du desktop ;
  * la touche FX (retour a GLOBAL FX), une autre page, [ et ], un onglet de
  * l'en-tete ou Echap la referment. Pas retenue : une visite repart de GLOBAL FX.
+ *
+ * GLOBAL ou VOICE (2026-10-10, Mika : "Quand je suis la page delay je veux
+ * avoir le choix entre GLOBAL ou VOICE") : la page de DIST, CHORUS, DELAY ou
+ * REVERB se pose sur l'onglet de FX de son mode, GLOBAL FX (la quantite de la
+ * machine) ou VOICE FX (l'envoi de la voix, rytm/pages.ts FX_VOICE_DETAILS) :
+ * le mode est l'onglet de FX (tabs.fx), detail le FX. GLOBAL FX (une tape, un
+ * encodeur du desktop) l'ouvre sous GLOBAL, VOICE FX (une tape sur son bloc)
+ * sous la voix, les onglets GLOBAL et BD de l'en-tete passent de l'un a
+ * l'autre ; la touche FX ou Echap ramenent l'onglet du mode (GLOBAL FX, VOICE
+ * FX). BIT et COMP : GLOBAL seulement. Le mode n'est pas retenu (detail non plus).
  */
 
-import { DEFAULT_PAGE, FOLLOW_TOUCH, PAGE_TABS, RYTM_PAGES, isRytmPage, pageOfAlias, pageStep, screenOf, screensOf, slotOf, type FxDetailId, type RytmPageId, type RytmScreenId, type SlotTarget } from '../rytm/pages';
+import { DEFAULT_PAGE, FOLLOW_TOUCH, PAGE_TABS, RYTM_PAGES, fxVoicePageOf, isRytmPage, pageOfAlias, pageStep, screenOf, screensOf, slotOf, type FxDetailId, type RytmPageId, type RytmScreenId, type SlotTarget } from '../rytm/pages';
 import { POT_UI, type EncId, type Inst } from '../theme';
 
 export type RytmView = 'home' | 'page';
@@ -79,7 +89,10 @@ export interface RytmPageState {
   readonly popup: RytmPopup | null;
   /** la velocite des nouveaux pas de chaque voix (1 a 9) */
   readonly vel: Readonly<Record<Inst, number>>;
-  /** la page d'un FX global ouverte sous GLOBAL FX (2026-10-10), null : aucune */
+  /**
+   * la page d'un FX ouverte (2026-10-10), null : aucune ; sous GLOBAL FX la page
+   * de la machine, sous VOICE FX celle de la voix (DIST CHORUS DELAY REVERB)
+   */
   readonly detail: FxDetailId | null;
 }
 
@@ -98,12 +111,19 @@ const DEFAULT: RytmPageState = { page: DEFAULT_PAGE, tabs: zeroTabs(), view: 'pa
 
 /**
  * L'ecran d'un etat de page pour cette voix : la page et son onglet (un onglet
- * absent pour elle : le premier) ; sur GLOBAL FX, la page du FX ouverte (2026-10-10).
+ * absent pour elle : le premier) ; sur GLOBAL FX, la page du FX ouverte
+ * (2026-10-10) ; sur VOICE FX, sa page sous la voix (fxvdelay ; BIT et COMP,
+ * qui n'en ont pas : la leur, jamais ouvertes la par openFx).
  */
 export function screenOfState(s: RytmPageState, inst: Inst | null): RytmScreenId {
   const base = screenOf(s.page, s.tabs[s.page] ?? 0, inst);
-  return s.detail && base === 'fxg' ? s.detail : base;
+  if (!s.detail || s.page !== 'fx') return base;
+  if (base === 'fxg') return s.detail;
+  return base === 'fxv' ? (fxVoicePageOf(s.detail) ?? s.detail) : base;
 }
+
+/** L'onglet de FX d'un mode (GLOBAL FX, VOICE FX) : son rang. */
+const fxTab = (voice: boolean, inst: Inst | null): number => Math.max(0, screensOf('fx', inst).indexOf(voice ? 'fxv' : 'fxg'));
 
 function load(): RytmPageState {
   const out = { ...DEFAULT, tabs: zeroTabs(), vel: fullVel() };
@@ -199,14 +219,16 @@ export const rytmPage = {
   /**
    * La page d'un FX global (2026-10-10, une tape sur son bloc de GLOBAL FX, son
    * encodeur du desktop, le MIDI rytm:screen:fxdelay) : la page FX s'affiche,
-   * sur GLOBAL, et la page du FX par-dessus.
+   * sur GLOBAL, et la page du FX par-dessus. voice (une tape sur son bloc de
+   * VOICE FX, l'onglet de la voix dans l'en-tete, rytm:screen:fxvdelay) : sur
+   * VOICE FX, sa page sous la voix ; BIT et COMP n'en ont pas : GLOBAL.
    */
-  openFx(d: FxDetailId, inst: Inst | null): void {
-    const t = Math.max(0, screensOf('fx', inst).indexOf('fxg'));
+  openFx(d: FxDetailId, inst: Inst | null, voice = false): void {
+    const t = fxTab(voice && fxVoicePageOf(d) !== null, inst);
     if (state.page === 'fx' && state.view === 'page' && (state.tabs.fx ?? 0) === t && state.detail === d) return;
     set({ page: 'fx', view: 'page', echo: null, detail: d, tabs: { ...state.tabs, fx: t } });
   },
-  /** La page d'un FX refermee : GLOBAL FX revient. true s'il y en avait une. */
+  /** La page d'un FX refermee : l'onglet de son mode revient (GLOBAL FX, VOICE FX). true s'il y en avait une. */
   closeFx(): boolean {
     if (!state.detail) return false;
     set({ detail: null, echo: null });
@@ -216,8 +238,8 @@ export const rytmPage = {
    * Une touche de page pressee : une autre page s'affiche ; la page deja
    * allumee pressee encore passe a son onglet suivant (VOICE : MAIN, SYNTH ;
    * FX : VOICE, GLOBAL) ; une page sans onglet pour cette voix bascule HOME (et
-   * HOME, PAGE). FX sur la page d'un FX global (2026-10-10) : retour a GLOBAL
-   * FX. Rend la vue et l'onglet.
+   * HOME, PAGE). FX sur la page d'un FX (2026-10-10) : retour a l'onglet de son
+   * mode (GLOBAL FX ; VOICE FX sous la voix). Rend la vue et l'onglet.
    */
   press(p: RytmPageId, inst: Inst | null): { view: RytmView; tab: number; tabs: number } {
     const n = screensOf(p, inst).length;

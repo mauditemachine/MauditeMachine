@@ -38,7 +38,7 @@ import type { PresetMachine } from './state/presets';
 import { presskit } from './state/presskit';
 import { rytmPage } from './state/rytmPage';
 import { rytmLock } from './state/rytmLock';
-import { RYTM_PAGES, SCREEN_PAGE, SCREEN_TITLE, allScreens, fxDetailOf, isFxDetail, isRytmPage, pageLabel, pageOfAlias, pageSlots, screensOf, tabWord, type FxDetailId, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './rytm/pages';
+import { RYTM_PAGES, SCREEN_PAGE, SCREEN_TITLE, allScreens, fxDetailBase, fxDetailOf, fxVoiceDetailOf, isFxPage, isFxVoiceDetail, isRytmPage, pageLabel, pageOfAlias, pageSlots, screensOf, tabWord, type FxPageId, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './rytm/pages';
 import { encText, encUnit, kitUnit, kitUnitAt, layerText, layerUnit, v127Text, velTo127, velWord, type LayerDial } from './rytm/values';
 import { section } from './state/section';
 import { voices } from './state/voices';
@@ -1845,47 +1845,57 @@ export function rytmPageKey(id: RytmPageId, stage: Stage | null = null): void {
 }
 
 /**
- * La page d'un FX global que tient le bloc k de l'ecran affiche (2026-10-10) :
- * seulement sur GLOBAL FX (DIST CHORUS DELAY REVERB BIT COMP) ; null ailleurs,
- * pour STRETCH et SWING, sur la page d'un FX elle-meme.
+ * La page d'un FX que tient le bloc k de l'ecran affiche (2026-10-10) : sur
+ * GLOBAL FX (DIST CHORUS DELAY REVERB BIT COMP) sa page GLOBAL ; sur VOICE FX
+ * (DIST CHORUS DELAY REVERB de la voix) sa page sous la voix (fxvdelay) ; null
+ * ailleurs, pour STRETCH et SWING, sur la page d'un FX elle-meme.
  */
-export function pageFxDetail(k: number): FxDetailId | null {
-  if (curScreen() !== 'fxg') return null;
+export function pageFxDetail(k: number): FxPageId | null {
+  const screen = curScreen();
+  if (screen !== 'fxg' && screen !== 'fxv') return null;
   const t = pageTarget(k);
-  return t ? fxDetailOf(t) : null;
+  if (!t) return null;
+  return screen === 'fxg' ? fxDetailOf(t) : fxVoiceDetailOf(t);
 }
 
 /**
- * La page d'un FX global (2026-10-10, Mika : "quand je touche a un FX, par
- * exemple DELAY, dans l'ecran, ca doit afficher les configurations que je peux
- * avoir pour DELAY ; pareil pour tous les autres") : une tape sur son bloc de
- * GLOBAL FX (ui/Hotspots.tsx), Entree sur son jumeau, le MIDI
- * rytm:screen:fxdelay. Sa quantite cernee un instant, le message dit le retour.
+ * La page d'un FX (2026-10-10, Mika : "quand je touche a un FX, par exemple
+ * DELAY, dans l'ecran, ca doit afficher les configurations que je peux avoir
+ * pour DELAY ; pareil pour tous les autres") : une tape sur son bloc de GLOBAL
+ * FX (ui/Hotspots.tsx), Entree sur son jumeau, le MIDI rytm:screen:fxdelay ;
+ * sous la voix (fxvdelay, Mika : "je veux avoir le choix entre GLOBAL ou
+ * VOICE") une tape sur son bloc de VOICE FX, l'onglet de la voix dans
+ * l'en-tete, rytm:screen:fxvdelay ; l'onglet GLOBAL y ramene la page de la
+ * machine. Le grand bloc cerne un instant, le message dit la page et le retour.
  */
-export function rytmFxOpen(d: FxDetailId): void {
+export function rytmFxOpen(p: FxPageId): void {
   const inst = pattern.get().instrument;
-  rytmPage.openFx(d, inst);
+  rytmPage.openFx(fxDetailBase(p), inst, isFxVoiceDetail(p));
   rytmPage.echo(0, inst);
-  lcdMessage.show(`${tabWord(d, inst)} · FX: BACK`, 1400);
+  lcdMessage.show(`${tabWord(curScreen(), inst)} · FX: BACK`, 1400);
 }
 
 /**
- * Retour a GLOBAL FX depuis la page d'un FX (Echap ; la touche FX et GLOBAL
- * dans l'en-tete passent par rytmPage). Seulement quand on la voit : la vue
- * PAGE, ni EDIT ni les presets par-dessus. true si elle s'est refermee.
+ * Retour a l'onglet de FX du mode (GLOBAL FX ; VOICE FX sous la voix) depuis la
+ * page d'un FX (Echap ; la touche FX passe par rytmPage). Seulement quand on la
+ * voit : la vue PAGE, ni EDIT ni les presets par-dessus. true si elle s'est refermee.
  */
 export function rytmFxClose(): boolean {
   const s = rytmPage.get();
   if (!s.detail || s.view !== 'page' || editor.get() === 'mm808' || presetMode.on('mm808')) return false;
   rytmPage.closeFx();
-  lcdMessage.show(SCREEN_TITLE.fxg, 900);
+  lcdMessage.show(SCREEN_TITLE[curScreen()], 900);
   return true;
 }
 
-/** Un onglet de l'en-tete de l'ecran touche (2026-10-09) : la page s'affiche sur lui ; la page d'un FX global (2026-10-10) s'ouvre. */
+/**
+ * Un onglet de l'en-tete de l'ecran touche (2026-10-09) : la page s'affiche sur
+ * lui ; la page d'un FX (2026-10-10) s'ouvre, GLOBAL ou sous la voix (ses deux
+ * onglets passent de l'une a l'autre).
+ */
 export function rytmScreenTab(screen: RytmScreenId): void {
   resume();
-  if (isFxDetail(screen)) {
+  if (isFxPage(screen)) {
     rytmFxOpen(screen);
     return;
   }

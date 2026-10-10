@@ -129,7 +129,7 @@ import {
 import { Encoders } from './encoders';
 import { RytmPageKeys } from './rytmPageKeys';
 import { anyDialValue, dialRange, type DialId } from '../actions';
-import { PAGE_TABS, type RytmPageId, type RytmScreenId } from '../rytm/pages';
+import { FX_DETAILS, FX_VOICE_DETAILS, PAGE_TABS, fxVoicePageOf, type RytmPageId, type RytmScreenId } from '../rytm/pages';
 import { Explode, type ExplodeInfo } from './explode';
 import { Floor } from './floor';
 import { HitMap, type HotspotDef } from './hit';
@@ -815,7 +815,8 @@ export class Stage {
       // Les onglets de l'en-tete de la vue PAGE (2026-10-09, scene/screen.ts tabSpots : VOICE MAIN et SYNTH, FX de la voix et
       // GLOBAL) : une tape y passe ; poses et allumes la ou l'ecran les dessine (syncScreenTabs), un rien plus haut que l'ecran
       // (ils passent devant lcd-open, qui ouvre les presets depuis l'en-tete)
-      const tabbed: RytmScreenId[] = [...PAGE_TABS.voice, ...PAGE_TABS.fx];
+      // Les pages de DIST CHORUS DELAY REVERB (2026-10-10) : leurs onglets GLOBAL et de la voix (lcd-tab-fxdelay, lcd-tab-fxvdelay)
+      const tabbed: RytmScreenId[] = [...PAGE_TABS.voice, ...PAGE_TABS.fx, ...FX_DETAILS.filter((d) => fxVoicePageOf(d) !== null), ...FX_VOICE_DETAILS];
       this.tabDefs = tabbed.map((id) => ({
         id: `lcd-tab-${id}`,
         kind: 'pkey' as const,

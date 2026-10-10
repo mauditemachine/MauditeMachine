@@ -220,7 +220,8 @@ function baseBlock(slot: PageSlot, k: number, inst: Inst | null, echo: boolean, 
   // BOTH : les deux couches ; CH+OH, TOM+HT : la couche de deux voix ; MACHINE : un potard de la machine de synthese
   const shared = slot.layer && fam ? (SHARED_TAG[fam] ?? '') : '';
   b.tag = b.noBd ? 'NO BD' : b.all ? 'ALL' : slot.voiceTag && inst ? inst : slot.both && fam ? 'BOTH' : shared;
-  b.tagHeader = !b.noBd && (b.all || (!!slot.voiceTag && !!inst));
+  // ALL des reglages de la machine sur la page d'un FX sous la voix (2026-10-10) : l'onglet allume est la voix, le bloc le dit
+  b.tagHeader = !slot.tagAlways && !b.noBd && (b.all || (!!slot.voiceTag && !!inst));
   const t = slot.target;
   if (t === null) {
     b.unit = 'SOON';

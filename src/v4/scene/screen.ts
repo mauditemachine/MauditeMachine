@@ -141,7 +141,7 @@ import { rytmInfos } from '../state/rytmInfos';
 import { rytmPage, type RytmPageState, type RytmView } from '../state/rytmPage';
 import { voices } from '../state/voices';
 import { FONT_DISPLAY, GLOBAL_ENCODERS, GLOBAL_ENC_LABELS, HEX, OLED, OLED_DY, OLED_UH, type EncId, type Inst } from '../theme';
-import { SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, isFxDetail, pageLabel, pageSlots, screensOf, slotCells, slotOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
+import { SCREEN_LABEL, SCREEN_PAGE, SCREEN_TITLE, freeCells, fxScopeTabs, fxVoiceTabLabel, isFxDetail, pageLabel, pageSlots, screensOf, slotCells, slotOf, tabWord, type PageSlot, type RytmPageId, type RytmScreenId, type SlotCell } from '../rytm/pages';
 import { pageBlocks, screenIn, type Block, type BlockMode } from '../rytm/pageView';
 import { v127Text } from '../rytm/values';
 import { makeCanvasTexture } from './silk';
@@ -1694,7 +1694,35 @@ export class Screen {
     const chev = ts * 0.62;
     const crumbW = detail ? tabW(SCREEN_LABEL.fxg) + chev + 4 + tabW(SCREEN_LABEL[detail]) : 0;
     const voiceRoom = inst ? this.textWidth(inst, T.voice, 600) + 12 : 0;
-    if (tabs.length > 1) {
+    // GLOBAL ou la voix (2026-10-10, Mika : "Quand je suis la page delay je veux avoir le choix entre GLOBAL ou VOICE") :
+    // sur la page de DIST CHORUS DELAY REVERB, le FX en titre, un chevron, puis ses deux onglets, GLOBAL et la voix (BD ;
+    // VOICE sans voix), celui du mode cerne, une tape sur l'autre y passe ; l'onglet de la voix la nomme (pas son nom apres)
+    const scope = fxScopeTabs(screen);
+    if (scope) {
+      const dn = SCREEN_LABEL[screen];
+      const dw = tabW(dn);
+      this.text(dn, x + dw / 2, ty, ts, INK, 700, 'center', 0.7);
+      x += dw;
+      const cy = H.pillY + T.pillH / 2;
+      const ch = chev * 0.55;
+      this.line([x + 1, cy - ch, x + 1 + chev * 0.5, cy, x + 1, cy + ch], HALF, 1);
+      x += chev + 4;
+      heads += `|${dn}>`;
+      const pair: readonly (readonly [RytmScreenId, string])[] = [
+        [scope.global, SCREEN_LABEL.fxg],
+        [scope.voice, fxVoiceTabLabel(inst)],
+      ];
+      for (const [t, name] of pair) {
+        const on = t === screen;
+        const tw = tabW(name);
+        if (on) this.roundRect(x, H.pillY + 0.6, tw, T.pillH - 1.2, 2.2, null, INK, 1.1);
+        this.text(name, x + tw / 2, ty, ts, on ? INK : FAINT, 700, 'center', 0.7);
+        this.tabSpots.push({ screen: t, ...this.spot({ x: x - 0.5, y: 0, w: tw + 1, h: H.rule }) });
+        heads += `|${on ? '[' : ''}${name}${on ? ']' : ''}`;
+        x += tw + 3;
+      }
+      x += 4;
+    } else if (tabs.length > 1) {
       for (const t of tabs) {
         const name = t === 'fxv' ? (inst ? `${inst} FX` : 'VOICE FX') : SCREEN_LABEL[t];
         if (detail && t === 'fxv' && x + tabW(name) + 3 + crumbW + 4 + voiceRoom > rightX) continue;
@@ -1731,8 +1759,10 @@ export class Screen {
     } else x += 3;
     this.info.head = heads;
     if (inst) {
-      const vw = this.text(inst, x, y, T.voice, INK, 600);
-      x += vw + 5;
+      if (!scope) {
+        const vw = this.text(inst, x, y, T.voice, INK, 600);
+        x += vw + 5;
+      }
       // Une voix vraiment coupee (en solo) : sa pastille ; une voix hors d'un solo n'en a pas (2026-10-09 : MUTE se lisait a tort)
       const solo = voices.isSolo(inst);
       const muted = voices.isMuted(inst) && v.solo.length === 0;
@@ -1768,6 +1798,9 @@ export class Screen {
         const shown = plays === inst ? '' : ([plays, plays.split(' + ')[0]].find((t) => this.textWidth(t, T.sound, 600, 0.6) <= room) ?? '');
         if (shown) this.text(shown, x, y, T.sound, HALF, 600, 'left', 0.6);
       }
+    } else if (scope) {
+      // Sans voix sur la page d'un FX (2026-10-10) : l'onglet dit VOICE, le reste PICK A VOICE s'il tient avant le pattern
+      if (x + this.textWidth('PICK A VOICE', T.sound * 0.85, 600, 0.5) <= rightX) this.text('PICK A VOICE', x, y, T.sound * 0.85, FAINT, 600, 'left', 0.5);
     } else {
       const aw = this.text('ALL', x, y, T.voice, HALF, 600);
       this.text('PICK A VOICE', x + aw + 6, y, T.sound * 0.85, FAINT, 600, 'left', 0.5);
@@ -1915,7 +1948,11 @@ export class Screen {
     const unitY = by + T.unitDy + drop;
     // Au desktop, les crans d'un reglage a crans tiennent le bout de la ligne d'unite
     const notchW = T.notchRow && stepped && !wide && !muted ? 24 : 0;
-    const room = bw - 2 * B.padX - notchW;
+    // Un grand carre (2 x 2, la quantite d'un FX) : son potard tient la droite du bloc, la ligne d'unite et son etiquette
+    // s'arretent avant lui (2026-10-10, le telephone : NO BD se posait sur l'arc de DELAY)
+    const arcX = tall && wide && (b.draw === 'bar' || b.draw === 'barc') ? Math.max(bx + bw * 0.44, bx + B.padX + this.textWidth('127', v.size, 300) + 6) : 0;
+    const unitRight = arcX > 0 ? arcX - 4 : bx + bw - B.padX - notchW;
+    const room = unitRight - (bx + B.padX);
     if (muted) {
       this.text(this.fitText(b.tag, room, T.unitSize, 0.5, 700), bx + B.padX, unitY, T.unitSize, P.half, 700, 'left', 0.5);
       this.info.tags.push(`${b.label}:${b.tag}|`);
@@ -1933,7 +1970,7 @@ export class Screen {
         if (b.unitShort && uw(unit) > room) unit = b.unitShort;
       }
     }
-    if (tail) this.text(tail, bx + bw - B.padX - notchW, unitY, T.tagSize, tagColor, 700, 'right', tagSp);
+    if (tail) this.text(tail, unitRight, unitY, T.tagSize, tagColor, 700, 'right', tagSp);
     const u = unit ? this.fitText(unit, room - (tail ? tailW : 0), T.unitSize) : '';
     if (u) this.text(u, bx + B.padX, unitY, T.unitSize, P.half, 600, 'left', 0.4);
     this.info.tags.push(`${b.label}:${u}|${nameTag ? `${nameTag}@name` : tail ? `${tail}@unit` : ''}`);
@@ -1993,10 +2030,7 @@ export class Screen {
       default:
         // Un grand carre (2 x 2, la quantite d'un FX sur sa page, 2026-10-10) : le potard a droite de la valeur, sur toute la
         // hauteur du bloc (sous l'unite, il restait petit au milieu d'un grand vide) ; jamais sur la valeur la plus large (127)
-        if (tall && wide) {
-          const ax = Math.max(bx + bw * 0.44, bx + B.padX + this.textWidth('127', v.size, 300) + 6);
-          this.drawBigArc({ x0: ax, y0: by + T.nameDy + 4, x1: bx + bw - B.padX - 2, y1: by + bh - (TALL ? 7 : 5) }, b.course, b.draw === 'barc' || b.bipolar);
-        }
+        if (tall && wide) this.drawBigArc({ x0: arcX, y0: by + T.nameDy + 4, x1: bx + bw - B.padX - 2, y1: by + bh - (TALL ? 7 : 5) }, b.course, b.draw === 'barc' || b.bipolar);
         else if (tall) this.drawBigArc(r, b.course, b.draw === 'barc' || b.bipolar);
         else this.drawArc(r, b.course, b.draw === 'barc' || b.bipolar);
     }
@@ -2394,7 +2428,11 @@ export class Screen {
       const next = tabs.length > 1 ? tabWord(tabs[(tabs.indexOf(screen) + 1) % tabs.length], inst) : 'HOME';
       // GLOBAL FX et les pages de ses FX (2026-10-10) : une tape sur un FX ouvre sa page ; sur elle, le chemin du retour
       const pick = (...l: string[]): string => l.find((s) => fits(s, fs - 0.5, 0.6)) ?? l[l.length - 1];
-      const bText = isFxDetail(screen)
+      // La page d'un FX a deux onglets (2026-10-10) : GLOBAL ou la voix en haut, FX revient a l'onglet du mode
+      const vt = fxVoiceTabLabel(inst);
+      const bText = fxScopeTabs(screen)
+        ? pick(`TAP GLOBAL OR ${vt} · FX: BACK`, `GLOBAL OR ${vt} · FX: BACK`, 'FX: BACK')
+        : isFxDetail(screen)
         ? pick('TAP GLOBAL OR FX: BACK TO GLOBAL FX', 'TAP GLOBAL OR FX: BACK')
         : screen === 'fxg'
           ? pick('TAP A FX: ITS SETTINGS · NEVER P-LOCKED', 'TAP A FX: ITS SETTINGS')
@@ -2406,7 +2444,14 @@ export class Screen {
       return 0;
     }
     // GLOBAL FX et les pages de ses FX (2026-10-10) : au desktop, le clic qui ouvre une page, et le retour
-    const desk = isFxDetail(screen) ? `${TURN}  /  GLOBAL, FX OR ESC: BACK` : screen === 'fxg' ? `${TURN}  /  CLICK A FX: ITS SETTINGS` : `${TURN}  /  TURN A KNOB = GLOBAL FX`;
+    // La page d'un FX a deux onglets (2026-10-10) : ses onglets sont en haut, FX ou Echap ramenent l'onglet du mode
+    const desk = fxScopeTabs(screen)
+      ? `${TURN}  /  FX OR ESC: BACK`
+      : isFxDetail(screen)
+        ? `${TURN}  /  GLOBAL, FX OR ESC: BACK`
+        : screen === 'fxg'
+          ? `${TURN}  /  CLICK A FX: ITS SETTINGS`
+          : `${TURN}  /  TURN A KNOB = GLOBAL FX`;
     const t = this.fitText(this.mobile ? `HOLD A STEP + ${TURN}: P-LOCK` : desk, x1 - x0, fs - 0.5, 0.5, 700);
     this.text(t, x0, y, fs - 0.5, HALF, 700, 'left', 0.5);
     this.info.footText = t;

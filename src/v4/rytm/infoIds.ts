@@ -36,7 +36,7 @@
  */
 
 import { GLOBAL_ENCODERS, type Inst } from '../theme';
-import { FX_DETAILS, RYTM_PAGES, SCREEN_TITLE, allScreens, pageSlots, slotCells, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './pages';
+import { FX_DETAILS, RYTM_PAGES, SCREEN_TITLE, allScreens, isFxPage, pageSlots, slotCells, type PageSlot, type RytmPageId, type RytmScreenId, type SlotTarget } from './pages';
 
 /* ---------------- les ids ---------------- */
 
@@ -378,6 +378,11 @@ export function rytmInfoHit(hotspot: string): RytmInfoHit | null {
   const pk = /^pkey-([a-z]+)$/.exec(hotspot);
   if (pk) return PAGE_IDS.has(pk[1]) ? { id: pk[1] } : null;
   const tb = /^lcd-tab-([a-z]+)$/.exec(hotspot);
+  // Les onglets de la page d'un FX (2026-10-10) : GLOBAL, la carte du FX de la machine (delay) ; la voix, celle de son envoi (vdelay)
+  if (tb && isFxPage(tb[1])) {
+    const t = pageSlots(tb[1], null)[0]?.target;
+    return t ? { id: infoIdOfTarget(t) } : null;
+  }
   if (tb) return tb[1] === 'voice' || PAGE_IDS.has(tb[1]) || TAB_IDS.has(tb[1]) ? { id: tb[1] } : null;
   const st = /^step-(\d+)$/.exec(hotspot);
   if (st) {
