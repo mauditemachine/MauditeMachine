@@ -188,6 +188,8 @@ export const BASS_PLOCK_ID = 'bass-lcd-plock';
 export const BASS_ROLL_ID = 'bass-roll';
 /** Le rouleau d'EDIT sur l'ecran (2026-10-09) ; false depuis le 2026-10-10 : le panneau EDIT (bass/EditPanel.tsx) le remplace. */
 const EDIT_ON_SCREEN = false;
+/** Le rouleau d'EDIT est-il sur l'ecran (ses zones a la place des blocs) ? */
+const rollOnScreen = (): boolean => EDIT_ON_SCREEN && editor.get() === 'bass';
 /** Un bloc de l'ecran (2026-10-08, la revue) : k de 0 a 7, bass-blk-1 a 8, il repond comme son encodeur. */
 export const bassBlockId = (k: number): string => `bass-blk-${k + 1}`;
 export const bassTrigId = (i: number): string => `bass-trig-${i + 1}`;
@@ -787,7 +789,9 @@ export class BassRig {
    */
   private syncScreenKeys(): boolean {
     const on = presetMode.on('bass');
-    const blocks = !on && editor.get() !== 'bass';
+    // EDIT ouvert (2026-10-10, Mika : "quand je suis sur EDIT je peux plus rien changer dans VOICE") : le panneau EDIT
+    // laisse l'ecran a sa page, ses blocs restent vivants
+    const blocks = !on && !rollOnScreen();
     let changed = false;
     const want = (d: HotspotDef, w: boolean): void => {
       if (d.enabled === w) return;
@@ -817,7 +821,7 @@ export class BassRig {
     const d = this.rollDef;
     if (!d) return false;
     const g = this.screen.editRoll();
-    const live = !!g && !presetMode.on('bass') && editor.get() === 'bass';
+    const live = !!g && !presetMode.on('bass') && rollOnScreen();
     let changed = false;
     if (g) {
       const S = BASS.screen;
@@ -858,7 +862,7 @@ export class BassRig {
     const pd = this.plockDef;
     if (pd) {
       const span = hz.pill;
-      const live = !on && !!span && editor.get() !== 'bass';
+      const live = !on && !!span && !rollOnScreen();
       if (span) {
         const x = S.x - S.w / 2 + ((span.u0 + span.u1) / 2) * S.w;
         const hx = ((span.u1 - span.u0) / 2) * S.w;
@@ -901,7 +905,7 @@ export class BassRig {
     // Les puces des onglets (2026-10-09) : leur rectangle entier (desktop : la ligne du titre ; telephone : l'en-tete)
     for (const d of this.chipDefs) {
       const c = hz.chips.find((t) => bassScrId(t.id) === d.id);
-      const live = !on && !!c && editor.get() !== 'bass';
+      const live = !on && !!c && !rollOnScreen();
       if (c) {
         const x = S.x - S.w / 2 + ((c.u0 + c.u1) / 2) * S.w;
         const z = S.z - S.d / 2 + ((c.v0 + c.v1) / 2) * S.d;

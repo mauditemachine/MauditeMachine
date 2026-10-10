@@ -5661,3 +5661,35 @@ html:has(body.v4-active.v4-light) {
   flex: 0 0 auto;
   min-width: 128px;
 }
+
+/* Sous la machine au desktop aussi (2026-10-10) : des rangees plus basses, le panneau laisse la place a la machine */
+.v4-seq[data-place='below'] .v4-bassed {
+  --beat-row: 10px;
+}
+
+.v4-bassed .v4-seq-lane.v4-beat-lane.v4-bassed-vel {
+  height: 36px;
+}
+
+/* Le panneau du MM-BASS sous la machine au desktop (2026-10-10) : les seize patterns sur une rangee, l'aide sur une ligne */
+.v4-bassed[data-variant='desk'] .v4-beat-ptns {
+  flex: 1 1 auto;
+  grid-template-columns: repeat(16, minmax(0, 1fr));
+  gap: 2px;
+  min-width: 0;
+  margin: 0;
+}
+
+.v4-root .v4-bassed[data-variant='desk'] .v4-beat-ptn {
+  height: 22px;
+  font-size: 9px;
+}
+
+.v4-bassed[data-variant='desk'] .v4-seq-hint {
+  overflow: hidden;
+  flex: 1 1 auto;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+}

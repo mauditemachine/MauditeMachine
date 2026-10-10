@@ -2528,3 +2528,8 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 ### R14-250 MM-BASS EDIT panel: VEL lane (2026-10-10)
 
 - A VEL lane under TIE: one bar per note step, its height the step's VOLUME P-lock (bassStepVel, 0.05 to 1 rounded to 1/127); a step without one shows the line's VOLUME, paler. Drag draws (crossed steps follow the line), double click gives the step back the line's value; keys Up/Down change it, Delete clears it. Off and tie steps have no bar.
+
+### R14-251 MM-BASS: the screen stays live during EDIT; the EDIT panel sits below the machine (2026-10-10)
+
+- With the EDIT panel open the screen keeps its page and its zones (blocks, tabs, title, chips) stay enabled: rig.ts gates them on rollOnScreen() (EDIT_ON_SCREEN and EDIT open), no longer on EDIT alone.
+- The EDIT panel is below the machine on desktop too (useEditorPanel inset: the framing lifts the whole machine), so the screen, its six keys and the page keys are never covered; desktop rows 10 px, the 16 patterns on one row, the hint on one line.

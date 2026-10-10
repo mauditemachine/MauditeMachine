@@ -1,7 +1,7 @@
 /**
  * L'editeur EDIT du MM-BASS (2026-10-10, Mika : "tu vois, j'aime bien cette fenetre EDIT du RYTM, je la prefere a
- * l'autre grand ecran de BASS") : le panneau du MM-RYTM (ui/BeatEditor.tsx), pose sur la machine a la place de sa
- * rangee de pas au desktop (il la couvre et la suit, ses seize colonnes sur les seize pas), sous elle au telephone.
+ * l'autre grand ecran de BASS") : le panneau du MM-RYTM (ui/BeatEditor.tsx), sous la machine (desktop et telephone :
+ * le cadrage la remonte, l'ecran et ses pages restent reglables pendant l'EDIT).
  * - PTN : les seize patterns (taper : le pattern ; plusieurs dans les deux secondes : la chaine ; tenir un vide : y
  *   copier la ligne courante).
  * - La grille : une rangee par note de la gamme (deux octaves, les toniques marquees), une colonne par pas. Taper une
@@ -12,7 +12,7 @@
  * La tete de lecture suit le sequenceur (bassSeq.stepAt).
  */
 
-import React, { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type RefObject } from 'react';
+import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { Stage } from '../scene/renderer';
 import { editor } from '../state/editor';
 import { useEditorPanel } from '../ui/editorPanel';
@@ -461,69 +461,13 @@ export const BassEditor: React.FC<{ variant: 'desk' | 'mobile'; shown: boolean }
   );
 };
 
-/** Les mesures du panneau pose sur la machine (px) : la colonne des notes et son jour, la hauteur d'une rangee. */
-const ON_MACHINE = { names: 44, rowMin: 9, rowMax: 15 } as const;
-
-/**
- * Desktop : le panneau pose sur la machine, sa grille sur les pas 1 a 16 (la colonne des notes a gauche du pas 1) ; il
- * couvre la rangee des pas et monte autant qu'il lui faut, les rangees a la hauteur qui tient dans la fenetre. Il suit
- * chaque vue (Stage.onView).
- */
-function useOnMachine(stage: Stage | null, on: boolean, ref: RefObject<HTMLElement | null>, rowCount: number): void {
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el || !stage || !on) return undefined;
-    let last = '';
-    const place = (): void => {
-      const ids = stage.hit.ids();
-      const r = stage.hit.rects();
-      const i0 = ids.indexOf('bass-trig-1');
-      const i1 = ids.indexOf('bass-trig-16');
-      if (i0 < 0 || i1 < 0) return;
-      const cr = stage.renderer.domElement.getBoundingClientRect();
-      const host = el.offsetParent instanceof HTMLElement ? el.offsetParent.getBoundingClientRect() : { left: 0, top: 0, bottom: window.innerHeight };
-      const x0 = r[i0 * 4];
-      const y0 = r[i0 * 4 + 1];
-      const h0 = r[i0 * 4 + 3];
-      const x1 = r[i1 * 4] + r[i1 * 4 + 2];
-      const pad = 8;
-      const names = ON_MACHINE.names + pad;
-      const left = cr.left - host.left + x0 - names;
-      const width = x1 - x0 + names + pad;
-      const hostH = host.bottom - host.top;
-      // Les rangees : ce qui tient entre le haut de la fenetre (60) et son bas, une fois le reste du panneau pose
-      const grid = el.querySelector<HTMLElement>('.v4-bassed-grid');
-      const rest = grid ? el.offsetHeight - grid.offsetHeight : 200;
-      const row = Math.max(ON_MACHINE.rowMin, Math.min(ON_MACHINE.rowMax, Math.floor((hostH - 72 - rest) / rowCount) - 2));
-      el.style.setProperty('--beat-row', `${row}px`);
-      // Le haut : au-dessus des LED des pas, ou plus haut si le panneau ne tient pas jusqu'en bas
-      const stepTop = cr.top - host.top + y0 - h0 * 1.15;
-      const top = Math.max(60, Math.min(stepTop, hostH - 12 - el.offsetHeight));
-      const key = `${Math.round(left)}|${Math.round(top)}|${Math.round(width)}|${row}`;
-      if (key === last) return;
-      last = key;
-      el.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
-      el.style.width = `${Math.round(width)}px`;
-    };
-    place();
-    const a = stage.onView(place);
-    const b = stage.onIdle(place);
-    window.addEventListener('resize', place);
-    return () => {
-      a();
-      b();
-      window.removeEventListener('resize', place);
-    };
-  }, [stage, on, ref, rowCount]);
-}
-
 /** Le panneau du MM-BASS ouvert par sa touche EDIT : sur la machine au desktop, sous elle au telephone. */
 export const BassEditPanel: React.FC<{ stage: Stage | null; mobile: boolean }> = ({ stage, mobile }) => {
-  const { shown, ref } = useEditorPanel('bass', stage, { inset: mobile });
-  const rowCount = 2 * scaleLen() + 1;
-  useOnMachine(stage, shown && !mobile, ref, rowCount);
+  // Sous la machine, au desktop aussi (2026-10-10, Mika : "quand je suis sur EDIT je peux plus rien changer dans VOICE") :
+  // pose sur elle, le panneau couvrait le bas de l'ecran et les touches de page ; le cadrage remonte la machine entiere
+  const { shown, ref } = useEditorPanel('bass', stage, { inset: true });
   return (
-    <section ref={ref} className="v4-seq v4-beat" data-place={mobile ? 'below' : 'machine'} data-shown={shown ? '1' : '0'} aria-label="Bass line editor" aria-hidden={!shown}>
+    <section ref={ref} className="v4-seq v4-beat" data-place="below" data-shown={shown ? '1' : '0'} aria-label="Bass line editor" aria-hidden={!shown}>
       <BassEditor variant={mobile ? 'mobile' : 'desk'} shown={shown} />
     </section>
   );

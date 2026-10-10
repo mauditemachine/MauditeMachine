@@ -169,3 +169,4 @@ Le message de Mika : DRIVE au minimum coupe le son du BASS ; STYLE et DENSITY tr
 - 2026-10-10 : MM-BASS, EDIT en panneau comme celui du MM-RYTM (grille des notes de la gamme, ACC SLIDE TIE LEN, patterns) ; SIDECHAIN depuis le kick du MM-RYTM ; une tape sur le pas en P-LOCK en sort sans effacer la note. MM-RYTM : VEL fondu dans VOL. Spec R14-248. A faire : docs:midi (bass:global:sidechain, rytm:enc:bits/comp, pages VOICE decalees).
 - 2026-10-10 : MM-BASS, plus de potards STYLE et NOTES sur la face ; GEN a cote de RUN et CLEAR (EDIT OPEN PRESET au-dessus). Spec R14-249.
 - 2026-10-10 : MM-BASS, rangee VEL dans le panneau EDIT (la velocite de chaque note = son VOLUME en P-LOCK). Spec R14-250.
+- 2026-10-10 : MM-BASS, en EDIT l'ecran reste reglable (VOICE, FILTER...) ; le panneau EDIT passe sous la machine au desktop. Spec R14-251.
