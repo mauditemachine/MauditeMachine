@@ -1,6 +1,6 @@
 # MM-STUDIO : le MIDI, tout pour faire ton fichier Roto-Control
 
-Genere le 9 octobre 2026 depuis le code du site (`npm run docs:midi`) : 722 cibles, 8 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
+Genere le 10 octobre 2026 depuis le code du site (`npm run docs:midi`) : 723 cibles, 8 setups. Les fichiers CSV a cote (`MIDI-roto-setups.csv`, `MIDI-targets.csv`) ouvrent dans Numbers ou Excel.
 
 ## 1. Comment c'est fait
 
@@ -1193,7 +1193,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `voy:open` | OPEN | appui |  | ARP |
 | `voy:infos` | INFOS (HELP ON HOVER) | appui |  |  |
 
-### MM-BASS (scope `bass`, 157 cibles)
+### MM-BASS (scope `bass`, 158 cibles)
 
 | id | Nom | Type | Crans | Dans |
 | --- | --- | --- | --- | --- |
@@ -1308,6 +1308,7 @@ Tout ce que le site sait piloter : chaque ligne est une cible assignable (MIDI L
 | `bass:key:pfilter` | FILTER | appui |  |  |
 | `bass:key:penv` | ENV | appui |  |  |
 | `bass:key:pfx` | FX | appui |  |  |
+| `bass:key:preset` | PRESET | appui |  |  |
 | `bass:running` | RUN (ON / OFF) | valeur 0 a 127 | 2 | BASS, MIXER, LIVE, BSEQ |
 | `bass:trig:0` | STEP 1 | appui |  | BASS |
 | `bass:trig:1` | STEP 2 | appui |  | BASS |

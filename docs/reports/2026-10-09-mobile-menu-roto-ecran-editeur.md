@@ -160,3 +160,4 @@ Le message de Mika : DRIVE au minimum coupe le son du BASS ; STYLE et DENSITY tr
 
 - Encodeurs du BASS : de vrais potards 0-127 (270°, échelle à 11 crans) qui tiennent le filtre (CUTOFF, RESO, ENV MOD, DRIVE, F.ATTACK, DECAY, F.SUSTAIN, RELEASE) ; les FX restent sur l'écran (R14-242).
 - Rangée LOCK retirée du BASS (toucher ou tenir un pas fait le P-LOCK) ; au téléphone, les pas plus grands. Le RYTM n'a pas de touches LOCK : les traits au-dessus de ses pas sont les LED de vélocité.
+- MM-BASS « machine à bassline » (R14-243) : écran jusqu'aux pas avec ACCENT SLIDE NOTE OCT dedans, RUN CLEAR GEN PRESET à droite, plus de MUTATE sur la face ; 33 presets qui ont chacun leur patch complet, l'écart entre eux mesuré (aucune paire proche). Mika : écouter la liste avec PREV / NEXT.

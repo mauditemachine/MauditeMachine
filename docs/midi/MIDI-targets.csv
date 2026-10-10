@@ -514,6 +514,7 @@ bass:key:pvoice,bass,MM-BASS,VOICE,press,,
 bass:key:pfilter,bass,MM-BASS,FILTER,press,,
 bass:key:penv,bass,MM-BASS,ENV,press,,
 bass:key:pfx,bass,MM-BASS,FX,press,,
+bass:key:preset,bass,MM-BASS,PRESET,press,,
 bass:running,bass,MM-BASS,RUN (ON / OFF),value,2,BASS MIXER LIVE BSEQ
 bass:trig:0,bass,MM-BASS,STEP 1,press,,BASS
 bass:trig:1,bass,MM-BASS,STEP 2,press,,BASS
