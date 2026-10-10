@@ -2584,3 +2584,11 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 - Right click on a voice pad (mouse) or two taps on the same pad within 400 ms (touch): the voice mutes or comes back, without playing (actions.ts padMute; ui/Hotspots.tsx). The first tap of a double tap still selects the voice.
 - A tap or click on a muted voice selects it and plays nothing (no pad preview), it stays muted: edit it silently, hear the change when unmuting.
 - MUTE (face key, M, MIDI/Roto rytm:mute): every muted voice comes back (ALL VOICES ON); with nothing muted it says how to mute (RIGHT CLICK or DOUBLE TAP A VOICE). The armed MUTE modes (ONE / MULTI) are gone; holding MUTE still brings everything back; SOLO is unchanged. The screen hint reads MUTE: ALL ON; the MUTE INFOS card is rewritten.
+
+### R14-260 MM-RYTM: GLOBAL or VOICE on the DIST, CHORUS, DELAY and REVERB pages (2026-10-10)
+
+- Mika: "quand je suis la page delay je veux avoir le choix entre GLOBAL ou VOICE et a ce moment la je rentre dans les parametres de l'un ou de l'autre".
+- The four FX that also exist per voice get two header tabs on their page: GLOBAL (the machine amount and its settings, as before, never locked) and the selected voice (BD, SD...; VOICE when none): its own send as the big block (vdelay, vreverb, vdist, vchorus, lockable per step), with the same settings beside it, still global (tagged ALL). New screens fxvdist, fxvchorus, fxvdelay, fxvreverb (rytm/pages.ts FX_VOICE_DETAILS); the mode is the FX tab (state/rytmPage.ts). BIT and COMP stay global only.
+- Opening: from GLOBAL FX (or a desktop encoder) in GLOBAL mode, from VOICE FX in VOICE mode; FX key and Esc go back to the tab of the mode (GLOBAL FX or VOICE FX). Knob k, MIDI and Roto (rytm:knob:k+1), the Dock and INFOS follow the shown screen.
+- For DIST and CHORUS in VOICE mode the settings shown (DIST TONE, CHORUS RATE and DEPTH) shape the global bus only; the voice's own DIST and CHORUS have a fixed character (said in their INFOS cards). DELAY and REVERB send the voice into the shared processors, so their settings shape the voice's echo and tail.
+- Review fix: the header tab hotspots sat only 0.01 above lcd-open, under the picking tie (hit.ts TIE 0.05), so a tap near the header centre opened PRESETS; tabs now reach OLED.y + 0.1 (scene/renderer.ts) and win over their whole drawn width.

@@ -828,7 +828,10 @@ export class Stage {
         hx: 0.1,
         hz: 0.1,
         y0: OLED.y - 0.005,
-        y1: OLED.y + 0.04,
+        // 0.1 (0.04 avant, 2026-10-10, la relecture des onglets GLOBAL / voix) : 0.01 au-dessus de lcd-open restait sous
+        // l'egalite du picking (hit.ts TIE 0.05), le centre le plus proche gagnait et une tape au milieu de l'en-tete ouvrait
+        // les presets ; franchement devant lui, l'onglet gagne partout ou il est dessine
+        y1: OLED.y + 0.1,
         enabled: false,
       }));
       this.hit.add(this.tabDefs);
