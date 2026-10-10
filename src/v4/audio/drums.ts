@@ -45,11 +45,12 @@
  */
 
 import limiterUrl from './limiter.worklet.js?url';
+import glueUrl from './glue.worklet.js?url';
 import { FLAGS } from '../state/flags';
 import type { Inst } from '../theme';
 import { buildChorus, loadChorus, type ChorusInfo, type ChorusStage } from './chorus';
 import { buildDrive, buildFx, glide, type DriveStage, type FxChain } from './fx';
-import { DFB_DEFAULT, DTIME_DEFAULT, delayDiv, delayFb, pattern, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
+import { DFB_DEFAULT, DTIME_DEFAULT, delayDiv, delayFb, pattern, type Fx, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
 import { kit, type KitKnob, type KitKnobs, type KitModel, type KitOverride, type Layer } from './kit';
 import { sampleByKey } from './samples';
 import { KIT_LOCK_IDS, LAYER_LOCK_IDS, lockOf, parseSnd, type KitLockId, type LayerLockId, type Locks, type StepLock } from './locks';
@@ -135,6 +136,9 @@ interface Graph {
    * (routeMachines).
    */
   rytmOut: GainNode;
+  /** BIT et COMP (2026-10-10, audio/glue.worklet.js) : tout le MM-RYTM y passe avant sa prise ; null tant qu'il charge */
+  glueIn: GainNode;
+  glue: AudioWorkletNode | null;
   arpOut: GainNode;
   /** la prise du MM-BASS (2026-10-07) : sa voie du mixer du MM-DECKS peut la prendre */
   bassOut: GainNode;
@@ -327,7 +331,10 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   rytmOut.connect(analyser);
   arpOut.connect(analyser);
   bassOut.connect(analyser);
-  lvl.connect(rytmOut);
+  // BIT et COMP (2026-10-10) : le sec, la REVERB et le DELAY du MM-RYTM passent par glueIn, puis sa prise
+  const glueIn = c.createGain();
+  glueIn.connect(rytmOut);
+  lvl.connect(glueIn);
   analyser.connect(clipPre);
   const post = c.createGain();
   clipper.connect(post);
@@ -366,8 +373,8 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
 
   // REVERB et DELAY de la boite ; les envois du pattern partent des pads (LEVEL applique : le gain level², comme les
   // envois des voix), plus du kick depuis le 2026-10-08. Le MM-ARP a sa REVERB a lui
-  const reverb = buildReverbBus(c, rytmOut);
-  const delay = buildDelayBus(c, rytmOut, stepOf(o.bpm ?? pattern.get().bpm), delayDiv(o.dtime ?? f.dtime).steps, delayFb(o.dfb ?? f.dfb));
+  const reverb = buildReverbBus(c, glueIn);
+  const delay = buildDelayBus(c, glueIn, stepOf(o.bpm ?? pattern.get().bpm), delayDiv(o.dtime ?? f.dtime).steps, delayFb(o.dfb ?? f.dfb));
   const arpReverb = buildReverbBus(c, arpOut);
   const taps: GainNode[] = [];
   const padsSend = c.createGain();
@@ -411,7 +418,7 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   }
 
   const duck = new Ducker(c, arpOut.gain);
-  const g: Graph = { ctx: c, bus, tone: toneSt, kickTone, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, post, fx, reverb, delay, reverbSend, delaySend, ch, rytmOut, arpOut, bassOut, arpReverb, taps, duck };
+  const g: Graph = { ctx: c, bus, tone: toneSt, kickTone, chorus: chorusSt, level: lvl, comp, analyser, master, clipPre, limiter: null, post, fx, reverb, delay, reverbSend, delaySend, ch, rytmOut, glueIn, glue: null, arpOut, bassOut, arpReverb, taps, duck };
   if (!o.bare) {
     reverbSend.set(o.reverb ?? f.reverb);
     delaySend.set(o.delay ?? f.delay);
@@ -520,7 +527,32 @@ export function ensure(): AudioContext | undefined {
   // Le chorus sans interpolation lineaire (audio/chorus.worklet.js) : pret pour la premiere branche
   void loadChorus(ctx);
   attachLimiter(ctx, graph);
+  attachGlue(ctx, graph);
   return ctx;
+}
+
+/** BIT et COMP (2026-10-10) : le worklet prend place entre glueIn et la prise du MM-RYTM des qu'il est pret. */
+function attachGlue(c: BaseAudioContext, g: Graph): void {
+  if (!c.audioWorklet) return;
+  c.audioWorklet
+    .addModule(glueUrl)
+    .then(() => {
+      const node = new AudioWorkletNode(c, 'mm-glue', { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: 'explicit', channelInterpretation: 'speakers' });
+      setGlue(node, pattern.fx.get());
+      node.connect(g.rytmOut);
+      g.glueIn.connect(node);
+      g.glueIn.disconnect(g.rytmOut);
+      g.glue = node;
+    })
+    .catch(() => {
+      /* sans worklet : le MM-RYTM sort sans BIT ni COMP */
+    });
+}
+
+function setGlue(node: AudioWorkletNode, f: Readonly<Fx>): void {
+  const t = node.context.currentTime;
+  node.parameters.get('bits')?.setValueAtTime(Math.max(0, Math.min(1, f.bits ?? 0)), t);
+  node.parameters.get('comp')?.setValueAtTime(Math.max(0, Math.min(1, f.comp ?? 0)), t);
 }
 
 /**
@@ -1253,6 +1285,7 @@ pattern.fx.subscribe(() => {
     // DLY TIME et DLY FB (2026-10-09, les encodeurs G et H)
     graph.delay.setDiv(delayDiv(f.dtime).steps);
     graph.delay.setFeedback(delayFb(f.dfb));
+    if (graph.glue) setGlue(graph.glue, f);
   }
   emitMix();
 });

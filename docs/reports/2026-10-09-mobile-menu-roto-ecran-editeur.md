@@ -165,3 +165,4 @@ Le message de Mika : DRIVE au minimum coupe le son du BASS ; STYLE et DENSITY tr
 - 2026-10-10 : MM-BASS, longueur de la ligne 1 a 16 pas (barre LEN en haut du rouleau EDIT, pas au-dela grises, par pattern et par preset, MIDI bass:len). Spec R14-244.
 - 2026-10-10 : MM-BASS, une tape sur un pas pose ou enleve la note, tenir = P-LOCK ; EDIT en grille de notes (une rangee par demi-ton, noms des notes) ; AMP ENV dessinee en ADSR classique. Spec R14-245.
 - 2026-10-10 : MM-BASS, en EDIT les touches du bas montrent et posent les notes ; les patterns se touchent sur l'ecran (tenir un vide : copie). Spec R14-246.
+- 2026-10-10 : MM-RYTM, BIT et COMP a la place de DLY TIME et DLY FB (worklet glue, toute la sortie) ; tourner un FX global affiche la page GLOBAL FX ; CLEAR remet tous les FX a 0 sur RYTM, BASS et ARP. Spec R14-247. A faire : regenerer docs:midi (rytm:enc:bits, rytm:enc:comp).

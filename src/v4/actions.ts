@@ -427,7 +427,12 @@ export function clearPattern(stage: Stage | null = null): void {
     return;
   }
   clock.clear();
-  lcdMessage.show('CLEARED');
+  // Tout a 0 (2026-10-10, Mika : "quand j'appuie sur CLEAR je veux tout a 0, la je vois des FX qui restent") : les
+  // GLOBAL FX (SWING droit, STRETCH au centre, BIT et COMP OFF) et les FX de chaque voix ; le son des voix reste
+  pattern.fx.set({ drive: 0, chorus: 0, delay: 0, reverb: 0, swing: 0, bits: 0, comp: 0 });
+  setStretch(0);
+  for (const inst of INSTRUMENTS) for (const fp of ['dist', 'chorus', 'delay', 'reverb'] as const) voiceFx.set(inst, fp, 0);
+  lcdMessage.show('CLEARED · FX OFF');
 }
 
 /** Le dernier style tire par RANDOM : le suivant en change. */
@@ -585,10 +590,19 @@ export function dial(id: EncId, v: number, popup = false): void {
   // DLY TIME (a crans : ses divisions) et DLY FB (2026-10-09, les encodeurs G et H)
   else if (id === 'dtime') pattern.fx.set({ dtime: Math.round(Math.max(0, Math.min(1, v)) * (DELAY_DIVS.length - 1)) / (DELAY_DIVS.length - 1) });
   else if (id === 'dfb') pattern.fx.set({ dfb: v });
+  else if (id === 'bits') pattern.fx.set({ bits: v });
+  else if (id === 'comp') pattern.fx.set({ comp: v });
   else setChorus(v);
   // popup : un encodeur du desktop, son popup dit la valeur, seul (revue du 2026-10-09 : la ligne du pied en disait une
   // autre au meme instant, a la place des verrous du pas en P-LOCK)
-  if (popup) rytmPage.popup(id);
+  // Un FX global tourne (2026-10-10, Mika : "on tombe sur une page d'edition de ces FX, claire") : l'ecran passe sur
+  // GLOBAL FX, le bloc tourne cerne (touchPage plus bas)
+  if (popup) {
+    const inst = pattern.get().instrument;
+    const t = screensOf('fx', inst).indexOf('fxg');
+    if (t >= 0) rytmPage.setTab('fx', t, inst);
+    else rytmPage.popup(id);
+  }
   else lcdMessage.show(readout(id, dialValue(id), null), POT_UI.readoutMs, true);
   touchPage(id, pattern.get().instrument);
 }
@@ -639,6 +653,10 @@ export function dialValue(id: EncId): number {
       return pattern.fx.get().dtime;
     case 'dfb':
       return pattern.fx.get().dfb;
+    case 'bits':
+      return pattern.fx.get().bits;
+    case 'comp':
+      return pattern.fx.get().comp;
     default:
       return mix.chorus;
   }
@@ -819,7 +837,7 @@ export function voyPad(i: number, stage: Stage | null = null): void {
   voyMsg.show(prog.includes(i) ? `+ ${CHORDS[i].label}` : `- ${CHORDS[i].label}`);
 }
 
-/** CLEAR : plus d'accord, l'arpege s'arrete. */
+/** CLEAR : plus d'accord, l'arpege s'arrete, les effets a sec. */
 export function voyClear(stage: Stage | null = null): void {
   resume();
   stage?.voy?.keys.pressButton('clear');
@@ -830,7 +848,10 @@ export function voyClear(stage: Stage | null = null): void {
     return;
   }
   arp.clear();
-  voyMsg.show('CLEARED');
+  // Les effets a sec (2026-10-10, Mika : "quand j'appuie sur CLEAR je veux tout a 0 et la je vois qu'il y a des FX qui
+  // restent") : OVERDRIVE, CHORUS, DELAY, REVERB a 0 ; VOLUME, les oscillateurs et le filtre restent
+  for (const id of ['dist', 'chorus', 'delay', 'reverb'] as const) voyParams.set(id, 0);
+  voyMsg.show('CLEARED · FX OFF');
 }
 
 /**

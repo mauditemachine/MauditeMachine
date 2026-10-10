@@ -967,6 +967,60 @@ const delayPic = (hot: 'send' | 'time' | 'fb'): Draw => (c, v) => {
 };
 const drawDelay = delayPic('send');
 
+/** BIT (2026-10-10, audio/glue.worklet.js) : une onde, et ses marches quand les bits tombent. */
+const drawBits: Draw = (_c, v) => {
+  const p = new Pic();
+  const b = clamp(v, 0, 1);
+  const q = Math.pow(2, 16 - 12 * b - 1);
+  const fac = 1 + Math.round(b * b * 7);
+  const n = 96;
+  const mid = (Y0 + Y1) / 2;
+  const amp = (Y1 - Y0) / 2 - 4;
+  const tx = (i: number): number => X0 + ((X1 - X0) * i) / n;
+  const wave = (i: number): number => Math.sin((i / n) * Math.PI * 4) * 0.9;
+  p.p(seg(X0, mid, X1, mid), 'grid');
+  for (let i = 0; i < n; i += 1) p.p(seg(tx(i), mid - wave(i) * amp, tx(i + 1), mid - wave(i + 1) * amp), b > 0 ? 'ghost' : 'main');
+  if (b > 0) {
+    // La valeur tenue fac points, arrondie a la profondeur (les marches) ; une echelle visible : au plus 3 bits de plus
+    const qv = Math.min(q, 16);
+    let held = 0;
+    for (let i = 0; i < n; i += 1) {
+      if (i % fac === 0) held = Math.round(wave(i) * qv) / qv;
+      const nx = (i + 1) % fac === 0 ? Math.round(wave(i + 1) * qv) / qv : held;
+      p.p(seg(tx(i), mid - held * amp, tx(i + 1), mid - held * amp), 'hot');
+      if (nx !== held) p.p(seg(tx(i + 1), mid - held * amp, tx(i + 1), mid - nx * amp), 'hot');
+    }
+  }
+  p.label(b > 0 ? `${Math.round(16 - 12 * b)} BITS  RATE / ${fac}` : 'OFF: THE SOUND PASSES AS IS', X0, TOP);
+  p.label('KICK, REVERB AND DELAY INCLUDED', X0, BOT);
+  return p.value(b > 0 ? `${Math.round(16 - 12 * b)} BIT` : 'OFF').done();
+};
+
+/** COMP (2026-10-10) : le niveau qui entre (en bas) et celui qui sort (a gauche), de -48 a 0 dB ; le seuil marque. */
+const drawComp: Draw = (_c, v) => {
+  const p = new Pic();
+  const cp = clamp(v, 0, 1);
+  const thr = -30 * cp;
+  const ratio = 1 + 7 * cp;
+  const makeup = -thr * (1 - 1 / ratio) * 0.6;
+  const lo = -48;
+  const tx = (db: number): number => X0 + ((db - lo) / -lo) * (X1 - X0);
+  const ty = (db: number): number => Y1 - ((Math.max(lo, Math.min(0, db)) - lo) / -lo) * (Y1 - Y0);
+  const out = (db: number): number => (db > thr ? thr + (db - thr) / ratio : db) + makeup;
+  p.p(seg(X0, Y1, X1, Y1), 'grid');
+  p.p(seg(tx(lo), ty(lo), tx(0), ty(0)), 'ghost');
+  if (cp > 0) p.p(seg(tx(thr), Y0, tx(thr), Y1), 'grid');
+  const n = 48;
+  for (let i = 0; i < n; i += 1) {
+    const a = lo + (-lo * i) / n;
+    const b = lo + (-lo * (i + 1)) / n;
+    p.p(seg(tx(a), ty(out(a)), tx(b), ty(out(b))), cp > 0 ? 'hot' : 'main');
+  }
+  p.label(cp > 0 ? `THRESHOLD ${Math.round(thr)} DB  RATIO ${ratio.toFixed(1)}:1` : 'OFF: NOTHING MOVES', X0, TOP);
+  p.label('IN, LOW TO LOUD', X0, BOT);
+  return p.value(cp > 0 ? `${ratio.toFixed(1)}:1` : 'OFF').done();
+};
+
 /* ---------------- l'etape 2 (2026-10-09) : ENV, le filtre, MIX ---------------- */
 
 /** Les temps de l'enveloppe d'un coup (voicefx.ts atkS holdS decayTau) : ceux de la voix, la commande a sa valeur v. */
@@ -1312,6 +1366,8 @@ const DRAW: Partial<Record<RytmInfoId, Draw>> = {
   vfdec: filterEnvPic('dec'),
   dtime: delayPic('time'),
   dfb: delayPic('fb'),
+  bits: drawBits,
+  comp: drawComp,
   'smpl:sample': drawSounds,
   'r:bd': drawSounds,
   'r:sd': drawSounds,

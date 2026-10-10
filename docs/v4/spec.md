@@ -2505,3 +2505,9 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 - In EDIT the 16 step keys light the notes of the line (as outside EDIT) and a tap puts or removes a note; hold: P-LOCK (EDIT closes).
 - Patterns are chosen on the screen's PATTERNS row: tap plays the pattern (at the bar when running), several in a row chain them, hold an empty one to copy the current line. The bass-roll hotspot reaches down to that row; the P-LOCK lanes in between do nothing.
 - Step LEDs brighter: a note 0.78 orange, an accent full, a tie 0.35.
+
+### R14-247 MM-RYTM: BIT and COMP replace DLY TIME and DLY FB; a global FX knob opens GLOBAL FX; CLEAR puts every FX to 0 on all machines (2026-10-10)
+
+- Desktop encoders G and H (GLOBAL_ENCODERS) are now BIT (bit reduction, 16 to 4 bits plus a sample-rate divider up to 8) and COMP (compressor, threshold 0 to -30 dB, ratio 1:1 to 8:1, attack 3 ms, release 120 ms, 60 % makeup, no look-ahead). Both run in audio/glue.worklet.js on the whole MM-RYTM output (dry, REVERB and DELAY returns) between glueIn and rytmOut; at 0 they pass the sound as is. Stored in pattern fx as bits and comp (default 0). DLY TIME and DLY FB stay at their stored values (no longer on the face or the GLOBAL FX page); MIDI rytm:enc:bits and rytm:enc:comp are new.
+- Turning a desktop global encoder shows the FX page on its GLOBAL tab, the turned block ringed (replaces the popup).
+- CLEAR, outside P-LOCK: RYTM clears the steps and sets DIST, CHORUS, DELAY, REVERB, SWING, BIT, COMP to 0, STRETCH to the centre and every voice's DIST, CHORUS, DELAY, REVERB to 0; BASS clears the line and sets DRIVE, DELAY and REVERB sends to 0; ARP clears the chords and sets OVERDRIVE, CHORUS, DELAY, REVERB to 0. The screen says CLEARED · FX OFF.

@@ -285,9 +285,9 @@ const FXG: readonly PageSlot[] = [
   live('REVERB', 'reverb', 'bar', 'all', true),
   live('STRETCH', 'stretch', 'stretch', 'all'),
   live('SWING', 'swing', 'swing', 'all'),
-  // Le temps et le retour du bus DELAY : le DELAY du kick (VOICE FX) y passe aussi, pas de NO BD
-  live('DLY TIME', 'dtime', 'time', 'all'),
-  live('DLY FB', 'dfb', 'bar', 'all'),
+  // BIT et COMP (2026-10-10, a la place de DLY TIME et DLY FB) : toute la sortie, kick compris
+  live('BIT', 'bits', 'bar', 'all'),
+  live('COMP', 'comp', 'bar', 'all'),
 ];
 
 const CACHE = new Map<string, readonly PageSlot[]>();

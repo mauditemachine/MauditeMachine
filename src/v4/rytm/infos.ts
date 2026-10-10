@@ -172,7 +172,7 @@ const RAW: Record<RytmInfoId, Raw> = {
   fx: {
     section: 'PAGES',
     title: 'FX',
-    text: "Deux onglets. VOICE FX : les effets de la voix choisie (DIST, CHORUS, DELAY, REVERB, en quatre grands blocs, son nom en étiquette, au téléphone dans l'onglet de l'en-tête), tous verrouillables pas par pas. GLOBAL FX (la touche FX encore, ou GLOBAL dans l'en-tête) : les huit effets de tout le MM-RYTM, DIST, CHORUS, DELAY et REVERB (sauf le kick, il a sa propre voie), STRETCH, SWING, DLY TIME et DLY FB ; ceux-là ne se verrouillent jamais. Au desktop, ce sont aussi les huit encodeurs, dans le même ordre.",
+    text: "Deux onglets. VOICE FX : les effets de la voix choisie (DIST, CHORUS, DELAY, REVERB, en quatre grands blocs, son nom en étiquette, au téléphone dans l'onglet de l'en-tête), tous verrouillables pas par pas. GLOBAL FX (la touche FX encore, ou GLOBAL dans l'en-tête) : les huit effets de tout le MM-RYTM, DIST, CHORUS, DELAY et REVERB (sauf le kick, il a sa propre voie), STRETCH, SWING, BIT et COMP ; ceux-là ne se verrouillent jamais. Tourner un encodeur du desktop affiche cette page. Au desktop, ce sont aussi les huit encodeurs, dans le même ordre.",
     tip: 'En dark disco, un DELAY sur la seule caisse claire (VOICE FX, SD) : l’écho reste derrière le kick.',
   },
   fxv: {
@@ -184,9 +184,9 @@ const RAW: Record<RytmInfoId, Raw> = {
   fxg: {
     section: 'PAGES',
     title: 'GLOBAL FX',
-    text: "Les huit effets de tout le MM-RYTM, dans l'ordre des encodeurs du desktop : DIST, CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, DLY TIME (le temps du DELAY, calé sur le tempo) et DLY FB (ses répétitions). Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
+    text: "Les huit effets de tout le MM-RYTM, dans l'ordre des encodeurs du desktop : DIST, CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
     phone: {
-      text: "Les huit effets de tout le MM-RYTM : DIST, CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, DLY TIME (le temps du DELAY, calé sur le tempo) et DLY FB (ses répétitions). Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
+      text: "Les huit effets de tout le MM-RYTM : DIST, CHORUS, DELAY et REVERB (le bus des voix sauf le kick : NO BD), STRETCH (la longueur de tous les coups), SWING, BIT (la réduction de bits) et COMP (le compresseur). Jamais verrouillés sur un pas : en P-LOCK, leurs blocs disent GLOBAL à la place de leur unité.",
     },
     tip: 'DLY TIME sur 1/8D et DLY FB vers 70 % : le rebond de l’indie dance ; un peu de DELAY global suffit.',
   },
@@ -531,6 +531,20 @@ const RAW: Record<RytmInfoId, Raw> = {
     lock: 'global',
     text: "Les répétitions du DELAY : la part de chaque écho renvoyée dans le suivant, de 0 (un seul écho) à 87 % (une longue traîne qui ne s'emballe jamais) ; 58 % au départ.",
     tip: 'Vers 30 % pour un écho discret ; au-delà de 75 %, un dub qui s’étire pendant une pause.',
+  },
+  bits: {
+    section: 'GLOBAL FX',
+    title: 'BIT',
+    lock: 'global',
+    text: "La réduction de bits de tout le MM-RYTM, kick, REVERB et DELAY compris : à 0 (OFF) le son passe tel quel ; en montant, la profondeur tombe de 16 à 4 bits et l'échantillonnage se divise (jusqu'à 8 fois), le grain des vieilles boîtes à rythmes puis la casse franche. Le nombre de bits s'affiche sous la valeur.",
+    tip: 'Un peu (12 à 10 bits) pour salir les charlestons ; à fond pour une pause lo-fi, puis CLEAR remet tout à 0.',
+  },
+  comp: {
+    section: 'GLOBAL FX',
+    title: 'COMP',
+    lock: 'global',
+    text: "Le compresseur de tout le MM-RYTM, kick compris : à 0 (OFF) rien ne bouge ; en montant, le seuil descend jusqu'à -30 dB et le rapport monte de 1:1 à 8:1 (affiché sous la valeur), attaque 3 ms, retour 120 ms, le niveau rattrapé : le groove se serre, les queues remontent. Sans anticipation : le MM-RYTM reste calé sur le MM-BASS et le MM-ARP.",
+    tip: 'Vers 30 à 40 % pour coller le kit ; à fond pour un pompage marqué sur les charlestons et la reverb.',
   },
 
   /* ---------- la plaque TWEAKS (OPEN) : les choix de son ---------- */

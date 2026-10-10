@@ -168,6 +168,11 @@ export function encUnit(id: Exclude<EncId, 'tempo' | 'vsound'>, v: number): stri
       return 'NOTE';
     case 'dfb':
       return `${Math.round(delayFb(v) * 100)}% FB`;
+    // BIT : la profondeur (16 a 4 bits), OFF a 0 ; COMP : le rapport (1:1 a 8:1), OFF a 0
+    case 'bits':
+      return v <= 0 ? 'OFF' : `${Math.round(16 - 12 * Math.min(1, v))} BIT`;
+    case 'comp':
+      return v <= 0 ? 'OFF' : `${(1 + 7 * Math.min(1, v)).toFixed(1)}:1`;
     default:
       return `${Math.round(Math.max(0, Math.min(1, v)) * 100)}%`;
   }

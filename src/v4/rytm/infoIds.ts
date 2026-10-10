@@ -91,6 +91,8 @@ export const RYTM_PARAM_IDS = [
   'swing',
   'dtime',
   'dfb',
+  'bits',
+  'comp',
 ] as const;
 export type RytmParamId = (typeof RYTM_PARAM_IDS)[number];
 

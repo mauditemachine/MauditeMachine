@@ -85,6 +85,9 @@ export interface Fx {
    */
   dtime: number;
   dfb: number;
+  /** BIT et COMP (2026-10-10, les encodeurs G et H a la place de DLY TIME et DLY FB) : 0, rien ne change */
+  bits: number;
+  comp: number;
 }
 
 /** Les divisions du DELAY, en doubles croches (pas) : 1/16, 1/8, 1/8 pointee (le depart), 1/4, 1/4 pointee, 1/2. */
@@ -104,8 +107,8 @@ export const delayFb = (v: number): number => DELAY_FB_MAX * Math.max(0, Math.mi
 export const DTIME_DEFAULT = 2 / (DELAY_DIVS.length - 1);
 export const DFB_DEFAULT = 2 / 3;
 
-export const NEUTRAL_FX: Readonly<Fx> = { swing: 0, drive: 0, reverb: 0, delay: 0, chorus: 0, dtime: DTIME_DEFAULT, dfb: DFB_DEFAULT };
-const FX_KEYS: readonly (keyof Fx)[] = ['swing', 'drive', 'reverb', 'delay', 'chorus', 'dtime', 'dfb'];
+export const NEUTRAL_FX: Readonly<Fx> = { swing: 0, drive: 0, reverb: 0, delay: 0, chorus: 0, dtime: DTIME_DEFAULT, dfb: DFB_DEFAULT, bits: 0, comp: 0 };
+const FX_KEYS: readonly (keyof Fx)[] = ['swing', 'drive', 'reverb', 'delay', 'chorus', 'dtime', 'dfb', 'bits', 'comp'];
 
 /**
  * Forme stockee (et celle de window.__v4.state.pattern). fx vient de la
@@ -173,7 +176,7 @@ export const VEL_BARS: readonly number[] = [0, 1, 1, 1, 2, 2, 2, 3, 3, 3];
  * doubles croches roulent, DIST et REVERB neutres. Un motif stocke garde
  * les siens.
  */
-export const DEFAULT_FX: Readonly<Fx> = { swing: 0.3, drive: 0, reverb: 0, delay: 0, chorus: 0, dtime: DTIME_DEFAULT, dfb: DFB_DEFAULT };
+export const DEFAULT_FX: Readonly<Fx> = { swing: 0.3, drive: 0, reverb: 0, delay: 0, chorus: 0, dtime: DTIME_DEFAULT, dfb: DFB_DEFAULT, bits: 0, comp: 0 };
 
 export const defaultPattern = (): Pattern => ({ bpm: BPM.initial, steps: { ...DEFAULT_STEPS } });
 
@@ -245,7 +248,7 @@ export function serialize(p: Pattern, f: Readonly<Fx> = NEUTRAL_FX, locks: Reado
     v: 1,
     bpm: p.bpm,
     steps: { ...p.steps },
-    fx: { swing: r3(f.swing), drive: r3(f.drive), reverb: r3(f.reverb), delay: r3(f.delay), chorus: r3(f.chorus), dtime: r3(f.dtime ?? DTIME_DEFAULT), dfb: r3(f.dfb ?? DFB_DEFAULT) },
+    fx: { swing: r3(f.swing), drive: r3(f.drive), reverb: r3(f.reverb), delay: r3(f.delay), chorus: r3(f.chorus), dtime: r3(f.dtime ?? DTIME_DEFAULT), dfb: r3(f.dfb ?? DFB_DEFAULT), bits: r3(f.bits ?? 0), comp: r3(f.comp ?? 0) },
   };
   if (anyLocks(locks)) out.locks = locks as Locks;
   return out;

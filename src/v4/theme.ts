@@ -576,7 +576,10 @@ export type EncId =
   | 'vfdec'
   // DLY TIME et DLY FB (2026-10-09, les encodeurs G et H du desktop : la machine entiere)
   | 'dtime'
-  | 'dfb';
+  | 'dfb'
+  // BIT et COMP (2026-10-10, Mika : "on a deja DELAY, remplace par bit reduction et compressor") : les encodeurs G et H
+  | 'bits'
+  | 'comp';
 
 /**
  * Les potards de la rangee VOICE et le parametre de voix qu'ils reglent
@@ -705,6 +708,8 @@ export const ENCODERS: readonly { id: EncId; label: string; aria: string }[] = [
   { id: 'vfdec', label: 'F.DEC', aria: 'Voice filter envelope decay' },
   { id: 'dtime', label: 'DLY TIME', aria: 'Global delay time' },
   { id: 'dfb', label: 'DLY FB', aria: 'Global delay feedback' },
+  { id: 'bits', label: 'BIT', aria: 'Global bit reduction' },
+  { id: 'comp', label: 'COMP', aria: 'Global compressor' },
 ];
 
 /** Libelle serigraphie d'un encodeur (l'ecran l'affiche aussi : VOLUME 80%). */
@@ -1099,9 +1104,9 @@ export const pageKnobX = (c: number): number => OLED.x + ((44 + 76 * c - 160) * 
  * lettre d'avant), leurs zones gardent leurs ids (penc-0 a penc-7). Le MIDI
  * rytm:knob:1 a 8 garde son sens : le bloc k de la page a l'ecran (le Roto).
  */
-export const GLOBAL_ENCODERS: readonly EncId[] = ['dist', 'chorus', 'delay', 'reverb', 'stretch', 'swing', 'dtime', 'dfb'];
+export const GLOBAL_ENCODERS: readonly EncId[] = ['dist', 'chorus', 'delay', 'reverb', 'stretch', 'swing', 'bits', 'comp'];
 /** Leurs noms sur la face et a l'ecran. */
-export const GLOBAL_ENC_LABELS: readonly string[] = ['DIST', 'CHORUS', 'DELAY', 'REVERB', 'STRETCH', 'SWING', 'DLY TIME', 'DLY FB'];
+export const GLOBAL_ENC_LABELS: readonly string[] = ['DIST', 'CHORUS', 'DELAY', 'REVERB', 'STRETCH', 'SWING', 'BIT', 'COMP'];
 
 /**
  * MASTER et TEMPO (2026-10-09, Mika : "des knobs differents au dessus des
@@ -1348,6 +1353,8 @@ export const POT_UI = {
     // La croche pointee, la reinjection d'avant (audio/pattern.ts DELAY_DIVS, DELAY_FB_MAX)
     dtime: 0.4,
     dfb: 2 / 3,
+    bits: 0,
+    comp: 0,
   },
 } as const;
 

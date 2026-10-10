@@ -511,7 +511,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   clear: {
     section: 'KEYS',
     title: 'CLEAR',
-    text: "Efface toute la ligne, tes notes et leurs P-locks compris : NOTES tombe à 0. Remonte NOTES : les notes de la prise reviennent une à une, dans leur ordre. En P-LOCK, seulement les verrous du pas (toutes les pages).",
+    text: "Efface toute la ligne, tes notes et leurs P-locks compris : NOTES tombe à 0. Les effets aussi passent à 0 (DRIVE, envoi DELAY, envoi REVERB) : le son repart à sec ; VOLUME, la voix, le filtre, DLY TIME, DLY FB, REV SIZE et REV TONE restent. Remonte NOTES : les notes de la prise reviennent une à une, dans leur ordre. En P-LOCK, seulement les verrous du pas (toutes les pages).",
   },
   // Les touches du pas, en bas de l'ecran (la face simple, 2026-10-09, le soir)
   accentkey: {

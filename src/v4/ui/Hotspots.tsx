@@ -1478,6 +1478,8 @@ export const Twins: React.FC<TwinsProps> = ({ stage }) => {
     vfdec: sel.fdec,
     dtime: pattern.fx.get().dtime,
     dfb: pattern.fx.get().dfb,
+    bits: pattern.fx.get().bits,
+    comp: pattern.fx.get().comp,
   };
 
   /** Ref stable par id : l'element entre et sort des deux registres. */

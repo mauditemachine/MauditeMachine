@@ -301,10 +301,15 @@ export function bassClear(): void {
     bassState.say(`P-LOCK ${two(st.lock)} CLEARED`, 1400);
     return;
   }
-  // Tout s'efface, tes notes comprises : NOTES a 0 ; l'echelle, la prise et le style restent (NOTES remonte la prise)
+  // Tout s'efface, tes notes comprises (et tous leurs P-locks) : NOTES a 0 ; l'echelle, la prise et le style restent
+  // (NOTES remonte la prise)
   const before = st.steps;
   bassLine.clear();
-  showGen('density', before, 'CLEARED · TURN NOTES UP: THE TAKE COMES BACK', true);
+  // Les effets a sec (2026-10-10, Mika : "quand j'appuie sur CLEAR je veux tout a 0 et la je vois qu'il y a des FX qui
+  // restent") : DRIVE, l'envoi DELAY et l'envoi REVERB a 0, d'un seul message au worklet (DRIVE 0 : propre, jamais
+  // muet) ; VOLUME, la voix, le filtre, les enveloppes, DLY TIME, DLY FB, REV SIZE et REV TONE restent
+  bassParams.setMany({ drive: 0, delay: 0, reverb: 0 });
+  showGen('density', before, 'CLEARED · FX OFF · TURN NOTES UP: THE TAKE COMES BACK', true);
 }
 
 /**
