@@ -72,7 +72,7 @@ import { bassDiagram, bassReadout, genShapes, type BassDiagram, type BassGenCell
 import { BASS_INFOS } from './infos';
 import { BASS_FEET, attackMs, bassBig, bassKnob, decayMs, emphOf, ladderMag, releaseMs, stepOf, type BassKnobId, type BassMode, type BassValues } from './params';
 import { PAGE_TABS, type BassPageId, type BassScreenId } from './pages';
-import type { BassBlock, BassEditModel, BassPageModel } from './pageView';
+import type { BassBlock, BassEditModel, BassKeysModel, BassPageModel } from './pageView';
 import { BASS_STEPS, type BassStep } from './state';
 import { BASS } from './theme';
 
@@ -143,10 +143,22 @@ export interface BassGenView {
  * sa ligne de base : AMP ENV, en P-LOCK AMP ENV · P-LOCKS, a droite le
  * compte des verrous) ; les blocs de la PAGE commencent dessous (by0) ; ils
  * gardent 55 unites de haut (88 px au desktop, 71 au telephone).
+ * La face simple (2026-10-09, le soir, Mika : "agrandis l'ecran jusqu'aux
+ * steps, mets les boutons ACCENT SLIDE NOTE- NOTE+ OCT- OCT+ dans l'ecran ;
+ * on voit pas grand chose") : le verre descend jusqu'aux pas (desktop 286
+ * unites de haut au lieu de 191, telephone 242 au lieu de 194) ; en bas une
+ * bande de six touches (KEYS_H : desktop une rangee, le pas choisi a gauche ;
+ * telephone le pas choisi dessus, les touches dessous, 44 px au doigt), au
+ * dessus les vues de toujours (UH, leur hauteur). Au desktop tout grandit
+ * avec la place (l'en-tete, les blocs de 79 unites, leurs nombres a 29, la
+ * bande des pas) ; le telephone garde ses vues, la bande prend la rangee
+ * liberee.
  */
 const LAY = PORTRAIT
   ? { UW: 230, pad: 6, hy: 20.5, tab: 7.2, small: 6.5, bpm: 10.6, i: 6.4, hd: 36, ty: 43.4, title: 7.4, by0: 48, gap: 3, label: 7.4, letter: 6, big: 25, unit: 6.6, stripH: 16, line: 6.6, lanes: 3 }
-  : { UW: 300, pad: 10, hy: 15, tab: 7.4, small: 6.6, bpm: 11, i: 5.4, hd: 23, ty: 29.6, title: 7.4, by0: 35, gap: 4, label: 7, letter: 5.4, big: 23, unit: 6.1, stripH: 19, line: 7, lanes: 4 };
+  : { UW: 300, pad: 10, hy: 17, tab: 8.4, small: 7.4, bpm: 12.4, i: 6, hd: 26, ty: 34, title: 8.4, by0: 40, gap: 4, label: 8.2, letter: 6, big: 29, unit: 7, stripH: 24, line: 7.8, lanes: 4 };
+/** La bande des touches du pas, en bas du verre (2026-10-09, le soir) : sa hauteur en unites. */
+const KEYS_H = PORTRAIT ? 46 : 36;
 /** L'encre noire a demi (le texte attenue dans l'en-tete en negatif, sur un bloc en negatif). */
 const SOFT_BLACK = 'rgba(5, 5, 6, 0.55)';
 /** La ligne du bas : sa ligne de base depuis le bas du verre. */
@@ -222,7 +234,9 @@ export class BassScreen {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private UW = LAY.UW;
+  /** la hauteur des vues (la bande des touches du pas dessous, 2026-10-09) ; FH : tout le verre (les zones s'y rapportent) */
   private UH: number;
+  private FH: number;
   private scale: number;
   private key = '';
   private head: BassHeadZones = { tabs: [], open: null, still: [null, null, null], pill: null, chips: [] };
@@ -239,7 +253,8 @@ export class BassScreen {
     const W = mobile ? 1024 : 1280;
     const H = Math.round((W * S.d) / S.w);
     this.scale = W / this.UW;
-    this.UH = H / this.scale;
+    this.FH = H / this.scale;
+    this.UH = this.FH - KEYS_H;
     this.canvas = document.createElement('canvas');
     this.canvas.width = W;
     this.canvas.height = H;
@@ -265,9 +280,9 @@ export class BassScreen {
     const c = this.iCenter();
     // Au telephone (2026-10-09) : tout l'en-tete en hauteur, du bord du verre jusqu'au tempo (plus de 40 px sous le
     // doigt), sans descendre sur les blocs
-    if (PORTRAIT) return { u0: (c.x - LAY.i - 9) / this.UW, u1: 1, v0: 0, v1: (LAY.hd - LAY.gap / 2) / this.UH };
+    if (PORTRAIT) return { u0: (c.x - LAY.i - 9) / this.UW, u1: 1, v0: 0, v1: (LAY.hd - LAY.gap / 2) / this.FH };
     const r = LAY.i + 6;
-    return { u0: (c.x - r) / this.UW, u1: Math.min(1, (c.x + r) / this.UW), v0: Math.max(0, (c.y - r) / this.UH), v1: (c.y + r) / this.UH };
+    return { u0: (c.x - r) / this.UW, u1: Math.min(1, (c.x + r) / this.UW), v0: Math.max(0, (c.y - r) / this.FH), v1: (c.y + r) / this.FH };
   }
 
   private iCenter(): { x: number; y: number } {
@@ -293,11 +308,11 @@ export class BassScreen {
   blockRect(k: number): { u0: number; u1: number; v0: number; v1: number } {
     const b = this.blockBox(k);
     const g = LAY.gap / 2;
-    return { u0: (b.x - g) / this.UW, u1: (b.x + b.w + g) / this.UW, v0: (b.y - g) / this.UH, v1: (b.y + b.h + g) / this.UH };
+    return { u0: (b.x - g) / this.UW, u1: (b.x + b.w + g) / this.UW, v0: (b.y - g) / this.FH, v1: (b.y + b.h + g) / this.FH };
   }
 
   headRect(): { u0: number; u1: number; v0: number; v1: number } {
-    return { u0: 0, u1: this.iRect().u0, v0: 0, v1: (LAY.hd - LAY.gap / 2) / this.UH };
+    return { u0: 0, u1: this.iRect().u0, v0: 0, v1: (LAY.hd - LAY.gap / 2) / this.FH };
   }
 
   /** L'en-tete du dernier dessin : ses onglets et son pattern (le rig y pose ses zones au telephone, 2026-10-09). */
@@ -307,7 +322,7 @@ export class BassScreen {
 
   /** La ligne du titre de la PAGE (2026-10-09), sous l'en-tete : un verre qui ne fait rien (le geste ne passe pas a l'orbite). */
   titleRect(): { u0: number; u1: number; v0: number; v1: number } {
-    return { u0: 0, u1: 1, v0: (LAY.hd - LAY.gap / 2) / this.UH, v1: (LAY.by0 - LAY.gap / 2) / this.UH };
+    return { u0: 0, u1: 1, v0: (LAY.hd - LAY.gap / 2) / this.FH, v1: (LAY.by0 - LAY.gap / 2) / this.FH };
   }
 
   /** Le rouleau d'EDIT du dernier dessin (2026-10-09) ; null hors EDIT. */
@@ -315,14 +330,62 @@ export class BassScreen {
     return this.roll;
   }
 
-  /** Le verre sous les blocs (la bande des pas, la ligne du bas). */
+  /** Le verre sous les blocs (la bande des pas, la ligne du bas), jusqu'a la bande des touches du pas. */
   lowRect(): { u0: number; u1: number; v0: number; v1: number } {
-    return { u0: 0, u1: 1, v0: this.blockRect(4).v1, v1: 1 };
+    return { u0: 0, u1: 1, v0: this.blockRect(4).v1, v1: this.mainV() };
   }
 
-  /** Redessine si ce qu'il montre a change ; true si redessine. */
-  draw(sv: BassScreenView): boolean {
-    const key = JSON.stringify(sv);
+  /** La part du verre des vues (0 a 1), la bande des touches du pas dessous (2026-10-09, le soir). */
+  mainV(): number {
+    return this.UH / this.FH;
+  }
+
+  /** La bande des touches du pas, tout le verre en largeur (un verre qui ne fait rien sous les touches et leur legende). */
+  keysBandRect(): { u0: number; u1: number; v0: number; v1: number } {
+    return { u0: 0, u1: 1, v0: this.mainV(), v1: 1 };
+  }
+
+  /**
+   * Les six touches du pas (2026-10-09, le soir) : leurs boites (unites de l'ecran) et la place du pas choisi (STEP 05
+   * F#2). Desktop : une rangee, le pas a gauche ; telephone : le pas dessus, les touches dessous, d'un bord a l'autre.
+   * Trois paires (ACCENT SLIDE, NOTE - +, OCT - +), un jour plus large entre elles.
+   */
+  private keyLayout(): { keys: { x: number; y: number; w: number; h: number }[]; cap: { x: number; y: number; w: number; h: number }; gIn: number; gOut: number } {
+    const P = LAY.pad;
+    const y0 = this.UH;
+    const gIn = PORTRAIT ? 3 : 3.5;
+    const gOut = PORTRAIT ? 7 : 9;
+    const cap = PORTRAIT ? { x: P, y: y0 + 2, w: this.UW - 2 * P, h: 11 } : { x: P, y: y0 + 6, w: 50, h: KEYS_H - 11 };
+    const top = PORTRAIT ? y0 + 13.5 : y0 + 6;
+    const h = PORTRAIT ? KEYS_H - 13.5 - 2.5 : KEYS_H - 11;
+    const x0 = PORTRAIT ? P : P + cap.w + 4;
+    const avail = this.UW - P - x0;
+    const w = (avail - 3 * gIn - 2 * gOut) / 6;
+    const keys: { x: number; y: number; w: number; h: number }[] = [];
+    let x = x0;
+    for (let i = 0; i < 6; i += 1) {
+      keys.push({ x, y: top, w, h });
+      x += w + (i % 2 === 0 ? gIn : gOut);
+    }
+    return { keys, cap, gIn, gOut };
+  }
+
+  /**
+   * La zone d'une touche du pas (0 a 5, de 0 a 1 sur le verre) : jusqu'au milieu du jour avec ses voisines, toute la
+   * hauteur de la bande (au telephone, la ligne du pas comprise : plus de 44 px sous le doigt dans les deux sens).
+   */
+  keyRect(i: number): { u0: number; u1: number; v0: number; v1: number } {
+    const L = this.keyLayout();
+    const b = L.keys[i];
+    const half = (j: number): number => (j % 2 === 0 ? L.gIn : L.gOut) / 2;
+    const x0 = i === 0 ? (PORTRAIT ? 0 : b.x - L.gIn / 2) : b.x - half(i - 1);
+    const x1 = i === 5 ? this.UW : b.x + b.w + half(i);
+    return { u0: x0 / this.UW, u1: x1 / this.UW, v0: this.UH / this.FH, v1: 1 };
+  }
+
+  /** Redessine si ce qu'il montre a change ; true si redessine ; keys : la bande des touches du pas, toujours la. */
+  draw(sv: BassScreenView, keys: BassKeysModel): boolean {
+    const key = JSON.stringify([sv, keys]);
     if (key === this.key) return false;
     this.key = key;
     const c = this.ctx;
@@ -341,6 +404,7 @@ export class BassScreen {
       this.hoverTab = sv.hoverTab ?? null;
       this.drawPage(sv.m);
     }
+    this.drawKeys(keys);
     this.texture.needsUpdate = true;
     this.draws += 1;
     return true;
@@ -663,7 +727,7 @@ export class BassScreen {
     const chips: { id: BassScreenId; u0: number; u1: number; v0: number; v1: number }[] = [];
     // Les puces (et la pastille de la page) debordent un peu sur la ligne du titre (un verre qui ne fait rien) : 44 px de haut sous le doigt au moins
     // (la mesure du 2026-10-09 : l'en-tete seul en donnait 41)
-    const hv1 = (LAY.hd + LAY.gap / 2) / UH;
+    const hv1 = (LAY.hd + LAY.gap / 2) / this.FH;
     const x0 = x - 2;
     // La pastille de la page (hors P-LOCK) : la touche de la page, sa zone jusqu'aux puces
     if (!m.lock) {
@@ -737,8 +801,8 @@ export class BassScreen {
     let x = P + tw + 5;
     if (desk) {
       // Les puces des onglets (desktop) : toute la hauteur de la ligne du titre
-      const v0 = (LAY.hd - LAY.gap / 2) / UH;
-      const v1 = (LAY.by0 - LAY.gap / 2) / UH;
+      const v0 = (LAY.hd - LAY.gap / 2) / this.FH;
+      const v1 = (LAY.by0 - LAY.gap / 2) / this.FH;
       x += 1;
       const chips: { id: BassScreenId; u0: number; u1: number; v0: number; v1: number }[] = [];
       for (const t of m.tabs) {
@@ -1571,7 +1635,8 @@ export class BassScreen {
       hi = m.drag.hi;
     }
     const yOf = (n: number): number => ry1 - 3 - ((n - lo) / Math.max(1, hi - lo)) * (ry1 - ry0 - 6);
-    this.roll = { x0: rx0, x1: rx1, y0: ry0, y1: ry1, cw, lo, hi, UW, UH };
+    // UH : tout le verre (le rig et les gestes y rapportent le pointeur)
+    this.roll = { x0: rx0, x1: rx1, y0: ry0, y1: ry1, cw, lo, hi, UW, UH: this.FH };
     // La colonne sous la souris (desktop) : on voit le pas qu'on va toucher
     if (m.hover >= 0 && !m.drag) {
       c.fillStyle = 'rgba(246, 241, 231, 0.06)';
@@ -1642,8 +1707,8 @@ export class BassScreen {
     const others = m.others.map((o) => `${o.label} ${o.n}`).join('   ');
     this.text(others, UW - P, laneTop, LAY.small * 0.86, m.others.some((o) => o.n > 0) ? HALF : FAINT, 600, 'right');
     if (!m.lanes.length) {
-      // Dans EDIT (2026-10-09, l'etape 2) : une touche LOCK ferme EDIT et met le P-LOCK sur son pas
-      const how = `NO P-LOCK ON THIS PAGE   A LOCK KEY: CLOSE EDIT, P-LOCK ITS STEP`;
+      // Les touches LOCK ne sont plus sur la face (2026-10-09, le soir) : le conseil qui les nommait s'en va
+      const how = 'NO P-LOCK ON THIS PAGE';
       this.text(how, (lx0 + rx1) / 2, (lanesY0 + lanesY1) / 2 + 2, this.fit(how, 600, LAY.small * 0.92, rx1 - lx0, 4), HALF, 600, 'center');
     }
     const lcw = (rx1 - lx0) / BASS_STEPS;
@@ -1779,8 +1844,9 @@ export class BassScreen {
     const top = LAY.hd + 2;
     const bot = UH - P;
     const band = bot - top;
-    const ls = this.fit(label, 700, Math.min(15, band * 0.2), colW);
-    const vs = this.fit(value, 300, Math.min(30, band * 0.38), colW, 8);
+    // La face simple (2026-10-09, le soir) : le verre plus haut, le nom et la valeur plus grands
+    const ls = this.fit(label, 700, Math.min(18, band * 0.2), colW);
+    const vs = this.fit(value, 300, Math.min(40, band * 0.38), colW, 8);
     const block = ls + vs * 1.08 + 4;
     const y0 = top + Math.max(0, (band - block) / 2);
     this.text(label, P, y0 + ls, ls, INK, 700);
@@ -1812,15 +1878,16 @@ export class BassScreen {
     this.iKey(sv.infos);
     const c = this.ctx;
     // Le titre : le style en gras (60 % de la largeur au plus), la prise en maigre ; le compte a droite
-    const countW = PORTRAIT ? 70 : 92;
-    const ts = this.fit(g.style, 700, PORTRAIT ? 15 : 16, UW * 0.6 - P);
+    // La face simple (2026-10-09, le soir) : au desktop tout un peu plus grand, le verre est plus haut
+    const countW = PORTRAIT ? 70 : 104;
+    const ts = this.fit(g.style, 700, PORTRAIT ? 15 : 19, UW * 0.6 - P);
     const ty = LAY.hd + (PORTRAIT ? 6 : 4) + ts * 0.8;
     const sw = this.text(g.style, P, ty, ts, INK, 700);
     const take = g.take;
     this.text(take, P + sw + ts * 0.32, ty, this.fit(take, 300, ts, UW - P - countW - (P + sw + ts * 0.32)), INK, 300);
     const word = g.count === 1 ? 'NOTE' : 'NOTES';
-    const cs = PORTRAIT ? 26 : 30;
-    const ws = PORTRAIT ? 7.4 : 7.2;
+    const cs = PORTRAIT ? 26 : 36;
+    const ws = PORTRAIT ? 7.4 : 8.4;
     c.font = font(600, ws);
     const wordW = c.measureText(word).width;
     const cy = ty + cs * 0.12;
@@ -1831,8 +1898,9 @@ export class BassScreen {
     const lineY = UH - LINE_DY;
     const top = PORTRAIT ? cy + ws + 6 : cy + ws + 10;
     const bottom = lineY - LAY.line - (PORTRAIT ? 2 : 4);
-    // Desktop : 48 unites de haut par case (26 x 77 px), le bloc au milieu de la place ; le telephone : toute la place
-    const h = PORTRAIT ? bottom - top : Math.min(66, bottom - top);
+    // Desktop : 48 unites de haut par case (26 x 77 px), le bloc au milieu de la place (92 au plus depuis le verre plus
+    // haut, 2026-10-09) ; le telephone : toute la place
+    const h = PORTRAIT ? bottom - top : Math.min(92, bottom - top);
     const shapes = genShapes(g.cells, P, top + (bottom - top - h) / 2, UW - 2 * P, h, PORTRAIT ? 2 : 1);
     c.save();
     c.lineCap = 'round';
@@ -1854,14 +1922,53 @@ export class BassScreen {
     c.setLineDash([]);
     c.restore();
     for (const t of shapes.texts) {
-      if (t.role === 'num') this.text(t.text, t.x, t.y, Math.max(PORTRAIT ? 7 : 6.4, t.size), HALF, 600);
-      else this.text(t.text, t.x, t.y, Math.max(PORTRAIT ? 7 : 6, t.size), INK, 700, 'center');
+      if (t.role === 'num') this.text(t.text, t.x, t.y, Math.max(PORTRAIT ? 7 : 7.4, t.size), HALF, 600);
+      else this.text(t.text, t.x, t.y, Math.max(7, t.size), INK, 700, 'center');
     }
     // La ligne du bas : ce que vient de faire le geste
     if (g.note) {
       const ls = this.fitLine(g.note, LAY.line, UW - 2 * P);
       this.lineText(g.note, P, lineY, ls, INK, 700);
     }
+  }
+
+  /* ---------------- les touches du pas (2026-10-09, le soir) ---------------- */
+
+  /**
+   * La bande des touches du pas (Mika : "toute cette partie la est difficile a utiliser sans visibilite ; je veux que ce
+   * soit simple a utiliser"), sous toutes les vues : un filet, le pas qu'elles reglent (STEP 05, sa note), les six
+   * touches en trois paires (ACCENT SLIDE, NOTE - +, OCT - +) ; en negatif celle que le pas porte (ACCENT, SLIDE),
+   * attenuee celle qui ne peut rien sur lui (un pas vide), cernee celle qu'on presse.
+   */
+  private drawKeys(m: BassKeysModel): void {
+    const L = this.keyLayout();
+    const P = LAY.pad;
+    const c = this.ctx;
+    c.fillStyle = FAINT;
+    c.fillRect(P, this.UH + 0.4, this.UW - 2 * P, 0.6);
+    const cap = L.cap;
+    const empty = m.what === 'EMPTY';
+    if (PORTRAIT) {
+      // Le pas dessus, d'une ligne : STEP 05  F#2
+      const y = cap.y + cap.h * 0.78;
+      const w = this.text(`STEP ${two(m.step)}`, cap.x, y, 8.2, INK, 700);
+      this.text(m.what, cap.x + w + 6, y, 8.2, empty ? HALF : INK, 600);
+    } else {
+      // A gauche des touches, sur deux lignes : STEP 05, puis sa note
+      this.text(`STEP ${two(m.step)}`, cap.x, cap.y + cap.h * 0.42, this.fit(`STEP ${two(m.step)}`, 700, 8.6, cap.w, 6), INK, 700);
+      this.text(m.what, cap.x, cap.y + cap.h * 0.9, this.fit(m.what, 600, 9.4, cap.w, 6), empty ? HALF : INK, 600);
+    }
+    m.keys.forEach((k, i) => {
+      const b = L.keys[i];
+      if (!b) return;
+      const fill = k.on ? INK : k.dim ? null : k.held ? 'rgba(246, 241, 231, 0.24)' : 'rgba(246, 241, 231, 0.07)';
+      const stroke = k.on ? null : k.dim ? GHOST : k.held ? INK : HALF;
+      this.box(b.x, b.y, b.w, b.h, fill, stroke, 0.9, 3);
+      // Pressee : un trait plein autour, un peu au-dehors (il se voit aussi sur une touche en negatif)
+      if (k.held) this.box(b.x - 1.4, b.y - 1.4, b.w + 2.8, b.h + 2.8, null, INK, 1.2, 4);
+      const size = this.fit(k.label, 700, PORTRAIT ? 7.8 : 8, b.w - 4, 5);
+      this.text(k.label, b.x + b.w / 2, b.y + b.h / 2 + size * 0.36, size, k.on ? BLACK : k.dim ? FAINT : INK, 700, 'center');
+    });
   }
 
   /* ---------------- PRESETS ---------------- */
@@ -1884,7 +1991,7 @@ export class BassScreen {
     const my = band * 0.58 + 6;
     const c = this.ctx;
     // Les fleches : un peu plus grandes au telephone (2026-10-09, l'ecran plus grand)
-    const ak = PORTRAIT ? 1.35 : 1;
+    const ak = PORTRAIT ? 1.35 : 1.2;
     if (!p.empty) {
       c.fillStyle = INK;
       for (const [x, d] of [
@@ -1899,7 +2006,7 @@ export class BassScreen {
         c.fill();
       }
     }
-    let size = PORTRAIT ? 24 : 26;
+    let size = PORTRAIT ? 24 : 30;
     c.font = font(400, size);
     while (size > 9 && c.measureText(p.name).width > UW - 60) {
       size -= 1;
@@ -1912,7 +2019,7 @@ export class BassScreen {
     p.keys.forEach((k, i) => {
       if (!k) return;
       // Au telephone (2026-10-09) : au milieu de la bande du bas, celle que le doigt touche (le quart du verre)
-      this.pill(k, i * kw + kw / 2, PORTRAIT ? UH * 0.87 + 3 : UH - 10, PORTRAIT ? 8.6 : 9, k === 'EXIT', 'center');
+      this.pill(k, i * kw + kw / 2, PORTRAIT ? UH * 0.87 + 3 : UH - 12, PORTRAIT ? 8.6 : 10, k === 'EXIT', 'center');
     });
   }
 
@@ -1923,7 +2030,7 @@ export class BassScreen {
    * sur chaque pas vide (plus marque sur les temps).
    */
   private presetLine(line: readonly PresetCell[], x0: number, y0: number, w: number): void {
-    const h = Math.max(4, Math.min(PORTRAIT ? 15 : 24, this.UH * 0.82 - (PORTRAIT ? 2 : 6) - y0));
+    const h = Math.max(4, Math.min(PORTRAIT ? 15 : 32, this.UH * 0.82 - (PORTRAIT ? 2 : 6) - y0));
     const n = line.length;
     const cw = w / n;
     const nh = PORTRAIT ? 2.6 : 3.4;

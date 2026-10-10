@@ -74,6 +74,17 @@
  * pastille de la page qui est son onglet bass-tab-<page>, les autres pages
  * passent par leurs touches sous l'ecran) ; les LED des touches de page
  * comptent les verrous de tous les onglets de leur page.
+ *
+ * La face simple (2026-10-09, le soir, Mika : "toute cette partie la est
+ * difficile a utiliser sans visibilite, agrandis l'ecran jusqu'aux steps,
+ * mets les boutons ACCENT SLIDE NOTE- NOTE+ OCT- OCT+ dans l'ecran, mets
+ * RUN CLEAR GEN et rajoute un bouton PRESET a droite ; MUTATE je comprends
+ * pas vraiment, enleve ca") : la rangee de jeu s'en va. Les six touches du
+ * pas sont des zones de l'ecran (bass-key-accent... : MIDI LEARN et le
+ * clavier les retrouvent, l'ecran les dessine pressees) ; PRESET
+ * (bass-key-preset) ouvre et ferme les presets, sa LED allumee tant qu'ils
+ * sont ouverts ; MUTATE n'a plus de touche (ses cibles MIDI restent) ; un
+ * crochet CONTOUR au-dessus de la seconde rangee d'encodeurs (desktop).
  */
 
 import { BoxGeometry, BufferGeometry, CylinderGeometry, DynamicDrawUsage, Float32BufferAttribute, Group, InstancedBufferAttribute, InstancedMesh, Matrix4, Mesh, MeshStandardMaterial, Quaternion, Vector3, type Texture } from 'three';
@@ -95,14 +106,14 @@ import { TOP_M, bezel, dc, partDj, power, rca, roundSlab, usb, wedge } from '../
 import { DJ_GLOW, keyGeometry, knobGeometry } from '../dj/controls';
 import { DjSilk, headTexts, type Bracket, type Line, type Text } from '../dj/silk';
 import { DJ_BEZEL, DJ_BODY, DJ_KEY, DJ_KNOB, DJ_TILT, DJ_TOP_Y, DJ_UNIT } from '../dj/theme';
-import { bassCanUndo, bassKnobValue, bassTakeName, noteName } from './actions';
+import { bassKnobValue, bassTakeName, noteName } from './actions';
 import { genCellsOf } from './diagrams';
 import { bassLine, styleName } from './line';
 import { BASS_FX_KNOBS } from './pages';
 import { BASS_SLOTS, bassPatterns } from './patterns';
 import { BASS_FACE_KNOBS as BASS_KNOBS, BASS_PLATE_KNOBS, bassKnob, bassParams, type BassKnobId } from './params';
 import { BASS_SCREENS, BASS_SCREEN_SLOTS, ENC_LETTERS, bassPage, pageIds, type BassPageId, type BassScreenId } from './pages';
-import { bassEditModel, bassPageModel, type BassEditModel, type BassPageModel } from './pageView';
+import { bassEditModel, bassKeysModel, bassPageModel, type BassEditModel, type BassKeysModel, type BassPageModel } from './pageView';
 import { BassTweaks } from './tweaks';
 import { bassInfos } from '../state/bassInfos';
 import { BassScreen, type BassScreenView } from './screen';
@@ -115,7 +126,6 @@ import {
   BASS_ENC_S,
   BASS_EXPLODE,
   BASS_KEYS,
-  BASS_KEY_SEPS,
   BASS_KNOB_PLACES,
   BASS_LID,
   BASS_LOCK_KEYS,
@@ -123,6 +133,7 @@ import {
   BASS_PAGE_HIT,
   BASS_PAGE_KEYS,
   BASS_PCB_Y,
+  BASS_SCREEN_KEY_KINDS,
   BASS_SECTIONS,
   BASS_W,
   bassEncAt,
@@ -132,6 +143,7 @@ import {
   bassPlateClear,
   bassTrigAt,
   bassX,
+  isBassScreenKey,
   type BassKeyKind,
   type BassPageKey,
 } from './theme';
@@ -338,6 +350,11 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
     const a = bassEncAt(0);
     const d = bassEncAt(3);
     brackets.push({ text: 'FILTER', x0: a.x - er - 0.04, x1: d.x + er + 0.04, z: a.z - er - 0.4, down: true });
+    // La face simple (2026-10-09, le soir) : les rangees s'etagent sur la hauteur de l'ecran ; la seconde (F.ATTACK,
+    // DECAY, F.SUSTAIN, RELEASE) porte son nom, le contour du filtre (CONTOUR sur le Minimoog)
+    const e = bassEncAt(4);
+    const h = bassEncAt(7);
+    brackets.push({ text: 'CONTOUR', x0: e.x - er - 0.04, x1: h.x + er + 0.04, z: e.z - er - 0.4, down: true });
   }
   // Les touches : leur nom au-dessus (RUN, EDIT, OPEN, GEN en orange) ; un filet entre les groupes de la rangee de jeu (desktop)
   for (const k of BASS_KEYS) {
@@ -348,24 +365,20 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
     const pageCap = PORTRAIT ? 0.1 : 0.062;
     texts.push({ text: k.label, x: k.x, z: k.z - k.d / 2 - (page ? 0.12 : 0.15), cap: (big ? 0.072 : page ? pageCap : 0.058) * INK_K, weight: 700, group: page ? 'pages' : 'keys', maxW: k.w + 0.2, ...(k.orange ? { ink: 'orange' as const, alpha: 1 } : {}) });
   }
-  for (const [a, b] of BASS_KEY_SEPS) {
-    const ka = BASS_KEYS.find((k) => k.kind === a);
-    const kb = BASS_KEYS.find((k) => k.kind === b);
-    if (!ka || !kb) continue;
-    const sep = (ka.x + ka.w / 2 + kb.x - kb.w / 2) / 2;
-    lines.push([sep, ka.z - 0.3, sep, ka.z + 0.2]);
-  }
-  // PARAMETER sous les touches de page (le crochet des Elektron) ; GENERATOR sous ses touches, a la meme hauteur (desktop)
+  // PARAMETER sous les touches de page (le crochet des Elektron)
   const pk = BASS_KEYS.filter((k) => isPageKey(k.kind));
   const pz = Math.max(...pk.map((k) => k.z + k.d / 2)) + 0.2;
   brackets.push({ text: 'PARAMETER', x0: Math.min(...pk.map((k) => k.x - k.w / 2)) - 0.04, x1: Math.max(...pk.map((k) => k.x + k.w / 2)) + 0.04, z: pz });
+  // GENERATOR sous STYLE et NOTES (la face simple, 2026-10-09, le soir : GEN est dans le carre GEN PRESET / RUN CLEAR),
+  // de la largeur des colonnes de touches qui sont dessous (desktop GEN PRESET, telephone RUN CLEAR) ; juste sous les
+  // crans des potards
   const K = (s: number): number => DJ_KNOB.skirt.r * s;
   for (const g of BASS_SECTIONS) {
     const ps = g.ids.map(bassKnobAt);
-    const keys = BASS_KEYS.filter((k) => k.kind === 'gen' || k.kind === 'mutate');
-    const x0 = Math.min(...ps.map((p) => p.x - K(p.s)), ...keys.map((k) => k.x - k.w / 2)) - 0.04;
-    const x1 = Math.max(...ps.map((p) => p.x + K(p.s)), ...keys.map((k) => k.x + k.w / 2)) + 0.04;
-    const z = PORTRAIT ? Math.max(...ps.map((p) => p.z + K(p.s)), ...keys.map((k) => k.z + k.d / 2)) + 0.2 : Math.max(pz, ...keys.map((k) => k.z + k.d / 2 + 0.2));
+    const under = BASS_KEYS.filter((k) => (PORTRAIT ? k.kind === 'run' || k.kind === 'clear' : k.kind === 'gen' || k.kind === 'preset'));
+    const x0 = Math.min(...ps.map((p) => p.x - K(p.s)), ...under.map((k) => k.x - k.w / 2)) - 0.04;
+    const x1 = Math.max(...ps.map((p) => p.x + K(p.s)), ...under.map((k) => k.x + k.w / 2)) + 0.04;
+    const z = Math.max(...ps.map((p) => p.z + K(p.s))) + (PORTRAIT ? 0.2 : 0.24);
     brackets.push({ text: g.name, x0, x1, z, ...(g.ink ? { ink: g.ink } : {}) });
   }
   // Les pas : leur numero dessous (1, 5, 9, 13 plus marques), LOCK au-dessus des boutons, le crochet qui dit les gestes
@@ -481,8 +494,9 @@ export class BassRig {
   private blink = true;
   /** l'echo du reglage tourne : son minuteur de fin */
   private echoTimer = 0;
-  /** ce que l'ecran montre (les tests le lisent, debug.ts) */
+  /** ce que l'ecran montre (les tests le lisent, debug.ts) ; band : sa bande des touches du pas (2026-10-09, le soir) */
   private shown: BassScreenView | null = null;
+  private band: BassKeysModel | null = null;
   /** les blocs de l'ecran tenus (2026-10-09) : rang 0 a 7, le nombre de pointeurs qui le tiennent ; cernes a l'ecran */
   private heldBlocks = new Map<number, number>();
   /** les encodeurs de la face tenus (desktop, les FX globaux) : leur bulle reste tant qu'on les tient */
@@ -700,12 +714,22 @@ export class BassRig {
     // presets) ; les blocs repondent comme leur encodeur (glisser : le tourner ; deux tapes : son verrou s'en va ;
     // INFOS : sa carte), bass.bass = '1' a '8' comme les encodeurs (MIDI LEARN : bass:knob:1 a 8)
     const hr = this.screen.headRect();
-    const lcd = [box('open', hr.u0, hr.u1, hr.v0, hr.v1), box('prev', 0, 0.5, 0, band), box('next', 0.5, 1, 0, band), ...(['save', 'name', 'del', 'exit'] as const).map((k, i) => box(k, i / 4, (i + 1) / 4, band, 1))];
+    // PRESETS sur la part des vues (2026-10-09, le soir : la bande des touches du pas reste dessous)
+    const mv = this.screen.mainV();
+    const lcd = [box('open', hr.u0, hr.u1, hr.v0, hr.v1), box('prev', 0, 0.5, 0, band * mv), box('next', 0.5, 1, 0, band * mv), ...(['save', 'name', 'del', 'exit'] as const).map((k, i) => box(k, i / 4, (i + 1) / 4, band * mv, mv))];
     // Le reste du verre (la bande des pas, la ligne du bas ; en EDIT, le rouleau a la place des blocs) : des zones qui
     // ne font rien, sinon le geste passerait a la scene (l'orbite) ; elles ne chevauchent aucune zone allumee
     const lo = this.screen.lowRect();
     const glass: HotspotDef = { id: 'bass-lcd-glass', kind: 'basslcd', layer: top, shape: 'box', ...area(lo.u0, lo.u1, lo.v0, lo.v1, DJ_BEZEL.h + 0.03), enabled: true };
     const glassEdit: HotspotDef = { id: 'bass-lcd-glass-edit', kind: 'basslcd', layer: top, shape: 'box', ...area(0, 1, hr.v1, lo.v0, DJ_BEZEL.h + 0.03), enabled: false };
+    // Les six touches du pas (2026-10-09, le soir) : des zones de l'ecran, leurs ids d'avant (bass-key-accent...), un peu
+    // au-dessus du verre de leur bande (il ne fait rien : la ligne du pas, les jours entre les touches)
+    const kb = this.screen.keysBandRect();
+    const glassKeys: HotspotDef = { id: 'bass-lcd-glass-keys', kind: 'basslcd', layer: top, shape: 'box', ...area(kb.u0, kb.u1, kb.v0, kb.v1, DJ_BEZEL.h + 0.03), enabled: true };
+    const screenKeys = BASS_SCREEN_KEY_KINDS.map((kind, i): HotspotDef => {
+      const r = this.screen.keyRect(i);
+      return { id: bassKeyId(kind), kind: 'basskey', layer: top, shape: 'box', ...area(r.u0, r.u1, r.v0, r.v1, DJ_BEZEL.h + 0.06), enabled: true, bass: kind };
+    });
     const blocks: HotspotDef[] = [];
     for (let k = 0; k < 8; k += 1) {
       const br = this.screen.blockRect(k);
@@ -735,7 +759,7 @@ export class BassRig {
       ...BASS_SCREENS.map((s): HotspotDef => ({ id: bassScrId(s), kind: 'basskey', layer: top, shape: 'box', ...area(hr.u0, hr.u0, hr.v0, hr.v1, DJ_BEZEL.h + 0.06), enabled: false, bass: `screen:${s}` })),
     ];
     // La plaque sous le capot : ses potards, vivants capot ouvert (syncHood)
-    const all = [...out, iKey, plock, ...blocks, ...lcd, ...head, title, roll, glass, glassEdit, ...this.tweaks.hotspots()].map((d) => ({ ...d, machine: 'bass' as const }));
+    const all = [...out, ...screenKeys, iKey, plock, ...blocks, ...lcd, ...head, title, roll, glass, glassEdit, glassKeys, ...this.tweaks.hotspots()].map((d) => ({ ...d, machine: 'bass' as const }));
     this.plockDef = all.find((d) => d.id === BASS_PLOCK_ID) ?? null;
     this.rollDef = all.find((d) => d.id === BASS_ROLL_ID) ?? null;
     this.titleDef = all.find((d) => d.id === 'bass-lcd-title') ?? null;
@@ -771,7 +795,8 @@ export class BassRig {
     for (const d of this.lcdDefs) {
       // Au telephone, le pattern et le verre de l'en-tete suivent ce qui est dessine (syncHead)
       if (d === this.openDef || this.stillDefs.includes(d)) continue;
-      want(d, d.id === 'bass-lcd-glass-edit' ? !on && !blocks : d.lcd === 'open' || !d.lcd ? !on : on);
+      // Le verre de la bande des touches du pas (2026-10-09, le soir) : toujours la, comme elles
+      want(d, d.id === 'bass-lcd-glass-keys' ? true : d.id === 'bass-lcd-glass-edit' ? !on && !blocks : d.lcd === 'open' || !d.lcd ? !on : on);
     }
     if (this.iDef) want(this.iDef, !on);
     for (const d of this.blockDefs) want(d, blocks);
@@ -945,7 +970,6 @@ export class BassRig {
       changed = true;
     };
     const scale = (rgb: readonly number[], k: number): number[] => [rgb[0] * k, rgb[1] * k, rgb[2] * k];
-    const sel = s.steps[s.sel];
     const editing = editor.get() === 'bass';
     const page = bassPage.get();
     const lockLocks = s.lock >= 0 ? s.steps[s.lock]?.locks : undefined;
@@ -964,10 +988,10 @@ export class BassRig {
         return;
       }
       const hood = bassExplode.get();
-      const on = held || (k.kind === 'edit' && editing) || (k.kind === 'open' && (hood === 'opening' || hood === 'open')) || (k.kind === 'accent' && sel.kind === 'note' && sel.acc) || (k.kind === 'slide' && sel.kind !== 'off' && sel.slide);
-      // EDIT, OPEN et GEN : toujours un peu allumes (on les voit tout de suite), vifs quand ils sont pris ; MUTATE
-      // (2026-10-09) : orange a demi tant qu'une mutation peut s'annuler (le tenir)
-      const idle = k.kind === 'edit' || k.kind === 'open' || k.kind === 'gen' ? scale(DJ_GLOW.orange, 0.16) : k.kind === 'mutate' && bassCanUndo() ? scale(DJ_GLOW.orange, 0.42) : DJ_GLOW.dim;
+      // PRESET (2026-10-09, le soir) : allumee tant que les presets sont ouverts a l'ecran
+      const on = held || (k.kind === 'edit' && editing) || (k.kind === 'open' && (hood === 'opening' || hood === 'open')) || (k.kind === 'preset' && presetMode.on('bass'));
+      // EDIT, OPEN, GEN et PRESET : toujours un peu allumes (on les voit tout de suite), vifs quand ils sont pris
+      const idle = k.kind === 'edit' || k.kind === 'open' || k.kind === 'gen' || k.kind === 'preset' ? scale(DJ_GLOW.orange, 0.16) : DJ_GLOW.dim;
       set(this.keyEm, i, on ? DJ_GLOW.orange : idle);
     });
     // Les LOCK : pale si le pas a des verrous, or celui qu'on regle (il clignote avec son pas) ; eteints en EDIT
@@ -1165,11 +1189,20 @@ export class BassRig {
     return { view: 'page', m, hoverTab: this.hoverChip };
   }
 
+  /** La bande des touches du pas (2026-10-09, le soir) : le pas qu'elles reglent, ce qu'il porte, celles qu'on presse. */
+  private keysView(): BassKeysModel {
+    const s = bassState.get();
+    const held = BASS_SCREEN_KEY_KINDS.filter((k) => this.held.has(bassKeyId(k)));
+    return bassKeysModel({ steps: s.steps, sel: s.sel, lock: s.lock, noteName: (st) => noteName(midiOf(st)), held });
+  }
+
   private drawScreen(): boolean {
     this.drawQueued = false;
     const sv = this.screenView();
     this.shown = sv;
-    const drawn = this.screen.draw(sv);
+    const kv = this.keysView();
+    this.band = kv;
+    const drawn = this.screen.draw(sv, kv);
     // L'ecran existe pour de bon (2026-10-09, la revue : le message de la migration du son d'avant passait pendant le
     // chargement de la scene) : state/presets.ts peut le dire, au premier coup d'oeil sur le MM-BASS
     if (drawn && !this.screenUp) {
@@ -1248,6 +1281,8 @@ export class BassRig {
         moved = true;
       }
     }
+    // Une touche du pas (2026-10-09, le soir) : sur l'ecran, cernee tant qu'on la presse
+    if (id.startsWith('bass-key-') && isBassScreenKey(id.slice('bass-key-'.length))) this.queueDraw();
     const lit = this.syncLights();
     if (moved && this.keys.castShadow) this.opts.invalidate();
     else if (moved || lit) this.opts.repaint();
@@ -1348,7 +1383,9 @@ export class BassRig {
       }),
       presetMode.subscribe(() => {
         if (this.syncScreenKeys()) this.opts.hitChanged();
-        if (this.drawScreen()) this.opts.repaint();
+        // La LED de PRESET (2026-10-09, le soir)
+        const lit = this.syncLights();
+        if (this.drawScreen() || lit) this.opts.repaint();
       }),
       presets.subscribe(() => {
         if (this.drawScreen()) this.opts.repaint();
@@ -1427,7 +1464,7 @@ export class BassRig {
     if (id === BASS_ROLL_ID) return 'ns-resize';
     // Le verre qui ne fait rien (l'en-tete autour des onglets, la ligne du titre, sous les blocs) : le curseur ordinaire
     // (la revue du 2026-10-09 : l'en-tete du desktop a ses zones)
-    if (id.startsWith('bass-lcd-head-') || id === 'bass-lcd-title' || id === 'bass-lcd-glass' || id === 'bass-lcd-glass-edit') return 'default';
+    if (id.startsWith('bass-lcd-head-') || id === 'bass-lcd-title' || id === 'bass-lcd-glass' || id === 'bass-lcd-glass-edit' || id === 'bass-lcd-glass-keys') return 'default';
     const m = /^bass-blk-(\d)$/.exec(id);
     if (!m) return null;
     const shown = this.shown;
@@ -1450,7 +1487,7 @@ export class BassRig {
     ];
   }
 
-  info(): { knobs: number; encoders: number; plate: number; keys: number; trigs: number; locks: number; screenDraws: number; silkDraws: number; encAngleDeg: number[]; screen: BassScreenView | null; explode: ExplodeInfo } {
+  info(): { knobs: number; encoders: number; plate: number; keys: number; trigs: number; locks: number; screenDraws: number; silkDraws: number; encAngleDeg: number[]; screen: BassScreenView | null; band: BassKeysModel | null; explode: ExplodeInfo } {
     // Un dessin attendu (queueDraw) : fait tout de suite, ce qu'on lit est ce que l'ecran montre
     if (this.drawQueued && this.drawScreen()) this.opts.repaint();
     return {
@@ -1464,6 +1501,7 @@ export class BassRig {
       silkDraws: this.silk.draws,
       encAngleDeg: Array.from(this.encAngle.subarray(0, BASS_ENC_N), (a) => Math.round((a * 180) / Math.PI)),
       screen: this.shown,
+      band: this.band,
       explode: this.explode.info(),
     };
   }

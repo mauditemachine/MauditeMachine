@@ -54,6 +54,7 @@ import { registerTargets, type MidiTarget } from '../midi/targets';
 import { seqFollow, seqPress, seqRegister, seqRelease, seqSetFollow, seqWindow, type SeqMachine } from '../midi/seqlink';
 import { bassInfos } from '../state/bassInfos';
 import { editor } from '../state/editor';
+import { presetMode } from '../state/presetMode';
 import { bassCanUndo, bassEditing, bassEncDial, bassEncParam, bassEncValue, bassFxDial, bassGenBack, bassGenerate, bassKnobDial, bassKnobDialValue, bassLockEnter, bassLockOff, bassLockTap, bassLockToggle, bassMutate, bassMutateUndo, bassNotesStep, bassPagePress, bassPageSet, bassPatternHold, bassPatternTap, bassRun, bassScreenSet, bassStepTap, bassStepToggle } from './actions';
 import { GEN_HOLD_MS, bassKeyAction } from './gestures';
 import { bassLine } from './line';
@@ -62,7 +63,7 @@ import { BASS_KNOBS, bassKnob, bassParams } from './params';
 import { bassPatterns } from './patterns';
 import { bassSeq } from './seq';
 import { BASS_STEPS, bassState, isLockable } from './state';
-import { BASS_KEYS } from './theme';
+import { BASS_KEY_COPY } from './theme';
 
 function all(): MidiTarget[] {
   const out: MidiTarget[] = [];
@@ -117,7 +118,9 @@ function all(): MidiTarget[] {
     set: (v) => bassPageSet(BASS_PAGES[Math.max(0, Math.min(BASS_PAGES.length - 1, Math.round(v * (BASS_PAGES.length - 1))))].id),
   });
   out.push({ id: 'bass:key:i', scope: 'bass', label: 'INFOS (THE i OF THE SCREEN)', kind: 'press', down: () => void bassInfos.toggle() });
-  for (const k of BASS_KEYS) out.push({ id: `bass:key:${k.kind}`, scope: 'bass', label: k.kind === 'run' ? 'RUN/STOP' : k.label, kind: 'press', down: () => bassKeyAction(k.kind) });
+  // Toutes les touches, celles de la face, celles de l'ecran (ACCENT... depuis le 2026-10-09 au soir) et MUTATE (plus
+  // sur la face, le Roto s'en sert) ; PRESET ajoutee a la fin de la liste
+  for (const k of BASS_KEY_COPY) out.push({ id: `bass:key:${k.kind}`, scope: 'bass', label: k.kind === 'run' ? 'RUN/STOP' : k.label, kind: 'press', down: () => bassKeyAction(k.kind) });
   out.push({
     id: 'bass:running',
     scope: 'bass',
@@ -245,6 +248,8 @@ const seq: SeqMachine = {
     if (id.startsWith('bass:screen:')) return bassPage.screen() === id.slice('bass:screen:'.length) ? 1 : 0;
     if (id === 'bass:lock') return !bassEditing() && bassState.get().lock >= 0 ? 1 : 0;
     if (id === 'bass:key:edit') return bassEditing() ? 1 : 0;
+    // PRESET (2026-10-09, le soir) : allumee tant que les presets sont a l'ecran
+    if (id === 'bass:key:preset') return presetMode.on('bass') ? 1 : 0;
     // ACCENT, SLIDE, TIE : ce qu'a le pas choisi
     if (id === 'bass:key:accent') return focusStep()?.kind === 'note' && focusStep()?.acc ? 1 : 0;
     if (id === 'bass:key:slide') return focusStep()?.kind !== 'off' && focusStep()?.slide ? 1 : 0;

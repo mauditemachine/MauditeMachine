@@ -33,7 +33,7 @@ export const MACHINE_HELP: Readonly<Record<MachineId, { name: string; kind: stri
     name: 'MM-BASS',
     kind: 'Bass synth and sequencer',
     text: [
-      'A Minimoog-style mono bass: three oscillators, DRIVE into the ladder filter, snappy envelopes. STYLE plays a line of that style at once (dark disco, indie dance, minimal, italo, EBM, acid...), NOTES adds or removes one note per notch, GEN gives the next take, MUTATE changes a few notes. Your own notes are never touched. RUN plays in time with the MM-RYTM. Touch the screen for presets.',
+      'A Minimoog-style mono bass: three oscillators, DRIVE into the ladder filter, snappy envelopes. STYLE plays a line of that style at once (dark disco, indie dance, minimal, italo, EBM, acid...), NOTES adds or removes one note per notch, GEN gives the next take, PRESET opens the presets on the screen. Your own notes are never touched. RUN plays in time with the MM-RYTM.',
       'Tap a step: note, tie, off; drag it to change its note. Hold a step (or press its LOCK) and turn a knob: that step only, like an Elektron. EDIT turns the steps into 16 patterns. OPEN lifts the hood: fine settings and INFOS, a help card on every control.',
     ],
   },

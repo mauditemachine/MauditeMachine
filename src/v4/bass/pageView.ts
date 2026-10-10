@@ -61,6 +61,7 @@
 import { BASS_PAGES, BASS_SCREEN_SLOTS, ENC_LETTERS, PAGE_TABS, SCREEN_LABEL, SCREEN_PAGE, bassPageDef, isBassGlobal, pageIds, screenTitle, type BassPageId, type BassScreenId } from './pages';
 import { BASS_ROOTS, BASS_SCALES, BASS_STYLES, bassBig, bassKnob, bassUnit, envOct, lengthPct, modeName, stepOf, type BassKnobId, type BassMode, type BassValues } from './params';
 import { BASS_LOCKABLE, BASS_STEPS, chainLocks, isLockable, type BassLocks, type BassStep } from './state';
+import type { BassScreenKey } from './theme';
 
 export type BlockState = 'empty' | 'live' | 'lockOn' | 'lockOff' | 'global' | 'flash';
 
@@ -377,7 +378,6 @@ export function bassPageModel(inp: PageInput): BassPageModel {
   const envGate = pct === null ? STYLE_GATE[BASS_STYLES[stepOf('style', v.style)]] : pct / 100;
   const n = Object.keys(lockStep?.locks ?? {}).length;
   const lock = locking && lockStep ? { step: inp.lock, what: stepWhat(lockStep, inp.noteName), n } : null;
-  const sel = inp.steps[inp.sel];
   const lockedSteps = inp.steps.filter((s) => s.locks).length;
   // Au telephone, un bloc tenu (2026-10-09, la revue : le doigt cache le nombre qu'il regle) : la ligne du bas le
   // repete tant que le doigt est la, en LOCK avec son pas
@@ -389,7 +389,8 @@ export function bassPageModel(inp: PageInput): BassPageModel {
   // La ligne du P-LOCK dit aussi comment sortir (2026-10-09, la revue : seule la carte INFOS du LOCK le disait)
   // (la revue : CLEAR: ALL se lisait "efface la ligne", ESC: EXIT "sors de la machine")
   else if (lock) line = inp.phone ? `DRAG A VALUE: STEP ${two(lock.step)} ONLY  2X: UNLOCK  TAP P-LOCK: EXIT` : `DRAG A VALUE: STEP ${two(lock.step)} ONLY  2X: UNLOCK  CLEAR: ITS P-LOCKS  ESC: P-LOCK OFF`;
-  else line = sel ? `STEP ${two(inp.sel)}  ${stepWhat(sel, inp.noteName)}` : '';
+  // Le pas choisi et sa note sont dans la bande des touches du pas (2026-10-09, le soir) : la ligne ne les repete pas
+  else line = '';
   // Le geste, a droite de la ligne tant qu'on n'est pas en P-LOCK (2026-10-09, l'etape 2 : une tape sur un pas, puis
   // glisser une valeur de l'ecran ; au desktop, les encodeurs de la face sont les FX globaux)
   if (!lock) aside = inp.phone ? 'TAP A STEP: P-LOCK  DRAG A VALUE' : 'TAP A STEP: P-LOCK  DRAG A VALUE  KNOBS = FILTER';
@@ -466,6 +467,57 @@ function heldLine(b: BassBlock, lock: number): string {
   if (b.state === 'global') return `${b.label} IS GLOBAL  EXIT P-LOCK TO SET IT`;
   const unit = b.unit && b.unit !== b.big ? `  ${b.unit}` : '';
   return `${lock >= 0 ? `P-LOCK ${two(lock)}  ` : ''}${b.label} ${b.big}${unit}`;
+}
+
+/* ---------------- les touches du pas, dans l'ecran (2026-10-09, le soir) ---------------- */
+
+/**
+ * La bande des touches du pas (2026-10-09, le soir, Mika : "toute cette partie la est difficile a utiliser sans
+ * visibilite, mets les boutons ACCENT SLIDE NOTE- NOTE+ OCT- OCT+ dans l'ecran") : le pas qu'elles reglent (le pas en
+ * P-LOCK, sinon le pas choisi), sa note ; chaque touche allumee si le pas la porte (ACCENT, SLIDE), attenuee si elle
+ * ne peut rien sur lui (un pas vide ; NOTE et OCT sur une liaison), cernee tant qu'on la presse.
+ */
+export interface BassKeyCell {
+  kind: BassScreenKey;
+  label: string;
+  on: boolean;
+  dim: boolean;
+  held: boolean;
+}
+
+export interface BassKeysModel {
+  step: number;
+  /** la note du pas (F#2), TIE, EMPTY */
+  what: string;
+  lock: boolean;
+  keys: BassKeyCell[];
+}
+
+export interface KeysInput {
+  steps: readonly BassStep[];
+  sel: number;
+  lock: number;
+  noteName: (s: BassStep) => string;
+  /** les touches pressees (le pointeur, le clavier) */
+  held: readonly string[];
+}
+
+const KEY_LABEL: Readonly<Record<BassScreenKey, string>> = { accent: 'ACCENT', slide: 'SLIDE', notedn: 'NOTE -', noteup: 'NOTE +', octdn: 'OCT -', octup: 'OCT +' };
+const KEY_ORDER: readonly BassScreenKey[] = ['accent', 'slide', 'notedn', 'noteup', 'octdn', 'octup'];
+
+export function bassKeysModel(inp: KeysInput): BassKeysModel {
+  const locking = inp.lock >= 0 && inp.lock < BASS_STEPS;
+  const i = locking ? inp.lock : Math.max(0, Math.min(BASS_STEPS - 1, inp.sel));
+  const s = inp.steps[i];
+  const kind = s?.kind ?? 'off';
+  const what = kind === 'off' ? 'EMPTY' : kind === 'tie' ? 'TIE' : inp.noteName(s);
+  // Comme bass/actions.ts : ACCENT et SLIDE refusent un pas vide, NOTE et OCT tout ce qui n'est pas une note
+  const keys = KEY_ORDER.map((k): BassKeyCell => {
+    const on = k === 'accent' ? kind === 'note' && !!s?.acc : k === 'slide' ? kind !== 'off' && !!s?.slide : false;
+    const dim = k === 'accent' || k === 'slide' ? kind === 'off' : kind !== 'note';
+    return { kind: k, label: KEY_LABEL[k], on, dim, held: inp.held.includes(k) };
+  });
+  return { step: i, what, lock: locking, keys };
 }
 
 /* ---------------- EDIT ---------------- */

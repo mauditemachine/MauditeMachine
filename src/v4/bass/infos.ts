@@ -38,6 +38,11 @@
  * cartes dont le sens change avec le MODE le disent (DRIVE, RESO, DECAY,
  * GLIDE, ACCENT, ENV MOD, KEY TRK, SUB) ; la section dit chaque ecran ou se
  * trouve le reglage (DECAY : FILTER D / FILTER CONTOUR C).
+ * La face simple (2026-10-09, le soir, Mika : "mets les boutons ACCENT SLIDE
+ * NOTE- NOTE+ OCT- OCT+ dans l'ecran, rajoute un bouton PRESET ; MUTATE je
+ * comprends pas vraiment, enleve ca") : les cartes des six touches du pas
+ * disent qu'elles sont en bas de l'ecran, PRESET a la sienne, plus aucune
+ * carte de la face ne parle de MUTATE (sa carte dit le bouton du Roto).
  */
 
 import { PORTRAIT } from '../theme';
@@ -104,11 +109,11 @@ const RAW: Record<BassInfoId, RawInfo> = {
     text: "Une nouvelle prise du même style, avec le même nombre de notes : ACID 07, puis ACID 08. Tes notes et tes P-locks restent. Tiens GEN une demi-seconde : la prise d'avant revient. Les premières prises de chaque style sont les lignes de ses presets d'usine, les suivantes viennent du générateur. Si rien ne joue, la ligne part.", keys: "Touche G (Maj + G : la prise d'avant).",
     tip: "Appuie jusqu'à ce qu'une ligne t'accroche, puis garde-la dans un pattern avec EDIT.",
   },
+  // Plus sur la face (2026-10-09, le soir) : le bouton MUTATE du Roto-Control seulement
   mutate: {
-    section: 'GENERATOR',
+    section: 'ROTO',
     title: 'MUTATE',
-    text: "Change 2 ou 3 notes de la machine : une hauteur, une octave, un accent, un slide, ou une note qui avance ou recule d'un pas. Le nombre de notes ne bouge pas, tes notes à toi non plus. La prise prend une étoile (ACID 07*) et la LED de MUTATE reste allumée. Tiens MUTATE : la dernière mutation s'annule.", keys: "Touche M (Maj + M : annule).",
-    tip: "Une mutation toutes les 8 mesures garde la ligne vivante en live.",
+    text: "Le bouton MUTATE du Roto-Control : change 2 ou 3 notes de la machine (une hauteur, une octave, un accent, un slide, ou une note qui avance ou recule d'un pas). Le nombre de notes ne bouge pas, tes notes à toi non plus ; la prise prend une étoile (ACID 07*). Tiens-le : la dernière mutation s'annule.",
   },
 
 
@@ -216,7 +221,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   scale: {
     section: 'TWEAKS / GENERATOR',
     title: 'SCALE',
-    text: "La gamme où GEN, MUTATE et NOTE - + choisissent leurs notes. MINOR pour la dark disco, PHRYGIAN pour un côté sombre (deuxième degré à un demi-ton), DORIAN plus lumineux, HARMONIC pour l'italo dramatique, PENTA pour ne jamais rater.",
+    text: "La gamme où GEN et NOTE - + choisissent leurs notes. MINOR pour la dark disco, PHRYGIAN pour un côté sombre (deuxième degré à un demi-ton), DORIAN plus lumineux, HARMONIC pour l'italo dramatique, PENTA pour ne jamais rater.",
     tip: "En indie dance, DORIAN ouvre la couleur sans quitter le mineur.",
   },
 
@@ -508,35 +513,43 @@ const RAW: Record<BassInfoId, RawInfo> = {
     title: 'CLEAR',
     text: "Efface toute la ligne, tes notes et leurs P-locks compris : NOTES tombe à 0. Remonte NOTES : les notes de la prise reviennent une à une, dans leur ordre. En P-LOCK, seulement les verrous du pas (toutes les pages).",
   },
+  // Les touches du pas, en bas de l'ecran (la face simple, 2026-10-09, le soir)
   accentkey: {
-    section: 'KEYS',
+    section: 'SCREEN KEYS',
     title: 'ACCENT',
-    text: "Met ou enlève l'accent sur le pas choisi (celui en P-LOCK) ; ACCENT, page FILTER, règle sa force.", keys: "Touche A.",
+    text: "En bas de l'écran : met ou enlève l'accent sur le pas choisi, celui que la bande nomme à gauche des touches (STEP 05 F#2). La touche passe en négatif quand le pas a l'accent. Le bloc ACCENT, page FILTER, règle sa force.", keys: "Touche A.",
   },
   slide: {
-    section: 'KEYS',
+    section: 'SCREEN KEYS',
     title: 'SLIDE',
-    text: "Fait glisser la note du pas choisi vers la suivante, sans la relâcher ; GLIDE règle la durée.", keys: "Touche S.",
+    text: "En bas de l'écran : fait glisser la note du pas choisi vers la suivante, sans la relâcher ; la touche passe en négatif quand le pas glisse. GLIDE, page VOICE, règle la durée.", keys: "Touche S.",
   },
   notedn: {
-    section: 'KEYS',
+    section: 'SCREEN KEYS',
     title: 'NOTE -',
-    text: "Un degré de la gamme plus bas sur le pas choisi ; tu peux aussi glisser sur le pas.", keys: "Flèche du bas.",
+    text: "En bas de l'écran : un degré de la gamme plus bas sur le pas choisi ; tu peux aussi glisser sur le pas. Atténuée quand le pas n'a pas de note.", keys: "Flèche du bas.",
   },
   noteup: {
-    section: 'KEYS',
+    section: 'SCREEN KEYS',
     title: 'NOTE +',
-    text: "Un degré de la gamme plus haut sur le pas choisi ; tu peux aussi glisser sur le pas.", keys: "Flèche du haut.",
+    text: "En bas de l'écran : un degré de la gamme plus haut sur le pas choisi ; tu peux aussi glisser sur le pas. Atténuée quand le pas n'a pas de note.", keys: "Flèche du haut.",
   },
   octdn: {
-    section: 'KEYS',
+    section: 'SCREEN KEYS',
     title: 'OCT -',
-    text: "Une octave plus bas sur le pas choisi (de -1 à +2).", keys: "Touche Z.",
+    text: "En bas de l'écran : une octave plus bas sur le pas choisi (de -1 à +2).", keys: "Touche Z.",
   },
   octup: {
-    section: 'KEYS',
+    section: 'SCREEN KEYS',
     title: 'OCT +',
-    text: "Une octave plus haut sur le pas choisi (de -1 à +2).", keys: "Touche X.",
+    text: "En bas de l'écran : une octave plus haut sur le pas choisi (de -1 à +2).", keys: "Touche X.",
+  },
+  // La face simple (2026-10-09, le soir, Mika : "rajoute un bouton PRESET")
+  preset: {
+    section: 'KEYS',
+    title: 'PRESET',
+    text: "Ouvre les presets sur l'écran, comme un clic sur le pattern (A01) de l'en-tête. Clique la moitié gauche de l'écran pour le preset d'avant, la droite pour le suivant : il joue tout de suite, le son et la ligne. SAVE garde ce que tu entends comme un preset à toi, NAME le renomme, DEL l'efface. Réappuie sur PRESET, ou EXIT, pour fermer ; sa LED reste allumée tant que les presets sont ouverts.",
+    tip: "Pars d'un preset du style que tu veux, puis GEN, NOTES et STYLE pour la ligne, les pages de l'écran pour le son.",
   },
   edit: {
     section: 'KEYS',
@@ -559,13 +572,13 @@ const RAW: Record<BassInfoId, RawInfo> = {
   trig: {
     section: 'STEPS',
     title: 'STEPS',
-    text: "Touche un pas : il passe en P-LOCK (un pas vide reçoit une note), l'écran règle alors ce pas seul. Touche-le encore : liaison (TIE), puis vide, et le P-LOCK s'en va. Glisse dessus pour changer sa note. Quand la lecture passe sur un pas verrouillé, la puce P-LOCK de l'écran s'allume et ses blocs passent en négatif. Une note que tu poses, que tu changes (hauteur, ACCENT, SLIDE, OCT) ou que tu verrouilles devient la tienne : STYLE, NOTES, GEN et MUTATE n'y touchent plus, et l'écran du générateur la marque d'un point. Pour la rendre à la machine, remets-la à vide.",
+    text: "Touche un pas : il passe en P-LOCK (un pas vide reçoit une note), l'écran règle alors ce pas seul. Touche-le encore : liaison (TIE), puis vide, et le P-LOCK s'en va. Glisse dessus pour changer sa note. Quand la lecture passe sur un pas verrouillé, la puce P-LOCK de l'écran s'allume et ses blocs passent en négatif. Une note que tu poses, que tu changes (hauteur, ACCENT, SLIDE, OCT : les touches en bas de l'écran) ou que tu verrouilles devient la tienne : STYLE, NOTES et GEN n'y touchent plus, et l'écran du générateur la marque d'un point. Pour la rendre à la machine, remets-la à vide.",
     tip: "Pour ajouter des notes vite : une tape par pas vide.",
   },
   screen: {
     section: 'SCREEN',
     title: 'SCREEN',
-    text: "Les huit blocs sont les commandes : glisse un bloc vers le haut ou le bas (de 0 à 127, son unité dessous), ou la molette (plus elle tourne vite, plus elle va loin ; Maj : fin), deux clics pour sa valeur de départ. Hors P-LOCK ils règlent toute la ligne ; en P-LOCK seulement le pas choisi (un P sur ce qui est verrouillé, GLOBAL sur ce qui ne se verrouille pas). Un verrou qui ne s'entendrait pas le dit (SUSTAIN FULL, SAW: NO PW, OSC 2 OFF, LADDER ONLY, ACCENT STEPS, SLIDE STEPS, ROOT NOTE). Dessous, les 16 pas. En haut, clique une page (VOICE, FILTER, ENV, FX), puis sur la ligne du titre un onglet (MAIN, OSC, MIX ; MAIN, CONTOUR) ; le preset et le pattern (A01) pour les presets, le petit i pour INFOS.",
+    text: "Les huit blocs sont les commandes : glisse un bloc vers le haut ou le bas (de 0 à 127, son unité dessous), ou la molette (plus elle tourne vite, plus elle va loin ; Maj : fin), deux clics pour sa valeur de départ. Hors P-LOCK ils règlent toute la ligne ; en P-LOCK seulement le pas choisi (un P sur ce qui est verrouillé, GLOBAL sur ce qui ne se verrouille pas). Un verrou qui ne s'entendrait pas le dit (SUSTAIN FULL, SAW: NO PW, OSC 2 OFF, LADDER ONLY, ACCENT STEPS, SLIDE STEPS, ROOT NOTE). Dessous, les 16 pas, puis la bande des touches du pas choisi (STEP 05 F#2 : ACCENT, SLIDE, NOTE - +, OCT - +). En haut, clique une page (VOICE, FILTER, ENV, FX), puis sur la ligne du titre un onglet (MAIN, OSC, MIX ; MAIN, CONTOUR) ; le preset et le pattern (A01), ou la touche PRESET, pour les presets, le petit i pour INFOS.",
   },
 
   /* ---------- sous le capot ---------- */
@@ -604,7 +617,10 @@ const PHONE: Partial<Record<BassInfoId, Partial<BassInfo>>> = {
     text: "La dérive analogique, pour toute la machine : les trois oscillateurs bougent de quelques cents chacun (vers 3 cents au plus), la coupure respire un peu, chaque note démarre sur une phase un peu différente. À 0 (STABLE), tout est exact, chaque note identique. Global : il ne se verrouille pas sur un pas (en P-LOCK, son bloc dit GLB).",
   },
   accents: { text: "La chance qu'une note de la machine soit accentuée. Ce n'est pas le bloc ACCENT (page FILTER, E), qui règle la force de l'accent." },
-  accentkey: { text: "Met ou enlève l'accent sur le pas choisi ; le bloc ACCENT de l'écran (page FILTER, E) règle sa force." },
+  accentkey: { text: "En bas de l'écran : met ou enlève l'accent sur le pas choisi, celui que la bande nomme au-dessus des touches (STEP 05 F#2). La touche passe en négatif quand le pas a l'accent ; le bloc ACCENT de l'écran (page FILTER, E) règle sa force." },
+  preset: {
+    text: "Ouvre les presets sur l'écran, comme le pattern (A01) de l'en-tête. Touche la moitié gauche de l'écran pour le preset d'avant, la droite pour le suivant : il joue tout de suite, le son et la ligne. SAVE garde ce que tu entends comme un preset à toi. Touche encore PRESET, ou EXIT, pour fermer ; sa LED reste allumée tant que les presets sont ouverts.",
+  },
   enc: {
     section: 'SCREEN',
     title: 'VALUE',
@@ -626,11 +642,11 @@ const PHONE: Partial<Record<BassInfoId, Partial<BassInfo>>> = {
     text: "P-LOCK sur ce pas, comme une tape sur le pas (sans changer sa note ; un pas vide reçoit une note) : sa LED clignote, l'en-tête de l'écran passe en négatif, P-LOCK 05, chaque page dit ses verrous (AMP ENV · P-LOCKS, 3 P-LOCKS). Choisis la page sous l'écran, puis glisse un bloc : ce réglage ne change plus que sur ce pas, son bloc passe en négatif avec un P. Deux tapes sur le bloc enlèvent ce verrou, CLEAR tous ceux du pas ; réappuie sur LOCK, ou touche la pastille P-LOCK, pour sortir.",
   },
   trig: {
-    text: "Touche un pas : il passe en P-LOCK (un pas vide reçoit une note), les blocs de l'écran règlent alors ce pas seul. Touche-le encore : liaison (TIE), puis vide, et le P-LOCK s'en va. Glisse dessus pour changer sa note. Tu peux aussi tenir un pas d'un doigt et glisser un bloc d'un autre : le verrou se pose le temps du geste. Quand la lecture passe sur un pas verrouillé, la puce P-LOCK s'allume et ses blocs passent en négatif. Une note que tu poses, que tu changes (hauteur, ACCENT, SLIDE, OCT) ou que tu verrouilles devient la tienne : STYLE, NOTES, GEN et MUTATE n'y touchent plus, et l'écran du générateur la marque d'un point. Pour la rendre à la machine, remets-la à vide.",
+    text: "Touche un pas : il passe en P-LOCK (un pas vide reçoit une note), les blocs de l'écran règlent alors ce pas seul. Touche-le encore : liaison (TIE), puis vide, et le P-LOCK s'en va. Glisse dessus pour changer sa note. Tu peux aussi tenir un pas d'un doigt et glisser un bloc d'un autre : le verrou se pose le temps du geste. Quand la lecture passe sur un pas verrouillé, la puce P-LOCK s'allume et ses blocs passent en négatif. Une note que tu poses, que tu changes (hauteur, ACCENT, SLIDE, OCT : les touches en bas de l'écran) ou que tu verrouilles devient la tienne : STYLE, NOTES et GEN n'y touchent plus, et l'écran du générateur la marque d'un point. Pour la rendre à la machine, remets-la à vide.",
     tip: "Pour régler toute la ligne, sors du P-LOCK : touche la pastille P-LOCK de l'écran.",
   },
   screen: {
-    text: "Les huit blocs sont les commandes : glisse un bloc vers le haut pour monter sa valeur (de 0 à 127, son unité dessous), deux tapes pour sa valeur de départ ; le bloc que ton doigt tient est cerné. Hors P-LOCK ils règlent toute la ligne ; en P-LOCK seulement le pas choisi (un P sur ce qui est verrouillé, GLB sur ce qui ne se verrouille pas). Un verrou qui ne s'entendrait pas le dit (SUSTAIN FULL, SAW: NO PW, OSC 2 OFF…). Dessous, les 16 pas. En haut, touche la pastille de la page pour son onglet suivant, ou une puce (MAIN, OSC, MIX…) pour y aller ; le pattern (A01) pour les presets, le petit i pour INFOS.",
+    text: "Les huit blocs sont les commandes : glisse un bloc vers le haut pour monter sa valeur (de 0 à 127, son unité dessous), deux tapes pour sa valeur de départ ; le bloc que ton doigt tient est cerné. Hors P-LOCK ils règlent toute la ligne ; en P-LOCK seulement le pas choisi (un P sur ce qui est verrouillé, GLB sur ce qui ne se verrouille pas). Un verrou qui ne s'entendrait pas le dit (SUSTAIN FULL, SAW: NO PW, OSC 2 OFF…). Dessous, les 16 pas, puis les touches du pas choisi (ACCENT, SLIDE, NOTE - +, OCT - +, son numéro et sa note au-dessus). En haut, touche la pastille de la page pour son onglet suivant, ou une puce (MAIN, OSC, MIX…) pour y aller ; le pattern (A01) ou la touche PRESET pour les presets, le petit i pour INFOS.",
   },
   infos: { text: "Allume l'aide : touche un bloc de l'écran, un potard ou une touche du MM-BASS pour lire ce qu'il fait, sans le changer. Le petit i dans le coin de l'écran fait la même chose. Réappuie, ou touche la pastille, pour l'éteindre." },
 };

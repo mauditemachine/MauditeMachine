@@ -83,6 +83,10 @@
  * sur la page allumee passe a son onglet suivant (bassPagePress) ; une puce
  * de l'en-tete (bass-scr-<ecran>, h.bass = screen:<ecran>) va a son onglet ;
  * un bloc qu'on tient suit l'ecran qui change (comme une page).
+ * La face simple (2026-10-09, le soir) : les six touches du pas sont des
+ * zones de l'ecran (bass-key-accent..., les gestes d'une touche, a l'appui) ;
+ * PRESET ouvre et ferme les presets ; MUTATE n'est plus sur la face (le MIDI
+ * bass:key:mutate passe encore par bassKeyAction).
  */
 
 import type { HotspotView } from '../scene/hit';
@@ -91,7 +95,7 @@ import { quadToUnit } from '../scene/quad';
 import { openToggle, presetKey } from '../actions';
 import { bassInfos } from '../state/bassInfos';
 import { PORTRAIT } from '../theme';
-import { bassAccent, bassClear, bassDegStep, bassDial, bassDialReset, bassEditCycle, bassEditNote, bassEditToggle, bassEditing, bassEmptySay, bassEncParam, bassFxDial, bassFxParam, bassFxReset, bassGenBack, bassGenerate, bassKnobValue, bassLockEnter, bassLockGen, bassLockOff, bassLockRestore, bassLockTap, bassLockTurns, bassMutate, bassMutateUndo, bassNote, bassNoteName, bassNotesTo, bassOct, bassPagePress, bassPatternHold, bassPitchAt, bassRun, bassScreenSet, bassSlide, bassStepDeg, bassStepTap } from './actions';
+import { bassAccent, bassClear, bassDegStep, bassDial, bassDialReset, bassEditCycle, bassEditNote, bassEditToggle, bassEditing, bassEmptySay, bassEncParam, bassFxDial, bassFxParam, bassFxReset, bassGenBack, bassGenerate, bassKnobValue, bassLockEnter, bassLockGen, bassLockOff, bassLockRestore, bassLockTap, bassLockTurns, bassMutate, bassNote, bassNoteName, bassNotesTo, bassOct, bassPagePress, bassPatternHold, bassPitchAt, bassPresetKey, bassRun, bassScreenSet, bassSlide, bassStepDeg, bassStepTap } from './actions';
 import { bassLine } from './line';
 import { bassPage, isBassGlobal, isBassScreen, type BassScreenId } from './pages';
 import { bassKnob, bassParams, type BassKnobId } from './params';
@@ -351,13 +355,12 @@ export class BassGestures {
       this.press(h.id, true);
       // La touche dans h.bass (les onglets de l'ecran du telephone, bass-tab-*, 2026-10-09 : ceux des touches de page)
       const kind = (h.bass ?? h.id.slice('bass-key-'.length)) as BassKeyKind;
-      // GEN et MUTATE (2026-10-09) : au lacher avant 500 ms ; tenus 500 ms, la prise d'avant ou l'annulation, tout de suite
-      if ((kind === 'gen' || kind === 'mutate') && !infos) {
-        g.step = kind === 'gen' ? 1 : 2;
+      // GEN (2026-10-09) : au lacher avant 500 ms ; tenu 500 ms, la prise d'avant, tout de suite
+      if (kind === 'gen' && !infos) {
+        g.step = 1;
         g.hold = window.setTimeout(() => {
           g.held = true;
-          if (kind === 'gen') bassGenBack();
-          else bassMutateUndo();
+          bassGenBack();
         }, GEN_HOLD_MS);
       } else bassKeyAction(kind);
     }
@@ -462,13 +465,10 @@ export class BassGestures {
       if (!g.dragged && !g.held && !g.info && overId === g.id) bassStepTap(g.step);
     } else if (g.kind === 'key') {
       this.press(g.id, false);
-      // GEN, MUTATE : une tape (lache avant 500 ms)
-      if (g.step === 1 || g.step === 2) {
+      // GEN : une tape (lache avant 500 ms)
+      if (g.step === 1) {
         window.clearTimeout(g.hold);
-        if (!g.held) {
-          if (g.step === 1) bassGenerate();
-          else bassMutate();
-        }
+        if (!g.held) bassGenerate();
       }
     } else if (g.kind === 'knob') {
       if (g.ring) this.stage.bass?.holdBlock(g.enc, false, g.fx);
@@ -810,4 +810,6 @@ export function bassKeyAction(k: BassKeyKind): void {
   else if (k === 'pfilter') bassPagePress('filter');
   else if (k === 'penv') bassPagePress('env');
   else if (k === 'pfx') bassPagePress('fx');
+  // PRESET (2026-10-09, le soir) : les presets a l'ecran, encore : fermes
+  else if (k === 'preset') bassPresetKey();
 }
