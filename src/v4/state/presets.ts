@@ -212,12 +212,15 @@ export function migrateBass(): string | null {
   if (rec.match) {
     const fac = factoryOf('bass').find((x) => x.name === rec.match);
     const fp = (fac?.data as BassData | undefined)?.params;
-    if (!fp || fp.fmode === 1) return null;
-    const next: Partial<Record<BassKnobId, number>> = {};
-    for (const id of ENGINE_IDS) next[id] = fp[id];
-    bassParams.setMany(next);
-    bassParams.legacyDone();
-    return `${rec.match}: NEW ENGINE`;
+    if (fp && fp.fmode === 1) return null;
+    // Un preset retire le soir du 2026-10-09 (NIGHT DRIVE, VELVET DISCO...) : le chemin MM CLASSIC ci-dessous
+    if (fp) {
+      const next: Partial<Record<BassKnobId, number>> = {};
+      for (const id of ENGINE_IDS) next[id] = fp[id];
+      bassParams.setMany(next);
+      bassParams.legacyDone();
+      return `${rec.match}: NEW ENGINE`;
+    }
   }
   const next: Partial<Record<BassKnobId, number>> = {};
   for (const id of ENGINE_IDS) if (!KEEP_ON_CLASSIC.has(id)) next[id] = bassKnob(id).def;
