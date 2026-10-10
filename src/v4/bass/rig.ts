@@ -399,8 +399,8 @@ function silkItems(): { texts: Text[]; lines: Line[]; brackets: Bracket[] } {
   };
   // L'etape 2 (2026-10-09, Mika : "quand on selectionne un step on rentre en parameters lock") : une tape choisit le
   // pas en P-LOCK, l'ecran regle alors ce pas seul ; au telephone, le meme geste au doigt
-  const how = 'TAP A STEP: P-LOCK, THEN DRAG A VALUE ON THE SCREEN: THAT STEP ONLY  /  TAP IT AGAIN: TIE, OFF';
-  if (PORTRAIT) legend('TAP A STEP: P-LOCK  +  DRAG A VALUE: THAT STEP', t0, t1, bassTrigAt(15).z + T.d / 2 + 0.36, 0.105, false);
+  const how = 'TAP A STEP: NOTE ON, OFF  /  HOLD A STEP AND DRAG A VALUE ON THE SCREEN: P-LOCK, THAT STEP ONLY';
+  if (PORTRAIT) legend('TAP: NOTE ON, OFF  /  HOLD + DRAG A VALUE: P-LOCK', t0, t1, bassTrigAt(15).z + T.d / 2 + 0.36, 0.105, false);
   else brackets.push({ text: how, x0: t0, x1: t1, z: bassTrigAt(15).z + T.d / 2 + 0.42 });
   // Le filet LOCK au-dessus des boutons LOCK (2026-10-08, la revue : la rangee n'avait pas de nom, et le "(OR LOCK)"
   // du filet du bas ne montrait rien) ; au telephone, un par rangee

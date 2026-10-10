@@ -163,3 +163,4 @@ Le message de Mika : DRIVE au minimum coupe le son du BASS ; STYLE et DENSITY tr
 - MM-BASS « machine à bassline » (R14-243) : écran jusqu'aux pas avec ACCENT SLIDE NOTE OCT dedans, RUN CLEAR GEN PRESET à droite, plus de MUTATE sur la face ; 33 presets qui ont chacun leur patch complet, l'écart entre eux mesuré (aucune paire proche). Mika : écouter la liste avec PREV / NEXT.
 
 - 2026-10-10 : MM-BASS, longueur de la ligne 1 a 16 pas (barre LEN en haut du rouleau EDIT, pas au-dela grises, par pattern et par preset, MIDI bass:len). Spec R14-244.
+- 2026-10-10 : MM-BASS, une tape sur un pas pose ou enleve la note, tenir = P-LOCK ; EDIT en grille de notes (une rangee par demi-ton, noms des notes) ; AMP ENV dessinee en ADSR classique. Spec R14-245.

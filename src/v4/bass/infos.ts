@@ -572,7 +572,7 @@ const RAW: Record<BassInfoId, RawInfo> = {
   trig: {
     section: 'STEPS',
     title: 'STEPS',
-    text: "Touche un pas : il passe en P-LOCK (un pas vide reçoit une note), l'écran règle alors ce pas seul. Touche-le encore : liaison (TIE), puis vide, et le P-LOCK s'en va. Glisse dessus pour changer sa note. Quand la lecture passe sur un pas verrouillé, la puce P-LOCK de l'écran s'allume et ses blocs passent en négatif. Une note que tu poses, que tu changes (hauteur, ACCENT, SLIDE, OCT : les touches en bas de l'écran) ou que tu verrouilles devient la tienne : STYLE, NOTES et GEN n'y touchent plus, et l'écran du générateur la marque d'un point. Pour la rendre à la machine, remets-la à vide.",
+    text: "Touche un pas : une note s'y pose (la tonique) ; touche-le encore : elle s'en va. Tiens-le : il passe en P-LOCK, l'écran règle alors ce pas seul (glisse un bloc), et le lâcher en sort. Glisse dessus pour changer sa note. Quand la lecture passe sur un pas verrouillé, la puce P-LOCK de l'écran s'allume et ses blocs passent en négatif. Une note que tu poses, que tu changes (hauteur, ACCENT, SLIDE, OCT : les touches en bas de l'écran) ou que tu verrouilles devient la tienne : STYLE, NOTES et GEN n'y touchent plus, et l'écran du générateur la marque d'un point. Pour la rendre à la machine, remets-la à vide.",
     tip: "Pour ajouter des notes vite : une tape par pas vide.",
   },
   screen: {
@@ -642,7 +642,7 @@ const PHONE: Partial<Record<BassInfoId, Partial<BassInfo>>> = {
     text: "P-LOCK sur ce pas, comme une tape sur le pas (sans changer sa note ; un pas vide reçoit une note) : sa LED clignote, l'en-tête de l'écran passe en négatif, P-LOCK 05, chaque page dit ses verrous (AMP ENV · P-LOCKS, 3 P-LOCKS). Choisis la page sous l'écran, puis glisse un bloc : ce réglage ne change plus que sur ce pas, son bloc passe en négatif avec un P. Deux tapes sur le bloc enlèvent ce verrou, CLEAR tous ceux du pas ; réappuie sur LOCK, ou touche la pastille P-LOCK, pour sortir.",
   },
   trig: {
-    text: "Touche un pas : il passe en P-LOCK (un pas vide reçoit une note), les blocs de l'écran règlent alors ce pas seul. Touche-le encore : liaison (TIE), puis vide, et le P-LOCK s'en va. Glisse dessus pour changer sa note. Tu peux aussi tenir un pas d'un doigt et glisser un bloc d'un autre : le verrou se pose le temps du geste. Quand la lecture passe sur un pas verrouillé, la puce P-LOCK s'allume et ses blocs passent en négatif. Une note que tu poses, que tu changes (hauteur, ACCENT, SLIDE, OCT : les touches en bas de l'écran) ou que tu verrouilles devient la tienne : STYLE, NOTES et GEN n'y touchent plus, et l'écran du générateur la marque d'un point. Pour la rendre à la machine, remets-la à vide.",
+    text: "Touche un pas : une note s'y pose (la tonique) ; touche-le encore : elle s'en va. Tiens-le : il passe en P-LOCK, les blocs de l'écran règlent alors ce pas seul, et le lâcher en sort. Glisse dessus pour changer sa note. Tu peux aussi tenir un pas d'un doigt et glisser un bloc d'un autre : le verrou se pose le temps du geste. Quand la lecture passe sur un pas verrouillé, la puce P-LOCK s'allume et ses blocs passent en négatif. Une note que tu poses, que tu changes (hauteur, ACCENT, SLIDE, OCT : les touches en bas de l'écran) ou que tu verrouilles devient la tienne : STYLE, NOTES et GEN n'y touchent plus, et l'écran du générateur la marque d'un point. Pour la rendre à la machine, remets-la à vide.",
     tip: "Pour régler toute la ligne, sors du P-LOCK : touche la pastille P-LOCK de l'écran.",
   },
   screen: {

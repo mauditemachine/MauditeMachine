@@ -393,7 +393,7 @@ export function bassPageModel(inp: PageInput): BassPageModel {
   else line = '';
   // Le geste, a droite de la ligne tant qu'on n'est pas en P-LOCK (2026-10-09, l'etape 2 : une tape sur un pas, puis
   // glisser une valeur de l'ecran ; au desktop, les encodeurs de la face sont les FX globaux)
-  if (!lock) aside = inp.phone ? 'TAP A STEP: P-LOCK  DRAG A VALUE' : 'TAP A STEP: P-LOCK  DRAG A VALUE  KNOBS = FILTER';
+  if (!lock) aside = inp.phone ? 'HOLD A STEP: P-LOCK' : 'HOLD A STEP + DRAG A VALUE: P-LOCK  KNOBS = FILTER';
   const pop = inp.pop ? popOf(inp.pop.k, inp.pop.id, v, inp.bpm) : null;
   // Le contour du filtre montre (2026-10-09) : celui du pas en P-LOCK, ou du pas qui joue
   const fOf = (id: 'fattack' | 'decay' | 'fsustain' | 'release' | 'envmod' | 'fpol'): number => (locking ? lockVals[id] ?? v[id] : playLocks?.[id] ?? v[id]);

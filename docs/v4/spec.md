@@ -2492,3 +2492,10 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 - The sequencer loops on the first `len` steps; with a shorter length it advances on the RYTM grid by elapsed steps (polymetric against the RYTM).
 - EDIT screen: a LEN bar on top of the roll, tap or drag to the wanted step; the steps beyond are dimmed on the screen and on the face LEDs.
 - MIDI target `bass:len` (16 steps).
+
+### R14-245 MM-BASS: a tap on a step is a note, hold for P-LOCK; EDIT note grid; plain ADSR (2026-10-10)
+
+- A tap on a step key puts a note (the root) on an empty step and removes the note of a full one; any P-LOCK in progress ends. P-LOCK: hold the step (LOCK_HOLD_MS), as on an Elektron.
+- EDIT roll is a note grid: one row per semitone (white keys lighter), each row named when it has room, the C rows always; notes are filled cells; a click in a row places the note at that pitch.
+- AMP ENV is drawn as a plain ADSR: four straight segments, A, D and R wider when longer, the SUSTAIN plateau in the middle, NOTE OFF at its end, each value under its segment.
+- Face and screen hints say TAP: NOTE ON, OFF / HOLD: P-LOCK.

@@ -972,15 +972,9 @@ export class BassScreen {
    */
   private envBig(m: BassPageModel, x: number, y: number, w: number, h: number): void {
     const [a, d, s, r] = m.env;
-    const step = 60 / Math.max(20, m.bpm) / 4;
-    // L'echelle (2026-10-09) : l'attaque de condensateur atteint le plein en ATTACK (la 303 : une constante de temps)
-    const ladder = m.mode !== '303';
     const att = 0.5 * Math.pow(2000, a) / 1000;
     const dec = 20 * Math.pow(200, d) / 1000;
     const rel = 6 * Math.pow(400 / 6, r) / 1000;
-    const gate = Math.max(0.05, m.envGate) * step;
-    // La note et son relachement remplissent la boite (deux pas au moins : la grille des pas se lit)
-    const span = Math.min(3, Math.max(2 * step, (gate + rel * 1.3) * 1.08));
     this.box(x, y, w, h, 'rgba(246, 241, 231, 0.035)', DIM, 0.8, PORTRAIT ? 3.4 : 3);
     const p = PORTRAIT ? 4 : 5;
     const ly = y + LAY.label + (PORTRAIT ? 1.6 : 3);
@@ -992,104 +986,43 @@ export class BassScreen {
     const x1 = x + w - p;
     const y0 = ly + (PORTRAIT ? 4 : 5);
     const y1 = y + h - (PORTRAIT ? 9 : 10.5);
-    const tx = (t: number): number => x0 + ((x1 - x0) * t) / span;
+    // L'ADSR classique (2026-10-10, Mika : "c quoi cette enveloppe") : quatre segments droits, chacun plus large quand
+    // son temps est plus long (A, D, R), le palier SUSTAIN au milieu, chaque nom sous son segment
+    const wa = 0.06 + 0.24 * a;
+    const wd = 0.06 + 0.24 * d;
+    const wr = 0.06 + 0.24 * r;
+    const wsu = 0.22;
+    const k = (x1 - x0) / (wa + wd + wsu + wr);
+    const xa = x0 + wa * k;
+    const xd = xa + wd * k;
+    const xs = xd + wsu * k;
+    const xr = xs + wr * k;
     const ay = (v: number): number => y1 - v * (y1 - y0);
-    // La grille : un trait par pas, la ligne de base, SUSTAIN en pointille
-    for (let t = step; t < span; t += step) this.stroke([[tx(t), y0], [tx(t), y1]], GHOST, 0.5);
     this.stroke([[x0, y1], [x1, y1]], FAINT, 0.7);
-    this.stroke([[x0, ay(s)], [x1, ay(s)]], FAINT, 0.7, [1.4, 1.6]);
-    // Le segment touche : celui du bloc tenu, survole ou qu'on vient de tourner
+    this.stroke([[x0, ay(s)], [x1, ay(s)]], GHOST, 0.7, [1.4, 1.6]);
+    for (const gx of [xa, xd, xs]) this.stroke([[gx, y0], [gx, y1]], GHOST, 0.5);
     const hot = m.blocks.find((b) => b.k < 4 && (b.held || b.echo || b.hover))?.k ?? -1;
-    const N = 160;
-    const dt = span / N;
-    const run = (held: boolean): { pts: [number, number][]; vs: number[]; seg: number[] } => {
-      let vca = 0;
-      let lvl = 1;
-      let decaying = false;
-      const pts: [number, number][] = [];
-      const vs: number[] = [];
-      const seg: number[] = [];
-      for (let k = 0; k <= N; k += 1) {
-        const t = k * dt;
-        if ((held || t < gate) && ladder) {
-          // Le contour du Model D : vers 1.3 jusqu'au plein, puis vers SUSTAIN
-          if (!decaying) {
-            vca += (1.3 - vca) * (1 - Math.exp(-(1.466 * dt) / Math.max(1e-4, att)));
-            if (vca >= 1) {
-              vca = 1;
-              decaying = true;
-            }
-          } else vca += (s - vca) * (1 - Math.exp(-dt / dec));
-          seg.push(!decaying ? 0 : Math.abs(vca - s) > 0.02 ? 1 : 2);
-        } else if (held || t < gate) {
-          vca += ((decaying ? lvl : 1) - vca) * (1 - Math.exp(-dt / Math.max(1e-4, att)));
-          if (!decaying && vca >= 0.99) decaying = true;
-          if (decaying) lvl = s + (lvl - s) * Math.exp(-dt / dec);
-          seg.push(!decaying ? 0 : Math.abs(lvl - s) > 0.02 ? 1 : 2);
-        } else {
-          vca += (0 - vca) * (1 - Math.exp(-dt / rel));
-          seg.push(3);
-        }
-        vs.push(vca);
-        pts.push([tx(t), ay(vca)]);
-      }
-      return { pts, vs, seg };
-    };
-    const ghost = run(true);
-    this.stroke(ghost.pts, HALF, 0.8, [1.6, 1.8]);
-    const real = run(false);
-    // La note qui joue : un trait par segment (le segment touche plus epais)
-    let from = 0;
-    for (let k = 1; k <= N; k += 1) {
-      if (k < N && real.seg[k] === real.seg[from]) continue;
-      const sg = real.seg[from];
-      this.stroke(real.pts.slice(from, k + 1), INK, sg === hot ? 2.2 : 1.3);
-      from = k;
-    }
-    // NOTE OFF : la longueur de la note ; son nom la ou aucune courbe ne passe (en haut ou en bas, a droite ou a gauche)
-    const gx = tx(Math.min(span, gate));
-    this.stroke([[gx, y0 - 1], [gx, y1]], HALF, 0.7, [1, 1.4]);
-    const ns = LAY.unit * 0.85;
-    const nw = this.measure('NOTE OFF', ns, 600);
-    const free = (xa: number, xb: number, ya: number, yb: number): boolean => {
-      // Les deux courbes, la ou elles passent entre xa et xb : leurs hauteurs hors de la bande du texte (un peu de marge)
-      for (let k = 0; k <= N; k += 1) {
-        const px = real.pts[k][0];
-        if (px < xa - 1 || px > xb + 1) continue;
-        for (const py of [real.pts[k][1], ghost.pts[k][1]]) if (py > ya - 1.5 && py < yb + 1.5) return false;
-      }
-      return true;
-    };
-    const spots: [number, number][] = [
-      [gx + 2, y0 + ns * 0.9],
-      [gx - 2 - nw, y0 + ns * 0.9],
-      [gx + 2, y1 - 1.5],
-      [gx - 2 - nw, y1 - 1.5],
+    const segs: [number, number][][] = [
+      [[x0, y1], [xa, ay(1)]],
+      [[xa, ay(1)], [xd, ay(s)]],
+      [[xd, ay(s)], [xs, ay(s)]],
+      [[xs, ay(s)], [xr, y1]],
     ];
-    const spot = spots.find(([sx, sy]) => sx >= x0 && sx + nw <= x1 && free(sx, sx + nw, sy - ns, sy)) ?? null;
-    if (spot) this.text('NOTE OFF', spot[0], spot[1], ns, HALF, 600);
-    // Les quatre temps, en bas, chacun sous son segment (celui de la note qui joue, sinon de la note tenue), sans se
-    // chevaucher
+    // Les segments : A, D, S, R (le bloc tenu, survole ou tourne : son segment plus epais)
+    segs.forEach((pts, i) => this.stroke(pts, INK, i === hot ? 2.4 : 1.4));
+    this.stroke([[xs, y0 - 1], [xs, y1]], HALF, 0.7, [1, 1.4]);
+    const ns = LAY.unit * 0.85;
+    this.text('NOTE OFF', Math.min(x1 - this.measure('NOTE OFF', ns, 600), xs + 2), y0 + ns * 0.9, ns, HALF, 600);
     const labs = [`A ${msShort(att)}`, `D ${msShort(dec)}`, `S ${s >= 0.999 ? 'FULL' : `${Math.round(s * 100)} %`}`, `R ${msShort(rel)}`];
+    const mids = [(x0 + xa) / 2, (xa + xd) / 2, (xd + xs) / 2, (xs + xr) / 2];
     const ls = this.fit(labs.reduce((u, t) => (t.length > u.length ? t : u), ''), 600, LAY.unit, (x1 - x0) / 4 - 3, 4);
     const ws = labs.map((t) => this.measure(t, ls, 600));
-    // La part visible d'un segment (RELEASE : tant que la note s'entend encore, pas la ligne de base qui suit)
-    const span0 = (r: { seg: number[]; vs: number[] }, g: number): [number, number] | null => {
-      const ks = r.seg.map((v, k) => (v === g && (g !== 3 || r.vs[k] > 0.02 || r.seg[k - 1] !== 3) ? k : -1)).filter((k) => k >= 0);
-      return ks.length ? [real.pts[ks[0]][0], real.pts[ks[ks.length - 1]][0]] : null;
-    };
-    const want = labs.map((_, g) => {
-      const sp = span0(real, g) ?? span0(ghost, g);
-      return sp ? (sp[0] + sp[1]) / 2 : NaN;
-    });
     const lx: number[] = [];
     let edge = x0;
     for (let g = 0; g < 4; g += 1) {
-      const c = Number.isFinite(want[g]) ? want[g] - ws[g] / 2 : edge;
-      lx.push(Math.max(edge, c));
+      lx.push(Math.max(edge, mids[g] - ws[g] / 2));
       edge = lx[g] + ws[g] + 3;
     }
-    // Trop a droite : on recule depuis le bord, chacun garde sa place
     let right = x1;
     for (let g = 3; g >= 0; g -= 1) {
       if (lx[g] + ws[g] > right) lx[g] = right - ws[g];
@@ -1657,18 +1590,26 @@ export class BassScreen {
       c.fillStyle = 'rgba(246, 241, 231, 0.06)';
       c.fillRect(rx0 + m.hover * cw, ry0, cw, ry1 - ry0);
     }
-    // A gauche du rouleau : la note la plus haute et la plus basse de la ligne, sous l'en-tete (2026-10-08, la revue :
-    // au telephone la plus haute touchait la pastille EDIT) ; LINE au milieu
-    const ns = LAY.small * 0.9;
-    if (notes.length) {
-      const nn = (x: number): string => `${NOTE_NAMES[((x % 12) + 12) % 12]}${Math.floor(x / 12) - 1}`;
-      const top = Math.max(...notes);
-      const low = Math.min(...notes);
-      const yTop = Math.max(ry0 + ns + (PORTRAIT ? 1.5 : 2), yOf(top) + ns * 0.38);
-      this.text(nn(top), P, yTop, ns, HALF, 600);
-      if (low !== top) this.text(nn(low), P, Math.max(yTop + ns + 1, yOf(low) + ns * 0.38), ns, HALF, 600);
+    // La grille des notes (2026-10-10, Mika : "un editeur ou je place des notes et que je vois les choses") : une
+    // rangee par demi-ton (les touches blanches plus claires), chaque rangee nommee quand elle a la place, sinon les Do ;
+    // un clic dans une rangee y pose la note
+    const rh = (ry1 - ry0 - 6) / Math.max(1, hi - lo);
+    const ns = Math.min(LAY.small * 0.85, rh * 0.86);
+    const nn = (x: number): string => `${NOTE_NAMES[((x % 12) + 12) % 12]}${Math.floor(x / 12) - 1}`;
+    for (let n = Math.ceil(lo); n <= Math.floor(hi); n += 1) {
+      const yy = yOf(n);
+      const pc = ((n % 12) + 12) % 12;
+      const black = pc === 1 || pc === 3 || pc === 6 || pc === 8 || pc === 10;
+      if (!black) {
+        c.fillStyle = 'rgba(246, 241, 231, 0.055)';
+        c.fillRect(rx0, yy - rh / 2 + 0.2, rx1 - rx0, rh - 0.4);
+      }
+      if (pc === 0) {
+        c.fillStyle = FAINT;
+        c.fillRect(rx0, yy + rh / 2 - 0.3, rx1 - rx0, 0.6);
+      }
+      if (pc === 0 || (rh >= 5 && !black)) this.text(nn(n), rx0 - 3, yy + ns * 0.36, ns, pc === 0 ? INK : HALF, pc === 0 ? 700 : 600, 'right');
     }
-    this.text('LINE', P, (ry0 + ry1) / 2 + LAY.small * 0.3, LAY.small * 0.8, FAINT, 700);
     for (let i = 0; i <= BASS_STEPS; i += 1) {
       c.fillStyle = i % 4 === 0 ? FAINT : GHOST;
       c.fillRect(rx0 + i * cw - 0.25, ry0, 0.5, ry1 - ry0);
@@ -1677,7 +1618,7 @@ export class BassScreen {
       c.fillStyle = 'rgba(246, 241, 231, 0.14)';
       c.fillRect(rx0 + m.play * cw, ry0, cw, ry1 - ry0);
     }
-    const nh = PORTRAIT ? 3.6 : 4.4;
+    const nh = Math.max(PORTRAIT ? 3.6 : 4.4, rh - 0.8);
     m.steps.forEach((st, i) => {
       const n = m.midis[i];
       const xx = rx0 + i * cw;
@@ -1694,7 +1635,8 @@ export class BassScreen {
       const xa = tieIn ? xx - 0.5 : xx + 1;
       const xb = tieOut ? xx + cw + 0.5 : xx + cw - 1;
       const dragged = m.drag?.step === i;
-      this.bar(xa, yy - nh / 2, xb - xa, nh, accent || dragged ? INK : HALF);
+      this.box(xa, yy - nh / 2, xb - xa, nh, accent || dragged ? INK : 'rgba(246, 241, 231, 0.8)', null, 1, 1);
+      if (accent) this.box(xa + 1, yy - nh / 2 + 0.8, Math.min(2.4, (xb - xa) / 4), nh - 1.6, BLACK, null, 1, 0.6);
       // La note qu'on glisse (2026-10-09) : cernee, son nom au-dessus
       if (dragged) {
         this.box(xa - 1.2, yy - nh / 2 - 1.2, xb - xa + 2.4, nh + 2.4, null, INK, 0.9, 2);

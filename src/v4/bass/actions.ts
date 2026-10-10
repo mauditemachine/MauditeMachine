@@ -351,10 +351,8 @@ function sayStep(i: number, tail = ''): void {
 const hand = (patch: Partial<BassStep>): Partial<BassStep> => ({ ...patch, src: 'hand' });
 
 /**
- * Taper un pas (2026-10-09, l'etape 2, Mika : "quand on selectionne un step on rentre en parameters lock") :
- * - un pas vide recoit une note (la tonique) et passe en P-LOCK ;
- * - une note ou une liaison qui n'est pas en P-LOCK y passe, sans changer ;
- * - le pas deja en P-LOCK : note, liaison (apres une note), vide ; vide, le P-LOCK s'en va.
+ * Taper un pas (2026-10-10, Mika : "tout est en p-locks") : comme un sequenceur, une tape pose la note (la tonique) sur
+ * un pas vide, enleve celle d'un pas plein ; un P-LOCK en cours s'en va. Le P-LOCK : tenir le pas (gestures.ts).
  * En EDIT : son pattern.
  */
 export function bassStepTap(i: number): void {
@@ -366,49 +364,19 @@ export function bassStepTap(i: number): void {
   const st = bassState.get();
   if (i < 0 || i >= BASS_STEPS) return;
   const s = st.steps[i];
+  if (st.lock >= 0) lockGen += 1;
   if (s.kind === 'off') {
-    // Un pas vide : une note, et le P-LOCK dessus (ajouter des notes : une tape par note, comme avant)
     bassLine.edit(i, hand({ kind: 'note', deg: 0, oct: 0, acc: false, slide: false }));
-    latch(i, 'NEW NOTE');
-    afterEdit(st.steps);
-    audition(i);
-    return;
-  }
-  if (st.lock !== i) {
-    latch(i, '');
-    audition(i);
-    return;
-  }
-  // Le pas en P-LOCK : il change (note, liaison, vide), comme une tape d'avant
-  const prev = st.steps[(i + BASS_STEPS - 1) % BASS_STEPS];
-  const kind = s.kind === 'note' && prev.kind !== 'off' ? 'tie' : 'off';
-  bassLine.edit(i, hand({ kind }));
-  afterEdit(st.steps);
-  if (kind === 'off') {
-    lockGen += 1;
     bassState.set({ lock: -1, sel: i });
-    bassState.say(`STEP ${two(i)}  OFF  P-LOCK OFF`, 1600);
+    afterEdit(st.steps);
+    sayStep(i);
+    audition(i);
     return;
   }
-  sayStep(i);
-  audition(i);
-}
-
-/**
- * Le P-LOCK fixe sur un pas (une tape, un glisser de sa note) : le pas choisi, ses verrous a l'ecran ; what : ce qu'on
- * vient d'y faire (NEW NOTE), sinon le compte de ses verrous et le geste.
- */
-function latch(i: number, what: string): void {
-  const st = bassState.get();
-  if (st.lock !== i) {
-    lockTurns = 0;
-    lockGen += 1;
-    tapLock = i;
-  }
-  bassState.set({ lock: i, sel: i });
-  const s = bassState.get().steps[i];
-  const n = Object.keys(s.locks ?? {}).length;
-  bassState.say(`P-LOCK ${two(i)}  ${what ? `${what} ${stepText(s)}` : stepText(s)}  ${n ? `${n} P-LOCK${n > 1 ? 'S' : ''}` : TURN}`, 2000);
+  bassLine.edit(i, hand({ kind: 'off' }));
+  bassState.set({ lock: -1, sel: i });
+  afterEdit(st.steps);
+  bassState.say(`STEP ${two(i)}  OFF`, 1600);
 }
 
 /**
