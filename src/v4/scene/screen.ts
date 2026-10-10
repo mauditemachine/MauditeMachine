@@ -1666,7 +1666,8 @@ export class Screen {
       // ENV · P-LOCKS ; trop long (VOICE SYNTH au telephone) : le nom de l'ecran seul, la bande dit deja P-LOCK
       const full = `${SCREEN_TITLE[screen]} · P-LOCKS`;
       const max = Math.max(20, room - 10);
-      const label = this.textWidth(full, T.pill, 700, 0.7) <= max ? full : SCREEN_TITLE[screen];
+      // La page d'un FX global (2026-10-10, le telephone : GLOBAL FX · . ) : GLOBAL REVERB, puis REVERB, avant de couper
+      const label = [full, SCREEN_TITLE[screen], tabWord(screen, inst), SCREEN_LABEL[screen]].find((t) => this.textWidth(t, T.pill, 700, 0.7) <= max) ?? SCREEN_TITLE[screen];
       const fitted = this.fitText(label, max, T.pill, 0.7, 700);
       const pw = this.textWidth(fitted, T.pill, 700, 0.7) + 10;
       this.roundRect(x, H.pillY + 0.5, pw, T.pillH - 1, 2.5, null, BLACK, 0.9);
@@ -1889,7 +1890,9 @@ export class Screen {
     const nameW = this.textWidth(b.label, T.nameSize, 700, 0.7);
     const nameTag = tag && onName && nameW + tagW(tag) + 5 <= nameRoom ? tag : '';
     const ntw = nameTag ? tagW(nameTag) + 5 : 0;
-    this.text(this.fitText(b.label, nameRoom - ntw, T.nameSize, 0.7, 700), bx + B.padX, by + T.nameDy, T.nameSize, alive ? P.half : P.faint, 700, 'left', 0.7);
+    // Un nom qui ne tient pas (2026-10-10, FEEDBACK de la page DELAY au telephone : FEEDBA.) : un corps plus petit avant de le couper
+    const nameSize = nameW <= nameRoom - ntw ? T.nameSize : ([0.9, 0.82].map((f) => T.nameSize * f).find((s) => this.textWidth(b.label, s, 700, 0.7) <= nameRoom - ntw) ?? T.nameSize);
+    this.text(this.fitText(b.label, nameRoom - ntw, nameSize, 0.7, 700), bx + B.padX, by + T.nameDy, nameSize, alive ? P.half : P.faint, 700, 'left', 0.7);
     if (nameTag) this.text(nameTag, bx + bw - B.padX - cornerW, by + T.nameDy, T.tagSize, tagColor, 700, 'right', tagSp);
     if (!alive) {
       // Une voix a un seul son (CY) : son nom quand meme, a peine
@@ -1988,7 +1991,13 @@ export class Screen {
         this.drawReso(r, b.course);
         break;
       default:
-        if (tall) this.drawBigArc(r, b.course, b.draw === 'barc' || b.bipolar);
+        // Un grand carre (2 x 2, la quantite d'un FX sur sa page, 2026-10-10) : le potard a droite de la valeur, sur toute la
+        // hauteur du bloc (sous l'unite, il restait petit au milieu d'un grand vide) ; jamais sur la valeur la plus large (127)
+        if (tall && wide) {
+          const ax = Math.max(bx + bw * 0.44, bx + B.padX + this.textWidth('127', v.size, 300) + 6);
+          this.drawBigArc({ x0: ax, y0: by + T.nameDy + 4, x1: bx + bw - B.padX - 2, y1: by + bh - (TALL ? 7 : 5) }, b.course, b.draw === 'barc' || b.bipolar);
+        }
+        else if (tall) this.drawBigArc(r, b.course, b.draw === 'barc' || b.bipolar);
         else this.drawArc(r, b.course, b.draw === 'barc' || b.bipolar);
     }
   }

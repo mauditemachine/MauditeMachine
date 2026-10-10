@@ -195,7 +195,8 @@ export function encUnit(id: Exclude<EncId, 'tempo' | 'vsound'>, v: number): stri
     case 'rpre':
       return `${Math.round(fxLaw.rpre(v) * 1000)} MS`;
     case 'crate': {
-      const f = fxLaw.crate(v);
+      // Au centieme pres (X1.0 au depart, pas X1.00 : la loi y donne 0.9993)
+      const f = Math.round(fxLaw.crate(v) * 100) / 100;
       return `X${f < 1 ? f.toFixed(2) : f.toFixed(1)}`;
     }
     case 'cdepth':
