@@ -108,6 +108,9 @@ class MMChorus extends AudioWorkletProcessor {
       };
     });
     this.depth = Number(o.depth) || 0;
+    // Bus (2026-10-10, CHORUS RATE et DEPTH du MM-RYTM) : le facteur des vitesses, lisse comme la profondeur (smDepth)
+    this.mul = Number.isFinite(o.mul) && o.mul > 0 ? o.mul : 1;
+    this.smMul = this.mul;
     this.ph = this.voices.map(() => 0);
     // Juno : vitesses et profondeurs (messages), lissees
     this.rate = 0.5;
@@ -126,9 +129,11 @@ class MMChorus extends AudioWorkletProcessor {
     this.lp = { b0: (1 - Math.cos(w0)) / 2 / a0, b1: (1 - Math.cos(w0)) / a0, b2: (1 - Math.cos(w0)) / 2 / a0, a1: (-2 * Math.cos(w0)) / a0, a2: (1 - al) / a0, z1: 0, z2: 0 };
     this.port.onmessage = (e) => {
       const m = e.data || {};
-      if (typeof m.depth === 'number') this.depth = m.depth;
-      if (typeof m.rate === 'number') this.rate = m.rate;
-      if (typeof m.fastDepth === 'number') this.fastDepth = m.fastDepth;
+      // Les valeurs finies seulement (2026-10-10) : un NaN ne gagne jamais la ligne
+      if (Number.isFinite(m.depth)) this.depth = Math.max(0, Math.min(0.02, m.depth));
+      if (Number.isFinite(m.rate)) this.rate = m.rate;
+      if (Number.isFinite(m.fastDepth)) this.fastDepth = m.fastDepth;
+      if (Number.isFinite(m.mul) && m.mul > 0) this.mul = Math.min(8, m.mul);
     };
   }
 
@@ -174,15 +179,21 @@ class MMChorus extends AudioWorkletProcessor {
     // Bus : chaque voix retarde les deux canaux, puis les place (StereoPannerNode : formules mono ou stereo)
     const V = this.voices;
     const mono = inp.length === 1;
+    const kS = this.k;
     for (let i = 0; i < N; i += 1) {
       bL[this.w] = inL[i];
       bR[this.w] = inR[i];
       let l = 0;
       let r = 0;
+      // Profondeur et vitesse lissees (2026-10-10) : a leurs valeurs de depart, exactement le calcul d'avant
+      this.smDepth += (this.depth - this.smDepth) * kS;
+      this.smMul += (this.mul - this.smMul) * kS;
       for (let k = 0; k < V.length; k += 1) {
         const v = V[k];
-        const d = (v.delay + Math.sin(TAU * this.ph[k]) * this.depth) * sr;
-        this.ph[k] += v.rate / sr;
+        const d0 = (v.delay + Math.sin(TAU * this.ph[k]) * this.smDepth) * sr;
+        // 8 echantillons au moins (la fenetre sinc) : une profondeur de 14 ms sur le retard de 14 ms ne lit jamais l'avenir
+        const d = d0 < HALF ? HALF : d0;
+        this.ph[k] += (v.rate * this.smMul) / sr;
         if (this.ph[k] >= 1) this.ph[k] -= 1;
         const dl = readFrac(bL, this.w, d);
         if (mono) {

@@ -149,28 +149,35 @@ const TAU = Math.PI * 2;
  *   les charleys 6 a 7, la cymbale 9 ; les kicks (909, 808, MM, les six
  *   samples) a 1.4 dB les uns des autres.
  */
+/*
+ * 2026-10-10 (Mika : "il y a des erreurs de niveau par defaut des voix, on entend trop le kick et rien pour le reste") :
+ * mesure hors ligne du motif de depart, l'energie de chaque voix sous celle du kick : la caisse claire -10 dB, les
+ * toms -12, l'open hat -19, le charley -24 (un coup court bute sur son plafond de crete et n'a presque pas d'energie).
+ * Le kick reste la reference (sa crete ne bouge pas) ; les autres montent de 2.5 a 4 dB, leurs plafonds se resserrent
+ * (rien ne crete encore au niveau du kick : 0.5 dB dessous au plus pres).
+ */
 export const SHOT_KICK_PEAK = -2.5;
 export const SHOT_LOUD: Readonly<Record<ShotId, number>> = {
   BD: -7.5,
-  SD: -9.5,
-  TOM: -11,
-  HT: -11.5,
-  CH: -14.5,
-  CHopen: -14.5,
-  OH: -14.5,
-  CP: -12.5,
-  CY: -15.5,
+  SD: -7,
+  TOM: -8.5,
+  HT: -9,
+  CH: -10.5,
+  CHopen: -10.5,
+  OH: -11,
+  CP: -7.5,
+  CY: -12,
 };
 export const SHOT_BELOW: Readonly<Record<ShotId, number>> = {
   BD: 0,
-  SD: 1.5,
-  TOM: 3,
-  HT: 3.5,
-  CH: 6,
-  CHopen: 5.5,
-  OH: 5.5,
-  CP: 3.5,
-  CY: 7,
+  SD: 0.5,
+  TOM: 1.5,
+  HT: 2,
+  CH: 2.5,
+  CHopen: 2.5,
+  OH: 2.5,
+  CP: 1.5,
+  CY: 3.5,
 };
 const LOUD_WIN_S = 0.1;
 

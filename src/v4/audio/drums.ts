@@ -48,13 +48,13 @@ import limiterUrl from './limiter.worklet.js?url';
 import glueUrl from './glue.worklet.js?url';
 import { FLAGS } from '../state/flags';
 import type { Inst } from '../theme';
-import { buildChorus, loadChorus, type ChorusInfo, type ChorusStage } from './chorus';
-import { buildDrive, buildFx, glide, type DriveStage, type FxChain } from './fx';
-import { DFB_DEFAULT, DTIME_DEFAULT, delayDiv, delayFb, pattern, type Fx, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
+import { CHORUS_DEPTH, buildChorus, loadChorus, type ChorusInfo, type ChorusStage } from './chorus';
+import { DIST_OPEN_HZ, IR_DEFAULT, buildDrive, buildFx, glide, type DriveStage, type FxChain, type IrShape } from './fx';
+import { DFB_DEFAULT, DTIME_DEFAULT, FX_SETTINGS, delayDiv, delayFb, fxLaw, pattern, type Fx, type FxSettingId, VEL_GAIN, INSTRUMENTS, STEP_COUNT, velocity } from './pattern';
 import { kit, type KitKnob, type KitKnobs, type KitModel, type KitOverride, type Layer } from './kit';
 import { sampleByKey } from './samples';
 import { KIT_LOCK_IDS, LAYER_LOCK_IDS, lockOf, parseSnd, type KitLockId, type LayerLockId, type Locks, type StepLock } from './locks';
-import { buildDelayBus, buildReverbBus, type BusInfo, type DelayBus, type LockSend, type Send, type SendBus, type SendInfo } from './sends';
+import { DELAY_TONE_HZ, buildDelayBus, buildReverbBus, type BusInfo, type DelayBus, type LockSend, type ReverbBus, type Send, type SendBus, type SendInfo } from './sends';
 import { hitTime, snapTime } from './time';
 import { buildTone, pitchFactor, snapTone, toneHpHz, toneLpHz, type ToneInfo, type ToneStage } from './tone';
 import { shots, type ShotId, type ShotOverride } from './shots';
@@ -122,7 +122,7 @@ interface Graph {
   /** DIST du bus */
   fx: FxChain;
   /** REVERB et DELAY partages, et les envois de tout le pattern (apres LEVEL) */
-  reverb: SendBus;
+  reverb: ReverbBus;
   delay: DelayBus;
   reverbSend: Send;
   delaySend: Send;
@@ -249,6 +249,8 @@ interface BuildOpts {
   /** DLY TIME et DLY FB (2026-10-09) ; absents : ceux du store */
   dtime?: number;
   dfb?: number;
+  /** les reglages des FX (2026-10-10, 0 a 1, FX_SETTINGS) imposes, les autres a leur depart ; absent : ceux du store */
+  fxs?: Partial<Record<FxSettingId, number>>;
   bpm?: number;
   /** effets par voix imposes (hors ligne) ; absent : ceux du store */
   voice?: Partial<Record<Inst, Partial<VoiceFx>>>;
@@ -260,6 +262,42 @@ interface BuildOpts {
 
 /** Duree d'un pas (s) : le DELAY reste une croche pointee. */
 const stepOf = (bpm: number): number => 60 / bpm / 4;
+
+/**
+ * Les reglages des FX globaux en valeurs reelles (2026-10-10, pattern.ts
+ * fxLaw : Hz, s, facteur, diviseur). A sa valeur de depart, chacun rend
+ * EXACTEMENT la constante d'avant (la loi la donne a 0.1 % pres : 4502 Hz,
+ * 2.4017 s, x0.9993, 2.994 ms...) : un motif qui n'y touche pas sonne au bit
+ * pres comme avant ; un cran a cote, la loi.
+ */
+const FX_BEFORE: Readonly<Record<FxSettingId, number>> = {
+  dtone: DELAY_TONE_HZ,
+  rsize: IR_DEFAULT.seconds,
+  rtone: IR_DEFAULT.hiEnd,
+  rpre: IR_DEFAULT.preDelay,
+  xtone: DIST_OPEN_HZ,
+  crate: 1,
+  cdepth: CHORUS_DEPTH,
+  brate: 1,
+  catk: 0.003,
+  crel: 0.12,
+};
+const fxValue = (f: Readonly<Partial<Fx>>, k: FxSettingId): number => {
+  const v = f[k] ?? FX_SETTINGS[k];
+  return Math.abs(v - FX_SETTINGS[k]) < 1e-6 ? FX_BEFORE[k] : fxLaw[k](v);
+};
+/** REVERB SIZE, TONE et PRE : la forme de la reponse (fx.ts makeImpulse). */
+const irShapeOf = (f: Readonly<Partial<Fx>>): IrShape => ({ seconds: fxValue(f, 'rsize'), hiEnd: fxValue(f, 'rtone'), preDelay: fxValue(f, 'rpre') });
+
+/** Les reglages des FX de f poses sur le graphe (chaque setter ne fait rien si rien ne change). */
+function applyFxSettings(g: Graph, f: Readonly<Fx>): void {
+  g.delay.setTone(fxValue(f, 'dtone'));
+  g.reverb.setShape(irShapeOf(f));
+  g.fx.setTone(fxValue(f, 'xtone'));
+  // Le chorus du bus seul (ceux des voix et du MM-ARP gardent leurs vitesses)
+  g.chorus.setMod?.(fxValue(f, 'crate'), fxValue(f, 'cdepth'));
+  if (g.glue) setGlue(g.glue, f);
+}
 
 /** Ecreteur doux de sortie : entrees jusqu'a +/-range, identite sous knee, arrondi tanh jusqu'a 1. */
 const CLIP = { range: 4, knee: 0.9, points: 8193 } as const;
@@ -348,6 +386,8 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
   post.connect(master);
   master.connect(c.destination);
   const f = pattern.fx.get();
+  // Les reglages des FX (2026-10-10) : ceux du store, ou hors ligne ceux imposes (les autres a leur depart)
+  const fs: Readonly<Fx> = o.fxs ? { ...f, ...FX_SETTINGS, ...o.fxs } : f;
   const direct = { direct: true, linked: false, dry: 1, wet: 0, unlinks: 0 };
   let toneSt: ToneStage;
   let chorusSt: ChorusStage;
@@ -371,17 +411,19 @@ function build(c: BaseAudioContext, o: BuildOpts = {}): Graph {
     pads.connect(lvl);
   } else {
     chorusSt = buildChorus(c, pads);
+    // CHORUS RATE et DEPTH (2026-10-10) : poses avant sa premiere branche
+    chorusSt.setMod?.(fxValue(fs, 'crate'), fxValue(fs, 'cdepth'));
     toneSt = buildTone(c, chorusSt.input, o.tone ?? tone);
     pads.connect(lvl);
     kickTone = buildTone(c, lvl, o.tone ?? tone);
     kickBus.connect(kickTone.input);
   }
-  const fx = buildFx(c, { bus, tone: toneSt.input }, o.drive ?? f.drive);
+  const fx = buildFx(c, { bus, tone: toneSt.input }, o.drive ?? f.drive, fxValue(fs, 'xtone'));
 
   // REVERB et DELAY de la boite ; les envois du pattern partent des pads (LEVEL applique : le gain level², comme les
-  // envois des voix), plus du kick depuis le 2026-10-08. Le MM-ARP a sa REVERB a lui
-  const reverb = buildReverbBus(c, glueIn);
-  const delay = buildDelayBus(c, glueIn, stepOf(o.bpm ?? pattern.get().bpm), delayDiv(o.dtime ?? f.dtime).steps, delayFb(o.dfb ?? f.dfb));
+  // envois des voix), plus du kick depuis le 2026-10-08. Le MM-ARP a sa REVERB a lui (sa forme d'avant, toujours)
+  const reverb = buildReverbBus(c, glueIn, irShapeOf(fs));
+  const delay = buildDelayBus(c, glueIn, stepOf(o.bpm ?? pattern.get().bpm), delayDiv(o.dtime ?? f.dtime).steps, delayFb(o.dfb ?? f.dfb), fxValue(fs, 'dtone'));
   const arpReverb = buildReverbBus(c, arpOut);
   const taps: GainNode[] = [];
   const padsSend = c.createGain();
@@ -561,6 +603,10 @@ function setGlue(node: AudioWorkletNode, f: Readonly<Fx>): void {
   const t = node.context.currentTime;
   node.parameters.get('bits')?.setValueAtTime(Math.max(0, Math.min(1, f.bits ?? 0)), t);
   node.parameters.get('comp')?.setValueAtTime(Math.max(0, Math.min(1, f.comp ?? 0)), t);
+  // BIT RATE (le diviseur), COMP ATTACK et RELEASE (s) (2026-10-10, leurs pages) : 1, 3 ms et 120 ms au depart
+  node.parameters.get('rate')?.setValueAtTime(fxValue(f, 'brate'), t);
+  node.parameters.get('atk')?.setValueAtTime(fxValue(f, 'catk'), t);
+  node.parameters.get('rel')?.setValueAtTime(fxValue(f, 'crel'), t);
 }
 
 /**
@@ -1316,7 +1362,8 @@ pattern.fx.subscribe(() => {
     // DLY TIME et DLY FB (2026-10-09, les encodeurs G et H)
     graph.delay.setDiv(delayDiv(f.dtime).steps);
     graph.delay.setFeedback(delayFb(f.dfb));
-    if (graph.glue) setGlue(graph.glue, f);
+    // Les reglages de chaque FX (2026-10-10) : DELAY TONE, REVERB SIZE TONE PRE, DIST TONE, CHORUS RATE DEPTH, puis BIT et COMP
+    applyFxSettings(graph, f);
   }
   emitMix();
 });
@@ -1460,6 +1507,8 @@ export interface OfflineOpts {
   /** DLY TIME et DLY FB (2026-10-09 ; leur depart hors ligne : la croche pointee, 0.58) */
   dtime?: number;
   dfb?: number;
+  /** les reglages des FX (2026-10-10, 0 a 1 ; hors ligne, ceux absents a leur depart FX_SETTINGS : le son d'avant) */
+  fxs?: Partial<Record<FxSettingId, number>>;
   /** effets par voix (neutres par defaut hors ligne) */
   voice?: Partial<Record<Inst, Partial<VoiceFx>>>;
   /** reference : sans aucun stage TONE ni CHORUS, voix sans tranche */
@@ -1523,6 +1572,7 @@ async function renderOffline(o: OfflineOpts): Promise<Float32Array> {
       chorus: o.chorus ?? 0,
       dtime: o.dtime ?? DTIME_DEFAULT,
       dfb: o.dfb ?? DFB_DEFAULT,
+      fxs: o.fxs ?? {},
       bpm: o.bpm,
       voice: o.voice ?? {},
       master: 1,
@@ -1681,6 +1731,8 @@ export interface AudioDebug {
 export interface FxDebug {
   drive: number;
   driveOn: boolean;
+  /** DIST TONE applique (Hz ; Nyquist : ouvert) ; DELAY TONE, la forme de la REVERB : delayBus, reverbBus (2026-10-10) */
+  distToneHz: number;
   reverb: SendInfo;
   delay: SendInfo;
   reverbBus: BusInfo;
@@ -1748,6 +1800,7 @@ export const audioDebug: AudioDebug = {
     return {
       drive: d.drive,
       driveOn: d.driveOn,
+      distToneHz: d.toneHz,
       reverb: graph.reverbSend.info(),
       delay: graph.delaySend.info(),
       reverbBus: graph.reverb.info(),

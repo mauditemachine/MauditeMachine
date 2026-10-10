@@ -171,3 +171,4 @@ Le message de Mika : DRIVE au minimum coupe le son du BASS ; STYLE et DENSITY tr
 - 2026-10-10 : MM-BASS, rangee VEL dans le panneau EDIT (la velocite de chaque note = son VOLUME en P-LOCK). Spec R14-250.
 - 2026-10-10 : MM-BASS, en EDIT l'ecran reste reglable (VOICE, FILTER...) ; le panneau EDIT passe sous la machine au desktop. Spec R14-251.
 - 2026-10-10 : MM-BASS cache par defaut (?bass=1 le montre) ; la refonte des presets BASS (non testee, commit e2ef2ee) annulee avant le deploiement, a reprendre la semaine prochaine. Spec R14-252.
+- 2026-10-10 : MM-RYTM, niveaux par defaut des voix remontes (kick inchange), courbe de velocite adoucie ; moteur des reglages des FX (DELAY TONE, REVERB SIZE/TONE/PRE, DIST TONE, CHORUS RATE/DEPTH, BIT RATE, COMP ATTACK/RELEASE). Spec R14-253.

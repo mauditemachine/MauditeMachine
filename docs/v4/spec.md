@@ -2538,3 +2538,8 @@ R14-243. MM-BASS as a bassline machine, simple to use (2026-10-09 evening, Mika:
 
 - Mika: "hide BASS for now, it's too complex, I'll come back to it next week; focus on RYTM and ARP". state/focus.ts BASS is now false unless ?bass=1 (kept for the tab in sessionStorage mm.v4.bass; ?bass=0 hides it again). Without it: no MM-BASS on the table, in the header, the machine nav, the drawer or ?m=bass; its modules are not loaded (state/bassload.ts). The mixer keeps its channel 2 named BASS (silent).
 - The untested preset rewrite (e2ef2ee) is reverted before deploying and kept in history for next week.
+
+### R14-253 MM-RYTM: default voice levels raised; FX settings engine (2026-10-10)
+
+- Mika: "the kick is too loud and you hear nothing else". Offline (muted) measure of the start pattern, energy under the kick: snare -10 dB, toms -12, open hat -19, closed hat -24. shotsdsp.ts: every voice but the kick goes up 2.5 to 4 dB (SHOT_LOUD SD -7, TOM -8.5, HT -9, CH -10.5, OH -11, CP -7.5, CY -12) under tighter peak caps (SHOT_BELOW SD 0.5, TOM 1.5, HT 2, CH 2.5, OH 2.5, CP 1.5, CY 3.5); the kick peak is unchanged (-9.4 dBFS out). VEL_GAIN softened (LOW -8 dB, MID -3.1 dB). Result in the pattern: snare +1.5 dB, closed hat +4.1, open hat +3, toms +3.3, clap +2.9; the whole pattern peaks at -3.7 dBFS before the limiter.
+- The 10 FX settings (pattern fx dtone rsize rtone rpre xtone crate cdepth brate catk crel, fxLaw) now drive the sound: delay loop low pass, reverb impulse rebuilt (debounced, two convolvers crossfaded over 60 ms), dist wet low pass, bus chorus rate and depth, glue worklet rate / atk / rel; at their defaults the sound is bit-identical to before. 'bits' is now bit depth only (the sample-rate divider is brate). Their screen pages come next.

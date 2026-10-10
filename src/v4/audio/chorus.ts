@@ -10,6 +10,7 @@
  */
 
 import chorusUrl from './chorus.worklet.js?url';
+import { glide } from './glide';
 import { Insert, UNLINK_MS, type InsertInfo } from './insert';
 
 /**
@@ -95,12 +96,20 @@ const CHORUS: ChorusCfg = {
   wet: 1.0,
 };
 
+/** CHORUS DEPTH au depart (2026-10-10) : la profondeur des LFO d'avant (s). */
+export const CHORUS_DEPTH = CHORUS.depth;
+/** Les bornes de setMod : le facteur de vitesse, la profondeur (s ; le worklet garde 60 ms de memoire). */
+const MOD = { mulMin: 0.05, mulMax: 8, depthMax: 0.02 } as const;
+
 export interface ChorusInfo {
   value: number;
   /** branche vivante (LFO en marche) */
   live: boolean;
   built: number;
   insert: InsertInfo;
+  /** CHORUS RATE et DEPTH (2026-10-10) : le facteur des vitesses, la profondeur (s) ; absents des chorus sans setMod */
+  mul?: number;
+  depth?: number;
 }
 
 export interface ChorusStage {
@@ -118,6 +127,13 @@ export interface ChorusStage {
   lockAt?(when: number, v: number): void;
   /** Appele apres une rampe de set() ou de l'arrivee du worklet : audio/lockfx.ts repose ses points. */
   onRetime?: (() => void) | null;
+  /**
+   * CHORUS RATE et DEPTH (2026-10-10, la page CHORUS du MM-RYTM) : les
+   * vitesses des LFO multipliees par mul, leur profondeur (s), rejointes en
+   * douceur. Seul le chorus du bus les recoit ; ceux des voix gardent les
+   * leurs, celui du MM-ARP n'en a pas.
+   */
+  setMod?(mul: number, depth: number): void;
 }
 
 /** cfg : le chorus de la boite a rythmes par defaut ; le MM-VOYAGER a le sien (audio/synth.ts). */
@@ -127,20 +143,24 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
   const insert = new Insert(c, input, out);
   let value = 0;
   let built = 0;
-  let branch: { nodes: AudioNode[]; lfos: OscillatorNode[] } | null = null;
+  /** CHORUS RATE et DEPTH (2026-10-10, setMod) : 1 et la profondeur de cfg tant que rien ne les change */
+  let mul = 1;
+  let modDepth = cfg.depth;
+  let branch: { nodes: AudioNode[]; lfos: OscillatorNode[]; w?: AudioWorkletNode; depths?: GainNode[] } | null = null;
 
   const build = (): void => {
     const bIn = c.createGain();
     const bOut = c.createGain();
     const nodes: AudioNode[] = [bIn, bOut];
     const lfos: OscillatorNode[] = [];
+    const depths: GainNode[] = [];
     // Le worklet (interpolation sinc) si son module est la ; sinon les DelayNode
-    const w = chorusNode(c, { kind: 'bus', voices: cfg.voices, depth: cfg.depth });
+    const w = chorusNode(c, { kind: 'bus', voices: cfg.voices, depth: modDepth, mul });
     if (w) {
       bIn.connect(w);
       w.connect(bOut);
       nodes.push(w);
-      branch = { nodes, lfos };
+      branch = { nodes, lfos, w };
       built += 1;
       insert.setBranch(bIn, bOut);
       return;
@@ -149,9 +169,10 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
       const d = c.createDelay(0.05);
       d.delayTime.value = v.delay;
       const lfo = c.createOscillator();
-      lfo.frequency.value = v.rate;
+      lfo.frequency.value = v.rate * mul;
       const depth = c.createGain();
-      depth.gain.value = cfg.depth;
+      depth.gain.value = modDepth;
+      depths.push(depth);
       lfo.connect(depth);
       depth.connect(d.delayTime);
       const pan = c.createStereoPanner();
@@ -163,7 +184,7 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
       nodes.push(d, depth, pan, lfo);
       lfos.push(lfo);
     }
-    branch = { nodes, lfos };
+    branch = { nodes, lfos, depths };
     built += 1;
     insert.setBranch(bIn, bOut);
     whenChorusReady(c, upgrade);
@@ -218,7 +239,7 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
       value = 0;
       insert.reset();
     },
-    info: () => ({ value, live: branch !== null, built, insert: insert.info() }),
+    info: () => ({ value, live: branch !== null, built, insert: insert.info(), mul, depth: modDepth }),
     lockHold(on: boolean) {
       if (on && !branch) build();
       insert.hold(on);
@@ -227,6 +248,19 @@ export function buildChorus(c: BaseAudioContext, out: AudioNode, cfg: ChorusCfg 
       const t = Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;
       if (!branch) return;
       insert.at(when, 1 - cfg.dry * t, cfg.wet * t);
+    },
+    setMod(m: number, d: number) {
+      const nm = Number.isFinite(m) ? Math.max(MOD.mulMin, Math.min(MOD.mulMax, m)) : 1;
+      const nd = Number.isFinite(d) ? Math.max(0, Math.min(MOD.depthMax, d)) : cfg.depth;
+      if (nm === mul && nd === modDepth) return;
+      mul = nm;
+      modDepth = nd;
+      const b = branch;
+      if (!b) return;
+      // Le worklet lisse lui-meme (20 ms) ; les DelayNode : la rampe de 20 ms des reglages
+      if (b.w) b.w.port.postMessage({ depth: nd, mul: nm });
+      b.lfos.forEach((l, i) => glide(l.frequency, cfg.voices[i].rate * nm, c));
+      for (const g of b.depths ?? []) glide(g.gain, nd, c);
     },
   };
   return stage;

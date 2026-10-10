@@ -14,6 +14,10 @@
  * gardee apres silence(). DELAY : croche pointee (3 pas) calee sur le
  * tempo, reinjection 0.58 a travers un passe-bas (4.5 kHz) et un
  * passe-haut (180 Hz) : les repetitions s'assombrissent, sans boue.
+ * Depuis le 2026-10-10 (la page de chaque FX du MM-RYTM) : DELAY TONE
+ * deplace ce passe-bas (setTone), REVERB SIZE, TONE et PRE changent la
+ * forme de la reponse (setShape, un convolueur neuf relaye l'ancien) ; a
+ * leurs valeurs de depart, le son d'avant.
  *
  * Plus marques le 2026-10-02 (Mika : a 100 % c'etait trop subtil) : envoi
  * a 1 de la REVERB 1.0 (0.3 avant, +10 dB) pour une salle deux fois plus
@@ -21,12 +25,20 @@
  * qui s'entendent et durent.
  */
 
-import { GLIDE_S, glide, makeImpulse } from './fx';
+import { GLIDE_S, IR_DEFAULT, glide, makeImpulse, type IrShape } from './fx';
 import { UNLINK_MS } from './insert';
 
 /** Envoi a 1 : REVERB 1.0 (reponse d'energie unite), DELAY 0.9. */
 const REVERB_SEND = 1.0;
 const DELAY = { send: 0.9, feedback: 0.58, lowpass: 4500, highpass: 180, steps: 3, maxS: 2, idleMs: 8000 } as const;
+/** DELAY TONE au depart (2026-10-10) : le passe-bas des echos d'avant. */
+export const DELAY_TONE_HZ = DELAY.lowpass;
+/**
+ * Une nouvelle forme de REVERB (2026-10-10, SIZE, TONE, PRE) : la reponse se recalcule 150 ms apres le dernier
+ * reglage ; son convolueur neuf recoit les envois 300 ms en silence (il se remplit : la queue ne se creuse pas),
+ * puis il prend la place de l'ancien en 60 ms ; l'ancien part 40 ms apres.
+ */
+const SWAP = { debounceMs: 150, prerollS: 0.3, fadeS: 0.06, tailMs: 40 } as const;
 
 export interface SendInfo {
   value: number;
@@ -67,6 +79,12 @@ export interface BusInfo {
   irSeconds: number;
   irMs: number;
   delayS: number;
+  /** REVERB (2026-10-10) : sa forme, les relais de convolueur faits, un relais en cours */
+  irShape?: IrShape;
+  swaps?: number;
+  swapping?: boolean;
+  /** DELAY (2026-10-10) : la coupure du passe-bas des echos (Hz) */
+  toneHz?: number;
 }
 
 export interface SendBus {
@@ -297,41 +315,170 @@ function sendBus(c: BaseAudioContext, make: () => Unit, scale: number, idleMs: n
   };
 }
 
-/** REVERB : la reponse generee une fois, gardee pour les convolueurs suivants. */
-export function buildReverbBus(c: BaseAudioContext, out: AudioNode): SendBus {
+export interface ReverbBus extends SendBus {
+  /**
+   * SIZE, TONE et PRE (2026-10-10, la page REVERB du MM-RYTM) : la forme de
+   * la reponse (fx.ts IrShape). Sans unite construite, elle attend la
+   * prochaine ; sinon la reponse se recalcule et le convolueur est relaye
+   * sans clic (SWAP). Rien ne bouge si la forme ne change pas.
+   */
+  setShape(s: Readonly<IrShape>): void;
+}
+
+/** Une forme bornee (NaN : celle d'avant). */
+const cleanShape = (s: Readonly<IrShape>): IrShape => {
+  const b = (v: number, lo: number, hi: number, d: number): number => (Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
+  return { seconds: b(s.seconds, 0.1, 10, IR_DEFAULT.seconds), hiEnd: b(s.hiEnd, 200, 20000, IR_DEFAULT.hiEnd), preDelay: b(s.preDelay, 0, 0.25, IR_DEFAULT.preDelay) };
+};
+const sameShape = (a: Readonly<IrShape>, b: Readonly<IrShape>): boolean => a.seconds === b.seconds && a.hiEnd === b.hiEnd && a.preDelay === b.preDelay;
+
+/**
+ * REVERB : la reponse generee une fois par forme, gardee pour les
+ * convolueurs suivants. Chaque convolueur sort par son gain (1 au repos :
+ * le son d'avant) ; le relais d'une forme a l'autre fond l'un dans l'autre.
+ */
+export function buildReverbBus(c: BaseAudioContext, out: AudioNode, shape0: Readonly<IrShape> = IR_DEFAULT): ReverbBus {
+  let shape = cleanShape(shape0);
   let ir: AudioBuffer | null = null;
+  let irShape: IrShape | null = null;
   let irSeconds = 0;
   let irMs = 0;
-  return sendBus(
+  let swaps = 0;
+  /** l'unite construite : son entree, le convolueur qui sonne (et sa forme), celui qui s'efface pendant un relais */
+  let live: { input: GainNode; cv: ConvolverNode; g: GainNode; shape: IrShape } | null = null;
+  let fading: { cv: ConvolverNode; g: GainNode } | null = null;
+  let debounce: ReturnType<typeof setTimeout> | undefined;
+  let swapTimer: ReturnType<typeof setTimeout> | undefined;
+  /** un relais en cours ; dirty : la forme a encore change pendant ce temps */
+  let busy = false;
+  let dirty = false;
+
+  /** La reponse de la forme voulue (recalculee seulement si elle a change). */
+  const impulse = (): AudioBuffer => {
+    if (ir && irShape && sameShape(irShape, shape)) return ir;
+    const t0 = performance.now();
+    ir = makeImpulse(c, shape);
+    irShape = { ...shape };
+    irMs = performance.now() - t0;
+    irSeconds = ir.duration;
+    return ir;
+  };
+
+  /** Un convolueur branche sur l'entree, sorti par son gain g0. */
+  const voice = (input: GainNode, buf: AudioBuffer, g0: number): { cv: ConvolverNode; g: GainNode } => {
+    const cv = c.createConvolver();
+    // Energie deja ramenee a 1 : pas de normalisation propre au navigateur
+    cv.normalize = false;
+    cv.buffer = buf;
+    const g = c.createGain();
+    g.gain.value = g0;
+    input.connect(cv);
+    cv.connect(g);
+    g.connect(out);
+    return { cv, g };
+  };
+
+  const drop = (v: { cv: ConvolverNode; g: GainNode }): void => {
+    v.cv.disconnect();
+    v.g.disconnect();
+  };
+
+  /** Le relais : le convolueur neuf se remplit en silence, puis les deux gains se croisent (temps du contexte). */
+  const swap = (): void => {
+    debounce = undefined;
+    const u = live;
+    if (busy) {
+      dirty = true;
+      return;
+    }
+    if (!u || sameShape(u.shape, shape)) return;
+    busy = true;
+    const buf = impulse();
+    const nu = voice(u.input, buf, 0);
+    const now = c.currentTime;
+    const tA = now + SWAP.prerollS;
+    const tB = tA + SWAP.fadeS;
+    nu.g.gain.setValueAtTime(0, now);
+    nu.g.gain.setValueAtTime(0, tA);
+    nu.g.gain.linearRampToValueAtTime(1, tB);
+    const old = { cv: u.cv, g: u.g };
+    old.g.gain.cancelScheduledValues(now);
+    old.g.gain.setValueAtTime(1, now);
+    old.g.gain.setValueAtTime(1, tA);
+    old.g.gain.linearRampToValueAtTime(0, tB);
+    fading = old;
+    u.cv = nu.cv;
+    u.g = nu.g;
+    u.shape = { ...shape };
+    // L'ancien part une fois le fondu fini, au temps du contexte (un contexte suspendu le retient)
+    const finish = (): void => {
+      if (c.currentTime < tB && c.state !== 'closed') {
+        swapTimer = setTimeout(finish, SWAP.tailMs);
+        return;
+      }
+      swapTimer = undefined;
+      if (fading === old) {
+        u.input.disconnect(old.cv);
+        drop(old);
+        fading = null;
+      }
+      busy = false;
+      swaps += 1;
+      if (dirty) {
+        dirty = false;
+        schedule();
+      }
+    };
+    swapTimer = setTimeout(finish, (SWAP.prerollS + SWAP.fadeS) * 1000 + SWAP.tailMs);
+  };
+
+  function schedule(): void {
+    if (!live) return;
+    if (busy) {
+      dirty = true;
+      return;
+    }
+    clearTimeout(debounce);
+    debounce = setTimeout(swap, SWAP.debounceMs);
+  }
+
+  const bus = sendBus(
     c,
     () => {
-      const t0 = performance.now();
-      const first = !ir;
-      const buf = ir ?? makeImpulse(c);
-      ir = buf;
-      if (first) {
-        irMs = performance.now() - t0;
-        irSeconds = buf.duration;
-      }
       const input = c.createGain();
-      const cv = c.createConvolver();
-      // Energie deja ramenee a 1 : pas de normalisation propre au navigateur
-      cv.normalize = false;
-      cv.buffer = buf;
-      input.connect(cv);
-      cv.connect(out);
+      const v = voice(input, impulse(), 1);
+      const u = { input, cv: v.cv, g: v.g, shape: { ...shape } };
+      live = u;
       return {
         input,
         dispose() {
+          clearTimeout(debounce);
+          clearTimeout(swapTimer);
+          debounce = undefined;
+          swapTimer = undefined;
+          busy = false;
+          dirty = false;
           input.disconnect();
-          cv.disconnect();
+          drop(u);
+          if (fading) drop(fading);
+          fading = null;
+          if (live === u) live = null;
         },
       };
     },
     REVERB_SEND,
     Infinity,
-    () => ({ irSeconds, irMs: Math.round(irMs * 100) / 100 })
+    () => ({ irSeconds, irMs: Math.round(irMs * 100) / 100, irShape: { ...shape }, swaps, swapping: busy })
   );
+  return {
+    ...bus,
+    setShape(s: Readonly<IrShape>) {
+      const n = cleanShape(s);
+      if (sameShape(n, shape)) return;
+      shape = n;
+      schedule();
+    },
+  };
 }
 
 export interface DelayBus extends SendBus {
@@ -343,16 +490,23 @@ export interface DelayBus extends SendBus {
    */
   setDiv(steps: number): void;
   setFeedback(fb: number): void;
+  /** DELAY TONE (2026-10-10, la page DELAY du MM-RYTM) : le passe-bas de la boucle (Hz), 4.5 kHz au depart. */
+  setTone(hz: number): void;
 }
 
+/** La coupure du passe-bas des echos, bornee (NaN : celle d'avant). */
+const delayTone = (hz: number): number => (Number.isFinite(hz) ? Math.max(200, Math.min(20000, hz)) : DELAY.lowpass);
+
 /** DELAY : cale sur le tempo (la croche pointee au depart), reinjection filtree. */
-export function buildDelayBus(c: BaseAudioContext, out: AudioNode, stepS: number, div0: number = DELAY.steps, fb0: number = DELAY.feedback): DelayBus {
+export function buildDelayBus(c: BaseAudioContext, out: AudioNode, stepS: number, div0: number = DELAY.steps, fb0: number = DELAY.feedback, tone0: number = DELAY.lowpass): DelayBus {
   let step = stepS;
   let div = div0;
   let feedback = Math.max(0, Math.min(0.9, fb0));
   let time = Math.min(DELAY.maxS, div * step);
+  let lowpass = delayTone(tone0);
   let node: DelayNode | null = null;
   let fbNode: GainNode | null = null;
+  let lpNode: BiquadFilterNode | null = null;
   const bus = sendBus(
     c,
     () => {
@@ -361,8 +515,10 @@ export function buildDelayBus(c: BaseAudioContext, out: AudioNode, stepS: number
       d.delayTime.value = time;
       const lp = c.createBiquadFilter();
       lp.type = 'lowpass';
-      lp.frequency.value = DELAY.lowpass;
+      // Nyquist au plus : un 12 kHz a 22.05 kHz d'echantillonnage reste un filtre (le parametre se borne de lui-meme)
+      lp.frequency.value = Math.min(lowpass, c.sampleRate / 2);
       lp.Q.value = Math.SQRT1_2;
+      lpNode = lp;
       const hp = c.createBiquadFilter();
       hp.type = 'highpass';
       hp.frequency.value = DELAY.highpass;
@@ -383,12 +539,13 @@ export function buildDelayBus(c: BaseAudioContext, out: AudioNode, stepS: number
           for (const n of [input, d, lp, hp, fb]) n.disconnect();
           node = null;
           fbNode = null;
+          lpNode = null;
         },
       };
     },
     DELAY.send,
     DELAY.idleMs,
-    () => ({ delayS: Math.round(time * 1000) / 1000 })
+    () => ({ delayS: Math.round(time * 1000) / 1000, toneHz: Math.round(lowpass) })
   );
   const retime = (): void => {
     const t = Math.min(DELAY.maxS, div * step);
@@ -412,6 +569,12 @@ export function buildDelayBus(c: BaseAudioContext, out: AudioNode, stepS: number
       if (v === feedback) return;
       feedback = v;
       if (fbNode) glide(fbNode.gain, v, c);
+    },
+    setTone(hz: number) {
+      const v = delayTone(hz);
+      if (v === lowpass) return;
+      lowpass = v;
+      if (lpNode) glide(lpNode.frequency, Math.min(v, c.sampleRate / 2), c);
     },
   };
 }

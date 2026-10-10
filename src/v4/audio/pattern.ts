@@ -210,7 +210,8 @@ export const VEL_MAX = 9;
 export const isOn = (steps: Steps, inst: Inst, i: number): boolean => velocity(steps, inst, i) > 0;
 
 /** Gain de chaque niveau (0 : rien) ; 9, 6 et 3 gardent ceux des crans d'avant (1, 0.6, 0.32). */
-export const VEL_GAIN: readonly number[] = [0, 0.1, 0.2, 0.32, 0.4, 0.5, 0.6, 0.72, 0.86, 1];
+// 2026-10-10 (Mika : "on entend trop le kick et rien pour le reste") : la courbe adoucie, LOW -8 dB (avant -10), MID -3.1 dB (avant -4.4)
+export const VEL_GAIN: readonly number[] = [0, 0.16, 0.26, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1];
 /** Noms de l'ecran : STEP 05 CH MID, STEP 06 CH VEL 7. */
 export const VEL_NAMES: readonly string[] = ['OFF', 'VEL 1', 'VEL 2', 'LOW', 'VEL 4', 'VEL 5', 'MID', 'VEL 7', 'VEL 8', 'HIGH'];
 /** Traits de velocite au-dessus d'un pas (2026-10-01) : vide 0, doux 1 (1 a 3), moyen 2 (4 a 6), fort 3 (7 a 9). */

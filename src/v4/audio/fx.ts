@@ -4,8 +4,10 @@
  * partagee avec les envois par voix) :
  *
  *   bus -> sec (1 - m) -----------------------------------> TONE
- *   bus -> pre (D / K) -> WaveShaper -> mouille (m) -------> TONE      DIST
+ *   bus -> pre (D / K) -> WaveShaper -> passe-bas -> mouille (m) -> TONE   DIST
  *
+ * Le passe-bas : DIST TONE (2026-10-10, la page DIST du MM-RYTM), ouvert
+ * par defaut (le son d'avant).
  * DIST : saturation parallele. Courbe tanh(K u) calculee une fois ; la
  * branche mouillee vaut tanh(D x) avec D = 1 + 12 d, melangee a
  * m = 0.85 d (2026-10-02, plus marquee : D = 1 + 5 d et m = d / 2 avant,
@@ -32,6 +34,20 @@ const DRIVE = { gain: 12, mix: 0.85, k: 8, points: 2049 } as const;
 
 /** REVERB : longueur de la reponse (s), pre-delai, entree en fondu, passe-bas du bruit (Hz) du debut a la fin de la queue, graines. */
 const REVERB = { seconds: 2.4, preDelay: 0.02, fadeIn: 0.003, hiStart: 9000, hiEnd: 3000, seeds: [808, 909] } as const;
+
+/**
+ * La forme de la reponse (2026-10-10, la page REVERB du MM-RYTM : SIZE, TONE, PRE) : sa duree (s), la coupure
+ * ou finit la queue (Hz), le pre-delai (s). IR_DEFAULT : celle d'avant, au bit pres.
+ */
+export interface IrShape {
+  seconds: number;
+  hiEnd: number;
+  preDelay: number;
+}
+export const IR_DEFAULT: Readonly<IrShape> = { seconds: REVERB.seconds, hiEnd: REVERB.hiEnd, preDelay: REVERB.preDelay };
+
+/** DIST TONE (2026-10-10) : a 16 kHz et plus, le passe-bas du mouille est ouvert (pose a Nyquist, il laisse tout passer). */
+export const DIST_OPEN_HZ = 16000;
 
 /** PRNG a graine (mulberry32) : la meme reponse a chaque visite. */
 function prng(seed: number): () => number {
@@ -60,12 +76,17 @@ export function driveCurve(): Float32Array {
  * -60 dB en fin de reponse, 10 ms de pre-delai, 3 ms d'entree en fondu (pas
  * de clic). Chaque canal ramene a une energie de 1 : le niveau ne depend
  * que de l'envoi, quel que soit le taux d'echantillonnage.
+ * La forme s (2026-10-10) : la duree, la fin de la coupure (au-dessus de
+ * 9 kHz, la queue reste claire de bout en bout), le pre-delai ; la queue
+ * garde sa duree quel que soit le pre-delai. IR_DEFAULT : la reponse d'avant.
  */
-export function makeImpulse(c: BaseAudioContext): AudioBuffer {
+export function makeImpulse(c: BaseAudioContext, s: Readonly<IrShape> = IR_DEFAULT): AudioBuffer {
   const sr = c.sampleRate;
-  const n = Math.max(2, Math.round(REVERB.seconds * sr));
-  const pre = Math.round(REVERB.preDelay * sr);
+  const pre = Math.round(s.preDelay * sr);
+  const n = Math.max(pre + 2, Math.round(s.seconds * sr) + pre - Math.round(REVERB.preDelay * sr));
   const len = n - pre;
+  const hiEnd = s.hiEnd;
+  const hiStart = Math.max(REVERB.hiStart, hiEnd);
   const fade = Math.max(1, Math.round(REVERB.fadeIn * sr));
   const decay = Math.exp(Math.log(0.001) / len);
   const buf = c.createBuffer(2, n, sr);
@@ -79,7 +100,7 @@ export function makeImpulse(c: BaseAudioContext): AudioBuffer {
     for (let i = 0; i < len; i += 1) {
       // Coupure recalculee tous les 64 echantillons : assez lisse, peu couteux
       if ((i & 63) === 0) {
-        const fc = REVERB.hiStart * Math.pow(REVERB.hiEnd / REVERB.hiStart, i / len);
+        const fc = hiStart * Math.pow(hiEnd / hiStart, i / len);
         a = 1 - Math.exp((-2 * Math.PI * fc) / sr);
       }
       y += a * (rnd() * 2 - 1 - y);
@@ -97,6 +118,8 @@ export function makeImpulse(c: BaseAudioContext): AudioBuffer {
 export interface DriveInfo {
   /** reglage applique (0 a 1) */
   drive: number;
+  /** DIST TONE (2026-10-10) : la coupure du passe-bas du mouille (Hz, Nyquist : ouvert) */
+  toneHz: number;
   /** branche mouillee de DIST branchee sur le bus */
   driveOn: boolean;
   /** branches debranchees depuis la creation */
@@ -105,6 +128,8 @@ export interface DriveInfo {
 
 export interface FxChain {
   setDrive(d: number): void;
+  /** DIST TONE (2026-10-10) : le passe-bas du mouille (Hz) ; DIST_OPEN_HZ et plus : ouvert, le son d'avant */
+  setTone(hz: number): void;
   info(): DriveInfo;
 }
 
@@ -115,8 +140,8 @@ export interface FxPorts {
   tone: AudioNode;
 }
 
-/** Branche DIST (parallele) sur le graphe de drums.ts, a sa valeur de depart (0 a 1). */
-export function buildFx(c: BaseAudioContext, io: FxPorts, drive0: number): FxChain {
+/** Branche DIST (parallele) sur le graphe de drums.ts, a sa valeur de depart (0 a 1), et son TONE (Hz, ouvert par defaut). */
+export function buildFx(c: BaseAudioContext, io: FxPorts, drive0: number, tone0: number = DIST_OPEN_HZ): FxChain {
   const dry = c.createGain();
   dry.gain.value = 1;
   const pre = c.createGain();
@@ -130,10 +155,22 @@ export function buildFx(c: BaseAudioContext, io: FxPorts, drive0: number): FxCha
   shaper.oversample = 'none';
   const wet = c.createGain();
   wet.gain.value = 0;
+  /*
+   * DIST TONE (2026-10-10) : un passe-bas sur le mouille seul, apres la saturation (le sec garde ses aigus, a DIST 0
+   * rien ne change). Butterworth (Q en dB pour un passe-bas : -3 dB). Ouvert, il est pose a Nyquist : le filtre
+   * biquad du navigateur y vaut exactement 1 (ses coefficients 1, 0, 0), le mouille d'avant au bit pres.
+   */
+  const openHz = (hz: number): number => (!Number.isFinite(hz) || hz >= DIST_OPEN_HZ ? c.sampleRate / 2 : Math.max(20, Math.min(c.sampleRate / 2, hz)));
+  let toneHz = openHz(tone0);
+  const lp = c.createBiquadFilter();
+  lp.type = 'lowpass';
+  lp.Q.value = 20 * Math.log10(Math.SQRT1_2);
+  lp.frequency.value = toneHz;
   io.bus.connect(dry);
   dry.connect(io.tone);
   pre.connect(shaper);
-  shaper.connect(wet);
+  shaper.connect(lp);
+  lp.connect(wet);
   wet.connect(io.tone);
 
   let drive = 0;
@@ -169,7 +206,14 @@ export function buildFx(c: BaseAudioContext, io: FxPorts, drive0: number): FxCha
 
   setDrive(drive0);
 
-  return { setDrive, info: () => ({ drive, driveOn, unlinks }) };
+  const setTone = (hz: number): void => {
+    const t = openHz(hz);
+    if (t === toneHz) return;
+    toneHz = t;
+    glide(lp.frequency, t, c);
+  };
+
+  return { setDrive, setTone, info: () => ({ drive, toneHz, driveOn, unlinks }) };
 }
 
 /** Insert de saturation d'une voix (meme loi que DIST) : bypass reel a 0. */
