@@ -4,11 +4,13 @@
  * - RUN : la sequence part sur la grille du MM-RYTM (ou du MM-ARP), ou s'arrete ;
  * - GEN : la prise suivante du style (bass/line.ts), le meme nombre de
  *   notes ; elle part si rien ne jouait ; tenu : la prise d'avant ;
- * - MUTATE : 2 ou 3 notes de la machine ; tenu : annule ; CLEAR : plus rien ;
+ * - MUTATE : 2 ou 3 notes de la machine ; tenu : annule (plus sur la face
+ *   depuis le 2026-10-09 au soir : le MIDI, le Roto) ; CLEAR : plus rien ;
  * - un pas (TRIG) : il est choisi ; taper le fait passer de vide a note, de
  *   note a liaison (TIE, s'il suit une note), de liaison a vide ; a l'arret,
  *   on entend sa note ;
- * - ACCENT, SLIDE, NOTE - +, OCT - + : sur le pas choisi ;
+ * - ACCENT, SLIDE, NOTE - +, OCT - + : sur le pas choisi (des touches de
+ *   l'ecran depuis le 2026-10-09 au soir) ; PRESET : les presets a l'ecran ;
  * - les potards : bassParams, l'ecran dit leur valeur ;
  * - LOCK (2026-10-07, les boutons au-dessus des pas, les parameter locks des
  *   Elektron) : le pas dont on regle les verrous ; les potards du son ne
@@ -86,7 +88,7 @@
  *   KNOB), plus une lettre qui se confondait avec les blocs.
  */
 
-import { gesture } from '../actions';
+import { gesture, presetKey } from '../actions';
 import { pattern } from '../audio/pattern';
 import { sc } from '../audio/soundcloud';
 import { editor } from '../state/editor';
@@ -117,6 +119,14 @@ export function bassRun(): void {
     return;
   }
   void bassEngine.ensure().then(() => bassSeq.start());
+}
+
+/**
+ * PRESET (2026-10-09, le soir, Mika : "rajoute un bouton PRESET") : les presets a l'ecran, comme une tape sur le
+ * pattern de l'en-tete (A01) ; encore : fermes, comme EXIT.
+ */
+export function bassPresetKey(): void {
+  presetKey('bass', presetMode.on('bass') ? 'exit' : 'open');
 }
 
 /* ---------------- le generateur : STYLE, NOTES, GEN, MUTATE, CLEAR (2026-10-09) ---------------- */

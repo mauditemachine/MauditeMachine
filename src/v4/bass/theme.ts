@@ -49,6 +49,19 @@
  * l'ecran (4.05 -> 6.4 de profondeur, ses huit blocs sont les commandes :
  * on les glisse comme les encodeurs), les quatre touches de page juste
  * dessous, sur toute sa largeur. Desktop ne change pas.
+ * La face simple (2026-10-09, le soir, Mika : "toute cette partie la est
+ * difficile a utiliser sans visibilite, agrandis l'ecran jusqu'aux steps,
+ * mets les boutons ACCENT SLIDE NOTE- NOTE+ OCT- OCT+ dans l'ecran et mets
+ * les boutons RUN CLEAR GEN et rajoute un bouton PRESET, mets-les a droite ;
+ * MUTATE je comprends pas vraiment, enleve ca ; je veux que ce soit simple a
+ * utiliser") : la rangee de jeu s'en va. Les six touches du pas sont dans
+ * l'ecran (une bande en bas du verre, bass/screen.ts), l'ecran descend
+ * jusqu'aux pas (desktop 3.5 -> 5.25 de profondeur ; telephone 6.4 -> 8.0, la
+ * rangee liberee). A droite, desktop : EDIT OPEN, STYLE NOTES, puis le carre
+ * GEN PRESET / RUN CLEAR ; les huit encodeurs s'etagent sur la hauteur (le
+ * FILTER en haut, son CONTOUR dessous), les touches de page sur la rangee de
+ * RUN CLEAR. Telephone : STYLE NOTES EDIT OPEN, puis RUN CLEAR GEN PRESET.
+ * MUTATE n'est plus sur la face (ses cibles MIDI restent, le Roto s'en sert).
  * Ce module reste dans le chargement principal (le Stage en a besoin pour
  * cadrer) ; le reste du MM-BASS arrive a part (state/bassload.ts).
  */
@@ -87,10 +100,11 @@ export const BASS = PORTRAIT
       head: { z: -8.2 },
       logo: { h: 0.32, z: -8.2 },
       // La machine Elektron (2026-10-08) : l'ecran plus profond (4.05 au lieu de 2.5 : son en-tete et ses blocs se touchent du doigt), toute la largeur ;
-      // sans encodeurs (2026-10-09, Mika : "donne-moi un ecran plus grand") 6.4 : de -7.8 a -1.4, la place des deux rangees d'encodeurs
-      screen: { x: 0, z: -4.6, w: 7.6, d: 6.4 },
-      // Sans les LOCK (2026-10-09, le soir) : les pas prennent leur place, plus hauts sous le doigt
-      trigs: { w: 0.8, d: BASS_LOCK_KEYS ? 0.56 : 1.0, h: 1.15 },
+      // sans encodeurs (2026-10-09, Mika : "donne-moi un ecran plus grand") 6.4 : de -7.8 a -1.4, la place des deux rangees d'encodeurs ;
+      // la face simple (2026-10-09, le soir) 8.0 : de -7.8 a 0.2, la rangee des touches du pas (elles sont dans l'ecran)
+      screen: { x: 0, z: -3.8, w: 7.6, d: 8.0 },
+      // Sans les LOCK (2026-10-09, le soir) : les pas prennent leur place, plus hauts sous le doigt ; la face simple : 1.1
+      trigs: { w: 0.8, d: BASS_LOCK_KEYS ? 0.56 : 1.1, h: 1.15 },
       // Plus grands au doigt (2026-10-08 : la bande de 15 px entre NOTE + et le pas ratait ; puis la revue : une
       // vraie touche, plus haute, a 44 px de son pas)
       locks: { w: 0.72, d: 0.42, h: 0.85 },
@@ -98,16 +112,20 @@ export const BASS = PORTRAIT
   : {
       head: { z: -3.42 },
       logo: { h: 0.3, z: -3.42 },
-      // La machine Elektron (2026-10-08) : 5.5 x 3.5 au lieu de 4.3 x 2.3, deux fois la surface
-      screen: { x: -3.3, z: -1.25, w: 5.5, d: 3.5 },
+      // La machine Elektron (2026-10-08) : 5.5 x 3.5 au lieu de 4.3 x 2.3, deux fois la surface ; la face simple
+      // (2026-10-09, le soir, Mika : "agrandis l'ecran jusqu'aux steps") : 5.25 de profondeur, de -3.0 a 2.25, juste
+      // au-dessus des pas, la place de la rangee de jeu
+      screen: { x: -3.3, z: -0.375, w: 5.5, d: 5.25 },
       trigs: { w: 0.62, d: 0.62, h: 1.15 },
       locks: { w: 0.56, d: 0.26, h: 0.85 },
     };
 
 /**
  * Les sections de la face qui gardent des potards dedies : le GENERATOR
- * (STYLE, DENSITY, ses touches GEN et MUTATE), en orange. Le son passe par
- * les encodeurs et les pages depuis la machine Elektron (2026-10-08).
+ * (STYLE, NOTES), en orange. Le son passe par les encodeurs et les pages
+ * depuis la machine Elektron (2026-10-08). La face simple (2026-10-09, le
+ * soir) : le crochet sous STYLE et NOTES seulement (GEN est dans le carre
+ * GEN PRESET / RUN CLEAR).
  */
 export const BASS_SECTIONS: readonly { name: string; ids: readonly BassKnobId[]; ink?: 'orange' }[] = [{ name: 'GENERATOR', ids: ['style', 'density'], ink: 'orange' }];
 
@@ -119,24 +137,25 @@ interface KnobPlace {
   s: number;
 }
 
-/** Les colonnes du GENERATOR au telephone (STYLE, DENSITY, GEN, MUTATE). */
+/** Les colonnes du telephone (STYLE, NOTES, EDIT, OPEN ; dessous RUN, CLEAR, GEN, PRESET). */
 const PH_X = [-2.85, -0.95, 0.95, 2.85];
 /**
  * Les touches de page au telephone (2026-10-09, Mika : "en dessous de l'ecran on retrouve les boutons") : juste sous
- * l'ecran, sur toute sa largeur (7.6, quatre touches de 1.76, un jour de 0.19), une sous chaque colonne de blocs.
+ * l'ecran, sur toute sa largeur (7.6, quatre touches de 1.76, un jour de 0.19), une sous chaque colonne de blocs ; la
+ * face simple (2026-10-09, le soir) : 0.78 sous l'ecran plus grand, comme avant.
  */
-const PH_PAGE = { x: [-2.925, -0.975, 0.975, 2.925], w: 1.76, d: 0.56, z: -0.62 } as const;
+const PH_PAGE = { x: [-2.925, -0.975, 0.975, 2.925], w: 1.76, d: 0.56, z: BASS.screen.z + BASS.screen.d / 2 + 0.78 } as const;
 /**
  * Au telephone, d'une rangee a l'autre au moins 1.05 (44 px sous le doigt ; 2026-10-08, la revue : les encodeurs
- * E a H mangeaient 10 px des touches de page) : l'ecran, ses pages, le GENERATOR, RUN CLEAR EDIT OPEN, les touches du
- * pas, puis LOCK et pas, LOCK et pas. Les encodeurs n'y sont plus (2026-10-09) : leurs colonnes et leurs rangees ne
- * servent qu'au desktop.
+ * E a H mangeaient 10 px des touches de page) : l'ecran, ses pages, puis deux rangees (la face simple, 2026-10-09, le
+ * soir : STYLE NOTES EDIT OPEN, puis RUN CLEAR GEN PRESET), puis les pas. Les encodeurs n'y sont plus (2026-10-09) :
+ * leurs colonnes et leurs rangees ne servent qu'au desktop. Desktop (la face simple) : les deux rangees d'encodeurs
+ * s'etagent sur la hauteur de l'ecran, le FILTER en haut, son CONTOUR dessous, les touches de page sur la rangee de
+ * RUN CLEAR (une rangee de six touches au-dessus des pas, sans trou sous les encodeurs).
  */
-const ENC = PORTRAIT ? { x: PH_X, z: [-3.0, -1.7], s: 1.25, pageZ: PH_PAGE.z } : { x: [0.3, 1.3, 2.3, 3.3], z: [-2.25, -0.95], s: 1.1, pageZ: 0.3 };
-/** La rangee du GENERATOR au telephone (STYLE, DENSITY, GEN, MUTATE). */
-const PH_GEN_Z = 0.75;
-/** Les rangees du bas : desktop la rangee de jeu (remontee pour le filet LOCK, la revue), telephone RUN et les touches du pas. */
-const PLAY_Z = PORTRAIT ? { run: 2.3, keys: 3.4 } : { run: 1.5, keys: 1.5 };
+const ENC = PORTRAIT ? { x: PH_X, z: [-3.0, -1.7], s: 1.25, pageZ: PH_PAGE.z } : { x: [0.3, 1.3, 2.3, 3.3], z: [-2.05, 0.1], s: 1.1, pageZ: 1.6 };
+/** Au telephone, la rangee de STYLE NOTES EDIT OPEN et celle de RUN CLEAR GEN PRESET (la face simple, 2026-10-09). */
+const PH_ROW = { a: PH_PAGE.z + 1.37, b: PH_PAGE.z + 2.82 } as const;
 
 const desk = (): KnobPlace[] => [
   // Le generateur, sous EDIT et OPEN : STYLE (le choix musical), DENSITY
@@ -145,8 +164,8 @@ const desk = (): KnobPlace[] => [
 ];
 
 const phone = (): KnobPlace[] => [
-  { id: 'style', x: PH_X[0], z: PH_GEN_Z, s: 1.15 },
-  { id: 'density', x: PH_X[1], z: PH_GEN_Z, s: 1.05 },
+  { id: 'style', x: PH_X[0], z: PH_ROW.a, s: 1.15 },
+  { id: 'density', x: PH_X[1], z: PH_ROW.a, s: 1.05 },
 ];
 
 export const BASS_KNOB_PLACES: readonly KnobPlace[] = PORTRAIT ? phone() : desk();
@@ -172,7 +191,16 @@ export const bassEncAt = (k: number): { x: number; z: number; s: number } => ({ 
 export type BassPageKey = 'pvoice' | 'pfilter' | 'penv' | 'pfx';
 export const BASS_PAGE_KEYS: readonly BassPageKey[] = ['pvoice', 'pfilter', 'penv', 'pfx'];
 
-export type BassKeyKind = 'run' | 'edit' | 'open' | 'gen' | 'mutate' | 'clear' | 'accent' | 'slide' | 'notedn' | 'noteup' | 'octdn' | 'octup' | BassPageKey;
+export type BassKeyKind = 'run' | 'edit' | 'open' | 'gen' | 'mutate' | 'clear' | 'accent' | 'slide' | 'notedn' | 'noteup' | 'octdn' | 'octup' | BassPageKey | 'preset';
+
+/**
+ * Les six touches du pas choisi (2026-10-09, le soir, Mika : "mets les boutons ACCENT SLIDE NOTE- NOTE+ OCT- OCT+ dans
+ * l'ecran") : une bande en bas du verre (bass/screen.ts), toujours la ; leurs zones gardent leurs ids (bass-key-accent...),
+ * MIDI LEARN et le clavier les retrouvent.
+ */
+export type BassScreenKey = 'accent' | 'slide' | 'notedn' | 'noteup' | 'octdn' | 'octup';
+export const BASS_SCREEN_KEY_KINDS: readonly BassScreenKey[] = ['accent', 'slide', 'notedn', 'noteup', 'octdn', 'octup'];
+export const isBassScreenKey = (k: string): k is BassScreenKey => (BASS_SCREEN_KEY_KINDS as readonly string[]).includes(k);
 
 /** Une touche : son nom, sa place et sa taille (repere top) ; orange : son nom en orange, sa LED orange (RUN en or). */
 export interface BassKeyDef {
@@ -186,81 +214,85 @@ export interface BassKeyDef {
   orange?: boolean;
 }
 
-type KeyCopy = Pick<BassKeyDef, 'kind' | 'label' | 'aria' | 'orange'>;
+export type BassKeyCopy = Pick<BassKeyDef, 'kind' | 'label' | 'aria' | 'orange'>;
 /** Ce qui regle une page : les encodeurs, au telephone les blocs de l'ecran (2026-10-09, la revue : les jumeaux le lisent). */
 const SETS = PORTRAIT ? 'the eight values of the screen set' : 'the eight encoders set';
-const COPY: readonly KeyCopy[] = [
+/**
+ * Toutes les touches, dans l'ordre de leurs cibles MIDI (bass:key:<touche>, bass/midi.ts) : celles de la face, celles
+ * de l'ecran, MUTATE (plus sur la face depuis le 2026-10-09 au soir, sa cible reste : le Roto s'en sert) ; PRESET
+ * ajoutee a la fin.
+ */
+export const BASS_KEY_COPY: readonly BassKeyCopy[] = [
   { kind: 'run', label: 'RUN', aria: 'Run or stop the bassline, in time with the MM-RYTM, key Space', orange: true },
   { kind: 'edit', label: 'EDIT', aria: 'Edit: the sixteen steps become sixteen patterns, key E', orange: true },
   { kind: 'open', label: 'OPEN', aria: 'Open the machine: the fine settings and INFOS, key O', orange: true },
-  // Les prises (2026-10-09) : GEN la suivante, tenu la precedente ; MUTATE, tenu : annule
+  // Les prises (2026-10-09) : GEN la suivante, tenu la precedente
   { kind: 'gen', label: 'GEN', aria: 'GEN: the next take of this style, same number of notes; hold: the previous take; key G', orange: true },
-  { kind: 'mutate', label: 'MUTATE', aria: "Mutate: change two or three of the machine's notes, same number of notes; hold: undo; key M" },
+  { kind: 'mutate', label: 'MUTATE', aria: "Mutate: change two or three of the machine's notes, same number of notes; hold: undo" },
   { kind: 'clear', label: 'CLEAR', aria: 'Clear the bassline; while a step is locked, clear its locks' },
-  { kind: 'accent', label: 'ACCENT', aria: 'Accent on the chosen step, key A' },
-  { kind: 'slide', label: 'SLIDE', aria: 'Slide from the chosen step to the next, key S' },
-  { kind: 'notedn', label: 'NOTE -', aria: 'Chosen step one note down in the scale, key Down' },
-  { kind: 'noteup', label: 'NOTE +', aria: 'Chosen step one note up in the scale, key Up' },
-  { kind: 'octdn', label: 'OCT -', aria: 'Chosen step one octave down, key Z' },
-  { kind: 'octup', label: 'OCT +', aria: 'Chosen step one octave up, key X' },
+  { kind: 'accent', label: 'ACCENT', aria: 'Screen key ACCENT: accent on the chosen step, key A' },
+  { kind: 'slide', label: 'SLIDE', aria: 'Screen key SLIDE: slide from the chosen step to the next, key S' },
+  { kind: 'notedn', label: 'NOTE -', aria: 'Screen key NOTE -: chosen step one note down in the scale, key Down' },
+  { kind: 'noteup', label: 'NOTE +', aria: 'Screen key NOTE +: chosen step one note up in the scale, key Up' },
+  { kind: 'octdn', label: 'OCT -', aria: 'Screen key OCT -: chosen step one octave down, key Z' },
+  { kind: 'octup', label: 'OCT +', aria: 'Screen key OCT +: chosen step one octave up, key X' },
   // Les pages (2026-10-08, la machine Elektron) : les huit encodeurs reglent la page allumee ; le moteur MONARK
   // (2026-10-09) : VOICE et FILTER ont des onglets, la touche pressee encore passe au suivant
   { kind: 'pvoice', label: 'VOICE', aria: `Page VOICE: ${SETS} the oscillators, the mixer and the pitch; press again for the next tab, MAIN, OSC, MIX${PORTRAIT ? '' : ', keys [ and ]'}` },
   { kind: 'pfilter', label: 'FILTER', aria: `Page FILTER: ${SETS} the filter, its mode and its contour; press again for the next tab, MAIN, CONTOUR` },
   { kind: 'penv', label: 'ENV', aria: `Page ENV: ${SETS} the amp envelope, the note length and the volume` },
   { kind: 'pfx', label: 'FX', aria: `Page FX: ${SETS} the drive, the delay and the reverb` },
+  // La face simple (2026-10-09, le soir, Mika : "rajoute un bouton PRESET") : les presets a l'ecran, encore : fermes
+  { kind: 'preset', label: 'PRESET', aria: 'Presets on the screen: previous, next, save; press again to close', orange: true },
 ];
+const copyOf = (k: BassKeyKind): BassKeyCopy => BASS_KEY_COPY.find((c) => c.kind === k) ?? { kind: k, label: k.toUpperCase(), aria: k };
+
+/** Les touches de la face (2026-10-09, le soir) : sans les six du pas (dans l'ecran) ni MUTATE. */
+type FaceKey = Exclude<BassKeyKind, BassScreenKey | 'mutate'>;
 
 /**
- * Les places (2026-10-08) : desktop, GEN et MUTATE dans le bloc du
- * generateur, EDIT et OPEN en haut a droite (comme les pads EDIT et OPEN du
- * MM-RYTM : on les voit tout de suite), la rangee de jeu au-dessus des pas
- * (RUN | CLEAR | ACCENT SLIDE | NOTE - NOTE + OCT - OCT +) ; au telephone,
- * GEN et MUTATE a cote de STYLE et DENSITY, puis RUN CLEAR EDIT OPEN, puis
- * ACCENT SLIDE NOTE - NOTE + OCT - OCT +. Les touches de page (la machine
- * Elektron, le meme jour) sous les encodeurs, une par colonne ; GEN et
- * MUTATE sur leur rangee (desktop). Au telephone (2026-10-09) les touches de
- * page juste sous l'ecran, d'un bord a l'autre de son verre.
+ * Les places (2026-10-08) : desktop, EDIT et OPEN en haut a droite (comme
+ * les pads EDIT et OPEN du MM-RYTM : on les voit tout de suite), les touches
+ * de page (la machine Elektron, le meme jour) sous les encodeurs, une par
+ * colonne. Au telephone (2026-10-09) les touches de page juste sous l'ecran,
+ * d'un bord a l'autre de son verre.
+ * La face simple (2026-10-09, le soir, Mika : "mets les boutons RUN CLEAR
+ * GEN et rajoute un bouton PRESET et mets-les a droite") : desktop, sous
+ * STYLE et NOTES le carre GEN PRESET / RUN CLEAR, des touches de la taille
+ * d'EDIT et OPEN, RUN CLEAR sur la rangee des touches de page ; telephone,
+ * STYLE NOTES EDIT OPEN, puis RUN CLEAR GEN PRESET.
  */
-const PLACES: Readonly<Record<BassKeyKind, { x: number; z: number; w: number; d: number }>> = PORTRAIT
+const PLACES: Readonly<Record<FaceKey, { x: number; z: number; w: number; d: number }>> = PORTRAIT
   ? {
       pvoice: { x: PH_PAGE.x[0], z: PH_PAGE.z, w: PH_PAGE.w, d: PH_PAGE.d },
       pfilter: { x: PH_PAGE.x[1], z: PH_PAGE.z, w: PH_PAGE.w, d: PH_PAGE.d },
       penv: { x: PH_PAGE.x[2], z: PH_PAGE.z, w: PH_PAGE.w, d: PH_PAGE.d },
       pfx: { x: PH_PAGE.x[3], z: PH_PAGE.z, w: PH_PAGE.w, d: PH_PAGE.d },
-      gen: { x: 0.95, z: PH_GEN_Z, w: 1.5, d: 0.58 },
-      mutate: { x: 2.85, z: PH_GEN_Z, w: 1.5, d: 0.58 },
-      run: { x: -2.95, z: PLAY_Z.run, w: 1.55, d: 0.6 },
-      clear: { x: -0.98, z: PLAY_Z.run, w: 1.55, d: 0.6 },
-      edit: { x: 0.98, z: PLAY_Z.run, w: 1.55, d: 0.6 },
-      open: { x: 2.95, z: PLAY_Z.run, w: 1.55, d: 0.6 },
-      accent: { x: -3.25, z: PLAY_Z.keys, w: 1.12, d: 0.5 },
-      slide: { x: -1.95, z: PLAY_Z.keys, w: 1.12, d: 0.5 },
-      notedn: { x: -0.65, z: PLAY_Z.keys, w: 1.12, d: 0.5 },
-      noteup: { x: 0.65, z: PLAY_Z.keys, w: 1.12, d: 0.5 },
-      octdn: { x: 1.95, z: PLAY_Z.keys, w: 1.12, d: 0.5 },
-      octup: { x: 3.25, z: PLAY_Z.keys, w: 1.12, d: 0.5 },
+      edit: { x: PH_X[2], z: PH_ROW.a, w: 1.5, d: 0.58 },
+      open: { x: PH_X[3], z: PH_ROW.a, w: 1.5, d: 0.58 },
+      run: { x: -2.95, z: PH_ROW.b, w: 1.55, d: 0.6 },
+      clear: { x: -0.98, z: PH_ROW.b, w: 1.55, d: 0.6 },
+      gen: { x: 0.98, z: PH_ROW.b, w: 1.55, d: 0.6 },
+      preset: { x: 2.95, z: PH_ROW.b, w: 1.55, d: 0.6 },
     }
   : {
-      pvoice: { x: ENC.x[0], z: ENC.pageZ, w: 0.8, d: 0.34 },
-      pfilter: { x: ENC.x[1], z: ENC.pageZ, w: 0.8, d: 0.34 },
-      penv: { x: ENC.x[2], z: ENC.pageZ, w: 0.8, d: 0.34 },
-      pfx: { x: ENC.x[3], z: ENC.pageZ, w: 0.8, d: 0.34 },
-      gen: { x: 4.55, z: 0.3, w: 0.92, d: 0.38 },
-      mutate: { x: 5.55, z: 0.3, w: 0.92, d: 0.38 },
+      pvoice: { x: ENC.x[0], z: ENC.pageZ, w: 0.8, d: 0.38 },
+      pfilter: { x: ENC.x[1], z: ENC.pageZ, w: 0.8, d: 0.38 },
+      penv: { x: ENC.x[2], z: ENC.pageZ, w: 0.8, d: 0.38 },
+      pfx: { x: ENC.x[3], z: ENC.pageZ, w: 0.8, d: 0.38 },
       edit: { x: 4.55, z: -2.55, w: 0.95, d: 0.44 },
       open: { x: 5.55, z: -2.55, w: 0.95, d: 0.44 },
-      run: { x: -5.3, z: PLAY_Z.run, w: 1.1, d: 0.42 },
-      clear: { x: -3.75, z: PLAY_Z.keys, w: 1.0, d: 0.42 },
-      accent: { x: -2.2, z: PLAY_Z.keys, w: 1.0, d: 0.42 },
-      slide: { x: -0.95, z: PLAY_Z.keys, w: 1.0, d: 0.42 },
-      notedn: { x: 0.65, z: PLAY_Z.keys, w: 1.0, d: 0.42 },
-      noteup: { x: 1.9, z: PLAY_Z.keys, w: 1.0, d: 0.42 },
-      octdn: { x: 3.15, z: PLAY_Z.keys, w: 1.0, d: 0.42 },
-      octup: { x: 4.4, z: PLAY_Z.keys, w: 1.0, d: 0.42 },
+      gen: { x: 4.55, z: 0.3, w: 0.95, d: 0.44 },
+      preset: { x: 5.55, z: 0.3, w: 0.95, d: 0.44 },
+      run: { x: 4.55, z: ENC.pageZ, w: 0.95, d: 0.44 },
+      clear: { x: 5.55, z: ENC.pageZ, w: 0.95, d: 0.44 },
     };
 
-export const BASS_KEYS: readonly BassKeyDef[] = COPY.map((c) => ({ ...c, ...PLACES[c.kind] }));
+/** Les touches de la face, dans l'ordre de leurs LED (rig.ts) et de leurs jumeaux. */
+const FACE_ORDER: readonly FaceKey[] = ['run', 'edit', 'open', 'gen', 'clear', 'pvoice', 'pfilter', 'penv', 'pfx', 'preset'];
+export const BASS_KEYS: readonly BassKeyDef[] = FACE_ORDER.map((k) => ({ ...copyOf(k), ...PLACES[k] }));
+/** Les six touches de l'ecran : leur nom et leur aria (leur place est celle que l'ecran dessine). */
+export const BASS_SCREEN_KEYS: readonly BassKeyCopy[] = BASS_SCREEN_KEY_KINDS.map(copyOf);
 
 /**
  * Au telephone (2026-10-09), la zone d'une touche de page prend aussi son nom et le jour sous le verre : de juste
@@ -270,22 +302,14 @@ export const BASS_KEYS: readonly BassKeyDef[] = COPY.map((c) => ({ ...c, ...PLAC
 export const BASS_PAGE_HIT: { z0: number; z1: number } | null = PORTRAIT ? { z0: BASS.screen.z + BASS.screen.d / 2 + 0.18, z1: PH_PAGE.z + PH_PAGE.d / 2 + 0.26 } : null;
 export const bassKeyAt = (i: number): BassKeyDef => BASS_KEYS[i];
 
-/** Desktop : les filets entre les groupes de la rangee de jeu (entre deux touches : leur milieu). */
-export const BASS_KEY_SEPS: readonly [BassKeyKind, BassKeyKind][] = PORTRAIT
-  ? []
-  : [
-      ['run', 'clear'],
-      ['clear', 'accent'],
-      ['slide', 'notedn'],
-    ];
-
 /* ---------------- les pas ---------------- */
 
 /** La place d'un pas (0 a 15) : une rangee de seize par groupes de quatre ; au telephone, deux de huit. */
 export function bassTrigAt(i: number): { x: number; z: number } {
   if (PORTRAIT) {
     const c = i % 8;
-    return { x: (c - 3.5) * 0.95 + (c >= 4 ? 0.08 : -0.08), z: BASS_LOCK_KEYS ? (i < 8 ? 5.52 : 7.67) : i < 8 ? 5.1 : 7.2 };
+    // La face simple (2026-10-09, le soir) : sous RUN CLEAR GEN PRESET, deux rangees de 1.1
+    return { x: (c - 3.5) * 0.95 + (c >= 4 ? 0.08 : -0.08), z: BASS_LOCK_KEYS ? (i < 8 ? 5.52 : 7.67) : i < 8 ? PH_ROW.b + 1.55 : PH_ROW.b + 3.5 };
   }
   const g = Math.floor(i / 4);
   return { x: -5.69 + i * 0.74 + g * 0.1, z: 2.92 };

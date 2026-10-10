@@ -21,6 +21,10 @@
  *   a l'ecran, en P-LOCK le verrou du pas), au desktop comme au telephone ;
  *   au desktop, huit de plus pour les encodeurs de la face, les FX globaux
  *   (DRIVE, DELAY...), jamais un verrou.
+ * - La face simple (2026-10-09, le soir) : les six touches du pas sont sur
+ *   l'ecran (leurs jumeaux s'y posent, ACCENT et SLIDE pressees quand le pas
+ *   les porte) ; PRESET, pressee tant que les presets sont ouverts ; plus de
+ *   MUTATE.
  * Inertes tant qu'on n'utilise pas le MM-BASS. Le clavier de la machine
  * (bass/keys.ts) s'ecoute ici.
  */
@@ -33,7 +37,7 @@ import { bassInfos } from '../state/bassInfos';
 import { focus } from '../state/focus';
 import { PRESET_KEYS_OFF, PRESET_KEYS_ON, PRESET_KEY_ARIA, presetMode } from '../state/presetMode';
 import { presetKey } from '../actions';
-import { bassDial, bassDialReset, bassFxDial, bassFxReset, bassGenBack, bassKnobValue, bassLockTap, bassMutateUndo, bassScreenSet, bassStepTap, noteName } from './actions';
+import { bassDial, bassDialReset, bassFxDial, bassFxReset, bassGenBack, bassKnobValue, bassLockTap, bassScreenSet, bassStepTap, noteName } from './actions';
 import { GEN_HOLD_MS, bassKeyAction } from './gestures';
 import { listenBassKeys } from './keys';
 import { BASS_FX_KNOBS, BASS_SCREENS, ENC_LETTERS, PAGE_TABS, SCREEN_LABEL, SCREEN_PAGE, bassPage, bassPageDef, isBassGlobal } from './pages';
@@ -42,7 +46,7 @@ import { bassTweakId } from './tweaks';
 import { BASS_I_ID, bassBlockId, bassEncId, bassKeyId, bassKnobId, bassLcdId, bassLockId, bassScrId, bassTrigId } from './rig';
 import { midiOf } from './seq';
 import { BASS_STEPS, bassState, isLockable } from './state';
-import { BASS_ENC_N, BASS_KEYS, BASS_PAGE_KEYS } from './theme';
+import { BASS_ENC_N, BASS_KEYS, BASS_PAGE_KEYS, BASS_SCREEN_KEYS, type BassKeyCopy } from './theme';
 
 const r1 = (n: number): number => Math.round(n * 10) / 10;
 const pct = (v: number): number => Math.round(v * 100);
@@ -93,7 +97,7 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
   const placeRef = useRef<((force: boolean) => void) | null>(null);
   const off = f !== 'bass';
   const onRef = useRef(!off);
-  /** GEN et MUTATE tenus au clavier (2026-10-09) : le minuteur des 500 ms, et s'il a deja agi */
+  /** GEN tenu au clavier (2026-10-09) : le minuteur des 500 ms, et s'il a deja agi */
   const holdRef = useRef<{ t: number; fired: boolean }>({ t: 0, fired: true });
   onRef.current = !off;
   // Le rig arrive apres la scene (chargement a part) : on attend qu'il soit accroche
@@ -185,6 +189,8 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
     window.setTimeout(() => stageRef.current?.bass?.pressKey(id, false), 120);
   };
   const sel = s.steps[s.sel];
+  // Les touches de la face, puis les six de l'ecran (2026-10-09, le soir)
+  const keyList: readonly BassKeyCopy[] = [...BASS_KEYS, ...BASS_SCREEN_KEYS];
   // Capot ouvert : la plaque et ses potards
   const knobs: readonly { k: BassKnobDef; id: string }[] = [...BASS_FACE_KNOBS.map((k) => ({ k, id: bassKnobId(k.id) })), ...(hood === 'open' ? BASS_PLATE_KNOBS.map((k) => ({ k, id: bassTweakId(k.id) })) : [])];
 
@@ -307,9 +313,9 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
           />
         );
       })}
-      {BASS_KEYS.map((k) => {
+      {keyList.map((k) => {
         const id = bassKeyId(k.kind);
-        const pressed = k.kind === 'run' ? s.running : k.kind === 'accent' ? sel.kind === 'note' && sel.acc : k.kind === 'slide' ? sel.kind !== 'off' && sel.slide : (BASS_PAGE_KEYS as readonly string[]).includes(k.kind) ? k.kind === `p${page}` : undefined;
+        const pressed = k.kind === 'run' ? s.running : k.kind === 'accent' ? sel.kind === 'note' && sel.acc : k.kind === 'slide' ? sel.kind !== 'off' && sel.slide : k.kind === 'preset' ? pm.machine === 'bass' : (BASS_PAGE_KEYS as readonly string[]).includes(k.kind) ? k.kind === `p${page}` : undefined;
         return (
           <button
             key={id}
@@ -325,15 +331,13 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
               e.preventDefault();
               e.stopPropagation();
               if (e.repeat) return;
-              // GEN et MUTATE (2026-10-09) : au lacher avant 500 ms ; tenus 500 ms, la prise d'avant ou l'annulation
-              if (k.kind === 'gen' || k.kind === 'mutate') {
-                const kind = k.kind;
+              // GEN (2026-10-09) : au lacher avant 500 ms ; tenu 500 ms, la prise d'avant
+              if (k.kind === 'gen') {
                 window.clearTimeout(holdRef.current.t);
                 holdRef.current = {
                   t: window.setTimeout(() => {
                     holdRef.current.fired = true;
-                    if (kind === 'gen') bassGenBack();
-                    else bassMutateUndo();
+                    bassGenBack();
                   }, GEN_HOLD_MS),
                   fired: false,
                 };
@@ -342,7 +346,7 @@ export const BassTwins: React.FC<{ stage: Stage | null }> = ({ stage }) => {
               press(id, () => bassKeyAction(k.kind));
             }}
             onKeyUp={(e) => {
-              if ((e.key !== 'Enter' && e.key !== ' ') || (k.kind !== 'gen' && k.kind !== 'mutate')) return;
+              if ((e.key !== 'Enter' && e.key !== ' ') || k.kind !== 'gen') return;
               e.preventDefault();
               window.clearTimeout(holdRef.current.t);
               if (!holdRef.current.fired) press(id, () => bassKeyAction(k.kind));

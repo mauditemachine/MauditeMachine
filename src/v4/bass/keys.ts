@@ -7,7 +7,9 @@
  *   1 2 3 4 5 6 7 8         pas 1 a 8
  *   Maj + 1 2 3 4 5 6 7 8   pas 9 a 16 (2026-10-07 : E est EDIT, comme
  *                           sur le MM-RYTM et le MM-ARP)
- *   Espace : RUN ; E : EDIT (les patterns) ; G : GEN ; M : MUTATE
+ *   Espace : RUN ; E : EDIT (les patterns) ; G : GEN (M, MUTATE, retire de
+ *   la face le 2026-10-09 au soir, Mika : "MUTATE je comprends pas vraiment,
+ *   enleve ca")
  *   A : ACCENT ; S : SLIDE ; L : LOCK (le pas choisi ; Echap en sort)
  *   Haut, Bas : NOTE + - ; Z, X : OCT - +
  *   O : OPEN (le capot, 2026-10-08) ; I : INFOS (l'aide au survol)
@@ -22,7 +24,7 @@ import { bassInfos } from '../state/bassInfos';
 import { presetMode } from '../state/presetMode';
 import { section } from '../state/section';
 import { PORTRAIT } from '../theme';
-import { bassGenBack, bassLockOff, bassLockToggle, bassMutateUndo, bassPageStep, bassStepTap, bassTabStep } from './actions';
+import { bassGenBack, bassLockOff, bassLockToggle, bassPageStep, bassStepTap, bassTabStep } from './actions';
 import { bassPage } from './pages';
 import { bassKeyAction } from './gestures';
 import { bassKeyId, bassLockId, bassTrigId } from './rig';
@@ -36,7 +38,6 @@ const KEY_OF: Readonly<Record<string, BassKeyKind>> = {
   KeyE: 'edit',
   KeyO: 'open',
   KeyG: 'gen',
-  KeyM: 'mutate',
   KeyA: 'accent',
   KeyS: 'slide',
   ArrowDown: 'notedn',
@@ -55,12 +56,12 @@ export const BASS_KEY_LEGEND: readonly { keys: string; what: string }[] = [
   { keys: '[  ]', what: `Previous or next page (VOICE, FILTER, ENV, FX): the eight screen values follow it${PORTRAIT ? '' : ', the knobs stay on the global FX'}` },
   { keys: 'Shift + [  ]', what: 'Previous or next tab of the page (VOICE: MAIN, OSC, MIX; FILTER: MAIN, CONTOUR); a page key pressed again does the same' },
   { keys: 'L  /  Esc', what: 'P-LOCK the chosen step: the screen values change only it  /  out of P-LOCK' },
-  // Les prises (2026-10-09) : Maj + G la prise d'avant, Maj + M annule la mutation
+  // Les prises (2026-10-09) : Maj + G la prise d'avant
   { keys: 'G / Shift+G', what: 'Next take / previous take (same number of notes)' },
-  { keys: 'M / Shift+M', what: 'Mutate 2 or 3 notes / undo' },
-  { keys: 'A  /  S', what: 'Accent  /  slide on the chosen step' },
-  { keys: 'Up  Down', what: 'Chosen step one note up or down in the scale' },
-  { keys: 'Z  X', what: 'Chosen step one octave down or up' },
+  // Les touches de l'ecran (2026-10-09, le soir) : ACCENT SLIDE NOTE - + OCT - +
+  { keys: 'A  /  S', what: 'Accent  /  slide on the chosen step (the screen keys)' },
+  { keys: 'Up  Down', what: 'Chosen step one note up or down in the scale (NOTE + -)' },
+  { keys: 'Z  X', what: 'Chosen step one octave down or up (OCT - +)' },
 ];
 
 const editable = (t: EventTarget | null): boolean =>
@@ -140,7 +141,6 @@ export function listenBassKeys(getStage: () => Stage | null, active: () => boole
     }
     if (step !== undefined) bassStepTap(step);
     else if (kind === 'gen' && e.shiftKey) bassGenBack();
-    else if (kind === 'mutate' && e.shiftKey) bassMutateUndo();
     else bassKeyAction(kind);
   };
 
